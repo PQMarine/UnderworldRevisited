@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Builds the engine-free data and rules layer OUTSIDE Unity.
+
+    The sources live in Assets/UWDataImport and are compiled by Unity as their own
+    assembly (UWDataImport.asmdef with noEngineReferences: true). This project compiles
+    exactly the same files with the plain .NET SDK. That turns the promise "this part needs
+    no game engine" into something anyone can check with a single "dotnet build", without
+    installing Unity, and it is where the offline tools and the later tests live.
+
+    The language level matches what Unity 6 compiles, so nothing can creep in here that
+    the editor would then refuse.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>UWDataImport</AssemblyName>
+    <RootNamespace>UWDataImport</RootNamespace>
+    <Deterministic>true</Deterministic>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Assets\UWDataImport\**\*.cs" />
+  </ItemGroup>
+
+</Project>

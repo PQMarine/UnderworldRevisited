@@ -1,0 +1,132 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ec6a245419b62a4dba5d7b37ae6a3f6, type: 3}
+  m_Name: UWSettings
+  m_EditorClassIdentifier: Assembly-CSharp::UnderworldRevisited.UWSettings
+  GogInstallPath: 
+  mDataPath: 
+  SavegameFolder: 
+  DiagnosticSavegamePath: 
+  ForceFirstRunSetup: 0
+  MusicEnabled: 1
+  MusicVolume: 0.25
+  SoundEnabled: 1
+  SoundVolume: 0.90000004
+  TextureFilterMode: 0
+  DisplayAs4By3: 1
+  RenderMode: 1
+  AmbientFloor: 0
+  PointLightCap: 1
+  RemasterHeightStrength: 2
+  RemasterNormalStrength: 1
+  RemasterSpecularStrength: 1.2
+  RemasterSpecularPower: 24
+  RemasterBloomIntensity: 0
+  RemasterBloomThreshold: 1.1
+  RemasterBloomScatter: 0.7
+  RemasterAmbientOcclusion: 1
+  RemasterSpecularBase: 0.06
+  RemasterWrapLighting: 0.35
+  RemasterRoughness: 1
+  RemasterParallaxDepth: 0.06
+  RemasterParallaxLevels: 4
+  RemasterParallaxSteps: 16
+  RemasterParallaxSnap: 0
+  RemasterParallaxInvert: 0
+  RemasterSelfShadow: 0.8
+  RemasterSelfShadowDepth: 0.1
+  RemasterSelfShadowReach: 0.15
+  RemasterSelfShadowSoftness: 10
+  RemasterCavity: 0.8
+  RemasterEmissiveStrength: 1
+  RemasterTorchLights: 1
+  RemasterTorchShadows: 1
+  RemasterMaxShadowLights: 2
+  RemasterLavaLights: 1
+  RemasterCarriedLightFactor: 0.6
+  RemasterHandLightOffset: {x: 9, y: 8, z: 7}
+  RemasterBeltLightOffset: {x: 3, y: -4, z: 9}
+  RemasterMagicLightOffset: {x: -8, y: 10, z: 6}
+  RemasterSpriteGlow: 1
+  RemasterFireFlicker: 0.35
+  RemasterFireJitter: 1.5
+  RemasterSpriteFlicker: 0.06
+  RemasterFireSparks: 1
+  RemasterFireSmoke: 0.6
+  RemasterDust: 1
+  RemasterGroundShadow: 0.65
+  RemasterGroundShadowSize: 1.2
+  RemasterLightBrightness: 1
+  RemasterTonemapping: 1
+  DoorSubTileReference: 3.5
+  UseDoorSubTilePosition: 1
+  LogAttacks: 1
+  ResistBlowsAddsArmour: 0
+  EyesPosition: {x: -22, y: -4}
+  EyesSeconds: 4
+  EyesFadeSeconds: 0.3
+  EyesFramesPerSecond: 8
+  HitEffectHeightOffset: 0
+  AttackChargeBaseSeconds: 0.73
+  AttackChargeStepSeconds: 0.072
+  AttackConnectFramesFromEnd: 2
+  HitEffectHeightVariation: 8
+  HitEffectDelaySeconds: 0
+  HitEffectSeconds: 0.6
+  HitEffectTowardsPlayer: 12
+  LiquidEntryTolerance: 8
+  SwimViewHeight: 17
+  SwimSwayUnskilled: 4
+  SwimSwaySkilled: 1
+  SwimSwayFrequency: 0.5
+  SwimRollUnskilled: 1.5
+  SwimRollSkilled: 0.3
+  SwimRollFrequency: 2.5
+  ClassicLookStepDegrees: 15
+  ClassicLookSteps: 3
+  SwimViewFollowSpeed: 60
+  SwimSpeedUnskilled: 0.26
+  SwimSpeedSkilled: 0.26
+  SwimSkillForFullEffect: 15
+  SwimCheckInterval: 21
+  WaterFlowStrength: 0
+  WaterFlowHeadingDegrees: 225
+  LavaSpeedFactor: 0.5
+  LavaDamageInterval: 0.03125
+  LavaDamageChance: 0.2
+  LavaDamage: 1
+  LogExperience: 1
+  CritterDiagonalClearance: 22
+  CritterRadiusScale: 4
+  CritterWallClearance: 16
+  VoidEffectTicksPerSecond: 32
+  InstrumentNoteSeconds: 0.35
+  FlaskFillStepSeconds: 0.25
+  MoongateStepSeconds: 0.06666667
+  VoidCreatureDriftSpeed: 8
+  VoidCreatureDriftRadius: 0.5
+  VoidCreatureTurnSeconds: 0.5
+  CritterDropClearance: 24
+  CritterShoreClearance: 16
+  CritterMinimumColliderHeight: 24
+  SwimmerHeightOffset: 0
+  SwimmerHighEdgeClearance: 24
+  SwimmerMinimumColliderHeight: 64
+  CritterSpriteHeightScale: 1.3
+  DoorFrameTextureShift: 0.5
+  CritterTrace: 0
+  CritterLogBlockedSteps: 0
+  CritterMaxStepHeight: 16
+  PaletteRotationStepsPerSecond: 4
+  AnimatedObjectFramesPerSecond: 4
+  AnimatedObjectHeightOffset: -4
+  ObjectPointLightCap: 0.6

@@ -1,0 +1,21 @@
+* text=auto
+
+# Unity-YAML: Zeilenenden nicht anfassen, sonst rauscht jeder Commit
+*.unity   -text merge=unityyamlmerge diff
+*.asset   -text merge=unityyamlmerge diff
+*.prefab  -text merge=unityyamlmerge diff
+*.mat     -text merge=unityyamlmerge diff
+*.meta    -text
+*.asmdef  -text
+
+*.cs      text diff=csharp
+*.shader  text
+*.json    text
+
+# Binaerdateien
+*.png     binary
+*.psd     binary
+*.fbx     binary
+*.FBX     binary
+*.dll     binary
+*.flare   binary

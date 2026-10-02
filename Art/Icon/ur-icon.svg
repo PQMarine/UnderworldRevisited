@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Underworld Revisited application icon. Made with generative AI (Claude), 2026-09-29.
+       The runes uruz and raidho (U, R) are drawn after the historical Elder Futhark; nothing
+       is taken from the game. Rendered to Assets/UWIcon/UWRIcon.png (1024 px, transparent)
+       with a headless browser. -->
+  <defs>
+    <!-- Stone face: cool grey-brown, lighter where the torch reaches (top left). -->
+    <radialGradient id="stoneLight" cx="0.3" cy="0.25" r="0.9">
+      <stop offset="0" stop-color="#8a7f70"/>
+      <stop offset="0.55" stop-color="#5e564c"/>
+      <stop offset="1" stop-color="#2f2a25"/>
+    </radialGradient>
+    <linearGradient id="edgeLight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b3a68f" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#b3a68f" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.7"/>
+    </linearGradient>
+    <!-- Warm torchlight falling over the block. -->
+    <radialGradient id="torch" cx="0.22" cy="0.18" r="0.75">
+      <stop offset="0" stop-color="#ffb347" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#ff8c1a" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#ff8c1a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Ember inside the grooves. -->
+    <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe29a"/>
+      <stop offset="0.5" stop-color="#ffa53a"/>
+      <stop offset="1" stop-color="#d9531e"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <!-- Grain on the stone. -->
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+    <clipPath id="block">
+      <path id="blockShape" d="M78 40 L430 34 Q474 36 476 80 L480 430 Q478 474 434 476 L80 480 Q38 478 36 434 L34 84 Q36 42 78 40 Z"/>
+    </clipPath>
+    <!-- The two runes, hand-drawn after the historical Elder Futhark:
+         uruz (U) and raidho (R). One centre line each, drawn in layers below. -->
+    <g id="runes" fill="none" stroke-linecap="round" stroke-linejoin="miter" stroke-miterlimit="2">
+      <path d="M136 138 L136 382 M136 138 L228 232 L228 382"/>
+      <path d="M294 138 L294 382 M294 138 L378 200 L294 264 L384 382"/>
+    </g>
+  </defs>
+
+  <!-- Drop shadow of the block. -->
+  <use href="#blockShape" transform="translate(8 12)" fill="#000" opacity="0.45"/>
+
+  <!-- The block. -->
+  <g clip-path="url(#block)">
+    <rect width="512" height="512" fill="url(#stoneLight)"/>
+    <rect width="512" height="512" fill="#fff" filter="url(#grain)"/>
+    <!-- A few cracks and chips. -->
+    <path d="M60 300 L96 318 L110 360 L140 372" stroke="#241f1a" stroke-width="3" fill="none" opacity="0.7"/>
+    <path d="M430 90 L404 118 L410 150" stroke="#241f1a" stroke-width="3" fill="none" opacity="0.6"/>
+    <path d="M380 440 L402 418 L440 424" stroke="#241f1a" stroke-width="2.5" fill="none" opacity="0.6"/>
+    <rect width="512" height="512" fill="url(#torch)"/>
+  </g>
+  <!-- Bevel: lit top-left edge, dark bottom-right edge. -->
+  <use href="#blockShape" fill="none" stroke="url(#edgeLight)" stroke-width="10"/>
+
+  <!-- Carved runes: the cut, its lit lower edge, then the glow in the groove. -->
+  <use href="#runes" stroke="#d9c7a8" stroke-width="44" opacity="0.35" transform="translate(3 4)"/>
+  <use href="#runes" stroke="#15110d" stroke-width="44"/>
+  <use href="#runes" stroke="#ff9a2e" stroke-width="30" filter="url(#glow)" opacity="0.9"/>
+  <use href="#runes" stroke="url(#ember)" stroke-width="18"/>
+</svg>

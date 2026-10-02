@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Builds Docs/RULES-INDEX.md out of the sources - see Program.cs. Pure text work, so it
+    needs neither Unity nor the data layer.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>uwruleindex</AssemblyName>
+    <RootNamespace>UnderworldRevisited.Tools</RootNamespace>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\UWRuleIndexScan.cs" />
+  </ItemGroup>
+
+</Project>

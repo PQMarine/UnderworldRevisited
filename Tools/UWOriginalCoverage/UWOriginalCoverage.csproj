@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Writes Docs/ORIGINAL-COVERAGE.md out of the disassembly and our sources - see Program.cs.
+    The disassembly is passed in as a path; it is not part of the repository.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>uworiginalcoverage</AssemblyName>
+    <RootNamespace>UnderworldRevisited.Tools</RootNamespace>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\UWRuleIndexScan.cs" />
+  </ItemGroup>
+
+</Project>

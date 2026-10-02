@@ -1,0 +1,82 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Rr]elease/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/.vs/
+
+# Auto-generated VS/MD solution and project files
+ExportedObj/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity3D generated meta files
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# Unity3D generated file on crash reports
+sysinfo.txt
+
+# Builds
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Crashlytics
+crashlytics-build.properties
+
+# Baked level geometry: reproducible output of the bake command (~32 MB), derived
+# from the original game data. Must never be committed.
+/Assets/UWBaked/
+/Assets/UWBaked.meta
+
+# Graphics and texts exported from the original game data (editor export tools).
+# Copyrighted material, must never be committed.
+/Assets/UWExportedStrings/
+/Assets/UWExportedStrings.meta
+/Assets/UWExportedTextures/
+/Assets/UWExportedTextures.meta
+
+# Batch compile log
+/compile.log
+
+# Original game data, save games and reverse-engineering material must never be
+# committed (the user supplies their own copy of the game).
+*.ARK
+*.ark
+PLAYER.DAT
+BGLOBALS.DAT
+/SAVE*/
+*.asm
+*.idb
+*.i64
+
+# The engine-free layer and its tools are built OUTSIDE Unity as well (see Core/ and
+# Tools/). Their project files belong to the repository, unlike the ones Unity generates.
+!/Core/*.csproj
+!/Tools/**/*.csproj
+/Core/bin/
+/Core/obj/
+/Tools/**/bin/
+/Tools/**/obj/

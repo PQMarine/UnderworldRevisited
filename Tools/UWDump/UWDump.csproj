@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Command line tool over the engine-free layer - see Core/UWDataImport.csproj.
+
+    It exists for two reasons: it reads the original data without Unity, and by doing so it
+    proves on every build that the layer really is engine-free.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>uwdump</AssemblyName>
+    <RootNamespace>UnderworldRevisited.Tools</RootNamespace>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+    <ProjectReference Include="..\..\Core\UWDataImport.csproj" />
+  </ItemGroup>
+
+</Project>

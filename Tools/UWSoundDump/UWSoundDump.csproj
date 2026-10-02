@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Writes the game's sound effects out as WAV files, so they can be LISTENED to - see
+    Program.cs. Runs on the engine-free layer (Core/UWDataImport.csproj), so it needs no Unity.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>uwsounddump</AssemblyName>
+    <RootNamespace>UnderworldRevisited.Tools</RootNamespace>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\UWDataImport.csproj" />
+  </ItemGroup>
+
+</Project>
