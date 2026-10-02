@@ -1,7 +1,8 @@
 UNDERWORLD REVISITED
 ====================
 
-A source port of Ultima Underworld: The Stygian Abyss (1992), built on the original game data.
+An open-source reimplementation of Ultima Underworld: The Stygian Abyss (1992) in Unity, built
+on the original game data.
 
 This package contains NO game data of Ultima Underworld - no graphics, sounds, texts, maps or
 executables of the original. Everything is read at runtime from your own copy.

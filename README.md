@@ -1,8 +1,8 @@
 # Underworld Revisited
 
-A source port of **Ultima Underworld: The Stygian Abyss** (1992) to Unity, built on the
-original game data. The goal is full gameplay parity with the original, plus an optional
-modern render mode. Support for Ultima Underworld II is planned for later.
+An open-source reimplementation of **Ultima Underworld: The Stygian Abyss** (1992) in Unity,
+built on the original game data. The goal is full gameplay parity with the original, plus an
+optional modern render mode. Support for Ultima Underworld II is planned for later.
 
 **You need your own copy of Ultima Underworld - the GOG.com version** ("Ultima Underworld
 1+2"); other releases are not supported (see Requirements). This repository contains no game
