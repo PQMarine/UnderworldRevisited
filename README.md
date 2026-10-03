@@ -72,11 +72,12 @@ What is in:
 
 ## Requirements
 
-- **Windows** (64-bit). It is the only system the port is built and tested on, and the
-  release build is for Windows only. Building from source for Linux or macOS may work but is
-  untested: the help window's manual needs the PDFium library, of which only the Windows one
-  is included, and the game folder is searched only in Windows locations (it can be chosen
-  by hand). Running the Windows build under Proton or Wine is untested as well.
+- **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the only system the
+  port is built and tested on, and the release build is for Windows only. Building from
+  source for Linux or macOS may work but is untested: the help window's manual needs the
+  PDFium library, of which only the Windows one is included, and the game folder is searched
+  only in Windows locations (it can be chosen by hand). Running the Windows build under Proton
+  or Wine is untested as well.
 - Unity **6000.6.0f1** (Unity 6), Universal Render Pipeline - only to build it yourself
 - **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2"). Only this version is
   supported: some data (3D models, their colours) is read directly from the game's executable

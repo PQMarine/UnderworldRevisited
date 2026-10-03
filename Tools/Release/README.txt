@@ -15,7 +15,8 @@ a free, non-commercial fan project: it is not sold, and no donations are accepte
 WHAT YOU NEED
 -------------
 
-- Windows, 64 bit.
+- Windows 10 or newer, 64 bit, and a graphics card with DirectX 11. Nothing else needs to be
+  installed: the package brings its own runtime.
 - ULTIMA UNDERWORLD 1 FROM GOG.COM ("Ultima Underworld 1+2"), installed. Only the GOG version
   is supported: some data is read directly from its UW.EXE, and other releases (original
   floppy, CD, other stores) differ and will not work.
