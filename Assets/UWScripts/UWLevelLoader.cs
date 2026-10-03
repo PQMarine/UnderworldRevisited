@@ -2319,7 +2319,10 @@ public class UWLevelLoader : MonoBehaviour
         // LAVA SPARES quality class 3 and fire-resistant objects before it culls (keys, incense,
         // strong thread - Tybal died on lava in his lair and took them with him, per user
         // 2026-09-24); see UWLiquidCulling.SparedByLava.
-        bool lbSinks = pbCanSinkInLiquid && !lbAboveFloor && TileQueries.TileSwallows(lOTile, pOObject);
+        // A THROWN object is tested twice in water, the landing and the collision after it
+        // (UWLiquidCulling, settled per user 2026-10-03 with stacks of emeralds).
+        bool lbSinks = pbCanSinkInLiquid && !lbAboveFloor
+            && TileQueries.TileSwallows(lOTile, pOObject, pOFlightStartPosition.HasValue);
 
         // ENDGAME: a talisman that falls into the volcano's lava on level 8 perishes -
         // otherwise a talisman never sinks (UWTalismans). Then it disappears like a

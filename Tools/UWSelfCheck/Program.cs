@@ -2262,9 +2262,10 @@ namespace UnderworldRevisited.Tools
             fExpectBool("water: nothing sinks on dry land - the tile decides, not the object",
                 UWCommonObjectProperties.LiquidSurvivalThreshold > 0, true);
 
-            // THE CULLING of 2026-09-21, pinned against the user's throwing tests in the
-            // original: ten wands and ten emeralds sank, eight of 27 keys stayed, and the heavy
-            // things of 2026-08-31 stayed. The ids are the port's (one below the string entry):
+            // THE CULLING, pinned against the user's throwing tests in the original: ten wands
+            // and ten emeralds sank, eight of 27 keys stayed (2026-09-21), sixteen stacks of five
+            // emeralds all stayed (2026-10-03), and the heavy things of 2026-08-31 stayed. Range
+            // 10 to 12, a thrown object tested twice in water. The ids are the port's (one below the string entry):
             // 153 wand, 167 emerald, 258 key, 168 large gem.
             foreach (var lOCase in new[]
             {
@@ -2281,16 +2282,20 @@ namespace UnderworldRevisited.Tools
                         lOEntry.CullingPriority, lOCase.Priority);
             }
 
+            fExpectInt("culling: the range starts at the callers' 0x0A",
+                UWLiquidCulling.RangeBase, 10);
+            fExpectInt("culling: a thrown object is tested twice in water",
+                UWLiquidCulling.ThrownIntoWaterTests, 2);
             fExpectBool("culling: the wand always goes under",
                 UWLiquidCulling.AlwaysSwallows(10), true);
-            fExpectBool("culling: the emerald always goes under",
-                UWLiquidCulling.AlwaysSwallows(11), true);
-            fExpectBool("culling: the key not always",
-                UWLiquidCulling.AlwaysSwallows(12), false);
-            fExpectBool("culling: the key at the lowest range stays",
-                UWLiquidCulling.Swallows(12, 1, UWLiquidCulling.RangeBase), false);
-            fExpectBool("culling: the key one step higher goes under",
-                UWLiquidCulling.Swallows(12, 1, UWLiquidCulling.RangeBase + 1), true);
+            fExpectBool("culling: the emerald not always",
+                UWLiquidCulling.AlwaysSwallows(11), false);
+            fExpectBool("culling: the emerald at the lowest range stays",
+                UWLiquidCulling.Swallows(11, 1, UWLiquidCulling.RangeBase), false);
+            fExpectBool("culling: the key at the middle range stays",
+                UWLiquidCulling.Swallows(12, 1, UWLiquidCulling.RangeBase + 1), false);
+            fExpectBool("culling: the key at the highest range goes under",
+                UWLiquidCulling.Swallows(12, 1, UWLiquidCulling.RangeBase + 2), true);
             fExpectBool("culling: the large gem never goes under",
                 UWLiquidCulling.NeverSwallows(15), true);
 
@@ -2315,11 +2320,13 @@ namespace UnderworldRevisited.Tools
             fExpectBool("lava: fire resistance alone spares",
                 UWLiquidCulling.SparedByLava(0, UWLiquidCulling.FireResistanceBit), true);
 
-            // The stack bonus of ObjectCullingTest: half the EXTRA count counts as priority.
-            fExpectBool("culling: five of the emerald survive the middle range",
-                UWLiquidCulling.Swallows(11, 5, UWLiquidCulling.RangeBase + 1), false);
+            // The stack bonus of ObjectCullingTest: half the EXTRA count counts as priority - a
+            // stack of five emeralds is 13 and survives every range (the measurement of
+            // 2026-10-03).
+            fExpectBool("culling: five of the emerald survive the highest range",
+                UWLiquidCulling.Swallows(11, 5, UWLiquidCulling.RangeBase + 2), false);
             fExpectBool("culling: a single one does not",
-                UWLiquidCulling.Swallows(11, 1, UWLiquidCulling.RangeBase + 1), true);
+                UWLiquidCulling.Swallows(11, 1, UWLiquidCulling.RangeBase + 2), true);
 
             // The second roll of the routine, read out 2026-09-22: it can save nothing at any
             // range the water landing produces, which is why it is not built.

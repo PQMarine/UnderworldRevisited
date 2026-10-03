@@ -656,7 +656,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `RunCodeOnObjectChain` (seg027_117) | UWLiquidCulling.cs, UWObjectLimitRules.cs, UWTileQueries.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
 | `ObjectCulling` (seg027_2861_226) | UWLiquidCulling.cs |
-| `CullObjects` (seg027_2861_329) | UWObjectLimitRules.cs |
+| `CullObjects` (seg027_2861_329) | UWLiquidCulling.cs, UWObjectLimitRules.cs |
 | `RemoveObject` (seg027_2861_6DD) | UWLiquidCulling.cs |
 | `RemoveFromObjectChain` (seg027_2861_831) | UWTrapChainRemoval.cs |
 | `seg027_2861_A70` | UWLevel.cs |
@@ -688,7 +688,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `CollideObjects` (seg029_29EE_173) | UWCommonObjectProperties.cs, UWSpellProjectile.cs |
 | `seg029_29EE_3` | UWSpellProjectile.cs |
 | `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWCritterRules.cs, UWSpellProjectile.cs |
-| `ApplyProjectileMotion` (seg029_29EE_61A) | UWCritter.cs, UWSpellProjectile.cs |
+| `ApplyProjectileMotion` (seg029_29EE_61A) | UWLiquidCulling.cs, UWCritter.cs, UWSpellProjectile.cs |
 | `seg029_29EE_AD` | UWTriggerSystem.cs |
 | `ObjectHitsFloorTileDestroyTalismans` (seg029_C6F) | UWLiquidCulling.cs, UWObjectMechanics.cs, UWEndgame.cs, UWLevelLoader.cs, UWSpellProjectile.cs, UWThrownItemFlight.cs |
 

@@ -16,43 +16,45 @@ namespace UWDataImport.UWData
 	/// container that holds something valuable survives with it. Word 0 bit 13 protects
 	/// outright; on an ordinary item that bit is not set.
 	///
-	/// WHY THE BASE IS 11 HERE AND 0x0A THERE. The roll is (RNG * 3) / 0x8000, which is 0 to 2,
-	/// so the reading gives a range of 10 to 12 - and that does not survive the measurement.
-	/// The user threw, in the original, on 2026-09-21:
+	/// THE RANGE IS 10 TO 12, AND A THROWN OBJECT IS TESTED TWICE IN WATER (settled 2026-10-03,
+	/// per user: "let us tackle the water culling"). The roll is (RNG * 3) / 0x8000, 0 to 2, on
+	/// the argument 0x0A that all six callers push. RNG_seg005_DE7 (see UWRandom) takes no
+	/// arguments - the pushed 0 / 0x8000 are the divisor of the division after it - and the
+	/// priority really is byte 9 (the table lies at 5B6E behind the file's two header bytes).
+	/// What makes thrown things sink more often than one test at 10 to 12 would is the landing
+	/// itself: in
+	/// ApplyProjectileMotion_seg029_29EE_61A a projectile coming to rest goes first through
+	/// ObjectHitsFloorTileDestroyTalismans_seg029_C6F, which over water sets the break chance to
+	/// 8 of 8 and culls (label DED), and then through PlacedObjectCollison_seg029_104D at the same
+	/// spot, whose terrain value 5 (water) calls RemoveObject_seg027_2861_6DD with flag 0 - which
+	/// culls again, with a range rolled anew. Two tests, either of which takes the object.
+	/// Something only put down (DropOrThrowByPlayer's placing, a spill) passes the collision alone.
 	///
-	///   ten wands (byte 9 = 40, priority 10)       ten sank
-	///   ten emeralds (byte 9 = 44, priority 11)    ten sank
-	///   27 keys (byte 9 = 48, priority 12)         eight stayed, so about a third
-	///   earlier, 2026-08-31: byte 9 = 60 (priority 15) stayed, byte 9 of 32 and 24 went
+	/// The measurements in the original, all per user, fit that:
 	///
-	/// A range of 10 to 12 would let a third of the emeralds and two thirds of the keys
-	/// survive. A range of 11 to 13 gives exactly what was counted: nothing at 11, a third at
-	/// 12, everything from 14 up. So the SHAPE comes from the disassembly and the BASE from
-	/// the measurement.
+	///   ten wands (priority 10)                     ten sank       - always, 10 never exceeds 10
+	///   ten emeralds (priority 11)                  ten sank       - 1/9 to stay (1/3 per test)
+	///   27 keys (priority 12)                       eight stayed   - 4/9 to stay, about 12
+	///   2 x 8 stacks of five emeralds (11 + 2)      all stayed     - 13 exceeds every range
+	///   2026-08-31: priority 15 stayed, 8 and 6 went
 	///
-	/// WHERE THE EXTRA STEP IS NOT, gone through on 2026-09-22. It is still not found, but the
-	/// ground is now covered and nobody has to walk it again:
+	/// The base of 11 the port used from 2026-09-21 matched the keys with one test, but it would
+	/// have let a third of those stacks sink, and the sixteen of 2026-10-03 rule it out (the odds
+	/// of all staying under it are (2/3)^16, about one in 650).
 	///
-	///   - all SIX callers of ObjectCulling_seg027_2861_226 push 0x0A, the water landing among
-	///     them (ObjectHitsFloorTileDestroyTalismans_seg029_C6F label DED, 101670-101680)
-	///   - the roll is (RNG * 3) / 0x8000 with a divisor pushed before the call (labels 23E to
-	///     25C), and RNG_seg005_DE7 (see UWOriginalRandom) masks its result with 0x7FFF, so the
-	///     quotient truncates to 0, 1 or 2 and the range is 10, 11 or 12
+	/// WHERE NOTHING MORE IS, gone through on 2026-09-22 and again 2026-10-03:
+	///
 	///   - the test survives on GREATER, not on equal (label 216, jle means culled)
 	///   - there IS A SECOND ROLL after the value test fails (label 2BA): (RNG * 0x0A) / 0x8000,
 	///     so 0 to 9, and the object survives when it reaches the range. At a range of ten or
 	///     more it can never fire - see SecondChanceDice
-	///   - the two other ways into the routine are not it either: MoveObjectToCoordinates culls
-	///     when it places and its own flag is zero, RemoveObject culls and then removes only
-	///     what the cull condemns. The water landing uses neither, it inserts into the tile
-	///     itself (InsertObjectToList_seg027_561)
+	///   - InsertObjectToList_seg027_561, which puts the landed copy into the tile, only links
+	///   - CullObjects_seg027_2861_329 (see UWObjectLimitRules) runs only when the free list is
+	///     low and when sleeping, with ranges of 3 and 1
 	///
-	/// ONE THING THE READING DID CHANGE, about the measurement rather than the rule: a
-	/// CONTAINER and everything in it are tested against the SAME range
-	/// (RunCodeOnObjectChain_seg027_117 with the one GlobalCullingRange), so a bag of ten
-	/// emeralds thrown in is ONE roll and not ten. The keys carry the conclusion on their own:
-	/// priority 12, and about eight of twenty-seven stayed, which is the third that a base of
-	/// 11 gives and not the two thirds that a base of 10 would.
+	/// A CONTAINER and everything in it are tested against the SAME range
+	/// (RunCodeOnObjectChain_seg027_117 with the one GlobalCullingRange); it survives when
+	/// anything in it survives.
 	///
 	/// LAVA IS THIS RULE WITH TWO EXCEPTIONS IN FRONT (read again 2026-09-24, after Tybal's
 	/// keys vanished in the lava of his lair). The earlier note here, "eight points of fire
@@ -68,9 +70,13 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWLiquidCulling
 	{
-		/// <summary>The lowest culling range, see the class comment: pinned by measurement,
-		/// the disassembly's own argument is 0x0A.</summary>
-		public const int RangeBase = 11;
+		/// <summary>The lowest culling range: the argument 0x0A of every caller, see the class
+		/// comment.</summary>
+		public const int RangeBase = 0x0A;
+
+		/// <summary>How many times a THROWN object is tested when it comes to rest in water: the
+		/// landing and the collision after it - see the class comment.</summary>
+		public const int ThrownIntoWaterTests = 2;
 
 		/// <summary>How many values the range takes: base, base + 1, base + 2 - the roll of
 		/// ObjectCulling_seg027_2861_226.</summary>
@@ -124,15 +130,16 @@ namespace UWDataImport.UWData
 			return piQualityClass == LavaProofQualityClass || (piResistances & FireResistanceBit) != 0;
 		}
 
-		/// <summary>Whether this priority is swallowed whatever the roll gives - the wand and
-		/// the emerald of the measurement. For a check, where no roll belongs.</summary>
+		/// <summary>Whether this priority is swallowed whatever the roll gives - the wand of the
+		/// measurement. For a check, where no roll belongs.</summary>
 		public static bool AlwaysSwallows(int piCullingPriority)
 		{
 			return piCullingPriority <= RangeBase;
 		}
 
 		/// <summary>Whether this priority survives whatever the roll gives - the heavy things
-		/// that stayed in the user's throwing test of 2026-08-31.</summary>
+		/// that stayed in the user's throwing test of 2026-08-31, and the stacks of five emeralds
+		/// of 2026-10-03.</summary>
 		public static bool NeverSwallows(int piCullingPriority)
 		{
 			return piCullingPriority > RangeBase + RangeDice - 1;

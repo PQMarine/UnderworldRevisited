@@ -37,8 +37,6 @@ of what is built was also read out of the original's executable.
   remaining differences sit: the water edge, dropping one floor level, the reach of a blow,
   sliding along walls instead of the original's deflection, and the standing height while
   walking over a step. The plan is to replace it with the original's tile-based motion.
-- **Smaller readings still open**: the base of the water culling (measured, the routine's
-  last step not yet found).
 
 ## Open: controls
 

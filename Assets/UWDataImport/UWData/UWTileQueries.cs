@@ -151,16 +151,27 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Whether the floor of this tile takes this object: lava first spares what
-		/// SparedByLava says, then both liquids cull (SinksInLiquid).</summary>
-		public bool TileSwallows(UWTile pOTile, UWObject pOObject)
+		/// SparedByLava says, then both liquids cull (SinksInLiquid). A THROWN object that comes to
+		/// rest in water is tested twice, each with its own roll - the landing and the collision
+		/// after it (UWLiquidCulling.ThrownIntoWaterTests). In lava the landing's test belongs to
+		/// the break chance, which the projectile rolls itself.</summary>
+		public bool TileSwallows(UWTile pOTile, UWObject pOObject, bool pbThrown = false)
 		{
 			if (pOObject == null || !IsDestructiveTile(pOTile))
 				return false;
 
-			if (IsLavaTile(pOTile) && SparedByLava(pOObject.ID))
-				return false;
+			if (IsLavaTile(pOTile))
+				return !SparedByLava(pOObject.ID) && SinksInLiquid(pOObject);
 
-			return SinksInLiquid(pOObject);
+			int liTests = pbThrown ? UWLiquidCulling.ThrownIntoWaterTests : 1;
+
+			for (int liTest = 0; liTest < liTests; liTest++)
+			{
+				if (SinksInLiquid(pOObject))
+					return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>
