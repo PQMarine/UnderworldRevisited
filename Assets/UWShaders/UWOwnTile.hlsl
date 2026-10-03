@@ -145,6 +145,72 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
 // How far below its own tile's floor a pivot counts as under it - see UWOwnTileSpriteDepth.
 #define UW_BELOW_FLOOR_TOLERANCE 4.0
 
+// A solid tile in _UWFloorHeights: UWOwnTile.SetFloorHeights writes the ceiling height (256)
+// for it, an open floor is at most 15 steps of 16.
+#define UW_SOLID_TILE_FLOOR 250.0
+
+// BEHIND ROCK (per user, 2026-10-03, Remastered only, level 1 at 27/15 looking south-east: bones
+// lying on 28/13 showed through the rock 28/14 - "sprites in general", the palette mode right).
+// The plane rule below puts a sprite at the near edge of its tile's row, and a wall INSIDE that
+// row - here the north face of 28/14, which runs along the row - lies behind that plane, so the
+// sprite won. The original paints that wall with the open tile in front of it (its right wall),
+// after the sprite's tile, and covers it; the palette path follows the order of the surface
+// behind each pixel (UWPainterSpriteVisible). Here the pixel's line of sight is walked through
+// the tile grid: if it crosses a solid tile before it reaches the sprite's own tile (or the tile
+// the pixel lies in), the rock covers the pixel. Only solid tiles; a diagonal wall or a floor step
+// in the row is not caught by this.
+bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
+{
+    if (_UWFloorHeightsReady < 0.5 || _UWOwnTileSize <= 0.0)
+        return false;
+
+    float lfSize = _UWOwnTileSize;
+    float lfHalf = lfSize * 0.5;
+    float2 lFrom = _WorldSpaceCameraPos.xz;
+    float2 lDir = pPositionWS.xz - lFrom;
+    float2 lCell = floor((lFrom + lfHalf) / lfSize);
+    float2 lEnd = floor((pPositionWS.xz + lfHalf) / lfSize);
+    float2 lOwn = floor((pPivotWS.xz + lfHalf) / lfSize);
+    float2 lStep = float2(lDir.x >= 0.0 ? 1.0 : -1.0, lDir.y >= 0.0 ? 1.0 : -1.0);
+    float2 lSafe = float2(abs(lDir.x) > 1.0e-5 ? lDir.x : 1.0e-5, abs(lDir.y) > 1.0e-5 ? lDir.y : 1.0e-5);
+
+    // Tile i spans i * size - half to i * size + half; the next border in the step's direction.
+    float2 lNext = (((lCell + (lStep * 0.5)) * lfSize) - lFrom) / lSafe;
+    float2 lDelta = abs(lfSize / lSafe);
+
+    [loop]
+    for (int liAt = 0; liAt < 32; liAt++)
+    {
+        if (all(lCell == lOwn) || all(lCell == lEnd))
+            return false;
+
+        // The eye's own tile does not count, should the camera stand in a wall.
+        if (liAt > 0)
+        {
+            int2 lTexel = int2(lCell);
+
+            if (any(lTexel < int2(0, 0)) || any(lTexel > int2(63, 63)))
+                return false;
+
+            if (LOAD_TEXTURE2D(_UWFloorHeights, lTexel).r >= UW_SOLID_TILE_FLOOR)
+                return true;
+        }
+
+        if (lNext.x < lNext.y)
+        {
+            lCell.x += lStep.x;
+            lNext.x += lDelta.x;
+        }
+        else
+        {
+            lCell.y += lStep.y;
+            lNext.y += lDelta.y;
+        }
+    }
+
+    return false;
+}
+
 float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth, float pfBigRadius)
 {
     if (_UWOwnTileSize <= 0.0)

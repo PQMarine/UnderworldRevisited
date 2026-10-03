@@ -165,6 +165,9 @@ Shader "UW/Billboard"
                 clip(albedo.a - _Cutoff);
 
                 #if defined(_UW_OWN_TILE)
+                if (UWOwnTileBehindRock(IN.positionWS, IN.pivotWS))
+                    discard;
+
                 outDepth = UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
                 #endif
 
@@ -348,6 +351,9 @@ Shader "UW/Billboard"
                 clip(alpha - _Cutoff);
 
                 #if defined(_UW_OWN_TILE)
+                if (UWOwnTileBehindRock(IN.positionWS, IN.pivotWS))
+                    discard;
+
                 outDepth = UWOwnTileSpriteDepth(IN.positionWS, IN.pivotWS, IN.pivotWS.y, IN.positionCS.z, _BigRadius);
                 #endif
 
