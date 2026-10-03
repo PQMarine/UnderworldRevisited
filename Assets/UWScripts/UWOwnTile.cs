@@ -51,7 +51,8 @@ public static class UWOwnTile
     /// pivot lies below its own tile's floor keeps its true depth, so the floor covers it; the
     /// original never has an object below its tile's floor, only our physics passes through that
     /// state. Set on every level build and every rebuild after a height change (UWLevelLoader).
-    /// Solid tiles count as the ceiling.
+    /// Solid tiles count as the ceiling. The second channel holds the tile type (0 solid to 9,
+    /// UWTile.TileTypeEnum), for the line of sight through diagonals (UWOwnTileBehindRock).
     /// </summary>
     public static void SetFloorHeights(UWDataImport.UWData.UWLevel pOLevel)
     {
@@ -65,7 +66,7 @@ public static class UWOwnTile
 
         if (msFloorHeights == null)
         {
-            msFloorHeights = new Texture2D(liSize, liSize, TextureFormat.RFloat, false, true);
+            msFloorHeights = new Texture2D(liSize, liSize, TextureFormat.RGFloat, false, true);
             msFloorHeights.name = "UW Floor Heights";
             msFloorHeights.filterMode = FilterMode.Point;
             msFloorHeights.wrapMode = TextureWrapMode.Clamp;
@@ -81,7 +82,9 @@ public static class UWOwnTile
                 float lfFloor = lOTile == null || lOTile.TileType == UWDataImport.UWData.UWTile.TileTypeEnum.solid
                     ? UWDataImport.UWData.UWWorldScale.CeilingHeight : lOTile.FloorHeight;
 
-                lOPixels[(liY * liSize) + liX] = new Color(lfFloor, 0f, 0f, 0f);
+                float lfType = lOTile == null ? 0f : (float)(int)lOTile.TileType;
+
+                lOPixels[(liY * liSize) + liX] = new Color(lfFloor, lfType, 0f, 0f);
             }
         }
 

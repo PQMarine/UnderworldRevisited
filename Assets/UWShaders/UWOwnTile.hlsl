@@ -157,8 +157,59 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
 // after the sprite's tile, and covers it; the palette path follows the order of the surface
 // behind each pixel (UWPainterSpriteVisible). Here the pixel's line of sight is walked through
 // the tile grid: if it crosses a solid tile before it reaches the sprite's own tile (or the tile
-// the pixel lies in), the rock covers the pixel. Only solid tiles; a diagonal wall or a floor step
-// in the row is not caught by this.
+// the pixel lies in), the rock covers the pixel.
+//
+// DIAGONALS AND STEPS TOO (per user, 2026-10-03, "do the diagonals and steps in Remastered"): the
+// same holds for a diagonal's wall and for the face of a higher floor inside the row. So the walk
+// keeps where the line enters and leaves each tile, and the piece in between is covered when one
+// of its ends lies in a diagonal's closed half (the open half is a triangle, so both ends inside
+// it means the whole piece is), or below the tile's floor (the lower end of a straight piece is one
+// of its ends). Slopes are left out of the floor test - their floor is not flat - and so is the
+// ceiling, which is the same height everywhere.
+
+// How far the line may dip below a floor or into a diagonal's closed half before it counts.
+#define UW_STEP_TOLERANCE 1.0
+#define UW_DIAGONAL_TOLERANCE 0.01
+
+// The halves of a diagonal tile, u east and v north from its south-west corner (0 to 1): type 2
+// open to the south-east, 3 south-west, 4 north-east, 5 north-west (UWTile.TileTypeEnum).
+bool UWOwnTileInOpenHalf(float pfType, float2 pUV)
+{
+    if (pfType < 2.5)
+        return pUV.y < pUV.x + UW_DIAGONAL_TOLERANCE;
+
+    if (pfType < 3.5)
+        return pUV.x + pUV.y < 1.0 + UW_DIAGONAL_TOLERANCE;
+
+    if (pfType < 4.5)
+        return pUV.x + pUV.y > 1.0 - UW_DIAGONAL_TOLERANCE;
+
+    return pUV.y > pUV.x - UW_DIAGONAL_TOLERANCE;
+}
+
+// Whether the piece of the line from pfEnter to pfLeave (fractions of the way from the eye to the
+// pixel) is covered inside this tile. pTile is the texel: floor height and tile type.
+bool UWOwnTilePieceCovered(float2 pCell, float2 pTile, float3 pPositionWS, float pfEnter, float pfLeave)
+{
+    float3 lA = lerp(_WorldSpaceCameraPos, pPositionWS, pfEnter);
+    float3 lB = lerp(_WorldSpaceCameraPos, pPositionWS, pfLeave);
+    float lfType = round(pTile.g);
+
+    if (lfType < 5.5 && min(lA.y, lB.y) < pTile.r - UW_STEP_TOLERANCE)
+        return true;
+
+    if (lfType > 1.5 && lfType < 5.5)
+    {
+        float2 lCorner = (pCell * _UWOwnTileSize) - (_UWOwnTileSize * 0.5);
+
+        if (!UWOwnTileInOpenHalf(lfType, (lA.xz - lCorner) / _UWOwnTileSize)
+            || !UWOwnTileInOpenHalf(lfType, (lB.xz - lCorner) / _UWOwnTileSize))
+            return true;
+    }
+
+    return false;
+}
+
 bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
 {
     if (_UWFloorHeightsReady < 0.5 || _UWOwnTileSize <= 0.0)
@@ -177,12 +228,15 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
     // Tile i spans i * size - half to i * size + half; the next border in the step's direction.
     float2 lNext = (((lCell + (lStep * 0.5)) * lfSize) - lFrom) / lSafe;
     float2 lDelta = abs(lfSize / lSafe);
+    float lfEnter = 0.0;
 
     [loop]
     for (int liAt = 0; liAt < 32; liAt++)
     {
         if (all(lCell == lOwn) || all(lCell == lEnd))
             return false;
+
+        float lfLeave = saturate(min(lNext.x, lNext.y));
 
         // The eye's own tile does not count, should the camera stand in a wall.
         if (liAt > 0)
@@ -192,9 +246,16 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
             if (any(lTexel < int2(0, 0)) || any(lTexel > int2(63, 63)))
                 return false;
 
-            if (LOAD_TEXTURE2D(_UWFloorHeights, lTexel).r >= UW_SOLID_TILE_FLOOR)
+            float2 lTile = LOAD_TEXTURE2D(_UWFloorHeights, lTexel).rg;
+
+            if (lTile.r >= UW_SOLID_TILE_FLOOR)
+                return true;
+
+            if (UWOwnTilePieceCovered(lCell, lTile, pPositionWS, lfEnter, lfLeave))
                 return true;
         }
+
+        lfEnter = lfLeave;
 
         if (lNext.x < lNext.y)
         {
