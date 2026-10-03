@@ -392,6 +392,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `RunTrap` (ovr153_24A) | UWTrapChainRemoval.cs, UWTrapRules.cs |
 | `Traps` (ovr153_296) | UWTrapRules.cs |
 | `Trigger` (ovr153_3B) | UWTrapChainRemoval.cs, UWTrapRules.cs |
+| `DeleteObjectTrap` (ovr153_ADC) | UWTrapRules.cs |
+| `TriggerNext` (ovr153_D03) | UWTrapRules.cs |
 | `ovr153_DC2` | UWTrapChainRemoval.cs |
 | `ovr153_E83` | UWTrapChainRemoval.cs |
 | `DoTraps` (ovr153_F7B) | UWTrapRules.cs |

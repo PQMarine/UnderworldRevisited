@@ -24,6 +24,7 @@ Shader "UW/BillboardPalette"
         [Toggle(_UW_OWN_TILE)] _OwnTile ("Own tile does not cover", Float) = 0
         [HideInInspector] _BigRadius ("A big object's radius in eighths (creatures), 0 for items", Float) = 0
         [HideInInspector] _KeyBonus ("Added to the painter sort key (-1 for animations)", Float) = 0
+        [HideInInspector] _ChainIndex ("Place in the tile's chain, for ties with 3D models (63 = last)", Float) = 63
 
         [HideInInspector] _SrcBlend ("Source blend", Float) = 1
         [HideInInspector] _DstBlend ("Destination blend", Float) = 0
@@ -70,6 +71,7 @@ Shader "UW/BillboardPalette"
                 float _OwnTile;
                 float _BigRadius;
                 float _KeyBonus;
+                float _ChainIndex;
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
@@ -135,7 +137,7 @@ Shader "UW/BillboardPalette"
 
                 UWPainterObjectPlace(IN.pivotWS, _BigRadius, _KeyBonus, lTile, lfPart);
 
-                if (!UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS))
+                if (!UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex))
                     discard;
 
                 outDepth = UWPainterSpriteBandDepth(UWPainterDepth(lTile, lfPart, UWPainterNearness(IN.pivotWS)));

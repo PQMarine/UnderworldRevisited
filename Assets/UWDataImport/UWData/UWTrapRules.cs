@@ -593,6 +593,16 @@ namespace UWDataImport.UWData
 			if (pIHost.CurrentLevelIndex != liLevelBefore)
 				return true;
 
+			// A DELETE OBJECT TRAP ENDS THE CHAIN (DeleteObjectTrap_ovr153_ADC clears the "continue"
+			// flag that TriggerNext_ovr153_D03 tests): its sp_link is the object it removes, not a
+			// next step. Level 7, 20/42 (per user, 2026-10-03: "keening noise" twice in ours, once in
+			// the original): the delete trap removes the move trigger that started the chain, and we
+			// fired that trigger again through the link. The door and create object traps clear the
+			// flag too, but their links (a lock, a template) are no traps, so the test below stops
+			// them anyway.
+			if (pOTrap.ID == UWObjectMechanics.DeleteObjectTrapId)
+				return true;
+
 			UWObject lONext = UWObjectMechanics.GetLinkedObject(pOTrap, pIHost.CurrentLevel.Masterlist);
 
 			// A CHECK TRAP BRANCHES the chain instead of continuing it straight: if the

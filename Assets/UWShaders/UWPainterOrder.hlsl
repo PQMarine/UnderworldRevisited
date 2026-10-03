@@ -65,8 +65,10 @@ float2 UWPainterTileOf(float2 pWorldXZ)
     return floor((pWorldXZ + (UW_PAINTER_TILE_SIZE * 0.5)) / UW_PAINTER_TILE_SIZE);
 }
 
-// The depth for a part of a tile. pfFraction 0..1 orders pieces inside the part, larger later.
-float UWPainterDepth(float2 pTile, float pfPart, float pfFraction)
+// The place of a part of a tile in the painter's order: painted first gets the smallest number -
+// the far rows, then in a row the left columns from the outside in, the right ones from the
+// outside in, the middle last.
+float UWPainterPlace(float2 pTile, float pfPart)
 {
     float2 lAhead;
     float2 lRight;
@@ -77,13 +79,17 @@ float UWPainterDepth(float2 pTile, float pfPart, float pfFraction)
     float lfRow = clamp(dot(lOffset, lAhead), UW_PAINTER_ROW_FIRST, UW_PAINTER_ROW_LAST);
     float lfColumn = clamp(dot(lOffset, lRight), -16.0, 16.0);
 
-    // Painted first gets the smallest number: the far rows, then in a row the left columns from
-    // the outside in, the right ones from the outside in, the middle last.
     float lfRowOrder = UW_PAINTER_ROW_LAST - lfRow;
     float lfColumnOrder = lfColumn == 0.0 ? 32.0 : (lfColumn < 0.0 ? 16.0 + lfColumn : 32.0 - lfColumn);
 
-    float lfPlace = (((lfRowOrder * UW_PAINTER_COLUMNS) + lfColumnOrder) * UW_PAINTER_PARTS)
-        + clamp(pfPart, 0.0, UW_PAINTER_PARTS - 1.0) + (saturate(pfFraction) * 0.98);
+    return (((lfRowOrder * UW_PAINTER_COLUMNS) + lfColumnOrder) * UW_PAINTER_PARTS)
+        + clamp(pfPart, 0.0, UW_PAINTER_PARTS - 1.0);
+}
+
+// The depth for a part of a tile. pfFraction 0..1 orders pieces inside the part, larger later.
+float UWPainterDepth(float2 pTile, float pfPart, float pfFraction)
+{
+    float lfPlace = UWPainterPlace(pTile, pfPart) + (saturate(pfFraction) * 0.98);
     float lfDepth = (lfPlace + 1.0) / ((UW_PAINTER_ROWS * UW_PAINTER_COLUMNS * UW_PAINTER_PARTS) + 2.0);
 
     #if UNITY_REVERSED_Z
@@ -315,7 +321,88 @@ bool UWPainterTileHasModel(float2 pTile)
     return LOAD_TEXTURE2D(_UWDoorPlanes, int2(pTile)).a > 0.5;
 }
 
-bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS)
+// THE MODELS OF A TILE IN THE PAINTER'S ORDER (UWOwnTile.RegisterModelTile, per user 2026-10-03:
+// the ruby in the gravestone of level 7, 17/34, was cut by the stone). Up to four per tile, each
+// 1 + eighth east + 8 * eighth north + 64 * big radius + 512 * place in the tile's chain; r below
+// zero when there were more. The original sorts a tile's objects by key, largest first, and keeps
+// the chain order on equal keys (the stable bubble sort seg033_2EEF_ED).
+TEXTURE2D(_UWModelOrder);
+
+// The pivot of a noted model: the centre of its eighth (the height does not count for the key).
+float3 UWPainterModelPivot(float pfModel, float2 pTile)
+{
+    float lfCode = pfModel - 1.0;
+    float lfNorth = floor(fmod(lfCode, 64.0) / 8.0);
+    float lfEast = fmod(lfCode, 8.0);
+    float2 lCorner = (pTile * UW_PAINTER_TILE_SIZE) - (UW_PAINTER_TILE_SIZE * 0.5);
+
+    return float3(lCorner.x + ((lfEast + 0.5) * UW_PAINTER_TILE_SIZE / 8.0), 0.0,
+        lCorner.y + ((lfNorth + 0.5) * UW_PAINTER_TILE_SIZE / 8.0));
+}
+
+bool UWPainterModelAfter(float pfModel, float2 pTile, float pfSpritePlace, float pfSpriteChain)
+{
+    float lfCode = pfModel - 1.0;
+    float lfChain = floor(lfCode / 512.0);
+    float lfRadius = floor(fmod(lfCode, 512.0) / 64.0);
+
+    float2 lModelTile;
+    float lfModelPart;
+
+    UWPainterObjectPlace(UWPainterModelPivot(pfModel, pTile), lfRadius, 0.0, lModelTile, lfModelPart);
+
+    float lfModelPlace = UWPainterPlace(lModelTile, lfModelPart);
+
+    return lfModelPlace > pfSpritePlace || (lfModelPlace == pfSpritePlace && lfChain > pfSpriteChain);
+}
+
+// The nearest noted model to a point, within half a tile; 0 when there is none.
+float UWPainterNearestModel(float pfModel, float2 pTile, float3 pPointWS, inout float pfBest, float pfCurrent)
+{
+    if (pfModel < 0.5)
+        return pfCurrent;
+
+    float lfDistance = distance(UWPainterModelPivot(pfModel, pTile).xz, pPointWS.xz);
+
+    if (lfDistance >= pfBest)
+        return pfCurrent;
+
+    pfBest = lfDistance;
+
+    return pfModel;
+}
+
+// Whether the surface behind the sprite's pixel belongs to a model painted after the sprite -
+// then it may cover it. The surface goes with the model whose pivot is nearest, within half a
+// tile (per user, 2026-10-03: the emerald in the gravestone of 17/35 was still cut, because the
+// pillar in the tile's corner is painted after it - with the nearer row, being big - and that
+// let the gravestone's face cover the emerald too). Farther from every model it is the tile's
+// floor or wall, which the original paints before the objects. True as well when the tile holds
+// more models than were noted.
+bool UWPainterModelPaintsAfter(float2 pTile, float3 pSurfaceWS, float pfSpritePlace, float pfSpriteChain)
+{
+    if (any(pTile < 0.0) || any(pTile > 63.0))
+        return true;
+
+    float4 lModels = LOAD_TEXTURE2D(_UWModelOrder, int2(pTile));
+
+    if (lModels.r < 0.0)
+        return true;
+
+    float lfBest = UW_PAINTER_TILE_SIZE * 0.5;
+    float lfModel = 0.0;
+
+    lfModel = UWPainterNearestModel(lModels.r, pTile, pSurfaceWS, lfBest, lfModel);
+    lfModel = UWPainterNearestModel(lModels.g, pTile, pSurfaceWS, lfBest, lfModel);
+    lfModel = UWPainterNearestModel(lModels.b, pTile, pSurfaceWS, lfBest, lfModel);
+    lfModel = UWPainterNearestModel(lModels.a, pTile, pSurfaceWS, lfBest, lfModel);
+
+    return lfModel > 0.5 && UWPainterModelAfter(lfModel, pTile, pfSpritePlace, pfSpriteChain);
+}
+
+// pfSpritePart is the sprite's part from UWPainterObjectPlace, pfSpriteChain its place in the
+// tile's chain (_ChainIndex).
+bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float pfSpritePart, float pfSpriteChain)
 {
     if (UWPainterUnderDeck(pPixel, pPivotWS))
         return false;
@@ -343,9 +430,12 @@ bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS)
 
     // Beyond the door of its tile the sprite comes before the door, its frame and lintel - and
     // in a tile with a 3D model it is sorted among the models (UWOwnTile.RegisterModelTile):
-    // then whatever of the tile is nearer than the sprite covers it.
+    // then whatever of the tile is nearer than the sprite covers it, but only where that surface
+    // belongs to a model painted after the sprite.
     if (lfSpriteOrder == lfSurfaceOrder
-        && (UWPainterBeyondDoor(pSpriteTile, pPivotWS) || UWPainterTileHasModel(pSpriteTile)))
+        && (UWPainterBeyondDoor(pSpriteTile, pPivotWS)
+            || (UWPainterTileHasModel(pSpriteTile)
+                && UWPainterModelPaintsAfter(pSpriteTile, lSurface, UWPainterPlace(pSpriteTile, pfSpritePart), pfSpriteChain))))
     {
         float3 lForward = -UNITY_MATRIX_V[2].xyz;
 

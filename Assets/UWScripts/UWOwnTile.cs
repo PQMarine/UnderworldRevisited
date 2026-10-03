@@ -117,6 +117,11 @@ public static class UWOwnTile
         else
             System.Array.Clear(msDoorPixels, 0, msDoorPixels.Length);
 
+        if (msModelPixels == null)
+            msModelPixels = new Color[liSize * liSize];
+        else
+            System.Array.Clear(msModelPixels, 0, msModelPixels.Length);
+
         msDoorsApplied = false;
         DoorPlanesGeneration++;
         Shader.SetGlobalFloat(msDoorPlanesReadyId, 0f);
@@ -206,8 +211,19 @@ public static class UWOwnTile
     /// tile with a model a sprite is therefore covered by whatever of the tile is nearer than it
     /// (the door rule in UWPainterSpriteVisible), so the barrel in front hides the flask and one
     /// behind does not.
+    ///
+    /// BUT ONLY BY A MODEL THE ORIGINAL PAINTS AFTER THE SPRITE (per user, 2026-10-03, level 7,
+    /// 17/34: the ruby set into a gravestone was cut in half by the stone's front face; in the
+    /// original it shows whole). Both stand on the same eighth, so their keys are equal, and the
+    /// stable sort of seg033_2EEF_43B keeps the chain order: the gravestone comes first in the
+    /// tile, the ruby is painted over it. So every model of the tile is noted with its eighth in
+    /// the world (0 to 7 east and north), its radius when COMOBJ calls it big, and its place in
+    /// the tile's chain, and the shader compares them with the sprite's (_ChainIndex, see
+    /// UWObjectSpawner.fSetPainterPlace). Four models per tile are kept; a fifth makes the tile
+    /// fall back to the depth rule alone.
     /// </summary>
-    public static void RegisterModelTile(int piTileX, int piTileZ)
+    public static void RegisterModelTile(int piTileX, int piTileZ, int piEighthX, int piEighthZ, int piBigRadius,
+        int piChainIndex)
     {
         int liSize = UWDataImport.UWData.UWWorldScale.TilesPerAxis;
 
@@ -216,14 +232,44 @@ public static class UWOwnTile
 
         int liAt = (piTileZ * liSize) + piTileX;
 
-        if (msDoorPixels[liAt].a >= 0.5f)
-            return;
-
         msDoorPixels[liAt].a = 1f;
+
+        float lfModel = 1f + Mathf.Clamp(piEighthX, 0, 7) + (8 * Mathf.Clamp(piEighthZ, 0, 7))
+            + (64 * Mathf.Clamp(piBigRadius, 0, 7)) + (512 * Mathf.Clamp(piChainIndex, 0, MaxChainIndex));
+        Color lOModels = msModelPixels[liAt];
+
+        // r below zero: more than four, the tile keeps the depth rule alone.
+        if (lOModels.r >= 0f)
+        {
+            if (lOModels.r == 0f)
+                lOModels.r = lfModel;
+            else if (lOModels.g == 0f)
+                lOModels.g = lfModel;
+            else if (lOModels.b == 0f)
+                lOModels.b = lfModel;
+            else if (lOModels.a == 0f)
+                lOModels.a = lfModel;
+            else
+                lOModels.r = -1f;
+        }
+
+        msModelPixels[liAt] = lOModels;
 
         if (msDoorsApplied)
             ApplyDoors();
     }
+
+    /// <summary>The highest chain place kept; a sprite without one counts as the last.</summary>
+    public const int MaxChainIndex = 63;
+
+    /// <summary>The sprite's place in its tile's chain (UWObjectSpawner.fSetPainterPlace).</summary>
+    public const string ChainIndexProperty = "_ChainIndex";
+
+    private static readonly int msModelOrderId = Shader.PropertyToID("_UWModelOrder");
+
+    private static Texture2D msModelOrder;
+
+    private static Color[] msModelPixels;
 
     public static void ApplyDoors()
     {
@@ -242,6 +288,22 @@ public static class UWOwnTile
 
         msDoorPlanes.SetPixels(msDoorPixels);
         msDoorPlanes.Apply(false, false);
+
+        if (msModelOrder == null)
+        {
+            msModelOrder = new Texture2D(liSize, liSize, TextureFormat.RGBAFloat, false, true);
+            msModelOrder.name = "UW Model Order";
+            msModelOrder.filterMode = FilterMode.Point;
+            msModelOrder.wrapMode = TextureWrapMode.Clamp;
+        }
+
+        if (msModelPixels != null)
+        {
+            msModelOrder.SetPixels(msModelPixels);
+            msModelOrder.Apply(false, false);
+        }
+
+        Shader.SetGlobalTexture(msModelOrderId, msModelOrder);
         msDoorsApplied = true;
         Shader.SetGlobalTexture(msDoorPlanesId, msDoorPlanes);
         Shader.SetGlobalFloat(msDoorPlanesReadyId, 1f);

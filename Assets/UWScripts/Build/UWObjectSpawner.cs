@@ -340,6 +340,11 @@ namespace UnderworldRevisited.Build
             if (leCategory == UWObject.ObjectCategoryEnum.Traps || leCategory == UWObject.ObjectCategoryEnum.Triggers)
                 return;
 
+            // Where the object stands in its tile's chain, and whether a model of the tile is
+            // sorted with it - see UWOwnTile.RegisterModelTile.
+            miSpawnChainIndex = pOTile != null && pOTile.ObjectsInTile != null ? pOTile.ObjectsInTile.IndexOf(pOObject) : -1;
+            mbSpawnTileHasModel = fHasModel(pOTile);
+
             if (leCategory == UWObject.ObjectCategoryEnum.Doors)
                 fSpawnDoor(xPos, zPos, pOTile, pOObject, pOParent);
             else if (mO3DModels != null && fGet3DModelIndex(pOObject.ID) >= 0)
@@ -349,6 +354,42 @@ namespace UnderworldRevisited.Build
                 fSpawnDecal(xPos, zPos, pOObject, pOParent);
             else
                 fSpawnBillboard(xPos, zPos, pOObject, pOParent);
+
+            miSpawnChainIndex = -1;
+            mbSpawnTileHasModel = false;
+        }
+
+        /// <summary>The place in the tile's chain of the object being spawned, -1 outside
+        /// fSpawnObject (a sprite without one counts as the last of its tile).</summary>
+        private int miSpawnChainIndex = -1;
+
+        private bool mbSpawnTileHasModel;
+
+        private bool fHasModel(UWTile pOTile)
+        {
+            if (mO3DModels == null || pOTile == null || pOTile.ObjectsInTile == null)
+                return false;
+
+            for (int liAt = 0; liAt < pOTile.ObjectsInTile.Count; liAt++)
+            {
+                UWObject lOObject = pOTile.ObjectsInTile[liAt];
+
+                if (lOObject != null && lOObject.ID != BridgeObjectId && fGet3DModelIndex(lOObject.ID) >= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>The COMOBJ radius of a big object (byte 1 bit 3), 0 for every other.</summary>
+        private int fGetBigRadius(int piObjectId)
+        {
+            if (mOData != null && mOData.CommonObjectProperties != null
+                && mOData.CommonObjectProperties.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOCommon)
+                && lOCommon.IsAnimated)
+                return lOCommon.Radius;
+
+            return 0;
         }
 
         /// <summary>
@@ -567,23 +608,20 @@ namespace UnderworldRevisited.Build
         /// the next inner column is drawn with that tile, and the animations 0x1C0-0x1FF sort one
         /// step nearer. The hit effects are both (radius 3): without this a blood splat stayed in
         /// the creature's own tile while the creature was handed to the nearer row, and the splat
-        /// showed behind it (per user, 2026-09-28). Items without either keep the material's zeros.
+        /// showed behind it (per user, 2026-09-28). In a tile with a 3D model the sprite also gets
+        /// its place in the tile's chain, for the ties with the models (UWOwnTile.RegisterModelTile).
+        /// Items without any of it keep the material's values.
         /// </summary>
         private void fSetPainterPlace(Renderer pORenderer, int piObjectId)
         {
             if (pORenderer == null)
                 return;
 
-            int liRadius = 0;
-
-            if (mOData != null && mOData.CommonObjectProperties != null
-                && mOData.CommonObjectProperties.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOCommon)
-                && lOCommon.IsAnimated)
-                liRadius = lOCommon.Radius;
-
+            int liRadius = fGetBigRadius(piObjectId);
             float lfKeyBonus = (piObjectId & 0x1C0) == 0x1C0 ? -1f : 0f;
+            bool lbChain = mbSpawnTileHasModel && miSpawnChainIndex >= 0;
 
-            if (liRadius == 0 && lfKeyBonus == 0f)
+            if (liRadius == 0 && lfKeyBonus == 0f && !lbChain)
                 return;
 
             MaterialPropertyBlock lOBlock = new MaterialPropertyBlock();
@@ -591,6 +629,10 @@ namespace UnderworldRevisited.Build
             pORenderer.GetPropertyBlock(lOBlock);
             lOBlock.SetFloat(UWOwnTile.BigRadiusProperty, liRadius);
             lOBlock.SetFloat(UWOwnTile.KeyBonusProperty, lfKeyBonus);
+
+            if (lbChain)
+                lOBlock.SetFloat(UWOwnTile.ChainIndexProperty, Mathf.Min(miSpawnChainIndex, UWOwnTile.MaxChainIndex));
+
             pORenderer.SetPropertyBlock(lOBlock);
         }
 
@@ -648,6 +690,36 @@ namespace UnderworldRevisited.Build
         /// tile, so that two panels of neighbouring tiles overlapping along a wall do not share a
         /// plane - see fSpawnDecal.</summary>
         private const float WallPanelStagger = 0.15f;
+
+        /// <summary>How far model 0x16's quad lies behind the panel's eighth: 1/16 of a tile (UW.EXE
+        /// model nodes, y 0.0625) - see fSpawnDecal.</summary>
+        private const float WallModelBackOffset = TileSpacing / 16f;
+
+        /// <summary>Whether a wall panel's plane lies on the edge of its tile on its back side, where
+        /// a wall may stand behind it (within a unit); pOEdge is the position moved onto that edge.
+        /// Diagonal facings count as on the edge and keep their position.</summary>
+        private static bool fGetTileEdgeBehind(Vector3 pOPosition, int piTileX, int piTileZ, Vector3 pOFront, out Vector3 pOEdge)
+        {
+            pOEdge = pOPosition;
+
+            if (Mathf.Abs(pOFront.x) > 0.5f && Mathf.Abs(pOFront.z) > 0.5f)
+                return true;
+
+            if (Mathf.Abs(pOFront.z) > 0.5f)
+            {
+                float lfEdge = UWViewpoint.TileToWorldAxis(piTileZ) + (pOFront.z > 0f ? 0f : TileSpacing);
+
+                pOEdge.z = lfEdge;
+
+                return Mathf.Abs(pOPosition.z - lfEdge) < 1f;
+            }
+
+            float lfEdgeX = UWViewpoint.TileToWorldAxis(piTileX) + (pOFront.x > 0f ? 0f : TileSpacing);
+
+            pOEdge.x = lfEdgeX;
+
+            return Mathf.Abs(pOPosition.x - lfEdgeX) < 1f;
+        }
 
         /// <summary>How many wall panels this spawner has put on a wall of a tile so far - see
         /// fSpawnDecal.</summary>
@@ -1241,6 +1313,31 @@ namespace UnderworldRevisited.Build
             {
                 Vector3 lOFront = Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * Vector3.back;
 
+                // ACROSS ITS WALL TOO THE PANEL STANDS WHERE MODEL 0x16 PUTS IT (per user, 2026-10-03,
+                // level 7, looking west from 18/35: one could see through between a panel and the
+                // pillar beside it). The model's quad lies 1/16 of a tile BEHIND the object's
+                // eighth, towards its back: on 17/34/17/35 one panel (17/34, position 3/7, facing 0)
+                // lies on the tile edge and the other (17/35, 3/1, facing 4) 8 units north of it,
+                // and the pillar at the east end (17/35, 7/0, a sixteenth either way) fills exactly
+                // those 8 units. The decal scale the plaques use (fGetDecalPosition, 9 units a
+                // step) left this panel 1.25 units off the pillar's face.
+                Vector3 lOStraight = new Vector3(Mathf.Round(lOFront.x), 0f, Mathf.Round(lOFront.z));
+
+                if (Mathf.Abs(lOStraight.x) + Mathf.Abs(lOStraight.z) == 1f)
+                {
+                    bool lbAlongZ = lOStraight.z != 0f;
+                    int liTile = lbAlongZ ? zPos : xPos;
+                    int liEighth = lbAlongZ ? pOObject.YPos : pOObject.XPos;
+                    float lfBackStep = -(lbAlongZ ? lOStraight.z : lOStraight.x);
+                    float lfAcross = UWViewpoint.TileToWorldAxis(liTile) + (liEighth * SubTileScale) + SubTileOffset
+                        + (lfBackStep * WallModelBackOffset) + DrawOffset;
+
+                    if (lbAlongZ)
+                        lOPosition.z = lfAcross;
+                    else
+                        lOPosition.x = lfAcross;
+                }
+
                 // A SECOND PANEL ON THE SAME WALL OF THE SAME TILE steps further out again (per user,
                 // 2026-09-30: the waterfall's two panels on 56/53, at z 88 and 96, flickered where
                 // they overlap) - counted per tile and facing.
@@ -1249,7 +1346,16 @@ namespace UnderworldRevisited.Build
                 mOPanelsOnWall.TryGetValue(liKey, out int liEarlier);
                 mOPanelsOnWall[liKey] = liEarlier + 1;
 
-                lOPosition += lOFront * ((((xPos + zPos) & 1) + 1 + (2 * liEarlier)) * WallPanelStagger);
+                // Where the panel lies on its tile's edge it is set the step in front of that edge, so
+                // it stays in front of the wall behind; anywhere else the step goes back, so the
+                // panel's ends stay inside what closes them (the pillar on 17/35) instead of leaving
+                // a slit.
+                float lfStagger = (((xPos + zPos) & 1) + 1 + (2 * liEarlier)) * WallPanelStagger;
+
+                if (fGetTileEdgeBehind(lOPosition, xPos, zPos, lOFront, out Vector3 lOEdge))
+                    lOPosition = lOEdge + (lOFront * lfStagger);
+                else
+                    lOPosition -= lOFront * lfStagger;
             }
 
             if (pOObject.Heading % 2 == 1 && fIsDiagonalTile(xPos, zPos))
@@ -1886,7 +1992,8 @@ namespace UnderworldRevisited.Build
                 lOObj.AddComponent<UWBridgePlane>().Set(xPos, zPos);
             }
             else if (!pOPositionOverride.HasValue)
-                UWOwnTile.RegisterModelTile(xPos, zPos);
+                UWOwnTile.RegisterModelTile(xPos, zPos, pOObject.XPos, pOObject.YPos, fGetBigRadius(pOObject.ID),
+                    miSpawnChainIndex >= 0 ? miSpawnChainIndex : UWOwnTile.MaxChainIndex);
 
             UWEntityInfo lOInfo = lOObj.AddComponent<UWEntityInfo>();
             lOInfo.ObjectData = pOObject;
