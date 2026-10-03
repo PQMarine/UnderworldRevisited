@@ -39,10 +39,10 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `PlayerUpdateTick` (seg024_24DC_3A4) | UWPlayerTick.cs, UWPlayerVitals.cs, UWWornRegeneration.cs |
 | `AwardKillEXP` (seg022_1725) | UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `CalculateAttackResults` (seg022_230E_6B9) | UWCritterCombat.cs, UWEquipmentWear.cs, UWPlayerCritterRow.cs, UWPlayerData.cs |
+| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
 | `NPCExecuteAttack` (seg022_15DE) | UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs |
 | `PlayerUpdates` (seg028_2985_13D) | UWPlayerTick.cs, UWPlayerVitals.cs |
 | `SkillCheck` (seg037_32E6_C) | UWCritterCombat.cs, UWCritterRules.cs, UWPlayerCritterRow.cs |
-| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
 | `MissileAttackHit` (seg022_14BF) | UWCritterCombat.cs, UWCritterRules.cs |
 | `ExplodingBook` (ovr107_1259) | UWExplodingBook.cs, UWObjectMechanics.cs |
 | `ovr118_573` | UWCarriedSlots.cs, UWPlayerData.cs |
@@ -554,7 +554,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg017_1FDD_C5` | UWExplorationRules.cs, UWPlayerTerrain.cs |
-| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs, UWPlayerTerrain.cs, Program.cs |
+| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs, UWRenderSweep.cs, UWPlayerTerrain.cs, Program.cs |
 | `StartRendering` (seg017_526) | UWExplorationRules.cs |
 
 ### seg019
@@ -562,6 +562,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg019_710` | UWCharacter.cs |
+| `seg019_A38` | UWRenderSweep.cs |
 | `seg019_EFB` | UWCritterBrain.cs |
 | `GetSquareRoot` (seg019_F3F) | UWCritterBrain.cs |
 
@@ -703,8 +704,9 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `seg031_115E` | UWExplorationRules.cs |
-| `seg031_121A` | UWExplorationRules.cs |
+| `seg031_1010` | UWRenderSweep.cs |
+| `seg031_115E` | UWRenderSweep.cs |
+| `seg031_121A` | UWExplorationRules.cs, UWRenderSweep.cs, Program.cs |
 | `DoTileCollisionMaybe` (seg031_2CFA_179C) | UWSpellProjectile.cs |
 | `HeadingRelated` (seg031_2CFA_A49) | UWSpellProjectile.cs |
 | `MaybeReflection` (seg031_2CFA_CC6) | UWSpellProjectile.cs |
@@ -714,11 +716,15 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg031_2CFA_EF0` | UWSpellProjectile.cs |
 | `seg031_2CFA_FA5` | UWSpellProjectile.cs |
 | `renderrelated` (seg031_351) | UWEndgame.cs |
-| `PositionCamera` (seg031_396) | ICritterHost.cs |
-| `SomethingToDoWithShadeCalcs` (seg031_4AB) | UWExplorationRules.cs, UWPlayerTerrain.cs |
-| `seg031_6CB` | UWExplorationRules.cs, Program.cs |
+| `PositionCamera` (seg031_396) | ICritterHost.cs, UWRenderSweep.cs |
+| `SomethingToDoWithShadeCalcs` (seg031_4AB) | UWExplorationRules.cs, UWRenderSweep.cs, UWPlayerTerrain.cs |
+| `seg031_5B4` | UWRenderSweep.cs |
+| `seg031_67F` | UWRenderSweep.cs |
+| `seg031_6A5` | UWRenderSweep.cs |
+| `seg031_6CB` | UWRenderSweep.cs |
 | `seg031_99` | UWHallucinationState.cs |
-| `seg031_AF1` | UWExplorationRules.cs |
+| `seg031_AF1` | UWRenderSweep.cs |
+| `seg031_C99` | UWRenderSweep.cs |
 
 ### seg032
 
@@ -750,7 +756,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ApplyPlayerSneakScore` (seg034_2F89_898) | UWArmourProtection.cs, UWCritterRules.cs, UWPlayerVitals.cs, Program.cs |
 | `seg034_2F89_971` | UWPlayerTerrain.cs |
 | `SetScreenShake` (seg034_2F89_B6A) | UWScreenShake.cs |
-| `PositionCameraAtObject` (seg034_2F89_B99) | UWHeadBobRules.cs, UWEndgame.cs |
+| `PositionCameraAtObject` (seg034_2F89_B99) | UWHeadBobRules.cs, UWEndgame.cs, UWPlayerTerrain.cs |
 | `seg034_2F89_BCD` | UWSettings.cs |
 | `WalkOnSurfaceTypes` (seg034_93D) | UWSettings.cs |
 

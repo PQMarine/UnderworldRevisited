@@ -202,28 +202,31 @@ public class UWPlayerTerrain : MonoBehaviour
             // THE TILE ONE STANDS ON, and nothing more. Until 2026-09-23 its eight neighbours
             // were discovered here as well, light or not; the original does not do that - in
             // the dark it reveals only the tiles walked on, and what a light adds comes out of
-            // the render band (UWExplorationRules.EvaluateRenderBand, per user with four runs
+            // the render band (UWExplorationRules.EvaluateSweep, per user with four runs
             // against the original). The band holds the own tile too; this stays for the
             // moment a level is entered, before the band has run.
             fMarkVisited(lOTileIndex.X, lOTileIndex.Y);
         }
 
-        fUpdateRenderBand(lOTileIndex);
+        fUpdateRenderBand();
     }
-
-    private UWTilePos mOLastBandTile = new UWTilePos(-1, -1);
 
     /// <summary>The level's tiles changed (a lever, a change terrain trap): the band runs again
     /// on the next frame even where the player stands still, as the original's does every frame,
     /// so the map takes the new state of what is in view.</summary>
     public void InvalidateRenderBand()
     {
-        mOLastBandTile = new UWTilePos(-1, -1);
+        miLastBandX = -1;
     }
 
-    private int miLastBandQuadrant = -1;
+    /// <summary>The original's sweep, kept between frames for its buffers.</summary>
+    private readonly UWRenderSweep mOSweep = new UWRenderSweep();
 
-    private int miLastBandDepth = -1;
+    private int miLastBandX = -1;
+
+    private int miLastBandY = -1;
+
+    private int miLastBandHeading = -1;
 
     private int miLastBandLight = -1;
 
@@ -231,44 +234,45 @@ public class UWPlayerTerrain : MonoBehaviour
 
     /// <summary>
     /// The tile band the original renderer passes over every frame, and the exploration
-    /// experience from it - the rules live in UWExplorationRules (P3 of the engine separation).
-    /// Here: the view direction snapped to a quadrant, the viewing distance of the light level,
-    /// and the memo that skips a band already evaluated for this tile, direction and depth.
+    /// experience from it - the rules live in UWExplorationRules and UWRenderSweep. Here: the
+    /// player's position in the original's units, the view's heading in its 16 bits, the light
+    /// level, and the memo that skips a sweep for the same position, heading and light - the
+    /// original sweeps every frame, but a repeated sweep changes nothing.
     /// </summary>
-    private void fUpdateRenderBand(UWTilePos pOTile)
+    private void fUpdateRenderBand()
     {
         if (mOLevelLoader.UWDataImporter == null || !mOLevelLoader.HasWorld)
             return;
 
+        // The position is the player's (PositionCameraAtObject_seg034_2F89_B99 takes the player
+        // object), the heading the view's.
         Transform lOView = mOCamera != null ? mOCamera : transform;
-        int liQuadrant = Mathf.RoundToInt(Mathf.Repeat(lOView.eulerAngles.y, 360f) / 90f) & 3;
-
-        UWTilePos lOForward = UWExplorationRules.ForwardOfQuadrant(liQuadrant);
-        UWTilePos lORight = UWExplorationRules.RightOf(lOForward);
-        UWLevel lOLevel = mOLevelLoader.CurrentLevel;
-
-        int liDepth = UWExplorationRules.GetRenderBandDepth(lOLevel, pOTile, lOForward, lORight, fGetViewingDistance());
+        int liX = UWUnits.WorldAxisToOriginal(transform.position.x);
+        int liY = UWUnits.WorldAxisToOriginal(transform.position.z);
+        int liHeading = UWUnits.DegreesToAngle(lOView.eulerAngles.y) & 0xFFFF;
         int liLight = fGetLightLevel();
 
         // The light is part of the memo: lighting a torch on the spot discovers the ring
-        // around, as in the original, where the band runs every frame.
-        if (pOTile == mOLastBandTile && liQuadrant == miLastBandQuadrant && liDepth == miLastBandDepth
-            && liLight == miLastBandLight)
+        // around, as in the original.
+        if (liX == miLastBandX && liY == miLastBandY && liHeading == miLastBandHeading && liLight == miLastBandLight)
             return;
 
-        mOLastBandTile = pOTile;
-        miLastBandQuadrant = liQuadrant;
-        miLastBandDepth = liDepth;
+        miLastBandX = liX;
+        miLastBandY = liY;
+        miLastBandHeading = liHeading;
         miLastBandLight = liLight;
 
         UWShades lOShades = mOLevelLoader.UWDataImporter.Shades;
 
         // The table WITH the doubled distance - the one seg031_4AB writes into the renderer's
-        // grid, see UWExplorationRules.EvaluateRenderBand.
+        // grid, see UWExplorationRules.EvaluateSweep.
         byte[] lyShadeTable = lOShades != null && liLight >= 0 ? lOShades.GetShadeTable(liLight, true) : null;
 
-        int liCounter = UWExplorationRules.EvaluateRenderBand(lOLevel, pOTile, lOForward, lORight, liDepth,
-            lyShadeTable, fGetMapDisplayTypeAt);
+        UWLevel lOLevel = mOLevelLoader.CurrentLevel;
+
+        mOSweep.Run(lOLevel, liX, liY, liHeading, lyShadeTable);
+
+        int liCounter = UWExplorationRules.EvaluateSweep(lOLevel, mOSweep, fGetMapDisplayTypeAt);
 
         fAwardExplorationExperience(liCounter);
     }
@@ -338,7 +342,7 @@ public class UWPlayerTerrain : MonoBehaviour
     }
 
     /// <summary>The same by tile position - what the band hands to
-    /// UWExplorationRules.EvaluateRenderBand for the tiles it discovers.</summary>
+    /// UWExplorationRules.EvaluateSweep for the tiles it discovers.</summary>
     private int fGetMapDisplayTypeAt(int piTileX, int piTileY)
     {
         UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;

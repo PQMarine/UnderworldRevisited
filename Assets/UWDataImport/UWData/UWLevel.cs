@@ -217,11 +217,11 @@ namespace UWDataImport.UWData
 		/// type.
 		///
 		/// WHO CALLS THIS, and it took until 2026-09-22 to get right: the tile one stands on
-		/// with its eight neighbours (UWPlayerTerrain.fUpdateAutomap), AND every tile the
-		/// render band really sees (UWExplorationRules.EvaluateRenderBand). The second one was
-		/// missing, so the map only ever grew by a tile at a time while the original reveals as
-		/// far as the light lets one see. The eight neighbours stay because our cone starts at
-		/// the player's own row and cannot hold what lies beside and behind him.
+		/// (UWPlayerTerrain.fUpdateAutomap), AND every cell the original's sweep draws bright
+		/// enough (UWExplorationRules.EvaluateSweep). The second one was missing, so the map only
+		/// ever grew by a tile at a time while the original reveals as far as the light lets one
+		/// see. The eight neighbours of the own tile were dropped on 2026-09-23 (measured: the
+		/// original does not discover them in the dark).
 		///
 		/// WHAT LED US ASTRAY: an automap byte carries the TILE TYPE, and an original save read
 		/// on 2026-09-03 and again on 2026-09-13 was taken for a record of where the player had

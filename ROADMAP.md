@@ -15,6 +15,8 @@ of what is built was also read out of the original's executable.
 - Combat, magic, creatures with their goals and attitudes, the group alarm, theft, respawn
 - Conversations on the original bytecode, trading, repairing
 - Character creation, inventory, automap, sleeping and dreams, hunger and fatigue
+- What the automap reveals: the original's own visibility sweep (two edge rays from the exact
+  position in the tile, clipped at walls and tile corners), ported from the executable
 - Save games that the original can load and vice versa
 - Intro, cutscenes, AdLib music and sound effects, the classic interface with its
   animations, the 4:3 display of the original
@@ -37,10 +39,6 @@ of what is built was also read out of the original's executable.
   walking over a step. The plan is to replace it with the original's tile-based motion.
 - **Smaller readings still open**: the base of the water culling (measured, the routine's
   last step not yet found).
-- **What the automap reveals.** The original decides what the player has seen with a sweep of
-  two edge rays from the exact position in the tile; the port approximates it with a line of
-  sight from the tile centre. Measured cases match, a few small ones still differ (a diagonal
-  tile right beside the player). The plan is to port the original's sweep.
 
 ## Open: controls
 

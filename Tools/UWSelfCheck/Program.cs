@@ -2799,8 +2799,9 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
-        /// HOW FAR THE AUTOMAP DISCOVERS (UWExplorationRules.IsBrightEnoughToDiscover): a visible cell
-        /// only below shade 8 of the light level's table with the doubled distance. Measured against
+        /// HOW FAR THE AUTOMAP DISCOVERS (UWExplorationRules.IsBrightEnoughToDiscover on the shade of
+        /// UWRenderSweep's grid): a drawn cell only below shade 8 of the light level's table with the
+        /// doubled distance. Measured against
         /// the original on 2026-09-23 (four runs from the start of level 1): in the dark only the
         /// tile walked on, with a torch (light level 2) also the ring at distance 1.
         /// </summary>
@@ -3763,6 +3764,17 @@ namespace UnderworldRevisited.Tools
             return -1;
         }
 
+        /// <summary>The shade test for one cell of the grid, the shades alone (no level: the sweep
+        /// draws nothing, its shade grid is filled all the same).</summary>
+        private static bool fIsBright(byte[] pyShadeTable, int piRow, int piColumn)
+        {
+            UWRenderSweep lOSweep = new UWRenderSweep();
+
+            lOSweep.Run(null, 0, 0, 0, pyShadeTable);
+
+            return UWExplorationRules.IsBrightEnoughToDiscover(lOSweep.GetShade(piRow, piColumn));
+        }
+
         private static void fCheckMapReveal(DataImport pOData)
         {
             Console.WriteLine();
@@ -3778,80 +3790,88 @@ namespace UnderworldRevisited.Tools
                 return;
             }
 
-            fExpectBool("map reveal: dark, the own tile", UWExplorationRules.IsBrightEnoughToDiscover(lyDark, 0, 0), true);
-            fExpectBool("map reveal: dark, not the tile ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyDark, 1, 0), false);
-            fExpectBool("map reveal: torch, the tile ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyTorch, 1, 0), true);
-            fExpectBool("map reveal: torch, diagonal ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyTorch, 1, 1), true);
-            fExpectBool("map reveal: torch, not two ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyTorch, 2, 0), false);
-            fExpectBool("map reveal: torch, not two aside", UWExplorationRules.IsBrightEnoughToDiscover(lyTorch, 0, 2), false);
-            fExpectBool("map reveal: brightest, two ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyBright, 2, 0), true);
-            fExpectBool("map reveal: brightest, not three ahead", UWExplorationRules.IsBrightEnoughToDiscover(lyBright, 3, 0), false);
+            fExpectBool("map reveal: dark, the own tile", fIsBright(lyDark, 0, 0), true);
+            fExpectBool("map reveal: dark, not the tile ahead", fIsBright(lyDark, 1, 0), false);
+            fExpectBool("map reveal: torch, the tile ahead", fIsBright(lyTorch, 1, 0), true);
+            fExpectBool("map reveal: torch, diagonal ahead", fIsBright(lyTorch, 1, 1), true);
+            fExpectBool("map reveal: torch, not two ahead", fIsBright(lyTorch, 2, 0), false);
+            fExpectBool("map reveal: torch, not two aside", fIsBright(lyTorch, 0, 2), false);
+            fExpectBool("map reveal: brightest, two ahead", fIsBright(lyBright, 2, 0), true);
+            fExpectBool("map reveal: brightest, not three ahead", fIsBright(lyBright, 3, 0), false);
 
-            // The walled chamber of level 1 (29..34 / 29..34): a solid ring with diagonal corners
-            // open to the corridor, the chamber's own corners diagonals open to the inside. Seen
-            // from the corridor corner 28/35 looking south (right is west, so east is a negative
-            // column), nothing of the chamber may show (per user, 2026-09-26).
+            // THE ORIGINAL'S SWEEP (UWRenderSweep, seg031_121A). Positions in the original's units,
+            // the tile centre 128/128.
             UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 0 ? pOData.Levels[0] : null;
+            UWLevel lOLevel6 = pOData.Levels != null && pOData.Levels.Count > 5 ? pOData.Levels[5] : null;
 
-            if (lOLevel == null)
+            if (lOLevel == null || lOLevel6 == null)
             {
-                fFail("map reveal", "level 1 not loaded");
+                fFail("map reveal", "levels 1 and 6 not loaded");
                 return;
             }
 
-            UWTilePos lOFrom = new UWTilePos(28, 35);
+            UWRenderSweep lOSweep = new UWRenderSweep();
 
-            fExpectBool("map reveal: corridor straight ahead is seen",
-                UWExplorationRules.IsCellVisible(lOLevel, lOFrom, new UWTilePos(28, 31), 4, 0), true);
-            fExpectBool("map reveal: the ring's diagonal corner is seen",
-                UWExplorationRules.IsCellVisible(lOLevel, lOFrom, new UWTilePos(29, 34), 1, -1), true);
-            fExpectBool("map reveal: not through a closed corner into the chamber's diagonal",
-                UWExplorationRules.IsCellVisible(lOLevel, lOFrom, new UWTilePos(30, 33), 2, -2), false);
-            fExpectBool("map reveal: not through the diagonals into the chamber",
-                UWExplorationRules.IsCellVisible(lOLevel, lOFrom, new UWTilePos(31, 32), 3, -3), false);
+            // Level 6, 5/54 looking north with a lantern (per user, 2026-10-01, measured against
+            // the original): ahead the diagonal 5/55 turns its closed back, so the view ends in the
+            // own row - and in that row the original discovers the diagonal 4/54 beside the player,
+            // whose open side faces him. The grid line of sight before the sweep missed it.
+            lOSweep.Run(lOLevel6, (5 << 8) | 128, (54 << 8) | 128, 0, lyTorch);
+            fExpectInt("map reveal: level 6, 5/54 north, the view ends in the own row", lOSweep.Depth, 0);
+            fExpectBool("map reveal: level 6, 5/54 north, the own tile is drawn", lOSweep.IsDrawn(0, 0), true);
+            fExpectBool("map reveal: level 6, 5/54 north, the diagonal 4/54 beside is drawn", lOSweep.IsDrawn(0, -1), true);
+            fExpectBool("map reveal: level 6, 5/54 north, the rock 6/54 is not", lOSweep.IsDrawn(0, 1), false);
 
-            // Level 6, 5/54 looking north (per user, 2026-10-01, measured against the original):
-            // the diagonal 5/55 ahead turns its closed back, 4/55 is rock, the corner to 6/55 lies
-            // on the diagonal's wall and beside the rock 6/54. The original's view ends at the own
-            // row; the secret passage behind stays undiscovered.
-            UWLevel lOLevel6 = pOData.Levels.Count > 5 ? pOData.Levels[5] : null;
+            // The walled chamber of level 1 (29..34 / 29..34): a solid ring with diagonal corners
+            // open to the corridor, the chamber's own corners diagonals open to the inside. Seen
+            // from the corridor corner 28/35 looking south in the brightest light (right is west,
+            // so east is a negative column), nothing of the chamber may show (per user, 2026-09-26).
+            lOSweep.Run(lOLevel, (28 << 8) | 128, (35 << 8) | 128, 0x8000, lyBright);
+            fExpectBool("map reveal: level 1 chamber, the corridor ahead is drawn", lOSweep.IsDrawn(4, 0), true);
+            fExpectBool("map reveal: level 1 chamber, the ring's diagonal corner is drawn", lOSweep.IsDrawn(1, -1), true);
+            fExpectBool("map reveal: level 1 chamber, not the chamber's diagonal 30/33", lOSweep.IsDrawn(2, -2), false);
+            fExpectBool("map reveal: level 1 chamber, not the chamber 31/32", lOSweep.IsDrawn(3, -3), false);
+            fExpectBool("map reveal: level 1 chamber, not the chamber 30/31", lOSweep.IsDrawn(4, -2), false);
 
-            if (lOLevel6 == null)
-                fFail("map reveal", "level 6 not loaded");
-            else
+            // The dark run of 2026-09-23 (per user, original and ours from the start of level 1):
+            // straight north from 32/2 to 32/10, the original discovered from y 6 on only x 32.
+            // Replayed in steps of 4 fine units on an empty map, the sweep matches all 4096 bytes
+            // of the original's save; here the corridor part of it.
+            lOLevel.EnsureAutomap();
+
+            byte[] lyKept = (byte[])lOLevel.AutomapTiles.Clone();
+
+            Array.Clear(lOLevel.AutomapTiles, 0, lOLevel.AutomapTiles.Length);
+
+            for (int liY = (2 << 8) | 128; liY <= ((10 << 8) | 191); liY += 4)
             {
-                UWTilePos lOLedge = new UWTilePos(5, 54);
-
-                fExpectBool("map reveal: not through the closed corner of a diagonal",
-                    UWExplorationRules.IsCellVisible(lOLevel6, lOLedge, new UWTilePos(6, 55), 1, 1), false);
-                fExpectInt("map reveal: the view ends at a diagonal's back",
-                    UWExplorationRules.GetRenderBandDepth(lOLevel6, lOLedge, new UWTilePos(0, 1), new UWTilePos(1, 0), 7), 0);
+                lOSweep.Run(lOLevel, (32 << 8) | 128, liY, 0, lyDark);
+                UWExplorationRules.EvaluateSweep(lOLevel, lOSweep, (piX, piY) => 0);
             }
 
-            // Table 4A5 of seg031_6CB: a diagonal whose open half points ahead and to the side the
-            // cell lies on shows only its back and is not drawn. Looking north, right is east.
-            UWTilePos lONorth = new UWTilePos(0, 1);
-            UWTilePos lOEast = new UWTilePos(1, 0);
-            UWTilePos lOSouth = new UWTilePos(0, -1);
+            string lsDiscovered = string.Empty;
 
-            fExpectBool("map reveal: north, open NE on the right shows its back",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_ne), lONorth, lOEast, 1), true);
-            fExpectBool("map reveal: north, open NE on the left is drawn",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_ne), lONorth, lOEast, -1), false);
-            fExpectBool("map reveal: north, open NW on the left shows its back",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_nw), lONorth, lOEast, -2), true);
-            fExpectBool("map reveal: north, open NE on the view axis is drawn",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_ne), lONorth, lOEast, 0), false);
-            fExpectBool("map reveal: north, open SE (facing the viewer) is drawn",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_se), lONorth, lOEast, 1), false);
-            // Looking east the right is south: world SE is ahead-right (table 464 turns 2 into 4).
-            fExpectBool("map reveal: east, open SE on the right shows its back",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.diagonal_se), lOEast, lOSouth, 1), true);
-            fExpectBool("map reveal: an open tile never",
-                UWExplorationRules.ShowsOnlyItsBack(fTile(UWTile.TileTypeEnum.open), lONorth, lOEast, 1), false);
+            for (int liY = 6; liY <= 10; liY++)
+            {
+                for (int liX = 28; liX <= 36; liX++)
+                {
+                    byte lyByte = lOLevel.AutomapTiles[(liY * 64) + liX];
+
+                    if (lyByte != 0 && (lyByte & 0xF) < 0xA)
+                        lsDiscovered += liX + "/" + liY + " ";
+                }
+            }
+
+            Array.Copy(lyKept, lOLevel.AutomapTiles, lyKept.Length);
+            const string DarkRunExpected = "32/6 32/7 32/8 32/9 32/10";
+
+            if (lsDiscovered.Trim() == DarkRunExpected)
+                fPass("map reveal: the dark run discovers only the corridor walked", DarkRunExpected);
+            else
+                fFail("map reveal: the dark run discovers only the corridor walked",
+                    "got " + lsDiscovered.Trim() + ", expected " + DarkRunExpected);
         }
 
-        /// <summary>A lone tile of the given type, for the rules that look at the type alone.</summary>
         /// <summary>
         /// THE MAP IS PAINTED AS UW.EXE PAINTS IT (UWAutomapPainter, ovr092_1E5 and helpers):
         /// on palette indices, each pixel the parchment plus a step. With every random value at
@@ -4126,11 +4146,6 @@ namespace UnderworldRevisited.Tools
             {
                 return mbHighest ? 0.9999999999999999d : 0d;
             }
-        }
-
-        private static UWTile fTile(UWTile.TileTypeEnum peType)
-        {
-            return new UWTile(0, (uint)peType, new ushort[64]);
         }
 
         private static void fCheckEasyMovement()
