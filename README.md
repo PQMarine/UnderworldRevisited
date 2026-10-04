@@ -34,6 +34,21 @@ Revisited is a free, non-commercial fan project: it is not sold, and no donation
 
 *The rune shelf, a shrine, and the player's own notes in the help window.*
 
+![The modern interface: rune panel, character panel, bags and action bar](Screenshots/UR07.png)
+
+*The modern control scheme: the rune panel at the left, the character panel and the bags at
+the right, the action bar below - and at the top the gargoyle's eyes after a blow on a giant
+rat.*
+
+| Spells and bags | Conversation |
+|---|---|
+| ![The rune panel's spells and a thing's menu in the bags](Screenshots/UR08.png) | ![A conversation with trading in the modern interface](Screenshots/UR09.png) |
+| *Every rune spell by circle, and a thing's menu in the bags, its window joined to its slot.* | *Trading with Shak: the marked goods ringed in gold, the bags beside the conversation.* |
+
+![The layout editor](Screenshots/UR10.png)
+
+*The layout editor: every part of the modern interface framed, to be moved and sized.*
+
 The screenshots show the artwork of the original game, which belongs to the owners of the
 Ultima Underworld rights. It is shown for illustration only and is not covered by this
 project's licence.
@@ -63,8 +78,9 @@ What is in:
 - Save games compatible with the original's, in `UNDEROM1\SAVE1` to `SAVE4`
 - Intro, dreams and the end sequence from the original's cutscene files, with speech
 - AdLib music and sound effects through an OPL2 emulation of the project's own
-- The original's mouse-pointer steering (a modern free-look scheme is started but not yet
-  playable, see Controls)
+- Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
+  port's own with free mouse look, WASD, an action bar and an interface built from the
+  original's artwork (see Controls)
 - Additions of the port's own, each optional: a help window beside the view (stats with the
   hidden values, a live map, notes kept with the save game, spells, mantras and the game's
   manual), a modern readable font, the original's 4:3 frame on wide screens, and dealing the
@@ -102,9 +118,10 @@ location, and **DataPath** can point to an already extracted `DATA` folder inste
 
 ## Controls
 
-**Play with the original scheme.** It is complete, and the whole game has been played through
-with it. The modern scheme (see below) is unfinished and not yet playable. **Shift+F2**
-switches between the two schemes at any time.
+Two schemes, both complete. **Shift+F2** switches between them at any time, and the scheme
+in force is kept for the next start. The help window's **Controls** tab lists the keys of the
+scheme in force, as you have bound them; keys and mouse buttons can be changed under
+*Controls* in the menu bar at the top edge.
 
 *Original scheme* - as in 1992: the mouse pointer is visible and steers the walking.
 
@@ -128,14 +145,50 @@ switches between the two schemes at any time.
 | Ctrl+S, R, M, F, D, Q | Save, restore, music, sound, detail, quit - the options shortcuts of the original |
 | M, F | The map (with a map in the pack), the modern font |
 
-*Modern scheme* - unfinished, not yet playable: free mouse look, WASD walks and steps
-sideways, **I** opens the inventory. Walking, picking things up and putting them on work;
-everything else still needs the original scheme. It is due for a complete rework (see
-[ROADMAP.md](ROADMAP.md)).
-
 Combat mode is started as in the original, by clicking the weapon on the paperdoll. Where in
 the view you press then decides the blow - upper third bash, middle slash, lower third
 stab - and the longer you hold, the stronger it lands.
+
+*Modern scheme* - the port's own: the mouse turns the view, a crosshair aims, and an interface
+of its own replaces the classic frame - an action bar, a minimap, bags in the manner of
+today's role-playing games, a character panel and a rune panel that slide out from the
+screen's edges. The rules are the original's throughout; only the way to them is new.
+
+| | |
+|---|---|
+| Mouse | Look around (the pointer locked, a crosshair in the middle) |
+| Right mouse button | Free the pointer for the windows, or lock it again. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held |
+| W, A, S, D | Walk, step sideways |
+| Space | Jump; rise while hovering or flying |
+| Left Ctrl | Sink while hovering or flying |
+| E | The usual thing for what you aim at: pick it up, talk, open, use. Held: use it directly |
+| Q | Look at it |
+| R | Draw or put away the weapon. Then hold the left button to charge and let go to strike: with the pointer locked the view's height chooses the blow (up bash, straight slash, down thrust), with it free the original's thirds of the screen |
+| 1 ... 0 | The action bar: things and spells dragged onto it |
+| B, C | The bags, the character panel |
+| Z (the key left of X) | The rune panel: the rune shelf and every spell, castable from there or from the action bar |
+| M | The big map, as the original's (with a map in the pack) |
+| Tab | The help, in the character panel - with the Controls tab |
+| F9, F10 | Track, make camp - also the boots and the bedroll beside the paperdoll's feet |
+| Escape | Close what is open, then the game menu |
+| Right Ctrl+S, R | Save, restore |
+
+With the pointer free, a left click on a thing in the world opens its menu (talk, use, look,
+pick up) and dragging takes it. In the bags the left button takes and puts down, the right
+button opens a thing's menu, and Shift with the left button splits a stack. Conversations
+get a screen of their own: the history readable on leather, the answers by number or click,
+the trade by dragging from the bags. Questions of the game - a repair, a mantra - come as a
+box with OK and Cancel while the world stands still.
+
+**Edit layout** in the game menu: every part of the modern interface - action bar, minimap,
+heading, active spells, messages, vitality and mana, bags, the two panels and the conversation -
+can be moved and sized there, and the UI size as a whole is set there too. The panels slide
+out from their edges while they stay there, and become free windows once moved. The minimap
+can be switched off.
+
+The modern scheme uses the whole screen. What belongs to the original's picture keeps it:
+the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the
+cutscenes in the view play in a frame in the middle.
 
 ## Building
 

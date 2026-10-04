@@ -103,6 +103,34 @@ public class UWControls : System.IDisposable
 
         public readonly InputAction EasyTurnRight;
 
+        /// <summary>THE MODERN SCHEME'S OWN KEYS (concept per user, 2026-10-03): E does what fits
+        /// the thing under the crosshair - talk, use, pick up -, R draws or puts away the weapon
+        /// (the left button draws it too), Space and the left Ctrl rise and sink while flying (E is taken), and
+        /// Escape opens the game menu. Read only in the modern scheme.</summary>
+        public readonly InputAction ModernUse;
+
+        public readonly InputAction ModernReady;
+
+        public readonly InputAction ModernHover;
+
+        public readonly InputAction Menu;
+
+        /// <summary>B: the modern scheme's bag windows (UWModernBags); C (ToggleInventory) is its character panel.
+        /// The debug brightness gave B up for it and went to F11 (per user, 2026-10-03).</summary>
+        public readonly InputAction ModernBags;
+
+        /// <summary>Q: look at the crosshair's target in the modern scheme (the right button switches
+        /// the pointer there, UWModernPointer). In the original scheme Q sinks while flying.</summary>
+        public readonly InputAction ModernLook;
+
+        /// <summary>The key left of X (Y on a German keyboard, Z on an English one - bound by its
+        /// place, not its letter, per user 2026-10-04): the modern rune panel (UWModernRunePanel).</summary>
+        public readonly InputAction ModernRunes;
+
+        /// <summary>1 to 9 and 0: the modern scheme's action bar (UWModernActionBar). In the
+        /// original scheme 1 to 3 look down, straight and up - read only there.</summary>
+        public readonly InputAction[] ModernSlots;
+
         internal PlayerActions(InputActionMap pMap)
         {
             Move = pMap["Move"];
@@ -144,6 +172,18 @@ public class UWControls : System.IDisposable
             EasyBack = pMap["EasyBack"];
             EasyTurnLeft = pMap["EasyTurnLeft"];
             EasyTurnRight = pMap["EasyTurnRight"];
+            ModernUse = pMap["ModernUse"];
+            ModernReady = pMap["ModernReady"];
+            ModernHover = pMap["ModernHover"];
+            Menu = pMap["Menu"];
+            ModernBags = pMap["ModernBags"];
+            ModernLook = pMap["ModernLook"];
+            ModernRunes = pMap["ModernRunes"];
+
+            ModernSlots = new InputAction[ModernSlotCount];
+
+            for (int liSlot = 0; liSlot < ModernSlotCount; liSlot++)
+                ModernSlots[liSlot] = pMap["ModernSlot" + (liSlot + 1)];
         }
     }
 
@@ -223,6 +263,9 @@ public class UWControls : System.IDisposable
 
     public static bool IsCtrlHeld => Keyboard.current != null && Keyboard.current.ctrlKey.isPressed;
 
+    /// <summary>The right Ctrl alone - the modern scheme's Ctrl shortcuts, its left Ctrl sinks.</summary>
+    public static bool IsRightCtrlHeld => Keyboard.current != null && Keyboard.current.rightCtrlKey.isPressed;
+
     public static void SetTextEntryActive(bool pbActive)
     {
         if (IsTextEntryActive == pbActive)
@@ -254,6 +297,11 @@ public class UWControls : System.IDisposable
             mPlayerMap["OptSound"], mPlayerMap["OptDetail"], mPlayerMap["OptQuit"],
             mPlayerMap["EasyForward"], mPlayerMap["EasyWalkForward"], mPlayerMap["EasyBack"],
             mPlayerMap["EasyTurnLeft"], mPlayerMap["EasyTurnRight"],
+            mPlayerMap["ModernUse"], mPlayerMap["ModernReady"], mPlayerMap["ModernHover"], mPlayerMap["Menu"],
+            mPlayerMap["ModernBags"], mPlayerMap["ModernLook"], mPlayerMap["ModernRunes"],
+            mPlayerMap["ModernSlot1"], mPlayerMap["ModernSlot2"], mPlayerMap["ModernSlot3"], mPlayerMap["ModernSlot4"],
+            mPlayerMap["ModernSlot5"], mPlayerMap["ModernSlot6"], mPlayerMap["ModernSlot7"], mPlayerMap["ModernSlot8"],
+            mPlayerMap["ModernSlot9"], mPlayerMap["ModernSlot10"],
             mNoclipMap["Move"], mNoclipMap["Up"], mNoclipMap["Down"], mNoclipMap["Sprint"]
         };
 
@@ -270,6 +318,9 @@ public class UWControls : System.IDisposable
         else
             mDebugMap.Enable();
     }
+
+    /// <summary>The slots of the modern action bar, on the keys 1 to 0.</summary>
+    public const int ModernSlotCount = 10;
 
     public PlayerActions Player { get; }
     public NoclipActions Noclip { get; }
@@ -375,8 +426,10 @@ public class UWControls : System.IDisposable
         lToggleScheme.AddBinding("<Keyboard>/f2");
         lToggleScheme.AddBinding("<Gamepad>/select");
 
+        // C since 2026-10-03: the modern scheme's character panel with the bags (UWModernBags) -
+        // per user, after I; the original scheme reads it nowhere.
         InputAction lToggleInventory = lMap.AddAction("ToggleInventory", InputActionType.Button);
-        lToggleInventory.AddBinding("<Keyboard>/i");
+        lToggleInventory.AddBinding("<Keyboard>/#(c)");
         lToggleInventory.AddBinding("<Gamepad>/buttonNorth");
 
         // Height while hovering. Q and E come from the original (per user, 2026-09-03);
@@ -452,6 +505,26 @@ public class UWControls : System.IDisposable
         lMap.AddAction("EasyTurnLeft", InputActionType.Button).AddBinding("<Keyboard>/a");
         lMap.AddAction("EasyTurnRight", InputActionType.Button).AddBinding("<Keyboard>/d");
 
+        // The modern scheme's own keys (see ModernUse). The hash notation binds to the character,
+        // as with Strafe above.
+        lMap.AddAction("ModernUse", InputActionType.Button).AddBinding("<Keyboard>/#(e)");
+        lMap.AddAction("ModernReady", InputActionType.Button).AddBinding("<Keyboard>/#(r)");
+
+        // The LEFT CTRL sinks since 2026-10-04 (per user; V from 2026-10-03, C before). The
+        // original's Ctrl shortcuts take the right Ctrl then in the modern scheme (UWGameUI).
+        InputAction lModernHover = lMap.AddAction("ModernHover", InputActionType.Value, expectedControlLayout: "Axis");
+        lModernHover.AddCompositeBinding("1DAxis")
+            .With("Negative", "<Keyboard>/leftCtrl")
+            .With("Positive", "<Keyboard>/space");
+
+        lMap.AddAction("Menu", InputActionType.Button).AddBinding("<Keyboard>/escape");
+        lMap.AddAction("ModernBags", InputActionType.Button).AddBinding("<Keyboard>/#(b)");
+        lMap.AddAction("ModernLook", InputActionType.Button).AddBinding("<Keyboard>/#(q)");
+        lMap.AddAction("ModernRunes", InputActionType.Button).AddBinding("<Keyboard>/z");
+
+        for (int liSlot = 1; liSlot <= ModernSlotCount; liSlot++)
+            lMap.AddAction("ModernSlot" + liSlot, InputActionType.Button).AddBinding("<Keyboard>/" + (liSlot % 10));
+
         return lMap;
     }
 
@@ -487,7 +560,8 @@ public class UWControls : System.IDisposable
         lMap.AddAction("ToggleSpectator", InputActionType.Button).AddBinding("<Keyboard>/n");
         lMap.AddAction("NextLevel", InputActionType.Button).AddBinding("<Keyboard>/pageUp");
         lMap.AddAction("PrevLevel", InputActionType.Button).AddBinding("<Keyboard>/pageDown");
-        lMap.AddAction("ToggleBrightness", InputActionType.Button).AddBinding("<Keyboard>/b");
+        // F11 since 2026-10-03: B opens the bags in the modern scheme (per user).
+        lMap.AddAction("ToggleBrightness", InputActionType.Button).AddBinding("<Keyboard>/f11");
 
         return lMap;
     }

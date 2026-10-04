@@ -46,6 +46,43 @@ public static class UWUserSettings
 
         public int HelpMapSpan = 20;
 
+        /// <summary>The modern scheme's minimap (UWModernMinimap, per user 2026-10-03): its zoom
+        /// as screen pixels per map pixel at the default HUD scale (0 = not chosen yet), and
+        /// whether it turns with the view - north up by default.</summary>
+        public int MinimapZoom;
+
+        public bool MinimapTurns;
+
+        /// <summary>The modern UI's size chosen in the game menu, in percent of the automatic
+        /// one, 0 = 100 (UWModernHud.PixelScale).</summary>
+        public int ModernUiPercent;
+
+        /// <summary>The modern conversation's text size in percent, 0 = 100 (UWModernConversation,
+        /// its + and - in the history's corner).</summary>
+        public int ConversationTextPercent;
+
+        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts.</summary>
+        public string ModernLayout;
+
+        /// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
+        public bool MinimapHidden;
+
+        /// <summary>The modern pointer is free and the view turns only while the right button is
+        /// held, instead of the button toggling (UWModernPointer; toggling by default, per user
+        /// 2026-10-03).</summary>
+        public bool ModernPointerHold;
+
+        /// <summary>The modern character panel stays out on its Character tab without freeing the
+        /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
+        public bool ModernPanelPinned;
+
+        /// <summary>The modern rune panel stays out (UWModernRunePanel, per user 2026-10-04).</summary>
+        public bool ModernRunesPinned;
+
+        /// <summary>The control scheme last chosen (Shift+F2), as UWControlScheme.SchemeEnum; -1 =
+        /// not chosen yet, the scene's default (per user, 2026-10-04: kept over loading and noclip).</summary>
+        public int ControlScheme = -1;
+
         /// <summary>Seconds between two steps while an easy movement key or arrow is held
         /// down - see UWEasyMovement.DefaultRepeatSeconds.</summary>
         public float EasyMovementInterval = UWDataImport.UWData.UWEasyMovement.DefaultRepeatSeconds;
@@ -182,6 +219,66 @@ public static class UWUserSettings
     {
         get { return fGet().HelpMapSpan; }
         set { fGet().HelpMapSpan = value; }
+    }
+
+    public static int MinimapZoom
+    {
+        get { return fGet().MinimapZoom; }
+        set { fGet().MinimapZoom = value; }
+    }
+
+    public static bool MinimapTurns
+    {
+        get { return fGet().MinimapTurns; }
+        set { fGet().MinimapTurns = value; }
+    }
+
+    public static int ModernUiPercent
+    {
+        get { return fGet().ModernUiPercent; }
+        set { fGet().ModernUiPercent = value; }
+    }
+
+    public static bool MinimapHidden
+    {
+        get { return fGet().MinimapHidden; }
+        set { fGet().MinimapHidden = value; }
+    }
+
+    public static string ModernLayout
+    {
+        get { return fGet().ModernLayout; }
+        set { fGet().ModernLayout = value; }
+    }
+
+    public static int ConversationTextPercent
+    {
+        get { return fGet().ConversationTextPercent; }
+        set { fGet().ConversationTextPercent = value; }
+    }
+
+    public static bool ModernPointerHold
+    {
+        get { return fGet().ModernPointerHold; }
+        set { fGet().ModernPointerHold = value; }
+    }
+
+    public static bool ModernPanelPinned
+    {
+        get { return fGet().ModernPanelPinned; }
+        set { fGet().ModernPanelPinned = value; }
+    }
+
+    public static bool ModernRunesPinned
+    {
+        get { return fGet().ModernRunesPinned; }
+        set { fGet().ModernRunesPinned = value; }
+    }
+
+    public static int ControlScheme
+    {
+        get { return fGet().ControlScheme; }
+        set { fGet().ControlScheme = value; }
     }
 
     /// <summary>Seconds between two steps of the easy movement while the key or arrow stays

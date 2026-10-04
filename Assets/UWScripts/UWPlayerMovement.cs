@@ -1473,7 +1473,11 @@ public class UWPlayerMovement : MonoBehaviour
     {
         bool lbSpell = (MagicalMotionAbilities & (LevitateBit | FlyBit)) != 0;
         bool lbCastSpell = (SpellMotionAbilities & (LevitateBit | FlyBit)) != 0;
-        float lfInput = mInput.HoverHeight.ReadValue<float>();
+        // In the modern scheme E is the context key, so Space and the left Ctrl rise and sink there
+        // (V until 2026-10-04, C until 2026-10-03); the classic scheme keeps the original's keys.
+        float lfInput = mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Modern
+            ? mInput.ModernHover.ReadValue<float>()
+            : mInput.HoverHeight.ReadValue<float>();
 
         if (lbCastSpell && !mbHoverSpellWasActive && mController.isGrounded)
             fBeginLiftOff();

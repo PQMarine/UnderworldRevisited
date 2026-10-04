@@ -47,10 +47,12 @@ original, and are compatible with it.
 CONTROLS
 --------
 
-Play with the original control scheme, the one the game starts with: the mouse pointer steers
-as in 1992, and F1 to F10 and the Ctrl shortcuts work as in the original. Shift+F2 switches to
-a modern free-look scheme, which is unfinished and not yet playable. Tab opens the help window
-beside the view. The full list of keys is in README.md.
+Two control schemes, both complete. The original scheme, the one the game starts with: the
+mouse pointer steers as in 1992, and F1 to F10 and the Ctrl shortcuts work as in the original.
+Shift+F2 switches to the modern scheme: free mouse look, WASD, an action bar, bags, a character
+panel and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape).
+The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
+keys of the scheme in force. The full list of keys is in README.md.
 
 
 LICENCES

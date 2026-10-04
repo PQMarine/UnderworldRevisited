@@ -1052,7 +1052,21 @@ namespace UWDataImport.UWData
 			if (piIndex < 0 || piIndex >= mOActiveSpells.Count)
 				return;
 
-			mOActiveSpells.RemoveAt(piIndex);
+			UWActiveSpellEffect lOSpell = mOActiveSpells[piIndex];
+
+			// LEVITATE AND FLY TURN INTO SLOW FALL, keeping what is left of their stability - as
+			// when they wear off, so one does not plummet out of the air (per user, 2026-10-04; the
+			// reference's spell icon click does the same, uimanager_spells).
+			if (lOSpell.MajorClass == MotionMajor
+				&& ((lOSpell.MinorClass & 0x3F) == LevitateMinor || (lOSpell.MinorClass & 0x3F) == FlyMinor))
+			{
+				lOSpell.MinorClass = SlowFallMinor;
+				mOActiveSpells[piIndex] = lOSpell;
+			}
+			else
+			{
+				mOActiveSpells.RemoveAt(piIndex);
+			}
 
 			fApplyActiveSpells();
 		}

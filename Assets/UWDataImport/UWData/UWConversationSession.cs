@@ -281,12 +281,44 @@ namespace UWDataImport.UWData
 
 		public void Say(string psText)
 		{
+			if (fTryReprint(psText))
+				return;
+
 			mOLines.Add(new Line { IsNpc = true, Text = psText });
 		}
 
 		public void Print(string psText)
 		{
+			if (fTryReprint(psText))
+				return;
+
 			mOLines.Add(new Line { Text = psText });
+		}
+
+		/// <summary>
+		/// THE REPRINT OF TYPED INPUT: two conversations say "\1@SS1\0" after babl_ask - the
+		/// typed text between the scroll's colour codes \1 (the player's colour) and \0 (back to
+		/// normal), as the reference notes (conversationio.TextSubstitute). Shown as it was, the codes
+		/// stood in the history verbatim and the text twice, as SupplyText already writes the
+		/// answer for every babl_ask (per user, 2026-10-04: "\1PIT\0" under "pit", "\1\0" after
+		/// Escape). It becomes the player's line - or nothing, when it repeats the answer just
+		/// written (the original compares in upper case, so the reprint is upper case).
+		/// </summary>
+		private bool fTryReprint(string psText)
+		{
+			if (psText == null || !psText.StartsWith("\\1") || !psText.EndsWith("\\0"))
+				return false;
+
+			string lsText = psText.Substring(2, psText.Length - 4);
+
+			if (mOLines.Count > 0 && mOLines[mOLines.Count - 1].IsPlayer
+				&& string.Equals(mOLines[mOLines.Count - 1].Text.Trim(), lsText.Trim(), System.StringComparison.OrdinalIgnoreCase))
+				return true;
+
+			if (lsText.Trim().Length > 0)
+				mOLines.Add(new Line { IsPlayer = true, Text = lsText });
+
+			return true;
 		}
 
 		/// <summary>The reference (get_quest) reads flag 36 for every flag from 36 on - that is what the

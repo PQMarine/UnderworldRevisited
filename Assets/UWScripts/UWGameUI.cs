@@ -498,6 +498,34 @@ public class UWGameUI : MonoBehaviour
 
         if (mOCamera != null)
             mfDefaultFov = mOCamera.fieldOfView;
+
+        // The modern scheme's HUD and game menu - idle in the original scheme.
+        if (GetComponent<UWModernHud>() == null)
+            gameObject.AddComponent<UWModernHud>();
+
+        if (GetComponent<UWModernBags>() == null)
+            gameObject.AddComponent<UWModernBags>();
+
+        if (GetComponent<UWModernPanel>() == null)
+            gameObject.AddComponent<UWModernPanel>();
+
+        if (GetComponent<UWModernMinimap>() == null)
+            gameObject.AddComponent<UWModernMinimap>();
+
+        if (GetComponent<UWModernActionBar>() == null)
+            gameObject.AddComponent<UWModernActionBar>();
+
+        if (GetComponent<UWModernRunePanel>() == null)
+            gameObject.AddComponent<UWModernRunePanel>();
+
+        if (GetComponent<UWModernQuestion>() == null)
+            gameObject.AddComponent<UWModernQuestion>();
+
+        if (GetComponent<UWModernConversation>() == null)
+            gameObject.AddComponent<UWModernConversation>();
+
+        if (GetComponent<UWModernLayoutEditor>() == null)
+            gameObject.AddComponent<UWModernLayoutEditor>();
     }
 
 	// Update is called once per frame
@@ -516,13 +544,41 @@ public class UWGameUI : MonoBehaviour
         // In Modern the 3D view should fill the whole screen instead of disappearing behind the
         // small original window with black bars. The original window
         // including paper doll belongs to the original scheme, not to the modern controls.
-        bool lbShowClassicUi = mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original;
+        //
+        // THE BIG MAP is the exception (per user, 2026-10-04): in the original it fills the whole
+        // screen, and it lives on the classic frame - opened in the modern scheme the frame shows
+        // under it, 4:3 with dark bars, and everything works as there (notes, eraser, levels,
+        // the quill); the modern UI hides meanwhile (UWModernHud.fIsCovered).
+        bool lbShowClassicUi = mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original
+            || Map.IsMapVisible;
 
         mCanvasRoot.SetActive(lbShowClassicUi);
 
         if (!lbShowClassicUi)
         {
             fApplyGameCamera(false);
+
+            // THE MODERN SCHEME'S POINTER (the bags, the menu) is always the cross, whatever the
+            // classic one showed last - the arrows, the red X (per user, 2026-10-03). The choice
+            // below is never reached in this scheme, so the last classic pointer used to stay.
+            // A spell waiting for its target shows the original's target pointer instead (per
+            // user, 2026-10-04; with the pointer locked UWModernHud puts it in the crosshair's place).
+            // A ranged weapon drawn far enough shows the same pointer as in the classic scheme
+            // (IsRangedTargeting, per user the same day: so one sees when the charge suffices).
+            bool lbWorldPointer = UWModernHud.Instance == null || !UWModernHud.Instance.IsOpen;
+            int liModernCursor = mOInteraction != null && mOInteraction.IsSpellTargeting && lbWorldPointer
+                ? (mOInteraction.IsTargetSpellPending ? UWHudRunes.TargetSpellCursor : UWHudRunes.SpellTargetCursor)
+                : mOInteraction != null && mOInteraction.IsRangedTargeting && lbWorldPointer
+                ? UWHudRunes.SpellTargetCursor
+                : (int)UWCursors.CursorEnum.Center;
+
+            if (Cursor.visible && mOCursorTextures != null && liModernCursor < mOCursorTextures.Count)
+            {
+                Texture2D lOCross = fGetScaledCursor(liModernCursor);
+
+                Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), CursorMode.Auto);
+            }
+
             return;
         }
 
@@ -559,7 +615,7 @@ public class UWGameUI : MonoBehaviour
 
             float lfY = -wTopOffset + lOOffset.Y - (mCharacter.CurrentWeaponTexture.height * (1f - mCharacter.CurrentReadyWeaponTime));
 
-            ((RectTransform)mWeaponImage.transform).anchoredPosition = new Vector2(wLeftOffset + lOOffset.X + fGetWeaponSway(), lfY);
+            ((RectTransform)mWeaponImage.transform).anchoredPosition = new Vector2(wLeftOffset + lOOffset.X + GetWeaponSway(), lfY);
         }
 
         fUpdateSprite(mCharImage, mCharacter.CharTexture, ref mPrevCharTex);
@@ -846,9 +902,9 @@ public class UWGameUI : MonoBehaviour
             if (mOInteraction == null)
                 mOInteraction = GetComponent<Interaction>();
 
-            return Map.mbMapWriting || Options.miSaveSlotTyping > 0 || UWConversationScreen.IsTypingAnswer
+            return Map.mbMapWriting || Options.miSaveSlotTyping > 0 || UWModernHud.IsTypingName || UWConversationScreen.IsTypingAnswer
                 || UWCharacterCreationScreen.IsTypingName
-                || UWInstrumentPlayer.IsPlaying || UWHelpWindow.BlocksGameKeys
+                || UWInstrumentPlayer.IsPlaying || UWHelpWindow.BlocksGameKeys || UWModernBags.IsSplitting || UWModernBags.IsMenuOpen
                 || (mOInteraction != null && (mOInteraction.IsChanting || mOInteraction.IsPromptActive));
         }
     }
@@ -882,6 +938,16 @@ public class UWGameUI : MonoBehaviour
         if (!lbCtrl && lOControls.Player.ToggleFont.WasPressedThisFrame())
             UWTextLabel.UseModernFont = !UWTextLabel.UseModernFont;
 
+        // THE MODERN SCHEME has no classic frame: the options, the map and the command icons live
+        // on it, and opened there they were invisible and held the game (found 2026-10-03). There
+        // F1, Escape and the Ctrl shortcuts open the modern game menu (UWModernHud); the map, the
+        // command keys and the rune shelf wait for their modern counterparts; F9 and F10 stay.
+        if (mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern)
+        {
+            fCheckModernKeys(lOControls);
+            return;
+        }
+
         // Not in a conversation: using the map is locked there, so the key (our addition) is too.
         if (!lbCtrl && lOControls.Player.ToggleMap.WasPressedThisFrame() && !UWConversationScreen.IsAnyOpen)
             fToggleMapByKey();
@@ -890,11 +956,88 @@ public class UWGameUI : MonoBehaviour
         fCheckOriginalKeys(lOControls);
     }
 
+    /// <summary>The keys of the modern scheme that UWGameUI routes - see fCheckFontToggle.</summary>
+    private void fCheckModernKeys(UWControls pOControls)
+    {
+        UWModernHud lOHud = UWModernHud.Instance;
+
+        if (lOHud == null || UWConversationScreen.IsAnyOpen || UWRoamingSight.IsAnyRunning || mOInteraction == null)
+            return;
+
+        UWControls.PlayerActions lOPlayer = pOControls.Player;
+
+        // The big map open: M or Escape close it (writing a note, the keys are the note's).
+        if (Map.IsMapVisible)
+        {
+            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()))
+                Map.HideMap();
+
+            return;
+        }
+
+        // THE RIGHT CTRL ONLY: the left one sinks in the modern scheme (per user, 2026-10-04) -
+        // held while walking back it would open the save page with S, with R the restore page.
+        if (UWControls.IsRightCtrlHeld && !UWControls.IsShiftHeld && !UWControls.IsAltHeld)
+        {
+            if (lOPlayer.OptSave.WasPressedThisFrame())
+                lOHud.OpenMenu(UWModernHud.PageEnum.Save);
+            else if (lOPlayer.OptRestore.WasPressedThisFrame())
+                lOHud.OpenMenu(UWModernHud.PageEnum.Load);
+            else if (lOPlayer.OptMusic.WasPressedThisFrame() || lOPlayer.OptSound.WasPressedThisFrame()
+                || lOPlayer.OptDetail.WasPressedThisFrame() || lOPlayer.OptQuit.WasPressedThisFrame())
+                lOHud.OpenMenu(UWModernHud.PageEnum.Main);
+
+            return;
+        }
+
+        if (UWControls.IsShiftHeld || UWControls.IsAltHeld)
+            return;
+
+        // Escape first lets a waiting spell go (UWHudRunes.fAfterModernCast), then closes the bags
+        // (UWModernBags), the character panel (UWModernPanel; a pinned one only leaves its Help
+        // tab) and the rune panel (UWModernRunePanel); the menu comes after.
+        UWModernBags lOBags = UWModernBags.Instance;
+        UWModernPanel lOPanel = UWModernPanel.Instance;
+        UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
+
+        if (lOPlayer.Menu.WasPressedThisFrame() && mOInteraction != null && mOInteraction.IsSpellTargeting && !lOHud.IsOpen
+            && mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern)
+            mOInteraction.CancelPendingSpell();
+        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsUsing && !lOHud.IsOpen)
+            lOBags.CancelUse();
+        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsOpen && !lOHud.IsOpen)
+            lOBags.Close();
+        else if (lOPlayer.Menu.WasPressedThisFrame() && lOPanel != null && lOPanel.IsClosable && !lOHud.IsOpen)
+            lOPanel.Close();
+        else if (lOPlayer.Menu.WasPressedThisFrame() && lORunePanel != null && lORunePanel.IsClosable && !lOHud.IsOpen)
+            lORunePanel.Close();
+        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame())
+            lOHud.ToggleMenu();
+        else if (lOHud.IsOpen)
+            return;
+        else if (lOPlayer.KeyTrack.WasPressedThisFrame())
+            Runes.TrackByKey();
+        else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
+            UWScene.ItemDrag.TrySleep();
+        else if (lOPlayer.ToggleMap.WasPressedThisFrame())
+            fToggleMapByKey();
+    }
+
+    /// <summary>The modern minimap's click (UWModernMinimap): the big map, with the map carried.</summary>
+    public bool OpenBigMap()
+    {
+        if (!IsCarryingMap || Map.IsMapVisible)
+            return false;
+
+        fToggleMapByKey();
+        return Map.IsMapVisible;
+    }
+
     /// <summary>
     /// The original's Ctrl shortcuts (built 2026-09-26, see UWHudOptions.ChooseByShortcut):
     /// Ctrl+S save, Ctrl+R restore, Ctrl+M music, Ctrl+F sound, Ctrl+D detail, Ctrl+Q quit.
     /// Normal play only, as the original registers them. Partway through an action and on
-    /// level 9 the options refuse to open - see UWHudOptions.fRefusesToOpen.
+    /// level 9 the options refuse to open - see UWHudOptions.RefusesToOpen.
     /// </summary>
     private void fCheckOptionShortcuts(UWControls pOControls)
     {
@@ -1222,7 +1365,7 @@ public class UWGameUI : MonoBehaviour
     /// glides and is scaled by its strength slider; Off draws the weapon still. Both are the
     /// same at every frame rate of ours.
     /// </summary>
-    private float fGetWeaponSway()
+    internal float GetWeaponSway()
     {
         UWPlayerMovement lOMovement = UWScene.PlayerMovement;
         UWHeadBobRules.ModeEnum leMode = UWUserSettings.WeaponJitterMode;
@@ -1573,6 +1716,8 @@ public class UWGameUI : MonoBehaviour
     {
         get { return Pictures.IsWindowPictureVisible; }
     }
+
+    public Sprite CurrentWindowPicture => Pictures.CurrentWindowPicture;
 
     public bool ShowGravePicture(int piFrame)
     {

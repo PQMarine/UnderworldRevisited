@@ -527,7 +527,7 @@ public sealed class UWHudMap
     /// diagonal's solid half towards open neighbours) - the latter made the "knob" where two
     /// diagonals meet (per user, 2026-09-26).
     /// </summary>
-    private void fComposeMapTiles(int piLevelIndex, Color32[] lOPixels, int liSize)
+    private void fComposeMapTiles(int piLevelIndex, Color32[] lOPixels, int liSize, bool pbPlayerMark = true)
     {
         UWLevel lOLevel = mOUi.mOUWData != null && mOUi.mOUWData.Levels != null
             && piLevelIndex >= 0 && piLevelIndex < mOUi.mOUWData.Levels.Count
@@ -542,7 +542,9 @@ public sealed class UWHudMap
             || lOParchment == null || lOParchment.PaletteIndices == null
             || lOParchment.PaletteIndices.Length < UWAutomapPainter.ScreenWidth * UWAutomapPainter.ScreenHeight)
         {
-            fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
+            if (pbPlayerMark)
+                fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
+
             return;
         }
 
@@ -572,7 +574,8 @@ public sealed class UWHudMap
             }
         }
 
-        fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
+        if (pbPlayerMark)
+            fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
     }
 
     // ------------------------------------------------- The help window's map tab
@@ -585,38 +588,43 @@ public sealed class UWHudMap
 
     internal const int TilesPerAxis = MapTilesPerAxis;
 
-    private Texture2D mOMinimapTiles;
+    /// <summary>The tiles with the player's mark [1] and without [0] - each a texture of its own,
+    /// as the help's map tab and the modern minimap both hold theirs.</summary>
+    private readonly Texture2D[] mOMinimapTiles = new Texture2D[2];
 
-    private Color32[] mOMinimapPixels;
+    private readonly Color32[][] mOMinimapPixels = new Color32[2][];
 
     /// <summary>The discovered tiles of the level the character stands on, freshly drawn
-    /// into the help window's own texture (the map's own stays untouched).</summary>
-    internal Texture2D BuildMinimapTiles()
+    /// into the help window's own texture (the map's own stays untouched). pbPlayerMark: the
+    /// original's cross where the character stands - the modern minimap leaves it out, its arrow
+    /// says it (per user, 2026-10-04).</summary>
+    internal Texture2D BuildMinimapTiles(bool pbPlayerMark = true)
     {
         if (!fEnsureLevelLoader())
             return null;
 
         int liSize = MapTilesPerAxis * MapTileSize;
+        int liKind = pbPlayerMark ? 1 : 0;
 
-        if (mOMinimapPixels == null || mOMinimapPixels.Length != liSize * liSize)
-            mOMinimapPixels = new Color32[liSize * liSize];
+        if (mOMinimapPixels[liKind] == null || mOMinimapPixels[liKind].Length != liSize * liSize)
+            mOMinimapPixels[liKind] = new Color32[liSize * liSize];
         else
-            System.Array.Clear(mOMinimapPixels, 0, mOMinimapPixels.Length);
+            System.Array.Clear(mOMinimapPixels[liKind], 0, mOMinimapPixels[liKind].Length);
 
-        fComposeMapTiles(mOLevelLoader.CurrentLevelIndex, mOMinimapPixels, liSize);
+        fComposeMapTiles(mOLevelLoader.CurrentLevelIndex, mOMinimapPixels[liKind], liSize, pbPlayerMark);
 
-        if (mOMinimapTiles == null)
+        if (mOMinimapTiles[liKind] == null)
         {
-            mOMinimapTiles = new Texture2D(liSize, liSize, TextureFormat.RGBA32, false);
-            mOMinimapTiles.name = "UWHudMap minimap tiles";
-            mOMinimapTiles.filterMode = FilterMode.Point;
-            mOMinimapTiles.wrapMode = TextureWrapMode.Clamp;
+            mOMinimapTiles[liKind] = new Texture2D(liSize, liSize, TextureFormat.RGBA32, false);
+            mOMinimapTiles[liKind].name = "UWHudMap minimap tiles";
+            mOMinimapTiles[liKind].filterMode = FilterMode.Point;
+            mOMinimapTiles[liKind].wrapMode = TextureWrapMode.Clamp;
         }
 
-        mOMinimapTiles.SetPixels32(mOMinimapPixels);
-        mOMinimapTiles.Apply(false, false);
+        mOMinimapTiles[liKind].SetPixels32(mOMinimapPixels[liKind]);
+        mOMinimapTiles[liKind].Apply(false, false);
 
-        return mOMinimapTiles;
+        return mOMinimapTiles[liKind];
     }
 
     private Texture2D mOMinimapParchment;

@@ -36,6 +36,10 @@ public sealed class UWHudPictures
         get { return mWindowPictureImage != null && mWindowPictureImage.enabled; }
     }
 
+    /// <summary>The picture shown in the view window now, null for none - the modern scheme shows
+    /// it in a frame of its own (UWModernHud), its classic window being hidden.</summary>
+    public Sprite CurrentWindowPicture => IsWindowPictureVisible ? mWindowPictureImage.sprite : null;
+
     /// <summary>Shows the window picture of the given level in the viewport. Returns false
     /// if the cutscene file is missing (incomplete game data - the CUTS folder often lies
     /// only in the CD image), then only the plain look text remains.</summary>
@@ -467,7 +471,19 @@ public sealed class UWHudPictures
 
     private void fFlashWindow(Color pOColour, float pfSeconds, bool pbBlockInput)
     {
-        if (mOUi.mGameFrame == null || pfSeconds <= 0f)
+        if (pfSeconds <= 0f)
+            return;
+
+        // THE MODERN SCHEME has no classic frame: its view is the whole screen, so the whole
+        // screen goes black (or flashes) - drawn over everything (per user, 2026-10-04: asleep
+        // nothing went dark there).
+        if (fIsModern())
+        {
+            fFlashModern(pOColour, pfSeconds, pbBlockInput);
+            return;
+        }
+
+        if (mOUi.mGameFrame == null)
             return;
 
         if (mWindowFlashImage == null)
@@ -491,6 +507,65 @@ public sealed class UWHudPictures
     }
 
     private Coroutine mOWindowFlashRoutine;
+
+    private Image mOModernFlashImage;
+
+    private bool fIsModern()
+    {
+        return mOUi.mControlSchemeRef != null && mOUi.mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern;
+    }
+
+    private void fFlashModern(Color pOColour, float pfSeconds, bool pbBlockInput)
+    {
+        if (mOModernFlashImage == null)
+        {
+            GameObject lORoot = new GameObject("Modern flash", typeof(Canvas), typeof(CanvasScaler));
+            lORoot.transform.SetParent(mOUi.transform, false);
+
+            Canvas lOCanvas = lORoot.GetComponent<Canvas>();
+            lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            lOCanvas.sortingOrder = 60;
+
+            GameObject lOImage = new GameObject("Black", typeof(RectTransform), typeof(Image));
+            lOImage.transform.SetParent(lORoot.transform, false);
+
+            RectTransform lORect = (RectTransform)lOImage.transform;
+            lORect.anchorMin = Vector2.zero;
+            lORect.anchorMax = Vector2.one;
+            lORect.offsetMin = Vector2.zero;
+            lORect.offsetMax = Vector2.zero;
+
+            mOModernFlashImage = lOImage.GetComponent<Image>();
+            mOModernFlashImage.raycastTarget = false;
+            mOModernFlashImage.enabled = false;
+        }
+
+        mOModernFlashImage.color = pOColour;
+
+        if (mOWindowFlashRoutine != null)
+            mOUi.StopCoroutine(mOWindowFlashRoutine);
+
+        mOWindowFlashRoutine = mOUi.StartCoroutine(fRunModernFlash(pfSeconds, pbBlockInput));
+    }
+
+    /// <summary>As fRunWindowFlash, but the input is held WITHOUT a modal hold, which would free
+    /// the pointer (UWControlScheme.HoldInput).</summary>
+    private System.Collections.IEnumerator fRunModernFlash(float pfSeconds, bool pbBlockInput)
+    {
+        if (pbBlockInput && mOUi.mControlSchemeRef != null)
+            mOUi.mControlSchemeRef.HoldInput("window flash");
+
+        mOModernFlashImage.enabled = true;
+
+        yield return new WaitForSeconds(pfSeconds);
+
+        mOModernFlashImage.enabled = false;
+
+        if (pbBlockInput && mOUi.mControlSchemeRef != null)
+            mOUi.mControlSchemeRef.ReleaseInput("window flash");
+
+        mOWindowFlashRoutine = null;
+    }
 
     private System.Collections.IEnumerator fRunWindowFlash(float pfSeconds, bool pbBlockInput)
     {

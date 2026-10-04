@@ -185,6 +185,12 @@ public class UWInventory : MonoBehaviour, IUWEquipment
 
     public bool TryUnequip(UWArmorItemMap.BodySlot peSlot) { return Model.TryUnequip(peSlot); }
 
+    public bool TryUnequipAnywhere(UWArmorItemMap.BodySlot peSlot) { return Model.TryUnequipAnywhere(peSlot); }
+
+    public bool TryStoreAnywhere(UWObject pOItem) { return Model.TryStoreAnywhere(pOItem); }
+
+    public bool DropCursorItemAnywhere() { return Model.DropCursorItemAnywhere(); }
+
     public bool TryOpenContainer(UWObject pOContainer) { return Model.TryOpenContainer(pOContainer); }
 
     public void CloseContainer() { Model.CloseContainer(); }
@@ -198,6 +204,12 @@ public class UWInventory : MonoBehaviour, IUWEquipment
     public void BeginDragFromContainer(int piSlot) { Model.BeginDragFromContainer(piSlot); }
 
     public bool DropCursorItemInContainer(int piSlot) { return Model.DropCursorItemInContainer(piSlot); }
+
+    public void BeginDragFromContainerItem(UWObject pOContainer, int piIndex) { Model.BeginDragFromContainerItem(pOContainer, piIndex); }
+
+    public bool DropCursorItemInContainerAt(UWObject pOContainer, int piIndex) { return Model.DropCursorItemInContainerAt(pOContainer, piIndex); }
+
+    public bool InsertCursorItemInContainer(UWObject pOContainer, int piIndex) { return Model.InsertCursorItemInContainer(pOContainer, piIndex); }
 
     /// <summary>Why the last attempt to put something into a container failed, see
     /// UWContainerCapacity.</summary>

@@ -7,10 +7,10 @@ using UWDataImport.UWData;
 /// <summary>
 /// THE HELP WINDOW (feature wish of the user, 2026-09-24; layout decided 2026-09-25): Tab (F1 until 2026-09-26) opens
 /// it beside the picture - the classic frame goes to 4:3 and slides left (UWHelpLayout), the help
-/// takes the freed width. Six tabs: the character's STATS, a live cut-out of the MAP (both added
+/// takes the freed width. Seven tabs: the character's STATS, a live cut-out of the MAP (both added
 /// 2026-09-26), free NOTES of the player (kept per save game, UWHelpNotes), the known SPELLS, the
-/// known MANTRAS and the game's MANUAL (the GOG PDF, rendered by UWManual, with a reading mode
-/// over the whole picture).
+/// known MANTRAS, the game's MANUAL (the GOG PDF, rendered by UWManual, with a reading mode
+/// over the whole picture) and the CONTROLS of the scheme in force (UWHelpControls, 2026-10-04).
 ///
 /// THE LOOK is modern and readable (per user), the same as the setup bar: IMGUI with the built-in
 /// font, because the scene has no EventSystem on purpose (see UWItemDrag) and IMGUI brings the
@@ -57,13 +57,15 @@ public class UWHelpWindow : MonoBehaviour
         Notes,
         Spells,
         Mantras,
-        Manual
+        Manual,
+        Controls
     }
 
-    private static readonly string[] msTabNames = { "Stats", "Map", "Notes", "Spells", "Mantras", "Manual" };
+    private static readonly string[] msTabNames = { "Stats", "Map", "Notes", "Spells", "Mantras", "Manual", "Controls" };
 
-    /// <summary>Six tabs do not fit in one row beside the 4:3 frame - two rows of three.</summary>
-    private const int TabsPerRow = 3;
+    /// <summary>Seven tabs do not fit in one row beside the 4:3 frame - two rows of four (of three
+    /// until the Controls tab came, 2026-10-04).</summary>
+    private const int TabsPerRow = 4;
 
     /// <summary>Whether the player types in the notes - then the game's keys stay silent (see
     /// UWGameUI.IsTextEntryActive).</summary>
@@ -226,10 +228,37 @@ public class UWHelpWindow : MonoBehaviour
 
         // TAB, NOT WITH ALT (per user, 2026-09-26): Alt+Tab switches to another program and must
         // not open or close anything on the way. Nor with Shift - Shift+Tab is left alone.
-        if (lOControls != null && !UWControls.IsShiftHeld && !UWControls.IsAltHeld && !UWControls.IsTextEntryActive
+        // In the modern scheme the character panel takes Tab and opens on its Help tab
+        // (UWModernPanel, per user 2026-10-03); the help is drawn inside it.
+        bool lbModern = lOScheme != null && lOScheme.Current != UWControlScheme.SchemeEnum.Original
+            && UWModernPanel.Instance != null;
+
+        if (lOControls != null && !lbModern && !UWControls.IsShiftHeld && !UWControls.IsAltHeld && !UWControls.IsTextEntryActive
             && lOControls.Player.ToggleHelp.WasPressedThisFrame()
             && !fIsCovered())
             fSetOpen(!UWHelpLayout.IsOpen, true);
+    }
+
+    /// <summary>Turns to the map tab - for a click on the modern scheme's minimap
+    /// (UWModernMinimap), which opens the panel's Help tab on it.</summary>
+    internal void ShowMapTab()
+    {
+        meTab = TabEnum.Map;
+        mOScroll = Vector2.zero;
+
+        if (UWUserSettings.HelpTab != (int)TabEnum.Map)
+        {
+            UWUserSettings.HelpTab = (int)TabEnum.Map;
+            UWUserSettings.Save();
+        }
+    }
+
+    /// <summary>The modern character panel opens or closes the help with its Help tab - the
+    /// player's own choice, stored as the wish like Tab.</summary>
+    internal void SetOpenFromPanel(bool pbOpen)
+    {
+        if (UWHelpLayout.IsOpen != pbOpen || UWUserSettings.HelpOpen != pbOpen)
+            fSetOpen(pbOpen, true);
     }
 
     /// <summary>pbByPlayer: the player's own Tab - stored as the wish.</summary>
@@ -347,11 +376,33 @@ public class UWHelpWindow : MonoBehaviour
         UWControlScheme lOScheme = UWScene.ControlScheme;
         bool lbBesideFrame = UWHelpLayout.FitsBeside(lfCanvasWidth);
 
+        // THE MODERN CHARACTER PANEL holds the help on its Help tab (UWModernPanel): drawn into
+        // the panel's inner area, and not at all while the panel is closed or still sliding.
+        float lfScale = Screen.height / ReferenceHeight;
+        float lfAreaTop = 0f;
+        float lfAreaHeight = ReferenceHeight;
+
         if (lOScheme != null && lOScheme.Current != UWControlScheme.SchemeEnum.Original)
         {
             lfWidth = Mathf.Min(UWHelpLayout.MaxWidthPerHeight * CanvasHeight, lfCanvasWidth * UWHelpLayout.OverlayShare);
             lfLeft = lfCanvasWidth - lfWidth;
             lbBesideFrame = false;
+
+            if (UWModernPanel.Instance != null)
+            {
+                if (!UWModernPanel.Instance.TryGetHelpArea(out Rect lOInPanel))
+                {
+                    IsTyping = false;
+                    mOPanelOnScreen = Rect.zero;
+                    fSetReading(false);
+                    return;
+                }
+
+                lfLeft = lOInPanel.x / lfUnit;
+                lfWidth = lOInPanel.width / lfUnit;
+                lfAreaTop = (Screen.height - lOInPanel.yMax) / lfScale;
+                lfAreaHeight = lOInPanel.height / lfScale;
+            }
         }
 
         // Beside the sliding frame the help lies BEHIND it: cut off at the frame's right edge,
@@ -363,8 +414,6 @@ public class UWHelpWindow : MonoBehaviour
             lfClipLeft = Mathf.Clamp(UWHelpLayout.FrameRightEdge(lfCanvasWidth, UWGameUI.HorizontalPixelFactor),
                 lfLeft, lfLeft + lfWidth);
 
-        float lfScale = Screen.height / ReferenceHeight;
-
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
 
         Color lOWas = GUI.color;
@@ -375,8 +424,9 @@ public class UWHelpWindow : MonoBehaviour
         float lfAreaWidth = lfWidth * lfUnit / lfScale;
 
         mfScale = lfScale;
-        mOAreaOrigin = new Vector2(lfAreaX + 12f, 12f);
-        mOPanelOnScreen = new Rect(lfClipX * lfScale, 0f, (lfAreaX + lfAreaWidth - lfClipX) * lfScale, Screen.height);
+        mOAreaOrigin = new Vector2(lfAreaX + 12f, lfAreaTop + 12f);
+        mOPanelOnScreen = new Rect(lfClipX * lfScale, lfAreaTop * lfScale, (lfAreaX + lfAreaWidth - lfClipX) * lfScale,
+            lfAreaHeight * lfScale);
         mOPendingPage = null;
         mbPendingMap = false;
 
@@ -386,9 +436,9 @@ public class UWHelpWindow : MonoBehaviour
         if (IsReading)
             GUI.enabled = false;
 
-        GUI.BeginGroup(new Rect(lfClipX, 0f, lfAreaX + lfAreaWidth - lfClipX, ReferenceHeight));
+        GUI.BeginGroup(new Rect(lfClipX, lfAreaTop, lfAreaX + lfAreaWidth - lfClipX, lfAreaHeight));
 
-        Rect lOArea = new Rect(lfAreaX - lfClipX, 0f, lfAreaWidth, ReferenceHeight);
+        Rect lOArea = new Rect(lfAreaX - lfClipX, 0f, lfAreaWidth, lfAreaHeight);
 
         GUI.DrawTexture(lOArea, fTexture(BackgroundColour));
 
@@ -419,6 +469,7 @@ public class UWHelpWindow : MonoBehaviour
                 case TabEnum.Stats: fDrawStats(); break;
                 case TabEnum.Spells: fDrawSpells(); break;
                 case TabEnum.Mantras: fDrawMantras(); break;
+                case TabEnum.Controls: fDrawControls(); break;
             }
 
             GUILayout.EndScrollView();
@@ -745,6 +796,37 @@ public class UWHelpWindow : MonoBehaviour
         GUILayout.Label("<b>" + UWShrineRules.GetMantra(UWShrineRules.KeyOfTruthMantra, lOData) + "</b>", mOText);
         GUILayout.Label(UWHelpContent.KeyOfTruthNote, mODimText);
     }
+
+    /// <summary>The controls of the scheme in force (UWHelpControls): per section a heading, a dim
+    /// line and the keys in the accent colour beside what they do.</summary>
+    private void fDrawControls()
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+        bool lbModern = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+
+        GUILayout.Label(lbModern ? "Modern controls" : "Classic controls", mOHeading);
+
+        foreach (UWHelpControls.Section lOSection in UWHelpControls.Build(lbModern))
+        {
+            GUILayout.Space(10f);
+            GUILayout.Label(lOSection.Title, mOSubHeading);
+
+            if (!string.IsNullOrEmpty(lOSection.Intro))
+                GUILayout.Label(lOSection.Intro, mODimText);
+
+            foreach (UWHelpControls.Row lORow in lOSection.Rows)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("<color=#" + AccentHex + "><b>" + lORow.Keys + "</b></color>", mOText, GUILayout.Width(ControlsKeyWidth));
+                GUILayout.Label(lORow.Text, mOText);
+                GUILayout.EndHorizontal();
+                GUILayout.Space(3f);
+            }
+        }
+    }
+
+    /// <summary>The keys' column of the Controls tab.</summary>
+    private const float ControlsKeyWidth = 130f;
 
     /// <summary>"Attack, Defense, ..." - the skills a group mantra draws from.</summary>
     private static string fGroupSkills(int piMantra, DataImport pOData)
@@ -1078,7 +1160,7 @@ public class UWHelpWindow : MonoBehaviour
         return (piTenths / 10) + "." + Mathf.Abs(piTenths % 10);
     }
 
-    private static string fClassName(DataImport pOData, UWPlayerData pOPlayer)
+    internal static string fClassName(DataImport pOData, UWPlayerData pOPlayer)
     {
         if (pOPlayer == null)
             return string.Empty;
@@ -1094,7 +1176,7 @@ public class UWHelpWindow : MonoBehaviour
         }
     }
 
-    private static string fSkillName(DataImport pOData, int piEntry)
+    internal static string fSkillName(DataImport pOData, int piEntry)
     {
         try
         {

@@ -41,6 +41,9 @@ Shader "UW/Billboard"
         [HideInInspector] _SrcBlend ("Source blend", Float) = 1
         [HideInInspector] _DstBlend ("Destination blend", Float) = 0
         [HideInInspector] _ZWrite ("Depth write", Float) = 1
+
+        // A spell missile glows by itself (UWSpellProjectile, per renderer, per user 2026-10-04).
+        [HideInInspector] _Glow ("Glows by itself", Float) = 0
     }
 
     SubShader
@@ -103,6 +106,7 @@ Shader "UW/Billboard"
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
+                float _Glow;
             CBUFFER_END
 
             struct Attributes
@@ -201,7 +205,10 @@ Shader "UW/Billboard"
                         if (UWRemasterLightEffect())
                             return half4(UWRemasterLightEffectColour(lfIndex, 0.0, IN.pivotWS, 0.0, IN.positionCS.xy), albedo.a);
 
-                        if (UWRemasterPaletteSwapped())
+                        // THE PALETTE ROTATION (per user, 2026-10-04: the fireball's colours did not
+                        // move in Remastered): a pixel of lava or water takes its colour from the
+                        // rotated palette, as in the palette path - the atlas holds one still picture.
+                        if (UWRemasterPaletteSwapped() || UWIsRotatingIndex(lfIndex))
                             albedo.rgb = UWRemasterPaletteColour(lfIndex);
                     }
                 }
@@ -256,6 +263,13 @@ Shader "UW/Billboard"
                 half lfValue = max(albedo.r, max(albedo.g, albedo.b));
                 half lfGlowMask = saturate((lfValue - _GlowThreshold) / max(0.001h, 1.0h - _GlowThreshold));
                 color += albedo.rgb * (lfGlowMask * _SpriteGlow);
+
+                // A spell missile glows: its own colour ADDED to the light, so it stays bright in
+                // the dark and still shows the light around it (per user, 2026-10-04: a floor at
+                // the own colour cut that off).
+                if (_Glow > 0.5)
+                    color += albedo.rgb * 0.8h;
+
                 color = MixFog(color, IN.fogFactor);
 
                 return half4(color, albedo.a);
@@ -297,6 +311,7 @@ Shader "UW/Billboard"
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
+                float _Glow;
             CBUFFER_END
 
             struct Attributes

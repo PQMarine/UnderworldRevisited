@@ -43,7 +43,7 @@ using UWDataImport.UWData;
 /// the window drops in front of the player, above it the item is thrown as a projectile.
 ///
 /// Manual hit testing (RectTransformUtility) instead of Unity UI events, same convention
-/// as the rest of the project (see UWGameUI.fCursorMovement, UWInventoryUI) - there is
+/// as the rest of the project (see UWGameUI.fCursorMovement, UWModernBags) - there is
 /// deliberately no EventSystem in the scene.
 /// </summary>
 public class UWItemDrag : MonoBehaviour, IUWItemUseHost
@@ -268,7 +268,13 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         // A TARGET SPELL, however, can be discharged here - and if it misses, the
         // click then does what it would otherwise do (see
         // fTryResolveTargetSpellInInventory).
-        if (mOInteraction != null && mOInteraction.IsSpellTargeting
+        //
+        // ONLY IN THE CLASSIC SCHEME: its inventory is not on screen in the modern one, yet its
+        // slots were still hit - a wand's Name Enchantment went onto an invisible backpack slot
+        // under the modern bags and was gone (per user, 2026-10-04). The modern bags take it.
+        bool lbClassicScheme = mOControlScheme == null || mOControlScheme.Current == UWControlScheme.SchemeEnum.Original;
+
+        if (lbClassicScheme && mOInteraction != null && mOInteraction.IsSpellTargeting
             && !fTryResolveTargetSpellInInventory())
             return;
 
@@ -1502,6 +1508,14 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         return true;
     }
 
+    /// <summary>For the modern bags (UWModernBags): the thing on the pointer dropped on the
+    /// paperdoll's head - eaten by the same rule as the classic drop (fTryConsumeOnHead); false
+    /// when it is nothing to eat (a helmet goes onto the head then).</summary>
+    public bool TryConsumeCursorItemOnHead()
+    {
+        return fTryConsumeOnHead();
+    }
+
     /// <summary>Set while something is used straight off the CURSOR - see fTryConsumeOnHead
     /// and ConsumeUsedItem.</summary>
     private bool mbConsumeFromCursor;
@@ -1527,12 +1541,151 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// <summary>The item currently being used, for ConsumeUsedItem.</summary>
     private UWObject mOUsedItem;
 
+    /// <summary>For the modern action bar (UWModernActionBar): whether a piece is used ON something
+    /// in the world - the pole, the spike, the rock hammer, the orb rock, keys and lockpicks, the
+    /// Key of Infinity, bones. Not the oil flask, which goes onto an inventory item.</summary>
+    public bool NeedsWorldTarget(UWObject pOItem)
+    {
+        return pOItem != null && pOItem.ID != UWObjectMechanics.OilFlaskObjectId && fIsUsableItem(pOItem);
+    }
+
+    /// <summary>
+    /// The action bar's tools act on THE CROSSHAIR'S TARGET (decided per user, 2026-10-03): the
+    /// use mode's world branch (fTryApplyUseModeItem) with the screen's middle for the pointer -
+    /// the modern view fills the screen. Out of reach the reach rules refuse; on nothing at all
+    /// nothing happens, as there.
+    /// </summary>
+    public void UseItemOnCrosshair(UWObject pOItem)
+    {
+        if (pOItem == null || mOInteraction == null || mOInteraction.IsSpellTargeting)
+            return;
+
+        UWEntityInfo lOTarget = mOInteraction.TryGetEntityAt(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f), pOItem);
+
+        if (lOTarget != null && mOInteraction.TryReachTarget(lOTarget, pOItem)
+            && !fTryUseItemOnTarget(pOItem, lOTarget))
+            mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
+    }
+
+    /// <summary>Set while the modern bags use a piece (UseCarriedItem): ConsumeUsedItem takes it
+    /// out of the inventory wherever it lies.</summary>
+    private bool mbConsumeAnywhere;
+
+    /// <summary>
+    /// THE MODERN BAGS' USE (UWModernBags, the right button, WoW-like per user 2026-10-03): the
+    /// classic use click's chain for a carried piece - the map opens, a book or scroll is read,
+    /// what works at once (food, potions, wands, lights, the bedroll ...) is used. Not here:
+    /// containers (the bags open them themselves), the rune bag's shelf and the use mode of keys
+    /// and tools (stage 3 and the action bar). Returns whether something happened.
+    /// </summary>
+    public bool UseCarriedItem(UWObject pOItem)
+    {
+        if (pOItem == null || mOInventory == null)
+            return false;
+
+        if (pOItem.ID == UWObjectMechanics.MapObjectId)
+        {
+            fOpenMap();
+            return true;
+        }
+
+        if (mOInteraction != null && mOInteraction.TryReadBook(pOItem, false))
+            return true;
+
+        mbConsumeAnywhere = true;
+
+        bool lbWasTargeting = mOInteraction != null && mOInteraction.IsSpellTargeting;
+        bool lbUsed;
+
+        try
+        {
+            lbUsed = fTryUseItemImmediately(pOItem);
+        }
+        finally
+        {
+            mbConsumeAnywhere = false;
+        }
+
+        // A wand's spell takes the modern aim as the runes' do (Interaction.AfterModernCast).
+        if (lbUsed && !lbWasTargeting && mOInteraction != null)
+            mOInteraction.AfterModernCast();
+
+        return lbUsed;
+    }
+
+    /// <summary>For the modern bags: whether the thing is applied to something else (key,
+    /// lockpick, oil flask, pole ... - the classic use mode).</summary>
+    public bool NeedsUseTarget(UWObject pOItem)
+    {
+        return pOItem != null && fIsUsableItem(pOItem);
+    }
+
+    /// <summary>For the modern bags: "Use &lt;thing&gt; on what?", as the classic use mode asks.</summary>
+    public void ReportUsePrompt(UWObject pOItem)
+    {
+        fReportUsePrompt(pOItem);
+    }
+
+    /// <summary>
+    /// For the modern bags' use mode (UWModernBags): the thing onto a carried item
+    /// (pOInventoryTarget) or onto what lies under a screen point in the world (pOWorldPoint) -
+    /// the classic use mode's rules (fTryApplyUseModeItem): the anvil repairs and the oil flask
+    /// fills only carried things, everything else acts on the world.
+    /// </summary>
+    public void ApplyItemModern(UWObject pOItem, UWObject pOInventoryTarget, Vector2? pOWorldPoint)
+    {
+        if (pOItem == null || mOInteraction == null)
+            return;
+
+        if (pOItem.ID == UWObjectMechanics.AnvilObjectId)
+        {
+            if (pOInventoryTarget != null)
+                mOInteraction.TryRepairItem(pOInventoryTarget);
+
+            return;
+        }
+
+        if (pOItem.ID == UWObjectMechanics.OilFlaskObjectId)
+        {
+            if (pOInventoryTarget != null && !mOInteraction.TryOilItem(pOInventoryTarget, pOItem))
+                mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
+
+            return;
+        }
+
+        if (!pOWorldPoint.HasValue)
+            return;
+
+        UWEntityInfo lOTarget = mOInteraction.TryGetEntityAt(pOWorldPoint.Value, pOItem);
+
+        if (lOTarget != null && mOInteraction.TryReachTarget(lOTarget, pOItem)
+            && !fTryUseItemOnTarget(pOItem, lOTarget))
+            mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
+    }
+
     // ------------------------------------------------- IUWItemUseHost
 
     public void ConsumeUsedItem()
     {
         if (mOUsedItem == null)
             return;
+
+        // Used from the modern bags (UseCarriedItem): no click source is remembered, the piece
+        // leaves from wherever it lies.
+        if (mbConsumeAnywhere)
+        {
+            if (UWObjectMechanics.IsStackable(mOUsedItem) && mOUsedItem.Quantity > 1)
+            {
+                mOUsedItem.Quantity = (ushort)(mOUsedItem.Quantity - 1);
+                mOInventory.NotifyChanged();
+
+                return;
+            }
+
+            mOInventory.RemoveItem(mOUsedItem);
+
+            return;
+        }
 
         // Used off the cursor (the drop on the head): the piece hangs on the pointer and no
         // longer in the slot it came from, so taking it out of that slot would delete whatever
@@ -1764,6 +1917,14 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// anvil turns the cursor into the anvil"). The caller writes the prompt itself.</summary>
     public void BeginUseModeFromWorld(UWObject pOItem)
     {
+        // The modern scheme has its own use mode in the bags (UWModernBags.BeginUse).
+        if (mOControlScheme != null && mOControlScheme.Current != UWControlScheme.SchemeEnum.Original
+            && UWModernBags.Instance != null)
+        {
+            UWModernBags.Instance.BeginUse(pOItem, true);
+            return;
+        }
+
         mOInventory.EnterUseMode(pOItem);
         fShowDragIcon(pOItem);
         Cursor.visible = false;

@@ -243,8 +243,38 @@ public class UWSpellProjectile : MonoBehaviour
 
         miMissileObjectId = piObjectId;
 
+        if (piObjectId == FireballObjectId || piObjectId == LightningBoltObjectId || piObjectId == MagicMissileObjectId)
+            fGlow();
+
         if (fTryGetCommon(piObjectId, out lOEntry))
             mfProjectileRadius = Mathf.Max(MinimumItemRadius, lOEntry.Radius * UnderworldRevisited.Build.UWObjectSpawner.SubTileScale);
+    }
+
+    /// <summary>The spell missiles that glow (UWRunicMagic's projectiles; acid does not).</summary>
+    private const int FireballObjectId = 20;
+
+    private const int LightningBoltObjectId = 21;
+
+    private const int MagicMissileObjectId = 23;
+
+    private static readonly int msGlowId = Shader.PropertyToID("_Glow");
+
+    /// <summary>
+    /// A SPELL MISSILE GLOWS BY ITSELF (per user, 2026-10-04: the magic missile looked pale in the
+    /// dark): its sprite is drawn in the palette's own colours, neither distance nor light level
+    /// darken it (UW/BillboardPalette, UW/Billboard: _Glow). Cheaper than a light flying along,
+    /// which only the Remastered mode would show at all.
+    /// </summary>
+    private void fGlow()
+    {
+        MaterialPropertyBlock lOBlock = new MaterialPropertyBlock();
+
+        foreach (Renderer lORenderer in GetComponentsInChildren<Renderer>())
+        {
+            lORenderer.GetPropertyBlock(lOBlock);
+            lOBlock.SetFloat(msGlowId, 1f);
+            lORenderer.SetPropertyBlock(lOBlock);
+        }
     }
 
     /// <summary>Half the height of a flying missile's sweep: height 0 in COMOBJ.DAT, a point in

@@ -65,7 +65,22 @@ public class UWPlayerLook : MonoBehaviour
             mCameraTransform = Camera.main.transform;
 
         mInput = mScheme.Controls.Player;
+
+        // Straight ahead after a start or a load (per user, 2026-10-04: the view always pointed up)
+        // - the original keeps the pitch in its data segment, not in PLAYER.DAT.
+        fResetPitch();
+        miQuietFrames = QuietFrames;
     }
+
+    /// <summary>Frames in which the mouse does not turn the view: after the scene starts and after
+    /// the pointer locks, the first deltas carry the jump of the pointer being caught.</summary>
+    private const int QuietFrames = 3;
+
+    private int miQuietFrames;
+
+    private bool mbWasFree;
+
+    private int miLoadCount = -1;
 
     private void Update()
     {
@@ -78,12 +93,44 @@ public class UWPlayerLook : MonoBehaviour
 
         mePreviousScheme = leCurrent;
 
+        // A game loaded (or begun): straight ahead, whether or not the scene was rebuilt.
+        if (miLoadCount != UWHelpNotes.LoadCount)
+        {
+            miLoadCount = UWHelpNotes.LoadCount;
+            fResetPitch();
+            miQuietFrames = QuietFrames;
+        }
+
+        // Under a menu or a screen the pointer is out too - the first deltas after it are quiet.
         if (mScheme.IsWorldInputBlocked)
+        {
+            mbWasFree = true;
             return;
+        }
 
         if (leCurrent != UWControlScheme.SchemeEnum.Modern)
         {
             fUpdateClassicPitch();
+            return;
+        }
+
+        // The pointer is out for the bags (UWModernBags): the mouse moves it, not the view.
+        if (mScheme.IsPointerFree)
+        {
+            mbWasFree = true;
+            return;
+        }
+
+        if (mbWasFree)
+        {
+            mbWasFree = false;
+            miQuietFrames = Mathf.Max(miQuietFrames, QuietFrames);
+        }
+
+        if (miQuietFrames > 0)
+        {
+            miQuietFrames--;
+            mInput.Look.ReadValue<Vector2>();
             return;
         }
 

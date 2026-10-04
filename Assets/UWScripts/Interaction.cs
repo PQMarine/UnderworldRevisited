@@ -311,7 +311,7 @@ public class Interaction : MonoBehaviour
         if (IsCombatModeActive && fIsSwimming())
         {
             IsCombatModeActive = false;
-            mAttackDuration = 0f;
+            fResetAttackState();
 
             // PutAwayWeapon picks a level theme whatever plays (UWMusicSelector.OnCombatModeLeft).
             UWMusic.PickLevelTheme();
@@ -336,15 +336,21 @@ public class Interaction : MonoBehaviour
         // original, 2026-09-19): a press over the UI never charges the weapon, not even while
         // the button stays down and the weapon becomes ready. Read on the press frame, so the
         // held-button path below and the press path further down agree.
-        if (mInput.Interact.WasPressedThisFrame())
+        // THE WEAPON BUTTON: the right one in the original, the left one in the modern scheme
+        // (concept per user, 2026-10-03), where the right button looks.
+        InputAction lOAttackButton = fGetAttackButton();
+
+        if (lOAttackButton.WasPressedThisFrame())
         {
-            mbRightPressInViewport = !fIsOriginalScheme() || mGameUi == null
-                || mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
+            // The modern scheme: on the world, not on a window of its UI (a drag from a bag onto
+            // the world must not strike).
+            mbRightPressInViewport = !fIsOriginalScheme() ? fMouseInWorld()
+                : mGameUi == null || mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
         }
 
         if (IsCombatModeActive && !IsAttacking && !mbAttackPending && mbRightPressInViewport
-            && mCharacter != null && mCharacter.CanAttack && mInput.Interact.IsPressed() && !UWPlayerMovement.ConsumesRightClick()
-            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked))
+            && mCharacter != null && mCharacter.CanAttack && lOAttackButton.IsPressed() && !UWPlayerMovement.ConsumesRightClick()
+            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && fMouseInWorld())
             fBeginAttack();
 
         // The weapon in hand follows the equipment. This is checked continuously because the
@@ -414,13 +420,14 @@ public class Interaction : MonoBehaviour
         // status - both use the click up. The arrows come first because they lie below the
         // disc and a miss there should not report the status. The arrows also take the HELD
         // button, because holding one repeats the step (UWPlayerMovement.HoldEasyMovement).
-        if (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld)
+        // (The compass belongs to the classic frame, which the modern scheme does not show.)
+        if (fIsOriginalScheme() && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
         {
             if (fTryEasyMovement(Mouse.current.position.ReadValue()))
                 return;
         }
 
-        if (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed)
+        if (fIsOriginalScheme() && (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed))
         {
             if (fTryReportStatus(Mouse.current.position.ReadValue()))
                 return;
@@ -429,11 +436,15 @@ public class Interaction : MonoBehaviour
         if (mInput.ToggleCombat.WasPressedThisFrame())
             ToggleCombatMode();
 
+        // THE MODERN SCHEME'S KEYS: E, R, the right button to look, the left to draw.
+        if (!fIsOriginalScheme())
+            fUpdateModernActions();
+
         // A right click that jumps during a cursor movement is used up (see
         // UWPlayerMovement.ConsumesRightClick).
         bool lbRightClickFree = !UWPlayerMovement.ConsumesRightClick();
 
-        if (lbRightClickFree && mInput.Interact.WasPressedThisFrame())
+        if (lbRightClickFree && fIsOriginalScheme() && mInput.Interact.WasPressedThisFrame())
         {
             // IN COMBAT MODE THE RIGHT BUTTON IS THE WEAPON AND NOTHING ELSE (per user, 2026-09-18):
             // no look, no use - and no striking while sheathing or drawing either, in the original
@@ -450,7 +461,7 @@ public class Interaction : MonoBehaviour
             else if (mInventory == null || mInventory.CursorItem == null)
                 fBeginWorldPointer();
         }
-        else if (lbRightClickFree && mInput.Interact.WasReleasedThisFrame() && IsCombatModeActive && IsAttacking)
+        else if (lbRightClickFree && lOAttackButton.WasReleasedThisFrame() && IsCombatModeActive && IsAttacking)
         {
             // Releasing starts the strike animation; whether it hits is only decided
             // when it reaches its hit frame (see UWCharacter.AttackConnected).
@@ -500,12 +511,12 @@ public class Interaction : MonoBehaviour
             mAttackDuration = 0f;
             mOPointer.Cancel();
         }
-        else if (mInput.Interact.IsPressed())
+        else if (lOAttackButton.IsPressed())
         {
             if (IsAttacking && mAttackDuration < mAttackMax)
                 mAttackDuration += Time.deltaTime;
         }
-        else if (!mInput.Interact.IsPressed())
+        else if (!lOAttackButton.IsPressed())
         {
             if (IsAttacking)
             {
@@ -688,6 +699,366 @@ public class Interaction : MonoBehaviour
         return mControlScheme == null || mControlScheme.Current == UWControlScheme.SchemeEnum.Original;
     }
 
+    /// <summary>The button that charges and releases the weapon: the right one in the original,
+    /// the left one in the modern scheme.</summary>
+    private InputAction fGetAttackButton()
+    {
+        return fIsOriginalScheme() ? mInput.Interact : mInput.CursorDrag;
+    }
+
+    // ------------------------------------------------- The modern scheme's keys
+
+    /// <summary>Is the modern pointer free (UWModernPointer)?</summary>
+    private bool fIsPointerFree()
+    {
+        return mControlScheme != null && mControlScheme.IsPointerFree;
+    }
+
+    /// <summary>Do the mouse buttons act in the world? With the pointer locked, and - when the
+    /// right button is held to look around and the pointer is free otherwise - also on the world
+    /// outside the modern UI's windows (UWModernPointer.WorldTakesClicks); with the weapon drawn
+    /// the free pointer on the world strikes too (per user, 2026-10-04 - it did nothing).</summary>
+    private bool fMouseInWorld()
+    {
+        return !fIsPointerFree() || UWModernPointer.WorldTakesClicks()
+            || (IsCombatModeActive && UWModernPointer.FreePointerOnWorld());
+    }
+
+    /// <summary>
+    /// THE MODERN SCHEME (concept per user, 2026-10-03): R draws or puts away the weapon (the
+    /// left button only charges and strikes with it drawn - it drew too until the same day), Q
+    /// looks at what the crosshair is on (the right button switches the pointer,
+    /// UWModernPointer). E TAPPED does the default - what the classic right-button drag does
+    /// (fModernUse); E HELD uses directly, even what could be picked up - a sack is emptied
+    /// instead of taken (per user, the same day). The tap acts on the release, the hold once
+    /// ModernUseHoldSeconds have passed. The rules are the original's; only the way to them is
+    /// new. Nothing here while something hangs on the pointer.
+    /// </summary>
+    private void fUpdateModernActions()
+    {
+        if (mInventory != null && mInventory.CursorItem != null)
+        {
+            mfModernUseHeld = -1f;
+            return;
+        }
+
+        // Only R draws the weapon: the left button no longer does (per user, 2026-10-03), so
+        // outside combat it is free; drawn, it charges and strikes (Update, fMouseInWorld).
+        if (mInput.ModernReady.WasPressedThisFrame())
+            ToggleCombatMode();
+
+        // Q looks (per user, 2026-10-03) - the right button switches the pointer
+        // (UWModernPointer).
+        if (mInput.ModernLook.WasPressedThisFrame())
+        {
+            fAimAtModern(out UWEntityInfo lOFrontmost, out string lsChunk, out UWEntityInfo _);
+            LookAtTarget(lOFrontmost, lsChunk);
+        }
+
+        fUpdateModernUseKey();
+        fUpdateModernPointerWorld();
+    }
+
+    // ------------------------------------------------- The free pointer in the world
+
+    /// <summary>
+    /// THE FREE POINTER ON THE WORLD (per user, 2026-10-04, the MMO way): with the weapon put away,
+    /// a left CLICK on a thing opens its MENU (TryOpenWorldMenu - on nothing, a wall or the floor
+    /// nothing happens), held and DRAGGED it TAKES the thing onto the pointer (the bags open and it
+    /// is put down where the button is let go - UWModernBags.BeginWorldDrag). The right button
+    /// stays the pointer's everywhere outside the windows (a right click for the menu made it
+    /// depend on what lay under the pointer). E and Q act under the free pointer as well
+    /// (fAimAtModern). Not over a window of the modern UI, not with a thing on the pointer, not in
+    /// the use mode, the split box or the menu.
+    /// </summary>
+    private void fUpdateModernPointerWorld()
+    {
+        Mouse lOMouse = Mouse.current;
+
+        if (lOMouse == null || Camera.main == null || !fIsPointerFree() || IsCombatModeActive
+            || UWModernBags.IsMenuOpen || UWModernBags.IsSplitting || UWModernQuestion.IsBlocking
+            || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing))
+        {
+            mbWorldPress = false;
+            return;
+        }
+
+        Vector2 lOPointer = lOMouse.position.ReadValue();
+
+        if (UWMouseButtons.LeftPressed)
+        {
+            mbWorldPress = !UWModernPointer.IsOverUi(lOPointer);
+
+            if (mbWorldPress)
+            {
+                mOWorldPressAt = lOPointer;
+                fAimAt(Camera.main.ScreenPointToRay(lOPointer), out mOWorldPressFront, out msWorldPressChunk, out mOWorldPressPickable);
+            }
+
+            return;
+        }
+
+        if (!mbWorldPress)
+            return;
+
+        bool lbMoved = Vector2.Distance(lOPointer, mOWorldPressAt) >= WorldDragPixels;
+
+        if (UWMouseButtons.LeftHeld && lbMoved)
+        {
+            mbWorldPress = false;
+
+            UWEntityInfo lOTake = mOWorldPressFront != null && mOWorldPressFront.CanBePickedUp ? mOWorldPressFront : mOWorldPressPickable;
+
+            if (lOTake != null && !fIsCreature(lOTake) && TakeOntoPointer(lOTake) && UWModernBags.Instance != null)
+                UWModernBags.Instance.BeginWorldDrag(mOWorldPressAt);
+
+            return;
+        }
+
+        if (!UWMouseButtons.LeftHeld)
+        {
+            mbWorldPress = false;
+
+            if (!lbMoved)
+                TryOpenWorldMenu(mOWorldPressAt);
+        }
+    }
+
+    /// <summary>Screen pixels the pointer moves before a press on the world becomes a drag.</summary>
+    private const float WorldDragPixels = 6f;
+
+    private bool mbWorldPress;
+
+    private Vector2 mOWorldPressAt;
+
+    private UWEntityInfo mOWorldPressFront;
+
+    private UWEntityInfo mOWorldPressPickable;
+
+    private string msWorldPressChunk;
+
+    /// <summary>Where E and Q aim in the modern scheme: under the free pointer when it is on the
+    /// world, else at the crosshair (per user, 2026-10-04).</summary>
+    private Ray fGetModernAimRay()
+    {
+        if (fIsPointerFree() && Mouse.current != null && Camera.main != null)
+        {
+            Vector2 lOPointer = Mouse.current.position.ReadValue();
+
+            if (!UWModernPointer.IsOverUi(lOPointer))
+                return Camera.main.ScreenPointToRay(lOPointer);
+        }
+
+        return fGetInteractionRay();
+    }
+
+    private void fAimAtModern(out UWEntityInfo pOFrontmost, out string psChunk, out UWEntityInfo pOPickable)
+    {
+        fAimAt(fGetModernAimRay(), out pOFrontmost, out psChunk, out pOPickable);
+    }
+
+    /// <summary>The thing a menu would be for under a screen point: the frontmost thing, or the
+    /// pickable one behind geometry; not a wall panel (a piece of wall).</summary>
+    private UWEntityInfo fWorldThingAt(Vector2 pOPointer, out UWEntityInfo pOPickableBehind)
+    {
+        pOPickableBehind = null;
+
+        if (Camera.main == null)
+            return null;
+
+        fAimAt(Camera.main.ScreenPointToRay(pOPointer), out UWEntityInfo lOFront, out string _, out UWEntityInfo lOPickable);
+
+        UWEntityInfo lOTarget = !fIsGeometry(lOFront) ? lOFront : lOPickable;
+
+        if (fIsGeometry(lOTarget) || lOTarget.ObjectData.ID == WallPanelObjectId || lOTarget.ObjectData.ID == WallPanelObjectId + 1)
+            return null;
+
+        pOPickableBehind = lOTarget == lOFront ? lOPickable : null;
+        return lOTarget;
+    }
+
+    /// <summary>Whether a thing's menu can open on this spot.</summary>
+    public bool HasWorldThingAt(Vector2 pOPointer)
+    {
+        return !fIsOriginalScheme() && (mInventory == null || mInventory.CursorItem == null) && !IsSpellTargeting
+            && (UWModernBags.Instance == null || !UWModernBags.Instance.IsUsing)
+            && fWorldThingAt(pOPointer, out UWEntityInfo _) != null;
+    }
+
+    /// <summary>A left click on a thing in the world with the free pointer: its menu
+    /// (UWModernBags.OpenWorldMenu) - true if there was a thing.</summary>
+    public bool TryOpenWorldMenu(Vector2 pOPointer)
+    {
+        if (!HasWorldThingAt(pOPointer) || UWModernBags.Instance == null)
+            return false;
+
+        UWEntityInfo lOTarget = fWorldThingAt(pOPointer, out UWEntityInfo lOPickable);
+        bool lbCreature = fIsCreature(lOTarget);
+
+        UWModernBags.Instance.OpenWorldMenu(lOTarget, lOPickable, lbCreature, lOTarget.CanBePickedUp && !lbCreature, pOPointer);
+        return true;
+    }
+
+    /// <summary>The world menu's Use and Talk: the direct use of E held (fModernUseOn).</summary>
+    public void ModernUseThing(UWEntityInfo pOTarget, UWEntityInfo pOPickableBehind)
+    {
+        fModernUseOn(true, pOTarget, pOPickableBehind);
+    }
+
+    /// <summary>
+    /// A thing from the world onto the pointer (the free pointer's drag, the world menu's Pick up):
+    /// with the hand's reach, the carrying capacity ("That is too heavy for you to pick up."), the
+    /// theft and the moonstone, as taking it does (fTryPickUp, UWItemDrag.fTakeFromSource); a
+    /// stack whole. True when it hangs on the pointer.
+    /// </summary>
+    public bool TakeOntoPointer(UWEntityInfo pOTarget)
+    {
+        if (pOTarget == null || pOTarget.ObjectData == null || !pOTarget.CanBePickedUp || fIsCreature(pOTarget)
+            || mInventory == null || mInventory.CursorItem != null)
+            return false;
+
+        if (!TryReachForPickup(pOTarget))
+            return false;
+
+        if (!mInventory.CanCarry(pOTarget.ObjectData))
+        {
+            AddGeneralMessage(96);
+            return false;
+        }
+
+        ReportTheft(pOTarget.ObjectData);
+        UWMoonstoneRules.OnTakenFromWorld(pOTarget.ObjectData);
+        mInventory.BeginDragFromWorld(pOTarget);
+
+        return mInventory.CursorItem != null;
+    }
+
+    /// <summary>How long E has to be held for the direct use.</summary>
+    private const float ModernUseHoldSeconds = 0.4f;
+
+    /// <summary>How long E has been held, -1 when it is not (or the press was taken elsewhere).</summary>
+    private float mfModernUseHeld = -1f;
+
+    private bool mbModernUseHoldFired;
+
+    /// <summary>How far the hold of E has come, 0 to 1, for the HUD; -1 while there is none to
+    /// show (not held, just tapped, or already fired).</summary>
+    public float ModernUseHoldProgress => mfModernUseHeld >= 0.1f && !mbModernUseHoldFired
+        ? Mathf.Clamp01(mfModernUseHeld / ModernUseHoldSeconds) : -1f;
+
+    private void fUpdateModernUseKey()
+    {
+        InputAction lOKey = mInput.ModernUse;
+
+        if (lOKey.WasPressedThisFrame())
+        {
+            mfModernUseHeld = 0f;
+            mbModernUseHoldFired = false;
+            return;
+        }
+
+        if (mfModernUseHeld < 0f)
+            return;
+
+        if (lOKey.IsPressed())
+        {
+            mfModernUseHeld += Time.unscaledDeltaTime;
+
+            if (!mbModernUseHoldFired && mfModernUseHeld >= ModernUseHoldSeconds)
+            {
+                mbModernUseHoldFired = true;
+                fModernUse(true);
+            }
+
+            return;
+        }
+
+        // Released (or lost while a panel held the world): a tap that did not reach the hold.
+        if (lOKey.WasReleasedThisFrame() && !mbModernUseHoldFired)
+            fModernUse(false);
+
+        mfModernUseHeld = -1f;
+    }
+
+    /// <summary>What lies under the crosshair, measured as the right button's press measures it
+    /// (fBeginWorldPointer): the frontmost thing or the wall/floor texture, and the pickable thing
+    /// behind a blood pool or bone pile. Beyond the sight nothing.</summary>
+    private void fAimAtCrosshair(out UWEntityInfo pOFrontmost, out string psChunk, out UWEntityInfo pOPickable)
+    {
+        fAimAt(fGetInteractionRay(), out pOFrontmost, out psChunk, out pOPickable);
+    }
+
+    /// <summary>The same along any ray - the free pointer's (fGetModernAimRay).</summary>
+    private void fAimAt(Ray lORay, out UWEntityInfo pOFrontmost, out string psChunk, out UWEntityInfo pOPickable)
+    {
+        pOFrontmost = null;
+        psChunk = null;
+        pOPickable = null;
+
+        if (!fRaycastPastEffects(lORay, LookRayRange, out RaycastHit lHit) || !fIsWithinSight(lHit))
+            return;
+
+        pOFrontmost = lHit.collider.GetComponentInParent<UWEntityInfo>();
+        psChunk = pOFrontmost == null ? fDescribeChunkHit(lHit) : null;
+        pOPickable = TryGetPickupTarget(lORay);
+    }
+
+    /// <summary>
+    /// The context key does WHAT THE CLASSIC RIGHT-BUTTON DRAG DOES (per user, 2026-10-03; the
+    /// default gesture of UWClickRules): over something pickable the drag takes it - here
+    /// straight into the backpack, as there is no pointer to put it on, with the reach of the
+    /// hand ("That is too far away to take.") -; otherwise the release uses what was under the
+    /// pointer: a creature is talked to, a door, switch, lever or container is used
+    /// (UseTarget). Besides, a shrine takes the mantra and the chained princess answers as
+    /// talking to her does (fTalkToThing). On a wall, the floor or nothing: "You cannot use
+    /// that.", as the original's use mode says there.
+    ///
+    /// pbDirect (E held): no taking - the thing is used as the original's use mode uses it, and
+    /// what has no use stays where it is.
+    /// </summary>
+    private void fModernUse(bool pbDirect)
+    {
+        fAimAtModern(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
+        fModernUseOn(pbDirect, lOFrontmost, lOPickable);
+    }
+
+    private void fModernUseOn(bool pbDirect, UWEntityInfo lOFrontmost, UWEntityInfo lOPickable)
+    {
+        UWEntityInfo lOTake = lOFrontmost != null && lOFrontmost.CanBePickedUp ? lOFrontmost : lOPickable;
+
+        if (!pbDirect && lOTake != null && !fIsCreature(lOTake))
+        {
+            if (TryReachForPickup(lOTake))
+                GetTarget(lOTake);
+
+            return;
+        }
+
+        if (fIsGeometry(lOFrontmost))
+        {
+            // Geometry in front with something pickable behind it (direct use only - the default
+            // took it above): that thing.
+            if (lOPickable != null)
+                UseTarget(lOPickable, null, false);
+            else
+                AddGeneralMessage(UWClickRules.CannotUseThatMessage);
+
+            return;
+        }
+
+        int liObjectId = lOFrontmost != null && lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
+        UWClickRules.ThingTalkAnswer leThing = UWClickRules.TalkToThing(liObjectId,
+            lOFrontmost != null && lOFrontmost.IsChainedPrincess);
+
+        if (!fIsCreature(lOFrontmost) && leThing != UWClickRules.ThingTalkAnswer.CannotTalk)
+        {
+            fTalkToThing(lOFrontmost);
+            return;
+        }
+
+        UseTarget(lOFrontmost, lOPickable, !pbDirect);
+    }
+
     /// <summary>
     /// How far the eye reaches. LOOKING HAS NO RANGE OF ITS OWN in the original (the reference
     /// calls look.LookAt without any reach check) - what limits it is the renderer: the tile band
@@ -816,7 +1187,7 @@ public class Interaction : MonoBehaviour
     /// works at any distance. Out of reach the original answers "You are unable to use that from
     /// here." (per user, 2026-09-18; until then we silently did nothing).
     /// </summary>
-    public void UseTarget(UWEntityInfo pOTarget, UWEntityInfo pOPickableBehind)
+    public void UseTarget(UWEntityInfo pOTarget, UWEntityInfo pOPickableBehind, bool pbPickUpWhenUnused = true)
     {
         if (mbLogUseAttempts)
         {
@@ -881,9 +1252,9 @@ public class Interaction : MonoBehaviour
         // Modern has no dragging, so the direct right-click pickup path remains there; if
         // something non-pickable lies in front (blood pool over the loot), the item behind it
         // is picked up.
-        else if (!fIsOriginalScheme() && pOTarget != null && pOTarget.CanBePickedUp)
+        else if (pbPickUpWhenUnused && !fIsOriginalScheme() && pOTarget != null && pOTarget.CanBePickedUp)
             GetTarget(pOTarget);
-        else if (!fIsOriginalScheme() && pOTarget != null && !pOTarget.CanBePickedUp && pOPickableBehind != null)
+        else if (pbPickUpWhenUnused && !fIsOriginalScheme() && pOTarget != null && !pOTarget.CanBePickedUp && pOPickableBehind != null)
             GetTarget(pOPickableBehind);
     }
 
@@ -938,10 +1309,24 @@ public class Interaction : MonoBehaviour
             return;
 
         IsCombatModeActive = !IsCombatModeActive;
-        mAttackDuration = 0f;
+        fResetAttackState();
 
         // The weapon is mode 2 of the original and replaces talk, get and look.
         CommandMode = UWCommandMode.None;
+    }
+
+    /// <summary>
+    /// Forgets a charge and a strike still waiting for its hit frame - whenever the weapon goes
+    /// away or comes out. Per user, 2026-10-03 (modern scheme): jumping into water mid-strike put
+    /// the weapon away before the hit frame came, the pending strike stayed set, and no strike
+    /// started again until the original scheme's press path, which does not look at it, got one
+    /// through; putting the weapon away and drawing it again did not help.
+    /// </summary>
+    private void fResetAttackState()
+    {
+        mAttackDuration = 0f;
+        IsAttacking = false;
+        mbAttackPending = false;
     }
 
     private UWPlayerTerrain mOPlayerTerrain;
@@ -1760,7 +2145,7 @@ public class Interaction : MonoBehaviour
             // The eyes at the top show the condition of the CREATURE just hit - not of a door, a
             // chest or a barrel (per user on the original, 2026-09-24).
             if (mEyes != null && fIsCreature(lOTarget))
-                mEyes.ShowCondition(mOUWDataImporter, lODamageable.HealthFraction);
+                mEyes.ShowCondition(mOUWDataImporter, lODamageable.HealthFraction, fFoeName(lOTarget));
         }
 
         // NO LINE IN THE LOG: AttackerAppliesFinalDamage_seg022_8A5 prints nothing for a blow on
@@ -1927,7 +2312,9 @@ public class Interaction : MonoBehaviour
         if (mLevelLoader == null || Camera.main == null)
             return false;
 
-        Ray lORay = fGetInteractionRay();
+        // The modern scheme shoots where the free pointer stands on the world, else along the
+        // crosshair (per user, 2026-10-04: the shot always left from the crosshair).
+        Ray lORay = fIsOriginalScheme() ? fGetInteractionRay() : fGetModernAimRay();
         float lfSpeed = mOUWDataImporter.ObjectProperties.GetRangedSpeed(piAmmunitionId) * UWSpellProjectile.SpeedFactor;
         Vector3 lODirection;
         Vector3 lOStart;
@@ -2140,30 +2527,79 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private void fChooseAttackKind()
     {
+        // THE MODERN SCHEME takes the view's height for the pointer's third (per user, 2026-10-03,
+        // after trying the mouse movement while winding up - the view turned with it and the kind
+        // came out unreliably): looking up an overhead bash, down a thrust, straight a slash,
+        // fixed when the button goes down, as in the original.
+        //
+        // WITH THE POINTER FREE the original's thirds again, of the screen - the modern view fills
+        // it (per user, 2026-10-04): upper third an overhead bash, lower a thrust, between a slash.
+        if (!fIsOriginalScheme() && fIsPointerFree() && Mouse.current != null)
+        {
+            float lfAt = Mouse.current.position.ReadValue().y / Mathf.Max(1f, Screen.height);
+
+            if (lfAt >= UpperThirdFraction)
+                fSetAttackKind(AttackTypes.Hack);
+            else if (lfAt <= LowerThirdFraction)
+                fSetAttackKind(AttackTypes.Stab);
+            else
+                fSetAttackKind(AttackTypes.Slash);
+
+            return;
+        }
+
+        if (!fIsOriginalScheme())
+        {
+            float lfPitch = fGetViewPitchUp();
+
+            if (lfPitch >= ModernSwingPitch)
+                fSetAttackKind(AttackTypes.Hack);
+            else if (lfPitch <= -ModernSwingPitch)
+                fSetAttackKind(AttackTypes.Stab);
+            else
+                fSetAttackKind(AttackTypes.Slash);
+
+            return;
+        }
+
         float lfFraction = mGameUi != null
             ? mGameUi.GetVerticalFractionInGameArea(Mouse.current.position.ReadValue())
             : 0.5f;
 
-        AttackTypes leKind;
-
         if (lfFraction >= UpperThirdFraction)
-        {
-            leKind = AttackTypes.Hack;
-            mCurrentAttack = AttackEnum.Jab;
-        }
+            fSetAttackKind(AttackTypes.Hack);
         else if (lfFraction <= LowerThirdFraction)
-        {
-            leKind = AttackTypes.Stab;
-            mCurrentAttack = AttackEnum.Stab;
-        }
+            fSetAttackKind(AttackTypes.Stab);
         else
+            fSetAttackKind(AttackTypes.Slash);
+    }
+
+    /// <summary>Sets both the kind for the damage (mCurrentAttack) and the one for the weapon
+    /// animation (UWCharacter.CurrentAttackType, read every frame, so a change while the weapon
+    /// winds up shows at once).</summary>
+    private void fSetAttackKind(AttackTypes peKind)
+    {
+        switch (peKind)
         {
-            leKind = AttackTypes.Slash;
-            mCurrentAttack = AttackEnum.Slash;
+            case AttackTypes.Hack: mCurrentAttack = AttackEnum.Jab; break;
+            case AttackTypes.Stab: mCurrentAttack = AttackEnum.Stab; break;
+            default: mCurrentAttack = AttackEnum.Slash; break;
         }
 
         if (mCharacter != null)
-            mCharacter.CurrentAttackType = leKind;
+            mCharacter.CurrentAttackType = peKind;
+    }
+
+    /// <summary>How far the view has to look up or down, in degrees, for a bash or a thrust
+    /// (modern scheme).</summary>
+    private const float ModernSwingPitch = 12f;
+
+    /// <summary>The camera's pitch in degrees, positive looking up.</summary>
+    private float fGetViewPitchUp()
+    {
+        Camera lOCamera = Camera.main;
+
+        return lOCamera != null ? -Mathf.DeltaAngle(0f, lOCamera.transform.eulerAngles.x) : 0f;
     }
 
     /// <summary>
@@ -2918,7 +3354,21 @@ public class Interaction : MonoBehaviour
             lOScheme.SetUiModal(TypedInputHold, pbHold);
 
         UWMouseButtons.IsBlockedByPrompt = pbHold;
-        Cursor.visible = !pbHold;
+
+        // The modern scheme's box shows the pointer (UWModernQuestion) - hidden here it stayed
+        // invisible under it (as with the yes/no questions).
+        if (fIsOriginalScheme())
+            Cursor.visible = !pbHold;
+    }
+
+    /// <summary>For the modern scheme's mantra box (UWModernQuestion): the typed text so far.</summary>
+    public string MantraText => msMantra;
+
+    /// <summary>The mantra box's OK (as Enter) or Cancel (as Escape).</summary>
+    public void FinishMantra(bool pbCancel)
+    {
+        if (mbChanting)
+            fFinishMantra(pbCancel, false);
     }
 
     /// <summary>Lifts the hold of an input that a mouse button ended, once no button is held.
@@ -2968,7 +3418,8 @@ public class Interaction : MonoBehaviour
         // Read straight from the mouse: UWMouseButtons is blocked for the game meanwhile.
         Mouse lOMouse = Mouse.current;
 
-        bool lbByMouse = lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame
+        // The modern scheme's box takes the mouse: OK and Cancel (UWModernQuestion).
+        bool lbByMouse = fIsOriginalScheme() && lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame
             || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame);
 
         bool lbDone = lOKeyboard.enterKey.wasPressedThisFrame
@@ -2979,10 +3430,31 @@ public class Interaction : MonoBehaviour
         if (!lbDone && !lbCancel)
             return true;
 
+        fFinishMantra(lbCancel, lbByMouse);
+
+        return true;
+    }
+
+    private void fFinishMantra(bool lbCancel, bool lbByMouse)
+    {
         mbChanting = false;
 
         if (Keyboard.current != null)
             Keyboard.current.onTextInput -= fOnMantraInput;
+
+        // THE MODERN SCHEME: cancelling (Cancel, the right button, Escape) leaves no trace - the
+        // prompt line goes from the messages and nothing is chanted (per user, 2026-10-04); the
+        // classic scheme keeps the original's dash and "That is not a mantra."
+        if (lbCancel && !fIsOriginalScheme())
+        {
+            if (miPromptLine >= 0 && miPromptLine < mOActiveStrings.Count)
+                mOActiveStrings.RemoveAt(miPromptLine);
+
+            miPromptLine = -1;
+            msMantra = string.Empty;
+            fHoldForTypedInput(false);
+            return;
+        }
 
         // Escape: the original writes a dash for the answer and chants the empty text.
         if (lbCancel)
@@ -3001,8 +3473,6 @@ public class Interaction : MonoBehaviour
         UWShrine.Chant(msMantra, mCharacter, this, mOUWDataImporter);
 
         msMantra = string.Empty;
-
-        return true;
     }
 
     // ------------------------------------------------- Repair
@@ -3015,10 +3485,14 @@ public class Interaction : MonoBehaviour
     /// same way (per user from the original, 2026-09-17 on repairing, 2026-09-30: "it must work
     /// exactly like there" for the trap): the pointer disappears while the question stands;
     /// "Yes" is preset; Y (and J) and N only switch the shown answer, Enter confirms it, Escape
-    /// answers no; a RIGHT click confirms "Yes", a LEFT click turns it into "No" and cancels.
+    /// answers no; a RIGHT click confirms "Yes", a LEFT click turns it into "No" and cancels -
+    /// in the modern scheme a box with OK and Cancel takes the mouse (UWModernQuestion).
     /// Not in the frame the question was asked, whose click chose the item.
     /// </summary>
     private bool mbAskingYesNo;
+
+    /// <summary>The question hid the pointer (the classic scheme only), so the answer shows it again.</summary>
+    private bool mbYesNoHidCursor;
 
     /// <summary>Frame in which the question was asked.</summary>
     private int miYesNoAskedFrame = -1;
@@ -3042,8 +3516,16 @@ public class Interaction : MonoBehaviour
         miYesNoAskedFrame = Time.frameCount;
         mOYesNoAnswered = pOAnswered;
 
-        mbYesNoCursorWasVisible = Cursor.visible;
-        Cursor.visible = false;
+        // The modern scheme's box shows the pointer itself (UWModernQuestion, under a modal hold);
+        // hidden here and shown again by the hold in the same moment, Windows kept it invisible
+        // until it left the window (per user, 2026-10-04).
+        mbYesNoHidCursor = fIsOriginalScheme();
+
+        if (mbYesNoHidCursor)
+        {
+            mbYesNoCursorWasVisible = Cursor.visible;
+            Cursor.visible = false;
+        }
 
         msYesNoQuestion = psQuestion;
         mbYesNoAnswer = true;
@@ -3076,7 +3558,10 @@ public class Interaction : MonoBehaviour
             lbNo = !mbYesNoAnswer;
         }
 
-        if (Mouse.current != null && Time.frameCount != miYesNoAskedFrame)
+        // THE MODERN SCHEME answers with the mouse in its own box (UWModernQuestion, per user
+        // 2026-10-04: OK and Cancel, every question there alike; a right click both answered and
+        // switched the pointer).
+        if (Mouse.current != null && Time.frameCount != miYesNoAskedFrame && fIsOriginalScheme())
         {
             lbYes |= UWMouseButtons.RightPressed;
             lbNo |= UWMouseButtons.LeftPressed;
@@ -3088,8 +3573,30 @@ public class Interaction : MonoBehaviour
         if (lbYes && lbNo)
             lbYes = false;
 
+        fFinishYesNo(lbYes);
+
+        return true;
+    }
+
+    /// <summary>For the modern scheme's question box (UWModernQuestion): a question is open, and
+    /// its text.</summary>
+    public bool IsAskingYesNo => mbAskingYesNo;
+
+    public string YesNoQuestion => msYesNoQuestion;
+
+    /// <summary>The modern question box's OK (true) or Cancel (false).</summary>
+    public void AnswerYesNo(bool pbYes)
+    {
+        if (mbAskingYesNo)
+            fFinishYesNo(pbYes);
+    }
+
+    private void fFinishYesNo(bool lbYes)
+    {
         mbAskingYesNo = false;
-        Cursor.visible = mbYesNoCursorWasVisible;
+
+        if (mbYesNoHidCursor)
+            Cursor.visible = mbYesNoCursorWasVisible;
 
         // The answer stays in the log: a cancel shows "No".
         SetPromptMessage(msYesNoQuestion + (lbYes ? "Yes" : "No"));
@@ -3100,8 +3607,6 @@ public class Interaction : MonoBehaviour
 
         if (lOAnswered != null)
             lOAnswered(lbYes);
-
-        return true;
     }
 
     private void fShowYesNoAnswer(bool pbYes)
@@ -3610,14 +4115,16 @@ public class Interaction : MonoBehaviour
             return;
         }
 
-        if (mInventory.TryAddToBackpack(pOTarget.ObjectData))
+        // Onto a stack, the backpack, or into a bag that takes it (UWInventoryModel.
+        // DropCursorItemAnywhere, per user 2026-10-03: a full backpack used to stop every pickup).
+        if (mInventory.TryStoreAnywhere(pOTarget.ObjectData))
         {
             ReportTheft(pOTarget.ObjectData);
             UWMoonstoneRules.OnTakenFromWorld(pOTarget.ObjectData);
             mInventory.RemoveWorldObject(pOTarget);
         }
         else
-            mOActiveStrings.Add("Backpack is full.");
+            mOActiveStrings.Add("Your pack and bags are full.");
     }
 
     /// <summary>
@@ -4417,6 +4924,30 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
+    /// <summary>The modern scheme's aim after a cast from runes or an item (UWHudRunes.fAfterModernCast,
+    /// UWItemDrag.UseCarriedItem): a projectile with the pointer locked flies at once towards the
+    /// crosshair; free, or a target spell, waits for the left button.</summary>
+    public void AfterModernCast()
+    {
+        if (fIsOriginalScheme() || !IsSpellTargeting)
+            return;
+
+        if (IsTargetSpellPending || fIsPointerFree())
+            AddMessage("Choose the target with the left button.");
+        else
+            FirePendingSpell();
+    }
+
+    /// <summary>Escape in the modern scheme: a waiting spell is let go (a projectile's mana was not
+    /// paid yet, a target spell's was - as when its click hits nothing).</summary>
+    public void CancelPendingSpell()
+    {
+        miPendingProjectileId = -1;
+        miPendingManaCost = 0;
+        miPendingTargetSpell = -1;
+        miPendingTargetSpellMajor = -1;
+    }
+
     /// <summary>Discards a queued projectile without throwing it - for a spell trap
     /// whose projectile could not take off. Otherwise the player would be left with it as an aiming cursor.
     /// </summary>
@@ -4490,7 +5021,9 @@ public class Interaction : MonoBehaviour
     private const int NothingHappensMessage = 272;
 
     /// <summary>Intercepts the click that gives the target.</summary>
-    private void fApplyTargetSpell()
+    /// <summary>The waiting target spell onto what lies under a screen point - the pointer, or in
+    /// the modern scheme the crosshair while the pointer is locked.</summary>
+    private void fApplyTargetSpell(Vector2 pOAt)
     {
         int liSpell = miPendingTargetSpell;
         int liMajor = miPendingTargetSpellMajor;
@@ -4498,12 +5031,12 @@ public class Interaction : MonoBehaviour
         miPendingTargetSpell = -1;
         miPendingTargetSpellMajor = -1;
 
-        UWEntityInfo lOTarget = TryGetPickupTargetAt(Mouse.current.position.ReadValue());
+        UWEntityInfo lOTarget = TryGetPickupTargetAt(pOAt);
 
         // TryGetPickupTargetAt only returns pickable things - creatures and doors are
         // not among them. Hence a separate ray here that takes whatever it hits.
         if (lOTarget == null && Camera.main != null
-            && fRaycastPastEffects(fGetInteractionRay(), LookRayRange, out RaycastHit lOHit))
+            && fRaycastPastEffects(Camera.main.ScreenPointToRay(pOAt), LookRayRange, out RaycastHit lOHit))
             lOTarget = lOHit.collider.GetComponentInParent<UWEntityInfo>();
 
         bool lbDone = liMajor == UWMiscSpell.MajorClass
@@ -4569,6 +5102,34 @@ public class Interaction : MonoBehaviour
         if (!lbRightButton && !UWMouseButtons.LeftPressed)
             return true;
 
+        // THE MODERN SCHEME (per user, 2026-10-04): the right button switches the pointer there,
+        // so the LEFT button gives the target - through the crosshair, or under the free pointer;
+        // on a window of the modern UI the window has the click (a bag slot takes an item target,
+        // UWModernBags). See UWHudRunes.fAfterModernCast.
+        if (!fIsOriginalScheme())
+        {
+            if (!UWMouseButtons.LeftPressed)
+                return true;
+
+            bool lbFree = fIsPointerFree() && Mouse.current != null;
+            Vector2 lOAt = lbFree ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+            if (lbFree && UWModernPointer.IsOverUi(lOAt))
+                return true;
+
+            if (miPendingTargetSpell >= 0)
+            {
+                fApplyTargetSpell(lOAt);
+                return true;
+            }
+
+            // A projectile flies towards the click (UWHudRunes.fAfterModernCast: it waits only
+            // when cast with the pointer free).
+            fLaunchSpellProjectile(Camera.main != null ? Camera.main.ScreenPointToRay(lOAt) : (Ray?)null);
+            miPendingProjectileId = -1;
+            return true;
+        }
+
         // Outside the view window you do not point into the world. The click on the
         // backpack is evaluated by UWItemDrag (fTryResolveTargetSpellInInventory) - there, because
         // it can also still have its usual effect there.
@@ -4588,7 +5149,7 @@ public class Interaction : MonoBehaviour
 
         if (miPendingTargetSpell >= 0)
         {
-            fApplyTargetSpell();
+            fApplyTargetSpell(Mouse.current.position.ReadValue());
 
             return true;
         }
@@ -4600,12 +5161,14 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
-    private void fLaunchSpellProjectile()
+    /// <summary>Sends the waiting projectile off - along pOAim when given (the modern scheme's
+    /// click under the free pointer), else along the interaction ray.</summary>
+    private void fLaunchSpellProjectile(Ray? pOAim = null)
     {
         if (mLevelLoader == null || Camera.main == null)
             return;
 
-        Ray lORay = fGetInteractionRay();
+        Ray lORay = pOAim ?? fGetInteractionRay();
         Vector3 lODirection;
         Vector3 lOStart;
 
@@ -4723,7 +5286,24 @@ public class Interaction : MonoBehaviour
 
         // Only for a creature - see fApplyMeleeHit.
         if (mEyes != null && pODamageable != null && fIsCreature(pOTarget))
-            mEyes.ShowCondition(mOUWDataImporter, pODamageable.HealthFraction);
+            mEyes.ShowCondition(mOUWDataImporter, pODamageable.HealthFraction, fFoeName(pOTarget));
+    }
+
+    /// <summary>The bare name of a creature hit, capitalised - for the modern heading strip
+    /// (UWModernHud), as the crosshair names it.</summary>
+    private string fFoeName(UWEntityInfo pOTarget)
+    {
+        if (pOTarget == null || pOTarget.ObjectData == null || mOUWDataImporter == null)
+            return null;
+
+        string lsRaw = mOUWDataImporter.GetObjectDescription(pOTarget.ObjectData.ID + 1);
+
+        if (string.IsNullOrEmpty(lsRaw))
+            return null;
+
+        string lsName = UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, false);
+
+        return string.IsNullOrEmpty(lsName) ? null : char.ToUpperInvariant(lsName[0]) + lsName.Substring(1);
     }
 
     /// <summary>
@@ -4783,33 +5363,38 @@ public class Interaction : MonoBehaviour
         }
     }
 
-    private void OnGUI()
+    /// <summary>The first of the two wall panels, 0x16E and 0x16F.</summary>
+    private const int WallPanelObjectId = 0x16E;
+
+    /// <summary>
+    /// The name of what the crosshair is on, for the modern HUD (UWModernHud) - the bare object
+    /// name out of string block 4 ("goblin", "door"), plural for a stack. Without the look's
+    /// side effects (identifying, trap search, look triggers); nothing for walls, floors,
+    /// wall panels, geometry and what lies beyond the sight.
+    /// </summary>
+    public string GetCrosshairTargetName()
     {
-        // With Original, UWGameUI now shows the log in the original frame box (a real UGUI
-        // text field instead of this crude OnGUI output, see fRefreshMessageLog) - here only
-        // as a fallback for Modern, which has no classic frame graphics.
-        if (mControlScheme == null || mControlScheme.Current != UWControlScheme.SchemeEnum.Modern)
-            return;
+        if (mOUWDataImporter == null)
+            return null;
 
-        StringBuilder lOTextToDisplay = new StringBuilder();
+        fAimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
 
-        foreach (string lsString in mOActiveStrings)
-            lOTextToDisplay.AppendLine(lsString);
+        UWEntityInfo lOTarget = fIsGeometry(lOFrontmost) ? lOPickable : lOFrontmost;
 
-        GUI.Label(new Rect(10, 220, 500, 500), lOTextToDisplay.ToString());
+        if (fIsGeometry(lOTarget))
+            return null;
 
-        // With Modern the mouse cursor is invisible and locked - a crosshair shows
-        // where fGetInteractionRay() aims. With Original the visible cursor itself
-        // makes the target clear.
-        fDrawCrosshair();
-    }
+        // A WALL PANEL (0x16E/0x16F, "special tmap obj") is a piece of wall - the look describes
+        // its wall texture; it gets no name, as a wall gets none (per user, 2026-10-03).
+        if (lOTarget.ObjectData.ID == WallPanelObjectId || lOTarget.ObjectData.ID == WallPanelObjectId + 1)
+            return null;
 
-    private void fDrawCrosshair()
-    {
-        const float lfSize = 3f;
-        float lfCenterX = Screen.width * 0.5f;
-        float lfCenterY = Screen.height * 0.5f;
+        UWObject lOObject = lOTarget.ObjectData;
+        string lsRaw = mOUWDataImporter.GetObjectDescription(lOObject.ID + 1);
 
-        GUI.DrawTexture(new Rect(lfCenterX - lfSize, lfCenterY - lfSize, lfSize * 2f, lfSize * 2f), Texture2D.whiteTexture);
+        if (string.IsNullOrEmpty(lsRaw))
+            return null;
+
+        return UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, lOObject.HasQuantity && lOObject.Quantity > 1);
     }
 }

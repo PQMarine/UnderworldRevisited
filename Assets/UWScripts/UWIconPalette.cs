@@ -42,6 +42,34 @@ public static class UWIconPalette
             pOGraphic.material = lOMaterial;
     }
 
+    private static Material mOSmoothMaterial;
+
+    /// <summary>
+    /// The same with the shader's UW_PIXEL_SMOOTH: for the modern UI, whose free scale is often
+    /// no whole number (UWModernHud.PixelScale) - each texel stays a hard square, only the seams
+    /// are blended. One shared material as well, so batching stays.
+    /// </summary>
+    public static void ApplySmooth(Graphic pOGraphic)
+    {
+        if (pOGraphic == null)
+            return;
+
+        if (mOSmoothMaterial == null)
+        {
+            Material lOBase = fGetMaterial();
+
+            if (lOBase == null)
+                return;
+
+            mOSmoothMaterial = new Material(lOBase);
+            mOSmoothMaterial.name = "UW Icons (Palette, smooth)";
+            mOSmoothMaterial.EnableKeyword("UW_PIXEL_SMOOTH");
+        }
+
+        if (pOGraphic.material != mOSmoothMaterial)
+            pOGraphic.material = mOSmoothMaterial;
+    }
+
     private static Material fGetMaterial()
     {
         if (mOMaterial != null || mbMissing)

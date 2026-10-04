@@ -12,7 +12,7 @@ using UnityEngine;
 ///
 /// WHICH OBJECTS: everything standing in the world as a sprite (shader UW/Billboard), except the
 /// light sources from UWRemasterLights - a campfire casting a dark blob would be
-/// wrong. Wall decorations (UW/Decal), doors and 3D models get none.
+/// wrong - and what flies (UWSpellProjectile). Wall decorations (UW/Decal), doors and 3D models get none.
 ///
 /// HOW BIG: as wide as the collider in plan view. For items that is the
 /// image width, for creatures the radius from COMOBJ.DAT (UWObjectSpawner.
@@ -127,6 +127,11 @@ public class UWRemasterGroundShadows : MonoBehaviour
             return null;
 
         if (UWRemasterLights.IsLightSource(pOEntity.ObjectData.ID))
+            return null;
+
+        // Nothing in flight - spell missiles, thrown things, arrows (per user, 2026-10-04: the
+        // blob flew along under them). A thrown thing that lands is a new object and gets its blob.
+        if (pOEntity.GetComponent<UWSpellProjectile>() != null)
             return null;
 
         MeshRenderer lORenderer = pOEntity.GetComponent<MeshRenderer>();

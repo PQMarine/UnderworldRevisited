@@ -29,6 +29,9 @@ Shader "UW/BillboardPalette"
         [HideInInspector] _SrcBlend ("Source blend", Float) = 1
         [HideInInspector] _DstBlend ("Destination blend", Float) = 0
         [HideInInspector] _ZWrite ("Write depth", Float) = 1
+
+        // A spell missile glows by itself (UWSpellProjectile, per renderer, per user 2026-10-04).
+        [HideInInspector] _Glow ("Glows by itself", Float) = 0
     }
 
     SubShader
@@ -75,6 +78,7 @@ Shader "UW/BillboardPalette"
                 float _SrcBlend;
                 float _DstBlend;
                 float _ZWrite;
+                float _Glow;
             CBUFFER_END
 
             // NO access to a vertex channel. Sprites only have position and UV; the
@@ -164,6 +168,11 @@ Shader "UW/BillboardPalette"
 
                     return half4(UWXferColour(lfTable, lOBehind), 1.0h);
                 }
+
+                // A SPELL MISSILE GLOWS: the palette's own colour, as at full brightness - neither
+                // the distance nor the light level darkens it (per user, 2026-10-04).
+                if (_Glow > 0.5)
+                    return half4(UWShadeLookup(UWRotateIndex(UWToIndex(raw.r)), 0.0).rgb, raw.a);
 
                 return UWPaletteColour(raw, IN.pivotWS, _WorldSpaceCameraPos, IN.positionCS.xy);
             }

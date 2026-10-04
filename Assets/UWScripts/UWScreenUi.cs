@@ -255,7 +255,7 @@ public static class UWScreenUi
 
     /// <summary>
     /// Is the main menu or character creation showing? Then the only pointer is the cross
-    /// (UWGameUI), and the special keys B, N and F stay silent (DebugFunctions,
+    /// (UWGameUI), and the special keys F11 (B until 2026-10-03), N and F stay silent (DebugFunctions,
     /// UWGameUI.fCheckFontToggle) - per user, 2026-09-11. Otherwise, typing the name
     /// would toggle brightness and spectator mode as a side effect.
     /// </summary>

@@ -29,6 +29,12 @@ using UWDataImport.UWData;
 /// modern one, depending on the choice made with key F (see UWGameUI.fCheckFontToggle).
 ///
 /// Selection is made with the number keys 1 to 9 or by mouse click on the line.
+///
+/// THE MODERN SCHEME (stage 4, per user on a mockup, 2026-10-04) keeps this screen as the
+/// conversation's driver - the session, the answers by key, the typed answer, the end - but hides
+/// its canvas: UWModernConversation draws the conversation instead (portraits, trade areas, the
+/// history on leather, the answers) and the modern bags do the trading. There the text never
+/// pauses for [MORE] (the history scrolls), and a click chooses on the modern answer rows.
 /// </summary>
 public class UWConversationScreen : MonoBehaviour
 {
@@ -398,6 +404,10 @@ public class UWConversationScreen : MonoBehaviour
     {
         fFollowHelpLayout();
 
+        // The modern scheme draws the conversation itself (UWModernConversation).
+        if (mOCanvas != null)
+            mOCanvas.enabled = !fIsModern();
+
         if (mOSession == null)
             return;
 
@@ -410,7 +420,18 @@ public class UWConversationScreen : MonoBehaviour
         // The look text gives way after its two seconds - or at once on a left click, which
         // only brings the answers back and chooses nothing (per user on the original,
         // 2026-09-18).
-        bool lbLookTextCutShort = mfLookTextUntil >= 0f && UWMouseButtons.LeftReleased;
+        // THE PRESS THAT SHOWED IT does not cut it short: the modern context menu's Look acts on the
+        // press, and its release came a frame later and took the text away at once (per user,
+        // 2026-10-04).
+        bool lbLookRelease = mfLookTextUntil >= 0f && UWMouseButtons.LeftReleased;
+
+        if (lbLookRelease && mbLookIgnoresRelease)
+        {
+            mbLookIgnoresRelease = false;
+            lbLookRelease = false;
+        }
+
+        bool lbLookTextCutShort = lbLookRelease;
 
         if (lbLookTextCutShort)
             miLookTextCutFrame = Time.frameCount;
@@ -624,6 +645,15 @@ public class UWConversationScreen : MonoBehaviour
 
         Vector2 lOPosition = lOMouse.position.ReadValue();
 
+        // The modern scheme's rows (UWModernConversation): the left button only - the right one
+        // is the bags' there (look, the containers).
+        if (fIsModern())
+        {
+            UWModernConversation lOModern = UWModernConversation.Instance;
+
+            return lOModern != null && UWMouseButtons.LeftReleased ? lOModern.ChoiceAt(lOPosition) : 0;
+        }
+
         for (int liIndex = 0; liIndex < mOChoiceHitboxes.Count; liIndex++)
         {
             if (RectTransformUtility.RectangleContainsScreenPoint(mOChoiceHitboxes[liIndex], lOPosition, null))
@@ -798,7 +828,8 @@ public class UWConversationScreen : MonoBehaviour
                 continue;
             }
 
-            if (miLinesSincePause >= liCapacity - 1)
+            // The modern history scrolls: nothing waits for a click there.
+            if (miLinesSincePause >= liCapacity - 1 && !fIsModern())
             {
                 // Back to the front of the queue - only the click fetches it.
                 fRequeueFront(lOLine);
@@ -810,7 +841,7 @@ public class UWConversationScreen : MonoBehaviour
             mOShownColours.Add(lOLine.Colour);
             miLinesSincePause++;
 
-            if (lOLine.BreakAfter)
+            if (lOLine.BreakAfter && !fIsModern())
                 mbMorePending = true;
         }
 
@@ -910,7 +941,13 @@ public class UWConversationScreen : MonoBehaviour
 
         fRenderInto(ref mOChoiceTexture, mOChoiceImage, lOFont, lOLines, lOColours, ChoicesWidth);
         mfLookTextUntil = Time.unscaledTime + LookTextSeconds;
+        msLookText = psText;
+        mbLookIgnoresRelease = UWMouseButtons.LeftHeld;
     }
+
+    /// <summary>The look text came from a left press still held - its release is not the click
+    /// that cuts the text short.</summary>
+    private bool mbLookIgnoresRelease;
 
     /// <summary>How long a look text replaces the answers.</summary>
     private const float LookTextSeconds = 2f;
@@ -1128,6 +1165,51 @@ public class UWConversationScreen : MonoBehaviour
         }
     }
 
+    /// <summary>The partner's portrait (CHARHEAD or GENHEAD) and the player's (HEADS) - for the
+    /// modern conversation (UWModernConversation).</summary>
+    public UWTexture GetPortrait(bool pbPlayer)
+    {
+        if (mOData == null || mOData.Textures == null)
+            return null;
+
+        try
+        {
+            return pbPlayer
+                ? mOData.Textures.GetTextureByType(UWTexture.TextureTypes.HEADS, miPlayerPortrait)
+                : mOData.Textures.GetTextureByType(mePartnerPortraitType, miPartnerPortrait);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private UWTexture.TextureTypes mePartnerPortraitType = UWTexture.TextureTypes.GENHEAD;
+
+    private int miPartnerPortrait;
+
+    private int miPlayerPortrait;
+
+    /// <summary>The player character's name, as the classic screen shows it.</summary>
+    public string PlayerName => mOData != null && mOData.InitialPlayer != null && !string.IsNullOrEmpty(mOData.InitialPlayer.Name)
+        ? mOData.InitialPlayer.Name : string.Empty;
+
+    /// <summary>The typed answer so far (babl_ask), while IsTypingAnswer.</summary>
+    public string TypedAnswer => msTypedAnswer;
+
+    /// <summary>The look text replacing the answers for its two seconds (ShowLookText), else null.</summary>
+    public string LookText => mfLookTextUntil >= 0f ? msLookText : null;
+
+    private string msLookText;
+
+    private bool fIsModern()
+    {
+        if (mOControlScheme == null)
+            mOControlScheme = GetComponentInParent<UWControlScheme>();
+
+        return mOControlScheme != null && mOControlScheme.Current == UWControlScheme.SchemeEnum.Modern;
+    }
+
     private void fShowPortraits(UWNpc pONpc, int piSlot)
     {
         UWTexture.TextureTypes leType;
@@ -1145,9 +1227,13 @@ public class UWConversationScreen : MonoBehaviour
         }
 
         fSetSprite(mONpcPortrait, leType, liIndex);
+        mePartnerPortraitType = leType;
+        miPartnerPortrait = liIndex;
 
         UWPlayerData lOPlayer = mOData.InitialPlayer;
         int liBody = lOPlayer != null ? lOPlayer.Body + (lOPlayer.IsFemale ? FemalePortraitOffset : 0) : 0;
+
+        miPlayerPortrait = liBody;
 
         fSetSprite(mOPlayerPortrait, UWTexture.TextureTypes.HEADS, liBody);
     }

@@ -218,10 +218,16 @@ namespace UWDataImport.UWData
 		/// our paperdoll, hence the mapping table. The two "shoulder" places of the
 		/// original are the circular areas next to the head, for us the off hands.
 		/// </summary>
+		/// <summary>Counts the loads from a save game - the modern action bar resolves its paths
+		/// only after the inventory they point into has come in (UWModernActionBar).</summary>
+		public int LoadCount { get; private set; }
+
 		public void LoadFromPlayerData(UWPlayerData pOPlayer)
 		{
 			if (pOPlayer == null || !pOPlayer.IsLoaded)
 				return;
+
+			LoadCount++;
 
 			IsLeftHanded = pOPlayer.IsLeftHanded;
 
@@ -822,6 +828,10 @@ namespace UWDataImport.UWData
 			InventoryChanged?.Invoke();
 		}
 
+		/// <summary>A thing went into a stack and is gone: the thing, then the stack it went into -
+		/// for what points at single pieces (the modern action bar, UWModernActionBar).</summary>
+		public event Action<UWObject, UWObject> ItemMerged;
+
 		/// <summary>
 		/// Puts the item from the pointer onto a stack of the same kind (see CanStack).
 		///
@@ -848,6 +858,7 @@ namespace UWDataImport.UWData
 			pOTarget.HasQuantity = true;
 			pOTarget.Quantity = (ushort)liCount;
 			UWCarriedSlots.OnMerged(CursorItem);
+			ItemMerged?.Invoke(CursorItem, pOTarget);
 			CursorItem = null;
 
 			InventoryChanged?.Invoke();
@@ -1313,10 +1324,10 @@ namespace UWDataImport.UWData
 			int liBackpackIndex = Array.IndexOf(Backpack, pOItem);
 
 			// An item from outside the backpack would push the equipped one into the backpack; with
-			// a full backpack that item used to be lost. Refuse instead. Not reachable today: the
-			// only caller (UWInventoryUI, modern controls) passes backpack items, which swap in
-			// place. The original controls swap the equipped item onto the pointer
-			// (DropCursorItemInEquip).
+			// a full backpack that item used to be lost. Refuse instead. No caller today: the
+			// modern scheme's old armour panel was its only one (removed 2026-10-03, the modern bags
+			// equip through the pointer, UWModernBags.fEquip). The original controls swap the
+			// equipped item onto the pointer (DropCursorItemInEquip).
 			if (liBackpackIndex < 0 && EquipSlots[(int)leSlot] != null && Array.IndexOf(Backpack, null) < 0)
 				return false;
 
@@ -1330,6 +1341,122 @@ namespace UWDataImport.UWData
 
 			InventoryChanged?.Invoke();
 			return true;
+		}
+
+		/// <summary>
+		/// THE MODERN SCHEME'S PUT-AWAY (per user, 2026-10-03: with the backpack full nothing could
+		/// be picked up or taken off any more - the bags are to be filled where possible). The thing
+		/// at the pointer goes onto a matching stack in the backpack or in a carried container, else
+		/// onto a free backpack place, else into the first carried container that takes it (weight
+		/// and type, see UWContainerCapacity), in carrying order. The rune bag is left out: it
+		/// learns a stone only when one is put in on purpose. False if nothing takes it - the thing
+		/// stays at the pointer.
+		/// </summary>
+		public bool DropCursorItemAnywhere()
+		{
+			if (CursorItem == null)
+				return false;
+
+			UWCommonObjectProperties lOProperties = fData != null ? fData.CommonObjectProperties : null;
+
+			foreach (UWObject lOInPack in Backpack)
+			{
+				if (lOInPack != null && TryStackInto(lOInPack))
+					return true;
+			}
+
+			List<UWObject> lOContainers = fGetCarriedContainers();
+
+			foreach (UWObject lOContainer in lOContainers)
+			{
+				foreach (UWObject lOInside in lOContainer.Contents)
+				{
+					if (!CanStack(CursorItem, lOInside, lOProperties))
+						continue;
+
+					if (DropCursorItemIntoContainerItem(lOContainer))
+						return true;
+
+					break;
+				}
+			}
+
+			if (DropCursorItemInFirstFreeBackpackSlot())
+				return true;
+
+			foreach (UWObject lOContainer in lOContainers)
+			{
+				if (fContainerAccepts(lOContainer, CursorItem) && DropCursorItemIntoContainerItem(lOContainer))
+					return true;
+			}
+
+			LastContainerRejection = UWContainerCapacity.ResultEnum.Fits;
+			LastContainerRejectionContainer = null;
+
+			return false;
+		}
+
+		/// <summary>DropCursorItemAnywhere for a thing that is not at the pointer yet - picked up
+		/// from the world. It passes the pointer the way PickUpToCursor does (its chain comes
+		/// along); if nothing takes it, the pointer is empty again and false comes back.</summary>
+		public bool TryStoreAnywhere(UWObject pOItem)
+		{
+			if (pOItem == null || CursorItem != null)
+				return false;
+
+			PickUpToCursor(pOItem);
+
+			if (DropCursorItemAnywhere())
+				return true;
+
+			CursorItem = null;
+
+			return false;
+		}
+
+		/// <summary>TryUnequip for the modern scheme: the piece goes wherever DropCursorItemAnywhere
+		/// finds room, not only into the backpack.</summary>
+		public bool TryUnequipAnywhere(UWArmorItemMap.BodySlot peSlot)
+		{
+			UWObject lOItem = EquipSlots[(int)peSlot];
+
+			if (lOItem == null || CursorItem != null)
+				return false;
+
+			EquipSlots[(int)peSlot] = null;
+			CursorItem = lOItem;
+
+			if (DropCursorItemAnywhere())
+				return true;
+
+			CursorItem = null;
+			EquipSlots[(int)peSlot] = lOItem;
+
+			return false;
+		}
+
+		/// <summary>Every carried container but the rune bag, its contents resolved, in carrying
+		/// order (EnumerateAll): the backpack depth first, then the equipment.</summary>
+		private List<UWObject> fGetCarriedContainers()
+		{
+			List<UWObject> lOContainers = new List<UWObject>();
+
+			foreach (UWObject lOItem in EnumerateAll())
+			{
+				if (lOItem.GetCategory() != UWObject.ObjectCategoryEnum.Containers
+					|| lOItem.ID == UWObjectMechanics.RuneBagId)
+					continue;
+
+				// Resolved here, before the enumeration looks at the contents, so nested
+				// containers are found as well.
+				if (lOItem.Contents == null && fLevel != null && fLevel.Masterlist != null)
+					lOItem.EnsureContentsLoaded(fLevel.Masterlist);
+
+				if (lOItem.Contents != null)
+					lOContainers.Add(lOItem);
+			}
+
+			return lOContainers;
 		}
 
 		/// <summary>Puts an equipped item back into the backpack. Fails (the item
@@ -1539,6 +1666,54 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// Puts the thing at the pointer back INTO a container's contents at a place, shifting the
+		/// things behind it on - for returning it where it was taken from (UWModernBags). Not a
+		/// drop onto that place: the contents are compact, so after the take the neighbour sits
+		/// there, and a drop would swap with it (per user, 2026-10-03: equipping a weapon from a
+		/// bag left the thing to its right on the pointer). Capacity is checked as for any drop.
+		/// </summary>
+		public bool InsertCursorItemInContainer(UWObject pOContainer, int piIndex)
+		{
+			if (CursorItem == null || pOContainer == null
+				|| pOContainer.GetCategory() != UWObject.ObjectCategoryEnum.Containers)
+				return false;
+
+			if (pOContainer.Contents == null && fLevel != null)
+				pOContainer.EnsureContentsLoaded(fLevel.Masterlist);
+
+			List<UWObject> lOContents = pOContainer.Contents;
+
+			if (lOContents == null || !fContainerAccepts(pOContainer, CursorItem))
+				return false;
+
+			int liIndex = Math.Max(0, Math.Min(piIndex, lOContents.Count));
+
+			lOContents.Insert(liIndex, CursorItem);
+			CursorItem = null;
+			ExtinguishOutsideHand(lOContents[liIndex]);
+			InventoryChanged?.Invoke();
+			return true;
+		}
+
+		/// <summary>BeginDragFromContainer for ANY carried container (see DropCursorItemInContainerAt):
+		/// the item at piIndex of its compact contents leaves for the pointer.</summary>
+		public void BeginDragFromContainerItem(UWObject pOContainer, int piIndex)
+		{
+			List<UWObject> lOContents = pOContainer?.Contents;
+
+			if (CursorItem != null || lOContents == null || piIndex < 0 || piIndex >= lOContents.Count)
+				return;
+
+			CursorItem = lOContents[piIndex];
+			lOContents.RemoveAt(piIndex);
+
+			if (pOContainer == OpenContainer)
+				fClampContainerScrollOffset();
+
+			InventoryChanged?.Invoke();
+		}
+
+		/// <summary>
 		/// Drops CursorItem at a visible place in the open container (taking
 		/// ContainerScrollOffset into account) - if the click hits an already
 		/// occupied place, it is combined, stacked or swapped (as with the backpack); if it hits a free place
@@ -1548,14 +1723,34 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool DropCursorItemInContainer(int piSlot)
 		{
-			List<UWObject> lOContents = OpenContainer?.Contents;
-
-			if (CursorItem == null || lOContents == null || piSlot < 0 || piSlot >= ContainerSlotCount)
+			if (OpenContainer?.Contents == null || piSlot < 0 || piSlot >= ContainerSlotCount)
 				return false;
 
-			int liIndex = ContainerScrollOffset + piSlot;
+			return DropCursorItemInContainerAt(OpenContainer, ContainerScrollOffset + piSlot);
+		}
 
-			// A CONTAINER LYING IN THE OPEN ONE takes the item, as one in the backpack does
+		/// <summary>
+		/// DropCursorItemInContainer for ANY carried container, not only the open one - the modern
+		/// scheme's bags show several at once (UWModernBags). piIndex counts in the compact
+		/// contents list; at or past its end the item is appended.
+		/// </summary>
+		public bool DropCursorItemInContainerAt(UWObject pOContainer, int piIndex)
+		{
+			if (CursorItem == null || pOContainer == null || piIndex < 0
+				|| pOContainer.GetCategory() != UWObject.ObjectCategoryEnum.Containers)
+				return false;
+
+			if (pOContainer.Contents == null && fLevel != null)
+				pOContainer.EnsureContentsLoaded(fLevel.Masterlist);
+
+			List<UWObject> lOContents = pOContainer.Contents;
+
+			if (lOContents == null)
+				return false;
+
+			int liIndex = piIndex;
+
+			// A CONTAINER LYING IN THIS ONE takes the item, as one in the backpack does
 			// (DropCursorItemIntoContainerItem) - the rune bag learns a stone there too (per user
 			// on the original, 2026-09-26). Until 2026-09-28 every other container swapped places
 			// with the item instead (per user: the ingredients would not go into the bowl lying in
@@ -1577,7 +1772,7 @@ namespace UWDataImport.UWData
 				bool lbStacks = CanStack(CursorItem, lOContents[liIndex],
 					fData != null ? fData.CommonObjectProperties : null);
 
-				if (!fContainerAccepts(OpenContainer, CursorItem, lbStacks ? null : lOContents[liIndex]))
+				if (!fContainerAccepts(pOContainer, CursorItem, lbStacks ? null : lOContents[liIndex]))
 					return false;
 
 				if (TryStackInto(lOContents[liIndex]))
@@ -1589,7 +1784,7 @@ namespace UWDataImport.UWData
 			}
 			else
 			{
-				if (!fContainerAccepts(OpenContainer, CursorItem))
+				if (!fContainerAccepts(pOContainer, CursorItem))
 					return false;
 
 				lOContents.Add(CursorItem);

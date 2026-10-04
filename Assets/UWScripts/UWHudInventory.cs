@@ -723,9 +723,16 @@ public sealed class UWHudInventory
         if (mArmorHitZones == null)
             return null;
 
+        return GetSlotOfSpot(fSpotAt(pOScreenPos));
+    }
+
+    /// <summary>The equipment slot a spot of the inventory page stands for, or null - also for
+    /// the modern character panel (UWModernPanel), which shows the same page.</summary>
+    internal static UWArmorItemMap.BodySlot? GetSlotOfSpot(UWClickRules.InventorySpot peSpot)
+    {
         // By where the spot lies: "Left" is the screen's left, the character's right - the
         // same sides as our slots (RightHandSlot is drawn on the left, see BuildEquipmentSlots).
-        switch (fSpotAt(pOScreenPos))
+        switch (peSpot)
         {
             case UWClickRules.InventorySpot.Helmet: return UWArmorItemMap.BodySlot.Helmet;
             case UWClickRules.InventorySpot.Chest: return UWArmorItemMap.BodySlot.Chest;

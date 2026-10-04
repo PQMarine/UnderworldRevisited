@@ -29,6 +29,9 @@ of what is built was also read out of the original's executable.
   a live map, notes kept with the save game, spells, mantras and the game's manual), a modern
   readable font, the original's 4:3 frame on wide screens, dealing the attribute points at
   character creation yourself
+- The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
+  a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
+  size every part of it - switched with Shift+F2
 
 ## Open: gameplay parity
 
@@ -37,12 +40,6 @@ of what is built was also read out of the original's executable.
   remaining differences sit: the water edge, dropping one floor level, the reach of a blow,
   sliding along walls instead of the original's deflection, and the standing height while
   walking over a step. The plan is to replace it with the original's tile-based motion.
-
-## Open: controls
-
-- **The modern control scheme** (free mouse look, WASD, switched with Shift+F2) needs a complete
-  rework: so far only walking, picking things up and putting them on are implemented. The
-  original's mouse-pointer scheme is the one to play with.
 
 ## Open: platforms
 

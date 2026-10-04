@@ -122,6 +122,21 @@ public sealed class UWHudMessageLog
         if (mOUi.mOInteraction == null || mOUi.mOUWData == null)
             return;
 
+        // THE MODERN SCHEME'S BIG MAP shows the classic frame only for the map (UWGameUI): the
+        // frame's scroll stays empty there - it held the lines of the moment, after a load
+        // "Restoring Game ... Restore Game Complete." over the map (per user, 2026-10-04); the
+        // modern message box shows them again once the map is closed.
+        if (mOUi.mControlSchemeRef != null && mOUi.mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern
+            && mOUi.IsMapVisible)
+        {
+            UWTextLabel.Hide(mMessageLogImage);
+            UWTextLabel.Hide(mMoreMarkerImage);
+
+            mLastMessageLogText = null;
+
+            return;
+        }
+
         // In conversation the scroll belongs to the answers (see UWConversationScreen).
         // The key is cleared so that the log is redrawn afterwards.
         // EXCEPTION: a running input ("Move how many?" when splitting a stack) must

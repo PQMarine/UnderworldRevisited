@@ -932,6 +932,15 @@ public class UWIntroPlayer : MonoBehaviour
         if (Path.GetFileName(psPath).StartsWith(FinalDeathFilePrefix, System.StringComparison.OrdinalIgnoreCase))
             lOCorner.y += FinalDeathNudgeY;
         Rect lOScreen = lOUi.GetUiPictureScreenRect(lOCorner, new Vector2(lOBlock.width, lOBlock.height));
+
+        // THE MODERN SCHEME hides the classic view window: the picture lies in the middle in a
+        // leather frame at the UI's size, as the view's pictures do (UWModernHud, per user
+        // 2026-10-04: the anvil's sequence was not in such a frame).
+        mbModernFrame = fIsModern();
+
+        if (mbModernFrame)
+            lOScreen = fPlaceModernFrame(lOUi, lOBlock);
+
         RectTransform lORect = (RectTransform)mOPictureImage.transform;
 
         lORect.anchorMin = new Vector2(lOScreen.xMin / Screen.width, lOScreen.yMin / Screen.height);
@@ -943,6 +952,68 @@ public class UWIntroPlayer : MonoBehaviour
         mOPictureImage.uvRect = new Rect((float)lOBlock.x / ScreenWidth,
             (float)(ScreenHeight - lOBlock.y - lOBlock.height) / ScreenHeight,
             (float)lOBlock.width / ScreenWidth, (float)lOBlock.height / ScreenHeight);
+    }
+
+    /// <summary>The modern scheme's frame around a viewport cutscene (fPlaceModernFrame).</summary>
+    private RawImage mOModernFrame;
+
+    private Texture2D mOModernFrameTexture;
+
+    private bool mbModernFrame;
+
+    private const int ModernFrameBorder = 3;
+
+    private static bool fIsModern()
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+
+        return lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+    }
+
+    /// <summary>The block's place in the middle of the screen at the modern UI's size, and the
+    /// leather frame around it; returns the picture's screen rectangle.</summary>
+    private Rect fPlaceModernFrame(UWGameUI pOUi, RectInt pOBlock)
+    {
+        float liScale = UWModernHud.PixelScale;
+        float lfWidth = pOBlock.width * liScale;
+        float lfHeight = pOBlock.height * liScale;
+        Rect lOPicture = new Rect(Mathf.Round((Screen.width - lfWidth) * 0.5f), Mathf.Round((Screen.height * 0.55f) - (lfHeight * 0.5f)),
+            lfWidth, lfHeight);
+
+        int liFrameWidth = pOBlock.width + UWModernHudArt.LeatherLeft + UWModernHudArt.LeatherRight + (2 * ModernFrameBorder);
+        int liFrameHeight = pOBlock.height + UWModernHudArt.LeatherTop + UWModernHudArt.LeatherBottom + (2 * ModernFrameBorder);
+
+        if (mOModernFrame == null)
+        {
+            GameObject lOObject = new GameObject("Modern frame", typeof(RectTransform), typeof(RawImage));
+            lOObject.transform.SetParent(mOCanvas.transform, false);
+            mOModernFrame = lOObject.GetComponent<RawImage>();
+            mOModernFrame.raycastTarget = false;
+            UWPixelArtUI.Apply(mOModernFrame);
+        }
+
+        if (mOModernFrameTexture == null || mOModernFrameTexture.width != liFrameWidth || mOModernFrameTexture.height != liFrameHeight)
+        {
+            if (mOModernFrameTexture != null)
+                Destroy(mOModernFrameTexture);
+
+            mOModernFrameTexture = UWModernHudArt.BuildLeather(pOUi.mOUWData.Textures, liFrameWidth, liFrameHeight, pOUi.TextureFilterMode);
+            mOModernFrame.texture = mOModernFrameTexture;
+        }
+
+        // Beneath the picture.
+        mOModernFrame.transform.SetSiblingIndex(mOPictureImage.transform.GetSiblingIndex());
+
+        Rect lOFrame = new Rect(lOPicture.x - ((UWModernHudArt.LeatherLeft + ModernFrameBorder) * liScale),
+            lOPicture.y - ((UWModernHudArt.LeatherBottom + ModernFrameBorder) * liScale), liFrameWidth * liScale, liFrameHeight * liScale);
+        RectTransform lORect = (RectTransform)mOModernFrame.transform;
+
+        lORect.anchorMin = new Vector2(lOFrame.xMin / Screen.width, lOFrame.yMin / Screen.height);
+        lORect.anchorMax = new Vector2(lOFrame.xMax / Screen.width, lOFrame.yMax / Screen.height);
+        lORect.offsetMin = Vector2.zero;
+        lORect.offsetMax = Vector2.zero;
+
+        return lOPicture;
     }
 
     /// <summary>Files of the final death cutscene (0x103) and their vertical nudge in reference
@@ -1775,6 +1846,9 @@ public class UWIntroPlayer : MonoBehaviour
 
         if (mOBackdrop.enabled != lbOn)
             mOBackdrop.enabled = lbOn;
+
+        if (mOModernFrame != null)
+            mOModernFrame.enabled = mOPictureImage.enabled && mbInViewport && mbModernFrame;
 
         // WITH THE HELP OPEN THE PICTURE SLIDES LEFT with the game frame (per user, 2026-09-30:
         // a dream played while the help was open lay partly under it) - the same shift the

@@ -110,15 +110,29 @@ public static class UWPlayerThrow
             || pOGameUi == null || pOCamera == null)
             return false;
 
-        UWObject lOItem = pOInventory.CursorItem;
-
         int liX;
         int liY;
 
         GetPointerInView(pOGameUi, pOMousePos, out liX, out liY);
 
-        if (liY >= ThrowThresholdRow
-            && fTryThrow(lOItem, liX, liY, pOCamera, pOLevelLoader, pOInteraction))
+        return TryDropOrThrowAtView(liX, liY, pOCamera, pOInventory, pOLevelLoader, pOInteraction);
+    }
+
+    /// <summary>
+    /// TryDropOrThrow with the pointer already in the view window's coordinates (see
+    /// GetPointerInView) - for the modern scheme, whose whole screen is the view and which maps
+    /// the pointer onto the window itself (UWModernBags).
+    /// </summary>
+    public static bool TryDropOrThrowAtView(int piX, int piY, Transform pOCamera, UWInventory pOInventory,
+        UWLevelLoader pOLevelLoader, Interaction pOInteraction)
+    {
+        if (pOInventory == null || pOInventory.CursorItem == null || pOLevelLoader == null || pOCamera == null)
+            return false;
+
+        UWObject lOItem = pOInventory.CursorItem;
+
+        if (piY >= ThrowThresholdRow
+            && fTryThrow(lOItem, piX, piY, pOCamera, pOLevelLoader, pOInteraction))
         {
             pOInventory.TakeCursorItem();
 
@@ -158,6 +172,20 @@ public static class UWPlayerThrow
 
         piX = Mathf.Clamp(liPixelX + HoleLeftInWindow, 0, ViewMaxX);
         piY = Mathf.Clamp(liPixelY + HoleBottomInWindow, 0, ViewMaxY);
+    }
+
+    /// <summary>
+    /// The pointer in the view window's coordinates when the whole screen is the view (modern
+    /// scheme): the screen's width and height stretched over the window's X 0 to 0xAC and Y 0 to
+    /// 0x71 from the bottom.
+    /// </summary>
+    public static void GetPointerInFullScreenView(Vector2 pOMousePos, out int piX, out int piY)
+    {
+        float lfX = Screen.width > 0 ? Mathf.Clamp01(pOMousePos.x / Screen.width) : 0.5f;
+        float lfY = Screen.height > 0 ? Mathf.Clamp01(pOMousePos.y / Screen.height) : 0.5f;
+
+        piX = Mathf.Clamp(Mathf.FloorToInt(lfX * (ViewMaxX + 1)), 0, ViewMaxX);
+        piY = Mathf.Clamp(Mathf.FloorToInt(lfY * (ViewMaxY + 1)), 0, ViewMaxY);
     }
 
     /// <summary>

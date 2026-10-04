@@ -10,7 +10,7 @@ using UnityEngine.InputSystem.Utilities;
 /// fixed. A gamepad comes later.
 ///
 /// WHAT A CHANGED MOUSE BUTTON REACHES: everything in the world runs through these actions
-/// (UWItemDrag, UWInventoryUI). The interface panels - inventory slots, options panel, map,
+/// (UWItemDrag, UWModernBags). The interface panels - inventory slots, options panel, map,
 /// conversation - read the physical buttons directly and keep them.
 ///
 /// UWControls builds its action maps in code, so a binding is addressed by map, action and the
@@ -50,7 +50,10 @@ public static class UWKeyBindings
         fEntry("Player", "LookDown", 0, "Look down (classic)"),
         fEntry("Player", "LookReset", 0, "Look straight (classic)"),
         fEntry("Player", "LookUp", 0, "Look up (classic)"),
-        fEntry("Player", "ToggleInventory", 0, "Show inventory or view"),
+        fEntry("Player", "ToggleInventory", 0, "Character panel (modern)"),
+        fEntry("Player", "ModernBags", 0, "Bags (modern)"),
+        fEntry("Player", "ModernLook", 0, "Look (modern)"),
+        fEntry("Player", "ModernRunes", 0, "Runes and spells (modern)"),
         fEntry("Player", "ToggleScheme", 0, "Switch control scheme (with Shift)"),
         fEntry("Player", "CursorDrag", 0, "Walk, drag, attack"),
         fEntry("Player", "Interact", 0, "Look and use"),
@@ -87,7 +90,16 @@ public static class UWKeyBindings
         string lsName = InputControlPath.ToHumanReadableString(lsPath,
             InputControlPath.HumanReadableStringOptions.OmitDevice);
 
-        return string.IsNullOrEmpty(lsName) ? lsPath : lsName;
+        if (string.IsNullOrEmpty(lsName))
+            return lsPath;
+
+        // A key bound by the character it types ("#(f)", the built-in letters, so they follow the
+        // keyboard layout) reads 'F' with quotes - a key the player bound reads F (per user,
+        // 2026-10-04: the quotes looked odd in the Controls tab).
+        if (lsName.Length > 2 && lsName[0] == '\'' && lsName[lsName.Length - 1] == '\'')
+            lsName = lsName.Substring(1, lsName.Length - 2).ToUpperInvariant();
+
+        return lsName;
     }
 
     /// <summary>The path in force: the player's own if there is one, otherwise the built-in one

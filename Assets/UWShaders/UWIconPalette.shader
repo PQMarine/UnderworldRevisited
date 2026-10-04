@@ -13,6 +13,12 @@
 //
 // Structure as in Unity's UI default, so that masking, stencil and depth test of the
 // UI keep working unchanged - only the colour lookup is swapped.
+//
+// UW_PIXEL_SMOOTH (the modern UI's free scale, 2026-10-03): at a scale that is no whole number
+// each texel stays a hard square and only the one screen pixel across a seam between two texels
+// is blended - no uneven pixel widths, no blur. Indices cannot be blended, so the four texels
+// around the seam are looked up one by one and their colours mixed. At a whole-number scale it
+// gives exactly the texels, as without it (see UWIconPalette.ApplySmooth).
 Shader "UW/IconPalette"
 {
     Properties
@@ -62,18 +68,20 @@ Shader "UW/IconPalette"
             CGPROGRAM
             #pragma vertex UWVertex
             #pragma fragment UWFragment
-            #pragma target 2.0
+            #pragma target 3.0
 
             #include "UnityCG.cginc"
             #include "UnityUI.cginc"
 
             #pragma multi_compile_local _ UNITY_UI_CLIP_RECT
             #pragma multi_compile_local _ UNITY_UI_ALPHACLIP
+            #pragma multi_compile_local _ UW_PIXEL_SMOOTH
 
             sampler2D _MainTex;
             fixed4 _Color;
             float4 _ClipRect;
             float4 _MainTex_ST;
+            float4 _MainTex_TexelSize;
 
             // The same lookup textures as the world, set by
             // UWShadePalette.ApplyGlobals. Row 0 of the colour table is brightness level 0,
@@ -122,9 +130,10 @@ Shader "UW/IconPalette"
                 return float2((pfColumn + 0.5) / pfWidth, (pfRow + 0.5) / pfHeight);
             }
 
-            fixed4 UWFragment(Varyings IN) : SV_Target
+            // One texel's colour through the palette, its opacity from the icon.
+            float4 UWTexelColour(float2 uv)
             {
-                fixed4 raw = tex2D(_MainTex, IN.texcoord);
+                fixed4 raw = tex2D(_MainTex, uv);
 
                 // Recover the integer 0..255 from the channel value.
                 float index = floor((raw.r * 255.0) + 0.5);
@@ -136,9 +145,36 @@ Shader "UW/IconPalette"
                     UWTableUV(index, _UWRotationStep, 256.0, steps)).r * 255.0) + 0.5);
 
                 // Row 0: brightness level 0, no darkening.
-                fixed4 colour = tex2D(_UWColourTable, UWTableUV(rotated, 0.0, 256.0, 16.0));
+                float4 colour = tex2D(_UWColourTable, UWTableUV(rotated, 0.0, 256.0, 16.0));
 
                 colour.a = raw.a;
+
+                return colour;
+            }
+
+            fixed4 UWFragment(Varyings IN) : SV_Target
+            {
+                #ifdef UW_PIXEL_SMOOTH
+                float2 size = _MainTex_TexelSize.zw;
+                float2 at = IN.texcoord * size;
+                float2 seam = floor(at + 0.5);
+                float2 blend = clamp((at - seam) / max(fwidth(at), 1e-5), -0.5, 0.5) + 0.5;
+                float2 low = (seam - 0.5) / size;
+                float2 high = (seam + 0.5) / size;
+
+                // Mixed with their opacity, so a transparent neighbour does not darken the edge.
+                float4 c00 = UWTexelColour(low);
+                float4 c10 = UWTexelColour(float2(high.x, low.y));
+                float4 c01 = UWTexelColour(float2(low.x, high.y));
+                float4 c11 = UWTexelColour(high);
+                float4 p0 = lerp(float4(c00.rgb * c00.a, c00.a), float4(c10.rgb * c10.a, c10.a), blend.x);
+                float4 p1 = lerp(float4(c01.rgb * c01.a, c01.a), float4(c11.rgb * c11.a, c11.a), blend.x);
+                float4 mixed = lerp(p0, p1, blend.y);
+                fixed4 colour = fixed4(mixed.a > 0.0001 ? mixed.rgb / mixed.a : mixed.rgb, mixed.a);
+                #else
+                fixed4 colour = UWTexelColour(IN.texcoord);
+                #endif
+
                 colour *= IN.color;
 
                 #ifdef UNITY_UI_CLIP_RECT

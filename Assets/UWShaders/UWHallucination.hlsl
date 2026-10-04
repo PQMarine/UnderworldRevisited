@@ -114,6 +114,12 @@ half3 UWRemasterPaletteColour(float pfIndex)
     return SAMPLE_TEXTURE2D(_UWRemasterPalettes, sampler_PointClamp, lOUV).rgb;
 }
 
+// Lava and fire (16 to 23) and water (48 to 63) travel through the palette (UWPaletteRotation).
+bool UWIsRotatingIndex(float pfIndex)
+{
+    return (pfIndex > 15.5 && pfIndex < 23.5) || (pfIndex > 47.5 && pfIndex < 63.5);
+}
+
 // An index as the light table effect shows it at this spot: its shade level from the distance
 // in the plane (with pfExtraLevel on top, the model faces' own darkening), dithered like the
 // palette path's, the colour from the effect table's part pfPart.

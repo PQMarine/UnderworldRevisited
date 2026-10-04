@@ -3194,14 +3194,9 @@ public class UWLevelLoader : MonoBehaviour
             lOGameUi.Init(UWDataImporter);
 
         // No manual wiring in the scene needed - same self-creation pattern
-        // as UWDebugOverlay in fInitialiseDebugOverlay().
-        UWInventoryUI lOInventoryUi = lOCamera.GetComponent<UWInventoryUI>();
-
-        if (lOInventoryUi == null)
-            lOInventoryUi = lOCamera.gameObject.AddComponent<UWInventoryUI>();
-
-        lOInventoryUi.Init(UWDataImporter);
-
+        // as UWDebugOverlay in fInitialiseDebugOverlay(). (The modern scheme's armour panel
+        // UWInventoryUI was created here until 2026-10-03; the character panel UWModernPanel
+        // replaced it.)
         if (lOCamera.GetComponent<UWItemDrag>() == null)
             lOCamera.gameObject.AddComponent<UWItemDrag>();
 

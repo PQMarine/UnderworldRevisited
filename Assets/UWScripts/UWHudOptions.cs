@@ -674,9 +674,9 @@ public sealed class UWHudOptions
     /// typed line below stays green (per user, 2026-09-12).</summary>
     private const int SaveDescriptionPromptMessage = 169;
 
-    private const int SaveGameFailedMessage = 165;
+    internal const int SaveGameFailedMessage = 165;
 
-    private const int SaveGameSucceededMessage = 166;
+    internal const int SaveGameSucceededMessage = 166;
 
     /// <summary>In the original the dots fill up during writing; in our version that is
     /// finished immediately, so they are there right away. Twelve, as in the user's picture.</summary>
@@ -733,7 +733,7 @@ public sealed class UWHudOptions
         if (IsOpen || mOptionsButtonImage == null || mOUi.mGameFrame == null)
             return;
 
-        if (fRefusesToOpen())
+        if (RefusesToOpen())
             return;
 
         fOpenOptions();
@@ -753,7 +753,7 @@ public sealed class UWHudOptions
     /// not all read - APPROXIMATED as an object on the pointer or a spell or shot waiting for its
     /// target. True when it refused, the message is written.
     /// </summary>
-    private bool fRefusesToOpen()
+    internal bool RefusesToOpen()
     {
         Interaction lOInteraction = mOUi.mOInteraction;
         int liMessage = 0;
@@ -803,7 +803,7 @@ public sealed class UWHudOptions
         if (IsOpen || mOptionsButtonImage == null || mOUi.mGameFrame == null)
             return;
 
-        if (fRefusesToOpen())
+        if (RefusesToOpen())
             return;
 
         fOpenOptions();
@@ -871,7 +871,7 @@ public sealed class UWHudOptions
             if (UWRoamingSight.IsAnyRunning)
                 return false;
 
-            if (fRefusesToOpen())
+            if (RefusesToOpen())
                 return false;
 
             fOpenOptions();
@@ -1010,7 +1010,7 @@ public sealed class UWHudOptions
 
     /// <summary>String block 1: "No save game there." The reference gives 161 for uw1,
     /// checked against the printout of the block.</summary>
-    private const int NoSaveGameThereMessage = 162;
+    internal const int NoSaveGameThereMessage = 162;
 
     private void fClickOptionsEntry(int piEntry)
     {

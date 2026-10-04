@@ -69,6 +69,50 @@ public class UWControlScheme : MonoBehaviour
             ReleaseUiModal(psReason);
     }
 
+    private readonly HashSet<string> mOPointerHolds = new HashSet<string>();
+
+    /// <summary>
+    /// INPUT HELD WITHOUT TOUCHING THE POINTER (per user, 2026-10-04: asleep, the modern scheme's
+    /// pointer came free): the world's input stops as under a modal hold, but the pointer stays
+    /// as it is - a modal hold shows it. Named holds as with HoldUiModal.
+    /// </summary>
+    private readonly HashSet<string> mOInputHolds = new HashSet<string>();
+
+    public bool IsInputHeld => mOInputHolds.Count > 0;
+
+    public void HoldInput(string psReason)
+    {
+        mOInputHolds.Add(psReason);
+    }
+
+    public void ReleaseInput(string psReason)
+    {
+        mOInputHolds.Remove(psReason);
+    }
+
+    /// <summary>
+    /// THE FREE POINTER of the modern scheme's bags (UWModernBags, per user 2026-10-03: I or B
+    /// frees the pointer, walking goes on). Unlike a modal hold it stops only what the mouse
+    /// does in the world - the mouse look and the buttons' attack and look -, not movement and
+    /// not the keys. Named holds as with HoldUiModal.
+    /// </summary>
+    public bool IsPointerFree
+    {
+        get { return mOPointerHolds.Count > 0; }
+    }
+
+    public void HoldPointer(string psReason)
+    {
+        mOPointerHolds.Add(psReason);
+        fApplyCursorState();
+    }
+
+    public void ReleasePointer(string psReason)
+    {
+        mOPointerHolds.Remove(psReason);
+        fApplyCursorState();
+    }
+
     /// <summary>
     /// Set by UWRemoteCamera while the view is detached.
     ///
@@ -103,14 +147,14 @@ public class UWControlScheme : MonoBehaviour
     /// </summary>
     public bool IsWorldInputBlocked
     {
-        get { return IsUIModalOpen || IsRemoteCameraActive || mbIsConversationOpen; }
+        get { return IsUIModalOpen || IsRemoteCameraActive || mbIsConversationOpen || IsInputHeld; }
     }
 
     /// <summary>Inventory input is paused - like the world, just not during a conversation (see
     /// IsConversationOpen). UWItemDrag queries this.</summary>
     public bool IsInventoryInputBlocked
     {
-        get { return IsUIModalOpen || IsRemoteCameraActive; }
+        get { return IsUIModalOpen || IsRemoteCameraActive || IsInputHeld; }
     }
 
     private void Awake()
@@ -124,9 +168,31 @@ public class UWControlScheme : MonoBehaviour
         mControls.Dispose();
     }
 
+    /// <summary>
+    /// THE LAST CHOSEN SCHEME (per user, 2026-10-04): Shift+F2 stores it in the user settings, and
+    /// it is chosen again where the scene starts - a new game, a loaded one (the scene is rebuilt)
+    /// - and when the player comes back from noclip (the player object was switched off; its
+    /// pointer state is applied anew). Not chosen yet: the scene's default.
+    /// </summary>
     private void Start()
     {
-        Apply(meDefaultScheme);
+        mbStarted = true;
+        Apply(fRemembered());
+    }
+
+    private bool mbStarted;
+
+    private void OnEnable()
+    {
+        if (mbStarted)
+            Apply(fRemembered());
+    }
+
+    private SchemeEnum fRemembered()
+    {
+        int liScheme = UWUserSettings.ControlScheme;
+
+        return liScheme == (int)SchemeEnum.Original || liScheme == (int)SchemeEnum.Modern ? (SchemeEnum)liScheme : meDefaultScheme;
     }
 
     private void Update()
@@ -136,7 +202,11 @@ public class UWControlScheme : MonoBehaviour
 
         if (lOToggle.WasPressedThisFrame()
             && (!(lOToggle.activeControl?.device is Keyboard) || UWControls.IsShiftHeld))
+        {
             Apply(Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
+            UWUserSettings.ControlScheme = (int)Current;
+            UWUserSettings.Save();
+        }
     }
 
     public void Apply(SchemeEnum peScheme)
@@ -147,7 +217,7 @@ public class UWControlScheme : MonoBehaviour
 
     private void fApplyCursorState()
     {
-        if (Current == SchemeEnum.Modern && !IsUIModalOpen && !mbIsConversationOpen)
+        if (Current == SchemeEnum.Modern && !IsUIModalOpen && !mbIsConversationOpen && !IsPointerFree)
         {
             Cursor.visible = false;
             Cursor.lockState = CursorLockMode.Locked;

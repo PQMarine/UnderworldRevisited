@@ -86,6 +86,63 @@ public sealed class UWHudRunes
         fRefreshSelectedRunes();
     }
 
+    /// <summary>For the modern rune panel (UWModernRunePanel): a rune into the hollow, appended on
+    /// the right - from the fourth on the left one drops out, as on the shelf.</summary>
+    internal void AddToShelf(int piRune)
+    {
+        mOSelectedRunes.Add(piRune);
+
+        while (mOSelectedRunes.Count > SelectedRuneCount)
+            mOSelectedRunes.RemoveAt(0);
+
+        fRefreshSelectedRunes();
+    }
+
+    /// <summary>For the modern rune panel: the right button on a rune looks at it.</summary>
+    internal void LookAtRune(int piRune)
+    {
+        fLookAtRune(piRune);
+    }
+
+    /// <summary>For the modern rune panel: a click on its hollow casts what lies there.</summary>
+    internal void CastShelf()
+    {
+        fCastSelectedRunes();
+    }
+
+    /// <summary>
+    /// For the modern action bar (UWModernActionBar): casts a rune sequence by the same rules as
+    /// the hollow, without touching what lies there. The caller makes sure the runes are in the
+    /// bag.
+    /// </summary>
+    internal void CastSequence(int piSequence)
+    {
+        if (mOUi.mOInteraction == null)
+            mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
+
+        if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null)
+            return;
+
+        UWSpellCasting.CastRunes((piSequence >> 10) & 0x1F, (piSequence >> 5) & 0x1F, piSequence & 0x1F, fMakeSpellHost());
+        fAfterModernCast();
+    }
+
+    /// <summary>
+    /// THE MODERN SCHEME'S AIM (per user, 2026-10-04): the right button switches the pointer
+    /// there, so the LEFT button gives the target (Interaction.fUpdateSpellTargeting). By the
+    /// POINTER'S STATE: locked, a projectile flies at once towards the crosshair - one aims with
+    /// the view already (Interaction.FirePendingSpell); free, it waits for the click and flies
+    /// there, the original's target pointer showing - which also keeps the original's way of
+    /// preparing a spell and loosing it later (the mana is paid on release). A spell that waits
+    /// for a target (Open, Remove Trap, Name Enchantment) always waits: on the world, or on a bag
+    /// slot (UWModernBags). Escape lets either go.
+    /// </summary>
+    private void fAfterModernCast()
+    {
+        if (mOUi.mOInteraction != null)
+            mOUi.mOInteraction.AfterModernCast();
+    }
+
     /// <summary>Clicks on the rune shelf: left selects a rune, right looks at it, and
     /// the strip at the bottom clears the selection.</summary>
     internal void fUpdateRuneClicks()
@@ -329,6 +386,7 @@ public sealed class UWHudRunes
             return;
 
         UWSpellCasting.CastRunes(fGetSelectedRune(0), fGetSelectedRune(1), fGetSelectedRune(2), fMakeSpellHost());
+        fAfterModernCast();
     }
 
     /// <summary>
@@ -633,8 +691,34 @@ public sealed class UWHudRunes
         if (mOUi.mOInteraction == null)
             mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
 
-        if (mOUi.mOInteraction == null || piSlot >= mOUi.mCharacter.ActiveSpells.Count)
+        string lsText = ActiveSpellText(piSlot);
+
+        if (mOUi.mOInteraction != null && !string.IsNullOrEmpty(lsText))
+            mOUi.mOInteraction.AddMessage(lsText);
+    }
+
+    /// <summary>For the modern HUD's active spells (UWModernHud): the left button names it in the
+    /// messages, the right button ends it - the classic page's two the other way round.</summary>
+    internal void DescribeActiveSpell(int piSlot)
+    {
+        fDescribeActiveSpell(piSlot);
+    }
+
+    internal void CancelActiveSpell(int piSlot)
+    {
+        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.ActiveSpells.Count)
             return;
+
+        mOUi.mCharacter.CancelActiveSpell(piSlot);
+        fRefreshSpellIcons();
+    }
+
+    /// <summary>The name of an active spell and how stable it still is ("Light is stable"), empty
+    /// for none - the message of a click, and the modern HUD's hover text.</summary>
+    internal string ActiveSpellText(int piSlot)
+    {
+        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.ActiveSpells.Count)
+            return string.Empty;
 
         UWActiveSpellEffect lOSpell = mOUi.mCharacter.ActiveSpells[piSlot];
 
@@ -643,7 +727,7 @@ public sealed class UWHudRunes
         string lsName = UWRunicMagic.GetEffectName(liIcon, mOUi.mOUWData.Strings);
 
         if (string.IsNullOrEmpty(lsName))
-            return;
+            return string.Empty;
 
         // 138 " is nearly done", 139 " is unstable", 140 " is stable".
         int liStateMessage = 138;
@@ -662,7 +746,7 @@ public sealed class UWHudRunes
             // Without state text the name stands alone.
         }
 
-        mOUi.mOInteraction.AddMessage(lsName + lsState);
+        return lsName + lsState;
     }
 
     /// <summary>Pointer while a projectile spell waits for its target - number 9, as in

@@ -58,10 +58,34 @@ public class UWEyesDisplay : MonoBehaviour
     private float mfHideAt;
     private float mfAlpha;
 
+    // --- For the modern scheme's heading strip (UWModernHud.fUpdateStrip), which shows the eyes
+    //     in its burned gargoyle instead of this image over the classic frame.
+
+    /// <summary>The eyes are lit, or still fading.</summary>
+    public bool IsLit => miFrame >= 0 && (mfAlpha > 0f || Time.time < mfHideAt);
+
+    public float Alpha => mfAlpha;
+
+    /// <summary>0 healthy, 1 wounded, 2 critical.</summary>
+    public int Group => miGroup;
+
+    /// <summary>The name of the creature hit, or null.</summary>
+    public string TargetName { get; private set; }
+
+    public Texture2D CurrentFrame => miFrame >= 0 ? fGetFrame(miFrame) : null;
+
+    private static bool fIsModern()
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+
+        return lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+    }
+
     /// <summary>Shows the condition of the enemy that was hit.</summary>
-    public void ShowCondition(DataImport pOData, float pfHealthFraction)
+    public void ShowCondition(DataImport pOData, float pfHealthFraction, string psName = null)
     {
         mOData = pOData;
+        TargetName = psName;
 
         int liGroup = pfHealthFraction >= HealthyThreshold
             ? 0
@@ -142,6 +166,12 @@ public class UWEyesDisplay : MonoBehaviour
 
             fApplyAlpha();
         }
+
+        // The modern scheme shows them in its heading strip.
+        if (fIsModern())
+            mOImage.enabled = false;
+        else if (mfAlpha > 0f && !mOImage.enabled)
+            fApplyAlpha();
     }
 
     private void fShowFrame()
@@ -164,7 +194,7 @@ public class UWEyesDisplay : MonoBehaviour
         lOColour.a = mfAlpha;
 
         mOImage.color = lOColour;
-        mOImage.enabled = mfAlpha > 0f;
+        mOImage.enabled = mfAlpha > 0f && !fIsModern();
     }
 
     private Texture2D fGetFrame(int piFrame)
