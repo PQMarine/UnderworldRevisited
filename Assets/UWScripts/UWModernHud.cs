@@ -1136,13 +1136,14 @@ public class UWModernHud : MonoBehaviour
     {
         System.Collections.Generic.IReadOnlyList<string> lOLines = mOInteraction.ActiveStrings;
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+        int liColour = 0;
 
         for (int liAt = 0; lOLines != null && liAt < lOLines.Count; liAt++)
         {
             if (liAt > 0)
                 lOText.Append('\n');
 
-            lOText.Append(UWFontRenderer.CleanText(lOLines[liAt]));
+            fAppendColoured(lOText, UWFontRenderer.CleanText(lOLines[liAt]), ref liColour);
         }
 
         if (mOInteraction.ShowsPromptTextCursor && Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f)
@@ -1153,6 +1154,73 @@ public class UWModernHud : MonoBehaviour
 
         mOMessages.text = lOText.ToString();
         mOMessageBack.enabled = lOText.Length > 0;
+    }
+
+    /// <summary>
+    /// THE GAME'S COLOUR CODES in the messages (per user, 2026-10-05: "\6Save Game Succeeded.\0"
+    /// showed its codes): a backslash and a digit switch the colour until the next code, across
+    /// lines as in the original (UWFontRenderer.RenderLines); the codes are never shown. The
+    /// colours are the classic message box's (UWHudMessageLog.LogColourIndices), 0 the modern
+    /// text colour - on the dark leather the darker ones are lightened towards white until they
+    /// read (fReadable). Codes beyond the table leave the colour as it is.
+    /// </summary>
+    private void fAppendColoured(System.Text.StringBuilder pOText, string psLine, ref int piColour)
+    {
+        bool lbOpen = fOpenColour(pOText, piColour);
+
+        for (int liAt = 0; liAt < psLine.Length; liAt++)
+        {
+            if (!UWFont.IsColourCode(psLine, liAt))
+            {
+                pOText.Append(psLine[liAt]);
+                continue;
+            }
+
+            int liCode = psLine[liAt + 1] - '0';
+
+            liAt++;
+
+            if (liCode >= UWHudMessageLog.LogColourIndices.Length || liCode == piColour)
+                continue;
+
+            if (lbOpen)
+                pOText.Append("</color>");
+
+            piColour = liCode;
+            lbOpen = fOpenColour(pOText, piColour);
+        }
+
+        if (lbOpen)
+            pOText.Append("</color>");
+    }
+
+    private bool fOpenColour(System.Text.StringBuilder pOText, int piColour)
+    {
+        if (piColour <= 0 || mOUi == null || mOUi.mOUWData == null || mOUi.mOUWData.Palettes == null)
+            return false;
+
+        Color32 lOColour = fReadable(UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, UWHudMessageLog.LogColourIndices[piColour]));
+
+        pOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(lOColour)).Append('>');
+
+        return true;
+    }
+
+    /// <summary>The least brightness a message colour keeps on the dark leather.</summary>
+    private const float MessageColourLuma = 140f;
+
+    /// <summary>A colour lightened towards white until its brightness is MessageColourLuma (the
+    /// classic red 91 becomes a soft red, the green 142 stays; the black of code 2 a grey).</summary>
+    private static Color32 fReadable(Color32 pOColour)
+    {
+        float lfLuma = (0.299f * pOColour.r) + (0.587f * pOColour.g) + (0.114f * pOColour.b);
+
+        if (lfLuma >= MessageColourLuma)
+            return pOColour;
+
+        float lfTowardsWhite = (MessageColourLuma - lfLuma) / (255f - lfLuma);
+
+        return Color32.Lerp(pOColour, new Color32(255, 255, 255, 255), lfTowardsWhite);
     }
 
     /// <summary>The crosshair and the name of its target, asked ten times a second.</summary>

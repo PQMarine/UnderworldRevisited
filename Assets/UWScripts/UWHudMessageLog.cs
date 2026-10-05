@@ -330,7 +330,7 @@ public sealed class UWHudMessageLog
     /// is how the user sees it in the original (2026-09-12). Code 3 (96) is also the colour of
     /// [MORE].
     /// </summary>
-    private static readonly int[] myLogColourIndices = { 46, 38, 241, 96, 180, 196, 212 };
+    public static readonly int[] LogColourIndices = { 46, 38, 241, 96, 180, 196, 212 };
 
     private Color32[] myLogColourTable;
 
@@ -339,12 +339,12 @@ public sealed class UWHudMessageLog
         if (myLogColourTable != null)
             return myLogColourTable;
 
-        Color32[] lyTable = new Color32[myLogColourIndices.Length];
+        Color32[] lyTable = new Color32[LogColourIndices.Length];
 
         for (int liAt = 0; liAt < lyTable.Length; liAt++)
         {
             lyTable[liAt] = mOUi.mOUWData != null && mOUi.mOUWData.Palettes != null
-                ? UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, myLogColourIndices[liAt])
+                ? UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, LogColourIndices[liAt])
                 : (Color32)mOLogTextColour;
         }
 

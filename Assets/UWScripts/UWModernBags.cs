@@ -1521,7 +1521,8 @@ public partial class UWModernBags : MonoBehaviour
 
         mOCanvas.enabled = true;
 
-        // Left of the docked character panel and its handle (UWModernPanel).
+        // Left of the docked character panel and its handle (UWModernPanel). Where the backpack
+        // and the bag windows go is worked out engine-free in UWBagPlacement (since 2026-10-05).
         UWModernPanel lOPanel = fPanel();
 
         // Its own size and place (UWModernLayout): the backpack, the bag windows stacking from it.
@@ -1550,17 +1551,52 @@ public partial class UWModernBags : MonoBehaviour
         Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Bags,
             new Rect(lfRight - lfPackWidth, lfBottom, lfPackWidth, lfPackHeight));
 
-        // THE MINIMAP: a bag window with no room below it opens beside it, left of it (per user,
-        // 2026-10-04 - until then the windows went up over it).
-        Rect lOMinimapRect = UWModernMinimap.Instance != null ? UWModernMinimap.Instance.ScreenRect : Rect.zero;
+        // The open bags' rows (their scrolling kept within them) and heights, in their order.
+        List<UWObject> lOShownBags = new List<UWObject>();
+        List<int> liBagRows = new List<int>();
+        List<int> liBagHeights = new List<int>();
 
-        // AN OPEN CHARACTER PANEL OVER THE BACKPACK pushes it out to the left (per user,
-        // 2026-10-04: the bags lay over the panel) - a moved backpack where it was put otherwise.
-        Rect lOPanelRect = lOPanel != null ? lOPanel.OpenRect : Rect.zero;
+        if (mbOpen)
+        {
+            foreach (UWObject lOBag in mOOpenBags)
+            {
+                int liCount = lOBag.Contents != null ? lOBag.Contents.Count : 0;
+                int liNeeded = (liCount / Columns) + 1;
+                int liRows = Mathf.Clamp(liNeeded, MinRows, MaxRows);
 
-        if (lOPanelRect.width > 0f && lOPanelRect.Overlaps(lOPlaced))
-            lOPlaced.x = Mathf.Max(0f, lOPanelRect.xMin - (ScreenMargin * UWModernHud.PixelScale) - lOPlaced.width);
+                mOScroll.TryGetValue(lOBag, out int liScrolled);
+                liScrolled = Mathf.Clamp(liScrolled, 0, Mathf.Max(0, liNeeded - liRows));
+                mOScroll[lOBag] = liScrolled;
 
+                lOShownBags.Add(lOBag);
+                liBagRows.Add(liRows);
+                liBagHeights.Add(fWindowRows(liRows));
+            }
+        }
+
+        // The backpack pushed out left of an open character panel lying on it, the bag windows
+        // stacked from it around the panel, the minimap and the action bar (UWBagPlacement).
+        UWModernActionBar lOBar = UWModernActionBar.Instance;
+        UWBagPlacement.Result lOPlace = UWBagPlacement.Place(new UWBagPlacement.Input
+        {
+            ScreenWidth = Screen.width,
+            ScreenHeight = Screen.height,
+            Scale = miScale,
+            PixelScale = UWModernHud.PixelScale,
+            Pack = lOPlaced.ToUW(),
+            PackPlaced = lbFree,
+            PackWindowHeight = fWindowRows(2),
+            WindowWidth = fWindowWidth(),
+            BagHeights = liBagHeights.ToArray(),
+            Panel = (lOPanel != null ? lOPanel.OpenRect : Rect.zero).ToUW(),
+            Minimap = (UWModernMinimap.Instance != null ? UWModernMinimap.Instance.ScreenRect : Rect.zero).ToUW(),
+            ActionBar = (lOBar != null ? lOBar.ScreenRect : Rect.zero).ToUW(),
+            ScreenMargin = ScreenMargin,
+            WindowGap = WindowGap,
+            LoadBarRows = LoadBarRows
+        });
+
+        lOPlaced = lOPlace.Pack.ToUnity();
         lfRight = lOPlaced.xMax;
         lfBottom = lOPlaced.y;
         UWModernLayout.Report(UWModernLayout.ElementEnum.Bags, lOPlaced);
@@ -1583,100 +1619,24 @@ public partial class UWModernBags : MonoBehaviour
         fSetRect(mOLoadBack.rectTransform, lfBarLeft, lfBarY, lfBarWidth, LoadBarRows * miScale);
         fSetRect(mOLoadFill.rectTransform, lfBarLeft, lfBarY, lfBarWidth * lfLoad, LoadBarRows * miScale);
 
-        // The open bags, stacked upwards above the load bar, a new column to the left when the
-        // screen ends - a column over the action bar starts above it (per user, 2026-10-03: the
-        // bags covered it, and it could hardly be filled).
+        // The open bags where UWBagPlacement put them.
         int liWindow = 1;
-        float lfColumnRight = lfRight;
-        float lfColumnWidth = lOPack.ScreenRect.width;
-        float lfFirstY = fColumnBottom(lfColumnRight, lfColumnWidth, lfBarY + ((LoadBarRows + WindowGap) * miScale));
-        float lfY = lfFirstY;
-        float lfColumnStart = lfFirstY;
-        // Up to near the top; a window that would cover the minimap goes beside it (fBesidePanel,
-        // since 2026-10-04 - before, the bags lay over it and took its clicks there).
-        float lfTop = Screen.height - (24 * miScale);
 
-        // A backpack moved into the upper half stacks its windows downwards, one in the left half
-        // starts new columns to the right (UWModernLayout).
-        bool lbDown = lbFree && lOPack.ScreenRect.center.y > Screen.height * 0.5f;
-        float lfColumnStep = (lfColumnWidth + (WindowGap * miScale)) * (lbFree && lOPack.ScreenRect.center.x < Screen.width * 0.5f ? -1f : 1f);
-
-        if (mbOpen && lbDown)
+        for (int liBag = 0; liBag < lOShownBags.Count; liBag++)
         {
-            float lfDownStart = lOPack.ScreenRect.yMin - (WindowGap * miScale);
+            UWObject lOBag = lOShownBags[liBag];
+            Window lOWindow = fGetWindow(liWindow++);
 
-            lfY = lfDownStart;
+            mOScroll.TryGetValue(lOBag, out int liScrolled);
+            lOWindow.Container = lOBag;
+            lOWindow.FirstIndex = liScrolled * Columns;
 
-            foreach (UWObject lOBag in mOOpenBags)
-            {
-                Window lOWindow = fGetWindow(liWindow++);
-                int liCount = lOBag.Contents != null ? lOBag.Contents.Count : 0;
-                int liNeeded = (liCount / Columns) + 1;
-                int liRows = Mathf.Clamp(liNeeded, MinRows, MaxRows);
+            mOBagNumbers.TryGetValue(lOBag, out int liNumber);
 
-                mOScroll.TryGetValue(lOBag, out int liScrolled);
-                liScrolled = Mathf.Clamp(liScrolled, 0, Mathf.Max(0, liNeeded - liRows));
-                mOScroll[lOBag] = liScrolled;
+            UWBagPlacement.Spot lOSpot = lOPlace.Bags[liBag];
 
-                lOWindow.Container = lOBag;
-                lOWindow.FirstIndex = liScrolled * Columns;
-
-                float lfHeight = fWindowRows(liRows) * miScale;
-
-                // Below the screen's edge, or over the minimap: a new column (per user, 2026-10-04).
-                if (lfY < lfDownStart - 1f && (lfY - lfHeight < ScreenMargin * miScale
-                    || fWindowOverlaps(lOMinimapRect, lfColumnRight, lfY - lfHeight, lfHeight)))
-                {
-                    lfColumnRight -= lfColumnStep;
-                    lfY = lfDownStart;
-                }
-
-                mOBagNumbers.TryGetValue(lOBag, out int liNumber);
-
-                lfColumnRight = fBesidePanel(lOPanelRect, lfColumnRight, lfY - lfHeight, lfHeight);
-                lfColumnRight = fBesidePanel(lOMinimapRect, lfColumnRight, lfY - lfHeight, lfHeight);
-                fLayoutWindow(lOWindow, liRows, lfColumnRight, lfY - lfHeight, liNumber, fTitle(lOBag), fBagWeight(lOBag, lOData));
-                fAnimateOpening(lOWindow, lOBag);
-
-                lfY -= lfHeight + (WindowGap * miScale);
-            }
-        }
-        else if (mbOpen)
-        {
-            foreach (UWObject lOBag in mOOpenBags)
-            {
-                Window lOWindow = fGetWindow(liWindow++);
-                int liCount = lOBag.Contents != null ? lOBag.Contents.Count : 0;
-                int liNeeded = (liCount / Columns) + 1;
-                int liRows = Mathf.Clamp(liNeeded, MinRows, MaxRows);
-
-                mOScroll.TryGetValue(lOBag, out int liScrolled);
-                liScrolled = Mathf.Clamp(liScrolled, 0, Mathf.Max(0, liNeeded - liRows));
-                mOScroll[lOBag] = liScrolled;
-
-                lOWindow.Container = lOBag;
-                lOWindow.FirstIndex = liScrolled * Columns;
-
-                float lfHeight = fWindowRows(liRows) * miScale;
-
-                // Over the top, or over the minimap: a new column (per user, 2026-10-04 - moved left
-                // of the minimap the column was set off oddly).
-                if (lfY > lfColumnStart + 1f && (lfY + lfHeight > lfTop || fWindowOverlaps(lOMinimapRect, lfColumnRight, lfY, lfHeight)))
-                {
-                    lfColumnRight -= lfColumnStep;
-                    lfY = fColumnBottom(lfColumnRight, lfColumnWidth, lfBottom);
-                    lfColumnStart = lfY;
-                }
-
-                mOBagNumbers.TryGetValue(lOBag, out int liNumber);
-
-                lfColumnRight = fBesidePanel(lOPanelRect, lfColumnRight, lfY, lfHeight);
-                lfColumnRight = fBesidePanel(lOMinimapRect, lfColumnRight, lfY, lfHeight);
-                fLayoutWindow(lOWindow, liRows, lfColumnRight, lfY, liNumber, fTitle(lOBag), fBagWeight(lOBag, lOData));
-                fAnimateOpening(lOWindow, lOBag);
-
-                lfY += lfHeight + (WindowGap * miScale);
-            }
+            fLayoutWindow(lOWindow, liBagRows[liBag], lOSpot.Right, lOSpot.Bottom, liNumber, fTitle(lOBag), fBagWeight(lOBag, lOData));
+            fAnimateOpening(lOWindow, lOBag);
         }
 
         for (int liAt = liWindow; liAt < mOWindows.Count; liAt++)
@@ -1697,39 +1657,6 @@ public partial class UWModernBags : MonoBehaviour
         fUpdateTooltip(lOInventory, lOData);
         fLayoutSplit();
         fLayoutMenu();
-    }
-
-    /// <summary>A bag window that would lie on the open character panel - or on the minimap - goes
-    /// left of it, and the rest of its column with it (per user, 2026-10-04: the bags opened over
-    /// the panel; beside the minimap where there is no room below it).</summary>
-    private float fBesidePanel(Rect pOPanel, float pfRight, float pfBottom, float pfHeight)
-    {
-        return fWindowOverlaps(pOPanel, pfRight, pfBottom, pfHeight)
-            ? Mathf.Min(pfRight, pOPanel.xMin - (ScreenMargin * UWModernHud.PixelScale))
-            : pfRight;
-    }
-
-    /// <summary>Whether a bag window at this place would lie on the rect.</summary>
-    private bool fWindowOverlaps(Rect pORect, float pfRight, float pfBottom, float pfHeight)
-    {
-        Rect lOWindow = new Rect(pfRight - (fWindowWidth() * miScale), pfBottom, fWindowWidth() * miScale, pfHeight);
-
-        return pORect.width > 0f && pORect.Overlaps(lOWindow);
-    }
-
-    /// <summary>Where a column of bag windows starts: at pfDefault, or above the action bar
-    /// (UWModernActionBar) when the column reaches over it.</summary>
-    private float fColumnBottom(float pfRight, float pfWidth, float pfDefault)
-    {
-        UWModernActionBar lOBar = UWModernActionBar.Instance;
-
-        if (lOBar == null || lOBar.ScreenRect.width <= 0f)
-            return pfDefault;
-
-        Rect lOBarRect = lOBar.ScreenRect;
-        bool lbOver = pfRight > lOBarRect.xMin && pfRight - pfWidth < lOBarRect.xMax;
-
-        return lbOver ? Mathf.Max(pfDefault, lOBarRect.yMax + (WindowGap * miScale)) : pfDefault;
     }
 
     private static int fWindowRows(int piRows)

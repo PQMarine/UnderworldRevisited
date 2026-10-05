@@ -1,6 +1,5 @@
-using System.Globalization;
-using System.Text;
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE MODERN SCHEME'S OWN LAYOUT (per user on a mockup, 2026-10-04): the parts of the modern UI
@@ -25,6 +24,10 @@ using UnityEngine;
 ///     layout keeps its sense at another resolution or aspect.
 ///   - Kept in the settings (UWUserSettings.ModernLayout), for every game alike.
 ///   - Each part reports where it was drawn (Report), for the editor's frames and its snapping.
+///
+/// The rules themselves - the anchors, Place, Move, the text in the settings - are engine-free in
+/// UWHudLayout (moved there 2026-10-05, per user: reusable for UW2 or another engine); here are
+/// the screen, the UI size, the settings and where the parts were drawn.
 /// </summary>
 public static class UWModernLayout
 {
@@ -56,25 +59,13 @@ public static class UWModernLayout
         return (peElement == ElementEnum.CharacterPanel || peElement == ElementEnum.RunePanel) && !IsPlaced(peElement);
     }
 
-    public const int MinPercent = 50;
+    public const int MinPercent = UWHudLayout.MinPercent;
 
-    public const int MaxPercent = 200;
+    public const int MaxPercent = UWHudLayout.MaxPercent;
 
     public const int PercentStep = 10;
 
-    private sealed class Placement
-    {
-        public bool Placed;
-
-        public Vector2 Anchor;
-
-        /// <summary>From the screen's anchor point to the part's own, original pixels at the UI size.</summary>
-        public Vector2 Offset;
-
-        public int Percent = 100;
-    }
-
-    private static Placement[] msPlacements;
+    private static UWHudLayout msLayout;
 
     private static readonly Rect[] msRects = new Rect[ElementCount];
 
@@ -85,7 +76,7 @@ public static class UWModernLayout
 
     public static int Percent(ElementEnum peElement)
     {
-        return fGet(peElement).Percent;
+        return fLayout().Get((int)peElement).Percent;
     }
 
     /// <summary>The part's own size factor, on top of the UI size.</summary>
@@ -96,27 +87,17 @@ public static class UWModernLayout
 
     public static bool IsPlaced(ElementEnum peElement)
     {
-        return fGet(peElement).Placed;
+        return fLayout().Get((int)peElement).Placed;
     }
 
     /// <summary>Where the part goes: its default rect (screen pixels from the bottom left, already
     /// at its own size) unless it was moved; kept on the screen.</summary>
     public static Rect Place(ElementEnum peElement, Rect pODefault)
     {
-        Placement lOPlacement = fGet(peElement);
-
-        if (!lOPlacement.Placed)
+        if (!IsPlaced(peElement))
             return pODefault;
 
-        Vector2 lOAnchorPoint = new Vector2(lOPlacement.Anchor.x * Screen.width, lOPlacement.Anchor.y * Screen.height)
-            + (lOPlacement.Offset * UWModernHud.PixelScale);
-        float lfX = lOAnchorPoint.x - (lOPlacement.Anchor.x * pODefault.width);
-        float lfY = lOAnchorPoint.y - (lOPlacement.Anchor.y * pODefault.height);
-
-        lfX = Mathf.Clamp(lfX, 0f, Mathf.Max(0f, Screen.width - pODefault.width));
-        lfY = Mathf.Clamp(lfY, 0f, Mathf.Max(0f, Screen.height - pODefault.height));
-
-        return new Rect(Mathf.Round(lfX), Mathf.Round(lfY), pODefault.width, pODefault.height);
+        return fLayout().Place((int)peElement, pODefault.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale).ToUnity();
     }
 
     /// <summary>Where the part was drawn this frame.</summary>
@@ -137,14 +118,7 @@ public static class UWModernLayout
     /// <summary>The part moved to this rect: its anchor by thirds, its distance from it.</summary>
     public static void Move(ElementEnum peElement, Rect pORect, bool pbSave = true)
     {
-        Placement lOPlacement = fGet(peElement);
-        Vector2 lOAnchor = new Vector2(fThird(pORect.center.x, Screen.width), fThird(pORect.center.y, Screen.height));
-        Vector2 lOOwn = new Vector2(pORect.x + (lOAnchor.x * pORect.width), pORect.y + (lOAnchor.y * pORect.height));
-        Vector2 lOScreen = new Vector2(lOAnchor.x * Screen.width, lOAnchor.y * Screen.height);
-
-        lOPlacement.Placed = true;
-        lOPlacement.Anchor = lOAnchor;
-        lOPlacement.Offset = (lOOwn - lOScreen) / Mathf.Max(0.01f, UWModernHud.PixelScale);
+        fLayout().Move((int)peElement, pORect.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale);
 
         if (pbSave)
             fSave();
@@ -154,12 +128,7 @@ public static class UWModernLayout
     /// none yet) and grows away from it.</summary>
     public static void SetPercent(ElementEnum peElement, int piPercent, Rect pOCurrent, bool pbSave = true)
     {
-        Placement lOPlacement = fGet(peElement);
-
-        if (!lOPlacement.Placed)
-            Move(peElement, pOCurrent, false);
-
-        lOPlacement.Percent = Mathf.Clamp(piPercent, MinPercent, MaxPercent);
+        fLayout().SetPercent((int)peElement, piPercent, pOCurrent.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale);
 
         if (pbSave)
             fSave();
@@ -173,94 +142,40 @@ public static class UWModernLayout
 
     public static void Reset(ElementEnum peElement)
     {
-        fGetAll()[(int)peElement] = new Placement();
+        fLayout().Reset((int)peElement);
         fSave();
     }
 
     public static void ResetAll()
     {
-        for (int liAt = 0; liAt < ElementCount; liAt++)
-            fGetAll()[liAt] = new Placement();
-
+        fLayout().ResetAll();
         fSave();
-    }
-
-    private static float fThird(float pfAt, float pfLength)
-    {
-        if (pfAt < pfLength / 3f)
-            return 0f;
-
-        return pfAt > pfLength * 2f / 3f ? 1f : 0.5f;
     }
 
     // ------------------------------------------------- Kept in the settings
 
-    private static Placement fGet(ElementEnum peElement)
+    private static UWHudLayout fLayout()
     {
-        return fGetAll()[(int)peElement];
-    }
-
-    private static Placement[] fGetAll()
-    {
-        if (msPlacements != null)
-            return msPlacements;
-
-        msPlacements = new Placement[ElementCount];
-
-        for (int liAt = 0; liAt < ElementCount; liAt++)
-            msPlacements[liAt] = new Placement();
-
-        // "element:anchorX:anchorY:offsetX:offsetY:percent;" per part that was changed.
-        string lsStored = UWUserSettings.ModernLayout ?? string.Empty;
-
-        foreach (string lsEntry in lsStored.Split(';'))
-        {
-            string[] lsParts = lsEntry.Split(':');
-
-            if (lsParts.Length != 6 || !int.TryParse(lsParts[0], out int liElement) || liElement < 0 || liElement >= ElementCount)
-                continue;
-
-            float[] lfValues = new float[4];
-            bool lbValid = true;
-
-            for (int liAt = 0; liAt < 4; liAt++)
-                lbValid &= float.TryParse(lsParts[liAt + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out lfValues[liAt]);
-
-            if (!lbValid || !int.TryParse(lsParts[5], out int liPercent))
-                continue;
-
-            Placement lOPlacement = msPlacements[liElement];
-
-            lOPlacement.Placed = lfValues[0] >= 0f;
-            lOPlacement.Anchor = new Vector2(Mathf.Clamp01(lfValues[0]), Mathf.Clamp01(lfValues[1]));
-            lOPlacement.Offset = new Vector2(lfValues[2], lfValues[3]);
-            lOPlacement.Percent = Mathf.Clamp(liPercent, MinPercent, MaxPercent);
-        }
-
-        return msPlacements;
+        return msLayout ??= UWHudLayout.Parse(UWUserSettings.ModernLayout, ElementCount);
     }
 
     private static void fSave()
     {
-        StringBuilder lOText = new StringBuilder();
-        Placement[] lOAll = fGetAll();
-
-        for (int liAt = 0; liAt < ElementCount; liAt++)
-        {
-            Placement lOPlacement = lOAll[liAt];
-
-            if (!lOPlacement.Placed && lOPlacement.Percent == 100)
-                continue;
-
-            lOText.Append(liAt).Append(':')
-                .Append((lOPlacement.Placed ? lOPlacement.Anchor.x : -1f).ToString(CultureInfo.InvariantCulture)).Append(':')
-                .Append(lOPlacement.Anchor.y.ToString(CultureInfo.InvariantCulture)).Append(':')
-                .Append(lOPlacement.Offset.x.ToString("0.##", CultureInfo.InvariantCulture)).Append(':')
-                .Append(lOPlacement.Offset.y.ToString("0.##", CultureInfo.InvariantCulture)).Append(':')
-                .Append(lOPlacement.Percent).Append(';');
-        }
-
-        UWUserSettings.ModernLayout = lOText.ToString();
+        UWUserSettings.ModernLayout = fLayout().ToString();
         UWUserSettings.Save();
+    }
+}
+
+/// <summary>Unity's Rect and the data layer's UWRect (both from the bottom left on the screen).</summary>
+public static class UWRectConversion
+{
+    public static UWRect ToUW(this Rect pORect)
+    {
+        return new UWRect(pORect.x, pORect.y, pORect.width, pORect.height);
+    }
+
+    public static Rect ToUnity(this UWRect pORect)
+    {
+        return new Rect(pORect.X, pORect.Y, pORect.Width, pORect.Height);
     }
 }
