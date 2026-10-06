@@ -414,6 +414,38 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         return UWViewpoint.OriginalToWorld(pORecord.FineX, pORecord.FineY, pORecord.FineZ);
     }
 
+    /// <summary>
+    /// A damage trap's quality on a thing in flight that set it off (DamageTrap_ovr107_CB2 ->
+    /// DamageObject with type 4 -> DamageObjectAndDoors_seg023_3E7 on a mobile object): word 0
+    /// bit 13 protects, the resistances of COMOBJ byte 8 scale it, the quality class halves it,
+    /// and it comes off byte 8 - the thrown item's quality, which it keeps when it comes to
+    /// rest. At 0 it is gone, as after a hard impact (DamageSelf). A thing that came to rest in
+    /// the same frame is not found and left alone.
+    /// </summary>
+    public void DamageThing(int piIndex, int piDamage)
+    {
+        UWProjectileFlight lOFlight = fFlight(piIndex);
+
+        if (lOFlight == null || lOFlight.Record == null || piDamage <= 0)
+            return;
+
+        UWMobileRecord lORecord = lOFlight.Record;
+        UWCommonObjectProperties.Entry lOEntry = fEntry(lORecord.ItemId);
+        int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, UWDamageTypes.Physical);
+        bool lbProtected = lORecord.Object != null && lORecord.Object.DoorDirection;
+        int liNewHp;
+
+        if (!UWObjectDamageRules.Wear(lORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liNewHp))
+        {
+            lORecord.Hp = liNewHp;
+
+            return;
+        }
+
+        lORecord.Hp = 0;
+        fEndFlight(lORecord);
+    }
+
     private void fEndFlight(UWMobileRecord pORecord)
     {
         for (int liAt = mOFlights.Count - 1; liAt >= 0; liAt--)
@@ -605,10 +637,163 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         // thing passing it does nothing in the original either (the user is not the player).
     }
 
+    /// <summary>
+    /// A mover's box met a record of class 6 (CollideObjects_seg029_29EE_173 -> Trigger_ovr153_3B).
+    /// The a_move trigger has COMOBJ height 32 and radius 2 and is not solid, so it enters every
+    /// scan - the comment here said "height 0, never" until 2026-10-06. The original fires it on
+    /// EVERY scan in which the boxes overlap, so on every motion frame while the mover moves in
+    /// its reach, not on entering (per user on the original the same day: the text of the poison
+    /// needles on level 3 "comes very often" on entering).
+    ///
+    /// WHO SETS IT OFF (Trigger_ovr153_3B labels EC to 1A7): the player (index 1) when the
+    /// trigger's flags bit 2 (word 0 bit 0x800) is set - so never the ward rune's (flags 0); a
+    /// creature when bit 3 (0x1000) is set; a thing - thrown, shot, knocked loose - unless bit 3
+    /// is set without bit 2 (per user on the original the same day: creatures and thrown things
+    /// close the grate before Drog, flags 14). Queued here and fired after the motion: inside
+    /// the step a teleport would be overwritten by the step's own write-back. The player's by
+    /// FirePendingPlayerTriggers after his frame, the others in LateUpdate.
+    /// </summary>
     public int TriggerMove(int piMoverIndex, int piOtherIndex, int piHitTileX, int piHitTileY)
     {
-        // A trigger has height 0 and never enters a scan as a static object.
+        if (!IsStaticIndex(piOtherIndex))
+            return 2;
+
+        UWObject lOTrigger = StaticObjectAt(piOtherIndex);
+
+        if (lOTrigger == null || lOTrigger.ID != UWObjectMechanics.MoveTriggerId)
+            return 2;
+
+        bool lbPlayerFlag = (lOTrigger.Flags & PlayerSetsOffFlag) != 0;
+        bool lbOthersFlag = (lOTrigger.Flags & OthersSetOffFlag) != 0;
+
+        if (piMoverIndex == 1)
+        {
+            if (lbPlayerFlag && !mOPendingPlayerTriggers.Contains(lOTrigger))
+                mOPendingPlayerTriggers.Add(lOTrigger);
+
+            return 2;
+        }
+
+        bool lbCreature = fCritter(piMoverIndex) != null;
+
+        if (lbCreature ? !lbOthersFlag : (lbOthersFlag && !lbPlayerFlag))
+            return 2;
+
+        foreach (PendingTrigger lOPending in mOPendingOtherTriggers)
+        {
+            if (lOPending.Mover == piMoverIndex && lOPending.Trigger == lOTrigger)
+                return 2;
+        }
+
+        mOPendingOtherTriggers.Add(new PendingTrigger { Mover = piMoverIndex, Trigger = lOTrigger, IsCreature = lbCreature });
+
         return 2;
+    }
+
+    /// <summary>Flags bit 2 of a trigger (word 0 bit 0x800): the player sets it off
+    /// (Trigger_ovr153_3B label F5).</summary>
+    public const int PlayerSetsOffFlag = 4;
+
+    /// <summary>Flags bit 3 (word 0 bit 0x1000): creatures set it off (labels 145 to 16E); for a
+    /// thing it is the one bit that, without bit 2, keeps it out (labels 174 to 1A7).</summary>
+    public const int OthersSetOffFlag = 8;
+
+    private struct PendingTrigger
+    {
+        public int Mover;
+
+        public UWObject Trigger;
+
+        public bool IsCreature;
+    }
+
+    private readonly List<PendingTrigger> mOPendingOtherTriggers = new List<PendingTrigger>();
+
+    private readonly Dictionary<long, float> mOOtherTriggerFiredAt = new Dictionary<long, float>();
+
+    /// <summary>The triggers creatures and things met this frame, fired after all their steps
+    /// with the same spacing as the player's, with the mover as the one struck (damage and
+    /// teleport go to it, see UWTrapRules).</summary>
+    private void LateUpdate()
+    {
+        if (mOPendingOtherTriggers.Count == 0 || mOLoader == null)
+            return;
+
+        PendingTrigger[] lOPending = mOPendingOtherTriggers.ToArray();
+        UWLevel lOLevel = mOLoader.CurrentLevel;
+        Interaction lOInteraction = UWScene.Interaction;
+        float lfNow = Time.time;
+
+        mOPendingOtherTriggers.Clear();
+
+        if (mOOtherTriggerFiredAt.Count > 256)
+            mOOtherTriggerFiredAt.Clear();
+
+        foreach (PendingTrigger lOAt in lOPending)
+        {
+            if (mOLoader.CurrentLevel != lOLevel)
+                break;
+
+            long llKey = ((long)lOAt.Mover << 32) | (uint)lOAt.Trigger.GetHashCode();
+            float lfLast;
+
+            if (mOOtherTriggerFiredAt.TryGetValue(llKey, out lfLast) && lfNow - lfLast < PlayerTriggerSpacingSeconds)
+                continue;
+
+            UWCritter lOCritter = lOAt.IsCreature ? fCritter(lOAt.Mover) : null;
+
+            if (lOAt.IsCreature && lOCritter == null)
+                continue;
+
+            mOOtherTriggerFiredAt[llKey] = lfNow;
+            UWTriggerSystem.TryFireMoveTriggerBy(lOAt.Trigger, mOLoader, lOInteraction, lOCritter,
+                lOAt.IsCreature ? 0 : lOAt.Mover);
+        }
+    }
+
+    /// <summary>
+    /// How often one trigger fires at most while the player moves in its reach: once per 16 PIT
+    /// ticks, the original's frame at the user's DOSBox reference. The original fires per scan,
+    /// so its rate follows its frame rate; ours runs the motion once per rendered frame in Smooth
+    /// mode, and at 144 frames a second a damage trigger would hurt nine times as often.
+    /// </summary>
+    public const float PlayerTriggerSpacingSeconds = 16f / 256f;
+
+    private readonly List<UWObject> mOPendingPlayerTriggers = new List<UWObject>();
+
+    private readonly Dictionary<UWObject, float> mOPlayerTriggerFiredAt = new Dictionary<UWObject, float>();
+
+    /// <summary>The move triggers the player's motion met since the last call (TriggerMove),
+    /// each fired once - unless it fired less than PlayerTriggerSpacingSeconds ago. A level change
+    /// by one of them drops the rest.</summary>
+    public void FirePendingPlayerTriggers()
+    {
+        if (mOPendingPlayerTriggers.Count == 0 || mOLoader == null)
+            return;
+
+        UWObject[] lOTriggers = mOPendingPlayerTriggers.ToArray();
+        UWLevel lOLevel = mOLoader.CurrentLevel;
+        Interaction lOInteraction = UWScene.Interaction;
+        float lfNow = Time.time;
+
+        mOPendingPlayerTriggers.Clear();
+
+        if (mOPlayerTriggerFiredAt.Count > 64)
+            mOPlayerTriggerFiredAt.Clear();
+
+        foreach (UWObject lOTrigger in lOTriggers)
+        {
+            if (mOLoader.CurrentLevel != lOLevel)
+                break;
+
+            float lfLast;
+
+            if (mOPlayerTriggerFiredAt.TryGetValue(lOTrigger, out lfLast) && lfNow - lfLast < PlayerTriggerSpacingSeconds)
+                continue;
+
+            mOPlayerTriggerFiredAt[lOTrigger] = lfNow;
+            UWTriggerSystem.TryFireMoveTrigger(lOTrigger, mOLoader, lOInteraction);
+        }
     }
 
     public bool MissileHits(int piMoverIndex, int piOtherIndex, int piMoverTileX, int piMoverTileY)

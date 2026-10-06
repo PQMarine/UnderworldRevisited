@@ -72,6 +72,16 @@ public static class UWTriggerSystem
         return UWTrapRules.TryFireMoveTrigger(pOTrigger, new UWTrapHost(pOLevelLoader, pOInteraction));
     }
 
+    /// <summary>A move trigger set off by a creature (pOCritter) or a thing in flight (piThingIndex,
+    /// 0 for none) - the original's Trigger with that mover as the one that set it off (see
+    /// UWProjectileWorld.TriggerMove). Damage goes to the creature or the thing, a teleport moves
+    /// the creature (UWTrapRules).</summary>
+    public static bool TryFireMoveTriggerBy(UWObject pOTrigger, UWLevelLoader pOLevelLoader, Interaction pOInteraction,
+        UWCritter pOCritter, int piThingIndex)
+    {
+        return UWTrapRules.TryFireMoveTrigger(pOTrigger, new UWTrapHost(pOLevelLoader, pOInteraction, pOCritter, piThingIndex));
+    }
+
     /// <summary>
     /// Fires the move trigger of a RUNE OF WARDING - it is set off by a creature, not
     /// the player (see UWMoveTrigger and UWSummonSpell). The creature travels with the host
@@ -315,11 +325,50 @@ public static class UWTriggerSystem
 
         private bool mbPlayerLookedUp;
 
-        public UWTrapHost(UWLevelLoader pOLoader, Interaction pOInteraction, UWCritter pOTriggeringCritter = null)
+        private readonly int miTriggeringThing;
+
+        public UWTrapHost(UWLevelLoader pOLoader, Interaction pOInteraction, UWCritter pOTriggeringCritter = null,
+            int piTriggeringThing = 0)
         {
             mOLoader = pOLoader;
             mOInteraction = pOInteraction;
             mOTriggeringCritter = pOTriggeringCritter;
+            miTriggeringThing = piTriggeringThing;
+        }
+
+        public bool HasTriggeringThing => miTriggeringThing != 0;
+
+        /// <summary>A damage trap set off by a thing in flight: the quality on the thing itself
+        /// (UWProjectileWorld.DamageThing).</summary>
+        public void DamageTriggeringThing(int piDamage)
+        {
+            if (miTriggeringThing == 0 || mOLoader == null)
+                return;
+
+            UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(mOLoader);
+
+            if (lOWorld != null)
+                lOWorld.DamageThing(miTriggeringThing, piDamage);
+        }
+
+        /// <summary>A damage trap set off by a creature: the quality on its hit points
+        /// (DamageTrap_ovr107_CB2 -> DamageObject, type 4).</summary>
+        public void DamageTriggeringCreature(int piDamage)
+        {
+            if (mOTriggeringCritter == null)
+                return;
+
+            UWDamageable lODamageable = mOTriggeringCritter.GetComponent<UWDamageable>();
+
+            if (lODamageable != null && !lODamageable.IsDestroyed)
+                lODamageable.ApplyDamage(piDamage, UWDamageTypes.Physical);
+        }
+
+        /// <summary>A teleport trap set off by a creature, on its own level (Teleport_ovr107_949
+        /// moves a non-player only there): set down on the target tile.</summary>
+        public bool TeleportTriggeringCreature(int piTileX, int piTileY)
+        {
+            return mOTriggeringCritter != null && mOTriggeringCritter.PlaceAtSpot(new UWTilePos(piTileX, piTileY), 3, 3);
         }
 
         private UWCharacter fPlayer
@@ -464,19 +513,33 @@ public static class UWTriggerSystem
                 || !mOLoader.TryGetEntity(pODoor, out UWEntityInfo lOEntity))
                 return;
 
+            IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
+
+            // A DOOR IN MOTION IS NO DOOR FOR THE TRAP (DoorTrap_loc_8F8DD, read 2026-10-06): the
+            // original looks for a door object in the tile, and a moving door is an animation
+            // object (0x1CF) until it stops, so the trap finds nothing and does nothing - lock
+            // included. Since move triggers fire on every motion frame in reach, the close trap
+            // before Drog (level 1, 15/33) came again while the grate was coming down, and "close
+            // unless closed" turned it round: down and up, over and over (per user the same day).
+            if (lIDoor != null && lIDoor.IsMoving)
+                return;
+
             UWDoorLock lOLock = lOEntity.GetComponentInParent<UWDoorLock>();
 
             if (lOLock != null)
             {
                 lOLock.EnsureResolved(pODoor, mOLoader.CurrentLevel.Masterlist);
 
+                // THE LOCK IS REPLACED, NOT TOGGLED (labels 943 to 9F5): an a_lock on the door is
+                // taken off and freed, then a copy of the template the trap links to is put on -
+                // the same lock however often it fires. Until 2026-10-06 a lock was removed when
+                // there was one and the template applied when there was none, which a repeated
+                // close trap turned into locked, unlocked, locked.
                 if (lOLock.HasLock)
                     lOLock.RemoveLock();
-                else
-                    lOLock.ApplyLock(pOLockTemplate);
-            }
 
-            IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
+                lOLock.ApplyLock(pOLockTemplate);
+            }
 
             if (lIDoor == null)
                 return;

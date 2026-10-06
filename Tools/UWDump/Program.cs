@@ -66,6 +66,9 @@ namespace UnderworldRevisited.Tools
                 case "object":
                     return fPrintObject(lOData, psArgs);
 
+                case "triggers":
+                    return fPrintMoveTriggers(lOData);
+
                 default:
                     fPrintUsage();
                     return 1;
@@ -81,6 +84,7 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("  uwdump find    <path> <text>              search all string blocks");
             Console.WriteLine("  uwdump level   <path> <1-9> [x y radius]  tile map and what stands in it");
             Console.WriteLine("  uwdump object  <path> <id>                properties of an object type");
+            Console.WriteLine("  uwdump triggers <path>                    every move trigger, its flags and traps");
             Console.WriteLine();
             Console.WriteLine("<path> is the DATA folder of an installation, or the GOG installation");
             Console.WriteLine("folder or game.gog itself - the image is then extracted into a cache once.");
@@ -179,6 +183,57 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>Tile map as in the save-editing tool: '#' solid, '.' open, '/' diagonal,
         /// 's' sloped, the digit is the floor height.</summary>
+        /// <summary>Every a_move trigger of the nine levels: tile, the flags of word 0 bits 9-12
+        /// (bit 1 = 0x400 repeatable, bit 2 = 0x800 the player sets it off, bit 3 = 0x1000 creatures
+        /// and things do, see Trigger_ovr153_3B) and the chain of traps behind it.</summary>
+        private static int fPrintMoveTriggers(DataImport pOData)
+        {
+            if (pOData.Levels == null)
+                return 4;
+
+            foreach (UWLevel lOLevel in pOData.Levels)
+            {
+                if (lOLevel == null || lOLevel.TileData == null)
+                    continue;
+
+                for (int liAt = 0; liAt < lOLevel.TileData.Length; liAt++)
+                {
+                    UWTile lOTile = lOLevel.TileData[liAt];
+
+                    if (lOTile == null || lOTile.ObjectsInTile == null)
+                        continue;
+
+                    foreach (UWObject lOObject in lOTile.ObjectsInTile)
+                    {
+                        if (lOObject == null || lOObject.ID != UWObjectMechanics.MoveTriggerId)
+                            continue;
+
+                        System.Text.StringBuilder lOChain = new System.Text.StringBuilder();
+                        UWObject lOLink = UWObjectMechanics.GetLinkedObject(lOObject, lOLevel.Masterlist);
+
+                        for (int liDepth = 0; lOLink != null && liDepth < 6; liDepth++)
+                        {
+                            lOChain.Append(string.Format(" -> {0:X3} {1} q{2}", lOLink.ID,
+                                fOneLine(pOData.GetObjectDescription(lOLink.ID + 1)), lOLink.Quality));
+
+                            if (((lOLink.ID >> 6) & 7) != 6)
+                                break;
+
+                            lOLink = UWObjectMechanics.GetLinkedObject(lOLink, lOLevel.Masterlist);
+                        }
+
+                        Console.WriteLine(string.Format("L{0} {1,2}/{2,2} flags {3} ({4}{5}{6}){7}", lOLevel.LevelNumber,
+                            liAt % 64, liAt / 64, lOObject.Flags,
+                            (lOObject.Flags & 2) != 0 ? "repeat " : "once ",
+                            (lOObject.Flags & 4) != 0 ? "player " : "",
+                            (lOObject.Flags & 8) != 0 ? "creatures" : "", lOChain));
+                    }
+                }
+            }
+
+            return 0;
+        }
+
         private static int fPrintLevel(DataImport pOData, string[] psArgs)
         {
             if (psArgs.Length < 3 || !fParse(psArgs[2], out int liLevel))

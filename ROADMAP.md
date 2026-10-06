@@ -51,7 +51,10 @@ of what is built was also read out of the original's executable.
 ## Open: presentation
 
 - **General MIDI / MT-32 music.** AdLib is complete; the other music versions would need a
-  soundfont or an MT-32 emulation.
+  soundfont or an MT-32 emulation. A simpler way, suggested on Reddit: recordings the player
+  supplies, one file per track, played in place of the synthesizer when present (made on a
+  real MT-32 or a good General MIDI setup; they cannot ship with the project, the music
+  belongs to the rights holders).
 - **Hallucination.** All three pictures the original rolls from are built and confirmed, two
   of them as approximations: the "light table" the original copies from its own engine
   variables is modelled on screenshots (those variables' run-time values are not in the

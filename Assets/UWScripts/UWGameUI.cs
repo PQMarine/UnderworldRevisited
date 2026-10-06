@@ -102,6 +102,14 @@ public class UWGameUI : MonoBehaviour
     /// the pointer distance to the screen centre - see fCursorMovement().</summary>
     public float CursorRotateFactor { get; set; }
 
+    /// <summary>The pointer in the view's movement area in the original's pixels, x from the
+    /// left, y from the BOTTOM (0 to UWPlayerMotion.PointerAreaWidth/Height - 1), as
+    /// seg034_2F89_4E reads it - the motion core's pointer scheme takes these, see
+    /// UWPlayerMotion.PointerCommand. Kept while the pointer is outside the area.</summary>
+    public int CursorAreaX { get; private set; }
+
+    public int CursorAreaY { get; private set; }
+
     // Original pixel coordinates (reference resolution 320x200) for the canvas elements -
     // unscaled, the CanvasScaler takes care of that.
     private const float wLeftOffset = 52f;
@@ -1522,6 +1530,9 @@ public class UWGameUI : MonoBehaviour
             // borders are applied as fractions.
             float relx = (lOMousePos.x - gameAreaLeft) / (gameAreaRight - gameAreaLeft);
             float rely = (gameAreaTop - lOMousePos.y) / (gameAreaTop - gameAreaBottom);
+
+            CursorAreaX = Mathf.Clamp(Mathf.FloorToInt(relx * UWPlayerMotion.PointerAreaWidth), 0, UWPlayerMotion.PointerAreaWidth - 1);
+            CursorAreaY = Mathf.Clamp(Mathf.FloorToInt((1f - rely) * UWPlayerMotion.PointerAreaHeight), 0, UWPlayerMotion.PointerAreaHeight - 1);
 
             const float lfLeftBorder = 57f / 172f;
             const float lfRightBorder = 115f / 172f;

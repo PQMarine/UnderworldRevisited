@@ -99,8 +99,21 @@ namespace UWDataImport.UWData
 		/// routine as a theft in the original). Returns how many were angered.</summary>
 		int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward);
 
-		/// <summary>The creature that stepped on the trigger, if it was one (rune of warding).</summary>
+		/// <summary>The creature that stepped on the trigger, if it was one (rune of warding, and
+		/// since 2026-10-06 every move trigger a creature sets off).</summary>
 		bool HasTriggeringCreature { get; }
+
+		/// <summary>A thing - thrown, shot, knocked loose - set the trigger off.</summary>
+		bool HasTriggeringThing { get; }
+
+		/// <summary>A damage trap's quality on the triggering thing, worn off its quality.</summary>
+		void DamageTriggeringThing(int piDamage);
+
+		/// <summary>A damage trap's quality on the triggering creature.</summary>
+		void DamageTriggeringCreature(int piDamage);
+
+		/// <summary>A teleport trap's target tile for the triggering creature, same level.</summary>
+		bool TeleportTriggeringCreature(int piTileX, int piTileY);
 
 		/// <summary>Hurts the triggering creature and tells the player in which direction it
 		/// happened.</summary>

@@ -80,7 +80,8 @@ What is in:
   endgame with talismans and the void
 - Save games compatible with the original's, in `UNDEROM1\SAVE1` to `SAVE4`
 - Intro, dreams and the end sequence from the original's cutscene files, with speech
-- AdLib music and sound effects through an OPL2 emulation of the project's own
+- AdLib music and sound effects through an OPL2 emulation (a C# port of the YM3812 core of
+  Aaron Giles' [ymfm](https://github.com/aaronsgiles/ymfm), see THIRD_PARTY_NOTICES.md)
 - Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
   port's own with free mouse look, WASD, an action bar and an interface built from the
   original's artwork (see Controls)

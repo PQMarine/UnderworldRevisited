@@ -86,6 +86,60 @@ namespace UWDataImport.UWData
 
 		public const int DirectionCount = 8;
 
+		/// <summary>The view seen from straight in front (slot 0x24).</summary>
+		public const int FrontView = 4;
+
+		/// <summary>
+		/// AnimationHeadingTable_6C2: the picture direction for the creature's facing relative to
+		/// the camera's yaw, in 32 steps of 11.25 degrees (0 = the creature looks the way the
+		/// camera looks, i.e. the viewer sees its back). NOT EVEN: the four straight views (back,
+		/// right, front, left) take five steps each, 56.25 degrees, the four diagonals three, 33.75.
+		/// </summary>
+		public static readonly int[] ViewByAngle =
+		{
+			0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4,
+			4, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 0, 0
+		};
+
+		/// <summary>
+		/// THE PICTURE DIRECTION as the original's renderer picks it, NPC_seg032_2DCA_216 (line
+		/// 110171, the NPC case of RenderingObjects) - READ 2026-10-06: the facing eighth (word 2
+		/// bits 7-9) times four, plus 0x20, minus the CAMERA'S YAW in 32nds (the 16-bit yaw
+		/// &gt;&gt; 11, the camera's own angle plus its cardinal from the table at 45C), masked to
+		/// 0x1F, looked up in ViewByAngle. It is the camera's direction of view that counts, not
+		/// the line from the camera to the creature: every creature on the screen is judged
+		/// against the same yaw.
+		/// </summary>
+		public static int GetViewDirection(int piFacingEighth, int piCameraYaw)
+		{
+			return ViewByAngle[(((piFacingEighth & 7) * 4) + 0x20 - ((piCameraYaw & 0xFFFF) >> 11)) & 0x1F];
+		}
+
+		/// <summary>Whether this view shows the target-relative pages (combat, ranged, spell,
+		/// back-off): the front and the two front diagonals, views 3 to 5 - the renderer's
+		/// ((view + 5) &amp; 7) &lt; 3. From the other five the standing picture of that view.</summary>
+		public static bool ShowsTargetPage(int piView)
+		{
+			return ((piView + 5) & 7) < 3;
+		}
+
+		/// <summary>
+		/// The slot the renderer draws for an animation (byte 0x15 bits 0-5) in a view: from 0x20
+		/// on the direction sets, (animation - 0x20) * 8 + 0x20 + view - so 0x20 standing gives
+		/// 0x20-0x27 and 0x2C walking 0x80-0x87; dying (0x0C) from every side; any other
+		/// animation its own page where ShowsTargetPage, else the standing picture of the view.
+		/// </summary>
+		public static int GetSlot(int piAnimation, int piView)
+		{
+			if (piAnimation >= SlotIdleFirstDirection)
+				return ((piAnimation - SlotIdleFirstDirection) * DirectionCount) + SlotIdleFirstDirection + piView;
+
+			if (piAnimation == SlotDeath || ShowsTargetPage(piView))
+				return piAnimation;
+
+			return SlotIdleFirstDirection + piView;
+		}
+
 		/// <summary>NPC object ids start at 0x40; the mapping table is
 		/// zero-based.</summary>
 		public const int NpcFirstObjectId = 0x40;

@@ -150,13 +150,23 @@ public class UWPlayerMovement : MonoBehaviour
         {
             miJumpClickFrame = Time.frameCount;
 
+            // In the fight mode both buttons drive on and the right one attacks (seg034_2F89_4E,
+            // UWPlayerMotion.PointerDrives) - the click is not the jump's then.
             if (UWMouseButtons.RightPressed)
-                mbJumpClickLatched = msInstance != null && msInstance.fIsCursorMoving();
+                mbJumpClickLatched = msInstance != null && msInstance.fIsCursorMoving() && !fIsFightMode();
             else if (!UWMouseButtons.RightHeld && !UWMouseButtons.RightReleased)
                 mbJumpClickLatched = false;
         }
 
         return mbJumpClickLatched;
+    }
+
+    /// <summary>The fight mode of the original scheme (the drawn weapon, PD[0x5F] bit 1).</summary>
+    private static bool fIsFightMode()
+    {
+        Interaction lOInteraction = UWScene.Interaction;
+
+        return lOInteraction != null && lOInteraction.IsCombatModeActive;
     }
 
     /// <summary>Left button held with a press that started in the viewport, original scheme.</summary>
@@ -2074,6 +2084,13 @@ public class UWPlayerMovement : MonoBehaviour
                 fApplyMotionToTransform(lOMotion, mfCoreTickRemainder / liStep);
         }
 
+        // The move triggers the steps met (UWProjectileWorld.TriggerMove): fired now, after the
+        // frame, so that a teleport is not overwritten by the step.
+        UWProjectileWorld lOTriggerWorld = UWScene.LevelLoader != null ? UWProjectileWorld.Ensure(UWScene.LevelLoader) : null;
+
+        if (lOTriggerWorld != null)
+            lOTriggerWorld.FirePendingPlayerTriggers();
+
         mfDebugInputSpeed = lOMotion.Params.Speed;
         miDebugCoreSpeed = lOMotion.Params.Speed;
         msDebugCoreState = lOMotion.CurrentState.ToString();
@@ -2212,13 +2229,19 @@ public class UWPlayerMovement : MonoBehaviour
 
     /// <summary>
     /// The original scheme: with the left button held and the press begun in the viewport the
-    /// pointer drives (the zones of UWGameUI.CursorMovement): forward is Walk with the walk
-    /// value scaled by the distance into the zone (0x70 at the far edge, the original's own
-    /// pointer scheme seg034_2F89_4E is not transcribed), back the back command, the strafes the
-    /// slides, the turns Walk with no walk value and the turn input scaled the same way
-    /// (+-0x5A at the edge: (dt * 15) * 22 / 4 a frame, about 116 degrees a second), the slight
-    /// turns both. Without the pointer the keys: W and S, the turn keys, the strafe keys.
+    /// pointer drives with the original's own values (UWPlayerMotion.PointerCommand, from the
+    /// pointer's pixel in the 172 by 113 area, UWGameUI.CursorAreaX/Y; since 2026-10-06 - the
+    /// port scaled the keys' 0x70 and 0x5A by the zone distance before). Both buttons outside
+    /// the fight mode jump, on the run and again on every landing while held
+    /// (UWPlayerMotion.PointerJumpCommand); in the fight mode they drive on. Without the pointer
+    /// the keys: W and S, the turn keys, the strafe keys.
     /// </summary>
+    /// <summary>The pointer scheme's walk and turn of the last driving frame - the jump with
+    /// both buttons keeps them (seg034_2F89_4E does not clear them there).</summary>
+    private int miPointerWalk;
+
+    private int miPointerTurn;
+
     private void fBuildOriginalCoreCommand(UWPlayerMotion pOMotion)
     {
         if (mItemDrag == null)
@@ -2233,54 +2256,29 @@ public class UWPlayerMovement : MonoBehaviour
 
         if (IsCursorMovementInProgress)
         {
-            int liWalk = Mathf.RoundToInt(UWPlayerMotion.WalkRun * Mathf.Clamp01(mGameUi.CursorWalkFactor));
-            int liTurn = Mathf.RoundToInt(UWPlayerMotion.TurnInputStep * Mathf.Clamp01(mGameUi.CursorRotateFactor));
+            int liButtons = 1 | (UWMouseButtons.RightHeld ? 2 : 0);
 
-            switch (mGameUi.CursorMovement)
+            if (UWPlayerMotion.PointerDrives(liButtons, fIsFightMode()))
             {
-                case UWCursors.CursorEnum.Forward:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-                    pOMotion.Walk = liWalk;
-                    return;
+                UWPlayerMotion.Command leCommand;
 
-                case UWCursors.CursorEnum.Backward:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Back;
-                    return;
+                UWPlayerMotion.PointerCommand(mGameUi.CursorAreaX, mGameUi.CursorAreaY,
+                    UWPlayerMotion.PointerAreaWidth, UWPlayerMotion.PointerAreaHeight,
+                    out leCommand, out miPointerWalk, out miPointerTurn);
 
-                case UWCursors.CursorEnum.StrafeLeft:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.SlideLeft;
-                    return;
+                pOMotion.MotionCommand = leCommand;
+                pOMotion.Walk = miPointerWalk;
+                pOMotion.TurnInput = miPointerTurn;
 
-                case UWCursors.CursorEnum.StrafeRight:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.SlideRight;
-                    return;
-
-                case UWCursors.CursorEnum.TurnLeft:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-                    pOMotion.TurnInput = -liTurn;
-                    return;
-
-                case UWCursors.CursorEnum.TurnRight:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-                    pOMotion.TurnInput = liTurn;
-                    return;
-
-                case UWCursors.CursorEnum.SlightLeft:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-                    pOMotion.Walk = liWalk;
-                    pOMotion.TurnInput = -liTurn;
-                    return;
-
-                case UWCursors.CursorEnum.SlightRight:
-                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-                    pOMotion.Walk = liWalk;
-                    pOMotion.TurnInput = liTurn;
-                    return;
-
-                default:
-                    IsCursorMovementInProgress = false;
-                    return;
+                return;
             }
+
+            // Both buttons, no fight mode: the jump, with the last walk and turn carrying on.
+            pOMotion.MotionCommand = pOMotion.PointerJumpCommand;
+            pOMotion.Walk = miPointerWalk;
+            pOMotion.TurnInput = miPointerTurn;
+
+            return;
         }
 
         float lfTurn = mInput.Turn.ReadValue<float>();

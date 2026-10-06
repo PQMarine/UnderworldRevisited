@@ -981,6 +981,95 @@ namespace UWDataImport.UWData
 			UpdateNeeded = true;
 		}
 
+		// ------------------------------------------------- The pointer scheme
+
+		/// <summary>The view's movement area in the original's pixels: dseg_7364 wide, dseg_7280
+		/// high (the rectangle seg034_2F89_0 hands on, 172 by 113).</summary>
+		public const int PointerAreaWidth = 172;
+
+		public const int PointerAreaHeight = 113;
+
+		/// <summary>The turn input at the far side edge is this times a third of the width over
+		/// the width - 0x80 at most, about 127 at the area's real edge.</summary>
+		public const int PointerTurnRange = 0x180;
+
+		/// <summary>The walk value at the top edge is this times three fifths of the height over
+		/// the height - about 115, a little above the W key's 0x70.</summary>
+		public const int PointerWalkRange = 0xC0;
+
+		/// <summary>dseg_768: the commands of the bottom fifth, by thirds of the width - slide
+		/// left, back, slide right.</summary>
+		public static readonly Command[] PointerBottomCommands = { Command.SlideLeft, Command.Back, Command.SlideRight };
+
+		/// <summary>
+		/// Whether the buttons drive the motion (seg034_2F89_4E labels 78 to 98): the left one
+		/// alone, or the left one with the right while the fight mode is on (PD[0x5F] bit 1, set
+		/// by SetInteractionMode for mode 2). Bit 0 is the left button, bit 1 the right.
+		/// </summary>
+		public static bool PointerDrives(int piButtons, bool pbFightMode)
+		{
+			return piButtons == 1 || ((piButtons & 1) != 0 && pbFightMode);
+		}
+
+		/// <summary>
+		/// THE POINTER SCHEME'S VALUES, seg034_2F89_4E (line 114173) labels 9B to 16A - READ in
+		/// full 2026-10-06; the port had scaled the W key's walk and the A/D keys' turn by the
+		/// zone distance until then. piX from the area's left, piY from its BOTTOM, in the
+		/// original's pixels; all divisions are the original's truncating idiv:
+		/// <list type="bullet">
+		/// <item>the bottom fifth (y &lt; h/5): the command of PointerBottomCommands by x * 3 / w,
+		/// no walk, no turn;</item>
+		/// <item>else the walk command (1), with a turn left of the first third
+		/// -((w/3 - x) * 0x180) / w, right of the second (x - 2w/3) * 0x180 / w, and a walk above
+		/// two fifths (y - 2h/5) * 0xC0 / h. The band between a fifth and two fifths turns
+		/// without walking; its middle third stands still.</item>
+		/// </list>
+		/// </summary>
+		public static void PointerCommand(int piX, int piY, int piWidth, int piHeight, out Command peCommand, out int piWalk, out int piTurn)
+		{
+			piWalk = 0;
+			piTurn = 0;
+
+			if (piWidth <= 0 || piHeight <= 0)
+			{
+				peCommand = Command.None;
+
+				return;
+			}
+
+			if (piHeight / 5 > piY)
+			{
+				int liThird = (piX * 3) / piWidth;
+
+				peCommand = PointerBottomCommands[liThird < 0 ? 0 : liThird > 2 ? 2 : liThird];
+
+				return;
+			}
+
+			if (piWidth / 3 > piX)
+				piTurn = -((piWidth / 3 - piX) * PointerTurnRange) / piWidth;
+
+			if ((piWidth * 2) / 3 < piX)
+				piTurn = ((piX - ((piWidth * 2) / 3)) * PointerTurnRange) / piWidth;
+
+			if ((piHeight * 2) / 5 < piY)
+				piWalk = ((piY - ((piHeight * 2) / 5)) * PointerWalkRange) / piHeight;
+
+			peCommand = Command.Walk;
+		}
+
+		/// <summary>
+		/// Both buttons without the fight mode (labels 172 to 198): the jump, unless the player
+		/// is in the air (params +0x25 bit 0x10) or swims (PD[0xB8] = 1), then the walk command.
+		/// The walk and turn values are NOT cleared there, so the last frame's carry on - a run
+		/// with the left button and the right added jumps on the run, and held, jumps again on
+		/// every landing.
+		/// </summary>
+		public Command PointerJumpCommand
+		{
+			get { return IsAirborne || SurfaceBits == 1 ? Command.Walk : Command.Jump; }
+		}
+
 		// ------------------------------------------------- The easy movement
 
 		/// <summary>The gate of the easy movement (labels 21D and 228, see seg008_1B2A_216 in UWEasyMovement): nothing,
@@ -1018,11 +1107,11 @@ namespace UWDataImport.UWData
 		/// him, else he keeps his height and, unless he floats, gravity -4 starts the fall.</item>
 		/// <item>ProcessPlayerTileState with the fit's state; the caller clears the speed.</item>
 		/// </list>
-		/// NOT HERE: the step's own move-trigger loop (labels 562 to 5C0: ScanForCollisions
-		/// around the new spot, Trigger on every a_move trigger in reach). The host's
-		/// UWMoveTrigger tests the same reach on the transform the step moves, and firing here as
-		/// well would fire twice. The PIT bits written into the player object's frame word are
-		/// the host's animation business.
+		/// ALSO HERE since 2026-10-06: the step's own trigger loop (labels 4FB to 5C0),
+		/// ScanForCollisions around the new spot and every a_move trigger in reach to the world
+		/// (IUWMotionWorld.TriggerMove) - after every step; UWMoveTrigger fired on entering before.
+		/// The PIT bits written into the player object's frame word are the host's animation
+		/// business.
 		/// </summary>
 		public bool EasyStep(int piCommand, int piCameraYaw)
 		{
@@ -1091,6 +1180,21 @@ namespace UWDataImport.UWData
 
 			fProcessTileState(liState, false);
 			p.Speed = 0;
+
+			// Labels 4FB to 5C0: a scan at the new spot, and every a_move trigger in reach is told -
+			// after every step, inside reach or not before. The world fires it (TriggerMove).
+			Core.Mover = Body;
+			Core.SetCalc(I16(p.X) / 0x20, I16(p.Y) / 0x20, (p.Z >> 3) & 0x7F, miRadius, miHeight, 1);
+			Core.ScanForCollisions(false, false);
+			Core.SortCollisions();
+
+			for (int liAt = (sbyte)Core.First; liAt < (sbyte)Core.First + (Core.Overlap & 0xFF) && liAt < Core.Count; liAt++)
+			{
+				UWMotionCore.Record lORecord = Core.Records[liAt];
+
+				if (lORecord.Body.ItemId == UWObjectMechanics.MoveTriggerId)
+					mOWorld.TriggerMove(1, lORecord.Body.Index, (CurrentTileX + lORecord.Dx) & 0x3F, (CurrentTileY + lORecord.Dy) & 0x3F);
+			}
 
 			return true;
 		}

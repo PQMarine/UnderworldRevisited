@@ -548,6 +548,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         {
             transform.position = mOBody;
             mfPictureSeconds = 0f;
+            fShowHeldMotion();
 
             return;
         }
@@ -593,8 +594,21 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         }
     }
 
-    /// <summary>After an update: the picture's facing and frame. The animator shows exactly
-    /// the Motion's slot and frame until the next update (deviation 20).</summary>
+    /// <summary>
+    /// After an update: the picture's facing and frame. The animator shows exactly the Motion's
+    /// slot and frame until the next update (deviation 20) - with one exception.
+    ///
+    /// THE LAST STEP OF A WALK GLIDES WITH THE WALKING PICTURE (2026-10-06, the user's
+    /// "sometimes they walk, sometimes they seem to slide", seen from behind on creatures moving
+    /// away). The update moves the body FIRST, with the speed the last update left - the walk's -
+    /// and the picture glides over that step (deviation 17); only then the mind decides to stand
+    /// (wandering creatures do so all the time) or to get ready, and its standing picture came
+    /// at once: a quarter of a second of a standing picture gliding along. The original has no
+    /// glide - the body jumps at the update and shows the new picture there - so no moving
+    /// standing picture ever appears in it. So while the body still glides a walking step, the
+    /// walk goes on one frame, and the standing (or combat-ready) picture follows when the glide
+    /// ends (fShowHeldMotion).
+    /// </summary>
     private void fShowMotion(UWCritterBrain.Motion pOMotion)
     {
         if (pOMotion.Culled)
@@ -602,12 +616,60 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
         UWCritterAnimator lOAnimator = GetComponent<UWCritterAnimator>();
 
-        if (lOAnimator != null)
-            lOAnimator.ShowMotion(pOMotion.Animation, pOMotion.Frame);
-
         if (pOMotion.Animation >= 1 && pOMotion.Animation <= 3)
             miAttackIndex = pOMotion.Animation - 1;
+
+        if (lOAnimator == null)
+            return;
+
+        bool lbGlidingAWalk = mfPictureSeconds > 0f && miShownAnimation == UWCritterBrain.AnimWalking
+            && (pOMotion.Animation == UWCritterBrain.AnimStanding || pOMotion.Animation == UWCritterBrain.AnimCombatIdle);
+
+        if (lbGlidingAWalk)
+        {
+            mbHeldMotion = true;
+            miHeldAnimation = pOMotion.Animation;
+            miHeldFrame = pOMotion.Frame;
+            miShownFrame = (miShownFrame + 1) & 3;
+            lOAnimator.ShowMotion(UWCritterBrain.AnimWalking, miShownFrame);
+
+            return;
+        }
+
+        mbHeldMotion = false;
+        miShownAnimation = pOMotion.Animation;
+        miShownFrame = pOMotion.Frame;
+        lOAnimator.ShowMotion(pOMotion.Animation, pOMotion.Frame);
     }
+
+    /// <summary>The picture the last update decided, once the walking step it waited for has
+    /// glided to its end - see fShowMotion.</summary>
+    private void fShowHeldMotion()
+    {
+        if (!mbHeldMotion)
+            return;
+
+        mbHeldMotion = false;
+        miShownAnimation = miHeldAnimation;
+        miShownFrame = miHeldFrame;
+
+        UWCritterAnimator lOAnimator = GetComponent<UWCritterAnimator>();
+
+        if (lOAnimator != null)
+            lOAnimator.ShowMotion(miHeldAnimation, miHeldFrame);
+    }
+
+    /// <summary>What the animator shows (the walk while a step still glides, see fShowMotion),
+    /// and the decided picture waiting for the glide's end.</summary>
+    private int miShownAnimation = -1;
+
+    private int miShownFrame;
+
+    private bool mbHeldMotion;
+
+    private int miHeldAnimation;
+
+    private int miHeldFrame;
 
     // ------------------------------------------------- The physics (contract section 3)
 
@@ -700,6 +762,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         mOBody = fBodyFromRecord();
         transform.position = mOBody;
         mfPictureSeconds = 0f;
+        fShowHeldMotion();
     }
 
     /// <summary>The world point of the record: the centre of its eighth, its zpos, a swimmer

@@ -208,6 +208,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ovr107_163C` | UWRepairRules.cs, Interaction.cs |
 | `ItemRepair` (ovr107_1754) | UWRepairRules.cs, Interaction.cs |
 | `ResetObjectIdentifcation` (ovr107_19BC) | UWLoreCheck.cs |
+| `Teleport` (ovr107_949) | UWTrapRules.cs, UWTriggerSystem.cs |
+| `DamageTrap` (ovr107_CB2) | UWTrapRules.cs, UWProjectileWorld.cs, UWTriggerSystem.cs |
 
 ### ovr109
 
@@ -393,7 +395,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `FindAndCloseDoors` (ovr153_15C4) | UWSleepRules.cs, UWSleep.cs |
 | `RunTrap` (ovr153_24A) | UWTrapChainRemoval.cs, UWTrapRules.cs |
 | `Traps` (ovr153_296) | UWTrapRules.cs |
-| `Trigger` (ovr153_3B) | UWTrapChainRemoval.cs, UWTrapRules.cs |
+| `Trigger` (ovr153_3B) | UWTrapChainRemoval.cs, UWTrapRules.cs, UWProjectileWorld.cs, Program.cs, EasyStepChecks.cs |
 | `DeleteObjectTrap` (ovr153_ADC) | UWTrapRules.cs |
 | `TriggerNext` (ovr153_D03) | UWTrapRules.cs |
 | `ovr153_DC2` | UWTrapChainRemoval.cs |
@@ -612,7 +614,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `DamageObject` (seg023_35A) | IUWMobileObjectHost.cs, UWEquipmentWear.cs, UWTargetSpellRules.cs |
-| `DamageObjectAndDoors` (seg023_3E7) | UWObjectDamageRules.cs |
+| `DamageObjectAndDoors` (seg023_3E7) | UWObjectDamageRules.cs, UWProjectileWorld.cs |
 | `DamageObject_Debris` (seg023_D6) | UWObjectDamageRules.cs |
 
 ### seg024
@@ -708,7 +710,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `PlacedObjectCollison` (seg029_104D) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWLevelLoader.cs |
 | `seg029_29EE_100B` | UWMobileObjectMotion.cs |
-| `CollideObjects` (seg029_29EE_173) | IUWMotionWorld.cs, UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWMotionCore.cs |
+| `CollideObjects` (seg029_29EE_173) | IUWMotionWorld.cs, UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWMotionCore.cs, UWProjectileWorld.cs |
 | `seg029_29EE_3` | IUWMotionWorld.cs, UWCreatureMotion.cs, UWMotionCore.cs, UWPlayerMovement.cs, UWProjectileWorld.cs |
 | `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWCritterRules.cs, UWMobileObjectMotion.cs |
 | `ApplyProjectileMotion` (seg029_29EE_61A) | UWLiquidCulling.cs, UWMobileObjectMotion.cs |
@@ -764,6 +766,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
+| `NPC` (seg032_2DCA_216) | UWCritterAnimations.cs, CritterViewChecks.cs |
 | `seg032_2DCA_3DA` | UWObjectSpawner.cs |
 | `RenderingObjects` (seg032_2DCA_5) | UW3DModelImport.cs, UWObjectSpawner.cs |
 | `seg032_2DCA_597` | UW3DModelImport.cs, UWObjectSpawner.cs |
@@ -780,11 +783,12 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
+| `seg034_2F89_0` | UWPlayerMotion.cs |
 | `seg034_2F89_1DA` | UWPlayerMotion.cs, UWPlayerMovement.cs |
 | `seg034_2F89_334` | UWCritterClock.cs, UWEasyMovement.cs, UWPlayerMotion.cs, UWCritterDriver.cs, UWPlayerMovement.cs |
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs, UWCritterDriver.cs |
 | `seg034_2F89_4C0` | UWCritterClock.cs |
-| `seg034_2F89_4E` | UWGameClock.cs, UWPlayerMotion.cs, UWGameUI.cs, UWPlayerMovement.cs, Program.cs |
+| `seg034_2F89_4E` | UWGameClock.cs, UWPlayerMotion.cs, UWGameUI.cs, UWPlayerMovement.cs, PointerSchemeChecks.cs, Program.cs |
 | `GameObjectLoop` (seg034_2F89_518) | UWPlayerVitals.cs, UWSettings.cs |
 | `PlayerMotion` (seg034_2F89_604) | UWHeadBobRules.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
 | `SurfaceFootsteps` (seg034_2F89_713) | UWTvfxVoice.cs, UWSoundEffects.cs |

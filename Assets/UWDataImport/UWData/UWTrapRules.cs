@@ -287,7 +287,35 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fFireDamageTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
-			if (!pIHost.HasPlayer || pOTrap.Quality <= 0)
+			if (pOTrap.Quality <= 0)
+				return false;
+
+			// WHOEVER SET IT OFF (DamageTrap_ovr107_CB2, read 2026-10-06): a creature takes the
+			// quality as damage - poison only ever goes to the player, for anyone else the
+			// negative value is turned back into damage. A thing would take it on its own
+			// quality (DamageObject); that is not done here.
+			if (pIHost.HasTriggeringCreature)
+			{
+				pIHost.DamageTriggeringCreature(pOTrap.Quality);
+				UWTrapLog.Detail = string.Format("-> creature, {0} damage", pOTrap.Quality);
+
+				return true;
+			}
+
+			// A THING: the original damages the thing itself - the poison's value too, as damage -
+			// and goes on along the chain (TriggerNext): a thrown item on the poison needles of
+			// level 3 brings their text, again and again while it slides, and nobody is poisoned
+			// (per user on the original, 2026-10-06). The quality comes off the thing's own
+			// (IUWTrapHost.DamageTriggeringThing, since the same day).
+			if (pIHost.HasTriggeringThing)
+			{
+				pIHost.DamageTriggeringThing(pOTrap.Quality);
+				UWTrapLog.Detail = string.Format("-> a thing, {0} damage", pOTrap.Quality);
+
+				return true;
+			}
+
+			if (!pIHost.HasPlayer)
 				return false;
 
 			if (UWObjectMechanics.IsPoisonDamageTrap(pOTrap))
@@ -372,6 +400,20 @@ namespace UWDataImport.UWData
 
 			if (liTargetLevel < 0 || liTargetLevel >= pIHost.LevelCount)
 				return false;
+
+			// ANYONE BUT THE PLAYER moves only on its own level (Teleport_ovr107_949, read
+			// 2026-10-06): another level, or 0x3F for a coordinate, and nothing happens. A creature
+			// is set down on the target tile; a thing would be moved too, which is not done here.
+			if (pIHost.HasTriggeringCreature || pIHost.HasTriggeringThing)
+			{
+				if (liTargetLevel != pIHost.CurrentLevelIndex || pOTrap.Quality == 0x3F || pOTrap.Owner == 0x3F
+					|| !pIHost.HasTriggeringCreature)
+					return false;
+
+				UWTrapLog.Detail = string.Format("-> creature to tile {0}/{1}", pOTrap.Quality, pOTrap.Owner);
+
+				return pIHost.TeleportTriggeringCreature(pOTrap.Quality, pOTrap.Owner);
+			}
 
 			UWTrapLog.Detail = string.Format("-> level {0}, tile {1}/{2}",
 				liTargetLevel + 1, pOTrap.Quality, pOTrap.Owner);
@@ -1685,10 +1727,12 @@ namespace UWDataImport.UWData
 		/// TARGET TILE - per uw-formats.txt the coordinates are on the trigger, not
 		/// on the trap. "quality" determines the action (1 open, 2 close, 3 toggle; any other value also toggles).
 		///
-		/// Then there is the lock side: if the door has a lock, it is REMOVED; if it has
-		/// none, one is created from the template the trap's sp_link points to. On
-		/// level 1 all four traps chained like this point to an a_lock (271). The door and
-		/// its lock are components, so the host does that part (IUWTrapHost.FireDoorTrap).</summary>
+		/// Then there is the lock side (DoorTrap_loc_8F8DD, read 2026-10-06): a lock on the door
+		/// is removed, then a copy of the template the trap's sp_link points to is put on, if
+		/// there is one - so a repeated close trap leaves the same lock, it does not toggle. On
+		/// level 1 all four traps chained like this point to an a_lock (271). A door in motion is
+		/// not found by the original (it is an animation object then): nothing happens. The door
+		/// and its lock are components, so the host does that part (IUWTrapHost.FireDoorTrap).</summary>
 		private static void fFireDoorTrap(UWObject pOTrigger, UWObject pOTrap, IUWTrapHost pIHost)
 		{
 			(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);

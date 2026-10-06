@@ -108,6 +108,8 @@ namespace UnderworldRevisited.Tools
                 fCheckCreatureMotion(lOData);
                 fCheckPlayerMotion(lOData);
                 fCheckEasyStep(lOData);
+                fCheckPointerScheme(lOData);
+                fCheckCritterView();
                 fCheckPreciseMotion(lOData);
             }
 

@@ -150,6 +150,27 @@ namespace UnderworldRevisited.Tools
                 fExpectInt("easy: ... as on the ground", lOPlayer.Params.Contact, UWMotionTables.ContactGround);
             }
 
+            // ------------------------------------------------- move triggers (Trigger_ovr153_3B via CollideObjects)
+            lOPlayer = fEasyPlayer(pOData, 1, 2, 0, out lOWorld);
+            lOWorld.AddBody(8, 9, new UWMotionBody { Index = 0x300, ItemId = UWObjectMechanics.MoveTriggerId, XPos = 4, YPos = 2, ZPos = 16 });
+            lOWorld.Log.Clear();
+            lOPlayer.EasyStep(UWEasyMovement.CommandStepForward, 0);
+            fExpectInt("trigger: an easy step into reach tells the world", lOWorld.Log.FindAll(s => s == "trigger 768").Count, 1);
+            lOPlayer.EasyStep(UWEasyMovement.CommandStepForward, 0);
+            fExpectInt("trigger: ... and the next step inside reach again", lOWorld.Log.FindAll(s => s == "trigger 768").Count, 2);
+
+            lOPlayer = fEasyPlayer(pOData, 1, 2, 0, out lOWorld);
+            lOWorld.AddBody(8, 9, new UWMotionBody { Index = 0x300, ItemId = UWObjectMechanics.MoveTriggerId, XPos = 4, YPos = 2, ZPos = 16 });
+            lOWorld.Log.Clear();
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.Walk, UWPlayerMotion.WalkSlow, 12);
+            fExpectBool("trigger: walking over it the motion frames tell the world more than once",
+                lOWorld.Log.FindAll(s => s == "trigger 768").Count > 1, true);
+            lOWorld.Log.Clear();
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.None, 0, 10);
+            lOWorld.Log.Clear();
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.None, 0, 5);
+            fExpectInt("trigger: standing still, no frame and no trigger", lOWorld.Log.Count, 0);
+
             // ------------------------------------------------- the gate
             lOPlayer = fEasyPlayer(pOData, 1, 2, 0, out lOWorld);
             lOPlayer.Params.Speed = lOPlayer.MotionWeight;

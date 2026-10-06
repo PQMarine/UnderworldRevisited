@@ -79,6 +79,12 @@ public class UWMoveTrigger : MonoBehaviour
         if (lOMovement == null)
             return;
 
+        // ON THE MOTION CORE the player's collision fires the trigger as the original does - on
+        // every motion frame in reach, not on entering (UWProjectileWorld.TriggerMove,
+        // 2026-10-06). This volume serves the old CharacterController path and the ward rune.
+        if (lOMovement.UsesMotionCore)
+            return;
+
         mOPlayer = lOMovement.transform;
 
         // Interaction sits on the camera BELOW the body that touches the volume, so looking only

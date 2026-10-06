@@ -313,24 +313,14 @@ public class UWCritterAnimator : MonoBehaviour
             return;
         }
 
-        int liWanted = fGetAtlasSlot(miAnimation);
-
-        // THE COMBAT FRAMES EXIST ONLY FROM THE FRONT. They lie on page 0 and relate to the
-        // viewer, not to a compass direction. Seen from any other side the creature shows the
-        // idle image for that direction - first seen with time standing still (per user on the
-        // original, 2026-09-08), when a creature fighting the player stays put and one walks
-        // round it. It holds ALWAYS: a creature fighting ANOTHER creature does not face the
-        // player, and ours showed its combat front to him from behind (per user, 2026-09-27: a
-        // summoned mage fighting a reaper "looks at me all the time" - "not so in the
-        // original"; from the side or behind he sees its side or back). When the player stands
-        // in front of it again, the combat frame is back. Dying is shown from every side.
-        if (liWanted < UWCritterAnimations.SlotIdleFirstDirection && liWanted != UWCritterAnimations.SlotDeath)
-        {
-            int liView = fGetViewDirection();
-
-            if (liView != FrontViewDirection)
-                liWanted = UWCritterAnimations.SlotIdleFirstDirection + liView;
-        }
+        // THE SLOT AS THE ORIGINAL'S RENDERER PICKS IT (UWCritterAnimations.GetSlot, read
+        // 2026-10-06): the combat, ranged, spell and back-off pages relate to the viewer and are
+        // shown from the front and the two front diagonals; from the sides and behind the
+        // standing picture of that view (per user on the original, 2026-09-08 and 2026-09-27: a
+        // creature fighting another one shows its side or back). Until 2026-10-06 the port showed
+        // them from straight in front only, so a creature backing off or side-stepping seen half
+        // from the side glided along with its standing picture. Dying from every side.
+        int liWanted = UWCritterAnimations.GetSlot(miAnimation, fGetViewDirection());
 
         if (liWanted != miCurrentSlot)
         {
@@ -350,30 +340,11 @@ public class UWCritterAnimator : MonoBehaviour
         fShowFrameOfSegment(miFrame);
     }
 
-    /// <summary>The original's slot numbers onto the atlas pages: 0x20 and 0x2C are the
-    /// direction sets, 0x07 the walking pictures facing the target, the rest as they are.</summary>
-    private int fGetAtlasSlot(int piAnimation)
-    {
-        switch (piAnimation)
-        {
-            case UWCritterBrain.AnimStanding:
-                return UWCritterAnimations.SlotIdleFirstDirection + fGetViewDirection();
-
-            case UWCritterBrain.AnimWalking:
-                return UWCritterAnimations.SlotWalkFirstDirection + fGetViewDirection();
-
-            case UWCritterBrain.AnimBackOff:
-                return UWCritterAnimations.SlotWalkTowardsPlayer;
-
-            default:
-                return piAnimation;
-        }
-    }
-
     /// <summary>
-    /// Which of the eight direction images the viewer sees. Slot 0x20 shows the
-    /// figure from behind, 0x24 from the front - so the index depends on how the creature stands
-    /// relative to the camera, not on where it looks in the world.
+    /// Which of the eight direction images the viewer sees (slot 0x20 from behind, 0x24 from
+    /// the front): the original's rule, the creature's facing against the CAMERA'S YAW in 32nds
+    /// with its uneven table (UWCritterAnimations.GetViewDirection, read 2026-10-06). Until then
+    /// the port took the line from the creature to the camera and even 45-degree sectors.
     /// </summary>
     private int fGetViewDirection()
     {
@@ -384,19 +355,10 @@ public class UWCritterAnimator : MonoBehaviour
         if (lOCamera == null || mOCritter == null)
             return FrontViewDirection;
 
-        Vector3 lOToCamera = lOCamera.transform.position - transform.position;
-        lOToCamera.y = 0f;
+        int liCameraYaw = Mathf.FloorToInt(Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
+        int liFacing = Mathf.RoundToInt(mOCritter.FacingDegrees / 45f) & 7;
 
-        if (lOToCamera.sqrMagnitude <= 0.0001f)
-            return FrontViewDirection;
-
-        float lfToCamera = Mathf.Atan2(lOToCamera.x, lOToCamera.z) * Mathf.Rad2Deg;
-        float lfRelative = Mathf.DeltaAngle(lfToCamera, mOCritter.FacingDegrees);
-
-        // 0 degrees means "looks at the camera" and should map to 4, 180 degrees to 0.
-        int liIndex = Mathf.RoundToInt((lfRelative + 180f) / 45f) % UWCritterAnimations.DirectionCount;
-
-        return liIndex < 0 ? liIndex + UWCritterAnimations.DirectionCount : liIndex;
+        return UWCritterAnimations.GetViewDirection(liFacing, liCameraYaw);
     }
 
     /// <summary>
