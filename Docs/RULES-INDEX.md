@@ -200,6 +200,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
+| `ovr107_0` | UWTrapRules.cs |
 | `TrespassTrap` (ovr107_11B9) | UWTrapRules.cs, UWTriggerSystem.cs |
 | `ExplodingBook` (ovr107_1259) | UWExplodingBook.cs, UWObjectMechanics.cs, UWTrapRules.cs |
 | `ArialTalking` (ovr107_1373) | UWObjectMechanics.cs, UWTrapRules.cs |
@@ -208,7 +209,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ovr107_163C` | UWRepairRules.cs, Interaction.cs |
 | `ItemRepair` (ovr107_1754) | UWRepairRules.cs, Interaction.cs |
 | `ResetObjectIdentifcation` (ovr107_19BC) | UWLoreCheck.cs |
-| `Teleport` (ovr107_949) | UWTrapRules.cs, UWTriggerSystem.cs |
+| `Teleport` (ovr107_949) | UWTrapRules.cs |
 | `DamageTrap` (ovr107_CB2) | UWTrapRules.cs, UWProjectileWorld.cs, UWTriggerSystem.cs |
 
 ### ovr109
@@ -614,8 +615,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `DamageObject` (seg023_35A) | IUWMobileObjectHost.cs, UWEquipmentWear.cs, UWTargetSpellRules.cs |
-| `DamageObjectAndDoors` (seg023_3E7) | UWObjectDamageRules.cs, UWProjectileWorld.cs |
-| `DamageObject_Debris` (seg023_D6) | UWObjectDamageRules.cs |
+| `DamageObjectAndDoors` (seg023_3E7) | UWObjectDamageRules.cs |
+| `DamageObject_Debris` (seg023_D6) | UWObjectDamageRules.cs, UWProjectileWorld.cs |
 
 ### seg024
 

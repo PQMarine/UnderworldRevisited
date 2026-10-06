@@ -106,14 +106,12 @@ namespace UWDataImport.UWData
 		/// <summary>A thing - thrown, shot, knocked loose - set the trigger off.</summary>
 		bool HasTriggeringThing { get; }
 
-		/// <summary>A damage trap's quality on the triggering thing, worn off its quality.</summary>
-		void DamageTriggeringThing(int piDamage);
+		/// <summary>A damage trap's value on the triggering thing: destroyed when the hit wears it
+		/// out, else untouched (the original's motion step writes its hp back).</summary>
+		void StrikeTriggeringThing(int piDamage);
 
 		/// <summary>A damage trap's quality on the triggering creature.</summary>
 		void DamageTriggeringCreature(int piDamage);
-
-		/// <summary>A teleport trap's target tile for the triggering creature, same level.</summary>
-		bool TeleportTriggeringCreature(int piTileX, int piTileY);
 
 		/// <summary>Hurts the triggering creature and tells the player in which direction it
 		/// happened.</summary>

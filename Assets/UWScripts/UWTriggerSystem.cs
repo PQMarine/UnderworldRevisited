@@ -74,8 +74,8 @@ public static class UWTriggerSystem
 
     /// <summary>A move trigger set off by a creature (pOCritter) or a thing in flight (piThingIndex,
     /// 0 for none) - the original's Trigger with that mover as the one that set it off (see
-    /// UWProjectileWorld.TriggerMove). Damage goes to the creature or the thing, a teleport moves
-    /// the creature (UWTrapRules).</summary>
+    /// UWProjectileWorld.TriggerMove). Damage and teleport go to the creature; a damage trap
+    /// destroys a worn-out thing (UWTrapRules).</summary>
     public static bool TryFireMoveTriggerBy(UWObject pOTrigger, UWLevelLoader pOLevelLoader, Interaction pOInteraction,
         UWCritter pOCritter, int piThingIndex)
     {
@@ -338,9 +338,9 @@ public static class UWTriggerSystem
 
         public bool HasTriggeringThing => miTriggeringThing != 0;
 
-        /// <summary>A damage trap set off by a thing in flight: the quality on the thing itself
-        /// (UWProjectileWorld.DamageThing).</summary>
-        public void DamageTriggeringThing(int piDamage)
+        /// <summary>A damage trap set off by a thing in flight: destroyed if the hit wears it out,
+        /// untouched otherwise (UWProjectileWorld.StrikeThing).</summary>
+        public void StrikeTriggeringThing(int piDamage)
         {
             if (miTriggeringThing == 0 || mOLoader == null)
                 return;
@@ -348,7 +348,7 @@ public static class UWTriggerSystem
             UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(mOLoader);
 
             if (lOWorld != null)
-                lOWorld.DamageThing(miTriggeringThing, piDamage);
+                lOWorld.StrikeThing(miTriggeringThing, piDamage);
         }
 
         /// <summary>A damage trap set off by a creature: the quality on its hit points
@@ -362,13 +362,6 @@ public static class UWTriggerSystem
 
             if (lODamageable != null && !lODamageable.IsDestroyed)
                 lODamageable.ApplyDamage(piDamage, UWDamageTypes.Physical);
-        }
-
-        /// <summary>A teleport trap set off by a creature, on its own level (Teleport_ovr107_949
-        /// moves a non-player only there): set down on the target tile.</summary>
-        public bool TeleportTriggeringCreature(int piTileX, int piTileY)
-        {
-            return mOTriggeringCritter != null && mOTriggeringCritter.PlaceAtSpot(new UWTilePos(piTileX, piTileY), 3, 3);
         }
 
         private UWCharacter fPlayer

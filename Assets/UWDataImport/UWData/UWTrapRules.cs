@@ -287,8 +287,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fFireDamageTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
+			// QUALITY 0 DOES NOTHING, BUT THE CHAIN GOES ON (DamageTrap_ovr107_CB2 skips a damage of
+			// 0, then TriggerNext). Level 5, 55/2 hangs a move trigger behind such a trap, whose door
+			// trap closes the open portcullis at 57/2 while 54/2 calls up a dire ghost - an ambush.
+			// Ours stopped the chain here until 2026-10-06, so the grate stayed open.
 			if (pOTrap.Quality <= 0)
-				return false;
+			{
+				UWTrapLog.Detail = "-> 0 damage, nothing";
+
+				return true;
+			}
 
 			// WHOEVER SET IT OFF (DamageTrap_ovr107_CB2, read 2026-10-06): a creature takes the
 			// quality as damage - poison only ever goes to the player, for anyone else the
@@ -302,15 +310,22 @@ namespace UWDataImport.UWData
 				return true;
 			}
 
-			// A THING: the original damages the thing itself - the poison's value too, as damage -
-			// and goes on along the chain (TriggerNext): a thrown item on the poison needles of
-			// level 3 brings their text, again and again while it slides, and nobody is poisoned
-			// (per user on the original, 2026-10-06). The quality comes off the thing's own
-			// (IUWTrapHost.DamageTriggeringThing, since the same day).
+			// A THING: nobody is struck, and the chain goes on (TriggerNext). A thrown item on the
+			// poison needles of level 3 brings their text, again and again while it slides, and
+			// nobody is poisoned (per user on the original, 2026-10-06; ours stopped the chain
+			// here, so no text came). AND THE THING IS NOT WORN EITHER: the user threw a wand of
+			// Name Enchantment over the needles ten times in the original, its quality stayed 40
+			// (SAVE3 before, SAVE4 after). Read literally, DamageTrap_ovr107_CB2 hands the thing to
+			// DamageObject and DamageObjectAndDoors takes it off its byte 8 - why that does not show
+			// is not found (probably how a throw from the inventory fills byte 8); the
+			// observation rules, so nothing is done to it.
+			// FOUND the same evening: the damage is taken off inside the motion step, and
+			// ApplyProjectileMotion writes the hp from before the step back at its end - so only a
+			// hit that destroys the thing counts: it becomes debris (StrikeTriggeringThing).
 			if (pIHost.HasTriggeringThing)
 			{
-				pIHost.DamageTriggeringThing(pOTrap.Quality);
-				UWTrapLog.Detail = string.Format("-> a thing, {0} damage", pOTrap.Quality);
+				pIHost.StrikeTriggeringThing(pOTrap.Quality);
+				UWTrapLog.Detail = string.Format("-> a thing, struck by {0} (destroyed only if worn out)", pOTrap.Quality);
 
 				return true;
 			}
@@ -401,18 +416,18 @@ namespace UWDataImport.UWData
 			if (liTargetLevel < 0 || liTargetLevel >= pIHost.LevelCount)
 				return false;
 
-			// ANYONE BUT THE PLAYER moves only on its own level (Teleport_ovr107_949, read
-			// 2026-10-06): another level, or 0x3F for a coordinate, and nothing happens. A creature
-			// is set down on the target tile; a thing would be moved too, which is not done here.
+			// NOBODY BUT THE PLAYER IS MOVED (Teleport_ovr107_949 and its spot search ovr107_0, read
+			// 2026-10-06): for anyone else on the same level ovr107_0 only looks for a tile in the
+			// 9 by 9 around the target where it would fit (CheckIfItemFitsInTile) and hands the
+			// tile back - nothing moves it; another level does not even search. Then the chain goes
+			// on (TriggerNext). Per user on the original the same day: thrown things are not
+			// teleported. A creature is not either (ours set it down on the target tile for a while
+			// that evening - wrong).
 			if (pIHost.HasTriggeringCreature || pIHost.HasTriggeringThing)
 			{
-				if (liTargetLevel != pIHost.CurrentLevelIndex || pOTrap.Quality == 0x3F || pOTrap.Owner == 0x3F
-					|| !pIHost.HasTriggeringCreature)
-					return false;
+				UWTrapLog.Detail = "-> not the player: nobody moved";
 
-				UWTrapLog.Detail = string.Format("-> creature to tile {0}/{1}", pOTrap.Quality, pOTrap.Owner);
-
-				return pIHost.TeleportTriggeringCreature(pOTrap.Quality, pOTrap.Owner);
+				return true;
 			}
 
 			UWTrapLog.Detail = string.Format("-> level {0}, tile {1}/{2}",

@@ -415,14 +415,19 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
     }
 
     /// <summary>
-    /// A damage trap's quality on a thing in flight that set it off (DamageTrap_ovr107_CB2 ->
-    /// DamageObject with type 4 -> DamageObjectAndDoors_seg023_3E7 on a mobile object): word 0
-    /// bit 13 protects, the resistances of COMOBJ byte 8 scale it, the quality class halves it,
-    /// and it comes off byte 8 - the thrown item's quality, which it keeps when it comes to
-    /// rest. At 0 it is gone, as after a hard impact (DamageSelf). A thing that came to rest in
-    /// the same frame is not found and left alone.
+    /// A damage trap struck a thing in flight that set it off (DamageTrap_ovr107_CB2 ->
+    /// DamageObject, type 4). In the original the damage comes off the flying record's byte 8
+    /// inside the motion step, and ApplyProjectileMotion writes the hp it loaded before the step
+    /// back over it at the end - so the wear is undone (per user on the original, 2026-10-06: a
+    /// wand thrown ten times over the level 3 needles kept its quality 40). Only a hit that
+    /// DESTROYS has an effect, as DamageObjectAndDoors then hands it to DamageObject_Debris: the
+    /// thing becomes a pile of debris. So here: word 0 bit 13 protects, the resistances of COMOBJ
+    /// byte 8 scale it, the quality class halves it (UWObjectDamageRules.Wear) - and only when
+    /// that reaches 0 the thing becomes debris that flies on. A container is left alone
+    /// (the original spills it, EmptyContainer; a thrown bag with its things is not destroyed
+    /// here), and so is a thing that came to rest in the same frame.
     /// </summary>
-    public void DamageThing(int piIndex, int piDamage)
+    public void StrikeThing(int piIndex, int piDamage)
     {
         UWProjectileFlight lOFlight = fFlight(piIndex);
 
@@ -430,20 +435,66 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
             return;
 
         UWMobileRecord lORecord = lOFlight.Record;
+
+        if (UWObjectDamageRules.SpillsWhenDestroyed(lORecord.ItemId))
+            return;
+
         UWCommonObjectProperties.Entry lOEntry = fEntry(lORecord.ItemId);
         int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, UWDamageTypes.Physical);
         bool lbProtected = lORecord.Object != null && lORecord.Object.DoorDirection;
-        int liNewHp;
+        int liUnused;
 
-        if (!UWObjectDamageRules.Wear(lORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liNewHp))
-        {
-            lORecord.Hp = liNewHp;
-
+        if (!UWObjectDamageRules.Wear(lORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liUnused))
             return;
+
+        UWObjectDamageRules.Remains lORemains = UWObjectDamageRules.DecideRemains(lORecord.ItemId, UWDamageTypes.Physical);
+
+        fEndFlight(lORecord);
+
+        if (lORemains == UWObjectDamageRules.Remains.Gone || mOLoader == null)
+            return;
+
+        // THE DEBRIS FLIES ON (per user on the original, 2026-10-06: "the debris flies on with the
+        // same momentum"). DamageObject_Debris_seg023_D6 (READ the same evening), for a thing that
+        // is no door, chest, barrel or container and not struck by fire: unless word 0 bit 15
+        // (a quantity) is set, the chain behind its link - contents, enchantment - is cleared
+        // (ClearObjectChain); then the id bits 0-8 become 0xD5 or 0xD6, its flags and every other
+        // field stay; only a STATIC object goes through PlacedObjectCollison, a flying one moves
+        // on as it was, and the routine answers "not gone". So the same object gets the new id,
+        // the record keeps its place, heading, speed, vertical speed and hp (its quality at rest),
+        // and the picture is made anew.
+        int liDebris = UWObjectDamageRules.RollDebrisObjectId();
+        UWObject lOObject = lORecord.Object;
+
+        if (lOObject == null)
+            lORecord.Object = fNewObject(liDebris);
+        else
+        {
+            if (!lOObject.HasQuantity)
+            {
+                lOObject.Link = 0;
+
+                if (lOObject.Contents != null)
+                    lOObject.Contents.Clear();
+            }
+
+            lOObject.ID = (ushort)liDebris;
+
+            if (mOLoader.UWDataImporter != null && mOLoader.UWDataImporter.Textures != null)
+            {
+                try
+                {
+                    lOObject.Texture = mOLoader.UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, liDebris);
+                }
+                catch
+                {
+                    lOObject.Texture = null;
+                }
+            }
         }
 
-        lORecord.Hp = 0;
-        fEndFlight(lORecord);
+        fSpawnFlight(lORecord, lOFlight.Damage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Interaction,
+            lOFlight.Launcher, lOFlight.PlayersOwn, false);
     }
 
     private void fEndFlight(UWMobileRecord pORecord)
