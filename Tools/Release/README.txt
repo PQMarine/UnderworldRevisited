@@ -49,9 +49,6 @@ STARTING
    The choice is remembered. Later it can be changed in the menu bar at the top of the main
    menu (Game > Game folder...).
 
-On Linux the manual in the help window is not available yet (its PDF renderer, PDFium, is
-only included for Windows so far); everything else is the same.
-
 Save games are kept in the SAVE folders of your Ultima Underworld installation, as in the
 original, and are compatible with it.
 

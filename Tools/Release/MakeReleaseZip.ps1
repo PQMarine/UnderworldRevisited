@@ -7,8 +7,10 @@ as a tar.gz.
 Takes the build folder (default Build with UR.exe for Windows, Build\Linux with UR.x86_64 for
 Linux), leaves out what must not be shipped - the *_BackUpThisFolder_ButDontShipItWithYourGame
 folder Unity writes for debugging - adds LICENSE, THIRD_PARTY_NOTICES.md (their notices have to
-travel with a binary: ymfm's BSD licence, PDFium, the SIL Open Font License of Lexend Exa),
-README.md and the players' README.txt from this folder, and writes
+travel with a binary: ymfm's BSD licence, PDFium, the SIL Open Font License of Lexend Exa), the
+full licence texts THIRD_PARTY_NOTICES.md points to (the ThirdParty folder: PDFium's and its
+components', Lexend's OFL - missing from the packages up to 0.3.0), README.md and the players'
+README.txt from this folder, and writes
 Release\UnderworldRevisited-<version>-win64.zip or ...-linux64.tar.gz.
 
 THE LINUX ARCHIVE IS A TAR.GZ because a zip made on Windows carries no executable bit, and the
@@ -82,6 +84,13 @@ foreach ($File in @("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md")) {
 }
 
 Copy-Item (Join-Path $PSScriptRoot "README.txt") -Destination $Stage
+
+# The full licence texts THIRD_PARTY_NOTICES.md names, under the same path as in the project.
+$ThirdParty = Join-Path $ProjectRoot "ThirdParty"
+
+if (-not (Test-Path $ThirdParty)) { throw "Missing the ThirdParty folder in the project root." }
+
+Copy-Item $ThirdParty -Destination $Stage -Recurse
 
 # Nothing of the original game in the package.
 $Forbidden = @("game.gog", "uw.exe", "uw2.exe", "*.ark", "*.gr", "*.dat", "*.byt", "*.cmb", "*.sys", "*.pak",

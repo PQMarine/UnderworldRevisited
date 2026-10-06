@@ -87,7 +87,8 @@ SOFTWARE.
 
 - Project: https://pdfium.googlesource.com/pdfium/, built by
   https://github.com/bblanchon/pdfium-binaries (release chromium/8066, PDFium 156.0.8066.0)
-- Used in: `Assets/Plugins/PDFium` (the unmodified native library), called from
+- Used in: `Assets/Plugins/PDFium` (the unmodified native libraries of that release:
+  `pdfium.dll` for Windows x64 and `libpdfium.so` for Linux x64), called from
   `Assets/UWScripts/UWPdfium.cs` to show the game's manual in the help window. The manual
   itself is not included; it is read from the player's GOG installation.
 - License: PDFium under BSD 3-Clause and Apache 2.0; the build scripts of pdfium-binaries

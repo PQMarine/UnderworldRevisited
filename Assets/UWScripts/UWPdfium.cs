@@ -9,7 +9,8 @@ using System.Runtime.InteropServices;
 ///
 /// The signatures follow include/fpdfview.h of that release. On x64 there is one calling
 /// convention, so the default of DllImport fits. "pdfium" resolves to pdfium.dll,
-/// libpdfium.so and libpdfium.dylib; only the Windows library is in the project so far.
+/// libpdfium.so and libpdfium.dylib. In the project: pdfium.dll for Windows and, since
+/// 2026-10-06, libpdfium.so for Linux, both x64 and of the same release; no macOS library yet.
 /// </summary>
 internal static class UWPdfium
 {

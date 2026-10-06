@@ -96,9 +96,8 @@ What is in:
 - **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): a Linux player builds since 2026-10-05 and is
   part of the release from the next version on. It is far less tested than the Windows one: a
   Linux user's build from source showed a black screen until the data paths and file names were
-  made case-proof (patch taken over 2026-10-05). The help window's manual needs the PDFium
-  library, of which only the Windows one is included so far, so the manual tab is empty on
-  Linux. The game folder is searched in the usual Linux homes of a GOG game (see below) and can
+  made case-proof (patch taken over 2026-10-05). The help window's manual comes with its own
+  PDFium library for Linux as well. The game folder is searched in the usual Linux homes of a GOG game (see below) and can
   be chosen by hand. macOS is untried. Reports from other systems are welcome.
 - Unity **6000.6.0f1** (Unity 6), Universal Render Pipeline - only to build it yourself
 - **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2"). Only this version is

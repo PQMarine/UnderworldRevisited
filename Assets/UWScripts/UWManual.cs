@@ -214,6 +214,12 @@ public static class UWManual
     /// folder from the settings, then the usual GOG folders. The GOG name first, otherwise any
     /// PDF there with "manual" in its name.
     /// </summary>
+    private static readonly EnumerationOptions mOAnyCase = new EnumerationOptions
+    {
+        MatchCasing = MatchCasing.CaseInsensitive,
+        RecurseSubdirectories = false,
+    };
+
     public static string FindPath()
     {
         List<string> lOFolders = new List<string>();
@@ -242,11 +248,23 @@ public static class UWManual
                 if (File.Exists(lsPath))
                     return lsPath;
 
-                foreach (string lsCandidate in Directory.GetFiles(lsFolder, "*.pdf"))
+                // Any case of the name and the extension: Linux file systems tell them apart
+                // (Linux build 2026-10-06), Windows does not.
+                string lsManual = null;
+
+                foreach (string lsCandidate in Directory.GetFiles(lsFolder, "*.pdf", mOAnyCase))
                 {
-                    if (Path.GetFileName(lsCandidate).IndexOf("manual", StringComparison.OrdinalIgnoreCase) >= 0)
+                    string lsName = Path.GetFileName(lsCandidate);
+
+                    if (string.Equals(lsName, FileName, StringComparison.OrdinalIgnoreCase))
                         return lsCandidate;
+
+                    if (lsManual == null && lsName.IndexOf("manual", StringComparison.OrdinalIgnoreCase) >= 0)
+                        lsManual = lsCandidate;
                 }
+
+                if (lsManual != null)
+                    return lsManual;
             }
             catch (Exception)
             {

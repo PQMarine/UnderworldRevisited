@@ -47,8 +47,6 @@ of what is built was also read out of the original's executable.
 ## Open: platforms
 
 - **macOS.** No build yet, untested.
-- **The manual on Linux.** The help window's manual tab needs a PDFium library; it is only
-  included for Windows so far.
 
 ## Open: presentation
 
