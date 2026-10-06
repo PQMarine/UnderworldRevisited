@@ -513,7 +513,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `EtherealVoidSpecialEffects` (seg008_150) | UWScreenShake.cs, UWVoidEffects.cs |
 | `seg008_1B2A` | UWImpactRules.cs, UWPlayerMovement.cs |
-| `seg008_1B2A_216` | UWEasyMovement.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
+| `seg008_1B2A_216` | UWEasyMovement.cs, UWPlayerMotion.cs, EasyStepChecks.cs, Program.cs |
 | `ProcessPlayerTileState` (seg008_1B2A_3D) | UWPlayerMotion.cs |
 | `seg008_1B2A_BB3` | UWPlayerMotion.cs |
 | `seg008_1B2A_D85` | UWPlayerMotion.cs, UWPlayerMovement.cs |
@@ -657,7 +657,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWLevelLoader.cs, UWPlayerThrow.cs, UWSpellHost.cs |
+| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWMotionCore.cs, UWLevelLoader.cs, UWPlayerThrow.cs, UWSpellHost.cs |
 | `MoveObjectToCoordinates` (seg026_122B) | UWScatterRules.cs |
 | `PlaceObjectAtNPC` (seg026_12E5) | IUWConversationHost.cs, UWScatterRules.cs |
 | `InsertObjectToList` (seg026_133F) | UWScatterRules.cs |
@@ -781,7 +781,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg034_2F89_1DA` | UWPlayerMotion.cs, UWPlayerMovement.cs |
-| `seg034_2F89_334` | UWCritterClock.cs, UWEasyMovement.cs, UWCritterDriver.cs, UWPlayerMovement.cs |
+| `seg034_2F89_334` | UWCritterClock.cs, UWEasyMovement.cs, UWPlayerMotion.cs, UWCritterDriver.cs, UWPlayerMovement.cs |
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs, UWCritterDriver.cs |
 | `seg034_2F89_4C0` | UWCritterClock.cs |
 | `seg034_2F89_4E` | UWGameClock.cs, UWPlayerMotion.cs, UWGameUI.cs, UWPlayerMovement.cs, Program.cs |

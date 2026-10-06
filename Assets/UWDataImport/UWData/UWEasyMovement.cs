@@ -13,7 +13,8 @@ namespace UWDataImport.UWData
 	/// are the UPPERCASE letters - 0x41, 0x44, 0x53, 0x57, 0x58 - so the shift is part of it;
 	/// the lowercase codes are not on this handler at all.
 	///
-	/// The step itself is seg008_1B2A_216 (55427-55876). It does nothing while
+	/// The step itself is seg008_1B2A_216 (55427-55876); its numbers and the turn are here, the
+	/// step on the motion core is UWPlayerMotion.EasyStep (since 2026-10-06). It does nothing while
 	/// Player_MotionArray_unk_10 is set or the momentum has reached MotionWeightRelated, so it
 	/// never fights ordinary running. Afterwards the caller clears the momentum, advances the
 	/// game clock by ClockAdvance and reports the step to the loop, which is where the noise
@@ -76,7 +77,7 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// WHAT THE FLAG IS FOR: it lets one step OFF A LEDGE. The user found it by trying,
 		/// 2026-09-21 - "with Shift W you can fall down, with Shift S you cannot" - and the
-		/// routine says the same. CheckIfItemFitsInTile_seg026_1008 (labels 11ED to 121A)
+		/// routine says the same (labels 11ED to 121A, see CheckIfItemFitsInTile_seg026_1008 in UWMotionCore)
 		/// takes it as its second to last argument: is it set, the tile fits and that is the
 		/// end of it. Is it zero and the motion result carries bit 0x800, the target's z minus
 		/// the last argument, which is 8 here, is held against the ground, and a bigger gap

@@ -349,6 +349,19 @@ never had the time or the experience to take it further. In 2026, with the help 
 been written by Claude; I decided what to build, tested every behaviour against the
 original game and confirmed or rejected the results.
 
+### Thanks
+
+This project would not be where it is without **hankmorgan**'s work. His
+[UWReverseEngineering](https://github.com/hankmorgan/UWReverseEngineering) project, a
+disassembly of `UW.EXE` with named routines and a large guide to the game's mechanics, is
+where most of the rules here were read from: the motion code, the creature AI, traps,
+magic and much more. His [UnderworldGodot](https://github.com/hankmorgan/UnderworldGodot),
+a recreation of both Underworld games, provided many formulas and data tables (see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)), and his earlier
+[UnderworldExporter](https://github.com/hankmorgan/UnderworldExporter) showed long ago that
+the game can live in Unity. Thanks also to the authors of uw-formats.txt, where this
+project started.
+
 The application icon (`Art/Icon/ur-icon.svg`, rendered to `Assets/UWIcon/UWRIcon.png`) was
 also made with generative AI (Claude). It shows the runes uruz and raidho (U and R), drawn
 after the historical Elder Futhark; nothing in it is taken from the game.

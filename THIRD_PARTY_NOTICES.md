@@ -121,5 +121,8 @@ These sources were used as documentation only; no code was taken from them.
 
 - **uw-formats.txt**, the community description of the Ultima Underworld file formats.
   The first version of this project (2012) was written from it.
-- **hankmorgan's reverse engineering of UW.EXE**, used to check mechanics against the
-  original executable. The disassembly itself is not part of this project.
+- **hankmorgan's reverse engineering of UW.EXE**
+  (https://github.com/hankmorgan/UWReverseEngineering): his disassembly with named routines
+  and his guide to the mechanics. Most of the game rules in this project, among them the
+  motion code, the creature AI, traps and magic, were read from it and rewritten. The
+  disassembly itself is not part of this project.

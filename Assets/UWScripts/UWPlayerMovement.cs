@@ -980,14 +980,11 @@ public class UWPlayerMovement : MonoBehaviour
     /// something is in the way - the original's CheckIfItemFitsInTile is likewise all or
     /// nothing.
     ///
-    /// SUBSTITUTED: the original tests the target TILE, we sweep the character's own capsule
-    /// along the step and probe the ground after it. THE DROP is the original's own rule
-    /// (UWEasyMovement.AllowsDrop): only the W command and a floating player may step off a
-    /// ledge, everything else stops at it.
-    ///
-    /// The original also refuses everything while the player already carries momentum
-    /// (seg008_1B2A_216 labels 21D and 228); ours refuses while jumping, which is the same
-    /// thought in our units.
+    /// ON THE MOTION CORE it is the original's step since 2026-10-06 (UWPlayerMotion.EasyStep:
+    /// the target, CheckIfItemFitsInTile, the floor-kind rule, the drop) and its gate
+    /// (UWPlayerMotion.MayEasyMove). THE OLD PATH, the CharacterController's, still sweeps the
+    /// character's own capsule along the step and probes the ground after it, with the
+    /// original's drop rule (UWEasyMovement.AllowsDrop); it refuses while jumping.
     /// </summary>
     public bool TryEasyMovement(int piCommand)
     {
@@ -997,9 +994,9 @@ public class UWPlayerMovement : MonoBehaviour
         if (mScheme != null && mScheme.IsWorldInputBlocked)
             return false;
 
-        // ON THE CORE a step refuses while the player carries momentum, as the original does
-        // (seg008_1B2A_216 labels 21D and 228: speed, vertical speed or gravity).
-        if (UsesMotionCore && (Motion.Params.Speed != 0 || Motion.Params.Vz != 0 || Motion.Params.Gravity != 0))
+        // ON THE CORE the original's gate: no turn and no step while gravity acts or the speed
+        // has reached the motion weight (UWPlayerMotion.MayEasyMove).
+        if (UsesMotionCore && !Motion.MayEasyMove)
             return false;
 
         if (UWEasyMovement.IsTurn(piCommand))
@@ -1020,6 +1017,7 @@ public class UWPlayerMovement : MonoBehaviour
                 Motion.MotionYaw = Motion.CameraYaw;
                 fSnapInterpolation(Motion);
                 miLastWrittenYaw = Motion.CameraYaw;
+                Motion.EndEasyTurn();
             }
 
             fReportEasyMovementStep();
@@ -1031,6 +1029,19 @@ public class UWPlayerMovement : MonoBehaviour
 
         if (liDistance <= 0)
             return false;
+
+        if (UsesMotionCore)
+        {
+            // The original's step on the params; the transform follows.
+            if (!Motion.EasyStep(piCommand, fTransformYawToAngle()))
+                return false;
+
+            fSnapInterpolation(Motion);
+            fApplyMotionToTransform(Motion);
+            fReportEasyMovementStep();
+
+            return true;
+        }
 
         float lfStep = liDistance * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing
             / UWEasyMovement.UnitsPerTile;
@@ -1050,27 +1061,6 @@ public class UWPlayerMovement : MonoBehaviour
 
         if (!fMayEasyStepDrop(piCommand) && fIsEasyStepOverADrop(lOFlat, lfStep))
             return false;
-
-        if (UsesMotionCore)
-        {
-            // The step on the params: the fine offset along the view, the height following the
-            // floor within the drop allowance (UWPlayerMotion.Nudge), the transform from it.
-            int liYaw = fTransformYawToAngle();
-
-            if (UWEasyMovement.IsBackward(piCommand))
-                liYaw = (liYaw + 0x8000) & 0xFFFF;
-
-            int liSin;
-            int liCos;
-
-            UWMotionTables.SinCos(liYaw, out liSin, out liCos);
-            Motion.Nudge((liSin * liDistance) >> 15, (liCos * liDistance) >> 15, UWEasyMovement.DropAllowanceZPos);
-            fSnapInterpolation(Motion);
-            fApplyMotionToTransform(Motion);
-            fReportEasyMovementStep();
-
-            return true;
-        }
 
         bool lbWasGrounded = mController.isGrounded;
 

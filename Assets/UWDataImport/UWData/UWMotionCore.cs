@@ -1342,6 +1342,97 @@ namespace UWDataImport.UWData
 			return liFlags;
 		}
 
+		// ------------------------------------------------- CheckIfItemFitsInTile_seg026_1008 (line 93903)
+
+		/// <summary>
+		/// Whether an object of the given kind fits at a spot - READ in full 2026-10-06 for the
+		/// player's easy step; the summoning, the dropping and the putting down call it too.
+		/// The object's box (COMOBJ radius and height) at the eighth position and coarse z:
+		/// <list type="number">
+		/// <item>a top above 127 does not fit, unless the height is 0x80;</item>
+		/// <item>the terrain (ProcessMotionTileHeights with piStep as the step allowance): a wall
+		/// or a floor more than piStep above (0x300) does not fit;</item>
+		/// <item>the height to stand at: the highest corner floor if z plus piStep reaches it,
+		/// else the centre floor; the state: the centre's floor kind (1 &lt;&lt; terrain) if z
+		/// lies at most max(radius, piStep) above the centre floor, else airborne (0x10);</item>
+		/// <item>the solid objects around (ScanForCollisions, SortCollisions): any that reaches
+		/// into the box's z range does not fit; of those below, the highest top above the floor
+		/// becomes the height to stand at - and that object must be one to stand on (COMOBJ byte
+		/// 3 bit 1, decoded as Is3DModel: tables, chests, barrels), else no fit; standing on it
+		/// is ground (1);</item>
+		/// <item>without pbMayDrop, a drop-off (0x800) whose ground lies more than piStep below z
+		/// does not fit - the ledge rule of the easy step.</item>
+		/// </list>
+		/// Mover must be set before (the scan asks whether the mover is a creature). The calc
+		/// array is this core's own, so the caller's step must be finished.
+		/// </summary>
+		public bool CheckIfItemFitsInTile(int piItemId, int piIndex, int piX8, int piY8, int piZ, bool pbMayDrop, int piStep,
+			out int piStandZ, out int piState)
+		{
+			UWCommonObjectProperties.Entry lOEntry = fEntry(piItemId);
+
+			piStandZ = 0;
+			piState = 0;
+
+			SetCalc(piX8, piY8, piZ, lOEntry.Radius & 7, lOEntry.Height, piIndex);
+
+			// Labels 1077 to 108A: the top under the ceiling of the world.
+			if (lOEntry.Height != 0x80 && lOEntry.Height + piZ > 0x7F)
+				return false;
+
+			ProcessMotionTileHeights(piStep);
+
+			if (((Flags | AllFlags) & 0x300) != 0)
+				return false;
+
+			// Labels 10B1 to 10D4: the highest corner if it can be stepped onto, else the centre.
+			int liCentre = CentreFloor & 0xFF;
+			int liHighest = MaxFloor & 0xFF;
+
+			piStandZ = piZ + piStep >= liHighest ? liHighest : liCentre;
+
+			// Labels 10D9 to 1122: on the ground within the larger of radius and allowance.
+			int liReach = System.Math.Max(CalcRadius & 0xFF, piStep & 0xFF);
+
+			piState = piZ <= liCentre + liReach ? 1 << (Flags & 3) : UWMotionTables.ContactAirborne;
+
+			// Labels 1122 to 1139: the tight scan only for a static object on the ground.
+			ScanForCollisions(piState != UWMotionTables.ContactAirborne && piIndex >= 0x100, true);
+
+			if ((Count & 0xFF) != 0)
+			{
+				SortCollisions();
+
+				if ((Overlap & 0xFF) != 0)
+					return false;
+
+				int liStoodOn = -1;
+
+				for (int liAt = 0; liAt < (sbyte)First; liAt++)
+				{
+					if ((Records[liAt].Top & 0xFF) > piStandZ)
+					{
+						liStoodOn = liAt;
+						piStandZ = Records[liAt].Top & 0xFF;
+					}
+				}
+
+				if (liStoodOn > -1)
+				{
+					if (!fEntry(Records[liStoodOn].Body.ItemId).Is3DModel)
+						return false;
+
+					piState = UWMotionTables.ContactGround;
+				}
+			}
+
+			// Labels 11ED to 121A: the ledge.
+			if (!pbMayDrop && ((Flags | AllFlags) & 0x800) != 0 && piZ - piStep > piStandZ)
+				return false;
+
+			return true;
+		}
+
 		// ------------------------------------------------- ProcessMotionTileHeights_seg026_379 (line 91828)
 
 		/// <summary>The attr word of a tile: type, floor height and terrain as the original packs

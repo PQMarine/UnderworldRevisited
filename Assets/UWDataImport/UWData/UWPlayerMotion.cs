@@ -981,42 +981,118 @@ namespace UWDataImport.UWData
 			UpdateNeeded = true;
 		}
 
+		// ------------------------------------------------- The easy movement
+
+		/// <summary>The gate of the easy movement (labels 21D and 228, see seg008_1B2A_216 in UWEasyMovement): nothing,
+		/// not even a turn, while gravity acts or the speed has reached the motion weight. A
+		/// rising or sinking levitation (gravity 0) may step.</summary>
+		public bool MayEasyMove
+		{
+			get { return Params.Gravity == 0 && Params.Speed < MotionWeight; }
+		}
+
+		/// <summary>After a turn of the easy movement: the caller of the step (seg034_2F89_334)
+		/// clears the speed, as after a step.</summary>
+		public void EndEasyTurn()
+		{
+			Params.Speed = 0;
+		}
+
 		/// <summary>
-		/// The easy step of the port (the original's, see seg008_1B2A_216 in UWEasyMovement, with CheckIfItemFitsInTile
-		/// is not transcribed yet): the host has tested the way and moves the player by a fine
-		/// offset; the height follows the floor under the new spot when he stands - within one
-		/// step up and the host's drop allowance down - and is left to the next frame's fall
-		/// otherwise. Returns the floor difference in coarse z.
+		/// THE EASY STEP of the original, seg008_1B2A_216 (line 55427) from label 253 on - READ
+		/// in full 2026-10-06; until then the port swept its own capsule and nudged the params.
+		/// <list type="number">
+		/// <item>The target: half a tile (0x80 fine) along the camera's yaw, the yaw as a signed
+		/// byte heading (idiv by 0x100); backwards a quarter tile (0x40) along the yaw plus half a
+		/// circle (shr 8). The offset is GetCoordinateInDirection's, coarse table and all.</item>
+		/// <item>The test: CheckIfItemFitsInTile for the adventurer (0x7F, index 1) at the
+		/// target's eighth and the player's coarse z, with the step allowance 8; the may-drop flag
+		/// is the W command's (the original's +2) or Levitate/Fly (abilities 0x14). No fit, no
+		/// step.</item>
+		/// <item>Without the W command the floor kind must not change: a target that is neither
+		/// ground (1) nor the previous tile state is refused - so a plain step does not go from
+		/// the shore into water, but goes from water onto the shore and on in water - unless it
+		/// is the air (0x10) and the player floats.</item>
+		/// <item>The move: the new fine position (fractions dropped), the tile; the height of
+		/// the fit when the player neither runs nor floats or the new height lies at most 8 below
+		/// him, else he keeps his height and, unless he floats, gravity -4 starts the fall.</item>
+		/// <item>ProcessPlayerTileState with the fit's state; the caller clears the speed.</item>
+		/// </list>
+		/// NOT HERE: the step's own move-trigger loop (labels 562 to 5C0: ScanForCollisions
+		/// around the new spot, Trigger on every a_move trigger in reach). The host's
+		/// UWMoveTrigger tests the same reach on the transform the step moves, and firing here as
+		/// well would fire twice. The PIT bits written into the player object's frame word are
+		/// the host's animation business.
 		/// </summary>
-		public int Nudge(int piDx, int piDy, int piDropAllowance)
+		public bool EasyStep(int piCommand, int piCameraYaw)
 		{
 			UWMotionParams p = Params;
 
-			p.X = (p.X + piDx) & 0xFFFF;
-			p.Y = (p.Y + piDy) & 0xFFFF;
+			if (!MayEasyMove)
+				return false;
+
+			int liDistance;
+			int liHeading;
+			bool lbRun = false;
+
+			if (piCommand == UWEasyMovement.CommandStepBack)
+			{
+				liDistance = UWEasyMovement.BackwardDistance;
+				liHeading = ((piCameraYaw + 0x8000) & 0xFFFF) >> 8;
+			}
+			else if (piCommand == UWEasyMovement.CommandStepForward || piCommand == UWEasyMovement.CommandRunForward)
+			{
+				lbRun = UWEasyMovement.AllowsDrop(piCommand);
+				liDistance = UWEasyMovement.ForwardDistance;
+				liHeading = I16(piCameraYaw) / 0x100;
+			}
+			else
+				return false;
+
+			bool lbFloat = (Abilities & UWEasyMovement.FloatingAbilities) != 0;
+			int liX = p.X;
+			int liY = p.Y;
+
+			UWMobileObjectMotion.StepInDirection(liHeading, liDistance, ref liX, ref liY);
+
+			int liStandZ;
+			int liState;
+
+			Core.Mover = Body;
+
+			if (!Core.CheckIfItemFitsInTile(UWObjectMechanics.AdventurerObjectId, 1, I16(liX) / 0x20, I16(liY) / 0x20,
+				(p.Z >> 3) & 0x7F, lbRun || lbFloat, UWEasyMovement.DropAllowanceZPos, out liStandZ, out liState))
+				return false;
+
+			// Labels 34F to 376.
+			if (!lbRun && liState != UWMotionTables.ContactGround && liState != PreviousTileState
+				&& !(liState == UWMotionTables.ContactAirborne && lbFloat))
+				return false;
+
+			p.X = liX & 0xFFFF;
+			p.Y = liY & 0xFFFF;
 			p.XFrac = 0;
 			p.YFrac = 0;
-			p.ZFrac = 0;
-
-			Core.SetCalc(p.X >> 5, p.Y >> 5, p.Z >> 3, miRadius, miHeight, 1);
-			Core.ProcessMotionTileHeights(8);
-
-			int liFloor = Core.MaxFloor & 0x7F;
-			int liDiff = liFloor - (p.Z >> 3);
-
-			if (p.Gravity == 0 && (Core.MaxFloor & 0x80) == 0 && liDiff <= 8 && liDiff >= -piDropAllowance)
-			{
-				p.Z = liFloor << 3;
-				Core.SetCalc(p.X >> 5, p.Y >> 5, p.Z >> 3, miRadius, miHeight, 1);
-				Core.ProcessMotionTileHeights(8);
-				p.Contact = Core.ContactStateOf(Core.Flags | Core.AllFlags);
-			}
-
 			CurrentTileX = (p.X >> 8) & 0x3F;
 			CurrentTileY = (p.Y >> 8) & 0x3F;
-			UpdateNeeded = true;
 
-			return liDiff;
+			// Labels 471 to 4C7: the drop allowance is a literal 8 here as well.
+			if ((!lbRun && !lbFloat) || (I16(p.Z) >> 3) - UWEasyMovement.DropAllowanceZPos <= liStandZ)
+			{
+				p.Z = liStandZ << 3;
+				p.ZFrac = 0;
+			}
+			else if (p.Gravity == 0 && !lbFloat)
+				p.Gravity = -4;
+
+			// The port's host reads the floor kind from the contact (swimming, lava); the original
+			// leaves it to the next frame.
+			p.Contact = liState;
+
+			fProcessTileState(liState, false);
+			p.Speed = 0;
+
+			return true;
 		}
 
 		// ------------------------------------------------- Interventions

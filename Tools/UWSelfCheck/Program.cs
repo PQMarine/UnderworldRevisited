@@ -107,6 +107,7 @@ namespace UnderworldRevisited.Tools
                 fCheckObjectMotion(lOData);
                 fCheckCreatureMotion(lOData);
                 fCheckPlayerMotion(lOData);
+                fCheckEasyStep(lOData);
                 fCheckPreciseMotion(lOData);
             }
 
