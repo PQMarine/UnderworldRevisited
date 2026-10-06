@@ -10,6 +10,9 @@ data: no graphics, sounds, texts, maps or executables of the original. Everythin
 runtime from your installation. The only exception are the screenshots below, which show the
 original's artwork.
 
+**To play, download the latest release** for Windows or Linux from the
+[Releases page](https://github.com/PQMarine/UnderworldRevisited/releases) - see Installation.
+
 This project is not affiliated with or endorsed by the owners of the Ultima Underworld
 rights. Ultima and Ultima Underworld are trademarks of their respective owners. Underworld
 Revisited is a free, non-commercial fan project: it is not sold, and no donations are accepted.
@@ -93,33 +96,54 @@ What is in:
 
 - **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the system the port
   is developed and tested on.
-- **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): a Linux player builds since 2026-10-05 and is
-  part of the release from the next version on. It is far less tested than the Windows one: a
-  Linux user's build from source showed a black screen until the data paths and file names were
-  made case-proof (patch taken over 2026-10-05). The help window's manual comes with its own
-  PDFium library for Linux as well. The game folder is searched in the usual Linux homes of a GOG game (see below) and can
-  be chosen by hand. macOS is untried. Reports from other systems are welcome.
+- **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): part of every release since 0.3.0, tested
+  in a Kubuntu virtual machine and far less than the Windows version. The game folder is
+  searched in the usual Linux homes of a GOG game (see Building) and can be chosen by hand.
+  macOS is untried. Reports from other systems are welcome.
 - Unity **6000.6.0f1** (Unity 6), Universal Render Pipeline - only to build it yourself
 - **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2"). Only this version is
   supported: some data (3D models, their colours) is read directly from the game's executable
   at build-specific offsets, verified against the GOG `UW.EXE` (547,248 bytes). Other
   releases (original floppy, CD, other stores) may differ and are not supported.
 
-## Setup
+## Installation
 
-1. Install Ultima Underworld from GOG.com.
-2. Clone the repository and open the folder with Unity 6000.6.0f1.
-3. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG
+First install Ultima Underworld from GOG.com ("Ultima Underworld 1+2"). Then either of these:
+
+### A release (to play)
+
+1. Download the latest release from the
+   [Releases page](https://github.com/PQMarine/UnderworldRevisited/releases):
+   `UnderworldRevisited-<version>-win64.zip` for Windows or
+   `UnderworldRevisited-<version>-linux64.tar.gz` for Linux.
+2. Unpack it into a folder of its own.
+3. Start `UR.exe` (Windows) or `UR.x86_64` (Linux). Should Linux refuse to run it, the
+   executable bit got lost on the way: `chmod +x UR.x86_64` in that folder, once.
+4. The game looks for your GOG installation in the usual places (listed under Building). If
+   it does not find it, it asks for the folder: choose the one that contains `game.gog`. The
+   choice is remembered and can be changed later in the menu bar of the main menu
+   (*Game > Game folder...*).
+
+Nothing else needs to be installed; the package brings its own runtime. Its `README.txt` is
+the short version of this file for players.
+
+### From source (to build it yourself)
+
+1. Clone the repository and open the folder with Unity 6000.6.0f1.
+2. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG
    installation folder (the folder containing `game.gog`), or to `game.gog` itself. Common
    installation folders are found automatically when the field is empty.
-4. Open `Assets/UW.unity` and press Play.
+3. Open `Assets/UW.unity` and press Play, or build a player (see Building).
+
+### The game data
 
 In the GOG release the game data is not installed as separate files but kept in `game.gog`, a
 CD image. On the first start the Ultima Underworld 1 files (`CRIT`, `CUTS`, `DATA`, `SOUND`,
 `UW.EXE`) are extracted from it once into a local cache folder; nothing is written to the
 installation. Save games are read from and written to the installation's `UNDEROM1\SAVE1` to
-`SAVE4`, so they can be exchanged with the original game. **SavegameFolder** overrides that
-location, and **DataPath** can point to an already extracted `DATA` folder instead.
+`SAVE4`, so they can be exchanged with the original game. Built from source, the settings
+asset's **SavegameFolder** overrides that location, and its **DataPath** can point to an
+already extracted `DATA` folder instead.
 
 ## Controls
 
@@ -255,12 +279,12 @@ Lutris' `~/Games/gog/ultima-underworld-1-2`, and the same `GOG Games` folder ins
 with `game.gog`, the CD image every GOG release carries.
 
 So a build made on one machine runs on another as long as the game is installed in one of
-them. To be sure your copy works, run the self-check above before building.
+them. To be sure your copy works, run the self-check below before building.
 
 To pack a build for others, run `Tools\Release\MakeReleaseZip.ps1` (Windows PowerShell). It
 writes `Release\UnderworldRevisited-<version>-win64.zip` with the player, LICENSE,
-THIRD_PARTY_NOTICES.md (their notices have to travel with the binary), this README and a short
-README.txt for players - and without Unity's `*_BackUpThisFolder_ButDontShipItWithYourGame`
+THIRD_PARTY_NOTICES.md and the full licence texts of the `ThirdParty` folder (their notices
+have to travel with the binary), this README and a short README.txt for players - and without Unity's `*_BackUpThisFolder_ButDontShipItWithYourGame`
 folder. With `-Platform linux64` it packs `Build\Linux` into
 `UnderworldRevisited-<version>-linux64.tar.gz`, the launcher with its executable bit (GNU tar
 of Git for Windows; without it a zip, and the player has to `chmod +x`). It refuses a build
