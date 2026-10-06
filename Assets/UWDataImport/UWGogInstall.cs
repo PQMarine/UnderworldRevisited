@@ -223,7 +223,9 @@ namespace UWDataImport
 
             foreach (IsoEntry lOEntry in pOReader.List(pODirectory))
             {
-                string lsPath = Path.Combine(psTarget, lOEntry.Name);
+                // Upper case as DOS wrote them, whatever the image's directory says: the readers
+                // name the files in upper case, and Linux compares the case.
+                string lsPath = Path.Combine(psTarget, lOEntry.Name.ToUpperInvariant());
 
                 if (lOEntry.IsDirectory)
                     fExtractDirectory(pOReader, lOEntry, lsPath);

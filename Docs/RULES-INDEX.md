@@ -40,10 +40,12 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `AwardKillEXP` (seg022_1725) | UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `CalculateAttackResults` (seg022_230E_6B9) | UWCritterCombat.cs, UWEquipmentWear.cs, UWPlayerCritterRow.cs, UWPlayerData.cs |
 | `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
+| `MissileAttackHit` (seg022_14BF) | UWCritterCombat.cs, UWCritterRules.cs |
 | `NPCExecuteAttack` (seg022_15DE) | UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs |
 | `PlayerUpdates` (seg028_2985_13D) | UWPlayerTick.cs, UWPlayerVitals.cs |
 | `SkillCheck` (seg037_32E6_C) | UWCritterCombat.cs, UWCritterRules.cs, UWPlayerCritterRow.cs |
-| `MissileAttackHit` (seg022_14BF) | UWCritterCombat.cs, UWCritterRules.cs |
+| `SetPlayerDataOxB9` (seg008_B) | UWPlayerData.cs, UWPlayerMotion.cs |
+| `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWMobileObjectMotion.cs |
 | `ExplodingBook` (ovr107_1259) | UWExplodingBook.cs, UWObjectMechanics.cs |
 | `ovr118_573` | UWCarriedSlots.cs, UWPlayerData.cs |
 | `HealthRegeneration` (ovr133_45D) | UWArmourProtection.cs, UWWornRegeneration.cs |
@@ -55,6 +57,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `SwitchGoals` (seg007_1798_3247) | UWCritterBrain.cs, UWCritterRules.cs |
 | `ProcessDeath` (seg007_1798_3577) | UWCritterBrain.cs, UWSpecialDeaths.cs |
 | `Death` (seg007_1798_35CB) | UWCritterBrain.cs, UWCritterRules.cs |
+| `seg007_1798_3825` | UWCritterClock.cs, UWCritterRules.cs |
 | `RegisterEventHandler` (seg010_105) | UWClickRules.cs, UWEasyMovement.cs |
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs |
 | `MajorSpellClassB` (seg038_1645) | UWMiscSpellRules.cs, UWPlayerCritterRow.cs |
@@ -75,7 +78,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg007_1798_2108` | UWCritterBrain.cs, UWCritterRules.cs |
 | `seg007_1798_340A` | UWCritterRecord.cs, UWCritterRules.cs |
 | `DamageNPC` (seg007_1798_3622) | UWCritterAlarm.cs, UWCritterBrain.cs |
-| `seg007_1798_3825` | UWCritterClock.cs, UWCritterRules.cs |
 | `NPC_Goal5_Attack` (seg007_1798_891) | UWCritterBrain.cs, UWCritterRules.cs |
 | `ChooseMeleeAttackToMake` (seg007_1798_AFF) | UWCritterBrain.cs, UWCritterRules.cs |
 | `AttackGoalSearchForTarget` (seg007_E5D) | UWCritterBrain.cs, UWCritterRules.cs |
@@ -417,31 +419,35 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `InitRNG` (seg005_10B2_DD6) | UWRandom.cs |
-| `RNG` (seg005_DE7) | ICritterHost.cs, UWLiquidCulling.cs, UWRandom.cs, Program.cs |
+| `RNG` (seg005_DE7) | ICritterHost.cs, IUWMotionWorld.cs, UWLiquidCulling.cs, UWRandom.cs, Program.cs |
 
 ### seg006
 
 | Place | Files |
 |---|---|
 | `TestTileTraversal` (seg006_1056) | UWTilePath.cs, Program.cs |
-| `PathFindBetweenTiles` (seg006_1477_12BB) | UWSleepRules.cs, UWTilePath.cs, Program.cs |
-| `seg006_1477_1938` | ICritterHost.cs, UWCritter.cs |
+| `PathFindBetweenTiles` (seg006_1477_12BB) | UWSleepRules.cs, UWTilePath.cs, UWTileRoute.cs, Program.cs |
+| `seg006_1477_164` | UWMobileObjectMotion.cs |
+| `seg006_1477_1843` | UWTileRoute.cs |
+| `seg006_1477_1938` | ICritterHost.cs, UWTileRoute.cs, UWCritter.cs |
 | `TestBetweenPoints` (seg006_1477_1BD1) | ICritterHost.cs, UWTilePath.cs, Program.cs |
+| `seg006_1477_2041` | UWTileRoute.cs |
 | `seg006_1477_24A8` | UWCritterRules.cs |
 | `TurnTowardsPath` (seg006_1477_2504) | UWCritterBrain.cs, UWCritterRules.cs |
 | `seg006_1477_2679` | UWCritterRules.cs |
 | `GetVectorHeading` (seg006_1477_2862) | UWCritterRules.cs |
+| `InitVariablesAndDelegates` (seg006_1477_28E) | UWCreatureMotion.cs, UWTileTraverse.cs |
 | `SetNPCTargetDestination` (seg006_1477_28EA) | UWCritterRecord.cs |
 | `NPC_Goto` (seg006_1477_29A1) | UWCritterBrain.cs, UWCritterRules.cs |
 | `seg006_1477_2FB7` | UWCritterBrain.cs, UWCritterRules.cs |
 | `seg006_1477_3061` | UWCritterBrain.cs, UWCritterRules.cs |
 | `NPCTryToOpenDoor` (seg006_1477_3123) | UWCritterBrain.cs, UWObjectClassProperties.cs |
-| `seg006_1477_431` | UWCritterBrain.cs |
-| `seg006_1477_46D` | UWCritter.cs |
+| `seg006_1477_367` | UWCreatureMotion.cs |
+| `seg006_1477_431` | UWCreatureMotion.cs, UWCritterBrain.cs |
 | `seg006_1477_476` | ICritterHost.cs, UWCritterBrain.cs, UWCritterRules.cs, UWObjectMechanics.cs, UWCritter.cs, Program.cs |
-| `seg006_1477_5FE` | UWCritterRules.cs, UWCritter.cs |
-| `seg006_1477_65E` | UWCritterRules.cs, UWCritter.cs |
-| `TraverseMultipleTiles` (seg006_1477_6F6) | UWObjectClassProperties.cs |
+| `seg006_1477_5FE` | UWCreatureMotion.cs, UWCritterRules.cs |
+| `seg006_1477_65E` | UWCreatureMotion.cs, UWCritterRules.cs |
+| `TraverseMultipleTiles` (seg006_1477_6F6) | UWObjectClassProperties.cs, UWTileRoute.cs, UWTileTraverse.cs |
 | `DropNPCRemains` (seg006_5) | UWCritterCombat.cs, UWObjectClassProperties.cs, UWObjectMechanics.cs, UWCritterRemains.cs |
 | `CalculateMotionTopLevel` (seg006_6CB) | UWCritterRules.cs |
 
@@ -468,7 +474,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg007_1798_2123` | UWCritterBrain.cs |
 | `GetPitchToGTarg` (seg007_1798_22C1) | UWCritterBrain.cs |
 | `seg007_1798_25BC` | UWCritterBrain.cs |
-| `NeedsToMove` (seg007_1798_26D4) | UWCritterBrain.cs |
+| `NeedsToMove` (seg007_1798_26D4) | UWCreatureMotion.cs, UWCritterBrain.cs |
 | `seg007_1798_2849` | UWCritterBrain.cs |
 | `seg007_1798_2875` | UWCritterBrain.cs |
 | `seg007_1798_29CF` | UWCritterBrain.cs |
@@ -486,7 +492,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ProcessDeath` (seg007_1798_3577) | ICritterHost.cs, UWCritterBrain.cs, UWSpecialDeaths.cs |
 | `Death` (seg007_1798_35CB) | UWCritterBrain.cs, UWCritterRules.cs, UWCritterRemains.cs |
 | `DamageNPC` (seg007_1798_3622) | UWCritterAlarm.cs, UWCritterBrain.cs |
-| `seg007_1798_3825` | UWCritterClock.cs, UWCritterRules.cs |
+| `seg007_1798_3825` | UWCritterClock.cs, UWCritterRules.cs, MotionChecks.cs |
 | `seg007_1798_3E4` | UWCritterBrain.cs |
 | `Goal8` (seg007_1798_5DF) | UWCritterBrain.cs |
 | `StandStillGoal` (seg007_1798_6B0) | UWCritterBrain.cs |
@@ -496,7 +502,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg007_1798_D51` | UWCritterBrain.cs |
 | `TryToDoMagicAttack` (seg007_1798_FF2) | UWCritterBrain.cs |
 | `ReactToPlayerPresence` (seg007_1AF6) | UWCritterBrain.cs |
-| `NPCInitialProcessing` (seg007_2488) | UWCritterBrain.cs, UWCritterRecord.cs, UWSpecialDeaths.cs, UWCritter.cs |
+| `NPCInitialProcessing` (seg007_2488) | UWCreatureMotion.cs, UWCritterBrain.cs, UWCritterRecord.cs, UWSpecialDeaths.cs, UWCritter.cs |
 | `GetDistancesToGTarg` (seg007_326B) | ICritterHost.cs, UWCritterBrain.cs |
 | `SetNewGoalAndGtarg` (seg007_348E) | UWCritterRecord.cs |
 | `AttackGoalSearchForTarget` (seg007_E5D) | UWCritterBrain.cs, UWCritterRules.cs |
@@ -507,13 +513,20 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `EtherealVoidSpecialEffects` (seg008_150) | UWScreenShake.cs, UWVoidEffects.cs |
 | `seg008_1B2A` | UWImpactRules.cs, UWPlayerMovement.cs |
-| `seg008_1B2A_216` | UWEasyMovement.cs, UWPlayerMovement.cs, Program.cs |
-| `PlacePlayerInTile` (seg008_6D1) | UWTileBlast.cs |
-| `ApplyPlayerMotion` (seg008_90D) | UWImpactRules.cs, UWPlayerMovement.cs, Program.cs |
-| `SetPlayerDataOxB9` (seg008_B) | UWPlayerData.cs, Interaction.cs, UWPlayerTerrain.cs |
-| `BouncePlayer` (seg008_D9E) | UWPlayerMovement.cs, UWTriggerSystem.cs |
+| `seg008_1B2A_216` | UWEasyMovement.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
+| `ProcessPlayerTileState` (seg008_1B2A_3D) | UWPlayerMotion.cs |
+| `seg008_1B2A_BB3` | UWPlayerMotion.cs |
+| `seg008_1B2A_D85` | UWPlayerMotion.cs, UWPlayerMovement.cs |
+| `PlayerMotionInitialCalc` (seg008_5E3) | UWPlayerMotion.cs |
+| `PlacePlayerInTile` (seg008_6D1) | UWPlayerMotion.cs, UWPlayerMovement.cs, UWTileBlast.cs |
+| `ApplyPlayerMotion` (seg008_90D) | UWImpactRules.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
+| `SetPlayerDataOxB9` (seg008_B) | UWPlayerData.cs, UWPlayerMotion.cs, Interaction.cs, UWPlayerTerrain.cs |
+| `CalculateMotionFromCommand` (seg008_BEC) | UWPlayerMotion.cs |
+| `StopFalling` (seg008_D5B) | UWPlayerMotion.cs |
+| `BouncePlayer` (seg008_D9E) | UWPlayerMotion.cs, UWPlayerMovement.cs, UWTriggerSystem.cs |
 | `DoTrapScreenShake` (seg008_DD6) | UWTriggerSystem.cs |
 | `QuakeTrap` (seg008_DE7) | UWObjectMechanics.cs, UWTrapRules.cs |
+| `UpdateMotionStateAndSwimming` (seg008_E0C) | UWPlayerMotion.cs |
 
 ### seg009
 
@@ -564,7 +577,10 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg019_710` | UWCharacter.cs |
-| `seg019_A38` | UWRenderSweep.cs |
+| `seg019_A38` | UWMotionTables.cs, UWRenderSweep.cs |
+| `seg019_A69` | UWMotionTables.cs |
+| `seg019_E63` | UWMotionTables.cs |
+| `seg019_EAE` | UWMotionTables.cs |
 | `seg019_EFB` | UWCritterBrain.cs |
 | `GetSquareRoot` (seg019_F3F) | UWCritterBrain.cs |
 
@@ -573,7 +589,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `PlayerCombat` (seg022_11BA) | Interaction.cs |
-| `MissileAttackHit` (seg022_14BF) | UWCritterCombat.cs, UWCritterRules.cs, UWCritter.cs, UWSpellProjectile.cs |
+| `MissileAttackHit` (seg022_14BF) | IUWMotionWorld.cs, UWCritterCombat.cs, UWCritterRules.cs, UWCritter.cs, UWProjectileFlight.cs |
 | `NPCExecuteAttack` (seg022_15DE) | ICritterHost.cs, UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs, UWCritter.cs |
 | `AwardKillEXP` (seg022_1725) | ICritterHost.cs, UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs, UWCharacter.cs |
 | `seg022_230E` | UWClickRules.cs |
@@ -583,7 +599,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg022_230E_A6B` | Interaction.cs |
 | `CalcFlankingBonus` (seg022_230E_D48) | UWCritterRules.cs, Interaction.cs, Program.cs |
 | `seg022_230E_F16` | UWPlayerData.cs |
-| `SpawnImpactAnimo` (seg022_2D2) | UWSoundEffects.cs, UWSpellProjectile.cs |
+| `SpawnImpactAnimo` (seg022_2D2) | UWProjectileWorld.cs, UWSoundEffects.cs |
 | `CheckForAttackHit` (seg022_466) | UWCritterRules.cs, UWCritter.cs |
 | `AttackerAppliesFinalDamage` (seg022_8A5) | UWCombat.cs, UWCritterCombat.cs, UWObjectClassProperties.cs, UWPlayerCritterRow.cs, UWPlayerData.cs, Interaction.cs, UWCritter.cs, UWRuleIndexScan.cs, Program.cs |
 | `PickBodyHitPoint` (seg022_A) | UWArmourProtection.cs |
@@ -595,7 +611,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `DamageObject` (seg023_35A) | UWEquipmentWear.cs, UWTargetSpellRules.cs, UWSpellProjectile.cs |
+| `DamageObject` (seg023_35A) | IUWMobileObjectHost.cs, UWEquipmentWear.cs, UWTargetSpellRules.cs |
 | `DamageObjectAndDoors` (seg023_3E7) | UWObjectDamageRules.cs |
 | `DamageObject_Debris` (seg023_D6) | UWObjectDamageRules.cs |
 
@@ -605,7 +621,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `PrintFlaskHealthManaMessage` (seg024_10F) | UWClickRules.cs |
 | `DrawWeapon` (seg024_1531) | UWMusicSelector.cs, Interaction.cs |
-| `PutAwayWeapon` (seg024_15C0) | UWMusicSelector.cs, Interaction.cs |
+| `PutAwayWeapon` (seg024_15C0) | UWMusicSelector.cs, UWPlayerMotion.cs, Interaction.cs |
 | `seg024_24DC_109B` | UWItemDescriptions.cs, UWLoreCheck.cs |
 | `SetInteractionMode` (seg024_24DC_13D5) | UWClickRules.cs, UWCommandMode.cs, UWMusicSelector.cs, Interaction.cs, Program.cs |
 | `seg024_24DC_1627` | UWHudOptions.cs |
@@ -622,8 +638,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `NPCMissileLaunch` (seg025_262) | ICritterHost.cs, UWLevelLoader.cs |
-| `ProjectileSpell` (seg025_2B1) | Interaction.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
-| `DropOrThrowByPlayer` (seg025_355) | UWMoonstoneRules.cs, UWItemDrag.cs, UWLevelLoader.cs, UWPlayerThrow.cs, UWSpellProjectile.cs |
+| `ProjectileSpell` (seg025_2B1) | UWLevelLoader.cs, UWPlayerThrow.cs |
+| `DropOrThrowByPlayer` (seg025_355) | UWMoonstoneRules.cs, UWItemDrag.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
 | `seg025_3B3` | UWPlayerThrow.cs |
 | `seg025_57C` | UWPlayerThrow.cs |
 | `seg025_5CC` | UWPlayerThrow.cs |
@@ -631,10 +647,10 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg025_6C1` | UWLevelLoader.cs |
 | `seg025_711` | UWPlayerThrow.cs |
 | `seg025_73C` | UWTriggerSystem.cs |
-| `PrepareProjectileObject` (seg025_791) | Interaction.cs, UWCritter.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
+| `PrepareProjectileObject` (seg025_791) | UWMobileObjectMotion.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
 | `seg025_9B` | UWPlayerThrow.cs |
 | `MissileRelease` (seg025_9F) | Interaction.cs, UWLevelLoader.cs |
-| `seg025_B51` | UWCritter.cs |
+| `seg025_B51` | UWMobileObjectMotion.cs, UWCritter.cs |
 | `InitPlayerProjectilesValues` (seg025_D) | Interaction.cs, UWPlayerThrow.cs |
 
 ### seg026
@@ -645,9 +661,15 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `MoveObjectToCoordinates` (seg026_122B) | UWScatterRules.cs |
 | `PlaceObjectAtNPC` (seg026_12E5) | IUWConversationHost.cs, UWScatterRules.cs |
 | `InsertObjectToList` (seg026_133F) | UWScatterRules.cs |
-| `ProcessMotionTileHeights` (seg026_379) | UWLevelLoader.cs |
-| `CreateColllisionRecord` (seg026_A60) | UWObjectSpawner.cs |
-| `ScanForCollisions` (seg026_BF6) | UWCritter.cs |
+| `seg026_1A5` | UWMotionCore.cs |
+| `seg026_20D` | UWMotionCore.cs |
+| `seg026_2C4` | UWMotionCore.cs |
+| `ProcessMotionTileHeights` (seg026_379) | UWMotionCore.cs, UWLevelLoader.cs |
+| `seg026_4` | UWMotionCore.cs |
+| `seg026_7F6` | UWMotionCore.cs, UWMotionTables.cs |
+| `CreateColllisionRecord` (seg026_A60) | UWMotionCore.cs, UWTileQueries.cs, UWObjectSpawner.cs |
+| `ScanForCollisions` (seg026_BF6) | IUWMotionWorld.cs, UWMotionCore.cs, UWTileQueries.cs, UWCritter.cs |
+| `SortCollisions` (seg026_EBF) | UWMotionCore.cs |
 
 ### seg027
 
@@ -655,7 +677,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `RunCodeOnObjectChain` (seg027_117) | UWLiquidCulling.cs, UWObjectLimitRules.cs, UWTileQueries.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
-| `ObjectCulling` (seg027_2861_226) | UWLiquidCulling.cs |
+| `ObjectCulling` (seg027_2861_226) | UWLiquidCulling.cs, UWMobileObjectMotion.cs |
 | `CullObjects` (seg027_2861_329) | UWLiquidCulling.cs, UWObjectLimitRules.cs |
 | `RemoveObject` (seg027_2861_6DD) | UWLiquidCulling.cs |
 | `RemoveFromObjectChain` (seg027_2861_831) | UWTrapChainRemoval.cs |
@@ -684,23 +706,40 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlacedObjectCollison` (seg029_104D) | UWLiquidCulling.cs, UWLevelLoader.cs |
-| `CollideObjects` (seg029_29EE_173) | UWCommonObjectProperties.cs, UWSpellProjectile.cs |
-| `seg029_29EE_3` | UWSpellProjectile.cs |
-| `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWCritterRules.cs, UWSpellProjectile.cs |
-| `ApplyProjectileMotion` (seg029_29EE_61A) | UWLiquidCulling.cs, UWCritter.cs, UWSpellProjectile.cs |
-| `seg029_29EE_AD` | UWTriggerSystem.cs |
-| `ObjectHitsFloorTileDestroyTalismans` (seg029_C6F) | UWLiquidCulling.cs, UWObjectMechanics.cs, UWEndgame.cs, UWLevelLoader.cs, UWSpellProjectile.cs, UWThrownItemFlight.cs |
+| `PlacedObjectCollison` (seg029_104D) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWLevelLoader.cs |
+| `seg029_29EE_100B` | UWMobileObjectMotion.cs |
+| `CollideObjects` (seg029_29EE_173) | IUWMotionWorld.cs, UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWMotionCore.cs |
+| `seg029_29EE_3` | IUWMotionWorld.cs, UWCreatureMotion.cs, UWMotionCore.cs, UWPlayerMovement.cs, UWProjectileWorld.cs |
+| `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWCritterRules.cs, UWMobileObjectMotion.cs |
+| `ApplyProjectileMotion` (seg029_29EE_61A) | UWLiquidCulling.cs, UWMobileObjectMotion.cs |
+| `MakeMobile` (seg029_29EE_A1F) | UWMobileObjectMotion.cs |
+| `seg029_29EE_AD` | UWProjectileFlight.cs, UWTriggerSystem.cs |
+| `InitMobileRecord` (seg029_29EE_B3A) | UWMobileObjectMotion.cs |
+| `ObjectHitsFloorTileDestroyTalismans` (seg029_C6F) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWObjectMechanics.cs, UWEndgame.cs, UWLevelLoader.cs, UWThrownItemFlight.cs |
 
 ### seg030
 
 | Place | Files |
 |---|---|
+| `ProcessCollisions` (seg030_115F) | UWMotionCore.cs |
 | `seg030_2B26` | UWImpactRules.cs, UWLevelLoader.cs, UWPlayerMovement.cs, UWSoundEffects.cs |
-| `seg030_2B26_A47` | UWCritterRules.cs, Program.cs |
-| `seg030_2B26_BDF` | UWCritter.cs |
-| `BounceOtherObject` (seg030_2BB7_8) | UWSpellProjectile.cs |
-| `ObjectHitsFloorTile` (seg030_2BB7_DDF) | UWCommonObjectProperties.cs, UWSpellProjectile.cs |
+| `SetCollisionTarget` (seg030_2B26_10C) | UWMotionCore.cs |
+| `seg030_2B26_11F2` | UWMotionCore.cs |
+| `GetCollisionHeightState` (seg030_2B26_1259) | UWMotionCore.cs |
+| `DoTileCollisionMaybe` (seg030_2B26_1640) | UWMotionCore.cs |
+| `seg030_2B26_170C` | UWCreatureMotion.cs |
+| `seg030_2B26_17F5` | UWCreatureMotion.cs |
+| `StoreNewXYZH` (seg030_2B26_7FE) | UWMotionCore.cs |
+| `seg030_2B26_91` | UWMotionCore.cs |
+| `seg030_2B26_A47` | UWMotionCore.cs |
+| `seg030_2B26_BDF` | UWMotionCore.cs |
+| `seg030_2B26_C49` | UWMotionCore.cs |
+| `DoCollision` (seg030_2B26_C93) | UWMotionCore.cs |
+| `ObjectHitsFloorTile` (seg030_2BB7_DDF) | UWCommonObjectProperties.cs |
+| `InitalMotionCalc` (seg030_410) | UWMotionCore.cs |
+| `LikelyTranslateXY` (seg030_8A4) | UWMotionCore.cs |
+| `CalculateMotion` (seg030_B) | UWMotionCore.cs |
+| `MAYBEGRAVITYZ` (seg030_FDF) | UWMotionCore.cs |
 
 ### seg031
 
@@ -709,14 +748,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg031_1010` | UWRenderSweep.cs |
 | `seg031_115E` | UWRenderSweep.cs |
 | `seg031_121A` | UWExplorationRules.cs, UWRenderSweep.cs, Program.cs |
-| `DoTileCollisionMaybe` (seg031_2CFA_179C) | UWSpellProjectile.cs |
-| `HeadingRelated` (seg031_2CFA_A49) | UWSpellProjectile.cs |
-| `MaybeReflection` (seg031_2CFA_CC6) | UWSpellProjectile.cs |
-| `DoCollision` (seg031_2CFA_D1F) | UWCommonObjectProperties.cs, UWSpellProjectile.cs |
-| `seg031_2CFA_DDE` | UWSpellProjectile.cs |
-| `seg031_2CFA_E28` | UWSpellProjectile.cs |
-| `seg031_2CFA_EF0` | UWSpellProjectile.cs |
-| `seg031_2CFA_FA5` | UWSpellProjectile.cs |
+| `DoCollision` (seg031_2CFA_D1F) | UWCommonObjectProperties.cs |
 | `renderrelated` (seg031_351) | UWEndgame.cs |
 | `PositionCamera` (seg031_396) | ICritterHost.cs, UWRenderSweep.cs |
 | `SomethingToDoWithShadeCalcs` (seg031_4AB) | UWExplorationRules.cs, UWRenderSweep.cs, UWPlayerTerrain.cs |
@@ -748,25 +780,26 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `seg034_2F89_334` | UWCritterClock.cs, UWEasyMovement.cs |
+| `seg034_2F89_1DA` | UWPlayerMotion.cs, UWPlayerMovement.cs |
+| `seg034_2F89_334` | UWCritterClock.cs, UWEasyMovement.cs, UWCritterDriver.cs, UWPlayerMovement.cs |
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs, UWCritterDriver.cs |
 | `seg034_2F89_4C0` | UWCritterClock.cs |
-| `seg034_2F89_4E` | UWGameClock.cs, UWGameUI.cs, UWPlayerMovement.cs, Program.cs |
+| `seg034_2F89_4E` | UWGameClock.cs, UWPlayerMotion.cs, UWGameUI.cs, UWPlayerMovement.cs, Program.cs |
 | `GameObjectLoop` (seg034_2F89_518) | UWPlayerVitals.cs, UWSettings.cs |
-| `PlayerMotion` (seg034_2F89_604) | UWHeadBobRules.cs, UWPlayerMovement.cs, Program.cs |
+| `PlayerMotion` (seg034_2F89_604) | UWHeadBobRules.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
 | `SurfaceFootsteps` (seg034_2F89_713) | UWTvfxVoice.cs, UWSoundEffects.cs |
 | `ApplyPlayerSneakScore` (seg034_2F89_898) | UWArmourProtection.cs, UWCritterRules.cs, UWPlayerVitals.cs, Program.cs |
 | `seg034_2F89_971` | UWPlayerTerrain.cs |
 | `SetScreenShake` (seg034_2F89_B6A) | UWScreenShake.cs |
 | `PositionCameraAtObject` (seg034_2F89_B99) | UWHeadBobRules.cs, UWEndgame.cs, UWPlayerTerrain.cs |
 | `seg034_2F89_BCD` | UWSettings.cs |
-| `WalkOnSurfaceTypes` (seg034_93D) | UWSettings.cs |
+| `WalkOnSurfaceTypes` (seg034_93D) | UWPlayerMotion.cs, UWPlayerTerrain.cs, UWSettings.cs |
 
 ### seg035
 
 | Place | Files |
 |---|---|
-| `PrepareNewObjectProps` (seg035_3E) | UWCommonObjectProperties.cs |
+| `PrepareNewObjectProps` (seg035_3E) | UWCommonObjectProperties.cs, UWProjectileWorld.cs |
 
 ### seg036
 
@@ -796,7 +829,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `MajorSpellClassD` (seg038_258) | UWItemSpellRules.cs |
 | `SpellTrapWandCast` (seg038_27) | ICritterHost.cs, UWCritter.cs |
 | `ManaChange` (seg038_2B6) | UWPlayerVitals.cs, UWWornRegeneration.cs |
-| `QuakeSpell` (seg038_3307_1211) | UWMiscSpellRules.cs, UWSpellHost.cs |
+| `QuakeSpell` (seg038_3307_1211) | UWMiscSpellRules.cs, UWProjectileWorld.cs |
 | `DetectMonsterString` (seg038_3307_12FD) | UWMiscSpellRules.cs |
 | `DoorAndTrapSpells` (seg038_3307_1560) | Interaction.cs |
 | `DamageObjectsInTile` (seg038_3307_182A) | UWAreaSpellRules.cs, UWTileBlast.cs |
@@ -833,8 +866,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `UnlockDoor` (seg040_352B_1D3B) | ICritterHost.cs, UWLockRules.cs, UWCritter.cs |
 | `seg040_352B_1F54` | UWSoundEffects.cs |
 | `ObjectUse` (seg040_352B_2) | UWItemDrag.cs |
-| `seg040_352B_20CD` | Interaction.cs |
-| `OpenDoor` (seg040_352B_21E6) | UWConversationSession.cs, IUsableDoor.cs, Interaction.cs |
+| `seg040_352B_20CD` | UWWorldCapture.cs, Interaction.cs |
+| `OpenDoor` (seg040_352B_21E6) | UWConversationSession.cs, UWWorldCapture.cs, IUsableDoor.cs, Interaction.cs |
 | `CloseDoor` (seg040_352B_22FD) | UWConversationSession.cs |
 | `DoorToggle` (seg040_352B_23B7) | UWConversationSession.cs |
 | `EmptyContainer` (seg040_352B_23EC) | Interaction.cs |
@@ -857,7 +890,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `DiceRoll` (seg041_11E) | UWCritterCombat.cs |
-| `GetCoordinateInDirection` (seg041_4D) | UWEasyMovement.cs, UWPlayerThrow.cs |
+| `GetCoordinateInDirection` (seg041_4D) | UWEasyMovement.cs, UWMobileObjectMotion.cs, UWPlayerThrow.cs |
 
 ### seg043
 
@@ -878,6 +911,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `seg044_6F9` | UWObjectDamageRules.cs |
 | `SpawnMultipleAnimoCopies` (seg044_794) | UWEndgame.cs |
-| `DetonateProjectile` (seg044_95A) | UWObjectDamageRules.cs, UWSpellProjectile.cs |
+| `DetonateProjectile` (seg044_95A) | IUWMobileObjectHost.cs, UWObjectDamageRules.cs |
 | `SpawnClass7Object` (seg044_A33) | UWObjectMechanics.cs, UWRuleIndexScan.cs |
 

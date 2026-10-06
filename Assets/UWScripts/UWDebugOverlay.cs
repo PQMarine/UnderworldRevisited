@@ -504,6 +504,33 @@ public class UWDebugOverlay : MonoBehaviour
 
         pOText.AppendFormat("\n          zpos {0} (0x58={1:X4})  heading {2} (0x5A={2:X4})",
             liZ >> 3, liZ, liHeading);
+
+        // THE MOTION CORE'S OWN VIEW (stage 3, 2026-10-06): the params block, the contact state
+        // and what the last step found under and around the player - the floor samples and the
+        // collision records (item ids with bottom and top). For a player standing where he
+        // should not (per user: on the edge of a water slope a level too high).
+        UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+        if (lOMovement != null && lOMovement.UsesMotionCore)
+        {
+            UWDataImport.UWData.UWPlayerMotion lOMotion = lOMovement.Motion;
+            UWDataImport.UWData.UWMotionCore lOCore = lOMotion.Core;
+
+            pOText.AppendFormat("\nCore      x {0} y {1} z {2} (fine)  speed {3} vz {4} gravity {5}  contact 0x{6:X}  state {7}{8}",
+                lOMotion.Params.X, lOMotion.Params.Y, lOMotion.Params.Z, lOMotion.Params.Speed, lOMotion.Params.Vz,
+                lOMotion.Params.Gravity, lOMotion.Params.Contact, lOMotion.CurrentState,
+                lOMotion.Precise ? (lOMotion.FineTicks ? "  precise, fine ticks" : "  precise") : string.Empty);
+            pOText.AppendFormat("\n          flags 0x{0:X} all 0x{1:X}  centre floor {2}  max floor {3}  records {4} (overlap {5} from {6})",
+                lOCore.Flags, lOCore.AllFlags, lOCore.CentreFloor, lOCore.MaxFloor, lOCore.Count & 0xFF, lOCore.Overlap & 0xFF, (sbyte)lOCore.First);
+
+            for (int liAt = 0; liAt < (lOCore.Count & 0xFF) && liAt < lOCore.Records.Length; liAt++)
+            {
+                UWDataImport.UWData.UWMotionCore.Record lORecord = lOCore.Records[liAt];
+
+                pOText.AppendFormat("\n          record {0}: item 0x{1:X3} index {2} at {3}/{4} z {5}..{6} flags 0x{7:X}",
+                    liAt, lORecord.Body.ItemId & 0x1FF, lORecord.Body.Index, lORecord.Dx, lORecord.Dy, lORecord.Bottom, lORecord.Top, lORecord.Flags);
+            }
+        }
     }
 
     /// <summary>The most recently triggered traps, with their age in seconds.</summary>

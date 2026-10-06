@@ -12,17 +12,18 @@ namespace UWDataImport.UWData
 	/// mechanics, the blow's reach scan, projectiles - stays with the host, which applies the
 	/// Motion this returns and reports the outcome as a StepResult.
 	///
-	/// ORDER OF ONE UPDATE (spec 1.4): the step of the PREVIOUS decision has already been
-	/// applied by the host; Update then takes the snapshot, culls by distance, releases a
-	/// path an attack animation made obsolete, evaluates the step (stuck, drowned), runs the
-	/// animation frame machine (a running swing, shot, spell or death ends the update without
-	/// goal logic), otherwise NPCBehaviours: kin alarm, damage reaction, target guard, the goal
+	/// ORDER OF ONE UPDATE (spec 1.4): Update culls by distance, releases a path an attack
+	/// animation made obsolete, then has the host run the PHYSICS of the previous decision
+	/// (ICritterHost.RunMotion - the step on the motion core with the values the last goal
+	/// routine left in the record), evaluates that step (stuck, drowned), runs the animation
+	/// frame machine (a running swing, shot, spell or death ends the update without goal
+	/// logic), otherwise NPCBehaviours: kin alarm, damage reaction, target guard, the goal
 	/// routine, the turn limiter; then reschedules. So the movement a goal implies happens at
 	/// the start of the NEXT due update, as in the original.
 	///
 	/// Every rule cites its routine and a line of UW1_asm.asm; the constants live in
-	/// UWCritterRules. Where the port keeps a physics substitute (path shape, clearance
-	/// probes, the goal 3 tile check) the host decides, and this only asks.
+	/// UWCritterRules. Where the port keeps a substitute (the path shape, the goal 3 tile
+	/// check) the host decides, and this only asks.
 	/// </summary>
 	public sealed class UWCritterBrain
 	{
@@ -202,14 +203,14 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- the update
 
 		/// <summary>
-		/// One creature update (NPCInitialProcessing_seg007_2488, 52586-53399). The host has
-		/// applied the previous Motion and filled LastStep. Returns the Motion for the next
+		/// One creature update (NPCInitialProcessing_seg007_2488, 52586-53399), the physics of
+		/// the previous Motion included (RunMotion, step 6). Returns the Motion for the next
 		/// interval; Culled and Removed say when it carries nothing.
 		/// </summary>
 		public Motion Update(ICritterHost pIHost)
 		{
 			mIHost = pIHost;
-			mOStep = pIHost.LastStep;
+			mOStep = default(StepResult);
 			mbRemoved = false;
 			mbTargetFound = false;
 			miWanderDepth = 0;
@@ -235,14 +236,18 @@ namespace UWDataImport.UWData
 			// 4. Per-update globals (52787).
 			mbActive = true;
 			mbFlierDucked = false;
-			mbCollided = mOStep.Collided;
 
 			// 5. Path bookkeeping (52800-52825): an animation that is neither walk nor stand
-			// drops the path.
+			// drops the path - BEFORE the physics, whose callbacks test the path bit.
 			if (mORecord.Animation != AnimWalking && mORecord.Animation != AnimStanding && mORecord.HasPath)
 				mORecord.HasPath = false;
 
-			// 6. The step's verdict (seg006_1477_431, 41381-41460): stuck sets interval 1 and
+			// 6. The physics (52702-52990, UWCreatureMotion through the host): the step with the
+			// heading, speed and interval the last goal routine left, then what it left behind.
+			mOStep = pIHost.RunMotion();
+			mbCollided = mOStep.Collided;
+
+			// The step's verdict (seg006_1477_431, 41381-41460): stuck sets interval 1 and
 			// clears IsNPCActive; drowning sets the death animation at frame 3.
 			if (mOStep.Stuck)
 			{

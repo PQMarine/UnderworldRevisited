@@ -22,10 +22,52 @@ public class UWDoorLock : MonoBehaviour
     /// its hinge, the door object stays).</summary>
     public Vector3 Centre { get; private set; }
 
+    /// <summary>The door object the lock hangs on, from the first EnsureResolved.</summary>
+    private UWObject mODoorData;
+
+    private bool mbWriting;
+
     private void Awake()
     {
         Centre = transform.position;
         msAll.Add(this);
+        mOState.Changed += fWriteStateToData;
+    }
+
+    /// <summary>
+    /// THE DATA FOLLOWS THE LOCK (2026-10-05, per user: write every game-visible state into the
+    /// level data the moment it changes): every change of the lock state - by key, pick, spell,
+    /// the door trap, a smashed door - goes into the door's lock object at once through
+    /// UWWorldCapture.CaptureLock, which the save alone used to call. The capture itself locks
+    /// and unlocks the state while it copies a trap's template, hence the guard.
+    /// </summary>
+    private void fWriteStateToData()
+    {
+        if (mbWriting)
+            return;
+
+        if (mODoorData == null)
+        {
+            UWEntityInfo lOInfo = GetComponentInParent<UWEntityInfo>();
+
+            mODoorData = lOInfo != null ? lOInfo.ObjectData : null;
+        }
+
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (mODoorData == null || lOLoader == null || lOLoader.CurrentLevel == null)
+            return;
+
+        mbWriting = true;
+
+        try
+        {
+            UWWorldCapture.CaptureLock(lOLoader.CurrentLevel, mODoorData, mOState);
+        }
+        finally
+        {
+            mbWriting = false;
+        }
     }
 
     private void OnDestroy()
@@ -50,6 +92,9 @@ public class UWDoorLock : MonoBehaviour
 
     public void EnsureResolved(UWObject pODoorData, List<UWObject> pOMasterlist)
     {
+        if (pODoorData != null)
+            mODoorData = pODoorData;
+
         mOState.EnsureResolved(pODoorData, pOMasterlist);
     }
 

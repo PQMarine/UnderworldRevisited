@@ -12,8 +12,10 @@ namespace UWDataImport.UWData
 
 		public UWPalettes(string psPaletteDirectory)
 		{
-			string path = $"{psPaletteDirectory}\\PALS.DAT";
-			string path2 = $"{psPaletteDirectory}\\ALLPALS.DAT";
+			// Path.Combine and the image's upper-case names: a Linux build showed a black screen
+			// over backslash paths and lower-case patterns (patch by a Linux user, 2026-10-05).
+			string path = Path.Combine(psPaletteDirectory, "PALS.DAT");
+			string path2 = Path.Combine(psPaletteDirectory, "ALLPALS.DAT");
 			byte[] array = File.ReadAllBytes(path);
 			mOPalettes = new List<UWPalette>();
 			for (int i = 0; i < array.Length; i += 768)

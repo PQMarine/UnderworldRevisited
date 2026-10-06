@@ -2305,69 +2305,44 @@ public class Interaction : MonoBehaviour
     /// <summary>
     /// Fires one piece of ammunition. False when there is no room for it in front of the player -
     /// then "You need more space to fire that weapon." (MissileRelease_seg025_9F), which in the
-    /// original comes all the time with a creature close in front (per user, 2026-09-24).
+    /// original comes all the time with a creature close in front (per user, 2026-09-24). The
+    /// arrow is a mobile record on the motion core since 2026-10-05 (UWProjectileWorld): it
+    /// starts radii + 4 eighths ahead, falls, bounces and lies where it comes to rest.
     /// </summary>
     private bool fLaunchPlayerMissile(int piAmmunitionId)
     {
         if (mLevelLoader == null || Camera.main == null)
             return false;
 
-        // The modern scheme shoots where the free pointer stands on the world, else along the
-        // crosshair (per user, 2026-10-04: the shot always left from the crosshair).
-        Ray lORay = fIsOriginalScheme() ? fGetInteractionRay() : fGetModernAimRay();
-        float lfSpeed = mOUWDataImporter.ObjectProperties.GetRangedSpeed(piAmmunitionId) * UWSpellProjectile.SpeedFactor;
-        Vector3 lODirection;
-        Vector3 lOStart;
+        int liSpeedByte = mOUWDataImporter.ObjectProperties.GetRangedSpeed(piAmmunitionId);
+        int liHeading;
+        int liPitch;
 
+        // The original's aim from the pointer in the view window; the modern scheme shoots where
+        // the free pointer stands on the world, else along the crosshair (per user, 2026-10-04).
         if (fIsOriginalScheme() && mGameUi != null)
         {
-            // THE ORIGINAL'S START, as for a spell projectile (fLaunchSpellProjectile): the bow
-            // goes through the same InitPlayerProjectilesValues_seg025_D and
-            // PrepareProjectileObject_seg025_791.
             UWPlayerThrow.GetPointerInView(mGameUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
-            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out int liHeading, out int liPitch);
-
-            lODirection = UWPlayerThrow.GetMissileDirection(liHeading, liPitch, lfSpeed);
-
-            if (!UWPlayerThrow.TryGetMissileStart(Camera.main.transform, mLevelLoader, piAmmunitionId,
-                    liHeading, liPitch, out lOStart))
-            {
-                AddGeneralMessage(NoRoomForWeaponMessage);
-
-                return false;
-            }
+            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
         }
         else
-        {
-            lODirection = fGetSpellAimDirection(lORay, lfSpeed);
-            lOStart = lORay.origin + (lODirection * mfSpellProjectileOffset);
-        }
+            UWProjectileWorld.AimFromDirection(fGetModernAimRay().direction, liSpeedByte, out liHeading, out liPitch);
 
-        GameObject lOProjectile = mLevelLoader.SpawnProjectile(piAmmunitionId, lOStart, lODirection);
+        // A missile hit always counts with charge 0x80, however far the bow was drawn
+        // (reference: combat.MissileAttackHit, "PlayerAttackCharge = 0x80"). The arrow's life
+        // is the ammunition's quality (MissileRelease copies it from the piece).
+        UWObject lOAmmunition = fFindAmmunition(piAmmunitionId);
 
-        if (lOProjectile == null)
+        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mLevelLoader).LaunchFromPlayer(null, piAmmunitionId,
+            liHeading, liPitch, liSpeedByte, fGetMissileDamage(piAmmunitionId, UWCombat.NeutralCharge),
+            UWDamageTypes.Missile, -1, this, lOAmmunition != null ? lOAmmunition.Quality : 0x3F);
+
+        if (lOFlight == null)
         {
             AddGeneralMessage(NoRoomForWeaponMessage);
 
             return false;
         }
-
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOStart);
-
-        UWSpellProjectile lOFlight = lOProjectile.AddComponent<UWSpellProjectile>();
-
-        lOFlight.Begin(lODirection, lfSpeed,
-            // A missile hit always counts with charge 0x80, however far the bow was drawn
-            // (reference: combat.MissileAttackHit, "PlayerAttackCharge = 0x80").
-            fGetMissileDamage(piAmmunitionId, UWCombat.NeutralCharge),
-            mfSpellProjectileRange, this, mLevelLoader,
-            -1, UWDamageTypes.Missile);
-        lOFlight.UseObjectRadius(piAmmunitionId);
-
-        // An arrow drops in flight and stays on the ground after impact - both as with the
-        // arrow trap (see UWTriggerSystem).
-        lOFlight.MakeBallistic(UWSpellProjectile.Gravity);
-        lOFlight.DropOnImpact(piAmmunitionId);
 
         return true;
     }
@@ -3415,6 +3390,10 @@ public class Interaction : MonoBehaviour
             SetPromptMessage(UWShrine.Prompt + msMantra);
         }
 
+        // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
+        foreach (char lcChar in UWTypedKeys.ReadTyped())
+            fOnMantraInput(lcChar);
+
         // Read straight from the mouse: UWMouseButtons is blocked for the game meanwhile.
         Mouse lOMouse = Mouse.current;
 
@@ -3684,7 +3663,7 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// The orb rock THROWN at Tybal's orb (UWSpellProjectile, the collision's object use):
+    /// The orb rock THROWN at Tybal's orb (UWProjectileFlight, the collision's object use):
     /// the same breaking as from the hand, but the rock is not used up - it lies where it fell,
     /// as in the original (per user, 2026-09-23). A throw at anything else says nothing.
     /// </summary>
@@ -4818,7 +4797,8 @@ public class Interaction : MonoBehaviour
 
     private int miPendingProjectileDamage;
 
-    private float mfPendingProjectileSpeed;
+    /// <summary>The ammunition table's speed byte of the waiting projectile (RangedAmmoType).</summary>
+    private int miPendingProjectileSpeedByte;
 
     /// <summary>The mana a rune-cast projectile costs, paid only when it is released - the
     /// original keeps it in SpellManaCost and subtracts it after PrepareProjectileObject
@@ -4843,35 +4823,6 @@ public class Interaction : MonoBehaviour
     /// a different one then - see UWGameUI.</summary>
     public bool IsTargetSpellPending => miPendingTargetSpell >= 0;
 
-    /// <summary>
-    /// Conversion of the speed value from the projectile table into world units per second.
-    ///
-    /// The table lists 15 for Magic Missile, 20 for the lightning bolt, 24 for the fireball.
-    /// Times 10.7 that gives 160, 214 and 257 - so the missile stays below the
-    /// walking speed of 203 and can be overtaken, the lightning bolt is above it and can no
-    /// longer be caught. The user observed both like this in the original (2026-09-05).
-    ///
-    /// The factor itself is inferred from these two observations, not measured.
-    /// </summary>
-    [SerializeField]
-    private float mfSpellProjectileSpeedFactor = 10.7f;
-
-    /// <summary>How far a spell projectile flies before it disappears.</summary>
-    [SerializeField]
-    private float mfSpellProjectileRange = 2000f;
-
-    /// <summary>
-    /// How far in front of the camera the projectile is created.
-    ///
-    /// The reference pushes it along the flight direction by radius(caster) + radius(projectile) + 4,
-    /// counted in eighth tiles (motion_projectile.PlaceProjectileInWorld). An
-    /// eighth tile is 8 world units for us, so the fixed summand is 32; plus the
-    /// player body with 12 and the projectile itself. That gives about 50 - previously
-    /// a guessed 24 was here.
-    /// </summary>
-    [SerializeField]
-    private float mfSpellProjectileOffset = 50f;
-
     /// <summary>Message when the projectile has nowhere to go. String block 1.</summary>
     private const int NoRoomForSpellMessage = 256;
 
@@ -4889,12 +4840,11 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// Sends the queued projectile off from any position in any
-    /// direction - for the a_spelltrap, which has no click that could give it the direction
-    /// (see UWTriggerSystem.fFireSpellTrap).
-    ///
-    /// Without the forward offset the player path uses: the start point here comes from the
-    /// trap itself and is already the right one.
+    /// Sends the queued projectile off from any position in any direction - for the
+    /// a_spelltrap, which has no click that could give it the direction (see
+    /// UWTriggerSystem.fFireSpellTrap). A static caster: the missile starts at the trap's own
+    /// spot with no height offset and no placement test (PrepareProjectileObject for a
+    /// launcher of height 0), level, along the trap's facing.
     /// </summary>
     public bool LaunchPendingSpellFrom(Vector3 pOStart, Vector3 pODirection)
     {
@@ -4905,23 +4855,15 @@ public class Interaction : MonoBehaviour
 
         miPendingProjectileId = -1;
 
-        GameObject lOProjectile = mLevelLoader.SpawnFlyingObject(liProjectile, pOStart);
+        int liX8 = UWViewpoint.WorldToOriginalX(pOStart.x) >> 5;
+        int liY8 = UWViewpoint.WorldToOriginalY(pOStart.z) >> 5;
+        int liZPos = UWViewpoint.WorldToOriginalZ(pOStart.y) >> 3;
 
-        if (lOProjectile == null)
-            return false;
+        UWProjectileWorld.AimFromDirection(pODirection, miPendingProjectileSpeedByte, out int liHeading, out int _);
 
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, pOStart);
-
-        UWSpellProjectile lOTrapFlight = lOProjectile.AddComponent<UWSpellProjectile>();
-
-        lOTrapFlight.Begin(
-            pODirection, mfPendingProjectileSpeed, miPendingProjectileDamage,
-            mfSpellProjectileRange, this, mLevelLoader,
-            UWRunicMagic.GetProjectileImpactId(liProjectile),
-            UWRunicMagic.GetProjectileDamageType(liProjectile));
-        lOTrapFlight.UseObjectRadius(liProjectile);
-
-        return true;
+        return UWProjectileWorld.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, liX8 >> 3, liY8 >> 3, liX8 & 7, liY8 & 7,
+            liZPos, liHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileDamage,
+            UWRunicMagic.GetProjectileDamageType(liProjectile), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
     }
 
     /// <summary>The modern scheme's aim after a cast from runes or an item (UWHudRunes.fAfterModernCast,
@@ -5001,7 +4943,7 @@ public class Interaction : MonoBehaviour
         miPendingManaCost = piManaCost;
         miPendingProjectileDamage = UWCombat.ComputeDamage(piDamage, false, 0, 0,
             UWCombat.NeutralCharge, 0);
-        mfPendingProjectileSpeed = piSpeed * mfSpellProjectileSpeedFactor;
+        miPendingProjectileSpeedByte = piSpeed;
     }
 
     /// <summary>Remembers a spell until the player clicks its target. This exists in
@@ -5162,119 +5104,48 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>Sends the waiting projectile off - along pOAim when given (the modern scheme's
-    /// click under the free pointer), else along the interaction ray.</summary>
+    /// click under the free pointer), else along the interaction ray. The original's aim from
+    /// the pointer in the view window (InitPlayerProjectilesValues_seg025_D) in the original
+    /// scheme; the start radii + 4 eighths ahead of the feet, five sixths of the height up - and
+    /// no room there means no spell (per user, 2026-09-24: in a narrow corridor one has to aim
+    /// nearer the middle in the original). On the motion core since 2026-10-05.</summary>
     private void fLaunchSpellProjectile(Ray? pOAim = null)
     {
         if (mLevelLoader == null || Camera.main == null)
             return;
 
-        Ray lORay = pOAim ?? fGetInteractionRay();
-        Vector3 lODirection;
-        Vector3 lOStart;
+        int liHeading;
+        int liPitch;
 
         if (fIsOriginalScheme() && mGameUi != null)
         {
-            // THE ORIGINAL'S START (UWPlayerThrow.TryGetMissileStart): in front of the feet
-            // along the missile's heading, at the throw's height - and no room there means no
-            // spell (per user, 2026-09-24: in a narrow corridor one has to aim nearer the middle
-            // in the original).
             UWPlayerThrow.GetPointerInView(mGameUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
-            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out int liHeading, out int liPitch);
-
-            lODirection = UWPlayerThrow.GetMissileDirection(liHeading, liPitch, mfPendingProjectileSpeed);
-
-            if (!UWPlayerThrow.TryGetMissileStart(Camera.main.transform, mLevelLoader, miPendingProjectileId,
-                    liHeading, liPitch, out lOStart))
-            {
-                AddGeneralMessage(NoRoomForSpellMessage);
-
-                return;
-            }
+            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
         }
         else
         {
-            lODirection = fGetSpellAimDirection(lORay, mfPendingProjectileSpeed);
-            lOStart = lORay.origin + (lODirection * mfSpellProjectileOffset);
+            Ray lORay = pOAim ?? fGetInteractionRay();
+
+            UWProjectileWorld.AimFromDirection(lORay.direction, miPendingProjectileSpeedByte, out liHeading, out liPitch);
         }
 
-        GameObject lOProjectile = mLevelLoader.SpawnFlyingObject(miPendingProjectileId, lOStart);
+        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mLevelLoader).LaunchFromPlayer(null, miPendingProjectileId,
+            liHeading, liPitch, miPendingProjectileSpeedByte, miPendingProjectileDamage,
+            UWRunicMagic.GetProjectileDamageType(miPendingProjectileId), UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
+            this, 0x3F);
 
-        if (lOProjectile == null)
+        if (lOFlight == null)
         {
             AddGeneralMessage(NoRoomForSpellMessage);
 
             return;
         }
 
-        // THE LAUNCH SOUND of every missile: PrepareProjectileObject_seg025_791 plays effect 0x0A
-        // at the new object, the same as a throw (per user: the original plays it for Magic
-        // Missile, ours was silent until 2026-09-24).
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOStart);
-
         // Released: now the rune spell's mana is paid (see miPendingManaCost).
         if (miPendingManaCost > 0 && mCharacter != null)
             mCharacter.SpendMana(miPendingManaCost);
 
         miPendingManaCost = 0;
-
-        UWSpellProjectile lOFlight = lOProjectile.AddComponent<UWSpellProjectile>();
-
-        lOFlight.Begin(
-            lODirection, mfPendingProjectileSpeed, miPendingProjectileDamage,
-            mfSpellProjectileRange, this, mLevelLoader,
-            UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
-            UWRunicMagic.GetProjectileDamageType(miPendingProjectileId));
-        lOFlight.UseObjectRadius(miPendingProjectileId);
-
-        // NOT EVERY SPELL FLIES STRAIGHT: fireball, lightning bolt and magic missile are
-        // weightless, acid is not - this is stored as a bit in the object itself (see
-        // UWCommonObjectProperties.Entry.IsWeightless). The same applies to a creature's
-        // projectile, see UWCritter.
-        if (!fIsWeightless(miPendingProjectileId))
-            lOFlight.MakeBallistic(UWSpellProjectile.Gravity);
-    }
-
-    private bool fIsWeightless(int piObjectId)
-    {
-        if (mOUWDataImporter == null || mOUWDataImporter.CommonObjectProperties == null)
-            return true;
-
-        return mOUWDataImporter.CommonObjectProperties.IsWeightless(piObjectId);
-    }
-
-    /// <summary>
-    /// The aiming direction of a spell projectile, following the original.
-    ///
-    /// The original does NOT send the projectile along the ray through the mouse cursor. It
-    /// computes it in the same routine as a throw (InitPlayerProjectilesValues_seg025_D, called
-    /// from ProjectileSpell_seg025_2B1): a quantized heading from the horizontal pointer
-    /// position and a pitch from the vertical one plus the camera's - see
-    /// UWPlayerThrow.GetMissileAim. Two quirks are in there, and both are DELIBERATELY
-    /// reproduced, because the user observed a left-right asymmetry in the original
-    /// (2026-09-05): the fixed ONE, so even exactly in the middle it aims one step off, and the
-    /// INTEGER DIVISION, which truncates towards zero differently on each side.
-    ///
-    /// THE PITCH IS NOT AN ANGLE (settled 2026-09-24, Todo.md section 0b row 6): it goes in as
-    /// the vertical part of the velocity, 64 per step against the momentum of 0x2F per unit of
-    /// the spell's speed (UWPlayerThrow.GetMissileDirection) - the same step climbs steeper for
-    /// a slow Magic Missile than for a fast fireball. Until then ours turned each step into an
-    /// estimated 3.25 degrees for every spell, read the pointer without the view window's
-    /// margins and did not quantize the player's own heading - the "not yet identical" of
-    /// 2026-09-05 (per user).
-    ///
-    /// In the modern scheme the ray stays - there the crosshair aims at the centre, and a
-    /// quantized target would only get in the way.
-    /// </summary>
-    private Vector3 fGetSpellAimDirection(Ray pORay, float pfSpeed)
-    {
-        if (mControlScheme == null || mControlScheme.Current != UWControlScheme.SchemeEnum.Original
-            || mGameUi == null || Camera.main == null)
-            return pORay.direction;
-
-        UWPlayerThrow.GetPointerInView(mGameUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
-        UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out int liHeading, out int liPitch);
-
-        return UWPlayerThrow.GetMissileDirection(liHeading, liPitch, pfSpeed);
     }
 
     /// <summary>A spell projectile has hit: hit effect and the eyes at the top

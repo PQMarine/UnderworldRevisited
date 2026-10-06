@@ -742,18 +742,18 @@ public static class UWTriggerSystem
     /// an_arrow trap: fires a projectile over the trigger's target tile.
     ///
     /// The ammunition is stored in two fields of the trap (see
-    /// UWObjectMechanics.GetArrowTrapAmmunitionId), the DIRECTION in its heading - eight
-    /// steps of 45 degrees each. The reference adds two 256ths of a full circle,
-    /// i.e. just under three degrees, and tilts the shot by two pitch steps; both are
-    /// adopted, the tilt pointing UPWARD (see fGetArrowDirection).
+    /// UWObjectMechanics.GetArrowTrapAmmunitionId), the DIRECTION in its heading - eight steps
+    /// of 45 degrees each, plus two 256ths (seg025_73C: HeadingBase 0, MissileHeading 2), the
+    /// pitch two steps up, the speed the trap's fixed 0x14 for every ammunition. A launcher of
+    /// height 0: the missile starts at the trap's own spot, no offset, no placement test - the
+    /// user sees the level 8 bolt come out of the southern wall (2026-09-07). On the motion
+    /// core since 2026-10-05 (UWProjectileWorld.LaunchFromSpot): it falls, bounces and lies.
     ///
-    /// The flight uses the same component as a spell projectile (see UWSpellProjectile):
-    /// it hits the player just as well as a creature.
-    ///
-    /// THE DAMAGE comes from the projectile table of OBJECTS.DAT, indexed with the lower four
-    /// bits of the object number - for boulders, skulls and bones too, which three of the
-    /// seven arrow traps shoot. Once thought a guess; the original's missile hit does exactly
-    /// that (read 2026-09-24, see below). The SPEED is the trap's fixed 0x14.
+    /// THE DAMAGE is the original's, boulder, skull and bone included (checked 2026-09-24,
+    /// Todo.md section 0b row 9): the missile's hit (seg029_29EE_AD) reads the base damage from
+    /// the ranged table at the LOW FOUR BITS of the object id, whatever the object is - exactly
+    /// what GetRangedDamage does; the Missile skill counts only when the launcher is the
+    /// player, never for a trap.
     /// </summary>
     private static bool fFireArrowTrap(UWObject pOTrap, int piTileX, int piTileY,
         UWLevelLoader pOLevelLoader, Interaction pOInteraction)
@@ -767,104 +767,18 @@ public static class UWTriggerSystem
         if (liAmmunition <= 0)
             return false;
 
-        Vector3 lODirection = fGetArrowDirection(pOTrap);
-
-        // THE SUB-TILE POSITION OF THE TRAP COUNTS, not the tile centre. The trap on
-        // level 5 sits at xpos 0, ypos 0 - i.e. in the lower corner of its tile, two
-        // quarter tiles off the centre. Shot from the centre, the arrow visibly arrived
-        // too far left for the user (2026-09-07).
-        Vector3 lOStart = UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap);
-
-        // NO FORWARD OFFSET IN THE FLIGHT DIRECTION. The reference does not place a projectile
-        // on the thrower but in front of it: radius of the thrower plus radius of the projectile plus four,
-        // counted in eighth tiles (motion_projectile.PlaceProjectileInWorld, via
-        // GetCoordinateInDirection only on x0 and y2, the height is untouched). For the
-        // arrow trap that would be 0 + 1 + 4 = 5 eighth tiles, i.e. 40 world units.
-        //
-        // THAT DOES NOT MATCH THE ORIGINAL, and the observation decides. The trap on
-        // level 8 sits on tile 47/32, ypos 1 - i.e. right at the south edge - and
-        // shoots north. South (47/31) and north (47/33) are both solid, the corridor
-        // runs east-west: the bolt crosses it over a mere 64 units. The user sees
-        // it come "out of the southern wall" in the original (2026-09-07). With 40 units of
-        // offset it would appear 16 units IN FRONT OF the northern wall, i.e. at the wrong
-        // end of the corridor - and would be gone again after three frames. Exactly that happened
-        // in the user's test: "I could not tell where our bolt spawns."
-        //
-        // Whether the offset in the reference also applies to TRAPS or only to throwers with
-        // their own extent is therefore open - the trap has radius 0 and height 0 in
-        // COMOBJ.DAT. The reference itself lists the arrow trap as "implemented = true; -ish".
-        // For level 5 leaving it out changes nothing: there the offset ran along the
-        // flight path and only moved the start point along the same line.
-
-        // Arrow and crossbow bolt fly as a real 3D model in the original, not as a
-        // flat image (model 0x08 in uw.exe). Sling stone and boulder remain
-        // sprites - they are round, an elongated body would be wrong there.
-        //
-        // THE LONG AXIS IS Z, not Y. In the file the arrow does lie along Y
-        // (extent 0.1 x 0.4 x 0.1), but the model builder swaps Y and Z when
-        // assembling the vertices (see UWObjectSpawner.fSpawn3DModel: (X, Y, Z)
-        // from the file becomes (X, Z, Y) in the world). In world space the long axis therefore points
-        // along Z, and LookRotation is the correct rotation.
-        //
-        // With FromToRotation onto the Y axis the arrow stood crosswise to the flight path and looked
-        // as if it always turned to the player like a billboard (per user, 2026-09-07).
-        //
-        // IT IS ROTATED ONLY HORIZONTALLY. The bolt stays level in the original, even
-        // while it sinks (per user, 2026-09-07) - there it is drawn solely by its
-        // facing direction, the tilt lives only in the motion calculation.
-        Vector3 lOLookDirection = new Vector3(lODirection.x, 0f, lODirection.z);
-
-        if (lOLookDirection.sqrMagnitude <= 0.0001f)
-            lOLookDirection = Vector3.forward;
-
-        // Through the one place every flying thing goes - see UWLevelLoader.SpawnProjectile.
-        GameObject lOArrow = pOLevelLoader.SpawnProjectile(liAmmunition, lOStart, lOLookDirection);
-
-        if (lOArrow == null)
-            return false;
-
-        // The launch sound every missile makes (PrepareProjectileObject, effect 0x0A).
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOStart);
-
-        // Here too the table value is only the base value for the roll - see
-        // Interaction.BeginSpellTargeting. A trap has no attack charge, so the
-        // plain one.
-        //
-        // THE DAMAGE IS THE ORIGINAL'S, boulder, skull and bone included (checked 2026-09-24,
-        // Todo.md section 0b row 9): the missile's hit (seg029_29EE_AD) reads the base damage
-        // from the ranged table at the LOW FOUR BITS of the object id, whatever the object is -
-        // exactly what GetRangedDamage does; the Missile skill counts only when the launcher is
-        // the player, never for a trap.
         int liDamage = UWCombat.ComputeDamage(
             pOLevelLoader.UWDataImporter.ObjectProperties.GetRangedDamage(liAmmunition),
             false, 0, 0, UWCombat.NeutralCharge, 0);
 
-        UWSpellProjectile lOFlight = lOArrow.AddComponent<UWSpellProjectile>();
+        int liHeading = (((pOTrap.Heading & 7) << 5) + TrapHeadingOffset) & 0xFF;
 
-        // THE SPEED IS THE TRAP'S OWN 0x14 for every ammunition (seg025_73C writes it into the
-        // launch, as the bow and the spells write their table value and a throw 0x0F). Until
-        // 2026-09-24 ours took the ammunition's table entry: 26 for the bolt, and for boulder,
-        // skull and bone whatever the entry at their low four bits held.
-        lOFlight.Begin(lODirection, RangedAmmoType * ArrowSpeedFactor,
-            liDamage, ArrowRange, pOInteraction, pOLevelLoader, -1, UWDamageTypes.Missile);
+        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(pOLevelLoader).LaunchFromSpot(liAmmunition, piTileX, piTileY,
+            pOTrap.XPos, pOTrap.YPos, pOTrap.ZPos, liHeading, TrapPitch, TrapSpeedByte, liDamage, UWDamageTypes.Missile, -1,
+            pOInteraction);
 
-        // Its own size AND bounce from COMOBJ.DAT, as a thrown item has them: a boulder is three
-        // eighths wide, a bolt one, and every one of them has an elasticity. The original moves
-        // every missile with the same motion code; in it the boulder bounces off the wall and
-        // comes to rest in the corridor, ours stuck to the wall (per user with screenshots,
-        // 2026-09-24).
-        UWCommonObjectProperties.Entry lOSize;
-
-        if (pOLevelLoader.UWDataImporter.CommonObjectProperties != null
-            && pOLevelLoader.UWDataImporter.CommonObjectProperties.TryGet(liAmmunition, out lOSize))
-            lOFlight.EnableBouncing(lOSize.Elasticity, lOSize.SlidesFurther, lOSize.Radius);
-
-        // The bolt stays on the ground after impact and can be picked up - see
-        // UWSpellProjectile.DropOnImpact.
-        lOFlight.DropOnImpact(liAmmunition);
-
-        // And it falls in flight - see ArrowGravity.
-        lOFlight.MakeBallistic(ArrowGravity);
+        if (lOFlight == null)
+            return false;
 
         // The start point belongs in the log too: on short flight paths you otherwise see too
         // little of the bolt to judge whether it is placed correctly (per user,
@@ -872,7 +786,7 @@ public static class UWTriggerSystem
         UWTrapLog.Detail = string.Format("-> {0} ({1} damage) direction {2}, start {3}/{4} xpos {5} ypos {6}, height {7} above floor {8}",
             UWTrapLog.GetName(pOLevelLoader.UWDataImporter, liAmmunition), liDamage, pOTrap.Heading & 7,
             piTileX, piTileY, pOTrap.XPos, pOTrap.YPos,
-            Mathf.RoundToInt(lOStart.y - fGetFloorHeight(pOLevelLoader, piTileX, piTileY)),
+            Mathf.RoundToInt((pOTrap.ZPos * UWWorldScale.ZPosStep) - fGetFloorHeight(pOLevelLoader, piTileX, piTileY)),
             Mathf.RoundToInt(fGetFloorHeight(pOLevelLoader, piTileX, piTileY)));
 
         return true;
@@ -892,98 +806,13 @@ public static class UWTriggerSystem
         return lOTile != null ? lOTile.FloorHeight : 0f;
     }
 
-    /// <summary>The same conversion factor as for every other projectile.</summary>
-    private const float ArrowSpeedFactor = UWSpellProjectile.SpeedFactor;
+    /// <summary>What an_arrow_trap hands the launch (seg025_73C): the heading offset of two
+    /// 256ths, the pitch of two steps up and the ammunition type 0x14, which is the speed byte.</summary>
+    private const int TrapHeadingOffset = 2;
 
-    /// <summary>How far a trap projectile flies before it disappears.</summary>
-    private const float ArrowRange = 2000f;
+    private const int TrapPitch = 2;
 
-    /// <summary>
-    /// The INITIAL direction of a trap projectile: heading times 45 degrees, plus the just under three
-    /// degrees of the reference - and a shallow downward tilt that gets steeper and steeper
-    /// in flight (see UWSpellProjectile.MakeBallistic).
-    ///
-    /// THE TILT IS NOT AN ANGLE but a velocity ratio. In the reference
-    /// the vertical part is in unk_a_pitch and the horizontal part in the momentum:
-    ///
-    ///     unk_a_pitch = (Projectile_Pitch - 16) * 64      motion_init.InitMotionParams
-    ///     momentum    = UnkBit_0X13_Bit0to6 * 0x2F        same place, else branch
-    ///     unk_6_x     = (direction vector * momentum) >> 15  motion_calc, line 79
-    ///
-    /// For the arrow trap, an_arrow_trap sets MissilePitch 2 and RangedAmmoType 0x14, so
-    /// 2 * 64 = 128 vertical against 20 * 0x2F = 940 horizontal. That is 0.136, i.e. just under
-    /// eight degrees - much flatter than the 22.5 degrees that were here before.
-    ///
-    /// WHY THE 22.5 DEGREES STILL SEEMED TO FIT: they were measured on ONE long path
-    /// (level 5, 320 units) and there hit roughly the same impact point
-    /// as the flat path including the fall. On the short path the difference is
-    /// immediately visible: on level 8 the bolt crosses only 56 units, and the user sees it
-    /// not visibly sink there in the original, but clearly with us (2026-09-07).
-    ///
-    /// THE SIGN IS UPWARD since 2026-09-24: the user watched the boulder trap on level 2 (49/16) in
-    /// the original with a lantern, and the shot first rises slightly; for the player's throw
-    /// a positive pitch is up as well. It had been kept downward because upward the level 5
-    /// trap (at 240, ceiling 256) would seem to hit the ceiling - but with the fall the arc
-    /// tops out about 3 units above the start at speed 0x14, and lands near 118 on level 5,
-    /// still inside the observed 64 to 128.
-    ///
-    /// Interaction.mfPitchStepDegrees for SPELL projectiles is untouched. There
-    /// the player aims with the cursor, and a spell does not fall at all in the original.
-    /// </summary>
-    private static Vector3 fGetArrowDirection(UWObject pOTrap)
-    {
-        const float lfHeadingOffsetDegrees = 2f * 360f / 256f;
-
-        float lfYaw = ((pOTrap.Heading & 7) * 45f) + lfHeadingOffsetDegrees;
-        Vector3 lOHorizontal = Quaternion.Euler(0f, lfYaw, 0f) * Vector3.forward;
-
-        // Unity counts y upward: the shot starts slightly rising, as in the original.
-        return (lOHorizontal + (Vector3.up * ArrowStartSlope)).normalized;
-    }
-
-    /// <summary>Initial slope of a trap projectile, vertical to horizontal - see
-    /// fGetArrowDirection.</summary>
-    private const float ArrowStartSlope =
-        (MissilePitchSteps * PitchUnitsPerStep) / (float)(RangedAmmoType * MomentumFactor);
-
-    /// <summary>Pitch that an_arrow_trap sets in the reference.</summary>
-    private const int MissilePitchSteps = 2;
-
-    /// <summary>How much one pitch step contributes to the vertical part.</summary>
-    private const int PitchUnitsPerStep = 64;
-
-    /// <summary>Ammunition type that an_arrow_trap sets - it enters the horizontal
-    /// velocity as momentum.</summary>
-    private const int RangedAmmoType = 0x14;
-
-    /// <summary>What the reference scales the ammunition type by to get the momentum.</summary>
-    private const int MomentumFactor = 0x2F;
-
-    /// <summary>
-    /// Gravity of a trap projectile, in world units per second squared.
-    ///
-    /// THIS NUMBER IS CALIBRATED, not computed from the reference. That it falls at all
-    /// is certain there (see UWSpellProjectile.MakeBallistic); how fast cannot be
-    /// read reliably from the integer steps of the motion step.
-    ///
-    /// Calibrated against the observation on level 5: the trap is at 240, the corridor in front of it
-    /// is at 64 throughout, and the trigger tile 19/51 rises to 128. The user
-    /// sees the arrow hit the floor at the SOUTH EDGE of that step, i.e. after 320
-    /// units at a height between 64 and 128.
-    ///
-    /// At speed 26 * 10.7 = 278 it needs 1.16 seconds for that. The initial slope
-    /// accounts for 44 units of it, the remaining 100 must come from the fall - that is
-    /// about 148.
-    ///
-    /// CROSS-CHECK level 8: there it is only 56 units to the wall, i.e. 0.2 seconds.
-    /// Over that distance the bolt falls 11 units in total and hits 21 above the
-    /// floor - visibly flat, as described by the user.
-    ///
-    /// RECHECKED 2026-09-24 with the trap's own speed 0x14 (214 units per second) and the
-    /// slope pointing up: level 5 takes 1.5 seconds, tops out about 3 units above 240 and
-    /// lands near 118 - still between 64 and 128, so the value stays.
-    /// </summary>
-    private const float ArrowGravity = 148f;
+    private const int TrapSpeedByte = 0x14;
 
     /// <summary>Ammunition that flies as a 3D model instead of an image.</summary>
     private const int CrossbowBoltObjectId = UWObjectMechanics.CrossbowBoltObjectId;

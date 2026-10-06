@@ -567,6 +567,11 @@ public class UWLevelLoader : MonoBehaviour
         if (GetComponent<UWCritterDriver>() == null)
             gameObject.AddComponent<UWCritterDriver>();
 
+        // The setup menu's bar, which folds out over the in-game menus (UWSetupMenu.EnsureInGame):
+        // a loaded game reloads the scene and the main menu's instance is gone with it.
+        if (UWDataImporter != null)
+            UWSetupMenu.EnsureInGame(UWDataImporter);
+
         // And for the Remastered render mode, which only builds its normal array when it
         // is needed.
         if (GetComponent<UWRemasterRenderer>() == null)
@@ -1467,6 +1472,22 @@ public class UWLevelLoader : MonoBehaviour
         return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, null, null, 0f, true, liTemplateZ);
     }
 
+    /// <summary>A thing come to rest on the motion core (UWProjectileWorld.PlaceAtRest): at the
+    /// record's eighth and height, as a lying object - the core has already decided that the
+    /// liquid did not take it, so no sinking here.</summary>
+    public bool PlaceRestingObject(UWObject pOObject, int piTileX, int piTileZ)
+    {
+        if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
+            return false;
+
+        Vector3 lOPosition = new Vector3(
+            UWViewpoint.TileToWorldAxis(piTileX) + (pOObject.XPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset,
+            0f,
+            UWViewpoint.TileToWorldAxis(piTileZ) + (pOObject.YPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset);
+
+        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, null, null, 0f, false, pOObject.ZPos);
+    }
+
     /// <summary>Places an object in the centre of a tile - for create traps that give a
     /// target tile instead of a world position (see UWTriggerSystem).
     ///
@@ -1642,7 +1663,7 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         // A projectile should not intercept anything - it checks its path itself (see
-        // UWSpellProjectile), and a body of its own would get in the way.
+        // UWProjectileFlight), and a body of its own would get in the way.
         Collider lOCollider = lOSpawned.GetComponent<Collider>();
 
         if (lOCollider != null)
@@ -1966,7 +1987,7 @@ public class UWLevelLoader : MonoBehaviour
 
     /// <summary>
     /// Like DropObjectAt, but for an item the player has thrown: the item itself lands,
-    /// with everything it carries (see UWSpellProjectile.DropItemOnImpact).
+    /// with everything it carries (see UWProjectileWorld.PlaceAtRest).
     ///
     /// A BURNING LIGHT GOES OUT ON LANDING, not on the throw (per user, checked in the
     /// original, 2026-09-05). UW.EXE does the same when dropping: object class 9, index 4
@@ -2643,7 +2664,7 @@ public class UWLevelLoader : MonoBehaviour
             string.Format("Move trigger ({0},{1})", xPos, zPos));
 
         lOObject.AddComponent<UWMoveTrigger>().Initialise(this, pOTriggerData,
-            fGetTriggerReach(pOTriggerData.ID));
+            fGetTriggerReach(pOTriggerData.ID), TileQueries.TriggerReachCells(pOTriggerData.ID));
     }
 
 
@@ -3112,7 +3133,12 @@ public class UWLevelLoader : MonoBehaviour
         UWPlayerMovement lOMovement = lOPlayer.GetComponent<UWPlayerMovement>();
 
         if (lOMovement != null)
+        {
             lOMovement.ResetVerticalVelocity();
+
+            // The motion core takes the spot (stage 3): PlaceAt with the feet's fine position.
+            lOMovement.PlaceFromTransform();
+        }
     }
 
     /// <summary>

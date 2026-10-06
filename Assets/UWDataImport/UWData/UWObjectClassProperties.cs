@@ -308,8 +308,10 @@ namespace UWDataImport.UWData
 			/// <summary>Table byte 0x0A bit 6: moves with the swimmer handler (52782).</summary>
 			public bool IsSwimmer => (RowByte(0x0A) & 0x40) != 0;
 
-			/// <summary>Table byte 0x0A bit 5: may climb more than one height level on a path
-			/// (TraverseMultipleTiles_seg006_1477_6F6, reference reading).</summary>
+			/// <summary>Table byte 0x0A bit 5: may JUMP on a path - over a pit between two tiles of
+			/// its level, or over impassable terrain onto a passable tile - at cost 1 against the
+			/// range budget (see TraverseMultipleTiles_seg006_1477_6F6 in UWTileTraverse, read
+			/// 2026-10-05; until then read as "may climb more than one level").</summary>
 			public bool CanClimb => (RowByte(0x0A) & 0x20) != 0;
 
 			/// <summary>Table byte 0x0A bits 2-4: corpse object 0xC0 + n at death, 0 none

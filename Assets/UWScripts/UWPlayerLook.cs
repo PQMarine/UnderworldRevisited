@@ -140,8 +140,12 @@ public class UWPlayerLook : MonoBehaviour
         Vector2 lOMouseDelta = mInput.Look.ReadValue<Vector2>();
         Vector2 lOStickDelta = mInput.LookStick.ReadValue<Vector2>();
 
-        float lfYaw = (lOMouseDelta.x * mfSensitivityX) + (lOStickDelta.x * mfStickSensitivityX * Time.deltaTime);
-        float lfPitchDelta = (lOMouseDelta.y * mfSensitivityY) + (lOStickDelta.y * mfStickSensitivityY * Time.deltaTime);
+        // The player's own factor on the mouse (UWUserSettings.MouseLookSpeed, the Controls
+        // dialog and the modern game menu); the stick keeps its degrees per second.
+        float lfSpeed = UWUserSettings.MouseLookSpeed;
+
+        float lfYaw = (lOMouseDelta.x * mfSensitivityX * lfSpeed) + (lOStickDelta.x * mfStickSensitivityX * Time.deltaTime);
+        float lfPitchDelta = (lOMouseDelta.y * mfSensitivityY * lfSpeed) + (lOStickDelta.y * mfStickSensitivityY * Time.deltaTime);
 
         transform.Rotate(0f, lfYaw, 0f);
 

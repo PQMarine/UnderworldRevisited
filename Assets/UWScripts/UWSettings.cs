@@ -635,10 +635,37 @@ namespace UnderworldRevisited
 
         /// <summary>
         /// Common GOG installation folders of Ultima Underworld (the folder holding game.gog),
-        /// searched when GogInstallPath is empty.
+        /// searched when GogInstallPath is empty. ON LINUX (since the Linux build, 2026-10-05)
+        /// the usual homes of a GOG game: the GOG installer's and Heroic's "GOG Games" folders,
+        /// Lutris' "Games", and the Wine, Steam Proton and Lutris prefixes that hold the Windows
+        /// installer's folder - game.gog is the CD image every GOG release of the game carries,
+        /// however it was installed (innoextract included).
         /// </summary>
         public static string[] GetCandidateGogPaths()
         {
+            if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
+            {
+                string lsHome = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+
+                if (string.IsNullOrEmpty(lsHome))
+                    lsHome = "/root";
+
+                return new string[]
+                {
+                    Path.Combine(lsHome, "GOG Games/Ultima Underworld"),
+                    Path.Combine(lsHome, "GOG Games/Ultima Underworld 1+2"),
+                    Path.Combine(lsHome, "Games/Ultima Underworld"),
+                    Path.Combine(lsHome, "Games/Heroic/Ultima Underworld 1+2"),
+                    Path.Combine(lsHome, "Games/gog/ultima-underworld-1-2"),
+                    Path.Combine(lsHome, ".wine/drive_c/GOG Games/Ultima Underworld"),
+                    Path.Combine(lsHome, ".wine/drive_c/Program Files (x86)/GOG Galaxy/Games/Ultima Underworld"),
+                    Path.Combine(lsHome, ".steam/steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"),
+                    Path.Combine(lsHome, ".local/share/Steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"),
+                    "/opt/GOG Games/Ultima Underworld",
+                    "/usr/local/games/Ultima Underworld"
+                };
+            }
+
             return new string[]
             {
                 @"C:\GOG Games\Ultima Underworld",

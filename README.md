@@ -81,6 +81,9 @@ What is in:
 - Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
   port's own with free mouse look, WASD, an action bar and an interface built from the
   original's artwork (see Controls)
+- The motion of the player, the creatures and thrown things as the original's own code,
+  with a choice between its arithmetic call by call and a precise, frame-rate independent
+  computation of the same rules (see Motion under Controls)
 - Additions of the port's own, each optional: a help window beside the view (stats with the
   hidden values, a live map, notes kept with the save game, spells, mantras and the game's
   manual), a modern readable font, the original's 4:3 frame on wide screens, and dealing the
@@ -88,12 +91,15 @@ What is in:
 
 ## Requirements
 
-- **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the only system the
-  port is built and tested on, and the release build is for Windows only. Building from
-  source for Linux or macOS may work but is untested: the help window's manual needs the
-  PDFium library, of which only the Windows one is included, and the game folder is searched
-  only in Windows locations (it can be chosen by hand). Running the Windows build under Proton
-  or Wine is untested as well.
+- **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the system the port
+  is developed and tested on.
+- **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): a Linux player builds since 2026-10-05 and is
+  part of the release from the next version on. It is far less tested than the Windows one: a
+  Linux user's build from source showed a black screen until the data paths and file names were
+  made case-proof (patch taken over 2026-10-05). The help window's manual needs the PDFium
+  library, of which only the Windows one is included so far, so the manual tab is empty on
+  Linux. The game folder is searched in the usual Linux homes of a GOG game (see below) and can
+  be chosen by hand. macOS is untried. Reports from other systems are welcome.
 - Unity **6000.6.0f1** (Unity 6), Universal Render Pipeline - only to build it yourself
 - **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2"). Only this version is
   supported: some data (3D models, their colours) is read directly from the game's executable
@@ -190,12 +196,46 @@ The modern scheme uses the whole screen. What belongs to the original's picture 
 the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the
 cutscenes in the view play in a frame in the middle.
 
+### Motion
+
+The player, the creatures and everything thrown or shot move by the original's own motion
+code, transcribed from `UW.EXE` into the engine-free layer: the same units (a tile is 256
+fine units, the clock 256 ticks a second), the same speeds, the same rules at walls, steps,
+ledges, doors and water. How that code is run is a choice, under *Motion* in the menu bar,
+which folds out over the main menu and, since the player is on this code, over the game menu
+of the modern scheme and the options panel of the classic one.
+
+- **Motion: Original or Smooth.** Original runs the original's arithmetic call by call,
+  including its rounding, at the frame rate chosen below. Smooth runs the same rules without
+  the rounding: the fraction below one unit is kept, the ramps run per second, and the game
+  computes the motion once per rendered frame with the time that frame took, so the picture is
+  even and the speeds are the same at every frame rate. Smooth is the default; players who get
+  motion sick are the reason it exists.
+- **Response** (Smooth): how long starting and stopping take - 0.6 s is the original on a slow
+  PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for.
+- **Picture** (Original): Even draws the view between two calls; Stepped shows it only when a
+  call has run, the picture of an old PC.
+- **Original fps** (Original): how often per second the original's code runs - 64, 32, 21 or
+  16. More is not faster: the original rounds down after every call, so with more calls a
+  second the slow motions get slower. That is the long-known DOSBox quirk that at unlimited
+  cycles one can hardly swim or walk backwards in the original, reproduced here down to the
+  numbers: swimming moves 0.96 fine units a tick, which a call of one tick rounds to nothing.
+  32 matches the original in DOSBox at 30000 cycles.
+- **Head bob** and **Weapon**: the bobbing of the view and the weapon while walking - like the
+  original, smoothed with a strength of your own, or off.
+
 ## Building
 
 Open the project with Unity 6000.6.0f1 and build it from Unity's build window
-(`File > Build Profiles` in Unity 6), target Windows. There is nothing else to prepare: the
-whole game is built from `Assets/UW.unity`, and the settings asset in `Assets/Resources`
-travels with it.
+(`File > Build Profiles` in Unity 6), target Windows or Linux (the Linux Build Support (Mono)
+module of the Hub). There is nothing else to prepare: the whole game is built from
+`Assets/UW.unity`, and the settings asset in `Assets/Resources` travels with it. In batch
+mode:
+
+```
+Unity.exe -batchmode -quit -nographics -projectPath <project> -buildWindows64Player <project>\Build\UR.exe
+Unity.exe -batchmode -quit -nographics -projectPath <project> -buildTarget Linux64 -buildLinux64Player <project>\Build\Linux\UR.x86_64
+```
 
 The built game finds the game data the same way the editor does. If **GogInstallPath** is
 empty, these folders are searched in this order:
@@ -209,6 +249,12 @@ C:\Ultima Underworld
 D:\Ultima Underworld
 ```
 
+On Linux the same role falls to `~/GOG Games/Ultima Underworld` and `~/GOG Games/Ultima
+Underworld 1+2`, `~/Games/Ultima Underworld`, Heroic's `~/Games/Heroic/Ultima Underworld 1+2`,
+Lutris' `~/Games/gog/ultima-underworld-1-2`, and the same `GOG Games` folder inside
+`~/.wine/drive_c` and the Steam Proton `compatdata` prefixes. What is looked for is the folder
+with `game.gog`, the CD image every GOG release carries.
+
 So a build made on one machine runs on another as long as the game is installed in one of
 them. To be sure your copy works, run the self-check above before building.
 
@@ -216,7 +262,10 @@ To pack a build for others, run `Tools\Release\MakeReleaseZip.ps1` (Windows Powe
 writes `Release\UnderworldRevisited-<version>-win64.zip` with the player, LICENSE,
 THIRD_PARTY_NOTICES.md (their notices have to travel with the binary), this README and a short
 README.txt for players - and without Unity's `*_BackUpThisFolder_ButDontShipItWithYourGame`
-folder. It refuses a build that holds anything looking like original game data.
+folder. With `-Platform linux64` it packs `Build\Linux` into
+`UnderworldRevisited-<version>-linux64.tar.gz`, the launcher with its executable bit (GNU tar
+of Git for Windows; without it a zip, and the player has to `chmod +x`). It refuses a build
+that holds anything looking like original game data.
 
 ## The engine-free layer
 

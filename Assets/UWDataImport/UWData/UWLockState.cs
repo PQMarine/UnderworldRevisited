@@ -50,15 +50,30 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public int LockDifficulty => mOLockObject != null ? mOLockObject.ZPos : 0;
 
+		/// <summary>Raised after every change of the lock (unlock, lock, remove, apply), so the
+		/// host writes the state into the level data at once (per user, 2026-10-05: everything
+		/// game-visible goes into the data the moment it changes, not at the save).</summary>
+		public event System.Action Changed;
+
 		public void Unlock()
 		{
 			IsLocked = false;
+			fRaiseChanged();
+		}
+
+		private void fRaiseChanged()
+		{
+			System.Action lOChanged = Changed;
+
+			if (lOChanged != null)
+				lOChanged();
 		}
 
 		/// <summary>The same key locks an unlocked door again (confirmed per user).</summary>
 		public void Lock()
 		{
 			IsLocked = true;
+			fRaiseChanged();
 		}
 
 		/// <summary>Removes the lock entirely, not just the locked state: per uw-formats.txt an
@@ -70,6 +85,7 @@ namespace UWDataImport.UWData
 			mOLockObject = null;
 			HasLock = false;
 			IsLocked = false;
+			fRaiseChanged();
 		}
 
 		/// <summary>Counterpart to RemoveLock: attaches a lock based on the template the a_door
@@ -84,6 +100,7 @@ namespace UWDataImport.UWData
 			mOLockObject = pOTemplate;
 			HasLock = true;
 			IsLocked = UWObjectMechanics.IsLockLocked(pOTemplate);
+			fRaiseChanged();
 		}
 	}
 }

@@ -176,9 +176,24 @@ namespace UWDataImport.UWData
 					pOData.Flags = (ushort)((pOData.Flags & ~DoorFlagsMask) | liFlags);
 					pOData.IsEnchanted = (liFlags & DoorStateHighBit) != 0;
 
-					// An open door stands 24 higher than a closed one. Without this, the original
-					// showed a door closed in our game as a leaf in the air above the doorway (per
-					// user, 2026-09-11).
+					// An open door stands 24 higher than a closed one (see OpenDoor_seg040_352B_21E6 in UWConversationSession: it adds
+					// 0x18 to the zpos, CloseDoor takes it off). Without this, the original showed a
+					// door closed in our game as a leaf in the air above the doorway (per user,
+					// 2026-09-11) - and since the motion core (2026-10-05) the lifted object is what
+					// makes an open door passable: its collision record sits above every mover's
+					// head. The movers write the state here the moment it changes (DoorMover,
+					// PortcullisMover), not only at the save.
+					//
+					// THE PORTCULLIS TOO (2026-10-06, per user: a portcullis opened by a conversation
+					// could not be passed, one worked by a switch could always be passed, closed or
+					// not). OpenDoor itself skips the 0x18 for id low bits 6, which this code copied -
+					// but only because the original turns the door into an ANIMO (id 0x1CF,
+					// seg040_352B_20CD, ProbablyCreateAnimo type 4 for the portcullis, 5 for a door)
+					// whose animation RAISES the grate by the same 0x18 over its frames, and the
+					// animo has no height, so the doorway is free while it moves. The level data
+					// says the same: every open portcullis of the levels sits 24 above its floor
+					// (level 1 tile 9/35: floor 96, grate 120), every closed one on the floor. So the
+					// end state is one rule for both kinds.
 					pOData.ZPos = Math.Clamp(pOData.ZPos + (pbOpen ? OpenDoorRaise : -OpenDoorRaise), 0, MaxZPos);
 				}
 			}

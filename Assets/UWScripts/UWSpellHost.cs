@@ -280,7 +280,7 @@ public sealed class UWSpellHost : IUWSpellHost
 
         foreach (Collider lOCollider in lOHits)
         {
-            if (lOCollider.GetComponentInParent<UWSpellProjectile>() != null)
+            if (lOCollider.GetComponentInParent<UWProjectileFlight>() != null)
                 continue;
 
             if (lOCollider is CharacterController)
@@ -314,33 +314,11 @@ public sealed class UWSpellHost : IUWSpellHost
         return mOLoader != null && mOLoader.SpawnWardRune(piTileX, piTileY);
     }
 
-    /// <summary>Places a boulder below the ceiling and lets it fall.</summary>
+    /// <summary>Places a boulder below the ceiling and lets it fall - a piece of the quake's
+    /// debris on the motion core (UWProjectileWorld.DropBoulder, since 2026-10-05).</summary>
     public bool DropBoulder(int piObjectId, int piTileX, int piTileY)
     {
-        if (mOLoader == null)
-            return false;
-
-        // On sub-position 3/3 of the tile, as QuakeSpell_seg038_3307_1211 moves it there
-        // (tile * 8 + 3); ours used the tile's middle until 2026-09-27.
-        Vector3 lOAt = new Vector3(
-            UWUnits.SubTileToWorldAxis(piTileX, BoulderSubTile),
-            BoulderSpawnZPos * UWObjectSpawner.HeightScale,
-            UWUnits.SubTileToWorldAxis(piTileY, BoulderSubTile));
-
-        GameObject lOBoulder = mOLoader.SpawnFlyingObject(piObjectId, lOAt);
-
-        if (lOBoulder == null)
-            return false;
-
-        UWSpellProjectile lOFall = lOBoulder.AddComponent<UWSpellProjectile>();
-
-        // Without Interaction: there is no hit message, because there is no damage.
-        lOFall.Begin(Vector3.down, 0f, 0, BoulderFallRange, null, mOLoader, -1, UWDamageTypes.Physical);
-
-        lOFall.MakeBallistic(UWSpellProjectile.Gravity);
-        lOFall.DropOnImpact(piObjectId);
-
-        return true;
+        return mOLoader != null && UWProjectileWorld.Ensure(mOLoader).DropBoulder(piObjectId, piTileX, piTileY) != null;
     }
 
     public void ShakeScreen(int piDuration)
@@ -445,7 +423,7 @@ public sealed class UWSpellHost : IUWSpellHost
 
     /// <summary>Collects everything damageable in and around the area, once per spell. Which
     /// tile an entry belongs to is decided by rounding the world position, just like on a
-    /// projectile impact (see UWSpellProjectile.fApplyBlast).</summary>
+    /// projectile impact (see UWProjectileWorld.ApplyBlast).</summary>
     public int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles)
     {
         mOTargets.Clear();

@@ -232,6 +232,10 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     {
         if (mOInventory != null)
             mOInventory.LightBurnedOut -= fOnLightBurnedOut;
+
+        // The drag canvas lives at the root (fBuildDragCanvas) and goes with this component.
+        if (mODragCanvas != null)
+            Destroy(mODragCanvas);
     }
 
     /// <summary>A burning light source is used up: it turns back into its
@@ -340,7 +344,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             return;
         }
 
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = fPointerPosition();
         mODragIcon.rectTransform.position = lOMousePos;
 
         if (mbIsHeld)
@@ -2029,9 +2033,39 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         fTryApplyUseModeItem(pOScreenPos, true);
     }
 
+    /// <summary>
+    /// THE ICON FOLLOWS THE POINTER AFTER EVERYONE ELSE HAS MOVED IT (2026-10-06, per user: with a
+    /// thing on the pointer and a turn under way, it drifted ahead of the pointer in the turn's
+    /// direction). During a cursor movement UWGameUI.Update warps the pointer back onto the view
+    /// window's edge every frame; Update here may run before that warp and so put the icon where
+    /// the mouse had been pushed to, beyond the edge. LateUpdate runs after every Update, so the
+    /// icon ends the frame on the pointer the frame is drawn with.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (mODragIcon == null || !mODragIcon.enabled || Mouse.current == null)
+            return;
+
+        mODragIcon.rectTransform.position = fPointerPosition();
+    }
+
+    /// <summary>The position the pointer is drawn at: UWGameUI's clamped one during a cursor
+    /// movement (after WarpCursorPosition the Input System keeps reporting the pushed-out
+    /// position), else the mouse's.</summary>
+    private Vector2 fPointerPosition()
+    {
+        Vector2 lOMouse = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+
+        if (mOGameUi != null && mOControlScheme != null && mOControlScheme.Current == UWControlScheme.SchemeEnum.Original
+            && UWScene.PlayerMovement != null && UWScene.PlayerMovement.IsCursorMovementInProgress)
+            return mOGameUi.PointerPosition;
+
+        return lOMouse;
+    }
+
     private void fUpdateUseMode()
     {
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = fPointerPosition();
         mODragIcon.rectTransform.position = lOMousePos;
 
         // In a conversation there is no view window, only the parchment in front of it.
@@ -2289,7 +2323,15 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     private void fBuildDragCanvas()
     {
         mODragCanvas = new GameObject("Item Drag Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
-        mODragCanvas.transform.SetParent(transform, false);
+
+        // AT THE ROOT, NOT UNDER THE CAMERA (2026-10-06, per user with a screenshot: with a thing on
+        // the pointer every turn of the view - pointer or keys - put the thing beside the pointer
+        // in the turn's direction, the faster the turn the farther). This component sits on the
+        // camera; a canvas under it is turned with the player in the same frame, before Unity
+        // drives it back to its screen pose, and a world position set from the mouse in that
+        // moment is converted under the turned pose and stays wrong once the pose is restored.
+        // An overlay canvas at the root is never moved by anyone; OnDestroy takes it down.
+        mODragCanvas.transform.SetParent(null, false);
 
         Canvas lOCanvas = mODragCanvas.GetComponent<Canvas>();
         lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;

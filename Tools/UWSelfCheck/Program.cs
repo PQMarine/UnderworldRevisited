@@ -18,7 +18,7 @@ namespace UnderworldRevisited.Tools
     /// Exit code 0 means everything passed, 1 means at least one check failed, 2 that the
     /// data was not found at all.
     /// </summary>
-    public static class Program
+    public static partial class Program
     {
         private static int miFailures;
 
@@ -83,7 +83,6 @@ namespace UnderworldRevisited.Tools
                 fCheckObjectDamage(lsDataPath);
                 fCheckMoonstone(lOData);
                 fCheckEquipmentWear(lOData);
-                fCheckWallDeflection();
                 fCheckActiveMobileOrder(lOData);
                 fCheckConversationBasePointer();
                 fCheckOriginalRandom();
@@ -105,6 +104,10 @@ namespace UnderworldRevisited.Tools
                 fCheckSleepCreatures();
                 fCheckPoisonSpell();
                 fCheckDetectMonsters();
+                fCheckObjectMotion(lOData);
+                fCheckCreatureMotion(lOData);
+                fCheckPlayerMotion(lOData);
+                fCheckPreciseMotion(lOData);
             }
 
             lOTotal.Stop();
@@ -411,7 +414,10 @@ namespace UnderworldRevisited.Tools
                 return PathAvailable;
             }
 
-            public StepResult LastStep => Step;
+            public StepResult RunMotion()
+            {
+                return Step;
+            }
 
             public bool Teleport(int piTileX, int piTileY)
             {
@@ -640,10 +646,6 @@ namespace UnderworldRevisited.Tools
                 UWCritterRules.Drowns(0x10, true, false), false);
             fExpectBool("drowning: a flier never drowns",
                 UWCritterRules.Drowns(0x10, false, true), false);
-            fExpectBool("drowning: the host form says the same for deep water",
-                UWCritterRules.Drowns(true, false, false, false), true);
-            fExpectBool("drowning: the host form spares a creature on a bridge",
-                UWCritterRules.Drowns(true, true, false, false), false);
 
             // The chain in the brain: the step's verdict and the removal in the SAME update.
             // In the original the drowning is written during the physics, which is step 6, and
@@ -3531,34 +3533,6 @@ namespace UnderworldRevisited.Tools
                 lOVm.GetImportedGlobal("play_hp"), 113);
         }
 
-        /// <summary>UWCritterRules.TryDeflectAlongWall (seg030_2B26_A47, 2026-09-28): a heading
-        /// that hits a wall at a slant takes the wall's direction nearer to it; head-on stays.</summary>
-        private static void fCheckWallDeflection()
-        {
-            Console.WriteLine();
-            Console.WriteLine("Wall deflection");
-
-            int liHeading;
-
-            fExpectBool("deflect: north-east into a north-south wall deflects",
-                UWCritterRules.TryDeflectAlongWall(0x20, 0x00, out liHeading), true);
-            fExpectInt("deflect: ... to north", liHeading, 0x00);
-            fExpectBool("deflect: south-east into a north-south wall deflects",
-                UWCritterRules.TryDeflectAlongWall(0x60, 0x00, out liHeading), true);
-            fExpectInt("deflect: ... to south (the wall direction turned round)", liHeading, 0x80);
-            fExpectBool("deflect: north-west into an east-west wall deflects",
-                UWCritterRules.TryDeflectAlongWall(0xE0, 0x40, out liHeading), true);
-            fExpectInt("deflect: ... to west", liHeading, 0xC0);
-            fExpectBool("deflect: 10 units off east into a north-south wall is head-on",
-                UWCritterRules.TryDeflectAlongWall(0x40 - 10, 0x00, out liHeading), false);
-            fExpectBool("deflect: 48 units off the wall still deflects",
-                UWCritterRules.TryDeflectAlongWall(0x30, 0x00, out liHeading), true);
-            fExpectBool("deflect: 49 units off is head-on",
-                UWCritterRules.TryDeflectAlongWall(0x31, 0x00, out liHeading), false);
-            fExpectBool("deflect: already along the wall is left alone",
-                UWCritterRules.TryDeflectAlongWall(0x00, 0x00, out liHeading), false);
-        }
-
         /// <summary>UWEquipmentWear (2026-09-28): the door roll, the weapon and armour tests, and
         /// the dagger of the golem test - quality 15, seven points of wear, 8 left.</summary>
         private static void fCheckEquipmentWear(DataImport pOData)
@@ -3714,6 +3688,23 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckLocks()
         {
+            // THE DOOR CAPTURE LIFTS BOTH KINDS (2026-10-06): a door and a portcullis open 24
+            // above their closed height and close back onto it - the original's animo raises the
+            // grate by the same 0x18 that OpenDoor adds to a door at once (locks-traps notes).
+            UWObject lODoor = new UWObject(0x141) { ZPos = 56 };
+            UWWorldCapture.CaptureDoor(null, lODoor, true, true, false, 0, 0, null);
+            fExpectInt("door capture: an opened door is the open id", lODoor.ID, 0x149);
+            fExpectInt("door capture: ... 24 higher", lODoor.ZPos, 80);
+            UWWorldCapture.CaptureDoor(null, lODoor, true, false, false, 0, 0, null);
+            fExpectInt("door capture: ... and back on the floor when closed", lODoor.ZPos, 56);
+
+            UWObject lOGrate = new UWObject(0x146) { ZPos = 96 };
+            UWWorldCapture.CaptureDoor(null, lOGrate, true, true, false, 0, 0, null);
+            fExpectInt("door capture: an opened portcullis is 0x14E", lOGrate.ID, 0x14E);
+            fExpectInt("door capture: ... 24 higher as well (level 1 tile 9/35: floor 96, grate 120)", lOGrate.ZPos, 120);
+            UWWorldCapture.CaptureDoor(null, lOGrate, true, false, false, 0, 0, null);
+            fExpectInt("door capture: ... and down again when closed", lOGrate.ZPos, 96);
+
             Console.WriteLine();
             Console.WriteLine("Locks (UnlockDoor)");
 

@@ -76,6 +76,20 @@ public static class UWSavegameWriter
         int liHeading = Mathf.RoundToInt(
             Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
 
+        // ON THE MOTION CORE (stage 3) the params block IS the position: PLAYER.DAT 0x54, 0x56
+        // and 0x58 are its fine x, y and z, the heading its camera yaw - no rounding through
+        // the world and back.
+        UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+        if (lOMovement != null && lOMovement.UsesMotionCore)
+        {
+            lOTile = new UWTilePos(lOMovement.Motion.TileX, lOMovement.Motion.TileY);
+            liFineX = lOMovement.Motion.Params.X & 0xFF;
+            liFineY = lOMovement.Motion.Params.Y & 0xFF;
+            liZ = lOMovement.Motion.Params.Z & 0x3FF;
+            liHeading = lOMovement.Motion.CameraYaw & 0xFFFF;
+        }
+
         // Creatures, doors, locks and switches live in their components at runtime -
         // put them into the data first, then write (see UWWorldSync).
         UWWorldSync.Capture(lOLoader);

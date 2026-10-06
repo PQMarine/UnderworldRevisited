@@ -42,10 +42,15 @@ namespace UWDataImport.UWData
 			fImportBitmaps();
 		}
 
+		/// <summary>The data files carry the image's upper-case names; on a case-sensitive file
+		/// system (Linux) a lower-case pattern found nothing and the screen stayed black (patch
+		/// by a Linux user, 2026-10-05).</summary>
+		private static readonly EnumerationOptions CaseInsensitive = new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive };
+
 		private void fImportTextures()
 		{
 			DirectoryInfo directoryInfo = new DirectoryInfo(msUWDataPath);
-			FileInfo[] files = directoryInfo.GetFiles("*.TR");
+			FileInfo[] files = directoryInfo.GetFiles("*.TR", CaseInsensitive);
 			files = files.OrderBy((FileInfo n) => n.Name).ToArray();
 			for (int num = 0; num < files.Length; num++)
 			{
@@ -81,7 +86,7 @@ namespace UWDataImport.UWData
 		{
 			mOImageFiles = new Dictionary<UWTexture.TextureTypes, List<UWTexture>>();
 			DirectoryInfo directoryInfo = new DirectoryInfo(msUWDataPath);
-			FileInfo[] files = directoryInfo.GetFiles("*.gr", SearchOption.TopDirectoryOnly);
+			FileInfo[] files = directoryInfo.GetFiles("*.GR", CaseInsensitive);
 			files = files.OrderBy((FileInfo n) => n.Name).ToArray();
 			for (int num = 0; num < files.Length; num++)
 			{
@@ -226,7 +231,7 @@ namespace UWDataImport.UWData
 		{
 			mOBitmapFiles = new Dictionary<UWTexture.TextureTypes, UWTexture>();
 			DirectoryInfo directoryInfo = new DirectoryInfo(msUWDataPath);
-			FileInfo[] files = directoryInfo.GetFiles("*.byt", SearchOption.TopDirectoryOnly);
+			FileInfo[] files = directoryInfo.GetFiles("*.BYT", CaseInsensitive);
 			files = files.OrderBy((FileInfo n) => n.Name).ToArray();
 			for (int num = 0; num < files.Length; num++)
 			{

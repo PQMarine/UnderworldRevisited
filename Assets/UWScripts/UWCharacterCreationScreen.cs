@@ -405,6 +405,10 @@ public class UWCharacterCreationScreen : MonoBehaviour
             msTyped = msTyped.Substring(0, msTyped.Length - 1);
             fDrawNameInput();
         }
+
+        // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
+        foreach (char lcChar in UWTypedKeys.ReadTyped())
+            fOnTextInput(lcChar);
     }
 
     private void fOnTextInput(char pcChar)
@@ -516,6 +520,13 @@ public class UWCharacterCreationScreen : MonoBehaviour
                 UWTextLabel.Hide(mOQuestion);
                 UWScreenUi.SetTexture(mONameBox, fGetImage(NameBoxImage, false));
                 UWScreenUi.SetText(mONamePrompt, mOFont, mOGeneration.QuestionText, mOTextColour, ValueWidth + 10, false);
+
+                // THE TYPED NAME STARTS WHERE THE PROMPT ENDS (2026-10-06, per user: "der Text ist
+                // zu nah am Doppelpunkt"): the prompt string of the game is "Name: " with its own
+                // trailing space, so the input goes right after the measured prompt - as if both
+                // were one line, which is how the original draws them - instead of the fixed 41.
+                UWScreenUi.Place(mONameInput,
+                    NamePromptLeft + mOFont.MeasureText(mOGeneration.QuestionText, 0, UWFontRenderer.CharacterSpacing), NameTextTop);
                 fDrawNameInput();
                 break;
 

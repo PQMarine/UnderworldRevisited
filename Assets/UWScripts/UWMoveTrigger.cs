@@ -33,18 +33,24 @@ public class UWMoveTrigger : MonoBehaviour
     private Interaction mOInteraction;
     private Transform mOPlayer;
 
-    /// <summary>Reach per axis in world units - trigger radius plus player radius.</summary>
+    /// <summary>Reach per axis in world units - trigger radius plus player radius; the
+    /// volume's pre-filter.</summary>
     private float mfReach;
+
+    /// <summary>The original's reach in eighth cells per axis (UWTileQueries.TriggerReachCells):
+    /// the test since 2026-10-06, after the motion core showed how ScanForCollisions counts.</summary>
+    private int miReachCells;
 
     /// <summary>Was the player already in reach in the last frame? It only fires
     /// on ENTERING, otherwise the trigger would fire again every frame.</summary>
     private bool mbInside;
 
-    public void Initialise(UWLevelLoader pOLoader, UWObject pOTriggerData, float pfReach)
+    public void Initialise(UWLevelLoader pOLoader, UWObject pOTriggerData, float pfReach, int piReachCells = 4)
     {
         mOLoader = pOLoader;
         mOTriggerData = pOTriggerData;
         mfReach = pfReach;
+        miReachCells = piReachCells;
     }
 
     /// <summary>Fires on EVERY entry, not just the first. For a while this latched
@@ -221,9 +227,23 @@ public class UWMoveTrigger : MonoBehaviour
 
     /// <summary>The original's test: PER AXIS separately, not by distance. That
     /// gives a square around the trigger point, not a circle.</summary>
+    /// <summary>The original's box test in eighth cells: the player's cell against the trigger's
+    /// (its tile times eight plus its sub-tile position), at most miReachCells apart per axis.
+    /// Until 2026-10-06 a world distance of trigger radius plus player radius, which reached one
+    /// eighth farther than the original on each side.</summary>
     private bool fIsInReach(Vector3 pOPosition)
     {
-        return Mathf.Abs(pOPosition.x - transform.position.x) <= mfReach
-            && Mathf.Abs(pOPosition.z - transform.position.z) <= mfReach;
+        if (mOTriggerData == null)
+        {
+            return Mathf.Abs(pOPosition.x - transform.position.x) <= mfReach
+                && Mathf.Abs(pOPosition.z - transform.position.z) <= mfReach;
+        }
+
+        int liPlayerX = UWViewpoint.WorldToOriginalX(pOPosition.x) >> 5;
+        int liPlayerY = UWViewpoint.WorldToOriginalY(pOPosition.z) >> 5;
+        int liTriggerX = (mOTriggerData.TileX << 3) + (mOTriggerData.XPos & 7);
+        int liTriggerY = (mOTriggerData.TileY << 3) + (mOTriggerData.YPos & 7);
+
+        return Mathf.Abs(liPlayerX - liTriggerX) <= miReachCells && Mathf.Abs(liPlayerY - liTriggerY) <= miReachCells;
     }
 }

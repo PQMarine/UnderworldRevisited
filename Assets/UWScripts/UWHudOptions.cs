@@ -348,7 +348,15 @@ public sealed class UWHudOptions
         }
 
         if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
+        {
             fConfirmSaveName();
+
+            return true;
+        }
+
+        // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
+        foreach (char lcChar in UWTypedKeys.ReadTyped())
+            fOnSaveNameTextInput(lcChar);
 
         return true;
     }
@@ -842,6 +850,11 @@ public sealed class UWHudOptions
 
         if (mOptionsButtonImage == null || mOUi.mGameFrame == null)
             return false;
+
+        // The setup bar's menus and dialogs over the open panel (per user, 2026-10-06: the bar
+        // shows itself in the options too): their clicks are theirs.
+        if (UWSetupMenu.HasOpenPanel)
+            return meOptionsMenu != OptionsMenuEnum.Closed;
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 

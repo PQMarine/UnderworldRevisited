@@ -482,6 +482,13 @@ public class UWIntroPlayer : MonoBehaviour
         if (UWSavegameSlots.IsRestoring)
             return;
 
+        // NOT AFTER CHARACTER CREATION EITHER (seen on the Linux VM, 2026-10-06, with the
+        // opening still switched on): the new game restarts the scene the same way, and the
+        // logos and the title came up over the running game, the move cursor drawn on top. The
+        // flag survives the restart (UWCharacterCreationScreen.IsStartingNewGame).
+        if (UWCharacterCreationScreen.IsStartingNewGame)
+            return;
+
         // THE WHOLE OPENING CAN BE SWITCHED OFF (per user, 2026-09-22): logos, title and
         // intro, straight to the main menu. The switch is in the Game menu of the bar
         // (UWSetupMenu) and lives in UWUserSettings.

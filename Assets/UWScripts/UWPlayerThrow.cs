@@ -21,8 +21,8 @@ using UnderworldRevisited.Build;
 /// height - and only converted to world units at the end (UWViewpoint). That keeps the
 /// rounding of the original, which works on the eighth grid.
 ///
-/// In flight a thrown item moves like an object of UW.EXE - bouncing, sliding, hopping off
-/// objects, pushing creatures, breaking - see UWSpellProjectile.EnableBouncing.
+/// In flight a thrown item moves as an object of UW.EXE - bouncing, sliding, hopping off
+/// objects, pushing creatures, breaking - on the motion core, see UWProjectileWorld.
 /// </summary>
 public static class UWPlayerThrow
 {
@@ -57,32 +57,8 @@ public static class UWPlayerThrow
     /// momentum factor, see ThrowSpeed.</summary>
     private const int ThrownAmmoType = 0xF;
 
-    /// <summary>
-    /// Horizontal speed of a thrown item.
-    ///
-    /// The ammunition type IS the speed byte of the projectile table (see
-    /// UWObjectProperties.GetRangedSpeed), and the momentum is that value times 0x2F
-    /// (motion_init.InitMotionParams). A thrown item therefore flies exactly as fast as a
-    /// sling stone, whatever it is - weight plays no part at launch.
-    /// </summary>
-    private const float ThrowSpeed = ThrownAmmoType * UWSpellProjectile.SpeedFactor;
-
-    /// <summary>
-    /// Vertical speed of one pitch step.
-    ///
-    /// The pitch goes in as (Projectile_Pitch - 16) * 64 into the same register the momentum
-    /// goes into (unk_a_pitch against momentum_14), and both run in the same units - 4
-    /// original units per world unit on every axis. So one step is 64 / 0x2F of the speed
-    /// factor.
-    /// </summary>
-    private const float SpeedPerPitchStep = 64f * UWSpellProjectile.SpeedFactor / 0x2F;
-
-    /// <summary>How far a thrown item flies before it is put down where it is, if nothing
-    /// stopped it.</summary>
-    private const float ThrowRange = 2000f;
-
     /// <summary>Missile objects - major class 0, minor class 1 - are the only ones that hurt
-    /// what they hit, see UWSpellProjectile.MakeHarmless.</summary>
+    /// what they hit (UWProjectileFlight.StrikeCreature).</summary>
     private const int FirstMissileObjectId = 0x10;
 
     private const int LastMissileObjectId = 0x1F;
@@ -217,120 +193,24 @@ public static class UWPlayerThrow
     }
 
     /// <summary>
-    /// The flight direction of a missile of this speed (world units per second) at this aim:
-    /// the heading as the horizontal part at full speed, the pitch as the vertical part,
-    /// SpeedPerPitchStep per step - the pitch goes in against the momentum, so the same pitch
-    /// climbs steeper for a slow missile than for a fast one.
-    /// </summary>
-    public static Vector3 GetMissileDirection(int piHeading, int piPitch, float pfSpeed)
-    {
-        Vector3 lOHorizontal = Quaternion.Euler(0f, piHeading * 360f / 256f, 0f) * Vector3.forward;
-        Vector3 lOVelocity = (lOHorizontal * pfSpeed) + (Vector3.up * (piPitch * SpeedPerPitchStep));
-
-        return lOVelocity.sqrMagnitude > 0.0001f ? lOVelocity.normalized : lOHorizontal;
-    }
-
-    /// <summary>
-    /// Where a missile of the player starts, and whether it can - PrepareProjectileObject_seg025_791
-    /// for the throw and the spell projectile alike. False when the spot is blocked: the throw
-    /// then drops the item, a spell answers "There is not enough room to release that spell."
-    /// Since 2026-09-24 the spell starts here too; before, it started a fixed distance in front of
-    /// the camera without any check, and the user saw it cast where the original refuses (aiming
-    /// far to the side in a narrow corridor) and come less from the right.
-    /// </summary>
-    public static bool TryGetMissileStart(Transform pOCamera, UWLevelLoader pOLevelLoader, int piMissileId,
-        int piHeading, int piPitch, out Vector3 pOStart)
-    {
-        pOStart = Vector3.zero;
-
-        DataImport lOData = pOLevelLoader != null ? pOLevelLoader.UWDataImporter : null;
-
-        if (lOData == null || pOCamera == null)
-            return false;
-
-        Vector3 lOFeet = GetFeet(pOCamera);
-
-        int liPlayerRadius;
-        int liPlayerHeight;
-        int liItemRadius;
-        int liItemHeight;
-
-        fGetSize(lOData, RuntimePlayerObjectId, out liPlayerRadius, out liPlayerHeight);
-        fGetSize(lOData, piMissileId, out liItemRadius, out liItemHeight);
-
-        // Start: the player's eighth-tile position, moved forward by both radii plus four
-        // (motion_projectile.PlaceProjectileInWorld), then placed in the middle of its
-        // sub-step - PrepareProjectileObject adds 0xF to (xpos << 5).
-        int liEighthX = UWViewpoint.WorldToOriginalX(lOFeet.x) >> 5;
-        int liEighthY = UWViewpoint.WorldToOriginalY(lOFeet.z) >> 5;
-
-        StepInDirection(piHeading, liPlayerRadius + liItemRadius + 4, ref liEighthX, ref liEighthY);
-
-        // Height: the player's zpos, plus five sixths of his height and two per pitch step.
-        // Without a height of the launcher UW.EXE takes its zpos unchanged.
-        int liZPos = UWViewpoint.WorldToOriginalZ(lOFeet.y) >> 3;
-
-        if (liPlayerHeight != 0)
-            liZPos += (((liPlayerHeight * 5) & 0xFF) / 6) + (piPitch << 1);
-
-        pOStart = UWViewpoint.OriginalToWorld((liEighthX << 5) + 0xF, (liEighthY << 5) + 0xF, liZPos << 3);
-
-        return fIsStartFree(pOCamera, pOStart, pOLevelLoader);
-    }
-
-    /// <summary>
     /// The throw. Returns false if the start point in front of the player is blocked - then
-    /// UW.EXE drops the item instead.
+    /// UW.EXE drops the item instead. The item is a mobile record on the motion core since
+    /// 2026-10-05 (UWProjectileWorld.LaunchFromPlayer): it flies at the ammunition type 0x0F,
+    /// its life the item's quality, and lies where it comes to rest with everything it carries.
     /// </summary>
     private static bool fTryThrow(UWObject pOItem, int piX, int piY, Transform pOCamera,
         UWLevelLoader pOLevelLoader, Interaction pOInteraction)
     {
-        DataImport lOData = pOLevelLoader.UWDataImporter;
-
-        if (lOData == null)
+        if (pOLevelLoader.UWDataImporter == null)
             return false;
 
         GetMissileAim(piX, piY, pOCamera, out int liHeading, out int liMissilePitch);
 
-        if (!TryGetMissileStart(pOCamera, pOLevelLoader, pOItem.ID, liHeading, liMissilePitch, out Vector3 lOStart))
-            return false;
-
-        float lfYaw = liHeading * 360f / 256f;
-        Vector3 lOHorizontal = Quaternion.Euler(0f, lfYaw, 0f) * Vector3.forward;
-        Vector3 lOVelocity = (lOHorizontal * ThrowSpeed) + (Vector3.up * (liMissilePitch * SpeedPerPitchStep));
-
-        GameObject lOFlying = pOLevelLoader.SpawnProjectile(pOItem.ID, lOStart, lOVelocity);
-        if (lOFlying == null)
-            return false;
-
-        // UW1 plays effect 0xA when the projectile is placed (PrepareProjectileObject).
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOStart);
-
         bool lbMissile = pOItem.ID >= FirstMissileObjectId && pOItem.ID <= LastMissileObjectId;
 
-        UWSpellProjectile lOFlight = lOFlying.AddComponent<UWSpellProjectile>();
-
-        lOFlight.Begin(lOVelocity.normalized, lOVelocity.magnitude,
-            lbMissile && pOInteraction != null ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
-            ThrowRange, pOInteraction, pOLevelLoader, -1, UWDamageTypes.Missile);
-
-        // Gravity -4 for everything that is not weightless (motion_init.InitMotionParams).
-        if (!fIsWeightless(lOData, pOItem.ID))
-            lOFlight.MakeBallistic(UWSpellProjectile.Gravity);
-
-        if (!lbMissile)
-            lOFlight.MakeHarmless();
-
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (lOData.CommonObjectProperties != null && lOData.CommonObjectProperties.TryGet(pOItem.ID, out lOEntry))
-            lOFlight.EnableBouncing(lOEntry.Elasticity, lOEntry.SlidesFurther, lOEntry.Radius);
-        else
-            lOFlight.EnableBouncing(0, false, 0);
-
-        lOFlight.DropItemOnImpact(pOItem);
-
-        return true;
+        return UWProjectileWorld.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
+            ThrownAmmoType, lbMissile && pOInteraction != null ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
+            UWDamageTypes.Missile, -1, pOInteraction, pOItem.Quality) != null;
     }
 
     /// <summary>
@@ -480,35 +360,6 @@ public static class UWPlayerThrow
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// Whether the projectile can be placed - approximation of PlaceProjectileInWorld: its tile
-    /// must be open and nothing may stand between the player's eyes and the start point.
-    /// </summary>
-    private static bool fIsStartFree(Transform pOCamera, Vector3 pOStart, UWLevelLoader pOLevelLoader)
-    {
-        if (!pOLevelLoader.CanDropAt(pOStart, false))
-            return false;
-
-        if (pOStart.y <= pOLevelLoader.GetFloorHeightAt(pOStart))
-            return false;
-
-        // Also by the tile data - a start behind a diagonal wall, or a path that cuts through
-        // the solid half of one, would otherwise put the item into the rock.
-        Vector3 lONormal;
-        Vector3 lOFeet = GetFeet(pOCamera);
-
-        for (int liSample = 1; liSample <= 4; liSample++)
-        {
-            Vector3 lOAt = Vector3.Lerp(new Vector3(lOFeet.x, pOStart.y, lOFeet.z), pOStart, liSample / 4f);
-
-            if (pOLevelLoader.IsInsideRock(lOAt, lOFeet, out lONormal))
-                return false;
-        }
-
-        return !Physics.Linecast(pOCamera.position, pOStart, fGetMaskWithoutPlayer(pOCamera),
-            QueryTriggerInteraction.Ignore);
     }
 
     /// <summary>

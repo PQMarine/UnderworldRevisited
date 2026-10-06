@@ -233,7 +233,10 @@ public class UWHelpWindow : MonoBehaviour
         bool lbModern = lOScheme != null && lOScheme.Current != UWControlScheme.SchemeEnum.Original
             && UWModernPanel.Instance != null;
 
+        // Not under a setup-menu panel either - the Game-folder dialog took Tab as help
+        // (Linux first run, 2026-10-06).
         if (lOControls != null && !lbModern && !UWControls.IsShiftHeld && !UWControls.IsAltHeld && !UWControls.IsTextEntryActive
+            && !UWSetupMenu.HasOpenPanel
             && lOControls.Player.ToggleHelp.WasPressedThisFrame()
             && !fIsCovered())
             fSetOpen(!UWHelpLayout.IsOpen, true);

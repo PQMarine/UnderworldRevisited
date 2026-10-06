@@ -102,6 +102,22 @@ public class UWPlayerTerrain : MonoBehaviour
         IsSwimming = lbInLiquid && !lbWaterWalk && mOLevelLoader.IsWaterTile(lOTile);
         IsOnLava = lbInLiquid && mOLevelLoader.IsLavaTile(lOTile);
 
+        // ON THE MOTION CORE THE CORE DECIDES (2026-10-06, per user: on a water slope one could
+        // stand on its upper edge and did not swim). The test above wants the feet near the
+        // TILE'S floor, but a slope's floor is only its low edge, and the core already knows the
+        // contact state of the original - water (2) swims, lava (4) burns, whatever the height
+        // on the slope; the water-edge state 0x20 does not, as the original keeps its counter at
+        // 0 there. The view's water line then sits over the feet, not over the tile's low edge.
+        if (mOMovement != null && mOMovement.UsesMotionCore)
+        {
+            int liContact = mOMovement.Motion.Params.Contact;
+
+            IsSwimming = liContact == UWMotionTables.ContactWater;
+            IsOnLava = liContact == UWMotionTables.ContactLava;
+            lbInLiquid = IsSwimming || IsOnLava;
+            lfTileFloor = mOMovement.CoreFeetHeight;
+        }
+
         if (mOMovement != null)
         {
             mOMovement.IsInLiquid = lbInLiquid;
@@ -111,7 +127,7 @@ public class UWPlayerTerrain : MonoBehaviour
         // NO SOUND ON ENTERING. Until 2026-09-21 the water sound was played here; the user
         // listened for it in the original and there is none - walking into water is silent.
         // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLand)
-        // and anything that lands in the water (UWSpellProjectile, UWLevelLoader.fSplashAt).
+        // and anything that lands in the water (UWProjectileWorld.Splash, UWLevelLoader.fSplashAt).
         // What one DOES hear in the water is the rushing: effect 0 held for as long as one is
         // in it (UWSoundEffects.UpdateWaterLoop, built 2026-09-21 after the user described it).
         UWSoundEffects.UpdateWaterLoop(IsSwimming);
@@ -528,9 +544,27 @@ public class UWPlayerTerrain : MonoBehaviour
         mfAppliedCameraOffset = Mathf.MoveTowards(mfAppliedCameraOffset, lfWanted, lfSpeed * Time.deltaTime);
 
         Vector3 lOLocal = mOCamera.localPosition;
-        lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + fGetHeadBob();
+        lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + fGetHeadBob() + fGetLevitationBob();
 
         mOCamera.localPosition = lOLocal;
+    }
+
+    /// <summary>
+    /// THE LEVITATION BOB of WalkOnSurfaceTypes_seg034_93D (labels A6A to A91): while PD[0xB8]
+    /// bit 3 stands - the player off the ground under Levitate or Fly (UWPlayerMotion.SurfaceBits)
+    /// - the view rides |16 - (clock / 8)| * 3 above the body, a triangle wave over the 256
+    /// ticks of the clock byte, one second, in eighths of a zpos step. Only on the motion core;
+    /// the controller path had its own sine (fUpdateHover).
+    /// </summary>
+    private float fGetLevitationBob()
+    {
+        if (mOMovement == null || !mOMovement.UsesMotionCore || (mOMovement.Motion.SurfaceBits & 8) == 0)
+            return 0f;
+
+        int liClock = Mathf.FloorToInt(Time.time * UWCritter.PitTicksPerSecond) & 0xFF;
+        int liEighths = Mathf.Abs(16 - (liClock >> 3)) * 3;
+
+        return liEighths * SwimCounterWorldUnit;
     }
 
     private float mfHeadBobPhase;

@@ -453,5 +453,26 @@ namespace UWDataImport.UWData
 
 			return (liRadius + ObjectRadius(PlayerObjectId)) * UWWorldScale.SubTileStep;
 		}
+
+		/// <summary>
+		/// THE ORIGINAL'S CONTACT TEST, in eighth cells (see ScanForCollisions_seg026_BF6 in UWMotionCore, and
+		/// see CreateColllisionRecord_seg026_A60 in UWMotionCore): the trigger's box is its
+		/// cell +- its radius, the player's his cell +- (his radius - 1) - a creature mover is taken
+		/// one eighth narrower - and they touch when the boxes overlap on both axes, i.e. when the
+		/// cells differ by at most radius + player radius - 1 per axis: 3 for the a_move trigger.
+		/// The world reach above (4 eighths) is the generous pre-filter the volume uses; the
+		/// test itself counts cells (2026-10-06).
+		/// </summary>
+		public int TriggerReachCells(int piObjectId)
+		{
+			int liRadius = ObjectRadius(piObjectId);
+
+			if (liRadius <= 0)
+				return 4;
+
+			int liPlayer = ObjectRadius(PlayerObjectId);
+
+			return liRadius + (liPlayer > 0 ? liPlayer - 1 : 0);
+		}
 	}
 }

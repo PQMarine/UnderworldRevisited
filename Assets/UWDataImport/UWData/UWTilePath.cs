@@ -15,7 +15,7 @@ namespace UWDataImport.UWData
 	/// yields the same.
 	///
 	/// READ IN THE ORIGINAL 2026-09-21, and it is the same kind of search:
-	/// PathFindBetweenTiles_seg006_1477_12BB (43491-43843) clears a buffer of five bytes per
+	/// the original's path search (see PathFindBetweenTiles_seg006_1477_12BB in UWTileRoute, 43491-43843) clears a buffer of five bytes per
 	/// tile (0x5000 for 64 by 64), seeds it with the start tile and works a queue of tiles
 	/// (two arrays of coordinates in seg058 and seg059, a write and a read cursor), taking
 	/// FOUR neighbours from the table at 0xAC - no diagonals, exactly as here - and writing
@@ -62,7 +62,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// How far beyond the two end tiles the search may reach, in tiles
-		/// (PathFindBetweenTiles_seg006_1477_12BB, labels 12F9 to 13C8): the box around start
+		/// (see PathFindBetweenTiles_seg006_1477_12BB in UWTileRoute, labels 12F9 to 13C8): the box around start
 		/// and target, five tiles wider on every side, the lower edge never below tile 1 and
 		/// the upper one never beyond the map. Every tile taken out of the queue whose
 		/// neighbour falls outside is skipped (labels 15DE to 15F8, four comparisons).
@@ -76,7 +76,7 @@ namespace UWDataImport.UWData
 		public const int SearchMargin = 5;
 
 		/// <summary>
-		/// THE LONGEST PATH, in tiles (PathFindBetweenTiles_seg006_1477_12BB, label 182F: the
+		/// THE LONGEST PATH, in tiles (see PathFindBetweenTiles_seg006_1477_12BB in UWTileRoute, label 182F: the
 		/// waves stop when their count reaches 0x20). Found 2026-09-29 (per user: Biden, sent
 		/// home to 3/16 from 18/43 on level 4, never got there in the original - long pauses and
 		/// wandering - while ours walked on until it stuck): home was at least 42 steps away, so

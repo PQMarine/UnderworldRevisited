@@ -55,5 +55,15 @@ public class UWSwitchVisual : MonoBehaviour
 
         if (mFilter != null)
             mFilter.sharedMesh = IsPressed ? mPressedMesh : mUnpressedMesh;
+
+        // The data follows the image at once (per user, 2026-10-05: every game-visible state goes
+        // into the level data the moment it changes; the save used to write it alone).
+        UWEntityInfo lOInfo = GetComponent<UWEntityInfo>();
+
+        if (lOInfo == null)
+            lOInfo = GetComponentInParent<UWEntityInfo>();
+
+        if (lOInfo != null && lOInfo.ObjectData != null)
+            UWDataImport.UWData.UWWorldCapture.CaptureSwitch(lOInfo.ObjectData, IsPressed);
     }
 }

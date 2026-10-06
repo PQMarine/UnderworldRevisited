@@ -2013,6 +2013,7 @@ public partial class UWModernBags : MonoBehaviour
         {
             mOCursorIcon.enabled = false;
             mOCursorCount.enabled = false;
+            fShowSystemPointer(true);
             return;
         }
 
@@ -2022,6 +2023,14 @@ public partial class UWModernBags : MonoBehaviour
 
         mOCursorIcon.texture = lOIcon;
         mOCursorIcon.enabled = true;
+
+        // THE THING IS THE POINTER (2026-10-06, per user: with a fast mouse the thing trailed the
+        // free pointer). The system pointer is drawn by the OS at scan-out with the newest
+        // position, our icon a frame later from the position the frame sampled - two pointers
+        // can never agree under a fast hand. So while something hangs on the free pointer the
+        // system pointer is hidden and the thing alone shows where one points, as in the
+        // original, where the picked-up thing replaces the cursor. Restored once the hand is empty.
+        fShowSystemPointer(false);
         fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f),
             lOIcon.width * liScale, lOIcon.height * liScale);
 
@@ -2035,6 +2044,34 @@ public partial class UWModernBags : MonoBehaviour
             mOCursorCount.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
             fSetRect(mOCursorCount.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f) - (2 * liScale),
                 (lOIcon.width + 2) * liScale, 6 * liScale);
+        }
+    }
+
+    /// <summary>Whether this class hid the system pointer for the thing on it.</summary>
+    private bool mbHidSystemPointer;
+
+    /// <summary>Hides the system pointer behind the thing on the free pointer, and shows it
+    /// again when the hand is empty - only if this class hid it, and only while the pointer is
+    /// free (locked, UWControlScheme keeps it hidden anyway).</summary>
+    private void fShowSystemPointer(bool pbShow)
+    {
+        if (!pbShow)
+        {
+            if (UWModernPointer.IsFree && Cursor.visible)
+            {
+                Cursor.visible = false;
+                mbHidSystemPointer = true;
+            }
+
+            return;
+        }
+
+        if (mbHidSystemPointer)
+        {
+            mbHidSystemPointer = false;
+
+            if (UWModernPointer.IsFree)
+                Cursor.visible = true;
         }
     }
 

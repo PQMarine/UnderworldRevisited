@@ -654,9 +654,11 @@ public class UWGameUI : MonoBehaviour
             // In a conversation the red X of look, get and use STAYS (per user on the original,
             // 2026-09-19, with a goal-10 NPC addressing the player in use mode) - only the
             // function is the usual one there.
+            // Over the setup bar and its menus and dialogs, which fold out over the options
+            // panel since 2026-10-06, only the cross as well (per user the same day).
             int liCursor = UWConversationScreen.IsAnyOpen && mOInteraction != null && mOInteraction.IsRedXCursorMode
                 ? (int)UWCursors.CursorEnum.Use
-                : UWScreenUi.IsScreenMenuOpen || UWConversationScreen.IsAnyOpen || !fIsFirstImageShown()
+                : UWScreenUi.IsScreenMenuOpen || UWConversationScreen.IsAnyOpen || !fIsFirstImageShown() || UWSetupMenu.IsCapturingInput
                 ? (int)UWCursors.CursorEnum.Center
                 : Map.IsMapVisible
                 ? (Map.mbMapEraseMode ? UWHudMap.MapEraseCursor : UWHudMap.MapQuillCursor)
@@ -1456,6 +1458,16 @@ public class UWGameUI : MonoBehaviour
         return Sprite.Create(pOTexture, new Rect(0f, 0f, pOTexture.width, pOTexture.height), new Vector2(0.5f, 0.5f), 1f);
     }
 
+    /// <summary>
+    /// WHERE THE POINTER IS DRAWN this frame: the mouse position, or during a cursor movement
+    /// the position it was clamped to (2026-10-06, per user with a screenshot: a ring on the
+    /// pointer hung far to the right of it in the panel while turning right). After
+    /// WarpCursorPosition the Input System keeps reporting the pushed-out position, so whoever
+    /// reads Mouse.current.position - UWItemDrag for the thing on the pointer - draws beyond
+    /// the edge the pointer itself is held at. This is the one position everyone draws with.
+    /// </summary>
+    public Vector2 PointerPosition { get; private set; }
+
     private void fCursorMovement()
     {
         Vector2 lOMousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
@@ -1476,6 +1488,8 @@ public class UWGameUI : MonoBehaviour
                 Mouse.current.WarpCursorPosition(lOMousePos);
             }
         }
+
+        PointerPosition = lOMousePos;
 
         // The border counts as inside: during a drag the pointer is clamped exactly onto it, and
         // with a strict check the zone was then not re-evaluated any more - at the top edge
@@ -1665,6 +1679,9 @@ public class UWGameUI : MonoBehaviour
     // ------------------------------------------------- Options section (see UWHudOptions)
 
     private UWHudOptions mOHudOptions;
+
+    /// <summary>The classic options panel is open - the menu bar shows itself then (UWSetupMenu).</summary>
+    public bool IsOptionsOpen => mOHudOptions != null && mOHudOptions.IsOpen;
 
     internal UWHudOptions Options
     {

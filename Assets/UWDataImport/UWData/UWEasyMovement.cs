@@ -57,7 +57,7 @@ namespace UWDataImport.UWData
 		public const int UnitsPerTile = 0x100;
 
 		/// <summary>Half a tile forward (seg008_1B2A_216 label 253, the distance handed to
-		/// GetCoordinateInDirection_seg041_4D).</summary>
+		/// GetCoordinateInDirection, see seg041_4D in UWMobileObjectMotion.StepInDirection).</summary>
 		public const int ForwardDistance = 0x80;
 
 		/// <summary>A quarter tile backward (label 266, with the yaw turned by half a circle).

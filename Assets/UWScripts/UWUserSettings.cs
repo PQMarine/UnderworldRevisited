@@ -72,6 +72,11 @@ public static class UWUserSettings
         /// 2026-10-03).</summary>
         public bool ModernPointerHold;
 
+        /// <summary>The mouse look's speed in the modern scheme as a factor on the tuned
+        /// default, 0.05 to 2 (per user, 2026-10-06: "Die Maussteuerung ist schon sehr
+        /// direkt", so adjustable). The stick keeps its own rate.</summary>
+        public float MouseLookSpeed = 0.5f;
+
         /// <summary>The modern character panel stays out on its Character tab without freeing the
         /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
         public bool ModernPanelPinned;
@@ -127,6 +132,31 @@ public static class UWUserSettings
 
         /// <summary>How strong the Smooth weapon jitter is, 0.1 to 1 of the original's range.</summary>
         public float WeaponJitterStrength = 1f;
+
+        /// <summary>The player's motion on the core (2026-10-06, per user: "per Schalter
+        /// einstellbar, wer es nah am Original haben moechte kann das waehlen"): 0 Original - one
+        /// motion frame per rendered frame with the ticks that passed, whole units, as UW.EXE
+        /// runs it; 1 Smooth - fixed steps of the original's frame length with the view drawn
+        /// between them (UWPlayerMovement). Smooth by default.</summary>
+        public int MotionSmoothing = 1;
+
+        /// <summary>The picture of the motion (2026-10-06, per user: "soll jeder selbst einstellen"):
+        /// 0 even - the view drawn between the simulation steps at the monitor's rate; 1 stepped
+        /// - the view set once per step, the 15-20 pictures a second of the original on DOSBox at
+        /// fixed cycles. Even by default.</summary>
+        public int MotionViewStepped;
+
+        /// <summary>The frame length of the Original motion in PIT ticks - how often UW.EXE ran
+        /// its motion frame on the machine one measures against (2026-10-06, per user: DOSBox at
+        /// 30000 cycles looks smoother than our 16): 4, 8, 12 or 16 ticks = 64, 32, 21 or 16
+        /// frames a second. 8 by default - the user matched 32 fps against his DOSBox by eye.</summary>
+        public int OriginalFrameTicks = 8;
+
+        /// <summary>The Smooth motion's ramp (2026-10-06, per user: a long start and stop work
+        /// against a sensitive stomach): the speed changes by the original's step per this many
+        /// ticks - 16 = 0.56 s to the run (the original at 16 fps), 8 = 0.31 s (at 32 fps, the
+        /// user's DOSBox), 4 = 0.16 s, 0 = at once. 8 by default.</summary>
+        public int SmoothRampTicks = 8;
 
         /// <summary>Music and sound, on or off and how loud - see UWSoundOptions. The values
         /// here are the ones the settings asset starts with, so a file written before this
@@ -263,6 +293,20 @@ public static class UWUserSettings
         set { fGet().ModernPointerHold = value; }
     }
 
+    /// <summary>The mouse look's speed factor, clamped; UWPlayerLook reads it every frame.</summary>
+    public static float MouseLookSpeed
+    {
+        get { return Mathf.Clamp(fGet().MouseLookSpeed <= 0f ? 1f : fGet().MouseLookSpeed, MinMouseLookSpeed, MaxMouseLookSpeed); }
+        set { fGet().MouseLookSpeed = Mathf.Clamp(value, MinMouseLookSpeed, MaxMouseLookSpeed); }
+    }
+
+    public const float MinMouseLookSpeed = 0.05f;
+
+    public const float MaxMouseLookSpeed = 2f;
+
+    /// <summary>The slider's and the arrows' step: five per cent.</summary>
+    public const float MouseLookSpeedStep = 0.05f;
+
     public static bool ModernPanelPinned
     {
         get { return fGet().ModernPanelPinned; }
@@ -395,6 +439,68 @@ public static class UWUserSettings
 
         set { fGet().WeaponJitterMode = (int)value; }
     }
+
+    /// <summary>Whether the player's motion runs in the precision mode (true, Smooth) or as the
+    /// original's arithmetic call by call at its frame length (false, Original).</summary>
+    public static bool MotionSmooth
+    {
+        get { return fGet().MotionSmoothing != 0; }
+        set { fGet().MotionSmoothing = value ? 1 : 0; }
+    }
+
+    /// <summary>Whether the view is set once per simulation step (true, the original's picture
+    /// rate) or drawn between the steps (false, even).</summary>
+    public static bool MotionViewStepped
+    {
+        get { return fGet().MotionViewStepped != 0; }
+        set { fGet().MotionViewStepped = value ? 1 : 0; }
+    }
+
+    /// <summary>The Original motion's frame length in ticks, one of OriginalFrameChoices.</summary>
+    public static int OriginalFrameTicks
+    {
+        get
+        {
+            int liTicks = fGet().OriginalFrameTicks;
+
+            foreach (int liChoice in OriginalFrameChoices)
+            {
+                if (liChoice == liTicks)
+                    return liTicks;
+            }
+
+            return 8;
+        }
+
+        set { fGet().OriginalFrameTicks = value; }
+    }
+
+    /// <summary>4, 8, 12, 16 ticks: 64, 32, 21, 16 frames a second.</summary>
+    public static readonly int[] OriginalFrameChoices = { 4, 8, 12, 16 };
+
+    /// <summary>The Smooth ramp's frame in ticks, one of SmoothRampChoices.</summary>
+    public static int SmoothRampTicks
+    {
+        get
+        {
+            int liTicks = fGet().SmoothRampTicks;
+
+            foreach (int liChoice in SmoothRampChoices)
+            {
+                if (liChoice == liTicks)
+                    return liTicks;
+            }
+
+            return 8;
+        }
+
+        set { fGet().SmoothRampTicks = value; }
+    }
+
+    /// <summary>16, 8, 4, 0 ticks: 0.6 s, 0.3 s, 0.15 s, at once.</summary>
+    public static readonly int[] SmoothRampChoices = { 16, 8, 4, 0 };
+
+    public static readonly string[] SmoothRampLabels = { "0.6 s", "0.3 s", "0.15 s", "At once" };
 
     /// <summary>The Smooth weapon jitter's strength, clamped like HeadBobStrength.</summary>
     public static float WeaponJitterStrength

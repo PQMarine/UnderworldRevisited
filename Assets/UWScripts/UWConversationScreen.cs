@@ -570,6 +570,10 @@ public class UWConversationScreen : MonoBehaviour
             msTypedAnswer = msTypedAnswer.Substring(0, msTypedAnswer.Length - 1);
             fDrawTypedAnswer();
         }
+
+        // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
+        foreach (char lcChar in UWTypedKeys.ReadTyped())
+            fOnAnswerTextInput(lcChar);
     }
 
     private void fOnAnswerTextInput(char pcChar)

@@ -55,6 +55,10 @@ public class UWModernHud : MonoBehaviour
 
     public bool IsOpen => mePage != PageEnum.Closed;
 
+    /// <summary>A page of the menu is drawn (not the layout editor) - the menu bar of the setup
+    /// shows itself over it then (UWSetupMenu, per user 2026-10-06).</summary>
+    public bool ShowsMenuPage => mePage != PageEnum.Closed && mePage != PageEnum.Layout;
+
     /// <summary>Whether the HUD is on screen: the modern scheme, no conversation, no screen menu
     /// or cutscene over it. The bags (UWModernBags) show with it.</summary>
     public bool IsShowing => fIsModern() && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
@@ -1476,6 +1480,12 @@ public class UWModernHud : MonoBehaviour
         if (mePage == PageEnum.Closed || mePage == PageEnum.Layout)
             return;
 
+        // The setup bar's menus and dialogs lie over this menu while it is open (per user,
+        // 2026-10-06: the bar in the in-game menu, so nobody has to go to the main menu); while
+        // one of them is open this menu neither draws nor takes clicks.
+        if (UWSetupMenu.HasOpenPanel)
+            return;
+
         fEnsureStyles();
 
         float lfScale = Screen.height / MenuReferenceHeight;
@@ -1529,20 +1539,34 @@ public class UWModernHud : MonoBehaviour
         if (fButton("Restore game"))
             mePage = PageEnum.Load;
 
-        if (fButton("Music: " + (UWSoundOptions.MusicEnabled ? "on" : "off")))
-            UWSoundOptions.MusicEnabled = !UWSoundOptions.MusicEnabled;
-
-        if (fButton("Sound: " + (UWSoundOptions.SoundEnabled ? "on" : "off")))
-            UWSoundOptions.SoundEnabled = !UWSoundOptions.SoundEnabled;
-
-        if (fButton("Detail: " + UWGraphicsDetail.CurrentLevel))
-            mePage = PageEnum.Detail;
-
+        // Music, sound and the detail level left this menu on 2026-10-06 (per user): the setup
+        // bar at the top offers them in full while the menu is open (UWSetupMenu).
         if (fButton("Right button: " + (UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer")))
         {
             UWUserSettings.ModernPointerHold = !UWUserSettings.ModernPointerHold;
             UWUserSettings.Save();
         }
+
+        // THE MOUSE LOOK'S SPEED (per user, 2026-10-06: "sehr direkt"): a row of its own with
+        // the two arrows, five per cent a press, 5 to 200; the Controls dialog of the menu bar
+        // has the same as a slider.
+        GUILayout.BeginHorizontal();
+
+        if (GUILayout.Button("<", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
+        {
+            UWUserSettings.MouseLookSpeed -= UWUserSettings.MouseLookSpeedStep;
+            UWUserSettings.Save();
+        }
+
+        GUILayout.Label("Mouse look: " + Mathf.RoundToInt(UWUserSettings.MouseLookSpeed * 100f) + " %", mOButtonStyle, GUILayout.Height(38f));
+
+        if (GUILayout.Button(">", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
+        {
+            UWUserSettings.MouseLookSpeed += UWUserSettings.MouseLookSpeedStep;
+            UWUserSettings.Save();
+        }
+
+        GUILayout.EndHorizontal();
 
         // The layout editor (UWModernLayoutEditor, per user 2026-10-04) - the UI size lives in its
         // strip since the same day.
@@ -1556,6 +1580,11 @@ public class UWModernHud : MonoBehaviour
             UWUserSettings.MinimapTurns = !UWUserSettings.MinimapTurns;
             UWUserSettings.Save();
         }
+
+        // Quit at the very bottom of the panel, set apart from the settings (per user,
+        // 2026-10-06: "das Quit nach unten schieben") - since music, sound and detail left the
+        // menu it had moved up with the rest.
+        GUILayout.FlexibleSpace();
 
         if (fButton("Quit to the main menu"))
             fQuitToMainMenu();

@@ -12,8 +12,10 @@ namespace UWDataImport.UWData
 	/// frames per second the world slows down instead of skipping updates.
 	///
 	/// The player's Speed enchantment halves the units and keeps the odd one in the
-	/// accumulator (114998-115008). Freeze Time is the host's: it simply does not walk the
-	/// creatures (115082). The "easy move" fixed step adds 64 ticks, 4 units (114747).
+	/// accumulator (114998-115008). Under Freeze Time the frame's units are consumed but
+	/// ProcessMobileObjects is not called (115082): the phase stands still and nothing is due
+	/// (since 2026-10-05; before, the phase ran on and the creatures caught up in a burst). The
+	/// "easy move" fixed step adds 64 ticks, 4 units, halved under Speed as well (114747-114800).
 	///
 	/// The host owns one instance per level and calls Advance once per frame with the elapsed
 	/// PIT ticks; the units returned say how many slots passed. The game clock (Clock) is the
@@ -46,9 +48,10 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// One frame: piElapsedPitTicks since the last call. Returns the slot units handed to
-		/// the world. Elapsed 0 (or less) returns 0 at once, as the original does (114958).
+		/// the world - 0 under Freeze Time, whose units are consumed and dropped. Elapsed 0 (or
+		/// less) returns 0 at once, as the original does (114958).
 		/// </summary>
-		public int Advance(int piElapsedPitTicks, bool pbPlayerHasSpeed)
+		public int Advance(int piElapsedPitTicks, bool pbPlayerHasSpeed, bool pbTimeFrozen = false)
 		{
 			OldPhase = Phase;
 			Units = 0;
@@ -80,15 +83,19 @@ namespace UWDataImport.UWData
 				miAccumulator = 0;
 			}
 
+			if (pbTimeFrozen)
+				Units = 0;
+
 			Phase = (OldPhase + Units) & 15;
 
 			return Units;
 		}
 
-		/// <summary>The "easy move" fixed step (seg034_2F89_334, 114747): 64 ticks, 4 units.</summary>
-		public int AdvanceFixedStep()
+		/// <summary>The "easy move" fixed step (seg034_2F89_334, 114747-114800): 64 ticks, 4 units,
+		/// halved under Speed like a frame.</summary>
+		public int AdvanceFixedStep(bool pbPlayerHasSpeed, bool pbTimeFrozen = false)
 		{
-			return Advance(UWCritterRules.SlotPitTicks * UWCritterRules.MaxSlotsPerFrame, false);
+			return Advance(UWCritterRules.SlotPitTicks * UWCritterRules.MaxSlotsPerFrame, pbPlayerHasSpeed, pbTimeFrozen);
 		}
 
 		/// <summary>

@@ -7,17 +7,28 @@ using UWDataImport.UWData;
 /// 1.1-1.2): once per frame the level's creature clock (UWScene.CritterClock) advances by the
 /// elapsed PIT ticks - 256 per second, from the scaled frame time, so the clock holds of
 /// UWGameClock pause it like everything else - halved under the player's Speed enchantment,
-/// and then every creature runs as many updates as it is due (UWCritter.RunDueUpdates).
+/// and then every creature runs as many updates as it is due (UWCritter.RunDueUpdates), and
+/// after them the flying objects (UWProjectileWorld.RunDue).
 ///
-/// Freeze Time is not the clock's business: the clock runs on and the creatures are simply
-/// not walked (115082), which is why they stand exactly where they were and carry on from
-/// there when time runs again. A conversation is a modal loop in the original: nothing moves
-/// meanwhile, so the walk is skipped there too (the clock hold already stops the frame time).
+/// FREEZE TIME (since stage 2 of the motion rework, 2026-10-05): the frame's units are
+/// consumed but ProcessMobileObjects is not called (115082), so the world clock C4 stands
+/// still and everything resumes in step when the freeze ends. Until then our clock went on
+/// and only the walk was skipped: after the spell the creatures that had been passed ran a
+/// burst of updates and the rest waited for the wrap, up to a second.
+///
+/// THE EASY MOVE (seg034_2F89_334, 114747-114800): every step and turn of the arrows under the
+/// compass gives the world 64 ticks, four units, halved under Speed as in the frame
+/// (StepWorld); the real time between the steps counts on top, as in the original.
+///
+/// A conversation is a modal loop in the original: nothing moves meanwhile, so the walk is
+/// skipped there too (the clock hold already stops the frame time).
 ///
 /// Attached to the level object next to UWCreatureRespawner (UWLevelLoader.Start).
 /// </summary>
 public class UWCritterDriver : MonoBehaviour
 {
+    public static UWCritterDriver Instance { get; private set; }
+
     /// <summary>The PIT ticks not yet handed to the clock: a frame is rarely a whole number
     /// of ticks.</summary>
     private float mfTickRemainder;
@@ -30,14 +41,20 @@ public class UWCritterDriver : MonoBehaviour
     /// frame (114998-115008). UWCritter reads it for the picture's interpolation time.</summary>
     public static bool PlayerHasSpeed { get; private set; }
 
+    private void Awake()
+    {
+        Instance = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     private void Update()
     {
         if (UWConversationScreen.IsAnyOpen)
-            return;
-
-        UWCritterClock lOClock = UWScene.CritterClock;
-
-        if (lOClock == null)
             return;
 
         mfTickRemainder += Time.deltaTime * UWCritter.PitTicksPerSecond;
@@ -46,11 +63,33 @@ public class UWCritterDriver : MonoBehaviour
 
         mfTickRemainder -= liTicks;
 
+        fRun(liTicks, false);
+    }
+
+    /// <summary>The easy move's fixed step: 64 ticks, four units (UWPlayerMovement).</summary>
+    public void StepWorld()
+    {
+        if (UWConversationScreen.IsAnyOpen)
+            return;
+
+        fRun(0, true);
+    }
+
+    private void fRun(int piTicks, bool pbFixedStep)
+    {
+        UWCritterClock lOClock = UWScene.CritterClock;
+
+        if (lOClock == null)
+            return;
+
         PlayerHasSpeed = fPlayerHasSpeed();
 
-        int liUnits = lOClock.Advance(liTicks, PlayerHasSpeed);
+        bool lbFrozen = UWCharacter.TimeIsFrozen;
+        int liUnits = pbFixedStep
+            ? lOClock.AdvanceFixedStep(PlayerHasSpeed, lbFrozen)
+            : lOClock.Advance(piTicks, PlayerHasSpeed, lbFrozen);
 
-        if (liUnits == 0 || UWCharacter.TimeIsFrozen)
+        if (liUnits == 0)
             return;
 
         mOWalk.Clear();
@@ -63,6 +102,12 @@ public class UWCritterDriver : MonoBehaviour
             if (lOCritter != null && lOCritter.isActiveAndEnabled)
                 lOCritter.RunDueUpdates(lOClock);
         }
+
+        // The flying objects on the same clock (ProcessMobileObjects walks them in one list).
+        UWProjectileWorld lOProjectiles = UWProjectileWorld.Instance;
+
+        if (lOProjectiles != null)
+            lOProjectiles.RunDue(lOClock);
     }
 
     /// <summary>The Speed effect among the player's active spells (class 11, decoded in

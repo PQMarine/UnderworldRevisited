@@ -126,22 +126,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// the water uses the same one (UWLevelLoader.fSplashAt).</summary>
     private const int SplashEffectObjectId = UWObjectMechanics.SplashEffectObjectId;
 
-    /// <summary>How far above the tile floor something still counts as "on the floor" when
-    /// the drowning test asks whether the creature stands on an object (the original's tile
-    /// state bit 0x80, see fIsDrowningAt).</summary>
-    private const float StandingOnObjectTolerance = 1f;
-
     /// <summary>Radius and height from COMOBJ, in case the table is missing: creatures 2 and
-    /// 0x20, force field 3 and 0x80.</summary>
+    /// 0x20.</summary>
     private const int FallbackCritterRadius = 2;
 
     private const int FallbackCritterHeight = 0x20;
-
-    private const int FallbackForceFieldRadius = 3;
-
-    private const int FallbackForceFieldHeight = 0x80;
-
-    private const int ForceFieldObjectId = UWObjectMechanics.ForceFieldObjectId;
 
     /// <summary>First ammunition object: the arrow. The critter table counts from here.</summary>
     private const int FirstAmmunitionObjectId = UWObjectMechanics.FirstAmmunitionObjectId;
@@ -205,24 +194,10 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     private float mfPictureSeconds;
 
-    /// <summary>The brain's last Motion, applied when the creature is next due.</summary>
-    private UWCritterBrain.Motion mOMotion;
-
-    private bool mbHasMotion;
-
+    /// <summary>What the last step on the motion core left behind (the F1 overlay).</summary>
     private StepResult mOLastStep;
 
     private bool mbRemoved;
-
-    /// <summary>If the creature itself already stands too close to a wall or edge, the
-    /// clearance rules are suspended for this step - otherwise it would never get away.</summary>
-    private bool mbClearanceRelaxed;
-
-    private int miStartClearanceFailures;
-
-    private int miStartShoreFailures;
-
-    private float mfNextBlockLogTime;
 
     // ------------------------------------------------- Damage bookkeeping
 
@@ -454,14 +429,13 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
         mOBrain = new UWCritterBrain(mORecord, pOStats, miIndex);
 
-        // A WATER CREATURE LIES IN THE WATER, not on it. A water tile's floor height is the
-        // water LEVEL - the player swims at it - so a creature placed on that floor floats on
-        // the surface like a boat. UWSettings.SwimmerHeightOffset lowers it (per user,
-        // 2026-09-16).
-        Vector3 lOAt = transform.position;
-
-        if (mbSwimming)
-            lOAt.y = fGetFloorHeight(lOAt) + fGetSwimmerOffset();
+        // THE RECORD IS THE POSITION (stage 2 of the motion rework, 2026-10-05): the body
+        // stands at the record's eighth and zpos, as the original draws it, and the motion
+        // core moves the record. A creature without data keeps the spot the spawner gave it.
+        // A WATER CREATURE LIES IN THE WATER, not on it: a water tile's floor height is the
+        // water LEVEL - the player swims at it - so UWSettings.SwimmerHeightOffset lowers the
+        // body (per user, 2026-09-16); the animator lifts the picture back by the same.
+        Vector3 lOAt = pONpc != null ? fBodyFromRecord() : transform.position;
 
         transform.position = lOAt;
         mOBody = lOAt;
@@ -481,10 +455,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             if (mORecord.HitPoints != mODamageable.CurrentHealth && mODamageable.CurrentHealth > 0)
                 mORecord.HitPoints = mODamageable.CurrentHealth;
         }
-
-        // The position fields the host owns (contract section 6) start from where the spawner
-        // put the body; the tile stays the one the data hangs the object in.
-        fWritePositionToRecord(false);
 
         // THE SAVED ANIMATION IS PART OF THE STATE. A creature loaded in the middle of a fight
         // carries its animation and frame in the record (a save written by the original next to
@@ -589,9 +559,10 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     /// <summary>
     /// Called by UWCritterDriver once per frame after the level clock advanced: while the
-    /// creature is due, apply the stored Motion, report the step, let the brain decide anew
-    /// and store the next Motion. The order is the original's (spec 1.4): the body moves with
-    /// the values the LAST goal routine left in the record, then the mind runs.
+    /// creature is due, the brain runs one update - the physics of the previous decision
+    /// through RunMotion in the middle of it, then the mind - and the picture takes the
+    /// result. The order is the original's (spec 1.4): the body moves with the values the
+    /// LAST goal routine left in the record, then the mind runs.
     /// </summary>
     public void RunDueUpdates(UWCritterClock pOClock)
     {
@@ -604,12 +575,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         {
             int liSlotBefore = mORecord.DueSlot;
 
-            fApplyMotion();
-
             UWCritterBrain.Motion lOMotion = mOBrain.Update(this);
-
-            mOMotion = lOMotion;
-            mbHasMotion = true;
 
             fShowMotion(lOMotion);
 
@@ -643,76 +609,107 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             miAttackIndex = pOMotion.Animation - 1;
     }
 
-    // ------------------------------------------------- Applying a Motion (contract section 3)
+    // ------------------------------------------------- The physics (contract section 3)
 
     /// <summary>
-    /// The physics of the previous decision: one displacement of StepEighths along the fine
-    /// heading (a flier also its vertical component), through the clearance probes. No
-    /// sliding (deviation 13 as decided): a step that cannot be taken whole ends at the last
-    /// good position along the line and the collision is reported; the brain then sets its
-    /// blocked bit, tries the door or wanders. A wall hit at a slant turns the heading along
-    /// the wall instead and the step goes on (fTryDeflectedStep, since 2026-09-28).
+    /// The step of the previous decision on the motion core (UWCreatureMotion.Step, stage 2 of
+    /// the motion rework, 2026-10-05), called by the brain in the middle of its update: the
+    /// record moves - eighth, height, tile, heading byte, speed, gravity, pitch, contact
+    /// state - and the body follows the record. The tile list is relinked when the tile
+    /// changed. The lava burn of the write-back (1 in 5 per moving update) is 1 point of
+    /// PLAIN fire on the UWDamageable, charged to nobody (attacker 0); the resistances of
+    /// COMOBJ decide in UWHealth. The walls, doors, the player, other creatures, bridges,
+    /// ledges, water and lava are all the core's now - the clearance probes and sweeps of the
+    /// old substitute are gone.
     /// </summary>
-    private void fApplyMotion()
+    StepResult ICritterHost.RunMotion()
     {
         mOLastStep = default(StepResult);
 
-        if (!mbHasMotion || mOMotion.Culled || !mOMotion.Moves)
-        {
-            fWritePositionToRecord(true);
+        if (mORecord == null || mbRemoved || mOLevelLoader == null)
+            return mOLastStep;
 
-            return;
+        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(mOLevelLoader);
+        UWCreatureMotion lOMotion = lOWorld != null ? lOWorld.CreatureMotion : null;
+
+        if (lOMotion == null)
+            return mOLastStep;
+
+        // The interval that has just elapsed: the picture glides over it.
+        int liInterval = mORecord.Interval;
+
+        mOLastStep = lOMotion.Step(mORecord, miIndex, mbHasStats ? UWCreatureMotion.KindOf(mOStats) : UWCreatureMotion.Kind.Land);
+
+        // A LYING OBJECT in the collision scan carries a transient index of the world (4096 and
+        // up); the brain's door actions and GetObject want the level's master-list index, as a
+        // creature's index is. Found 2026-10-05 (goblins stood at closed doors without opening
+        // them: UseDoor on the transient index found no door).
+        if (mOLastStep.HitObject && UWProjectileWorld.IsStaticIndex(mOLastStep.HitObjectIndex))
+        {
+            UWObject lOHit = lOWorld.StaticObjectAt(mOLastStep.HitObjectIndex);
+
+            mOLastStep.HitObjectIndex = lOHit != null ? fIndexOf(lOHit) : 0;
         }
 
-        Vector3 lOFrom = mOBody;
-        float lfDistance = mOMotion.StepEighths * WorldUnitsPerEighth;
-        bool lbMoved = false;
+        if (mOLastStep.TileChanged && mONpc != null)
+            mOLevelLoader.MoveObjectData(mONpc, mORecord.TileX, mORecord.TileY);
 
-        if (lfDistance > 0.01f)
-        {
-            lbMoved = fStepAlong(lOFrom, mOMotion.FineHeading, lfDistance);
-        }
-
-        if (mbFlying)
-            fApplyFlierHeight();
-
-        // LAVA BURNS AT 1 IN 5 PER MOVING UPDATE, with 1 point of PLAIN fire
-        // (ApplyProjectileMotion_seg029_29EE_61A, label 7F4: RNG % 5 == 0, DamageObject with 1
-        // and type 8 - read 2026-10-02, per user: "align the creatures with the original").
-        // Until then ours burned on every update with the magical fire 0x0B, five times as fast,
-        // and a magic resistance rolled against it. The resistances of COMOBJ decide in UWHealth.
-        // Charged to nobody (attacker 0).
-        if (lbMoved && !mbFlying && fIsLava(fGetTileAt(mOBody)) && mODamageable != null && !mODamageable.IsDestroyed
-            && UWRandom.Next(LavaBurnChance) == 0)
+        if (mOLastStep.LavaBurn && mODamageable != null && !mODamageable.IsDestroyed)
         {
             miPendingAttacker = 0;
             mODamageable.ApplyDamage(1, UWDamageTypes.PlainFire);
             miPendingAttacker = PlayerIndex;
         }
 
-        // DROWNING, the counterpart of the lava burn above (seg006_1477_476, asm lines
-        // 41417-41460): the land creature's motion callback reads the tile state, and when
-        // the state masked with 0xF8 equals 0x10 - the water bit 0x10 set and the object bit
-        // 0x80 clear, so water under the feet with nothing to stand on - the creature is
-        // dead. Only in an update in which the physics ran, exactly like the lava damage.
-        // Already dying is left alone, otherwise the next step would report it again and the
-        // brain would never get past the death frame.
-        if (lbMoved && !mbFlying && !mbSwimming && mORecord != null
-            && mORecord.Animation != UWCritterBrain.AnimDying && fIsDrowningAt(mOBody))
-            mOLastStep.Drowned = true;
+        if (mOLastStep.Collided)
+            fTrace("step: collided{0}{1}{2}{3}{4}", mOLastStep.HitClosedDoor ? ", closed door" : mOLastStep.HitObject ? " with object " + mOLastStep.HitObjectIndex : "",
+                mOLastStep.HeadingDeflected ? ", deflected to " + mORecord.FineHeading : "", mOLastStep.Stuck ? ", stuck" : "",
+                mOLastStep.Drowned ? ", drowned" : "", mOLastStep.TouchedCeiling ? ", ceiling" : "");
 
-        fWritePositionToRecord(true);
+        fPlaceBodyFromRecord(liInterval);
 
-        // The picture: from where it is now to the new logical position over the interval.
-        mOPictureFrom = transform.position;
-        mfPictureStart = Time.time;
-        mfPictureSeconds = fGetIntervalSeconds(mOMotion.Interval);
+        return mOLastStep;
+    }
 
-        if ((mOBody - mOPictureFrom).sqrMagnitude < 0.0001f)
+    /// <summary>The body at the record's eighth and height - the picture glides there from
+    /// where it is over the interval that has just elapsed (deviation 17, the user's decision
+    /// to interpolate).</summary>
+    private void fPlaceBodyFromRecord(int piInterval)
+    {
+        Vector3 lOAt = fBodyFromRecord();
+
+        if ((lOAt - mOBody).sqrMagnitude < 0.0001f)
         {
+            mOBody = lOAt;
             transform.position = mOBody;
             mfPictureSeconds = 0f;
+
+            return;
         }
+
+        mOPictureFrom = transform.position;
+        mfPictureStart = Time.time;
+        mfPictureSeconds = fGetIntervalSeconds(piInterval);
+        mOBody = lOAt;
+    }
+
+    /// <summary>The body at the record's position at once, picture included (a teleport, the
+    /// sleep ambush).</summary>
+    private void fSetBodyNow()
+    {
+        mOBody = fBodyFromRecord();
+        transform.position = mOBody;
+        mfPictureSeconds = 0f;
+    }
+
+    /// <summary>The world point of the record: the centre of its eighth, its zpos, a swimmer
+    /// lowered by its offset.</summary>
+    private Vector3 fBodyFromRecord()
+    {
+        return new Vector3(
+            UWUnits.SubTileToWorldAxis(mORecord.TileX, mORecord.FineX),
+            UWUnits.ZPosToWorld(mORecord.ZPos) + fGetSwimmerOffset(),
+            UWUnits.SubTileToWorldAxis(mORecord.TileY, mORecord.FineY));
     }
 
     /// <summary>The seconds one interval of slots lasts: 16 PIT ticks per slot at 256 per
@@ -724,302 +721,19 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return UWCritterDriver.PlayerHasSpeed ? lfSeconds * 2f : lfSeconds;
     }
 
-    /// <summary>
-    /// The step itself. First the whole displacement; if a probe refuses it, halves of it up
-    /// to three times - the last good position along the line. Whatever refused the whole
-    /// step is what the brain hears about (a door, the player, another creature, a wall).
-    /// Returns whether the body moved at all.
-    /// </summary>
-    private bool fStepAlong(Vector3 pOFrom, int piFineHeading, float pfDistance)
-    {
-        miStartClearanceFailures = fClearanceFailures(pOFrom, mbFlying ? fGetFloorHeight(pOFrom) : pOFrom.y);
-        miStartShoreFailures = fGetShoreFailures(pOFrom);
-        mbClearanceRelaxed = miStartClearanceFailures > 0;
-
-        Vector3 lOOffset = fHeadingToDirection(piFineHeading) * pfDistance;
-        BlockInfo lOBlock;
-
-        if (fTryStepTo(pOFrom, lOOffset, out lOBlock))
-            return true;
-
-        mOLastStep.Collided = true;
-        fReportBlock(lOBlock);
-
-        if (lOBlock.Kind == BlockKindEnum.Wall && fTryDeflectedStep(pOFrom, piFineHeading, pfDistance))
-            return true;
-
-        float lfFraction = 0.5f;
-        bool lbMoved = false;
-
-        for (int liAt = 0; liAt < 3 && !lbMoved; liAt++)
-        {
-            BlockInfo lOPartBlock;
-
-            lbMoved = fTryStepTo(pOFrom, lOOffset * lfFraction, out lOPartBlock);
-            lfFraction *= 0.5f;
-        }
-
-        return lbMoved;
-    }
-
-    /// <summary>
-    /// THE WALL DEFLECTION (UWCritterRules.TryDeflectAlongWall, per user 2026-09-28: a
-    /// creature wandering diagonally kept walking into the corridor walls - every quarter turn
-    /// of the bump gave it another diagonal). The direction the wall runs is found from the two
-    /// halves of the step: the east-west part refused and the north-south part free means a
-    /// wall running north-south, and the other way round; both refused or both free (a corner)
-    /// gives no direction and no deflection. A deflected step goes the whole distance along the
-    /// wall; the new heading is written into byte 9 and reported, so the brain keeps it and
-    /// sets no blocked bit. A diagonal wall gives its direction from its cut line (per user,
-    /// 2026-09-28, the original slid Biden along one). The original finds the direction from
-    /// the collision type (table 0x433 in seg030_2B26_BDF) and snaps a heading already along
-    /// the wall to the tile edge; the snap is not built.
-    /// </summary>
-    private bool fTryDeflectedStep(Vector3 pOFrom, int piFineHeading, float pfDistance)
-    {
-        Vector3 lOOffset = fHeadingToDirection(piFineHeading) * pfDistance;
-        BlockInfo lOIgnored;
-
-        // Probes only (fCanStandAt); fTryStepTo would move the body.
-        bool lbAcrossFree = Mathf.Abs(lOOffset.x) > 0.01f
-            && fCanStandAt(pOFrom + new Vector3(lOOffset.x, 0f, 0f), out float lfIgnored, out lOIgnored);
-        bool lbAlongFree = Mathf.Abs(lOOffset.z) > 0.01f
-            && fCanStandAt(pOFrom + new Vector3(0f, 0f, lOOffset.z), out lfIgnored, out lOIgnored);
-
-        // THE CANDIDATE WALL DIRECTIONS, most likely first (per user, 2026-09-28: Biden slid
-        // along the diagonal wall now, but stuck where a straight wall runs into a diagonal one
-        // and at a corner - two walls at once, and one direction with one whole step was not
-        // enough; the original tries up to two further steps after a deflection). A diagonal
-        // wall's cut line first, then the wall the two halves of the step point to, then the
-        // other axis.
-        List<int> lOWalls = new List<int>(3);
-
-        if (fTryGetBlockingDiagonalDirection(pOFrom + lOOffset, out int liDiagonal))
-            lOWalls.Add(liDiagonal);
-
-        int liAxis = lbAlongFree && !lbAcrossFree ? 0 : UWCritterRules.QuarterTurn;
-
-        lOWalls.Add(liAxis);
-        lOWalls.Add(liAxis ^ UWCritterRules.QuarterTurn);
-
-        foreach (int liWallDirection in lOWalls)
-        {
-            if (!UWCritterRules.TryDeflectAlongWall(piFineHeading, liWallDirection, out int liHeading))
-                continue;
-
-            // Along the wall the whole step, else the last good position of halves of it.
-            Vector3 lODeflected = fHeadingToDirection(liHeading) * pfDistance;
-
-            for (float lfFraction = 1f; lfFraction > 0.2f; lfFraction *= 0.5f)
-            {
-                if (!fTryStepTo(pOFrom, lODeflected * lfFraction, out lOIgnored))
-                    continue;
-
-                mORecord.FineHeading = liHeading;
-                mOLastStep.HeadingDeflected = true;
-
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>What a refused step ran into, for the StepResult.</summary>
-    private enum BlockKindEnum
-    {
-        None,
-        Wall,
-        Terrain,
-        Door,
-        Player,
-        Creature,
-        ForceField
-    }
-
-    private struct BlockInfo
-    {
-        public BlockKindEnum Kind;
-
-        public UWObject Door;
-
-        public UWCritter Creature;
-
-        public string Reason;
-    }
-
-    /// <summary>Fills the StepResult from the refused step: the object hit and its item id
-    /// (a door by class 0x14, the player 0x7F, a creature its id), the closed-door flag for
-    /// land creatures only - fliers and swimmers have no door branch in the original (spec
-    /// 7.5) and merely report the object.</summary>
-    private void fReportBlock(BlockInfo pOBlock)
-    {
-        switch (pOBlock.Kind)
-        {
-            case BlockKindEnum.Door:
-                mOLastStep.HitObject = true;
-                mOLastStep.HitObjectIndex = fIndexOf(pOBlock.Door);
-                mOLastStep.HitObjectItemId = pOBlock.Door != null ? pOBlock.Door.ID & 0x1FF : 0;
-                mOLastStep.HitObjectIsCreature = false;
-                mOLastStep.HitClosedDoor = !mbFlying && !mbSwimming;
-                break;
-
-            case BlockKindEnum.Player:
-                mOLastStep.HitObject = true;
-                mOLastStep.HitObjectIndex = PlayerIndex;
-                mOLastStep.HitObjectItemId = UWCritterBrain.PlayerItemId;
-                mOLastStep.HitObjectIsCreature = true;
-                break;
-
-            case BlockKindEnum.Creature:
-                mOLastStep.HitObject = true;
-                mOLastStep.HitObjectIndex = pOBlock.Creature != null ? pOBlock.Creature.miIndex : 0;
-                mOLastStep.HitObjectItemId = pOBlock.Creature != null && pOBlock.Creature.mONpc != null
-                    ? pOBlock.Creature.mONpc.ID & 0x1FF : 0;
-                mOLastStep.HitObjectIsCreature = true;
-                break;
-
-            case BlockKindEnum.ForceField:
-                mOLastStep.HitObject = true;
-                mOLastStep.HitObjectIndex = 0;
-                mOLastStep.HitObjectItemId = ForceFieldObjectId;
-                mOLastStep.HitObjectIsCreature = false;
-                break;
-        }
-    }
-
-    private bool fTryStepTo(Vector3 pOFrom, Vector3 pOOffset, out BlockInfo pOBlock)
-    {
-        pOBlock = default(BlockInfo);
-
-        if (pOOffset.sqrMagnitude <= 0f)
-            return false;
-
-        Vector3 lOTarget = pOFrom + pOOffset;
-        float lfFloor;
-
-        if (!fCanStandAt(lOTarget, out lfFloor, out pOBlock))
-            return false;
-
-        if (mbFlying)
-            lOTarget.y = Mathf.Max(lfFloor, pOFrom.y);
-        else
-            lOTarget.y = lfFloor + fGetSwimmerOffset();
-
-        // A STEP THAT CHANGES THE HEIGHT is worth a line: the user saw a lurker briefly at
-        // y 54 instead of 16 while it was close to the wall (2026-09-16).
-        if (!mbFlying && Mathf.Abs(lOTarget.y - pOFrom.y) > 4f)
-        {
-            UWTilePos lOTile = mOLevelLoader != null ? mOLevelLoader.WorldPositionToTile(lOTarget) : new UWTilePos(0, 0);
-            UWTile lOTileData = fGetTileAt(lOTarget);
-
-            fTrace("height {0:F0} -> {1:F0} on tile {2}/{3} (tile floor {4})",
-                pOFrom.y, lOTarget.y, lOTile.X, lOTile.Y, lOTileData == null ? -1 : lOTileData.FloorHeight);
-        }
-
-        mOBody = lOTarget;
-
-        return true;
-    }
-
-    /// <summary>
-    /// A flier's height follows its pitch: (pitch - 16) * 64 sub-units per PIT tick over
-    /// interval * 16 ticks (spec 7.6), which in world units is (pitch - 16) * interval per
-    /// update. Clamped between the floor and the ceiling less the body; touching the ceiling
-    /// is reported so the brain turns the pitch down.
-    /// </summary>
-    private void fApplyFlierHeight()
-    {
-        float lfClimb = (mOMotion.Pitch - UWCritterRules.FlierPitchLevel) * mOMotion.Interval;
-        float lfFloor = fGetFloorHeight(mOBody);
-
-        Collider lOCollider = GetComponent<Collider>();
-        float lfBody = lOCollider != null ? lOCollider.bounds.size.y : 16f;
-        float lfTop = UWLevelMeshBuilder.CeilingHeight - lfBody;
-
-        float lfWanted = mOBody.y + lfClimb;
-
-        if (lfWanted >= lfTop)
-        {
-            lfWanted = lfTop;
-            mOLastStep.TouchedCeiling = true;
-        }
-
-        if (lfWanted < lfFloor)
-            lfWanted = lfFloor;
-
-        mOBody.y = lfWanted;
-    }
-
-    /// <summary>The 1 in 5 of the lava burn on a moving update (RNG % 5 == 0).</summary>
-    private const int LavaBurnChance = 5;
-
-    /// <summary>
-    /// The record's position fields the host owns (contract section 6): fine position, zpos
-    /// and the current tile in word 0x16, and the object's tile list relinked when the tile
-    /// changed. The fine position is the sub-tile spot nearest the body, the same rounding
-    /// UWWorldCapture uses when it saves.
-    /// </summary>
-    private void fWritePositionToRecord(bool pbRelink)
-    {
-        if (mORecord == null)
-            return;
-
-        UWTilePos lOTile = UWTileQueries.WorldToTile(mOBody.x, mOBody.z);
-
-        if (pbRelink && mOLevelLoader != null && mONpc != null
-            && (lOTile.X != mORecord.TileX || lOTile.Y != mORecord.TileY))
-            mOLevelLoader.MoveObjectData(mONpc, lOTile.X, lOTile.Y);
-
-        mORecord.TileX = lOTile.X;
-        mORecord.TileY = lOTile.Y;
-        mORecord.FineX = UWTileQueries.WorldToSubTile(mOBody.x, lOTile.X);
-        mORecord.FineY = UWTileQueries.WorldToSubTile(mOBody.z, lOTile.Y);
-        mORecord.ZPos = Mathf.Clamp(UWUnits.RoundToInt(mOBody.y / UWWorldScale.ZPosStep), 0, 0x7F);
-    }
-
-    /// <summary>
-    /// Does this step bring the creature CLOSER to its target than it stands now? Only such a
-    /// step may go over a water edge - see the drop rule in fCanStandAt. Without a target
-    /// nothing may.
-    /// </summary>
-    private bool fLeadsTowardsTarget(Vector3 pOAt)
-    {
-        if (!fEnsurePlayer() || mOPlayerTransform == null)
-            return false;
-
-        // ONLY A CREATURE THAT IS AFTER THE PLAYER has him as its target (goal 5, target 1).
-        // Until 2026-09-28 every creature measured itself against the player, whatever it was
-        // doing: Hagbard, wandering in his room on level 1, stepped into the pool beside him
-        // while the player swam in the river behind the wall, and drowned (per user: "I cannot
-        // find Hagbard in SAVE1"; his record in the save had its id cleared). In the original a
-        // creature without a path to the player never gets in - its path search treats water
-        // as impassable (see fCanStandAt).
-        if (mORecord == null || mORecord.Goal != UWNpc.GoalAttack || mORecord.GTarg != UWCritterBrain.PlayerIndex)
-            return false;
-
-        // AND THE TARGET MUST BE IN THE WATER ITSELF. The creature follows the player in; it
-        // does not wade in on its own. The direction alone was not enough - ours still drowned
-        // itself while backing off at the edge (per user, 2026-09-20, second report).
-        if (!fIsWater(fGetTileAt(mOPlayerTransform.position)))
-            return false;
-
-        Vector3 lOTarget = mOPlayerTransform.position;
-
-        lOTarget.y = 0f;
-
-        Vector3 lOFrom = new Vector3(mOBody.x, 0f, mOBody.z);
-        Vector3 lOTo = new Vector3(pOAt.x, 0f, pOAt.z);
-
-        return (lOTo - lOTarget).sqrMagnitude < (lOFrom - lOTarget).sqrMagnitude;
-    }
-
     /// <summary>A fine heading 0..255 (0 = +Z north, 64 = +X east) as a world direction.</summary>
     private static Vector3 fHeadingToDirection(int piFineHeading)
     {
         float lfRadians = (piFineHeading & 0xFF) * (2f * Mathf.PI / 256f);
 
         return new Vector3(Mathf.Sin(lfRadians), 0f, Mathf.Cos(lfRadians));
+    }
+
+    /// <summary>A world direction as the original's 16-bit heading (0 = +Z north, 0x4000 = +X
+    /// east) - for the player's shove (UWPlayerMovement).</summary>
+    public static int DirectionToHeading(Vector3 pODirection)
+    {
+        return Mathf.RoundToInt(Mathf.Atan2(pODirection.x, pODirection.z) / (2f * Mathf.PI) * 0x10000) & 0xFFFF;
     }
 
     // ------------------------------------------------- ICritterHost: time and chance
@@ -1254,53 +968,48 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// Bresenham walk), each step through the creature's own passability - walker, flier or
     /// swimmer, water, lava against the range budget, closed doors when it could open them.
     /// </summary>
+     /// <summary>
+    /// The straight tile line seg006_1477_1938 of the original (UWTileRoute.StraightLine with
+    /// this creature's triple test, since 2026-10-05): every tile of the line tested as the
+    /// middle of a triple, the destination included, with budget 0 - so water on the way or at
+    /// the destination fails it for a land creature, a drop of two levels fails it, a closed
+    /// door across the way fails it. Until then the host's UWTilePath walked the line with its
+    /// own per-tile rules (deviation 14).
+    /// </summary>
     bool ICritterHost.IsStraightLineClear(int piToTileX, int piToTileY)
     {
-        if (mORecord == null)
+        if (mORecord == null || !fPrepareRoute())
             return false;
 
-        int liX = mORecord.TileX;
-        int liY = mORecord.TileY;
-        int liDx = piToTileX - liX;
-        int liDy = piToTileY - liY;
-        int liSteps = Mathf.Abs(liDx) + Mathf.Abs(liDy);
+        UWTile lOTile = fGetTileAt(mORecord.TileX, mORecord.TileY);
+        int liStart = lOTile != null ? lOTile.FloorHeight >> 4 : mORecord.FloorLevel;
 
-        if (liSteps == 0)
-            return true;
+        return mORoute.StraightLine(mORecord.TileX, mORecord.TileY, piToTileX, piToTileY, liStart, mOTraverse.Triple)
+            != UWTileRoute.LineBlocked;
+    }
 
-        if (liSteps > StraightLineMaxTiles)
+    private UWTileRoute mORoute;
+
+    private UWTileTraverse mOTraverse;
+
+    /// <summary>The level's shared route and triple test with this creature's context: the
+    /// handler masks of its kind, its COMOBJ height, its jump bit (table byte 0x0A bit 5).</summary>
+    private bool fPrepareRoute()
+    {
+        UWProjectileWorld lOWorld = mOLevelLoader != null ? UWProjectileWorld.Ensure(mOLevelLoader) : null;
+
+        if (lOWorld == null || lOWorld.TileTraverse == null)
             return false;
 
-        fSetPathRules();
+        mORoute = lOWorld.TileRoute;
+        mOTraverse = lOWorld.TileTraverse;
 
-        int liStepX = liDx > 0 ? 1 : (liDx < 0 ? -1 : 0);
-        int liStepY = liDy > 0 ? 1 : (liDy < 0 ? -1 : 0);
-        int liErr = Mathf.Abs(liDx) - Mathf.Abs(liDy);
+        int liRadius;
+        int liHeight;
+        fGetOwnSize(out liRadius, out liHeight);
 
-        while (liX != piToTileX || liY != piToTileY)
-        {
-            int liNextX = liX;
-            int liNextY = liY;
-
-            // The axis with the larger remaining error moves first - a staircase along the
-            // line, each riser a four-neighbour step the passability rule understands.
-            if (liErr >= 0 && liX != piToTileX)
-            {
-                liNextX += liStepX;
-                liErr -= Mathf.Abs(liDy);
-            }
-            else
-            {
-                liNextY += liStepY;
-                liErr += Mathf.Abs(liDx);
-            }
-
-            if (!((UWTilePath.IWalker)this).CanEnterTile(liX, liY, liNextX, liNextY))
-                return false;
-
-            liX = liNextX;
-            liY = liNextY;
-        }
+        mOTraverse.SetCreature(mbHasStats ? UWCreatureMotion.KindOf(mOStats) : UWCreatureMotion.Kind.Land, liHeight,
+            mbHasStats && (mOStats.RowByte(0x0A) & UWTileTraverse.JumpRowBit) != 0);
 
         return true;
     }
@@ -1317,13 +1026,14 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     }
 
     /// <summary>
-    /// The host's path search in place of PathFindBetweenTiles (deviation 14): UWTilePath's
-    /// breadth-first search from the target, the next tile only. The found tile is reused for
-    /// half a second while the creature stays on the same tile and aims at the same
-    /// destination. The range budget and the door rule apply per edge in CanEnterTile.
-    ///
-    /// HOW FAR IT LOOKS is the original's window since 2026-09-21 (UWTilePath.SearchMargin),
-    /// not our old ceiling of 400 examined tiles.
+    /// PathFindBetweenTiles of the original (UWTileRoute.FindPath with this creature's triple
+    /// test, since 2026-10-05): the breadth-first search in the box with the range budget, the
+    /// goal next to the start accepted untested, a farther goal tested as the middle of the
+    /// final triple. The original stores the found path in a slot and follows it; the port asks
+    /// for the next tile and reuses the answer for half a second while the creature stays on
+    /// the same tile and aims at the same destination (deviation 14, the slot bookkeeping).
+    /// pbMayOpenDoors is not consulted: the original blocks every closed door by its
+    /// orientation whatever the creature's door skill (UWTileTraverse).
     /// </summary>
     bool ICritterHost.TryGetNextPathTile(int piToTileX, int piToTileY, int piRangeBudget, bool pbMayOpenDoors,
         out int piNextTileX, out int piNextTileY)
@@ -1337,12 +1047,19 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         UWTilePos lOFrom = new UWTilePos(mORecord.TileX, mORecord.TileY);
         UWTilePos lOTo = new UWTilePos(piToTileX, piToTileY);
 
+        mbPathMayOpenDoors = pbMayOpenDoors;
+        miPathBudget = piRangeBudget;
+
         if (!(Time.time < mfPathValidUntil && lOFrom == mOPathFrom && lOTo == mOPathTo))
         {
-            mbPathMayOpenDoors = pbMayOpenDoors;
-            miPathBudget = piRangeBudget;
 
-            mbPathFound = UWTilePath.TryGetNextStep(this, lOFrom, lOTo, out mOPathNext);
+            mbPathFound = fPrepareRoute()
+                && mORoute.FindPath(lOFrom.X, lOFrom.Y, mORecord.FloorLevel, lOTo.X, lOTo.Y, mORecord.DestinationHeight,
+                    piRangeBudget, mOTraverse.Triple)
+                && mORoute.Tiles.Count >= 2;
+
+            if (mbPathFound)
+                mOPathNext = mORoute.Tiles[1];
             mOPathFrom = lOFrom;
             mOPathTo = lOTo;
             mfPathValidUntil = Time.time + PathRefreshSeconds;
@@ -1359,8 +1076,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     /// <summary>
     /// Whether this creature can step from one tile onto the adjacent one - for the path
-    /// search and the straight-line test. The same rules as for the single step (see
-    /// fCanStandAt), applied to whole tiles: shape, ground, height difference; plus the
+    /// search and the straight-line test - the host's tile-based substitute for
+    /// TraverseMultipleTiles: shape, ground, height difference per tile; plus the
     /// original's path terms (spec 7.4): a closed door is passable only for a creature that
     /// could open it, lava only while the range budget covers its cost of 2.
     /// </summary>
@@ -1393,12 +1110,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return mbFlying || Mathf.Abs(lOTo.FloorHeight - lOFrom.FloorHeight) <= lfMaxStep;
     }
 
-    StepResult ICritterHost.LastStep => mOLastStep;
-
     /// <summary>
-    /// Goal 3's relocation: the body onto the tile centre at floor height, relinked. UW.EXE
-    /// checks nothing; here a solid tile or one outside the map refuses (deviation 37, kept
-    /// for safety) - a creature inside a wall would be worse than a skipped jump.
+    /// Goal 3's relocation: the record onto the tile centre at floor height (a flier keeps its
+    /// height above the floor), relinked, the body there at once. UW.EXE checks nothing; here
+    /// a solid tile or one outside the map refuses (deviation 37, kept for safety) - a creature
+    /// inside a wall would be worse than a skipped jump.
     /// </summary>
     bool ICritterHost.Teleport(int piTileX, int piTileY)
     {
@@ -1410,17 +1126,35 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (!mbFlying && mbSwimming != fIsWater(lOTile))
             return false;
 
-        Vector3 lOCentre = new Vector3(UWUnits.TileCentreToWorldAxis(piTileX), 0f, UWUnits.TileCentreToWorldAxis(piTileY));
+        int liAbove = 0;
 
-        lOCentre.y = lOTile.FloorHeight + (mbFlying ? Mathf.Max(0f, mOBody.y - fGetFloorHeight(mOBody)) : fGetSwimmerOffset());
+        if (mbFlying)
+        {
+            UWTile lOHere = fGetTileAt(mORecord.TileX, mORecord.TileY);
 
-        mOBody = lOCentre;
-        transform.position = lOCentre;
-        mfPictureSeconds = 0f;
-        fWritePositionToRecord(true);
+            liAbove = Mathf.Max(0, mORecord.ZPos - (lOHere != null ? (lOHere.FloorHeight >> 4) << 3 : 0));
+        }
+
+        fRelocate(piTileX, piTileY, 4, 4, Mathf.Clamp(((lOTile.FloorHeight >> 4) << 3) + liAbove, 0, 0x7F));
         fTrace("teleported to {0}/{1}", piTileX, piTileY);
 
         return true;
+    }
+
+    /// <summary>The record onto a tile, eighth and height, the tile list relinked, the body
+    /// there at once.</summary>
+    private void fRelocate(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos)
+    {
+        mORecord.TileX = piTileX;
+        mORecord.TileY = piTileY;
+        mORecord.FineX = piFineX;
+        mORecord.FineY = piFineY;
+        mORecord.ZPos = piZPos;
+
+        if (mOLevelLoader != null && mONpc != null)
+            mOLevelLoader.MoveObjectData(mONpc, piTileX, piTileY);
+
+        fSetBodyNow();
     }
 
     // ------------------------------------------------- ICritterHost: doors (spec 7.5)
@@ -1841,8 +1575,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
                 continue;
 
             // A projectile or an effect in flight is neither a defender nor an obstacle
-            // (UWSpellProjectile skips them the same way).
-            if (lOCandidate.collider.GetComponentInParent<UWSpellProjectile>() != null)
+            // (UWProjectileFlight skips them the same way).
+            if (lOCandidate.collider.GetComponentInParent<UWProjectileFlight>() != null)
                 continue;
 
             UWCritter lOCritter;
@@ -1897,7 +1631,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (pOCollider == null || pOCritter == this)
             return false;
 
-        if (pOCollider.GetComponentInParent<UWSpellProjectile>() != null)
+        if (pOCollider.GetComponentInParent<UWProjectileFlight>() != null)
             return false;
 
         if (pOCritter != null)
@@ -2142,7 +1876,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// attacker or of the projectile) meets: the part PickBodyHitPoint picks over this body,
     /// + 4 for a missile (MissileAttackHit label 158B), then GetArmourOfPart. Replaces the
     /// UWDamageable's single value for the player's blows (Interaction) and projectiles
-    /// (UWSpellProjectile) - deviation 49.
+    /// (UWProjectileFlight) - deviation 49.
     /// </summary>
     public int GetArmourAgainst(int piAttackerFeet, int piAttackerTop, bool pbMissile = false)
     {
@@ -2326,217 +2060,40 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         fEvent("summons: {0}", lbSummoned ? "a creature" : "no room or nothing fitting");
     }
 
-    /// <summary>Sends a missile at the target - the same route the arrow trap takes.</summary>
+    /// <summary>
+    /// Sends a missile at the target along the creature's facing at the brain's pitch
+    /// (GetPitchToGTarg): a mobile record on the motion core since 2026-10-05
+    /// (UWProjectileWorld.LaunchFromCreature). It starts radii + 4 eighths ahead at five sixths
+    /// of the creature's height plus two per pitch step; NO ROOM there (seg025_B51: a wall, a
+    /// step, a creature in melee contact) means no missile, as in the original.
+    /// </summary>
     private void fLaunchProjectile(int piObjectId, CritterTarget pOTarget, int piDamageType, float pfRange, int piPitch)
     {
         if (mOLevelLoader == null || mOLevelLoader.UWDataImporter == null
             || mOLevelLoader.UWDataImporter.ObjectProperties == null)
             return;
 
-        Vector3 lOStart = fGetEyePosition();
-
-        float lfSpeed = mOLevelLoader.UWDataImporter.ObjectProperties.GetRangedSpeed(piObjectId)
-            * UWSpellProjectile.SpeedFactor;
-
-        bool lbWeightless = fIsWeightless(piObjectId);
-
-        Vector3 lOToAim;
-
-        if (lbWeightless)
-        {
-            // A SPELL MISSILE STARTS AND FLIES AS IN UW.EXE (2026-09-27; per user: ours flew over
-            // small creatures, the original's at most past them): it left the body's centre
-            // aimed at the player's eyes, so it climbed all the way and passed over anything low.
-            if (!fGetSpellLaunch(pOTarget, piObjectId, piPitch, lfSpeed, out lOStart, out lOToAim))
-            {
-                fEvent("missile {0}: no room at the start, none made", piObjectId);
-
-                return;
-            }
-        }
-        else
-        {
-            lOToAim = fGetAimPoint(lOStart, pOTarget, false) - lOStart;
-
-            // A MISSILE WITH WEIGHT MUST AIM HIGHER: whatever it drops in its flight time is
-            // added beforehand. (Arrows and stones keep the port's aim for now; the original's
-            // start and pitch below would serve them too, with the drop term of GetPitchToGTarg.)
-            if (lfSpeed > 0f)
-            {
-                float lfTime = lOToAim.magnitude / lfSpeed;
-
-                lOToAim.y += 0.5f * UWSpellProjectile.Gravity * lfTime * lfTime;
-            }
-        }
-
-        GameObject lOProjectile = mOLevelLoader.SpawnProjectile(piObjectId, lOStart, lOToAim);
-
-        if (lOProjectile == null)
-            return;
-
-        // The launch sound every missile makes (PrepareProjectileObject, effect 0x0A).
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOStart);
-
-        miShotsFired++;
-
-        UWSpellProjectile lOFlight = lOProjectile.AddComponent<UWSpellProjectile>();
-
-        // Its own body must not intercept its own missile - see SetLauncher.
-        lOFlight.SetLauncher(gameObject);
-
         // The ammunition table's damage through the dice with charge 0x80 and flank 0
         // (MissileAttackHit_seg022_14BF, deviation 46); the target's armour of the part hit
-        // and the difficulty are subtracted on impact (UWSpellProjectile).
+        // and the difficulty are subtracted on impact (UWProjectileFlight).
         int liBase = mOLevelLoader.UWDataImporter.ObjectProperties.GetRangedDamage(piObjectId);
         int liDamage = UWCritterCombat.RollMissileDamage(liBase);
 
-        // A CREATURE'S FIREBALL EXPLODES LIKE THE PLAYER'S: until 2026-09-27 its missiles
-        // carried no impact at all, so there was neither the explosion picture nor the blast
-        // on the tile (UWSpellProjectile.fApplyBlast).
-        lOFlight.Begin(lOToAim.normalized, lfSpeed, liDamage, pfRange, null, mOLevelLoader,
-            UWRunicMagic.GetProjectileImpactId(piObjectId), piDamageType);
-        lOFlight.UseObjectRadius(piObjectId);
+        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mOLevelLoader).LaunchFromCreature(this, piObjectId, piPitch,
+            liDamage, piDamageType, UWRunicMagic.GetProjectileImpactId(piObjectId));
 
-        if (!lbWeightless)
-            lOFlight.MakeBallistic(UWSpellProjectile.Gravity);
-    }
-
-    /// <summary>
-    /// Start and direction of a creature's spell missile, PrepareProjectileObject_seg025_791 as
-    /// for the player (UWPlayerThrow.TryGetMissileStart): in front of the body by both radii
-    /// plus four eighths, at the creature's zpos plus five sixths of its height plus two per
-    /// pitch step; the pitch is the brain's GetPitchToGTarg - the difference of the FEET over
-    /// the distance, so over level ground the missile flies level, at five sixths of the
-    /// caster's height (a mage: 18 of 22 zpos), whatever the target's size. The horizontal
-    /// direction points at the target as before.
-    ///
-    /// NO ROOM, NO MISSILE (seg025_B51, read 2026-09-27): the placement fails when the start
-    /// lies in a wall or a step, or when any object's collision record overlaps it within the
-    /// missile's height - a creature in melee contact above all, whose body the start lands in
-    /// (7 eighths ahead for a mage). The original then makes no missile at all; ours launched
-    /// it inside or beyond that body, so it flew through a man-sized opponent now and then
-    /// (per user, 2026-09-27). A low creature does not block: the start is above it.
-    /// </summary>
-    private bool fGetSpellLaunch(CritterTarget pOTarget, int piObjectId, int piPitch, float pfSpeed,
-        out Vector3 pOStart, out Vector3 pODirection)
-    {
-        Vector3 lOAt = fGetTargetWorldPosition(pOTarget);
-        Vector3 lOFlat = new Vector3(lOAt.x - mOBody.x, 0f, lOAt.z - mOBody.z);
-
-        if (lOFlat.sqrMagnitude < 0.0001f)
-            lOFlat = fHeadingToDirection(mORecord.FullFacing);
-
-        lOFlat.Normalize();
-
-        fGetOwnSize(out int liRadius, out int liHeight);
-
-        int liItemRadius = 0;
-        UWCommonObjectProperties lOCommon = fCommonProperties();
-
-        if (lOCommon != null && lOCommon.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOItem))
-            liItemRadius = lOItem.Radius;
-
-        int liZPos = UWUnits.RoundToInt(mOBody.y / UWWorldScale.ZPosStep);
-
-        if (liHeight != 0)
-            liZPos += (((liHeight * 5) & 0xFF) / 6) + (piPitch << 1);
-
-        pOStart = new Vector3(mOBody.x, liZPos * UWWorldScale.ZPosStep, mOBody.z)
-            + (lOFlat * ((liRadius + liItemRadius + 4) * UWWorldScale.SubTileStep));
-
-        int liHeading = UWUnits.RoundToInt(Mathf.Atan2(lOFlat.x, lOFlat.z) * Mathf.Rad2Deg * 256f / 360f) & 0xFF;
-
-        pODirection = UWPlayerThrow.GetMissileDirection(liHeading, piPitch, pfSpeed);
-
-        return fIsSpellStartFree(pOStart, Mathf.Max(1, liItemRadius) * UWWorldScale.SubTileStep);
-    }
-
-    /// <summary>The placement test of seg025_B51 for a creature's missile: open tile, above
-    /// the floor, no rock between the body and the start, and no body or solid object
-    /// overlapping the start.</summary>
-    private bool fIsSpellStartFree(Vector3 pOStart, float pfRadius)
-    {
-        if (!mOLevelLoader.CanDropAt(pOStart, false) || pOStart.y <= mOLevelLoader.GetFloorHeightAt(pOStart))
-            return false;
-
-        Vector3 lOFrom = new Vector3(mOBody.x, pOStart.y, mOBody.z);
-
-        for (int liSample = 1; liSample <= 4; liSample++)
+        if (lOFlight == null)
         {
-            if (mOLevelLoader.IsInsideRock(Vector3.Lerp(lOFrom, pOStart, liSample / 4f), mOBody, out Vector3 _))
-                return false;
+            fEvent("missile {0}: no room at the start, none made", piObjectId);
+
+            return;
         }
 
-        foreach (Collider lOCollider in Physics.OverlapSphere(pOStart, pfRadius, Physics.AllLayers,
-                     QueryTriggerInteraction.Ignore))
-        {
-            if (lOCollider.transform.IsChildOf(transform)
-                || lOCollider.GetComponentInParent<UWSpellProjectile>() != null)
-                continue;
-
-            if (fIsDefenderCollider(lOCollider, out UWCritter _, out bool _))
-                return false;
-
-            UWEntityInfo lOEntity = lOCollider.GetComponentInParent<UWEntityInfo>();
-            UWCommonObjectProperties lOCommon = fCommonProperties();
-
-            if (lOEntity != null && lOEntity.ObjectData != null && lOCommon != null
-                && lOCommon.TryGet(lOEntity.ObjectData.ID, out UWCommonObjectProperties.Entry lOEntry)
-                && lOEntry.Height > 0)
-                return false;
-        }
-
-        return true;
+        miShotsFired++;
     }
 
     /// <summary>How often this creature has shot or cast - only for the F1 overlay.</summary>
     private int miShotsFired;
-
-    private bool fIsWeightless(int piObjectId)
-    {
-        UWCommonObjectProperties lOCommon = fCommonProperties();
-
-        return lOCommon != null && lOCommon.IsWeightless(piObjectId);
-    }
-
-    /// <summary>
-    /// Where a missile WITH WEIGHT aims (a spell missile: fGetSpellLaunch). Two observations by the user in the original (2026-09-10): an
-    /// enemy FIREBALL arrives at eye height, the acid slug's missile at chest height. A spell
-    /// missile flies weightless and straight at the eyes; a thrown one drops and leaves at
-    /// the creature's own height, clamped into the target's body (centre to head).
-    /// </summary>
-    private Vector3 fGetAimPoint(Vector3 pOStart, CritterTarget pOTarget, bool pbWeightless)
-    {
-        if (!pOTarget.IsPlayer)
-        {
-            Vector3 lOAt = fGetTargetWorldPosition(pOTarget);
-
-            return pbWeightless ? lOAt : new Vector3(lOAt.x, Mathf.Max(lOAt.y, Mathf.Min(pOStart.y, lOAt.y + 16f)), lOAt.z);
-        }
-
-        if (!fEnsurePlayer())
-            return pOStart;
-
-        // REALLY EYE HEIGHT: UWCharacter sits on the camera, so its position is where the
-        // player looks from.
-        Vector3 lOEyes = mOPlayer.transform.position;
-
-        if (pbWeightless)
-            return lOEyes;
-
-        if (mOPlayerBody == null)
-            mOPlayerBody = mOPlayer.GetComponentInParent<CharacterController>();
-
-        if (mOPlayerBody == null)
-            return lOEyes;
-
-        Bounds lOBounds = mOPlayerBody.bounds;
-
-        float lfHead = lOBounds.max.y - (lOBounds.size.y * 0.1f);
-        float lfY = Mathf.Clamp(pOStart.y, lOBounds.center.y, lfHead);
-
-        return new Vector3(lOBounds.center.x, lfY, lOBounds.center.z);
-    }
 
     /// <summary>A target's body centre in the world: the player's collider, another
     /// creature's collider, an object's position.</summary>
@@ -2981,35 +2538,23 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     /// <summary>
     /// Sets the creature down on a sub-tile spot (0..7 each) of a tile - the sleep ambush
-    /// (UWSleepRules.TryAmbush). Refused where it would not fit: a solid tile, the wrong ground
-    /// for its kind, a closed door, the player, another creature, a force field - the blockers
-    /// of its own step (fCanStandAt) without the height limit, since it does not step there.
+    /// (UWSleepRules.TryAmbush). Refused on a solid tile or the wrong ground for its kind; the
+    /// motion core sorts out whatever else stands there on its first step (until stage 2 the
+    /// host's probes also refused a door, the player, a creature and a force field).
     /// </summary>
     public bool PlaceAtSpot(UWTilePos pOTile, int piSubX, int piSubY)
     {
         UWTile lOTile = fGetTileAt(pOTile.X, pOTile.Y);
 
-        if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
+        if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid || mORecord == null)
             return false;
 
         if (!mbFlying && mbSwimming != fIsWater(lOTile))
             return false;
 
-        Vector3 lOSpot = new Vector3(UWUnits.SubTileToWorldAxis(pOTile.X, piSubX), 0f,
-            UWUnits.SubTileToWorldAxis(pOTile.Y, piSubY));
-
         // On the floor, fliers too: the ambush hands the tile's floor height times eight as zpos
         // (ovr104_71C) - unlike the level exit, which lifts a flier halfway up.
-        lOSpot.y = lOTile.FloorHeight + (mbFlying ? 0f : fGetSwimmerOffset());
-
-        if (fBlockingDoor(lOSpot, lOTile) != null || fIsBlockedByPlayer(lOSpot)
-            || fBlockingCreature(lOSpot) != null || fIsBlockedByForceField(lOSpot))
-            return false;
-
-        mOBody = lOSpot;
-        transform.position = lOSpot;
-        mfPictureSeconds = 0f;
-        fWritePositionToRecord(true);
+        fRelocate(pOTile.X, pOTile.Y, piSubX & 7, piSubY & 7, (lOTile.FloorHeight >> 4) << 3);
         fTrace("set down by the sleep ambush on {0}/{1} at {2}/{3}", pOTile.X, pOTile.Y, piSubX, piSubY);
 
         return true;
@@ -3146,494 +2691,21 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     // ------------------------------------------------- Push
 
     /// <summary>
-    /// Pushes the creature a bit aside - in the original an opponent can be pushed away by
-    /// walking into it (per user, 2026-09-05). Checked like one of its own steps, including
-    /// the fallback to the single axes - so you push it along a wall instead of into it. The
-    /// picture follows at once; the record is updated so the brain sees the new place.
+    /// A shove - the player walking into the creature (UWPlayerMovement, the bridge until stage
+    /// 3), a missile or thrown thing striking it (UWProjectileWorld.PushObject): the momentum
+    /// transfer's write-back on the record (UWCreatureMotion.Push) - the pusher's 16-bit
+    /// heading, the speed and the vertical speed in the stepper's units. The creature's next
+    /// update moves it that way before its mind decides anew; in the original an opponent can
+    /// be pushed away by walking into it (per user, 2026-09-05), and the core keeps it out of
+    /// walls and water on that step.
     /// </summary>
-    public void Push(Vector3 pODirection, float pfDistance)
+    public void Push(int piHeading, int piSpeed, int piVz)
     {
-        if (pfDistance <= 0f || mbRemoved)
+        if (mbRemoved || mORecord == null)
             return;
 
-        Vector3 lOFlat = new Vector3(pODirection.x, 0f, pODirection.z);
-
-        if (lOFlat.sqrMagnitude <= 0.0001f)
-            return;
-
-        lOFlat = lOFlat.normalized * pfDistance;
-
-        Vector3 lOStart = mOBody;
-
-        miStartClearanceFailures = fClearanceFailures(lOStart, mbFlying ? fGetFloorHeight(lOStart) : lOStart.y);
-        miStartShoreFailures = fGetShoreFailures(lOStart);
-        mbClearanceRelaxed = miStartClearanceFailures > 0;
-
-        BlockInfo lOBlock;
-
-        bool lbMoved = fTryStepTo(lOStart, lOFlat, out lOBlock)
-            || fTryStepTo(lOStart, new Vector3(lOFlat.x, 0f, 0f), out lOBlock)
-            || fTryStepTo(lOStart, new Vector3(0f, 0f, lOFlat.z), out lOBlock);
-
-        if (!lbMoved)
-            return;
-
-        transform.position = mOBody;
-        mfPictureSeconds = 0f;
-        fWritePositionToRecord(true);
-    }
-
-    // ------------------------------------------------- The probes (the physics substitute)
-
-    /// <summary>
-    /// Whether a walkable spot lies at this world position, and what refuses it. Solid
-    /// tiles are excluded, closed doors (reported, not silently blocking), the player's body,
-    /// force fields, the wrong ground for the creature's kind, and too large a height
-    /// difference - otherwise creatures would walk up ledges the player cannot climb himself.
-    /// </summary>
-    private bool fCanStandAt(Vector3 pOWorldPosition, out float pfFloorHeight, out BlockInfo pOBlock)
-    {
-        pfFloorHeight = pOWorldPosition.y;
-        pOBlock = default(BlockInfo);
-
-        UWTile lOTileData;
-
-        if (!fTryGetTile(pOWorldPosition, out lOTileData))
-            return fBlocked(BlockKindEnum.Wall, "outside the map", pOWorldPosition, ref pOBlock);
-
-        if (lOTileData.TileType == UWTile.TileTypeEnum.solid)
-            return fBlocked(BlockKindEnum.Wall, "solid tile", pOWorldPosition, ref pOBlock);
-
-        UWObject lODoor = fBlockingDoor(pOWorldPosition, lOTileData);
-
-        if (lODoor != null)
-        {
-            pOBlock.Door = lODoor;
-
-            return fBlocked(BlockKindEnum.Door, "closed door", pOWorldPosition, ref pOBlock);
-        }
-
-        if (fIsBlockedByPlayer(pOWorldPosition))
-            return fBlocked(BlockKindEnum.Player, "player in the way", pOWorldPosition, ref pOBlock);
-
-        UWCritter lOOther = fBlockingCreature(pOWorldPosition);
-
-        if (lOOther != null)
-        {
-            pOBlock.Creature = lOOther;
-
-            return fBlocked(BlockKindEnum.Creature, "creature in the way", pOWorldPosition, ref pOBlock);
-        }
-
-        if (fIsBlockedByForceField(pOWorldPosition))
-            return fBlocked(BlockKindEnum.ForceField, "force field", pOWorldPosition, ref pOBlock);
-
-        // A SWIMMER collides with plain floor: its motion handler carries the floor bit 0x8
-        // in the callback mask (table 2880 = {0x0010, 0x1728, 0x10A8, 0x0000}, callback
-        // seg006_1477_65E; Docs/AI/creature-ai.md section 7.6). A LAND CREATURE is NOT refused
-        // the water here any more (deviation 43, built 2026-09-20): the original tests water
-        // only in the TILE tests - the straight line and the path search, where water is
-        // impassable terrain in handler word 2 = 0x1010 - and never in the step itself. The
-        // step that ends in water drowns the creature instead (seg006_1477_476, asm lines
-        // 41417-41460; see fIsDrowningAt). That matches what the user measured in the
-        // original on 2026-09-20: a creature cannot be pushed into the water, it only gets
-        // in while closing in on the player in melee, and then it is gone at once with a
-        // splash. Lava is not refused either: the user proved that a troll stands in the
-        // middle of lava (2026-09-01); it burns there instead (fApplyMotion).
-        if (mbSwimming && !mbFlying && !fIsWater(lOTileData))
-            return fBlocked(BlockKindEnum.Terrain, "no water", pOWorldPosition, ref pOBlock);
-
-        // WATER IS REFUSED A LAND CREATURE unless it is following its target in. The height
-        // rule below cannot do this job: one floor level is 16 units in the tile data and
-        // UWSettings.CritterMaxStepHeight is 16 as well, so a step down to the water passes it
-        // exactly. That is why the creature still drowned itself while backing off although
-        // the drop was meant to be the gate (per user, 2026-09-20, three reports). The
-        // original blocks the step on the dropping bit for a creature that holds no path
-        // (Docs/AI/creature-ai.md section 7.3); ours uses the direction and the target's own tile,
-        // see fLeadsTowardsTarget.
-        if (!mbFlying && !mbSwimming && fIsWater(lOTileData) && !fLeadsTowardsTarget(pOWorldPosition))
-            return fBlocked(BlockKindEnum.Terrain, "water, and not on the way to the target",
-                pOWorldPosition, ref pOBlock);
-
-        float lfTileFloor = lOTileData.FloorHeight;
-
-        pfFloorHeight = lfTileFloor;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfMaxStep = lOSettings != null ? lOSettings.CritterMaxStepHeight : 16f;
-
-        // What the creature currently stands on is its own height - not the floor height of
-        // the tile. On a bridge those are two different things. A SWIMMER lies BELOW the water
-        // level by its offset, so that offset has to come off again.
-        float lfCurrentFloor = mbFlying
-            ? fGetFloorHeight(mOBody)
-            : mOBody.y - fGetSwimmerOffset();
-
-        // THE PROBE IS FOR BRIDGES - something walkable above the tile floor. A SWIMMER has no
-        // business up there (per user, 2026-09-16: the lurker climbed from 16 to 54 in three
-        // steps).
-        if (!mbFlying && !mbSwimming)
-            pfFloorHeight = fProbeStandingHeight(pOWorldPosition, pfFloorHeight, lfCurrentFloor + lfMaxStep);
-
-        bool lbCanStand = mbFlying || Mathf.Abs(pfFloorHeight - lfCurrentFloor) <= lfMaxStep;
-
-        // A LAND CREATURE MAY DROP INTO WATER ON ITS WAY TO THE TARGET, and only there. In
-        // the original's motion callback the WATER bit is tested before the dropping bit
-        // (seg006_1477_46D at 41417, the dropping branch only at 50D), so a step that ends on
-        // a water tile drowns the creature however far below the surface lies - but the
-        // dropping bit blocks a creature that holds NO PATH (Docs/AI/creature-ai.md section 7.3),
-        // and the melee footwork holds none. The user measured exactly that in the original
-        // (2026-09-20): a creature cannot be pushed over the water's edge and does not back
-        // off over it either, it only gets in while closing in on a player who stands IN the
-        // water. We express the same by the direction of the step and by the target's own
-        // tile, which is what the player sees; the original's path condition is not modelled.
-        // Without it ours drowned itself while backing off. Only downwards: climbing OUT
-        // keeps the rule.
-        bool lbDropIntoWater = !mbFlying && !mbSwimming && pfFloorHeight <= lfCurrentFloor
-            && fIsWater(lOTileData) && fLeadsTowardsTarget(pOWorldPosition);
-
-        if (!lbCanStand && !lbDropIntoWater)
-            return fBlocked(BlockKindEnum.Terrain, "step too high", pOWorldPosition, ref pOBlock);
-
-        // The clearance is only checked once the step itself is possible - and only as long
-        // as the creature currently keeps it itself. If it already stood too close (say
-        // because it was placed that way), every step would fail and it would be nailed down
-        // forever.
-        int liFailures = fClearanceFailures(pOWorldPosition, pfFloorHeight);
-
-        // The chasm part of that clearance is what a drop into water looks like, so the step
-        // that drowns the creature is not weighed against it either.
-        if (liFailures > 0 && !lbDropIntoWater
-            && (!mbClearanceRelaxed || liFailures > miStartClearanceFailures))
-            return fBlocked(BlockKindEnum.Wall, "wall or chasm clearance", pOWorldPosition, ref pOBlock);
-
-        // THE SHORE IS A DIRECTION RULE, not a wall - see fGetShoreFailures.
-        if (mbSwimming && fGetShoreFailures(pOWorldPosition) > miStartShoreFailures)
-            return fBlocked(BlockKindEnum.Terrain, "would move closer to the shore", pOWorldPosition, ref pOBlock);
-
-        return true;
-    }
-
-    /// <summary>
-    /// Bridges, stairs and the like are separate objects lying ABOVE the tile floor - the
-    /// tile data knows nothing about them. A ray from top to bottom finds what one actually
-    /// stands on there (per user, 2026-08-30: opponents walk over bridges in the original).
-    /// The sprite layer is left out, otherwise creatures would stand on other creatures.
-    /// </summary>
-    private float fProbeStandingHeight(Vector3 pOWorldPosition, float pfTileFloor, float pfProbeTop)
-    {
-        if (pfProbeTop <= pfTileFloor)
-            return pfTileFloor;
-
-        Vector3 lOOrigin = new Vector3(pOWorldPosition.x, pfProbeTop, pOWorldPosition.z);
-        float lfLength = pfProbeTop - pfTileFloor;
-
-        RaycastHit lOHit;
-
-        if (!Physics.Raycast(lOOrigin, Vector3.down, out lOHit, lfLength, ~(1 << SpriteLayer)))
-            return pfTileFloor;
-
-        if (lOHit.point.y > pfTileFloor + 1f)
-            fTrace("standing height raised to {0:F0} by {1}", lOHit.point.y,
-                lOHit.collider == null ? "?" : lOHit.collider.name);
-
-        return Mathf.Max(pfTileFloor, lOHit.point.y);
-    }
-
-    /// <summary>
-    /// How many clearance probes fail at this spot: the diagonal, the four wall probes at
-    /// wall clearance and the four chasm probes at chasm clearance. Zero means standing
-    /// free. A creature's image turns towards the camera; standing close to a wall it sticks
-    /// halfway into it (per user, 2026-08-30), at a chasm it hangs over it (2026-08-31). The
-    /// number lets a creature that already stands too close take only steps that do not make
-    /// it worse (per user, 2026-09-12).
-    /// </summary>
-    private int fClearanceFailures(Vector3 pOWorldPosition, float pfStandingHeight)
-    {
-        int liFailures = fKeepsDiagonalClearance(pOWorldPosition) ? 0 : 1;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfClearance = lOSettings != null ? lOSettings.CritterWallClearance : 16f;
-        float lfDrop = lOSettings != null ? lOSettings.CritterDropClearance : 24f;
-
-        if (lfClearance > 0f)
-        {
-            liFailures += fIsProbeClear(pOWorldPosition + new Vector3(lfClearance, 0f, 0f), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClear(pOWorldPosition - new Vector3(lfClearance, 0f, 0f), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClear(pOWorldPosition + new Vector3(0f, 0f, lfClearance), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClear(pOWorldPosition - new Vector3(0f, 0f, lfClearance), pfStandingHeight) ? 0 : 1;
-        }
-
-        if (lfDrop > lfClearance && !mbFlying)
-        {
-            liFailures += fIsProbeClearOfDrop(pOWorldPosition + new Vector3(lfDrop, 0f, 0f), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClearOfDrop(pOWorldPosition - new Vector3(lfDrop, 0f, 0f), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClearOfDrop(pOWorldPosition + new Vector3(0f, 0f, lfDrop), pfStandingHeight) ? 0 : 1;
-            liFailures += fIsProbeClearOfDrop(pOWorldPosition - new Vector3(0f, 0f, lfDrop), pfStandingHeight) ? 0 : 1;
-        }
-
-        return liFailures;
-    }
-
-    /// <summary>A chasm point: the floor there must not lie lower than the creature can
-    /// climb. Solid tiles are no failure here, the wall probes count those.</summary>
-    private bool fIsProbeClearOfDrop(Vector3 pOWorldPosition, float pfStandingHeight)
-    {
-        UWTile lOTileData;
-
-        if (!fTryGetTile(pOWorldPosition, out lOTileData) || lOTileData.TileType == UWTile.TileTypeEnum.solid)
-            return true;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfMaxStep = lOSettings != null ? lOSettings.CritterMaxStepHeight : 16f;
-
-        float lfProbeFloor = fProbeStandingHeight(pOWorldPosition, lOTileData.FloorHeight, pfStandingHeight + lfMaxStep);
-
-        return pfStandingHeight - lfProbeFloor <= lfMaxStep;
-    }
-
-    /// <summary>
-    /// A single clearance point: it must lie inside the map, no solid tile or closed door may
-    /// lie there, and the floor there must not be clearly higher or lower than the one the
-    /// creature wants to stand on. Flying creatures hover above all this; for them only the
-    /// solid tile and the door count.
-    /// </summary>
-    private bool fIsProbeClear(Vector3 pOWorldPosition, float pfStandingHeight)
-    {
-        UWTile lOTileData;
-
-        if (!fTryGetTile(pOWorldPosition, out lOTileData))
-            return false;
-
-        if (lOTileData.TileType == UWTile.TileTypeEnum.solid)
-            return false;
-
-        if (fBlockingDoor(pOWorldPosition, lOTileData) != null)
-            return false;
-
-        if (mbFlying)
-            return true;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfMaxStep = lOSettings != null ? lOSettings.CritterMaxStepHeight : 16f;
-
-        float lfProbeFloor = fProbeStandingHeight(pOWorldPosition, lOTileData.FloorHeight, pfStandingHeight + lfMaxStep);
-
-        return Mathf.Abs(lfProbeFloor - pfStandingHeight) <= lfMaxStep;
-    }
-
-    /// <summary>
-    /// Clearance to diagonal walls. A diagonal tile counts as open although half of it is
-    /// solid - so the four clearance points miss it and the creature sticks in the slant (per
-    /// user, 2026-08-31). Instead of probing, this computes: for every diagonal tile in the
-    /// surroundings the perpendicular distance to its cut line (CritterDiagonalClearance).
-    /// </summary>
-    private bool fKeepsDiagonalClearance(Vector3 pOWorldPosition)
-    {
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfClearance = lOSettings != null ? lOSettings.CritterDiagonalClearance : 22f;
-
-        if (lfClearance <= 0f || mOLevelLoader == null || mOLevelLoader.CurrentLevel == null)
-            return true;
-
-        UWTilePos lOCentre = mOLevelLoader.WorldPositionToTile(pOWorldPosition);
-
-        for (int liOffsetY = -1; liOffsetY <= 1; liOffsetY++)
-        {
-            for (int liOffsetX = -1; liOffsetX <= 1; liOffsetX++)
-            {
-                int liX = lOCentre.X + liOffsetX;
-                int liY = lOCentre.Y + liOffsetY;
-
-                UWTile lOTileData = fGetTileAt(liX, liY);
-
-                if (lOTileData == null)
-                    continue;
-
-                float lfDistance;
-
-                if (!fTryGetDiagonalDistance(lOTileData.TileType, liX, liY, pOWorldPosition, out lfDistance))
-                    continue;
-
-                if (lfDistance < lfClearance)
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// The direction of the diagonal wall whose clearance this spot breaks - the nearest one:
-    /// diagonal_se and diagonal_nw are cut along x = z (north-east, 0x20), diagonal_ne and
-    /// diagonal_sw along x = -z (south-east, 0x60). For the wall deflection (fTryDeflectedStep).
-    /// </summary>
-    private bool fTryGetBlockingDiagonalDirection(Vector3 pOWorldPosition, out int piDirection)
-    {
-        piDirection = 0;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfClearance = lOSettings != null ? lOSettings.CritterDiagonalClearance : 22f;
-
-        if (lfClearance <= 0f || mOLevelLoader == null || mOLevelLoader.CurrentLevel == null)
-            return false;
-
-        UWTilePos lOCentre = mOLevelLoader.WorldPositionToTile(pOWorldPosition);
-        float lfNearest = lfClearance;
-        bool lbFound = false;
-
-        for (int liOffsetY = -1; liOffsetY <= 1; liOffsetY++)
-        {
-            for (int liOffsetX = -1; liOffsetX <= 1; liOffsetX++)
-            {
-                int liX = lOCentre.X + liOffsetX;
-                int liY = lOCentre.Y + liOffsetY;
-
-                UWTile lOTileData = fGetTileAt(liX, liY);
-
-                if (lOTileData == null
-                    || !fTryGetDiagonalDistance(lOTileData.TileType, liX, liY, pOWorldPosition, out float lfDistance)
-                    || lfDistance >= lfNearest)
-                    continue;
-
-                lfNearest = lfDistance;
-                lbFound = true;
-                piDirection = lOTileData.TileType == UWTile.TileTypeEnum.diagonal_se
-                    || lOTileData.TileType == UWTile.TileTypeEnum.diagonal_nw ? 0x20 : 0x60;
-            }
-        }
-
-        return lbFound;
-    }
-
-    /// <summary>
-    /// Perpendicular distance to the cut line of a diagonal tile, positive on the open side.
-    /// Returns false if the tile is not a diagonal at all. Which half is open is defined in
-    /// UWLevelMeshBuilder: for diagonal_se the corner -x/+z is missing, so the cut runs along
-    /// +x/+z to -x/-z.
-    /// </summary>
-    private static bool fTryGetDiagonalDistance(UWTile.TileTypeEnum peTileType, int piTileX, int piTileY, Vector3 pOWorldPosition, out float pfDistance)
-    {
-        pfDistance = 0f;
-
-        float lfX = pOWorldPosition.x - (piTileX * UWLevelMeshBuilder.TileSpacing);
-        float lfZ = pOWorldPosition.z - (piTileY * UWLevelMeshBuilder.TileSpacing);
-
-        const float DiagonalScale = 0.70710678f;
-        float lfLine;
-
-        switch (peTileType)
-        {
-            case UWTile.TileTypeEnum.diagonal_se:
-                lfLine = (lfX - lfZ) * DiagonalScale;
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_nw:
-                lfLine = (lfZ - lfX) * DiagonalScale;
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_ne:
-                lfLine = (lfX + lfZ) * DiagonalScale;
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_sw:
-                lfLine = -(lfX + lfZ) * DiagonalScale;
-                break;
-
-            default:
-                return false;
-        }
-
-        // The cut line is infinite, the solid triangle is not: whoever stands OUTSIDE the tile
-        // on the solid side of the line is still at least as far away as from the tile
-        // square (per user, 2026-09-12: the vampire bat never got out of its chamber).
-        float lfOutsideX = Mathf.Max(0f, Mathf.Abs(lfX) - UWLevelMeshBuilder.TileHalfSize);
-        float lfOutsideZ = Mathf.Max(0f, Mathf.Abs(lfZ) - UWLevelMeshBuilder.TileHalfSize);
-        float lfBox = Mathf.Sqrt((lfOutsideX * lfOutsideX) + (lfOutsideZ * lfOutsideZ));
-
-        pfDistance = Mathf.Max(lfLine, lfBox);
-
-        return true;
-    }
-
-    /// <summary>
-    /// How many of the four probes around a spot lie on DRY LAND - the measure of how close a
-    /// water creature is to the bank. NOT A HARD RULE like walls and drops but a DIRECTION
-    /// rule: a step must not bring the creature closer to the bank than it already is (per
-    /// user on the original, 2026-09-16: it keeps its distance, but it moves).
-    /// </summary>
-    private int fGetShoreFailures(Vector3 pOWorldPosition)
-    {
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfShore = lOSettings != null ? lOSettings.CritterShoreClearance : 16f;
-
-        if (!mbSwimming || lfShore <= 0f)
-            return 0;
-
-        // A HIGH EDGE COUNTS FROM FURTHER AWAY than a flat bank (per user, 2026-09-16).
-        float lfHigh = lOSettings != null ? lOSettings.SwimmerHighEdgeClearance : 24f;
-
-        int liFailures = fIsWaterAtProbe(pOWorldPosition, new Vector3(1f, 0f, 0f), lfShore, lfHigh) ? 0 : 1;
-
-        liFailures += fIsWaterAtProbe(pOWorldPosition, new Vector3(-1f, 0f, 0f), lfShore, lfHigh) ? 0 : 1;
-        liFailures += fIsWaterAtProbe(pOWorldPosition, new Vector3(0f, 0f, 1f), lfShore, lfHigh) ? 0 : 1;
-        liFailures += fIsWaterAtProbe(pOWorldPosition, new Vector3(0f, 0f, -1f), lfShore, lfHigh) ? 0 : 1;
-
-        return liFailures;
-    }
-
-    /// <summary>Water in this direction? Checked twice: at the normal shore distance, and at
-    /// the larger one for a HIGH edge - a solid tile or a floor more than one height level
-    /// above the water.</summary>
-    private bool fIsWaterAtProbe(Vector3 pOWorldPosition, Vector3 pODirection, float pfShore, float pfHigh)
-    {
-        if (!fIsProbeInWater(pOWorldPosition + (pODirection * pfShore)))
-            return false;
-
-        if (pfHigh <= pfShore)
-            return true;
-
-        UWTile lOTile = fGetTileAt(pOWorldPosition + (pODirection * pfHigh));
-
-        if (lOTile == null)
-            return true;
-
-        return lOTile.TileType != UWTile.TileTypeEnum.solid
-            && lOTile.FloorHeight <= fGetFloorHeight(pOWorldPosition) + UWTile.HeightLevel;
-    }
-
-    /// <summary>Is there water at this spot? Outside the map or without level data the answer
-    /// is yes, so a missing tile never pushes a creature around.</summary>
-    private bool fIsProbeInWater(Vector3 pOWorldPosition)
-    {
-        UWTile lOTileData = fGetTileAt(pOWorldPosition);
-
-        return lOTileData == null || fIsWater(lOTileData);
-    }
-
-    /// <summary>
-    /// The drowning test of the land creature's motion callback (seg006_1477_476, asm lines
-    /// 41418-41421: "mov ax, [si]; and ax, 0F8h; cmp ax, 10h"). Of the five terrain and
-    /// footing bits only the water bit 0x10 may stand: 0x08 plain floor, 0x20 lava, 0x40 the
-    /// fourth terrain and 0x80 "standing on an object" must all be clear. Here the tile says
-    /// whether it is water, and the standing height says whether something carries the
-    /// creature - the bridge probe of fCanStandAt raises it above the tile floor, which is
-    /// this port's stand-in for bit 0x80: on a bridge over the water nothing drowns.
-    ///
-    /// Only land creatures ask. A flier's callback (seg006_1477_5FE) and a swimmer's
-    /// (seg006_1477_65E) have no water branch at all - the swimmer's handler word 0 = 0x0010
-    /// even drops the water bit before the callback is reached.
-    /// </summary>
-    private bool fIsDrowningAt(Vector3 pOWorldPosition)
-    {
-        UWTile lOTileData = fGetTileAt(pOWorldPosition);
-
-        if (lOTileData == null)
-            return false;
-
-        bool lbOnObject = pOWorldPosition.y > lOTileData.FloorHeight + StandingOnObjectTolerance;
-
-        return UWCritterRules.Drowns(fIsWater(lOTileData), lbOnObject, mbSwimming, mbFlying);
+        UWCreatureMotion.Push(mORecord, piHeading, piSpeed, piVz);
+        fTrace("pushed: heading {0}, speed {1}", mORecord.FineHeading, mORecord.Speed);
     }
 
     private bool fIsWater(UWTile pOTileData)
@@ -3658,102 +2730,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return mODamageable != null && UWDamageTypes.Scale(mODamageable.Resistances, 1, UWDamageTypes.Fire) == 0;
     }
 
-    /// <summary>
-    /// THE PLAYER IS AN OBSTACLE - the pre-check only (deviation 10): creatures set their
-    /// position directly; if one ran into the player, his CharacterController pushed him out
-    /// of the overlap, at a wall even out of the level (per user, 2026-09-12). A creature
-    /// never gets closer to the player than the sum of both radii; whoever is not fighting
-    /// does not even enter his tile. Moving away is always allowed. The refused step reaches
-    /// the brain as a collision with item 0x7F, which sets the blocked bit like a wall.
-    /// </summary>
-    private bool fIsBlockedByPlayer(Vector3 pOWorldPosition)
-    {
-        if (!fEnsurePlayer() || mOLevelLoader == null)
-            return false;
-
-        Vector3 lOPlayer = mOPlayerTransform.position;
-        Vector3 lOToTarget = pOWorldPosition - lOPlayer;
-        Vector3 lOToMe = mOBody - lOPlayer;
-        lOToTarget.y = 0f;
-        lOToMe.y = 0f;
-
-        if (lOToTarget.sqrMagnitude >= lOToMe.sqrMagnitude)
-            return false;
-
-        int liGoal = mORecord != null ? mORecord.Goal : 0;
-        bool lbFighting = liGoal == GoalAttack || liGoal == GoalDistanceAttack || liGoal == GoalWithdraw
-            || liGoal == GoalFollow || liGoal == GoalTalk;
-
-        if (!lbFighting
-            && mOLevelLoader.WorldPositionToTile(pOWorldPosition) == mOLevelLoader.WorldPositionToTile(lOPlayer))
-            return true;
-
-        if (mOPlayerBody == null)
-            mOPlayerBody = mOPlayerTransform.GetComponentInParent<CharacterController>();
-
-        Collider lOMine = GetComponent<Collider>();
-        float lfMine = lOMine != null ? Mathf.Max(lOMine.bounds.extents.x, lOMine.bounds.extents.z) : 12f;
-        float lfTheirs = mOPlayerBody != null ? mOPlayerBody.radius : 12f;
-        float lfMinimum = lfMine + lfTheirs;
-
-        return lOToTarget.sqrMagnitude < lfMinimum * lfMinimum;
-    }
-
-    /// <summary>
-    /// Another creature's body in the way (ScanForCollisions: every object with COMOBJ height
-    /// counts, creatures included): the step is refused when it would bring this body closer
-    /// than the sum of both COMOBJ radii to another creature that it is not already that
-    /// close to. The brain then decides - two attackers bumping is nothing, anyone else sets
-    /// the blocked bit (NPC_Goto 46880-46937).
-    /// </summary>
-    private UWCritter fBlockingCreature(Vector3 pOWorldPosition)
-    {
-        int liOwnRadius;
-        int liOwnHeight;
-        fGetOwnSize(out liOwnRadius, out liOwnHeight);
-
-        for (int liAt = 0; liAt < msActive.Count; liAt++)
-        {
-            UWCritter lOOther = msActive[liAt];
-
-            if (lOOther == null || lOOther == this || lOOther.mbRemoved
-                || (lOOther.mODamageable != null && lOOther.mODamageable.IsDestroyed))
-                continue;
-
-            int liOtherRadius;
-            int liOtherHeight;
-            lOOther.fGetOwnSize(out liOtherRadius, out liOtherHeight);
-
-            float lfMinimum = (liOwnRadius + liOtherRadius) * WorldUnitsPerEighth;
-
-            Vector3 lOToTarget = pOWorldPosition - lOOther.mOBody;
-            Vector3 lOToMe = mOBody - lOOther.mOBody;
-            lOToTarget.y = 0f;
-            lOToMe.y = 0f;
-
-            if (lOToTarget.sqrMagnitude >= lfMinimum * lfMinimum || lOToTarget.sqrMagnitude >= lOToMe.sqrMagnitude)
-                continue;
-
-            if (Mathf.Abs(pOWorldPosition.y - lOOther.mOBody.y) > Mathf.Max(liOwnHeight, liOtherHeight) * UWWorldScale.ZPosStep)
-                continue;
-
-            return lOOther;
-        }
-
-        return null;
-    }
-
-    /// <summary>Does a force field block this step? Per UW.EXE every object with COMOBJ
-    /// height gets a box of tile * 8 + sub-position +- radius; the force field's COMOBJ byte
-    /// 3 bit 2 is not set, so it blocks creatures too. Only the step INTO it is blocked.</summary>
-    private bool fIsBlockedByForceField(Vector3 pOWorldPosition)
-    {
-        if (mOLevelLoader == null || mOLevelLoader.CurrentLevel == null)
-            return false;
-
-        return fOverlapsForceField(pOWorldPosition) && !fOverlapsForceField(mOBody);
-    }
-
     /// <summary>Radius and height from COMOBJ.DAT, in the original's units - eighths of a tile
     /// and zpos steps.</summary>
     private void fGetOwnSize(out int piRadius, out int piHeight)
@@ -3774,85 +2750,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     {
         return mOLevelLoader != null && mOLevelLoader.UWDataImporter != null
             ? mOLevelLoader.UWDataImporter.CommonObjectProperties : null;
-    }
-
-    private bool fOverlapsForceField(Vector3 pOWorldPosition)
-    {
-        int liOwnRadius;
-        int liOwnHeight;
-        fGetOwnSize(out liOwnRadius, out liOwnHeight);
-
-        UWCommonObjectProperties lOCommon = fCommonProperties();
-
-        int liFineX = UWViewpoint.WorldToOriginalX(pOWorldPosition.x) >> 5;
-        int liFineY = UWViewpoint.WorldToOriginalY(pOWorldPosition.z) >> 5;
-        int liZ = Mathf.RoundToInt(pOWorldPosition.y / UWObjectSpawner.HeightScale);
-
-        int liTileMinX = Mathf.Max(0, (liFineX - liOwnRadius) >> 3);
-        int liTileMaxX = Mathf.Min(UWLevelMeshBuilder.TilesPerAxis - 1, (liFineX + liOwnRadius) >> 3);
-        int liTileMinY = Mathf.Max(0, (liFineY - liOwnRadius) >> 3);
-        int liTileMaxY = Mathf.Min(UWLevelMeshBuilder.TilesPerAxis - 1, (liFineY + liOwnRadius) >> 3);
-
-        for (int liTileY = liTileMinY; liTileY <= liTileMaxY; liTileY++)
-        {
-            for (int liTileX = liTileMinX; liTileX <= liTileMaxX; liTileX++)
-            {
-                UWTile lOTile = fGetTileAt(liTileX, liTileY);
-
-                if (lOTile == null || lOTile.ObjectsInTile == null)
-                    continue;
-
-                foreach (UWObject lOObject in lOTile.ObjectsInTile)
-                {
-                    if (lOObject == null || lOObject.ID != ForceFieldObjectId)
-                        continue;
-
-                    int liRadius = FallbackForceFieldRadius;
-                    int liHeight = FallbackForceFieldHeight;
-
-                    if (lOCommon != null && lOCommon.TryGet(lOObject.ID, out UWCommonObjectProperties.Entry lOField))
-                    {
-                        liRadius = lOField.Radius;
-                        liHeight = lOField.Height;
-                    }
-
-                    int liFieldX = (liTileX * 8) + lOObject.XPos;
-                    int liFieldY = (liTileY * 8) + lOObject.YPos;
-
-                    bool lbHorizontal = liFineX + liOwnRadius >= liFieldX - liRadius
-                        && liFineX - liOwnRadius <= liFieldX + liRadius
-                        && liFineY + liOwnRadius >= liFieldY - liRadius
-                        && liFineY - liOwnRadius <= liFieldY + liRadius;
-
-                    bool lbVertical = liZ + liOwnHeight >= lOObject.ZPos && liZ <= lOObject.ZPos + liHeight;
-
-                    if (lbHorizontal && lbVertical)
-                        return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// A CLOSED DOOR blocks its tile - reported to the brain as the object hit, which tries,
-    /// picks or bashes it when hostile (spec 7.5; before the rebuild the door blocked everyone
-    /// silently and no creature ever opened one). The tile the creature already stands on
-    /// stays free, otherwise it would be stuck when the door closes behind it.
-    /// </summary>
-    private UWObject fBlockingDoor(Vector3 pOWorldPosition, UWTile pOTileData)
-    {
-        if (pOTileData == null || mOLevelLoader == null)
-            return null;
-
-        UWTilePos lOTarget = mOLevelLoader.WorldPositionToTile(pOWorldPosition);
-        UWTilePos lOMine = mOLevelLoader.WorldPositionToTile(mOBody);
-
-        if (lOTarget == lOMine)
-            return null;
-
-        return fFindClosedDoor(pOTileData);
     }
 
     /// <summary>The closed door among a tile's objects, or null. Open doors and open
@@ -4015,31 +2912,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         }
 
         return lOText.ToString();
-    }
-
-    /// <summary>For debugging only (CritterLogBlockedSteps): why a step failed, at most once
-    /// per second per creature. Always false, so a probe can return it.</summary>
-    private bool fBlocked(BlockKindEnum peKind, string psReason, Vector3 pOWorldPosition, ref BlockInfo pOBlock)
-    {
-        pOBlock.Kind = peKind;
-        pOBlock.Reason = psReason;
-
-        fTrace("step refused: {0}", psReason);
-
-        UWSettings lOSettings = UWSettings.Instance;
-
-        if (lOSettings != null && lOSettings.CritterLogBlockedSteps && Time.time >= mfNextBlockLogTime && mOLevelLoader != null)
-        {
-            UWTilePos lOTile = mOLevelLoader.WorldPositionToTile(pOWorldPosition);
-            UWTilePos lOMine = mOLevelLoader.WorldPositionToTile(mOBody);
-
-            mfNextBlockLogTime = Time.time + 1f;
-
-            Debug.Log(string.Format("[Critter] {0} (goal {1}, {2}) cannot get from tile {3}/{4} onto {5}/{6}: {7}.",
-                name, mORecord != null ? mORecord.Goal : 0, mbFlying ? "flies" : "walks", lOMine.X, lOMine.Y, lOTile.X, lOTile.Y, psReason));
-        }
-
-        return false;
     }
 
     /// <summary>The record as the F1 overlay shows it (see UWDebugOverlay.fAppendNearestCritter):

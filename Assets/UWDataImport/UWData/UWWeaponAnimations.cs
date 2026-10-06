@@ -29,7 +29,7 @@ namespace UWDataImport.UWData
 		private void fLoadWeaponCoordinates(string psDataPath)
 		{
 			mFrameCoordinates = new List<WeaponCoordinate>();
-			byte[] array = File.ReadAllBytes($"{psDataPath}\\Weapons.dat");
+			byte[] array = File.ReadAllBytes(Path.Combine(psDataPath, "WEAPONS.DAT"));
 			int num = 0;
 			for (int i = 0; i < 8; i++)
 			{

@@ -501,16 +501,6 @@ namespace UWDataImport.UWData
 			return (piTileState & TileStateFootingMask) == TileStateWaterOnly;
 		}
 
-		/// <summary>The same rule for a host that has no tile-state word but knows the two
-		/// facts it stands for: deep water under the creature, and whether something carries
-		/// it (the original's bit 0x80).</summary>
-		public static bool Drowns(bool pbInDeepWater, bool pbStandsOnObject, bool pbSwimmer, bool pbFlier)
-		{
-			int liState = (pbInDeepWater ? TileStateWaterOnly : 0x08) | (pbStandsOnObject ? 0x80 : 0);
-
-			return Drowns(liState, pbSwimmer, pbFlier);
-		}
-
 		/// <summary>Death sound 6 plays when table byte 8 &amp; 7 == 1 (Death_seg007_1798_35CB,
 		/// label 35F3).</summary>
 		public const int DeathSound = 6;
@@ -718,39 +708,6 @@ namespace UWDataImport.UWData
 			int liD = ((piDefenderFacing & 7) + 12 - (piAttackerFacing & 7)) & 7;
 
 			return liD <= 4 ? liD : 8 - liD;
-		}
-
-		/// <summary>A heading more than this away from the wall's direction (fine heading units,
-		/// 256 a circle; 0x3000 of the 16-bit angle, 67.5 degrees) hits the wall head-on: no
-		/// deflection.</summary>
-		public const int HeadOnWallLimit = 0x30;
-
-		/// <summary>
-		/// THE WALL DEFLECTION of a creature's step (seg030_2B26_A47, 104317; per user,
-		/// 2026-09-28: Biden, wandering diagonally, kept walking into the corridor walls). The
-		/// physics hands in the direction the wall runs; if it points more than a quarter turn
-		/// away from the heading it is turned round, so it is the wall direction nearer the
-		/// heading. More than 67.5 degrees from it (head-on) nothing is deflected and the step is
-		/// a collision; otherwise a creature's heading simply BECOMES the wall direction - no
-		/// mirror, that is for missiles - and the step goes on along the wall. A heading already
-		/// along the wall is left to the sub-tile snap of the original, which is not built.
-		/// </summary>
-		public static bool TryDeflectAlongWall(int piFineHeading, int piWallDirection, out int piNewHeading)
-		{
-			int liWall = piWallDirection & 0xFF;
-			int liDiff = (sbyte)(byte)((liWall - piFineHeading) & 0xFF);
-
-			if (liDiff > QuarterTurn || liDiff < -QuarterTurn)
-			{
-				liWall = (liWall + 0x80) & 0xFF;
-				liDiff = (sbyte)(byte)((liWall - piFineHeading) & 0xFF);
-			}
-
-			piNewHeading = liWall;
-
-			int liAbsolute = liDiff < 0 ? -liDiff : liDiff;
-
-			return liAbsolute != 0 && liAbsolute <= HeadOnWallLimit;
 		}
 
 		/// <summary>

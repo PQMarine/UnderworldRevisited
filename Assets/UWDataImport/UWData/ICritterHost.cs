@@ -64,9 +64,10 @@ namespace UWDataImport.UWData
 	}
 
 	/// <summary>
-	/// What the last physical step left behind - the per-update globals of the original
-	/// (spec 2.4, 7.3). The host fills it when it applies a Motion and hands it to the next
-	/// Update; a creature that did not move reports an empty result.
+	/// What the physical step of an update left behind - the per-update globals of the
+	/// original (spec 2.4, 7.3). The motion core fills it (UWCreatureMotion.Step, called by the
+	/// host's RunMotion inside the update); a creature that did not move reports an empty
+	/// result.
 	/// </summary>
 	public struct StepResult
 	{
@@ -105,6 +106,23 @@ namespace UWDataImport.UWData
 
 		/// <summary>dseg_5c99_2462: a flier touched the ceiling.</summary>
 		public bool TouchedCeiling;
+
+		/// <summary>The step left the tile: the record holds the new one, OldTileX/Y the old,
+		/// and the host relinks the object's tile list (ApplyProjectileMotion's relink).</summary>
+		public bool TileChanged;
+
+		public int OldTileX;
+
+		public int OldTileY;
+
+		/// <summary>The lava roll of the write-back came up (1 in 5 on a moving update on lava):
+		/// one point of plain fire, type 8 - the host applies it to the body.</summary>
+		public bool LavaBurn;
+
+		/// <summary>The impact of the step above 0x100, in units of 0x100 (ApplyProjectileMotion's
+		/// DamageObject with type 0). For a creature the original overwrites the hit points with
+		/// the params' value right after, so nothing lasts; reported for the trace.</summary>
+		public int ImpactDamage;
 	}
 
 	/// <summary>
@@ -193,8 +211,15 @@ namespace UWDataImport.UWData
 		bool TryGetNextPathTile(int piToTileX, int piToTileY, int piRangeBudget, bool pbMayOpenDoors,
 			out int piNextTileX, out int piNextTileY);
 
-		/// <summary>The outcome of the step the host applied before this update.</summary>
-		StepResult LastStep { get; }
+		/// <summary>
+		/// The physics of this update (NPCInitialProcessing 52702-52990: NeedsToMove, the params,
+		/// the pre-state, the step on the core, the write-back), called by the brain after the
+		/// distance cull and the path bookkeeping and before the step's verdict - the order of
+		/// the original. The host runs UWCreatureMotion.Step on its record, relinks the tile
+		/// list, applies the lava burn and moves the body to the record's new position; the
+		/// result is what the step left behind.
+		/// </summary>
+		StepResult RunMotion();
 
 		/// <summary>Goal 3's teleport (48458-48471): put the body on this tile at its centre
 		/// and floor, relink it. The host's walkability check (deviation 37) may refuse; the

@@ -63,6 +63,28 @@ public class UWSetupMenu : MonoBehaviour
     /// clicks meanwhile (UWMainMenu).</summary>
     public static bool IsCapturingInput { get; private set; }
 
+    /// <summary>One of the bar's menus or dialogs is open - the in-game menus under it stand
+    /// back then (UWModernHud, UWHudOptions).</summary>
+    public static bool HasOpenPanel { get; private set; }
+
+    /// <summary>
+    /// THE BAR IN THE GAME (per user, 2026-10-06: "dann muss man nicht immer ins Hauptmenue"):
+    /// while the modern scheme's game menu (Escape) or the classic options panel is open, the
+    /// bar stays folded out over it, with everything it offers. Outside those, as before: only
+    /// over the main menu, and folded out by the mouse at the top.
+    /// </summary>
+    private static bool fInGameMenuOpen()
+    {
+        UWModernHud lOModern = UWModernHud.Instance;
+
+        if (lOModern != null && lOModern.ShowsMenuPage)
+            return true;
+
+        UWGameUI lOGameUi = UWScene.GameUi;
+
+        return lOGameUi != null && lOGameUi.IsOptionsOpen;
+    }
+
     private DataImport mOData;
 
     private RectTransform mOFrame;
@@ -88,6 +110,8 @@ public class UWSetupMenu : MonoBehaviour
     private bool mbColoursDialogOpen;
 
     private bool mbSoundDialogOpen;
+
+    private bool mbMotionDialogOpen;
 
     private bool mbDisplayDialogOpen;
 
@@ -134,12 +158,27 @@ public class UWSetupMenu : MonoBehaviour
         msMainMenuInstance.mOFrame = pOFrame;
     }
 
+    /// <summary>
+    /// THE BAR EXISTS IN THE GAME TOO (2026-10-06, per user: it was not visible in either scheme).
+    /// Loading a save or starting a character reloads the scene, which destroyed the "Menu Bar"
+    /// object made for the main menu, and nothing made it again - the bar only ever came back
+    /// with the main menu. The level loader asks for it when a level is up; without the main
+    /// menu's frame the effects screen of the Very high detail is not offered (fChooseLevel).
+    /// </summary>
+    public static void EnsureInGame(DataImport pOData)
+    {
+        EnsureForMainMenu(pOData, null);
+    }
+
     private void OnDestroy()
     {
-        if (msMainMenuInstance == this)
+        if (msMainMenuInstance == this || mbFirstRun)
         {
-            msMainMenuInstance = null;
+            if (msMainMenuInstance == this)
+                msMainMenuInstance = null;
+
             IsCapturingInput = false;
+            HasOpenPanel = false;
         }
 
         fClearFlaskPreview();
@@ -161,6 +200,11 @@ public class UWSetupMenu : MonoBehaviour
         {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
+
+            // The folder dialog is a panel too: Tab must not open the help over it (seen on
+            // Linux, 2026-10-06).
+            IsCapturingInput = true;
+            HasOpenPanel = true;
         }
         else
         {
@@ -190,7 +234,9 @@ public class UWSetupMenu : MonoBehaviour
             return;
         }
 
-        if (!UWMainMenu.AcceptsMenuBar)
+        bool lbInGameMenu = fInGameMenuOpen();
+
+        if (!UWMainMenu.AcceptsMenuBar && !lbInGameMenu)
         {
             mbBarShown = false;
             meOpenMenu = MenuEnum.None;
@@ -198,7 +244,10 @@ public class UWSetupMenu : MonoBehaviour
             mbControlsDialogOpen = false;
             mbDisplayDialogOpen = false;
             mbColoursDialogOpen = false;
+            mbMotionDialogOpen = false;
+            mbSoundDialogOpen = false;
             IsCapturingInput = false;
+            HasOpenPanel = false;
 
             return;
         }
@@ -208,14 +257,15 @@ public class UWSetupMenu : MonoBehaviour
         float lfMouseY = lOMouse != null ? (Screen.height - lOMouse.position.ReadValue().y) / lfScale : ReferenceHeight;
 
         bool lbSomethingOpen = meOpenMenu != MenuEnum.None || mbFolderDialogOpen || mbControlsDialogOpen
-            || mbColoursDialogOpen || mbSoundDialogOpen || mbDisplayDialogOpen;
+            || mbColoursDialogOpen || mbSoundDialogOpen || mbDisplayDialogOpen || mbMotionDialogOpen;
 
-        if (lfMouseY <= RevealZone)
+        if (lfMouseY <= RevealZone || lbInGameMenu)
             mbBarShown = true;
         else if (!lbSomethingOpen && lfMouseY > BarHeight)
             mbBarShown = false;
 
         IsCapturingInput = lbSomethingOpen || (mbBarShown && lfMouseY <= BarHeight);
+        HasOpenPanel = lbSomethingOpen;
     }
 
     private void fChooseLevel(UWGraphicsDetail.LevelEnum peLevel)
@@ -241,6 +291,7 @@ public class UWSetupMenu : MonoBehaviour
         mbColoursDialogOpen = true;
         mbSoundDialogOpen = false;
         mbDisplayDialogOpen = false;
+        mbMotionDialogOpen = false;
         meOpenMenu = MenuEnum.None;
     }
 
@@ -417,6 +468,7 @@ public class UWSetupMenu : MonoBehaviour
         mbControlsDialogOpen = true;
         mbSoundDialogOpen = false;
         mbDisplayDialogOpen = false;
+        mbMotionDialogOpen = false;
         meOpenMenu = MenuEnum.None;
         mOListeningFor = null;
         msBindingNotice = string.Empty;
@@ -508,6 +560,35 @@ public class UWSetupMenu : MonoBehaviour
         if (Mathf.RoundToInt(lfInterval * 1000f) != Mathf.RoundToInt(lfBefore * 1000f))
         {
             UWUserSettings.EasyMovementInterval = lfInterval;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+
+        // THE MOUSE LOOK'S SPEED of the modern scheme (per user, 2026-10-06: "sehr direkt"),
+        // a factor on the tuned default in steps of five per cent, the same row as above.
+        float lfSpeedStep = UWUserSettings.MouseLookSpeedStep;
+        float lfSpeedBefore = UWUserSettings.MouseLookSpeed;
+
+        GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Mouse look speed (modern)", mOListLabel);
+
+        float lfSpeed = GUI.HorizontalSlider(new Rect(lfLeft + 230f, lfTop + 8f, lfInner - 400f, 20f),
+            lfSpeedBefore, UWUserSettings.MinMouseLookSpeed, UWUserSettings.MaxMouseLookSpeed);
+
+        lfSpeed = Mathf.Round(lfSpeed / lfSpeedStep) * lfSpeedStep;
+
+        if (GUI.Button(new Rect(lfLeft + lfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
+            lfSpeed = lfSpeedBefore - lfSpeedStep;
+
+        if (GUI.Button(new Rect(lfLeft + lfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
+            lfSpeed = lfSpeedBefore + lfSpeedStep;
+
+        GUI.Label(new Rect(lfLeft + lfInner - 95f, lfTop, 95f, 26f),
+            Mathf.RoundToInt(lfSpeed * 100f) + " %", mOListLabel);
+
+        if (Mathf.RoundToInt(lfSpeed * 100f) != Mathf.RoundToInt(lfSpeedBefore * 100f))
+        {
+            UWUserSettings.MouseLookSpeed = lfSpeed;
             UWUserSettings.Save();
         }
 
@@ -610,7 +691,7 @@ public class UWSetupMenu : MonoBehaviour
 
         // Over the main menu only while it shows its buttons or the save list, and only when
         // folded out; the effects screen covers everything by itself.
-        if (!mbFirstRun && (!mbBarShown || !UWMainMenu.AcceptsMenuBar || (mOEffects != null && mOEffects.IsOpen)))
+        if (!mbFirstRun && (!mbBarShown || (!UWMainMenu.AcceptsMenuBar && !fInGameMenuOpen()) || (mOEffects != null && mOEffects.IsOpen)))
             return;
 
         if (mbFirstRun)
@@ -633,6 +714,9 @@ public class UWSetupMenu : MonoBehaviour
 
         if (mbSoundDialogOpen)
             fDrawSoundDialog(lfWidth);
+
+        if (mbMotionDialogOpen)
+            fDrawMotionDialog(lfWidth);
 
         if (mbDisplayDialogOpen)
             fDrawDisplayDialog(lfWidth);
@@ -658,11 +742,27 @@ public class UWSetupMenu : MonoBehaviour
         if (mbFirstRun)
             return;
 
-        if (fBarItem(new Rect(lOGame.xMax, 0f, 90f, BarHeight), "Graphics", meOpenMenu == MenuEnum.Graphics))
+        // THE MOTION SECOND, right after Game (per user, 2026-10-06: "eine sehr wichtige
+        // Einstellung"): the player's motion and the picture of it, with the explanations.
+        if (fBarItem(new Rect(lOGame.xMax, 0f, 90f, BarHeight), "Motion", mbMotionDialogOpen))
+        {
+            mbMotionDialogOpen = !mbMotionDialogOpen;
+
+            if (mbMotionDialogOpen)
+            {
+                meOpenMenu = MenuEnum.None;
+                mbControlsDialogOpen = false;
+                mbColoursDialogOpen = false;
+                mbDisplayDialogOpen = false;
+                mbSoundDialogOpen = false;
+            }
+        }
+
+        if (fBarItem(new Rect(lOGame.xMax + 90f, 0f, 90f, BarHeight), "Graphics", meOpenMenu == MenuEnum.Graphics))
             meOpenMenu = meOpenMenu == MenuEnum.Graphics ? MenuEnum.None : MenuEnum.Graphics;
 
         // Beside Graphics: window or fullscreen and the resolution (per user, 2026-09-26).
-        if (fBarItem(new Rect(lOGame.xMax + 90f, 0f, 90f, BarHeight), "Display", mbDisplayDialogOpen))
+        if (fBarItem(new Rect(lOGame.xMax + 180f, 0f, 90f, BarHeight), "Display", mbDisplayDialogOpen))
         {
             mbDisplayDialogOpen = !mbDisplayDialogOpen;
 
@@ -672,10 +772,11 @@ public class UWSetupMenu : MonoBehaviour
                 mbControlsDialogOpen = false;
                 mbColoursDialogOpen = false;
                 mbSoundDialogOpen = false;
+                mbMotionDialogOpen = false;
             }
         }
 
-        if (fBarItem(new Rect(lOGame.xMax + 180f, 0f, 90f, BarHeight), "Controls", mbControlsDialogOpen))
+        if (fBarItem(new Rect(lOGame.xMax + 270f, 0f, 90f, BarHeight), "Controls", mbControlsDialogOpen))
         {
             if (mbControlsDialogOpen)
                 mbControlsDialogOpen = false;
@@ -683,7 +784,7 @@ public class UWSetupMenu : MonoBehaviour
                 fOpenControlsDialog();
         }
 
-        if (fBarItem(new Rect(lOGame.xMax + 270f, 0f, 90f, BarHeight), "Sound", mbSoundDialogOpen))
+        if (fBarItem(new Rect(lOGame.xMax + 360f, 0f, 90f, BarHeight), "Sound", mbSoundDialogOpen))
         {
             mbSoundDialogOpen = !mbSoundDialogOpen;
 
@@ -693,10 +794,11 @@ public class UWSetupMenu : MonoBehaviour
                 mbControlsDialogOpen = false;
                 mbColoursDialogOpen = false;
                 mbDisplayDialogOpen = false;
+                mbMotionDialogOpen = false;
             }
         }
 
-        if (fBarItem(new Rect(lOGame.xMax + 360f, 0f, 90f, BarHeight), "Colours", mbColoursDialogOpen))
+        if (fBarItem(new Rect(lOGame.xMax + 450f, 0f, 90f, BarHeight), "Colours", mbColoursDialogOpen))
         {
             if (mbColoursDialogOpen)
                 mbColoursDialogOpen = false;
@@ -717,6 +819,175 @@ public class UWSetupMenu : MonoBehaviour
     /// THE DETAIL LEVELS of the original's panel are deliberately not repeated here: ours mean
     /// something else and sit under Graphics (per user, same day).
     /// </summary>
+    // ------------------------------------------------- Motion
+
+    /// <summary>
+    /// THE MOTION DIALOG (2026-10-06, per user: the motion switches "brauchen auf jeden Fall eine
+    /// Erklaerung", "ein eigener Menuepunkt"). The player's motion is UW.EXE's own code in its
+    /// units (UWPlayerMotion on UWMotionCore); these rows choose how often it runs and how the
+    /// picture follows it, and say what each choice does - above all that in the Original mode
+    /// more frames a second do NOT move faster but a little slower, because every call rounds
+    /// down (the user: "Mir ist nicht sofort klar, dass mehr fps weniger Bewegung bedeutet").
+    /// The head bob and the weapon's jitter moved here from the Graphics menu the same day.
+    /// Everything is read every frame and takes effect at once.
+    /// </summary>
+    private void fDrawMotionDialog(float pfWidth)
+    {
+        float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
+        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 30f, lfDialogWidth, 680f);
+
+        fFill(lODialog, PanelColour);
+
+        float lfLeft = lODialog.x + 20f;
+        float lfInner = lODialog.width - 40f;
+        float lfTop = lODialog.y + 16f;
+
+        // The row helpers measure from a panel's left edge plus 8 and its width less 116.
+        Rect lORows = new Rect(lfLeft - 8f, 0f, lfInner + 16f, 0f);
+
+        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Motion", mOLabel);
+        lfTop += 28f;
+
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "How you move. The game uses the movement code of the original. Here you choose how often it calculates and how the picture follows.") + 10f;
+
+        bool lbSmooth = fTwoWayRow(lORows, lfTop, "Motion", UWUserSettings.MotionSmooth, "Original", "Smooth");
+
+        if (lbSmooth != UWUserSettings.MotionSmooth)
+        {
+            UWUserSettings.MotionSmooth = lbSmooth;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "Original: calculates like the original, including its rounding. Smooth: the same rules without the rounding. Smooth moves the same at every frame rate and may be easier on the stomach.") + 10f;
+
+        // THE SMOOTH RAMP (per user, 2026-10-06: "die Verzoegerung beim Anlaufen und Abbremsen
+        // wirken dagegen"): how long starting and stopping take in Smooth. Greyed under Original
+        // (per user: a setting without effect is greyed), as the fps row is under Smooth.
+        GUI.enabled = UWUserSettings.MotionSmooth;
+        GUI.Label(new Rect(lfLeft, lfTop, 100f, 26f), "Response", mOListLabel);
+
+        int[] liRamps = UWUserSettings.SmoothRampChoices;
+        float lfRampWidth = (lORows.width - 116f) / liRamps.Length;
+
+        for (int liAt = 0; liAt < liRamps.Length; liAt++)
+        {
+            bool lbCurrent = UWUserSettings.SmoothRampTicks == liRamps[liAt];
+
+            if (GUI.Button(new Rect(lORows.x + 108f + (liAt * lfRampWidth), lfTop, lfRampWidth, 26f), UWUserSettings.SmoothRampLabels[liAt],
+                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
+            {
+                UWUserSettings.SmoothRampTicks = liRamps[liAt];
+                UWUserSettings.Save();
+            }
+        }
+
+        lfTop += 30f;
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "How long it takes to get going and to stop in Smooth. 0.6 s is the original on a slow PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for. Shorter feels more direct. Original uses its own frame rate for this.") + 10f;
+        GUI.enabled = true;
+
+        // The picture belongs to Original: Smooth is always even (greyed otherwise).
+        GUI.enabled = !UWUserSettings.MotionSmooth;
+
+        bool lbStepped = fTwoWayRow(lORows, lfTop, "Picture", UWUserSettings.MotionViewStepped, "Even", "Stepped");
+
+        if (lbStepped != UWUserSettings.MotionViewStepped)
+        {
+            UWUserSettings.MotionViewStepped = lbStepped;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "Only for Original. Even: the picture moves a little with every screen refresh. Stepped: the picture only moves when the game has calculated, like on an old PC. Smooth is always even.") + 10f;
+        GUI.enabled = true;
+
+        GUI.enabled = !UWUserSettings.MotionSmooth;
+        GUI.Label(new Rect(lfLeft, lfTop, 100f, 26f), "Original fps", mOListLabel);
+
+        int[] liChoices = UWUserSettings.OriginalFrameChoices;
+        float lfChoiceWidth = (lORows.width - 116f) / liChoices.Length;
+
+        for (int liAt = 0; liAt < liChoices.Length; liAt++)
+        {
+            bool lbCurrent = UWUserSettings.OriginalFrameTicks == liChoices[liAt];
+            string lsLabel = (256 / liChoices[liAt]).ToString();
+
+            if (GUI.Button(new Rect(lORows.x + 108f + (liAt * lfChoiceWidth), lfTop, lfChoiceWidth, 26f), lsLabel,
+                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
+            {
+                UWUserSettings.OriginalFrameTicks = liChoices[liAt];
+                UWUserSettings.Save();
+            }
+        }
+
+        lfTop += 30f;
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "How often per second the Original mode calculates. More is not faster. The original rounds down after every calculation, so with 64 you move a bit slower when swimming or walking backwards, and you reach full speed sooner. With 16 it is the other way round. 32 is like the original in DOSBox at 30000 cycles. Smooth does not use this setting.") + 12f;
+        GUI.enabled = true;
+
+        fFill(new Rect(lfLeft, lfTop, lfInner, 1f), SeparatorColour);
+        lfTop += 8f;
+
+        // THE HEAD BOB AND THE WEAPON'S JITTER (UWHeadBobRules), three ways each (per user,
+        // 2026-09-23): Off for everyone who cannot take it, Original, Smooth - ours - with a
+        // strength slider under it.
+        UWHeadBobRules.ModeEnum leBob = fMotionModeRow(lORows, lfTop, "Head bob", UWUserSettings.HeadBobMode);
+
+        if (leBob != UWUserSettings.HeadBobMode)
+        {
+            UWUserSettings.HeadBobMode = leBob;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+
+        if (UWUserSettings.HeadBobMode == UWHeadBobRules.ModeEnum.Smooth)
+        {
+            float lfBobStrength = fMotionStrengthRow(lORows, lfTop, UWUserSettings.HeadBobStrength);
+
+            if (lfBobStrength != UWUserSettings.HeadBobStrength)
+            {
+                UWUserSettings.HeadBobStrength = lfBobStrength;
+                UWUserSettings.Save();
+            }
+
+            lfTop += 30f;
+        }
+
+        UWHeadBobRules.ModeEnum leJitter = fMotionModeRow(lORows, lfTop, "Weapon", UWUserSettings.WeaponJitterMode);
+
+        if (leJitter != UWUserSettings.WeaponJitterMode)
+        {
+            UWUserSettings.WeaponJitterMode = leJitter;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+
+        if (UWUserSettings.WeaponJitterMode == UWHeadBobRules.ModeEnum.Smooth)
+        {
+            float lfJitterStrength = fMotionStrengthRow(lORows, lfTop, UWUserSettings.WeaponJitterStrength);
+
+            if (lfJitterStrength != UWUserSettings.WeaponJitterStrength)
+            {
+                UWUserSettings.WeaponJitterStrength = lfJitterStrength;
+                UWUserSettings.Save();
+            }
+
+            lfTop += 30f;
+        }
+
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "The bobbing of the view and the weapon while walking: like the original, smoothed with your own strength, or off if it makes you uneasy.");
+
+        if (GUI.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
+            mbMotionDialogOpen = false;
+    }
+
     // ------------------------------------------------- Display
 
     private Vector2 mODisplayScroll;
@@ -938,19 +1209,12 @@ public class UWSetupMenu : MonoBehaviour
             "Very high - own effects..."
         };
 
-        // The detail levels, and below them, set apart, the 4:3 switch.
+        // The detail levels, and below them, set apart, the 4:3 switch. The motion rows that
+        // followed (head bob, weapon jitter, the motion modes) moved to the Motion dialog of the
+        // bar on 2026-10-06 (per user: they need an explanation, "ein eigener Menuepunkt").
         const float AspectRowHeight = 36f;
 
-        // And under it the head bob, which changes the picture too and takes effect at once.
-        const float HeadBobRowHeight = 30f;
-
-        // Two switches of that kind, head bob and weapon jitter, each with one row more under
-        // Smooth for its strength slider (per user, not for Off and Original).
-        int liMotionRows = 2
-            + (UWUserSettings.HeadBobMode == UWHeadBobRules.ModeEnum.Smooth ? 1 : 0)
-            + (UWUserSettings.WeaponJitterMode == UWHeadBobRules.ModeEnum.Smooth ? 1 : 0);
-
-        Rect lOPanel = new Rect(78f, BarHeight, 300f, 8f + (lsItems.Length * 30f) + AspectRowHeight + (liMotionRows * HeadBobRowHeight));
+        Rect lOPanel = new Rect(168f, BarHeight, 300f, 8f + (lsItems.Length * 30f) + AspectRowHeight);
 
         fFill(lOPanel, PanelColour);
 
@@ -982,56 +1246,25 @@ public class UWSetupMenu : MonoBehaviour
         if (lbAspect != UWDisplayAspect.Enabled)
             UWDisplayAspect.Enabled = lbAspect;
 
-        // THE HEAD BOB AND THE WEAPON'S JITTER (UWHeadBobRules), three ways each (per user,
-        // 2026-09-23): Off for everyone who cannot take it, Original, Smooth - ours - with a
-        // strength slider under it. Read every frame, so each takes effect at once.
-        float lfRowTop = lfAspectTop + 6f + HeadBobRowHeight;
-
-        UWHeadBobRules.ModeEnum leBob = fMotionModeRow(lOPanel, lfRowTop, "Head bob", UWUserSettings.HeadBobMode);
-
-        if (leBob != UWUserSettings.HeadBobMode)
-        {
-            UWUserSettings.HeadBobMode = leBob;
-            UWUserSettings.Save();
-        }
-
-        lfRowTop += HeadBobRowHeight;
-
-        if (UWUserSettings.HeadBobMode == UWHeadBobRules.ModeEnum.Smooth)
-        {
-            float lfBobStrength = fMotionStrengthRow(lOPanel, lfRowTop, UWUserSettings.HeadBobStrength);
-
-            if (lfBobStrength != UWUserSettings.HeadBobStrength)
-            {
-                UWUserSettings.HeadBobStrength = lfBobStrength;
-                UWUserSettings.Save();
-            }
-
-            lfRowTop += HeadBobRowHeight;
-        }
-
-        UWHeadBobRules.ModeEnum leJitter = fMotionModeRow(lOPanel, lfRowTop, "Weapon", UWUserSettings.WeaponJitterMode);
-
-        if (leJitter != UWUserSettings.WeaponJitterMode)
-        {
-            UWUserSettings.WeaponJitterMode = leJitter;
-            UWUserSettings.Save();
-        }
-
-        lfRowTop += HeadBobRowHeight;
-
-        if (UWUserSettings.WeaponJitterMode == UWHeadBobRules.ModeEnum.Smooth)
-        {
-            float lfJitterStrength = fMotionStrengthRow(lOPanel, lfRowTop, UWUserSettings.WeaponJitterStrength);
-
-            if (lfJitterStrength != UWUserSettings.WeaponJitterStrength)
-            {
-                UWUserSettings.WeaponJitterStrength = lfJitterStrength;
-                UWUserSettings.Save();
-            }
-        }
-
         fCloseMenuOnOutsideClick(lOPanel);
+    }
+
+    /// <summary>A row with two choices in the style of fMotionModeRow; returns true for the
+    /// second one.</summary>
+    private bool fTwoWayRow(Rect pOPanel, float pfTop, string psLabel, bool pbSecond, string psFirst, string psSecond)
+    {
+        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 100f, 26f), psLabel, mOListLabel);
+
+        float lfButtonWidth = (pOPanel.width - 116f) / 2f;
+        bool lbResult = pbSecond;
+
+        if (GUI.Button(new Rect(pOPanel.x + 108f, pfTop, lfButtonWidth, 26f), psFirst, !pbSecond ? mOCurrentItem : mOListItem))
+            lbResult = false;
+
+        if (GUI.Button(new Rect(pOPanel.x + 108f + lfButtonWidth, pfTop, lfButtonWidth, 26f), psSecond, pbSecond ? mOCurrentItem : mOListItem))
+            lbResult = true;
+
+        return lbResult;
     }
 
     private void fCloseMenuOnOutsideClick(Rect pOPanel)
@@ -1050,8 +1283,14 @@ public class UWSetupMenu : MonoBehaviour
 
         fFill(lOPanel, PanelColour);
 
+        // The game folder only from the main menu: in the game (the bar over the in-game menus
+        // since 2026-10-06) a new folder would mean a new game.
+        GUI.enabled = UWMainMenu.AcceptsMenuBar;
+
         if (GUI.Button(new Rect(lOPanel.x, lOPanel.y + 4f, lOPanel.width, 30f), "Game folder...", mOListItem))
             fOpenFolderDialog();
+
+        GUI.enabled = true;
 
         // THE WHOLE OPENING AT STARTUP: the two company logos, the animated title and the
         // intro. Off it goes straight to the main menu, which is what one wants while testing
@@ -1132,12 +1371,18 @@ public class UWSetupMenu : MonoBehaviour
 
         foreach (string lsDrive in mODrives)
         {
-            string lsLabel = lsDrive.TrimEnd('\\', '/');
+            // The label: a Windows letter, or on Linux "/", "Home" and the mount's name - the
+            // button as wide as its label needs (UWGameFolderBrowser.GetDriveLabel).
+            string lsLabel = UWGameFolderBrowser.GetDriveLabel(lsDrive);
+            float lfButtonWidth = Mathf.Max(44f, 16f + (lsLabel.Length * 9f));
 
-            if (GUI.Button(new Rect(lfDriveLeft, lfTop, 44f, 26f), lsLabel, mOButton))
+            if (lfDriveLeft + lfButtonWidth > lfLeft + lfInner)
+                break;
+
+            if (GUI.Button(new Rect(lfDriveLeft, lfTop, lfButtonWidth, 26f), lsLabel, mOButton))
                 fBrowse(lsDrive);
 
-            lfDriveLeft += 50f;
+            lfDriveLeft += lfButtonWidth + 6f;
         }
 
         lfTop += 32f;

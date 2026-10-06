@@ -112,6 +112,38 @@ namespace UWDataImport
         {
             List<string> lODrives = new List<string>();
 
+            // ON LINUX (the first run in the user's Kubuntu VM, 2026-10-06) every mount point is a
+            // "drive" to .NET - dozens of snap loops and the system's own file systems, which
+            // overlapped as buttons. What a player wants there: the root, the home folder, and
+            // the disks and sticks mounted under /media, /run/media or /mnt.
+            if (Path.DirectorySeparatorChar == '/')
+            {
+                lODrives.Add("/");
+
+                string lsHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                if (!string.IsNullOrEmpty(lsHome) && Directory.Exists(lsHome))
+                    lODrives.Add(lsHome);
+
+                try
+                {
+                    foreach (DriveInfo lODrive in DriveInfo.GetDrives())
+                    {
+                        string lsRoot = lODrive.RootDirectory.FullName;
+
+                        if (lODrive.IsReady && (lsRoot.StartsWith("/media/") || lsRoot.StartsWith("/run/media/") || lsRoot.StartsWith("/mnt/"))
+                            && !lODrives.Contains(lsRoot))
+                            lODrives.Add(lsRoot);
+                    }
+                }
+                catch (Exception)
+                {
+                    // The root and the home folder suffice.
+                }
+
+                return lODrives;
+            }
+
             try
             {
                 foreach (DriveInfo lODrive in DriveInfo.GetDrives())
@@ -126,6 +158,28 @@ namespace UWDataImport
             }
 
             return lODrives;
+        }
+
+        /// <summary>The short name of a drive button: the Windows letter with its colon, "/" for
+        /// the Unix root, "Home" for the home folder, else the mount's own name.</summary>
+        public static string GetDriveLabel(string psDrive)
+        {
+            if (psDrive == "/")
+                return "/";
+
+            string lsHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+            if (!string.IsNullOrEmpty(lsHome) && psDrive.TrimEnd('/') == lsHome.TrimEnd('/'))
+                return "Home";
+
+            string lsTrimmed = psDrive.TrimEnd('\\', '/');
+
+            if (lsTrimmed.Length <= 2)
+                return lsTrimmed;
+
+            string lsName = Path.GetFileName(lsTrimmed);
+
+            return string.IsNullOrEmpty(lsName) ? lsTrimmed : lsName;
         }
 
         /// <summary>The name to show for an entry: the whole root for a drive, else the folder

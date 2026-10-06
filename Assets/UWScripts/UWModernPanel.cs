@@ -506,8 +506,10 @@ public class UWModernPanel : MonoBehaviour
         if (lOControls == null)
             return;
 
-        // TAB: the Help tab, not with Alt (switching programs) or Shift - as the help window.
-        if (lOControls.Player.ToggleHelp.WasPressedThisFrame() && !UWControls.IsShiftHeld && !UWControls.IsAltHeld)
+        // TAB: the Help tab, not with Alt (switching programs) or Shift - as the help window,
+        // and not under a setup-menu panel (the Game-folder dialog, UWSetupMenu).
+        if (lOControls.Player.ToggleHelp.WasPressedThisFrame() && !UWControls.IsShiftHeld && !UWControls.IsAltHeld
+            && !UWSetupMenu.HasOpenPanel)
         {
             if (mbOpen && meTab == TabEnum.Help)
                 Close();

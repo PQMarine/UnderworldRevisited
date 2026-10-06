@@ -23,32 +23,37 @@ say to each other.
 
 Per level one `UWCritterClock` and one `UWCritterAlarm`; per creature one `UWCritterRecord`
 (over its `UWNpc`), its `Critter` table row, and one `UWCritterBrain(record, row, objectIndex)`.
+Since stage 2 of the motion rework (2026-10-05) the physics is the engine-free
+`UWCreatureMotion` on the level's `IUWMotionWorld` (`UWProjectileWorld`), the same core the
+missiles fly on.
 
 Per frame:
 
-    units = clock.Advance(elapsedPitTicks, playerHasSpeedEnchantment)   ; 256 Hz ticks, about 3.9 ms each
-    if units == 0 or Freeze Time is on: return
+    units = clock.Advance(elapsedPitTicks, playerHasSpeedEnchantment, timeIsFrozen)   ; 256 Hz ticks, about 3.9 ms each
+    if units == 0: return                                 ; Freeze Time consumes the units and hands out none
     for each creature:
         while clock.IsDue(record.DueSlot):
-            apply the creature's stored Motion (section 3)   ; the physics of the PREVIOUS decision
-            host.LastStep = what that step did
-            motion = brain.Update(host)
+            motion = brain.Update(host)                   ; cull, path bookkeeping, host.RunMotion(), verdict, mind
             if motion.Removed: drop the creature; break
-            store motion
+            show motion.Animation / Frame
+    projectiles.RunDue(clock)
 
-The order matters: the original moves the body at the start of an update with the values the
-last goal routine left in the record, then decides anew (spec 1.4, step 6 before step 9).
-`Update` therefore expects the step to have happened and reads `LastStep`. A creature that was
-not due does nothing; between two due updates the host may interpolate the picture (section 3),
-but no decision, frame or step happens outside `Update`.
+`Update` runs the physics itself through `host.RunMotion()` at the point the original runs it
+(NPCInitialProcessing 52702-52990: after the distance cull and the path bookkeeping, before
+the step's verdict): the body moves with the values the last goal routine left in the record,
+then the mind decides anew (spec 1.4, step 6 before step 9). A creature that was not due does
+nothing; between two due updates the host may interpolate the picture (section 3), but no
+decision, frame or step happens outside `Update`.
 
 Elapsed PIT ticks: the host converts its frame time with 256 ticks per second. `Advance` clamps
 to 64 ticks (4 units) per frame, halves the units under Speed and keeps the odd one, and
-advances `Clock`, the PIT tick total the kin alarm compares against. Freeze Time is not the
-clock's business: the host skips the creature walk while it holds and lets the clock run.
+advances `Clock`, the PIT tick total the kin alarm compares against. Under Freeze Time the
+units are consumed and dropped, so the phase stands still and everything resumes in step
+(115082). The easy move's step or turn gives the world a fixed 64 ticks on top of the real
+time (`AdvanceFixedStep`, seg034_2F89_334), halved under Speed as well.
 
-`Culled` motions (creature beyond 10 tiles from the player, goal 3 exempt) carry nothing but
-the new `DueSlot`; the host applies no step and leaves the body as it is.
+`Culled` motions (creature beyond 10 tiles from the player and from the view, goal 3 exempt)
+carry nothing but the new `DueSlot`; no physics runs for them.
 
 ## 2. ICritterHost
 
@@ -69,7 +74,7 @@ clockwise, 64 = +X east), time in PIT ticks. No floats cross the boundary.
 | `bool HasLineOfSight(x0, y0, z0, x1, y1, z1)` | `TestBetweenPoints` semantics: a line in eighths with the height interpolated, blocked by the wall bits of the tiles crossed and where the height falls below the next tile's floor; doors do not block. The heights already include the object heights. `UWTilePath.HasClearTileLine` is the current approximation without heights (deviation 23, to be completed). |
 | `bool IsStraightLineClear(toX, toY)` | The straight tile line from the creature's tile to the destination is walkable for THIS creature (walker, flier or swimmer, water, lava with fire resistance, closed doors it could open). The original's `seg006_1477_1938`. |
 | `bool TryGetNextPathTile(toX, toY, rangeBudget, mayOpenDoors, out nextX, out nextY)` | The host's `UWTilePath` search from the creature's tile: the next tile towards the destination, false when there is none. `rangeBudget` is the original's path range (spent as costs on drops of more than one level and on lava, spec 7.4); `mayOpenDoors` says a closed door counts as passable. The host may cache a path and re-run it on its own schedule (deviation 14). |
-| `StepResult LastStep` | What the step before this update did (section 4). Empty when no step was applied. |
+| `StepResult RunMotion()` | The physics of this update: the step of the previous decision on `UWCreatureMotion` (NeedsToMove, the params from the record, the pre-state, the core with the kind's callback, the write-back into the record), the tile list relinked, the lava burn applied to the body, the body moved to the record. Returns what the step left behind (section 4). Called by the brain after the cull and the path bookkeeping. |
 | `bool Teleport(x, y)` | Goal 3: put the body on that tile (centre, floor height) and relink it; the host's walkability check may refuse (deviation 37). On true the brain writes tile, fine position 4/4 and zpos into the record. |
 | `bool UseDoor(doorIndex)` | `ObjectUse` on the door; true when it is open afterwards. |
 | `void PickDoor(doorIndex, skill)` | A lockpick attempt with minus the skill (`UnlockDoor_seg040_352B_1D3B`). |
@@ -79,57 +84,68 @@ clockwise, 64 = +X east), time in PIT ticks. No floats cross the boundary.
 The brain's own record supplies everything else about itself; the host must keep the record's
 position fields current (section 6).
 
-## 3. The Motion output and how the host applies it
+## 3. The Motion output and the physics
 
 `UWCritterBrain.Motion` (immutable, the same values stand in the record):
 
 | Field | Meaning |
 |---|---|
-| `Moves` | False when standing with speed 0 and level pitch: no physics this interval. |
+| `Moves` | False when standing with speed 0 and level pitch: no physics this interval (the step tests the record itself). |
 | `FineHeading` | Byte 9, the direction of the step. |
 | `FacingEighth` | The picture's direction (word 2 bits 7-9), already limited to 45 degrees per update. |
 | `Speed` | Byte 0x13 bits 0-6. |
-| `StepSubUnits` | `speed * 0x2F * interval * 16`: the momentum consumed over the interval, in the stepper's sub-units of which 0x2000 make one eighth. `StepEighths` is the same as a float. Speed 8 at interval 4 gives 2.9 eighths, speed 12 gives 4.4 (0.55 tiles). The absolute scale rests on the stepper reading and is to be confirmed in game (spec 12.3); the ratio speed / 20 of the player's full walk per interval is the robust statement. |
-| `Pitch` | Byte 0x14 bits 3-7, 16 level; a flier's vertical component is (pitch - 16) * 64 in the same sub-units per tick. Walkers and swimmers ignore it. |
-| `Gravity` | Byte 0x13 bit 7 (the physics' own flag; the host may ignore it). |
+| `StepSubUnits` | `speed * 0x2F * interval * 16`: the momentum consumed over the interval, in the stepper's sub-units of which 0x2000 make one eighth. Informational since stage 2: the core computes the step from the record. |
+| `Pitch` | Byte 0x14 bits 3-7, 16 level; a flier's vertical component is (pitch - 16) * 64 in the same sub-units per tick. |
+| `Gravity` | Byte 0x13 bit 7, the physics' own flag. |
 | `Animation`, `Frame` | Byte 0x15 bits 0-5 and word 0x0B bits 12-15: what the animator shows until the next update. |
 | `Interval` | Slots until the next update (1, 4, 6 or 7). |
 | `DueSlot` | The rescheduled slot. |
 | `Culled`, `Removed` | See section 1. |
 
-Applying it, when the creature is next due (or spread over the interval, see below):
+The physics (`UWCreatureMotion.Step`, the original's motion part of NPCInitialProcessing):
 
-1. One displacement of `StepEighths` along `FineHeading` (fliers also the vertical component),
-   through the host's physics substitute: its clearance probes for walls, drops, diagonals and
-   the shore, its body and player overlap tests, its door tests. There is no sliding: a step
-   that cannot be taken whole ends at the last good position (deviation 13 as decided).
-   Whether the probes deflect the heading (the original's wall deflection) or refuse the step
-   is the host's; it reports which in `StepResult.HeadingDeflected`.
-2. Write the new position into the record: `FineX`, `FineY`, `ZPos`, `TileX`, `TileY`
-   (relink the object's tile list as before), and `FineHeading` if the physics changed it.
-3. Fill `LastStep` (section 4) and call `Update`.
+1. Nothing when the creature stands with speed 0 and level pitch.
+2. The params block of the kind (land, flier, swimmer) from the record: the position is the
+   record's eighth and height with a random spot inside (`InitMotionParams`), the momentum
+   speed * 0x2F over interval * 16 ticks, step height 8, slide style.
+3. The pre-state: the terrain flags of the 3x3 tiles around the record position
+   (`seg006_1477_367`), which the land callback holds the drop and lava flags against.
+4. `UWMotionCore.CalculateMotion` with the kind's handler and callback: walls deflect the
+   heading along them (`TurnAlongWall`, head-on stops), objects, doors, the player and other
+   creatures are collision records, water, lava and drops are the callback's (section 4),
+   ledges are the step rule of `GetCollisionHeightState`, a creature without ground falls.
+5. The write-back: eighth, height, tile (relinked by the host), heading byte, gravity bit,
+   pitch field, speed byte, contact state. No fine position for a creature.
+6. The host moves the body to the record and lets the picture glide there over the interval
+   that has just elapsed (deviation 17, the user's decision to interpolate).
 
-Picture between updates: the animator gets `Animation` and `Frame` from the Motion and shows
-exactly that segment and frame, with no timer of its own (deviation 20). The facing for the
-eight-way pictures is `FacingEighth`. If one displacement per 0.25 s stutters, the host may
-move the body continuously over the interval towards the same end point (deviation 17, the
-user decides); the decision, the frame and the record's position still change only at the
-update.
+The picture: the animator gets `Animation` and `Frame` from the Motion and shows exactly that
+segment and frame, with no timer of its own (deviation 20). The facing for the eight-way
+pictures is `FacingEighth`.
 
 ## 4. StepResult
 
-| Field | The original's global | The host sets it when |
-|---|---|---|
-| `Collided` | `RelatedToMotorCollision_2452` | Any collision stopped or deflected the step (wall, object, door, terrain edge). |
-| `HitObject`, `HitObjectIndex`, `HitObjectItemId`, `HitObjectIsCreature` | `dseg_246D`, `CollisionObject_2442` | The nearest object the body ran into: another creature, the player (item 0x7F), a door (class 0x14; index below 8 closed, 8..15 open, low three bits 7 a portcullis). |
-| `HitClosedDoor` | `RelatedToColliding_2473` | A closed door was among the collision records (land creatures only; fliers and swimmers have no door branch and just report the object). |
-| `HeadingDeflected` | `HasCurrObjHeadingChanged_2449` | The physics changed byte 9 (deflection, push). The brain keeps that heading and never sets the blocked bit on it. |
-| `Stuck` | `IsNPCActive := 0` with result 0x1000 | The step left the creature stuck (interval 1 follows). |
-| `Drowned` | the splash path 41420 | A land creature ended in deep water without an object under its feet (or burnt): the brain sets animation 0x0C frame 3, interval 1, hp 0 and raises `OnDrowned`; the body is removed at the next frame-3 pass. Deviation 43 as decided. |
-| `TouchedCeiling` | `dseg_2462` | A flier touched the ceiling (its pitch turns up). |
+Filled by `UWCreatureMotion.Step` from the callbacks of the original (`seg006_1477_431` land,
+`seg006_1477_5FE` flier, `seg006_1477_65E` swimmer):
 
-Lava: the physics deals 1 fire damage per moving update on lava; the host applies it through
-`brain.OnDamaged(host, 0, damage)` after the resistances (COMOBJ byte 8 bit 3 exempts).
+| Field | The original's global | Set when |
+|---|---|---|
+| `Collided` | `RelatedToMotorCollision_2452` | Any collision stopped or deflected the step (wall, object, door, a water, lava or drop edge, airborne). |
+| `HitObject`, `HitObjectIndex`, `HitObjectItemId`, `HitObjectIsCreature` | `dseg_246D`, `CollisionObject_2442` | The first overlapping collision record (`seg030_2B26_17F5`): another creature, the player (item 0x7F), a door, a force field, a lying thing with height. |
+| `HitClosedDoor` | `RelatedToColliding_2473` | A closed door (class 0x14, index below 8) was among the overlapping records (`seg030_2B26_170C`; land creatures only, the other callbacks have no door search). |
+| `HeadingDeflected` | `HasCurrObjHeadingChanged_2449` | Byte 9 after the step differs from before (the wall deflection). The brain keeps that heading and never sets the blocked bit on it. |
+| `Stuck` | `IsNPCActive := 0` | Airborne (0x1000: gravity on, interval 1, the creature falls) or drowned. |
+| `Drowned` | the splash path 41420 | A land creature's sub-step ended with water alone under it (0x10 of the 0xF8 bits): the brain sets animation 0x0C frame 3, interval 1, hp 0 and raises `OnDrowned`; the body is removed at the frame-3 pass. Water with something carrying the creature stops it when it holds no path. |
+| `TouchedCeiling` | `dseg_2462` | A flier met the step flag 0x100 (a raised floor ahead); its vertical speed is pushed up (0x80) and the brain turns the pitch. |
+| `TileChanged`, `OldTileX`, `OldTileY` | the relink of `ApplyProjectileMotion` | The step left the tile; the host relinks the object's tile list. |
+| `LavaBurn` | the lava roll of `ApplyProjectileMotion` | 1 in 5 per moving update on lava: the host applies 1 point of plain fire (type 8) to the body, charged to nobody. |
+| `ImpactDamage` | the impact branch of `ApplyProjectileMotion` | Impact above 0x100; for a creature the original overwrites the hit points right after, so nothing lasts - reported for the trace only. |
+
+A drop (0x800) or lava (0x20) edge stops a creature that holds no path and that was not
+already on such an edge before the step (the pre-state); with a path it walks on, over the
+ledge and falls, or onto the lava and burns. The lava-proof quirk: a lava-proof kind (COMOBJ
+byte 8 bit 3) modifies its kind's static handler for good (`UWCreatureMotion.LavaFlagDropped`),
+as the original does.
 
 ## 5. Events (brain to host)
 
@@ -224,14 +240,15 @@ Stays as host duties (the physics substitute and the engine work):
 
 - `Initialise`, `RefreshFromData`, `Awake`, `OnDestroy`, `fEnsurePlayer`, the `UWNpc` and
   table row lookup (build the record, the row and the brain here).
-- The step: `fMoveTowards` (without sliding, or with it if the corner tests fail without it,
-  deviation 13), `fTryStep`, `fCanStandAt`, `fProbeStandingHeight`, `fClearanceFailures`,
-  `fIsProbeClearOfDrop`, `fIsProbeClear`, `fKeepsDiagonalClearance`,
-  `fTryGetDiagonalDistance`, `fGetShoreFailures`, `fIsWaterAtProbe`, `fIsProbeInWater`,
-  `fIsWater`, `fIsBlockedByPlayer` (the pre-check only), `fIsBlockedByForceField`,
-  `fGetOwnSize`, `fOverlapsForceField`, `fIsBlockedByDoor` (now reporting the door in
-  `StepResult` instead of blocking everyone), `fGetTileAt`, `fTryGetTile`, `fGetSwimmerOffset`,
-  `fGetFloorHeight`, `fHeadingToDirection`, `Push`, `fBlocked`, `fTrace`, `GetTrace`.
+- The step: since stage 2 of the motion rework (2026-10-05) `RunMotion` on
+  `UWCreatureMotion` and the body placed from the record (`fPlaceBodyFromRecord`,
+  `fBodyFromRecord`, `fRelocate`); the probes of the substitute (`fCanStandAt`,
+  `fProbeStandingHeight`, `fClearanceFailures`, the diagonal, shore and drop probes,
+  `fIsBlockedByPlayer`, `fBlockingCreature`, `fIsBlockedByForceField`, `fBlockingDoor`,
+  `fTryDeflectedStep`) are gone. Stay: `fIsWater`, `fIsLava`, `fFindClosedDoor` and
+  `CanEnterTile` for the path search, `fGetOwnSize`, `fGetTileAt`, `fTryGetTile`,
+  `fGetSwimmerOffset`, `fGetFloorHeight`, `fHeadingToDirection`, `Push` (the record write of
+  the momentum transfer), `fTrace`, `GetTrace`.
 - `fHasLineOfSight` becomes `HasLineOfSight` with the heights of `TestBetweenPoints`
   (deviation 23); `fGetEyePosition`, `fIsPlayerCollider` serve it.
 - `fMoveAlongPath` becomes `TryGetNextPathTile` over `UWTilePath` with the range budget and

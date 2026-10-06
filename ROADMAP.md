@@ -32,19 +32,23 @@ of what is built was also read out of the original's executable.
 - The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
   a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
   size every part of it - switched with Shift+F2
+- The motion of the player, the creatures and everything thrown or shot as the original's
+  own code, read out of the executable and run without Unity physics: slopes, ledges, the
+  water edge, the deflection off walls, jumping, swimming, levitation and slow fall behave as
+  in the original. Under *Motion* in the menu bar the arithmetic can run call by call as
+  the original did, or as a precise, frame-rate independent computation of the same rules
+- A Linux build (x86_64), tested in a Kubuntu VM
 
 ## Open: gameplay parity
 
-- **Creature, projectile and player motion without Unity physics.** The rules are
-  engine-free, but motion still runs on Unity colliders and casts. That is where the
-  remaining differences sit: the water edge, dropping one floor level, the reach of a blow,
-  sliding along walls instead of the original's deflection, and the standing height while
-  walking over a step. The plan is to replace it with the original's tile-based motion.
+- Nothing known at the moment beyond what the play-through compared. Reports of
+  differences to the original are welcome.
 
 ## Open: platforms
 
-- **Windows only.** Linux and macOS builds are untested, and the help window's manual needs
-  a PDFium library for them.
+- **macOS.** No build yet, untested.
+- **The manual on Linux.** The help window's manual tab needs a PDFium library; it is only
+  included for Windows so far.
 
 ## Open: presentation
 

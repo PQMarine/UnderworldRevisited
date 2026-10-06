@@ -520,7 +520,7 @@ namespace UWDataImport
 			Shades = new UWShades(psPath);
 			MiscDataFiles = new UWMiscDataFiles(psPath);
 			Sound = new UWSound(psPath);
-			fLoadStrings($"{psPath}\\STRINGS.PAK");
+			fLoadStrings(Path.Combine(psPath, "STRINGS.PAK"));
 		}
 
 		private void fLoadPalettes(string psPaletteDirectory)

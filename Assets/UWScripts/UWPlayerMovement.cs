@@ -334,6 +334,10 @@ public class UWPlayerMovement : MonoBehaviour
 
     public void AddKnockback(Vector3 pOWorldVelocity)
     {
+        // On the core the collision itself deflects or stops the player (CollideObjects).
+        if (UsesMotionCore)
+            return;
+
         mOKnockback += pOWorldVelocity;
     }
 
@@ -349,6 +353,13 @@ public class UWPlayerMovement : MonoBehaviour
     {
         if (piIntensity <= 0)
             return;
+
+        if (UsesMotionCore)
+        {
+            Motion.Bounce(piIntensity);
+
+            return;
+        }
 
         float lfJumpTakeOff = Mathf.Sqrt(2f * mfGravity * mfJumpHeight);
         float lfTakeOff = lfJumpTakeOff * ((piIntensity * BounceMotionPerIntensity / BounceMotionDivisor) / (float)JumpMotionValue);
@@ -376,7 +387,7 @@ public class UWPlayerMovement : MonoBehaviour
 
     /// <summary>Is the character currently moving horizontally? For creature
     /// perception: whoever stands still makes no noise (see UWCritter).</summary>
-    public bool IsMoving => mCurrentHorizontalVelocity.sqrMagnitude > 1f;
+    public bool IsMoving => UsesMotionCore ? Motion.Params.Speed > 0 : mCurrentHorizontalVelocity.sqrMagnitude > 1f;
 
     /// <summary>
     /// How fast the character REALLY moved over the ground in the last frame - measured from
@@ -404,7 +415,9 @@ public class UWPlayerMovement : MonoBehaviour
 
     /// <summary>The full forward speed of the current scheme with the load and terrain factor
     /// - what the head bob measures the current speed against.</summary>
-    public float FullForwardSpeed => NormalForwardSpeed * Mathf.Max(0f, SpeedMultiplier);
+    public float FullForwardSpeed => UsesMotionCore
+        ? NormalForwardSpeed * Motion.ForwardSpeed / UWPlayerMotion.BaseForwardSpeed
+        : NormalForwardSpeed * Mathf.Max(0f, SpeedMultiplier);
 
     /// <summary>The forward speed of the current scheme on normal ground - the original's base
     /// speed of 0x3AC, which the weapon jitter's thresholds are counted against.</summary>
@@ -445,7 +458,7 @@ public class UWPlayerMovement : MonoBehaviour
     /// it, and the original's bob (PlayerMotion_seg034_2F89_604) asks only for the off-ground
     /// bit; until 2026-10-02 every liquid tile stopped the bob and the weapon's jitter (per
     /// user: "on lava the head bob is missing").</summary>
-    public bool IsWalkingOnGround => mController != null && mController.isGrounded && !fIsHovering()
+    public bool IsWalkingOnGround => fIsOnGround() && !fIsHovering()
         && (!IsInLiquid || IsOnLava);
 
     /// <summary>
@@ -517,6 +530,9 @@ public class UWPlayerMovement : MonoBehaviour
     private void Update()
     {
         fUpdateDebugFields();
+
+        if (fUpdateOnCore())
+            return;
 
         // While a modal window is open - conversation, full-screen map - the character
         // stands still. Otherwise, in the original scheme, the pointer position keeps
@@ -716,7 +732,9 @@ public class UWPlayerMovement : MonoBehaviour
 
         mfNextCritterPushTime = Time.time + mfCritterPushCooldown;
 
-        lOCritter.Push(pOHit.moveDirection, mfCritterPushDistance);
+        // The push momentum of the original's momentum transfer (seg029_29EE_3: speed 0xEB),
+        // the creature's record takes the heading and the speed byte 5 (UWCreatureMotion.Push).
+        lOCritter.Push(UWCritter.DirectionToHeading(pOHit.moveDirection), UWDataImport.UWData.UWCreatureMotion.PushSpeed, 0);
 
         Vector3 lOBack = -pOHit.moveDirection;
 
@@ -979,6 +997,11 @@ public class UWPlayerMovement : MonoBehaviour
         if (mScheme != null && mScheme.IsWorldInputBlocked)
             return false;
 
+        // ON THE CORE a step refuses while the player carries momentum, as the original does
+        // (seg008_1B2A_216 labels 21D and 228: speed, vertical speed or gravity).
+        if (UsesMotionCore && (Motion.Params.Speed != 0 || Motion.Params.Vz != 0 || Motion.Params.Gravity != 0))
+            return false;
+
         if (UWEasyMovement.IsTurn(piCommand))
         {
             float lfYaw = Mathf.Repeat(transform.eulerAngles.y, 360f);
@@ -990,6 +1013,14 @@ public class UWPlayerMovement : MonoBehaviour
 
             lOAngles.y = liYaw * 360f / UWEasyMovement.Circle;
             transform.eulerAngles = lOAngles;
+
+            if (UsesMotionCore)
+            {
+                Motion.CameraYaw = liYaw & 0xFFFF;
+                Motion.MotionYaw = Motion.CameraYaw;
+                fSnapInterpolation(Motion);
+                miLastWrittenYaw = Motion.CameraYaw;
+            }
 
             fReportEasyMovementStep();
 
@@ -1019,6 +1050,27 @@ public class UWPlayerMovement : MonoBehaviour
 
         if (!fMayEasyStepDrop(piCommand) && fIsEasyStepOverADrop(lOFlat, lfStep))
             return false;
+
+        if (UsesMotionCore)
+        {
+            // The step on the params: the fine offset along the view, the height following the
+            // floor within the drop allowance (UWPlayerMotion.Nudge), the transform from it.
+            int liYaw = fTransformYawToAngle();
+
+            if (UWEasyMovement.IsBackward(piCommand))
+                liYaw = (liYaw + 0x8000) & 0xFFFF;
+
+            int liSin;
+            int liCos;
+
+            UWMotionTables.SinCos(liYaw, out liSin, out liCos);
+            Motion.Nudge((liSin * liDistance) >> 15, (liCos * liDistance) >> 15, UWEasyMovement.DropAllowanceZPos);
+            fSnapInterpolation(Motion);
+            fApplyMotionToTransform(Motion);
+            fReportEasyMovementStep();
+
+            return true;
+        }
 
         bool lbWasGrounded = mController.isGrounded;
 
@@ -1098,7 +1150,7 @@ public class UWPlayerMovement : MonoBehaviour
     /// </summary>
     private bool fMayEasyStepDrop(int piCommand)
     {
-        if (UWEasyMovement.AllowsDrop(piCommand) || fIsHovering() || !mController.isGrounded)
+        if (UWEasyMovement.AllowsDrop(piCommand) || fIsHovering() || !fIsOnGround())
             return true;
 
         int liAbilities = MagicalMotionAbilities | SpellMotionAbilities;
@@ -1126,14 +1178,18 @@ public class UWPlayerMovement : MonoBehaviour
             lfLift + lfAllowance, ~0, QueryTriggerInteraction.Ignore);
     }
 
-    /// <summary>The noise and the clock of one step - both are the character's business.
-    /// </summary>
+    /// <summary>The noise and the clock of one step - both are the character's business -
+    /// and the world's 64 ticks of it (seg034_2F89_334: every step and turn gives the mobile
+    /// objects four units, halved under Speed; UWCritterDriver.StepWorld, since 2026-10-05).</summary>
     private void fReportEasyMovementStep()
     {
         UWCharacter lOCharacter = UWScene.Character;
 
         if (lOCharacter != null)
             lOCharacter.ReportEasyMovementStep();
+
+        if (UWCritterDriver.Instance != null)
+            UWCritterDriver.Instance.StepWorld();
     }
 
     /// <summary>How flat a surface has to be to count as a wall - see fReportWallBump.</summary>
@@ -1258,7 +1314,7 @@ public class UWPlayerMovement : MonoBehaviour
 
         MomentumFraction = lfFullSpeed > 0f ? Mathf.Clamp01(lfSpeed / lfFullSpeed) : 0f;
 
-        if (mController == null || IsInLiquid || fIsHovering() || !mController.isGrounded || Time.deltaTime <= 0f)
+        if (mController == null || IsInLiquid || fIsHovering() || !fIsOnGround() || Time.deltaTime <= 0f)
         {
             mfNextStepTime = Time.time + 0.2f;
             return;
@@ -1448,6 +1504,9 @@ public class UWPlayerMovement : MonoBehaviour
     /// <summary>Is the character currently levitating or flying?</summary>
     private bool fIsHovering()
     {
+        if (UsesMotionCore)
+            return Motion.CurrentState == UWPlayerMotion.State.Levitating || Motion.CurrentState == UWPlayerMotion.State.Flying;
+
         return mbHovering;
     }
 
@@ -1734,5 +1793,661 @@ public class UWPlayerMovement : MonoBehaviour
         float lfForwardSpeed = lfForward >= 0f ? mfOriginalForwardSpeed : mfOriginalBackwardSpeed;
 
         return new Vector3(lfStrafe * mfOriginalStrafeSpeed, 0f, lfForward * lfForwardSpeed);
+    }
+
+    // ------------------------------------------------------------------
+    // The motion core (stage 3 of the motion rework, 2026-10-05)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// THE PLAYER ON THE ENGINE-FREE CORE: since stage 3 of the motion rework his motion is
+    /// UW.EXE's own (UWPlayerMotion on UWMotionCore) - the params block that persists between
+    /// frames, the commands of CalculateMotionFromCommand, the acceleration by the motion
+    /// weight, the states with their speeds (swimming three tenths, lava a half, levitation a
+    /// tenth, flying seven tenths, slow fall two tenths), the ledge that holds a creeping
+    /// player and lets a running one off, the jump of 0x263 with the height cuts, the fall
+    /// damage through the Acrobat check, the slide along walls with the camera following. The
+    /// CharacterController stays as the body other systems probe and as the trigger volumes'
+    /// visitor, but it no longer moves: the transform is set from the params every frame.
+    ///
+    /// This component is the FACADE: it turns the input of both schemes into the one command
+    /// a frame of the original takes (keyboard poll seg034_2F89_1DA, pointer scheme seg034_2F89_4E),
+    /// feeds the frame's PIT ticks, writes the position and the camera yaw back, and acts on
+    /// the frame's result - the damage, the landing sound. What the controller path did on its
+    /// own - hover oscillation, knockback, slope keep, fall grace - has no part here; the old
+    /// path stays switchable off for comparison.
+    /// </summary>
+    [Header("Motion core (stage 3 of the motion rework)")]
+    [SerializeField]
+    [Tooltip("The player's motion runs on the engine-free core of UW.EXE (UWPlayerMotion) instead of the CharacterController. Off: the controller path of before stage 3.")]
+    private bool mbUseMotionCore = true;
+
+    /// <summary>The engine-free motion, made when the level's world exists.</summary>
+    public UWPlayerMotion Motion { get; private set; }
+
+    /// <summary>Whether the frames run on the core right now.</summary>
+    public bool UsesMotionCore => mbUseMotionCore && Motion != null;
+
+    /// <summary>The world the motion was built on - a new level object gets a new motion.</summary>
+    private UWProjectileWorld mOMotionWorld;
+
+    /// <summary>The PIT ticks not yet handed to the frame.</summary>
+    private float mfCoreTickRemainder;
+
+    /// <summary>
+    /// THE SIMULATION STEP (2026-10-06, per user after the first test: "the movements and the
+    /// looking around are not as smooth any more"). The original runs one motion frame per
+    /// rendered frame with the ticks that passed - 13 to 17 of them at its 15 to 20 frames a
+    /// second. Doing the same at 60 or 144 frames a second gives 4 or 5 ticks a frame, an
+    /// integer: every other frame moves and turns a fifth more than its neighbour, and the
+    /// positions and the yaw are whole units on top. So the frame runs in STEPS OF THIS MANY
+    /// TICKS, and the camera is drawn between the last two states (the creatures do the same
+    /// with their pictures). 16 would be the original's own frame length at its usual pace,
+    /// with the acceleration (0x60 a frame, ten frames to the run) and the turn (7.25 degrees a
+    /// frame at the key) at the original's speeds - but the stop then felt late (per user,
+    /// 2026-10-06: 'das Abbremsen ist schon deutlich weiter'): nine steps of decay plus up to a
+    /// step until the release is seen plus a step of interpolation. 8 halves all three; the
+    /// run is reached in 0.28 s. The mouse look is NOT stepped: its delta goes onto both states
+    /// at once.
+    /// </summary>
+    [SerializeField]
+    [Tooltip("Unused since the second stage of the precision mode: Smooth runs one frame per rendered frame with the frame's time in 1/256 ticks (FineTicks), Original the frame length of the Motion dialog's 'Original fps'. Kept for the self-check's stepping only.")]
+    [Range(1, 32)]
+    private int miCoreStepTicks = 4;
+
+    /// <summary>The fine positions of the two interpolation states with their carried fraction
+    /// (UWPlayerMotion.FineX), for a view even to a 1/256 fine unit.</summary>
+    private float mfPrevFineX;
+
+    private float mfPrevFineY;
+
+    private float mfPrevFineZ;
+
+    /// <summary>The state before the last step, for the interpolation.</summary>
+    private int miPrevX;
+
+    private int miPrevY;
+
+    private int miPrevZ;
+
+    private int miPrevYaw;
+
+    /// <summary>The yaw the transform was last written with, so the look's own turning since
+    /// then can be told from ours.</summary>
+    private int miLastWrittenYaw;
+
+    /// <summary>The position the transform was last written with: anyone else moving the
+    /// transform (noclip's return, the debug jump, a cutscene) is noticed and the motion takes
+    /// the new spot (per user, 2026-10-06: leaving noclip put the player back where he had
+    /// left - the params still held that spot).</summary>
+    private Vector3 mOLastWrittenPosition;
+
+    private bool mbHasLastWrittenPosition;
+
+    private int miLastCoreAbilities = -1;
+
+    /// <summary>A jump pressed but not yet taken by a step (see fBuildCoreCommand).</summary>
+    private UWPlayerMotion.Command mePendingJump = UWPlayerMotion.Command.None;
+
+    [SerializeField]
+    private int miDebugCoreSpeed;
+
+    [SerializeField]
+    private string msDebugCoreState;
+
+    [SerializeField]
+    private int miDebugCoreContact;
+
+    [SerializeField]
+    private int miDebugCoreZ;
+
+    [SerializeField]
+    private int miDebugCoreVz;
+
+    private UWPlayerMotion fEnsureMotion()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (lOLoader == null || lOLoader.UWDataImporter == null)
+            return Motion;
+
+        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(lOLoader);
+
+        if (lOWorld == null)
+            return Motion;
+
+        if (Motion == null || mOMotionWorld != lOWorld)
+        {
+            mOMotionWorld = lOWorld;
+            Motion = new UWPlayerMotion(lOWorld, lOLoader.UWDataImporter.CommonObjectProperties);
+            fPlaceMotionFromTransform();
+        }
+
+        return Motion;
+    }
+
+    /// <summary>
+    /// One frame on the core. False when the core is off or the level is not there yet - the
+    /// controller path runs then. The frame's ticks are the elapsed PIT ticks, capped at 0x40
+    /// as the original's loop caps them (a long frame does not become a long step); a held
+    /// clock (deltaTime 0) runs nothing, and the easy step gives the world its 64 ticks on its
+    /// own (fReportEasyMovementStep).
+    /// </summary>
+    private bool fUpdateOnCore()
+    {
+        if (!mbUseMotionCore)
+            return false;
+
+        UWPlayerMotion lOMotion = fEnsureMotion();
+
+        if (lOMotion == null)
+            return false;
+
+        // Moved from outside since our last write: the motion takes the transform's spot.
+        if (mbHasLastWrittenPosition && (transform.position - mOLastWrittenPosition).sqrMagnitude > 0.01f)
+            fPlaceMotionFromTransform();
+
+        // THE SWITCH (UWUserSettings.MotionSmooth, the Graphics menu). ORIGINAL runs the
+        // original's frame of 16 ticks, step by step, the view interpolated between the steps -
+        // UW.EXE at the fixed DOSBox cycles the user measures against (13-17 ticks a frame). Not one frame per rendered frame: the core drops the fraction below a fine unit
+        // every call, so at the 1-5 ticks a frame of a fast machine the slow motions stall - the
+        // DOSBox cycles=max water bug, which the user recognised (2026-10-06, the analysis in the
+        // private notes). SMOOTH runs the precision mode (UWPlayerMotion.Precise: the fraction
+        // carried, the per-call rules as rates per original frame) in small steps and
+        // interpolates the view, with the fraction, so the view is even and the speeds exact.
+        bool lbSmooth = UWUserSettings.MotionSmooth;
+        // The Original's frame length is the player's choice (UWUserSettings.OriginalFrameTicks:
+        // 4, 8, 12 or 16 ticks; the user matched 8 = 32 fps against DOSBox at 30000 cycles).
+        int liStep = lbSmooth ? Mathf.Clamp(miCoreStepTicks, 1, UWPlayerMotion.MaxFrameTicks) : UWUserSettings.OriginalFrameTicks;
+
+        lOMotion.Precise = lbSmooth;
+        lOMotion.FineTicks = lbSmooth;
+        lOMotion.RampFrameTicks = UWUserSettings.SmoothRampTicks;
+        mfCoreTickRemainder += Time.deltaTime * PitTicksPerSecond;
+
+        // A long frame does not become a long step: as the original caps its frame at 0x40
+        // ticks, at most that many are simulated here and the rest is dropped.
+        if (mfCoreTickRemainder > UWPlayerMotion.MaxFrameTicks + liStep)
+            mfCoreTickRemainder = UWPlayerMotion.MaxFrameTicks + liStep;
+
+        bool lbBlocked = mScheme != null && mScheme.IsWorldInputBlocked;
+
+        if (lbBlocked)
+        {
+            IsCursorMovementInProgress = false;
+            mbCursorDragStartedInViewport = false;
+            mePendingJump = UWPlayerMotion.Command.None;
+        }
+
+        fSyncMotionFromCharacter(lOMotion);
+
+        // THE LOOK'S TURNING SINCE OUR LAST WRITE (the modern scheme's mouse look rotates the
+        // transform itself, the loader's heading too) goes onto both states at once - the mouse
+        // must not wait for a step - while the simulated turn (the turn input, the deflection
+        // follow) is stepped and interpolated like the position.
+        int liLookDelta = (short)(fTransformYawToAngle() - miLastWrittenYaw);
+
+        if (liLookDelta != 0)
+        {
+            lOMotion.CameraYaw = (lOMotion.CameraYaw + liLookDelta) & 0xFFFF;
+            miPrevYaw = (miPrevYaw + liLookDelta) & 0xFFFF;
+        }
+
+        bool lbEasy = !lbBlocked && fUpdateEasyMovement();
+
+        lOMotion.MotionCommand = UWPlayerMotion.Command.None;
+        lOMotion.Walk = 0;
+        lOMotion.TurnInput = 0;
+        lOMotion.FreeOffset = 0;
+
+        // The jump has the right of way over the easy movement: shift is both the easy
+        // movement's key and the standing jump's (shift J), and with shift down the walk's
+        // keys stay with the easy steps (per user, 2026-10-06: "shift+jump funktioniert nicht").
+        if (!lbBlocked)
+            fBuildCoreCommand(lOMotion, lbEasy);
+
+        if (lbSmooth)
+        {
+            // SMOOTH, THE SECOND STAGE (FineTicks, 2026-10-06): ONE call with the time this frame
+            // took, in 1/256 tick, and the current state drawn - no steps, no interpolation, no
+            // lag. The remainder below a 1/256 tick carries over.
+            int liFine = Mathf.FloorToInt(mfCoreTickRemainder * UWMotionParams.FineTicksPerTick);
+            int liMostFine = UWPlayerMotion.MaxFrameTicks * UWMotionParams.FineTicksPerTick;
+
+            if (liFine > liMostFine)
+            {
+                liFine = liMostFine;
+                mfCoreTickRemainder = 0f;
+            }
+            else
+                mfCoreTickRemainder -= liFine / (float)UWMotionParams.FineTicksPerTick;
+
+            if (liFine > 0)
+            {
+                UWPlayerMotion.Command leHeld = lOMotion.MotionCommand;
+
+                if (mePendingJump != UWPlayerMotion.Command.None)
+                {
+                    lOMotion.MotionCommand = mePendingJump;
+                    mePendingJump = UWPlayerMotion.Command.None;
+                }
+
+                if (lOMotion.Frame(liFine))
+                    fApplyCoreResult(lOMotion);
+
+                lOMotion.MotionCommand = leHeld;
+            }
+
+            fSnapInterpolation(lOMotion);
+            fApplyMotionToTransform(lOMotion);
+        }
+        else
+        {
+            while (liStep > 0 && mfCoreTickRemainder >= liStep)
+            {
+                mfCoreTickRemainder -= liStep;
+
+                miPrevX = lOMotion.Params.X;
+                miPrevY = lOMotion.Params.Y;
+                miPrevZ = lOMotion.Params.Z;
+                mfPrevFineX = lOMotion.FineX;
+                mfPrevFineY = lOMotion.FineY;
+                mfPrevFineZ = lOMotion.FineZ;
+                miPrevYaw = lOMotion.CameraYaw;
+
+                // The pending jump takes this one step in place of the walk, then the walk goes on.
+                UWPlayerMotion.Command leHeld = lOMotion.MotionCommand;
+
+                if (mePendingJump != UWPlayerMotion.Command.None)
+                {
+                    lOMotion.MotionCommand = mePendingJump;
+                    mePendingJump = UWPlayerMotion.Command.None;
+                }
+
+                if (lOMotion.Frame(liStep))
+                    fApplyCoreResult(lOMotion);
+
+                lOMotion.MotionCommand = leHeld;
+            }
+
+            // THE PICTURE of Original (UWUserSettings.MotionViewStepped, the Motion dialog's row
+            // "Picture"): Even draws the view between the steps at the monitor's rate; Stepped
+            // sets it once per step - with 16 ticks the 15-20 pictures a second of the original
+            // on DOSBox, which the user first called "ruckelt sehr stark" and then wanted as a
+            // choice for everyone.
+            if (UWUserSettings.MotionViewStepped)
+            {
+                fSnapInterpolation(lOMotion);
+                fApplyMotionToTransform(lOMotion);
+            }
+            else
+                fApplyMotionToTransform(lOMotion, mfCoreTickRemainder / liStep);
+        }
+
+        mfDebugInputSpeed = lOMotion.Params.Speed;
+        miDebugCoreSpeed = lOMotion.Params.Speed;
+        msDebugCoreState = lOMotion.CurrentState.ToString();
+        miDebugCoreContact = lOMotion.Params.Contact;
+        miDebugCoreZ = lOMotion.Params.Z;
+        miDebugCoreVz = lOMotion.Params.Vz;
+
+        fUpdateFootsteps();
+
+        return true;
+    }
+
+    /// <summary>The character's values the frame reads: the abilities (a change re-applies the
+    /// state, seg008_1B2A_D85), the Acrobat skill for the fall, the load for the motion weight.</summary>
+    private void fSyncMotionFromCharacter(UWPlayerMotion pOMotion)
+    {
+        pOMotion.Abilities = MagicalMotionAbilities;
+
+        if (MagicalMotionAbilities != miLastCoreAbilities)
+        {
+            if (miLastCoreAbilities >= 0)
+                pOMotion.ReapplyState();
+
+            miLastCoreAbilities = MagicalMotionAbilities;
+        }
+
+        UWCharacter lOCharacter = UWScene.Character;
+
+        if (lOCharacter != null)
+            pOMotion.AcrobatSkill = lOCharacter.GetSkill(UWPlayerData.Skill.Acrobat);
+
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
+        UWInventory lOInventory = UWScene.Inventory;
+
+        if (lOData != null && lOData.InitialPlayer != null && lOInventory != null)
+        {
+            pOMotion.MaxWeight = lOData.InitialPlayer.MaxWeight;
+            pOMotion.CarriedWeight = Mathf.Max(0, lOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties));
+        }
+    }
+
+    /// <summary>
+    /// THE ONE COMMAND OF THE FRAME, as the original's input gives it (MotionCommand_75A with
+    /// Walk_763 and TurnInput_765): the jump first (J or Space, the right click of a cursor walk;
+    /// with shift the standing jump, command 6), then the fly keys under Levitate or Fly (the
+    /// original's E and Q, commands 0xC and 0xD), then the scheme's walk. The jump is not
+    /// gated by water or the air here: CalculateMotionFromCommand takes it anywhere, and the
+    /// states do the rest (a jump while levitating is a hop that the decay swallows).
+    /// </summary>
+    private void fBuildCoreCommand(UWPlayerMotion pOMotion, bool pbEasyHeld)
+    {
+        bool lbTyping = mGameUi != null && mGameUi.IsTextEntryActive;
+        bool lbJumpClick = UWMouseButtons.RightPressed && ConsumesRightClick();
+
+        // A JUMP IS A PRESS, AND A PRESS MUST WAIT FOR A STEP (2026-10-06, per user: "Springen
+        // funktioniert nicht zuverlaessig"): with 16-tick steps only every fourth rendered frame
+        // at 60 Hz runs a step, and a press in a frame without one was gone by the next. So the
+        // jump is kept until the next step takes it (fUpdateOnCore), whatever the walk does.
+        if (!lbTyping && (mInput.Jump.WasPressedThisFrame() || lbJumpClick))
+        {
+            bool lbShift = UnityEngine.InputSystem.Keyboard.current != null
+                && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed;
+
+            mePendingJump = lbShift ? UWPlayerMotion.Command.StandingJump : UWPlayerMotion.Command.Jump;
+        }
+
+        // Shift held: the walk keys belong to the easy movement this frame.
+        if (pbEasyHeld)
+            return;
+
+        bool lbModern = mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Modern;
+
+        if ((MagicalMotionAbilities & (LevitateBit | FlyBit)) != 0)
+        {
+            float lfHover = lbModern ? mInput.ModernHover.ReadValue<float>() : mInput.HoverHeight.ReadValue<float>();
+
+            if (lfHover > 0.01f)
+            {
+                pOMotion.MotionCommand = UWPlayerMotion.Command.FlyUp;
+
+                return;
+            }
+
+            if (lfHover < -0.01f)
+            {
+                pOMotion.MotionCommand = UWPlayerMotion.Command.FlyDown;
+
+                return;
+            }
+        }
+
+        if (lbModern)
+            fBuildModernCoreCommand(pOMotion);
+        else
+            fBuildOriginalCoreCommand(pOMotion);
+    }
+
+    /// <summary>
+    /// WASD of the modern scheme: forward is the run (Walk 0x70, which gives 822 of the 940),
+    /// back the original's back command (0xBC - a fifth of the forward speed, not the half the
+    /// controller path had), the strafes the slides (0xEB, a quarter). A DIAGONAL has no
+    /// command in the original; the port's Free command walks at the run along the stick's
+    /// angle from the view (UWPlayerMotion.FreeOffset). The mouse look turns the transform
+    /// itself (UWPlayerLook), the frame takes the yaw from there.
+    /// </summary>
+    private void fBuildModernCoreCommand(UWPlayerMotion pOMotion)
+    {
+        Vector2 lODirection = mInput.Move.ReadValue<Vector2>();
+
+        if (lODirection.sqrMagnitude < 0.01f)
+            return;
+
+        bool lbSide = Mathf.Abs(lODirection.x) > 0.01f;
+        bool lbAlong = Mathf.Abs(lODirection.y) > 0.01f;
+
+        if (lbAlong && !lbSide)
+        {
+            pOMotion.MotionCommand = lODirection.y > 0f ? UWPlayerMotion.Command.Walk : UWPlayerMotion.Command.Back;
+            pOMotion.Walk = UWPlayerMotion.WalkRun;
+
+            return;
+        }
+
+        if (lbSide && !lbAlong)
+        {
+            pOMotion.MotionCommand = lODirection.x > 0f ? UWPlayerMotion.Command.SlideRight : UWPlayerMotion.Command.SlideLeft;
+
+            return;
+        }
+
+        pOMotion.MotionCommand = UWPlayerMotion.Command.Free;
+        pOMotion.Walk = UWPlayerMotion.WalkRun;
+        pOMotion.FreeOffset = UWViewpoint.DegreesToAngle(Mathf.Atan2(lODirection.x, lODirection.y) * Mathf.Rad2Deg) & 0xFFFF;
+    }
+
+    /// <summary>
+    /// The original scheme: with the left button held and the press begun in the viewport the
+    /// pointer drives (the zones of UWGameUI.CursorMovement): forward is Walk with the walk
+    /// value scaled by the distance into the zone (0x70 at the far edge, the original's own
+    /// pointer scheme seg034_2F89_4E is not transcribed), back the back command, the strafes the
+    /// slides, the turns Walk with no walk value and the turn input scaled the same way
+    /// (+-0x5A at the edge: (dt * 15) * 22 / 4 a frame, about 116 degrees a second), the slight
+    /// turns both. Without the pointer the keys: W and S, the turn keys, the strafe keys.
+    /// </summary>
+    private void fBuildOriginalCoreCommand(UWPlayerMotion pOMotion)
+    {
+        if (mItemDrag == null)
+            mItemDrag = GetComponentInChildren<UWItemDrag>();
+
+        bool lbHeldDrag = mItemDrag != null && mItemDrag.IsHeldDrag;
+
+        if (!lbHeldDrag && mGameUi != null && UWMouseButtons.LeftPressed && UnityEngine.InputSystem.Mouse.current != null)
+            mbCursorDragStartedInViewport = mGameUi.IsScreenPositionInGameArea(UnityEngine.InputSystem.Mouse.current.position.ReadValue());
+
+        IsCursorMovementInProgress = !lbHeldDrag && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
+
+        if (IsCursorMovementInProgress)
+        {
+            int liWalk = Mathf.RoundToInt(UWPlayerMotion.WalkRun * Mathf.Clamp01(mGameUi.CursorWalkFactor));
+            int liTurn = Mathf.RoundToInt(UWPlayerMotion.TurnInputStep * Mathf.Clamp01(mGameUi.CursorRotateFactor));
+
+            switch (mGameUi.CursorMovement)
+            {
+                case UWCursors.CursorEnum.Forward:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+                    pOMotion.Walk = liWalk;
+                    return;
+
+                case UWCursors.CursorEnum.Backward:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Back;
+                    return;
+
+                case UWCursors.CursorEnum.StrafeLeft:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.SlideLeft;
+                    return;
+
+                case UWCursors.CursorEnum.StrafeRight:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.SlideRight;
+                    return;
+
+                case UWCursors.CursorEnum.TurnLeft:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+                    pOMotion.TurnInput = -liTurn;
+                    return;
+
+                case UWCursors.CursorEnum.TurnRight:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+                    pOMotion.TurnInput = liTurn;
+                    return;
+
+                case UWCursors.CursorEnum.SlightLeft:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+                    pOMotion.Walk = liWalk;
+                    pOMotion.TurnInput = -liTurn;
+                    return;
+
+                case UWCursors.CursorEnum.SlightRight:
+                    pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+                    pOMotion.Walk = liWalk;
+                    pOMotion.TurnInput = liTurn;
+                    return;
+
+                default:
+                    IsCursorMovementInProgress = false;
+                    return;
+            }
+        }
+
+        float lfTurn = mInput.Turn.ReadValue<float>();
+        float lfForward = mInput.Move.ReadValue<Vector2>().y;
+        float lfStrafe = mInput.Strafe.ReadValue<float>();
+
+        if (Mathf.Abs(lfStrafe) > 0.01f)
+        {
+            pOMotion.MotionCommand = lfStrafe > 0f ? UWPlayerMotion.Command.SlideRight : UWPlayerMotion.Command.SlideLeft;
+
+            return;
+        }
+
+        if (lfForward < -0.01f)
+        {
+            pOMotion.MotionCommand = UWPlayerMotion.Command.Back;
+
+            return;
+        }
+
+        if (lfForward > 0.01f || Mathf.Abs(lfTurn) > 0.01f)
+        {
+            pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
+            pOMotion.Walk = lfForward > 0.01f ? UWPlayerMotion.WalkRun : 0;
+            pOMotion.TurnInput = Mathf.RoundToInt(Mathf.Clamp(lfTurn, -1f, 1f) * UWPlayerMotion.TurnInputStep);
+        }
+    }
+
+    /// <summary>What the frame's result asks of the game: the fall damage (the impact block of
+    /// ApplyPlayerMotion, the value after the Acrobat check above three) and the landing sound
+    /// at value * 4 - 60 - the splash over water, as before (fLandingSound).</summary>
+    private void fApplyCoreResult(UWPlayerMotion pOMotion)
+    {
+        UWPlayerMotion.FrameResult lOResult = pOMotion.Last;
+
+        if (lOResult.FallDamage > 0)
+        {
+            UWCharacter lOCharacter = UWScene.Character;
+
+            if (lOCharacter != null)
+                lOCharacter.ApplyDamage(lOResult.FallDamage, UWDamageTypes.Physical);
+        }
+
+        if (lOResult.LandingSound)
+            UWSoundEffects.PlayAtAvatar(fLandingSound(), UWImpactRules.GetVolume(lOResult.ImpactValue));
+    }
+
+    /// <summary>The transform from the params: the feet at the fine position and height, the
+    /// body a foot offset above them (as UWLevelLoader.fPlacePlayerOnFloor sets it), the yaw
+    /// from the camera yaw - drawn pfAlpha of the way from the state before the last step to
+    /// the current one (1 = the current state, as after a placement).</summary>
+    private void fApplyMotionToTransform(UWPlayerMotion pOMotion, float pfAlpha = 1f)
+    {
+        pfAlpha = Mathf.Clamp01(pfAlpha);
+
+        // The fine positions with their fraction (0 without the precision mode), as world points.
+        Vector3 lOFeet = Vector3.Lerp(
+            fFineToWorld(mfPrevFineX, mfPrevFineY, mfPrevFineZ),
+            fFineToWorld(pOMotion.FineX, pOMotion.FineY, pOMotion.FineZ),
+            pfAlpha);
+
+        int liYaw = (miPrevYaw + Mathf.RoundToInt((short)(pOMotion.CameraYaw - miPrevYaw) * pfAlpha)) & 0xFFFF;
+
+        transform.position = lOFeet + (Vector3.up * fFootOffset());
+        transform.rotation = Quaternion.Euler(0f, UWViewpoint.AngleToDegrees(liYaw), 0f);
+        miLastWrittenYaw = liYaw;
+        mOLastWrittenPosition = transform.position;
+        mbHasLastWrittenPosition = true;
+    }
+
+    /// <summary>Back from noclip (the player object was inactive and was put at the spectator
+    /// camera's spot) or any other re-activation: the motion takes the transform's spot.</summary>
+    private void OnEnable()
+    {
+        if (mbUseMotionCore && Motion != null)
+            fPlaceMotionFromTransform();
+    }
+
+    /// <summary>Both interpolation states onto the current one: after a placement, a teleport,
+    /// an easy step.</summary>
+    private void fSnapInterpolation(UWPlayerMotion pOMotion)
+    {
+        miPrevX = pOMotion.Params.X;
+        miPrevY = pOMotion.Params.Y;
+        miPrevZ = pOMotion.Params.Z;
+        mfPrevFineX = pOMotion.FineX;
+        mfPrevFineY = pOMotion.FineY;
+        mfPrevFineZ = pOMotion.FineZ;
+        miPrevYaw = pOMotion.CameraYaw;
+    }
+
+    /// <summary>A fine position with its fraction as a world point (UWUnits' scale, the half tile
+    /// of the axes, no rounding).</summary>
+    private static Vector3 fFineToWorld(float pfX, float pfY, float pfZ)
+    {
+        return new Vector3(
+            (pfX * UWWorldScale.UnitsPerOriginalUnit) - UWWorldScale.TileHalfSize,
+            pfZ * UWWorldScale.UnitsPerOriginalUnit,
+            (pfY * UWWorldScale.UnitsPerOriginalUnit) - UWWorldScale.TileHalfSize);
+    }
+
+    /// <summary>The feet's world height on the core: the params' fine z (with its fraction) as
+    /// a world height - the floor the player stands or swims on, slope included.</summary>
+    public float CoreFeetHeight => UsesMotionCore ? Motion.FineZ * UWWorldScale.UnitsPerOriginalUnit : transform.position.y - fFootOffset();
+
+    /// <summary>How far the transform's origin sits above the feet - the controller's bottom,
+    /// plus its skin.</summary>
+    private float fFootOffset()
+    {
+        if (mController == null)
+            return 0f;
+
+        float lfBottom = mController.center.y - Mathf.Max(mController.height * 0.5f, mController.radius);
+
+        return (-lfBottom * transform.lossyScale.y) + mController.skinWidth;
+    }
+
+    private int fTransformYawToAngle()
+    {
+        return UWViewpoint.DegreesToAngle(Mathf.Repeat(transform.eulerAngles.y, 360f)) & 0xFFFF;
+    }
+
+    /// <summary>
+    /// The loader placed the transform (a level entry, a loaded save, a teleport): the motion
+    /// takes the spot - PlaceAt with the feet's fine position and height and the transform's
+    /// yaw, the reset of PlacePlayerInTile_seg008_6D1 - and the transform snaps onto the params.
+    /// </summary>
+    public void PlaceFromTransform()
+    {
+        if (!mbUseMotionCore || fEnsureMotion() == null)
+            return;
+
+        fPlaceMotionFromTransform();
+    }
+
+    private void fPlaceMotionFromTransform()
+    {
+        if (Motion == null)
+            return;
+
+        Vector3 lOFeet = transform.position - (Vector3.up * fFootOffset());
+        int liX = Mathf.Clamp(UWViewpoint.WorldToOriginalX(lOFeet.x), 0, 0x3FFF);
+        int liY = Mathf.Clamp(UWViewpoint.WorldToOriginalY(lOFeet.z), 0, 0x3FFF);
+        int liZ = Mathf.Clamp(UWViewpoint.WorldToOriginalZ(lOFeet.y), 0, 0x3FF);
+
+        Motion.PlaceAt(liX, liY, liZ, fTransformYawToAngle());
+        mfCoreTickRemainder = 0f;
+        fSnapInterpolation(Motion);
+        fApplyMotionToTransform(Motion);
+    }
+
+    /// <summary>On the ground: the core's contact state, or the controller's contact.</summary>
+    private bool fIsOnGround()
+    {
+        if (UsesMotionCore)
+            return !Motion.IsAirborne;
+
+        return mController != null && mController.isGrounded;
     }
 }

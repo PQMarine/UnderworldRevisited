@@ -229,7 +229,7 @@ namespace UWDataImport.UWData
 			if (!IsAvailable)
 				return lOResult;
 
-			foreach (string lsFile in Directory.GetFiles(msSoundPath, "*.VOC"))
+			foreach (string lsFile in Directory.GetFiles(msSoundPath, "*.VOC", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive }))
 				lOResult.Add(Path.GetFileNameWithoutExtension(lsFile));
 
 			lOResult.Sort();

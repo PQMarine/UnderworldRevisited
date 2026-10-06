@@ -17,7 +17,7 @@ namespace UWDataImport.UWData
 	/// seg031_4AB (the light level's table at the whole-tile distance, 15 beyond the light).
 	///
 	/// TWO EDGES, ONE SPAN: seg031_5B4 starts a left and a right edge in the player's cell, with
-	/// rays at the relative heading -0x2040 and +0x2040 (the sine table of seg019_A38, shifted
+	/// rays at the relative heading -0x2040 and +0x2040 (the sine table, see seg019_A38 in UWMotionTables, shifted
 	/// right by 4). Row by row, seg031_C99 steps each edge sideways along its ray until the ray
 	/// leaves the row at its far side, and stops it at a side wall (TileTraverseFlags 1D8A) or
 	/// where the light ends. seg031_1010 classifies every cell between the two edges, slides an
@@ -92,7 +92,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>The sine table of seg063:4E0, 256 steps to the circle plus a quarter for the
 		/// cosine: round(32768 * sin), 32767 at the top - checked against UW.EXE entry by entry.</summary>
-		private static readonly short[] msSine = fBuildSine();
 
 		/// <summary>One edge record (0x11 bytes at 0x2D00).</summary>
 		private sealed class Edge
@@ -680,29 +679,12 @@ namespace UWDataImport.UWData
 			return msViewTileType[miQuadrant, fTileType(piTile)];
 		}
 
-		/// <summary>seg019_A38: sine and cosine of a 16-bit angle, interpolated over the low byte.</summary>
+		/// <summary>The sine and cosine of a 16-bit angle, interpolated over the low byte - the
+		/// binary's own table since 2026-10-05 (UWMotionTables.SinCos; until then a rounded sine
+		/// scaled to 32768, which differs from it by one in most entries).</summary>
 		private static void fSinCos(int piAngle, out int piSin, out int piCos)
 		{
-			int liAngle = piAngle & 0xFFFF;
-			int liIndex = liAngle >> 8;
-			int liFraction = liAngle & 0xFF;
-
-			piSin = (short)(msSine[liIndex] + (((msSine[liIndex + 1] - msSine[liIndex]) * liFraction) >> 8));
-			piCos = (short)(msSine[liIndex + 64] + (((msSine[liIndex + 65] - msSine[liIndex + 64]) * liFraction) >> 8));
-		}
-
-		private static short[] fBuildSine()
-		{
-			short[] lyTable = new short[321];
-
-			for (int liAt = 0; liAt < lyTable.Length; liAt++)
-			{
-				double ldValue = Math.Round(Math.Sin(2.0 * Math.PI * liAt / 256.0) * 32768.0, MidpointRounding.AwayFromZero);
-
-				lyTable[liAt] = (short)Math.Max(-32767.0, Math.Min(32767.0, ldValue));
-			}
-
-			return lyTable;
+			UWMotionTables.SinCos(piAngle & 0xFFFF, out piSin, out piCos);
 		}
 	}
 }
