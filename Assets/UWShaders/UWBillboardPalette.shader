@@ -141,6 +141,11 @@ Shader "UW/BillboardPalette"
 
                 UWPainterObjectPlace(IN.pivotWS, _BigRadius, _KeyBonus, lTile, lfPart);
 
+                // Not drawn by the original: neither its own tile nor the one a big creature is
+                // handed to is marked by the sweep (UWPainterSweepHides).
+                if (UWPainterSweepHides(UWPainterTileOf(IN.pivotWS.xz)) && UWPainterSweepHides(lTile))
+                    discard;
+
                 if (!UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex))
                     discard;
 

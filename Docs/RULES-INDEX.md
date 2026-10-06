@@ -37,9 +37,9 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place of the original | Engine-free files |
 |---|---|
 | `PlayerUpdateTick` (seg024_24DC_3A4) | UWPlayerTick.cs, UWPlayerVitals.cs, UWWornRegeneration.cs |
+| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
 | `AwardKillEXP` (seg022_1725) | UWCritterCombat.cs, UWCritterRules.cs, UWExperience.cs, UWPlayerVitals.cs |
 | `CalculateAttackResults` (seg022_230E_6B9) | UWCritterCombat.cs, UWEquipmentWear.cs, UWPlayerCritterRow.cs, UWPlayerData.cs |
-| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs |
 | `MissileAttackHit` (seg022_14BF) | UWCritterCombat.cs, UWCritterRules.cs |
 | `NPCExecuteAttack` (seg022_15DE) | UWCritterBrain.cs, UWCritterCombat.cs, UWObjectClassProperties.cs |
 | `PlayerUpdates` (seg028_2985_13D) | UWPlayerTick.cs, UWPlayerVitals.cs |
@@ -572,7 +572,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg017_1FDD_C5` | UWExplorationRules.cs, UWPlayerTerrain.cs |
-| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs, UWRenderSweep.cs, UWPlayerTerrain.cs, Program.cs |
+| `seg017_1FDD_DBC` | UWExplorationRules.cs, UWLevel.cs, UWRenderSweep.cs, UWSweepMask.cs, UWPlayerTerrain.cs, Program.cs |
 | `StartRendering` (seg017_526) | UWExplorationRules.cs |
 
 ### seg019
@@ -749,13 +749,13 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `seg031_1010` | UWRenderSweep.cs |
-| `seg031_115E` | UWRenderSweep.cs |
+| `seg031_115E` | UWRenderSweep.cs, UWSweepMask.cs |
 | `seg031_121A` | UWExplorationRules.cs, UWRenderSweep.cs, Program.cs |
 | `DoCollision` (seg031_2CFA_D1F) | UWCommonObjectProperties.cs |
 | `renderrelated` (seg031_351) | UWEndgame.cs |
 | `PositionCamera` (seg031_396) | ICritterHost.cs, UWRenderSweep.cs |
 | `SomethingToDoWithShadeCalcs` (seg031_4AB) | UWExplorationRules.cs, UWRenderSweep.cs, UWPlayerTerrain.cs |
-| `seg031_5B4` | UWRenderSweep.cs |
+| `seg031_5B4` | UWRenderSweep.cs, UWSweepMask.cs |
 | `seg031_67F` | UWRenderSweep.cs |
 | `seg031_6A5` | UWRenderSweep.cs |
 | `seg031_6CB` | UWRenderSweep.cs |

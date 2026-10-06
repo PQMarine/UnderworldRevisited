@@ -312,6 +312,23 @@ bool UWPainterUnderDeck(float2 pPixel, float3 pPivotWS)
     return all(UWPainterTileOf(lCross) == lTile);
 }
 
+// THE TILES THE ORIGINAL DRAWS (per user, 2026-10-06: at a diagonal view things flashed through a
+// wall at the edge of the picture). The original paints only the tiles its sweep marks, so a thing
+// behind a wall at the edge is not there at all, while the order alone put it over the nearer wall.
+// UWSweepMaskDriver writes the mask every frame (UWSweepMask: the original's sweep, run at the
+// heading and a quarter turn to either side): 0 = in a cone and not drawn, hide; 1 = drawn or
+// undecided, the order decides.
+TEXTURE2D(_UWSweepMask);
+float _UWSweepMaskReady;
+
+bool UWPainterSweepHides(float2 pTile)
+{
+    if (_UWSweepMaskReady < 0.5 || any(pTile < 0.0) || any(pTile > 63.0))
+        return false;
+
+    return LOAD_TEXTURE2D(_UWSweepMask, int2(pTile)).r < 0.5;
+}
+
 // A 3D model stands in the tile (alpha of the plane texture, UWOwnTile.RegisterModelTile).
 bool UWPainterTileHasModel(float2 pTile)
 {
