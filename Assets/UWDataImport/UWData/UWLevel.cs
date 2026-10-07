@@ -241,9 +241,11 @@ namespace UWDataImport.UWData
 		/// tile is seen again (per user, 2026-10-01: the lowered water basin on level 3 stayed water
 		/// on our map; until then a tile was written once and never again). piDisplayType carries
 		/// both parts the way the byte's upper nibble holds them (MapDisplay...). ONE DEVIATION:
-		/// where our host recognises no marker, an existing one is kept - our marker detection
-		/// does not cover every object the original's renderer marks (above all stairs in a save
-		/// the original wrote), and a re-seen tile must not lose it.
+		/// where our host recognises no marker, an existing door or bridge is kept - our detection
+		/// of those may not cover every object the original's renderer marks, and a re-seen tile
+		/// must not lose it. A stair is not kept: since 2026-10-07 it is found by the original's
+		/// own rule (UWTileQueries.HasStairMarker), and the port's earlier rule had written
+		/// stairs onto tiles without one - seeing the tile again clears them.
 		/// </summary>
 		/// <returns>True if the byte has changed.</returns>
 		public bool MarkTileVisited(int piTileX, int piTileY, int piDisplayType)
@@ -278,8 +280,10 @@ namespace UWDataImport.UWData
 			bool lbDiscovered = lyOld != 0 && (lyOld & 0xF) < FirstUndiscoveredType;
 			int liDisplay = piDisplayType & 0xF;
 
-			if (lbDiscovered && (liDisplay & MapDisplayMarkerMask) == 0)
-				liDisplay |= (lyOld >> 4) & MapDisplayMarkerMask;
+			int liOldMarker = (lyOld >> 4) & MapDisplayMarkerMask;
+
+			if (lbDiscovered && (liDisplay & MapDisplayMarkerMask) == 0 && liOldMarker != MapDisplayStair)
+				liDisplay |= liOldMarker;
 
 			byte lyNew = (byte)((liDisplay << 4) | ((int)lOTile.TileType & 0xF));
 

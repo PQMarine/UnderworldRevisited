@@ -121,6 +121,41 @@ namespace UWDataImport.UWData
 			return IsWaterTile(pOTile) || IsLavaTile(pOTile);
 		}
 
+		/// <summary>The first and last wall picture object (0x16D-0x16F, "special tmap obj").</summary>
+		public const int FirstWallPictureId = 0x16D;
+
+		public const int LastWallPictureId = 0x16F;
+
+		/// <summary>
+		/// Whether the map marks this tile as a stair (automap display 0xC). In the original the
+		/// object renderer sets the marker (dseg_54F = 3) while it draws a wall picture 0x16D-0x16F
+		/// whose wall texture is stairs up or down in TERRAIN.DAT (3 or 4, table 720C) - nothing
+		/// else does (render type 3, minor class 2, see render-order.md). Until 2026-10-07 the port
+		/// took a move trigger with a teleport to another level for a stair, so the water hole on
+		/// level 1 at 47/53 (a trigger into level 2, no picture) showed as black and red specks:
+		/// the stair steps added to the water's palette entries (per user that day).
+		/// A hidden picture is not drawn and marks nothing.
+		/// </summary>
+		public bool HasStairMarker(UWTile pOTile)
+		{
+			if (pOTile == null || pOTile.ObjectsInTile == null || mOData == null || mOData.Terrain == null)
+				return false;
+
+			foreach (UWObject lOObject in pOTile.ObjectsInTile)
+			{
+				if (lOObject == null || lOObject.IsHidden || lOObject.Texture == null
+					|| lOObject.ID < FirstWallPictureId || lOObject.ID > LastWallPictureId)
+					continue;
+
+				UWTerrain.TerrainType leTerrain = mOData.Terrain.GetWallTerrain(lOObject.Texture.Index);
+
+				if (leTerrain == UWTerrain.TerrainType.StairsUp || leTerrain == UWTerrain.TerrainType.StairsDown)
+					return true;
+			}
+
+			return false;
+		}
+
 		/// <summary>Whether this kind of item sinks in water or lava, with its OWN roll of the
 		/// culling range (UWLiquidCulling). If COMOBJ.DAT does not know the object, it stays -
 		/// better one item too many in the world than one lost for good.</summary>

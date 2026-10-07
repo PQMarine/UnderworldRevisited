@@ -2992,12 +2992,25 @@ namespace UnderworldRevisited.Tools
             lOLevel.MarkTileVisited(liX, liY, UWLevel.MapDisplayClear);
             fExpectInt("map rewrite: seen again after the change, no longer water", lOLevel.AutomapTiles[liIndex] >> 4, 0);
 
+            lOLevel.AutomapTiles[liIndex] = (byte)((UWLevel.MapDisplayDoor << 4) | 1);
+            lOLevel.MarkTileVisited(liX, liY, UWLevel.MapDisplayWater);
+            fExpectInt("map rewrite: a door we cannot see is kept, the terrain renewed",
+                lOLevel.AutomapTiles[liIndex] >> 4, UWLevel.MapDisplayDoor | UWLevel.MapDisplayWater);
+
             lOLevel.AutomapTiles[liIndex] = (byte)((UWLevel.MapDisplayStair << 4) | 1);
             lOLevel.MarkTileVisited(liX, liY, UWLevel.MapDisplayWater);
-            fExpectInt("map rewrite: a stair we cannot see is kept, the terrain renewed",
-                lOLevel.AutomapTiles[liIndex] >> 4, UWLevel.MapDisplayStair | UWLevel.MapDisplayWater);
+            fExpectInt("map rewrite: a stair the original's rule does not find is cleared",
+                lOLevel.AutomapTiles[liIndex] >> 4, UWLevel.MapDisplayWater);
 
             lOLevel.AutomapTiles[liIndex] = lyKept;
+
+            // The stair marker by the original's rule, a wall picture with a stair texture: the
+            // stairs down at 27/20 have one, the water hole into level 2 at 47/53 only a trigger
+            // and a teleport (per user, 2026-10-07: black and red specks on our map there).
+            UWTileQueries lOQueries = new UWTileQueries(lOLevel, pOData);
+
+            fExpectBool("map stair: level 1 27/20, the stairs down", lOQueries.HasStairMarker(lOLevel.GetTile(27, 20)), true);
+            fExpectBool("map stair: level 1 47/53, the water hole, none", lOQueries.HasStairMarker(lOLevel.GetTile(47, 53)), false);
         }
 
         /// <summary>UWClickRules.CreatureAnswers, see TalkTo_ovr100_0 (per user, 2026-10-01: Oradinar fleeing the

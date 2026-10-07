@@ -64,6 +64,25 @@ of what is built was also read out of the original's executable.
   established range for it); more effects are planned. Planned: items and creatures get a
   depth estimated from their outline, so they meet floors and walls more softly and the
   lights shade them.
+- **A render resolution of the original's.** The world drawn at the original's render height
+  and scaled up, while the width follows the screen's aspect ratio instead of a fixed 4:3, as
+  the Doom ports do it; the interface stays at full resolution. Suggested on Reddit.
+- **Modern effects in the Palette mode.** That mode has no colours to compute with: the
+  textures hold palette indices, the light picks one of a few shade steps of SHADES.DAT, and
+  only then the palette gives the colour. What fits is what moves the shade step before that
+  lookup, so every pixel stays a colour of the palette: ambient occlusion (corners and joints
+  a step or two darker, first in line, it exists in the Remastered mode already), ground
+  shadows under items and creatures, torches, lava and fire as light sources raising the step
+  near them (the original lights only from the player) with their shadows as a step down,
+  and the relief of the Remastered mode as a step lighter or darker by the light's direction.
+  What does not fit is what computes with finished colours: bloom, specular highlights,
+  tone mapping. Mapping those back to the nearest palette colour tends to look muddy, the
+  palette has few tones for a shine. In between: dithering between two steps, softer light
+  edges that stay in the palette, though the hard edges are part of the original's look.
+  Each effect switchable on its own, as in the Remastered mode. Suggested on Reddit.
+- **The modern interface from the original's own pieces.** A variant of the modern scheme's
+  interface that takes the original's parts as they are, split up: its font, its compass, its
+  message scroll, instead of the modern font and the heading as text. Suggested on Reddit.
 - **The own-tile rule** of the Remastered mode (an object is never covered by the tile it stands
   in) does not yet cover diagonal walls of that tile. The Palette mode now places items and
   creatures in the original's draw order instead (tile by tile, doors split the objects of their

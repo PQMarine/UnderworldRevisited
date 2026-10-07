@@ -382,48 +382,10 @@ public class UWPlayerTerrain : MonoBehaviour
 
         int liMarker = fHasBridge(pOTile) ? UWLevel.MapDisplayBridgeMarker
             : pOTile.HasDoor ? UWLevel.MapDisplayDoor
-            : fHasStair(pOTile) ? UWLevel.MapDisplayStair
+            : mOLevelLoader.TileQueries.HasStairMarker(pOTile) ? UWLevel.MapDisplayStair
             : UWLevel.MapDisplayClear;
 
         return liMarker | liTerrain;
-    }
-
-    /// <summary>
-    /// A staircase is a move trigger that points to a teleport trap with a height value
-    /// - then it leads to another level. Without a height the teleport stays
-    /// within the level and is not a staircase.
-    ///
-    /// UWLevelLoader already evaluates the same chain for the level change.
-    /// </summary>
-    private bool fHasStair(UWTile pOTile)
-    {
-        if (pOTile.ObjectsInTile == null || mOLevelLoader.CurrentLevel == null)
-            return false;
-
-        System.Collections.Generic.List<UWObject> lOMaster = mOLevelLoader.CurrentLevel.Masterlist;
-
-        if (lOMaster == null)
-            return false;
-
-        foreach (UWObject lOTrigger in pOTile.ObjectsInTile)
-        {
-            if (lOTrigger == null || lOTrigger.ID != UWLevelLoader.MoveTriggerId)
-                continue;
-
-            int liLink = lOTrigger.Quantity;
-
-            if (liLink <= 0 || liLink >= lOMaster.Count)
-                continue;
-
-            UWObject lOTrap = lOMaster[liLink];
-
-            if (lOTrap == null || lOTrap.ID != UWLevelLoader.TeleportTrapId || lOTrap.ZPos == 0)
-                continue;
-
-            return true;
-        }
-
-        return false;
     }
 
     private static bool fHasBridge(UWTile pOTile)
