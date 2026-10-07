@@ -97,6 +97,10 @@ of what is built was also read out of the original's executable.
 - **The modern interface from the original's own pieces.** A variant of the modern scheme's
   interface that takes the original's parts as they are, split up: its font, its compass, its
   message scroll, instead of the modern font and the heading as text. Suggested on Reddit.
+  With it, an idea from the same thread: the original font traced into outlines, so it stays
+  sharp at any size - either pixel-exact or smoothed, keeping the letter shapes without the
+  pixel steps. Generated from the player's own game files at run time, as the font belongs to
+  the game.
 - **The own-tile rule** of the Remastered mode (an object is never covered by the tile it stands
   in) does not yet cover diagonal walls of that tile. The Palette mode now places items and
   creatures in the original's draw order instead (tile by tile, doors split the objects of their
