@@ -517,9 +517,18 @@ namespace UnderworldRevisited.Build
         /// The same calculation the UI is scaled with (see UWGameUI): the
         /// original draws at 320 by 200 and is fitted to the HEIGHT. The value is needed
         /// for the size of one cell in the dither pattern.
+        ///
+        /// With the world at the original's resolution (UWWorldResolution) one rendered pixel IS
+        /// an original pixel, so a cell is one pixel - the window's factor made the checkerboard
+        /// that much too coarse (per user, 2026-10-07, a big checkerboard on a dark wall). At a
+        /// multiple of it the cell stays one original pixel, its multiple of rendered pixels, as
+        /// the original would have dithered on a 320 by 200 screen.
         /// </summary>
         public static float GetOriginalPixelSize()
         {
+            if (UWWorldResolution.Enabled)
+                return UWWorldResolution.EffectiveFactor;
+
             return Mathf.Max(1f, Screen.height / 200f);
         }
 

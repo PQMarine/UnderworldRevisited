@@ -27,7 +27,9 @@ of what is built was also read out of the original's executable.
   quit) work as in the original; the port's own keys sit on Shift, the help window on Tab
 - The port's own additions: the help window beside the view (stats with the hidden values,
   a live map, notes kept with the save game, spells, mantras and the game's manual), a modern
-  readable font, the original's 4:3 frame on wide screens, dealing the attribute points at
+  readable font, the original's 4:3 frame on wide screens, the world at the original's
+  resolution or a multiple of it up to 4x (one pixel row per row of the 320x200 screen at 1x,
+  the width following the screen, the interface at full resolution; asked for on Reddit), dealing the attribute points at
   character creation yourself
 - The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
   a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
@@ -56,8 +58,8 @@ of what is built was also read out of the original's executable.
 - **Linux on 64-bit ARM (a Raspberry Pi 5, say).** No build yet, untested. Unity can build for
   ARM64 Linux (with IL2CPP instead of Mono, and the PDFium library for the manual as an ARM64
   build). A rough guess: the CPU is plenty for the game logic, the GPU is the limit - the
-  Palette mode at around 720p, the Remastered mode's effects likely too heavy; the original's
-  render height (see Open: presentation) would help most. Asked on Reddit.
+  Palette mode at around 720p, the Remastered mode's effects likely too heavy; the world at the
+  original's resolution (in the Graphics menu) would help most. Asked on Reddit.
   An outlook further on, also asked there: PortMaster, the port collection for Linux handhelds.
   Most of its devices offer only OpenGL ES 2 without Vulkan, which Unity 6 no longer serves, so
   only the stronger handhelds with Vulkan come into question, and only with the gamepad scheme.
@@ -78,9 +80,6 @@ of what is built was also read out of the original's executable.
   established range for it); more effects are planned. Planned: items and creatures get a
   depth estimated from their outline, so they meet floors and walls more softly and the
   lights shade them.
-- **A render resolution of the original's.** The world drawn at the original's render height
-  and scaled up, while the width follows the screen's aspect ratio instead of a fixed 4:3, as
-  the Doom ports do it; the interface stays at full resolution. Suggested on Reddit.
 - **Modern effects in the Palette mode.** That mode has no colours to compute with: the
   textures hold palette indices, the light picks one of a few shade steps of SHADES.DAT, and
   only then the palette gives the colour. What fits is what moves the shade step before that

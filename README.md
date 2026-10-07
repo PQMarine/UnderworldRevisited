@@ -28,6 +28,16 @@ Revisited is a free, non-commercial fan project: it is not sold, and no donation
 | ![Palette mode with the help window's map tab](Screenshots/UR02.png) | ![Remastered mode, the same spot](Screenshots/UR03.png) |
 | *Light computed like the original, the help window beside the view with a live map.* | *The same spot lit by URP, with relief and glow.* |
 
+![The world at the original's resolution in the classic frame](Screenshots/UR11.png)
+
+*The world at the original's resolution: one pixel row per row of the 320x200 screen, scaled
+up with hard edges, while the frame, the paperdoll and the messages stay sharp.*
+
+| Palette mode, full screen | Remastered mode, full screen |
+|---|---|
+| ![The doors of the Abyss at the original's resolution in the modern scheme, Palette mode](Screenshots/UR12.png) | ![The same spot at the original's resolution, Remastered mode](Screenshots/UR13.png) |
+| *The modern scheme at the original's resolution: 200 rows, the width following the screen.* | *The same spot in Remastered mode, lit by the torch, at the same resolution.* |
+
 | Original font | Modern font |
 |---|---|
 | ![A conversation in the original font, the help window's spells tab](Screenshots/UR04.png) | ![The same conversation in the modern font, the stats tab](Screenshots/UR05.png) |
@@ -90,8 +100,10 @@ What is in:
   computation of the same rules (see Motion under Controls)
 - Additions of the port's own, each optional: a help window beside the view (stats with the
   hidden values, a live map, notes kept with the save game, spells, mantras and the game's
-  manual), a modern readable font, the original's 4:3 frame on wide screens, and dealing the
-  attribute points at character creation yourself instead of rolling them
+  manual), a modern readable font, the original's 4:3 frame on wide screens, the world at the
+  original's resolution or a multiple of it up to 4x, with sharp pixels while the interface
+  stays sharp (Graphics menu; 200 rows full screen at 1x, the width following the screen), and dealing the attribute points at
+  character creation yourself instead of rolling them
 
 ## Requirements
 
@@ -192,6 +204,7 @@ screen's edges. The rules are the original's throughout; only the way to them is
 | Space | Jump; rise while hovering or flying |
 | Left Ctrl | Sink while hovering or flying |
 | E | The usual thing for what you aim at: pick it up, talk, open, use. Held: use it directly |
+| | With the pointer free over a bag, the character panel or the action bar, Q and E act on the thing under the pointer: Q looks at it, E opens a bag, puts on what is worn or uses it (holding E does nothing there) |
 | Q | Look at it |
 | R | Draw or put away the weapon. Then hold the left button to charge and let go to strike: with the pointer locked the view's height chooses the blow (up bash, straight slash, down thrust), with it free the original's thirds of the screen |
 | 1 ... 0 | The action bar: things and spells dragged onto it |

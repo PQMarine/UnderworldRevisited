@@ -747,15 +747,28 @@ public class Interaction : MonoBehaviour
         if (mInput.ModernReady.WasPressedThisFrame())
             ToggleCombatMode();
 
+        // THE FREE POINTER OVER THE INTERFACE (per user, 2026-10-07): Q looks at the thing in the
+        // slot under the pointer - character panel, bags, action bar -, E tapped uses it there
+        // and E held does nothing (fUpdateModernUseKey); until then both fell back to what the
+        // crosshair aimed at in the world.
+        bool lbOverUi = fIsPointerFree() && Mouse.current != null
+            && UWModernPointer.IsOverUi(Mouse.current.position.ReadValue());
+
         // Q looks (per user, 2026-10-03) - the right button switches the pointer
         // (UWModernPointer).
         if (mInput.ModernLook.WasPressedThisFrame())
         {
-            fAimAtModern(out UWEntityInfo lOFrontmost, out string lsChunk, out UWEntityInfo _);
-            LookAtTarget(lOFrontmost, lsChunk);
+            if (lbOverUi)
+                fLookAtUi(Mouse.current.position.ReadValue());
+            else
+            {
+                fAimAtModern(out UWEntityInfo lOFrontmost, out string lsChunk, out UWEntityInfo _);
+                LookAtTarget(lOFrontmost, lsChunk);
+            }
         }
 
-        fUpdateModernUseKey();
+        fUpdateModernUseKey(lbOverUi);
+
         fUpdateModernPointerWorld();
     }
 
@@ -943,10 +956,34 @@ public class Interaction : MonoBehaviour
 
     /// <summary>How far the hold of E has come, 0 to 1, for the HUD; -1 while there is none to
     /// show (not held, just tapped, or already fired).</summary>
-    public float ModernUseHoldProgress => mfModernUseHeld >= 0.1f && !mbModernUseHoldFired
+    public float ModernUseHoldProgress => mfModernUseHeld >= 0.1f && !mbModernUseHoldFired && !mbModernUseOnUi
         ? Mathf.Clamp01(mfModernUseHeld / ModernUseHoldSeconds) : -1f;
 
-    private void fUpdateModernUseKey()
+    /// <summary>E went down with the free pointer over the interface: its tap uses the slot there,
+    /// its hold does nothing.</summary>
+    private bool mbModernUseOnUi;
+
+    /// <summary>E tapped over the interface: the slot under the pointer is used, or nothing.</summary>
+    private static void fUseAtUi(Vector2 pOPointer)
+    {
+        if (UWModernBags.Instance != null && UWModernBags.Instance.TryUseAt(pOPointer))
+            return;
+
+        if (UWModernActionBar.Instance != null)
+            UWModernActionBar.Instance.TryUseAt(pOPointer);
+    }
+
+    /// <summary>Q over the interface: the thing in the slot under the pointer, or nothing.</summary>
+    private static void fLookAtUi(Vector2 pOPointer)
+    {
+        if (UWModernBags.Instance != null && UWModernBags.Instance.TryLookAt(pOPointer))
+            return;
+
+        if (UWModernActionBar.Instance != null)
+            UWModernActionBar.Instance.TryLookAt(pOPointer);
+    }
+
+    private void fUpdateModernUseKey(bool pbOverUi)
     {
         InputAction lOKey = mInput.ModernUse;
 
@@ -954,11 +991,19 @@ public class Interaction : MonoBehaviour
         {
             mfModernUseHeld = 0f;
             mbModernUseHoldFired = false;
+            mbModernUseOnUi = pbOverUi;
             return;
         }
 
         if (mfModernUseHeld < 0f)
             return;
+
+        // Begun on the world and the pointer went onto a window: that press is gone.
+        if (!mbModernUseOnUi && pbOverUi)
+        {
+            mfModernUseHeld = -1f;
+            return;
+        }
 
         if (lOKey.IsPressed())
         {
@@ -966,8 +1011,11 @@ public class Interaction : MonoBehaviour
 
             if (!mbModernUseHoldFired && mfModernUseHeld >= ModernUseHoldSeconds)
             {
+                // Held over the interface: nothing (per user, 2026-10-07).
                 mbModernUseHoldFired = true;
-                fModernUse(true);
+
+                if (!mbModernUseOnUi)
+                    fModernUse(true);
             }
 
             return;
@@ -975,7 +1023,12 @@ public class Interaction : MonoBehaviour
 
         // Released (or lost while a panel held the world): a tap that did not reach the hold.
         if (lOKey.WasReleasedThisFrame() && !mbModernUseHoldFired)
-            fModernUse(false);
+        {
+            if (!mbModernUseOnUi)
+                fModernUse(false);
+            else if (pbOverUi)
+                fUseAtUi(Mouse.current.position.ReadValue());
+        }
 
         mfModernUseHeld = -1f;
     }

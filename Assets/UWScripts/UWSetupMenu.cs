@@ -1194,6 +1194,30 @@ public class UWSetupMenu : MonoBehaviour
         return Mathf.RoundToInt(lfWanted * 100f) != Mathf.RoundToInt(pfStrength * 100f) ? lfWanted : pfStrength;
     }
 
+    /// <summary>The multiple of the original's resolution, 1x to 4x (UWWorldResolution.Factor), on
+    /// a slider in whole steps. While 4x is locked the slider ends at 3x and a line says why.
+    /// </summary>
+    private void fWorldResolutionFactorRow(Rect pOPanel, float pfTop, bool pbMaxLocked)
+    {
+        int liMax = pbMaxLocked ? UWWorldResolution.MaxFactor - 1 : UWWorldResolution.MaxFactor;
+        int liShown = Mathf.Min(UWWorldResolution.Factor, liMax);
+
+        // No label of its own (per user, 2026-10-07): under the switch it is clear what it sets.
+        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 32f, pfTop + 8f, pOPanel.width - 94f, 20f),
+            liShown, 1f, liMax);
+
+        int liWanted = Mathf.Clamp(Mathf.RoundToInt(lfWanted), 1, liMax);
+
+        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 56f, 26f), liWanted + "x", mOListLabel);
+
+        if (liWanted != liShown)
+            UWWorldResolution.Factor = liWanted;
+
+        if (pbMaxLocked)
+            GUI.Label(new Rect(pOPanel.x + 8f, pfTop + 30f, pOPanel.width - 16f, 26f),
+                "  4x needs a window 1600 pixels tall", mOListLabel);
+    }
+
     /// <summary>The step of the Smooth head bob's strength slider.</summary>
     private const float HeadBobStrengthStep = 0.05f;
 
@@ -1213,8 +1237,16 @@ public class UWSetupMenu : MonoBehaviour
         // followed (head bob, weapon jitter, the motion modes) moved to the Motion dialog of the
         // bar on 2026-10-06 (per user: they need an explanation, "ein eigener Menuepunkt").
         const float AspectRowHeight = 36f;
+        const float WorldResolutionRowHeight = 30f;
 
-        Rect lOPanel = new Rect(168f, BarHeight, 300f, 8f + (lsItems.Length * 30f) + AspectRowHeight);
+        // The multiple's slider under the switch while it is on, and a line on the locked 4x
+        // while the window is too small for it.
+        bool lbResolutionOn = UWWorldResolution.Enabled;
+        bool lbMaxLocked = !UWWorldResolution.IsMaxFactorAllowed;
+        float lfFactorRows = lbResolutionOn ? WorldResolutionRowHeight * (lbMaxLocked ? 2f : 1f) : 0f;
+
+        Rect lOPanel = new Rect(168f, BarHeight, 300f,
+            8f + (lsItems.Length * 30f) + AspectRowHeight + WorldResolutionRowHeight + lfFactorRows);
 
         fFill(lOPanel, PanelColour);
 
@@ -1245,6 +1277,18 @@ public class UWSetupMenu : MonoBehaviour
 
         if (lbAspect != UWDisplayAspect.Enabled)
             UWDisplayAspect.Enabled = lbAspect;
+
+        // The world at the original's resolution (UWWorldResolution), asked for on Reddit
+        // (2026-10-07): it takes effect at once as well, the interface stays sharp.
+        bool lbOriginalResolution = GUI.Toggle(
+            new Rect(lOPanel.x + 8f, lfAspectTop + 6f + WorldResolutionRowHeight, lOPanel.width - 16f, 26f),
+            UWWorldResolution.Enabled, "  World at the original's resolution", mOToggle);
+
+        if (lbOriginalResolution != UWWorldResolution.Enabled)
+            UWWorldResolution.Enabled = lbOriginalResolution;
+
+        if (lbResolutionOn)
+            fWorldResolutionFactorRow(lOPanel, lfAspectTop + 6f + (2f * WorldResolutionRowHeight), lbMaxLocked);
 
         fCloseMenuOnOutsideClick(lOPanel);
     }

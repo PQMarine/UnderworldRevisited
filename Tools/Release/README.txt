@@ -67,7 +67,9 @@ The menu bar at the top of the main menu (and of the game menu) holds the settin
 Motion you choose how the original's motion code is run: Original computes it step by step
 as the game did in 1992 - how many steps a second is the "Original fps" setting there -,
 Smooth computes the same rules once per frame for an even picture; each setting carries a
-short explanation. Controls has the mouse look speed of the modern scheme.
+short explanation. Controls has the mouse look speed of the modern scheme. Graphics has the
+detail levels, the classic screen at 4:3, and the world at the original's resolution or a
+multiple of it up to 4x, with the interface staying sharp.
 
 
 LICENCES

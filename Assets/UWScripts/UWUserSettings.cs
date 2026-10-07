@@ -107,6 +107,13 @@ public static class UWUserSettings
         /// picture it had.</summary>
         public bool DisplayAs4By3 = true;
 
+        /// <summary>The world drawn at the original's resolution - see UWWorldResolution. Off by
+        /// default: the full screen resolution, as before.</summary>
+        public bool OriginalWorldResolution;
+
+        /// <summary>Its multiple of the original's resolution, 1 to 4 (UWWorldResolution.Factor).</summary>
+        public int OriginalWorldResolutionFactor = 1;
+
         /// <summary>Window or borderless fullscreen (UWDisplayMode.ModeEnum): 0 window, 1 borderless
         /// fullscreen; -1 not chosen yet, then a build starts borderless at the desktop's size.</summary>
         public int DisplayMode = -1;
@@ -399,6 +406,21 @@ public static class UWUserSettings
     {
         get { return fGet().DisplayAs4By3; }
         set { fGet().DisplayAs4By3 = value; }
+    }
+
+    /// <summary>The world at the original's resolution. Everything that reads or changes it goes
+    /// through UWWorldResolution.</summary>
+    public static bool OriginalWorldResolution
+    {
+        get { return fGet().OriginalWorldResolution; }
+        set { fGet().OriginalWorldResolution = value; }
+    }
+
+    /// <summary>The multiple of the original's resolution - see UWWorldResolution.Factor.</summary>
+    public static int OriginalWorldResolutionFactor
+    {
+        get { return fGet().OriginalWorldResolutionFactor; }
+        set { fGet().OriginalWorldResolutionFactor = value; }
     }
 
     /// <summary>The head bob setting (UWHeadBobRules.ModeEnum); read every frame. An unknown

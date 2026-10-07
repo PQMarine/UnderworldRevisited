@@ -335,7 +335,9 @@ public class UWRemasterRenderer : MonoBehaviour
         {
             if (!mbCameraKnown)
             {
-                mbCameraPostProcessing = lOData.renderPostProcessing;
+                // The world at the original's resolution forces it on as well (UWWorldResolution);
+                // that is not the camera's own value.
+                mbCameraPostProcessing = lOData.renderPostProcessing && !UWWorldResolution.Enabled;
                 mbCameraKnown = true;
             }
 
@@ -346,7 +348,7 @@ public class UWRemasterRenderer : MonoBehaviour
 
         if (mbCameraKnown)
         {
-            lOData.renderPostProcessing = mbCameraPostProcessing;
+            lOData.renderPostProcessing = mbCameraPostProcessing || UWWorldResolution.Enabled;
             mbCameraKnown = false;
         }
     }

@@ -218,6 +218,33 @@ public class UWModernActionBar : MonoBehaviour
 
     /// <summary>Binds a slot to a piece; a piece already on the bar moves there (its old slot
     /// empties). Refuses what does not belong on the bar.</summary>
+    /// <summary>Q over the bar (Interaction.fUpdateModernActions): looks at the thing in the slot
+    /// under the pointer. A spell or an empty slot: false.</summary>
+    public bool TryLookAt(Vector2 pOPointer)
+    {
+        if (!TryGetSlotAt(pOPointer, out int liSlot) || miSpells[liSlot] >= 0)
+            return false;
+
+        UWObject lOItem = mOSlots[liSlot];
+
+        if (lOItem == null || !fIsCarried(lOItem) || UWModernBags.Instance == null)
+            return false;
+
+        UWModernBags.Instance.LookAt(lOItem);
+        return true;
+    }
+
+    /// <summary>E tapped over the bar (Interaction.fUpdateModernUseKey): the slot under the pointer
+    /// is used as its number key uses it. False when no slot is there.</summary>
+    public bool TryUseAt(Vector2 pOPointer)
+    {
+        if (!TryGetSlotAt(pOPointer, out int liSlot))
+            return false;
+
+        fUse(liSlot);
+        return true;
+    }
+
     public bool TryBind(int piSlot, UWObject pOItem)
     {
         if (piSlot < 0 || piSlot >= SlotCount || pOItem == null)

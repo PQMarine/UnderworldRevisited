@@ -88,7 +88,8 @@ public static class UWHelpControls
             .Add(lsRight, "Free the pointer, or lock it again to look around. The game menu has the other way "
                 + "round as an option: the pointer stays free and the view turns while the button is held.")
             .Add("Locked", "The crosshair aims: E, " + lsLook + " and the left button act on what it is on.")
-            .Add("Free", "The windows take the clicks; on the world E and " + lsLook + " act under the pointer."));
+            .Add("Free", "The windows take the clicks; E and " + lsLook + " act on what is under the pointer, in the "
+                + "world as in the bags, the character panel and the action bar (holding E does nothing over a window)."));
 
         lOSections.Add(new Section { Title = "Moving" }
             .Add(lsMove, "Walk forward and back, step sideways.")

@@ -867,6 +867,100 @@ public partial class UWModernBags : MonoBehaviour
         CancelUse();
     }
 
+    /// <summary>Q over the interface (Interaction.fUpdateModernActions): looks at the thing in
+    /// the character panel's slot or the bag slot under the pointer, as the menu's Look does.
+    /// False when there is none.</summary>
+    public bool TryLookAt(Vector2 pOPointer)
+    {
+        UWInventory lOInventory = fInventory();
+        UWObject lOItem = null;
+
+        if (lOInventory != null && fPanelSlotAt(pOPointer, out UWArmorItemMap.BodySlot leSlot))
+            lOItem = lOInventory.GetEquipped(leSlot);
+        else if (fFindSlot(pOPointer, out Window lOWindow, out int liSlot))
+            lOItem = fGetItem(lOWindow, liSlot);
+
+        if (lOItem == null)
+            return false;
+
+        fLook(lOItem);
+        return true;
+    }
+
+    /// <summary>
+    /// E tapped over the interface (Interaction.fUpdateModernUseKey, per user 2026-10-07): the
+    /// thing in the slot under the pointer does what makes sense for it, the menu's first entry -
+    /// a container opens or closes (the rune bag: the rune panel), a thing to wear in a bag is put
+    /// on, anything else is used as the menu's Use uses it (with a target: the use mode). Worn
+    /// armour and a thing without a use stay as they are, silently. In a conversation nothing is
+    /// used, as in the menu. False when no slot of the bags or the panel is under the pointer.
+    /// </summary>
+    public bool TryUseAt(Vector2 pOPointer)
+    {
+        UWInventory lOInventory = fInventory();
+
+        if (lOInventory == null || lOInventory.CursorItem != null || mOUseItem != null)
+            return false;
+
+        UWObject lOItem;
+        Window lOWindow = null;
+        int liSlot = -1;
+        bool lbEquipped = false;
+
+        if (fPanelSlotAt(pOPointer, out UWArmorItemMap.BodySlot leEquip))
+        {
+            lOItem = lOInventory.GetEquipped(leEquip);
+            lbEquipped = true;
+        }
+        else if (fFindSlot(pOPointer, out lOWindow, out liSlot))
+            lOItem = fGetItem(lOWindow, liSlot);
+        else
+            return false;
+
+        if (lOItem == null)
+            return true;
+
+        if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+        {
+            if (lOItem.ID != UWObjectMechanics.RuneBagId)
+                fToggleBag(lOItem);
+            else if (UWModernRunePanel.Instance != null && !fIsTalking())
+                UWModernRunePanel.Instance.Open(UWModernRunePanel.TabEnum.Runes);
+
+            return true;
+        }
+
+        if (fIsTalking())
+            return true;
+
+        bool lbWearable = fTryGetEquipSlot(lOItem, lOInventory, out UWArmorItemMap.BodySlot leTarget);
+
+        if (lbWearable)
+        {
+            if (!lbEquipped)
+                fEquip(lOWindow, liSlot, leTarget, lOInventory);
+
+            return true;
+        }
+
+        UWItemDrag lODrag = UWScene.ItemDrag;
+
+        if (lODrag != null && lODrag.UseCarriedItem(lOItem))
+            return true;
+
+        if (lODrag != null && lODrag.NeedsUseTarget(lOItem))
+            BeginUse(lOItem, false);
+
+        return true;
+    }
+
+    /// <summary>Looks at a carried thing as the menu's Look does - for the action bar's slots.</summary>
+    public void LookAt(UWObject pOItem)
+    {
+        if (pOItem != null)
+            fLook(pOItem);
+    }
+
     private void fLook(UWObject pOItem)
     {
         try
