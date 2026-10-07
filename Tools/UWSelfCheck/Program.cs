@@ -90,6 +90,8 @@ namespace UnderworldRevisited.Tools
                 fCheckGlowingRock(lOData);
                 fCheckOneShotChainRemoval(lsDataPath);
                 fCheckMapRewrite(lOData);
+                fCheckPaletteLightMap(lOData);
+                fCheckGrimeTint(lOData);
                 fCheckTalkRefusal();
                 fCheckConversationPatches(lOData);
                 fCheckContainsWord();
@@ -2962,6 +2964,96 @@ namespace UnderworldRevisited.Tools
         /// <summary>UWLevel.MarkTileVisited writes a discovered tile again, as seg017_1FDD_DBC does
         /// (per user, 2026-10-01: a lowered water basin stayed water on our map); a marker our host
         /// does not recognise is kept. The byte is put back afterwards.</summary>
+        /// <summary>UWGrimeTint (2026-10-07): no tone leaves every index as it is; a tone maps the
+        /// ordinary colours to ordinary colours - never to a rotating water or lava index, never to
+        /// 0 or the top sixteen - and does change some.</summary>
+        private static void fCheckGrimeTint(DataImport pOData)
+        {
+            UWPalette lOPalette = pOData.Palettes != null ? pOData.Palettes.GetPalette(0) : null;
+
+            if (lOPalette == null)
+                return;
+
+            byte[] lyNone = UWGrimeTint.Build(lOPalette, UWGrimeTint.ToneEnum.None);
+            bool lbIdentity = true;
+
+            for (int liAt = 0; liAt < lyNone.Length; liAt++)
+                lbIdentity &= lyNone[liAt] == liAt;
+
+            fExpectBool("grime tint: none leaves every index", lbIdentity, true);
+
+            byte[] lyDirt = UWGrimeTint.Build(lOPalette, UWGrimeTint.ToneEnum.Dirt);
+            bool lbClean = true;
+            int liChanged = 0;
+
+            for (int liAt = 1; liAt < 240; liAt++)
+            {
+                if (UWPaletteRotation.IsRotatingIndex(liAt))
+                    continue;
+
+                int liTo = lyDirt[liAt];
+
+                lbClean &= liTo >= 1 && liTo < 240 && !UWPaletteRotation.IsRotatingIndex(liTo);
+
+                if (liTo != liAt)
+                    liChanged++;
+            }
+
+            fExpectBool("grime tint: dirt stays on ordinary colours", lbClean, true);
+            fExpectBool("grime tint: dirt changes colours (" + liChanged + ")", liChanged > 20, true);
+        }
+
+        /// <summary>UWPaletteLightMap, the palette renderer's light sources (2026-10-07): a source
+        /// falls off by the SHADES.DAT row of its light level, and a solid tile between it and a
+        /// point leaves the point dark. On level 1, a tile with a solid one east of it and an open
+        /// one beyond.</summary>
+        private static void fCheckPaletteLightMap(DataImport pOData)
+        {
+            UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 0 ? pOData.Levels[0] : null;
+
+            if (lOLevel == null || pOData.Shades == null || !pOData.Shades.IsLoaded)
+                return;
+
+            UWPaletteLightMap lOMap = new UWPaletteLightMap();
+
+            lOMap.SetLevel(lOLevel, pOData.Shades);
+
+            byte[] lyRow = pOData.Shades.GetShadeTable(3);
+
+            fExpectInt("light map: light level 3 at its source", (int)Math.Round(lOMap.LevelAt(3f, 0f)), lyRow[0]);
+            fExpectInt("light map: light level 3 two tiles off", (int)Math.Round(lOMap.LevelAt(3f, 2f)), lyRow[2]);
+
+            for (int liY = 1; liY < 63; liY++)
+            {
+                for (int liX = 1; liX < 61; liX++)
+                {
+                    if (lOLevel.GetTile(liX, liY).TileType != UWTile.TileTypeEnum.open
+                        || lOLevel.GetTile(liX + 1, liY).TileType != UWTile.TileTypeEnum.solid
+                        || lOLevel.GetTile(liX + 2, liY).TileType != UWTile.TileTypeEnum.open)
+                        continue;
+
+                    UWPaletteLightMap.Source[] lOSources =
+                    {
+                        new UWPaletteLightMap.Source { X = liX, Y = liY, LightLevel = 3f }
+                    };
+
+                    lOMap.BuildStatic(lOSources);
+                    lOMap.Compose(lOSources);
+
+                    int liPer = UWPaletteLightMap.TexelsPerTile;
+                    int liCentre = (liY * liPer) + (liPer / 2);
+
+                    fExpectBool(string.Format("light map: the source's own tile {0}/{1} lit", liX, liY),
+                        lOMap.Map[(liCentre * UWPaletteLightMap.Size) + (liX * liPer) + (liPer / 2)] < UWPaletteLightMap.Dark, true);
+                    fExpectBool(string.Format("light map: behind the wall at {0}/{1} dark", liX + 2, liY),
+                        lOMap.Map[(liCentre * UWPaletteLightMap.Size) + ((liX + 2) * liPer) + (liPer / 2)] == UWPaletteLightMap.Dark, true);
+                    return;
+                }
+            }
+
+            fFail("light map", "no tile with a wall east of it on level 1");
+        }
+
         private static void fCheckMapRewrite(DataImport pOData)
         {
             UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 0 ? pOData.Levels[0] : null;

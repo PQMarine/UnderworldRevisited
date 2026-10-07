@@ -422,6 +422,17 @@ public class UWRemasterLights : MonoBehaviour
         return fTryGetRecipe(piId, out lORecipe);
     }
 
+    /// <summary>Whether this object is one of the light sources, and whether it is open fire
+    /// (the palette renderer's light sources use the same list, UWPaletteEffects).</summary>
+    public static bool IsLightSource(int piId, out bool pbOpenFire)
+    {
+        bool lbFound = fTryGetRecipe(piId, out Recipe lORecipe);
+
+        pbOpenFire = lbFound && lORecipe.OpenFire;
+
+        return lbFound;
+    }
+
     private static bool fTryGetRecipe(int piId, out Recipe pORecipe)
     {
         for (int liAt = 0; liAt < mORecipes.Length; liAt++)

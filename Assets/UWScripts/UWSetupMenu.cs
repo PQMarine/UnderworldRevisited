@@ -22,7 +22,7 @@ using UWDataImport.UWData;
 /// frame. Meanwhile UWMainMenu ignores the mouse (IsCapturingInput). Controls, text and colour
 /// settings follow (Todo.md).
 /// </summary>
-public class UWSetupMenu : MonoBehaviour
+public partial class UWSetupMenu : MonoBehaviour
 {
     private const float ReferenceHeight = 720f;
 
@@ -90,6 +90,12 @@ public class UWSetupMenu : MonoBehaviour
     private RectTransform mOFrame;
 
     private UWEffectsScreen mOEffects;
+
+    /// <summary>The effects screen's own frame in the game (fChooseLevel), on a canvas above the
+    /// game's interfaces.</summary>
+    private RectTransform mOEffectsFrame;
+
+    private const int EffectsCanvasOrder = 500;
 
     private bool mbBarShown;
 
@@ -245,6 +251,7 @@ public class UWSetupMenu : MonoBehaviour
             mbDisplayDialogOpen = false;
             mbColoursDialogOpen = false;
             mbMotionDialogOpen = false;
+            mbPaletteEffectsDialogOpen = false;
             mbSoundDialogOpen = false;
             IsCapturingInput = false;
             HasOpenPanel = false;
@@ -257,7 +264,8 @@ public class UWSetupMenu : MonoBehaviour
         float lfMouseY = lOMouse != null ? (Screen.height - lOMouse.position.ReadValue().y) / lfScale : ReferenceHeight;
 
         bool lbSomethingOpen = meOpenMenu != MenuEnum.None || mbFolderDialogOpen || mbControlsDialogOpen
-            || mbColoursDialogOpen || mbSoundDialogOpen || mbDisplayDialogOpen || mbMotionDialogOpen;
+            || mbColoursDialogOpen || mbSoundDialogOpen || mbDisplayDialogOpen || mbMotionDialogOpen
+            || mbPaletteEffectsDialogOpen;
 
         if (lfMouseY <= RevealZone || lbInGameMenu)
             mbBarShown = true;
@@ -275,11 +283,34 @@ public class UWSetupMenu : MonoBehaviour
 
         UWGraphicsDetail.SetLevel(peLevel);
 
-        if (peLevel != UWGraphicsDetail.LevelEnum.VeryHigh || mOData == null || mOFrame == null)
+        if (peLevel != UWGraphicsDetail.LevelEnum.VeryHigh || mOData == null)
             return;
 
+        // IN THE GAME the bar has no frame of its own (EnsureInGame), and the Very high entry did
+        // nothing there (per user, 2026-10-07). The game's 320x200 frame is hidden in the modern
+        // scheme (per user the same day: the panel stayed invisible), so the effects screen gets a
+        // canvas of its own, the 320x200 frame in the middle and no backdrop - the game stays
+        // visible around it.
+        RectTransform lOFrame = mOFrame;
+
+        if (lOFrame == null)
+        {
+            if (mOEffectsFrame == null)
+            {
+                Canvas lOCanvas = UWScreenUi.CreateCanvas(transform, "Effects Screen Canvas", EffectsCanvasOrder, out mOEffectsFrame);
+                Transform lOBackdrop = lOCanvas.transform.Find("Backdrop");
+
+                if (lOBackdrop != null)
+                    lOBackdrop.gameObject.SetActive(false);
+
+                mOEffects = null;
+            }
+
+            lOFrame = mOEffectsFrame;
+        }
+
         if (mOEffects == null)
-            mOEffects = new UWEffectsScreen(mOData, mOFrame);
+            mOEffects = new UWEffectsScreen(mOData, lOFrame);
 
         mOEffects.Open();
     }
@@ -292,6 +323,7 @@ public class UWSetupMenu : MonoBehaviour
         mbSoundDialogOpen = false;
         mbDisplayDialogOpen = false;
         mbMotionDialogOpen = false;
+        mbPaletteEffectsDialogOpen = false;
         meOpenMenu = MenuEnum.None;
     }
 
@@ -469,6 +501,7 @@ public class UWSetupMenu : MonoBehaviour
         mbSoundDialogOpen = false;
         mbDisplayDialogOpen = false;
         mbMotionDialogOpen = false;
+        mbPaletteEffectsDialogOpen = false;
         meOpenMenu = MenuEnum.None;
         mOListeningFor = null;
         msBindingNotice = string.Empty;
@@ -721,6 +754,9 @@ public class UWSetupMenu : MonoBehaviour
         if (mbDisplayDialogOpen)
             fDrawDisplayDialog(lfWidth);
 
+        if (mbPaletteEffectsDialogOpen)
+            fDrawPaletteEffectsDialog(lfWidth);
+
         if (meOpenMenu == MenuEnum.Game)
             fDrawGameMenu();
 
@@ -773,6 +809,7 @@ public class UWSetupMenu : MonoBehaviour
                 mbColoursDialogOpen = false;
                 mbSoundDialogOpen = false;
                 mbMotionDialogOpen = false;
+                mbPaletteEffectsDialogOpen = false;
             }
         }
 
@@ -795,6 +832,7 @@ public class UWSetupMenu : MonoBehaviour
                 mbColoursDialogOpen = false;
                 mbDisplayDialogOpen = false;
                 mbMotionDialogOpen = false;
+                mbPaletteEffectsDialogOpen = false;
             }
         }
 
@@ -986,6 +1024,7 @@ public class UWSetupMenu : MonoBehaviour
 
         if (GUI.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
             mbMotionDialogOpen = false;
+            mbPaletteEffectsDialogOpen = false;
     }
 
     // ------------------------------------------------- Display
@@ -1245,8 +1284,11 @@ public class UWSetupMenu : MonoBehaviour
         bool lbMaxLocked = !UWWorldResolution.IsMaxFactorAllowed;
         float lfFactorRows = lbResolutionOn ? WorldResolutionRowHeight * (lbMaxLocked ? 2f : 1f) : 0f;
 
+        // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog.
+        const float PaletteEffectsRowHeight = 30f;
+
         Rect lOPanel = new Rect(168f, BarHeight, 300f,
-            8f + (lsItems.Length * 30f) + AspectRowHeight + WorldResolutionRowHeight + lfFactorRows);
+            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + WorldResolutionRowHeight + lfFactorRows);
 
         fFill(lOPanel, PanelColour);
 
@@ -1264,11 +1306,19 @@ public class UWSetupMenu : MonoBehaviour
             }
         }
 
+        if (GUI.Button(new Rect(lOPanel.x, lOPanel.y + 4f + (lsItems.Length * 30f), lOPanel.width, 30f),
+            "Palette effects...", mOListItem))
+        {
+            fOpenPaletteEffectsDialog();
+
+            return;
+        }
+
         // THE 4:3 SWITCH lives here and not under Game (per user, 2026-09-22): it changes how
         // the picture looks, like the detail levels above it, and takes effect at once - the
         // game camera is set up anew every frame and every 320x200 frame follows it in
         // LateUpdate (UWPixelAspectFrame). The Game menu keeps what concerns the program.
-        float lfAspectTop = lOPanel.y + 8f + (lsItems.Length * 30f);
+        float lfAspectTop = lOPanel.y + 8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight;
 
         fFill(new Rect(lOPanel.x + 8f, lfAspectTop, lOPanel.width - 16f, 1f), SeparatorColour);
 

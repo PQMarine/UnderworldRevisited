@@ -40,7 +40,6 @@ MonoBehaviour:
   RemasterParallaxDepth: 0.06
   RemasterParallaxLevels: 4
   RemasterParallaxSteps: 16
-  RemasterParallaxSnap: 0
   RemasterParallaxInvert: 0
   RemasterSelfShadow: 0.8
   RemasterSelfShadowDepth: 0.1

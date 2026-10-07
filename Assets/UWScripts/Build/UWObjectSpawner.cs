@@ -110,6 +110,91 @@ namespace UnderworldRevisited.Build
         private const int LargeBoulderObjectIdB = 0x0154;
         private const int BenchObjectId = 0x0150;
         private const int PillarObjectId = 0x0160;
+
+        /// <summary>
+        /// A vertical four-cornered side reaching the ceiling, textured from the atlas: cut into
+        /// pieces of one repeat of its picture (see the call in fSpawn3DModel). The repeat is as
+        /// tall as the picture's texels make it at the width the side gives them (square texels).
+        /// The corners keep the model's order and U - top at U 0, top at U 1, bottom at U 1,
+        /// bottom at U 0 for the pillar - so the winding stays. False when the face is not of that
+        /// shape; the caller then builds it as before.
+        /// </summary>
+        private static bool fAddRepeatedSide(UW3DModel pOModel, UW3DModelFace pOFace, float pfModelScale,
+            float pfLocalCeiling, float pfBaseY, UWTextureRef pOResolved, List<Vector3> pOVerts, List<Vector3> pOUvs,
+            List<Color32> pOColors, List<Vector2> pOPaletteData, List<int> pOTriangles)
+        {
+            Vector3[] lOCorner = new Vector3[4];
+            float[] lfU = new float[4];
+
+            for (int i = 0; i < 4; i++)
+            {
+                int liVertex = pOFace.VertexIndices[i];
+                UWVector3 lV = pOModel.Vertices[liVertex];
+
+                lOCorner[i] = new Vector3(lV.X * pfModelScale,
+                    pOModel.CeilingVertexIndices.Contains(liVertex) ? pfLocalCeiling : lV.Z * pfModelScale,
+                    lV.Y * pfModelScale);
+                lfU[i] = pOFace.Uvs[i].X;
+            }
+
+            // The side's two top corners and two bottom ones, each pair at the same height.
+            if (!Mathf.Approximately(lOCorner[0].y, lOCorner[1].y) || !Mathf.Approximately(lOCorner[2].y, lOCorner[3].y)
+                || lOCorner[0].y <= lOCorner[3].y || pOResolved.Size.x <= 0 || pOResolved.Size.y <= 0)
+                return false;
+
+            float lfWidth = Vector2.Distance(new Vector2(lOCorner[0].x, lOCorner[0].z), new Vector2(lOCorner[1].x, lOCorner[1].z));
+            float lfTexel = lfWidth / (Mathf.Abs(lfU[1] - lfU[0]) * pOResolved.Size.x);
+            float lfRepeat = lfTexel * pOResolved.Size.y;
+
+            if (lfRepeat <= 0.01f)
+                return false;
+
+            float lfBottom = lOCorner[3].y;
+            float lfTop = lOCorner[0].y;
+            Vector2 lOOrigin = pOResolved.UvRect.position;
+            Vector2 lOSize = pOResolved.UvRect.size;
+
+            // Pieces between the multiples of the repeat in world height.
+            float lfFrom = lfBottom;
+
+            while (lfFrom < lfTop - 0.001f)
+            {
+                float lfWorldFrom = pfBaseY + lfFrom;
+                float lfStart = Mathf.Floor((lfWorldFrom + 0.001f) / lfRepeat) * lfRepeat;
+                float lfTo = Mathf.Min(lfTop, lfStart + lfRepeat - pfBaseY);
+                float lfVFrom = (lfWorldFrom - lfStart) / lfRepeat;
+                float lfVTo = (pfBaseY + lfTo - lfStart) / lfRepeat;
+                int liBase = pOVerts.Count;
+
+                // Top U0, top U1, bottom U1, bottom U0 - the model's order.
+                pOVerts.Add(new Vector3(lOCorner[0].x, lfTo, lOCorner[0].z));
+                pOVerts.Add(new Vector3(lOCorner[1].x, lfTo, lOCorner[1].z));
+                pOVerts.Add(new Vector3(lOCorner[2].x, lfFrom, lOCorner[2].z));
+                pOVerts.Add(new Vector3(lOCorner[3].x, lfFrom, lOCorner[3].z));
+
+                pOUvs.Add(lOOrigin + Vector2.Scale(new Vector2(lfU[0], lfVTo), lOSize));
+                pOUvs.Add(lOOrigin + Vector2.Scale(new Vector2(lfU[1], lfVTo), lOSize));
+                pOUvs.Add(lOOrigin + Vector2.Scale(new Vector2(lfU[2], lfVFrom), lOSize));
+                pOUvs.Add(lOOrigin + Vector2.Scale(new Vector2(lfU[3], lfVFrom), lOSize));
+
+                for (int i = 0; i < 4; i++)
+                {
+                    pOColors.Add(new Color32(255, 255, 255, 255));
+                    pOPaletteData.Add(Vector2.zero);
+                }
+
+                pOTriangles.Add(liBase);
+                pOTriangles.Add(liBase + 1);
+                pOTriangles.Add(liBase + 2);
+                pOTriangles.Add(liBase);
+                pOTriangles.Add(liBase + 2);
+                pOTriangles.Add(liBase + 3);
+
+                lfFrom = lfTo;
+            }
+
+            return true;
+        }
         private const int GravestoneObjectId = UWEndgameRules.GravestoneObjectId;
         private const int MoongateObjectId = UWObjectMechanics.MoongateObjectId;
         private const int TableObjectId = 0x0158;
@@ -1717,6 +1802,23 @@ namespace UnderworldRevisited.Build
                 // not WHICH one - that was the mistake in the previous attempt using the
                 // model's internal "TextureNumber".
                 bool lbUseArraySlice = lOFace.Uvs != null && lbObjectIsArrayTexture;
+
+                // A TEXTURED SIDE UP TO THE CEILING (the pillar) REPEATS ITS PICTURE instead of
+                // stretching it over the whole height (per user, 2026-10-07, screenshots of the
+                // original beside ours from the same spot: our texels many times too tall). The
+                // pillar's picture is TMOBJ.GR 0-3 (UWLevel, object 352), 8 by 32 texels; the
+                // model lays its width across a side (U 0..1 over an eighth of a tile, one texel a
+                // unit), and in the original the texels are square - so the picture repeats every
+                // 32 units. In the atlas a texture cannot wrap, so the side is cut into pieces of
+                // one repeat each, anchored at the world height as the walls are. A DELIBERATE
+                // DEVIATION in the way (Todo.md section 8): the original draws one quad whose
+                // texture coordinates run in texel units over the whole height and wrap in its
+                // rasterizer; the picture is the same.
+                if (lOFace.Uvs != null && !lbUseArraySlice && lOFace.VertexIndices.Count == 4
+                    && lOFace.VertexIndices.Exists(piAt => lOModel.CeilingVertexIndices.Contains(piAt))
+                    && fAddRepeatedSide(lOModel, lOFace, lfModelScale, lfLocalCeiling, lOPosition.y, lOResolved,
+                        lOVerts, lOUvs, lOColors, lOPaletteData, lOAtlasTriangles))
+                    continue;
 
                 for (int i = 0; i < lOFace.VertexIndices.Count; i++)
                 {

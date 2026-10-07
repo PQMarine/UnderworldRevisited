@@ -46,6 +46,7 @@ Shader "UW/DungeonPalette"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "UWHallucination.hlsl"
+            #include "UWPaletteEffects.hlsl"
 
             TEXTURE2D_ARRAY(_IndexArray);
             SAMPLER(sampler_IndexArray);
@@ -81,13 +82,27 @@ Shader "UW/DungeonPalette"
 
             half4 UWFragment(Varyings IN) : SV_Target
             {
-                half4 raw = SAMPLE_TEXTURE2D_ARRAY(_IndexArray, sampler_IndexArray, UWScrambleUV(IN.uv), IN.uv.z);
+                // The face's normal first: the depth effect shifts the coordinate before the index
+                // is read (UWPaletteEffects.hlsl, UWPaletteParallaxUv).
+                float3 lNormal = UWFacingNormal(IN.positionWS);
+                float2 lUv = UWScrambleUV(float3(UWPaletteParallaxUv(IN.uv.xy, IN.uv.z, IN.positionWS, lNormal), IN.uv.z));
+                half4 raw = SAMPLE_TEXTURE2D_ARRAY(_IndexArray, sampler_IndexArray, lUv, IN.uv.z);
 
                 // The part of the hallucination's light table (UWHallucination.hlsl).
                 UWSurfacePart = UWDungeonSurfacePart(IN.uv.z, IN.positionWS.y);
 
-                half4 colour = UWPaletteColour(raw, IN.positionWS, _WorldSpaceCameraPos,
-                    IN.positionCS.xy);
+                // The palette renderer's own effects in shade levels (UWPaletteEffects.hlsl).
+                float lfGrime = _UWPaletteGrime > 0.0 ? UWGrimeAmount(IN.positionWS, lNormal) : 0.0;
+
+                UWLightCap = min(UWPaletteLightCap(IN.positionWS, lNormal), UWLavaGlowCap(raw, IN.positionWS));
+                UWGrimeTintMix = lfGrime;
+
+                half4 colour = UWPaletteColourExtra(raw,
+                    UWPaletteEffectLevel(IN.positionCS) + (_UWPaletteGrime * lfGrime)
+                        + UWGroundShadowLevel(IN.positionWS, lNormal)
+                        + UWReliefLevel(IN.positionWS, lNormal, lUv, IN.uv.z)
+                        + UWPaletteSelfShadowLevel(lUv, IN.uv.z, IN.positionWS, lNormal),
+                    IN.positionWS, _WorldSpaceCameraPos, IN.positionCS.xy);
 
                 return half4(colour.rgb, 1.0h);
             }

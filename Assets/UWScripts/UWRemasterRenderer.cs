@@ -127,7 +127,6 @@ public class UWRemasterRenderer : MonoBehaviour
         lOMaterial.SetFloat("_ParallaxDepth", lOSettings.RemasterParallaxDepth);
         lOMaterial.SetFloat("_ParallaxLevels", lOSettings.RemasterParallaxLevels);
         lOMaterial.SetFloat("_ParallaxSteps", lOSettings.RemasterParallaxSteps);
-        lOMaterial.SetFloat("_ParallaxSnap", lOSettings.RemasterParallaxSnap ? 1f : 0f);
         lOMaterial.SetFloat("_SelfShadowStrength", lOSettings.RemasterSelfShadow);
         lOMaterial.SetFloat("_SelfShadowDepth", lOSettings.RemasterSelfShadowDepth);
         lOMaterial.SetFloat("_SelfShadowReach", lOSettings.RemasterSelfShadowReach);

@@ -33,7 +33,6 @@ Shader "UW/Dungeon"
         _ParallaxDepth ("Parallax depth", Range(0, 0.2)) = 0.03
         _ParallaxLevels ("Parallax levels", Range(1, 16)) = 4
         _ParallaxSteps ("Parallax steps", Range(4, 48)) = 16
-        _ParallaxSnap ("Parallax snapped to pixel grid", Range(0, 1)) = 1
         _SelfShadowStrength ("Self shadow", Range(0, 1)) = 0
         _SelfShadowDepth ("Self shadow relief depth", Range(0.001, 0.1)) = 0.02
         _SelfShadowReach ("Self shadow reach", Range(0.01, 0.3)) = 0.1
@@ -84,6 +83,7 @@ Shader "UW/Dungeon"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "UWHallucination.hlsl"
+            #include "UWGrime.hlsl"
 
             TEXTURE2D_ARRAY(_TexArray);
             SAMPLER(sampler_TexArray);
@@ -110,7 +110,6 @@ Shader "UW/Dungeon"
                 float _ParallaxDepth;
                 float _ParallaxLevels;
                 float _ParallaxSteps;
-                float _ParallaxSnap;
                 float _SelfShadowStrength;
                 float _SelfShadowDepth;
                 float _SelfShadowReach;
@@ -167,11 +166,7 @@ Shader "UW/Dungeon"
                 return float3x3(lOTangent * lfScale, lOBitangent * lfScale, pONormalWS);
             }
 
-            /// Texels per slice in all arrays, see UWTextureArrayBuilder.SliceResolution.
-            #define UW_SLICE_RESOLUTION 64.0
-
             /// Which mipmap the height for snapping comes from, see UWSampleDepth.
-            #define UW_PARALLAX_SNAP_MIP 2.0
 
             /// The height of a pixel is stored in the alpha channel of the normal array (from the
             /// detected joints, see UWTextureArrayBuilder.BuildNormals and UWHeightMapBuilder). Here it
@@ -179,15 +174,10 @@ Shader "UW/Dungeon"
             /// a few levels.
             float UWSampleDepth(float2 pOUv, float pfSlice)
             {
-                // On the pixel grid the height is read from a COARSE mipmap (4 by 4
-                // texels averaged). With the fine height it varies from texel to texel, the
-                // rounded offset jumped back and forth between neighbouring pixels, and the
-                // stones got horizontal streaks and doubled pixel rows (rendered
-                // with a render test tool, 2026-09-13). Read coarsely, the same offset applies
-                // across a whole stone.
-                float lfHeight = _ParallaxSnap > 0.5
-                    ? SAMPLE_TEXTURE2D_ARRAY_LOD(_NormalArray, sampler_NormalArray, pOUv, pfSlice, UW_PARALLAX_SNAP_MIP).a
-                    : SAMPLE_TEXTURE2D_ARRAY(_NormalArray, sampler_NormalArray, pOUv, pfSlice).a;
+                // NO SNAP TO WHOLE TEXELS (per user, 2026-10-07: "Ohne sieht es immer besser aus"):
+                // the snapped variant - the height from a coarse mipmap, the shift rounded to
+                // whole texels - was a switch until then (off by default) and is gone.
+                float lfHeight = SAMPLE_TEXTURE2D_ARRAY(_NormalArray, sampler_NormalArray, pOUv, pfSlice).a;
                 float lfLevels = max(1.0, _ParallaxLevels);
 
                 // STEPPED HEIGHT, as in the plan: not a smooth landscape, but a few
@@ -235,14 +225,6 @@ Shader "UW/Dungeon"
                     lfRayDepth += lfStep;
                     lfMapDepth = UWSampleDepth(lOAt, pfSlice);
                 }
-
-                // SNAP TO THE PIXEL GRID (per user, 2026-09-13): shifted by fractions of a
-                // texel, the hard pixels swam and distorted while moving.
-                // Rounded to whole texels every pixel stays intact - the surface jumps
-                // texel by texel, which suits pixel art. Colour, normal and
-                // palette index read the same shifted spot.
-                if (_ParallaxSnap > 0.5)
-                    return pOUv + (round((lOAt - pOUv) * UW_SLICE_RESOLUTION) / UW_SLICE_RESOLUTION);
 
                 return lOAt;
             }
@@ -316,9 +298,16 @@ Shader "UW/Dungeon"
                 return OUT;
             }
 
+            // The grime's tone for the albedo (UWGrime.hlsl, UWPaletteEffects.cs).
+            float4 _UWGrimeToneColour;
+
             half4 UWFragment(Varyings IN) : SV_Target
             {
                 float3 normalWS = normalize(IN.normalWS);
+
+                // GRIME (UWGrime.hlsl): from the geometry's own normal, before any bump.
+                float lfGrime = _UWPaletteGrime > 0.0
+                    ? UWGrimeAmount(IN.positionWS, normalWS) * saturate(_UWPaletteGrime / 6.0) : 0.0;
                 float3 viewDirWS = GetWorldSpaceNormalizeViewDir(IN.positionWS);
                 half3 specular = half3(0, 0, 0);
                 half lfGloss = 1.0h;
@@ -532,6 +521,10 @@ Shader "UW/Dungeon"
                 lighting *= lfDirectOcclusion * lfCavity;
                 specular *= lfDirectOcclusion * lfCavity;
                 lighting += (SampleSH(normalWS) + _AmbientFloor.xxx) * lfIndirectOcclusion * lfCavity;
+
+                // GRIME: the albedo towards the dirt's tone, its shine gone where it lies.
+                albedo.rgb = lerp(albedo.rgb, albedo.rgb * _UWGrimeToneColour.rgb, lfGrime);
+                specular *= 1.0h - lfGrime;
 
                 half3 color = (albedo.rgb * lighting) + specular;
 

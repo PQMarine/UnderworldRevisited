@@ -18,6 +18,13 @@ using UnderworldRevisited;
 /// interface picture (UWIconPalette). Changes apply at once: the values go to
 /// UWGraphicsDetail.CustomValues and from there into the settings, which the Remastered
 /// renderer reads every frame. DONE or Escape closes it and saves.
+///
+/// REWORKED 2026-10-07 (per user: "Bau es in den Remastered Dialog ein. Dann mit Scrolling. Den
+/// Remastered Dialog auch verschiebbar machen. On Off und Done nach oben."): the grime along the
+/// walls and its tone are rows here too (the setting both render modes share, UWUserSettings);
+/// the ALL ON / OFF and DONE buttons stand in the title row; the rows scroll with the mouse wheel
+/// when there are more than fit, a thin bar at the right edge showing where; and the screen can be
+/// dragged by its title row.
 /// </summary>
 public class UWEffectsScreen
 {
@@ -30,9 +37,15 @@ public class UWEffectsScreen
 
     private const byte ShadowColour = 0x01;
 
-    private const int TitleTop = 5;
+    private const int TitleTop = 6;
 
-    private const int FirstRowTop = 17;
+    private const int FirstRowTop = 22;
+
+    /// <summary>The lowest line a row may stand on.</summary>
+    private const int LastRowBottom = ScreenHeight - 4;
+
+    /// <summary>How many rows fit between the title row and the bottom edge.</summary>
+    private const int VisibleRows = (LastRowBottom - FirstRowTop) / 8;
 
     private const int RowPitch = 8;
 
@@ -46,15 +59,22 @@ public class UWEffectsScreen
 
     private const int ValueLeft = ControlLeft + BarWidth + 6;
 
-    private const int ButtonTop = 181;
+    /// <summary>The buttons in the title row (until 2026-10-07 at the bottom, 181).</summary>
+    private const int ButtonTop = 3;
 
-    private const int AllLabelLeft = 12;
+    private const int AllLabelLeft = 8;
 
-    private const int OnButtonLeft = 52;
+    private const int OnButtonLeft = 26;
 
-    private const int OffButtonLeft = 87;
+    private const int OffButtonLeft = 59;
 
-    private const int DoneButtonLeft = 277;
+    private const int DoneButtonLeft = 284;
+
+    /// <summary>The screen's size against the frame it opens in.</summary>
+    private const float PanelScale = 0.8f;
+
+    /// <summary>The scroll bar's column at the right edge.</summary>
+    private const int ScrollBarLeft = ScreenWidth - 6;
 
     // OPTBTNS.GR
     private const int OnButtonImage = 20;
@@ -80,7 +100,8 @@ public class UWEffectsScreen
         Toggle,
         Slider,
         Steps,
-        Tonemapping
+        Tonemapping,
+        GrimeTone
     }
 
     private class Row
@@ -91,6 +112,11 @@ public class UWEffectsScreen
         public float Max;
         public Func<UWGraphicsDetail.EffectValues, float> Get;
         public Action<UWGraphicsDetail.EffectValues, float> Set;
+
+        /// <summary>For a row outside the effect values (the grime): what ALL ON and ALL OFF set
+        /// (NaN: they leave it).</summary>
+        public float AllOn = float.NaN;
+        public float AllOff = float.NaN;
     }
 
     private readonly List<Row> mORows = new List<Row>();
@@ -110,6 +136,17 @@ public class UWEffectsScreen
     private int miDragRow = -1;
 
     private int miHoveredButton = -1;
+
+    /// <summary>The first row shown (the mouse wheel moves it).</summary>
+    private int miScroll;
+
+    /// <summary>Dragging the screen by its title row: where the pointer took it, in the frame's
+    /// units, and the screen's place then.</summary>
+    private bool mbMoving;
+
+    private Vector2 mOMoveFrom;
+
+    private Vector2 mOMoveStart;
 
     public bool IsOpen { get; private set; }
 
@@ -139,6 +176,15 @@ public class UWEffectsScreen
         fAddRow("Smoke", KindEnum.Slider, 0f, 1f, v => v.FireSmoke, (v, f) => v.FireSmoke = f);
         fAddRow("Dust", KindEnum.Slider, 0f, 3f, v => v.Dust, (v, f) => v.Dust = f);
         fAddRow("Ground shadows", KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
+
+        // THE GRIME, shared with the palette path (UWGrime.hlsl): its setting lives in the user's
+        // settings, not in the effect values; saved when the screen closes.
+        fAddRow("Grime along the walls", KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
+            v => UWUserSettings.PaletteGrime, (v, f) => UWUserSettings.PaletteGrime = Mathf.Round(f * 2f) / 2f);
+        mORows[mORows.Count - 1].AllOn = 3f;
+        mORows[mORows.Count - 1].AllOff = 0f;
+        fAddRow("Grime colour", KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
+            v => UWUserSettings.PaletteGrimeTone, (v, f) => UWUserSettings.PaletteGrimeTone = Mathf.RoundToInt(f));
     }
 
     private void fAddRow(string psLabel, KindEnum peKind, float pfMin, float pfMax,
@@ -167,8 +213,14 @@ public class UWEffectsScreen
             lORect.anchorMin = new Vector2(0f, 1f);
             lORect.anchorMax = new Vector2(0f, 1f);
             lORect.pivot = new Vector2(0f, 1f);
-            lORect.anchoredPosition = Vector2.zero;
             lORect.sizeDelta = new Vector2(ScreenWidth, ScreenHeight);
+
+            // SMALLER THAN THE FRAME (per user, 2026-10-07: the lettering a little smaller, so the
+            // window is not so big): the whole screen, picture and lettering, at PanelScale of the
+            // frame, centred in it to begin with. Clicks are measured against the screen itself,
+            // so they follow the scale.
+            lORect.localScale = new Vector3(PanelScale, PanelScale, 1f);
+            lORect.anchoredPosition = new Vector2(ScreenWidth * (1f - PanelScale) * 0.5f, -ScreenHeight * (1f - PanelScale) * 0.5f);
 
             mOImage = lOObject.GetComponent<RawImage>();
             mOImage.raycastTarget = false;
@@ -198,11 +250,13 @@ public class UWEffectsScreen
 
         IsOpen = false;
         miDragRow = -1;
+        mbMoving = false;
 
         if (mOImage != null)
             mOImage.gameObject.SetActive(false);
 
         UWGraphicsDetail.Save();
+        UWUserSettings.Save();
     }
 
     /// <summary>Mouse and keys. Call every frame while open.</summary>
@@ -248,14 +302,36 @@ public class UWEffectsScreen
         }
 
         if (!lOMouse.leftButton.isPressed)
+        {
             miDragRow = -1;
+            mbMoving = false;
+        }
 
-        if (miDragRow >= 0)
+        // The mouse wheel scrolls the rows while the pointer is over the screen.
+        float lfWheel = lOMouse.scroll.ReadValue().y;
+
+        if (liY >= 0 && Mathf.Abs(lfWheel) > 0.01f)
+            fScrollBy(lfWheel > 0f ? -1 : 1);
+
+        if (mbMoving)
+        {
+            fMove(lOMouse.position.ReadValue());
+        }
+        else if (miDragRow >= 0)
         {
             fSetFromBar(mORows[miDragRow], lOValues, liX);
         }
         else if (lOMouse.leftButton.wasPressedThisFrame)
         {
+            // The title row outside its buttons takes the screen along.
+            if (liY >= 0 && liY < FirstRowTop - 2 && liButton < 0)
+            {
+                fBeginMove(lOMouse.position.ReadValue());
+                fRedraw();
+
+                return;
+            }
+
             if (liButton == DoneButtonImage)
             {
                 Close();
@@ -270,7 +346,14 @@ public class UWEffectsScreen
                     : UWGraphicsDetail.ShippedValues.AllOff();
 
                 foreach (Row lORow in mORows)
-                    lORow.Set(lOValues, lORow.Get(lOPreset));
+                {
+                    float lfOwn = liButton == OnButtonImage ? lORow.AllOn : lORow.AllOff;
+
+                    if (!float.IsNaN(lfOwn))
+                        lORow.Set(lOValues, lfOwn);
+                    else if (lORow.Kind != KindEnum.GrimeTone)
+                        lORow.Set(lOValues, lORow.Get(lOPreset));
+                }
 
                 fChanged();
             }
@@ -301,6 +384,11 @@ public class UWEffectsScreen
 
             case KindEnum.Tonemapping:
                 lORow.Set(pOValues, (lORow.Get(pOValues) + 1f) % 3f);
+                fChanged();
+                break;
+
+            case KindEnum.GrimeTone:
+                lORow.Set(pOValues, (lORow.Get(pOValues) + 1f) % UWGrimeTint.ToneCount);
                 fChanged();
                 break;
 
@@ -335,12 +423,63 @@ public class UWEffectsScreen
         mbDirty = true;
     }
 
-    private static int fRowAt(int piY)
+    private int fRowAt(int piY)
     {
         if (piY < FirstRowTop - 2)
             return -1;
 
-        return (piY - (FirstRowTop - 2)) / RowPitch;
+        int liShown = (piY - (FirstRowTop - 2)) / RowPitch;
+
+        if (liShown >= VisibleRows)
+            return -1;
+
+        int liRow = miScroll + liShown;
+
+        return liRow < mORows.Count ? liRow : -1;
+    }
+
+    private int MaxScroll => Mathf.Max(0, mORows.Count - VisibleRows);
+
+    private void fScrollBy(int piRows)
+    {
+        int liScroll = Mathf.Clamp(miScroll + piRows, 0, MaxScroll);
+
+        if (liScroll == miScroll)
+            return;
+
+        miScroll = liScroll;
+        mbDirty = true;
+    }
+
+    /// <summary>The pointer in the frame's own units.</summary>
+    private bool fToFrameLocal(Vector2 pOScreen, out Vector2 pOLocal)
+    {
+        return RectTransformUtility.ScreenPointToLocalPointInRectangle(mOFrame, pOScreen, null, out pOLocal);
+    }
+
+    private void fBeginMove(Vector2 pOScreen)
+    {
+        if (mOImage == null || !fToFrameLocal(pOScreen, out Vector2 lOLocal))
+            return;
+
+        mbMoving = true;
+        mOMoveFrom = lOLocal;
+        mOMoveStart = ((RectTransform)mOImage.transform).anchoredPosition;
+    }
+
+    /// <summary>Follows the pointer; the screen keeps at least its title row within reach of the
+    /// frame (a frame's width and height around it).</summary>
+    private void fMove(Vector2 pOScreen)
+    {
+        if (mOImage == null || !fToFrameLocal(pOScreen, out Vector2 lOLocal))
+            return;
+
+        Vector2 lOWanted = mOMoveStart + (lOLocal - mOMoveFrom);
+
+        lOWanted.x = Mathf.Clamp(lOWanted.x, -(ScreenWidth - 40), ScreenWidth - 40);
+        lOWanted.y = Mathf.Clamp(lOWanted.y, -(ScreenHeight - 20), ScreenHeight - 20);
+
+        ((RectTransform)mOImage.transform).anchoredPosition = lOWanted;
     }
 
     private int fButtonAt(int piX, int piY)
@@ -360,18 +499,20 @@ public class UWEffectsScreen
         return -1;
     }
 
-    /// <summary>The mouse in pixels of the 320x200 frame, from the top left.</summary>
+    /// <summary>The mouse in pixels of the 320x200 screen, from its top left - wherever it was
+    /// moved to.</summary>
     private bool fToScreenPixel(Vector2 pOScreen, out int piX, out int piY)
     {
         piX = -1;
         piY = -1;
 
         Vector2 lOLocal;
+        RectTransform lOScreenRect = mOImage != null ? (RectTransform)mOImage.transform : mOFrame;
 
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(mOFrame, pOScreen, null, out lOLocal))
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(lOScreenRect, pOScreen, null, out lOLocal))
             return false;
 
-        Rect lORect = mOFrame.rect;
+        Rect lORect = lOScreenRect.rect;
 
         piX = Mathf.FloorToInt(lOLocal.x - lORect.xMin);
         piY = Mathf.FloorToInt(lORect.yMax - lOLocal.y);
@@ -393,32 +534,49 @@ public class UWEffectsScreen
         fDrawBackground();
         fDrawTextCentred(TitleTop, "Remastered effects");
 
-        for (int liRow = 0; liRow < mORows.Count && lOValues != null; liRow++)
+        // The rows shown, from miScroll on; the text slots are per shown line, so a slot below the
+        // last row is emptied.
+        for (int liShown = 0; liShown < VisibleRows; liShown++)
         {
+            int liRow = miScroll + liShown;
+            int liTop = FirstRowTop + (liShown * RowPitch);
+
+            if (liRow >= mORows.Count || lOValues == null)
+            {
+                fDrawText("label" + liShown, LabelLeft, liTop, string.Empty);
+                fDrawText("value" + liShown, ControlLeft, liTop, string.Empty);
+                continue;
+            }
+
             Row lORow = mORows[liRow];
-            int liTop = FirstRowTop + (liRow * RowPitch);
             float lfValue = lORow.Get(lOValues);
 
-            fDrawText("label" + liRow, LabelLeft, liTop, lORow.Label);
+            fDrawText("label" + liShown, LabelLeft, liTop, lORow.Label);
 
             switch (lORow.Kind)
             {
                 case KindEnum.Toggle:
-                    fDrawText("value" + liRow, ControlLeft, liTop, lfValue >= 0.5f ? "On" : "Off");
+                    fDrawText("value" + liShown, ControlLeft, liTop, lfValue >= 0.5f ? "On" : "Off");
                     break;
 
                 case KindEnum.Tonemapping:
-                    fDrawText("value" + liRow, ControlLeft, liTop, fTonemappingName(Mathf.RoundToInt(lfValue)));
+                    fDrawText("value" + liShown, ControlLeft, liTop, fTonemappingName(Mathf.RoundToInt(lfValue)));
+                    break;
+
+                case KindEnum.GrimeTone:
+                    fDrawText("value" + liShown, ControlLeft, liTop, fToneName(Mathf.RoundToInt(lfValue)));
                     break;
 
                 default:
                     fDrawBar(liTop, Mathf.InverseLerp(lORow.Min, lORow.Max, lfValue));
-                    fDrawText("value" + liRow, ValueLeft, liTop, lORow.Kind == KindEnum.Steps
+                    fDrawText("value" + liShown, ValueLeft, liTop, lORow.Kind == KindEnum.Steps
                         ? Mathf.RoundToInt(lfValue).ToString()
                         : lfValue.ToString(lORow.Max < 0.5f ? "0.000" : "0.00", System.Globalization.CultureInfo.InvariantCulture));
                     break;
             }
         }
+
+        fDrawScrollBar();
 
         fDrawText("all", AllLabelLeft, ButtonTop + 5, "All:");
         fDrawButton(OnButtonLeft, OnButtonImage);
@@ -426,6 +584,38 @@ public class UWEffectsScreen
         fDrawButton(DoneButtonLeft, DoneButtonImage);
 
         fUpload();
+    }
+
+    private static string fToneName(int piValue)
+    {
+        switch (piValue)
+        {
+            case 1: return "Dirt";
+            case 2: return "Moss";
+            case 3: return "Soot";
+            default: return "No colour";
+        }
+    }
+
+    /// <summary>A thin bar at the right edge while the rows do not all fit: the track in the
+    /// shadow colour, the part shown in the lettering's.</summary>
+    private void fDrawScrollBar()
+    {
+        if (MaxScroll <= 0)
+            return;
+
+        int liTrackTop = FirstRowTop - 2;
+        int liTrackHeight = (VisibleRows * RowPitch) - 2;
+        int liThumbHeight = Mathf.Max(6, (liTrackHeight * VisibleRows) / mORows.Count);
+        int liThumbTop = liTrackTop + (((liTrackHeight - liThumbHeight) * miScroll) / MaxScroll);
+
+        for (int liY = 0; liY < liTrackHeight; liY++)
+        {
+            bool lbThumb = liTrackTop + liY >= liThumbTop && liTrackTop + liY < liThumbTop + liThumbHeight;
+
+            for (int liX = 0; liX < 3; liX++)
+                fPut(ScrollBarLeft + liX, liTrackTop + liY, lbThumb ? TextColour : ShadowColour);
+        }
     }
 
     private static string fTonemappingName(int piValue)

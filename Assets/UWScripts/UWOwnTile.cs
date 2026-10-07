@@ -66,13 +66,17 @@ public static class UWOwnTile
 
         if (msFloorHeights == null)
         {
-            msFloorHeights = new Texture2D(liSize, liSize, TextureFormat.RGFloat, false, true);
+            msFloorHeights = new Texture2D(liSize, liSize, TextureFormat.RGBAFloat, false, true);
             msFloorHeights.name = "UW Floor Heights";
             msFloorHeights.filterMode = FilterMode.Point;
             msFloorHeights.wrapMode = TextureWrapMode.Clamp;
         }
 
         Color[] lOPixels = new Color[liSize * liSize];
+
+        // The third channel names the liquid, 1 water and 2 lava - the palette renderer's grime
+        // leaves those floors alone (UWPaletteEffects.hlsl, UWGrimeLevel).
+        UWDataImport.UWData.UWTileQueries lOQueries = UWScene.LevelLoader != null ? UWScene.LevelLoader.TileQueries : null;
 
         for (int liY = 0; liY < liSize; liY++)
         {
@@ -84,7 +88,12 @@ public static class UWOwnTile
 
                 float lfType = lOTile == null ? 0f : (float)(int)lOTile.TileType;
 
-                lOPixels[(liY * liSize) + liX] = new Color(lfFloor, lfType, 0f, 0f);
+                float lfLiquid = lOQueries == null || lOTile == null ? 0f
+                    : lOQueries.IsWaterTile(lOTile) ? 1f
+                    : lOQueries.IsLavaTile(lOTile) ? 2f
+                    : 0f;
+
+                lOPixels[(liY * liSize) + liX] = new Color(lfFloor, lfType, lfLiquid, 0f);
             }
         }
 

@@ -38,6 +38,12 @@ up with hard edges, while the frame, the paperdoll and the messages stay sharp.*
 | ![The doors of the Abyss at the original's resolution in the modern scheme, Palette mode](Screenshots/UR12.png) | ![The same spot at the original's resolution, Remastered mode](Screenshots/UR13.png) |
 | *The modern scheme at the original's resolution: 200 rows, the width following the screen.* | *The same spot in Remastered mode, lit by the torch, at the same resolution.* |
 
+![The Palette effects at Full: a lit room across the water on level 1](Screenshots/UR14.png)
+
+*Palette mode with its effects at Full: wall depth, darker joints and grime along the walls, the
+campfire lighting the room across the water by the original's own light table - every pixel
+still a colour of the original's palette.*
+
 | Original font | Modern font |
 |---|---|
 | ![A conversation in the original font, the help window's spells tab](Screenshots/UR04.png) | ![The same conversation in the modern font, the stats tab](Screenshots/UR05.png) |
@@ -82,6 +88,14 @@ What is in:
   LIGHT.DAT, **Remastered** lights with URP and adds relief, specular highlights, glow,
   shadows and torch lights - each of them switchable on its own, so the plain modern look is
   just all of them turned off
+- Effects of the port's own for the Palette mode that keep every pixel a colour of the
+  original's palette - they only move the original's shade steps: ambient occlusion, grime
+  where walls meet the floor (in a dirt, moss or soot colour), wall depth (parallax) with its
+  shadow, darker joints, ground shadows under creatures and things, glowing lava and flames,
+  and light sources - torches, fires, lava, glowing stones - lighting their surroundings by the
+  original's own light table, walls casting shadows. Off by default, with the presets Subtle
+  and Full (Graphics menu, Palette effects...); the grime works in the Remastered mode too.
+  Use them with care: turned up, they quickly take away the look of the original
 - The 3D models (barrel, chest, chair, shrine, bridge, portcullis ...) read from `UW.EXE`
 - Combat with the original's tables, magic with runes, and the creatures with their goals,
   attitudes and group alarm

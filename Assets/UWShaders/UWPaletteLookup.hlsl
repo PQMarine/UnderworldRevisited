@@ -238,6 +238,38 @@ float _UWLightEffect;
 
 static float UWSurfacePart = 0.0;
 
+// THE GRIME'S COLOUR (UWGrimeTint): a table index -> the grimy index, chosen by _UWGrimeTint
+// (0 none), and how much of it lies at this pixel (UWGrimeTintMix, set by the dungeon shader from
+// UWGrimeAmount): the index is swapped where a 4 by 4 ordered pattern at the original's pixel
+// scale stays below that share - every pixel a palette colour, the shading on top.
+TEXTURE2D(_UWGrimeTintTable);
+SAMPLER(sampler_UWGrimeTintTable);
+float _UWGrimeTint;
+
+static float UWGrimeTintMix = 0.0;
+
+float UWBayerThreshold(float2 pOScreenPosition)
+{
+    const float lfMatrix[16] =
+    {
+         0.0,  8.0,  2.0, 10.0,
+        12.0,  4.0, 14.0,  6.0,
+         3.0, 11.0,  1.0,  9.0,
+        15.0,  7.0, 13.0,  5.0
+    };
+
+    float2 lOCell = floor(pOScreenPosition / max(_UWDitherScale, 1.0));
+    int liX = (int)fmod(lOCell.x, 4.0);
+    int liY = (int)fmod(lOCell.y, 4.0);
+
+    return (lfMatrix[(liY * 4) + liX] + 0.5) / 16.0;
+}
+
+// THE LIGHT SOURCES' LEVEL at this pixel (UWPaletteEffects.hlsl, UWPaletteLightCap): the
+// brighter of it and the player's own distance level counts. 15 = no source - a shader that
+// does not set it shades as before.
+static float UWLightCap = 15.0;
+
 static float UWRawColours = 0.0;
 
 half4 UWShadeLookup(float pfIndex, float pfLevel)
@@ -268,7 +300,7 @@ half4 UWShadeIndex(float pfIndex, float pfTileDistance, float pfExtraLevel, floa
     if (_UWFullBright > 0.5)
         return UWShadeLookup(pfIndex, 0.0);
 
-    float lfLevel = UWShadeLevel(pfTileDistance) + pfExtraLevel;
+    float lfLevel = min(UWShadeLevel(pfTileDistance), UWLightCap) + pfExtraLevel;
 
     if (_UWDither > 0.5)
     {
@@ -314,6 +346,13 @@ half4 UWPaletteColourExtra(float4 pORawTexel, float pfExtraLevel, float3 pOPosit
     float3 pOCameraWS, float2 pOScreenPosition)
 {
     float lfIndex = UWRotateIndex(UWToIndex(pORawTexel.r));
+
+    if (UWGrimeTintMix > 0.0 && _UWGrimeTint > 0.5
+        && UWBayerThreshold(pOScreenPosition) < UWGrimeTintMix)
+    {
+        lfIndex = UWToIndex(SAMPLE_TEXTURE2D(_UWGrimeTintTable, sampler_UWGrimeTintTable,
+            UWTableUV(lfIndex, _UWGrimeTint, UW_PALETTE_SIZE, 4.0)).r);
+    }
 
     half4 lOColour = UWShadeIndex(lfIndex, UWTileDistance(pOPositionWS, pOCameraWS),
         pfExtraLevel, pOScreenPosition);

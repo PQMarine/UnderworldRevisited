@@ -57,6 +57,7 @@ Shader "UW/ModelPalette"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "UWPaletteLookup.hlsl"
             #include "UWOwnTile.hlsl"
+            #include "UWPaletteEffects.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float _Cull;
@@ -107,8 +108,10 @@ Shader "UW/ModelPalette"
                         : IN.positionCS.z;
                 #endif
 
+                UWLightCap = UWPaletteLightCap(IN.positionWS, UWFacingNormal(IN.positionWS));
+
                 half4 colour = UWPaletteColourIndexed(IN.paletteData.x,
-                    max(IN.paletteData.y - 1.0, 0.0),
+                    max(IN.paletteData.y - 1.0, 0.0) + UWPaletteEffectLevel(IN.positionCS),
                     IN.positionWS, _WorldSpaceCameraPos, IN.positionCS.xy);
 
                 return half4(colour.rgb, 1.0h);

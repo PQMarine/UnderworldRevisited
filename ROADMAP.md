@@ -23,6 +23,11 @@ of what is built was also read out of the original's executable.
 - A full play-through, compared step by step with the original: from character creation
   through the eight talismans and the Key of Infinity to the end of the game
 - The Palette and Remastered render modes
+- Effects of the port's own for the Palette mode, every pixel still a palette colour: ambient
+  occlusion, grime along the walls with a colour, wall depth with its shadow, darker joints,
+  ground shadows, glowing lava and flames, and light sources by the original's light table with
+  walls casting shadows - presets Off, Subtle, Full (asked for on Reddit); the grime in the
+  Remastered mode too
 - The original's keys: F1 to F10 and the Ctrl shortcuts (save, restore, music, sound, detail,
   quit) work as in the original; the port's own keys sit on Shift, the help window on Tab
 - The port's own additions: the help window beside the view (stats with the hidden values,
@@ -80,19 +85,8 @@ of what is built was also read out of the original's executable.
   established range for it); more effects are planned. Planned: items and creatures get a
   depth estimated from their outline, so they meet floors and walls more softly and the
   lights shade them.
-- **Modern effects in the Palette mode.** That mode has no colours to compute with: the
-  textures hold palette indices, the light picks one of a few shade steps of SHADES.DAT, and
-  only then the palette gives the colour. What fits is what moves the shade step before that
-  lookup, so every pixel stays a colour of the palette: ambient occlusion (corners and joints
-  a step or two darker, first in line, it exists in the Remastered mode already), ground
-  shadows under items and creatures, torches, lava and fire as light sources raising the step
-  near them (the original lights only from the player) with their shadows as a step down,
-  and the relief of the Remastered mode as a step lighter or darker by the light's direction.
-  What does not fit is what computes with finished colours: bloom, specular highlights,
-  tone mapping. Mapping those back to the nearest palette colour tends to look muddy, the
-  palette has few tones for a shine. In between: dithering between two steps, softer light
-  edges that stay in the palette, though the hard edges are part of the original's look.
-  Each effect switchable on its own, as in the Remastered mode. Suggested on Reddit.
+- **More for the Palette mode.** A shore line along water, a few levels lighter and moving
+  with the palette rotation, is an idea that may look odd - not planned yet.
 - **The modern interface from the original's own pieces.** A variant of the modern scheme's
   interface that takes the original's parts as they are, split up: its font, its compass, its
   message scroll, instead of the modern font and the heading as text. Suggested on Reddit.

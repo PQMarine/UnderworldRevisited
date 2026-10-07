@@ -201,9 +201,6 @@ namespace UnderworldRevisited
         [Range(4f, 48f)]
         public float RemasterParallaxSteps = 16f;
 
-        [Tooltip("Round parallax to whole texels. On: the pixels stay intact and jump texel by texel when moving. Off: stepless shift, the pixels swim and distort (per user, 2026-09-13).")]
-        public bool RemasterParallaxSnap = false;
-
         [Tooltip("Reverses the direction of the parallax - for comparison only. Correct is OFF, since the handedness of the tangent frame is right (2026-09-13).")]
         public bool RemasterParallaxInvert = false;
 

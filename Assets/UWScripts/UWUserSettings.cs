@@ -114,6 +114,32 @@ public static class UWUserSettings
         /// <summary>Its multiple of the original's resolution, 1 to 4 (UWWorldResolution.Factor).</summary>
         public int OriginalWorldResolutionFactor = 1;
 
+        /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off
+        /// (UWPaletteEffects).</summary>
+        public float PaletteAmbientOcclusion;
+
+        /// <summary>The palette renderer's light sources (UWPaletteEffects); off by default.</summary>
+        public bool PaletteLightSources;
+
+        /// <summary>The palette renderer's glow (lava, the light sources' flames); off by default.</summary>
+        public bool PaletteGlow;
+
+        /// <summary>The palette renderer's grime along the walls in shade steps, 0 = off.</summary>
+        public float PaletteGrime;
+
+        /// <summary>The grime's colour (UWGrimeTint.ToneEnum): 0 none, 1 dirt, 2 moss, 3 soot.</summary>
+        public int PaletteGrimeTone = 1;
+
+        /// <summary>The palette renderer's ground shadows in shade steps, 0 = off.</summary>
+        public float PaletteGroundShadows;
+
+        /// <summary>The palette renderer's hollows (joints darker) in shade steps, 0 = off.</summary>
+        public float PaletteCavity;
+
+        /// <summary>The palette renderer's depth (parallax and self shadow), 0 = off.</summary>
+        public float PaletteDepth;
+
+
         /// <summary>Window or borderless fullscreen (UWDisplayMode.ModeEnum): 0 window, 1 borderless
         /// fullscreen; -1 not chosen yet, then a build starts borderless at the desktop's size.</summary>
         public int DisplayMode = -1;
@@ -414,6 +440,62 @@ public static class UWUserSettings
     {
         get { return fGet().OriginalWorldResolution; }
         set { fGet().OriginalWorldResolution = value; }
+    }
+
+    /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off - see UWPaletteEffects.</summary>
+    public static float PaletteAmbientOcclusion
+    {
+        get { return fGet().PaletteAmbientOcclusion; }
+        set { fGet().PaletteAmbientOcclusion = value; }
+    }
+
+    /// <summary>The palette renderer's grime along the walls in shade steps, 0 = off - see UWPaletteEffects.</summary>
+    public static float PaletteGrime
+    {
+        get { return fGet().PaletteGrime; }
+        set { fGet().PaletteGrime = value; }
+    }
+
+    /// <summary>The grime's colour - see UWGrimeTint.ToneEnum.</summary>
+    public static int PaletteGrimeTone
+    {
+        get { return fGet().PaletteGrimeTone; }
+        set { fGet().PaletteGrimeTone = value; }
+    }
+
+    /// <summary>The palette renderer's ground shadows in shade steps, 0 = off - see UWPaletteEffects.</summary>
+    public static float PaletteGroundShadows
+    {
+        get { return fGet().PaletteGroundShadows; }
+        set { fGet().PaletteGroundShadows = value; }
+    }
+
+    /// <summary>The palette renderer's hollows in shade steps, 0 = off - see UWPaletteEffects.</summary>
+    public static float PaletteCavity
+    {
+        get { return fGet().PaletteCavity; }
+        set { fGet().PaletteCavity = value; }
+    }
+
+    /// <summary>The palette renderer's depth (parallax and self shadow), 0 = off - see UWPaletteEffects.</summary>
+    public static float PaletteDepth
+    {
+        get { return fGet().PaletteDepth; }
+        set { fGet().PaletteDepth = value; }
+    }
+
+    /// <summary>The palette renderer's glow - see UWPaletteEffects.</summary>
+    public static bool PaletteGlow
+    {
+        get { return fGet().PaletteGlow; }
+        set { fGet().PaletteGlow = value; }
+    }
+
+    /// <summary>The palette renderer's light sources - see UWPaletteEffects.</summary>
+    public static bool PaletteLightSources
+    {
+        get { return fGet().PaletteLightSources; }
+        set { fGet().PaletteLightSources = value; }
     }
 
     /// <summary>The multiple of the original's resolution - see UWWorldResolution.Factor.</summary>

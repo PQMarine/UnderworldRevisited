@@ -48,6 +48,7 @@ Shader "UW/DecalPalette"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "UWPaletteLookup.hlsl"
+            #include "UWPaletteEffects.hlsl"
 
             TEXTURE2D(_IndexTex);
             SAMPLER(sampler_IndexTex);
@@ -89,8 +90,10 @@ Shader "UW/DecalPalette"
 
                 clip(raw.a - _Cutoff);
 
-                half4 colour = UWPaletteColour(raw, IN.positionWS, _WorldSpaceCameraPos,
-                    IN.positionCS.xy);
+                UWLightCap = UWPaletteLightCap(IN.positionWS, UWFacingNormal(IN.positionWS));
+
+                half4 colour = UWPaletteColourExtra(raw, UWPaletteEffectLevel(IN.positionCS),
+                    IN.positionWS, _WorldSpaceCameraPos, IN.positionCS.xy);
 
                 return half4(colour.rgb, 1.0h);
             }

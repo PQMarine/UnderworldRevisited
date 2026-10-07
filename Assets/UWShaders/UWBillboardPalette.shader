@@ -32,6 +32,7 @@ Shader "UW/BillboardPalette"
 
         // A spell missile glows by itself (UWSpellProjectile, per renderer, per user 2026-10-04).
         [HideInInspector] _Glow ("Glows by itself", Float) = 0
+        [HideInInspector] _UWGlowSprite ("A light source's picture (palette glow)", Float) = 0
     }
 
     SubShader
@@ -63,6 +64,7 @@ Shader "UW/BillboardPalette"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
             #include "UWPainterOrder.hlsl"
             #include "UWPaletteLookup.hlsl"
+            #include "UWPaletteEffects.hlsl"
 
             TEXTURE2D(_IndexTex);
             SAMPLER(sampler_IndexTex);
@@ -79,6 +81,7 @@ Shader "UW/BillboardPalette"
                 float _DstBlend;
                 float _ZWrite;
                 float _Glow;
+                float _UWGlowSprite;
             CBUFFER_END
 
             // NO access to a vertex channel. Sprites only have position and UV; the
@@ -178,6 +181,19 @@ Shader "UW/BillboardPalette"
                 // the distance nor the light level darkens it (per user, 2026-10-04).
                 if (_Glow > 0.5)
                     return half4(UWShadeLookup(UWRotateIndex(UWToIndex(raw.r)), 0.0).rgb, raw.a);
+
+                // A LIGHT SOURCE'S BRIGHT PIXELS GLOW (UWPaletteEffects.hlsl, the palette glow):
+                // their full colour, the rest of the picture shaded as usual.
+                if (_UWGlowSprite > 0.5 && UWGlowInReach(IN.pivotWS))
+                {
+                    half3 lOFull = UWShadeLookup(UWRotateIndex(UWToIndex(raw.r)), 0.0).rgb;
+
+                    if (max(lOFull.r, max(lOFull.g, lOFull.b)) > UW_GLOW_THRESHOLD)
+                        return half4(lOFull, raw.a);
+                }
+
+                // The light sources at the sprite's ground point (UWPaletteEffects.hlsl).
+                UWLightCap = UWPaletteLightCap(IN.pivotWS, float3(0.0, 0.0, 0.0));
 
                 return UWPaletteColour(raw, IN.pivotWS, _WorldSpaceCameraPos, IN.positionCS.xy);
             }
