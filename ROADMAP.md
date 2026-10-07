@@ -44,9 +44,23 @@ of what is built was also read out of the original's executable.
 - Nothing known at the moment beyond what the play-through compared. Reports of
   differences to the original are welcome.
 
+## Open: controls
+
+- **Gamepad.** Both control schemes need mouse and keyboard today. A gamepad scheme of its
+  own, built on the modern scheme (the sticks to walk and look, the action bar and the bags on
+  the buttons), for the Steam Deck, a gamepad on the PC and the handhelds below.
+
 ## Open: platforms
 
 - **macOS.** No build yet, untested.
+- **Linux on 64-bit ARM (a Raspberry Pi 5, say).** No build yet, untested. Unity can build for
+  ARM64 Linux (with IL2CPP instead of Mono, and the PDFium library for the manual as an ARM64
+  build). A rough guess: the CPU is plenty for the game logic, the GPU is the limit - the
+  Palette mode at around 720p, the Remastered mode's effects likely too heavy; the original's
+  render height (see Open: presentation) would help most. Asked on Reddit.
+  An outlook further on, also asked there: PortMaster, the port collection for Linux handhelds.
+  Most of its devices offer only OpenGL ES 2 without Vulkan, which Unity 6 no longer serves, so
+  only the stronger handhelds with Vulkan come into question, and only with the gamepad scheme.
 
 ## Open: presentation
 
@@ -94,6 +108,8 @@ of what is built was also read out of the original's executable.
 - Move more rules from the Unity side into the engine-free layer, so the game logic can be
   used without Unity.
 - Ultima Underworld II.
+- A second front end in Unreal Engine beside the Unity one, to go all out on the effects
+  (ray tracing among them). Likely after Ultima Underworld II.
 - Maybe: Detect Monster as a heatmap on the help window's map tab (an idea, not planned).
 - Maybe: cut content brought back as an option, should more of it turn up. Found so far: Thorlson,
   an old warrior with a complete conversation who asks for an honourable death in battle and can
