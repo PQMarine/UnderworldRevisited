@@ -251,11 +251,13 @@ The modern scheme uses the whole screen. What belongs to the original's picture 
 the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the
 cutscenes in the view play in a frame in the middle.
 
-*Gamepad* - in both schemes, tested with an Xbox controller on Windows. The buttons as an Xbox
-pad names them; under *Controls* in the menu bar, its Gamepad tab, the names and glyphs can be
-switched to PlayStation or Nintendo, every button bound anew, the sticks swapped (for the
+*Gamepad* - in both schemes, tested with an Xbox controller on Windows and on Linux. The buttons
+as an Xbox pad names them; under *Controls* in the menu bar, its Gamepad tab, the names and glyphs
+can be switched to PlayStation or Nintendo, every button bound anew, the sticks swapped (for the
 left-handed), the look inverted, and each stick given a deadzone of its own against drift.
 The help's Controls tab shows the buttons in force as glyphs.
+
+![The gamepad layout: the modern scheme, the free pointer and the classic scheme](Screenshots/Gamepad.png)
 
 | Modern scheme | |
 |---|---|
