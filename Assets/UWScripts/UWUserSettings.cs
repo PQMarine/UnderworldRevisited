@@ -77,6 +77,9 @@ public static class UWUserSettings
         /// direkt", so adjustable). The stick keeps its own rate.</summary>
         public float MouseLookSpeed = 0.5f;
 
+        /// <summary>Invert only the vertical mouse look in the modern control scheme.</summary>
+        public bool InvertMouseY;
+
         /// <summary>The modern character panel stays out on its Character tab without freeing the
         /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
         public bool ModernPanelPinned;
@@ -331,6 +334,12 @@ public static class UWUserSettings
     {
         get { return Mathf.Clamp(fGet().MouseLookSpeed <= 0f ? 1f : fGet().MouseLookSpeed, MinMouseLookSpeed, MaxMouseLookSpeed); }
         set { fGet().MouseLookSpeed = Mathf.Clamp(value, MinMouseLookSpeed, MaxMouseLookSpeed); }
+    }
+
+    public static bool InvertMouseY
+    {
+        get { return fGet().InvertMouseY; }
+        set { fGet().InvertMouseY = value; }
     }
 
     public const float MinMouseLookSpeed = 0.05f;

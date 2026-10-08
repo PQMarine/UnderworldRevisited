@@ -145,7 +145,13 @@ public class UWPlayerLook : MonoBehaviour
         float lfSpeed = UWUserSettings.MouseLookSpeed;
 
         float lfYaw = (lOMouseDelta.x * mfSensitivityX * lfSpeed) + (lOStickDelta.x * mfStickSensitivityX * Time.deltaTime);
-        float lfPitchDelta = (lOMouseDelta.y * mfSensitivityY * lfSpeed) + (lOStickDelta.y * mfStickSensitivityY * Time.deltaTime);
+
+        float lfMousePitch = lOMouseDelta.y * mfSensitivityY * lfSpeed;
+
+        if (UWUserSettings.InvertMouseY)
+            lfMousePitch = -lfMousePitch;
+
+        float lfPitchDelta = lfMousePitch + (lOStickDelta.y * mfStickSensitivityY * Time.deltaTime);
 
         transform.Rotate(0f, lfYaw, 0f);
 
