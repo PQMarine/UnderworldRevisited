@@ -118,6 +118,3 @@ of what is built was also read out of the original's executable.
 - Maybe: cut content brought back as an option, should more of it turn up. Found so far: Thorlson,
   an old warrior with a complete conversation who asks for an honourable death in battle and can
   join the player as an ally, but stands in no level (an idea, not planned).
-- Maybe: an option to render the 3D view at the original's low resolution (about the view
-  window's 176 by 112 pixels) and blow it up without smoothing, for the original's coarse look
-  of far objects - switchable, not the default (an idea, not planned).
