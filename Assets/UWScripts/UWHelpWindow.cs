@@ -237,7 +237,7 @@ public class UWHelpWindow : MonoBehaviour
         // (Linux first run, 2026-10-06).
         if (lOControls != null && !lbModern && !UWControls.IsShiftHeld && !UWControls.IsAltHeld && !UWControls.IsTextEntryActive
             && !UWSetupMenu.HasOpenPanel
-            && lOControls.Player.ToggleHelp.WasPressedThisFrame()
+            && lOControls.Player.ToggleHelp.WasPerformedThisFrame()
             && !fIsCovered())
             fSetOpen(!UWHelpLayout.IsOpen, true);
     }
@@ -820,8 +820,34 @@ public class UWHelpWindow : MonoBehaviour
             foreach (UWHelpControls.Row lORow in lOSection.Rows)
             {
                 GUILayout.BeginHorizontal();
-                GUILayout.Label("<color=#" + AccentHex + "><b>" + lORow.Keys + "</b></color>", mOText, GUILayout.Width(ControlsKeyWidth));
-                GUILayout.Label(lORow.Text, mOText);
+
+                // GAMEPAD GLYPHS in the keys' column (UWHelpControls.AddPad, UWGlyphs), glyphs and text
+                // centred on each other (per user, 2026-10-08: the text stood at the glyphs' top).
+                if (lORow.Glyphs != null)
+                {
+                    if (mOTextMiddle == null)
+                        mOTextMiddle = new GUIStyle(mOText) { alignment = TextAnchor.MiddleLeft };
+
+                    GUILayout.BeginVertical(GUILayout.Width(ControlsKeyWidth));
+                    GUILayout.FlexibleSpace();
+                    GUILayout.BeginHorizontal();
+
+                    foreach (Texture2D lOGlyph in lORow.Glyphs)
+                        GUILayout.Label(lOGlyph, GUIStyle.none, GUILayout.Width(ControlsGlyphSize), GUILayout.Height(ControlsGlyphSize));
+
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndHorizontal();
+                    GUILayout.FlexibleSpace();
+                    GUILayout.EndVertical();
+
+                    GUILayout.Label(lORow.Text, mOTextMiddle, GUILayout.MinHeight(ControlsGlyphSize));
+                }
+                else
+                {
+                    GUILayout.Label("<color=#" + AccentHex + "><b>" + lORow.Keys + "</b></color>", mOText, GUILayout.Width(ControlsKeyWidth));
+                    GUILayout.Label(lORow.Text, mOText);
+                }
+
                 GUILayout.EndHorizontal();
                 GUILayout.Space(3f);
             }
@@ -830,6 +856,12 @@ public class UWHelpWindow : MonoBehaviour
 
     /// <summary>The keys' column of the Controls tab.</summary>
     private const float ControlsKeyWidth = 130f;
+
+    /// <summary>A gamepad glyph there: Kenney's 16 pixels twice over (UWGlyphs).</summary>
+    private const float ControlsGlyphSize = 32f;
+
+    /// <summary>The text beside gamepad glyphs, centred on them.</summary>
+    private GUIStyle mOTextMiddle;
 
     /// <summary>"Attack, Defense, ..." - the skills a group mantra draws from.</summary>
     private static string fGroupSkills(int piMantra, DataImport pOData)

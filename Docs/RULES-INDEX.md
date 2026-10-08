@@ -84,6 +84,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `QuakeTrap` (seg008_DE7) | UWObjectMechanics.cs, UWTrapRules.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
 | `ManaChange` (seg038_2B6) | UWPlayerVitals.cs, UWWornRegeneration.cs |
+| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 
 ## All places, by segment
 
@@ -865,6 +866,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWItemDrag.cs, UWSoundEffects.cs |
 | `Class_4_2_ObjectUsage` (seg040_352B_16C4) | UWGlowingRockRules.cs |
+| `Fountain` (seg040_352B_1816) | UWObjectMechanics.cs, Interaction.cs |
 | `GlowingRock` (seg040_352B_186E) | UWGlowingRockRules.cs |
 | `UseReadable` (seg040_352B_19A8) | UWItemUse.cs, Interaction.cs, UWHudMap.cs |
 | `seg040_352B_1B35` | UWSwitchVisual.cs |
@@ -877,8 +879,9 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `DoorToggle` (seg040_352B_23B7) | UWConversationSession.cs |
 | `EmptyContainer` (seg040_352B_23EC) | Interaction.cs |
 | `seg040_352B_2494` | Interaction.cs |
-| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs |
+| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 | `MagicChargeUpdate` (seg040_352B_2723) | UWItemUse.cs |
+| `seg040_352B_2A0` | Interaction.cs |
 | `seg040_352B_919` | UWItemUse.cs, UWEndgame.cs |
 | `PickLock` (seg040_498) | UWLockRules.cs |
 | `UseKey` (seg040_51D) | UWLockRules.cs |

@@ -331,6 +331,19 @@ public class UWModernConversation : MonoBehaviour
         mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
+    /// <summary>The answers' screen rectangles in their order, for the gamepad's stepping
+    /// (UWConversationScreen); empty while none stand there.</summary>
+    public void GetChoiceRects(List<Rect> pORects)
+    {
+        pORects.Clear();
+
+        if (!mbActive)
+            return;
+
+        for (int liRow = 0; liRow < miRowsShown; liRow++)
+            pORects.Add(mORowRects[liRow]);
+    }
+
     /// <summary>The answer under a screen point, 1 for the first; 0 for none (or while a look text
     /// or a typed answer stands there).</summary>
     public int ChoiceAt(Vector2 pOPointer)
@@ -529,7 +542,8 @@ public class UWModernConversation : MonoBehaviour
 
         // Its own size (UWModernLayout) on top of the UI size; the margins stay the UI size's.
         float lfScale = UWModernHud.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.Conversation);
-        float lfScreenRows = Screen.height / lfScale;
+        // The gamepad's letter grid at the bottom: the answers stand above it (UWLetterGrid).
+        float lfScreenRows = (Screen.height - UWLetterGrid.ReservedPixels) / lfScale;
 
         // The room left of the character panel and the bag windows.
         float lfRight = Screen.width;

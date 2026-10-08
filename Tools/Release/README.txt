@@ -63,11 +63,20 @@ panel and a rune panel; its layout can be changed with "Edit layout" in its game
 The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
 keys of the scheme in force. The full list of keys is in README.md.
 
+A gamepad works in both schemes (tested with an Xbox controller). The sticks walk and look, A
+uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the right stick for
+the windows, with A and RT as the left mouse button and X and LT as the right one. Names and
+mantras are typed on a letter grid. Hold View for the help: its Controls tab shows the buttons
+as glyphs. Under Controls in the menu bar, its Gamepad tab: the button names (Xbox, PlayStation,
+Nintendo), every button, swapped sticks, inverted look and a deadzone per stick. On Linux the
+gamepad's pointer clicks only in an X11 session, not under native Wayland.
+
 The menu bar at the top of the main menu (and of the game menu) holds the settings. Under
 Motion you choose how the original's motion code is run: Original computes it step by step
 as the game did in 1992 - how many steps a second is the "Original fps" setting there -,
 Smooth computes the same rules once per frame for an even picture; each setting carries a
-short explanation. Controls has the mouse look speed of the modern scheme. Graphics has the
+short explanation. Controls has the mouse look speed of the modern scheme and the gamepad's
+settings. Graphics has the
 detail levels, the classic screen at 4:3, and the world at the original's resolution or a
 multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
 effects of the port's own to the original's palette look (presets Subtle and Full) - use

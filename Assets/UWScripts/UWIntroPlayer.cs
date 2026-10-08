@@ -705,8 +705,10 @@ public class UWIntroPlayer : MonoBehaviour
 
     private static bool fWasSkipPressed()
     {
-        return UnityEngine.InputSystem.Keyboard.current != null
-            && UnityEngine.InputSystem.Keyboard.current.anyKey.wasPressedThisFrame;
+        // Any gamepad button skips as well (UWGamepad).
+        return (UnityEngine.InputSystem.Keyboard.current != null
+            && UnityEngine.InputSystem.Keyboard.current.anyKey.wasPressedThisFrame)
+            || UWGamepad.AnyPressed(false);
     }
 
     /// <summary>

@@ -77,6 +77,33 @@ public static class UWUserSettings
         /// direkt", so adjustable). The stick keeps its own rate.</summary>
         public float MouseLookSpeed = 0.5f;
 
+        /// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
+        /// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
+        /// often reports as an Xbox one).</summary>
+        public int GamepadButtonStyle;
+
+        /// <summary>The right stick's look speed as a factor on its 180 degrees per second, 0.25 to
+        /// 2 (the gamepad tab of the Controls dialog, per user 2026-10-07).</summary>
+        public float StickLookSpeed = 1f;
+
+        /// <summary>The sticks swapped - the left one looks, the right one walks (per user,
+        /// 2026-10-07: wanted above all by left-handed players; UWKeyBindings.ApplyTo).</summary>
+        public bool GamepadSwapSticks;
+
+        /// <summary>The look stick's up and down reversed (UWPlayerLook.ReadLookStick).</summary>
+        public bool StickInvertY;
+
+        /// <summary>The deadzone of the physical left and right stick, 0 to 0.5 of the deflection
+        /// (per user, 2026-10-08: "sooner or later every controller drifts"; the Input System's own
+        /// 0.125 as the default - UWKeyBindings.fApplyStickSwap).</summary>
+        public float LeftStickDeadzone = 0.125f;
+
+        /// <summary>The gamepad's button hints in the modern interface - at the crosshair and the
+        /// action bar - while the pad is in use (per user, 2026-10-08).</summary>
+        public bool GamepadButtonHints = true;
+
+        public float RightStickDeadzone = 0.125f;
+
         /// <summary>The modern character panel stays out on its Character tab without freeing the
         /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
         public bool ModernPanelPinned;
@@ -339,6 +366,58 @@ public static class UWUserSettings
 
     /// <summary>The slider's and the arrows' step: five per cent.</summary>
     public const float MouseLookSpeedStep = 0.05f;
+
+    public static int GamepadButtonStyle
+    {
+        get { return fGet().GamepadButtonStyle; }
+        set { fGet().GamepadButtonStyle = value; }
+    }
+
+    /// <summary>The stick's look speed factor, clamped; UWPlayerLook reads it every frame.</summary>
+    public static float StickLookSpeed
+    {
+        get { return Mathf.Clamp(fGet().StickLookSpeed <= 0f ? 1f : fGet().StickLookSpeed, MinStickLookSpeed, MaxStickLookSpeed); }
+        set { fGet().StickLookSpeed = Mathf.Clamp(value, MinStickLookSpeed, MaxStickLookSpeed); }
+    }
+
+    public static bool GamepadSwapSticks
+    {
+        get { return fGet().GamepadSwapSticks; }
+        set { fGet().GamepadSwapSticks = value; }
+    }
+
+    public static bool StickInvertY
+    {
+        get { return fGet().StickInvertY; }
+        set { fGet().StickInvertY = value; }
+    }
+
+    public const float MaxStickDeadzone = 0.5f;
+
+    public static bool GamepadButtonHints
+    {
+        get { return fGet().GamepadButtonHints; }
+        set { fGet().GamepadButtonHints = value; }
+    }
+
+    /// <summary>The hints show now: the pad was used last and they are switched on.</summary>
+    public static bool ShowsPadHints => UWGamepad.IsActive && GamepadButtonHints;
+
+    public static float LeftStickDeadzone
+    {
+        get { return Mathf.Clamp(fGet().LeftStickDeadzone, 0f, MaxStickDeadzone); }
+        set { fGet().LeftStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
+    }
+
+    public static float RightStickDeadzone
+    {
+        get { return Mathf.Clamp(fGet().RightStickDeadzone, 0f, MaxStickDeadzone); }
+        set { fGet().RightStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
+    }
+
+    public const float MinStickLookSpeed = 0.25f;
+
+    public const float MaxStickLookSpeed = 2f;
 
     public static bool ModernPanelPinned
     {

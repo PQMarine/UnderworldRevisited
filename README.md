@@ -109,6 +109,10 @@ What is in:
 - Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
   port's own with free mouse look, WASD, an action bar and an interface built from the
   original's artwork (see Controls)
+- A gamepad in both schemes: the sticks walk and look, the buttons act, and a pointer on the
+  stick reaches every window - the menus, the bags, the conversations, the classic frame. A
+  letter grid types names and mantras, the help shows the buttons as glyphs (Xbox,
+  PlayStation or Nintendo, chosen in the menu bar), and every button can be bound anew
 - The motion of the player, the creatures and thrown things as the original's own code,
   with a choice between its arithmetic call by call and a precise, frame-rate independent
   computation of the same rules (see Motion under Controls)
@@ -246,6 +250,44 @@ can be switched off.
 The modern scheme uses the whole screen. What belongs to the original's picture keeps it:
 the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the
 cutscenes in the view play in a frame in the middle.
+
+*Gamepad* - in both schemes, tested with an Xbox controller on Windows. The buttons as an Xbox
+pad names them; under *Controls* in the menu bar, its Gamepad tab, the names and glyphs can be
+switched to PlayStation or Nintendo, every button bound anew, the sticks swapped (for the
+left-handed), the look inverted, and each stick given a deadzone of its own against drift.
+The help's Controls tab shows the buttons in force as glyphs.
+
+| Modern scheme | |
+|---|---|
+| Left stick | Walk, step sideways |
+| Right stick | Look around |
+| A | The usual thing for what you aim at; held: use it directly |
+| X | Look at it |
+| Y | Jump |
+| B | Close what is open |
+| RT | Draw the weapon; held: charge, let go to strike |
+| LT | Cast the runes in the hollow; held: the rune panel |
+| LB, RB | Pick a slot of the action bar; D-pad up uses it |
+| D-pad down | The character panel; held: every bag |
+| D-pad left, right | Sink, rise while hovering or flying |
+| View | The map; held: the help |
+| Start | The game menu |
+| L3 | Put the weapon away |
+| R3 | Free the pointer (it appears on the backpack) or lock it again |
+
+With the pointer free the pad is the mouse: the right stick moves the pointer, A and RT are
+the left button (held: drag), X and LT the right one, and the left stick scrolls while the
+pointer is on a window. In a menu - the game menu, a thing's menu - the d-pad and the left stick
+step from entry to entry. Under a window that holds the game, such as the menu, a conversation
+or the map, the pointer is free by itself. Names, save games and mantras are typed on a letter
+grid that comes up by itself; the count of a stack turns on the d-pad, the answers of a
+conversation step on the d-pad and the left stick. While the pad is in use, its buttons show at
+the crosshair - what A does with what you aim at, X to look - and at the action bar; the hints
+can be switched off in the Gamepad tab.
+
+In the *original scheme* the left stick walks (pushed well sideways it steps sideways), the
+right stick turns and tilts the view a step, A and RT are the left mouse button and X and LT
+the right one wherever the pointer is, Y jumps, and R3 puts the pointer on the right stick.
 
 ### Motion
 

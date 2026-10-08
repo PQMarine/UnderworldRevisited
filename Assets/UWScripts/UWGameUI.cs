@@ -920,6 +920,28 @@ public class UWGameUI : MonoBehaviour
     }
 
     /// <summary>
+    /// Text is being typed - a map note, a save game's name, a mantra or the input line, a
+    /// conversation's answer - unlike IsTextEntryActive, which also holds the keys for the help,
+    /// the instrument, the split box and the bags' menu. The gamepad's letter grid comes up for
+    /// these (UWLetterGrid; the character's name it asks of the creation screen itself).
+    /// </summary>
+    public bool IsTypingText
+    {
+        get
+        {
+            if (mOInteraction == null)
+                mOInteraction = GetComponent<Interaction>();
+
+            // Not the yes/no question (answered by A and B, Interaction) nor the count prompt
+            // (the d-pad turns the number, UWItemDrag; per user, 2026-10-07: no grid there).
+            bool lbCountPrompt = UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount;
+
+            return Map.mbMapWriting || Options.miSaveSlotTyping > 0 || UWModernHud.IsTypingName || UWConversationScreen.IsTypingAnswer
+                || (mOInteraction != null && (mOInteraction.IsChanting || (mOInteraction.ShowsPromptTextCursor && !lbCountPrompt)));
+        }
+    }
+
+    /// <summary>
     /// The two keys of our own: F switches all fonts between original and modern (see
     /// UWTextLabel), M opens the map. Both come from the Player map since 2026-09-17, so they can
     /// be changed in the menu bar (UWKeyBindings). Not while typing anywhere - map note, save
@@ -959,7 +981,9 @@ public class UWGameUI : MonoBehaviour
         }
 
         // Not in a conversation: using the map is locked there, so the key (our addition) is too.
-        if (!lbCtrl && lOControls.Player.ToggleMap.WasPressedThisFrame() && !UWConversationScreen.IsAnyOpen)
+        // The gamepad's pointer takes the d-pad as its wheel - except to close the map again.
+        if (!lbCtrl && lOControls.Player.ToggleMap.WasPerformedThisFrame() && !UWConversationScreen.IsAnyOpen
+            && (Map.IsMapVisible || !UWGamepadPointer.Takes(lOControls.Player.ToggleMap)))
             fToggleMapByKey();
 
         fCheckOptionShortcuts(lOControls);
@@ -979,7 +1003,9 @@ public class UWGameUI : MonoBehaviour
         // The big map open: M or Escape close it (writing a note, the keys are the note's).
         if (Map.IsMapVisible)
         {
-            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()))
+            // The gamepad's B closes it too (UWGamepad).
+            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPerformedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()
+                || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown)))
                 Map.HideMap();
 
             return;
@@ -1010,18 +1036,24 @@ public class UWGameUI : MonoBehaviour
         UWModernPanel lOPanel = UWModernPanel.Instance;
         UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
 
-        if (lOPlayer.Menu.WasPressedThisFrame() && mOInteraction != null && mOInteraction.IsSpellTargeting && !lOHud.IsOpen
+        // The gamepad's B does what Escape does while something is open (PadBackCloses);
+        // otherwise it jumps (UWPlayerMovement).
+        bool lbBack = lOPlayer.Menu.WasPressedThisFrame()
+            || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting
+                && PadBackCloses());
+
+        if (lbBack && mOInteraction != null && mOInteraction.IsSpellTargeting && !lOHud.IsOpen
             && mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern)
             mOInteraction.CancelPendingSpell();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsUsing && !lOHud.IsOpen)
+        else if (lbBack && lOBags != null && lOBags.IsUsing && !lOHud.IsOpen)
             lOBags.CancelUse();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsOpen && !lOHud.IsOpen)
+        else if (lbBack && lOBags != null && lOBags.IsOpen && !lOHud.IsOpen)
             lOBags.Close();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOPanel != null && lOPanel.IsClosable && !lOHud.IsOpen)
+        else if (lbBack && lOPanel != null && lOPanel.IsClosable && !lOHud.IsOpen)
             lOPanel.Close();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lORunePanel != null && lORunePanel.IsClosable && !lOHud.IsOpen)
+        else if (lbBack && lORunePanel != null && lORunePanel.IsClosable && !lOHud.IsOpen)
             lORunePanel.Close();
-        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame())
+        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lbBack)
             lOHud.ToggleMenu();
         else if (lOHud.IsOpen)
             return;
@@ -1029,7 +1061,7 @@ public class UWGameUI : MonoBehaviour
             Runes.TrackByKey();
         else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
             UWScene.ItemDrag.TrySleep();
-        else if (lOPlayer.ToggleMap.WasPressedThisFrame())
+        else if (lOPlayer.ToggleMap.WasPerformedThisFrame() && !UWGamepadPointer.Takes(lOPlayer.ToggleMap))
             fToggleMapByKey();
     }
 
@@ -1073,6 +1105,37 @@ public class UWGameUI : MonoBehaviour
 
         // "Partway" and "between worlds" are refused by the options themselves.
         Options.ChooseByShortcut(liEntry);
+    }
+
+    private int miPadBackFrame = -1;
+
+    private bool mbPadBackCloses;
+
+    /// <summary>
+    /// The gamepad's B (UWGamepad): whether it closes something - the menu, a waiting spell, the
+    /// use mode, the bags, a closable panel - in the modern scheme. Worked out once a frame, before
+    /// anything closes, so the jump (UWPlayerMovement) sees the same answer whichever runs first.
+    /// </summary>
+    public bool PadBackCloses()
+    {
+        if (miPadBackFrame == Time.frameCount)
+            return mbPadBackCloses;
+
+        miPadBackFrame = Time.frameCount;
+
+        UWModernBags lOBags = UWModernBags.Instance;
+        UWModernPanel lOPanel = UWModernPanel.Instance;
+        UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
+        UWModernHud lOHud = UWModernHud.Instance;
+
+        mbPadBackCloses = mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern
+            && ((lOHud != null && lOHud.IsOpen) || (Map != null && Map.IsMapVisible)
+                || (mOInteraction != null && mOInteraction.IsSpellTargeting)
+                || (lOBags != null && (lOBags.IsUsing || lOBags.IsOpen))
+                || (lOPanel != null && lOPanel.IsClosable)
+                || (lORunePanel != null && lORunePanel.IsClosable));
+
+        return mbPadBackCloses;
     }
 
     /// <summary>
@@ -1476,6 +1539,14 @@ public class UWGameUI : MonoBehaviour
     /// </summary>
     public Vector2 PointerPosition { get; private set; }
 
+    /// <summary>The 3D view's rectangle on the screen (pixels, bottom-left origin) - the gamepad's
+    /// pointer keeps inside it during a held cursor movement (UWGamepadPointer).</summary>
+    public Rect GameAreaRect => Rect.MinMaxRect(gameAreaLeft, gameAreaBottom, gameAreaRight, gameAreaTop);
+
+    /// <summary>The classic message scroll's top edge on the screen (pixels, bottom-left origin) -
+    /// the gamepad's letter grid stays above it, where the input line rolls (UWLetterGrid).</summary>
+    public float MessageLogTopScreenY => GetUiPictureScreenRect(new Vector2(0f, UWHudMessageLog.messageLogTop), Vector2.zero).y;
+
     private void fCursorMovement()
     {
         Vector2 lOMousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
@@ -1487,6 +1558,12 @@ public class UWGameUI : MonoBehaviour
         // original from 1992, where it may also wander over paper doll & co.
         if (mMovementRef != null && mMovementRef.IsCursorMovementInProgress)
         {
+            // The gamepad's pointer: its own position, the Input System's is stale after the
+            // warps - with it the pointer stuck to the view's top and left edges (per user,
+            // 2026-10-07; UWGamepadPointer.OwnsPosition).
+            if (UWGamepadPointer.OwnsPosition)
+                lOMousePos = UWGamepadPointer.Position;
+
             float lfClampedX = Mathf.Clamp(lOMousePos.x, gameAreaLeft, gameAreaRight);
             float lfClampedY = Mathf.Clamp(lOMousePos.y, gameAreaBottom, gameAreaTop);
 

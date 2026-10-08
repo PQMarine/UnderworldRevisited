@@ -313,8 +313,40 @@ public class UWMainMenu : MonoBehaviour
         UWGameClock.Hold(UWGameClock.MainMenuHold);
     }
 
+    /// <summary>The gamepad steps through the buttons and the save games (UWPadEntryStepper, per
+    /// user 2026-10-08: as in the other menus); a new mode snaps the pointer onto its first.</summary>
+    private readonly UWPadEntryStepper mOPadStepper = new UWPadEntryStepper();
+
+    private readonly List<Rect> mOPadRects = new List<Rect>();
+
+    private Mode meSteppedMode = Mode.Hidden;
+
+    private void fStepByPad(RawImage[] pyEntries, int piCount)
+    {
+        mOPadRects.Clear();
+
+        for (int liAt = 0; liAt < piCount; liAt++)
+        {
+            Rect lORect = UWScreenUi.ScreenRectOf(pyEntries[liAt]);
+
+            if (lORect.width > 0f)
+                mOPadRects.Add(lORect);
+        }
+
+        if (meSteppedMode != meMode)
+        {
+            meSteppedMode = meMode;
+            mOPadStepper.Opened();
+            return;
+        }
+
+        mOPadStepper.Update(mOPadRects);
+    }
+
     private void fUpdateButtons()
     {
+        fStepByPad(mOButtons, ButtonCount);
+
         int liHover = -1;
 
         for (int liAt = 0; liAt < ButtonCount; liAt++)
@@ -428,11 +460,14 @@ public class UWMainMenu : MonoBehaviour
     {
         Keyboard lOKeyboard = Keyboard.current;
 
-        if (lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame)
+        // B as Escape (UWScreenUi.WasPadBackPressed).
+        if ((lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame) || UWScreenUi.WasPadBackPressed())
         {
             fShowButtons();
             return;
         }
+
+        fStepByPad(mOSaveLabels, UWSavegameSlots.SlotCount);
 
         int liHover = -1;
 

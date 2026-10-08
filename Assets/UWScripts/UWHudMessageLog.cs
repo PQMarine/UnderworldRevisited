@@ -26,7 +26,7 @@ public sealed class UWHudMessageLog
     // message, newest at the bottom. Original: only the last 5, see Interaction.Update.
     // Fine-tuned per user test in the prefab.
     private const float messageLogLeft = 15f;
-    private const float messageLogTop = 169f;
+    internal const float messageLogTop = 169f;
     private const float messageLogWidth = 291f;
     private const float messageLogHeight = 30f;
 

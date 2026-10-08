@@ -170,6 +170,12 @@ public partial class UWModernBags : MonoBehaviour
         /// <summary>The contents index of the first slot (scrolled rows times four).</summary>
         public int FirstIndex;
 
+        /// <summary>The arrows in the right margin while rows lie hidden above or below
+        /// (fShowScrollArrows).</summary>
+        public RawImage ScrollUp;
+
+        public RawImage ScrollDown;
+
         public int SlotCount;
     }
 
@@ -235,6 +241,9 @@ public partial class UWModernBags : MonoBehaviour
     private static readonly Color msBadgeFill = new Color(0.18f, 0.094f, 0.035f, 1f);
 
     private Texture2D mODiscTexture;
+
+    /// <summary>The scroll arrow, pointing up (drawn flipped for down).</summary>
+    private Texture2D mOArrowTexture;
 
     /// <summary>The badge under the pointer, lighter, as a button.</summary>
     private Texture2D mODiscHoverTexture;
@@ -319,6 +328,9 @@ public partial class UWModernBags : MonoBehaviour
         if (mODiscTexture != null)
             Destroy(mODiscTexture);
 
+        if (mOArrowTexture != null)
+            Destroy(mOArrowTexture);
+
         if (mODiscHoverTexture != null)
             Destroy(mODiscHoverTexture);
 
@@ -389,6 +401,89 @@ public partial class UWModernBags : MonoBehaviour
             Close();
         else
             fOpen();
+    }
+
+    /// <summary>How long the gamepad's Y is held to open every bag - a little longer than the
+    /// use's hold (Interaction.ModernUseHoldSeconds, 0.4 s; per user, 2026-10-07).</summary>
+    private const float PadOpenAllSeconds = 0.5f;
+
+    /// <summary>Seconds the gamepad's Y is held, -1 when it is not.</summary>
+    private float mfPadPanelHeld = -1f;
+
+    /// <summary>
+    /// THE GAMEPAD'S PANEL BUTTON, d-pad down since 2026-10-07 (Y before; UWGamepad): TAPPED, on the release, the character panel - the bags alone
+    /// while the panel is pinned, where it had nothing to do (per user's test, 2026-10-07); HELD,
+    /// every carried bag opens (fOpenAllBags, per user the same day).
+    /// </summary>
+    private void fUpdatePadPanelKey(InputAction pOKey)
+    {
+        // Not while the pad's pointer scrolls with the d-pad (UWGamepadPointer.Takes).
+        if (pOKey.WasPressedThisFrame())
+        {
+            mfPadPanelHeld = UWGamepad.IsFromGamepad(pOKey) && !UWGamepadPointer.Takes(pOKey) ? 0f : -1f;
+            return;
+        }
+
+        if (mfPadPanelHeld < 0f)
+            return;
+
+        if (pOKey.IsPressed())
+        {
+            mfPadPanelHeld += Time.unscaledDeltaTime;
+
+            if (mfPadPanelHeld >= PadOpenAllSeconds)
+            {
+                mfPadPanelHeld = -1f;
+                fOpenAllBags();
+            }
+
+            return;
+        }
+
+        mfPadPanelHeld = -1f;
+
+        if (UWModernPanel.Pinned)
+            fToggle();
+        else
+            fTogglePanel();
+    }
+
+    /// <summary>Every carried bag opens, in the backpack's order with a bag's inner bags after it -
+    /// not the rune bag, whose shelf comes with the spells (as the click on the shut backpack
+    /// leaves it). Passes, because an inner bag is found once its parent's contents are loaded
+    /// (fToggleBag).</summary>
+    private void fOpenAllBags()
+    {
+        UWInventory lOInventory = fInventory();
+
+        if (lOInventory == null)
+            return;
+
+        if (!mbOpen)
+            fOpen();
+
+        List<UWObject> lONew = new List<UWObject>();
+
+        for (int liPass = 0; liPass < 8; liPass++)
+        {
+            lONew.Clear();
+
+            foreach (UWObject lOItem in lOInventory.Model.EnumerateAll())
+            {
+                if (lOItem != null && lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers
+                    && lOItem.ID != UWObjectMechanics.RuneBagId && !mOOpenBags.Contains(lOItem) && !lONew.Contains(lOItem))
+                    lONew.Add(lOItem);
+            }
+
+            if (lONew.Count == 0)
+                return;
+
+            foreach (UWObject lOBag in lONew)
+            {
+                if (!mOOpenBags.Contains(lOBag))
+                    fToggleBag(lOBag);
+            }
+        }
     }
 
     /// <summary>C: the character panel slides out or in (on its Character tab); the pointer stays
@@ -554,8 +649,22 @@ public partial class UWModernBags : MonoBehaviour
 
         fResolveOpenBags();
 
+        // IN A CONVERSATION THE PANEL STAYS (per user, 2026-10-08: the d-pad's down, which steps the
+        // answers there, closed it) - the conversation opened it on its Character tab for the trade
+        // (UWModernConversation.fBegin); neither the pad nor C toggles it meanwhile.
+        bool lbTalking = UWConversationScreen.IsAnyOpen;
+
+        // The gamepad's panel button has its own tap and hold (fUpdatePadPanelKey); C acts on the press.
+        if (!lbTalking)
+            fUpdatePadPanelKey(lOControls.Player.ToggleInventory);
+        else
+            mfPadPanelHeld = -1f;
+
         if (lOControls.Player.ToggleInventory.WasPressedThisFrame())
-            fTogglePanel();
+        {
+            if (!UWGamepad.IsFromGamepad(lOControls.Player.ToggleInventory) && !lbTalking)
+                fTogglePanel();
+        }
         else if (lOControls.Player.ModernBags.WasPressedThisFrame())
             fToggle();
         else if (!fIsActive() && UWModernPointer.IsFree && Mouse.current != null
@@ -1529,6 +1638,28 @@ public partial class UWModernBags : MonoBehaviour
 
     // ------------------------------------------------- Hit tests
 
+    /// <summary>The middle of the backpack's first slot on the screen (pixels, bottom-left origin) -
+    /// where the freed pointer appears (UWModernPointer). False while the bags are not laid out.</summary>
+    public bool TryGetFirstBackpackSlot(out Vector2 pOCentre)
+    {
+        foreach (Window lOWindow in mOWindows)
+        {
+            if (lOWindow.Container != null || !lOWindow.Root.gameObject.activeSelf || lOWindow.SlotCount <= 0)
+                continue;
+
+            Rect lORect = lOWindow.Slots[0].ScreenRect;
+
+            if (lORect.width <= 0f)
+                break;
+
+            pOCentre = lORect.center;
+            return true;
+        }
+
+        pOCentre = Vector2.zero;
+        return false;
+    }
+
     private bool fFindSlot(Vector2 pOPointer, out Window pOWindow, out int piSlot)
     {
         foreach (Window lOWindow in mOWindows)
@@ -1853,9 +1984,71 @@ public partial class UWModernBags : MonoBehaviour
             fShowItem(lOSlot, fGetItem(pOWindow, liSlot));
         }
 
+        fShowScrollArrows(pOWindow, piRows, liWidth, liHeight);
+
         float lfLine = Mathf.Max(2f, miScale * 0.75f);
 
         fSetFrame(pOWindow.Frame, -lfLine, -lfLine, (liWidth * liScale) + (2f * lfLine), (liHeight * liScale) + (2f * lfLine), lfLine);
+    }
+
+    /// <summary>The scroll arrow in original pixels: five wide, three high.</summary>
+    private const int ArrowWidth = 5;
+
+    private const int ArrowHeight = 3;
+
+    /// <summary>
+    /// THE SCROLL ARROWS (per user, 2026-10-08: show when a bag can be scrolled): in the right margin
+    /// beside the top row while rows lie hidden above, beside the bottom row while more follows
+    /// below - the same reckoning as the layout's (a spare empty row at the end, fLayout).
+    /// </summary>
+    private void fShowScrollArrows(Window pOWindow, int piRows, int piWidth, int piHeight)
+    {
+        int liScrolled = pOWindow.FirstIndex / Columns;
+        int liNeeded = pOWindow.Container != null && pOWindow.Container.Contents != null
+            ? (pOWindow.Container.Contents.Count / Columns) + 1
+            : 0;
+        bool lbUp = pOWindow.Container != null && liScrolled > 0;
+        bool lbDown = pOWindow.Container != null && liScrolled < liNeeded - piRows;
+
+        if (mOArrowTexture == null)
+            mOArrowTexture = fBuildArrow();
+
+        float liScale = miScale;
+        float lfX = (piWidth - SidePad + ((SidePad - ArrowWidth) * 0.5f)) * liScale;
+        float lfTopY = (piHeight - TitleRows - ArrowHeight) * liScale;
+        float lfBottomY = BottomPad * liScale;
+
+        pOWindow.ScrollUp.texture = mOArrowTexture;
+        pOWindow.ScrollUp.enabled = lbUp;
+        fSetRect(pOWindow.ScrollUp.rectTransform, lfX, lfTopY, ArrowWidth * liScale, ArrowHeight * liScale);
+
+        pOWindow.ScrollDown.texture = mOArrowTexture;
+        pOWindow.ScrollDown.enabled = lbDown;
+        fSetRect(pOWindow.ScrollDown.rectTransform, lfX, lfBottomY, ArrowWidth * liScale, ArrowHeight * liScale);
+    }
+
+    /// <summary>A gold triangle pointing up, five by three pixels, drawn sharp.</summary>
+    private static Texture2D fBuildArrow()
+    {
+        Texture2D lOTexture = new Texture2D(ArrowWidth, ArrowHeight, TextureFormat.RGBA32, false);
+        lOTexture.name = "UWModernBags scroll arrow";
+        lOTexture.filterMode = FilterMode.Point;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+
+        Color32[] lyPixels = new Color32[ArrowWidth * ArrowHeight];
+        Color32 lOGold = msGold;
+
+        // Row 0 is the bottom: five wide, then three, then the tip.
+        for (int y = 0; y < ArrowHeight; y++)
+        {
+            for (int x = 0; x < ArrowWidth; x++)
+                lyPixels[(y * ArrowWidth) + x] = Mathf.Abs(x - (ArrowWidth / 2)) <= (ArrowHeight - 1 - y) ? lOGold : new Color32(0, 0, 0, 0);
+        }
+
+        lOTexture.SetPixels32(lyPixels);
+        lOTexture.Apply();
+
+        return lOTexture;
     }
 
     /// <summary>Badge sizes and places, in original pixels.</summary>
@@ -2382,6 +2575,10 @@ public partial class UWModernBags : MonoBehaviour
             lOWindow.Title.color = new Color(0.94f, 0.87f, 0.71f);
             lOWindow.Weight = fCreateText(lOWindow.Root, "Weight", TextAnchor.MiddleRight);
             lOWindow.Weight.color = new Color(0.90f, 0.84f, 0.69f);
+
+            lOWindow.ScrollUp = fCreateRawImage(lOWindow.Root, "Scroll up");
+            lOWindow.ScrollDown = fCreateRawImage(lOWindow.Root, "Scroll down");
+            lOWindow.ScrollDown.uvRect = new Rect(0f, 1f, 1f, -1f);
 
             lOWindow.Badge = fCreateRawImage(lOWindow.Root, "Badge");
             lOWindow.BadgeText = fCreateText(lOWindow.Root, "Badge number", TextAnchor.MiddleCenter);

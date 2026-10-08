@@ -114,10 +114,16 @@ public class UWPlayerLook : MonoBehaviour
             return;
         }
 
-        // The pointer is out for the bags (UWModernBags): the mouse moves it, not the view.
+        // The pointer is out for the bags (UWModernBags): the mouse moves it, not the view. The
+        // gamepad's right stick still turns it (UWGamepad) - it has nothing else to do there yet.
         if (mScheme.IsPointerFree)
         {
             mbWasFree = true;
+
+            // Not while it moves the gamepad's pointer instead (UWGamepadPointer).
+            if (!UWGamepadPointer.IsDriving)
+                fApplyLook(Vector2.zero, fReadLookStick());
+
             return;
         }
 
@@ -137,15 +143,32 @@ public class UWPlayerLook : MonoBehaviour
         // The mouse delivers an already elapsed pixel delta (scaled down in the action to the
         // magnitude of the old Input Manager), whereas the stick delivers
         // a held deflection - that is why the latter additionally needs Time.deltaTime.
-        Vector2 lOMouseDelta = mInput.Look.ReadValue<Vector2>();
-        Vector2 lOStickDelta = mInput.LookStick.ReadValue<Vector2>();
+        fApplyLook(mInput.Look.ReadValue<Vector2>(), fReadLookStick());
+    }
 
+    /// <summary>The look stick, its up and down reversed if the player wants it
+    /// (UWUserSettings.StickInvertY, the Controls dialog's gamepad tab).</summary>
+    private Vector2 fReadLookStick()
+    {
+        Vector2 lOStick = mInput.LookStick.ReadValue<Vector2>();
+
+        if (UWUserSettings.StickInvertY)
+            lOStick.y = -lOStick.y;
+
+        return lOStick;
+    }
+
+    private void fApplyLook(Vector2 pOMouseDelta, Vector2 pOStickDelta)
+    {
         // The player's own factor on the mouse (UWUserSettings.MouseLookSpeed, the Controls
-        // dialog and the modern game menu); the stick keeps its degrees per second.
+        // dialog); the stick keeps its degrees per second.
         float lfSpeed = UWUserSettings.MouseLookSpeed;
 
-        float lfYaw = (lOMouseDelta.x * mfSensitivityX * lfSpeed) + (lOStickDelta.x * mfStickSensitivityX * Time.deltaTime);
-        float lfPitchDelta = (lOMouseDelta.y * mfSensitivityY * lfSpeed) + (lOStickDelta.y * mfStickSensitivityY * Time.deltaTime);
+        // The stick's own factor (UWUserSettings.StickLookSpeed, the Controls dialog's gamepad tab).
+        float lfStickSpeed = UWUserSettings.StickLookSpeed * Time.deltaTime;
+
+        float lfYaw = (pOMouseDelta.x * mfSensitivityX * lfSpeed) + (pOStickDelta.x * mfStickSensitivityX * lfStickSpeed);
+        float lfPitchDelta = (pOMouseDelta.y * mfSensitivityY * lfSpeed) + (pOStickDelta.y * mfStickSensitivityY * lfStickSpeed);
 
         transform.Rotate(0f, lfYaw, 0f);
 
@@ -154,6 +177,9 @@ public class UWPlayerLook : MonoBehaviour
         if (mCameraTransform != null)
             mCameraTransform.localEulerAngles = new Vector3(mfPitch, 0f, 0f);
     }
+
+    /// <summary>The right stick is pushed up or down past a step (fUpdateClassicPitch).</summary>
+    private bool mbStickPitchHeld;
 
     /// <summary>
     /// Classic scheme: tilt the view in fixed steps, as in the original - 1 one step
@@ -186,6 +212,20 @@ public class UWPlayerLook : MonoBehaviour
 
         if (mInput.LookReset.WasPressedThisFrame())
             liSteps = 0;
+
+        // THE GAMEPAD'S RIGHT STICK up and down tilts a step per push (UWGamepad, per user
+        // 2026-10-07); it has to come back near the middle before the next step.
+        float lfStickPitch = UWGamepadPointer.IsDriving ? 0f : fReadLookStick().y;
+
+        if (!mbStickPitchHeld && Mathf.Abs(lfStickPitch) >= 0.6f)
+        {
+            mbStickPitchHeld = true;
+            liSteps += lfStickPitch > 0f ? -1 : 1;
+        }
+        else if (Mathf.Abs(lfStickPitch) < 0.3f)
+        {
+            mbStickPitchHeld = false;
+        }
 
         liSteps = Mathf.Clamp(liSteps, -liMaxSteps, liMaxSteps);
 

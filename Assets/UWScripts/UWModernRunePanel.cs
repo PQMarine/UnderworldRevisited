@@ -519,6 +519,57 @@ public class UWModernRunePanel : MonoBehaviour
 
     // ------------------------------------------------- Input
 
+    /// <summary>How long the gamepad's left trigger is held to open the panel instead of casting.</summary>
+    private const float PadCastHoldSeconds = 0.35f;
+
+    /// <summary>Seconds the left trigger is held, -1 when it is not.</summary>
+    private float mfPadCastHeld = -1f;
+
+    /// <summary>
+    /// THE GAMEPAD'S LEFT TRIGGER (UWGamepad): TAPPED it casts what lies in the hollow, as F8 does in
+    /// the original (UWHudRunes.CastByKey); HELD it opens or closes the panel, which is how runes
+    /// get into the hollow.
+    /// </summary>
+    private void fUpdatePadCast(UWControls pOControls)
+    {
+        UnityEngine.InputSystem.InputAction lOTrigger = pOControls.Player.PadCast;
+
+        // While the gamepad's pointer drives, LT is its right button (UWGamepadPointer.Takes).
+        if (lOTrigger.WasPressedThisFrame())
+        {
+            mfPadCastHeld = UWGamepadPointer.Takes(lOTrigger) ? -1f : 0f;
+            return;
+        }
+
+        if (mfPadCastHeld < 0f)
+            return;
+
+        if (lOTrigger.IsPressed())
+        {
+            mfPadCastHeld += Time.unscaledDeltaTime;
+
+            if (mfPadCastHeld >= PadCastHoldSeconds)
+            {
+                mfPadCastHeld = -1f;
+
+                if (Pinned)
+                    return;
+
+                if (mbOpen)
+                    Close();
+                else
+                    Open(meTab);
+            }
+
+            return;
+        }
+
+        mfPadCastHeld = -1f;
+
+        if (mOUi.Runes != null)
+            mOUi.Runes.CastByKey();
+    }
+
     private void Update()
     {
         if (!fIsShown())
@@ -556,6 +607,8 @@ public class UWModernRunePanel : MonoBehaviour
             else
                 Open(meTab);
         }
+
+        fUpdatePadCast(lOControls);
 
         Mouse lOMouse = Mouse.current;
 

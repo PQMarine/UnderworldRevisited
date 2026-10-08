@@ -90,6 +90,25 @@ public class UWModernActionBar : MonoBehaviour
 
     private Texture2D mORingTexture;
 
+    /// <summary>THE GAMEPAD'S SLOT (UWGamepad): LB and RB pick it, up on the d-pad uses it; its
+    /// pale ring shows while the gamepad was used last.</summary>
+    private int miPadSlot;
+
+    private RawImage mOPadRing;
+
+    /// <summary>The gamepad's hints at the bar (per user, 2026-10-08): LB and RB at its ends, the
+    /// slot's button above the chosen slot - while the pad is in use and the hints are on; the
+    /// digits go meanwhile.</summary>
+    private RawImage mOPadPrevious;
+
+    private RawImage mOPadNext;
+
+    private RawImage mOPadUse;
+
+    private Texture2D mOPadRingTexture;
+
+    private static readonly Color msPadRing = new Color(0.85f, 0.92f, 1f, 1f);
+
     private int miArtVersion = -1;
 
     private readonly Dictionary<UWTexture, Texture2D> mOIconTextures = new Dictionary<UWTexture, Texture2D>();
@@ -153,7 +172,7 @@ public class UWModernActionBar : MonoBehaviour
         if (mOWatched != null)
             mOWatched.ItemMerged -= fOnMerged;
 
-        foreach (Texture2D lOTexture in new[] { mOBackTexture, mOSlotTexture, mORingTexture })
+        foreach (Texture2D lOTexture in new[] { mOBackTexture, mOSlotTexture, mORingTexture, mOPadRingTexture })
         {
             if (lOTexture != null)
                 Destroy(lOTexture);
@@ -493,6 +512,18 @@ public class UWModernActionBar : MonoBehaviour
                 fUse(liSlot);
         }
 
+        // Not where the gamepad's pointer takes the button (UWGamepadPointer.Takes), nor in a
+        // conversation, where the d-pad steps the answers (UWConversationScreen).
+        bool lbPadFree = !UWConversationScreen.IsAnyOpen;
+
+        if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotPrevious))
+            fStepPadSlot(-1);
+        else if (lbPadFree && lOControls.Player.PadSlotNext.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotNext))
+            fStepPadSlot(1);
+
+        if (lbPadFree && lOControls.Player.PadSlotUse.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotUse))
+            fUse(miPadSlot);
+
         if (!mOScheme.IsPointerFree || Mouse.current == null)
             return;
 
@@ -547,6 +578,35 @@ public class UWModernActionBar : MonoBehaviour
         if (lOControls.Player.Interact.WasPressedThisFrame() && lbEmptyPointer
             && UWModernPointer.SwitchedFrame != Time.frameCount && TryGetSlotAt(lOPointer, out int liRight))
             fUse(liRight);
+    }
+
+    /// <summary>The gamepad's shoulders: the next slot that holds something that way round, or
+    /// simply the next one while the bar is empty.</summary>
+    private void fStepPadSlot(int piStep)
+    {
+        for (int liTry = 1; liTry <= SlotCount; liTry++)
+        {
+            int liSlot = (((miPadSlot + (piStep * liTry)) % SlotCount) + SlotCount) % SlotCount;
+
+            if (mOSlots[liSlot] != null || miSpells[liSlot] >= 0)
+            {
+                miPadSlot = liSlot;
+                return;
+            }
+        }
+
+        miPadSlot = (((miPadSlot + piStep) % SlotCount) + SlotCount) % SlotCount;
+    }
+
+    private static void fShowPadGlyph(RawImage pOImage, Texture2D pOGlyph, float pfX, float pfY, float pfSize)
+    {
+        pOImage.enabled = pOGlyph != null;
+
+        if (pOGlyph == null)
+            return;
+
+        pOImage.texture = pOGlyph;
+        fSetRect(pOImage.rectTransform, pfX, pfY, pfSize, pfSize);
     }
 
     /// <summary>A link dragged while the bar goes away goes back to its slot.</summary>
@@ -662,6 +722,27 @@ public class UWModernActionBar : MonoBehaviour
             fSetRect(mORings[liSlot].rectTransform, lfX - liScale, lfY - liScale, lfRing, lfRing);
         }
 
+        // The gamepad's slot, a pale ring a little outside the gold one.
+        Rect lOPadSlot = mOSlotRects[miPadSlot];
+        float lfPadRing = (UWModernHudArt.SlotSize + 4) * liScale;
+
+        mOPadRing.enabled = UWGamepad.IsActive;
+        fSetRect(mOPadRing.rectTransform, lOPadSlot.x - (2f * liScale), lOPadSlot.y - (2f * liScale), lfPadRing, lfPadRing);
+
+        // The hints: LB and RB beside the bar, the use button over the chosen slot.
+        bool lbHints = UWUserSettings.ShowsPadHints;
+        float lfGlyph = Mathf.Round(10f * liScale);
+
+        for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+            mOKeys[liSlot].enabled = !lbHints;
+
+        fShowPadGlyph(mOPadPrevious, lbHints ? UWGlyphs.ForEntry("PadSlotPrevious", 0) : null,
+            lfLeft - lfGlyph - liScale, lfBottom + (((liHeight * liScale) - lfGlyph) * 0.5f), lfGlyph);
+        fShowPadGlyph(mOPadNext, lbHints ? UWGlyphs.ForEntry("PadSlotNext", 0) : null,
+            lfLeft + (liWidth * liScale) + liScale, lfBottom + (((liHeight * liScale) - lfGlyph) * 0.5f), lfGlyph);
+        fShowPadGlyph(mOPadUse, lbHints ? UWGlyphs.ForEntry("PadSlotUse", 0) : null,
+            lOPadSlot.center.x - (lfGlyph * 0.5f), lOPadSlot.yMax + (2f * liScale), lfGlyph);
+
         // The link being dragged follows the pointer.
         mOLinkText.enabled = false;
 
@@ -767,6 +848,11 @@ public class UWModernActionBar : MonoBehaviour
         if (mORingTexture == null)
             mORingTexture = BuildRing(128, 60f, 6f);
 
+        if (mOPadRingTexture == null)
+            mOPadRingTexture = BuildRing(128, 60f, 5f, msPadRing);
+
+        mOPadRing.texture = mOPadRingTexture;
+
         mOBack.texture = mOBackTexture;
 
         for (int liSlot = 0; liSlot < SlotCount; liSlot++)
@@ -780,6 +866,12 @@ public class UWModernActionBar : MonoBehaviour
     /// buttons' (UWModernPanel).</summary>
     internal static Texture2D BuildRing(int piSize, float pfRadius, float pfRim)
     {
+        return BuildRing(piSize, pfRadius, pfRim, msGold);
+    }
+
+    /// <summary>A ring of any colour (the gamepad's slot).</summary>
+    internal static Texture2D BuildRing(int piSize, float pfRadius, float pfRim, Color pOColour)
+    {
         Color32[] lyPixels = new Color32[piSize * piSize];
         float lfCentre = (piSize - 1) * 0.5f;
 
@@ -789,7 +881,7 @@ public class UWModernActionBar : MonoBehaviour
             {
                 float lfDistance = Mathf.Sqrt(((x - lfCentre) * (x - lfCentre)) + ((y - lfCentre) * (y - lfCentre)));
                 float lfAlpha = Mathf.Clamp01(lfDistance - (pfRadius - pfRim) + 0.5f) * (1f - Mathf.Clamp01(lfDistance - pfRadius + 0.5f));
-                Color lOColour = msGold;
+                Color lOColour = pOColour;
 
                 lOColour.a = lfAlpha;
                 lyPixels[(y * piSize) + x] = lOColour;
@@ -858,6 +950,11 @@ public class UWModernActionBar : MonoBehaviour
 
             mOCounts[liSlot] = fCreateText(lORootRect, "Count", TextAnchor.LowerRight, Color.white);
         }
+
+        mOPadRing = fCreateRawImage(lORootRect, "Gamepad slot");
+        mOPadPrevious = fCreateRawImage(lORootRect, "Gamepad previous slot");
+        mOPadNext = fCreateRawImage(lORootRect, "Gamepad next slot");
+        mOPadUse = fCreateRawImage(lORootRect, "Gamepad use slot");
 
         mOLinkIcon = fCreateRawImage(lORootRect, "Dragged link");
         UWIconPalette.ApplySmooth(mOLinkIcon);

@@ -166,6 +166,7 @@ public partial class UWModernBags
         mOMenuAt = pOAt;
         miMenuOpenedFrame = Time.frameCount;
         mbPressDrag = false;
+        mOMenuStepper.Opened();
 
         // The keys are the menu's from now on, not only from UWGameUI's next look.
         UWControls.SetTextEntryActive(true);
@@ -212,6 +213,7 @@ public partial class UWModernBags
         mOMenuAt = pOAt;
         miMenuOpenedFrame = Time.frameCount;
         mbPressDrag = false;
+        mOMenuStepper.Opened();
 
         UWControls.SetTextEntryActive(true);
     }
@@ -267,6 +269,17 @@ public partial class UWModernBags
         if (Mouse.current == null || Time.frameCount == miMenuOpenedFrame)
             return;
 
+        // THE GAMEPAD (per user, 2026-10-08: the d-pad moves through buttons and options): B closes
+        // the menu, up and down put the pointer onto the next entry - A then chooses it with the
+        // pad's click, the highlight follows as with the mouse.
+        if (pOControls.Player.PadBack.WasPressedThisFrame())
+        {
+            fCloseMenu();
+            return;
+        }
+
+        mOMenuStepper.Update(mOMenuRects);
+
         if (pOControls.Player.Interact.WasPressedThisFrame())
         {
             fCloseMenu();
@@ -289,6 +302,9 @@ public partial class UWModernBags
 
         fCloseMenu();
     }
+
+    /// <summary>The gamepad steps through the entries (UWPadEntryStepper, per user 2026-10-08).</summary>
+    private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
 
     private void fRunMenu(MenuActionEnum peAction)
     {

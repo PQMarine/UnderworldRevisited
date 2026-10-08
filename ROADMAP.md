@@ -45,6 +45,10 @@ of what is built was also read out of the original's executable.
   in the original. Under *Motion* in the menu bar the arithmetic can run call by call as
   the original did, or as a precise, frame-rate independent computation of the same rules
 - A Linux build (x86_64), tested in a Kubuntu VM
+- A gamepad in both control schemes: the sticks to walk and look, the buttons to act, a pointer
+  on the stick for every window, a letter grid for typing, glyphs in the help (Xbox,
+  PlayStation, Nintendo - chosen, not guessed), every button rebindable, swapped sticks, a
+  deadzone per stick; tested with an Xbox controller
 
 ## Open: gameplay parity
 
@@ -53,9 +57,8 @@ of what is built was also read out of the original's executable.
 
 ## Open: controls
 
-- **Gamepad.** Both control schemes need mouse and keyboard today. A gamepad scheme of its
-  own, built on the modern scheme (the sticks to walk and look, the action bar and the bags on
-  the buttons), for the Steam Deck, a gamepad on the PC and the handhelds below.
+- **Gamepad, further.** Vibration, and a Steam Deck layout; the gamepad itself is in place
+  (see above). On Linux its pointer clicks through X11 (XTest), not in a native Wayland session.
 
 ## Open: platforms
 
@@ -99,6 +102,10 @@ of what is built was also read out of the original's executable.
   creatures in the original's draw order instead (tile by tile, doors split the objects of their
   tile, a bridge's deck covers what lies under it); the order of items among themselves at a door
   still follows the simpler rule.
+
+## Open: translations
+
+- **Other languages.** Support for translations is planned, before Ultima Underworld II.
 
 ## Later
 

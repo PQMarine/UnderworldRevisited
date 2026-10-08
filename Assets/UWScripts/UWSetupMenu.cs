@@ -557,11 +557,27 @@ public partial class UWSetupMenu : MonoBehaviour
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Keyboard and mouse", mOLabel);
-        lfTop += 28f;
+        // TWO TABS (per user, 2026-10-07): the gamepad's buttons are bound on their own
+        // (UWSetupMenu.Gamepad.cs). Not switched while a key is awaited.
+        GUI.enabled = mOListeningFor == null;
+
+        if (GUI.Button(new Rect(lfLeft, lfTop, 200f, 28f), "Keyboard and mouse", mbControlsGamepadTab ? mOListItem : mOCurrentItem))
+            mbControlsGamepadTab = false;
+
+        if (GUI.Button(new Rect(lfLeft + 210f, lfTop, 140f, 28f), "Gamepad", mbControlsGamepadTab ? mOCurrentItem : mOListItem))
+            mbControlsGamepadTab = true;
+
+        GUI.enabled = true;
+        lfTop += 36f;
+
+        if (mbControlsGamepadTab)
+        {
+            fDrawGamepadTab(lODialog, lfLeft, lfInner, lfTop);
+            return;
+        }
 
         lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Click an entry to change it, then press the new key or mouse button. Escape keeps the old one. The pointer movement itself is fixed, and the interface panels always use the physical mouse buttons. A gamepad follows later.") + 12f;
+            "Click an entry to change it, then press the new key or mouse button. Escape keeps the old one. The pointer movement itself is fixed, and the interface panels always use the physical mouse buttons. The gamepad has its own tab.") + 12f;
 
         // The easy movement repeats while a key or one of the three arrows under the compass
         // is held. The original's pace is too fast to aim with (per user, 2026-09-21: "one

@@ -598,7 +598,7 @@ public class UWPlayerMovement : MonoBehaviour
         // The right click during a cursor movement jumps too (see ConsumesRightClick).
         bool lbJumpClick = UWMouseButtons.RightPressed && ConsumesRightClick();
 
-        if (mInput.Jump.WasPressedThisFrame() || lbJumpClick)
+        if (mInput.Jump.WasPressedThisFrame() || lbJumpClick || fPadJumps())
             fTryJump(lOWorldVelocity, UnityEngine.InputSystem.Keyboard.current != null
                 && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed);
 
@@ -1669,7 +1669,7 @@ public class UWPlayerMovement : MonoBehaviour
     /// <summary>WASD/gamepad stick relative to one's own view direction, as in any modern game.</summary>
     private Vector3 fGetModernVelocity()
     {
-        Vector2 lODirection = mInput.Move.ReadValue<Vector2>();
+        Vector2 lODirection = fMoveInput();
 
         if (lODirection.sqrMagnitude > 1f)
             lODirection.Normalize();
@@ -1782,13 +1782,13 @@ public class UWPlayerMovement : MonoBehaviour
     /// </summary>
     private Vector3 fGetOriginalKeyboardVelocity()
     {
-        float lfTurn = mInput.Turn.ReadValue<float>();
+        float lfTurn = fClassicTurn();
 
         if (lfTurn != 0f)
             transform.Rotate(0f, lfTurn * mfTurnSpeed * Time.deltaTime, 0f);
 
-        float lfForward = mInput.Move.ReadValue<Vector2>().y;
-        float lfStrafe = mInput.Strafe.ReadValue<float>();
+        float lfForward = fMoveInput().y;
+        float lfStrafe = fClassicStrafe();
 
         float lfForwardSpeed = lfForward >= 0f ? mfOriginalForwardSpeed : mfOriginalBackwardSpeed;
 
@@ -2150,7 +2150,7 @@ public class UWPlayerMovement : MonoBehaviour
         // funktioniert nicht zuverlaessig"): with 16-tick steps only every fourth rendered frame
         // at 60 Hz runs a step, and a press in a frame without one was gone by the next. So the
         // jump is kept until the next step takes it (fUpdateOnCore), whatever the walk does.
-        if (!lbTyping && (mInput.Jump.WasPressedThisFrame() || lbJumpClick))
+        if (!lbTyping && (mInput.Jump.WasPressedThisFrame() || lbJumpClick || fPadJumps()))
         {
             bool lbShift = UnityEngine.InputSystem.Keyboard.current != null
                 && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed;
@@ -2197,9 +2197,57 @@ public class UWPlayerMovement : MonoBehaviour
     /// angle from the view (UWPlayerMotion.FreeOffset). The mouse look turns the transform
     /// itself (UWPlayerLook), the frame takes the yaw from there.
     /// </summary>
+    /// <summary>
+    /// THE GAMEPAD IN THE CLASSIC SCHEME (per user, 2026-10-07: only forward and back worked there),
+    /// the usual two sticks as in the modern scheme: the RIGHT stick sideways TURNS, as A and D do
+    /// there (up and down it tilts the view a step, UWPlayerLook) - the left one turning felt odd
+    /// (per user, the same day).
+    /// </summary>
+    private float fClassicTurn()
+    {
+        // Not while the stick moves the gamepad's pointer (UWGamepadPointer).
+        float lfStick = UWGamepadPointer.IsDriving ? 0f : mInput.LookStick.ReadValue<Vector2>().x;
+
+        return Mathf.Clamp(mInput.Turn.ReadValue<float>() + lfStick, -1f, 1f);
+    }
+
+    /// <summary>The strafe keys plus the LEFT stick pushed well sideways - Move's x axis counts only
+    /// while the stick drives it, so a key the player bound for the modern strafe does not slide
+    /// here, and only past half, so walking forward a little askew does not slide either (the
+    /// original's slide takes the place of the walk).</summary>
+    private float fClassicStrafe()
+    {
+        float lfStick = UWGamepad.IsFromGamepad(mInput.Move) ? fMoveInput().x : 0f;
+
+        return Mathf.Clamp(mInput.Strafe.ReadValue<float>() + (Mathf.Abs(lfStick) >= 0.5f ? Mathf.Sign(lfStick) : 0f), -1f, 1f);
+    }
+
+    /// <summary>Move's value - without the gamepad's stick while it turns the wheel over a window
+    /// (UWGamepadPointer.StickScrolls); the keys still walk.</summary>
+    private Vector2 fMoveInput()
+    {
+        if (UWGamepadPointer.StickScrolls && UWGamepad.IsFromGamepad(mInput.Move))
+            return Vector2.zero;
+
+        return mInput.Move.ReadValue<Vector2>();
+    }
+
+    /// <summary>The gamepad's Y jumps (per user, 2026-10-07 - B did while nothing was open to close).</summary>
+    private bool fPadJumps()
+    {
+        return !UWControls.IsTextEntryActive && mInput.PadJump.WasPressedThisFrame();
+    }
+
+    /// <summary>The walk for a stick: the run scaled by its deflection (UWGamepad) - the keys and
+    /// a full stick give the run itself.</summary>
+    private static int fStickWalk(Vector2 pODirection)
+    {
+        return Mathf.Max(1, Mathf.RoundToInt(UWPlayerMotion.WalkRun * Mathf.Clamp01(pODirection.magnitude)));
+    }
+
     private void fBuildModernCoreCommand(UWPlayerMotion pOMotion)
     {
-        Vector2 lODirection = mInput.Move.ReadValue<Vector2>();
+        Vector2 lODirection = fMoveInput();
 
         if (lODirection.sqrMagnitude < 0.01f)
             return;
@@ -2210,7 +2258,7 @@ public class UWPlayerMovement : MonoBehaviour
         if (lbAlong && !lbSide)
         {
             pOMotion.MotionCommand = lODirection.y > 0f ? UWPlayerMotion.Command.Walk : UWPlayerMotion.Command.Back;
-            pOMotion.Walk = UWPlayerMotion.WalkRun;
+            pOMotion.Walk = fStickWalk(lODirection);
 
             return;
         }
@@ -2223,7 +2271,7 @@ public class UWPlayerMovement : MonoBehaviour
         }
 
         pOMotion.MotionCommand = UWPlayerMotion.Command.Free;
-        pOMotion.Walk = UWPlayerMotion.WalkRun;
+        pOMotion.Walk = fStickWalk(lODirection);
         pOMotion.FreeOffset = UWViewpoint.DegreesToAngle(Mathf.Atan2(lODirection.x, lODirection.y) * Mathf.Rad2Deg) & 0xFFFF;
     }
 
@@ -2281,9 +2329,9 @@ public class UWPlayerMovement : MonoBehaviour
             return;
         }
 
-        float lfTurn = mInput.Turn.ReadValue<float>();
-        float lfForward = mInput.Move.ReadValue<Vector2>().y;
-        float lfStrafe = mInput.Strafe.ReadValue<float>();
+        float lfTurn = fClassicTurn();
+        float lfForward = fMoveInput().y;
+        float lfStrafe = fClassicStrafe();
 
         if (Mathf.Abs(lfStrafe) > 0.01f)
         {
@@ -2302,7 +2350,7 @@ public class UWPlayerMovement : MonoBehaviour
         if (lfForward > 0.01f || Mathf.Abs(lfTurn) > 0.01f)
         {
             pOMotion.MotionCommand = UWPlayerMotion.Command.Walk;
-            pOMotion.Walk = lfForward > 0.01f ? UWPlayerMotion.WalkRun : 0;
+            pOMotion.Walk = lfForward > 0.01f ? fStickWalk(new Vector2(0f, lfForward)) : 0;
             pOMotion.TurnInput = Mathf.RoundToInt(Mathf.Clamp(lfTurn, -1f, 1f) * UWPlayerMotion.TurnInputStep);
         }
     }

@@ -184,6 +184,78 @@ public partial class UWModernBags
         mbSplitFirstKey = true;
     }
 
+    /// <summary>The gamepad's held direction on the box, when it steps next, and since when.</summary>
+    private int miSplitPadDirection;
+
+    private float mfSplitPadNext;
+
+    private float mfSplitPadSince;
+
+    /// <summary>
+    /// THE GAMEPAD ON THE SPLIT BOX (per user, 2026-10-08: the box lies across, minus left and plus
+    /// right - so left and right, not up and down): the d-pad's left and right or the walk stick
+    /// pushed sideways step the count, held faster and after two seconds by ten; A takes that many,
+    /// B lets the box go. The buttons by their place on the pad; the press is used up, so the pad's
+    /// pointer does not click with it (UWGamepad.ConsumePress). True when the box closed.
+    /// </summary>
+    private bool fUpdateSplitPad()
+    {
+        Gamepad lOPad = Gamepad.current;
+
+        if (lOPad == null)
+            return false;
+
+        if (lOPad.buttonSouth.wasPressedThisFrame)
+        {
+            UWGamepad.ConsumePress();
+
+            if (fSplitValue() > 0)
+                fConfirmSplit(fSplitValue());
+            else
+                fEndSplit();
+
+            return true;
+        }
+
+        if (lOPad.buttonEast.wasPressedThisFrame)
+        {
+            UWGamepad.ConsumePress();
+            fEndSplit();
+            return true;
+        }
+
+        float lfStick = (UWUserSettings.GamepadSwapSticks ? lOPad.rightStick : lOPad.leftStick).ReadValue().x;
+        int liDirection = lOPad.dpad.right.isPressed ? 1 : lOPad.dpad.left.isPressed ? -1
+            : Mathf.Abs(lfStick) >= 0.5f ? (lfStick > 0f ? 1 : -1) : 0;
+
+        if (liDirection == 0)
+        {
+            miSplitPadDirection = 0;
+            return false;
+        }
+
+        float lfNow = Time.unscaledTime;
+
+        if (liDirection != miSplitPadDirection)
+        {
+            miSplitPadDirection = liDirection;
+            mfSplitPadSince = lfNow;
+            mfSplitPadNext = lfNow + 0.35f;
+        }
+        else if (lfNow < mfSplitPadNext)
+        {
+            return false;
+        }
+        else
+        {
+            mfSplitPadNext = lfNow + 0.07f;
+        }
+
+        fStepSplit(liDirection * (lfNow - mfSplitPadSince > 2f ? 10 : 1));
+
+        return false;
+    }
+
     /// <summary>Keys and clicks while the box is open; called by Update instead of the bags' own.</summary>
     private void fUpdateSplit(UWControls pOControls)
     {
@@ -193,6 +265,9 @@ public partial class UWModernBags
             fEndSplit();
             return;
         }
+
+        if (fUpdateSplitPad())
+            return;
 
         int liMax = fStackCount(mOSplitItem);
         Keyboard lOKeyboard = Keyboard.current;

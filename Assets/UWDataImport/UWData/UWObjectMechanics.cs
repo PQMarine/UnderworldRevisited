@@ -609,10 +609,59 @@ namespace UWDataImport.UWData
 		/// <summary>Cauldron - using it only reports that it is empty.</summary>
 		public const int CauldronObjectId = 303;
 
-		/// <summary>"The waters of the fountain renew your strength." (string block 1). The
-		/// second candidate would be 238, "The water refreshes you." - which one appears in the original
-		/// has not been checked yet.</summary>
+		/// <summary>"The waters of the fountain renew your strength." (string block 1) - only from a
+		/// fountain whose enchantment is of the healing class (Fountain_seg040_352B_1816, 0xF9 there).</summary>
 		public const int FountainMessageIndex = 250;
+
+		/// <summary>"The water refreshes you." - every other fountain, enchanted or not (0xED).</summary>
+		public const int FountainRefreshMessageIndex = 238;
+
+		/// <summary>The healing class: the fountain says "renew your strength" for it.</summary>
+		public const int FountainHealMajorClass = 4;
+
+		/// <summary>
+		/// THE ENCHANTMENT AS CLASSES, GetItemEnchantment_seg040_352B_257C (read 2026-10-08 for the
+		/// fountain, per user on the original: not every fountain heals, and the one on level 1 not
+		/// fully): traps and triggers carry none; otherwise the spell object as FindSpellObject finds
+		/// it. One linked with no charge left is not found four times in ten (the same roll as the
+		/// wand's, UWItemUse). Its field read in two forms: with the spell format flag the item
+		/// classes (13 and up, -1 for a zero upper part - found, but nothing to cast), without it
+		/// the major class in bits 4-8 and the minor in bits 0-3 - the form the traps' classes have.
+		/// False when there is no enchantment.
+		/// </summary>
+		public static bool TryGetEnchantmentClass(UWObject pOObject, IList<UWObject> pORecords, out int piMajorClass, out int piMinorClass)
+		{
+			piMajorClass = -1;
+			piMinorClass = 0;
+
+			if (pOObject == null || ((pOObject.ID >> 6) & 7) == 6)
+				return false;
+
+			UWObject lOSpell = FindSpellObject(pOObject, pORecords);
+
+			if (lOSpell == null)
+				return false;
+
+			if (lOSpell != pOObject && (lOSpell.Quality & 0x3F) == 0 && UWRandom.Next(10) < 4)
+				return false;
+
+			int liRaw = lOSpell.Quantity & 0x1FF;
+
+			if ((lOSpell.Flags & SpellFormatFlag) != 0)
+			{
+				int liUpper = liRaw >> 6;
+
+				piMajorClass = liUpper == 0 ? -1 : liUpper + FirstItemSpellMajorClass - 1;
+				piMinorClass = liRaw & 0x3F;
+
+				return true;
+			}
+
+			piMajorClass = liRaw >> 4;
+			piMinorClass = liRaw & 0xF;
+
+			return true;
+		}
 
 		/// <summary>"The cauldron is empty." (string block 1, confirmed verbatim
 		/// per user).</summary>

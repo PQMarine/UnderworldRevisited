@@ -232,6 +232,29 @@ public static class UWScreenUi
     }
 
     /// <summary>Is the pointer over the field?</summary>
+    /// <summary>A shown image's rectangle on the screen (pixels, bottom-left origin) - these
+    /// screens are overlay canvases, so the world corners are screen pixels - or an empty rect.</summary>
+    public static Rect ScreenRectOf(RawImage pOImage)
+    {
+        if (pOImage == null || !pOImage.gameObject.activeInHierarchy)
+            return Rect.zero;
+
+        Vector3[] lyCorners = new Vector3[4];
+
+        ((RectTransform)pOImage.transform).GetWorldCorners(lyCorners);
+
+        return Rect.MinMaxRect(lyCorners[0].x, lyCorners[0].y, lyCorners[2].x, lyCorners[2].y);
+    }
+
+    /// <summary>The gamepad's B, read on the pad itself - the back of the main menu and the
+    /// character creation, as Escape there (per user, 2026-10-08).</summary>
+    public static bool WasPadBackPressed()
+    {
+        UnityEngine.InputSystem.Gamepad lOPad = UnityEngine.InputSystem.Gamepad.current;
+
+        return lOPad != null && lOPad.buttonEast.wasPressedThisFrame;
+    }
+
     public static bool IsMouseOver(RawImage pOImage)
     {
         if (pOImage == null || !pOImage.gameObject.activeInHierarchy)

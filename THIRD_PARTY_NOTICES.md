@@ -115,6 +115,14 @@ This software is based in part on the work of the Independent JPEG Group.
 - License: SIL Open Font License 1.1, Copyright 2018 The Lexend Project Authors, with
   Reserved Font Name "RevReading Lexend". The full text is in `ThirdParty/Lexend/OFL.txt`.
 
+## Kenney Input Prompts Pixel
+
+- Project: "Input Prompts Pixel" 1.0 by Kenney (www.kenney.nl), the packed tile sheet,
+  unmodified (`Tilemap/tilemap_packed.png`).
+- Used in: `Assets/Resources/UWGlyphs/KenneyInputPromptsPixel.bytes` (the PNG under another
+  extension, read by `Assets/UWScripts/UWGlyphs.cs`), the input glyphs of the interface.
+- License: Creative Commons Zero (CC0). The licence file is in `ThirdParty/Kenney/License.txt`.
+
 ## Acknowledgements
 
 These sources were used as documentation only; no code was taken from them.

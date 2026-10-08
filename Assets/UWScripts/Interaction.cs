@@ -73,6 +73,10 @@ public class Interaction : MonoBehaviour
     /// the weapon (see Update).</summary>
     private bool mbRightPressInViewport;
 
+    /// <summary>The weapon button's press came from the gamepad's trigger (UWGamepad): it strikes
+    /// at the crosshair whatever the mouse pointer lies on.</summary>
+    private bool mbAttackFromPad;
+
     private float mfPendingCharge;
 
     private AttackEnum mePendingAttack;
@@ -342,15 +346,19 @@ public class Interaction : MonoBehaviour
 
         if (lOAttackButton.WasPressedThisFrame())
         {
+            // While the gamepad's pointer drives, its trigger is the left mouse button
+            // (UWGamepadPointer.Takes): the strike goes where the pointer is, as with the mouse.
+            mbAttackFromPad = UWGamepad.IsFromGamepad(lOAttackButton) && !UWGamepadPointer.Takes(lOAttackButton);
+
             // The modern scheme: on the world, not on a window of its UI (a drag from a bag onto
             // the world must not strike).
-            mbRightPressInViewport = !fIsOriginalScheme() ? fMouseInWorld()
+            mbRightPressInViewport = !fIsOriginalScheme() ? mbAttackFromPad || fMouseInWorld()
                 : mGameUi == null || mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
         }
 
         if (IsCombatModeActive && !IsAttacking && !mbAttackPending && mbRightPressInViewport
             && mCharacter != null && mCharacter.CanAttack && lOAttackButton.IsPressed() && !UWPlayerMovement.ConsumesRightClick()
-            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && fMouseInWorld())
+            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && (mbAttackFromPad || fMouseInWorld()))
             fBeginAttack();
 
         // The weapon in hand follows the equipment. This is checked continuously because the
@@ -396,8 +404,12 @@ public class Interaction : MonoBehaviour
         // key press or click only hides it again and triggers nothing else.
         if (mGameUi != null && mGameUi.IsWindowPictureVisible)
         {
-            if (fAnyInputThisFrame())
+            // The gamepad too, a stick pushed out as well - walking off hides it.
+            if (fAnyInputThisFrame() || UWGamepad.AnyPressed(true))
+            {
+                UWGamepad.ConsumePress();
                 mGameUi.HideWindowPicture();
+            }
 
             return;
         }
@@ -700,10 +712,10 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>The button that charges and releases the weapon: the right one in the original,
-    /// the left one in the modern scheme.</summary>
+    /// the left one in the modern scheme - or the gamepad's right trigger (ModernAttack).</summary>
     private InputAction fGetAttackButton()
     {
-        return fIsOriginalScheme() ? mInput.Interact : mInput.CursorDrag;
+        return fIsOriginalScheme() ? mInput.Interact : mInput.ModernAttack;
     }
 
     // ------------------------------------------------- The modern scheme's keys
@@ -744,7 +756,12 @@ public class Interaction : MonoBehaviour
 
         // Only R draws the weapon: the left button no longer does (per user, 2026-10-03), so
         // outside combat it is free; drawn, it charges and strikes (Update, fMouseInWorld).
-        if (mInput.ModernReady.WasPressedThisFrame())
+        // The gamepad's right trigger draws the weapon as well (UWGamepad): held on, it charges
+        // once the weapon is ready (Update). The mouse button does not draw.
+        bool lbPadDraws = !IsCombatModeActive && mInput.ModernAttack.WasPressedThisFrame()
+            && UWGamepad.IsFromGamepad(mInput.ModernAttack) && !UWGamepadPointer.Takes(mInput.ModernAttack);
+
+        if (mInput.ModernReady.WasPressedThisFrame() || lbPadDraws)
             ToggleCombatMode();
 
         // THE FREE POINTER OVER THE INTERFACE (per user, 2026-10-07): Q looks at the thing in the
@@ -756,7 +773,8 @@ public class Interaction : MonoBehaviour
 
         // Q looks (per user, 2026-10-03) - the right button switches the pointer
         // (UWModernPointer).
-        if (mInput.ModernLook.WasPressedThisFrame())
+        // The gamepad's pointer takes its X as the right button (UWGamepadPointer.Takes).
+        if (mInput.ModernLook.WasPressedThisFrame() && !UWGamepadPointer.Takes(mInput.ModernLook))
         {
             if (lbOverUi)
                 fLookAtUi(Mouse.current.position.ReadValue());
@@ -986,6 +1004,13 @@ public class Interaction : MonoBehaviour
     private void fUpdateModernUseKey(bool pbOverUi)
     {
         InputAction lOKey = mInput.ModernUse;
+
+        // The gamepad's pointer takes its A as the click (UWGamepadPointer.Takes).
+        if (lOKey.WasPressedThisFrame() && UWGamepadPointer.Takes(lOKey))
+        {
+            mfModernUseHeld = -1f;
+            return;
+        }
 
         if (lOKey.WasPressedThisFrame())
         {
@@ -1527,6 +1552,57 @@ public class Interaction : MonoBehaviour
     /// <summary>Objects with their own effect when used that are neither door nor switch.
     /// Deliberately one place with a case distinction instead of scattered special cases - the
     /// list grows with every object whose effect was checked in the original.</summary>
+    /// <summary>
+    /// THE FOUNTAIN, Fountain_seg040_352B_1816 (read 2026-10-08; per user on the original: not
+    /// every fountain heals - "The water refreshes you." and nothing else - and the one on level 1
+    /// not fully; until then every fountain healed fully): its enchantment (UWObjectMechanics.
+    /// TryGetEnchantmentClass) is cast on the user as a spell trap casts, and only the healing
+    /// class says "The waters of the fountain renew your strength."; the healing class's minor
+    /// class decides how much (UWSpellCasting). The water above the basin uses the fountain
+    /// linked to it (seg040_352B_2A0).
+    /// </summary>
+    private void fUseFountain(UWObject pOObject)
+    {
+        List<UWObject> lOMaster = mLevelLoader != null && mLevelLoader.CurrentLevel != null ? mLevelLoader.CurrentLevel.Masterlist : null;
+        UWObject lOFountain = pOObject != null && pOObject.ID == UWObjectMechanics.FountainWaterObjectId
+            ? fLinkedFountain(pOObject, lOMaster)
+            : pOObject;
+
+        if (lOFountain != null && UWObjectMechanics.TryGetEnchantmentClass(lOFountain, lOMaster, out int liMajor, out int liMinor)
+            && liMajor >= 0)
+        {
+            UWGameUI lOUi = UWScene.GameUi;
+
+            if (lOUi != null)
+                lOUi.CastSpellByClass(liMajor, liMinor);
+
+            AddGeneralMessage(liMajor == UWObjectMechanics.FountainHealMajorClass
+                ? UWObjectMechanics.FountainMessageIndex
+                : UWObjectMechanics.FountainRefreshMessageIndex);
+
+            return;
+        }
+
+        AddGeneralMessage(UWObjectMechanics.FountainRefreshMessageIndex);
+    }
+
+    /// <summary>The fountain the water above it links to - its contents link, else the next one.</summary>
+    private static UWObject fLinkedFountain(UWObject pOWater, List<UWObject> pOMaster)
+    {
+        if (pOMaster == null)
+            return null;
+
+        int liContents = pOWater.HasQuantity ? 0 : pOWater.Quantity;
+
+        foreach (int liAt in new[] { liContents, (int)pOWater.Link })
+        {
+            if (liAt > 0 && liAt < pOMaster.Count && pOMaster[liAt] != null && pOMaster[liAt].ID == UWObjectMechanics.FountainObjectId)
+                return pOMaster[liAt];
+        }
+
+        return null;
+    }
+
     private bool fTryUseObjectEffect(UWEntityInfo pOTarget)
     {
         if (pOTarget == null || pOTarget.ObjectData == null || mOUWDataImporter == null)
@@ -1540,8 +1616,7 @@ public class Interaction : MonoBehaviour
 
             case UWObjectMechanics.FountainObjectId:
             case UWObjectMechanics.FountainWaterObjectId:
-                AddGeneralMessage(UWObjectMechanics.FountainMessageIndex);
-                mCharacter?.RestoreVitality();
+                fUseFountain(pOTarget.ObjectData);
                 return true;
 
             // Reaching for the silver tree takes it back as a seed (see UWSilverTree).
@@ -3584,6 +3659,16 @@ public class Interaction : MonoBehaviour
         bool lbYes = false;
         bool lbNo = lOKeyboard.escapeKey.wasPressedThisFrame;
 
+        // THE GAMEPAD in the classic scheme (per user, 2026-10-07): A yes, B no - the pad's pointer
+        // stands aside meanwhile (UWGamepadPointer). The modern box is clicked with the pointer.
+        Gamepad lOPad = Gamepad.current;
+
+        if (lOPad != null && Time.frameCount != miYesNoAskedFrame && fIsOriginalScheme())
+        {
+            lbYes |= lOPad.buttonSouth.wasPressedThisFrame;
+            lbNo |= lOPad.buttonEast.wasPressedThisFrame;
+        }
+
         if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
         {
             lbYes = mbYesNoAnswer;
@@ -4344,6 +4429,13 @@ public class Interaction : MonoBehaviour
         bool lbConfirm = (lOMouse != null
                 && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
             || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame);
+
+        // Any gamepad button as well (UWGamepad).
+        if (!lbConfirm && UWGamepad.AnyPressed(false))
+        {
+            UWGamepad.ConsumePress();
+            lbConfirm = true;
+        }
 
         if (lbConfirm)
         {
@@ -5291,11 +5383,40 @@ public class Interaction : MonoBehaviour
     private const int WallPanelObjectId = 0x16E;
 
     /// <summary>
-    /// The name of what the crosshair is on, for the modern HUD (UWModernHud) - the bare object
+    /// WHAT THE PAD'S A (E) DOES with what the crosshair is on, for the button hint under it
+    /// (UWModernHud, per user 2026-10-08): fModernUseOn's tap without acting - "Pick up" what can be
+    /// taken, "Talk" to a creature or a thing that answers, "Use" anything else - and null where
+    /// the tap does nothing (a wall, the floor, beyond the sight).
+    /// </summary>
+
     /// name out of string block 4 ("goblin", "door"), plural for a stack. Without the look's
     /// side effects (identifying, trap search, look triggers); nothing for walls, floors,
     /// wall panels, geometry and what lies beyond the sight.
     /// </summary>
+    public string GetCrosshairPadVerb()
+    {
+        if (mOUWDataImporter == null)
+            return null;
+
+        fAimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
+
+        UWEntityInfo lOTake = lOFrontmost != null && lOFrontmost.CanBePickedUp ? lOFrontmost : lOPickable;
+
+        if (lOTake != null && !fIsCreature(lOTake))
+            return "Pick up";
+
+        if (fIsGeometry(lOFrontmost))
+            return null;
+
+        if (fIsCreature(lOFrontmost))
+            return "Talk";
+
+        int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
+
+        return UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess) != UWClickRules.ThingTalkAnswer.CannotTalk
+            ? "Talk" : "Use";
+    }
+
     public string GetCrosshairTargetName()
     {
         if (mOUWDataImporter == null)

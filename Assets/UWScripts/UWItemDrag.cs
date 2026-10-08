@@ -912,6 +912,17 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// </summary>
     private bool mbAskingCount;
 
+    /// <summary>The classic "Move how many?" prompt is running (the gamepad's pointer and letter
+    /// grid stand aside, UWGamepadPointer, UWGameUI.IsTypingText).</summary>
+    public bool IsAskingCount => mbAskingCount;
+
+    /// <summary>The gamepad's d-pad on the count: when the held direction steps next, and since when.</summary>
+    private float mfPadCountNext;
+
+    private float mfPadCountSince;
+
+    private int miPadCountDirection;
+
     private int miAskMaximum;
 
     private string msAskInput = string.Empty;
@@ -1015,6 +1026,9 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             return true;
         }
 
+        if (fUpdateCountPromptPad())
+            return true;
+
         Keyboard lOKeyboard = Keyboard.current;
 
         if (lOKeyboard == null)
@@ -1063,6 +1077,79 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     }
 
     private bool mbFirstDigit = true;
+
+    /// <summary>
+    /// THE GAMEPAD ON THE COUNT (per user, 2026-10-07: no letter grid, the d-pad turns the number):
+    /// up and down step it, round from the maximum to 1 and back, held faster and after two
+    /// seconds by ten; A takes that many, X all, B cancels. True when the prompt has ended.
+    /// </summary>
+    private bool fUpdateCountPromptPad()
+    {
+        Gamepad lOPad = Gamepad.current;
+
+        if (lOPad == null)
+            return false;
+
+        if (lOPad.buttonSouth.wasPressedThisFrame)
+        {
+            fEndCountPrompt(int.TryParse(msAskInput, out int liCount) && liCount > 0 ? liCount : 1);
+            return true;
+        }
+
+        if (lOPad.buttonWest.wasPressedThisFrame)
+        {
+            fEndCountPrompt(miAskMaximum);
+            return true;
+        }
+
+        if (lOPad.buttonEast.wasPressedThisFrame)
+        {
+            fCancelCountPrompt(true);
+            return true;
+        }
+
+        int liDirection = (lOPad.dpad.up.isPressed ? 1 : 0) - (lOPad.dpad.down.isPressed ? 1 : 0);
+
+        if (liDirection == 0)
+        {
+            miPadCountDirection = 0;
+            return false;
+        }
+
+        float lfNow = Time.unscaledTime;
+
+        if (liDirection != miPadCountDirection)
+        {
+            miPadCountDirection = liDirection;
+            mfPadCountSince = lfNow;
+            mfPadCountNext = lfNow + 0.35f;
+        }
+        else if (lfNow < mfPadCountNext)
+        {
+            return false;
+        }
+        else
+        {
+            mfPadCountNext = lfNow + 0.07f;
+        }
+
+        int liStep = lfNow - mfPadCountSince > 2f ? 10 : 1;
+        int liValue = int.TryParse(msAskInput, out int liNow) ? liNow : 1;
+
+        liValue += liDirection * liStep;
+
+        // Round from the end to the start - a step by ten stops at the end first.
+        if (liValue > miAskMaximum)
+            liValue = liStep > 1 && liNow < miAskMaximum ? miAskMaximum : 1;
+        else if (liValue < 1)
+            liValue = liStep > 1 && liNow > 1 ? 1 : miAskMaximum;
+
+        msAskInput = liValue.ToString();
+        mbFirstDigit = false;
+        fRefreshCountPrompt();
+
+        return false;
+    }
 
     private static bool fWasDigitPressed(Keyboard pOKeyboard, int piDigit)
     {

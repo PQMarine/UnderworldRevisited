@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UWDataImport;
@@ -294,6 +295,8 @@ public class UWModernHud : MonoBehaviour
 
     private void Update()
     {
+        fStepMenuByPad();
+
         // The right button switches the pointer (UWModernPointer) - not under the menu.
         UWModernPointer.Tick(IsShowing && !IsOpen && !UWControls.IsTextEntryActive);
 
@@ -1287,6 +1290,90 @@ public class UWModernHud : MonoBehaviour
 
         mfTargetTimer = 0.1f;
         mOTarget.text = lbCross ? mOInteraction.GetCrosshairTargetName() ?? string.Empty : string.Empty;
+
+        fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree);
+    }
+
+    private RawImage mOPadUseGlyph;
+
+    private RawImage mOPadLookGlyph;
+
+    private Text mOPadUseText;
+
+    private Text mOPadLookText;
+
+    /// <summary>
+    /// THE GAMEPAD'S BUTTON HINT under the crosshair's target name (per user, 2026-10-08: "my wife
+    /// would not manage without glyphs"): A with what it does there (Interaction.GetCrosshairPadVerb),
+    /// X to look - while the pad is in use and the hints are on (UWUserSettings.ShowsPadHints), with
+    /// the pointer locked. The glyphs of the buttons as bound now, their names where a glyph is
+    /// missing.
+    /// </summary>
+    private void fUpdatePadPrompt(bool pbLocked)
+    {
+        string lsVerb = pbLocked && UWUserSettings.ShowsPadHints && mOInteraction != null ? mOInteraction.GetCrosshairPadVerb() : null;
+
+        if (mOPadUseGlyph == null)
+        {
+            if (lsVerb == null)
+                return;
+
+            Transform lOParent = mOTarget.transform.parent;
+
+            mOPadUseGlyph = fCreateRawImage(lOParent, "Pad use glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
+            mOPadLookGlyph = fCreateRawImage(lOParent, "Pad look glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
+            mOPadUseText = fCreateText(lOParent, "Pad use", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
+            mOPadLookText = fCreateText(lOParent, "Pad look", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
+        }
+
+        bool lbShow = lsVerb != null;
+
+        mOPadUseGlyph.enabled = lbShow;
+        mOPadLookGlyph.enabled = lbShow;
+        mOPadUseText.enabled = lbShow;
+        mOPadLookText.enabled = lbShow;
+
+        if (!lbShow)
+            return;
+
+        Texture2D lOUse = UWGlyphs.ForEntry("ModernUse", 1);
+        Texture2D lOLook = UWGlyphs.ForEntry("ModernLook", 1);
+        int liFontSize = mOTarget.fontSize;
+        float lfGlyph = Mathf.Round(liFontSize * 1.5f);
+        float lfGap = Mathf.Round(lfGlyph * 0.2f);
+
+        mOPadUseText.fontSize = liFontSize;
+        mOPadLookText.fontSize = liFontSize;
+        mOPadUseText.text = lOUse != null ? lsVerb : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernUse", 1)) + " " + lsVerb;
+        mOPadLookText.text = lOLook != null ? "Look" : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernLook", 1)) + " Look";
+
+        float lfUseWidth = mOPadUseText.preferredWidth;
+        float lfLookWidth = mOPadLookText.preferredWidth;
+        float lfUseGlyph = lOUse != null ? lfGlyph + lfGap : 0f;
+        float lfLookGlyph = lOLook != null ? lfGlyph + lfGap : 0f;
+        float lfTotal = lfUseGlyph + lfUseWidth + lfGlyph + lfLookGlyph + lfLookWidth;
+        float lfX = -lfTotal * 0.5f;
+        float lfY = -(4f * miPixelScale) - (liFontSize * 1.5f);
+
+        mOPadUseGlyph.texture = lOUse;
+        mOPadUseGlyph.enabled = lOUse != null;
+        fPlace(mOPadUseGlyph.transform, lfX, lfY, lfGlyph, lfGlyph);
+        fPlace(mOPadUseText.transform, lfX + lfUseGlyph, lfY, lfUseWidth + 2f, lfGlyph);
+
+        lfX += lfUseGlyph + lfUseWidth + lfGlyph;
+
+        mOPadLookGlyph.texture = lOLook;
+        mOPadLookGlyph.enabled = lOLook != null;
+        fPlace(mOPadLookGlyph.transform, lfX, lfY, lfGlyph, lfGlyph);
+        fPlace(mOPadLookText.transform, lfX + lfLookGlyph, lfY, lfLookWidth + 2f, lfGlyph);
+    }
+
+    private static void fPlace(Transform pOTransform, float pfX, float pfY, float pfWidth, float pfHeight)
+    {
+        RectTransform lORect = (RectTransform)pOTransform;
+
+        lORect.anchoredPosition = new Vector2(pfX, pfY);
+        lORect.sizeDelta = new Vector2(pfWidth, pfHeight);
     }
 
     // ------------------------------------------------- The game menu
@@ -1499,6 +1586,13 @@ public class UWModernHud : MonoBehaviour
         GUI.DrawTexture(lOPanel, mOBackgroundTexture);
         GUILayout.BeginArea(new Rect(lOPanel.x + 24f, lOPanel.y + 18f, lOPanel.width - 48f, lOPanel.height - 36f));
 
+        // The buttons' places for the gamepad (fRecordEntry), gathered in the repaint.
+        mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
+        mfMenuScale = lfScale;
+
+        if (Event.current.type == EventType.Repaint)
+            mOEntryRectsDrawing.Clear();
+
         switch (mePage)
         {
             case PageEnum.Main: fDrawMain(); break;
@@ -1510,6 +1604,12 @@ public class UWModernHud : MonoBehaviour
 
         GUILayout.EndArea();
         GUI.matrix = lOMatrix;
+
+        if (Event.current.type == EventType.Repaint)
+        {
+            mOEntryRects.Clear();
+            mOEntryRects.AddRange(mOEntryRectsDrawing);
+        }
     }
 
     /// <summary>The UI size in percent of the automatic one - the layout editor's - and +.</summary>
@@ -1521,9 +1621,71 @@ public class UWModernHud : MonoBehaviour
 
     private bool fButton(string psText)
     {
+        return fButton(new GUIContent(psText));
+    }
+
+    private bool fButton(GUIContent pOContent)
+    {
         GUILayout.Space(6f);
 
-        return GUILayout.Button(psText, mOButtonStyle, GUILayout.Height(38f));
+        bool lbPressed = GUILayout.Button(pOContent, mOButtonStyle, GUILayout.Height(38f));
+
+        fRecordEntry();
+
+        return lbPressed;
+    }
+
+    // ------------------------------------------------- The gamepad in the menu
+
+    /// <summary>The gamepad steps through the buttons (UWPadEntryStepper, per user 2026-10-08:
+    /// as in the context menu).</summary>
+    private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
+
+    /// <summary>The buttons' screen rectangles of the last drawn frame, and those being drawn.</summary>
+    private readonly List<Rect> mOEntryRects = new List<Rect>();
+
+    private readonly List<Rect> mOEntryRectsDrawing = new List<Rect>();
+
+    /// <summary>The menu's area and scale while it draws, for the buttons' screen places.</summary>
+    private Vector2 mOAreaAt;
+
+    private float mfMenuScale = 1f;
+
+    private PageEnum meSteppedPage = PageEnum.Closed;
+
+    /// <summary>The button just laid out, as a screen rectangle (pixels, bottom-left origin) - in
+    /// the repaint only, where GUILayout knows its place.</summary>
+    private void fRecordEntry()
+    {
+        if (Event.current.type != EventType.Repaint)
+            return;
+
+        Rect lORect = GUILayoutUtility.GetLastRect();
+        float lfX = (mOAreaAt.x + lORect.x) * mfMenuScale;
+        float lfTop = (mOAreaAt.y + lORect.y) * mfMenuScale;
+
+        mOEntryRectsDrawing.Add(new Rect(lfX, Screen.height - lfTop - (lORect.height * mfMenuScale),
+            lORect.width * mfMenuScale, lORect.height * mfMenuScale));
+    }
+
+    /// <summary>Once a frame while the menu is up: a new page (or the menu opened) snaps the pointer
+    /// onto its first button when the pad was used last.</summary>
+    private void fStepMenuByPad()
+    {
+        if (!IsOpen || mePage == PageEnum.Layout || UWSetupMenu.HasOpenPanel)
+        {
+            meSteppedPage = PageEnum.Closed;
+            return;
+        }
+
+        if (meSteppedPage != mePage)
+        {
+            meSteppedPage = mePage;
+            mOMenuStepper.Opened();
+            return;
+        }
+
+        mOMenuStepper.Update(mOEntryRects);
     }
 
     private void fDrawMain()
@@ -1541,32 +1703,19 @@ public class UWModernHud : MonoBehaviour
 
         // Music, sound and the detail level left this menu on 2026-10-06 (per user): the setup
         // bar at the top offers them in full while the menu is open (UWSetupMenu).
-        if (fButton("Right button: " + (UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer")))
+        // THE MOUSE'S RIGHT BUTTON AS A GLYPH (per user, 2026-10-08: not the pad's - "Right button"
+        // said nothing of which; Kenney's pixel prompts, UWGlyphs), "RMB" if it is missing.
+        Texture2D lOMouseRight = UWGlyphs.MouseRight;
+        string lsPointerOption = UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer";
+
+        if (fButton(lOMouseRight != null ? new GUIContent("  " + lsPointerOption, lOMouseRight) : new GUIContent("RMB: " + lsPointerOption)))
         {
             UWUserSettings.ModernPointerHold = !UWUserSettings.ModernPointerHold;
             UWUserSettings.Save();
         }
 
-        // THE MOUSE LOOK'S SPEED (per user, 2026-10-06: "sehr direkt"): a row of its own with
-        // the two arrows, five per cent a press, 5 to 200; the Controls dialog of the menu bar
-        // has the same as a slider.
-        GUILayout.BeginHorizontal();
-
-        if (GUILayout.Button("<", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
-        {
-            UWUserSettings.MouseLookSpeed -= UWUserSettings.MouseLookSpeedStep;
-            UWUserSettings.Save();
-        }
-
-        GUILayout.Label("Mouse look: " + Mathf.RoundToInt(UWUserSettings.MouseLookSpeed * 100f) + " %", mOButtonStyle, GUILayout.Height(38f));
-
-        if (GUILayout.Button(">", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
-        {
-            UWUserSettings.MouseLookSpeed += UWUserSettings.MouseLookSpeedStep;
-            UWUserSettings.Save();
-        }
-
-        GUILayout.EndHorizontal();
+        // The mouse look's speed left this menu on 2026-10-08 (per user): the Controls dialog of
+        // the setup bar has it as a slider, reachable while the menu is open.
 
         // The layout editor (UWModernLayoutEditor, per user 2026-10-04) - the UI size lives in its
         // strip since the same day.
