@@ -671,12 +671,12 @@ public class UWModernLayoutEditor : MonoBehaviour
         UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
         bool lbLeather = UWModernBacks.IsLeatherPart(peElement);
 
-        // "Background" written out ("Back" also reads as "go back"), "Original" for the leather
-        // as the original has it, "Custom" for a back of the part's own (per user, 2026-10-09:
-        // "Leather / Own" did not please).
+        // "Background" written out ("Back" also reads as "go back"), "Default" for the leather -
+        // the modern scheme's default, not the original's look (per user, 2026-10-09, after
+        // "Original") -, "Custom" for a back of the part's own ("Leather / Own" did not please).
         if (lbLeather)
         {
-            mOItems.Add(fChoice("Background", new[] { "Original", "Custom" }, lOBack.Shape == UWDataImport.UWData.UWBackdropArt.ShapeEnum.None ? 0 : 1, liAt =>
+            mOItems.Add(fChoice("Background", new[] { "Default", "Custom" }, lOBack.Shape == UWDataImport.UWData.UWBackdropArt.ShapeEnum.None ? 0 : 1, liAt =>
             {
                 UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
 

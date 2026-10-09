@@ -21,10 +21,39 @@ using UWDataImport.UWData;
 /// </summary>
 public class UWModernScroll
 {
-    /// <summary>The frame picture's rows of the scroll, the rim's top to the bottom.</summary>
-    private const int SourceTop = 166;
+    /// <summary>The frame picture's rows of the scroll, the rim's top to the bottom. Row 166 above
+    /// it belongs to the frame hanging over the scroll - the view's wooden bar and the compass's
+    /// pedestal (per user, 2026-10-09: "at the top edge some of the UI still shows").</summary>
+    private const int SourceTop = 167;
 
-    private const int SourceRows = 34;
+    private const int SourceRows = 33;
+
+    /// <summary>Where the pedestal's outline still lies on the rim's top row (x 131 to 145): the rim
+    /// there is taken from the same row this far to the left.</summary>
+    private const int PedestalLeft = 131;
+
+    private const int PedestalRight = 145;
+
+    private const int PedestalPatch = 15;
+
+    /// <summary>The upper rods' knobs (rows 167 to 175, x 0-8 and 310-319) lie under the shelves'
+    /// dithered shadow; they are drawn as the lower knobs, this many rows down, which are clean
+    /// and of the same shape.</summary>
+    private const int UpperKnobLast = 175;
+
+    private const int KnobLeftEnd = 8;
+
+    private const int KnobRightStart = 310;
+
+    private const int LowerKnobOffset = 22;
+
+    /// <summary>The frame's dark ground around the scroll's ends (0/0/4) - not black, which outlines
+    /// the rods' knobs (per user: the scroll was not freed cleanly; the ground stood as dark boxes
+    /// around the knobs while their black outline, palette index 0, was taken for transparent).</summary>
+    private static bool fIsGround(UWColor32 pOColour)
+    {
+        return pOColour.R == 0 && pOColour.G == 0 && pOColour.B == 4;
+    }
 
     /// <summary>The row of the plain middle that is repeated to make it taller.</summary>
     private const int RepeatRow = 183;
@@ -196,7 +225,7 @@ public class UWModernScroll
                     lOLineColours.Count > 0 ? lOLineColours[lOLineColours.Count - 1] : fColourTable()[0]);
         }
 
-        // The paper's top-left in the picture: x 15, row 3 of it (169 - 166).
+        // The paper's top-left in the picture: x 15, row 2 of it (169 - 167).
         float lfPaperLeft = lOPlaced.x + (PaperLeft * lfScaleX);
         float lfPaperTop = lOPlaced.yMax - ((PaperTop - SourceTop) * lfScale);
 
@@ -311,7 +340,6 @@ public class UWModernScroll
         if (lOMain == null || lOMain.Width != 320 || lOMain.Height < SourceTop + SourceRows)
             return null;
 
-        byte[] lyIndices = lOMain.GetMainPaletteIndices();
         UWColor32[] lOColours = lOMain.GetUWColor32();
         int liWidth = lOMain.Width;
         int liHeight = SourceRows + piExtra;
@@ -324,12 +352,13 @@ public class UWModernScroll
 
             for (int liX = 0; liX < liWidth; liX++)
             {
-                int liAt = (liSource * liWidth) + liX;
-
-                if (lyIndices[liAt] == 0)
-                    continue;
-
+                int liFrom = liSource == SourceTop && liX >= PedestalLeft && liX <= PedestalRight ? liX - PedestalPatch : liX;
+                int liFromRow = liSource <= UpperKnobLast && (liX <= KnobLeftEnd || liX >= KnobRightStart) ? liSource + LowerKnobOffset : liSource;
+                int liAt = (liFromRow * liWidth) + liFrom;
                 UWColor32 lOColour = lOColours[liAt];
+
+                if (fIsGround(lOColour))
+                    continue;
 
                 lOTopDown[(liRow * liWidth) + liX] = UWColourVision.Apply(new Color32(lOColour.R, lOColour.G, lOColour.B, 255));
             }
