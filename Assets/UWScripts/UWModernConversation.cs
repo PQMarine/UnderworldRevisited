@@ -523,10 +523,10 @@ public class UWModernConversation : MonoBehaviour
 
         mOCanvas.enabled = true;
 
-        if (miArtVersion != UWColourVision.Version)
+        if (miArtVersion != UWModernBacks.ArtVersion)
         {
             fForgetArt();
-            miArtVersion = UWColourVision.Version;
+            miArtVersion = UWModernBacks.ArtVersion;
         }
 
         if (lOView.Key != mOSessionShown)
@@ -598,19 +598,23 @@ public class UWModernConversation : MonoBehaviour
         for (int liSide = 0; liSide < 2; liSide++)
         {
             Texture2D lOPortrait = mOPortraitTextures[liSide];
+            // The portrait at the original's pixel proportion (UWModernHudArt.PixelAspectX), its
+            // frame as narrow around it.
             int liInner = lOPortrait != null ? lOPortrait.width : 34;
-            int liFrame = liInner + (2 * FramePad);
+            int liInnerHigh = lOPortrait != null ? lOPortrait.height : 34;
+            int liFrame = Mathf.RoundToInt(liInner * UWModernHudArt.PixelAspectX) + (2 * FramePad);
+            int liFrameHigh = liInnerHigh + (2 * FramePad);
             int liFrameX = liSide == 0 ? 6 : piWidth - 6 - liFrame;
 
-            fSetLeather(mOFrames[liSide], liFrame, liFrame);
-            fPlace(mOFrames[liSide].rectTransform, pfX + (liFrameX * pfScale), pfTop + (12 * pfScale), liFrame, liFrame, pfScale);
+            fSetLeather(mOFrames[liSide], liFrame, liFrameHigh);
+            fPlace(mOFrames[liSide].rectTransform, pfX + (liFrameX * pfScale), pfTop + (12 * pfScale), liFrame, liFrameHigh, pfScale);
 
             mOPortraits[liSide].texture = lOPortrait;
             mOPortraits[liSide].enabled = lOPortrait != null;
 
             if (lOPortrait != null)
                 fPlace(mOPortraits[liSide].rectTransform, pfX + ((liFrameX + FramePad) * pfScale), pfTop + ((12 + FramePad) * pfScale),
-                    lOPortrait.width, lOPortrait.height, pfScale);
+                    lOPortrait.width * UWModernHudArt.PixelAspectX, lOPortrait.height, pfScale);
 
             fLayoutName(mONames[liSide], lsNames[liSide], liSide, pfX, pfTop, piWidth, liFrameX + (liFrame * 0.5f), pfScale);
         }
@@ -719,8 +723,8 @@ public class UWModernConversation : MonoBehaviour
 
         mOIcons[piAt].texture = lOIcon;
         mOIcons[piAt].enabled = true;
-        fSetRect(mOIcons[piAt].rectTransform, (UWModernHudArt.SlotSize - lOIcon.width) * 0.5f * pfScale,
-            (UWModernHudArt.SlotSize - lOIcon.height) * 0.5f * pfScale, lOIcon.width * pfScale, lOIcon.height * pfScale);
+        fSetRect(mOIcons[piAt].rectTransform, (UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * pfScale,
+            (UWModernHudArt.SlotSize - lOIcon.height) * 0.5f * pfScale, lOIcon.width * UWModernHudArt.PixelAspectX * pfScale, lOIcon.height * pfScale);
 
         int liCount = UWItemDescriptions.GetStackCount(pOItem);
 
@@ -986,7 +990,8 @@ public class UWModernConversation : MonoBehaviour
 
         if (!mOLeather.TryGetValue(lsKey, out Texture2D lOTexture) || lOTexture == null)
         {
-            lOTexture = UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, piWidth, piHeight, mOUi.TextureFilterMode, piVariant);
+            lOTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Conversation, mOUi.mOUWData.Textures, piWidth, piHeight,
+                mOUi.TextureFilterMode, piVariant);
             mOLeather[lsKey] = lOTexture;
         }
 
@@ -1007,7 +1012,7 @@ public class UWModernConversation : MonoBehaviour
     private Texture2D fSlotTexture()
     {
         if (mOSlotTexture == null)
-            mOSlotTexture = UWModernHudArt.BuildSlotCircle(mOUi.mOUWData.Textures, mOUi.TextureFilterMode);
+            mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Conversation, mOUi.mOUWData.Textures, mOUi.TextureFilterMode);
 
         return mOSlotTexture;
     }

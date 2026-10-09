@@ -777,8 +777,8 @@ public class UWModernActionBar : MonoBehaviour
             pOImage.texture = lOIcon;
             pOImage.enabled = true;
             pOImage.color = lbCastable ? Color.white : new Color(0.4f, 0.4f, 0.4f, 1f);
-            fSetRect(pOImage.rectTransform, pfSlotX + (((UWModernHudArt.SlotSize - lOIcon.width) / 2) * liScale),
-                pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * liScale, lOIcon.height * liScale);
+            fSetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
+                pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
             return;
         }
 
@@ -810,8 +810,9 @@ public class UWModernActionBar : MonoBehaviour
         pOImage.texture = lOIcon;
         pOImage.enabled = true;
         pOImage.color = new Color(1f, 1f, 1f, pfAlpha);
-        fSetRect(pOImage.rectTransform, pfSlotX + (((UWModernHudArt.SlotSize - lOIcon.width) / 2) * liScale),
-            pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * liScale, lOIcon.height * liScale);
+        fSetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
+            pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * UWModernHudArt.PixelAspectX * liScale,
+            lOIcon.height * liScale);
     }
 
     private Texture2D fGetIcon(UWTexture pOSource)
@@ -827,10 +828,10 @@ public class UWModernActionBar : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOBackTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOBackTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
 
         if (mOBackTexture != null)
             Destroy(mOBackTexture);
@@ -842,8 +843,8 @@ public class UWModernActionBar : MonoBehaviour
         int liWidth = (Pad * 2) + (SlotCount * UWModernHudArt.SlotSize) + ((SlotCount - 1) * SlotGap);
         int liHeight = (Pad * 2) + UWModernHudArt.SlotSize;
 
-        mOBackTexture = UWModernHudArt.BuildLeather(lOTextures, liWidth, liHeight, mOUi.TextureFilterMode);
-        mOSlotTexture = UWModernHudArt.BuildSlotCircle(lOTextures, mOUi.TextureFilterMode);
+        mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.ActionBar, lOTextures, liWidth, liHeight, mOUi.TextureFilterMode);
+        mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.ActionBar, lOTextures, mOUi.TextureFilterMode);
 
         if (mORingTexture == null)
             mORingTexture = BuildRing(128, 60f, 6f);

@@ -31,13 +31,13 @@ namespace UWDataImport.UWData
 
 		public const int LeatherRight = 3;
 
-		private const int LeatherTransparentRight = 2;
+		internal const int LeatherTransparentRight = 2;
 
 		public const int LeatherTop = 3;
 
 		public const int LeatherBottom = 4;
 
-		private const int LeatherImage = 6;
+		internal const int LeatherImage = 6;
 
 		/// <summary>The most even part of the leather, 40 x 12, no highlight and no dark patch.</summary>
 		private static readonly UWRectInt msCalmCentre = new UWRectInt(28, 23, 40, 12);
@@ -225,7 +225,7 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		private static UWPicture fMain(UWTextures pOTextures)
+		internal static UWPicture fMain(UWTextures pOTextures)
 		{
 			return UWPicture.From(pOTextures.GetTextureByType(UWTexture.TextureTypes.MAIN, 0));
 		}
@@ -349,11 +349,33 @@ namespace UWDataImport.UWData
 			return (piWidth / 2) - piOpenHalf + BrandMargin;
 		}
 
-		public static UWPicture BuildHeadingStrip(UWTextures pOTextures, int piWidth, int piOpenHalf)
+		/// <summary>The brand's left edge in the middle of a strip of this width - where it sits in the
+		/// closed strip while the original's compass stands in for the heading's text (per user,
+		/// 2026-10-09: the closed strip was empty then).</summary>
+		public static int BrandCentredLeft(int piWidth)
+		{
+			return (piWidth / 2) - (BrandWidth / 2);
+		}
+
+		/// <summary>The strip; piClosedWidth is the closed strip's width in the strip's own pixels
+		/// (wider when the modern scheme shows the strip narrowed, UWModernHud).</summary>
+		public static UWPicture BuildHeadingStrip(UWTextures pOTextures, int piWidth, int piOpenHalf, int piClosedWidth = StripClosedWidth)
 		{
 			UWPicture lOStrip = fLeather(pOTextures, piWidth, StripHeight, 4, -(piWidth / 2));
 
-			fPasteGargoyle(pOTextures, lOStrip, BrandLeft(piWidth, piOpenHalf), BrandTop);
+			if (piWidth > piClosedWidth)
+				fPasteGargoyle(pOTextures, lOStrip, BrandLeft(piWidth, piOpenHalf), BrandTop);
+
+			return lOStrip;
+		}
+
+		/// <summary>The strip with the brand at a left edge of the caller's choosing, also on the
+		/// closed strip (the compass variant: centred when closed, moving to the left as it opens).</summary>
+		public static UWPicture BuildHeadingStripWithBrandAt(UWTextures pOTextures, int piWidth, int piBrandLeft)
+		{
+			UWPicture lOStrip = fLeather(pOTextures, piWidth, StripHeight, 4, -(piWidth / 2));
+
+			fPasteGargoyle(pOTextures, lOStrip, piBrandLeft, BrandTop);
 
 			return lOStrip;
 		}
@@ -387,13 +409,10 @@ namespace UWDataImport.UWData
 		};
 
 		/// <summary>Lays the gargoyle's head onto the strip's inside at the given top left - its own
-		/// pixels (msGargoyleMask). Not on the closed strip: there its edge showed a sliver of it
-		/// (per user, 2026-10-04).</summary>
+		/// pixels (msGargoyleMask). BuildHeadingStrip leaves it off the closed strip: there its edge
+		/// showed a sliver of it (per user, 2026-10-04).</summary>
 		private static void fPasteGargoyle(UWTextures pOTextures, UWPicture pOStrip, int piLeft, int piTop)
 		{
-			if (pOStrip.Width <= StripClosedWidth)
-				return;
-
 			UWPicture lOHead = fMain(pOTextures).Crop(msGargoyleHead);
 			int liInsideRight = pOStrip.Width - LeatherRight;
 			int liInsideBottom = pOStrip.Height - LeatherBottom;
@@ -443,7 +462,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>The shades, darkest first: the calm centre's colours, and below them the most
 		/// frequent darker colour of the leather's inside (not the near-black of the scratches).</summary>
-		private static List<UWColor32> fCloudColours(UWPicture pOSource)
+		internal static List<UWColor32> fCloudColours(UWPicture pOSource)
 		{
 			List<UWColor32> lOShades = new List<UWColor32>();
 			UWPicture lOCalm = pOSource.Crop(msCalmCentre);
@@ -493,12 +512,12 @@ namespace UWDataImport.UWData
 			return lOShades;
 		}
 
-		private static bool fSame(UWColor32 pOA, UWColor32 pOB)
+		internal static bool fSame(UWColor32 pOA, UWColor32 pOB)
 		{
 			return pOA.R == pOB.R && pOA.G == pOB.G && pOA.B == pOB.B && pOA.A == pOB.A;
 		}
 
-		private static float fLuma(UWColor32 pOColour)
+		internal static float fLuma(UWColor32 pOColour)
 		{
 			return (0.299f * pOColour.R) + (0.587f * pOColour.G) + (0.114f * pOColour.B);
 		}
@@ -537,8 +556,9 @@ namespace UWDataImport.UWData
 			return lOOut;
 		}
 
-		/// <summary>A value from 0 to 1 that depends on the point and the layer alone.</summary>
-		private static float fHash(int piX, int piY, int piLayer)
+		/// <summary>A value from 0 to 1 that depends on the point and the layer alone (also
+		/// UWBackdropArt's, as the noise below).</summary>
+		internal static float fHash(int piX, int piY, int piLayer)
 		{
 			unchecked
 			{
@@ -552,7 +572,7 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		private static float fSmoothNoise(int piLayer, float pfX, float pfY)
+		internal static float fSmoothNoise(int piLayer, float pfX, float pfY)
 		{
 			int liX = (int)Math.Floor(pfX);
 			int liY = (int)Math.Floor(pfY);
@@ -575,7 +595,7 @@ namespace UWDataImport.UWData
 			return pfA + ((pfB - pfA) * fClamp(pfT, 0f, 1f));
 		}
 
-		private static float fClamp(float pfValue, float pfMin, float pfMax)
+		internal static float fClamp(float pfValue, float pfMin, float pfMax)
 		{
 			if (pfValue < pfMin)
 				return pfMin;
@@ -641,6 +661,762 @@ namespace UWDataImport.UWData
 			}
 
 			return lOCircle;
+		}
+
+		/// <summary>
+		/// THE SLOT CIRCLE WITHOUT ITS LEATHER (per user, 2026-10-09: on a part with a back of its own
+		/// the circles showed squares of leather - "draw the inventory slots without background"):
+		/// only the carved ring - its dark line and the light edges beside it, the pixels between
+		/// radius 5.5 and the rim that are darker or lighter than the leather -, transparent inside
+		/// and outside, so the back shows through. With pOCarve (a back's shade ramp, darkest first)
+		/// the ring is CARVED INTO THE BACK as into the leather: its dark pixels in the darkest shade,
+		/// its light ones in the lightest. Inside the ring a light shadow (black, a fifth opaque) keeps
+		/// the slot a hollow on any pattern.
+		/// </summary>
+		public static UWPicture BuildSlotRing(UWTextures pOTextures, List<UWColor32> pOCarve = null)
+		{
+			UWPicture lOCircle = BuildSlotCircle(pOTextures);
+			float lfCentre = (SlotSize - 1) * 0.5f;
+
+			for (int y = 0; y < lOCircle.Height; y++)
+			{
+				for (int x = 0; x < lOCircle.Width; x++)
+				{
+					float lfX = x - lfCentre;
+					float lfY = y - lfCentre;
+					UWColor32 lOPixel = lOCircle.Get(x, y);
+					float lfLuma = fLuma(lOPixel);
+					float lfSquare = (lfX * lfX) + (lfY * lfY);
+					bool lbRing = lOPixel.A > 0 && lfSquare >= 5.5f * 5.5f && (lfLuma <= 60f || lfLuma >= 76f);
+
+					if (!lbRing)
+						lOCircle.Set(x, y, lfSquare < 5.5f * 5.5f ? SlotHollow : new UWColor32(0, 0, 0, 0));
+					else if (pOCarve != null && pOCarve.Count > 0)
+						lOCircle.Set(x, y, lfLuma <= 60f ? pOCarve[0] : pOCarve[pOCarve.Count - 1]);
+				}
+			}
+
+			return lOCircle;
+		}
+
+		/// <summary>The shadow inside a freed slot: black, a fifth opaque.</summary>
+		private static readonly UWColor32 SlotHollow = new UWColor32(0, 0, 0, 52);
+
+		/// <summary>The page's circles (centre x, y in the page of MAIN.BYT, before the widening, the
+		/// radius of their dark line and how far around it a pixel may stand out): shoulders, hands,
+		/// the two ring holes (narrow - the sheen crosses the left one).</summary>
+		private static readonly float[,] mfPageCircles =
+		{
+			{ 16.5f, 13.5f, 7.5f, 1.8f }, { 65.5f, 13.5f, 7.5f, 1.8f }, { 13.5f, 35.5f, 7.5f, 1.8f }, { 67.5f, 35.5f, 7.5f, 1.8f },
+			{ 25.5f, 51.5f, 1.8f, 0.9f }, { 56.5f, 51.5f, 1.8f, 0.9f }
+		};
+
+		/// <summary>
+		/// THE PAPERDOLL PAGE WITHOUT ITS LEATHER (per user, 2026-10-09, with the slot rings): the
+		/// widened page's size, transparent but for the circles of the shoulders, hands and rings -
+		/// without the grey stone, the place where the original shows the weight (MAIN.BYT 305/62,
+		/// UWGameUI.mOWeightLabelPosition; per user, the same day: "remove it too"). The circles are their pixels that stand out from the leather around them
+		/// (more than 12 of luma from the median of their 7 x 7 neighbourhood) near their line; they
+		/// are taken from the page BEFORE the widening and moved by PaperdollShift, so the right ones
+		/// lose the doubled edge the widening gives them on the leather page. With pOCarve the circles
+		/// are carved into the back (as BuildSlotRing).
+		/// </summary>
+		public static UWPicture BuildPaperdollMarks(UWTextures pOTextures, List<UWColor32> pOCarve = null)
+		{
+			UWPicture lOPage = fMain(pOTextures).Crop(PaperdollPage);
+			UWPicture lOOut = new UWPicture(PaperdollPageWidth, lOPage.Height);
+			float[] lfLuma = new float[lOPage.Width * lOPage.Height];
+			float[] lfWindow = new float[49];
+
+			for (int y = 0; y < lOPage.Height; y++)
+			{
+				for (int x = 0; x < lOPage.Width; x++)
+					lfLuma[(y * lOPage.Width) + x] = fLuma(lOPage.Get(x, y));
+			}
+
+			for (int y = 0; y < lOPage.Height; y++)
+			{
+				for (int x = 0; x < lOPage.Width; x++)
+				{
+					UWColor32 lOColour = lOPage.Get(x, y);
+					bool lbKeep = false;
+
+					for (int liCircle = 0; !lbKeep && liCircle < mfPageCircles.GetLength(0); liCircle++)
+					{
+						float lfX = x - mfPageCircles[liCircle, 0];
+						float lfY = y - mfPageCircles[liCircle, 1];
+						float lfRadius = mfPageCircles[liCircle, 2];
+						float lfDistance = (float)Math.Sqrt((lfX * lfX) + (lfY * lfY));
+						float lfBand = mfPageCircles[liCircle, 3];
+
+						// The hollow inside the large circles, as in a freed slot.
+						if (pOCarve != null && lfRadius > 3f && lfDistance < lfRadius - lfBand)
+						{
+							lOColour = SlotHollow;
+							lbKeep = true;
+							continue;
+						}
+
+						if (lfDistance < lfRadius - lfBand || lfDistance > lfRadius + lfBand)
+							continue;
+
+						int liCount = 0;
+
+						for (int liDy = -3; liDy <= 3; liDy++)
+						{
+							for (int liDx = -3; liDx <= 3; liDx++)
+							{
+								int liX = Math.Min(Math.Max(x + liDx, 0), lOPage.Width - 1);
+								int liY = Math.Min(Math.Max(y + liDy, 0), lOPage.Height - 1);
+
+								lfWindow[liCount++] = lfLuma[(liY * lOPage.Width) + liX];
+							}
+						}
+
+						Array.Sort(lfWindow, 0, liCount);
+
+						float lfStandOut = lfLuma[(y * lOPage.Width) + x] - lfWindow[liCount / 2];
+
+						lbKeep = Math.Abs(lfStandOut) > 9f;
+
+						if (lbKeep && pOCarve != null && pOCarve.Count > 0)
+							lOColour = lfStandOut < 0f ? pOCarve[0] : pOCarve[pOCarve.Count - 1];
+					}
+
+					if (lbKeep && x + PaperdollShift < lOOut.Width)
+						lOOut.Set(x + PaperdollShift, y, lOColour);
+				}
+			}
+
+			return lOOut;
+		}
+
+		/// <summary>Where the body picture lies on MAIN.BYT (UWModernPanel.msBodyAt).</summary>
+		public const int PaperdollBodyX = 260;
+
+		public const int PaperdollBodyY = 11;
+
+		/// <summary>
+		/// THE PAPERDOLL'S BODY WITHOUT ITS LEATHER (per user, 2026-10-09, screenshot: on a back of
+		/// its own the figure stood in a box of copper). BODIES.GR pictures are opaque, their
+		/// background the page itself at PaperdollBodyX/Y - pixel for pixel, but for a drop shadow
+		/// along the figure. So it is freed from the page (FreeOnPage).
+		/// </summary>
+		public static UWPicture FreePaperdollBody(UWTextures pOTextures, UWPicture pOBody)
+		{
+			return FreeOnPage(pOTextures, pOBody, PaperdollBodyX, PaperdollBodyY);
+		}
+
+		/// <summary>The first body picture of CHRBTNS.GR, the character creation's (bodies in the
+		/// order of BODIES.GR).</summary>
+		private const int CreationBodyImage = 17;
+
+		/// <summary>
+		/// THE WHOLE FIGURE - body and armour - without the page it was painted on (per user,
+		/// 2026-10-09). Freeing the paperdoll's body from the page by its colours did not come out
+		/// clean - shirt and trousers are the page's own browns, the shadow is painted by hand (per
+		/// user). The user's idea: THE CHARACTER CREATION SHOWS THE SAME FIGURES (CHRBTNS.GR 17 to
+		/// 26) on colour index 0, without the outline and the shadow - the original's own
+		/// silhouette. So:
+		///   - The body: the pixels inside that silhouette, plus the black pixels of the paperdoll's
+		///     picture touching it (the outline). The two lie apart by two columns and a row for the
+		///     men, four and two for the women (found by brightness, the mean difference 7 to 9
+		///     there against 14 and more one step off - the creation has its own palette).
+		///   - The armour in the classic order (helmet, gloves, legs, chest, boots), drawn as it is -
+		///     the pieces are transparent around them - but for THE HELMET: the women's helmets paint
+		///     the page and its shadow over the long hair they hide (per user: "helmets with the
+		///     background worked in"). The helmet is freed from the page by itself (FreeOnPage, its own
+		///     transparent pixels taken as black, so they hold the flood like the outline); what stays
+		///     is drawn, what goes takes the figure out there too. (Freeing the other pieces by colour
+		///     took a leather boot's cuff, per user - leather and page share their browns.)
+		/// The pieces are top-down pictures with their places on MAIN.BYT; piOriginX/Y is where the
+		/// result lies on MAIN.BYT.
+		/// </summary>
+		public static UWPicture ComposePaperdoll(UWTextures pOTextures, int piBody, IList<UWPicture> pOArmour, IList<(int X, int Y)> pOAt,
+			out int piOriginX, out int piOriginY)
+		{
+			UWPicture lOMain = fMain(pOTextures);
+			UWTexture lOBodySource = pOTextures.GetTextureByType(UWTexture.TextureTypes.BODIES, piBody);
+			UWPicture lOBody = UWPicture.From(lOBodySource);
+			int liLeft = PaperdollBodyX;
+			int liTop = PaperdollBodyY;
+			int liRight = PaperdollBodyX + lOBody.Width;
+			int liBottom = PaperdollBodyY + lOBody.Height;
+
+			for (int liAt = 0; liAt < pOArmour.Count; liAt++)
+			{
+				if (pOArmour[liAt] == null)
+					continue;
+
+				liLeft = Math.Min(liLeft, pOAt[liAt].X);
+				liTop = Math.Min(liTop, pOAt[liAt].Y);
+				liRight = Math.Max(liRight, pOAt[liAt].X + pOArmour[liAt].Width);
+				liBottom = Math.Max(liBottom, pOAt[liAt].Y + pOArmour[liAt].Height);
+			}
+
+			UWPicture lOFigure = new UWPicture(liRight - liLeft, liBottom - liTop);
+
+			// The body inside the creation's silhouette, and its outline.
+			bool[] lbInside = new bool[lOBody.Width * lOBody.Height];
+			UWTexture lOCreation = null;
+
+			try
+			{
+				lOCreation = pOTextures.GetTextureByType(UWTexture.TextureTypes.CHRBTNS, CreationBodyImage + piBody);
+			}
+			catch
+			{
+				lOCreation = null;
+			}
+
+			byte[] lyIndices = lOCreation != null ? lOCreation.GetMainPaletteIndices() : null;
+
+			if (lyIndices != null)
+			{
+				int liShiftX = piBody < 5 ? 2 : 4;
+				int liShiftY = piBody < 5 ? 1 : 2;
+
+				for (int y = 0; y < lOCreation.Height; y++)
+				{
+					for (int x = 0; x < lOCreation.Width; x++)
+					{
+						int liX = x + liShiftX;
+						int liY = y + liShiftY;
+
+						if (lyIndices[(y * lOCreation.Width) + x] != 0 && liX < lOBody.Width && liY < lOBody.Height)
+							lbInside[(liY * lOBody.Width) + liX] = true;
+					}
+				}
+
+				// The creation's figure is a pixel wider at places (per user: the women's thigh, bodies
+				// 5, 7, 8, 9): a pixel at the silhouette's edge that is the page itself is not figure -
+				// nor one with no outline before it whose colour the page has within two pixels (the
+				// page's sheen moves its colours a little).
+				bool fPageNear(int piX, int piY)
+				{
+					UWColor32 lOA = lOBody.Get(piX, piY);
+
+					for (int liDy = -2; liDy <= 2; liDy++)
+					{
+						for (int liDx = -2; liDx <= 2; liDx++)
+						{
+							UWColor32 lOB = lOMain.Get(PaperdollBodyX + piX + liDx, PaperdollBodyY + piY + liDy);
+
+							if (lOA.R == lOB.R && lOA.G == lOB.G && lOA.B == lOB.B)
+								return true;
+						}
+					}
+
+					return false;
+				}
+
+				bool fOpenSide(int piX, int piY)
+				{
+					for (int liDir = 0; liDir < 4; liDir++)
+					{
+						int liX = piX + (liDir == 0 ? 1 : liDir == 1 ? -1 : 0);
+						int liY = piY + (liDir == 2 ? 1 : liDir == 3 ? -1 : 0);
+
+						if (liX < 0 || liY < 0 || liX >= lOBody.Width || liY >= lOBody.Height)
+							return true;
+
+						UWColor32 lOC = lOBody.Get(liX, liY);
+
+						if (!lbInside[(liY * lOBody.Width) + liX] && lOC.R + lOC.G + lOC.B >= 30)
+							return true;
+					}
+
+					return false;
+				}
+
+				for (int liPass = 0; liPass < 2; liPass++)
+				{
+					List<int> lOOut = new List<int>();
+
+					for (int y = 0; y < lOBody.Height; y++)
+					{
+						for (int x = 0; x < lOBody.Width; x++)
+						{
+							int liAt = (y * lOBody.Width) + x;
+
+							if (!lbInside[liAt])
+								continue;
+
+							bool lbEdge = x == 0 || y == 0 || x == lOBody.Width - 1 || y == lOBody.Height - 1
+								|| !lbInside[liAt - 1] || !lbInside[liAt + 1] || !lbInside[liAt - lOBody.Width] || !lbInside[liAt + lOBody.Width];
+							UWColor32 lOA = lOBody.Get(x, y);
+							UWColor32 lOB = lOMain.Get(PaperdollBodyX + x, PaperdollBodyY + y);
+
+							if (lbEdge && ((lOA.R == lOB.R && lOA.G == lOB.G && lOA.B == lOB.B) || (fOpenSide(x, y) && fPageNear(x, y))))
+								lOOut.Add(liAt);
+						}
+					}
+
+					foreach (int liAt in lOOut)
+						lbInside[liAt] = false;
+				}
+			}
+			else
+			{
+				// Without the creation's picture: the body freed from the page by its colours.
+				UWPicture lOFreed = FreeOnPage(pOTextures, lOBody, PaperdollBodyX, PaperdollBodyY);
+
+				for (int liAt = 0; liAt < lbInside.Length; liAt++)
+					lbInside[liAt] = lOFreed.Pixels[liAt].A > 0;
+			}
+
+			for (int y = 0; y < lOBody.Height; y++)
+			{
+				for (int x = 0; x < lOBody.Width; x++)
+				{
+					UWColor32 lOColour = lOBody.Get(x, y);
+					bool lbKeep = lbInside[(y * lOBody.Width) + x];
+
+					if (!lbKeep && lOColour.R + lOColour.G + lOColour.B < 30)
+					{
+						for (int liDy = -1; liDy <= 1 && !lbKeep; liDy++)
+						{
+							for (int liDx = -1; liDx <= 1 && !lbKeep; liDx++)
+							{
+								int liX = x + liDx;
+								int liY = y + liDy;
+
+								lbKeep = liX >= 0 && liY >= 0 && liX < lOBody.Width && liY < lOBody.Height && lbInside[(liY * lOBody.Width) + liX];
+							}
+						}
+					}
+
+					if (lbKeep)
+						lOFigure.Set(PaperdollBodyX - liLeft + x, PaperdollBodyY - liTop + y, lOColour);
+				}
+			}
+
+			// The armour, each piece freed from the page; the helmet's page takes the figure out.
+			for (int liAt = 0; liAt < pOArmour.Count; liAt++)
+			{
+				UWPicture lOPiece = pOArmour[liAt];
+
+				if (lOPiece == null)
+					continue;
+
+				int liX0 = pOAt[liAt].X;
+				int liY0 = pOAt[liAt].Y;
+
+				// Only the helmet paints page and shadow; the other pieces are transparent around
+				// them already, and freeing them by colour took a leather boot's cuff (per user).
+				if (liAt != 0)
+				{
+					for (int y = 0; y < lOPiece.Height; y++)
+					{
+						for (int x = 0; x < lOPiece.Width; x++)
+						{
+							if (lOPiece.Get(x, y).A > 0)
+								lOFigure.Set(liX0 - liLeft + x, liY0 - liTop + y, lOPiece.Get(x, y));
+						}
+					}
+
+					continue;
+				}
+				// The piece's own transparent pixels count as outline (black): a helmet's face opening
+				// filled with the page let the flood eat the brim around it.
+				UWPicture lOOnPage = new UWPicture(lOPiece.Width, lOPiece.Height);
+
+				for (int y = 0; y < lOPiece.Height; y++)
+				{
+					for (int x = 0; x < lOPiece.Width; x++)
+						lOOnPage.Set(x, y, lOPiece.Get(x, y).A > 0 ? lOPiece.Get(x, y) : new UWColor32(0, 0, 0, 255));
+				}
+
+				UWPicture lOFreed = FreeOnPage(pOTextures, lOOnPage, liX0, liY0, false);
+
+				for (int y = 0; y < lOPiece.Height; y++)
+				{
+					for (int x = 0; x < lOPiece.Width; x++)
+					{
+						if (lOPiece.Get(x, y).A == 0)
+							continue;
+
+						if (lOFreed.Get(x, y).A > 0)
+							lOFigure.Set(liX0 - liLeft + x, liY0 - liTop + y, lOPiece.Get(x, y));
+						else if (liAt == 0)
+							lOFigure.Set(liX0 - liLeft + x, liY0 - liTop + y, new UWColor32(0, 0, 0, 0));
+					}
+				}
+			}
+
+			piOriginX = liLeft;
+			piOriginY = liTop;
+
+			return lOFigure;
+		}
+
+		/// <summary>Not taken out (FreeOnPage's state per pixel).</summary>
+		private const int Kept = int.MinValue;
+
+		/// <summary>
+		/// A picture lying on MAIN.BYT at piMainX/Y freed from the page around it (see
+		/// FreePaperdollBody). The SHADOW the original paints along the figure is wider than first
+		/// thought and its own colours (per user, the same day: "not quite clean yet"), so in steps:
+		///   1. From the edges: every pixel that equals the page; from there two more steps into what
+		///      does not (near the page) - but only into light pixels (luma 50 and more): the legs are
+		///      outlined in dark brown at places, not black (per user: a piece of a leg went missing).
+		///   2. The shadow: it falls to the right, so further steps go only LEFTWARD into it (or up
+		///      and down within it), six at most, and only into pixels darker than the page there.
+		///   No step enters a black pixel or one SANDWICHED between two black ones (a gap in the
+		///   outline); the shadow also stays out of the outline's band (a pixel around every black
+		///   one), so it does not slip through wider gaps into the figure.
+		///   3. The shadow the band kept: a pixel darker than the page with the taken-out background
+		///      on one side and the outline two away on the other, then one away (per user: shadow left
+		///      at the shoulder); then any pixel with the outline on one side and the taken-out
+		///      background on the opposite side.
+		///   4. Enclosed strips of background, between the arms and the body and between the legs
+		///      (per user), which no flood from outside reaches: 4-connected pieces between the
+		///      outlines of at most 40 pixels and at most 3 wide or high, every pixel the page or
+		///      darker than it by more than 20 (the armour's own dark patches are not that dark).
+		///   5. Spurs and specks: a pixel with five or more of its eight neighbours gone (six for a
+		///      black one) goes too, twice.
+		///   6. Of what stays, only the largest 8-connected piece (unless pbLargestOnly is off - an
+		///      armour piece may be two gloves or two boots; then the shadow may also start at the
+		///      picture's edge, where a piece's painted shadow reaches it).
+		/// The shirts and trousers are the page's own browns (per user), so where a gap between the
+		/// legs is as wide and as dark as a leg, neither shape nor colour tells them apart.
+		/// </summary>
+		public static UWPicture FreeOnPage(UWTextures pOTextures, UWPicture pOBody, int piMainX, int piMainY, bool pbLargestOnly = true)
+		{
+			UWPicture lOMain = fMain(pOTextures);
+			int liWidth = pOBody.Width;
+			int liHeight = pOBody.Height;
+			int[] liDepth = new int[liWidth * liHeight];
+			bool[] lbBand = new bool[liWidth * liHeight];
+			Queue<int> lOOpen = new Queue<int>();
+
+			for (int liAt = 0; liAt < liDepth.Length; liAt++)
+				liDepth[liAt] = Kept;
+
+			bool fPage(int piX, int piY)
+			{
+				UWColor32 lOA = pOBody.Get(piX, piY);
+				UWColor32 lOB = lOMain.Get(piMainX + piX, piMainY + piY);
+
+				return lOA.R == lOB.R && lOA.G == lOB.G && lOA.B == lOB.B;
+			}
+
+			bool fBlack(int piX, int piY)
+			{
+				UWColor32 lOA = pOBody.Get(piX, piY);
+
+				return lOA.R + lOA.G + lOA.B < 30;
+			}
+
+			bool fDarker(int piX, int piY)
+			{
+				return fLuma(pOBody.Get(piX, piY)) < fLuma(lOMain.Get(piMainX + piX, piMainY + piY)) - 6f;
+			}
+
+			bool fGone(int piX, int piY)
+			{
+				return piX < 0 || piY < 0 || piX >= liWidth || piY >= liHeight || liDepth[(piY * liWidth) + piX] != Kept;
+			}
+
+			bool fBlackAt(int piX, int piY)
+			{
+				return piX >= 0 && piY >= 0 && piX < liWidth && piY < liHeight && fBlack(piX, piY);
+			}
+
+			bool fSandwiched(int piX, int piY)
+			{
+				return (fBlackAt(piX + 1, piY) && fBlackAt(piX - 1, piY)) || (fBlackAt(piX, piY + 1) && fBlackAt(piX, piY - 1))
+					|| (fBlackAt(piX + 1, piY + 1) && fBlackAt(piX - 1, piY - 1)) || (fBlackAt(piX + 1, piY - 1) && fBlackAt(piX - 1, piY + 1));
+			}
+
+			float fBelowPage(int piX, int piY)
+			{
+				return fLuma(lOMain.Get(piMainX + piX, piMainY + piY)) - fLuma(pOBody.Get(piX, piY));
+			}
+
+			for (int y = 0; y < liHeight; y++)
+			{
+				for (int x = 0; x < liWidth; x++)
+				{
+					if (!fBlack(x, y))
+						continue;
+
+					for (int liDy = -1; liDy <= 1; liDy++)
+					{
+						for (int liDx = -1; liDx <= 1; liDx++)
+						{
+							if (x + liDx >= 0 && y + liDy >= 0 && x + liDx < liWidth && y + liDy < liHeight)
+								lbBand[((y + liDy) * liWidth) + x + liDx] = true;
+						}
+					}
+				}
+			}
+
+			// 1 and 2: the page, the steps near it, the shadow.
+			for (int y = 0; y < liHeight; y++)
+			{
+				for (int x = 0; x < liWidth; x++)
+				{
+					if (x != 0 && y != 0 && x != liWidth - 1 && y != liHeight - 1)
+						continue;
+
+					if (fPage(x, y))
+					{
+						liDepth[(y * liWidth) + x] = 0;
+						lOOpen.Enqueue((y * liWidth) + x);
+					}
+					else if (!pbLargestOnly && !fBlack(x, y) && fDarker(x, y))
+					{
+						// An armour piece's shadow reaching its edge (a woman's helmet paints three
+						// or four columns of it at its right).
+						liDepth[(y * liWidth) + x] = -1;
+						lOOpen.Enqueue((y * liWidth) + x);
+					}
+				}
+			}
+
+			while (lOOpen.Count > 0)
+			{
+				int liAt = lOOpen.Dequeue();
+				int liX = liAt % liWidth;
+				int liY = liAt / liWidth;
+				int liFrom = liDepth[liAt];
+
+				for (int liDir = 0; liDir < 4; liDir++)
+				{
+					int liDx = liDir == 0 ? 1 : liDir == 1 ? -1 : 0;
+					int liDy = liDir == 2 ? 1 : liDir == 3 ? -1 : 0;
+					int liNx = liX + liDx;
+					int liNy = liY + liDy;
+
+					if (fGone(liNx, liNy) || fBlack(liNx, liNy))
+						continue;
+
+					int liNext = (liNy * liWidth) + liNx;
+					int liTo;
+
+					if (liFrom == 0 && fPage(liNx, liNy))
+						liTo = 0;
+					else if (fSandwiched(liNx, liNy))
+						continue;
+					else if (liFrom >= 0 && liFrom < 2 && fLuma(pOBody.Get(liNx, liNy)) >= 50f)
+						liTo = liFrom + 1;
+					else if (lbBand[liNext])
+						continue;
+					else if ((liDx == -1 || (liDx == 0 && liFrom < 0)) && Math.Abs(liFrom) < 6 && fDarker(liNx, liNy))
+						liTo = -(Math.Abs(liFrom) + 1);
+					else
+						continue;
+
+					liDepth[liNext] = liTo;
+					lOOpen.Enqueue(liNext);
+				}
+			}
+
+			// 3: the shadow the band kept (outline two away, then one away), then the fringe along the
+			// outline.
+			List<int> lOFringe = new List<int>();
+
+			for (int liReach = 2; liReach >= 1; liReach--)
+			{
+				lOFringe.Clear();
+
+				for (int y = 1; y < liHeight - 1; y++)
+				{
+					for (int x = 1; x < liWidth - 1; x++)
+					{
+						if (fGone(x, y) || fBlack(x, y) || !fDarker(x, y))
+							continue;
+
+						for (int liDir = 0; liDir < 4; liDir++)
+						{
+							int liDx = liDir == 0 ? 1 : liDir == 1 ? -1 : 0;
+							int liDy = liDir == 2 ? 1 : liDir == 3 ? -1 : 0;
+							int liOutX = x - (liDx * liReach);
+							int liOutY = y - (liDy * liReach);
+							bool lbBetweenFree = liReach == 1 || (!fBlackAt(x - liDx, y - liDy) && !fGone(x - liDx, y - liDy));
+
+							if (fGone(x + liDx, y + liDy) && fBlackAt(liOutX, liOutY) && lbBetweenFree)
+							{
+								lOFringe.Add((y * liWidth) + x);
+								break;
+							}
+						}
+					}
+				}
+
+				foreach (int liAt in lOFringe)
+					liDepth[liAt] = -9;
+			}
+
+			lOFringe.Clear();
+
+			for (int y = 1; y < liHeight - 1; y++)
+			{
+				for (int x = 1; x < liWidth - 1; x++)
+				{
+					if (fGone(x, y) || fBlack(x, y))
+						continue;
+
+					if ((fBlack(x - 1, y) && fGone(x + 1, y)) || (fBlack(x + 1, y) && fGone(x - 1, y))
+						|| (fBlack(x, y - 1) && fGone(x, y + 1)) || (fBlack(x, y + 1) && fGone(x, y - 1)))
+						lOFringe.Add((y * liWidth) + x);
+				}
+			}
+
+			foreach (int liAt in lOFringe)
+				liDepth[liAt] = -9;
+
+			// 4: enclosed strips of background.
+			bool[] lbSeen = new bool[liDepth.Length];
+			List<int> lOStrip = new List<int>();
+
+			for (int liStart = 0; liStart < liDepth.Length; liStart++)
+			{
+				if (lbSeen[liStart] || liDepth[liStart] != Kept || fBlack(liStart % liWidth, liStart / liWidth))
+					continue;
+
+				lOStrip.Clear();
+				lbSeen[liStart] = true;
+				lOOpen.Enqueue(liStart);
+
+				int liMinX = int.MaxValue, liMaxX = int.MinValue, liMinY = int.MaxValue, liMaxY = int.MinValue;
+				bool lbBackground = true;
+
+				while (lOOpen.Count > 0)
+				{
+					int liAt = lOOpen.Dequeue();
+					int liX = liAt % liWidth;
+					int liY = liAt / liWidth;
+
+					lOStrip.Add(liAt);
+					liMinX = Math.Min(liMinX, liX);
+					liMaxX = Math.Max(liMaxX, liX);
+					liMinY = Math.Min(liMinY, liY);
+					liMaxY = Math.Max(liMaxY, liY);
+					lbBackground &= fPage(liX, liY) || fBelowPage(liX, liY) > 20f;
+
+					for (int liDir = 0; liDir < 4; liDir++)
+					{
+						int liNx = liX + (liDir == 0 ? 1 : liDir == 1 ? -1 : 0);
+						int liNy = liY + (liDir == 2 ? 1 : liDir == 3 ? -1 : 0);
+
+						if (fGone(liNx, liNy) || fBlack(liNx, liNy) || lbSeen[(liNy * liWidth) + liNx])
+							continue;
+
+						lbSeen[(liNy * liWidth) + liNx] = true;
+						lOOpen.Enqueue((liNy * liWidth) + liNx);
+					}
+				}
+
+				bool lbNarrow = Math.Min(liMaxX - liMinX + 1, liMaxY - liMinY + 1) <= 3;
+
+				if (lbBackground && lbNarrow && lOStrip.Count <= 40)
+				{
+					foreach (int liAt in lOStrip)
+						liDepth[liAt] = -8;
+				}
+			}
+
+			// 5: spurs and specks.
+			for (int liPass = 0; liPass < 2; liPass++)
+			{
+				lOFringe.Clear();
+
+				for (int y = 0; y < liHeight; y++)
+				{
+					for (int x = 0; x < liWidth; x++)
+					{
+						if (fGone(x, y))
+							continue;
+
+						int liAround = 0;
+
+						for (int liDy = -1; liDy <= 1; liDy++)
+						{
+							for (int liDx = -1; liDx <= 1; liDx++)
+							{
+								if ((liDx != 0 || liDy != 0) && fGone(x + liDx, y + liDy))
+									liAround++;
+							}
+						}
+
+						if (liAround >= (fBlack(x, y) ? 6 : 5))
+							lOFringe.Add((y * liWidth) + x);
+					}
+				}
+
+				foreach (int liAt in lOFringe)
+					liDepth[liAt] = -9;
+			}
+
+			// 6: the largest piece of what stays.
+			int[] liPiece = new int[liDepth.Length];
+			int liBest = 0;
+			int liBestSize = 0;
+			int liPieces = 0;
+
+			for (int liStart = 0; liStart < liDepth.Length; liStart++)
+			{
+				if (liDepth[liStart] != Kept || liPiece[liStart] != 0)
+					continue;
+
+				int liSize = 0;
+
+				liPieces++;
+				liPiece[liStart] = liPieces;
+				lOOpen.Enqueue(liStart);
+
+				while (lOOpen.Count > 0)
+				{
+					int liAt = lOOpen.Dequeue();
+					int liX = liAt % liWidth;
+					int liY = liAt / liWidth;
+
+					liSize++;
+
+					for (int liDy = -1; liDy <= 1; liDy++)
+					{
+						for (int liDx = -1; liDx <= 1; liDx++)
+						{
+							int liNx = liX + liDx;
+							int liNy = liY + liDy;
+
+							if (liNx < 0 || liNy < 0 || liNx >= liWidth || liNy >= liHeight)
+								continue;
+
+							int liNext = (liNy * liWidth) + liNx;
+
+							if (liDepth[liNext] != Kept || liPiece[liNext] != 0)
+								continue;
+
+							liPiece[liNext] = liPieces;
+							lOOpen.Enqueue(liNext);
+						}
+					}
+				}
+
+				if (liSize > liBestSize)
+				{
+					liBestSize = liSize;
+					liBest = liPieces;
+				}
+			}
+
+			UWPicture lOOut = new UWPicture(liWidth, liHeight);
+
+			for (int y = 0; y < liHeight; y++)
+			{
+				for (int x = 0; x < liWidth; x++)
+				{
+					int liPieceOf = liPiece[(y * liWidth) + x];
+
+					if (liPieceOf != 0 && (liPieceOf == liBest || !pbLargestOnly))
+						lOOut.Set(x, y, pOBody.Get(x, y));
+				}
+			}
+
+			return lOOut;
 		}
 
 		/// <summary>
@@ -757,6 +1533,123 @@ namespace UWDataImport.UWData
 			}
 
 			return lbKeep;
+		}
+
+		// ------------------------------------------------- The compass's cross, freed (COMPASS.GR)
+
+		/// <summary>
+		/// THE COMPASS'S CROSS WITHOUT ITS STONE (per user, 2026-10-09: the compass shall stand free in
+		/// the modern interface, "the compass has a black edge, except north, which has a red pixel").
+		/// The four disc pictures (COMPASS.GR 0-3) are opaque 52x26 and carry the cross in four turns
+		/// over the disc's slate rim and granite; what belongs to the cross is the LARGEST connected
+		/// piece of WARM pixels (gold and brown: red minus blue over 25) and the PURE BLACK pixels
+		/// touching it (the outline is 0/0/0; the stone's darkest greys are 28 to 48). Grey and blue
+		/// stone drops out, also inside the rings of the turned crosses, and so do the rust spots on
+		/// the rim, which do not touch the cross. Worked out on the user's pictures the same day.
+		/// Pixels top-down, as UWTexture.GetUWColor32 gives them; true for the cross.
+		/// </summary>
+		public static bool[] CompassCrossMask(UWColor32[] pyPixels, int piWidth, int piHeight)
+		{
+			int liCount = piWidth * piHeight;
+			bool[] lbWarm = new bool[liCount];
+			bool[] lbSeen = new bool[liCount];
+			bool[] lbBody = new bool[liCount];
+			System.Collections.Generic.List<int> lOBest = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.List<int> lOPiece = new System.Collections.Generic.List<int>();
+			System.Collections.Generic.Stack<int> lOStack = new System.Collections.Generic.Stack<int>();
+
+			for (int liAt = 0; liAt < liCount; liAt++)
+				lbWarm[liAt] = pyPixels[liAt].A > 0 && pyPixels[liAt].R - pyPixels[liAt].B > 25;
+
+			for (int liStart = 0; liStart < liCount; liStart++)
+			{
+				if (!lbWarm[liStart] || lbSeen[liStart])
+					continue;
+
+				lOPiece.Clear();
+				lOStack.Push(liStart);
+				lbSeen[liStart] = true;
+
+				while (lOStack.Count > 0)
+				{
+					int liAt = lOStack.Pop();
+					int liX = liAt % piWidth;
+					int liY = liAt / piWidth;
+
+					lOPiece.Add(liAt);
+
+					if (liX > 0) fVisit(liAt - 1, lbWarm, lbSeen, lOStack);
+					if (liX < piWidth - 1) fVisit(liAt + 1, lbWarm, lbSeen, lOStack);
+					if (liY > 0) fVisit(liAt - piWidth, lbWarm, lbSeen, lOStack);
+					if (liY < piHeight - 1) fVisit(liAt + piWidth, lbWarm, lbSeen, lOStack);
+				}
+
+				if (lOPiece.Count > lOBest.Count)
+				{
+					lOBest.Clear();
+					lOBest.AddRange(lOPiece);
+				}
+			}
+
+			foreach (int liAt in lOBest)
+				lbBody[liAt] = true;
+
+			bool[] lbMask = new bool[liCount];
+
+			for (int liY = 0; liY < piHeight; liY++)
+			{
+				for (int liX = 0; liX < piWidth; liX++)
+				{
+					int liAt = (liY * piWidth) + liX;
+
+					if (lbBody[liAt])
+					{
+						lbMask[liAt] = true;
+						continue;
+					}
+
+					if (!fIsPureBlack(pyPixels[liAt]))
+						continue;
+
+					for (int liDy = -1; liDy <= 1 && !lbMask[liAt]; liDy++)
+					{
+						for (int liDx = -1; liDx <= 1; liDx++)
+						{
+							int liNx = liX + liDx;
+							int liNy = liY + liDy;
+
+							if (liNx >= 0 && liNx < piWidth && liNy >= 0 && liNy < piHeight && lbBody[(liNy * piWidth) + liNx])
+							{
+								lbMask[liAt] = true;
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			return lbMask;
+		}
+
+		/// <summary>The needle tips (COMPASS.GR 4-19) are small opaque pictures with the disc's stone
+		/// around the red point: only their red and their pure black belong to the tip.</summary>
+		public static bool CompassTipKeeps(UWColor32 pOPixel)
+		{
+			return pOPixel.A > 0 && (fIsPureBlack(pOPixel) || (pOPixel.R > 100 && pOPixel.R - pOPixel.G > 50));
+		}
+
+		private static bool fIsPureBlack(UWColor32 pOPixel)
+		{
+			return pOPixel.A > 0 && pOPixel.R + pOPixel.G + pOPixel.B < 10;
+		}
+
+		private static void fVisit(int piAt, bool[] pbWarm, bool[] pbSeen, System.Collections.Generic.Stack<int> pOStack)
+		{
+			if (pbWarm[piAt] && !pbSeen[piAt])
+			{
+				pbSeen[piAt] = true;
+				pOStack.Push(piAt);
+			}
 		}
 	}
 }

@@ -1924,7 +1924,7 @@ public partial class UWModernBags : MonoBehaviour
             if (pOWindow.BackTexture != null)
                 Destroy(pOWindow.BackTexture);
 
-            pOWindow.BackTexture = UWModernHudArt.BuildLeather(fData().Textures, liWidth, liHeight, mOUi.TextureFilterMode);
+            pOWindow.BackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Bags, fData().Textures, liWidth, liHeight, mOUi.TextureFilterMode);
             pOWindow.BackSize = new Vector2Int(liWidth, liHeight);
             pOWindow.BackVersion = miArtVersion;
             pOWindow.Back.texture = pOWindow.BackTexture;
@@ -2244,8 +2244,8 @@ public partial class UWModernBags : MonoBehaviour
         pOSlot.Icon.enabled = true;
         pOSlot.ShownTexture = lOSource;
 
-        fSetRect(pOSlot.Icon.rectTransform, ((UWModernHudArt.SlotSize - lOIcon.width) / 2) * liScale,
-            ((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale, lOIcon.width * liScale, lOIcon.height * liScale);
+        fSetRect(pOSlot.Icon.rectTransform, (UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale,
+            ((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale, lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
         int liCount = UWItemDescriptions.GetStackCount(pOItem);
 
@@ -2318,8 +2318,8 @@ public partial class UWModernBags : MonoBehaviour
         // system pointer is hidden and the thing alone shows where one points, as in the
         // original, where the picked-up thing replaces the cursor. Restored once the hand is empty.
         fShowSystemPointer(false);
-        fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f),
-            lOIcon.width * liScale, lOIcon.height * liScale);
+        fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
+            lOPointer.y - (lOIcon.height * liScale * 0.5f), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
         int liCount = UWItemDescriptions.GetStackCount(lOItem);
 
@@ -2329,8 +2329,8 @@ public partial class UWModernBags : MonoBehaviour
         {
             mOCursorCount.text = liCount.ToString();
             mOCursorCount.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
-            fSetRect(mOCursorCount.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f) - (2 * liScale),
-                (lOIcon.width + 2) * liScale, 6 * liScale);
+            fSetRect(mOCursorCount.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
+                lOPointer.y - (lOIcon.height * liScale * 0.5f) - (2 * liScale), ((lOIcon.width * UWModernHudArt.PixelAspectX) + 2) * liScale, 6 * liScale);
         }
     }
 
@@ -2465,15 +2465,15 @@ public partial class UWModernBags : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOSlotTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOSlotTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
 
         if (mOSlotTexture != null)
             Destroy(mOSlotTexture);
 
-        mOSlotTexture = UWModernHudArt.BuildSlotCircle(fData().Textures, mOUi.TextureFilterMode);
+        mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Bags, fData().Textures, mOUi.TextureFilterMode);
 
         if (mODiscTexture == null)
             mODiscTexture = fBuildCircle(64, 29f, 3.5f, msBadgeFill, msGold);

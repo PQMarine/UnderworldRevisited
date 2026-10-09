@@ -61,11 +61,29 @@ public static class UWUserSettings
         /// its + and - in the history's corner).</summary>
         public int ConversationTextPercent;
 
-        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts.</summary>
+        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts - the
+        /// Custom preset's, kept while another preset is chosen.</summary>
         public string ModernLayout;
+
+        /// <summary>The modern scheme's interface preset (UWModernLayout.PresetEnum); -1 = not
+        /// chosen yet: Custom when an own layout exists, else Modern.</summary>
+        public int InterfacePreset = -1;
 
         /// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
         public bool MinimapHidden;
+
+        /// <summary>The original's compass in the own layout (the layout editor's Compass button,
+        /// UWModernCompass).</summary>
+        public bool ModernCompass;
+
+        /// <summary>The original's message scroll in the own layout (the layout editor's Scroll
+        /// button, UWModernScroll), and its lines (0 = the original's four; Shift+wheel).</summary>
+        public bool ModernScroll;
+
+        /// <summary>The parts' generated backs (UWModernBacks).</summary>
+        public string ModernBacks;
+
+        public int ModernScrollLines;
 
         /// <summary>The modern pointer is free and the view turns only while the right button is
         /// held, instead of the button toggling (UWModernPointer; toggling by default, per user
@@ -343,10 +361,48 @@ public static class UWUserSettings
         set { fGet().MinimapHidden = value; }
     }
 
+    public static bool ModernCompass
+    {
+        get { return fGet().ModernCompass; }
+        set { fGet().ModernCompass = value; }
+    }
+
+    public static string ModernBacks
+    {
+        get { return fGet().ModernBacks; }
+        set { fGet().ModernBacks = value; }
+    }
+
+    public static bool ModernScroll
+    {
+        get { return fGet().ModernScroll; }
+        set { fGet().ModernScroll = value; }
+    }
+
+    public static int ModernScrollLines
+    {
+        get { return fGet().ModernScrollLines; }
+        set { fGet().ModernScrollLines = value; }
+    }
+
     public static string ModernLayout
     {
         get { return fGet().ModernLayout; }
         set { fGet().ModernLayout = value; }
+    }
+
+    public static int InterfacePreset
+    {
+        get
+        {
+            int liPreset = fGet().InterfacePreset;
+
+            if (liPreset < 0)
+                return string.IsNullOrEmpty(fGet().ModernLayout) && !fGet().MinimapHidden ? 0 : 1;
+
+            return liPreset;
+        }
+        set { fGet().InterfacePreset = value; }
     }
 
     public static int ConversationTextPercent

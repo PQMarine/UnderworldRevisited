@@ -215,6 +215,17 @@ public class UWModernPanel : MonoBehaviour
 
     private Vector2Int mOBackSize;
 
+    /// <summary>The figure without its copper (UWHudArt.ComposePaperdoll) for a back of the panel's
+    /// own, where it lies on MAIN.BYT, and the body and armour it was made from.</summary>
+    private Texture2D mOFreeBodyTexture;
+
+    private Vector2Int mOFreeBodyAt;
+
+    private string msFreeBodyKey;
+
+    /// <summary>The backs' and colours' version the leather was built with (UWModernBacks.ArtVersion).</summary>
+    private int miBackArtVersion = -1;
+
     private Texture2D mOHandleTexture;
 
     private Texture2D mOTabTexture;
@@ -324,6 +335,11 @@ public class UWModernPanel : MonoBehaviour
         mOTabTexture = null;
         mOPageTexture = null;
         mOPinTexture = null;
+
+        if (mOFreeBodyTexture != null)
+            Destroy(mOFreeBodyTexture);
+
+        mOFreeBodyTexture = null;
 
         if (mOPinIconTexture != null)
             Destroy(mOPinIconTexture);
@@ -675,13 +691,15 @@ public class UWModernPanel : MonoBehaviour
         mOPanelRect = lbFree && !mbOpen ? Rect.zero : new Rect(lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
 
         // The leather.
-        if (mOBackTexture == null || mOBackSize.x != liWidth || mOBackSize.y != liHeight)
+        if (mOBackTexture == null || mOBackSize.x != liWidth || mOBackSize.y != liHeight || miBackArtVersion != UWModernBacks.ArtVersion)
         {
             if (mOBackTexture != null)
                 Destroy(mOBackTexture);
 
-            mOBackTexture = UWModernHudArt.BuildLeather(fData().Textures, liWidth, liHeight, mOUi.TextureFilterMode);
+            mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.CharacterPanel, fData().Textures, liWidth, liHeight,
+                mOUi.TextureFilterMode);
             mOBackSize = new Vector2Int(liWidth, liHeight);
+            miBackArtVersion = UWModernBacks.ArtVersion;
             mOBack.texture = mOBackTexture;
         }
 
@@ -853,12 +871,46 @@ public class UWModernPanel : MonoBehaviour
         fSetRect(mOPage.rectTransform, mOPageRect.x, mOPageRect.y, mOPageRect.width, mOPageRect.height);
 
         // Body and armour in the classic order (UWGameUI.fBuildCanvas).
-        fPlaceOnPage(mOArmour[0], lOCharacter.CharTexture, msBodyAt);
-        fPlaceOnPage(mOArmour[1], lOCharacter.HelmetTexture, msHelmetAt);
-        fPlaceOnPage(mOArmour[2], lOCharacter.GlovesTexture, msGlovesAt);
-        fPlaceOnPage(mOArmour[3], lOCharacter.LegsArmorTexture, msLegsAt);
-        fPlaceOnPage(mOArmour[4], lOCharacter.ChestArmorTexture, msChestAt);
-        fPlaceOnPage(mOArmour[5], lOCharacter.BootsTexture, msBootsAt);
+        // On a back of the panel's own the figure loses the copper it was painted on (per user,
+        // 2026-10-09: it stood in a box of copper, and helmets carried the page with them): body
+        // and armour put together as one picture and freed from the page.
+        if (UWModernBacks.Get(UWModernLayout.ElementEnum.CharacterPanel).Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None)
+        {
+            UWTextures lOTextures = fData().Textures;
+            UWTexture[] lOPieces =
+            {
+                lOCharacter.HelmetSource, lOCharacter.GlovesSource, lOCharacter.LegsSource, lOCharacter.ChestSource, lOCharacter.BootsSource
+            };
+            string lsKey = lOCharacter.CharIndex.ToString();
+
+            foreach (UWTexture lOPiece in lOPieces)
+                lsKey += "/" + (lOPiece != null ? lOPiece.GetHashCode() : 0);
+
+            if (mOFreeBodyTexture == null || msFreeBodyKey != lsKey)
+            {
+                if (mOFreeBodyTexture != null)
+                    Destroy(mOFreeBodyTexture);
+
+                mOFreeBodyTexture = UWModernHudArt.BuildFreeFigure(lOTextures, lOCharacter.CharIndex, lOPieces,
+                    new[] { msHelmetAt, msGlovesAt, msLegsAt + new Vector2Int(0, lOCharacter.LegsDrop), msChestAt, msBootsAt }, mOUi.TextureFilterMode,
+                    out mOFreeBodyAt);
+                msFreeBodyKey = lsKey;
+            }
+
+            fPlaceOnPage(mOArmour[0], mOFreeBodyTexture, mOFreeBodyAt);
+
+            for (int liPart = 1; liPart < mOArmour.Length; liPart++)
+                mOArmour[liPart].enabled = false;
+        }
+        else
+        {
+            fPlaceOnPage(mOArmour[0], lOCharacter.CharTexture, msBodyAt);
+            fPlaceOnPage(mOArmour[1], lOCharacter.HelmetTexture, msHelmetAt);
+            fPlaceOnPage(mOArmour[2], lOCharacter.GlovesTexture, msGlovesAt);
+            fPlaceOnPage(mOArmour[3], lOCharacter.LegsArmorTexture, msLegsAt);
+            fPlaceOnPage(mOArmour[4], lOCharacter.ChestArmorTexture, msChestAt);
+            fPlaceOnPage(mOArmour[5], lOCharacter.BootsTexture, msBootsAt);
+        }
 
         // The things in the hands, on the shoulders and on the fingers.
         UWInventory lOInventory = mOUi.mOInventory;
@@ -882,9 +934,9 @@ public class UWModernPanel : MonoBehaviour
 
             lOIcon.texture = lOTexture;
             lOIcon.enabled = true;
-            fSetRect(lOIcon.rectTransform, Mathf.Round(mOPageRect.xMin + ((lfCentreX - (lOTexture.width * 0.5f)) * liScale)),
+            fSetRect(lOIcon.rectTransform, Mathf.Round(mOPageRect.xMin + ((lfCentreX - (lOTexture.width * UWModernHudArt.PixelAspectX * 0.5f)) * liScale)),
                 Mathf.Round(mOPageRect.yMax - ((lfCentreRow + (lOTexture.height * 0.5f)) * liScale)),
-                lOTexture.width * liScale, lOTexture.height * liScale);
+                lOTexture.width * UWModernHudArt.PixelAspectX * liScale, lOTexture.height * liScale);
         }
 
         fLayoutFootButtons();
@@ -991,9 +1043,9 @@ public class UWModernPanel : MonoBehaviour
                 // Standing on one line: each picture's lowest visible row on the same baseline
                 // (per user, 2026-10-04: the boots sat higher than the bedroll).
                 lOIcon.texture = lOTexture;
-                fSetRect(lOIcon.rectTransform, lORect.x + (((UWModernHudArt.SlotSize - lOTexture.width) / 2) * liScale),
+                fSetRect(lOIcon.rectTransform, lORect.x + ((UWModernHudArt.SlotSize - (lOTexture.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
                     lORect.y + ((FootBaseline - fLowestVisibleRow(lOTexture)) * liScale),
-                    lOTexture.width * liScale, lOTexture.height * liScale);
+                    lOTexture.width * UWModernHudArt.PixelAspectX * liScale, lOTexture.height * liScale);
             }
 
             if (UWModernPointer.IsFree && lORect.Contains(lOPointer) && mOViewRect.Contains(lOPointer))
@@ -1049,8 +1101,21 @@ public class UWModernPanel : MonoBehaviour
         return liRow;
     }
 
-    /// <summary>A picture of the paperdoll at its place in MAIN.BYT pixels; an empty slot's
-    /// placeholder (1 x 1) is not shown.</summary>
+    /// <summary>
+    /// THE FIGURE AT THE ORIGINAL'S PROPORTION (per user, 2026-10-09: next to the original with its
+    /// 4:3 fix ours looked "chubbier" - the modern scheme draws square pixels, the original's are 1.2
+    /// times taller than wide on the screen it was made for). The same proportion without changing
+    /// the panel's height: the figure and its armour are drawn 1/1.2 as wide, around the figure's
+    /// middle (FigureAxisX); the page, its circles and the things in them stay as they are.
+    /// </summary>
+    private const float FigureWidthFactor = UWModernHudArt.PixelAspectX;
+
+    /// <summary>The figure's middle on MAIN.BYT (the body picture's, 260 + 36 / 2).</summary>
+    private const float FigureAxisX = 278f;
+
+    /// <summary>A picture of the paperdoll's figure at its place in MAIN.BYT pixels, narrowed to the
+    /// original's proportion (FigureWidthFactor); an empty slot's placeholder (1 x 1) is not
+    /// shown.</summary>
     private void fPlaceOnPage(RawImage pOImage, Texture2D pOTexture, Vector2Int pOAt)
     {
         if (pOTexture == null || pOTexture.width <= 1)
@@ -1064,9 +1129,11 @@ public class UWModernPanel : MonoBehaviour
 
         pOImage.texture = pOTexture;
         pOImage.enabled = true;
-        fSetRect(pOImage.rectTransform, mOPageRect.xMin + ((pOAt.x - lOPage.x + UWModernHudArt.PaperdollShift) * liScale),
+        float lfLeft = FigureAxisX + ((pOAt.x - FigureAxisX) * FigureWidthFactor);
+
+        fSetRect(pOImage.rectTransform, mOPageRect.xMin + ((lfLeft - lOPage.x + UWModernHudArt.PaperdollShift) * liScale),
             mOPageRect.yMax - ((pOAt.y - lOPage.y + pOTexture.height) * liScale),
-            pOTexture.width * liScale, pOTexture.height * liScale);
+            pOTexture.width * liScale * FigureWidthFactor, pOTexture.height * liScale);
     }
 
     private void fSetRule(Image pORule, float pfX, float pfY, float pfWidth)
@@ -1087,19 +1154,19 @@ public class UWModernPanel : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOPageTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOPageTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
         fDestroyTextures();
 
         UWTextures lOTextures = fData().Textures;
         FilterMode leFilter = mOUi.TextureFilterMode;
 
-        mOHandleTexture = UWModernHudArt.BuildLeatherTab(lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
-        mOTabTexture = UWModernHudArt.BuildLeather(lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
-        mOPageTexture = UWModernHudArt.BuildPaperdollPage(lOTextures, leFilter);
-        mOPinTexture = UWModernHudArt.BuildLeather(lOTextures, PinWidth, TabHeaderHeight, leFilter);
+        mOHandleTexture = UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
+        mOTabTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
+        mOPageTexture = UWModernHudArt.BuildPartPaperdollPage(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, leFilter);
+        mOPinTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.CharacterPanel, lOTextures, PinWidth, TabHeaderHeight, leFilter);
         mOPinIconTexture = BuildPinIcon(48);
         mOSlotTexture = UWModernActionBar.BuildRing(128, 60f, 6f);
 

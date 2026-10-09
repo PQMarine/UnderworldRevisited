@@ -198,6 +198,9 @@ public class UWModernRunePanel : MonoBehaviour
 
     private Vector2Int mOBackSize;
 
+    /// <summary>The backs' and colours' version the leather was built with (UWModernBacks.ArtVersion).</summary>
+    private int miBackArtVersion = -1;
+
     private Texture2D mOHandleTexture;
 
     private Texture2D mOTabTexture;
@@ -790,7 +793,7 @@ public class UWModernRunePanel : MonoBehaviour
         if (lOPlayer == null || !mOTabletRect.Contains(pOPointer))
             return -1;
 
-        float lfX = (pOPointer.x - mOTabletRect.xMin) / miScale;
+        float lfX = (pOPointer.x - mOTabletRect.xMin) / (miScale * UWModernHudArt.PixelAspectX);
         float lfY = (mOTabletRect.yMax - pOPointer.y) / miScale;
 
         for (int liRune = 0; liRune < UWPlayerData.RuneCount; liRune++)
@@ -888,13 +891,15 @@ public class UWModernRunePanel : MonoBehaviour
 
         mOPanelRect = mfShown > 0.5f ? new Rect(lfLeft, lfBottom, lfWidth, liHeight * liScale) : Rect.zero;
 
-        if (mOBackTexture == null || mOBackSize.y != liHeight)
+        if (mOBackTexture == null || mOBackSize.y != liHeight || miBackArtVersion != UWModernBacks.ArtVersion)
         {
             if (mOBackTexture != null)
                 Destroy(mOBackTexture);
 
-            mOBackTexture = UWModernHudArt.BuildLeather(fData().Textures, PanelWidth, liHeight, mOUi.TextureFilterMode);
+            mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, fData().Textures, PanelWidth, liHeight,
+                mOUi.TextureFilterMode);
             mOBackSize = new Vector2Int(PanelWidth, liHeight);
+            miBackArtVersion = UWModernBacks.ArtVersion;
             mOBack.texture = mOBackTexture;
         }
 
@@ -1005,8 +1010,9 @@ public class UWModernRunePanel : MonoBehaviour
         mOTitle.text = "Rune bag";
 
         // The shelf with the runes of the bag.
-        mOTabletRect = new Rect(pfLeft + (TabletLeft * liScale), pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale),
-            UWTextures.PanelWidth * liScale, UWTextures.PanelHeight * liScale);
+        // At the original's pixel proportion (UWModernHudArt.PixelAspectX), in the middle of its place.
+        mOTabletRect = new Rect(pfLeft + ((TabletLeft + (UWTextures.PanelWidth * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
+            pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale), UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX, UWTextures.PanelHeight * liScale);
         fSetRect(mOTablet.rectTransform, mOTabletRect.x, mOTabletRect.y, mOTabletRect.width, mOTabletRect.height);
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
@@ -1022,11 +1028,11 @@ public class UWModernRunePanel : MonoBehaviour
             if (!mORunes[liRune].enabled)
                 continue;
 
-            float lfX = mOTabletRect.xMin + ((RuneLeft + ((liRune % RuneColumns) * RunePitchX)) * liScale);
+            float lfX = mOTabletRect.xMin + ((RuneLeft + ((liRune % RuneColumns) * RunePitchX)) * liScale * UWModernHudArt.PixelAspectX);
             float lfRowTop = mOTabletRect.yMax - ((RuneTop + ((liRune / RuneColumns) * RunePitchY)) * liScale);
 
             fSetRect(mORunes[liRune].rectTransform, lfX, lfRowTop - (lOTexture.height * liScale),
-                lOTexture.width * liScale, lOTexture.height * liScale);
+                lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
 
         mOTitleRight.text = liOwned + " of " + UWPlayerData.RuneCount;
@@ -1053,8 +1059,9 @@ public class UWModernRunePanel : MonoBehaviour
             if (lOTexture != null)
             {
                 mOHollowRunes[liAt].texture = lOTexture;
-                fSetRect(mOHollowRunes[liAt].rectTransform, mOHollowRect.x + ((3 + (liAt * HollowRunePitch)) * liScale),
-                    mOHollowRect.yMax - ((3 + lOTexture.height) * liScale), lOTexture.width * liScale, lOTexture.height * liScale);
+                fSetRect(mOHollowRunes[liAt].rectTransform,
+                    mOHollowRect.x + ((3 + (liAt * HollowRunePitch) + (lOTexture.width * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
+                    mOHollowRect.yMax - ((3 + lOTexture.height) * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
             }
         }
 
@@ -1170,7 +1177,8 @@ public class UWModernRunePanel : MonoBehaviour
             {
                 lOEntry.Icon.enabled = true;
                 lOEntry.Icon.color = lbCastable ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
-                fSetRect(lOEntry.Icon.rectTransform, lfX, lfTop - (10.5f * liScale), 9 * liScale, 9 * liScale);
+                fSetRect(lOEntry.Icon.rectTransform, lfX + (9 * (1f - UWModernHudArt.PixelAspectX) * 0.5f * liScale), lfTop - (10.5f * liScale), 9 * liScale * UWModernHudArt.PixelAspectX,
+                    9 * liScale);
             }
 
             if (lOEntry == lOHovered || (mbDragging && !mbPressHollow && lOEntry.Sequence == miPressSequence))
@@ -1261,8 +1269,8 @@ public class UWModernRunePanel : MonoBehaviour
             Texture2D lOTexture = fGetIcon(lOIcon);
 
             mOGhostIcon.texture = lOTexture;
-            fSetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * 0.5f), lOPointer.y - (lOTexture.height * liScale * 0.5f),
-                lOTexture.width * liScale, lOTexture.height * liScale);
+            fSetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * UWModernHudArt.PixelAspectX * 0.5f),
+                lOPointer.y - (lOTexture.height * liScale * 0.5f), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
         else
         {
@@ -1298,10 +1306,10 @@ public class UWModernRunePanel : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOTabletTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOTabletTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
         fDestroyTextures();
 
         // The list's icons were built with the old colours.
@@ -1315,11 +1323,11 @@ public class UWModernRunePanel : MonoBehaviour
         UWTextures lOTextures = lOData.Textures;
         FilterMode leFilter = mOUi.TextureFilterMode;
 
-        mOHandleTexture = UWModernHudArt.BuildLeatherTab(lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
-        mOTabTexture = UWModernHudArt.BuildLeather(lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
-        mOPinTexture = UWModernHudArt.BuildLeather(lOTextures, PinWidth, TabHeaderHeight, leFilter);
+        mOHandleTexture = UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.RunePanel, lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
+        mOTabTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
+        mOPinTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, PinWidth, TabHeaderHeight, leFilter);
         mOPinIconTexture = UWModernPanel.BuildPinIcon(48);
-        mOGhostTexture = UWModernHudArt.BuildSlotCircle(lOTextures, leFilter);
+        mOGhostTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.RunePanel, lOTextures, leFilter);
 
         List<UWTexture> lOPanels = lOTextures.GetTexturesByType(UWTexture.TextureTypes.PANELS);
 

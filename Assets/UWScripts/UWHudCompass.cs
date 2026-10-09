@@ -126,6 +126,121 @@ public sealed class UWHudCompass
 
     private int miFrozenCompassStep;
 
+    /// <summary>The step in force, 0 (north) to 15 clockwise: the view's, or the frozen one in the
+    /// void - for the modern scheme's compass and heading too (UWModernCompass, UWModernHud).</summary>
+    public int CurrentStep => mbCompassFrozen ? miFrozenCompassStep : fGetCompassStepFromView();
+
+    /// <summary>
+    /// Disc and needle of one step composed into one picture, over the box that all four discs
+    /// and sixteen needles take together at their measured places - so every step has the same
+    /// size and the needle stays where it belongs. For the modern interface (UWModernCompass);
+    /// null without the data. pbFreed: only the cross and the needle's tip, without the disc's
+    /// stone (UWHudArt.CompassCrossMask, CompassTipKeeps) - per user, 2026-10-09.
+    /// </summary>
+    internal Texture2D BuildComposite(int piStep, FilterMode peFilter, bool pbFreed = false)
+    {
+        if (mOUi.mOUWData == null)
+            return null;
+
+        UWDataImport.UWData.UWTexture[] lOPictures = new UWDataImport.UWData.UWTexture[CompassBackgroundCount + CompassNeedleCount];
+        int liLeft = int.MaxValue, liTop = int.MaxValue, liRight = int.MinValue, liBottom = int.MinValue;
+
+        for (int liAt = 0; liAt < lOPictures.Length; liAt++)
+        {
+            try
+            {
+                lOPictures[liAt] = mOUi.mOUWData.Textures.GetTextureByType(UWDataImport.UWData.UWTexture.TextureTypes.COMPASS, liAt);
+            }
+            catch
+            {
+                lOPictures[liAt] = null;
+            }
+
+            if (lOPictures[liAt] == null || lOPictures[liAt].Width <= 0 || lOPictures[liAt].Height <= 0)
+                return null;
+
+            fPictureAt(liAt, out int liX, out int liY);
+            liLeft = Mathf.Min(liLeft, liX);
+            liTop = Mathf.Min(liTop, liY);
+            liRight = Mathf.Max(liRight, liX + lOPictures[liAt].Width);
+            liBottom = Mathf.Max(liBottom, liY + lOPictures[liAt].Height);
+        }
+
+        int liWidth = liRight - liLeft;
+        int liHeight = liBottom - liTop;
+        Color32[] lOCanvas = new Color32[liWidth * liHeight];
+
+        int liDisc = ((piStep % CompassBackgroundCount) + CompassBackgroundCount) % CompassBackgroundCount;
+        int liNeedle = CompassBackgroundCount + (((piStep % CompassNeedleCount) + CompassNeedleCount) % CompassNeedleCount);
+
+        foreach (int liPicture in new[] { liDisc, liNeedle })
+        {
+            fPictureAt(liPicture, out int liX, out int liY);
+
+            UWDataImport.UWData.UWTexture lOSource = lOPictures[liPicture];
+            Color32[] lOPixels = UWGameUI.fGetTextureInvert(lOSource);
+            bool[] lbKeep = null;
+
+            // Freed: the keep mask from the picture's own colours, rows top-down.
+            if (pbFreed)
+            {
+                UWDataImport.UWData.UWColor32[] lORaw = lOSource.GetUWColor32();
+
+                if (liPicture < CompassBackgroundCount)
+                    lbKeep = UWDataImport.UWData.UWHudArt.CompassCrossMask(lORaw, lOSource.Width, lOSource.Height);
+                else
+                {
+                    lbKeep = new bool[lORaw.Length];
+
+                    for (int liAt = 0; liAt < lORaw.Length; liAt++)
+                        lbKeep[liAt] = UWDataImport.UWData.UWHudArt.CompassTipKeeps(lORaw[liAt]);
+                }
+            }
+
+            // Rows come bottom-up from fGetTextureInvert, as the canvas's.
+            int liBaseRow = liHeight - (liY - liTop) - lOSource.Height;
+
+            for (int liRow = 0; liRow < lOSource.Height; liRow++)
+            {
+                for (int liColumn = 0; liColumn < lOSource.Width; liColumn++)
+                {
+                    Color32 lOPixel = lOPixels[(liRow * lOSource.Width) + liColumn];
+                    bool lbKept = lbKeep == null
+                        ? lOPixel.a > 0
+                        : lbKeep[((lOSource.Height - 1 - liRow) * lOSource.Width) + liColumn];
+
+                    if (lbKept)
+                        lOCanvas[((liBaseRow + liRow) * liWidth) + (liX - liLeft) + liColumn] = lOPixel;
+                }
+            }
+        }
+
+        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
+        lOTexture.name = "UWModernCompass step " + piStep;
+        lOTexture.filterMode = peFilter;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+        lOTexture.SetPixels32(lOCanvas);
+        lOTexture.Apply(false, false);
+
+        return lOTexture;
+    }
+
+    /// <summary>The top-left corner of a COMPASS.GR picture in the 320x200 frame: the discs at the
+    /// disc's place, the needles at their measured ones.</summary>
+    private static void fPictureAt(int piPicture, out int piX, out int piY)
+    {
+        if (piPicture < CompassBackgroundCount)
+        {
+            piX = (int)compassLeft;
+            piY = (int)compassTop;
+        }
+        else
+        {
+            piX = (int)msCompassNeedleLeft[piPicture - CompassBackgroundCount];
+            piY = (int)msCompassNeedleTop[piPicture - CompassBackgroundCount];
+        }
+    }
+
     /// <summary>The view direction as compass step 0 to 15, as in the reference.</summary>
     private int fGetCompassStepFromView()
     {

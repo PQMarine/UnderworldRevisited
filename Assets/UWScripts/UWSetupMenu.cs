@@ -24,26 +24,26 @@ using UWDataImport.UWData;
 /// </summary>
 public partial class UWSetupMenu : MonoBehaviour
 {
-    private const float ReferenceHeight = 720f;
+    public const float ReferenceHeight = 720f;
 
     private const float BarHeight = 30f;
 
-    private static readonly Color BackgroundColour = new Color(0.05f, 0.05f, 0.06f, 1f);
+    public static readonly Color BackgroundColour = new Color(0.05f, 0.05f, 0.06f, 1f);
 
-    private static readonly Color BarColour = new Color(0.11f, 0.11f, 0.13f, 1f);
+    public static readonly Color BarColour = new Color(0.11f, 0.11f, 0.13f, 1f);
 
-    private static readonly Color PanelColour = new Color(0.14f, 0.14f, 0.16f, 1f);
+    public static readonly Color PanelColour = new Color(0.14f, 0.14f, 0.16f, 1f);
 
-    private static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
+    public static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
 
     /// <summary>A thin line between groups inside a menu.</summary>
-    private static readonly Color SeparatorColour = new Color(0.30f, 0.30f, 0.34f, 1f);
+    public static readonly Color SeparatorColour = new Color(0.30f, 0.30f, 0.34f, 1f);
 
-    private static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
+    public static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
 
-    private static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
+    public static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
 
-    private static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
+    public static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
 
     private enum MenuEnum
     {

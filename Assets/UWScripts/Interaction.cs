@@ -102,6 +102,13 @@ public class Interaction : MonoBehaviour
         get { return mOActiveStrings; }
     }
 
+    /// <summary>Messages the list keeps: as many as the modern scroll's tallest setting
+    /// (UWModernScroll.MaxLines).</summary>
+    public const int MessageHistoryCount = UWModernScroll.MaxLines;
+
+    /// <summary>Messages the modern message box shows: the original's five.</summary>
+    public const int ModernMessageCount = 5;
+
     /// <summary>For everything that should play an original sound effect. The mapping
     /// event -> effect is still open, see UWSoundPlayer.</summary>
     public UWSoundPlayer SoundPlayer
@@ -541,8 +548,11 @@ public class Interaction : MonoBehaviour
 
         // Original: the log in the lower frame box shows the last 5 messages, new ones
         // appended at the bottom, old ones dropped at the top (see UWGameUI.fRefreshMessageLog for the
-        // actual Original display - here only the capping of the list itself).
-        if (mOActiveStrings.Count > 5)
+        // actual Original display - here only the capping of the list itself). The list keeps
+        // MessageHistoryCount, as many as the modern interface's scroll can be made tall
+        // (per user, 2026-10-09: eight lines showed only five); the classic box keeps the newest
+        // that fit, the modern message box the newest ModernMessageCount.
+        if (mOActiveStrings.Count > MessageHistoryCount)
         {
             mOActiveStrings.RemoveAt(0);
 

@@ -356,8 +356,9 @@ public sealed class UWHudMessageLog
     }
 
     /// <summary>The blinking box behind the running input. The font has no
-    /// character for it, so it is filled by hand. Size estimated.</summary>
-    private void fDrawPromptCursor(Texture2D pOTexture, UWFont pOFont,
+    /// character for it, so it is filled by hand. Size estimated. Also the modern scheme's scroll
+    /// (UWModernScroll).</summary>
+    internal static void fDrawPromptCursor(Texture2D pOTexture, UWFont pOFont,
         System.Collections.Generic.List<string> pOLines, Color32 pOColour)
     {
         if (pOLines.Count == 0)

@@ -13,8 +13,9 @@ using UWDataImport.UWData;
 ///     help window's map tab draws it (UWHudMap.BuildMinimapTiles and its fellows), around the
 ///     character, refreshed every half second and on every step. Only with the map carried, as
 ///     the real one.
-///   - North up by default; turning with the view is an option of the game menu
-///     (UWUserSettings.MinimapTurns - per user: some prefer it).
+///   - North up by default; turning with the view is an option of the layout editor's inspector
+///     on the minimap (UWUserSettings.MinimapTurns - per user: some prefer it; in the game menu
+///     until 2026-10-09).
 ///   - Zoom with the + and - on it and with the mouse wheel over it (UWUserSettings.MinimapZoom,
 ///     whole screen pixels per map pixel, so the pixels stay hard).
 ///   - A click on the map opens the big map, full screen as in the original (UWGameUI.OpenBigMap,
@@ -142,8 +143,9 @@ public class UWModernMinimap : MonoBehaviour
     {
         pOHead = Rect.zero;
 
-        // Switched off in the layout editor (per user, 2026-10-04: some will not want it at all).
-        if (UWUserSettings.MinimapHidden || mOScheme == null || mOScheme.Current != UWControlScheme.SchemeEnum.Modern
+        // Switched off in the layout editor (per user, 2026-10-04: some will not want it at all) -
+        // a choice of the own layout, the Modern preset shows it.
+        if (UWModernLayout.IsMinimapHidden || mOScheme == null || mOScheme.Current != UWControlScheme.SchemeEnum.Modern
             || UWModernHud.Instance == null || !UWModernHud.Instance.IsShowing
             || mOUi == null || mOUi.mOUWData == null)
             return false;
@@ -394,6 +396,10 @@ public class UWModernMinimap : MonoBehaviour
         mOContent.sizeDelta = new Vector2(MapWidth * liZoom, MapHeight * liZoom);
         mOContent.localRotation = Quaternion.Euler(0f, 0f, pfTurn);
 
+        // The map at the original's pixel proportion (UWModernHudArt.PixelAspectX): narrowed in its
+        // own space, so it turns with it; the pivot on the character keeps it in the middle.
+        mOContent.localScale = new Vector3(UWModernHudArt.PixelAspectX, 1f, 1f);
+
         fSetRect(mOParchment.rectTransform, 0f, 0f, MapWidth * liZoom, MapHeight * liZoom);
 
         Vector2 lOTiles = UWHudMap.TilesTopLeft;
@@ -434,15 +440,15 @@ public class UWModernMinimap : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOFrameTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOFrameTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
 
         if (mOFrameTexture != null)
             Destroy(mOFrameTexture);
 
-        mOFrameTexture = UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, Size, Size, mOUi.TextureFilterMode);
+        mOFrameTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Minimap, mOUi.mOUWData.Textures, Size, Size, mOUi.TextureFilterMode);
         mOFrame.texture = mOFrameTexture;
 
         if (mOArrowTexture == null)

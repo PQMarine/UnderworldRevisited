@@ -195,6 +195,28 @@ public class UWModernHud : MonoBehaviour
 
     private Image mOMessageBack;
 
+    /// <summary>
+    /// THE BACKS BEHIND THE PARTS (per user, 2026-10-09: "the back behind" for the parts with art of
+    /// their own): the heading's strip, the vitals' shelf, the messages and the active spells keep
+    /// their art, a generated back (UWModernBacks) lies under it, the part's rect and a few of its
+    /// pixels more all round. For the messages it stands in the dark box's place. The compass draws
+    /// its own (UWModernCompass); the leather parts take theirs in the leather's place.
+    /// </summary>
+    private static readonly UWModernLayout.ElementEnum[] mePartsWithBackBehind =
+    {
+        UWModernLayout.ElementEnum.Heading, UWModernLayout.ElementEnum.Vitals, UWModernLayout.ElementEnum.Messages,
+        UWModernLayout.ElementEnum.Spells
+    };
+
+    /// <summary>The room around a part's rect, in its own pixels.</summary>
+    private const int PartBackPad = 3;
+
+    private readonly RawImage[] mOPartBacks = new RawImage[4];
+
+    private readonly Texture2D[] mOPartBackTextures = new Texture2D[4];
+
+    private readonly string[] msPartBackKeys = new string[4];
+
     private Text mOMessages;
 
     private Text mOHealthText;
@@ -335,8 +357,10 @@ public class UWModernHud : MonoBehaviour
         fPlaceSpells();
         fUpdateHeading();
         fUpdateStrip();
+        fUpdateCompass();
         fUpdateMessages();
         fPlaceMessages();
+        fUpdateBacks();
         fUpdatePicture();
         fUpdateTarget();
     }
@@ -355,6 +379,13 @@ public class UWModernHud : MonoBehaviour
         lOScaler.scaleFactor = 1f;
 
         mOWeapon = fCreateRawImage(lORoot.transform, "Weapon", new Vector2(0f, 0f), new Vector2(0f, 1f));
+
+        // The backs behind the parts drawn here (fUpdateBacks), before their art so they lie under it.
+        for (int liAt = 0; liAt < mePartsWithBackBehind.Length; liAt++)
+        {
+            mOPartBacks[liAt] = fCreateRawImage(lORoot.transform, "Back " + mePartsWithBackBehind[liAt], Vector2.zero, Vector2.zero);
+            UWPixelArtUI.Apply(mOPartBacks[liAt]);
+        }
 
         mOMessageBack = fCreateImage(lORoot.transform, "Message back", new Vector2(0f, 0f), new Vector2(0f, 0f),
             new Color(0.05f, 0.05f, 0.06f, 0.55f));
@@ -390,6 +421,13 @@ public class UWModernHud : MonoBehaviour
         mOFoeState = fCreateText(lORoot.transform, "Foe state", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
 
         mOHeading = fCreateText(lORoot.transform, "Heading", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), TextAnchor.MiddleCenter);
+
+        // The original's compass as an element of its own (UWModernCompass), and its message
+        // scroll in the messages' place (UWModernScroll).
+        mOCompass = new UWModernCompass(mOUi);
+        mOCompass.Build(lORoot.transform);
+        mOScroll = new UWModernScroll(mOUi);
+        mOScroll.Build(lORoot.transform);
 
         mOCrosshair = fCreateImage(lORoot.transform, "Crosshair", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             new Color(1f, 1f, 1f, 0.85f));
@@ -528,7 +566,7 @@ public class UWModernHud : MonoBehaviour
         float lfScale = Screen.height / ViewportHeight * mfWeaponScale;
         WeaponCoordinate lOOffset = mOCharacter.GetWeaponOffset();
         float lfLeft = (Screen.width * 0.5f)
-            + ((ViewportLeft + lOOffset.X + mOUi.GetWeaponSway() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale);
+            + ((ViewportLeft + lOOffset.X + mOUi.GetWeaponSway() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale * UWModernHudArt.PixelAspectX);
         float lfTop = (lOOffset.Y - (lOTexture.height * (1f - mOCharacter.CurrentReadyWeaponTime))) * lfScale;
 
         mOWeapon.texture = lOTexture;
@@ -536,7 +574,7 @@ public class UWModernHud : MonoBehaviour
 
         RectTransform lORect = (RectTransform)mOWeapon.transform;
         lORect.anchoredPosition = new Vector2(lfLeft, lfTop);
-        lORect.sizeDelta = new Vector2(lOTexture.width * lfScale, lOTexture.height * lfScale);
+        lORect.sizeDelta = new Vector2(lOTexture.width * lfScale * UWModernHudArt.PixelAspectX, lOTexture.height * lfScale);
     }
 
     /// <summary>The flasks with their values and the power gem between them, bottom left on
@@ -551,7 +589,7 @@ public class UWModernHud : MonoBehaviour
         UWModernHudArt.ShelfLayout lOLayout = mOShelfLayout;
         int liTextSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * UWModernLayout.Scale(UWModernLayout.ElementEnum.Vitals)));
         float lfTextHeight = liTextSize * 1.5f;
-        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, new Rect(lfMargin, lfMargin, lOLayout.Width * liScale,
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, new Rect(lfMargin, lfMargin, lOLayout.Width * liScale * UWModernHudArt.PixelAspectX,
             ((lOLayout.Height + 1) * liScale) + lfTextHeight));
         Vector2 lOOrigin = lOPlaced.position;
 
@@ -562,7 +600,7 @@ public class UWModernHud : MonoBehaviour
 
         RectTransform lOShelfRect = (RectTransform)mOShelf.transform;
         lOShelfRect.anchoredPosition = lOOrigin;
-        lOShelfRect.sizeDelta = new Vector2(lOLayout.Width * liScale, lOLayout.Height * liScale);
+        lOShelfRect.sizeDelta = new Vector2(lOLayout.Width * liScale * UWModernHudArt.PixelAspectX, lOLayout.Height * liScale);
 
         fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
         fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
@@ -572,8 +610,8 @@ public class UWModernHud : MonoBehaviour
         mOManaText.fontSize = liTextSize;
 
         float lfTextY = lOOrigin.y + ((lOLayout.Height + 1) * liScale);
-        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.HealthFlaskTeture) * 0.5f)) * liScale);
-        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.ManaFlaskTeture) * 0.5f)) * liScale);
+        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
 
         mOHealthText.text = Mathf.RoundToInt(mOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.MaxHP);
         mOManaText.text = Mathf.RoundToInt(mOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.MaxMana);
@@ -648,9 +686,9 @@ public class UWModernHud : MonoBehaviour
         pOImage.enabled = true;
 
         RectTransform lORect = (RectTransform)pOImage.transform;
-        lORect.anchoredPosition = new Vector2(pOOrigin.x + (pOAt.x * liScale),
+        lORect.anchoredPosition = new Vector2(pOOrigin.x + (pOAt.x * liScale * UWModernHudArt.PixelAspectX),
             pOOrigin.y + ((mOShelfLayout.Height - pOAt.y - pOTexture.height) * liScale));
-        lORect.sizeDelta = new Vector2(pOTexture.width * liScale, pOTexture.height * liScale);
+        lORect.sizeDelta = new Vector2(pOTexture.width * liScale * UWModernHudArt.PixelAspectX, pOTexture.height * liScale);
     }
 
     private static float fWidth(Texture2D pOTexture) => pOTexture != null ? pOTexture.width : 0f;
@@ -726,7 +764,7 @@ public class UWModernHud : MonoBehaviour
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
         {
             if (mOSpellIcons[liSlot].enabled && mOSpellTextures[liSlot] != null)
-                lfWidth += (mOSpellTextures[liSlot].width + 3) * liScale;
+                lfWidth += ((mOSpellTextures[liSlot].width * UWModernHudArt.PixelAspectX) + 3) * liScale;
         }
 
         // Its own place (UWModernLayout): right-aligned at its anchor, as wide as the spells - three
@@ -757,12 +795,12 @@ public class UWModernHud : MonoBehaviour
                 continue;
             }
 
-            Rect lORect = new Rect(lfX, lfTop - (lOTexture.height * liScale), lOTexture.width * liScale, lOTexture.height * liScale);
+            Rect lORect = new Rect(lfX, lfTop - (lOTexture.height * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
 
             mOSpellRects[liSlot] = lORect;
             ((RectTransform)lOImage.transform).anchoredPosition = lORect.position;
             ((RectTransform)lOImage.transform).sizeDelta = lORect.size;
-            lfX += (lOTexture.width + 3) * liScale;
+            lfX += ((lOTexture.width * UWModernHudArt.PixelAspectX) + 3) * liScale;
         }
 
         // The hover text below the row, right-aligned to it.
@@ -781,7 +819,8 @@ public class UWModernHud : MonoBehaviour
     /// ends it there instead of switching the pointer).</summary>
     public bool IsOverSpellIcons(Vector2 pOPointer)
     {
-        return fSpellAt(pOPointer) >= 0 || mOHeadingRect.Contains(pOPointer);
+        return fSpellAt(pOPointer) >= 0 || mOHeadingRect.Contains(pOPointer)
+            || (mOCompass != null && mOCompass.ScreenRect.Contains(pOPointer));
     }
 
     private int fSpellAt(Vector2 pOPointer)
@@ -809,10 +848,13 @@ public class UWModernHud : MonoBehaviour
 
         Vector2 lOAt = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
 
-        // The heading: the status, as the classic compass's click.
+        // The heading: the status, as the classic compass's click - and the original's compass
+        // the same (UWModernCompass).
         mbHeadingHovered = mOHeadingRect.Contains(lOAt);
 
-        if (mbHeadingHovered && mOScheme.Controls.Player.CursorDrag.WasPressedThisFrame())
+        bool lbOnCompass = mOCompass != null && mOCompass.ScreenRect.Contains(lOAt);
+
+        if ((mbHeadingHovered || lbOnCompass) && mOScheme.Controls.Player.CursorDrag.WasPressedThisFrame())
         {
             mOUi.ReportStatus();
             return;
@@ -833,6 +875,20 @@ public class UWModernHud : MonoBehaviour
             mOUi.Runes.CancelActiveSpell(liSlot);
     }
 
+    private UWModernCompass mOCompass;
+
+    private UWModernScroll mOScroll;
+
+    /// <summary>The original's compass, and the heading's text giving way to it while it shows.</summary>
+    private void fUpdateCompass()
+    {
+        if (mOCompass == null)
+            return;
+
+        mOCompass.Update(miPixelScale);
+        mOHeading.enabled = mOCompass.ScreenRect.width <= 0f;
+    }
+
     private static readonly string[] msHeadings =
     {
         "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
@@ -846,8 +902,10 @@ public class UWModernHud : MonoBehaviour
         if (lOCamera == null)
             return;
 
-        float lfYaw = Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f);
-        int liStep = Mathf.RoundToInt(lfYaw / 22.5f) & 15;
+        // The classic compass's step (UWHudCompass.CurrentStep): the view's in sixteen points, and
+        // in the void the frozen one, as the original's compass shows it - until 2026-10-09 the
+        // heading followed the view there.
+        int liStep = mOUi.Compass.CurrentStep;
 
         mOHeading.text = msHeadings[liStep];
 
@@ -947,17 +1005,38 @@ public class UWModernHud : MonoBehaviour
 
         float lfEase = mfStripOpen * mfStripOpen * (3f - (2f * mfStripOpen));
         int liWidth = Mathf.RoundToInt(Mathf.Lerp(UWModernHudArt.StripClosedWidth, 2 * miStripOpenHalf, lfEase));
-        int liKey = (liWidth * 1000) + miStripOpenHalf;
+
+        // WHILE THE COMPASS STANDS IN FOR THE TEXT (per user, 2026-10-09: the closed strip was
+        // empty then) the gargoyle sits in the closed strip's middle and moves to its place at the
+        // left as the strip opens; without it the brand shows only on the open strip, as before.
+        // The compass's rect is the last frame's (fUpdateCompass runs after this).
+        bool lbCompass = mOCompass != null && mOCompass.ScreenRect.width > 0f;
+
+        // THE GARGOYLE AT THE ORIGINAL'S PIXEL PROPORTION (UWModernHudArt.PixelAspectX): the strip
+        // is built that much wider in its own pixels and shown that much narrower, so it keeps its
+        // width on the screen (the text's room) while the head and its eyes are narrowed.
+        int liTexWidth = Mathf.RoundToInt(liWidth / UWModernHudArt.PixelAspectX);
+        int liTexOpenHalf = Mathf.RoundToInt(miStripOpenHalf / UWModernHudArt.PixelAspectX);
+        int liBrandLeft = UWModernHudArt.BrandLeft(liTexWidth, liTexOpenHalf);
+
+        if (lbCompass)
+            liBrandLeft = Mathf.RoundToInt(Mathf.Lerp(UWHudArt.BrandCentredLeft(liTexWidth), liBrandLeft, lfEase));
+
+        // The brand's place follows from the width, the open half and the compass.
+        int liKey = (((liTexWidth * 1000) + liTexOpenHalf) * 2) + (lbCompass ? 1 : 0);
 
         if (!mOStripTextures.TryGetValue(liKey, out Texture2D lOTexture) || lOTexture == null)
         {
-            lOTexture = UWModernHudArt.BuildHeadingStrip(mOUi.mOUWData.Textures, liWidth, miStripOpenHalf, mOUi.TextureFilterMode);
+            lOTexture = lbCompass
+                ? UWModernHudArt.BuildHeadingStripWithBrandAt(mOUi.mOUWData.Textures, liTexWidth, liBrandLeft, mOUi.TextureFilterMode)
+                : UWModernHudArt.BuildHeadingStrip(mOUi.mOUWData.Textures, liTexWidth, liTexOpenHalf, mOUi.TextureFilterMode,
+                    Mathf.RoundToInt(UWModernHudArt.StripClosedWidth / UWModernHudArt.PixelAspectX));
             mOStripTextures[liKey] = lOTexture;
         }
 
         float lfTop = 4f * miPixelScale;
         float lfHeight = UWModernHudArt.StripHeight * lfScale;
-        float lfWidth = liWidth * lfScale;
+        float lfWidth = liTexWidth * lfScale * UWModernHudArt.PixelAspectX;
 
         // Its own place (UWModernLayout): the strip's rect, the heading's offset from the top
         // centre all its parts are anchored at.
@@ -980,7 +1059,7 @@ public class UWModernHud : MonoBehaviour
 
         // The eyes in the brand, once the strip shows them.
         Texture2D lOEyes = lbLit ? mOEyes.CurrentFrame : null;
-        int liEyesX = UWModernHudArt.BrandLeft(liWidth, miStripOpenHalf) + UWModernHudArt.EyesLeftInBrand;
+        int liEyesX = liBrandLeft + UWModernHudArt.EyesLeftInBrand;
 
         mOStripEyes.enabled = lOEyes != null && liEyesX >= UWModernHudArt.LeatherLeft;
 
@@ -988,9 +1067,9 @@ public class UWModernHud : MonoBehaviour
         {
             mOStripEyes.texture = lOEyes;
             mOStripEyes.color = new Color(1f, 1f, 1f, mOEyes.Alpha);
-            ((RectTransform)mOStripEyes.transform).anchoredPosition = new Vector2(lfShiftX + ((liEyesX - (liWidth * 0.5f)) * lfScale),
+            ((RectTransform)mOStripEyes.transform).anchoredPosition = new Vector2(lfShiftX + ((liEyesX - (liTexWidth * 0.5f)) * lfScale * UWModernHudArt.PixelAspectX),
                 -lfTop - ((UWModernHudArt.BrandTop + UWModernHudArt.EyesTopInBrand) * lfScale));
-            ((RectTransform)mOStripEyes.transform).sizeDelta = new Vector2(lOEyes.width * lfScale, lOEyes.height * lfScale);
+            ((RectTransform)mOStripEyes.transform).sizeDelta = new Vector2(lOEyes.width * lfScale * UWModernHudArt.PixelAspectX, lOEyes.height * lfScale);
         }
 
         // The foe at the right, once the strip is open.
@@ -1052,7 +1131,7 @@ public class UWModernHud : MonoBehaviour
 
         float liScale = miPixelScale;
         Vector2 lOSize = lOSprite.rect.size;
-        int liFrameWidth = Mathf.RoundToInt(lOSize.x) + UWModernHudArt.LeatherLeft + UWModernHudArt.LeatherRight + (2 * PictureBorder);
+        int liFrameWidth = Mathf.RoundToInt(lOSize.x * UWModernHudArt.PixelAspectX) + UWModernHudArt.LeatherLeft + UWModernHudArt.LeatherRight + (2 * PictureBorder);
         int liFrameHeight = Mathf.RoundToInt(lOSize.y) + UWModernHudArt.LeatherTop + UWModernHudArt.LeatherBottom + (2 * PictureBorder);
 
         if (mOPictureFrameTexture == null || mOPictureFrameSize.x != liFrameWidth || mOPictureFrameSize.y != liFrameHeight
@@ -1082,7 +1161,7 @@ public class UWModernHud : MonoBehaviour
 
         lOPicture.anchoredPosition = new Vector2(lfX + ((UWModernHudArt.LeatherLeft + PictureBorder) * liScale),
             lfY + ((UWModernHudArt.LeatherBottom + PictureBorder) * liScale));
-        lOPicture.sizeDelta = lOSize * liScale;
+        lOPicture.sizeDelta = new Vector2(lOSize.x * UWModernHudArt.PixelAspectX, lOSize.y) * liScale;
     }
 
     /// <summary>Where the message box starts above the flasks (screen pixels from the bottom) -
@@ -1095,6 +1174,9 @@ public class UWModernHud : MonoBehaviour
     /// on the mockup, 2026-10-04).</summary>
     private void fPlaceMessages()
     {
+        if (UWModernLayout.IsScrollShown)
+            return;
+
         // Its own size and place (UWModernLayout); by default above the shelf, right of the rune
         // panel while that covers it.
         float lfScale = UWModernLayout.Scale(UWModernLayout.ElementEnum.Messages);
@@ -1138,16 +1220,84 @@ public class UWModernHud : MonoBehaviour
             mOMessageBack.enabled = true;
     }
 
+    /// <summary>The backs behind the heading, the vitals, the messages and the spells (see
+    /// mePartsWithBackBehind): placed on the parts' rects of this frame, rebuilt when the size, the
+    /// back or the colours change.</summary>
+    private void fUpdateBacks()
+    {
+        for (int liAt = 0; liAt < mePartsWithBackBehind.Length; liAt++)
+        {
+            UWModernLayout.ElementEnum leElement = mePartsWithBackBehind[liAt];
+            RawImage lOImage = mOPartBacks[liAt];
+            UWModernBacks.Back lOBack = UWModernBacks.Get(leElement);
+            Rect lORect = Rect.zero;
+            bool lbShown = lOBack.Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None
+                && UWModernLayout.TryGetRect(leElement, out lORect);
+
+            if (leElement == UWModernLayout.ElementEnum.Messages && lbShown)
+            {
+                // In the dark box's place: shown when the box would be, or under the scroll.
+                lbShown = mOMessageBack.enabled || UWModernLayout.IsScrollShown;
+                mOMessageBack.enabled = false;
+            }
+
+            if (!lbShown)
+            {
+                lOImage.enabled = false;
+                continue;
+            }
+
+            float lfScale = Mathf.Max(1f, miPixelScale * UWModernLayout.Scale(leElement));
+            int liWidth = Mathf.CeilToInt(lORect.width / lfScale) + (2 * PartBackPad);
+            int liHeight = Mathf.CeilToInt(lORect.height / lfScale) + (2 * PartBackPad);
+            string lsKey = lOBack.Key + "/" + liWidth + "x" + liHeight + "/" + UWModernBacks.ArtVersion;
+
+            if (msPartBackKeys[liAt] != lsKey || mOPartBackTextures[liAt] == null)
+            {
+                if (mOPartBackTextures[liAt] != null)
+                    Destroy(mOPartBackTextures[liAt]);
+
+                mOPartBackTextures[liAt] = UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, liWidth, liHeight, lOBack,
+                    mOUi.TextureFilterMode, liAt + 1);
+                msPartBackKeys[liAt] = lsKey;
+                lOImage.texture = mOPartBackTextures[liAt];
+            }
+
+            RectTransform lOTransform = (RectTransform)lOImage.transform;
+
+            lOTransform.anchoredPosition = new Vector2(lORect.center.x - (liWidth * lfScale * 0.5f), lORect.center.y - (liHeight * lfScale * 0.5f));
+            lOTransform.sizeDelta = new Vector2(liWidth * lfScale, liHeight * lfScale);
+            lOImage.enabled = true;
+        }
+    }
+
     /// <summary>The last five messages, as the scroll holds them (Interaction.ActiveStrings).</summary>
     private void fUpdateMessages()
     {
+        // The original's scroll instead, when switched on: it draws and places itself.
+        if (mOScroll != null && UWModernLayout.IsScrollShown)
+        {
+            mOMessages.enabled = false;
+            mOMessageBack.enabled = false;
+            mOScroll.Update(mOInteraction, miPixelScale, new Vector2(6f * miPixelScale, mfLeftColumnBottom));
+            return;
+        }
+
+        if (mOScroll != null)
+            mOScroll.Hide();
+
+        mOMessages.enabled = true;
+
         System.Collections.Generic.IReadOnlyList<string> lOLines = mOInteraction.ActiveStrings;
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
         int liColour = 0;
 
-        for (int liAt = 0; lOLines != null && liAt < lOLines.Count; liAt++)
+        // The list keeps more for the tall scroll; the box shows the newest five.
+        int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - Interaction.ModernMessageCount) : 0;
+
+        for (int liAt = liFirst; lOLines != null && liAt < lOLines.Count; liAt++)
         {
-            if (liAt > 0)
+            if (liAt > liFirst)
                 lOText.Append('\n');
 
             fAppendColoured(lOText, UWFontRenderer.CleanText(lOLines[liAt]), ref liColour);
@@ -1259,7 +1409,7 @@ public class UWModernHud : MonoBehaviour
         {
             mOTargetCursor.texture = lOCursor;
             ((RectTransform)mOTargetCursor.transform).anchoredPosition = Vector2.zero;
-            ((RectTransform)mOTargetCursor.transform).sizeDelta = new Vector2(lOCursor.width * miPixelScale, lOCursor.height * miPixelScale);
+            ((RectTransform)mOTargetCursor.transform).sizeDelta = new Vector2(lOCursor.width * miPixelScale * UWModernHudArt.PixelAspectX, lOCursor.height * miPixelScale);
         }
 
         // The hold of E for the direct use (Interaction.ModernUseHoldProgress): a ring filling
@@ -1506,6 +1656,8 @@ public class UWModernHud : MonoBehaviour
     private GUIStyle mOTitleStyle;
 
     private GUIStyle mOButtonStyle;
+    private GUIStyle mOCurrentPresetStyle;
+    private GUIStyle mOSectionStyle;
 
     private GUIStyle mOLabelStyle;
 
@@ -1554,6 +1706,12 @@ public class UWModernHud : MonoBehaviour
         mOButtonStyle.hover.textColor = msAccent;
         mOButtonStyle.active.background = mOButtonHoverTexture;
         mOButtonStyle.active.textColor = msAccent;
+
+        mOCurrentPresetStyle = new GUIStyle(mOButtonStyle);
+        mOCurrentPresetStyle.normal.textColor = msAccent;
+
+        mOSectionStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft };
+        mOSectionStyle.normal.textColor = msAccent;
 
         mOFieldStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(8, 8, 0, 0) };
         mOFieldStyle.normal.background = mOFieldTexture;
@@ -1622,6 +1780,31 @@ public class UWModernHud : MonoBehaviour
     private bool fButton(string psText)
     {
         return fButton(new GUIContent(psText));
+    }
+
+    /// <summary>One preset under "Edit layout": indented and lower than the other buttons, the one
+    /// in force in gold. A press chooses it; true for the press (Customize then opens the editor
+    /// even when it is already in force).</summary>
+    private bool fPresetButton(string psText, UWModernLayout.PresetEnum pePreset, UWModernLayout.PresetEnum peCurrent, bool pbBuilt)
+    {
+        GUILayout.Space(4f);
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(28f);
+
+        bool lbEnabled = GUI.enabled;
+
+        GUI.enabled = lbEnabled && pbBuilt;
+
+        bool lbPressed = GUILayout.Button(psText, pePreset == peCurrent ? mOCurrentPresetStyle : mOButtonStyle, GUILayout.Height(30f));
+
+        fRecordEntry();
+        GUI.enabled = lbEnabled;
+        GUILayout.EndHorizontal();
+
+        if (lbPressed && pePreset != peCurrent)
+            UWModernLayout.ChoosePreset(pePreset);
+
+        return lbPressed;
     }
 
     private bool fButton(GUIContent pOContent)
@@ -1717,18 +1900,24 @@ public class UWModernHud : MonoBehaviour
         // The mouse look's speed left this menu on 2026-10-08 (per user): the Controls dialog of
         // the setup bar has it as a slider, reachable while the menu is open.
 
-        // The layout editor (UWModernLayoutEditor, per user 2026-10-04) - the UI size lives in its
-        // strip since the same day.
-        if (fButton("Edit layout"))
+        // THE INTERFACE PRESETS under "Edit layout" as a heading (per user, 2026-10-09): Classic,
+        // Classic+, Modern and Customize, the last opening the layout editor (UWModernLayoutEditor,
+        // per user 2026-10-04; the UI size lives in its strip) on the own layout, which the other
+        // presets leave alone. Classic and Classic+ are planned - greyed until they are built.
+        GUILayout.Space(10f);
+        GUILayout.Label("Edit layout", mOSectionStyle, GUILayout.Height(24f));
+
+        UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
+
+        fPresetButton("Classic frame", UWModernLayout.PresetEnum.Classic, lePreset, false);
+        fPresetButton("Classic+", UWModernLayout.PresetEnum.ClassicPlus, lePreset, false);
+        fPresetButton("Modern", UWModernLayout.PresetEnum.Modern, lePreset, true);
+
+        if (fPresetButton("Customize", UWModernLayout.PresetEnum.Custom, lePreset, true))
             mePage = PageEnum.Layout;
 
-        // The minimap north up (default) or turning with the view - per user 2026-10-03: some
-        // prefer it turning (UWModernMinimap).
-        if (fButton("Minimap: " + (UWUserSettings.MinimapTurns ? "turns with the view" : "north up")))
-        {
-            UWUserSettings.MinimapTurns = !UWUserSettings.MinimapTurns;
-            UWUserSettings.Save();
-        }
+        // The minimap's north up / turning left this menu on 2026-10-09 (per user): the layout
+        // editor's inspector has it on the minimap ("North").
 
         // Quit at the very bottom of the panel, set apart from the settings (per user,
         // 2026-10-06: "das Quit nach unten schieben") - since music, sound and detail left the

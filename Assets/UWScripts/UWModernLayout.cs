@@ -31,6 +31,52 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWModernLayout
 {
+    /// <summary>
+    /// THE INTERFACE PRESETS (per user, 2026-10-09; under "Edit layout" in the game menu): Modern -
+    /// the modern interface at its default places; Custom - the own layout of the layout editor,
+    /// kept while another preset is chosen; Classic+ - the original's pieces freed as elements;
+    /// Classic - the classic frame brought to the whole screen. The last two are planned (Todo).
+    /// </summary>
+    public enum PresetEnum
+    {
+        Modern = 0,
+        Custom = 1,
+        ClassicPlus = 2,
+        Classic = 3
+    }
+
+    public static PresetEnum Preset
+    {
+        get
+        {
+            int liPreset = UWUserSettings.InterfacePreset;
+
+            return liPreset >= 0 && liPreset <= (int)PresetEnum.Classic ? (PresetEnum)liPreset : PresetEnum.Modern;
+        }
+    }
+
+    /// <summary>Chooses a preset; the parts take their places from it at once.</summary>
+    public static void ChoosePreset(PresetEnum pePreset)
+    {
+        UWUserSettings.InterfacePreset = (int)pePreset;
+        UWUserSettings.Save();
+        msLayout = null;
+    }
+
+    /// <summary>The own layout is in force: only then are places read from and written to it.</summary>
+    public static bool IsCustom => Preset == PresetEnum.Custom;
+
+    /// <summary>The minimap hidden - a choice of the own layout only.</summary>
+    public static bool IsMinimapHidden => IsCustom && UWUserSettings.MinimapHidden;
+
+    /// <summary>The original's compass shown (UWModernCompass) - switched on in the layout editor
+    /// for the own layout; Classic+ will bring it by itself.</summary>
+    public static bool IsCompassShown => (IsCustom && UWUserSettings.ModernCompass) || Preset == PresetEnum.ClassicPlus;
+
+    /// <summary>The original's message scroll in the messages' place (UWModernScroll) - as the
+    /// compass: the own layout's choice, Classic+ will bring it.</summary>
+    public static bool IsScrollShown => (IsCustom && UWUserSettings.ModernScroll) || Preset == PresetEnum.ClassicPlus;
+
     public enum ElementEnum
     {
         ActionBar,
@@ -42,15 +88,16 @@ public static class UWModernLayout
         Bags,
         CharacterPanel,
         RunePanel,
-        Conversation
+        Conversation,
+        Compass
     }
 
-    public const int ElementCount = 10;
+    public const int ElementCount = 11;
 
     public static readonly string[] Names =
     {
         "Action bar", "Minimap", "Heading", "Active spells", "Messages", "Vitality and mana", "Bags", "Character panel", "Rune panel",
-        "Conversation"
+        "Conversation", "Compass"
     };
 
     /// <summary>A panel left at its edge: it slides out and in on its handle.</summary>
@@ -69,7 +116,19 @@ public static class UWModernLayout
 
     private static readonly Rect[] msRects = new Rect[ElementCount];
 
-    private static readonly int[] miRectFrames = { -10, -10, -10, -10, -10, -10, -10, -10, -10, -10 };
+    // As long as the elements, each 'long ago' (until 2026-10-09 ten written out - the eleventh
+    // element, the compass, ran past them and took the layout editor down).
+    private static readonly int[] miRectFrames = fLongAgo();
+
+    private static int[] fLongAgo()
+    {
+        int[] liFrames = new int[ElementCount];
+
+        for (int liAt = 0; liAt < liFrames.Length; liAt++)
+            liFrames[liAt] = -10;
+
+        return liFrames;
+    }
 
     /// <summary>The layout editor is open (the game menu's Layout page).</summary>
     public static bool IsEditing => UWModernHud.Instance != null && UWModernHud.Instance.Page == UWModernHud.PageEnum.Layout;
@@ -156,11 +215,15 @@ public static class UWModernLayout
 
     private static UWHudLayout fLayout()
     {
-        return msLayout ??= UWHudLayout.Parse(UWUserSettings.ModernLayout, ElementCount);
+        // Every preset but Custom keeps the default places: an empty layout.
+        return msLayout ??= UWHudLayout.Parse(IsCustom ? UWUserSettings.ModernLayout : null, ElementCount);
     }
 
     private static void fSave()
     {
+        if (!IsCustom)
+            return;
+
         UWUserSettings.ModernLayout = fLayout().ToString();
         UWUserSettings.Save();
     }

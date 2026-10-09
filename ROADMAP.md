@@ -38,7 +38,11 @@ of what is built was also read out of the original's executable.
   character creation yourself
 - The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
   a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
-  size every part of it - switched with Shift+F2
+  size every part of it, with an inspector for each part's settings - switched with Shift+F2.
+  Interface presets (Modern, or a layout of one's own); the original's compass and message
+  scroll can stand in for the heading text and the message box; every part can wear a
+  background in the original's colours and patterns; the original's pictures keep the pixel
+  proportion of the 4:3 screen they were drawn for
 - The motion of the player, the creatures and everything thrown or shot as the original's
   own code, read out of the executable and run without Unity physics: slopes, ledges, the
   water edge, the deflection off walls, jumping, swimming, levitation and slow fall behave as
@@ -92,10 +96,11 @@ of what is built was also read out of the original's executable.
   lights shade them.
 - **More for the Palette mode.** A shore line along water, a few levels lighter and moving
   with the palette rotation, is an idea that may look odd - not planned yet.
-- **The modern interface from the original's own pieces.** A variant of the modern scheme's
-  interface that takes the original's parts as they are, split up: its font, its compass, its
-  message scroll, instead of the modern font and the heading as text. Suggested on Reddit.
-  With it, an idea from the same thread: the original font traced into outlines, so it stays
+- **The modern interface from the original's own pieces, further.** The compass and the
+  message scroll are in (suggested on Reddit); still to come are its font and its other pieces
+  (the power gem, the command icons, the movement arrows, the pointers, the conversation frame),
+  and a preset that stretches the classic frame over the whole screen. With the font, an idea
+  from the same thread: the original font traced into outlines, so it stays
   sharp at any size - either pixel-exact or smoothed, keeping the letter shapes without the
   pixel steps. Generated from the player's own game files at run time, as the font belongs to
   the game.
