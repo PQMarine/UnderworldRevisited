@@ -428,7 +428,7 @@ public sealed class UWHudMessageLog
         lOMessageLogRect.sizeDelta = new Vector2(messageLogWidth, messageLogHeight);
 
         mMessageLogText = lOMessageLogObj.GetComponent<Text>();
-        mMessageLogText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mMessageLogText.font = UWInterfaceFont.Font;
         mMessageLogText.fontSize = 5;
         mMessageLogText.alignment = TextAnchor.UpperLeft;
         mMessageLogText.color = lOLogTextColor;

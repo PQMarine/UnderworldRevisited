@@ -228,6 +228,14 @@ public static class UWUserSettings
         public bool SoundEnabled = true;
 
         public float SoundVolume = 0.8f;
+
+        /// <summary>What plays the music (UWAudioEngine.MusicDeviceEnum): 0 the AdLib, 1 General
+        /// MIDI, 2 the MT-32. 0 by default, the sound of the original as most heard it.</summary>
+        public int MusicDevice;
+
+        /// <summary>The folder with the player's own MT-32 ROMs; empty = the MT32 folder beside
+        /// settings.json.</summary>
+        public string Mt32RomPath = "";
     }
 
     private const string FileName = "settings.json";
@@ -716,6 +724,18 @@ public static class UWUserSettings
     {
         get { return Mathf.Clamp01(fGet().SoundVolume); }
         set { fGet().SoundVolume = Mathf.Clamp01(value); }
+    }
+
+    public static int MusicDevice
+    {
+        get { return Mathf.Clamp(fGet().MusicDevice, 0, 2); }
+        set { fGet().MusicDevice = Mathf.Clamp(value, 0, 2); }
+    }
+
+    public static string Mt32RomPath
+    {
+        get { return fGet().Mt32RomPath ?? string.Empty; }
+        set { fGet().Mt32RomPath = value ?? string.Empty; }
     }
 
     public static void Save()

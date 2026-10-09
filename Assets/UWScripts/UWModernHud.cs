@@ -457,7 +457,7 @@ public class UWModernHud : MonoBehaviour
         lORect.pivot = pOPivot;
 
         Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
         lOText.alignment = peAlignment;
         lOText.color = new Color(0.86f, 0.86f, 0.84f);
         lOText.raycastTarget = false;
@@ -1538,7 +1538,7 @@ public class UWModernHud : MonoBehaviour
         mOButtonHoverTexture = fTexture(msButtonHover);
         mOFieldTexture = fTexture(new Color(0.05f, 0.05f, 0.06f, 1f));
 
-        Font lOFont = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        Font lOFont = mOFont != null ? mOFont : UWInterfaceFont.Font;
 
         mOTitleStyle = new GUIStyle { font = lOFont, fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         mOTitleStyle.normal.textColor = msAccent;

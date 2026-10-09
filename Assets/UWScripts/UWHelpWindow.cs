@@ -1638,7 +1638,7 @@ public class UWHelpWindow : MonoBehaviour
         if (mOText != null)
             return;
 
-        mOFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mOFont = UWInterfaceFont.Font;
 
         mOText = new GUIStyle { font = mOFont, fontSize = 15, wordWrap = true, richText = true };
         mOText.normal.textColor = TextColour;

@@ -1314,7 +1314,14 @@ public class UWPlayerMovement : MonoBehaviour
 
         MomentumFraction = lfFullSpeed > 0f ? Mathf.Clamp01(lfSpeed / lfFullSpeed) : 0f;
 
-        if (mController == null || IsInLiquid || fIsHovering() || !fIsOnGround() || Time.deltaTime <= 0f)
+        // No step without a world (the main menu at the start), and none for a jump of a tile
+        // or more in one frame - the player being placed, not walking (per user, 2026-10-08:
+        // a few steps were heard at the start).
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        bool lbPlaced = new Vector3(lODelta.x, 0f, lODelta.z).magnitude >= UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing;
+
+        if (mController == null || IsInLiquid || fIsHovering() || !fIsOnGround() || Time.deltaTime <= 0f
+            || lbPlaced || (lOLoader != null && !lOLoader.HasWorld))
         {
             mfNextStepTime = Time.time + 0.2f;
             return;

@@ -558,7 +558,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlayMusicalInstrument` (seg014_1195) | UWAudioEngine.cs, UWInstrumentPlayer.cs |
+| `PlayMusicalInstrument` (seg014_1195) | UWMt32MusicDriver.cs, UWAudioEngine.cs, UWInstrumentPlayer.cs |
 | `SpawnCupOfWonder` (seg014_14C3) | UWPlayerData.cs, UWInstrumentPlayer.cs |
 | `ChangeThemeMusic` (seg014_15BA) | UWMusicSelector.cs |
 | `RefreshMusic` (seg014_160D) | UWMusicSelector.cs |

@@ -58,10 +58,11 @@ CONTROLS
 
 Two control schemes, both complete. The original scheme, the one the game starts with: the
 mouse pointer steers as in 1992, and F1 to F10 and the Ctrl shortcuts work as in the original.
-Shift+F2 switches to the modern scheme: free mouse look, WASD, an action bar, bags, a character
-panel and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape).
+Shift+F2 switches to the modern scheme - or Original and Modern under Game in the menu bar, for
+keyboards whose F keys need Fn: free mouse look, WASD, an action bar, bags, a character panel
+and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape).
 The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
-keys of the scheme in force. The full list of keys is in README.md.
+keys of the scheme in force. The full list of keys is in Docs/CONTROLS.md.
 
 A gamepad works in both schemes (tested with an Xbox controller). The sticks walk and look, A
 uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the right stick for
@@ -84,9 +85,19 @@ them with care, turned up they quickly take away the look of the original; "Very
 high - own effects..." sets every effect of the Remastered mode.
 
 
+MUSIC
+-----
+
+The Sound menu in the menu bar chooses what plays the music: the AdLib, as most heard it in
+1992; General MIDI, the music's MT-32 version on a soundfont that comes with the game; or the
+Roland MT-32 itself, emulated by Munt. The MT-32 needs the control and PCM ROM of a real MT-32
+or CM-32L, which belong to Roland and do not come with the game: put your own into the folder
+the "Open folder" button there opens. The menu shows which ROMs were recognised.
+
+
 LICENCES
 --------
 
-Underworld Revisited is released under the MIT License, see LICENSE. It contains code and a
-font from other projects under their own licences; their notices are in
+Underworld Revisited is released under the MIT License, see LICENSE. It contains code, a
+font, a soundfont and a library from other projects under their own licences; their notices are in
 THIRD_PARTY_NOTICES.md. README.md is the project's full description.

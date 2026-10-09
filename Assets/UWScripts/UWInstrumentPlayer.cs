@@ -201,6 +201,7 @@ public class UWInstrumentPlayer : MonoBehaviour
     private void fEnd()
     {
         fStopNote();
+        fReleaseChannel();
         IsPlaying = false;
 
         if (mOInteraction != null)
@@ -214,8 +215,17 @@ public class UWInstrumentPlayer : MonoBehaviour
         if (IsPlaying)
         {
             fStopNote();
+            fReleaseChannel();
             IsPlaying = false;
         }
+    }
+
+    /// <summary>The channel goes back to the music, as UW.EXE releases the one it got from the
+    /// driver (matters on the MT-32 - UWAudioEngine.EndInstrument).</summary>
+    private static void fReleaseChannel()
+    {
+        if (UWAudioEngine.Instance != null)
+            UWAudioEngine.Instance.EndInstrument();
     }
 
     /// <summary>The Cup of Wonder - see the class comment.</summary>

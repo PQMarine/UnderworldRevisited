@@ -19,4 +19,9 @@
     <ProjectReference Include="..\..\Core\UWDataImport.csproj" />
   </ItemGroup>
 
+  <!-- The MT-32 emulation the "mt32" mode calls, the same library the game ships. -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+    <None Include="..\..\Assets\Plugins\mt32emu\Windows\x86_64\mt32emu.dll" Link="mt32emu.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

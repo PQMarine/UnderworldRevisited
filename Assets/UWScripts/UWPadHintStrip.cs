@@ -165,7 +165,7 @@ public class UWPadHintStrip : MonoBehaviour
 
             Text lOText = new GameObject("Text", typeof(RectTransform), typeof(Text)).GetComponent<Text>();
             lOText.transform.SetParent(lORoot.transform, false);
-            lOText.font = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
             lOText.alignment = TextAnchor.MiddleLeft;
             lOText.color = new Color(0.94f, 0.87f, 0.71f);
             lOText.horizontalOverflow = HorizontalWrapMode.Overflow;

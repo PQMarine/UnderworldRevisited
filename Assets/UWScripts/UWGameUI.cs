@@ -584,7 +584,7 @@ public class UWGameUI : MonoBehaviour
             {
                 Texture2D lOCross = fGetScaledCursor(liModernCursor);
 
-                Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), CursorMode.Auto);
+                Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), PointerCursorMode);
             }
 
             return;
@@ -702,10 +702,25 @@ public class UWGameUI : MonoBehaviour
                     ? new Vector2(0f, lOCursor.height * 0.5f)
                     : new Vector2(lOCursor.width * 0.5f, lOCursor.height * 0.5f);
 
-                Cursor.SetCursor(lOCursor, lOHotspot, CursorMode.Auto);
+                Cursor.SetCursor(lOCursor, lOHotspot, PointerCursorMode);
             }
         }
 	}
+
+    /// <summary>
+    /// How the pointer's picture is drawn: by the system (Auto), but on LINUX while the gamepad is
+    /// in use by Unity itself. The pad moves the system pointer by a warp (UWGamepadPointer), which
+    /// XWayland - Kubuntu's default session - only emulates, keeping the pointer invisible: on the
+    /// user's laptop clicks and tooltips came at the right place with no pointer to see (per user,
+    /// 2026-10-09; first seen in the VM and put down to it). With the mouse the system's pointer
+    /// stays, it follows the hand without a frame's delay.
+    /// </summary>
+    private static CursorMode PointerCursorMode =>
+#if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
+        UWGamepad.IsActive ? CursorMode.ForceSoftware : CursorMode.Auto;
+#else
+        CursorMode.Auto;
+#endif
 
     /// <summary>Has the freshly built scene been drawn at least once? See fIsFirstImageShown.
     /// </summary>

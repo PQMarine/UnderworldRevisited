@@ -115,6 +115,17 @@ This software is based in part on the work of the Independent JPEG Group.
 - License: SIL Open Font License 1.1, Copyright 2018 The Lexend Project Authors, with
   Reserved Font Name "RevReading Lexend". The full text is in `ThirdParty/Lexend/OFL.txt`.
 
+## Liberation Sans
+
+- Project: Liberation Fonts 2.1.5 (https://github.com/liberationfonts), `LiberationSans-Regular.ttf`
+  unmodified, taken from the Ubuntu package fonts-liberation2 2.1.5-1.
+- Used in: `Assets/Resources/Fonts/LiberationSans-Regular.ttf`, the font of the port's own
+  windows (menu bar, help window, message log), loaded by `Assets/UWScripts/UWInterfaceFont.cs`.
+  Chosen because it has the metrics of Arial, which Linux lacks.
+- License: SIL Open Font License 1.1, Digitized data copyright (c) 2010 Google Corporation with
+  Reserved Font Arimo, Tinos and Cousine; Copyright (c) 2012 Red Hat, Inc. with Reserved Font
+  Name Liberation. The full text is in `ThirdParty/Liberation/OFL.txt`.
+
 ## Kenney Input Prompts Pixel
 
 - Project: "Input Prompts Pixel" 1.0 by Kenney (www.kenney.nl), the packed tile sheet,
@@ -122,6 +133,41 @@ This software is based in part on the work of the Independent JPEG Group.
 - Used in: `Assets/Resources/UWGlyphs/KenneyInputPromptsPixel.bytes` (the PNG under another
   extension, read by `Assets/UWScripts/UWGlyphs.cs`), the input glyphs of the interface.
 - License: Creative Commons Zero (CC0). The licence file is in `ThirdParty/Kenney/License.txt`.
+
+## MeltySynth
+
+- Project: https://github.com/sinshu/meltysynth, version 2.4.1 (commit 4ba079c), built
+  unmodified from its source as a .NET Standard 2.1 library.
+- Used in: `Assets/Plugins/MeltySynth/MeltySynth.dll`, the General MIDI synthesizer of the
+  music (`Assets/UWDataImport/UWData/UWGmMusicDriver.cs`).
+- License: MIT, Copyright (C) 2021 Nobuaki Tanaka; it carries the notices of the code it builds
+  on, C# Synth (Copyright (C) 2014 Alex Veltsistas) and TinySoundFont (Copyright (C) 2017, 2018
+  Bernhard Schelling, based on SFZero, Copyright (C) 2012 Steve Folta), under the same MIT
+  licence. The full text is in `ThirdParty/MeltySynth/LICENSE.txt`.
+
+## Munt (libmt32emu)
+
+- Project: https://github.com/munt/munt, libmt32emu 2.8.3 (commit 6e7c01f), Copyright (C)
+  2003-2009 Dean Beeler, Jerome Fisher, (C) 2011-2026 Dean Beeler, Jerome Fisher, Sergey V.
+  Mikayev; the authors are listed in `ThirdParty/Munt/AUTHORS.txt`.
+- Used in: `Assets/Plugins/mt32emu/Windows/x86_64/mt32emu.dll` and
+  `Assets/Plugins/mt32emu/Linux/x86_64/libmt32emu.so`, built UNMODIFIED from that source as
+  shared libraries with its C interface (`Tools/Munt/build-windows.bat` and
+  `Tools/Munt/build-linux.sh` with `Tools/Munt/config.h`), loaded at run time and called only through that interface by
+  `Assets/UWDataImport/UWData/UWMt32MusicDriver.cs`. It may be replaced by any compatible build.
+  The emulation needs the ROMs of a Roland MT-32 or CM-32L, which are NOT included.
+- License: GNU Lesser General Public License 2.1 or later; the text is in
+  `ThirdParty/Munt/COPYING.LESSER.txt`. The complete source the library was built from is in
+  `ThirdParty/Munt/munt-src-6e7c01f.zip`.
+
+## Fluid (R3) General MIDI SoundFont
+
+- Project: FluidR3_GM.sf2 by Frank Wen, taken from the Debian package fluid-soundfont-gm 3.1-6.
+- Used in: `Assets/StreamingAssets/UWMusic/UWGeneralMidi.sf2`, cut from it by
+  `Tools/UWSoundFontTrim` to the presets and key ranges the game's music plays; nothing inside
+  a kept zone is changed.
+- License: MIT, Copyright (c) 2000-2002, 2008 Frank Wen. The readme with the contributors and
+  the licence text are in `ThirdParty/FluidR3/License.txt`.
 
 ## Acknowledgements
 

@@ -465,6 +465,10 @@ public class UWIntroPlayer : MonoBehaviour
 
     public bool IsPlaying => mOPlayback != null;
 
+#if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
+    private float mfNextLinuxCursorHide;
+#endif
+
     private void Start()
     {
         // AFTER CHARACTER CREATION the intro comes, as in the original - and nothing
@@ -767,6 +771,19 @@ public class UWIntroPlayer : MonoBehaviour
     /// user: not needed any more).</summary>
     private void Update()
     {
+#if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
+        // LINUX: the pointer stayed visible over the logos (per user, 2026-10-09, on real
+        // hardware after the same in the VM): hidden before the window is fully up, the player
+        // loses it, and setting the same value again does nothing. So while a sequence plays it
+        // is shown and hidden again within one frame, twice a second; Windows never needed it.
+        if (IsPlaying && Time.unscaledTime >= mfNextLinuxCursorHide)
+        {
+            mfNextLinuxCursorHide = Time.unscaledTime + 0.5f;
+            Cursor.visible = true;
+            Cursor.visible = false;
+        }
+#endif
+
         // The title's time is up: the regular end, so the main menu follows as after the last
         // frame.
         if (mbTitleRunning && IsPlaying && Time.unscaledTime >= mfTitleEndsAt)

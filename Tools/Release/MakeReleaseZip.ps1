@@ -85,6 +85,14 @@ foreach ($File in @("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md")) {
 
 Copy-Item (Join-Path $PSScriptRoot "README.txt") -Destination $Stage
 
+# The full controls README.md and README.txt point to, under the same path as in the project.
+$Controls = Join-Path $ProjectRoot "Docs\CONTROLS.md"
+
+if (-not (Test-Path $Controls)) { throw "Missing Docs\CONTROLS.md in the project root." }
+
+New-Item -ItemType Directory -Force -Path (Join-Path $Stage "Docs") | Out-Null
+Copy-Item $Controls -Destination (Join-Path $Stage "Docs")
+
 # The full licence texts THIRD_PARTY_NOTICES.md names, under the same path as in the project.
 $ThirdParty = Join-Path $ProjectRoot "ThirdParty"
 

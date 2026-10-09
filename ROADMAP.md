@@ -49,6 +49,10 @@ of what is built was also read out of the original's executable.
   on the stick for every window, a letter grid for typing, glyphs in the help (Xbox,
   PlayStation, Nintendo - chosen, not guessed), every button rebindable, swapped sticks, a
   deadzone per stick; tested with an Xbox controller
+- The music's MT-32 version: on General MIDI with a soundfont that comes with the game
+  (cut from FluidR3 GM, the instruments matched to the MT-32's by name), and on the Roland
+  MT-32 itself through Munt's emulation with the player's own ROMs - compared with a recording
+  of the original on a real MT-32
 
 ## Open: gameplay parity
 
@@ -74,11 +78,9 @@ of what is built was also read out of the original's executable.
 
 ## Open: presentation
 
-- **General MIDI / MT-32 music.** AdLib is complete; the other music versions would need a
-  soundfont or an MT-32 emulation. A simpler way, suggested on Reddit: recordings the player
-  supplies, one file per track, played in place of the synthesizer when present (made on a
-  real MT-32 or a good General MIDI setup; they cannot ship with the project, the music
-  belongs to the rights holders).
+- **Music, further.** The sound effects on the MT-32 too, as the original may have played them (its file `UW.MT` holds 64
+  timbres of their own - unchecked). Suggested on Reddit: recordings the player supplies, one
+  file per track, played in place of the synthesizer when present.
 - **Hallucination.** All three pictures the original rolls from are built and confirmed, two
   of them as approximations: the "light table" the original copies from its own engine
   variables is modelled on screenshots (those variables' run-time values are not in the
