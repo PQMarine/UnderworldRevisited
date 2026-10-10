@@ -202,10 +202,13 @@ public class UWGameUI : MonoBehaviour
         float lfX = (pOScreen.x - fGetLetterboxMarginPixels()) / scaleX;
         float lfY = (pOScreen.y - UWUiFit.BottomMarginPixels) / scale;
 
-        piX = Mathf.FloorToInt(lfX);
         piY = Mathf.FloorToInt(lfY);
 
-        return lfX >= 0f && lfX < UWUiFit.FrameWidthUnits && lfY >= 0f && lfY < UWUiFit.FrameHeight;
+        // The widened frame's column back to the original's (UWClassicWide): the columns put in
+        // belong to no area.
+        piX = UWClassicWide.OriginalX(Mathf.FloorToInt(lfX), 199 - piY);
+
+        return piX >= 0 && lfX >= 0f && lfX < UWUiFit.FrameWidthUnits + UWClassicWide.Extra && lfY >= 0f && lfY < UWUiFit.FrameHeight;
     }
 
     /// <summary>Is the pointer inside an area of the original's table - both ends included, as
@@ -233,7 +236,7 @@ public class UWGameUI : MonoBehaviour
     /// </summary>
     public Rect GetViewportPictureScreenRect(Vector2 pOSize)
     {
-        return GetUiPictureScreenRect(GetViewportPictureCorner(pOSize), pOSize);
+        return GetUiPictureScreenRect(GetViewportPictureCorner(pOSize) + new Vector2(UWClassicWide.Left, 0f), pOSize);
     }
 
     /// <summary>Top-left corner (original UI pixels, top down) of a picture of the given size
@@ -268,7 +271,7 @@ public class UWGameUI : MonoBehaviour
 
     private float gameAreaRight
     {
-        get { return fGetLetterboxMarginPixels() + (226f * scaleX); }
+        get { return fGetLetterboxMarginPixels() + ((226f + UWClassicWide.Extra) * scaleX); }
     }
 
     private float gameAreaTop
@@ -322,9 +325,30 @@ public class UWGameUI : MonoBehaviour
 
         if (!pbOriginalScheme)
         {
+            // CLASSIC WIDE (UWModernClassicFrame): the classic scheme's area, widened. The hole is
+            // shown at the CRT's proportion already, so its raw aspect needs no correction; the
+            // vertical field of view is the original hole's from the horizontal one
+            // (mfOriginalSchemeFov at the corrected aspect), so a wider hole shows more to the
+            // sides and the same up and down.
+            if (UWModernClassicFrame.IsActive)
+            {
+                Rect lOArea = UWModernClassicFrame.CameraRect;
+
+                mOCamera.rect = new Rect(lOArea.x / Screen.width, lOArea.y / Screen.height, lOArea.width / Screen.width, lOArea.height / Screen.height);
+                mOCamera.ResetAspect();
+
+                float lfOriginalAspect = (UWHudArt.ClassicWideCameraRight - UWHudArt.ClassicWideCameraLeft)
+                    / (float)(UWHudArt.ClassicWideCameraBottom - UWHudArt.ClassicWideCameraTop) * VgaPixelAspectCorrection;
+                float lfHalf = Mathf.Tan(mfOriginalSchemeFov * Mathf.Deg2Rad / 2f) / lfOriginalAspect;
+
+                // The view angle set in the Graphics menu, if any (UWViewAngle).
+                mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, 2f * Mathf.Atan(lfHalf) * Mathf.Rad2Deg);
+                return;
+            }
+
             mOCamera.rect = new Rect(0f, 0f, 1f, 1f);
             mOCamera.ResetAspect();
-            mOCamera.fieldOfView = mfDefaultFov;
+            mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, mfDefaultFov);
             return;
         }
 
@@ -347,9 +371,12 @@ public class UWGameUI : MonoBehaviour
         float lfCorrectedAspect = mOCamera.aspect * VgaPixelAspectCorrection / HorizontalPixelFactor;
         mOCamera.aspect = lfCorrectedAspect;
 
+        // The vertical field of view is the original hole's (176 x 121 columns and rows): a hole
+        // widened by UWClassicWide shows more to the sides, the same up and down.
+        float lfHoleAspect = lfCorrectedAspect * (226f - 50f) / (226f + UWClassicWide.Extra - 50f);
         float lfHorizontalFovRad = mfOriginalSchemeFov * Mathf.Deg2Rad;
-        float lfVerticalFovRad = 2f * Mathf.Atan(Mathf.Tan(lfHorizontalFovRad / 2f) / lfCorrectedAspect);
-        mOCamera.fieldOfView = lfVerticalFovRad * Mathf.Rad2Deg;
+        float lfVerticalFovRad = 2f * Mathf.Atan(Mathf.Tan(lfHorizontalFovRad / 2f) / lfHoleAspect);
+        mOCamera.fieldOfView = UWViewAngle.Vertical(lfCorrectedAspect, lfVerticalFovRad * Mathf.Rad2Deg);
     }
 
     /// <summary>Is a projectile spell currently waiting for its target? As long as it is, the left
@@ -560,6 +587,11 @@ public class UWGameUI : MonoBehaviour
         bool lbShowClassicUi = mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original
             || Map.IsMapVisible;
 
+        // THE CLASSIC FRAME WIDENED (UWClassicWide): not over the conversation frame or the big
+        // map; with the help window only as wide as leaves it room.
+        UWClassicWide.Update(mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original,
+            Conversation.mbConversationFrame || Map.IsMapVisible);
+
         mCanvasRoot.SetActive(lbShowClassicUi);
 
         if (!lbShowClassicUi)
@@ -580,6 +612,19 @@ public class UWGameUI : MonoBehaviour
                 ? UWHudRunes.SpellTargetCursor
                 : (int)UWCursors.CursorEnum.Center;
 
+            // The layout editor's arrows (UWModernLayoutEditor.PointerTile, per user 2026-10-10),
+            // as large as the game's own pointers; the middle is where they point.
+            if (Cursor.visible && UWModernLayout.IsEditing && UWModernLayoutEditor.PointerTile >= 0)
+            {
+                Texture2D lOArrow = UWGlyphs.Pointer(UWModernLayoutEditor.PointerTile, Mathf.Max(1, Mathf.FloorToInt(UWUiFit.Scale)));
+
+                if (lOArrow != null)
+                {
+                    Cursor.SetCursor(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f), PointerCursorMode);
+                    return;
+                }
+            }
+
             if (Cursor.visible && mOCursorTextures != null && liModernCursor < mOCursorTextures.Count)
             {
                 Texture2D lOCross = fGetScaledCursor(liModernCursor);
@@ -595,6 +640,8 @@ public class UWGameUI : MonoBehaviour
         // Bar width depends on the aspect ratio - the CanvasScaler already delivers the
         // actual canvas width in the same reference units as GameFrame.
         mGameFrame.localScale = new Vector3(HorizontalPixelFactor, 1f, 1f);
+        mGameFrame.sizeDelta = new Vector2(UWUiFit.FrameWidthUnits + UWClassicWide.Extra, UWUiFit.FrameHeight);
+        fApplyWideFrame();
 
         // The frame slides left while the help window is open (UWHelpLayout): the left bar
         // shrinks by what the right one gains.
@@ -854,10 +901,17 @@ public class UWGameUI : MonoBehaviour
 
         mWeaponImage = fCreateImage("Weapon", mGameFrame, wLeftOffset, -wTopOffset, 1f, 1f, Color.white);
 
+        // The widened frame moves the parts (UWClassicWide); the weapon with the hole's middle.
+        UWClassicWide.Attach(mGameFrame);
+        UWClassicWide.InHole((RectTransform)mWeaponImage.transform);
+
         mBackgroundImage = fCreateImage("Background", mGameFrame, 0f, 0f, 320f, 200f, Color.white);
         fStretch(mBackgroundImage);
 
         Pictures.Build();
+
+        if (Pictures.mWindowPictureImage != null)
+            UWClassicWide.InHole((RectTransform)Pictures.mWindowPictureImage.transform);
 
         mMainFrameImage = fCreateImage("MainFrame", mGameFrame, 0f, 0f, 320f, 200f, Color.white);
         fStretch(mMainFrameImage);
@@ -1295,7 +1349,7 @@ public class UWGameUI : MonoBehaviour
     /// <summary>Below this vitality any damage makes a dragon cover its eyes.</summary>
     private const int CoverVitality = 16;
 
-    private Sprite fGetDragonSprite(int piIndex)
+    internal Sprite fGetDragonSprite(int piIndex)
     {
         Sprite lOSprite;
 
@@ -1534,6 +1588,83 @@ public class UWGameUI : MonoBehaviour
         lOTexture.SetPixels32(fGetTextureInvert(lOSource));
         lOTexture.Apply();
         lOImage.sprite = fToSprite(lOTexture);
+    }
+
+    private int miWideExtraShown;
+
+    private Sprite mOWideSprite;
+
+    private Sprite mOMainSprite;
+
+    /// <summary>
+    /// The frame picture for the width (UWClassicWide): the original's at 320, else MAIN.BYT
+    /// widened by Extra columns (UWHudArt.BuildClassicWideFrame), built when the width changes.
+    /// The conversation frame swaps the picture itself (UWHudConversation), so nothing is set
+    /// while it shows, and after it the picture is set anew.
+    /// </summary>
+    private void fApplyWideFrame()
+    {
+        if (mMainFrameImage == null || mOUWData == null || mOMainTexture == null)
+            return;
+
+        if (Conversation.mbConversationFrame)
+        {
+            miWideExtraShown = -1;
+            return;
+        }
+
+        int liExtra = UWClassicWide.Extra;
+
+        if (liExtra == miWideExtraShown)
+            return;
+
+        miWideExtraShown = liExtra;
+
+        // The background behind the frame is a 320 x 200 picture: stretched over the widened
+        // frame its hole would not fit the frame's, and the frame covers all but its own hole
+        // (per user's screenshot, 2026-10-10: the view did not widen).
+        if (mBackgroundImage != null)
+            mBackgroundImage.enabled = liExtra <= 0;
+
+        if (liExtra <= 0)
+        {
+            if (mOMainSprite == null)
+                mOMainSprite = fToSprite(mOMainTexture);
+
+            mMainFrameImage.sprite = mOMainSprite;
+            return;
+        }
+
+        if (mOWideSprite != null)
+        {
+            Destroy(mOWideSprite.texture);
+            Destroy(mOWideSprite);
+        }
+
+        UWHudArt.ClassicWideFrame lOFrame = UWHudArt.BuildClassicWideFrame(mOUWData.Textures, liExtra);
+        UWPicture lOPicture = lOFrame.Picture;
+        Color32[] lyPixels = new Color32[lOPicture.Pixels.Length];
+
+        // Unity's rows run bottom-up.
+        for (int liRow = 0; liRow < lOPicture.Height; liRow++)
+        {
+            for (int liX = 0; liX < lOPicture.Width; liX++)
+            {
+                UWColor32 lOColour = lOPicture.Get(liX, liRow);
+
+                lyPixels[((lOPicture.Height - 1 - liRow) * lOPicture.Width) + liX] = new Color32(lOColour.R, lOColour.G, lOColour.B, lOColour.A);
+            }
+        }
+
+        Texture2D lOTexture = new Texture2D(lOPicture.Width, lOPicture.Height, TextureFormat.ARGB32, false);
+        lOTexture.name = "UWGameUI classic wide " + liExtra;
+        lOTexture.filterMode = TextureFilterMode;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+        lOTexture.SetPixels32(lyPixels);
+        lOTexture.Apply(false, false);
+
+        mOWideSprite = fToSprite(lOTexture);
+        mMainFrameImage.sprite = mOWideSprite;
     }
 
     internal static Sprite fToSprite(Texture2D pOTexture)

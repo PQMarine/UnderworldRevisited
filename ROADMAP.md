@@ -39,10 +39,16 @@ of what is built was also read out of the original's executable.
 - The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
   a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
   size every part of it, with an inspector for each part's settings - switched with Shift+F2.
-  Interface presets (Modern, or a layout of one's own); the original's compass and message
-  scroll can stand in for the heading text and the message box; every part can wear a
-  background in the original's colours and patterns; the original's pictures keep the pixel
-  proportion of the 4:3 screen they were drawn for
+  Interface presets: Modern; Classic+, the original's own pieces as parts of their own (the
+  compass on its stone disc, the message scroll, the power gem, the flasks, the hollow with the
+  prepared runes, the rune tablet, the stats panel, the character page with the original
+  inventory, the conversation in the original's look, the original's font); Classic Wide, the
+  classic frame stretched over a wide screen at fixed places, the stone grown anew instead of
+  stretched, with the dragons and the pieces on it; or a layout of one's own. Every part can
+  wear a background in the original's colours and patterns; the original's pictures keep the
+  pixel proportion of the 4:3 screen they were drawn for
+- The classic scheme always at 4:3, and optionally widened to the screen the same way as Classic
+  Wide (the conversation and the map stay 4:3); a slider for the view angle of the 3D view
 - The motion of the player, the creatures and everything thrown or shot as the original's
   own code, read out of the executable and run without Unity physics: slopes, ledges, the
   water edge, the deflection off walls, jumping, swimming, levitation and slow fall behave as
@@ -96,11 +102,7 @@ of what is built was also read out of the original's executable.
   lights shade them.
 - **More for the Palette mode.** A shore line along water, a few levels lighter and moving
   with the palette rotation, is an idea that may look odd - not planned yet.
-- **The modern interface from the original's own pieces, further.** The compass and the
-  message scroll are in (suggested on Reddit); still to come are its font and its other pieces
-  (the power gem, the command icons, the movement arrows, the pointers, the conversation frame),
-  and a preset that stretches the classic frame over the whole screen. With the font, an idea
-  from the same thread: the original font traced into outlines, so it stays
+- **The original font traced into outlines** (an idea from Reddit), so it stays
   sharp at any size - either pixel-exact or smoothed, keeping the letter shapes without the
   pixel steps. Generated from the player's own game files at run time, as the font belongs to
   the game.

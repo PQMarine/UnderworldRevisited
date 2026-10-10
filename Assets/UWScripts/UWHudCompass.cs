@@ -225,6 +225,23 @@ public sealed class UWHudCompass
         return lOTexture;
     }
 
+    /// <summary>The composite's top-left corner in the 320x200 frame (BuildComposite's box): where
+    /// it lies to cover the frame's compass exactly (Classic Wide, UWModernClassicFrame).</summary>
+    internal static Vector2Int CompositeCorner()
+    {
+        int liLeft = int.MaxValue;
+        int liTop = int.MaxValue;
+
+        for (int liAt = 0; liAt < CompassBackgroundCount + CompassNeedleCount; liAt++)
+        {
+            fPictureAt(liAt, out int liX, out int liY);
+            liLeft = Mathf.Min(liLeft, liX);
+            liTop = Mathf.Min(liTop, liY);
+        }
+
+        return new Vector2Int(liLeft, liTop);
+    }
+
     /// <summary>The top-left corner of a COMPASS.GR picture in the 320x200 frame: the discs at the
     /// disc's place, the needles at their measured ones.</summary>
     private static void fPictureAt(int piPicture, out int piX, out int piY)

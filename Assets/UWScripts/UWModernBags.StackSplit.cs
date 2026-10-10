@@ -428,7 +428,7 @@ public partial class UWModernBags
         float lfWidth = SplitWidth * liScale;
         float lfHeight = SplitHeight * liScale;
         Rect lOAnchor = mOSplitWindow != null && miSplitSlot >= 0 && miSplitSlot < mOSplitWindow.Slots.Count
-            ? mOSplitWindow.Slots[miSplitSlot].ScreenRect : mOSplitAnchor;
+            ? fSlotRect(mOSplitWindow, miSplitSlot) : mOSplitAnchor;
 
         // Above the stack, below it where the screen ends.
         float lfX = Mathf.Clamp(Mathf.Round(lOAnchor.center.x - (lfWidth * 0.5f)), 0f, Screen.width - lfWidth);

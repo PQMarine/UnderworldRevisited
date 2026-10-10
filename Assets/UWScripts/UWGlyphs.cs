@@ -30,6 +30,12 @@ public static class UWGlyphs
 
     public const int DpadHorizontalTile = 39;
 
+    /// <summary>The orange double arrows: left-right and four ways (the layout editor's pointers,
+    /// per user 2026-10-10).</summary>
+    public const int ArrowLeftRightTile = 611;
+
+    public const int ArrowFourWaysTile = 679;
+
     /// <summary>The controls by their place on the pad, as UWGamepad names them.</summary>
     private static readonly string[] msControls =
     {
@@ -118,13 +124,39 @@ public static class UWGlyphs
         if (msCache.TryGetValue(lsKey, out Texture2D lOCached) && lOCached != null)
             return lOCached;
 
+        Texture2D lOGlyph = fBuild(piTiles, lsKey, false, 2);
+
+        if (lOGlyph != null)
+            msCache[lsKey] = lOGlyph;
+
+        return lOGlyph;
+    }
+
+    /// <summary>A tile as a mouse pointer at piScale times its size (as the game's own pointers,
+    /// UWGameUI), readable as Cursor.SetCursor needs it; null if the sheet is missing.</summary>
+    public static Texture2D Pointer(int piTile, int piScale)
+    {
+        string lsKey = "pointer " + piTile + " x" + piScale;
+
+        if (msCache.TryGetValue(lsKey, out Texture2D lOCached) && lOCached != null)
+            return lOCached;
+
+        Texture2D lOPointer = fBuild(new[] { piTile }, lsKey, true, Mathf.Max(1, piScale));
+
+        if (lOPointer != null)
+            msCache[lsKey] = lOPointer;
+
+        return lOPointer;
+    }
+
+    private static Texture2D fBuild(int[] piTiles, string psKey, bool pbReadable, int piScale)
+    {
         Texture2D lOSheet = fSheet();
 
         if (lOSheet == null)
             return null;
 
-        const int Scale = 2;
-        int liSize = TileSize * Scale;
+        int liSize = TileSize * piScale;
         Color32[] lySheet = lOSheet.GetPixels32();
         Color32[] lyGlyph = new Color32[liSize * liSize];
 
@@ -138,7 +170,7 @@ public static class UWGlyphs
             {
                 for (int x = 0; x < liSize; x++)
                 {
-                    Color32 lOPixel = lySheet[((liBottom + (y / Scale)) * lOSheet.width) + liLeft + (x / Scale)];
+                    Color32 lOPixel = lySheet[((liBottom + (y / piScale)) * lOSheet.width) + liLeft + (x / piScale)];
 
                     if (lOPixel.a > 0)
                         lyGlyph[(y * liSize) + x] = lOPixel;
@@ -148,15 +180,13 @@ public static class UWGlyphs
 
         Texture2D lOGlyph = new Texture2D(liSize, liSize, TextureFormat.RGBA32, false)
         {
-            name = "UWGlyphs " + lsKey,
+            name = "UWGlyphs " + psKey,
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };
 
         lOGlyph.SetPixels32(lyGlyph);
-        lOGlyph.Apply(false, true);
-
-        msCache[lsKey] = lOGlyph;
+        lOGlyph.Apply(false, !pbReadable);
 
         return lOGlyph;
     }

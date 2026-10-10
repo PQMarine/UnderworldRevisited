@@ -363,7 +363,9 @@ public class UWModernMinimap : MonoBehaviour
             float lfY = 2f * liScale;
 
             fSetRect(mOButtons[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
-            fSetRect(mOButtonTexts[liButton].rectTransform, lfX, lfY + (0.3f * liScale), lfButton, lfButton);
+            // The disc's own rect: the sign is centred by its ink (UWCentredGlyph); the old nudge up
+            // by 0.3 put it too high since (per user, 2026-10-09).
+            fSetRect(mOButtonTexts[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
             mOButtonTexts[liButton].fontSize = Mathf.Max(10, Mathf.RoundToInt(5.5f * liScale));
             mOButtons[liButton].enabled = lbMap;
             mOButtonTexts[liButton].enabled = lbMap;
@@ -624,6 +626,8 @@ public class UWModernMinimap : MonoBehaviour
             mOButtons[liButton] = fCreateRawImage(mOViewport, "Zoom " + lsButtons[liButton]);
             mOButtonTexts[liButton] = fCreateText(mOViewport, "Zoom text", TextAnchor.MiddleCenter);
             mOButtonTexts[liButton].text = lsButtons[liButton];
+            // The sign in the disc's middle by its ink, whatever the font (UWCentredGlyph).
+            mOButtonTexts[liButton].gameObject.AddComponent<UWCentredGlyph>();
         }
     }
 
@@ -656,6 +660,7 @@ public class UWModernMinimap : MonoBehaviour
 
         Text lOText = lOObject.GetComponent<Text>();
         lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = msText;
         lOText.raycastTarget = false;

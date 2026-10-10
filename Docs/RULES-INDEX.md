@@ -373,7 +373,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `ovr145_445` | UWHudPanel.cs |
+| `ovr145_445` | UWHudPanel.cs, UWModernStatsPage.cs |
 
 ### ovr150
 

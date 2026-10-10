@@ -114,7 +114,14 @@ public class UWModernScroll
     }
 
     /// <summary>Lines of text the scroll holds: the original's four unless made taller.</summary>
-    public static int Lines => Mathf.Clamp(UWUserSettings.ModernScrollLines > 0 ? UWUserSettings.ModernScrollLines : 4, MinLines, MaxLines);
+    public static int Lines => UWModernClassicFrame.IsActive ? 4
+        : Mathf.Clamp(UWUserSettings.ModernScrollLines > 0 ? UWUserSettings.ModernScrollLines : 4, MinLines, MaxLines);
+
+    /// <summary>Classic Wide: the columns the frame's scroll is wider than the original's.</summary>
+    private static int fWide()
+    {
+        return UWModernClassicFrame.IsActive ? UWModernClassicFrame.Extra : 0;
+    }
 
     public void Build(Transform pORoot)
     {
@@ -180,7 +187,7 @@ public class UWModernScroll
         if (liScrolled > 0)
             miEdgeFrame = UWScrollEdgeRules.Advance(miEdgeFrame, UWScrollEdgeRules.MainFrames, liScrolled);
 
-        int liKey = (liExtra * 100) + miEdgeFrame;
+        int liKey = (((fWide() * 1000) + liExtra) * 100) + miEdgeFrame;
 
         if (!mOPapers.TryGetValue(liKey, out Texture2D lOPaper) || lOPaper == null)
         {
@@ -279,7 +286,7 @@ public class UWModernScroll
                 continue;
             }
 
-            lOLines.AddRange(UWFontRenderer.WrapText(pOFont, lsLine, PaperWidth));
+            lOLines.AddRange(UWFontRenderer.WrapText(pOFont, lsLine, PaperWidth + fWide()));
         }
 
         int liRoom = pOInteraction.IsWaitingForPage ? piLines - 1 : piLines;
@@ -326,22 +333,40 @@ public class UWModernScroll
     /// </summary>
     private Texture2D fBuildPaper(int piExtra, int piEdgeFrame)
     {
-        UWTexture lOMain;
+        UWColor32[] lOColours;
+        int liWidth;
+        int liWide = 0;
+        UWPicture lOFrame = UWModernClassicFrame.IsActive && UWModernClassicFrame.Instance != null ? UWModernClassicFrame.Instance.Picture : null;
 
-        try
+        if (lOFrame != null)
         {
-            lOMain = mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.MAIN, 0);
+            // CLASSIC WIDE: the widened frame's own bottom rows; the right knobs, the right edge and
+            // the pedestal's patch lie where its parts moved.
+            lOColours = lOFrame.Pixels;
+            liWidth = lOFrame.Width;
+            liWide = liWidth - 320;
         }
-        catch
+        else
         {
-            return null;
+            UWTexture lOMain;
+
+            try
+            {
+                lOMain = mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.MAIN, 0);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (lOMain == null || lOMain.Width != 320 || lOMain.Height < SourceTop + SourceRows)
+                return null;
+
+            lOColours = lOMain.GetUWColor32();
+            liWidth = lOMain.Width;
         }
 
-        if (lOMain == null || lOMain.Width != 320 || lOMain.Height < SourceTop + SourceRows)
-            return null;
-
-        UWColor32[] lOColours = lOMain.GetUWColor32();
-        int liWidth = lOMain.Width;
+        int liShift = liWide / 2;
         int liHeight = SourceRows + piExtra;
         Color32[] lOTopDown = new Color32[liWidth * liHeight];
         Color32 lOPaper = UWColourVision.Apply(msPaper);
@@ -352,8 +377,8 @@ public class UWModernScroll
 
             for (int liX = 0; liX < liWidth; liX++)
             {
-                int liFrom = liSource == SourceTop && liX >= PedestalLeft && liX <= PedestalRight ? liX - PedestalPatch : liX;
-                int liFromRow = liSource <= UpperKnobLast && (liX <= KnobLeftEnd || liX >= KnobRightStart) ? liSource + LowerKnobOffset : liSource;
+                int liFrom = liSource == SourceTop && liX >= PedestalLeft + liShift && liX <= PedestalRight + liShift ? liX - PedestalPatch : liX;
+                int liFromRow = liSource <= UpperKnobLast && (liX <= KnobLeftEnd || liX >= KnobRightStart + liWide) ? liSource + LowerKnobOffset : liSource;
                 int liAt = (liFromRow * liWidth) + liFrom;
                 UWColor32 lOColour = lOColours[liAt];
 
@@ -366,12 +391,12 @@ public class UWModernScroll
 
         for (int liRow = PaperTop - SourceTop; liRow < PaperTop - SourceTop + PaperRows + piExtra; liRow++)
         {
-            for (int liX = PaperLeft; liX < PaperLeft + PaperWidth; liX++)
+            for (int liX = PaperLeft; liX < PaperLeft + PaperWidth + liWide; liX++)
                 lOTopDown[(liRow * liWidth) + liX] = lOPaper;
         }
 
         fLayEdge(lOTopDown, liWidth, UWScrollEdgeRules.GetMainLeftImage(piEdgeFrame), EdgeLeftX, piExtra);
-        fLayEdge(lOTopDown, liWidth, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame), EdgeRightX, piExtra);
+        fLayEdge(lOTopDown, liWidth, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame), EdgeRightX + liWide, piExtra);
 
         // Unity's rows run bottom-up.
         Color32[] lOBottomUp = new Color32[lOTopDown.Length];

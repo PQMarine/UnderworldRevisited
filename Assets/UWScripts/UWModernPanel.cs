@@ -110,10 +110,8 @@ public class UWModernPanel : MonoBehaviour
 
     private const float SkillRowHeight = 6f;
 
-    /// <summary>Where the original draws the body and the armour (UWGameUI's paperdoll offsets),
-    /// in MAIN.BYT pixels, rows from the top.</summary>
-    private static readonly Vector2Int msBodyAt = new Vector2Int(260, 11);
-
+    /// <summary>Where the original draws the armour (UWGameUI's paperdoll offsets), in MAIN.BYT
+    /// pixels, rows from the top; the body's place the freed figure brings itself.</summary>
     private static readonly Vector2Int msHelmetAt = new Vector2Int(267, 10);
 
     private static readonly Vector2Int msGlovesAt = new Vector2Int(261, 42);
@@ -366,8 +364,9 @@ public class UWModernPanel : MonoBehaviour
     private bool fIsShown()
     {
         // In a conversation as well, for the trade (UWModernConversation).
+        // Not in Classic Wide: the frame's panel is the original's (UWModernClassicFrame).
         return fIsModern() && UWModernHud.Instance != null && (UWModernHud.Instance.IsShowing || UWModernHud.Instance.IsTalking)
-            && mOUi != null && mOUi.mOUWData != null && mOCharacter != null;
+            && mOUi != null && mOUi.mOUWData != null && mOCharacter != null && !UWModernLayout.IsClassic;
     }
 
     private DataImport fData()
@@ -382,14 +381,21 @@ public class UWModernPanel : MonoBehaviour
 
     /// <summary>The open panel on the screen with its tab row, empty while it is shut - the
     /// minimap hides under it, the bags keep beside it.</summary>
-    public Rect OpenRect => fIsShown() && mbOpen && mfShown > 0.5f && mOPanelRect.width > 0f
+    public Rect OpenRect => fIsShown() && !fHiddenForPage() && mbOpen && mfShown > 0.5f && mOPanelRect.width > 0f
         ? new Rect(mOPanelRect.x, mOPanelRect.y, mOPanelRect.width, mOPanelRect.height + ((TabHeaderHeight - 2) * miScale))
         : Rect.zero;
 
     /// <summary>Whether the Character tab is out, its paperdoll taking things.</summary>
     private bool fIsPageOut()
     {
-        return fIsShown() && mbOpen && meTab == TabEnum.Character && mfShown > mfWidth * 0.5f;
+        return fIsShown() && !fHiddenForPage() && mbOpen && meTab == TabEnum.Character && mfShown > mfWidth * 0.5f;
+    }
+
+    /// <summary>With the original's character page (UWModernInventoryPage) this panel only shows
+    /// the help (per user, 2026-10-10: the original panels instead of ours).</summary>
+    private bool fHiddenForPage()
+    {
+        return UWModernLayout.IsCharacterPageShown && !(mbOpen && meTab == TabEnum.Help);
     }
 
     /// <summary>Whether a screen point lies on the panel or its handle - nothing goes into the
@@ -506,7 +512,7 @@ public class UWModernPanel : MonoBehaviour
 
         // Pinned: out on the Character tab. The help is left alone -
         // restored open with a save game, the check below turns to it.
-        if (Pinned && !mbOpen)
+        if (Pinned && !mbOpen && !UWModernLayout.IsCharacterPageShown)
         {
             mbOpen = true;
             meTab = TabEnum.Character;
@@ -615,7 +621,7 @@ public class UWModernPanel : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!fIsShown())
+        if (!fIsShown() || fHiddenForPage())
         {
             if (mOCanvas != null)
                 mOCanvas.enabled = false;
@@ -870,11 +876,12 @@ public class UWModernPanel : MonoBehaviour
         mOPage.enabled = true;
         fSetRect(mOPage.rectTransform, mOPageRect.x, mOPageRect.y, mOPageRect.width, mOPageRect.height);
 
-        // Body and armour in the classic order (UWGameUI.fBuildCanvas).
-        // On a back of the panel's own the figure loses the copper it was painted on (per user,
-        // 2026-10-09: it stood in a box of copper, and helmets carried the page with them): body
-        // and armour put together as one picture and freed from the page.
-        if (UWModernBacks.Get(UWModernLayout.ElementEnum.CharacterPanel).Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None)
+        // Body and armour in the classic order (UWGameUI.fBuildCanvas), put together as one picture
+        // and freed from the page they were painted on. On a back of the panel's own (per user,
+        // 2026-10-09: it stood in a box of copper, and helmets carried the page with them) - and
+        // since 2026-10-10 on the leather as well: the body picture is a rectangle of the page with
+        // the two ring holes at its edges, and narrowed to the original's proportion they stood
+        // beside the page's own, twice on each side (per user).
         {
             UWTextures lOTextures = fData().Textures;
             UWTexture[] lOPieces =
@@ -901,15 +908,6 @@ public class UWModernPanel : MonoBehaviour
 
             for (int liPart = 1; liPart < mOArmour.Length; liPart++)
                 mOArmour[liPart].enabled = false;
-        }
-        else
-        {
-            fPlaceOnPage(mOArmour[0], lOCharacter.CharTexture, msBodyAt);
-            fPlaceOnPage(mOArmour[1], lOCharacter.HelmetTexture, msHelmetAt);
-            fPlaceOnPage(mOArmour[2], lOCharacter.GlovesTexture, msGlovesAt);
-            fPlaceOnPage(mOArmour[3], lOCharacter.LegsArmorTexture, msLegsAt);
-            fPlaceOnPage(mOArmour[4], lOCharacter.ChestArmorTexture, msChestAt);
-            fPlaceOnPage(mOArmour[5], lOCharacter.BootsTexture, msBootsAt);
         }
 
         // The things in the hands, on the shoulders and on the fingers.
@@ -1431,6 +1429,7 @@ public class UWModernPanel : MonoBehaviour
 
         Text lOText = lOObject.GetComponent<Text>();
         lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = pOColour;
         lOText.raycastTarget = false;

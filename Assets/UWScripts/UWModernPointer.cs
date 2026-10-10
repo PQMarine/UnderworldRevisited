@@ -170,7 +170,8 @@ public static class UWModernPointer
             || (UWModernQuestion.Instance != null && UWModernQuestion.Instance.Contains(pOPointer))
             || (UWModernHud.Instance != null && UWModernHud.Instance.IsOverSpellIcons(pOPointer))
             || (UWModernMinimap.Instance != null && UWModernMinimap.Instance.Contains(pOPointer))
-            || (UWModernActionBar.Instance != null && UWModernActionBar.Instance.ScreenRect.Contains(pOPointer));
+            || (UWModernActionBar.Instance != null && UWModernActionBar.Instance.ScreenRect.Contains(pOPointer))
+            || (UWModernClassicFrame.Instance != null && UWModernClassicFrame.Instance.IsOverFrame(pOPointer));
     }
 
     /// <summary>The right button, read once a frame by UWModernHud.</summary>

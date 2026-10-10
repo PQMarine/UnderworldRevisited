@@ -33,8 +33,9 @@ using UWDataImport.UWData;
 /// conversation, no dimming, the bags and panels left as they are.
 ///
 /// THE TEXT SIZE of the history and the answers has its own setting (per user, the same day: at
-/// small UI sizes there is much room): - and + with a font sign between them in the history's top
-/// right corner, 70 to 200 percent, kept in the settings (UWUserSettings.ConversationTextPercent).
+/// small UI sizes there is much room), 70 to 200 percent, kept in the settings
+/// (UWUserSettings.ConversationTextPercent) - set in the layout editor's inspector only, no more in
+/// the game (per user, 2026-10-10).
 /// </summary>
 public class UWModernConversation : MonoBehaviour
 {
@@ -75,8 +76,8 @@ public class UWModernConversation : MonoBehaviour
 
     private static float TextSize => BaseTextSize * TextPercent / 100f;
 
-    /// <summary>The text size chosen with the - and + of the history, in percent.</summary>
-    private static int TextPercent
+    /// <summary>The text size chosen in the layout editor's inspector, in percent.</summary>
+    public static int TextPercent
     {
         get
         {
@@ -86,30 +87,25 @@ public class UWModernConversation : MonoBehaviour
         }
     }
 
-    private const int MinTextPercent = 70;
+    /// <summary>The canvas: a conversation under the character panel (41), the bags (42) and the
+    /// thing on the pointer; the layout editor's preview over every part, under the editor's own
+    /// frames (UWModernLayoutEditor, 47).</summary>
+    private const int SortingOrder = 39;
 
-    private const int MaxTextPercent = 200;
+    private const int PreviewSortingOrder = 46;
 
-    private const int TextPercentStep = 10;
+    public const int MinTextPercent = 70;
 
-    /// <summary>The size buttons, original pixels: square, and the room the history's text keeps
-    /// free above for them.</summary>
-    private const int SizeButton = 9;
+    public const int MaxTextPercent = 200;
 
-    private const int HistoryTopPad = 14;
+    public const int TextPercentStep = 10;
 
-    /// <summary>- , the font sign, + : the two buttons' screen rects (the sign is no button).</summary>
-    private readonly Rect[] mOSizeRects = new Rect[2];
-
-    private readonly RawImage[] mOSizeBacks = new RawImage[2];
-
-    private readonly Text[] mOSizeTexts = new Text[3];
+    /// <summary>The room above the history's text, original pixels.</summary>
+    private const int HistoryTopPad = 6;
 
     private static readonly Color msNpc = new Color32(240, 222, 180, 255);
 
     private static readonly Color msTitle = new Color32(150, 138, 116, 255);
-
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
 
     private static readonly Color msHover = new Color(1f, 0.92f, 0.69f, 1f);
 
@@ -120,6 +116,101 @@ public class UWModernConversation : MonoBehaviour
     private const string NarratorHex = "#BEB096";
 
     private const string NumberHex = "#ECC470";
+
+    // --- THE ORIGINAL'S LOOK (UWModernLayout.IsConversationOriginal; per user, 2026-10-10: "free
+    //     the conversation UI"; the vines beside the parchment hang on the view's bars and stay
+    //     with the dragons; the player's lines get a parchment of their own, always the same size;
+    //     the history scrolls, no [MORE]). Original pixels from the block's top left, which is
+    //     CONV.BYT's 43/0 (UWHudArt.ConversationHeader); everything at the original's proportion.
+    private const int OrigWidth = 190;
+
+    private const int OrigHeaderRows = 47;
+
+    private const int OrigParchmentX = 42 - 43;
+
+    private const int OrigParchmentTop = 47;
+
+    private const int OrigParchmentRows = 89;
+
+    private const int OrigAnswersTop = OrigParchmentTop + OrigParchmentRows - 2;
+
+    /// <summary>The answers' parchment's height - always the same, the answers' text made to fit
+    /// (fLayoutOriginal; per user, 2026-10-10: the block keeps the size it is set to).</summary>
+    private const int OrigAnswersRows = 52;
+
+    /// <summary>The rows under the answers kept free of text (the lower rollers' rim), and the
+    /// smallest the answers' text is made.</summary>
+    private const int OrigAnswerBottom = 8;
+
+    private const int MinAnswerFont = 6;
+
+
+    /// <summary>The history's place on the parchment (UWConversationScreen: 59/53, 159 x 78).</summary>
+    private const int OrigTextX = 59 - 43;
+
+    private const int OrigTextTop = 53;
+
+    private const int OrigTextWidth = 159;
+
+    private const int OrigTextRows = 78;
+
+    /// <summary>The answers' first row on their parchment.</summary>
+    private const int OrigAnswerTextTop = OrigAnswersTop + 7;
+
+    /// <summary>The names on the plates (UWConversationScreen: 48/2 and 144/2, 88 wide).</summary>
+    private static readonly int[] miOrigNameX = { 48 - 43, 144 - 43 };
+
+    private const int OrigNameWidth = 88;
+
+    /// <summary>The portraits (UWConversationScreen: 45/11 and 197/11).</summary>
+    private static readonly int[] miOrigPortraitX = { 45 - 43, 197 - 43 };
+
+    private const int OrigPortraitTop = 11;
+
+    /// <summary>The trade slots (UWConversationScreen's tables: the partner's from 91/11, the
+    /// player's from 148/11, 21 apart, the lower row on 29), 16 wide, a click answering on 17.</summary>
+    private static readonly Vector2Int[] miOrigSlots =
+    {
+        new Vector2Int(91 - 43, 11), new Vector2Int(112 - 43, 11), new Vector2Int(91 - 43, 29), new Vector2Int(112 - 43, 29),
+        new Vector2Int(148 - 43, 11), new Vector2Int(169 - 43, 11), new Vector2Int(148 - 43, 29), new Vector2Int(169 - 43, 29)
+    };
+
+    private const int OrigSlotSize = 16;
+
+    /// <summary>The original's colours: the names (#8C8CA8, CONV.BYT's sample), the partner's text
+    /// (#3C2820), the player's (#883E14), the narrator's (black) - UWConversationScreen.</summary>
+    private static readonly Color msOrigName = new Color32(140, 140, 168, 255);
+
+    private const string OrigNpcHex = "#3C2820";
+
+    private const string OrigPlayerHex = "#883E14";
+
+    private const string OrigNarratorHex = "#000000";
+
+    private static readonly Color msOrigText = new Color32(0x3C, 0x28, 0x20, 255);
+
+    private static readonly Color msOrigHover = new Color32(0x88, 0x3E, 0x14, 255);
+
+    private Texture2D mOOrigHeader;
+
+    private Texture2D mOOrigParchment;
+
+    private Texture2D mOOrigAnswers;
+
+    /// <summary>Whether the pieces were built with their outline; they are a pixel larger each way
+    /// (UWHudArt.PadAndOutline), so they lie a pixel up and left.</summary>
+    private bool mbOrigOutline;
+
+    private int miOrigAnswersRows = -1;
+
+    /// <summary>The answers' one text size in the original look, measured on the worst case, and
+    /// what it was measured for (text size, width, room, scale, face).</summary>
+    private int miOrigAnswerSize;
+
+    private string msOrigWorstKey;
+
+    /// <summary>Whether the history text was last built in the original's colours.</summary>
+    private bool mbHistoryOriginal;
 
     private UWGameUI mOUi;
 
@@ -235,7 +326,21 @@ public class UWModernConversation : MonoBehaviour
         new UWConversationSession.Line { Text = "Shak turns the blade over in his hands." }
     };
 
-    private static readonly string[] msPreviewChoices = { "What would thou want for it?", "Never mind.", "Goodbye." };
+    /// <summary>
+    /// The preview's answers: placeholder text as long as the original's longest ones, so the
+    /// block can be sized for the worst case (per user, 2026-10-10; Lorem ipsum, not the real
+    /// lines, to spoil nothing). From the menu lists built before every babl_menu / babl_fmenu
+    /// call: the longest answer has 155 characters (conv 4), the longest of four in one menu 58,
+    /// 52, 52 and 26 (conv 3). Here the longest answer with the three next of that four-answer
+    /// menu - a bit more than any real menu, so whatever fits here fits in the game.
+    /// </summary>
+    private static readonly string[] msPreviewChoices =
+    {
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minima veniam, quis.",
+        "Duis aute irure dolor in reprehenderit in voluptate velit.",
+        "Sed ut perspiciatis unde omnis iste natus error sit.",
+        "Excepteur sint occaecat cupidatat non proident, sed."
+    };
 
     /// <summary>The preview: Shak at his forge (CHARHEAD 1), the player's own portrait and name.</summary>
     private View fPreviewView()
@@ -406,23 +511,6 @@ public class UWModernConversation : MonoBehaviour
         // The wheel over the history scrolls it (older lines upwards).
         Vector2 lOPointer = Mouse.current.position.ReadValue();
 
-        // - and + change the text size.
-        if (Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            for (int liButton = 0; liButton < 2; liButton++)
-            {
-                if (!mOSizeRects[liButton].Contains(lOPointer))
-                    continue;
-
-                int liPercent = Mathf.Clamp(TextPercent + (liButton == 0 ? -TextPercentStep : TextPercentStep), MinTextPercent, MaxTextPercent);
-
-                if (liPercent != TextPercent)
-                {
-                    UWUserSettings.ConversationTextPercent = liPercent;
-                    UWUserSettings.Save();
-                }
-            }
-        }
         float lfWheel = Mouse.current.scroll.ReadValue().y;
 
         if (Mathf.Abs(lfWheel) > 0.01f && mOHistoryRect.Contains(lOPointer) && mOHistory != null)
@@ -468,9 +556,6 @@ public class UWModernConversation : MonoBehaviour
 
         for (int liAt = 0; liAt < mOSlotRects.Length; liAt++)
             mOSlotRects[liAt] = Rect.zero;
-
-        mOSizeRects[0] = Rect.zero;
-        mOSizeRects[1] = Rect.zero;
 
         UWModernBags lOBags = UWModernBags.Instance;
 
@@ -523,6 +608,13 @@ public class UWModernConversation : MonoBehaviour
 
         mOCanvas.enabled = true;
 
+        // The editor's preview over every other part (per user, 2026-10-10), the real
+        // conversation under the panel and the bags.
+        int liSorting = lOScreen == null ? PreviewSortingOrder : SortingOrder;
+
+        if (mOCanvas.sortingOrder != liSorting)
+            mOCanvas.sortingOrder = liSorting;
+
         if (miArtVersion != UWModernBacks.ArtVersion)
         {
             fForgetArt();
@@ -555,6 +647,15 @@ public class UWModernConversation : MonoBehaviour
             lfRight = Mathf.Min(lfRight, UWModernBags.Instance.LeftEdge);
 
         float lfLeft = Margin * UWModernHud.PixelScale;
+
+        if (UWModernLayout.IsConversationOriginal)
+        {
+            fLayoutOriginal(lOView, lfLeft, lfRight - (Margin * UWModernHud.PixelScale), lfScale);
+            return;
+        }
+
+        fShowModernParts(true);
+
         float lfAvailable = lfRight - (Margin * UWModernHud.PixelScale) - lfLeft;
         int liWidth = Mathf.Clamp(Mathf.FloorToInt(lfAvailable / lfScale), MinWidth, MaxWidth);
         float lfX = Mathf.Round(lfLeft + Mathf.Max(0f, (lfAvailable - (liWidth * lfScale)) * 0.5f));
@@ -751,24 +852,12 @@ public class UWModernConversation : MonoBehaviour
         float lfViewX = pfX + (Pad * pfScale);
         float lfViewTop = pfTop + (HistoryTopPad * pfScale);
 
-        fLayoutSizeButtons(pfX, pfTop, piWidth, pfScale);
-
         fSetRect(mOViewport, lfViewX, Screen.height - lfViewTop - lfViewHeight, lfViewWidth, lfViewHeight);
         mOHistoryRect = fScreenRect(pfX, pfTop, piWidth * pfScale, piHeight * pfScale);
 
         int liFontSize = Mathf.Max(10, Mathf.RoundToInt(TextSize * pfScale));
 
-        if (pOView.Lines.Count != miLinesShown || liFontSize != miHistoryFontSize)
-        {
-            // New lines: back to the newest.
-            if (pOView.Lines.Count != miLinesShown)
-                mfScroll = 0f;
-
-            miLinesShown = pOView.Lines.Count;
-            miHistoryFontSize = liFontSize;
-            mOHistory.fontSize = liFontSize;
-            mOHistory.text = fHistoryText(pOView.Lines, liFontSize);
-        }
+        fFillHistory(pOView, liFontSize, false);
 
         mOHistory.rectTransform.sizeDelta = new Vector2(lfViewWidth, 10f);
 
@@ -801,45 +890,26 @@ public class UWModernConversation : MonoBehaviour
         }
     }
 
-    /// <summary>- , the font sign and + in the history's top right corner, gold under the pointer.</summary>
-    private void fLayoutSizeButtons(float pfX, float pfTop, int piWidth, float pfScale)
+    /// <summary>The history's text anew when lines came, the size or the look changed.</summary>
+    private void fFillHistory(View pOView, int piFontSize, bool pbOriginal)
     {
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
-        float lfRight = pfX + ((piWidth - Pad) * pfScale);
-        float lfTop = pfTop + (3 * pfScale);
-        float lfButton = SizeButton * pfScale;
-        float lfSign = 12f * pfScale;
-        float[] lfLefts = { lfRight - (2 * lfButton) - lfSign, lfRight - lfButton - lfSign, lfRight - lfButton };
-        string[] lsLabels = { "-", "Aa", "+" };
+        if (pOView.Lines.Count == miLinesShown && piFontSize == miHistoryFontSize && pbOriginal == mbHistoryOriginal)
+            return;
 
-        for (int liAt = 0; liAt < 3; liAt++)
-        {
-            bool lbButton = liAt != 1;
-            float lfWidth = lbButton ? lfButton : lfSign;
-            Rect lORect = fScreenRect(lfLefts[liAt], lfTop, lfWidth, lfButton);
-            int liButton = liAt == 0 ? 0 : 1;
-            bool lbAtEnd = lbButton && (liAt == 0 ? TextPercent <= MinTextPercent : TextPercent >= MaxTextPercent);
-            bool lbHover = lbButton && !lbAtEnd && lORect.Contains(lOPointer);
+        // New lines: back to the newest.
+        if (pOView.Lines.Count != miLinesShown)
+            mfScroll = 0f;
 
-            if (lbButton)
-            {
-                mOSizeRects[liButton] = lORect;
-                fSetLeather(mOSizeBacks[liButton], SizeButton, SizeButton);
-                fPlace(mOSizeBacks[liButton].rectTransform, lfLefts[liAt], lfTop, SizeButton, SizeButton, pfScale);
-            }
-
-            Text lOText = mOSizeTexts[liAt];
-
-            lOText.text = lsLabels[liAt];
-            lOText.fontSize = Mathf.Max(9, Mathf.RoundToInt((liAt == 1 ? 4.2f : 5.2f) * pfScale));
-            lOText.color = lbAtEnd ? msTitle : lbHover ? msHover : msGold;
-            fSetRect(lOText.rectTransform, lORect.x, lORect.y + (0.5f * pfScale), lORect.width, lORect.height);
-        }
+        miLinesShown = pOView.Lines.Count;
+        miHistoryFontSize = piFontSize;
+        mbHistoryOriginal = pbOriginal;
+        mOHistory.fontSize = piFontSize;
+        mOHistory.text = fHistoryText(pOView.Lines, piFontSize, pbOriginal);
     }
 
     /// <summary>The history as rich text: each speaker in its colour, the player's answers
     /// indented, a little room between the entries; the original's page marks go.</summary>
-    private static string fHistoryText(IReadOnlyList<UWConversationSession.Line> pOLines, int piFontSize)
+    private static string fHistoryText(IReadOnlyList<UWConversationSession.Line> pOLines, int piFontSize, bool pbOriginal = false)
     {
         StringBuilder lOText = new StringBuilder();
         string lsGap = "\n<size=" + Mathf.Max(2, piFontSize / 3) + "> </size>\n";
@@ -856,7 +926,9 @@ public class UWModernConversation : MonoBehaviour
             if (lOText.Length > 0)
                 lOText.Append(lsGap);
 
-            string lsHex = lOLine.IsNpc ? NpcHex : lOLine.IsPlayer ? PlayerHex : NarratorHex;
+            string lsHex = pbOriginal
+                ? (lOLine.IsNpc ? OrigNpcHex : lOLine.IsPlayer ? OrigPlayerHex : OrigNarratorHex)
+                : (lOLine.IsNpc ? NpcHex : lOLine.IsPlayer ? PlayerHex : NarratorHex);
 
             if (lOLine.IsPlayer)
                 lsText = "    " + lsText.Replace("\n", "\n    ");
@@ -871,10 +943,13 @@ public class UWModernConversation : MonoBehaviour
 
     /// <summary>Fills the rows - the answers, a typed answer or a look text - and returns their
     /// height in screen pixels.</summary>
-    private float fLayoutAnswerTexts(View pOView, int piWidth, float pfScale)
+    private float fLayoutAnswerTexts(View pOView, int piWidth, float pfScale, bool pbOriginal = false, float pfRowWidth = -1f,
+        int piFontSize = -1)
     {
-        float lfRowWidth = (piWidth - (2 * Pad) - 4) * pfScale;
-        int liFontSize = Mathf.Max(10, Mathf.RoundToInt(TextSize * pfScale));
+        float lfRowWidth = pfRowWidth > 0f ? pfRowWidth : (piWidth - (2 * Pad) - 4) * pfScale;
+        string lsNumber = pbOriginal ? OrigNpcHex : NumberHex;
+        string lsLookHex = pbOriginal ? OrigNpcHex : NpcHex;
+        int liFontSize = piFontSize > 0 ? piFontSize : Mathf.Max(10, Mathf.RoundToInt(TextSize * pfScale));
         string lsLook = pOView.LookText;
         IReadOnlyList<string> lOChoices = pOView.Choices;
         List<string> lOTexts = new List<string>();
@@ -884,19 +959,19 @@ public class UWModernConversation : MonoBehaviour
 
         if (lsLook != null)
         {
-            lOTexts.Add("<color=" + NpcHex + ">" + lsLook + "</color>");
+            lOTexts.Add("<color=" + lsLookHex + ">" + lsLook + "</color>");
         }
         else if (pOView.Typing)
         {
             bool lbCaret = Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f;
 
-            lOTexts.Add("<color=" + NumberHex + ">></color>  " + (pOView.TypedAnswer ?? string.Empty) + (lbCaret ? "_" : " "));
+            lOTexts.Add("<color=" + lsNumber + ">></color>  " + (pOView.TypedAnswer ?? string.Empty) + (lbCaret ? "_" : " "));
             mOInputBack.enabled = true;
         }
         else
         {
             for (int liChoice = 0; liChoice < lOChoices.Count && liChoice < MaxRows; liChoice++)
-                lOTexts.Add("<color=" + NumberHex + ">" + (liChoice + 1) + ".</color>  " + lOChoices[liChoice]);
+                lOTexts.Add("<color=" + lsNumber + ">" + (liChoice + 1) + ".</color>  " + lOChoices[liChoice]);
 
             miRowsShown = lOTexts.Count;
         }
@@ -918,6 +993,7 @@ public class UWModernConversation : MonoBehaviour
 
             mORows[liRow].text = lOTexts[liRow];
             mORows[liRow].fontSize = liFontSize;
+            UWUiFonts.ApplyNow(mORows[liRow]);
             mORows[liRow].rectTransform.sizeDelta = new Vector2(lfRowWidth, 10f);
 
             float lfRow = Mathf.Ceil(mORows[liRow].preferredHeight);
@@ -1049,6 +1125,259 @@ public class UWModernConversation : MonoBehaviour
             Destroy(mOSlotTexture);
 
         mOSlotTexture = null;
+
+        foreach (Texture2D lOTexture in new[] { mOOrigHeader, mOOrigParchment, mOOrigAnswers })
+        {
+            if (lOTexture != null)
+                Destroy(lOTexture);
+        }
+
+        mOOrigHeader = null;
+        mOOrigParchment = null;
+        mOOrigAnswers = null;
+        miOrigAnswersRows = -1;
+    }
+
+    // ------------------------------------------------- The original's look
+
+    /// <summary>The modern look's own parts on or off (the original's look leaves them out).</summary>
+    private void fShowModernParts(bool pbShown)
+    {
+        for (int liSide = 0; liSide < 2; liSide++)
+        {
+            mOFrames[liSide].enabled = pbShown;
+            mOTradeBacks[liSide].enabled = pbShown;
+            mOTradeTitles[liSide].enabled = pbShown;
+            mONames[liSide].alignment = pbShown ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft;
+        }
+
+        foreach (RawImage lOCircle in mOCircles)
+            lOCircle.color = pbShown ? Color.white : Color.clear;
+
+        // The texts on the parchment flat, as in the original: the modern dark outline smeared the
+        // dark letters on it (per user, 2026-10-10: "the normal text can hardly be read").
+        mOHistory.GetComponent<Outline>().enabled = pbShown;
+
+        foreach (Text lOText in mORows)
+            lOText.GetComponent<Outline>().enabled = pbShown;
+
+        if (pbShown)
+            mOInputBack.color = new Color(0.10f, 0.06f, 0.03f, 0.85f);
+
+        if (!pbShown)
+        {
+            mOScrollTrack.enabled = false;
+            mOScrollThumb.enabled = false;
+        }
+    }
+
+    /// <summary>A part of the original's look at its place in the block (original pixels from the
+    /// block's top left; x and widths at the original's proportion).</summary>
+    private void fPlaceOrig(RectTransform pORect, Rect pOBlock, float pfX, float pfTop, float pfWidth, float pfHeight, float pfScale)
+    {
+        float lfAspect = pfScale * UWModernHudArt.PixelAspectX;
+
+        fSetRect(pORect, pOBlock.x + (pfX * lfAspect), pOBlock.yMax - ((pfTop + pfHeight) * pfScale), pfWidth * lfAspect, pfHeight * pfScale);
+    }
+
+    private Rect fOrigRect(Rect pOBlock, float pfX, float pfTop, float pfWidth, float pfHeight, float pfScale)
+    {
+        float lfAspect = pfScale * UWModernHudArt.PixelAspectX;
+
+        return new Rect(pOBlock.x + (pfX * lfAspect), pOBlock.yMax - ((pfTop + pfHeight) * pfScale), pfWidth * lfAspect, pfHeight * pfScale);
+    }
+
+    /// <summary>
+    /// THE CONVERSATION IN THE ORIGINAL'S LOOK: CONV.BYT's top (UWHudArt.BuildConversationHeader)
+    /// with the names on the plates, the portraits in their frames and the traded things in the
+    /// two areas' circles at the original's places; the parchment under it with the history (the
+    /// original's colours, scrolling with the wheel, no [MORE]); a lower parchment of a fixed size
+    /// under that with the answers. The block where the layout editor puts it - by default
+    /// centred in the room left of the panels, at the top.
+    /// </summary>
+    private void fLayoutOriginal(View pOView, float pfLeft, float pfRight, float pfScale)
+    {
+        fShowModernParts(false);
+
+        UWDataImport.DataImport lOData = mOUi.mOUWData;
+        bool lbOutline = !UWUserSettings.ModernConversationNoOutline;
+
+        if (lbOutline != mbOrigOutline)
+        {
+            foreach (Texture2D lOOld in new[] { mOOrigHeader, mOOrigParchment, mOOrigAnswers })
+            {
+                if (lOOld != null)
+                    Destroy(lOOld);
+            }
+
+            mOOrigHeader = null;
+            mOOrigParchment = null;
+            mOOrigAnswers = null;
+            miOrigAnswersRows = -1;
+            mbOrigOutline = lbOutline;
+        }
+
+        if (mOOrigHeader == null)
+            mOOrigHeader = UWModernHudArt.BuildConversationHeader(lOData.Textures, mOUi.TextureFilterMode, lbOutline);
+
+        if (mOOrigParchment == null)
+            mOOrigParchment = UWModernHudArt.BuildConversationParchment(lOData.Textures, OrigParchmentRows, mOUi.TextureFilterMode, false, lbOutline);
+
+        float lfAspect = pfScale * UWModernHudArt.PixelAspectX;
+        float lfRowWidth = OrigTextWidth * lfAspect;
+
+        // THE BLOCK KEEPS ITS SIZE (per user, 2026-10-10: "in this look one sets the size and it
+        // stays"): the answers' parchment is always OrigAnswersRows high, and the answers' text
+        // is made smaller, a step at a time, until they all fit in it - never larger than the
+        // conversation's text size. ONE SIZE FOR EVERY MENU (per user, the same day: the size
+        // changing with the answers offered was not liked; this look only, the modern one keeps
+        // growing with its answers): measured on the worst case, the preview's answers
+        // (msPreviewChoices, a bit more than any real menu), so every real menu fits at it. Only
+        // what is longer still (a look text) is made smaller again.
+        int liFontSize = Mathf.Max(10, Mathf.RoundToInt(TextSize * pfScale));
+        int liAnswersRows = OrigAnswersRows;
+        float lfRoom = (liAnswersRows - (OrigAnswerTextTop - OrigAnswersTop) - OrigAnswerBottom) * pfScale;
+        string lsWorstKey = liFontSize + "/" + lfRowWidth + "/" + lfRoom + "/" + pfScale + "/" + UWUiFonts.Face;
+
+        if (lsWorstKey != msOrigWorstKey)
+        {
+            View lOWorst = new View { Choices = msPreviewChoices };
+
+            miOrigAnswerSize = liFontSize;
+
+            while (fLayoutAnswerTexts(lOWorst, OrigWidth, pfScale, true, lfRowWidth, miOrigAnswerSize) > lfRoom && miOrigAnswerSize > MinAnswerFont)
+                miOrigAnswerSize--;
+
+            msOrigWorstKey = lsWorstKey;
+        }
+
+        int liAnswerSize = miOrigAnswerSize;
+
+        while (fLayoutAnswerTexts(pOView, OrigWidth, pfScale, true, lfRowWidth, liAnswerSize) > lfRoom && liAnswerSize > MinAnswerFont)
+            liAnswerSize--;
+
+        if (mOOrigAnswers == null || miOrigAnswersRows != liAnswersRows)
+        {
+            if (mOOrigAnswers != null)
+                Destroy(mOOrigAnswers);
+
+            // The message scroll's knob rollers below, where the original's answers stand (per user).
+            mOOrigAnswers = UWModernHudArt.BuildConversationParchment(lOData.Textures, liAnswersRows, mOUi.TextureFilterMode, true, lbOutline);
+            miOrigAnswersRows = liAnswersRows;
+        }
+
+        float lfWidth = OrigWidth * lfAspect;
+        float lfHeight = (OrigAnswersTop + liAnswersRows) * pfScale;
+        Rect lODefault = new Rect(pfLeft + Mathf.Max(0f, ((pfRight - pfLeft) - lfWidth) * 0.5f), Screen.height - (Margin * pfScale) - lfHeight,
+            lfWidth, lfHeight);
+        Rect lOBlock = UWModernLayout.Place(UWModernLayout.ElementEnum.Conversation, lODefault);
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.Conversation, lOBlock);
+        fSetRect(mODim.rectTransform, 0f, 0f, Screen.width, Screen.height);
+
+        // The top: plates, portraits, trade areas.
+        mOTop.texture = mOOrigHeader;
+        // The pieces are a pixel larger each way (their outline's room): a pixel up and left.
+        fPlaceOrig(mOTop.rectTransform, lOBlock, -1f, -1f, mOOrigHeader.width, mOOrigHeader.height, pfScale);
+
+        string[] lsNames = { pOView.PartnerName ?? string.Empty, pOView.PlayerName ?? string.Empty };
+        int liNameSize = Mathf.Max(8, Mathf.RoundToInt(6.8f * pfScale));
+
+        for (int liSide = 0; liSide < 2; liSide++)
+        {
+            Texture2D lOPortrait = mOPortraitTextures[liSide];
+
+            mOPortraits[liSide].texture = lOPortrait;
+            mOPortraits[liSide].enabled = lOPortrait != null;
+
+            if (lOPortrait != null)
+                fPlaceOrig(mOPortraits[liSide].rectTransform, lOBlock, miOrigPortraitX[liSide], OrigPortraitTop, lOPortrait.width, lOPortrait.height, pfScale);
+
+            Text lOName = mONames[liSide];
+
+            lOName.text = lsNames[liSide];
+            lOName.color = msOrigName;
+            lOName.fontSize = liNameSize;
+            lOName.resizeTextForBestFit = false;
+            lOName.horizontalOverflow = HorizontalWrapMode.Overflow;
+            fPlaceOrig(lOName.rectTransform, lOBlock, miOrigNameX[liSide], 1f, OrigNameWidth, 7f, pfScale);
+        }
+
+        UWConversationTrade lOTrade = pOView.Trade;
+
+        for (int liAt = 0; liAt < miOrigSlots.Length; liAt++)
+        {
+            int liSide = liAt / UWConversationTrade.SlotCount;
+            int liSlot = liAt % UWConversationTrade.SlotCount;
+            UWObject lOItem = lOTrade == null ? null : liSide == 0 ? lOTrade.NpcItems[liSlot] : lOTrade.PlayerItems[liSlot];
+            bool lbMarked = lOTrade != null && (liSide == 0 ? lOTrade.NpcSelected[liSlot] : lOTrade.PlayerSelected[liSlot]);
+
+            fPlaceOrig(mOCircles[liAt].rectTransform, lOBlock, miOrigSlots[liAt].x, miOrigSlots[liAt].y, OrigSlotSize, OrigSlotSize, pfScale);
+            mOSlotRects[liAt] = fOrigRect(lOBlock, miOrigSlots[liAt].x, miOrigSlots[liAt].y, OrigSlotSize + 1, OrigSlotSize + 1, pfScale);
+
+            fShowItem(liAt, lOItem, pfScale);
+
+            mORings[liAt].enabled = lbMarked && lOItem != null;
+            mORings[liAt].texture = fRingTexture();
+            fSetRect(mORings[liAt].rectTransform, 0f, 0f, OrigSlotSize * lfAspect, OrigSlotSize * pfScale);
+        }
+
+        // The parchment with the history.
+        mOHistoryBack.texture = mOOrigParchment;
+        fPlaceOrig(mOHistoryBack.rectTransform, lOBlock, OrigParchmentX - 1, OrigParchmentTop - 1, mOOrigParchment.width, mOOrigParchment.height, pfScale);
+        mOHistoryRect = fOrigRect(lOBlock, OrigParchmentX - 1, OrigParchmentTop - 1, mOOrigParchment.width, mOOrigParchment.height, pfScale);
+
+        Rect lOView = fOrigRect(lOBlock, OrigTextX, OrigTextTop, OrigTextWidth, OrigTextRows, pfScale);
+
+        fSetRect(mOViewport, lOView.x, lOView.y, lOView.width, lOView.height);
+        fFillHistory(pOView, liFontSize, true);
+
+        mOHistory.rectTransform.sizeDelta = new Vector2(lOView.width, 10f);
+
+        float lfContent = mOHistory.preferredHeight;
+        float lfMaxScroll = Mathf.Max(0f, lfContent - lOView.height);
+
+        mfScroll = Mathf.Clamp(mfScroll, 0f, lfMaxScroll);
+        mOHistory.rectTransform.anchoredPosition = new Vector2(0f, lfContent <= lOView.height ? lOView.height - lfContent : -mfScroll);
+        mOHistory.rectTransform.sizeDelta = new Vector2(lOView.width, lfContent);
+
+        // The answers on their own parchment, from its top down.
+        mOAnswersBack.texture = mOOrigAnswers;
+        fPlaceOrig(mOAnswersBack.rectTransform, lOBlock, OrigParchmentX - 1, OrigAnswersTop - 1, mOOrigAnswers.width, mOOrigAnswers.height, pfScale);
+
+        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        float lfRowX = lOBlock.x + (OrigTextX * lfAspect);
+        float lfY = lOBlock.yMax - (OrigAnswerTextTop * pfScale);
+
+        for (int liRow = 0; liRow < MaxRows; liRow++)
+        {
+            if (!mORows[liRow].enabled)
+                continue;
+
+            RectTransform lORect = mORows[liRow].rectTransform;
+            float lfRow = lORect.sizeDelta.y;
+
+            lfY -= lfRow;
+            lORect.anchoredPosition = new Vector2(lfRowX, lfY);
+
+            Rect lOHit = new Rect(lfRowX - (2 * lfAspect), lfY - pfScale, lfRowWidth + (4 * lfAspect), lfRow + (2 * pfScale));
+            bool lbChoice = liRow < miRowsShown;
+            bool lbHover = lbChoice && lOHit.Contains(lOPointer);
+
+            mORowRects[liRow] = lbChoice ? lOHit : Rect.zero;
+            mOHighlights[liRow].enabled = false;
+            mORows[liRow].color = lbHover ? msOrigHover : msOrigText;
+
+            // The typed answer's field: a shade of the parchment, not the modern dark box (per
+            // user, 2026-10-10: it looked strange there).
+            if (mOInputBack.enabled && liRow == 0)
+            {
+                mOInputBack.color = new Color(0.24f, 0.14f, 0.08f, 0.22f);
+                fSetRect(mOInputBack.rectTransform, lOHit.x, lOHit.y, lOHit.width, lOHit.height);
+            }
+
+            lfY -= RowGap * pfScale;
+        }
     }
 
     // ------------------------------------------------- Placing
@@ -1084,8 +1413,9 @@ public class UWModernConversation : MonoBehaviour
 
         mOCanvas = lORoot.GetComponent<Canvas>();
         mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        // Under the character panel (41), the bags (42) and the thing on the pointer.
-        mOCanvas.sortingOrder = 39;
+        // Under the character panel (41), the bags (42) and the thing on the pointer; the editor's
+        // preview over all parts (LateUpdate).
+        mOCanvas.sortingOrder = SortingOrder;
 
         CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
         lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
@@ -1137,12 +1467,6 @@ public class UWModernConversation : MonoBehaviour
         mOHistory = fCreateText(mOViewport, "History text", TextAnchor.UpperLeft, msNpc);
         mOHistory.horizontalOverflow = HorizontalWrapMode.Wrap;
         mOHistory.supportRichText = true;
-
-        for (int liButton = 0; liButton < 2; liButton++)
-            mOSizeBacks[liButton] = fCreateLeather(lORootRect, liButton == 0 ? "Smaller" : "Larger");
-
-        for (int liAt = 0; liAt < 3; liAt++)
-            mOSizeTexts[liAt] = fCreateText(lORootRect, "Size " + liAt, TextAnchor.MiddleCenter, msGold);
 
         mOScrollTrack = fCreateImage(lORootRect, "Scroll track", new Color(0.24f, 0.20f, 0.16f, 0.7f));
         mOScrollThumb = fCreateImage(lORootRect, "Scroll thumb", new Color(0.80f, 0.64f, 0.34f, 0.9f));
@@ -1222,6 +1546,7 @@ public class UWModernConversation : MonoBehaviour
 
         Text lOText = lOObject.GetComponent<Text>();
         lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = pOColour;
         lOText.raycastTarget = false;

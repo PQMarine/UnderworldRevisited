@@ -66,16 +66,70 @@ public static class UWModernLayout
     /// <summary>The own layout is in force: only then are places read from and written to it.</summary>
     public static bool IsCustom => Preset == PresetEnum.Custom;
 
-    /// <summary>The minimap hidden - a choice of the own layout only.</summary>
-    public static bool IsMinimapHidden => IsCustom && UWUserSettings.MinimapHidden;
+    /// <summary>CLASSIC WIDE (UWModernClassicFrame): the classic frame over the whole screen, the
+    /// pieces at its places, the modern parts away.</summary>
+    public static bool IsClassic => Preset == PresetEnum.Classic;
+
+    /// <summary>Classic+ and Classic Wide bring the original's pieces by themselves.</summary>
+    private static bool fIsClassicKind => Preset == PresetEnum.ClassicPlus || Preset == PresetEnum.Classic;
+
+    /// <summary>The minimap hidden - a choice of the own layout only; Classic Wide has none.</summary>
+    public static bool IsMinimapHidden => IsClassic || (IsCustom && UWUserSettings.MinimapHidden);
+
+    /// <summary>The action bar hidden - a choice of the own layout only (per user, 2026-10-10);
+    /// Classic Wide has none.</summary>
+    public static bool IsActionBarHidden => IsClassic || (IsCustom && UWUserSettings.ActionBarHidden);
 
     /// <summary>The original's compass shown (UWModernCompass) - switched on in the layout editor
     /// for the own layout; Classic+ will bring it by itself.</summary>
-    public static bool IsCompassShown => (IsCustom && UWUserSettings.ModernCompass) || Preset == PresetEnum.ClassicPlus;
+    public static bool IsCompassShown => (IsCustom && UWUserSettings.ModernCompass) || fIsClassicKind;
+
+    /// <summary>The compass on its stone disc with the movement arrows on the pedestal's front
+    /// instead of the free cross (UWModernCompass; per user, 2026-10-10) - the own layout's
+    /// choice, Classic+ brings it.</summary>
+    public static bool IsCompassDisc => (IsCustom && UWUserSettings.ModernCompassDisc) || Preset == PresetEnum.ClassicPlus;
 
     /// <summary>The original's message scroll in the messages' place (UWModernScroll) - as the
     /// compass: the own layout's choice, Classic+ will bring it.</summary>
-    public static bool IsScrollShown => (IsCustom && UWUserSettings.ModernScroll) || Preset == PresetEnum.ClassicPlus;
+    public static bool IsScrollShown => (IsCustom && UWUserSettings.ModernScroll) || fIsClassicKind;
+
+    /// <summary>The power gem on a stand of its own instead of between the flasks (UWModernHud;
+    /// per user, 2026-10-09: the original's gem stands alone) - as the compass: the own layout's
+    /// choice, Classic+ will bring it.</summary>
+    public static bool IsGemApart => (IsCustom && (UWUserSettings.ModernGemApart || UWUserSettings.ModernFlasksApart)) || fIsClassicKind;
+
+    /// <summary>The two flasks freed, each an element of its own, and no shelf (UWModernHud; per
+    /// user, 2026-10-10: "the flasks freed one by one") - the gem then stands apart as well, the
+    /// shelf having nothing left on it. The own layout's choice, Classic+ brings it.</summary>
+    public static bool IsFlasksApart => (IsCustom && UWUserSettings.ModernFlasksApart) || fIsClassicKind;
+
+    /// <summary>The stone shelf deco panel shown (UWModernHud; per user, 2026-10-09) - the own
+    /// layout's choice.</summary>
+    public static bool IsStoneShelfShown => IsCustom && UWUserSettings.ModernStoneShelf;
+
+    /// <summary>The hollow with the prepared runes as an element (UWModernHud; per user,
+    /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsRuneHollowShown => (IsCustom && UWUserSettings.ModernRuneHollow) || fIsClassicKind;
+
+    /// <summary>The original's rune tablet as an always visible element in the rune panel's place
+    /// (UWModernRunePanel; per user, 2026-10-10: the original panels "each a single panel",
+    /// "always visible") - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsRuneTabletShown => (IsCustom && UWUserSettings.ModernRuneTablet) || Preset == PresetEnum.ClassicPlus
+        || (IsClassic && UWModernClassicFrame.Page == UWModernClassicFrame.PageEnum.Runes);
+
+    /// <summary>The original's stats panel as an always visible element (UWModernStatsPage; per
+    /// user, 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsStatsPanelShown => (IsCustom && UWUserSettings.ModernStatsPanel) || Preset == PresetEnum.ClassicPlus
+        || (IsClassic && UWModernClassicFrame.Page == UWModernClassicFrame.PageEnum.Stats);
+
+    /// <summary>The original's character panel with its inventory as an always visible element
+    /// (UWModernInventoryPage; per user, 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsCharacterPageShown => (IsCustom && UWUserSettings.ModernCharacterPage) || fIsClassicKind;
+
+    /// <summary>The conversation in the original's look (UWModernConversation; per user,
+    /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsConversationOriginal => (IsCustom && UWUserSettings.ModernConversationOriginal) || fIsClassicKind;
+
 
     public enum ElementEnum
     {
@@ -89,15 +143,27 @@ public static class UWModernLayout
         CharacterPanel,
         RunePanel,
         Conversation,
-        Compass
+        Compass,
+        PowerGem,
+        StoneShelf,
+        /// <summary>The movement arrows as an element of their own - gone again on 2026-10-10 (per
+        /// user: the compass's disc carries them); the index stays so stored layouts keep theirs.</summary>
+        MoveArrows,
+        HealthFlask,
+        ManaFlask,
+        RuneHollow,
+        RuneTablet,
+        StatsPanel,
+        CharacterPage
     }
 
-    public const int ElementCount = 11;
+    public const int ElementCount = 20;
 
     public static readonly string[] Names =
     {
         "Action bar", "Minimap", "Heading", "Active spells", "Messages", "Vitality and mana", "Bags", "Character panel", "Rune panel",
-        "Conversation", "Compass"
+        "Conversation", "Compass", "Power gem", "Stone shelf", "Movement arrows", "Vitality flask", "Mana flask", "Rune hollow",
+        "Rune tablet", "Stats panel", "Character page"
     };
 
     /// <summary>A panel left at its edge: it slides out and in on its handle.</summary>
@@ -138,9 +204,13 @@ public static class UWModernLayout
         return fLayout().Get((int)peElement).Percent;
     }
 
-    /// <summary>The part's own size factor, on top of the UI size.</summary>
+    /// <summary>The part's own size factor, on top of the UI size - in Classic Wide the frame's
+    /// row size for every part, so they lie on it pixel for pixel.</summary>
     public static float Scale(ElementEnum peElement)
     {
+        if (IsClassic)
+            return UWModernClassicFrame.RowScale / Mathf.Max(0.01f, UWModernHud.PixelScale);
+
         return Percent(peElement) / 100f;
     }
 
@@ -153,6 +223,10 @@ public static class UWModernLayout
     /// at its own size) unless it was moved; kept on the screen.</summary>
     public static Rect Place(ElementEnum peElement, Rect pODefault)
     {
+        // Classic Wide: the frame's places.
+        if (IsClassic && UWModernClassicFrame.TryGetPlace(peElement, pODefault, out Rect lOFrame))
+            return lOFrame;
+
         if (!IsPlaced(peElement))
             return pODefault;
 

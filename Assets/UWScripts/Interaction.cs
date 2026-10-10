@@ -5209,7 +5209,7 @@ public class Interaction : MonoBehaviour
                 return true;
 
             bool lbFree = fIsPointerFree() && Mouse.current != null;
-            Vector2 lOAt = lbFree ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Vector2 lOAt = lbFree ? Mouse.current.position.ReadValue() : UWModernClassicFrame.ViewCentre;
 
             if (lbFree && UWModernPointer.IsOverUi(lOAt))
                 return true;

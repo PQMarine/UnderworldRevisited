@@ -72,9 +72,18 @@ public static class UWUserSettings
         /// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
         public bool MinimapHidden;
 
+        /// <summary>The action bar switched off, its keys with it (the layout editor; per user,
+        /// 2026-10-10).</summary>
+        public bool ActionBarHidden;
+
         /// <summary>The original's compass in the own layout (the layout editor's Compass button,
         /// UWModernCompass).</summary>
         public bool ModernCompass;
+
+        /// <summary>The compass on its stone disc (UWModernLayout.IsCompassDisc), and its black outline.</summary>
+        public bool ModernCompassDisc;
+
+        public bool ModernCompassOutline;
 
         /// <summary>The original's message scroll in the own layout (the layout editor's Scroll
         /// button, UWModernScroll), and its lines (0 = the original's four; Shift+wheel).</summary>
@@ -84,6 +93,41 @@ public static class UWUserSettings
         public string ModernBacks;
 
         public int ModernScrollLines;
+
+        /// <summary>The modern interface's font: 0 modern, 1 the original's (UWUiFonts).</summary>
+        public int InterfaceFont;
+
+        /// <summary>The power gem on a stand of its own (UWModernLayout.IsGemApart).</summary>
+        public bool ModernGemApart;
+
+        /// <summary>The stone shelf deco panel shown, and its width in its own pixels (0 = default).</summary>
+        public bool ModernStoneShelf;
+
+        public int ModernStoneShelfWidth;
+
+        /// <summary>The flasks freed, each on its own (UWModernLayout.IsFlasksApart).</summary>
+        public bool ModernFlasksApart;
+
+        /// <summary>The rune hollow as an element (UWModernLayout.IsRuneHollowShown), and its black outline.</summary>
+        public bool ModernRuneHollow;
+
+        public bool ModernRuneHollowOutline;
+
+        /// <summary>The original's rune tablet in the rune panel's place (UWModernLayout.IsRuneTabletShown).</summary>
+        public bool ModernRuneTablet;
+
+        /// <summary>The original's stats panel as an element (UWModernLayout.IsStatsPanelShown).</summary>
+        public bool ModernStatsPanel;
+
+        /// <summary>The original's character panel as an element (UWModernLayout.IsCharacterPageShown).</summary>
+        public bool ModernCharacterPage;
+
+        /// <summary>The conversation in the original's look (UWModernLayout.IsConversationOriginal).</summary>
+        public bool ModernConversationOriginal;
+
+        /// <summary>The original look's pieces WITHOUT their black outline (on by default, per user
+        /// 2026-10-10: "with the outline it looks better").</summary>
+        public bool ModernConversationNoOutline;
 
         /// <summary>The modern pointer is free and the view turns only while the right button is
         /// held, instead of the button toggling (UWModernPointer; toggling by default, per user
@@ -151,6 +195,13 @@ public static class UWUserSettings
         /// asset ships with it on, so a file written before this entry existed keeps the
         /// picture it had.</summary>
         public bool DisplayAs4By3 = true;
+
+        /// <summary>The classic scheme's frame widened to the window (UWClassicWide; per user,
+        /// 2026-10-10: the former 4:3 checkbox, the classic screen always at 4:3 now).</summary>
+        public bool ClassicWidescreen;
+
+        /// <summary>The 3D view's horizontal angle in degrees, 0 for each scheme's own (UWViewAngle).</summary>
+        public float ViewAngle;
 
         /// <summary>The world drawn at the original's resolution - see UWWorldResolution. Off by
         /// default: the full screen resolution, as before.</summary>
@@ -361,10 +412,28 @@ public static class UWUserSettings
         set { fGet().MinimapHidden = value; }
     }
 
+    public static bool ActionBarHidden
+    {
+        get { return fGet().ActionBarHidden; }
+        set { fGet().ActionBarHidden = value; }
+    }
+
     public static bool ModernCompass
     {
         get { return fGet().ModernCompass; }
         set { fGet().ModernCompass = value; }
+    }
+
+    public static bool ModernCompassDisc
+    {
+        get { return fGet().ModernCompassDisc; }
+        set { fGet().ModernCompassDisc = value; }
+    }
+
+    public static bool ModernCompassOutline
+    {
+        get { return fGet().ModernCompassOutline; }
+        set { fGet().ModernCompassOutline = value; }
     }
 
     public static string ModernBacks
@@ -383,6 +452,78 @@ public static class UWUserSettings
     {
         get { return fGet().ModernScrollLines; }
         set { fGet().ModernScrollLines = value; }
+    }
+
+    public static int InterfaceFont
+    {
+        get { return fGet().InterfaceFont; }
+        set { fGet().InterfaceFont = value; }
+    }
+
+    public static bool ModernGemApart
+    {
+        get { return fGet().ModernGemApart; }
+        set { fGet().ModernGemApart = value; }
+    }
+
+    public static bool ModernStoneShelf
+    {
+        get { return fGet().ModernStoneShelf; }
+        set { fGet().ModernStoneShelf = value; }
+    }
+
+    public static int ModernStoneShelfWidth
+    {
+        get { return fGet().ModernStoneShelfWidth; }
+        set { fGet().ModernStoneShelfWidth = value; }
+    }
+
+    public static bool ModernFlasksApart
+    {
+        get { return fGet().ModernFlasksApart; }
+        set { fGet().ModernFlasksApart = value; }
+    }
+
+    public static bool ModernRuneHollow
+    {
+        get { return fGet().ModernRuneHollow; }
+        set { fGet().ModernRuneHollow = value; }
+    }
+
+    public static bool ModernRuneHollowOutline
+    {
+        get { return fGet().ModernRuneHollowOutline; }
+        set { fGet().ModernRuneHollowOutline = value; }
+    }
+
+    public static bool ModernRuneTablet
+    {
+        get { return fGet().ModernRuneTablet; }
+        set { fGet().ModernRuneTablet = value; }
+    }
+
+    public static bool ModernStatsPanel
+    {
+        get { return fGet().ModernStatsPanel; }
+        set { fGet().ModernStatsPanel = value; }
+    }
+
+    public static bool ModernCharacterPage
+    {
+        get { return fGet().ModernCharacterPage; }
+        set { fGet().ModernCharacterPage = value; }
+    }
+
+    public static bool ModernConversationOriginal
+    {
+        get { return fGet().ModernConversationOriginal; }
+        set { fGet().ModernConversationOriginal = value; }
+    }
+
+    public static bool ModernConversationNoOutline
+    {
+        get { return fGet().ModernConversationNoOutline; }
+        set { fGet().ModernConversationNoOutline = value; }
     }
 
     public static string ModernLayout
@@ -575,6 +716,18 @@ public static class UWUserSettings
     {
         get { return fGet().DisplayAs4By3; }
         set { fGet().DisplayAs4By3 = value; }
+    }
+
+    public static bool ClassicWidescreen
+    {
+        get { return fGet().ClassicWidescreen; }
+        set { fGet().ClassicWidescreen = value; }
+    }
+
+    public static float ViewAngle
+    {
+        get { return fGet().ViewAngle; }
+        set { fGet().ViewAngle = value; }
     }
 
     /// <summary>The world at the original's resolution. Everything that reads or changes it goes

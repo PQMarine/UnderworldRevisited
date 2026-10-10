@@ -13,6 +13,11 @@ using UnityEngine.UI;
 ///   - the LEFT BUTTON drags a part (snapping to the screen's edges and centre and to the other
 ///     parts' edges and centres, a blue guide showing where), on its handle it sizes the part;
 ///   - the WHEEL over a part sizes it in steps of 10 %, the RIGHT BUTTON puts it back as it was;
+///   - THE STONE SHELF has a grip on its left and right edge: dragged like a window's edge, it
+///     widens or narrows the shelf in its own pixels, up to the whole screen (per user,
+///     2026-10-10), the other edge staying where it is;
+///   - THE POINTER shows what a press does (Kenney's arrows, per user 2026-10-10): left-right
+///     over the shelf's grips, four ways over a part to move;
 ///   - THE PANELS move like the rest and are free windows then (UWModernLayout); the right
 ///     button docks them again. A closed panel grabbed by its handle opens for the drag, so it
 ///     does not vanish when it becomes free (per user, 2026-10-04), and closes again with the
@@ -94,6 +99,34 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private int miDragPercent;
 
+    /// <summary>The stone shelf's edge being dragged (-1 left, 1 right, 0 none), and its width in
+    /// screen pixels per pixel of its own when the drag began.</summary>
+    private int miWidening;
+
+    private float mfShelfPixel;
+
+    /// <summary>The stone shelf's grips at its left and right edge (per user, 2026-10-10: "can it
+    /// be done with the mouse as well? As one is used to from windows").</summary>
+    private readonly Image[] mOGrips = new Image[2];
+
+    private readonly Rect[] mOGripRects = new Rect[2];
+
+    /// <summary>The mouse pointer the editor shows (per user, 2026-10-10, Kenney's arrows): the
+    /// left-right arrow over and on the stone shelf's grips, the four-way arrow over a part that
+    /// moves and while moving it, else the system's own.</summary>
+    private enum PointerEnum
+    {
+        System,
+        LeftRight,
+        FourWays
+    }
+
+    private PointerEnum mePointer = PointerEnum.System;
+
+    /// <summary>The Kenney tile UWGameUI shows as the pointer while the editor is open, -1 for the
+    /// game's own cross: the game sets its pointer every frame, so the editor cannot set it itself.</summary>
+    public static int PointerTile { get; private set; } = -1;
+
     /// <summary>A panel the editor opened for a drag, to close with it.</summary>
     private bool mbOpenedCharacter;
 
@@ -111,6 +144,8 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private void OnDestroy()
     {
+        fShowPointer(PointerEnum.System);
+
         foreach (Texture2D lOTexture in mOTextures.Values)
         {
             if (lOTexture != null)
@@ -154,6 +189,12 @@ public class UWModernLayoutEditor : MonoBehaviour
             {
                 miDragged = -1;
                 UWModernLayout.Save();
+
+                if (miWidening != 0)
+                {
+                    miWidening = 0;
+                    fSaveSettings();
+                }
             }
 
             return;
@@ -168,6 +209,19 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         if (lOMouse.leftButton.wasPressedThisFrame)
         {
+            int liGrip = fGripAt(lOPointer);
+
+            if (liGrip != 0 && UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.StoneShelf, out mODragRect))
+            {
+                miSelected = (int)UWModernLayout.ElementEnum.StoneShelf;
+                miDragged = miSelected;
+                mbSizing = false;
+                miWidening = liGrip;
+                mODragFrom = lOPointer;
+                mfShelfPixel = mODragRect.width / Mathf.Min(UWModernHud.StoneShelfWidth, UWModernHud.StoneShelfMaxWidth);
+                return;
+            }
+
             int liElement = fElementAt(lOPointer, out bool lbHandle);
 
             // THE INSPECTOR'S SELECTION (per user, 2026-10-09): the part pressed, none for a
@@ -237,6 +291,28 @@ public class UWModernLayoutEditor : MonoBehaviour
         }
     }
 
+    private void fShowPointer(PointerEnum pePointer)
+    {
+        if (pePointer == mePointer)
+            return;
+
+        PointerTile = pePointer == PointerEnum.System ? -1
+            : pePointer == PointerEnum.LeftRight ? UWGlyphs.ArrowLeftRightTile : UWGlyphs.ArrowFourWaysTile;
+        mePointer = pePointer;
+    }
+
+    /// <summary>The stone shelf's grip under the pointer: -1 its left edge, 1 its right, 0 none.</summary>
+    private int fGripAt(Vector2 pOPointer)
+    {
+        if (!UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.StoneShelf, out Rect _))
+            return 0;
+
+        if (mOGripRects[0].Contains(pOPointer))
+            return -1;
+
+        return mOGripRects[1].Contains(pOPointer) ? 1 : 0;
+    }
+
     /// <summary>The part under the pointer, its handle first; -1 for none.</summary>
     private int fElementAt(Vector2 pOPointer, out bool pbHandle)
     {
@@ -278,6 +354,12 @@ public class UWModernLayoutEditor : MonoBehaviour
         UWModernLayout.ElementEnum leElement = (UWModernLayout.ElementEnum)miDragged;
         Vector2 lODelta = pOPointer - mODragFrom;
 
+        if (miWidening != 0)
+        {
+            fWiden(lODelta.x);
+            return;
+        }
+
         if (mbSizing)
         {
             // The handle at the bottom right: wider to the right, in steps of 5 %.
@@ -296,6 +378,50 @@ public class UWModernLayoutEditor : MonoBehaviour
             lOMoved = fSnap(lOMoved);
 
         UWModernLayout.Move(leElement, lOMoved, false);
+    }
+
+    /// <summary>
+    /// The stone shelf's edge dragged like a window's: the other edge stays, the width follows the
+    /// pointer in the shelf's own pixels (from StoneShelfMinWidth to the whole screen), and with
+    /// Snap the edge snaps to the screen's sides, margins and centre and to the other parts'
+    /// edges and centres.
+    /// </summary>
+    private void fWiden(float pfDeltaX)
+    {
+        float lfEdge = (miWidening > 0 ? mODragRect.xMax : mODragRect.xMin) + pfDeltaX;
+
+        mfGuideX = -1f;
+        mfGuideY = -1f;
+
+        if (mbSnap)
+        {
+            float lfMargin = 4f * UWModernHud.PixelScale;
+            System.Collections.Generic.List<float> lOLines = new System.Collections.Generic.List<float>
+            {
+                0f, lfMargin, Screen.width * 0.5f, Screen.width - lfMargin, Screen.width
+            };
+
+            for (int liAt = 0; liAt < UWModernLayout.ElementCount; liAt++)
+            {
+                if (liAt == miDragged || !UWModernLayout.TryGetRect((UWModernLayout.ElementEnum)liAt, out Rect lOOther))
+                    continue;
+
+                lOLines.Add(lOOther.xMin);
+                lOLines.Add(lOOther.center.x);
+                lOLines.Add(lOOther.xMax);
+            }
+
+            lfEdge += fNearest(new[] { lfEdge }, lOLines, out mfGuideX);
+        }
+
+        float lfPixels = miWidening > 0 ? lfEdge - mODragRect.xMin : mODragRect.xMax - lfEdge;
+        int liWidth = Mathf.Clamp(Mathf.RoundToInt(lfPixels / Mathf.Max(0.01f, mfShelfPixel)),
+            UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, UWModernHud.StoneShelfMaxWidth);
+        float lfWidth = liWidth * mfShelfPixel;
+
+        UWUserSettings.ModernStoneShelfWidth = liWidth;
+        UWModernLayout.Move(UWModernLayout.ElementEnum.StoneShelf,
+            new Rect(miWidening > 0 ? mODragRect.xMin : mODragRect.xMax - lfWidth, mODragRect.y, lfWidth, mODragRect.height), false);
     }
 
     /// <summary>The nearest of the part's edges and centre to the screen's margins and centre and
@@ -439,6 +565,7 @@ public class UWModernLayoutEditor : MonoBehaviour
             if (mOCanvas != null)
                 mOCanvas.enabled = false;
 
+            fShowPointer(PointerEnum.System);
             return;
         }
 
@@ -509,6 +636,45 @@ public class UWModernLayoutEditor : MonoBehaviour
             mOPercents[liAt].fontSize = Mathf.Max(9, Mathf.RoundToInt(3.6f * lfScale));
             fSetRect(mOPercents[liAt].rectTransform, lORect.x, lORect.y + lfScale, lORect.width - lfHandle, mOPercents[liAt].fontSize * 1.4f);
         }
+
+        // The stone shelf's grips: a bar in the middle of each side edge, grabbed a little beyond it.
+        bool lbShelf = UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.StoneShelf, out Rect lOShelf);
+        int liGripHovered = miWidening != 0 ? miWidening : (miDragged < 0 ? fGripAt(lOPointer) : 0);
+
+        for (int liSide = 0; liSide < 2; liSide++)
+        {
+            mOGrips[liSide].enabled = lbShelf;
+
+            if (!lbShelf)
+            {
+                mOGripRects[liSide] = Rect.zero;
+                continue;
+            }
+
+            float lfEdge = liSide == 0 ? lOShelf.xMin : lOShelf.xMax;
+            float lfReach = 3f * lfScale;
+            float lfBar = Mathf.Max(3f, lfScale);
+            float lfBottom = lOShelf.y + (5f * lfScale * 0.6f);
+
+            mOGripRects[liSide] = new Rect(lfEdge - lfReach, lfBottom, 2f * lfReach, Mathf.Max(lfReach, lOShelf.yMax - lfBottom));
+            fSetRect(mOGrips[liSide].rectTransform, lfEdge - (lfBar * 0.5f), lOShelf.y + (lOShelf.height * 0.2f), lfBar, lOShelf.height * 0.6f);
+            mOGrips[liSide].color = liGripHovered == (liSide == 0 ? -1 : 1) ? msHover : msGold;
+        }
+
+        // The pointer: what a press here would do.
+        PointerEnum lePointer = PointerEnum.System;
+
+        if (miDragged >= 0)
+            lePointer = miWidening != 0 ? PointerEnum.LeftRight : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
+        else if (!fWindowContains(lOPointer))
+        {
+            if (fGripAt(lOPointer) != 0)
+                lePointer = PointerEnum.LeftRight;
+            else if (fElementAt(lOPointer, out bool lbHandle) >= 0 && !lbHandle)
+                lePointer = PointerEnum.FourWays;
+        }
+
+        fShowPointer(lePointer);
 
         // The snapping guides while dragging.
         mOGuideX.enabled = miDragged >= 0 && !mbSizing && mfGuideX >= 0f;
@@ -660,6 +826,28 @@ public class UWModernLayoutEditor : MonoBehaviour
         UWUserSettings.Save();
     }
 
+    /// <summary>Whether a part draws a back at all - the Background items are left out where they
+    /// would change nothing (per user, 2026-10-10): the stone shelf is a deco panel itself, the
+    /// rune tablet, the stats panel and the character page are the original's own pages, and the
+    /// conversation in the original's look is its parchment, not leather.</summary>
+    private static bool fOffersBack(UWModernLayout.ElementEnum peElement)
+    {
+        switch (peElement)
+        {
+            case UWModernLayout.ElementEnum.StoneShelf:
+            case UWModernLayout.ElementEnum.RuneTablet:
+            case UWModernLayout.ElementEnum.StatsPanel:
+            case UWModernLayout.ElementEnum.CharacterPage:
+                return false;
+
+            case UWModernLayout.ElementEnum.Conversation:
+                return !UWModernLayout.IsConversationOriginal;
+
+            default:
+                return true;
+        }
+    }
+
     /// <summary>
     /// A part's generated back (UWModernBacks, UWBackdropArt; per user, 2026-10-09): its shape, and
     /// once it has one the colour, the pattern and the border - colour and pattern apart, per user.
@@ -774,14 +962,38 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         if (miSelected < 0)
         {
-            // Nothing selected: the parts switched off, to be switched on again.
+            // Nothing selected: the settings of the whole interface - its font (UWUiFonts; per user,
+            // 2026-10-09: the original's font as an option, Modern keeping its own) -, then the
+            // parts switched off, to be switched on again.
+            mOItems.Add(fChoice("Font", new[] { "Modern", "Original" }, UWUserSettings.InterfaceFont == 1 ? 1 : 0,
+                liAt => { UWUserSettings.InterfaceFont = liAt; fSaveSettings(); }));
+
             if (UWUserSettings.MinimapHidden)
                 mOItems.Add(fAction("Minimap", "Show", liAt => { UWUserSettings.MinimapHidden = false; fSaveSettings(); }));
+
+            if (UWUserSettings.ActionBarHidden)
+                mOItems.Add(fAction("Action bar", "Show", liAt => { UWUserSettings.ActionBarHidden = false; fSaveSettings(); }));
 
             if (!UWUserSettings.ModernCompass)
                 mOItems.Add(fAction("Compass", "Show", liAt => { UWUserSettings.ModernCompass = true; fSaveSettings(); }));
 
-            if (mOItems.Count == 0)
+            if (!UWUserSettings.ModernStoneShelf)
+                mOItems.Add(fAction("Stone shelf", "Show", liAt => { UWUserSettings.ModernStoneShelf = true; fSaveSettings(); }));
+
+            if (!UWUserSettings.ModernRuneHollow)
+                mOItems.Add(fAction("Rune hollow", "Show", liAt => { UWUserSettings.ModernRuneHollow = true; fSaveSettings(); }));
+
+            if (!UWUserSettings.ModernRuneTablet)
+                mOItems.Add(fAction("Rune tablet", "Show", liAt => { UWUserSettings.ModernRuneTablet = true; fSaveSettings(); }));
+
+            if (!UWUserSettings.ModernStatsPanel)
+                mOItems.Add(fAction("Stats panel", "Show", liAt => { UWUserSettings.ModernStatsPanel = true; fSaveSettings(); }));
+
+            if (!UWUserSettings.ModernCharacterPage)
+                mOItems.Add(fAction("Character page", "Show", liAt => { UWUserSettings.ModernCharacterPage = true; fSaveSettings(); }));
+
+
+            if (mOItems.Count == 1)
                 mOItems.Add(fInfo("Click a part to see its settings."));
 
             return;
@@ -798,6 +1010,12 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         switch (leElement)
         {
+            case UWModernLayout.ElementEnum.ActionBar:
+                // Off hides the bar and its keys (per user, 2026-10-10); Show brings it back.
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.ActionBarHidden ? 1 : 0,
+                    liAt => { UWUserSettings.ActionBarHidden = liAt == 1; fSaveSettings(); }));
+                break;
+
             case UWModernLayout.ElementEnum.Minimap:
                 mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.MinimapHidden ? 1 : 0,
                     liAt => { UWUserSettings.MinimapHidden = liAt == 1; fSaveSettings(); }));
@@ -813,7 +1031,109 @@ public class UWModernLayoutEditor : MonoBehaviour
             case UWModernLayout.ElementEnum.Compass:
                 mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.ModernCompass ? 0 : 1,
                     liAt => { UWUserSettings.ModernCompass = liAt == 0; fSaveSettings(); }));
+                // The free cross or the original's stone disc with the movement arrows (per user, 2026-10-10).
+                mOItems.Add(fChoice("Look", new[] { "Cross", "Disc" }, UWUserSettings.ModernCompassDisc ? 1 : 0,
+                    liAt => { UWUserSettings.ModernCompassDisc = liAt == 1; fSaveSettings(); }));
+
+                // The disc's black outline, as the original's in the frame (per user, 2026-10-10).
+                if (UWModernLayout.IsCompassDisc)
+                    mOItems.Add(fChoice("Outline", new[] { "Off", "On" }, UWUserSettings.ModernCompassOutline ? 1 : 0,
+                        liAt => { UWUserSettings.ModernCompassOutline = liAt == 1; fSaveSettings(); }));
                 break;
+
+            case UWModernLayout.ElementEnum.Vitals:
+                // The power gem between the flasks (Modern) or on a stand of its own (the original's;
+                // per user, 2026-10-09).
+                mOItems.Add(fChoice("Power gem", new[] { "Shelf", "Apart" }, UWUserSettings.ModernGemApart ? 1 : 0,
+                    liAt => { UWUserSettings.ModernGemApart = liAt == 1; fSaveSettings(); }));
+                // The flasks freed one by one (per user, 2026-10-10) - the shelf goes, the gem stands apart.
+                mOItems.Add(fChoice("Flasks", new[] { "Shelf", "Apart" }, UWUserSettings.ModernFlasksApart ? 1 : 0,
+                    liAt => { UWUserSettings.ModernFlasksApart = liAt == 1; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.Conversation:
+                // The original's look (per user, 2026-10-10: "free the conversation UI").
+                mOItems.Add(fChoice("Look", new[] { "Modern", "Original" }, UWUserSettings.ModernConversationOriginal ? 1 : 0,
+                    liAt => { UWUserSettings.ModernConversationOriginal = liAt == 1; fSaveSettings(); }));
+
+                // The history's and the answers' text size: here only, no more in the game (per
+                // user, 2026-10-10).
+                int liTextPercent = UWModernConversation.TextPercent;
+
+                mOItems.Add(fStepper("Text", liTextPercent + " %", liTextPercent > UWModernConversation.MinTextPercent,
+                    liTextPercent < UWModernConversation.MaxTextPercent, liAt =>
+                    {
+                        UWUserSettings.ConversationTextPercent = Mathf.Clamp(liTextPercent
+                            + (liAt == 0 ? -UWModernConversation.TextPercentStep : UWModernConversation.TextPercentStep),
+                            UWModernConversation.MinTextPercent, UWModernConversation.MaxTextPercent);
+                        fSaveSettings();
+                    }));
+
+                // The original look's black outline, on by default (per user, 2026-10-10).
+                if (UWModernLayout.IsConversationOriginal)
+                    mOItems.Add(fChoice("Outline", new[] { "On", "Off" }, UWUserSettings.ModernConversationNoOutline ? 1 : 0,
+                        liAt => { UWUserSettings.ModernConversationNoOutline = liAt == 1; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.CharacterPage:
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
+                    liAt => { UWUserSettings.ModernCharacterPage = liAt == 0; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.StatsPanel:
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
+                    liAt => { UWUserSettings.ModernStatsPanel = liAt == 0; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.RuneTablet:
+                // Off brings the rune panel back.
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
+                    liAt => { UWUserSettings.ModernRuneTablet = liAt == 0; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.RuneHollow:
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
+                    liAt => { UWUserSettings.ModernRuneHollow = liAt == 0; fSaveSettings(); }));
+                // A black outline, as the compass disc's (per user, 2026-10-10).
+                mOItems.Add(fChoice("Outline", new[] { "Off", "On" }, UWUserSettings.ModernRuneHollowOutline ? 1 : 0,
+                    liAt => { UWUserSettings.ModernRuneHollowOutline = liAt == 1; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.HealthFlask:
+            case UWModernLayout.ElementEnum.ManaFlask:
+                mOItems.Add(fChoice("Stands", new[] { "Apart", "On shelf" }, 0,
+                    liAt => { UWUserSettings.ModernFlasksApart = liAt == 0; fSaveSettings(); }));
+                break;
+
+            case UWModernLayout.ElementEnum.PowerGem:
+                // Back on the shelf takes the flasks back as well: without them there is none.
+                mOItems.Add(fChoice("Stands", new[] { "Apart", "On shelf" }, 0, liAt =>
+                {
+                    UWUserSettings.ModernGemApart = liAt == 0;
+
+                    if (liAt == 1)
+                        UWUserSettings.ModernFlasksApart = false;
+
+                    fSaveSettings();
+                }));
+                break;
+
+            case UWModernLayout.ElementEnum.StoneShelf:
+            {
+                // A deco panel (per user, 2026-10-09): shown or not, and its width in the shelf's own
+                // pixels, a tile (12) at a time.
+                // The edges can be dragged with the mouse too (fGripAt).
+                int liMax = UWModernHud.StoneShelfMaxWidth;
+                int liWidth = Mathf.Min(UWModernHud.StoneShelfWidth, liMax);
+
+                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0, liAt => { UWUserSettings.ModernStoneShelf = liAt == 0; fSaveSettings(); }));
+                mOItems.Add(fStepper("Width", liWidth.ToString(), liWidth > UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, liWidth < liMax, liAt =>
+                {
+                    UWUserSettings.ModernStoneShelfWidth = Mathf.Clamp(liWidth + (liAt == 0 ? -12 : 12), UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, liMax);
+                    fSaveSettings();
+                }));
+                break;
+            }
 
             case UWModernLayout.ElementEnum.Messages:
                 mOItems.Add(fChoice("Style", new[] { "Modern", "Scroll" }, UWUserSettings.ModernScroll ? 1 : 0,
@@ -839,7 +1159,8 @@ public class UWModernLayoutEditor : MonoBehaviour
                 break;
         }
 
-        fAddBackItems(leElement);
+        if (fOffersBack(leElement))
+            fAddBackItems(leElement);
 
         mOItems.Add(fAction(string.Empty, "Reset part", liAt => UWModernLayout.Reset(leElement)));
     }
@@ -1155,8 +1476,8 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         mOCanvas = lORoot.GetComponent<Canvas>();
         mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        // Over the HUD, the bags, the pointer's thing and the boxes.
-        mOCanvas.sortingOrder = 46;
+        // Over the HUD, the bags, the pointer's thing, the boxes and the conversation's preview (46).
+        mOCanvas.sortingOrder = 47;
 
         CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
         lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
@@ -1177,6 +1498,8 @@ public class UWModernLayoutEditor : MonoBehaviour
             mOPercents[liAt] = fCreateText(lORootRect, "Size", TextAnchor.LowerRight, msText);
         }
 
+        mOGrips[0] = fCreateImage(lORootRect, "Grip left", msGold);
+        mOGrips[1] = fCreateImage(lORootRect, "Grip right", msGold);
         mOGuideX = fCreateImage(lORootRect, "Guide x", msGuide);
         mOGuideY = fCreateImage(lORootRect, "Guide y", msGuide);
     }

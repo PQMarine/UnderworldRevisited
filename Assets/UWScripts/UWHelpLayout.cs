@@ -105,7 +105,8 @@ public static class UWHelpLayout
             return;
         }
 
-        float lfFrame = FrameWidth * FourByThreeFactor;
+        // The classic frame as wide as it is now (UWClassicWide: narrowed to leave the help room).
+        float lfFrame = (FrameWidth + UWClassicWide.Extra) * FourByThreeFactor;
 
         pfHelpWidth = Mathf.Min(pfCanvasWidth - lfFrame, lfMaxWidth);
 
@@ -119,7 +120,7 @@ public static class UWHelpLayout
     /// BEHIND the frame while it slides (per user, 2026-09-25), so it is cut off there.</summary>
     public static float FrameRightEdge(float pfCanvasWidth, float pfPixelFactor)
     {
-        return (pfCanvasWidth / 2f) + FrameShift(pfCanvasWidth) + (FrameWidth * pfPixelFactor / 2f);
+        return (pfCanvasWidth / 2f) + FrameShift(pfCanvasWidth) + ((FrameWidth + UWClassicWide.Extra) * pfPixelFactor / 2f);
     }
 
     /// <summary>The frame's shift right now (canvas units, negative is left).</summary>

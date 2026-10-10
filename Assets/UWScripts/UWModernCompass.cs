@@ -42,6 +42,17 @@ public class UWModernCompass
 
     private int miArtVersion = -1;
 
+    /// <summary>The stone disc without the cross (IsCompassDisc), built once per colour help and
+    /// outline.</summary>
+    private Texture2D mODisc;
+
+    private bool mbDiscOutline;
+
+    /// <summary>The room around the picture the current one has (Pad with a back, else 0).</summary>
+    private int miShownPad;
+
+    private Texture2D mOShown;
+
     /// <summary>Where it was drawn on the screen (bottom-left origin); empty while hidden.</summary>
     public Rect ScreenRect { get; private set; }
 
@@ -91,16 +102,23 @@ public class UWModernCompass
 
             mOSteps.Clear();
 
+            if (mODisc != null)
+                Object.Destroy(mODisc);
+
+            mODisc = null;
             miArtVersion = UWColourVision.Version;
         }
 
         int liStep = mOUi.Compass.CurrentStep;
         UWModernBacks.Back lOBack = UWModernBacks.Get(UWModernLayout.ElementEnum.Compass);
-        int liKey = (lOBack.Key * 100) + liStep;
+        bool lbDisc = UWModernLayout.IsCompassDisc;
+        bool lbWhole = UWModernClassicFrame.IsActive;
+        int liKey = (((((lOBack.Key * 100) + liStep) * 4) + (lbDisc ? 1 : 0) + (lbDisc && UWUserSettings.ModernCompassOutline ? 2 : 0)) * 2)
+            + (lbWhole ? 1 : 0);
 
         if (!mOSteps.TryGetValue(liKey, out Texture2D lOTexture) || lOTexture == null)
         {
-            lOTexture = fBuild(liStep, lOBack);
+            lOTexture = fBuild(liStep, lOBack, lbDisc);
             mOSteps[liKey] = lOTexture;
         }
 
@@ -127,12 +145,41 @@ public class UWModernCompass
         ((RectTransform)mOImage.transform).sizeDelta = new Vector2(lfWidth, lfHeight);
 
         ScreenRect = lOPlaced;
+        mOShown = lOTexture;
+        miShownPad = lOBack.Shape == UWBackdropArt.ShapeEnum.None ? 0 : Pad;
     }
 
-    /// <summary>The freed cross, on its generated back when it has one.</summary>
-    private Texture2D fBuild(int piStep, UWModernBacks.Back pOBack)
+    /// <summary>
+    /// The movement arrow on the stone disc under a screen point, -1 for none or without the
+    /// disc - the original's click areas (UWHudArt.CompassDiscArrowAt), so the arrows work as on
+    /// the classic frame (UWModernHud.fUpdateMoveArrowClicks).
+    /// </summary>
+    public int ArrowAt(Vector2 pOPointer)
     {
+        if (!UWModernLayout.IsCompassDisc || mOShown == null || ScreenRect.width <= 0f || !ScreenRect.Contains(pOPointer))
+            return -1;
+
+        float lfX = (pOPointer.x - ScreenRect.x) / ScreenRect.width * mOShown.width;
+        float lfY = (ScreenRect.yMax - pOPointer.y) / ScreenRect.height * mOShown.height;
+
+        return UWHudArt.CompassDiscArrowAt(Mathf.FloorToInt(lfX) - miShownPad, Mathf.FloorToInt(lfY) - miShownPad);
+    }
+
+    /// <summary>The freed cross - on the stone disc with the arrows (pbDisc), the cross's box
+    /// lying at its place on the pedestal (MAIN.BYT 112/131) - and on its generated back when it
+    /// has one.</summary>
+    private Texture2D fBuild(int piStep, UWModernBacks.Back pOBack, bool pbDisc)
+    {
+        // CLASSIC WIDE: the original's disc and needle pictures whole, as the classic scheme lays
+        // them over the frame - they cover the needle baked into it (per user's screenshots,
+        // 2026-10-10: the freed cross left the baked one showing); no back.
+        if (UWModernClassicFrame.IsActive)
+            return mOUi.Compass.BuildComposite(piStep, mOUi.TextureFilterMode, false);
+
         Texture2D lOCross = mOUi.Compass.BuildComposite(piStep, mOUi.TextureFilterMode, true);
+
+        if (lOCross != null && pbDisc)
+            lOCross = fOnDisc(lOCross);
 
         if (lOCross == null || pOBack.Shape == UWBackdropArt.ShapeEnum.None)
             return lOCross;
@@ -158,6 +205,54 @@ public class UWModernCompass
         lOTexture.Apply(false, false);
         lOTexture.name = "UWModernCompass back " + pOBack.Key;
         Object.Destroy(lOCross);
+
+        return lOTexture;
+    }
+
+    /// <summary>The cross laid on the stone disc; the cross's texture goes.</summary>
+    private Texture2D fOnDisc(Texture2D pOCross)
+    {
+        if (mODisc != null && mbDiscOutline != UWUserSettings.ModernCompassOutline)
+        {
+            Object.Destroy(mODisc);
+            mODisc = null;
+        }
+
+        if (mODisc == null)
+        {
+            mbDiscOutline = UWUserSettings.ModernCompassOutline;
+            mODisc = UWModernHudArt.BuildCompassDisc(mOUi.mOUWData.Textures, mbDiscOutline, mOUi.TextureFilterMode);
+        }
+
+        int liWidth = mODisc.width;
+        int liHeight = mODisc.height;
+        int liLeft = 112 - UWHudArt.CompassDiscX;
+        int liTop = 131 - UWHudArt.CompassDiscY;
+        Color32[] lOPixels = mODisc.GetPixels32();
+        Color32[] lOCrossPixels = pOCross.GetPixels32();
+
+        // Rows bottom up in both: the cross's top row lies liTop rows under the disc's top.
+        for (int liY = 0; liY < pOCross.height; liY++)
+        {
+            int liRow = liHeight - liTop - pOCross.height + liY;
+
+            for (int liX = 0; liX < pOCross.width; liX++)
+            {
+                Color32 lOPixel = lOCrossPixels[(liY * pOCross.width) + liX];
+                int liColumn = liLeft + liX;
+
+                if (lOPixel.a > 0 && liRow >= 0 && liRow < liHeight && liColumn >= 0 && liColumn < liWidth)
+                    lOPixels[(liRow * liWidth) + liColumn] = lOPixel;
+            }
+        }
+
+        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
+        lOTexture.name = "UWModernCompass disc";
+        lOTexture.filterMode = mOUi.TextureFilterMode;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+        lOTexture.SetPixels32(lOPixels);
+        lOTexture.Apply(false, false);
+        Object.Destroy(pOCross);
 
         return lOTexture;
     }

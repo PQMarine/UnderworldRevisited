@@ -192,7 +192,7 @@ public class UWModernActionBar : MonoBehaviour
 
     private bool fIsShown()
     {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern
+        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern && !UWModernLayout.IsActionBarHidden
             && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
             && mOUi != null && mOUi.mOUWData != null && mOUi.mOInventory != null;
     }
@@ -991,6 +991,7 @@ public class UWModernActionBar : MonoBehaviour
 
         Text lOText = lOObject.GetComponent<Text>();
         lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = pOColour;
         lOText.raycastTarget = false;

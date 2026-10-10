@@ -1319,6 +1319,34 @@ public partial class UWSetupMenu : MonoBehaviour
                 "  4x needs a window 1600 pixels tall", mOListLabel);
     }
 
+    /// <summary>
+    /// THE VIEW ANGLE (UWViewAngle; per user, 2026-10-10: a slider, one for both schemes): the
+    /// horizontal angle of the 3D view in whole degrees, and "Orig." back to each scheme's own. At
+    /// the original's the slider stands at the angle shown now and the value reads "Original".
+    /// </summary>
+    private void fViewAngleRow(Rect pOPanel, float pfTop)
+    {
+        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 50f, 26f), "View", mOListLabel);
+
+        bool lbOriginal = UWViewAngle.IsOriginal;
+        float lfShown = lbOriginal ? UWViewAngle.HorizontalOf(Camera.main) : UWViewAngle.Horizontal;
+        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 58f, pfTop + 8f, pOPanel.width - 186f, 20f),
+            Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max), UWViewAngle.Min, UWViewAngle.Max);
+        int liWanted = Mathf.RoundToInt(lfWanted);
+
+        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 122f, pfTop, 66f, 26f), lbOriginal ? "Original" : liWanted + "°", mOListLabel);
+
+        if (liWanted != Mathf.RoundToInt(Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max)))
+            UWViewAngle.Horizontal = liWanted;
+
+        GUI.enabled = !lbOriginal;
+
+        if (GUI.Button(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 48f, 26f), "Orig.", mOListItem))
+            UWViewAngle.Horizontal = 0f;
+
+        GUI.enabled = true;
+    }
+
     /// <summary>The step of the Smooth head bob's strength slider.</summary>
     private const float HeadBobStrengthStep = 0.05f;
 
@@ -1349,8 +1377,11 @@ public partial class UWSetupMenu : MonoBehaviour
         // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog.
         const float PaletteEffectsRowHeight = 30f;
 
+        // The view angle's row under the widescreen switch (UWViewAngle).
+        const float ViewAngleRowHeight = 30f;
+
         Rect lOPanel = new Rect(168f, BarHeight, 300f,
-            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + WorldResolutionRowHeight + lfFactorRows);
+            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + ViewAngleRowHeight + WorldResolutionRowHeight + lfFactorRows);
 
         fFill(lOPanel, PanelColour);
 
@@ -1384,23 +1415,32 @@ public partial class UWSetupMenu : MonoBehaviour
 
         fFill(new Rect(lOPanel.x + 8f, lfAspectTop, lOPanel.width - 16f, 1f), SeparatorColour);
 
-        bool lbAspect = GUI.Toggle(new Rect(lOPanel.x + 8f, lfAspectTop + 6f, lOPanel.width - 16f, 26f),
-            UWDisplayAspect.Enabled, "  Classic screen at 4:3", mOToggle);
+        // The classic screen is always at 4:3 since 2026-10-10 (per user); the place is the classic
+        // frame's widescreen now (UWClassicWide).
+        bool lbWide = GUI.Toggle(new Rect(lOPanel.x + 8f, lfAspectTop + 6f, lOPanel.width - 16f, 26f),
+            UWUserSettings.ClassicWidescreen, "  Classic screen widescreen", mOToggle);
 
-        if (lbAspect != UWDisplayAspect.Enabled)
-            UWDisplayAspect.Enabled = lbAspect;
+        if (lbWide != UWUserSettings.ClassicWidescreen)
+        {
+            UWUserSettings.ClassicWidescreen = lbWide;
+            UWUserSettings.Save();
+        }
 
         // The world at the original's resolution (UWWorldResolution), asked for on Reddit
         // (2026-10-07): it takes effect at once as well, the interface stays sharp.
+        fViewAngleRow(lOPanel, lfAspectTop + 6f + ViewAngleRowHeight);
+
+        float lfResolutionTop = lfAspectTop + 6f + ViewAngleRowHeight + WorldResolutionRowHeight;
+
         bool lbOriginalResolution = GUI.Toggle(
-            new Rect(lOPanel.x + 8f, lfAspectTop + 6f + WorldResolutionRowHeight, lOPanel.width - 16f, 26f),
+            new Rect(lOPanel.x + 8f, lfResolutionTop, lOPanel.width - 16f, 26f),
             UWWorldResolution.Enabled, "  World at the original's resolution", mOToggle);
 
         if (lbOriginalResolution != UWWorldResolution.Enabled)
             UWWorldResolution.Enabled = lbOriginalResolution;
 
         if (lbResolutionOn)
-            fWorldResolutionFactorRow(lOPanel, lfAspectTop + 6f + (2f * WorldResolutionRowHeight), lbMaxLocked);
+            fWorldResolutionFactorRow(lOPanel, lfResolutionTop + WorldResolutionRowHeight, lbMaxLocked);
 
         fCloseMenuOnOutsideClick(lOPanel);
     }

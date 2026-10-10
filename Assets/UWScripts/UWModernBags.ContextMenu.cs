@@ -129,7 +129,7 @@ public partial class UWModernBags
             if (pOItem.ID == UWObjectMechanics.RuneBagId)
                 mOMenuActions.Add(MenuActionEnum.OpenRunes);
             else
-                mOMenuActions.Add(mOOpenBags.Contains(pOItem) ? MenuActionEnum.Close : MenuActionEnum.Open);
+                mOMenuActions.Add(fIsBagOpen(pOItem, lOInventory) ? MenuActionEnum.Close : MenuActionEnum.Open);
         }
         else if (pOWindow == null)
         {
@@ -247,6 +247,11 @@ public partial class UWModernBags
 
         if (mOMenuWindow == null)
             return lOInventory.GetEquipped(meMenuEquip);
+
+        // The original page's slots: window 0 stands in for them, never shown (per user,
+        // 2026-10-10: the menu there closed again at once).
+        if (fPageShown() && mOMenuWindow == fGetWindow(0))
+            return fGetItem(fPageWindow(), miMenuSlot);
 
         return mOMenuWindow.Root.gameObject.activeSelf ? fGetItem(mOMenuWindow, miMenuSlot) : null;
     }
@@ -403,7 +408,7 @@ public partial class UWModernBags
 
             case MenuActionEnum.Split:
                 fTryBeginSplit(lOItem, lOWindow, liSlot, leEquip,
-                    lOWindow != null && liSlot >= 0 && liSlot < lOWindow.Slots.Count ? lOWindow.Slots[liSlot].ScreenRect : new Rect(lOAt, Vector2.zero),
+                    lOWindow != null && liSlot >= 0 && liSlot < lOWindow.Slots.Count ? fSlotRect(lOWindow, liSlot) : new Rect(lOAt, Vector2.zero),
                     true);
                 break;
         }

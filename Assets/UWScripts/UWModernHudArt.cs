@@ -97,9 +97,9 @@ public static class UWModernHudArt
         return fToTexture(UWHudArt.BuildSlotCircle(pOTextures), peFilter, "UWModernHudArt slot");
     }
 
-    public static Texture2D BuildShelf(UWTextures pOTextures, FilterMode peFilter, out ShelfLayout pOLayout)
+    public static Texture2D BuildShelf(UWTextures pOTextures, FilterMode peFilter, out ShelfLayout pOLayout, bool pbGemApart = false)
     {
-        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWHudArt.ShelfLayout lOLayout);
+        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWHudArt.ShelfLayout lOLayout, pbGemApart);
 
         pOLayout = new ShelfLayout
         {
@@ -113,9 +113,83 @@ public static class UWModernHudArt
         return fToTexture(lOShelf, peFilter, "UWModernHudArt shelf");
     }
 
+    /// <summary>The stone shelf deco panel at a width in its own pixels (UWHudArt.BuildStoneShelf).</summary>
+    public static Texture2D BuildStoneShelf(UWTextures pOTextures, int piWidth, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildStoneShelf(pOTextures, piWidth), peFilter, "UWModernHudArt stone shelf");
+    }
+
+    /// <summary>The power gem's own stand (UWHudArt.BuildGemStand); pOGem is where the gem lies on it.</summary>
+    /// <summary>A picture of one of the game's .GR files as it is; null without it.</summary>
+    public static Texture2D BuildPicture(UWTextures pOTextures, UWTexture.TextureTypes peType, int piIndex, FilterMode peFilter)
+    {
+        UWTexture lOPicture = pOTextures.GetTextureByType(peType, piIndex);
+
+        return lOPicture != null ? fToTexture(UWPicture.From(lOPicture), peFilter, "UWModernHudArt " + peType + " " + piIndex) : null;
+    }
+
+    /// <summary>A page of the original's right panel (PANELS.GR: 0 inventory, 1 runes, 2 stats);
+    /// null without it.</summary>
+    public static Texture2D BuildPanelPage(UWTextures pOTextures, int piPage, FilterMode peFilter)
+    {
+        UWTexture lOPage = pOTextures.GetTextureByType(UWTexture.TextureTypes.PANELS, piPage);
+
+        return lOPage != null ? fToTexture(UWPicture.From(lOPage), peFilter, "UWModernHudArt panel page " + piPage) : null;
+    }
+
+    /// <summary>The original's conversation top, its sample names and portraits gone (UWHudArt.BuildConversationHeader).</summary>
+    /// <summary>The classic frame widened by piExtra columns (UWHudArt.BuildClassicWideFrame), and
+    /// what was built (its picture and cuts) for the parts laid on it.</summary>
+    public static Texture2D BuildClassicWideFrame(UWTextures pOTextures, int piExtra, FilterMode peFilter, out UWHudArt.ClassicWideFrame pOFrame)
+    {
+        pOFrame = UWHudArt.BuildClassicWideFrame(pOTextures, piExtra);
+
+        return fToTexture(pOFrame.Picture, peFilter, "UWModernHudArt classic wide " + piExtra);
+    }
+
+    public static Texture2D BuildConversationHeader(UWTextures pOTextures, FilterMode peFilter, bool pbOutline = false)
+    {
+        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationHeader(pOTextures), pbOutline), peFilter, "UWModernHudArt conversation top");
+    }
+
+    /// <summary>The original's conversation parchment at a height (UWHudArt.BuildConversationParchment).</summary>
+    public static Texture2D BuildConversationParchment(UWTextures pOTextures, int piRows, FilterMode peFilter, bool pbKnobRollers = false,
+        bool pbOutline = false)
+    {
+        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationParchment(pOTextures, piRows, pbKnobRollers), pbOutline), peFilter,
+            "UWModernHudArt conversation parchment " + piRows);
+    }
+
+    /// <summary>The rune hollow cut out of the frame (UWHudArt.BuildRuneHollow).</summary>
+    public static Texture2D BuildRuneHollow(UWTextures pOTextures, bool pbOutline, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildRuneHollow(pOTextures, pbOutline), peFilter, "UWModernHudArt rune hollow");
+    }
+
+    /// <summary>The compass's stone disc without the cross (UWHudArt.BuildCompassDisc).</summary>
+    public static Texture2D BuildCompassDisc(UWTextures pOTextures, bool pbOutline, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildCompassDisc(pOTextures, pbOutline), peFilter, "UWModernHudArt compass disc");
+    }
+
+    public static Texture2D BuildGemStand(UWTextures pOTextures, FilterMode peFilter, out Vector2Int pOGem)
+    {
+        UWPicture lOStand = UWHudArt.BuildGemStand(pOTextures, out int liX, out int liY);
+
+        pOGem = new Vector2Int(liX, liY);
+
+        return fToTexture(lOStand, peFilter, "UWModernHudArt gem stand");
+    }
+
     public static bool[] BuildFlaskMask(UWFlasks pOFlasks)
     {
         return UWHudArt.BuildFlaskMask(pOFlasks);
+    }
+
+    /// <summary>The flask standing free, without the shelf's stone (UWHudArt.BuildFreeFlaskMask).</summary>
+    public static bool[] BuildFreeFlaskMask(UWFlasks pOFlasks)
+    {
+        return UWHudArt.BuildFreeFlaskMask(pOFlasks);
     }
 
     public static bool[] BuildGemMask(UWPowerGem pOGem)

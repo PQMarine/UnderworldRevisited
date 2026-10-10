@@ -326,7 +326,21 @@ bool UWPainterSweepHides(float2 pTile)
     if (_UWSweepMaskReady < 0.5 || any(pTile < 0.0) || any(pTile > 63.0))
         return false;
 
-    return LOAD_TEXTURE2D(_UWSweepMask, int2(pTile)).r < 0.5;
+    // Hidden is 0; TrueDepth (0.5) and Visible (1) are not.
+    return LOAD_TEXTURE2D(_UWSweepMask, int2(pTile)).r < 0.25;
+}
+
+// Drawn only by a side run of the sweep (UWSweepMask.TrueDepth, 128): outside the original's own
+// cone, where its order does not hold - the sprite goes by the real depth (per user, 2026-10-10: in
+// the widened view a skeleton showed through a wall at the side).
+bool UWPainterSweepTrueDepth(float2 pTile)
+{
+    if (_UWSweepMaskReady < 0.5 || any(pTile < 0.0) || any(pTile > 63.0))
+        return false;
+
+    float lfMark = LOAD_TEXTURE2D(_UWSweepMask, int2(pTile)).r;
+
+    return lfMark > 0.25 && lfMark < 0.75;
 }
 
 // A 3D model stands in the tile (alpha of the plane texture, UWOwnTile.RegisterModelTile).
@@ -460,6 +474,40 @@ bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, 
     }
 
     return lfSpriteOrder >= lfSurfaceOrder;
+}
+
+// THE REAL DEPTH against the geometry (UWPainterSweepTrueDepth): the surface behind the pixel
+// covers the sprite when it lies nearer than the sprite's own point - unless it belongs to the
+// sprite's own tile, which never covers what stands in it (as UWOwnTile.hlsl has it for the
+// Remastered path), or lies under a bridge's deck as above.
+bool UWPainterSpriteVisibleTrue(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float3 pPositionWS)
+{
+    if (UWPainterUnderDeck(pPixel, pPivotWS))
+        return false;
+
+    float lfDepth = LOAD_TEXTURE2D_X(_CameraDepthTexture, uint2(pPixel)).r;
+
+    #if UNITY_REVERSED_Z
+    if (lfDepth <= 0.0)
+        return true;
+    #else
+    if (lfDepth >= 1.0)
+        return true;
+    #endif
+
+    #if !UNITY_REVERSED_Z
+    lfDepth = lerp(UNITY_NEAR_CLIP_VALUE, 1.0, lfDepth);
+    #endif
+
+    float3 lSurface = ComputeWorldSpacePosition(pPixel / _ScaledScreenParams.xy, lfDepth, UNITY_MATRIX_I_VP);
+    float3 lNudged = lSurface + (normalize(_WorldSpaceCameraPos - lSurface) * 0.5);
+
+    if (all(UWPainterTileOf(lNudged.xz) == UWPainterTileOf(pPivotWS.xz)) || all(UWPainterTileOf(lNudged.xz) == pSpriteTile))
+        return true;
+
+    float3 lForward = -UNITY_MATRIX_V[2].xyz;
+
+    return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPositionWS - _WorldSpaceCameraPos, lForward) - 1.0;
 }
 
 // The sprites among themselves still by the painter's order, written into a thin band in front

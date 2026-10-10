@@ -153,6 +153,11 @@ public sealed class UWHudPanel
         if (mPanelPivot != null || mOUi.mGameFrame == null)
             return;
 
+        // The widened classic frame moved the parts already: back to their original places, so
+        // the area check below reads those and the pivot moves them (UWClassicWide; per user,
+        // 2026-10-10: the inventory went away on the first turn - moved twice, off the screen).
+        UWClassicWide.ReleaseAll();
+
         GameObject lOPivot = new GameObject("PanelPivot", typeof(RectTransform));
         lOPivot.transform.SetParent(mOUi.mGameFrame, false);
 
@@ -161,6 +166,10 @@ public sealed class UWHudPanel
         mPanelPivot.anchorMax = Vector2.one;
         mPanelPivot.offsetMin = Vector2.zero;
         mPanelPivot.offsetMax = Vector2.zero;
+
+        // In the widened classic frame it stays the original's 320 wide, moved with the panel
+        // (UWClassicWide).
+        UWClassicWide.FrameSized(mPanelPivot, (int)PanelLeft, (int)PanelTop);
 
         // Pivot to the centre of the panel, in fractions of the frame.
         mPanelPivot.pivot = new Vector2(

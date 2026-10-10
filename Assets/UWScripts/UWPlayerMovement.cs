@@ -2451,9 +2451,17 @@ public class UWPlayerMovement : MonoBehaviour
         return (-lfBottom * transform.lossyScale.y) + mController.skinWidth;
     }
 
+    /// <summary>
+    /// The transform's yaw in the original's units, ROUNDED (since 2026-10-10): the transform
+    /// gives back an angle written as 45 degrees as 44.99998, and the truncating
+    /// UWViewpoint.DegreesToAngle made that 8191 instead of 8192 - the look's delta then pulled
+    /// the camera yaw one unit below the eighth, and the easy turn to the right (which snaps up
+    /// to the next eighth) landed on the same eighth again: the compass disc's right arrow did
+    /// nothing after a few clicks until the pointer was locked and freed (per user).
+    /// </summary>
     private int fTransformYawToAngle()
     {
-        return UWViewpoint.DegreesToAngle(Mathf.Repeat(transform.eulerAngles.y, 360f)) & 0xFFFF;
+        return Mathf.RoundToInt(Mathf.Repeat(transform.eulerAngles.y, 360f) * UWEasyMovement.Circle / 360f) & 0xFFFF;
     }
 
     /// <summary>
