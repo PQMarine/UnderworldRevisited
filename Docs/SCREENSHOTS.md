@@ -51,6 +51,23 @@ rat.*
 
 *The layout editor: every part of the modern interface framed, to be moved and sized.*
 
+![Classic Wide: the classic frame widened to the screen](../Screenshots/UR15.png)
+
+*Classic Wide: the modern scheme in the original's frame, widened to a 16:9 screen - the stone
+grown anew at fixed places instead of stretched, the dragons, the original inventory with the
+remaining carrying capacity.*
+
+![Classic Modular: the original's pieces over the whole view](../Screenshots/UR16.png)
+
+*Classic Modular: the original's pieces as parts of their own over the whole view - the rune
+tablet, the character page and the stats panel, the stone shelf with the scroll, the compass on
+its disc, the power gem, the prepared runes and the flasks.*
+
+| The layout editor's presets | A part's inspector |
+|---|---|
+| ![The layout editor with its preset row and the original pieces](../Screenshots/UR17.png) | ![The inspector of the vitality and mana shelf with a background](../Screenshots/UR18.png) |
+| *A preset as the starting point of one's own layout, the original's pieces switched on and off.* | *A part's size, the gem and the flasks on the shelf or apart, a background in the original's colours.* |
+
 The screenshots show the artwork of the original game, which belongs to the owners of the
 Ultima Underworld rights. It is shown for illustration only and is not covered by this
 project's licence.

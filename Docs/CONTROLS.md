@@ -79,7 +79,20 @@ box with OK and Cancel while the world stands still.
 heading, active spells, messages, vitality and mana, bags, the two panels and the conversation -
 can be moved and sized there, and the UI size as a whole is set there too. The panels slide
 out from their edges while they stay there, and become free windows once moved. The minimap
-can be switched off.
+and the action bar can be switched off, and the original's pieces - compass, message scroll,
+power gem, flasks, rune hollow, rune tablet, stats panel, character page - switched on as parts
+of their own; a part's inspector sets its size and a background in the original's colours.
+
+Under Edit layout the game menu also offers the **presets**: *Modern*, the parts at their
+default places; *Classic Modular*, the original's pieces laid out over the whole view; *Classic
+Wide*, the original's frame widened to the screen with the pieces at its places; and
+*Customize*, the layout of one's own. In the editor, *Preset* takes Modern or Classic Modular as
+the starting point of one's own layout; it is saved only when the editor is left and the save
+confirmed, so one can always go back to the layout as it was.
+
+In the original scheme the classic screen stays at the original's 4:3. *Classic screen
+widescreen* in the Graphics menu widens it to the screen as Classic Wide does (the conversation
+and the big map stay at 4:3), and *View* below it sets the view angle.
 
 The modern scheme uses the whole screen. What belongs to the original's picture keeps it:
 the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the

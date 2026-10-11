@@ -41,6 +41,11 @@ More: [Controls](Docs/CONTROLS.md) - [All screenshots](Docs/SCREENSHOTS.md) -
 *The modern control scheme: the rune panel at the left, the character panel and the bags at
 the right, the action bar below.*
 
+| Classic Wide | Classic Modular |
+|---|---|
+| ![The classic frame widened to the screen](Screenshots/UR15.png) | ![The original's pieces as parts of their own](Screenshots/UR16.png) |
+| *The modern scheme in the original's frame, widened to a wide screen.* | *The original's pieces as parts of their own over the whole view.* |
+
 More in [the screenshot gallery](Docs/SCREENSHOTS.md): the world at the original's resolution,
 the Palette effects, both fonts, the layout editor, conversations and trading. The screenshots
 show the artwork of the original game, which belongs to the owners of the Ultima Underworld
@@ -76,7 +81,9 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   darker joints, ground shadows, glowing lava and flames, and light sources lighting their
   surroundings by the original's light table. Off by default, with the presets Subtle and Full
 - The world at the original's resolution or a multiple of it up to 4x, with hard pixels while
-  the interface stays sharp; the original's 4:3 frame on wide screens
+  the interface stays sharp
+- The classic interface at the original's 4:3, or widened to a wide screen with the frame's
+  stone grown anew instead of stretched; a slider for the view angle
 
 **Sound and music**
 
@@ -91,6 +98,10 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
   port's own with free mouse look, WASD, an action bar, bags, a character panel and a rune
   panel built from the original's artwork, and a layout editor to move and size every part
+- Interface presets for the modern scheme: Modern; Classic Modular, the original's own pieces
+  (compass, message scroll, power gem, flasks, rune tablet, stats panel, character page with
+  the original inventory) as parts of their own; Classic Wide, the original's frame widened to
+  the screen; or a layout of one's own, which can start from any preset
 - A gamepad in both schemes, with a pointer on the stick for every window, a letter grid for
   typing, glyphs for Xbox, PlayStation or Nintendo, and every button rebindable
 - A help window beside the view: stats with the hidden values, a live map, notes kept with the

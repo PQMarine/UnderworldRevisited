@@ -60,7 +60,10 @@ Two control schemes, both complete. The original scheme, the one the game starts
 mouse pointer steers as in 1992, and F1 to F10 and the Ctrl shortcuts work as in the original.
 Shift+F2 switches to the modern scheme - or Original and Modern under Game in the menu bar, for
 keyboards whose F keys need Fn: free mouse look, WASD, an action bar, bags, a character panel
-and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape).
+and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape),
+which also offers presets: Modern; Classic Modular, the original's own pieces as parts of their
+own; Classic Wide, the original's frame widened to the screen; and one's own layout, which can
+start from a preset in the editor and is saved only when the editor is left.
 The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
 keys of the scheme in force. The full list of keys is in Docs/CONTROLS.md.
 
@@ -78,7 +81,8 @@ as the game did in 1992 - how many steps a second is the "Original fps" setting 
 Smooth computes the same rules once per frame for an even picture; each setting carries a
 short explanation. Controls has the mouse look speed of the modern scheme and the gamepad's
 settings. Graphics has the
-detail levels, the classic screen at 4:3, and the world at the original's resolution or a
+detail levels, the classic screen at 4:3 or widened to the screen ("Classic screen
+widescreen"), the view angle ("View"), and the world at the original's resolution or a
 multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
 effects of the port's own to the original's palette look (presets Subtle and Full) - use
 them with care, turned up they quickly take away the look of the original; "Very
