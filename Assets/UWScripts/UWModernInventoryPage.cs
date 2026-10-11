@@ -82,6 +82,11 @@ public class UWModernInventoryPage
     /// 2026-10-10: counts were not shown) - in the bags' look (UWModernBags' slot count).</summary>
     private Text[] mOCounts;
 
+    /// <summary>The remaining carrying capacity in whole stones, in the page's circle as the classic
+    /// UWHudInventory shows it (per user, 2026-10-11: Classic Wide and Classic Modular showed no
+    /// weight) - its centre at the frame's 305/62 (UWGameUI.mOWeightLabelPosition), in its colour.</summary>
+    private Text mOWeight;
+
     /// <summary>The open container's back, its icon and the two scroll arrows.</summary>
     private RawImage mOContainerBack;
 
@@ -196,6 +201,10 @@ public class UWModernInventoryPage
         for (int liAt = 0; liAt < mOCounts.Length; liAt++)
             mOCounts[liAt] = fCreateText(pORoot, "Count " + liAt);
 
+        mOWeight = fCreateText(pORoot, "Weight");
+        mOWeight.alignment = TextAnchor.MiddleCenter;
+        mOWeight.color = mOUi.mOWeightColour;
+
         mOContainerIcon = fCreateImage(pORoot, "Open container");
         UWIconPalette.Apply(mOContainerIcon);
         mOScrollUp = fCreateImage(pORoot, "Container scroll up");
@@ -291,6 +300,33 @@ public class UWModernInventoryPage
             fPlaceIcon(mOBackpack[liSlot], lOItem, (lOArea.X0 + lOArea.X1 + 1) * 0.5f, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
             fPlaceCount(mOCounts[liSlot], lOItem, lOArea.X1 + 1, 200 - lOArea.Y0);
         }
+
+        fPlaceWeight(lOInventory);
+    }
+
+    /// <summary>The remaining carrying capacity (maximum weight minus the load, at least 0) in
+    /// whole stones, centred in the circle - as UWHudInventory.fRefreshWeight computes it.</summary>
+    private void fPlaceWeight(UWInventory pOInventory)
+    {
+        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
+
+        if (pOInventory == null || lOPlayer == null)
+        {
+            mOWeight.enabled = false;
+            return;
+        }
+
+        int liTenthStones = Mathf.Max(0, lOPlayer.MaxWeight - pOInventory.GetCarriedTenthStones(mOUi.mOUWData.CommonObjectProperties));
+        Vector2 lOCentre = mOUi.mOWeightLabelPosition;
+        float lfAspect = miScale * UWModernHudArt.PixelAspectX;
+        float lfWidth = 30f * lfAspect;
+        float lfHeight = 10f * miScale;
+
+        mOWeight.enabled = true;
+        mOWeight.text = (liTenthStones / 10).ToString();
+        mOWeight.fontSize = Mathf.Max(9, Mathf.RoundToInt(5f * miScale));
+        fSetRect(mOWeight.rectTransform, ScreenRect.x + ((lOCentre.x - PageX) * lfAspect) - (lfWidth * 0.5f),
+            ScreenRect.yMax - ((lOCentre.y - PageY) * miScale) - (lfHeight * 0.5f), lfWidth, lfHeight);
     }
 
     public void Hide()
@@ -314,6 +350,8 @@ public class UWModernInventoryPage
 
         foreach (Text lOCount in mOCounts)
             lOCount.enabled = false;
+
+        mOWeight.enabled = false;
 
         mOContainerBack.enabled = false;
         mOContainerIcon.enabled = false;

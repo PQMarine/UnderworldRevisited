@@ -442,11 +442,11 @@ namespace UWDataImport.UWData
 		/// never applied; we copied that until 2026-09-14. After the bonuses UW.EXE clamps the
 		/// skill to 30 again (ovr143_384).
 		///
-		/// BUT ONLY FOR DEXTERITY AND INTELLIGENCE: the reference checks for
-		/// "attribute not equal to zero", and zero is also the number of Strength. The
-		/// combat skills therefore get nothing, even though their cap does come from
-		/// Strength. This looks like an oversight in the original and has been
-		/// kept as is.
+		/// THE FREE POINT NOT FOR STRENGTH: UW.EXE checks "attribute number not zero" for it, and
+		/// zero is Strength's, so the combat skills never get it. The CHANCE POINT stands outside
+		/// that check and comes for every skill, Strength's with the range 25 (UnderworldExhumed
+		/// SKILLS.C get_skill, 2026-10-11). Until then both sat inside the check, as the reference
+		/// has them, and the combat skills never got the chance point either.
 		/// </summary>
 		public bool TryIncreaseSkill(int piSkillNumber)
 		{
@@ -462,15 +462,11 @@ namespace UWDataImport.UWData
 
 			liValue++;
 
-			if (liAttribute != 0)
-			{
-				if (liAttributeValue / 2 > liValue)
-					liValue++;
+			if (liAttribute != 0 && liAttributeValue / 2 > liValue)
+				liValue++;
 
-				if (liValue < liAttributeValue
-					&& UWRandom.Next(msSkillRollRange[liAttribute]) < liAttributeValue - liValue)
-					liValue++;
-			}
+			if (liValue < liAttributeValue && UWRandom.Next(msSkillRollRange[liAttribute]) < liAttributeValue - liValue)
+				liValue++;
 
 			if (liValue > MaxSkillValue)
 				liValue = MaxSkillValue;
@@ -490,6 +486,10 @@ namespace UWDataImport.UWData
 		/// <summary>Lore in the save game numbering - see AttackSkillNumber.
 		/// </summary>
 		private const int LoreSkillNumber = FirstNamedSkillNumber + (int)UWPlayerData.Skill.Lore;
+
+		/// <summary>Mana in the save game numbering - see AttackSkillNumber.
+		/// </summary>
+		public const int ManaSkillNumber = FirstNamedSkillNumber + (int)UWPlayerData.Skill.Mana;
 
 		/// <summary>Spends one skill point.</summary>
 		public void SpendSkillPoint()
