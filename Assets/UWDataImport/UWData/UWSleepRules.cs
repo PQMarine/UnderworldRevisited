@@ -77,18 +77,24 @@ namespace UWDataImport.UWData
 		/// <summary>Damage while asleep - see fApplyDamagingSurface.</summary>
 		void DamagePlayer(int piDamage);
 
-		/// <summary>The doors the sleeper closes around himself - see
-		/// FindAndCloseDoors_ovr153_15C4.</summary>
-		void CloseDoorsAround(int piTileRadius);
+		/// <summary>The night's closing doors (DoClosingDoors(0), UnderworldExhumed TRIGGER.C): every
+		/// open door of the level that is not moving, on a tile without the tile's door bit, closes
+		/// with a chance of piChanceInTen in ten (UWRandom.Next(10) per door).</summary>
+		void CloseDoorsOnLevel(int piChanceInTen);
+
+		/// <summary>On the ground: not jumping, falling or hovering - the original refuses a chosen
+		/// sleep in motion states 0x1B and while the vertical acceleration is not zero.</summary>
+		bool IsOnGround { get; }
 	}
 
 	/// <summary>
-	/// Sleeping in the bedroll (original: sleep.Sleep, here the uw1 branch). Engine-free
-	/// since 2026-09-18 (P3 of the engine separation), out of UWSleep.
+	/// Sleeping (player_sleep, UnderworldExhumed SKILLS.C; before, the reference's sleep.Sleep).
+	/// Engine-free since 2026-09-18 (P3 of the engine separation), out of UWSleep.
 	///
-	/// IN UW1 IT ONLY WORKS WITH THE BEDROLL. The reference also knows a bed, but that is
-	/// an object from Underworld 2, and sleeping while drunk (the reference's sleep method -2)
-	/// is not wired up here. Intoxication is only reduced by a night's sleep (see fRecover).
+	/// THREE WAYS, as the original's "how": camping without a bedroll (F10 with none carried),
+	/// in the bedroll (using it, or F10 with one carried), or passing out drunk. Only the bedroll
+	/// gives the COMFORT that a full belly needs to make a night restful (comfort = hunger above
+	/// 0x40 AND the bedroll; until 2026-10-11 ours asked the hunger alone, from 0x40 on).
 	///
 	/// THE SEQUENCE, step by step as in the reference:
 	///
@@ -103,17 +109,14 @@ namespace UWDataImport.UWData
 	///      Then recovery, and hunger strikes.
 	///   8. A dream of Garamon if one is due, otherwise two seconds of black (see fDream).
 	///
-	/// RECOVERY DEPENDS ON TWO NUMBERS. The fatigue factor is 2 + fatigue/2, at most
-	/// 5 - whoever was tired recovers more. The food factor is one if the player is fed enough
-	/// (hunger from 0x40) AND has a bedroll, otherwise zero. Vitality gets both
-	/// multiplied, mana first six fixed points and then another
-	/// (fatigue factor + 1) * food factor + fatigue factor - 1.
+	/// RECOVERY (see UWPlayerVitals.RegenerateOnSleep): regen = 2 + fatigue / 2, at most 5;
+	/// the hit points get the share regen + regen * comfort - 1, the mana six and then the share
+	/// regen + (regen + 1) * comfort - 1 - a night always heals, a comfortable one twice as much.
+	/// A starving sleeper gets nothing and two points of damage.
 	///
-	/// With food factor zero, sleep therefore heals NOTHING AT ALL - you just wake up rested.
-	/// That is how the original does it.
-	///
-	/// The doors the sleeper closes around him are built (FindAndCloseDoors_ovr153_15C4, since
-	/// 2026-09-21), and so is the monster respawner. The carried lights burn down while asleep
+	/// THE DOORS: every open door of the level shuts with a chance of three in ten (DoClosingDoors,
+	/// since 2026-10-11; before, every door within eight tiles), as if someone closed it in the
+	/// night. The monster respawner runs, and the carried lights burn down while asleep
 	/// (IUWSleepHost.BurnCarriedLights, since 2026-09-24).
 	/// </summary>
 	public static class UWSleepRules
@@ -134,9 +137,8 @@ namespace UWDataImport.UWData
 		/// or lava (Sleep_ovr143_D1F, label D44).</summary>
 		private const int VoidLevel = 9;
 
-		/// <summary>How far the sleeper closes doors around him. The original asks
-		/// CheckIfWithin8TilesFromObject_ovr153_14C4 for it.</summary>
-		private const int CloseDoorRadius = 8;
+		/// <summary>The chance in ten that an open door shuts in the night (DoClosingDoors).</summary>
+		private const int DoorClosesInTen = 3;
 
 		/// <summary>What water does to whoever passes out in it: everything
 		/// (SleepingOnDamagingSurface_ovr143_C7A hands DamageObject 0xFF).</summary>
@@ -154,7 +156,7 @@ namespace UWDataImport.UWData
 		private const int CannotSleepHereMessage = 0x15;
 		private const int InterruptedMessage = 0x16;
 
-		/// <summary>From this hunger value on the player counts as fed enough to heal while sleeping.</summary>
+		/// <summary>Above this hunger value the player counts as fed enough for a comfortable night.</summary>
 		private const int WellFedHunger = 0x40;
 
 		/// <summary>The dreams of Garamon exist as cutscenes 24 to 31 - octal in
@@ -182,27 +184,27 @@ namespace UWDataImport.UWData
 		/// </summary>
 		/// <param name="piDungeonLevel">The dungeon level, 1-based - the second dream only comes
 		/// from the second level on.</param>
+		/// <param name="pbBedroll">In the bedroll - the only way to a comfortable night.</param>
 		public static bool Sleep(UWPlayerVitals pOVitals, int piDungeonLevel, IUWSleepHost pIHost,
-			bool pbPassedOut = false)
+			bool pbPassedOut = false, bool pbBedroll = false)
 		{
 			if (pOVitals == null || pIHost == null)
 				return false;
 
 			// WHOEVER PASSES OUT IS NOT ASKED. The original's Sleep takes a method, and a
 			// negative one - the alcohol - jumps past every refusal (Sleep_ovr143_D1F, label
-			// D30: "jump when method < 0"). Only a voluntary sleep is refused on water, lava,
-			// level 9 or with enemies about; whoever drinks himself down sleeps where he
-			// stands, and then the ground has its say.
+			// D30: "jump when method < 0"). Only a chosen sleep is refused on water, lava, off the
+			// ground, on level 9 or with enemies about - and only then are "You make camp." and
+			// "You go to sleep." said; whoever drinks himself down sleeps where he stands, and
+			// then the ground has its say.
 			if (!pbPassedOut)
 			{
-				if (!pIHost.CanSleepHere || piDungeonLevel == VoidLevel)
+				if (!pIHost.CanSleepHere || !pIHost.IsOnGround || piDungeonLevel == VoidLevel)
 				{
 					pIHost.AddGeneralMessage(CannotSleepHereMessage);
 
 					return false;
 				}
-
-				pIHost.PlaySleepTheme();
 
 				if (IsHostileNear(pIHost))
 				{
@@ -210,20 +212,18 @@ namespace UWDataImport.UWData
 
 					return false;
 				}
-			}
-			else
-			{
-				pIHost.PlaySleepTheme();
 
-				fApplyDamagingSurface(pIHost);
+				pIHost.AddGeneralMessage(MakeCampMessage);
 			}
 
-			// The sleeper closes the doors around him (FindAndCloseDoors_ovr153_15C4 out of
-			// Sleep), otherwise anything could walk in while he lies there.
-			pIHost.CloseDoorsAround(CloseDoorRadius);
+			// The music after the refusals (player_sleep sets it only once the night is sure;
+			// ours played it before the enemies were asked until 2026-10-11).
+			pIHost.PlaySleepTheme();
 
-			pIHost.AddGeneralMessage(MakeCampMessage);
-			pIHost.AddGeneralMessage(GoToSleepMessage);
+			if (!pbPassedOut)
+				pIHost.AddGeneralMessage(GoToSleepMessage);
+
+			pIHost.CloseDoorsOnLevel(DoorClosesInTen);
 
 			int liHours = 2 + UWRandom.Next(5);
 
@@ -246,6 +246,10 @@ namespace UWDataImport.UWData
 				pOVitals.ApplyDamage((pOVitals.Poison + 1) * pOVitals.Poison / 2, UWDamageTypes.Poison, 0);
 				pOVitals.CurePoison();
 			}
+
+			// The ground under whoever passed out, after the poison (drop_drunk_player).
+			if (pbPassedOut)
+				fApplyDamagingSurface(pIHost);
 
 			if (pOVitals.CurrentHP <= 0)
 				return true;
@@ -272,12 +276,16 @@ namespace UWDataImport.UWData
 			// the counter zero brings.
 			pIHost.BurnCarriedLights(liRest * SleepTicksPerHour);
 
-			// The food factor applies to both: recovery AND the probability
-			// that a later dream is rolled instead of the one that is due.
-			int liFood = pOVitals.Hunger < WellFedHunger ? 0 : 1;
+			// The comfort applies to both: recovery AND the probability that a later dream is
+			// rolled. Whoever passed out has none and does not dream.
+			int liComfort = !pbPassedOut && pbBedroll && pOVitals.Hunger > WellFedHunger ? 1 : 0;
 
-			fRecover(pOVitals, pIHost, liFood);
-			fDream(piDungeonLevel, liFood, pIHost);
+			fRecover(pOVitals, pIHost, liComfort);
+
+			if (pbPassedOut)
+				pIHost.ShowNightBlack(SleepFlashSeconds);
+			else
+				fDream(piDungeonLevel, liComfort, pIHost);
 
 			return true;
 		}
@@ -354,9 +362,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Recovery and hunger after a full night's sleep.</summary>
-		private static void fRecover(UWPlayerVitals pOVitals, IUWSleepHost pIHost, int piFood)
+		private static void fRecover(UWPlayerVitals pOVitals, IUWSleepHost pIHost, int piComfort)
 		{
-			int liFatigue = System.Math.Min(5, 2 + (pOVitals.Fatigue / 2));
+			int liRegen = System.Math.Min(5, 2 + (pOVitals.Fatigue / 2));
 
 			pOVitals.ClearFatigue();
 
@@ -367,8 +375,8 @@ namespace UWDataImport.UWData
 			}
 			else
 			{
-				pOVitals.RegenerateOnSleep(liFatigue * piFood,
-					6 + ((liFatigue + 1) * piFood) + liFatigue - 1);
+				pOVitals.RegenerateOnSleep(liRegen + (liRegen * piComfort) - 1,
+					liRegen + ((liRegen + 1) * piComfort) - 1);
 			}
 
 			// A night costs 24 plus RNG & 0x1F of hunger and takes 32 off the intoxication
@@ -377,7 +385,7 @@ namespace UWDataImport.UWData
 			pOVitals.ChangeHunger(-24 - UWRandom.Next(0x20));
 			pOVitals.ReduceIntoxication(UWPlayerVitals.SleepIntoxicationRelief);
 
-			pIHost.AddGeneralMessage(RestedMessage - piFood);
+			pIHost.AddGeneralMessage(RestedMessage - piComfort);
 		}
 
 		// ------------------------------------------------- Who keeps the player awake

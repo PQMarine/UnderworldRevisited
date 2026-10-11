@@ -319,6 +319,14 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             OnCurseStruck();
     }
 
+    /// <summary>A backfired spell (UWPlayerVitals.ApplyBackfire): the view flashes as for a curse
+    /// when it struck.</summary>
+    public void ApplyBackfire(int piDice)
+    {
+        if (fVitals.ApplyBackfire(piDice))
+            OnCurseStruck();
+    }
+
     /// <summary>IUWVitalsHost: the curse struck on the tick.</summary>
     public void OnCurseStruck()
     {
@@ -1188,9 +1196,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     }
 
     /// <summary>Recovery after a night of sleep - see UWPlayerVitals.RegenerateOnSleep.</summary>
-    public void RegenerateOnSleep(int piVitalityFactor, int piMana)
+    public void RegenerateOnSleep(int piHitPointAmount, int piManaAmount)
     {
-        fVitals.RegenerateOnSleep(piVitalityFactor, piMana);
+        fVitals.RegenerateOnSleep(piHitPointAmount, piManaAmount);
     }
 
     /// <summary>Sets hit points to the maximum - Greater Heal.</summary>

@@ -822,6 +822,35 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
+		/// <summary>
+		/// A BACKFIRED SPELL (backfire, UnderworldExhumed SPELLS.C, read 2026-10-11): piDice d8 as
+		/// the curse rolls them (dice plus that many rolls of 0 to 7), but at three hit points or
+		/// fewer nothing happens at all, and otherwise it leaves at least three. Returns whether it
+		/// struck - only then does the view flash.
+		/// </summary>
+		public bool ApplyBackfire(int piDice)
+		{
+			if (CurrentHP <= CurseMinimumHealth)
+				return false;
+
+			int liDamage = Math.Max(0, piDice);
+
+			for (int liAt = 0; liAt < piDice; liAt++)
+				liDamage += UWRandom.Next(CurseDieSides);
+
+			LastDamage = liDamage;
+			LastDamageType = UWDamageTypes.None;
+
+			if (mIHost != null)
+				mIHost.OnDamageRecorded();
+
+			CurrentHP = CurrentHP - liDamage <= CurseMinimumHealth ? CurseMinimumHealth : CurrentHP - liDamage;
+
+			fVitalsChanged();
+
+			return true;
+		}
+
 		/// <summary>Subtracts mana and updates the flask. Never below zero.</summary>
 		public void SpendMana(int piAmount)
 		{
@@ -1444,26 +1473,37 @@ namespace UWDataImport.UWData
 		private const int MaxMealHeal = 8;
 
 		/// <summary>
-		/// Recovery after a night of sleep.
+		/// Recovery after a night of sleep (player_sleep, UnderworldExhumed SKILLS.C, with SPELLS.C's
+		/// restore_hp and restore_mana, read 2026-10-11; the Exhumed audit's row 6): the hit points
+		/// gain max * (piHitPointAmount + 0..3) / 16 + 1, the mana first a flat six and then
+		/// max * (piManaAmount + 0..3) / 16 + 1, both capped. The amounts are at least one, so a
+		/// night always heals.
 		///
-		/// Health uses the same formula as the five-minute tick - with bonus
-		/// and die, see fTickFiveMinutes -, mana is a flat amount. That is exactly how
-		/// the reference separates it (HPRegenerationChange with a positive, ManaRegenChange with
-		/// a negative value).
-		///
-		/// A health factor of zero means no healing: whoever sleeps without a bedroll or
-		/// hungry only wakes up rested.
+		/// UNTIL 2026-10-11 the hit points healed only with the food factor and the mana got one flat
+		/// sum - the reference's reading; a night without the bedroll or a full belly healed nothing.
 		/// </summary>
-		public void RegenerateOnSleep(int piVitalityFactor, int piMana)
+		public void RegenerateOnSleep(int piHitPointAmount, int piManaAmount)
 		{
-			if (piVitalityFactor > 0 && CurrentHP > 0)
-				CurrentHP = Math.Min(MaxHP,
-					CurrentHP + 1 + (float)Math.Floor((UWRandom.Next(4) + piVitalityFactor) * MaxHP / 16f));
+			if (CurrentHP > 0)
+				CurrentHP = Math.Min(MaxHP, CurrentHP + fRestoreShare(MaxHP, piHitPointAmount));
 
-			if (piMana > 0)
-				CurrentMana = Math.Min(MaxMana, CurrentMana + piMana);
+			CurrentMana = Math.Min(MaxMana, CurrentMana + SleepFlatMana);
+			CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreShare(MaxMana, piManaAmount));
 
 			fVitalsChanged();
+		}
+
+		/// <summary>What restore_mana(-6) adds before the share.</summary>
+		private const int SleepFlatMana = 6;
+
+		/// <summary>restore_hp / restore_mana with a positive amount: (max * (amount + RNG & 3)) >> 4,
+		/// plus one.</summary>
+		private static float fRestoreShare(float pfMax, int piAmount)
+		{
+			if (piAmount <= 0)
+				return -piAmount;
+
+			return (((int)pfMax * (piAmount + UWRandom.Next(4))) >> 4) + 1;
 		}
 
 		/// <summary>Sets hit points to the maximum - Greater Heal.</summary>

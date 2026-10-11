@@ -50,6 +50,13 @@ namespace UWDataImport.UWData
 
 		void SpendMana(int piAmount);
 
+		/// <summary>A backfired spell on the player: piDice d8 off the hit points, never below
+		/// three (none at all at three or fewer), the view flashing (backfire, SPELLS.C).</summary>
+		void Backfire(int piDice);
+
+		/// <summary>Real seconds since some start, for the pause between two casts.</summary>
+		double RealSeconds { get; }
+
 		void RestoreManaFromSpell(int piMinorClass);
 
 		void Heal(int piAmount);

@@ -33,13 +33,17 @@ namespace UWDataImport.UWData
 			/// <summary>The skill check failed - the attempt cost nothing.</summary>
 			Failed,
 
-			/// <summary>No magic here (the void, a no-magic tile).</summary>
+			/// <summary>No magic here (the void, a no-magic tile) - the mana is paid all the same.</summary>
 			Blocked,
 
-			/// <summary>A critical failure: the mana is gone, nothing happens.</summary>
+			/// <summary>A critical failure: the mana is paid and the spell turns on the caster
+			/// (IUWSpellHost.Backfire).</summary>
 			Backfired,
 
-			Cast
+			Cast,
+
+			/// <summary>Too soon after the last cast (the pause between two casts).</summary>
+			TooSoon
 		}
 
 		/// <summary>What the original shows when the runes are no spell - not in the string
@@ -79,6 +83,32 @@ namespace UWDataImport.UWData
 		/// <summary>This minor class heals fully - the Greater Heal.</summary>
 		private const int FullHealMinorClass = 0xF;
 
+		/// <summary>The sound of a cast refused for being too soon (try_cast: effect 0x15).</summary>
+		private const int TooSoonSound = 0x15;
+
+		/// <summary>The skill check's bonus on the casting skill and its target per circle
+		/// (player_cast: skill_check(Casting + 5, 2 * circle)).</summary>
+		private const int CastingCheckBonus = 5;
+
+		private const int CastingCheckPerCircle = 2;
+
+		/// <summary>
+		/// THE PAUSE BETWEEN TWO CASTS (try_cast and player_cast, UnderworldExhumed RUNES.C, read
+		/// 2026-10-11; the Exhumed audit's row 4): every cast that got past the skill check sets
+		/// spell_delay = (2 * circle - level) * 4 + 0x40 clock units (a byte, 256 a second), and a
+		/// rune cast before the clock passed the last cast's time plus it is refused with sound 0x15
+		/// - a quarter of a second, a little more for a circle above one's level, down to a thirtieth
+		/// for a high level's first circle. Kept in real seconds from the host (IUWSpellHost.
+		/// RealSeconds): our game clock advances in whole player ticks.
+		/// </summary>
+		private const int CastDelayBase = 0x40;
+
+		private const int CastDelayPerStep = 4;
+
+		private static double mdLastCastSeconds = double.NegativeInfinity;
+
+		private static double mdCastDelaySeconds;
+
 		/// <summary>
 		/// Casts the selected runes.
 		///
@@ -86,13 +116,25 @@ namespace UWDataImport.UWData
 		/// In Lor is spell 0, so circle 1, and costs 3 mana there - exactly circle
 		/// times three (per user, 2026-09-03).
 		///
-		/// Order: lookup, circle, mana, skill check, no-magic check; the effect of a successful
-		/// spell is applied by ApplyEffect.
+		/// ORDER AS UW.EXE'S player_cast (UnderworldExhumed RUNES.C, 2026-10-11): the pause since
+		/// the last cast, lookup, circle, mana, skill check (a failure costs nothing), then the
+		/// pause set and the mana paid (a missile's when it is released), and only then the
+		/// spell - so a cast where no magic works costs the mana, and a backfire turns on the
+		/// caster.
 		/// </summary>
 		public static OutcomeEnum CastRunes(int piFirstRune, int piSecondRune, int piThirdRune, IUWSpellHost pIHost)
 		{
 			if (pIHost == null || !pIHost.HasPlayer)
 				return OutcomeEnum.NotASpell;
+
+			double ldNow = pIHost.RealSeconds;
+
+			if (ldNow < mdLastCastSeconds + mdCastDelaySeconds)
+			{
+				pIHost.PlaySoundAtPlayer(TooSoonSound);
+
+				return OutcomeEnum.TooSoon;
+			}
 
 			int liSequence = UWRunicMagic.GetSequence(piFirstRune, piSecondRune, piThirdRune);
 
@@ -120,10 +162,12 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.NotEnoughMana;
 			}
 
-			// ORDER: first the check, then the mana. On a failure the attempt costs
-			// nothing at all (tested per user in the original, 2026-09-03) - the reference, by contrast, deducts the
-			// mana beforehand.
-			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(pIHost.PlayerCastingSkill, lOSpell.Level * 3);
+			// THE CHECK: Casting + 5 against twice the circle (player_cast; until 2026-10-11 ours had
+			// Casting against three times the circle, the reference's - 6 to 13 points harder, the
+			// Exhumed audit's row 1). A failure costs nothing at all (tested per user in the
+			// original, 2026-09-03; the mana is paid only after the check).
+			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(pIHost.PlayerCastingSkill + CastingCheckBonus,
+				lOSpell.Level * CastingCheckPerCircle);
 
 			if (leResult == UWSkillCheck.ResultEnum.Failure)
 			{
@@ -133,9 +177,29 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.Failed;
 			}
 
-			// NO MAGIC HERE (void or tile with no-magic bit): UW.EXE
-			// PlayerCastsValidSpell_ovr119_488 then sets the mana cost to 0 and reports error 3,
-			// "Casting was not successful.", with the failure sound.
+			bool lbBackfire = leResult == UWSkillCheck.ResultEnum.CriticalFailure;
+
+			if (lbBackfire)
+				pIHost.AddGeneralMessage(SpellBackfiresMessage);
+
+			// The pause before the next cast, from now - a backfire sets it too.
+			mdLastCastSeconds = ldNow;
+			mdCastDelaySeconds = (byte)((((lOSpell.Level * 2) - pIHost.PlayerLevel) * CastDelayPerStep) + CastDelayBase)
+				/ (double)UWPlayerTick.PitTicksPerSecond;
+
+			// THE MANA IS PAID BEFORE THE SPELL (player_cast; the Exhumed audit's row 2) - so a
+			// cast where no magic works costs it; until 2026-10-11 ours let it off. A PROJECTILE
+			// PAYS WHEN IT IS RELEASED (release_missile; Class5ProjectileSpells_seg038_4EE keeps the
+			// cost and subtracts it only once the missile found room): the cost travels with the
+			// waiting spell, and a refused one is not paid.
+			int liDeferredCost = !lbBackfire && lOSpell.MajorClass == ProjectileMajorClass ? lOSpell.ManaCost : 0;
+
+			if (liDeferredCost == 0)
+				pIHost.SpendMana(lOSpell.ManaCost);
+
+			// NO MAGIC HERE (void or tile with no-magic bit): do_spell refuses, error 3, "Casting
+			// was not successful.", with the failure sound - a backfire as well (do_spell tests it
+			// before the class).
 			if (pIHost.IsMagicBlocked)
 			{
 				pIHost.PlaySpellFailureSound();
@@ -144,31 +208,27 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.Blocked;
 			}
 
-			// ASSUMPTION: that a backfire costs the mana. Only the simple failure has been
-			// checked; on a backfire the original casts a curse, so the attempt did
-			// work - only wrongly.
-			if (leResult == UWSkillCheck.ResultEnum.CriticalFailure)
+			// THE BACKFIRE (class 9, strength circle / 2; the Exhumed audit's row 3): (circle / 2)d8
+			// on the caster, never below three hit points, the view flashing - and the cast sound,
+			// as do_spell took it. Until 2026-10-11 ours only paid the mana.
+			if (lbBackfire)
 			{
-				pIHost.SpendMana(lOSpell.ManaCost);
-
-				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(SpellBackfiresMessage);
+				pIHost.Backfire(lOSpell.Level / 2);
+				pIHost.PlaySpellSound();
 
 				return OutcomeEnum.Backfired;
 			}
 
-			// A PROJECTILE PAYS WHEN IT IS RELEASED (Class5ProjectileSpells_seg038_4EE keeps the cost
-			// in SpellManaCost and subtracts it only after PrepareProjectileObject found room): the
-			// cost travels with the waiting spell. Every other spell pays now.
-			int liDeferredCost = lOSpell.MajorClass == ProjectileMajorClass ? lOSpell.ManaCost : 0;
+			// The spell, and the cast sound only once it took (player_cast plays effect 0x10 after
+			// do_spell; a lasting spell with no free slot fails with the failure sound).
+			if (!ApplyEffect(lOSpell, false, pIHost, liDeferredCost))
+			{
+				pIHost.PlaySpellFailureSound();
 
-			if (liDeferredCost == 0)
-				pIHost.SpendMana(lOSpell.ManaCost);
+				return OutcomeEnum.Blocked;
+			}
 
-			// Successful: now the spell takes effect - with the casting sound (reference:
-			// runicmagic.GetSpellSFX, which in uw1 returns the same number for everything).
 			pIHost.PlaySpellSound();
-			ApplyEffect(lOSpell, false, pIHost, liDeferredCost);
 
 			return OutcomeEnum.Cast;
 		}
@@ -217,8 +277,9 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		/// <summary>The effect of a successful spell, by major class - see the class comment.</summary>
-		public static void ApplyEffect(UWRunicMagic.Spell pOSpell, bool pbFromObject, IUWSpellHost pIHost,
+		/// <summary>The effect of a successful spell, by major class - see the class comment.
+		/// False when it did not take: no magic here, or a lasting spell with no free slot.</summary>
+		public static bool ApplyEffect(UWRunicMagic.Spell pOSpell, bool pbFromObject, IUWSpellHost pIHost,
 			int piDeferredManaCost = 0)
 		{
 			int liMinor = UWRunicMagic.GetEffectMinor(pOSpell.MinorClass);
@@ -226,27 +287,27 @@ namespace UWDataImport.UWData
 			// Spells from items do not take effect here either (UW.EXE: the same abort in
 			// CastSpells, without message for wands and traps).
 			if (pIHost.HasPlayer && pIHost.IsMagicBlocked)
-				return;
+				return false;
 
 			if (pOSpell.MajorClass == HealMajorClass)
 			{
 				fHeal(liMinor, pIHost);
 
-				return;
+				return true;
 			}
 
 			if (pOSpell.MajorClass == ProjectileMajorClass)
 			{
 				fBeginProjectileSpell(liMinor, pIHost, piDeferredManaCost);
 
-				return;
+				return true;
 			}
 
 			if (pOSpell.MajorClass == AreaMajorClass)
 			{
 				UWAreaSpellRules.Cast(liMinor, UWRunicMagic.GetAreaTargetType(pOSpell.MinorClass), pIHost);
 
-				return;
+				return true;
 			}
 
 			// Class 7 goes onto the creatures IN FRONT OF the player - from runes as from an item.
@@ -266,7 +327,7 @@ namespace UWDataImport.UWData
 				if (pIHost.HasPlayer)
 					UWAreaSpellRules.CastTargetSpellInArea(liMinor, pIHost);
 
-				return;
+				return true;
 			}
 
 			// Class 8 puts something into the world - see UWSummonSpellRules.
@@ -274,7 +335,7 @@ namespace UWDataImport.UWData
 			{
 				UWSummonSpellRules.Cast(liMinor, pIHost);
 
-				return;
+				return true;
 			}
 
 			// Class 10 restores mana. Two spells, both without rune sequence - they exist only in
@@ -284,7 +345,7 @@ namespace UWDataImport.UWData
 				if (pIHost.HasPlayer)
 					pIHost.RestoreManaFromSpell(liMinor);
 
-				return;
+				return true;
 			}
 
 			// Class 11 is the bag full of special cases - see UWMiscSpellRules.
@@ -294,7 +355,7 @@ namespace UWDataImport.UWData
 
 				pIHost.RefreshSpellIcons();
 
-				return;
+				return true;
 			}
 
 			// Class 13 exists only on items - see UWItemSpellRules.
@@ -302,11 +363,11 @@ namespace UWDataImport.UWData
 			{
 				UWItemSpellRules.Cast(liMinor, pIHost);
 
-				return;
+				return true;
 			}
 
 			if (pOSpell.MajorClass > LastLastingMajorClass || !pIHost.HasPlayer)
-				return;
+				return true;
 
 			// The upper bits of the minor class say how long the spell lasts - for In Lor
 			// 0x80, so three rolls of a d24.
@@ -318,10 +379,12 @@ namespace UWDataImport.UWData
 			{
 				pIHost.AddGeneralMessage(CastingNotSuccessfulMessage);
 
-				return;
+				return false;
 			}
 
 			pIHost.RefreshSpellIcons();
+
+			return true;
 		}
 
 		/// <summary>

@@ -2198,6 +2198,11 @@ public class Interaction : MonoBehaviour
                 UWPlayerThrow.GetPlayerHeading(mCharacter.transform) >> 5, lOCritterTarget.FacingEighth);
         }
 
+        // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon).
+        UWPlayerAttack.GetWeaponEnchantment(lOWeapon,
+            mOUWDataImporter != null && mOUWDataImporter.InitialPlayer != null ? mOUWDataImporter.InitialPlayer.InventoryRecords : null,
+            out int liEnchantAccuracy, out int liEnchantDamage);
+
         // The numbers - hit check and damage - are in UWPlayerAttack (P3 of the engine
         // separation, 2026-09-18). The linear charge fraction (0 to 1) kept on release, see
         // mfPendingCharge.
@@ -2209,7 +2214,7 @@ public class Interaction : MonoBehaviour
             mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
             mCharacter != null ? (System.Func<UWPlayerData.Skill, int>)mCharacter.GetSkill : null,
             lODamageable.Defence, liArmour,
-            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank);
+            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage);
 
         if (lOResult.NoWeapon)
             return;

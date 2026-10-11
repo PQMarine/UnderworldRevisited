@@ -266,12 +266,21 @@ public static class UWPlayerThrow
 
         // A burning light goes out when it is put down - only after it is sure to fit, otherwise
         // it would stay at the pointer doused.
-        if (UWObjectMechanics.Extinguish(pOItem, lOData.Textures))
+        // A lit taper keeps burning on the ground (ExtinguishInWorld) - its light leaves the
+        // pointer with it once it is down.
+        bool lbWasLit = UWObjectMechanics.IsLitLight(pOItem.ID);
+
+        if (UWObjectMechanics.ExtinguishInWorld(pOItem, lOData.Textures))
             pOInventory.ApplyCarriedLight();
 
         // Arrows and bolts lie in the facing (per user, 2026-09-07) - see SpawnDroppedObject.
-        return pOInventory.DropCursorItemInWorld(fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y),
+        bool lbDropped = pOInventory.DropCursorItemInWorld(fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y),
             true, null, UWLevelLoader.HeadingFromDirection(pOCamera.forward));
+
+        if (lbWasLit)
+            pOInventory.ApplyCarriedLight();
+
+        return lbDropped;
     }
 
     /// <summary>

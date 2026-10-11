@@ -19,13 +19,13 @@ public static class UWSleep
     /// is already in the message scroll.
     /// </summary>
     public static bool Sleep(DataImport pOData, UWCharacter pOCharacter, Interaction pOInteraction,
-        UWLevelLoader pOLevelLoader, bool pbPassedOut = false)
+        UWLevelLoader pOLevelLoader, bool pbPassedOut = false, bool pbBedroll = false)
     {
         if (pOData == null || pOCharacter == null || pOInteraction == null || pOLevelLoader == null)
             return false;
 
         return UWSleepRules.Sleep(pOCharacter.Vitals, pOLevelLoader.CurrentLevelIndex + 1,
-            new UWSleepHost(pOCharacter, pOInteraction, pOLevelLoader), pbPassedOut);
+            new UWSleepHost(pOCharacter, pOInteraction, pOLevelLoader), pbPassedOut, pbBedroll);
     }
 
     /// <summary>What the rules ask of the scene during one night.</summary>
@@ -101,27 +101,40 @@ public static class UWSleep
                 mOCharacter.ApplyDamage(piDamage);
         }
 
-        /// <summary>Closes every door within the radius, as the original does before the night
-        /// (FindAndCloseDoors_ovr153_15C4).</summary>
-        public void CloseDoorsAround(int piTileRadius)
+        /// <summary>The night's closing doors (DoClosingDoors(0)): every open door of the level,
+        /// wherever it is, unless its tile carries the tile's door bit, with the chance given.
+        /// Until 2026-10-11 every door within eight tiles (the reference's reading).</summary>
+        public void CloseDoorsOnLevel(int piChanceInTen)
         {
-            if (mOCharacter == null)
-                return;
-
-            float lfRange = piTileRadius * UWWorldScale.TileSize;
+            UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
 
             foreach (DoorMover lODoor in Object.FindObjectsByType<DoorMover>(FindObjectsSortMode.None))
             {
                 if (lODoor == null || lODoor.IsClosed || lODoor.IsMoving)
                     continue;
 
-                if ((lODoor.transform.position - mOCharacter.transform.position).sqrMagnitude
-                    > lfRange * lfRange)
+                UWTilePos lOTile = mOLoader.WorldPositionToTile(lODoor.transform.position);
+                UWTile lOTileData = lOLevel != null ? lOLevel.GetTile(lOTile.X, lOTile.Y) : null;
+
+                if (lOTileData != null && lOTileData.HasDoor)
+                    continue;
+
+                if (UWRandom.Next(10) >= piChanceInTen)
                     continue;
 
                 // The same entry point a click uses - so the leaf swings, the sound plays and
                 // the tile blocker comes back exactly as it does otherwise.
                 lODoor.StartUsingDoor();
+            }
+        }
+
+        public bool IsOnGround
+        {
+            get
+            {
+                UWPlayerMovement lOMovement = mOCharacter != null ? mOCharacter.GetComponent<UWPlayerMovement>() : null;
+
+                return lOMovement == null || (!lOMovement.IsJumping && lOMovement.IsWalkingOnGround);
             }
         }
 

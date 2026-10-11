@@ -256,7 +256,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ovr119_0` | UWPlayerData.cs |
 | `LookAtActiveSpell` (ovr119_2C9) | UWClickRules.cs |
-| `PlayerCastsValidSpell` (ovr119_488) | UWSpellCasting.cs |
 
 ### ovr120
 
@@ -392,9 +391,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ovr153_135C` | UWTrapChainRemoval.cs, UWTrapDisarming.cs |
 | `CheckForBitDInArea` (ovr153_148E) | UWTrapRules.cs |
-| `CheckIfWithin8TilesFromObject` (ovr153_14C4) | UWRespawnRules.cs, UWSleepRules.cs, Program.cs |
+| `CheckIfWithin8TilesFromObject` (ovr153_14C4) | UWRespawnRules.cs, Program.cs |
 | `TriggerCreateObjectTrap` (ovr153_1517) | UWRespawnRules.cs, UWSleep.cs |
-| `FindAndCloseDoors` (ovr153_15C4) | UWSleepRules.cs, UWSleep.cs |
 | `RunTrap` (ovr153_24A) | UWTrapChainRemoval.cs, UWTrapRules.cs |
 | `Traps` (ovr153_296) | UWTrapRules.cs |
 | `Trigger` (ovr153_3B) | UWTrapChainRemoval.cs, UWTrapRules.cs, UWProjectileWorld.cs, Program.cs, EasyStepChecks.cs |

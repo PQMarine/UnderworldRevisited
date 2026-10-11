@@ -597,7 +597,7 @@ public class UWModernPanel : MonoBehaviour
                 continue;
 
             if (liFoot == 0 && UWScene.ItemDrag != null)
-                UWScene.ItemDrag.TrySleep();
+                UWScene.ItemDrag.CampByKey();
             else if (liFoot == 1 && mOUi.Runes != null)
                 mOUi.Runes.TrackByKey();
 

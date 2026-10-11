@@ -1277,5 +1277,24 @@ namespace UWDataImport.UWData
 
 			return true;
 		}
+
+		/// <summary>The lit taper, the last of the four lit lights.</summary>
+		public const int LitTaperObjectId = LastUnlitLightId + LitLightOffset;
+
+		/// <summary>
+		/// A burning light put into the world - put down, landed after a throw, a flying thing
+		/// come to rest: it goes out, BUT NOT THE TAPER. ReturnObject and mob_to_static put out
+		/// only the lit classes 4 to 6, the lantern, the torch and the candle (UnderworldExhumed
+		/// MISSILE.C and OBJPHYS.C, read 2026-10-11; the Exhumed audit's row 10), so a lit taper
+		/// stays lit on the ground. Until 2026-10-11 ours put it out as well. The inventory's rule
+		/// (lit only in a hand) stays Extinguish's.
+		/// </summary>
+		public static bool ExtinguishInWorld(UWObject pOItem, UWTextures pOTextures)
+		{
+			if (pOItem == null || pOItem.ID == LitTaperObjectId)
+				return false;
+
+			return Extinguish(pOItem, pOTextures);
+		}
 	}
 }

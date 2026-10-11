@@ -1859,9 +1859,23 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         UWSoundEffects.PlayAtAvatar(UWSoundEffects.MagicItemRefused);
     }
 
+    /// <summary>IUWItemUseHost: the bedroll used - a night in it.</summary>
     public bool TrySleep()
     {
-        return fTrySleep();
+        return fTrySleep(true);
+    }
+
+    /// <summary>
+    /// Making camp by key (F10) or by the modern panel's foot: in the bedroll if one is carried
+    /// anywhere in the inventory, else on the bare ground (player_key_sleep: FindObj for the
+    /// bedroll, then player_sleep(1) or (0)).
+    /// </summary>
+    public bool CampByKey()
+    {
+        bool lbBedroll = mOInventory != null && mOInventory.Model != null
+            && mOInventory.Model.FindCarried(pOItem => pOItem.ID == UWSleep.BedrollObjectId) != null;
+
+        return fTrySleep(lbBedroll);
     }
 
     public void SleepPassedOut()
@@ -1977,13 +1991,13 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
 
     /// <summary>Goes to sleep - see UWSleep. The bedroll stays in the
     /// backpack, it is not consumed.</summary>
-    private bool fTrySleep()
+    private bool fTrySleep(bool pbBedroll)
     {
         if (mOInteraction == null)
             return false;
 
         UWSleep.Sleep(mOUWData, UWScene.Character, mOInteraction,
-            UWScene.LevelLoader);
+            UWScene.LevelLoader, false, pbBedroll);
 
         return true;
     }

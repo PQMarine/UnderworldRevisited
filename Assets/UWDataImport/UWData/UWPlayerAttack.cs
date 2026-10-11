@@ -66,10 +66,43 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public const int EasyDifficultyAttackBonus = 7;
 
+		/// <summary>The major class of the weapon enchantments, Accuracy and Damage (DoPlayerWeapon).</summary>
+		public const int WeaponEnchantmentMajorClass = 0xC;
+
+		/// <summary>The minor's bit that makes it a damage enchantment; without it it is accuracy.</summary>
+		private const int DamageEnchantmentBit = 8;
+
+		/// <summary>
+		/// THE WIELDED WEAPON'S ENCHANTMENT (DoPlayerWeapon, UnderworldExhumed COMBAT.C, read
+		/// 2026-10-11; the Exhumed audit's row 5): an enchantment of major class 0xC in the spell
+		/// field's plain form (decode_obj_spell without the format flag) adds (minor & 7) + 1 - to
+		/// the damage when bit 3 of the minor is set, else to the attack score. Until 2026-10-11
+		/// ours ignored it, and an enchanted weapon struck like a plain one.
+		/// </summary>
+		public static void GetWeaponEnchantment(UWObject pOWeapon, System.Collections.Generic.IList<UWObject> pORecords,
+			out int piAccuracy, out int piDamage)
+		{
+			piAccuracy = 0;
+			piDamage = 0;
+
+			if (pOWeapon == null || !UWObjectMechanics.TryGetEnchantmentClass(pOWeapon, pORecords, out int liMajor, out int liMinor)
+				|| liMajor != WeaponEnchantmentMajorClass)
+				return;
+
+			int liAmount = (liMinor & 7) + 1;
+
+			if ((liMinor & DamageEnchantmentBit) != 0)
+				piDamage = liAmount;
+			else
+				piAccuracy = liAmount;
+		}
+
+		/// <param name="piEnchantAccuracy">The weapon's accuracy enchantment (GetWeaponEnchantment).</param>
+		/// <param name="piEnchantDamage">The weapon's damage enchantment, on the base damage.</param>
 		public static MeleeResult ResolveMelee(DataImport pOData, int piWeaponId, UWCombat.AttackKind peKind,
 			float pfChargeFraction, int piStrength, int piAttack, int piDexterity, int piUnarmedSkill,
 			System.Func<UWPlayerData.Skill, int> pFGetSkill, int piTargetDefence, int piTargetArmour,
-			bool pbEasyDifficulty = false, int piFlank = 0)
+			bool pbEasyDifficulty = false, int piFlank = 0, int piEnchantAccuracy = 0, int piEnchantDamage = 0)
 		{
 			MeleeResult lOResult = new MeleeResult();
 
@@ -101,6 +134,8 @@ namespace UWDataImport.UWData
 			if (pbEasyDifficulty)
 				lOResult.Accuracy += EasyDifficultyAttackBonus;
 
+			lOResult.Accuracy += piEnchantAccuracy;
+
 			// THE FLANKING BONUS (UWCritterRules.GetFlankingBonus, 0 from the front, 4 from
 			// behind) goes into the check, not into the score itself (as UWCritterCombat.GetHitScore
 			// adds it for a creature), and again into the damage (per user, 2026-09-28: the golem took
@@ -117,7 +152,7 @@ namespace UWDataImport.UWData
 				UWCombat.GetWeaponDamage(lOMelee, peKind),
 				lbUnarmed, piStrength, piUnarmedSkill, liCharge, piTargetArmour,
 				out int liBeforeArmour,
-				lOResult.Check == UWSkillCheck.ResultEnum.CriticalSuccess, piFlank);
+				lOResult.Check == UWSkillCheck.ResultEnum.CriticalSuccess, piFlank, piEnchantDamage);
 
 			lOResult.DamageBeforeArmour = liBeforeArmour;
 

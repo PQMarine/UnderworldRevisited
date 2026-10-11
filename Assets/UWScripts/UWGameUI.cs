@@ -1129,7 +1129,7 @@ public class UWGameUI : MonoBehaviour
         else if (lOPlayer.KeyTrack.WasPressedThisFrame())
             Runes.TrackByKey();
         else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
-            UWScene.ItemDrag.TrySleep();
+            UWScene.ItemDrag.CampByKey();
         else if (lOPlayer.ToggleMap.WasPerformedThisFrame() && !UWGamepadPointer.Takes(lOPlayer.ToggleMap))
             fToggleMapByKey();
     }
@@ -1262,7 +1262,7 @@ public class UWGameUI : MonoBehaviour
         else if (lOPlayer.KeyTrack.WasPressedThisFrame())
             Runes.TrackByKey();
         else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
-            UWScene.ItemDrag.TrySleep();
+            UWScene.ItemDrag.CampByKey();
     }
 
     /// <summary>
