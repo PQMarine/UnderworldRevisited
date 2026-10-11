@@ -333,6 +333,13 @@ namespace UWDataImport.UWData
 			/// creature (CombatMissImpactSound_seg022_C29).</summary>
 			public int ImpactCategory => (RowByte(0x10) >> 4) & 0xF;
 
+			/// <summary>Table byte 0x10 bits 4-5, the armour kind (1 metal) - do_miss's sound of a
+			/// blocked blow (UnderworldExhumed critter.h armour_kind).</summary>
+			public int ArmourKind => (RowByte(0x10) >> 4) & 3;
+
+			/// <summary>Table byte 0x10 bits 6-7, the weapon kind (1 metal) - the same.</summary>
+			public int WeaponKind => (RowByte(0x10) >> 6) & 3;
+
 			/// <summary>Table byte 0x11 as a SIGNED byte: half of it goes into the attack score
 			/// (NPCExecuteAttack_seg022_15DE, label 1656). AttackPower carries the same byte
 			/// unsigned.</summary>

@@ -26,6 +26,40 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWCritterCombat
 	{
+		/// <summary>The sound of a blocked blow, metal on metal (do_miss).</summary>
+		public const int BlockedMetalSound = 7;
+
+		/// <summary>The sound of every other blocked blow (do_miss).</summary>
+		public const int BlockedSound = 8;
+
+		/// <summary>The kind that counts as metal, for a weapon and for armour.</summary>
+		public const int MetalKind = 1;
+
+		/// <summary>The player's own creature row (the adventurer, item 0x7F): do_miss takes the
+		/// weapon kind of HIS blocked blows from this row, whatever he wields.</summary>
+		public const int PlayerCritterObjectId = 0x7F;
+
+		/// <summary>
+		/// THE SOUND OF A BLOCKED BLOW (do_miss, UnderworldExhumed COMBAT.C, read 2026-10-11; the
+		/// Exhumed audit's row 14): a blow that reached its target but failed the check plays at
+		/// the TARGET - effect 7 when a metal weapon meets metal armour, else 8. The weapon kind is
+		/// the attacker's row (the player's always his own row, 0x7F); the armour kind, for the
+		/// player as target the piece on the struck part (none or leather is not metal), for a
+		/// creature as target the ATTACKER's row - a slip of the original, kept. A swing at nothing
+		/// stays effect 0xA at the attacker. Until 2026-10-11 ours played 0xA for both.
+		/// </summary>
+		public static int GetBlockedSound(int piWeaponKind, bool pbArmourMetal)
+		{
+			return piWeaponKind == MetalKind && pbArmourMetal ? BlockedMetalSound : BlockedSound;
+		}
+
+		/// <summary>The leather pieces, which do_miss does not count as metal: vest, leggings,
+		/// gloves, boots, cap.</summary>
+		public static bool IsLeatherArmour(int piObjectId)
+		{
+			return piObjectId == 0x20 || piObjectId == 0x23 || piObjectId == 0x26 || piObjectId == 0x29 || piObjectId == 0x2C;
+		}
+
 		// ------------------------------------------------- NPCExecuteAttack (83437)
 
 		/// <summary>Row byte 0x13 + 3i for attack i.</summary>

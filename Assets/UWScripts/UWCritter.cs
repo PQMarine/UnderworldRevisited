@@ -1708,6 +1708,30 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// <summary>The impact flash and hit sound where the blow met the world. A collider that
     /// overlapped the capsule's start has no point (Unity reports zero); the impact then sits
     /// one radius ahead of the creature.</summary>
+    /// <summary>Whether the player's piece on this part is metal for do_miss: the slot of the
+    /// part ((part + 1) &amp; 3 of helm, chest, gloves, leggings), not empty, not leather.</summary>
+    private static bool fIsPlayerArmourMetal(int piPart)
+    {
+        UWInventory lOInventory = UWScene.Inventory;
+
+        if (lOInventory == null)
+            return false;
+
+        UWArmorItemMap.BodySlot leSlot;
+
+        switch (piPart)
+        {
+            case UWArmourProtection.PartBody: leSlot = UWArmorItemMap.BodySlot.Chest; break;
+            case UWArmourProtection.PartHands: leSlot = UWArmorItemMap.BodySlot.Gloves; break;
+            case UWArmourProtection.PartLegs: leSlot = UWArmorItemMap.BodySlot.Legs; break;
+            default: leSlot = UWArmorItemMap.BodySlot.Helmet; break;
+        }
+
+        UWObject lOPiece = lOInventory.GetEquipped(leSlot);
+
+        return lOPiece != null && !UWCritterCombat.IsLeatherArmour(lOPiece.ID);
+    }
+
     private void fShowImpactOnWorld(RaycastHit pOHit)
     {
         if (mOLevelLoader == null)
@@ -1788,7 +1812,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             fEvent("blow {0} {1} (score {2} + flank {3} vs defence {4})", piAttack,
                 leResult == UWSkillCheck.ResultEnum.CriticalFailure ? "missed badly" : "missed",
                 liScore, piFlank, liDefence);
-            UWSoundEffects.PlayAt(UWSoundEffects.Miss, mOBody);
+
+            // Blocked: 7 or 8 at the player, by this creature's weapon kind and the piece he wears
+            // on the struck part (UWCritterCombat.GetBlockedSound).
+            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(mOStats.WeaponKind, fIsPlayerArmourMetal(liPart)),
+                mOPlayer.transform.position);
 
             return;
         }
@@ -1882,7 +1910,12 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             liDamage = UWCritterCombat.SubtractArmour(liRolled, pOOther.GetArmourOfPart(liPart));
         }
         else
-            UWSoundEffects.PlayAt(UWSoundEffects.Miss, mOBody);
+        {
+            // Blocked: 7 or 8 at the defender - the armour kind read from THIS creature's row, as
+            // do_miss does (UWCritterCombat.GetBlockedSound).
+            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(mOStats.WeaponKind,
+                mOStats.ArmourKind == UWCritterCombat.MetalKind), pOOther.mOBody);
+        }
 
         fEvent("blow {0} at creature {1}: {2} part {3} for {4}", piAttack, piTargetIndex, leResult, liPart, liDamage);
 
