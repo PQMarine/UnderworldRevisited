@@ -54,9 +54,19 @@ public static class UWModernBacks
     }
 
     /// <summary>What a part shows: none, leather clouds with a border once a shape is chosen.</summary>
+    /// <summary>The backs were set from outside (the layout editor's snapshot): built anew.</summary>
+    public static void Reloaded()
+    {
+        Version++;
+    }
+
     public static Back Get(UWModernLayout.ElementEnum peElement)
     {
         Back lOBack = new Back { Shape = UWBackdropArt.ShapeEnum.None, Border = true };
+
+        // Classic Modular brings none (UWModernClassicPlus).
+        if (UWModernClassicPlus.IsActive)
+            return lOBack;
 
         foreach (string lsEntry in (UWUserSettings.ModernBacks ?? string.Empty).Split(';'))
         {

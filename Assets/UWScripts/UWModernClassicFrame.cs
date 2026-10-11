@@ -327,15 +327,27 @@ public class UWModernClassicFrame : MonoBehaviour
 
     // ------------------------------------------------- Drawing
 
+    /// <summary>The dragons' canvas of their own - it draws even with the frame's switched off,
+    /// so it is switched with it (per user's screenshots, 2026-10-10: the dragons stayed in the
+    /// Modern and Custom presets after Classic Wide had been chosen).</summary>
+    private Canvas mODragonCanvas;
+
+    private void fSetShown(bool pbShown)
+    {
+        if (mOCanvas != null && mOCanvas.enabled != pbShown)
+            mOCanvas.enabled = pbShown;
+
+        if (mODragonCanvas != null && mODragonCanvas.enabled != pbShown)
+            mODragonCanvas.enabled = pbShown;
+    }
+
     /// <summary>Once a frame from UWModernHud: shown with the HUD and in a conversation (the
     /// original keeps its frame there).</summary>
     public void Tick(bool pbShown)
     {
         if (!pbShown || !IsActive || mOUi == null || mOUi.mOUWData == null)
         {
-            if (mOCanvas != null)
-                mOCanvas.enabled = false;
-
+            fSetShown(false);
             return;
         }
 
@@ -346,11 +358,11 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (mOTexture == null)
         {
-            mOCanvas.enabled = false;
+            fSetShown(false);
             return;
         }
 
-        mOCanvas.enabled = true;
+        fSetShown(true);
 
         RectTransform lORect = mOImage.rectTransform;
 
@@ -439,9 +451,9 @@ public class UWModernClassicFrame : MonoBehaviour
 
         // The dragons over the parts (the rune hollow lies under the right one's head, per user,
         // 2026-10-10): a canvas of their own above the HUD's.
-        Canvas lODragonCanvas = lOSpace.AddComponent<Canvas>();
-        lODragonCanvas.overrideSorting = true;
-        lODragonCanvas.sortingOrder = 41;
+        mODragonCanvas = lOSpace.AddComponent<Canvas>();
+        mODragonCanvas.overrideSorting = true;
+        mODragonCanvas.sortingOrder = 41;
 
         mODragonSpace = (RectTransform)lOSpace.transform;
         mODragonSpace.anchorMin = new Vector2(0f, 1f);

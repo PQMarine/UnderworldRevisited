@@ -115,6 +115,7 @@ public class UWModernScroll
 
     /// <summary>Lines of text the scroll holds: the original's four unless made taller.</summary>
     public static int Lines => UWModernClassicFrame.IsActive ? 4
+        : UWModernClassicPlus.IsActive ? UWModernClassicPlus.ScrollLines
         : Mathf.Clamp(UWUserSettings.ModernScrollLines > 0 ? UWUserSettings.ModernScrollLines : 4, MinLines, MaxLines);
 
     /// <summary>Classic Wide: the columns the frame's scroll is wider than the original's.</summary>

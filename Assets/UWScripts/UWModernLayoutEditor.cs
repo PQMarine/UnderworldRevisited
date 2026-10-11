@@ -31,6 +31,13 @@ using UnityEngine.UI;
 ///     Snap on or off, Reset all, Done, and below them the inspector of the selected part;
 ///     Escape goes back to the game menu.
 ///
+/// A PRESET AS A STARTING POINT, SAVED ONLY ON LEAVING (per user, 2026-10-11): "Preset" in the window
+/// chooses what is edited - Custom (the own layout as saved), Modern or Classic Modular (their
+/// places and switches copied into the own layout, to change from there). Nothing is written while
+/// the editor is open (UWUserSettings.SaveSuspended); leaving it with changes asks to save them or to
+/// throw them away, which puts the own layout back as it was (a snapshot taken on opening). Classic
+/// Wide cannot be a starting point: its frame is no part of the own layout.
+///
 /// WHAT IS EDITED SHOWS (per user, 2026-10-04: the bags shut with the Escape that leads to the
 /// menu, and the closed panels could not be seen): the bags open while the editor is open, and
 /// "Panels: out" slides the character panel (Character tab) and the rune panel out - by default
@@ -136,6 +143,31 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private float mfGuideY = -1f;
 
+    public static UWModernLayoutEditor Instance { get; private set; }
+
+    /// <summary>What "Preset" shows as chosen: the own layout, or the preset copied into it.</summary>
+    private enum StartEnum
+    {
+        Custom = 0,
+        Modern = 1,
+        ClassicModular = 2
+    }
+
+    private static readonly string[] msStartNames = { "Custom", "Modern", "Classic Modular" };
+
+    private StartEnum meStart;
+
+    /// <summary>The own layout as saved, taken when the editor opens.</summary>
+    private UWUserSettings.LayoutSnapshot mOSaved;
+
+    /// <summary>Leaving waits for the save question; what to do once it is answered.</summary>
+    private System.Action mOLeave;
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
     private void Start()
     {
         mOUi = GetComponent<UWGameUI>();
@@ -144,6 +176,9 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (Instance == this)
+            Instance = null;
+
         fShowPointer(PointerEnum.System);
 
         foreach (Texture2D lOTexture in mOTextures.Values)
@@ -172,7 +207,7 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         mbWasEditing = lbEditing;
 
-        if (!lbEditing || Mouse.current == null)
+        if (!lbEditing || Mouse.current == null || mOLeave != null)
         {
             miDragged = -1;
             return;
@@ -501,11 +536,21 @@ public class UWModernLayoutEditor : MonoBehaviour
         mbPanelsOut = false;
         miSelected = -1;
         UWModernConversation.Previewing = false;
+
+        // The session: the own layout as saved, nothing written until it is left.
+        mOSaved = UWUserSettings.TakeLayoutSnapshot();
+        UWUserSettings.SaveSuspended = true;
+        meStart = StartEnum.Custom;
+        mOLeave = null;
     }
 
     private void fEnd()
     {
         UWModernConversation.Previewing = false;
+
+        // Left without the question (the menu closed from outside): the changes go.
+        if (UWUserSettings.SaveSuspended)
+            fFinish(false);
 
         if (mbPanelsOut)
             fSetPanelsOut(false);
@@ -1254,9 +1299,9 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
 
-        // The height follows the content: title, help, the editor's three rows, the line, the
+        // The height follows the content: title, help, the editor's four rows, the line, the
         // part's name and its rows.
-        float lfHeight = TitleHeight + WindowPad + HintHeight + (3f * (RowHeight + RowGap)) + 9f + RowHeight + RowGap;
+        float lfHeight = TitleHeight + WindowPad + HintHeight + (4f * (RowHeight + RowGap)) + 9f + RowHeight + RowGap;
 
         foreach (InspectorItem lOItem in mOItems)
             lfHeight += fItemHeight(lOItem) + RowGap;
@@ -1269,6 +1314,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         msWindowRect.width = WindowWidth;
         msWindowRect.height = lfHeight;
         msWindowRect = GUI.Window(WindowId, msWindowRect, fDrawWindow, GUIContent.none, mOWindowStyle);
+        GUI.enabled = true;
 
         // Never off the screen.
         msWindowRect.x = Mathf.Clamp(msWindowRect.x, 0f, Mathf.Max(0f, lfScreenWidth - msWindowRect.width));
@@ -1276,12 +1322,178 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         mOWindowScreenRect = new Rect(msWindowRect.x * lfScale, Screen.height - (msWindowRect.yMax * lfScale),
             msWindowRect.width * lfScale, msWindowRect.height * lfScale);
+
+        // The save question over everything.
+        if (mOLeave != null)
+        {
+            Rect lOAsk = new Rect((lfScreenWidth - AskWidth) * 0.5f, (UWSetupMenu.ReferenceHeight - AskHeight) * 0.5f, AskWidth, AskHeight);
+
+            GUI.ModalWindow(AskWindowId, lOAsk, fDrawAsk, GUIContent.none, mOWindowStyle);
+        }
+    }
+
+    private const int AskWindowId = 0x55574C46;
+
+    private const float AskWidth = 300f;
+
+    private const float AskHeight = TitleHeight + WindowPad + 44f + RowHeight + WindowPad;
+
+    /// <summary>The save question: Save, Discard (the own layout as it was), or back to editing.</summary>
+    private void fDrawAsk(int piId)
+    {
+        float lfInner = AskWidth - (2f * WindowPad);
+
+        GUI.Label(new Rect(0f, 0f, AskWidth, TitleHeight), "Save the layout?", mOTitleStyle);
+        GUI.Label(new Rect(WindowPad, TitleHeight + WindowPad, lfInner, 44f),
+            "The layout was changed. Save it as your own layout, or discard the changes?", mOHintStyle);
+
+        float lfY = TitleHeight + WindowPad + 44f;
+        float lfThird = (lfInner - (2f * RowGap)) / 3f;
+        System.Action lOLeave = mOLeave;
+
+        if (GUI.Button(new Rect(WindowPad, lfY, lfThird, RowHeight), "Save", mOButtonStyle))
+        {
+            mOLeave = null;
+            fFinish(true);
+            lOLeave();
+        }
+        else if (GUI.Button(new Rect(WindowPad + lfThird + RowGap, lfY, lfThird, RowHeight), "Discard", mOButtonStyle))
+        {
+            mOLeave = null;
+            fFinish(false);
+            lOLeave();
+        }
+        else if (GUI.Button(new Rect(WindowPad + (2f * (lfThird + RowGap)), lfY, lfThird, RowHeight), "Back", mOButtonStyle))
+        {
+            mOLeave = null;
+        }
+    }
+
+    /// <summary>
+    /// Leaving the editor (Done, Escape): at once when nothing changed, else after the save
+    /// question; pOLeave is what the leaving does (close the menu, back to its main page).
+    /// </summary>
+    public void RequestLeave(System.Action pOLeave)
+    {
+        if (mOLeave != null || pOLeave == null)
+            return;
+
+        if (UWUserSettings.LayoutEquals(mOSaved))
+        {
+            fFinish(true);
+
+            pOLeave();
+            return;
+        }
+
+        mOLeave = pOLeave;
+    }
+
+    /// <summary>Ends the session: writes the settings, or first puts the own layout back.</summary>
+    private void fFinish(bool pbSave)
+    {
+        if (!pbSave)
+            fRestore(mOSaved);
+
+        UWUserSettings.SaveSuspended = false;
+        UWUserSettings.Save();
+    }
+
+    private static void fRestore(UWUserSettings.LayoutSnapshot pOSnapshot)
+    {
+        UWUserSettings.RestoreLayout(pOSnapshot);
+        UWModernLayout.Reload();
+        UWModernBacks.Reloaded();
+    }
+
+    /// <summary>
+    /// "Preset": the own layout as saved, or a preset copied into it - Modern its default places and
+    /// no original pieces, Classic Modular its places, pieces and looks (UWModernClassicPlus), the
+    /// backs cleared as it has none. The UI size and the font stay as they are.
+    /// </summary>
+    private void fChooseStart(StartEnum peStart)
+    {
+        meStart = peStart;
+        fRestore(mOSaved);
+
+        if (peStart == StartEnum.Custom)
+            return;
+
+        bool lbClassic = peStart == StartEnum.ClassicModular;
+
+        UWUserSettings.ModernLayout = lbClassic ? UWModernClassicPlus.Layout : string.Empty;
+        UWUserSettings.ModernCompass = lbClassic;
+        UWUserSettings.ModernCompassDisc = lbClassic;
+        UWUserSettings.ModernScroll = lbClassic;
+        UWUserSettings.ModernGemApart = lbClassic;
+        UWUserSettings.ModernFlasksApart = lbClassic;
+        UWUserSettings.ModernStoneShelf = lbClassic;
+        UWUserSettings.ModernRuneHollow = lbClassic;
+        UWUserSettings.ModernRuneTablet = lbClassic;
+        UWUserSettings.ModernStatsPanel = lbClassic;
+        UWUserSettings.ModernCharacterPage = lbClassic;
+        UWUserSettings.ModernConversationOriginal = lbClassic;
+        UWUserSettings.MinimapHidden = lbClassic;
+        UWUserSettings.ActionBarHidden = lbClassic;
+
+        if (lbClassic)
+        {
+            UWUserSettings.ModernScrollLines = UWModernClassicPlus.ScrollLines;
+            UWUserSettings.ModernCompassOutline = true;
+            UWUserSettings.ModernRuneHollowOutline = true;
+            UWUserSettings.ModernConversationNoOutline = false;
+            UWUserSettings.ModernBacks = string.Empty;
+        }
+
+        UWModernLayout.Reload();
+        UWModernBacks.Reloaded();
+
+        // The shelf as wide as the screen leaves beside the stats panel (its size read from the
+        // layout just set).
+        if (lbClassic)
+            UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
+                UWModernHud.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
+
+        miSelected = -1;
+    }
+
+    /// <summary>A row of segments, each as wide as its name needs and the rest shared out evenly
+    /// (squeezed alike when the row is too narrow); returns the chosen one.</summary>
+    private int fSegments(Rect pORect, int piChosen, string[] psNames)
+    {
+        float[] lfWidths = new float[psNames.Length];
+        float lfNeeded = 0f;
+
+        for (int liAt = 0; liAt < psNames.Length; liAt++)
+        {
+            lfWidths[liAt] = mOSegmentStyle.CalcSize(new GUIContent(psNames[liAt])).x;
+            lfNeeded += lfWidths[liAt];
+        }
+
+        float lfSpare = Mathf.Max(0f, (pORect.width - lfNeeded) / psNames.Length);
+        float lfSqueeze = Mathf.Min(1f, pORect.width / Mathf.Max(1f, lfNeeded));
+        float lfX = pORect.x;
+        int liChosen = piChosen;
+
+        for (int liAt = 0; liAt < psNames.Length; liAt++)
+        {
+            float lfWidth = (lfWidths[liAt] * lfSqueeze) + lfSpare;
+
+            if (GUI.Toggle(new Rect(lfX, pORect.y, lfWidth, pORect.height), liAt == piChosen, psNames[liAt], mOSegmentStyle) && liAt != piChosen)
+                liChosen = liAt;
+
+            lfX += lfWidth;
+        }
+
+        return liChosen;
     }
 
     private void fDrawWindow(int piId)
     {
         float lfInner = WindowWidth - (2f * WindowPad);
         float lfX = WindowPad;
+
+        GUI.enabled = mOLeave == null;
 
         GUI.Label(new Rect(0f, 0f, WindowWidth, TitleHeight), "Edit layout", mOTitleStyle);
 
@@ -1298,6 +1510,19 @@ public class UWModernLayoutEditor : MonoBehaviour
         fDrawStepper(lfX, lfY, lfInner, fStepper("UI size", liUiPercent + " %",
             liUiPercent > UWModernHud.MinUiPercent, liUiPercent < UWModernHud.MaxUiPercent,
             liAt => UWModernHud.SetUiPercent(liUiPercent + (liAt == 0 ? -UWModernHud.UiPercentStep : UWModernHud.UiPercentStep))));
+        lfY += RowHeight + RowGap;
+
+        // The starting point: the own layout, or a preset copied into it. The segments as wide as
+        // their names need (per user, 2026-10-11: "Classic Modular" did not fit a third).
+        float lfLabel = mOLabelStyle.CalcSize(new GUIContent("Preset")).x + RowGap;
+
+        GUI.Label(new Rect(lfX, lfY, lfLabel, RowHeight), "Preset", mOLabelStyle);
+
+        int liStart = fSegments(new Rect(lfX + lfLabel, lfY, lfInner - lfLabel, RowHeight), (int)meStart, msStartNames);
+
+        if (liStart != (int)meStart)
+            fChooseStart((StartEnum)liStart);
+
         lfY += RowHeight + RowGap;
 
         float lfThird = lfInner / 3f;
@@ -1320,7 +1545,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         // Done fires on the release (IMGUI buttons do), so the press reaches nothing behind it
         // once the menu is gone (per user, 2026-10-04: Done over the minimap opened the big map).
         if (GUI.Button(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), "Done", mOButtonStyle) && UWModernHud.Instance != null)
-            UWModernHud.Instance.CloseMenu();
+            RequestLeave(UWModernHud.Instance.CloseMenu);
 
         lfY += RowHeight + RowGap;
 

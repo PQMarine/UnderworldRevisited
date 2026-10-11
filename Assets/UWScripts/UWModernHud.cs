@@ -182,7 +182,8 @@ public class UWModernHud : MonoBehaviour
     public const int StoneShelfDefaultWidth = 81;
 
     /// <summary>The stone shelf's width as set, in its own pixels.</summary>
-    public static int StoneShelfWidth => UWUserSettings.ModernStoneShelfWidth > 0 ? UWUserSettings.ModernStoneShelfWidth : StoneShelfDefaultWidth;
+    public static int StoneShelfWidth => UWModernClassicPlus.IsActive ? UWModernClassicPlus.StoneShelfWidth
+        : UWUserSettings.ModernStoneShelfWidth > 0 ? UWUserSettings.ModernStoneShelfWidth : StoneShelfDefaultWidth;
 
     /// <summary>The widest stone shelf: the whole screen at its size (per user, 2026-10-10: "one
     /// should be able to pull the shelf across the whole screen"; before, 320).</summary>
@@ -1212,7 +1213,7 @@ public class UWModernHud : MonoBehaviour
             return;
         }
 
-        bool lbOutline = UWUserSettings.ModernRuneHollowOutline;
+        bool lbOutline = UWModernClassicPlus.RuneHollowOutline;
 
         if (mORuneHollowTexture == null || miRuneHollowVersion != UWColourVision.Version || mbRuneHollowOutline != lbOutline)
         {
@@ -2054,6 +2055,13 @@ public class UWModernHud : MonoBehaviour
     /// <summary>Escape and F1: open the menu, or close it - from a sub page back to the main one.</summary>
     public void ToggleMenu()
     {
+        // From the layout editor only through its save question (UWModernLayoutEditor.RequestLeave).
+        if (mePage == PageEnum.Layout && UWModernLayoutEditor.Instance != null)
+        {
+            UWModernLayoutEditor.Instance.RequestLeave(() => mePage = PageEnum.Main);
+            return;
+        }
+
         if (mePage == PageEnum.Closed)
             OpenMenu(PageEnum.Main);
         else if (mePage == PageEnum.Main)
@@ -2433,7 +2441,7 @@ public class UWModernHud : MonoBehaviour
         UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
 
         fPresetButton("Classic Wide", UWModernLayout.PresetEnum.Classic, lePreset, true);
-        fPresetButton("Classic+", UWModernLayout.PresetEnum.ClassicPlus, lePreset, false);
+        fPresetButton("Classic Modular", UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
         fPresetButton("Modern", UWModernLayout.PresetEnum.Modern, lePreset, true);
 
         if (fPresetButton("Customize", UWModernLayout.PresetEnum.Custom, lePreset, true))

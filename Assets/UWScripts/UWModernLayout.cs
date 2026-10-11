@@ -63,6 +63,13 @@ public static class UWModernLayout
         msLayout = null;
     }
 
+    /// <summary>The own layout read anew from the settings (after the layout editor put a snapshot
+    /// back or started from a preset).</summary>
+    public static void Reload()
+    {
+        msLayout = null;
+    }
+
     /// <summary>The own layout is in force: only then are places read from and written to it.</summary>
     public static bool IsCustom => Preset == PresetEnum.Custom;
 
@@ -74,11 +81,11 @@ public static class UWModernLayout
     private static bool fIsClassicKind => Preset == PresetEnum.ClassicPlus || Preset == PresetEnum.Classic;
 
     /// <summary>The minimap hidden - a choice of the own layout only; Classic Wide has none.</summary>
-    public static bool IsMinimapHidden => IsClassic || (IsCustom && UWUserSettings.MinimapHidden);
+    public static bool IsMinimapHidden => IsClassic || Preset == PresetEnum.ClassicPlus || (IsCustom && UWUserSettings.MinimapHidden);
 
     /// <summary>The action bar hidden - a choice of the own layout only (per user, 2026-10-10);
     /// Classic Wide has none.</summary>
-    public static bool IsActionBarHidden => IsClassic || (IsCustom && UWUserSettings.ActionBarHidden);
+    public static bool IsActionBarHidden => IsClassic || Preset == PresetEnum.ClassicPlus || (IsCustom && UWUserSettings.ActionBarHidden);
 
     /// <summary>The original's compass shown (UWModernCompass) - switched on in the layout editor
     /// for the own layout; Classic+ will bring it by itself.</summary>
@@ -104,8 +111,8 @@ public static class UWModernLayout
     public static bool IsFlasksApart => (IsCustom && UWUserSettings.ModernFlasksApart) || fIsClassicKind;
 
     /// <summary>The stone shelf deco panel shown (UWModernHud; per user, 2026-10-09) - the own
-    /// layout's choice.</summary>
-    public static bool IsStoneShelfShown => IsCustom && UWUserSettings.ModernStoneShelf;
+    /// layout's choice, Classic Modular brings it.</summary>
+    public static bool IsStoneShelfShown => (IsCustom && UWUserSettings.ModernStoneShelf) || Preset == PresetEnum.ClassicPlus;
 
     /// <summary>The hollow with the prepared runes as an element (UWModernHud; per user,
     /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
@@ -289,8 +296,9 @@ public static class UWModernLayout
 
     private static UWHudLayout fLayout()
     {
-        // Every preset but Custom keeps the default places: an empty layout.
-        return msLayout ??= UWHudLayout.Parse(IsCustom ? UWUserSettings.ModernLayout : null, ElementCount);
+        // Custom its own places, Classic Modular its fixed ones, the others the default places.
+        return msLayout ??= UWHudLayout.Parse(IsCustom ? UWUserSettings.ModernLayout
+            : UWModernClassicPlus.IsActive ? UWModernClassicPlus.Layout : null, ElementCount);
     }
 
     private static void fSave()

@@ -113,7 +113,7 @@ public class UWModernCompass
         UWModernBacks.Back lOBack = UWModernBacks.Get(UWModernLayout.ElementEnum.Compass);
         bool lbDisc = UWModernLayout.IsCompassDisc;
         bool lbWhole = UWModernClassicFrame.IsActive;
-        int liKey = (((((lOBack.Key * 100) + liStep) * 4) + (lbDisc ? 1 : 0) + (lbDisc && UWUserSettings.ModernCompassOutline ? 2 : 0)) * 2)
+        int liKey = (((((lOBack.Key * 100) + liStep) * 4) + (lbDisc ? 1 : 0) + (lbDisc && UWModernClassicPlus.CompassOutline ? 2 : 0)) * 2)
             + (lbWhole ? 1 : 0);
 
         if (!mOSteps.TryGetValue(liKey, out Texture2D lOTexture) || lOTexture == null)
@@ -212,7 +212,7 @@ public class UWModernCompass
     /// <summary>The cross laid on the stone disc; the cross's texture goes.</summary>
     private Texture2D fOnDisc(Texture2D pOCross)
     {
-        if (mODisc != null && mbDiscOutline != UWUserSettings.ModernCompassOutline)
+        if (mODisc != null && mbDiscOutline != UWModernClassicPlus.CompassOutline)
         {
             Object.Destroy(mODisc);
             mODisc = null;
@@ -220,7 +220,7 @@ public class UWModernCompass
 
         if (mODisc == null)
         {
-            mbDiscOutline = UWUserSettings.ModernCompassOutline;
+            mbDiscOutline = UWModernClassicPlus.CompassOutline;
             mODisc = UWModernHudArt.BuildCompassDisc(mOUi.mOUWData.Textures, mbDiscOutline, mOUi.TextureFilterMode);
         }
 

@@ -39,12 +39,13 @@ of what is built was also read out of the original's executable.
 - The modern control scheme: free mouse look, WASD, an action bar, bags, a character panel and
   a rune panel, a minimap, a conversation screen with trading, and a layout editor to move and
   size every part of it, with an inspector for each part's settings - switched with Shift+F2.
-  Interface presets: Modern; Classic+, the original's own pieces as parts of their own (the
+  Interface presets: Modern; Classic Modular, the original's own pieces as parts of their own (the
   compass on its stone disc, the message scroll, the power gem, the flasks, the hollow with the
   prepared runes, the rune tablet, the stats panel, the character page with the original
   inventory, the conversation in the original's look, the original's font); Classic Wide, the
   classic frame stretched over a wide screen at fixed places, the stone grown anew instead of
-  stretched, with the dragons and the pieces on it; or a layout of one's own. Every part can
+  stretched, with the dragons and the pieces on it; or a layout of one's own, which can start
+  from any preset and is only saved when the editor is left. Every part can
   wear a background in the original's colours and patterns; the original's pictures keep the
   pixel proportion of the 4:3 screen they were drawn for
 - The classic scheme always at 4:3, and optionally widened to the screen the same way as Classic

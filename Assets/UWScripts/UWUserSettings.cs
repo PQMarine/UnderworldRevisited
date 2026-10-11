@@ -947,8 +947,99 @@ public static class UWUserSettings
         set { fGet().Mt32RomPath = value ?? string.Empty; }
     }
 
+    /// <summary>
+    /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves
+    /// the editor and confirms the save" - so a preset can be a starting point and one can still go
+    /// back to one's own): while true nothing is written to the file; the changes live in memory and
+    /// the editor writes them, or puts the snapshot back, when it is left (UWModernLayoutEditor).
+    /// </summary>
+    public static bool SaveSuspended { get; set; }
+
+    /// <summary>Everything the layout editor sets: the parts' places and sizes, their backs, the
+    /// UI size, every part's switches and looks, the font.</summary>
+    private static readonly string[] msLayoutFields =
+    {
+        "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
+        "ModernScroll", "ModernScrollLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
+        "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
+        "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
+        "ActionBarHidden", "InterfaceFont"
+    };
+
+    /// <summary>The layout's settings at one moment (TakeLayoutSnapshot).</summary>
+    public sealed class LayoutSnapshot
+    {
+        internal object[] Values;
+    }
+
+    private static System.Reflection.FieldInfo[] msLayoutFieldInfos;
+
+    private static System.Reflection.FieldInfo[] fLayoutFieldInfos()
+    {
+        if (msLayoutFieldInfos != null)
+            return msLayoutFieldInfos;
+
+        List<System.Reflection.FieldInfo> lOFound = new List<System.Reflection.FieldInfo>();
+
+        foreach (string lsName in msLayoutFields)
+        {
+            System.Reflection.FieldInfo lOField = typeof(Data).GetField(lsName);
+
+            if (lOField != null)
+                lOFound.Add(lOField);
+            else
+                Debug.LogWarning("Layout setting not found: " + lsName);
+        }
+
+        msLayoutFieldInfos = lOFound.ToArray();
+
+        return msLayoutFieldInfos;
+    }
+
+    public static LayoutSnapshot TakeLayoutSnapshot()
+    {
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+        object[] lOValues = new object[lOFields.Length];
+
+        for (int liAt = 0; liAt < lOFields.Length; liAt++)
+            lOValues[liAt] = lOFields[liAt].GetValue(fGet());
+
+        return new LayoutSnapshot { Values = lOValues };
+    }
+
+    public static void RestoreLayout(LayoutSnapshot pOSnapshot)
+    {
+        if (pOSnapshot == null)
+            return;
+
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+
+        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
+            lOFields[liAt].SetValue(fGet(), pOSnapshot.Values[liAt]);
+    }
+
+    /// <summary>Whether the layout's settings are what the snapshot holds.</summary>
+    public static bool LayoutEquals(LayoutSnapshot pOSnapshot)
+    {
+        if (pOSnapshot == null)
+            return true;
+
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+
+        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
+        {
+            if (!Equals(lOFields[liAt].GetValue(fGet()), pOSnapshot.Values[liAt]))
+                return false;
+        }
+
+        return true;
+    }
+
     public static void Save()
     {
+        if (SaveSuspended)
+            return;
+
         try
         {
             File.WriteAllText(fGetPath(), JsonUtility.ToJson(fGet(), true));

@@ -1200,7 +1200,7 @@ public class UWModernConversation : MonoBehaviour
         fShowModernParts(false);
 
         UWDataImport.DataImport lOData = mOUi.mOUWData;
-        bool lbOutline = !UWUserSettings.ModernConversationNoOutline;
+        bool lbOutline = UWModernClassicPlus.ConversationOutline;
 
         if (lbOutline != mbOrigOutline)
         {
