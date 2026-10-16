@@ -191,8 +191,14 @@ magic and much more. His [UnderworldGodot](https://github.com/hankmorgan/Underwo
 a recreation of both Underworld games, provided many formulas and data tables (see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)), and his earlier
 [UnderworldExporter](https://github.com/hankmorgan/UnderworldExporter) showed long ago that
-the game can live in Unity. Thanks also to the authors of uw-formats.txt, where this
-project started.
+the game can live in Unity.
+
+Thanks to **abedegno** for [Underworld Exhumed](https://github.com/abedegno/underworld-exhumed),
+a decompilation that rebuilds `UW.EXE` byte for byte from readable source. The rules here
+are checked against it, and many of them were corrected that way. Nothing of its code is
+taken into this project.
+
+Thanks also to the authors of uw-formats.txt, where this project started.
 
 The application icon (`Art/Icon/ur-icon.svg`, rendered to `Assets/UWIcon/UWRIcon.png`) was
 also made with generative AI (Claude). It shows the runes uruz and raidho (U and R), drawn

@@ -71,9 +71,6 @@ namespace UnderworldRevisited
         [Tooltip("Point keeps the hard pixel edges of the original.")]
         public FilterMode TextureFilterMode = FilterMode.Point;
 
-        [Tooltip("Show the classic 320x200 screen at 4:3, every original pixel 1.2 times taller than wide, as on the CRT the game was made for and as DOSBox shows it. For comparing screenshots with DOSBox (per user, 2026-09-17). The 3D view keeps its proportions either way; off, the picture is wider and the original pixels are square. Takes effect immediately.")]
-        public bool DisplayAs4By3;
-
         /// <summary>
         /// Which path determines the colour of a pixel.
         ///
@@ -124,9 +121,10 @@ namespace UnderworldRevisited
         [Tooltip("Palette computes like the original via palette indices, light level and distance. Remastered lights with URP; every one of its effects can be turned off on its own below.")]
         public RenderModeEnum RenderMode = RenderModeEnum.Palette;
 
-        /// <summary>Are the Remastered effects running right now? Not the setting alone: F6
-        /// switches the palette path on without changing it (UWPaletteRenderToggle) - otherwise
-        /// ground shadows, lights, relief and torch shadows would stay on (per user,
+        /// <summary>Are the Remastered effects running right now? Not the setting alone: the
+        /// detail level (UWGraphicsDetail.SetLevel) switches the palette path on through
+        /// UWPaletteRenderToggle, and the toggle can be on without the setting having changed yet -
+        /// otherwise ground shadows, lights, relief and torch shadows would stay on (per user,
         /// 2026-09-13).</summary>
         public bool IsRemasteredActive
         {
@@ -329,10 +327,7 @@ namespace UnderworldRevisited
         [Tooltip("Fine offset of the hit effect relative to the enemy's body centre (world units, negative downwards). The centre is the starting point, the variation comes on top.")]
         public float HitEffectHeightOffset;
 
-        [Tooltip("Fixed part of the charge time in seconds that every weapon needs alike - presumably the wind-up itself. Found from two measurements in the original.")]
-        public float AttackChargeBaseSeconds = 0.73f;
-
-        [Tooltip("Duration of one charge step. Per step the original adds the weapon's speed value to a counter up to 100.")]
+        [Tooltip("Duration of one charge step. After the wind-up the original adds the weapon's speed value per step to a counter up to 100.")]
         public float AttackChargeStepSeconds = 0.072f;
 
         [Tooltip("How many frames before the end of the swing animation the blow lands. 2 means second-to-last frame, 3 third-to-last. Counted from the end because the animation length differs by attack type - an axe chop has four frames, a thrust six.")]
@@ -447,11 +442,7 @@ namespace UnderworldRevisited
         [Range(0f, 200f)]
         public float VoidEffectTicksPerSecond = 32f;
 
-        [Tooltip("Instruments: a note sounds this long if no other follows. UW.EXE uses 0x40 timer ticks - how much that is in seconds is not verified.")]
-        [Range(0.05f, 2f)]
-        public float InstrumentNoteSeconds = 0.35f;
-
-        [Tooltip("Health and mana flask fill animation after the resurrection: seconds per flask level (13 levels). 0.25 s as observed in the original (per user, 2026-09-14).")]
+        [Tooltip("Health and mana flask fill animation after the resurrection: seconds per flask level (12 levels). 0.25 s as observed in the original (per user, 2026-09-14).")]
         [Range(0f, 0.5f)]
         public float FlaskFillStepSeconds = 0.25f;
 

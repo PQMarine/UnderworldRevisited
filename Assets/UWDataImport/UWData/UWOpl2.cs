@@ -454,7 +454,7 @@ namespace UWDataImport.UWData
 				{
 					liResult = mOFeedback[1] >> piRShift;
 					liResult += Op[1].ComputeVolume(Op[1].Phase, liAmOffset) >> piRShift;
-					liResult = fClamp(liResult, -piClipMax - 1, piClipMax);
+					liResult = UWMath.Clamp(liResult, -piClipMax - 1, piClipMax);
 				}
 
 				return liResult;
@@ -482,7 +482,7 @@ namespace UWDataImport.UWData
 				uint liOp13Phase = Op[0].Phase;
 				liPhase = (0x100u << (int)fBitfield(liOp13Phase, 8)) ^ (liNoiseState << 8);
 				liResult += Op[1].ComputeVolume(liPhase, liAmOffset) >> piRShift;
-				liResult = fClamp(liResult, -piClipMax - 1, piClipMax);
+				liResult = UWMath.Clamp(liResult, -piClipMax - 1, piClipMax);
 
 				return liResult * 2;
 			}
@@ -495,7 +495,7 @@ namespace UWDataImport.UWData
 
 				uint liPhase = 0x100u | (piPhaseSelect << 9);
 				liResult += Op[1].ComputeVolume(liPhase, liAmOffset) >> piRShift;
-				liResult = fClamp(liResult, -piClipMax - 1, piClipMax);
+				liResult = UWMath.Clamp(liResult, -piClipMax - 1, piClipMax);
 
 				return liResult * 2;
 			}
@@ -816,11 +816,6 @@ namespace UWDataImport.UWData
 		private static uint fBitfield(uint piValue, int piStart, int piLength = 1)
 		{
 			return (piValue >> piStart) & ((1u << piLength) - 1);
-		}
-
-		private static int fClamp(int piValue, int piMin, int piMax)
-		{
-			return piValue < piMin ? piMin : (piValue > piMax ? piMax : piValue);
 		}
 
 		// register accessors (ymfm opl_registers_base, OPL2 variant)

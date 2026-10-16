@@ -4,8 +4,8 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// The periodic respawning of monsters (2026-09-06). Engine-free since 2026-09-18 (P3 of
-	/// the engine separation), out of UWCreatureRespawner, which keeps the timer and looks at
-	/// the creature bodies.
+	/// the engine separation), out of UWCreatureRespawner, which runs the pass on the level; the
+	/// roll comes from the player's five-minute block (RollOpportunity) since 2026-10-15.
 	///
 	/// In the original there are two kinds of creation traps (a_create object trap, 0x0187), and
 	/// the trap's FLAGS FIELD separates them. Cross-checked against all 72 creation traps in the game that
@@ -26,8 +26,8 @@ namespace UWDataImport.UWData
 	///   Sleep_ovr143_D1F calls it with 0, right after resetting the mobile objects.
 	///
 	///   TriggerCreateObjectTrap walks the WHOLE map for creation traps with a zero flags field,
-	///   marks the template creature (bit 8 of word 0x0D - our UWObject.WasSpawned on the
-	///   copy) and fires the trap unless CheckIfWithin8TilesFromObject_ovr153_14C4 says the
+	///   marks the template creature (bit 8 of word 0x0D - UWObject.MarkSpawned on the
+	///   copy, kept by the save) and fires the trap unless CheckIfWithin8TilesFromObject_ovr153_14C4 says the
 	///   player is NEAR: fewer than eight tiles away on BOTH axes. So a creature comes only
 	///   OUT OF SIGHT - at least eight tiles away on one axis - and when sleeping, where the
 	///   argument 0 switches the test off, every such trap fires.
@@ -39,12 +39,6 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWRespawnRules
 	{
-		/// <summary>Twenty-four player ticks - the same tick that spell durations run down
-		/// with, so the length is taken from UWPlayerTick instead of being written out again:
-		/// 504 seconds. It was thirty until 2026-09-22, when the count was read out properly
-		/// (see UWPlayerTick.FiveMinuteTicks).</summary>
-		public const float IntervalSeconds = UWPlayerTick.FiveMinuteTicks * UWPlayerTick.Seconds;
-
 		/// <summary>One out of this many opportunities is taken.</summary>
 		private const int Chance = 4;
 
@@ -52,7 +46,14 @@ namespace UWDataImport.UWData
 		/// tiles on both is "near" (CheckIfWithin8TilesFromObject_ovr153_14C4).</summary>
 		public const int PlayerNearTiles = 8;
 
-		/// <summary>The roll at the end of an interval: one in four.</summary>
+		/// <summary>
+		/// The roll of the five-minute block: one in four ((rand() &amp; 3) == 0 in duration_check,
+		/// UnderworldExhumed PLAYTIME.C). SINCE 2026-10-15 it sits in the player's own block
+		/// (IUWVitalsHost.OnFiveMinuteBlock), the same 24 ticks as hunger, drunkenness and the
+		/// creatures' checkup, which run on across levels. Until then the respawner kept its own
+		/// real-time timer from the level's start, so the first chance after entering a level came
+		/// a full interval later instead of somewhere in the running block (audit round 2, KR N4).
+		/// </summary>
 		public static bool RollOpportunity()
 		{
 			return UWRandom.Next(Chance) == 0;
@@ -81,7 +82,7 @@ namespace UWDataImport.UWData
 					if (!pbAnyDistance && IsNearPlayer(pOPlayerTile, liX, liY))
 						continue;
 
-					UWTile lOTile = pOLevel.TileData[(liY * UWWorldScale.TilesPerAxis) + liX];
+					UWTile lOTile = pOLevel.GetTile(liX, liY);
 
 					if (lOTile == null || lOTile.ObjectsInTile == null)
 						continue;

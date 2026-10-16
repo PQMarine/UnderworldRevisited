@@ -21,8 +21,13 @@ namespace UWDataImport.UWData
 	/// kept their own System.Random, so no run could be repeated.
 	///
 	/// The host may replace it: a test driver or a later comparison with a C++ port sets a seeded
-	/// source with UseSeed or its own implementation with Use. The game keeps the default, a
-	/// System.Random seeded from the clock, which behaves exactly like the separate ones did.
+	/// source with UseSeed or its own implementation with Use.
+	///
+	/// SINCE 2026-10-14 (cleanup step 2.8) the generator belongs to the session
+	/// (UWGameSession.Random, a UWSessionRandom) and this class forwards to the current one: a new
+	/// game draws from its own generator, seeded anew, and nothing of the previous game's sequence
+	/// carries over. UseSeed reseeds the session's generator, Use puts a scripted source in front
+	/// of it and Use(null) takes that away again (the generator continues where it was).
 	///
 	/// NOT the generator of UW.EXE for the running game - its sequence depends on every roll the
 	/// original makes, in its order. Where the original SEEDS its generator with a fixed value
@@ -30,64 +35,39 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWRandom
 	{
-		private sealed class SystemRandomSource : IUWRandom
-		{
-			private readonly Random mORandom;
-
-			public SystemRandomSource(Random pORandom)
-			{
-				mORandom = pORandom;
-			}
-
-			public int Next(int piMaxExclusive)
-			{
-				return mORandom.Next(piMaxExclusive);
-			}
-
-			public int Next(int piMin, int piMaxExclusive)
-			{
-				return mORandom.Next(piMin, piMaxExclusive);
-			}
-
-			public double NextDouble()
-			{
-				return mORandom.NextDouble();
-			}
-		}
-
-		private static IUWRandom msSource = new SystemRandomSource(new Random());
-
-		/// <summary>The source the rules draw from.</summary>
+		/// <summary>The source the rules draw from: the current session's scripted source, or its
+		/// generator.</summary>
 		public static IUWRandom Source
 		{
-			get { return msSource; }
+			get { return UWGameSession.Current.Random.Active; }
 		}
 
-		/// <summary>Replaces the source; null restores an unseeded one.</summary>
+		/// <summary>Draws from pISource until Use(null) (or the session's own generator) takes it
+		/// away again.</summary>
 		public static void Use(IUWRandom pISource)
 		{
-			msSource = pISource ?? new SystemRandomSource(new Random());
+			UWGameSession.Current.Random.Use(pISource);
 		}
 
 		/// <summary>A repeatable source: the same seed gives the same sequence.</summary>
 		public static void UseSeed(int piSeed)
 		{
-			msSource = new SystemRandomSource(new Random(piSeed));
+			UWGameSession.Current.Random.Reseed(piSeed);
 		}
 
 		public static int Next(int piMaxExclusive)
 		{
-			return msSource.Next(piMaxExclusive);
+			return UWGameSession.Current.Random.Next(piMaxExclusive);
 		}
 
 		public static int Next(int piMin, int piMaxExclusive)
 		{
-			return msSource.Next(piMin, piMaxExclusive);
+			return UWGameSession.Current.Random.Next(piMin, piMaxExclusive);
 		}
 
 		public static double NextDouble()
 		{
-			return msSource.NextDouble();
+			return UWGameSession.Current.Random.NextDouble();
 		}
 
 		/// <summary>The game's usual dice: count plus count rolls of 0 to range - 1. A range of

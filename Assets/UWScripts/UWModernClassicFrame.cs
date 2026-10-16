@@ -691,7 +691,8 @@ public class UWModernClassicFrame : MonoBehaviour
         if (lOControls != null && lOControls.Player.ModernRunes.WasPressedThisFrame())
             fTurnTo(Page == PageEnum.Runes ? PageEnum.Inventory : PageEnum.Runes);
 
-        if (!UWModernPointer.IsFree || Mouse.current == null || (!UWMouseButtons.LeftPressed && !UWMouseButtons.RightPressed))
+        if (!UWModernPointer.IsFree || Mouse.current == null || (!UWMouseButtons.LeftPressed && !UWMouseButtons.RightPressed)
+            || UWModernPointer.PanelsHeld)
             return;
 
         // The original's point: right of both cuts in these rows, so Extra columns off; rows from

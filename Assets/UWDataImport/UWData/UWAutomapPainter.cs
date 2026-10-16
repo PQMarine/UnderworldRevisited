@@ -38,7 +38,7 @@ namespace UWDataImport.UWData
 
 		public const int ScreenHeight = 200;
 
-		public const int TilesPerAxis = 64;
+		public const int TilesPerAxis = UWWorldScale.TilesPerAxis;
 
 		public const int TileSize = 3;
 

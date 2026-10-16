@@ -19,10 +19,17 @@ namespace UWDataImport.UWData
 		/// <summary>The gravestone (357).</summary>
 		public const int GravestoneObjectId = 0x165;
 
-		/// <summary>Bones 194 to 198 - "some_bones" and the named skulls.</summary>
-		public const int FirstBonesObjectId = 0xC2;
+		/// <summary>Bones 194 to 198 - "some_bones" and the named skulls (UWObjectIds).</summary>
+		public const int FirstBonesObjectId = UWObjectIds.FirstBones;
 
-		public const int LastBonesObjectId = 0xC6;
+		public const int LastBonesObjectId = UWObjectIds.LastBones;
+
+		/// <summary>One of the five bones pictures for the character's remains, on the rules'
+		/// random source (UWDeath drew from Unity's until 2026-10-11, so no run could repeat it).</summary>
+		public static int RollBonesObjectId()
+		{
+			return FirstBonesObjectId + UWRandom.Next(LastBonesObjectId - FirstBonesObjectId + 1);
+		}
 
 		/// <summary>Garamon's bones carry this owner value.</summary>
 		public const int GaramonBonesOwner = 0x3E;
@@ -34,9 +41,9 @@ namespace UWDataImport.UWData
 		public const int GaramonBuriedGrave = 0x22;
 
 		/// <summary>The trigger that fires after the burial conversation, tile 54/52.</summary>
-		public const int BurialTriggerTileX = 0x36;
+		public const int BurialTriggerTileX = UWQuestPlaces.BurialTriggerTileX;
 
-		public const int BurialTriggerTileY = 0x34;
+		public const int BurialTriggerTileY = UWQuestPlaces.BurialTriggerTileY;
 
 		/// <summary>The conversation with Garamon's ghost.</summary>
 		public const int GaramonConversation = 0x1B;
@@ -56,20 +63,20 @@ namespace UWDataImport.UWData
 		public const int DreamQuestFlag = UWPlayerData.DreamQuestFlag;
 
 		/// <summary>Level 8 (0-based 7) holds the volcano, its centre at 32/32, the lava within
-		/// six tiles of it (Manhattan distance).</summary>
-		public const int VolcanoLevelIndex = 7;
+		/// six tiles of it (Manhattan distance) - UWLevelIds and UWQuestPlaces since 2026-10-11.</summary>
+		public const int VolcanoLevelIndex = UWLevelIds.Volcano;
 
-		public const int VolcanoCentre = 32;
+		public const int VolcanoCentre = UWQuestPlaces.VolcanoCentre;
 
-		public const int VolcanoRadius = 6;
+		public const int VolcanoRadius = UWQuestPlaces.VolcanoRadius;
 
 		/// <summary>Level 9 (0-based 8) is the Ethereal Void: no magic there.</summary>
-		public const int VoidLevelIndex = 8;
+		public const int VoidLevelIndex = UWLevelIds.Void;
 
 		/// <summary>Destination tile in the void, 27/23.</summary>
-		public const int VoidTileX = 0x1B;
+		public const int VoidTileX = UWQuestPlaces.VoidTileX;
 
-		public const int VoidTileY = 0x17;
+		public const int VoidTileY = UWQuestPlaces.VoidTileY;
 
 		private static byte[] myGraves;
 
@@ -145,7 +152,7 @@ namespace UWDataImport.UWData
 
 		public static bool IsBones(int piObjectId)
 		{
-			return piObjectId >= FirstBonesObjectId && piObjectId <= LastBonesObjectId;
+			return UWObjectIds.IsBones(piObjectId);
 		}
 
 		/// <summary>What bones on a target come to - UW.EXE UseBones_seg040_719.</summary>

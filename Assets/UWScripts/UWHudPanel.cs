@@ -326,7 +326,7 @@ public sealed class UWHudPanel
             UWTexture lOSource = pOChains[piFirst + liFrame];
 
             Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-            lOTexture.name = "UWGameUI.cs:2298";
+            lOTexture.name = "UWHudPanel chain frame";
             lOTexture.filterMode = mOUi.TextureFilterMode;
             lOTexture.wrapMode = TextureWrapMode.Clamp;
             lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
@@ -413,7 +413,7 @@ public sealed class UWHudPanel
         lORect.sizeDelta = new Vector2(lOSource.Width, lOSource.Height);
 
         Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:2384";
+        lOTexture.name = "UWHudPanel panel edge";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
         lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
@@ -469,7 +469,7 @@ public sealed class UWHudPanel
         lORect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
         Texture2D lOTexture = new Texture2D(lOPanels[0].Width, lOPanels[0].Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:2439";
+        lOTexture.name = "UWHudPanel inventory page";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
         lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[0]));
@@ -509,7 +509,7 @@ public sealed class UWHudPanel
         mStatsRoot.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
         Texture2D lOBackground = new Texture2D(lOPanels[2].Width, lOPanels[2].Height, TextureFormat.RGBA32, false);
-        lOBackground.name = "UWGameUI.cs:2478";
+        lOBackground.name = "UWHudPanel stats page";
         lOBackground.filterMode = mOUi.TextureFilterMode;
         lOBackground.wrapMode = TextureWrapMode.Clamp;
         lOBackground.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[2]));
@@ -546,7 +546,7 @@ public sealed class UWHudPanel
         mRuneRoot.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
         Texture2D lOBackground = new Texture2D(lOPanels[1].Width, lOPanels[1].Height, TextureFormat.RGBA32, false);
-        lOBackground.name = "UWGameUI.cs:2515";
+        lOBackground.name = "UWHudPanel rune shelf";
         lOBackground.filterMode = mOUi.TextureFilterMode;
         lOBackground.wrapMode = TextureWrapMode.Clamp;
         lOBackground.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[1]));
@@ -1090,9 +1090,19 @@ public sealed class UWHudPanel
         UWTextLabel.Get(lOLine).Show();
     }
 
+    /// <summary>The name in the stats header: at most fifteen characters, upper-cased
+    /// (UnderworldExhumed STATS.C sp_hdr copies 0xF of the name). It matters since 2026-10-12,
+    /// when names grew from 14 to 29 characters.</summary>
+    private const int StatsNameLength = 0xF;
+
     private string fGetCharacterName(UWPlayerData pOPlayer)
     {
-        return pOPlayer != null && !string.IsNullOrEmpty(pOPlayer.Name) ? pOPlayer.Name.ToUpper() : "AVATAR";
+        if (pOPlayer == null || string.IsNullOrEmpty(pOPlayer.Name))
+            return "AVATAR";
+
+        string lsName = pOPlayer.Name.Length > StatsNameLength ? pOPlayer.Name.Substring(0, StatsNameLength) : pOPlayer.Name;
+
+        return lsName.ToUpper();
     }
 
     /// <summary>Class name from string block 2 from 0x18 on.</summary>
@@ -1106,7 +1116,7 @@ public sealed class UWHudPanel
             // Fighter is at 24, not at 23 - the export in AllStrings.txt writes the
             // raw runtime indices, so there is no offset here. With the old base
             // every class was off by one (reported per user, 2026-09-03).
-            return mOUi.mOUWData.Strings.Blocks[2].Strings[0x18 + pOPlayer.CharacterClass].Trim().ToUpper();
+            return mOUi.mOUWData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass].Trim().ToUpper();
         }
         catch
         {

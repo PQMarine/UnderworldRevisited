@@ -1285,6 +1285,8 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private void OnGUI()
     {
+        UWImguiInput.BeginOnGUI();
+
         if (!UWModernLayout.IsEditing || mOCanvas == null || !mOCanvas.enabled)
         {
             mOWindowScreenRect = Rect.zero;
@@ -1298,6 +1300,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         float lfScreenWidth = Screen.width / lfScale;
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
+        UWImguiInput.AfterMatrix();
 
         // The height follows the content: title, help, the editor's four rows, the line, the
         // part's name and its rows.
@@ -1351,19 +1354,33 @@ public class UWModernLayoutEditor : MonoBehaviour
         float lfThird = (lfInner - (2f * RowGap)) / 3f;
         System.Action lOLeave = mOLeave;
 
-        if (GUI.Button(new Rect(WindowPad, lfY, lfThird, RowHeight), "Save", mOButtonStyle))
+        // THE KEYS of a dialog (per user, 2026-10-14: on Linux neither a click nor a key got out of
+        // this question): Enter saves, Escape goes back to editing. Read from the Input System, as
+        // IMGUI's own events do not reliably reach the game's windows there; the Escape that opened
+        // the question was taken in an earlier frame (UWModernHud.ToggleMenu, RequestLeave).
+        UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
+        bool lbEnter = lOKeys != null && Event.current.type == EventType.Repaint
+            && (lOKeys.enterKey.wasPressedThisFrame || lOKeys.numpadEnterKey.wasPressedThisFrame);
+        bool lbEscape = lOKeys != null && Event.current.type == EventType.Repaint && lOKeys.escapeKey.wasPressedThisFrame
+            && Time.frameCount != miLeaveAskedFrame;
+
+        if (lbEscape)
+        {
+            mOLeave = null;
+        }
+        else if (lbEnter || UWImguiInput.Button(new Rect(WindowPad, lfY, lfThird, RowHeight), "Save", mOButtonStyle))
         {
             mOLeave = null;
             fFinish(true);
             lOLeave();
         }
-        else if (GUI.Button(new Rect(WindowPad + lfThird + RowGap, lfY, lfThird, RowHeight), "Discard", mOButtonStyle))
+        else if (UWImguiInput.Button(new Rect(WindowPad + lfThird + RowGap, lfY, lfThird, RowHeight), "Discard", mOButtonStyle))
         {
             mOLeave = null;
             fFinish(false);
             lOLeave();
         }
-        else if (GUI.Button(new Rect(WindowPad + (2f * (lfThird + RowGap)), lfY, lfThird, RowHeight), "Back", mOButtonStyle))
+        else if (UWImguiInput.Button(new Rect(WindowPad + (2f * (lfThird + RowGap)), lfY, lfThird, RowHeight), "Back", mOButtonStyle))
         {
             mOLeave = null;
         }
@@ -1387,7 +1404,11 @@ public class UWModernLayoutEditor : MonoBehaviour
         }
 
         mOLeave = pOLeave;
+        miLeaveAskedFrame = Time.frameCount;
     }
+
+    /// <summary>The frame the save question came up in: the Escape that asked it is not its answer.</summary>
+    private int miLeaveAskedFrame = -1;
 
     /// <summary>Ends the session: writes the settings, or first puts the own layout back.</summary>
     private void fFinish(bool pbSave)
@@ -1479,7 +1500,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         {
             float lfWidth = (lfWidths[liAt] * lfSqueeze) + lfSpare;
 
-            if (GUI.Toggle(new Rect(lfX, pORect.y, lfWidth, pORect.height), liAt == piChosen, psNames[liAt], mOSegmentStyle) && liAt != piChosen)
+            if (UWImguiInput.Toggle(new Rect(lfX, pORect.y, lfWidth, pORect.height), liAt == piChosen, psNames[liAt], mOSegmentStyle) && liAt != piChosen)
                 liChosen = liAt;
 
             lfX += lfWidth;
@@ -1490,6 +1511,9 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private void fDrawWindow(int piId)
     {
+        // Inside the window's clip (UWImguiInput.Sync).
+        UWImguiInput.Sync();
+
         float lfInner = WindowWidth - (2f * WindowPad);
         float lfX = WindowPad;
 
@@ -1526,9 +1550,9 @@ public class UWModernLayoutEditor : MonoBehaviour
         lfY += RowHeight + RowGap;
 
         float lfThird = lfInner / 3f;
-        bool lbPanels = GUI.Toggle(new Rect(lfX, lfY, lfThird, RowHeight), mbPanelsOut, " Panels out", mOToggleStyle);
-        bool lbDialog = GUI.Toggle(new Rect(lfX + lfThird, lfY, lfThird, RowHeight), UWModernConversation.Previewing, " Dialog", mOToggleStyle);
-        bool lbSnap = GUI.Toggle(new Rect(lfX + (2f * lfThird), lfY, lfThird, RowHeight), mbSnap, " Snap", mOToggleStyle);
+        bool lbPanels = UWImguiInput.Toggle(new Rect(lfX, lfY, lfThird, RowHeight), mbPanelsOut, " Panels out", mOToggleStyle);
+        bool lbDialog = UWImguiInput.Toggle(new Rect(lfX + lfThird, lfY, lfThird, RowHeight), UWModernConversation.Previewing, " Dialog", mOToggleStyle);
+        bool lbSnap = UWImguiInput.Toggle(new Rect(lfX + (2f * lfThird), lfY, lfThird, RowHeight), mbSnap, " Snap", mOToggleStyle);
 
         if (lbPanels != mbPanelsOut)
             fSetPanelsOut(lbPanels);
@@ -1539,12 +1563,12 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         float lfHalf = (lfInner - RowGap) * 0.5f;
 
-        if (GUI.Button(new Rect(lfX, lfY, lfHalf, RowHeight), "Reset all", mOButtonStyle))
+        if (UWImguiInput.Button(new Rect(lfX, lfY, lfHalf, RowHeight), "Reset all", mOButtonStyle))
             UWModernLayout.ResetAll();
 
         // Done fires on the release (IMGUI buttons do), so the press reaches nothing behind it
         // once the menu is gone (per user, 2026-10-04: Done over the minimap opened the big map).
-        if (GUI.Button(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), "Done", mOButtonStyle) && UWModernHud.Instance != null)
+        if (UWImguiInput.Button(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), "Done", mOButtonStyle) && UWModernHud.Instance != null)
             RequestLeave(UWModernHud.Instance.CloseMenu);
 
         lfY += RowHeight + RowGap;
@@ -1601,7 +1625,7 @@ public class UWModernLayoutEditor : MonoBehaviour
 
                     for (int liAt = 0; liAt < lOItem.Choices.Length; liAt++)
                     {
-                        bool lbOn = GUI.Toggle(new Rect(lfX + LabelWidth + (liAt * lfEach), lfY, lfEach, RowHeight), liAt == lOItem.Current, string.Empty, mOToggleStyle);
+                        bool lbOn = UWImguiInput.Toggle(new Rect(lfX + LabelWidth + (liAt * lfEach), lfY, lfEach, RowHeight), liAt == lOItem.Current, string.Empty, mOToggleStyle);
 
                         if (lbOn && liAt != lOItem.Current && lOItem.Enabled && lOItem.Choose != null)
                             lOItem.Choose(liAt);
@@ -1615,7 +1639,7 @@ public class UWModernLayoutEditor : MonoBehaviour
                     GUI.Label(new Rect(lfX, lfY, LabelWidth, RowHeight), lOItem.Label, mOLabelStyle);
                     GUI.enabled = lOItem.Enabled;
 
-                    if (GUI.Button(new Rect(lfX + LabelWidth, lfY, lfInner - LabelWidth, RowHeight), lOItem.Choices[0], mOButtonStyle)
+                    if (UWImguiInput.Button(new Rect(lfX + LabelWidth, lfY, lfInner - LabelWidth, RowHeight), lOItem.Choices[0], mOButtonStyle)
                         && lOItem.Choose != null)
                         lOItem.Choose(0);
 
@@ -1649,7 +1673,7 @@ public class UWModernLayoutEditor : MonoBehaviour
                 GUI.DrawTexture(new Rect(lOCell.x + lfFrame, lOCell.y + lfFrame, lOCell.width - (2f * lfFrame), lOCell.height - (2f * lfFrame)),
                     pOItem.Previews[liAt], ScaleMode.StretchToFill);
 
-            if (GUI.Button(lOCell, GUIContent.none, GUIStyle.none) && pOItem.Enabled && !lbChosen && pOItem.Choose != null)
+            if (UWImguiInput.Button(lOCell, GUIContent.none, GUIStyle.none) && pOItem.Enabled && !lbChosen && pOItem.Choose != null)
                 pOItem.Choose(liAt);
         }
 
@@ -1666,12 +1690,12 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         GUI.enabled = pOItem.CanDown;
 
-        if (GUI.Button(new Rect(lfLeft, pfY, StepButtonWidth, RowHeight), "-", mOButtonStyle) && pOItem.Choose != null)
+        if (UWImguiInput.Button(new Rect(lfLeft, pfY, StepButtonWidth, RowHeight), "-", mOButtonStyle) && pOItem.Choose != null)
             pOItem.Choose(0);
 
         GUI.enabled = pOItem.CanUp;
 
-        if (GUI.Button(new Rect(lfLeft + lfControl - StepButtonWidth, pfY, StepButtonWidth, RowHeight), "+", mOButtonStyle) && pOItem.Choose != null)
+        if (UWImguiInput.Button(new Rect(lfLeft + lfControl - StepButtonWidth, pfY, StepButtonWidth, RowHeight), "+", mOButtonStyle) && pOItem.Choose != null)
             pOItem.Choose(1);
 
         GUI.enabled = true;

@@ -72,19 +72,14 @@ public sealed class UWHudInventory
     private Image mContainerScrollUpImage;
     private Image mContainerScrollDownImage;
 
-    // Fixed, texture-independent hit zones for equipping/unequipping by dragging (see
-    // GetArmorHitZoneUnderMouse) - unlike the armour pictures themselves, these must
-    // not shrink to the currently displayed texture. Roughly estimated (head/torso/
-    // hands/legs/feet based on the character silhouette), not yet measured against the
-    // original.
-    //
-    // From index ArmorSlotCount on (2026-08-25): ring/hand/use slots - unlike the first
-    // five, these have no body-fitted paper doll sprite but show their own
-    // item icon directly (like a backpack slot) - hit zone and display are
-    // the same element for them, see mEquipSlotIcons/fRefreshEquipSlotIcons. Positions are pure
-    // placeholders, not yet measured against the original.
+    // The equipment slots of the paper doll in a fixed order: the first ArmorSlotCount are the
+    // armour pieces with a body-fitted sprite (helmet, chest, gloves, legs, boots); from index
+    // ArmorSlotCount on (2026-08-25) the ring/hand/use slots, which have no such sprite but show
+    // their own item icon directly (like a backpack slot), see mEquipSlotIcons/
+    // fRefreshEquipSlotIcons. Which slot lies under the mouse is decided by UWClickRules from the
+    // screen position (GetArmorHitZoneUnderMouse), not by the pictures - their RectTransform
+    // shrinks to the currently displayed texture.
     internal const int ArmorSlotCount = 5;
-    private RectTransform[] mArmorHitZones;
     private Image[] mEquipSlotIcons;
     internal UWObject[] mEquipIconItemsShown;
 
@@ -300,14 +295,11 @@ public sealed class UWHudInventory
         return mOUi.mOInventory?.GetContainerItem(piSlot);
     }
 
-    /// <summary>Last container with its own open variant: sack to gold coffer, 128 to
-    /// 139. For these, bit 0 of the object number means "open".</summary>
-    private const int LastContainerWithOpenVariant = 139;
-
     /// <summary>
     /// Which picture stands above the open container - as in the reference
     /// (container.Use): the containers 128 to 139 show their open variant (bit 0 set),
-    /// urn, quiver and bowl (140 to 142) have none and show themselves.
+    /// urn, quiver and bowl (140 to 142) have none and show themselves
+    /// (UWObjectIds.OpenPicture since 2026-10-11).
     ///
     /// Until 2026-09-11 the picture stayed invisible for these three. But it is also the
     /// button for closing - you could no longer get out of an opened bowl (per
@@ -316,7 +308,7 @@ public sealed class UWHudInventory
     /// </summary>
     private static int fGetContainerOpenIconId(int piObjectId)
     {
-        return piObjectId <= LastContainerWithOpenVariant ? piObjectId | 0x1 : piObjectId;
+        return UWObjectIds.OpenPicture(piObjectId);
     }
 
     /// <summary>Original: the picture of the currently open container (OBJECTS.GR, see
@@ -480,7 +472,7 @@ public sealed class UWHudInventory
 
     private void fSetStackLabel(ref RawImage pOLabel, Image pOSlotIcon, UWObject pOItem)
     {
-        int liCount = fGetStackCount(pOItem);
+        int liCount = UWStackRules.CountAtLeastOne(pOItem);
 
         RawImage lOLabel = pOLabel;
 
@@ -502,15 +494,6 @@ public sealed class UWHudInventory
         fSetNumberLabel(lOLabel, liCount.ToString(), UWFonts.FontType.Small);
 
         lOLabel.transform.SetAsLastSibling();
-    }
-
-    /// <summary>Item count of a stack. From 512 on the field is a special property.</summary>
-    private static int fGetStackCount(UWObject pOItem)
-    {
-        if (pOItem == null || !pOItem.HasQuantity || pOItem.Quantity >= 512)
-            return 1;
-
-        return pOItem.Quantity < 1 ? 1 : pOItem.Quantity;
     }
 
     /// <summary>
@@ -708,7 +691,7 @@ public sealed class UWHudInventory
 
     /// <summary>
     /// For UWItemDrag: which equipment slot (if any) lies under the
-    /// given screen position - via fixed hit zones (mArmorHitZones), not
+    /// given screen position - by the original's fixed areas (UWClickRules), not
     /// via the individual armour pictures themselves: their RectTransform size is set by
     /// fUpdateSprite to the currently displayed texture, and for an
     /// empty slot that is the tiny 1x1 placeholder texture ("no item") - the hit area
@@ -718,9 +701,6 @@ public sealed class UWHudInventory
     {
         // Turned away: see fIsInventoryClickable.
         if (!mOUi.Panel.fIsInventoryClickable())
-            return null;
-
-        if (mArmorHitZones == null)
             return null;
 
         return GetSlotOfSpot(fSpotAt(pOScreenPos));
@@ -871,33 +851,11 @@ public sealed class UWHudInventory
         mContainerScrollUpImage = mOUi.fCreateScrollArrowPlaceholder("ContainerScrollUp", containerScrollDownRight - containerScrollSize);
     }
 
-    /// <summary>The armour hit zones on the paper doll and the ring and hand slots with their icons.</summary>
+    /// <summary>The ring and hand slots of the paper doll with their icons.</summary>
     internal void BuildEquipmentSlots()
     {
-        // x/y/width/height, roughly estimated from the character silhouette (head at top,
-        // torso/hands in the middle, legs/feet at bottom) - placeholders, to be corrected per screenshot
-        // comparison.
-        (float x, float y, float w, float h)[] lyZones =
-        {
-            (272.02747f, 13.586487f, 11.9724f, 12.41351f),  // Helmet
-            (270.5f, 25.999992f, 14.5f, 19.1f),              // Chest
-            (262f, 48.187496f, 32f, 7.0205f),                // Gloves (both hands)
-            (270.5f, 45.1f, 14.5f, 28.305f),                 // Legs
-            (265.99997f, 73.40498f, 22.743f, 6.59502f),      // Boots
-        };
-
-        mArmorHitZones = new RectTransform[ArmorHitZoneSlots.Length];
-
-        for (int i = 0; i < lyZones.Length; i++)
-        {
-            // Positions are confirmed - invisible (alpha 0), pure hit zones without
-            // own visuals.
-            Image lOZoneImage = UWGameUI.fCreateImage($"ArmorHitZone_{ArmorHitZoneSlots[i]}", mOUi.mGameFrame, lyZones[i].x, -lyZones[i].y, lyZones[i].w, lyZones[i].h, Color.clear);
-            mArmorHitZones[i] = lOZoneImage.rectTransform;
-        }
-
         // Ring/hand slots: positions and sizes set per user in the prefab editor and
-        // taken over here (same procedure as for lyZones above) - rings much smaller
+        // taken over here - rings much smaller
         // (4x4) than the four hand slots (16x16), since ring-shaped items are visually much smaller.
         // They show their own item icon (like a backpack slot), no body-fitted
         // sprite - hit zone and display are the same element. Order must match
@@ -951,7 +909,6 @@ public sealed class UWHudInventory
             Image lOIconImage = lOIcon.GetComponent<Image>();
             lOIconImage.enabled = false;
 
-            mArmorHitZones[ArmorSlotCount + i] = lOSlotBackground.rectTransform;
             mEquipSlotIcons[i] = lOIconImage;
         }
     }

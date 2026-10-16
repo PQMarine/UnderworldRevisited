@@ -15,6 +15,27 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWTargetSpellRules
 	{
+		/// <summary>
+		/// What a class 7 spell (or Confusion) did to one creature - whether it counts against the
+		/// spell's targets and whether the spell picture shows (read 2026-10-12, UnderworldExhumed
+		/// SPELLS.C): hit_critter_goal and sp_charm put the picture only when check_res lets the
+		/// spell through, yet return 1 either way; sp_poison always puts it; sp_ward_undead never
+		/// does and returns 0 for a creature that is not undead. Until 2026-10-12 ours showed the
+		/// picture on a resisted mind spell and on Smite Undead.
+		/// </summary>
+		public enum Result
+		{
+			/// <summary>Nothing there to take it - the next creature is tried.</summary>
+			Missed,
+
+			/// <summary>Used on this creature without a picture: a mind spell resisted, or Smite
+			/// Undead.</summary>
+			Spent,
+
+			/// <summary>Took, with the spell picture.</summary>
+			Shown
+		}
+
 		public const int PoisonDiceCount = 5;
 
 		public const int PoisonDieRange = 4;

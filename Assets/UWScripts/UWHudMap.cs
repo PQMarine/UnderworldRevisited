@@ -458,7 +458,7 @@ public sealed class UWHudMap
         lORect.sizeDelta = new Vector2(UWHudPanel.FrameWidth, UWHudPanel.FrameHeight);
 
         Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:4476";
+        lOTexture.name = "UWHudMap map screen";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
         lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
@@ -753,7 +753,7 @@ public sealed class UWHudMap
         if (mMapTilesTexture == null)
         {
             mMapTilesTexture = new Texture2D(piSize, piSize, TextureFormat.RGBA32, false);
-            mMapTilesTexture.name = "UWGameUI.cs:4580";
+            mMapTilesTexture.name = "UWHudMap map tiles";
             mMapTilesTexture.filterMode = mOUi.TextureFilterMode;
             mMapTilesTexture.wrapMode = TextureWrapMode.Clamp;
         }
@@ -910,11 +910,12 @@ public sealed class UWHudMap
         return true;
     }
 
-    /// <summary>Erases the note under the pointer. If you miss, erase mode ends
-    /// anyway.</summary>
+    /// <summary>Erases the note under the pointer - of several, the one whose middle is nearest
+    /// (UWMapNoteRules.FindNoteToErase, DetermineBetterHit; until 2026-10-15 the first one).
+    /// If you miss, erase mode ends anyway.</summary>
     private void fEraseNoteAt(Vector2 pOLocal)
     {
-        if (mOMapNoteImages == null || mOUi.mOUWData == null)
+        if (mOUi.mOUWData == null)
             return;
 
         // The notes of the SHOWN level, not of the one the character stands on.
@@ -923,30 +924,24 @@ public sealed class UWHudMap
         if (lONotes == null)
             return;
 
-        float lfY = -pOLocal.y;
+        // The pointer in the notes' own coordinates: x a screen pixel, y from the bottom.
+        int liNote = UWMapNoteRules.FindNoteToErase(lONotes, Mathf.RoundToInt(pOLocal.x),
+            Mathf.RoundToInt(UWHudPanel.FrameHeight + pOLocal.y), fMeasureNote);
 
-        for (int liNote = 0; liNote < mOMapNoteImages.Count && liNote < lONotes.Count; liNote++)
-        {
-            RawImage lOImage = mOMapNoteImages[liNote];
-
-            if (lOImage == null || !UWTextLabel.Get(lOImage).IsShown)
-                continue;
-
-            RectTransform lORect = (RectTransform)lOImage.transform;
-
-            float lfLeft = lORect.anchoredPosition.x;
-            float lfTop = -lORect.anchoredPosition.y;
-
-            if (pOLocal.x < lfLeft || pOLocal.x > lfLeft + lORect.sizeDelta.x
-                || lfY < lfTop || lfY > lfTop + lORect.sizeDelta.y)
-                continue;
-
-            lONotes.RemoveAt(liNote);
-
-            fRefreshMapNotes(miMapLevel);
-
+        if (liNote < 0)
             return;
-        }
+
+        lONotes.RemoveAt(liNote);
+
+        fRefreshMapNotes(miMapLevel);
+    }
+
+    /// <summary>string_width of the notes' small font: the sum of the glyph widths.</summary>
+    private int fMeasureNote(string psText)
+    {
+        UWFont lOFont = mOUi.mOUWData != null ? mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Small) : null;
+
+        return lOFont != null ? lOFont.MeasureText(psText, 0, UWFontRenderer.CharacterSpacing) : 0;
     }
 
     /// <summary>
@@ -1016,7 +1011,7 @@ public sealed class UWHudMap
     /// The position is stored as a SCREEN pixel, with Y from the bottom - just as the save game
     /// keeps it.
     /// </summary>
-    private const int MapNoteMaxLength = 46;
+    private const int MapNoteMaxLength = UWMapNoteRules.MaxLength;
 
     internal bool mbMapWriting;
 
@@ -1026,7 +1021,8 @@ public sealed class UWHudMap
     {
         System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
 
-        if (lONotes == null)
+        // A hundred notes fill the page: the click does nothing (UWMapNoteRules.CanAddNote).
+        if (lONotes == null || !UWMapNoteRules.CanAddNote(lONotes.Count))
             return;
 
         lONotes.Add(new UWLevel.MapNote
@@ -1089,12 +1085,22 @@ public sealed class UWHudMap
 
     private void fOnMapTextInput(char pcChar)
     {
-        if (!mbMapWriting || pcChar < 32 || pcChar > 126)
+        if (!mbMapWriting)
+            return;
+
+        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
+
+        if (lONotes == null || miMapWriteNote < 0 || miMapWriteNote >= lONotes.Count)
             return;
 
         // CAPITAL LETTERS: font4x5p knows no lower case ones, and in the original all notes are
         // in capitals. Typed in lower case, nothing arrived at all otherwise (per user, 2026-09-03).
-        fSetMapNoteText(fGetMapNoteText() + char.ToUpperInvariant(pcChar));
+        // Codes 0x20 to 0x7A only, and nothing past the parchment's right edge or 46 characters
+        // (UWMapNoteRules.TryAppend, 2026-10-15).
+        string lsText;
+
+        if (UWMapNoteRules.TryAppend(lONotes[miMapWriteNote].Text, pcChar, lONotes[miMapWriteNote].X, fMeasureNote, out lsText))
+            fSetMapNoteText(lsText);
     }
 
     private string fGetMapNoteText()
@@ -1191,11 +1197,25 @@ public sealed class UWHudMap
             UnityEngine.InputSystem.Mouse.current.position.ReadValue(), null, out lOLocal))
             return;
 
+        // While writing, any click only ends the note (the typing loop of ManageDungeonMap
+        // breaks on a mouse command and returns) - also on ERASE, CLOSE or an arrow, which with
+        // the arrows taking the right button too would otherwise page away from the note
+        // being written (2026-10-15).
+        if (lbWriting)
+        {
+            fEndMapNote(true);
+
+            return;
+        }
+
         // Erase mode swallows the click.
         if (fUpdateMapErase(lOLocal, lbLeft))
             return;
 
-        if (lbLeft && fUpdateMapPaging(lOLocal))
+        // The level arrows take either button, as every button area of ManageDungeonMap does
+        // (AUTOMAP.C: any mouse command below 4; until 2026-10-15 a right click there started
+        // a note).
+        if (fUpdateMapPaging(lOLocal))
             return;
 
         // CLOSE and ERASE listen to BOTH buttons (per user on the original, 2026-09-03).
@@ -1211,13 +1231,7 @@ public sealed class UWHudMap
 
         // Both buttons start a line and both commit it again (per user
         // on the original). A click while writing only finishes and does
-        // NOT immediately start the next one.
-        if (lbLeft || lbRight)
-        {
-            if (lbWriting)
-                fEndMapNote(true);
-            else
-                fBeginMapNote(lOLocal);
-        }
+        // NOT immediately start the next one (above).
+        fBeginMapNote(lOLocal);
     }
 }

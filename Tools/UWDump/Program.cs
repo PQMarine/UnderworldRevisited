@@ -216,7 +216,7 @@ namespace UnderworldRevisited.Tools
                             lOChain.Append(string.Format(" -> {0:X3} {1} q{2}", lOLink.ID,
                                 fOneLine(pOData.GetObjectDescription(lOLink.ID + 1)), lOLink.Quality));
 
-                            if (((lOLink.ID >> 6) & 7) != 6)
+                            if (UWObjectIds.Major(lOLink.ID) != UWObjectMechanics.TrapMajorClass)
                                 break;
 
                             lOLink = UWObjectMechanics.GetLinkedObject(lOLink, lOLevel.Masterlist);
@@ -252,7 +252,7 @@ namespace UnderworldRevisited.Tools
                 return 4;
             }
 
-            const int liTilesPerAxis = 64;
+            const int liTilesPerAxis = UWWorldScale.TilesPerAxis;
 
             int liCentreX = psArgs.Length > 4 && fParse(psArgs[3], out int liX) ? liX : 32;
             int liCentreY = psArgs.Length > 4 && fParse(psArgs[4], out int liY) ? liY : 32;
@@ -271,7 +271,7 @@ namespace UnderworldRevisited.Tools
                 lOLine.Append(liTileY.ToString("D2")).Append(' ');
 
                 for (int liTileX = liFromX; liTileX <= liToX; liTileX++)
-                    lOLine.Append(fTileCharacter(lOLevel.TileData[(liTileY * liTilesPerAxis) + liTileX]));
+                    lOLine.Append(fTileCharacter(lOLevel.GetTile(liTileX, liTileY)));
 
                 Console.WriteLine(lOLine.ToString());
             }
@@ -282,7 +282,7 @@ namespace UnderworldRevisited.Tools
             {
                 for (int liTileX = liFromX; liTileX <= liToX; liTileX++)
                 {
-                    UWTile lOTile = lOLevel.TileData[(liTileY * liTilesPerAxis) + liTileX];
+                    UWTile lOTile = lOLevel.GetTile(liTileX, liTileY);
 
                     if (lOTile == null || lOTile.ObjectsInTile == null || lOTile.ObjectsInTile.Count == 0)
                         continue;

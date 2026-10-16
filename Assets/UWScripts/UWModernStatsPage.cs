@@ -189,7 +189,7 @@ public class UWModernStatsPage
 
         if (Mathf.Abs(lfWheel) > 0.01f)
             liStep = lfWheel > 0f ? -1 : 1;
-        else if (pOControls.Player.CursorDrag.WasPressedThisFrame())
+        else if (pOControls.Player.CursorDrag.WasPressedThisFrame() && !UWModernPointer.PanelsHeld)
         {
             float lfX = (lOPointer.x - ScreenRect.x) / (miScale * UWModernHudArt.PixelAspectX);
             float lfY = (ScreenRect.yMax - lOPointer.y) / miScale;
@@ -241,17 +241,24 @@ public class UWModernStatsPage
         fSetRect(lOText.rectTransform, lfX, lfTop - lfHeight, pOPage.width, lfHeight);
     }
 
+    /// <summary>The header name as the original's stats page has it: at most fifteen characters,
+    /// upper-cased (UnderworldExhumed STATS.C sp_hdr; matters since names hold 29, 2026-10-12).</summary>
     private string fName(UWPlayerData pOPlayer)
     {
-        return pOPlayer != null && !string.IsNullOrEmpty(pOPlayer.Name) ? pOPlayer.Name.ToUpper() : "AVATAR";
+        if (pOPlayer == null || string.IsNullOrEmpty(pOPlayer.Name))
+            return "AVATAR";
+
+        return (pOPlayer.Name.Length > StatsNameLength ? pOPlayer.Name.Substring(0, StatsNameLength) : pOPlayer.Name).ToUpper();
     }
+
+    private const int StatsNameLength = 0xF;
 
     /// <summary>The class from string block 2 from 0x18 on (UWHudPanel.fGetClassName).</summary>
     private string fClass(UWPlayerData pOPlayer)
     {
         try
         {
-            return pOPlayer != null ? mOUi.mOUWData.Strings.Blocks[2].Strings[0x18 + pOPlayer.CharacterClass].Trim().ToUpper() : string.Empty;
+            return pOPlayer != null ? mOUi.mOUWData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass].Trim().ToUpper() : string.Empty;
         }
         catch
         {

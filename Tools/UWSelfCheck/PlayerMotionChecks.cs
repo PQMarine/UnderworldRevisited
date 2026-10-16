@@ -69,8 +69,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckPlayerMotion(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Player motion (the engine-free core, stage 3)");
+            Check.Group("Player motion (the engine-free core, stage 3)");
 
             if (pOData == null || pOData.CommonObjectProperties == null)
             {
@@ -284,6 +283,58 @@ namespace UnderworldRevisited.Tools
             fExpectInt("player: lava is state 2", (int)lOPlayer.CurrentState, (int)UWPlayerMotion.State.Lava);
             fExpectInt("player: ... at half speed", lOPlayer.ForwardSpeed, 0x3AC * 5 / 10);
             fExpectInt("player: ... surface bit 2", lOPlayer.SurfaceBits, 2);
+
+            // ------------------------------------------------- the hop of Levitate and Fly
+            {
+                FakeMotionWorld lOHopWorld = new FakeMotionWorld();
+                UWPlayerMotion lOHop = fMakePlayer(lOHopWorld, pOData, 10, 8);
+
+                fRunFrames(lOHop, UWPlayerMotion.Command.None, 0, 2);
+
+                int liStart = lOHop.Params.Z;
+                int liTop = liStart;
+
+                lOHop.StopFalling();
+                lOHop.Abilities = UWPlayerMotion.AbilityLevitate;
+                lOHop.ReapplyState();
+
+                for (int liFrame = 0; liFrame < 30; liFrame++)
+                {
+                    lOHop.MotionCommand = UWPlayerMotion.Command.None;
+                    lOHop.Frame(16);
+
+                    if (lOHop.Params.Z > liTop)
+                        liTop = lOHop.Params.Z;
+                }
+
+                fExpectBool("player: Levitate's hop lifts off the ground (phys_bounce_up)", liTop > liStart, true);
+
+                FakeMotionWorld lOHopWorld2 = new FakeMotionWorld();
+                UWPlayerMotion lOFine = fMakePlayer(lOHopWorld2, pOData, 10, 8);
+
+                lOFine.Precise = true;
+                lOFine.FineTicks = true;
+
+                for (int liFrame = 0; liFrame < 20; liFrame++)
+                    lOFine.Frame(256);
+
+                liStart = lOFine.Params.Z;
+                liTop = liStart;
+                lOFine.StopFalling();
+                lOFine.Abilities = UWPlayerMotion.AbilityLevitate;
+                lOFine.ReapplyState();
+
+                for (int liFrame = 0; liFrame < 200; liFrame++)
+                {
+                    lOFine.MotionCommand = UWPlayerMotion.Command.None;
+                    lOFine.Frame(256);
+
+                    if (lOFine.Params.Z > liTop)
+                        liTop = lOFine.Params.Z;
+                }
+
+                fExpectBool("player: ... in the smooth mode too", liTop > liStart, true);
+            }
 
             // ------------------------------------------------- levitation
             lOWorld = new FakeMotionWorld();

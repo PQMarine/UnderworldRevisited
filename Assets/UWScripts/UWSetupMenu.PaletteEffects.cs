@@ -22,12 +22,7 @@ public partial class UWSetupMenu
 
     private void fOpenPaletteEffectsDialog()
     {
-        meOpenMenu = MenuEnum.None;
-        mbControlsDialogOpen = false;
-        mbColoursDialogOpen = false;
-        mbSoundDialogOpen = false;
-        mbDisplayDialogOpen = false;
-        mbMotionDialogOpen = false;
+        fCloseDialogs();
         mbPaletteEffectsDialogOpen = true;
     }
 
@@ -53,7 +48,7 @@ public partial class UWSetupMenu
         GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Palette effects", mOLabel);
         GUI.Label(new Rect(lfLeft + 230f, lfTop + 4f, lfInner - 370f, 22f), "drag here to move", mODimLabel);
 
-        if (GUI.Button(new Rect(lODialog.xMax - 130f, lfTop - 2f, 110f, 30f), "Done", mOButton))
+        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lfTop - 2f, 110f, 30f), "Done", mOButton))
             mbPaletteEffectsDialogOpen = false;
 
         lfTop += 32f;
@@ -75,7 +70,7 @@ public partial class UWSetupMenu
         {
             bool lbCurrent = (int)leCurrent == liPreset;
 
-            if (GUI.Button(new Rect(lfLeft + 230f + (liPreset * lfPresetWidth), lfTop, lfPresetWidth, 26f), lsPresets[liPreset],
+            if (mOKeyNav.Button(new Rect(lfLeft + 230f + (liPreset * lfPresetWidth), lfTop, lfPresetWidth, 26f), lsPresets[liPreset],
                 lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
                 UWPaletteEffects.ApplyPreset((UWPaletteEffects.PresetEnum)liPreset);
         }
@@ -98,7 +93,7 @@ public partial class UWSetupMenu
         {
             bool lbCurrent = UWUserSettings.PaletteGrimeTone == liTone;
 
-            if (GUI.Button(new Rect(lfLeft + 230f + (liTone * lfToneWidth), lfTop, lfToneWidth, 26f), lsTones[liTone],
+            if (mOKeyNav.Button(new Rect(lfLeft + 230f + (liTone * lfToneWidth), lfTop, lfToneWidth, 26f), lsTones[liTone],
                 lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
             {
                 UWUserSettings.PaletteGrimeTone = liTone;
@@ -123,7 +118,7 @@ public partial class UWSetupMenu
             UWUserSettings.PaletteGroundShadows, UWPaletteEffects.MaxGroundShadows,
             "A dark patch under creatures and things, so they stand on the ground.", pfValue => UWUserSettings.PaletteGroundShadows = pfValue);
 
-        bool lbGlow = GUI.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.PaletteGlow,
+        bool lbGlow = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.PaletteGlow,
             "  Glow - lava and flames keep their full colour, in the dark too", mOToggle);
 
         if (lbGlow != UWUserSettings.PaletteGlow)
@@ -134,7 +129,7 @@ public partial class UWSetupMenu
 
         lfTop += 32f;
 
-        bool lbLights = GUI.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.PaletteLightSources,
+        bool lbLights = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.PaletteLightSources,
             "  Light sources", mOToggle);
 
         if (lbLights != UWUserSettings.PaletteLightSources)

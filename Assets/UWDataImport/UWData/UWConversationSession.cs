@@ -43,8 +43,10 @@ namespace UWDataImport.UWData
 
 		private readonly List<Line> mOLines = new List<Line>();
 
-		/// <summary>Built-in function "gronk_door", see fGronkDoor.</summary>
-		private const int GronkDoorFunction = 0x0025;
+		/// <summary>The import id of "gronk_door" (see fGronkDoor). Until 2026-10-14 CallUnknown
+		/// tested this id; now the name is looked up, and the dispatch-coverage check proves that
+		/// every conversation imports gronk_door under this id.</summary>
+		public const int GronkDoorFunction = 0x0025;
 
 		/// <summary>The creature goal "attack" - the same number as UWCritter.GoalAttack on the
 		/// Unity side.</summary>
@@ -57,6 +59,9 @@ namespace UWDataImport.UWData
 		/// a number that no block reaches, and fGetConversationString knows it.
 		/// </summary>
 		private const int PlayerNameString = 30000;
+
+		/// <summary>From this whoami on get_name ignores the personal name (who &lt; 0xF0).</summary>
+		private const int FirstUnnamedWhoami = 0xF0;
 
 		/// <summary>The trade, see UWConversationTrade. Null without a conversation partner.</summary>
 		public UWConversationTrade Trade { get; private set; }
@@ -99,9 +104,12 @@ namespace UWDataImport.UWData
 
 			PartnerName = fGetPartnerName(piSlot);
 
-			// The generic conversations (from 256) have no name in block 7 - the reference
-			// then shows the object name, for the wisp "wisp".
-			if (string.IsNullOrWhiteSpace(PartnerName) && pONpc != null)
+			// THE NAME UNDER THE PORTRAIT is get_name's (GAMESTRN.C, read 2026-10-15): a creature with
+			// a whoami of 1 to 0xEF shows its personal name from block 7 - and NOTHING when that is
+			// empty; the others (whoami 0, the generic conversations from 256, and 0xF0 on) show
+			// their object name, for the wisp "Wisp". Until then ours fell back to the object name
+			// for an empty personal name too (only slot 115 has one, probably never placed).
+			if (pONpc != null && (pONpc.NPCwhoami == 0 || pONpc.NPCwhoami >= FirstUnnamedWhoami))
 				PartnerName = fGetObjectName(pONpc.ID);
 
 			if (mOConversation == null)
@@ -126,7 +134,7 @@ namespace UWDataImport.UWData
 			// partner for null themselves.
 			Trade = new UWConversationTrade(pOData, pONpc, pIHost,
 				piString => Say(fGetConversationString(mOConversation.StringBlock, piString)),
-				Print, RegisterString, fDescribe);
+				PlayerSay, RegisterString);
 		}
 
 		/// <summary>The memory of this conversation, see UWConversationGlobals.</summary>
@@ -146,22 +154,6 @@ namespace UWDataImport.UWData
 			mODynamicStrings[liNumber] = psText ?? string.Empty;
 
 			return liNumber;
-		}
-
-		/// <summary>The description of an item without "You see" - for identify_inv.</summary>
-		private string fDescribe(UWObject pOItem, int piDetail)
-		{
-			string lsText = mIHost != null ? mIHost.DescribeItem(pOItem, piDetail) : null;
-
-			if (string.IsNullOrEmpty(lsText))
-				return string.Empty;
-
-			const string lsYouSee = "You see ";
-
-			if (lsText.StartsWith(lsYouSee, StringComparison.Ordinal))
-				lsText = lsText.Substring(lsYouSee.Length);
-
-			return lsText.TrimEnd('.');
 		}
 
 		/// <summary>An item on the player's own side of the trade area: 1 + Lore against 15, rolled
@@ -231,9 +223,11 @@ namespace UWDataImport.UWData
 		/// password or a name. Answered with SupplyText.</summary>
 		public bool IsAskingText { get; private set; }
 
-		/// <summary>The typed reply. The original compares in upper case (reference
-		/// babl_ask), so it goes into the machine that way; in the history it appears as typed.
-		/// </summary>
+		/// <summary>The typed reply, into the machine AS TYPED (getInputText_ovr103_1117,
+		/// CONVERSE.C, read 2026-10-15: the text goes into the dynamic string unchanged; compare and
+		/// contains ignore case, so the logic is the same either way). Until then ours handed it
+		/// over in upper case, after the reference, and conversation 187's echo of the typed word
+		/// came out in capitals.</summary>
 		public void SupplyText(string psText)
 		{
 			if (!IsAskingText || mOVm == null)
@@ -244,7 +238,7 @@ namespace UWDataImport.UWData
 			string lsText = psText ?? string.Empty;
 
 			mOLines.Add(new Line { IsPlayer = true, Text = lsText });
-			mOVm.SupplyTypedInput(RegisterString(lsText.ToUpperInvariant()));
+			mOVm.SupplyTypedInput(RegisterString(lsText));
 
 			Advance();
 		}
@@ -259,6 +253,7 @@ namespace UWDataImport.UWData
 				return;
 
 			mOLines.Add(new Line { IsPlayer = true, Text = mOVm.PendingChoices[piChoice - 1] });
+			mbPlayerSpokeLast = true;
 
 			mOVm.SupplyChoice(piChoice);
 
@@ -281,11 +276,40 @@ namespace UWDataImport.UWData
 
 		public void Say(string psText)
 		{
+			mbPlayerSpokeLast = false;
+
 			if (fTryReprint(psText))
 				return;
 
 			mOLines.Add(new Line { IsNpc = true, Text = psText });
 		}
+
+		/// <summary>A line the game speaks as the player's own (play_say, CONVERSE.C): the appraisal
+		/// of do_judgement. The echo of a chosen answer goes the same way (Choose).</summary>
+		public void PlayerSay(string psText)
+		{
+			mbPlayerSpokeLast = true;
+			mOLines.Add(new Line { IsPlayer = true, Text = psText });
+		}
+
+		/// <summary>convo_say_flag (CONVERSE.C): the player's line came last - the echo of a chosen
+		/// answer or play_say set it, the partner's say clears it; narration (print) and a typed
+		/// answer leave it as it is.</summary>
+		private bool mbPlayerSpokeLast;
+
+		/// <summary>The partner was left hostile: the script's npc_attitude was 0 at the end
+		/// (update_converse_data's answer).</summary>
+		private bool mbLeftHostile;
+
+		/// <summary>
+		/// HOW THE FINISHED CONVERSATION CLOSES (Converse, CONVERSE.C, read 2026-10-15): the last
+		/// line stays for the timed pause only when the player's line came last and the partner was
+		/// not left hostile; otherwise it stays until a key or a click (scroll_wait(0)). Until then
+		/// ours decided by whether the player had ever been offered an answer, so a farewell after
+		/// the last choice or a partner turned hostile faded on its own. The pause's length is
+		/// still ours (UWConversationScreen.EndHoldSeconds; open question U3).
+		/// </summary>
+		public bool EndsWithTimedPause => IsFinished && mbPlayerSpokeLast && !mbLeftHostile;
 
 		public void Print(string psText)
 		{
@@ -302,7 +326,7 @@ namespace UWDataImport.UWData
 		/// stood in the history verbatim and the text twice, as SupplyText already writes the
 		/// answer for every babl_ask (per user, 2026-10-04: "\1PIT\0" under "pit", "\1\0" after
 		/// Escape). It becomes the player's line - or nothing, when it repeats the answer just
-		/// written (the original compares in upper case, so the reprint is upper case).
+		/// written (compared ignoring case).
 		/// </summary>
 		private bool fTryReprint(string psText)
 		{
@@ -338,76 +362,94 @@ namespace UWDataImport.UWData
 			UWQuestFlags.Set(piFlag, piValue);
 		}
 
+		/// <summary>The script's random (BabRand in the decompilation's BABL.C): 1 to piMaximum,
+		/// from the session's generator (cleanup step 2.8, 2026-10-14).</summary>
 		public int Random(int piMaximum)
 		{
-			return piMaximum <= 0 ? 0 : UWRandom.Next(1, piMaximum + 1);
+			return piMaximum <= 0 ? 0 : UWGameSession.Current.Random.Next(1, piMaximum + 1);
+		}
+
+		/// <summary>The functions this session knows by name (UWConversationFunctionTable, since
+		/// 2026-10-14). Shared by every session: the table is sealed data.</summary>
+		private static readonly UWConversationFunctionTable mODefaultFunctions = UWConversationFunctionTable.CreateDefault();
+
+		/// <summary>The functions of the game, read-only - for the dispatch-coverage check.</summary>
+		public static UWConversationFunctionTable Functions
+		{
+			get { return mODefaultFunctions; }
 		}
 
 		public int CallUnknown(string psName, int piFunctionId, IReadOnlyList<int> pOArguments,
 			IReadOnlyList<int> pOAddresses, UWConversationVM pOVm)
 		{
-			if (piFunctionId == GronkDoorFunction)
-				return fGronkDoor(pOArguments);
+			UWConversationFunctionTable.Entry lOEntry;
 
-			if (Trade != null && UWConversationTrade.Handles(psName))
+			// A trade function needs the trade. The session has one whenever the machine runs;
+			// the test is the one CallUnknown always made before it asked the trade.
+			if (mODefaultFunctions.TryGet(psName, out lOEntry)
+				&& (lOEntry.Provider != UWConversationFunctionTable.Provider.Trade || Trade != null))
 			{
-				int liResult = Trade.Call(psName, pOArguments, pOAddresses, pOVm);
+				int liResult = lOEntry.Function(this,
+					new UWConversationFunctionTable.Call(psName, piFunctionId, pOArguments, pOAddresses, pOVm));
 
 				// An accepted deal is carried out at once, as in the reference right
 				// after the function - the next function already sees the goods swapped.
-				if (Trade.PendingSwap)
+				if (lOEntry.Provider == UWConversationFunctionTable.Provider.Trade && Trade.PendingSwap)
 					Trade.Swap();
 
 				return liResult;
 			}
 
-			switch (psName)
-			{
-				// sex(male, female): the string number that matches the character. Confirmed by
-				// the pairs "lad"/"lass", "son"/"daughter", "He"/"She" in the data - the
-				// first is always the male one.
-				case "sex":
-					return fArgument(pOArguments, mOData != null && mOData.InitialPlayer != null
-						&& mOData.InitialPlayer.IsFemale ? 1 : 0);
-
-				// compare(a, b): same text, ignoring case (reference).
-				case "compare":
-					return string.Equals(fStringOf(fArgument(pOArguments, 0)), fStringOf(fArgument(pOArguments, 1)),
-						StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-
-				// contains(keyword, text): the keyword as a whole word in the text
-				// (see Contains_ovr093_ED4, read 2026-10-01; until then ours took either text
-				// anywhere in the other).
-				case "contains":
-				{
-					// See UWConversationTextRules.
-					string lsKeyword = fStringOf(fArgument(pOArguments, 0));
-					string lsText = fStringOf(fArgument(pOArguments, 1));
-
-					return UWConversationTextRules.ContainsWord(lsText, lsKeyword) ? 1 : 0;
-				}
-
-				case "length":
-					return fStringOf(fArgument(pOArguments, 0)).Length;
-
-				case "x_skills":
-					return fXSkills(fArgument(pOArguments, 0), fArgument(pOArguments, 1));
-
-				case "x_traps":
-					return fXTraps(fArgument(pOArguments, 0), fArgument(pOArguments, 1));
-
-				case "do_input_wait":
-					return 0;
-			}
-
-			// Trade and inventory access are handled by UWConversationTrade above. For everything
-			// else that is not implemented yet: instead of guessing,
+			// For everything that is not implemented yet: instead of guessing,
 			// the call is noted and answered with 0 - that is the value the
 			// conversations read as "no, nothing, nobody", so it breaks the least.
 			if (!MissingFunctions.Contains(psName))
 				MissingFunctions.Add(psName);
 
 			return 0;
+		}
+
+		/// <summary>The session's own functions (the trade registers its own,
+		/// UWConversationTrade.RegisterFunctions). Until 2026-10-14 the switch in CallUnknown, with
+		/// gronk_door tested by its function id 0x25 first.</summary>
+		internal static void RegisterFunctions(UWConversationFunctionTable pOTable)
+		{
+			const UWConversationFunctionTable.Provider leSession = UWConversationFunctionTable.Provider.Session;
+
+			pOTable
+				.Register("gronk_door", leSession, (pOSession, pOCall) => pOSession.fGronkDoor(pOCall.Arguments))
+
+				// sex(male, female): the string number that matches the character. Confirmed by
+				// the pairs "lad"/"lass", "son"/"daughter", "He"/"She" in the data - the
+				// first is always the male one.
+				.Register("sex", leSession, (pOSession, pOCall) =>
+					pOCall.Argument(pOSession.mOData != null && pOSession.mOData.InitialPlayer != null
+						&& pOSession.mOData.InitialPlayer.IsFemale ? 1 : 0))
+
+				// compare(a, b): same text, ignoring case (reference).
+				.Register("compare", leSession, (pOSession, pOCall) =>
+					string.Equals(pOSession.fStringOf(pOCall.Argument(0)), pOSession.fStringOf(pOCall.Argument(1)),
+						StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+
+				// contains(keyword, text): the keyword as a whole word in the text
+				// (see Contains_ovr093_ED4, read 2026-10-01; until then ours took either text
+				// anywhere in the other).
+				.Register("contains", leSession, (pOSession, pOCall) =>
+				{
+					// See UWConversationTextRules.
+					string lsKeyword = pOSession.fStringOf(pOCall.Argument(0));
+					string lsText = pOSession.fStringOf(pOCall.Argument(1));
+
+					return UWConversationTextRules.ContainsWord(lsText, lsKeyword) ? 1 : 0;
+				})
+				.Register("length", leSession, (pOSession, pOCall) => pOSession.fStringOf(pOCall.Argument(0)).Length)
+				.Register("x_skills", leSession, (pOSession, pOCall) => pOSession.fXSkills(pOCall.Argument(0), pOCall.Argument(1)))
+				.Register("x_traps", leSession, (pOSession, pOCall) => pOSession.fXTraps(pOCall.Argument(0), pOCall.Argument(1)));
+
+			// UW1 BINDS NO give_all_stuff AND NO do_input_wait (Converse, CONVERSE.C: neither among
+			// its bab_fun calls; give_all_stuff is UW2's) - an unbound import answers 0, as
+			// CallUnknown does for any name not in the table. Until 2026-10-15 both were registered;
+			// no UW1 conversation imports them.
 		}
 
 		/// <summary>
@@ -435,11 +477,6 @@ namespace UWDataImport.UWData
 		public const int GronkDoorClose = 1;
 
 		public const int GronkDoorToggle = 2;
-
-		private static int fArgument(IReadOnlyList<int> pOArguments, int piIndex)
-		{
-			return pOArguments != null && piIndex < pOArguments.Count ? pOArguments[piIndex] : 0;
-		}
 
 		/// <summary>A text by its number - from the conversation's block or from those created
 		/// during the conversation (typed replies, see RegisterString).</summary>
@@ -486,9 +523,10 @@ namespace UWDataImport.UWData
 			return UWGameVariables.Get(piVariable);
 		}
 
-		/// <summary>Clock of the original: this many units are one game minute (UW.EXE divides the
-		/// clock at 0xCE by 0x3BC4).</summary>
-		private const int ClockUnitsPerMinute = 15300;
+		/// <summary>Clock of the original: this many units are one game minute here (UW.EXE divides
+		/// the clock at 0xCE by 0x3BC4, not by the 0x3C00 of the rest of the game - see
+		/// UWGameClock.ConversationUnitsPerMinute).</summary>
+		private const int ClockUnitsPerMinute = UWGameClock.ConversationUnitsPerMinute;
 
 		private const int MinutesPerDay = 1440;
 
@@ -513,9 +551,9 @@ namespace UWDataImport.UWData
 
 			// npc_name is a string number: with its own conversation the partner name (block 7,
 			// whoami + 16), otherwise the object name (block 4). Here a registered text.
-			mOVm.SetImportedGlobal("npc_name", RegisterString(mONpc == null || mONpc.NPCwhoami != 0
+			mOVm.SetImportedGlobal("npc_name", RegisterString(mONpc == null
 				? PartnerName
-				: fGetObjectName(mONpc.ID)));
+				: mONpc.NPCwhoami != 0 ? fGetPartnerName(piSlot) : fGetObjectName(mONpc.ID)));
 
 			if (mONpc != null)
 			{
@@ -597,30 +635,12 @@ namespace UWDataImport.UWData
 			return (short)((piHp & 0xFF) << 8) / piBase;
 		}
 
+		/// <summary>The bare singular name, capitalised like a name: the original shows "Wisp",
+		/// not "a_wisp" (per user, 2026-09-14). Since 2026-10-11 through UWText.ObjectName
+		/// instead of a hand copy of the "&amp;" and "_" parsing.</summary>
 		private string fGetObjectName(int piObjectId)
 		{
-			try
-			{
-				string lsName = mOData.Strings.Blocks[4].Strings[piObjectId + 1].TrimEnd('\r', '\n');
-				int liCut = lsName.IndexOf('&');
-
-				if (liCut >= 0)
-					lsName = lsName.Substring(0, liCut);
-
-				// The article comes before the underscore ("a_wisp") - the name is only what
-				// follows (per user, 2026-09-14: the conversation showed "a_wisp").
-				int liArticle = lsName.IndexOf('_');
-
-				if (liArticle >= 0)
-					lsName = lsName.Substring(liArticle + 1);
-
-				// Capitalised like a name: the original shows "Wisp" (per user, 2026-09-14).
-				return lsName.Length > 0 ? char.ToUpperInvariant(lsName[0]) + lsName.Substring(1) : lsName;
-			}
-			catch
-			{
-				return string.Empty;
-			}
+			return UWText.Capitalised(UWText.ObjectName(mOData, piObjectId));
 		}
 
 		/// <summary>
@@ -677,6 +697,8 @@ namespace UWDataImport.UWData
 			// ConversationVM.ExportVariables).
 			if (mOVm.TryGetImportedGlobal("npc_attitude", out liValue))
 			{
+				mbLeftHostile = liValue == 0;
+
 				if (liValue > 3)
 				{
 					mONpc.NPCAttitude = 3;
@@ -688,11 +710,14 @@ namespace UWDataImport.UWData
 
 			// The goal too: a conversation can mean "follow me" or "stay here" (since
 			// 2026-09-11, the creature reads it in afterwards - see UWCritter.RefreshFromData).
-			if (mOVm.TryGetImportedGlobal("npc_goal", out liValue))
-				mONpc.NPCGoal = (byte)(liValue & 0xF);
+			// THROUGH THE ORIGINAL'S GOAL WRITER (update_converse_data -> change_critter_goal ->
+			// critter_set_goal, read 2026-10-15): a critter whose goal is 4 (guard) when the
+			// conversation ends saves it as its backup goal first, so a later critter_discard_goal
+			// brings it back to guarding. Until then ours wrote goal and target raw.
+			int liGTarg;
 
-			if (mOVm.TryGetImportedGlobal("npc_gtarg", out liValue))
-				mONpc.NPCGTarg = (byte)(liValue & 0xFF);
+			if (mOVm.TryGetImportedGlobal("npc_goal", out liValue) && mOVm.TryGetImportedGlobal("npc_gtarg", out liGTarg))
+				new UWCritterRecord(mONpc).SetNewGoal(liValue & UWNpcRecordCodec.GoalMask, liGTarg & UWNpcRecordCodec.GTargMask);
 		}
 
 		/// <summary>The player values from RetrieveImportedVariablesAfterConversation: hunger,

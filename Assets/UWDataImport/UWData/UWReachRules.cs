@@ -33,6 +33,12 @@ namespace UWDataImport.UWData
 		/// <summary>With a pole in hand: 0x190 = 400, twenty eighths or two and a half tiles.</summary>
 		public const int PoleDistanceSquared = 0x190;
 
+		/// <summary>A close look: 0x48 = 72, eight eighths, about one tile. player_3dlook
+		/// (UnderworldExhumed ui/INTERACT.C) looks with detail 1 only at a thing that cannot be
+		/// taken and lies within this reach - a window then shows its picture (RectLook); from
+		/// farther away only its words (2026-10-15, reference audit round 2, A46).</summary>
+		public const int LookDetailDistanceSquared = 0x48;
+
 		/// <summary>Telekinesis: the original passes zero, and its check reads that as "always
 		/// reachable" - no distance at all, not a larger one.</summary>
 		public const int UnlimitedDistance = 0;
@@ -45,12 +51,14 @@ namespace UWDataImport.UWData
 		/// higher up than down.</summary>
 		public const int ReachBelow = 0xC;
 
-		/// <summary>From this swim counter on one hangs deeper in the water than the feet position
-		/// says, and the height window moves with it (see UWPlayerTerrain.SwimCounter).</summary>
-		public const int SwimCounterThreshold = 0x50;
-
-		/// <summary>String block 1: "You are unable to use that from here."</summary>
+		/// <summary>String block 1: "You are unable to use that from here." - the plain use's
+		/// refusal (player_3duse, UnderworldExhumed INTERACT.C).</summary>
 		public const int UnableToUseMessage = 186;
+
+		/// <summary>String block 1: "You cannot reach that." - the target mode's refusal
+		/// (mous_in_3d, game_sprint 0x5E): an item used on something (UseThing) and a target spell
+		/// alike.</summary>
+		public const int CannotReachMessage = 95;
 
 		/// <summary>String block 1: "That is too far away to take." - the same reach, its own
 		/// sentence (per user on the original, 2026-09-18).</summary>
@@ -81,12 +89,19 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Is the thing within reach? Positions in eighths of a tile, heights in zpos steps
-		/// (0 to 127); the player's height is that of the feet.
+		/// Is the thing within reach (InPickRange, UnderworldExhumed ui/INTERACT.C)? Positions in
+		/// eighths of a tile, heights in zpos steps (0 to 127); the player's height is that of
+		/// the feet. A SWIMMER REACHES AS ANYONE: UW1's InPickRange has no swimming term (the file
+		/// lists "no swimming reach" among UW1's differences from UW2); until 2026-10-15 ours
+		/// lowered the window by the swim counter / 8 (reference audit round 2, A52).
+		///
+		/// NOT BUILT (B1, waiting for a test in the original): BlockingTerrain, the original's
+		/// second test next to this one for use, take and the target mode - water, lava or a deep
+		/// pit between player and thing. It would join here as a further condition.
 		/// </summary>
 		public static bool CanReach(int piPlayerX, int piPlayerY, int piPlayerZ,
 			int piTargetX, int piTargetY, int piTargetZ,
-			int piDistanceSquared, bool pbUsingPole, int piSwimCounter)
+			int piDistanceSquared, bool pbUsingPole)
 		{
 			if (piDistanceSquared == UnlimitedDistance)
 				return true;
@@ -98,9 +113,6 @@ namespace UWDataImport.UWData
 				return false;
 
 			int liHeight = piPlayerZ - piTargetZ;
-
-			if (piSwimCounter > SwimCounterThreshold)
-				liHeight -= piSwimCounter >> 3;
 
 			// The pole doubles the window, as it doubles the distance.
 			int liFactor = pbUsingPole ? 2 : 1;

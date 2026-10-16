@@ -34,32 +34,28 @@ namespace UWDataImport.UWData
 
 		public UWLevel Level => mOLevel;
 
-		/// <summary>The tile at these coordinates, null outside the map or without data.</summary>
+		/// <summary>The tile at these coordinates, null outside the map or without data -
+		/// UWLevel.GetTile, tolerating a missing level.</summary>
 		public UWTile GetTile(int piTileX, int piTileZ)
 		{
-			if (mOLevel == null || mOLevel.TileData == null
-				|| piTileX < 0 || piTileZ < 0
-				|| piTileX >= UWWorldScale.TilesPerAxis || piTileZ >= UWWorldScale.TilesPerAxis)
-				return null;
-
-			return mOLevel.TileData[(piTileZ * UWWorldScale.TilesPerAxis) + piTileX];
+			return mOLevel != null ? mOLevel.GetTile(piTileX, piTileZ) : null;
 		}
 
 		/// <summary>
-		/// Which tile a world point lies in, clamped to the map. The tile centre lies exactly at
-		/// tile * TileSize, so this is the position divided by the tile width, rounded (halves to
-		/// even, as Mathf.RoundToInt did). Adding half a tile first put the centre on the rounding
-		/// boundary (user, 2026-08-29).
+		/// Which tile a world point lies in, clamped to the map: UWUnits.WorldAxisToTile per axis,
+		/// the FLOOR of the original's units (pos &gt;&gt; 8, as the motion core takes a tile),
+		/// so a point exactly on a tile boundary belongs to the tile it starts. Until 2026-10-12
+		/// this rounded the position divided by the tile width (halves to even, as
+		/// Mathf.RoundToInt did; adding half a tile first had put the centre on the rounding
+		/// boundary, user 2026-08-29), which differed from the floor only on an exact boundary -
+		/// decision 20 of Docs/CLEANUP-PLAN.md: one conversion, the floor.
 		/// </summary>
 		public static UWTilePos WorldToTile(float pfWorldX, float pfWorldZ)
 		{
-			return new UWTilePos(fClampTile(UWUnits.RoundToInt(pfWorldX / UWWorldScale.TileSize)),
-				fClampTile(UWUnits.RoundToInt(pfWorldZ / UWWorldScale.TileSize)));
-		}
+			int liLast = UWWorldScale.TilesPerAxis - 1;
 
-		private static int fClampTile(int piTile)
-		{
-			return piTile < 0 ? 0 : (piTile > UWWorldScale.TilesPerAxis - 1 ? UWWorldScale.TilesPerAxis - 1 : piTile);
+			return new UWTilePos(UWMath.Clamp(UWUnits.WorldAxisToTile(pfWorldX), 0, liLast),
+				UWMath.Clamp(UWUnits.WorldAxisToTile(pfWorldZ), 0, liLast));
 		}
 
 		/// <summary>Which of the eight fixed spots (0..7) within the tile is closest to a world
@@ -77,19 +73,28 @@ namespace UWDataImport.UWData
 
 		/// <summary>A world coordinate in eighths of a tile - tile times eight plus the sub-tile
 		/// spot, the unit the original measures reach and closeness in (UWReachRules,
-		/// UWCritterRules). One axis at a time: x for X, z for Y.</summary>
+		/// UWCritterRules). One axis at a time: x for X, z for Y. THE STORED SPOT'S INVERSE:
+		/// the spot an object at this coordinate was placed at (WorldToSubTile, nearest); the
+		/// eighth cell a point lies in is WorldToEighthFloor. Its own inverse is
+		/// UWUnits.EighthsToWorldAxis (the one eighth-spot formula since 2026-10-12).</summary>
 		public static int WorldToEighths(float pfWorldCoordinate)
 		{
-			int liTile = fClampTile(UWUnits.RoundToInt(pfWorldCoordinate / UWWorldScale.TileSize));
+			int liTile = UWMath.Clamp(UWUnits.RoundToInt(pfWorldCoordinate / UWWorldScale.TileSize), 0,
+				UWWorldScale.TilesPerAxis - 1);
 
 			return UWReachRules.ToEighths(liTile, WorldToSubTile(pfWorldCoordinate, liTile));
 		}
 
-		/// <summary>The inverse of WorldToEighths: the world coordinate of an eighth's spot.</summary>
-		public static float EighthsToWorld(int piEighths)
+		/// <summary>THE EIGHTH CELL A POINT LIES IN (0 to 7 within its tile), the original's
+		/// (pos &gt;&gt; 5) &amp; 7 - how set_phys_data and the player's motion (PHYSICS.C) write a
+		/// fine position from an exact one, and what the trespass trap reads for the player.
+		/// The FLOOR of the point's position in the tile: a point 7.99 units past the tile's
+		/// corner is still cell 0, where WorldToSubTile (the stored spot an object was placed at,
+		/// nearest) would answer 1. Decision 21 of Docs/CLEANUP-PLAN.md (2026-10-12): both stay,
+		/// each named for its purpose. Pairs with UWUnits.WorldAxisToTile for the tile.</summary>
+		public static int WorldToEighthFloor(float pfWorldCoordinate)
 		{
-			return ((piEighths >> 3) * UWWorldScale.TileSize) - UWWorldScale.TileHalfSize
-				+ ((piEighths & 7) * UWWorldScale.SubTileStep) + UWWorldScale.SubTileOffset;
+			return (int)Math.Floor((pfWorldCoordinate + UWWorldScale.TileHalfSize) / UWWorldScale.SubTileStep) & 7;
 		}
 
 		/// <summary>Whether the culling test (the liquids' range 0x0A, rolled anew) takes this
@@ -185,12 +190,12 @@ namespace UWDataImport.UWData
 				|| UWLiquidCulling.SparedByLava(lOEntry.QualityClass, lOEntry.Resistances);
 		}
 
-		/// <summary>Whether the floor of this tile takes this object: lava first spares what
-		/// SparedByLava says, then both liquids cull (SinksInLiquid). A THROWN object that comes to
-		/// rest in water is tested twice, each with its own roll - the landing and the collision
-		/// after it (UWLiquidCulling.ThrownIntoWaterTests). In lava the landing's test belongs to
-		/// the break chance, which the projectile rolls itself.</summary>
-		public bool TileSwallows(UWTile pOTile, UWObject pOObject, bool pbThrown = false)
+		/// <summary>Whether the floor of this tile takes this object placed there: lava first spares
+		/// what SparedByLava says, then both liquids cull (SinksInLiquid). A THROWN object is not
+		/// decided here any more: its landing and the collisions after it each roll on the motion
+		/// core (UWMobileObjectMotion, the value rule UWLiquidCulling.Swallows); the thrown parameter
+		/// of this method went with the old flight path on 2026-10-11.</summary>
+		public bool TileSwallows(UWTile pOTile, UWObject pOObject)
 		{
 			if (pOObject == null || !IsDestructiveTile(pOTile))
 				return false;
@@ -198,15 +203,7 @@ namespace UWDataImport.UWData
 			if (IsLavaTile(pOTile))
 				return !SparedByLava(pOObject.ID) && SinksInLiquid(pOObject);
 
-			int liTests = pbThrown ? UWLiquidCulling.ThrownIntoWaterTests : 1;
-
-			for (int liTest = 0; liTest < liTests; liTest++)
-			{
-				if (SinksInLiquid(pOObject))
-					return true;
-			}
-
-			return false;
+			return SinksInLiquid(pOObject);
 		}
 
 		/// <summary>
@@ -226,7 +223,11 @@ namespace UWDataImport.UWData
 
 		private bool fSinksInLiquid(UWObject pOObject, int piRange, int piDepth)
 		{
-			if (pOObject == null
+			// WORD 0 BIT 13 PROTECTS OUTRIGHT, the object and anything holding it: chkTenacious
+			// (UnderworldExhumed obj/OBJECTS.C) asks it first, Obj_Elem_Fate for the object and its
+			// chain (2026-10-15, with the tenacious silver seed of A42; until then ours asked the
+			// culling priority alone here).
+			if (pOObject == null || pOObject.DoorDirection
 				|| !fSinksInLiquid(pOObject.ID, pOObject.HasQuantity ? pOObject.Quantity : 1, piRange))
 				return false;
 
@@ -288,7 +289,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Whether a sub-tile spot (0..7 each) lies on the open half of its tile - every
 		/// spot of an open tile or a slope, none of a solid one, and on a diagonal the side named
-		/// by its type (y counts north). The same halves UWLevelLoader.GetRandomPositionInTile
+		/// by its type (y counts north). The same halves the random roll of a spot used
 		/// scatters into.</summary>
 		public static bool IsSubTileInOpenHalf(UWTile.TileTypeEnum peType, int piX, int piY)
 		{
@@ -371,11 +372,8 @@ namespace UWDataImport.UWData
 			int liNeighbourX = piTileX + piDx;
 			int liNeighbourZ = piTileZ + piDz;
 
-			if (liNeighbourX < 0 || liNeighbourZ < 0
-				|| liNeighbourX >= UWWorldScale.TilesPerAxis || liNeighbourZ >= UWWorldScale.TilesPerAxis)
-				return true;
-
-			UWTile lONeighbour = mOLevel.TileData[(liNeighbourZ * UWWorldScale.TilesPerAxis) + liNeighbourX];
+			// Outside the map counts as blocked, like a solid tile.
+			UWTile lONeighbour = mOLevel.GetTile(liNeighbourX, liNeighbourZ);
 
 			if (lONeighbour == null || lONeighbour.TileType == UWTile.TileTypeEnum.solid)
 				return true;
@@ -383,7 +381,7 @@ namespace UWDataImport.UWData
 			if (!pbIncludeSteps)
 				return false;
 
-			UWTile lOOwn = mOLevel.TileData[(piTileZ * UWWorldScale.TilesPerAxis) + piTileX];
+			UWTile lOOwn = mOLevel.GetTile(piTileX, piTileZ);
 
 			if (lOOwn == null)
 				return false;
@@ -406,38 +404,23 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// Removes an object from its tile list WITHOUT touching any display - for a creature that
 		/// dies: its death animation may still run, but in the data it is gone. Otherwise it would
-		/// be back on re-entering the level and in the save game.
+		/// be back on re-entering the level and in the save game. The tile lists change in
+		/// UWWorldEdit alone (cleanup step 2.12, 2026-10-12); this is its data half, without the
+		/// slot release of UWWorldEdit.Forget.
 		/// </summary>
 		public bool ForgetObjectData(UWObject pOObject)
 		{
-			UWTile lOTile = FindTileHolding(pOObject);
-
-			return lOTile != null && lOTile.ObjectsInTile.Remove(pOObject);
+			return UWWorldEdit.Unlink(this, pOObject);
 		}
 
 		/// <summary>
 		/// Moves an object into the list of another tile - when a creature has walked on. If it
 		/// stays on its tile, the order stays as well. Whatever is in no list is not re-inserted.
+		/// UWWorldEdit.Relink, the data half of UWWorldEdit.Move.
 		/// </summary>
 		public void MoveObjectData(UWObject pOObject, int piTileX, int piTileZ)
 		{
-			if (pOObject == null || GetTile(piTileX, piTileZ) == null)
-				return;
-
-			UWTile lOCurrent = FindTileHolding(pOObject);
-			UWTile lOTarget = GetTile(piTileX, piTileZ);
-
-			if (lOCurrent == null)
-				return;
-
-			if (lOCurrent != lOTarget)
-			{
-				lOCurrent.ObjectsInTile.Remove(pOObject);
-				lOTarget.ObjectsInTile.Add(pOObject);
-			}
-
-			pOObject.TileX = piTileX;
-			pOObject.TileY = piTileZ;
+			UWWorldEdit.Relink(this, pOObject, piTileX, piTileZ);
 		}
 
 		/// <summary>The tile in whose list an object is. First the one it records itself, then all -

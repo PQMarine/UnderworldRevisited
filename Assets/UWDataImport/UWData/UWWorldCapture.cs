@@ -19,12 +19,13 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWWorldCapture
 	{
-		/// <summary>Doors: 320-327 closed, 328-335 open (the reference: door.ToggleDoor).</summary>
-		public const int FirstClosedDoorId = 320;
+		/// <summary>Doors: 320-327 closed, 328-335 open (the reference: door.ToggleDoor;
+		/// UWObjectIds since 2026-10-11).</summary>
+		public const int FirstClosedDoorId = UWObjectIds.FirstClosedDoor;
 
-		public const int FirstOpenDoorId = 328;
+		public const int FirstOpenDoorId = UWObjectIds.FirstOpenDoor;
 
-		public const int LastOpenDoorId = 335;
+		public const int LastOpenDoorId = UWObjectIds.LastOpenDoor;
 
 		private const int DoorOpenOffset = 8;
 
@@ -48,9 +49,9 @@ namespace UWDataImport.UWData
 
 		private const int DoorFlagsMask = 0xF;
 
-		/// <summary>Bit 12 within the four flag bits - kept as UWObject.IsEnchanted, and the writer
-		/// takes it from there.</summary>
-		private const int DoorStateHighBit = 0x8;
+		/// <summary>Bit 12 within the four flag bits - bit 3 of UWObject.Flags, which
+		/// IsEnchanted views; since 2026-10-12 the writer takes all four bits from Flags.</summary>
+		private const int DoorStateHighBit = UWObjectRecordCodec.EnchantedFlag;
 
 		/// <summary>
 		/// This much higher stands an open door. The reference calculates this way (door.OpenDoor and
@@ -88,11 +89,17 @@ namespace UWDataImport.UWData
 			if (pOQueries == null || pONpc == null)
 				return false;
 
-			// Dead, only the death animation is still running. The remains already remove it on
-			// death; this only catches whatever would have slipped through.
+			// DYING, the death animation still running: it stays in the data with 0 hit points and
+			// the dying sequence its record holds, as the original keeps a dying critter in its tile
+			// list until frame 3 - after loading or on re-entry the death finishes and the loot and
+			// remains come (critter_ai, UnderworldExhumed AI.C). Until 2026-10-15 it was dropped
+			// here, and with it its loot (audit round 2, A25 / KR N2). The remains take it out of
+			// the data at the end of the death (UWCritterRemains).
 			if (pbDestroyed)
 			{
-				pOQueries.ForgetObjectData(pONpc);
+				pONpc.HitPoints = 0;
+				pONpc.NPC_HP = 0;
+
 				return false;
 			}
 
@@ -122,7 +129,7 @@ namespace UWDataImport.UWData
 
 			pONpc.XPos = UWTileQueries.WorldToSubTile(pfWorldX, lOTile.X);
 			pONpc.YPos = UWTileQueries.WorldToSubTile(pfWorldZ, lOTile.Y);
-			pONpc.ZPos = Math.Clamp(UWUnits.RoundToInt(pfWorldY / UWWorldScale.ZPosStep), 0, MaxZPos);
+			pONpc.ZPos = Math.Clamp(UWUnits.WorldToZPos(pfWorldY), 0, MaxZPos);
 
 			fKeepClearOfWalls(pOQueries, pONpc, lOTile);
 
@@ -174,7 +181,6 @@ namespace UWDataImport.UWData
 						: ClosedDoorFlags;
 
 					pOData.Flags = (ushort)((pOData.Flags & ~DoorFlagsMask) | liFlags);
-					pOData.IsEnchanted = (liFlags & DoorStateHighBit) != 0;
 
 					// An open door stands 24 higher than a closed one (see OpenDoor_seg040_352B_21E6 in UWConversationSession: it adds
 					// 0x18 to the zpos, CloseDoor takes it off). Without this, the original showed a

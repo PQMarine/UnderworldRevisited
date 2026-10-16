@@ -22,6 +22,10 @@ namespace UWDataImport.UWData
 		/// </summary>
 		void CursePlayer(int piDice);
 
+		/// <summary>The player's damage-type immunities of the moment (UWCharacter.DamageTypeProof) -
+		/// the poisoned potion asks them as a poison trap does (UWTrapRules.PlayerResistsPoison).</summary>
+		int PlayerDamageTypeProof { get; }
+
 		/// <summary>A brief flash of the view window in a palette colour.</summary>
 		void FlashWindow(int piPaletteColour, float pfSeconds);
 

@@ -123,9 +123,11 @@ namespace UWDataImport.UWData
 			return piType >= 0 && piType < UWMotionTables.TileTraverseFlags.Length ? UWMotionTables.TileTraverseFlags[piType] : 0;
 		}
 
+		/// <summary>The original's form is "(id &gt;&gt; 4) == 0x14 and (id &amp; 0xF) &lt; 8": the
+		/// eight closed doors 0x140 to 0x147.</summary>
 		private static bool fIsClosedDoor(int piItemId)
 		{
-			return (piItemId >> 4) == 0x14 && (piItemId & 0xF) < 8;
+			return UWObjectIds.IsClosedDoor(piItemId);
 		}
 
 		/// <summary>

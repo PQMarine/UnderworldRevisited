@@ -2,7 +2,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// What sleeping needs from the game: whether the spot allows it, whether an enemy is
-	/// near, the sleep music, the respawner, and the dream or the two seconds of black.
+	/// near, the sleep music, the respawner, and the dream or the second and a half of black.
 	/// The Unity side is UWSleep.
 	/// </summary>
 	public interface IUWSleepHost
@@ -10,9 +10,10 @@ namespace UWDataImport.UWData
 		/// <summary>Dry and on solid ground - water and lava forbid sleeping.</summary>
 		bool CanSleepHere { get; }
 
-		/// <summary>The creatures (not the player) standing on the tiles of the square this many
-		/// tiles around the player's tile, collected for CreatureRecord and the rest - the area
-		/// of the original's walk around an object, with distance 0. Returns how many.</summary>
+		/// <summary>The creatures (not the player) standing on the tiles of the area of this
+		/// radius around the player's tile (UWSleepRules.InArea: gronk_area with distance 0, one
+		/// tile more on the +x and +y side), collected for CreatureRecord and the rest, column by
+		/// column. Returns how many.</summary>
 		int CollectCreatures(int piTileRadius);
 
 		/// <summary>The record of a collected creature, or null.</summary>
@@ -21,12 +22,9 @@ namespace UWDataImport.UWData
 		/// <summary>Critter table byte 0x1C, upper nibble (UWObjectClassProperties.Critter.TravelRange).</summary>
 		int CreatureTravelRange(int piIndex);
 
-		/// <summary>The creature's own path search from its tile to pOTo, both ends included
-		/// (UWTilePath.TryGetPath).</summary>
-		bool TryGetCreaturePath(int piIndex, UWTilePos pOTo, System.Collections.Generic.List<UWTilePos> pOPath);
-
-		/// <summary>The rune-of-warding move triggers on this tile go off for the creature.</summary>
-		void FireWardTriggers(int piIndex, UWTilePos pOTile);
+		/// <summary>The creature's flood_path with range 0 from its tile and height to pOTo at
+		/// piToHeight (floor levels), both ends included (UWCritter.TryGetPathTo).</summary>
+		bool TryGetCreaturePath(int piIndex, UWTilePos pOTo, int piToHeight, System.Collections.Generic.List<UWTilePos> pOPath);
 
 		/// <summary>Moves the creature onto this sub-tile spot (0..7 each) of the tile; false when
 		/// it does not fit there - a closed door, the player, another creature, a force field,
@@ -47,6 +45,10 @@ namespace UWDataImport.UWData
 		/// <summary>The respawner runs once - the original respawns while sleeping too.</summary>
 		void RunRespawner();
 
+		/// <summary>Time passes for the level's creatures (UWLevelExit.PassTime): healing, home
+		/// posts, the race moods, temporary creatures gone - the scene follows at once.</summary>
+		void LetTimePassForCreatures();
+
 		/// <summary>The carried lights burn for this many player ticks at once, with counter 0
 		/// (UWInventoryModel.BurnTick).</summary>
 		void BurnCarriedLights(int piTicks);
@@ -58,21 +60,18 @@ namespace UWDataImport.UWData
 		/// night then passes as black.</summary>
 		bool TryPlayDream(int piCutscene);
 
-		/// <summary>NO DREAM means two seconds of black in the view window - this is how the
+		/// <summary>NO DREAM means a second and a half of black in the view window - this is how the
 		/// original shows that the night has passed.</summary>
 		void ShowNightBlack(float pfSeconds);
 
-		/// <summary>Standing in water - the original refuses a voluntary sleep for it and
-		/// drowns whoever PASSES OUT there (see Sleep).</summary>
+		/// <summary>The player's motion state swims (MS_SWIM): in water or at its edge (the
+		/// shore), unless he walks on water - the original refuses a chosen sleep for it and kills
+		/// whoever PASSES OUT there (see fApplyDamagingSurface).</summary>
 		bool IsInWater { get; }
 
-		/// <summary>Standing on lava - the same, only that passing out there burns instead of
-		/// drowning.</summary>
+		/// <summary>The motion state is lava (MS_LAVA): standing on it, not floating above it -
+		/// the same as water.</summary>
 		bool IsOnLava { get; }
-
-		/// <summary>Levitating or flying, which spares the sleeper the lava
-		/// (MagicMotionAbilities mask 0x16 in SleepingOnDamagingSurface_ovr143_C7A).</summary>
-		bool HasMagicMotion { get; }
 
 		/// <summary>Damage while asleep - see fApplyDamagingSurface.</summary>
 		void DamagePlayer(int piDamage);
@@ -81,6 +80,11 @@ namespace UWDataImport.UWData
 		/// open door of the level that is not moving, on a tile without the tile's door bit, closes
 		/// with a chance of piChanceInTen in ten (UWRandom.Next(10) per door).</summary>
 		void CloseDoorsOnLevel(int piChanceInTen);
+
+		/// <summary>The night's tidying of far objects (Obj_GarbageCollect, UWWorldEdit.CollectGarbage):
+		/// up to piLimit objects on tiles more than 10 - piRange from the player, by the culling
+		/// test with that range. Returns how many went.</summary>
+		int CollectGarbage(int piRange, int piLimit);
 
 		/// <summary>On the ground: not jumping, falling or hovering - the original refuses a chosen
 		/// sleep in motion states 0x1B and while the vertical acceleration is not zero.</summary>
@@ -105,9 +109,11 @@ namespace UWDataImport.UWData
 	///   5. Poison takes its toll all at once: (poison + 1) * poison / 2 damage, then it is gone.
 	///   6. Do enemies come upon the sleeper? Then sleep is interrupted - less recovery,
 	///      more hunger.
-	///   7. Otherwise more hours, seven to ten in total; longer when vitality is low.
+	///   7. Otherwise time passes for the level's creatures (UWLevelExit.PassTime) and the
+	///      respawner runs; then more hours, seven to ten in total; longer when vitality is low.
 	///      Then recovery, and hunger strikes.
-	///   8. A dream of Garamon if one is due, otherwise two seconds of black (see fDream).
+	///   8. A dream of Garamon if one is due, otherwise 1.5 seconds of black (see fDream);
+	///      whoever passed out neither dreams nor waits.
 	///
 	/// RECOVERY (see UWPlayerVitals.RegenerateOnSleep): regen = 2 + fatigue / 2, at most 5;
 	/// the hit points get the share regen + regen * comfort - 1, the mana six and then the share
@@ -116,14 +122,14 @@ namespace UWDataImport.UWData
 	///
 	/// THE DOORS: every open door of the level shuts with a chance of three in ten (DoClosingDoors,
 	/// since 2026-10-11; before, every door within eight tiles), as if someone closed it in the
-	/// night. The monster respawner runs, and the carried lights burn down while asleep
+	/// night, and up to twenty far objects are tidied away (Obj_GarbageCollect, since
+	/// 2026-10-15). The monster respawner runs, and the carried lights burn down while asleep
 	/// (IUWSleepHost.BurnCarriedLights, since 2026-09-24).
 	/// </summary>
 	public static class UWSleepRules
 	{
-		/// <summary>The bedroll. From the reference's class calculation: major class 4,
-		/// minor class 2, index 1 gives (4 &lt;&lt; 6) | (2 &lt;&lt; 4) | 1.</summary>
-		public const int BedrollObjectId = 289;
+		/// <summary>The bedroll (UWObjectIds since 2026-10-11).</summary>
+		public const int BedrollObjectId = UWObjectIds.Bedroll;
 
 		/// <summary>Player ticks a sleeping hour counts for the lights (0xB4).</summary>
 		public const int SleepTicksPerHour = 180;
@@ -133,23 +139,17 @@ namespace UWDataImport.UWData
 		private const int EnemiesNearbyMessage = 0x0F;
 		private const int MakeCampMessage = 0x10;
 
-		/// <summary>The Void: the original refuses a voluntary sleep there as it does on water
-		/// or lava (Sleep_ovr143_D1F, label D44).</summary>
-		private const int VoidLevel = 9;
-
 		/// <summary>The chance in ten that an open door shuts in the night (DoClosingDoors).</summary>
 		private const int DoorClosesInTen = 3;
 
-		/// <summary>What water does to whoever passes out in it: everything
-		/// (SleepingOnDamagingSurface_ovr143_C7A hands DamageObject 0xFF).</summary>
+		/// <summary>The night's Obj_GarbageCollect(1, 0x14): range 1, twenty objects at most.</summary>
+		public const int NightCullRange = 1;
+
+		public const int NightCullLimit = 0x14;
+
+		/// <summary>What water and lava do to whoever passes out there: everything
+		/// (drop_drunk_player hands damage_item 0xFF).</summary>
 		private const int DrownDamage = 0xFF;
-
-		/// <summary>Lava burns for twelve plus ten per step of a six-sided roll.</summary>
-		private const int LavaBurnBase = 12;
-
-		private const int LavaBurnStep = 10;
-
-		private const int LavaBurnDie = 6;
 		private const int GoToSleepMessage = 0x11;
 		private const int StarvingMessage = 0x12;
 		private const int RestedMessage = 0x14;
@@ -174,9 +174,10 @@ namespace UWDataImport.UWData
 		/// <summary>This many are eligible - four to nine.</summary>
 		private const int RandomDreamCount = 6;
 
-		/// <summary>How long the view window stays black when there is no dream.
-		/// </summary>
-		private const float SleepFlashSeconds = 2f;
+		/// <summary>How long the view window stays black when there is no dream: dream
+		/// (UnderworldExhumed SKILLS.C) waits 0x180 ticks of the 1/256-second game clock, a second
+		/// and a half. Two seconds until 2026-10-15 (audit round 2, A34 / SW D14).</summary>
+		public const float SleepFlashSeconds = 0x180 / 256f;
 
 		/// <summary>
 		/// Goes to sleep. Returns false if it is not possible at all - then a message
@@ -196,10 +197,10 @@ namespace UWDataImport.UWData
 			// D30: "jump when method < 0"). Only a chosen sleep is refused on water, lava, off the
 			// ground, on level 9 or with enemies about - and only then are "You make camp." and
 			// "You go to sleep." said; whoever drinks himself down sleeps where he stands, and
-			// then the ground has its say.
+			// then the ground has its say. The Void is refused like water or lava (label D44).
 			if (!pbPassedOut)
 			{
-				if (!pIHost.CanSleepHere || !pIHost.IsOnGround || piDungeonLevel == VoidLevel)
+				if (!pIHost.CanSleepHere || !pIHost.IsOnGround || piDungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
 				{
 					pIHost.AddGeneralMessage(CannotSleepHereMessage);
 
@@ -224,6 +225,13 @@ namespace UWDataImport.UWData
 				pIHost.AddGeneralMessage(GoToSleepMessage);
 
 			pIHost.CloseDoorsOnLevel(DoorClosesInTen);
+
+			// FAR JUNK GOES IN THE NIGHT: player_sleep (UnderworldExhumed SKILLS.C) runs
+			// Obj_GarbageCollect(1, 0x14) right after the doors - up to twenty objects on tiles
+			// more than nine from the player that are not tenacious against 1 + 0..2 go, each with
+			// that chance in ten. Ours culled only when the level ran out of slots until 2026-10-15
+			// (audit round 2, A2 / GI D13).
+			pIHost.CollectGarbage(NightCullRange, NightCullLimit);
 
 			int liHours = 2 + UWRandom.Next(5);
 
@@ -261,6 +269,12 @@ namespace UWDataImport.UWData
 				return true;
 			}
 
+			// THE NIGHT PASSES FOR THE CREATURES TOO: player_sleep (UnderworldExhumed SKILLS.C) runs
+			// update_all_critters_whilst_player_snoozes right before DoWanderingMonsters(0) on every
+			// undisturbed night - the same pass as leaving the level (UWLevelExit). Until 2026-10-15
+			// ours ran it on the level change only, so wounded monsters stayed wounded, chasers away
+			// from their posts and allies allies after any number of nights (audit round 2, KR D2).
+			pIHost.LetTimePassForCreatures();
 			pIHost.RunRespawner();
 
 			// Seven to ten hours in total. Whoever is wounded sleeps longer.
@@ -282,9 +296,11 @@ namespace UWDataImport.UWData
 
 			fRecover(pOVitals, pIHost, liComfort);
 
-			if (pbPassedOut)
-				pIHost.ShowNightBlack(SleepFlashSeconds);
-			else
+			// WHOEVER PASSED OUT DOES NOT WAIT: player_sleep calls dream only for a chosen sleep,
+			// and dream's moment of black is its own wait - passing out only fades out and in
+			// (fadeout3d, fadein3d), with no hold. Ours held two seconds of black until 2026-10-15
+			// (audit round 2, A34 / SW D14).
+			if (!pbPassedOut)
 				fDream(piDungeonLevel, liComfort, pIHost);
 
 			return true;
@@ -410,19 +426,32 @@ namespace UWDataImport.UWData
 		public const int AmbushMinSteps = 2;
 
 		/// <summary>
-		/// WHO KEEPS THE PLAYER FROM LYING DOWN (read 2026-09-24, Todo.md section 0b row 3):
-		/// Sleep_ovr143_D1F asks CheckNearbyNPCHunger_ovr104_6F1 - a misleading name -, which runs
-		/// over every creature on the tiles two around the player's (distance 0, radius 2, the
-		/// player himself skipped) and answers "There are hostile creatures near!" for one whose
-		/// goal is 5 or 4, or 9 with byte 0x19 bit 0 (target confirmed). NOTHING ELSE: not the
-		/// attitude, not the line of sight - a wall between them does not help, a hostile that
-		/// has not taken up the chase does not keep him awake. Until 2026-09-24 ours refused for any
-		/// creature with a hostile attitude in the radius.
+		/// WHO KEEPS THE PLAYER FROM LYING DOWN (hostile_creatures_near with its callback
+		/// check_for_hostile_creature, UnderworldExhumed CRITTIME.C): over every creature in the
+		/// area two around the player's tile (InArea) a creature that attacks (goal 5), guards (4)
+		/// or is cornered (9) AND knows where its target is (byte 0x19 bit 0) answers "There are
+		/// hostile creatures near!". NOTHING ELSE: not the attitude, not the line of sight - a wall
+		/// between them does not help. Until 2026-09-24 ours refused for any creature with a hostile
+		/// attitude in the radius; until 2026-10-15 for every attacker and guard whether it knew
+		/// where the player was or not, so a friendly guard or one that never saw the player kept
+		/// him awake (the IDA reading had the bit test on goal 9 only; audit round 2, A6 / KR D1).
 		/// </summary>
 		public static bool BlocksSleep(int piGoal, bool pbTargetConfirmed)
 		{
-			return piGoal == GoalAttack || piGoal == GoalFour
-				|| (piGoal == GoalStandAndFight && pbTargetConfirmed);
+			return pbTargetConfirmed
+				&& (piGoal == GoalAttack || piGoal == GoalFour || piGoal == GoalStandAndFight);
+		}
+
+		/// <summary>
+		/// THE AREA OF gronk_area (UnderworldExhumed SPELLS.C): process_area gets the corner at the
+		/// tile minus the radius and a width of radius * 2 + 1, and its loops run from the corner
+		/// to corner + width INCLUSIVE - so the area reaches one tile further on the +x and +y side:
+		/// -2..+3 for the sleep refusal, -8..+9 for the ambush. Ours was the square -r..+r until
+		/// 2026-10-15 (audit round 2, KR D1).
+		/// </summary>
+		public static bool InArea(int piDx, int piDy, int piRadius)
+		{
+			return piDx >= -piRadius && piDx <= piRadius + 1 && piDy >= -piRadius && piDy <= piRadius + 1;
 		}
 
 		public static bool IsHostileNear(IUWSleepHost pIHost)
@@ -456,12 +485,10 @@ namespace UWDataImport.UWData
 		///   - a coin comes up (one in two);
 		///   - the sleeper lies within its reach (WithinAmbushReach, critter table 0x1C upper
 		///     nibble);
-		///   - its path search (PathFindBetweenTiles_seg006_1477_12BB) finds the way to the
-		///     sleeper's tile, AT LEAST TWO STEPS long - one standing next to him already is not
-		///     moved.
-		/// It then walks that way at once: every move trigger on the way that leads to a rune of
-		/// warding goes off for it, from its own tile up to the one beside the sleeper. It is set
-		/// down on the tile TWO STEPS before him (the path buffer's entry count - 2), on the
+		///   - its path search (flood_path with range 0, no danger allowed - the brain's search,
+		///     since 2026-10-15; before, the old walker) finds the way to the sleeper's tile and
+		///     height, AT LEAST TWO STEPS long - one standing next to him already is not moved.
+		/// It then walks that way at once. It is set down on the tile TWO STEPS before him (the path buffer's entry count - 2), on the
 		/// fixed spot of that tile's type (TryGetAmbushSpot) if it fits there - otherwise the
 		/// next one is tried -, confirms its target and heads for him. The sleep is interrupted.
 		/// THE FIT is the original's item-fits-in-tile test with the creature's radius;
@@ -489,11 +516,15 @@ namespace UWDataImport.UWData
 					pIHost.CreatureTravelRange(liAt)))
 					continue;
 
-				if (!pIHost.TryGetCreaturePath(liAt, lOPlayer, lOPath) || lOPath.Count - 1 < AmbushMinSteps)
+				if (!pIHost.TryGetCreaturePath(liAt, lOPlayer, pIHost.PlayerFloorLevel, lOPath) || lOPath.Count - 1 < AmbushMinSteps)
 					continue;
 
-				for (int liStep = 0; liStep < lOPath.Count - 1; liStep++)
-					pIHost.FireWardTriggers(liAt, lOPath[liStep]);
+				// A RUNE OF WARDING ON THE WAY DOES NOTHING: wander_that_monster (UnderworldExhumed
+				// CRITTIME.C) runs UseTrap on every ward trap under a trigger along the path, but
+				// directly, outside SetOffTrap, so nobody is the one who set it off and the ward's
+				// first test (TRIGGER.C, TRAP_WARD) fails - no damage, no message, the rune stays
+				// armed. Until 2026-10-12 ours fired the rune for the creature here, which hurt it
+				// and used the rune up (reference audit, traps D2).
 
 				UWTilePos lOLanding = lOPath[lOPath.Count - 3];
 				UWTile.TileTypeEnum leType = pIHost.TileTypeAt(lOLanding);
@@ -573,22 +604,19 @@ namespace UWDataImport.UWData
 			pOVitals.ReduceIntoxication(UWPlayerVitals.InterruptedSleepIntoxicationRelief);
 		}
 		/// <summary>
-		/// What the ground does to whoever passes out on it
-		/// (SleepingOnDamagingSurface_ovr143_C7A, called from Sleep): in WATER it is over, the
-		/// original hands DamageObject 255 points; on LAVA it costs twelve plus ten times a
-		/// six-sided roll, unless the sleeper levitates or flies.
+		/// What the ground does to whoever passes out on it (drop_drunk_player, UnderworldExhumed
+		/// SKILLS.C): when the motion state swims or is lava, damage_item hands the player 255 -
+		/// in water, AT THE WATER'S EDGE (the shore gives the swimming state too) and on lava
+		/// alike. The routine's 12 to 62 for a fall tests a floating state without a levitate,
+		/// fly or slow-fall bit, which the FixPlayerEquips just before makes impossible (its
+		/// fizix_update sets the state anew from those bits): it never deals anything.
+		/// Until 2026-10-15 ours burned 12 to 62 on lava (nothing when levitating or walking on
+		/// water) and let a shore tile pass (audit round 2, A31 / SW D7).
 		/// </summary>
 		private static void fApplyDamagingSurface(IUWSleepHost pIHost)
 		{
-			if (pIHost.IsInWater)
-			{
+			if (pIHost.IsInWater || pIHost.IsOnLava)
 				pIHost.DamagePlayer(DrownDamage);
-
-				return;
-			}
-
-			if (pIHost.IsOnLava && !pIHost.HasMagicMotion)
-				pIHost.DamagePlayer(LavaBurnBase + (LavaBurnStep * UWRandom.Next(LavaBurnDie)));
 		}
 
 		/// <summary>

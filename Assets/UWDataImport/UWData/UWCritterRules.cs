@@ -238,6 +238,15 @@ namespace UWDataImport.UWData
 
 		public const int HopManhattan = 3;
 
+		/// <summary>The aim point of a leap on an axis (do_that_jump_kinda_thing, UnderworldExhumed
+		/// PATHFIND.C): tile * 8 - 2, + 6 when the square's column equals the creature's, + 11 when
+		/// the square lies below, + 0 above - just short of the line between the two tiles.</summary>
+		public const int HopEdgeInset = 2;
+
+		public const int HopEdgeCentre = 6;
+
+		public const int HopEdgeBelow = 11;
+
 		/// <summary>A flier aims at 20 + 8 * destination floor zpos, capped at 0x78
 		/// (seg006_1477_3061, 47390).</summary>
 		public const int FlierTargetHeightBase = 20;
@@ -303,8 +312,7 @@ namespace UWDataImport.UWData
 		/// roll up to this (49540-49555) and is cleared when the blow lands (53070).</summary>
 		public const int ChargeIndexMax = 15;
 
-		/// <summary>The damage multiplier by charge index, over 128 (seg060, 263511). The same
-		/// numbers as UWCombat.NpcSwingCharges.</summary>
+		/// <summary>The damage multiplier by charge index, over 128 (seg060, 263511).</summary>
 		public static readonly int[] ChargeTable =
 		{
 			50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 155, 170, 185, 205, 230, 255
@@ -423,15 +431,10 @@ namespace UWDataImport.UWData
 		/// <summary>The swing type handed to NPCExecuteAttack is RNG(9) (53040-53080).</summary>
 		public const int SwingTypeRoll = 9;
 
-		/// <summary>SkillCheck_seg037_32E6_C (123242): v = skill - check + RNG(31); above 28 a
-		/// critical hit, above 15 a hit, above 2 a miss, else a critical miss.</summary>
-		public const int SkillCheckRoll = 31;
-
-		public const int CritThreshold = 28;
-
-		public const int HitThreshold = 15;
-
-		public const int MissThreshold = 2;
+		/// <summary>SkillCheck_seg037_32E6_C (123242): v = skill - check + RNG(31). The same roll
+		/// as the player's skill check; the bands (above 28 a critical hit, above 15 a hit,
+		/// above 2 a miss, else a critical miss) are UWSkillCheck.GetResult's.</summary>
+		public const int SkillCheckRoll = UWSkillCheck.RollRange;
 
 		/// <summary>A strong individual (word 0x0D bit 10) adds 7 + RNG(6) to the score and
 		/// 4 + RNG(12) to the damage (NPCExecuteAttack label 1679).</summary>
@@ -525,8 +528,8 @@ namespace UWDataImport.UWData
 
 		public const int PlayerVisibilitySneakDivisor = 5;
 
-		/// <summary>Moving: base + speed * 10 / forward - 5; +4 in water; base + 4 in easy move;
-		/// decays one per 8th call (ApplyPlayerSneakScore_seg034_2F89_898, 115605-115709).</summary>
+		/// <summary>Moving: base + speed * 10 / forward - 5; +4 in any motion state
+		/// (PlayerNoiseWater, named for the first of them); base + 4 in easy move; decays one per 8th call (ApplyPlayerSneakScore_seg034_2F89_898, 115605-115709).</summary>
 		public const int PlayerNoiseSpeedFactor = 10;
 
 		public const int PlayerNoiseMovingOffset = 5;
@@ -675,6 +678,33 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// THE BEND AWAY FROM THE PLAYER (crit_avoid_player, UnderworldExhumed AI.C), on headings
+		/// of 256 steps: piAway is the eighth pointing away from the player, shifted to 256 steps.
+		/// Within 90 degrees of it the heading is kept; 0x40..0x5F off gives away - 0x20,
+		/// 0x60..0x7F the heading + 0x20, 0x80..0xA0 the heading - 0x20, 0xA1..0xC0 away + 0x20 -
+		/// each half the mirror of the other. Until 2026-10-15 ours had the two upper bands
+		/// swapped (audit round 2, A14 / KR D14).
+		/// </summary>
+		public static int BendAwayFromPlayer(int piHeading, int piAway)
+		{
+			int liD = (piAway + 0x100 - piHeading) & 0xFF;
+
+			if (liD < 0x40 || liD > 0xC0)
+				return piHeading & 0xFF;
+
+			if (liD < 0x60)
+				return (piAway - 0x20) & 0xFF;
+
+			if (liD < 0x80)
+				return (piHeading + 0x20) & 0xFF;
+
+			if (liD <= 0xA0)
+				return (piHeading - 0x20) & 0xFF;
+
+			return (piAway + 0x20) & 0xFF;
+		}
+
+		/// <summary>
 		/// Does a creature with this heading (0..7) look towards the vector? The original accepts
 		/// the heading of the vector itself and its two neighbours (SearchForGoalTarget: the
 		/// difference modulo eight is 0, 1 or 7) - so up to one eighth to either side. For
@@ -749,15 +779,27 @@ namespace UWDataImport.UWData
 			return piVitality == 0;
 		}
 
-		/// <summary>The path range budget (seg007_1798_340A, 54283): hp * 4 / vitality +
-		/// morale / 4 for a hostile creature with vitality and without word 0 bit 13, else 0.
-		/// The host's path search spends it on drops and lava (spec 7.4).</summary>
-		public static int GetPathRangeBudget(int piAttitude, int piVitality, int piHitPoints, int piMorale, bool pbExcluded)
+		/// <summary>The path range budget (seg007_1798_340A, 54283; acceptable_danger,
+		/// UnderworldExhumed AI.C): hp * 4 / vitality + morale / 4 for a hostile creature with
+		/// vitality and without word 0 bit 13, else 0 - and 0 for the creature with conversation
+		/// 0x16 on level 6, the one death_check spares too (WORLDEV.C). The host's path search
+		/// spends it on drops and lava (spec 7.4). The level 6 exception was missing until
+		/// 2026-10-15 (audit round 2, A21 / KR D21).</summary>
+		public static int GetPathRangeBudget(int piAttitude, int piVitality, int piHitPoints, int piMorale, bool pbExcluded,
+			int piDungeonLevel, int piWhoAmI)
 		{
 			if (piAttitude != 0 || piVitality <= 0 || pbExcluded)
 				return 0;
 
+			if (piDungeonLevel == NoDangerLevel && piWhoAmI == NoDangerWhoAmI)
+				return 0;
+
 			return (piHitPoints * 4 / piVitality) + (piMorale / 4);
 		}
+
+		/// <summary>acceptable_danger's exception: conversation 0x16 on level 6 (1-based).</summary>
+		public const int NoDangerLevel = 6;
+
+		public const int NoDangerWhoAmI = 0x16;
 	}
 }

@@ -45,7 +45,7 @@ public static class UWEndgame
     /// <summary>String block 1. UW.EXE calls 0x84, 0x86, 0x103 and 0x116 - our export is exactly
     /// one higher for all four (the usual +1 in this project, checked with the removed tool UWGaramonDump:
     /// at 0x84 we have "The door is spiked.").</summary>
-    private const int NoEffectMessage = 0x84 + 1;          // It seems to have no effect.
+    private const int NoEffectMessage = UWStringIds.NoEffectMessage; // It seems to have no effect.
 
     private const int FinalRestingPlaceMessage = 0x86 + 1; // You thoughtfully give the bones a final resting place.
 
@@ -57,20 +57,9 @@ public static class UWEndgame
 
     private const int SuckedThroughMessage = 0x118 + 1;    // You are sucked through the moongate . . . . .
 
-    /// <summary>Quest flag 36: talismans still to destroy, 0xFF when all are gone.</summary>
-    private const int TalismanQuestFlag = UWEndgameRules.TalismanQuestFlag;
-
-    /// <summary>Quest flag 37: dreams; bit 3 is set when a talisman falls into the volcano
-    /// before the burial.</summary>
-    private const int DreamQuestFlag = UWEndgameRules.DreamQuestFlag;
-
-    /// <summary>Level 8 (zero-based) and the centre of the volcano.</summary>
-    private const int VolcanoLevelIndex = UWEndgameRules.VolcanoLevelIndex;
-
+    /// <summary>The centre tile of the volcano on level 8, both axes - where the moongate
+    /// appears. The level, the radius and the quest flags live in UWEndgameRules.</summary>
     private const int VolcanoCentre = UWEndgameRules.VolcanoCentre;
-
-    /// <summary>Less than this many tiles of Manhattan distance to the centre.</summary>
-    private const int VolcanoRadius = UWEndgameRules.VolcanoRadius;
 
     /// <summary>The flame sprite a destroyed talisman turns into (reference 0x1C2).</summary>
     private const int TalismanFlameObjectId = 0x1C2;
@@ -111,15 +100,15 @@ public static class UWEndgame
 
     private const float MoongateStepSeconds = 0.1f;
 
-    private const float MoongateRollPerStep = 0x800 * 360f / 65536f;
+    private const float MoongateRollPerStep = 0x800 * 360f / UWWorldScale.FullCircleUnits;
 
     /// <summary>Angle along the circular path around the gate per step (reference MoveCameraToVoid: 0xCCB).
     /// </summary>
-    private const float MoongateYawPerStep = 0xCCB * 360f / 65536f;
+    private const float MoongateYawPerStep = 0xCCB * 360f / UWWorldScale.FullCircleUnits;
 
     /// <summary>Sinking per step: two fine height units (reference, steps &lt;&lt; 1), for
-    /// us 0.25 world units each (UWViewpoint.UnitsPerOriginalUnit).</summary>
-    private const float MoongateSinkPerStep = 2f * UWViewpoint.UnitsPerOriginalUnit;
+    /// us 0.25 world units each (UWWorldScale.UnitsPerOriginalUnit).</summary>
+    private const float MoongateSinkPerStep = 2f * UWWorldScale.UnitsPerOriginalUnit;
 
     /// <summary>The three flag bits live in UWGameFlags (seeded by UWLevelLoader, saved by
     /// UWSavegameWriter); these forward for the old callers.</summary>
@@ -268,7 +257,7 @@ public static class UWEndgame
         if (lOLevel == null)
             yield break;
 
-        UWTile lOTile = lOLevel.TileData[(BurialTriggerTileY * 64) + BurialTriggerTileX];
+        UWTile lOTile = lOLevel.GetTile(BurialTriggerTileX, BurialTriggerTileY);
 
         if (lOTile != null && lOTile.ObjectsInTile != null && lOTile.ObjectsInTile.Count > 0)
             UWTriggerSystem.FireTraps(lOTile.ObjectsInTile[0], null, pOLoader, pOInteraction);
@@ -283,10 +272,10 @@ public static class UWEndgame
     ///   afterwards           count down, the talisman perishes in flames; on the last one
     ///                        counter to 0xFF and off into the void
     /// Returns true if the talisman is destroyed - then it vanishes like a
-    /// sinking item. pfDelay is the flight time until impact.
+    /// sinking item. Called at the moment of impact (UWProjectileWorld.TalismanBurns).
     /// </summary>
     public static bool TryDestroyTalismanInLava(UWLevelLoader pOLoader, UWObject pOObject,
-        int piTileX, int piTileZ, Vector3 pOLanding, float pfDelay)
+        int piTileX, int piTileZ, Vector3 pOLanding)
     {
         if (pOLoader == null || pOObject == null)
             return false;
@@ -301,11 +290,11 @@ public static class UWEndgame
         switch (leOutcome)
         {
             case UWEndgameRules.TalismanOutcome.Launch:
-                pOLoader.StartCoroutine(fLaunchIntoVoid(pOLoader, pfDelay));
+                pOLoader.StartCoroutine(fLaunchIntoVoid(pOLoader));
                 return true;
 
             case UWEndgameRules.TalismanOutcome.Flame:
-                pOLoader.StartCoroutine(fFlame(pOLoader, pOLanding, pfDelay, liRemaining));
+                fFlame(pOLoader, pOLanding, liRemaining);
                 return true;
 
             default:
@@ -328,30 +317,27 @@ public static class UWEndgame
     /// IN UW.EXE THIS DOES NO DAMAGE: DamageObjectsInTile is only called by the flame wind
     /// (FlameWind_seg038_3307_6FB), not by this path. The explosions look the same, though.
     /// </summary>
-    private static IEnumerator fFlame(UWLevelLoader pOLoader, Vector3 pOLanding, float pfDelay, int piRemaining)
+    private static void fFlame(UWLevelLoader pOLoader, Vector3 pOLanding, int piRemaining)
     {
-        if (pfDelay > 0f)
-            yield return new WaitForSeconds(pfDelay);
-
         pOLoader.SpawnEffectAt(TalismanFlameObjectId, pOLanding, TalismanFlameSeconds);
 
-        float lfTile = UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing;
-        float lfStep = UnderworldRevisited.Build.UWObjectSpawner.HeightScale;
+        float lfTile = UWWorldScale.TileSize;
+        float lfStep = UWWorldScale.ZPosStep;
         float lfHeight = 0f;
 
         for (int liCounter = 8; piRemaining <= liCounter; liCounter--)
         {
-            lfHeight += (4 + Random.Range(0, 8)) * lfStep;
+            lfHeight += (4 + UWRandom.Next(0, 8)) * lfStep;
 
-            Vector3 lOBurst = pOLanding + new Vector3(Random.Range(-1, 2) * lfTile, lfHeight, Random.Range(-1, 2) * lfTile);
-            int liCopies = 2 + Random.Range(0, 3);
+            Vector3 lOBurst = pOLanding + new Vector3(UWRandom.Next(-1, 2) * lfTile, lfHeight, UWRandom.Next(-1, 2) * lfTile);
+            int liCopies = 2 + UWRandom.Next(0, 3);
 
             for (int liCopy = 0; liCopy < liCopies; liCopy++)
             {
-                Vector3 lOScatter = new Vector3(Random.Range(-2, 3) * lfTile / 8f, Random.Range(-8, 7) * lfStep,
-                    Random.Range(-2, 3) * lfTile / 8f);
+                Vector3 lOScatter = new Vector3(UWRandom.Next(-2, 3) * lfTile / 8f, UWRandom.Next(-8, 7) * lfStep,
+                    UWRandom.Next(-2, 3) * lfTile / 8f);
 
-                pOLoader.SpawnEffectAt(TalismanFlameObjectId + 1 + Random.Range(0, 2), lOBurst + lOScatter, TalismanFlameSeconds);
+                pOLoader.SpawnEffectAt(TalismanFlameObjectId + 1 + UWRandom.Next(0, 2), lOBurst + lOScatter, TalismanFlameSeconds);
             }
         }
     }
@@ -367,15 +353,12 @@ public static class UWEndgame
     ///                       27/23, "You are sucked through the moongate . . . . ."
     /// Camera per step following PositionCameraAtObject_seg034_2F89_B99, see below.
     /// </summary>
-    private static IEnumerator fLaunchIntoVoid(UWLevelLoader pOLoader, float pfDelay)
+    private static IEnumerator fLaunchIntoVoid(UWLevelLoader pOLoader)
     {
         if (mbLaunching)
             yield break;
 
         mbLaunching = true;
-
-        if (pfDelay > 0f)
-            yield return new WaitForSeconds(pfDelay);
 
         Interaction lOInteraction = UWScene.Interaction;
 
@@ -394,8 +377,8 @@ public static class UWEndgame
         UWRemoteCamera lORemote = UWRemoteCamera.Ensure();
         int liClaim = -1;
         Vector3 lOStart = lOCamera != null ? lOCamera.transform.position : Vector3.zero;
-        Vector3 lOGate = new Vector3(VolcanoCentre * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing, lOStart.y,
-            VolcanoCentre * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing);
+        Vector3 lOGate = new Vector3(UWUnits.TileCentreToWorldAxis(VolcanoCentre), lOStart.y,
+            UWUnits.TileCentreToWorldAxis(VolcanoCentre));
 
         // THE CAMERA CIRCLES THE GATE (reference PositionPlayerCamera, MoongateSucking): the
         // angle grows by 0xCCB per step, the distance shrinks linearly from the starting distance

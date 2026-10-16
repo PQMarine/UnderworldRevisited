@@ -180,3 +180,7 @@ These sources were used as documentation only; no code was taken from them.
   and his guide to the mechanics. Most of the game rules in this project, among them the
   motion code, the creature AI, traps and magic, were read from it and rewritten. The
   disassembly itself is not part of this project.
+- **abedegno's Underworld Exhumed** (https://github.com/abedegno/underworld-exhumed): a
+  decompilation of UW.EXE that rebuilds the executable byte for byte. The game rules of this
+  project were checked against it and corrected where they differed. Its code was read as
+  evidence of how the original behaves and rewritten; none of it is part of this project.

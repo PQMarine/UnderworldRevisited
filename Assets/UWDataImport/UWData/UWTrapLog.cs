@@ -31,25 +31,31 @@ namespace UWDataImport.UWData
 		/// <summary>This many lines stay visible.</summary>
 		public const int MaxEntries = 6;
 
-		/// <summary>The time source for Entry.Time; zero without one.</summary>
+		/// <summary>The time source for Entry.Time; zero without one. The host's wiring, not
+		/// game state, so it stays here.</summary>
 		public static Func<float> Clock;
 
-		private static readonly List<Entry> mOEntries = new List<Entry>();
-
+		/// <summary>The lines live in the session since 2026-10-14 (UWGameSession.Diagnostics,
+		/// cleanup step 2.7): a new game starts with an empty log.</summary>
 		public static IReadOnlyList<Entry> Entries
 		{
-			get { return mOEntries; }
+			get { return UWGameSession.Current.Diagnostics.TrapLog; }
 		}
 
 		/// <summary>
 		/// Extra info contributed by an individual trap type - for example the actual damage.
-		/// Cleared before every trap and appended to the line afterwards.
+		/// Cleared before every trap and appended to the line afterwards. A side channel kept in
+		/// the session's diagnostics (UWSessionDiagnostics.TrapDetail).
 		/// </summary>
-		public static string Detail { get; set; }
+		public static string Detail
+		{
+			get { return UWGameSession.Current.Diagnostics.TrapDetail; }
+			set { UWGameSession.Current.Diagnostics.TrapDetail = value; }
+		}
 
 		public static void Clear()
 		{
-			mOEntries.Clear();
+			UWGameSession.Current.Diagnostics.TrapLog.Clear();
 		}
 
 		/// <summary>Records a fired trap. pbHandled is false if we have not built this
@@ -81,26 +87,19 @@ namespace UWDataImport.UWData
 			if (!pbHandled)
 				lOText.Append("  NOT BUILT");
 
-			mOEntries.Add(new Entry { Time = Clock != null ? Clock() : 0f, Text = lOText.ToString() });
+			List<Entry> lOEntries = UWGameSession.Current.Diagnostics.TrapLog;
 
-			while (mOEntries.Count > MaxEntries)
-				mOEntries.RemoveAt(0);
+			lOEntries.Add(new Entry { Time = Clock != null ? Clock() : 0f, Text = lOText.ToString() });
+
+			while (lOEntries.Count > MaxEntries)
+				lOEntries.RemoveAt(0);
 		}
 
-		/// <summary>The object name from string block 4. It is stored there under the object number plus
-		/// one.</summary>
+		/// <summary>The raw object name from string block 4 (UWText.RawObjectName adds the plus
+		/// one), the object number when there is none.</summary>
 		public static string GetName(DataImport pOData, int piObjectId)
 		{
-			try
-			{
-				string lsName = pOData.Strings.Blocks[4].Strings[piObjectId + 1].Trim();
-
-				return string.IsNullOrEmpty(lsName) ? piObjectId.ToString() : lsName;
-			}
-			catch
-			{
-				return piObjectId.ToString();
-			}
+			return UWText.RawObjectName(pOData, piObjectId, piObjectId.ToString());
 		}
 	}
 }

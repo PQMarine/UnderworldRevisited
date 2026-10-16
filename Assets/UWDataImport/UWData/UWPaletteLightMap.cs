@@ -250,10 +250,9 @@ namespace UWDataImport.UWData
 
 		private bool fIsSolid(int piX, int piY)
 		{
-			if (piX < 0 || piY < 0 || piX >= UWWorldScale.TilesPerAxis || piY >= UWWorldScale.TilesPerAxis)
-				return true;
+			UWTilePos lOTile = new UWTilePos(piX, piY);
 
-			return mbSolid[(piY * UWWorldScale.TilesPerAxis) + piX];
+			return !lOTile.IsOnMap || mbSolid[lOTile.Index];
 		}
 	}
 }

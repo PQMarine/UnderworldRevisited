@@ -282,8 +282,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckObjectMotion(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Object motion (the engine-free core on a small map)");
+            Check.Group("Object motion (the engine-free core on a small map)");
 
             // The sine table: the binary's own words, not a rounded sine (entry 45 would be 29268).
             int liSin;
@@ -338,6 +337,7 @@ namespace UnderworldRevisited.Tools
             fCheckLaunchRoom(pOData, CommonThing);
             fCheckSchedule(pOData, CommonThing);
             fCheckMissileAtCreature(pOData);
+            fCheckBlowTarget(pOData);
         }
 
         private static void fCheckThrowAhead(DataImport pOData, int piItemId)
@@ -617,6 +617,63 @@ namespace UnderworldRevisited.Tools
             fExpectBool("motion: a magic missile coming down on the creature's head hits it", lOAbove.Log.Contains("missile 1024 hits 5"), true);
             fExpectBool("motion: ... and hops off (speed 5, gravity on)", lbHopped, true);
             fExpectInt("motion: ... and is removed where it lands", lOAbove.Removed, 1);
+        }
+
+        /// <summary>The open door 0x14C (radius 3, height 128) and the goblin of audit B5, as SAVE4
+        /// has them on level 1: both on one tile at fine 3/3, the door raised to z 120, the goblin
+        /// at 96. The map here is shifted: the player's tile 13/43 is 13/13.</summary>
+        private const int BlowDoorKind = 0x14C;
+
+        private static int fBlow(FakeMotionWorld pOWorld, DataImport pOData, int piX8, int piY8, int piZ, int piAttackerX8,
+            int piAttackerY8, out UWMotionCore pOCore)
+        {
+            pOCore = new UWMotionCore(pOWorld, pOData.CommonObjectProperties);
+            pOCore.Mover = new UWMotionBody { Index = 1, ItemId = 0x7F, IsMobile = true, IsCreature = true };
+
+            // The fist's radius 2: the probe's radius 3 and height (2 * 2 + 1) * 4.
+            pOCore.SetCalc(piX8, piY8, piZ, 3, 20, 1);
+
+            return UWPlayerAttack.PickBlowTarget(pOCore, piAttackerX8, piAttackerY8, null);
+        }
+
+        private static void fCheckBlowTarget(DataImport pOData)
+        {
+            FakeMotionWorld lOWorld = new FakeMotionWorld();
+
+            lOWorld.AddBody(12, 14, new UWMotionBody { Index = 4096, ItemId = BlowDoorKind, XPos = 3, YPos = 3, ZPos = 120 });
+            lOWorld.AddBody(12, 14, new UWMotionBody { Index = 5, ItemId = GoblinKind, XPos = 3, YPos = 3, ZPos = 96, IsMobile = true, IsCreature = true });
+
+            // From the load position (fine 4/4 of tile 13/13, heading 315 degrees) move_along puts
+            // the probe 5 eighths ahead at 104/112; a slash's bottom is 96 + 23 / 3.
+            UWMotionCore lOCore;
+            int liFound = fBlow(lOWorld, pOData, 104, 112, 103, 108, 108, out lOCore);
+
+            fExpectInt("blow: from the load spot the door's box is struck (B5)",
+                liFound >= 0 ? lOCore.Records[liFound].Body.Index : liFound, 4096);
+
+            // A stab's probe (bottom 96, top 116) passes below the raised open door.
+            liFound = fBlow(lOWorld, pOData, 104, 112, 96, 108, 108, out lOCore);
+            fExpectInt("blow: ... a stab passes below the open door, no wall test", liFound, UWPlayerAttack.BlowStruckNothing);
+
+            // Two eighths closer to the corner the goblin's box (radius 2 less one) is in reach too;
+            // it lies as near as the door and comes first by its lower bottom.
+            liFound = fBlow(lOWorld, pOData, 102, 114, 103, 106, 110, out lOCore);
+            fExpectInt("blow: closer to the corner the goblin is struck (B5)",
+                liFound >= 0 ? lOCore.Records[liFound].Body.Index : liFound, 5);
+
+            // In the open room nothing is in the probe: the terrain decides.
+            liFound = fBlow(lOWorld, pOData, 160, 160, 103, 164, 156, out lOCore);
+            fExpectInt("blow: nothing in the probe leaves it to the wall test", liFound, UWPlayerAttack.BlowFoundNothing);
+
+            // An ally is struck only as the last record with nothing before it.
+            FakeMotionWorld lOAllies = new FakeMotionWorld();
+
+            lOAllies.AddBody(12, 14, new UWMotionBody { Index = 5, ItemId = GoblinKind, XPos = 3, YPos = 3, ZPos = 96, IsMobile = true, IsCreature = true });
+            lOCore = new UWMotionCore(lOAllies, pOData.CommonObjectProperties);
+            lOCore.Mover = new UWMotionBody { Index = 1, ItemId = 0x7F, IsMobile = true, IsCreature = true };
+            lOCore.SetCalc(102, 114, 103, 3, 20, 1);
+            liFound = UWPlayerAttack.PickBlowTarget(lOCore, 106, 110, pOBody => pOBody.Index == 5);
+            fExpectInt("blow: an ally alone in the probe is struck", liFound >= 0 ? lOCore.Records[liFound].Body.Index : liFound, 5);
         }
     }
 }

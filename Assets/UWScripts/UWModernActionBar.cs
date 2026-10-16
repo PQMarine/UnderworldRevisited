@@ -20,7 +20,7 @@ using UWDataImport.UWData;
 ///   - Its key, or a click on it with the free pointer: a weapon goes into the weapon hand (what
 ///     was there to the weapon's place, UWModernBags.EquipCarried) - and draws or puts away when
 ///     it is there already, marked with a ring while drawn; a tool acts on the crosshair's target
-///     (UWItemDrag.UseItemOnCrosshair); anything else is used (UWItemDrag.UseCarriedItem).
+///     (UWItemTargetUse.OnCrosshair); anything else is used (UWCarriedItemUse).
 ///   - Filled by dropping a thing from the pointer onto a slot (UWModernBags; the thing goes
 ///     back to its place). With the free pointer a slot's link can be dragged to another slot
 ///     (they swap) or off the bar (the slot empties).
@@ -192,7 +192,7 @@ public class UWModernActionBar : MonoBehaviour
 
     private bool fIsShown()
     {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern && !UWModernLayout.IsActionBarHidden
+        return UWControlScheme.IsModern && !UWModernLayout.IsActionBarHidden
             && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
             && mOUi != null && mOUi.mOUWData != null && mOUi.mOInventory != null;
     }
@@ -456,15 +456,7 @@ public class UWModernActionBar : MonoBehaviour
             return;
         }
 
-        UWItemDrag lODrag = UWScene.ItemDrag;
-
-        if (lODrag == null)
-            return;
-
-        if (lODrag.NeedsWorldTarget(lOItem))
-            lODrag.UseItemOnCrosshair(lOItem);
-        else
-            lODrag.UseCarriedItem(lOItem);
+        UWCarriedItemUse.Use(UWScene.ItemDrag, lOItem, UWCarriedItemUse.Context.ActionBar);
     }
 
     /// <summary>A spell slot: cast by the original's rules - unless a rune is missing from the bag,
@@ -524,7 +516,7 @@ public class UWModernActionBar : MonoBehaviour
         if (lbPadFree && lOControls.Player.PadSlotUse.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotUse))
             fUse(miPadSlot);
 
-        if (!mOScheme.IsPointerFree || Mouse.current == null)
+        if (!mOScheme.IsPointerFree || Mouse.current == null || UWModernPointer.PanelsHeld)
             return;
 
         Vector2 lOPointer = Mouse.current.position.ReadValue();
@@ -704,7 +696,7 @@ public class UWModernActionBar : MonoBehaviour
                 fShowIcon(mOIcons[liSlot], lbShown ? lOItem : null, lfX, lfY, lbOnPointer ? DimAlpha : 1f);
             }
 
-            int liCount = lbShown ? UWItemDescriptions.GetStackCount(lOItem) : 1;
+            int liCount = lbShown ? UWStackRules.CountAtLeastOne(lOItem) : 1;
 
             mOCounts[liSlot].enabled = liCount > 1;
             mOCounts[liSlot].text = liCount.ToString();

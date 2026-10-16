@@ -34,6 +34,12 @@ namespace UWDataImport.UWData
 		/// <summary>Clock units per game minute - see class comment.</summary>
 		public const int UnitsPerMinute = 0x3C00;
 
+		/// <summary>The minute a CONVERSATION counts with: UW.EXE divides the clock by 0x3BC4 for
+		/// game_time and game_days (the import of the conversation globals), while everything
+		/// else counts 0x3C00 a minute. Both are the original's; a conversation's minute is 0.4 %
+		/// shorter. Checked against the byte-exact decompilation on 2026-10-11.</summary>
+		public const int ConversationUnitsPerMinute = 0x3BC4;
+
 		/// <summary>How far the clock advances per player tick: the tick's length in PIT
 		/// ticks, 21 * 256 - real time, see class comment.</summary>
 		public const int UnitsPerTick = UWPlayerTick.PitTicks;

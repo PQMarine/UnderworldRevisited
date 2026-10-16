@@ -40,12 +40,6 @@ public class UWEyesDisplay : MonoBehaviour
 
     private static readonly int[] msGroupLast = new int[] { 3, 6, 9 };
 
-    /// <summary>From which share of health which group applies. Invented - the docs
-    /// mention neither thresholds nor this display at all.</summary>
-    private const float HealthyThreshold = 2f / 3f;
-
-    private const float WoundedThreshold = 1f / 3f;
-
     private DataImport mOData;
     private Canvas mOCanvas;
     private RawImage mOImage;
@@ -74,22 +68,16 @@ public class UWEyesDisplay : MonoBehaviour
 
     public Texture2D CurrentFrame => miFrame >= 0 ? fGetFrame(miFrame) : null;
 
-    private static bool fIsModern()
-    {
-        UWControlScheme lOScheme = UWScene.ControlScheme;
-
-        return lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
-
-    /// <summary>Shows the condition of the enemy that was hit.</summary>
-    public void ShowCondition(DataImport pOData, float pfHealthFraction, string psName = null)
+    /// <summary>Shows the condition of the enemy that was hit: hit points left against the
+    /// creature table's average (UWCombat.GetEyesGroup, do_damage in COMBAT.C). The thresholds
+    /// were called invented here until 2026-10-12; they are the original's thirds, and the
+    /// measure is the table average, not the creature's own maximum.</summary>
+    public void ShowCondition(DataImport pOData, int piHitPoints, int piAverageHitPoints, string psName = null)
     {
         mOData = pOData;
         TargetName = psName;
 
-        int liGroup = pfHealthFraction >= HealthyThreshold
-            ? 0
-            : (pfHealthFraction >= WoundedThreshold ? 1 : 2);
+        int liGroup = UWCombat.GetEyesGroup(piHitPoints, piAverageHitPoints);
 
         fEnsureCanvas();
 
@@ -125,7 +113,7 @@ public class UWEyesDisplay : MonoBehaviour
         UWSettings lOSettings = UWSettings.Instance;
         Vector2 lOEyesAt = lOSettings != null ? lOSettings.EyesPosition : new Vector2(0f, -8f);
 
-        // With DisplayAs4By3 the picture is squeezed sideways, the offset from the centre as well
+        // At 4:3 (UWDisplayAspect) the picture is squeezed sideways, the offset from the centre as well
         // (the image itself through UWPixelAspectFrame).
         lOEyesAt.x *= UWGameUI.HorizontalPixelFactor;
         lOEyesAt.x += UWHelpLayout.FrameShift(UWUiFit.CanvasWidth);
@@ -168,7 +156,7 @@ public class UWEyesDisplay : MonoBehaviour
         }
 
         // The modern scheme shows them in its heading strip.
-        if (fIsModern())
+        if (UWControlScheme.IsModern)
             mOImage.enabled = false;
         else if (mfAlpha > 0f && !mOImage.enabled)
             fApplyAlpha();
@@ -194,7 +182,7 @@ public class UWEyesDisplay : MonoBehaviour
         lOColour.a = mfAlpha;
 
         mOImage.color = lOColour;
-        mOImage.enabled = mfAlpha > 0f && !fIsModern();
+        mOImage.enabled = mfAlpha > 0f && !UWControlScheme.IsModern;
     }
 
     private Texture2D fGetFrame(int piFrame)

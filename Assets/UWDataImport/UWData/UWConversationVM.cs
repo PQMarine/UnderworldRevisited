@@ -68,10 +68,18 @@ namespace UWDataImport.UWData
 			/// from behind the pointers. pOAddresses are the pointers themselves, for
 			/// functions that WRITE SOMETHING BACK (find_barter_total fills an array),
 			/// and pOVm the machine, to read and write there (trade: the lists
-			/// of preferences lie in the conversation's memory).
+			/// of preferences lie in the conversation's memory). The game's session looks the name
+			/// up in UWConversationFunctionTable (since 2026-10-14).
 			/// </summary>
 			int CallUnknown(string psName, int piFunctionId, IReadOnlyList<int> pOArguments,
 				IReadOnlyList<int> pOAddresses, UWConversationVM pOVm);
+		}
+
+		/// <summary>An argument of CallUnknown by its index, 0 when the call passed fewer - for
+		/// the hosts (one helper since 2026-10-11, before that a copy in each).</summary>
+		internal static int Argument(IReadOnlyList<int> pOArguments, int piIndex)
+		{
+			return pOArguments != null && piIndex < pOArguments.Count ? pOArguments[piIndex] : 0;
 		}
 
 		/// <summary>

@@ -32,8 +32,10 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     private const int BoulderSubTile = 3;
 
-    /// <summary>How long a missile's impact picture stays.</summary>
-    private const float ImpactSeconds = 0.7f;
+    /// <summary>How long a missile's impact picture stays: mts_doanim starts the explosion and the
+    /// lightning's splash with the length 4, which lasts five ticks (UWExplosionRules.
+    /// LengthToSeconds) - 1.25 s; ours held 0.7 s until 2026-10-13.</summary>
+    private static readonly float ImpactSeconds = UWExplosionRules.LengthToSeconds(UWExplosionRules.ExplosionLengthTicks);
 
     private UWLevelLoader mOLoader;
 
@@ -174,7 +176,11 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     /// <summary>The heading (1/256 of a turn, 0 north) and the pitch of a missile flying along
     /// a direction at this speed byte: the pitch is the vertical part in units of 64 against the
-    /// horizontal speed byte * 0x2F (UWPlayerThrow.GetMissileDirection the other way round).</summary>
+    /// horizontal speed byte * 0x2F (UWPlayerThrow.GetMissileDirection the other way round).
+    /// The heading ROUNDS and is not UWHeadings.DegreesToHeadingByte on purpose: that one
+    /// truncates the player's yaw as the original shifts its facing, while the original derives
+    /// these headings from its arctangent table, not from the player (decision 23 of
+    /// Docs/CLEANUP-PLAN.md, 2026-10-12).</summary>
     public static void AimFromDirection(Vector3 pODirection, int piSpeedByte, out int piHeading, out int piPitch)
     {
         float lfHorizontal = Mathf.Sqrt((pODirection.x * pODirection.x) + (pODirection.z * pODirection.z));
@@ -304,26 +310,14 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
     /// counts (PrepareNewObjectProps_seg035_3E, as a landed projectile has it).</summary>
     private UWObject fNewObject(int piItemId)
     {
-        UWObject lOObject = new UWObject((ushort)piItemId);
-        UWCommonObjectProperties.Entry lOEntry = fEntry(piItemId);
+        UWDataImport.DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
 
-        if (lOEntry.StartsWithQuantity)
-        {
-            lOObject.HasQuantity = true;
-            lOObject.Quantity = 1;
-        }
+        // CreateObj's fresh object (UWObjectFactory): the stack rule, quality 40 and the
+        // picture. Until 2026-10-12 a missile made here had quality 0.
+        UWObject lOObject = UWObjectFactory.Create(piItemId, lOData != null ? lOData.CommonObjectProperties : null);
 
-        if (mOLoader != null && mOLoader.UWDataImporter != null && mOLoader.UWDataImporter.Textures != null)
-        {
-            try
-            {
-                lOObject.Texture = mOLoader.UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piItemId);
-            }
-            catch
-            {
-                lOObject.Texture = null;
-            }
-        }
+        if (lOData != null)
+            UWObjectAppearance.Apply(lOObject, lOData.Textures, null);
 
         return lOObject;
     }
@@ -390,7 +384,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         Interaction pOInteraction, UWCritter pOCritter, bool pbPlayersOwn, bool pbLaunchSound = true)
     {
         Vector3 lOAt = WorldPosition(pORecord);
-        GameObject lOSpawned = mOLoader.SpawnProjectile(pORecord.ItemId, lOAt, UWProjectileFlight.HeadingToDirection(pORecord.HeadingByte));
+        GameObject lOSpawned = mOLoader.SpawnProjectile(pORecord.ItemId, lOAt, UWViewpoint.HeadingByteToDirection(pORecord.HeadingByte));
 
         if (lOSpawned == null)
             return null;
@@ -480,17 +474,8 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
             lOObject.ID = (ushort)liDebris;
 
-            if (mOLoader.UWDataImporter != null && mOLoader.UWDataImporter.Textures != null)
-            {
-                try
-                {
-                    lOObject.Texture = mOLoader.UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, liDebris);
-                }
-                catch
-                {
-                    lOObject.Texture = null;
-                }
-            }
+            if (mOLoader.UWDataImporter != null)
+                UWObjectAppearance.Apply(lOObject, mOLoader.UWDataImporter.Textures, null);
         }
 
         fSpawnFlight(lORecord, lOFlight.Damage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Interaction,
@@ -553,9 +538,23 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         return mOStaticByIndex.TryGetValue(piIndex, out lOObject) ? lOObject : null;
     }
 
+    /// <summary>The level the transient static indices belong to; another level starts them
+    /// afresh (the objects of the old one are gone, and the maps grew without bound until
+    /// 2026-10-11).</summary>
+    private UWLevel mOIndexedLevel;
+
     private int fStaticIndex(UWObject pOObject)
     {
         int liIndex;
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+
+        if (lOLevel != mOIndexedLevel)
+        {
+            mOStaticIndex.Clear();
+            mOStaticByIndex.Clear();
+            miNextStaticIndex = FirstStaticIndex;
+            mOIndexedLevel = lOLevel;
+        }
 
         if (!mOStaticIndex.TryGetValue(pOObject, out liIndex))
         {
@@ -565,6 +564,126 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
 
         return liIndex;
+    }
+
+    /// <summary>A core of its own for the doorway test, so no running step's records are touched.</summary>
+    private UWMotionCore mODoorCore;
+
+    /// <summary>
+    /// check_door and toast_animobj (EFFECT.C): a closing door tests every frame, and once more
+    /// when it would shut, whether the CLOSED door fits where it stands - can_place with the
+    /// closed id (0x140 + the door's kind and state), its own object number skipped, at its fine
+    /// spot, its z less the 0x18 that opening raised it (not a portcullis), as a flier, range 8.
+    /// Anything solid in the box - a creature, the player, a barrel - turns it round. Ours
+    /// watched the player alone and shut on a goblin standing in the doorway (per user,
+    /// 2026-10-13). The test is the motion core's CheckIfItemFitsInTile (can_place), over the
+    /// bodies this world reports: the creatures' live records and the player.
+    /// </summary>
+    public bool ClosedDoorBlocked(UWObject pODoor)
+    {
+        UWCommonObjectProperties lOProperties = mOLoader != null && mOLoader.UWDataImporter != null
+            ? mOLoader.UWDataImporter.CommonObjectProperties : null;
+
+        if (pODoor == null || lOProperties == null)
+            return false;
+
+        int liId = pODoor.ID;
+
+        if (liId < UWDoorFirstId || liId > UWDoorLastId)
+            return false;
+
+        int liClosedId = liId & ~UWDoorOpenBit;
+        int liZ = pODoor.ZPos;
+
+        if ((liId & UWDoorOpenBit) != 0 && (liId & 7) != UWPortcullisKind)
+            liZ -= UWDoorOpenRise;
+
+        if (mODoorCore == null)
+            mODoorCore = new UWMotionCore(this, lOProperties);
+
+        int liIndex = fStaticIndex(pODoor);
+
+        mODoorCore.Mover = new UWMotionBody
+        {
+            Index = liIndex,
+            ItemId = liClosedId,
+            XPos = pODoor.XPos,
+            YPos = pODoor.YPos,
+            ZPos = liZ,
+            Direction = pODoor.Heading & 7
+        };
+
+        return !mODoorCore.CheckIfItemFitsInTile(liClosedId, liIndex, (pODoor.TileX << 3) + pODoor.XPos,
+            (pODoor.TileY << 3) + pODoor.YPos, liZ, true, DoorwayRange, out int _, out int _);
+    }
+
+    private const int UWDoorFirstId = 0x140;
+    private const int UWDoorLastId = 0x14F;
+
+    /// <summary>Ids 0x148-0x14F are the open doors of 0x140-0x147.</summary>
+    private const int UWDoorOpenBit = 8;
+
+    /// <summary>Kind 6 is the portcullis, which rises without its z changing.</summary>
+    private const int UWPortcullisKind = 6;
+
+    /// <summary>OpenDoor raises a door's z by this; closing takes it off again.</summary>
+    private const int UWDoorOpenRise = 0x18;
+
+    /// <summary>can_place's range in check_door.</summary>
+    private const int DoorwayRange = 8;
+
+    /// <summary>A core of its own for the blow's probe, so no running step's records are touched.</summary>
+    private UWMotionCore mOBlowCore;
+
+    /// <summary>
+    /// WHAT THE PLAYER'S BLOW STRIKES (resolve_attack, UWPlayerAttack.PickBlowTarget) over the
+    /// bodies this world reports: the lying objects of the level data, the creatures' live records.
+    /// The probe in the original's units: centre in eighths, z, radius and height. Returns
+    /// PickBlowTarget's answer; on a hit pOObject is the lying object or pOCritter the creature.
+    /// </summary>
+    public int FindBlowTarget(int piX8, int piY8, int piZ, int piRadius, int piHeight, int piAttackerX8, int piAttackerY8,
+        out UWObject pOObject, out UWCritter pOCritter)
+    {
+        pOObject = null;
+        pOCritter = null;
+
+        UWCommonObjectProperties lOProperties = mOLoader != null && mOLoader.UWDataImporter != null
+            ? mOLoader.UWDataImporter.CommonObjectProperties : null;
+
+        if (lOProperties == null)
+            return UWPlayerAttack.BlowFoundNothing;
+
+        if (mOBlowCore == null)
+            mOBlowCore = new UWMotionCore(this, lOProperties);
+
+        // The player is the mover: object 127, a creature (ObjectCheck's isnpc).
+        mOBlowCore.Mover = new UWMotionBody
+        {
+            Index = 1,
+            ItemId = UWObjectMechanics.AdventurerObjectId,
+            IsMobile = true,
+            IsCreature = true
+        };
+        mOBlowCore.SetCalc(piX8, piY8, piZ, piRadius, piHeight, 1);
+
+        int liFound = UWPlayerAttack.PickBlowTarget(mOBlowCore, piAttackerX8, piAttackerY8, pOBody =>
+        {
+            UWCritter lOCritter = fCritter(pOBody.Index);
+
+            return lOCritter != null && lOCritter.IsAlly;
+        });
+
+        if (liFound < 0)
+            return liFound;
+
+        int liIndex = mOBlowCore.Records[liFound].Body.Index;
+
+        if (IsStaticIndex(liIndex))
+            pOObject = StaticObjectAt(liIndex);
+        else
+            pOCritter = fCritter(liIndex);
+
+        return liFound;
     }
 
     // ------------------------------------------------- IUWMotionWorld
@@ -677,9 +796,11 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
     }
 
+    /// <summary>The original's rand, 0..0x7FFF, from the session's generator (cleanup step 2.8,
+    /// 2026-10-14).</summary>
     public int Random()
     {
-        return UWRandom.Next(0x8000);
+        return UWGameSession.Current.Random.Next(UWOriginalRandom.Range);
     }
 
     public void UseOnMover(int piOtherIndex, int piMoverIndex, int piHitTileX, int piHitTileY)
@@ -714,12 +835,10 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         if (lOTrigger == null || lOTrigger.ID != UWObjectMechanics.MoveTriggerId)
             return 2;
 
-        bool lbPlayerFlag = (lOTrigger.Flags & PlayerSetsOffFlag) != 0;
-        bool lbOthersFlag = (lOTrigger.Flags & OthersSetOffFlag) != 0;
-
         if (piMoverIndex == 1)
         {
-            if (lbPlayerFlag && !mOPendingPlayerTriggers.Contains(lOTrigger))
+            if (UWTrapRules.MaySetOff(lOTrigger, UWTrapRules.Setter.Player)
+                && !mOPendingPlayerTriggers.Contains(lOTrigger))
                 mOPendingPlayerTriggers.Add(lOTrigger);
 
             return 2;
@@ -727,7 +846,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
         bool lbCreature = fCritter(piMoverIndex) != null;
 
-        if (lbCreature ? !lbOthersFlag : (lbOthersFlag && !lbPlayerFlag))
+        if (!UWTrapRules.MaySetOff(lOTrigger, lbCreature ? UWTrapRules.Setter.Creature : UWTrapRules.Setter.Thing))
             return 2;
 
         foreach (PendingTrigger lOPending in mOPendingOtherTriggers)
@@ -740,14 +859,6 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
         return 2;
     }
-
-    /// <summary>Flags bit 2 of a trigger (word 0 bit 0x800): the player sets it off
-    /// (Trigger_ovr153_3B label F5).</summary>
-    public const int PlayerSetsOffFlag = 4;
-
-    /// <summary>Flags bit 3 (word 0 bit 0x1000): creatures set it off (labels 145 to 16E); for a
-    /// thing it is the one bit that, without bit 2, keeps it out (labels 174 to 1A7).</summary>
-    public const int OthersSetOffFlag = 8;
 
     private struct PendingTrigger
     {
@@ -793,7 +904,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
             UWCritter lOCritter = lOAt.IsCreature ? fCritter(lOAt.Mover) : null;
 
-            if (lOAt.IsCreature && lOCritter == null)
+            if ((lOAt.IsCreature && lOCritter == null) || !fStillListed(lOAt.Trigger))
                 continue;
 
             mOOtherTriggerFiredAt[llKey] = lfNow;
@@ -842,9 +953,26 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
             if (mOPlayerTriggerFiredAt.TryGetValue(lOTrigger, out lfLast) && lfNow - lfLast < PlayerTriggerSpacingSeconds)
                 continue;
 
+            if (!fStillListed(lOTrigger))
+                continue;
+
             mOPlayerTriggerFiredAt[lOTrigger] = lfNow;
             UWTriggerSystem.TryFireMoveTrigger(lOTrigger, mOLoader, lOInteraction);
         }
+    }
+
+    /// <summary>
+    /// Whether a queued trigger still lies in its tile's list. A one-shot trigger that an earlier
+    /// firing of the same batch took out (its own, or another mover's) is not met any more - the
+    /// original fires each inside its mover's own step, after the cleanup of the one before. Since
+    /// 2026-10-12, for the rune of warding: two creatures over it in one frame were both hit.
+    /// </summary>
+    private bool fStillListed(UWObject pOTrigger)
+    {
+        UWTile lOTile = mOLoader != null && mOLoader.CurrentLevel != null
+            ? mOLoader.CurrentLevel.GetTile(pOTrigger.TileX, pOTrigger.TileY) : null;
+
+        return lOTile != null && lOTile.ObjectsInTile != null && lOTile.ObjectsInTile.Contains(pOTrigger);
     }
 
     public bool MissileHits(int piMoverIndex, int piOtherIndex, int piMoverTileX, int piMoverTileY)
@@ -917,7 +1045,10 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         if (!mOLoader.RemoveObjectFromWorld(lOObject))
             return;
 
+        // Both maps: the thing comes back to rest as the same object and gets a fresh index then
+        // (until 2026-10-11 only the reverse map forgot it, so its old index answered nothing).
         mOStaticByIndex.Remove(piOtherIndex);
+        mOStaticIndex.Remove(lOObject);
         fSpawnFlight(lORecord, 0, UWDamageTypes.Physical, -1, null, null, false, false);
     }
 
@@ -928,7 +1059,9 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         if (mOLoader != null)
             lOAt.y = mOLoader.GetFloorHeightAt(lOAt);
 
-        UWSoundEffects.PlayAt(piSound, lOAt);
+        // The volume argument is the original's offset on the effect's loudness (a landing is
+        // louder for a heavier thing, see UWMobileObjectMotion); dropped until 2026-10-11.
+        UWSoundEffects.PlayAt(piSound, lOAt, piVolume);
     }
 
     // ------------------------------------------------- IUWMobileObjectHost
@@ -963,7 +1096,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     public void PlaySoundAtObject(int piSound, UWMobileRecord pORecord, int piVolume)
     {
-        UWSoundEffects.PlayAt(piSound, WorldPosition(pORecord));
+        UWSoundEffects.PlayAt(piSound, WorldPosition(pORecord), piVolume);
     }
 
     public void Splash(UWMobileRecord pORecord)
@@ -976,7 +1109,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
     public bool TalismanBurns(UWMobileRecord pORecord, int piTileX, int piTileY)
     {
         return mOLoader != null && UWEndgame.TryDestroyTalismanInLava(mOLoader, pORecord.Object, piTileX, piTileY,
-            WorldPosition(pORecord), 0f);
+            WorldPosition(pORecord));
     }
 
     public void OnDemoted(UWMobileRecord pORecord)
@@ -1034,8 +1167,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         {
             int liAttacker = piOwner == 1 ? UWCritterBrain.PlayerIndex : piOwner > 1 ? piOwner : -1;
 
-            UWTileBlast.Strike(mOLoader, new UWTilePos(piTileX, piTileY), liCount, liRange, liType, liAttacker,
-                pOFlight.PlayersOwn ? pOFlight.Interaction : null);
+            UWTileBlast.Strike(mOLoader, new UWTilePos(piTileX, piTileY), liCount, liRange, liType, liAttacker);
         }
 
         ShowImpact(pOFlight, WorldPosition(pOFlight.Record));
@@ -1049,6 +1181,24 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
             return;
 
         mOLoader.SpawnEffectAt(pOFlight.ImpactId, pOAt + (Vector3.up * 2f), ImpactSeconds);
+
+        // THE FIREBALL'S FLAMES: mts_doanim turns the fireball into the explosion and adds
+        // fireball_effect's three to five flames around it, in the struck tile (per user on the
+        // original, 2026-10-13: the impact is several animated parts; ours showed the one).
+        if (pOFlight.ImpactId == UWExplosionRules.ExplosionObjectId && pOFlight.Record != null)
+        {
+            UWMobileRecord lORecord = pOFlight.Record;
+
+            foreach (UWExplosionRules.Flame lOFlame in UWExplosionRules.ScatterFlames(pOFlight.ImpactId,
+                lORecord.XPos & 7, lORecord.YPos & 7, lORecord.ZPos))
+            {
+                mOLoader.SpawnEffectAt(lOFlame.ObjectId, new Vector3(
+                    UWUnits.SubTileToWorldAxis(lORecord.TileX, lOFlame.FineX),
+                    UWUnits.ZPosToWorld(lOFlame.ZPos),
+                    UWUnits.SubTileToWorldAxis(lORecord.TileY, lOFlame.FineY)),
+                    UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), 0f, lOFlame.StartFrame);
+            }
+        }
 
         if (pOFlight.PlayersOwn)
             UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, pOAt);

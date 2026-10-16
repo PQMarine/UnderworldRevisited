@@ -36,6 +36,25 @@ public class UWAnimatedBillboard : MonoBehaviour
             mOFilter.sharedMesh = mOFrames[0];
     }
 
+    /// <summary>
+    /// The sequence starts on this frame now and runs on from it (add_animobj's start picture,
+    /// the flames of a fireball's explosion, 2026-10-13) - the beat stays the shared one, only
+    /// this object's place in it moves.
+    /// </summary>
+    public void StartAt(int piFrame)
+    {
+        if (mOFrames == null || mOFrames.Length == 0 || FramesPerSecond <= 0f)
+            return;
+
+        int liFrame = ((piFrame % mOFrames.Length) + mOFrames.Length) % mOFrames.Length;
+
+        mfPhase = (liFrame / FramesPerSecond) - Time.time + (0.5f / FramesPerSecond);
+        miFrame = liFrame;
+
+        if (mOFilter != null)
+            mOFilter.sharedMesh = mOFrames[liFrame];
+    }
+
     private void Update()
     {
         if (mOFilter == null || mOFrames == null || mOFrames.Length < 2 || FramesPerSecond <= 0f)

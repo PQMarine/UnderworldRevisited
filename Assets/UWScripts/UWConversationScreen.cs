@@ -28,7 +28,8 @@ using UWDataImport.UWData;
 /// FONT: every text field is a UWTextLabel and shows the original font or the
 /// modern one, depending on the choice made with key F (see UWGameUI.fCheckFontToggle).
 ///
-/// Selection is made with the number keys 1 to 9 or by mouse click on the line.
+/// Selection is made with the number keys (1 to 4 classic, 1 to 9 modern, see fReadChoice) or
+/// by mouse click on the line.
 ///
 /// THE MODERN SCHEME (stage 4, per user on a mockup, 2026-10-04) keeps this screen as the
 /// conversation's driver - the session, the answers by key, the typed answer, the end - but hides
@@ -75,7 +76,14 @@ public class UWConversationScreen : MonoBehaviour
 
     private const int NameTop = 2;
 
-    private const int NameWidth = 88;
+    /// <summary>
+    /// NO CLIP: the original prints both names with string_to_screen at 0x30 and 0x90
+    /// (UnderworldExhumed CONVERSE.C), which draws the whole string - a long name runs on towards
+    /// the screen's edge. Until 2026-10-14 ours cut both at 88 pixels (reference audit, finding
+    /// of the fix agents; a name may have 29 characters since 2026-10-12). Each name now has the
+    /// room to the screen's right edge.
+    /// </summary>
+    private static int fNameRoom(int piLeft) => ScreenWidth - piLeft;
 
     private const int NpcPortraitLeft = 45;
 
@@ -173,9 +181,6 @@ public class UWConversationScreen : MonoBehaviour
     /// positions above moved one pixel in so that the centre stays).</summary>
     private const int TradeCrossSize = 3;
 
-    /// <summary>A bit more generous than the cross itself, so that it can be hit.</summary>
-    private const int TradeCrossHit = 4;
-
     private readonly Image[] mONpcTradeImages = new Image[UWConversationTrade.SlotCount];
     private readonly Image[] mOPlayerTradeImages = new Image[UWConversationTrade.SlotCount];
     private readonly Image[] mONpcTradeCrossImages = new Image[UWConversationTrade.SlotCount];
@@ -223,7 +228,16 @@ public class UWConversationScreen : MonoBehaviour
 
     private bool mbTypingHooked;
 
-    private const int TypedAnswerMaxLength = 40;
+    /// <summary>
+    /// babl_ask's input (getInputText_ovr103_1117 through wdialog, SCROLLIO.C, read 2026-10-15): at
+    /// most 0x32 = 50 characters, 0x20 to 0x7E, and a character is taken only while the text so
+    /// far stays narrower than the scroll less the prompt and 20 pixels. Until then ours stopped
+    /// at 40 characters whatever their width.
+    /// </summary>
+    private const int TypedAnswerMaxLength = 50;
+
+    /// <summary>wdialog's margin: the text must stay this much narrower than the scroll.</summary>
+    private const int TypedAnswerMargin = 20;
 
     private const string TypedAnswerPrompt = ">";
 
@@ -251,7 +265,6 @@ public class UWConversationScreen : MonoBehaviour
 
         IsAnyOpen = true;
         mbClosing = false;
-        mbPlayerAnswered = false;
         miOpenedFrame = Time.frameCount;
 
         // THE WORLD STANDS STILL: in the original the conversation is a modal loop and the game
@@ -290,10 +303,6 @@ public class UWConversationScreen : MonoBehaviour
 
     private bool mbClosing;
 
-    /// <summary>Did the conversation offer the player an answer (menu or typed text) at any
-    /// point? Decides how it ends, see fCloseWithFade.</summary>
-    private bool mbPlayerAnswered;
-
     private const float EndHoldSeconds = 2f;
 
     private const float FadeSeconds = 1f;
@@ -303,10 +312,14 @@ public class UWConversationScreen : MonoBehaviour
         // A click or a key triggers the fade immediately (per user on the original,
         // 2026-09-12); otherwise the waiting time runs out.
         //
-        // WITHOUT ANY ANSWER THERE IS NO WAITING TIME: a conversation that never offered the
-        // player a choice stays open until a key or click (per user on the original,
-        // 2026-09-14, Biden handing over the scroll).
-        for (float lfAt = 0f; !mbPlayerAnswered || lfAt < EndHoldSeconds; lfAt += Time.unscaledDeltaTime)
+        // THE TIMED PAUSE ONLY WHEN THE PLAYER SPOKE LAST and the partner was not left hostile
+        // (UWConversationSession.EndsWithTimedPause, Converse in CONVERSE.C); otherwise the last
+        // line stays until a key or click - the partner's farewell, Biden handing over the scroll
+        // without any answer (per user on the original, 2026-09-14). Until 2026-10-15 ours timed
+        // every conversation that had offered an answer.
+        bool lbTimed = mOSession != null && mOSession.EndsWithTimedPause;
+
+        for (float lfAt = 0f; !lbTimed || lfAt < EndHoldSeconds; lfAt += Time.unscaledDeltaTime)
         {
             yield return null;
 
@@ -406,16 +419,13 @@ public class UWConversationScreen : MonoBehaviour
 
         // The modern scheme draws the conversation itself (UWModernConversation).
         if (mOCanvas != null)
-            mOCanvas.enabled = !fIsModern();
+            mOCanvas.enabled = !UWControlScheme.IsModern;
 
         if (mOSession == null)
             return;
 
         if (mOSession.Trade != null && mOSession.Trade.Version != miTradeVersionShown)
             fDrawTrade();
-
-        if (mOSession.Choices.Count > 0 || mOSession.IsAskingText)
-            mbPlayerAnswered = true;
 
         // The look text gives way after its two seconds - or at once on a left click, which
         // only brings the answers back and chooses nothing (per user on the original,
@@ -492,7 +502,8 @@ public class UWConversationScreen : MonoBehaviour
             return;
         }
 
-        // A finished conversation stays up for about two seconds, then the picture fades
+        // A finished conversation stays up for about two seconds (or until a key, see
+        // fCloseWithFade), then the picture fades
         // to black in one second, the conversation window closes, and in another
         // second the main display comes back out of the black - without a click, and the
         // message box is empty afterwards (per user on the original, 2026-09-12).
@@ -540,7 +551,7 @@ public class UWConversationScreen : MonoBehaviour
             return;
         }
 
-        if (fIsModern())
+        if (UWControlScheme.IsModern)
         {
             UWModernConversation lOModern = UWModernConversation.Instance;
 
@@ -645,6 +656,12 @@ public class UWConversationScreen : MonoBehaviour
             || msTypedAnswer.Length >= TypedAnswerMaxLength)
             return;
 
+        UWFont lOFont = mOData != null ? mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
+
+        if (lOFont != null && lOFont.MeasureText(msTypedAnswer, 0, UWFontRenderer.CharacterSpacing)
+            >= ChoicesWidth - lOFont.MeasureText(TypedAnswerPrompt, 0, UWFontRenderer.CharacterSpacing) - TypedAnswerMargin)
+            return;
+
         msTypedAnswer += pcChar;
         fDrawTypedAnswer();
     }
@@ -683,9 +700,22 @@ public class UWConversationScreen : MonoBehaviour
             mOFrame.anchoredPosition = new Vector2(UWHelpLayout.FrameShift(UWUiFit.CanvasWidth), 0f);
     }
 
-    /// <summary>While the help has the keyboard (typing in its notes, reading the manual) the
-    /// conversation hears no key - a digit in the notes must not choose an answer.</summary>
-    private static bool IsKeyboardTaken => UWHelpWindow.BlocksGameKeys;
+    /// <summary>While the help has the keyboard (typing in its notes, reading the manual), or
+    /// anything else takes typed keys - the modern split box, the bags' menu, a count prompt
+    /// (UWControls.IsTextEntryActive, which UWGameUI keeps for all of them) - the conversation
+    /// hears no key: a digit typed there must not choose an answer (per user, 2026-10-14: the
+    /// split box's digits chose answers). Its own typed answer is the one entry it keeps.</summary>
+    private static bool IsKeyboardTaken => UWHelpWindow.BlocksGameKeys
+        || (UWControls.IsTextEntryActive && !IsTypingAnswer);
+
+    /// <summary>
+    /// THE NUMBER KEYS THAT CHOOSE (decided per user 2026-10-15, C5): the classic scheme has the
+    /// original's 1 to 4 (PLAYER.C binds '1'..'4' to conv_play_menu; further answers need a click,
+    /// and the classic scroll shows four anyway), the modern one 1 to 9.
+    /// </summary>
+    private const int ClassicChoiceKeys = 4;
+
+    private const int ModernChoiceKeys = 9;
 
     /// <summary>Number key or click on an answer line. 0 means: nothing selected.</summary>
     private int fReadChoice()
@@ -694,7 +724,9 @@ public class UWConversationScreen : MonoBehaviour
 
         if (lOKeyboard != null && !IsKeyboardTaken)
         {
-            for (int liIndex = 0; liIndex < mOSession.Choices.Count && liIndex < 9; liIndex++)
+            int liKeys = UWControlScheme.IsModern ? ModernChoiceKeys : ClassicChoiceKeys;
+
+            for (int liIndex = 0; liIndex < mOSession.Choices.Count && liIndex < liKeys; liIndex++)
             {
                 if (lOKeyboard[Key.Digit1 + liIndex].wasPressedThisFrame)
                     return liIndex + 1;
@@ -714,7 +746,7 @@ public class UWConversationScreen : MonoBehaviour
 
         // The modern scheme's rows (UWModernConversation): the left button only - the right one
         // is the bags' there (look, the containers).
-        if (fIsModern())
+        if (UWControlScheme.IsModern)
         {
             UWModernConversation lOModern = UWModernConversation.Instance;
 
@@ -903,7 +935,7 @@ public class UWConversationScreen : MonoBehaviour
             }
 
             // The modern history scrolls: nothing waits for a click there.
-            if (miLinesSincePause >= liCapacity - 1 && !fIsModern())
+            if (miLinesSincePause >= liCapacity - 1 && !UWControlScheme.IsModern)
             {
                 // Back to the front of the queue - only the click fetches it.
                 fRequeueFront(lOLine);
@@ -915,7 +947,7 @@ public class UWConversationScreen : MonoBehaviour
             mOShownColours.Add(lOLine.Colour);
             miLinesSincePause++;
 
-            if (lOLine.BreakAfter && !fIsModern())
+            if (lOLine.BreakAfter && !UWControlScheme.IsModern)
                 mbMorePending = true;
         }
 
@@ -1199,11 +1231,11 @@ public class UWConversationScreen : MonoBehaviour
             ? mOData.InitialPlayer.Name
             : string.Empty;
 
-        fSetNameImage(mONpcNameImage, lOFont, mOSession.PartnerName, lOColour);
-        fSetNameImage(mOPlayerNameImage, lOFont, lsPlayer, lOColour);
+        fSetNameImage(mONpcNameImage, lOFont, mOSession.PartnerName, lOColour, fNameRoom(NpcNameLeft));
+        fSetNameImage(mOPlayerNameImage, lOFont, lsPlayer, lOColour, fNameRoom(PlayerNameLeft));
     }
 
-    private static void fSetNameImage(RawImage pOImage, UWFont pOFont, string psName, Color32 pOColour)
+    private static void fSetNameImage(RawImage pOImage, UWFont pOFont, string psName, Color32 pOColour, int piWidth)
     {
         if (pOImage.texture != null)
             Destroy(pOImage.texture);
@@ -1214,7 +1246,7 @@ public class UWConversationScreen : MonoBehaviour
             return;
         }
 
-        Texture2D lOTexture = UWFontRenderer.RenderLines(pOFont, new List<string> { psName }, NameWidth, pOColour, FilterMode.Point, false);
+        Texture2D lOTexture = UWFontRenderer.RenderLines(pOFont, new List<string> { psName }, piWidth, pOColour, FilterMode.Point, false);
 
         if (lOTexture == null)
         {
@@ -1275,14 +1307,6 @@ public class UWConversationScreen : MonoBehaviour
     public string LookText => mfLookTextUntil >= 0f ? msLookText : null;
 
     private string msLookText;
-
-    private bool fIsModern()
-    {
-        if (mOControlScheme == null)
-            mOControlScheme = GetComponentInParent<UWControlScheme>();
-
-        return mOControlScheme != null && mOControlScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
 
     private void fShowPortraits(UWNpc pONpc, int piSlot)
     {
@@ -1360,7 +1384,7 @@ public class UWConversationScreen : MonoBehaviour
         if (pOLabel == null)
             return;
 
-        int liCount = pOItem != null && pOItem.HasQuantity && pOItem.Quantity < 512 ? pOItem.Quantity : 1;
+        int liCount = UWStackRules.Count(pOItem);
 
         if (liCount <= 1)
         {
@@ -1388,22 +1412,24 @@ public class UWConversationScreen : MonoBehaviour
             new List<Color32> { Color.white }, true, FontStyle.Bold);
     }
 
-    /// <summary>Which place of the player's area lies under the pointer - the circle or the
-    /// cross next to it. -1 if none.</summary>
-    public int GetPlayerTradeSlotAt(Vector2 pOScreenPosition, out bool pbOnCross)
+    /// <summary>
+    /// Which place of the player's area lies under the pointer, -1 if none. ONLY THE SLOT SQUARE
+    /// (play_slot_hit_abs and npc_slot_hit_abs, BARTER.C, read 2026-10-15): the cross beside a slot
+    /// is a drawn mark, not a button - a click on the item marks it. Until then a click on the
+    /// cross toggled the mark too.
+    /// </summary>
+    public int GetPlayerTradeSlotAt(Vector2 pOScreenPosition)
     {
-        return fGetTradeSlotAt(pOScreenPosition, miPlayerTradeSlots, miPlayerTradeCrosses, out pbOnCross);
+        return fGetTradeSlotAt(pOScreenPosition, miPlayerTradeSlots);
     }
 
-    public int GetNpcTradeSlotAt(Vector2 pOScreenPosition, out bool pbOnCross)
+    public int GetNpcTradeSlotAt(Vector2 pOScreenPosition)
     {
-        return fGetTradeSlotAt(pOScreenPosition, miNpcTradeSlots, miNpcTradeCrosses, out pbOnCross);
+        return fGetTradeSlotAt(pOScreenPosition, miNpcTradeSlots);
     }
 
-    private int fGetTradeSlotAt(Vector2 pOScreenPosition, Vector2Int[] pOSlots, Vector2Int[] pOCrosses, out bool pbOnCross)
+    private int fGetTradeSlotAt(Vector2 pOScreenPosition, Vector2Int[] pOSlots)
     {
-        pbOnCross = false;
-
         if (mOSession == null || mOFrame == null)
             return -1;
 
@@ -1422,13 +1448,6 @@ public class UWConversationScreen : MonoBehaviour
             if (lfX >= pOSlots[liSlot].x && lfX < pOSlots[liSlot].x + TradeSlotSize + 1
                 && lfY >= pOSlots[liSlot].y && lfY < pOSlots[liSlot].y + TradeSlotSize + 1)
                 return liSlot;
-
-            if (lfX >= pOCrosses[liSlot].x - TradeCrossHit && lfX < pOCrosses[liSlot].x + TradeCrossSize + TradeCrossHit
-                && lfY >= pOCrosses[liSlot].y - TradeCrossHit && lfY < pOCrosses[liSlot].y + TradeCrossSize + TradeCrossHit)
-            {
-                pbOnCross = true;
-                return liSlot;
-            }
         }
 
         return -1;

@@ -501,12 +501,12 @@ namespace UWDataImport.UWData
 
 		public const int WearableFirstId = 0x20;
 
-		public const int CritterFirstId = 0x40;
+		public const int CritterFirstId = UWObjectIds.FirstCreature;
 
 		/// <summary>Containers start at 0x80 - object 128 is "a_sack", and the
 		/// light sources behind them at 0x90 have long been established via
 		/// UWObjectProperties.</summary>
-		public const int ContainerFirstId = 0x80;
+		public const int ContainerFirstId = UWObjectIds.FirstContainer;
 
 		/// <summary>CAUTION, the tables are NOT strictly in object id order: the
 		/// food table comes before the jewelry table in the file, while for the object ids it is
@@ -515,7 +515,7 @@ namespace UWDataImport.UWData
 		/// corn 25, bread 16, cheese 12, apple 6, popcorn 2), but against 0xA0 nutrition values
 		/// for coins and gems. A first attempt with consecutive ranges was
 		/// therefore wrong.</summary>
-		public const int FoodFirstId = 0xB0;
+		public const int FoodFirstId = UWObjectIds.FirstFood;
 
 		public const int JewelryFirstId = 0xA0;
 

@@ -121,28 +121,23 @@ public static class UWScene
         return Object.FindObjectsByType<UWCritter>(FindObjectsInactive.Exclude);
     }
 
-    private static UWDataImport.UWData.UWCritterClock msCritterClock = new UWDataImport.UWData.UWCritterClock();
-
-    private static UWDataImport.UWData.UWCritterAlarm msCritterAlarm = new UWDataImport.UWData.UWCritterAlarm();
-
     /// <summary>The 16-slot clock of the level's creatures (Docs/AI/brain-and-host.md
     /// section 1). UWCritterDriver advances it once per frame; every UWCritter asks it
     /// whether it is due. One per level: ResetCritterServices replaces it when a level is
-    /// built.</summary>
-    public static UWDataImport.UWData.UWCritterClock CritterClock => msCritterClock;
+    /// built. The session's since 2026-10-14 (UWGameSession.CritterClock, cleanup step 2.7).</summary>
+    public static UWDataImport.UWData.UWCritterClock CritterClock => UWDataImport.UWData.UWGameSession.Current.CritterClock;
 
     /// <summary>The kin alarm of the level (UWCritterBrain.OnDamaged writes it, every hostile
     /// creature reads it). The original saves it with the game (PLAYER.DAT 0xBA-0xC1); the
-    /// port starts it fresh with every level build.</summary>
-    public static UWDataImport.UWData.UWCritterAlarm CritterAlarm => msCritterAlarm;
+    /// port starts it fresh with every level build. The session's since 2026-10-14.</summary>
+    public static UWDataImport.UWData.UWCritterAlarm CritterAlarm => UWDataImport.UWData.UWGameSession.Current.CritterAlarm;
 
     /// <summary>A fresh clock and alarm for a newly built level - so nothing of the old level
     /// survives loading a savegame (per user, 2026-09-12: a rat attacked at once after
     /// loading because the alarm was still fresh).</summary>
     public static void ResetCritterServices()
     {
-        msCritterClock = new UWDataImport.UWData.UWCritterClock();
-        msCritterAlarm = new UWDataImport.UWData.UWCritterAlarm();
+        UWDataImport.UWData.UWGameSession.Current.ResetCritterServices();
     }
 
     private static T fGet<T>(ref T poCache) where T : Component

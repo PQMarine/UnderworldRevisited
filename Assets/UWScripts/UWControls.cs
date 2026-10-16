@@ -21,7 +21,6 @@ public class UWControls : System.IDisposable
         public readonly InputAction LookStick;
         public readonly InputAction CursorDrag;
         public readonly InputAction Interact;
-        public readonly InputAction ToggleCombat;
         public readonly InputAction ToggleScheme;
         public readonly InputAction ToggleInventory;
 
@@ -166,7 +165,6 @@ public class UWControls : System.IDisposable
             LookStick = pMap["LookStick"];
             CursorDrag = pMap["CursorDrag"];
             Interact = pMap["Interact"];
-            ToggleCombat = pMap["ToggleCombat"];
             ToggleScheme = pMap["ToggleScheme"];
             ToggleInventory = pMap["ToggleInventory"];
             HoverHeight = pMap["HoverHeight"];
@@ -251,9 +249,13 @@ public class UWControls : System.IDisposable
         public readonly InputAction NextLevel;
         public readonly InputAction PrevLevel;
         public readonly InputAction ToggleBrightness;
+        public readonly InputAction DumpShaderGlobals;
+        public readonly InputAction ForceCast;
 
         internal DebugActions(InputActionMap pMap)
         {
+            DumpShaderGlobals = pMap["DumpShaderGlobals"];
+            ForceCast = pMap["ForceCast"];
             ToggleOverlay = pMap["ToggleOverlay"];
             TeleportDebug = pMap["TeleportDebug"];
             ToggleSpectator = pMap["ToggleSpectator"];
@@ -454,11 +456,9 @@ public class UWControls : System.IDisposable
         // via a click on the weapon on the paper doll - both the original's way.
         // They may come back in the modern scheme (per user, 2026-09-03).
         // THE GAMEPAD LEFT THESE (UWGamepad, 2026-10-07): A on Interact freed the modern pointer,
-        // X drew the weapon, View switched the scheme. ToggleCombat has no binding left.
+        // X drew the weapon, View switched the scheme.
         InputAction lInteract = lMap.AddAction("Interact", InputActionType.Button);
         lInteract.AddBinding("<Mouse>/rightButton");
-
-        lMap.AddAction("ToggleCombat", InputActionType.Button);
 
         InputAction lToggleScheme = lMap.AddAction("ToggleScheme", InputActionType.Button);
         lToggleScheme.AddBinding("<Keyboard>/f2");
@@ -652,6 +652,14 @@ public class UWControls : System.IDisposable
         lMap.AddAction("PrevLevel", InputActionType.Button).AddBinding("<Keyboard>/pageDown");
         // F11 since 2026-10-03: B opens the bags in the modern scheme (per user).
         lMap.AddAction("ToggleBrightness", InputActionType.Button).AddBinding("<Keyboard>/f11");
+        // Shift+F12 since 2026-10-11: the shader globals and resource counts into a file
+        // (UWShaderGlobalsDump), the oracle of the cleanup's rendering steps.
+        lMap.AddAction("DumpShaderGlobals", InputActionType.Button).AddCompositeBinding("OneModifier")
+            .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f12");
+        // Shift+F11 since 2026-10-12: the nearest creature casts its second spell at once
+        // (DebugFunctions, UWCritterBrain.ForceSpell) - the area spells are rolled rarely.
+        lMap.AddAction("ForceCast", InputActionType.Button).AddCompositeBinding("OneModifier")
+            .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f11");
 
         return lMap;
     }

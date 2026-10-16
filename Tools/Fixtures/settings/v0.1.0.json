@@ -1,0 +1,31 @@
+{
+    "GogInstallPath": "D:/Ultima Underworld",
+    "KeyBindings": [
+        "Player|Move|1|<Keyboard>/upArrow",
+        "Player|Jump|0|<Keyboard>/rightShift"
+    ],
+    "ColourMode": 2,
+    "ColourStrength": 0.5,
+    "ColourBrightness": 1.2,
+    "ColourContrast": 0.9,
+    "MarkPoison": true,
+    "ManualAttributes": true,
+    "HelpOpen": false,
+    "HelpTab": 1,
+    "HelpMapSpan": 12,
+    "EasyMovementInterval": 0.4,
+    "ShowOpeningSequence": false,
+    "RunInBackground": true,
+    "DisplayAs4By3": false,
+    "DisplayMode": 0,
+    "ResolutionWidth": 1280,
+    "ResolutionHeight": 720,
+    "HeadBobMode": 2,
+    "HeadBobStrength": 0.7,
+    "WeaponJitterMode": 0,
+    "WeaponJitterStrength": 0.3,
+    "MusicEnabled": false,
+    "MusicVolume": 0.33,
+    "SoundEnabled": true,
+    "SoundVolume": 0.5
+}

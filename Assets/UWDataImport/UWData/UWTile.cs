@@ -168,11 +168,12 @@ namespace UWDataImport.UWData
 
 		private void fCheckForSpecialProperty(UWObject pOUWObject, UWTextures pOTextures)
 		{
-			if (pOUWObject.ID == 327)
+			// The closed secret door wears the tile's wall texture.
+			if (pOUWObject.ID == UWObjectIds.SecretDoor)
 			{
 				pOUWObject.Texture = pOTextures.GetTextureByType(UWTexture.TextureTypes.WALL, TextureWall);
 			}
-			if (pOUWObject.ID == 356 && pOUWObject.Flags != 2)
+			if (pOUWObject.ID == UWObjectIds.Bridge && pOUWObject.Flags != 2)
 			{
 			}
 		}

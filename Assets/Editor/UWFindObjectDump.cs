@@ -14,7 +14,7 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWFindObjectDump
 {
-    private const int TilesPerAxis = 64;
+    private const int TilesPerAxis = UWWorldScale.TilesPerAxis;
 
     /// <summary>What to search for. Enter other things here to search for them.</summary>
     private static readonly int[] msSearchIds = new int[] { 10, 54, 55, 147, 151, 174, 191, 287, 310 };
@@ -41,7 +41,7 @@ public static class UWFindObjectDump
                 {
                     for (int liTileX = 0; liTileX < TilesPerAxis; liTileX++)
                     {
-                        UWTile lOTile = lOLevel.TileData[(liTileY * TilesPerAxis) + liTileX];
+                        UWTile lOTile = lOLevel.GetTile(liTileX, liTileY);
 
                         foreach (UWObject lOObject in lOTile.ObjectsInTile)
                             liFound += fSearch(lOData, lOLevel, lOObject, liSearchId, liLevel + 1, liTileX, liTileY, "", lOOut);

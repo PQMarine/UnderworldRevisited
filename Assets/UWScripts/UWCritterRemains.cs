@@ -71,6 +71,7 @@ public class UWCritterRemains : MonoBehaviour
 
         mbDying = false;
 
+        fForgetData();
         fLeaveRemains();
         fDropLoot();
 
@@ -81,12 +82,13 @@ public class UWCritterRemains : MonoBehaviour
     {
         mbDying = true;
 
-        // In the data it is gone from now on, even while it is still falling - otherwise it
-        // would stand there again when the level is re-entered and in the save game.
-        UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
-
-        if (mOLevelLoader != null && lOEntity != null)
-            mOLevelLoader.ForgetObjectData(lOEntity.ObjectData);
+        // THE DATA STAYS WHILE IT FALLS (critter_ai, UnderworldExhumed AI.C: the dying critter,
+        // sequence 0x0C, stays in its tile list until frame 3, where it is taken out and the
+        // loot, the remains and the spill come). A save or a level change in between keeps it
+        // with 0 hit points and the dying sequence, and the death finishes after loading or on
+        // re-entry. Until 2026-10-15 ours dropped the data here at once, so such a save lost the
+        // creature with its loot and remains (audit round 2, A25 / KR N2). It goes in
+        // CompleteDeath, or with the fallback in Update.
 
         // The death sound is the brain's since 2026-09-20 (Death_seg007_1798_35CB plays sound 6
         // for kinds with table byte 8 & 7 == 1, through ICritterHost.PlaySound).
@@ -118,15 +120,21 @@ public class UWCritterRemains : MonoBehaviour
 
         mbDying = false;
 
-        UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
-
-        if (mOLevelLoader != null && lOEntity != null)
-            mOLevelLoader.ForgetObjectData(lOEntity.ObjectData);
-
+        fForgetData();
         fLeaveRemains();
         fDropLoot();
 
         Destroy(gameObject);
+    }
+
+    /// <summary>The creature leaves the level data at the end of its death (Obj_Rem at frame 3),
+    /// its mobile slot back.</summary>
+    private void fForgetData()
+    {
+        UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
+
+        if (mOLevelLoader != null && lOEntity != null)
+            mOLevelLoader.ForgetObjectData(lOEntity.ObjectData);
     }
 
     /// <summary>
@@ -134,7 +142,7 @@ public class UWCritterRemains : MonoBehaviour
     /// creature's own position when its table says so, then the corpse 0xC0 + n with 7 in 16,
     /// put down AROUND the creature with a radius of 4 eighths (PlaceObjectAtNPC; read whole
     /// 2026-09-25 - until then the corpse lay on the body as well, see UWScatterRules). The
-    /// corpse's quality carries the kind (item id &amp; 0x3F), which is how "a_dead X" names it.
+    /// corpse's owner carries the kind (item id &amp; 0x3F) - see UWCritterCombat.GetCorpseOwner.
     /// The corpse was missing until 2026-09-20 (deviation 51).
     /// </summary>
     private void fLeaveRemains()
@@ -156,13 +164,12 @@ public class UWCritterRemains : MonoBehaviour
         int liKind = lOEntity != null && lOEntity.ObjectData != null ? lOEntity.ObjectData.ID : 0;
 
         mOLevelLoader.SpawnObjectByIdAround(UWCritterCombat.GetCorpseObjectId(mOStats.CorpseIndex), 0,
-            UWCritterCombat.GetCorpseQuality(liKind), lOBody, UWScatterRules.RemainsRadius, lOTile);
+            -1, lOBody, UWScatterRules.RemainsRadius, lOTile, UWCritterCombat.GetCorpseOwner(liKind));
     }
 
     /// <summary>
-    /// What the creature carried drops onto the same tile, each piece at a
-    /// random spot within it (UWLevelLoader.GetRandomPositionInTile) - money, food,
-    /// equipment, odds and ends. What exactly is computed by UWCritterLoot from the critter
+    /// What the creature carried goes down around its body (drop_link_chain's put_at, see
+    /// UWScatterRules) - money, food, equipment, odds and ends. What exactly is computed by UWCritterLoot from the critter
     /// table.
     ///
     /// TIMING: the original already rolls the loot when someone looks inside - when
@@ -187,22 +194,14 @@ public class UWCritterRemains : MonoBehaviour
         {
             lONpc.EnsureContentsLoaded(mOLevelLoader.CurrentLevel.Masterlist);
 
-            if (lONpc.Contents != null)
-            {
-                foreach (UWObject lOItem in lONpc.Contents.ToArray())
-                {
-                    if (lOItem == null)
-                        continue;
-
-                    lOItem.Link = 0;
-                    // Scattered around the body as in the original, not all in one spot (per
-                    // user, 2026-09-13) - within 6 eighths, which can reach the neighbouring
-                    // tile (SpillInventory, read 2026-09-25; see UWScatterRules).
-                    fScatter(lOItem, lOTile);
-                }
-
-                lONpc.Contents.Clear();
-            }
+            // Scattered around the body as in the original, not all in one spot (per user,
+            // 2026-09-13) - within 6 eighths, which can reach the neighbouring tile
+            // (drop_some_objects -> drop_link_chain, read 2026-09-25; see UWScatterRules). A
+            // creature keeps nothing back, not even a lock or trigger in its pack
+            // (UWSpillRules, corpse); the scatter is the same call a container's spill uses
+            // (UWSpill, cleanup 2.6, 2026-10-12).
+            UWSpill.Apply(mOLevelLoader, lONpc, UWSpillRules.Partition(lONpc.Contents),
+                fGetBodyPosition(), lOTile, false);
 
             if (lONpc.NPCLootSpawned)
                 return;
@@ -219,13 +218,6 @@ public class UWCritterRemains : MonoBehaviour
         foreach (UWCritterLoot.Drop lODrop in lODrops)
             mOLevelLoader.SpawnObjectByIdAround(lODrop.ObjectId, lODrop.Quantity, lODrop.Quality,
                 fGetBodyPosition(), UWScatterRules.LootRadius, lOTile);
-    }
-
-    /// <summary>Puts a carried object down around the body; the open death tile is the fallback
-    /// when even the body's own spot is refused (see UWLevelLoader.SpawnScatteredAround).</summary>
-    private void fScatter(UWObject pOItem, UWTilePos pODeathTile)
-    {
-        mOLevelLoader.SpawnScatteredAround(pOItem, fGetBodyPosition(), UWScatterRules.LootRadius, pODeathTile);
     }
 
     /// <summary>

@@ -1,8 +1,10 @@
 using UnityEngine;
+using UnderworldRevisited.Build;
 using UWDataImport.UWData;
 
 /// <summary>
-/// What happens to a barrel, chest or nightstand when you smash it in.
+/// What happens to a barrel, chest or nightstand when you smash it in - and, since 2026-10-14,
+/// to every other model a blow can wear out (a bench): the general branch of remove_object.
 ///
 /// The reference (damage.cs, item ids 0x15B and 0x15D) removes the lock and then uses the
 /// container, so its contents end up on the tile - exactly what happens when you use an
@@ -12,21 +14,24 @@ using UWDataImport.UWData;
 /// (per user, 2026-09-16: "a pile of debris stays behind at the chest. Unlike the blood
 /// pools it can be picked up", and the same for barrels).
 ///
+/// THE NIGHTSTAND IS NOT USED (remove_object, UnderworldExhumed combat/DAMAGE.C, read
+/// 2026-10-12): only the chest and the barrel go through remove_lock and UseCont; the
+/// nightstand falls into the branch of every other object, whose chain is freed - what lay in it
+/// is gone with it, and it becomes debris too. Its use triggers still fire first. Until
+/// 2026-10-12 ours spilled it like a chest. The chest and barrel lose one lock and are used, so
+/// a second, locked lock keeps their contents (UWObjectDamageRules.IsUsedWhenDestroyed).
+///
+/// UNDER FIRE THE NIGHTSTAND SMOKES one time in four, as every object of that branch
+/// (put_effect 8, UWObjectDamageRules.DecideRemains); the chest and the barrel never do. Until
+/// 2026-10-13 ours never smoked here - the damage type did not reach this component
+/// (UWDamageable.LastDamageType; reference audit, finding of the fix agents).
+///
 /// Sits next to UWDamageable and only reacts to its destruction notification, like
-/// UWDoorDamage for doors.
+/// UWDoor for doors.
 /// </summary>
 [RequireComponent(typeof(UWDamageable))]
 public class UWContainerDamage : MonoBehaviour
 {
-    /// <summary>First of the two debris objects, "a_pile of debris" (0xD5). The original
-    /// picks one of the two at random (reference: damage.cs, uw1 branch
-    /// "Debris = 0xD5 + Rng.r.Next(0, 2)"). Its uw2-only GetObjectTypeDebris would give
-    /// wood chips (0xDB) for these containers; what the user sees in UW1 is the pile of
-    /// debris.</summary>
-    private const int FirstDebrisObjectId = 0xD5;
-
-    private const int DebrisVariants = 2;
-
     private UWDamageable mODamageable;
 
     private void Awake()
@@ -49,15 +54,46 @@ public class UWContainerDamage : MonoBehaviour
         if (lOEntity == null)
             return;
 
-        if (lOInteraction != null)
-            lOInteraction.SpillWorldContainer(lOEntity, true, false);
+        bool lbUsed = lOEntity.ObjectData != null && UWObjectDamageRules.IsUsedWhenDestroyed(lOEntity.ObjectData.ID);
+
+        if (lOInteraction != null && lOEntity.ObjectData != null)
+        {
+            if (lbUsed)
+                lOInteraction.SpillWorldContainer(lOEntity, false, false, true);
+            else
+                lOInteraction.FireDestroyedUseTriggers(lOEntity.ObjectData);
+        }
+
+        if (!lbUsed && lOEntity.ObjectData != null
+            && UWObjectDamageRules.DecideRemains(lOEntity.ObjectData.ID, pODamageable.LastDamageType)
+                == UWObjectDamageRules.Remains.DebrisWithSmoke)
+            fRaiseSmoke(lOEntity);
 
         fLeaveDebris(lOEntity);
     }
 
+    /// <summary>The smoke where the object stood, placed as UWTileBlast places it for a loose
+    /// object (SpawnClass7Object copies the object's position).</summary>
+    private void fRaiseSmoke(UWEntityInfo pOEntity)
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (lOLoader == null)
+            return;
+
+        UWTilePos lOTile = lOLoader.WorldPositionToTile(pOEntity.transform.position);
+
+        lOLoader.SpawnEffectAt(UWObjectDamageRules.SmokeObjectId,
+            UWObjectSpawner.GetObjectWorldPosition(lOTile.X, lOTile.Y, pOEntity.ObjectData)
+                + new Vector3(0f, UWObjectSpawner.AnimatedHeightOffset, 0f),
+            UWObjectDamageRules.RollSmokeSeconds());
+    }
+
     /// <summary>
     /// The smashed container disappears and leaves a pile of debris where it stood -
-    /// same tile, same spot within it, so the pile does not jump to the tile centre.
+    /// same tile, same spot within it, so the pile does not jump to the tile centre. The
+    /// remove and the pile are UWDebris, the same path as the blast's (cleanup 2.6,
+    /// 2026-10-12; until 2026-10-11 a second roll on Unity's random source here).
     /// </summary>
     private void fLeaveDebris(UWEntityInfo pOEntity)
     {
@@ -67,15 +103,8 @@ public class UWContainerDamage : MonoBehaviour
             return;
 
         Vector3 lOPosition = pOEntity.transform.position;
-        UWTilePos lOTile = lOLoader.WorldPositionToTile(lOPosition);
 
-        if (!lOLoader.RemoveObjectFromWorld(pOEntity.ObjectData))
-        {
-            lOLoader.ForgetObjectData(pOEntity.ObjectData);
-            Destroy(pOEntity.gameObject);
-        }
-
-        lOLoader.SpawnObjectById(FirstDebrisObjectId + Random.Range(0, DebrisVariants),
-            lOTile.X, lOTile.Y, 0, -1, new Vector3(lOPosition.x, 0f, lOPosition.z));
+        UWDebris.ReplaceWithDebris(lOLoader, pOEntity, pOEntity.ObjectData, lOLoader.WorldPositionToTile(lOPosition),
+            lOPosition);
     }
 }

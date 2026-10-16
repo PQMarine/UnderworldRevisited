@@ -17,7 +17,7 @@ public static class UWMapRender
 {
     private const int PixelsPerTile = 8;
 
-    private const int TilesPerAxis = 64;
+    private const int TilesPerAxis = UWWorldScale.TilesPerAxis;
 
     /// <summary>a_teleport trap - in the original the transition between levels.</summary>
     private const int TeleportTrapId = 0x0181;
@@ -76,7 +76,7 @@ public static class UWMapRender
         {
             for (int liTileX = 0; liTileX < TilesPerAxis; liTileX++)
             {
-                UWTile lOTile = pOLevel.TileData[(liTileY * TilesPerAxis) + liTileX];
+                UWTile lOTile = pOLevel.GetTile(liTileX, liTileY);
 
                 Color32 lOColour = fGetTileColour(lOTile);
 

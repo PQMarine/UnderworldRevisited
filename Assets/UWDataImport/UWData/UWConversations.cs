@@ -132,11 +132,11 @@ namespace UWDataImport.UWData
 			if (myData.Length < 2)
 				return;
 
-			int liCount = fRead16(0);
+			int liCount = UWBinary.Read16OrZero(myData, 0);
 			miOffsets = new int[liCount];
 
 			for (int liIndex = 0; liIndex < liCount; liIndex++)
-				miOffsets[liIndex] = (int)fRead32(2 + (liIndex * 4));
+				miOffsets[liIndex] = (int)UWBinary.Read32OrZero(myData, 2 + (liIndex * 4));
 
 			IsLoaded = true;
 		}
@@ -178,16 +178,16 @@ namespace UWDataImport.UWData
 			};
 
 			// 0x0000 and 0x0002 are unknown and constant according to the docs (0x0828 / 0x0000).
-			int liCodeSize = fRead16(liCursor + 4);
-			lOResult.StringBlock = fRead16(liCursor + 10);
-			lOResult.MemorySlots = fRead16(liCursor + 12);
-			int liImportCount = fRead16(liCursor + 14);
+			int liCodeSize = UWBinary.Read16OrZero(myData, liCursor + 4);
+			lOResult.StringBlock = UWBinary.Read16OrZero(myData, liCursor + 10);
+			lOResult.MemorySlots = UWBinary.Read16OrZero(myData, liCursor + 12);
+			int liImportCount = UWBinary.Read16OrZero(myData, liCursor + 14);
 
 			liCursor += 16;
 
 			for (int liIndex = 0; liIndex < liImportCount; liIndex++)
 			{
-				int liNameLength = fRead16(liCursor);
+				int liNameLength = UWBinary.Read16OrZero(myData, liCursor);
 				liCursor += 2;
 
 				StringBuilder lOName = new StringBuilder();
@@ -205,10 +205,10 @@ namespace UWDataImport.UWData
 				lOResult.Imports.Add(new Import
 				{
 					Name = lOName.ToString(),
-					IdOrAddress = fRead16(liCursor),
+					IdOrAddress = UWBinary.Read16OrZero(myData, liCursor),
 					// liCursor + 2 is always 1 according to the docs.
-					ImportType = fRead16(liCursor + 4),
-					ReturnType = fRead16(liCursor + 6)
+					ImportType = UWBinary.Read16OrZero(myData, liCursor + 4),
+					ReturnType = UWBinary.Read16OrZero(myData, liCursor + 6)
 				});
 
 				liCursor += 8;
@@ -217,26 +217,9 @@ namespace UWDataImport.UWData
 			lOResult.Code = new ushort[liCodeSize];
 
 			for (int liIndex = 0; liIndex < liCodeSize; liIndex++)
-				lOResult.Code[liIndex] = (ushort)fRead16(liCursor + (liIndex * 2));
+				lOResult.Code[liIndex] = (ushort)UWBinary.Read16OrZero(myData, liCursor + (liIndex * 2));
 
 			return lOResult;
-		}
-
-		private int fRead16(int piOffset)
-		{
-			if (piOffset + 1 >= myData.Length)
-				return 0;
-
-			return myData[piOffset] | (myData[piOffset + 1] << 8);
-		}
-
-		private uint fRead32(int piOffset)
-		{
-			if (piOffset + 3 >= myData.Length)
-				return 0;
-
-			return (uint)(myData[piOffset] | (myData[piOffset + 1] << 8)
-				| (myData[piOffset + 2] << 16) | (myData[piOffset + 3] << 24));
 		}
 	}
 }

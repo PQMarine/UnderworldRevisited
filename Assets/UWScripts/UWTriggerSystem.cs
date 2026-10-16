@@ -22,8 +22,10 @@ public static class UWTriggerSystem
     {
         bool lbFired = UWTrapRules.TryFireSwitch(pOObject, new UWTrapHost(pOLevelLoader, pOInteraction));
 
-        // A switch clicks like the lockpick (reference: button.cs, buttonrotary.cs).
-        if (lbFired)
+        // A BUTTON CLICKS, nothing else does (UWTrapRules.ClicksWhenUsed). Until 2026-10-12 every
+        // object whose trigger fired clicked - levers, the talking door, the bridge - and a
+        // button without a trigger stayed silent.
+        if (pOObject != null && UWTrapRules.ClicksWhenUsed(pOObject.ID))
         {
             UWEntityInfo lOEntity;
 
@@ -45,6 +47,20 @@ public static class UWTriggerSystem
         return UWTrapRules.TryFireLookTrigger(pOObject, new UWTrapHost(pOLevelLoader, pOInteraction), piSearchSkill);
     }
 
+    /// <summary>A thing in the world casts the charged spell it carries, with itself as the
+    /// caster, as a spell trap does (inanimate_spell; UWItemSpellRules.TryCastFromWorldObject,
+    /// 2026-10-15). Only for a class that acts with a thing as the caster
+    /// (UWTrapRules.SpellTrapCastsFor); false otherwise.</summary>
+    public static bool CastSpellFromThing(UWObject pOThing, int piMajorClass, int piMinorClass,
+        UWLevelLoader pOLevelLoader, Interaction pOInteraction)
+    {
+        if (pOThing == null || piMajorClass < 0 || !UWTrapRules.SpellTrapCastsFor(piMajorClass, false, false))
+            return false;
+
+        return new UWTrapHost(pOLevelLoader, pOInteraction).FireSpellTrap(pOThing, pOThing.TileX, pOThing.TileY,
+            piMajorClass, piMinorClass);
+    }
+
     /// <summary>One action of the bullfrog puzzle without a trap object - the wand of the Frog
     /// resets it. See UWTrapRules.FireBullfrog.</summary>
     public static void FireBullfrog(int piMode, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
@@ -53,9 +69,10 @@ public static class UWTriggerSystem
     }
 
     /// <summary>an_open trigger: fires when a door is opened. See UWTrapRules.TryFireOpenTrigger.</summary>
-    public static bool TryFireOpenTrigger(UWObject pODoorData, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
+    public static bool TryFireOpenTrigger(UWObject pODoorData, UWLevelLoader pOLevelLoader, Interaction pOInteraction,
+        UWTrapRules.Setter peOpener)
     {
-        return UWTrapRules.TryFireOpenTrigger(pODoorData, new UWTrapHost(pOLevelLoader, pOInteraction));
+        return UWTrapRules.TryFireOpenTrigger(pODoorData, new UWTrapHost(pOLevelLoader, pOInteraction), peOpener);
     }
 
     /// <summary>For UWInventory: the player has PICKED UP pOObject. See
@@ -82,20 +99,6 @@ public static class UWTriggerSystem
         return UWTrapRules.TryFireMoveTrigger(pOTrigger, new UWTrapHost(pOLevelLoader, pOInteraction, pOCritter, piThingIndex));
     }
 
-    /// <summary>
-    /// Fires the move trigger of a RUNE OF WARDING - it is set off by a creature, not
-    /// the player (see UWMoveTrigger and UWSummonSpell). The creature travels with the host
-    /// of this firing, the way the reference hands every trap its "triggeringCharacter".
-    /// </summary>
-    public static bool TryFireWardTrigger(UWObject pOTrigger, UWCritter pOCritter,
-        UWLevelLoader pOLevelLoader, Interaction pOInteraction)
-    {
-        if (pOTrigger == null || pOCritter == null || pOTrigger.ID != UWObjectMechanics.MoveTriggerId)
-            return false;
-
-        return UWTrapRules.TryFireMoveTrigger(pOTrigger, new UWTrapHost(pOLevelLoader, pOInteraction, pOCritter));
-    }
-
     /// <summary>Fires the trap of a trigger, chain included. See UWTrapRules.FireTraps.</summary>
     public static bool FireTraps(UWObject pOTrigger, UWObject pOSwitchObject, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
     {
@@ -120,7 +123,7 @@ public static class UWTriggerSystem
     /// <summary>
     /// Angers every member of a race around a tile and reports how many there were.
     ///
-    /// Used by THEFT (see Interaction.ReportTheft): whoever picks up someone else's
+    /// Used by THEFT (see UWWorldPickup.ReportTheft): whoever picks up someone else's
     /// property upsets those present of the same race - within seven tiles back and eight
     /// forward of the item, the original's area (UWCritterRules.TheftAreaBack/Forward; until
     /// 2026-09-23 seven in each direction after the reference).
@@ -233,18 +236,7 @@ public static class UWTriggerSystem
     /// </summary>
     private static string fGetCritterName(UWLevelLoader pOLevelLoader, int piObjectId)
     {
-        if (pOLevelLoader == null || pOLevelLoader.UWDataImporter == null)
-            return string.Empty;
-
-        try
-        {
-            return UWObjectDescriptionFormatter.FormatItemName(
-                pOLevelLoader.UWDataImporter.GetObjectDescription(piObjectId + 1));
-        }
-        catch
-        {
-            return string.Empty;
-        }
+        return UWText.ObjectName(pOLevelLoader != null ? pOLevelLoader.UWDataImporter : null, piObjectId, false, true);
     }
 
     /// <summary>Does the creature belong to this race? The race is the shared name from
@@ -276,7 +268,8 @@ public static class UWTriggerSystem
     /// Where the door is heading decides, not only whether it is shut: a door still swinging
     /// shut counts as closed, so "open" turns it round (the talking door closes itself at the
     /// start of its conversation and opens again at "Very well ..." - ours stayed shut, per
-    /// user, 2026-10-01).
+    /// user, 2026-10-01). The rule is UWDoorRules.GronkTogglesDoor (2026-10-12): the original's
+    /// OpenDoor, CloseDoor and ToggleDoor, which the door trap uses as well.
     /// </summary>
     public static bool TrySetDoorState(int piTileX, int piTileY, int piMode, UWLevelLoader pOLevelLoader)
     {
@@ -291,17 +284,14 @@ public static class UWTriggerSystem
         if (!pOLevelLoader.TryGetEntity(lODoorData, out UWEntityInfo lOEntity))
             return false;
 
-        IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
+        UWDoor lODoor = lOEntity.GetComponentInParent<UWDoor>();
 
-        if (lIDoor == null)
+        if (lODoor == null)
             return false;
 
-        bool lbToggle = piMode == UWConversationSession.GronkDoorToggle
-            || (piMode == UWConversationSession.GronkDoorOpen && lIDoor.IsHeadingClosed)
-            || (piMode == UWConversationSession.GronkDoorClose && !lIDoor.IsHeadingClosed);
-
-        if (lbToggle)
-            lIDoor.StartUsingDoor();
+        // gronk_door passes no opener (OpenDoor(0, door)).
+        if (UWDoorRules.GronkTogglesDoor(piMode, lODoor.IsHeadingClosed, lODoor.IsMoving))
+            lODoor.Toggle(UWTrapRules.Setter.Thing);
 
         return true;
     }
@@ -355,13 +345,9 @@ public static class UWTriggerSystem
         /// (DamageTrap_ovr107_CB2 -> DamageObject, type 4).</summary>
         public void DamageTriggeringCreature(int piDamage)
         {
-            if (mOTriggeringCritter == null)
-                return;
-
-            UWDamageable lODamageable = mOTriggeringCritter.GetComponent<UWDamageable>();
-
-            if (lODamageable != null && !lODamageable.IsDestroyed)
-                lODamageable.ApplyDamage(piDamage, UWDamageTypes.Physical);
+            // whack_thing: damage_item with no attacker (UWCritter.ApplyDamageWithoutAttacker).
+            if (mOTriggeringCritter != null)
+                mOTriggeringCritter.ApplyDamageWithoutAttacker(piDamage, UWDamageTypes.Physical);
         }
 
         private UWCharacter fPlayer
@@ -389,7 +375,7 @@ public static class UWTriggerSystem
         public bool AlwaysFireCreateObjectTraps => mOLoader != null && mOLoader.AlwaysFireCreateObjectTraps;
 
         /// <summary>The crowding check of a creation trap: a creature created during play
-        /// (UWObject.WasSpawned) within the area around the template's tile.</summary>
+        /// (UWObject.IsSpawned) within the area around the template's tile.</summary>
         public bool IsSpawnedCreatureNear(int piTileX, int piTileY, int piTilesBack, int piTilesForward)
         {
             UWCritter[] lOCritters = UWScene.FindCritters();
@@ -404,7 +390,7 @@ public static class UWTriggerSystem
 
                 UWEntityInfo lOEntity = lOCritter.GetComponentInChildren<UWEntityInfo>();
 
-                if (lOEntity == null || lOEntity.ObjectData == null || !lOEntity.ObjectData.WasSpawned)
+                if (lOEntity == null || lOEntity.ObjectData == null || !lOEntity.ObjectData.IsSpawned)
                     continue;
 
                 UWTilePos lOTile = mOLoader.WorldPositionToTile(lOCritter.transform.position);
@@ -446,29 +432,18 @@ public static class UWTriggerSystem
                 lOEntity.GetComponent<UWSwitchVisual>()?.Toggle();
         }
 
-        public bool TryGetLeverTileHeight(UWObject pOSwitchObject, int piStepSize, out int piHeight)
-        {
-            piHeight = 0;
-
-            if (mOLoader == null || !mOLoader.TryGetEntity(pOSwitchObject, out UWEntityInfo lOEntity))
-                return false;
-
-            UWHeightLever lOLever = lOEntity.GetComponent<UWHeightLever>();
-
-            if (lOLever == null)
-                return false;
-
-            piHeight = lOLever.GetTileHeight(piStepSize);
-
-            return true;
-        }
-
         // ------------------------------------------------- The world
 
         public void RebuildGeometry()
         {
             if (mOLoader != null)
                 mOLoader.RebuildGeometry();
+        }
+
+        public void OnObjectHeightChanged(UWObject pOObject, int piOldZPos)
+        {
+            if (pOObject != null && mOLoader != null && mOLoader.TryGetEntity(pOObject, out UWEntityInfo lOEntity))
+                lOEntity.transform.position += Vector3.up * (UWUnits.ZPosToWorld(pOObject.ZPos) - UWUnits.ZPosToWorld(piOldZPos));
         }
 
         public void SpawnPendingObjectsInTile(int piTileX, int piTileY)
@@ -492,72 +467,72 @@ public static class UWTriggerSystem
             return mOLoader != null && mOLoader.RemoveObjectFromWorld(pOObject);
         }
 
+        /// <summary>The teleport trap's move: do_teleport's own search first on the same level
+        /// (UWLevelLoader.TeleportTo, 2026-10-15).</summary>
         public void TravelTo(int piLevelIndex, int piTileX, int piTileY)
         {
             if (mOLoader != null)
-                mOLoader.TravelTo(piLevelIndex, piTileX, piTileY);
+                mOLoader.TeleportTo(piLevelIndex, piTileX, piTileY);
         }
 
-        /// <summary>The door side of an a_door trap: lock first - it helps decide whether the
-        /// door can be operated by hand afterwards -, then the door acts.</summary>
+        /// <summary>
+        /// The door side of an a_door trap - the rule is UWDoorRules.DoorTrap (2026-10-12): on a
+        /// door at rest the lock is replaced first, then the leaf acts by the trap's quality; on a
+        /// door in motion the lock stays and only a swing against the trap's wish is turned round.
+        ///
+        /// THE LOCK IS REPLACED, NOT TOGGLED (DoorTrap_loc_8F8DD labels 943 to 9F5, read
+        /// 2026-10-06): an a_lock on the door is taken off and freed, then a copy of the template
+        /// the trap links to is put on - the same lock however often it fires. Until 2026-10-06 a
+        /// lock was removed when there was one and the template applied when there was none,
+        /// which a repeated close trap turned into locked, unlocked, locked.
+        ///
+        /// A DOOR IN MOTION: from 2026-10-06 to 2026-10-12 the trap skipped it altogether, after an
+        /// IDA reading that saw only the door object branch - the byte-exact decompilation
+        /// (UnderworldExhumed TRIGGER.C, TRAP_DOOR) has a second branch for the moving door 0x1CF.
+        /// What the user saw on 2026-10-06 (the close trap before Drog's grate, level 1, 15/33,
+        /// fired again while the grate came down and turned it round: down and up, over and over)
+        /// was "close unless closed" on a grate that is not closed while it closes; the original's
+        /// CloseDoor leaves a closing door alone (B10).
+        /// </summary>
         public void FireDoorTrap(UWObject pODoor, int piAction, UWObject pOLockTemplate)
         {
             if (mOLoader == null || mOLoader.CurrentLevel == null
                 || !mOLoader.TryGetEntity(pODoor, out UWEntityInfo lOEntity))
                 return;
 
-            IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
+            UWDoor lODoor = lOEntity.GetComponentInParent<UWDoor>();
 
-            // A DOOR IN MOTION IS NO DOOR FOR THE TRAP (DoorTrap_loc_8F8DD, read 2026-10-06): the
-            // original looks for a door object in the tile, and a moving door is an animation
-            // object (0x1CF) until it stops, so the trap finds nothing and does nothing - lock
-            // included. Since move triggers fire on every motion frame in reach, the close trap
-            // before Drog (level 1, 15/33) came again while the grate was coming down, and "close
-            // unless closed" turned it round: down and up, over and over (per user the same day).
-            if (lIDoor != null && lIDoor.IsMoving)
+            if (lODoor == null)
                 return;
 
-            UWDoorLock lOLock = lOEntity.GetComponentInParent<UWDoorLock>();
+            UWDoorRules.TrapOutcome lOOutcome = UWDoorRules.DoorTrap(piAction, lODoor.IsHeadingClosed, lODoor.IsMoving);
 
-            if (lOLock != null)
-            {
-                lOLock.EnsureResolved(pODoor, mOLoader.CurrentLevel.Masterlist);
+            if (lOOutcome.ReplaceLock)
+                lODoor.ReplaceLock(pOLockTemplate);
 
-                // THE LOCK IS REPLACED, NOT TOGGLED (labels 943 to 9F5): an a_lock on the door is
-                // taken off and freed, then a copy of the template the trap links to is put on -
-                // the same lock however often it fires. Until 2026-10-06 a lock was removed when
-                // there was one and the template applied when there was none, which a repeated
-                // close trap turned into locked, unlocked, locked.
-                if (lOLock.HasLock)
-                    lOLock.RemoveLock();
-
-                lOLock.ApplyLock(pOLockTemplate);
-            }
-
-            if (lIDoor == null)
-                return;
-
-            switch (piAction)
-            {
-                case UWObjectMechanics.DoorTrapOpenAction:
-                    if (lIDoor.IsClosed)
-                        lIDoor.StartUsingDoor();
-                    break;
-
-                case UWObjectMechanics.DoorTrapCloseAction:
-                    if (!lIDoor.IsClosed)
-                        lIDoor.StartUsingDoor();
-                    break;
-
-                default:
-                    lIDoor.StartUsingDoor();
-                    break;
-            }
+            // OpenDoor(CharacterThatTriggeredTrap, door): whoever set the chain off opens it.
+            if (lOOutcome.Toggle)
+                lODoor.Toggle(mOTriggeringCritter != null ? UWTrapRules.Setter.Creature
+                    : miTriggeringThing != 0 ? UWTrapRules.Setter.Thing
+                    : UWTrapRules.Setter.Player);
         }
 
         // ------------------------------------------------- The player
 
         public bool HasPlayer => fPlayer != null;
+
+        /// <summary>The tile under the eye, as the trespass search takes it.</summary>
+        public UWTilePos PlayerTile
+        {
+            get
+            {
+                Camera lOCamera = Camera.main;
+
+                return lOCamera != null && mOLoader != null
+                    ? mOLoader.WorldPositionToTile(lOCamera.transform.position)
+                    : new UWTilePos(-1, -1);
+            }
+        }
 
         public UWInventoryModel Inventory
         {
@@ -582,6 +557,8 @@ public static class UWTriggerSystem
         }
 
         public int PlayerCastingSkill => fPlayer != null ? fPlayer.GetSkill(UWPlayerData.Skill.Casting) : 0;
+
+        public int PlayerDamageTypeProof => fPlayer != null ? fPlayer.DamageTypeProof : 0;
 
         // ------------------------------------------------- Messages
 
@@ -644,25 +621,14 @@ public static class UWTriggerSystem
             return false;
         }
 
-        /// <summary>Sends the pending projectile from the trap toward the player - see
-        /// FireSpellTrap. As with the arrow trap, the start point is the trigger's target tile
-        /// with the trap's sub-tile position. The trap itself is in no tile list,
-        /// its TileX/TileY is not reliable.</summary>
+        /// <summary>Sends the pending projectile from the trap along the trap's heading - see
+        /// UWTrapRules.SpellTrapMissileHeading. As with the arrow trap, the start point is the
+        /// trigger's target tile with the trap's sub-tile position and height. The trap itself
+        /// need not lie in a tile list, its TileX/TileY is not reliable.</summary>
         private static bool fLaunchTrapProjectile(UWObject pOTrap, int piTileX, int piTileY, Interaction pOInteraction)
         {
-            Camera lOCamera = Camera.main;
-
-            if (lOCamera == null)
-                return false;
-
-            Vector3 lOStart = UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap);
-
-            Vector3 lODirection = lOCamera.transform.position - lOStart;
-
-            if (lODirection.sqrMagnitude < 0.0001f)
-                return false;
-
-            return pOInteraction.LaunchPendingSpellFrom(lOStart, lODirection.normalized);
+            return pOInteraction.LaunchPendingSpellFromSpot(piTileX, piTileY, pOTrap.XPos & 7, pOTrap.YPos & 7, pOTrap.ZPos,
+                UWTrapRules.SpellTrapMissileHeading(pOTrap));
         }
 
         /// <summary>See UWTrapRules.fFireCameraTrap: the tile has been decided there.</summary>
@@ -670,8 +636,24 @@ public static class UWTriggerSystem
         {
             Vector3 lOPosition = UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap);
 
+            // The vision is lit at level 6 (crystal_ball, PLAYER.C: set_light(6) before it;
+            // UWLighting.BeginCrystalBallLight, 2026-10-15). When the vision ends the original
+            // runs its status pass (FixPlayerEquips after cameras_fade), which gives the player
+            // his own light back and where a worn curse strikes (2026-10-13).
+            UWLighting lOLighting = UWScene.Lighting;
+
+            if (lOLighting != null)
+                lOLighting.BeginCrystalBallLight();
+
             return UWRemoteCamera.Ensure().Begin(UWRemoteCamera.TrapPriority,
-                lOPosition, pOTrap.Heading * 45f, 0f, true, null) > 0;
+                lOPosition, UWHeadings.EighthToDegrees(pOTrap.Heading), 0f, true,
+                () =>
+                {
+                    if (lOLighting != null)
+                        lOLighting.EndCrystalBallLight();
+
+                    UWScene.Character?.OnStatusPassDue();
+                }) > 0;
         }
 
         /// <summary>Trespassing: the search area is centred on the PLAYER (see
@@ -689,21 +671,17 @@ public static class UWTriggerSystem
             // TrespassTrap_ovr107_11B9 hands the routine the PLAYER object, so they look at the
             // player's spot in eighths and at his zpos plus the player object's height plus 12,
             // as for a stolen item (UWCritterRules.GetTheftSightZ).
-            int liX8 = (lOPlayer.X << 3) + fGetEighth(lOAt.x - (lOPlayer.X * UWLevelMeshBuilder.TileSpacing));
-            int liY8 = (lOPlayer.Y << 3) + fGetEighth(lOAt.z - (lOPlayer.Y * UWLevelMeshBuilder.TileSpacing));
-            int liZPos = Mathf.Clamp(Mathf.RoundToInt(mOLoader.GetFloorHeightAt(lOAt) / UWObjectSpawner.HeightScale), 0, 127);
+            // The cell the point lies in, the original's (pos >> 5) & 7 - not the nearest stored
+            // spot (UWTileQueries.WorldToEighthFloor, decision 21 of Docs/CLEANUP-PLAN.md).
+            int liX8 = (lOPlayer.X << 3) + UWTileQueries.WorldToEighthFloor(lOAt.x);
+            int liY8 = (lOPlayer.Y << 3) + UWTileQueries.WorldToEighthFloor(lOAt.z);
+            int liZPos = Mathf.Clamp(UWUnits.WorldToZPos(mOLoader.GetFloorHeightAt(lOAt)), 0, 127);
 
             // The player object WHILE PLAYING is 127, "an adventurer", height 23 - on disk slot 1
             // holds 63 with height 0 (UWObjectMechanics.AdventurerObjectId).
             return fAngerRace(piOwner, lOPlayer, piTilesBack, piTilesForward, liX8, liY8,
                 UWCritterRules.GetTheftSightZ(liZPos, fGetHeight(UWObjectMechanics.AdventurerObjectId, mOLoader)),
                 mOLoader, mOInteraction);
-        }
-
-        /// <summary>The eighth of a tile a world offset from the tile's centre falls into.</summary>
-        private static int fGetEighth(float pfFromCentre)
-        {
-            return Mathf.Clamp(Mathf.FloorToInt(((pfFromCentre / UWLevelMeshBuilder.TileSpacing) + 0.5f) * 8f), 0, 7);
         }
 
         public bool HasTriggeringCreature => mOTriggeringCritter != null;
@@ -715,10 +693,9 @@ public static class UWTriggerSystem
             if (mOTriggeringCritter == null)
                 return;
 
-            UWDamageable lODamageable = mOTriggeringCritter.GetComponent<UWDamageable>();
-
-            if (lODamageable != null)
-                lODamageable.ApplyDamage(piDamage, UWDamageTypes.Physical);
+            // The ward hands its damage to whack_thing, which has no attacker: the creature does
+            // not learn who laid the rune (UWCritter.ApplyDamageWithoutAttacker).
+            mOTriggeringCritter.ApplyDamageWithoutAttacker(piDamage, UWDamageTypes.Physical);
 
             if (mOInteraction == null || fPlayer == null)
                 return;
@@ -754,7 +731,7 @@ public static class UWTriggerSystem
             UWCharacter lOCharacter = UWScene.Character;
 
             if (lOCharacter != null)
-                lOCharacter.ApplyCurse(piDice, true);
+                lOCharacter.ApplyCurse(piDice);
         }
 
         /// <summary>Cutscene 3 for the freeing of Arial.</summary>
@@ -783,8 +760,10 @@ public static class UWTriggerSystem
         /// (BouncePlayer_seg008_D9E).</summary>
         public void BouncePlayer(int piIntensity)
         {
+            // The movement sits on the character's parent (until 2026-10-13 never found here, so
+            // the quake never threw the player up).
             UWPlayerMovement lOMovement = UWScene.Character != null
-                ? UWScene.Character.GetComponent<UWPlayerMovement>()
+                ? UWScene.Character.GetComponentInParent<UWPlayerMovement>()
                 : null;
 
             if (lOMovement != null)
@@ -852,12 +831,8 @@ public static class UWTriggerSystem
     /// does not exist - only for the trap log.</summary>
     private static float fGetFloorHeight(UWLevelLoader pOLevelLoader, int piTileX, int piTileY)
     {
-        if (pOLevelLoader.CurrentLevel == null
-            || piTileX < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || piTileY < 0 || piTileY >= UWLevelMeshBuilder.TilesPerAxis)
-            return 0f;
-
-        UWTile lOTile = pOLevelLoader.CurrentLevel.TileData[(piTileY * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = pOLevelLoader.CurrentLevel != null
+            ? pOLevelLoader.CurrentLevel.GetTile(piTileX, piTileY) : null;
 
         return lOTile != null ? lOTile.FloorHeight : 0f;
     }
@@ -869,9 +844,4 @@ public static class UWTriggerSystem
     private const int TrapPitch = 2;
 
     private const int TrapSpeedByte = 0x14;
-
-    /// <summary>Ammunition that flies as a 3D model instead of an image.</summary>
-    private const int CrossbowBoltObjectId = UWObjectMechanics.CrossbowBoltObjectId;
-
-    private const int ArrowObjectId = UWObjectMechanics.ArrowObjectId;
 }

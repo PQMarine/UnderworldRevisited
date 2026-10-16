@@ -150,6 +150,8 @@ public class UWIntroPlayer : MonoBehaviour
     {
         System.Action lOOnFinished = mOOnFinished;
 
+        miFinishFrame = Time.frameCount;
+
         Stop();
 
         if (lOOnFinished != null)
@@ -333,14 +335,7 @@ public class UWIntroPlayer : MonoBehaviour
     /// <summary>A string by game numbering - our export is one higher.</summary>
     private string fGetString(int piBlock, int piIndex)
     {
-        try
-        {
-            return mOData.Strings.Blocks[piBlock].Strings[piIndex + 1].TrimEnd('\n');
-        }
-        catch
-        {
-            return string.Empty;
-        }
+        return UWText.Block(mOData, piBlock, piIndex + 1);
     }
 
     private Color32 fGetPaletteColour(int piPalette, int piIndex)
@@ -427,7 +422,7 @@ public class UWIntroPlayer : MonoBehaviour
     private RawImage mOPictureImage;
 
     /// <summary>The centred 320x200 frame a FULL-SCREEN picture sits in, kept at the pixel
-    /// proportion of UWSettings.DisplayAs4By3 by UWPixelAspectFrame - the same frame the game,
+    /// proportion of the classic screen (UWDisplayAspect) by UWPixelAspectFrame - the same frame the game,
     /// the conversation and the menus use. Until 2026-09-22 a full-screen picture was stretched
     /// over the whole window instead, so on a wide screen the logos, the title and the intro
     /// came out neither 4:3 nor 16:10 (per user: "take the 4:3 fix into account").</summary>
@@ -464,6 +459,16 @@ public class UWIntroPlayer : MonoBehaviour
     private float mfSpeechEndsAt;
 
     public bool IsPlaying => mOPlayback != null;
+
+    /// <summary>The frame a sequence last ended in (fFinish).</summary>
+    private int miFinishFrame = -1;
+
+    /// <summary>
+    /// Whether the game's keys must stay silent: a sequence plays, or one ended in this very
+    /// frame - the Escape that cancelled a dream also opened the modern game menu, as the game's
+    /// key routing (UWGameUI) ran after the cancel in the same frame (per user, 2026-10-13).
+    /// </summary>
+    public bool HoldsKeys => IsPlaying || miFinishFrame == Time.frameCount;
 
 #if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
     private float mfNextLinuxCursorHide;
@@ -962,7 +967,7 @@ public class UWIntroPlayer : MonoBehaviour
         // THE MODERN SCHEME hides the classic view window: the picture lies in the middle in a
         // leather frame at the UI's size, as the view's pictures do (UWModernHud, per user
         // 2026-10-04: the anvil's sequence was not in such a frame).
-        mbModernFrame = fIsModern();
+        mbModernFrame = UWControlScheme.IsModern;
 
         if (mbModernFrame)
             lOScreen = fPlaceModernFrame(lOUi, lOBlock);
@@ -988,13 +993,6 @@ public class UWIntroPlayer : MonoBehaviour
     private bool mbModernFrame;
 
     private const int ModernFrameBorder = 3;
-
-    private static bool fIsModern()
-    {
-        UWControlScheme lOScheme = UWScene.ControlScheme;
-
-        return lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
 
     /// <summary>The block's place in the middle of the screen at the modern UI's size, and the
     /// leather frame around it; returns the picture's screen rectangle.</summary>
@@ -1027,8 +1025,14 @@ public class UWIntroPlayer : MonoBehaviour
             mOModernFrame.texture = mOModernFrameTexture;
         }
 
-        // Beneath the picture.
-        mOModernFrame.transform.SetSiblingIndex(mOPictureImage.transform.GetSiblingIndex());
+        // BENEATH THE PICTURE - only moved when it lies above it. Setting the frame to the
+        // picture's index every time put it beneath on the first play and ABOVE on the second
+        // (the frame already stood before the picture, so the picture slid down one place), so
+        // every second anvil sequence showed nothing but leather (per user, 2026-10-12).
+        int liPicture = mOPictureImage.transform.GetSiblingIndex();
+
+        if (mOModernFrame.transform.GetSiblingIndex() > liPicture)
+            mOModernFrame.transform.SetSiblingIndex(liPicture);
 
         Rect lOFrame = new Rect(lOPicture.x - ((UWModernHudArt.LeatherLeft + ModernFrameBorder) * liScale),
             lOPicture.y - ((UWModernHudArt.LeatherBottom + ModernFrameBorder) * liScale), liFrameWidth * liScale, liFrameHeight * liScale);
@@ -1573,9 +1577,7 @@ public class UWIntroPlayer : MonoBehaviour
     /// open-file.</summary>
     private static string fBuildFileName(int piCutscene, int piPage)
     {
-        return string.Format("CS{0}.N{1}",
-            System.Convert.ToString(piCutscene, 8).PadLeft(3, '0'),
-            System.Convert.ToString(piPage, 8).PadLeft(2, '0'));
+        return UWCutscene.FileName(piCutscene, piPage);
     }
 
     private void fOpenAnimation(string psFileName)
@@ -1701,24 +1703,18 @@ public class UWIntroPlayer : MonoBehaviour
         if (piStringIndex == UWCutsceneScript.NoText)
             return null;
 
-        try
-        {
-            // The usual project +1: our parsed string blocks are one entry
-            // above the game numbering (as with GetObjectDescription or the partner names
-            // of the conversations). Without it the subtitle lags one line behind the
-            // sound - checked by user in the original, 2026-08-29: with the sound "At last, you
-            // are asleep." entry 0 was wrongly shown.
-            //
-            // Evidence in the data itself: entry 0 is a truncated fragment
-            // ("s brought you starting..."), whose complete version is
-            // entry 2. A clean block does not start mid-sentence.
-            return UWFontRenderer.CleanText(
-                mOData.Strings.Blocks[fGetSpeechBlock()].Strings[piStringIndex + 1]);
-        }
-        catch
-        {
-            return null;
-        }
+        // The usual project +1: our parsed string blocks are one entry
+        // above the game numbering (as with GetObjectDescription or the partner names
+        // of the conversations). Without it the subtitle lags one line behind the
+        // sound - checked by user in the original, 2026-08-29: with the sound "At last, you
+        // are asleep." entry 0 was wrongly shown.
+        //
+        // Evidence in the data itself: entry 0 is a truncated fragment
+        // ("s brought you starting..."), whose complete version is
+        // entry 2. A clean block does not start mid-sentence.
+        string lsRaw = UWText.Block(mOData, fGetSpeechBlock(), piStringIndex + 1, null);
+
+        return lsRaw == null ? null : UWFontRenderer.CleanText(lsRaw);
     }
 
     /// <summary>

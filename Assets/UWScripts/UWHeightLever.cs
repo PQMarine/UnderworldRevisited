@@ -27,7 +27,7 @@ using UWDataImport.UWData;
 /// by user and NOT to be accidentally "fixed" during the next rework: when the
 /// level is built, the target tile stays at its static height from the level data,
 /// which does NOT match the lever position. Only an actual use sets it to
-/// position-0 height + position * step (see UWObjectMechanics.DoTrapRaiseTileBaseHeight).
+/// (trap z + position * 8) / 8 (see UWTrapRules.fFireEightPositionSwitch).
 ///
 /// Sits next to the MeshFilter (see UWObjectSpawner.fSpawnDecal, ID 353 in the
 /// PillarSomeDecals branch).
@@ -55,13 +55,15 @@ public class UWHeightLever : MonoBehaviour
     }
 
     /// <summary>Advances one position and shows the matching image. Returns the new
-    /// position.</summary>
+    /// position. UseRect (UnderworldExhumed USEITEMS.C) writes (flags + 1) &amp; 7 into the four-bit
+    /// flags field, so bit 3 goes with the first use (since 2026-10-12; the height trap reads the
+    /// whole field, UWTrapRules.fFireEightPositionSwitch).</summary>
     public int Advance()
     {
         if (mOData == null)
             return 0;
 
-        mOData.Flags = (ushort)((mOData.Flags & ~PositionMask) | ((mOData.Flags + 1) & PositionMask));
+        mOData.Flags = (ushort)((mOData.Flags + 1) & PositionMask);
 
         if (mFilter != null && mPositionMeshes != null && Position < mPositionMeshes.Length
             && mPositionMeshes[Position] != null)
@@ -70,12 +72,4 @@ public class UWHeightLever : MonoBehaviour
         return Position;
     }
 
-    /// <summary>The height the target tile of a platform lever belongs at - from the
-    /// CURRENT position, which has already been advanced at this point (see the
-    /// class comment). piStepSize comes from the trap chain and is only known at
-    /// use time.</summary>
-    public int GetTileHeight(int piStepSize)
-    {
-        return UWObjectMechanics.DoTrapRaiseTileBaseHeight + (Position * piStepSize);
-    }
 }

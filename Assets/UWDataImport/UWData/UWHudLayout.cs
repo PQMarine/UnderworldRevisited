@@ -68,8 +68,8 @@ namespace UWDataImport.UWData
 			float lfX = lfAnchorX - (lOPlacement.Anchor.X * pODefault.Width);
 			float lfY = lfAnchorY - (lOPlacement.Anchor.Y * pODefault.Height);
 
-			lfX = fClamp(lfX, 0f, Math.Max(0f, pfScreenWidth - pODefault.Width));
-			lfY = fClamp(lfY, 0f, Math.Max(0f, pfScreenHeight - pODefault.Height));
+			lfX = UWMath.Clamp(lfX, 0f, Math.Max(0f, pfScreenWidth - pODefault.Width));
+			lfY = UWMath.Clamp(lfY, 0f, Math.Max(0f, pfScreenHeight - pODefault.Height));
 
 			return new UWRect((float)Math.Round(lfX), (float)Math.Round(lfY), pODefault.Width, pODefault.Height);
 		}
@@ -120,14 +120,6 @@ namespace UWDataImport.UWData
 			return pfAt > pfLength * 2f / 3f ? 1f : 0.5f;
 		}
 
-		private static float fClamp(float pfValue, float pfMin, float pfMax)
-		{
-			if (pfValue < pfMin)
-				return pfMin;
-
-			return pfValue > pfMax ? pfMax : pfValue;
-		}
-
 		// ------------------------------------------------- As text
 
 		/// <summary>A layout of piCount parts from its text; what does not parse is left at the
@@ -155,7 +147,7 @@ namespace UWDataImport.UWData
 				Placement lOPlacement = lOLayout.mOPlacements[liElement];
 
 				lOPlacement.Placed = lfValues[0] >= 0f;
-				lOPlacement.Anchor = new UWVector2(fClamp(lfValues[0], 0f, 1f), fClamp(lfValues[1], 0f, 1f));
+				lOPlacement.Anchor = new UWVector2(UWMath.Clamp(lfValues[0], 0f, 1f), UWMath.Clamp(lfValues[1], 0f, 1f));
 				lOPlacement.Offset = new UWVector2(lfValues[2], lfValues[3]);
 				lOPlacement.Percent = Math.Min(Math.Max(liPercent, MinPercent), MaxPercent);
 			}

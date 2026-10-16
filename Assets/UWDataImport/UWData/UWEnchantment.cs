@@ -65,7 +65,8 @@ namespace UWDataImport.UWData
 			/// not as an "of" suffix after it.</summary>
 			public bool IsCursed;
 
-			/// <summary>Remaining charges, or -1 if the item has none.</summary>
+			/// <summary>The charges a look shows, or -1 for none: the quality of a chained spell
+			/// object in the charged form (ID_FLAG11), not for a curse (do_of).</summary>
 			public int Charges;
 
 			/// <summary>
@@ -125,7 +126,11 @@ namespace UWDataImport.UWData
 			if (!lOResult.IsCursed)
 				lOResult.Name = fGetName(pOItem, liMajor, liMinor, lbFlag2, pOStrings);
 
-			lOResult.Charges = liCharges;
+			// CHARGES ONLY FOR THE CHARGED FORM, NEVER FOR A CURSE: do_of (UnderworldExhumed
+			// obj/LOOK.C, read 2026-10-15) returns before anything for major 9 and counts the
+			// spell object's quality only when it carries ID_FLAG11 (Flags bit 2). Until
+			// 2026-10-15 ours showed the quality of any spell object in the chain.
+			lOResult.Charges = !lOResult.IsCursed && lbFlag2 ? liCharges : -1;
 
 			return lOResult;
 		}
@@ -136,14 +141,14 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static UWObject fFindCarrier(UWObject pOItem, List<UWObject> pOObjectList, ref int piCharges)
 		{
-			if ((pOItem.ID >> 6) == TrapMajorClass)
+			if (UWObjectIds.Major(pOItem.ID) == TrapMajorClass)
 				return null;
 
 			if (pOItem.HasQuantity)
 			{
 				// No enchantment bit, or an item of class 5 - there the field
 				// means something else.
-				if (!pOItem.IsEnchanted || (pOItem.ID >> 6) == 5)
+				if (!pOItem.IsEnchanted || UWObjectIds.Major(pOItem.ID) == UWObjectMechanics.DoorMajorClass)
 					return null;
 
 				return pOItem;
@@ -198,7 +203,7 @@ namespace UWDataImport.UWData
 				// is sixteen entries further on.
 				liStringNumber = 0x1C0;
 
-				if (((pOItem.ID >> 4) & 0x3) >= 2)
+				if (UWObjectIds.Minor(pOItem.ID) >= 2)
 					liStringNumber += 16;
 
 				liStringNumber += piMinor;

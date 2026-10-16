@@ -62,12 +62,12 @@ public class UWModernHud : MonoBehaviour
 
     /// <summary>Whether the HUD is on screen: the modern scheme, no conversation, no screen menu
     /// or cutscene over it. The bags (UWModernBags) show with it.</summary>
-    public bool IsShowing => fIsModern() && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
+    public bool IsShowing => UWControlScheme.IsModern && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
         && mOInteraction != null && !fIsCovered() && !UWConversationScreen.IsAnyOpen;
 
     /// <summary>A conversation in the modern scheme (UWModernConversation): the HUD hides, the bags
     /// and the character panel stay for the trade.</summary>
-    public bool IsTalking => fIsModern() && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
+    public bool IsTalking => UWControlScheme.IsModern && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
         && mOInteraction != null && !fIsCovered() && UWConversationScreen.IsAnyOpen;
 
     /// <summary>How large the weapon is drawn against the screen: 1 maps the original's viewport
@@ -345,11 +345,6 @@ public class UWModernHud : MonoBehaviour
 
     // ------------------------------------------------- The HUD
 
-    private bool fIsModern()
-    {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
-
     private bool fIsCovered()
     {
         UWIntroPlayer lOIntro = UWScene.IntroPlayer;
@@ -377,7 +372,7 @@ public class UWModernHud : MonoBehaviour
 
     private void LateUpdate()
     {
-        bool lbModern = fIsModern() && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
+        bool lbModern = UWControlScheme.IsModern && mOUi != null && mOUi.mOUWData != null && mOCharacter != null
             && mOInteraction != null;
 
         // Leaving the modern scheme (Shift+F2) or a screen menu taking over closes the menu.
@@ -1134,7 +1129,7 @@ public class UWModernHud : MonoBehaviour
         mbHeadingHovered = false;
 
         if (!IsShowing || IsOpen || UWControls.IsTextEntryActive || !UWModernPointer.IsFree || UnityEngine.InputSystem.Mouse.current == null
-            || mOScheme == null || mOScheme.Controls == null || mOUi.Runes == null)
+            || mOScheme == null || mOScheme.Controls == null || mOUi.Runes == null || UWModernPointer.PanelsHeld)
             return;
 
         Vector2 lOAt = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
@@ -1911,8 +1906,9 @@ public class UWModernHud : MonoBehaviour
 
         // A spell waiting for its target (UWHudRunes.fAfterModernCast) shows the original's target
         // pointer instead of the crosshair - the free pointer turns into it (UWGameUI).
-        // A ranged weapon charged to its minimum likewise (Interaction.IsRangedTargeting, per user,
-        // 2026-10-04: the red circle shows when the charge suffices).
+        // A ranged weapon drawn back likewise (Interaction.IsRangedTargeting, per user,
+        // 2026-10-04: the red circle shows when the shot is ready - since 2026-10-12 at the end of
+        // the wind-up, as in the original).
         //
         // THE CROSSHAIR IS THE GAME'S OWN POINTER (per user, 2026-10-04: the normal cursor instead of
         // the dot) - the cross the free pointer shows as well (UWGameUI), so locking and freeing
@@ -2096,6 +2092,7 @@ public class UWModernHud : MonoBehaviour
 
     public void CloseMenu()
     {
+        mOKeyNav.Reset();
         mePage = PageEnum.Closed;
         fReleaseHolds();
     }
@@ -2113,9 +2110,10 @@ public class UWModernHud : MonoBehaviour
         return UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
     }
 
+    /// <summary>Since 2026-10-11 through UWText, so the trailing CR/LF is trimmed here too.</summary>
     private string fMessage(int piIndex)
     {
-        return mOUi != null && mOUi.mOUWData != null ? mOUi.mOUWData.GetGeneralMessage(piIndex) : string.Empty;
+        return UWText.General(mOUi != null ? mOUi.mOUWData : null, piIndex);
     }
 
     private void fSave()
@@ -2253,6 +2251,8 @@ public class UWModernHud : MonoBehaviour
 
     private void OnGUI()
     {
+        UWImguiInput.BeginOnGUI();
+
         if (mePage == PageEnum.Closed || mePage == PageEnum.Layout)
             return;
 
@@ -2268,12 +2268,14 @@ public class UWModernHud : MonoBehaviour
         Matrix4x4 lOMatrix = GUI.matrix;
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
+        UWImguiInput.AfterMatrix();
 
         float lfWidth = Screen.width / lfScale;
         Rect lOPanel = new Rect((lfWidth - 380f) * 0.5f, 90f, 380f, 560f);
 
         GUI.DrawTexture(lOPanel, mOBackgroundTexture);
         GUILayout.BeginArea(new Rect(lOPanel.x + 24f, lOPanel.y + 18f, lOPanel.width - 48f, lOPanel.height - 36f));
+        UWImguiInput.Sync();
 
         // The buttons' places for the gamepad (fRecordEntry), gathered in the repaint.
         mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
@@ -2281,6 +2283,19 @@ public class UWModernHud : MonoBehaviour
 
         if (Event.current.type == EventType.Repaint)
             mOEntryRectsDrawing.Clear();
+
+        // THE ARROW KEYS (UWImguiKeyNav, per user 2026-10-12, a fallback for a mouse that cannot
+        // click): the first arrow puts the focus on a button, Enter or Space presses it; the bar's
+        // own navigation (F10) has the keys while it is on. A new page starts at its first button.
+        if (mePage != meKeyNavPage)
+        {
+            meKeyNavPage = mePage;
+
+            if (mOKeyNav.IsActive)
+                mOKeyNav.Activate();
+        }
+
+        mOKeyNav.Begin(!UWSetupMenu.KeyNavActive, true);
 
         switch (mePage)
         {
@@ -2291,8 +2306,12 @@ public class UWModernHud : MonoBehaviour
             case PageEnum.Detail: fDrawDetail(); break;
         }
 
+        mOKeyNav.End();
+
         GUILayout.EndArea();
+        UWImguiInput.Sync();
         GUI.matrix = lOMatrix;
+        UWImguiInput.AfterMatrix();
 
         if (Event.current.type == EventType.Repaint)
         {
@@ -2326,7 +2345,7 @@ public class UWModernHud : MonoBehaviour
 
         GUI.enabled = lbEnabled && pbBuilt;
 
-        bool lbPressed = GUILayout.Button(psText, pePreset == peCurrent ? mOCurrentPresetStyle : mOButtonStyle, GUILayout.Height(30f));
+        bool lbPressed = mOKeyNav.LayoutButton(psText, pePreset == peCurrent ? mOCurrentPresetStyle : mOButtonStyle, GUILayout.Height(30f));
 
         fRecordEntry();
         GUI.enabled = lbEnabled;
@@ -2342,7 +2361,7 @@ public class UWModernHud : MonoBehaviour
     {
         GUILayout.Space(6f);
 
-        bool lbPressed = GUILayout.Button(pOContent, mOButtonStyle, GUILayout.Height(38f));
+        bool lbPressed = mOKeyNav.LayoutButton(pOContent, mOButtonStyle, GUILayout.Height(38f));
 
         fRecordEntry();
 
@@ -2354,6 +2373,12 @@ public class UWModernHud : MonoBehaviour
     /// <summary>The gamepad steps through the buttons (UWPadEntryStepper, per user 2026-10-08:
     /// as in the context menu).</summary>
     private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
+
+    /// <summary>The arrow keys over the menu's buttons (UWImguiKeyNav) and the page they were
+    /// counted on.</summary>
+    private readonly UWImguiKeyNav mOKeyNav = new UWImguiKeyNav();
+
+    private PageEnum meKeyNavPage = PageEnum.Closed;
 
     /// <summary>The buttons' screen rectangles of the last drawn frame, and those being drawn.</summary>
     private readonly List<Rect> mOEntryRects = new List<Rect>();
@@ -2409,7 +2434,9 @@ public class UWModernHud : MonoBehaviour
         if (fButton("Resume"))
             CloseMenu();
 
-        if (fButton("Save game"))
+        // Refused in the Void (the original's check_save, UWHudOptions.RefusesToSave); restoring
+        // is always allowed there (check_rest).
+        if (fButton("Save game") && (mOUi == null || mOUi.Options == null || !mOUi.Options.RefusesToSave()))
             mePage = PageEnum.Save;
 
         if (fButton("Restore game"))

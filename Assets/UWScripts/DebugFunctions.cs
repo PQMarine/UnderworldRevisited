@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
 public class DebugFunctions : MonoBehaviour
 {
@@ -72,6 +73,11 @@ public class DebugFunctions : MonoBehaviour
                 //mOPlayer.transform.localRotation = mOSpectatorCam.transform.localRotation;
                 fSetSpectatorView(false);
                 mOPlayer.SetActive(true);
+
+                // Back to the normal light with the end of noclip (per user, 2026-10-12);
+                // until then the debug brightness stayed on after leaving.
+                if (mOLighting != null && mOLighting.IsBright)
+                    mOLighting.ToggleDebugBrightness();
             }
         }
 
@@ -88,9 +94,57 @@ public class DebugFunctions : MonoBehaviour
         if (mControls.Debug.ToggleBrightness.WasPressedThisFrame() && mOLighting != null && !UWScreenUi.IsScreenMenuOpen)
             mOLighting.ToggleDebugBrightness();
 
+        if (mControls.Debug.DumpShaderGlobals.WasPressedThisFrame())
+            UWShaderGlobalsDump.Dump();
+
+        // Shift+F11: the nearest creature with a spell casts its second one at once (its first
+        // when the second slot is empty) - for the test of a creature's area spell, which the
+        // original rolls with its caster strength out of 128 and only out of melee reach.
+        if (mControls.Debug.ForceCast.WasPressedThisFrame() && !UWScreenUi.IsScreenMenuOpen)
+            fForceNearestCast();
+
         // The F6 switch between the lowest detail level and the last other one is gone since
         // 2026-09-26 (per user) - the Graphics menu of the bar and the options panel choose it.
 	}
+
+    private void fForceNearestCast()
+    {
+        if (mOPlayer == null)
+            return;
+
+        UWCritter lONearest = null;
+        float lfNearest = float.MaxValue;
+
+        foreach (UWCritter lOCritter in Object.FindObjectsByType<UWCritter>(FindObjectsSortMode.None))
+        {
+            if (lOCritter == null || lOCritter.Brain == null)
+                continue;
+
+            float lfDistance = (lOCritter.transform.position - mOPlayer.transform.position).sqrMagnitude;
+
+            if (lfDistance < lfNearest)
+            {
+                lfNearest = lfDistance;
+                lONearest = lOCritter;
+            }
+        }
+
+        if (lONearest == null)
+        {
+            Debug.Log("ForceCast: no creature");
+            return;
+        }
+
+        bool lbStarted = lONearest.Brain.ForceSpell(2) || lONearest.Brain.ForceSpell(1);
+        UWCritterRecord lORecord = lONearest.Record;
+
+        Debug.Log(string.Format("ForceCast: {0} id {1} {2}; goal {3} anim {4} slot {5} frame {6} interval {7} tile {8}/{9} dist {10:F1}",
+            lONearest.name, lORecord != null ? lORecord.ItemId : -1, lbStarted ? "casts" : "has no spell",
+            lORecord != null ? lORecord.Goal : -1, lORecord != null ? lORecord.Animation : -1,
+            lORecord != null ? lORecord.SpellSlot : -1, lORecord != null ? lORecord.Frame : -1,
+            lORecord != null ? lORecord.Interval : -1, lORecord != null ? lORecord.TileX : -1,
+            lORecord != null ? lORecord.TileY : -1, Mathf.Sqrt(lfNearest)));
+    }
 
     /// <summary>What the spectator camera renders in noclip mode (its layers from the scene).
     /// </summary>

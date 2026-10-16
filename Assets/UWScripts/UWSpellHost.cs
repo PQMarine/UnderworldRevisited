@@ -12,23 +12,15 @@ using UnderworldRevisited.Build;
 /// reaches too far: the cross of Flame Wind extends one tile beyond the edge, and the corners
 /// of a square area lie further away than its edges - the rules filter by tile number anyway)
 /// and handed to the rules as numbered entries.
+///
+/// The boulders of Tremor are not physics objects of this class: DropBoulder hands them to
+/// the motion core (UWProjectileWorld.DropBoulder, since 2026-10-05), which holds their
+/// start height and sub-tile and lets them fall as mobile records.
 /// </summary>
 public sealed class UWSpellHost : IUWSpellHost
 {
     /// <summary>This long an effect stays in the world - as with a projectile impact.</summary>
     private const float EffectSeconds = 0.7f;
-
-    /// <summary>The height the boulders of Tremor come from. The reference sets zpos 0x6E; our
-    /// world units are twice as fine (UWObjectSpawner.HeightScale), the ceiling is
-    /// at 256.</summary>
-    private const int BoulderSpawnZPos = 0x6E;
-
-    /// <summary>Where in the tile a Tremor boulder appears, both axes.</summary>
-    private const int BoulderSubTile = 3;
-
-    /// <summary>How far a boulder falls at most before it disappears on its own.
-    /// From the ceiling to the lowest floor is about 250 units.</summary>
-    private const float BoulderFallRange = 512f;
 
     private struct Target
     {
@@ -71,8 +63,6 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public UWLevel CurrentLevel => mOLoader != null ? mOLoader.CurrentLevel : null;
 
-    public int CurrentLevelIndex => mOLoader != null ? mOLoader.CurrentLevelIndex : 0;
-
     public bool IsMagicBlocked => mOCharacter != null && mOLoader != null
         && UWEndgame.IsMagicBlockedAt(mOLoader, mOCharacter.transform.position);
 
@@ -85,8 +75,6 @@ public sealed class UWSpellHost : IUWSpellHost
     public int PlayerMana => mOCharacter != null ? Mathf.FloorToInt(mOCharacter.CurrentMana) : 0;
 
     public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.GetSkill(UWPlayerData.Skill.Casting) : 0;
-
-    public int PlayerHunger => mOCharacter != null ? mOCharacter.Hunger : 0;
 
     public UWTilePos PlayerTile => mOLoader != null && mOCharacter != null
         ? mOLoader.WorldPositionToTile(mOCharacter.transform.position)
@@ -164,16 +152,37 @@ public sealed class UWSpellHost : IUWSpellHost
         return mOCharacter != null && mOCharacter.TryAddActiveSpell(piMajorClass, piMinorClass, piStability);
     }
 
+    public void BeginRoamingSightWithoutSpell()
+    {
+        if (mOCharacter == null)
+            return;
+
+        UWRoamingSight lOSight = mOCharacter.GetComponent<UWRoamingSight>();
+
+        if (lOSight == null)
+            lOSight = mOCharacter.gameObject.AddComponent<UWRoamingSight>();
+
+        // From the body, as UWCharacter.fApplyRoamingSight starts it (home_cam at the player).
+        CharacterController lOBody = mOCharacter.GetComponentInParent<CharacterController>();
+        Transform lOFrom = lOBody != null ? lOBody.transform : mOCharacter.transform;
+
+        lOSight.Begin(lOFrom.position, lOFrom.eulerAngles.y, true);
+    }
+
+    public void BouncePlayerUp()
+    {
+    // UWCharacter sits on the Main Camera, a child of the First Person Controller that carries
+    // UWPlayerMovement - GetComponent on the character found nothing (until 2026-10-13).
+        UWPlayerMovement lOMovement = mOCharacter != null ? mOCharacter.GetComponentInParent<UWPlayerMovement>() : null;
+
+        if (lOMovement != null)
+            lOMovement.SpellHop();
+    }
+
     public void CurePoison()
     {
         if (mOCharacter != null)
             mOCharacter.CurePoison();
-    }
-
-    public void ChangeHunger(int piAmount)
-    {
-        if (mOCharacter != null)
-            mOCharacter.ChangeHunger(piAmount);
     }
 
     // ------------------------------------------------- Messages and sounds
@@ -242,11 +251,6 @@ public sealed class UWSpellHost : IUWSpellHost
     public bool SpawnObjectById(int piObjectId, int piTileX, int piTileY, int piQuantity, int piQuality)
     {
         return mOLoader != null && mOLoader.SpawnObjectById(piObjectId, piTileX, piTileY, piQuantity, piQuality);
-    }
-
-    public bool SpawnObjectInTile(UWObject pOObject, int piTileX, int piTileY)
-    {
-        return mOLoader != null && mOLoader.SpawnObjectInTile(pOObject, piTileX, piTileY);
     }
 
     public bool SpawnObjectAt(UWObject pOObject, float pfWorldX, float pfWorldZ)
@@ -412,19 +416,18 @@ public sealed class UWSpellHost : IUWSpellHost
 
     /// <summary>The centre of a tile at floor height - that is where the effect stands. Sprites have
     /// their pivot at the bottom edge, so they stand on the floor instead of in it.</summary>
-    public void SpawnEffectOnTileFloor(int piTileX, int piTileY, int piEffectObjectId)
+    public void SpawnEffectInTile(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos, int piEffectObjectId,
+        float pfSeconds = -1f, int piStartFrame = 0)
     {
         if (mOLoader == null || mOLoader.CurrentLevel == null || mOLoader.CurrentLevel.TileData == null
-            || piTileX < 0 || piTileY < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || piTileY >= UWLevelMeshBuilder.TilesPerAxis)
+            || piTileX < 0 || piTileY < 0 || piTileX >= UWWorldScale.TilesPerAxis
+            || piTileY >= UWWorldScale.TilesPerAxis)
             return;
 
-        UWTile lOTile = mOLoader.CurrentLevel.TileData[(piTileY * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
-
         mOLoader.SpawnEffectAt(piEffectObjectId, new Vector3(
-            piTileX * UWLevelMeshBuilder.TileSpacing,
-            lOTile != null ? lOTile.FloorHeight : 0f,
-            piTileY * UWLevelMeshBuilder.TileSpacing), EffectSeconds);
+            UWUnits.SubTileToWorldAxis(piTileX, piFineX),
+            UWUnits.ZPosToWorld(piZPos),
+            UWUnits.SubTileToWorldAxis(piTileY, piFineY)), pfSeconds > 0f ? pfSeconds : EffectSeconds, 0f, piStartFrame);
     }
 
     // ------------------------------------------------- Targets in an area
@@ -440,18 +443,14 @@ public sealed class UWSpellHost : IUWSpellHost
         if (mOLoader == null || mOLoader.CurrentLevel == null || mOLoader.CurrentLevel.TileData == null)
             return 0;
 
-        UWTile lOCentreTile = null;
-
-        if (pOCentre.X >= 0 && pOCentre.Y >= 0 && pOCentre.X < UWLevelMeshBuilder.TilesPerAxis
-            && pOCentre.Y < UWLevelMeshBuilder.TilesPerAxis)
-            lOCentreTile = mOLoader.CurrentLevel.TileData[(pOCentre.Y * UWLevelMeshBuilder.TilesPerAxis) + pOCentre.X];
+        UWTile lOCentreTile = mOLoader.CurrentLevel.GetTile(pOCentre.X, pOCentre.Y);
 
         Vector3 lOCentre = new Vector3(
-            pOCentre.X * UWLevelMeshBuilder.TileSpacing,
+            UWUnits.TileCentreToWorldAxis(pOCentre.X),
             lOCentreTile != null ? lOCentreTile.FloorHeight : 0f,
-            pOCentre.Y * UWLevelMeshBuilder.TileSpacing);
+            UWUnits.TileCentreToWorldAxis(pOCentre.Y));
 
-        float lfRadius = (piRadiusTiles + 2) * UWLevelMeshBuilder.TileSpacing * 1.5f;
+        float lfRadius = (piRadiusTiles + 2) * UWWorldScale.TileSize * 1.5f;
 
         Collider[] lOHits = Physics.OverlapSphere(lOCentre, lfRadius);
 
@@ -489,19 +488,6 @@ public sealed class UWSpellHost : IUWSpellHost
         return mOTargets[piIndex].Critter != null && mOTargets[piIndex].Entity != null;
     }
 
-    /// <summary>Squared horizontal distance from the caster - the height plays no role, and
-    /// the square is enough for sorting.</summary>
-    public float AreaTargetDistanceSquared(int piIndex)
-    {
-        Vector3 lOFrom = mOCharacter != null ? mOCharacter.transform.position : Vector3.zero;
-        Vector3 lOAt = mOTargets[piIndex].Centre;
-
-        float lfX = lOAt.x - lOFrom.x;
-        float lfZ = lOAt.z - lOFrom.z;
-
-        return (lfX * lfX) + (lfZ * lfZ);
-    }
-
     /// <summary>
     /// A CREATURE CASTING (2026-09-27): set for a creature's area spell, which UW.EXE runs
     /// through the same code with the creature as caster. Its damage is then charged to that
@@ -520,16 +506,15 @@ public sealed class UWSpellHost : IUWSpellHost
     public void DamageObjectsInTile(int piTileX, int piTileY, int piDiceCount, int piDiceRange, int piDamageType)
     {
         UWTileBlast.Strike(mOLoader, new UWTilePos(piTileX, piTileY), piDiceCount, piDiceRange, piDamageType,
-            AreaCaster != null ? AreaCaster.Index : UWCritterBrain.PlayerIndex,
-            AreaCaster == null ? mOInteraction : null);
+            AreaCaster != null ? AreaCaster.Index : UWCritterBrain.PlayerIndex);
     }
 
-    public bool ConfuseAreaTarget(int piIndex)
+    public UWTargetSpellRules.Result ConfuseAreaTarget(int piIndex)
     {
-        return mOTargets[piIndex].Critter != null && mOTargets[piIndex].Critter.Confuse();
+        return mOTargets[piIndex].Critter != null ? mOTargets[piIndex].Critter.Confuse() : UWTargetSpellRules.Result.Missed;
     }
 
-    public bool CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass)
+    public UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass)
     {
         return UWTargetSpell.Cast(piMinorClass, mOTargets[piIndex].Entity);
     }

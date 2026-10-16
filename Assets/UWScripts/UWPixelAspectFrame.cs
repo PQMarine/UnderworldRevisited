@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Keeps a 320x200 UI frame at the pixel proportion chosen with UWSettings.DisplayAs4By3: squeezed
+/// Keeps a 320x200 UI frame at the pixel proportion of the classic screen (UWDisplayAspect): squeezed
 /// to 5/6 of its width when the classic screen is shown at 4:3, square pixels otherwise. For the
 /// canvases outside the main GameFrame (conversation, menus), which the switch did not reach at
 /// first (per user with a screenshot of the conversation, 2026-09-17). Clicks still land right,

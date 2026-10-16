@@ -112,14 +112,17 @@ namespace UWDataImport.UWData
 				+ fGet(pOData, DayOfYourImprisonment);
 		}
 
-		/// <summary>Line four: the estimated time of day.</summary>
+		/// <summary>Line four: the estimated time of day, with the full stop the original puts
+		/// after the daypart (print_info, ui/INTERACT.C:130: string 0x53 as the third part; ours
+		/// stopped after the word until 2026-10-15, audit A32).</summary>
 		public static string GetTimeLine(DataImport pOData, int piClockValue)
 		{
 			if (pOData == null)
 				return null;
 
 			return fGet(pOData, YouGuessItIs)
-				+ fGet(pOData, FirstDaypart + UWGameClock.GetDaypart(piClockValue));
+				+ fGet(pOData, FirstDaypart + UWGameClock.GetDaypart(piClockValue))
+				+ ".";
 		}
 
 		/// <summary>If a string is missing, the spot stays empty instead of aborting the message - a

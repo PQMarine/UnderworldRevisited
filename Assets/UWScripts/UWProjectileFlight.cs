@@ -123,15 +123,7 @@ public class UWProjectileFlight : MonoBehaviour
             return;
 
         miShownHeading = Record.HeadingByte;
-        transform.rotation = Quaternion.LookRotation(HeadingToDirection(Record.HeadingByte));
-    }
-
-    /// <summary>A heading in 1/256 of a turn (0 north, clockwise) as a horizontal direction.</summary>
-    public static Vector3 HeadingToDirection(int piHeading)
-    {
-        float lfRadians = (piHeading & 0xFF) * Mathf.PI * 2f / 256f;
-
-        return new Vector3(Mathf.Sin(lfRadians), 0f, Mathf.Cos(lfRadians));
+        transform.rotation = Quaternion.LookRotation(UWViewpoint.HeadingByteToDirection(Record.HeadingByte));
     }
 
     private void Update()
@@ -196,9 +188,21 @@ public class UWProjectileFlight : MonoBehaviour
         int liTop = Record.ZPos + fHeight;
         int liDamage = UWCritterCombat.SubtractArmour(Damage, pOCritter.GetArmourAgainst(liBottom, liTop, true));
 
+        // TWO HIT SOUNDS (2026-10-12; ours played none): missile_thwack plays effect 4 on the
+        // struck mobile, then do_damage plays it again louder by the damage before the armour
+        // (UnderworldExhumed combat/COMBAT.C).
+        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOCritter.BodyPosition);
+        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOCritter.BodyPosition, Damage << 2);
+
         pOCritter.AnnounceAttacker(fAttackerIndex);
         lODamageable.ApplyDamage(liDamage, DamageType);
-        pOCritter.ShowHitEffect(liBottom, liTop, liDamage, true);
+
+        // NO TRACE WHEN THE ARMOUR SWALLOWS IT: do_damage (COMBAT.C) returns before the blood or
+        // the flash when the damage after the armour is 0, as the blows already do here. A
+        // resistance does not count: it is asked later, in damage_item, so a ghost struck by acid
+        // still flashes (per user's question, 2026-10-13). Ours showed it always until then.
+        if (liDamage > 0)
+            pOCritter.ShowHitEffect(liBottom, liTop, liDamage, true);
 
         if (PlayersOwn && Interaction != null && liDamage > 0)
             Interaction.ReportSpellHit(pOCritter.GetComponentInParent<UWEntityInfo>(), lODamageable, pOCritter.BodyPosition);
@@ -209,8 +213,8 @@ public class UWProjectileFlight : MonoBehaviour
         return false;
     }
 
-    /// <summary>The missile strikes the player: a creature's missile less the armour of the
-    /// part hit and halved on the easy difficulty; his own hits him unreduced.</summary>
+    /// <summary>The missile strikes the player: less the armour of the part hit and halved on
+    /// the easy difficulty, whoever fired it (see fDamagePlayer).</summary>
     public bool StrikePlayer()
     {
         if (!fIsMissile)
@@ -232,25 +236,39 @@ public class UWProjectileFlight : MonoBehaviour
         if (lOPlayer == null)
             return;
 
-        int liDamage = Damage;
+        // EVERY MISSILE HIT ON THE PLAYER goes missile_newhit -> missile_thwack -> do_damage
+        // (UnderworldExhumed motion/OBJPHYS.C, combat/COMBAT.C): the armour of the part hit
+        // comes off (the player is Creature[63] there) and the easy difficulty halves what is
+        // left, whoever fired it and whatever its type. Until 2026-10-12 ours halved only a
+        // creature's arrow, bolt or stone - a mage's fireball or lightning bolt hit an easy
+        // player in full - and the player's own rebounding missile skipped armour and halving.
+        int liFeet = lOPlayer.GetFeetZPos();
+        int liPart = UWArmourProtection.PickBodyPart(liFeet, liFeet + lOPlayer.GetBodyHeightZ(), Record.ZPos, Record.ZPos + fHeight);
+        int liDamage = UWCritterCombat.SubtractArmour(Damage, lOPlayer.GetArmourAt(liPart));
 
-        if (Launcher != null)
-        {
-            int liFeet = lOPlayer.GetFeetZPos();
-            int liPart = UWArmourProtection.PickBodyPart(liFeet, liFeet + lOPlayer.GetBodyHeightZ(), Record.ZPos, Record.ZPos + fHeight);
+        // The shake's level is taken before the easy halving (C5).
+        int liShakeDamage = liDamage;
 
-            liDamage = UWCritterCombat.SubtractArmour(liDamage, lOPlayer.GetArmourAt(liPart));
+        liDamage = UWCritterCombat.HalveOnEasy(liDamage, lOPlayer.IsEasyDifficulty);
 
-            // A creature's MISSILE does half damage on the easy difficulty, after the armour
-            // (MissileAttackHit into AttackerAppliesFinalDamage, label A28; deviation 47).
-            if (DamageType == UWDamageTypes.Missile)
-                liDamage = UWCritterCombat.HalveOnEasy(liDamage, lOPlayer.IsEasyDifficulty);
-        }
-
+        // Effect 3 twice: missile_thwack's, then do_damage's louder by the damage before the
+        // armour (COMBAT.C; ours played the first alone until 2026-10-12).
         UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer);
+        UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, Damage << 2);
 
         if (liDamage > 0)
             lOPlayer.ApplyDamage(liDamage, DamageType);
+
+        // A CREATURE'S MISSILE starts the combat music like its blow: damage_critter (critter/
+        // AI.C) finds the shooter in the missile's last_hit and picks MUSIC_DANGER or
+        // MUSIC_COMBAT for the player, damage or not (2026-10-12; ours played nothing).
+        if (Launcher != null)
+            UWMusic.OnPlayerDamaged(lOPlayer.CurrentHP, lOPlayer.MaxHP);
+
+        // A missile with an attacker shakes the view (COMBAT.C missile_thwack -> do_damage, C5,
+        // 2026-10-12); one without (fromwho -1) does not.
+        if (Launcher != null || PlayersOwn)
+            lOPlayer.ShakeForCombatHit(liShakeDamage, liDamage);
     }
 
     /// <summary>The missile strikes a lying or standing object - a door, a chest: its damage
@@ -269,7 +287,7 @@ public class UWProjectileFlight : MonoBehaviour
         {
             if (pOObject.ID == UWObjectMechanics.TyballOrbObjectId && lOEntity != null && Interaction != null)
             {
-                Interaction.SmashOrb(lOEntity);
+                UWItemTargetUse.SmashOrb(Interaction, lOEntity);
 
                 return true;
             }
@@ -287,10 +305,20 @@ public class UWProjectileFlight : MonoBehaviour
             lODamageable.ApplyDamage(UWCritterCombat.SubtractArmour(Damage, lODamageable.Armour), DamageType);
 
         // A struck object always flashes and sounds (effect 4 at the object), armour or not.
-        if (Interaction != null && lOEntity != null)
-            Interaction.ReportSpellHit(lOEntity, null, lOPoint);
+        // THE FLASH AT THE MISSILE'S HEIGHT: missile_thwack sets hitz to the missile's z plus half
+        // its height and do_damage puts the flash there - for a door no lower than its own z + 2
+        // (COMBAT.C). Ours put it at the object's own position until 2026-10-13 (per user).
+        int liHitZ = Record.ZPos + (fHeight / 2);
 
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOPoint);
+        if (lOEntity != null && lOEntity.IsDoor && pOObject.ZPos > liHitZ)
+            liHitZ = pOObject.ZPos + 2;
+
+        if (Interaction != null && lOEntity != null)
+            Interaction.ReportSpellHit(lOEntity, null, new Vector3(lOPoint.x, UWUnits.ZPosToWorld(liHitZ), lOPoint.z));
+
+        // Only do_damage's sound for a static object (missile_thwack plays its own for the player
+        // and a mobile), louder by the damage before the armour (since 2026-10-12).
+        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOPoint, Damage << 2);
 
         if (!fDetonates)
             mOWorld.ShowImpact(this, transform.position);
@@ -343,7 +371,7 @@ public class UWProjectileFlight : MonoBehaviour
         lOAway.y = 0f;
 
         if (lOAway.sqrMagnitude <= 0.0001f)
-            lOAway = -HeadingToDirection(Record.HeadingByte);
+            lOAway = -UWViewpoint.HeadingByteToDirection(Record.HeadingByte);
 
         lOMovement.AddKnockback(lOAway.normalized * BumpKnockback);
     }

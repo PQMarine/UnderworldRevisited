@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace UWDataImport.UWData
 {
@@ -129,7 +130,7 @@ namespace UWDataImport.UWData
 		/// <summary>The player's object index and item id.</summary>
 		public const int PlayerIndex = 1;
 
-		public const int PlayerItemId = 0x7F;
+		public const int PlayerItemId = UWObjectIds.Adventurer;
 
 		private readonly UWCritterRecord mORecord;
 
@@ -236,11 +237,12 @@ namespace UWDataImport.UWData
 			// 4. Per-update globals (52787).
 			mbActive = true;
 			mbFlierDucked = false;
+			mbDidMove = false;
 
 			// 5. Path bookkeeping (52800-52825): an animation that is neither walk nor stand
 			// drops the path - BEFORE the physics, whose callbacks test the path bit.
 			if (mORecord.Animation != AnimWalking && mORecord.Animation != AnimStanding && mORecord.HasPath)
-				mORecord.HasPath = false;
+				fReleasePath();
 
 			// 6. The physics (52702-52990, UWCreatureMotion through the host): the step with the
 			// heading, speed and interval the last goal routine left, then what it left behind.
@@ -521,14 +523,12 @@ namespace UWDataImport.UWData
 			if (mORecord.GTarg != liAttacker)
 				mORecord.GTarg = liAttacker;
 
-			// A dead attacker ends the reaction (GetDistancesToGTarg returns 0, jump to 3093).
+			// A DEAD ATTACKER skips the reaction and KEEPS the attacker and the tally (critter_mv,
+			// UnderworldExhumed AI.C: "if (!set_up_target()) goto do_goal", past the two clears):
+			// the reaction is tried again next update and the tally grows on until a live attacker
+			// is handled. Until 2026-10-15 ours cleared both here (audit round 2, A24 / KR D24).
 			if (!fGetDistancesToGTarg())
-			{
-				mORecord.Attacker = 0;
-				mORecord.DamageTaken = 0;
-
 				return;
-			}
 
 			if (liAttacker == PlayerIndex)
 			{
@@ -739,9 +739,7 @@ namespace UWDataImport.UWData
 
 			if (liD2 <= liSee * liSee)
 			{
-				int liRelative = (UWCritterRules.GetVectorHeading(liDx, liDy) - mORecord.FacingEighth + 8) % 8;
-
-				if ((liRelative == 0 || liRelative == 1 || liRelative == 7)
+				if (UWCritterRules.IsFacing(mORecord.FacingEighth, liDx, liDy)
 					&& mIHost.HasLineOfSight(mORecord.X, mORecord.Y, mORecord.ZPos + mIHost.OwnObjectHeight,
 						mOTarget.X, mOTarget.Y, mOTarget.ZPos + mOTarget.ObjectHeight))
 				{
@@ -839,9 +837,8 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// MaybeVectorsToPlayer_seg007_1798_181D (50985-51156): a heading is bent away from
-		/// the player when he is within the distance (squared compare, strict). Within 90
-		/// degrees of "away" it is kept; between 0x40 and 0x60 from it the result is away -
-		/// 0x20, up to 0x80 the heading + 0x20, up to 0xA0 away + 0x20, else the heading - 0x20.
+		/// the player when he is within the distance (squared compare, strict); the bend itself
+		/// is UWCritterRules.BendAwayFromPlayer (crit_avoid_player).
 		/// </summary>
 		private int fMaybeVectorsToPlayer(int piHeading, int piDistance)
 		{
@@ -858,21 +855,8 @@ namespace UWDataImport.UWData
 				return piHeading;
 
 			int liAway = ((UWCritterRules.GetVectorHeading(liDx, liDy) + 4) & 7) << 5;
-			int liD = (liAway + 0x100 - piHeading) & 0xFF;
 
-			if (liD < 0x40 || liD > 0xC0)
-				return piHeading;
-
-			if (liD < 0x60)
-				return (liAway - 0x20) & 0xFF;
-
-			if (liD < 0x80)
-				return (piHeading + 0x20) & 0xFF;
-
-			if (liD <= 0xA0)
-				return (liAway + 0x20) & 0xFF;
-
-			return (piHeading - 0x20) & 0xFF;
+			return UWCritterRules.BendAwayFromPlayer(piHeading, liAway);
 		}
 
 		// ------------------------------------------------- Goals 0, 4, 7, 8 (spec 6.1)
@@ -936,30 +920,45 @@ namespace UWDataImport.UWData
 				}
 			}
 
+			// THE POSE OF THE GOAL (crit_guard's tail, UnderworldExhumed AI.C): wander for goal 2,
+			// stand for goals 0 and 7, and crit_mill for EVERY OTHER GOAL - not only 4: the wander
+			// step's hostile half reaches this routine with goals 1, 3, 5, 8 or 12 too, and
+			// crit_mill turns a hostile one into a guard (goal 4). Until 2026-10-15 ours showed the
+			// stand pose for those and kept the goal (audit round 2, A8 / KR D8).
 			switch (mORecord.Goal)
 			{
 				case 2:
 					fWanderUpdate();
 					break;
 
-				case 4:
-					fGoal8();
+				case 0:
+				case 7:
+					fStandPose(false);
 					break;
 
 				default:
-					fStandPose();
+					fGoal8();
 					break;
 			}
 		}
 
-		/// <summary>The stand pose: interval 6, speed 0, animation 0x20, standing bit, frame++
-		/// with probability 1/2 (48130-48214, 48819-48836).</summary>
-		private void fStandPose()
+		/// <summary>
+		/// The stand pose: interval 6, speed 0, animation 0x20, frame++ with probability 1/2
+		/// (48130-48214, 48819-48836). THE STANDING BIT (byte 0x15 bit 6, which spares the physics)
+		/// only for the wander step's stand (crit_drunkwalk, UnderworldExhumed AI.C): the stand of
+		/// a guard (crit_guard, goals 0 and 7), a talker (crit_talk) and a hoverer at home
+		/// (crit_hover) leaves it clear, and as fBehaviours clears it every update their physics
+		/// runs - they fall when the floor under them drops and burn on lava. Until 2026-10-15
+		/// every stand pose set it (audit round 2, A10 / KR D10).
+		/// </summary>
+		private void fStandPose(bool pbStandingBit)
 		{
 			mORecord.Interval = UWCritterRules.IntervalStanding;
 			mORecord.Speed = 0;
 			mORecord.Animation = AnimStanding;
-			mORecord.IsStanding = true;
+
+			if (pbStandingBit)
+				mORecord.IsStanding = true;
 
 			if (fRandom(2) != 0)
 				mORecord.AdvancePhase();
@@ -996,7 +995,7 @@ namespace UWDataImport.UWData
 		private void fWanderUpdate()
 		{
 			if (mORecord.HasPath)
-				mORecord.HasPath = false;
+				fReleasePath();
 
 			if (!mbActive)
 			{
@@ -1018,10 +1017,13 @@ namespace UWDataImport.UWData
 
 			if (fIsFlier)
 			{
-				// [47817-47868]
+				// [47817-47868] HIGH UP BY ITS OWN HEIGHT, not the floor's (crit_drunkwalk,
+				// UnderworldExhumed AI.C: myzpos > 0xE); ours tested the tile's floor until
+				// 2026-10-15, so a bat near the ceiling over a low floor did not dip (audit round 2,
+				// A17 / KR D17).
 				int liFloor = mIHost.FloorLevelAt(mORecord.TileX, mORecord.TileY);
 
-				if (liFloor > 14)
+				if (mORecord.FloorLevel > 14)
 					mORecord.Pitch = UWCritterRules.FlierPitchDown + fRandom(3);
 				else if (mORecord.FloorLevel < liFloor + 2)
 					mORecord.Pitch = UWCritterRules.FlierPitchLevel + fRandom(3);
@@ -1038,8 +1040,15 @@ namespace UWDataImport.UWData
 			}
 			else
 			{
+				// ANY OTHER PICTURE BECOMES THE WALK (crit_drunkwalk, UnderworldExhumed AI.C: "else
+				// SET_SEQ(meptr, SEQ_WALK)"): a creature that drops into the wander step from the
+				// combat stance (0) or backing off (7) walks off in the walking picture. Until
+				// 2026-10-15 ours kept that picture until a frame-3 roll made it stand, so it glided
+				// across the floor in its combat pose (audit round 2, A9 / KR D9).
 				if (!(liRestlessness >= fRandom(UWCritterRules.RestlessnessRoll)) && mORecord.Frame == 3)
 					mORecord.Animation = AnimStanding;
+				else
+					mORecord.Animation = AnimWalking;
 			}
 
 			bool lbWalking = mORecord.Animation != AnimStanding;
@@ -1079,7 +1088,7 @@ namespace UWDataImport.UWData
 			mORecord.SetFullFacing(mORecord.FineHeading);
 
 			if (!lbWalking)
-				fStandPose();
+				fStandPose(true);
 			else
 			{
 				// [48233-48249]
@@ -1330,10 +1339,12 @@ namespace UWDataImport.UWData
 					return;
 				}
 
-				// A quarter turn to either side (label seg007_1798_1692).
+				// A quarter turn to either side (label seg007_1798_1692) FROM ITS OWN TRAVEL HEADING
+				// (crit_flee, UnderworldExhumed AI.C: meptr->heading >> 5), not from the direction
+				// of the pursuer as ours had it until 2026-10-15 (audit round 2, A15 / KR D15).
 				int liSide = fRandom(2) != 0 ? 2 : -2;
 
-				mORecord.FineHeading = ((((liHeading + liSide) & 7) << 5) + fRandom(32)) & 0xFF;
+				mORecord.FineHeading = (((((mORecord.FineHeading >> 5) + liSide) & 7) << 5) + fRandom(32)) & 0xFF;
 			}
 			else
 			{
@@ -1412,7 +1423,7 @@ namespace UWDataImport.UWData
 
 			if (!fGetDistancesToGTarg())
 			{
-				fStandPose();
+				fStandPose(false);
 
 				return;
 			}
@@ -1422,7 +1433,7 @@ namespace UWDataImport.UWData
 
 			if (liResult == SearchLost || miEighthDist2 >= UWCritterRules.TurnToTargetDistanceSquared)
 			{
-				fStandPose();
+				fStandPose(false);
 
 				return;
 			}
@@ -1435,13 +1446,9 @@ namespace UWDataImport.UWData
 			mORecord.Animation = AnimStanding;
 			mORecord.Interval = UWCritterRules.IntervalStanding;
 
-			if (miEighthDist2 < UWCritterRules.TalkDistanceSquared)
-			{
-				int liRelative = (mOTarget.FacingEighth + 8 - liHeading) & 7;
-
-				if (liRelative >= 3 && liRelative <= 5)
-					mIHost.OnTalk();
-			}
+			if (miEighthDist2 < UWCritterRules.TalkDistanceSquared
+				&& UWCritterRules.IsFacedBy(mOTarget.FacingEighth, miDx, miDy))
+				mIHost.OnTalk();
 		}
 
 		// ------------------------------------------------- Goal 11 (spec 6.9)
@@ -1477,7 +1484,7 @@ namespace UWDataImport.UWData
 			if (mORecord.TileX != mORecord.HomeX || mORecord.TileY != mORecord.HomeY)
 				fGoto(mORecord.HomeX, mORecord.HomeY, mIHost.FloorLevelAt(mORecord.HomeX, mORecord.HomeY));
 			else
-				fStandPose();
+				fStandPose(false);
 		}
 
 		// ------------------------------------------------- NPC_Goto_seg006_1477_29A1 (46652-47363, spec 7.1)
@@ -1492,13 +1499,18 @@ namespace UWDataImport.UWData
 		{
 			mORecord.SetDestination(piX, piY, piZ);
 
-			if (mORecord.NewDestination && mORecord.HasPath)
-				mORecord.HasPath = false;
+			if (mORecord.NewDestination)
+				fReleasePath();
 
-			// Arrival (46700-46745).
+			// Arrival (46700-46745). HOME (goal 1) BECOMES MILLING AND THE ROUTINE GOES ON
+			// (crit_head_for_loc, UnderworldExhumed PATHFIND.C, has no return there): with the
+			// straight-line bit the creature heads south (the heading of 0/0) and walks one update,
+			// otherwise the line to its own tile is no clear line, the search finds no path, and
+			// it wanders blocked. One without control falls into the block below like any other.
+			// Until 2026-10-15 ours returned here in every case (audit round 2, A20 / KR D20).
 			if (mORecord.TileX == piX && mORecord.TileY == piY)
 			{
-				mORecord.HasPath = false;
+				fReleasePath();
 
 				if (mORecord.Goal == 1)
 					fSetNewGoal(8, 0);
@@ -1507,14 +1519,19 @@ namespace UWDataImport.UWData
 					mORecord.Speed = 0;
 					mORecord.IsStanding = true;
 					mORecord.Animation = AnimStanding;
-				}
 
-				return;
+					return;
+				}
 			}
 
 			if (!mbActive)
 			{
 				mORecord.Interval = UWCritterRules.IntervalStuck;
+
+				// Without control the stored path only keeps in step: standing on its square, the
+				// next one (crit_head_for_loc's !control block).
+				if (fOwnsPath && fPath.X == mORecord.TileX && fPath.Y == mORecord.TileY)
+					fPath.Advance();
 
 				return;
 			}
@@ -1558,7 +1575,7 @@ namespace UWDataImport.UWData
 
 				if (mbCollided)
 				{
-					mORecord.HasPath = false;
+					fReleasePath();
 					mORecord.StraightLineKnown = false;
 					lbSkipStraight = true;
 				}
@@ -1566,7 +1583,9 @@ namespace UWDataImport.UWData
 
 			if (mORecord.HasPath)
 			{
-				fTurnTowardsPath(piX, piY);
+				// Follow the stored path; at its end the slot goes back (move_along_path returns 0).
+				if (!fMoveAlongPath())
+					fReleasePath();
 			}
 			else if (mORecord.StraightLineKnown && !mORecord.NewDestination)
 			{
@@ -1593,20 +1612,26 @@ namespace UWDataImport.UWData
 					mORecord.StraightLineKnown = true;
 					fHeadStraightTo(piX, piY);
 					mORecord.Blocked = false;
-					mORecord.HasPath = false;
+					fReleasePath();
 				}
 				else
 				{
-					int liNextX, liNextY;
-					int liBudget = UWCritterRules.GetPathRangeBudget(mORecord.Attitude, mORow.Vitality,
-						mORecord.HitPoints, mORow.Morale, mORecord.ExcludedFromPathBudget);
+					// [47060-47261] find_free_path, then flood_path: a free slot first (not taken
+					// yet), the search, and only a found path takes the slot and is followed at
+					// once. With all sixteen slots taken the creature wanders blocked.
+					UWCritterPathSlots lOSlots = mIHost.PathSlots;
+					int liSlot;
 
-					if (mIHost.TryGetNextPathTile(piX, piY, liBudget, mORow.DoorSkill != 0, out liNextX, out liNextY))
+					if (lOSlots != null && lOSlots.TryFindFree(out liSlot)
+						&& mIHost.TryFindPath(mORecord.TileX, mORecord.TileY, mORecord.FloorLevel, piX, piY, piZ,
+							fPathBudget(), mOPathSquares, mOPathJumps))
 					{
-						// [47060-47261]
+						lOSlots.Take(liSlot, miIndex);
+						lOSlots[liSlot].Store(mOPathSquares, mOPathJumps);
 						mORecord.Blocked = false;
 						mORecord.HasPath = true;
-						fAimAtPathTile(liNextX, liNextY);
+						mORecord.PathSlot = liSlot;
+						fMoveAlongPath();
 					}
 					else
 					{
@@ -1618,6 +1643,10 @@ namespace UWDataImport.UWData
 					}
 				}
 			}
+
+			// A LEAP ALONG THE PATH skips the walk block (didmove, crit_head_for_loc).
+			if (mbDidMove)
+				return;
 
 			// The walk block (label seg006_1477_2FB7, 47293-47355).
 			mORecord.IsStanding = false;
@@ -1637,34 +1666,150 @@ namespace UWDataImport.UWData
 			mORecord.SetFacing(liHeading);
 		}
 
-		/// <summary>TurnTowardsPath_seg006_1477_2504 (46064) over the host's path: the next tile
-		/// towards the destination, or the end of the path (release).</summary>
-		private void fTurnTowardsPath(int piX, int piY)
-		{
-			int liNextX, liNextY;
-			int liBudget = UWCritterRules.GetPathRangeBudget(mORecord.Attitude, mORow.Vitality,
-				mORecord.HitPoints, mORow.Morale, mORecord.ExcludedFromPathBudget);
+		/// <summary>The squares and jump flags of the last search, before they go into a slot.</summary>
+		private readonly List<UWTilePos> mOPathSquares = new List<UWTilePos>();
 
-			if (mIHost.TryGetNextPathTile(piX, piY, liBudget, mORow.DoorSkill != 0, out liNextX, out liNextY))
-				fAimAtPathTile(liNextX, liNextY);
+		private readonly List<bool> mOPathJumps = new List<bool>();
+
+		/// <summary>Set by a leap along the path: the walk block is skipped (didmove).</summary>
+		private bool mbDidMove;
+
+		/// <summary>The stored path of this creature: its slot (word 0x16 bits 0-3).</summary>
+		private UWCritterPath fPath => mIHost.PathSlots[mORecord.PathSlot];
+
+		/// <summary>The has-a-path bit names a slot this creature stored itself (see
+		/// UWCritterPathSlots.IsOwner: the bit may come from touching a mobile instead).</summary>
+		private bool fOwnsPath => mORecord.HasPath && mIHost.PathSlots != null
+			&& mIHost.PathSlots.IsOwner(mORecord.PathSlot, miIndex);
+
+		/// <summary>
+		/// THE PATH IS LET GO (freepaths |= 1 &lt;&lt; slot; SET_B15_7(meptr, 0)): the has-a-path bit
+		/// cleared and the slot back in the pool - the one home for every place the original frees
+		/// a path (a new destination, arrival, a collision, a clear straight line, the end of the
+		/// path, the wander step, an animation that is neither walk nor stand). Since 2026-10-15
+		/// (audit round 2, A22 / KR D22).
+		/// </summary>
+		private void fReleasePath()
+		{
+			if (!mORecord.HasPath)
+				return;
+
+			if (fOwnsPath)
+				mIHost.PathSlots.Free(mORecord.PathSlot);
+
+			mORecord.HasPath = false;
+		}
+
+		/// <summary>
+		/// move_along_path (UnderworldExhumed PATHFIND.C): close to the current path square
+		/// (UWCritterPath.CloseToSquare) the next one becomes current - false at the end of the
+		/// path; then a leap step leaps (fJumpAlongPath), any other heads for the square - its
+		/// centre on the axis it shares with the square the step comes from, its near edge on the
+		/// other - and a flier holds the destination's height. Until 2026-10-15 the host searched
+		/// the next tile anew every half second (TurnTowardsPath_seg006_1477_2504 over a fresh
+		/// search; audit round 2, A22 / KR D22).
+		/// </summary>
+		private bool fMoveAlongPath()
+		{
+			// A bit from touching a mobile names no path of this creature's: it counts as done.
+			if (!fOwnsPath)
+				return false;
+
+			UWCritterPath lOPath = fPath;
+			int liFromX = lOPath.X;
+			int liFromY = lOPath.Y;
+
+			if (UWCritterPath.CloseToSquare(lOPath.JumpStep, mORecord.TileX, mORecord.TileY, mORecord.FineX, mORecord.FineY,
+				lOPath.X, lOPath.Y))
+			{
+				if (!lOPath.Advance())
+					return false;
+			}
 			else
-				mORecord.HasPath = false;
+			{
+				liFromX = mORecord.TileX;
+				liFromY = mORecord.TileY;
+			}
+
+			if (lOPath.JumpStep)
+				fJumpAlongPath(lOPath);
+			else
+				fAimAtPathTile(lOPath.X, lOPath.Y, liFromX, liFromY);
+
+			return true;
+		}
+
+		/// <summary>
+		/// THE LEAP OF A PATH STEP (do_that_jump_kinda_thing, UnderworldExhumed PATHFIND.C): the
+		/// creature walks to the edge of the current square that faces it (two eighths short of the
+		/// tile line); within a Manhattan distance below three of that point it turns towards the
+		/// square after and leaps - interval 1, pitch 0x16, speed 11 - and the walk block is
+		/// skipped. Ours never leapt until 2026-10-15: a creature with the jump bit bumped at a pit
+		/// or ledge its path crossed and wandered (audit round 2, A12 / KR D12). At the end of a
+		/// path, where the original reads past the stored directions, it heads for the square.
+		/// </summary>
+		private void fJumpAlongPath(UWCritterPath pOPath)
+		{
+			int liEdgeX = (pOPath.X << 3) - UWCritterRules.HopEdgeInset + fHopEdgeOffset(pOPath.X, mORecord.TileX);
+			int liEdgeY = (pOPath.Y << 3) - UWCritterRules.HopEdgeInset + fHopEdgeOffset(pOPath.Y, mORecord.TileY);
+			int liHeading;
+
+			if (Math.Abs(liEdgeX - mORecord.X) + Math.Abs(liEdgeY - mORecord.Y) < UWCritterRules.HopManhattan
+				&& pOPath.TryGetSquareAfter(out int liToX, out int liToY))
+			{
+				liHeading = UWCritterRules.GetVectorHeading(liToX - mORecord.TileX, liToY - mORecord.TileY);
+				mORecord.FineHeading = liHeading << 5;
+				mORecord.SetFacing(liHeading);
+				mbDidMove = true;
+				mORecord.Interval = UWCritterRules.IntervalStuck;
+				mORecord.Pitch = UWCritterRules.HopPitch;
+				mORecord.Speed = UWCritterRules.HopSpeed;
+
+				return;
+			}
+
+			liHeading = UWCritterRules.GetVectorHeading(liEdgeX - mORecord.X, liEdgeY - mORecord.Y);
+			mORecord.FineHeading = liHeading << 5;
+			mORecord.SetFacing(liHeading);
+		}
+
+		/// <summary>do_that_jump_kinda_thing's edge point: + 6 on the axis the creature shares with
+		/// the square (its centre), + 11 when the square lies below (its far side, the near edge
+		/// seen from the creature), + 0 above.</summary>
+		private static int fHopEdgeOffset(int piPathTile, int piOwnTile)
+		{
+			if (piPathTile == piOwnTile)
+				return UWCritterRules.HopEdgeCentre;
+
+			return piPathTile < piOwnTile ? UWCritterRules.HopEdgeBelow : 0;
+		}
+
+		/// <summary>This creature's path range budget (acceptable_danger, UWCritterRules.GetPathRangeBudget).</summary>
+		private int fPathBudget()
+		{
+			return UWCritterRules.GetPathRangeBudget(mORecord.Attitude, mORow.Vitality, mORecord.HitPoints,
+				mORow.Morale, mORecord.ExcludedFromPathBudget, mIHost.DungeonLevel, mORecord.WhoAmI);
 		}
 
 		/// <summary>The aim point of a normal path step (46170-46230): tile * 8 + 4 on the axis
-		/// where the tile column equals the creature's, + 7 when the path tile lies below, + 0
-		/// when above; the heading by GetVectorHeading of aim minus position.</summary>
-		private void fAimAtPathTile(int piNextX, int piNextY)
+		/// where the tile column equals the one the step comes from, + 7 when the path tile lies
+		/// below, + 0 when above; the heading by GetVectorHeading of aim minus position. The step
+		/// comes from the previous path square once the creature counts as there, else from its
+		/// own tile (move_along_path's tilex, tiley).</summary>
+		private void fAimAtPathTile(int piNextX, int piNextY, int piFromX, int piFromY)
 		{
-			int liAimX = (piNextX << 3) + fAimOffset(piNextX, mORecord.TileX);
-			int liAimY = (piNextY << 3) + fAimOffset(piNextY, mORecord.TileY);
+			int liAimX = (piNextX << 3) + fAimOffset(piNextX, piFromX);
+			int liAimY = (piNextY << 3) + fAimOffset(piNextY, piFromY);
 			int liHeading = UWCritterRules.GetVectorHeading(liAimX - mORecord.X, liAimY - mORecord.Y);
 
 			mORecord.FineHeading = liHeading << 5;
 			mORecord.SetFacing(liHeading);
 
+			// A FLIER ON A PATH HOLDS THE DESTINATION'S HEIGHT (move_along_path, UnderworldExhumed
+			// PATHFIND.C: adjust_height(OBJ_DESTX, OBJ_DESTY)), not the next tile's; ours climbed
+			// and dipped with every tile until 2026-10-15 (audit round 2, A18 / KR D18).
 			if (fIsFlier)
-				fFlierPitchTowards(piNextX, piNextY);
+				fFlierPitchTowards(mORecord.DestinationX, mORecord.DestinationY);
 		}
 
 		private static int fAimOffset(int piPathTile, int piOwnTile)
@@ -1843,6 +1988,32 @@ namespace UWDataImport.UWData
 			mORecord.Speed = 0;
 			mORecord.Animation = AnimSpell;
 			mORecord.SpellSlot = UWCritterRules.SpellSlotThird;
+			mORecord.Frame = 0;
+
+			return true;
+		}
+
+		/// <summary>
+		/// DEBUG (2026-10-12, for the test of a creature's area spell): starts the cast
+		/// sequence of the spell in the slot (1..3) at once, without the roll, the range, the
+		/// sight or the facing - as fStartMagicAttack does once the roll succeeds. The player
+		/// becomes the target when there is none. False when the slot holds no spell.
+		/// </summary>
+		public bool ForceSpell(int piSlot)
+		{
+			int liSpell = mORow.SpellOfSlot(piSlot);
+
+			// 0xFF is the table's "none"; 0 stands in the slots of the creatures that never
+			// cast (the earth golem, 2026-10-12) and is no spell either.
+			if (piSlot < 1 || piSlot > 3 || liSpell == 0xFF || liSpell == 0)
+				return false;
+
+			if (mORecord.GTarg == 0)
+				mORecord.GTarg = PlayerIndex;
+
+			mORecord.Speed = 0;
+			mORecord.Animation = AnimSpell;
+			mORecord.SpellSlot = piSlot;
 			mORecord.Frame = 0;
 
 			return true;

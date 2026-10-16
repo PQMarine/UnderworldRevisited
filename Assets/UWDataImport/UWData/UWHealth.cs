@@ -98,11 +98,27 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool ApplyDamage(int piDamage, int piDamageType = UWDamageTypes.None)
 		{
-			piDamage = UWDamageTypes.Scale(Resistances, piDamage, piDamageType);
+			return TakeScaledDamage(ScaleDamage(piDamage, piDamageType));
+		}
 
-			// How sturdily the thing is built halves the blow per class. Critters carry class 0.
+		/// <summary>
+		/// What of a blow reaches the thing: the resistances first (check_res in damage_item),
+		/// then halved once per quality class (damage_object, DAMAGE.C). Critters carry class 0.
+		/// Rolls for a magic resistance, so it is asked once per blow; ApplyDamage does both
+		/// halves, UWDamageable splits them for the spike of a door (2026-10-12).
+		/// </summary>
+		public int ScaleDamage(int piDamage, int piDamageType = UWDamageTypes.None)
+		{
+			piDamage = UWDamageTypes.Scale(Resistances, piDamage, piDamageType);
 			piDamage >>= QualityClass;
 
+			return piDamage < 0 ? 0 : piDamage;
+		}
+
+		/// <summary>Takes damage already scaled by ScaleDamage off the hit points and reports
+		/// whether the target was destroyed by it.</summary>
+		public bool TakeScaledDamage(int piDamage)
+		{
 			miCurrentHealth -= piDamage < 0 ? 0 : piDamage;
 
 			if (miCurrentHealth > 0)

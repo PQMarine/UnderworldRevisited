@@ -14,7 +14,7 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWAutomapDump
 {
-    private const int TilesPerAxis = 64;
+    private const int TilesPerAxis = UWWorldScale.TilesPerAxis;
 
     private const int Scale = 6;
 

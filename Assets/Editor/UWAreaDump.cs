@@ -31,12 +31,9 @@ public static class UWAreaDump
         {
             for (int liX = CentreX - Radius; liX <= CentreX + Radius; liX++)
             {
-                if (liX < 0 || liY < 0 || liX > 63 || liY > 63)
-                    continue;
+                UWTile lOTile = lOLevel.GetTile(liX, liY);
 
-                UWTile lOTile = lOLevel.TileData[(liY * 64) + liX];
-
-                if (lOTile.ObjectsInTile.Count == 0)
+                if (lOTile == null || lOTile.ObjectsInTile.Count == 0)
                     continue;
 
                 foreach (UWObject lOObject in lOTile.ObjectsInTile)

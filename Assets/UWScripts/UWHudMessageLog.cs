@@ -32,10 +32,9 @@ public sealed class UWHudMessageLog
 
     /// <summary>Font colour of the log, as previously taken from the original.</summary>
     private static readonly Color mOLogTextColour = new Color(61f / 255f, 28f / 255f, 8f / 255f, 1f);
-    private Text mMessageLogText;
 
-    /// <summary>The log in the original font. The text next to it (mMessageLogText)
-    /// is the old Unity font and is only switched off now.</summary>
+    /// <summary>The log in the original font (font5x6p, the message font of the original; per
+    /// user, 2026-09-03).</summary>
     private RawImage mMessageLogImage;
 
     private Texture2D mMessageLogTexture;
@@ -126,7 +125,7 @@ public sealed class UWHudMessageLog
         // frame's scroll stays empty there - it held the lines of the moment, after a load
         // "Restoring Game ... Restore Game Complete." over the map (per user, 2026-10-04); the
         // modern message box shows them again once the map is closed.
-        if (mOUi.mControlSchemeRef != null && mOUi.mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern
+        if (UWControlScheme.IsModern
             && mOUi.IsMapVisible)
         {
             UWTextLabel.Hide(mMessageLogImage);
@@ -150,14 +149,6 @@ public sealed class UWHudMessageLog
             mLastMessageLogText = null;
 
             return;
-        }
-
-        // The old Unity font stays silent; drawing is now done with font5x6p, the
-        // message font of the original (per user, 2026-09-03).
-        if (mMessageLogText != null && mMessageLogText.enabled)
-        {
-            mMessageLogText.text = string.Empty;
-            mMessageLogText.enabled = false;
         }
 
         bool lbCursor = mOUi.mOInteraction.ShowsPromptTextCursor
@@ -417,36 +408,14 @@ public sealed class UWHudMessageLog
     /// <summary>The message log in the lower frame box with its decorated edges (the edge sprites come in Init, see fLoadMessageLogSprites).</summary>
     internal void Build()
     {
-        // Original colours CONFIRMED per user test: #8C6854 background, #3D1C08 text.
+        // Original colours CONFIRMED per user test: #8C6854 background, #3D1C08 text (the text
+        // colour is mOLogTextColour, used when the log is drawn).
         Color lOLogBackgroundColor;
-        Color lOLogTextColor;
         ColorUtility.TryParseHtmlString("#8C6854", out lOLogBackgroundColor);
-        ColorUtility.TryParseHtmlString("#3D1C08", out lOLogTextColor);
 
         Image lOMessageLogBackground = UWGameUI.fCreateImage("MessageLogBackground", mOUi.mGameFrame, messageLogLeft, -messageLogTop, messageLogWidth, messageLogHeight, lOLogBackgroundColor);
 
         UWClassicWide.Widened(lOMessageLogBackground.rectTransform);
-
-        GameObject lOMessageLogObj = new GameObject("MessageLog", typeof(RectTransform), typeof(Text));
-        lOMessageLogObj.transform.SetParent(mOUi.mGameFrame, false);
-
-        RectTransform lOMessageLogRect = (RectTransform)lOMessageLogObj.transform;
-        lOMessageLogRect.anchorMin = new Vector2(0f, 1f);
-        lOMessageLogRect.anchorMax = new Vector2(0f, 1f);
-        lOMessageLogRect.pivot = new Vector2(0f, 1f);
-        lOMessageLogRect.anchoredPosition = new Vector2(messageLogLeft, -messageLogTop);
-        lOMessageLogRect.sizeDelta = new Vector2(messageLogWidth, messageLogHeight);
-        UWClassicWide.Widened(lOMessageLogRect);
-
-        mMessageLogText = lOMessageLogObj.GetComponent<Text>();
-        mMessageLogText.font = UWInterfaceFont.Font;
-        mMessageLogText.fontSize = 5;
-        mMessageLogText.alignment = TextAnchor.UpperLeft;
-        mMessageLogText.color = lOLogTextColor;
-        mMessageLogText.horizontalOverflow = HorizontalWrapMode.Wrap;
-        mMessageLogText.verticalOverflow = VerticalWrapMode.Truncate;
-        mMessageLogText.raycastTarget = false;
-        mMessageLogText.text = string.Empty;
 
         // The strips themselves are set in Init and then with every scroll.
         mOUi.fCreateCenterPivotImage("ScrledgeLeft", scrledgeLeft, scrledgeTop, scrledgeWidth, scrledgeHeight);

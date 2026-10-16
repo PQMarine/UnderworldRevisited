@@ -48,9 +48,9 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>PLAYER.DAT 0xB9, see fUpdateSwimCounter. Public for the save game.</summary>
     public int SwimCounter { get; private set; }
 
-    public const int SwimCounterOnEntering = 0x60;
+    public const int SwimCounterOnEntering = UWPlayerMotion.SwimCounterOnEntering;
 
-    private const int SwimCounterCheckThreshold = 0x50;
+    private const int SwimCounterCheckThreshold = UWPlayerMotion.SwimCounterCheckThreshold;
 
     private const int SwimCounterRiseLimit = 0x8C;
 
@@ -127,7 +127,7 @@ public class UWPlayerTerrain : MonoBehaviour
         // NO SOUND ON ENTERING. Until 2026-09-21 the water sound was played here; the user
         // listened for it in the original and there is none - walking into water is silent.
         // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLand)
-        // and anything that lands in the water (UWProjectileWorld.Splash, UWLevelLoader.fSplashAt).
+        // and anything that lands in the water (UWProjectileWorld.Splash).
         // What one DOES hear in the water is the rushing: effect 0 held for as long as one is
         // in it (UWSoundEffects.UpdateWaterLoop, built 2026-09-21 after the user described it).
         UWSoundEffects.UpdateWaterLoop(IsSwimming);
@@ -207,8 +207,8 @@ public class UWPlayerTerrain : MonoBehaviour
         UWTilePos lOTileIndex = mOLevelLoader.WorldPositionToTile(transform.position);
 
         if (lOTileIndex.X < 0 || lOTileIndex.Y < 0
-            || lOTileIndex.X >= UWLevelMeshBuilder.TilesPerAxis
-            || lOTileIndex.Y >= UWLevelMeshBuilder.TilesPerAxis)
+            || lOTileIndex.X >= UWWorldScale.TilesPerAxis
+            || lOTileIndex.Y >= UWWorldScale.TilesPerAxis)
             return;
 
         if (lOTileIndex != mOLastAutomapTile)
@@ -352,7 +352,7 @@ public class UWPlayerTerrain : MonoBehaviour
         if (!fIsOpenTile(piTileX, piTileY))
             return false;
 
-        UWTile lOTile = mOLevelLoader.CurrentLevel.TileData[(piTileY * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = mOLevelLoader.CurrentLevel.GetTile(piTileX, piTileY);
 
         return mOLevelLoader.CurrentLevel.MarkTileVisited(piTileX, piTileY, fGetMapDisplayType(lOTile));
     }
@@ -429,11 +429,7 @@ public class UWPlayerTerrain : MonoBehaviour
 
         UWTilePos lOTileIndex = mOLevelLoader.WorldPositionToTile(transform.position);
 
-        if (lOTileIndex.X < 0 || lOTileIndex.Y < 0
-            || lOTileIndex.X >= UWLevelMeshBuilder.TilesPerAxis || lOTileIndex.Y >= UWLevelMeshBuilder.TilesPerAxis)
-            return false;
-
-        pOTile = mOLevelLoader.CurrentLevel.TileData[(lOTileIndex.Y * UWLevelMeshBuilder.TilesPerAxis) + lOTileIndex.X];
+        pOTile = mOLevelLoader.CurrentLevel.GetTile(lOTileIndex.X, lOTileIndex.Y);
 
         if (pOTile == null)
             return false;
@@ -488,12 +484,24 @@ public class UWPlayerTerrain : MonoBehaviour
             // SwimViewHeight is the view at the counter of 0x60 set on entering; every failed
             // swimming check lowers it further (see fUpdateSwimCounter).
             lfHeight -= (SwimCounter - SwimCounterOnEntering) * SwimCounterWorldUnit;
-            float lfRough = pOSettings != null ? pOSettings.SwimSwayUnskilled : 4f;
-            float lfSteady = pOSettings != null ? pOSettings.SwimSwaySkilled : 1f;
-            float lfFrequency = pOSettings != null ? pOSettings.SwimSwayFrequency : 1.1f;
 
-            float lfSway = Mathf.Sin(Time.time * lfFrequency * Mathf.PI * 2f)
-                * Mathf.Lerp(lfRough, lfSteady, fGetSwimSkillFraction(pOSettings));
+            // THE SWAY by the swimming view's switch (UWUserSettings.SwimViewMode, 2026-10-15):
+            // only Smooth, our gentle sine that calms with the Swimming skill, scaled by its
+            // strength, rides on the followed height here; Original's own bob is added
+            // unfollowed below (fGetOriginalSwimHeight), Off has none. The dip by the counter
+            // above stays in every setting.
+            float lfSway = 0f;
+
+            if (UWUserSettings.SwimViewMode == UWHeadBobRules.ModeEnum.Smooth)
+            {
+                float lfRough = pOSettings != null ? pOSettings.SwimSwayUnskilled : 4f;
+                float lfSteady = pOSettings != null ? pOSettings.SwimSwaySkilled : 1f;
+                float lfFrequency = pOSettings != null ? pOSettings.SwimSwayFrequency : 1.1f;
+
+                lfSway = Mathf.Sin(Time.time * lfFrequency * Mathf.PI * 2f)
+                    * Mathf.Lerp(lfRough, lfSteady, fGetSwimSkillFraction(pOSettings))
+                    * UWUserSettings.SwimViewStrength;
+            }
 
             // The rigid distance between player object and camera, without our own offset.
             float lfRigidOffset = mOCamera.position.y - transform.position.y - mfAppliedCameraOffset;
@@ -505,10 +513,55 @@ public class UWPlayerTerrain : MonoBehaviour
 
         mfAppliedCameraOffset = Mathf.MoveTowards(mfAppliedCameraOffset, lfWanted, lfSpeed * Time.deltaTime);
 
+        // The head bob's phase first: the swimmer's view reads the same clock byte (tsteps).
+        float lfHeadBob = fGetHeadBob();
+
+        fUpdateOriginalSwimView();
+
         Vector3 lOLocal = mOCamera.localPosition;
-        lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + fGetHeadBob() + fGetLevitationBob();
+        lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + lfHeadBob + fGetLevitationBob()
+            + (mOSwimView.HeightEighths * SwimCounterWorldUnit);
 
         mOCamera.localPosition = lOLocal;
+    }
+
+    /// <summary>The original's swimming offsets of the moment (UWSwimViewRules), zero unless
+    /// the switch stands on Original and the player swims.</summary>
+    private UWSwimViewRules.Offsets mOSwimView;
+
+    private float mfSwimViewRollTimer;
+
+    /// <summary>
+    /// THE ORIGINAL'S SWIMMING VIEW (UWSwimViewRules, parse_effect): new offsets
+    /// OriginalRollsPerSecond times a second, held in between, so the view jumps as in the
+    /// original at twenty frames a second and not with our frame rate. The draws come from the
+    /// session's generator, as the weapon's jitter does.
+    /// </summary>
+    private void fUpdateOriginalSwimView()
+    {
+        if (!IsSwimming || mOMovement == null || UWUserSettings.SwimViewMode != UWHeadBobRules.ModeEnum.Original)
+        {
+            mOSwimView = default;
+            mfSwimViewRollTimer = 0f;
+
+            return;
+        }
+
+        mfSwimViewRollTimer -= Time.deltaTime;
+
+        if (mfSwimViewRollTimer > 0f)
+            return;
+
+        mfSwimViewRollTimer += 1f / UWSwimViewRules.OriginalRollsPerSecond;
+
+        if (mfSwimViewRollTimer < 0f)
+            mfSwimViewRollTimer = 0f;
+
+        bool lbStanding = mOMovement.SmoothedHorizontalSpeed
+            < mOMovement.NormalForwardSpeed * UWHeadBobRules.StandingFraction;
+
+        mOSwimView = UWSwimViewRules.GetOriginal(SwimCounter, mfHeadBobPhase,
+            mOMovement.SmoothedHorizontalSpeed, mOMovement.FullForwardSpeed, lbStanding, UWRandom.Next);
     }
 
     /// <summary>
@@ -569,24 +622,54 @@ public class UWPlayerTerrain : MonoBehaviour
         UWSettings lOSettings = UWSettings.Instance;
 
         float lfWanted = 0f;
+        UWHeadBobRules.ModeEnum leMode = UWUserSettings.SwimViewMode;
 
-        if (IsSwimming)
+        if (IsSwimming && leMode == UWHeadBobRules.ModeEnum.Smooth)
         {
             float lfRough = lOSettings != null ? lOSettings.SwimRollUnskilled : 1.5f;
             float lfSteady = lOSettings != null ? lOSettings.SwimRollSkilled : 0.3f;
             float lfFrequency = lOSettings != null ? lOSettings.SwimRollFrequency : 2.5f;
 
             lfWanted = Mathf.Sin(Time.time * lfFrequency * Mathf.PI * 2f)
-                * Mathf.Lerp(lfRough, lfSteady, fGetSwimSkillFraction(lOSettings));
+                * Mathf.Lerp(lfRough, lfSteady, fGetSwimSkillFraction(lOSettings))
+                * UWUserSettings.SwimViewStrength;
         }
 
-        mfAppliedCameraRoll = Mathf.MoveTowards(mfAppliedCameraRoll, lfWanted, 30f * Time.deltaTime);
+        // Original's bank jumps to its value as the original's does; ours glides.
+        bool lbOriginal = IsSwimming && leMode == UWHeadBobRules.ModeEnum.Original;
+
+        mfAppliedCameraRoll = lbOriginal
+            ? UWSwimViewRules.AngleToDegrees(mOSwimView.Bank)
+            : Mathf.MoveTowards(mfAppliedCameraRoll, lfWanted, 30f * Time.deltaTime);
 
         Vector3 lOAngles = mOCamera.localEulerAngles;
         lOAngles.z = mfAppliedCameraRoll;
 
+        // ORIGINAL'S HEADING AND PITCH JITTER, set absolutely from the look's own pitch and the
+        // camera's resting yaw of 0 (the body carries the yaw), so nothing builds up; once more
+        // after it ends, to put both back.
+        bool lbJitter = lbOriginal && (mOSwimView.Heading != 0 || mOSwimView.Pitch != 0);
+
+        if (lbJitter || mbSwimJitterApplied)
+        {
+            if (mOLook == null)
+                mOLook = GetComponentInChildren<UWPlayerLook>();
+
+            if (mOLook != null)
+            {
+                lOAngles.x = mOLook.Pitch + (lbJitter ? UWSwimViewRules.AngleToDegrees(mOSwimView.Pitch) : 0f);
+                lOAngles.y = lbJitter ? UWSwimViewRules.AngleToDegrees(mOSwimView.Heading) : 0f;
+            }
+
+            mbSwimJitterApplied = lbJitter;
+        }
+
         mOCamera.localEulerAngles = lOAngles;
     }
+
+    private UWPlayerLook mOLook;
+
+    private bool mbSwimJitterApplied;
 
     /// <summary>
     /// Current.

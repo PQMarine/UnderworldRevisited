@@ -297,10 +297,6 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// </summary>
     public int CurseDice => mOStatus.CurseDice;
 
-    /// <summary>Value from the previous frame, to detect the EQUIPPING of a cursed
-    /// item.</summary>
-    private int miPreviousCurseDice;
-
     /// <summary>Palette colour of the brief flash in the view window. The reference uses
     /// 0xA8 for uw1, 0x30 for uw2.</summary>
     private const int CurseFlashColour = 0xA8;
@@ -308,14 +304,15 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     private const float CurseFlashSeconds = 0.1f;
 
     /// <summary>
-    /// A cursed piece of equipment strikes - the roll and the floor of three hit points are
-    /// in UWPlayerVitals.ApplyCurse. pbFlash: when EQUIPPING nothing flashes, afterwards it
-    /// does - that is how the reference distinguishes its two cases. In uw1 there is no
-    /// message in either.
+    /// A cursed piece of equipment strikes, or Bronus' book - the roll, the guard and the floor
+    /// of three hit points are in UWPlayerVitals.ApplyCurse. When it struck the view ALWAYS
+    /// flashes, also on equipping: backfire flashes 0xA8 for the player whoever called it
+    /// (UnderworldExhumed SPELLS.C). Until 2026-10-12 equipping did not flash, as the reference
+    /// has it. In uw1 there is no message.
     /// </summary>
-    public void ApplyCurse(int piDice, bool pbFlash)
+    public void ApplyCurse(int piDice)
     {
-        if (fVitals.ApplyCurse(piDice) && pbFlash)
+        if (fVitals.ApplyCurse(piDice))
             OnCurseStruck();
     }
 
@@ -327,7 +324,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             OnCurseStruck();
     }
 
-    /// <summary>IUWVitalsHost: the curse struck on the tick.</summary>
+    /// <summary>A curse or a backfire struck: the view flashes 0xA8.</summary>
     public void OnCurseStruck()
     {
         UWGameUI lOUi = UWScene.GameUi;
@@ -384,15 +381,55 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
         if (mOLevelLoaderForStatus != null)
             mOLevelLoaderForStatus.SetMazeNavigation(mOStatus.HasMazeNavigation);
+    }
 
-        // EQUIPPING HURTS IMMEDIATELY. The reference runs its status pass on every
-        // inventory change with CastOnEquip set, and the curse strikes then just as it
-        // does on the tick - only without the flash. We detect the case by more
-        // curse dice being worn than in the frame before.
-        if (mOStatus.CurseDice > miPreviousCurseDice)
-            ApplyCurse(mOStatus.CurseDice, false);
+    /// <summary>A status pass of the original is due - see fRunStatusPass.</summary>
+    private bool mbStatusPassDue;
 
-        miPreviousCurseDice = mOStatus.CurseDice;
+    /// <summary>IUWVitalsHost: a spell began or ended, the mushroom, sleep, a mantra - the
+    /// original runs FixPlayerEquips now.</summary>
+    public void OnStatusPassDue()
+    {
+        mbStatusPassDue = true;
+    }
+
+    /// <summary>An inventory change: every one except opening, closing and scrolling a container
+    /// and a light that only burned down a point is a status pass in the original (pick up,
+    /// drop, equip, move, use up - UWInventoryModel.IsQuietChange).</summary>
+    private void fOnInventoryChangedForStatusPass()
+    {
+        if (mInventory != null && !mInventory.Model.IsQuietChange)
+            mbStatusPassDue = true;
+    }
+
+    /// <summary>
+    /// THE CURSE STRIKES ON THE ORIGINAL'S STATUS PASS (UnderworldExhumed PLAYDATA.C
+    /// FixPlayerEquips -> player_affected_by class 9 -> SPELLS.C backfire, per user's decision of
+    /// 2026-10-12): whenever the original runs it - equipping, picking up, dropping, any move in
+    /// the inventory, using something up, a spell beginning or ending, a light going out, the
+    /// mushroom, sleep, a mantra, a level change or load -, and then every time, with the 0xA8
+    /// flash. Standing still with a cursed crown costs nothing. Until 2026-10-12 ours struck on
+    /// every player tick (21 s) and on equipping only.
+    ///
+    /// ONE STRIKE PER FRAME: everything that asked for a pass since the last frame strikes once.
+    /// The original calls the pass once per routine; a single drag of ours can raise several
+    /// inventory changes in one frame, which must not strike several times.
+    ///
+    /// The worn curses strike TOGETHER with their summed dice (UWArmourProtection.Status.CurseDice):
+    /// the original rolls each cursed item on its own, but backfire rolls before it looks at the
+    /// hit points and leaves at least three, so the dice in the same order give the same hit
+    /// points either way - only the flash would come twice.
+    /// </summary>
+    private void fRunStatusPass()
+    {
+        if (!mbStatusPassDue)
+            return;
+
+        mbStatusPassDue = false;
+
+        RefreshStatus();
+
+        ApplyCurse(mOStatus.CurseDice);
     }
 
     private UWInventory mOInventory;
@@ -479,6 +516,28 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             lOLoader.UWDataImporter.CommonObjectProperties);
     }
 
+    /// <summary>IUWVitalsHost: the level's share of the five-minute block, in duration_check's
+    /// order - the wandering monsters' one-in-four roll (DoWanderingMonsters(1), the respawner
+    /// with its distance test), then the creatures' checkup (UWLevelExit.YearlyCheckup,
+    /// yearly_checkup).</summary>
+    public void OnFiveMinuteBlock()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (lOLoader == null || lOLoader.CurrentLevel == null)
+            return;
+
+        if (UWRespawnRules.RollOpportunity())
+        {
+            UWCreatureRespawner lORespawner = lOLoader.GetComponent<UWCreatureRespawner>();
+
+            if (lORespawner != null)
+                lORespawner.Run(false);
+        }
+
+        UWLevelExit.YearlyCheckup(lOLoader.TileQueries);
+    }
+
     /// <summary>Spends one skill point.</summary>
     public void SpendSkillPoint()
     {
@@ -525,6 +584,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
     /// <summary>PLAYER.DAT 0x3C, see UWPlayerVitals.Counter3C.</summary>
     public int Counter3C => fVitals.Counter3C;
+
+    /// <summary>PLAYER.DAT 0xC2 on, see UWPlayerVitals.LoreByLevel.</summary>
+    public byte[] LoreByLevel => fVitals.LoreByLevel;
 
     /// <summary>The value of the game clock, see UWGameClock.</summary>
     public int ClockValue => fVitals.ClockValue;
@@ -686,6 +748,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             mInventory = gameObject.AddComponent<UWInventory>();
 
         mInventory.InventoryChanged += fRebuildAllArmorSlots;
+        mInventory.InventoryChanged += fOnInventoryChangedForStatusPass;
 
         fRebuildAllArmorSlots();
 
@@ -890,7 +953,14 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         return fVitals.ApplyDamage(piDamage, piDamageType, DamageTypeProof);
     }
 
-    /// <summary>IUWVitalsHost: a hit shakes the view.</summary>
+    /// <summary>A blow or a missile hit the player - the view shakes, see
+    /// UWPlayerVitals.ShakeForCombatHit (only these shake since 2026-10-12).</summary>
+    public void ShakeForCombatHit(int piDamageBeforeEasy, int piDamageDone)
+    {
+        fVitals.ShakeForCombatHit(piDamageBeforeEasy, piDamageDone);
+    }
+
+    /// <summary>IUWVitalsHost: a blow or a missile shakes the view.</summary>
     public void ShakeOnDamage(int piLevel)
     {
         UWScreenShake.ShakeOnDamage(piLevel);
@@ -1005,7 +1075,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         CharacterController lOBody = GetComponentInParent<CharacterController>();
         float lfFeet = lOBody != null ? lOBody.bounds.min.y : transform.position.y;
 
-        return UWUnits.RoundToInt(lfFeet / UWWorldScale.ZPosStep);
+        return UWUnits.WorldToZPos(lfFeet);
     }
 
     /// <summary>The body's height in zpos steps, from COMOBJ.DAT for the adventurer (23) - what
@@ -1049,6 +1119,14 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     public void OnActiveSpellsChanged(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen, bool pbTelekinesis)
     {
         TimeIsFrozen = pbTimeFrozen;
+
+        // Roaming Sight among the active spells is the original's WizEye: the view is lit at
+        // level 6 (UWLighting.RoamingSightLight, FixPlayerEquips; 2026-10-15).
+        if (mOLighting == null)
+            mOLighting = UWScene.Lighting;
+
+        if (mOLighting != null)
+            mOLighting.RoamingSightLight = pbRoamingSight;
 
         fApplyRoamingSight(pbRoamingSight);
 
@@ -1109,9 +1187,6 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         }
     }
 
-    /// <summary>IUWVitalsHost: the curse dice of the worn equipment, for the tick.</summary>
-    public int WornCurseDice => mOStatus.CurseDice;
-
     /// <summary>IUWVitalsHost: the level the player is on, for the orb's mana rule.</summary>
     public int DungeonLevelIndex => UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevelIndex : -1;
 
@@ -1126,13 +1201,6 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     public void SpendMana(int piAmount)
     {
         fVitals.SpendMana(piAmount);
-    }
-
-    /// <summary>Damage that leaves at least this many hit points - the leeches (see
-    /// UWItemDrag).</summary>
-    public void ApplyDamageKeepingMinimum(int piDamage, int piMinimum)
-    {
-        fVitals.ApplyDamageKeepingMinimum(piDamage, piMinimum, DamageTypeProof);
     }
 
     /// <summary>Counterpart to ApplyDamage, for instance for healing potions.</summary>
@@ -1244,8 +1312,32 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>IUWVitalsHost: how much of the full forward speed is actually being made.</summary>
     public float MovementFraction => mOMovementForNoise != null ? mOMovementForNoise.MomentumFraction : 0f;
 
-    /// <summary>IUWVitalsHost: the player stands in water.</summary>
-    public bool IsInLiquid => mOMovementForNoise != null && mOMovementForNoise.IsInLiquid;
+    /// <summary>
+    /// IUWVitalsHost: the original's motion_state is not zero - swimming (not water walking),
+    /// on lava, floating with Levitate or Fly, or the view still shaking (the combat shake or
+    /// the tremor). PLAYMOVE.C set_sound adds four for any of them; until 2026-10-12 ours only
+    /// for the liquid.
+    /// </summary>
+    public bool IsInMotionState
+    {
+        get
+        {
+            UWPlayerTerrain lOTerrain = UWScene.PlayerTerrain;
+
+            if (lOTerrain != null && (lOTerrain.IsSwimming || lOTerrain.IsOnLava))
+                return true;
+
+            if (mOMovementForNoise != null && mOMovementForNoise.IsHovering)
+                return true;
+
+            if (mOShakeForNoise == null)
+                mOShakeForNoise = UWScreenShake.Ensure();
+
+            return mOShakeForNoise != null && mOShakeForNoise.IsShaking;
+        }
+    }
+
+    private UWScreenShake mOShakeForNoise;
 
     /// <summary>IUWVitalsHost: winding up a blow is loud (reference: CombatStages.Charging).</summary>
     public bool IsChargingAttack => meAttackStatus == AttackStatusEnum.PowerUp || meAttackStatus == AttackStatusEnum.PoweUpComplete;
@@ -1272,6 +1364,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         RefreshStatus();
 
         fTickGameClock();
+
+        // After the tick: a spell that ended or a light that went out asks for a pass too.
+        fRunStatusPass();
 
         fTickQuietness();
 
@@ -1352,12 +1447,16 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         }
         else if (mIsCombatModeActive && (meAttackStatus == AttackStatusEnum.Ready || meAttackStatus == AttackStatusEnum.PowerUp))
         {
-            if (mInteraction.AttackCharge > 0f && meAttackStatus == AttackStatusEnum.Ready) //Starting attack
+            // The press starts the wind-up; the charge waits for it to finish (Interaction.
+            // AttackCharge, since 2026-10-12 - until then the charge rising started the wind-up).
+            // The gem shows frame 1 from the press (player_attack's set_screen_frame(3, 1)).
+            if (mInteraction.IsAttacking && meAttackStatus == AttackStatusEnum.Ready) //Starting attack
             {
                 meAttackStatus = AttackStatusEnum.PowerUp;
                 mCurrentWeaponFrameIndex = 0;
                 mCurrentAttackAnimationDuration = 0f;
                 fUpdateWeapon();
+                fUpdatePowerGemTeture(mPowerGem.Unpowered);
             }
         }
 
@@ -1410,6 +1509,11 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
                 // green pixel, their yellow ones grow from 11 to 59. A transition from
                 // yellow to green does not occur in them - the change only happens on the
                 // jump to the green frames.
+                //
+                // THE CHARGE STARTS AT 0 HERE, after the wind-up (by the user's decision of
+                // 2026-10-12 to follow the original, see Interaction.AttackCharge): the gem
+                // starts red at frame 1 and climbs from there. Until then it started mid-yellow,
+                // because the charge counted from the press.
                 int liCharge = Mathf.RoundToInt(Mathf.Clamp01(mInteraction.AttackCharge) * UWCombat.FullCharge);
                 int liGemFrame = UWPowerGem.GetFrame(liCharge);
 
@@ -1417,7 +1521,8 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
                 // from red to green, exactly when the targeting cursor appears (per user,
                 // 2026-09-10). SINCE 2026-09-22 WE KNOW WHY, and it is not a computation at
                 // all - the charge path is skipped for a ranged weapon and the gem is set to
-                // frame 9 in one go. See UWPowerGem.RangedFrame.
+                // frame 9 in one go, at the end of the wind-up (2026-10-12, C2). See
+                // UWPowerGem.RangedFrame.
                 if (HasRangedWeapon)
                     liGemFrame = UWPowerGem.GetRangedFrame(mInteraction.IsRangedTargeting);
 
@@ -1646,8 +1751,8 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         fVitals.DrainVitality(piAmount);
     }
 
-    /// <summary>Levels of a flask picture (UWFlasks.GetFlask).</summary>
-    private const float FlaskLevels = 13f;
+    /// <summary>Levels of a flask picture (UWFlasks.FillLevels, twelve since 2026-10-12).</summary>
+    private const float FlaskLevels = UWFlasks.FillLevels;
 
     /// <summary>Start of the running flask fill animation, below zero for none.</summary>
     private float mfFlaskFillStart = -1f;
@@ -1684,8 +1789,10 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
     private void fTickFlaskBubbles()
     {
-        int liHealth = MaxHP <= 0f ? 0 : Mathf.Clamp((int)((CurrentHP / MaxHP) * FlaskLevels), 0, (int)FlaskLevels);
-        int liMana = MaxMana <= 0f ? 0 : Mathf.Clamp((int)((CurrentMana / MaxMana) * FlaskLevels), 0, (int)FlaskLevels);
+        // In whole numbers as the original (UWFlasks.GetLevel): the float quotient times the steps
+        // could land a hair below a step (10 of 30 gave 3.9999 and showed three).
+        int liHealth = UWFlasks.GetLevel((int)CurrentHP, (int)MaxHP);
+        int liMana = UWFlasks.GetLevel((int)CurrentMana, (int)MaxMana);
 
         bool lbChanged = false;
 

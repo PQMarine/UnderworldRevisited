@@ -69,15 +69,27 @@ namespace UWDataImport.UWData
 
 		public const int Poison = 0x10;
 
-		public const int Cold = 0x23;
+		/// <summary>
+		/// THE LIGHTNING BOLT MISSILE'S HIT TYPE: magic 0x03 plus bit 0x20. Called "Cold" until
+		/// 2026-10-12. UnderworldExhumed names bit 0x20 DMG_COLD (include/object.h, after UW2's
+		/// Study Monster list), but no UW1 code deals it by name; it comes only from the missile
+		/// table, -ammo of the lightning bolt's OBJECTS.DAT row (missile_newhit, ammo -35, see
+		/// UWPlayerAttack.GetMissileDamageType). check_res (combat/DAMAGE.C) treats it like any
+		/// other bit: after the magic roll an object whose resist byte holds 0x20 takes nothing -
+		/// in UW1 only the "immune to everything" rows (resist 0x7F: object 124 and the
+		/// animation objects) carry it, and those already shrug off the magic part. So it hits as
+		/// pure magic in practice.
+		/// </summary>
+		public const int LightningBolt = 0x23;
 
 		/// <summary>
 		/// Missiles - arrows, bolts, sling stones.
 		///
-		/// INFERRED, NOT COPIED: the reference computes a missile's type
-		/// from the negated ammunition type and arrives at values like 0xFF - that is
-		/// evidently misread. That 0x40 is the missile type, on the other hand, is certain, because the
-		/// spell Missile Protection sets exactly this bit.
+		/// CONFIRMED (2026-10-12; called "inferred" until then): missile_newhit (UnderworldExhumed
+		/// motion/OBJPHYS.C) hands missile_thwack the type -ammo of the missile table, and the
+		/// ammunition carries ammo -64, so its type is 0x40 - the bit the spell Missile Protection
+		/// sets. A thrown launcher has another ammo byte and so its own odd type
+		/// (UWPlayerAttack.GetMissileDamageType); that is the reference's "0xFF", read right.
 		/// </summary>
 		public const int Missile = 0x40;
 

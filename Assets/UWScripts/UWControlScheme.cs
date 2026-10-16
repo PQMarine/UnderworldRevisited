@@ -35,6 +35,19 @@ public class UWControlScheme : MonoBehaviour
 
     public SchemeEnum Current { get; private set; }
 
+    /// <summary>The one component of the scene (First Person Controller), from Awake to
+    /// OnDestroy - it stays known while the player object is switched off (noclip), which
+    /// UWScene.ControlScheme would not find then.</summary>
+    private static UWControlScheme msInstance;
+
+    /// <summary>
+    /// THE ONE SCHEME TEST (2026-10-11). Until then fourteen classes asked their own cached
+    /// component or UWScene.ControlScheme, each with its own null rule; every one of them
+    /// read the same Current. Null-safe: without a scheme component - the main menu, a scene
+    /// before the player exists - it is the Original scheme, as every caller assumed.
+    /// </summary>
+    public static bool IsModern => msInstance != null && msInstance.Current == SchemeEnum.Modern;
+
     private readonly HashSet<string> mOUiModalHolds = new HashSet<string>();
 
     /// <summary>While a modal UI panel is open (e.g. the Modern inventory - with
@@ -159,12 +172,16 @@ public class UWControlScheme : MonoBehaviour
 
     private void Awake()
     {
+        msInstance = this;
         mControls = new UWControls();
         mControls.Enable();
     }
 
     private void OnDestroy()
     {
+        if (msInstance == this)
+            msInstance = null;
+
         mControls.Dispose();
     }
 
@@ -216,8 +233,49 @@ public class UWControlScheme : MonoBehaviour
 
     public void Apply(SchemeEnum peScheme)
     {
+        SchemeEnum leBefore = Current;
+
         Current = peScheme;
+
+        if (leBefore != peScheme && mbStarted)
+            fHandOverMenus(leBefore);
+
         fApplyCursorState();
+    }
+
+    /// <summary>
+    /// A MENU SURVIVES THE SCHEME CHANGE (per user, 2026-10-12: with the classic options up -
+    /// the way to the menu bar - the Controls dialog switched to Modern; the panel vanished,
+    /// its holds on time and input stayed, and nothing could be done). The old scheme's menu
+    /// closes and the new scheme's opens in its place, so the player still stands in a menu
+    /// and can close it.
+    /// </summary>
+    private static void fHandOverMenus(SchemeEnum peFrom)
+    {
+        UWGameUI lOUi = UWScene.GameUi;
+        UWHudOptions lOOptions = lOUi != null ? lOUi.Options : null;
+        UWModernHud lOModern = UWModernHud.Instance;
+
+        if (peFrom == SchemeEnum.Original)
+        {
+            if (lOOptions == null || !lOOptions.IsOpen)
+                return;
+
+            lOOptions.CloseForSchemeChange();
+
+            if (lOModern != null)
+                lOModern.OpenMenu(UWModernHud.PageEnum.Main);
+        }
+        else
+        {
+            if (lOModern == null || !lOModern.IsOpen)
+                return;
+
+            lOModern.CloseMenu();
+
+            if (lOOptions != null)
+                lOOptions.OpenForSchemeChange();
+        }
     }
 
     private void fApplyCursorState()

@@ -20,7 +20,7 @@ public class UWEntityInfo : MonoBehaviour
     public bool IsDoor { get; set; }
 
     /// <summary>A 3D model (UWObjectSpawner.fSpawn3DModel): aimed at by its triangles, not its
-    /// collider box - see Interaction.fMissesModelShape.</summary>
+    /// collider box - see UWWorldPicker.</summary>
     public bool IsModel { get; set; }
 
     /// <summary>Description is already the finished display text and must NOT be embedded

@@ -15,11 +15,6 @@ namespace UWDataImport.UWData
 		/// <summary>"You quaff the potion in one gulp."</summary>
 		private const int QuaffMessage = 241;
 
-		/// <summary>"The mushroom causes your head to spin, and your vision to blur."</summary>
-		private const int MushroomMessage = 233;
-
-		private const int WineBottleMessage = 128;
-
 		private const int TooFullMessage = 127;
 
 		private const int RefreshingDrinkMessage = 243;
@@ -37,10 +32,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>"The leeches remove the poison as well as some of your skin and blood."</summary>
 		private const int LeechesRemovePoisonMessage = 225;
-
-		/// <summary>"You manage to finish eating the leeches.  Barely." - what the leeches give
-		/// when they are EATEN instead of applied, see TryEat.</summary>
-		private const int EatenLeechesMessage = 230;
 
 		/// <summary>"You can only use those individually.  Take one from this group if you wish
 		/// to use it." - a STACK is not eaten, see TryEat.</summary>
@@ -64,7 +55,8 @@ namespace UWDataImport.UWData
 
 		private const float LeechFlashSeconds = 0.2f;
 
-		private const int LeechMinimumHitPoints = 3;
+		/// <summary>backfire(ThePlayer, 2): the leeches bite with two eight-sided dice.</summary>
+		private const int LeechDice = 2;
 
 		/// <summary>a_block of burning incense (277) - see fUseIncense.</summary>
 		public const int BurningIncenseObjectId = 277;
@@ -96,7 +88,7 @@ namespace UWDataImport.UWData
 		public const int BedrollObjectId = UWSleepRules.BedrollObjectId;
 
 		/// <summary>The silver seed (UWSilverTree.SeedObjectId on the Unity side).</summary>
-		public const int SilverSeedObjectId = 0x122;
+		public const int SilverSeedObjectId = UWObjectIds.SilverSeed;
 
 		/// <summary>The fishing pole (UWFishing.FishingPoleObjectId on the Unity side).</summary>
 		public const int FishingPoleObjectId = 0x12B;
@@ -199,7 +191,7 @@ namespace UWDataImport.UWData
 			// individually.  Take one from this group if you wish to use it." A single piece
 			// taken off the stack is eaten - his next line was "You are too full to eat that
 			// now.", which is our own fEat message.
-			if (UWObjectMechanics.IsStackable(pOItem) && pOItem.Quantity > 1)
+			if (UWStackRules.IsStack(pOItem))
 			{
 				pIHost.AddGeneralMessage(OnlyIndividuallyMessage);
 
@@ -215,27 +207,104 @@ namespace UWDataImport.UWData
 			if (pOItem == null || pIHost == null)
 				return false;
 
-			// POTION AND SPELL SCROLL COME BEFORE THE WAND PATH. Both carry their spell just like
-			// a wand, but have no charges: they are gone after the single use.
-			// Without this branch they run into the wand's charge accounting and stay in the
-			// backpack - exactly what was seen with the Freeze Time scroll (per user,
-			// 2026-09-09).
-			//
-			// The reference decides the same way for a scroll: if it is enchanted, the spell is cast
-			// and the scroll consumed, otherwise it is read (readable.Use, uw1 branch). Our
-			// Interaction.TryReadBook already has the read branch, it bails out for enchanted scrolls.
-			if (IsPotion(pOItem) || IsSpellScroll(pOItem))
-				return fUseSpellItemUp(pOItem, pOData, pOVitals, pIHost);
+			return UseTable.TryUse(new UWItemUseTable.Use(pOItem, pOData, pOVitals, pOInventory, pIHost));
+		}
 
-			// FOOD GOES TO THE EATING ROUTINE BY ITS CLASS, before the wand path: an enchanted ale
-			// is drunk and casts its spell at the end (ObjectUse's food case calls Eat_seg040_F0E,
-			// which calls CastSpellFromObject_seg040_1F04). The wand path would have cast it and
-			// kept the bottle.
-			if (pOItem.GetCategory() == UWObject.ObjectCategoryEnum.Comestibles || IsEatenOnUse(pOItem.ID))
-				return fEatLikeOriginal(pOItem, pOData, pOVitals, pIHost);
+		/// <summary>
+		/// The rows of TryUseImmediately in their order of precedence (UWItemUseTable, since
+		/// 2026-10-14; before that the branches of TryUseImmediately and the id chain of
+		/// fTryUseOnSelf). Read-only for the dispatch-coverage check.
+		/// </summary>
+		public static UWItemUseTable UseTable { get; } = fBuildUseTable();
 
-			return fTryCastFromItem(pOItem, pOData, pOInventory, pIHost)
-				|| fTryUseOnSelf(pOItem, pOData, pOVitals, pOInventory, pIHost);
+		private static UWItemUseTable fBuildUseTable()
+		{
+			UWItemUseTable lOTable = new UWItemUseTable()
+
+				// POTION AND SPELL SCROLL COME BEFORE THE WAND PATH. Both carry their spell just like
+				// a wand, but have no charges: they are gone after the single use.
+				// Without this branch they run into the wand's charge accounting and stay in the
+				// backpack - exactly what was seen with the Freeze Time scroll (per user,
+				// 2026-09-09).
+				//
+				// The reference decides the same way for a scroll: if it is enchanted, the spell is cast
+				// and the scroll consumed, otherwise it is read (readable.Use, uw1 branch). Our
+				// Interaction.TryReadBook already has the read branch, it bails out for enchanted scrolls.
+				.Add("potion or spell scroll",
+					pOUse => IsPotion(pOUse.Item) || IsSpellScroll(pOUse.Item),
+					pOUse => fUseSpellItemUp(pOUse.Item, pOUse.Data, pOUse.Vitals, pOUse.Host))
+
+				// FOOD GOES TO THE EATING ROUTINE BY ITS CLASS, before the wand path: an enchanted ale
+				// is drunk and casts its spell at the end (ObjectUse's food case calls Eat_seg040_F0E,
+				// which calls CastSpellFromObject_seg040_1F04). The wand path would have cast it and
+				// kept the bottle. (fTryUseOnSelf ended on the same test after the wand path, where
+				// nothing could reach it any more; that copy is gone with the chain.)
+				.Add("food",
+					pOUse => pOUse.Item.GetCategory() == UWObject.ObjectCategoryEnum.Comestibles || IsEatenOnUse(pOUse.Item.ID),
+					pOUse => fEatLikeOriginal(pOUse.Item, pOUse.Data, pOUse.Vitals, pOUse.Host))
+
+				// A WAND OR ANOTHER CHARGED ITEM casts its spell (fTryCastFromItem); when the spell
+				// cannot be cast, the rows below still get the item, as the "||" before them did.
+				.Add("charged item",
+					pOUse => SpellOf(pOUse.Item, pOUse.Data).Exists,
+					pOUse => fTryCastFromItem(pOUse.Item, pOUse.Data, pOUse.Inventory, pOUse.Host),
+					true)
+
+				// THE BEDROLL IS USED FROM THE BACKPACK, not from the ground - that is why it is
+				// here and not with the world objects (see UWSleep).
+				.Add("bedroll",
+					pOUse => pOUse.Item.ID == BedrollObjectId,
+					pOUse => pOUse.Host.TrySleep())
+
+				// Mandolin and flute are played - also only from the backpack (see
+				// UWInstrumentPlayer).
+				.Add("instrument",
+					pOUse => pOUse.Host.IsInstrument(pOUse.Item.ID),
+					pOUse => pOUse.Host.PlayInstrument(pOUse.Item))
+
+				// The silver seed is planted ahead of the player (see UWSilverTree); used up when it
+				// grows or vanishes on level 9, kept when it finds no soil.
+				.Add("silver seed",
+					pOUse => pOUse.Item.ID == SilverSeedObjectId,
+					pOUse =>
+					{
+						if (pOUse.Host.TryPlantSeed())
+							pOUse.Host.ConsumeUsedItem();
+
+						return true;
+					})
+
+				// Leeches: they bite (2d8, never below 3 hit points) and suck the poison out with it
+				// (per user, 2026-09-17; the reference: leech.use). Only from the pack, not from the
+				// ground.
+				.Add("leeches",
+					pOUse => pOUse.Item.ID == LeechObjectId,
+					pOUse => fUseLeeches(pOUse.Vitals, pOUse.Host))
+
+				// Burning incense brings a vision (see fUseIncense).
+				.Add("burning incense",
+					pOUse => pOUse.Item.ID == BurningIncenseObjectId,
+					pOUse => fUseIncense(pOUse.Item, pOUse.Data, pOUse.Inventory, pOUse.Host))
+
+				// Bronus' book explodes when opened (see UWExplodingBook).
+				.Add("exploding book",
+					pOUse => pOUse.Item.ID == UWExplodingBook.BookObjectId,
+					pOUse => UWExplodingBook.Open(pOUse.Item, pOUse.Inventory, pOUse.Host))
+
+				// The fishing pole fishes in the water ahead (see UWFishing); it is never used up.
+				.Add("fishing pole",
+					pOUse => pOUse.Item.ID == FishingPoleObjectId,
+					pOUse => pOUse.Host.TryFish())
+
+				// A LIGHT SOURCE is picked up and from then on shines along; how brightly is given by
+				// the light table from OBJECTS.DAT. Burning down is handled by the inventory model.
+				.Add("light source",
+					pOUse => pOUse.Item.GetCategory() == UWObject.ObjectCategoryEnum.LightSources,
+					pOUse => fTryLightSource(pOUse.Item, pOUse.Data, pOUse.Inventory, pOUse.Host));
+
+			lOTable.Seal();
+
+			return lOTable;
 		}
 
 		/// <summary>
@@ -247,8 +316,8 @@ namespace UWDataImport.UWData
 		/// (SpellIndexOf). Unlike the wand it has no charges: it is cast and
 		/// gone.
 		///
-		/// IF NO SPELL IS ATTACHED, the reference instead looks for a DAMAGE TRAP in the
-		/// chain - that is the poisoned potion. Its quality is the base damage, its
+		/// A DAMAGE TRAP in the chain is set off as well, spell or not - that is the poisoned
+		/// potion (the reference looked for it only without a spell). Its quality is the base damage, its
 		/// owner field says whether it is poison. It is only searched if the potion is not a stack:
 		/// on a stack the same field carries the quantity.
 		/// </summary>
@@ -266,18 +335,31 @@ namespace UWDataImport.UWData
 			// UseReadable_seg040_352B_19A8 (read 2026-09-25) sends an enchanted scroll carried in
 			// the pack there with the pause as well and clears it afterwards whatever the cast
 			// did. Until then ours cast a scroll at once.
+			// THE SPELL AND THE TRAP BOTH, not one or the other: UseFood (UnderworldExhumed
+			// obj/USEITEMS.C, read 2026-10-15) calls checkSpell and then checkTrap for every potion,
+			// UseBook checkTrap and then checkSpell for an enchanted scroll. Until 2026-10-15 ours
+			// looked for the trap only when there was no spell; no potion carrying both is known
+			// (reference audit round 2, A51).
+			bool lbPotion = IsPotion(pOItem);
+
+			if (!lbPotion)
+				fApplyPotionTrap(pOItem, pOData, pOVitals, pIHost.PlayerDamageTypeProof);
+
 			if (lOSpell.Exists)
 				fCastWithPause(lOSpell, pIHost);
-			else
-				fApplyPotionTrap(pOItem, pOData, pOVitals);
+
+			if (lbPotion)
+				fApplyPotionTrap(pOItem, pOData, pOVitals, pIHost.PlayerDamageTypeProof);
 
 			pIHost.ConsumeUsedItem();
 
 			return true;
 		}
 
-		/// <summary>The damage trap of a poisoned potion - see fUseSpellItemUp.</summary>
-		private static void fApplyPotionTrap(UWObject pOItem, DataImport pOData, UWPlayerVitals pOVitals)
+		/// <summary>The damage trap of a poisoned potion - see fUseSpellItemUp. Its poison is
+		/// resisted as a trap's is (UWTrapRules.PlayerResistsPoison, since 2026-10-12).</summary>
+		private static void fApplyPotionTrap(UWObject pOItem, DataImport pOData, UWPlayerVitals pOVitals,
+			int piDamageTypeProof)
 		{
 			if (pOData == null || pOData.InitialPlayer == null || pOVitals == null)
 				return;
@@ -289,7 +371,10 @@ namespace UWDataImport.UWData
 				return;
 
 			if (lOTrap.Owner > 0)
-				pOVitals.ApplyPoison(lOTrap.Quality);
+			{
+				if (!UWTrapRules.PlayerResistsPoison(piDamageTypeProof))
+					pOVitals.ApplyPoison(lOTrap.Quality);
+			}
 			else
 				pOVitals.ApplyDamage(lOTrap.Quality, UWDamageTypes.None, 0);
 		}
@@ -387,89 +472,29 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Items that act on the character itself when used instead of on a target.
+		/// The leeches (UnderworldExhumed USEITEMS.C UseMagic): the poison is cleared, then they
+		/// bite as a backfire of two dice - 2d8, nothing at three hit points or less, otherwise at
+		/// least three left, and the view flashes only when they bit -, they are used up and the
+		/// line "The leeches remove the poison ..." comes EVERY time, poisoned or not.
 		///
-		/// A LIGHT SOURCE is picked up and from then on shines along; how brightly is given by the
-		/// light table from OBJECTS.DAT. Burning down is handled by the inventory model.
-		///
-		/// Bedroll, instruments and the silver seed are handed to the host.
-		/// </summary>
-		private static bool fTryUseOnSelf(UWObject pOItem, DataImport pOData, UWPlayerVitals pOVitals,
-			UWInventoryModel pOInventory, IUWItemUseHost pIHost)
-		{
-			// THE BEDROLL IS USED FROM THE BACKPACK, not from the ground - that is why it is
-			// here and not with the world objects (see UWSleep).
-			if (pOItem.ID == BedrollObjectId)
-				return pIHost.TrySleep();
-
-			// Mandolin and flute are played - also only from the backpack (see
-			// UWInstrumentPlayer).
-			if (pIHost.IsInstrument(pOItem.ID))
-				return pIHost.PlayInstrument(pOItem);
-
-			// The silver seed is planted ahead of the player (see UWSilverTree); used up when it
-			// grows or vanishes on level 9, kept when it finds no soil.
-			if (pOItem.ID == SilverSeedObjectId)
-			{
-				if (pIHost.TryPlantSeed())
-					pIHost.ConsumeUsedItem();
-
-				return true;
-			}
-
-			// Leeches: they bite (2d8, never below 3 hit points) and suck the poison out with it
-			// (per user, 2026-09-17; the reference: leech.use). Only from the pack, not from the
-			// ground.
-			if (pOItem.ID == LeechObjectId)
-				return fUseLeeches(pOVitals, pIHost);
-
-			// Burning incense brings a vision (see fUseIncense).
-			if (pOItem.ID == BurningIncenseObjectId)
-				return fUseIncense(pOItem, pOData, pOInventory, pIHost);
-
-			// Bronus' book explodes when opened (see UWExplodingBook).
-			if (pOItem.ID == UWExplodingBook.BookObjectId)
-				return UWExplodingBook.Open(pOItem, pOInventory, pIHost);
-
-			// The fishing pole fishes in the water ahead (see UWFishing); it is never used up.
-			if (pOItem.ID == FishingPoleObjectId)
-				return pIHost.TryFish();
-
-			UWObject.ObjectCategoryEnum leCategory = pOItem.GetCategory();
-
-			if (leCategory == UWObject.ObjectCategoryEnum.LightSources)
-				return fTryLightSource(pOItem, pOData, pOInventory, pIHost);
-
-			if (leCategory == UWObject.ObjectCategoryEnum.Comestibles || IsEatenOnUse(pOItem.ID))
-				return fEatLikeOriginal(pOItem, pOData, pOVitals, pIHost);
-
-			return false;
-		}
-
-		/// <summary>
-		/// The leeches: 2d8 damage, but never below three hit points, and any poison is gone
-		/// afterwards - with its own line in the scroll. They are used up either way.
+		/// UNTIL 2026-10-12 the line came only when poisoned, the bite went through ApplyDamage
+		/// (which shook the view) and the view flashed even when they did not bite.
 		/// </summary>
 		private static bool fUseLeeches(UWPlayerVitals pOVitals, IUWItemUseHost pIHost)
 		{
 			if (pOVitals == null)
 				return false;
 
-			// 2d8 as the reference rolls it: two plus two rolls from zero to seven.
-			int liDamage = 2 + UWRandom.Next(8) + UWRandom.Next(8);
+			pOVitals.CurePoison();
 
-			pOVitals.ApplyDamageKeepingMinimum(liDamage, LeechMinimumHitPoints, 0);
+			bool lbBit = pOVitals.ApplyBackfire(LeechDice);
 
-			if (pOVitals.Poison > 0)
-			{
-				pOVitals.CurePoison();
-
-				pIHost.AddGeneralMessage(LeechesRemovePoisonMessage);
-			}
-
-			pIHost.FlashWindow(LeechFlashColour, LeechFlashSeconds);
+			if (lbBit)
+				pIHost.FlashWindow(LeechFlashColour, LeechFlashSeconds);
 
 			pIHost.ConsumeUsedItem();
+
+			pIHost.AddGeneralMessage(LeechesRemovePoisonMessage);
 
 			return true;
 		}
@@ -482,7 +507,17 @@ namespace UWDataImport.UWData
 		///
 		/// Wizard Rodrick tells the trick himself in his conversation: "Simply pass a block of
 		/// incense over a torch to produce the smoke which, when inhaled, will cause one to dream."
+		///
+		/// FROM THE WORLD TOO (UseUnique's incense case does not ask how; UnderworldExhumed
+		/// obj/USEITEMS.C, read 2026-10-15): the block on the floor brings the same vision and
+		/// becomes debris where it lies - pOInventory null; the caller redraws it
+		/// (UWWorldUseRules.Effect.BurningIncense).
 		/// </summary>
+		public static bool BurnIncense(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, IUWItemUseHost pIHost)
+		{
+			return fUseIncense(pOItem, pOData, pOInventory, pIHost);
+		}
+
 		private static bool fUseIncense(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, IUWItemUseHost pIHost)
 		{
 			UWPlayerData lOPlayer = pOData != null ? pOData.InitialPlayer : null;
@@ -538,9 +573,14 @@ namespace UWDataImport.UWData
 
 			int liId = pOItem.ID;
 
-			if (liId == WineObjectId)
+			// The things known by id (UWFoodTable, since 2026-10-14 instead of a switch here).
+			UWFoodTable.Row lORow;
+			bool lbHasRow = UWFoodTable.TryGet(liId, out lORow);
+
+			// The wine bottle cannot be opened: its line, and nothing is eaten.
+			if (lbHasRow && lORow.Effect == UWFoodTable.Effect.SealedBottle)
 			{
-				pIHost.AddGeneralMessage(WineBottleMessage);
+				pIHost.AddGeneralMessage(lORow.Message);
 
 				return true;
 			}
@@ -556,23 +596,15 @@ namespace UWDataImport.UWData
 			ItemSpell lOSpell = SpellOf(pOItem, pOData);
 			int liMessage = 0;
 
-			switch (liId)
+			if (lbHasRow)
 			{
-				case MushroomObjectId:
+				if (lORow.Effect == UWFoodTable.Effect.Mushroom)
 					fMushroomEffects(pOVitals);
-					liMessage = MushroomMessage;
-					break;
 
-				case ToadstoolObjectId: liMessage = ToadstoolMessage; break;
-				case CandleObjectId: liMessage = EatenCandleMessage; break;
-				case LeechObjectId: liMessage = EatenLeechesMessage; break;
-				case ThornyPlantObjectId: liMessage = ThornyPlantMessage; liNutrition = 4; break;
-				case PlainPlantObjectId: liMessage = PlainPlantMessage; liNutrition = 0x17; break;
-				case DeadRotwormObjectId: liMessage = RotwormMessage; liNutrition = 4; break;
-				case WormyStewObjectId: liMessage = WormyStewMessage; liNutrition = 0x40; break;
-				case WaterObjectId: liMessage = WaterMessage; break;
-				case PortObjectId: liMessage = PortMessage; break;
-				case AleObjectId: liMessage = AleMessage; break;
+				liMessage = lORow.Message;
+
+				if (lORow.HasOwnNutrition)
+					liNutrition = lORow.Nutrition;
 			}
 
 			if (liNutrition == NotFood && liMessage == 0)
@@ -595,11 +627,11 @@ namespace UWDataImport.UWData
 				{
 					int liTaste = System.Math.Min(LastTasteStep, (UWRandom.Next(TasteRollRange) + (pOItem.Quality & 0x3F)) >> 4);
 
-					pIHost.AddMessage(TastePrefix + UWItemDescriptions.GetBareName(liId, pOData)
-						+ (pOData.GetGeneralMessage(FirstTasteMessage + liTaste) ?? string.Empty).TrimEnd('\r', '\n'));
+					pIHost.AddMessage(TastePrefix + UWText.ObjectName(pOData, liId)
+						+ UWText.General(pOData, FirstTasteMessage + liTaste));
 				}
 
-				if (liId == ToadstoolObjectId)
+				if (lbHasRow && lORow.Effect == UWFoodTable.Effect.Toadstool)
 					pOVitals.PoisonFromToadstool();
 
 				fCastWithPause(lOSpell, pIHost);
@@ -663,36 +695,15 @@ namespace UWDataImport.UWData
 		/// <summary>0xB0-0xBF: (id &gt;&gt; 4) is 0xB.</summary>
 		private const int ComestiblesClass = 0xB;
 
-		private const int CandleObjectId = 0x92;
-		private const int MushroomObjectId = 0xB8;
-		private const int ToadstoolObjectId = 0xB9;
-		private const int AleObjectId = 0xBA;
-		private const int WaterObjectId = 0xBD;
-		private const int PortObjectId = 0xBE;
-		private const int WineObjectId = 0xBF;
-		private const int ThornyPlantObjectId = 0xCE;
-		private const int PlainPlantObjectId = 0xCF;
-		private const int DeadRotwormObjectId = 0xD9;
-		private const int WormyStewObjectId = 0x11B;
-
-		/// <summary>The three things outside the comestibles that are eaten when USED from the
-		/// pack (seg040_352B_919 for rotworm and plants, the class 4/1 use for the stew).</summary>
+		/// <summary>The four things outside the comestibles that are eaten when USED from the
+		/// pack (seg040_352B_919 for rotworm and plants, the class 4/1 use for the stew) - the rows
+		/// of UWFoodTable with their own nutrition.</summary>
 		public static bool IsEatenOnUse(int piObjectId)
 		{
-			return piObjectId == ThornyPlantObjectId || piObjectId == PlainPlantObjectId
-				|| piObjectId == DeadRotwormObjectId || piObjectId == WormyStewObjectId;
+			return UWFoodTable.IsEatenOnUse(piObjectId);
 		}
 
 		// Block 1, our numbering.
-		private const int EatenCandleMessage = 231;
-		private const int ToadstoolMessage = 232;
-		private const int PlainPlantMessage = 234;
-		private const int RotwormMessage = 235;
-		private const int WormyStewMessage = 236;
-		private const int ThornyPlantMessage = 237;
-		private const int WaterMessage = 238;
-		private const int PortMessage = 239;
-		private const int AleMessage = 240;
 		private const int PassOutMessage = 242;
 
 		/// <summary>

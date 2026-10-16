@@ -46,12 +46,20 @@ public static class UWSilverTree
         if (lOForward.sqrMagnitude < 0.0001f)
             lOForward = Vector3.forward;
 
-        Vector3 lOSpot = pOViewer.position + (lOForward.normalized * UWSilverTreeRules.PlantDistanceTiles * UWLevelMeshBuilder.TileSpacing);
+        Vector3 lOSpot = pOViewer.position + (lOForward.normalized * UWSilverTreeRules.PlantDistanceTiles * UWWorldScale.TileSize);
         UWTilePos lOTile = pOLoader.WorldPositionToTile(lOSpot);
 
+        // AS plant_seed MAKES IT (read in the decompilation 2026-10-11, after the user compared
+        // our SAVE4 with the original's SAVE3): CreateObj's fresh object (UWObjectFactory: quality
+        // 0x28, the quantity bit with a quantity of 1 for the tree's stack class), its tenacious
+        // bit (word 0 bit 13, our DoorDirection: the spawner reads it as "protected") set, and
+        // the animation started on it (the frame in the owner field, UWLevelLoader.fBuildObject).
+        // The quantity is named here so that the saved tree stays what SAVE3 showed whatever
+        // COMOBJ says.
         if (!UWSilverTreeRules.CanTakeRoot(pOLoader.CurrentLevel, lOTile)
-            || !pOLoader.SpawnObjectById(TreeObjectId, lOTile.X, lOTile.Y, 0, -1,
-                new Vector3(lOSpot.x, pOLoader.GetFloorHeightAt(lOSpot), lOSpot.z)))
+            || !pOLoader.SpawnObjectById(TreeObjectId, lOTile.X, lOTile.Y, 1, UWObjectFactory.DefaultQuality,
+                new Vector3(lOSpot.x, pOLoader.GetFloorHeightAt(lOSpot), lOSpot.z),
+                pOTree => { pOTree.DoorDirection = true; }))
         {
             fMessage(pOInteraction, UWSilverTreeRules.NoRootsMessage);
             return false;
@@ -82,22 +90,13 @@ public static class UWSilverTree
 
         UWObject lOSeed = fCreateSeed(pOLoader);
 
+        // THE MODERN SCHEME puts what it picks up into the bags (UWWorldPickup.Take), the
+        // seed as well - it stayed on the pointer (per user, 2026-10-07). Only without room it
+        // goes onto the pointer, as in the original; else the backpack, else the feet
+        // (UWInventoryModel.GiveToPlayer, one behaviour for the four gifts since 2026-10-12;
+        // until then a full hand and backpack lost the seed).
         if (lOSeed != null && pOInventory != null)
-        {
-            // THE MODERN SCHEME puts what it picks up into the bags (Interaction.fTryPickUp), the
-            // seed as well - it stayed on the pointer (per user, 2026-10-07). Only without room it
-            // goes onto the pointer, as in the original.
-            UWControlScheme lOScheme = UWScene.ControlScheme;
-            bool lbModern = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-
-            if (lbModern && pOInventory.TryStoreAnywhere(lOSeed))
-                return true;
-
-            if (pOInventory.CursorItem == null)
-                pOInventory.BeginDragFromExternal(lOSeed);
-            else
-                pOInventory.TryAddToBackpack(lOSeed);
-        }
+            pOInventory.GiveToPlayer(lOSeed, UWControlScheme.IsModern);
 
         return true;
     }
@@ -109,31 +108,20 @@ public static class UWSilverTree
         if (lOData == null)
             return null;
 
-        UWObject lOSeed = new UWObject((ushort)SeedObjectId);
+        // CreateObj's fresh object with its picture (UWObjectFactory), as place_new makes the
+        // seed (UseObj, USEITEMS.C).
+        UWObject lOSeed = UWObjectFactory.Create(SeedObjectId, lOData);
 
-        // A freshly created object (UW.EXE PrepareNewObjectProps): quality 0x28, quantity 1
-        // if its quantity class asks for it.
-        lOSeed.Quality = 0x28;
-
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (lOData.CommonObjectProperties != null
-            && lOData.CommonObjectProperties.TryGet(SeedObjectId, out lOEntry) && lOEntry.StartsWithQuantity)
-        {
-            lOSeed.HasQuantity = true;
-            lOSeed.Quantity = 1;
-        }
-
-        try
-        {
-            lOSeed.Texture = lOData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, SeedObjectId);
-        }
-        catch
-        {
+        if (lOSeed == null)
             return null;
-        }
 
         lOSeed.WasSpawned = true;
+
+        // THE SEED IS TENACIOUS, as the planted tree is: UseObj (UnderworldExhumed obj/USEITEMS.C,
+        // read 2026-10-15) sets word 0 bit 13 (SET_DOORDIR) on the new seed, so no culling and no
+        // water or lava takes it when it is dropped (UWObjectLimitRules.IsTenacious). Until
+        // 2026-10-15 ours made a plain object (reference audit round 2, A42).
+        lOSeed.DoorDirection = true;
 
         return lOSeed;
     }

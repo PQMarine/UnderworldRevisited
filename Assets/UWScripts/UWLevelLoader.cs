@@ -31,15 +31,6 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>Lockout after a transition, so that a way back does not fire again immediately.</summary>
     private const float TransitionCooldown = 0.75f;
 
-    [Header("Throwing (original)")]
-    [SerializeField]
-    [Tooltip("Original: flight time of a thrown item in seconds, see SpawnDroppedObject/UWThrownItemFlight.")]
-    private float mfThrowFlightDuration = 0.4f;
-
-    [SerializeField]
-    [Tooltip("Original: how high a thrown item arcs above the straight line from start to target.")]
-    private float mfThrowFlightArcHeight = 24f;
-
     [Header("Level")]
     [SerializeField]
     [Tooltip("Level 1 to 9 of the Abyss, zero-based.")]
@@ -123,8 +114,37 @@ public class UWLevelLoader : MonoBehaviour
     private GameObject mOObjectRoot;
     private float mfTransitionBlockedUntil;
 
-    /// <summary>See fRebuildEntityRegistry/TryGetEntity.</summary>
-    private Dictionary<UWObject, UWEntityInfo> mEntityByData;
+    /// <summary>The pictures of the objects and the registry from data to picture (TryGetEntity);
+    /// one per level build, attached to WorldEdit - see UWWorldView.</summary>
+    private UWWorldView mOWorldView;
+
+    private UWWorldEdit mOWorldEdit;
+
+    /// <summary>
+    /// The one place where the current level's object lists change - placing, removing, moving,
+    /// culling, Armageddon (UWWorldEdit, engine-free since 2026-10-12). Rebuilt with TileQueries
+    /// when the level or the data change; the view of the level build follows it.
+    /// </summary>
+    public UWWorldEdit WorldEdit
+    {
+        get
+        {
+            if (mOWorldEdit == null || mOWorldEdit.Queries != TileQueries)
+            {
+                mOWorldEdit = new UWWorldEdit(TileQueries)
+                {
+                    CarriedObjectCount = fCarriedObjectCount,
+                    PlayerTile = fPlayerTile,
+                    Log = psMessage => Debug.Log(psMessage)
+                };
+
+                if (mOWorldView != null)
+                    mOWorldView.Attach(mOWorldEdit);
+            }
+
+            return mOWorldEdit;
+        }
+    }
 
     /// <summary>Loaded game data. Used by Interaction, UWCharacter and UWGameUI.</summary>
     public DataImport UWDataImporter { get; private set; }
@@ -185,41 +205,27 @@ public class UWLevelLoader : MonoBehaviour
     /// disabled ones, so that nothing currently hidden slips through.</summary>
     public UWEntityInfo[] GetWorldEntities()
     {
-        return mOObjectRoot != null
-            ? mOObjectRoot.GetComponentsInChildren<UWEntityInfo>(true)
-            : new UWEntityInfo[0];
-    }
-
-    /// <summary>Public form of fGetSubTilePos - for UWWorldSync.</summary>
-    public static ushort GetSubTilePos(float pfWorldCoordinate, int piTileIndex)
-    {
-        return fGetSubTilePos(pfWorldCoordinate, piTileIndex);
+        return mOWorldView != null ? mOWorldView.GetWorldEntities() : new UWEntityInfo[0];
     }
 
     /// <summary>
     /// Removes an object from its tile's list WITHOUT touching the display - for a
     /// creature that dies: its death animation is still running, but in the data it is already
-    /// gone. Otherwise it would be back on re-entering the level and in the save game.
+    /// gone. A dead creature gives its slot back. UWWorldEdit.Forget.
     /// </summary>
     public bool ForgetObjectData(UWObject pOObject)
     {
-        bool lbForgotten = TileQueries.ForgetObjectData(pOObject);
-
-        // A dead creature gives its slot back (UWLevel.ReleaseMobileSlot, AddToFreeObjectsList).
-        if (lbForgotten && pOObject is UWNpc && CurrentLevel != null)
-            CurrentLevel.ReleaseMobileSlot(pOObject);
-
-        return lbForgotten;
+        return WorldEdit.Forget(pOObject);
     }
 
     /// <summary>
     /// Moves an object into the list of another tile - for UWWorldSync, when a
     /// creature has walked on. If it stays on its tile, the order stays as well.
-    /// Whatever is in no list is not re-inserted.
+    /// Whatever is in no list is not re-inserted. UWWorldEdit.Move.
     /// </summary>
     public void MoveObjectData(UWObject pOObject, int piTileX, int piTileZ)
     {
-        TileQueries.MoveObjectData(pOObject, piTileX, piTileZ);
+        WorldEdit.Move(pOObject, piTileX, piTileZ);
     }
 
     /// <summary>A freshly created character (see UWCharacterCreationScreen), or null.
@@ -253,6 +259,13 @@ public class UWLevelLoader : MonoBehaviour
             UWSetupMenu.ShowFirstRun();
             return;
         }
+
+        // EVERY START IS A NEW SESSION (cleanup step 2.7, 2026-10-14): a new character, a loaded
+        // save game and the main menu at launch each get a session of their own, so quest flags,
+        // game variables, story flags, the creatures' clock and alarm, the lava quirk, the cast
+        // pause, the light colours and the trap log of the previous game cannot leak into this one.
+        // fLoadData just loaded it (DataImport.LoadGame -> UWSaveCodec.Load, since step 2.9).
+        UWGameSession.MakeCurrent(UWDataImporter.Session);
 
         // Character creation leaves a black cover up during the rebuild. Until 2026-09-14 the
         // intro that followed removed it; without the intro the screen stayed black (per user).
@@ -316,16 +329,15 @@ public class UWLevelLoader : MonoBehaviour
             // The new character exactly like a loaded one: via its tile (32/2) and the
             // tile floor, not via the fixed start point in the Inspector.
             fPlacePlayerAtSavedPosition(lOPlayer.PositionX, lOPlayer.PositionY, lOPlayer.ZPosition);
-            fSetPlayerHeading(lOPlayer.Heading * 360f / HeadingSteps);
+            fSetPlayerHeading(UWUnits.AngleToDegrees(lOPlayer.Heading));
 
-            // The carried objects take their slots in this level, as in the original.
+            // The carried objects take their slots in this level, as in the original, in the
+            // order of their chain in PLAYER.DAT (RestoreGame, see UWCarriedSlots) - then room
+            // for them if the level is full (UWLevelChangeRules, the same order as TravelTo).
             List<UWObject> lOCarried = new List<UWObject>(lOPlayer.Equipment);
             lOCarried.AddRange(lOPlayer.Backpack);
-            fMakeRoomForInventory(UWObjectLimitRules.CountObjects(lOCarried),
+            fArriveWithInventory(lOPlayer.GetCarriedChain(), UWObjectLimitRules.CountObjects(lOCarried),
                 new UWTilePos(lOPlayer.PositionX >> 8, lOPlayer.PositionY >> 8));
-
-            // ... in the order of their chain in PLAYER.DAT (RestoreGame, see UWCarriedSlots).
-            UWCarriedSlots.TakeSlots(CurrentLevel, lOPlayer.GetCarriedChain());
         }
         else
         {
@@ -384,7 +396,7 @@ public class UWLevelLoader : MonoBehaviour
         // attitude per race balanced (see UWLevelExit). A jump WITHIN the level
         // does not count - the original only knows this step on a real transition.
         if (piLevelIndex != miLevelIndex)
-            UWLevelExit.LeaveLevel(TileQueries);
+            UWLevelExit.LeaveLevel(WorldEdit);
 
         // Tybal's orb drains the mana in its lair and gives it back on leaving (UWTybalOrbRules) -
         // on a real level change only, like the tidying above; loading a save keeps what it has.
@@ -393,19 +405,23 @@ public class UWLevelLoader : MonoBehaviour
 
         bool lbOtherLevel = piLevelIndex != miLevelIndex;
 
-        // The carried objects leave the old level's static slots (ClearObjectList_ovr118_4BE)
-        // and take new ones in the next (ovr118_3CB) - see UWCarriedSlots.
+        // The carried objects leave the old level's static slots (ClearObjectList_ovr118_4BE),
+        // after the running effects gave back theirs, and take new ones in the next
+        // (ovr118_3CB) - see UWCarriedSlots and UWLevelChangeRules.
         List<UWObject> lOCarriedChain = lbOtherLevel ? fCarriedChain() : null;
 
-        if (lOCarriedChain != null)
-            UWCarriedSlots.ReturnSlots(CurrentLevel, lOCarriedChain);
+        UWLevelChangeRules.Leave(WorldEdit, lOCarriedChain);
 
         miLevelIndex = piLevelIndex;
 
         fBuildLevel();
 
+        // GetLevel's order (decision 9): the level is built, the slots are taken, room is made
+        // only for what they did not cover - around the tile the player arrives on.
         if (lOCarriedChain != null)
-            UWCarriedSlots.TakeSlots(CurrentLevel, lOCarriedChain);
+            fArriveWithInventory(lOCarriedChain, fCarriedObjectCount(),
+                new UWTilePos(Mathf.Clamp(piTileX, 0, UWWorldScale.TilesPerAxis - 1),
+                    Mathf.Clamp(piTileZ, 0, UWWorldScale.TilesPerAxis - 1)));
 
         // The palette renderer's material swap remembers the level number. If it stays
         // the same - a jump within the same level - it would otherwise miss the rebuild
@@ -416,12 +432,153 @@ public class UWLevelLoader : MonoBehaviour
         if (mOPaletteToggle != null)
             mOPaletteToggle.Reapply();
 
-        fPlacePlayerAtTile(piTileX, piTileZ);
+        // WHERE HE ARRIVES (new_player_pos, UWArrivalRules): the nearest tile with room, then the
+        // same search clearing what stands in the way, then - nowhere at all - death.
+        int liArriveX;
+        int liArriveY;
+        bool lbFound = fFindArrivalTile(piTileX, piTileZ, false, out liArriveX, out liArriveY)
+            || fFindArrivalTile(piTileX, piTileZ, true, out liArriveX, out liArriveY);
 
-        if (lbOtherLevel)
-            fMakeRoomForInventory(fCarriedObjectCount());
+        fPlacePlayerAtTile(lbFound ? liArriveX : piTileX, lbFound ? liArriveY : piTileZ);
 
-        Debug.Log(string.Format("Entered level {0}, tile ({1},{2})", miLevelIndex + 1, piTileX, piTileZ));
+        if (!lbFound && UWScene.Character != null)
+            UWScene.Character.ApplyDamage(ArrivalNowhereDamage);
+
+        Debug.Log(string.Format("Entered level {0}, tile ({1},{2}) for ({3},{4})", miLevelIndex + 1,
+            liArriveX, liArriveY, piTileX, piTileZ));
+    }
+
+    /// <summary>More than any hit points: new_player_pos sets them to 0 when no tile has room.</summary>
+    private const int ArrivalNowhereDamage = 0x7FFF;
+
+    /// <summary>
+    /// A teleport trap (do_teleport, event/WORLDEV.C:175-200): on the SAME level the target must
+    /// have room by the first search before anyone moves - without it nothing happens (no
+    /// clearing, no death); the coordinate 0x3F skips that. Then the move goes like every other
+    /// (TravelTo), whose own search finds the tile at once. Another level is not searched here.
+    /// </summary>
+    public void TeleportTo(int piLevelIndex, int piTileX, int piTileZ)
+    {
+        if (piLevelIndex == miLevelIndex && CurrentLevel != null
+            && piTileX != UWArrivalRules.NoSearchCoordinate && piTileZ != UWArrivalRules.NoSearchCoordinate)
+        {
+            int liX;
+            int liY;
+
+            if (!fFindArrivalTile(piTileX, piTileZ, false, out liX, out liY))
+            {
+                Debug.Log(string.Format("Teleport to ({0},{1}): no room there, nothing happens", piTileX, piTileZ));
+
+                return;
+            }
+
+            piTileX = liX;
+            piTileZ = liY;
+        }
+
+        TravelTo(piLevelIndex, piTileX, piTileZ);
+    }
+
+    /// <summary>A motion core of its own for the arrival test, so no running step's records are
+    /// touched; made anew when the level's world is.</summary>
+    private UWMotionCore mOArrivalCore;
+
+    /// <summary>The extra test of a scatter spot: the container clearance, can_place, both or none.</summary>
+    private System.Func<int, int, bool> fScatterAlsoFits(int piItemId, bool pbAvoidWorldContainers, bool pbFitsLikeCanPlace,
+        int piZ)
+    {
+        if (!pbAvoidWorldContainers && !pbFitsLikeCanPlace)
+            return null;
+
+        return (piX, piY) => (!pbAvoidWorldContainers || fClearOfWorldContainers(piX, piY, piItemId))
+            && (!pbFitsLikeCanPlace || ObjectFitsAt(piItemId, piX, piY, piZ));
+    }
+
+    /// <summary>
+    /// can_place as drop_around_place asks it (UnderworldExhumed motion/COLLIDE.C): the object at
+    /// x, y in eighths and the coarse height z, as a flier, range 0 - the terrain and every solid
+    /// object around, the player and the creatures included (UWMotionCore.CheckIfItemFitsInTile
+    /// over UWProjectileWorld's bodies). The object is not in the world yet: index 0.
+    /// </summary>
+    public bool ObjectFitsAt(int piItemId, int piX8, int piY8, int piZ)
+    {
+        if (!fEnsureArrivalCore())
+            return false;
+
+        mOArrivalCore.Mover = new UWMotionBody
+        {
+            Index = 0,
+            ItemId = piItemId,
+            XPos = piX8 & 7,
+            YPos = piY8 & 7,
+            ZPos = piZ
+        };
+
+        return mOArrivalCore.CheckIfItemFitsInTile(piItemId, 0, piX8, piY8, piZ, true, 0, out int _, out int _);
+    }
+
+    /// <summary>The core for the fit tests over the current world (arrival, scatter).</summary>
+    private bool fEnsureArrivalCore()
+    {
+        UWCommonObjectProperties lOProperties = UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null;
+        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(this);
+
+        if (CurrentLevel == null || lOProperties == null || lOWorld == null)
+            return false;
+
+        if (mOArrivalCore == null || mOArrivalWorld != lOWorld)
+        {
+            mOArrivalWorld = lOWorld;
+            mOArrivalCore = new UWMotionCore(lOWorld, lOProperties);
+        }
+
+        return true;
+    }
+
+    private UWProjectileWorld mOArrivalWorld;
+
+    /// <summary>find_good_x_and_y over the current level (UWArrivalRules): pbClear is the second
+    /// pass, which removes from every tile it tries what UWArrivalRules.IsClearedForArrival names.
+    /// </summary>
+    private bool fFindArrivalTile(int piTileX, int piTileY, bool pbClear, out int piFoundX, out int piFoundY)
+    {
+        piFoundX = piTileX;
+        piFoundY = piTileY;
+
+        UWLevel lOLevel = CurrentLevel;
+        UWCommonObjectProperties lOProperties = UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null;
+
+        if (!fEnsureArrivalCore())
+            return false;
+
+        System.Action<int, int> lfClear = null;
+
+        if (pbClear)
+        {
+            lfClear = (piX, piY) =>
+            {
+                UWTile lOTile = lOLevel.GetTile(piX, piY);
+
+                if (lOTile == null || lOTile.ObjectsInTile == null)
+                    return;
+
+                foreach (UWObject lOObject in new List<UWObject>(lOTile.ObjectsInTile))
+                {
+                    if (UWArrivalRules.IsClearedForArrival(lOObject, lOProperties))
+                        RemoveObjectFromWorld(lOObject);
+                }
+            };
+        }
+
+        return UWArrivalRules.FindGoodXAndY(piTileX, piTileY,
+            (piX, piY) =>
+            {
+                UWTile lOTile = lOLevel.GetTile(piX, piY);
+
+                return lOTile != null ? lOTile.TileType : UWTile.TileTypeEnum.solid;
+            },
+            (piX, piY) => UWArrivalRules.AdventurerFits(mOArrivalCore, lOLevel.GetTile(piX, piY), piX, piY),
+            lfClear, out piFoundX, out piFoundY);
     }
 
     /// <summary>
@@ -553,8 +710,8 @@ public class UWLevelLoader : MonoBehaviour
         fCreateObjectMaterials();
 
         // The palette renderer attaches itself as soon as everything is in place - see
-        // UWPaletteRenderToggle.fAutoStart. Only provide the component here, so that it
-        // is not created on the first press of F6.
+        // UWPaletteRenderToggle.fAutoStart. Only provide the component here; otherwise
+        // UWGraphicsDetail.fSetPaletteRenderer would add it on the first switch of the detail level.
         if (GetComponent<UWPaletteRenderToggle>() == null)
             gameObject.AddComponent<UWPaletteRenderToggle>();
 
@@ -630,8 +787,9 @@ public class UWLevelLoader : MonoBehaviour
     /// same on entering.
     ///
     /// The reference clears the object lists of all tiles for this and frees the whole
-    /// object table (UWTileMap.ResetMap). For us these are two things: the
-    /// tile lists of the level data and the display objects below.
+    /// object table (UWTileMap.ResetMap), as the original's Map_ObjFix does. For us these are
+    /// two things: the level data - tile lists and free lists (UWWorldEdit.WipeAll, since
+    /// 2026-10-12 with the slots) - and the display objects below.
     /// </summary>
     public void ApplyArmageddon()
     {
@@ -643,27 +801,11 @@ public class UWLevelLoader : MonoBehaviour
         fWipeObjects();
     }
 
+    /// <summary>The tile lists in UWWorldEdit.WipeAll, the pictures and the registry in the
+    /// view's answer to LevelCleared.</summary>
     private void fWipeObjects()
     {
-        if (CurrentLevel != null && CurrentLevel.TileData != null)
-        {
-            for (int liAt = 0; liAt < CurrentLevel.TileData.Length; liAt++)
-            {
-                UWTile lOTile = CurrentLevel.TileData[liAt];
-
-                if (lOTile != null && lOTile.ObjectsInTile != null)
-                    lOTile.ObjectsInTile.Clear();
-            }
-        }
-
-        if (mOObjectRoot != null)
-        {
-            for (int liChild = mOObjectRoot.transform.childCount - 1; liChild >= 0; liChild--)
-                Destroy(mOObjectRoot.transform.GetChild(liChild).gameObject);
-        }
-
-        if (mEntityByData != null)
-            mEntityByData.Clear();
+        WorldEdit.WipeAll();
     }
 
     /// <summary>Whether the player currently wears the crown of maze navigation - set via
@@ -864,37 +1006,26 @@ public class UWLevelLoader : MonoBehaviour
         if (lOSpawner.UnresolvedCount > 0)
             Debug.LogWarning(lOSpawner.UnresolvedCount + " objects without texture on level " + (miLevelIndex + 1));
 
-        fRebuildEntityRegistry();
+        // The view of this build follows the level's data from now on (UWWorldView).
+        if (mOWorldView != null)
+            mOWorldView.Detach();
+
+        mOWorldView = new UWWorldView(lOObjectRoot.transform, fGetRuntimeSpawner, fApplyRenderModeTo);
+        mOWorldView.Attach(WorldEdit);
+        mOWorldView.RebuildRegistry();
     }
 
     private UWPaletteRenderToggle mOPaletteToggle;
 
     /// <summary>
-    /// Applies the currently active render path to everything added under the object node
-    /// since piChildCountBefore.
+    /// Applies the currently active render path to a freshly built node - the geometry after a
+    /// rebuild, and every object picture through UWWorldView, the one exit for those.
     ///
     /// The palette renderer's material swap runs once per level over everything that
     /// exists then (see UWPaletteRenderToggle.ApplyToNewObject). Without this follow-up
     /// every object created at runtime stays on the old path - visible because
     /// it is the only thing the player light falls on.
     /// </summary>
-    private void fApplyRenderModeFrom(int piChildCountBefore)
-    {
-        if (mOObjectRoot == null)
-            return;
-
-        if (mOPaletteToggle == null)
-            mOPaletteToggle = GetComponent<UWPaletteRenderToggle>();
-
-        if (mOPaletteToggle == null)
-            return;
-
-        for (int liChild = piChildCountBefore; liChild < mOObjectRoot.transform.childCount; liChild++)
-            mOPaletteToggle.ApplyToNewObject(mOObjectRoot.transform.GetChild(liChild).gameObject);
-    }
-
-    /// <summary>The same for a single freshly built node - the geometry after
-    /// a rebuild, for example.</summary>
     private void fApplyRenderModeTo(GameObject pOBuilt)
     {
         if (pOBuilt == null)
@@ -907,33 +1038,12 @@ public class UWLevelLoader : MonoBehaviour
             mOPaletteToggle.ApplyToNewObject(pOBuilt);
     }
 
-    /// <summary>Data-driven triggers (UWTriggerSystem) have - unlike the player
-    /// via raycast - no click hit through which they could find a UWEntityInfo for the target tile
-    /// (all objects hang flat under mOObjectRoot, not grouped per
-    /// tile). Built once after each spawn, replaces itself on every
-    /// level change/rebuild.</summary>
-    private void fRebuildEntityRegistry()
-    {
-        mEntityByData = new Dictionary<UWObject, UWEntityInfo>();
-
-        if (mOObjectRoot == null)
-            return;
-
-        UWEntityInfo[] lyEntities = mOObjectRoot.GetComponentsInChildren<UWEntityInfo>(true);
-
-        foreach (UWEntityInfo lOEntity in lyEntities)
-        {
-            if (lOEntity.ObjectData != null)
-                mEntityByData[lOEntity.ObjectData] = lOEntity;
-        }
-    }
-
     /// <summary>For UWTriggerSystem (door trap: find the door GameObject for a UWObject found
-    /// via the target tile, without a player click hit).</summary>
+    /// via the target tile, without a player click hit) - UWWorldView's registry.</summary>
     public bool TryGetEntity(UWObject pOData, out UWEntityInfo pOEntity)
     {
-        if (mEntityByData != null && pOData != null)
-            return mEntityByData.TryGetValue(pOData, out pOEntity);
+        if (mOWorldView != null)
+            return mOWorldView.TryGetEntity(pOData, out pOEntity);
 
         pOEntity = null;
         return false;
@@ -951,11 +1061,11 @@ public class UWLevelLoader : MonoBehaviour
     /// only come into being during play and for which there is no template in the object list - the
     /// remains of a killed creature, for example.
     /// </summary>
-    /// <param name="piQuantity">Count for a stack, or zero for a
-    /// single item. A quantity field only holds what has the quantity bit set - see
-    /// UWObject.HasQuantity.</param>
-    /// <param name="piQuality">Condition from zero to 63, or minus one for
-    /// unchanged.</param>
+    /// <param name="piQuantity">Count for a stack, or zero for CreateObj's own rule (a stack
+    /// of one for a stackable class, else none - UWObjectFactory). A quantity field only holds
+    /// what has the quantity bit set - see UWObject.HasQuantity.</param>
+    /// <param name="piQuality">Condition from zero to 63, or minus one for CreateObj's 40
+    /// (since 2026-10-12; before that minus one left it at 0).</param>
     public bool SpawnObjectById(int piObjectId, int piTileX, int piTileZ,
         int piQuantity = 0, int piQuality = -1)
     {
@@ -965,26 +1075,27 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>As above, but at a specific world position within the tile - for
     /// blood and remains that lie where the creature died. Null means tile centre.
     /// </summary>
+    /// <param name="pOPrepare">Sets fields on the fresh object before it is placed (the planted
+    /// silver tree's tenacious bit, for one).</param>
     public bool SpawnObjectById(int piObjectId, int piTileX, int piTileZ,
-        int piQuantity, int piQuality, Vector3? pOWorldPosition, bool pbScatter = false)
+        int piQuantity, int piQuality, Vector3? pOWorldPosition, System.Action<UWObject> pOPrepare = null)
     {
-        if (pbScatter && CurrentLevel != null)
-            pOWorldPosition = GetRandomPositionInTile(piTileX, piTileZ, piObjectId);
-
         UWObject lOObject = fBuildObject(piObjectId, piQuantity, piQuality);
 
         if (lOObject == null)
             return false;
 
+        pOPrepare?.Invoke(lOObject);
+
         // Centre of the tile: the sub-tile fields of a freshly built object are 0, and
         // that would be the tile corner.
         lOObject.XPos = 3;
         lOObject.YPos = 3;
-        lOObject.ZPos = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX].FloorHeight / 2;
+        lOObject.ZPos = CurrentLevel.GetTile(piTileX, piTileZ).FloorHeight / 2;
 
         if (pOWorldPosition.HasValue)
             return CurrentLevel != null && mOObjectRoot != null
-                && fSpawnObjectAt(lOObject, piTileX, piTileZ, pOWorldPosition.Value, false, null);
+                && fSpawnObjectAt(lOObject, piTileX, piTileZ, pOWorldPosition.Value, false);
 
         return SpawnObjectInTile(lOObject, piTileX, piTileZ);
     }
@@ -995,35 +1106,38 @@ public class UWLevelLoader : MonoBehaviour
         if (UWDataImporter == null || CurrentLevel == null)
             return null;
 
-        UWObject lOObject = new UWObject((ushort)piObjectId);
+        // CreateObj (UWObjectFactory): a caller's count or quality is kept, anything else is
+        // CreateObj's own - quality 40 and the stack rule of COMOBJ. Until 2026-10-12 a quality
+        // of minus one meant 0 and a count of 0 no quantity bit, so remains, bones, debris, the
+        // moongate and the Vas rune came into being at quality 0 and without the bit the
+        // original gives their classes.
+        UWObject lOObject = UWObjectFactory.Create(piObjectId, UWDataImporter.CommonObjectProperties,
+            piQuantity > 0 ? piQuantity : UWObjectFactory.Unset, piQuality >= 0 ? piQuality : UWObjectFactory.Unset);
 
-        if (piQuantity > 0)
-        {
-            lOObject.HasQuantity = true;
-            lOObject.Quantity = (ushort)piQuantity;
-        }
+        // AN ANIMATED OBJECT CARRIES ITS FRAME IN THE OWNER FIELD: the original's add_animobj
+        // writes the class's first ANIMO.GR frame there when it starts the animation, and its
+        // renderer draws that frame. Ours draws from the table, but a save must hold the number:
+        // a silver tree planted here and loaded in the original showed frame 0, the smoke (per
+        // user, 2026-10-11, SAVE4 against the original's SAVE3).
+        UWObjectClassProperties.AnimationObject lOAnimation;
 
-        if (piQuality >= 0)
-            lOObject.Quality = (ushort)piQuality;
+        if (UWDataImporter.ObjectClassProperties != null
+            && UWDataImporter.ObjectClassProperties.TryGetAnimationObject(piObjectId, out lOAnimation))
+            lOObject.Owner = lOAnimation.StartFrame;
 
-        try
-        {
-            lOObject.Texture = UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-        }
-        catch
-        {
-            return null;
-        }
-
-        return lOObject.Texture != null ? lOObject : null;
+        return UWObjectAppearance.Apply(lOObject, UWDataImporter.Textures, CurrentLevel.TextureInfos) ? lOObject : null;
     }
 
     /// <summary>A new object of this kind put down around a point - see
     /// SpawnScatteredAround.</summary>
     public bool SpawnObjectByIdAround(int piObjectId, int piQuantity, int piQuality, Vector3 pOCentre,
-        int piRadiusEighths, UWTilePos? pOFallbackTile = null)
+        int piRadiusEighths, UWTilePos? pOFallbackTile = null, int piOwner = -1)
     {
         UWObject lOObject = fBuildObject(piObjectId, piQuantity, piQuality);
+
+        // An owner given (the kind of a corpse, build_corpse) goes into word 3 bits 0-5.
+        if (lOObject != null && piOwner >= 0)
+            lOObject.Owner = (ushort)(piOwner & 0x3F);
 
         return lOObject != null && SpawnScatteredAround(lOObject, pOCentre, piRadiusEighths, pOFallbackTile);
     }
@@ -1038,16 +1152,27 @@ public class UWLevelLoader : MonoBehaviour
     /// FITS here is the tile part of the original's test: inside the level, not solid, in the
     /// open half of a diagonal, and a floor no higher than the point (a step up refuses it).
     ///
-    /// pOFallbackTile: where the object goes, scattered in that tile, if even the point itself
-    /// is refused (a body standing over a wall's tile) - so that nothing is lost that the
-    /// culling test did not take.
+    /// pOFallbackTile: where the object goes - the middle of that tile - if even the point itself
+    /// is refused. The original has no such case (put_at adds the object at the point whatever
+    /// lies there); ours can meet it when a body's position stands over a wall's tile. Until
+    /// 2026-10-12 a random spot of the tile was rolled there, a roll the original never makes
+    /// (per user: "as in the original").
+    ///
+    /// pbStayCentered, pbNoCull: drop_around_place's stay_centered (the point is tried first)
+    /// and put_at's nocull (the object is never culled) - place_object at the player's feet.
     ///
     /// pbAvoidWorldContainers: a spot must keep the two radii away from any barrel, chest or
     /// nightstand in its tile - the one piece of the original's object collision taken over
     /// (per user, 2026-09-16: nothing from a spilled barrel comes to rest on the next one).
+    ///
+    /// pbFitsLikeCanPlace: the whole of drop_around_place's test, can_place against every solid
+    /// object (ObjectFitsAt) at piZ - for the rock hammer's pieces, where the original's test
+    /// decides how many survive (per user on the original 2026-10-15: "often no piece at all,
+    /// it seems to depend on the room").
     /// </summary>
     public bool SpawnScatteredAround(UWObject pOObject, Vector3 pOCentre, int piRadiusEighths,
-        UWTilePos? pOFallbackTile = null, bool pbAvoidWorldContainers = false)
+        UWTilePos? pOFallbackTile = null, bool pbAvoidWorldContainers = false, bool pbStayCentered = false,
+        bool pbNoCull = false, bool pbFitsLikeCanPlace = false, int piZ = 0)
     {
         if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
             return false;
@@ -1058,77 +1183,32 @@ public class UWLevelLoader : MonoBehaviour
         int liX;
         int liY;
 
-        if (!UWScatterRules.TryPickSpot(liCentreX, liCentreY, piRadiusEighths,
-            (piX, piY) => fFootprintFitsAtEighths(piX, piY, fGetObjectRadius(pOObject.ID), pOCentre.y)
-                && (!pbAvoidWorldContainers || fClearOfWorldContainers(piX, piY, pOObject.ID)), out liX, out liY))
+        // The rolls and the tile fit are UWPlacement's (engine-free since 2026-10-12); only the
+        // container clearance, which reads the spawned bodies, stays here.
+        if (!UWPlacement.TryScatter(TileQueries, liCentreX, liCentreY, piRadiusEighths, fGetObjectRadius(pOObject.ID),
+            pOCentre.y, fScatterAlsoFits(pOObject.ID, pbAvoidWorldContainers, pbFitsLikeCanPlace, piZ),
+            out liX, out liY, pbStayCentered))
         {
-            if (TileQueries.Culls(pOObject.ID, pOObject.HasQuantity && pOObject.Quantity < UWObjectMechanics.SpecialPropertyThreshold ? pOObject.Quantity : 1))
+            if (!pbNoCull && TileQueries.Culls(pOObject.ID, UWStackRules.Count(pOObject)))
                 return false;
         }
 
-        Vector3 lOSpot = new Vector3(UWTileQueries.EighthsToWorld(liX), pOCentre.y, UWTileQueries.EighthsToWorld(liY));
+        Vector3 lOSpot = new Vector3(UWUnits.EighthsToWorldAxis(liX), pOCentre.y, UWUnits.EighthsToWorldAxis(liY));
 
-        if (fSpawnObjectAt(pOObject, liX >> 3, liY >> 3, lOSpot, false, null))
+        if (fSpawnObjectAt(pOObject, liX >> 3, liY >> 3, lOSpot, false))
             return true;
 
         return pOFallbackTile.HasValue
-            && SpawnObjectInTileScattered(pOObject, pOFallbackTile.Value.X, pOFallbackTile.Value.Y);
+            && SpawnObjectInTile(pOObject, pOFallbackTile.Value.X, pOFallbackTile.Value.Y);
     }
 
-    /// <summary>Whether the last object that tried to join the level was refused for want of
-    /// a slot - so a caller does not try again elsewhere (see fReserveSlot).</summary>
-    public bool LastSpawnRefusedForSlot { get; private set; }
-
-    /// <summary>
-    /// GetFreeObject for an object about to join the level (UWObjectLimitRules): an object
-    /// already in a tile list keeps its slot; otherwise, if its kind has no free slot, far
-    /// objects are culled - range 3, five at most for a creature, ten for anything else - and
-    /// the object is refused when that freed nothing. Culling frees the slots of whatever it
-    /// takes, so three creatures culled for a static slot leave the static list empty and the
-    /// object is refused all the same - as in the original.
-    /// </summary>
-    private bool fReserveSlot(UWObject pOObject)
+    /// <summary>The player's tile, the centre of the culling (UWWorldEdit.PlayerTile); far off
+    /// the map without a character.</summary>
+    private UWTilePos fPlayerTile()
     {
-        LastSpawnRefusedForSlot = false;
-
-        if (pOObject == null || CurrentLevel == null || TileQueries.FindTileHolding(pOObject) != null)
-            return true;
-
-        bool lbMobile = UWObjectLimitRules.NeedsMobileSlot(pOObject);
-
-        if (UWObjectLimitRules.HasFreeSlot(CurrentLevel, lbMobile, fCarriedObjectCount()))
-            return true;
-
-        UWTilePos lOPlayer = UWScene.Character != null
+        return UWScene.Character != null
             ? WorldPositionToTile(UWScene.Character.transform.position)
             : new UWTilePos(-100, -100);
-
-        int liCulled = UWObjectLimitRules.Cull(CurrentLevel, lOPlayer.X, lOPlayer.Y, UWObjectLimitRules.CullRange,
-            lbMobile ? UWObjectLimitRules.MobileCullLimit : UWObjectLimitRules.StaticCullLimit,
-            fCullsForSpace, fRemoveCulled);
-
-        bool lbFree = UWObjectLimitRules.HasFreeSlot(CurrentLevel, lbMobile, fCarriedObjectCount());
-
-        Debug.Log(string.Format("Level {0} full ({1} slots): culled {2}, {3}", CurrentLevel.LevelNumber,
-            lbMobile ? "mobile" : "static", liCulled, lbFree ? "slot free" : "object " + pOObject.ID + " refused"));
-
-        LastSpawnRefusedForSlot = !lbFree;
-
-        return lbFree;
-    }
-
-    /// <summary>The culling test with the range GetFreeObject uses.</summary>
-    private bool fCullsForSpace(UWObject pOCandidate)
-    {
-        return UWObjectLimitRules.Culls(pOCandidate, UWObjectLimitRules.CullRange,
-            UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null, CurrentLevel.Masterlist);
-    }
-
-    private void fRemoveCulled(UWObject pOCulled, int piTileX, int piTileY)
-    {
-        pOCulled.TileX = piTileX;
-        pOCulled.TileY = piTileY;
-        RemoveObjectFromWorld(pOCulled);
     }
 
     /// <summary>What the player carries, counted as the original counts it against the level's
@@ -1185,150 +1265,47 @@ public class UWLevelLoader : MonoBehaviour
 
     /// <summary>
     /// The inventory arrives in the level - on loading a game and on entering another level
-    /// (UWObjectLimitRules.MakeRoomForInventory): if level and inventory together exceed the
-    /// static slots, far objects are culled in steps of ten until they fit.
+    /// (UWLevelChangeRules.Arrive): the carried objects take their slots in the order of the
+    /// chain, then, if level and inventory together exceed the static slots, far objects are
+    /// culled in steps of ten until they fit (UWObjectLimitRules.MakeRoomForInventory).
     /// </summary>
-    private void fMakeRoomForInventory(int piCarriedObjects, UWTilePos? pOPlayerTile = null)
+    private void fArriveWithInventory(List<UWObject> pOCarriedChain, int piCarriedObjects, UWTilePos pOPlayerTile)
     {
-        if (CurrentLevel == null || piCarriedObjects <= 0)
+        if (CurrentLevel == null)
             return;
 
-        UWTilePos lOPlayer = pOPlayerTile.HasValue ? pOPlayerTile.Value : UWScene.Character != null
-            ? WorldPositionToTile(UWScene.Character.transform.position)
-            : new UWTilePos(-100, -100);
+        int liCulled = UWLevelChangeRules.Arrive(WorldEdit, pOCarriedChain, piCarriedObjects, pOPlayerTile.X, pOPlayerTile.Y);
 
-        int liCulled = UWObjectLimitRules.MakeRoomForInventory(CurrentLevel, lOPlayer.X, lOPlayer.Y, piCarriedObjects,
-            fCullsForSpace, fRemoveCulled);
+        // RestorePlayerInv ends with FixPlayerEquips - a worn curse strikes on arrival
+        // (UWCharacter.OnStatusPassDue, 2026-10-12).
+        UWCharacter lOCharacter = UWScene.Character;
+
+        if (lOCharacter != null)
+            lOCharacter.OnStatusPassDue();
 
         if (liCulled > 0)
             Debug.Log(string.Format("Level {0}: {1} carried objects arrived in a full level, culled {2}",
                 CurrentLevel.LevelNumber, piCarriedObjects, liCulled));
     }
 
-    /// <summary>
-    /// THE OBJECT'S FOOTPRINT, not only its point (per user, 2026-09-28: "the loot lies too close
-    /// to walls at times"): the original's fit test runs the motion test with the object's own
-    /// radius (COMOBJ, in eighths of a tile), so a wall or a higher floor within that radius
-    /// refuses the spot. Ours checked the spot alone, and an item could lie on the last eighth
-    /// against a wall. Now every eighth of the square the radius spans has to pass the tile test;
-    /// whether the original draws the line one eighth nearer or further is not read.
-    /// </summary>
-    private bool fFootprintFitsAtEighths(int piX, int piY, int piRadius, float pfPointHeight)
-    {
-        for (int liDy = -piRadius; liDy <= piRadius; liDy++)
-        {
-            for (int liDx = -piRadius; liDx <= piRadius; liDx++)
-            {
-                if (!fFitsAtEighths(piX + liDx, piY + liDy, pfPointHeight))
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>The tile part of CheckIfItemFitsInTile_seg026_1008 - see SpawnScatteredAround.</summary>
-    private bool fFitsAtEighths(int piX, int piY, float pfPointHeight)
-    {
-        int liTileX = piX >> 3;
-        int liTileY = piY >> 3;
-
-        if (piX < 0 || piY < 0 || liTileX >= UWLevelMeshBuilder.TilesPerAxis || liTileY >= UWLevelMeshBuilder.TilesPerAxis)
-            return false;
-
-        UWTile lOTile = CurrentLevel.TileData[(liTileY * UWLevelMeshBuilder.TilesPerAxis) + liTileX];
-
-        if (lOTile == null || !UWTileQueries.IsSubTileInOpenHalf(lOTile.TileType, piX & 7, piY & 7))
-            return false;
-
-        float lfFloor = fGetFloorHeightAt(lOTile, UWTileQueries.EighthsToWorld(piX), UWTileQueries.EighthsToWorld(piY),
-            liTileX, liTileY);
-
-        return lfFloor <= pfPointHeight + FloorHeightTolerance;
-    }
-
     /// <summary>Whether a spot in eighths keeps clear of the world containers in its tile - see
-    /// SpawnScatteredAround.</summary>
+    /// SpawnScatteredAround. The footprint's tile fit is UWPlacement.FootprintFits.</summary>
     private bool fClearOfWorldContainers(int piX, int piY, int piObjectId)
     {
-        Vector3 lOSpot = new Vector3(UWTileQueries.EighthsToWorld(piX), 0f, UWTileQueries.EighthsToWorld(piY));
+        Vector3 lOSpot = new Vector3(UWUnits.EighthsToWorldAxis(piX), 0f, UWUnits.EighthsToWorldAxis(piY));
 
         return fGetDistanceToWorldContainer(piX >> 3, piY >> 3, lOSpot) >= fGetContainerClearance(piObjectId);
-    }
-
-    /// <summary>World units a floor may lie above the point and still count as not higher -
-    /// rounding between the body's height and the floor's.</summary>
-    private const float FloorHeightTolerance = 1f;
-
-    /// <summary>
-    /// Places an object at a RANDOM spot of its tile - that is how the original spreads the
-    /// loot of a dead creature (the reference: container.SpillWorldContainer with
-    /// tilemap.GetRandomXYZForTile). Before, everything lay stacked exactly in the tile centre
-    /// (per user, 2026-09-13: "The original spreads it").
-    /// </summary>
-    public bool SpawnObjectInTileScattered(UWObject pOObject, int piTileX, int piTileZ,
-        bool pbAvoidWorldContainers = false)
-    {
-        if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
-            return false;
-
-        Vector3 lOSpot = pbAvoidWorldContainers
-            ? fGetPositionClearOfContainers(piTileX, piTileZ, pOObject.ID)
-            : GetRandomPositionInTile(piTileX, piTileZ, pOObject.ID);
-
-        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOSpot, false, null);
-    }
-
-    /// <summary>How many spots are tried before the one with the largest distance is
-    /// taken. The tile is eight by eight sub-tiles, so a handful of tries is plenty.</summary>
-    private const int ContainerClearanceTries = 12;
-
-    /// <summary>
-    /// A spot in the tile that does NOT lie on a barrel or chest standing there.
-    ///
-    /// Only for the contents of a spilled container (per user, 2026-09-16: "when spilling
-    /// we should make sure that no item lands on the same spot as chests or barrels").
-    /// THROWN items are not affected - in the original one can very well come to rest on a
-    /// barrel.
-    ///
-    /// The clearance is the two radii from COMOBJ.DAT added together, in eighths of a
-    /// tile, which is the same measure the wall clearance uses (see KeepClearOfEdges).
-    /// If every try lands on a container - a tile can be full of them - the spot with the
-    /// largest distance is taken; nothing is ever left unplaced.
-    /// </summary>
-    private Vector3 fGetPositionClearOfContainers(int piTileX, int piTileZ, int piObjectId)
-    {
-        float lfNeeded = fGetContainerClearance(piObjectId);
-
-        Vector3 lOBest = Vector3.zero;
-        float lfBest = -1f;
-
-        for (int liTry = 0; liTry < ContainerClearanceTries; liTry++)
-        {
-            Vector3 lOSpot = GetRandomPositionInTile(piTileX, piTileZ, piObjectId);
-            float lfDistance = fGetDistanceToWorldContainer(piTileX, piTileZ, lOSpot);
-
-            if (lfDistance >= lfNeeded)
-                return lOSpot;
-
-            if (lfDistance > lfBest)
-            {
-                lfBest = lfDistance;
-                lOBest = lOSpot;
-            }
-        }
-
-        return lOBest;
     }
 
     /// <summary>The radius of the item plus that of a container, in world units (the same
     /// measure as fGetTriggerReach uses for the player).</summary>
     private float fGetContainerClearance(int piObjectId)
     {
-        int liItem = Mathf.Clamp(fGetObjectRadius(piObjectId), 1, 3);
-        int liContainer = Mathf.Clamp(fGetObjectRadius(UWObjectMechanics.BarrelObjectId), 1, 3);
+        int liItem = UWPlacement.PlacementRadius(TileQueries, piObjectId);
+        int liContainer = UWPlacement.PlacementRadius(TileQueries, UWObjectMechanics.BarrelObjectId);
 
-        return (liItem + liContainer) * EighthTile;
+        // In eighths of a tile, the unit comobj.dat stores radii in.
+        return (liItem + liContainer) * UWWorldScale.SubTileStep;
     }
 
     /// <summary>Distance to the nearest barrel, chest or nightstand in this tile, measured
@@ -1338,7 +1315,7 @@ public class UWLevelLoader : MonoBehaviour
         if (CurrentLevel == null || CurrentLevel.TileData == null)
             return float.MaxValue;
 
-        UWTile lOTile = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = CurrentLevel.GetTile(piTileX, piTileZ);
 
         if (lOTile == null || lOTile.ObjectsInTile == null)
             return float.MaxValue;
@@ -1382,73 +1359,6 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     /// <summary>
-    /// A random sub-tile spot as a world position, like GetRandomXYZForTile of the
-    /// reference: on open and sloped tiles 0 to 7 in both directions, on
-    /// diagonal ones only in the open half. The tile types are numbered the same there
-    /// (SE 2, SW 3, NE 4, NW 5). The height - also on slopes - is computed by fSpawnObjectAt from
-    /// the spot, which is why it stays zero here.
-    ///
-    /// DISTANCE TO THE WALL (per user, 2026-09-13: "It must also keep the distance rule to walls
-    /// like dropped items do"): if next to the tile there is a solid one or
-    /// one with a higher floor (step), the spot is pulled away from it by the item's radius from
-    /// COMOBJ.DAT (KeepClearOfEdges), in
-    /// eighths of the tile and at least one - a thrown item keeps that much distance too
-    /// (UWItemDrag, 8 world units). The reference checks the same with the
-    /// radius when dropping (pickup.DropObjectByPlayer, motion.TestIfObjectFitsInTile). Several pieces
-    /// on the same spot are allowed - in the original they lie on top of each other when space
-    /// is short (per user, 2026-09-13).
-    /// </summary>
-    public Vector3 GetRandomPositionInTile(int piTileX, int piTileZ, int piObjectId = -1)
-    {
-        UWTile lOTile = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
-        int liX;
-        int liY;
-
-        // Random.Range with integers excludes the upper bound, like Next(a, b).
-        switch (lOTile != null ? lOTile.TileType : UWTile.TileTypeEnum.open)
-        {
-            case UWTile.TileTypeEnum.diagonal_ne:
-                liX = Random.Range(1, 8);
-                liY = Random.Range(7 - liX, 8);
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_se:
-                liX = Random.Range(1, 8);
-                liY = Random.Range(1, liX);
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_nw:
-                liX = Random.Range(1, 8);
-                liY = Random.Range(liX, 8);
-                break;
-
-            case UWTile.TileTypeEnum.diagonal_sw:
-                liX = Random.Range(1, 8);
-                liY = Random.Range(0, 8 - liX);
-                break;
-
-            default:
-                liX = Random.Range(0, 8);
-                liY = Random.Range(0, 8);
-                break;
-        }
-
-        int liRadius = 1;
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (piObjectId >= 0 && UWDataImporter != null && UWDataImporter.CommonObjectProperties != null
-            && UWDataImporter.CommonObjectProperties.TryGet(piObjectId, out lOEntry))
-            liRadius = Mathf.Clamp(lOEntry.Radius, 1, 3);
-
-        KeepClearOfEdges(piTileX, piTileZ, ref liX, ref liY, liRadius, true);
-
-        return new Vector3(
-            UWViewpoint.TileToWorldAxis(piTileX) + (liX * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset,
-            0f,
-            UWViewpoint.TileToWorldAxis(piTileZ) + (liY * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset);
-    }
-
-    /// <summary>
     /// For a_create_object trap: the copy of the template keeps the template's position in the tile and HEIGHT
     /// and only moves to the new tile. That is what UW.EXE does (TriggerCreateObjectTrap,
     /// case 7: CopyArray, then MoveObjectToCoordinates with tile times 8 plus xpos/ypos of the
@@ -1465,11 +1375,11 @@ public class UWLevelLoader : MonoBehaviour
         int liTemplateZ = pOObject.ZPos;
 
         Vector3 lOPosition = new Vector3(
-            UWViewpoint.TileToWorldAxis(piTileX) + (pOObject.XPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset,
+            UWUnits.SubTileToWorldAxis(piTileX, pOObject.XPos),
             0f,
-            UWViewpoint.TileToWorldAxis(piTileZ) + (pOObject.YPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset);
+            UWUnits.SubTileToWorldAxis(piTileZ, pOObject.YPos));
 
-        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, null, null, 0f, true, liTemplateZ);
+        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, true, liTemplateZ);
     }
 
     /// <summary>A thing come to rest on the motion core (UWProjectileWorld.PlaceAtRest): at the
@@ -1481,11 +1391,11 @@ public class UWLevelLoader : MonoBehaviour
             return false;
 
         Vector3 lOPosition = new Vector3(
-            UWViewpoint.TileToWorldAxis(piTileX) + (pOObject.XPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset,
+            UWUnits.SubTileToWorldAxis(piTileX, pOObject.XPos),
             0f,
-            UWViewpoint.TileToWorldAxis(piTileZ) + (pOObject.YPos * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset);
+            UWUnits.SubTileToWorldAxis(piTileZ, pOObject.YPos));
 
-        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, null, null, 0f, false, pOObject.ZPos);
+        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, false, pOObject.ZPos);
     }
 
     /// <summary>Places an object in the centre of a tile - for create traps that give a
@@ -1502,9 +1412,9 @@ public class UWLevelLoader : MonoBehaviour
             return false;
 
         return fSpawnObjectAt(pOObject, piTileX, piTileZ, new Vector3(
-            piTileX * UWLevelMeshBuilder.TileSpacing,
+            UWUnits.TileCentreToWorldAxis(piTileX),
             0f,
-            piTileZ * UWLevelMeshBuilder.TileSpacing), false, null);
+            UWUnits.TileCentreToWorldAxis(piTileZ)), false);
     }
 
     /// <summary>
@@ -1523,67 +1433,28 @@ public class UWLevelLoader : MonoBehaviour
     /// <returns>How many objects were created.</returns>
     public int SpawnPendingObjectsInTile(int piTileX, int piTileZ)
     {
-        if (CurrentLevel == null || CurrentLevel.TileData == null || mOObjectRoot == null
-            || piTileX < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || piTileZ < 0 || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
+        if (CurrentLevel == null || mOObjectRoot == null)
             return 0;
 
-        UWTile lOTile = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = CurrentLevel.GetTile(piTileX, piTileZ);
 
         if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid
-            || lOTile.ObjectsInTile == null || lOTile.ObjectsInTile.Count == 0)
+            || lOTile.ObjectsInTile == null || lOTile.ObjectsInTile.Count == 0 || mOWorldView == null)
             return 0;
 
-        UWObjectSpawner lOSpawner = fGetRuntimeSpawner();
-
-        // Via a copy: a spawner can add something to the tile list.
-        UWObject[] lOObjects = lOTile.ObjectsInTile.ToArray();
-
-        int liChildCountBefore = mOObjectRoot.transform.childCount;
-
-        foreach (UWObject lOObject in lOObjects)
-            lOSpawner.SpawnSingleObject(piTileX, piTileZ, lOTile, lOObject, mOObjectRoot.transform);
-
-        fApplyRenderModeFrom(liChildCountBefore);
-        fRebuildEntityRegistry();
-
-        return lOObjects.Length;
+        return mOWorldView.SpawnTileObjects(piTileX, piTileZ, lOTile);
     }
 
     /// <summary>
     /// Removes an object from the world for good - from the object list of its tile and
-    /// together with its display. For the a_delete object trap (see UWTriggerSystem).
-    ///
-    /// UWInventory.RemoveWorldObject does the same on pickup, but starts from the clicked
-    /// UWEntityInfo; here only the data object is known.
+    /// together with its display: the a_delete object trap (see UWTriggerSystem), a pickup
+    /// (UWInventory.RemoveWorldObject, folded in on 2026-10-12 - it had its own copy that left
+    /// the registry stale), the culling. UWWorldEdit.Remove; true also when only the picture
+    /// still held the object.
     /// </summary>
     public bool RemoveObjectFromWorld(UWObject pOObject)
     {
-        if (pOObject == null || CurrentLevel == null || CurrentLevel.TileData == null
-            || pOObject.TileX < 0 || pOObject.TileX >= UWLevelMeshBuilder.TilesPerAxis
-            || pOObject.TileY < 0 || pOObject.TileY >= UWLevelMeshBuilder.TilesPerAxis)
-            return false;
-
-        UWTile lOTile = CurrentLevel.TileData[(pOObject.TileY * UWLevelMeshBuilder.TilesPerAxis) + pOObject.TileX];
-
-        bool lbRemoved = lOTile != null && lOTile.ObjectsInTile.Remove(pOObject);
-
-        if (TryGetEntity(pOObject, out UWEntityInfo lOEntity) && lOEntity != null)
-        {
-            Destroy(lOEntity.gameObject);
-            mEntityByData.Remove(pOObject);
-
-            lbRemoved = true;
-        }
-
-        // A creature gone for good gives its slot back (UWLevel.ReleaseMobileSlot). Only
-        // creatures: an item that leaves the world here may live on elsewhere - in an NPC's
-        // inventory after a conversation - and the original counts carried things against the
-        // level's slots anyway.
-        if (lbRemoved && pOObject is UWNpc)
-            CurrentLevel.ReleaseMobileSlot(pOObject);
-
-        return lbRemoved;
+        return WorldEdit.Remove(pOObject, mOWorldView != null && mOWorldView.Holds(pOObject));
     }
 
     /// <summary>
@@ -1626,18 +1497,10 @@ public class UWLevelLoader : MonoBehaviour
         if (UWDataImporter == null || mOObjectRoot == null || mO3DModels == null)
             return null;
 
-        UWObject lOObject = new UWObject((ushort)piObjectId);
+        // A view-only stand-in from the factory; it enters no list and no save.
+        UWObject lOObject = UWObjectFactory.Create(piObjectId, UWDataImporter);
 
-        try
-        {
-            lOObject.Texture = UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-        }
-        catch
-        {
-            return null;
-        }
-
-        if (lOObject.Texture == null)
+        if (lOObject == null)
             return null;
 
         int liBefore = mOObjectRoot.transform.childCount;
@@ -1669,7 +1532,8 @@ public class UWLevelLoader : MonoBehaviour
         if (lOCollider != null)
             lOCollider.enabled = false;
 
-        fApplyRenderModeFrom(liBefore);
+        if (mOWorldView != null)
+            mOWorldView.ApplyRenderModeFrom(liBefore);
 
         return lOSpawned;
     }
@@ -1687,37 +1551,23 @@ public class UWLevelLoader : MonoBehaviour
         if (UWDataImporter == null || mOObjectRoot == null || CurrentLevel == null)
             return null;
 
-        UWObject lOObject = new UWObject((ushort)piObjectId);
+        // A view-only stand-in from the factory; it enters no tile list.
+        UWObject lOObject = UWObjectFactory.Create(piObjectId, UWDataImporter);
 
-        try
-        {
-            lOObject.Texture = UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-        }
-        catch
-        {
-            return null;
-        }
-
-        if (lOObject.Texture == null)
+        if (lOObject == null)
             return null;
 
-        int liBefore = mOObjectRoot.transform.childCount;
+        // A projectile does not fall into the lava it starts above - see UWWorldEdit.Place.
+        List<GameObject> lONew = fSpawnUnlistedAt(lOObject, pOWorldPosition);
 
-        // A projectile does not fall into the lava it starts above - see
-        // fSpawnObjectAt.
-        if (!SpawnDroppedObject(lOObject, pOWorldPosition, false, null, null, false))
+        if (lONew == null)
             return null;
-
-        UWTile lOTile = CurrentLevel.TileData[(lOObject.TileY * UWLevelMeshBuilder.TilesPerAxis) + lOObject.TileX];
-
-        if (lOTile != null)
-            lOTile.ObjectsInTile.Remove(lOObject);
 
         GameObject lOSpawned = null;
 
-        for (int liChild = liBefore; liChild < mOObjectRoot.transform.childCount; liChild++)
+        foreach (GameObject lONode in lONew)
         {
-            lOSpawned = mOObjectRoot.transform.GetChild(liChild).gameObject;
+            lOSpawned = lONode;
 
             lOSpawned.transform.position = pOWorldPosition;
 
@@ -1739,45 +1589,53 @@ public class UWLevelLoader : MonoBehaviour
     /// the tile's object list; it is not an item one could pick up or look
     /// at.
     /// </summary>
-    public bool SpawnEffectAt(int piObjectId, Vector3 pOWorldPosition, float pfSeconds)
+    private static readonly int DepthBiasId = Shader.PropertyToID("_DepthBias");
+
+    /// <summary>
+    /// An effect picture at a world position for some seconds. pfDepthBias, when above 0,
+    /// sorts the picture as if it stood that many world units nearer the camera (the billboard
+    /// shaders' _DepthBias): the flash on a struck chest stands at the chest's own spot as in
+    /// the original, and still draws over the model.
+    ///
+    /// OFF THE MODEL PATH since 2026-10-12 (decision 8 of Docs/CLEANUP-PLAN.md): the effect holds
+    /// a static slot while it lives, as put_effect's CreateObj takes one (UWWorldEdit.
+    /// TryTakeEffectSlot), and there is no effect when the level has none free - no culling for
+    /// it, no tile list, no liquid swallowing it, no registry entry; UWEffectLifetime gives the
+    /// slot back when the picture goes.
+    /// </summary>
+    public bool SpawnEffectAt(int piObjectId, Vector3 pOWorldPosition, float pfSeconds, float pfDepthBias = 0f,
+        int piStartFrame = 0)
     {
-        if (UWDataImporter == null || mOObjectRoot == null)
+        if (UWDataImporter == null || mOObjectRoot == null || CurrentLevel == null || mOWorldView == null)
             return false;
 
-        UWObject lOObject = new UWObject((ushort)piObjectId);
+        // A view-only stand-in from the factory, as put_effect makes one with CreateObj
+        // (EFFECT.C); it enters no list and no save.
+        UWObject lOObject = UWObjectFactory.Create(piObjectId, UWDataImporter);
 
-        try
+        UWTilePos lOAt;
+        UWTile lOTile;
+
+        if (lOObject == null || !fFindUnlistedTile(pOWorldPosition, out lOAt, out lOTile))
+            return false;
+
+        int liToken;
+
+        if (!WorldEdit.TryTakeEffectSlot(out liToken))
+            return false;
+
+        fSetUnlistedRecord(lOObject, pOWorldPosition, lOAt, lOTile);
+
+        List<GameObject> lONew = mOWorldView.SpawnUnlisted(lOObject, lOAt.X, lOAt.Y, lOTile, false);
+
+        if (lONew.Count == 0)
+            WorldEdit.ReleaseEffectSlot(liToken);
+
+        // Everything that was built gets its expiry time.
+        foreach (GameObject lOSpawned in lONew)
         {
-            lOObject.Texture = UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-        }
-        catch
-        {
-            return false;
-        }
-
-        if (lOObject.Texture == null)
-            return false;
-
-        int liBefore = mOObjectRoot.transform.childCount;
-
-        if (!SpawnDroppedObject(lOObject, pOWorldPosition, false))
-            return false;
-
-        // An effect does NOT belong in the tile's object list - it disappears again right
-        // away, and an entry without a GameObject would remain there.
-        UWTile lOTile = CurrentLevel.TileData[(lOObject.TileY * UWLevelMeshBuilder.TilesPerAxis) + lOObject.TileX];
-
-        if (lOTile != null)
-            lOTile.ObjectsInTile.Remove(lOObject);
-
-        // The spawner appends the new object at the end - everything that was added gets
-        // its expiry time.
-        for (int liChild = liBefore; liChild < mOObjectRoot.transform.childCount; liChild++)
-        {
-            GameObject lOSpawned = mOObjectRoot.transform.GetChild(liChild).gameObject;
-
-            // Bring back to the given height: fSpawnObjectAt puts every object at
-            // the floor height of its tile, because it is meant for dropped items.
+            // Bring back to the given height: the record lies at the floor height of its
+            // tile, as for a dropped item.
             // A blood splatter belongs where the hit happened, though - in the original
             // it appears on the enemy, not at its feet (per user, 2026-08-30).
             lOSpawned.transform.position = pOWorldPosition;
@@ -1796,6 +1654,29 @@ public class UWLevelLoader : MonoBehaviour
             if (lOCollider != null)
                 lOCollider.enabled = false;
 
+            if (pfDepthBias > 0f)
+            {
+                foreach (Renderer lORenderer in lOSpawned.GetComponentsInChildren<Renderer>())
+                {
+                    MaterialPropertyBlock lOBlock = new MaterialPropertyBlock();
+
+                    lORenderer.GetPropertyBlock(lOBlock);
+                    lOBlock.SetFloat(DepthBiasId, pfDepthBias);
+                    lORenderer.SetPropertyBlock(lOBlock);
+                }
+            }
+
+            // add_animobj's start picture (a flame of fireball_effect starts on 0 to 2).
+            if (piStartFrame > 0)
+            {
+                UWAnimatedBillboard lOAnimated = lOSpawned.GetComponentInChildren<UWAnimatedBillboard>();
+
+                if (lOAnimated != null)
+                    lOAnimated.StartAt(piStartFrame);
+            }
+
+            lOSpawned.AddComponent<UWEffectLifetime>().Hold(WorldEdit, liToken);
+
             Destroy(lOSpawned, pfSeconds);
         }
 
@@ -1808,7 +1689,7 @@ public class UWLevelLoader : MonoBehaviour
     /// to the tile object list (so it persists across the next level change) and
     /// immediately creates the visible GameObject, just as in the normal level build
     /// (fSpawnObjects) - only for a single object. ZPos is computed back from the floor height of the
-    /// target tile (see UWObjectSpawner.HeightScale) - so the object lies
+    /// target tile (see UWWorldScale.ZPosStep) - so the object lies
     /// flat on the floor, without throw physics/arc. XPos/YPos (position within the
     /// tile, 0..7) are computed back from THE SAME world position instead of being fixed to the
     /// centre.
@@ -1828,15 +1709,11 @@ public class UWLevelLoader : MonoBehaviour
     /// dropping (not throwing) does not work there, otherwise the object could get stuck in the wall part of the
     /// tile.
     ///
-    /// pOFlightStartPosition (only set when throwing, see UWItemDrag): the object does land
-    /// immediately with the correct end data in the tile object list, but additionally
-    /// gets a UWThrownItemFlight attached, which makes it fly visibly from there to the
-    /// already computed target position (confirmed from the original: a
-    /// thrown item flies visibly through the air instead of appearing instantly).
+    /// A THROWN item does not come through here any more: it flies on the motion core and
+    /// lands via PlaceRestingObject (UWProjectileWorld.PlaceAtRest, since 2026-10-05).
     /// </summary>
     public bool SpawnDroppedObject(UWObject pOObject, Vector3 pOWorldPosition, bool pbRequireFlatFloor,
-        Vector3? pOFlightStartPosition = null, int? piHeading = null, bool pbCanSinkInLiquid = true,
-        bool pbRestOnBridge = false)
+        int? piHeading = null, bool pbCanSinkInLiquid = true, bool pbRestOnBridge = false)
     {
         if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
             return false;
@@ -1862,8 +1739,7 @@ public class UWLevelLoader : MonoBehaviour
             return false;
 
         return fSpawnObjectAt(pOObject, lOTargetTile.X, lOTargetTile.Y, pOWorldPosition,
-            pbRequireFlatFloor, pOFlightStartPosition, null, 0f, pbCanSinkInLiquid,
-            pbRestOnBridge ? fGetBridgeZPosBelow(pOWorldPosition) : -1);
+            pbRequireFlatFloor, pbCanSinkInLiquid, pbRestOnBridge ? fGetBridgeZPosBelow(pOWorldPosition) : -1);
     }
 
     private const int BridgeObjectId = UWObjectMechanics.BridgeObjectId;
@@ -1879,7 +1755,7 @@ public class UWLevelLoader : MonoBehaviour
     private int fGetBridgeZPosBelow(Vector3 pOFrom)
     {
         RaycastHit[] lOHits = Physics.RaycastAll(pOFrom + Vector3.up, Vector3.down,
-            UWLevelMeshBuilder.CeilingHeight, ~0, QueryTriggerInteraction.Ignore);
+            UWWorldScale.CeilingHeight, ~0, QueryTriggerInteraction.Ignore);
 
         float lfBest = float.MinValue;
 
@@ -1894,7 +1770,7 @@ public class UWLevelLoader : MonoBehaviour
                 lfBest = lOHit.point.y;
         }
 
-        return lfBest > float.MinValue ? Mathf.CeilToInt(lfBest / UWObjectSpawner.HeightScale) : -1;
+        return lfBest > float.MinValue ? Mathf.CeilToInt(lfBest / UWWorldScale.ZPosStep) : -1;
     }
 
     /// <summary>
@@ -1913,189 +1789,7 @@ public class UWLevelLoader : MonoBehaviour
 
         float lfYaw = Mathf.Atan2(lOFlat.x, lOFlat.z) * Mathf.Rad2Deg;
 
-        return Mathf.RoundToInt(Mathf.Repeat(lfYaw, 360f) / 45f) & 7;
-    }
-
-    /// <summary>
-    /// Lets an item fall STRAIGHT down to the floor on the spot and
-    /// leaves it lying there - for a projectile that has hit.
-    ///
-    /// Original (user, 2026-09-07): on a hit the crossbow bolt stays in
-    /// the air for a very short moment, then falls vertically and can be picked up afterwards. The
-    /// reference says the same - a projectile there is a perfectly normal object in the
-    /// tile list (motion_projectile.PrepareProjectileObject inserts it there), not an
-    /// effect that disappears on impact.
-    ///
-    /// Hence the same path as for a thrown item, only WITHOUT an arc: the trajectory
-    /// goes from the impact point vertically down to the floor of the same tile.
-    ///
-    /// THE VALUES WERE READ FROM THE SAVE GAME, not guessed. The user picked up the bolt in the
-    /// original, dropped it on tile 50/30 of the eighth level and saved
-    /// (2026-09-07). In SAVE3 it is stored there as
-    ///
-    ///     idx 837  Id 17  is_quant 1  quantity 1  quality 63  zpos 96  owner 0
-    ///
-    /// with a tile floor height of 12, i.e. zpos 96 - a lying projectile sits exactly
-    /// on the floor. Incidentally the index shows that the original reused the freed slot
-    /// of the one-shot arrow trap; 837 was the trap itself before.
-    ///
-    /// THE QUALITY IS 63, NOT 0x28. ObjectCreator.PrepareNewObject does set 0x28,
-    /// but InitMobileObject overwrites npc_hp with 0x3F for a mobile object, and
-    /// on moving back into the static list that becomes the quality again
-    /// (motion.cs: "if (IsStatic) quality = hp_1b"). A landed projectile is therefore
-    /// always in full condition.
-    ///
-    /// THE TEXTURE MUST COME ALONG. A freshly created UWObject has none, and the spawner
-    /// silently bails out for an object without texture (UWObjectSpawner, first line of
-    /// SpawnSingleObject). Objects from the level data get it when loading; whoever
-    /// creates one must fetch it themselves - SpawnFlyingObject does exactly that.
-    /// Without it the bolt vanished without a trace on impact (per user, 2026-09-07).
-    /// </summary>
-    public bool DropObjectAt(int piObjectId, Vector3 pOWorldPosition, int piHeading)
-    {
-        if (CurrentLevel == null || mOObjectRoot == null || UWDataImporter == null)
-            return false;
-
-        // A lying projectile points in its direction of flight: the original continuously writes the
-        // projectile's heading back into the object during flight
-        // (motion.cs, ProjectileHeading), and when it comes to rest the heading stays.
-        UWObject lOObject = new UWObject((ushort)piObjectId)
-        {
-            Quality = LandedProjectileQuality,
-            HasQuantity = true,
-            Quantity = 1,
-            Heading = (ushort)(piHeading & 7)
-        };
-
-        try
-        {
-            lOObject.Texture = UWDataImporter.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-        }
-        catch
-        {
-            return false;
-        }
-
-        if (lOObject.Texture == null)
-            return false;
-
-        UWTilePos lOTargetTile = WorldPositionToTile(pOWorldPosition);
-
-        return fSpawnObjectAt(lOObject, lOTargetTile.X, lOTargetTile.Y, pOWorldPosition, false,
-            pOWorldPosition, 0f, mfImpactHoverSeconds, true, fGetBridgeZPosBelow(pOWorldPosition));
-    }
-
-    /// <summary>
-    /// Like DropObjectAt, but for an item the player has thrown: the item itself lands,
-    /// with everything it carries (see UWProjectileWorld.PlaceAtRest).
-    ///
-    /// A BURNING LIGHT GOES OUT ON LANDING, not on the throw (per user, checked in the
-    /// original, 2026-09-05). UW.EXE does the same when dropping: object class 9, index 4
-    /// to 6 loses 4 from its number (DropOrThrowByPlayer_seg025_355, seg025_6C1).
-    ///
-    /// The direction is only written where it is visible - see SpawnDroppedObject.
-    /// </summary>
-    /// <summary>
-    /// AN ITEM AT REST ON AN EDGE goes onto the tile that carries it (per user on the original,
-    /// 2026-09-28: "items that fall like that snap onto the higher tile"). Ours slides with its
-    /// radius over a ledge and can come to rest with its centre above the lower tile while it
-    /// still lies at the height of the higher one; it was then given to the lower tile, hovered
-    /// and fell after a pause - and showed over the higher floor meanwhile. Now, when the point
-    /// lies more than a step above its own tile's floor, the nearest neighbour tile whose floor
-    /// is at that height and within pfRadius takes it: the point moves just inside that tile.
-    /// Returns false when no neighbour carries it (then it falls as before).
-    /// </summary>
-    public bool TrySnapOntoCarryingTile(ref Vector3 pOPoint, float pfRadius)
-    {
-        if (CurrentLevel == null)
-            return false;
-
-        const float lfStep = 4f;
-
-        if (pOPoint.y - GetFloorHeightAt(pOPoint) <= lfStep)
-            return false;
-
-        UWTilePos lOAt = WorldPositionToTile(pOPoint);
-        float lfHalf = UWLevelMeshBuilder.TileHalfSize;
-        float lfInset = UWDataImport.UWData.UWWorldScale.SubTileStep * 0.5f;
-        float lfBest = pfRadius + lfInset;
-        bool lbFound = false;
-        Vector3 lOBest = pOPoint;
-
-        for (int liDy = -1; liDy <= 1; liDy++)
-        {
-            for (int liDx = -1; liDx <= 1; liDx++)
-            {
-                if (liDx == 0 && liDy == 0)
-                    continue;
-
-                int liX = lOAt.X + liDx;
-                int liY = lOAt.Y + liDy;
-                UWTile lOTile = CurrentLevel.GetTile(liX, liY);
-
-                if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
-                    continue;
-
-                float lfCentreX = liX * UWLevelMeshBuilder.TileSpacing;
-                float lfCentreZ = liY * UWLevelMeshBuilder.TileSpacing;
-                Vector3 lOInside = new Vector3(
-                    Mathf.Clamp(pOPoint.x, lfCentreX - lfHalf + lfInset, lfCentreX + lfHalf - lfInset),
-                    pOPoint.y,
-                    Mathf.Clamp(pOPoint.z, lfCentreZ - lfHalf + lfInset, lfCentreZ + lfHalf - lfInset));
-
-                float lfDistance = Vector2.Distance(new Vector2(pOPoint.x, pOPoint.z), new Vector2(lOInside.x, lOInside.z));
-
-                if (lfDistance > lfBest || Mathf.Abs(GetFloorHeightAt(lOInside) - pOPoint.y) > lfStep
-                    || IsInsideRock(lOInside, lOInside, out Vector3 _))
-                    continue;
-
-                lfBest = lfDistance;
-                lOBest = lOInside;
-                lbFound = true;
-            }
-        }
-
-        if (lbFound)
-            pOPoint = lOBest;
-
-        return lbFound;
-    }
-
-    public bool DropThrownItemAt(UWObject pOItem, Vector3 pOWorldPosition, int piHeading, bool pbAtRest = false)
-    {
-        if (pOItem == null || CurrentLevel == null || mOObjectRoot == null)
-            return false;
-
-        UWTilePos lOTargetTile = WorldPositionToTile(pOWorldPosition);
-        UWTile lOTile = CurrentLevel.TileData[(lOTargetTile.Y * UWLevelMeshBuilder.TilesPerAxis) + lOTargetTile.X];
-
-        if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
-            return false;
-
-        // Not into the solid half of a diagonal tile either - it would lie inside the wall.
-        Vector3 lONormal;
-
-        if (IsInsideRock(pOWorldPosition, pOWorldPosition, out lONormal))
-            return false;
-
-        // The item is stored on the eighth-tile grid, and the nearest grid point can lie just
-        // across a diagonal wall even when the landing point does not. Then take the nearest
-        // grid point of the tile that is free.
-        if (!fTrySnapOutOfRock(ref pOWorldPosition, lOTargetTile.X, lOTargetTile.Y, pOItem.ID))
-            return false;
-
-        UWObjectMechanics.ExtinguishInWorld(pOItem, UWDataImporter != null ? UWDataImporter.Textures : null);
-
-        if (!UWLoreCheck.CanBeIdentified(pOItem,
-                UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null))
-            pOItem.Heading = (ushort)(piHeading & 7);
-
-        // AT REST it already lies on the ground: no hover, no gliding onto the sub-tile grid
-        // (per user, 2026-09-15: "the moving into position looks odd"). Only the snap to the
-        // grid remains - the original stores a resting object in eighth tiles, too.
-        return fSpawnObjectAt(pOItem, lOTargetTile.X, lOTargetTile.Y, pOWorldPosition, false,
-            pOWorldPosition, 0f, pbAtRest ? 0f : mfImpactHoverSeconds, true, fGetBridgeZPosBelow(pOWorldPosition),
-            !pbAtRest);
+        return UWHeadings.DegreesToEighth(lfYaw);
     }
 
     /// <summary>
@@ -2114,19 +1808,16 @@ public class UWLevelLoader : MonoBehaviour
         if (CurrentLevel == null || CurrentLevel.TileData == null)
             return false;
 
-        int liX = Mathf.RoundToInt(pOPoint.x / UWLevelMeshBuilder.TileSpacing);
-        int liZ = Mathf.RoundToInt(pOPoint.z / UWLevelMeshBuilder.TileSpacing);
+        // The floor, as the original takes a tile (pos >> 8) and as WorldToTile does - NOT
+        // clamped: outside the map there is no tile, and that counts as rock below. Until
+        // 2026-10-12 this rounded (decision 20 of Docs/CLEANUP-PLAN.md).
+        int liX = UWUnits.WorldAxisToTile(pOPoint.x);
+        int liZ = UWUnits.WorldAxisToTile(pOPoint.z);
 
         UWTilePos lOFrom = WorldPositionToTile(pOFrom);
 
-        if (liX < 0 || liX >= UWLevelMeshBuilder.TilesPerAxis || liZ < 0 || liZ >= UWLevelMeshBuilder.TilesPerAxis)
-        {
-            pONormal = fCrossedSide(lOFrom, liX, liZ);
-
-            return true;
-        }
-
-        UWTile lOTile = CurrentLevel.TileData[(liZ * UWLevelMeshBuilder.TilesPerAxis) + liX];
+        // Outside the level (no tile) counts as rock, like a solid tile.
+        UWTile lOTile = CurrentLevel.GetTile(liX, liZ);
 
         if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
         {
@@ -2136,8 +1827,8 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         // Position in the tile from -1 to 1, centre at zero, +z is north.
-        float lfX = (pOPoint.x - (liX * UWLevelMeshBuilder.TileSpacing)) / UWLevelMeshBuilder.TileHalfSize;
-        float lfZ = (pOPoint.z - (liZ * UWLevelMeshBuilder.TileSpacing)) / UWLevelMeshBuilder.TileHalfSize;
+        float lfX = (pOPoint.x - UWUnits.TileCentreToWorldAxis(liX)) / UWWorldScale.TileHalfSize;
+        float lfZ = (pOPoint.z - UWUnits.TileCentreToWorldAxis(liZ)) / UWWorldScale.TileHalfSize;
 
         // The open half is named by the type - the floor triangle lies there (UWLevelMeshBuilder).
         Vector3 lOOpen;
@@ -2168,12 +1859,7 @@ public class UWLevelLoader : MonoBehaviour
     /// </summary>
     private bool fTrySnapOutOfRock(ref Vector3 pOWorldPosition, int piTileX, int piTileZ, int piObjectId)
     {
-        int liRadius = 1;
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (UWDataImporter != null && UWDataImporter.CommonObjectProperties != null
-            && UWDataImporter.CommonObjectProperties.TryGet(piObjectId, out lOEntry))
-            liRadius = Mathf.Clamp(lOEntry.Radius, 1, 3);
+        int liRadius = UWPlacement.PlacementRadius(TileQueries, piObjectId);
 
         int liGridX = fGetSubTilePos(pOWorldPosition.x, piTileX);
         int liGridZ = fGetSubTilePos(pOWorldPosition.z, piTileZ);
@@ -2227,13 +1913,16 @@ public class UWLevelLoader : MonoBehaviour
         return lbFound;
     }
 
-    /// <summary>The world point of a sub-tile grid position - the inverse of fGetSubTilePos.</summary>
+    /// <summary>The world point of a sub-tile grid position - the inverse of fGetSubTilePos, on
+    /// the one eighth-spot formula. Until 2026-10-12 this added the spawner's 0.1 draw offset
+    /// (the +3.85 copy); fGetSubTilePos rounds to the nearest spot, so the stored position is
+    /// the same without it, and the drawn body gets its offset from the spawner alone.</summary>
     private static Vector3 fGridPointToWorld(int piX, int piZ, int piTileX, int piTileZ, float pfHeight)
     {
         return new Vector3(
-            UWViewpoint.TileToWorldAxis(piTileX) + (piX * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset + 0.1f,
+            UWUnits.SubTileToWorldAxis(piTileX, piX),
             pfHeight,
-            UWViewpoint.TileToWorldAxis(piTileZ) + (piZ * UWObjectSpawner.SubTileScale) + UWObjectSpawner.SubTileOffset + 0.1f);
+            UWUnits.SubTileToWorldAxis(piTileZ, piZ));
     }
 
     /// <summary>The side of tile (piX, piZ) that faces the tile the point came from.</summary>
@@ -2262,7 +1951,7 @@ public class UWLevelLoader : MonoBehaviour
             return false;
 
         UWTilePos lOTile = WorldPositionToTile(pOWorldPosition);
-        UWTile lOAt = CurrentLevel.TileData[(lOTile.Y * UWLevelMeshBuilder.TilesPerAxis) + lOTile.X];
+        UWTile lOAt = CurrentLevel.GetTile(lOTile.X, lOTile.Y);
 
         if (lOAt == null || lOAt.TileType == UWTile.TileTypeEnum.solid)
             return false;
@@ -2270,28 +1959,17 @@ public class UWLevelLoader : MonoBehaviour
         return !pbRequireFlatFloor || !fIsUnevenFloor(lOAt.TileType);
     }
 
-    /// <summary>Quality of a landed projectile - see DropObjectAt.</summary>
-    private const ushort LandedProjectileQuality = 0x3F;
-
-    [SerializeField]
-    [Tooltip("How long a projectile that has hit hangs in the air before it falls.")]
-    private float mfImpactHoverSeconds = 0.25f;
-
     /// <summary>Shared core of SpawnDroppedObject, SpawnObjectInTile and the other Spawn/Drop
-    /// methods that put an object into a tile list (SpawnObjectById, SpawnObjectInTileScattered,
-    /// SpawnObjectInTileAtTemplatePosition, DropObjectAt). The target tile
+    /// methods that put an object into a tile list (SpawnObjectById, SpawnScatteredAround,
+    /// SpawnObjectInTileAtTemplatePosition, PlaceRestingObject). The target tile
     /// is PASSED IN instead of being determined here from the world position: whoever already
     /// knows the tile should not have to recompute it via a round trip (see
-    /// SpawnObjectInTile).</summary>
+    /// SpawnObjectInTile). The fine position and the height come from the world position here;
+    /// the slot, the lists and the liquid are UWWorldEdit.Place's, the picture UWWorldView's.</summary>
     private bool fSpawnObjectAt(UWObject pOObject, int liTileX, int liTileZ, Vector3 pOWorldPosition,
-        bool pbRequireFlatFloor, Vector3? pOFlightStartPosition, float? pfFlightArcHeight = null,
-        float pfFlightDelay = 0f, bool pbCanSinkInLiquid = true, int piMinimumZPos = -1, bool pbAnimateFlight = true)
+        bool pbRequireFlatFloor, bool pbCanSinkInLiquid = true, int piMinimumZPos = -1)
     {
-        if (liTileX < 0 || liTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || liTileZ < 0 || liTileZ >= UWLevelMeshBuilder.TilesPerAxis)
-            return false;
-
-        UWTile lOTile = CurrentLevel.TileData[(liTileZ * UWLevelMeshBuilder.TilesPerAxis) + liTileX];
+        UWTile lOTile = CurrentLevel.GetTile(liTileX, liTileZ);
 
         if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
             return false;
@@ -2299,153 +1977,62 @@ public class UWLevelLoader : MonoBehaviour
         if (pbRequireFlatFloor && fIsUnevenFloor(lOTile.TileType))
             return false;
 
-        // A SLOT FOR IT, as GetFreeObject hands one out - culling far objects when the level is
-        // full, and refusing the object when even that frees nothing (UWObjectLimitRules).
-        if (!fReserveSlot(pOObject))
-            return false;
-
-        // A creature made at runtime (a trap's copy, a summoning) takes its index now, as the
-        // original's GetFreeObject hands it out - see UWLevel.TryPlaceInFreeMobileSlot.
-        if (pOObject is UWNpc && CurrentLevel.Masterlist != null && CurrentLevel.Masterlist.IndexOf(pOObject) < 0)
-            CurrentLevel.TryPlaceInFreeMobileSlot(pOObject, out int _);
-
-        // A flight start still counts as "thrown" (talisman in lava), but an item that has
-        // already come to rest does not hover and glide to its spot any more - see
-        // DropThrownItemAt.
-        bool lbAnimate = pOFlightStartPosition.HasValue && pbAnimateFlight;
-
-        pOObject.TileX = liTileX;
-        pOObject.TileY = liTileZ;
-        pOObject.XPos = fGetSubTilePos(pOWorldPosition.x, liTileX);
-        pOObject.YPos = fGetSubTilePos(pOWorldPosition.z, liTileZ);
-        pOObject.ZPos = Mathf.RoundToInt(fGetFloorHeightAt(lOTile, pOWorldPosition.x, pOWorldPosition.z, liTileX, liTileZ) / UWObjectSpawner.HeightScale);
+        int liZPos = UWUnits.WorldToZPos(fGetFloorHeightAt(lOTile, pOWorldPosition.x, pOWorldPosition.z, liTileX, liTileZ));
 
         // Keep a template's height if it lies above the floor (see
         // SpawnObjectInTileAtTemplatePosition), or a bridge's (see fGetBridgeZPosBelow).
-        bool lbAboveFloor = piMinimumZPos > pOObject.ZPos;
+        bool lbAboveFloor = piMinimumZPos > liZPos;
 
         if (lbAboveFloor)
-            pOObject.ZPos = piMinimumZPos;
+            liZPos = piMinimumZPos;
 
-        // In water and lava only what actually sinks is lost - see
-        // UWCommonObjectProperties.Entry.SinksInLiquid. The entry is still added first
-        // and removed afterwards, so that the spawner sees the same tile list
-        // as usual - just like with the short-lived effects in
-        // SpawnEffectAt.
-        // A FLYING PROJECTILE DOES NOT SINK, even if it starts above lava: it
-        // does not lie there, it only flies over it. Without this exception the tile swallowed
-        // the fire elemental's fireball the moment it was thrown - over lava it seemingly
-        // did not throw at all, one tile further it did (per user, 2026-09-10).
         // Nothing sinks that lies ABOVE the floor - on a bridge over the water it stays dry.
-        // LAVA SPARES quality class 3 and fire-resistant objects before it culls (keys, incense,
-        // strong thread - Tybal died on lava in his lair and took them with him, per user
-        // 2026-09-24); see UWLiquidCulling.SparedByLava.
-        // A THROWN object is tested twice in water, the landing and the collision after it
-        // (UWLiquidCulling, settled per user 2026-10-03 with stacks of emeralds).
-        bool lbSinks = pbCanSinkInLiquid && !lbAboveFloor
-            && TileQueries.TileSwallows(lOTile, pOObject, pOFlightStartPosition.HasValue);
-
-        // ENDGAME: a talisman that falls into the volcano's lava on level 8 perishes -
-        // otherwise a talisman never sinks (UWTalismans). Then it disappears like a
-        // sinking item, with a trajectory only on impact (see UWEndgame).
-        // ONLY WHEN THROWN: dropped, it stays lying in the lava and nothing happens (per
-        // user in the original, 2026-09-14). In UW.EXE the check hangs on the impact of a
-        // projectile (ObjectHitsFloorTileDestroyTalismans_seg029_C6F).
-        if (pbCanSinkInLiquid && !lbSinks && pOFlightStartPosition.HasValue && IsLavaTile(lOTile)
-            && UWEndgame.TryDestroyTalismanInLava(this, pOObject, liTileX, liTileZ, pOWorldPosition,
-                lbAnimate ? mfThrowFlightDuration + pfFlightDelay : 0f))
-            lbSinks = true;
-
-        lOTile.ObjectsInTile.Add(pOObject);
-
-        int liChildCountBefore = mOObjectRoot.transform.childCount;
-
-        UWObjectSpawner lOSpawner = fGetRuntimeSpawner();
-        lOSpawner.SpawnSingleObject(liTileX, liTileZ, lOTile, pOObject, mOObjectRoot.transform);
-
-        // SpawnSingleObject always appends new objects as the last child via SetParent -
-        // no return value on the actual spawn path is needed to get at the freshly created
-        // GameObject.
-        Transform lOSpawnedTransform = mOObjectRoot.transform.childCount > liChildCountBefore
-            ? mOObjectRoot.transform.GetChild(mOObjectRoot.transform.childCount - 1)
-            : null;
-
-        fApplyRenderModeFrom(liChildCountBefore);
-
-        // Into the registry (TryGetEntity) - otherwise after a conversation nobody finds the newly
-        // created creature, and it never reads its new attitude: Garamon stayed friendly
-        // instead of mellow (per user, compared with SAVE4, 2026-09-13).
-        if (lOSpawnedTransform != null && mEntityByData != null)
-        {
-            foreach (UWEntityInfo lOEntity in lOSpawnedTransform.GetComponentsInChildren<UWEntityInfo>(true))
-            {
-                if (lOEntity.ObjectData != null)
-                    mEntityByData[lOEntity.ObjectData] = lOEntity;
-            }
-        }
-
-        // THE SPLASH belongs to what FALLS into the water, not to what is put down there.
-        // The original spawns it in the landing of a flying object
-        // (ObjectHitsFloorTileDestroyTalismans_seg029_C6F, labels C96 to CC8: the object's tile
-        // state, byte 0x0A bits 4-6, equal to 1 gives the class-7 object with offset 6), while
-        // remains and loot are put down by the motion code and go without one. That is the
-        // user's measurement of 2026-09-20: a drowning gave exactly ONE splash, the creature's
-        // own, although what it left behind went into the water as well.
-        //
-        // LAVA GETS NONE: there the original spawns no picture, it burns what it does not spare
-        // (value 6 of PlacedObjectCollison_seg029_104D: class 3 and fire-resistant objects
-        // stay, the rest is culled - see UWLiquidCulling.SparedByLava).
-        bool lbSplashes = pOFlightStartPosition.HasValue && IsWaterTile(lOTile);
-
-        if (lOSpawnedTransform != null && lbAnimate)
-        {
-            lOSpawnedTransform.gameObject.AddComponent<UWThrownItemFlight>()
-                .Begin(pOFlightStartPosition.Value, lOSpawnedTransform.position, mfThrowFlightDuration,
-                    pfFlightArcHeight ?? mfThrowFlightArcHeight, lbSinks, pfFlightDelay,
-                    lbSplashes ? (System.Action<Vector3>)fSplashAt : null);
-        }
-        else if (lbSplashes)
-        {
-            // Without a trajectory the landing is NOW; with one the flight reports it.
-            fSplashAt(lOSpawnedTransform != null ? lOSpawnedTransform.position : pOWorldPosition);
-        }
-
-        if (lbSinks)
-        {
-            lOTile.ObjectsInTile.Remove(pOObject);
-
-            if (lOSpawnedTransform != null && !lbAnimate)
-                Destroy(lOSpawnedTransform.gameObject);
-        }
-
-        return true;
+        return WorldEdit.Place(pOObject, liTileX, liTileZ, fGetSubTilePos(pOWorldPosition.x, liTileX),
+            fGetSubTilePos(pOWorldPosition.z, liTileZ), liZPos, pbCanSinkInLiquid && !lbAboveFloor)
+            != UWWorldEdit.PlaceResult.Refused;
     }
 
     /// <summary>
-    /// The splash of something that falls into water: the class-7 picture 0x1C6 ("a_splash",
-    /// UWObjectMechanics.SplashEffectObjectId) at the landing point and effect 5 with it.
-    ///
-    /// THE SOUND took three goes and in the end the user's ear settled it (2026-09-21, from
-    /// the rendered effects of a sound dump tool): not effect 0, which is the rushing one
-    /// hears while IN the water, and not the bump 0x0F, but effect 5 - which is where UW.EXE
-    /// plays it, for an object that comes to rest while falling (seg030_2B26, labels D3E to
-    /// D7F). The branch that draws the picture itself calls no sound at all.
-    ///
-    /// IT BELONGS TO THE LANDING, NOT TO THE SINKING: the original spawns the picture as soon
-    /// as a flying object comes to rest on a water tile
-    /// (ObjectHitsFloorTileDestroyTalismans_seg029_C6F, labels C96 to CC8), before the culling
-    /// decides whether the object survives - so something that stays afloat splashes too.
+    /// The picture of a flying projectile at a world position: a slot as for a placed object
+    /// (UWWorldEdit.ReserveSlot, culling in a full level), the record's place as fSpawnObjectAt
+    /// gives it, but no tile list, no animation list and so no save; the picture is drawn as if
+    /// appended to its tile (UWWorldView.SpawnUnlisted) and registered. It does not sink - it
+    /// does not lie there. Null when the point lies in a solid tile or no slot was free.
     /// </summary>
-    public void SplashAt(Vector3 pOAt)
+    private List<GameObject> fSpawnUnlistedAt(UWObject pOObject, Vector3 pOWorldPosition)
     {
-        fSplashAt(pOAt);
+        UWTilePos lOAt;
+        UWTile lOTile;
+
+        if (pOObject == null || mOWorldView == null || !fFindUnlistedTile(pOWorldPosition, out lOAt, out lOTile))
+            return null;
+
+        if (!WorldEdit.ReserveSlot(pOObject))
+            return null;
+
+        fSetUnlistedRecord(pOObject, pOWorldPosition, lOAt, lOTile);
+
+        return mOWorldView.SpawnUnlisted(pOObject, lOAt.X, lOAt.Y, lOTile, true);
     }
 
-    private void fSplashAt(Vector3 pOAt)
+    /// <summary>The tile under a world point, unless it is solid or off the level.</summary>
+    private bool fFindUnlistedTile(Vector3 pOWorldPosition, out UWTilePos pOAt, out UWTile pOTile)
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.Splash, pOAt);
+        pOAt = WorldPositionToTile(pOWorldPosition);
+        pOTile = CurrentLevel != null ? CurrentLevel.GetTile(pOAt.X, pOAt.Y) : null;
 
-        SpawnEffectAt(UWObjectMechanics.SplashEffectObjectId, pOAt, SplashEffectSeconds);
+        return pOTile != null && pOTile.TileType != UWTile.TileTypeEnum.solid;
+    }
+
+    /// <summary>A view-only stand-in's record: its tile, the nearest eighth spot and the floor
+    /// height there, as fSpawnObjectAt gives a placed object.</summary>
+    private void fSetUnlistedRecord(UWObject pOObject, Vector3 pOWorldPosition, UWTilePos pOAt, UWTile pOTile)
+    {
+        pOObject.TileX = pOAt.X;
+        pOObject.TileY = pOAt.Y;
+        pOObject.XPos = fGetSubTilePos(pOWorldPosition.x, pOAt.X);
+        pOObject.YPos = fGetSubTilePos(pOWorldPosition.z, pOAt.Y);
+        pOObject.ZPos = UWUnits.WorldToZPos(fGetFloorHeightAt(pOTile, pOWorldPosition.x, pOWorldPosition.z, pOAt.X, pOAt.Y));
     }
 
     /// <summary>How long the splash picture stays. The original spawns the class-7 object with
@@ -2493,7 +2080,7 @@ public class UWLevelLoader : MonoBehaviour
 
     /// <summary>Inverse of the object placement in UWObjectSpawner.fGetObjectPosition
     /// (UWViewpoint.SubTileToWorld plus the 0.1 draw offset), i.e. the
-    /// "tile*TileSpacing - TileHalfSize + 0.1 + subPos*SubTileScale + SubTileOffset" formula: which of the 8
+    /// "tile*TileSize - TileHalfSize + 0.1 + subPos*SubTileStep + SubTileOffset" formula: which of the 8
     /// fixed grid spots (0..7) within the tile is closest to a world
     /// coordinate.</summary>
     private static ushort fGetSubTilePos(float pfWorldCoordinate, int piTileIndex)
@@ -2541,11 +2128,11 @@ public class UWLevelLoader : MonoBehaviour
         System.Collections.Generic.List<UWObject> lOMaster = lOLevel.Masterlist;
         int liCount = 0;
 
-        for (int z = 0; z < UWLevelMeshBuilder.TilesPerAxis; z++)
+        for (int z = 0; z < UWWorldScale.TilesPerAxis; z++)
         {
-            for (int x = 0; x < UWLevelMeshBuilder.TilesPerAxis; x++)
+            for (int x = 0; x < UWWorldScale.TilesPerAxis; x++)
             {
-                UWTile lOTile = lOLevel.TileData[(z * UWLevelMeshBuilder.TilesPerAxis) + x];
+                UWTile lOTile = lOLevel.GetTile(x, z);
 
                 for (int i = 0; i < lOTile.ObjectsInTile.Count; i++)
                 {
@@ -2594,65 +2181,21 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     /// <summary>
-    /// Places a WARD RUNE in a tile - the Rune of Warding spell (see
-    /// UWSummonSpell).
+    /// Places a WARD RUNE in a tile - the Rune of Warding spell (see UWSummonSpellRules): the
+    /// original's cast_trap_spell, a move trigger and an a_ward trap in the tile's list
+    /// (UWTrapRules.CastTrapSpell). Any tile, a wall included. False when the level had no slot.
     ///
-    /// IT CONSISTS OF TWO OBJECTS, just as in the reference: a move trigger
-    /// (0x1A0) with EMPTY FLAGS, so that the player does not set it off himself, and attached to it
-    /// via the special link an a_ward trap (0x189) with quality 0x3F, i.e. "on every
-    /// creature". Because both are in the level data and not only in the display,
-    /// the rune survives a rebuild of the level.
-    ///
-    /// THE TRAP IS APPENDED TO THE END OF THE MASTER LIST and lies in no tile - the
-    /// reference does the same (it takes a free slot from its object table
-    /// and enters it nowhere). That the index can grow beyond the 1023 of the original file
-    /// has no consequences: we do not write the object lists back anywhere.
-    /// Side effect of the same construction: the trap stays, even though the empty flags of the
-    /// trigger actually mark it as one-shot - the cleanup only works within a
-    /// tile list (see UWTriggerSystem.fRemoveOneShotTrap). So the rune goes off
-    /// multiple times.
+    /// NO TRIGGER VOLUME since 2026-10-12: the trigger carries flags 8, so the creatures' motion
+    /// sets it off as any move trigger (UWProjectileWorld.TriggerMove), and the player never
+    /// does. Until then the trigger had flags 0 and UWMoveTrigger polled the creatures around it.
     /// </summary>
     public bool SpawnWardRune(int piTileX, int piTileZ)
     {
-        if (CurrentLevel == null || CurrentLevel.TileData == null || CurrentLevel.Masterlist == null
-            || mOLevelRoot == null
-            || piTileX < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || piTileZ < 0 || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
+        if (CurrentLevel == null || WorldEdit == null)
             return false;
 
-        UWTile lOTile = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
-
-        if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
-            return false;
-
-        UWObject lOTrap = new UWObject((ushort)UWObjectMechanics.WardTrapId);
-
-        lOTrap.Quality = UWObjectMechanics.WardTrapAnyClass;
-        lOTrap.XPos = 3;
-        lOTrap.YPos = 3;
-
-        CurrentLevel.Masterlist.Add(lOTrap);
-
-        UWObject lOTrigger = new UWObject((ushort)UWObjectMechanics.MoveTriggerId);
-
-        lOTrigger.Flags = 0;
-        lOTrigger.Quantity = (ushort)(CurrentLevel.Masterlist.Count - 1);
-
-        // The trigger's target tile is its own - the reference sets it that way too.
-        lOTrigger.Quality = (ushort)piTileX;
-        lOTrigger.Owner = (ushort)piTileZ;
-
-        if (!SpawnObjectInTile(lOTrigger, piTileX, piTileZ))
-            return false;
-
-        Transform lOTriggerRoot = mOLevelRoot.transform.Find("Transitions");
-
-        if (lOTriggerRoot == null)
-            return false;
-
-        fCreateMoveTrigger(lOTriggerRoot, piTileX, piTileZ, lOTile, lOTrigger);
-
-        return true;
+        return UWTrapRules.CastTrapSpell(WorldEdit, UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null,
+            piTileX, piTileZ, UWObjectMechanics.WardTrapId);
     }
 
     /// <summary>Trigger volume for a move trigger, level transitions included (see
@@ -2714,22 +2257,17 @@ public class UWLevelLoader : MonoBehaviour
 
         lOObject.transform.localPosition = new Vector3(
             lOAt.x,
-            pOTile.FloorHeight + UWLevelMeshBuilder.TileHalfSize,
+            pOTile.FloorHeight + UWWorldScale.TileHalfSize,
             lOAt.z);
 
         float lfReach = fGetTriggerReach(pOTriggerData.ID);
 
         BoxCollider lOCollider = lOObject.AddComponent<BoxCollider>();
         lOCollider.isTrigger = true;
-        lOCollider.size = new Vector3(lfReach * 2f, UWLevelMeshBuilder.TileSpacing, lfReach * 2f);
+        lOCollider.size = new Vector3(lfReach * 2f, UWWorldScale.TileSize, lfReach * 2f);
 
         return lOObject;
     }
-
-    /// <summary>One eighth-tile in world units - the unit in which comobj.dat stores radii,
-    /// and the same one in which the sub-tile position counts (see
-    /// UWObjectSpawner.SubTileScale).</summary>
-    private const float EighthTile = UWObjectSpawner.SubTileScale;
 
     /// <summary>The player is an object himself - number 63, checked at object slot 1
     /// of all nine levels. His radius is in comobj.dat like everyone else's.</summary>
@@ -2935,15 +2473,13 @@ public class UWLevelLoader : MonoBehaviour
     /// </summary>
     private void fPlacePlayerAtSavedPosition(int piPositionX, int piPositionY, int piZPosition)
     {
-        int liTileX = Mathf.Clamp(piPositionX >> 8, 0, UWLevelMeshBuilder.TilesPerAxis - 1);
-        int liTileZ = Mathf.Clamp(piPositionY >> 8, 0, UWLevelMeshBuilder.TilesPerAxis - 1);
-
-        float lfFine = UWLevelMeshBuilder.TileSpacing / 256f;
+        int liTileX = Mathf.Clamp(piPositionX >> 8, 0, UWWorldScale.TilesPerAxis - 1);
+        int liTileZ = Mathf.Clamp(piPositionY >> 8, 0, UWWorldScale.TilesPerAxis - 1);
 
         Vector3 lOAt = new Vector3(
-            UWViewpoint.TileToWorldAxis(liTileX) + ((piPositionX & 0xFF) * lfFine),
+            UWUnits.TileToWorldAxis(liTileX) + ((piPositionX & 0xFF) * UWWorldScale.UnitsPerOriginalUnit),
             0f,
-            UWViewpoint.TileToWorldAxis(liTileZ) + ((piPositionY & 0xFF) * lfFine));
+            UWUnits.TileToWorldAxis(liTileZ) + ((piPositionY & 0xFF) * UWWorldScale.UnitsPerOriginalUnit));
 
         float lfFloor = GetFloorHeightAt(lOAt);
         float lfSaved = UWDataImport.UWData.UWUnits.ZPosToWorld(piZPosition);
@@ -2957,17 +2493,17 @@ public class UWLevelLoader : MonoBehaviour
 
     private void fPlacePlayerAtTile(int piTileX, int piTileZ)
     {
-        piTileX = Mathf.Clamp(piTileX, 0, UWLevelMeshBuilder.TilesPerAxis - 1);
-        piTileZ = Mathf.Clamp(piTileZ, 0, UWLevelMeshBuilder.TilesPerAxis - 1);
+        piTileX = Mathf.Clamp(piTileX, 0, UWWorldScale.TilesPerAxis - 1);
+        piTileZ = Mathf.Clamp(piTileZ, 0, UWWorldScale.TilesPerAxis - 1);
 
-        UWTile lOTile = CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = CurrentLevel.GetTile(piTileX, piTileZ);
 
         Vector3 lOWallSetback = fGetSpawnSetbackFromWall(lOTile, piTileX, piTileZ);
 
         fPlacePlayerOnFloor(new Vector3(
-            (piTileX * UWLevelMeshBuilder.TileSpacing) + lOWallSetback.x,
+            UWUnits.TileCentreToWorldAxis(piTileX) + lOWallSetback.x,
             0f,
-            (piTileZ * UWLevelMeshBuilder.TileSpacing) + lOWallSetback.z));
+            UWUnits.TileCentreToWorldAxis(piTileZ) + lOWallSetback.z));
     }
 
     /// <summary>
@@ -3056,41 +2592,21 @@ public class UWLevelLoader : MonoBehaviour
     /// A solved puzzle thus counted as unsolved (per user, 2026-09-07, at the three
     /// levers on level 5, tile 6/29).
     ///
-    /// Both stores are cleared first - otherwise the state of a previously
-    /// loaded game would mix in.
+    /// The stores belong to the session Start began (UWGameSession, since 2026-10-14), which
+    /// starts empty - so the state of a previously loaded game cannot mix in, and the per-session
+    /// quirks (the creatures' lava quirk, the cast pause, the light colours; they leaked across
+    /// New Game and Load until 2026-10-11) start afresh with it.
     /// </summary>
     private static void fSeedStoredState(UWPlayerData pOPlayer)
     {
-        UWQuestFlags.Clear();
-        UWGameVariables.Clear();
-        UWGameFlags.SeedFrom(pOPlayer);
+        UWGameSession.Current.SeedFrom(pOPlayer);
         UWEndgame.SeedFrom(pOPlayer);
 
         // Music and sound belong to the SAVE in the original, not to the program - a fresh
         // character carries them too, both on (UWPlayerData.SettingsOffset, NewSettings 0x35).
         if (pOPlayer.IsLoaded)
             UWSoundOptions.ApplyFromSave(pOPlayer.MusicEnabled, pOPlayer.SoundEnabled);
-
-        for (int liAt = 0; liAt < pOPlayer.QuestFlags; liAt++)
-        {
-            int liValue = pOPlayer.GetQuestFlag(liAt);
-
-            if (liValue != 0)
-                UWQuestFlags.Set(liAt, liValue);
-        }
-
-        for (int liAt = 0; liAt < pOPlayer.GameVariables; liAt++)
-        {
-            int liValue = pOPlayer.GetGameVariable(liAt);
-
-            if (liValue != 0)
-                UWGameVariables.Set(liAt, liValue);
-        }
     }
-
-    /// <summary>A full circle in the heading of PLAYER.DAT - see
-    /// UWPlayerData.WritePosition.</summary>
-    private const float HeadingSteps = 65536f;
 
     /// <summary>
     /// Turns the character to a heading, in degrees clockwise from north.

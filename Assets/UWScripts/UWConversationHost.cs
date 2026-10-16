@@ -130,6 +130,12 @@ public sealed class UWConversationHost : IUWConversationHost
         return fLoader != null && fLoader.SpawnObjectInTile(pOItem, piTileX, piTileY);
     }
 
+    /// <summary>
+    /// place_object with a negative x (BABLHACK.C): put_at at the player's tile with its fine
+    /// position 0/0, drop_around_place's stay_centered set (that point is tried first), range 6
+    /// and nocull - the object is never culled. Until 2026-10-12 a random spot of the player's
+    /// tile, a roll the original never makes.
+    /// </summary>
     public void DropAtPlayer(UWObject pOItem)
     {
         if (fLoader == null || pOItem == null)
@@ -140,10 +146,16 @@ public sealed class UWConversationHost : IUWConversationHost
         if (lOCamera == null)
             return;
 
-        UWTilePos lOTile = fLoader.WorldPositionToTile(lOCamera.transform.position);
+        Vector3 lOFeet = UWPlayerThrow.GetFeet(lOCamera.transform);
+        UWTilePos lOTile = fLoader.WorldPositionToTile(lOFeet);
+        Vector3 lOCorner = new Vector3(UWUnits.EighthsToWorldAxis(lOTile.X << 3), lOFeet.y,
+            UWUnits.EighthsToWorldAxis(lOTile.Y << 3));
 
-        fLoader.SpawnObjectInTileScattered(pOItem, lOTile.X, lOTile.Y);
+        fLoader.SpawnScatteredAround(pOItem, lOCorner, PlaceObjectRange, lOTile, false, true, true);
     }
+
+    /// <summary>place_object's range at the player's feet, in eighths.</summary>
+    private const int PlaceObjectRange = 6;
 
     public void DropAroundPlayer(UWObject pOItem)
     {
@@ -164,43 +176,28 @@ public sealed class UWConversationHost : IUWConversationHost
     /// <summary>Radius of end_barter's PlaceObjectAtNPC, in eighths of a tile.</summary>
     private const int BarterDropRadius = 5;
 
-    public void DropAtNpc(UWObject pOItem, UWNpc pONpc)
+    /// <summary>
+    /// near_mob_put_at(talking_to, item, 5, cull): around the partner's own spot, radius 5, the
+    /// culling test deciding when no spot fits. False when the culling test took it (the 3 of
+    /// npc_barter_give). Until 2026-10-12 a failure went on to the player's tile, which the
+    /// original never does.
+    /// </summary>
+    public bool DropAtNpc(UWObject pOItem, UWNpc pONpc)
     {
-        if (fLoader == null || pOItem == null)
-            return;
+        if (fLoader == null || pOItem == null || pONpc == null)
+            return false;
 
         UWEntityInfo lOEntity;
+        Vector3 lOCentre = fLoader.TryGetEntity(pONpc, out lOEntity) && lOEntity != null
+            ? lOEntity.transform.position
+            : UnderworldRevisited.Build.UWObjectSpawner.GetObjectWorldPosition(pONpc.TileX, pONpc.TileY, pONpc);
 
-        if (pONpc == null || !fLoader.TryGetEntity(pONpc, out lOEntity) || lOEntity == null)
-        {
-            DropAtPlayer(pOItem);
-            return;
-        }
-
-        Vector3 lOCentre = lOEntity.transform.position;
-
-        if (!fLoader.SpawnScatteredAround(pOItem, lOCentre, BarterDropRadius, fLoader.WorldPositionToTile(lOCentre)))
-            DropAtPlayer(pOItem);
+        return fLoader.SpawnScatteredAround(pOItem, lOCentre, BarterDropRadius, fLoader.WorldPositionToTile(lOCentre));
     }
 
     public bool RemoveObjectFromWorld(UWObject pOObject)
     {
         return fLoader != null && pOObject != null && fLoader.RemoveObjectFromWorld(pOObject);
-    }
-
-    /// <summary>Reference: npc.SetGoalAndGtarg(talker, 5, 1). With us the creature attacks -
-    /// Anger is asked up to four times, until it reports itself aggressive.</summary>
-    public void AngerNpc(UWNpc pONpc)
-    {
-        UWEntityInfo lOEntity;
-
-        if (fLoader == null || pONpc == null || !fLoader.TryGetEntity(pONpc, out lOEntity) || lOEntity == null)
-            return;
-
-        UWCritter lOCritter = lOEntity.GetComponent<UWCritter>();
-
-        for (int liAt = 0; liAt < 4 && lOCritter != null && !lOCritter.IsAggressive; liAt++)
-            lOCritter.Anger();
     }
 
     // ------------------------------------------------- Inventory and text

@@ -10,12 +10,16 @@ using UWDataImport.UWData;
 ///   Start      "You play the instrument.  (Use 0-9 to play, or ESC to return to game)"
 ///              Timbre per instrument from the table at dseg_164: mandolin 0x39, flute 0x48.
 ///   Notes      keys 1-9 and 0 from the table at dseg_166: 60 62 64 65 67 69 71 72 74 76
-///              (C D E F G A B C D E). One modifier key raises by an octave, another one
-///              lowers - which one is stored as bit 0x200 and 0x100 in the key code; here Shift and Ctrl.
-///   Duration   the note sounds until the next one comes or 0x40 timer ticks have passed;
-///              here UWSettings.InstrumentNoteSeconds instead of the ticks.
+///              (C D E F G A B C D E). Alt (key bit 0x200) raises by an octave, Ctrl (0x100)
+///              lowers (play_instrument, UnderworldExhumed sound/SOUND.C, read 2026-10-15;
+///              until then Shift raised here).
+///   Duration   the note sounds until the next one comes or 0x40 ticks of the 1/256 s game
+///              clock have passed - a quarter of a second (NoteSeconds; until 2026-10-15 a
+///              tuning value of 0.35 s, "not verified").
 ///   Memory     every note goes into a ring of 16 places, starting from the first note.
-///   End        ESC: "You put the instrument down."
+///   End        ESC: "You put the instrument down." - NOT when the cup appears: then its own
+///              line stands alone (play_instrument returns before 0xFB; until 2026-10-15
+///              ours printed both).
 ///   Cup        only with the flute, on level 3, at most 2 tiles away from 24/45, as long as
 ///              the cup has not appeared yet: the first nine notes equal "@CA>@GHGC"
 ///              (64 67 65 62 64 71 72 71 67, keys 3 5 4 2 3 7 8 7 5). Then the cup lies in
@@ -30,7 +34,7 @@ public class UWInstrumentPlayer : MonoBehaviour
 
     public const int FluteObjectId = 292;
 
-    private const int CupOfWonderObjectId = 174;
+    private const int CupOfWonderObjectId = UWObjectIds.CupOfWonder;
 
     /// <summary>String block 1 (our export; UW.EXE is one lower).</summary>
     private const int StartMessage = 251;
@@ -45,15 +49,21 @@ public class UWInstrumentPlayer : MonoBehaviour
 
     private static readonly int[] msCupMelody = { 64, 67, 65, 62, 64, 71, 72, 71, 67 };
 
-    private const int CupLevelIndex = 2;
+    /// <summary>Where the cup lies, zero-based level and tile (UWLevelIds, UWQuestPlaces - the
+    /// same place UWShrineRules names one-based).</summary>
+    private const int CupLevelIndex = UWLevelIds.CupOfWonder;
 
-    private const int CupTileX = 24;
+    private const int CupTileX = UWQuestPlaces.CupTileX;
 
-    private const int CupTileY = 45;
+    private const int CupTileY = UWQuestPlaces.CupTileY;
 
     private const int CupRange = 2;
 
     private const int RingSize = 16;
+
+    /// <summary>How long a note sounds without a next one: 0x40 ticks of the 1/256 s game clock
+    /// (play_instrument, GAME_TIME).</summary>
+    private const float NoteSeconds = 0x40 / 256f;
 
     /// <summary>Is someone playing right now? Locks the keyboard (see UWGameUI).</summary>
     public static bool IsPlaying { get; private set; }
@@ -153,7 +163,7 @@ public class UWInstrumentPlayer : MonoBehaviour
             // Key 1 is the first note, key 0 the tenth.
             int liNote = msNotes[liDigit == 0 ? 9 : liDigit - 1];
 
-            if (lOKeyboard.shiftKey.isPressed)
+            if (lOKeyboard.altKey.isPressed)
                 liNote += 12;
 
             if (lOKeyboard.ctrlKey.isPressed)
@@ -184,10 +194,7 @@ public class UWInstrumentPlayer : MonoBehaviour
             UWAudioEngine.Instance.PlayInstrumentNote(piNote);
 
         miSoundingNote = piNote;
-
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-
-        mfNoteOffTime = Time.time + (lOSettings != null ? lOSettings.InstrumentNoteSeconds : 0.35f);
+        mfNoteOffTime = Time.time + NoteSeconds;
     }
 
     private void fStopNote()
@@ -204,10 +211,9 @@ public class UWInstrumentPlayer : MonoBehaviour
         fReleaseChannel();
         IsPlaying = false;
 
-        if (mOInteraction != null)
+        // The cup's line stands alone: play_instrument returns before 0xFB when it appears.
+        if (!fTryCupOfWonder() && mOInteraction != null)
             mOInteraction.AddGeneralMessage(EndMessage);
-
-        fTryCupOfWonder();
     }
 
     private void OnDisable()
@@ -228,40 +234,42 @@ public class UWInstrumentPlayer : MonoBehaviour
             UWAudioEngine.Instance.EndInstrument();
     }
 
-    /// <summary>The Cup of Wonder - see the class comment.</summary>
-    private void fTryCupOfWonder()
+    /// <summary>The Cup of Wonder - see the class comment. True when it appeared (play_cup_tune's
+    /// answer, which spares the end line).</summary>
+    private bool fTryCupOfWonder()
     {
         if (miInstrument != FluteObjectId - MandolinObjectId || UWEndgame.CupOfWonderFound
             || mOLevelLoader == null || mOLevelLoader.CurrentLevelIndex != CupLevelIndex
             || Camera.main == null)
-            return;
+            return false;
 
         UWTilePos lOTile = mOLevelLoader.WorldPositionToTile(Camera.main.transform.position);
 
         if (Mathf.Abs(lOTile.X - CupTileX) > CupRange || Mathf.Abs(lOTile.Y - CupTileY) > CupRange)
-            return;
+            return false;
 
         for (int liAt = 0; liAt < msCupMelody.Length; liAt++)
         {
             if (miRing[liAt] != msCupMelody[liAt])
-                return;
+                return false;
         }
 
         UWObject lOCup = fCreateCup();
 
         if (lOCup == null || mOInventory == null)
-            return;
+            return false;
 
-        // Into the hand (UW.EXE SpawnObjectInHand); if something is already held there, into the backpack.
-        if (mOInventory.CursorItem == null)
-            mOInventory.BeginDragFromExternal(lOCup);
-        else if (!mOInventory.TryAddToBackpack(lOCup))
-            return;
+        // The pointer, else the backpack, else the feet (UWInventoryModel.GiveToPlayer, one
+        // behaviour for the four gifts since 2026-10-12; until then a full backpack kept the cup).
+        if (!mOInventory.GiveToPlayer(lOCup, false))
+            return false;
 
         UWEndgame.CupOfWonderFound = true;
 
         if (mOInteraction != null)
             mOInteraction.AddGeneralMessage(CupMessage);
+
+        return true;
     }
 
     private UWObject fCreateCup()
@@ -271,29 +279,12 @@ public class UWInstrumentPlayer : MonoBehaviour
         if (lOData == null)
             return null;
 
-        UWObject lOCup = new UWObject((ushort)CupOfWonderObjectId);
+        // CreateObj's fresh object with its picture (UWObjectFactory), as place_new makes the
+        // cup (play_cup_tune, SOUND.C).
+        UWObject lOCup = UWObjectFactory.Create(CupOfWonderObjectId, lOData);
 
-        // Like a freshly created object (UW.EXE PrepareNewObjectProps): condition 0x28, and
-        // quantity 1 if its quantity class calls for it.
-        lOCup.Quality = 0x28;
-
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (lOData.CommonObjectProperties != null
-            && lOData.CommonObjectProperties.TryGet(CupOfWonderObjectId, out lOEntry) && lOEntry.StartsWithQuantity)
-        {
-            lOCup.HasQuantity = true;
-            lOCup.Quantity = 1;
-        }
-
-        try
-        {
-            lOCup.Texture = lOData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, CupOfWonderObjectId);
-        }
-        catch
-        {
+        if (lOCup == null)
             return null;
-        }
 
         lOCup.WasSpawned = true;
 

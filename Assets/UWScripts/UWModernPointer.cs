@@ -26,6 +26,19 @@ public static class UWModernPointer
     /// to look around, free is the rest state - it stays locked until R3 again or the right button.</summary>
     public static bool PadHoldsLock { get; set; }
 
+    /// <summary>
+    /// THE PANELS HOLD STILL WHILE A SPELL WAITS for its target or aim (per user, 2026-10-13: "lock
+    /// all panels"): the original's inventory takes nothing out in the aim mode and only the
+    /// target in the target mode, as the classic scheme's does (UWItemDrag). Every modern panel
+    /// asks this one rule before it takes a click - the bags, the paperdoll, the action bar's
+    /// slots, the character panel and its pages, the minimap, the active spells and the heading,
+    /// the classic frame of the modern presets. Only the bags let an item target spell take its
+    /// target first (UWModernBags.fLeftPressed); Escape lets the spell go (UWGameUI); walking,
+    /// the wheel and the aim into the world go on. The rune panel keeps the runes' own wider rule
+    /// (UWHudRunes.InAnotherInputMode).
+    /// </summary>
+    public static bool PanelsHeld => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting;
+
     /// <summary>The frame the right button switched the pointer: that press uses nothing.</summary>
     public static int SwitchedFrame { get; private set; } = -1;
 

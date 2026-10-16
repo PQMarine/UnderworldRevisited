@@ -18,9 +18,6 @@ namespace UWDataImport.UWData
 
 		UWLevel CurrentLevel { get; }
 
-		/// <summary>The dungeon level, 0-based.</summary>
-		int CurrentLevelIndex { get; }
-
 		/// <summary>The void, or a tile with the no-magic bit under the caster.</summary>
 		bool IsMagicBlocked { get; }
 
@@ -34,8 +31,6 @@ namespace UWDataImport.UWData
 		int PlayerMana { get; }
 
 		int PlayerCastingSkill { get; }
-
-		int PlayerHunger { get; }
 
 		UWTilePos PlayerTile { get; }
 
@@ -66,9 +61,15 @@ namespace UWDataImport.UWData
 		/// <summary>False when all three effect slots are taken.</summary>
 		bool TryAddActiveSpell(int piMajorClass, int piMinorClass, int piStability);
 
-		void CurePoison();
+		/// <summary>The small hop of Levitate and Fly (phys_bounce_up): on the ground the player
+		/// gets a little upward speed.</summary>
+		void BouncePlayerUp();
 
-		void ChangeHunger(int piAmount);
+		/// <summary>Roaming Sight cast with no free slot: the view detaches all the same, with no
+		/// active spell to end it (see UWRoamingSight).</summary>
+		void BeginRoamingSightWithoutSpell();
+
+		void CurePoison();
 
 		// ------------------------------------------------- Messages and sounds
 
@@ -104,8 +105,6 @@ namespace UWDataImport.UWData
 		void TravelTo(int piLevelIndex, int piTileX, int piTileY);
 
 		bool SpawnObjectById(int piObjectId, int piTileX, int piTileY, int piQuantity, int piQuality);
-
-		bool SpawnObjectInTile(UWObject pOObject, int piTileX, int piTileY);
 
 		/// <summary>Puts an object down on a world spot, on the floor of its tile.</summary>
 		bool SpawnObjectAt(UWObject pOObject, float pfWorldX, float pfWorldZ);
@@ -145,8 +144,11 @@ namespace UWDataImport.UWData
 		/// <summary>Fires the look trigger of an object, as Reveal does it.</summary>
 		bool FireLookTrigger(UWObject pOObject, int piSearchSkill);
 
-		/// <summary>An effect picture stands on the floor of a tile for a moment.</summary>
-		void SpawnEffectOnTileFloor(int piTileX, int piTileY, int piEffectObjectId);
+		/// <summary>An effect picture stands in a tile for a moment, at a fine spot (eighths, 0 to
+		/// 7) and a height in zpos steps - for pfSeconds when given (else the host's usual time),
+		/// its animation starting on piStartFrame.</summary>
+		void SpawnEffectInTile(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos, int piEffectObjectId,
+			float pfSeconds = -1f, int piStartFrame = 0);
 
 		// ------------------------------------------------- Targets in an area
 
@@ -158,18 +160,16 @@ namespace UWDataImport.UWData
 
 		bool AreaTargetIsCreature(int piIndex);
 
-		/// <summary>Squared flat distance from the caster.</summary>
-		float AreaTargetDistanceSquared(int piIndex);
-
 		/// <summary>Every thing on the tile takes a roll of its own - creatures, the player when he
 		/// stands there, doors and chests, the loose objects (see UWObjectDamageRules) - charged
 		/// to the caster, with the hit report for the player's own spell.</summary>
 		void DamageObjectsInTile(int piTileX, int piTileY, int piDiceCount, int piDiceRange, int piDamageType);
 
-		bool ConfuseAreaTarget(int piIndex);
+		/// <summary>Confusion on that creature: Missed, Spent when resisted, Shown when it took.</summary>
+		UWTargetSpellRules.Result ConfuseAreaTarget(int piIndex);
 
 		/// <summary>A class 7 spell on that creature (UWTargetSpell).</summary>
-		bool CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass);
+		UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass);
 
 		void SpawnEffectAtAreaTarget(int piIndex, int piEffectObjectId);
 	}

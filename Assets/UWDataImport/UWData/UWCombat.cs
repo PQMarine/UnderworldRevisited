@@ -37,42 +37,6 @@ namespace UWDataImport.UWData
 		/// multiplied by the charge and divided by 128.</summary>
 		public const int NeutralCharge = 128;
 
-		/// <summary>
-		/// What a CREATURE strikes with. It does not wind up like the player, but has a
-		/// counter that rises with every exchange of blows - the table comes from the reference
-		/// (combat_globals.NPCSwingCharges).
-		///
-		/// A CREATURE THAT HAS JUST STARTED ATTACKING STRIKES WEAKLY: the counter starts at zero,
-		/// that is 0x32 of 128, so thirty-nine percent of the rolled damage. Only
-		/// one that keeps at it longer reaches the 0xFF at the end - almost double.
-		///
-		/// WE WERE MISSING THIS ENTIRELY. We gave every creature NeutralCharge, so a full
-		/// 128 from the start - the first hits were thus about two and a half times as hard as
-		/// in the original. It was noticed because the user's character in the original
-		/// gets no screen shake from melee hits even WITHOUT armour, but in ours it
-		/// did (2026-09-09) - the shake kicks in from four points of damage.
-		/// </summary>
-		public static readonly int[] NpcSwingCharges =
-		{
-			0x32, 0x3C, 0x46, 0x50, 0x5A, 0x64, 0x6E, 0x78,
-			0x82, 0x8C, 0x9B, 0xAA, 0xB9, 0xCD, 0xE6, 0xFF
-		};
-
-		/// <summary>The charge value for a counter state, with range limits.</summary>
-		public static int GetNpcCharge(int piIndex)
-		{
-			if (piIndex < 0)
-				piIndex = 0;
-
-			if (piIndex >= NpcSwingCharges.Length)
-				piIndex = NpcSwingCharges.Length - 1;
-
-			return NpcSwingCharges[piIndex];
-		}
-
-		/// <summary>Highest state of the counter.</summary>
-		public const int MaxNpcSwingChargeIndex = 0xF;
-
 		/// <summary>Maximum of the charge counter while winding up. MinCharge also lies on this
 		/// scale, the threshold from which a strike is possible at all.</summary>
 		public const int FullCharge = 100;
@@ -295,12 +259,11 @@ namespace UWDataImport.UWData
 		/// With the class, door 321 would have ended up at ruined and worn, and the torch too.
 		///
 		/// HOW THE QUALITY MAPS ONTO THE SIX STEPS was stated here until 2026-09-10 as a
-		/// linear assumption (quality times six divided by 64). That was wrong. The reference
-		/// calculates with the upper nibble (look.GetDescriptionString):
+		/// linear assumption (quality times six divided by 64). That was wrong. The original
+		/// calculates with the upper nibble (UnderworldExhumed obj/LOOK.C, the look text):
 		///
 		///     Quality 0          step 0
-		///     Quality 1          step 1 - except for a light source, which stays at 0
-		///     Quality 2 and up   step 1 + (quality >> 4), so 1 to 4
+		///     Quality 1 and up   step 5 for quality class 3, else 1 + (quality >> 4), so 1 to 4
 		///
 		/// Nothing ordinary reaches the fifth step: it is reserved for quality class 3,
 		/// which always shows the top word. In most groups slots four and five hold
@@ -309,37 +272,51 @@ namespace UWDataImport.UWData
 		///
 		/// NOTICED ON A LANTERN: Henrietta's burning lantern in SAVE3 has quality
 		/// 21. The original calls it "half full", our linear calculation turned it into
-		/// "nearly empty" (per user, 2026-09-10). With the reference's calculation it is
+		/// "nearly empty" (per user, 2026-09-10). With the original's calculation it is
 		/// 1 + (21 >> 4) = 2, and slot 2 of the lantern group is exactly "half full".
 		///
-		/// THE EXCEPTION FOR LIGHT SOURCES is checked by the reference with "(object number &amp; 0x1F8)
-		/// equals 0x90" - that is exactly the eight numbers 144 to 151, the four
-		/// light sources unlit and lit. A torch with its last remainder
-		/// is thus called "burned out" and not "nearly spent".
+		/// NO EXCEPTION FOR LIGHT SOURCES (2026-10-12): the reference kept a torch or lantern of
+		/// quality 1 at step 0 and a class 3 object of quality 1 at step 1; LOOK.C knows neither -
+		/// step 0 only for quality 0, class 3 from quality 1.
 		/// </summary>
 		/// <param name="piQualityClass">From byte 6 of COMOBJ.DAT. Class 3 always shows the
 		/// top word.</param>
-		/// <param name="pbIsLightSource">Object number 144 to 151 - see above.</param>
-		public static int GetConditionStringIndex(int piQualityType, int piQuality,
-			int piQualityClass = 0, bool pbIsLightSource = false)
+		public static int GetConditionStringIndex(int piQualityType, int piQuality, int piQualityClass = 0)
 		{
 			int liStep = 0;
 
-			if (piQuality == 1)
-			{
-				if (!pbIsLightSource)
-					liStep = 1;
-			}
-			else if (piQuality > 1)
-			{
+			if (piQuality > 0)
 				liStep = piQualityClass == AlwaysBestQualityClass ? 5 : 1 + (piQuality >> 4);
-			}
 
 			if (liStep > 5)
 				liStep = 5;
 
 			return (piQualityType * 6) + liStep;
 		}
+
+		/// <summary>
+		/// THE EYES after the player's hit on a creature - 0 healthy (green), 1 wounded (yellow),
+		/// 2 critical (red). do_damage (UnderworldExhumed combat/COMBAT.C) takes fx = hp * 3 /
+		/// avghit, the creature's hit points left over its TABLE average (critter byte 4), at most
+		/// 2, and shows frame 3 - fx; an avghit of 0 gives fx 0. Until 2026-10-12 ours compared
+		/// with max(table value, the creature's own hit points), so a creature tougher than its
+		/// table's average turned yellow and red too early.
+		/// </summary>
+		public static int GetEyesGroup(int piHitPoints, int piAverageHitPoints)
+		{
+			int liFx = piAverageHitPoints != 0 ? (piHitPoints * 3) / piAverageHitPoints : 0;
+
+			if (liFx > EyesHealthyFx)
+				liFx = EyesHealthyFx;
+
+			if (liFx < 0)
+				liFx = 0;
+
+			return EyesHealthyFx - liFx;
+		}
+
+		/// <summary>do_damage's cap on fx - the healthy eyes.</summary>
+		public const int EyesHealthyFx = 2;
 
 		/// <summary>This quality class always shows the top condition word. In uw1
 		/// 142 of the 461 objects carry it.</summary>

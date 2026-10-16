@@ -247,7 +247,7 @@ Stays as host duties (the physics substitute and the engine work):
   `fIsBlockedByPlayer`, `fBlockingCreature`, `fIsBlockedByForceField`, `fBlockingDoor`,
   `fTryDeflectedStep`) are gone. Stay: `fIsWater`, `fIsLava`, `fFindClosedDoor` and
   `CanEnterTile` for the path search, `fGetOwnSize`, `fGetTileAt`, `fTryGetTile`,
-  `fGetSwimmerOffset`, `fGetFloorHeight`, `fHeadingToDirection`, `Push` (the record write of
+  `fGetSwimmerOffset`, `fGetFloorHeight`, `UWViewpoint.HeadingByteToDirection` (was `fHeadingToDirection`), `Push` (the record write of
   the momentum transfer), `fTrace`, `GetTrace`.
 - `fHasLineOfSight` becomes `HasLineOfSight` with the heights of `TestBetweenPoints`
   (deviation 23); `fGetEyePosition`, `fIsPlayerCollider` serve it.

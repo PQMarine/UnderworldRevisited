@@ -41,10 +41,6 @@ namespace UWDataImport.UWData
 		/// <summary>The melee weapons, 0x00-0x0F: the weapon hand wears only with one of them.</summary>
 		private const int WeaponIdLimit = 0x10;
 
-		private const int FirstDoorId = 0x140;
-
-		private const int LastDoorId = 0x14F;
-
 		/// <summary>The creature table byte whose bit 0 spares the weapon on a critical failure.</summary>
 		private const int SparesWeaponRowByte = 0x0A;
 
@@ -66,7 +62,7 @@ namespace UWDataImport.UWData
 		/// a door, and only on the roll; piRoll is the game's RNG, 0 to 0x7FFF.</summary>
 		public static bool WearsWeaponOnDoor(int piObjectId, int piRoll)
 		{
-			if (piObjectId < FirstDoorId || piObjectId > LastDoorId)
+			if (!UWObjectIds.IsDoor(piObjectId))
 				return false;
 
 			return (piRoll * 12) / 0x8000 < (piObjectId & 7) * 2;
@@ -83,15 +79,17 @@ namespace UWDataImport.UWData
 			return pOItem != null && pOItem.ID < WeaponIdLimit;
 		}
 
-		/// <summary>Whether the item a critical hit finds in the slot can wear: in a hand only a
-		/// shield, in the helmet, leggings and boots slots what is there.</summary>
+		/// <summary>Whether the item a critical hit finds in the slot can wear: in a hand what
+		/// ObjWorn counts as worn there - a shield, or one of the boots and helmets 0x2B-0x2F
+		/// (UWPlayerCritterRow.IsWornInShieldHand; shields only until 2026-10-12) - in the helmet,
+		/// leggings and boots slots what is there.</summary>
 		public static bool IsWearableArmour(UWObject pOItem, UWArmorItemMap.BodySlot peSlot)
 		{
 			if (pOItem == null)
 				return false;
 
 			if (peSlot == UWArmorItemMap.BodySlot.LeftHandSlot || peSlot == UWArmorItemMap.BodySlot.RightHandSlot)
-				return UWPlayerCritterRow.IsShield(pOItem.ID);
+				return UWPlayerCritterRow.IsWornInShieldHand(pOItem.ID);
 
 			return true;
 		}
@@ -119,7 +117,7 @@ namespace UWDataImport.UWData
 			if (!lbDestroyed && liQuality == liBefore)
 				return Outcome.None;
 
-			string lsName = UWItemDescriptions.GetBareName(pOItem.ID, pOData);
+			string lsName = UWText.ObjectName(pOData, pOItem.ID);
 
 			psMessage = "Your " + lsName + (lsName.EndsWith("s") ? " were" : " was")
 				+ (lbDestroyed ? " destroyed." : " damaged.");

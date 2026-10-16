@@ -130,8 +130,8 @@ public class UWDebugOverlay : MonoBehaviour
         {
             Vector3 lOPosition = lOPlayer.position;
 
-            int liTileX = Mathf.FloorToInt((lOPosition.x + UWLevelMeshBuilder.TileHalfSize) / UWLevelMeshBuilder.TileSpacing);
-            int liTileZ = Mathf.FloorToInt((lOPosition.z + UWLevelMeshBuilder.TileHalfSize) / UWLevelMeshBuilder.TileSpacing);
+            int liTileX = UWUnits.WorldAxisToTile(lOPosition.x);
+            int liTileZ = UWUnits.WorldAxisToTile(lOPosition.z);
 
             lOText.AppendFormat("   Tile ({0},{1})", liTileX, liTileZ);
             lOText.AppendFormat("\nPosition {0:F0} / {1:F0} / {2:F0}", lOPosition.x, lOPosition.y, lOPosition.z);
@@ -236,7 +236,7 @@ public class UWDebugOverlay : MonoBehaviour
 
         pOText.AppendFormat("\nEnemy {0} ({1} of {2})  {3:F0} away ({4:F1} tiles)  {5}  attack {6}",
             lOShown.name, lbLookedAt ? "looked at" : "nearest", lOCritters.Length,
-            lfDistanceToShown, lfDistanceToShown / UWLevelMeshBuilder.TileSpacing,
+            lfDistanceToShown, lfDistanceToShown / UWWorldScale.TileSize,
             lOShown.State, lOShown.AttackKind);
 
         pOText.Append(lOShown.DescribeCombatStats());
@@ -251,7 +251,7 @@ public class UWDebugOverlay : MonoBehaviour
         if (lOCamera == null)
             return null;
 
-        Ray lORay = lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        Ray lORay = UWWorldPicker.CrosshairRay(lOCamera);
 
         RaycastHit lOHit;
 
@@ -556,7 +556,7 @@ public class UWDebugOverlay : MonoBehaviour
     {
         string[] lsNames = new string[] { "North", "Northeast", "East", "Southeast", "South", "Southwest", "West", "Northwest" };
 
-        int liIndex = Mathf.RoundToInt(pfYaw / 45f) & 7;
+        int liIndex = UWHeadings.DegreesToEighth(pfYaw);
 
         return lsNames[liIndex];
     }
@@ -587,15 +587,9 @@ public class UWDebugOverlay : MonoBehaviour
 
     private UWTile fGetTile(int piTileX, int piTileZ)
     {
-        if (piTileX < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis || piTileZ < 0 || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
-            return null;
-
         UWLevel lOLevel = mOLoader.CurrentLevel;
 
-        if (lOLevel == null)
-            return null;
-
-        return lOLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        return lOLevel != null ? lOLevel.GetTile(piTileX, piTileZ) : null;
     }
 
     /// <summary>
@@ -611,7 +605,7 @@ public class UWDebugOverlay : MonoBehaviour
         if (lOCamera == null)
             return "Look target: no camera";
 
-        Ray lORay = lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        Ray lORay = UWWorldPicker.CrosshairRay(lOCamera);
         RaycastHit lOHit;
 
         if (!Physics.Raycast(lORay, out lOHit, mfLookRange))
@@ -642,8 +636,8 @@ public class UWDebugOverlay : MonoBehaviour
 
             if (liTileIndex >= 0)
             {
-                int liTileX = liTileIndex % UWLevelMeshBuilder.TilesPerAxis;
-                int liTileZ = liTileIndex / UWLevelMeshBuilder.TilesPerAxis;
+                int liTileX = liTileIndex % UWWorldScale.TilesPerAxis;
+                int liTileZ = liTileIndex / UWWorldScale.TilesPerAxis;
 
                 UWTile lOTile = fGetTile(liTileX, liTileZ);
 

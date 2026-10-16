@@ -173,8 +173,8 @@ public static class UWSoundEffects
 
         Vector3 lOListener = lOCamera.transform.position;
 
-        float lfDx = (pOWorldPosition.x - lOListener.x) / UWLevelMeshBuilder.TileSpacing * UnitsPerTile;
-        float lfDz = (pOWorldPosition.z - lOListener.z) / UWLevelMeshBuilder.TileSpacing * UnitsPerTile;
+        float lfDx = (pOWorldPosition.x - lOListener.x) / UWWorldScale.TileSize * UnitsPerTile;
+        float lfDz = (pOWorldPosition.z - lOListener.z) / UWWorldScale.TileSize * UnitsPerTile;
         int liDistance = Mathf.FloorToInt(Mathf.Sqrt((lfDx * lfDx) + (lfDz * lfDz)));
 
         // The attenuation is the original's (UWSoundAttenuation, P3 of the engine separation).

@@ -86,7 +86,7 @@ public sealed class UWHudCompass
         }
 
         Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:6147";
+        lOTexture.name = "UWHudCompass picture";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
         lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
@@ -266,11 +266,10 @@ public sealed class UWHudCompass
         if (lOCamera == null)
             return 0;
 
-        // View direction in 256 steps, plus eight for rounding to the nearest sixteenth.
-        int liHeading = Mathf.RoundToInt(
-            Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f) * 256f / 360f);
-
-        return ((liHeading + 8) & 0xFF) >> 4;
+        // The view direction in 256 steps as the original reads the player's heading (a
+        // truncation, shared with the throw since 2026-10-12, decision 23), then the original's
+        // own (v + 8 & 0xFF) >> 4 of display_scr (INTERACT.C).
+        return UWHeadings.HeadingByteToCompassStep(UWHeadings.DegreesToHeadingByte(lOCamera.transform.eulerAngles.y));
     }
 
     /// <summary>Shows the background and the needle belonging to the view direction (or the

@@ -58,6 +58,17 @@ namespace UWDataImport.UWData
 		/// <summary>The tiles of the last straight line or path, start first.</summary>
 		public readonly List<UWTilePos> Tiles = new List<UWTilePos>();
 
+		/// <summary>
+		/// The jump flag of every tile of the last PATH (FindPath), in step with Tiles: the
+		/// original's pathsq[i].flag (make_path_from_flood_data, UnderworldExhumed PATHFIND.C) -
+		/// the jump the triple test reported when tile i was the middle of a step (the cell's
+		/// climb bit, overwritten by its last accepted neighbour as flood_path's rec->pathflag),
+		/// 0 for the start. A stored path makes the step into a flagged tile a leap (A12,
+		/// 2026-10-15). A path of one step keeps no flag of its own in the original (stale
+		/// memory); ours gives it none.
+		/// </summary>
+		public readonly List<bool> Jumps = new List<bool>();
+
 		/// <summary>A cell of the search grid seg049 (5 bytes: prev x, prev y, height, cost &lt;&lt; 1 |
 		/// climb, depth). Visited = prev x != 0 (the original's test, line 44077), which is why the
 		/// box starts at 1.</summary>
@@ -82,11 +93,13 @@ namespace UWDataImport.UWData
 
 		private readonly List<UWTilePos> mONext = new List<UWTilePos>(MaxWaveWidth);
 
-		/// <summary>The four neighbour offsets of the search (table dseg_AC/AD; order GUESS: as
-		/// the port's UWTilePath walks them until the data bytes are read).</summary>
-		private static readonly int[] NeighbourDx = { 1, 0, -1, 0 };
+		/// <summary>The four neighbour offsets of the search in the original's order, +y, +x, -y,
+		/// -x (PathingOffset, DS:00AC, UnderworldExhumed PATHFIND.C, used by flood_path). Until
+		/// 2026-10-15 a GUESS of +x, +y, -x, -y; between equally short routes the order decides
+		/// which one a creature takes (audit round 2, A16 / KR D16).</summary>
+		public static readonly int[] NeighbourDx = { 0, 1, 0, -1 };
 
-		private static readonly int[] NeighbourDy = { 0, 1, 0, -1 };
+		public static readonly int[] NeighbourDy = { 1, 0, -1, 0 };
 
 		// ------------------------------------------------- seg006_1477_1938 (line 44397)
 
@@ -259,6 +272,7 @@ namespace UWDataImport.UWData
 		{
 			Budget = piRange & 0xFF;
 			Tiles.Clear();
+			Jumps.Clear();
 			Array.Clear(mOCells, 0, mOCells.Length);
 
 			int liMinX = Math.Max(1, Math.Min(piX0, piX1) - SearchMargin);
@@ -295,6 +309,8 @@ namespace UWDataImport.UWData
 					// THE UNTESTED GOAL: a neighbour of the start is the whole path.
 					Tiles.Add(new UWTilePos(piX0, piY0));
 					Tiles.Add(new UWTilePos(piX1, piY1));
+					Jumps.Add(false);
+					Jumps.Add(false);
 
 					return true;
 				}
@@ -379,6 +395,7 @@ namespace UWDataImport.UWData
 		private void fBuildPath(int piGoalX, int piGoalY, int piDepth)
 		{
 			Tiles.Clear();
+			Jumps.Clear();
 
 			int liX = piGoalX;
 			int liY = piGoalY;
@@ -389,12 +406,18 @@ namespace UWDataImport.UWData
 
 				Cell lOCell = mOCells[liX, liY];
 
+				Jumps.Insert(0, lOCell.Climb);
+
 				if (lOCell.Depth == 0)
 					break;
 
 				liX = lOCell.PrevX;
 				liY = lOCell.PrevY;
 			}
+
+			// make_path_from_flood_data: pathsq[0].flag = 0.
+			if (Jumps.Count > 0)
+				Jumps[0] = false;
 		}
 
 		private bool fInGrid(int piX, int piY)

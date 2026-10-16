@@ -306,7 +306,8 @@ namespace UWDataImport.UWData
 			if (liCull > 0 && liCull <= 8 && (mOWorld.Random() & 7) < liCull && fObjectCulling(pORecord.Object))
 				lbKeep = false;
 
-			if (mOHost.DungeonLevel == 9)
+			// Nothing comes to rest in the Void (the host's level is one-based).
+			if (mOHost.DungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
 				lbKeep = false;
 
 			if (lbKeep)
@@ -343,39 +344,13 @@ namespace UWDataImport.UWData
 		/// protected (word 0 bit 13), not valuable (COMOBJ byte 9 bits 2-5 plus half the extra
 		/// count of a stack greater than a range of 10..12), and holds nothing protected. The
 		/// second roll of the routine can never save anything at this range, but it is rolled.
+		/// The test itself is UWObjectLimitRules.CullingTest since 2026-10-12 (cleanup 2.6); it
+		/// draws from this world's Random in the same order as before, over the resolved
+		/// Contents alone (no master list here), so the sequence is unchanged.
 		/// </summary>
 		private bool fObjectCulling(UWObject pOObject)
 		{
-			if (pOObject == null)
-				return false;
-
-			int liRange = 10 + (int)(((long)mOWorld.Random() * 3) / 0x8000);
-
-			if (fIsProtected(pOObject, liRange))
-				return false;
-
-			if (!pOObject.HasQuantity && pOObject.Contents != null)
-			{
-				foreach (UWObject lOContent in pOObject.Contents)
-				{
-					if (fIsProtected(lOContent, liRange))
-						return false;
-				}
-			}
-
-			return ((long)mOWorld.Random() * 10) / 0x8000 < liRange;
-		}
-
-		/// <summary>The protection of one object: word 0 bit 13, or valuable enough for the range
-		/// (UWLiquidCulling.Swallows, the value rule of the liquids).</summary>
-		private bool fIsProtected(UWObject pOObject, int piRange)
-		{
-			if (pOObject.DoorDirection)
-				return true;
-
-			int liQuantity = pOObject.HasQuantity && (pOObject.Quantity & 0x200) == 0 ? pOObject.Quantity : 1;
-
-			return !UWLiquidCulling.Swallows(fEntry(pOObject.ID).CullingPriority, liQuantity, piRange);
+			return UWObjectLimitRules.CullingTest(pOObject, UWLiquidCulling.RangeBase, mOProperties, null, mOWorld.Random);
 		}
 
 		// ------------------------------------------------- PlacedObjectCollison_seg029_104D (line 102049)

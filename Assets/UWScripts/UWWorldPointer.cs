@@ -47,7 +47,7 @@ public sealed class UWWorldPointer
         public UWEntityInfo Frontmost;
 
         /// <summary>The frontmost PICKABLE thing along the same ray, behind a blood pool or bone
-        /// pile if need be (see Interaction.TryGetPickupTarget) - null if there is none.</summary>
+        /// pile if need be (UWWorldPicker's pickable rule) - null if there is none.</summary>
         public UWEntityInfo Pickable;
 
         /// <summary>The wall or floor texture name when nothing with entity info was hit.</summary>

@@ -16,7 +16,6 @@ namespace UWDataImport.UWData
 		/// <summary>The message a spiked door answers everything with - look as well as use.</summary>
 		public const int DoorIsSpikedMessage = 132;
 
-		private const int NoEffectAtAllMessage = 133;
 
 		private const int RockBreaksMessage = 136;
 
@@ -26,11 +25,15 @@ namespace UWDataImport.UWData
 
 		private const int OilOnWoodMessage = 182;
 
-		/// <summary>How many sling stones the smallest boulder yields - the reference
-		/// rolls three plus zero to five.</summary>
+		/// <summary>How many sling stones a piece below the small boulder holds: UseRockHammerOn
+		/// rolls three plus rand % 6.</summary>
 		private const int SlingStoneMinimum = 3;
 
 		private const int SlingStoneSpread = 6;
+
+		/// <summary>How far the pieces scatter around the boulder's spot, in eighths of a tile
+		/// (UseRockHammerOn: put_at with range 6).</summary>
+		public const int RockPieceScatter = 6;
 
 		/// <summary>The outcome of an application.</summary>
 		public struct Result
@@ -74,9 +77,10 @@ namespace UWDataImport.UWData
 
 			if (liId >= UWObjectMechanics.FirstWoodObjectId && liId <= UWObjectMechanics.LastWoodObjectId)
 			{
+				// THE TORCH KEEPS THE WOOD'S QUALITY: UseOilOn (UnderworldExhumed obj/USEITEMS.C,
+				// read 2026-10-15) only changes the item id. Until 2026-10-15 ours set 40, so a
+				// worn piece of wood made a torch that burnt longer than in the original.
 				UWObjectMechanics.SetObjectId(pOTarget, UWObjectMechanics.TorchObjectId, pOData.Textures);
-
-				pOTarget.Quality = UWObjectMechanics.NewTorchQuality;
 
 				lOResult.Handled = true;
 				lOResult.MessageIndex = OilOnWoodMessage;
@@ -127,7 +131,10 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// The spike wedges a closed door: the door's owner field carries the spike from now
-		/// on (UWObjectMechanics.FreshDoorSpikeOwner). An open one cannot be wedged.
+		/// on (UWObjectMechanics.FreshDoorSpikeOwner). An open door, and anything else in the
+		/// world or carried, gets "You can only spike closed doors." (the spike's second half in
+		/// USEITEMS.C, named in UWItemTargetRules, takes the closed door ids 0x140..0x147 only;
+		/// pbDoorIsClosed false, 2026-10-15).
 		/// </summary>
 		public static Result SpikeDoor(UWObject pODoor, bool pbDoorIsClosed)
 		{
@@ -154,33 +161,33 @@ namespace UWDataImport.UWData
 			return lOResult;
 		}
 
+		/// <summary>One piece of a broken boulder.</summary>
+		public struct RockPiece
+		{
+			/// <summary>The piece's object id: a smaller boulder or the sling stone.</summary>
+			public int ObjectId;
+
+			/// <summary>The count of a sling-stone pile, zero for a boulder (which keeps the broken
+			/// boulder's own fields).</summary>
+			public int Quantity;
+		}
+
 		/// <summary>What the rock hammer turns a boulder into.</summary>
 		public struct RockResult
 		{
 			/// <summary>A line of string block 1.</summary>
 			public int MessageIndex;
 
-			/// <summary>The boulder goes and this object takes its place - zero for nothing.</summary>
-			public int SpawnObjectId;
+			/// <summary>True when the boulder breaks (and goes), even when no piece is left.</summary>
+			public bool Broken;
 
-			/// <summary>How many of them, zero for a single piece without count.</summary>
-			public int SpawnQuantity;
+			/// <summary>The pieces that take its place - empty for none.</summary>
+			public RockPiece[] Pieces;
 		}
 
-		/// <summary>
-		/// The rock hammer: breaks a boulder into the next smaller one.
-		///
-		/// The four boulders 339 to 342 are gone through in order; the smallest becomes
-		/// three to eight sling stones. Everything else it answers with "It seems to have no
-		/// effect." - so the hammer can be applied to any world object, it just does
-		/// nothing anywhere else. Freshly broken is fresh - the caller spawns with
-		/// UWSummonSpellRules.NewObjectQuality, the same reasoning as for conjured food.
-		///
-		/// FITS WITH TREMOR: the spell drops exactly these boulders from the ceiling (see
-		/// UWMiscSpellRules), and the hammer turns them into ammunition.
-		/// </summary>
-		/// <summary>String block 1: "It seems to have no effect."</summary>
-		private const int NoEffectMessage = 133;
+		/// <summary>String block 1: "It seems to have no effect." (until 2026-10-11 declared
+		/// twice here, as NoEffectMessage and NoEffectAtAllMessage).</summary>
+		private const int NoEffectMessage = UWStringIds.NoEffectMessage;
 
 		/// <summary>String block 1: "The orb is destroyed!"</summary>
 		private const int OrbDestroyedMessage = 134;
@@ -216,28 +223,54 @@ namespace UWDataImport.UWData
 			return lOResult;
 		}
 
+		/// <summary>
+		/// The rock hammer on a boulder (UseRockHammerOn, UnderworldExhumed obj/USEITEMS.C:724-763,
+		/// read 2026-10-15): the boulder breaks into rand(0..1) + (0x155 - id) + 1 pieces, each one or
+		/// two sizes smaller (rand(0..1) + 1); a piece below the small boulder is a pile of three to
+		/// eight sling stones. So the large boulder 0x153 gives three or four pieces, 0x154 two or
+		/// three, 0x155 one or two, and the small boulder 0x156 none or one: half the time it is
+		/// simply gone. Everything else it answers with "It seems to have no effect." The pieces are
+		/// copies of the boulder made by the caller (UWItemTargetUse), scattered by RockPieceScatter.
+		/// Until 2026-10-15 ours made one piece of the next size, and the small boulder always gave
+		/// stones (reference audit round 2).
+		///
+		/// FITS WITH TREMOR: the spell drops exactly these boulders from the ceiling (see
+		/// UWMiscSpellRules), and the hammer turns them into ammunition.
+		/// </summary>
 		public static RockResult BreakRock(int piObjectId)
 		{
-			RockResult lOResult = new RockResult();
+			RockResult lOResult = new RockResult { Pieces = new RockPiece[0] };
 
-			if (piObjectId < UWObjectMechanics.FirstBoulderObjectId
-				|| piObjectId > UWObjectMechanics.LastBoulderObjectId)
+			if (!UWObjectIds.IsBoulder(piObjectId))
 			{
-				lOResult.MessageIndex = NoEffectAtAllMessage;
+				lOResult.MessageIndex = NoEffectMessage;
 
 				return lOResult;
 			}
 
 			lOResult.MessageIndex = RockBreaksMessage;
+			lOResult.Broken = true;
 
-			if (piObjectId >= UWObjectMechanics.LastBoulderObjectId)
+			int liCount = UWRandom.Next(2) + (UWObjectIds.MediumBoulder - piObjectId) + 1;
+
+			if (liCount <= 0)
+				return lOResult;
+
+			lOResult.Pieces = new RockPiece[liCount];
+
+			for (int liAt = 0; liAt < liCount; liAt++)
 			{
-				lOResult.SpawnObjectId = UWObjectMechanics.SlingStoneObjectId;
-				lOResult.SpawnQuantity = SlingStoneMinimum + UWRandom.Next(SlingStoneSpread);
-			}
-			else
-			{
-				lOResult.SpawnObjectId = piObjectId + 1;
+				int liPiece = piObjectId + UWRandom.Next(2) + 1;
+
+				if (liPiece > UWObjectIds.SmallBoulder)
+				{
+					lOResult.Pieces[liAt].ObjectId = UWObjectMechanics.SlingStoneObjectId;
+					lOResult.Pieces[liAt].Quantity = SlingStoneMinimum + UWRandom.Next(SlingStoneSpread);
+				}
+				else
+				{
+					lOResult.Pieces[liAt].ObjectId = liPiece;
+				}
 			}
 
 			return lOResult;
@@ -245,14 +278,16 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// Takes durability off the spike of a spiked, closed door. Returns true if the strike
-		/// is used up by that - then the door itself takes nothing. The reference redirects
-		/// damage on a spiked, closed door to the durability of the SPIKE instead of the door's
-		/// (damage.cs, branch "damage to spiked closed doors"). Once the spike is gone, the door
-		/// is free again - and only the next strike hits it again.
+		/// is used up by that - then the door itself takes nothing. damage_object
+		/// (UnderworldExhumed combat/DAMAGE.C) sends the damage of a closed door 0x140-0x147 whose
+		/// owner bit 0 is set to the spike while its strength (owner &gt;&gt; 1) is above 0. piDamage
+		/// is what is left AFTER the quality class shift (UWDamageable, 2026-10-12; until then the
+		/// full blow). A spike worn to 0 keeps the bit and takes nothing: the blow goes to the door.
 		/// </summary>
 		public static bool TryDamageDoorSpike(UWObject pODoor, bool pbDoorIsClosed, int piDamage)
 		{
-			if (pODoor == null || !pbDoorIsClosed || !UWObjectMechanics.IsDoorSpiked(pODoor))
+			if (pODoor == null || !pbDoorIsClosed || !UWObjectMechanics.IsDoorSpiked(pODoor)
+				|| UWObjectMechanics.GetDoorSpikeStrength(pODoor) <= 0)
 				return false;
 
 			int liLeft = UWObjectMechanics.GetDoorSpikeStrength(pODoor) - piDamage;

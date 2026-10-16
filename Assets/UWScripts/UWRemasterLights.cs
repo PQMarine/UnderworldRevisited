@@ -62,12 +62,12 @@ public class UWRemasterLights : MonoBehaviour
 
     private static readonly Recipe[] mORecipes =
     {
-        new Recipe { Id = 145, Tiles = 3f,   Brightness = 0.8f,  Flicker = 1f,    Shadows = true,  OpenFire = true,  Glow = 1.5f, Fire = 1f },    // torch
-        new Recipe { Id = 146, Tiles = 1.5f, Brightness = 0.5f,  Flicker = 0.9f,  Shadows = false, OpenFire = true,  Glow = 1.2f, Fire = 0.35f }, // candle
-        new Recipe { Id = 144, Tiles = 3.5f, Brightness = 0.9f,  Flicker = 0.08f, Shadows = true,  OpenFire = false, Glow = 1f },   // lantern
+        new Recipe { Id = UWObjectIds.Torch,   Tiles = 3f,   Brightness = 0.8f,  Flicker = 1f,    Shadows = true,  OpenFire = true,  Glow = 1.5f, Fire = 1f },    // torch
+        new Recipe { Id = UWObjectIds.Candle,  Tiles = 1.5f, Brightness = 0.5f,  Flicker = 0.9f,  Shadows = false, OpenFire = true,  Glow = 1.2f, Fire = 0.35f }, // candle
+        new Recipe { Id = UWObjectIds.Lantern, Tiles = 3.5f, Brightness = 0.9f,  Flicker = 0.08f, Shadows = true,  OpenFire = false, Glow = 1f },   // lantern
         new Recipe { Id = 298, Tiles = 4f,   Brightness = 1.1f,  Flicker = 1.2f,  Shadows = true,  OpenFire = true,  Glow = 1.8f, Fire = 1.8f },  // campfire
         new Recipe { Id = 120, Tiles = 4f,   Brightness = 1.0f,  Flicker = 1.2f,  Shadows = false, OpenFire = true,  Glow = 1.5f, Fire = 1.4f },  // fire elemental
-        new Recipe { Id = 297, Tiles = 2f,   Brightness = 0.35f, Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f },   // glowing stone
+        new Recipe { Id = UWObjectIds.GlowingRock, Tiles = 2f, Brightness = 0.35f, Flicker = 0f,  Shadows = false, OpenFire = false, Glow = 1f },   // glowing stone
         new Recipe { Id = 184, Tiles = 1.5f, Brightness = 0.25f, Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 0.8f }, // glowing mushroom
         new Recipe { Id = 279, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f },   // orb
         new Recipe { Id = 274, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f },   // orb stone
@@ -297,7 +297,7 @@ public class UWRemasterLights : MonoBehaviour
 
         Dictionary<int, bool> lOIsLava = new Dictionary<int, bool>();
         int liCount = 0;
-        int liSize = UWLevelMeshBuilder.TilesPerAxis;
+        int liSize = UWWorldScale.TilesPerAxis;
 
         for (int liY = 0; liY < liSize; liY += LavaLightSpacing)
         {
@@ -306,7 +306,7 @@ public class UWRemasterLights : MonoBehaviour
                 if (liCount >= MaxLavaLights)
                     return liCount;
 
-                UWTile lOTile = lOLevel.TileData[(liY * liSize) + liX];
+                UWTile lOTile = lOLevel.GetTile(liX, liY);
 
                 if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
                     continue;
@@ -324,8 +324,8 @@ public class UWRemasterLights : MonoBehaviour
                 if (!lbLava)
                     continue;
 
-                Vector3 lOAt = new Vector3(liX * UWLevelMeshBuilder.TileSpacing,
-                    lOTile.FloorHeight + 16f, liY * UWLevelMeshBuilder.TileSpacing);
+                Vector3 lOAt = new Vector3(UWUnits.TileCentreToWorldAxis(liX),
+                    lOTile.FloorHeight + 16f, UWUnits.TileCentreToWorldAxis(liY));
 
                 fCreateLight(transform, lOAt, LavaLightTiles,
                     LavaLightBrightness * pOSettings.RemasterLightBrightness,
@@ -351,12 +351,12 @@ public class UWRemasterLights : MonoBehaviour
 
         lOLight.type = LightType.Point;
         lOLight.color = pOColour;
-        lOLight.range = pfTiles * UWLevelMeshBuilder.TileSpacing;
+        lOLight.range = pfTiles * UWWorldScale.TileSize;
 
         // Same calculation as for the player light (UWLighting): URP uses one over
         // distance squared, a tile is 64 units wide.
-        lOLight.intensity = pfBrightness * UWLevelMeshBuilder.TileSpacing
-            * UWLevelMeshBuilder.TileSpacing * pfTiles * pfTiles;
+        lOLight.intensity = pfBrightness * UWWorldScale.TileSize
+            * UWWorldScale.TileSize * pfTiles * pfTiles;
 
         // Shadows are distributed by fUpdateShadowLights - only register here.
         lOLight.shadows = LightShadows.None;

@@ -30,23 +30,50 @@ namespace UWDataImport.UWData
 			return piTile * UWWorldScale.TileSize;
 		}
 
-		/// <summary>Which tile a world coordinate lies in, on one axis. Not clamped to the map.</summary>
+		/// <summary>Which tile a world coordinate lies in, on one axis: the FLOOR, the original's
+		/// pos &gt;&gt; 8 (a point on a tile boundary belongs to the tile it starts). Not clamped to
+		/// the map; UWTileQueries.WorldToTile is the clamped pair for both axes, and since
+		/// 2026-10-12 the one world-to-tile conversion (decision 20 of Docs/CLEANUP-PLAN.md).</summary>
 		public static int WorldAxisToTile(float pfWorld)
 		{
 			return (int)Math.Floor((pfWorld + UWWorldScale.TileHalfSize) / UWWorldScale.TileSize);
 		}
 
 		/// <summary>Where an object with this tile and sub-tile position (0 to 7) stands on one
-		/// axis, including the offset within its eighth.</summary>
+		/// axis, including the offset within its eighth: THE ONE eighth-spot formula, the
+		/// original's (tile &lt;&lt; 8) + (xpos &lt;&lt; 5) + 0xF in our units (see UWPlacement).
+		/// Until the cleanup step 2.11 (2026-10-12) the level loader's snap out of rock added
+		/// the spawner's 0.1 draw offset on top and the drop in front of the player used one
+		/// unit instead of the 3.75 (decision 22 of Docs/CLEANUP-PLAN.md).</summary>
 		public static float SubTileToWorldAxis(int piTile, int piSubTile)
 		{
 			return TileToWorldAxis(piTile) + (piSubTile * UWWorldScale.SubTileStep) + UWWorldScale.SubTileOffset;
+		}
+
+		/// <summary>The same spot for a position in eighths of a tile (tile times eight plus the
+		/// sub-tile spot, the unit the scatter and the reach rules count in) - the inverse of
+		/// UWTileQueries.WorldToEighths.</summary>
+		public static float EighthsToWorldAxis(int piEighths)
+		{
+			return SubTileToWorldAxis(piEighths >> 3, piEighths & 7);
 		}
 
 		/// <summary>Height of a zpos value (0 to 127).</summary>
 		public static float ZPosToWorld(int piZPos)
 		{
 			return piZPos * UWWorldScale.ZPosStep;
+		}
+
+		/// <summary>The zpos of a world height: the height divided by the zpos step, rounded
+		/// (halves to even). NOT clamped to 0 to 127 - the caller decides whether a value above
+		/// the ceiling or below the floor is an error or gets clamped (UWWorldCapture clamps,
+		/// the trespass trap clamps, a dropped item takes the floor as it is). One home for the
+		/// five identical copies since the cleanup of 2026-10-11 (Interaction, UWCharacter,
+		/// UWTouchGather, UWWorldCapture, UWLevelLoader.fSpawnObjectAt); the bridge probe that
+		/// rounds UP stays on its own (UWLevelLoader.fGetBridgeZPosBelow).</summary>
+		public static int WorldToZPos(float pfWorldHeight)
+		{
+			return RoundToInt(pfWorldHeight / UWWorldScale.ZPosStep);
 		}
 
 		/// <summary>A horizontal coordinate of the original (tile &lt;&lt; 8 plus fine position) on

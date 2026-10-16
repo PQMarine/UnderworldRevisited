@@ -71,8 +71,15 @@ namespace UWDataImport.UWData
 		/// Switched on, the spell does what it was obviously meant to do (deviation row 62 in
 		/// Docs/AI/creature-ai.md). DamageResistance is filled either way, so the value is
 		/// visible even while it does nothing.
+		///
+		/// Kept with the session since 2026-10-14 (UWGameSession.Quirks, cleanup step 2.7); the
+		/// host pushes it before every status pass.
 		/// </summary>
-		public static bool ResistBlowsAddsArmour;
+		public static bool ResistBlowsAddsArmour
+		{
+			get { return UWGameSession.Current.Quirks.ResistBlowsAddsArmour; }
+			set { UWGameSession.Current.Quirks.ResistBlowsAddsArmour = value; }
+		}
 
 		/// <summary>The original keeps this many body parts.</summary>
 		public const int PartCount = 4;
@@ -221,10 +228,12 @@ namespace UWDataImport.UWData
 		/// The sequence is the reference's and looks arbitrary because the bit field is ordered by
 		/// DAMAGE TYPES, but the spells are not.
 		///
-		/// DISPLAYED, BUT WITHOUT EFFECT YET: the reference sets the field
-		/// (PlayerDamageTypeScale) and never reads it again. We carry it along the same way
-		/// so that the display shows the spell is running - damage is not reduced
-		/// by it yet. For that every creature would first need to bring a damage type.
+		/// THEY TAKE EFFECT (corrected 2026-10-12; this said "displayed, but without effect yet",
+		/// after the reference, which never reads the field): the original writes them into the
+		/// resist byte of the player's object 127 (init_spells and player_affected_by in
+		/// UnderworldExhumed game/PLAYDATA.C), and check_res (combat/DAMAGE.C) tests every damage
+		/// to the player against it. Ours does the same through Status.DamageTypeProof in
+		/// UWPlayerVitals.ApplyDamage.
 		/// </summary>
 		private static readonly int[] msProofBits = { 0x40, 0x08, 0x10, 0x01, 0x02 };
 
@@ -426,23 +435,29 @@ namespace UWDataImport.UWData
 				fAddSlotEnchantment(pOInventory, UWArmorItemMap.BodySlot.Legs, DollLegs, pOStatus);
 				fAddSlotEnchantment(pOInventory, UWArmorItemMap.BodySlot.Boots, DollBoots, pOStatus);
 
-				UWObject lOBoots = pOInventory.GetEquipped(UWArmorItemMap.BodySlot.Boots);
-
-				pOStatus.HasDragonSkinBoots = lOBoots != null && lOBoots.ID == DragonSkinBootsId;
-
-				// WHICH SLOTS CAST THEIR ENCHANTMENT is decided by ovr120_BA2 (367615), called
-				// per slot in the loop at label A25: the five armour pieces, the two rings and
-				// the SHIELD HAND (but only when a shield is in it), never the weapon hand and
-				// never the two shoulder slots. An enchanted weapon therefore only takes effect
-				// when striking, not while it is held.
+				// WHICH SLOTS CAST THEIR ENCHANTMENT is decided by ovr120_BA2 (367615), ObjWorn in
+				// UnderworldExhumed inv/INVDATA.C, called per slot in FixPlayerEquips' loop: the
+				// five armour pieces, the two rings and the SHIELD HAND when what it holds counts
+				// as worn there (UWPlayerCritterRow.IsWornInShieldHand: the shields and 0x2B-0x2F,
+				// boots and helmets among them - until 2026-10-12 ours took the shields only),
+				// never the weapon hand and never the two shoulder slots. An enchanted weapon
+				// therefore only takes effect when striking, not while it is held.
 				fAddSlotEnchantment(pOInventory, UWArmorItemMap.BodySlot.LeftRing, DollRing, pOStatus);
 				fAddSlotEnchantment(pOInventory, UWArmorItemMap.BodySlot.RightRing, DollRing, pOStatus);
 
 				UWArmorItemMap.BodySlot leShieldSlot = GetShieldSlot(pOInventory.IsLeftHanded);
 				UWObject lOShieldItem = pOInventory.GetEquipped(leShieldSlot);
+				bool lbShieldHandWorn = lOShieldItem != null && UWPlayerCritterRow.IsWornInShieldHand(lOShieldItem.ID);
 
-				if (lOShieldItem != null && UWPlayerCritterRow.IsShield(lOShieldItem.ID))
+				if (lbShieldHandWorn)
 					fAddSlotEnchantment(pOInventory, leShieldSlot, DollShieldHand, pOStatus);
+
+				// THE DRAGON SKIN BOOTS protect from lava in any worn slot - the boots slot or the
+				// shield hand - but only without a plain enchantment of their own: FixPlayerEquips
+				// notes them in the else branch of the enchantment test (PLAYDATA.C, 2026-10-12;
+				// until then the boots slot alone, enchanted or not).
+				pOStatus.HasDragonSkinBoots = fIsPlainDragonSkinBoots(pOInventory.GetEquipped(UWArmorItemMap.BodySlot.Boots))
+					|| (lbShieldHandWorn && fIsPlainDragonSkinBoots(lOShieldItem));
 			}
 
 			// Resistance comes last and applies equally everywhere - if the switch allows it,
@@ -475,6 +490,14 @@ namespace UWDataImport.UWData
 			UWArmorItemMap.BodySlot peSlot, int piPart, Status pOStatus)
 		{
 			pOStatus.Armour[piPart] += UWPlayerCritterRow.GetArmourValue(pOInventory.GetEquipped(peSlot), pOData);
+		}
+
+		/// <summary>Dragon skin boots (0x2F) without a decodable plain enchantment - see the
+		/// dragon skin test in Compute.</summary>
+		private static bool fIsPlainDragonSkinBoots(UWObject pOItem)
+		{
+			return pOItem != null && pOItem.ID == DragonSkinBootsId
+				&& !TryGetWearableEnchantment(pOItem, out int liMajor, out int liMinor);
 		}
 
 		/// <summary>The enchantment of an equipment slot, if one is attached.</summary>
@@ -533,10 +556,10 @@ namespace UWDataImport.UWData
 					break;
 
 				case CurseMajorClass:
-					// ONLY COUNT, DO NOT STRIKE. This pass runs EVERY FRAME;
-					// letting the curse take effect from here would kill you within a second. The
-					// reference calls its status pass on the player tick, and that is exactly
-					// where the curse strikes in our code - see UWCharacter.ApplyCurse.
+					// ONLY COUNT, DO NOT STRIKE. This pass runs EVERY FRAME; letting the curse
+					// take effect from here would kill you within a second. The original's pass,
+					// FixPlayerEquips, runs on events instead, and UWCharacter strikes on those
+					// (fRunStatusPass, since 2026-10-12; before that on every player tick).
 					pOStatus.CurseDice += piMinor;
 					break;
 
@@ -687,7 +710,7 @@ namespace UWDataImport.UWData
 		/// (PickBodyHitPoint_seg022_A, called for a weapon strike and for a missile alike):
 		///
 		///   The attacker's middle below the defender's feet:  legs, without a roll
-		///   The attacker's feet above the defender's top:      head, without a roll
+		///   The attacker's middle above the defender's top:    head, without a roll
 		///   Otherwise, attacker's middle at or above the
 		///   defender's:                                        one third head, else on
 		///   Attacker's middle lower:                           half legs, else on
@@ -695,6 +718,12 @@ namespace UWDataImport.UWData
 		///
 		/// Until 2026-09-18 only the two centres in world units were compared and the two clear
 		/// cases were missing (P4 of the engine separation).
+		///
+		/// THE ATTACKER IS THE BLOW'S PROBE, NOT ITS BODY, and the certain head is tested against
+		/// the probe's MIDDLE (pickloc, UnderworldExhumed combat/COMBAT.C; C3, by the user's
+		/// decision of 2026-10-12 to follow the original): resolve_attack hands in the probe
+		/// (UWCritterCombat.GetBlowProbe), missile_thwack the missile. Until then the callers handed
+		/// in the attacker's whole body and the head was certain only above the attacker's feet.
 		/// </summary>
 		public static int PickBodyPart(int piDefenderFeet, int piDefenderTop, int piAttackerFeet, int piAttackerTop)
 		{
@@ -704,7 +733,7 @@ namespace UWDataImport.UWData
 			if (piDefenderFeet + 1 > liAttackerMiddle)
 				return PartLegs;
 
-			if (piDefenderTop - 1 < piAttackerFeet)
+			if (piDefenderTop - 1 < liAttackerMiddle)
 				return PartHead;
 
 			if (liAttackerMiddle >= liDefenderMiddle)

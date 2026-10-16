@@ -24,7 +24,7 @@ namespace UWDataImport.UWData
 		/// <summary>Test switch: a create-object trap always fires, whatever its chance.</summary>
 		bool AlwaysFireCreateObjectTraps { get; }
 
-		/// <summary>Is a creature that was created during play (UWObject.WasSpawned) standing
+		/// <summary>Is a creature that was created during play (UWObject.IsSpawned) standing
 		/// within piTilesBack below and piTilesForward above this tile on both axes? The
 		/// crowding check of a creation trap - see UWTrapRules.fFireCreateObjectTrap.</summary>
 		bool IsSpawnedCreatureNear(int piTileX, int piTileY, int piTilesBack, int piTilesForward);
@@ -37,13 +37,14 @@ namespace UWDataImport.UWData
 		/// <summary>Flips the pressed image of a switch.</summary>
 		void ToggleSwitchVisual(UWObject pOSwitchObject);
 
-		/// <summary>The tile height an eight-position lever stands for, if the used object is
-		/// one (a_do trap "raise tile").</summary>
-		bool TryGetLeverTileHeight(UWObject pOSwitchObject, int piStepSize, out int piHeight);
 
 		// ------------------------------------------------- The world
 
 		void RebuildGeometry();
+
+		/// <summary>A tile's height change moved this object's z (UWTrapRules.SetTileHeight): its
+		/// picture follows, by the difference to piOldZPos.</summary>
+		void OnObjectHeightChanged(UWObject pOObject, int piOldZPos);
 
 		/// <summary>Objects inside a tile that was solid until now are drawn late.</summary>
 		void SpawnPendingObjectsInTile(int piTileX, int piTileY);
@@ -65,12 +66,19 @@ namespace UWDataImport.UWData
 
 		bool HasPlayer { get; }
 
+		/// <summary>The tile the player stands on (the exploding book searches it).</summary>
+		UWTilePos PlayerTile { get; }
+
 		/// <summary>The player's inventory, or null without one.</summary>
 		UWInventoryModel Inventory { get; }
 
 		void DamagePlayer(int piDamage);
 
 		void PoisonPlayer(int piStrength);
+
+		/// <summary>The player's damage-type immunities of the moment - worn enchantments and
+		/// spells (UWCharacter.DamageTypeProof), the resist byte check_res reads.</summary>
+		int PlayerDamageTypeProof { get; }
 
 		int PlayerCastingSkill { get; }
 
@@ -110,11 +118,12 @@ namespace UWDataImport.UWData
 		/// out, else untouched (the original's motion step writes its hp back).</summary>
 		void StrikeTriggeringThing(int piDamage);
 
-		/// <summary>A damage trap's quality on the triggering creature.</summary>
+		/// <summary>A damage trap's quality on the triggering creature, with no attacker (whack_thing
+		/// hands damage_item none: no alarm, no experience).</summary>
 		void DamageTriggeringCreature(int piDamage);
 
-		/// <summary>Hurts the triggering creature and tells the player in which direction it
-		/// happened.</summary>
+		/// <summary>Hurts the triggering creature with no attacker, as a damage trap does, and
+		/// tells the player in which direction it happened.</summary>
 		void ApplyWardDamage(int piDamage, int piWardMessage, int piFirstDirectionMessage);
 
 		bool BeginConversation(int piSlot);

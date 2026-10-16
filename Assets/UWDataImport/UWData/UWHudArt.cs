@@ -547,7 +547,7 @@ namespace UWDataImport.UWData
 						lfValue += mfCloudWeights[liOctave] * fSmoothNoise(liOctave, liX / mfCloudCells[liOctave], liY / mfCloudCells[liOctave]);
 
 					lfValue += (fHash(liX, liY, 99) - 0.5f) * CloudGrain;
-					lfValue = fClamp((lfValue - CloudLow) / (CloudHigh - CloudLow), 0f, 0.999f);
+					lfValue = UWMath.Clamp((lfValue - CloudLow) / (CloudHigh - CloudLow), 0f, 0.999f);
 
 					lOOut.Set(x, y, lOShades[(int)(lfValue * lOShades.Count)]);
 				}
@@ -592,15 +592,7 @@ namespace UWDataImport.UWData
 		/// <summary>As Unity's Mathf.Lerp: t kept to 0..1.</summary>
 		private static float fLerp(float pfA, float pfB, float pfT)
 		{
-			return pfA + ((pfB - pfA) * fClamp(pfT, 0f, 1f));
-		}
-
-		internal static float fClamp(float pfValue, float pfMin, float pfMax)
-		{
-			if (pfValue < pfMin)
-				return pfMin;
-
-			return pfValue > pfMax ? pfMax : pfValue;
+			return pfA + ((pfB - pfA) * UWMath.Clamp(pfT, 0f, 1f));
 		}
 
 		private static UWPicture fLeather(UWTextures pOTextures, int piWidth, int piHeight, int piVariant, int piShiftX = 0)
@@ -795,17 +787,6 @@ namespace UWDataImport.UWData
 		public const int PaperdollBodyX = 260;
 
 		public const int PaperdollBodyY = 11;
-
-		/// <summary>
-		/// THE PAPERDOLL'S BODY WITHOUT ITS LEATHER (per user, 2026-10-09, screenshot: on a back of
-		/// its own the figure stood in a box of copper). BODIES.GR pictures are opaque, their
-		/// background the page itself at PaperdollBodyX/Y - pixel for pixel, but for a drop shadow
-		/// along the figure. So it is freed from the page (FreeOnPage).
-		/// </summary>
-		public static UWPicture FreePaperdollBody(UWTextures pOTextures, UWPicture pOBody)
-		{
-			return FreeOnPage(pOTextures, pOBody, PaperdollBodyX, PaperdollBodyY);
-		}
 
 		/// <summary>The first body picture of CHRBTNS.GR, the character creation's (bodies in the
 		/// order of BODIES.GR).</summary>
@@ -1054,8 +1035,10 @@ namespace UWDataImport.UWData
 		private const int Kept = int.MinValue;
 
 		/// <summary>
-		/// A picture lying on MAIN.BYT at piMainX/Y freed from the page around it (see
-		/// FreePaperdollBody). The SHADOW the original paints along the figure is wider than first
+		/// A picture lying on MAIN.BYT at piMainX/Y freed from the page around it (per user,
+		/// 2026-10-09, screenshot: on a back of its own the figure stood in a box of copper; BODIES.GR
+		/// pictures are opaque, their background the page itself at PaperdollBodyX/Y - pixel for
+		/// pixel, but for a drop shadow). The SHADOW the original paints along the figure is wider than first
 		/// thought and its own colours (per user, the same day: "not quite clean yet"), so in steps:
 		///   1. From the edges: every pixel that equals the page; from there two more steps into what
 		///      does not (near the page) - but only into light pixels (luma 50 and more): the legs are

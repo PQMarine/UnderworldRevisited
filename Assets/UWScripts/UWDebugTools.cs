@@ -329,19 +329,15 @@ public class UWDebugTools : MonoBehaviour
 
         (int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
 
-        if (liTileX < 0 || liTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || liTileY < 0 || liTileY >= UWLevelMeshBuilder.TilesPerAxis)
-            return;
-
-        UWTile lOTarget = mOLoader.CurrentLevel.TileData[(liTileY * UWLevelMeshBuilder.TilesPerAxis) + liTileX];
+        UWTile lOTarget = mOLoader.CurrentLevel.GetTile(liTileX, liTileY);
 
         if (lOTarget == null)
             return;
 
         Vector3 lOWorld = new Vector3(
-            liTileX * UWLevelMeshBuilder.TileSpacing,
-            lOTarget.FloorHeight + UWLevelMeshBuilder.TileHalfSize,
-            liTileY * UWLevelMeshBuilder.TileSpacing);
+            UWUnits.TileCentreToWorldAxis(liTileX),
+            lOTarget.FloorHeight + UWWorldScale.TileHalfSize,
+            UWUnits.TileCentreToWorldAxis(liTileY));
 
         Vector3 lOScreen = pOCamera.WorldToScreenPoint(lOWorld);
 
@@ -458,8 +454,8 @@ public class UWDebugTools : MonoBehaviour
         }
 
         if (liLevel < 0 || liLevel >= mOLoader.LevelCount
-            || liX < 0 || liX >= UWLevelMeshBuilder.TilesPerAxis
-            || liY < 0 || liY >= UWLevelMeshBuilder.TilesPerAxis)
+            || liX < 0 || liX >= UWWorldScale.TilesPerAxis
+            || liY < 0 || liY >= UWWorldScale.TilesPerAxis)
         {
             Debug.LogWarning(string.Format("Jump: {0}/{1} on level {2} is out of range.",
                 liX, liY, liLevel + 1));
@@ -488,7 +484,7 @@ public class UWDebugTools : MonoBehaviour
         if (mOLoader.CurrentLevel == null || mOLoader.CurrentLevel.TileData == null)
             return;
 
-        UWTile lOTile = mOLoader.CurrentLevel.TileData[(piTileY * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+        UWTile lOTile = mOLoader.CurrentLevel.GetTile(piTileX, piTileY);
 
         if (lOTile == null || lOTile.TileType != UWTile.TileTypeEnum.solid)
             return;
@@ -505,9 +501,9 @@ public class UWDebugTools : MonoBehaviour
         Debug.Log("Jump: target tile is solid - noclip on.");
 
         lODebug.EnterSpectator(new Vector3(
-            piTileX * UWLevelMeshBuilder.TileSpacing,
-            lOTile.FloorHeight + UWLevelMeshBuilder.TileHalfSize,
-            piTileY * UWLevelMeshBuilder.TileSpacing));
+            UWUnits.TileCentreToWorldAxis(piTileX),
+            lOTile.FloorHeight + UWWorldScale.TileHalfSize,
+            UWUnits.TileCentreToWorldAxis(piTileY)));
     }
 
 }

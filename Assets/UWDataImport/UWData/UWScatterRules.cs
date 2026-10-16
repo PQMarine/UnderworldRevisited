@@ -39,15 +39,25 @@ namespace UWDataImport.UWData
 
 		/// <summary>Rolls up to Tries spots around the centre and returns the first that
 		/// pbFits accepts; false if none did.</summary>
+		/// <param name="pbStayCentered">drop_around_place's stay_centered: the first try is the
+		/// centre itself (place_object at the player's feet).</param>
 		public static bool TryPickSpot(int piCentreX, int piCentreY, int piRadius,
-			Func<int, int, bool> pbFits, out int piX, out int piY)
+			Func<int, int, bool> pbFits, out int piX, out int piY, bool pbStayCentered = false)
 		{
 			int liSpan = (piRadius * 2) + 1;
 
 			for (int liTry = 0; liTry < Tries; liTry++)
 			{
-				piX = piCentreX - piRadius + UWRandom.Next(liSpan);
-				piY = piCentreY - piRadius + UWRandom.Next(liSpan);
+				if (liTry == 0 && pbStayCentered)
+				{
+					piX = piCentreX;
+					piY = piCentreY;
+				}
+				else
+				{
+					piX = piCentreX - piRadius + UWRandom.Next(liSpan);
+					piY = piCentreY - piRadius + UWRandom.Next(liSpan);
+				}
 
 				if (pbFits == null || pbFits(piX, piY))
 					return true;

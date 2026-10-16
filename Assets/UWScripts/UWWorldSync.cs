@@ -72,21 +72,13 @@ public static class UWWorldSync
             pOCritter.Attitude, pOCritter.Goal, lbMoved, lOAt.x, lOAt.y, lOAt.z);
     }
 
+    /// <summary>The door writes its own state (leaf, hit points, lock) the moment it changes;
+    /// this is the same write once more before the save or the level change (UWDoor, 2026-10-12).</summary>
     private static void fCaptureDoor(UWLevelLoader pOLoader, UWEntityInfo pOEntity)
     {
-        IUsableDoor lIDoor = pOEntity.GetComponentInParent<IUsableDoor>();
-        MonoBehaviour lODoorBehaviour = lIDoor as MonoBehaviour;
+        UWDoor lODoor = pOEntity.GetComponentInParent<UWDoor>();
 
-        // Before Start the door does not know its state yet (see DoorMover.Start).
-        bool lbStateKnown = lIDoor != null && lODoorBehaviour != null && lODoorBehaviour.didStart;
-
-        UWDamageable lODamageable = pOEntity.GetComponent<UWDamageable>();
-        UWDoorLock lOLock = pOEntity.GetComponentInParent<UWDoorLock>();
-
-        UWWorldCapture.CaptureDoor(pOLoader.CurrentLevel, pOEntity.ObjectData, lbStateKnown,
-            lbStateKnown && !lIDoor.IsClosed,
-            lODamageable != null, lODamageable != null ? lODamageable.CurrentHealth : 0,
-            lODamageable != null ? lODamageable.InitialHealth : 0,
-            lOLock != null ? lOLock.State : null);
+        if (lODoor != null)
+            lODoor.WriteStateToData();
     }
 }

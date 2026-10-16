@@ -80,3 +80,6 @@ BGLOBALS.DAT
 /Core/obj/
 /Tools/**/bin/
 /Tools/**/obj/
+
+# Agent worktrees of the Claude desktop app
+.claude/worktrees/

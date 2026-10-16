@@ -17,43 +17,6 @@ namespace UnderworldRevisited.Build
     /// </summary>
     public sealed class UWObjectSpawner
     {
-        private const float TileSpacing = UWLevelMeshBuilder.TileSpacing;
-        private const float TileHalfSize = UWLevelMeshBuilder.TileHalfSize;
-
-        /// <summary>
-        /// Object coordinates within a tile run from 0 to 7, and one step is
-        /// an EIGHTH OF A TILE - for us that is eight world units.
-        ///
-        /// The reference computes an object position as (xpos &lt;&lt; 5) + (tileX &lt;&lt; 8): a
-        /// tile is 256 units there, a step 32, so exactly one eighth. The
-        /// collision code uses the same unit (obj.xpos + (tileX &lt;&lt; 3)).
-        ///
-        /// THE HIGHEST VALUE THEREFORE DOES NOT REACH THE TILE EDGE: 7 times 8 is 56 out of
-        /// 64, leaving eight units of clearance. That is exactly the point - an item at the
-        /// edge of its tile would otherwise have its image stuck in the neighbouring wall.
-        ///
-        /// Until 2026-09-06 this was 9, so that values 0 to 7 spanned the whole tile
-        /// width. The user found the bug on an axe on level 3, tile 48/55:
-        /// it has xpos 7 and ypos 7, and the tile is solid both to the east and to the
-        /// north. With 9 it ended up 0.9 units before the edge and was stuck in the
-        /// wall; in the original it is not.
-        ///
-        /// Public for UWLevelLoader.SpawnDroppedObject (original: dropping/throwing), which
-        /// has to compute XPos/YPos back from a continuous world position.
-        /// </summary>
-        public const float SubTileScale = UWDataImport.UWData.UWWorldScale.SubTileStep;
-
-        /// <summary>
-        /// WHERE IN ITS EIGHTH an object stands: 0xF of the 32 original units of a step, 3.75 of
-        /// our 8. The original computes a position as (tile &lt;&lt; 8) + (xpos &lt;&lt; 5) + 0xF
-        /// (UnderworldGodot, taken from UW.EXE: object creation, projectiles, spells), the same
-        /// for x and y. We left it out until 2026-09-17: in a comparison in front of Drog (SAVE4
-        /// level 1) the wall plate had to move 4 to 5 units along the wall and Drog stood too far
-        /// away (per user with screenshots). An object at xpos 7 now lies at 59.75 of 64, still
-        /// clear of the neighbouring wall (see the axe on level 3 above).
-        /// </summary>
-        public const float SubTileOffset = UWDataImport.UWData.UWWorldScale.SubTileOffset;
-
         /// <summary>
         /// For everything that hangs ON A WALL: writing plaques, wall decoration, switches,
         /// pillars, force fields - i.e. everything that goes through fSpawnDecal.
@@ -63,7 +26,7 @@ namespace UnderworldRevisited.Build
         /// in the air. Nine times seven is 63, so practically the edge, and the scant
         /// remaining unit keeps it out of the wall surface.
         ///
-        /// Free-lying items need exactly the opposite (see SubTileScale) -
+        /// Free-lying items need exactly the opposite (see UWWorldScale.SubTileStep) -
         /// they must NOT reach the edge, otherwise they get stuck in the neighbouring wall.
         /// Same number range, two purposes.
         ///
@@ -72,11 +35,6 @@ namespace UnderworldRevisited.Build
         /// items it floated in front of the wall (2026-09-06).
         /// </summary>
         private const float DecalSubTileScale = 9f;
-
-        /// <summary>Object heights are given in half units. Public for
-        /// UWLevelLoader.SpawnDroppedObject (original: dropping/throwing), which has to compute
-        /// ZPos back from the floor height of the target tile.</summary>
-        public const float HeightScale = UWDataImport.UWData.UWWorldScale.ZPosStep;
 
         /// <summary>
         /// Model shade values (per-vertex D4 bytes, flat BC levels) to LIGHT.DAT levels: ONE TO ONE.
@@ -104,10 +62,10 @@ namespace UnderworldRevisited.Build
         // Item id -> model mapping, confirmed 2026-09-15 by the object-to-model table in
         // UW.EXE (DS:0682, file 0x5E342 in the GOG build, 32 words indexed by id - 0x150).
         private const int ShrineObjectId = UWShrineRules.ShrineObjectId;
-        private const int SmallBoulderObjectId = 0x0156;
-        private const int MediumBoulderObjectId = 0x0155;
-        private const int LargeBoulderObjectIdA = 0x0153;
-        private const int LargeBoulderObjectIdB = 0x0154;
+        private const int SmallBoulderObjectId = UWObjectIds.SmallBoulder;
+        private const int MediumBoulderObjectId = UWObjectIds.MediumBoulder;
+        private const int LargeBoulderObjectIdA = UWObjectIds.LargeBoulderA;
+        private const int LargeBoulderObjectIdB = UWObjectIds.LargeBoulderB;
         private const int BenchObjectId = 0x0150;
         private const int PillarObjectId = 0x0160;
 
@@ -387,11 +345,11 @@ namespace UnderworldRevisited.Build
             UnresolvedCount = 0;
             mOPanelsOnWall.Clear();
 
-            for (int z = 0; z < UWLevelMeshBuilder.TilesPerAxis; z++)
+            for (int z = 0; z < UWWorldScale.TilesPerAxis; z++)
             {
-                for (int x = 0; x < UWLevelMeshBuilder.TilesPerAxis; x++)
+                for (int x = 0; x < UWWorldScale.TilesPerAxis; x++)
                 {
-                    UWTile lOTile = pOLevel.TileData[(z * UWLevelMeshBuilder.TilesPerAxis) + x];
+                    UWTile lOTile = pOLevel.GetTile(x, z);
 
                     if (lOTile.TileType == UWTile.TileTypeEnum.solid)
                         continue;
@@ -407,10 +365,23 @@ namespace UnderworldRevisited.Build
         /// full level build (Spawn), just for one object instead of the whole tile list.</summary>
         public void SpawnSingleObject(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent)
         {
-            fSpawnObject(xPos, zPos, pOTile, pOObject, pOParent);
+            fSpawnObject(xPos, zPos, pOTile, pOObject, pOParent, false);
         }
 
-        private void fSpawnObject(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent)
+        /// <summary>
+        /// An object that is NOT in its tile's list - a flying projectile, an effect (see
+        /// UWWorldView.SpawnUnlisted) - drawn as if it were appended to it: the place after the
+        /// last of the chain, and the tile counted as holding a model if it is one itself. Until
+        /// 2026-10-12 such objects were put into the list for the spawn and taken out afterwards;
+        /// this gives the picture the same sorting without touching the list.
+        /// </summary>
+        public void SpawnUnlistedObject(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent)
+        {
+            fSpawnObject(xPos, zPos, pOTile, pOObject, pOParent, true);
+        }
+
+        private void fSpawnObject(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent,
+            bool pbAsAppended = false)
         {
             if (pOObject == null || pOObject.Texture == null)
                 return;
@@ -427,8 +398,16 @@ namespace UnderworldRevisited.Build
 
             // Where the object stands in its tile's chain, and whether a model of the tile is
             // sorted with it - see UWOwnTile.RegisterModelTile.
-            miSpawnChainIndex = pOTile != null && pOTile.ObjectsInTile != null ? pOTile.ObjectsInTile.IndexOf(pOObject) : -1;
-            mbSpawnTileHasModel = fHasModel(pOTile);
+            if (pbAsAppended)
+            {
+                miSpawnChainIndex = pOTile != null && pOTile.ObjectsInTile != null ? pOTile.ObjectsInTile.Count : -1;
+                mbSpawnTileHasModel = fHasModel(pOTile) || fIsSortedModel(pOObject);
+            }
+            else
+            {
+                miSpawnChainIndex = pOTile != null && pOTile.ObjectsInTile != null ? pOTile.ObjectsInTile.IndexOf(pOObject) : -1;
+                mbSpawnTileHasModel = fHasModel(pOTile);
+            }
 
             if (leCategory == UWObject.ObjectCategoryEnum.Doors)
                 fSpawnDoor(xPos, zPos, pOTile, pOObject, pOParent);
@@ -459,11 +438,18 @@ namespace UnderworldRevisited.Build
             {
                 UWObject lOObject = pOTile.ObjectsInTile[liAt];
 
-                if (lOObject != null && lOObject.ID != BridgeObjectId && fGet3DModelIndex(lOObject.ID) >= 0)
+                if (fIsSortedModel(lOObject))
                     return true;
             }
 
             return false;
+        }
+
+        /// <summary>A model that fHasModel counts: any 3D model but the bridge.</summary>
+        private bool fIsSortedModel(UWObject pOObject)
+        {
+            return mO3DModels != null && pOObject != null && pOObject.ID != BridgeObjectId
+                && fGet3DModelIndex(pOObject.ID) >= 0;
         }
 
         /// <summary>The COMOBJ radius of a big object (byte 1 bit 3), 0 for every other.</summary>
@@ -589,11 +575,12 @@ namespace UnderworldRevisited.Build
             return liQualityClass != UWCombat.AlwaysBestQualityClass && !pOObject.DoorDirection;
         }
 
-        /// <summary>Hit points for a door, plus what a broken door does.</summary>
+        /// <summary>Hit points for a door. What a broken door does is UWDoor's (BurstOpen, since
+        /// 2026-10-12; UWDoorDamage before): it listens to the UWDamageable, and one that cannot be
+        /// harmed never reports a destruction.</summary>
         private void fAttachDoorHealth(GameObject pOGameObject, UWObject pOObject)
         {
-            if (fAttachHealth(pOGameObject, pOObject))
-                pOGameObject.AddComponent<UWDoorDamage>();
+            fAttachHealth(pOGameObject, pOObject);
         }
 
         /// <summary>
@@ -610,7 +597,7 @@ namespace UnderworldRevisited.Build
 
             Bounds lOBounds = pOMesh.bounds;
 
-            float lfThreshold = UWLevelMeshBuilder.TileSpacing * 0.9f;
+            float lfThreshold = UWWorldScale.TileSize * 0.9f;
 
             if (lOBounds.size.x < lfThreshold || lOBounds.size.z < lfThreshold)
                 return pOPosition;
@@ -624,9 +611,9 @@ namespace UnderworldRevisited.Build
             // The centre of the extent should lie on the tile centre. The height stays as
             // it is - it comes from the object's ZPos and is correct.
             return new Vector3(
-                (piTileX * UWLevelMeshBuilder.TileSpacing) - lOCentre.x,
+                UWUnits.TileCentreToWorldAxis(piTileX) - lOCentre.x,
                 pOPosition.y,
-                (piTileZ * UWLevelMeshBuilder.TileSpacing) - lOCentre.z);
+                UWUnits.TileCentreToWorldAxis(piTileZ) - lOCentre.z);
         }
         /// <summary>Like fGetObjectPosition, but with the scale for wall-mounted things - see
         /// DecalSubTileScale.</summary>
@@ -635,15 +622,15 @@ namespace UnderworldRevisited.Build
             Vector3 lOAt = UWViewpoint.SubTileToWorld(xPos, zPos, pOObject, DecalSubTileScale);
 
             // ALONG THE WALL the object stands where every object stands, with the offset
-            // within its eighth (see SubTileOffset) - the wall plate in front of Drog had to
+            // within its eighth (see UWWorldScale.SubTileOffset) - the wall plate in front of Drog had to
             // move 4 to 5 units along the wall (per user, 2026-09-17). ACROSS the wall the
             // decal scale stays, so a plaque at 7 keeps touching the wall. Facing 0 and 4
             // turn the quad to face along Z (wall runs along X), 2 and 6 along X; diagonal
             // facings keep both axes as they were.
             if (pOObject.Heading == 0 || pOObject.Heading == 4)
-                lOAt.x = UWViewpoint.TileToWorldAxis(xPos) + (pOObject.XPos * SubTileScale) + SubTileOffset;
+                lOAt.x = UWUnits.SubTileToWorldAxis(xPos, pOObject.XPos);
             else if (pOObject.Heading == 2 || pOObject.Heading == 6)
-                lOAt.z = UWViewpoint.TileToWorldAxis(zPos) + (pOObject.YPos * SubTileScale) + SubTileOffset;
+                lOAt.z = UWUnits.SubTileToWorldAxis(zPos, pOObject.YPos);
 
             return lOAt + fGetDrawOffset();
         }
@@ -759,7 +746,7 @@ namespace UnderworldRevisited.Build
 
         /// <summary>Centre of the quad of models 0x10-0x12 along its X: (-1/16 + 3/16) / 2 of a
         /// tile, see fSpawnDecal.</summary>
-        private const float WallModelImageShift = TileSpacing / 16f;
+        private const float WallModelImageShift = UWWorldScale.TileSize / 16f;
 
         private const int LeverObjectId = 0x0161;
         private const int WallSwitchObjectId = 0x0162;
@@ -778,7 +765,7 @@ namespace UnderworldRevisited.Build
 
         /// <summary>How far model 0x16's quad lies behind the panel's eighth: 1/16 of a tile (UW.EXE
         /// model nodes, y 0.0625) - see fSpawnDecal.</summary>
-        private const float WallModelBackOffset = TileSpacing / 16f;
+        private const float WallModelBackOffset = UWWorldScale.TileSize / 16f;
 
         /// <summary>Whether a wall panel's plane lies on the edge of its tile on its back side, where
         /// a wall may stand behind it (within a unit); pOEdge is the position moved onto that edge.
@@ -792,14 +779,14 @@ namespace UnderworldRevisited.Build
 
             if (Mathf.Abs(pOFront.z) > 0.5f)
             {
-                float lfEdge = UWViewpoint.TileToWorldAxis(piTileZ) + (pOFront.z > 0f ? 0f : TileSpacing);
+                float lfEdge = UWViewpoint.TileToWorldAxis(piTileZ) + (pOFront.z > 0f ? 0f : UWWorldScale.TileSize);
 
                 pOEdge.z = lfEdge;
 
                 return Mathf.Abs(pOPosition.z - lfEdge) < 1f;
             }
 
-            float lfEdgeX = UWViewpoint.TileToWorldAxis(piTileX) + (pOFront.x > 0f ? 0f : TileSpacing);
+            float lfEdgeX = UWViewpoint.TileToWorldAxis(piTileX) + (pOFront.x > 0f ? 0f : UWWorldScale.TileSize);
 
             pOEdge.x = lfEdgeX;
 
@@ -815,11 +802,7 @@ namespace UnderworldRevisited.Build
         {
             UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;
 
-            if (lOLevel == null || piTileX < 0 || piTileZ < 0
-                || piTileX >= UWLevelMeshBuilder.TilesPerAxis || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
-                return false;
-
-            UWTile lOTile = lOLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+            UWTile lOTile = lOLevel != null ? lOLevel.GetTile(piTileX, piTileZ) : null;
 
             return lOTile != null && (lOTile.TileType == UWTile.TileTypeEnum.diagonal_ne
                 || lOTile.TileType == UWTile.TileTypeEnum.diagonal_nw
@@ -952,11 +935,7 @@ namespace UnderworldRevisited.Build
         {
             UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;
 
-            if (lOLevel == null || piTileX < 0 || piTileZ < 0
-                || piTileX >= UWLevelMeshBuilder.TilesPerAxis || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
-                return false;
-
-            UWTile lOTile = lOLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+            UWTile lOTile = lOLevel != null ? lOLevel.GetTile(piTileX, piTileZ) : null;
 
             return lOTile != null && (lOTile.TileType == UWTile.TileTypeEnum.slope_n
                 || lOTile.TileType == UWTile.TileTypeEnum.slope_e
@@ -1059,7 +1038,7 @@ namespace UnderworldRevisited.Build
             // UWItemDrag is the sole source (see lbHandledByItemDrag in Interaction).
             // A goblin therefore counted as pickable, and "look" stayed silent for every
             // creature (reported by user, 2026-08-30).
-            lOInfo.CanBePickedUp = pOObject.GetCategory() != UWObject.ObjectCategoryEnum.Monsters
+            lOInfo.CanBePickedUp = !UWObjectIds.IsCreature(pOObject.ID)
                 && !UWFixedScenery.IsFixed(pOObject.ID);
 
             fAttachCritterHealth(lOObject, pOObject);
@@ -1306,11 +1285,10 @@ namespace UnderworldRevisited.Build
         /// </summary>
         private void fMakeForceField(GameObject pOObject, int piTileX, int piTileZ, UWObject pOData, Mesh pOPanel)
         {
-            float lfTile = UWLevelMeshBuilder.TileSpacing;
-            float lfFine = lfTile / 8f;
-            float lfCornerX = (piTileX * lfTile) - UWLevelMeshBuilder.TileHalfSize;
-            float lfCornerZ = (piTileZ * lfTile) - UWLevelMeshBuilder.TileHalfSize;
-            float lfBottom = pOData.ZPos * HeightScale;
+            float lfFine = UWWorldScale.SubTileStep;
+            float lfCornerX = UWUnits.TileToWorldAxis(piTileX);
+            float lfCornerZ = UWUnits.TileToWorldAxis(piTileZ);
+            float lfBottom = pOData.ZPos * UWWorldScale.ZPosStep;
 
             // Origin of the model: sub-position plus half a step.
             Vector3 lOOrigin = new Vector3(lfCornerX + ((pOData.XPos + 0.5f) * lfFine), lfBottom,
@@ -1319,8 +1297,8 @@ namespace UnderworldRevisited.Build
             // The quad from fGetQuad is centred on its pivot; the model spans from
             // -0.4375 to 0.5625, so its centre lies 0.0625 tile to the side, and the face
             // 0.0625 tile forward.
-            Quaternion lORotation = Quaternion.Euler(0f, pOData.Heading * 45f, 0f);
-            Vector3 lOLocalOffset = new Vector3(ForceFieldModelOffset * lfTile, 0f, ForceFieldModelOffset * lfTile);
+            Quaternion lORotation = Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOData.Heading), 0f);
+            Vector3 lOLocalOffset = new Vector3(ForceFieldModelOffset * UWWorldScale.TileSize, 0f, ForceFieldModelOffset * UWWorldScale.TileSize);
 
             pOObject.transform.SetPositionAndRotation(lOOrigin + (lORotation * lOLocalOffset) + fGetDrawOffset(), lORotation);
             pOObject.GetComponent<MeshFilter>().sharedMesh = pOPanel;
@@ -1351,7 +1329,7 @@ namespace UnderworldRevisited.Build
             float lfMaxX = lfCornerX + ((Mathf.Min(7, pOData.XPos + liRadius) + 1) * lfFine);
             float lfMinZ = lfCornerZ + (Mathf.Max(0, pOData.YPos - liRadius) * lfFine);
             float lfMaxZ = lfCornerZ + ((Mathf.Min(7, pOData.YPos + liRadius) + 1) * lfFine);
-            float lfTop = lfBottom + (liHeight * HeightScale);
+            float lfTop = lfBottom + (liHeight * UWWorldScale.ZPosStep);
 
             lOBox.transform.SetPositionAndRotation(
                 new Vector3((lfMinX + lfMaxX) * 0.5f, lfBottom, (lfMinZ + lfMaxZ) * 0.5f), Quaternion.identity);
@@ -1396,7 +1374,7 @@ namespace UnderworldRevisited.Build
             // painter draws one over the other - so ours now staggers them (WallPanelStagger).
             if (pOObject.ID == DecalObjectId || pOObject.ID == DecalObjectId + 1)
             {
-                Vector3 lOFront = Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * Vector3.back;
+                Vector3 lOFront = Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.back;
 
                 // ACROSS ITS WALL TOO THE PANEL STANDS WHERE MODEL 0x16 PUTS IT (per user, 2026-10-03,
                 // level 7, looking west from 18/35: one could see through between a panel and the
@@ -1414,7 +1392,7 @@ namespace UnderworldRevisited.Build
                     int liTile = lbAlongZ ? zPos : xPos;
                     int liEighth = lbAlongZ ? pOObject.YPos : pOObject.XPos;
                     float lfBackStep = -(lbAlongZ ? lOStraight.z : lOStraight.x);
-                    float lfAcross = UWViewpoint.TileToWorldAxis(liTile) + (liEighth * SubTileScale) + SubTileOffset
+                    float lfAcross = UWUnits.SubTileToWorldAxis(liTile, liEighth)
                         + (lfBackStep * WallModelBackOffset) + DrawOffset;
 
                     if (lbAlongZ)
@@ -1451,8 +1429,8 @@ namespace UnderworldRevisited.Build
                 // floated about seven units in front of the wall (per user, 2026-09-17). It is moved
                 // along the image normal onto the plane through the tile centre, and a quarter unit
                 // out to the front against z-fighting.
-                Vector3 lONormal = Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * Vector3.back;
-                Vector3 lOCentre = new Vector3(xPos * UWLevelMeshBuilder.TileSpacing, lOPosition.y, zPos * UWLevelMeshBuilder.TileSpacing);
+                Vector3 lONormal = Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.back;
+                Vector3 lOCentre = new Vector3(UWUnits.TileCentreToWorldAxis(xPos), lOPosition.y, UWUnits.TileCentreToWorldAxis(zPos));
 
                 lOPosition -= lONormal * Vector3.Dot(lOPosition - lOCentre, lONormal);
                 lOPosition += lONormal * DiagonalDecalLift;
@@ -1474,10 +1452,10 @@ namespace UnderworldRevisited.Build
             // 2026-09-17, sits where the model puts it. Diagonal facings get the shift as well.
             if (fIsOffCentreWallModel(pOObject.ID)
                 || pOObject.GetCategory() == UWObject.ObjectCategoryEnum.Switches)
-                lOPosition += (Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * Vector3.right) * WallModelImageShift;
+                lOPosition += (Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.right) * WallModelImageShift;
 
             lOObject.transform.position = lOPosition;
-            lOObject.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lOObject.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             Mesh lOMesh = fGetQuad(pOObject.Texture, lOResolved);
 
@@ -1744,13 +1722,13 @@ namespace UnderworldRevisited.Build
             // bridge, which measures exactly 1x1). Y/Z swapped: the model bytecode stores X, Y, Z with Z
             // as the height (UW.EXE model interpreter), Unity is Y-up. An intermediate attempt
             // without the swap left the object lying flat on the floor instead of upright.
-            const float lfModelScale = TileSpacing;
+            const float lfModelScale = UWWorldScale.TileSize;
 
             // Computed up front, because node 008C ("reach up to the ceiling", see below) needs
             // to know the object's Y position to derive the local target height from it.
             Vector3 lOPosition = fGetObjectPosition(xPos, zPos, pOObject);
 
-            float lfLocalCeiling = UWLevelMeshBuilder.CeilingHeight - lOPosition.y;
+            float lfLocalCeiling = UWWorldScale.CeilingHeight - lOPosition.y;
 
             // Each face gets its own vertex copies instead of shared indices, since UVs
             // differ per face (textured vs. solid-coloured) - Unity only knows
@@ -1997,7 +1975,7 @@ namespace UnderworldRevisited.Build
             // A freely placed model (projectile) brings its own position and is
             // not moved to the tile centre.
             if (!pOPositionOverride.HasValue)
-                lOPosition = fAlignFullTileModel(lOPosition, xPos, zPos, lOMesh, pOObject.Heading * 45f);
+                lOPosition = fAlignFullTileModel(lOPosition, xPos, zPos, lOMesh, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             GameObject lOObj = new GameObject("Model " + pOObject.ID);
             lOObj.transform.SetParent(pOParent, false);
@@ -2006,7 +1984,7 @@ namespace UnderworldRevisited.Build
             if (pORotationOverride.HasValue)
                 lOObj.transform.rotation = pORotationOverride.Value;
             else
-                lOObj.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+                lOObj.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             lOObj.AddComponent<MeshFilter>().sharedMesh = lOMesh;
             // Submesh 0 (dungeon material) stays empty (0 triangles) if no wall/
@@ -2042,13 +2020,13 @@ namespace UnderworldRevisited.Build
             if (!fHasNoCollision(pOObject.ID) && mOData != null && mOData.CommonObjectProperties != null
                 && mOData.CommonObjectProperties.TryGet(pOObject.ID, out UWCommonObjectProperties.Entry lOHeightEntry))
             {
-                float lfTableHeight = lOHeightEntry.Height * HeightScale;
+                float lfTableHeight = lOHeightEntry.Height * UWWorldScale.ZPosStep;
 
                 // AND AT LEAST AS WIDE AS ITS RADIUS: the original's object is a circle of that
                 // many eighths. A boulder (3, 48 units across) closes a corridor of 64 - in the
                 // original one cannot pass it without jumping on, in ours one walked by beside
                 // the model (per user, 2026-09-24).
-                float lfTableWidth = lOHeightEntry.Radius * 2f * SubTileScale;
+                float lfTableWidth = lOHeightEntry.Radius * 2f * UWWorldScale.SubTileStep;
 
                 if (lfTableWidth > lOCollider.size.x || lfTableWidth > lOCollider.size.z)
                     lOCollider.size = new Vector3(Mathf.Max(lOCollider.size.x, lfTableWidth), lOCollider.size.y,
@@ -2122,14 +2100,20 @@ namespace UnderworldRevisited.Build
             // arrow - scenery always has a height and therefore stays put.
             // Within this gate the rule of the sprite path then applies.
             lOInfo.CanBePickedUp = fHasNoCollision(pOObject.ID)
-                && pOObject.GetCategory() != UWObject.ObjectCategoryEnum.Monsters
+                && !UWObjectIds.IsCreature(pOObject.ID)
                 && !UWFixedScenery.IsFixed(pOObject.ID);
 
-            // A BARREL OR CHEST CAN BE SMASHED IN, like a door: hit points from its quality,
-            // and when it breaks its contents end up on the tile (see UWContainerDamage). Until
-            // now they had no UWDamageable at all, so a strike went through without a hit, a
-            // sound or the flash (per user with a screenshot of the original, 2026-09-16).
-            if (pOObject.ID == BarrelObjectId || pOObject.ID == ChestObjectId || pOObject.ID == NightstandObjectId)
+            // A BLOW MEETS EVERY MODEL WITH A BODY: resolve_attack (UnderworldExhumed COMBAT.C)
+            // takes any object its probe touches - every one with a height, the collision's test -
+            // and do_damage gives it the hit sound and the flash; damage_object wears it by its
+            // quality class, and a worn one becomes debris (remove_object, see UWContainerDamage).
+            // A barrel or chest is smashed in and spills (since 2026-09-16, per user with a
+            // screenshot of the original). Until 2026-10-14 only barrel, chest and nightstand took
+            // blows; a pillar or a bench let the swing through as a miss (per user on the
+            // original: both are hit, at the spot of the blow). Class 3 (pillar, shrine, boulders,
+            // gravestone) takes the blow and no harm. THE BRIDGE stays out: height 2 under the
+            // feet, and whether a stab on it meets it in the original was not tested.
+            if (!lOInfo.CanBePickedUp && !fHasNoCollision(pOObject.ID) && pOObject.ID != BridgeObjectId)
             {
                 if (fAttachHealth(lOObj, pOObject))
                     lOObj.AddComponent<UWContainerDamage>();
@@ -2337,8 +2321,8 @@ namespace UnderworldRevisited.Build
         {
             GameObject lOBlock = new GameObject(string.Format("Door blocker ({0},{1})", xPos, zPos));
             lOBlock.transform.SetParent(pOParent, false);
-            lOBlock.transform.position = new Vector3(xPos * TileSpacing, 0f, zPos * TileSpacing);
-            lOBlock.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lOBlock.transform.position = new Vector3(UWUnits.TileCentreToWorldAxis(xPos), 0f, UWUnits.TileCentreToWorldAxis(zPos));
+            lOBlock.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
             lOBlock.layer = IgnoreRaycastLayer;
 
             // AS WIDE AND AS TALL AS THE ORIGINAL'S DOOR COLLISION for a missile: the door object is
@@ -2347,12 +2331,12 @@ namespace UnderworldRevisited.Build
             // With the leaf's width and height only, a shot at the upper corner of the frame
             // brushed the corridor wall first and ended there (per user, 2026-09-24). For the
             // player nothing changes: frame and lintel close that part anyway.
-            float lfWidth = Mathf.Max(pfHalfWidth * 2f, DoorCollisionRadius * 2f * SubTileScale);
-            float lfTop = UWLevelMeshBuilder.CeilingHeight;
+            float lfWidth = Mathf.Max(pfHalfWidth * 2f, DoorCollisionRadius * 2f * UWWorldScale.SubTileStep);
+            float lfTop = UWWorldScale.CeilingHeight;
 
             BoxCollider lOBox = lOBlock.AddComponent<BoxCollider>();
             lOBox.center = new Vector3(0f, (pfBottom + lfTop) * 0.5f, 0f);
-            lOBox.size = new Vector3(lfWidth, lfTop - pfBottom, TileSpacing);
+            lOBox.size = new Vector3(lfWidth, lfTop - pfBottom, UWWorldScale.TileSize);
 
             pIDoor.SetTileBlocker(lOBox);
 
@@ -2387,14 +2371,14 @@ namespace UnderworldRevisited.Build
         /// </summary>
         private static Vector3 fGetDoorTranslation(int xPos, int zPos, UWObject pOObject)
         {
-            Vector3 lOTranslation = new Vector3(xPos * TileSpacing, 0f, zPos * TileSpacing);
+            Vector3 lOTranslation = new Vector3(UWUnits.TileCentreToWorldAxis(xPos), 0f, UWUnits.TileCentreToWorldAxis(zPos));
 
             UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
             if (lOSettings != null && !lOSettings.UseDoorSubTilePosition)
                 return lOTranslation;
 
-            const float lfSubTileSize = TileSpacing / 8f;
+            const float lfSubTileSize = UWWorldScale.SubTileStep;
 
             // Without settings the MEASURED reference point applies, the same default
             // UWSettings carries (3.5 = centre of the eight sub-tiles). The 4 that used to
@@ -2413,7 +2397,7 @@ namespace UnderworldRevisited.Build
             // Safeguard in case the reference point is set to 4: then an edge door would lie
             // exactly on the tile edge and stick out beyond it by half its thickness.
             // With the measured value 3.5 the clamp never kicks in.
-            float lfLimit = (TileSpacing * 0.5f) - DoorAssemblyHalfDepth;
+            float lfLimit = (UWWorldScale.TileSize * 0.5f) - DoorAssemblyHalfDepth;
 
             lfOffset = Mathf.Clamp(lfOffset, -lfLimit, lfLimit);
 
@@ -2424,14 +2408,6 @@ namespace UnderworldRevisited.Build
 
             return lOTranslation;
         }
-        /// <summary>The game data knows every door twice: 320-327 closed,
-        /// 328-335 the same ones open (see UWLevel and string block 4, "an_open door").
-        /// </summary>
-        private static bool fIsOpenDoorId(int piId)
-        {
-            return piId >= 328 && piId <= 335;
-        }
-
         private void fSpawnDoor(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent)
         {
             // Secret door (327, 0x0147): according to game knowledge (not docs) it shows the tile's
@@ -2439,7 +2415,7 @@ namespace UnderworldRevisited.Build
             // its own geometry/UV handling (Texture2DArray slice instead of object atlas rect),
             // see fSpawnSecretDoor.
             // 335 is the same secret door open (see UWLevel: two groups of eight).
-            if (pOObject.ID == 327 || pOObject.ID == 335)
+            if (UWObjectIds.IsSecretDoor(pOObject.ID))
             {
                 fSpawnSecretDoor(xPos, zPos, pOTile, pOObject, pOParent);
                 return;
@@ -2459,7 +2435,7 @@ namespace UnderworldRevisited.Build
             // any of the accessible data sources (model table, DOORS.GR, TMOBJ.GR,
             // TMFLAT.GR - all searched, see session research), hence built procedurally.
             // 334 is the same portcullis open.
-            if (pOObject.ID == 326 || pOObject.ID == 334)
+            if (UWObjectIds.IsPortcullis(pOObject.ID))
             {
                 fSpawnPortcullis(xPos, zPos, pOTile, pOObject, pOParent);
                 return;
@@ -2536,7 +2512,7 @@ namespace UnderworldRevisited.Build
 
             Vector3 lOTranslation = fGetDoorTranslation(xPos, zPos, pOObject);
             lODoor.transform.position = lOTranslation;
-            lODoor.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lODoor.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             System.Collections.Generic.List<Vector3> lOVertices = new System.Collections.Generic.List<Vector3>();
             System.Collections.Generic.List<Vector2> lOUVs = new System.Collections.Generic.List<Vector2>();
@@ -2594,11 +2570,11 @@ namespace UnderworldRevisited.Build
             lODoor.AddComponent<MeshCollider>().sharedMesh = lOMesh;
 
             DoorMover lOMover = lODoor.AddComponent<DoorMover>();
-            lOMover.RotationPoint = (Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * new Vector3(-DoorHingeOffset, 0f, 0f)) + lOTranslation;
+            lOMover.RotationPoint = (Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * new Vector3(-DoorHingeOffset, 0f, 0f)) + lOTranslation;
             lOMover.DoorDirection = pOObject.DoorDirection;
-            lOMover.StartsOpen = fIsOpenDoorId(pOObject.ID);
+            lOMover.StartsOpen = UWObjectIds.IsOpenDoor(pOObject.ID);
 
-            lODoor.AddComponent<UWDoorLock>();
+            lODoor.AddComponent<UWDoor>();
 
             fAttachDoorHealth(lODoor, pOObject);
 
@@ -2653,7 +2629,7 @@ namespace UnderworldRevisited.Build
 
             Vector3 lOTranslation = fGetDoorTranslation(xPos, zPos, pOObject);
             lOPortcullis.transform.position = lOTranslation;
-            lOPortcullis.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lOPortcullis.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             Vector2 lOWhiteUv = Vector2.zero;
 
@@ -2859,15 +2835,15 @@ namespace UnderworldRevisited.Build
             lOPortcullis.AddComponent<MeshCollider>().sharedMesh = lOCollisionMesh;
 
             PortcullisMover lOMover = lOPortcullis.AddComponent<PortcullisMover>();
-            lOMover.StartsOpen = fIsOpenDoorId(pOObject.ID);
+            lOMover.StartsOpen = UWObjectIds.IsOpenDoor(pOObject.ID);
             lOMover.LiftHeight = lfLiftHeight;
 
             fAddClosedDoorBlocker(xPos, zPos, pOObject, lfBottom, lfHeight, lfHalfWidth, pOParent, lOMover);
 
-            lOPortcullis.AddComponent<UWDoorLock>();
+            lOPortcullis.AddComponent<UWDoor>();
 
             // DELIBERATELY no UWDamageable: that a wooden door can be smashed has been
-            // verified in the original (see UWDoorDamage). For the iron portcullis there is
+            // verified in the original (see UWDoor.BurstOpen). For the iron portcullis there is
             // no such observation, and inventing destructibility would be guesswork.
 
             UWEntityInfo lOInfo = lOPortcullis.AddComponent<UWEntityInfo>();
@@ -3049,7 +3025,7 @@ namespace UnderworldRevisited.Build
 
             Vector3 lOTranslation = fGetDoorTranslation(xPos, zPos, pOObject);
             lODoor.transform.position = lOTranslation;
-            lODoor.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lODoor.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             List<Vector3> lOVertices = new List<Vector3>();
             List<Vector2> lOUVs = new List<Vector2>();
@@ -3113,11 +3089,11 @@ namespace UnderworldRevisited.Build
             lODoor.AddComponent<MeshCollider>().sharedMesh = lOMesh;
 
             DoorMover lOMover = lODoor.AddComponent<DoorMover>();
-            lOMover.RotationPoint = (Quaternion.Euler(0f, pOObject.Heading * 45f, 0f) * new Vector3(-DoorHingeOffset, 0f, 0f)) + lOTranslation;
+            lOMover.RotationPoint = (Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * new Vector3(-DoorHingeOffset, 0f, 0f)) + lOTranslation;
             lOMover.DoorDirection = pOObject.DoorDirection;
-            lOMover.StartsOpen = fIsOpenDoorId(pOObject.ID);
+            lOMover.StartsOpen = UWObjectIds.IsOpenDoor(pOObject.ID);
 
-            lODoor.AddComponent<UWDoorLock>();
+            lODoor.AddComponent<UWDoor>();
 
             fAttachDoorHealth(lODoor, pOObject);
 
@@ -3206,7 +3182,7 @@ namespace UnderworldRevisited.Build
                 return;
 
             float lfTop = pfBottom + pfDoorHeight;
-            float lfCeiling = UWLevelMeshBuilder.CeilingHeight;
+            float lfCeiling = UWWorldScale.CeilingHeight;
             const float lfDepth = 1f;
 
             // Frame narrow sides and lintel underside: in the original solid dark grey
@@ -3293,7 +3269,7 @@ namespace UnderworldRevisited.Build
             GameObject lOFrame = new GameObject(psName);
             lOFrame.transform.SetParent(pOParent, false);
             lOFrame.transform.position = fGetDoorTranslation(xPos, zPos, pOObject);
-            lOFrame.transform.Rotate(Vector3.up, pOObject.Heading * 45f);
+            lOFrame.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             List<Vector3> lOVertices = new List<Vector3>();
             List<Vector2> lOUVs = new List<Vector2>();
@@ -3407,7 +3383,7 @@ namespace UnderworldRevisited.Build
             lOLight.type = LightType.Point;
             lOLight.color = new Color(1f, 0.74f, 0.45f);
             lOLight.range = liBrightness * LightRangePerBrightness;
-            lOLight.intensity = LightBrightnessAtOneTile * TileSpacing * TileSpacing;
+            lOLight.intensity = LightBrightnessAtOneTile * UWWorldScale.TileSize * UWWorldScale.TileSize;
             lOLight.shadows = LightShadows.None;
         }
     }

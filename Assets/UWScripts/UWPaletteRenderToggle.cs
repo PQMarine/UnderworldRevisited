@@ -4,14 +4,16 @@ using UnderworldRevisited.Build;
 using UWDataImport.UWData;
 
 /// <summary>
-/// Switches between the palette renderer and the earlier URP lighting (key F6).
+/// Switches between the palette renderer and the URP lighting (Remastered). The switch is the
+/// detail level of the Graphics menu and the options panel (UWGraphicsDetail.SetLevel: Low is
+/// the palette path, every other level Remastered); the F6 key that toggled it is gone since
+/// 2026-09-26 (per user).
 ///
-/// THE PALETTE PATH IS NOW THE DEFAULT - UWSettings.RenderMode is set to Palette,
-/// and the level loader attaches this component itself on start. F6 now only serves for
-/// comparison with the old path.
+/// THE PALETTE PATH IS THE DEFAULT - UWSettings.RenderMode is set to Palette,
+/// and the level loader attaches this component itself on start.
 ///
 /// Implemented as a material swap after the fact and not as a separate build path: the swap
-/// is needed for F6 anyway, and both paths share meshes, UVs and
+/// is needed for the switch while the game runs anyway, and both paths share meshes, UVs and
 /// slice numbers. A second build path would be double work with no gain.
 ///
 /// WHAT GETS SWITCHED: everything that runs on the dungeon shader. That is the
@@ -315,7 +317,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
         // The lookup textures are set IN THE OLD RENDER PATH AS WELL: the
         // UI icons always go through the palette (see UWIconPalette), even
         // when the world is currently lit with URP. Without this their rotation froze
-        // as soon as you switched with F6.
+        // as soon as the detail level left the palette path.
         if (!fEnsureTables())
             return;
 
@@ -381,7 +383,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
         UWShadePalette.ApplyXferGlobals(mOInverseLookup, mOXferColours, lbXfer);
 
         // Remastered's ghosts through the same tables, in raw colours (UWHallucination.hlsl) - on
-        // the whole URP path, F6's comparison included, whose sprites read the same tables. Not in
+        // the whole URP path, every detail level above Low, whose sprites read the same tables. Not in
         // the frames before the palette path switches itself on (fAutoStart).
         bool lbUrpPath = !mbActive && (mbStarted || UnderworldRevisited.UWSettings.Instance == null
             || UnderworldRevisited.UWSettings.Instance.RenderMode != UnderworldRevisited.UWSettings.RenderModeEnum.Palette);
@@ -607,9 +609,6 @@ public class UWPaletteRenderToggle : MonoBehaviour
 
     private const string ScrambleProperty = "_UWScramble";
 
-    /// <summary>The Void, level 9 (index 8).</summary>
-    private const int VoidLevelIndex = 8;
-
     /// <summary>
     /// THE VOID IS DRAWN UNLIT (process_grid, UnderworldExhumed GRIDDB.C, read 2026-10-11; the
     /// Exhumed audit's row 25): on level 9 the original sets lighton to 0 for the frame, so every
@@ -620,7 +619,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
     /// </summary>
     private bool fIsUnlitLevel()
     {
-        return mOLevelLoader != null && mOLevelLoader.CurrentLevelIndex == VoidLevelIndex;
+        return mOLevelLoader != null && mOLevelLoader.CurrentLevelIndex == UWLevelIds.Void;
     }
 
     /// <summary>The hallucination effect on screen now (UWHallucinationState), for the help
@@ -735,7 +734,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
     }
 
     /// <summary>Swaps the materials of ONE renderer and remembers what was on it
-    /// before - so that F6 back restores the old state.</summary>
+    /// before - so that a switch back to Remastered restores the old state.</summary>
     private void fSwapRenderer(MeshRenderer pORenderer)
     {
         if (pORenderer == null)

@@ -227,7 +227,7 @@ public sealed class UWHudConversation
             lOConv.Palettes, lOConv.MainPaletteIndex);
 
         Texture2D lOTexture = new Texture2D(lOCleaned.Width, lOCleaned.Height, TextureFormat.ARGB32, false);
-        lOTexture.name = "UWGameUI.cs:7324";
+        lOTexture.name = "UWHudConversation picture";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOCleaned));
         lOTexture.Apply();

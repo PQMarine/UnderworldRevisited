@@ -12,7 +12,7 @@ using UWDataImport.UWData;
 ///   - First what the thing is for: a container OPEN or CLOSE (the rune bag opens the rune panel),
 ///     armour, rings and weapons in a bag EQUIP, on the paperdoll USE (what is not worn as such)
 ///     and TAKE OFF, anything else USE - at once, or the use mode for what goes onto something
-///     else (UWItemDrag.UseCarriedItem, NeedsUseTarget);
+///     else (UWCarriedItemUse);
 ///   - then LOOK, PICK UP (onto the pointer, as a click), SPLIT for a stack (the split box) and
 ///     CANCEL.
 ///
@@ -147,7 +147,7 @@ public partial class UWModernBags
         mOMenuActions.Add(MenuActionEnum.Look);
         mOMenuActions.Add(MenuActionEnum.PickUp);
 
-        if (fStackCount(pOItem) >= 2)
+        if (UWStackRules.CountAtLeastOne(pOItem) >= 2)
             mOMenuActions.Add(MenuActionEnum.Split);
 
         mOMenuActions.Add(MenuActionEnum.Cancel);
@@ -344,7 +344,8 @@ public partial class UWModernBags
                 break;
 
             case MenuActionEnum.WorldPickUp:
-                if (lOEntity != null && mOInteraction.TakeOntoPointer(lOEntity))
+                if (lOEntity != null && UWWorldPickup.Take(mOInteraction, lOEntity, UWWorldPickup.WholeStack,
+                    UWWorldPickup.Destination.Pointer))
                 {
                     if (!mbOpen)
                         fOpen();
@@ -355,16 +356,7 @@ public partial class UWModernBags
                 break;
 
             case MenuActionEnum.Use:
-                if (lODrag != null && lODrag.UseCarriedItem(lOItem))
-                    break;
-
-                if (lODrag != null && lODrag.NeedsUseTarget(lOItem))
-                {
-                    BeginUse(lOItem, false);
-                    break;
-                }
-
-                mOInteraction.AddMessage("You cannot use that.");
+                UWCarriedItemUse.Use(lODrag, lOItem, UWCarriedItemUse.Context.ModernMenu);
                 break;
 
             case MenuActionEnum.Open:
@@ -388,7 +380,7 @@ public partial class UWModernBags
                 if (lOInventory.TryUnequipAnywhere(leEquip))
                     lOInventory.ApplyCarriedLight();
                 else
-                    mOInteraction.AddMessage("Your pack and bags are full.");
+                    mOInteraction.AddGeneralMessage(UWStringIds.NoPlaceToPutMessage);
 
                 break;
 

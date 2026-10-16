@@ -453,7 +453,17 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
     private void fOnTextInput(char pcChar)
     {
-        if (!IsTypingName || pcChar < 0x20 || pcChar > 0x7E || msTyped.Length >= UWCharacterGeneration.MaxNameLength)
+        if (!IsTypingName || pcChar < 0x20 || pcChar > 0x7E)
+            return;
+
+        // Up to 29 characters while the pen is still inside the box (pickopt, since 2026-10-12;
+        // until then a flat 14). The width is the prompt's and the typed text's, as the original
+        // pen moves from string_width(prompt) + 0xA8.
+        int liWidth = mOFont != null
+            ? mOFont.MeasureText(mOGeneration.QuestionText + msTyped, 0, UWFontRenderer.CharacterSpacing)
+            : 0;
+
+        if (!UWCharacterGeneration.AcceptsNameCharacter(msTyped.Length, liWidth))
             return;
 
         msTyped += pcChar;

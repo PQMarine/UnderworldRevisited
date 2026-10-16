@@ -43,8 +43,8 @@ public partial class UWModernBags
 
     private const int SplitRow = 5;
 
-    /// <summary>A count above this is no count (UWItemDrag.fGetPendingStackCount, the original's rule).</summary>
-    private const int MaxStackCount = 511;
+    // The count of a stack and its cap are UWStackRules.CountAtLeastOne and
+    // UWStackRules.MaxStackCount (the port's deliberate "stacks stop at 511") since 2026-10-11.
 
     private static readonly Key[] msDigitKeys =
     {
@@ -120,18 +120,12 @@ public partial class UWModernBags
     public static bool IsSplitting => Instance != null
         && (Instance.mOSplitItem != null || Instance.miSplitClosedFrame == Time.frameCount);
 
-    private static int fStackCount(UWObject pOItem)
-    {
-        return pOItem != null && pOItem.HasQuantity && pOItem.Quantity > 1 && pOItem.Quantity <= MaxStackCount
-            ? pOItem.Quantity : 1;
-    }
-
     /// <summary>Shift and the left button on a thing (or the context menu's Split, pbForce): a stack
     /// opens the box (true), anything else is taken as by a click.</summary>
     private bool fTryBeginSplit(UWObject pOItem, Window pOWindow, int piSlot, UWArmorItemMap.BodySlot peEquip, Rect pOAnchor,
         bool pbForce = false)
     {
-        if ((!pbForce && !UWControls.IsShiftHeld) || fStackCount(pOItem) < 2)
+        if ((!pbForce && !UWControls.IsShiftHeld) || UWStackRules.CountAtLeastOne(pOItem) < 2)
             return false;
 
         mOSplitItem = pOItem;
@@ -180,7 +174,7 @@ public partial class UWModernBags
 
     private void fStepSplit(int piStep)
     {
-        msSplitInput = Mathf.Clamp(fSplitValue() + piStep, 1, fStackCount(mOSplitItem)).ToString();
+        msSplitInput = Mathf.Clamp(fSplitValue() + piStep, 1, UWStackRules.CountAtLeastOne(mOSplitItem)).ToString();
         mbSplitFirstKey = true;
     }
 
@@ -260,7 +254,7 @@ public partial class UWModernBags
     private void fUpdateSplit(UWControls pOControls)
     {
         // The stack moved or changed meanwhile: nothing to split any more.
-        if (fSplitSource() != mOSplitItem || fStackCount(mOSplitItem) < 2)
+        if (fSplitSource() != mOSplitItem || UWStackRules.CountAtLeastOne(mOSplitItem) < 2)
         {
             fEndSplit();
             return;
@@ -269,7 +263,7 @@ public partial class UWModernBags
         if (fUpdateSplitPad())
             return;
 
-        int liMax = fStackCount(mOSplitItem);
+        int liMax = UWStackRules.CountAtLeastOne(mOSplitItem);
         Keyboard lOKeyboard = Keyboard.current;
 
         if (lOKeyboard != null)
@@ -362,7 +356,7 @@ public partial class UWModernBags
         if (lOInventory == null || lOInventory.CursorItem != null)
             return;
 
-        int liTotal = fStackCount(lOItem);
+        int liTotal = UWStackRules.CountAtLeastOne(lOItem);
         int liCount = Mathf.Clamp(piCount, 1, liTotal);
 
         if (liCount >= liTotal)
@@ -453,7 +447,7 @@ public partial class UWModernBags
 
         fSetRect(mOSplitBox.rectTransform, lfX + (SplitBoxX * liScale), lfRowY, SplitBoxWidth * liScale, lfButton);
 
-        mOSplitNumber.text = msSplitInput + "<color=#b8a68a> / " + fStackCount(mOSplitItem) + "</color>";
+        mOSplitNumber.text = msSplitInput + "<color=#b8a68a> / " + UWStackRules.CountAtLeastOne(mOSplitItem) + "</color>";
         mOSplitNumber.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
         fSetRect(mOSplitNumber.rectTransform, lfX + (SplitBoxX * liScale), lfRowY + (0.5f * liScale), SplitBoxWidth * liScale, lfButton);
 

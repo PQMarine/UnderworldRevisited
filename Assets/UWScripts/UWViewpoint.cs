@@ -22,17 +22,10 @@ using UnderworldRevisited.Build;
 /// </summary>
 public static class UWViewpoint
 {
-    /// <summary>One original unit in world units - see class comment.</summary>
-    public const float UnitsPerOriginalUnit = UWDataImport.UWData.UWWorldScale.UnitsPerOriginalUnit;
-
-    /// <summary>A full circle in the original's angle measure. UWLevelLoader uses the same
-    /// number for the view direction in the save game.</summary>
-    public const float FullCircleUnits = UWDataImport.UWData.UWWorldScale.FullCircleUnits;
-
     /// <summary>
     /// The world coordinate of the lower tile corner on one axis - the zero point from
     /// which the sub-tile position counts. Our tile centre is at tile times
-    /// TileSpacing, so the corner is half a tile before it.
+    /// UWWorldScale.TileSize, so the corner is half a tile before it.
     /// </summary>
     public static float TileToWorldAxis(int piTile)
     {
@@ -93,6 +86,16 @@ public static class UWViewpoint
     public static int WorldToOriginalZ(float pfWorldY)
     {
         return UWDataImport.UWData.UWUnits.WorldHeightToOriginal(pfWorldY);
+    }
+
+    /// <summary>A heading in 256ths of a turn (0 north, clockwise) as a horizontal unit
+    /// direction - UWHeadings.HeadingByteToDirection as a Vector3. Until the cleanup of
+    /// 2026-10-11 UWCritter and UWProjectileFlight each had the formula.</summary>
+    public static Vector3 HeadingByteToDirection(int piHeading)
+    {
+        (float lfX, float lfZ) = UWDataImport.UWData.UWHeadings.HeadingByteToDirection(piHeading);
+
+        return new Vector3(lfX, 0f, lfZ);
     }
 
     /// <summary>A heading value of the original in degrees. It is read WITHOUT sign: the

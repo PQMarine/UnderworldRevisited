@@ -78,8 +78,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckPreciseMotion(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Precise motion (the Smooth mode's precision core)");
+            Check.Group("Precise motion (the Smooth mode's precision core)");
 
             if (pOData == null || pOData.CommonObjectProperties == null)
             {

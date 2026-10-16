@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Build
 {
@@ -13,7 +14,7 @@ namespace UnderworldRevisited.Build
         public const int ChunkSizeInTiles = 16;
 
         /// <summary>Chunks per axis at 64x64 tiles.</summary>
-        public const int ChunksPerAxis = UWLevelMeshBuilder.TilesPerAxis / ChunkSizeInTiles;
+        public const int ChunksPerAxis = UWWorldScale.TilesPerAxis / ChunkSizeInTiles;
 
         public readonly int ChunkX;
         public readonly int ChunkZ;
@@ -74,7 +75,7 @@ namespace UnderworldRevisited.Build
             {
                 Positions.Add(pOOrigin + pOVertices[i]);
                 TexCoords.Add(new Vector3(pOUVs[i].x, pOUVs[i].y, piSlice));
-                TileInfo.Add(new Vector3(piTileIndex % UWLevelMeshBuilder.TilesPerAxis, piTileIndex / UWLevelMeshBuilder.TilesPerAxis, piKind));
+                TileInfo.Add(new Vector3(piTileIndex % UWWorldScale.TilesPerAxis, piTileIndex / UWWorldScale.TilesPerAxis, piKind));
                 Normals.Add(Vector3.zero);
             }
 

@@ -33,7 +33,7 @@ using UnderworldRevisited.Build;
 /// position after a step and the goal a conversation or spell script sets.
 /// </summary>
 [RequireComponent(typeof(UWDamageable))]
-public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
+public class UWCritter : MonoBehaviour, ICritterHost
 {
     /// <summary>What the animation slot of the brain's Motion amounts to, for the callers
     /// that still ask (UWDebugOverlay). Kept as an adapter over the record: Pursuing and
@@ -68,8 +68,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// the combat stance for it; the brain now writes animation 0 for it itself.</summary>
     public const int GoalDistanceAttack = 9;
 
-    private const int GoalStandStill = 0;
-
     private const int WanderGoal = 2;
 
     private const int GoalFollow = 3;
@@ -102,23 +100,13 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// be read.</summary>
     private const float FallbackEyeHeight = 20f;
 
-    /// <summary>World units per eighth of a tile: the sub-tile step of the object grid.</summary>
-    private const float WorldUnitsPerEighth = UWWorldScale.SubTileStep;
-
-    /// <summary>The original's timer ticks per second (spec 1.1).</summary>
-    public const float PitTicksPerSecond = 256f;
+    /// <summary>The original's timer ticks per second (spec 1.1; UWPlayerTick is the home).</summary>
+    public const float PitTicksPerSecond = UWPlayerTick.PitTicksPerSecond;
 
     /// <summary>How many due updates one creature may run in one frame. The clock never
     /// advances more than four slots per frame, so an interval-1 creature needs at most four;
     /// the margin catches a record whose interval loaded as 0.</summary>
     private const int MaxUpdatesPerFrame = 8;
-
-    /// <summary>How long a found next tile is reused for the same destination from the same
-    /// tile (deviation 14: the host may cache a path and re-run it on its own schedule).</summary>
-    private const float PathRefreshSeconds = 0.5f;
-
-    /// <summary>The straight-line test walks at most this many tiles (spec 7.4).</summary>
-    private const int StraightLineMaxTiles = UWCritterRules.StraightLineMaxTiles;
 
     /// <summary>The splash of a drowning creature: the class-7 object with offset 6
     /// (seg006_1477_476, asm line 41433 "push 6"), which is 0x1C6 "a_splash". The id and the
@@ -137,12 +125,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     /// <summary>Major class of the missile spells - the only creature spells built.</summary>
     private const int ProjectileSpellMajorClass = 5;
-
-    /// <summary>Four tiles for missiles, eight for spells - the range a creature projectile
-    /// flies before it vanishes (unchanged by the rebuild of 2026-09-20).</summary>
-    private const float MissileRangeTiles = 4f;
-
-    private const float SpellRangeTiles = 8f;
 
     /// <summary>How far in front of the surface a blow's impact sits, in world units.</summary>
     private const float BlowEffectSetback = 4f;
@@ -163,7 +145,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     private UWLevelLoader mOLevelLoader;
     private UWCharacter mOPlayer;
     private Transform mOPlayerTransform;
-    private CharacterController mOPlayerBody;
 
     private UWObjectClassProperties.Critter mOStats;
     private bool mbHasStats;
@@ -229,29 +210,33 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         miPendingAttacker = piIndex;
     }
 
+    /// <summary>
+    /// DAMAGE THAT NOBODY DEALT: damage_item with no attacker (from 0, UnderworldExhumed
+    /// AI.C damage_critter: who = 0) - the lava under the creature, a damage trap (whack_thing,
+    /// WORLDEV.C) and the player's Rune of Warding (TRAP_WARD, TRIGGER.C, which hands the damage
+    /// to whack_thing). The tally grows and the creature may die, but no attacker is recorded,
+    /// no kin alarm raised, no experience paid and no combat music started. Until 2026-10-15 the
+    /// trap and the ward fell back to the player as the attacker, so a monster stepping on the
+    /// rune turned on him with its kin and a kill paid experience (audit round 2, A7 / KR D3).
+    /// </summary>
+    public void ApplyDamageWithoutAttacker(int piDamage, int piDamageType)
+    {
+        if (mODamageable == null || mODamageable.IsDestroyed)
+            return;
+
+        miPendingAttacker = NoAttacker;
+        mODamageable.ApplyDamage(piDamage, piDamageType);
+        miPendingAttacker = PlayerIndex;
+    }
+
+    /// <summary>The attacker index of damage nobody dealt.</summary>
+    private const int NoAttacker = 0;
+
     private int miLastHealth;
 
     /// <summary>Set while the host itself drains the UWDamageable to match a death the brain
     /// decided (drowning, hit points reaching zero in the record) - that event is not a blow.</summary>
     private bool mbSuppressDamageEvent;
-
-    // ------------------------------------------------- Path cache
-
-    private UWTilePos mOPathFrom;
-
-    private UWTilePos mOPathTo;
-
-    private UWTilePos mOPathNext;
-
-    private bool mbPathFound;
-
-    private float mfPathValidUntil = -1f;
-
-    /// <summary>What CanEnterTile applies during a search: whether a closed door counts as
-    /// passable and how much of the range budget (spec 7.4) a lava tile may cost.</summary>
-    private bool mbPathMayOpenDoors;
-
-    private int miPathBudget;
 
     // ------------------------------------------------- Trace
 
@@ -298,7 +283,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// object data (0 = along the positive Z axis): the record's facing eighth times 45. Only
     /// the eighth counts for the picture (per user, 2026-09-14: the Slasher stood skewed with
     /// the fine value added); the fine part belongs to the turn limiter.</summary>
-    public float FacingDegrees => (mORecord != null ? mORecord.FacingEighth : 0) * 45f;
+    public float FacingDegrees => UWHeadings.EighthToDegrees(mORecord != null ? mORecord.FacingEighth : 0);
 
     /// <summary>The facing eighth of the object data, 0 north, clockwise.</summary>
     public int FacingEighth => mORecord != null ? mORecord.FacingEighth : 0;
@@ -316,25 +301,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         piFrame = mORecord != null ? mORecord.Frame : 0;
 
         return piAnimation >= 0;
-    }
-
-    /// <summary>The facing eighth of an object record in degrees - for whoever holds only the
-    /// data (UWWorldSync used to). Word 2 bits 7-9 are the eighth, the five bits of npc_heading
-    /// the residual within it.</summary>
-    public static float GetFacingDegrees(UWNpc pONpc)
-    {
-        return (pONpc.Heading & 7) * 45f;
-    }
-
-    /// <summary>Counterpart to GetFacingDegrees: distributes a facing over both fields. No
-    /// caller inside the port any more (the record writes both fields itself); kept for
-    /// tools and scripts that only hold the data.</summary>
-    public static void SetFacingDegrees(UWNpc pONpc, float pfDegrees)
-    {
-        int liFull = Mathf.RoundToInt(Mathf.Repeat(pfDegrees, 360f) * 256f / 360f) & 0xFF;
-
-        pONpc.Heading = (ushort)(liFull >> 5);
-        pONpc.NPCHeading = (byte)((pONpc.NPCHeading & ~0x1F) | (liFull & 0x1F));
     }
 
     /// <summary>Hostile (attitude 0). A hit makes any creature hostile through the brain's
@@ -423,6 +389,10 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         mONpc = pONpc ?? new UWNpc((ushort)(pbHasStats ? UWObjectClassProperties.CritterFirstId : 0));
         mORecord = new UWCritterRecord(mONpc);
 
+        // clear_paths with every level build (init_level_creature_stuff): no creature holds a
+        // stored path - the slots are new (UWGameSession.ResetCritterServices).
+        mORecord.HasPath = false;
+
         miIndex = mOLevelLoader != null && mOLevelLoader.CurrentLevel != null && pONpc != null
             ? Mathf.Max(0, mOLevelLoader.CurrentLevel.Masterlist.IndexOf(pONpc))
             : 0;
@@ -456,15 +426,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
                 mORecord.HitPoints = mODamageable.CurrentHealth;
         }
 
-        // THE SAVED ANIMATION IS PART OF THE STATE. A creature loaded in the middle of a fight
-        // carries its animation and frame in the record (a save written by the original next to
-        // the player: animation 0x07, frame 3), and the original shows that picture at once.
-        // Without this the creature stood in its compass picture until the brain's first tick
-        // and only then turned towards the player (per user, 2026-09-20).
-        UWCritterAnimator lOStartAnimator = GetComponent<UWCritterAnimator>();
-
-        if (lOStartAnimator != null)
-            lOStartAnimator.ShowMotion(mORecord.Animation, mORecord.Frame);
+        // The saved animation and frame are shown by UWCritterAnimator.Initialise, which
+        // UWObjectSpawner attaches after this component and which asks TryGetStoredPicture.
 
         fTrace("initialised: goal {0} gtarg {1} attitude {2} slot {3} interval {4} anim 0x{5:X2} facing {6} (+{7}) heading {8}",
             mORecord.Goal, mORecord.GTarg, mORecord.Attitude, mORecord.DueSlot, mORecord.Interval,
@@ -716,12 +679,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (mOLastStep.TileChanged && mONpc != null)
             mOLevelLoader.MoveObjectData(mONpc, mORecord.TileX, mORecord.TileY);
 
-        if (mOLastStep.LavaBurn && mODamageable != null && !mODamageable.IsDestroyed)
-        {
-            miPendingAttacker = 0;
-            mODamageable.ApplyDamage(1, UWDamageTypes.PlainFire);
-            miPendingAttacker = PlayerIndex;
-        }
+        if (mOLastStep.LavaBurn)
+            ApplyDamageWithoutAttacker(1, UWDamageTypes.PlainFire);
 
         if (mOLastStep.Collided)
             fTrace("step: collided{0}{1}{2}{3}{4}", mOLastStep.HitClosedDoor ? ", closed door" : mOLastStep.HitObject ? " with object " + mOLastStep.HitObjectIndex : "",
@@ -784,14 +743,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return UWCritterDriver.PlayerHasSpeed ? lfSeconds * 2f : lfSeconds;
     }
 
-    /// <summary>A fine heading 0..255 (0 = +Z north, 64 = +X east) as a world direction.</summary>
-    private static Vector3 fHeadingToDirection(int piFineHeading)
-    {
-        float lfRadians = (piFineHeading & 0xFF) * (2f * Mathf.PI / 256f);
-
-        return new Vector3(Mathf.Sin(lfRadians), 0f, Mathf.Cos(lfRadians));
-    }
-
     /// <summary>A world direction as the original's 16-bit heading (0 = +Z north, 0x4000 = +X
     /// east) - for the player's shove (UWPlayerMovement).</summary>
     public static int DirectionToHeading(Vector3 pODirection)
@@ -803,9 +754,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     long ICritterHost.Clock => UWScene.CritterClock.Clock;
 
+    /// <summary>The session's generator (cleanup step 2.8, 2026-10-14) - one sequence for the
+    /// brain, combat, loot and the motion core, as the original has one rand.</summary>
     int ICritterHost.Random(int piN)
     {
-        return piN <= 1 ? 0 : Random.Range(0, piN);
+        return piN <= 1 ? 0 : UWGameSession.Current.Random.Next(piN);
     }
 
     UWCritterAlarm ICritterHost.Alarm => UWScene.CritterAlarm;
@@ -829,7 +782,9 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// <summary>Tybal's rule: his lair, level 7, while the orb stands (UWTybalOrbRules, the bit
     /// PLAYER.DAT 0x60 bit 5). Until 2026-09-23 this asked for level index 7 - level 8 - and
     /// never for the bit.</summary>
-    bool ICritterHost.TybalOrbStands => mOLevelLoader != null && UWTybalOrbRules.OrbStands(mOLevelLoader.CurrentLevelIndex);
+    int ICritterHost.DungeonLevel => mOLevelLoader != null ? mOLevelLoader.CurrentLevelIndex + 1 : 0;
+
+    bool ICritterHost.TybalOrbStands =>mOLevelLoader != null && UWTybalOrbRules.OrbStands(mOLevelLoader.CurrentLevelIndex);
 
     int ICritterHost.OwnObjectHeight
     {
@@ -960,7 +915,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         lOTarget.Exists = true;
         lOTarget.Index = piIndex;
         lOTarget.ItemId = lOObject.ID & 0x1FF;
-        lOTarget.IsCreature = ((lOObject.ID >> 6) & 7) == 1;
+        lOTarget.IsCreature = UWObjectIds.IsCreature(lOObject.ID);
         lOTarget.TileX = lOObject.TileX;
         lOTarget.TileY = lOObject.TileY;
         lOTarget.X = (lOObject.TileX << 3) + (lOObject.XPos & 7);
@@ -1047,8 +1002,10 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         UWTile lOTile = fGetTileAt(mORecord.TileX, mORecord.TileY);
         int liStart = lOTile != null ? lOTile.FloorHeight >> 4 : mORecord.FloorLevel;
 
+        // CLEAR ONLY WHEN CLEAR (crit_head_for_loc: beeline(...) == 1): the line to the own tile
+        // (LineSameTile, -1) is none, which a creature arriving home meets (A20, 2026-10-15).
         return mORoute.StraightLine(mORecord.TileX, mORecord.TileY, piToTileX, piToTileY, liStart, mOTraverse.Triple)
-            != UWTileRoute.LineBlocked;
+            == UWTileRoute.LineClear;
     }
 
     private UWTileRoute mORoute;
@@ -1077,101 +1034,37 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return true;
     }
 
-    /// <summary>The door and budget rules the next search applies, from the brain's own
-    /// table row (door skill nonzero) and the record (the range budget of spec 7.4).</summary>
-    private void fSetPathRules()
-    {
-        mbPathMayOpenDoors = mbHasStats && mOStats.DoorSkill != 0;
-        miPathBudget = mbHasStats
-            ? UWCritterRules.GetPathRangeBudget(mORecord.Attitude, mOStats.Vitality, mORecord.HitPoints,
-                mOStats.Morale, mORecord.ExcludedFromPathBudget)
-            : 0;
-    }
-
     /// <summary>
-    /// PathFindBetweenTiles of the original (UWTileRoute.FindPath with this creature's triple
-    /// test, since 2026-10-05): the breadth-first search in the box with the range budget, the
-    /// goal next to the start accepted untested, a farther goal tested as the middle of the
-    /// final triple. The original stores the found path in a slot and follows it; the port asks
-    /// for the next tile and reuses the answer for half a second while the creature stays on
-    /// the same tile and aims at the same destination (deviation 14, the slot bookkeeping).
-    /// pbMayOpenDoors is not consulted: the original blocks every closed door by its
-    /// orientation whatever the creature's door skill (UWTileTraverse).
+    /// PathFindBetweenTiles of the original (flood_path; UWTileRoute.FindPath with this creature's
+    /// triple test, since 2026-10-05): the breadth-first search in the box with the range budget,
+    /// the goal next to the start accepted untested, a farther goal tested as the middle of the
+    /// final triple; the squares and their jump flags go to the brain, which stores them in one of
+    /// the level's sixteen slots and follows them (since 2026-10-15; until then this answered the
+    /// next tile and reused it for half a second, deviation 14). Every closed door blocks by its
+    /// orientation whatever the creature's door skill (UWTileTraverse), as in the original.
     /// </summary>
-    bool ICritterHost.TryGetNextPathTile(int piToTileX, int piToTileY, int piRangeBudget, bool pbMayOpenDoors,
-        out int piNextTileX, out int piNextTileY)
+    bool ICritterHost.TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight,
+        int piRangeBudget, System.Collections.Generic.List<UWTilePos> pOSquares, System.Collections.Generic.List<bool> pOJumps)
     {
-        piNextTileX = piToTileX;
-        piNextTileY = piToTileY;
+        pOSquares.Clear();
+        pOJumps.Clear();
 
-        if (mORecord == null || mOLevelLoader == null)
+        if (mORecord == null || mOLevelLoader == null || !fPrepareRoute())
             return false;
 
-        UWTilePos lOFrom = new UWTilePos(mORecord.TileX, mORecord.TileY);
-        UWTilePos lOTo = new UWTilePos(piToTileX, piToTileY);
-
-        mbPathMayOpenDoors = pbMayOpenDoors;
-        miPathBudget = piRangeBudget;
-
-        if (!(Time.time < mfPathValidUntil && lOFrom == mOPathFrom && lOTo == mOPathTo))
-        {
-
-            mbPathFound = fPrepareRoute()
-                && mORoute.FindPath(lOFrom.X, lOFrom.Y, mORecord.FloorLevel, lOTo.X, lOTo.Y, mORecord.DestinationHeight,
-                    piRangeBudget, mOTraverse.Triple)
-                && mORoute.Tiles.Count >= 2;
-
-            if (mbPathFound)
-                mOPathNext = mORoute.Tiles[1];
-            mOPathFrom = lOFrom;
-            mOPathTo = lOTo;
-            mfPathValidUntil = Time.time + PathRefreshSeconds;
-        }
-
-        if (!mbPathFound)
+        if (!mORoute.FindPath(piFromX, piFromY, piFromHeight, piToTileX, piToTileY, piToHeight,
+            piRangeBudget, mOTraverse.Triple) || mORoute.Tiles.Count < 2)
             return false;
 
-        piNextTileX = mOPathNext.X;
-        piNextTileY = mOPathNext.Y;
+        pOSquares.AddRange(mORoute.Tiles);
+        pOJumps.AddRange(mORoute.Jumps);
 
         return true;
     }
 
-    /// <summary>
-    /// Whether this creature can step from one tile onto the adjacent one - for the path
-    /// search and the straight-line test - the host's tile-based substitute for
-    /// TraverseMultipleTiles: shape, ground, height difference per tile; plus the
-    /// original's path terms (spec 7.4): a closed door is passable only for a creature that
-    /// could open it, lava only while the range budget covers its cost of 2.
-    /// </summary>
-    bool UWTilePath.IWalker.CanEnterTile(int piFromX, int piFromY, int piToX, int piToY)
-    {
-        UWTile lOFrom = fGetTileAt(piFromX, piFromY);
-        UWTile lOTo = fGetTileAt(piToX, piToY);
-
-        if (lOFrom == null || lOTo == null)
-            return false;
-
-        int liSide = UWTilePath.GetSide(piFromX, piFromY, piToX, piToY);
-
-        if (!UWTilePath.AllowsEdge(lOFrom, liSide)
-            || !UWTilePath.AllowsEdge(lOTo, UWTilePath.GetOppositeSide(liSide)))
-            return false;
-
-        if (!mbFlying && mbSwimming != fIsWater(lOTo))
-            return false;
-
-        if (!mbPathMayOpenDoors && fFindClosedDoor(lOTo) != null)
-            return false;
-
-        if (!mbFlying && !mbSwimming && fIsLava(lOTo) && !fIsLava(lOFrom) && miPathBudget < 2 && !fIsFireResistant())
-            return false;
-
-        UWSettings lOSettings = UWSettings.Instance;
-        float lfMaxStep = lOSettings != null ? lOSettings.CritterMaxStepHeight : 16f;
-
-        return mbFlying || Mathf.Abs(lOTo.FloorHeight - lOFrom.FloorHeight) <= lfMaxStep;
-    }
+    /// <summary>The level's sixteen stored creature paths (the session's, cleared with every
+    /// level build).</summary>
+    UWCritterPathSlots ICritterHost.PathSlots => UWDataImport.UWData.UWGameSession.Current.CritterPaths;
 
     /// <summary>
     /// Goal 3's relocation: the record onto the tile centre at floor height (a flier keeps its
@@ -1222,96 +1115,77 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
     // ------------------------------------------------- ICritterHost: doors (spec 7.5)
 
-    /// <summary>ObjectUse on the door: opens it unless it is spiked or locked (the original's
-    /// ObjectUse fails on a locked door without a key). True when it is open afterwards.</summary>
+    /// <summary>ObjectUse on the door: opens it unless it is locked or spiked (UWDoorRules.Use
+    /// with the creature as the user - UseRect refuses a creature the spiked door, the player
+    /// not). True when it is open afterwards.</summary>
     bool ICritterHost.UseDoor(int piDoorIndex)
     {
-        UWObject lODoor = fObjectAt(piDoorIndex);
+        UWObject lODoorData = fObjectAt(piDoorIndex);
         UWEntityInfo lOEntity;
 
-        if (lODoor == null || mOLevelLoader == null || !mOLevelLoader.TryGetEntity(lODoor, out lOEntity) || lOEntity == null)
+        if (lODoorData == null || mOLevelLoader == null || !mOLevelLoader.TryGetEntity(lODoorData, out lOEntity) || lOEntity == null)
             return false;
 
-        IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
+        UWDoor lODoor = lOEntity.GetComponentInParent<UWDoor>();
 
-        if (lIDoor == null)
+        if (lODoor == null)
             return false;
 
-        if (!lIDoor.IsClosed)
+        if (!lODoor.IsClosed)
             return true;
 
-        if (UWObjectMechanics.IsDoorSpiked(lODoor))
+        if (UWDoorRules.Use(true, lODoor.IsSpiked, lODoor.IsLocked, false, false) != UWDoorRules.UseOutcome.Toggle)
             return false;
 
-        UWDoorLock lOLock = lOEntity.GetComponentInParent<UWDoorLock>();
-
-        if (lOLock != null && mOLevelLoader.CurrentLevel != null)
-            lOLock.EnsureResolved(lODoor, mOLevelLoader.CurrentLevel.Masterlist);
-
-        if (lOLock != null && lOLock.IsLocked)
-            return false;
-
-        lIDoor.StartUsingDoor();
-        UWTriggerSystem.TryFireOpenTrigger(lODoor, mOLevelLoader, UWScene.Interaction);
+        lODoor.Toggle(UWTrapRules.Setter.Creature);
         fTrace("opened door {0}", piDoorIndex);
 
-        return !lIDoor.IsClosed;
+        return !lODoor.IsClosed;
     }
 
     /// <summary>
     /// UnlockDoor_seg040_352B_1D3B with minus the skill: a lockpick attempt by the creature,
     /// UWLockRules.Unlock with the pick path - read 2026-09-25: the skill against three times
-    /// the lock difficulty, and a lock without its keep bit is gone afterwards. A success opens
-    /// the door as ObjectUse would.
+    /// the lock difficulty, and a lock without its keep bit is gone afterwards.
+    /// A SUCCESS ONLY UNLOCKS (try_to_open_door and checkLock, UnderworldExhumed PATHFIND.C and
+    /// USEITEMS.C): no sound, and the door stays shut until the creature's next bump uses it.
+    /// Until 2026-10-15 ours played the lockpick sound and opened the door at once (audit round
+    /// 2, A19 / KR D19). checkLock's door trap (checkTrap with trigger type 6, an unlock trigger)
+    /// has nothing to fire: no level of the game holds one (TRIAGE B12, 2026-10-15).
     /// </summary>
     void ICritterHost.PickDoor(int piDoorIndex, int piSkill)
     {
-        UWObject lODoor = fObjectAt(piDoorIndex);
+        UWObject lODoorData = fObjectAt(piDoorIndex);
         UWEntityInfo lOEntity;
 
-        if (lODoor == null || mOLevelLoader == null || mOLevelLoader.CurrentLevel == null
-            || !mOLevelLoader.TryGetEntity(lODoor, out lOEntity) || lOEntity == null)
+        if (lODoorData == null || mOLevelLoader == null || mOLevelLoader.CurrentLevel == null
+            || !mOLevelLoader.TryGetEntity(lODoorData, out lOEntity) || lOEntity == null)
             return;
 
-        IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
-        UWDoorLock lOLock = lOEntity.GetComponentInParent<UWDoorLock>();
+        UWDoor lODoor = lOEntity.GetComponentInParent<UWDoor>();
 
-        if (lIDoor == null || lOLock == null)
+        if (lODoor == null || !lODoor.IsLocked)
             return;
 
-        lOLock.EnsureResolved(lODoor, mOLevelLoader.CurrentLevel.Masterlist);
-
-        if (!lOLock.IsLocked)
-            return;
-
-        bool lbUnlocked = UWLockRules.Unlock(lOLock.State, null, null, !lIDoor.IsClosed, -piSkill)
+        bool lbUnlocked = UWLockRules.Unlock(lODoor.LockState, null, null, !lODoor.IsClosed, -piSkill)
             == UWLockRules.Outcome.Unlocked;
 
         fTrace("picks door {0}: {1}", piDoorIndex, lbUnlocked ? "unlocked" : "failed");
-
-        if (!lbUnlocked)
-            return;
-
-        UWSoundEffects.PlayAt(UWSoundEffects.Lockpick, mOBody);
-
-        if (lIDoor.IsClosed)
-        {
-            lIDoor.StartUsingDoor();
-            UWTriggerSystem.TryFireOpenTrigger(lODoor, mOLevelLoader, UWScene.Interaction);
-        }
     }
 
-    /// <summary>DamageObject type 4 on the door: its UWDamageable takes the bash; UWDoorDamage
-    /// bursts it open at zero.</summary>
+    /// <summary>DamageObject type 4 on the door: its UWDamageable takes the bash - the spike of
+    /// a spiked door first (UWDoor.TryDamageSpike through UWDamageable.TakesBlowFirst, B4) - and
+    /// UWDoor bursts it open at zero.</summary>
     void ICritterHost.BashDoor(int piDoorIndex, int piDamage)
     {
-        UWObject lODoor = fObjectAt(piDoorIndex);
+        UWObject lODoorData = fObjectAt(piDoorIndex);
         UWEntityInfo lOEntity;
 
-        if (lODoor == null || mOLevelLoader == null || !mOLevelLoader.TryGetEntity(lODoor, out lOEntity) || lOEntity == null)
+        if (lODoorData == null || mOLevelLoader == null || !mOLevelLoader.TryGetEntity(lODoorData, out lOEntity) || lOEntity == null)
             return;
 
-        UWDamageable lODamageable = lOEntity.GetComponentInParent<UWDamageable>();
+        UWDoor lODoor = lOEntity.GetComponentInParent<UWDoor>();
+        UWDamageable lODamageable = lODoor != null ? lODoor.Damageable : null;
 
         if (lODamageable == null)
             return;
@@ -1378,9 +1252,9 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             lfDefenderDistance = fFlatDistance(mOBody, lODefenderAt);
         }
 
-        if (fTryDoorInReach(lfDefenderDistance, out UWDoorLock lODoor))
+        if (fTryDoorInReach(lfDefenderDistance, out UWDoor lODoor))
         {
-            fStrikeObject(lODoor.GetComponent<UWDamageable>(), lODoor.Centre, piAttack, piCharge, piFlank);
+            fStrikeObject(lODoor.Damageable, lODoor.Centre, piAttack, piCharge, piFlank);
 
             return;
         }
@@ -1421,7 +1295,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (lOObject == null && lOHitInfo != null && lOHitInfo.PartOf != null)
             lOObject = lOHitInfo.PartOf.GetComponent<UWDamageable>();
 
-        if (lOObject != null && !lOObject.IsDestroyed && lOObject.GetComponentInParent<UWCritter>() == null)
+        if (lOObject != null && lOObject.TakesBlows && lOObject.GetComponentInParent<UWCritter>() == null)
         {
             fStrikeObject(lOObject, lOHit.point, piAttack, piCharge, piFlank);
 
@@ -1463,12 +1337,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         // A DOOR lifts the impact to its own height + 2 (AttackerAppliesFinalDamage, door
         // branch before the impact): an open door object stands 24 above its floor, so the flash
         // shows at the underside of the lintel (per user, 2026-09-29, in the original).
-        UWDoorLock lODoor = pOObject != null ? pOObject.GetComponent<UWDoorLock>() : null;
+        UWDoor lODoor = pOObject != null ? pOObject.GetComponent<UWDoor>() : null;
 
         if (lODoor != null && mOLevelLoader != null)
         {
-            IUsableDoor lIDoor = lODoor.GetComponent<IUsableDoor>();
-            int liDoorZ = (lIDoor != null && !lIDoor.IsClosed ? OpenDoorRaiseZ : 0) + DoorImpactAboveZ;
+            int liDoorZ = (!lODoor.IsClosed ? OpenDoorRaiseZ : 0) + DoorImpactAboveZ;
 
             lOAt.y = Mathf.Max(lOAt.y, mOLevelLoader.GetFloorHeightAt(pOAt) + (liDoorZ * UWWorldScale.ZPosStep));
         }
@@ -1489,7 +1362,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
         UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt, liRolled << 2);
 
-        if (pOObject != null && !pOObject.IsDestroyed)
+        if (pOObject != null && pOObject.TakesBlows)
             pOObject.ApplyDamage(liRolled, UWDamageTypes.Physical);
     }
 
@@ -1513,16 +1386,16 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// against the door object of radius 3 at its centre, on the creature's floor. Nearer than
     /// pfLimit (the distance of what the physics probe found), else none.
     /// </summary>
-    private bool fTryDoorInReach(float pfLimit, out UWDoorLock pODoor)
+    private bool fTryDoorInReach(float pfLimit, out UWDoor pODoor)
     {
         pODoor = null;
 
-        Vector3 lODirection = fHeadingToDirection(mORecord.FullFacing);
+        Vector3 lODirection = UWViewpoint.HeadingByteToDirection(mORecord.FullFacing);
         float lfReach = UWCritterRules.AttackReachEighths * UWWorldScale.SubTileStep;
         float lfTouch = (UWCritterRules.AttackReachRadius + DoorRadiusEighths) * UWWorldScale.SubTileStep;
         float lfBest = pfLimit;
 
-        foreach (UWDoorLock lOCandidate in UWDoorLock.All)
+        foreach (UWDoor lOCandidate in UWDoor.All)
         {
             // The door object stands at height 0 - its mesh carries the floor - so its floor is
             // the tile's.
@@ -1585,7 +1458,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         // off, so its feet point AWAY from the player while it faces and strikes him. We
         // searched along the feet and found nothing, which is why a reaper standing right next
         // to the player reported "nothing in reach" on every swing (per user, 2026-09-20).
-        Vector3 lODirection = fHeadingToDirection(mORecord.FullFacing);
+        Vector3 lODirection = UWViewpoint.HeadingByteToDirection(mORecord.FullFacing);
         Vector3 lOFeet = mOBody + (Vector3.up * lfRadius);
         Vector3 lOTop = mOBody + (Vector3.up * (lfHeight - lfRadius));
 
@@ -1739,7 +1612,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
         Vector3 lOAt = pOHit.distance > 0f
             ? pOHit.point + (pOHit.normal * BlowEffectSetback)
-            : fGetEyePosition() + (fHeadingToDirection(mORecord.FullFacing)
+            : fGetEyePosition() + (UWViewpoint.HeadingByteToDirection(mORecord.FullFacing)
                 * (UWCritterRules.AttackReachRadius * UWWorldScale.SubTileStep));
 
         mOLevelLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, BlowEffectSeconds);
@@ -1792,8 +1665,14 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         int liOwnFeet = mORecord.ZPos;
         int liPlayerFeet = mOPlayer.GetFeetZPos();
 
+        // THE PART FROM THE BLOW'S PROBE, a random third of this body (critter_attack's wsize 2
+        // and the ninth rand() % 9 from AI.C, into resolve_attack and pickloc) - C3, by the user's
+        // decision of 2026-10-12; until then this whole body, which sent tall creatures' blows
+        // at the head far less often than the original does.
+        UWCritterCombat.RollCritterBlowProbe(liOwnFeet, liOwnHeight, out int liProbeBottom, out int liProbeTop);
+
         int liPart = UWArmourProtection.PickBodyPart(liPlayerFeet, liPlayerFeet + mOPlayer.GetBodyHeightZ(),
-            liOwnFeet, liOwnFeet + liOwnHeight);
+            liProbeBottom, liProbeTop);
 
         int liScore;
         int liBase;
@@ -1817,6 +1696,11 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             // on the struck part (UWCritterCombat.GetBlockedSound).
             UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(mOStats.WeaponKind, fIsPlayerArmourMetal(liPart)),
                 mOPlayer.transform.position);
+
+            // A MISS STILL STARTS THE COMBAT MUSIC: do_attack hands the player damage_item with
+            // 0 (COMBAT.C), and damage_critter picks MUSIC_DANGER or MUSIC_COMBAT for the player
+            // whenever the attacker is known (critter/AI.C). Until 2026-10-12 only a hit did.
+            UWMusic.OnPlayerDamaged(mOPlayer.CurrentHP, mOPlayer.MaxHP);
 
             return;
         }
@@ -1848,6 +1732,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, liRolled << 2);
 
         int liDamage = UWCritterCombat.SubtractArmour(liRolled, mOPlayer.GetArmourAt(liPart));
+        int liShakeDamage = liDamage;
 
         liDamage = UWCritterCombat.HalveOnEasy(liDamage, mOPlayer.IsEasyDifficulty);
 
@@ -1856,6 +1741,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
 
         // A BLOW IS BLUNT DAMAGE: DamageObject with type 4 (label A3D).
         mOPlayer.ApplyDamage(liDamage, UWDamageTypes.Physical);
+        // The combat shake, from the damage before the Easy halving (C5, 2026-10-12).
+        mOPlayer.ShakeForCombatHit(liShakeDamage, liDamage);
         UWMusic.OnPlayerDamaged(mOPlayer.CurrentHP, mOPlayer.MaxHP);
 
         fTryPoisonPlayer();
@@ -1896,7 +1783,10 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         int liDefence = pOOther.mbHasStats ? pOOther.mOStats.DefensePower : pOOther.mODamageable.Defence;
         UWSkillCheck.ResultEnum leResult = UWCritterCombat.ResolveHit(liScore, piFlank, 0, liDefence);
         int liDamage = 0;
-        int liPart = pOOther.fPickPartHitBy(mORecord.ZPos, mORecord.ZPos + liOwnHeight);
+        // The blow's probe, a random third of this body (C3, 2026-10-12, as in fStrikePlayer).
+        UWCritterCombat.RollCritterBlowProbe(mORecord.ZPos, liOwnHeight, out int liProbeBottom, out int liProbeTop);
+
+        int liPart = pOOther.fPickPartHitBy(liProbeBottom, liProbeTop);
 
         if (UWSkillCheck.IsSuccess(leResult))
         {
@@ -1933,20 +1823,49 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// impact flash (offset 0x0B), at HitZ[part] eighths of the body height above the feet.
     /// The original starts the animation at frame min(3, damage / 4); the port's effects
     /// play whole (SpawnEffectAt has no start frame), so a heavier blow shows the same splat.
+    ///
+    /// WHERE IT SITS (do_damage, UnderworldExhumed combat/COMBAT.C, 2026-10-12): a part whose
+    /// armour byte is 0xFF moves the effect to part 0's height, the body (hitloc &amp;= 4); a
+    /// missile's part (4 and up) puts it at the missile's own middle (hitz, missile_thwack),
+    /// piMissileZ in zpos. Until then ours kept the struck part's height and put a missile's
+    /// effect at the feet.
     /// </summary>
-    private void fShowHitEffect(int piPart, int piDamage)
+    private void fShowHitEffect(int piPart, int piDamage, int piMissileZ = 0)
     {
         if (mOLevelLoader == null || !mbHasStats)
             return;
+
+        float lfHeight = GetHitEffectHeight(piPart, piMissileZ);
+
+        mOLevelLoader.SpawnEffectAt(UWCritterCombat.GetHitEffectObjectId(mOStats),
+            mOBody + (Vector3.up * lfHeight), BlowEffectSeconds);
+    }
+
+    /// <summary>The height of the blood or flash above this creature's feet, in world units:
+    /// HitZ of the part (a part without armour of its own the body's) in eighths of the body, or
+    /// a missile's own height piMissileZ (zpos) for a missile's part - see fShowHitEffect.</summary>
+    public float GetHitEffectHeight(int piPart, int piMissileZ = 0)
+    {
+        if (!mbHasStats)
+            return 0f;
 
         int liRadius;
         int liHeight;
         fGetOwnSize(out liRadius, out liHeight);
 
-        float lfHeight = liHeight * UWWorldScale.ZPosStep * UWCritterCombat.GetHitZ(piPart) / 8f;
+        int liPart = UWCritterCombat.GetEffectPart(mOStats, piPart);
 
-        mOLevelLoader.SpawnEffectAt(UWCritterCombat.GetHitEffectObjectId(mOStats),
-            mOBody + (Vector3.up * lfHeight), BlowEffectSeconds);
+        if (liPart >= UWCritterCombat.MissilePartOffset)
+            return piMissileZ > 0 ? (piMissileZ - mORecord.ZPos) * UWWorldScale.ZPosStep : 0f;
+
+        return liHeight * UWWorldScale.ZPosStep * UWCritterCombat.GetHitZ(liPart) / 8f;
+    }
+
+    /// <summary>The part a blow whose probe spans these heights (zpos) hits on this body -
+    /// pickloc (UWArmourProtection.PickBodyPart); the player's blow asks it with its probe.</summary>
+    public int PickPartHitBy(int piProbeBottom, int piProbeTop)
+    {
+        return fPickPartHitBy(piProbeBottom, piProbeTop);
     }
 
     /// <summary>PickBodyHitPoint over this body and the attacker's heights in zpos.</summary>
@@ -1992,7 +1911,9 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     {
         int liPart = fPickPartHitBy(piAttackerFeet, piAttackerTop);
 
-        fShowHitEffect(pbMissile ? UWCritterCombat.GetMissileBodyPart(liPart) : liPart, piDamage);
+        // A missile's hitz is its z plus half its height (missile_thwack).
+        fShowHitEffect(pbMissile ? UWCritterCombat.GetMissileBodyPart(liPart) : liPart, piDamage,
+            pbMissile ? (piAttackerFeet + piAttackerTop) / 2 : 0);
     }
 
     /// <summary>
@@ -2031,8 +1952,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (!lOTarget.Exists)
             return;
 
-        fLaunchProjectile(FirstAmmunitionObjectId + piAmmoIndex, lOTarget, UWDamageTypes.Missile,
-            MissileRangeTiles * UWLevelMeshBuilder.TileSpacing, piPitch);
+        fLaunchProjectile(FirstAmmunitionObjectId + piAmmoIndex, UWDamageTypes.Missile, piPitch);
     }
 
     /// <summary>
@@ -2078,8 +1998,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         if (!lOTarget.Exists)
             return;
 
-        fLaunchProjectile(liProjectile, lOTarget, UWRunicMagic.GetProjectileDamageType(liProjectile),
-            SpellRangeTiles * UWLevelMeshBuilder.TileSpacing, piPitch);
+        fLaunchProjectile(liProjectile, UWRunicMagic.GetProjectileDamageType(liProjectile,
+            mOLevelLoader != null && mOLevelLoader.UWDataImporter != null ? mOLevelLoader.UWDataImporter.ObjectProperties : null), piPitch);
     }
 
     /// <summary>Spell class 6, the area spells (Sheet Lightning, Flame Wind).</summary>
@@ -2111,10 +2031,9 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             || mOLevelLoader.CurrentLevelIndex == UWEndgame.VoidLevelIndex)
             return;
 
-        Vector3 lODirection = fHeadingToDirection(mORecord.FullFacing);
-        UWTilePos lOCentre = new UWTilePos(
-            mORecord.TileX + Mathf.RoundToInt(lODirection.x * AreaCentreTiles),
-            mORecord.TileY + Mathf.RoundToInt(lODirection.z * AreaCentreTiles));
+        // gronk_area's move_along (UWAreaSpellRules.MoveAlong; rounded until 2026-10-12).
+        UWTilePos lOCentre = UWAreaSpellRules.MoveAlong(new UWTilePos(mORecord.TileX, mORecord.TileY),
+            mORecord.FullFacing, AreaCentreTiles);
 
         UWSpellHost lOHost = new UWSpellHost(UWScene.Character, UWScene.Interaction, mOLevelLoader,
             mOLevelLoader.UWDataImporter, UWScene.GameUi) { AreaCaster = this };
@@ -2151,7 +2070,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             mOLevelLoader.UWDataImporter, UWScene.GameUi);
 
         bool lbSummoned = UWSummonSpellRules.SummonByCreature(lOHost, mOBody.x, mOBody.z,
-            (mORecord.FullFacing & 0xFF) * 360f / 256f, mOLevelLoader.CurrentLevelIndex + 1, lOPlayerTile);
+            UWHeadings.HeadingByteToDegrees(mORecord.FullFacing), mOLevelLoader.CurrentLevelIndex + 1, lOPlayerTile);
 
         fEvent("summons: {0}", lbSummoned ? "a creature" : "no room or nothing fitting");
     }
@@ -2163,7 +2082,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// of the creature's height plus two per pitch step; NO ROOM there (seg025_B51: a wall, a
     /// step, a creature in melee contact) means no missile, as in the original.
     /// </summary>
-    private void fLaunchProjectile(int piObjectId, CritterTarget pOTarget, int piDamageType, float pfRange, int piPitch)
+    private void fLaunchProjectile(int piObjectId, int piDamageType, int piPitch)
     {
         if (mOLevelLoader == null || mOLevelLoader.UWDataImporter == null
             || mOLevelLoader.UWDataImporter.ObjectProperties == null)
@@ -2191,35 +2110,14 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// <summary>How often this creature has shot or cast - only for the F1 overlay.</summary>
     private int miShotsFired;
 
-    /// <summary>A target's body centre in the world: the player's collider, another
-    /// creature's collider, an object's position.</summary>
-    private Vector3 fGetTargetWorldPosition(CritterTarget pOTarget)
-    {
-        if (pOTarget.IsPlayer && fEnsurePlayer())
-        {
-            if (mOPlayerBody == null)
-                mOPlayerBody = mOPlayer.GetComponentInParent<CharacterController>();
-
-            return mOPlayerBody != null ? mOPlayerBody.bounds.center : mOPlayerTransform.position;
-        }
-
-        UWCritter lOOther = fCritterOf(fObjectAt(pOTarget.Index));
-
-        if (lOOther != null)
-        {
-            Collider lOCollider = lOOther.GetComponent<Collider>();
-
-            return lOCollider != null ? lOCollider.bounds.center : lOOther.mOBody + (Vector3.up * FallbackEyeHeight);
-        }
-
-        return new Vector3(UWUnits.SubTileToWorldAxis(pOTarget.TileX, pOTarget.X & 7),
-            UWUnits.ZPosToWorld(pOTarget.ZPos) + FallbackEyeHeight,
-            UWUnits.SubTileToWorldAxis(pOTarget.TileY, pOTarget.Y & 7));
-    }
-
-    /// <summary>Goal 10: the player looked back within reach - TalkTo. The goal is cleared to
-    /// 0 before the screen opens, as the port did before, so the conversation does not start
-    /// again the moment it ends; a script that sets a goal overrides it (RefreshFromData).</summary>
+    /// <summary>
+    /// Goal 10: the player looked back within reach - TalkTo, with the goal untouched (crit_talk,
+    /// UnderworldExhumed AI.C): the script imports npc_goal 10 and the write-back keeps whatever it
+    /// leaves (CONVVARS.C, RefreshFromData), so a script that sets no goal leaves the creature
+    /// waiting to talk, and it starts again when the player faces it within reach. Until
+    /// 2026-10-15 ours cleared the goal to 0 first, so such a creature stood for good (audit
+    /// round 2, A13 / KR D13, GH D11).
+    /// </summary>
     void ICritterHost.OnTalk()
     {
         if (UWConversationScreen.IsAnyOpen || mONpc == null)
@@ -2231,7 +2129,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             return;
 
         fEvent("talks");
-        mORecord.Goal = GoalStandStill;
         lOInteraction.TryTalkToNpcData(mONpc);
     }
 
@@ -2456,8 +2353,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
                 || mOCritter.mOLevelLoader.CurrentLevel.TileData == null)
                 return;
 
-            UWTile lOTile = mOCritter.mOLevelLoader.CurrentLevel.TileData[
-                (piTileY * UnderworldRevisited.Build.UWLevelMeshBuilder.TilesPerAxis) + piTileX];
+            UWTile lOTile = mOCritter.mOLevelLoader.CurrentLevel.GetTile(piTileX, piTileY);
 
             if (lOTile == null || lOTile.ObjectsInTile == null)
                 return;
@@ -2571,20 +2467,20 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// <summary>Confusion: goal 2, attitude 1, the player as target - the three fields the
     /// original's spell writes (deviation 39 adopted), after the resistance check
     /// (fPassesSpellResistance). No duration.</summary>
-    public bool Confuse()
+    public UWTargetSpellRules.Result Confuse()
     {
         if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed)
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         if (!fPassesSpellResistance("confusion"))
-            return true;
+            return UWTargetSpellRules.Result.Spent;
 
         fTrace("confused");
         mORecord.Goal = WanderGoal;
         mORecord.GTarg = PlayerIndex;
         mORecord.Attitude = 1;
 
-        return true;
+        return UWTargetSpellRules.Result.Shown;
     }
 
     /// <summary>
@@ -2594,7 +2490,8 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// ScaleDamageAgainstObject whether one point of MAGIC damage (type 3) gets through
     /// (UWDamageTypes.Scale). Magic resistance 0 - the low two bits of COMOBJ byte 8 - lets
     /// every spell through, 1 turns one in three away, 2 two in three, 3 all. A spell turned
-    /// away is spent and does nothing, as in the original, and the caller shows no message.
+    /// away is spent and does nothing, as in the original, and the caller shows no message - nor
+    /// the spell picture (UWTargetSpellRules.Result.Spent, since 2026-10-12).
     /// </summary>
     private bool fPassesSpellResistance(string psSpell)
     {
@@ -2618,19 +2515,45 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// <summary>Critter table byte 0x1C, upper nibble; 0 without a table row.</summary>
     public int TravelRange => mbHasStats ? mOStats.TravelRange : 0;
 
+    /// <summary>The ally bit of the mobile record - the player's blow passes over an ally
+    /// (Interaction.fFindClassicMeleeTarget, set_hitobj).</summary>
+    public bool IsAlly => mORecord != null && mORecord.IsAlly;
+
+    /// <summary>The table's average hit points (critter byte 4, avghit) - what the eyes measure
+    /// against (UWCombat.GetEyesGroup); 0 without a table row.</summary>
+    public int TableVitality => mbHasStats ? mOStats.Vitality : 0;
+
     /// <summary>Whether the player's critical failure against this creature wears the weapon
     /// (UWEquipmentWear).</summary>
     public bool WearsWeaponOnCriticalFailure => mbHasStats && UWEquipmentWear.WearsWeaponOnCriticalFailure(mOStats);
 
-    /// <summary>The whole path from the creature's tile to pOTo with its own idea of what it
-    /// can enter (UWTilePath.TryGetPath).</summary>
-    public bool TryGetPathTo(UWTilePos pOTo, System.Collections.Generic.List<UWTilePos> pOPath)
+    /// <summary>
+    /// The sleep ambush's path (wander_that_monster, UnderworldExhumed CRITTIME.C): set_critter_vars
+    /// for this creature, then flood_path from its tile and height to pOTo at piToHeight with
+    /// range 0 - the brain's own search (UWTileRoute.FindPath with this creature's triple test)
+    /// with no danger allowed: no drop of more than a level, no costly terrain, a closed door
+    /// blocked by its orientation alone, whatever the creature's door skill. pOPath gets the
+    /// tiles, start first. Until 2026-10-15 this was the old walker (UWTilePath.TryGetPath) with
+    /// the door and lava terms left over from the last brain search (audit round 2, A11 / KR D11).
+    /// </summary>
+    public bool TryGetPathTo(UWTilePos pOTo, int piToHeight, System.Collections.Generic.List<UWTilePos> pOPath)
     {
-        if (mORecord == null)
+        pOPath.Clear();
+
+        if (mORecord == null || !fPrepareRoute())
             return false;
 
-        return UWTilePath.TryGetPath(this, new UWTilePos(mORecord.TileX, mORecord.TileY), pOTo, pOPath);
+        if (!mORoute.FindPath(mORecord.TileX, mORecord.TileY, mORecord.FloorLevel, pOTo.X, pOTo.Y, piToHeight,
+            AmbushPathRange, mOTraverse.Triple))
+            return false;
+
+        pOPath.AddRange(mORoute.Tiles);
+
+        return true;
     }
+
+    /// <summary>flood_path's range for the ambush: no danger at all.</summary>
+    private const int AmbushPathRange = 0;
 
     /// <summary>
     /// Sets the creature down on a sub-tile spot (0..7 each) of a tile - the sleep ambush
@@ -2654,6 +2577,28 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         fTrace("set down by the sleep ambush on {0}/{1} at {2}/{3}", pOTile.X, pOTile.Y, piSubX, piSubY);
 
         return true;
+    }
+
+    /// <summary>
+    /// The night's time pass rewrote the record (UWLevelExit.PassTime, 2026-10-15): the body
+    /// stands at the record's spot and facing at once, and the health takes the record's hit
+    /// points - the pass heals a wounded creature half way to its kind's average.
+    /// </summary>
+    public void FollowRecord()
+    {
+        if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed)
+            return;
+
+        fSetBodyNow();
+
+        if (mORecord.HitPoints > 0 && mODamageable.CurrentHealth != mORecord.HitPoints)
+        {
+            mODamageable.Health.SetCurrentHealth(mORecord.HitPoints);
+            miLastHealth = mODamageable.CurrentHealth;
+        }
+
+        fTrace("time passed: tile {0}/{1}, facing {2}, hp {3}", mORecord.TileX, mORecord.TileY,
+            mORecord.FacingEighth, mORecord.HitPoints);
     }
 
     /// <summary>
@@ -2682,13 +2627,13 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
     /// (UWCritterBrain). Until 2026-09-23 this was Confusion (goal 2, attitude 1, the player
     /// as target), because the port had no allies.
     /// </summary>
-    public bool Befriend()
+    public UWTargetSpellRules.Result Befriend()
     {
         if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed)
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         if (!fPassesSpellResistance("ally"))
-            return true;
+            return UWTargetSpellRules.Result.Spent;
 
         fTrace("befriended");
 
@@ -2701,40 +2646,40 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         mORecord.IsAlly = true;
         mORecord.Attitude = 3;
 
-        return true;
+        return UWTargetSpellRules.Result.Shown;
     }
 
     /// <summary>Paralyze: goal 7 (stand still) and attitude 1, after the resistance check
     /// (fPassesSpellResistance), without a duration as in the uw1 branch of the reference.
     /// A hit wakes it: the damage reaction sets goal 5.</summary>
-    public bool Paralyse()
+    public UWTargetSpellRules.Result Paralyse()
     {
         if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed)
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         if (!fPassesSpellResistance("paralysis"))
-            return true;
+            return UWTargetSpellRules.Result.Spent;
 
         fTrace("paralysed");
         mORecord.Goal = GoalParalysed;
         mORecord.Attitude = 1;
 
-        return true;
+        return UWTargetSpellRules.Result.Shown;
     }
 
     /// <summary>Cause Fear: goal 6 against the player, without a morale roll.</summary>
-    public bool Flee()
+    public UWTargetSpellRules.Result Flee()
     {
         if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed || !fEnsurePlayer())
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         if (!fPassesSpellResistance("fear"))
-            return true;
+            return UWTargetSpellRules.Result.Spent;
 
         fTrace("flees (spell)");
         mORecord.SetNewGoal(GoalWithdraw, PlayerIndex);
 
-        return true;
+        return UWTargetSpellRules.Result.Shown;
     }
 
     // ------------------------------------------------- Theft notice (spec 4.5)
@@ -2814,18 +2759,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         return lOTerrain != null && lOTerrain.IsWaterFloor(pOTileData.TextureFloor);
     }
 
-    private bool fIsLava(UWTile pOTileData)
-    {
-        return pOTileData != null && mOLevelLoader != null && mOLevelLoader.IsLavaTile(pOTileData);
-    }
-
-    /// <summary>COMOBJ byte 8 bit 3 exempts a kind from lava (spec 1.4 step 3); the port keeps
-    /// the resistances of COMOBJ in the UWDamageable.</summary>
-    private bool fIsFireResistant()
-    {
-        return mODamageable != null && UWDamageTypes.Scale(mODamageable.Resistances, 1, UWDamageTypes.Fire) == 0;
-    }
-
     /// <summary>Radius and height from COMOBJ.DAT, in the original's units - eighths of a tile
     /// and zpos steps.</summary>
     private void fGetOwnSize(out int piRadius, out int piHeight)
@@ -2848,32 +2781,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             ? mOLevelLoader.UWDataImporter.CommonObjectProperties : null;
     }
 
-    /// <summary>The closed door among a tile's objects, or null. Open doors and open
-    /// portcullises do not block.</summary>
-    private UWObject fFindClosedDoor(UWTile pOTileData)
-    {
-        if (pOTileData == null || pOTileData.ObjectsInTile == null || mOLevelLoader == null)
-            return null;
-
-        foreach (UWObject lOObject in pOTileData.ObjectsInTile)
-        {
-            if (lOObject == null || lOObject.GetCategory() != UWObject.ObjectCategoryEnum.Doors)
-                continue;
-
-            UWEntityInfo lOEntity;
-
-            if (!mOLevelLoader.TryGetEntity(lOObject, out lOEntity) || lOEntity == null)
-                continue;
-
-            IUsableDoor lIDoor = lOEntity.GetComponentInParent<IUsableDoor>();
-
-            if (lIDoor != null && lIDoor.IsClosed)
-                return lOObject;
-        }
-
-        return null;
-    }
-
     // ------------------------------------------------- Tiles and heights
 
     private UWTile fGetTileAt(Vector3 pOWorldPosition)
@@ -2889,29 +2796,7 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
             || mOLevelLoader.CurrentLevel.TileData == null)
             return null;
 
-        if (piTileX < 0 || piTileZ < 0 || piTileX >= UWLevelMeshBuilder.TilesPerAxis
-            || piTileZ >= UWLevelMeshBuilder.TilesPerAxis)
-            return null;
-
-        return mOLevelLoader.CurrentLevel.TileData[(piTileZ * UWLevelMeshBuilder.TilesPerAxis) + piTileX];
-    }
-
-    private bool fTryGetTile(Vector3 pOWorldPosition, out UWTile pOTileData)
-    {
-        pOTileData = null;
-
-        if (mOLevelLoader == null || mOLevelLoader.CurrentLevel == null)
-            return false;
-
-        int liX = UWUnits.WorldAxisToTile(pOWorldPosition.x);
-        int liZ = UWUnits.WorldAxisToTile(pOWorldPosition.z);
-
-        if (liX < 0 || liZ < 0 || liX >= UWLevelMeshBuilder.TilesPerAxis || liZ >= UWLevelMeshBuilder.TilesPerAxis)
-            return false;
-
-        pOTileData = mOLevelLoader.CurrentLevel.TileData[(liZ * UWLevelMeshBuilder.TilesPerAxis) + liX];
-
-        return pOTileData != null;
+        return mOLevelLoader.CurrentLevel.GetTile(piTileX, piTileZ);
     }
 
     /// <summary>How deep a WATER creature lies below the water level, in world units - see
@@ -2924,13 +2809,6 @@ public class UWCritter : MonoBehaviour, UWTilePath.IWalker, ICritterHost
         UWSettings lOSettings = UWSettings.Instance;
 
         return lOSettings != null ? lOSettings.SwimmerHeightOffset : 0f;
-    }
-
-    private float fGetFloorHeight(Vector3 pOWorldPosition)
-    {
-        UWTile lOTile = fGetTileAt(pOWorldPosition);
-
-        return lOTile != null ? lOTile.FloorHeight : pOWorldPosition.y;
     }
 
     /// <summary>Where the creature looks from and shoots from: the centre of its body, not its

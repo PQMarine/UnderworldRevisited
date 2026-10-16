@@ -119,9 +119,16 @@ Shader "UW/BillboardPalette"
                 float3 forward = normalize(toCamera + float3(0, 0, 1e-4));
                 float3 right = normalize(cross(forward, float3(0, 1, 0)));
 
-                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y + forward * _DepthBias;
+                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y;
 
                 OUT.positionCS = TransformWorldToHClip(positionWS);
+
+                // THE DEPTH BIAS MOVES ONLY THE DEPTH towards the camera, not the picture: the
+                // sprite keeps its place and size on the screen and is merely sorted as if it
+                // stood _DepthBias units nearer (until 2026-10-12 the vertices themselves moved,
+                // and a large bias - the flash on a struck model - grew the picture).
+                float4 biasedCS = TransformWorldToHClip(positionWS + forward * _DepthBias);
+                OUT.positionCS.z = biasedCS.z / biasedCS.w * OUT.positionCS.w;
                 OUT.pivotWS = pivotWS;
                 OUT.positionWS = positionWS;
                 OUT.uv = TRANSFORM_TEX(IN.uv, _IndexTex);
@@ -152,8 +159,8 @@ Shader "UW/BillboardPalette"
                 // Outside the original's own cone the real depth decides (UWPainterSweepTrueDepth).
                 bool lbTrueDepth = UWPainterSweepTrueDepth(UWPainterTileOf(IN.pivotWS.xz));
 
-                if (lbTrueDepth ? !UWPainterSpriteVisibleTrue(IN.positionCS.xy, lTile, IN.pivotWS, IN.positionWS)
-                    : !UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex))
+                if (lbTrueDepth ? !UWPainterSpriteVisibleTrue(IN.positionCS.xy, lTile, IN.pivotWS, IN.positionWS, _DepthBias)
+                    : !UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex, _DepthBias))
                     discard;
 
                 outDepth = UWPainterSpriteBandDepth(UWPainterDepth(lTile, lfPart, UWPainterNearness(IN.pivotWS)));

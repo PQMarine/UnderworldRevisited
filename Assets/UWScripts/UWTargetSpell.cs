@@ -32,13 +32,13 @@ public static class UWTargetSpell
     private const int SmiteDamage = 0xFF;
 
     /// <summary>
-    /// Casts a class 7 spell on a target. Returns false if there is nothing there
-    /// it could affect - then the caller just shows a message.
+    /// Casts a class 7 spell on a target. Missed if there is nothing there it could affect;
+    /// Spent or Shown say whether the spell picture belongs on it (UWTargetSpellRules.Result).
     /// </summary>
-    public static bool Cast(int piMinorClass, UWEntityInfo pOTarget)
+    public static UWTargetSpellRules.Result Cast(int piMinorClass, UWEntityInfo pOTarget)
     {
         if (pOTarget == null)
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         UWCritter lOCritter = pOTarget.GetComponentInParent<UWCritter>();
         UWDamageable lODamageable = pOTarget.GetComponentInParent<UWDamageable>();
@@ -46,7 +46,7 @@ public static class UWTargetSpell
         // ALL FIVE TARGET CREATURES. The reference checks major class 1 for this, i.e.
         // NPC; for us that is the critter component.
         if (lOCritter == null || lODamageable == null || lODamageable.IsDestroyed)
-            return false;
+            return UWTargetSpellRules.Result.Missed;
 
         switch (piMinorClass)
         {
@@ -54,20 +54,24 @@ public static class UWTargetSpell
                 return lOCritter.Flee();
 
             case SmiteUndeadSpell:
-                return fSmiteUndead(lODamageable);
+                // Never a picture (sp_ward_undead).
+                return fSmiteUndead(lODamageable) ? UWTargetSpellRules.Result.Spent : UWTargetSpellRules.Result.Missed;
 
             case AllySpell:
                 // A real ally since 2026-09-23 (UWCritter.Befriend, Ally_seg038_3307_8F8).
                 return lOCritter.Befriend();
 
             case PoisonSpell:
-                return fPoison(lODamageable);
+                // Always the picture, resisted or not (sp_poison puts it before the damage).
+                fPoison(lODamageable);
+
+                return UWTargetSpellRules.Result.Shown;
 
             case ParalyseSpell:
                 return lOCritter.Paralyse();
 
             default:
-                return false;
+                return UWTargetSpellRules.Result.Missed;
         }
     }
 

@@ -5,10 +5,10 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// Runtime lock state of a door: whether it has a lock, whether that is locked, which key opens
 	/// it and how hard it is to pick. Engine-free since 2026-09-17 (P1 of the engine separation);
-	/// UWDoorLock on the Unity side holds one per door GameObject.
+	/// UWDoor on the Unity side holds one per door GameObject (UWDoorLock until 2026-10-12).
 	///
-	/// Resolved only on demand (EnsureResolved), not at spawn time - the same pattern as
-	/// EnsureContentsLoaded for containers.
+	/// Resolved by EnsureResolved - once, when the door starts (UWDoor, UWDoorRules.ResolveLock);
+	/// until 2026-10-12 on demand at every site that asked.
 	/// </summary>
 	public sealed class UWLockState
 	{

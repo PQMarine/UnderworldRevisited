@@ -545,7 +545,7 @@ public class UWModernInventoryPage
     /// edge and bottom row), none for a single thing.</summary>
     private void fPlaceCount(Text pOText, UWObject pOItem, float pfRight, float pfBottomRow)
     {
-        int liCount = pOItem != null ? UWItemDescriptions.GetStackCount(pOItem) : 0;
+        int liCount = pOItem != null ? UWStackRules.CountAtLeastOne(pOItem) : 0;
 
         pOText.enabled = liCount > 1;
 

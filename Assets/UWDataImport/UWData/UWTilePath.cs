@@ -311,6 +311,9 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
+		/// <summary>The longest sight line, in tile steps along its major axis (line_of_sight).</summary>
+		public const int MaxSightTiles = 10;
+
 		/// <summary>
 		/// THE SIGHT LINE on the tile map - TestBetweenPoints_seg006_1477_1BD1 (44792-45426) with
 		/// TestTileTraversal_seg006_1056 (43103-43485). A line in eighths from one point to the
@@ -333,6 +336,8 @@ namespace UWDataImport.UWData
 		/// Until 2026-09-23 the host (UWCritter) walked the line itself and read a diagonal tile
 		/// as an open one (deviation 23); the old HasClearTileLine, which no one called any more,
 		/// went at the same time.
+		///
+		///   and a line of more than MaxSightTiles tile steps along its major axis (since 2026-10-15)
 		/// </summary>
 		public static bool TestBetweenPoints(UWTile[] pOTiles, int piX0, int piY0, int piZ0,
 			int piX1, int piY1, int piZ1)
@@ -343,6 +348,18 @@ namespace UWDataImport.UWData
 			int liDx = piX1 - piX0;
 			int liDy = piY1 - piY0;
 			int liSteps = System.Math.Max(System.Math.Abs(liDx), System.Math.Abs(liDy));
+
+			// NO SIGHT BEYOND TEN TILES (line_of_sight, UnderworldExhumed PATHFIND.C: "if (count >
+			// 10) return 0", count the tile steps along the major axis, chosen by the eighth
+			// deltas with the original's tie rule). Ours had no limit until 2026-10-15 (audit round
+			// 2, A23 / KR D23).
+			bool lbMajorX = (liDx >= liDy && liDx >= -liDy) || (liDx < liDy && liDx < -liDy);
+			int liMajorTiles = lbMajorX
+				? System.Math.Abs((piX1 >> 3) - (piX0 >> 3))
+				: System.Math.Abs((piY1 >> 3) - (piY0 >> 3));
+
+			if (liMajorTiles > MaxSightTiles)
+				return false;
 
 			int liTileX = piX0 >> 3;
 			int liTileY = piY0 >> 3;

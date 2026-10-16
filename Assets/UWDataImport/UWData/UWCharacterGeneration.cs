@@ -29,8 +29,8 @@ namespace UWDataImport.UWData
 	/// After that, five groups per class: a group with one skill is innate and is rolled
 	/// right away, a group with several is a question to the player. Every choice rolls the
 	/// skill up (fRollSkill): the first time three plus one ninth of the governing attribute,
-	/// after that one plus one thirteenth, each plus a random amount and three skill checks
-	/// against 20. At most 30. The same skill may be chosen several times
+	/// after that one plus one thirteenth, each plus a random amount and three (a skill held
+	/// already: two) skill checks against 20. At most 30. The same skill may be chosen several times
 	/// (fighter: Attack or Defense once more).
 	///
 	/// Vitality and mana as on level-up (UWExperience), level 1, experience 0, one
@@ -73,17 +73,33 @@ namespace UWDataImport.UWData
 		/// <summary>No attribute is dealt above this at creation (ovr098_582).</summary>
 		private const int MaxAttributeValue = 30;
 
-		/// <summary>How long a name the original can hold - the field is 14 bytes long.</summary>
-		public const int MaxNameLength = 14;
+		/// <summary>How long a name the original can hold: 29 characters, the 30-byte field less
+		/// its zero (UnderworldExhumed CHARGEN.C pickopt "len &lt; 0x1D", strncpy of 29). Until
+		/// 2026-10-12 this said the field was 14 bytes long.</summary>
+		public const int MaxNameLength = UWPlayerData.MaxNameLength;
+
+		/// <summary>Where the typed name's pen starts, less the prompt's width, and the x it must
+		/// stay left of for another character - pickopt starts at string_width(prompt) + 0xA8
+		/// and takes a character only while x &lt; 0x12E, so the name also stops when it no
+		/// longer fits the box, whatever its length.</summary>
+		public const int NameInputLeftX = 0xA8;
+
+		public const int NameInputRightX = 0x12E;
+
+		/// <summary>
+		/// Whether the name input takes one more character (pickopt): fewer than MaxNameLength
+		/// typed, and the pen - the prompt's and the typed text's width from NameInputLeftX - still
+		/// left of NameInputRightX. The widths are the caller's, in the creation font's pixels.
+		/// </summary>
+		public static bool AcceptsNameCharacter(int piTypedLength, int piPromptAndNameWidth)
+		{
+			return piTypedLength < MaxNameLength && NameInputLeftX + piPromptAndNameWidth < NameInputRightX;
+		}
 
 		// String block 2
 		private const int StringBlock = 2;
 
 		private const int SexStringBase = 10;
-
-		private const int ClassStringBase = 24;
-
-		private const int SkillStringBase = UWPlayerData.SkillNameStringIndex;
 
 		private const int AttributeStringBase = 18;
 
@@ -217,7 +233,7 @@ namespace UWDataImport.UWData
 
 		public string GetSkillName(int piSkillNumber)
 		{
-			return fGetString(SkillStringBase + piSkillNumber);
+			return fGetString(UWStringIds.SkillNameBase + piSkillNumber);
 		}
 
 		public string GetAttributeLabel(int piIndex)
@@ -225,7 +241,7 @@ namespace UWDataImport.UWData
 			return fGetString(AttributeStringBase + piIndex);
 		}
 
-		public string ClassName => CharacterClass >= 0 ? fGetString(ClassStringBase + CharacterClass) : string.Empty;
+		public string ClassName => CharacterClass >= 0 ? fGetString(UWStringIds.ClassNameBase + CharacterClass) : string.Empty;
 
 		public string SexName => fGetString(SexStringBase + (IsFemale ? 1 : 0));
 
@@ -548,7 +564,12 @@ namespace UWDataImport.UWData
 			fEnter(Stage.Attributes);
 		}
 
-		/// <summary>Rolls a skill up (reference: chargen.RollSkill).</summary>
+		/// <summary>
+		/// Rolls a skill up (UnderworldExhumed SKILLS.C add_to_skill): a new skill gets 3 plus the
+		/// attribute / 9, 0 to 2 at random and THREE checks against 20; a skill already held gets
+		/// 1 plus the attribute / 13, 0 or 1 at random and TWO checks. Until 2026-10-12 a skill
+		/// picked again also rolled three (the reference's chargen.RollSkill).
+		/// </summary>
 		private void fRollSkill(int piSkill)
 		{
 			if (piSkill < 0 || piSkill >= SkillNumberCount)
@@ -557,17 +578,19 @@ namespace UWDataImport.UWData
 			int liValue = miSkills[piSkill];
 			int liBase;
 			int liDivisor;
-			const int liRolls = 3;
+			int liRolls;
 
 			if (liValue == 0)
 			{
 				liBase = 3;
 				liDivisor = 9;
+				liRolls = 3;
 			}
 			else
 			{
 				liBase = 1;
 				liDivisor = 0xD;
+				liRolls = 2;
 			}
 
 			int liGoverning = fGetGoverningValue(piSkill);
@@ -609,14 +632,11 @@ namespace UWDataImport.UWData
 			MaxMana = UWExperience.GetMaximumMana(miSkills[(int)UWPlayerData.Skill.Mana + 2], Intelligence);
 		}
 
+		/// <summary>Since 2026-10-11 through UWText, so the trailing CR/LF of the parsed strings
+		/// is trimmed here as everywhere else (the callers that needed it trimmed themselves).</summary>
 		private string fGetString(int piIndex)
 		{
-			if (mOStrings == null || !mOStrings.Blocks.ContainsKey(StringBlock))
-				return string.Empty;
-
-			var lOStrings = mOStrings.Blocks[StringBlock].Strings;
-
-			return piIndex >= 0 && piIndex < lOStrings.Count ? lOStrings[piIndex] : string.Empty;
+			return UWText.Block(mOStrings, StringBlock, piIndex);
 		}
 
 		/// <summary>The finished character as an unencrypted PLAYER.DAT.</summary>

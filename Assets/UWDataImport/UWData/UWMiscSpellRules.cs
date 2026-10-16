@@ -4,13 +4,13 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// Spell class 11 - the bag full of special cases (the reference: spellcasting_class_11,
-	/// CastClassB_Spells). Fourteen spells that have nothing to do with each other.
+	/// CastClassB_Spells). Thirteen spells that have nothing to do with each other.
 	///
-	/// ALL FOURTEEN ARE BUILT:
+	/// ALL THIRTEEN ARE BUILT:
 	///
 	///   0    Speed              speeds up walking, expires like any lasting spell
 	///   1    Detect Monsters    reports where critters are
-	///   2    Strengthen Door    does NOTHING - that is how it is in the original
+	///   2    Strengthen Door    shows the target cursor, and the click does nothing
 	///   3    Remove Trap        disarms the trap on a clicked object
 	///   4    Name Enchantment   permanently identifies a clicked object
 	///   5    Unlock             unlocks a clicked door
@@ -21,10 +21,15 @@ namespace UWDataImport.UWData
 	///   0xA  Gate Travel        jumps to the moonstone
 	///   0xB  Freeze Time        the critters no longer move, lasting spell
 	///   0xC  Armageddon         clears inventory, rune bag and all objects of the world
-	///   0xD  Dispel Hunger      hunger to 0xC0, i.e. sated
 	///
-	/// Engine-free since 2026-09-18 (P3): the three spells that go onto a CLICKED target
-	/// (Remove Trap, Name Enchantment, Unlock) only set the target cursor here; what happens
+	/// NO DISPEL HUNGER IN UW1 (xt_spells, UnderworldExhumed SPELLS.C, read 2026-10-12: cases 0
+	/// to 12 only). Minor 0xD is spell 50, "Local Teleport" in UW1's spell names, and does
+	/// nothing; "Dispel Hunger" is UW2's minor 13, which the reference carried over. Until
+	/// 2026-10-12 ours set the hunger to 0xC0 - an item of spell 50 now spends its charge
+	/// without an effect, as in the original.
+	///
+	/// Engine-free since 2026-09-18 (P3): the spells that go onto a CLICKED target
+	/// (Strengthen Door, Remove Trap, Name Enchantment, Unlock) only set the target cursor here; what happens
 	/// on the click is component work and stays in UWMiscSpell on the Unity side.
 	/// </summary>
 	public static class UWMiscSpellRules
@@ -46,6 +51,18 @@ namespace UWDataImport.UWData
 		/// <summary>See FreezeTimeEffectMinor. UWRoamingSight depends on this.</summary>
 		public const int RoamingSightEffectMinor = 1;
 
+		/// <summary>
+		/// THE LIGHT OF A REMOTE VIEW (audit 2026-10-14, A29, built 2026-10-15): while Roaming
+		/// Sight is among the active spells the original lights the view at level 6, whatever the
+		/// player carries or casts (FixPlayerEquips, game/PLAYDATA.C:456, "if WizEye set_light(6)";
+		/// WizEye comes from the active spell, parse_spells, so the slotless Roaming Sight keeps
+		/// the player's own light), and the crystal ball's vision does the same (crystal_ball,
+		/// game/PLAYER.C:458, FixPlayerEquips after it). Level 6 is one below the brightest row of
+		/// SHADES.DAT and above Night Vision's 5, so neither turns the view monochrome.
+		/// UWLighting.LightLevel applies it.
+		/// </summary>
+		public const int RemoteViewLightLevel = 6;
+
 		/// <summary>See FreezeTimeEffectMinor.</summary>
 		public const int SpeedEffectMinor = 2;
 
@@ -54,6 +71,11 @@ namespace UWDataImport.UWData
 
 		/// <summary>Spell class 11.</summary>
 		public const int MajorClass = 11;
+
+		/// <summary>String block 1, our numbering: "You cannot reach that." - a target spell's
+		/// object out of reach (game_sprint 0x5E in mous_in_3d's target mode); the spell keeps
+		/// waiting.</summary>
+		public const int TargetOutOfReachMessage = UWReachRules.CannotReachMessage;
 
 		public const int SpeedSpell = 0x0;
 		public const int DetectMonstersSpell = 0x1;
@@ -68,10 +90,6 @@ namespace UWDataImport.UWData
 		public const int GateTravelSpell = 0xA;
 		public const int FreezeTimeSpell = 0xB;
 		public const int ArmageddonSpell = 0xC;
-		public const int DispelHungerSpell = 0xD;
-
-		/// <summary>What Dispel Hunger sets hunger to - sated, but not overfed.</summary>
-		private const int DispelHungerValue = 0xC0;
 
 		/// <summary>
 		/// Casts a class 11 spell. Returns false for an unknown spell number or when a
@@ -91,12 +109,12 @@ namespace UWDataImport.UWData
 				case DetectMonstersSpell:
 					return fDetectCreatures(pIHost, DetectRange, DetectSkill);
 
+				// STRENGTHEN DOOR WAITS FOR A TARGET like the three object spells (xt_spells minors 2
+				// to 5 all enter the target mode with the same cursor, UnderworldExhumed SPELLS.C,
+				// read 2026-10-12), but obj_spells has no case for it: the click on an object in
+				// reach does nothing and ends the targeting (UWMiscSpell.CastOnTarget). Until
+				// 2026-10-12 ours returned at once without the cursor.
 				case StrengthenDoorSpell:
-					// DELIBERATELY NOTHING. The reference notes at this point that the spell
-					// does nothing in the original ("appears to be bugged and does nothing"). It still
-					// costs its mana, and exactly that happens here too.
-					return true;
-
 				case RemoveTrapSpell:
 				case NameEnchantmentSpell:
 				case UnlockSpell:
@@ -110,11 +128,18 @@ namespace UWDataImport.UWData
 					return true;
 
 				case RoamingSightSpell:
-					// Only register it. The camera depends on the EFFECT, not on the casting - see
-					// UWCharacter.fApplyActiveSpells and UWRoamingSight. If no effect slot
-					// is free, nothing happens to the camera either; the reference detaches it at
-					// this point before it has even checked that.
-					return pIHost.TryAddActiveSpell(MajorClass, RoamingSightEffectMinor, piStability);
+					// Register it: the camera follows the EFFECT - see UWCharacter.fApplyActiveSpells
+					// and UWRoamingSight.
+					//
+					// WITH ALL THREE SLOTS TAKEN THE VIEW DETACHES ANYWAY (xt_spells, UnderworldExhumed
+					// SPELLS.C, read 2026-10-12: set_curmagic's result is ignored, then home_cam,
+					// attach_eye(-1) and GameInputMode += 8), with no spell that would end it. An
+					// original bug, followed by the user's decision of 2026-10-12; until then ours
+					// left the camera alone. See UWRoamingSight for how one gets out.
+					if (!pIHost.TryAddActiveSpell(MajorClass, RoamingSightEffectMinor, piStability))
+						pIHost.BeginRoamingSightWithoutSpell();
+
+					return true;
 
 				case TelekinesisSpell:
 					return pIHost.TryAddActiveSpell(MajorClass, TelekinesisEffectMinor, piStability);
@@ -130,11 +155,6 @@ namespace UWDataImport.UWData
 
 				case ArmageddonSpell:
 					return fArmageddon(pIHost);
-
-				case DispelHungerSpell:
-					pIHost.ChangeHunger(DispelHungerValue - pIHost.PlayerHunger);
-
-					return true;
 
 				default:
 					return false;
@@ -302,22 +322,28 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		/// <summary>One line: one, a few or many creatures, and the direction
-		/// (DetectMonsterString_seg038_3307_12FD).</summary>
+		/// <summary>One line: one, a few or many creatures, the direction and the full stop
+		/// (DetectMonsterString_seg038_3307_12FD; print_monster hands it to print_path_to,
+		/// sys/MISCUTIL.C:108, which ends every line with ".\n" - missing in ours until
+		/// 2026-10-15, audit A32).</summary>
 		private static void fAddDetection(IUWSpellHost pIHost, int piDirection, int piCount)
+		{
+			pIHost.AddMessage(GetDetectionLine(pIHost.GetGeneralMessage, piDirection, piCount));
+		}
+
+		/// <summary>The line of fAddDetection, public for the self-check.</summary>
+		public static string GetDetectionLine(System.Func<int, string> pfGeneralMessage, int piDirection, int piCount)
 		{
 			int liCountMessage = OneCreatureMessage + (piCount > 1 ? 1 : 0) + (piCount > 4 ? 1 : 0);
 
-			pIHost.AddMessage(pIHost.GetGeneralMessage(liCountMessage)
-				+ pIHost.GetGeneralMessage(FirstDirectionMessage + piDirection));
+			return pfGeneralMessage(liCountMessage) + pfGeneralMessage(FirstDirectionMessage + piDirection) + ".";
 		}
 
 		// ------------------------------------------------- Tremor
 
-		/// <summary>The three boulders the spell drops: 0x154 "a_large boulder",
-		/// 0x155 "a_boulder", 0x156 "a_small boulder" (names from string block 4).</summary>
-		private const int FirstBoulderId = 0x154;
-
+		/// <summary>The three boulders the spell drops, from UWObjectIds.LargeBoulderB on: 0x154
+		/// "a_large boulder", 0x155 "a_boulder", 0x156 "a_small boulder" (names from string
+		/// block 4).</summary>
 		private const int BoulderKinds = 3;
 
 		/// <summary>How far in front of the caster the centre of the affected area lies.
@@ -376,7 +402,7 @@ namespace UWDataImport.UWData
 				UWRandom.RollDice(TremorDiceCount, TremorDieSides), pIHost,
 				pOTile =>
 				{
-					pIHost.DropBoulder(FirstBoulderId + UWRandom.Next(BoulderKinds), pOTile.X, pOTile.Z);
+					pIHost.DropBoulder(UWObjectIds.LargeBoulderB + UWRandom.Next(BoulderKinds), pOTile.X, pOTile.Z);
 
 					return 1;
 				});

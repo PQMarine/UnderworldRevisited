@@ -12,8 +12,7 @@ namespace UnderworldRevisited.Tools
     {
         private static void fCheckCritterView()
         {
-            Console.WriteLine();
-            Console.WriteLine("Creature picture view (NPC_seg032_2DCA_216)");
+            Check.Group("Creature picture view (NPC_seg032_2DCA_216)");
 
             int[] liCount = new int[8];
 

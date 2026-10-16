@@ -183,37 +183,26 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Which damage type a projectile deals - used to decide whether a target is immune to it
-		/// (see UWDamageTypes).
+		/// Which damage type a projectile's hit deals - used to decide whether the target resists
+		/// it (see UWDamageTypes).
 		///
-		/// Only the two that have an area effect on impact are assigned: the
-		/// fireball deals fire damage, the lightning bolt pure magic. The original uses
-		/// the same two-entry table for this as for the area spells, where the mapping is
-		/// unambiguous (Flame Wind fire, Sheet Lightning magic).
-		///
-		/// ASSUMED is that the order applies the same way there: on the projectile path the
-		/// reference indexes the same table with an index shifted by one, which does not
-		/// match its own use for the area spells and there even
-		/// leads to the fireball dealing no area damage at all. Chosen
-		/// is the reading that matches the area spells.
-		///
-		/// Magic Arrow and Acid stay without a type: in the original they have no area effect
-		/// and thus no entry from which anything could be derived. Without a type no
-		/// resistance is checked.
+		/// FROM THE TABLE (missile_newhit, UnderworldExhumed OBJPHYS.C, read 2026-10-12): the hit
+		/// passes the negated third byte of the projectile's OBJECTS.DAT ranged entry, read as a
+		/// signed byte, to missile_thwack as an unsigned char. The four spell projectiles carry
+		/// (UW1 data, read 2026-10-12): fireball 0xF5 -> 0x0B (magic and fire), lightning bolt
+		/// 0xDD -> 0x23 (magic and the cold bit), acid 0xF0 -> 0x10 (poison), magic missile 0xBD
+		/// -> 0x43 (magic and missile); the physical missiles 0xC0 -> 0x40. Until 2026-10-12 ours
+		/// assumed fire and plain magic for the first two from the area spells' table and nothing
+		/// for Magic Arrow and Acid. The impact square's damage is separate (UWObjectDamageRules).
 		/// </summary>
-		public static int GetProjectileDamageType(int piProjectileId)
+		public static int GetProjectileDamageType(int piProjectileId, UWObjectProperties pOProperties)
 		{
-			switch (piProjectileId)
-			{
-				case 20:
-					return UWDamageTypes.Fire;
+			if (pOProperties == null)
+				return UWDamageTypes.None;
 
-				case 21:
-					return UWDamageTypes.Magic;
+			int liAmmo = unchecked((sbyte)pOProperties.GetRangedType(piProjectileId));
 
-				default:
-					return UWDamageTypes.None;
-			}
+			return unchecked((byte)-liAmmo);
 		}
 
 		/// <summary>From this value on there is no icon.</summary>

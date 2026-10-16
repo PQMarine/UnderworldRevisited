@@ -291,7 +291,9 @@ public sealed class UWHudOptions
         {
             mOUi.mOInteraction.ResetMessages();
 
-            mOUi.mOInteraction.AddMessage(mOUi.mOUWData.GetGeneralMessage(psError == null && !pbCancelled
+            // Through UWText since 2026-10-11, so the message is trimmed of its CR/LF like every
+            // other general message.
+            mOUi.mOInteraction.AddMessage(UWText.General(mOUi.mOUWData, psError == null && !pbCancelled
                 ? SaveGameSucceededMessage
                 : SaveGameFailedMessage));
 
@@ -754,20 +756,41 @@ public sealed class UWHudOptions
     private const int PartwayMessage = 161;
 
     /// <summary>
-    /// THE OPTIONS REFUSE TO OPEN (seg024_24DC_1627, the opener behind the button, F1 and the
-    /// Ctrl shortcuts): partway through an action, and on level 9 at all - "Impossible, you are
-    /// between worlds." wins over the other (per user on the original, 2026-09-29: no saving in
-    /// the Void; ours let the panel open). "Partway" is IsPlayerDoingSomething, whose states are
+    /// THE OPTIONS REFUSE TO OPEN partway through an action (do_option_shortcut: "You cannot
+    /// select options partway through an action."). "Partway" is GameInputMode, whose states are
     /// not all read - APPROXIMATED as an object on the pointer or a spell or shot waiting for its
-    /// target. True when it refused, the message is written.
+    /// target. True when it refused, the message is written. The Void does NOT lock the panel:
+    /// until 2026-10-12 it did ("Impossible, you are between worlds." at the opener, from a
+    /// reading of 2026-09-29 that only knew saving was refused there); per user on the original
+    /// the same day the panel opens in the Void and a game can be restored, only Save refuses -
+    /// that is check_save, asked by the Save entry alone (RefusesToSave).
     /// </summary>
     internal bool RefusesToOpen()
     {
         Interaction lOInteraction = mOUi.mOInteraction;
+
+        if (!fIsPartway())
+            return false;
+
+        if (lOInteraction != null)
+            lOInteraction.AddGeneralMessage(PartwayMessage);
+
+        return true;
+    }
+
+    /// <summary>
+    /// SAVING REFUSES (check_save, INTERACT.C, asked when the Save entry is chosen - by a click,
+    /// Enter or Ctrl+S): partway through an action with "You cannot select options partway
+    /// through an action.", on level 9 with "Impossible, you are between worlds." - the Void wins
+    /// when both hold. The panel stays open on its top page. Restoring never refuses (check_rest:
+    /// an action in progress is simply abandoned). True when it refused, the message is written.
+    /// </summary>
+    internal bool RefusesToSave()
+    {
+        Interaction lOInteraction = mOUi.mOInteraction;
         int liMessage = 0;
 
-        if ((mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
-            || (lOInteraction != null && (lOInteraction.IsSpellTargeting || lOInteraction.IsRangedTargeting)))
+        if (fIsPartway())
             liMessage = PartwayMessage;
 
         UWLevelLoader lOLoader = UWScene.LevelLoader;
@@ -782,6 +805,15 @@ public sealed class UWHudOptions
             lOInteraction.AddGeneralMessage(liMessage);
 
         return true;
+    }
+
+    /// <summary>The approximation of the original's GameInputMode, see RefusesToOpen.</summary>
+    private bool fIsPartway()
+    {
+        Interaction lOInteraction = mOUi.mOInteraction;
+
+        return (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
+            || (lOInteraction != null && (lOInteraction.IsSpellTargeting || lOInteraction.IsRangedTargeting));
     }
 
     /// <summary>The entries of the top menu, counted from the top (the original counts them
@@ -817,6 +849,22 @@ public sealed class UWHudOptions
         fOpenOptions();
         mbOpenedByShortcut = true;
         fClickOptionsEntry(piTopEntry);
+    }
+
+    /// <summary>The scheme changes while the panel is up (UWControlScheme.Apply): the panel
+    /// closes, and its holds on time and input go with it; the modern menu takes its place.</summary>
+    internal void CloseForSchemeChange()
+    {
+        if (IsOpen)
+            fCloseOptionsMenu();
+    }
+
+    /// <summary>The scheme changes to the classic one while the modern menu is up: the panel
+    /// opens in its place, so the player still stands in a menu and can close it.</summary>
+    internal void OpenForSchemeChange()
+    {
+        if (!IsOpen && mOptionsButtonImage != null && mOUi.mGameFrame != null)
+            fOpenOptions();
     }
 
     private void fOpenOptions()
@@ -1032,7 +1080,10 @@ public sealed class UWHudOptions
             switch (piEntry)
             {
                 case 0:
-                    fShowSaveMenu();
+                    // The Void and "partway" refuse here, not at the opener (check_save).
+                    if (!RefusesToSave())
+                        fShowSaveMenu();
+
                     return;
 
                 case 1:

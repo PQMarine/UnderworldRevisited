@@ -14,14 +14,13 @@ namespace UWDataImport.UWData
 		/// <summary>a_rune bag (143, category Containers). It is an exception: clicking
 		/// it opens NO container window but turns the panel to the rune shelf
 		/// (per user, 2026-09-03). The ID comes from string block 4, entry 144 - with the
-		/// project's usual offset of one that is object 143.</summary>
-		public const int RuneBagId = 143;
+		/// project's usual offset of one that is object 143. The numbers several systems share
+		/// live in UWObjectIds since 2026-10-11; the names here stay as aliases.</summary>
+		public const int RuneBagId = UWObjectIds.RuneBag;
 
-		/// <summary>The player's object number WHILE PLAYING: 127, "an adventurer" - height 23,
-		/// radius 2 in COMOBJ.DAT. On disk the player carries 63 (UWTileQueries.PlayerObjectId),
-		/// whose entry has height zero; UW.EXE sets 127 while the game runs and 63 only for saving
-		/// (reference: SaveGame.Save, "Set the player back to being an adventurer").</summary>
-		public const int AdventurerObjectId = 127;
+		/// <summary>The player's object number WHILE PLAYING: 127, "an adventurer" - see
+		/// UWObjectIds.Adventurer for the saved 63.</summary>
+		public const int AdventurerObjectId = UWObjectIds.Adventurer;
 
 		/// <summary>
 		/// Books and scrolls (304-319, category BooksAndScrolls) do not carry their text
@@ -67,6 +66,50 @@ namespace UWDataImport.UWData
 		public static int GetBookStringIndex(UWObject pOBook)
 		{
 			return pOBook == null ? -1 : pOBook.Quantity - BookStringOffset;
+		}
+
+		/// <summary>Word 0 bit 10 (ID_FLAG10, Flags bit 1): the readable plays a cutscene instead
+		/// of its text - the map piece.</summary>
+		public const int BookCutsceneFlag = 0x2;
+
+		/// <summary>The first view-window cutscene; a flagged readable plays this plus its text
+		/// number (UseBook, BookLook).</summary>
+		public const int FirstBookCutscene = 0x100;
+
+		/// <summary>Text numbers from here on are not read with "You read the ...": on use they are
+		/// the stew recipe (UWStewRules), on look their text stands alone (BookLook).</summary>
+		public const int FirstHeaderlessTextNumber = 0x100;
+
+		/// <summary>The readable's text number in the original's numbering: the link field's low
+		/// nine bits (OBJ_LINK & 0x1FF).</summary>
+		public static int GetBookTextNumber(UWObject pOBook)
+		{
+			return pOBook == null ? -1 : pOBook.Quantity & 0x1FF;
+		}
+
+		/// <summary>
+		/// Whether a readable plays a cutscene instead of its text, and which: UseBook and BookLook
+		/// (UnderworldExhumed obj/USEITEMS.C, obj/LOOK.C, read 2026-10-15) decide by ID_FLAG10 and
+		/// play 0x100 + the text number in the view window (runcutscene, gfx/CUTS.C). UW1 has one
+		/// such scroll, the map piece on level 7 at 24/62 with text 8: cutscene 0x108, CS410.N01,
+		/// a plan labelled LOCKED, TRAP and TELEPORT (recognised by the user from a screenshot of
+		/// the original, 2026-09-03; ours shows its first image, the original plays it). Until
+		/// 2026-10-15 ours showed CS410 for any scroll whose text was empty, an assumption
+		/// (reference audit round 2, A47). -1 when the readable plays none.
+		/// </summary>
+		public static int GetBookCutscene(UWObject pOBook)
+		{
+			if (pOBook == null || (pOBook.Flags & BookCutsceneFlag) == 0)
+				return -1;
+
+			return FirstBookCutscene + GetBookTextNumber(pOBook);
+		}
+
+		/// <summary>Whether reading prints "You read the &lt;name&gt;..." before the text: text
+		/// numbers below 0x100 only (BookLook prints a higher one alone - the recipe).</summary>
+		public static bool ReadsWithHeader(UWObject pOBook)
+		{
+			return GetBookTextNumber(pOBook) < FirstHeaderlessTextNumber;
 		}
 
 		/// <summary>a_door trap - opens/closes the door on the target tile of the
@@ -124,8 +167,11 @@ namespace UWDataImport.UWData
 		/// which only happened to fit for the orb).</summary>
 		public const int LookTriggerId = 0x01A3;
 
-		/// <summary>String index of an a_text string trap in block 9. According to uw-formats.txt
-		/// "(64*level + owner)" - with a 0-based level, so level 1 occupies 0-63.
+		/// <summary>String index of an a_text string trap in block 9: quality &lt;&lt; 5 | owner, as
+		/// TRAP_TEXT_STRING reads it (UnderworldExhumed TRIGGER.C). Until 2026-10-12 it was
+		/// uw-formats.txt's "(64*level + owner)" with a 0-based level, which gives the same number on
+		/// every shipped trap (each one's quality is twice its 0-based level) but ignored the trap's
+		/// own field (reference audit, traps D16).
 		///
 		/// The ADDITIONAL +1 is not part of the original formula but compensates for the
 		/// known offset of this project on string access: the parsed blocks
@@ -141,13 +187,10 @@ namespace UWDataImport.UWData
 		///   text the user saw when using the double door sprite.
 		/// A previous version calculated with a 1-based level and without the offset and
 		/// thus landed on 65 and 67 respectively - a plausible but wrong reading in which a
-		/// trap seemed to point to an empty string.
-		///
-		/// piLevelIndex is the project's usual 0-based level index (see
-		/// UWLevelLoader.CurrentLevelIndex) and thus matches the original formula directly.</summary>
-		public static int GetTextTrapStringIndex(UWObject pOTrap, int piLevelIndex)
+		/// trap seemed to point to an empty string.</summary>
+		public static int GetTextTrapStringIndex(UWObject pOTrap)
 		{
-			return (64 * piLevelIndex) + pOTrap.Owner + 1;
+			return (((pOTrap.Quality & 0x3F) << 5) | (pOTrap.Owner & 0x3F)) + 1;
 		}
 
 		/// <summary>a_pole (216, 0x00D8) - verified live in the original per user
@@ -256,44 +299,27 @@ namespace UWDataImport.UWData
 		/// field - all its fields are zero; the number is hard-coded in uw.exe.</summary>
 		public const int TalkingDoorConversationSlot = 25;
 
-		/// <summary>Object slot of the conversation partner of a_do trap 50 - on level 7 the
-		/// troll guard (id 111, whoami 216) on tile 26/56. Also a fixed value in
-		/// uw.exe, not a field of the trap.</summary>
-		public const int ConversationTrapNpcIndex = 251;
-
 		/// <summary>Cutscene of the endgame sequence - CUTS\CS001, file names in octal.</summary>
 		public const int EndgameCutscene = 1;
 
 		/// <summary>The bullfrog field lies on level 4 (zero-based 3) and spans 48 to 55 on both
-		/// axes.</summary>
-		public const int BullfrogLevelIndex = 3;
+		/// axes - UWLevelIds and UWQuestPlaces hold the numbers since 2026-10-11.</summary>
+		public const int BullfrogLevelIndex = UWLevelIds.Bullfrog;
 
-		public const int BullfrogGridOrigin = 48;
+		public const int BullfrogGridOrigin = UWQuestPlaces.BullfrogGridOrigin;
 
-		public const int BullfrogGridSize = 8;
+		public const int BullfrogGridSize = UWQuestPlaces.BullfrogGridSize;
 
-		/// <summary>Game variables of the bullfrog puzzle: 24 the X choice, 25 the Y choice, 26 the
-		/// remaining attempts. A fresh game starts with 53 attempts - the only
-		/// game variable the original initialises to a non-zero value at all.</summary>
-		public const int BullfrogVarX = 24;
+		/// <summary>Game variables of the bullfrog puzzle, see UWQuestPlaces.</summary>
+		public const int BullfrogVarX = UWQuestPlaces.BullfrogVarX;
 
-		public const int BullfrogVarY = 25;
+		public const int BullfrogVarY = UWQuestPlaces.BullfrogVarY;
 
-		public const int BullfrogVarRetries = 26;
+		public const int BullfrogVarRetries = UWQuestPlaces.BullfrogVarRetries;
 
-		public const int BullfrogRetriesAtStart = 53;
+		public const int BullfrogRetriesAtStart = UWQuestPlaces.BullfrogRetriesAtStart;
 
-		public const int BullfrogRetriesOnReset = 0x3F;
-
-		/// <summary>Base height (position 0) of a height lever target tile - confirmed live
-		/// in the original per user (position 0 -&gt; 32, position 1 -&gt; 48, position 2 -&gt;
-		/// 64, ...), NOT the static height the target tile already has in the level data
-		/// (that is completely ignored/overwritten). The user himself: "I don't think
-		/// this is the right formula, but that is how the original behaves." Only verified in
-		/// one place (level 1, target tiles around 43-49/44) - whether 32 is a real
-		/// engine constant for this a_do trap action or only happens to fit here is
-		/// unconfirmed.</summary>
-		public const int DoTrapRaiseTileBaseHeight = 32;
+		public const int BullfrogRetriesOnReset = UWQuestPlaces.BullfrogRetriesOnReset;
 
 		/// <summary>a_lock (0x010F, last element of KeysLockpickLock). Doors resolve their lock
 		/// via Contents/EnsureContentsLoaded, not via ID comparison; the constant only
@@ -346,16 +372,17 @@ namespace UWDataImport.UWData
 			return pODoor.Owner >> 1;
 		}
 
-		/// <summary>Sets the durability of the spike. At zero it is broken and the door is
-		/// free again.</summary>
+		/// <summary>
+		/// Sets the durability of the spike. AT ZERO THE SPIKED BIT STAYS (damage_object,
+		/// UnderworldExhumed combat/DAMAGE.C, keeps owner bit 0 and writes the strength above it):
+		/// the spike takes no more, so the next blows wear the door again, but the door still
+		/// reads "spiked" (LOOK.C tests bit 0) and still keeps creatures out (UseRect) until it is
+		/// opened, which clears the bit (OpenDoor). Until 2026-10-12 ours cleared the whole field.
+		/// </summary>
 		public static void SetDoorSpikeStrength(UWObject pODoor, int piStrength)
 		{
-			if (piStrength <= 0)
-			{
-				pODoor.Owner = 0;
-
-				return;
-			}
+			if (piStrength < 0)
+				piStrength = 0;
 
 			pODoor.Owner = (ushort)(0x1 | ((piStrength > 31 ? 31 : piStrength) << 1));
 		}
@@ -373,7 +400,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Locks or unlocks a lock object directly. A DOOR keeps its state in
-		/// UWDoorLock and only writes it back when saving; a barrel or chest has no such
+		/// UWDoor (UWLockState) and writes it through as it changes; a barrel or chest has no such
 		/// component, so key and lockpick change its lock object itself.</summary>
 		public static void SetLockLocked(UWObject pOLock, bool pbLocked)
 		{
@@ -429,7 +456,7 @@ namespace UWDataImport.UWData
 		/// a key whose key ID matches the given lock ID. Only for
 		/// Modern (automatic check on an attempt to open, see Interaction.
 		/// fTryUseDoor) - Original instead requires explicitly applying a specific
-		/// key to the door in use mode (see Interaction.TryToggleDoorLockWithKey), no search
+		/// key to the door in use mode (see UWItemTargetUse), no search
 		/// needed.</summary>
 		public static UWObject FindMatchingKey(IEnumerable<UWObject> pOItems, int piLockId, List<UWObject> pOMasterlist)
 		{
@@ -530,14 +557,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>The bridge (356), the moongate (346) and the force field (365) - further fixed
 		/// things in the world that several systems recognise by number.</summary>
-		public const int BridgeObjectId = 0x0164;
+		public const int BridgeObjectId = UWObjectIds.Bridge;
 
 		public const int MoongateObjectId = 0x015A;
 
 		public const int ForceFieldObjectId = 365;
 
 		/// <summary>The moonstone (294) - the Gate Travel spell and the save game know it.</summary>
-		public const int MoonstoneObjectId = 0x126;
+		public const int MoonstoneObjectId = UWObjectIds.Moonstone;
 
 		/// <summary>Ammunition starts at 16: the crossbow bolt is 17, the arrow 18.</summary>
 		public const int FirstAmmunitionObjectId = 0x10;
@@ -546,13 +573,13 @@ namespace UWDataImport.UWData
 
 		public const int ArrowObjectId = 18;
 
-		/// <summary>Creatures are the objects 64 to 127.</summary>
-		public const int FirstCritterObjectId = 0x40;
+		/// <summary>Creatures are the objects 64 to 127 (UWObjectIds.IsCreature).</summary>
+		public const int FirstCritterObjectId = UWObjectIds.FirstCreature;
 
-		public const int LastCritterObjectId = 0x7F;
+		public const int LastCritterObjectId = UWObjectIds.LastCreature;
 
 		/// <summary>The quality field has six bits.</summary>
-		public const int MaxQuality = 63;
+		public const int MaxQuality = UWObjectIds.MaxQuality;
 
 		/// <summary>Major class of doors (5) and the render type of objects drawn by view
 		/// direction (2, COMOBJ.DAT) - the lore check and the trade screen tell them apart.</summary>
@@ -613,8 +640,9 @@ namespace UWDataImport.UWData
 		/// fountain whose enchantment is of the healing class (Fountain_seg040_352B_1816, 0xF9 there).</summary>
 		public const int FountainMessageIndex = 250;
 
-		/// <summary>"The water refreshes you." - every other fountain, enchanted or not (0xED).</summary>
-		public const int FountainRefreshMessageIndex = 238;
+		/// <summary>"The water refreshes you." - every other fountain, enchanted or not (0xED);
+		/// drinking water says the same (UWStringIds).</summary>
+		public const int FountainRefreshMessageIndex = UWStringIds.WaterRefreshesMessage;
 
 		/// <summary>The healing class: the fountain says "renew your strength" for it.</summary>
 		public const int FountainHealMajorClass = 4;
@@ -634,7 +662,7 @@ namespace UWDataImport.UWData
 			piMajorClass = -1;
 			piMinorClass = 0;
 
-			if (pOObject == null || ((pOObject.ID >> 6) & 7) == 6)
+			if (pOObject == null || UWObjectIds.Major(pOObject.ID) == TrapMajorClass)
 				return false;
 
 			UWObject lOSpell = FindSpellObject(pOObject, pORecords);
@@ -676,8 +704,7 @@ namespace UWDataImport.UWData
 		public const int PickUpTriggerId = 0x01A1;
 
 		/// <summary>a_create object trap - creates an object from the template the
-		/// sp_link points to. According to uw-formats.txt only if a random number between 0 and
-		/// 0x3F is GREATER than "quality".</summary>
+		/// sp_link points to, with chance (63 - quality) in 63 (UWTrapRules.CreateObjectRollFails).</summary>
 		public const int CreateObjectTrapId = 0x0187;
 
 		/// <summary>a_change terrain trap - turns a solid tile into floor and
@@ -730,8 +757,8 @@ namespace UWDataImport.UWData
 		/// cutscene (14/3).</summary>
 		public const int SpellTrapId = 0x0186;
 
-		/// <summary>a_pit trap. Toggles a tile between height zero and a
-		/// preset height - see GetPitTrapHeight.</summary>
+		/// <summary>a_pit trap. Does nothing in UW1 - UseTrap (TRIGGER.C) has no case for it and
+		/// the chain goes on through its link (UWTrapRules).</summary>
 		public const int PitTrapId = 0x0184;
 
 		/// <summary>
@@ -761,18 +788,6 @@ namespace UWDataImport.UWData
 		public static int GetInventoryTrapItemId(UWObject pOTrap)
 		{
 			return ((pOTrap.Quality & 0x3F) << 5) | (pOTrap.Owner & 0x3F);
-		}
-
-		/// <summary>
-		/// To which height an a_pit trap raises its tile, in height steps.
-		///
-		/// It is NOT in ZPos but in YPos and XPos combined (the reference:
-		/// a_pit_trap.Activate). In the only instance in uw1 - level 3 at 6/4 - both are
-		/// zero, so the trap raises to zero and thus does nothing visible.
-		/// </summary>
-		public static int GetPitTrapHeight(UWObject pOTrap)
-		{
-			return (pOTrap.YPos << 3) + pOTrap.XPos;
 		}
 
 		/// <summary>an_open trigger. Fires when a door is opened.
@@ -807,19 +822,6 @@ namespace UWDataImport.UWData
 		/// "look" graphics for windows to abyss volcano core.</summary>
 		public const string WindowCutsceneFile = "CS400.N01";
 
-		/// <summary>The picture parchment. A scroll without text shows this
-		/// plan in the view window instead of letters - labelled LOCKED, TRAP and TELEPORT.
-		///
-		/// Found by searching the CS4xx files and recognised by the user from a screenshot of
-		/// the original (2026-09-03). The file has three images, the second
-		/// equals the first - image 0 is shown.
-		///
-		/// ASSUMPTION: that EVERY textless scroll shows this one image. Only the one
-		/// case from the user's save game is established. If there were several different images, something
-		/// on the object would have to tell them apart - its flags would be the first suspect,
-		/// this scroll carries a 2 there instead of the usual 0.</summary>
-		public const string PictureScrollCutsceneFile = "CS410.N01";
-
 		/// <summary>The two wall textures that show a window opening. Wall decorations
 		/// (object 366/367) take their texture via the owner field from the level's wall texture list,
 		/// so their meaning lies solely in the texture. On all nine levels
@@ -850,7 +852,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>The object that carries a spell: id 288, decomposed 4-2-0. A
 		/// wand links to it instead of carrying the spell itself.</summary>
-		public const int SpellObjectId = 288;
+		public const int SpellObjectId = UWObjectIds.SpellObject;
 
 		/// <summary>Bit 2 of the flags. It decides how the link is to be read - a rune spell
 		/// number with the bit set, major and minor class without it (see
@@ -984,43 +986,22 @@ namespace UWDataImport.UWData
 			if (pORecords == null)
 				return null;
 
-			int liAt = pOObject.Quantity;
-
-			// The chain is finite, but a broken file could point in a circle.
-			for (int liStep = 0; liStep < pORecords.Count && liAt > 0 && liAt < pORecords.Count; liStep++)
+			// The chain is finite, but a broken file could point in a circle: at most as many
+			// steps as there are records, as the loop here had before UWObjectChain (2026-10-11).
+			foreach (UWObject lOAt in UWObjectChain.Walk(pOObject, pORecords, pORecords.Count))
 			{
-				UWObject lOAt = pORecords[liAt];
-
-				if (lOAt == null)
-					return null;
-
 				if (lOAt.ID == SpellObjectId)
 					return lOAt;
-
-				liAt = lOAt.Link;
 			}
 
 			return null;
 		}
 
-		/// <summary>
-		/// Is the quantity field really a count - so may one subtract from it?
-		///
-		/// TWO REASONS WHY NOT. Without the quantity bit it is a link to an object chain.
-		/// And if the item is ENCHANTED, it carries the spell id instead of a number
-		/// (see FindSpellObject) - which is exactly why the potions' values in SAVE3 are
-		/// above five hundred. uw-formats.txt 4.3 gives the same threshold, and
-		/// UWInventoryWeight uses it: from 512 the field is a special property.
-		/// </summary>
-		public static bool IsStackable(UWObject pOObject)
-		{
-			return pOObject != null && pOObject.HasQuantity && !pOObject.IsEnchanted
-				&& pOObject.Quantity < SpecialPropertyThreshold;
-		}
-
-		/// <summary>From here on the quantity field is a special property, not a count.
-		/// </summary>
-		public const int SpecialPropertyThreshold = 512;
+		// Whether the quantity field is a count, and the 512 threshold from which it is a special
+		// property, live in UWStackRules since 2026-10-11 (IsStackable, SpecialPropertyThreshold).
+		// The enchanted flag was tested here as well until then; the original does not, the
+		// threshold already excludes an enchanted object (its spell sits in the same word from
+		// 512 on, see FindSpellObject).
 
 		/// <summary>
 		/// Finds a damage trap in an item's chain - the same search as
@@ -1060,19 +1041,10 @@ namespace UWDataImport.UWData
 			if (pORecords == null)
 				return null;
 
-			int liAt = pOObject.Quantity;
-
-			for (int liStep = 0; liStep < pORecords.Count && liAt > 0 && liAt < pORecords.Count; liStep++)
+			foreach (UWObject lOAt in UWObjectChain.Walk(pOObject, pORecords, pORecords.Count))
 			{
-				UWObject lOAt = pORecords[liAt];
-
-				if (lOAt == null)
-					return null;
-
 				if (lOAt.ID == DamageTrapId)
 					return lOAt;
-
-				liAt = lOAt.Link;
 			}
 
 			return null;
@@ -1112,20 +1084,13 @@ namespace UWDataImport.UWData
 			if (pOObject == null || pORecords == null || pOObject.HasQuantity || pOObject.Quantity == 0)
 				return false;
 
-			int liAt = pOObject.Quantity;
-
-			for (int liStep = 0; liStep < pORecords.Count && liAt > 0 && liAt < pORecords.Count; liStep++)
+			foreach (UWObject lOAt in UWObjectChain.Walk(pOObject, pORecords, pORecords.Count))
 			{
-				UWObject lOAt = pORecords[liAt];
-
-				if (lOAt == null)
-					return false;
-
-				if ((lOAt.ID >> 6) == TrapMajorClass)
+				if (UWObjectIds.Major(lOAt.ID) == TrapMajorClass)
 				{
 					UWObject lOTrap = lOAt;
 
-					if (((lOAt.ID >> 4) & 0x3) >= 2)
+					if (UWObjectIds.Minor(lOAt.ID) >= 2)
 					{
 						// A trigger: the trap hangs off ITS special link.
 						if (lOAt.Quantity <= 0 || lOAt.Quantity >= pORecords.Count)
@@ -1142,8 +1107,6 @@ namespace UWDataImport.UWData
 
 					return true;
 				}
-
-				liAt = lOAt.Link;
 			}
 
 			return false;
@@ -1153,16 +1116,16 @@ namespace UWDataImport.UWData
 		public const int TrapMajorClass = 6;
 
 		/// <summary>
-		/// Light sources: 144 to 147 unlit, 148 to 151 lit.
+		/// Light sources: 144 to 147 unlit, 148 to 151 lit (UWObjectIds).
 		///
 		/// Read from the names in string block 4: lantern, torch, candle, taper, then
 		/// the same four as "lit". So lighting simply means adding four.
 		/// </summary>
-		public const int FirstUnlitLightId = 144;
+		public const int FirstUnlitLightId = UWObjectIds.FirstUnlitLight;
 
-		public const int LastUnlitLightId = 147;
+		public const int LastUnlitLightId = UWObjectIds.LastUnlitLight;
 
-		public const int LitLightOffset = 4;
+		public const int LitLightOffset = UWObjectIds.LitLightOffset;
 
 		public static bool IsUnlitLight(int piObjectId)
 		{
@@ -1185,10 +1148,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The lantern - first of the four light sources.</summary>
-		public const int LanternObjectId = 144;
+		public const int LanternObjectId = UWObjectIds.Lantern;
 
 		/// <summary>The torch.</summary>
-		public const int TorchObjectId = 145;
+		public const int TorchObjectId = UWObjectIds.Torch;
 
 		/// <summary>Two object numbers are both called "a_piece of wood". A piece of wood
 		/// and an oil flask make a torch.</summary>
@@ -1211,22 +1174,19 @@ namespace UWDataImport.UWData
 
 		/// <summary>The four boulders, from largest to smallest. The rock hammer turns
 		/// each into the next smaller one; the smallest becomes sling stones.</summary>
-		public const int FirstBoulderObjectId = 339;
+		public const int FirstBoulderObjectId = UWObjectIds.FirstBoulder;
 
-		public const int LastBoulderObjectId = 342;
+		public const int LastBoulderObjectId = UWObjectIds.LastBoulder;
 
 		/// <summary>The sling stone - what remains of the smallest boulder.</summary>
 		public const int SlingStoneObjectId = 16;
 
-		/// <summary>Maximum fill of a light source. Oil adds 32, more than that
-		/// does not fit.</summary>
-		public const int FullLightQuality = 63;
+		/// <summary>Maximum fill of a light source - the quality field's six bits. Oil adds 32,
+		/// more than that does not fit.</summary>
+		public const int FullLightQuality = UWObjectIds.MaxQuality;
 
 		/// <summary>This much oil fits in a flask.</summary>
 		public const int OilFlaskFill = 32;
-
-		/// <summary>What a freshly soaked torch starts with.</summary>
-		public const int NewTorchQuality = 40;
 
 		/// <summary>
 		/// Sets an item's object number and fetches its image and texture again.
@@ -1279,7 +1239,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The lit taper, the last of the four lit lights.</summary>
-		public const int LitTaperObjectId = LastUnlitLightId + LitLightOffset;
+		public const int LitTaperObjectId = UWObjectIds.LitTaper;
 
 		/// <summary>
 		/// A burning light put into the world - put down, landed after a throw, a flying thing

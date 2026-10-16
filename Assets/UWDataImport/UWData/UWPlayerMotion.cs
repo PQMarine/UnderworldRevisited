@@ -112,6 +112,12 @@ namespace UWDataImport.UWData
 		/// <summary>The swim counter PD[0xB9] on entering water (SetPlayerDataOxB9).</summary>
 		public const int SwimCounterOnEntering = 0x60;
 
+		/// <summary>While the counter is above this, the periodic player update
+		/// (seg028_2985_24C) runs the swim checks, and one hangs deeper in the water than the
+		/// feet position says (UWReachRules; until 2026-10-11 declared there and on the Unity
+		/// side as well).</summary>
+		public const int SwimCounterCheckThreshold = 0x50;
+
 		/// <summary>dseg_D4: the speed ratio in tenths per state.</summary>
 		private static readonly int[] SpeedRatio = { 10, 3, 5, 10, 1, 7, 2 };
 

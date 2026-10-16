@@ -63,6 +63,16 @@ namespace UWDataImport.UWData
 		/// <summary>Index of the frame currently held in myFrame, -1 before the first.</summary>
 		private int miDecodedFrame = -1;
 
+		/// <summary>The file of a cutscene's page: "CS" and the cutscene number in three octal
+		/// digits, ".N" and the page in two (uw-formats.txt on the command open-file) - 0x108
+		/// page 1 is CS410.N01.</summary>
+		public static string FileName(int piCutscene, int piPage)
+		{
+			return string.Format("CS{0}.N{1}",
+				System.Convert.ToString(piCutscene, 8).PadLeft(3, '0'),
+				System.Convert.ToString(piPage, 8).PadLeft(2, '0'));
+		}
+
 		public UWCutscene(string psFileName)
 		{
 			PaletteRgb = new byte[768];

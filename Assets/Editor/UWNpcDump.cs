@@ -21,8 +21,6 @@ public static class UWNpcDump
 {
     private const int LevelIndex = 0;
 
-    private const int BridgeObjectId = 356;
-
     [MenuItem("Underworld Revisited/Diagnostics/Dump NPCs")]
     public static void Dump()
     {
@@ -44,7 +42,7 @@ public static class UWNpcDump
             {
                 foreach (UWObject lOObject in lOOther.TileData[liTile].ObjectsInTile)
                 {
-                    if (lOObject == null || lOObject.ID != BridgeObjectId)
+                    if (lOObject == null || lOObject.ID != UWObjectIds.Bridge)
                         continue;
 
                     UWTile lOT = lOOther.TileData[liTile];

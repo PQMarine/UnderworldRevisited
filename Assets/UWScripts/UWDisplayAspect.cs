@@ -3,53 +3,17 @@
 /// for, every original pixel 1.2 times taller than wide, as DOSBox shows it (see
 /// UWGameUI.HorizontalPixelFactor).
 ///
-/// WHY A CLASS OF ITS OWN, the same split as UWSoundOptions: the live value sits in UWSettings,
-/// a ScriptableObject, so that the Inspector shows and changes it while playing - but a build
-/// never writes that asset back, so the lasting copy lives in UWUserSettings (settings.json).
-/// Everything that reads the switch reads it here, which puts the saved value in place before
-/// the first frame is drawn. Since 2026-09-22 it is in the Graphics menu of the bar (per user).
-///
 /// ALWAYS ON since 2026-10-10 (per user: "without the 4:3 fix everything looks wrong"): the
-/// checkbox in its place switches the classic frame's widescreen (UWClassicWide); the stored
-/// value is no longer read.
+/// checkbox in its place switches the classic frame's widescreen (UWClassicWide). Until then the
+/// live value sat in UWSettings (the asset field DisplayAs4By3, removed 2026-10-11) with its
+/// lasting copy in UWUserSettings (settings.json), where the field stays for the file's sake only
+/// and is no longer read. Everything that asks for the switch still asks here, so the place where
+/// a choice would be read is kept.
 /// </summary>
 public static class UWDisplayAspect
 {
     public static bool Enabled
     {
-        get
-        {
-            fEnsureLoaded();
-
-            UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-
-            return lOSettings == null || lOSettings.DisplayAs4By3;
-        }
-
-        set
-        {
-            fEnsureLoaded();
-            fApply();
-        }
-    }
-
-    private static bool mbLoaded;
-
-    private static void fEnsureLoaded()
-    {
-        if (mbLoaded)
-            return;
-
-        mbLoaded = true;
-
-        fApply();
-    }
-
-    private static void fApply()
-    {
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-
-        if (lOSettings != null)
-            lOSettings.DisplayAs4By3 = true;
+        get { return true; }
     }
 }

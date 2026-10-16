@@ -76,31 +76,19 @@ public class DoorMover : MonoBehaviour, IUsableDoor
             if (mOTileBlocker != null)
                 mOTileBlocker.enabled = mbIsClosed;
 
-            fWriteStateToData();
+            // THE DATA FOLLOWS THE LEAF (2026-10-05, found when goblins walked through a door
+            // the player had closed): the motion core reads the door from the level data - an
+            // open door's object is lifted 24 above the floor and is no obstacle, a closed one
+            // stands in the way - so every state change goes into the object at once. UWDoor
+            // does the writing (since 2026-10-12; this class called the capture itself before)
+            // and knows that before Start the state is the data's own.
+            StateChanged?.Invoke();
         }
     }
 
-    /// <summary>
-    /// THE DATA FOLLOWS THE LEAF (2026-10-05, found when goblins walked through a door the
-    /// player had closed): the motion core reads the door from the level data - an open door's
-    /// object is lifted 24 above the floor and is no obstacle, a closed one stands in the way -
-    /// so every state change is written into the object at once (UWWorldCapture.CaptureDoor,
-    /// which the save used to call alone). Before Start the state is the data's own.
-    /// </summary>
-    private void fWriteStateToData()
-    {
-        if (!didStart)
-            return;
+    public event System.Action StateChanged;
 
-        UWEntityInfo lOInfo = GetComponentInParent<UWEntityInfo>();
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-
-        if (lOInfo == null || lOInfo.ObjectData == null)
-            return;
-
-        UWDataImport.UWData.UWWorldCapture.CaptureDoor(lOLoader != null ? lOLoader.CurrentLevel : null, lOInfo.ObjectData,
-            true, !mbIsClosed, false, 0, 0, null);
-    }
+    public System.Func<bool> ClosingBlocked { get; set; }
 
     public void SetTileBlocker(BoxCollider pOBlocker)
     {
@@ -212,8 +200,10 @@ public class DoorMover : MonoBehaviour, IUsableDoor
             // CLOSING ONTO THE PLAYER: watched for the whole swing, the final frame included;
             // whoever stands in the tile sends the leaf back to fully open. Only then, below,
             // does the door shut and the collision return.
+            // AND ONTO ANYTHING ELSE IN THE DOORWAY - a creature, a barrel (ClosingBlocked, the
+            // original's check_door; per user 2026-10-13: a goblin in the doorway let it shut).
             if (mbClosing && mfMotionStartOpen - mfOpenNow >= FirstStep
-                && UWPlayerCollision.OverlapsPlayer(mOTileBlocker))
+                && (UWPlayerCollision.OverlapsPlayer(mOTileBlocker) || (ClosingBlocked != null && ClosingBlocked())))
             {
                 mbClosing = false;
                 mCurrentRotation = fOpeningSign() * (OpenAngle - mfOpenNow);

@@ -63,7 +63,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `MajorSpellClassB` (seg038_1645) | UWMiscSpellRules.cs, UWPlayerCritterRow.cs |
 | `InitPlayer` (ovr098_0) | UWPlayerCritterRow.cs, UWPlayerData.cs |
 | `ImportConversationVariables` (ovr103_0) | UWConversationSession.cs, UWObjectClassProperties.cs |
-| `CalmNPCS` (ovr104_115) | UWCritterRecord.cs, UWLevelExit.cs |
 | `ArialTalking` (ovr107_1373) | UWObjectMechanics.cs, UWTrapRules.cs |
 | `PlantSilverSeed` (ovr143_12FB) | UWPlayerData.cs, UWSilverTreeRules.cs |
 | `TurnTowardsPath` (seg006_1477_2504) | UWCritterBrain.cs, UWCritterRules.cs |
@@ -135,11 +134,20 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `take_id_from_npc` (ovr095_1C42) | UWConversationTrade.cs |
 | `set_likes_dislikes` (ovr095_1F7B) | UWConversationTrade.cs |
 | `ovr095_1FAD` | UWConversationTrade.cs |
-| `end_barter` (ovr095_3C2) | IUWConversationHost.cs, UWConversationTrade.cs |
+| `end_barter` (ovr095_3C2) | IUWConversationHost.cs |
 | `ovr095_4D3` | UWConversationScreen.cs |
 | `ovr095_52F` | UWConversationScreen.cs |
-| `ovr095_683` | UWConversationSession.cs, UWConversationTrade.cs, UWItemDescriptions.cs, UWLoreCheck.cs, UWItemDrag.cs |
+| `ovr095_683` | UWConversationSession.cs, UWConversationTrade.cs, UWItemDescriptions.cs, UWLoreCheck.cs |
 | `ovr095_F07` | UWConversationTrade.cs |
+
+### ovr097
+
+| Place | Files |
+|---|---|
+| `probablyTradeObjects` (ovr097_100A) | UWStackRules.cs |
+| `UseTradeSlot` (ovr097_6E8) | UWConversationTrade.cs, UWPickupRules.cs, UWItemDrag.cs, UWModernBags.Trade.cs, PickupRuleChecks.cs |
+| `ovr097_CDB` | UWConversationTrade.cs, ConversationTradeChecks.cs |
+| `CombineToSlot` (ovr097_D30) | UWConversationTrade.cs, UWStackRules.cs, UWItemDrag.cs, ConversationTradeChecks.cs |
 
 ### ovr098
 
@@ -172,19 +180,19 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `ImportConversationVariables` (ovr103_0) | UWConversationSession.cs, UWObjectClassProperties.cs |
+| `getInputText` (ovr103_1117) | UWConversationSession.cs, UWConversationScreen.cs |
 | `RetrieveImportedVariablesAfterConversation` (ovr103_492) | UWConversationSession.cs |
 
 ### ovr104
 
 | Place | Files |
 |---|---|
-| `CalmNPCS` (ovr104_115) | UWCritterRecord.cs, UWLevelExit.cs |
-| `CheckNearbyNPCHunger` (ovr104_6F1) | UWSleepRules.cs, Program.cs |
-| `ovr104_71C` | UWSleepRules.cs, UWCritter.cs, UWSleep.cs, Program.cs |
+| `CalmNPCS` (ovr104_115) | UWCritterRecord.cs |
+| `ovr104_71C` | UWSleepRules.cs, UWCritter.cs, Program.cs |
 | `UpdateNearByNPCMovements` (ovr104_B80) | UWSleepRules.cs |
 | `ovr104_BB` | UWSleepRules.cs, Program.cs |
 | `AngerNPCByIllegalAction` (ovr104_C37) | UWCritterRules.cs, UWCritter.cs, UWTriggerSystem.cs, Program.cs |
-| `ovr104_E4C` | UWCritterRules.cs, UWTrapRules.cs, Interaction.cs, Program.cs |
+| `ovr104_E4C` | UWCritterRules.cs, UWTrapRules.cs, UWWorldPickup.cs, Program.cs |
 
 ### ovr105
 
@@ -246,7 +254,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `ovr118_3CB` | UWCarriedSlots.cs, UWLevelLoader.cs |
-| `ClearObjectList` (ovr118_4BE) | UWCarriedSlots.cs, UWLevelLoader.cs |
+| `ClearObjectList` (ovr118_4BE) | UWCarriedSlots.cs, UWLevelChangeRules.cs, UWLevelLoader.cs |
 | `ovr118_573` | UWCarriedSlots.cs, UWPlayerData.cs, UWLevelLoader.cs |
 | `ovr118_639` | UWCarriedSlots.cs |
 
@@ -284,8 +292,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `LookAt` (ovr122_0) | UWItemDescriptions.cs |
-| `LookAtMagicEquipment` (ovr122_34A) | UWConversationTrade.cs |
-| `MagicItemDescription` (ovr122_3AC) | UWConversationTrade.cs, UWEnchantment.cs |
+| `MagicItemDescription` (ovr122_3AC) | UWEnchantment.cs |
 | `Read` (ovr122_586) | Interaction.cs |
 | `LookAtTalisman` (ovr122_CC3) | UWItemDescriptions.cs |
 
@@ -365,7 +372,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `VictoryScreen` (ovr143_76F) | UWEndgame.cs, UWIntroPlayer.cs |
 | `ovr143_95` | UWTybalOrbRules.cs, Program.cs |
 | `GaramonDream` (ovr143_B73) | UWSleepRules.cs |
-| `SleepingOnDamagingSurface` (ovr143_C7A) | UWSleepRules.cs, UWSleep.cs |
 | `Sleep` (ovr143_D1F) | UWInventoryModel.cs, UWPlayerVitals.cs, UWRespawnRules.cs, UWSleepRules.cs, UWWornRegeneration.cs, UWCreatureRespawner.cs, UWSleep.cs |
 
 ### ovr145
@@ -400,14 +406,13 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `TriggerNext` (ovr153_D03) | UWTrapRules.cs |
 | `ovr153_DC2` | UWTrapChainRemoval.cs |
 | `ovr153_E83` | UWTrapChainRemoval.cs |
-| `DoTraps` (ovr153_F7B) | UWTrapRules.cs |
 
 ### ovr154
 
 | Place | Files |
 |---|---|
 | `GetDetectedCreatureDirections` (ovr154_11B) | UWShrineRules.cs, Program.cs |
-| `GetCardinal` (ovr154_7C) | UWShrineRules.cs, Program.cs |
+| `GetCardinal` (ovr154_7C) | UWShrineRules.cs, UWStringIds.cs, Program.cs |
 
 ### seg004
 
@@ -428,7 +433,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `TestTileTraversal` (seg006_1056) | UWTilePath.cs, Program.cs |
-| `PathFindBetweenTiles` (seg006_1477_12BB) | UWSleepRules.cs, UWTilePath.cs, UWTileRoute.cs, Program.cs |
+| `PathFindBetweenTiles` (seg006_1477_12BB) | UWTilePath.cs, UWTileRoute.cs, Program.cs |
 | `seg006_1477_164` | UWMobileObjectMotion.cs |
 | `seg006_1477_1843` | UWTileRoute.cs |
 | `seg006_1477_1938` | ICritterHost.cs, UWTileRoute.cs, UWCritter.cs |
@@ -626,14 +631,13 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `PutAwayWeapon` (seg024_15C0) | UWMusicSelector.cs, UWPlayerMotion.cs, Interaction.cs |
 | `seg024_24DC_109B` | UWItemDescriptions.cs, UWLoreCheck.cs |
 | `SetInteractionMode` (seg024_24DC_13D5) | UWClickRules.cs, UWCommandMode.cs, UWMusicSelector.cs, Interaction.cs, Program.cs |
-| `seg024_24DC_1627` | UWHudOptions.cs |
 | `seg024_24DC_26F` | UWClickRules.cs, Program.cs |
 | `PlayerUpdateTick` (seg024_24DC_3A4) | UWPlayerTick.cs, UWPlayerVitals.cs, UWWornRegeneration.cs, UWCharacter.cs, UWGameUI.cs, UWVoidEffects.cs, Program.cs |
 | `seg024_24DC_BF4` | UWItemDrag.cs |
 | `Look` (seg024_24DC_D20) | UWCommandMode.cs, UWItemDescriptions.cs, Interaction.cs |
 | `ClickOnObject` (seg024_24DC_EFF) | UWCommandMode.cs |
 | `PrintCompassStatusMessage` (seg024_32) | UWHudMap.cs |
-| `Pickup` (seg024_A9E) | UWMoonstoneRules.cs, UWItemDrag.cs |
+| `Pickup` (seg024_A9E) | UWMoonstoneRules.cs, UWWorldPickup.cs |
 
 ### seg025
 
@@ -646,7 +650,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg025_57C` | UWPlayerThrow.cs |
 | `seg025_5CC` | UWPlayerThrow.cs |
 | `seg025_636` | UWPlayerThrow.cs |
-| `seg025_6C1` | UWLevelLoader.cs |
 | `seg025_711` | UWPlayerThrow.cs |
 | `seg025_73C` | UWTriggerSystem.cs |
 | `PrepareProjectileObject` (seg025_791) | UWMobileObjectMotion.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
@@ -659,7 +662,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWMotionCore.cs, UWLevelLoader.cs, UWPlayerThrow.cs, UWSpellHost.cs |
+| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWMotionCore.cs, UWPlacement.cs, UWPlayerThrow.cs, UWSpellHost.cs |
 | `MoveObjectToCoordinates` (seg026_122B) | UWScatterRules.cs |
 | `PlaceObjectAtNPC` (seg026_12E5) | IUWConversationHost.cs, UWScatterRules.cs |
 | `InsertObjectToList` (seg026_133F) | UWScatterRules.cs |
@@ -679,7 +682,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `RunCodeOnObjectChain` (seg027_117) | UWLiquidCulling.cs, UWObjectLimitRules.cs, UWTileQueries.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
-| `ObjectCulling` (seg027_2861_226) | UWLiquidCulling.cs, UWMobileObjectMotion.cs |
+| `ObjectCulling` (seg027_2861_226) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWObjectLimitRules.cs |
 | `CullObjects` (seg027_2861_329) | UWLiquidCulling.cs, UWObjectLimitRules.cs |
 | `RemoveObject` (seg027_2861_6DD) | UWLiquidCulling.cs |
 | `RemoveFromObjectChain` (seg027_2861_831) | UWTrapChainRemoval.cs |
@@ -699,7 +702,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `seg028_2941_449` | UWWorldCapture.cs |
 | `PlayerUpdates` (seg028_2985_13D) | UWPlayerTick.cs, UWPlayerVitals.cs, UWRespawnRules.cs, UWWornRegeneration.cs, UWCharacter.cs |
-| `seg028_2985_24C` | UWPlayerTerrain.cs |
+| `seg028_2985_24C` | UWPlayerMotion.cs, UWPlayerTerrain.cs |
 | `UpdateInventoryLightSources` (seg028_2985_3B6) | UWInventoryModel.cs |
 | `SwimSkillCheck` (seg028_4AE) | UWPlayerData.cs, UWPlayerTerrain.cs |
 | `PlayerStatusEffectSpells` (seg028_589) | UWPlayerCritterRow.cs |
@@ -708,7 +711,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlacedObjectCollison` (seg029_104D) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWLevelLoader.cs |
+| `PlacedObjectCollison` (seg029_104D) | UWLiquidCulling.cs, UWMobileObjectMotion.cs |
 | `seg029_29EE_100B` | UWMobileObjectMotion.cs |
 | `CollideObjects` (seg029_29EE_173) | IUWMotionWorld.cs, UWCommonObjectProperties.cs, UWCreatureMotion.cs, UWMotionCore.cs, UWProjectileWorld.cs |
 | `seg029_29EE_3` | IUWMotionWorld.cs, UWCreatureMotion.cs, UWMotionCore.cs, UWPlayerMovement.cs, UWProjectileWorld.cs |
@@ -717,14 +720,14 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `MakeMobile` (seg029_29EE_A1F) | UWMobileObjectMotion.cs |
 | `seg029_29EE_AD` | UWProjectileFlight.cs, UWTriggerSystem.cs |
 | `InitMobileRecord` (seg029_29EE_B3A) | UWMobileObjectMotion.cs |
-| `ObjectHitsFloorTileDestroyTalismans` (seg029_C6F) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWObjectMechanics.cs, UWEndgame.cs, UWLevelLoader.cs, UWThrownItemFlight.cs |
+| `ObjectHitsFloorTileDestroyTalismans` (seg029_C6F) | UWLiquidCulling.cs, UWMobileObjectMotion.cs, UWObjectMechanics.cs, UWEndgame.cs |
 
 ### seg030
 
 | Place | Files |
 |---|---|
 | `ProcessCollisions` (seg030_115F) | UWMotionCore.cs |
-| `seg030_2B26` | UWImpactRules.cs, UWLevelLoader.cs, UWPlayerMovement.cs, UWSoundEffects.cs |
+| `seg030_2B26` | UWImpactRules.cs, UWPlayerMovement.cs, UWSoundEffects.cs |
 | `SetCollisionTarget` (seg030_2B26_10C) | UWMotionCore.cs |
 | `seg030_2B26_11F2` | UWMotionCore.cs |
 | `GetCollisionHeightState` (seg030_2B26_1259) | UWMotionCore.cs |
@@ -835,7 +838,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ManaChange` (seg038_2B6) | UWPlayerVitals.cs, UWWornRegeneration.cs |
 | `QuakeSpell` (seg038_3307_1211) | UWMiscSpellRules.cs, UWProjectileWorld.cs |
 | `DetectMonsterString` (seg038_3307_12FD) | UWMiscSpellRules.cs |
-| `DoorAndTrapSpells` (seg038_3307_1560) | Interaction.cs |
+| `DoorAndTrapSpells` (seg038_3307_1560) | UWStringIds.cs, Interaction.cs |
 | `DamageObjectsInTile` (seg038_3307_182A) | UWAreaSpellRules.cs, UWTileBlast.cs |
 | `PlayerHPRegenerationChange` (seg038_3307_322) | UWWornRegeneration.cs |
 | `FlameWind` (seg038_3307_6FB) | UWEndgame.cs |
@@ -870,25 +873,26 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg040_352B_1B35` | UWSwitchVisual.cs |
 | `UnlockDoor` (seg040_352B_1D3B) | ICritterHost.cs, UWLockRules.cs, UWCritter.cs |
 | `seg040_352B_1F54` | UWSoundEffects.cs |
-| `ObjectUse` (seg040_352B_2) | UWItemDrag.cs |
 | `seg040_352B_20CD` | UWWorldCapture.cs, Interaction.cs |
 | `OpenDoor` (seg040_352B_21E6) | UWConversationSession.cs, UWWorldCapture.cs, IUsableDoor.cs, Interaction.cs |
 | `CloseDoor` (seg040_352B_22FD) | UWConversationSession.cs |
 | `DoorToggle` (seg040_352B_23B7) | UWConversationSession.cs |
-| `EmptyContainer` (seg040_352B_23EC) | Interaction.cs |
-| `seg040_352B_2494` | Interaction.cs |
+| `EmptyContainer` (seg040_352B_23EC) | UWSpillRules.cs |
+| `UseDoorOrContainer` (seg040_352B_2494) | UWWorldUseRules.cs |
 | `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 | `MagicChargeUpdate` (seg040_352B_2723) | UWItemUse.cs |
 | `seg040_352B_2A0` | Interaction.cs |
 | `seg040_352B_919` | UWItemUse.cs, UWEndgame.cs |
+| `seg040_352B_AFF` | UWItemTargetRules.cs, UWItemTargetUse.cs |
 | `PickLock` (seg040_498) | UWLockRules.cs |
 | `UseKey` (seg040_51D) | UWLockRules.cs |
 | `UseObjectWithPrompt` (seg040_5BA) | UWItemDrag.cs |
+| `SpikeDoor` (seg040_662) | UWItemTargetRules.cs, UWItemTargetUse.cs |
 | `UseBones` (seg040_719) | UWEndgameRules.cs, UWPlayerData.cs, UWEndgame.cs |
-| `TybalsOrb` (seg040_A12) | UWItemApplications.cs, UWObjectMechanics.cs, Interaction.cs |
+| `TybalsOrb` (seg040_A12) | UWItemApplications.cs, UWItemTargetRules.cs, UWObjectMechanics.cs, UWItemTargetUse.cs |
 | `Major_4_Minor_1_ObjectUsage` (seg040_B84) | UWExplodingBook.cs |
 | `LightUsage` (seg040_C86) | UWItemUse.cs |
-| `WandUsage` (seg040_E21) | UWItemUse.cs, UWItemDrag.cs |
+| `WandUsage` (seg040_E21) | UWItemUse.cs |
 | `Eat` (seg040_F0E) | UWItemUse.cs |
 
 ### seg041

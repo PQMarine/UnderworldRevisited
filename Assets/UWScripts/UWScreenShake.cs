@@ -1,4 +1,5 @@
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The shaking of the screen - in the original an additional angle on yaw, pitch and roll of the
@@ -22,6 +23,7 @@ using UnityEngine;
 /// only the bullfrog reset and hallucination) - and which of those we have:
 ///
 ///   Hit on the player         channel 0x20, duration damage level times five   WE HAVE IT
+///                             (a blow or a missile only - since 2026-10-12, see ShakeOnDamage)
 ///   Drunkenness               channel 0x40, duration 10 + intoxication/6       WE HAVE IT
 ///   Tremor (spell)            channel 0x40, duration 0x28                      WE HAVE IT
 ///   The Ethereal Void         EtherealVoidSpecialEffects_seg008_150            WE HAVE IT (UWVoidEffects)
@@ -132,30 +134,33 @@ public sealed class UWScreenShake : MonoBehaviour
     }
 
     /// <summary>
-    /// Triggers the shake. A running channel is NOT extended but set to the
-    /// larger of the two values - otherwise many small hits could stack
-    /// an endless shake, and the reference likewise only writes the counter.
+    /// Triggers the shake. THE NEW VALUE OVERWRITES THE CHANNEL'S COUNTER, as the original's
+    /// set_effect does (UnderworldExhumed PLAYMOVE.C) - a later small hit shortens a running
+    /// shake, and a duration of zero ends it. Until 2026-10-12 ours kept the larger of the two
+    /// values, which the original does not.
     /// </summary>
     public void Shake(int piChannel, int piDuration)
     {
-        if (piChannel < 0 || piChannel > LargeChannel || piDuration <= 0)
+        if (piChannel < 0 || piChannel > LargeChannel)
             return;
 
-        if (piDuration > miDuration[piChannel])
-            miDuration[piChannel] = piDuration;
+        miDuration[piChannel] = piDuration > 0 ? piDuration : 0;
     }
 
-    /// <summary>Convenience path for combat: shake by damage level, channel and duration as
-    /// in the reference (combat.cs line 651).</summary>
+    /// <summary>
+    /// A blow or a missile hit the player (UnderworldExhumed COMBAT.C do_damage): the small
+    /// channel for damage level times five - the level from the damage after the armour and
+    /// before the Easy halving, at most three, see UWPlayerVitals.ShakeForCombatHit. Level zero
+    /// sets zero and so ends a running combat shake, as set_effect(0x20, 0) does. Nothing else
+    /// shakes the view on damage (since 2026-10-12, the user's decision; before that every
+    /// damage did, poison, falls, lava and traps included).
+    /// </summary>
     public static void ShakeOnDamage(int piDamageLevel)
     {
-        if (piDamageLevel <= 0)
-            return;
-
         UWScreenShake lOShake = Ensure();
 
         if (lOShake != null)
-            lOShake.Shake(SmallChannel, piDamageLevel * DamageDurationFactor);
+            lOShake.Shake(SmallChannel, Mathf.Max(0, piDamageLevel) * DamageDurationFactor);
     }
 
     /// <summary>From the reference: duration equals damage level times five.</summary>
@@ -248,6 +253,6 @@ public sealed class UWScreenShake : MonoBehaviour
     {
         int liUnits = piStrength * Random.Range(-piAmplitude, piAmplitude);
 
-        return liUnits * 360f / UWViewpoint.FullCircleUnits;
+        return liUnits * 360f / UWWorldScale.FullCircleUnits;
     }
 }

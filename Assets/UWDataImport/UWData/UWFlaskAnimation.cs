@@ -6,14 +6,18 @@ namespace UWDataImport.UWData
 	///
 	/// THE RULE, from the reference (uimanager_flasks.AnimateFlasks) and matching that memory:
 	///
-	///   - It only bubbles at MIDDLE LEVELS, 3 to 9 of the thirteen (0 to 12), and only while the
-	///     level is not moving - a flask that is filling or emptying shows no bubbles.
+	///   - It only bubbles at LEVELS 1 TO 7 of the twelve (UnderworldExhumed PANELS.C
+	///     adjust_flasks, "n < 8 && n > 0"; until 2026-10-12 the reference's 3 to 9 of thirteen),
+	///     and only while the level is not moving - a flask that is filling or emptying shows no
+	///     bubbles.
 	///   - Every step (an eighth of a second, 32 of the original's timer ticks at 0.00391 s) a
 	///     resting flask has a 1 in 32 chance to START bubbling. About once every four seconds.
-	///   - Once it runs it walks through the twelve pictures, one per step, and then stops. A
-	///     bubbling therefore lasts one and a half seconds.
+	///   - Once it runs it walks through ELEVEN pictures, one per step, and then stops: the
+	///     original's frame counter starts on the first picture of the set (base + 0xD) and steps
+	///     before it draws, so that first picture never shows (adjust_flasks, bub_frame; until
+	///     2026-10-12 ours showed all twelve).
 	///
-	/// The pictures sit in FLASKS.GR right behind the thirteen fill slices of their colour
+	/// The pictures sit in FLASKS.GR right behind the thirteen fill pictures of their colour
 	/// (see UWFlasks): red 13 to 24, mana 38 to 49, poison 63 to 74.
 	/// </summary>
 	public sealed class UWFlaskAnimation
@@ -23,10 +27,13 @@ namespace UWDataImport.UWData
 
 		public const int FrameCount = 12;
 
-		/// <summary>Below and above this the surface is too small or the flask too full.</summary>
-		public const int LowestLevel = 3;
+		/// <summary>The first picture a bubbling shows - see the class comment.</summary>
+		public const int FirstShownFrame = 1;
 
-		public const int HighestLevel = 9;
+		/// <summary>Below and above this the flask does not bubble (adjust_flasks).</summary>
+		public const int LowestLevel = 1;
+
+		public const int HighestLevel = 7;
 
 		/// <summary>One in this many steps starts a bubbling.</summary>
 		private const int StartChance = 32;
@@ -39,7 +46,7 @@ namespace UWDataImport.UWData
 		public int Frame => miFrame;
 
 		/// <summary>
-		/// Advances by the elapsed time. piLevel is the fill level (0 to 12), pbSettled says the
+		/// Advances by the elapsed time. piLevel is the fill level (0 to UWFlasks.FillLevels), pbSettled says the
 		/// flask is not filling or emptying right now. Returns whether the picture changed.
 		/// </summary>
 		public bool Advance(float pfElapsedSeconds, int piLevel, bool pbSettled)
@@ -72,7 +79,7 @@ namespace UWDataImport.UWData
 					if (UWRandom.Next(StartChance) != 0)
 						continue;
 
-					miFrame = 0;
+					miFrame = FirstShownFrame;
 					lbChanged = true;
 
 					continue;

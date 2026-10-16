@@ -7,7 +7,8 @@ namespace UnderworldRevisited.Build
     /// <summary>
     /// GROUNDWORK FOR THE PALETTE RENDERER. Builds the lookup textures such a
     /// renderer needs. They are used by UWPaletteRenderToggle, which is the default render
-    /// path (UWSettings.RenderMode Palette); F6 switches back to the URP lighting for comparison.
+    /// path (UWSettings.RenderMode Palette); the detail level of the Graphics menu
+    /// (UWGraphicsDetail.SetLevel, every level above Low) switches to the URP lighting.
     ///
     /// HOW THE ORIGINAL CALCULATES
     ///
@@ -304,7 +305,7 @@ namespace UnderworldRevisited.Build
                 Mathf.Clamp(piLightLevel, 0, LightLevelCount - 1));
             Shader.SetGlobalFloat("_UWRotationStep", ((piRotationStep % liSteps) + liSteps) % liSteps);
             Shader.SetGlobalFloat("_UWRotationStepCount", liSteps);
-            Shader.SetGlobalFloat("_UWTileSpacing", UWLevelMeshBuilder.TileSpacing);
+            Shader.SetGlobalFloat("_UWTileSpacing", UWWorldScale.TileSize);
             Shader.SetGlobalFloat("_UWCutoffDistance", pfCutoffDistance);
             Shader.SetGlobalFloat("_UWInterpolateLevels", pbInterpolateLevels ? 1f : 0f);
             Shader.SetGlobalFloat("_UWDither", pbDither ? 1f : 0f);
@@ -542,9 +543,9 @@ namespace UnderworldRevisited.Build
 
             if (pOData == null || pOData.Shades == null
                 || !pOData.Shades.TryGet(piLightLevel, out lOEntry))
-                return UWLevelMeshBuilder.TileSpacing * 4f;
+                return UWWorldScale.TileSize * 4f;
 
-            return lOEntry.ViewingDistance * UWLevelMeshBuilder.TileSpacing;
+            return lOEntry.ViewingDistance * UWWorldScale.TileSize;
         }
     }
 }

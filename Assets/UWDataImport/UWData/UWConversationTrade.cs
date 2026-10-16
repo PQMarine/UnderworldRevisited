@@ -48,6 +48,12 @@ namespace UWDataImport.UWData
 	{
 		public const int SlotCount = 4;
 
+		/// <summary>setup_to_barter's roll once the slots are full: rand() &amp; 7, one of eight.</summary>
+		public const int BarterOverflowRoll = 8;
+
+		/// <summary>... and an item is passed over below five - five in eight.</summary>
+		public const int BarterOverflowSkipBelow = 5;
+
 		/// <summary>Goods with number 1000 and above mean a whole class: (number - 1000)
 		/// is the object number divided by sixteen.</summary>
 		private const int ClassBase = 1000;
@@ -96,9 +102,8 @@ namespace UWDataImport.UWData
 		private readonly UWNpc mONpc;
 		private readonly IUWConversationHost mIHost;
 		private readonly Action<int> mOSay;
-		private readonly Action<string> mOPrint;
+		private readonly Action<string> mOPlayerSay;
 		private readonly Func<string, int> mORegisterString;
-		private readonly Func<UWObject, int, string> mODescribe;
 		private readonly UWOriginalRandom mORandom;
 
 		/// <summary>The player's inventory, or null without one.</summary>
@@ -106,24 +111,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>The level the conversation takes place on, or null without a world.</summary>
 		private UWLevel fLevel => mIHost != null ? mIHost.CurrentLevel : null;
-
-		/// <summary>
-		/// HOW THE CONVERSATIONS COUNT THEIR ARRAYS - read off the guard of Urgo on level 3
-		/// (conversation 15) with a log of every call (per user, 2026-09-17):
-		///
-		///   WHAT WE FILL (show_inv, find_barter_total) is read FROM ZERO. The guard walks the array
-		///     from the count downwards and stops before zero, so with entries written from one he
-		///     read a leftover local instead of the last item: a single stack of five fish was not
-		///     counted at all, and four slots lost exactly one of them.
-		///   WHAT A SCRIPT FILLS ITSELF and then hands to give_to_npc starts at ONE - the guard
-		///     counts its index up BEFORE writing. Reading that array from zero was the original
-		///     fault: nothing was handed over, and the food fell to the floor at the end of the
-		///     conversation.
-		///
-		/// So give_to_npc takes the handles it finds from zero up to the count, skipping empty
-		/// entries, and works either way round.
-		/// </summary>
-		private const int GiveArrayFirstIndex = 0;
 
 		/// <summary>Writes what the trade functions hand to a conversation into the log - for
 		/// tracking down why a partner does not take what he asked for. It is how the array
@@ -145,16 +132,14 @@ namespace UWDataImport.UWData
 		private UWConversationVM mOVm;
 
 		public UWConversationTrade(DataImport pOData, UWNpc pONpc, IUWConversationHost pIHost,
-			Action<int> pOSay, Action<string> pOPrint,
-			Func<string, int> pORegisterString, Func<UWObject, int, string> pODescribe)
+			Action<int> pOSay, Action<string> pOPlayerSay, Func<string, int> pORegisterString)
 		{
 			mOData = pOData;
 			mONpc = pONpc;
 			mIHost = pIHost;
 			mOSay = pOSay;
-			mOPrint = pOPrint;
+			mOPlayerSay = pOPlayerSay;
 			mORegisterString = pORegisterString;
-			mODescribe = pODescribe;
 
 			// READ 2026-09-25 (the barter setup of SetupToBarter_ovr095_0): the generator is seeded
 			// with the partner's OBJECT NUMBER, so each creature - not each kind - always trades
@@ -188,44 +173,6 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------------------------
 		// Conversation functions
 		// ------------------------------------------------------------------
-
-		/// <summary>Whether this class knows a function of this name.</summary>
-		public static bool Handles(string psName)
-		{
-			switch (psName)
-			{
-				case "setup_to_barter":
-				case "find_barter":
-				case "find_barter_total":
-				case "do_offer":
-				case "do_demand":
-				case "do_judgement":
-				case "do_decline":
-				case "set_likes_dislikes":
-				case "give_to_npc":
-				case "take_from_npc":
-				case "give_all_stuff":
-				case "show_inv":
-				case "find_inv":
-				case "count_inv":
-				case "do_inv_create":
-				case "do_inv_delete":
-				case "take_from_npc_inv":
-				case "give_ptr_npc":
-				case "take_id_from_npc":
-				case "identify_inv":
-				case "set_attitude":
-				case "set_race_attitude":
-				case "check_inv_quality":
-				case "set_inv_quality":
-				case "x_obj_stuff":
-				case "place_object":
-				case "remove_talker":
-					return true;
-			}
-
-			return false;
-		}
 
 		/// <summary>Handles of items without an object number start here - above the level's
 		/// 1024 objects, so they never meet a real number.</summary>
@@ -314,134 +261,141 @@ namespace UWDataImport.UWData
 			return null;
 		}
 
-		public int Call(string psName, IReadOnlyList<int> pOArguments, IReadOnlyList<int> pOAddresses, UWConversationVM pOVm)
+		/// <summary>
+		/// The trade's conversation functions (UWConversationFunctionTable, since 2026-10-14). Until
+		/// then a static Handles list and the switch of a Call method, which had to name the same
+		/// functions by hand. Each function first takes the machine of the call, as Call did.
+		/// </summary>
+		internal static void RegisterFunctions(UWConversationFunctionTable pOTable)
 		{
-			mOVm = pOVm;
-
-			switch (psName)
+			fRegister(pOTable, "setup_to_barter", (pOTrade, pOCall) =>
 			{
-				case "setup_to_barter":
-					fSetupToBarter();
-					return 0;
+				pOTrade.fSetupToBarter();
+				return 0;
+			});
 
-				case "find_barter":
-					return fFindBarter(fArgument(pOArguments, 0));
+			fRegister(pOTable, "find_barter", (pOTrade, pOCall) => pOTrade.fFindBarter(pOCall.Argument(0)));
 
-				case "find_barter_total":
-					return fFindBarterTotal(pOArguments, pOAddresses);
+			fRegister(pOTable, "find_barter_total", (pOTrade, pOCall) => pOTrade.fFindBarterTotal(pOCall.Arguments, pOCall.Addresses));
 
-				case "do_offer":
-					return fDoOffer(fLastArguments(pOArguments, OfferArgumentCount));
+			fRegister(pOTable, "do_offer", (pOTrade, pOCall) => pOTrade.fDoOffer(fLastArguments(pOCall.Arguments, OfferArgumentCount)));
 
-				case "do_demand":
-					return fDoDemand(fLastArguments(pOArguments, DemandArgumentCount));
+			fRegister(pOTable, "do_demand", (pOTrade, pOCall) => pOTrade.fDoDemand(fLastArguments(pOCall.Arguments, DemandArgumentCount)));
 
-				case "do_judgement":
-					fDoJudgement();
-					return 0;
+			fRegister(pOTable, "do_judgement", (pOTrade, pOCall) =>
+			{
+				pOTrade.fDoJudgement();
+				return 0;
+			});
 
-				case "do_decline":
-					fClearNpcSlots();
-					return 0;
+			fRegister(pOTable, "do_decline", (pOTrade, pOCall) =>
+			{
+				pOTrade.fReturnNpcGoods(false);
+				return 0;
+			});
 
-				// The ADDRESSES of the two lists, not the words behind them: set_likes_dislikes_ovr095_1F7B
-				// hands the pushed numbers to ovr093_226B, which makes them pointers into the
-				// conversation's memory (Shak and Zak push 37 and 58, where their lists begin).
-				// Until 2026-09-29 ours took the first entry of each list as its address and so
-				// read neither list.
-				case "set_likes_dislikes":
-					miLikesPointer = fAddress(pOAddresses, 0);
-					miDislikesPointer = fAddress(pOAddresses, 1);
-					return 0;
+			// The ADDRESSES of the two lists, not the words behind them: set_likes_dislikes_ovr095_1F7B
+			// hands the pushed numbers to ovr093_226B, which makes them pointers into the
+			// conversation's memory (Shak and Zak push 37 and 58, where their lists begin).
+			// Until 2026-09-29 ours took the first entry of each list as its address and so
+			// read neither list.
+			fRegister(pOTable, "set_likes_dislikes", (pOTrade, pOCall) =>
+			{
+				pOTrade.miLikesPointer = fAddress(pOCall.Addresses, 0);
+				pOTrade.miDislikesPointer = fAddress(pOCall.Addresses, 1);
+				return 0;
+			});
 
-				case "give_to_npc":
-					// The array comes as an ADDRESS, not as a value - taking the value handed us the
-					// contents of the local instead of the list (per user, 2026-09-17: a stale 242).
-					return fGiveToNpc(fArgument(pOArguments, 0), fAddress(pOAddresses, 1));
+			// The array comes as an ADDRESS, not as a value - taking the value handed us the
+			// contents of the local instead of the list (per user, 2026-09-17: a stale 242).
+			fRegister(pOTable, "give_to_npc", (pOTrade, pOCall) => pOTrade.fGiveToNpc(pOCall.Argument(0), fAddress(pOCall.Addresses, 1)));
 
-				case "take_from_npc":
-					return fTakeFromNpc(fArgument(pOArguments, 0));
+			fRegister(pOTable, "take_from_npc", (pOTrade, pOCall) => pOTrade.fTakeFromNpc(pOCall.Argument(0)));
 
-				case "give_all_stuff":
-					return fGiveAllStuff();
+			fRegister(pOTable, "show_inv", (pOTrade, pOCall) => pOTrade.fShowInv(pOCall.Addresses));
 
-				case "show_inv":
-					return fShowInv(pOAddresses);
+			// find_inv(item, where): FIRST the item is pushed, THEN the search location (0 partner,
+			// otherwise player) - like that in all conversations, and the reference reads the search
+			// location from the top of the stack. Swapped until 2026-09-14: we searched for object 1
+			// on the player, Judy (level 4) never found the picture of Tom (272), the reply to it was
+			// missing (per user). The other functions have the first argument at the bottom, as before.
+			fRegister(pOTable, "find_inv", (pOTrade, pOCall) => pOTrade.fFindInv(pOCall.Argument(1), pOCall.Argument(0)));
 
-				// find_inv(item, where): FIRST the item is pushed, THEN the search location (0 partner,
-				// otherwise player) - like that in all conversations, and the reference reads the search
-				// location from the top of the stack. Swapped until 2026-09-14: we searched for object 1
-				// on the player, Judy (level 4) never found the picture of Tom (272), the reply to it was
-				// missing (per user). The other functions have the first argument at the bottom, as before.
-				case "find_inv":
-					return fFindInv(fArgument(pOArguments, 1), fArgument(pOArguments, 0));
+			fRegister(pOTable, "count_inv", (pOTrade, pOCall) =>
+			{
+				UWObject lOItem = pOTrade.Resolve(pOCall.Argument(0));
 
-				case "count_inv":
-				{
-					UWObject lOItem = Resolve(fArgument(pOArguments, 0));
+				if (LogTrade)
+					UWLog.Info(string.Format("[Trade] count_inv handle {0} -> {1}",
+						pOCall.Argument(0), lOItem != null ? fGetCount(lOItem) : 0));
 
-					if (LogTrade)
-						UWLog.Info(string.Format("[Trade] count_inv handle {0} -> {1}",
-							fArgument(pOArguments, 0), lOItem != null ? fGetCount(lOItem) : 0));
+				return lOItem != null ? fGetCount(lOItem) : 0;
+			});
 
-					return lOItem != null ? fGetCount(lOItem) : 0;
-				}
+			fRegister(pOTable, "do_inv_create", (pOTrade, pOCall) => pOTrade.fDoInvCreate(pOCall.Argument(0)));
 
-				case "do_inv_create":
-					return fDoInvCreate(fArgument(pOArguments, 0));
+			fRegister(pOTable, "do_inv_delete", (pOTrade, pOCall) => pOTrade.fDoInvDelete(pOCall.Argument(0)));
 
-				case "do_inv_delete":
-					return fDoInvDelete(fArgument(pOArguments, 0));
+			fRegister(pOTable, "take_from_npc_inv", (pOTrade, pOCall) => pOTrade.fTakeFromNpcInv(pOCall.Argument(0)));
 
-				case "take_from_npc_inv":
-					return fTakeFromNpcInv(fArgument(pOArguments, 0));
+			fRegister(pOTable, "give_ptr_npc", (pOTrade, pOCall) => pOTrade.fGivePtrNpc(pOCall.Argument(0), pOCall.Argument(1)));
 
-				case "give_ptr_npc":
-					return fGivePtrNpc(fArgument(pOArguments, 0), fArgument(pOArguments, 1));
+			fRegister(pOTable, "take_id_from_npc", (pOTrade, pOCall) => pOTrade.fTakeIdFromNpc(pOCall.Argument(0)));
 
-				case "take_id_from_npc":
-					return fTakeIdFromNpc(fArgument(pOArguments, 0));
+			fRegister(pOTable, "identify_inv", (pOTrade, pOCall) => pOTrade.fIdentifyInv(pOCall.Arguments, pOCall.Addresses));
 
-				case "identify_inv":
-					return fIdentifyInv(pOArguments, pOAddresses);
+			fRegister(pOTable, "set_attitude", (pOTrade, pOCall) =>
+			{
+				pOTrade.fSetAttitudeOf(pOCall.Argument(0), pOCall.Argument(1));
+				return 0;
+			});
 
-				case "set_attitude":
-					fSetAttitudeOf(fArgument(pOArguments, 0), fArgument(pOArguments, 1));
-					return 0;
+			fRegister(pOTable, "set_race_attitude", (pOTrade, pOCall) =>
+			{
+				pOTrade.fSetRaceAttitude(pOCall.Argument(0), pOCall.Argument(1), pOCall.Argument(2));
+				return 0;
+			});
 
-				case "set_race_attitude":
-					fSetRaceAttitude(fArgument(pOArguments, 0), fArgument(pOArguments, 1), fArgument(pOArguments, 2));
-					return 0;
+			fRegister(pOTable, "check_inv_quality", (pOTrade, pOCall) =>
+			{
+				UWObject lOItem = pOTrade.Resolve(pOCall.Argument(0));
 
-				case "check_inv_quality":
-				{
-					UWObject lOItem = Resolve(fArgument(pOArguments, 0));
+				return lOItem != null ? lOItem.Quality : 0;
+			});
 
-					return lOItem != null ? lOItem.Quality : 0;
-				}
+			fRegister(pOTable, "set_inv_quality", (pOTrade, pOCall) =>
+			{
+				UWObject lOItem = pOTrade.Resolve(pOCall.Argument(0));
 
-				case "set_inv_quality":
-				{
-					UWObject lOItem = Resolve(fArgument(pOArguments, 0));
+				if (lOItem != null)
+					lOItem.Quality = (ushort)(pOCall.Argument(1) & 0x3F);
 
-					if (lOItem != null)
-						lOItem.Quality = (ushort)(fArgument(pOArguments, 1) & 0x3F);
+				return 0;
+			});
 
-					return 0;
-				}
+			fRegister(pOTable, "x_obj_stuff", (pOTrade, pOCall) => pOTrade.fXObjStuff(pOCall.Arguments, pOCall.Addresses));
 
-				case "x_obj_stuff":
-					return fXObjStuff(pOArguments, pOAddresses);
+			fRegister(pOTable, "place_object", (pOTrade, pOCall) => pOTrade.fPlaceObject(pOCall.Argument(0), pOCall.Argument(1), pOCall.Argument(2)));
 
-				case "place_object":
-					return fPlaceObject(fArgument(pOArguments, 0), fArgument(pOArguments, 1), fArgument(pOArguments, 2));
+			fRegister(pOTable, "remove_talker", (pOTrade, pOCall) =>
+			{
+				pOTrade.fRemoveTalker();
+				return 0;
+			});
+		}
 
-				case "remove_talker":
-					fRemoveTalker();
-					return 0;
-			}
+		/// <summary>Registers one trade function: the session's trade runs it with the call's machine.</summary>
+		private static void fRegister(UWConversationFunctionTable pOTable, string psName,
+			Func<UWConversationTrade, UWConversationFunctionTable.Call, int> pOFunction)
+		{
+			pOTable.Register(psName, UWConversationFunctionTable.Provider.Trade, (pOSession, pOCall) =>
+			{
+				UWConversationTrade lOTrade = pOSession.Trade;
 
-			return 0;
+				lOTrade.mOVm = pOCall.Vm;
+
+				return pOFunction(lOTrade, pOCall);
+			});
 		}
 
 		/// <summary>
@@ -453,16 +407,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private int fXObjStuff(IReadOnlyList<int> pOArguments, IReadOnlyList<int> pOAddresses)
 		{
-			UWObject lOItem = Resolve(fArgument(pOArguments, 0));
+			UWObject lOItem = Resolve(UWConversationVM.Argument(pOArguments, 0));
 
 			if (lOItem == null || mOVm == null || pOAddresses == null || pOAddresses.Count < 9)
 				return 0;
 
-			bool lbSet = fArgument(pOArguments, 1) != 0;
+			bool lbSet = UWConversationVM.Argument(pOArguments, 1) != 0;
 
-			for (int liField = 2; liField < 9; liField++)
+			for (int liField = FirstObjectField; liField < FirstObjectField + mOObjectFields.Length; liField++)
 			{
-				int liValue = fArgument(pOArguments, liField);
+				int liValue = UWConversationVM.Argument(pOArguments, liField);
 
 				if (liValue == -1)
 					continue;
@@ -484,7 +438,7 @@ namespace UWDataImport.UWData
 
 		private bool fHasIdentificationField(UWObject pOItem)
 		{
-			if ((pOItem.ID >> 6) == DoorMajorClass)
+			if (UWObjectIds.Major(pOItem.ID) == DoorMajorClass)
 				return false;
 
 			UWCommonObjectProperties.Entry lOEntry;
@@ -500,50 +454,81 @@ namespace UWDataImport.UWData
 		/// <summary>COMOBJ.DAT byte 9 render type of objects whose heading is a real direction.</summary>
 		private const int DirectionalRenderType = UWObjectMechanics.DirectionalRenderType;
 
-		/// <summary>
-		/// Field reads as UW.EXE x_obj_stuff_ovr094_74A does them. "link" is the 10-bit field
-		/// above the owner; its top bit 0x200 marks a quantity or special link and is masked off
-		/// when reading (0x1FF). The two single flags come back as their raw bits (0x400 and
-		/// 0x200 of the first word), not as 0 or 1.
-		/// </summary>
-		private static int fGetObjectField(UWObject pOItem, int piField)
+		/// <summary>One field of x_obj_stuff: how it is read and how it is written.</summary>
+		private readonly struct ObjectField
 		{
-			switch (piField)
-			{
-				case 2: return pOItem.Heading;
-				case 3: return pOItem.Owner;
-				case 4: return pOItem.Flags | (pOItem.IsEnchanted ? 0x8 : 0);
-				case 5: return pOItem.Quantity & 0x1FF;
-				case 6: return ((pOItem.Flags >> 1) & 0x1) << 10;
-				case 7: return (pOItem.Flags & 0x1) << 9;
-				case 8: return pOItem.Quality;
-			}
+			public readonly Func<UWObject, int> Get;
 
-			return 0;
+			public readonly Action<UWObject, int> Set;
+
+			public ObjectField(Func<UWObject, int> pOGet, Action<UWObject, int> pOSet)
+			{
+				Get = pOGet;
+				Set = pOSet;
+			}
 		}
 
-		/// <summary>Field writes as UW.EXE x_obj_stuff_ovr094_74A does them. Writing "link" always
-		/// sets bit 0x200: (value | 0x200) &amp; 0x3FF - so a script cannot store an object list link
-		/// through this function. Until 2026-09-14 we wrote value &amp; 0x3FF without that bit.</summary>
+		/// <summary>The first field of x_obj_stuff after handle and mode.</summary>
+		private const int FirstObjectField = 2;
+
+		/// <summary>
+		/// The fields of x_obj_stuff, "identified" to "quality", read and written as UW.EXE
+		/// x_obj_stuff_ovr094_74A does it - one row per field since 2026-10-14 (before that two
+		/// parallel switches, fGetObjectField and fSetObjectField).
+		///
+		/// READING: "link" is the 10-bit field above the owner; its top bit 0x200 marks a quantity
+		/// or special link and is masked off (0x1FF). The two single flags come back as their raw
+		/// bits (0x400 and 0x200 of the first word), not as 0 or 1. "flags" is OBJ_FLAGS, the four
+		/// bits with the enchanted bit on top - since 2026-10-12 UWObject.Flags holds exactly those
+		/// (B13).
+		///
+		/// WRITING "link" always sets bit 0x200: (value | 0x200) &amp; 0x3FF - so a script cannot
+		/// store an object list link through this function. Until 2026-09-14 we wrote value &amp;
+		/// 0x3FF without that bit. SET_FLAGS writes all four bits, the enchanted bit among them.
+		/// </summary>
+		private static readonly ObjectField[] mOObjectFields =
+		{
+			// 2 identified (the heading)
+			new ObjectField(pOItem => pOItem.Heading,
+				(pOItem, piValue) => pOItem.Heading = (ushort)(piValue & 0x7)),
+			// 3 owner
+			new ObjectField(pOItem => pOItem.Owner,
+				(pOItem, piValue) => pOItem.Owner = (ushort)(piValue & 0x3F)),
+			// 4 flags
+			new ObjectField(pOItem => pOItem.Flags & UWObjectRecordCodec.FlagsMask,
+				(pOItem, piValue) => pOItem.Flags = (ushort)(piValue & UWObjectRecordCodec.FlagsMask)),
+			// 5 link
+			new ObjectField(pOItem => pOItem.Quantity & 0x1FF,
+				(pOItem, piValue) => pOItem.Quantity = (ushort)((piValue | 0x200) & 0x3FF)),
+			// 6 flag1
+			new ObjectField(pOItem => ((pOItem.Flags >> 1) & 0x1) << 10,
+				(pOItem, piValue) => pOItem.Flags = (ushort)((pOItem.Flags & ~0x2) | ((piValue & 0x1) << 1))),
+			// 7 flag0
+			new ObjectField(pOItem => (pOItem.Flags & 0x1) << 9,
+				(pOItem, piValue) => pOItem.Flags = (ushort)((pOItem.Flags & ~0x1) | (piValue & 0x1))),
+			// 8 quality
+			new ObjectField(pOItem => pOItem.Quality,
+				(pOItem, piValue) => pOItem.Quality = (ushort)(piValue & 0x3F)),
+		};
+
+		private static int fGetObjectField(UWObject pOItem, int piField)
+		{
+			int liRow = piField - FirstObjectField;
+
+			return liRow >= 0 && liRow < mOObjectFields.Length ? mOObjectFields[liRow].Get(pOItem) : 0;
+		}
+
 		private static void fSetObjectField(UWObject pOItem, int piField, int piValue)
 		{
-			switch (piField)
-			{
-				case 2: pOItem.Heading = (ushort)(piValue & 0x7); break;
-				case 3: pOItem.Owner = (ushort)(piValue & 0x3F); break;
-				case 4:
-					pOItem.Flags = (ushort)(piValue & 0xF);
-					pOItem.IsEnchanted = (piValue & 0x8) != 0;
-					break;
-				case 5: pOItem.Quantity = (ushort)((piValue | 0x200) & 0x3FF); break;
-				case 6: pOItem.Flags = (ushort)((pOItem.Flags & ~0x2) | ((piValue & 0x1) << 1)); break;
-				case 7: pOItem.Flags = (ushort)((pOItem.Flags & ~0x1) | (piValue & 0x1)); break;
-				case 8: pOItem.Quality = (ushort)(piValue & 0x3F); break;
-			}
+			int liRow = piField - FirstObjectField;
+
+			if (liRow >= 0 && liRow < mOObjectFields.Length)
+				mOObjectFields[liRow].Set(pOItem, piValue);
 		}
 
 		/// <summary>place_object(handle, x, y): an item from the partner's possessions goes
-		/// onto a tile of the level.</summary>
+		/// onto a tile of the level - or, with a negative x, down at the player's feet (BABLHACK.C,
+		/// read 2026-10-12; ours answered 0 there until then).</summary>
 		private int fPlaceObject(int piHandle, int piTileX, int piTileY)
 		{
 			UWObject lOItem = Resolve(piHandle);
@@ -552,8 +537,13 @@ namespace UWDataImport.UWData
 			if (lOItem == null || lOInventory == null || mIHost == null || !lOInventory.Remove(lOItem))
 				return 0;
 
-			fForgetInNpcSlots(lOItem);
 			lOItem.Link = 0;
+
+			if (piTileX < 0)
+			{
+				mIHost.DropAtPlayer(lOItem);
+				return 1;
+			}
 			lOItem.XPos = 3;
 			lOItem.YPos = 3;
 
@@ -568,11 +558,6 @@ namespace UWDataImport.UWData
 				return;
 
 			mIHost.RemoveObjectFromWorld(mONpc);
-		}
-
-		private static int fArgument(IReadOnlyList<int> pOArguments, int piIndex)
-		{
-			return pOArguments != null && piIndex < pOArguments.Count ? pOArguments[piIndex] : 0;
 		}
 
 		/// <summary>The strings do_offer reads, and do_demand.</summary>
@@ -608,57 +593,87 @@ namespace UWDataImport.UWData
 			return pOAddresses != null && piIndex < pOAddresses.Count ? pOAddresses[piIndex] : 0;
 		}
 
+		/// <summary>setup_to_barter looks at this many items of the partner's chain at most (BARTER.C,
+		/// count++ &lt; 0x28).</summary>
+		private const int BarterLookLimit = 0x28;
+
 		/// <summary>
-		/// setup_to_barter: the partner lays out his goods. He keeps the first weapon (he
-		/// wields it), does not offer anything worthless, and if he has more than four things,
-		/// chance replaces earlier slots (reference).
+		/// setup_to_barter (UnderworldExhumed BARTER.C, read again 2026-10-15): the partner lays out
+		/// his goods, and what lies in his slots LEAVES HIS POSSESSIONS (Obj_Rem) - fReturnNpcGoods is
+		/// the way back, end_barter drops what is left at his feet (EndConversation).
+		///
+		/// THE WALK follows his chain from its head and looks at 0x28 items at most. Passed over are:
+		/// the first item of minor class 0 (bits 4-5 of the id clear - the weapons 0x00-0x0F, but also
+		/// the bags 0x80-0x8F and the 0xC0 group); anything COMOBJ.DAT values at 0; and, once all four
+		/// slots have been filled, five in eight of the rest - rand() &amp; 7 below 5, rolled only for
+		/// an item the first two tests would lay out (the || stops before the roll). An item of minor
+		/// class 0 that is passed over for any of the three reasons counts as the held-back one. A
+		/// slot filled again gives its old item back to the head of the chain (Obj_Add); the walk
+		/// stops when it meets the first item it gave back - which it cannot, since the head lies
+		/// behind it, so in effect it ends at the chain's end or after 0x28 items.
+		///
+		/// The slots are not emptied first and a slot's mark is not cleared: a second call finds
+		/// them as the last one left them (only reachable in a second trade round, which no shipped
+		/// conversation has - after a trade the conversation ends, per user 2026-10-15).
+		///
+		/// Until 2026-10-15 ours held back only ids 0-15, rolled for every item once the slots were
+		/// full, looked at 39 items, emptied the slots first and left the laid-out goods in the
+		/// partner's possessions (the slots were a view of them).
 		/// </summary>
 		private void fSetupToBarter()
 		{
-			fClearNpcSlots();
-
 			List<UWObject> lOInventory = fGetNpcInventory();
 
 			if (lOInventory == null)
 				return;
 
-			bool lbSkippedWeapon = false;
-			bool lbOverflow = false;
+			bool lbSkippedMinorZero = false;
+			bool lbAllFilled = false;
 			int liSlot = 0;
 			int liCount = 0;
+			UWObject lOFirstGivenBack = null;
+			UWObject lOItem = lOInventory.Count > 0 ? lOInventory[0] : null;
 
-			foreach (UWObject lOItem in lOInventory)
+			while (lOItem != null && lOItem != lOFirstGivenBack && liCount++ < BarterLookLimit)
 			{
-				if (lOItem == null || ++liCount >= 40)
-					continue;
+				int liAt = lOInventory.IndexOf(lOItem);
+				UWObject lONext = liAt >= 0 && liAt + 1 < lOInventory.Count ? lOInventory[liAt + 1] : null;
+				bool lbMinorZero = UWObjectIds.Minor(lOItem.ID) == 0;
 
-				bool lbSkip = false;
-
-				if (!lbSkippedWeapon && (lOItem.ID >> 4) == 0)
+				// The session's generator: barter_init has reseeded the original's rand from the
+				// clock before this.
+				if ((lbMinorZero && !lbSkippedMinorZero) || fGetBaseValue(lOItem.ID) == 0
+					|| (lbAllFilled && UWGameSession.Current.Random.Next(BarterOverflowRoll) < BarterOverflowSkipBelow))
 				{
-					lbSkippedWeapon = true;
-					lbSkip = true;
+					if (lbMinorZero)
+						lbSkippedMinorZero = true;
+
+					lOItem = lONext;
+					continue;
 				}
 
-				if (fGetBaseValue(lOItem.ID) == 0)
-					lbSkip = true;
+				lOInventory.Remove(lOItem);
+				lOItem.Link = 0;
 
-				// After the rolls the original reseeds with the time, so this one is free.
-				if (lbOverflow && UWRandom.Next(0, 7) < 5)
-					lbSkip = true;
+				if (NpcItems[liSlot] != null)
+				{
+					if (lOFirstGivenBack == null)
+						lOFirstGivenBack = NpcItems[liSlot];
 
-				if (lbSkip)
-					continue;
+					lOInventory.Insert(0, NpcItems[liSlot]);
+				}
 
 				NpcItems[liSlot] = lOItem;
-				NpcSelected[liSlot] = false;
+				NpcBought[liSlot] = false;
 				liSlot++;
 
 				if (liSlot >= SlotCount)
 				{
-					lbOverflow = true;
 					liSlot = 0;
+					lbAllFilled = true;
 				}
+
+				lOItem = lONext;
 			}
 
 			Version++;
@@ -692,7 +707,7 @@ namespace UWDataImport.UWData
 			int liMajor = (piWanted - ClassBase) >> 2;
 			int liMinor = (piWanted - ClassBase) & 0x3;
 
-			return (pOItem.ID >> 6) == liMajor && ((pOItem.ID >> 4) & 0x3) == liMinor;
+			return UWObjectIds.Major(pOItem.ID) == liMajor && UWObjectIds.Minor(pOItem.ID) == liMinor;
 		}
 
 		private int fHandle(int piSlot)
@@ -710,7 +725,7 @@ namespace UWDataImport.UWData
 			if (mOVm == null || pOAddresses == null || pOAddresses.Count < 4)
 				return 0;
 
-			int liWanted = fArgument(pOArguments, 0);
+			int liWanted = UWConversationVM.Argument(pOArguments, 0);
 			int liCountAddress = pOAddresses[1];
 			int liArrayAddress = fAddress(pOAddresses, 2);
 			int liQuantityAddress = pOAddresses[3];
@@ -738,7 +753,7 @@ namespace UWDataImport.UWData
 
 		private static int fGetCount(UWObject pOItem)
 		{
-			return pOItem.HasQuantity && pOItem.Quantity > 0 && pOItem.Quantity < 512 ? pOItem.Quantity : 1;
+			return UWStackRules.CountAtLeastOne(pOItem);
 		}
 
 		/// <summary>
@@ -751,11 +766,11 @@ namespace UWDataImport.UWData
 		{
 			NpcGoodsBought = false;
 
-			int liYes = fArgument(pOArguments, 0);
-			int liTooLittle = fArgument(pOArguments, 1);
-			int liInsulting = fArgument(pOArguments, 2);
-			int liTired = fArgument(pOArguments, 3);
-			int liNoSense = fArgument(pOArguments, 4);
+			int liYes = UWConversationVM.Argument(pOArguments, 0);
+			int liTooLittle = UWConversationVM.Argument(pOArguments, 1);
+			int liInsulting = UWConversationVM.Argument(pOArguments, 2);
+			int liTired = UWConversationVM.Argument(pOArguments, 3);
+			int liNoSense = UWConversationVM.Argument(pOArguments, 4);
 
 			if (miPatience < 0)
 			{
@@ -825,10 +840,11 @@ namespace UWDataImport.UWData
 		/// otherwise +1 below attitude 2. The player wins when his score is HIGHER - and an ally
 		/// gives in whatever the scores say.
 		///
-		/// GIVING IN: the line, the partner one step less friendly (down to 0), and only the
-		/// partner's marked goods change sides - the player's own marked goods stay his, since
-		/// the original moves them only in do_offer (ovr095_F07). REFUSING: the line, and the
-		/// partner attacks (goal 5 at the player).
+		/// GIVING IN: the line, the partner one step less friendly in npc_attitude (down to 0),
+		/// and only the partner's marked goods change sides - the player's own marked goods stay
+		/// his, since the original moves them only in do_offer (ovr095_F07). REFUSING: the line,
+		/// all his goods back to him, and his object's goal set to attack the player (see the
+		/// refusal below).
 		///
 		/// Until 2026-09-25 ours read row byte 0 (the body armour) as the partner's level, took
 		/// the ally bit for hunger and so never let an ally give in, left out the drawn weapon,
@@ -836,8 +852,8 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private int fDoDemand(IReadOnlyList<int> pOArguments)
 		{
-			int liGiveIn = fArgument(pOArguments, 0);
-			int liRefuse = fArgument(pOArguments, 1);
+			int liGiveIn = UWConversationVM.Argument(pOArguments, 0);
+			int liRefuse = UWConversationVM.Argument(pOArguments, 1);
 
 			int liAttitude = mOVm != null ? mOVm.GetImportedGlobal("npc_attitude") : (mONpc != null ? mONpc.NPCAttitude : 0);
 
@@ -878,10 +894,26 @@ namespace UWDataImport.UWData
 			}
 
 			mOSay(liRefuse);
-			fMakeHostile();
+
+			// Refused, every good on his side goes back to him (ReturnTradeObjectsToNPC(0)), and the
+			// OBJECT is set to attack the player (change_critter_goal(talking_to, 5, 1), the guard
+			// goal saved as critter_set_goal does) - neither npc_attitude nor npc_goal changes, so
+			// at the end the write-back puts the script's values over it. The shipped refusals
+			// call a helper that sets npc_goal 5, npc_gtarg 1, npc_attitude 1 themselves; Zak's
+			// (conversation 28) goes into a dialogue instead. Until 2026-10-15 ours set
+			// npc_attitude to 0 and angered the critter at once (GH D18, N3).
+			fReturnNpcGoods(false);
+
+			if (mONpc != null)
+				new UWCritterRecord(mONpc).SetNewGoal(DemandRefusedGoal, DemandRefusedTarget);
 
 			return 0;
 		}
+
+		/// <summary>The verdict thresholds of do_judgement, best first: verdict n when the evaluation
+		/// lies above entry n, the ninth below them all. Until 2026-10-14 an if-chain in fDoJudgement.
+		/// </summary>
+		private static readonly int[] miJudgementVerdictAbove = { 50, 35, 25, 10, -10, -25, -35, -50 };
 
 		/// <summary>
 		/// do_judgement: the player appraises the deal according to his appraisal skill - "...I
@@ -899,34 +931,40 @@ namespace UWDataImport.UWData
 
 			int liCertainty = liAppraise < 6 ? 0 : liAppraise < 12 ? 1 : liAppraise < 18 ? 2 : liAppraise < 24 ? 3 : 4;
 
-			int liVerdict;
+			// The first threshold the evaluation lies above names the verdict; below them all it is
+			// the last one.
+			int liVerdict = miJudgementVerdictAbove.Length;
 
-			if (liEvaluation > 50)
-				liVerdict = 0;
-			else if (liEvaluation > 35)
-				liVerdict = 1;
-			else if (liEvaluation > 25)
-				liVerdict = 2;
-			else if (liEvaluation > 10)
-				liVerdict = 3;
-			else if (liEvaluation > -10)
-				liVerdict = 4;
-			else if (liEvaluation > -25)
-				liVerdict = 5;
-			else if (liEvaluation > -35)
-				liVerdict = 6;
-			else if (liEvaluation > -50)
-				liVerdict = 7;
-			else
-				liVerdict = 8;
+			for (int liAt = 0; liAt < miJudgementVerdictAbove.Length; liAt++)
+			{
+				if (liEvaluation > miJudgementVerdictAbove[liAt])
+				{
+					liVerdict = liAt;
+					break;
+				}
+			}
 
-			mOPrint(fGetString(JudgementBlock, JudgementCertaintyFirst + liCertainty)
+			// The player's own words (play_say, BARTER.C do_judgement), in the player's colour - and
+			// they count as his last line for the closing pause. Until 2026-10-15 ours printed them
+			// as narration.
+			mOPlayerSay(fGetString(JudgementBlock, JudgementCertaintyFirst + liCertainty)
 				+ fGetString(JudgementBlock, JudgementJoinString)
 				+ fGetString(JudgementBlock, JudgementVerdictFirst + liVerdict));
 		}
 
-		/// <summary>give_to_npc(count, array): the goods with the handles in the array go to the
-		/// partner - with nothing in return, this is how you give something away.</summary>
+		/// <summary>
+		/// give_to_npc(count, array): the goods with the handles in the array go to the partner -
+		/// with nothing in return, this is how you give something away.
+		///
+		/// conv_give_inv (CONVERSE.C, read 2026-10-15): EXACTLY the first count entries of the array,
+		/// from its first word (a script's array counts from 1 through OFFSET, base + index - 1, so
+		/// its first element lies on that word - the guard of conversation 15 writes its food
+		/// handles there), each one a different marked good, or nothing is handed over. Until then
+		/// ours read count + 1 entries and skipped those that named nothing: the workaround of
+		/// 2026-09-17 (the guard took nothing, the array held a stale 242 at its first place), from
+		/// before the base pointer was made relative to the stack (2026-09-29), which put the
+		/// guard's locals where they belong.
+		/// </summary>
 		private int fGiveToNpc(int piCount, int piArrayAddress)
 		{
 			if (mOVm == null)
@@ -943,39 +981,29 @@ namespace UWDataImport.UWData
 			if (liSelected < piCount)
 				return 0;
 
-			// The handles from the array, whichever end the script started at (see
-			// GiveArrayFirstIndex). Entries that name no marked item are skipped - a script's own
-			// array leaves the unused places as they were, and a leftover local otherwise counted
-			// as a handle (per user, 2026-09-17: the guard took nothing although the trade went
-			// through, and the array held a stale 242 at its first place).
 			List<int> lOSlots = new List<int>();
 
-			for (int liAt = GiveArrayFirstIndex; liAt <= piCount && lOSlots.Count < piCount; liAt++)
+			for (int liAt = 0; liAt < piCount; liAt++)
 			{
 				int liWanted = mOVm.ReadMemory(piArrayAddress + liAt);
+				int liFound = -1;
 
-				if (liWanted == 0)
-					continue;
-
-				for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+				for (int liSlot = 0; liSlot < SlotCount && liFound < 0; liSlot++)
 				{
 					if (PlayerItems[liSlot] != null && PlayerSelected[liSlot]
 						&& fHandle(liSlot) == liWanted && !lOSlots.Contains(liSlot))
-					{
-						lOSlots.Add(liSlot);
-						break;
-					}
+						liFound = liSlot;
 				}
+
+				if (LogTrade)
+					UWLog.Info(string.Format("[Trade] give_to_npc entry {0}: handle {1} -> slot {2}", liAt, liWanted, liFound));
+
+				// All or nothing: one entry that names no marked good stops the whole gift.
+				if (liFound < 0)
+					return 0;
+
+				lOSlots.Add(liFound);
 			}
-
-			if (LogTrade)
-				UWLog.Info(string.Format("[Trade] give_to_npc wants {0} of {1} marked, found {2}",
-					piCount, liSelected, lOSlots.Count));
-
-			// All or nothing, like the original (give_to_npc in UW.EXE): if one of the
-			// requested handles is missing among the marked goods, nothing is handed over.
-			if (lOSlots.Count < piCount)
-				return 0;
 
 			foreach (int liSlot in lOSlots)
 			{
@@ -990,10 +1018,16 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>take_from_npc(item): the partner hands over an item from his possessions (object
-		/// number, or class from 1000) - into the hand, otherwise into a free slot of the
-		/// barter area, otherwise onto the floor.</summary>
+		/// number, or class from 1000) - npc_barter_give (BARTER.C, read 2026-10-12): nothing while
+		/// the player holds something on the pointer (0); into the hand if he can carry it, else a
+		/// free slot of the barter area (1); else down at the partner's feet, radius 5 (2); 3 when
+		/// the culling test takes it there. Until 2026-10-12 a full hand fell through to the slots,
+		/// and a drop went onto a random spot of the player's tile and answered 1.</summary>
 		private int fTakeFromNpc(int piWanted)
 		{
+			if (fInventory != null && fInventory.CursorItem != null)
+				return 0;
+
 			List<UWObject> lOInventory = fGetNpcInventory();
 
 			if (lOInventory == null)
@@ -1012,7 +1046,6 @@ namespace UWDataImport.UWData
 					continue;
 
 				lOInventory.Remove(lOItem);
-				fForgetInNpcSlots(lOItem);
 				lOItem.Link = 0;
 
 				// Into the hand, as in the original (take_from_npc_ovr095_1AB1: ObjectInHand) - the
@@ -1032,36 +1065,12 @@ namespace UWDataImport.UWData
 					return 1;
 				}
 
-				fDropAtPlayer(lOItem);
 				Version++;
-				return 1;
+
+				return fDropAtNpc(lOItem) ? 2 : 3;
 			}
 
 			return 0;
-		}
-
-		/// <summary>give_all_stuff: everything the partner has laid out goes to the player. It is
-		/// only marked here; the handover itself happens in Swap.
-		/// </summary>
-		private int fGiveAllStuff()
-		{
-			bool lbAny = false;
-
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
-			{
-				NpcSelected[liSlot] = NpcItems[liSlot] != null;
-				PlayerSelected[liSlot] = false;
-
-				if (NpcItems[liSlot] != null)
-					lbAny = true;
-			}
-
-			if (lbAny)
-				PendingSwap = true;
-
-			Version++;
-
-			return lbAny ? 1 : 0;
 		}
 
 		// ------------------------------------------------------------------
@@ -1124,12 +1133,15 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>find_inv(item, who): 0 searches the partner's possessions, otherwise the
-		/// player's inventory (argument order see Call). Below 1000 the object number, above it the class. Returns the handle.
+		/// player's inventory (argument order see Call). Below 1000 the object number, above it the
+		/// class. Returns the handle. Both sides look into containers (npc_barter_find, BARTER.C:
+		/// Obj_InList with recurse - each item, then what it holds, then the next); until
+		/// 2026-10-15 ours searched only the top of the partner's chain.
 		/// </summary>
 		private int fFindInv(int piWho, int piWanted)
 		{
 			IEnumerable<UWObject> lOItems = piWho == 0
-				? (IEnumerable<UWObject>)fGetNpcInventory()
+				? fEnumerateWithContents(fGetNpcInventory())
 				: (fInventory != null ? fInventory.EnumerateAll() : null);
 
 			if (lOItems == null)
@@ -1144,14 +1156,46 @@ namespace UWDataImport.UWData
 			return 0;
 		}
 
-		/// <summary>do_inv_create(item): a new item in best condition in the partner's
-		/// possessions. Returns its handle.</summary>
+		/// <summary>A chain depth-first, each item before what it holds (Obj_InList's recursion: an
+		/// object without the quantity bit that links to others).</summary>
+		private static IEnumerable<UWObject> fEnumerateWithContents(List<UWObject> pOChain, int piDepth = 0)
+		{
+			if (pOChain == null || piDepth > 8)
+				yield break;
+
+			foreach (UWObject lOItem in pOChain)
+			{
+				if (lOItem == null)
+					continue;
+
+				yield return lOItem;
+
+				if (!lOItem.HasQuantity && lOItem.Contents != null)
+				{
+					foreach (UWObject lOInner in fEnumerateWithContents(lOItem.Contents, piDepth + 1))
+						yield return lOInner;
+				}
+			}
+		}
+
+		/// <summary>
+		/// do_inv_create(item): a new item in best condition in the partner's possessions. Returns
+		/// its handle - or 0 when it joined a pile of the same item he already has: npc_inv_create
+		/// (BARTER.C, read 2026-10-15) adds a counted item to the first like pile of his chain
+		/// (UWStackRules.CanJoinBarterStack), frees it and hands back its index, which is 0 by then.
+		/// The count is CreateObj's own (its second argument there is the mobile flag, not a count):
+		/// a kind of stack class 0 or 2 starts as a pile of one. Until then ours never joined,
+		/// always answered a handle and created every item without a count.
+		/// </summary>
 		private int fDoInvCreate(int piId)
 		{
 			List<UWObject> lOInventory = fGetNpcInventory();
-			UWObject lOItem = fCreateItem(piId, 0, FullQuality);
+			UWObject lOItem = fCreateItem(piId, UWObjectFactory.Unset, FullQuality);
 
 			if (lOInventory == null || lOItem == null)
+				return 0;
+
+			if (fTryJoinNpcStack(lOInventory, lOItem))
 				return 0;
 
 			lOItem.Link = 0;
@@ -1175,7 +1219,6 @@ namespace UWDataImport.UWData
 					continue;
 
 				lOInventory.Remove(lOItem);
-				fForgetInNpcSlots(lOItem);
 				Version++;
 
 				return 1;
@@ -1200,6 +1243,12 @@ namespace UWDataImport.UWData
 		/// give_ptr_npc(handle, quantity): an item of the player goes to the partner - from the
 		/// barter area or directly from the inventory. A partial quantity is split off if one
 		/// is requested and the stack is larger.
+		///
+		/// give_ptr_npc (CONVERSE.C, read 2026-10-15): from the barter area only out of a MARKED slot
+		/// (player_barter_items lists the marked ones); anything else goes the inventory's way
+		/// (invRemoveObject), which answers 0 for a thing the player does not carry - an unmarked
+		/// slot's thing among them - before any pile is split. Until then ours took any slot, and
+		/// split a pile it then could not remove.
 		/// </summary>
 		private int fGivePtrNpc(int piHandle, int piQuantity)
 		{
@@ -1210,7 +1259,7 @@ namespace UWDataImport.UWData
 
 			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
 			{
-				if (PlayerItems[liSlot] != lOItem)
+				if (PlayerItems[liSlot] != lOItem || !PlayerSelected[liSlot])
 					continue;
 
 				PlayerItems[liSlot] = null;
@@ -1223,7 +1272,7 @@ namespace UWDataImport.UWData
 
 			UWInventoryModel lOInventory = fInventory;
 
-			if (lOInventory == null)
+			if (lOInventory == null || lOInventory.FindCarried(pOCarried => pOCarried == lOItem) == null)
 				return 0;
 
 			if (piQuantity > 0 && lOItem.HasQuantity && lOItem.Quantity > piQuantity)
@@ -1248,20 +1297,21 @@ namespace UWDataImport.UWData
 			return 1;
 		}
 
-		/// <summary>take_id_from_npc(handle): the partner hands over this item - into the
-		/// hand, otherwise into the barter area, otherwise onto the floor (then 2).</summary>
+		/// <summary>take_id_from_npc(handle): the partner hands over this item -
+		/// npc_barter_give_id, the same answers as take_from_npc (fTakeFromNpc).</summary>
 		private int fTakeIdFromNpc(int piHandle)
 		{
+			if (fInventory != null && fInventory.CursorItem != null)
+				return 0;
+
 			UWObject lOItem = Resolve(piHandle);
 			List<UWObject> lOInventory = fGetNpcInventory();
 
-			if (lOItem == null)
+			// Only an item of his chain (npc_barter_give_id walks it): a good laid out in his slots is
+			// out of it since 2026-10-15 and answers 0, as in the original.
+			if (lOItem == null || lOInventory == null || !lOInventory.Remove(lOItem))
 				return 0;
 
-			if (lOInventory != null)
-				lOInventory.Remove(lOItem);
-
-			fForgetInNpcSlots(lOItem);
 			lOItem.Link = 0;
 
 			// Into the hand, as in the original (take_id_from_npc_ovr095_1C42); otherwise barter area,
@@ -1280,10 +1330,9 @@ namespace UWDataImport.UWData
 				return 1;
 			}
 
-			fDropAtPlayer(lOItem);
 			Version++;
 
-			return 2;
+			return fDropAtNpc(lOItem) ? 2 : 3;
 		}
 
 		/// <summary>Attaches an item to the cursor if nothing is attached there. UWItemDrag turns
@@ -1319,108 +1368,116 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// identify_inv(handle, ?, &amp;text, knowledge): describes an item - the text goes as a new
-		/// string number into the third argument - and returns its value in the eyes of the partner.
+		/// identify_inv(handle, article, &amp;text, knowledge): describes an item - the text goes as a
+		/// new string number into the third argument - and returns its value in the eyes of the
+		/// partner.
 		///
 		/// READ 2026-10-01 (identify_inv_ovr100_16B6, per user: Shak "identified" a ring for a gold
-		/// piece and it stayed unidentified): the description is the article, the name, and through
-		/// LookAtMagicEquipment_ovr122_34A / see MagicItemDescription_ovr122_3AC: "magical" at knowledge 2
-		/// and the enchantment's name at 3 - with the KNOWLEDGE THE CONVERSATION PASSES, no Lore
-		/// roll, and nothing is written into the item, so it is not identified afterwards. Shak
-		/// passes 0: he names the plain item and its worth. Until then ours described it with the
-		/// player's own Lore roll and kept that roll in the item.
+		/// piece and it stayed unidentified): "magical" at knowledge 2 and the enchantment's name at
+		/// 3 - with the KNOWLEDGE THE CONVERSATION PASSES, no Lore roll, and nothing is written into
+		/// the item, so it is not identified afterwards. Shak passes 0.
+		///
+		/// READ AGAIN 2026-10-15 (conv_inv_name, CONVERSE.C): the text is UWItemDescriptions.
+		/// IdentifyName - the article only when the second argument asks for it, no condition word;
+		/// and the value is the partner's appraisal, his likes and his blur included (assess_value
+		/// with npc_assess). Until then ours took the look sentence and the value without the blur,
+		/// so Shak's repair price and the identifier's quotes differed by up to his blur.
 		/// </summary>
 		private int fIdentifyInv(IReadOnlyList<int> pOArguments, IReadOnlyList<int> pOAddresses)
 		{
-			UWObject lOItem = Resolve(fArgument(pOArguments, 0));
+			UWObject lOItem = Resolve(UWConversationVM.Argument(pOArguments, 0));
 
 			if (lOItem == null || mOVm == null)
 				return 0;
 
+			int liValue = fGetItemValue(lOItem, true, miAccuracy);
+
 			if (pOAddresses != null && pOAddresses.Count >= 3 && mORegisterString != null)
 			{
-				string lsText = mODescribe != null ? mODescribe(lOItem, System.Math.Max(0, fArgument(pOArguments, 3))) : string.Empty;
+				string lsText = UWItemDescriptions.IdentifyName(lOItem, mOData,
+					UWItemDescriptions.ItemObjectList(mOData, fLevel),
+					UWConversationVM.Argument(pOArguments, 1) != 0, UWConversationVM.Argument(pOArguments, 3));
 
 				mOVm.WriteMemory(pOAddresses[2], mORegisterString(lsText));
 			}
 
-			// The original's identify_inv is not read; no appraisal noise here until it is.
-			return fGetItemValue(lOItem, true, 0);
-		}
-
-		/// <summary>set_attitude(whoami, attitude): all characters of this conversation slot on
-		/// the level get the attitude.</summary>
-		private void fSetAttitudeOf(int piWhoAmI, int piAttitude)
-		{
-			if (fLevel == null)
-				return;
-
-			foreach (UWNpc lONpc in fEnumerateNpcs())
-			{
-				if (lONpc.NPCwhoami != piWhoAmI)
-					continue;
-
-				fApplyAttitude(lONpc, piAttitude);
-			}
+			return liValue;
 		}
 
 		/// <summary>
-		/// set_race_attitude(race, attitude, range): the partner's kin within range
-		/// get the attitude. DEVIATION: the reference checks the faction from the
-		/// creature table for this, which we do not read - here only the same object number counts.
+		/// set_attitude(whoami, attitude): the FIRST critter of the level's active mobile list with
+		/// this whoami takes the attitude (set_attitude through gronk_whoami(who, 0, ...), BABLHACK.C
+		/// and SPELLS.C, read 2026-10-15: the walk stops after the first match). The list holds
+		/// every mobile object in use, in the original's order (UWLevel.ActiveMobiles). Until then
+		/// ours set every critter of the level with that whoami.
+		/// </summary>
+		private void fSetAttitudeOf(int piWhoAmI, int piAttitude)
+		{
+			UWNpc lONpc = UWTrapRules.FindActiveByWhoAmI(fLevel, piWhoAmI);
+
+			if (lONpc != null)
+				fApplyAttitude(lONpc, piAttitude);
+		}
+
+		/// <summary>
+		/// set_race_attitude(race, attitude, range) (BABLHACK.C, read 2026-10-15): every critter of
+		/// the partner's item type whose creature row names this race (CRIT.DAT byte 9,
+		/// GeneralType) and that is no loner (byte 0x0A bit 7, UWCritterRecord.AttitudeLocked) takes
+		/// the attitude - on the tiles from range before to range past the partner's tile (word
+		/// 0x16), clipped to 1..63; range 0 is the tile alone. Until then ours ignored the race and
+		/// the loner bit, measured from the loaded tile and made a range of 0 one.
 		/// </summary>
 		private void fSetRaceAttitude(int piRace, int piAttitude, int piRange)
 		{
-			if (mONpc == null || fLevel == null)
-				return;
-
-			int liRange = piRange <= 0 ? 1 : piRange;
-
-			foreach (UWNpc lONpc in fEnumerateNpcs())
-			{
-				if (lONpc.ID != mONpc.ID)
-					continue;
-
-				if (Math.Abs(lONpc.TileX - mONpc.TileX) > liRange || Math.Abs(lONpc.TileY - mONpc.TileY) > liRange)
-					continue;
-
-				fApplyAttitude(lONpc, piAttitude);
-			}
-		}
-
-		private IEnumerable<UWNpc> fEnumerateNpcs()
-		{
 			UWLevel lOLevel = fLevel;
 
-			if (lOLevel == null || lOLevel.TileData == null)
-				yield break;
+			if (mONpc == null || lOLevel == null || lOLevel.ActiveMobiles == null || lOLevel.Masterlist == null)
+				return;
 
-			foreach (UWTile lOTile in lOLevel.TileData)
+			UWCritterRecord lOTalker = new UWCritterRecord(mONpc);
+			int liFirstX = Math.Max(1, lOTalker.TileX - piRange);
+			int liFirstY = Math.Max(1, lOTalker.TileY - piRange);
+			int liLastX = lOTalker.TileX + piRange >= UWWorldScale.TilesPerAxis ? UWWorldScale.TilesPerAxis - 1 : lOTalker.TileX + piRange;
+			int liLastY = lOTalker.TileY + piRange >= UWWorldScale.TilesPerAxis ? UWWorldScale.TilesPerAxis - 1 : lOTalker.TileY + piRange;
+
+			foreach (int liIndex in lOLevel.ActiveMobiles)
 			{
-				if (lOTile == null || lOTile.ObjectsInTile == null)
+				UWNpc lONpc = liIndex > 0 && liIndex < lOLevel.Masterlist.Count ? lOLevel.Masterlist[liIndex] as UWNpc : null;
+
+				if (lONpc == null || lONpc.ID != mONpc.ID || fRaceOf(lONpc) != piRace)
 					continue;
 
-				foreach (UWObject lOObject in lOTile.ObjectsInTile)
-				{
-					UWNpc lONpc = lOObject as UWNpc;
+				UWCritterRecord lORecord = new UWCritterRecord(lONpc);
 
-					if (lONpc != null && lONpc.ID >= 64 && lONpc.ID <= 127)
-						yield return lONpc;
-				}
+				if (lORecord.AttitudeLocked || lORecord.TileX < liFirstX || lORecord.TileX > liLastX
+					|| lORecord.TileY < liFirstY || lORecord.TileY > liLastY)
+					continue;
+
+				lORecord.Attitude = piAttitude & UWNpcRecordCodec.AttitudeMask;
 			}
 		}
 
-		private void fApplyAttitude(UWNpc pONpc, int piAttitude)
+		/// <summary>The race of a critter's kind: Creature[].race, CRIT.DAT byte 9 (GeneralType); -1
+		/// without a row.</summary>
+		private int fRaceOf(UWNpc pONpc)
 		{
-			pONpc.NPCAttitude = (byte)(piAttitude & 0x3);
+			UWObjectClassProperties.Critter lOStats;
 
-			if (pONpc == mONpc && mOVm != null)
-				mOVm.SetImportedGlobal("npc_attitude", piAttitude);
+			return mOData != null && mOData.ObjectClassProperties != null
+				&& mOData.ObjectClassProperties.TryGetCritter(pONpc.ID, out lOStats) ? lOStats.GeneralType : -1;
+		}
 
-			if (piAttitude != 0 || mIHost == null)
-				return;
-
-			mIHost.AngerNpc(pONpc);
+		/// <summary>
+		/// SET_ATTITUDE on the object alone (set_mob_att, BABLHACK.C): through the record, so the
+		/// living critter sees it at once. The partner's script variable npc_attitude is not
+		/// touched - at the end update_converse_data writes the variable over the object, as in the
+		/// original. Until 2026-10-15 ours wrote the variable as well when the partner was meant
+		/// and made a critter set to 0 attack (AngerNpc) - inert where the script then sets
+		/// npc_attitude itself, as the shipped ones do (N4).
+		/// </summary>
+		private static void fApplyAttitude(UWNpc pONpc, int piAttitude)
+		{
+			new UWCritterRecord(pONpc).Attitude = piAttitude & UWNpcRecordCodec.AttitudeMask;
 		}
 
 		// ------------------------------------------------------------------
@@ -1469,17 +1526,18 @@ namespace UWDataImport.UWData
 
 			if (pbLikes)
 			{
-				int liLike = fLikes(pOItem.ID);
+				int liLike = fDoesNpcLike(pOItem);
 
-				if (liValue == 0 || liLike < 0)
+				if (liLike < 0)
 					return 0;
 
 				if (liLike > 0)
 					liValue = (short)(liValue * 3) >> 1;
 			}
 
-			// The products in 16 bits, as ovr095_16B1 multiplies (IMUL into AX alone).
-			if (pOItem.HasQuantity && pOItem.Quantity < UWObjectMechanics.SpecialPropertyThreshold)
+			// The products in 16 bits, as ovr095_16B1 multiplies (IMUL into AX alone) - with the
+			// raw count, so a field of 0 makes the value 0 (UWStackRules.Count).
+			if (UWStackRules.IsStackable(pOItem))
 				liValue = (short)(liValue * pOItem.Quantity);
 
 			int liQuality = pOItem.Quality & UWObjectMechanics.MaxQuality;
@@ -1488,6 +1546,14 @@ namespace UWDataImport.UWData
 				liValue = liQuality > 0 ? Math.Max(1, (short)(liValue * liQuality) >> 6) : 0;
 
 			return new UWOriginalRandom(fObjectNumber(pOItem)).Noise(liValue, -piAccuracy, piAccuracy);
+		}
+
+		/// <summary>does_npc_like (BARTER.C): -1 for an item COMOBJ.DAT values at 0, else the
+		/// partner's opinion (fLikes). The one test for what he refuses - in his valuation
+		/// (fGetItemValue) and in what an accepted offer hands him (Swap).</summary>
+		private int fDoesNpcLike(UWObject pOItem)
+		{
+			return fGetBaseValue(pOItem.ID) == 0 ? -1 : fLikes(pOItem.ID);
 		}
 
 		/// <summary>
@@ -1574,14 +1640,7 @@ namespace UWDataImport.UWData
 
 		private string fGetString(int piBlock, int piIndex)
 		{
-			try
-			{
-				return UWTextLayout.CleanText(mOData.Strings.Blocks[piBlock].Strings[piIndex]);
-			}
-			catch
-			{
-				return string.Empty;
-			}
+			return UWTextLayout.CleanText(UWText.Block(mOData, piBlock, piIndex));
 		}
 
 		// ------------------------------------------------------------------
@@ -1632,35 +1691,32 @@ namespace UWDataImport.UWData
 			return mONpc.Contents;
 		}
 
-		/// <summary>A new item, as UWLevelLoader.SpawnObjectById builds it - only
-		/// without a place in the world.</summary>
+		/// <summary>A new item for the NPC's inventory, without a place in the world: CreateObj
+		/// (UWObjectFactory) with the caller's count and quality - npc_inv_create gives 0x3F
+		/// (BARTER.C), the loot its own roll.</summary>
 		private UWObject fCreateItem(int piId, int piQuantity, int piQuality)
 		{
-			UWObject lOItem = new UWObject((ushort)piId);
+			UWObject lOItem = UWObjectFactory.Create(piId, mOData, piQuantity, piQuality);
 
-			if (piQuantity > 0)
-			{
-				lOItem.HasQuantity = true;
-				lOItem.Quantity = (ushort)piQuantity;
-			}
-
-			if (piQuality >= 0)
-				lOItem.Quality = (ushort)piQuality;
-
-			try
-			{
-				lOItem.Texture = mOData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piId);
-			}
-			catch
-			{
+			if (lOItem == null)
 				return null;
-			}
 
 			lOItem.WasSpawned = true;
 
 			return lOItem;
 		}
 
+		/// <summary>The original's gold coin (ITEM_GOLD_COIN, 0xA1) - the one kind npc_inv_add puts
+		/// onto a pile the partner already has.</summary>
+		private const int GoldCoinId = 0xA1;
+
+		/// <summary>
+		/// npc_inv_add (BARTER.C): an item goes to the partner, at the head of his chain - gold coins
+		/// onto the first coin pile of his chain they join (UWStackRules.CanJoinBarterStack), the
+		/// paid stack freed. The same for the goods of an accepted offer (probablyTradeObjects),
+		/// give_to_npc and give_ptr_npc. Until 2026-10-15 every item went to the head, so the next
+		/// trade showed the coins just paid as a pile of their own.
+		/// </summary>
 		private void fGiveItemToNpc(UWObject pOItem)
 		{
 			List<UWObject> lOInventory = fGetNpcInventory();
@@ -1671,39 +1727,51 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			// At the front, like the reference (at the head of the chain).
+			if (pOItem.ID == GoldCoinId && fTryJoinNpcStack(lOInventory, pOItem))
+				return;
+
 			pOItem.Link = 0;
 			lOInventory.Insert(0, pOItem);
 		}
 
-		private void fForgetInNpcSlots(UWObject pOItem)
+		/// <summary>The first pile of the partner's chain (its top level) that pOItem may join: its
+		/// count goes there and it is freed. False when there is none.</summary>
+		private static bool fTryJoinNpcStack(List<UWObject> pOInventory, UWObject pOItem)
 		{
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			foreach (UWObject lOOther in pOInventory)
 			{
-				if (NpcItems[liSlot] == pOItem)
-				{
-					NpcItems[liSlot] = null;
-					NpcSelected[liSlot] = false;
-				}
+				if (lOOther == null || !UWStackRules.CanJoinBarterStack(lOOther, pOItem))
+					continue;
+
+				lOOther.Quantity = (ushort)(lOOther.Quantity + pOItem.Quantity);
+				UWCarriedSlots.OnMerged(pOItem);
+
+				return true;
 			}
+
+			return false;
 		}
 
-		/// <summary>do_decline(0): every good on the partner's side goes back to him - a bought
-		/// one the player left there too, it returns into his possession.</summary>
-		private void fClearNpcSlots()
+		/// <summary>
+		/// ReturnTradeObjectsToNPC (BARTER.C): the goods on the partner's side go back to the head of
+		/// his chain, slot by slot - all of them (do_decline, a refused demand), or with
+		/// pbOnlyUnmarked those he did not sell (an accepted offer or demand). A bought good the
+		/// player left there goes back too. Since 2026-10-15 the goods really leave his possessions
+		/// while they lie in the slots (setup_to_barter); until then this only emptied the view.
+		/// </summary>
+		private void fReturnNpcGoods(bool pbOnlyUnmarked)
 		{
-			List<UWObject> lOInventory = null;
+			List<UWObject> lOInventory = fGetNpcInventory();
 
 			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
 			{
-				if (NpcBought[liSlot] && NpcItems[liSlot] != null)
-				{
-					if (lOInventory == null)
-						lOInventory = fGetNpcInventory();
+				UWObject lOItem = NpcItems[liSlot];
 
-					if (lOInventory != null && !lOInventory.Contains(NpcItems[liSlot]))
-						lOInventory.Add(NpcItems[liSlot]);
-				}
+				if (lOItem == null || (pbOnlyUnmarked && NpcSelected[liSlot]))
+					continue;
+
+				if (lOInventory != null && !lOInventory.Contains(lOItem))
+					lOInventory.Insert(0, lOItem);
 
 				NpcItems[liSlot] = null;
 				NpcSelected[liSlot] = false;
@@ -1713,9 +1781,10 @@ namespace UWDataImport.UWData
 			Version++;
 		}
 
-		/// <summary>Carries out an accepted deal: the player's marked goods go to the partner, the
-		/// partner's marked goods stay on his side as the player's (NpcBought). After a demand
-		/// the player's own marked goods stay on his side.</summary>
+		/// <summary>Carries out an accepted deal (do_offer: ReturnTradeObjectsToNPC(1), then
+		/// probablyTradeObjects): the partner's unmarked goods go back to him first, his marked ones
+		/// stay on his side as the player's (NpcBought); then the player's marked goods go to him.
+		/// After a demand the player's own marked goods stay on his side.</summary>
 		public void Swap()
 		{
 			bool lbPlayerKeeps = mbPlayerKeepsHisGoods;
@@ -1723,9 +1792,21 @@ namespace UWDataImport.UWData
 			PendingSwap = false;
 			mbPlayerKeepsHisGoods = false;
 
+			fReturnNpcGoods(true);
+
+			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			{
+				if (NpcItems[liSlot] != null)
+					NpcBought[liSlot] = true;
+			}
+
+			// probablyTradeObjects (BARTER.C) hands over only what he does not refuse: a good he
+			// dislikes or COMOBJ.DAT values at 0 stays marked in the player's slot - and drops at the
+			// player's feet when the conversation ends. Until 2026-10-15 ours handed over every
+			// marked good.
 			for (int liSlot = 0; liSlot < SlotCount && !lbPlayerKeeps; liSlot++)
 			{
-				if (PlayerItems[liSlot] == null || !PlayerSelected[liSlot])
+				if (PlayerItems[liSlot] == null || !PlayerSelected[liSlot] || fDoesNpcLike(PlayerItems[liSlot]) < 0)
 					continue;
 
 				fGiveItemToNpc(PlayerItems[liSlot]);
@@ -1733,38 +1814,19 @@ namespace UWDataImport.UWData
 				PlayerSelected[liSlot] = false;
 			}
 
-			// do_decline(1): the unmarked goods go back, the marked ones stay where they are - now
-			// the player's, to be dragged away (NpcBought).
-			List<UWObject> lOInventory = fGetNpcInventory();
-
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
-			{
-				UWObject lOItem = NpcItems[liSlot];
-
-				if (lOItem == null)
-					continue;
-
-				if (!NpcSelected[liSlot] && !NpcBought[liSlot])
-				{
-					NpcItems[liSlot] = null;
-					continue;
-				}
-
-				if (lOInventory != null)
-					lOInventory.Remove(lOItem);
-
-				lOItem.Link = 0;
-				NpcBought[liSlot] = true;
-			}
-
 			NpcGoodsBought = true;
 			Version++;
 		}
 
-		/// <summary>At the end of the conversation: what the player still has laid out falls onto his
-		/// tile, at a random spot - NOT back into the backpack (reference
-		/// conversationvm.cs at conversation end, confirmed by user on the original, 2026-09-13).
-		/// The partner's display is only a view of his possessions.</summary>
+		/// <summary>
+		/// end_barter (BARTER.C), when the conversation ends: slot by slot, what the player still has
+		/// laid out goes down around him and what lies on the partner's side around the partner,
+		/// both radius 5 - NOT back into the backpack (per user on the original, 2026-09-13 and
+		/// 2026-09-29: the item lies on the floor). The partner's side is everything still there,
+		/// bought or not: since 2026-10-15 those goods are out of his possessions (setup_to_barter),
+		/// and the shipped conversations decline before they end, so only a good he sold and the
+		/// player left behind is usually left. Until then ours gave unsold goods back to him.
+		/// </summary>
 		public void EndConversation()
 		{
 			if (PendingSwap)
@@ -1777,34 +1839,20 @@ namespace UWDataImport.UWData
 				PlayerItems[liSlot] = null;
 				PlayerSelected[liSlot] = false;
 
-				if (lOItem == null)
-					continue;
-
-				// end_barter_ovr095_3C2 puts the player's side down with the same routine as the
-				// partner's, around the player object with radius 5 (per user, 2026-09-29: in
-				// both games the item lies on the floor).
-				if (mIHost != null)
+				if (lOItem != null && mIHost != null)
 					mIHost.DropAroundPlayer(lOItem);
-			}
 
-			// end_barter_ovr095_3C2: what still lies on the partner's side goes down around him -
-			// bought goods the player did not take. Unbought goods have been his all along.
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
-			{
-				if (!NpcBought[liSlot] || NpcItems[liSlot] == null)
-					continue;
-
-				UWObject lOItem = NpcItems[liSlot];
+				lOItem = NpcItems[liSlot];
 
 				NpcItems[liSlot] = null;
 				NpcSelected[liSlot] = false;
 				NpcBought[liSlot] = false;
 
-				if (mIHost != null)
+				if (lOItem != null && mIHost != null)
 					mIHost.DropAtNpc(lOItem, mONpc);
 			}
 
-			fClearNpcSlots();
+			Version++;
 		}
 
 		private void fDropAtPlayer(UWObject pOItem)
@@ -1815,23 +1863,25 @@ namespace UWDataImport.UWData
 			mIHost.DropAtPlayer(pOItem);
 		}
 
+		/// <summary>near_mob_put_at(talking_to, item, 5, cull); false when the culling test took it.</summary>
+		private bool fDropAtNpc(UWObject pOItem)
+		{
+			return mIHost != null && pOItem != null && mIHost.DropAtNpc(pOItem, mONpc);
+		}
+
+		/// <summary>change_critter_goal(talking_to, GOAL_ATTACK, 1) of a refused demand: attack the
+		/// player.</summary>
+		private const int DemandRefusedGoal = UWNpc.GoalAttack;
+
+		private const int DemandRefusedTarget = 1;
+
+		/// <summary>A demand given in lowers the partner's attitude in the script's variable alone
+		/// (bab_var("npc_attitude"), do_demand); the write-back carries it onto the object at the
+		/// end. Until 2026-10-15 ours set the object too.</summary>
 		private void fSetAttitude(int piAttitude)
 		{
 			if (mOVm != null)
 				mOVm.SetImportedGlobal("npc_attitude", piAttitude);
-
-			if (mONpc != null)
-				mONpc.NPCAttitude = (byte)piAttitude;
-		}
-
-		/// <summary>The partner turns hostile (reference: npc.SetGoalAndGtarg(talker, 5, 1)).
-		/// With us: attitude to zero, and the creature attacks.</summary>
-		private void fMakeHostile()
-		{
-			fSetAttitude(0);
-
-			if (mIHost != null && mONpc != null)
-				mIHost.AngerNpc(mONpc);
 		}
 
 		// ------------------------------------------------------------------
@@ -1869,12 +1919,63 @@ namespace UWDataImport.UWData
 			return lOPrevious;
 		}
 
-		/// <summary>A slot's item has changed in place - a stack dropped onto it grew (see
-		/// UWItemDrag); redraws the area.</summary>
-		public void PlayerSlotChanged(int piSlot)
+		/// <summary>Major class 2 minor 0 - the containers, which a trade slot neither fills nor swaps
+		/// (CombineToSlot_ovr097_D30: MAJOR_MISC, MINOR_CONTAINER).</summary>
+		private const int ContainerMajorClass = 2;
+
+		private const int ContainerMinorClass = 0;
+
+		/// <summary>
+		/// A DROP ON ONE OF THE PLAYER'S SLOTS (UseTradeSlot_ovr097_6E8 with ovr097_CDB and
+		/// CombineToSlot_ovr097_D30, BARTER.C, read 2026-10-15): an empty slot takes the held thing;
+		/// a slot holding a container takes nothing and gives nothing back; a pile of the same item
+		/// takes the held pile's count and keeps its own quality (UWStackRules.CanJoinBarterStack),
+		/// the held pile freed; anything else is swapped. The slot is marked afterwards in every
+		/// case, the refused one too. Returns what is on the pointer afterwards: the held thing
+		/// itself when a container refused it, the slot's old thing after a swap, else null.
+		///
+		/// Until 2026-10-15 the classic and the modern drop each stacked through the inventory's
+		/// AddTogether (the qualities averaged, a single piece turned into a counted stack) and
+		/// swapped a container like anything else.
+		/// </summary>
+		public UWObject DropOnPlayerSlot(int piSlot, UWObject pOHeld)
 		{
-			if (piSlot >= 0 && piSlot < SlotCount)
-				Version++;
+			if (piSlot < 0 || piSlot >= SlotCount || pOHeld == null)
+				return pOHeld;
+
+			UWObject lOThere = PlayerItems[piSlot];
+			UWObject lOBack = null;
+
+			if (lOThere == null)
+				PlayerItems[piSlot] = pOHeld;
+			else if (UWObjectIds.Major(lOThere.ID) == ContainerMajorClass && UWObjectIds.Minor(lOThere.ID) == ContainerMinorClass)
+				lOBack = pOHeld;
+			else if (UWStackRules.CanJoinBarterStack(lOThere, pOHeld))
+			{
+				lOThere.Quantity = (ushort)(lOThere.Quantity + pOHeld.Quantity);
+				UWCarriedSlots.OnMerged(pOHeld);
+			}
+			else
+			{
+				PlayerItems[piSlot] = pOHeld;
+				lOBack = lOThere;
+			}
+
+			PlayerSelected[piSlot] = true;
+			Version++;
+
+			return lOBack;
+		}
+
+		/// <summary>Part of the pile in one of the player's slots was taken: the rest stays there,
+		/// unmarked, as UseTradeSlot_ovr097_6E8 clears the mark after any pick-up.</summary>
+		public void PlayerSlotPartTaken(int piSlot)
+		{
+			if (piSlot < 0 || piSlot >= SlotCount)
+				return;
+
+			PlayerSelected[piSlot] = false;
+			Version++;
 		}
 
 		/// <summary>A good on the partner's side changed in place - part of a bought stack was

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport;
 using UWDataImport.UWData;
@@ -45,54 +46,56 @@ public static class UWSleep
         }
 
         /// <summary>
-        /// Water and lava forbid sleeping. The reference checks the tile state for this
-        /// and additionally gravity, i.e. whether the player is hanging in the air - the latter is left
-        /// out here, because our player never stays floating anyway.
+        /// Water and lava forbid a chosen sleep: the original refuses in motion states swimming
+        /// and lava (player_sleep's motion_state &amp; 0x1B) - the same states that kill whoever
+        /// passes out (IsInWater, IsOnLava), so the shore refuses and water walking does not.
+        /// Floating is IsOnGround's.
         /// </summary>
-        public bool CanSleepHere
-        {
-            get
-            {
-                UWPlayerTerrain lOTerrain = UWScene.PlayerTerrain;
+        public bool CanSleepHere => !IsInWater && !IsOnLava;
 
-                return lOTerrain == null || (!lOTerrain.IsSwimming && !lOTerrain.IsOnLava);
-            }
-        }
-
-        /// <summary>See IUWSleepHost: only whoever PASSES OUT gets this far, and then the
-        /// water drowns him.</summary>
+        /// <summary>
+        /// The original's MS_SWIM: the motion core's swimming state, which it takes in water and
+        /// at the water's edge unless the player walks on water (ProcessPlayerTileState). Without
+        /// the core, the terrain's swimming. Until 2026-10-15 the water contact alone, so the shore
+        /// counted as dry (audit round 2, A31).
+        /// </summary>
         public bool IsInWater
         {
             get
             {
+                UWPlayerMovement lOMovement = fMovement();
+
+                if (lOMovement != null && lOMovement.UsesMotionCore)
+                    return lOMovement.Motion.CurrentState == UWPlayerMotion.State.Swimming;
+
                 UWPlayerTerrain lOTerrain = UWScene.PlayerTerrain;
 
                 return lOTerrain != null && lOTerrain.IsSwimming;
             }
         }
 
+        /// <summary>The original's MS_LAVA: the core's lava state - standing on it, not floating
+        /// above it.</summary>
         public bool IsOnLava
         {
             get
             {
+                UWPlayerMovement lOMovement = fMovement();
+
+                if (lOMovement != null && lOMovement.UsesMotionCore)
+                    return lOMovement.Motion.CurrentState == UWPlayerMotion.State.Lava;
+
                 UWPlayerTerrain lOTerrain = UWScene.PlayerTerrain;
 
                 return lOTerrain != null && lOTerrain.IsOnLava;
             }
         }
 
-        /// <summary>Levitate, Fly or Water Walk - the mask 0x16 of the original's
-        /// MagicMotionAbilities.</summary>
-        public bool HasMagicMotion
+        /// <summary>UWCharacter sits on the Main Camera, a child of the controller with
+        /// UWPlayerMovement - GetComponent found nothing until 2026-10-13.</summary>
+        private UWPlayerMovement fMovement()
         {
-            get
-            {
-                UWPlayerMovement lOMovement = mOCharacter != null
-                    ? mOCharacter.GetComponent<UWPlayerMovement>()
-                    : null;
-
-                return lOMovement != null && (lOMovement.MagicalMotionAbilities & MagicMotionMask) != 0;
-            }
+            return mOCharacter != null ? mOCharacter.GetComponentInParent<UWPlayerMovement>() : null;
         }
 
         public void DamagePlayer(int piDamage)
@@ -102,45 +105,53 @@ public static class UWSleep
         }
 
         /// <summary>The night's closing doors (DoClosingDoors(0)): every open door of the level,
-        /// wherever it is, unless its tile carries the tile's door bit, with the chance given.
-        /// Until 2026-10-11 every door within eight tiles (the reference's reading).</summary>
+        /// wherever it is, unless its tile carries the tile's door bit, with the chance given -
+        /// the rule is UWDoorRules.NightCloses. Until 2026-10-11 every door within eight tiles
+        /// (the reference's reading); until 2026-10-12 the swinging doors only, never a
+        /// portcullis (B11: DoClosingDoors walks every door object of the open range, the raised
+        /// grate 0x14E included - UnderworldExhumed event/TRIGGER.C).</summary>
         public void CloseDoorsOnLevel(int piChanceInTen)
         {
             UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
 
-            foreach (DoorMover lODoor in Object.FindObjectsByType<DoorMover>(FindObjectsSortMode.None))
+            // Walked over a copy: a door closing from here raises its state into the data, and
+            // the registry must not change under the loop.
+            foreach (UWDoor lODoor in new List<UWDoor>(UWDoor.All))
             {
-                if (lODoor == null || lODoor.IsClosed || lODoor.IsMoving)
+                if (lODoor == null || lODoor.Data == null)
                     continue;
 
-                UWTilePos lOTile = mOLoader.WorldPositionToTile(lODoor.transform.position);
-                UWTile lOTileData = lOLevel != null ? lOLevel.GetTile(lOTile.X, lOTile.Y) : null;
+                UWTile lOTileData = lOLevel != null ? lOLevel.GetTile(lODoor.Data.TileX, lODoor.Data.TileY) : null;
+                bool lbTileHasDoorBit = lOTileData != null && lOTileData.HasDoor;
 
-                if (lOTileData != null && lOTileData.HasDoor)
+                // The roll is drawn for a candidate only, as the original's && does.
+                if (!UWDoorRules.IsNightCandidate(!lODoor.IsClosed, lODoor.IsMoving, lbTileHasDoorBit))
                     continue;
 
-                if (UWRandom.Next(10) >= piChanceInTen)
+                if (!UWDoorRules.NightCloses(!lODoor.IsClosed, lODoor.IsMoving, lbTileHasDoorBit,
+                    UWRandom.Next(10), piChanceInTen))
                     continue;
 
-                // The same entry point a click uses - so the leaf swings, the sound plays and
-                // the tile blocker comes back exactly as it does otherwise.
-                lODoor.StartUsingDoor();
+                lODoor.Close();
             }
+        }
+
+        public int CollectGarbage(int piRange, int piLimit)
+        {
+            return mOLoader != null && mOLoader.CurrentLevel != null ? mOLoader.WorldEdit.CollectGarbage(piRange, piLimit) : 0;
         }
 
         public bool IsOnGround
         {
             get
             {
-                UWPlayerMovement lOMovement = mOCharacter != null ? mOCharacter.GetComponent<UWPlayerMovement>() : null;
+                // See fMovement: the movement sits on the parent (until 2026-10-13 never found,
+                // so the sleeper always counted as standing).
+                UWPlayerMovement lOMovement = fMovement();
 
                 return lOMovement == null || (!lOMovement.IsJumping && lOMovement.IsWalkingOnGround);
             }
         }
-
-        /// <summary>The bits of MagicMotionAbilities that spare the sleeper the lava: levitate,
-        /// fly and water walk (mask 0x16 in SleepingOnDamagingSurface_ovr143_C7A).</summary>
-        private const int MagicMotionMask = 0x16;
 
         // ------------------------------------------------- The creatures around the sleeper
 
@@ -149,7 +160,7 @@ public static class UWSleep
             new System.Collections.Generic.List<UWCritter>();
 
         /// <summary>
-        /// The living creatures on the tiles of the square around the player's tile, ordered as
+        /// The living creatures on the tiles of the area around the player's tile (UWSleepRules.InArea), ordered as
         /// RunCodeOnObjectsInArea_seg038_3307_9C7 walks them: column by column (x outer, y inner).
         /// Their tile is the one in their record, where the original keeps it too.
         /// </summary>
@@ -169,8 +180,7 @@ public static class UWSleep
                 if (lOCritter == null || lOCritter.Record == null || lOCritter.IsDead)
                     continue;
 
-                if (System.Math.Abs(lOCritter.Record.TileX - lOPlayer.X) > piTileRadius
-                    || System.Math.Abs(lOCritter.Record.TileY - lOPlayer.Y) > piTileRadius)
+                if (!UWSleepRules.InArea(lOCritter.Record.TileX - lOPlayer.X, lOCritter.Record.TileY - lOPlayer.Y, piTileRadius))
                     continue;
 
                 mOCreatures.Add(lOCritter);
@@ -193,32 +203,9 @@ public static class UWSleep
             return fCreature(piIndex) != null ? fCreature(piIndex).TravelRange : 0;
         }
 
-        public bool TryGetCreaturePath(int piIndex, UWTilePos pOTo, System.Collections.Generic.List<UWTilePos> pOPath)
+        public bool TryGetCreaturePath(int piIndex, UWTilePos pOTo, int piToHeight, System.Collections.Generic.List<UWTilePos> pOPath)
         {
-            return fCreature(piIndex) != null && fCreature(piIndex).TryGetPathTo(pOTo, pOPath);
-        }
-
-        /// <summary>Every move trigger on the tile whose trap is a rune of warding goes off for the
-        /// creature (ovr104_71C: class 6 subclass 2 objects linking to trap 9).</summary>
-        public void FireWardTriggers(int piIndex, UWTilePos pOTile)
-        {
-            UWCritter lOCritter = fCreature(piIndex);
-            UWLevel lOLevel = mOLoader.CurrentLevel;
-            UWTile lOTile = lOLevel != null ? lOLevel.GetTile(pOTile.X, pOTile.Y) : null;
-
-            if (lOCritter == null || lOTile == null || lOTile.ObjectsInTile == null)
-                return;
-
-            foreach (UWObject lOObject in lOTile.ObjectsInTile.ToArray())
-            {
-                if (lOObject == null || lOObject.ID != UWObjectMechanics.MoveTriggerId)
-                    continue;
-
-                UWObject lOTrap = UWObjectMechanics.GetLinkedObject(lOObject, lOLevel.Masterlist);
-
-                if (lOTrap != null && lOTrap.ID == UWObjectMechanics.WardTrapId)
-                    UWTriggerSystem.TryFireWardTrigger(lOObject, lOCritter, mOLoader, mOInteraction);
-            }
+            return fCreature(piIndex) != null && fCreature(piIndex).TryGetPathTo(pOTo, piToHeight, pOPath);
         }
 
         public bool PlaceCreature(int piIndex, UWTilePos pOTile, int piSubX, int piSubY)
@@ -267,6 +254,19 @@ public static class UWSleep
                 lORespawner.Run(true);
         }
 
+        /// <summary>The level-exit pass on the living level (UWLevelExit.PassTime, 2026-10-15):
+        /// the creatures stay in the scene, so their bodies follow what the pass wrote.</summary>
+        public void LetTimePassForCreatures()
+        {
+            if (mOLoader == null || mOLoader.CurrentLevel == null)
+                return;
+
+            int liSentHome = UWLevelExit.PassTime(mOLoader.WorldEdit, new UWNightCreatureHost(mOLoader), out int liRemoved);
+
+            if (liSentHome > 0 || liRemoved > 0)
+                Debug.Log(string.Format("The night passed: {0} creatures sent home, {1} removed.", liSentHome, liRemoved));
+        }
+
         public void BurnCarriedLights(int piTicks)
         {
             UWInventory lOInventory = UWScene.Inventory;
@@ -298,6 +298,38 @@ public static class UWSleep
 
             if (lOUi != null)
                 lOUi.FlashWindowBlack(pfSeconds);
+        }
+    }
+
+    /// <summary>What the night's time pass asks of the scene: a temporary creature vanishes at
+    /// once - inactive before the respawner looks for crowding, as the original frees it before
+    /// DoWanderingMonsters - and a changed creature's body and health follow its record.</summary>
+    private sealed class UWNightCreatureHost : IUWCreatureTimeHost
+    {
+        private readonly UWLevelLoader mOLoader;
+
+        public UWNightCreatureHost(UWLevelLoader pOLoader)
+        {
+            mOLoader = pOLoader;
+        }
+
+        public void RemoveCreature(UWNpc pONpc)
+        {
+            if (mOLoader.TryGetEntity(pONpc, out UWEntityInfo lOEntity) && lOEntity != null)
+                lOEntity.gameObject.SetActive(false);
+
+            UWLevelExit.RemoveFromLevel(mOLoader.WorldEdit, pONpc);
+        }
+
+        public void CreatureChanged(UWNpc pONpc)
+        {
+            if (!mOLoader.TryGetEntity(pONpc, out UWEntityInfo lOEntity) || lOEntity == null)
+                return;
+
+            UWCritter lOCritter = lOEntity.GetComponent<UWCritter>();
+
+            if (lOCritter != null)
+                lOCritter.FollowRecord();
         }
     }
 }

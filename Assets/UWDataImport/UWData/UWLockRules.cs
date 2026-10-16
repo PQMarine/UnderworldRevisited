@@ -37,7 +37,7 @@ namespace UWDataImport.UWData
 
 		private const int SpellUnlocksMessage = 271;
 
-		private const int SpellNoEffectMessage = 272;
+		private const int SpellNoEffectMessage = UWStringIds.SpellNoEffectMessage;
 
 		/// <summary>This difficulty is never picked.</summary>
 		private const int UnpickableLockDifficulty = 0xF;
@@ -164,10 +164,19 @@ namespace UWDataImport.UWData
 
 			pOContainer.EnsureContentsLoaded(pOMasterlist);
 
-			if (pOContainer.Contents == null)
+			return FindLoadedLock(pOContainer);
+		}
+
+		/// <summary>The lock object among what a thing already holds, or null - for a carried thing,
+		/// whose contents the inventory has resolved and whose links do not point into the level's
+		/// list. checkLock (UnderworldExhumed obj/USEITEMS.C) looks into any thing's chain, carried
+		/// or not (2026-10-15).</summary>
+		public static UWObject FindLoadedLock(UWObject pOThing)
+		{
+			if (pOThing == null || pOThing.Contents == null)
 				return null;
 
-			foreach (UWObject lOItem in pOContainer.Contents)
+			foreach (UWObject lOItem in pOThing.Contents)
 				if (lOItem != null && lOItem.ID == UWObjectMechanics.LockObjectId)
 					return lOItem;
 

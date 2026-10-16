@@ -68,8 +68,7 @@ namespace UWDataImport.UWData
 		/// <summary>Whether a NEW object of this kind needs a mobile slot.</summary>
 		public static bool NeedsMobileSlot(UWObject pOObject)
 		{
-			return pOObject != null && pOObject.ID >= UWObjectMechanics.FirstCritterObjectId
-				&& pOObject.ID <= UWObjectMechanics.LastCritterObjectId;
+			return pOObject != null && UWObjectIds.IsCreature(pOObject.ID);
 		}
 
 		/// <summary>Counts the slots in use - see the class comment.</summary>
@@ -292,46 +291,68 @@ namespace UWDataImport.UWData
 			if (pOObject == null || pOProperties == null)
 				return false;
 
-			int liRange = piRangeArgument + UWRandom.Next(UWLiquidCulling.RangeDice);
-
-			if (!fFailsValueTest(pOObject, liRange, pOProperties, pOMaster, 0))
-				return false;
-
-			return UWRandom.Next(UWLiquidCulling.SecondChanceDice) < liRange;
+			return CullingTest(pOObject, piRangeArgument, pOProperties, pOMaster, fRandomDraw);
 		}
 
-		private static bool fFailsValueTest(UWObject pOObject, int piRange, UWCommonObjectProperties pOProperties,
-			List<UWObject> pOMaster, int piDepth)
+		/// <summary>One draw of the rules' random source as the original's RNG gives it, 0 to
+		/// 0x7FFF - the test forms its rolls from it the way UW.EXE does.</summary>
+		private static int fRandomDraw()
 		{
-			if (pOObject.DoorDirection || piDepth > MaxDepth)
+			return UWRandom.Next(UWOriginalRandom.Range);
+		}
+
+		/// <summary>
+		/// THE ONE CULLING TEST (ObjectCulling_seg027_2861_226, Obj_Elem_Fate of OBJECTS.C): true
+		/// when the object is to be removed. The range is the argument plus a roll of 0 to 2
+		/// (RNG * 3 / 0x8000); the object stays when it is tenacious against that range
+		/// (IsTenacious) or holds something that is - ONE level down, as the routine runs the test
+		/// over the object's own chain (RunCodeOnObjectChain_seg027_117; read 2026-09-25) - and
+		/// otherwise goes when the second roll, 0 to 9 (RNG * 10 / 0x8000), is below the range,
+		/// which at the liquids' ten is always.
+		///
+		/// Shared since 2026-10-12 (cleanup 2.6) by GetFreeObject's culling (Culls), the motion
+		/// core's landing in water and lava (UWMobileObjectMotion, which hands in its own world's
+		/// draws, so its sequence is unchanged) and a bag destroyed by fire
+		/// (UWObjectDamageRules.DestroyedBagIsSpared). pfRandom gives one draw of 0 to 0x7FFF.
+		/// Contents are taken from Contents when resolved, else from the chain the link starts in
+		/// pOMaster (nothing when that is null). An object the table does not know counts as
+		/// priority 0, as ComObjData is indexed by the item alone.
+		/// </summary>
+		public static bool CullingTest(UWObject pOObject, int piRangeArgument, UWCommonObjectProperties pOProperties,
+			List<UWObject> pOMaster, Func<int> pfRandom)
+		{
+			if (pOObject == null || pfRandom == null)
 				return false;
 
-			UWCommonObjectProperties.Entry lOEntry;
+			int liRange = piRangeArgument + (int)(((long)pfRandom() * UWLiquidCulling.RangeDice) / UWOriginalRandom.Range);
 
-			if (!pOProperties.TryGet(pOObject.ID, out lOEntry))
+			if (IsTenacious(pOObject, liRange, pOProperties))
 				return false;
-
-			int liCount = pOObject.HasQuantity && pOObject.Quantity < UWObjectMechanics.SpecialPropertyThreshold
-				? pOObject.Quantity : 1;
-
-			if (!UWLiquidCulling.Swallows(lOEntry.CullingPriority, liCount, piRange))
-				return false;
-
-			// ONE LEVEL DOWN only: ObjectCulling runs the test over the object's own chain
-			// (RunCodeOnObjectChain_seg027_117), and the test itself does not descend - so
-			// something valuable in a bag inside a bag does not save the outer one (read whole
-			// 2026-09-25). There is NO exception for creatures: they go by their COMOBJ priority
-			// like anything else, and their inventory can save them.
-			if (piDepth > 0)
-				return true;
 
 			foreach (UWObject lOChild in fChildren(pOObject, pOMaster))
 			{
-				if (lOChild != null && !fFailsValueTest(lOChild, piRange, pOProperties, pOMaster, piDepth + 1))
+				if (lOChild != null && IsTenacious(lOChild, liRange, pOProperties))
 					return false;
 			}
 
-			return true;
+			return ((long)pfRandom() * UWLiquidCulling.SecondChanceDice) / UWOriginalRandom.Range < liRange;
+		}
+
+		/// <summary>chkTenacious: word 0 bit 13 protects outright; otherwise the culling priority
+		/// (COMOBJ byte 9 bits 2-5) plus half the extra count of a stack must be GREATER than the
+		/// range (UWLiquidCulling.Swallows, the value rule of the liquids). The stack count is
+		/// the is_quant word below 0x200 (UWStackRules.Count).</summary>
+		public static bool IsTenacious(UWObject pOObject, int piRange, UWCommonObjectProperties pOProperties)
+		{
+			if (pOObject.DoorDirection)
+				return true;
+
+			UWCommonObjectProperties.Entry lOEntry;
+
+			if (pOProperties == null || !pOProperties.TryGet(pOObject.ID, out lOEntry))
+				lOEntry = default;
+
+			return !UWLiquidCulling.Swallows(lOEntry.CullingPriority, UWStackRules.Count(pOObject), piRange);
 		}
 	}
 }

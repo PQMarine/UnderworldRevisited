@@ -17,17 +17,6 @@ namespace UnderworldRevisited.Build
     /// </summary>
     public sealed class UWLevelMeshBuilder
     {
-        public const int TilesPerAxis = UWDataImport.UWData.UWWorldScale.TilesPerAxis;
-
-        /// <summary>Half the edge length of a tile in world coordinates.</summary>
-        public const float TileHalfSize = UWDataImport.UWData.UWWorldScale.TileHalfSize;
-
-        /// <summary>Distance between two tile centres.</summary>
-        public const float TileSpacing = UWDataImport.UWData.UWWorldScale.TileSize;
-
-        /// <summary>Ceiling height in world coordinates.</summary>
-        public const float CeilingHeight = UWDataImport.UWData.UWWorldScale.CeilingHeight;
-
         /// <summary>First slice with floor textures in the shared Texture2DArray.</summary>
         private readonly int miFloorSliceOffset;
 
@@ -94,7 +83,7 @@ namespace UnderworldRevisited.Build
 
         private UWChunkGeometry[] fBuild()
         {
-            int liChunksPerAxis = TilesPerAxis / UWChunkGeometry.ChunkSizeInTiles;
+            int liChunksPerAxis = UWWorldScale.TilesPerAxis / UWChunkGeometry.ChunkSizeInTiles;
             mOChunks = new UWChunkGeometry[liChunksPerAxis * liChunksPerAxis];
 
             for (int z = 0; z < liChunksPerAxis; z++)
@@ -103,11 +92,11 @@ namespace UnderworldRevisited.Build
                     mOChunks[z * liChunksPerAxis + x] = new UWChunkGeometry(x, z);
             }
 
-            for (int z = 0; z < TilesPerAxis; z++)
+            for (int z = 0; z < UWWorldScale.TilesPerAxis; z++)
             {
-                for (int x = 0; x < TilesPerAxis; x++)
+                for (int x = 0; x < UWWorldScale.TilesPerAxis; x++)
                 {
-                    miCurrentTileIndex = (z * TilesPerAxis) + x;
+                    miCurrentTileIndex = new UWTilePos(x, z).Index;
 
                     if (CurrentTile.TileType == UWTile.TileTypeEnum.solid)
                         continue;
@@ -121,7 +110,7 @@ namespace UnderworldRevisited.Build
 
         private UWChunkGeometry fGetChunk(int xPos, int zPos)
         {
-            int liChunksPerAxis = TilesPerAxis / UWChunkGeometry.ChunkSizeInTiles;
+            int liChunksPerAxis = UWWorldScale.TilesPerAxis / UWChunkGeometry.ChunkSizeInTiles;
             int liChunkX = xPos / UWChunkGeometry.ChunkSizeInTiles;
             int liChunkZ = zPos / UWChunkGeometry.ChunkSizeInTiles;
 
@@ -158,7 +147,7 @@ namespace UnderworldRevisited.Build
 
         private void fGetHeights(int side, ref float pfTop, ref float pfBottom)
         {
-            pfTop = CeilingHeight;
+            pfTop = UWWorldScale.CeilingHeight;
             pfBottom = CurrentTile.FloorHeight;
 
             if (AdjacentTile.TileType != UWTile.TileTypeEnum.solid && AdjacentTile.FloorHeight + AdjacentTile.Slope > CurrentTile.FloorHeight)
@@ -300,10 +289,10 @@ namespace UnderworldRevisited.Build
             Vector3[] verticesCeiling = new Vector3[4];
             int[] indicesCeiling = new int[] { 3, 1, 0, 3, 2, 1 };
             Vector2[] uvsCeiling = new Vector2[] { new Vector2(1, 0), new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1) };
-            verticesCeiling[0] = fCreateVertex(-1, 1, CeilingHeight);
-            verticesCeiling[1] = fCreateVertex(1, 1, CeilingHeight);
-            verticesCeiling[2] = fCreateVertex(1, -1, CeilingHeight);
-            verticesCeiling[3] = fCreateVertex(-1, -1, CeilingHeight);
+            verticesCeiling[0] = fCreateVertex(-1, 1, UWWorldScale.CeilingHeight);
+            verticesCeiling[1] = fCreateVertex(1, 1, UWWorldScale.CeilingHeight);
+            verticesCeiling[2] = fCreateVertex(1, -1, UWWorldScale.CeilingHeight);
+            verticesCeiling[3] = fCreateVertex(-1, -1, UWWorldScale.CeilingHeight);
 
             lOChunk.Append(miCurrentTileIndex, lOOrigin, verticesCeiling, indicesCeiling, uvsCeiling, miFloorSliceOffset + CurrentTile.TextureCeiling,
                 UWChunkGeometry.KindCeiling);
@@ -378,7 +367,7 @@ namespace UnderworldRevisited.Build
                     || (AdjacentTile.TileType == UWTile.TileTypeEnum.diagonal_nw && (side == 0 || side == 3))
                     || (AdjacentTile.TileType == UWTile.TileTypeEnum.diagonal_se && (side == 2 || side == 1))
                     || (AdjacentTile.TileType == UWTile.TileTypeEnum.diagonal_sw && (side == 2 || side == 3))
-                    || top >= CeilingHeight;
+                    || top >= UWWorldScale.CeilingHeight;
 
                 float lfBottom0 = fCornerHeight(CurrentTile, liCornerX0, liCornerZ0);
                 float lfBottom1 = fCornerHeight(CurrentTile, liCornerX1, liCornerZ1);
@@ -497,7 +486,7 @@ namespace UnderworldRevisited.Build
 
         private void fAddDiagonalWall(int xPos, int zPos)
         {
-            float top = CeilingHeight;
+            float top = UWWorldScale.CeilingHeight;
             float bottom = CurrentTile.FloorHeight;
 
             Vector3[] vertices = null;
@@ -520,7 +509,7 @@ namespace UnderworldRevisited.Build
                 || CurrentTile.TileType == UWTile.TileTypeEnum.diagonal_se
                 || CurrentTile.TileType == UWTile.TileTypeEnum.diagonal_sw)
             {
-                top = CeilingHeight;
+                top = UWWorldScale.CeilingHeight;
                 float vScale = 1f;
 
                 vertices = new Vector3[4];
@@ -565,39 +554,8 @@ namespace UnderworldRevisited.Build
                 if (vertices == null || indices == null || uvs == null)
                     return;
 
-                // V COMES FROM THE ABSOLUTE HEIGHT, not from the position within the wall piece.
-                //
-                // The original computes the vertical texture position from the world height of
-                // the edge: in eighth-tiles that is uv = edge * 0.125, so in our units
-                // simply height / 64 - one texture repeat per tile width. The
-                // anchor is thus fixed in space and not at the floor of the respective tile.
-                //
-                // Until 2026-09-06 we computed from CurrentTile.FloorHeight, so every wall
-                // started with the bottom edge of the image at itself. On level floor that
-                // goes unnoticed, but at every step it shows: the pattern jumped by the step height.
-                // The user noticed it at the secret wall on level 3 (48/55) - there
-                // the fake wall blended SEAMLESSLY into the wall behind it in our version,
-                // while in the original the transition is visible. The fake wall is an
-                // object and sits at its own height; only the wall was wrong. The
-                // tile has floor height 5, i.e. 80 world units, and 80 mod 64 = 16 pixels -
-                // exactly the offset the user had estimated.
-                //
-                // Whether the original counts from the bottom or from the ceiling does not matter:
-                // the ceiling is at 256 units, i.e. exactly four full repeats.
-                //
-                // V=0 is the BOTTOM EDGE OF THE IMAGE and grows upwards. The textures are stored
-                // row-flipped in the Texture2DArray, because Unity's SetPixels32 stores from bottom
-                // to top, while the game data delivers row 0 = top.
-                //
-                // The sloped wall triangles previously used the reverse mapping
-                // from the quads (bottom edge 1 instead of 0) and were therefore upside down.
-                // Going through the world height removes the difference.
-                //
-                // OPEN, deliberately left as is: on SLOPED FLOORS the pattern does not fit
-                // yet. The world height is right there, but the texture runs along the
-                // slope instead of vertically, and the seam to the adjoining wall sits
-                // askew. The user looked at it and decided to leave it:
-                // "in the original it looks silly anyway" (2026-09-06).
+                // V comes from the absolute height: the same rule as in fAddStraightWall above,
+                // see there (a diagonal wall always reaches the ceiling, so no step case here).
                 for (int i = 0; i < uvs.Length; i++)
                 {
                     uvs[i].x = uvs[i].x * vScale;
@@ -611,7 +569,7 @@ namespace UnderworldRevisited.Build
 
         private static Vector3 fGetTileOrigin(int xPos, int zPos)
         {
-            return new Vector3(xPos * TileSpacing, 0f, zPos * TileSpacing);
+            return new Vector3(UWUnits.TileCentreToWorldAxis(xPos), 0f, UWUnits.TileCentreToWorldAxis(zPos));
         }
 
         /// <summary>Floor height of a tile at one of its corners (x and z -1 or 1): a slope is
@@ -633,7 +591,7 @@ namespace UnderworldRevisited.Build
 
         private static Vector3 fCreateVertex(int x, int z, float height)
         {
-            return new Vector3(x * TileHalfSize, height, z * TileHalfSize);
+            return new Vector3(x * UWWorldScale.TileHalfSize, height, z * UWWorldScale.TileHalfSize);
         }
     }
 }

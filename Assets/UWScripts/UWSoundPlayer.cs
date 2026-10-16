@@ -12,8 +12,7 @@ using UWDataImport.UWData;
 /// sampled effects at all - those are produced via MIDI. So this class can voice the
 /// intro, but not a creaking door.
 ///
-/// Playback runs through a dedicated AudioSource. Positional recordings use
-/// AudioSource.PlayClipAtPoint so that several can sound at once - this requires
+/// Playback runs through a dedicated AudioSource without a position. This requires
 /// an AudioListener in the scene - which was missing here and is created when needed,
 /// see fEnsureListener.
 /// </summary>
@@ -111,21 +110,6 @@ public class UWSoundPlayer : MonoBehaviour
             mOSource.Stop();
     }
 
-    /// <summary>Plays a recording at a world position. Several can
-    /// overlap.</summary>
-    public bool PlayAt(string psName, Vector3 pOWorldPosition)
-    {
-        AudioClip lOClip = GetClip(psName);
-
-        if (lOClip == null)
-            return false;
-
-        fEnsureListener();
-        AudioSource.PlayClipAtPoint(lOClip, pOWorldPosition, mfVolume);
-
-        return true;
-    }
-
     /// <summary>
     /// Makes sure there is an AudioListener. Without one Unity is completely
     /// silent, without any error message - and that is exactly what happened here: the scene
@@ -171,7 +155,7 @@ public class UWSoundPlayer : MonoBehaviour
         if (mOSource == null)
             mOSource = gameObject.AddComponent<AudioSource>();
 
-        // Play without position - spatial effects go through PlayClipAtPoint.
+        // Play without position - the speech accompanies subtitles, it has no place in the world.
         mOSource.spatialBlend = 0f;
         mOSource.playOnAwake = false;
     }

@@ -40,6 +40,15 @@ float _UWOwnTileCeilingY;
 TEXTURE2D(_UWFloorHeights);
 float _UWFloorHeightsReady;
 
+// The door planes (UWOwnTile.ClearDoors, RegisterDoor): per tile r = 1 with a door, g = 1 when
+// the plane lies across X (0 across Z, 2 a bridge's deck), b = the plane's coordinate on that
+// axis. Shared with UWPainterOrder.hlsl.
+#ifndef UW_DOOR_PLANES_DECLARED
+#define UW_DOOR_PLANES_DECLARED
+TEXTURE2D(_UWDoorPlanes);
+float _UWDoorPlanesReady;
+#endif
+
 // The box is drawn in by this much on every side, so its faces do not fight with the surfaces
 // they stand for - the lift the lurker always had above its water plane.
 #define UW_OWN_TILE_INSET 0.25
@@ -272,6 +281,79 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
     return false;
 }
 
+// A DOOR BEFORE THE SPRITE (per user, 2026-10-12, Remastered, level 1 at 3/50 looking south-east:
+// a goblin on 4/47 showed through the lintel and the side of the frame of the door on 4/49, the
+// palette path right). The plane rule below puts a sprite at the near edge of its tile's row, and
+// the door's tile lies inside that row, behind that plane. The original paints the door's tile -
+// nearer the viewer's column - after the goblin's, so its door and frame cover him and only the
+// opening shows him. So where the pixel's line of sight crosses a door's plane in a tile BEFORE
+// the sprite's own, the sprite is put just behind that plane: the leaf and the frame, in front of
+// it, cover the pixel, the opening does not. The walk is UWOwnTileBehindRock's; a door in the
+// sprite's own tile (the original's partition of that tile) is still not modelled. Returns the
+// fraction of the way from the eye to the pixel at the crossing, or -1 without one.
+float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
+{
+    if (_UWDoorPlanesReady < 0.5 || _UWOwnTileSize <= 0.0)
+        return -1.0;
+
+    float lfSize = _UWOwnTileSize;
+    float lfHalf = lfSize * 0.5;
+    float2 lFrom = _WorldSpaceCameraPos.xz;
+    float2 lDir = pPositionWS.xz - lFrom;
+    float2 lCell = floor((lFrom + lfHalf) / lfSize);
+    float2 lEnd = floor((pPositionWS.xz + lfHalf) / lfSize);
+    float2 lOwn = floor((pPivotWS.xz + lfHalf) / lfSize);
+    float2 lStep = float2(lDir.x >= 0.0 ? 1.0 : -1.0, lDir.y >= 0.0 ? 1.0 : -1.0);
+    float2 lSafe = float2(abs(lDir.x) > 1.0e-5 ? lDir.x : 1.0e-5, abs(lDir.y) > 1.0e-5 ? lDir.y : 1.0e-5);
+    float2 lNext = (((lCell + (lStep * 0.5)) * lfSize) - lFrom) / lSafe;
+    float2 lDelta = abs(lfSize / lSafe);
+    float lfEnter = 0.0;
+
+    [loop]
+    for (int liAt = 0; liAt < 32; liAt++)
+    {
+        if (all(lCell == lOwn) || all(lCell == lEnd))
+            return -1.0;
+
+        float lfLeave = saturate(min(lNext.x, lNext.y));
+        int2 lTexel = int2(lCell);
+
+        if (any(lTexel < int2(0, 0)) || any(lTexel > int2(63, 63)))
+            return -1.0;
+
+        float4 lDoor = LOAD_TEXTURE2D(_UWDoorPlanes, lTexel);
+
+        // The eye's own tile counts too: standing in the doorway, the plane may lie ahead.
+        if (lDoor.r > 0.5 && lDoor.g < 1.5)
+        {
+            float lfAxisEye = lDoor.g > 0.5 ? lFrom.x : lFrom.y;
+            float lfAxisDir = lDoor.g > 0.5 ? lSafe.x : lSafe.y;
+            float lfT = (lDoor.b - lfAxisEye) / lfAxisDir;
+
+            if (lfT > 0.0 && lfT < 1.0 && lfT >= lfEnter - 1.0e-4 && lfT <= lfLeave + 1.0e-4)
+                return lfT;
+        }
+
+        lfEnter = lfLeave;
+
+        if (lNext.x < lNext.y)
+        {
+            lCell.x += lStep.x;
+            lNext.x += lDelta.x;
+        }
+        else
+        {
+            lCell.y += lStep.y;
+            lNext.y += lDelta.y;
+        }
+    }
+
+    return -1.0;
+}
+
+// How far behind a door's plane a sprite beyond it is put, in world units.
+#define UW_BEHIND_DOOR 0.5
+
 float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth, float pfBigRadius)
 {
     if (_UWOwnTileSize <= 0.0)
@@ -406,7 +488,15 @@ float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY,
     if (lfAlong <= 1.0e-3)
         return pfDepth;
 
-    return UWOwnTileDeviceDepth(lEye + (lRay * (lfTarget / lfAlong)));
+    float lfFraction = lfTarget / lfAlong;
+
+    // Behind a door's plane crossed on the way (UWOwnTileDoorCrossing).
+    float lfDoor = UWOwnTileDoorCrossing(pPositionWS, pPivotWS);
+
+    if (lfDoor > 0.0)
+        lfFraction = max(lfFraction, lfDoor + (UW_BEHIND_DOOR / max(length(lRay), 1.0e-3)));
+
+    return UWOwnTileDeviceDepth(lEye + (lRay * lfFraction));
 }
 
 #endif

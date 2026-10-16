@@ -75,7 +75,6 @@ MonoBehaviour:
   EyesFadeSeconds: 0.3
   EyesFramesPerSecond: 8
   HitEffectHeightOffset: 0
-  AttackChargeBaseSeconds: 0.73
   AttackChargeStepSeconds: 0.072
   AttackConnectFramesFromEnd: 2
   HitEffectHeightVariation: 8
@@ -108,7 +107,6 @@ MonoBehaviour:
   CritterRadiusScale: 4
   CritterWallClearance: 16
   VoidEffectTicksPerSecond: 32
-  InstrumentNoteSeconds: 0.35
   FlaskFillStepSeconds: 0.25
   MoongateStepSeconds: 0.06666667
   VoidCreatureDriftSpeed: 8

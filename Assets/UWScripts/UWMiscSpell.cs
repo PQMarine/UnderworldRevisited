@@ -24,33 +24,34 @@ public static class UWMiscSpell
     // ------------------------------------------------- Class 11 target spells
 
     /// <summary>
-    /// A class 11 spell that goes onto a clicked target (see
+    /// A class 11 spell that goes onto a clicked target in reach (see
     /// Interaction.fApplyTargetSpell): Unlock, Name Enchantment and Remove Trap.
     ///
-    /// Returns false if the click hit nothing - the caller then reports "Nothing
-    /// happens.". For Unlock, if it hit something, this branch outputs its own message, just
-    /// like the reference: it says either "The spell unlocks the lock." or "That is not
-    /// locked.", never both and never nothing.
+    /// EACH SPEAKS FOR ITSELF, as obj_spells (UnderworldExhumed SPELLS.C, read 2026-10-12):
+    /// Unlock says "The spell unlocks the lock." or "The spell has no discernable effect.",
+    /// Name Enchantment is a look, Remove Trap on a thing without a trap says nothing, and any
+    /// other minor (Strengthen Door) does nothing at all. Until 2026-10-12 a miss of Remove Trap
+    /// or Name Enchantment printed "The spell has no discernable effect.".
     /// </summary>
-    public static bool CastOnTarget(int piMinorClass, UWEntityInfo pOTarget,
+    public static void CastOnTarget(int piMinorClass, UWEntityInfo pOTarget,
         Interaction pOInteraction, UWLevelLoader pOLevelLoader)
     {
         if (pOTarget == null || pOInteraction == null)
-            return false;
+            return;
 
         switch (piMinorClass)
         {
             case UWMiscSpellRules.UnlockSpell:
-                return fUnlock(pOTarget, pOInteraction, pOLevelLoader);
+                fUnlock(pOTarget, pOInteraction, pOLevelLoader);
+                break;
 
             case UWMiscSpellRules.NameEnchantmentSpell:
-                return fNameEnchantment(pOTarget, pOInteraction);
+                fNameEnchantment(pOTarget, pOInteraction);
+                break;
 
             case UWMiscSpellRules.RemoveTrapSpell:
-                return pOInteraction.TryRemoveTrapWithSpell(pOTarget);
-
-            default:
-                return false;
+                pOInteraction.TryRemoveTrapWithSpell(pOTarget);
+                break;
         }
     }
 
@@ -75,10 +76,27 @@ public static class UWMiscSpell
     ///
     /// This applies in the world as in the backpack - the spell explicitly also works on
     /// carried items (per user, 2026-09-10). CastOnItem takes the path there.
+    ///
+    /// WHAT CANNOT BE IDENTIFIED (a creature, a door, a directional thing) is simply looked at:
+    /// the original's case is LookAt with the identify level, which describes anything
+    /// lookable (obj_spells and LookAt, UnderworldExhumed SPELLS.C and LOOK.C, read 2026-10-12).
     /// </summary>
-    private static bool fNameEnchantment(UWEntityInfo pOTarget, Interaction pOInteraction)
+    private static void fNameEnchantment(UWEntityInfo pOTarget, Interaction pOInteraction)
     {
-        return pOTarget.ObjectData != null && pOInteraction.IdentifyItem(pOTarget.ObjectData);
+        if (pOTarget.ObjectData != null && pOInteraction.IdentifyItem(pOTarget.ObjectData))
+            return;
+
+        string lsLook = pOInteraction.GetLookDescription(pOTarget);
+
+        if (!string.IsNullOrEmpty(lsLook))
+            pOInteraction.AddMessage(lsLook);
+
+        // And SpecialLook's line, which LookAt prints after the sentence (a spiked door,
+        // 2026-10-15).
+        string lsSpecial = pOInteraction.GetSpecialLookLine(pOTarget);
+
+        if (!string.IsNullOrEmpty(lsSpecial))
+            pOInteraction.AddMessage(lsSpecial);
     }
 
     /// <summary>
@@ -89,23 +107,17 @@ public static class UWMiscSpell
     /// always unlocked, only doors, and answered a failure with "That is not locked.".
     ///
     /// NO OPENING. Unlocking does not open the door - the same already applies to the
-    /// key (see Interaction.TryToggleDoorLockWithKey, confirmed by user).
+    /// key (see UWItemTargetUse, confirmed by user).
     /// </summary>
     private static bool fUnlock(UWEntityInfo pOTarget, Interaction pOInteraction,
         UWLevelLoader pOLevelLoader)
     {
-        UWDoorLock lOLock = pOTarget.GetComponentInParent<UWDoorLock>();
-        UWObject lOContainerLock = null;
+        // A door's lock, else a chest's or barrel's - the one lookup the key, the pick and the
+        // spell share (UWDoor.ResolveLockTarget, 2026-10-12).
+        UWDoor.ResolveLockTarget(pOTarget, pOLevelLoader != null ? pOLevelLoader.CurrentLevel : null,
+            out UWLockState lODoorLock, out UWObject lOContainerLock);
 
-        if (pOLevelLoader != null && pOLevelLoader.CurrentLevel != null)
-        {
-            if (lOLock != null)
-                lOLock.EnsureResolved(pOTarget.ObjectData, pOLevelLoader.CurrentLevel.Masterlist);
-            else
-                lOContainerLock = UWLockRules.FindContainerLock(pOTarget.ObjectData, pOLevelLoader.CurrentLevel.Masterlist);
-        }
-
-        pOInteraction.AddGeneralMessage(UWLockRules.CastUnlock(lOLock != null ? lOLock.State : null,
+        pOInteraction.AddGeneralMessage(UWLockRules.CastUnlock(lODoorLock,
             lOContainerLock != null ? pOTarget.ObjectData : null, lOContainerLock));
 
         return true;

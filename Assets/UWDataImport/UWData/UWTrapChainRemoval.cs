@@ -37,7 +37,7 @@ namespace UWDataImport.UWData
 		/// <summary>Triggers 0x1A0-0x1AF: (id &amp; 0x1F0) is 0x1A0, as ovr153_DC2 tests it.</summary>
 		private const int TriggerIdMask = 0x1F0;
 
-		private const int TriggerIdBase = 0x1A0;
+		private const int TriggerIdBase = UWObjectIds.FirstTrigger;
 
 		/// <summary>Minor class 0 and 1 of major class 6 are traps (0x180-0x19F), 2 and 3 triggers.</summary>
 		private const int FirstTriggerMinorClass = 2;
@@ -144,14 +144,52 @@ namespace UWDataImport.UWData
 				}
 			}
 
-			if (!pOList.Contains(pOTrap, lOMasterlist))
+			// OBJ_FIND SEARCHES DEEP: delete_trap (UnderworldExhumed TRIGGER.C) looks the trap up
+			// with Obj_Find(head, 1, trap), which walks every member's special chain too (the
+			// members without the quantity bit, depth first), and frees it from the list it lies
+			// in. A door trap lives in its door's chain: the one-shot triggers of level 7 at 4/38,
+			// 27/55 and 23/56 aim at the traps inside the doors at 7/35, 27/54 and 24/56. Until
+			// 2026-10-12 ours looked into the tile list alone, so trap and lock template stayed in
+			// the door's chain and in our saves (reference audit, traps D11).
+			ObjectList lOHolder = fFindListHolding(pOList, pOTrap, lOMasterlist, 0);
+
+			if (lOHolder == null)
 				return;
 
 			if (!pOTrap.HasQuantity && pOTrap.Quantity != 0)
 				fClearChain(new ObjectList(pOTrap), pOLevel, piDepth + 1);
 
-			pOList.Remove(pOTrap, lOMasterlist);
+			lOHolder.Remove(pOTrap, lOMasterlist);
 			fFree(pOTrap, pOLevel);
+		}
+
+		/// <summary>Obj_Find with recurse: the list that holds pOObject - pOList itself, or the
+		/// special chain of one of its members (without the quantity bit), depth first. Null when
+		/// it is nowhere below pOList.</summary>
+		private static ObjectList fFindListHolding(ObjectList pOList, UWObject pOObject, List<UWObject> pOMasterlist, int piDepth)
+		{
+			if (piDepth > MaxDepth)
+				return null;
+
+			foreach (UWObject lOAt in pOList.Members(pOMasterlist))
+			{
+				if (lOAt == null)
+					continue;
+
+				if (lOAt == pOObject)
+					return pOList;
+
+				if (lOAt.HasQuantity
+					|| (lOAt.Contents == null && (lOAt.Quantity == 0 || lOAt.Quantity >= pOMasterlist.Count)))
+					continue;
+
+				ObjectList lOFound = fFindListHolding(new ObjectList(lOAt), pOObject, pOMasterlist, piDepth + 1);
+
+				if (lOFound != null)
+					return lOFound;
+			}
+
+			return null;
 		}
 
 		/// <summary>ovr153_DC2.</summary>
@@ -198,9 +236,9 @@ namespace UWDataImport.UWData
 			if (lOObject == null)
 				return;
 
-			if ((lOObject.ID >> 6) == UWObjectMechanics.TrapMajorClass)
+			if (UWObjectIds.Major(lOObject.ID) == UWObjectMechanics.TrapMajorClass)
 			{
-				if (((lOObject.ID >> 4) & 0x3) < FirstTriggerMinorClass)
+				if (UWObjectIds.Minor(lOObject.ID) < FirstTriggerMinorClass)
 					fRemoveTrap(pOList, lOObject, pOLevel, piDepth + 1);
 				else
 					fRemoveChainTrigger(pOList, lOObject, pOLevel, piDepth + 1);

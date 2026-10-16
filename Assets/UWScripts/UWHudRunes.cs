@@ -53,6 +53,20 @@ public sealed class UWHudRunes
 
     private RawImage[] mSelectedRuneImages;
 
+    /// <summary>
+    /// A CAST STARTS A NEW SHELF (mous_in_rune and try_cast, UnderworldExhumed RUNES.C, read
+    /// 2026-10-12): every cast attempt from the hollow sets a flag - also "Not a spell" and one
+    /// refused as too soon - and the next rune clicked empties the hollow first. After In Lor a
+    /// click on Ort gives "Ort", not "In Lor Ort". Clicking the hollow again recasts as before.
+    /// Until 2026-10-12 ours always appended; without a cast in between the fourth rune still
+    /// pushes out the first (per user, 2026-09-03).
+    ///
+    /// ONE FLAG FOR THE WHOLE SESSION: the original's is a static byte that nothing resets, so a
+    /// cast before restoring a game still empties the restored hollow at the first rune (per user
+    /// on the original, 2026-10-13). Ours lived on this component, which a restore builds anew.
+    /// </summary>
+    private static bool msbCastSinceLastRune;
+
     /// <summary>The selected runes, from left to right. Read by UWSavegameWriter for the
     /// save game.</summary>
     public System.Collections.Generic.IReadOnlyList<int> SelectedRunes
@@ -79,6 +93,7 @@ public sealed class UWHudRunes
     internal void PutOnShelf(System.Collections.Generic.IReadOnlyList<int> pORunes)
     {
         mOSelectedRunes.Clear();
+        msbCastSinceLastRune = false;
 
         for (int liAt = 0; pORunes != null && liAt < pORunes.Count && mOSelectedRunes.Count < SelectedRuneCount; liAt++)
             mOSelectedRunes.Add(pORunes[liAt]);
@@ -90,6 +105,57 @@ public sealed class UWHudRunes
     /// the right - from the fourth on the left one drops out, as on the shelf.</summary>
     internal void AddToShelf(int piRune)
     {
+        if (fInAnotherInputMode())
+            return;
+
+        fAddRune(piRune);
+    }
+
+    /// <summary>
+    /// ANOTHER INPUT MODE HOLDS THE RUNES: try_cast and mous_in_rune (UnderworldExhumed RUNES.C)
+    /// return at once while GameInputMode is not 0 - a spell waiting for its target or aim, an
+    /// item being used on something (UseThing), an item on the pointer. Neither a cast nor a
+    /// rune click does anything then. Until 2026-10-13 ours cast anyway and the second spell
+    /// replaced the waiting one (reference audit, spells UNCLEAR 3).
+    /// </summary>
+    internal bool InAnotherInputMode => fInAnotherInputMode();
+
+    /// <summary>Whether the pointer lies on the casting hollow or, with the shelf shown, on a
+    /// rune or the clear strip - where the original's try_cast and mous_in_rune swallow a click
+    /// in another input mode, so a use mode must not end there (UWItemDrag.fUpdateUseMode).</summary>
+    internal bool IsPointerOverRunes(Vector2 pOScreenPos)
+    {
+        if (mOUi.IsPointerInOriginalArea(pOScreenPos, UWClickRules.RuneShelf, out int _, out int _))
+            return true;
+
+        if (mOUi.Panel.mePanelSide != UWHudPanel.PanelSideEnum.Runes || mOUi.Panel.miPanelStep >= 0
+            || mOUi.Panel.mRuneRoot == null)
+            return false;
+
+        return fGetRuneUnderMouse(pOScreenPos) >= 0 || fIsInRuneClearArea(pOScreenPos);
+    }
+
+    private bool fInAnotherInputMode()
+    {
+        if (mOUi.mOInteraction == null)
+            mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
+
+        UWInventory lOInventory = UWScene.Inventory;
+
+        return (mOUi.mOInteraction != null && mOUi.mOInteraction.IsSpellTargeting)
+            || (lOInventory != null && (lOInventory.UseModeItem != null || lOInventory.CursorItem != null))
+            || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing);
+    }
+
+    /// <summary>A rune into the hollow, appended on the right - from the fourth on the left one
+    /// drops out, and the first rune after a cast starts a new shelf (msbCastSinceLastRune).</summary>
+    private void fAddRune(int piRune)
+    {
+        if (msbCastSinceLastRune)
+            mOSelectedRunes.Clear();
+
+        msbCastSinceLastRune = false;
+
         mOSelectedRunes.Add(piRune);
 
         while (mOSelectedRunes.Count > SelectedRuneCount)
@@ -120,7 +186,7 @@ public sealed class UWHudRunes
         if (mOUi.mOInteraction == null)
             mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
 
-        if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null)
+        if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null || fInAnotherInputMode())
             return;
 
         UWSpellCasting.CastRunes((piSequence >> 10) & 0x1F, (piSequence >> 5) & 0x1F, piSequence & 0x1F, fMakeSpellHost());
@@ -161,6 +227,10 @@ public sealed class UWHudRunes
         if (!lbLeft && !lbRight)
             return;
 
+        // mous_in_rune does nothing at all in another input mode - no clearing, no look, no rune.
+        if (fInAnotherInputMode())
+            return;
+
         Vector2 lOPosition = lOMouse.position.ReadValue();
 
         // The clear strip first: it lies below the compartments and does not overlap
@@ -186,12 +256,7 @@ public sealed class UWHudRunes
         }
 
         // Appended on the right; from the fourth on the left one drops out.
-        mOSelectedRunes.Add(liRune);
-
-        while (mOSelectedRunes.Count > SelectedRuneCount)
-            mOSelectedRunes.RemoveAt(0);
-
-        fRefreshSelectedRunes();
+        fAddRune(liRune);
     }
 
     /// <summary>Which rune lies under the pointer? Only compartments that really hold
@@ -245,10 +310,10 @@ public sealed class UWHudRunes
         if (mOUi.mOInteraction == null)
             return;
 
-        UWObject lORune = new UWObject((ushort)(UWPlayerData.FirstRuneObjectId + piRune));
-
-        // Full quality, so that no condition word slips into the message.
-        lORune.Quality = 63;
+        // A stand-in from the factory, without a count and at full quality, so that no number
+        // and no condition word slips into the message.
+        UWObject lORune = UWObjectFactory.Create(UWPlayerData.FirstRuneObjectId + piRune,
+            mOUi.mOUWData != null ? mOUi.mOUWData.CommonObjectProperties : null, 0, UWObjectIds.MaxQuality);
 
         string lsMessage = mOUi.mOInteraction.DescribeInventoryItem(lORune);
 
@@ -382,8 +447,10 @@ public sealed class UWHudRunes
         if (mOUi.mOInteraction == null)
             mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
 
-        if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null)
+        if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null || fInAnotherInputMode())
             return;
+
+        msbCastSinceLastRune = true;
 
         UWSpellCasting.CastRunes(fGetSelectedRune(0), fGetSelectedRune(1), fGetSelectedRune(2), fMakeSpellHost());
         fAfterModernCast();
@@ -747,10 +814,12 @@ public sealed class UWHudRunes
         if (string.IsNullOrEmpty(lsName))
             return string.Empty;
 
-        // 138 " is nearly done", 139 " is unstable", 140 " is stable".
+        // 138 " is nearly done", 139 " is unstable", 140 " is stable": two or less is nearly
+        // done, up to ten unstable (UnderworldExhumed RUNES.C try_clear). Until 2026-10-12 two
+        // already counted as unstable.
         int liStateMessage = 138;
 
-        if (lOSpell.Stability >= 2)
+        if (lOSpell.Stability > 2)
             liStateMessage = lOSpell.Stability <= 0xA ? 139 : 140;
 
         string lsState = string.Empty;

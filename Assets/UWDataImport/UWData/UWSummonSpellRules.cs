@@ -17,8 +17,9 @@ namespace UWDataImport.UWData
 	/// direction, with a random swerve. The reference computes in eighth-tiles - nine of them for
 	/// everything except Summon Monster, which takes twelve - and scatters the direction by up to
 	/// thirteen 256ths of a full circle, i.e. just under twenty degrees. If the
-	/// target tile is solid or lies outside the map, the spell reports "There is no
-	/// room to create that." and does nothing else.
+	/// target tile is solid or lies outside the map, food and monster report "There is no
+	/// room to create that." and do nothing else; the rune of warding makes no tile test
+	/// (see fWardingRune).
 	///
 	/// Engine-free since 2026-09-18 (P3); the eye position and the view yaw come from the host.
 	/// </summary>
@@ -31,10 +32,8 @@ namespace UWDataImport.UWData
 		private const int WardingRuneSpell = 3;
 		private const int SummonMonsterSpell = 4;
 
-		/// <summary>The seven foods: meat, bread, cheese, apple, corn, another bread,
-		/// fish. The reference rolls 0 to 6 on top.</summary>
-		private const int FirstFoodId = 176;
-
+		/// <summary>The seven foods from UWObjectIds.FirstFood on: meat, bread, cheese, apple,
+		/// corn, another bread, fish. The reference rolls 0 to 6 on top.</summary>
 		private const int FoodCount = 7;
 
 		/// <summary>First creature object. Summon Monster rolls relative to it.</summary>
@@ -69,10 +68,11 @@ namespace UWDataImport.UWData
 		/// reference says 277.</summary>
 		private const int NoRoomMessage = 278;
 
-		/// <summary>The quality of a thing that has only just come into being. The same applies to
-		/// the results from CMB.DAT (see UWInventoryModel.TryCombineInto) and to the
-		/// fragments of the rock hammer.</summary>
-		public const int NewObjectQuality = 0x3F;
+		/// <summary>What creat_spell writes onto the conjured food AFTER CreateObj's 40
+		/// (UnderworldExhumed SPELLS.C, read 2026-10-12: the non-creature branch sets 0x3F; the
+		/// summoned creature instead goes through creature_obj_init, UWCritterRecord.InitialiseAsNew).
+		/// Until 2026-10-12 named NewObjectQuality and borrowed by the rock hammer's pieces.</summary>
+		public const int ConjuredFoodQuality = UWObjectIds.MaxQuality;
 
 		/// <summary>
 		/// Casts a class 8 spell. Returns false if that spell is not built yet -
@@ -99,13 +99,25 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		/// <summary>Create Food: a random one of the seven foods in front of the character.
+		/// <summary>
+		/// Create Food: a random one of the seven foods in front of the character.
+		///
+		/// ON THE POINT, AS THE SUMMONING (creat_spell, UnderworldExhumed SPELLS.C, read
+		/// 2026-10-12): the food must fit at the swerved point itself - can_place with its own
+		/// radius and height, here the same test as Summon Monster's (fSummonSpotFits: the open
+		/// half of a diagonal tile, nothing overlapping) - and lies exactly there, then goes
+		/// through obj_deal, where water and lava take it. Until 2026-10-12 ours only refused a
+		/// solid tile and put the food in the middle of the tile.
 		/// </summary>
 		private static bool fCreateFood(IUWSpellHost pIHost)
 		{
-			UWTilePos lOTile;
+			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
-			if (!fFindSpot(PlacementDistance, pIHost, out lOTile))
+			int liId = UWObjectIds.FirstFood + UWRandom.Next(FoodCount);
+
+			if (!fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out UWTilePos lOTile,
+					out float lfAtX, out float lfAtZ)
+				|| !fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
 			{
 				pIHost.AddGeneralMessage(NoRoomMessage);
 
@@ -115,7 +127,10 @@ namespace UWDataImport.UWData
 			// FRESHLY CONJURED FOOD IS THE BEST FOOD. Without the quality value it got
 			// ZERO and thus the worst grade - in the original it is the best, since it has
 			// only just come into being (per user, 2026-09-10).
-			return pIHost.SpawnObjectById(FirstFoodId + UWRandom.Next(FoodCount), lOTile.X, lOTile.Y, 0, NewObjectQuality);
+			UWObject lOFood = UWObjectFactory.Create(liId, pIHost.Data != null ? pIHost.Data.CommonObjectProperties : null,
+				UWObjectFactory.Unset, ConjuredFoodQuality);
+
+			return lOFood != null && pIHost.SpawnObjectAt(lOFood, lfAtX, lfAtZ);
 		}
 
 		/// <summary>
@@ -123,25 +138,34 @@ namespace UWDataImport.UWData
 		///
 		/// It goes off as soon as a CREATURE walks into it - the player cannot
 		/// trigger it. It then reports from which direction it happened and hurts the
-		/// creature. How that is built in detail is in UWLevelLoader.SpawnWardRune and
-		/// UWTrapRules (the ward trap).
+		/// creature, once. How that is built in detail is in UWTrapRules.CastTrapSpell and
+		/// the ward trap.
 		///
 		/// NOTHING IS VISIBLE - trigger and trap are pure logic objects without an image, and that
 		/// is the same in the original.
+		///
+		/// THE MESSAGES AND THE WALL (creat_spell, UnderworldExhumed SPELLS.C): cast_trap_spell
+		/// lays the rune in whatever tile the swerved spot falls in, a wall's included, and the
+		/// player reads 0x114 "The Rune of Warding is placed." - 0x115 "There is no room to
+		/// create that." only when the level had no slot for it. Until 2026-10-12 ours said
+		/// nothing on success and refused a solid tile (reference audit, traps D12).
 		/// </summary>
 		private static bool fWardingRune(IUWSpellHost pIHost)
 		{
-			UWTilePos lOTile;
+			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
-			if (!fFindSpot(PlacementDistance, pIHost, out lOTile))
-			{
-				pIHost.AddGeneralMessage(NoRoomMessage);
+			// The spot only - its tile test is the food's and the summoning's, not the rune's.
+			fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out UWTilePos lOTile,
+				out _, out _);
 
-				return true;
-			}
+			pIHost.AddGeneralMessage(pIHost.SpawnWardRune(lOTile.X, lOTile.Y) ? WardPlacedMessage : NoRoomMessage);
 
-			return pIHost.SpawnWardRune(lOTile.X, lOTile.Y);
+			return true;
 		}
+
+		/// <summary>String block 1, our numbering: "The Rune of Warding is placed." (0x114 in UW.EXE's
+		/// numbering, game_sprint in creat_spell).</summary>
+		private const int WardPlacedMessage = 277;
 
 		/// <summary>
 		/// Summon Monster: summons a creature whose rank depends on the casting
@@ -255,7 +279,12 @@ namespace UWDataImport.UWData
 		private static UWCritterRecord fCreateNewCreature(int piId, UWTilePos pOTile, float pfAtX, float pfAtZ,
 			IUWSpellHost pIHost, out UWNpc pONpc)
 		{
-			pONpc = new UWNpc((ushort)piId);
+			// CreateObj first (UWObjectFactory, a mobile record for a creature id), then
+			// creature_obj_init on it, as creat_spell does.
+			pONpc = UWObjectFactory.Create(piId, pIHost.Data) as UWNpc;
+
+			if (pONpc == null)
+				return null;
 
 			UWObjectClassProperties.Critter lOStats;
 			int liVitality = pIHost.Data.ObjectClassProperties.TryGetCritter(piId, out lOStats) ? lOStats.Vitality : 0;
@@ -269,16 +298,11 @@ namespace UWDataImport.UWData
 			pONpc.NPC_HP = (byte)liVitality;
 			pONpc.XPos = UWTileQueries.WorldToSubTile(pfAtX, pOTile.X);
 			pONpc.YPos = UWTileQueries.WorldToSubTile(pfAtZ, pOTile.Y);
-			pONpc.WasSpawned = true;
 
-			try
-			{
-				pONpc.Texture = pIHost.Data.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piId);
-			}
-			catch
-			{
-				return null;
-			}
+			// NOT TEMPORARY: creature_obj_init clears bit 8 of word 0x0D and creat_spell never
+			// sets it, so a summoned creature stays when the player leaves the level and does not
+			// count in a creation trap's crowding check. Ours marked it (from 2026-09-27 as
+			// WasSpawned, from 2026-10-11 written into the save) until 2026-10-12.
 
 			return lORecord;
 		}
@@ -350,7 +374,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fSummonSpotFits(UWTilePos pOTile, float pfAtX, float pfAtZ, int piId, IUWSpellHost pIHost)
 		{
-			UWTile lOTile = pIHost.CurrentLevel.TileData[(pOTile.Y * UWWorldScale.TilesPerAxis) + pOTile.X];
+			UWTile lOTile = pIHost.CurrentLevel.GetTile(pOTile.X, pOTile.Y);
 
 			if (!UWTileQueries.IsSubTileInOpenHalf(lOTile.TileType, UWTileQueries.WorldToSubTile(pfAtX, pOTile.X),
 					UWTileQueries.WorldToSubTile(pfAtZ, pOTile.Y)))
@@ -380,11 +404,7 @@ namespace UWDataImport.UWData
 			// The same tile lookup the level loader uses (it clamps to the map).
 			pOTile = UWTileQueries.WorldToTile(pfAtX, pfAtZ);
 
-			if (pOTile.X < 0 || pOTile.X >= UWWorldScale.TilesPerAxis
-				|| pOTile.Y < 0 || pOTile.Y >= UWWorldScale.TilesPerAxis)
-				return false;
-
-			UWTile lOTile = pIHost.CurrentLevel.TileData[(pOTile.Y * UWWorldScale.TilesPerAxis) + pOTile.X];
+			UWTile lOTile = pIHost.CurrentLevel.GetTile(pOTile.X, pOTile.Y);
 
 			return lOTile != null && lOTile.TileType != UWTile.TileTypeEnum.solid;
 		}

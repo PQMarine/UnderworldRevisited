@@ -18,11 +18,8 @@ using UWDataImport.UWData;
 /// </summary>
 public partial class UWModernBags
 {
-    /// <summary>"That is too heavy to take." (UWItemDrag, string block 1 no. 253 in ours).</summary>
-    private const int TooHeavyToTakeMessage = 253;
-
     /// <summary>"You cannot barter a container." (UWItemDrag, string block 1 no. 187 in ours).</summary>
-    private const int CannotBarterContainerMessage = 187;
+    private const int CannotBarterContainerMessage = UWStringIds.CannotBarterContainerMessage;
 
     private bool mbTradePress;
 
@@ -116,32 +113,27 @@ public partial class UWModernBags
     /// (too heavy, it stays there).</summary>
     private void fTakeFromTrade(UWConversationTrade pOTrade, UWInventory pOInventory, bool pbDragged)
     {
-        UWObject lOItem;
+        UWObject lOItem = mbTradePressNpc ? pOTrade.NpcItems[miTradePressSlot] : pOTrade.PlayerItems[miTradePressSlot];
+
+        if (lOItem == null || (mbTradePressNpc && (!pOTrade.NpcGoodsBought || !pOTrade.NpcBought[miTradePressSlot])))
+            return;
+
+        // The whole stack is taken here, so the whole stack is weighed (UWPickupRules) - on both
+        // sides, as UseTradeSlot_ovr097_6E8 weighs (until 2026-10-15 only the partner's).
+        UWPickupRules.Result lOCheck = UWPickupRules.CheckFromTrade(lOItem, UWWorldPickup.WholeStack, pOInventory.Model);
+
+        if (!lOCheck.CanTake)
+        {
+            if (mOInteraction != null && lOCheck.MessageIndex >= 0)
+                fShowTalkText(mOInteraction.GetGeneralMessage(lOCheck.MessageIndex));
+
+            return;
+        }
 
         if (mbTradePressNpc)
-        {
-            lOItem = pOTrade.NpcItems[miTradePressSlot];
-
-            if (lOItem == null || !pOTrade.NpcGoodsBought || !pOTrade.NpcBought[miTradePressSlot])
-                return;
-
-            if (!pOInventory.CanCarry(lOItem))
-            {
-                if (mOInteraction != null)
-                    fShowTalkText(mOInteraction.GetGeneralMessage(TooHeavyToTakeMessage));
-
-                return;
-            }
-
             pOInventory.BeginDragFromExternal(pOTrade.TakeFromNpcSlot(miTradePressSlot));
-        }
         else
-        {
-            if (pOTrade.PlayerItems[miTradePressSlot] == null)
-                return;
-
             pOInventory.BeginDragFromExternal(pOTrade.TakeFromPlayerSlot(miTradePressSlot));
-        }
 
         // Its way back, should it find no place, is the pack (fReturnCursorItem).
         fForgetOrigin();
@@ -177,20 +169,15 @@ public partial class UWModernBags
             return true;
         }
 
-        // A matching stack takes it, as in the backpack.
-        if (lOTrade.PlayerItems[liSlot] != null && pOInventory.TryStackInto(lOTrade.PlayerItems[liSlot]))
-        {
-            lOTrade.PlayerSlotChanged(liSlot);
-            pbPlaced = true;
-            return true;
-        }
+        // The slot's own rule (UWConversationTrade.DropOnPlayerSlot): a like pile takes the count,
+        // anything else swaps, a container there refuses and the thing stays on the pointer.
+        UWObject lOHeld = pOInventory.TakeCursorItem();
+        UWObject lOBack = lOTrade.DropOnPlayerSlot(liSlot, lOHeld);
 
-        UWObject lOPrevious = lOTrade.PutInPlayerSlot(liSlot, pOInventory.TakeCursorItem());
+        if (lOBack != null)
+            pOInventory.BeginDragFromExternal(lOBack);
 
-        if (lOPrevious != null)
-            pOInventory.BeginDragFromExternal(lOPrevious);
-
-        pbPlaced = true;
+        pbPlaced = lOBack != lOHeld;
         return true;
     }
 

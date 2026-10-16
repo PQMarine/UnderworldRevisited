@@ -29,7 +29,7 @@ namespace UWDataImport.UWData
 		public const int FirstValuableObjectId = 0xA0;
 
 		/// <summary>First food. The table value counts from here.</summary>
-		public const int FirstFoodObjectId = 0xB0;
+		public const int FirstFoodObjectId = UWObjectIds.FirstFood;
 
 		/// <summary>All loot rolls are against zero to fifteen (sixteen values).</summary>
 		private const int ProbabilityRange = 16;
@@ -66,20 +66,14 @@ namespace UWDataImport.UWData
 			return lODrops;
 		}
 
-		/// <summary>Condition of a freshly created object (UW.EXE PrepareNewObjectProps:
-		/// quality 0x28). Food and valuables keep it.</summary>
-		private const int NewObjectQuality = 0x28;
-
 		/// <summary>Identifier of physical missiles in the ranged weapon table.</summary>
 		private const int PhysicalMissileType = 0xC0;
 
 		/// <summary>Quantity of a freshly created object: 1 if its quantity class
-		/// provides for it, otherwise none (UWCommonObjectProperties.StartsWithQuantity).</summary>
+		/// provides for it, otherwise none - CreateObj's rule (UWObjectFactory).</summary>
 		private static int fNewQuantity(UWCommonObjectProperties pOCommon, int piObjectId)
 		{
-			UWCommonObjectProperties.Entry lOEntry;
-
-			return pOCommon != null && pOCommon.TryGet(piObjectId, out lOEntry) && lOEntry.StartsWithQuantity ? 1 : 0;
+			return UWObjectFactory.NewQuantity(pOCommon, piObjectId);
 		}
 
 		/// <summary>
@@ -170,7 +164,7 @@ namespace UWDataImport.UWData
 				{
 					ObjectId = FirstValuableObjectId + liType,
 					Quantity = liCount,
-					Quality = NewObjectQuality
+					Quality = UWObjectFactory.DefaultQuality
 				});
 		}
 
@@ -188,7 +182,7 @@ namespace UWDataImport.UWData
 			{
 				ObjectId = liId,
 				Quantity = fNewQuantity(pOCommon, liId),
-				Quality = NewObjectQuality
+				Quality = UWObjectFactory.DefaultQuality
 			});
 		}
 

@@ -68,9 +68,11 @@ public class UWMoveTrigger : MonoBehaviour
         if (mOLoader == null)
             return;
 
-        // The ward rune searches by itself (see fUpdateWard) - for it the player is not a
-        // trigger source.
-        if (fIsWardTrigger())
+        // WHO MAY SET IT OFF (UWTrapRules.MaySetOff, UseTrigger): the player only with flags bit 2 -
+        // never the rune of warding's trigger (flags 8). Until 2026-10-12 this path told the rune
+        // apart by its flags 0 and searched the creatures for it itself; the creatures' motion
+        // sets it off now (UWProjectileWorld.TriggerMove).
+        if (!UWTrapRules.MaySetOff(mOTriggerData, UWTrapRules.Setter.Player))
             return;
 
         // Only the player fires it, not items lying around.
@@ -81,7 +83,7 @@ public class UWMoveTrigger : MonoBehaviour
 
         // ON THE MOTION CORE the player's collision fires the trigger as the original does - on
         // every motion frame in reach, not on entering (UWProjectileWorld.TriggerMove,
-        // 2026-10-06). This volume serves the old CharacterController path and the ward rune.
+        // 2026-10-06). This volume serves the old CharacterController path only.
         if (lOMovement.UsesMotionCore)
             return;
 
@@ -129,16 +131,14 @@ public class UWMoveTrigger : MonoBehaviour
             return true;
 
         UWTilePos lOTile = mOLoader.WorldPositionToTile(transform.position);
-        UWTile[] lOTiles = mOLoader.CurrentLevel.TileData;
-        int liAt = (lOTile.Y * 64) + lOTile.X;
+        UWTile lOAt = mOLoader.CurrentLevel.GetTile(lOTile.X, lOTile.Y);
 
-        if (liAt >= 0 && liAt < lOTiles.Length && lOTiles[liAt] != null
-            && lOTiles[liAt].ObjectsInTile != null && lOTiles[liAt].ObjectsInTile.Contains(mOTriggerData))
+        if (lOAt != null && lOAt.ObjectsInTile != null && lOAt.ObjectsInTile.Contains(mOTriggerData))
             return true;
 
-        foreach (UWTile lOAt in lOTiles)
+        foreach (UWTile lOOther in mOLoader.CurrentLevel.TileData)
         {
-            if (lOAt != null && lOAt.ObjectsInTile != null && lOAt.ObjectsInTile.Contains(mOTriggerData))
+            if (lOOther != null && lOOther.ObjectsInTile != null && lOOther.ObjectsInTile.Contains(mOTriggerData))
                 return true;
         }
 
@@ -149,86 +149,6 @@ public class UWMoveTrigger : MonoBehaviour
     {
         if (pOOther.GetComponentInParent<UWPlayerMovement>() != null)
             mbInside = false;
-    }
-
-    /// <summary>
-    /// A MOVE TRIGGER WITH ZERO FLAGS IS A WARD RUNE.
-    ///
-    /// No trigger in the shipped data has empty flags - the value only arises when
-    /// the player places a ward rune (spell class 8, subclass 3). The reference sets
-    /// it there explicitly and notes that the player therefore does NOT fire this
-    /// trigger ("with this value set the player will not activate this move
-    /// trigger"). After all it is meant to catch others, not the one who placed it.
-    ///
-    /// Because the mark is stored in the object itself and not in our display, the
-    /// rune survives a rebuild of the level: on the next build fSpawnTransitions finds the
-    /// trigger in the tile again and sets up its volume once more.
-    /// </summary>
-    private bool fIsWardTrigger()
-    {
-        return mOTriggerData != null && mOTriggerData.Flags == 0;
-    }
-
-    /// <summary>Who is currently standing in the rune - so that it fires once per creature
-    /// on walking in and not on every tick.</summary>
-    private System.Collections.Generic.HashSet<UWCritter> mOInsideCritters;
-
-    /// <summary>
-    /// How often the ward rune checks who is standing on it.
-    ///
-    /// NO UNITY TRIGGER EVENT. A creature in our port only carries a box and no
-    /// rigidbody; between two such bodies Unity reports nothing at all. For the player
-    /// it works because his CharacterController counts as a moving body. The rune therefore
-    /// checks by itself - five times per second is more than enough, a creature
-    /// takes considerably longer to cross a tile.
-    /// </summary>
-    private const float WardCheckInterval = 0.2f;
-
-    private float mfWardTimer;
-
-    private void Update()
-    {
-        if (!fIsWardTrigger() || mOLoader == null)
-            return;
-
-        mfWardTimer += Time.deltaTime;
-
-        if (mfWardTimer < WardCheckInterval)
-            return;
-
-        mfWardTimer = 0f;
-
-        fUpdateWard();
-    }
-
-    private void fUpdateWard()
-    {
-        if (mOInsideCritters == null)
-            mOInsideCritters = new System.Collections.Generic.HashSet<UWCritter>();
-
-        UWCritter[] lOCritters = UWScene.FindCritters();
-
-        if (lOCritters == null)
-            return;
-
-        // Whoever has left counts again the next time they walk in.
-        mOInsideCritters.RemoveWhere(pOAt => pOAt == null || !fIsInReach(pOAt.transform.position));
-
-        for (int liAt = 0; liAt < lOCritters.Length; liAt++)
-        {
-            UWCritter lOCritter = lOCritters[liAt];
-
-            if (lOCritter == null || !fIsInReach(lOCritter.transform.position))
-                continue;
-
-            if (!mOInsideCritters.Add(lOCritter))
-                continue;
-
-            if (mOInteraction == null)
-                mOInteraction = UWScene.Interaction;
-
-            UWTriggerSystem.TryFireWardTrigger(mOTriggerData, lOCritter, mOLoader, mOInteraction);
-        }
     }
 
     /// <summary>The original's test: PER AXIS separately, not by distance. That

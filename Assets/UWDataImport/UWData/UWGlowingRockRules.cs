@@ -28,7 +28,7 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWGlowingRockRules
 	{
-		public const int GlowingRockId = 0x129;
+		public const int GlowingRockId = UWObjectIds.GlowingRock;
 
 		/// <summary>The ten bits of the quantity field.</summary>
 		private const int QuantityMask = 0x3FF;

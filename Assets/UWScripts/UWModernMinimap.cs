@@ -145,7 +145,7 @@ public class UWModernMinimap : MonoBehaviour
 
         // Switched off in the layout editor (per user, 2026-10-04: some will not want it at all) -
         // a choice of the own layout, the Modern preset shows it.
-        if (UWModernLayout.IsMinimapHidden || mOScheme == null || mOScheme.Current != UWControlScheme.SchemeEnum.Modern
+        if (UWModernLayout.IsMinimapHidden || !UWControlScheme.IsModern
             || UWModernHud.Instance == null || !UWModernHud.Instance.IsShowing
             || mOUi == null || mOUi.mOUWData == null)
             return false;
@@ -229,7 +229,7 @@ public class UWModernMinimap : MonoBehaviour
 
         UWControls lOControls = mOScheme.Controls;
 
-        if (lOControls == null || !lOControls.Player.CursorDrag.WasPressedThisFrame())
+        if (lOControls == null || !lOControls.Player.CursorDrag.WasPressedThisFrame() || UWModernPointer.PanelsHeld)
             return;
 
         // A thing on the pointer is not put down through the map (UWModernBags asks Contains).

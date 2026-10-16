@@ -15,10 +15,55 @@ namespace UWDataImport.UWData
 	/// IUWTrapHost; UWTriggerSystem is the Unity facade with the old public API.
 	///
 	/// Trap kinds without an implementation are recorded in the trap log (see fRunTrap)
-	/// and break the chain; see fRunTrapInner for the kinds that are handled.
+	/// (NOT BUILT); the chain goes on past them as the original's does (see fRunTrapChain). The
+	/// kinds that are handled are the tables Traps and DoActions (UWTrapTable, since 2026-10-14).
 	/// </summary>
 	public static class UWTrapRules
 	{
+		/// <summary>Who set a trigger off - the "who" of the original's UseTrigger.</summary>
+		public enum Setter
+		{
+			Player,
+			Creature,
+			/// <summary>Anything else: a thing in flight, a door broken by a blow (ours does not
+			/// keep the attacker), the Gronk conversation (the original passes no object; its
+			/// read then lands in the DOS vector table).</summary>
+			Thing
+		}
+
+		/// <summary>Flags bit 2 of a trigger (word 0 bit 0x800, ID_FLAG11): the player sets it off.</summary>
+		public const int PlayerSetsOffFlag = 4;
+
+		/// <summary>Flags bit 3 (word 0 bit 0x1000, ID_ENCHANT): creatures set it off; for a thing
+		/// it is the one bit that, without bit 2, keeps it out.</summary>
+		public const int OthersSetOffFlag = 8;
+
+		/// <summary>
+		/// Whether peSetter may set the trigger off - UseTrigger (TRIGGER.C) for every trigger
+		/// kind: the player only with bit 2, a creature only with bit 3, anything else unless bit
+		/// 3 is set without bit 2. (The original also refuses a creature on a trigger of major
+		/// class MAJOR_RECT, which no trigger is.) The move trigger's scan had this since
+		/// 2026-10-06 (UWProjectileWorld.TriggerMove); the open trigger since 2026-10-12.
+		/// </summary>
+		public static bool MaySetOff(UWObject pOTrigger, Setter peSetter)
+		{
+			if (pOTrigger == null)
+				return false;
+
+			bool lbPlayerFlag = (pOTrigger.Flags & PlayerSetsOffFlag) != 0;
+			bool lbOthersFlag = (pOTrigger.Flags & OthersSetOffFlag) != 0;
+
+			switch (peSetter)
+			{
+				case Setter.Player:
+					return lbPlayerFlag;
+				case Setter.Creature:
+					return lbOthersFlag;
+				default:
+					return !lbOthersFlag || lbPlayerFlag;
+			}
+		}
+
 		/// <summary>The player has USED pOObject (switch, double door, ...). Looks up the
 		/// chain object -> a_use trigger -> trap and fires it. A switch without a function still
 		/// flips - see below.</summary>
@@ -40,6 +85,25 @@ namespace UWDataImport.UWData
 			}
 
 			return lbFired;
+		}
+
+		/// <summary>The buttons and switches, class 0x17 (items 0x170-0x17F, major 5 minor 3).</summary>
+		private const int ButtonClassBase = 0x170;
+
+		private const int ClassMask = 0x1F0;
+
+		/// <summary>A button's state is its class index: 8 and up is on (pressed).</summary>
+		private const int SwitchOnBit = 0x8;
+
+		/// <summary>
+		/// WHAT CLICKS WHEN USED: UseRect (UnderworldExhumed USEITEMS.C) plays sound 0x13 for minor
+		/// class 3 alone - the buttons and switches 0x170-0x17F - on every press, whether a trigger
+		/// hangs on it or not; a lever (minor 2, 0x161/0x162) only steps its position, other minor 2
+		/// objects are looked at, a door plays its own sound (reference audit, traps D7).
+		/// </summary>
+		public static bool ClicksWhenUsed(int piObjectId)
+		{
+			return (piObjectId & ClassMask) == ButtonClassBase;
 		}
 
 		/// <summary>The Search skill value the Reveal spell temporarily raises it to
@@ -77,6 +141,29 @@ namespace UWDataImport.UWData
 			List<UWObject> lOMaster = pIHost.CurrentLevel.Masterlist;
 
 			UWObject lOTrigger = UWObjectMechanics.GetLinkedObject(pOObject, lOMaster);
+
+			// A SWITCH THAT IS ON PASSES THE ACTION ON (UseTrigger, UnderworldExhumed TRIGGER.C): a
+			// button of class 0x17 whose state is above 7 hands it to the next trigger of its chain,
+			// and that one again while there is a next - so a switch holding two triggers fires the
+			// first when it is turned off and the second when it is turned on. A use flips the
+			// button BEFORE the trigger is asked (UseRect, then checkTrap); ours flips it below,
+			// so the state after this press is taken. No shipped switch holds two triggers (latent,
+			// reference audit traps D18; built 2026-10-12).
+			bool lbOnNow = (pOObject.ID & SwitchOnBit) != 0;
+			bool lbOnWhenAsked = piExpectedTriggerId == UWObjectMechanics.UseTriggerId ? !lbOnNow : lbOnNow;
+
+			if (lOTrigger != null && ClicksWhenUsed(pOObject.ID) && lbOnWhenAsked)
+			{
+				for (int liStep = 0; lOTrigger.Link != 0 && lOTrigger.Link < lOMaster.Count && liStep < MaxTrapChainDepth; liStep++)
+				{
+					UWObject lONext = lOTrigger.GetNextObjectInLine(lOMaster);
+
+					if (lONext == null)
+						break;
+
+					lOTrigger = lONext;
+				}
+			}
 
 			if (lOTrigger == null || lOTrigger.ID != piExpectedTriggerId)
 				return false;
@@ -118,6 +205,14 @@ namespace UWDataImport.UWData
 			if (piExpectedTriggerId == UWObjectMechanics.UseTriggerId)
 				pIHost.ToggleSwitchVisual(pOObject);
 
+			// THE PLAYER IS THE ONE who uses, looks and picks up, and UseTrigger asks him as for
+			// every trigger kind (MaySetOff; the lever and the switch have moved already, UseRect
+			// does that before checkTrap). Every use, look and pick-up trigger of UW1 carries the
+			// player bit (self-check "trigger setters"), so nothing changes in the shipped game;
+			// until 2026-10-13 ours did not ask (reference audit, finding of the fix agents).
+			if (!MaySetOff(lOTrigger, Setter.Player))
+				return false;
+
 			return FireTraps(lOTrigger, pOObject, pIHost);
 		}
 
@@ -131,8 +226,15 @@ namespace UWDataImport.UWData
 		/// nine levels: six of them, on 1, 3, 7 and 8, all behind an a_lock).
 		///
 		/// This is called only on OPENING, not on closing.
+		///
+		/// WHO OPENED decides (MaySetOff): OpenDoor hands its "who" to checkTrap and on to
+		/// UseTrigger. All six open triggers of UW1 carry flags 4 or 6 - bit 2 set, bit 3 not - so
+		/// the player, a door trap set off by the player and a broken door fire them, a creature
+		/// opening the door never does. Until 2026-10-12 ours fired them for every opener, and a
+		/// goblin walking through the storeroom doors of level 1 (4/49, 55/59) set off the
+		/// trespass trap meant for the player (reference audit, traps).
 		/// </summary>
-		public static bool TryFireOpenTrigger(UWObject pODoorData, IUWTrapHost pIHost)
+		public static bool TryFireOpenTrigger(UWObject pODoorData, IUWTrapHost pIHost, Setter peOpener)
 		{
 			if (pODoorData == null || pIHost == null || pIHost.CurrentLevel == null)
 				return false;
@@ -146,7 +248,8 @@ namespace UWDataImport.UWData
 
 			foreach (UWObject lOLink in pODoorData.Contents)
 			{
-				if (lOLink == null || lOLink.ID != UWObjectMechanics.OpenTriggerId)
+				if (lOLink == null || lOLink.ID != UWObjectMechanics.OpenTriggerId
+					|| !MaySetOff(lOLink, peOpener))
 					continue;
 
 				if (fFireTriggerTrap(lOLink, null, pIHost, 0))
@@ -186,7 +289,7 @@ namespace UWDataImport.UWData
 			// The link now starts at the first real item. Whether the trap ran successfully does not
 			// matter - the original removes a one-shot chain after running it.
 			if (lOTrigger != null && lOTrigger.ID == UWObjectMechanics.PickUpTriggerId
-				&& (lOTrigger.Flags & RepeatableTrapFlag) == 0)
+				&& (lOTrigger.Flags & RepeatableTrapFlag) == 0 && MaySetOff(lOTrigger, Setter.Player))
 			{
 				pOObject.EnsureContentsLoaded(lOMaster);
 				pOObject.Contents.Remove(lOTrigger);
@@ -281,9 +384,9 @@ namespace UWDataImport.UWData
 		/// For poison a stronger value replaces the running one instead of adding up (see
 		/// UWCharacter.ApplyPoison).
 		///
-		/// IT IS ALWAYS THE PLAYER WHO FIRED IT: our triggers only respond to him. In the original
-		/// NPCs can also walk into a trap; that is dropped as long as they do not fire
-		/// triggers.
+		/// WHOEVER SET IT OFF is struck (whack_thing, UnderworldExhumed WORLDEV.C): the player, a
+		/// creature or a thing - see below. (Until 2026-10-12 this said "it is always the player";
+		/// creatures and things set off move triggers since 2026-10-06.)
 		/// </summary>
 		private static bool fFireDamageTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
@@ -335,6 +438,13 @@ namespace UWDataImport.UWData
 
 			if (UWObjectMechanics.IsPoisonDamageTrap(pOTrap))
 			{
+				if (PlayerResistsPoison(pIHost.PlayerDamageTypeProof))
+				{
+					UWTrapLog.Detail = string.Format("-> poison {0}, resisted", pOTrap.Quality);
+
+					return true;
+				}
+
 				pIHost.PoisonPlayer(pOTrap.Quality);
 
 				UWTrapLog.Detail = string.Format("-> poison {0}", pOTrap.Quality);
@@ -349,13 +459,26 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
+		/// <summary>
+		/// THE POISON OF A TRAP AND A POISONED POTION IS RESISTED: whack_thing (UnderworldExhumed
+		/// WORLDEV.C) poisons the player only when the new strength is above his poison AND
+		/// check_res(ThePlayer, 1, 0x10) lets the test damage through - the player's resist byte
+		/// gets 0x10 from a worn Poison Resistance (PLAYDATA.C). The potion runs the same trap
+		/// (checkTrap after eating, USEITEMS.C). The strength test is UWPlayerVitals.ApplyPoison's.
+		/// Until 2026-10-12 neither asked for the resistance (reference audit, traps D6).
+		/// </summary>
+		public static bool PlayerResistsPoison(int piDamageTypeProof)
+		{
+			return UWDamageTypes.Scale(piDamageTypeProof, 1, UWDamageTypes.Poison) == 0;
+		}
+
 		/// <summary>String block 1, our numbering: "Your Rune of Warding has been set off ".
 		/// The reference says 245; checked against a dump of the block.</summary>
 		private const int WardMessage = 246;
 
 		/// <summary>First direction text in string block 1, our numbering ("to the North").
 		/// The same eight that Detect Monsters uses.</summary>
-		public const int FirstDirectionMessage = 37;
+		public const int FirstDirectionMessage = UWStringIds.FirstDirectionMessage;
 
 		/// <summary>Base damage of the rune of warding, before the casting skill is added.</summary>
 		private const int WardBaseDamage = 3;
@@ -364,7 +487,9 @@ namespace UWDataImport.UWData
 		/// a_ward trap: the rune of warding goes off.
 		///
 		/// IT ONLY HITS CREATURES, never the one who placed it - the trigger already
-		/// takes care of that (see UWMoveTrigger.fIsWardTrigger). The message names the direction
+		/// takes care of that (flags 8, see CastTrapSpell and MaySetOff); with nobody as the one
+		/// who set it off (a sleeper's ambush, UWSleepRules) it does nothing. Either way it ends
+		/// the chain (TRIGGER.C, TRAP_WARD). The message names the direction
 		/// in which it happened, seen from the player; so you do not have to be standing nearby.
 		///
 		/// THE DAMAGE DEPENDS ON THE CASTING SKILL: three plus a roll from zero to
@@ -399,6 +524,138 @@ namespace UWDataImport.UWData
 			UWTrapLog.Detail = string.Format("-> rune of warding, {0} damage", liDamage);
 
 			return true;
+		}
+
+		/// <summary>The fine position cast_trap_spell gives both records: the middle of the tile.</summary>
+		private const int LaidTrapFinePosition = 3;
+
+		/// <summary>The trap of a spell-laid trigger carries flags 1: one trigger points at it, the
+		/// count the one-shot cleanup works down (UWTrapChainRemoval).</summary>
+		private const int LaidTrapTriggerCount = 1;
+
+		/// <summary>
+		/// A TRAP LAID BY A SPELL - cast_trap_spell (UnderworldExhumed TRIGGER.C), which the Rune of
+		/// Warding calls with trap kind 9 (creat_spell, SPELLS.C). Two static records, the trigger
+		/// allocated first, the trap second (the trigger freed again when there is no slot for the
+		/// trap), both put at the HEAD of the tile's list, so the trap comes first:
+		///
+		///   trigger  a_move trigger 0x1A0, invisible, door bit, quantity bit; flags 8 - creatures
+		///            set it off (bit 3), the player never (bit 2 clear), one-shot (bit 1 clear);
+		///            its special link the trap, its target tile its own; z the tile's floor
+		///            (height &lt;&lt; 3), fine position 3/3, heading 0.
+		///   trap     0x180 + kind, invisible, door bit, quantity bit, link 0; quality 0x3F (any
+		///            creature), flags 1 (one trigger points at it); the same place.
+		///
+		/// The first creature over it sets it off, and the one-shot cleanup takes trigger and trap
+		/// out of the tile (UseTrigger -> delete_trap): the rune goes off once. ANY TILE - the
+		/// original makes no tile test, a rune cast into a wall lies in the wall's list.
+		///
+		/// UNTIL 2026-10-12 (reference audit, traps D1 and D12) ours followed the reference: the
+		/// trigger with flags 0, the trap appended to the Masterlist in no tile list. The cleanup
+		/// never found the trap, so the rune hurt every creature that walked in, again and again;
+		/// in UW.EXE flags 0 would let only thrown things set it off. A solid tile was refused.
+		/// False when no slot was free (the caller says "There is no room to create that.").
+		/// </summary>
+		public static bool CastTrapSpell(UWWorldEdit pOEdit, UWCommonObjectProperties pOCommon, int piTileX, int piTileY,
+			int piTrapId)
+		{
+			UWLevel lOLevel = pOEdit != null ? pOEdit.Level : null;
+			UWTile lOTile = lOLevel != null ? lOLevel.GetTile(piTileX, piTileY) : null;
+
+			if (lOTile == null)
+				return false;
+
+			int liZPos = (lOTile.FloorHeight >> 4) << 3;
+
+			UWObject lOTrigger = UWObjectFactory.Create(UWObjectMechanics.MoveTriggerId, pOCommon, 0, 0);
+			UWObject lOTrap = UWObjectFactory.Create(piTrapId, pOCommon, 0, 0);
+
+			int liTriggerIndex = pOEdit.TakeStaticNumber(lOTrigger);
+
+			if (liTriggerIndex <= 0)
+				return false;
+
+			int liTrapIndex = pOEdit.TakeStaticNumber(lOTrap);
+
+			if (liTrapIndex <= 0)
+			{
+				pOEdit.ReturnStaticNumber(liTriggerIndex);
+
+				return false;
+			}
+
+			fSetLaidRecord(lOTrigger, liZPos);
+			lOTrigger.Flags = OthersSetOffFlag;
+			lOTrigger.Quantity = (ushort)liTrapIndex;
+			lOTrigger.Quality = (ushort)piTileX;
+			lOTrigger.Owner = (ushort)piTileY;
+
+			fSetLaidRecord(lOTrap, liZPos);
+			lOTrap.Flags = LaidTrapTriggerCount;
+			lOTrap.Quantity = 0;
+			lOTrap.Quality = UWObjectMechanics.WardTrapAnyClass;
+
+			pOEdit.AddAtHead(lOTrigger, piTileX, piTileY);
+			pOEdit.AddAtHead(lOTrap, piTileX, piTileY);
+
+			return true;
+		}
+
+		/// <summary>
+		/// A RUNE OF WARDING FROM AN OLDER SAVE OF OURS: until 2026-10-12 ours laid its move trigger
+		/// with flags 0 and its trap with flags 0, so since the setter rule (MaySetOff) no creature
+		/// sets it off and the one-shot cleanup finds no count. The game's own levels hold no ward
+		/// trap at all - every one comes from the spell - so a move trigger on a ward trap without
+		/// either setter bit is such a rune: it gets cast_trap_spell's flags 8, its trap the count 1
+		/// (reference audit, finding of the fix agents, 2026-10-14). Called when a level is read.
+		/// Returns how many it repaired.
+		/// </summary>
+		public static int RepairOldWardRunes(UWLevel pOLevel)
+		{
+			if (pOLevel == null || pOLevel.TileData == null || pOLevel.Masterlist == null)
+				return 0;
+
+			int liRepaired = 0;
+
+			foreach (UWTile lOTile in pOLevel.TileData)
+			{
+				if (lOTile == null || lOTile.ObjectsInTile == null)
+					continue;
+
+				foreach (UWObject lOTrigger in lOTile.ObjectsInTile)
+				{
+					if (lOTrigger == null || lOTrigger.ID != UWObjectMechanics.MoveTriggerId
+						|| (lOTrigger.Flags & (PlayerSetsOffFlag | OthersSetOffFlag)) != 0)
+						continue;
+
+					UWObject lOTrap = UWObjectMechanics.GetLinkedObject(lOTrigger, pOLevel.Masterlist);
+
+					if (lOTrap == null || lOTrap.ID != UWObjectMechanics.WardTrapId)
+						continue;
+
+					lOTrigger.Flags = (ushort)(lOTrigger.Flags | OthersSetOffFlag);
+
+					if ((lOTrap.Flags & 0xF) == 0)
+						lOTrap.Flags = LaidTrapTriggerCount;
+
+					liRepaired++;
+				}
+			}
+
+			return liRepaired;
+		}
+
+		/// <summary>What cast_trap_spell sets alike on trigger and trap.</summary>
+		private static void fSetLaidRecord(UWObject pOObject, int piZPos)
+		{
+			pOObject.IsHidden = true;
+			pOObject.DoorDirection = true;
+			pOObject.HasQuantity = true;
+			pOObject.ZPos = piZPos;
+			pOObject.XPos = LaidTrapFinePosition;
+			pOObject.YPos = LaidTrapFinePosition;
+			pOObject.Heading = 0;
+			pOObject.Link = 0;
 		}
 
 		/// <summary>
@@ -464,26 +721,18 @@ namespace UWDataImport.UWData
 			int liOld = UWGameVariables.Get(pOTrap.ZPos);
 			int liNew;
 
-			switch (liOperation)
+			// The operation and its sign from one table (UWVariableTrapOperations, 2026-10-14).
+			if (!UWVariableTrapOperations.TryApply(liOperation, liOld, liOperand, out liNew))
 			{
-				case 0: liNew = liOld + liOperand; break;
-				case 1: liNew = liOld - liOperand; break;
-				case 2: liNew = liOperand; break;
-				case 3: liNew = liOld & liOperand; break;
-				case 4: liNew = liOld | liOperand; break;
-				case 5: liNew = liOld ^ liOperand; break;
-				case 6: liNew = liOld << liOperand; break;
+				UWTrapLog.Detail = string.Format("-> unknown operation {0}", liOperation);
 
-				default:
-					UWTrapLog.Detail = string.Format("-> unknown operation {0}", liOperation);
-
-					return false;
+				return false;
 			}
 
 			UWGameVariables.Set(pOTrap.ZPos, liNew);
 
 			UWTrapLog.Detail = string.Format("-> Var {0}: {1} {2} {3} = {4}",
-				pOTrap.ZPos, liOld, fGetOperationName(liOperation), liOperand,
+				pOTrap.ZPos, liOld, UWVariableTrapOperations.NameOf(liOperation), liOperand,
 				UWGameVariables.Get(pOTrap.ZPos));
 
 			return true;
@@ -506,21 +755,6 @@ namespace UWDataImport.UWData
 			UWTrapLog.Detail = string.Format("-> quest flag {0} = {1}", piFlag, liValue);
 
 			return true;
-		}
-
-		private static string fGetOperationName(int piOperation)
-		{
-			switch (piOperation)
-			{
-				case 0: return "+";
-				case 1: return "-";
-				case 2: return ":=";
-				case 3: return "&";
-				case 4: return "|";
-				case 5: return "^";
-				case 6: return "<<";
-				default: return "?";
-			}
 		}
 
 		/// <summary>
@@ -604,11 +838,11 @@ namespace UWDataImport.UWData
 		/// such objects continue a chain.</summary>
 		private const int TrapMajorClass = UWObjectMechanics.TrapMajorClass;
 
-		/// <summary>From here on they are triggers, below it traps.</summary>
-		public const int FirstTriggerId = 0x01A0;
+		/// <summary>From here on they are triggers, below it traps (UWObjectIds).</summary>
+		public const int FirstTriggerId = UWObjectIds.FirstTrigger;
 
 		/// <summary>The last trigger; above it major class 6 ends.</summary>
-		public const int LastTriggerId = 0x01BF;
+		public const int LastTriggerId = UWObjectIds.LastTrigger;
 
 		/// <summary>Emergency brake against a chain that goes round in a circle.</summary>
 		private const int MaxTrapChainDepth = 8;
@@ -632,7 +866,8 @@ namespace UWDataImport.UWData
 		/// Both chain forms are common: in the whole game 39 traps point via sp_link to
 		/// another trap and 45 to a trigger.
 		///
-		/// A trap we do not know breaks the chain - just like in the reference.
+		/// A trap we do not know, or one that reports failure, does not break the chain: the
+		/// original follows the link whatever the kind did (since 2026-10-12, see below).
 		/// </summary>
 		private static bool fRunTrapChain(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitchObject,
 			IUWTrapHost pIHost, int piDepth)
@@ -642,23 +877,27 @@ namespace UWDataImport.UWData
 
 			int liLevelBefore = pIHost.CurrentLevelIndex;
 
-			if (!fRunTrap(pOTrap, pOTrigger, pOSwitchObject, pIHost))
-				return false;
+			// WHATEVER THE TRAP DID, THE CHAIN GOES ON (UseTrap, UnderworldExhumed TRIGGER.C): after
+			// the kind's case the link is followed unless the kind itself ends the chain. Until
+			// 2026-10-12 a kind ours does not build, or one that reported failure, ended it here
+			// (reference audit, traps D14; no shipped chain reaches the difference). The result is
+			// still this trap's, for the caller.
+			bool lbHandled = fRunTrap(pOTrap, pOTrigger, pOSwitchObject, pIHost);
 
 			// A level change ends the chain: the object list behind it belongs to another
 			// level, every further jump would lead nowhere.
 			if (pIHost.CurrentLevelIndex != liLevelBefore)
-				return true;
+				return lbHandled;
 
 			// A DELETE OBJECT TRAP ENDS THE CHAIN (DeleteObjectTrap_ovr153_ADC clears the "continue"
 			// flag that TriggerNext_ovr153_D03 tests): its sp_link is the object it removes, not a
 			// next step. Level 7, 20/42 (per user, 2026-10-03: "keening noise" twice in ours, once in
 			// the original): the delete trap removes the move trigger that started the chain, and we
-			// fired that trigger again through the link. The door and create object traps clear the
-			// flag too, but their links (a lock, a template) are no traps, so the test below stops
-			// them anyway.
-			if (pOTrap.ID == UWObjectMechanics.DeleteObjectTrapId)
-				return true;
+			// fired that trigger again through the link. The create object, door, ward and tell
+			// traps clear the flag too (continue_chain = 0); their links are a template, a lock or
+			// nothing.
+			if (EndsChain(pOTrap.ID))
+				return lbHandled;
 
 			UWObject lONext = UWObjectMechanics.GetLinkedObject(pOTrap, pIHost.CurrentLevel.Masterlist);
 
@@ -677,21 +916,33 @@ namespace UWDataImport.UWData
 			if (pOTrap.ID == UWObjectMechanics.InventoryTrapId && !fInventoryTrapMatches(pOTrap, pIHost))
 				lONext = null;
 
-			if (lONext == null || (lONext.ID >> 6) != TrapMajorClass)
-				return true;
+			if (lONext == null || UWObjectIds.Major(lONext.ID) != TrapMajorClass)
+				return lbHandled;
 
 			if (lONext.ID < FirstTriggerId)
 			{
 				fRunTrapChain(lONext, pOTrigger, pOSwitchObject, pIHost, piDepth + 1);
 
-				return true;
+				return lbHandled;
 			}
 
 			// A trigger in the chain cleans up afterwards just like the first one - it brings
 			// its own flags.
 			fFireTriggerTrap(lONext, pOSwitchObject, pIHost, piDepth + 1);
 
-			return true;
+			return lbHandled;
+		}
+
+		/// <summary>a_tell trap (0x18A): UseTrap handles it in the ward's case (TRIGGER.C).</summary>
+		public const int TellTrapId = 0x018A;
+
+		/// <summary>The trap kinds whose case in UseTrap clears continue_chain (TRIGGER.C): create
+		/// object, door, ward and tell, delete object. The others go on through their link.</summary>
+		public static bool EndsChain(int piTrapId)
+		{
+			return piTrapId == UWObjectMechanics.CreateObjectTrapId || piTrapId == UWObjectMechanics.DoorTrapId
+				|| piTrapId == UWObjectMechanics.WardTrapId || piTrapId == TellTrapId
+				|| piTrapId == UWObjectMechanics.DeleteObjectTrapId;
 		}
 
 		/// <summary>A single trap, without the chain. pOTrigger supplies the target tile.
@@ -710,131 +961,166 @@ namespace UWDataImport.UWData
 			return lbHandled;
 		}
 
+		/// <summary>
+		/// The trap kinds by id (UseTrap's switch, TRIGGER.C) and the a_do actions by quality
+		/// (do_trap_hack). Since 2026-10-14 (cleanup step 2.10) two tables instead of an if-chain
+		/// with a nested switch; the handlers are the ones the chain called, in the same cases.
+		/// Read-only for the dispatch-coverage check of the self-check.
+		/// </summary>
+		public static UWTrapTable Traps { get; } = fBuildTrapTable();
+
+		public static UWDoActionTable DoActions { get; } = fBuildDoActionTable();
+
 		private static bool fRunTrapInner(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitchObject, IUWTrapHost pIHost)
 		{
-			if (pOTrap.ID == UWObjectMechanics.SetVariableTrapId)
-				return fFireSetVariableTrap(pOTrap);
+			return Traps.Run(pOTrap, pOTrigger, pOSwitchObject, pIHost);
+		}
 
-			if (pOTrap.ID == UWObjectMechanics.CheckVariableTrapId)
-				return fFireCheckVariableTrap(pOTrap);
+		private static UWTrapTable fBuildTrapTable()
+		{
+			UWTrapTable lOTable = new UWTrapTable()
+				.Register(UWObjectMechanics.DamageTrapId, "damage",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireDamageTrap(pOTrap, pIHost))
+				.Register(TeleportTrapId, "teleport",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireTeleportTrap(pOTrap, pIHost))
+				.Register(UWObjectMechanics.ArrowTrapId, "arrow",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						(int liArrowX, int liArrowY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+						return pIHost.FireArrowTrap(pOTrap, liArrowX, liArrowY);
+					})
+				.Register(UWObjectMechanics.DoTrapId, "do",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => DoActions.Run(pOTrap, pOTrigger, pOSwitch, pIHost))
 
-			if (pOTrap.ID == UWObjectMechanics.DoorTrapId)
-			{
-				fFireDoorTrap(pOTrigger, pOTrap, pIHost);
-				return true;
-			}
+				// THE PIT TRAP DOES NOTHING IN UW1: UseTrap (UnderworldExhumed TRIGGER.C) has no case
+				// for TRAP_PIT, so the chain simply goes on through its link. Until 2026-10-12 ours ran
+				// the reference's a_pit_trap here, which saw the one pit trap of the game (level 3,
+				// 6/4, a SOLID tile of height 15) as "up", dropped it to height 0 and opened a hole
+				// twelve steps deep in the wall west of 7/4 - reached through the three buttons at 5/7
+				// (reference audit, traps).
+				.Register(UWObjectMechanics.PitTrapId, "pit",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						UWTrapLog.Detail = "-> pit trap: nothing in UW1";
 
-			if (pOTrap.ID == UWObjectMechanics.DoTrapId)
-			{
-				switch (pOTrap.Quality)
-				{
-					case UWObjectMechanics.DoTrapCameraAction:
-						return fFireCameraTrap(pOTrap, pOTrigger, pIHost);
-
-					// QUALITY 3 AND 4 both raise the tile: the original's dispatcher writes
-					// "qual=3 or 4" over this branch (DoTraps_ovr153_F7B, label FEE); we tested
-					// only the 3 until 2026-09-21.
-					case UWObjectMechanics.DoTrapRaiseTileAction:
-					case UWObjectMechanics.DoTrapRaiseTileAction + 1:
-						fAdvanceHeightLever(pOSwitchObject, pOTrigger, pOTrap.ZPos, pIHost);
 						return true;
-
-					case UWObjectMechanics.DoTrapExplodingBookAction:
-						return fFireExplodingBookTrap(pOTrap, pIHost);
-
-					case UWObjectMechanics.DoTrapArialAction:
-						pIHost.PlayCutscene(ArialCutscene);
+					})
+				.Register(UWObjectMechanics.ChangeTerrainTrapId, "change terrain",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						(int liTerrainX, int liTerrainY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+						return fFireChangeTerrainTrap(pOTrap, liTerrainX, liTerrainY, pIHost);
+					})
+				.Register(UWObjectMechanics.SpellTrapId, "spell",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						(int liSpellX, int liSpellY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+						return fFireSpellTrap(pOTrap, liSpellX, liSpellY, pIHost);
+					})
+				.Register(UWObjectMechanics.CreateObjectTrapId, "create object",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+						return fFireCreateObjectTrap(pOTrap, liTileX, liTileY, pIHost);
+					})
+				.Register(UWObjectMechanics.DoorTrapId, "door",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						fFireDoorTrap(pOTrigger, pOTrap, pIHost);
 						return true;
+					})
 
-					case UWObjectMechanics.DoTrapQuakeFirstAction:
-					case UWObjectMechanics.DoTrapQuakeFirstAction + 1:
-					case UWObjectMechanics.DoTrapQuakeLastAction:
-						return fFireQuakeTrap(pOTrap, pIHost);
+				// The ward and the tell trap share one case in UseTrap.
+				.Register(UWObjectMechanics.WardTrapId, "ward",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireWardTrap(pOTrap, pIHost))
+				.Register(TellTrapId, "tell",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireWardTrap(pOTrap, pIHost))
+				.Register(UWObjectMechanics.DeleteObjectTrapId, "delete object",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireDeleteObjectTrap(pOTrap, pIHost))
 
-					case UWObjectMechanics.DoTrapTrespassAction:
-						return fFireTrespassTrap(pOTrap, pIHost);
+				// The inventory trap's test decides the chain (fRunTrapChain); the kind itself does nothing.
+				.Register(UWObjectMechanics.InventoryTrapId, "inventory",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => true)
+				.Register(UWObjectMechanics.SetVariableTrapId, "set variable",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireSetVariableTrap(pOTrap))
+				.Register(UWObjectMechanics.CheckVariableTrapId, "check variable",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireCheckVariableTrap(pOTrap))
+				.Register(UWObjectMechanics.TextStringTrapId, "text string",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						fFireTextTrap(pOTrap, pIHost);
+						return true;
+					});
 
-					case UWObjectMechanics.DoTrapBullfrogAction:
-						return fFireBullfrogTrap(pOTrap.Owner, pIHost);
+			lOTable.Seal();
 
-					case UWObjectMechanics.DoTrapEmeraldPuzzleAction:
+			return lOTable;
+		}
+
+		private static UWDoActionTable fBuildDoActionTable()
+		{
+			UWDoActionTable lOTable = new UWDoActionTable()
+				.Register(UWObjectMechanics.DoTrapCameraAction, "crystal ball",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireCameraTrap(pOTrap, pOTrigger, pIHost))
+
+				// QUALITY 3 AND 4 share the routine (do_trap_hack, TRIGGER.C): 3 sets the target
+				// tile's height, 4 an object's z - see fFireEightPositionSwitch.
+				.Register(UWObjectMechanics.DoTrapRaiseTileAction, "eight-position switch (tile)", fEightPositionSwitchAction)
+				.Register(UWObjectMechanics.DoTrapRaiseTileAction + 1, "eight-position switch (object)", fEightPositionSwitchAction)
+				.Register(UWObjectMechanics.DoTrapTrespassAction, "trespass",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireTrespassTrap(pOTrap, pIHost))
+				.Register(UWObjectMechanics.DoTrapBullfrogAction, "bullfrog",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireBullfrogTrap(pOTrap.Owner, pIHost))
+				.Register(UWObjectMechanics.DoTrapEmeraldPuzzleAction, "emerald puzzle",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
 					{
 						(int liGemX, int liGemY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
 
 						return fFireEmeraldPuzzleTrap(liGemX, liGemY, pIHost);
-					}
-
-					case UWObjectMechanics.DoTrapConversationAction:
+					})
+				.Register(UWObjectMechanics.DoTrapExplodingBookAction, "exploding book",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireExplodingBookTrap(pOTrap, pIHost))
+				.Register(UWObjectMechanics.DoTrapConversationAction, "talking door",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
 						UWTrapLog.Detail = "-> talking door";
 
 						return pIHost.HasMessages
 							&& pIHost.BeginConversation(UWObjectMechanics.TalkingDoorConversationSlot);
-
-					case UWObjectMechanics.DoTrapStartConversationAction:
-						return fFireConversationTrap(pIHost);
-
-					case UWObjectMechanics.DoTrapEndgameAction:
+					})
+				.Register(UWObjectMechanics.DoTrapStartConversationAction, "start conversation",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireConversationTrap(pIHost))
+				.Register(UWObjectMechanics.DoTrapArialAction, "Arial",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
+						pIHost.PlayCutscene(ArialCutscene);
+						return true;
+					})
+				.Register(UWObjectMechanics.DoTrapQuakeFirstAction, "quake", fQuakeAction)
+				.Register(UWObjectMechanics.DoTrapQuakeFirstAction + 1, "quake", fQuakeAction)
+				.Register(UWObjectMechanics.DoTrapQuakeLastAction, "quake", fQuakeAction)
+				.Register(UWObjectMechanics.DoTrapEndgameAction, "end sequence",
+					(pOTrap, pOTrigger, pOSwitch, pIHost) =>
+					{
 						UWTrapLog.Detail = "-> end sequence";
 
 						return pIHost.PlayVictory();
-				}
+					});
 
-				return false;
-			}
+			lOTable.Seal();
 
-			if (pOTrap.ID == UWObjectMechanics.CreateObjectTrapId)
-			{
-				(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
-				return fFireCreateObjectTrap(pOTrap, liTileX, liTileY, pIHost);
-			}
+			return lOTable;
+		}
 
-			if (pOTrap.ID == UWObjectMechanics.ChangeTerrainTrapId)
-			{
-				(int liTerrainX, int liTerrainY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
-				return fFireChangeTerrainTrap(pOTrap, liTerrainX, liTerrainY, pIHost);
-			}
+		private static bool fEightPositionSwitchAction(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitchObject, IUWTrapHost pIHost)
+		{
+			fFireEightPositionSwitch(pOSwitchObject, pOTrigger, pOTrap, pIHost);
+			return true;
+		}
 
-			if (pOTrap.ID == UWObjectMechanics.DeleteObjectTrapId)
-				return fFireDeleteObjectTrap(pOTrap, pIHost);
-
-			if (pOTrap.ID == TeleportTrapId)
-				return fFireTeleportTrap(pOTrap, pIHost);
-
-			if (pOTrap.ID == UWObjectMechanics.DamageTrapId)
-				return fFireDamageTrap(pOTrap, pIHost);
-
-			if (pOTrap.ID == UWObjectMechanics.ArrowTrapId)
-			{
-				(int liArrowX, int liArrowY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
-				return pIHost.FireArrowTrap(pOTrap, liArrowX, liArrowY);
-			}
-
-			if (pOTrap.ID == UWObjectMechanics.SpellTrapId)
-			{
-				(int liSpellX, int liSpellY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
-				return fFireSpellTrap(pOTrap, liSpellX, liSpellY, pIHost);
-			}
-
-			if (pOTrap.ID == UWObjectMechanics.WardTrapId)
-				return fFireWardTrap(pOTrap, pIHost);
-
-			if (pOTrap.ID == UWObjectMechanics.InventoryTrapId)
-				return true;
-
-			if (pOTrap.ID == UWObjectMechanics.PitTrapId)
-			{
-				(int liPitX, int liPitY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
-
-				return fFirePitTrap(pOTrap, liPitX, liPitY, pIHost);
-			}
-
-			if (pOTrap.ID == UWObjectMechanics.TextStringTrapId)
-			{
-				fFireTextTrap(pOTrap, pIHost);
-				return true;
-			}
-
-			return false;
+		private static bool fQuakeAction(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitchObject, IUWTrapHost pIHost)
+		{
+			return fFireQuakeTrap(pOTrap, pIHost);
 		}
 
 		/// <summary>a_teleport trap - the same number the level loader's transition scan
@@ -885,20 +1171,24 @@ namespace UWDataImport.UWData
 			return lbFired;
 		}
 
+		/// <summary>
+		/// The wandering-monster pass (DoWanderingMonsters, TRIGGER.C): a create-object trap
+		/// without a trigger (flags 0, UWRespawnRules) whose template is a creature first marks the
+		/// TEMPLATE as temporary (SET_TEMP, word 0x0D bit 8), then fires; the copy inherits the
+		/// mark, so the crowding check counts it and the level exit removes it.
+		/// </summary>
 		public static bool FireTrapInTile(UWObject pOTrap, int piTileX, int piTileY, IUWTrapHost pIHost)
 		{
 			if (pOTrap == null || pIHost == null || pIHost.CurrentLevel == null
 				|| pOTrap.ID != UWObjectMechanics.CreateObjectTrapId)
 				return false;
 
+			if (pOTrap.Flags == 0
+				&& UWObjectMechanics.GetLinkedObject(pOTrap, pIHost.CurrentLevel.Masterlist) is UWNpc lOTemplate)
+				lOTemplate.NPCSpawned = true;
+
 			return fFireCreateObjectTrap(pOTrap, piTileX, piTileY, pIHost);
 		}
-
-		/// <summary>The creature ids, major class 1 - the templates the crowding check applies
-		/// to.</summary>
-		private const int FirstCreatureId = 0x40;
-
-		private const int LastCreatureId = 0x7F;
 
 		/// <summary>The crowding check around a creature template: four tiles back and five
 		/// forward - see fFireCreateObjectTrap.</summary>
@@ -906,9 +1196,20 @@ namespace UWDataImport.UWData
 
 		private const int CrowdTilesForward = 5;
 
+		/// <summary>
+		/// THE CREATE ROLL (TRAP_CREATE_OBJECT, UnderworldExhumed TRIGGER.C): nothing when
+		/// rand() * 0x3F / 0x8000 - 0 to 62 - is below the quality, so quality 0 always creates and
+		/// quality q creates with chance (63 - q) in 63. Until 2026-10-12 ours drew 0 to 63 and
+		/// gave up at or below the quality, which lost a quality-0 ambush one time in 64
+		/// (reference audit, traps D8). piRand is a draw of 0 to 0x7FFF.
+		/// </summary>
+		public static bool CreateObjectRollFails(int piRand, int piQuality)
+		{
+			return ((piRand & 0x7FFF) * 0x3F >> 15) < piQuality;
+		}
+
 		/// <summary>a_create object trap: creates a copy of the object the sp_link
-		/// points to. Per uw-formats.txt only if a random number between 0 and 0x3F is GREATER
-		/// than "quality" - so quality is an inverse probability.
+		/// points to - quality is an inverse probability, see CreateObjectRollFails.
 		///
 		/// On level 1 these are five monster generators: bat 47/4 (quality 31),
 		/// giant rat 3/17 (40), giant spider 14/7 (50), flesh slug 27/34 (45) and the
@@ -920,7 +1221,7 @@ namespace UWDataImport.UWData
 			if (lOTemplate == null)
 				return false;
 
-			if (!pIHost.AlwaysFireCreateObjectTraps && UWRandom.Next(0x40) <= pOTrap.Quality)
+			if (!pIHost.AlwaysFireCreateObjectTraps && CreateObjectRollFails(UWRandom.Next(0x8000), pOTrap.Quality))
 				return true;
 
 			// NOT WHILE ONE OF ITS KIND IS STILL ABOUT: for a creature template the original runs
@@ -930,18 +1231,24 @@ namespace UWDataImport.UWData
 			// its far end, so it is four back and five forward; the template itself does not count.
 			// Until 2026-09-23 the respawn held its whole pass back instead, looking around the
 			// player (UWRespawnRules).
-			if (lOTemplate.ID >= FirstCreatureId && lOTemplate.ID <= LastCreatureId
+			if (UWObjectIds.IsCreature(lOTemplate.ID)
 				&& pIHost.IsSpawnedCreatureNear(lOTemplate.TileX, lOTemplate.TileY, CrowdTilesBack, CrowdTilesForward))
 				return true;
 
-			UWObject lOCopy = UWObject.Clone(lOTemplate);
+			// The record copied, and of what the template holds only the first item, copied too
+			// (TRIGGER.C TRAP_CREATE_OBJECT; see UWObject.Clone).
+			UWObject lOCopy = UWObject.Clone(lOTemplate, pIHost.CurrentLevel.Masterlist);
 
 			if (lOCopy == null)
 				return false;
 
-			// Remember that this creature was only created during play - the respawn uses this
-			// to count whether enough are already roaming nearby (see UWCreatureRespawner).
-			lOCopy.WasSpawned = true;
+			// THE MARK COMES WITH THE TEMPLATE (the record is copied whole): the original's bit 8 of
+			// word 0x0D is set on the template by the wandering-monster pass only (FireTrapInTile),
+			// so a wandering creature counts in the crowding check above and the level exit removes
+			// it (UWLevelExit), while the creature of a triggered trap - an ambush, the goblin of
+			// level 1 at 3/33 - stays. Until 2026-10-12 every copy was marked, and an ambush
+			// monster vanished when the player left the level (reference audit, TRIGGER.C
+			// DoWanderingMonsters and TRAP_CREATE_OBJECT).
 
 			// With position and height of the template, like UW.EXE - see SpawnObjectInTileAtTemplatePosition.
 			return pIHost.SpawnObjectInTileAtTemplatePosition(lOCopy, piTileX, piTileY);
@@ -963,7 +1270,7 @@ namespace UWDataImport.UWData
 			try
 			{
 				string lsMessage = pIHost.Data.GetLevelMessage(
-					UWObjectMechanics.GetTextTrapStringIndex(pOTrap, pIHost.CurrentLevelIndex));
+					UWObjectMechanics.GetTextTrapStringIndex(pOTrap));
 
 				// Only trim the TRAILING line break that the entries in block 9 carry
 				// throughout - otherwise an empty line trails the message in the log
@@ -979,14 +1286,6 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		/// <summary>Original (verified live by the user, 2026-08-28, first assumption corrected):
-		/// an a_lever with a_do trap action 3 does NOT raise its own tile but a
-		/// target tile - via the same trigger target coordinate convention as the door trap
-		/// (GetTriggerTargetTile). The lever itself only advances its own visual position
-		/// (see UWHeightLever). ONLY here (fired by actual player use) is
-		/// the target tile height ever set - during level build it deliberately stays at its
-		/// original static height, which does not match the lever's start position (confirmed by user,
-		/// level 1 - not a bug, do not accidentally "fix" it).</summary>
 		/// <summary>Cutscene 3, the freeing of Arial (ArialTalking_ovr107_1373).</summary>
 		private const int ArialCutscene = 3;
 
@@ -994,22 +1293,34 @@ namespace UWDataImport.UWData
 		/// a_do trap 41, the exploding book - the same routine as opening Bronus' book, see
 		/// UWExplodingBook (see ExplodingBook_ovr107_1259). No level holds this trap.
 		///
-		/// The routine ignores the trap and searches the PLAYER's tile, containers included, for
-		/// the book 0x114 - ours looks in the inventory first, then on the trap's tile (the
-		/// player stands on it when it fires). Until 2026-10-01 ours took any object of class 4
+		/// THE PLAYER'S TILE, DEEP (the same routine, UnderworldExhumed WORLDEV.C): the
+		/// routine ignores the trap and looks the book 0x114 up in the list of the tile the PLAYER
+		/// stands on with Obj_InList recursing - into the containers lying there, and into the
+		/// player object, whose chain is his inventory. Ours looks in the inventory first (where
+		/// the player object sits in the tile's chain was not read), then on the player's tile and
+		/// in the containers there. Until 2026-10-12 it searched the TRAP's tile and only its top
+		/// level (reference audit, traps D19); until 2026-10-01 it took any object of class 4
 		/// minor 1 (orb rock, incense, stew ...) and said "The book explodes!".
 		/// </summary>
 		private static bool fFireExplodingBookTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
 			UWInventoryModel lOInventory = pIHost.Inventory;
 			UWObject lOBook = UWExplodingBook.FindCarried(lOInventory);
+			UWObject lOHolder = null;
 			bool lbCarried = lOBook != null;
 
 			if (!lbCarried)
-				lOBook = fFindExplodingBook(pOTrap.TileX, pOTrap.TileY, pIHost);
+			{
+				UWTile lOTile = pIHost.CurrentLevel != null
+					? pIHost.CurrentLevel.GetTile(pIHost.PlayerTile.X, pIHost.PlayerTile.Y) : null;
+
+				lOBook = lOTile != null
+					? fFindExplodingBook(lOTile.ObjectsInTile, null, pIHost.CurrentLevel.Masterlist, 0, out lOHolder)
+					: null;
+			}
 
 			if (lOBook == null)
-				return false;
+				return true;
 
 			if (pIHost.HasMessages)
 				pIHost.AddMessage(UWExplodingBook.Message);
@@ -1022,31 +1333,48 @@ namespace UWDataImport.UWData
 				lOInventory.RemoveItem(lOBook);
 				lOInventory.NotifyChanged();
 			}
+			else if (lOHolder != null)
+				lOHolder.Contents.Remove(lOBook);
 			else
 				pIHost.RemoveObjectFromWorld(lOBook);
 
 			return true;
 		}
 
-		/// <summary>The first book 0x114 lying on a tile.</summary>
-		private static UWObject fFindExplodingBook(int piTileX, int piTileY, IUWTrapHost pIHost)
+		/// <summary>Obj_InList with recurse for the book 0x114: the first in the list, depth first
+		/// into every member without the quantity bit. pOHolder is the object whose contents hold
+		/// it, null on the top level.</summary>
+		private static UWObject fFindExplodingBook(IList<UWObject> pOList, UWObject pOOwner, List<UWObject> pOMasterlist,
+			int piDepth, out UWObject pOHolder)
 		{
-			UWLevel lOLevel = pIHost.CurrentLevel;
+			pOHolder = null;
 
-			if (lOLevel == null || lOLevel.TileData == null
-				|| piTileX < 0 || piTileX >= UWWorldScale.TilesPerAxis
-				|| piTileY < 0 || piTileY >= UWWorldScale.TilesPerAxis)
+			if (pOList == null || piDepth > MaxTrapChainDepth)
 				return null;
 
-			UWTile lOTile = lOLevel.TileData[(piTileY * UWWorldScale.TilesPerAxis) + piTileX];
-
-			if (lOTile == null || lOTile.ObjectsInTile == null)
-				return null;
-
-			foreach (UWObject lOObject in lOTile.ObjectsInTile)
+			foreach (UWObject lOObject in pOList)
 			{
-				if (lOObject != null && lOObject.ID == UWExplodingBook.BookObjectId)
+				if (lOObject == null)
+					continue;
+
+				if (lOObject.ID == UWExplodingBook.BookObjectId)
+				{
+					pOHolder = pOOwner;
+
 					return lOObject;
+				}
+
+				if (lOObject.HasQuantity)
+					continue;
+
+				if (lOObject.Contents == null && lOObject.Quantity > 0 && lOObject.Quantity < pOMasterlist.Count
+					&& lOObject.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+					lOObject.EnsureContentsLoaded(pOMasterlist);
+
+				UWObject lOFound = fFindExplodingBook(lOObject.Contents, lOObject, pOMasterlist, piDepth + 1, out pOHolder);
+
+				if (lOFound != null)
+					return lOFound;
 			}
 
 			return null;
@@ -1061,6 +1389,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fFireQuakeTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
+			// ONLY WHEN THE PLAYER SET IT OFF (do_trap_hack 0x3C-0x3E, UnderworldExhumed TRIGGER.C:
+			// CharacterThatTriggeredTrap == ThePlayer). Until 2026-10-12 a creature or a thing
+			// shook the screen too (reference audit, traps D19).
+			if (pIHost.HasTriggeringCreature || pIHost.HasTriggeringThing)
+			{
+				UWTrapLog.Detail = "-> quake: not set off by the player";
+
+				return true;
+			}
+
 			int liKind = pOTrap.Quality - UWObjectMechanics.DoTrapQuakeBase;
 
 			if ((liKind & 1) != 0)
@@ -1072,22 +1410,66 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		private static void fAdvanceHeightLever(UWObject pOSwitchObject, UWObject pOTrigger, int piStepSize, IUWTrapHost pIHost)
+		/// <summary>eight_pos_switch applies a tile height only below this (0x68, WORLDEV.C).</summary>
+		private const int EightPositionHeightLimit = 0x68;
+
+		/// <summary>Its quality 4 names the object to move by the trap's link, nine bits.</summary>
+		private const int EightPositionLinkMask = 0x1FF;
+
+		/// <summary>
+		/// a_do traps 3 and 4, the eight-position switch - eight_pos_switch (UnderworldExhumed
+		/// WORLDEV.C) with the flags of the switch that was used (TriggeringButton): the height is
+		/// the trap's z plus the flags times 8. Quality 3 sets the TARGET tile's height to that over
+		/// 8 when it is below 0x68 (change_terrain); quality 4 sets the z of the object the trap's
+		/// link names instead. The lever has already stepped its flags (UseRect, then checkTrap -
+		/// see fTryFireTriggerChain).
+		///
+		/// Verified live by the user (2026-08-28, first assumption corrected): an a_lever with
+		/// a_do trap action 3 does NOT raise its own tile but a target tile - via the same trigger
+		/// target coordinate convention as the door trap (GetTriggerTargetTile). The lever itself
+		/// only advances its own visual position (see UWHeightLever). ONLY here (fired by actual
+		/// player use) is the target tile height ever set - during level build it deliberately stays
+		/// at its original static height, which does not match the lever's start position
+		/// (confirmed by user, level 1 - not a bug, do not accidentally "fix" it). The user's
+		/// measurement there - position 0 at 32, each position 16 higher - is this formula for the
+		/// four traps of level 1 (z 16).
+		///
+		/// Until 2026-10-12 ours computed 32 + position * z world units and raised the tile for
+		/// quality 4 too (reference audit, traps D15; the same numbers for z 16, and no quality-4
+		/// trap exists).
+		/// </summary>
+		private static void fFireEightPositionSwitch(UWObject pOSwitchObject, UWObject pOTrigger, UWObject pOTrap,
+			IUWTrapHost pIHost)
 		{
+			if (pOSwitchObject == null || pIHost.CurrentLevel == null)
+				return;
+
+			int liHeight = pOTrap.ZPos + ((pOSwitchObject.Flags & 0xF) << 3);
+
+			if (pOTrap.Quality != UWObjectMechanics.DoTrapRaiseTileAction)
+			{
+				List<UWObject> lOMaster = pIHost.CurrentLevel.Masterlist;
+				int liIndex = pOTrap.Quantity & EightPositionLinkMask;
+				UWObject lOMoved = liIndex > 0 && liIndex < lOMaster.Count ? lOMaster[liIndex] : null;
+
+				if (lOMoved != null)
+					lOMoved.ZPos = liHeight;
+
+				UWTrapLog.Detail = string.Format("-> z {0} for object {1}", liHeight, pOTrap.Quantity & EightPositionLinkMask);
+
+				return;
+			}
+
 			(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
+			UWTile lOTargetTile = pIHost.CurrentLevel.GetTile(liTileX, liTileY);
 
-			UWTile lOTargetTile = pIHost.CurrentLevel?.GetTile(liTileX, liTileY);
-
-			if (lOTargetTile == null || pOSwitchObject == null)
+			if (lOTargetTile == null || liHeight >= EightPositionHeightLimit)
 				return;
 
-			// The lever already advanced on use (see fTryFireTriggerChain) -
-			// here its position is merely converted into a tile height.
-			if (!pIHost.TryGetLeverTileHeight(pOSwitchObject, piStepSize, out int liHeight))
-				return;
-
-			lOTargetTile.FloorHeight = (ushort)liHeight;
+			SetTileHeight(lOTargetTile, liHeight >> 3, pIHost);
 			pIHost.RebuildGeometry();
+
+			UWTrapLog.Detail = string.Format("-> tile {0}/{1} height {2}", liTileX, liTileY, liHeight >> 3);
 		}
 
 		/// <summary>A tile of the level, or null off the map.</summary>
@@ -1104,9 +1486,13 @@ namespace UWDataImport.UWData
 		/// The fields, all from the reference:
 		///
 		///   tile type      (heading &lt;&lt; 1) + (quality &amp; 1)
-		///   floor height   zpos &gt;&gt; 3
-		///   floor texture  quality &gt;&gt; 1, only 0 to 9 are valid
-		///   wall texture   owner, only 0 to 47 are valid
+		///   floor height   zpos &gt;&gt; 3, only 0 to 13 are applied
+		///   floor texture  quality &gt;&gt; 1, only 0 to 10 are applied
+		///   wall texture   owner, only 0 to 47 are applied
+		///
+		/// THE BOUNDS are change_terrain's (UnderworldExhumed WORLDEV.C): floor below 0xB, wall
+		/// below 0x30, height at most 0xD. Until 2026-10-12 ours took floor 0 to 9 and height 0 to
+		/// 14; no trap uses floor 10 or height 14 (reference audit, traps D17).
 		///   area           from the target tile, xpos tiles further east and ypos
 		///                  north - both usually zero, i.e. exactly one tile
 		///
@@ -1158,12 +1544,13 @@ namespace UWDataImport.UWData
 
 					// Our floor height is already in world units - one height step
 					// is sixteen of them (see UWTile).
-					if (liNewHeight >= 0 && liNewHeight <= 14)
-						lOTile.FloorHeight = (ushort)(liNewHeight << 4);
+					if (liNewHeight >= 0 && liNewHeight <= MaxTerrainHeight)
+						SetTileHeight(lOTile, liNewHeight, pIHost);
 
 					// Via the slots, not the texture values - that way they also end up in the save game
 					// (see UWTile.SetFloorTexture).
-					if (lOLevel.TextureInfos != null && liFloorTexture < FloorTextureCount)
+					if (lOLevel.TextureInfos != null && liFloorTexture < ChangeTerrainFloorLimit
+						&& liFloorTexture + FirstFloorTextureEntry < lOLevel.TextureInfos.Length)
 						lOTile.SetFloorTexture(liFloorTexture, lOLevel.TextureInfos);
 
 					if (lOLevel.TextureInfos != null && liWallTexture < WallTextureCount)
@@ -1182,57 +1569,6 @@ namespace UWDataImport.UWData
 
 			return lbChanged;
 		}
-
-		/// <summary>
-		/// a_pit trap: toggles the target tile between height zero and a preset height.
-		/// If it is down, it is raised and gets the texture from Owner; if it is up,
-		/// it drops to zero and gets the one from Quality - the texture of the pit floor.
-		///
-		/// From height 15 the tile counts as solid, below that as walkable. The reference does
-		/// it the same way (a_pit_trap.Activate); it also shows that the height is NOT in ZPos
-		/// but in YPos and XPos - see UWObjectMechanics.GetPitTrapHeight.
-		///
-		/// IN UW1 THIS TRAP HAS NO EFFECT. There is exactly one, on level 3 at 6/4, and its
-		/// preset height is zero - so it toggles between zero and zero. It is built
-		/// anyway so the chain does not break at it.
-		/// </summary>
-		private static bool fFirePitTrap(UWObject pOTrap, int piTileX, int piTileY, IUWTrapHost pIHost)
-		{
-			UWLevel lOLevel = pIHost.CurrentLevel;
-			UWTile lOTile = lOLevel?.GetTile(piTileX, piTileY);
-
-			if (lOTile == null)
-				return false;
-
-			bool lbIsDown = lOTile.FloorHeight == 0;
-
-			int liNewHeight = lbIsDown ? UWObjectMechanics.GetPitTrapHeight(pOTrap) : 0;
-			int liTexture = lbIsDown ? pOTrap.Owner : pOTrap.Quality;
-
-			bool lbWasSolid = lOTile.TileType == UWTile.TileTypeEnum.solid;
-
-			lOTile.TileType = liNewHeight < SolidFromHeight
-				? UWTile.TileTypeEnum.open : UWTile.TileTypeEnum.solid;
-
-			lOTile.Slope = 0;
-
-			// Our floor heights are in world units, one height step is sixteen.
-			lOTile.FloorHeight = (ushort)(liNewHeight << 4);
-
-			if (lOLevel.TextureInfos != null && liTexture < FloorTextureCount)
-				lOTile.SetFloorTexture(liTexture, lOLevel.TextureInfos);
-
-			if (lbWasSolid && lOTile.TileType != UWTile.TileTypeEnum.solid)
-				pIHost.SpawnPendingObjectsInTile(piTileX, piTileY);
-
-			pIHost.RebuildGeometry();
-
-			return true;
-		}
-
-		/// <summary>From this height a tile counts as solid - that is how the reference computes it in
-		/// the pit trap.</summary>
-		private const int SolidFromHeight = 15;
 
 		// ------------------------------------------------- further a_do trap actions
 
@@ -1443,8 +1779,8 @@ namespace UWDataImport.UWData
 			int liCornerY = liChoiceY == 0 ? liCentreY : liCentreY - 1;
 			int liSpanY = (liChoiceY == 0 || liChoiceY == UWObjectMechanics.BullfrogGridSize - 1) ? 1 : 2;
 
-			fAdjustBullfrogTiles(liCornerX, liCornerY, liSpanX, liSpanY, liDelta, pIHost.CurrentLevel);
-			fAdjustBullfrogTiles(liCentreX, liCentreY, 0, 0, liDelta, pIHost.CurrentLevel);
+			fAdjustBullfrogTiles(liCornerX, liCornerY, liSpanX, liSpanY, liDelta, pIHost);
+			fAdjustBullfrogTiles(liCentreX, liCentreY, 0, 0, liDelta, pIHost);
 
 			pIHost.RebuildGeometry();
 
@@ -1455,10 +1791,14 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Raises or lowers a tile rectangle by one step. The bounds are
-		/// inclusive, as in the reference and as in fFireChangeTerrainTrap.</summary>
+		/// inclusive, as in the reference and as in fFireChangeTerrainTrap. A step that would leave
+		/// 0 to 13 is not taken - change_terrain with adjust 1 or 3 (WORLDEV.C); until 2026-10-12
+		/// ours let the field rise to 14 (reference audit, traps D10).</summary>
 		private static void fAdjustBullfrogTiles(int piTileX, int piTileY, int piSpanX, int piSpanY,
-			int piDelta, UWLevel pOLevel)
+			int piDelta, IUWTrapHost pIHost)
 		{
+			UWLevel pOLevel = pIHost.CurrentLevel;
+
 			if (pOLevel == null || pOLevel.TileData == null)
 				return;
 
@@ -1473,10 +1813,10 @@ namespace UWDataImport.UWData
 
 					int liHeight = (lOTile.FloorHeight >> 4) + piDelta;
 
-					if (liHeight < 0 || liHeight > 14)
+					if (liHeight < 0 || liHeight > MaxTerrainHeight)
 						continue;
 
-					lOTile.FloorHeight = (ushort)(liHeight << 4);
+					SetTileHeight(lOTile, liHeight, pIHost);
 				}
 			}
 		}
@@ -1497,7 +1837,7 @@ namespace UWDataImport.UWData
 					UWTile lOTile = lOLevel?.GetTile(UWObjectMechanics.BullfrogGridOrigin + liX, UWObjectMechanics.BullfrogGridOrigin + liY);
 
 					if (lOTile != null)
-						lOTile.FloorHeight = BullfrogResetHeight << 4;
+						SetTileHeight(lOTile, BullfrogResetHeight, pIHost);
 				}
 			}
 
@@ -1571,34 +1911,127 @@ namespace UWDataImport.UWData
 		/// <summary>This many emeralds the puzzle requires.</summary>
 		private const int EmeraldPuzzleCount = 4;
 
+		/// <summary>The conversation a_do trap 50 looks for: the troll guard of level 7.</summary>
+		public const int ConversationTrapWhoAmI = 0xD8;
+
+		/// <summary>The goals gronkify_talkto_player knows: a waiting critter (7) goes home (1).</summary>
+		private const int GoalStand7 = 7;
+
+		private const int GoalGoHome = 1;
+
 		/// <summary>
 		/// a_do trap 50: starts a conversation.
 		///
-		/// WITH WHOM is in none of the trap's fields - all are zero. The number is
-		/// hard-wired in the original: object slot 251 of the current level. On level 7 that is the
-		/// troll guard on tile 26/56, three tiles from the move trigger that fires the trap,
-		/// and his first line is "Ho ho, just like big rat in trap."
+		/// WITH WHOM is in none of the trap's fields - all are zero. do_trap_hack case 0x32
+		/// (UnderworldExhumed TRIGGER.C) runs gronk_whoami (SPELLS.C) over the ACTIVE mobile list
+		/// for the first critter with conversation 0xD8, and its callback gronkify_talkto_player
+		/// sends one that waits (goal 7) home (goal 1) before it talks to the player. Dead or not
+		/// active, nothing happens. On level 7 that is the troll guard in slot 251 on tile 26/56,
+		/// three tiles from the move trigger that fires the trap; his first line is "Ho ho, just
+		/// like big rat in trap." Until 2026-10-12 ours talked to whatever held slot 251 and left
+		/// the goal alone (reference audit, traps D9).
 		/// </summary>
 		private static bool fFireConversationTrap(IUWTrapHost pIHost)
 		{
 			if (!pIHost.HasMessages || pIHost.CurrentLevel == null)
-				return false;
+				return true;
 
-			List<UWObject> lOMaster = pIHost.CurrentLevel.Masterlist;
+			UWNpc lONpc = FindActiveByWhoAmI(pIHost.CurrentLevel, ConversationTrapWhoAmI);
 
-			int liAt = UWObjectMechanics.ConversationTrapNpcIndex;
+			if (lONpc == null)
+			{
+				UWTrapLog.Detail = "-> no active creature with conversation 216";
 
-			if (lOMaster == null || liAt <= 0 || liAt >= lOMaster.Count)
-				return false;
+				return true;
+			}
 
-			UWTrapLog.Detail = string.Format("-> conversation with object {0}", liAt);
+			UWCritterRecord lORecord = new UWCritterRecord(lONpc);
 
-			return pIHost.TalkTo(lOMaster[liAt]);
+			if (lORecord.Goal == GoalStand7)
+				lORecord.Goal = GoalGoHome;
+
+			UWTrapLog.Detail = string.Format("-> conversation with object {0}",
+				pIHost.CurrentLevel.Masterlist.IndexOf(lONpc));
+
+			pIHost.TalkTo(lONpc);
+
+			return true;
 		}
 
-		/// <summary>This many floor textures a level has. Where they start in UWLevel.TextureInfos
-		/// is known by UWTile.SetFloorTexture.</summary>
-		private const int FloorTextureCount = 10;
+		/// <summary>gronk_whoami for the first match: the critters of the level's active mobile
+		/// list, in its order, whose whoami is the one asked for. Null when none.</summary>
+		public static UWNpc FindActiveByWhoAmI(UWLevel pOLevel, int piWhoAmI)
+		{
+			if (pOLevel == null || pOLevel.ActiveMobiles == null || pOLevel.Masterlist == null)
+				return null;
+
+			foreach (int liIndex in pOLevel.ActiveMobiles)
+			{
+				if (liIndex > 0 && liIndex < pOLevel.Masterlist.Count && pOLevel.Masterlist[liIndex] is UWNpc lONpc
+					&& lONpc.NPCwhoami == piWhoAmI)
+					return lONpc;
+			}
+
+			return null;
+		}
+
+		/// <summary>change_terrain writes a floor below this (0xB, WORLDEV.C) - one more than the ten
+		/// floor textures of a level; slot 10 reads the entry after them, as the tile word would.</summary>
+		private const int ChangeTerrainFloorLimit = 0xB;
+
+		/// <summary>Where a level's floor textures start in UWLevel.TextureInfos (UWTile.SetFloorTexture).</summary>
+		private const int FirstFloorTextureEntry = 48;
+
+		/// <summary>The highest floor change_terrain sets (0xD, WORLDEV.C) - by a trap, the bullfrog
+		/// and the height levers alike.</summary>
+		public const int MaxTerrainHeight = 0xD;
+
+		/// <summary>
+		/// A TILE'S NEW HEIGHT AND WHAT LIES ON IT - change_terrain (UnderworldExhumed WORLDEV.C),
+		/// the one way every height change goes: the change terrain trap, the eight-position switch
+		/// (the four levers of level 1, 56-59/45), the bullfrog's steps and its reset. On a tile that
+		/// RISES every object below the new floor is lifted onto it; on a tile that SINKS every object
+		/// resting on the old floor goes down with it. Traps and triggers stay where they are.
+		/// Until 2026-10-13 ours changed the floor alone, and what lay there floated or sank into it
+		/// (reference audit, finding of the fix agents; per user the same for the levers of level 1).
+		///
+		/// THE CREATURES AND THE PLAYER follow the floor through their own motion (the original sets
+		/// their z here too); ours keeps no creature in the tile lists it walks from (UWTileBlast), so
+		/// this covers the things that lie still.
+		/// </summary>
+		public static void SetTileHeight(UWTile pOTile, int piHeight, IUWTrapHost pIHost)
+		{
+			if (pOTile == null)
+				return;
+
+			int liOld = pOTile.FloorHeight >> 4;
+
+			pOTile.FloorHeight = (ushort)(piHeight << 4);
+
+			if (piHeight == liOld || pOTile.ObjectsInTile == null)
+				return;
+
+			int liNewZ = piHeight << 3;
+			int liOldZ = liOld << 3;
+
+			foreach (UWObject lOObject in pOTile.ObjectsInTile)
+			{
+				if (lOObject == null || lOObject is UWNpc || UWObjectIds.Major(lOObject.ID) == TrapMajorClass)
+					continue;
+
+				bool lbMoves = piHeight > liOld ? lOObject.ZPos < liNewZ : lOObject.ZPos == liOldZ;
+
+				if (!lbMoves)
+					continue;
+
+				int liWas = lOObject.ZPos;
+
+				lOObject.ZPos = liNewZ;
+
+				if (pIHost != null)
+					pIHost.OnObjectHeightChanged(lOObject, liWas);
+			}
+		}
 
 		/// <summary>This many wall textures a level has, from entry zero.</summary>
 		private const int WallTextureCount = 48;
@@ -1619,13 +2052,24 @@ namespace UWDataImport.UWData
 		///   Class 14 is the CUTSCENES - the minor class is the number. That is exactly
 		///   the trap on level 7 at 55/6 (14/3).
 		///
-		///   Class 5 is PROJECTILES, and when cast they wait for the click that gives the
-		///   direction. A trap has no click: its projectile starts at its own
-		///   sub-tile position and flies toward the player. The reference does the same, passing
-		///   the trap as the thrower and the player as the target. That is the trap on
-		///   level 5 at 10/45 (5/3).
+		///   Class 5 is PROJECTILES, and when cast by the player they wait for the click that
+		///   gives the direction. A trap has no click: release_missile with the trap as the
+		///   caster, spell_fire for an object (UnderworldExhumed SPELLS.C, MISSILE.C) - from the
+		///   trigger's target tile at the trap's fine position and height, flat, along the trap's
+		///   heading (SpellTrapMissileHeading); nobody is aimed at. That is the trap on level 5
+		///   at 10/45 (5/3, heading 2, z 51): its fireball flies east down the corridor, 19 above
+		///   the floor, and hits the player standing in line on the trigger at 14/45. Until
+		///   2026-10-12 ours aimed it at the camera, the reference's way.
 		///
-		/// Everything else takes the normal path and affects the player character.
+		/// THE CASTER IS THE TRAP (inanimate_spell -> do_spell(class, minor, trap, who), SPELLS.C),
+		/// so what needs the player as the caster does nothing: the lasting spells of classes 0
+		/// to 3 (set_curmagic only for who == ThePlayer), the spells on a creature in front of
+		/// the caster (class 7, nail_1area), restoring mana (class 10) and the extra spells
+		/// (class 11, xt_spells); a backfire (class 9) hurts only a creature caster. A heal
+		/// (class 4) goes to the one who set the trap off - the player; a creature's heal is not
+		/// built. The rest - area, creation, the special class 13 - takes the normal path.
+		/// Until 2026-10-12 every class took the normal path and affected the player. No
+		/// shipped spell trap has any of these classes (latent, reference audit spells 20).
 		/// </summary>
 		private static bool fFireSpellTrap(UWObject pOTrap, int piTileX, int piTileY, IUWTrapHost pIHost)
 		{
@@ -1634,70 +2078,163 @@ namespace UWDataImport.UWData
 
 			UWTrapLog.Detail = string.Format("spell {0}/{1}", liMajor, liMinor);
 
+			if (!SpellTrapCastsFor(liMajor, pIHost.HasTriggeringCreature, pIHost.HasTriggeringThing))
+			{
+				UWTrapLog.Detail = string.Format("spell {0}/{1}: nothing with a trap as the caster", liMajor, liMinor);
+
+				return true;
+			}
+
 			return pIHost.FireSpellTrap(pOTrap, piTileX, piTileY, liMajor, liMinor);
+		}
+
+		/// <summary>Spell classes of do_spell (combat.h) a trap cannot cast - see fFireSpellTrap.</summary>
+		private const int LightClass = 0;
+
+		private const int ProtectClass = 3;
+
+		private const int HealClass = 4;
+
+		private const int OneAreaClass = 7;
+
+		private const int BackfireClass = 9;
+
+		private const int ManaClass = 10;
+
+		private const int ExtraSpellsClass = 11;
+
+		/// <summary>Whether a spell trap of this class does anything with the trap as the caster and
+		/// whoever set it off as the target - see fFireSpellTrap.</summary>
+		public static bool SpellTrapCastsFor(int piMajorClass, bool pbCreatureSetItOff, bool pbThingSetItOff)
+		{
+			if (piMajorClass >= LightClass && piMajorClass <= ProtectClass)
+				return false;
+
+			switch (piMajorClass)
+			{
+				case OneAreaClass:
+				case BackfireClass:
+				case ManaClass:
+				case ExtraSpellsClass:
+					return false;
+
+				case HealClass:
+					return !pbCreatureSetItOff && !pbThingSetItOff;
+
+				default:
+					return true;
+			}
+		}
+
+		/// <summary>The heading a spell trap's missile flies in: missile_fire with missile_arc 0
+		/// takes OBJ_HEADING(trap) &lt;&lt; 5 and adds missile_trx 0 (MISSILE.C).</summary>
+		public static int SpellTrapMissileHeading(UWObject pOTrap)
+		{
+			return pOTrap != null ? (pOTrap.Heading & 7) << 5 : 0;
 		}
 
 		/// <summary>
 		/// an_inventory trap: does the player carry the item being searched for?
 		///
-		/// The search covers the backpack, the equipment, the cursor and all containers
-		/// in them. ZPos is a minimum count; if it is zero, one piece is enough.
+		/// THE ORIGINAL'S SEARCH (TRAP_INVENTORY, UnderworldExhumed TRIGGER.C, with FindObj how 4,
+		/// inv/INVDATA.C): the paperdoll slots 0 to 10, the backpack slots 11 to 18, then the
+		/// contents of every object there that carries no count, depth first - never the object on
+		/// the cursor. Only the FIRST object found is weighed: with a z above 0 a counted stack
+		/// (no special link) must hold at least z pieces, else the chain ends. Until 2026-10-12
+		/// ours searched the cursor too and kept looking past a stack too small (reference audit,
+		/// traps D13). The one trap of the game: level 7 at 21/41, a crystal splinter, z 1.
 		///
-		/// DEVIATION: the reference compares major, minor and class index separately, which
-		/// amounts to the same as comparing the whole object number - it only splits it
-		/// because its search function requires that.
+		/// The object number is compared whole - the original splits it into major, minor and
+		/// class only because FindObj asks for them that way.
 		/// </summary>
 		private static bool fInventoryTrapMatches(UWObject pOTrap, IUWTrapHost pIHost)
 		{
-			UWInventoryModel lOInventory = pIHost.Inventory;
-
-			if (lOInventory == null)
-				return false;
-
 			int liWanted = UWObjectMechanics.GetInventoryTrapItemId(pOTrap);
-			int liNeeded = pOTrap.ZPos > 0 ? pOTrap.ZPos : 1;
+			UWObject lOFound = FindCarriedLikeFindObj(pIHost.Inventory, liWanted,
+				pIHost.CurrentLevel != null ? pIHost.CurrentLevel.Masterlist : null);
 
-			List<UWObject> lOItems = new List<UWObject>();
+			bool lbMatches = lOFound != null
+				&& !(pOTrap.ZPos > 0 && lOFound.HasQuantity
+					&& (lOFound.Quantity & UWObjectRecordCodec.SpecialLinkBit) == 0
+					&& pOTrap.ZPos > lOFound.Quantity);
 
-			lOItems.AddRange(lOInventory.Backpack);
-			lOItems.AddRange(lOInventory.EquipSlots);
-			lOItems.Add(lOInventory.CursorItem);
+			UWTrapLog.Detail = string.Format("object {0} z {1}: {2}", liWanted, pOTrap.ZPos,
+				lbMatches ? "present" : lOFound != null ? "too few" : "missing");
 
-			bool lbFound = fCarriesItem(lOItems, liWanted, liNeeded,
-				pIHost.CurrentLevel != null ? pIHost.CurrentLevel.Masterlist : null, 0);
-
-			UWTrapLog.Detail = string.Format("object {0} x{1}: {2}", liWanted, liNeeded,
-				lbFound ? "present" : "missing");
-
-			return lbFound;
+			return lbMatches;
 		}
 
-		/// <summary>Searches for an object number in a list and in all containers in it.</summary>
-		private static bool fCarriesItem(IList<UWObject> pOItems,
-			int piWantedId, int piNeeded, List<UWObject> pOMasterlist, int piDepth)
-		{
-			if (pOItems == null || piDepth > MaxTrapChainDepth)
-				return false;
+		/// <summary>The paperdoll slots and the backpack slots of the original's inventory.</summary>
+		private const int InventoryTopSlots = 19;
 
-			foreach (UWObject lOItem in pOItems)
+		/// <summary>FindObj with how 4 for an object number - see fInventoryTrapMatches. Null when
+		/// it is not carried.</summary>
+		public static UWObject FindCarriedLikeFindObj(UWInventoryModel pOInventory, int piWantedId, List<UWObject> pOMasterlist)
+		{
+			if (pOInventory == null)
+				return null;
+
+			UWObject[] lOTop = new UWObject[InventoryTopSlots];
+			UWObject[] lOEquipment = pOInventory.GetSavegameEquipment();
+
+			for (int liAt = 0; liAt < lOEquipment.Length && liAt < InventoryTopSlots; liAt++)
+				lOTop[liAt] = lOEquipment[liAt];
+
+			for (int liAt = 0; liAt < pOInventory.Backpack.Length && lOEquipment.Length + liAt < InventoryTopSlots; liAt++)
+				lOTop[lOEquipment.Length + liAt] = pOInventory.Backpack[liAt];
+
+			foreach (UWObject lOItem in lOTop)
+			{
+				if (lOItem != null && lOItem.ID == piWantedId)
+					return lOItem;
+			}
+
+			foreach (UWObject lOItem in lOTop)
+			{
+				if (lOItem == null || lOItem.HasQuantity)
+					continue;
+
+				UWObject lOFound = fFindInContents(lOItem, piWantedId, pOMasterlist, 0);
+
+				if (lOFound != null)
+					return lOFound;
+			}
+
+			return null;
+		}
+
+		/// <summary>find_obj on an object's contents: each in turn, and inside each that carries
+		/// no count, depth first.</summary>
+		private static UWObject fFindInContents(UWObject pOOwner, int piWantedId, List<UWObject> pOMasterlist, int piDepth)
+		{
+			if (piDepth > MaxTrapChainDepth)
+				return null;
+
+			if (pOOwner.Contents == null && pOOwner.GetCategory() == UWObject.ObjectCategoryEnum.Containers
+				&& pOMasterlist != null)
+				pOOwner.EnsureContentsLoaded(pOMasterlist);
+
+			if (pOOwner.Contents == null)
+				return null;
+
+			foreach (UWObject lOItem in pOOwner.Contents)
 			{
 				if (lOItem == null)
 					continue;
 
-				if (lOItem.ID == piWantedId
-					&& (!lOItem.HasQuantity || lOItem.Quantity >= piNeeded))
-					return true;
+				if (lOItem.ID == piWantedId)
+					return lOItem;
 
-				if (lOItem.GetCategory() != UWObject.ObjectCategoryEnum.Containers || pOMasterlist == null)
+				if (lOItem.HasQuantity)
 					continue;
 
-				lOItem.EnsureContentsLoaded(pOMasterlist);
+				UWObject lOFound = fFindInContents(lOItem, piWantedId, pOMasterlist, piDepth + 1);
 
-				if (fCarriesItem(lOItem.Contents, piWantedId, piNeeded, pOMasterlist, piDepth + 1))
-					return true;
+				if (lOFound != null)
+					return lOFound;
 			}
 
-			return false;
+			return null;
 		}
 
 		private static bool fIsSlope(UWTile.TileTypeEnum peType)
@@ -1740,14 +2277,17 @@ namespace UWDataImport.UWData
 
 		/// <summary>a_door trap: opens, closes or toggles the door on the TRIGGER'S
 		/// TARGET TILE - per uw-formats.txt the coordinates are on the trigger, not
-		/// on the trap. "quality" determines the action (1 open, 2 close, 3 toggle; any other value also toggles).
+		/// on the trap. "quality" determines the action (1 open, 2 close, 3 toggle; any other value
+		/// moves nothing - TRAP_DOOR, UnderworldExhumed TRIGGER.C).
 		///
 		/// Then there is the lock side (DoorTrap_loc_8F8DD, read 2026-10-06): a lock on the door
 		/// is removed, then a copy of the template the trap's sp_link points to is put on, if
 		/// there is one - so a repeated close trap leaves the same lock, it does not toggle. On
 		/// level 1 all four traps chained like this point to an a_lock (271). A door in motion is
-		/// not found by the original (it is an animation object then): nothing happens. The door
-		/// and its lock are components, so the host does that part (IUWTrapHost.FireDoorTrap).</summary>
+		/// an animation object then: its lock stays, and only a swing against the trap's wish is
+		/// turned round (UWDoorRules.DoorTrap; until 2026-10-12 this comment said nothing happens).
+		/// The door and its lock are components, so the host does that part
+		/// (IUWTrapHost.FireDoorTrap).</summary>
 		private static void fFireDoorTrap(UWObject pOTrigger, UWObject pOTrap, IUWTrapHost pIHost)
 		{
 			(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);

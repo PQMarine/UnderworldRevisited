@@ -166,9 +166,16 @@ namespace UWDataImport.UWData
 			Fatigue = lbLoaded ? lOPlayer.Fatigue : 0;
 			MealHealCounter = lbLoaded ? lOPlayer.MealHealCounter : 0;
 			Counter3C = lbLoaded ? lOPlayer.Counter3C : 0;
+
+			for (int liAt = 0; liAt < myLoreByLevel.Length; liAt++)
+				myLoreByLevel[liAt] = lbLoaded ? lOPlayer.LoreByLevel[liAt] : (byte)0;
 			ClockValue = lbLoaded ? lOPlayer.ClockValue : 0;
 			Intoxication = lbLoaded ? lOPlayer.Intoxication : 0;
 			Hallucination = lbLoaded ? lOPlayer.Hallucination : 0;
+
+			// THE POISON COMES FROM THE SAVE as well (read_player_data loads the whole record,
+			// UnderworldExhumed PLAYDATA.C); until 2026-10-12 loading cured it.
+			Poison = lbLoaded ? Math.Clamp(lOPlayer.Poison, 0, MaxPoison) : 0;
 
 			MaxHP = pOStart.FallbackMaxHP;
 			MaxMana = pOStart.FallbackMaxMana;
@@ -281,13 +288,20 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		/// <summary>Maximum health and mana after a level-up.</summary>
+		/// <summary>
+		/// The derived maxima, as player_compute(0) sets them (UnderworldExhumed SKILLS.C) after a
+		/// level-up (advance) and a shrine mantra (mantra_advance): the maximum vitality
+		/// 30 + level * strength / 5 and the maximum mana. A loaded game keeps the maximum of
+		/// PLAYER.DAT 0x36 until then (PLAYDATA.C), as ours does.
+		///
+		/// THE CURRENT VITALITY IS NOT CUT to a lower maximum: player_compute does not touch it,
+		/// and the flask draws a value above the maximum as full (113 of 90 in an original save,
+		/// 2026-09-29). Until 2026-10-13 ours cut it at a level-up, and a mantra left the maximum
+		/// vitality alone (reference audit, finding of the fix agents).
+		/// </summary>
 		private void fApplyLevel()
 		{
 			MaxHP = UWExperience.GetMaximumHealth(Strength, mOExperience.Level);
-
-			if (CurrentHP > MaxHP)
-				CurrentHP = MaxHP;
 
 			fApplyMaximumMana();
 
@@ -458,7 +472,11 @@ namespace UWDataImport.UWData
 			int liValue = GetSkillByNumber(piSkillNumber);
 
 			if ((liAttributeValue << 1) < liValue || liValue >= MaxSkillValue)
+			{
+				fAfterLoreAttempt(piSkillNumber);
+
 				return false;
+			}
 
 			liValue++;
 
@@ -473,15 +491,43 @@ namespace UWDataImport.UWData
 
 			fSetSkillByNumber(piSkillNumber, liValue);
 
-			fRefreshDerivedValues();
+			// NO MAXIMUM IS RECOMPUTED HERE (get_skill does not call player_compute): a trainer's
+			// raise leaves the mana flask's maximum until the next level-up or shrine mantra
+			// (RecomputeMaxima). Until 2026-10-12 every raise recomputed it at once.
+			fVitalsChanged();
 
-			// BETTER LORE MAKES THE WORLD UNIDENTIFIED AGAIN. Without this it achieved nothing
-			// at all: the check is rolled only once per item (see UWLoreCheck).
-			if (piSkillNumber == LoreSkillNumber && mIHost != null)
-				mIHost.ResetIdentification();
+			fAfterLoreAttempt(piSkillNumber);
 
 			return true;
 		}
+
+		/// <summary>
+		/// BETTER LORE MAKES THE WORLD UNIDENTIFIED AGAIN. Without this it achieved nothing at all:
+		/// the check is rolled only once per item (see UWLoreCheck).
+		///
+		/// ON EVERY ATTEMPT AT LORE, raised or not: get_skill clears the lore tries for SKILL_LORE
+		/// whatever its result (UnderworldExhumed SKILLS.C). Until 2026-10-12 ours reset only after
+		/// a successful raise.
+		/// </summary>
+		private void fAfterLoreAttempt(int piSkillNumber)
+		{
+			if (piSkillNumber != LoreSkillNumber || mIHost == null)
+				return;
+
+			mIHost.ResetIdentification();
+
+			// And the Lore skill is noted for this level (UWPlayerData.LoreByLevel): get_skill
+			// writes player->lore[PlayerLevel] up to level 8.
+			int liLevel = mIHost.DungeonLevelIndex + 1;
+
+			if (liLevel >= 0 && liLevel < myLoreByLevel.Length)
+				myLoreByLevel[liLevel] = (byte)GetSkill(UWPlayerData.Skill.Lore);
+		}
+
+		private readonly byte[] myLoreByLevel = new byte[UWPlayerData.LoreByLevelCount];
+
+		/// <summary>PLAYER.DAT 0xC2 on, by level number - see UWPlayerData.LoreByLevel. A copy.</summary>
+		public byte[] LoreByLevel => (byte[])myLoreByLevel.Clone();
 
 		/// <summary>Lore in the save game numbering - see AttackSkillNumber.
 		/// </summary>
@@ -509,13 +555,12 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		/// <summary>The health and mana limits depend on skills and attributes and
-		/// must be recomputed after a raise.</summary>
-		private void fRefreshDerivedValues()
+		/// <summary>The maximum vitality and mana, as player_compute(0) sets them after a shrine
+		/// mantra (UnderworldExhumed SKILLS.C mantra_advance) - the mana in Tybal's lair into the
+		/// orb's backup. The current values stay as they are (see fApplyLevel).</summary>
+		public void RecomputeMaxima()
 		{
-			fApplyMaximumMana();
-
-			fVitalsChanged();
+			fApplyLevel();
 		}
 
 		// ------------------------------------------------- Hunger, fatigue, clock, drink
@@ -541,8 +586,9 @@ namespace UWDataImport.UWData
 		/// <summary>The value of the game clock, see UWGameClock.</summary>
 		public int ClockValue { get; private set; }
 
-		/// <summary>How drunk the character is, 0 to 63. Drops by one on the minute tick and by
-		/// sixteen during sleep - see Drink.</summary>
+		/// <summary>How drunk the character is, 0 to 63. Drops by one in the five-minute block
+		/// (fTickFiveMinutes; this said "the minute tick" until 2026-10-12) and by 32 or 16 during
+		/// sleep - see Drink and SleepIntoxicationRelief.</summary>
 		public int Intoxication { get; private set; }
 
 		/// <summary>Maximum intoxication - six bits in the save game.</summary>
@@ -567,7 +613,8 @@ namespace UWDataImport.UWData
 		/// Drinks something intoxicating and reports what came of it.
 		///
 		/// The reference's sequence (food.DrinkLiquid): intoxication rises by the magnitude of
-		/// the negative nutrition value - water one, port eight -, and then STRENGTH is checked
+		/// the negative nutrition value - port eight; water (-1) is no drink, the caller leaves it
+		/// out as the original does (USEITEMS.C, UWItemUse) -, and then STRENGTH is checked
 		/// against the NEW intoxication. The drunker, the harder the check:
 		///
 		///   critical success  a message, plus two points of health
@@ -618,7 +665,8 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// How long the mushroom effect still lasts, 0 to 3. Drops by one on the minute tick.
+		/// How long the mushroom effect still lasts, 0 to 3. Drops by one on every tick (see
+		/// RunGameTick; this said "the minute tick" until 2026-10-12).
 		///
 		/// WHAT IS SEEN while it runs is UWHallucinationState - one of three effects, rolled once
 		/// (the palette one is built, see UWPaletteRenderToggle). The
@@ -631,15 +679,21 @@ namespace UWDataImport.UWData
 		/// <summary>Maximum value of the mushroom effect - two bits in the save game.</summary>
 		public const int MaxHallucination = 3;
 
+		/// <summary>The mushroom eaten (USEITEMS.C UseFood, which then runs FixPlayerEquips).</summary>
 		public void AddHallucination()
 		{
 			Hallucination = Math.Min(MaxHallucination, Hallucination + 1);
+
+			RequestStatusPass();
 		}
 
-		/// <summary>Item spell 13/5 writes 3 into the two bits - see UWItemSpellRules.</summary>
+		/// <summary>Item spell 13/5 writes 3 into the two bits - see UWItemSpellRules (SPELLS.C
+		/// do_spell, then FixPlayerEquips).</summary>
 		public void StartHallucination()
 		{
 			Hallucination = MaxHallucination;
+
+			RequestStatusPass();
 		}
 
 		/// <summary>Sleeping clears the two bits - see UWSleepRules.</summary>
@@ -701,8 +755,8 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		/// <summary>From the reference: the shake level is the damage divided by four, capped at
-		/// three.</summary>
+		/// <summary>The combat shake's level is the damage divided by four, capped at three
+		/// (COMBAT.C do_damage) - see ShakeForCombatHit.</summary>
 		private const int DamageLevelDivisor = 4;
 
 		private const int MaxDamageLevel = 3;
@@ -764,91 +818,101 @@ namespace UWDataImport.UWData
 
 				fVitalsChanged();
 
-				// A hit shakes the view. The LEVEL is the damage divided by four, at most
-				// three - that is how the reference computes it (combat.cs lines 577-580), and the
-				// duration follows from it. A graze therefore does not shake at all.
-				if (mIHost != null)
-					mIHost.ShakeOnDamage(Math.Min(piDamage / DamageLevelDivisor, MaxDamageLevel));
+				// NO SHAKE HERE: only a blow or a missile shakes the view (ShakeForCombatHit).
+				// Until 2026-10-12 every damage did - poison, falls, lava, traps, drowning.
 			}
 
 			return CurrentHP <= 0f;
 		}
 
-		/// <summary>A curse brings nobody below this limit - that is how the reference has it.
+		/// <summary>
+		/// A blow or a missile hit the player: the view shakes (UnderworldExhumed COMBAT.C
+		/// do_damage, the user's decision of 2026-10-12 to follow it). The LEVEL is the damage
+		/// after the armour and BEFORE the Easy halving divided by four, at most three; it shakes
+		/// only when the damage after the halving is not zero, and whether a resistance then
+		/// swallows the hit does not matter. The host overwrites the running combat shake with
+		/// level times five (set_effect), so a level of zero ends it.
 		/// </summary>
+		/// <param name="piDamageBeforeEasy">The damage after the armour, before halving on Easy.</param>
+		/// <param name="piDamageDone">The damage that was dealt, after the halving.</param>
+		public void ShakeForCombatHit(int piDamageBeforeEasy, int piDamageDone)
+		{
+			if (piDamageDone <= 0 || mIHost == null)
+				return;
+
+			mIHost.ShakeOnDamage(Math.Min(Math.Max(0, piDamageBeforeEasy) / DamageLevelDivisor, MaxDamageLevel));
+		}
+
+		/// <summary>A curse brings nobody below this limit, and at or below it does nothing
+		/// (backfire, UnderworldExhumed SPELLS.C).</summary>
 		private const int CurseMinimumHealth = 3;
 
 		/// <summary>The curse rolls eight-sided dice.</summary>
 		private const int CurseDieSides = 8;
 
 		/// <summary>
-		/// A cursed piece of equipment strikes (reference:
-		/// spellcasting_class_9.CastClass9_Curse). Returns whether it struck at all.
+		/// A cursed piece of equipment strikes, or Bronus' book explodes - both are class 9,
+		/// which the original sends to backfire (PLAYDATA.C player_affected_by, WORLDEV.C, the
+		/// book). Returns whether it struck at all; the host flashes the view when it did.
 		///
-		/// THE ROLL IS "subclass times d8": the reference computes
-		/// DiceRoll(subclass, 8), which is subclass plus that many rolls from zero to
-		/// seven. For the cursed crowns with subclass 5 that is five to forty.
+		/// THE ROLL IS "subclass times d8": rollem(subclass, 8), subclass plus that many rolls
+		/// from zero to seven. For the cursed crowns with subclass 5 that is five to forty.
 		///
-		/// IT CANNOT KILL. If fewer than three hit points would remain, it is set to exactly
-		/// three - you waste away, but do not die of it.
+		/// IT CANNOT KILL, AND AT THREE OR LESS IT DOES NOTHING. Since 2026-10-12 the curse goes
+		/// through ApplyBackfire like the original: until then it had no lower guard of its own
+		/// and lifted one or two hit points UP to three.
 		///
-		/// NO RESISTANCE AND NO SHAKING: the reference subtracts the value straight from the
-		/// hit points, without going through the damage types. The hit is still
-		/// recorded so that it shows up in the F1 display. Whether the view flashes is the
-		/// host's decision (when EQUIPPING nothing flashes, afterwards it does).
+		/// NO RESISTANCE AND NO SHAKING: the value comes straight off the hit points, without
+		/// the damage types. The hit is still recorded so that it shows up in the F1 display.
 		/// </summary>
 		public bool ApplyCurse(int piDice)
 		{
 			if (piDice <= 0)
 				return false;
 
-			int liDamage = piDice;
-
-			for (int liAt = 0; liAt < piDice; liAt++)
-				liDamage += UWRandom.Next(CurseDieSides);
-
-			LastDamage = liDamage;
-			LastDamageType = UWDamageTypes.None;
-
-			if (mIHost != null)
-				mIHost.OnDamageRecorded();
-
-			CurrentHP = CurrentHP - liDamage < CurseMinimumHealth
-				? CurseMinimumHealth
-				: CurrentHP - liDamage;
-
-			fVitalsChanged();
-
-			return true;
+			return ApplyBackfire(piDice);
 		}
 
 		/// <summary>
 		/// A BACKFIRED SPELL (backfire, UnderworldExhumed SPELLS.C, read 2026-10-11): piDice d8 as
 		/// the curse rolls them (dice plus that many rolls of 0 to 7), but at three hit points or
 		/// fewer nothing happens at all, and otherwise it leaves at least three. Returns whether it
-		/// struck - only then does the view flash.
+		/// struck - only then does the view flash (fill_FB 0xA8 for the player).
+		///
+		/// The dice are rolled BEFORE the hit point test, as backfire does (since 2026-10-12), so
+		/// the draws stay in the original's order even when nothing happens.
 		/// </summary>
 		public bool ApplyBackfire(int piDice)
 		{
+			int liDamage = Math.Max(0, UWRandom.RollDice(piDice, CurseDieSides));
+
 			if (CurrentHP <= CurseMinimumHealth)
 				return false;
 
-			int liDamage = Math.Max(0, piDice);
+			fApplyCurseDamage(liDamage);
 
-			for (int liAt = 0; liAt < piDice; liAt++)
-				liDamage += UWRandom.Next(CurseDieSides);
+			return true;
+		}
 
-			LastDamage = liDamage;
+		/// <summary>
+		/// What a curse and a backfire share (one helper since 2026-10-11, before that the same
+		/// lines twice): the hit is recorded without a damage type - no resistance, but F1 shows
+		/// it - and taken straight off the hit points, which stay at CurseMinimumHealth at the
+		/// least. The dice are rolled by the caller, so the order of the draws is unchanged.
+		/// </summary>
+		private void fApplyCurseDamage(int piDamage)
+		{
+			LastDamage = piDamage;
 			LastDamageType = UWDamageTypes.None;
 
 			if (mIHost != null)
 				mIHost.OnDamageRecorded();
 
-			CurrentHP = CurrentHP - liDamage <= CurseMinimumHealth ? CurseMinimumHealth : CurrentHP - liDamage;
+			CurrentHP = CurrentHP - piDamage < CurseMinimumHealth
+				? CurseMinimumHealth
+				: CurrentHP - piDamage;
 
 			fVitalsChanged();
-
-			return true;
 		}
 
 		/// <summary>Subtracts mana and updates the flask. Never below zero.</summary>
@@ -860,20 +924,6 @@ namespace UWDataImport.UWData
 				CurrentMana = 0f;
 
 			fVitalsChanged();
-		}
-
-		/// <summary>
-		/// Damage that leaves at least this many hit points - the leeches bite hard but never kill
-		/// (the reference: leech.LeechDamage, see UWItemDrag).
-		/// </summary>
-		public void ApplyDamageKeepingMinimum(int piDamage, int piMinimum, int piDamageTypeProof)
-		{
-			int liAllowed = Math.Max(0, (int)Math.Floor(CurrentHP) - piMinimum);
-
-			if (liAllowed <= 0 || piDamage <= 0)
-				return;
-
-			ApplyDamage(Math.Min(piDamage, liAllowed), UWDamageTypes.None, piDamageTypeProof);
 		}
 
 		/// <summary>Counterpart to ApplyDamage, for instance for healing potions.</summary>
@@ -920,13 +970,17 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// Poisons the character. A STRONGER poisoning replaces the current one, a
 		/// weaker one changes nothing - that is what the original does instead of adding.
+		///
+		/// THE FIELD HAS FOUR BITS (player.h, poison): whack_thing compares the full strength and
+		/// stores it into the bit field, so a strength above 15 keeps its low four bits. Until
+		/// 2026-10-12 ours clamped it to 15; no shipped trap or potion is that strong.
 		/// </summary>
 		public void ApplyPoison(int piStrength)
 		{
 			if (piStrength <= Poison)
 				return;
 
-			Poison = piStrength > MaxPoison ? MaxPoison : piStrength;
+			Poison = piStrength & MaxPoison;
 
 			fVitalsChanged();
 		}
@@ -939,25 +993,18 @@ namespace UWDataImport.UWData
 		/// UWPlayerTick, so three ticks are sixty-three real seconds.</summary>
 		private const int MinuteTicks = UWPlayerTick.MinuteTicks;
 
-		private int miPoisonTickCounter;
-
 		/// <summary>
 		/// The poison takes effect: damage equal to the current value, and the value drops by one.
 		///
-		/// Called on every tick of RunGameTick, but counts its own minute
-		/// (MinuteTicks), so it takes effect once per minute.
+		/// ON THE GLOBAL MINUTE TICK, the same one the mana roll uses (UnderworldExhumed PLAYTIME.C
+		/// duration_check: plyregen[1] % 3, poison first), so the first damage comes one to three
+		/// ticks after the poisoning. Until 2026-10-12 the poison counted its own three ticks from
+		/// the poisoning and always hurt first after exactly three.
 		/// </summary>
 		private void fTickPoison(int piDamageTypeProof)
 		{
 			if (Poison <= 0)
 				return;
-
-			miPoisonTickCounter++;
-
-			if (miPoisonTickCounter < MinuteTicks)
-				return;
-
-			miPoisonTickCounter = 0;
 
 			// POISON DAMAGE IS POISON: the reference gives type 0x10 for it (playerdatloop, in the
 			// minute block). Poison Resistance thereby nullifies the poison damage - the
@@ -1054,6 +1101,9 @@ namespace UWDataImport.UWData
 
 			fApplyActiveSpells();
 
+			// set_curmagic ends with FixPlayerEquips: a cast spell is a status pass.
+			RequestStatusPass();
+
 			return true;
 		}
 
@@ -1081,23 +1131,17 @@ namespace UWDataImport.UWData
 			if (piIndex < 0 || piIndex >= mOActiveSpells.Count)
 				return;
 
-			UWActiveSpellEffect lOSpell = mOActiveSpells[piIndex];
-
-			// LEVITATE AND FLY TURN INTO SLOW FALL, keeping what is left of their stability - as
-			// when they wear off, so one does not plummet out of the air (per user, 2026-10-04; the
-			// reference's spell icon click does the same, uimanager_spells).
-			if (lOSpell.MajorClass == MotionMajor
-				&& ((lOSpell.MinorClass & 0x3F) == LevitateMinor || (lOSpell.MinorClass & 0x3F) == FlyMinor))
-			{
-				lOSpell.MinorClass = SlowFallMinor;
-				mOActiveSpells[piIndex] = lOSpell;
-			}
-			else
-			{
-				mOActiveSpells.RemoveAt(piIndex);
-			}
+			// THE ICON CLICK IS THE TICK'S DISPEL (try_clear -> dispel_spell, UnderworldExhumed RUNES.C,
+			// PLAYTIME.C): Levitate and Fly become Slow Fall WITH STABILITY ONE, "nearly done", ending
+			// at the next tick. Until 2026-10-14 the click kept what was left of their stability (per
+			// user on the original: the Slow Fall of a cancelled fresh Fly is "nearly done", ours kept
+			// Fly's state - audit group B3); one rule for both now (fDispel).
+			fDispel(piIndex);
 
 			fApplyActiveSpells();
+
+			// try_clear runs FixPlayerEquips after the dispel.
+			RequestStatusPass();
 		}
 
 		/// <summary>All active spells end - they wear off during sleep.</summary>
@@ -1108,6 +1152,21 @@ namespace UWDataImport.UWData
 			// Clearing alone is not enough: speed, light and the motion modes hang on
 			// fApplyActiveSpells and would otherwise remain, although no spell is running any more.
 			fApplyActiveSpells();
+
+			// Sleep and the resurrection run FixPlayerEquips (player_sleep, do_resurrect).
+			RequestStatusPass();
+		}
+
+		/// <summary>
+		/// The original would run its status pass, FixPlayerEquips, now - the host does it,
+		/// and that is where a worn curse strikes (IUWVitalsHost.OnStatusPassDue). Called by the
+		/// rules that call FixPlayerEquips in the original: a spell begins or ends, the mushroom
+		/// begins or wears off, sleep, a mantra (UWShrineRules).
+		/// </summary>
+		public void RequestStatusPass()
+		{
+			if (mIHost != null)
+				mIHost.OnStatusPassDue();
 		}
 
 		/// <summary>
@@ -1157,48 +1216,88 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Counts down the duration of the spells.
+		/// Counts down the duration of the spells (UnderworldExhumed PLAYTIME.C duration_check).
 		///
-		/// At one it ends - except for Levitate and Fly: those turn into Slow Fall,
-		/// so you do not plummet out of the air. The reference does exactly the same.
+		/// A spell whose stability IS one when the tick comes ends (fDispel), any other loses a
+		/// step - so a spell of stability S lasts S ticks, and it holds two and one for a whole
+		/// tick each, which is when its icon says "is nearly done" (UWHudRunes). Levitate and
+		/// Fly do not end but turn into Slow Fall for one more tick, so you do not plummet out
+		/// of the air.
+		///
+		/// UNTIL 2026-10-12 the step came first and the spell ended at one or below, S - 1 ticks,
+		/// and "is nearly done" practically never showed.
+		///
+		/// The slots are walked upwards as the original walks them: when a spell ends the last
+		/// one moves into its slot and is looked at in the same pass.
 		/// </summary>
-		private void fTickActiveSpells()
+		private bool fTickActiveSpells()
 		{
 			if (mOActiveSpells.Count == 0)
-				return;
+				return false;
 
 			bool lbChanged = false;
 
-			for (int liSpell = mOActiveSpells.Count - 1; liSpell >= 0; liSpell--)
+			for (int liSpell = 0; liSpell < mOActiveSpells.Count; liSpell++)
 			{
 				UWActiveSpellEffect lOSpell = mOActiveSpells[liSpell];
 
-				lOSpell.Stability--;
-
-				if (lOSpell.Stability > 1)
+				if (lOSpell.Stability == 1)
 				{
-					mOActiveSpells[liSpell] = lOSpell;
+					if (fDispel(liSpell))
+						liSpell--;
+
+					lbChanged = true;
 
 					continue;
 				}
 
-				if (lOSpell.MajorClass == MotionMajor
-					&& (lOSpell.MinorClass == LevitateMinor || lOSpell.MinorClass == FlyMinor))
-				{
-					lOSpell.MinorClass = SlowFallMinor;
-
-					mOActiveSpells[liSpell] = lOSpell;
-				}
-				else
-				{
-					mOActiveSpells.RemoveAt(liSpell);
-				}
-
-				lbChanged = true;
+				// A stored zero wraps to 255, as the high byte of the original's word does.
+				lOSpell.Stability = (lOSpell.Stability - 1) & 0xFF;
+				mOActiveSpells[liSpell] = lOSpell;
 			}
 
 			if (lbChanged)
 				fApplyActiveSpells();
+
+			return lbChanged;
+		}
+
+		/// <summary>
+		/// Ends the active spell in slot piIndex (UnderworldExhumed PLAYTIME.C dispel_spell, used by
+		/// the tick and by the icon click). Levitate and Fly become Slow Fall with stability one
+		/// and keep their slot; any other spell is removed and the LAST spell moves into the freed
+		/// slot (until 2026-10-12 ours shifted the rest down, so with three spells the icons came
+		/// out B, C where the original shows C, B). Returns whether the slot now holds another
+		/// spell that still has to be looked at.
+		/// </summary>
+		private bool fDispel(int piIndex)
+		{
+			UWActiveSpellEffect lOSpell = mOActiveSpells[piIndex];
+
+			if (lOSpell.MajorClass == MotionMajor
+				&& ((lOSpell.MinorClass & 0x3F) == LevitateMinor || (lOSpell.MinorClass & 0x3F) == FlyMinor))
+			{
+				lOSpell.MinorClass = SlowFallMinor;
+				lOSpell.Stability = 1;
+				mOActiveSpells[piIndex] = lOSpell;
+
+				return false;
+			}
+
+			fRemoveSlot(piIndex);
+
+			return piIndex < mOActiveSpells.Count;
+		}
+
+		/// <summary>Removes a slot the original's way: the last spell moves into it.</summary>
+		private void fRemoveSlot(int piIndex)
+		{
+			int liLast = mOActiveSpells.Count - 1;
+
+			if (piIndex < liLast)
+				mOActiveSpells[piIndex] = mOActiveSpells[liLast];
+
+			mOActiveSpells.RemoveAt(liLast);
 		}
 
 		/// <summary>Major class and subclasses of the motion spells.</summary>
@@ -1241,16 +1340,20 @@ namespace UWDataImport.UWData
 
 			miTickCounter++;
 
-			fTickActiveSpells();
+			bool lbStatusChanged = fTickActiveSpells();
 
-			// Poison counts its minute tick itself (see fTickPoison), so it is
-			// still called on every tick as before.
-			fTickPoison(piDamageTypeProof);
+			// THE MUSHROOM WEARS OFF ON EVERY TICK, before any counter is looked at
+			// (PlayerUpdates_seg028_2985_13D label 1CD). It sat on the minute tick until
+			// 2026-09-22, three times too slow. Wearing off counts as a change (duration_check).
+			if (Hallucination > 0 && --Hallucination == 0)
+				lbStatusChanged = true;
 
-			// Cursed equipment strikes on exactly this tick - the reference attaches the
-			// curse to its status pass, and that runs in the same timed block there.
-			if (mIHost != null && ApplyCurse(mIHost.WornCurseDice))
-				mIHost.OnCurseStruck();
+			// A SPELL ENDED OR THE MUSHROOM WORE OFF: the original runs its status pass
+			// (duration_check -> FixPlayerEquips; a light going out is the host's, see
+			// UWCharacter). That pass is where a worn curse strikes - NOT every tick, as ours did
+			// until 2026-10-12 (the user's decision of that day: the original's timing).
+			if (lbStatusChanged)
+				RequestStatusPass();
 
 			// A Ring of Regeneration gives its point on this tick and no other - the reference
 			// puts the block directly after its status pass (PlayerUpdates_seg028_2985_13D,
@@ -1258,14 +1361,12 @@ namespace UWDataImport.UWData
 			if (mIHost != null)
 				fTickWornRegeneration(mIHost.WornRegeneration);
 
-			// THE MUSHROOM WEARS OFF ON EVERY TICK, before any counter is looked at
-			// (PlayerUpdates_seg028_2985_13D label 1CD). It sat on the minute tick until
-			// 2026-09-22, three times too slow.
-			if (Hallucination > 0)
-				Hallucination--;
-
+			// The minute: the poison, then the mana roll (duration_check, plyregen[1] % 3).
 			if (miTickCounter % MinuteTicks == 0)
+			{
+				fTickPoison(piDamageTypeProof);
 				fRegenerateMana();
+			}
 
 			if (miTickCounter % FiveMinuteTicks == 0)
 				fTickFiveMinutes();
@@ -1334,6 +1435,12 @@ namespace UWDataImport.UWData
 			// we had it.
 			if (Intoxication > 0)
 				Intoxication--;
+
+			// THE LEVEL'S SHARE comes here, between the drunkenness and the fatigue in the
+			// original's block (duration_check, PLAYTIME.C): the creatures' checkup. Ours had none
+			// until 2026-10-15.
+			if (mIHost != null)
+				mIHost.OnFiveMinuteBlock();
 
 			// On STRENGTH, which is an attribute and not a skill (the player's creature row
 			// byte 5, see UWPlayerCritterRow).
@@ -1405,19 +1512,16 @@ namespace UWDataImport.UWData
 		/// Spell class 10: restore mana. The two spells of this class have no
 		/// rune sequence - they exist only in items.
 		///
-		/// The reference computes the amount as 1 + (MaxMana * (subclass + roll 0 to 3)) / 16
-		/// (playerdatloop.ManaRegenChange). For subclass 3 that is a fifth to a
-		/// third of the pool, for 9 a good half to three quarters.
-		///
-		/// THE REFERENCE ITSELF DOUBTS THIS FORMULA ("may be wrong and is restoring too much
-		/// mana"). We adopt it anyway because it is the only source - if it is less in the
-		/// original, that will show up in testing.
+		/// The amount is 1 + (MaxMana * (subclass + roll 0 to 3)) / 16, exactly as restore_mana
+		/// (UnderworldExhumed SPELLS.C) adds it. For subclass 3 that is a fifth to a third of the
+		/// pool, for 9 a good half to three quarters. The reference doubted this formula; the
+		/// original settles it (2026-10-12).
 		/// </summary>
 		public void RestoreManaFromSpell(int piMinorClass)
 		{
-			int liIncrease = 1 + (int)((MaxMana * (piMinorClass + UWRandom.Next(4))) / 16f);
-
-			CurrentMana = Math.Min(MaxMana, CurrentMana + liIncrease);
+			// The same share restore_mana adds (fRestoreAmount). Until 2026-10-11 this line divided
+			// in float (/ 16f); the maximum is always a whole number, so the results were identical.
+			CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreAmount(MaxMana, piMinorClass));
 
 			fVitalsChanged();
 		}
@@ -1503,6 +1607,13 @@ namespace UWDataImport.UWData
 			if (piAmount <= 0)
 				return -piAmount;
 
+			return fRestoreAmount(pfMax, piAmount);
+		}
+
+		/// <summary>(max * (amount + RNG & 3)) >> 4, plus one: the share of the maximum that
+		/// restore_hp, restore_mana and the mana spell of class 10 add. One draw of 0 to 3.</summary>
+		private static int fRestoreAmount(float pfMax, int piAmount)
+		{
 			return (((int)pfMax * (piAmount + UWRandom.Next(4))) >> 4) + 1;
 		}
 
@@ -1521,9 +1632,10 @@ namespace UWDataImport.UWData
 		///
 		/// FOLLOWING ApplyPlayerSneakScore_seg034_2F89_898 (115605-115709): standing is 0 whatever
 		/// the base is, walking is the base plus momentum times ten divided by the forward speed
-		/// minus five, and water adds four on top of either. The base is NoiseBase, 13 minus
-		/// Sneak / 3 and what the Stealth spell takes off it. If the value is above the stored one,
-		/// it applies immediately; below it the stored one only drops by one every eight ticks.
+		/// minus five, and the motion state adds four on top of either (swimming, lava, floating
+		/// with Levitate or Fly, a shaking view - IUWVitalsHost.IsInMotionState; only water until
+		/// 2026-10-12). The base is NoiseBase, 13 minus Sneak / 3 and what the Stealth spell takes
+		/// off it. If the value is above the stored one, it applies immediately; below it the stored one only drops by one every eight ticks.
 		/// Winding up sets 10, the blow and repairing 15.
 		///
 		/// THE SPEED TERM CAME IN 2026-09-21 with the stealth check. Before that walking was a
@@ -1625,7 +1737,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// One step of the easy movement: it is as loud as the flat four of
-		/// ApplyPlayerSneakScore_seg034_2F89_898 on top of the base, water adds its four as
+		/// ApplyPlayerSneakScore_seg034_2F89_898 on top of the base, the motion state adds its four as
 		/// everywhere, and the game clock gains UWEasyMovement.ClockAdvance. The original
 		/// substitutes the four because it clears the momentum for this step, so the usual
 		/// speed summand would be zero. Quieter than what is already stored does not count,
@@ -1635,7 +1747,7 @@ namespace UWDataImport.UWData
 		{
 			int liNow = NoiseBase + UWCritterRules.PlayerNoiseEasyMove;
 
-			if (mIHost != null && mIHost.IsInLiquid)
+			if (mIHost != null && mIHost.IsInMotionState)
 				liNow += UWCritterRules.PlayerNoiseWater;
 
 			liNow = Math.Clamp(liNow, 0, MaxQuietness);
@@ -1652,7 +1764,7 @@ namespace UWDataImport.UWData
 			mfQuietnessTicks += pfElapsedSeconds * QuietnessTicksPerSecond;
 
 			bool lbMoving = mIHost != null && mIHost.IsMoving;
-			bool lbInLiquid = mIHost != null && mIHost.IsInLiquid;
+			bool lbInMotionState = mIHost != null && mIHost.IsInMotionState;
 			float lfFraction = mIHost != null ? mIHost.MovementFraction : 0f;
 
 			while (mfQuietnessTicks >= 1f)
@@ -1664,7 +1776,7 @@ namespace UWDataImport.UWData
 				if (lbMoving)
 					liNow = NoiseBase + GetMovingNoise(lfFraction) - UWCritterRules.PlayerNoiseMovingOffset;
 
-				if (lbInLiquid)
+				if (lbInMotionState)
 					liNow += UWCritterRules.PlayerNoiseWater;
 
 				liNow = Math.Clamp(liNow, 0, MaxQuietness);

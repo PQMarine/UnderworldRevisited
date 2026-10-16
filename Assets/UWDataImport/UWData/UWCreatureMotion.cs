@@ -57,20 +57,25 @@ namespace UWDataImport.UWData
 		/// initialised once at program start). So from the first update of a lava-proof land
 		/// creature within reach of the player on, every land creature walks over a lava edge
 		/// without stopping (the burn stays: the contact state is taken before the mask). Kept
-		/// for the session as in the original; the self-check resets it.
+		/// for the session as in the original (UWGameSession.Quirks since 2026-10-14, cleanup step
+		/// 2.7: a new game or a loaded one starts with a new session and so with the blocks as at
+		/// program start); the self-check resets it.
 		/// </summary>
-		private static readonly bool[] msLavaFlagDropped = new bool[3];
-
 		public static bool LavaFlagDropped(Kind peKind)
 		{
-			return msLavaFlagDropped[(int)peKind];
+			return UWGameSession.Current.Quirks.LavaFlagDropped[(int)peKind];
 		}
+
+		/// <summary>The number of handler blocks, one per Kind.</summary>
+		public const int KindCount = 3;
 
 		/// <summary>The handler blocks as at program start.</summary>
 		public static void ResetHandlers()
 		{
-			for (int liAt = 0; liAt < msLavaFlagDropped.Length; liAt++)
-				msLavaFlagDropped[liAt] = false;
+			bool[] lbDropped = UWGameSession.Current.Quirks.LavaFlagDropped;
+
+			for (int liAt = 0; liAt < lbDropped.Length; liAt++)
+				lbDropped[liAt] = false;
 		}
 
 		/// <summary>The momentum a push hands the struck creature (seg029_29EE_3, loc.speed =
@@ -176,13 +181,15 @@ namespace UWDataImport.UWData
 			UWCommonObjectProperties.Entry lOEntry = fEntry(pORecord.ItemId);
 			int liKind = (int)peKind;
 
+			bool[] lbLavaFlagDropped = UWGameSession.Current.Quirks.LavaFlagDropped;
+
 			if ((lOEntry.Resistances & LavaProofResistanceBit) != 0)
-				msLavaFlagDropped[liKind] = true;
+				lbLavaFlagDropped[liKind] = true;
 
 			UWMotionHandler lOHandler = mOHandlersByKind[liKind];
 
-			lOHandler.IgnoreMask = IgnoreMaskByKind[liKind] | (msLavaFlagDropped[liKind] ? LavaFlag : 0);
-			lOHandler.CallbackMask = CallbackMaskByKind[liKind] & (msLavaFlagDropped[liKind] ? ~LavaFlag : ~0);
+			lOHandler.IgnoreMask = IgnoreMaskByKind[liKind] | (lbLavaFlagDropped[liKind] ? LavaFlag : 0);
+			lOHandler.CallbackMask = CallbackMaskByKind[liKind] & (lbLavaFlagDropped[liKind] ? ~LavaFlag : ~0);
 			lOHandler.TerrainMask = TerrainMaskByKind[liKind];
 
 			mOParams = mOParamsByKind[liKind];

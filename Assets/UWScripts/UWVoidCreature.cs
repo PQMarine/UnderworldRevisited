@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnderworldRevisited;
 using UnderworldRevisited.Build;
+using UWDataImport.UWData;
 
 /// <summary>
 /// A being of the Ethereal Void (level 9): skull, lightning and eye (0x4F, 0x7D, 0x7E).
@@ -37,7 +38,7 @@ public class UWVoidCreature : MonoBehaviour
 
         UWSettings lOSettings = UWSettings.Instance;
         float lfSpeed = lOSettings != null ? lOSettings.VoidCreatureDriftSpeed : 8f;
-        float lfRadius = (lOSettings != null ? lOSettings.VoidCreatureDriftRadius : 0.5f) * UWLevelMeshBuilder.TileSpacing;
+        float lfRadius = (lOSettings != null ? lOSettings.VoidCreatureDriftRadius : 0.5f) * UWWorldScale.TileSize;
         float lfTurnSeconds = lOSettings != null ? lOSettings.VoidCreatureTurnSeconds : 0.5f;
 
         if (Time.time >= mfNextTurn)

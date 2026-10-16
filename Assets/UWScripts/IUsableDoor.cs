@@ -21,6 +21,10 @@ public interface IUsableDoor
     /// for a door already open (the talking door, per user, 2026-10-01).</summary>
     bool IsHeadingClosed { get; }
 
+    /// <summary>Raised on every change of IsClosed. UWDoor listens and writes the state into the
+    /// level data (since 2026-10-12 the one place for that; the movers wrote it themselves before).</summary>
+    event System.Action StateChanged;
+
     /// <summary>Attaches a foreign collider to the door that blocks the player exactly
     /// when the door is closed - for the door frame (see UWObjectSpawner.fSpawnDoorFrames).
     /// </summary>
@@ -31,4 +35,9 @@ public interface IUsableDoor
     /// while the door is open - rays and missiles pass - and it is the door's measure of
     /// "someone stands in my tile" when it tries to close.</summary>
     void SetTileBlocker(BoxCollider pOBlocker);
+
+    /// <summary>Asked on every frame of a closing swing, the last included: true when the closed
+    /// leaf would not fit - something stands in the doorway - and the door turns round. Set by
+    /// UWDoor (UWProjectileWorld.ClosedDoorBlocked); the player check of the tile blocker stays.</summary>
+    System.Func<bool> ClosingBlocked { get; set; }
 }

@@ -20,6 +20,21 @@ public class UWSweepMaskDriver : MonoBehaviour
 
     private Texture2D mOTexture;
 
+    /// <summary>How long a mask built for a standing eye is kept before it is built again.</summary>
+    private const float StandingRebuildSeconds = 0.5f;
+
+    private bool mbApplied;
+
+    private UWLevel mOBuiltLevel;
+
+    private int miBuiltX;
+
+    private int miBuiltY;
+
+    private int miBuiltHeading;
+
+    private float mfBuiltAt;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void fCreate()
     {
@@ -42,6 +57,7 @@ public class UWSweepMaskDriver : MonoBehaviour
             || lOCamera == null)
         {
             Shader.SetGlobalFloat(msMaskReadyId, 0f);
+            mbApplied = false;
 
             return;
         }
@@ -51,7 +67,22 @@ public class UWSweepMaskDriver : MonoBehaviour
         int liY = UWViewpoint.WorldToOriginalY(lOEye.z);
         int liHeading = UWViewpoint.DegreesToAngle(Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f)) & 0xFFFF;
 
+        // Only after the eye moved, as the class comment says (until 2026-10-11 every frame:
+        // three sweeps, 4225 arc tangents and a texture upload). A standing eye still gets a
+        // fresh mask twice a second, because a trap can change the tiles around it.
+        bool lbSame = mbApplied && lOLoader.CurrentLevel == mOBuiltLevel && liX == miBuiltX && liY == miBuiltY
+            && liHeading == miBuiltHeading;
+
+        if (lbSame && Time.unscaledTime - mfBuiltAt < StandingRebuildSeconds)
+            return;
+
         mOMask.Build(lOLoader.CurrentLevel, liX, liY, liHeading);
+        mOBuiltLevel = lOLoader.CurrentLevel;
+        miBuiltX = liX;
+        miBuiltY = liY;
+        miBuiltHeading = liHeading;
+        mfBuiltAt = Time.unscaledTime;
+        mbApplied = true;
 
         if (mOTexture == null)
         {

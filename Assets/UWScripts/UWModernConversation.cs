@@ -827,7 +827,7 @@ public class UWModernConversation : MonoBehaviour
         fSetRect(mOIcons[piAt].rectTransform, (UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * pfScale,
             (UWModernHudArt.SlotSize - lOIcon.height) * 0.5f * pfScale, lOIcon.width * UWModernHudArt.PixelAspectX * pfScale, lOIcon.height * pfScale);
 
-        int liCount = UWItemDescriptions.GetStackCount(pOItem);
+        int liCount = UWStackRules.CountAtLeastOne(pOItem);
 
         mOCounts[piAt].enabled = liCount > 1;
 
@@ -1300,6 +1300,11 @@ public class UWModernConversation : MonoBehaviour
             lOName.fontSize = liNameSize;
             lOName.resizeTextForBestFit = false;
             lOName.horizontalOverflow = HorizontalWrapMode.Overflow;
+
+            // Names hold up to 29 characters since 2026-10-12: smaller until it fits its plate.
+            while (lOName.fontSize > 8 && lOName.preferredWidth > OrigNameWidth * pfScale * UWModernHudArt.PixelAspectX)
+                lOName.fontSize--;
+
             fPlaceOrig(lOName.rectTransform, lOBlock, miOrigNameX[liSide], 1f, OrigNameWidth, 7f, pfScale);
         }
 

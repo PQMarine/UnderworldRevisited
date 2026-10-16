@@ -99,7 +99,7 @@ public class UWDeath : MonoBehaviour
         if (lOInventory != null && lOInventory.CursorItem != null)
             lOInventory.DropCursorItemInWorld(lOFloor, false);
 
-        mOLoader.SpawnObjectById(FirstBonesObjectId + Random.Range(0, 5), lOTile.X, lOTile.Y, 0, -1, lOFloor);
+        mOLoader.SpawnObjectById(UWEndgameRules.RollBonesObjectId(), lOTile.X, lOTile.Y, 0, -1, lOFloor);
 
         int liTreeLevel = UWSilverTree.TreeLevel;
         bool lbResurrect = liTreeLevel > 0 && liTreeLevel <= mOLoader.LevelCount
@@ -150,8 +150,8 @@ public class UWDeath : MonoBehaviour
                 if (lOObject == null || lOObject.ID != UWSilverTree.TreeObjectId)
                     continue;
 
-                int liTileX = liAt % UWLevelMeshBuilder.TilesPerAxis;
-                int liTileY = liAt / UWLevelMeshBuilder.TilesPerAxis;
+                int liTileX = liAt % UWWorldScale.TilesPerAxis;
+                int liTileY = liAt / UWWorldScale.TilesPerAxis;
 
                 UWGameClock.Release(UWGameClock.DeathHold);
                 mOLoader.TravelTo(piLevelIndex, liTileX, liTileY);
@@ -173,7 +173,7 @@ public class UWDeath : MonoBehaviour
         int liMaxMana = Mathf.RoundToInt(mOCharacter.MaxMana);
 
         // RNG * 3 / 0x8000: 0 to 2.
-        int liHp = liMaxHp > 8 ? liMaxHp - 2 - Random.Range(0, 3) : liMaxHp;
+        int liHp = liMaxHp > 8 ? liMaxHp - 2 - UWRandom.Next(3) : liMaxHp;
         int liMana = liMaxMana > 8 ? liMaxMana - (2 + (liMaxMana / 8)) : liMaxMana;
 
         mOCharacter.ApplyConversationValues(mOCharacter.Hunger, liHp, liMana, 0);

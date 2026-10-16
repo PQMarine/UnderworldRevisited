@@ -19,7 +19,7 @@ namespace UnderworldRevisited.Tools
 
         private const int StoneGolemKind = 0x78;
 
-        private const int ClosedDoorId = 0x140;
+        private const int ClosedDoorId = UWObjectIds.FirstClosedDoor;
 
         /// <summary>A creature record of a kind at a tile, eighth and height, walking: heading
         /// 0 (+y), interval 4, pitch level, animation 0x2C.</summary>
@@ -61,8 +61,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckCreatureMotion(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Creature motion (the engine-free core, stage 2)");
+            Check.Group("Creature motion (the engine-free core, stage 2)");
 
             if (pOData == null || pOData.CommonObjectProperties == null || pOData.ObjectClassProperties == null)
             {

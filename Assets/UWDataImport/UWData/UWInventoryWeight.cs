@@ -18,9 +18,6 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWInventoryWeight
 	{
-		/// <summary>From here on the quantity field is a special property, not an item count.</summary>
-		private const int SpecialPropertyThreshold = UWObjectMechanics.SpecialPropertyThreshold;
-
 		/// <summary>Safeguard against container contents linked in a circle.</summary>
 		private const int MaximumDepth = 16;
 
@@ -68,12 +65,11 @@ namespace UWDataImport.UWData
 
 			int liOwn = pOProperties.TryGet(pOItem.ID, out lOEntry) ? lOEntry.MassTenthStones : 0;
 
-			int liCount = 1;
-
-			if (pOItem.HasQuantity && pOItem.Quantity > 1 && pOItem.Quantity < SpecialPropertyThreshold)
-				liCount = pOItem.Quantity;
-
-			int liTotal = liOwn * liCount;
+			// THE RAW COUNT: the original's ItemWeight (UnderworldExhumed inv/INVDATA.C) multiplies
+			// the mass by the quantity field of a stack, so an is_quant object placed with a count of
+			// 0 weighs nothing; a special link or no quantity bit weighs one piece. Until 2026-10-15
+			// ours weighed a count of 0 as one piece (decided by the user, audit round 2 C10).
+			int liTotal = liOwn * UWStackRules.Count(pOItem);
 
 			if (pOItem.Contents != null)
 				liTotal += fSum(pOItem.Contents, pOProperties, piDepth + 1);

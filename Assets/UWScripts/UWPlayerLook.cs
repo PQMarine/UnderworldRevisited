@@ -54,6 +54,13 @@ public class UWPlayerLook : MonoBehaviour
         set { mCameraTransform = value; }
     }
 
+    /// <summary>The view's own pitch in degrees - what the camera's x angle rests at. The
+    /// swimmer's view jitters around it (UWPlayerTerrain, 2026-10-15).</summary>
+    public float Pitch
+    {
+        get { return mfPitch; }
+    }
+
     private void Awake()
     {
         mScheme = GetComponent<UWControlScheme>();
@@ -143,7 +150,19 @@ public class UWPlayerLook : MonoBehaviour
         // The mouse delivers an already elapsed pixel delta (scaled down in the action to the
         // magnitude of the old Input Manager), whereas the stick delivers
         // a held deflection - that is why the latter additionally needs Time.deltaTime.
-        fApplyLook(mInput.Look.ReadValue<Vector2>(), fReadLookStick());
+        fApplyLook(fReadLookMouse(), fReadLookStick());
+    }
+
+    /// <summary>The mouse's delta, its up and down reversed if the player wants it
+    /// (UWUserSettings.MouseInvertY, the Controls dialog's keyboard tab).</summary>
+    private Vector2 fReadLookMouse()
+    {
+        Vector2 lOMouse = mInput.Look.ReadValue<Vector2>();
+
+        if (UWUserSettings.MouseInvertY)
+            lOMouse.y = -lOMouse.y;
+
+        return lOMouse;
     }
 
     /// <summary>The look stick, its up and down reversed if the player wants it

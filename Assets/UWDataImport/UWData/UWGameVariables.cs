@@ -22,39 +22,38 @@ namespace UWDataImport.UWData
 	/// level 3 relies on exactly that: variable 16 is set to 56 and then shifted once,
 	/// which would be 112 - masked, 48 remains, and the trap there checks exactly against 48.
 	///
-	/// Deliberately a simple scratch store for the game session, like UWQuestFlags. Values are
-	/// loaded from the savegame by UWLevelLoader and written back by UWSavegameWriter, so a
-	/// puzzle keeps its state across saving and loading.
+	/// A store of the game session, like UWQuestFlags. Values are seeded from the savegame
+	/// (UWGameSession.SeedFrom) and written back by UWSavegameWriter, so a puzzle keeps its
+	/// state across saving and loading.
+	///
+	/// SINCE 2026-10-14 (cleanup step 2.7) the values belong to the session
+	/// (UWGameSession.Variables); this class keeps the mask and forwards to the current session.
 	/// </summary>
 	public static class UWGameVariables
 	{
 		/// <summary>Six bits, see class comment.</summary>
 		public const int ValueMask = 0x3F;
 
-		private static readonly Dictionary<int, int> mOValues = new Dictionary<int, int>();
-
 		public static int Get(int piVariable)
 		{
-			int liValue;
-
-			return mOValues.TryGetValue(piVariable, out liValue) ? liValue : 0;
+			return UWGameSession.Current.Variables.Get(piVariable);
 		}
 
 		public static void Set(int piVariable, int piValue)
 		{
-			mOValues[piVariable] = piValue & ValueMask;
+			UWGameSession.Current.Variables.Set(piVariable, piValue);
 		}
 
 		/// <summary>All variables that have been set, for debugging and later for
 		/// saving.</summary>
 		public static IReadOnlyDictionary<int, int> All
 		{
-			get { return mOValues; }
+			get { return UWGameSession.Current.Variables.All; }
 		}
 
 		public static void Clear()
 		{
-			mOValues.Clear();
+			UWGameSession.Current.Variables.Clear();
 		}
 	}
 }

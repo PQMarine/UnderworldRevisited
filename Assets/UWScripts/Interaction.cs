@@ -22,14 +22,11 @@ public class Interaction : MonoBehaviour
         Missile = 4
     }
 
-    private const float LookRayRange = 4000f;
+    /// <summary>How far a look reaches - the picker's range (UWWorldPicker).</summary>
+    private const float LookRayRange = UWWorldPicker.Range;
 
     /// <summary>String block 1: "You see nothing." - the look at what is not there.</summary>
     private const int NothingToSeeMessage = 155;
-
-    /// <summary>String block 1: "Lights may only be used if equipped." - using a light source
-    /// that lies in the world (per user on the original, 2026-09-19, in the use mode).</summary>
-    private const int LightsOnlyEquippedMessage = 124;
 
     /// <summary>Radius of the fallback check for close range, see fFindModernMeleeTarget.</summary>
     private const float CloseCombatRadius = 12f;
@@ -80,20 +77,52 @@ public class Interaction : MonoBehaviour
     private float mfPendingCharge;
 
     private AttackEnum mePendingAttack;
+
+    /// <summary>The clicked ninth of the view, 1 to 9 from the bottom left (player_attack's swing,
+    /// resolve_attack's towhere) - chosen with the attack kind (fChooseAttackKind), kept for the
+    /// hit frame like the kind.</summary>
+    private int miCurrentNinth = MiddleNinth;
+
+    private int miPendingNinth = MiddleNinth;
+
+    /// <summary>The middle ninth, 5 - the slash in the middle column.</summary>
+    private const int MiddleNinth = 5;
+
     private UWControlScheme mControlScheme;
     private List<string> mOActiveStrings;
     /// <summary>The right button in the 3D view: pressed once, read once - see UWWorldPointer.</summary>
     private readonly UWWorldPointer mOPointer = new UWWorldPointer();
     private UWInventory mInventory;
     private AttackEnum mCurrentAttack;
-    private float mAttackDuration;
-    private float mAttackMax;
+
+    /// <summary>The charge of the blow, 0 to 100 - player_attack's play_pow (see fUpdateCharge).</summary>
+    private int miPlayPow;
+
+    /// <summary>Seconds gathered towards the next charge step; below 0 until the first frame
+    /// after the wind-up (player_attack's elapsed of -1).</summary>
+    private float mfChargeElapsed = -1f;
+
+    /// <summary>What one charge step adds - the melee table's speed of the weapon in hand.</summary>
+    private int miChargeSpeed;
+
     private UWControls.PlayerActions mInput;
 
     public AttackEnum CurrentAttack
     {
         get { return mCurrentAttack; }
     }
+
+    /// <summary>The player's inventory beside this component - for UWWorldPickup and
+    /// UWItemTargetUse, which act for it.</summary>
+    public UWInventory Inventory => mInventory;
+
+    /// <summary>The level loader, the game data and the character this component works with -
+    /// for UWItemTargetUse, which acts for it (cleanup step 2.4, 2026-10-12).</summary>
+    public UWLevelLoader LevelLoader => mLevelLoader;
+
+    public UWDataImport.DataImport GameData => mOUWDataImporter;
+
+    public UWCharacter Character => mCharacter;
 
     /// <summary>For UWGameUI (Original: message log in the lower frame box, see
     /// fBuildCanvas/MessageLog) - the same list that AddMessage fills.</summary>
@@ -157,8 +186,7 @@ public class Interaction : MonoBehaviour
     private static bool fIsCreature(UWEntityInfo pOTarget)
     {
         return pOTarget != null && pOTarget.ObjectData != null
-            && pOTarget.ObjectData.ID >= UWObjectMechanics.FirstCritterObjectId
-            && pOTarget.ObjectData.ID <= UWObjectMechanics.LastCritterObjectId;
+            && UWObjectIds.IsCreature(pOTarget.ObjectData.ID);
     }
 
     /// <summary>
@@ -192,75 +220,85 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// Is pickup mode active?
-    /// </summary>
-    public bool IsPickupModeActive { get; set; }
-
-    /// <summary>
-    /// Is use mode active?
-    /// </summary>
-    public bool IsUseModeActive { get; set; }
-
-    /// <summary>
-    /// Is lookat mode active?
-    /// </summary>
-    public bool IsLookatModeActive { get; set; }
-
-    /// <summary>
     /// Is attack in progress?
     /// </summary>
     public bool IsAttacking { get; set; }
 
     /// <summary>
-    /// Current attack charge from 0 (none) to 1 (max). The value used to start at -0.5 and its absolute value was taken
-    /// here - the display therefore first ran backwards towards zero before rising, and
-    /// every weapon needed half a second longer than its data says (per user,
-    /// 2026-08-30: "the time until MinCharge is too long for every weapon").
+    /// Current attack charge from 0 (none) to 1 (max): play_pow / 100.
+    ///
+    /// THE CHARGE STARTS AFTER THE WIND-UP, BY THE USER'S DECISION OF 2026-10-12 TO FOLLOW THE
+    /// ORIGINAL (combat C1): player_attack (UnderworldExhumed combat/COMBAT.C) sets play_pow to 0
+    /// at the swing's start and raises it only while the weapon holds at frame 3, after the
+    /// wind-up (adjust_weapon, ui/PANELS.C), by the weapon's speed per step, at most 100. A blow
+    /// released right after the wind-up strikes with the weapon's minimum charge. Until then
+    /// ours counted from the press, so the moment the wind-up was through a dagger stood at
+    /// about half its span already; the timing had been fitted to the user's stopwatch
+    /// (2026-08-30, "the time until MinCharge is too long for every weapon"), press to green,
+    /// and those measurements still fit: wind-up 0.5 s plus the steps, the rest reaction time.
     /// </summary>
     public float AttackCharge
     {
-        get { return mAttackMax <= 0f ? 0f : Mathf.Clamp01(mAttackDuration / mAttackMax); }
+        get { return miPlayPow / (float)UWCombat.FullCharge; }
     }
 
     /// <summary>
     /// The aiming cursor when shooting.
     ///
-    /// THIS IS HOW IT LOOKS IN THE ORIGINAL (per user, 2026-09-10): with a ranged weapon
-    /// nothing is visible at first, and as soon as the power gem changes colour,
-    /// the aiming cursor appears. The reference says what exactly this depends on: it switches
-    /// to cursor 9 for a ranged weapon as soon as the charge reaches the MINIMUM CHARGE of the
-    /// weapon (combat_input, branch "ranged weapon change targeting icon").
-    ///
-    /// THE MINIMUM CHARGE OF A RANGED WEAPON COMES FROM THE MELEE TABLE, namely via
-    /// the lower four bits of the object number: the reference accesses it with (number AND 0xF).
-    /// For the sling (0x18) that gives the light mace entry with
-    /// 15, for the bow (0x19) the mace with 9, for the crossbow (0x1A) the shiny sword
-    /// with 11. This is evidently a side effect of the masking and not intentional - but
-    /// it is what the original does, and the values lie exactly where the gem jumps from
-    /// red to yellow (frame change at charge 12).
+    /// A LAUNCHER HAS NO CHARGE, BY THE USER'S DECISION OF 2026-10-12 TO FOLLOW THE ORIGINAL
+    /// (combat C2): in fire mode player_attack (COMBAT.C) waits for the same wind-up as any
+    /// weapon; when the weapon reaches its hold frame (weap_frame 3) the gem jumps to frame 9 and
+    /// the crosshair appears, and only a release after that shoots - released earlier, nothing
+    /// flies. The user's "about half a second, bow and sling alike" (2026-09-10) is that
+    /// wind-up. Until then ours took the reference's reading - the crosshair at the masked melee
+    /// entry's minimum charge, 0.05 to 0.08 s after the press - so arrows went off at the
+    /// clicking speed.
     /// </summary>
     public bool IsRangedTargeting
     {
         get
         {
-            if (!IsCombatModeActive || mCharacter == null || !mCharacter.HasRangedWeapon
-                || mInventory == null || mOUWDataImporter == null)
-                return false;
-
-            UWObject lOWeapon = mInventory.GetEquipped(mInventory.MainHandSlot);
-
-            if (lOWeapon == null)
-                return false;
-
-            UWObjectClassProperties.MeleeWeapon lOEntry;
-
-            if (!mOUWDataImporter.ObjectClassProperties.TryGetMeleeWeapon(lOWeapon.ID & 0xF,
-                out lOEntry))
-                return false;
-
-            return AttackCharge * UWCombat.FullCharge >= lOEntry.MinCharge;
+            return IsCombatModeActive && IsAttacking && mCharacter != null && mCharacter.HasRangedWeapon
+                && mCharacter.IsWindupComplete;
         }
     }
+
+    /// <summary>
+    /// player_attack's charge while the button is held: nothing during the wind-up; on the
+    /// first frame after it the clock starts (elapsed -1 to 0), then every
+    /// AttackChargeStepSeconds the weapon's speed is added, capped at 100. A launcher never
+    /// charges (fire mode returns before this).
+    /// </summary>
+    private void fUpdateCharge(float pfDeltaSeconds)
+    {
+        if (!IsAttacking || (mCharacter != null && (!mCharacter.IsWindupComplete || mCharacter.HasRangedWeapon)))
+            return;
+
+        if (mfChargeElapsed < 0f)
+        {
+            mfChargeElapsed = 0f;
+
+            return;
+        }
+
+        float lfStep = UnderworldRevisited.UWSettings.Instance != null
+            ? UnderworldRevisited.UWSettings.Instance.AttackChargeStepSeconds
+            : DefaultChargeStepSeconds;
+
+        if (lfStep <= 0f)
+            lfStep = DefaultChargeStepSeconds;
+
+        mfChargeElapsed += pfDeltaSeconds;
+
+        while (mfChargeElapsed > lfStep)
+        {
+            miPlayPow = Mathf.Min(UWCombat.FullCharge, miPlayPow + miChargeSpeed);
+            mfChargeElapsed -= lfStep;
+        }
+    }
+
+    /// <summary>One charge step without a settings asset - see UWSettings.AttackChargeStepSeconds.</summary>
+    private const float DefaultChargeStepSeconds = 0.072f;
 
     private void Awake()
     {
@@ -359,7 +397,7 @@ public class Interaction : MonoBehaviour
 
             // The modern scheme: on the world, not on a window of its UI (a drag from a bag onto
             // the world must not strike).
-            mbRightPressInViewport = !fIsOriginalScheme() ? mbAttackFromPad || fMouseInWorld()
+            mbRightPressInViewport = UWControlScheme.IsModern ? mbAttackFromPad || fMouseInWorld()
                 : mGameUi == null || mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
         }
 
@@ -384,6 +422,12 @@ public class Interaction : MonoBehaviour
 
         if (fUpdateMantraPrompt())
             return;
+
+        // Q OVER THE INTERFACE IN A CONVERSATION (per user, 2026-10-14: the bags' menu could look
+        // at a thing during a conversation, Q could not): the conversation holds the world, not
+        // the modern windows, so Q looks at the thing in the slot under the pointer there too.
+        if (UWControlScheme.IsModern && mConversationScreen != null && mConversationScreen.IsOpen)
+            fUpdateModernLookOverUi();
 
         // While a modal UI panel is open (currently only the Modern inventory),
         // combat/interaction should pause - otherwise e.g. a right click on a
@@ -440,30 +484,27 @@ public class Interaction : MonoBehaviour
         // disc and a miss there should not report the status. The arrows also take the HELD
         // button, because holding one repeats the step (UWPlayerMovement.HoldEasyMovement).
         // (The compass belongs to the classic frame, which the modern scheme does not show.)
-        if (fIsOriginalScheme() && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
+        if (!UWControlScheme.IsModern && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
         {
             if (fTryEasyMovement(Mouse.current.position.ReadValue()))
                 return;
         }
 
-        if (fIsOriginalScheme() && (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed))
+        if (!UWControlScheme.IsModern && (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed))
         {
             if (fTryReportStatus(Mouse.current.position.ReadValue()))
                 return;
         }
 
-        if (mInput.ToggleCombat.WasPressedThisFrame())
-            ToggleCombatMode();
-
         // THE MODERN SCHEME'S KEYS: E, R, the right button to look, the left to draw.
-        if (!fIsOriginalScheme())
+        if (UWControlScheme.IsModern)
             fUpdateModernActions();
 
         // A right click that jumps during a cursor movement is used up (see
         // UWPlayerMovement.ConsumesRightClick).
         bool lbRightClickFree = !UWPlayerMovement.ConsumesRightClick();
 
-        if (lbRightClickFree && fIsOriginalScheme() && mInput.Interact.WasPressedThisFrame())
+        if (lbRightClickFree && !UWControlScheme.IsModern && mInput.Interact.WasPressedThisFrame())
         {
             // IN COMBAT MODE THE RIGHT BUTTON IS THE WEAPON AND NOTHING ELSE (per user, 2026-09-18):
             // no look, no use - and no striking while sheathing or drawing either, in the original
@@ -490,10 +531,9 @@ public class Interaction : MonoBehaviour
             // weapon's damage factor only happens on the hit (UWCombat.MapCharge).
             // Previously this additionally counted from the minimum charge here - that counted the
             // factor twice.
-            float lfProgress = mAttackMax <= 0f ? 1f : Mathf.Clamp01(mAttackDuration / mAttackMax);
-
-            mfPendingCharge = lfProgress;
+            mfPendingCharge = AttackCharge;
             mePendingAttack = mCurrentAttack;
+            miPendingNinth = miCurrentNinth;
 
             // Whether the release becomes a strike depends solely on the windup:
             // if it has completed, the strike happens, otherwise it plays backwards
@@ -508,8 +548,8 @@ public class Interaction : MonoBehaviour
             // view window (seg013_1CC9_115) - twang, launch sound and the no-room message come at
             // once (per user on the original, 2026-09-24; ours came a little late, with the
             // strike animation). But only once the aiming cursor is up (IsRangedTargeting, the
-            // same state that switches the cursor there); released earlier, nothing is shot
-            // (per user on the original).
+            // same state that switches the cursor there: the wind-up is through); released
+            // earlier, nothing is shot (per user on the original; COMBAT.C player_attack).
             if (fHoldsLauncher())
             {
                 bool lbDrawn = IsRangedTargeting;
@@ -527,19 +567,18 @@ public class Interaction : MonoBehaviour
                 mCharacter.ReleaseAttack();
 
             IsAttacking = false;
-            mAttackDuration = 0f;
+            fClearCharge();
             mOPointer.Cancel();
         }
         else if (lOAttackButton.IsPressed())
         {
-            if (IsAttacking && mAttackDuration < mAttackMax)
-                mAttackDuration += Time.deltaTime;
+            fUpdateCharge(Time.deltaTime);
         }
         else if (!lOAttackButton.IsPressed())
         {
             if (IsAttacking)
             {
-                mAttackDuration = 0f;
+                fClearCharge();
                 IsAttacking = false;
             }
         }
@@ -572,8 +611,8 @@ public class Interaction : MonoBehaviour
 
     /// <summary>
     /// The press: what lies under the pointer is measured ONCE - the frontmost thing (or the
-    /// wall or floor texture), and the pickable thing behind a blood pool or bone pile (see
-    /// TryGetPickupTarget). Until 2026-09-18 UWItemDrag ran its own raycast and its own click
+    /// wall or floor texture), and the pickable thing behind a blood pool or bone pile (one
+    /// UWWorldPicker measurement). Until 2026-09-18 UWItemDrag ran its own raycast and its own click
     /// threshold on the same button, and the two disagreed on small movements.
     /// </summary>
     private void fBeginWorldPointer()
@@ -584,18 +623,22 @@ public class Interaction : MonoBehaviour
         // With Original, outside the small 3D view window (e.g. right click on the backpack or
         // paper doll panel, see UWItemDrag) no world raycast - the UI does not block the physics
         // query, a raycast from there would hit invisible geometry behind the UI.
-        bool lbOutsideGameArea = fIsOriginalScheme()
+        bool lbOutsideGameArea = !UWControlScheme.IsModern
             && mGameUi != null && !mGameUi.IsScreenPositionInGameArea(lOMousePos);
 
         // BEYOND THE SIGHT NOTHING IS THERE: the original draws only as deep as the light allows,
         // and what is not drawn cannot be aimed at - neither looked at nor used (see
         // fIsWithinSight). The aim then stays empty and the look answers "You see nothing.".
-        if (!lbOutsideGameArea && fRaycastPastEffects(fGetInteractionRay(), LookRayRange, out RaycastHit lHit3D)
-            && fIsWithinSight(lHit3D))
+        if (!lbOutsideGameArea)
         {
-            lOAim.Frontmost = lHit3D.collider.GetComponentInParent<UWEntityInfo>();
-            lOAim.ChunkDescription = lOAim.Frontmost == null ? fDescribeChunkHit(lHit3D) : null;
-            lOAim.Pickable = TryGetPickupTarget(fGetInteractionRay());
+            UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fGetInteractionRay());
+
+            if (lOMeasured.HasFrontmost && fIsWithinSight(lOMeasured.FrontmostHit))
+            {
+                lOAim.Frontmost = lOMeasured.Frontmost;
+                lOAim.ChunkDescription = lOAim.Frontmost == null ? fDescribeChunkHit(lOMeasured.FrontmostHit) : null;
+                lOAim.Pickable = lOMeasured.Pickable;
+            }
         }
 
         mOPointer.Begin(lOAim);
@@ -663,7 +706,7 @@ public class Interaction : MonoBehaviour
                 break;
 
             case UWClickRules.ActionKind.Use:
-                UseTarget(pOAim.Frontmost, pOAim.Pickable);
+                UseTarget(pOAim.Frontmost);
                 break;
         }
 
@@ -701,7 +744,7 @@ public class Interaction : MonoBehaviour
             mInput.Interact.WasReleasedThisFrame());
 
         // Modern has no dragging, its pickup sits in UseTarget.
-        if (leEvent == UWWorldPointer.EventKind.DragStarted && fIsOriginalScheme())
+        if (leEvent == UWWorldPointer.EventKind.DragStarted && !UWControlScheme.IsModern)
             fApply(UWClickRules.OnDragThreshold(meGesture, fClassify(lOAim)), lOAim);
 
         // A drag that starts and ends in the same frame is a release after a drag too.
@@ -716,16 +759,11 @@ public class Interaction : MonoBehaviour
         }
     }
 
-    private bool fIsOriginalScheme()
-    {
-        return mControlScheme == null || mControlScheme.Current == UWControlScheme.SchemeEnum.Original;
-    }
-
     /// <summary>The button that charges and releases the weapon: the right one in the original,
     /// the left one in the modern scheme - or the gamepad's right trigger (ModernAttack).</summary>
     private InputAction fGetAttackButton()
     {
-        return fIsOriginalScheme() ? mInput.Interact : mInput.ModernAttack;
+        return !UWControlScheme.IsModern ? mInput.Interact : mInput.ModernAttack;
     }
 
     // ------------------------------------------------- The modern scheme's keys
@@ -833,7 +871,7 @@ public class Interaction : MonoBehaviour
             if (mbWorldPress)
             {
                 mOWorldPressAt = lOPointer;
-                fAimAt(Camera.main.ScreenPointToRay(lOPointer), out mOWorldPressFront, out msWorldPressChunk, out mOWorldPressPickable);
+                fAimAt(Camera.main.ScreenPointToRay(lOPointer), out mOWorldPressFront, out _, out mOWorldPressPickable);
             }
 
             return;
@@ -850,7 +888,8 @@ public class Interaction : MonoBehaviour
 
             UWEntityInfo lOTake = mOWorldPressFront != null && mOWorldPressFront.CanBePickedUp ? mOWorldPressFront : mOWorldPressPickable;
 
-            if (lOTake != null && !fIsCreature(lOTake) && TakeOntoPointer(lOTake) && UWModernBags.Instance != null)
+            if (lOTake != null && UWWorldPickup.Take(this, lOTake, UWWorldPickup.WholeStack, UWWorldPickup.Destination.Pointer)
+                && UWModernBags.Instance != null)
                 UWModernBags.Instance.BeginWorldDrag(mOWorldPressAt);
 
             return;
@@ -875,8 +914,6 @@ public class Interaction : MonoBehaviour
     private UWEntityInfo mOWorldPressFront;
 
     private UWEntityInfo mOWorldPressPickable;
-
-    private string msWorldPressChunk;
 
     /// <summary>Where E and Q aim in the modern scheme: under the free pointer when it is on the
     /// world, else at the crosshair (per user, 2026-10-04).</summary>
@@ -921,7 +958,7 @@ public class Interaction : MonoBehaviour
     /// <summary>Whether a thing's menu can open on this spot.</summary>
     public bool HasWorldThingAt(Vector2 pOPointer)
     {
-        return !fIsOriginalScheme() && (mInventory == null || mInventory.CursorItem == null) && !IsSpellTargeting
+        return UWControlScheme.IsModern && (mInventory == null || mInventory.CursorItem == null) && !IsSpellTargeting
             && (UWModernBags.Instance == null || !UWModernBags.Instance.IsUsing)
             && fWorldThingAt(pOPointer, out UWEntityInfo _) != null;
     }
@@ -944,34 +981,6 @@ public class Interaction : MonoBehaviour
     public void ModernUseThing(UWEntityInfo pOTarget, UWEntityInfo pOPickableBehind)
     {
         fModernUseOn(true, pOTarget, pOPickableBehind);
-    }
-
-    /// <summary>
-    /// A thing from the world onto the pointer (the free pointer's drag, the world menu's Pick up):
-    /// with the hand's reach, the carrying capacity ("That is too heavy for you to pick up."), the
-    /// theft and the moonstone, as taking it does (fTryPickUp, UWItemDrag.fTakeFromSource); a
-    /// stack whole. True when it hangs on the pointer.
-    /// </summary>
-    public bool TakeOntoPointer(UWEntityInfo pOTarget)
-    {
-        if (pOTarget == null || pOTarget.ObjectData == null || !pOTarget.CanBePickedUp || fIsCreature(pOTarget)
-            || mInventory == null || mInventory.CursorItem != null)
-            return false;
-
-        if (!TryReachForPickup(pOTarget))
-            return false;
-
-        if (!mInventory.CanCarry(pOTarget.ObjectData))
-        {
-            AddGeneralMessage(96);
-            return false;
-        }
-
-        ReportTheft(pOTarget.ObjectData);
-        UWMoonstoneRules.OnTakenFromWorld(pOTarget.ObjectData);
-        mInventory.BeginDragFromWorld(pOTarget);
-
-        return mInventory.CursorItem != null;
     }
 
     /// <summary>How long E has to be held for the direct use.</summary>
@@ -999,6 +1008,20 @@ public class Interaction : MonoBehaviour
 
         if (UWModernActionBar.Instance != null)
             UWModernActionBar.Instance.TryUseAt(pOPointer);
+    }
+
+    /// <summary>Q over the interface alone, for a conversation, which holds the world: the free
+    /// pointer over a window, nothing on the pointer.</summary>
+    private void fUpdateModernLookOverUi()
+    {
+        if ((mInventory != null && mInventory.CursorItem != null) || Mouse.current == null
+            || !mInput.ModernLook.WasPressedThisFrame() || UWGamepadPointer.Takes(mInput.ModernLook))
+            return;
+
+        Vector2 lOPointer = Mouse.current.position.ReadValue();
+
+        if (UWModernPointer.IsOverUi(lOPointer))
+            fLookAtUi(lOPointer);
     }
 
     /// <summary>Q over the interface: the thing in the slot under the pointer, or nothing.</summary>
@@ -1083,12 +1106,14 @@ public class Interaction : MonoBehaviour
         psChunk = null;
         pOPickable = null;
 
-        if (!fRaycastPastEffects(lORay, LookRayRange, out RaycastHit lHit) || !fIsWithinSight(lHit))
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(lORay);
+
+        if (!lOMeasured.HasFrontmost || !fIsWithinSight(lOMeasured.FrontmostHit))
             return;
 
-        pOFrontmost = lHit.collider.GetComponentInParent<UWEntityInfo>();
-        psChunk = pOFrontmost == null ? fDescribeChunkHit(lHit) : null;
-        pOPickable = TryGetPickupTarget(lORay);
+        pOFrontmost = lOMeasured.Frontmost;
+        psChunk = pOFrontmost == null ? fDescribeChunkHit(lOMeasured.FrontmostHit) : null;
+        pOPickable = lOMeasured.Pickable;
     }
 
     /// <summary>
@@ -1116,8 +1141,7 @@ public class Interaction : MonoBehaviour
 
         if (!pbDirect && lOTake != null && !fIsCreature(lOTake))
         {
-            if (TryReachForPickup(lOTake))
-                GetTarget(lOTake);
+            UWWorldPickup.Take(this, lOTake, UWWorldPickup.WholeStack, UWWorldPickup.Destination.Pack);
 
             return;
         }
@@ -1127,7 +1151,7 @@ public class Interaction : MonoBehaviour
             // Geometry in front with something pickable behind it (direct use only - the default
             // took it above): that thing.
             if (lOPickable != null)
-                UseTarget(lOPickable, null, false);
+                UseTarget(lOPickable);
             else
                 AddGeneralMessage(UWClickRules.CannotUseThatMessage);
 
@@ -1144,7 +1168,7 @@ public class Interaction : MonoBehaviour
             return;
         }
 
-        UseTarget(lOFrontmost, lOPickable, !pbDirect);
+        UseTarget(lOFrontmost);
     }
 
     /// <summary>
@@ -1232,7 +1256,17 @@ public class Interaction : MonoBehaviour
             // in "You see ..." (see UWEntityInfo). A gravestone shows its inscription and its
             // picture instead of the description (reference look.cs -> gravestone.Use).
             if (!fTryShowGravestone(pOTarget))
+            {
                 mOActiveStrings.Add(fGetLookDescription(pOTarget));
+
+                // SpecialLook (LOOK.C) after the look line: a closed door with its spike bit adds
+                // "The door is spiked." (string 0x83) - per user on the original, 2026-10-13, the
+                // door's own sentence comes first.
+                string lsSpecial = fGetSpecialLookLine(pOTarget);
+
+                if (lsSpecial != null)
+                    mOActiveStrings.Add(lsSpecial);
+            }
 
             // If an a_look trigger hangs on the look target, its trap text belongs directly
             // after the look message - for the orb on tile 58/13 first "You see an orb.", then
@@ -1249,8 +1283,11 @@ public class Interaction : MonoBehaviour
 
             // A window additionally shows a picture in the view window - the deeper the level,
             // the more lava (uw-formats.txt on CS400.N01: "look" graphics for windows to abyss
-            // volcano core).
-            if (pOTarget.IsWindow && mGameUi != null && mLevelLoader != null)
+            // volcano core). ONLY FROM CLOSE BY: RectLook shows it for a look with detail, which
+            // player_3dlook gives within 0x48 only (UWReachRules.LookDetailDistanceSquared,
+            // 2026-10-15; until then from any distance).
+            if (pOTarget.IsWindow && mGameUi != null && mLevelLoader != null
+                && fCanReach(pOTarget, UWReachRules.LookDetailDistanceSquared, false))
                 mGameUi.ShowWindowPicture(mLevelLoader.CurrentLevelIndex);
         }
         else if (!string.IsNullOrEmpty(psChunkDescription))
@@ -1269,13 +1306,13 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// Use: door, conversation partner, switch, object effect, inscription - and with Modern the
-    /// pickup, which Original does by dragging (pOPickableBehind is the pickable thing behind a
-    /// blood pool, see TryGetPickupTarget). Only within reach (see UWReachRules) - looking still
-    /// works at any distance. Out of reach the original answers "You are unable to use that from
-    /// here." (per user, 2026-09-18; until then we silently did nothing).
+    /// Use: door, conversation partner, switch, object effect, inscription. The pickup is not
+    /// here: Original drags, Modern takes the thing before it comes this far (fModernUseOn).
+    /// Only within reach (see UWReachRules) - looking still works at any distance. Out of reach
+    /// the original answers "You are unable to use that from here." (per user, 2026-09-18;
+    /// until then we silently did nothing).
     /// </summary>
-    public void UseTarget(UWEntityInfo pOTarget, UWEntityInfo pOPickableBehind, bool pbPickUpWhenUnused = true)
+    public void UseTarget(UWEntityInfo pOTarget)
     {
         if (mbLogUseAttempts)
         {
@@ -1319,9 +1356,10 @@ public class Interaction : MonoBehaviour
         {
         }
         // A barrel, chest or nightstand fires its use trigger while spilling (see
-        // fSpillWorldContainer) - its first chain link must not swallow the use here.
-        else if (pOTarget != null && !IsWorldContainer(pOTarget)
-            && pOTarget.ObjectData.GetCategory() != UWObject.ObjectCategoryEnum.Containers
+        // SpillWorldContainer) - its first chain link must not swallow the use here
+        // (UWWorldUseRules.UseTriggerFiresFirst).
+        else if (pOTarget != null
+            && UWWorldUseRules.UseTriggerFiresFirst(pOTarget.ObjectData.ID, pOTarget.ObjectData.GetCategory())
             && UWTriggerSystem.TryFireSwitch(pOTarget.ObjectData, mLevelLoader, this))
         {
             // Original: a used switch shows no message of its own, the door swinging shut is
@@ -1337,13 +1375,31 @@ public class Interaction : MonoBehaviour
         {
             mOActiveStrings.Add(pOTarget.Description);
         }
-        // Modern has no dragging, so the direct right-click pickup path remains there; if
-        // something non-pickable lies in front (blood pool over the loot), the item behind it
-        // is picked up.
-        else if (pbPickUpWhenUnused && !fIsOriginalScheme() && pOTarget != null && pOTarget.CanBePickedUp)
-            GetTarget(pOTarget);
-        else if (pbPickUpWhenUnused && !fIsOriginalScheme() && pOTarget != null && !pOTarget.CanBePickedUp && pOPickableBehind != null)
-            GetTarget(pOPickableBehind);
+
+        if (!lbCreature && pOTarget != null && !pOTarget.IsDoor)
+            fCastThingSpell(pOTarget.ObjectData);
+    }
+
+    /// <summary>
+    /// THE LAST STEP OF A USE FROM THE WORLD: a thing carrying a charged spell casts it with
+    /// itself as the caster and spends a charge (UseObj's checkSpell with how 0, UnderworldExhumed
+    /// obj/USEITEMS.C; UWItemSpellRules.TryCastFromWorldObject, 2026-10-15) - the sceptre on
+    /// level 5 at 59/54 and the ruby on level 6 at 14/3. Not after food, a readable or a wand,
+    /// which UseObj leaves to their own handlers.
+    /// </summary>
+    private void fCastThingSpell(UWObject pOThing)
+    {
+        if (pOThing == null || mLevelLoader == null || mLevelLoader.CurrentLevel == null)
+            return;
+
+        UWObject.ObjectCategoryEnum leCategory = pOThing.GetCategory();
+
+        if (leCategory == UWObject.ObjectCategoryEnum.Comestibles || leCategory == UWObject.ObjectCategoryEnum.BooksAndScrolls)
+            return;
+
+        if (UWItemSpellRules.TryCastFromWorldObject(pOThing, mLevelLoader.CurrentLevel.Masterlist, true,
+            out int liMajor, out int liMinor))
+            UWTriggerSystem.CastSpellFromThing(pOThing, liMajor, liMinor, mLevelLoader, this);
     }
 
     /// <summary>Talk: the conversation with the thing, if it has one ("You get no response."
@@ -1375,17 +1431,9 @@ public class Interaction : MonoBehaviour
         }
     }
 
-    /// <summary>Get: straight into the backpack, without dragging (the Modern way; Original
-    /// drags, see UWItemDrag.TryBeginWorldDrag).</summary>
-    public void GetTarget(UWEntityInfo pOTarget)
-    {
-        if (pOTarget != null)
-            fTryPickUp(pOTarget);
-    }
-
     /// <summary>For UWItemDrag (Original: plain left click on the hand slot that is
-    /// currently the active combat hand, see UWInventory.MainHandSlot) - exactly the same
-    /// effect as mInput.ToggleCombat, no more and no less. UWItemDrag
+    /// currently the active combat hand, see UWInventory.MainHandSlot) and for the modern
+    /// scheme's weapon button - it toggles the combat mode, no more and no less. UWItemDrag
     /// checks itself whether the clicked slot is MainHandSlot at all and holds a weapon
     /// - this method toggles unconditionally.</summary>
     public void ToggleCombatMode()
@@ -1412,7 +1460,7 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private void fResetAttackState()
     {
-        mAttackDuration = 0f;
+        fClearCharge();
         IsAttacking = false;
         mbAttackPending = false;
     }
@@ -1459,28 +1507,36 @@ public class Interaction : MonoBehaviour
         UWNpc lONpc = pOTarget.ObjectData as UWNpc;
         int liSlot = GetConversationSlot(lONpc);
 
-        // NO CONVERSATION: "You get no response." (block 7, entry 1 in game) - when there is
-        // no conversation for the slot, its code is empty or whoami is 255 (reference
-        // ConversationVM.StartConversation). So for the Slasher of Veils and for animals (per
-        // user in the original, 2026-09-14). Previously the click did nothing for us.
-        if (lONpc != null && lONpc.GetCategory() == UWObject.ObjectCategoryEnum.Monsters
-            && (liSlot <= 0 || lONpc.NPCwhoami == NoResponseWhoami || fHasEmptyConversation(liSlot)))
-        {
-            fAddNoResponse();
+        if (fRefusesTalk(lONpc, liSlot))
             return true;
-        }
-
-        // FIGHTING OR FLEEING THE PLAYER, OR HOSTILE, IT DOES NOT ANSWER (TalkTo_ovr100_0, see
-        // UWClickRules.CreatureAnswers; per user, 2026-10-01: Oradinar, sent off by his own conversation, cannot be
-        // talked to in the original).
-        if (lONpc != null && lONpc.GetCategory() == UWObject.ObjectCategoryEnum.Monsters
-            && !UWClickRules.CreatureAnswers(lONpc.NPCwhoami, lONpc.NPCGoal, lONpc.NPCGTarg, lONpc.NPCAttitude, lONpc.NPCIsAlly))
-        {
-            fAddNoResponse();
-            return true;
-        }
 
         return liSlot > 0 && mConversationScreen.Begin(mOUWDataImporter, lONpc, liSlot);
+    }
+
+    /// <summary>
+    /// TALKTO'S REFUSALS (TalkTo_ovr100_0, CONVERSE.C), the one home for every way a conversation
+    /// with a creature starts - the player's click and, since 2026-10-15, a conversation trap or a
+    /// critter that comes to talk (TryTalkToNpcData; gronkify_talkto_player and crit_talk call
+    /// TalkTo too, ours skipped the refusal there). True when it refuses, with "You get no
+    /// response." (block 7, entry 1 in game):
+    ///   - FIGHTING OR FLEEING THE PLAYER, OR HOSTILE, it does not answer (UWClickRules.
+    ///     CreatureAnswers; per user, 2026-10-01: Oradinar, sent off by his own conversation,
+    ///     cannot be talked to in the original);
+    ///   - NO CONVERSATION: none for the slot, its code empty, or whoami 255 - the Slasher of
+    ///     Veils and the animals (per user in the original, 2026-09-14).
+    /// </summary>
+    private bool fRefusesTalk(UWNpc pONpc, int piSlot)
+    {
+        if (pONpc == null || !UWObjectIds.IsCreature(pONpc.ID))
+            return false;
+
+        if (piSlot > 0 && pONpc.NPCwhoami != NoResponseWhoami && !fHasEmptyConversation(piSlot)
+            && UWClickRules.CreatureAnswers(pONpc.NPCwhoami, pONpc.NPCGoal, pONpc.NPCGTarg, pONpc.NPCAttitude, pONpc.NPCIsAlly))
+            return false;
+
+        fAddNoResponse();
+
+        return true;
     }
 
     /// <summary>whoami 255: this creature never talks (reference).</summary>
@@ -1559,9 +1615,6 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
-    /// <summary>Objects with their own effect when used that are neither door nor switch.
-    /// Deliberately one place with a case distinction instead of scattered special cases - the
-    /// list grows with every object whose effect was checked in the original.</summary>
     /// <summary>
     /// THE FOUNTAIN, Fountain_seg040_352B_1816 (read 2026-10-08; per user on the original: not
     /// every fountain heals - "The water refreshes you." and nothing else - and the one on level 1
@@ -1613,84 +1666,90 @@ public class Interaction : MonoBehaviour
         return null;
     }
 
+    /// <summary>Objects with their own effect when used that are neither door nor switch - which
+    /// thing has which effect is UWWorldUseRules (cleanup step 2.4, 2026-10-12), here it is
+    /// carried out. False when the thing has none (or the gravestone no grave number, or the
+    /// silver tree was not taken) - then UseTarget goes on.</summary>
     private bool fTryUseObjectEffect(UWEntityInfo pOTarget)
     {
         if (pOTarget == null || pOTarget.ObjectData == null || mOUWDataImporter == null)
             return false;
 
-        switch (pOTarget.ObjectData.ID)
+        switch (UWWorldUseRules.Classify(pOTarget.ObjectData.ID, pOTarget.ObjectData.GetCategory()))
         {
             // Using a gravestone shows the same as looking (reference use.cs, case 5).
-            case UWEndgame.GravestoneObjectId:
+            case UWWorldUseRules.Effect.Gravestone:
                 return fTryShowGravestone(pOTarget);
 
-            case UWObjectMechanics.FountainObjectId:
-            case UWObjectMechanics.FountainWaterObjectId:
+            case UWWorldUseRules.Effect.Fountain:
                 fUseFountain(pOTarget.ObjectData);
                 return true;
 
             // Reaching for the silver tree takes it back as a seed (see UWSilverTree).
-            case UWSilverTree.TreeObjectId:
+            case UWWorldUseRules.Effect.SilverTree:
                 return UWSilverTree.TryTakeTree(mLevelLoader, pOTarget.ObjectData, mInventory, this);
 
-            case UWObjectMechanics.CauldronObjectId:
-                // Checked by user in the original: the cauldron is always empty, there is no
-                // second message for it (the string block has none either).
+            case UWWorldUseRules.Effect.Cauldron:
                 AddGeneralMessage(UWObjectMechanics.CauldronMessageIndex);
                 return true;
 
-            case UWShrine.ShrineObjectId:
+            case UWWorldUseRules.Effect.Shrine:
                 fBeginMantra();
-
                 return true;
 
-            case UWObjectMechanics.AnvilObjectId:
-            // The pole lying on the floor works like the pole in the pack (per user on the
-            // original, 2026-09-19: "strangely, normal"): it asks what to use it on.
-            case UWObjectMechanics.PoleObjectId:
-                // The anvil asks WHAT to work on - answered with a click in the backpack (see
-                // UWItemDrag.fTryApplyUseModeItem); the pole asks the same and is then applied
-                // in the world, from where it lies.
+            // The anvil asks WHAT to work on - answered with a click in the backpack (see
+            // UWItemTargetUse); the pole lying on the floor asks the same and is then applied in
+            // the world, from where it lies.
+            case UWWorldUseRules.Effect.UseModeFromWorld:
                 fEnterUseModeFromWorld(pOTarget);
                 return true;
 
-            // NOT the bedroll: used on the floor it does nothing in the original (per user,
-            // 2026-09-19); sleeping is the bedroll used from the inventory (UWItemUse). Until
-            // then a case here put the player to sleep from the world.
-
-            // NOT the nightstand: used, it does nothing in the original (per user, 2026-09-19),
-            // only barrel and chest spill. It stays a world container for everything else
-            // (IsWorldContainer: the use trigger rule, the loot placement).
-            case BarrelObjectId:
-            case ChestObjectId:
+            // Barrel, chest and the containers of major class 2 spill (the nightstand does
+            // nothing, see UWWorldUseRules).
+            case UWWorldUseRules.Effect.Spill:
                 SpillWorldContainer(pOTarget);
                 return true;
 
+            case UWWorldUseRules.Effect.LightsOnlyEquipped:
+                AddGeneralMessage(UWWorldUseRules.LightsOnlyEquippedMessage);
+                return true;
+
+            // The glowing rock joins the carried one, as walking over it does (UWTouchGather).
+            case UWWorldUseRules.Effect.GlowingRock:
+                if (mInventory != null && mLevelLoader != null
+                    && UWGlowingRockRules.TryGather(pOTarget.ObjectData, mInventory.Model, mLevelLoader.CurrentLevel))
+                {
+                    mLevelLoader.RemoveObjectFromWorld(pOTarget.ObjectData);
+                    mInventory.Model.NotifyChanged();
+                }
+
+                return true;
+
+            case UWWorldUseRules.Effect.BurningIncense:
+                fBurnIncenseInWorld(pOTarget.ObjectData);
+                return true;
+
             default:
-                // A CONTAINER OF MAJOR CLASS 2 (0x80-0x8F: sacks, boxes, the urn ...) used in the
-                // world spills (ObjectUse_seg040 case 2, minor class 0 -> UseDoorOrContainer_
-                // seg040_352B_2494 -> EmptyContainer when not used from the inventory). Per user,
-                // 2026-09-30: the urn on level 2, 24/36, empties its six spikes in the original;
-                // ours did nothing. The barrel and chest of major class 5 are the cases above.
-                if (pOTarget.ObjectData.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
-                {
-                    SpillWorldContainer(pOTarget);
-
-                    return true;
-                }
-
-                // A light source lying in the world cannot be lit from there (per user on the
-                // original, 2026-09-19, in the use mode): "Lights may only be used if equipped."
-                if (UWObjectMechanics.IsUnlitLight(pOTarget.ObjectData.ID)
-                    || UWObjectMechanics.IsLitLight(pOTarget.ObjectData.ID))
-                {
-                    AddGeneralMessage(LightsOnlyEquippedMessage);
-
-                    return true;
-                }
-
                 return false;
         }
+    }
+
+    /// <summary>Burning incense on the floor: the vision plays and the block becomes debris where
+    /// it lies (UWItemUse.BurnIncense) - the record keeps its place, its picture is put down anew.</summary>
+    private void fBurnIncenseInWorld(UWObject pOIncense)
+    {
+        UWItemDrag lOHost = UWScene.ItemDrag;
+
+        if (pOIncense == null || lOHost == null || mLevelLoader == null)
+            return;
+
+        int liTileX = pOIncense.TileX;
+        int liTileY = pOIncense.TileY;
+
+        UWItemUse.BurnIncense(pOIncense, mOUWDataImporter, null, lOHost);
+
+        if (mLevelLoader.RemoveObjectFromWorld(pOIncense))
+            mLevelLoader.PlaceRestingObject(pOIncense, liTileX, liTileY);
     }
 
     /// <summary>A thing in the world enters use mode as if it had been clicked in the pack:
@@ -1709,104 +1768,82 @@ public class Interaction : MonoBehaviour
             mInventory.EnterUseMode(pOTarget.ObjectData);
     }
 
-    /// <summary>The 3D-model containers in the world (major class 5, minor class 1: barrel
-    /// 0x15B, chest 0x15D, nightstand 0x15E). The ids themselves are in the data layer, so
-    /// that UWLevelLoader can keep the spilled loot clear of them.</summary>
-    private const int BarrelObjectId = UWObjectMechanics.BarrelObjectId;
-    private const int ChestObjectId = UWObjectMechanics.ChestObjectId;
-    private const int NightstandObjectId = UWObjectMechanics.NightstandObjectId;
-
-    /// <summary>Barrel, chest or nightstand in the world (see SpillWorldContainer).</summary>
+    /// <summary>Barrel, chest or nightstand in the world (see SpillWorldContainer): the 3D-model
+    /// containers of major class 5, minor class 1 (barrel 0x15B, chest 0x15D, nightstand 0x15E,
+    /// which does nothing when used - UWWorldUseRules).</summary>
     public static bool IsWorldContainer(UWEntityInfo pOTarget)
     {
         int liId = pOTarget != null && pOTarget.ObjectData != null ? pOTarget.ObjectData.ID : -1;
         return UWObjectMechanics.IsWorldContainer(liId);
     }
 
-    /// <summary>First and last object id of the triggers (major class 6, minor classes 2 and 3).</summary>
-    private const int FirstTriggerObjectId = 0x01A0;
-    private const int LastTriggerObjectId = 0x01BF;
-
     /// <summary>
     /// Using a barrel, chest or nightstand in the world puts its contents openly onto its tile
-    /// instead of opening a container panel (per user on the original, 2026-09-15). Following
-    /// the reference (use.cs UseMajorClass5 -> container.Use -> SpillWorldContainer): a locked
-    /// container reports "The ... is locked"; otherwise every object of its chain goes to a
-    /// random spot around the container (UWScatterRules), a use trigger in the chain is fired, and
-    /// the lock stays with the container.
+    /// instead of opening a container panel (per user on the original, 2026-09-15). The
+    /// original's UseCont -> DumpTheBag -> drop_link_chain (USEITEMS.C, TREASURE.C): a locked
+    /// container reports "The ... is locked"; otherwise the chain goes down around the
+    /// container, 6 eighths each way, which can reach the next tile (read 2026-09-25, see
+    /// UWScatterRules; until then ours kept to the tile) and NOT onto the containers standing
+    /// there (per user, 2026-09-16; a THROWN item still may). The whole chain goes down, lock and
+    /// triggers too, and a used container fires no use trigger (decision 25, per user on the
+    /// original 2026-10-12; UWSpillRules, UWSpill). A smashed or burnt container comes through
+    /// here with pbFromDamage and no message of its own: damage_object sets off the use triggers
+    /// first, before the spill. A smashed chest or barrel (UWContainerDamage) then loses ONE lock
+    /// (remove_object's remove_lock(obj, 0), the lock freed, not spilled) and is used like a
+    /// player's use, so a second, locked lock still says "The ... is locked." and keeps the
+    /// contents (2026-10-12; until then every lock was ignored and the lock went down with the
+    /// rest). A bag destroyed by fire (UWTileBlast) ignores the lock (DumpTheBag).
     /// </summary>
     public void SpillWorldContainer(UWEntityInfo pOTarget, bool pbIgnoreLock = false,
-        bool pbAnnounceEmpty = true)
+        bool pbAnnounceEmpty = true, bool pbFromDamage = false)
     {
         if (mLevelLoader == null || mLevelLoader.CurrentLevel == null)
             return;
 
         UWObject lOContainer = pOTarget.ObjectData;
-        List<UWObject> lOMaster = mLevelLoader.CurrentLevel.Masterlist;
-        lOContainer.EnsureContentsLoaded(lOMaster);
+        lOContainer.EnsureContentsLoaded(mLevelLoader.CurrentLevel.Masterlist);
 
-        foreach (UWObject lOItem in lOContainer.Contents)
+        // Smashed or burnt: the use triggers fire while the chain is whole (damage_object's
+        // checkTrap kind 4 before remove_object), whether a lock then holds the contents or not.
+        if (pbFromDamage)
         {
-            if (!pbIgnoreLock && lOItem != null && lOItem.ID == UWObjectMechanics.LockObjectId && UWObjectMechanics.IsLockLocked(lOItem))
-            {
-                AddMessage("The " + UWObjectDescriptionFormatter.FormatBareItemName(
-                    mOUWDataImporter.GetObjectDescription(lOContainer.ID + 1)) + " is locked");
-                return;
-            }
+            FireDestroyedUseTriggers(lOContainer);
+
+            if (UWObjectDamageRules.IsUsedWhenDestroyed(lOContainer.ID))
+                UWSpillRules.TakeFirstLock(lOContainer.Contents);
+        }
+
+        if (!pbIgnoreLock && UWSpillRules.FindLockedLock(lOContainer.Contents) != null)
+        {
+            AddMessage(UWItemMessages.IsLocked(mOUWDataImporter, lOContainer.ID));
+            return;
         }
 
         UWTilePos lOTile = mLevelLoader.WorldPositionToTile(pOTarget.transform.position);
-        List<UWObject> lOKept = new List<UWObject>();
-        int liSpilled = 0;
-
-        foreach (UWObject lOItem in lOContainer.Contents.ToArray())
-        {
-            if (lOItem == null)
-                continue;
-
-            if (lOItem.ID == UWObjectMechanics.LockObjectId)
-            {
-                lOKept.Add(lOItem);
-                continue;
-            }
-
-            if (lOItem.ID >= FirstTriggerObjectId && lOItem.ID <= LastTriggerObjectId)
-            {
-                // A trigger stays with the container; a use trigger fires now.
-                lOKept.Add(lOItem);
-
-                if (lOItem.ID == UWObjectMechanics.UseTriggerId)
-                    UWTriggerSystem.FireTraps(lOItem, lOContainer, mLevelLoader, this);
-
-                continue;
-            }
-
-            // THE OWNER STAYS. The reference clears it while spilling, but in the original the
-            // spilled contents still read "belonging to a green goblin" (per user with a
-            // screenshot, 2026-09-16) - taking them is still a theft.
-            // NOT onto the containers standing there: in the original nothing from a
-            // spilled barrel comes to rest on top of the next barrel (per user,
-            // 2026-09-16). A THROWN item still may.
-            // AROUND THE CONTAINER, 6 eighths each way, which can reach the next tile: the
-            // original's EmptyContainer spills through SpillInventory like a dead creature's
-            // pack (read 2026-09-25, see UWScatterRules); until then ours kept to the tile.
-            lOItem.Link = 0;
-            mLevelLoader.SpawnScatteredAround(lOItem, pOTarget.transform.position, UWScatterRules.LootRadius,
-                lOTile, true);
-            liSpilled++;
-        }
-
-        lOContainer.Contents.Clear();
-        lOContainer.Contents.AddRange(lOKept);
+        int liSpilled = UWSpill.Apply(mLevelLoader, lOContainer, UWSpillRules.Partition(lOContainer.Contents),
+            pOTarget.transform.position, lOTile, true);
 
         // NOTHING CAME OUT: the original then says so. UW.EXE builds the sentence from three
-        // pieces (EmptyContainer_seg040_352B_23EC: "The ", the bare item name, " is empty.")
-        // and only when nothing was spilled and the caller asked for a message - which is
-        // why smashing a container stays silent (per user, 2026-09-16: using an empty chest
-        // or barrel prints something in the original, ours printed nothing).
-        if (liSpilled == 0 && pbAnnounceEmpty)
-            AddMessage("The " + UWObjectDescriptionFormatter.FormatBareItemName(
-                mOUWDataImporter.GetObjectDescription(lOContainer.ID + 1)) + " is empty.");
+        // pieces (DumpTheBag: "The ", the bare item name, " is empty.") and only when nothing
+        // was spilled and the player did the using - which is why smashing a container stays
+        // silent (per user, 2026-09-16: using an empty chest or barrel prints something in the
+        // original, ours printed nothing).
+        if (UWSpillRules.AnnouncesEmpty(liSpilled, pbAnnounceEmpty))
+            AddMessage(UWItemMessages.IsEmpty(mOUWDataImporter, lOContainer.ID));
+    }
+
+    /// <summary>The use triggers in a destroyed object's chain, in order - damage_object's
+    /// checkTrap kind 4 for every static object it destroys (DAMAGE.C), before remove_object
+    /// spills or frees the chain.</summary>
+    public void FireDestroyedUseTriggers(UWObject pOObject)
+    {
+        if (pOObject == null || mLevelLoader == null || mLevelLoader.CurrentLevel == null)
+            return;
+
+        pOObject.EnsureContentsLoaded(mLevelLoader.CurrentLevel.Masterlist);
+
+        foreach (UWObject lOTrigger in UWSpillRules.UseTriggers(pOObject.Contents))
+            UWTriggerSystem.FireTraps(lOTrigger, pOObject, mLevelLoader, this);
     }
 
     /// <summary>A general message as text, without adding it to the box right
@@ -1814,31 +1851,17 @@ public class Interaction : MonoBehaviour
     /// UWMiscSpell.fDetectMonsters). Empty if the number does not exist.</summary>
     public string GetGeneralMessage(int piIndex)
     {
-        try
-        {
-            string lsMessage = mOUWDataImporter.GetGeneralMessage(piIndex);
-
-            return lsMessage == null ? string.Empty : lsMessage.TrimEnd('\r', '\n');
-        }
-        catch
-        {
-            return string.Empty;
-        }
+        return UWText.General(mOUWDataImporter, piIndex);
     }
 
+    /// <summary>A missing entry is not an error (UWText gives nothing for it), and nothing
+    /// is added for it.</summary>
     public void AddGeneralMessage(int piIndex)
     {
-        try
-        {
-            string lsMessage = mOUWDataImporter.GetGeneralMessage(piIndex);
+        string lsMessage = UWText.General(mOUWDataImporter, piIndex);
 
-            if (!string.IsNullOrWhiteSpace(lsMessage))
-                mOActiveStrings.Add(lsMessage.TrimEnd('\r', '\n'));
-        }
-        catch
-        {
-            // As everywhere else with string access: a missing entry is not an error.
-        }
+        if (!string.IsNullOrWhiteSpace(lsMessage))
+            mOActiveStrings.Add(lsMessage);
     }
 
     /// <summary>The strike animation has reached its hit frame - now it is checked whether
@@ -1878,9 +1901,11 @@ public class Interaction : MonoBehaviour
         Vector3 lOHitPoint;
         float lfHitDistance;
 
+        mbBlowStruckNothing = false;
+
         // CLASSIC SCHEME: as in the original a hit area in front of the character, not the
         // ray to the mouse cursor - see fFindClassicMeleeTarget.
-        bool lbFound = mControlScheme == null || mControlScheme.Current == UWControlScheme.SchemeEnum.Original
+        bool lbFound = !UWControlScheme.IsModern
             ? fFindClassicMeleeTarget(lbLog, out lOHitCollider, out lOHitPoint, out lfHitDistance)
             : fFindModernMeleeTarget(lbLog, out lOHitCollider, out lOHitPoint, out lfHitDistance);
 
@@ -1890,7 +1915,9 @@ public class Interaction : MonoBehaviour
         // user, 2026-09-15.
         if (!lbFound)
         {
-            fTryWallImpact();
+            if (!mbBlowStruckNothing)
+                fTryWallImpact();
+
             UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
             return;
         }
@@ -1911,7 +1938,7 @@ public class Interaction : MonoBehaviour
 
         UWDamageable lODamageable = lOTarget == null ? null : lOTarget.GetComponentInParent<UWDamageable>();
 
-        if (lODamageable == null || lODamageable.IsDestroyed)
+        if (lODamageable == null || !lODamageable.TakesBlows)
         {
             if (lOTarget == null)
                 fTryWallImpact();
@@ -1980,40 +2007,39 @@ public class Interaction : MonoBehaviour
     private const int FallbackAvatarHeight = 32;
 
     /// <summary>
-    /// Melee in the classic scheme AS IN THE ORIGINAL (per user, 2026-09-13: "rebuild
-    /// melee in the classic scheme as in the original"; reason: lurkers and flying
-    /// enemies can be fought in the original by looking down or up).
-    ///
-    /// REFERENCE combat.checkAttackHit: no ray to the mouse cursor, but an area in front of
-    /// the character in its view direction.
-    ///   Centre: weapon radius plus three eighths of a tile ahead.
-    ///   Width:  weapon radius plus one, in eighths.
-    ///   Bottom: foot height plus avatar height times (height value divided by 3) divided by 3, both
-    ///           integer. Height value per attack type 2, 5 or 8, plus the view pitch
-    ///           divided by 0x200.
-    ///   Height: (weapon radius times 2 plus 1) times 4.
-    /// The nearest thing in the area is hit.
-    ///
-    /// UNITS (UWViewpoint): horizontally one eighth of a tile = 8 world units, vertically one
-    /// unit = 2 world units (UWObjectSpawner.HeightScale), angle 65536 per full circle.
-    /// A view step of 15 degrees thus raises or lowers the area by a good 5 units.
-    ///
-    /// ATTACK TYPE: the stab is lowest, the side slash in the middle, the
-    /// overhead strike highest - matching the mouse thirds and animation (per user,
-    /// 2026-09-13: "stab is the lowest"). Height values thus stab 2, slash 5, overhead 8.
-    /// The reference contradicts itself here (comments on the height value versus its
-    /// input mapping); a first version followed the input mapping and put the stab
-    /// highest.
-    ///
-    /// WALLS: if level geometry lies between character and target, the hit does not count.
-    /// </summary>
-    /// <summary>
     /// THE BLOW'S PROBE as resolve_attack builds it: a box (radius + 1) eighths of a tile to each
     /// side, its height from the weapon's radius, at the height of the swing (the low, middle or
     /// high third of the avatar by the kind of blow, raised or lowered by the view's pitch),
     /// centred (radius + 3) eighths ahead along the facing. The radius is the weapon's from
     /// COMOBJ.DAT, the fist's without one. Shared by the target search and the wall's impact.
     /// </summary>
+    /// <summary>
+    /// Where the blow's picture sits in height (world y), written by fGetMeleeProbe for the
+    /// strike it serves: the original's hitz (COMBAT.C, AttackerAppliesFinalDamage) is the
+    /// probe's z - the attacker's feet plus the swing's share of his height plus his pitch -
+    /// plus a sixth of his height, so a stab flashes low, a bash high. Until 2026-10-12 the
+    /// flash on an object took the height of the probe's closest point, the probe's middle,
+    /// and sat too high (per user on the original: "a little lower").
+    /// </summary>
+    private float mfMeleeHitY;
+
+    /// <summary>The probe's bottom above the player's feet and its height, in zpos - written by
+    /// fGetMeleeProbe; the body part is picked against them (resolve_attack hands pickloc the
+    /// probe, not the attacker's body - C3, 2026-10-12).</summary>
+    private int miMeleeProbeOffsetZ;
+
+    private int miMeleeProbeHeightZ;
+
+    /// <summary>The attacker's eighth cell and the probe's centre after move_along, in eighths -
+    /// written by fGetMeleeProbe for the classic target search.</summary>
+    private UWTilePos mOMeleeFrom;
+
+    private UWTilePos mOMeleeAt;
+
+    /// <summary>The classic search met objects in its probe but struck none of them: resolve_attack
+    /// then returns without asking the terrain, so no wall impact either.</summary>
+    private bool mbBlowStruckNothing;
+
     private void fGetMeleeProbe(out Transform pOBody, out Vector3 pOForward, out Vector3 pOCentre,
         out Vector3 pOHalfExtents, out Quaternion pORotation, out int piRadius)
     {
@@ -2022,9 +2048,12 @@ public class Interaction : MonoBehaviour
 
         pOBody = lOBody;
 
-        // Weapon radius from COMOBJ.DAT; without a weapon the fist.
+        // Weapon radius from COMOBJ.DAT; without a melee weapon the fist's - a torch, a wand or
+        // anything else in the hand reaches as far as the fist (GetPlayerWeapon, UnderworldExhumed
+        // combat/COMBAT.C, sets wsize from ITEM_FIST for anything outside class 0; until
+        // 2026-10-12 ours took the held object's own radius).
         UWObject lOWeapon = mInventory == null ? null : mInventory.GetEquipped(mInventory.MainHandSlot);
-        int liWeaponId = lOWeapon == null ? UWCombat.FistObjectId : lOWeapon.ID;
+        int liWeaponId = lOWeapon == null || lOWeapon.ID > UWPlayerCritterRow.MeleeLastId ? UWCombat.FistObjectId : lOWeapon.ID;
         int liRadius = 0;
         int liAvatarHeight = FallbackAvatarHeight;
         UWCommonObjectProperties.Entry lOEntry;
@@ -2038,14 +2067,10 @@ public class Interaction : MonoBehaviour
                 liAvatarHeight = lOEntry.Height;
         }
 
-        int liSwingHeight;
-
-        switch (mePendingAttack)
-        {
-            case AttackEnum.Stab: liSwingHeight = 2; break;
-            case AttackEnum.Slash: liSwingHeight = 5; break;
-            default: liSwingHeight = 8; break;
-        }
+        // towhere is the clicked ninth, 1 to 9 (miPendingNinth; the middle column 2, 5, 8 by kind
+        // until 2026-10-12, see fChooseAttackKind): towhere / 3 gives 0 for 1 and 2, 1 for 3 to 5,
+        // 2 for 6 to 8 and 3 for 9 - a bash in the top right corner aims above the head.
+        int liSwingHeight = miPendingNinth;
 
         float lfFeetY = lOController != null
             ? lOBody.position.y + lOController.center.y - (lOController.height * 0.5f)
@@ -2063,12 +2088,13 @@ public class Interaction : MonoBehaviour
                 lfPitchDegrees -= 360f;
         }
 
-        float lfPitchUnits = -lfPitchDegrees * (UWViewpoint.FullCircleUnits / 360f);
+        float lfPitchUnits = -lfPitchDegrees * (UWWorldScale.FullCircleUnits / 360f);
 
         float lfBottomUnits = (liAvatarHeight * (liSwingHeight / 3) / 3) + (lfPitchUnits / 0x200);
         float lfHeightUnits = ((liRadius * 2) + 1) * 4;
 
-        const float EighthToWorld = UWLevelMeshBuilder.TileSpacing / 8f;
+        miMeleeProbeOffsetZ = (liAvatarHeight * (liSwingHeight / 3) / 3) + (int)(lfPitchUnits / 0x200);
+        miMeleeProbeHeightZ = (int)lfHeightUnits;
 
         Vector3 lOForward = new Vector3(lOBody.forward.x, 0f, lOBody.forward.z);
 
@@ -2077,15 +2103,47 @@ public class Interaction : MonoBehaviour
         else
             lOForward.Normalize();
 
-        float lfBottom = lfFeetY + (lfBottomUnits * UWObjectSpawner.HeightScale);
-        float lfHeight = lfHeightUnits * UWObjectSpawner.HeightScale;
-        float lfHalfWidth = (liRadius + 1) * EighthToWorld;
+        float lfBottom = lfFeetY + (lfBottomUnits * UWWorldScale.ZPosStep);
+        float lfHeight = lfHeightUnits * UWWorldScale.ZPosStep;
 
+        // The probe's radius is wsize + 1 eighths, and the motion core's boxes run from x - radius
+        // to x + radius INCLUSIVE in eighth cells (UWMotionCore.fCreateRecord), so the square
+        // reaches half a cell past the radius around the centre cell (2026-10-14; until then ours
+        // stopped at the radius).
+        float lfHalfWidth = (liRadius + 1.5f) * UWWorldScale.SubTileStep;
+
+        // The height of the blow's picture (COMBAT.C hitz): the probe's bottom plus a sixth
+        // of the attacker's height - see mfMeleeHitY.
+        mfMeleeHitY = lfBottom + ((liAvatarHeight / 6) * UWWorldScale.ZPosStep);
+
+        // THE CENTRE AS THE ORIGINAL PUTS IT (resolve_attack, UnderworldExhumed COMBAT.C): the
+        // attacker's eighth cell moved wsize + 3 along the 256-step heading by move_along, which
+        // truncates each axis and adds one away from zero (UWAreaSpellRules.MoveAlong) - one eighth
+        // farther ahead than a plain distance (per user 2026-10-14: our reach felt shorter).
         Vector3 lOCentre = new Vector3(lOBody.position.x, lfBottom + (lfHeight * 0.5f), lOBody.position.z)
-            + (lOForward * ((liRadius + 3) * EighthToWorld));
+            + (lOForward * ((liRadius + 3) * UWWorldScale.SubTileStep));
+
+        if (mLevelLoader != null)
+        {
+            UWTilePos lOTile = mLevelLoader.WorldPositionToTile(lOBody.position);
+            UWTilePos lOFrom = new UWTilePos((lOTile.X << 3) + UWTileQueries.WorldToEighthFloor(lOBody.position.x),
+                (lOTile.Y << 3) + UWTileQueries.WorldToEighthFloor(lOBody.position.z));
+            UWTilePos lOAt = UWAreaSpellRules.MoveAlong(lOFrom, UWPlayerThrow.GetPlayerHeading(lOBody), liRadius + 3);
+
+            mOMeleeFrom = lOFrom;
+            mOMeleeAt = lOAt;
+            lOCentre = new Vector3(UWUnits.EighthsToWorldAxis(lOAt.X), lOCentre.y, UWUnits.EighthsToWorldAxis(lOAt.Y));
+        }
 
         Vector3 lOHalfExtents = new Vector3(lfHalfWidth, lfHeight * 0.5f, lfHalfWidth);
-        Quaternion lORotation = Quaternion.LookRotation(lOForward, Vector3.up);
+
+        // THE PROBE IS SQUARE TO THE MAP, not turned with the view: ObjectCheck tests the motion
+        // core's boxes, the mover's from x - radius to x + radius in eighths and every record's
+        // the same way (UWMotionCore.fCreateRecord) - all aligned to the tile grid. Facing a
+        // diagonal, the square's corner reaches farther than a turned box; per user on the
+        // original 2026-10-14 (audit B5) a goblin diagonally round a corner is hit from close
+        // by, which ours, with the turned box, never reached (it struck the wall).
+        Quaternion lORotation = Quaternion.identity;
 
         pOForward = lOForward;
         pOCentre = lOCentre;
@@ -2134,10 +2192,8 @@ public class Interaction : MonoBehaviour
         fGetMeleeProbe(out Transform lOBody, out Vector3 lOForward, out Vector3 lOCentre, out Vector3 lOUnusedExtents,
             out Quaternion lOUnusedRotation, out int liRadius);
 
-        const float EighthToWorld = UWLevelMeshBuilder.TileSpacing / 8f;
-
         Vector3 lOOrigin = new Vector3(lOBody.position.x, lOCentre.y, lOBody.position.z);
-        RaycastHit[] lOHits = Physics.RaycastAll(lOOrigin, lOForward, (liRadius + 4) * EighthToWorld, ~0,
+        RaycastHit[] lOHits = Physics.RaycastAll(lOOrigin, lOForward, (liRadius + 4) * UWWorldScale.SubTileStep, ~0,
             QueryTriggerInteraction.Ignore);
 
         // RaycastAll comes in no order - the nearest first.
@@ -2151,7 +2207,7 @@ public class Interaction : MonoBehaviour
             if (lOHit.collider.GetComponentInParent<UWEntityInfo>() != null || Mathf.Abs(lOHit.normal.y) > 0.5f)
                 return false;
 
-            pOAt = lOHit.point - (lOForward * EighthToWorld * 0.5f);
+            pOAt = lOHit.point - (lOForward * UWWorldScale.SubTileStep * 0.5f);
 
             return true;
         }
@@ -2159,6 +2215,38 @@ public class Interaction : MonoBehaviour
         return false;
     }
 
+    /// <summary>
+    /// Melee in the classic scheme AS IN THE ORIGINAL (per user, 2026-09-13: "rebuild
+    /// melee in the classic scheme as in the original"; reason: lurkers and flying
+    /// enemies can be fought in the original by looking down or up).
+    ///
+    /// REFERENCE combat.checkAttackHit: no ray to the mouse cursor, but an area in front of
+    /// the character in its view direction.
+    ///   Centre: weapon radius plus three eighths of a tile ahead.
+    ///   Width:  weapon radius plus one, in eighths.
+    ///   Bottom: foot height plus avatar height times (height value divided by 3) divided by 3, both
+    ///           integer. Height value per attack type 2, 5 or 8, plus the view pitch
+    ///           divided by 0x200.
+    ///   Height: (weapon radius times 2 plus 1) times 4.
+    /// The nearest thing in the area is hit.
+    ///
+    /// UNITS (UWViewpoint): horizontally one eighth of a tile = 8 world units, vertically one
+    /// unit = 2 world units (UWWorldScale.ZPosStep), angle 65536 per full circle.
+    /// A view step of 15 degrees thus raises or lowers the area by a good 5 units.
+    ///
+    /// ATTACK TYPE: the stab is lowest, the side slash in the middle, the
+    /// overhead strike highest - matching the mouse thirds and animation (per user,
+    /// 2026-09-13: "stab is the lowest"). Height values thus stab 2, slash 5, overhead 8.
+    /// The reference contradicts itself here (comments on the height value versus its
+    /// input mapping); a first version followed the input mapping and put the stab
+    /// highest.
+    ///
+    /// NO WALL TEST: resolve_attack (UnderworldExhumed COMBAT.C) asks only what its probe touches
+    /// (ObjectCheck first, the terrain only when no object is there) - no line from the attacker
+    /// to the target. Per user on the original 2026-10-14 (audit B5): close to a corner, a goblin
+    /// diagonally behind the wall's edge is hit; ours cast a ray to the hit point and struck the
+    /// wall instead, until that day.
+    /// </summary>
     private bool fFindClassicMeleeTarget(bool pbLog, out Collider pOCollider, out Vector3 pOPoint, out float pfDistance)
     {
         pOCollider = null;
@@ -2168,93 +2256,54 @@ public class Interaction : MonoBehaviour
         fGetMeleeProbe(out Transform lOBody, out Vector3 lOForward, out Vector3 lOCentre, out Vector3 lOHalfExtents,
             out Quaternion lORotation, out int liRadius);
 
-        Collider[] lOCandidates = Physics.OverlapBox(lOCentre, lOHalfExtents, lORotation, ~0, QueryTriggerInteraction.Collide);
+        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(mLevelLoader);
 
-        float lfBest = float.MaxValue;
-
-        foreach (Collider lOCandidate in lOCandidates)
-        {
-            if (lOCandidate == null || lOCandidate.transform.IsChildOf(lOBody))
-                continue;
-
-            UWEntityInfo lOEntity = lOCandidate.GetComponentInParent<UWEntityInfo>();
-            Collider lOStruck = lOCandidate;
-
-            // A door's frame or blocker is the door (UWEntityInfo.PartOf): the blow lands on the
-            // door and the flash shows there (per user, 2026-09-24).
-            if (lOEntity != null && lOEntity.PartOf != null)
-            {
-                lOEntity = lOEntity.PartOf;
-
-                Collider lOWhole = lOEntity.GetComponentInChildren<Collider>();
-
-                if (lOWhole != null)
-                    lOStruck = lOWhole;
-            }
-
-            UWDamageable lODamageable = lOEntity == null ? null : lOEntity.GetComponentInParent<UWDamageable>();
-
-            if (lODamageable == null || lODamageable.IsDestroyed)
-                continue;
-
-            // The door leaf is a concave mesh collider, for which ClosestPoint hands the point back
-            // unchanged - its bounds give a spot on the door.
-            Vector3 lOPoint = lOStruck == lOCandidate ? lOCandidate.ClosestPoint(lOCentre) : lOStruck.bounds.ClosestPoint(lOCentre);
-            Vector3 lOFlat = lOPoint - lOBody.position;
-
-            lOFlat.y = 0f;
-
-            float lfDistance = lOFlat.magnitude;
-
-            if (lfDistance >= lfBest || fIsMeleeBlockedByWall(lOBody.position, lOPoint, lOStruck))
-                continue;
-
-            lfBest = lfDistance;
-            pOCollider = lOStruck;
-            pOPoint = lOPoint;
-            pfDistance = lfDistance;
-        }
-
-        if (pbLog)
-            Debug.Log(string.Format("[Attack] area in front of character: weapon radius {0}, centre {1:0.0} above the body's origin, height {2:0.0}, {3} candidates, {4}.",
-                liRadius, lOCentre.y - lOBody.position.y, lOHalfExtents.y * 2f, lOCandidates.Length,
-                pOCollider != null ? "target " + pOCollider.name : "nothing damageable"));
-
-        return pOCollider != null;
-    }
-
-    /// <summary>Unity's Ignore Raycast layer, where the invisible door blockers live - see
-    /// fIsMeleeBlockedByWall.</summary>
-    private const int IgnoreRaycastLayer = 2;
-
-    /// <summary>Is there a wall between the character and the hit point? A ray from the
-    /// character to the point is checked; anything it hits before the target that is not a world object
-    /// counts as a wall.</summary>
-    private static bool fIsMeleeBlockedByWall(Vector3 pOFrom, Vector3 pOTo, Collider pOTarget)
-    {
-        Vector3 lOStart = new Vector3(pOFrom.x, pOTo.y, pOFrom.z);
-        Vector3 lODelta = pOTo - lOStart;
-        float lfLength = lODelta.magnitude;
-
-        if (lfLength < 0.01f)
+        if (lOWorld == null || mCharacter == null)
             return false;
 
-        // WITHOUT THE BLOCKERS. A closed door fills its whole tile with an invisible box on
-        // the Ignore Raycast layer (UWObjectSpawner.fAddClosedDoorBlocker, built 2026-09-19),
-        // and that box stands exactly between the player and the door leaf. Counted as a wall
-        // it made every door unhittable - bashing a door stopped working (per user,
-        // 2026-09-21). Nothing on that layer is meant for queries.
-        foreach (RaycastHit lOHit in Physics.RaycastAll(lOStart, lODelta / lfLength, lfLength,
-            ~(1 << IgnoreRaycastLayer), QueryTriggerInteraction.Ignore))
-        {
-            if (lOHit.collider == pOTarget || lOHit.collider.GetComponentInParent<UWEntityInfo>() != null
-                || lOHit.collider.GetComponentInParent<CharacterController>() != null)
-                continue;
+        // THE TARGET FROM THE LEVEL DATA'S BOXES (UWPlayerAttack.PickBlowTarget): the probe of
+        // radius weapon + 1, its bottom the swing's height above the feet, the nearest object in
+        // its height struck. Until 2026-10-14 ours asked the drawn colliders, which are narrower
+        // than the original's boxes - a door's box is radius 3 around its position - and struck
+        // the wall where the original strikes the door's frame (audit B5).
+        int liProbeBottom = mCharacter.GetFeetZPos() + miMeleeProbeOffsetZ;
+        int liFound = lOWorld.FindBlowTarget(mOMeleeAt.X, mOMeleeAt.Y, liProbeBottom, liRadius + 1, miMeleeProbeHeightZ,
+            mOMeleeFrom.X, mOMeleeFrom.Y, out UWObject lOObject, out UWCritter lOCritter);
 
-            return true;
-        }
+        mbBlowStruckNothing = liFound != UWPlayerAttack.BlowFoundNothing;
 
-        return false;
+        UWEntityInfo lOEntity = null;
+
+        if (lOCritter != null)
+            lOEntity = lOCritter.GetComponentInParent<UWEntityInfo>();
+        else if (lOObject != null && mLevelLoader != null)
+            mLevelLoader.TryGetEntity(lOObject, out lOEntity);
+
+        Collider lOStruck = lOCritter != null ? lOCritter.GetComponentInChildren<Collider>()
+            : lOEntity != null ? lOEntity.GetComponentInChildren<Collider>() : null;
+
+        if (pbLog)
+            Debug.Log(string.Format("[Attack] probe at eighths {0}/{1}, z {2}, radius {3}, height {4}: {5}.",
+                mOMeleeAt.X, mOMeleeAt.Y, liProbeBottom, liRadius + 1, miMeleeProbeHeightZ,
+                liFound == UWPlayerAttack.BlowFoundNothing ? "no object"
+                    : liFound == UWPlayerAttack.BlowStruckNothing ? "objects, none in the blow's height"
+                    : lOStruck != null ? "target " + lOStruck.name : "a target without a body"));
+
+        if (lOStruck == null)
+            return false;
+
+        // The flash on the body's bounds, nearest the probe's centre (the door leaf is a concave
+        // mesh collider, for which ClosestPoint hands the point back unchanged).
+        Vector3 lOPoint = lOStruck.bounds.ClosestPoint(lOCentre);
+        Vector3 lOFlat = lOPoint - lOBody.position;
+
+        lOFlat.y = 0f;
+
+        pOCollider = lOStruck;
+        pOPoint = lOPoint;
+        pfDistance = lOFlat.magnitude;
+
+        return true;
     }
 
     /// <summary>Check, damage and feedback of a melee hit - the same for both
@@ -2263,7 +2312,7 @@ public class Interaction : MonoBehaviour
     {
         bool lbLog = UnderworldRevisited.UWSettings.Instance != null && UnderworldRevisited.UWSettings.Instance.LogAttacks;
 
-        if (lODamageable == null || lODamageable.IsDestroyed)
+        if (lODamageable == null || !lODamageable.TakesBlows)
             return;
 
         UWObject lOWeapon = mInventory == null ? null : mInventory.GetEquipped(mInventory.MainHandSlot);
@@ -2277,16 +2326,36 @@ public class Interaction : MonoBehaviour
         int liArmour = lODamageable.Armour;
         int liFlank = 0;
 
+        // The blow's probe (fGetMeleeProbe; the modern scheme's ray finds its target without it,
+        // so it is measured here for both): its height decides the part and the picture's place.
+        fGetMeleeProbe(out Transform lOUnusedBody, out Vector3 lOUnusedForward, out Vector3 lOUnusedCentre,
+            out Vector3 lOUnusedExtents, out Quaternion lOUnusedRotation, out int liUnusedRadius);
+
+        int liPart = -1;
+
         if (lOCritterTarget != null && mCharacter != null)
         {
-            int liFeet = mCharacter.GetFeetZPos();
+            // THE PART IS PICKED AGAINST THE BLOW'S PROBE, by the user's decision of 2026-10-12
+            // to follow the original (combat C3): resolve_attack hands pickloc the probe -
+            // the ninth's third of the body, the pitch, the weapon's reach in height - not the
+            // attacker's body. A stab mostly meets the legs, an overhead bash often the head.
+            // Until then ours took the player's whole body, so the kind of blow made no difference.
+            int liProbeBottom = mCharacter.GetFeetZPos() + miMeleeProbeOffsetZ;
 
-            liArmour = lOCritterTarget.GetArmourAgainst(liFeet, liFeet + mCharacter.GetBodyHeightZ());
+            liPart = lOCritterTarget.PickPartHitBy(liProbeBottom, liProbeBottom + miMeleeProbeHeightZ);
+            liArmour = lOCritterTarget.GetArmourOfPart(liPart);
 
             // CalcFlankingBonus_seg022_230E_D48 from both headings in eighths, as a creature's
             // blow has it (UWCritterBrain): 0 face to face, 4 from behind.
             liFlank = UWCritterRules.GetFlankingBonus(
                 UWPlayerThrow.GetPlayerHeading(mCharacter.transform) >> 5, lOCritterTarget.FacingEighth);
+        }
+        else if (mCharacter != null && lOTarget != null && lOTarget.ObjectData != null)
+        {
+            // compute_hitangle takes any target's heading - a door or a bench struck from its
+            // back takes more (COMBAT.C, 2026-10-14).
+            liFlank = UWCritterRules.GetFlankingBonus(
+                UWPlayerThrow.GetPlayerHeading(mCharacter.transform) >> 5, lOTarget.ObjectData.Heading);
         }
 
         // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon).
@@ -2305,7 +2374,8 @@ public class Interaction : MonoBehaviour
             mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
             mCharacter != null ? (System.Func<UWPlayerData.Skill, int>)mCharacter.GetSkill : null,
             lODamageable.Defence, liArmour,
-            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage);
+            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage,
+            lOCritterTarget == null);
 
         if (lOResult.NoWeapon)
             return;
@@ -2351,16 +2421,14 @@ public class Interaction : MonoBehaviour
 
         int liDamage = lOResult.Damage;
 
-        // A SPIKE ABSORBS THE STRIKE. The reference redirects damage on a spiked,
-        // closed door to the durability of the SPIKE instead of the door's
-        // (damage.cs, branch "damage to spiked closed doors"). Once the spike is gone, the door is
-        // free again - and only the next strike hits it again.
-        if (fTryDamageDoorSpike(lOTarget, liDamage))
-        {
-            fShowHitEffect(lOTarget, pOHitPoint);
+        // The picture at the original's height (mfMeleeHitY, worked out by the probe above); a
+        // creature's blood or flash at the height of the part hit (liPart, C3).
+        Vector3 lOFlashPoint = new Vector3(pOHitPoint.x, mfMeleeHitY, pOHitPoint.z);
 
-            return;
-        }
+        // A SPIKED DOOR'S SPIKE takes the blow inside ApplyDamage (UWDamageable.TakesBlowFirst,
+        // after the quality class shift, as damage_object does). Until 2026-10-12 the player's
+        // blow went to the spike here first, in full and without the hit sound; do_damage plays
+        // the sound and the flash for a spiked door as for any other.
 
         // The player's own strike is bash damage, just like a creature's (reference:
         // combat.AttackerAppliesFinalDamage with four). Of the creatures in uw1 only
@@ -2381,12 +2449,18 @@ public class Interaction : MonoBehaviour
         // never bleeds (per user, 2026-09-14).
         if (liDamage != 0)
         {
-            fShowHitEffect(lOTarget, pOHitPoint);
+            fShowHitEffect(lOTarget, lOFlashPoint, 0f, liPart);
+
+            // A CRITICAL THAT DRAWS BLOOD SPLASHES TWICE (do_damage, UnderworldExhumed
+            // combat/COMBAT.C, for the player as attacker): the second splat 2 below or 3 above
+            // the first, in eighths of the creature's height (2026-10-12; ours had one).
+            if (lOResult.Check == UWSkillCheck.ResultEnum.CriticalSuccess && fBleeds(lOTarget))
+                fShowHitEffect(lOTarget, lOFlashPoint, fSecondSplatOffset(lOTarget), liPart);
 
             // The eyes at the top show the condition of the CREATURE just hit - not of a door, a
             // chest or a barrel (per user on the original, 2026-09-24).
             if (mEyes != null && fIsCreature(lOTarget))
-                mEyes.ShowCondition(mOUWDataImporter, lODamageable.HealthFraction, fFoeName(lOTarget));
+                fShowEyes(lOTarget, lODamageable);
         }
 
         // NO LINE IN THE LOG: AttackerAppliesFinalDamage_seg022_8A5 prints nothing for a blow on
@@ -2531,9 +2605,7 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private string fGetPluralName(int piObjectId)
     {
-        string lsRaw = mOUWDataImporter.GetObjectDescription(piObjectId + 1);
-
-        return UWObjectDescriptionFormatter.FormatBareItemName(lsRaw) + "s";
+        return UWText.ObjectName(mOUWDataImporter, piObjectId) + "s";
     }
 
     /// <summary>Matching ammunition anywhere on the player, bags included, in the original's
@@ -2561,7 +2633,7 @@ public class Interaction : MonoBehaviour
 
         // The original's aim from the pointer in the view window; the modern scheme shoots where
         // the free pointer stands on the world, else along the crosshair (per user, 2026-10-04).
-        if (fIsOriginalScheme() && mGameUi != null)
+        if (!UWControlScheme.IsModern && mGameUi != null)
         {
             UWPlayerThrow.GetPointerInView(mGameUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
             UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
@@ -2588,10 +2660,8 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
-    /// <summary>The damage of a fired projectile, with the skill bonus of the
-    /// Missile skill - see fTryShoot.</summary>
-    /// <summary>The Missile skill stretches or squeezes the damage - see
-    /// UWPlayerAttack.GetMissileDamage.</summary>
+    /// <summary>The damage of a fired projectile: the Missile skill stretches or squeezes it -
+    /// see UWPlayerAttack.GetMissileDamage.</summary>
     private int fGetMissileDamage(int piAmmunitionId, int piCharge)
     {
         return UWPlayerAttack.GetMissileDamage(mOUWDataImporter, piAmmunitionId, piCharge,
@@ -2601,132 +2671,82 @@ public class Interaction : MonoBehaviour
     /// <summary>
     /// The damage of a missile the player throws BY HAND - see UWPlayerThrow.
     ///
-    /// Charge 0x80, like every missile hit (reference: combat.MissileAttackHit).
+    /// Charge 0x80, like every missile hit (missile_thwack). The Missile skill scales only
+    /// ammunition (UWPlayerAttack.GetThrownMissileDamage, 2026-10-12).
     /// </summary>
     public int GetThrownMissileDamage(int piObjectId)
     {
         if (mOUWDataImporter == null || mOUWDataImporter.ObjectProperties == null)
             return 0;
 
-        return fGetMissileDamage(piObjectId, UWCombat.NeutralCharge);
+        return UWPlayerAttack.GetThrownMissileDamage(mOUWDataImporter, piObjectId, UWCombat.NeutralCharge,
+            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Missile) : 0);
+    }
+
+    /// <summary>The damage type of a class 1 object the player throws: -ammo of its missile
+    /// table row (UWPlayerAttack.GetMissileDamageType) - 0x40 for ammunition.</summary>
+    public int GetThrownMissileDamageType(int piObjectId)
+    {
+        return UWPlayerAttack.GetMissileDamageType(mOUWDataImporter, piObjectId);
     }
 
     /// <summary>
-    /// Begins a strike: charging starts, the duration depends on the weapon (see
-    /// fGetChargeSeconds).
+    /// Begins a strike: the wind-up starts, the charge waits for it (fUpdateCharge, by the
+    /// weapon's speed, fGetChargeSpeed).
     /// </summary>
     private void fBeginAttack()
     {
         fChooseAttackKind();
 
-        mAttackDuration = 0f;
-        mAttackMax = fGetChargeSeconds();
+        fClearCharge();
+        miChargeSpeed = fGetChargeSpeed();
         IsAttacking = true;
     }
 
+    /// <summary>play_pow 0 and the step clock stopped (player_attack at the swing's start).</summary>
+    private void fClearCharge()
+    {
+        miPlayPow = 0;
+        mfChargeElapsed = -1f;
+    }
+
     /// <summary>
-    /// Charge duration of the weapon in hand, in seconds.
-    ///
-    /// The melee table has three fields for this that were unused so far. They are
-    /// consistent: a heavy weapon charges slowly to a high maximum, a light one
-    /// quickly to a low one.
+    /// What one charge step adds for the weapon in hand: the melee table's speed (wd->speed in
+    /// player_attack, COMBAT.C), the fist's for anything that is not a melee weapon
+    /// (GetPlayerWeapon). A heavy weapon charges slowly to a high maximum, a light one quickly
+    /// to a low one:
     ///
     ///   a_dagger        speed 30  MaxCharge 145   -> short
     ///   a_longsword     speed 15  MaxCharge 190
     ///   a_battle axe    speed  5  MaxCharge 220   -> long
     ///
-    /// The duration consists of two parts: a fixed base that every weapon needs
-    /// equally, and a part that depends solely on SPEED. MaxCharge does NOT enter - it
-    /// only determines how strong a fully charged strike becomes. A model with MaxCharge
-    /// divided by speed was off by 0.13 for unarmed, while this one matches to 0.03.
-    /// A ranged weapon gets no base at all (see the comment in the code).
-    ///
-    /// Fitted to five measurements in the original (user, 2026-08-30, stopwatch, so rough),
-    /// each from key press to green orb, via least squares over all five:
-    ///
-    ///   dagger           speed 30   measured 0.9        model 0.95
-    ///   unarmed          speed 15   measured 1.2        model 1.17
-    ///   Sword of Justice speed 11   measured 1.4        model 1.34
-    ///   broadsword       speed  9   measured 1.4 - 1.5  model 1.47
-    ///   battle axe       speed  5   measured 2.05       model 2.07
-    ///
-    /// Five points over the whole speed range from 5 to 30, two free parameters, largest
-    /// deviation six hundredths. The battle axe was a real prediction: it lay
-    /// outside the fitted range and was matched to within 0.10.
-    ///
-    /// CAVEAT on the base: a hand stopwatch systematically measures too long, and exactly that
-    /// ends up in the base. The windup takes four frames at 0.125 seconds, so 0.5 -
-    /// the difference to the 0.73 found is probably reaction time. This has no effect on the
-    /// weapon-dependent part.
+    /// THE TIMING FOLLOWS THE ORIGINAL BY THE USER'S DECISION OF 2026-10-12 (combat C1, C2): the
+    /// charge starts at 0 after the wind-up (four frames of 0.125 s) and gains the speed every
+    /// UWSettings.AttackChargeStepSeconds; a launcher does not charge at all. Until then a fixed
+    /// base of 0.73 s plus the steps was counted from the press, fitted to the user's stopwatch
+    /// (2026-08-30, press to green: dagger 0.9, fist 1.2, Sword of Justice 1.4, broadsword 1.4 -
+    /// 1.5, battle axe 2.05 s). The step of 0.072 s from that fit stays: wind-up 0.5 s plus the
+    /// steps to frame 9 meets the same measurements within a reaction time (dagger 0.79, battle
+    /// axe 1.94). The original's step is 0x10 ticks of its game clock, 0.0625 s if that is the
+    /// 1/256 s clock (not settled).
     /// </summary>
-    private float fGetChargeSeconds()
+    private int fGetChargeSpeed()
     {
-        float lfScale = UnderworldRevisited.UWSettings.Instance != null
-            ? UnderworldRevisited.UWSettings.Instance.AttackChargeStepSeconds
-            : 0.072f;
-
         UWObject lOWeapon = mInventory == null ? null : mInventory.GetEquipped(mInventory.MainHandSlot);
-        int liWeaponId = lOWeapon == null ? UWCombat.FistObjectId : lOWeapon.ID;
-
-        // A RANGED WEAPON TAKES ITS CHARGE VALUES from the melee table, via the
-        // lower four bits of its object number - that is how the reference does it
-        // (weaponObjectDat.mincharge and .chargespeed both mask with 0xF). The
-        // sling thus ends up at the light mace entry.
-        int liAmmunitionId;
-        bool lbRanged = fTryGetAmmunitionId(liWeaponId, out liAmmunitionId);
-
-        if (lbRanged)
-            liWeaponId &= 0xF;
+        int liWeaponId = lOWeapon == null || lOWeapon.ID > UWPlayerCritterRow.MeleeLastId ? UWCombat.FistObjectId : lOWeapon.ID;
 
         UWObjectClassProperties.MeleeWeapon lOMelee;
 
-        if (mOUWDataImporter == null
+        if (mOUWDataImporter == null || mOUWDataImporter.ObjectClassProperties == null
             || !mOUWDataImporter.ObjectClassProperties.TryGetMeleeWeapon(liWeaponId, out lOMelee)
-            || lOMelee.AttackSpeed == 0 || lOMelee.MaxCharge == 0 || lfScale <= 0f)
-        {
-            return 1f;
-        }
+            || lOMelee.AttackSpeed <= 0)
+            return FallbackChargeSpeed;
 
-        float lfBase = UnderworldRevisited.UWSettings.Instance != null
-            ? UnderworldRevisited.UWSettings.Instance.AttackChargeBaseSeconds
-            : 0.6f;
-
-        // Per time step the original adds the weapon's speed value to a counter up to
-        // 100 - so the number of steps is 100 divided by speed, rounded up. Before that comes the
-        // windup, which is equally long for every weapon. Both together match the
-        // user's measurements to within a tenth (dagger 0.90, fist 1.20,
-        // broadsword 1.45, battle axe 2.05).
-        // THE CHARGE SPEED OF A RANGED WEAPON IS IN ITS OWN TABLE, not
-        // in the masked melee entry. There sling, bow, crossbow and
-        // jeweled bow ALL carry 15 - and that is exactly what the user measured: bow and
-        // sling take equally long in the original, about half a second
-        // (2026-09-10).
-        //
-        // The masked entry would not have given that: the sling lands there on
-        // the light mace with 15, the bow on the mace with 9. That would be 0.50 versus
-        // 0.86 seconds, and such a difference is noticeable with a stopwatch. For the
-        // MINIMUM CHARGE the masked entry stays - there is no better source,
-        // and the difference there is in the range of hundredths of a second.
-        int liSpeed = lbRanged && mOUWDataImporter.ObjectProperties != null
-            ? mOUWDataImporter.ObjectProperties.GetRangedSpeed(lOWeapon.ID)
-            : lOMelee.AttackSpeed;
-
-        if (liSpeed <= 0)
-            liSpeed = lOMelee.AttackSpeed;
-
-        int liSteps = Mathf.CeilToInt(UWCombat.FullCharge / (float)liSpeed);
-
-        // NO WINDUP WHEN SHOOTING. The base time is the time a weapon needs
-        // to draw back - a ranged weapon does not wind up, in the original nothing
-        // at all is visible (per user, 2026-09-10).
-        //
-        // This matches the measurement: the user timed the sling with a stopwatch at about
-        // half a second until green, "possibly a bit less". Its seven
-        // charge steps give 0.50 seconds without base time - with base time it would be 1.10
-        // and thus more than double. The numbers for this come from his earlier
-        // measurements on four melee weapons and were not re-measured here.
-        return (lbRanged ? 0f : lfBase) + (liSteps * lfScale);
+        return lOMelee.AttackSpeed;
     }
+
+    /// <summary>The fist's speed, for a weapon table that cannot be read.</summary>
+    private const int FallbackChargeSpeed = 15;
 
     /// <summary>
     /// Chooses the attack type from the pointer position in the view window: upper third
@@ -2750,7 +2770,7 @@ public class Interaction : MonoBehaviour
         //
         // WITH THE POINTER FREE the original's thirds again, of the screen - the modern view fills
         // it (per user, 2026-10-04): upper third an overhead bash, lower a thrust, between a slash.
-        if (!fIsOriginalScheme() && fIsPointerFree() && Mouse.current != null)
+        if (UWControlScheme.IsModern && fIsPointerFree() && Mouse.current != null)
         {
             float lfAt = Mouse.current.position.ReadValue().y / Mathf.Max(1f, Screen.height);
 
@@ -2764,7 +2784,7 @@ public class Interaction : MonoBehaviour
             return;
         }
 
-        if (!fIsOriginalScheme())
+        if (UWControlScheme.IsModern)
         {
             float lfPitch = fGetViewPitchUp();
 
@@ -2788,6 +2808,30 @@ public class Interaction : MonoBehaviour
             fSetAttackKind(AttackTypes.Stab);
         else
             fSetAttackKind(AttackTypes.Slash);
+
+        // THE COLUMN COUNTS TOO (by the user's decision of 2026-10-12 to follow the original,
+        // combat C6): the original's swing is the clicked ninth, 1 to 9 from the bottom left, and
+        // resolve_attack raises the blow by towhere / 3 thirds of the body - so the right column
+        // (3, 6, 9) sits a third higher than the rest of its row. Until then ours took the middle
+        // column for every row. The modern scheme keeps the middle column (fSetAttackKind).
+        float lfAcross = mGameUi != null
+            ? mGameUi.GetHorizontalFractionInGameArea(Mouse.current.position.ReadValue())
+            : 0.5f;
+        int liColumn = lfAcross >= UpperThirdFraction ? 2 : lfAcross <= LowerThirdFraction ? 0 : 1;
+
+        miCurrentNinth = (fGetSwingRow() * 3) + liColumn + 1;
+    }
+
+    /// <summary>The row of the ninths for the current kind: 0 the stab (bottom), 1 the slash, 2
+    /// the overhead bash (top) - swing_kind of COMBAT.C read backwards.</summary>
+    private int fGetSwingRow()
+    {
+        switch (mCurrentAttack)
+        {
+            case AttackEnum.Stab: return 0;
+            case AttackEnum.Slash: return 1;
+            default: return 2;
+        }
     }
 
     /// <summary>Sets both the kind for the damage (mCurrentAttack) and the one for the weapon
@@ -2804,6 +2848,9 @@ public class Interaction : MonoBehaviour
 
         if (mCharacter != null)
             mCharacter.CurrentAttackType = peKind;
+
+        // The middle column of the kind's row; the classic scheme sets the clicked column after.
+        miCurrentNinth = (fGetSwingRow() * 3) + 2;
     }
 
     /// <summary>How far the view has to look up or down, in degrees, for a bash or a thrust
@@ -2877,12 +2924,6 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// The visible hit: a blood splatter, or an impact for bloodless beings. What
-    /// the creature leaves behind is in its table (see
-    /// UWObjectMechanics.GetHitEffectObjectId). Only creatures get this - a door
-    /// does not bleed.
-    /// </summary>
-    /// <summary>
     /// A critical hit on the player wears the piece the body part picks by 2d4 (UWEquipmentWear,
     /// built 2026-09-28) - called by the creature's blow (UWCritter.fStrikePlayer).
     /// </summary>
@@ -2934,7 +2975,10 @@ public class Interaction : MonoBehaviour
                 Vector3 lOAt = mCharacter.transform.position;
                 UWTilePos lOTile = UWTileQueries.WorldToTile(lOAt.x, lOAt.z);
 
-                mLevelLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), lOTile.X, lOTile.Y, 0, 0,
+                // A NEW pile from CreateObj (INVDATA.C: junk = CreateObj(debris), nothing set on
+                // it afterwards), so CreateObj's quality 40 - until 2026-10-12 this gave 0, as
+                // the smashed world object's debris rightly does (UWContainerDamage).
+                mLevelLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), lOTile.X, lOTile.Y, 0, -1,
                     new Vector3(lOAt.x, 0f, lOAt.z));
             }
         }
@@ -2945,7 +2989,38 @@ public class Interaction : MonoBehaviour
             mCharacter.RefreshStatus();
     }
 
-    private void fShowHitEffect(UWEntityInfo pOTarget, Vector3 pOHitPoint)
+    /// <summary>Whether a struck creature bleeds (its table's blood bits, Critter.BleedsOnHit).</summary>
+    private bool fBleeds(UWEntityInfo pOTarget)
+    {
+        return pOTarget != null && pOTarget.ObjectData != null && mOUWDataImporter != null
+            && mOUWDataImporter.ObjectClassProperties != null
+            && mOUWDataImporter.ObjectClassProperties.TryGetCritter(pOTarget.ObjectData.ID, out UWObjectClassProperties.Critter lOCritter)
+            && lOCritter.BleedsOnHit;
+    }
+
+    /// <summary>do_damage's second splat on a player critical: (rand &amp; 1) * 5 - 2 more steps of
+    /// put_effect's height unit, the creature's height &gt;&gt; 3 (at least 1), in world units.</summary>
+    private float fSecondSplatOffset(UWEntityInfo pOTarget)
+    {
+        int liHeight = 0;
+
+        if (pOTarget != null && pOTarget.ObjectData != null && mOUWDataImporter != null && mOUWDataImporter.CommonObjectProperties != null
+            && mOUWDataImporter.CommonObjectProperties.TryGet(pOTarget.ObjectData.ID, out UWCommonObjectProperties.Entry lOEntry))
+            liHeight = lOEntry.Height;
+
+        int liUnit = Mathf.Max(1, liHeight >> 3);
+        int liSteps = (UWRandom.Next(0, 2) * 5) - 2;
+
+        return liSteps * liUnit * UWWorldScale.ZPosStep;
+    }
+
+    /// <summary>
+    /// The visible hit: a blood splatter, or an impact for bloodless beings. What
+    /// the creature leaves behind is in its table (see
+    /// UWObjectMechanics.GetHitEffectObjectId); everything else gets the flash.
+    /// pfExtraHeight raises it (world units) - the second splat of a critical.
+    /// </summary>
+    private void fShowHitEffect(UWEntityInfo pOTarget, Vector3 pOHitPoint, float pfExtraHeight = 0f, int piPart = -1)
     {
         if (pOTarget == null || pOTarget.ObjectData == null || mLevelLoader == null
             || mOUWDataImporter == null || mOUWDataImporter.ObjectClassProperties == null)
@@ -2971,22 +3046,23 @@ public class Interaction : MonoBehaviour
 
         float lfVariation = lOSettings != null ? lOSettings.HitEffectHeightVariation : 8f;
 
-        StartCoroutine(fShowHitEffectDelayed(liEffectId,
-            lbIsCritter
-                ? fVaryHitHeight(pOTarget, pOHitPoint, lfVariation)
-                : fGetObjectHitPoint(fGetDoorFlashPoint(pOTarget, pOHitPoint)), lfDelay, lfSeconds));
+        float lfDepthBias = 0f;
+        Vector3 lOAt = lbIsCritter
+            ? fVaryHitHeight(pOTarget, pOHitPoint, lfVariation)
+            : fGetObjectFlash(pOTarget, fGetDoorFlashPoint(pOTarget, pOHitPoint), out lfDepthBias);
+
+        // A BLOW WITH A KNOWN PART bleeds at that part's height (do_damage's hitz_tab, C3,
+        // 2026-10-12): the variation the user saw on the original (2026-08-30) is the random part.
+        UWCritter lOStruck = lbIsCritter && piPart >= 0 ? pOTarget.GetComponentInParent<UWCritter>() : null;
+
+        if (lOStruck != null)
+            lOAt.y = lOStruck.BodyPosition.y + lOStruck.GetHitEffectHeight(piPart);
+
+        lOAt.y += pfExtraHeight;
+
+        StartCoroutine(fShowHitEffectDelayed(liEffectId, lOAt, lfDelay, lfSeconds, lfDepthBias));
     }
 
-    /// <summary>
-    /// Where the flash appears when an OBJECT is struck - barrel, chest, door.
-    ///
-    /// Not the object's centre as with creatures: a barrel is a solid model, so the
-    /// flash sat INSIDE it and was hidden by the staves (per user, 2026-09-16: "the
-    /// impact effect is inside the barrel, it should be a bit closer to the player").
-    /// The ray hit lies exactly on the surface, which is still within the model's
-    /// shading - the spot is therefore moved a little further towards the player, without
-    /// ever moving behind them.
-    /// </summary>
     /// <summary>
     /// WHERE A STRUCK DOOR FLASHES (AttackerAppliesFinalDamage_seg022_8A5, the branch for class
     /// 0x14): at the DOOR OBJECT'S OWN SPOT, not where the blow or the missile met it, at the
@@ -3009,24 +3085,77 @@ public class Interaction : MonoBehaviour
     /// <summary>The flash sits at least this many zpos above the door's own - see fGetDoorFlashPoint.</summary>
     private const int DoorFlashAbove = 2;
 
-    private static Vector3 fGetObjectHitPoint(Vector3 pOHitPoint)
+    /// <summary>The flash on a struck sprite (a sack, a box) is sorted this many world units
+    /// nearer than the sprite: two billboards on one spot would fight for the pixel.</summary>
+    private const float SpriteFlashDepthBias = 4f;
+
+    /// <summary>The flash on a struck model is sorted this far in front of the model's front
+    /// towards the camera, in world units: enough that its own width clears a barrel's curve.</summary>
+    private const float ModelFlashClearance = 4f;
+
+    /// <summary>
+    /// Where the flash appears when an OBJECT is struck - chest, barrel, sack, door - and how
+    /// it is sorted.
+    ///
+    /// THE ORIGINAL puts it at the object's own spot: put_effect (EFFECT.C) copies the
+    /// defender's fine position into the effect, AttackerAppliesFinalDamage gives the height
+    /// of the blow (COMBAT.C hitz: the attacker's z plus a sixth of his height, a door at
+    /// least two above its own z), and the flash, added behind the object in the tile's list,
+    /// is drawn over it - over a chest's model too.
+    ///
+    /// So the flash stands AT THE OBJECT'S SPOT (a sprite's data position, a model's collider
+    /// middle) at the height of the blow, and is SORTED IN FRONT of the object by the billboard
+    /// shaders' depth bias (UWLevelLoader.SpawnEffectAt): a sprite by a hair, a model by its
+    /// extent towards the camera plus ModelFlashClearance, so the mesh does not hide it (per
+    /// user, 2026-09-16: "the impact effect is inside the barrel"). Until 2026-10-12 the flash
+    /// MOVED instead - 12 units in front of the crosshair's ray hit, then in front of the
+    /// model's face - and stood a fifth of a tile out (per user on the original: "closer to the
+    /// chest", "too near the camera").
+    /// </summary>
+    private Vector3 fGetObjectFlash(UWEntityInfo pOTarget, Vector3 pOHitPoint, out float pfDepthBias)
     {
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+        pfDepthBias = SpriteFlashDepthBias;
 
-        float lfTowards = lOSettings != null ? lOSettings.HitEffectTowardsPlayer : 12f;
-
-        if (lfTowards <= 0f || Camera.main == null)
+        if (pOTarget == null || pOTarget.ObjectData == null)
             return pOHitPoint;
 
-        Vector3 lOToPlayer = Camera.main.transform.position - pOHitPoint;
+        UWCommonObjectProperties.Entry lOEntry;
+        bool lbModel = pOTarget.IsDoor
+            || mOUWDataImporter == null || mOUWDataImporter.CommonObjectProperties == null
+            || !mOUWDataImporter.CommonObjectProperties.TryGet(pOTarget.ObjectData.ID, out lOEntry)
+            || lOEntry.Is3DModel;
 
-        // Only horizontally - the height of the blow stays where it landed.
-        lOToPlayer.y = 0f;
+        if (!lbModel)
+        {
+            UWObject lOObject = pOTarget.ObjectData;
+            Vector3 lOSpot = UWObjectSpawner.GetObjectWorldPosition(lOObject.TileX, lOObject.TileY, lOObject);
 
-        if (lOToPlayer.sqrMagnitude <= lfTowards * lfTowards)
+            return new Vector3(lOSpot.x, pOHitPoint.y, lOSpot.z);
+        }
+
+        Collider lOCollider = pOTarget.GetComponentInChildren<Collider>();
+
+        if (lOCollider == null)
             return pOHitPoint;
 
-        return pOHitPoint + (lOToPlayer.normalized * lfTowards);
+        Bounds lOBounds = lOCollider.bounds;
+        Vector3 lOToCamera = Camera.main != null ? Camera.main.transform.position - lOBounds.center : Vector3.forward;
+
+        lOToCamera.y = 0f;
+
+        if (lOToCamera.sqrMagnitude < 0.0001f)
+            lOToCamera = Vector3.forward;
+
+        lOToCamera.Normalize();
+
+        // The collider's extent along the line to the camera: the model's front lies that far
+        // before its middle.
+        float lfAlongX = Mathf.Abs(lOToCamera.x) > 0.0001f ? lOBounds.extents.x / Mathf.Abs(lOToCamera.x) : float.MaxValue;
+        float lfAlongZ = Mathf.Abs(lOToCamera.z) > 0.0001f ? lOBounds.extents.z / Mathf.Abs(lOToCamera.z) : float.MaxValue;
+
+        pfDepthBias = Mathf.Min(lfAlongX, lfAlongZ) + ModelFlashClearance;
+
+        return new Vector3(lOBounds.center.x, pOHitPoint.y, lOBounds.center.z);
     }
 
     /// <summary>
@@ -3086,25 +3215,15 @@ public class Interaction : MonoBehaviour
     /// immediately; only the picture waits.
     /// </summary>
     private System.Collections.IEnumerator fShowHitEffectDelayed(int piObjectId, Vector3 pOHitPoint,
-        float pfDelay, float pfSeconds)
+        float pfDelay, float pfSeconds, float pfDepthBias = 0f)
     {
         if (pfDelay > 0f)
             yield return new WaitForSeconds(pfDelay);
 
         if (mLevelLoader != null)
-            mLevelLoader.SpawnEffectAt(piObjectId, pOHitPoint, pfSeconds);
+            mLevelLoader.SpawnEffectAt(piObjectId, pOHitPoint, pfSeconds, pfDepthBias);
     }
 
-
-    /// <summary>
-    /// A click on the compass prints the character's status - hunger, fatigue,
-    /// level, day and time of day (see UWStatusReport).
-    ///
-    /// BOTH MOUSE BUTTONS do the same. The reference does not distinguish them
-    /// (uimanager_compass._on_compass_click only checks THAT a button was pressed).
-    ///
-    /// Returns true if the click is used up - then it must not trigger anything else.
-    /// </summary>
     /// <summary>
     /// A click on one of the three arrows under the compass: the easy movement
     /// (UWEasyMovement, UWHudCompass.TryGetEasyMovementCommand). Both mouse buttons do it, as
@@ -3124,6 +3243,15 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// A click on the compass prints the character's status - hunger, fatigue,
+    /// level, day and time of day (see UWStatusReport).
+    ///
+    /// BOTH MOUSE BUTTONS do the same. The reference does not distinguish them
+    /// (uimanager_compass._on_compass_click only checks THAT a button was pressed).
+    ///
+    /// Returns true if the click is used up - then it must not trigger anything else.
+    /// </summary>
     private bool fTryReportStatus(Vector2 pOScreenPos)
     {
         if (mGameUi == null || !mGameUi.IsScreenPositionOnCompass(pOScreenPos))
@@ -3178,11 +3306,10 @@ public class Interaction : MonoBehaviour
 
         if (pOTarget.IsDoor)
         {
-            // A SPIKED DOOR SAYS ONLY THAT. When looking, the reference exits before the
-            // usual description as soon as the spike bit is set
-            // (door.LookAt) - so one does not even learn how battered it is.
-            if (pOTarget.ObjectData != null && UWObjectMechanics.IsDoorSpiked(pOTarget.ObjectData))
-                return GetGeneralMessage(UWItemApplications.DoorIsSpikedMessage);
+            // A SPIKED DOOR is described like any door; "The door is spiked." follows as a line of
+            // its own (fGetSpecialLookLine). Until 2026-10-13 ours said only that, after the
+            // reference's door.LookAt, which leaves before the description (per user on the
+            // original: the door's sentence first, then the spike).
 
             // OPEN OR CLOSED comes from the door itself, not from the text frozen at spawn time:
             // the object id only changes when the world is captured, the leaf swings long before.
@@ -3221,8 +3348,37 @@ public class Interaction : MonoBehaviour
         return UWItemDescriptions.FormatLookMessageWithOwner(lsRaw, pOTarget.ObjectData, mOUWDataImporter);
     }
 
-    /// <summary>Condition word from string block 5 - broken, badly damaged, damaged, sturdy,
-    /// massive - for a door or another thing with health (see UWItemDescriptions).</summary>
+    /// <summary>
+    /// SpecialLook (LOOK.C), the line after the look sentence: for a closed door at rest whose
+    /// owner bit 0 is set, "The door is spiked." (string 0x83); for a key or bones the line of
+    /// UWItemDescriptions.SpecialLookLine. Null when there is none.
+    /// </summary>
+    private string fGetSpecialLookLine(UWEntityInfo pOTarget)
+    {
+        if (pOTarget == null || pOTarget.ObjectData == null)
+            return null;
+
+        // A key, bones: UWItemDescriptions.SpecialLookLine - but in the world only with detail.
+        // player_3dlook (INTERACT.C) passes LookAt a lore of 1 only for a thing that cannot be
+        // picked up and lies in reach, else 0, and KeyLook and BonesLook print only above 0.
+        // Every key and every skull or bone can be picked up, so in the world neither says
+        // more; the inventory look does (per user on the original, 2026-10-13: the key's line
+        // only in the inventory). The spiked door's line asks for no detail.
+        if (!pOTarget.IsDoor)
+            return pOTarget.CanBePickedUp ? null
+                : UWItemDescriptions.SpecialLookLine(pOTarget.ObjectData, mOUWDataImporter);
+
+        if (!UWObjectMechanics.IsDoorSpiked(pOTarget.ObjectData))
+            return null;
+
+        IUsableDoor lOMover = pOTarget.GetComponentInParent<IUsableDoor>();
+
+        if (lOMover != null && (!lOMover.IsClosed || lOMover.IsMoving))
+            return null;
+
+        return GetGeneralMessage(UWItemApplications.DoorIsSpikedMessage);
+    }
+
     /// <summary>The block 4 name of a door in its current state: the closed doors are 320 to
     /// 327, the same doors open lie eight higher (see UWWorldCapture). Null without data.</summary>
     private string fGetDoorName(int piObjectId, bool pbClosed)
@@ -3234,35 +3390,20 @@ public class Interaction : MonoBehaviour
 
         int liClosedId = piObjectId >= UWWorldCapture.FirstOpenDoorId ? piObjectId - liOpenOffset : piObjectId;
 
-        try
-        {
-            return mOUWDataImporter.GetObjectDescription((pbClosed ? liClosedId : liClosedId + liOpenOffset) + 1);
-        }
-        catch (System.Exception)
-        {
-            return null;
-        }
+        return UWText.RawObjectName(mOUWDataImporter, pbClosed ? liClosedId : liClosedId + liOpenOffset, null);
     }
 
     /// <summary>"a_moving door", the class-7 object a door becomes while it moves.</summary>
     private const int MovingDoorObjectId = 0x1CF;
 
-    /// <summary>The block 4 name of an object, or null without data.</summary>
+    /// <summary>The raw block 4 name of an object, or null without data.</summary>
     private string fGetObjectName(int piObjectId)
     {
-        if (mOUWDataImporter == null)
-            return null;
-
-        try
-        {
-            return mOUWDataImporter.GetObjectDescription(piObjectId + 1);
-        }
-        catch (System.Exception)
-        {
-            return null;
-        }
+        return UWText.RawObjectName(mOUWDataImporter, piObjectId, null);
     }
 
+    /// <summary>Condition word from string block 5 - broken, badly damaged, damaged, sturdy,
+    /// massive - for a door or another thing with health (see UWItemDescriptions).</summary>
     private string fGetConditionWord(UWDamageable pODamageable)
     {
         return UWItemDescriptions.GetConditionWord(pODamageable.GetConditionStringIndex(), mOUWDataImporter);
@@ -3287,6 +3428,18 @@ public class Interaction : MonoBehaviour
     /// (Look_seg024_24DC_D20, see UWItemDescriptions.DetailFromLoreCheck).</summary>
     private const int WorldLookDetail = 1;
 
+    /// <summary>Looking at an item in the inventory: its look sentence, then SpecialLook's line
+    /// (UWItemDescriptions.SpecialLookLine) - both schemes.</summary>
+    public void AddItemLookMessages(UWObject pOItem)
+    {
+        AddMessage(DescribeInventoryItem(pOItem));
+
+        string lsSpecial = UWItemDescriptions.SpecialLookLine(pOItem, mOUWDataImporter);
+
+        if (lsSpecial != null)
+            AddMessage(lsSpecial);
+    }
+
     /// <summary>
     /// Identifies an item permanently and describes it right away - the spell Name
     /// Enchantment (see UWLoreCheck.Identify and UWMiscSpell).
@@ -3302,9 +3455,21 @@ public class Interaction : MonoBehaviour
         if (!UWLoreCheck.Identify(pOItem, mOUWDataImporter.CommonObjectProperties))
             return false;
 
-        AddMessage(DescribeInventoryItem(pOItem));
+        // LookAt(target, 3) (obj_spells, UnderworldExhumed combat/SPELLS.C): the look sentence and
+        // SpecialLook's line at full detail - a book or scroll is read, a key or bones say their
+        // line, in the world as carried (2026-10-15; until then the sentence alone, reference
+        // audit round 2, A50).
+        if (!TryReadBook(pOItem, true))
+            AddItemLookMessages(pOItem);
 
         return true;
+    }
+
+    /// <summary>SpecialLook's line for a thing in the world that is looked at with full detail
+    /// (Name Enchantment on a door: "The door is spiked."). Null when there is none.</summary>
+    public string GetSpecialLookLine(UWEntityInfo pOTarget)
+    {
+        return fGetSpecialLookLine(pOTarget);
     }
 
     /// <summary>The object list that holds inventory items - needed to find the linked
@@ -3312,18 +3477,15 @@ public class Interaction : MonoBehaviour
     /// it is that file's record list, otherwise the level's.</summary>
     private System.Collections.Generic.List<UWObject> fGetItemObjectList()
     {
-        if (mOUWDataImporter.IsSavegame && mOUWDataImporter.InitialPlayer != null)
-            return mOUWDataImporter.InitialPlayer.InventoryRecords;
-
-        return mLevelLoader != null && mLevelLoader.CurrentLevel != null
-            ? mLevelLoader.CurrentLevel.Masterlist
-            : null;
+        return UWItemDescriptions.ItemObjectList(mOUWDataImporter,
+            mLevelLoader != null ? mLevelLoader.CurrentLevel : null);
     }
 
-    /// <summary>Confirmed by original test (see UWDoorLock): a locked door cannot
+    /// <summary>Confirmed by original test (see UWDoor): a locked door cannot
     /// be opened manually, but can be closed at any time (the lock check only applies to
     /// opening). A switch/trigger/trap (UWTriggerSystem) bypasses this check completely
     /// and does not change the lock state either - both confirmed original behaviour.
+    /// The decision is UWDoorRules.Use (2026-10-12), shared with the creatures' door use.
     ///
     /// Key usage deliberately differs per scheme. Modern has no dragging,
     /// hence an automatic backpack check (incl. containers, recursive - a key
@@ -3336,76 +3498,59 @@ public class Interaction : MonoBehaviour
     /// original"). The real mechanism is the general use mode (see
     /// UWInventory.UseModeItem/UWItemDrag.fUpdateUseMode): right click on the key in the
     /// backpack attaches its icon to the cursor (item stays in place), right click on the door
-    /// in the view window applies it - see TryToggleDoorLockWithKey. This unlocks (or
+    /// in the view window applies it - see UWItemTargetUse. This unlocks (or
     /// locks again) ONLY the lock state, it does NOT automatically open the door (confirmed
     /// by user) - unlike the Modern path here.</summary>
     private void fTryUseDoor(UWEntityInfo pOTarget)
     {
-        IUsableDoor lIUsable = pOTarget.GetComponentInParent<IUsableDoor>();
+        UWDoor lODoor = pOTarget.GetComponentInParent<UWDoor>();
 
-        if (lIUsable == null)
+        if (lODoor == null)
             return;
 
-        // A SPIKE KEEPS THE DOOR SHUT, independent of the lock. The only way to get it out
-        // is to strike the door - then the spike takes the hits first (see UWDoorDamage).
-        if (lIUsable.IsClosed && pOTarget.ObjectData != null
-            && UWObjectMechanics.IsDoorSpiked(pOTarget.ObjectData))
+        // The modern scheme's automatic key: asked only when it can matter (a closed, locked
+        // door), so the backpack is not searched for every click on a door.
+        bool lbKeyAtHand = UWControlScheme.IsModern && lODoor.IsClosed && lODoor.IsLocked
+            && mInventory != null && mLevelLoader != null && mLevelLoader.CurrentLevel != null
+            && UWObjectMechanics.FindMatchingKey(mInventory.Backpack, lODoor.LockId, mLevelLoader.CurrentLevel.Masterlist) != null;
+
+        switch (UWDoorRules.Use(lODoor.IsClosed, lODoor.IsSpiked, lODoor.IsLocked, true, lbKeyAtHand))
         {
-            ReportSpikedDoor();
-
-            return;
-        }
-
-        UWDoorLock lLock = pOTarget.GetComponentInParent<UWDoorLock>();
-
-        if (lLock != null && mLevelLoader != null && mLevelLoader.CurrentLevel != null)
-            lLock.EnsureResolved(pOTarget.ObjectData, mLevelLoader.CurrentLevel.Masterlist);
-
-        if (lIUsable.IsClosed && lLock != null && lLock.IsLocked)
-        {
-            bool lbIsOriginal = mControlScheme == null || mControlScheme.Current == UWControlScheme.SchemeEnum.Original;
-
-            if (!lbIsOriginal && mInventory != null && mLevelLoader != null && mLevelLoader.CurrentLevel != null
-                && UWObjectMechanics.FindMatchingKey(mInventory.Backpack, lLock.LockId, mLevelLoader.CurrentLevel.Masterlist) != null)
-            {
-                lLock.Unlock();
-            }
-            else
-            {
+            case UWDoorRules.UseOutcome.Locked:
                 mOActiveStrings.Add("The door is locked");
                 return;
-            }
+
+            case UWDoorRules.UseOutcome.Spiked:
+                // Not for the player any more (2026-10-12: UseRect lets him open a spiked door,
+                // OpenDoor takes the spike with it - the spike keeps creatures out); kept for
+                // completeness.
+                ReportSpikedDoor();
+                return;
+
+            case UWDoorRules.UseOutcome.UnlockAndOpen:
+                lODoor.Unlock();
+                break;
         }
 
-        // An an_open trigger hangs in the door's chain and fires only on OPENING -
-        // so ask before toggling whether it is currently closed (see
-        // UWTriggerSystem.TryFireOpenTrigger).
-        bool lbWasClosed = lIUsable.IsClosed;
-
-        lIUsable.StartUsingDoor();
-
-        if (lbWasClosed)
-            UWTriggerSystem.TryFireOpenTrigger(pOTarget.ObjectData, mLevelLoader, this);
+        // The open trigger (an_open in the door's chain) is UWDoor.Toggle's, fired on OPENING.
+        lODoor.Toggle(UWTrapRules.Setter.Player);
     }
 
     /// <summary>For UWItemDrag (Original: use mode, right click in the view window) -
     /// returns the look target under the given screen position, or null (also for
     /// a wall/floor/ceiling hit without its own UWEntityInfo - confirmed by user,
     /// a wall shows no message at all in use mode, unlike normal
-    /// right-click look). No category filter (unlike TryGetPickupTargetAt/formerly
+    /// right-click look). No category filter (unlike the picker's pickable rule/formerly
     /// TryGetDoorTargetAt) - the caller checks IsDoor itself. The RAY REACHES AS FAR AS LOOKING:
     /// whether the thing can be used from here is decided afterwards on the tile grid
     /// (TryReachTarget), which is also what lets the refusal be spoken at all.</summary>
     public UWEntityInfo TryGetEntityAt(Vector2 pOScreenPos, UWObject pOHeldItem)
     {
         // The same aim as the pointer's own (fBeginWorldPointer): by what is drawn - a model's
-        // shape, a sprite's pixels -, past spell effects and pure logic volumes. A plain raycast
-        // took the first box, and a blood stain beside a boulder got the rock hammer (per user,
-        // 2026-10-01).
-        if (!fRaycastPastEffects(Camera.main.ScreenPointToRay(pOScreenPos), LookRayRange, out RaycastHit lHit3D))
-            return null;
-
-        return lHit3D.collider.GetComponentInParent<UWEntityInfo>();
+        // shape, a sprite's pixels -, past spell effects and pure logic volumes (UWWorldPicker).
+        // A plain raycast took the first box, and a blood stain beside a boulder got the rock
+        // hammer (per user, 2026-10-01).
+        return UWWorldPicker.Measure(Camera.main.ScreenPointToRay(pOScreenPos)).Frontmost;
     }
 
     /// <summary>
@@ -3414,14 +3559,15 @@ public class Interaction : MonoBehaviour
     /// rule and its measurement. The pole (UWObjectMechanics.PoleObjectId) doubles distance and
     /// height window, Telekinesis lifts the limit entirely.
     /// </summary>
-    public bool TryReachTarget(UWEntityInfo pOTarget, UWObject pOHeldItem)
+    public bool TryReachTarget(UWEntityInfo pOTarget, UWObject pOHeldItem,
+        int piRefusal = UWReachRules.UnableToUseMessage)
     {
         bool lbUsingPole = pOHeldItem != null && pOHeldItem.ID == UWObjectMechanics.PoleObjectId;
 
         if (fCanReach(pOTarget, UWReachRules.GetDistanceSquared(lbUsingPole, fHasTelekinesis), lbUsingPole))
             return true;
 
-        AddGeneralMessage(UWReachRules.UnableToUseMessage);
+        AddGeneralMessage(piRefusal);
 
         return false;
     }
@@ -3431,12 +3577,19 @@ public class Interaction : MonoBehaviour
     /// here, Telekinesis does.</summary>
     public bool TryReachForPickup(UWEntityInfo pOTarget)
     {
-        if (fCanReach(pOTarget, UWReachRules.GetPickupDistanceSquared(fHasTelekinesis), false))
+        if (CanReachForPickup(pOTarget))
             return true;
 
         AddGeneralMessage(UWReachRules.TooFarToTakeMessage);
 
         return false;
+    }
+
+    /// <summary>The same measurement without the message - for UWWorldPickup, whose refusal
+    /// comes from UWPickupRules.</summary>
+    public bool CanReachForPickup(UWEntityInfo pOTarget)
+    {
+        return fCanReach(pOTarget, UWReachRules.GetPickupDistanceSquared(fHasTelekinesis), false);
     }
 
     private bool fHasTelekinesis
@@ -3455,11 +3608,8 @@ public class Interaction : MonoBehaviour
         fGetPlayerGridPosition(out liPlayerX, out liPlayerY, out liPlayerZ);
         fGetTargetGridPosition(pOTarget, out liTargetX, out liTargetY, out liTargetZ);
 
-        if (mOPlayerTerrain == null)
-            mOPlayerTerrain = UWScene.PlayerTerrain;
-
         return UWReachRules.CanReach(liPlayerX, liPlayerY, liPlayerZ, liTargetX, liTargetY, liTargetZ,
-            piDistanceSquared, pbUsingPole, mOPlayerTerrain != null ? mOPlayerTerrain.SwimCounter : 0);
+            piDistanceSquared, pbUsingPole);
     }
 
     /// <summary>The player on the tile grid: position in eighths of a tile, feet in zpos steps.
@@ -3475,7 +3625,7 @@ public class Interaction : MonoBehaviour
 
         piZ = lOCharacter != null
             ? lOCharacter.GetFeetZPos()
-            : UWUnits.RoundToInt(lOPosition.y / UWWorldScale.ZPosStep);
+            : UWUnits.WorldToZPos(lOPosition.y);
     }
 
     /// <summary>The target on the tile grid. Its own data is the measure - a wall decal is placed
@@ -3499,16 +3649,7 @@ public class Interaction : MonoBehaviour
 
         piX = UWTileQueries.WorldToEighths(lOPosition.x);
         piY = UWTileQueries.WorldToEighths(lOPosition.z);
-        piZ = UWUnits.RoundToInt(lOPosition.y / UWWorldScale.ZPosStep);
-    }
-
-    /// <summary>For UWItemDrag (use mode): tap a switch with the held item
-    /// - the same effect as a normal use without item, just from the
-    /// item's reach (see TryReachTarget). The item itself plays no
-    /// role, all that counts is that something reaches the switch at all.</summary>
-    public bool TryFireSwitchAt(UWEntityInfo pOTarget)
-    {
-        return pOTarget != null && UWTriggerSystem.TryFireSwitch(pOTarget.ObjectData, mLevelLoader, this);
+        piZ = UWUnits.WorldToZPos(lOPosition.y);
     }
 
     // ------------------------------------------------- Shrine
@@ -3573,7 +3714,7 @@ public class Interaction : MonoBehaviour
 
         // The modern scheme's box shows the pointer (UWModernQuestion) - hidden here it stayed
         // invisible under it (as with the yes/no questions).
-        if (fIsOriginalScheme())
+        if (!UWControlScheme.IsModern)
             Cursor.visible = !pbHold;
     }
 
@@ -3639,7 +3780,7 @@ public class Interaction : MonoBehaviour
         Mouse lOMouse = Mouse.current;
 
         // The modern scheme's box takes the mouse: OK and Cancel (UWModernQuestion).
-        bool lbByMouse = fIsOriginalScheme() && lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame
+        bool lbByMouse = !UWControlScheme.IsModern && lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame
             || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame);
 
         bool lbDone = lOKeyboard.enterKey.wasPressedThisFrame
@@ -3665,7 +3806,7 @@ public class Interaction : MonoBehaviour
         // THE MODERN SCHEME: cancelling (Cancel, the right button, Escape) leaves no trace - the
         // prompt line goes from the messages and nothing is chanted (per user, 2026-10-04); the
         // classic scheme keeps the original's dash and "That is not a mantra."
-        if (lbCancel && !fIsOriginalScheme())
+        if (lbCancel && UWControlScheme.IsModern)
         {
             if (miPromptLine >= 0 && miPromptLine < mOActiveStrings.Count)
                 mOActiveStrings.RemoveAt(miPromptLine);
@@ -3739,7 +3880,7 @@ public class Interaction : MonoBehaviour
         // The modern scheme's box shows the pointer itself (UWModernQuestion, under a modal hold);
         // hidden here and shown again by the hold in the same moment, Windows kept it invisible
         // until it left the window (per user, 2026-10-04).
-        mbYesNoHidCursor = fIsOriginalScheme();
+        mbYesNoHidCursor = !UWControlScheme.IsModern;
 
         if (mbYesNoHidCursor)
         {
@@ -3776,7 +3917,7 @@ public class Interaction : MonoBehaviour
         // stands aside meanwhile (UWGamepadPointer). The modern box is clicked with the pointer.
         Gamepad lOPad = Gamepad.current;
 
-        if (lOPad != null && Time.frameCount != miYesNoAskedFrame && fIsOriginalScheme())
+        if (lOPad != null && Time.frameCount != miYesNoAskedFrame && !UWControlScheme.IsModern)
         {
             lbYes |= lOPad.buttonSouth.wasPressedThisFrame;
             lbNo |= lOPad.buttonEast.wasPressedThisFrame;
@@ -3791,7 +3932,7 @@ public class Interaction : MonoBehaviour
         // THE MODERN SCHEME answers with the mouse in its own box (UWModernQuestion, per user
         // 2026-10-04: OK and Cancel, every question there alike; a right click both answered and
         // switched the pointer).
-        if (Mouse.current != null && Time.frameCount != miYesNoAskedFrame && fIsOriginalScheme())
+        if (Mouse.current != null && Time.frameCount != miYesNoAskedFrame && !UWControlScheme.IsModern)
         {
             lbYes |= UWMouseButtons.RightPressed;
             lbNo |= UWMouseButtons.LeftPressed;
@@ -3846,211 +3987,6 @@ public class Interaction : MonoBehaviour
     }
 
     // ------------------------------------------------- Item on item
-
-    // The messages and the rules of spike, oil flask and rock hammer are in
-    // UWItemApplications (P3, 2026-09-18).
-
-    /// <summary>
-    /// The spike: spikes a closed door.
-    ///
-    /// It is used up in the process. An OPEN door cannot be spiked - there is
-    /// a separate message for that. What the spike does is described in
-    /// UWObjectMechanics.IsDoorSpiked: the door no longer opens, and whoever wants to
-    /// break it open hits the spike first.
-    ///
-    /// Returns false if the target is not a door at all - then the usual refusal follows.
-    /// </summary>
-    public bool TrySpikeDoor(UWEntityInfo pOTarget, UWObject pOSpike)
-    {
-        if (pOTarget == null || !pOTarget.IsDoor || pOTarget.ObjectData == null)
-            return false;
-
-        IUsableDoor lIUsable = pOTarget.GetComponentInParent<IUsableDoor>();
-
-        UWItemApplications.Result lOResult = UWItemApplications.SpikeDoor(pOTarget.ObjectData,
-            lIUsable == null || lIUsable.IsClosed);
-
-        if (lOResult.MessageIndex >= 0)
-            AddGeneralMessage(lOResult.MessageIndex);
-
-        if (lOResult.ItemUsed && mInventory != null)
-            mInventory.TryConsumeOne(pOSpike);
-
-        return true;
-    }
-
-    /// <summary>
-    /// The rock hammer: breaks a boulder into the next smaller one.
-    ///
-    /// The four boulders 339 to 342 are gone through in order; the smallest becomes
-    /// three to eight sling stones. Everything else it answers with "It seems to have no
-    /// effect." - so the hammer can be applied to any world object, it just does
-    /// nothing anywhere else.
-    ///
-    /// FITS WITH TREMOR: the spell drops exactly these boulders from the ceiling (see
-    /// UWMiscSpell), and the hammer turns them into ammunition.
-    /// </summary>
-    /// <summary>
-    /// The orb rock on Tyball's orb (TybalsOrb_seg040_A12): the orb is destroyed, a class-7
-    /// picture stays where it stood, and the rock goes with it. On anything else the rock only
-    /// says that it seems to have no effect, and it survives that.
-    /// </summary>
-    public bool TryUseOrbRock(UWEntityInfo pOTarget, UWObject pORock)
-    {
-        if (pOTarget == null || pOTarget.ObjectData == null || mLevelLoader == null)
-            return false;
-
-        UWItemApplications.Result lOResult = UWItemApplications.UseOrbRock(pOTarget.ObjectData);
-
-        if (lOResult.TargetChanged)
-            fBreakOrb(pOTarget);
-
-        if (lOResult.ItemUsed && mInventory != null && pORock != null)
-            mInventory.RemoveItem(pORock);
-
-        AddGeneralMessage(lOResult.MessageIndex);
-
-        return true;
-    }
-
-    /// <summary>
-    /// The orb rock THROWN at Tybal's orb (UWProjectileFlight, the collision's object use):
-    /// the same breaking as from the hand, but the rock is not used up - it lies where it fell,
-    /// as in the original (per user, 2026-09-23). A throw at anything else says nothing.
-    /// </summary>
-    public void SmashOrb(UWEntityInfo pOOrb)
-    {
-        if (pOOrb == null || pOOrb.ObjectData == null || mLevelLoader == null || UWGameFlags.OrbDestroyed)
-            return;
-
-        UWItemApplications.Result lOResult = UWItemApplications.UseOrbRock(pOOrb.ObjectData);
-
-        if (!lOResult.TargetChanged)
-            return;
-
-        fBreakOrb(pOOrb);
-        AddGeneralMessage(lOResult.MessageIndex);
-    }
-
-    /// <summary>The orb goes, its picture stays for a moment, and the bit and the maximum mana
-    /// follow (UWTybalOrbRules).</summary>
-    private void fBreakOrb(UWEntityInfo pOOrb)
-    {
-        // ONCE ONLY. The orb's body goes at the end of the frame, and a thrown rock sweeps it
-        // again in the next frames - without this guard Tybal was halved two or three times
-        // over and fell to one weak blow (per user, 2026-09-24).
-        if (UWGameFlags.OrbDestroyed)
-            return;
-
-        Vector3 lOWhere = pOOrb.transform.position;
-
-        mLevelLoader.RemoveObjectFromWorld(pOOrb.ObjectData);
-        mLevelLoader.SpawnEffectAt(UWItemApplications.OrbEffectObjectId, lOWhere,
-            UWLevelLoader.SplashEffectSeconds);
-
-        if (UWScene.Character != null)
-            UWTybalOrbRules.OnOrbDestroyed(UWScene.Character.Vitals);
-
-        // And Tybal, wherever he stands on this level, loses half his strength for good.
-        UWCritter[] lOCritters = UWScene.FindCritters();
-
-        for (int liAt = 0; lOCritters != null && liAt < lOCritters.Length; liAt++)
-        {
-            if (lOCritters[liAt] != null && lOCritters[liAt].IsTybal)
-                lOCritters[liAt].WeakenByBrokenOrb();
-        }
-    }
-
-    public bool TryBreakRock(UWEntityInfo pOTarget)
-    {
-        if (pOTarget == null || pOTarget.ObjectData == null || mLevelLoader == null)
-            return false;
-
-        UWItemApplications.RockResult lOResult = UWItemApplications.BreakRock(pOTarget.ObjectData.ID);
-
-        if (lOResult.SpawnObjectId > 0)
-        {
-            int liTileX = pOTarget.ObjectData.TileX;
-            int liTileY = pOTarget.ObjectData.TileY;
-
-            mLevelLoader.RemoveObjectFromWorld(pOTarget.ObjectData);
-
-            // Freshly broken is fresh - the same reasoning as for conjured food
-            // (see UWSummonSpellRules.NewObjectQuality).
-            mLevelLoader.SpawnObjectById(lOResult.SpawnObjectId, liTileX, liTileY,
-                lOResult.SpawnQuantity, UWSummonSpellRules.NewObjectQuality);
-        }
-
-        AddGeneralMessage(lOResult.MessageIndex);
-
-        return true;
-    }
-
-    /// <summary>
-    /// The oil flask: turns a piece of wood into a torch, or refills torch and
-    /// lantern.
-    ///
-    /// It does not work ON A BURNING light source - there is a separate warning for that.
-    /// An unlit one gets 32 fuller, at most up to 63; if it is already full,
-    /// it says so.
-    ///
-    /// The flask itself is used up by each of these applications.
-    ///
-    /// DEVIATION FROM THE REFERENCE, BUT DELIBERATE: it picks the message group with
-    /// "item_id == 0x90 or 94" - the second number is decimal and makes no sense,
-    /// obviously the lit lantern 0x94 is meant. With its version one would get
-    /// the sentence about the torch when putting oil on a lit lantern.
-    /// </summary>
-    public bool TryOilItem(UWObject pOTarget, UWObject pOFlask)
-    {
-        if (pOTarget == null || mInventory == null || mOUWDataImporter == null)
-            return false;
-
-        UWItemApplications.Result lOResult = UWItemApplications.ApplyOil(pOTarget, mOUWDataImporter);
-
-        if (!lOResult.Handled)
-            return false;
-
-        if (lOResult.MessageIndex >= 0)
-            AddGeneralMessage(lOResult.MessageIndex);
-
-        if (lOResult.ItemUsed)
-            mInventory.TryConsumeOne(pOFlask);
-
-        if (lOResult.TargetChanged)
-            mInventory.NotifyChanged();
-
-        return true;
-    }
-
-    /// <summary>
-    /// The Key of Infinity: fires the open trigger on whatever it is
-    /// applied to.
-    ///
-    /// It does nothing more in the reference - it is a master key for exactly the
-    /// places where an an_open trigger hangs. It is assembled from the three
-    /// key parts (see UWInventory.TryCombineInto).
-    /// </summary>
-    public bool TryKeyOfInfinity(UWEntityInfo pOTarget)
-    {
-        return pOTarget != null && pOTarget.ObjectData != null
-            && UWTriggerSystem.TryFireOpenTrigger(pOTarget.ObjectData, mLevelLoader, this);
-    }
-
-    /// <summary>
-    /// Takes durability off the spike of a spiked door. Returns true if the strike
-    /// is used up by that - then the door itself takes nothing.
-    /// </summary>
-    private bool fTryDamageDoorSpike(UWEntityInfo pOTarget, int piDamage)
-    {
-        if (pOTarget == null || !pOTarget.IsDoor || pOTarget.ObjectData == null)
-            return false;
-
-        IUsableDoor lIUsable = pOTarget.GetComponentInParent<IUsableDoor>();
-
-        return UWItemApplications.TryDamageDoorSpike(pOTarget.ObjectData,
-            lIUsable == null || lIUsable.IsClosed, piDamage);
-    }
 
     /// <summary>The message a spiked door answers everything with - look as well as
     /// use.</summary>
@@ -4128,12 +4064,10 @@ public class Interaction : MonoBehaviour
     ///   critical success    fully repaired at once
     ///   success             three plus one fifth of the skill added
     ///   failure             nothing
-    ///   critical failure    damage, often total loss
+    ///   critical failure    damage, now and then total loss
     ///
-    /// THE TOTAL LOSS DEPENDS ON AN ODD ROLL: zero to 63 against condition plus
-    /// skill. The BETTER you are, the more likely the item breaks completely - that is
-    /// how it is in the reference, and it looks like a swapped comparison in the
-    /// original. Adopted as found.
+    /// The rolls, the fate of a destroyed item and the line are UWRepairRules.Attempt's
+    /// (do_repair and repair_item, brought to the original on 2026-10-15).
     /// </summary>
     private void fRepair(UWObject pOItem)
     {
@@ -4183,11 +4117,15 @@ public class Interaction : MonoBehaviour
     /// while the mode word dseg 268C is 3; the plain right-click look, mode 0, looks and then
     /// may pick up instead). Per user, 2026-09-30: the poisoned potion on level 2, 14/51, asked
     /// the trap question now and then in ours, never in 20 right-click looks in the original.
+    ///
+    /// THE MODERN SCHEME has no look icon: its look key (Q) and the context menu's Look do
+    /// nothing but look, the deliberate look of the icon, so they search as it does (per user,
+    /// 2026-10-13: the question never came there).
     /// </summary>
     private void fTryDetectTrap(UWEntityInfo pOTarget)
     {
         if (pOTarget == null || pOTarget.ObjectData == null || mbAskingYesNo
-            || CommandMode != UWCommandMode.Look
+            || (CommandMode != UWCommandMode.Look && !UWControlScheme.IsModern)
             || mLevelLoader == null || mLevelLoader.CurrentLevel == null)
             return;
 
@@ -4207,9 +4145,9 @@ public class Interaction : MonoBehaviour
     /// The spell Remove Trap (reference: trapdisarming.TrapDisarmSpell).
     ///
     /// IT DOES NOT ASK AND ROLLS WITH FIXED VALUES: 45 for detecting, 45 for
-    /// disarming - both well above anything a character ever reaches. The
-    /// spell thus almost always succeeds, but can fail just like an attempt by
-    /// hand, and then the trap goes off.
+    /// disarming (obj_spells, UnderworldExhumed SPELLS.C). Against the target 8,
+    /// skill_check (SKILLCHK.C) adds 0 to 30 to 37 and always grades it 2: the spell
+    /// never fails and never sets the trap off. (Until 2026-10-12 this said it could.)
     ///
     /// Returns false if no trap hangs on the target at all - then the caller reports
     /// "The spell has no discernable effect.".
@@ -4249,151 +4187,6 @@ public class Interaction : MonoBehaviour
         if (lOResult.TrapToFire != null)
             UWTriggerSystem.SetOffDisarmableTrap(lOResult.TrapToFire, lOResult.TriggerToFire, pOTarget.ObjectData,
                 pOTarget.ObjectData.TileX, pOTarget.ObjectData.TileY, mLevelLoader, this);
-    }
-
-    /// <summary>
-    /// Pick a lock with the lockpick - the rule is UWLockRules.PickLock, after the original
-    /// (read 2026-09-25): the Picklock skill against three times the lock difficulty, the door
-    /// stays shut, the pick is never lost, and a lock without its keep bit is gone afterwards.
-    /// </summary>
-    public void TryPickLock(UWEntityInfo pOTarget, UWObject pOLockpick)
-    {
-        if (pOTarget == null || pOLockpick == null || mLevelLoader == null
-            || mLevelLoader.CurrentLevel == null)
-            return;
-
-        // A BARREL OR CHEST is picked like a door: its lock sits in its own chain (see
-        // fSpillWorldContainer), it just has no UWDoorLock component (per user, 2026-09-16:
-        // the lockpick could not be applied to the chest at all).
-        UWDoorLock lOLock = pOTarget.GetComponentInParent<UWDoorLock>();
-        UWObject lOContainerLock = lOLock != null ? null : fGetContainerLock(pOTarget.ObjectData);
-
-        if (lOLock != null)
-            lOLock.EnsureResolved(pOTarget.ObjectData, mLevelLoader.CurrentLevel.Masterlist);
-
-        // The checks and the messages are in UWLockRules (P3, 2026-09-18).
-        UWLockRules.PickResult lOResult = UWLockRules.PickLock(lOLock != null ? lOLock.State : null,
-            lOContainerLock != null ? pOTarget.ObjectData : null, lOContainerLock,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Picklock) : 0);
-
-        if (lOResult.Unlocked)
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Lockpick);
-
-        AddGeneralMessage(lOResult.MessageIndex);
-    }
-
-    /// <summary>The lock object in the chain of a barrel or chest, or null.</summary>
-    private UWObject fGetContainerLock(UWObject pOContainer)
-    {
-        return mLevelLoader != null && mLevelLoader.CurrentLevel != null
-            ? UWLockRules.FindContainerLock(pOContainer, mLevelLoader.CurrentLevel.Masterlist)
-            : null;
-    }
-
-    /// <summary>For UWItemDrag (Original: use mode, applying a key to a door, a barrel or a chest).
-    /// Toggles ONLY the lock state (unlocks a locked door, locks
-    /// an unlocked one again - confirmed by user) and deliberately does NOT call
-    /// StartUsingDoor - unlocking does not automatically open the door. Messages
-    /// are the real original strings (confirmed by user, 2026-08-27) - unlike a click
-    /// without a door target (e.g. a wall, see UWItemDrag.fTryApplyUseModeItem)
-    /// every case HERE (including a failure) shows a message, not only a success.</summary>
-    public void TryToggleDoorLockWithKey(UWEntityInfo pOTarget, UWObject pOKey)
-    {
-        if (pOTarget == null || pOKey == null || pOKey.GetCategory() != UWObject.ObjectCategoryEnum.KeysLockpickLock)
-            return;
-
-        if (mLevelLoader == null || mLevelLoader.CurrentLevel == null)
-            return;
-
-        UWDoorLock lLock = pOTarget.GetComponentInParent<UWDoorLock>();
-
-        // A BARREL OR CHEST has no UWDoorLock, its lock hangs in its own chain - exactly
-        // as with the lockpick (see TryPickLock). Without this the key worked on doors only.
-        UWObject lOContainerLock = lLock != null ? null : fGetContainerLock(pOTarget.ObjectData);
-
-        if (lLock != null)
-            lLock.EnsureResolved(pOTarget.ObjectData, mLevelLoader.CurrentLevel.Masterlist);
-
-        // The rule and the messages are in UWLockRules (P3, 2026-09-18); an open door answers
-        // "That is already open." as in the original (UseKey, read 2026-09-25).
-        IUsableDoor lIDoor = pOTarget.GetComponentInParent<IUsableDoor>();
-        int liMessage = UWLockRules.ToggleWithKey(lLock != null ? lLock.State : null,
-            lOContainerLock != null ? pOTarget.ObjectData : null, lOContainerLock,
-            lIDoor != null && !lIDoor.IsClosed, pOKey);
-
-        if (liMessage >= 0)
-            AddGeneralMessage(liMessage);
-    }
-
-    /// <summary>Modern pickup: right-click "Use" on a portable object puts it directly
-    /// into the backpack, without dragging (see UWItemDrag for the Original dragging). Monsters
-    /// are defensively excluded, even though UWObjectSpawner currently does not treat them
-    /// differently from items - CanBePickedUp is set across the board for everything that is
-    /// not a door/3D model/pillar decoration/switch.</summary>
-    private void fTryPickUp(UWEntityInfo pOTarget)
-    {
-        if (mInventory == null || pOTarget.ObjectData == null)
-            return;
-
-        if (pOTarget.ObjectData.GetCategory() == UWObject.ObjectCategoryEnum.Monsters)
-            return;
-
-        // Carrying capacity as with dragging (UWItemDrag.fTakeFromSource): string block 1 no. 96.
-        if (!mInventory.CanCarry(pOTarget.ObjectData))
-        {
-            AddGeneralMessage(96);
-            return;
-        }
-
-        // Onto a stack, the backpack, or into a bag that takes it (UWInventoryModel.
-        // DropCursorItemAnywhere, per user 2026-10-03: a full backpack used to stop every pickup).
-        if (mInventory.TryStoreAnywhere(pOTarget.ObjectData))
-        {
-            ReportTheft(pOTarget.ObjectData);
-            UWMoonstoneRules.OnTakenFromWorld(pOTarget.ObjectData);
-            mInventory.RemoveWorldObject(pOTarget);
-        }
-        else
-            mOActiveStrings.Add("Your pack and bags are full.");
-    }
-
-    /// <summary>
-    /// Picking up someone else's property - ovr104_E4C (341516ff), read 2026-09-23.
-    ///
-    /// WHO OWNS SOMETHING is stored in the item's owner field, six bits, when its COMOBJ entry
-    /// allows an owner: a RACE NUMBER in the lower five bits, not a person, and bit 5 that also
-    /// wakes the creatures with a locked attitude. Everyone within the area - seven tiles back and
-    /// eight forward around the item (UWCritterRules.TheftAreaBack/Forward) - who minds it
-    /// and sees it loses goodwill and says so - UWTriggerSystem.AngerRaceAround with
-    /// UWCritterRules.MindsTheft, the knights' exception included.
-    ///
-    /// AFTERWARDS IT BELONGS TO NOBODY - whether anyone saw it or not, but only when owner
-    /// &amp; 0x1F is at most 0x1B (UWCritterRules.ClearsOwnerAfterTheft); the top bits of the
-    /// byte stay, and above that limit the owner stays too. Until 2026-09-23 ours cleared it
-    /// always, did not mind owners above 28 at all, and left the knights' items owned.
-    /// </summary>
-    public void ReportTheft(UWObject pOItem)
-    {
-        if (pOItem == null || mLevelLoader == null || mOUWDataImporter == null
-            || mOUWDataImporter.CommonObjectProperties == null)
-            return;
-
-        UWCommonObjectProperties.Entry lOEntry;
-
-        if (!mOUWDataImporter.CommonObjectProperties.TryGet(pOItem.ID, out lOEntry)
-            || !lOEntry.CanHaveOwner)
-            return;
-
-        int liOwner = pOItem.Owner;
-
-        if (liOwner == 0)
-            return;
-
-        UWTriggerSystem.AngerRaceAround(liOwner, pOItem,
-            new UWTilePos(pOItem.TileX, pOItem.TileY), mLevelLoader, this);
-
-        if (UWCritterRules.ClearsOwnerAfterTheft(liOwner))
-            pOItem.Owner = 0;
     }
 
     /// <summary>Line in the message box that keeps changing - for the quantity question
@@ -4569,7 +4362,7 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private string fReadHeader(UWObject pOItem)
     {
-        string lsName = UWItemDescriptions.GetBareName(pOItem.ID, mOUWDataImporter);
+        string lsName = UWText.ObjectName(mOUWDataImporter, pOItem.ID);
 
         return ReadPrefix + (string.IsNullOrEmpty(lsName) ? UnnamedItem : lsName) + ReadSuffix;
     }
@@ -4641,17 +4434,17 @@ public class Interaction : MonoBehaviour
             return true;
         }
 
-        string lsText = mOUWDataImporter.GetBookText(UWObjectMechanics.GetBookStringIndex(pOItem));
-
-        // A scroll without text is a picture parchment: instead of letters it shows a plan
-        // in the view window, as a window does (per user with a screenshot from the
-        // original, 2026-09-03).
+        // THE MAP PIECE plays its cutscene instead of letters, a plan in the view window as a
+        // window shows (per user with a screenshot from the original, 2026-09-03): the flag
+        // decides, not an empty text (UWObjectMechanics.GetBookCutscene, 2026-10-15).
         //
         // The look message belongs ONLY to the right click. On left click the
         // original only shows the picture and writes nothing to the log.
-        if (string.IsNullOrEmpty(lsText) || string.IsNullOrEmpty(lsText.Trim()))
+        int liCutscene = UWObjectMechanics.GetBookCutscene(pOItem);
+
+        if (liCutscene >= 0)
         {
-            if (mGameUi == null || !mGameUi.ShowScrollPicture())
+            if (mGameUi == null || !mGameUi.ShowScrollPicture(liCutscene))
                 return false;
 
             if (pbLooking && !string.IsNullOrEmpty(lsLook))
@@ -4660,7 +4453,23 @@ public class Interaction : MonoBehaviour
             return true;
         }
 
-        string lsPrefix = fReadHeader(pOItem);
+        string lsText = mOUWDataImporter.GetBookText(UWObjectMechanics.GetBookStringIndex(pOItem));
+
+        // A TEXT NUMBER FROM 0x100 ON (the recipe, looked at) stands alone, without "You read
+        // the ..." (BookLook, obj/LOOK.C, 2026-10-15; until then ours put the header before it).
+        string lsPrefix = UWObjectMechanics.ReadsWithHeader(pOItem) ? fReadHeader(pOItem) : null;
+
+        // An empty text still gets its header, as UseBook prints it (none such is known).
+        if (string.IsNullOrEmpty(lsText) || string.IsNullOrEmpty(lsText.Trim()))
+        {
+            if (pbLooking && !string.IsNullOrEmpty(lsLook))
+                AddMessage(lsLook);
+
+            if (!string.IsNullOrEmpty(lsPrefix))
+                AddMessage(lsPrefix);
+
+            return true;
+        }
 
         // The look message belongs only to the right click. The reading hint and the text
         // appear with both buttons (per user, 2026-09-03).
@@ -4737,310 +4546,15 @@ public class Interaction : MonoBehaviour
         miPromptLine = -1;
     }
 
-    /// <summary>For UWItemDrag (Original world pickup via right-click drag): returns the
-    /// pickable target under the given screen position, or null - independent of
-    /// this class's current click state, since UWItemDrag keeps its own
-    /// click-vs-drag timing (see mbIsPending/ClickMoveThreshold there).</summary>
-    public UWEntityInfo TryGetPickupTargetAt(Vector2 pOScreenPos)
-    {
-        return TryGetPickupTarget(Camera.main.ScreenPointToRay(pOScreenPos));
-    }
-
     /// <summary>
-    /// The frontmost PICKABLE object along the ray.
-    ///
-    /// NON-PICKABLE THINGS DO NOT STOP IT: a blood pool or a bone pile often lies
-    /// exactly where a creature's loot lies, and used to hide it - pickup did not
-    /// work (per user, 2026-09-13: "non-pickable items must not prevent other items at the
-    /// same position from being picked up"). So the ray keeps searching behind them.
-    /// Walls, doors and creatures still stop it - you do not reach through
-    /// them.
-    ///
-    /// LOOKING still takes the frontmost object (see GetFirstEntityAt), so the blood pool
-    /// can still be looked at.
+    /// The thing under the action bar's crosshair for using an item on it - the middle of the
+    /// game camera's view (UWWorldPicker.CrosshairRay), which in Classic Wide is not the middle of
+    /// the screen (B18; until 2026-10-12 UWItemDrag measured Screen.width / 2).
     /// </summary>
-    public UWEntityInfo TryGetPickupTarget(Ray pORay)
+    public UWEntityInfo TryGetEntityAtCrosshair(UWObject pOHeldItem)
     {
-        RaycastHit[] lOHits = Physics.RaycastAll(pORay, LookRayRange);
-
-        System.Array.Sort(lOHits, (lOA, lOB) => lOA.distance.CompareTo(lOB.distance));
-
-
-        foreach (RaycastHit lOHit in lOHits)
-        {
-            if (fIsPlayerBody(lOHit) || fMissesModelShape(pORay, lOHit) || fMissesSpritePixels(pORay, lOHit))
-                continue;
-
-            UWEntityInfo lOTarget = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-            // Wall, floor or ceiling.
-            if (lOTarget == null || lOTarget.ObjectData == null)
-                return null;
-
-            // A BRIDGE is a floor: the Wine of Compassion under the plate on level 6, 27/50, could
-            // be taken through it (per user, 2026-09-29); in the original the plate is lifted first.
-            if (lOTarget.IsDoor
-                || lOTarget.ObjectData.GetCategory() == UWObject.ObjectCategoryEnum.Monsters
-                || lOTarget.ObjectData.ID == UWObjectMechanics.BridgeObjectId)
-                return null;
-
-            if (lOTarget.CanBePickedUp)
-                return lOTarget;
-
-            // A SOLID THING that cannot be taken stops the ray too - a barrel, chest, table,
-            // boulder: in the original the pointer picks what is drawn there, and an item behind
-            // a barrel cannot be taken through it (per user, 2026-09-30). Only what one walks over
-            // (a trigger body: blood, bones) lets the ray on.
-            if (!lOHit.collider.isTrigger)
-                return null;
-        }
-
-        return null;
+        return UWWorldPicker.Measure(UWWorldPicker.CrosshairRay()).Frontmost;
     }
-
-    /// <summary>
-    /// Like Physics.Raycast, except that a spell effect or other animation
-    /// (0x1C0-0x1CF) does not stop it if an object or creature lies behind it.
-    ///
-    /// The original picks the target via the drawn pixels: the sparks above the
-    /// Slasher of Veils on level 8 (0x1C7) are almost fully transparent, you hit the Slasher
-    /// behind them. Our collider box covers the whole image and intercepted looking and talking
-    /// (per user, 2026-09-14). Fountain water and silver tree remain hittable - they are
-    /// themselves what is meant. If only wall or floor lies behind the effect, the effect
-    /// still counts.
-    /// </summary>
-    private bool fRaycastPastEffects(Ray pORay, float pfRange, out RaycastHit pOHit)
-    {
-        pOHit = default(RaycastHit);
-
-        RaycastHit[] lOHits = Physics.RaycastAll(pORay, pfRange);
-
-        System.Array.Sort(lOHits, (lOA, lOB) => lOA.distance.CompareTo(lOB.distance));
-
-        bool lbHaveEffect = false;
-
-        foreach (RaycastHit lOHit in lOHits)
-        {
-            // PURE LOGIC VOLUMES (move triggers, level transitions) are invisible and
-            // carry no object - you look through them. On the tile of the Slasher of
-            // Veils on level 8 there is a move trigger; its box intercepted the look, from
-            // outside the Slasher could not be looked at at all (per user, 2026-09-14).
-            if (lOHit.collider.isTrigger && lOHit.collider.GetComponentInParent<UWEntityInfo>() == null)
-                continue;
-
-            if (fIsPlayerBody(lOHit) || fMissesModelShape(pORay, lOHit) || fMissesSpritePixels(pORay, lOHit))
-                continue;
-
-            if (fIsPassThroughEffect(lOHit))
-            {
-                if (!lbHaveEffect)
-                {
-                    pOHit = lOHit;
-                    lbHaveEffect = true;
-                }
-
-                continue;
-            }
-
-            // Behind an effect only an object or creature counts, not a wall.
-            if (!lbHaveEffect || lOHit.collider.GetComponentInParent<UWEntityInfo>() != null)
-                pOHit = lOHit;
-
-            return true;
-        }
-
-        return lbHaveEffect;
-    }
-
-    /// <summary>
-    /// A 3D MODEL IS AIMED AT BY ITS SHAPE, NOT ITS BOX (per user, 2026-09-30 with a screenshot:
-    /// beside a barrel the bread could not be taken, "the barrel is always used"). A model's
-    /// collider is a box round its mesh, widened to its COMOBJ.DAT radius for the motion (see
-    /// UWObjectSpawner.fSpawn3DModel) - far larger than the barrel as drawn, and the original
-    /// picks by what is drawn under the pointer. So a hit on a model's solid box counts only if
-    /// the ray really crosses one of the model's triangles; otherwise the ray goes on.
-    /// </summary>
-    private static bool fMissesModelShape(Ray pORay, RaycastHit pOHit)
-    {
-        if (pOHit.collider == null || pOHit.collider.isTrigger || !(pOHit.collider is BoxCollider))
-            return false;
-
-        UWEntityInfo lOInfo = pOHit.collider.GetComponent<UWEntityInfo>();
-        MeshFilter lOFilter = pOHit.collider.GetComponent<MeshFilter>();
-
-        if (lOInfo == null || !lOInfo.IsModel || lOFilter == null || lOFilter.sharedMesh == null)
-            return false;
-
-        Mesh lOMesh = lOFilter.sharedMesh;
-
-        if (!lOMesh.isReadable)
-            return false;
-
-        Transform lOTransform = lOFilter.transform;
-        Vector3 lOOrigin = lOTransform.InverseTransformPoint(pORay.origin);
-        Vector3 lODirection = lOTransform.InverseTransformDirection(pORay.direction);
-        Vector3[] laVertices = lOMesh.vertices;
-
-        for (int liSub = 0; liSub < lOMesh.subMeshCount; liSub++)
-        {
-            int[] laTriangles = lOMesh.GetTriangles(liSub);
-
-            for (int liAt = 0; liAt + 2 < laTriangles.Length; liAt += 3)
-            {
-                if (fRayCrossesTriangle(lOOrigin, lODirection, laVertices[laTriangles[liAt]],
-                    laVertices[laTriangles[liAt + 1]], laVertices[laTriangles[liAt + 2]]))
-                    return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// A SPRITE IS AIMED AT BY ITS PIXELS, NOT ITS BOX (per user, 2026-10-01: in front of the small
-    /// boulder on level 4, 35/5, the rock hammer was always used on the blood stain beside it; the
-    /// original takes the boulder). The original picks what is drawn under the pointer; our sprite
-    /// carries a box the size of its whole picture, square in plan, and a low stain's box reaches
-    /// over the thing next to it. So a hit on a sprite counts only where the ray meets an opaque
-    /// pixel of the picture as the billboard shader draws it - parallel to the screen through the
-    /// pivot, moved by its depth bias - with the material's own alpha threshold.
-    /// </summary>
-    private static bool fMissesSpritePixels(Ray pORay, RaycastHit pOHit)
-    {
-        Collider lOCollider = pOHit.collider;
-
-        if (lOCollider == null)
-            return false;
-
-        UWEntityInfo lOInfo = lOCollider.GetComponent<UWEntityInfo>();
-        MeshFilter lOFilter = lOCollider.GetComponent<MeshFilter>();
-        MeshRenderer lORenderer = lOCollider.GetComponent<MeshRenderer>();
-
-        if (lOInfo == null || lOInfo.IsModel || lOFilter == null || lOFilter.sharedMesh == null
-            || lORenderer == null || lORenderer.sharedMaterial == null)
-            return false;
-
-        Material lOMaterial = lORenderer.sharedMaterial;
-        string lsShader = lOMaterial.shader != null ? lOMaterial.shader.name : string.Empty;
-
-        if (lsShader != "UW/Billboard" && lsShader != "UW/BillboardPalette")
-            return false;
-
-        Texture2D lOTexture = lOMaterial.HasProperty("_MainTex") ? lOMaterial.mainTexture as Texture2D : null;
-
-        if (lOTexture == null && lOMaterial.HasProperty("_IndexTex"))
-            lOTexture = lOMaterial.GetTexture("_IndexTex") as Texture2D;
-
-        Mesh lOMesh = lOFilter.sharedMesh;
-        Camera lOCamera = Camera.main;
-
-        if (lOTexture == null || !lOTexture.isReadable || !lOMesh.isReadable || lOMesh.vertexCount < 4 || lOCamera == null)
-            return false;
-
-        // The shader's frame: forward is the view matrix's third row, flattened.
-        Vector3 lOToCamera = lOCamera.worldToCameraMatrix.GetRow(2);
-        lOToCamera.y = 0f;
-
-        Vector3 lOForward = (lOToCamera + new Vector3(0f, 0f, 1e-4f)).normalized;
-        Vector3 lORight = Vector3.Cross(lOForward, Vector3.up).normalized;
-        float lfDepthBias = lOMaterial.HasProperty("_DepthBias") ? lOMaterial.GetFloat("_DepthBias") : 0f;
-        Vector3 lOPlane = lOCollider.transform.position + (lOForward * lfDepthBias);
-
-        float lfFacing = Vector3.Dot(pORay.direction, lOForward);
-
-        if (Mathf.Abs(lfFacing) < 1e-5f)
-            return false;
-
-        Vector3 lOPoint = pORay.origin + (pORay.direction * (Vector3.Dot(lOPlane - pORay.origin, lOForward) / lfFacing));
-        float lfX = Vector3.Dot(lOPoint - lOPlane, lORight);
-        float lfY = lOPoint.y - lOPlane.y;
-
-        // The quad of UWObjectSpawner.fGetQuad: 0 bottom left, 1 bottom right, 3 top left.
-        Vector3[] laVertices = lOMesh.vertices;
-        Vector2[] laUvs = lOMesh.uv;
-
-        if (laUvs == null || laUvs.Length < 4)
-            return false;
-
-        float lfWidth = laVertices[1].x - laVertices[0].x;
-        float lfHeight = laVertices[3].y - laVertices[0].y;
-
-        if (Mathf.Abs(lfWidth) < 1e-5f || Mathf.Abs(lfHeight) < 1e-5f)
-            return false;
-
-        float lfS = (lfX - laVertices[0].x) / lfWidth;
-        float lfT = (lfY - laVertices[0].y) / lfHeight;
-
-        if (lfS < 0f || lfS > 1f || lfT < 0f || lfT > 1f)
-            return true;
-
-        float lfU = Mathf.Lerp(laUvs[0].x, laUvs[1].x, lfS);
-        float lfV = Mathf.Lerp(laUvs[0].y, laUvs[3].y, lfT);
-        int liPixelX = Mathf.Clamp(Mathf.FloorToInt(lfU * lOTexture.width), 0, lOTexture.width - 1);
-        int liPixelY = Mathf.Clamp(Mathf.FloorToInt(lfV * lOTexture.height), 0, lOTexture.height - 1);
-        float lfCutoff = lOMaterial.HasProperty("_Cutoff") ? lOMaterial.GetFloat("_Cutoff") : 0.5f;
-
-        return lOTexture.GetPixel(liPixelX, liPixelY).a < lfCutoff;
-    }
-
-    /// <summary>
-    /// THE PLAYER'S OWN BODY IS NO TARGET (per user, 2026-10-01: looking down, items could hardly
-    /// or not at all be taken). The pointer's ray starts at the eye, and looking down steeply it
-    /// meets the body's capsule a few units in front of the camera first; the pickup search took
-    /// it for a wall and stopped (traced in the player log). The original has no body in its way.
-    /// </summary>
-    private static bool fIsPlayerBody(RaycastHit pOHit)
-    {
-        return pOHit.collider != null && (pOHit.collider is CharacterController
-            || pOHit.collider.GetComponentInParent<UWPlayerMovement>() != null);
-    }
-
-    /// <summary>Moeller-Trumbore, both faces - a model's back face counts as well, the pointer
-    /// can meet the inside of a barrel's rim.</summary>
-    private static bool fRayCrossesTriangle(Vector3 pOOrigin, Vector3 pODirection, Vector3 pOA, Vector3 pOB, Vector3 pOC)
-    {
-        Vector3 lOEdge1 = pOB - pOA;
-        Vector3 lOEdge2 = pOC - pOA;
-        Vector3 lOP = Vector3.Cross(pODirection, lOEdge2);
-        float lfDet = Vector3.Dot(lOEdge1, lOP);
-
-        if (Mathf.Abs(lfDet) < 1e-6f)
-            return false;
-
-        float lfInv = 1f / lfDet;
-        Vector3 lOT = pOOrigin - pOA;
-        float lfU = Vector3.Dot(lOT, lOP) * lfInv;
-
-        if (lfU < 0f || lfU > 1f)
-            return false;
-
-        Vector3 lOQ = Vector3.Cross(lOT, lOEdge1);
-        float lfV = Vector3.Dot(pODirection, lOQ) * lfInv;
-
-        if (lfV < 0f || lfU + lfV > 1f)
-            return false;
-
-        return Vector3.Dot(lOEdge2, lOQ) * lfInv > 0f;
-    }
-
-    private static bool fIsPassThroughEffect(RaycastHit pOHit)
-    {
-        UWEntityInfo lOInfo = pOHit.collider != null ? pOHit.collider.GetComponentInParent<UWEntityInfo>() : null;
-
-        if (lOInfo == null || lOInfo.ObjectData == null)
-            return false;
-
-        int liId = lOInfo.ObjectData.ID;
-
-        return liId >= UWObjectClassProperties.AnimationFirstId && liId <= AnimationLastId
-            && liId != UWObjectMechanics.FountainWaterObjectId && liId != SilverTreeObjectId;
-    }
-
-    /// <summary>Last animation object.</summary>
-    private const int AnimationLastId = 0x1CF;
-
-    /// <summary>a_silver tree (459).</summary>
-    private const int SilverTreeObjectId = 459;
 
     // ------------------------------------------------- Spell projectiles
 
@@ -5098,13 +4612,14 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>
-    /// Sends the queued projectile off from any position in any direction - for the
-    /// a_spelltrap, which has no click that could give it the direction (see
-    /// UWTriggerSystem.fFireSpellTrap). A static caster: the missile starts at the trap's own
-    /// spot with no height offset and no placement test (PrepareProjectileObject for a
-    /// launcher of height 0), level, along the trap's facing.
+    /// Sends the queued projectile off from a trap's spot - the a_spelltrap, which has no click
+    /// that could give it the direction (see UWTriggerSystem.FireSpellTrap). spell_fire for an
+    /// object caster (UnderworldExhumed MISSILE.C): from the map square the trigger names, at
+    /// the trap's fine position and height, with missile_arc and missile_try 0 - flat, along
+    /// the heading given (OBJ_HEADING(trap) &lt;&lt; 5); a launcher of height 0, so no offset
+    /// and no placement test. Until 2026-10-12 the caller aimed it at the camera.
     /// </summary>
-    public bool LaunchPendingSpellFrom(Vector3 pOStart, Vector3 pODirection)
+    public bool LaunchPendingSpellFromSpot(int piTileX, int piTileY, int piXPos, int piYPos, int piZPos, int piHeading)
     {
         if (miPendingProjectileId < 0 || mLevelLoader == null)
             return false;
@@ -5113,23 +4628,20 @@ public class Interaction : MonoBehaviour
 
         miPendingProjectileId = -1;
 
-        int liX8 = UWViewpoint.WorldToOriginalX(pOStart.x) >> 5;
-        int liY8 = UWViewpoint.WorldToOriginalY(pOStart.z) >> 5;
-        int liZPos = UWViewpoint.WorldToOriginalZ(pOStart.y) >> 3;
-
-        UWProjectileWorld.AimFromDirection(pODirection, miPendingProjectileSpeedByte, out int liHeading, out int _);
-
-        return UWProjectileWorld.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, liX8 >> 3, liY8 >> 3, liX8 & 7, liY8 & 7,
-            liZPos, liHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileDamage,
-            UWRunicMagic.GetProjectileDamageType(liProjectile), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
+        return UWProjectileWorld.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, piTileX, piTileY, piXPos, piYPos,
+            piZPos, piHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileDamage,
+            UWRunicMagic.GetProjectileDamageType(liProjectile, fObjectProperties), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
     }
 
+    /// <summary>The OBJECTS.DAT tables, for a spell projectile's damage type.</summary>
+    private UWObjectProperties fObjectProperties => mOUWDataImporter != null ? mOUWDataImporter.ObjectProperties : null;
+
     /// <summary>The modern scheme's aim after a cast from runes or an item (UWHudRunes.fAfterModernCast,
-    /// UWItemDrag.UseCarriedItem): a projectile with the pointer locked flies at once towards the
+    /// UWCarriedItemUse): a projectile with the pointer locked flies at once towards the
     /// crosshair; free, or a target spell, waits for the left button.</summary>
     public void AfterModernCast()
     {
-        if (fIsOriginalScheme() || !IsSpellTargeting)
+        if (!UWControlScheme.IsModern || !IsSpellTargeting)
             return;
 
         if (IsTargetSpellPending || fIsPointerFree())
@@ -5139,7 +4651,7 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>Escape in the modern scheme: a waiting spell is let go (a projectile's mana was not
-    /// paid yet, a target spell's was - as when its click hits nothing).</summary>
+    /// paid yet, a target spell's was).</summary>
     public void CancelPendingSpell()
     {
         miPendingProjectileId = -1;
@@ -5158,14 +4670,18 @@ public class Interaction : MonoBehaviour
 
     /// <summary>Starts a conversation with an NPC the player did not click on -
     /// for the a_do trap 50, which knows its conversation partner via its object slot
-    /// (see UWTriggerSystem.fFireConversationTrap).</summary>
+    /// (see UWTriggerSystem.fFireConversationTrap), a critter that comes to talk and
+    /// Garamon's burial. TalkTo's refusals apply as to a click (fRefusesTalk).</summary>
     public bool TryTalkToNpcData(UWObject pONpcData)
     {
         UWNpc lONpc = pONpcData as UWNpc;
 
+        if (mConversationScreen == null || UWConversationScreen.IsAnyOpen)
+            return false;
+
         int liSlot = GetConversationSlot(lONpc);
 
-        if (liSlot <= 0 || mConversationScreen == null || UWConversationScreen.IsAnyOpen)
+        if (fRefusesTalk(lONpc, liSlot) || liSlot <= 0)
             return false;
 
         return mConversationScreen.Begin(mOUWDataImporter, lONpc, liSlot);
@@ -5218,33 +4734,56 @@ public class Interaction : MonoBehaviour
     /// (UW.EXE ItemRepair_ovr107_1754 prints it as 0x8E); a "Nothing happens." does not exist in
     /// block 1. 272 is what UW.EXE DoorAndTrapSpells_seg038_3307_1560 prints (0x10F) when a
     /// class 11 target spell does not take effect.</summary>
-    private const int NothingHappensMessage = 272;
+    private const int NothingHappensMessage = UWStringIds.SpellNoEffectMessage;
 
-    /// <summary>Intercepts the click that gives the target.</summary>
-    /// <summary>The waiting target spell onto what lies under a screen point - the pointer, or in
-    /// the modern scheme the crosshair while the pointer is locked.</summary>
+    /// <summary>
+    /// The waiting target spell onto what lies under a screen point - the pointer, or in the
+    /// modern scheme the crosshair while the pointer is locked.
+    ///
+    /// AS THE ORIGINAL'S TARGET MODE (mous_in_3d, GIM_TARGET, UnderworldExhumed INTERACT.C, read
+    /// 2026-10-12): a click on no object does nothing and the spell keeps waiting; an object out
+    /// of reach - the use reach, InPickRange with PickDist, which Telekinesis lifts - gives "You
+    /// cannot reach that." and the spell keeps waiting; only an object in reach takes the spell
+    /// (obj_spells), which then prints its own outcome. Until 2026-10-12 every click used the
+    /// spell up, from as far as one could look, with "The spell has no discernable effect." for
+    /// a miss. The original's BlockingTerrain test is not built here, as on the use path.
+    /// </summary>
     private void fApplyTargetSpell(Vector2 pOAt)
     {
         int liSpell = miPendingTargetSpell;
         int liMajor = miPendingTargetSpellMajor;
 
+        // The pickable thing first - behind a blood pool if need be -, else whatever the look
+        // hits: a creature, a door (UWWorldPicker.Measurement.SpellTarget).
+        UWEntityInfo lOTarget = Camera.main != null
+            ? UWWorldPicker.Measure(Camera.main.ScreenPointToRay(pOAt)).SpellTarget
+            : null;
+
+        if (lOTarget == null)
+            return;
+
+        if (!fCanReach(lOTarget, UWReachRules.GetDistanceSquared(false, fHasTelekinesis), false))
+        {
+            AddGeneralMessage(UWMiscSpellRules.TargetOutOfReachMessage);
+
+            return;
+        }
+
         miPendingTargetSpell = -1;
         miPendingTargetSpellMajor = -1;
 
-        UWEntityInfo lOTarget = TryGetPickupTargetAt(pOAt);
-
-        // TryGetPickupTargetAt only returns pickable things - creatures and doors are
-        // not among them. Hence a separate ray here that takes whatever it hits.
-        if (lOTarget == null && Camera.main != null
-            && fRaycastPastEffects(Camera.main.ScreenPointToRay(pOAt), LookRayRange, out RaycastHit lOHit))
-            lOTarget = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-        bool lbDone = liMajor == UWMiscSpell.MajorClass
-            ? UWMiscSpell.CastOnTarget(liSpell, lOTarget, this, mLevelLoader)
-            : UWTargetSpell.Cast(liSpell, lOTarget);
-
-        if (!lbDone)
+        if (liMajor == UWMiscSpell.MajorClass)
+            UWMiscSpell.CastOnTarget(liSpell, lOTarget, this, mLevelLoader);
+        else if (UWTargetSpell.Cast(liSpell, lOTarget) == UWTargetSpellRules.Result.Missed)
             AddGeneralMessage(NothingHappensMessage);
+    }
+
+    /// <summary>The look sentence for a thing in the world, without the look's triggers and
+    /// trap search - for Name Enchantment on something that cannot be identified (see
+    /// UWMiscSpell).</summary>
+    public string GetLookDescription(UWEntityInfo pOTarget)
+    {
+        return pOTarget != null ? fGetLookDescription(pOTarget) : null;
     }
 
     /// <summary>Is a TARGET spell waiting for its target? A projectile spell does not count - it
@@ -5306,7 +4845,7 @@ public class Interaction : MonoBehaviour
         // so the LEFT button gives the target - through the crosshair, or under the free pointer;
         // on a window of the modern UI the window has the click (a bag slot takes an item target,
         // UWModernBags). See UWHudRunes.fAfterModernCast.
-        if (!fIsOriginalScheme())
+        if (UWControlScheme.IsModern)
         {
             if (!UWMouseButtons.LeftPressed)
                 return true;
@@ -5333,7 +4872,7 @@ public class Interaction : MonoBehaviour
         // Outside the view window you do not point into the world. The click on the
         // backpack is evaluated by UWItemDrag (fTryResolveTargetSpellInInventory) - there, because
         // it can also still have its usual effect there.
-        if (mControlScheme != null && mControlScheme.Current == UWControlScheme.SchemeEnum.Original
+        if (!UWControlScheme.IsModern
             && mGameUi != null && !mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue()))
             return true;
 
@@ -5375,7 +4914,7 @@ public class Interaction : MonoBehaviour
         int liHeading;
         int liPitch;
 
-        if (fIsOriginalScheme() && mGameUi != null)
+        if (!UWControlScheme.IsModern && mGameUi != null)
         {
             UWPlayerThrow.GetPointerInView(mGameUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
             UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
@@ -5389,7 +4928,7 @@ public class Interaction : MonoBehaviour
 
         UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mLevelLoader).LaunchFromPlayer(null, miPendingProjectileId,
             liHeading, liPitch, miPendingProjectileSpeedByte, miPendingProjectileDamage,
-            UWRunicMagic.GetProjectileDamageType(miPendingProjectileId), UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
+            UWRunicMagic.GetProjectileDamageType(miPendingProjectileId, fObjectProperties), UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
             this, 0x3F);
 
         if (lOFlight == null)
@@ -5406,33 +4945,39 @@ public class Interaction : MonoBehaviour
         miPendingManaCost = 0;
     }
 
-    /// <summary>A spell projectile has hit: hit effect and the eyes at the top
-    /// edge as in melee.</summary>
+    /// <summary>The player's missile has hit: an object's flash, a creature's eyes at the top
+    /// edge as in melee. A CREATURE'S BLOOD comes from UWCritter.ShowHitEffect alone, which the
+    /// missile calls first: do_damage (UnderworldExhumed COMBAT.C) puts it once, a second only for
+    /// a critical blow, which a missile never is. Until 2026-10-13 ours showed two (reference
+    /// audit, finding of the fix agents).</summary>
     public void ReportSpellHit(UWEntityInfo pOTarget, UWDamageable pODamageable, Vector3 pOPoint)
     {
-        if (pOTarget != null)
+        if (pOTarget != null && !fIsCreature(pOTarget))
             fShowHitEffect(pOTarget, pOPoint);
 
         // Only for a creature - see fApplyMeleeHit.
         if (mEyes != null && pODamageable != null && fIsCreature(pOTarget))
-            mEyes.ShowCondition(mOUWDataImporter, pODamageable.HealthFraction, fFoeName(pOTarget));
+            fShowEyes(pOTarget, pODamageable);
+    }
+
+    /// <summary>The eyes for a creature the player hit: its hit points left against its table
+    /// average (UWCombat.GetEyesGroup).</summary>
+    private void fShowEyes(UWEntityInfo pOTarget, UWDamageable pODamageable)
+    {
+        UWCritter lOCritter = pOTarget != null ? pOTarget.GetComponentInParent<UWCritter>() : null;
+
+        mEyes.ShowCondition(mOUWDataImporter, pODamageable.CurrentHealth,
+            lOCritter != null ? lOCritter.TableVitality : pODamageable.MaxHealth, fFoeName(pOTarget));
     }
 
     /// <summary>The bare name of a creature hit, capitalised - for the modern heading strip
     /// (UWModernHud), as the crosshair names it.</summary>
     private string fFoeName(UWEntityInfo pOTarget)
     {
-        if (pOTarget == null || pOTarget.ObjectData == null || mOUWDataImporter == null)
+        if (pOTarget == null || pOTarget.ObjectData == null)
             return null;
 
-        string lsRaw = mOUWDataImporter.GetObjectDescription(pOTarget.ObjectData.ID + 1);
-
-        if (string.IsNullOrEmpty(lsRaw))
-            return null;
-
-        string lsName = UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, false);
-
-        return string.IsNullOrEmpty(lsName) ? null : char.ToUpperInvariant(lsName[0]) + lsName.Substring(1);
+        return UWText.Capitalised(UWText.ObjectName(mOUWDataImporter, pOTarget.ObjectData.ID, false, false, null));
     }
 
     /// <summary>
@@ -5442,10 +4987,10 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private Ray fGetInteractionRay()
     {
-        if (mControlScheme == null || mControlScheme.Current == UWControlScheme.SchemeEnum.Original)
+        if (!UWControlScheme.IsModern)
             return Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
 
-        return Camera.main.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        return UWWorldPicker.CrosshairRay();
     }
 
     /// <summary>
@@ -5501,11 +5046,6 @@ public class Interaction : MonoBehaviour
     /// taken, "Talk" to a creature or a thing that answers, "Use" anything else - and null where
     /// the tap does nothing (a wall, the floor, beyond the sight).
     /// </summary>
-
-    /// name out of string block 4 ("goblin", "door"), plural for a stack. Without the look's
-    /// side effects (identifying, trap search, look triggers); nothing for walls, floors,
-    /// wall panels, geometry and what lies beyond the sight.
-    /// </summary>
     public string GetCrosshairPadVerb()
     {
         if (mOUWDataImporter == null)
@@ -5530,6 +5070,12 @@ public class Interaction : MonoBehaviour
             ? "Talk" : "Use";
     }
 
+    /// <summary>
+    /// WHAT THE CROSSHAIR IS ON, for the label under it (UWModernHud): the thing's bare
+    /// name out of string block 4 ("goblin", "door"), plural for a stack. Without the look's
+    /// side effects (identifying, trap search, look triggers); nothing for walls, floors,
+    /// wall panels, geometry and what lies beyond the sight.
+    /// </summary>
     public string GetCrosshairTargetName()
     {
         if (mOUWDataImporter == null)
@@ -5547,12 +5093,10 @@ public class Interaction : MonoBehaviour
         if (lOTarget.ObjectData.ID == WallPanelObjectId || lOTarget.ObjectData.ID == WallPanelObjectId + 1)
             return null;
 
+        // Plural for a real stack only (UWStackRules.IsStack): until 2026-10-11 any quantity
+        // field above 1 chose the plural, so a special property named an enchanted piece as many.
         UWObject lOObject = lOTarget.ObjectData;
-        string lsRaw = mOUWDataImporter.GetObjectDescription(lOObject.ID + 1);
 
-        if (string.IsNullOrEmpty(lsRaw))
-            return null;
-
-        return UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, lOObject.HasQuantity && lOObject.Quantity > 1);
+        return UWText.ObjectName(mOUWDataImporter, lOObject.ID, UWStackRules.IsStack(lOObject), false, null);
     }
 }

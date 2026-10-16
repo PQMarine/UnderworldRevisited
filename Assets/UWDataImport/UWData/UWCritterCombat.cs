@@ -37,7 +37,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>The player's own creature row (the adventurer, item 0x7F): do_miss takes the
 		/// weapon kind of HIS blocked blows from this row, whatever he wields.</summary>
-		public const int PlayerCritterObjectId = 0x7F;
+		public const int PlayerCritterObjectId = UWObjectIds.Adventurer;
 
 		/// <summary>
 		/// THE SOUND OF A BLOCKED BLOW (do_miss, UnderworldExhumed COMBAT.C, read 2026-10-11; the
@@ -73,11 +73,14 @@ namespace UWDataImport.UWData
 
 		public const int AttackStride = 3;
 
+		/// <summary>Three attacks per row; an attack number outside 0..2 is held to that range.</summary>
+		private const int AttackCount = 3;
+
 		/// <summary>AttackScore = (signed) row[0x13 + 3i] + (signed) row[0x11] &gt;&gt; 1 (labels
 		/// 1656-1679: cbw, sar 1 - a negative base rounds towards minus infinity).</summary>
 		public static int GetAttackScore(UWObjectClassProperties.Critter pORow, int piAttack)
 		{
-			int liToHit = (sbyte)pORow.RowByte(AttackToHitOffset + (AttackStride * fClampAttack(piAttack)));
+			int liToHit = (sbyte)pORow.RowByte(AttackToHitOffset + (AttackStride * UWMath.Clamp(piAttack, 0, AttackCount - 1)));
 
 			return liToHit + (pORow.AttackScoreBase >> 1);
 		}
@@ -86,7 +89,7 @@ namespace UWDataImport.UWData
 		/// unsigned.</summary>
 		public static int GetAttackDamage(UWObjectClassProperties.Critter pORow, int piAttack)
 		{
-			return pORow.RowByte(AttackDamageOffset + (AttackStride * fClampAttack(piAttack)))
+			return pORow.RowByte(AttackDamageOffset + (AttackStride * UWMath.Clamp(piAttack, 0, AttackCount - 1)))
 				+ (pORow.RowByte(StrengthOffset) / 5);
 		}
 
@@ -263,8 +266,49 @@ namespace UWDataImport.UWData
 		/// armour byte (part % 4), HitZ 0 and no enchantment protection.</summary>
 		public static int GetMissileBodyPart(int piPart)
 		{
-			return (piPart & 3) + 4;
+			return (piPart & 3) + MissilePartOffset;
 		}
+
+		/// <summary>
+		/// THE BLOW'S PROBE IN HEIGHT (resolve_attack, UnderworldExhumed combat/COMBAT.C): its
+		/// bottom is the attacker's z plus height * (ninth / 3) / 3, its height (reach * 2 + 1) * 4.
+		/// pickloc picks the defender's part against THIS, not the attacker's body (C3, by the
+		/// user's decision of 2026-10-12). The player adds his pitch (Interaction).
+		/// </summary>
+		public static void GetBlowProbe(int piAttackerFeet, int piAttackerHeight, int piNinth, int piReach,
+			out int piBottom, out int piTop)
+		{
+			piBottom = piAttackerFeet + (piAttackerHeight * (piNinth / 3) / 3);
+			piTop = piBottom + (((piReach * 2) + 1) * 4);
+		}
+
+		/// <summary>A creature's blow: wsize 2 (critter_attack) and a ninth of rand() % 9 (AI.C), so
+		/// the probe sits at a random third of its body.</summary>
+		public const int CritterBlowReach = 2;
+
+		public const int CritterBlowNinths = 9;
+
+		/// <summary>The probe of one creature blow, the ninth rolled on UWRandom.</summary>
+		public static void RollCritterBlowProbe(int piFeet, int piHeight, out int piBottom, out int piTop)
+		{
+			GetBlowProbe(piFeet, piHeight, UWRandom.Next(0, CritterBlowNinths), CritterBlowReach, out piBottom, out piTop);
+		}
+
+		/// <summary>What missile_thwack adds to pickloc's part.</summary>
+		public const int MissilePartOffset = 4;
+
+		/// <summary>
+		/// The part whose height the blood or flash takes: do_damage (UnderworldExhumed
+		/// combat/COMBAT.C) sets hitloc &amp;= 4 when the row's armour byte of the part is 0xFF -
+		/// part 0, the body, for a blow; the missile's own height (4) for a missile.
+		/// </summary>
+		public static int GetEffectPart(UWObjectClassProperties.Critter pORow, int piPart)
+		{
+			return pORow.RowByte(piPart & 3) == NoArmourByte ? piPart & MissilePartOffset : piPart;
+		}
+
+		/// <summary>An armour byte of 0xFF: the part has none of its own and falls back to byte 0.</summary>
+		public const int NoArmourByte = 0xFF;
 
 		/// <summary>The damage of a creature's missile: the ammunition table's byte 0 through
 		/// the dice with charge 0x80 and flank 0 - no skill roll, the physics decides the hit.</summary>
@@ -346,19 +390,17 @@ namespace UWDataImport.UWData
 			return piCorpseIndex <= 0 ? -1 : UWObjectMechanics.FirstCorpseObjectId + piCorpseIndex;
 		}
 
-		/// <summary>The corpse's quality carries the kind: item id &amp; 0x3F into word 3 bits 0-5
-		/// (41041-41050), which is how "a_dead X" names the creature.</summary>
-		public static int GetCorpseQuality(int piCritterItemId)
+		/// <summary>The corpse's OWNER carries the kind: item id &amp; 0x3F into word 3 bits 0-5
+		/// (41041-41050; build_corpse in PATHFIND.C, remains->ol.f.owner = OBJ_INMAJOR(obj)) -
+		/// BonesLook names the creature from it ("It looks to be that of a goblin."). The quality
+		/// stays CreateObj's 40. Until 2026-10-13 ours wrote the kind into the quality and left the
+		/// owner 0, so the bones of a kill said nothing in the inventory.</summary>
+		public static int GetCorpseOwner(int piCritterItemId)
 		{
 			return piCritterItemId & 0x3F;
 		}
 
 		// ------------------------------------------------- helpers
-
-		private static int fClampAttack(int piAttack)
-		{
-			return piAttack < 0 ? 0 : (piAttack > 2 ? 2 : piAttack);
-		}
 
 		/// <summary>A scripted roll outside 0..n-1 is taken modulo n, as the fake host does.</summary>
 		private static int fClampRoll(int piRoll, int piN)

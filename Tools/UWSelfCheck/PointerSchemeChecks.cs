@@ -27,8 +27,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckPointerScheme(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Pointer scheme (seg034_2F89_4E)");
+            Check.Group("Pointer scheme (seg034_2F89_4E)");
 
             UWPlayerMotion.Command leSlide = UWPlayerMotion.Command.SlideLeft;
             UWPlayerMotion.Command leBack = UWPlayerMotion.Command.Back;

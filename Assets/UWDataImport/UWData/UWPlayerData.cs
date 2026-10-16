@@ -73,7 +73,14 @@ namespace UWDataImport.UWData
 
 		private const int NameOffset = 0x00;
 
-		private const int NameLength = 14;
+		/// <summary>The name field, 30 bytes with its terminating zero (UnderworldExhumed player.h,
+		/// char name[0x1E]); character creation copies at most 29 characters (CHARGEN.C). Until
+		/// 2026-10-12 ours read and wrote only 14, so a longer name from the original loaded cut.
+		/// </summary>
+		private const int NameFieldLength = 0x1E;
+
+		/// <summary>The most characters a name holds - the field less its terminating zero.</summary>
+		public const int MaxNameLength = NameFieldLength - 1;
 
 		private const int StrengthOffset = 0x1E;
 
@@ -93,10 +100,9 @@ namespace UWDataImport.UWData
 
 		public const int SkillCount = 18;
 
-		/// <summary>String block 2: the skill names begin here, one per skill number - for the
-		/// stats page, the shrine and character creation alike (declared three times until
-		/// 2026-09-18).</summary>
-		public const int SkillNameStringIndex = 32;
+		/// <summary>String block 2: the skill names begin here, one per skill number
+		/// (UWStringIds since 2026-10-11).</summary>
+		public const int SkillNameStringIndex = UWStringIds.SkillNameBase;
 
 		/// <summary>Skills top out at 30.</summary>
 		public const int MaxSkillValue = 30;
@@ -115,6 +121,13 @@ namespace UWDataImport.UWData
 
 		/// <summary>The three slots of the selected runes. 24 means empty - decimal, right after Ylem (23), that is how the original writes it. Until 2026-09-10 this said 0x24: it happened to read correctly because 24 lies outside the runes, but it wrote 36.</summary>
 		private const int SelectedRunesOffset = 0x47;
+
+		/// <summary>nrunes: how many runes lie on the shelf, 0x60 bits 2-3.</summary>
+		private const int RuneCountOffset = 0x60;
+
+		private const int RuneCountShift = 2;
+
+		private const int RuneCountMask = 3;
 
 		public const int SelectedRuneNone = 24;
 
@@ -165,6 +178,20 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x3C: raised with fatigue every five minutes and read nowhere in UW.EXE
 		/// that we know of; kept counting so the save matches the original's.</summary>
 		public int Counter3C { get; private set; }
+
+		/// <summary>
+		/// player->lore[] from 0xC2 (UnderworldExhumed player.h): get_skill writes the Lore skill
+		/// at the dungeon level's number (1 to 8) on every attempt at Lore (SKILLS.C), CHARGEN.C
+		/// clears it; UW.EXE reads it nowhere. Level 8 writes one byte past the eight, at 0xCA -
+		/// kept, so the save matches the original's (2026-10-13, reference audit, finding of the
+		/// fix agents). Indexed by the one-based level number.
+		/// </summary>
+		public byte[] LoreByLevel { get; private set; } = new byte[LoreByLevelCount];
+
+		/// <summary>See LoreByLevel: 0xC2 plus the level number 0 to 8.</summary>
+		public const int LoreByLevelOffset = 0xC2;
+
+		public const int LoreByLevelCount = 9;
 
 		/// <summary>The game clock value - see UWGameClock.</summary>
 		public int ClockValue { get; private set; }
@@ -301,6 +328,13 @@ namespace UWDataImport.UWData
 		/// and 3 of the same byte, below the intoxication.</summary>
 		public int Hallucination { get; private set; }
 
+		/// <summary>How strongly the character is poisoned, 0 to 15: bits 2 to 5 of the word at
+		/// PoisonOffset, below the active spell count (UnderworldExhumed player.h, struct Player's
+		/// poison; read_player_data in PLAYDATA.C loads the whole record, and duration_check keeps
+		/// the poison working). Read since 2026-10-12 - until then it was written but not read,
+		/// and loading a save made while poisoned cured the poison.</summary>
+		public int Poison { get; private set; }
+
 		/// <summary>Sound effects on, from bits 0-1 of the settings byte - see
 		/// SettingsOffset. In the original this is a per-SAVE setting, not a global one.</summary>
 		public bool SoundEnabled { get; private set; }
@@ -368,14 +402,14 @@ namespace UWDataImport.UWData
 		{
 			mOActiveSpells.Clear();
 
-			int liCount = (fRead16(pyData, ActiveSpellCountOffset) >> 6) & 0xF;
+			int liCount = (UWBinary.Read16OrZero(pyData, ActiveSpellCountOffset) >> 6) & 0xF;
 
 			if (liCount > MaxActiveSpells)
 				liCount = MaxActiveSpells;
 
 			for (int liAt = 0; liAt < liCount; liAt++)
 			{
-				int liWord = fRead16(pyData, ActiveSpellOffset + (liAt * 2));
+				int liWord = UWBinary.Read16OrZero(pyData, ActiveSpellOffset + (liAt * 2));
 				int liId = liWord & 0xFF;
 
 				mOActiveSpells.Add(new ActiveSpell
@@ -419,6 +453,9 @@ namespace UWDataImport.UWData
 					? (pyData[QuestFlagOffset + (liAt / 8)] >> (liAt % 8)) & 0x1
 					: pyData[QuestFlagOffset + (QuestFlagBitCount / 8) + (liAt - QuestFlagBitCount)];
 			}
+
+			// The dreams are a WORD (see DreamQuestFlag): bits 8 and 9 sit in 0x6F.
+			miQuestFlags[DreamQuestFlag] = UWBinary.Read16OrZero(pyData, DreamsOffset);
 
 			miGameVariables = new int[GameVariableCount];
 
@@ -621,12 +658,17 @@ namespace UWDataImport.UWData
 		///
 		/// 0xB5 WAS DECODED ON 2026-09-21, prompted by the user: switch the music off, save,
 		/// load again and it is still off, while another save has it on as it was saved. It
-		/// holds three settings of two bits each, and the fresh 0x35 is 01 01 11 - sound on,
-		/// music on, detail level three:
+		/// holds three settings, and the fresh 0x35 is 0011 01 01 - sound on, music on, detail
+		/// level three:
 		///
 		///   bits 0-1  sound effects, written from seg014_1DC5_754 and read back into it
 		///   bits 2-3  music, written from seg014_1DC5_740 (MusicEnabled_dseg_5c99_135)
-		///   bits 4-5  the detail level (the reference: DetailLevel)
+		///   bits 4-7  the detail level (the reference: DetailLevel; four bits, not two -
+		///             UnderworldExhumed player.h, detail:4, corrected 2026-10-12)
+		///
+		/// 0xB6 starts a word with the movement state (fps, bits 0-2) and the terrain under the
+		/// player (bits 3-10). 0xBB IS NO SETTING: it is typehit, the type of the last critical
+		/// hit (player.h), 0xFF in a fresh save.
 		///
 		/// The writing side is ovr133 labels 8E to B9 (380520-380559), the reading side
 		/// labels 1A4 to 1C2 (380792-380822), which hands both values straight to the two
@@ -694,20 +736,21 @@ namespace UWDataImport.UWData
 
 		private const int NewClockValue = 0x10B3000;
 
-		private const int NewMoonstoneLevel = 2;
+		/// <summary>Where a new game's moonstone lies, one-based as MoonstoneLevel keeps it.</summary>
+		private const int NewMoonstoneLevel = UWLevelIds.NewMoonstone + 1;
 
 		/// <summary>Quest flag 36 counts the talismans still to be destroyed - eight.</summary>
 		public const int TalismanQuestFlag = 36;
 
-		/// <summary>Quest flag 37 holds the dream bits - see UWSleepRules.</summary>
+		/// <summary>Quest flag 37 holds the dream bits - see UWSleepRules. A 16-bit WORD at
+		/// DreamsOffset (UnderworldExhumed player.h, uint16 dreams at 0x6E): the dreams 4 to 9 that
+		/// SKILLS.C dream picks put bits 8 and 9 into byte 0x6F. Until 2026-10-12 only the byte
+		/// 0x6E was read and written, so dreams 8 and 9 could play again after a load.</summary>
 		public const int DreamQuestFlag = 37;
 
+		private const int DreamsOffset = 0x6E;
+
 		private const int TalismanCount = 8;
-
-		/// <summary>Game variable 26 holds the attempts at the bullfrog puzzle.</summary>
-		private const int BullfrogVariable = 26;
-
-		private const int BullfrogRetries = 53;
 
 		/// <summary>
 		/// Builds the unencrypted PLAYER.DAT of a newly created character.
@@ -729,7 +772,7 @@ namespace UWDataImport.UWData
 
 			string lsName = pOCharacter.Name ?? string.Empty;
 
-			for (int liAt = 0; liAt < NameLength && liAt < lsName.Length; liAt++)
+			for (int liAt = 0; liAt < MaxNameLength && liAt < lsName.Length; liAt++)
 			{
 				char lcChar = lsName[liAt];
 
@@ -740,7 +783,8 @@ namespace UWDataImport.UWData
 			liFlags[TalismanQuestFlag] = TalismanCount;
 
 			int[] liVariables = new int[GameVariableCount];
-			liVariables[BullfrogVariable] = BullfrogRetries;
+			// The attempts at the bullfrog puzzle - the one game variable that starts non-zero.
+			liVariables[UWQuestPlaces.BullfrogVarRetries] = UWQuestPlaces.BullfrogRetriesAtStart;
 
 			SavedState lOState = new SavedState
 			{
@@ -777,8 +821,8 @@ namespace UWDataImport.UWData
 			lyPlain[MealHealCounterOffset] = NewMealHealCounter;
 			lyPlain[Counter3COffset] = 0;
 
-			fWrite16(lyPlain, 0x4A, 0);
-			fWrite16(lyPlain, 0x4C, pOCharacter.Strength * WeightPerStrength);
+			UWBinary.Write16(lyPlain, 0x4A, 0);
+			UWBinary.Write16(lyPlain, 0x4C, pOCharacter.Strength * WeightPerStrength);
 
 			// Class in the upper three bits, body shape in 2 to 4, gender in bit 1,
 			// bit 0 set means right-handed (the reference: playerdat.isLefty).
@@ -795,14 +839,14 @@ namespace UWDataImport.UWData
 			int liPositionX = ((pOCharacter.StartTileX & 0xFF) << 8) | 0x80;
 			int liPositionY = ((pOCharacter.StartTileY & 0xFF) << 8) | 0x80;
 
-			fWrite16(lyPlain, 0x54, liPositionX);
-			fWrite16(lyPlain, 0x56, liPositionY);
-			fWrite16(lyPlain, 0x58, pOCharacter.StartZ & 0xFFFF);
-			fWrite16(lyPlain, 0x5A, 0);
+			UWBinary.Write16(lyPlain, 0x54, liPositionX);
+			UWBinary.Write16(lyPlain, 0x56, liPositionY);
+			UWBinary.Write16(lyPlain, 0x58, pOCharacter.StartZ & 0xFFFF);
+			UWBinary.Write16(lyPlain, 0x5A, 0);
 			lyPlain[0x5C] = 1;
 
 			// An empty inventory: the number of records plus one.
-			fWrite16(lyPlain, InventoryCountOffset, 1);
+			UWBinary.Write16(lyPlain, InventoryCountOffset, 1);
 
 			fWritePlayerObject(lyPlain, liPositionX, liPositionY, pOCharacter.StartZ, 0, pOCharacter.MaxVitality);
 
@@ -835,20 +879,20 @@ namespace UWDataImport.UWData
 			int liFineX = (piPositionX & 0xFF) >> 5;
 			int liFineY = (piPositionY & 0xFF) >> 5;
 
-			fWrite16(pyPlain, liAt + 2, liZ | (liHeading << 7) | (liFineY << 10) | (liFineX << 13));
+			UWBinary.Write16(pyPlain, liAt + 2, liZ | (liHeading << 7) | (liFineY << 10) | (liFineX << 13));
 
 			pyPlain[liAt + 8] = (byte)System.Math.Max(0, System.Math.Min(255, piHitPoints));
 
-			int liHome = fRead16(pyPlain, liAt + 0x16);
+			int liHome = UWBinary.Read16OrZero(pyPlain, liAt + 0x16);
 
-			fWrite16(pyPlain, liAt + 0x16, (liHome & 0xF)
+			UWBinary.Write16(pyPlain, liAt + 0x16, (liHome & 0xF)
 				| (((piPositionY >> 8) & 0x3F) << 4)
 				| (((piPositionX >> 8) & 0x3F) << 10));
 
 			int liRecords = pyPlain.Length > InventoryRecordOffset
 				? (pyPlain.Length - InventoryRecordOffset) / InventoryRecordSize : 0;
 
-			fWrite16(pyPlain, liAt + 6, (fRead16(pyPlain, liAt + 6) & 0x3F) | ((liRecords > 0 ? 1 : 0) << 6));
+			UWBinary.Write16(pyPlain, liAt + 6, (UWBinary.Read16OrZero(pyPlain, liAt + 6) & 0x3F) | ((liRecords > 0 ? 1 : 0) << 6));
 		}
 
 		/// <summary>
@@ -952,10 +996,10 @@ namespace UWDataImport.UWData
 			if (!File.Exists(lsBackup))
 				File.Copy(lsFile, lsBackup);
 
-			fWrite16(lyPlain, 0x54, piPositionX);
-			fWrite16(lyPlain, 0x56, piPositionY);
-			fWrite16(lyPlain, 0x58, piZPosition & 0xFFFF);
-			fWrite16(lyPlain, 0x5A, piHeading & 0xFFFF);
+			UWBinary.Write16(lyPlain, 0x54, piPositionX);
+			UWBinary.Write16(lyPlain, 0x56, piPositionY);
+			UWBinary.Write16(lyPlain, 0x58, piZPosition & 0xFFFF);
+			UWBinary.Write16(lyPlain, 0x5A, piHeading & 0xFFFF);
 
 			lyPlain[0x5C] = (byte)piLevel;
 
@@ -1002,7 +1046,7 @@ namespace UWDataImport.UWData
 				pyPlain[SkillsOffset + liAt] = (byte)(pOState.Skills[liAt] & 0xFF);
 
 			pyPlain[LevelOffset] = (byte)(pOState.Level & 0xFF);
-			fWrite32(pyPlain, 0x4E, pOState.Experience);
+			UWBinary.Write32(pyPlain, 0x4E, pOState.Experience);
 			pyPlain[0x52] = (byte)(pOState.AvailableSkillPoints & 0xFF);
 			pyPlain[0x53] = (byte)(pOState.TotalSkillPoints & 0xFF);
 
@@ -1059,9 +1103,12 @@ namespace UWDataImport.UWData
 			for (int liSlot = 0; liSlot < BackpackSlotCount; liSlot++)
 				lOTop[EquipmentSlotCount + liSlot] = liSlot < pOState.Backpack.Length ? pOState.Backpack[liSlot] : null;
 
-			// THE ORIGINAL'S ORDER: first the eight backpack slots, then the eleven
-			// equipment slots, each depth first with its contents. The reference calls
-			// this "DOS-canonical order" (PlayerDatWriter.SerializeUw1Canonical).
+			// THE ORDER: first the eight backpack slots, then the eleven equipment slots, each
+			// depth first with its contents - the reference's "DOS-canonical order"
+			// (PlayerDatWriter.SerializeUw1Canonical). It is NOT the original's rule (corrected
+			// 2026-10-12): UW.EXE writes the player's object chain depth first in chain order
+			// and loads any order, by link and by saved index (UnderworldExhumed INVSAVE.C
+			// InvSaveNexts, putInInv). So this order is ours and harmless.
 			List<UWObject> lOTopEmitted = new List<UWObject>();
 
 			for (int liSlot = EquipmentSlotCount; liSlot < lOTop.Length; liSlot++)
@@ -1082,7 +1129,7 @@ namespace UWDataImport.UWData
 				int liRecord = lOTop[liSlot] != null && lOIndex.ContainsKey(lOTop[liSlot])
 					? lOIndex[lOTop[liSlot]] : 0;
 
-				fWrite16(lyNew, SlotTableOffset + (liSlot * 2), liRecord << 6);
+				UWBinary.Write16(lyNew, SlotTableOffset + (liSlot * 2), liRecord << 6);
 			}
 
 			// Who follows whom: siblings in a chain point to each other via link.
@@ -1110,7 +1157,7 @@ namespace UWDataImport.UWData
 			// The original reads from it how many records to load. Checked on all four of the
 			// user's save games (15, 29, 63 and 67 records - each stores
 			// one more).
-			fWrite16(lyNew, InventoryCountOffset, lOOrder.Count + 1);
+			UWBinary.Write16(lyNew, InventoryCountOffset, lOOrder.Count + 1);
 
 			for (int liAt = 0; liAt < lOOrder.Count; liAt++)
 			{
@@ -1120,30 +1167,21 @@ namespace UWDataImport.UWData
 				int liWrittenId = lOObject.ID & 0x1FF;
 
 				// AN OPEN SACK AT THE TOP OF THE INVENTORY IS WRITTEN CLOSED. A container of
-				// classes 128 to 139 knows its open state via bit 0 of the
-				// object number; according to the reference the original considers an open sack at
-				// top level invalid and shows the inventory empty. Only at the top - further
-				// inside, bit 0 is part of the object number itself (143 is the rune bag).
-				if (lOTopSet.Contains(lOObject) && (liWrittenId >> 6) == 2
-					&& ((liWrittenId >> 4) & 0x3) == 0 && (liWrittenId & 0xF) <= 0xB
+				// classes 128 to 139 knows its open state via bit 0 of the object number. The
+				// original closes every bag it has open before it saves - the open one and those
+				// it was opened from, nested ones included (UnderworldExhumed INVSAVE.C
+				// makePlayerInvCopy -> BAGS.C FixBagArea, CloseAllBags, MakeBagClose: an odd
+				// inclass below 12 loses its bit). The earlier wording here, "the original
+				// considers an open sack at top level invalid", was the reference's (corrected
+				// 2026-10-12). Ours never sets the bit when a bag is opened (only the picture
+				// changes, UWObjectIds.OpenPicture), so no bag the player opened can reach this
+				// file open, nested or not; an odd number only comes from the data, and only at
+				// the top is it closed here. 143, the rune bag, is outside 128 to 139.
+				if (lOTopSet.Contains(lOObject) && UWObjectIds.HasOpenPicture(liWrittenId)
 					&& (liWrittenId & 0x1) != 0)
 					liWrittenId &= ~0x1;
 
-				int liWord0 = liWrittenId
-					| ((lOObject.Flags & 0x7) << 9)
-					| ((lOObject.IsEnchanted ? 1 : 0) << 12)
-					| ((lOObject.DoorDirection ? 1 : 0) << 13)
-					| ((lOObject.IsHidden ? 1 : 0) << 14)
-					| ((lOObject.HasQuantity ? 1 : 0) << 15);
-
-				int liWord1 = (lOObject.ZPos & 0x7F)
-					| ((lOObject.Heading & 0x7) << 7)
-					| ((lOObject.YPos & 0x7) << 10)
-					| ((lOObject.XPos & 0x7) << 13);
-
 				int liNext = lONext.ContainsKey(lOObject) ? lONext[lOObject] : 0;
-
-				int liWord2 = (lOObject.Quality & 0x3F) | (liNext << 6);
 
 				// Quantity field: a real quantity stays, a special link now points to the
 				// new number of the first child - or to nothing if none was found.
@@ -1157,12 +1195,9 @@ namespace UWDataImport.UWData
 						? lOIndex[lOKids[0]] : 0;
 				}
 
-				int liWord3 = (lOObject.Owner & 0x3F) | ((liSpecial & 0x3FF) << 6);
-
-				fWrite16(lyNew, liOffset, liWord0);
-				fWrite16(lyNew, liOffset + 2, liWord1);
-				fWrite16(lyNew, liOffset + 4, liWord2);
-				fWrite16(lyNew, liOffset + 6, liWord3);
+				// The record itself is UWObjectRecordCodec's (2026-10-12; the same eight bytes
+				// as in the level's object list).
+				UWObjectRecordCodec.Write(lyNew, liOffset, lOObject, liWrittenId, liNext, liSpecial);
 			}
 
 			pyPlain = lyNew;
@@ -1236,13 +1271,10 @@ namespace UWDataImport.UWData
 			if (lOList == null || pOObject.Quantity >= lOList.Count)
 				return lOResult;
 
-			UWObject lOCurrent = lOList[pOObject.Quantity];
-
-			for (int liGuard = 0; lOCurrent != null && liGuard < 1024; liGuard++)
-			{
-				lOResult.Add(lOCurrent);
-				lOCurrent = lOCurrent.Link == 0 || lOCurrent.Link >= lOList.Count ? null : lOList[lOCurrent.Link];
-			}
+			// At most 1024 objects, a circle collected up to that limit as the loop here did
+			// before UWObjectChain (2026-10-11) - hence no stop on a revisit.
+			foreach (UWObject lOItem in UWObjectChain.Walk(pOObject, lOList, 1024, false))
+				lOResult.Add(lOItem);
 
 			return lOResult;
 		}
@@ -1309,6 +1341,9 @@ namespace UWDataImport.UWData
 
 			/// <summary>Byte 0x3C (see Counter3C); below zero leaves it as it was.</summary>
 			public int Counter3C = -1;
+
+			/// <summary>0xC2 to 0xCA (see LoreByLevel); null leaves them as they were.</summary>
+			public byte[] LoreByLevel;
 
 			/// <summary>PLAYER.DAT 0x4A, the carried load in tenths of a stone as the original's
 			/// running total (see UWInventoryModel.WeightOffsetTenthStones); below zero leaves it as
@@ -1391,9 +1426,9 @@ namespace UWDataImport.UWData
 		/// a cleanly zeroed slot is harmless with respect to the original, because the count
 		/// decides anyway.
 		///
-		/// THE COUNT is in bits 6 to 9 of a word that also carries other flags
-		/// (dream stage, plot markers). It is therefore masked in, not written
-		/// over - the same mask as in the reference (0xFC3F).
+		/// THE COUNT is in bits 6 to 9 of a word that also carries other flags (the drawn weapon,
+		/// the poison, the rune count, the plot bits of 0x60; UnderworldExhumed player.h). It is
+		/// therefore masked in, not written over - the same mask as in the reference (0xFC3F).
 		/// </summary>
 		private static void fWriteState(byte[] pyPlain, SavedState pOState)
 		{
@@ -1410,15 +1445,18 @@ namespace UWDataImport.UWData
 			if (pOState.Counter3C >= 0)
 				pyPlain[Counter3COffset] = (byte)(pOState.Counter3C & 0xFF);
 
+			for (int liAt = 0; pOState.LoreByLevel != null && liAt < LoreByLevelCount && liAt < pOState.LoreByLevel.Length; liAt++)
+				pyPlain[LoreByLevelOffset + liAt] = pOState.LoreByLevel[liAt];
+
 			if (pOState.CarriedWeight >= 0)
-				fWrite16(pyPlain, CarriedWeightOffset, pOState.CarriedWeight);
+				UWBinary.Write16(pyPlain, CarriedWeightOffset, pOState.CarriedWeight);
 
 			pyPlain[CurrentVitalityOffset] = (byte)(pOState.CurrentVitality & 0xFF);
 			pyPlain[MaxVitalityOffset] = (byte)(pOState.MaxVitality & 0xFF);
 			pyPlain[CurrentManaOffset] = (byte)(pOState.CurrentMana & 0xFF);
 			pyPlain[MaxManaOffset] = (byte)(pOState.MaxMana & 0xFF);
 
-			fWrite32(pyPlain, 0xCE, pOState.ClockValue);
+			UWBinary.Write32(pyPlain, 0xCE, pOState.ClockValue);
 
 			if (pOState.SwimCounter >= 0)
 				pyPlain[SwimCounterOffset] = (byte)(pOState.SwimCounter & 0xFF);
@@ -1448,8 +1486,18 @@ namespace UWDataImport.UWData
 						: (byte)SelectedRuneNone;
 			}
 
-			// THE POISON SITS IN THE SAME BYTE as the spell count: bits 0-1 dream stage,
-			// bits 2-5 poison, from bit 6 the count (the reference: playerdatstatus.play_poison with
+			// THE RUNE COUNT, 0x60 bits 2-3 (nrunes, UnderworldExhumed player.h): the original puts
+			// the next rune at shelf[nrunes] (mous_in_rune, RUNES.C) and draws all three slots
+			// whatever the count. Ours never wrote it, so a save of ours with two runes on the shelf
+			// carried 0, and in the original the next rune overwrote the first slot (2026-10-13).
+			int liRuneCount = pOState.SelectedRunes != null ? System.Math.Min(pOState.SelectedRunes.Count, miSelectedRuneSlots) : 0;
+
+			pyPlain[RuneCountOffset] = (byte)((pyPlain[RuneCountOffset] & ~(RuneCountMask << RuneCountShift))
+				| ((liRuneCount & RuneCountMask) << RuneCountShift));
+
+			// THE POISON SITS IN THE SAME BYTE as the spell count: bit 0 unknown, bit 1 the drawn
+			// weapon (play_drawn, UnderworldExhumed player.h and CONVVARS.C; "dream stage" here
+			// until 2026-10-12 was wrong), bits 2-5 poison, from bit 6 the count (the reference: playerdatstatus.play_poison with
 			// its mask 0xC3 on byte 0x60, i.e. our 0x5F). So first mask in the poison
 			// and then the count - each touches only its own bits.
 			pyPlain[PoisonOffset] = (byte)((pyPlain[PoisonOffset] & 0xC3)
@@ -1458,8 +1506,8 @@ namespace UWDataImport.UWData
 			// The intoxication spans a byte boundary - bits 4 to 9 of a word in which
 			// the mushroom effect sits below and a plot marker above. So it is also
 			// masked in, not written over.
-			fWrite16(pyPlain, IntoxicationOffset,
-				(fRead16(pyPlain, IntoxicationOffset) & 0xFC0F) | ((pOState.Intoxication & 0x3F) << 4));
+			UWBinary.Write16(pyPlain, IntoxicationOffset,
+				(UWBinary.Read16OrZero(pyPlain, IntoxicationOffset) & 0xFC0F) | ((pOState.Intoxication & 0x3F) << 4));
 
 			// The endgame bits are in the byte above, bits 2 and 3 - the intoxication
 			// only occupies bits 0 and 1 there.
@@ -1499,7 +1547,7 @@ namespace UWDataImport.UWData
 
 				if (!lbHasSpell)
 				{
-					fWrite16(pyPlain, ActiveSpellOffset + (liAt * 2), 0);
+					UWBinary.Write16(pyPlain, ActiveSpellOffset + (liAt * 2), 0);
 
 					continue;
 				}
@@ -1509,15 +1557,15 @@ namespace UWDataImport.UWData
 				// Swapped nibbles - see fParseActiveSpells.
 				int liId = ((lOSpell.MinorClass & 0xF) << 4) | (lOSpell.MajorClass & 0xF);
 
-				fWrite16(pyPlain, ActiveSpellOffset + (liAt * 2),
+				UWBinary.Write16(pyPlain, ActiveSpellOffset + (liAt * 2),
 					liId | ((lOSpell.Stability & 0xFF) << 8));
 
 				liCount++;
 			}
 
-			int liFlags = fRead16(pyPlain, ActiveSpellCountOffset);
+			int liFlags = UWBinary.Read16OrZero(pyPlain, ActiveSpellCountOffset);
 
-			fWrite16(pyPlain, ActiveSpellCountOffset, (liFlags & 0xFC3F) | ((liCount & 0xF) << 6));
+			UWBinary.Write16(pyPlain, ActiveSpellCountOffset, (liFlags & 0xFC3F) | ((liCount & 0xF) << 6));
 		}
 
 		/// <summary>Byte holding the poison - see fWriteState. The same as the lower
@@ -1558,6 +1606,14 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
+				// The dreams are a word (DreamQuestFlag).
+				if (liAt == DreamQuestFlag)
+				{
+					UWBinary.Write16(pyPlain, DreamsOffset, pOFlags[liAt] & 0xFFFF);
+
+					continue;
+				}
+
 				pyPlain[QuestFlagOffset + (QuestFlagBitCount / 8) + (liAt - QuestFlagBitCount)]
 					= (byte)(pOFlags[liAt] & 0xFF);
 			}
@@ -1573,18 +1629,6 @@ namespace UWDataImport.UWData
 
 			for (int liAt = 0; liAt < pOVariables.Count && liAt < GameVariableCount; liAt++)
 				pyPlain[GameVariableOffset + liAt] = (byte)(pOVariables[liAt] & 0xFF);
-		}
-
-		private static void fWrite16(byte[] pyData, int piOffset, int piValue)
-		{
-			pyData[piOffset] = (byte)(piValue & 0xFF);
-			pyData[piOffset + 1] = (byte)((piValue >> 8) & 0xFF);
-		}
-
-		private static void fWrite32(byte[] pyData, int piOffset, int piValue)
-		{
-			fWrite16(pyData, piOffset, piValue & 0xFFFF);
-			fWrite16(pyData, piOffset + 2, (piValue >> 16) & 0xFFFF);
 		}
 
 		/// <summary>If the file carries its name in plain text, it is the unencrypted
@@ -1607,22 +1651,32 @@ namespace UWDataImport.UWData
 			if (pyRaw == null || pyRaw.Length < 2)
 				return pyRaw;
 
-			byte lyXor = pyRaw[0];
 			byte[] lyResult = new byte[pyRaw.Length - 1];
 			System.Array.Copy(pyRaw, 1, lyResult, 0, lyResult.Length);
 
+			fXor(lyResult, 0, pyRaw[0]);
+
+			return lyResult;
+		}
+
+		/// <summary>
+		/// The cipher of PLAYER.DAT over the first EncryptedLength bytes from piOffset: each
+		/// byte XOR the key plus a counter that starts at 3, grows by 3 and restarts at bytes
+		/// 80 and 160. An XOR is its own inverse, so Decrypt and Encrypt share this one loop
+		/// (until 2026-10-11 each had its own copy).
+		/// </summary>
+		private static void fXor(byte[] pyData, int piOffset, byte pyKey)
+		{
 			byte lyIncrement = 3;
 
-			for (int liIndex = 0; liIndex < EncryptedLength && liIndex < lyResult.Length; liIndex++)
+			for (int liIndex = 0; liIndex < EncryptedLength && piOffset + liIndex < pyData.Length; liIndex++)
 			{
 				if (liIndex == 80 || liIndex == 160)
 					lyIncrement = 3;
 
-				lyResult[liIndex] ^= (byte)(lyXor + lyIncrement);
+				pyData[piOffset + liIndex] ^= (byte)(pyKey + lyIncrement);
 				lyIncrement += 3;
 			}
-
-			return lyResult;
 		}
 
 
@@ -1631,7 +1685,7 @@ namespace UWDataImport.UWData
 		/// save game file, with the key byte in front.
 		///
 		/// The encryption is an XOR and thus its own inverse - it is
-		/// the same loop as for reading.
+		/// the same loop as for reading (fXor).
 		/// </summary>
 		public static byte[] Encrypt(byte[] pyPlain, byte pyKey)
 		{
@@ -1643,16 +1697,7 @@ namespace UWDataImport.UWData
 			lyResult[0] = pyKey;
 			System.Array.Copy(pyPlain, 0, lyResult, 1, pyPlain.Length);
 
-			byte lyIncrement = 3;
-
-			for (int liIndex = 0; liIndex < EncryptedLength && liIndex < pyPlain.Length; liIndex++)
-			{
-				if (liIndex == 80 || liIndex == 160)
-					lyIncrement = 3;
-
-				lyResult[liIndex + 1] ^= (byte)(pyKey + lyIncrement);
-				lyIncrement += 3;
-			}
+			fXor(lyResult, 1, pyKey);
 
 			return lyResult;
 		}
@@ -1676,9 +1721,9 @@ namespace UWDataImport.UWData
 
 		private const int SlotTableOffset = 0xF7;
 
-		private const int InventoryRecordOffset = 0x137;
+		public const int InventoryRecordOffset = 0x137;
 
-		private const int InventoryRecordSize = 8;
+		public const int InventoryRecordSize = UWObjectRecordCodec.RecordSize;
 
 		/// <summary>Number of inventory records plus one, sixteen bits in plain text - see
 		/// fWriteInventory. The reference says 0xD3, but counts the key byte too.</summary>
@@ -1713,7 +1758,7 @@ namespace UWDataImport.UWData
 				if (liAt + 1 >= pyData.Length)
 					break;
 
-				int liIndex = fRead16(pyData, liAt) >> 6;
+				int liIndex = UWBinary.Read16OrZero(pyData, liAt) >> 6;
 
 				if (liIndex < 1 || liIndex >= InventoryRecords.Count)
 					continue;
@@ -1749,48 +1794,26 @@ namespace UWDataImport.UWData
 				return lOChain;
 
 			int liCount = PlainBytes.Length > InventoryCountOffset + 1
-				? fRead16(PlainBytes, InventoryCountOffset) - 1
+				? UWBinary.Read16OrZero(PlainBytes, InventoryCountOffset) - 1
 				: InventoryRecords.Count - 1;
 
-			int liNext = fRead16(PlainBytes, PlayerObjectOffset + 6) >> 6;
-			HashSet<int> lOSeen = new HashSet<int>();
+			int liFirst = UWBinary.Read16OrZero(PlainBytes, PlayerObjectOffset + 6) >> 6;
 
-			while (liNext >= 1 && liNext <= liCount && liNext < InventoryRecords.Count && lOSeen.Add(liNext))
-			{
-				UWObject lOObject = InventoryRecords[liNext];
-
-				if (lOObject == null)
-					break;
-
+			// Only records up to the declared count take part; a circle ends the walk.
+			foreach (UWObject lOObject in UWObjectChain.WalkFrom(liFirst, InventoryRecords, liCount + 1,
+				InventoryRecords.Count))
 				lOChain.Add(lOObject);
-				liNext = lOObject.Link;
-			}
 
 			return lOChain;
 		}
 
+		/// <summary>One inventory record - the same eight bytes as a level's object record
+		/// (UWObjectRecordCodec, 2026-10-12). The caller's loop only passes whole records.</summary>
 		private static UWObject fParseRecord(byte[] pyData, int piAt)
 		{
-			ushort lyWord0 = (ushort)fRead16(pyData, piAt);
-			ushort lyWord1 = (ushort)fRead16(pyData, piAt + 2);
-			ushort lyWord2 = (ushort)fRead16(pyData, piAt + 4);
-			ushort lyWord3 = (ushort)fRead16(pyData, piAt + 6);
+			UWObject lOObject = new UWObject((ushort)UWObjectRecordCodec.ReadId(pyData, piAt));
 
-			UWObject lOObject = new UWObject((ushort)(lyWord0 & 0x1FF));
-
-			lOObject.Flags = (ushort)((lyWord0 & 0x1F00) >> 9);
-			lOObject.IsEnchanted = ((lyWord0 & 0x1000) >> 12) != 0;
-			lOObject.DoorDirection = ((lyWord0 & 0x2000) >> 13) != 0;
-			lOObject.IsHidden = ((lyWord0 & 0x4000) >> 14) != 0;
-			lOObject.HasQuantity = ((lyWord0 & 0x8000) >> 15) != 0;
-			lOObject.ZPos = (ushort)(lyWord1 & 0x7F);
-			lOObject.Heading = (ushort)((lyWord1 & 0x380) >> 7);
-			lOObject.YPos = (ushort)((lyWord1 & 0x1C00) >> 10);
-			lOObject.XPos = (ushort)((lyWord1 & 0xE000) >> 13);
-			lOObject.Quality = (ushort)(lyWord2 & 0x3F);
-			lOObject.Link = (ushort)((lyWord2 & 0xFFC0) >> 6);
-			lOObject.Owner = (ushort)(lyWord3 & 0x3F);
-			lOObject.Quantity = (ushort)((lyWord3 & 0xFFC0) >> 6);
+			UWObjectRecordCodec.Read(pyData, piAt, lOObject);
 
 			return lOObject;
 		}
@@ -1827,7 +1850,7 @@ namespace UWDataImport.UWData
 
 			StringBuilder lOName = new StringBuilder();
 
-			for (int liIndex = 0; liIndex < NameLength; liIndex++)
+			for (int liIndex = 0; liIndex < NameFieldLength; liIndex++)
 			{
 				byte lyChar = pyData[NameOffset + liIndex];
 
@@ -1876,21 +1899,24 @@ namespace UWDataImport.UWData
 			MealHealCounter = pyData[MealHealCounterOffset];
 			Counter3C = pyData[Counter3COffset];
 
+			for (int liAt = 0; liAt < LoreByLevelCount && LoreByLevelOffset + liAt < pyData.Length; liAt++)
+				LoreByLevel[liAt] = pyData[LoreByLevelOffset + liAt];
+
 			// The game clock, a whole four-byte word. Its unit is given in the
 			// reference's conversions: 0x3C00 per game minute, 0xE1000 per hour
 			// (playerdatclock.Minute and TwelveHourClock), so one day is 0x1518000.
-			ClockValue = (int)fRead32(pyData, 0xCE);
+			ClockValue = (int)UWBinary.Read32OrZero(pyData, 0xCE);
 			Level = pyData[LevelOffset];
 
-			CurrentWeight = fRead16(pyData, 0x4A);
+			CurrentWeight = UWBinary.Read16OrZero(pyData, 0x4A);
 			// The original does not compute the carried load on demand but keeps it
 			// as a running total. What the game shows, however, is the REMAINING capacity,
 			// i.e. maximum load minus carried, divided by ten (per the reference
 			// uimanager_views.RefreshWeightDisplay, cross-checked against a save game of the
 			// user: 420 minus 345 gives 75, 7 is shown).
-			CarriedWeight = fRead16(pyData, CarriedWeightOffset);
-			MaxWeight = fRead16(pyData, 0x4C);
-			Experience = fRead32(pyData, 0x4E);
+			CarriedWeight = UWBinary.Read16OrZero(pyData, CarriedWeightOffset);
+			MaxWeight = UWBinary.Read16OrZero(pyData, 0x4C);
+			Experience = UWBinary.Read32OrZero(pyData, 0x4E);
 			AvailableSkillPoints = pyData[0x52];
 			TotalSkillPoints = pyData[0x53];
 
@@ -1920,11 +1946,11 @@ namespace UWDataImport.UWData
 			// 30/60 on level 1 and tile 6/27 on level 5 - all within the valid range.
 			//
 			// The UPPER byte of PositionX is the tile, the lower one the fine position within it.
-			PositionX = fRead16(pyData, 0x54);
-			PositionY = fRead16(pyData, 0x56);
+			PositionX = UWBinary.Read16OrZero(pyData, 0x54);
+			PositionY = UWBinary.Read16OrZero(pyData, 0x56);
 			// The field holds zpos * 8 - see WritePosition.
-			ZPosition = fRead16(pyData, 0x58) >> 3;
-			Heading = fRead16(pyData, 0x5A);
+			ZPosition = UWBinary.Read16OrZero(pyData, 0x58) >> 3;
+			Heading = UWBinary.Read16OrZero(pyData, 0x5A);
 			DungeonLevel = pyData[0x5C];
 			MoonstoneLevel = pyData[0x5E] & 0xF;
 			SilverTreeLevel = (pyData[0x5E] >> 4) & 0xF;
@@ -1935,8 +1961,9 @@ namespace UWDataImport.UWData
 			KeyOfTruthGiven = (pyData[0x60] & 0x40) != 0;
 			OrbDestroyed = (pyData[0x60] & 0x20) != 0;
 			OrbManaBackup = pyData[0xB0];
-			Intoxication = (fRead16(pyData, IntoxicationOffset) >> 4) & 0x3F;
+			Intoxication = (UWBinary.Read16OrZero(pyData, IntoxicationOffset) >> 4) & 0x3F;
 			Hallucination = (pyData[IntoxicationOffset] >> 2) & 0x3;
+			Poison = (pyData[PoisonOffset] >> 2) & 0xF;
 			SwimCounter = pyData[SwimCounterOffset];
 			SoundEnabled = ((pyData[SettingsOffset] >> SoundEnabledShift) & SoundSettingMask) != 0;
 			MusicEnabled = ((pyData[SettingsOffset] >> MusicEnabledShift) & SoundSettingMask) != 0;
@@ -1946,20 +1973,6 @@ namespace UWDataImport.UWData
 			fParseInventory(pyData);
 
 			IsLoaded = true;
-		}
-
-		private static int fRead16(byte[] pyData, int piOffset)
-		{
-			return piOffset + 1 < pyData.Length ? pyData[piOffset] | (pyData[piOffset + 1] << 8) : 0;
-		}
-
-		private static long fRead32(byte[] pyData, int piOffset)
-		{
-			if (piOffset + 3 >= pyData.Length)
-				return 0;
-
-			return pyData[piOffset] | ((long)pyData[piOffset + 1] << 8)
-				| ((long)pyData[piOffset + 2] << 16) | ((long)pyData[piOffset + 3] << 24);
 		}
 	}
 }

@@ -102,7 +102,8 @@ namespace UWDataImport.UWData
 		public static MeleeResult ResolveMelee(DataImport pOData, int piWeaponId, UWCombat.AttackKind peKind,
 			float pfChargeFraction, int piStrength, int piAttack, int piDexterity, int piUnarmedSkill,
 			System.Func<UWPlayerData.Skill, int> pFGetSkill, int piTargetDefence, int piTargetArmour,
-			bool pbEasyDifficulty = false, int piFlank = 0, int piEnchantAccuracy = 0, int piEnchantDamage = 0)
+			bool pbEasyDifficulty = false, int piFlank = 0, int piEnchantAccuracy = 0, int piEnchantDamage = 0,
+			bool pbObjectTarget = false)
 		{
 			MeleeResult lOResult = new MeleeResult();
 
@@ -141,7 +142,14 @@ namespace UWDataImport.UWData
 			// adds it for a creature), and again into the damage (per user, 2026-09-28: the golem took
 			// far more blows in ours than in the original, and ours hit less often).
 			lOResult.Flank = piFlank;
-			lOResult.Check = UWSkillCheck.Check(lOResult.Accuracy + piFlank, piTargetDefence);
+
+			// A BLOW AT A THING ALWAYS LANDS: frp_check (UnderworldExhumed COMBAT.C) answers "hit"
+			// for anything that is no creature before any roll - no miss, no critical; the angle
+			// bonus still goes into the damage (do_damage). Per user on the original 2026-10-14:
+			// a Level 1 character with Attack and Unarmed 0 hit a door with every blow. Until then
+			// ours rolled against the thing's defence 0 and could miss with the blocked sound.
+			lOResult.Check = pbObjectTarget ? UWSkillCheck.ResultEnum.Success
+				: UWSkillCheck.Check(lOResult.Accuracy + piFlank, piTargetDefence);
 
 			if (!UWSkillCheck.IsSuccess(lOResult.Check))
 				return lOResult;
@@ -157,6 +165,68 @@ namespace UWDataImport.UWData
 			lOResult.DamageBeforeArmour = liBeforeArmour;
 
 			return lOResult;
+		}
+
+		/// <summary>PickBlowTarget: no object in the probe at all - the terrain decides
+		/// (resolve_attack's TerrainCheck and find_wall_coll).</summary>
+		public const int BlowFoundNothing = -2;
+
+		/// <summary>PickBlowTarget: objects in the probe, none struck (all below or above the blow,
+		/// or skipped) - resolve_attack returns without the wall test.</summary>
+		public const int BlowStruckNothing = -1;
+
+		/// <summary>
+		/// WHAT A BLOW STRIKES, as resolve_attack and set_hitobj (UnderworldExhumed combat/COMBAT.C)
+		/// decide it - from the objects' boxes in the level data, not from the drawn bodies. The core
+		/// holds the blow's probe (SetCalc: the centre in eighths, z, radius weapon + 1, height,
+		/// index 1; Mover the player, a creature, so the probe and every creature's box shrink by
+		/// one and switches are skipped). ObjectCheck(0, 1) is ScanForCollisions(false, true), the
+		/// touchable objects; process_objlist is SortCollisions. Of those in the blow's height the
+		/// one whose position lies nearest the attacker's is struck - traps and the attacker never,
+		/// an ally only as the last record when nothing came before. Returns the record index or
+		/// BlowFoundNothing / BlowStruckNothing. Per user on the original 2026-10-14 (audit B5): from
+		/// one spot the door's frame is struck - a door's box is radius 3 around its position and
+		/// reaches far into the next tile - and closer by the goblin round the corner.
+		/// </summary>
+		public static int PickBlowTarget(UWMotionCore pOCore, int piAttackerX8, int piAttackerY8,
+			System.Func<UWMotionBody, bool> pFIsAlly)
+		{
+			pOCore.ScanForCollisions(false, true);
+
+			if (pOCore.Count == 0)
+				return BlowFoundNothing;
+
+			pOCore.SortCollisions();
+
+			int liLast = pOCore.First + pOCore.Overlap;
+			int liFound = BlowStruckNothing;
+			long llBest = 100000L;
+			int liTileX = pOCore.CalcX >> 3;
+			int liTileY = pOCore.CalcY >> 3;
+
+			for (int liAt = pOCore.First; liAt < liLast; liAt++)
+			{
+				UWMotionCore.Record lORecord = pOCore.Records[liAt];
+				UWMotionBody lOBody = lORecord.Body;
+
+				if ((lOBody.ItemId >> 6) == UWObjectMechanics.TrapMajorClass || lOBody.Index == pOCore.CalcIndex)
+					continue;
+
+				if (lOBody.IsMobile && pFIsAlly != null && pFIsAlly(lOBody) && (liLast - 1 != liAt || llBest != 100000L))
+					continue;
+
+				int liDx = piAttackerX8 - ((((liTileX + lORecord.Dx) & 0x3F) << 3) + lOBody.XPos);
+				int liDy = piAttackerY8 - ((((liTileY + lORecord.Dy) & 0x3F) << 3) + lOBody.YPos);
+				long llDistance = ((long)liDx * liDx) + ((long)liDy * liDy);
+
+				if (llDistance < llBest)
+				{
+					llBest = llDistance;
+					liFound = liAt;
+				}
+			}
+
+			return liFound;
 		}
 
 		/// <summary>
@@ -193,6 +263,44 @@ namespace UWDataImport.UWData
 				liFactor = 0;
 
 			return UWCombat.ComputeDamage((liBase * liFactor) >> 8, false, 0, 0, piCharge, 0);
+		}
+
+		/// <summary>The ammunition byte of the missile table (OBJECTS.DAT 0x82 + 3n + 2, signed)
+		/// that marks a piece of ammunition: -64.</summary>
+		public const int AmmunitionMarker = -64;
+
+		/// <summary>The missile table's signed ammunition byte of a class 1 object (0x10-0x1F).</summary>
+		public static int GetMissileAmmoByte(DataImport pOData, int piObjectId)
+		{
+			if (pOData == null || pOData.ObjectProperties == null)
+				return AmmunitionMarker;
+
+			return (sbyte)pOData.ObjectProperties.GetRangedType(piObjectId);
+		}
+
+		/// <summary>The damage type a class 1 object hits with: -ammo as a byte (missile_newhit,
+		/// UnderworldExhumed motion/OBJPHYS.C) - 0x40 for ammunition, the launcher's own odd
+		/// value for a thrown bow, sling or crossbow.</summary>
+		public static int GetMissileDamageType(DataImport pOData, int piObjectId)
+		{
+			return (-GetMissileAmmoByte(pOData, piObjectId)) & 0xFF;
+		}
+
+		/// <summary>
+		/// The damage of a class 1 object the PLAYER THROWS by hand. missile_newhit
+		/// (UnderworldExhumed motion/OBJPHYS.C) scales by the Missile skill only when the table
+		/// marks the object as ammunition (ammo byte -64); a thrown bow, sling or crossbow does
+		/// its table damage unscaled (2026-10-12; until then every 0x10-0x1F was scaled).
+		/// </summary>
+		public static int GetThrownMissileDamage(DataImport pOData, int piObjectId, int piCharge, int piMissileSkill)
+		{
+			if (pOData == null || pOData.ObjectProperties == null)
+				return 0;
+
+			if (GetMissileAmmoByte(pOData, piObjectId) == AmmunitionMarker)
+				return GetMissileDamage(pOData, piObjectId, piCharge, piMissileSkill);
+
+			return UWCombat.ComputeDamage(pOData.ObjectProperties.GetRangedDamage(piObjectId), false, 0, 0, piCharge, 0);
 		}
 	}
 }

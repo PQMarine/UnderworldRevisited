@@ -72,9 +72,9 @@ namespace UWDataImport.UWData
 		/// The spell Remove Trap (reference: trapdisarming.TrapDisarmSpell).
 		///
 		/// IT DOES NOT ASK AND ROLLS WITH FIXED VALUES: 45 for detecting, 45 for
-		/// disarming - both well above anything a character ever reaches. The
-		/// spell thus almost always succeeds, but can fail just like an attempt by
-		/// hand, and then the trap goes off.
+		/// disarming (obj_spells, UnderworldExhumed SPELLS.C). Against the target 8, skill_check
+		/// (SKILLCHK.C) adds 0 to 30 to 37 and always grades it 2: the spell never fails and never
+		/// sets the trap off. (Until 2026-10-12 this said it could.)
 		///
 		/// Returns false if no trap hangs on the target at all, or the spell does not find it -
 		/// then the caller reports "The spell has no discernable effect.".
@@ -117,7 +117,7 @@ namespace UWDataImport.UWData
 				fClearChain(pOTarget, pOLevel);
 
 				lOResult.Message = "The " + lsTrapName + " on the "
-					+ UWItemDescriptions.GetBareName(pOTarget.ID, pOData) + TrapDisarmedSuffix;
+					+ UWText.ObjectName(pOData, pOTarget.ID) + TrapDisarmedSuffix;
 
 				return lOResult;
 			}
@@ -150,18 +150,14 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// What the trap is called in the message.
-		///
-		/// A damage trap with the owner field set is a POISON trap - the same field
-		/// the effect depends on (see UWTrapRules). Otherwise
-		/// the reference takes the object name.
+		/// What the trap is called in the message: its object name, get_name in RemoveTrap
+		/// (UnderworldExhumed SKILLS.C) - so a poisoning damage trap is a "damage trap" too. Until
+		/// 2026-10-12 ours called one with the owner field set a "poison trap", which is UW2's
+		/// naming (reference audit, traps N2).
 		/// </summary>
 		public static string GetTrapName(UWObject pOTrap, DataImport pOData)
 		{
-			if (pOTrap.ID == UWObjectMechanics.DamageTrapId && pOTrap.Owner != 0)
-				return "poison trap";
-
-			return UWItemDescriptions.GetBareName(pOTrap.ID, pOData);
+			return UWText.ObjectName(pOData, pOTrap.ID);
 		}
 	}
 }

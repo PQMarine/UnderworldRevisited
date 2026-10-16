@@ -160,7 +160,7 @@ public static class UWGraphicsDetail
     {
         public LevelEnum Level = LevelEnum.High;
 
-        /// <summary>The last level that was not LOW - where F6 goes back to.</summary>
+        /// <summary>The last level that was not LOW - the one a switch back from the palette path returns to.</summary>
         public LevelEnum LastRemasteredLevel = LevelEnum.High;
 
         public bool HasCustom;
@@ -216,7 +216,7 @@ public static class UWGraphicsDetail
 
         if (msProfile == null)
         {
-            // No file yet: the level follows the settings asset, which is what F6 wrote until now.
+            // No file yet: the level follows the settings asset, which is what the old F6 switch wrote.
             msProfile = new Profile
             {
                 Level = lOSettings.RenderMode == UWSettings.RenderModeEnum.Palette ? LevelEnum.Low : LevelEnum.High
@@ -323,7 +323,7 @@ public static class UWGraphicsDetail
                 break;
 
             default:
-                // LOW keeps the shipped values too, so that F6 back into Remastered is not dark.
+                // LOW keeps the shipped values too, so that a switch back into Remastered is not dark.
                 msShipped.WriteTo(pOSettings);
                 break;
         }

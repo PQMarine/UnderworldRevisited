@@ -53,7 +53,7 @@ namespace UWDataImport.UWData
 		public const int ShieldLastId = 0x3F;
 
 		/// <summary>An object's quality sits in six bits, so a full piece is 63 of 64.</summary>
-		public const int MaxQuality = 0x3F;
+		public const int MaxQuality = UWObjectIds.MaxQuality;
 
 		/// <summary>Skill type 3 sword, 4 axe, 5 mace in the melee table; the value is clamped
 		/// into this band before it is used as a skill index (labels 8E3-8FB).</summary>
@@ -101,11 +101,34 @@ namespace UWDataImport.UWData
 			return ((piTableProtection * (piQuality & MaxQuality)) >> 6) + 1;
 		}
 
-		/// <summary>A shield in the meaning of PlayerStatusUpdate (labels 80E-840).</summary>
+		/// <summary>A shield in the meaning of PlayerStatusUpdate (labels 80E-840) - what gives
+		/// armour from the off hand.</summary>
 		public static bool IsShield(int piObjectId)
 		{
 			return piObjectId >= ShieldFirstId && piObjectId <= ShieldLastId;
 		}
+
+		/// <summary>
+		/// WORN IN THE SHIELD HAND (ObjWorn, UnderworldExhumed inv/INVDATA.C): a wearable of minor
+		/// 2 or 3 with in-class 0xB-0xF - the shields 0x3B-0x3F AND 0x2B-0x2F (plate boots,
+		/// leather cap, chain cowl, plate helmet, dragon skin boots). FixPlayerEquips casts the
+		/// enchantment of what counts as worn there, and a critical can wear it (DamageInventory
+		/// how 1); its armour value still comes from the shields alone (IsShield). Until
+		/// 2026-10-12 ours took the shields only.
+		/// </summary>
+		public static bool IsWornInShieldHand(int piObjectId)
+		{
+			int liInClass = piObjectId & 0xF;
+
+			return (piObjectId >> 6) == 0 && ((piObjectId >> 4) & 0x3) >= WornHandFirstMinor
+				&& liInClass >= WornHandFirstInClass;
+		}
+
+		/// <summary>ObjWorn's hand test: minor class 2 or 3 of the weapons and armour (major 0),
+		/// in-class from 0xB (to 0xF).</summary>
+		public const int WornHandFirstMinor = 2;
+
+		public const int WornHandFirstInClass = 0xB;
 
 		/// <summary>
 		/// WHICH SKILL HALF GOES INTO THE DEFENCE - PlayerStatusUpdate labels 887-92D.

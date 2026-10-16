@@ -62,6 +62,83 @@ namespace UWDataImport.UWData
 			return leResult == UWContainerCapacity.ResultEnum.Fits;
 		}
 
+		/// <summary>
+		/// Every carried container AROUND pOReceiver must have room for the item as well
+		/// (UWContainerCapacity.HasRoomFor; ItemFitsSlot's loop over the open bags for a slot inside
+		/// the open bag, 2026-10-15). A refusal names the receiving container, as the original's
+		/// "The ... is too full." does. True when pOReceiver lies in no carried container.
+		/// </summary>
+		private bool fEnclosersHaveRoom(UWObject pOReceiver, UWObject pOItem, UWObject pOReplaced = null)
+		{
+			List<UWObject> lOAround = fFindEnclosers(pOReceiver);
+
+			if (lOAround == null)
+				return true;
+
+			foreach (UWObject lOOuter in lOAround)
+			{
+				if (UWContainerCapacity.HasRoomFor(lOOuter, pOItem, fData, pOReplaced))
+					continue;
+
+				LastContainerRejection = UWContainerCapacity.ResultEnum.TooHeavy;
+				LastContainerRejectionContainer = pOReceiver;
+
+				return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>How deep the search for the containers around a thing goes - a guard against a
+		/// chain running in a circle, as the weight's (UWInventoryWeight).</summary>
+		private const int MaxEncloserDepth = 16;
+
+		/// <summary>The carried containers that hold pOThing, innermost first; null when it lies
+		/// in none (in the pack, worn, or not carried). Only resolved contents are searched.</summary>
+		private List<UWObject> fFindEnclosers(UWObject pOThing)
+		{
+			List<UWObject> lOPath = new List<UWObject>();
+
+			foreach (UWObject lORoot in Backpack)
+			{
+				if (fFindPath(lORoot, pOThing, lOPath))
+					return lOPath.Count > 0 ? lOPath : null;
+			}
+
+			foreach (UWObject lORoot in EquipSlots)
+			{
+				if (fFindPath(lORoot, pOThing, lOPath))
+					return lOPath.Count > 0 ? lOPath : null;
+			}
+
+			return null;
+		}
+
+		/// <summary>Depth first: true when pOThing is pOAt or lies inside it; the containers on the
+		/// way are added innermost first.</summary>
+		private static bool fFindPath(UWObject pOAt, UWObject pOThing, List<UWObject> pOPath, int piDepth = 0)
+		{
+			if (pOAt == null || piDepth > MaxEncloserDepth)
+				return false;
+
+			if (pOAt == pOThing)
+				return true;
+
+			if (pOAt.Contents == null)
+				return false;
+
+			foreach (UWObject lOChild in pOAt.Contents)
+			{
+				if (fFindPath(lOChild, pOThing, pOPath, piDepth + 1))
+				{
+					pOPath.Add(pOAt);
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		public UWObject[] EquipSlots { get; } = new UWObject[Enum.GetValues(typeof(UWArmorItemMap.BodySlot)).Length];
 
 		public UWObject[] Backpack { get; } = new UWObject[BackpackSize];
@@ -121,6 +198,30 @@ namespace UWDataImport.UWData
 		/// <summary>Fires on every actual change (not on failed
 		/// attempts) - UWCharacter and the inventory UI hook in here.</summary>
 		public event Action InventoryChanged;
+
+		/// <summary>
+		/// True while InventoryChanged is raised for a change after which the original runs NO
+		/// status pass (FixPlayerEquips): opening, closing and scrolling a container, and a light
+		/// that only burned down a point (UnderworldExhumed BAGS.C, PLAYTIME.C DegradeLights - the
+		/// pass comes only when a light goes out). Every other change is one where the original
+		/// runs it, and that is where a worn curse strikes (UWCharacter, since 2026-10-12).
+		/// </summary>
+		public bool IsQuietChange { get; private set; }
+
+		/// <summary>InventoryChanged for a change without a status pass - see IsQuietChange.</summary>
+		private void fRaiseQuietChange()
+		{
+			IsQuietChange = true;
+
+			try
+			{
+				InventoryChanged?.Invoke();
+			}
+			finally
+			{
+				IsQuietChange = false;
+			}
+		}
 
 		/// <summary>
 		/// Difference between the load the savegame records and our own sum -
@@ -199,7 +300,7 @@ namespace UWDataImport.UWData
 
 			int liWeight = UWInventoryWeight.GetItemTenthStones(pOItem, lOProperties);
 
-			if (piCount > 0 && pOItem.HasQuantity && pOItem.Quantity > piCount && pOItem.Quantity < 512)
+			if (piCount > 0 && UWStackRules.Count(pOItem) > piCount)
 			{
 				UWCommonObjectProperties.Entry lOEntry;
 
@@ -299,6 +400,7 @@ namespace UWDataImport.UWData
 		public void BurnTick(int piTicks, int piCounter)
 		{
 			bool lbChanged = false;
+			bool lbWentOut = false;
 
 			foreach (UWArmorItemMap.BodySlot leSlot in mOHandSlots)
 			{
@@ -330,6 +432,7 @@ namespace UWDataImport.UWData
 				}
 
 				lOItem.Quality = 0;
+				lbWentOut = true;
 
 				LightBurnedOut?.Invoke(lOItem);
 			}
@@ -338,7 +441,12 @@ namespace UWDataImport.UWData
 				return;
 
 			ApplyCarriedLight();
-			NotifyChanged();
+
+			// Only a light that went out makes the status pass (DegradeLights' result).
+			if (lbWentOut)
+				NotifyChanged();
+			else
+				fRaiseQuietChange();
 		}
 
 		/// <summary>How many ticks a quality point of this light source lasts. Zero means:
@@ -528,7 +636,9 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool TakeFromStack(UWObject pOSource, int piCount)
 		{
-			if (pOSource == null || piCount < 1 || piCount >= pOSource.Quantity)
+			// Only a real stack splits (UWStackRules.Count): a special property is one piece and
+			// never comes apart.
+			if (pOSource == null || piCount < 1 || piCount >= UWStackRules.Count(pOSource))
 				return false;
 
 			CursorItem = pOSource.CloneWithQuantity(piCount);
@@ -595,13 +705,11 @@ namespace UWDataImport.UWData
 				return false;
 
 			// A quantity field of 512 or more is not a count but a special link (an enchantment, a
-			// spell), as fGetStackCount in Interaction reads it. Counting it down left enchanted
-			// armour destroyed at the anvil on the paper doll and broke its enchantment link
-			// (per user, 2026-09-17: the cap in SAVE4 has 719).
-			if (pOItem.HasQuantity && pOItem.Quantity > 1 && pOItem.Quantity < 512)
+			// spell) - UWStackRules. Counting it down left enchanted armour destroyed at the anvil
+			// on the paper doll and broke its enchantment link (per user, 2026-09-17: the cap in
+			// SAVE4 has 719).
+			if (UWStackRules.TryTakeOne(pOItem))
 			{
-				pOItem.Quantity = (ushort)(pOItem.Quantity - 1);
-
 				InventoryChanged?.Invoke();
 
 				return true;
@@ -931,16 +1039,20 @@ namespace UWDataImport.UWData
 				&& UWObjectMechanics.GetKeyId(pOFirst) != UWObjectMechanics.GetKeyId(pOSecond))
 				return false;
 
-			// From 512 on the field is no longer a count but a special property. A DELIBERATE
-			// DEVIATION: AddTogether merges while the total stays below 999, and a total from 512 to
-			// 998 then sets the special bit - the stack turns into something else. Ours stops at 511.
-			return fGetCount(pOFirst) + fGetCount(pOSecond) < 512;
+			// A special property (an enchantment on the piece itself) never joins a pile, as
+			// AddTogether refuses the 0x200 bit on either side (INVPANEL.C). Until 2026-10-11 the
+			// raw sum of the two fields said the same, since 512 or more cannot stay below 512.
+			if (UWStackRules.HasSpecialProperty(pOFirst) || UWStackRules.HasSpecialProperty(pOSecond))
+				return false;
+
+			// The cap is the port's deliberate deviation, see UWStackRules.MaxStackCount.
+			return fGetCount(pOFirst) + fGetCount(pOSecond) <= UWStackRules.MaxStackCount;
 		}
 
-		/// <summary>Pieces in an item: its count with the quantity bit, otherwise one.</summary>
+		/// <summary>Pieces in an item (UWStackRules.Count: a 0 stays 0, as the field reads).</summary>
 		private static int fGetCount(UWObject pOItem)
 		{
-			return pOItem.HasQuantity ? pOItem.Quantity : 1;
+			return UWStackRules.Count(pOItem);
 		}
 
 		/// <summary>Whether an item may take part in a stack - see CanStack.</summary>
@@ -959,9 +1071,7 @@ namespace UWDataImport.UWData
 		/// Combines two items if there is a rule for it - pole and strong
 		/// thread into a fishing pole, three key parts into the Key of Infinity.
 		///
-		/// THE RULES ARE IN CMB.DAT and have long been read in (see
-		/// UWObjectCombining); until now they were not used anywhere. In Underworld 1 there are
-		/// nine:
+		/// THE RULES ARE IN CMB.DAT (UWObjectCombining). In Underworld 1 there are nine:
 		///
 		///   lit torch + incense               -> burning incense        (torch stays)
 		///   lit torch + corn                  -> popcorn                (torch stays)
@@ -969,14 +1079,17 @@ namespace UWDataImport.UWData
 		///   any two of the three keys         -> a two-part key
 		///   two-part + third key              -> Key of Infinity
 		///
-		/// WHICH ONE IS CONSUMED is given by the top bit of the respective entry. At least one
-		/// of the two always is; the result takes its place (for stacks, and for when the result
-		/// goes to the pointer, see the comments in the body).
-		///
-		/// If one of the two is KEPT, it is always the one you drag onto - otherwise
-		/// you would end up with three items and only two places. For the two rules with
-		/// the torch this is exactly right: the torch lies in the backpack, the incense is
-		/// dropped onto it.
+		/// AS THE ORIGINAL DOES IT (AddToOccupiedSlot, UnderworldExhumed inv/INVPANEL.C, with
+		/// ObjsBeCombinable, CombineObjs and RemoveAfterCombine, obj/COMBINE.C, read 2026-10-15):
+		///   - only a rule that uses up at least one of the two counts;
+		///   - neither may be a stack of more than one or hold anything - a handful of corn on a
+		///     lit torch is refused (the caller then swaps them);
+		///   - the result is a NEW object (CreateObj: quality 40, no owner, no flags);
+		///   - a used-up pointer item leaves the result on the pointer; a used-up target makes
+		///     room for it in the target's place when the pointer item stays, and is simply gone
+		///     when the pointer took the result.
+		/// Until 2026-10-15 ours let a stack give up one piece, renamed the consumed object and
+		/// gave it quality 63 (an assumption; reference audit round 2, A37).
 		/// </summary>
 		public bool TryCombineInto(UWObject pOTarget)
 		{
@@ -984,60 +1097,80 @@ namespace UWDataImport.UWData
 				|| fData.ObjectCombining == null)
 				return false;
 
+			if (!fMayCombine(CursorItem) || !fMayCombine(pOTarget))
+				return false;
+
 			int liResult;
 			bool lbCursorConsumed;
 			bool lbTargetConsumed;
 
 			if (!fData.ObjectCombining.TryCombine(CursorItem.ID, pOTarget.ID,
-				out liResult, out lbCursorConsumed, out lbTargetConsumed))
+				out liResult, out lbCursorConsumed, out lbTargetConsumed)
+				|| (!lbCursorConsumed && !lbTargetConsumed))
 				return false;
 
-			// A STACK GIVES UP ONLY ONE PIECE and stays in place afterwards - a handful of corn
-			// does not become a single popcorn. The result therefore needs a place
-			// that really becomes free, and that is only a consumed SINGLE PIECE. This is checked
-			// before any change, so that nothing happens halfway.
-			bool lbTargetIsStack = fIsStack(pOTarget);
-			bool lbCursorIsStack = fIsStack(CursorItem);
+			UWObject lOMade = UWObjectFactory.Create(liResult, fData);
 
-			bool lbTargetFrees = lbTargetConsumed && !lbTargetIsStack;
-			bool lbCursorFrees = lbCursorConsumed && !lbCursorIsStack;
-
-			if (!lbTargetFrees && !lbCursorFrees)
+			if (lOMade == null)
 				return false;
 
-			if (lbCursorConsumed && lbCursorIsStack)
-				CursorItem.Quantity--;
+			if (lbCursorConsumed)
+				CursorItem = lOMade;
 
-			if (lbTargetConsumed && lbTargetIsStack)
-				pOTarget.Quantity--;
-
-			// THE RESULT GOES TO THE POINTER when the pointer item is consumed as a single piece
-			// (per user on the original, 2026-09-13). If the one in the slot is consumed as well,
-			// the slot becomes free. Until then the result stayed in the slot - and
-			// because the same object only got a new number, the display showed the old image.
-			// Only if the pointer keeps something (remaining stack) does the result go into the slot.
-			UWObject lOResultItem = lbCursorFrees ? CursorItem : pOTarget;
-
-			if (lbCursorFrees && lbTargetFrees)
-				RemoveItem(pOTarget);
-
-			UWObjectMechanics.SetObjectId(lOResultItem, liResult,
-				fData.Textures);
-
-			// ASSUMPTION: the result is new and therefore unused. Where the original takes the
-			// quality from is told neither by the data nor by the reference - which has no
-			// combining rules at all. Without this line the fishing pole inherited the thread's condition.
-			lOResultItem.Quality = UWObjectMechanics.FullLightQuality;
+			if (lbTargetConsumed)
+			{
+				if (lbCursorConsumed)
+					RemoveItem(pOTarget);
+				else
+					fReplaceCarried(pOTarget, lOMade);
+			}
 
 			InventoryChanged?.Invoke();
 
 			return true;
 		}
 
-		/// <summary>More than one piece in a pile.</summary>
-		private static bool fIsStack(UWObject pOItem)
+		/// <summary>ObjsBeCombinable's test of one side: not a stack of more than one (its raw
+		/// link above 1 - a special link too), and nothing held - a container or an item with a
+		/// chain.</summary>
+		private static bool fMayCombine(UWObject pOItem)
 		{
-			return pOItem.HasQuantity && pOItem.Quantity > 1;
+			if (pOItem.HasQuantity)
+				return pOItem.Quantity <= 1;
+
+			return pOItem.Contents != null ? pOItem.Contents.Count == 0 : pOItem.Quantity == 0;
+		}
+
+		/// <summary>Puts pONew in the place of a carried pOOld - a backpack place, an equipment
+		/// slot, or its place in a container's contents.</summary>
+		private void fReplaceCarried(UWObject pOOld, UWObject pONew)
+		{
+			int liAt = Array.IndexOf(Backpack, pOOld);
+
+			if (liAt >= 0)
+			{
+				Backpack[liAt] = pONew;
+				return;
+			}
+
+			liAt = Array.IndexOf(EquipSlots, pOOld);
+
+			if (liAt >= 0)
+			{
+				EquipSlots[liAt] = pONew;
+				return;
+			}
+
+			foreach (UWObject lOItem in EnumerateAll())
+			{
+				int liInside = lOItem.Contents != null ? lOItem.Contents.IndexOf(pOOld) : -1;
+
+				if (liInside >= 0)
+				{
+					lOItem.Contents[liInside] = pONew;
+					return;
+				}
+			}
 		}
 
 		/// <summary>
@@ -1083,19 +1216,32 @@ namespace UWDataImport.UWData
 			if (CursorItem == null)
 				return false;
 
-			// A MATCHING STACK IN THE PACK TAKES IT FIRST (same object, same quality - CanStack),
-			// as the original does (per user, 2026-09-26: until then it went to a free place
-			// beside the stack). A place of its own only when none matches.
+			// A FREE PACK PLACE FIRST, even when the item would join a stack: ItemFitsSlot refuses
+			// the open bag's own slot at once when no pack place is free ("There is no place to
+			// put that.", the caller's), and only then PutObjectInBag looks for a matching object
+			// (UnderworldExhumed inv/INVPANEL.C, inv/BAGS.C, read 2026-10-15; until then ours
+			// joined a pack stack with the pack full - reference audit round 2, A44).
+			int liFreeSlot = Array.IndexOf(Backpack, null);
+
+			if (liFreeSlot < 0)
+				return false;
+
+			// A MATCHING STACK TAKES IT (same object, same quality - CanStack), as the original
+			// does (per user, 2026-09-26: until then it went to a free place beside the stack) -
+			// anywhere in the player's own list, the paperdoll and the hands as well as the pack
+			// (PutObjectInBag walks the player's whole top-level chain; ours the pack first).
+			// A place of its own only when none matches.
 			foreach (UWObject lOInPack in Backpack)
 			{
 				if (lOInPack != null && TryStackInto(lOInPack))
 					return true;
 			}
 
-			int liFreeSlot = Array.IndexOf(Backpack, null);
-
-			if (liFreeSlot < 0)
-				return false;
+			foreach (UWObject lOWorn in EquipSlots)
+			{
+				if (lOWorn != null && TryStackInto(lOWorn))
+					return true;
+			}
 
 			Backpack[liFreeSlot] = CursorItem;
 			CursorItem = null;
@@ -1105,25 +1251,36 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Drops CursorItem into an equipment slot. Like onto like is stacked first (TryStackInto);
+		/// Drops CursorItem into an equipment slot. A container there takes it, like onto like is
+		/// stacked (TryStackInto), a combining rule applies (TryCombineInto);
 		/// otherwise only if the item type actually fits this slot
 		/// per UWArmorItemMap (otherwise false, no change, the item
 		/// keeps sticking to the pointer). If the slot is occupied, it is swapped as with the backpack instead of
 		/// ending the drag.
 		/// </summary>
-		public bool DropCursorItemInEquip(UWArmorItemMap.BodySlot peSlot)
+		/// <param name="pbIntoContainerThere">A container in the slot takes the item (the drop); false
+		/// for putting a piece ON (the modern equip action), which swaps with the container.</param>
+		public bool DropCursorItemInEquip(UWArmorItemMap.BodySlot peSlot, bool pbIntoContainerThere = true)
 		{
 			LastContainerRejection = UWContainerCapacity.ResultEnum.Fits;
 			LastContainerRejectionContainer = null;
 
-			// The rune bag in a hand or on a shoulder learns a stone as in the pack - the
-			// original asks every inventory slot for the bag (see fPutIntoRuneBag).
 			UWObject lOThere = EquipSlots[(int)peSlot];
 
-			if (CursorItem != null && lOThere != null && lOThere.ID == UWObjectMechanics.RuneBagId)
-				return fPutIntoRuneBag(lOThere);
+			// AS AddToOccupiedSlot (UnderworldExhumed inv/INVPANEL.C, read 2026-10-15): a CONTAINER
+			// in the slot takes the item (PutObjectInBag), in a hand or on a shoulder as in the
+			// pack - the rune bag learns a stone (fPutIntoRuneBag). Until 2026-10-15 only the rune
+			// bag did; any other bag was swapped onto the pointer (reference audit round 2, A36).
+			if (pbIntoContainerThere && CursorItem != null && lOThere != null
+				&& lOThere.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+				return DropCursorItemIntoContainerItem(lOThere);
 
-			if (TryStackInto(EquipSlots[(int)peSlot]))
+			if (TryStackInto(lOThere))
+				return true;
+
+			// Then the combining, before any swap - the lit torch in a shoulder or hand slot takes
+			// the incense or the corn there (2026-10-15; until then only in the pack and in bags).
+			if (pbIntoContainerThere && lOThere != null && TryCombineInto(lOThere))
 				return true;
 
 			if (CursorItem == null || !UWArmorItemMap.Fits(CursorItem, peSlot))
@@ -1423,6 +1580,58 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
+		/// <summary>Where GiveToPlayer put the thing.</summary>
+		public enum GiveOutcome
+		{
+			/// <summary>On the pointer, as the original's place_new puts it.</summary>
+			Hand,
+
+			/// <summary>In the backpack or a carried bag.</summary>
+			Stored,
+
+			/// <summary>Nowhere: the host lays it at the player's feet.</summary>
+			Floor
+		}
+
+		/// <summary>
+		/// A THING THE GAME HANDS THE PLAYER - the fish, the Cup of Wonder, the silver seed, the
+		/// Key of Truth. The original puts each on the cursor with place_new (UnderworldExhumed
+		/// USEITEMS.C; go_fish in WORLDEV.C, play_cup_tune in SOUND.C, the tree in UseObj,
+		/// mantra_advance in SKILLS.C, read 2026-10-12) and knows no other place: with the cursor
+		/// occupied place_new returns null, the shrine and the cup then give nothing and can be
+		/// tried again, while the fish and the seed are written through a null pointer. In the
+		/// original that case hardly arises, since a click with a held object is a use of that
+		/// object, not a talk or a use of the pole.
+		///
+		/// Ours can hold something while these happen, so one rule for all four (B8 of the
+		/// cleanup plan; until 2026-10-12 four copies with four behaviours): the pointer when it is
+		/// free, else the backpack, else the floor at the player's feet - the thing is never
+		/// refused and never lost. pbPreferBags puts it away first, as the modern scheme does
+		/// with what it picks up (the seed stayed on the pointer there, per user 2026-10-07); only
+		/// without room does it go onto the pointer. Weight is not asked here: go_fish checks
+		/// it before the catch (UWFishing), the others never do.
+		/// </summary>
+		public GiveOutcome GiveToPlayer(UWObject pOItem, bool pbPreferBags)
+		{
+			if (pOItem == null)
+				return GiveOutcome.Floor;
+
+			if (pbPreferBags && TryStoreAnywhere(pOItem))
+				return GiveOutcome.Stored;
+
+			if (CursorItem == null)
+			{
+				BeginDragFromExternal(pOItem);
+
+				return GiveOutcome.Hand;
+			}
+
+			if (TryAddToBackpack(pOItem))
+				return GiveOutcome.Stored;
+
+			return GiveOutcome.Floor;
+		}
+
 		/// <summary>TryUnequip for the modern scheme: the piece goes wherever DropCursorItemAnywhere
 		/// finds room, not only into the backpack.</summary>
 		public bool TryUnequipAnywhere(UWArmorItemMap.BodySlot peSlot)
@@ -1522,7 +1731,7 @@ namespace UWDataImport.UWData
 
 			OpenContainer = pOContainer;
 			ContainerScrollOffset = 0;
-			InventoryChanged?.Invoke();
+			fRaiseQuietChange();
 			return true;
 		}
 
@@ -1556,7 +1765,7 @@ namespace UWDataImport.UWData
 			}
 
 			ContainerScrollOffset = 0;
-			InventoryChanged?.Invoke();
+			fRaiseQuietChange();
 		}
 
 		/// <summary>Out of every container at once - for a level change or a new game.</summary>
@@ -1569,7 +1778,7 @@ namespace UWDataImport.UWData
 
 			OpenContainer = null;
 			ContainerScrollOffset = 0;
-			InventoryChanged?.Invoke();
+			fRaiseQuietChange();
 		}
 
 		/// <summary>
@@ -1581,11 +1790,13 @@ namespace UWDataImport.UWData
 		/// container, no level is loaded, or the container does not take the item
 		/// (UWContainerCapacity, see LastContainerRejection).
 		/// </summary>
-		public bool DropCursorItemIntoContainerItem(UWObject pOContainer)
+		/// <param name="pbCheckEnclosers">The containers around pOContainer must have room too -
+		/// a drop into a slot of an open container (see fEnclosersHaveRoom).</param>
+		public bool DropCursorItemIntoContainerItem(UWObject pOContainer, bool pbCheckEnclosers = false)
 		{
 			if (CursorItem == null || pOContainer == null
 				|| pOContainer.GetCategory() != UWObject.ObjectCategoryEnum.Containers
-				|| fLevel == null)
+				|| (pOContainer.Contents == null && fLevel == null))
 				return false;
 
 			// THE RUNE BAG KEEPS NO OBJECTS: a stone becomes its rune (UWPlayerData.
@@ -1593,7 +1804,11 @@ namespace UWDataImport.UWData
 			if (pOContainer.ID == UWObjectMechanics.RuneBagId)
 				return fPutIntoRuneBag(pOContainer);
 
-			pOContainer.EnsureContentsLoaded(fLevel.Masterlist);
+			if (pOContainer.Contents == null)
+				pOContainer.EnsureContentsLoaded(fLevel.Masterlist);
+
+			if (pbCheckEnclosers && !fEnclosersHaveRoom(pOContainer, CursorItem))
+				return false;
 
 			if (!fContainerAccepts(pOContainer, CursorItem))
 				return false;
@@ -1766,7 +1981,7 @@ namespace UWDataImport.UWData
 			// a sack).
 			if (liIndex < lOContents.Count && lOContents[liIndex] != null
 				&& lOContents[liIndex].GetCategory() == UWObject.ObjectCategoryEnum.Containers)
-				return DropCursorItemIntoContainerItem(lOContents[liIndex]);
+				return DropCursorItemIntoContainerItem(lOContents[liIndex], true);
 
 			if (liIndex < lOContents.Count)
 			{
@@ -1781,6 +1996,10 @@ namespace UWDataImport.UWData
 				bool lbStacks = CanStack(CursorItem, lOContents[liIndex],
 					fData != null ? fData.CommonObjectProperties : null);
 
+				// The containers around this one need room as well (ItemFitsSlot, A43).
+				if (!fEnclosersHaveRoom(pOContainer, CursorItem, lbStacks ? null : lOContents[liIndex]))
+					return false;
+
 				if (!fContainerAccepts(pOContainer, CursorItem, lbStacks ? null : lOContents[liIndex]))
 					return false;
 
@@ -1793,7 +2012,7 @@ namespace UWDataImport.UWData
 			}
 			else
 			{
-				if (!fContainerAccepts(pOContainer, CursorItem))
+				if (!fEnclosersHaveRoom(pOContainer, CursorItem) || !fContainerAccepts(pOContainer, CursorItem))
 					return false;
 
 				lOContents.Add(CursorItem);
@@ -1843,7 +2062,7 @@ namespace UWDataImport.UWData
 			fClampContainerScrollOffset();
 
 			if (ContainerScrollOffset != liOldOffset)
-				InventoryChanged?.Invoke();
+				fRaiseQuietChange();
 		}
 
 		/// <summary>

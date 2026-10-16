@@ -16,6 +16,15 @@ public class UWDamageable : MonoBehaviour
     /// this (see UWCritter).</summary>
     public System.Action<UWDamageable> Damaged;
 
+    /// <summary>Something in front of the thing that takes the blow before its hit points - the
+    /// spike of a closed door (UWDoor.TryDamageSpike, 2026-10-12). Called with the damage as it
+    /// reaches the thing - after the resistances and the quality class shift - and its type; true
+    /// means the blow is used up and the hit points stay. Asked only after CanTakeDamage and only
+    /// with something left of the blow, in damage_object's order (DAMAGE.C: bit 13 and class 3
+    /// leave at once, then the shift, nothing left leaves, then the spike's strength). Until
+    /// 2026-10-12 the spike took the full blow, on a protected or class 3 door too.</summary>
+    public System.Func<int, int, bool> TakesBlowFirst;
+
     private readonly UWHealth mOHealth = new UWHealth();
 
     /// <summary>The engine-free hit points.</summary>
@@ -32,6 +41,20 @@ public class UWDamageable : MonoBehaviour
     public int QualityType => mOHealth.QualityType;
 
     public bool IsDestroyed => mOHealth.IsDestroyed;
+
+    /// <summary>
+    /// A BROKEN DOOR STAYS A DOOR (per user on the original, 2026-10-13: a closed broken door
+    /// bursts open at the next blow, and it can still be spiked). In the original a door's
+    /// condition is its quality, and damage_object (DAMAGE.C) lets every blow that is left after
+    /// the class shift take it to 0 again and destroy it again - remove_object then opens a
+    /// closed door and takes a lock off. Ours took a door at 0 out of play: blows went through
+    /// it as through air. Set by UWDoor; a creature, barrel or chest stays out of play at 0.
+    /// </summary>
+    public bool TakesBlowsWhenBroken;
+
+    /// <summary>Whether a blow can land on this at all: not broken, or broken but still taking
+    /// blows (TakesBlowsWhenBroken). Not indestructible is asked by ApplyDamage itself.</summary>
+    public bool TakesBlows => !IsDestroyed || TakesBlowsWhenBroken;
 
     public float HealthFraction => mOHealth.HealthFraction;
 
@@ -58,14 +81,32 @@ public class UWDamageable : MonoBehaviour
         mOHealth.Initialise(piMaxHealth, piArmour, piQualityType, piDefence, piResistances, piCurrentHealth, piQualityClass);
     }
 
+    /// <summary>The damage type of the last blow that landed - for a Destroyed handler, as
+    /// remove_object receives the type (UWContainerDamage: a nightstand under fire smokes).</summary>
+    public int LastDamageType { get; private set; }
+
     /// <summary>Subtracts damage and reports whether the target was destroyed by it - see
     /// UWHealth.ApplyDamage. Damaged fires on every blow that lands, Destroyed after it.</summary>
     public bool ApplyDamage(int piDamage, int piDamageType = UWDamageTypes.None)
     {
-        if (!mOHealth.CanTakeDamage)
+        bool lbBrokenAlready = mOHealth.IsDestroyed;
+
+        if (mOHealth.IsIndestructible || (lbBrokenAlready && !TakesBlowsWhenBroken))
             return false;
 
-        bool lbDestroyed = mOHealth.ApplyDamage(piDamage, piDamageType);
+        int liDamage = mOHealth.ScaleDamage(piDamage, piDamageType);
+
+        if (liDamage > 0 && TakesBlowFirst != null && TakesBlowFirst(liDamage, piDamageType))
+            return false;
+
+        // Broken already: nothing left after the shift leaves it alone (damage_object returns
+        // before anything when the damage is 0).
+        if (lbBrokenAlready && liDamage <= 0)
+            return false;
+
+        bool lbDestroyed = mOHealth.TakeScaledDamage(liDamage);
+
+        LastDamageType = piDamageType;
 
         Damaged?.Invoke(this);
 

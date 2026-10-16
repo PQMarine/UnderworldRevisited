@@ -77,7 +77,7 @@ namespace UWDataImport.UWData
 			if (pOItem == null)
 				return false;
 
-			int liMajorClass = pOItem.ID >> 6;
+			int liMajorClass = UWObjectIds.Major(pOItem.ID);
 
 			if (liMajorClass == DoorMajorClass || liMajorClass == TrapMajorClass)
 				return false;
@@ -148,16 +148,25 @@ namespace UWDataImport.UWData
 		/// whole image holds exactly one access to those bytes, and it is that write. So the
 		/// original reserved the record, filled it and never used it, and the other levels stay
 		/// as they were - which is what we do.
+		///
+		/// NOT THE MOBILE OBJECTS THEMSELVES: clear_loretry (UnderworldExhumed WORLDEV.C) returns at
+		/// once for an object in the mobile slots - creatures, whose heading field is their facing,
+		/// and whatever else moves -, while what they carry is still walked. pOMasterlist is the
+		/// level's object list by slot, so its first UWLevArkLayout.MobileCount entries are left
+		/// alone (since 2026-10-12; until then a Lore attempt cleared bit 2 of every creature's
+		/// facing, turning it by half a circle).
 		/// </summary>
-		public static void ResetAttempts(IEnumerable<UWObject> pOObjects,
+		public static void ResetAttempts(IList<UWObject> pOMasterlist,
 			UWCommonObjectProperties pOCommon)
 		{
-			if (pOObjects == null)
+			if (pOMasterlist == null)
 				return;
 
-			foreach (UWObject lOObject in pOObjects)
+			for (int liSlot = 0; liSlot < pOMasterlist.Count; liSlot++)
 			{
-				if (lOObject == null || !CanBeIdentified(lOObject, pOCommon))
+				UWObject lOObject = pOMasterlist[liSlot];
+
+				if (lOObject == null || UWLevArkLayout.IsMobileSlot(liSlot) || !CanBeIdentified(lOObject, pOCommon))
 					continue;
 
 				lOObject.Heading = (ushort)(lOObject.Heading & ResultMask);

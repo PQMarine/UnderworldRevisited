@@ -355,8 +355,13 @@ public class UWCritterAnimator : MonoBehaviour
         if (lOCamera == null || mOCritter == null)
             return FrontViewDirection;
 
-        int liCameraYaw = Mathf.FloorToInt(Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
-        int liFacing = Mathf.RoundToInt(mOCritter.FacingDegrees / 45f) & 7;
+        // The yaw in the original's 65536 units ROUNDED, as the player's movement reads it
+        // (UWPlayerMovement.fTransformYawToAngle): the transform gives 44.99998 for 45 degrees,
+        // and a floor made that 8191 - one unit short of the eighth. The view table only needs
+        // the 32nd (yaw >> 11), so the switch from the floor is harmless but not identical.
+        // Decision 24 of Docs/CLEANUP-PLAN.md (2026-10-12).
+        int liCameraYaw = UWHeadings.DegreesToAngleUnits(lOCamera.transform.eulerAngles.y);
+        int liFacing = UWHeadings.DegreesToEighth(mOCritter.FacingDegrees);
 
         return UWCritterAnimations.GetViewDirection(liFacing, liCameraYaw);
     }

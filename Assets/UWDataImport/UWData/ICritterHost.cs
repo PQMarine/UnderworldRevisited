@@ -162,6 +162,10 @@ namespace UWDataImport.UWData
 		/// <summary>The tile's no-magic bit (UWTile.NoMagicAllowed).</summary>
 		bool IsMagicBlockedAt(int piTileX, int piTileY);
 
+		/// <summary>The dungeon level, 1-based (PlayerLevel) - acceptable_danger's level 6
+		/// exception (UWCritterRules.GetPathRangeBudget). Since 2026-10-15.</summary>
+		int DungeonLevel { get; }
+
 		/// <summary>The orb rule (NPC_Goal5_Attack 48879-48905, TryToDoMagicAttack,
 		/// NPCStartMagicAttack): true on level 7 while the orb stands (PlayerData 0x60 bit 5 clear,
 		/// UWTybalOrbRules). The MAGES, kind 0x13, then keep stand-off 1 and never cast - not
@@ -202,14 +206,20 @@ namespace UWDataImport.UWData
 		bool IsStraightLineClear(int piToTileX, int piToTileY);
 
 		/// <summary>
-		/// The host's path search (UWTilePath) in place of PathFindBetweenTiles: the next tile
-		/// from the creature's tile towards the destination. piRangeBudget is the original's
-		/// range (UWCritterRules.GetPathRangeBudget), to be spent as costs on drops of more
-		/// than one level and on lava; pbMayOpenDoors says a closed door counts as passable
-		/// (a creature with door skill or one that may bash, spec 7.4). False: no path.
+		/// The path search flood_path (PathFindBetweenTiles; UWTileRoute.FindPath with this
+		/// creature's triple test) from the creature's tile and height (piFromX, piFromY,
+		/// piFromHeight) to the destination tile at piToHeight: the squares, start first and the
+		/// destination last, and the jump flag of each
+		/// (UWTileRoute.Jumps) into the two lists, cleared first. piRangeBudget is the original's
+		/// range (UWCritterRules.GetPathRangeBudget), spent as costs on drops of more than one level
+		/// and on lava. False: no path. The brain stores the path in a slot (PathSlots) and follows
+		/// it (since 2026-10-15; until then the host searched the next tile anew every half second).
 		/// </summary>
-		bool TryGetNextPathTile(int piToTileX, int piToTileY, int piRangeBudget, bool pbMayOpenDoors,
-			out int piNextTileX, out int piNextTileY);
+		bool TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight, int piRangeBudget,
+			System.Collections.Generic.List<UWTilePos> pOSquares, System.Collections.Generic.List<bool> pOJumps);
+
+		/// <summary>The level's sixteen stored path slots (UWGameSession.CritterPaths).</summary>
+		UWCritterPathSlots PathSlots { get; }
 
 		/// <summary>
 		/// The physics of this update (NPCInitialProcessing 52702-52990: NeedsToMove, the params,

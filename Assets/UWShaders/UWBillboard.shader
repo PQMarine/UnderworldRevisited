@@ -146,11 +146,18 @@ Shader "UW/Billboard"
                 // graphic appears mirrored horizontally.
                 float3 right = normalize(cross(forward, float3(0, 1, 0)));
 
-                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y + forward * _DepthBias;
+                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y;
 
                 OUT.positionWS = positionWS;
                 OUT.pivotWS = pivotWS;
                 OUT.positionCS = TransformWorldToHClip(positionWS);
+
+                // THE DEPTH BIAS MOVES ONLY THE DEPTH towards the camera, not the picture: the
+                // sprite keeps its place and size on the screen and is merely sorted as if it
+                // stood _DepthBias units nearer (until 2026-10-12 the vertices themselves moved,
+                // and a large bias - the flash on a struck model - grew the picture).
+                float4 biasedCS = TransformWorldToHClip(positionWS + forward * _DepthBias);
+                OUT.positionCS.z = biasedCS.z / biasedCS.w * OUT.positionCS.w;
                 OUT.normalWS = forward;
                 OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
                 OUT.fogFactor = ComputeFogFactor(OUT.positionCS.z);
@@ -346,11 +353,18 @@ Shader "UW/Billboard"
                 // graphic appears mirrored horizontally.
                 float3 right = normalize(cross(forward, float3(0, 1, 0)));
 
-                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y + forward * _DepthBias;
+                float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y;
 
                 OUT.positionWS = positionWS;
                 OUT.pivotWS = pivotWS;
                 OUT.positionCS = TransformWorldToHClip(positionWS);
+
+                // THE DEPTH BIAS MOVES ONLY THE DEPTH towards the camera, not the picture: the
+                // sprite keeps its place and size on the screen and is merely sorted as if it
+                // stood _DepthBias units nearer (until 2026-10-12 the vertices themselves moved,
+                // and a large bias - the flash on a struck model - grew the picture).
+                float4 biasedCS = TransformWorldToHClip(positionWS + forward * _DepthBias);
+                OUT.positionCS.z = biasedCS.z / biasedCS.w * OUT.positionCS.w;
                 OUT.uv = TRANSFORM_TEX(IN.uv, _MainTex);
 
                 return OUT;

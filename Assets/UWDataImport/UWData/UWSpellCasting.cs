@@ -68,6 +68,13 @@ namespace UWDataImport.UWData
 
 		private const int HealMajorClass = 4;
 
+		/// <summary>The motion spells (class 1) and the two of them that hop when cast.</summary>
+		private const int MotionMajorClass = 1;
+
+		private const int LevitateMinorClass = 3;
+
+		private const int FlyMinorClass = 5;
+
 		public const int ProjectileMajorClass = 5;
 
 		/// <summary>Area spells - Sheet Lightning, Confusion, Reveal, Flame Wind.</summary>
@@ -105,9 +112,17 @@ namespace UWDataImport.UWData
 
 		private const int CastDelayPerStep = 4;
 
-		private static double mdLastCastSeconds = double.NegativeInfinity;
+		/// <summary>Forgets the last cast: a new game or a loaded one starts without a pause
+		/// (the pause leaked across them until 2026-10-11). Since 2026-10-14 the pause is the
+		/// session's (UWGameSession.Quirks, cleanup step 2.7), so a new session starts without one
+		/// anyway.</summary>
+		public static void ResetCastPause()
+		{
+			UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
 
-		private static double mdCastDelaySeconds;
+			lOQuirks.LastCastSeconds = double.NegativeInfinity;
+			lOQuirks.CastDelaySeconds = 0;
+		}
 
 		/// <summary>
 		/// Casts the selected runes.
@@ -128,8 +143,9 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.NotASpell;
 
 			double ldNow = pIHost.RealSeconds;
+			UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
 
-			if (ldNow < mdLastCastSeconds + mdCastDelaySeconds)
+			if (ldNow < lOQuirks.LastCastSeconds + lOQuirks.CastDelaySeconds)
 			{
 				pIHost.PlaySoundAtPlayer(TooSoonSound);
 
@@ -147,9 +163,13 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.NotASpell;
 			}
 
-			// The circle the character can cast at all grows with its level.
+			// The circle the character can cast at all grows with its level. THE FAILURE SOUND for
+			// this and for too little mana as well (fail_spell plays effect 0x16 for all four of its
+			// reasons, UnderworldExhumed RUNES.C, read 2026-10-12); until 2026-10-12 ours only
+			// printed the message here.
 			if (((pIHost.PlayerLevel + 1) / 2) < lOSpell.Level)
 			{
+				pIHost.PlaySpellFailureSound();
 				pIHost.AddGeneralMessage(NotExperiencedMessage);
 
 				return OutcomeEnum.NotExperienced;
@@ -157,6 +177,7 @@ namespace UWDataImport.UWData
 
 			if (pIHost.PlayerMana < lOSpell.ManaCost)
 			{
+				pIHost.PlaySpellFailureSound();
 				pIHost.AddGeneralMessage(NotEnoughManaMessage);
 
 				return OutcomeEnum.NotEnoughMana;
@@ -183,8 +204,8 @@ namespace UWDataImport.UWData
 				pIHost.AddGeneralMessage(SpellBackfiresMessage);
 
 			// The pause before the next cast, from now - a backfire sets it too.
-			mdLastCastSeconds = ldNow;
-			mdCastDelaySeconds = (byte)((((lOSpell.Level * 2) - pIHost.PlayerLevel) * CastDelayPerStep) + CastDelayBase)
+			lOQuirks.LastCastSeconds = ldNow;
+			lOQuirks.CastDelaySeconds = (byte)((((lOSpell.Level * 2) - pIHost.PlayerLevel) * CastDelayPerStep) + CastDelayBase)
 				/ (double)UWPlayerTick.PitTicksPerSecond;
 
 			// THE MANA IS PAID BEFORE THE SPELL (player_cast; the Exhumed audit's row 2) - so a
@@ -220,10 +241,12 @@ namespace UWDataImport.UWData
 			}
 
 			// The spell, and the cast sound only once it took (player_cast plays effect 0x10 after
-			// do_spell; a lasting spell with no free slot fails with the failure sound).
+			// do_spell; a lasting spell with no free slot fails with the failure sound and "Casting
+			// was not successful.", fail_spell(3)).
 			if (!ApplyEffect(lOSpell, false, pIHost, liDeferredCost))
 			{
 				pIHost.PlaySpellFailureSound();
+				pIHost.AddGeneralMessage(CastingNotSuccessfulMessage);
 
 				return OutcomeEnum.Blocked;
 			}
@@ -370,17 +393,22 @@ namespace UWDataImport.UWData
 				return true;
 
 			// The upper bits of the minor class say how long the spell lasts - for In Lor
-			// 0x80, so three rolls of a d24.
+			// 0x80, so 3d20 + 24 ticks (RollStability).
 			//
+			// LEVITATE AND FLY HOP (do_spell, UnderworldExhumed SPELLS.C, read 2026-10-12): class 1
+			// minors 3 and 5 call phys_bounce_up before set_curmagic - so also from a scroll or a
+			// potion, and even when no slot is free. Until 2026-10-12 ours had no hop.
+			if (pOSpell.MajorClass == MotionMajorClass && (liMinor == LevitateMinorClass || liMinor == FlyMinorClass))
+				pIHost.BouncePlayerUp();
+
 			// No more than three at once. The mana is gone anyway then (tested per user
-			// in the original).
+			// in the original). SILENT HERE: do_spell only returns 0, and only player_cast prints
+			// "Casting was not successful." (CastRunes); a potion, scroll or wand with no free slot
+			// says nothing (checkSpell ignores the result, UnderworldExhumed USEITEMS.C, read
+			// 2026-10-12). Until 2026-10-12 ours printed it for items as well.
 			if (!pIHost.TryAddActiveSpell(pOSpell.MajorClass, liMinor,
 				RollStability(UWRunicMagic.GetStabilityClass(pOSpell.MinorClass))))
-			{
-				pIHost.AddGeneralMessage(CastingNotSuccessfulMessage);
-
 				return false;
-			}
 
 			pIHost.RefreshSpellIcons();
 
@@ -429,24 +457,49 @@ namespace UWDataImport.UWData
 			pIHost.Heal(liAmount);
 		}
 
-		/// <summary>How long a spell lasts, by the class in the upper bits of the
-		/// minor class. Values from the reference.</summary>
+		/// <summary>
+		/// How long a spell lasts in player ticks, by the class in the upper bits of the minor
+		/// class (set_curmagic, UnderworldExhumed PLAYTIME.C, read 2026-10-12): 0x00 gives 2d3,
+		/// 0x40 2d8 + 6 (8 to 22), 0x80 3d20 + 24 (27 to 84), each die counting 1 to its sides
+		/// (rollem). Until 2026-10-12 ours took the reference's 2d8 and 3d24 - Light, Night Vision
+		/// and Daylight averaged 37.5 ticks instead of 55.5, Thick Skin and the other 0x40 spells 9
+		/// instead of 15.
+		/// </summary>
 		public static int RollStability(int piStabilityClass)
 		{
 			switch (piStabilityClass)
 			{
 				case 0x80:
-					return UWRandom.Next(1, 25) + UWRandom.Next(1, 25) + UWRandom.Next(1, 25);
+					return UWRandom.RollDice(LongStabilityDice, LongStabilitySides) + LongStabilityBonus;
 
 				case 0x40:
-					return UWRandom.Next(1, 9) + UWRandom.Next(1, 9);
+					return UWRandom.RollDice(MediumStabilityDice, MediumStabilitySides) + MediumStabilityBonus;
 
 				case 0x00:
-					return UWRandom.Next(1, 4) + UWRandom.Next(1, 4);
+					return UWRandom.RollDice(ShortStabilityDice, ShortStabilitySides);
 
 				default:
 					return 1;
 			}
 		}
+
+		/// <summary>set_curmagic's dice for stability class 0x80: 3d20 + 24.</summary>
+		public const int LongStabilityDice = 3;
+
+		public const int LongStabilitySides = 20;
+
+		public const int LongStabilityBonus = 24;
+
+		/// <summary>set_curmagic's dice for stability class 0x40: 2d8 + 6.</summary>
+		public const int MediumStabilityDice = 2;
+
+		public const int MediumStabilitySides = 8;
+
+		public const int MediumStabilityBonus = 6;
+
+		/// <summary>set_curmagic's dice for stability class 0x00: 2d3.</summary>
+		public const int ShortStabilityDice = 2;
+
+		public const int ShortStabilitySides = 3;
 	}
 }

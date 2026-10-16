@@ -20,11 +20,16 @@ namespace UWDataImport.UWData
 	/// quality class (COMOBJ byte 6 bits 2-3) is 3; otherwise it halves the damage once per
 	/// class and takes it off the quality. At 0 the object is destroyed.
 	///
-	/// THE REMAINS: DamageObject_Debris_seg023_D6 opens a door, spills chest and barrel and
-	/// class 8 containers, and turns everything else into a pile of debris, 0xD5 or 0xD6, its
-	/// contents gone. With FIRE (type bit 8) a pile of debris that is struck again vanishes, and
-	/// any other object puts up the smoke (SpawnClass7Object with offset 8) one time in four
-	/// before it becomes debris.
+	/// THE REMAINS: DamageObject_Debris_seg023_D6 (remove_object of DAMAGE.C, read in the
+	/// decompilation 2026-10-12) has four branches. A DOOR swings open and loses its locks and
+	/// stays. A CHEST OR BARREL loses its lock, is used (UseCont, so its contents spill, see
+	/// UWSpillRules) and becomes a pile of debris. A BAG (class 8) is asked the culling test
+	/// with the range 10 (Obj_Elem_Fate, UWObjectLimitRules.CullingTest): spared, it is LEFT AS
+	/// IT IS, worn to quality 0; otherwise it spills (DumpTheBag) and becomes debris. EVERYTHING
+	/// ELSE loses its chain and becomes debris, 0xD5 or 0xD6 - and only here, with FIRE (type
+	/// bit 8), a pile of debris that is struck again vanishes and any other object puts up the
+	/// smoke (put_effect 8, 6d10) one time in four first. The object BECOMES the debris: the
+	/// id changes, the quality stays at the 0 the wear left (DebrisQuality).
 	/// </summary>
 	public static class UWObjectDamageRules
 	{
@@ -42,7 +47,7 @@ namespace UWDataImport.UWData
 		public const int LightningBlastDiceRange = 5;
 
 		/// <summary>"a_pile of debris", the first of the two remains objects.</summary>
-		public const int FirstDebrisObjectId = 0xD5;
+		public const int FirstDebrisObjectId = UWObjectIds.FirstDebris;
 
 		public const int DebrisVariants = 2;
 
@@ -137,6 +142,17 @@ namespace UWDataImport.UWData
 			return (piObjectId >> 4) == ContainerIdClass;
 		}
 
+		/// <summary>
+		/// A chest (0x15D) or barrel (0x15B): remove_object loses one lock and USES it (UseCont),
+		/// so its contents spill. The nightstand (0x15E), though it holds things too, falls into
+		/// the last branch with everything else: its chain is freed and the contents are gone
+		/// (UnderworldExhumed combat/DAMAGE.C; until 2026-10-12 ours spilled it like a chest).
+		/// </summary>
+		public static bool IsUsedWhenDestroyed(int piObjectId)
+		{
+			return piObjectId == UWObjectMechanics.ChestObjectId || piObjectId == UWObjectMechanics.BarrelObjectId;
+		}
+
 		public enum Remains
 		{
 			/// <summary>The object becomes a pile of debris.</summary>
@@ -166,6 +182,36 @@ namespace UWDataImport.UWData
 		public static int RollDebrisObjectId()
 		{
 			return FirstDebrisObjectId + ((UWRandom.Next(0x8000) * DebrisVariants) / 0x8000);
+		}
+
+		/// <summary>The quality of a fresh pile of debris: the destroyed object keeps its
+		/// quality when its id changes (remove_object's SET_ITEM), and damage_object has just
+		/// worn that to 0. One value for the blast and the smashed container since 2026-10-12
+		/// (cleanup 2.6; until then 0 and "unchanged", which a fresh object makes 0 as well).</summary>
+		public const int DebrisQuality = 0;
+
+		/// <summary>The range remove_object hands the culling test for a destroyed bag -
+		/// Obj_Elem_Fate(10, obj), the liquids' ten.</summary>
+		public const int BagCullingRangeArgument = UWLiquidCulling.RangeBase;
+
+		/// <summary>
+		/// Whether a destroyed bag, box or pouch is LEFT AS IT IS: remove_object asks the
+		/// culling test (UWObjectLimitRules.CullingTest, range 10 plus 0 to 2) and leaves the
+		/// bag alone, worn to quality 0 and with its contents, when the test spares it - a bag
+		/// with word 0 bit 13, or valuable enough itself, or holding something that is. Only a
+		/// bag the test condemns spills and becomes debris. Until 2026-10-12 ours spilled every
+		/// destroyed bag (Todo "Smoke rolled for a bag under fire", the open point).
+		/// </summary>
+		public static bool DestroyedBagIsSpared(UWObject pOBag, UWCommonObjectProperties pOProperties,
+			System.Collections.Generic.List<UWObject> pOMaster)
+		{
+			return !UWObjectLimitRules.CullingTest(pOBag, BagCullingRangeArgument, pOProperties, pOMaster,
+				fRandomDraw);
+		}
+
+		private static int fRandomDraw()
+		{
+			return UWRandom.Next(UWOriginalRandom.Range);
 		}
 
 		/// <summary>How long the smoke stays, in seconds - see AnimationTicksPerSecond.</summary>

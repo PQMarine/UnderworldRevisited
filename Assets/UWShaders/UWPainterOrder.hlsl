@@ -247,8 +247,11 @@ float UWPainterTileOrder(float2 pTile)
 // paints the objects beyond the door plane first, then the door, then those on the viewer's side -
 // and a big creature just behind the door has been handed to the door's tile by then (per user,
 // 2026-09-28: creatures showed over doors and lintels). UWOwnTile.ClearDoors fills the planes.
+#ifndef UW_DOOR_PLANES_DECLARED
+#define UW_DOOR_PLANES_DECLARED
 TEXTURE2D(_UWDoorPlanes);
 float _UWDoorPlanesReady;
+#endif
 
 // True when the tile has a door and the point lies beyond its plane, seen from the eye.
 bool UWPainterBeyondDoor(float2 pTile, float3 pPointWS)
@@ -432,8 +435,12 @@ bool UWPainterModelPaintsAfter(float2 pTile, float3 pSurfaceWS, float pfSpritePl
 }
 
 // pfSpritePart is the sprite's part from UWPainterObjectPlace, pfSpriteChain its place in the
-// tile's chain (_ChainIndex).
-bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float pfSpritePart, float pfSpriteChain)
+// tile's chain (_ChainIndex). pfNearer is the sprite's _DepthBias: where the true depths decide,
+// it counts that many units nearer - the flash on a struck door, chest or barrel stands in the
+// object itself and must be drawn over it, as the original draws the effect after the object
+// (per user, 2026-10-13: on a door it fought the leaf pixel by pixel; the test allowed one unit).
+bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float pfSpritePart, float pfSpriteChain,
+    float pfNearer)
 {
     if (UWPainterUnderDeck(pPixel, pPivotWS))
         return false;
@@ -455,6 +462,21 @@ bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, 
 
     float3 lSurface = ComputeWorldSpacePosition(pPixel / _ScaledScreenParams.xy, lfDepth, UNITY_MATRIX_I_VP);
 
+    // THE OBJECT THE SPRITE STANDS IN (pfNearer > 0): a surface no farther from the sprite's own
+    // depth than its bias is that object - the struck door, chest or barrel under a flash, the
+    // basin under its water - and the sprite is drawn over it whatever tile the pixel's surface
+    // falls in. A door leaf lies on its tile's edge, so its pixels split between two tiles by the
+    // angle of view, and the half in the nearer tile still hid the flash (per user, 2026-10-13:
+    // looking left the left half was right, the right half still flickered).
+    if (pfNearer > 0.0)
+    {
+        float3 lAhead = -UNITY_MATRIX_V[2].xyz;
+        float lfGap = dot(lSurface - _WorldSpaceCameraPos, lAhead) - dot(pPivotWS - _WorldSpaceCameraPos, lAhead);
+
+        if (abs(lfGap) <= pfNearer + 1.0)
+            return true;
+    }
+
     float3 lNudged = lSurface + (normalize(_WorldSpaceCameraPos - lSurface) * 0.5);
     float lfSpriteOrder = UWPainterTileOrder(pSpriteTile);
     float lfSurfaceOrder = UWPainterTileOrder(UWPainterTileOf(lNudged.xz));
@@ -470,7 +492,7 @@ bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, 
     {
         float3 lForward = -UNITY_MATRIX_V[2].xyz;
 
-        return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPivotWS - _WorldSpaceCameraPos, lForward) - 1.0;
+        return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPivotWS - _WorldSpaceCameraPos, lForward) - 1.0 - pfNearer;
     }
 
     return lfSpriteOrder >= lfSurfaceOrder;
@@ -480,7 +502,7 @@ bool UWPainterSpriteVisible(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, 
 // covers the sprite when it lies nearer than the sprite's own point - unless it belongs to the
 // sprite's own tile, which never covers what stands in it (as UWOwnTile.hlsl has it for the
 // Remastered path), or lies under a bridge's deck as above.
-bool UWPainterSpriteVisibleTrue(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float3 pPositionWS)
+bool UWPainterSpriteVisibleTrue(float2 pPixel, float2 pSpriteTile, float3 pPivotWS, float3 pPositionWS, float pfNearer)
 {
     if (UWPainterUnderDeck(pPixel, pPivotWS))
         return false;
@@ -502,12 +524,22 @@ bool UWPainterSpriteVisibleTrue(float2 pPixel, float2 pSpriteTile, float3 pPivot
     float3 lSurface = ComputeWorldSpacePosition(pPixel / _ScaledScreenParams.xy, lfDepth, UNITY_MATRIX_I_VP);
     float3 lNudged = lSurface + (normalize(_WorldSpaceCameraPos - lSurface) * 0.5);
 
+    // The object the sprite stands in - see UWPainterSpriteVisible.
+    if (pfNearer > 0.0)
+    {
+        float3 lAhead = -UNITY_MATRIX_V[2].xyz;
+        float lfGap = dot(lSurface - _WorldSpaceCameraPos, lAhead) - dot(pPivotWS - _WorldSpaceCameraPos, lAhead);
+
+        if (abs(lfGap) <= pfNearer + 1.0)
+            return true;
+    }
+
     if (all(UWPainterTileOf(lNudged.xz) == UWPainterTileOf(pPivotWS.xz)) || all(UWPainterTileOf(lNudged.xz) == pSpriteTile))
         return true;
 
     float3 lForward = -UNITY_MATRIX_V[2].xyz;
 
-    return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPositionWS - _WorldSpaceCameraPos, lForward) - 1.0;
+    return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPositionWS - _WorldSpaceCameraPos, lForward) - 1.0 - pfNearer;
 }
 
 // The sprites among themselves still by the painter's order, written into a thin band in front

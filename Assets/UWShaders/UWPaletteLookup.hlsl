@@ -1,6 +1,6 @@
 // CORE OF THE PALETTE RENDERER. Included by the palette shaders UW/DungeonPalette,
 // UW/ModelPalette, UW/DecalPalette and UW/BillboardPalette. The palette path is the default;
-// F6 switches back to the URP lighting for comparison (see UWPaletteRenderToggle).
+// the detail level of the Graphics menu switches to the URP lighting (see UWPaletteRenderToggle).
 //
 // The shared lookup chain of all palette shaders. It replaces URP lighting
 // completely - there is no point light, no normal vector, no shadow casting.

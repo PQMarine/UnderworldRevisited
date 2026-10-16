@@ -161,6 +161,9 @@ public class UWPaletteEffects : MonoBehaviour
     /// <summary>The normal and height array, built the first time relief or hollows are on.</summary>
     private Texture2DArray mONormalArray;
 
+    /// <summary>The height strength the normal array was built with.</summary>
+    private float mfNormalStrength;
+
     private static readonly int msGrimeTintTableId = Shader.PropertyToID("_UWGrimeTintTable");
 
     /// <summary>The grime's colour tables, one row per tone (UWGrimeTint), built once.</summary>
@@ -203,12 +206,12 @@ public class UWPaletteEffects : MonoBehaviour
     /// UWRemasterLights) -, chosen by what they are.</summary>
     private static readonly Dictionary<int, float> msLightLevels = new Dictionary<int, float>
     {
-        { 145, 2f },   // torch
-        { 146, 1f },   // candle
-        { 144, 3f },   // lantern
-        { 298, 3f },   // campfire
-        { 120, 3f },   // fire elemental
-        { 297, 1f },   // glowing stone
+        { UWObjectIds.Torch, 2f },       // torch
+        { UWObjectIds.Candle, 1f },      // candle
+        { UWObjectIds.Lantern, 3f },     // lantern
+        { 298, 3f },                     // campfire
+        { 120, 3f },                     // fire elemental
+        { UWObjectIds.GlowingRock, 1f }, // glowing stone
         { 184, 1f },   // glowing mushroom
         { 279, 2f },   // orb
         { 274, 2f },   // orb stone
@@ -316,13 +319,22 @@ public class UWPaletteEffects : MonoBehaviour
         float lfCavity = pbPalette ? Mathf.Clamp(UWUserSettings.PaletteCavity, 0f, MaxRelief) : 0f;
         float lfDepth = pbPalette ? Mathf.Clamp(UWUserSettings.PaletteDepth, 0f, MaxDepth) : 0f;
 
-        if ((lfCavity > 0f || lfDepth > 0f) && mONormalArray == null)
+        if (lfCavity > 0f || lfDepth > 0f)
         {
             UWLevelLoader lOLoader = UWScene.LevelLoader;
             UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
-            if (lOLoader != null && lOLoader.UWDataImporter != null && lOSettings != null)
+            // Built once, and again when the height strength changes (UWRemasterRenderer does
+            // the same for its copy; until 2026-10-11 this one stayed at the first strength).
+            if (lOLoader != null && lOLoader.UWDataImporter != null && lOSettings != null
+                && (mONormalArray == null || !Mathf.Approximately(mfNormalStrength, lOSettings.RemasterHeightStrength)))
+            {
+                if (mONormalArray != null)
+                    Destroy(mONormalArray);
+
                 mONormalArray = UWTextureArrayBuilder.BuildNormals(lOLoader.UWDataImporter, lOSettings.RemasterHeightStrength);
+                mfNormalStrength = lOSettings.RemasterHeightStrength;
+            }
         }
 
         if (mONormalArray == null)

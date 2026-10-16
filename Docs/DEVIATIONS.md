@@ -1,0 +1,105 @@
+# Where Underworld Revisited deliberately differs from the original
+
+Underworld Revisited aims at the original's rules. Its rules are checked against the original
+game's code and, where that leaves a question, by playing the original side by side. A few
+differences are kept on purpose. They are listed here with their reasons, so that nobody
+mistakes them for bugs, or "fixes" them back.
+
+Everything the original does not have at all - the modern control scheme, the interface
+presets, the Remastered render mode, the help window, the setup bar, the music devices - is an
+addition and is not listed. Anything not listed here and not an addition is meant to behave as
+in the original; if it does not, please report it.
+
+## Rules
+
+**Stacks stop at 511.** In the original, joining two stacks to a total between 512 and 998 sets
+a bit that turns the stack into something else - 300 and 250 arrows become a single arrow
+(seen in the original). Ours stops the stack at 511 and puts the rest in a free place. The
+same limit holds where a trade joins piles: a drop on the player's trade slot, the coins paid to
+a partner, and an item a conversation creates.
+
+**Attribute points can be dealt by hand at character creation.** An option in the Game menu,
+off by default: instead of rolling, the player distributes the class's bonus points. For those
+who do not want their character to depend on luck.
+
+**A new maximum of mana on level 7 is held back only while Tybal's orb stands.** The original
+holds it back on level 7 whether the orb stands or not, so after breaking the orb a gain on
+that level vanishes until the next recomputation. Taken as a bug.
+
+**Garamon's bones leave the inventory before the burial conversation.** The original removes
+them only afterwards, through a pointer to the object in hand. Closing their container during
+the conversation, or putting them on the trade area, lets them survive the burial, and a
+second attempt then only says the bones do not seem at rest. Seen in the original.
+
+**Gate Travel looks for the moonstone before it moves the player.** The original moves first
+and searches the target level afterwards. Ours searches first and leaves the player in place
+when there is no stone, instead of landing in the middle of another level.
+
+**Picking up still works in a level filled to the last object slot.** In the original the object
+in hand needs a slot of its own, so in a completely full level nothing can be picked up.
+
+**The last map note of a level can be deleted on the note pages beyond level 9.** In the
+original it comes back when the map is reopened. Levels 1 to 9 behave as in the original.
+
+**A bug in one conversation script is fixed.** The trolls' news conversation (number 288) tests
+its counter of untold news against the wrong value, so its "no new news" answer and its reset
+never come. The game runs a corrected copy; the loaded data and every export keep the original
+words.
+
+**Gifts are never lost.** The Key of Truth from the shrine and the seed of the silver tree go
+onto the pointer, else into the pack, else to the floor. In the original they are only given
+when the hand is empty; with something held nothing is given, and the mantra can be chanted
+again.
+
+**A follower that jumps to the player lands only where it can stand.** A creature following the
+player (goal 3) that has fallen far behind jumps close to him; the original puts it down without
+a test, on any floor height, even in rock or in the wrong medium. Ours refuses a solid tile or
+water for a walker, and a flier keeps its height.
+
+**Typed mantras and names lose spaces at their ends.** In the original " MU " with a space is not
+a mantra, and the spaces belong to a name.
+
+**A dying creature that no longer gets updates is removed after three seconds.** The original
+finishes a death only in the creature's own updates, so a creature far from the player can lie
+dying for a long time. Ours completes it after three seconds, with its loot and remains.
+
+**A night does not touch objects flying through the air.** After an undisturbed night the
+original also lands or removes the moving objects of the level; ours lets them fly on.
+
+**Arriving where nothing fits kills on the arrival tile.** When no free tile is found around the
+arrival and even clearing the tiles does not help, the original leaves the player at his old
+place with no hit points left; ours puts him on the arrival tile first.
+
+## Interface and controls
+
+**Roaming Sight can be steered with the keys in the classic scheme too.** The original steers it
+by the pointer alone.
+
+**F9 and F10 are refused during Roaming Sight.** The original still tracks and makes camp there;
+sleeping then leaves the spell gone and the view stuck.
+
+**A blow does not start dragging an inventory item.** In the original, a blow charged with the
+button held keeps charging while the pointer moves over the inventory, and passing over an item
+starts dragging it at the same time.
+
+**The use-mode pointer stays after a drop into the trade area.** In the original the pointer
+turns back to the normal one while the use mode stays lit.
+
+## Presentation
+
+**The map piece shows its picture without the animation.** The piece of the map on level 7 plays
+a short cutscene in the view window in the original; ours shows its first picture.
+
+**Far objects are drawn fine, not coarse.** In the original a far sprite looks blocky; a flying
+fireball grows from a single pixel to a block to its picture.
+
+**Every animated object animates.** The original animates only the objects on a level's
+animation list. Ours keeps that list and saves it, so a save behaves the same in the original,
+but draws every animated object in motion.
+
+## Bugs of the original that are kept
+
+**The Garamon of the burial conversation.** The conversation at the grave runs with a stand-in
+partner, and what it changes stays with the stand-in, not with the ghost that appears
+afterwards. A player who already answered up to "I shall think on it." meets a friendly
+Garamon; only a second conversation with the ghost settles it. Kept as the original has it.

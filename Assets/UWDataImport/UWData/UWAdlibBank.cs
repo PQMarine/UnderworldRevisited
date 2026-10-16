@@ -90,10 +90,10 @@ namespace UWDataImport.UWData
 			public TvfxPatch(byte[] pyRaw)
 			{
 				Raw = pyRaw;
-				Size = fRead16(pyRaw, 0);
+				Size = UWBinary.Read16(pyRaw, 0);
 				Transpose = (sbyte)pyRaw[2];
 				Type = (TvfxType)pyRaw[3];
-				Duration = fRead16(pyRaw, 4);
+				Duration = UWBinary.Read16(pyRaw, 4);
 
 				for (int liAt = 0; liAt < 8; liAt++)
 				{
@@ -101,9 +101,9 @@ namespace UWDataImport.UWData
 
 					Parameters[liAt] = new TvfxParameter
 					{
-						InitialValue = (ushort)fRead16(pyRaw, liOffset),
-						KeyOnOffset = (ushort)fRead16(pyRaw, liOffset + 2),
-						ReleaseOffset = (ushort)fRead16(pyRaw, liOffset + 4)
+						InitialValue = (ushort)UWBinary.Read16(pyRaw, liOffset),
+						KeyOnOffset = (ushort)UWBinary.Read16(pyRaw, liOffset + 2),
+						ReleaseOffset = (ushort)UWBinary.Read16(pyRaw, liOffset + 4)
 					};
 				}
 
@@ -175,7 +175,7 @@ namespace UWDataImport.UWData
 				if (liOffset < 0 || liOffset + 2 > lyData.Length)
 					continue;
 
-				int liSize = fRead16(lyData, liOffset);
+				int liSize = UWBinary.Read16(lyData, liOffset);
 
 				if (liSize < 2 || liOffset + liSize > lyData.Length)
 					continue;
@@ -237,11 +237,6 @@ namespace UWDataImport.UWData
 			TvfxPatch lOPatch;
 
 			return mOEffects.TryGetValue(piPatch, out lOPatch) ? lOPatch : null;
-		}
-
-		private static int fRead16(byte[] pyData, int piOffset)
-		{
-			return pyData[piOffset] | (pyData[piOffset + 1] << 8);
 		}
 	}
 }

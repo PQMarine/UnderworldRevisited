@@ -93,20 +93,14 @@ namespace UWDataImport.UWData
 			{
 				int[] liWords = mOWords[liSlot];
 
-				fWrite16(lyOut, liSlot);
-				fWrite16(lyOut, liWords.Length);
+				UWBinary.Write16(lyOut, liSlot);
+				UWBinary.Write16(lyOut, liWords.Length);
 
 				foreach (int liWord in liWords)
-					fWrite16(lyOut, liWord);
+					UWBinary.Write16(lyOut, liWord);
 			}
 
 			return lyOut.ToArray();
-		}
-
-		private static void fWrite16(List<byte> pyOut, int piValue)
-		{
-			pyOut.Add((byte)(piValue & 0xFF));
-			pyOut.Add((byte)((piValue >> 8) & 0xFF));
 		}
 	}
 }

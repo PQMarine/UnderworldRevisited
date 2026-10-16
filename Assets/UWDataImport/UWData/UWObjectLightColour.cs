@@ -15,7 +15,7 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWObjectLightColour
 	{
-		private struct Entry
+		internal struct Entry
 		{
 			public bool Found;
 			public float Red;
@@ -23,7 +23,30 @@ namespace UWDataImport.UWData
 			public float Blue;
 		}
 
-		private static readonly Dictionary<int, Entry> msCache = new Dictionary<int, Entry>();
+		/// <summary>The colours worked out so far, keyed by the object id only. One per session
+		/// (UWGameSession.LightColours, cleanup step 2.7, 2026-10-14), so a new game or a loaded one
+		/// starts empty, as phase 1 decided for the static that leaked across them (B21).</summary>
+		public sealed class Cache
+		{
+			internal readonly Dictionary<int, Entry> Entries = new Dictionary<int, Entry>();
+
+			public int Count
+			{
+				get { return Entries.Count; }
+			}
+
+			public void Clear()
+			{
+				Entries.Clear();
+			}
+		}
+
+		/// <summary>Forgets every colour, for a data set loaded anew (the cache is keyed by the
+		/// object id only).</summary>
+		public static void ClearCache()
+		{
+			UWGameSession.Current.LightColours.Clear();
+		}
 
 		/// <summary>Which fraction of the highest brightness still counts towards the "brightest
 		/// pixels".</summary>
@@ -45,11 +68,12 @@ namespace UWDataImport.UWData
 		public static bool TryGet(DataImport pOData, int piId, out float pfRed, out float pfGreen, out float pfBlue)
 		{
 			Entry lOEntry;
+			Dictionary<int, Entry> lOCache = UWGameSession.Current.LightColours.Entries;
 
-			if (!msCache.TryGetValue(piId, out lOEntry))
+			if (!lOCache.TryGetValue(piId, out lOEntry))
 			{
 				lOEntry = fCompute(pOData, piId);
-				msCache[piId] = lOEntry;
+				lOCache[piId] = lOEntry;
 			}
 
 			pfRed = lOEntry.Red;

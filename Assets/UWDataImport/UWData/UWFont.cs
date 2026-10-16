@@ -62,11 +62,11 @@ namespace UWDataImport.UWData
 			}
 
 			// 0x0000 is always 1 according to the docs and is not needed.
-			int liCharSize = fRead16(lyData, 2);
-			SpaceWidth = fRead16(lyData, 4);
-			Height = fRead16(lyData, 6);
-			int liRowBytes = fRead16(lyData, 8);
-			MaxWidth = fRead16(lyData, 10);
+			int liCharSize = UWBinary.Read16(lyData, 2);
+			SpaceWidth = UWBinary.Read16(lyData, 4);
+			Height = UWBinary.Read16(lyData, 6);
+			int liRowBytes = UWBinary.Read16(lyData, 8);
+			MaxWidth = UWBinary.Read16(lyData, 10);
 
 			if (liCharSize <= 0 || Height <= 0 || liRowBytes <= 0)
 			{
@@ -166,11 +166,6 @@ namespace UWDataImport.UWData
 		{
 			return psText != null && piAt >= 0 && piAt + 1 < psText.Length
 				&& psText[piAt] == '\\' && psText[piAt + 1] >= '0' && psText[piAt + 1] <= '9';
-		}
-
-		private static int fRead16(byte[] pyData, int piOffset)
-		{
-			return pyData[piOffset] | (pyData[piOffset + 1] << 8);
 		}
 	}
 }

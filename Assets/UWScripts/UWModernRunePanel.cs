@@ -340,15 +340,10 @@ public class UWModernRunePanel : MonoBehaviour
         mOIconTextures.Clear();
     }
 
-    private bool fIsModern()
-    {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
-
     private bool fIsShown()
     {
         // In Classic Wide only as the frame's tablet page (UWModernClassicFrame), never as a panel.
-        return fIsModern() && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
+        return UWControlScheme.IsModern && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
             && mOUi != null && mOUi.mOUWData != null && mOUi.mCharacter != null
             && !(UWModernLayout.IsClassic && !UWModernLayout.IsRuneTabletShown);
     }
@@ -590,7 +585,7 @@ public class UWModernRunePanel : MonoBehaviour
     {
         if (!fIsShown())
         {
-            if (mbOpen && !fIsModern())
+            if (mbOpen && !UWControlScheme.IsModern)
                 mbOpen = false;
 
             mbPeek = false;
@@ -710,7 +705,9 @@ public class UWModernRunePanel : MonoBehaviour
     {
         UWHudRunes lORunes = mOUi.Runes;
 
-        if (lORunes == null)
+        // Another input mode holds the runes (mous_in_rune, UWHudRunes.InAnotherInputMode): no
+        // clearing, no rune, no look, no cast (per user, 2026-10-13: the strip still cleared).
+        if (lORunes == null || lORunes.InAnotherInputMode)
             return;
 
         // The clear strip at the bottom of the shelf.

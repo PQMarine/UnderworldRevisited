@@ -47,7 +47,7 @@ namespace UWDataImport.UWData
 		/// display kind (see MapDisplayClear and the constants after it).
 		/// A type from FirstUndiscoveredType on means: not yet discovered.
 		///
-		/// Stored in LEV.ARK from block 27 on (DataImport.AutomapFirstBlock), 0x1000 bytes per
+		/// Stored in LEV.ARK from block 27 on (UWLevArkLayout.AutomapFirstBlock), 0x1000 bytes per
 		/// level. Null if the file does not have that many blocks or the block is missing
 		/// (see EnsureAutomap).</summary>
 		public byte[] AutomapTiles { get; private set; }
@@ -130,7 +130,16 @@ namespace UWDataImport.UWData
 			return lONotes;
 		}
 
-				public void LoadAutomap(byte[] pyRawLevelData, uint piOffset)
+				/// <summary>The level's animation list (LEV.ARK block 8 + level), see UWAnimationOverlay;
+		/// empty and unloaded without the block.</summary>
+		public UWAnimationOverlay Animations { get; private set; } = new UWAnimationOverlay();
+
+		public void LoadAnimations(byte[] pyRawLevelData, uint piOffset)
+		{
+			Animations = UWAnimationOverlay.Load(pyRawLevelData, (int)piOffset, mOMasterlist);
+		}
+
+		public void LoadAutomap(byte[] pyRawLevelData, uint piOffset)
 		{
 			if (piOffset == 0 || piOffset + 0x1000 > pyRawLevelData.Length)
 				return;
@@ -195,10 +204,10 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool MarkTileSeen(int piTileX, int piTileY)
 		{
-			if (AutomapTiles == null || TileData == null || piTileX < 0 || piTileY < 0 || piTileX >= 64 || piTileY >= 64)
+			if (AutomapTiles == null || TileData == null || !new UWTilePos(piTileX, piTileY).IsOnMap)
 				return false;
 
-			int liAt = (piTileY * 64) + piTileX;
+			int liAt = new UWTilePos(piTileX, piTileY).Index;
 
 			if (AutomapTiles[liAt] != 0 || TileData[liAt] == null)
 				return false;
@@ -253,10 +262,10 @@ namespace UWDataImport.UWData
 			if (AutomapTiles == null || TileData == null)
 				return false;
 
-			if (piTileX < 0 || piTileY < 0 || piTileX >= 64 || piTileY >= 64)
+			if (!new UWTilePos(piTileX, piTileY).IsOnMap)
 				return false;
 
-			int liAt = (piTileY * 64) + piTileX;
+			int liAt = new UWTilePos(piTileX, piTileY).Index;
 
 			UWTile lOTile = TileData[liAt];
 
@@ -300,27 +309,25 @@ namespace UWDataImport.UWData
 		{
 			mOTextures = pOTextures;
 			miBlockOffset = piBlockOffset;
-			byte[] array = new byte[122];
-			Array.Copy(pyRawLevelData, piTextureUsageOffset, array, 0L, 122L);
+			byte[] array = new byte[UWLevArkLayout.TextureMapSize];
+			Array.Copy(pyRawLevelData, piTextureUsageOffset, array, 0L, UWLevArkLayout.TextureMapSize);
 			fLoadTextureInfo(array);
-			array = new byte[16384];
-			Array.Copy(pyRawLevelData, miBlockOffset, array, 0L, 16384L);
+			array = new byte[UWLevArkLayout.TileMapSize];
+			Array.Copy(pyRawLevelData, miBlockOffset, array, 0L, UWLevArkLayout.TileMapSize);
 			fLoadTileMap(array);
-			array = new byte[13200];
-			Array.Copy(pyRawLevelData, miBlockOffset + 16384, array, 0L, 13200L);
+			// Until 2026-10-12 this copied 13200 bytes, 144 past the two object lists into the
+			// mobile free list; the parse never read them.
+			array = new byte[UWLevArkLayout.ObjectListSize];
+			Array.Copy(pyRawLevelData, miBlockOffset + UWLevArkLayout.MobileBase, array, 0L, UWLevArkLayout.ObjectListSize);
 			fLoadObjectLists(array);
-			fLoadFreeMobileSlots(pyRawLevelData);
-			fLoadFreeStaticSlots(pyRawLevelData);
-			fLoadActiveMobiles(pyRawLevelData);
+			// The lists at the block's end, through UWLevArkCodec (the layout in UWLevArkLayout).
+			mOFreeMobileSlots = UWLevArkCodec.ReadMobileFreeList(pyRawLevelData, (int)miBlockOffset);
+			mOFreeStaticSlots = UWLevArkCodec.ReadStaticFreeList(pyRawLevelData, (int)miBlockOffset);
+			mOActiveMobiles = UWLevArkCodec.ReadActiveMobiles(pyRawLevelData, (int)miBlockOffset);
+
+			// A rune of warding an older save of ours laid without its flags (2026-10-14).
+			UWTrapRules.RepairOldWardRunes(this);
 		}
-
-		/// <summary>Block offsets of the list of the allocated mobile objects and its count
-		/// (see UWLevelWriter).</summary>
-		private const int ActiveMobileListOffset = 0x7AFC;
-
-		private const int ActiveMobileCountOffset = 0x7C00;
-
-		private List<int> mOActiveMobiles;
 
 		/// <summary>
 		/// THE LIST OF THE ALLOCATED MOBILE OBJECTS, in the original's order: GetFreeObject
@@ -328,22 +335,10 @@ namespace UWDataImport.UWData
 		/// (seg027_2861_A83), and the level file keeps the list at 0x7AFC. Routines that look
 		/// for a creature by its whoami walk it in this order and stop at the first match
 		/// (see RunFunctionOnWhoAmIList_seg038_3307_D4E) - per user, 2026-09-29: Tyball's death took
-		/// the 209 guard #222 before #223 and #200, exactly the order of this list.
+		/// the 209 guard #222 before #223 and #200, exactly the order of this list. Read by
+		/// UWLevArkCodec.ReadActiveMobiles in the constructor.
 		/// </summary>
-		private void fLoadActiveMobiles(byte[] pyRawLevelData)
-		{
-			mOActiveMobiles = new List<int>();
-
-			long liCountAt = miBlockOffset + ActiveMobileCountOffset;
-
-			if (liCountAt + 2 > pyRawLevelData.Length)
-				return;
-
-			int liCount = pyRawLevelData[liCountAt] | (pyRawLevelData[liCountAt + 1] << 8);
-
-			for (int liAt = 0; liAt < liCount && ActiveMobileListOffset + liAt < ActiveMobileCountOffset; liAt++)
-				mOActiveMobiles.Add(pyRawLevelData[miBlockOffset + ActiveMobileListOffset + liAt]);
-		}
+		private List<int> mOActiveMobiles;
 
 		/// <summary>The place of a mobile slot in the list of the allocated mobiles, or
 		/// int.MaxValue when it is not in it.</summary>
@@ -354,36 +349,9 @@ namespace UWDataImport.UWData
 			return liAt < 0 ? int.MaxValue : liAt;
 		}
 
-		/// <summary>Block offsets of the mobile free list and its top entry (see UWLevelWriter).</summary>
-		private const int MobileFreeListOffset = 0x7300;
-
-		private const int MobileFreeTopOffset = 0x7C02;
-
-		/// <summary>The first slots are the null object and the player.</summary>
-		private const int FirstFreeMobileSlot = 2;
-
-		private const int MobileSlotCount = 256;
-
+		/// <summary>The mobile free list in storage order, the top of the stack last
+		/// (UWLevArkCodec.ReadMobileFreeList; the layout in UWLevArkLayout).</summary>
 		private List<int> mOFreeMobileSlots;
-
-		private void fLoadFreeMobileSlots(byte[] pyRawLevelData)
-		{
-			mOFreeMobileSlots = new List<int>();
-
-			long liTopAt = miBlockOffset + MobileFreeTopOffset;
-
-			if (liTopAt + 2 > pyRawLevelData.Length)
-				return;
-
-			int liTop = (short)(pyRawLevelData[liTopAt] | (pyRawLevelData[liTopAt + 1] << 8));
-
-			for (int liAt = 0; liAt <= liTop && liAt < MobileSlotCount; liAt++)
-			{
-				long liEntry = miBlockOffset + MobileFreeListOffset + (liAt * 2);
-
-				mOFreeMobileSlots.Add(pyRawLevelData[liEntry] | (pyRawLevelData[liEntry + 1] << 8));
-			}
-		}
 
 		/// <summary>
 		/// A CREATURE THAT COMES INTO BEING GETS ITS SLOT AT ONCE (2026-09-27): the original's
@@ -409,49 +377,20 @@ namespace UWDataImport.UWData
 
 			int liIndex = mOMasterlist.IndexOf(pOObject);
 
-			if (liIndex < FirstFreeMobileSlot || liIndex >= MobileSlotCount || mOFreeMobileSlots.Contains(liIndex))
+			if (liIndex < UWLevArkLayout.FirstFreeMobileSlot || !UWLevArkLayout.IsMobileSlot(liIndex)
+				|| mOFreeMobileSlots.Contains(liIndex))
 				return;
 
 			mOFreeMobileSlots.Add(liIndex);
 
-			// Out of the allocated list: the last entry takes its place (seg027_2861_A83).
-			int liActive = mOActiveMobiles != null ? mOActiveMobiles.IndexOf(liIndex) : -1;
-
-			if (liActive >= 0)
-			{
-				mOActiveMobiles[liActive] = mOActiveMobiles[mOActiveMobiles.Count - 1];
-				mOActiveMobiles.RemoveAt(mOActiveMobiles.Count - 1);
-			}
+			// Out of the allocated list: the last entry takes its place (free_critter, seg027_2861_A83).
+			if (mOActiveMobiles != null)
+				UWLevArkCodec.RemoveActiveMobile(mOActiveMobiles, liIndex);
 		}
 
-		/// <summary>Block offsets of the static free list and its top entry (see UWLevelWriter).</summary>
-		private const int StaticFreeListOffset = 0x74FC;
-
-		private const int StaticFreeTopOffset = 0x7C04;
-
-		/// <summary>Static slots are numbered 256 to 1023.</summary>
-		private const int StaticSlotCount = 768;
-
+		/// <summary>The static free list, slots 256 to 1023, in storage order
+		/// (UWLevArkCodec.ReadStaticFreeList).</summary>
 		private List<int> mOFreeStaticSlots;
-
-		private void fLoadFreeStaticSlots(byte[] pyRawLevelData)
-		{
-			mOFreeStaticSlots = new List<int>();
-
-			long liTopAt = miBlockOffset + StaticFreeTopOffset;
-
-			if (liTopAt + 2 > pyRawLevelData.Length)
-				return;
-
-			int liTop = (short)(pyRawLevelData[liTopAt] | (pyRawLevelData[liTopAt + 1] << 8));
-
-			for (int liAt = 0; liAt <= liTop && liAt < StaticSlotCount; liAt++)
-			{
-				long liEntry = miBlockOffset + StaticFreeListOffset + (liAt * 2);
-
-				mOFreeStaticSlots.Add(pyRawLevelData[liEntry] | (pyRawLevelData[liEntry + 1] << 8));
-			}
-		}
 
 		/// <summary>
 		/// GetFreeObject for a static object (see UWObjectLimitRules): the top of the level's
@@ -470,6 +409,14 @@ namespace UWDataImport.UWData
 			return liIndex;
 		}
 
+		/// <summary>The three lists as they stand, the top of each free list last - read only, for
+		/// the self-check (UWWorldEdit's group, 2026-10-12).</summary>
+		public IReadOnlyList<int> FreeMobileSlots => mOFreeMobileSlots;
+
+		public IReadOnlyList<int> FreeStaticSlots => mOFreeStaticSlots;
+
+		public IReadOnlyList<int> ActiveMobiles => mOActiveMobiles;
+
 		/// <summary>Whether a static slot is on the free list (for the self-check).</summary>
 		public bool IsStaticSlotFree(int piIndex)
 		{
@@ -479,11 +426,45 @@ namespace UWDataImport.UWData
 		/// <summary>AddToFreeObjectsList_seg027_4DD for a static slot: back onto the top.</summary>
 		public void ReturnStaticSlot(int piIndex)
 		{
-			if (mOFreeStaticSlots == null || piIndex < MobileSlotCount || piIndex >= MobileSlotCount + StaticSlotCount
+			if (mOFreeStaticSlots == null || !UWLevArkLayout.IsStaticSlot(piIndex)
 				|| mOFreeStaticSlots.Contains(piIndex))
 				return;
 
 			mOFreeStaticSlots.Add(piIndex);
+		}
+
+		/// <summary>
+		/// THE OBJECT STORE EMPTIED, as Map_ObjFix (OBJECTS.C) leaves it - what the Armageddon
+		/// spell's clearobj (UWEDIT.C) runs, and do_level_hacks (GAMEWRAP.C) on every arrival
+		/// afterwards: the free stacks refilled with every index from 2 to 0x3FF in ascending
+		/// order (mobile 2 to 0xFF, static 0x100 to 0x3FF, so the next one handed out is the
+		/// highest), the active mobile list and the animation list emptied (animcount 0). The
+		/// tile lists are the caller's (UWWorldEdit.WipeAll); the Masterlist keeps the old records
+		/// until their numbers are handed out again, and UWLevelWriter frees what no tile reaches.
+		/// A list this level never read stays unread.
+		/// </summary>
+		public void ResetObjectStore()
+		{
+			if (mOFreeMobileSlots != null)
+			{
+				mOFreeMobileSlots.Clear();
+
+				for (int liIndex = UWLevArkLayout.FirstFreeMobileSlot; UWLevArkLayout.IsMobileSlot(liIndex); liIndex++)
+					mOFreeMobileSlots.Add(liIndex);
+			}
+
+			if (mOFreeStaticSlots != null)
+			{
+				mOFreeStaticSlots.Clear();
+
+				for (int liIndex = UWLevArkLayout.MobileCount; liIndex < UWLevArkLayout.ObjectCount; liIndex++)
+					mOFreeStaticSlots.Add(liIndex);
+			}
+
+			if (mOActiveMobiles != null)
+				mOActiveMobiles.Clear();
+
+			Animations.Entries.Clear();
 		}
 
 		public bool TryPlaceInFreeMobileSlot(UWObject pOObject, out int piIndex)
@@ -499,15 +480,16 @@ namespace UWDataImport.UWData
 
 				mOFreeMobileSlots.RemoveAt(mOFreeMobileSlots.Count - 1);
 
-				if (liIndex < FirstFreeMobileSlot || liIndex >= MobileSlotCount || liIndex >= mOMasterlist.Count)
+				if (liIndex < UWLevArkLayout.FirstFreeMobileSlot || !UWLevArkLayout.IsMobileSlot(liIndex)
+					|| liIndex >= mOMasterlist.Count)
 					continue;
 
 				mOMasterlist[liIndex] = pOObject;
 				piIndex = liIndex;
 
-				// Appended to the allocated list (seg027_2861_A70).
-				if (mOActiveMobiles != null && !mOActiveMobiles.Contains(liIndex))
-					mOActiveMobiles.Add(liIndex);
+				// Appended to the allocated list (active_critter, seg027_2861_A70).
+				if (mOActiveMobiles != null)
+					UWLevArkCodec.AddActiveMobile(mOActiveMobiles, liIndex);
 
 				return true;
 			}
@@ -519,30 +501,17 @@ namespace UWDataImport.UWData
 		{
 			miTextureInfos = new ushort[64];
 			for (int i = 0; i < 96; i += 2)
-			{
-				byte[] array = new byte[2];
-				Array.Copy(pyRawTextureInfoData, i, array, 0, 2);
-				miTextureInfos[i / 2] = BitConverter.ToUInt16(array, 0);
-			}
+				miTextureInfos[i / 2] = UWBinary.ReadU16(pyRawTextureInfoData, i);
 			for (int i = 96; i < 116; i += 2)
-			{
-				byte[] array = new byte[2];
-				Array.Copy(pyRawTextureInfoData, i, array, 0, 2);
-				miTextureInfos[48 + (i - 96) / 2] = BitConverter.ToUInt16(array, 0);
-			}
+				miTextureInfos[48 + (i - 96) / 2] = UWBinary.ReadU16(pyRawTextureInfoData, i);
 			Array.Copy(pyRawTextureInfoData, 116, miTextureInfos, 58, 6);
 		}
 
 		private void fLoadTileMap(byte[] pyTileMapData)
 		{
-			TileData = new UWTile[4096];
-			for (int i = 0; i < 4096; i++)
-			{
-				if (i == 158)
-				{
-				}
-				TileData[i] = new UWTile(i, BitConverter.ToUInt32(pyTileMapData, i * 4), miTextureInfos);
-			}
+			TileData = new UWTile[UWLevArkLayout.TileCount];
+			for (int i = 0; i < UWLevArkLayout.TileCount; i++)
+				TileData[i] = new UWTile(i, UWBinary.Read32(pyTileMapData, i * UWLevArkLayout.TileRecordSize), miTextureInfos);
 		}
 
 		private void fLoadObjectLists(byte[] pyObjectListData)
@@ -560,211 +529,38 @@ namespace UWDataImport.UWData
 			return array;
 		}
 
+		/// <summary>The 1024 records: 256 mobile ones of 27 bytes, then 768 static ones of 8.
+		/// The record itself is UWObjectRecordCodec's, the nineteen creature bytes
+		/// UWNpcRecordCodec's (2026-10-12); what stays here is the per-id texture choice.</summary>
 		private void load_object_list(byte[] pyObjectListData)
 		{
 			mOMasterlist = new List<UWObject>();
 			int num = 0;
-			for (int i = 0; i < 1024; i++)
+			for (int i = 0; i < UWLevArkLayout.ObjectCount; i++)
 			{
-				ushort num2 = BitConverter.ToUInt16(pyObjectListData, num);
-				ushort num3 = BitConverter.ToUInt16(pyObjectListData, num + 2);
-				ushort num4 = BitConverter.ToUInt16(pyObjectListData, num + 4);
-				ushort num5 = BitConverter.ToUInt16(pyObjectListData, num + 6);
-				num += 8;
-				ushort piItem_id = (ushort)(num2 & 0x1FF);
-				UWObject uWObject = ((i < 256) ? new UWNpc(piItem_id) : new UWObject(piItem_id));
-				uWObject.Flags = (ushort)((num2 & 0x1F00) >> 9);
-				uWObject.IsEnchanted = (ushort)((num2 & 0x1000) >> 12) != 0;
-				uWObject.DoorDirection = (ushort)((num2 & 0x2000) >> 13) != 0;
-				uWObject.IsHidden = (ushort)((num2 & 0x4000) >> 14) != 0;
-				uWObject.HasQuantity = (ushort)((num2 & 0x8000) >> 15) != 0;
-				uWObject.ZPos = (ushort)(num3 & 0x7F);
-				uWObject.Heading = (ushort)((num3 & 0x380) >> 7);
-				uWObject.YPos = (ushort)((num3 & 0x1C00) >> 10);
-				uWObject.XPos = (ushort)((num3 & 0xE000) >> 13);
-				uWObject.Quality = (ushort)(num4 & 0x3F);
-				uWObject.Link = (ushort)((num4 & 0xFFC0) >> 6);
-				uWObject.Owner = (ushort)(num5 & 0x3F);
-				uWObject.Quantity = (ushort)((num5 & 0xFFC0) >> 6);
-				if (uWObject.ID <= 460)
+				bool lbMobile = UWLevArkLayout.IsMobileSlot(i);
+				ushort piItem_id = (ushort)UWObjectRecordCodec.ReadId(pyObjectListData, num);
+				UWObject uWObject = lbMobile ? new UWNpc(piItem_id) : new UWObject(piItem_id);
+				UWObjectRecordCodec.Read(pyObjectListData, num, uWObject);
+				num += UWObjectRecordCodec.RecordSize;
+				// The pictures: the OBJECTS.GR image and, for the kinds drawn from another file, that
+				// file's - the per-id rules moved to UWObjectAppearance on 2026-10-12 so that an object
+				// made during play wears the same (cleanup plan section 4.1).
+				UWObjectAppearance.Apply(uWObject, mOTextures, miTextureInfos);
+				if (lbMobile)
 				{
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-				}
-				if (i == 992)
-				{
-				}
-				// Pillar (352, 0x0160): otherwise falls back to the generic object icon. In the
-				// original it shows a texture that differs per object instance
-				// (confirmed by screenshot comparison). Originally implemented via Owner->wall texture
-				// (as for the wall decoration 366/367) - according to uw-formats.txt
-				// (vividos/UnderworldAdventures), however, it is "the lower byte of the flags field"
-				// from tmobj.gr, not the wall texture. tmobj.gr images 0-3 really are
-				// narrow pillar edge textures (confirmed by visual check), hence masked to 2 bits
-				// (4 variants).
-				if (uWObject.ID == 352)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, uWObject.Flags & 3);
-				}
-				if (uWObject.ID == 353)
-				{
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, (uWObject.Flags & 7) + 4);
-				}
-				if (uWObject.ID == 356)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					if (uWObject.Flags < 2)
-					{
-						uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, uWObject.Flags + 30);
-					}
-					// From flags 2 on the level's floor list, entry flags - 2 (the reference's bridge.cs:
-					// texture_map[flags - 2 + 48]). Ours took flags - 1 until 2026-09-29 and showed the
-					// plate over the Wine of Compassion (level 6, 27/50, flags 2) in the grey floor 27
-					// instead of the brown marble 12 (per user with screenshots of the original).
-					if (uWObject.Flags > 1)
-					{
-						uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.FLOOR, miTextureInfos[uWObject.Flags - 2 + 48]);
-					}
-				}
-				if (uWObject.ID == 358)
-				{
-					int num6 = uWObject.Flags & 7;
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, num6 + 20);
-				}
-				// Gravestone (357, 0x0165): otherwise falls back to the generic object icon.
-				// According to uw-formats.txt (vividos/UnderworldAdventures) the wall texture of the
-				// gravestone is "flags" + 28 from tmobj.gr. But tmobj.gr has only 38 images, and of those
-				// only 28 and 29 are actually gravestone reliefs by visual check (dump of all 38
-				// images) (28 matches the original screenshot exactly) - so "flags" here
-				// means only 1 bit (2 variants), not the full value range. Fits the
-				// same mask pattern as the lever (353: Flags&7+4) or object 358
-				// (Flags&7+20). The grave text display (grave.dat/quantity) is separate and not
-				// implemented here.
-				if (uWObject.ID == 357)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, (uWObject.Flags & 1) + 28);
-				}
-				// Table (344, 0x0158) and chair (348, 0x015C): according to uw-formats.txt fixed
-				// TMOBJ textures (not flags-dependent as with other special cases), otherwise
-				// both fall back to the generic object icon. tmobj.gr has only 38 images in this
-				// installation (index 0-37, confirmed by visual check) - the
-				// documented chair index 38 would be outside the valid range
-				// (ArgumentOutOfRangeException, same pattern as with the gravestone before), hence
-				// defensively clamped here against the actual image count.
-				if (uWObject.ID == 344)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, 32);
-				}
-				if (uWObject.ID == 348)
-				{
-					List<UWTexture> lOTmobjTextures = mOTextures.GetTexturesByType(UWTexture.TextureTypes.TMOBJ);
-					int liChairTextureIndex = (lOTmobjTextures != null && lOTmobjTextures.Count > 0)
-						? System.Math.Min(38, lOTmobjTextures.Count - 1)
-						: 0;
-
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, liChairTextureIndex);
-				}
-				// Wall decorations 366/367 take their wall texture from the Owner via the level
-				// texture table. 365 "force field" is the same wall panel: on level 9 with Owner 0 and thus
-				// wall texture 64, "nothing" according to string block 10 - black, it hides the paths
-				// (per user in the original, 2026-09-14). The reference's tmap.cs also uses the Owner.
-				if (uWObject.ID == 365 || uWObject.ID == 366 || uWObject.ID == 367)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.WALL, miTextureInfos[uWObject.Owner]);
-				}
-				if (uWObject.ID >= 368 && uWObject.ID <= 383)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-					uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.TMFLAT, uWObject.ID & 0xF);
-				}
-				// Doors come in TWO groups of eight (string block 4): 320-325 are closed
-				// doors, 326 a portcullis, 327 a secret door - and 328-333, 334, 335 the same
-				// in open state.
-				//
-				// Until 2026-09-03 the condition ended at 327, which made the branch for the open
-				// doors inside it unreachable. This could not show up as a missing
-				// texture: they kept the general OBJECTS.GR assignment, i.e. their
-				// inventory icon, and were therefore drawn as placeholders (reported by the user on
-				// level 7; the ids occur on every level, see the removed tool UWDoorIdDump).
-				if (uWObject.ID >= 320 && uWObject.ID <= 335)
-				{
-					uWObject.Icon = mOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, uWObject.ID);
-
-					// Six door images per group, and the level table holds exactly six
-					// entries (58 to 63, see miTextureInfos). Both groups use
-					// the same six.
-					if (uWObject.ID <= 325)
-					{
-						uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.DOORS, miTextureInfos[uWObject.ID - 320 + 58]);
-					}
-					else if (uWObject.ID >= 328 && uWObject.ID <= 333)
-					{
-						uWObject.Texture = mOTextures.GetTextureByType(UWTexture.TextureTypes.DOORS, miTextureInfos[uWObject.ID - 328 + 58]);
-					}
-
-					// Portcullis (326 and 334): no texture from lev.ark/DOORS.GR - the
-					// grid geometry is procedural (UWObjectSpawner.fSpawnPortcullis), the
-					// real original graphic could not be found in any accessible data source
-					// (model table, DOORS.GR, TMOBJ.GR, TMFLAT.GR - all searched).
-					//
-					// Secret door (327 and 335): according to the user's knowledge (not from the docs)
-					// almost identical to the normal door, only with the tile's wall texture instead of
-					// the door graphic - disguised as part of the wall. That happens in
-					// UWObjectSpawner.fSpawnDoor directly via the tile (pOTile.TextureWall),
-					// analogous to the door frame (fSpawnDoorFrames); the texture deliberately stays
-					// unchanged here.
-				}
-				if (i < 256)
-				{
-					UWNpc uWNpc = (UWNpc)uWObject;
-					byte[] array = new byte[19];
-					Array.Copy(pyObjectListData, num, array, 0, 19);
-					uWNpc.NPCUsed = true;
-					// Until 2026-09-11 this held the DOUBLED value (array[0] << 1), and that is how
-					// it went into the conversation variables npc_hp and npc_health. The reference takes
-					// the byte as it is (uwObject.npc_hp), and the original computes damage
-					// on it - the doubled value was a mistake without any apparent reason.
-					uWNpc.NPC_HP = array[0];
-					uWNpc.HitPoints = array[0];
-					uWNpc.RawNpcBytes = (byte[])array.Clone();
-					ushort num7 = BitConverter.ToUInt16(array, 3);
-					uWNpc.NPCGoal = (byte)(num7 & 0xF);
-					uWNpc.NPCGTarg = (byte)((num7 & 0xFF0) >> 4);
-					ushort num8 = BitConverter.ToUInt16(array, 5);
-					uWNpc.NPCLevel = (byte)(num8 & 0xF);
-					uWNpc.NPCLootSpawned = (num8 & 0x1000) != 0;
-					uWNpc.NPCTalkedTo = (byte)((num8 & 0x2000) >> 13) == 1;
-					uWNpc.NPCAttitude = (byte)((num8 & 0xC000) >> 14);
-					uWNpc.NPCSpawned = (num8 & 0x0100) != 0;
-					uWNpc.NPCNoHealing = (num8 & 0x0200) != 0;
-					uWNpc.NPCAttitudeLocked = (array[2] & 0x80) != 0;
-					ushort num9 = BitConverter.ToUInt16(array, 14);
-					uWNpc.NPCYHome = (byte)((num9 & 0x3F0) >> 4);
-					uWNpc.NPCXHome = (byte)((num9 & 0xFC00) >> 10);
-					// The docs give the offsets in the NPC block in hexadecimal: npc_heading is at
-					// 0x0010, npc_hunger at 0x0011, npc_whoami at 0x0012 - i.e. at 16, 17 and
-					// 18. Previously this read array[12], the hex number 0x12 read as decimal;
-					// as a result ALL creatures of level 1 carried the same conversation slot 132,
-					// and heading and hunger were not read at all.
-					uWNpc.NPCHeading = (byte)(array[16] & 0x1F);
-					uWNpc.NPCHunger = (byte)(array[17] & 0x7F);
-					uWNpc.NPCIsAlly = (array[17] & 0x40) != 0;
-					uWNpc.NPCwhoami = array[18];
-					num += 19;
+					UWNpcRecordCodec.Read(pyObjectListData, num, (UWNpc)uWObject);
+					num += UWNpcRecordCodec.ByteCount;
 				}
 				mOMasterlist.Add(uWObject);
 			}
-			for (int j = 0; j < 64; j++)
+			for (int j = 0; j < UWWorldScale.TilesPerAxis; j++)
 			{
-				for (int k = 0; k < 64; k++)
+				for (int k = 0; k < UWWorldScale.TilesPerAxis; k++)
 				{
-					if (TileData[j * 64 + k].FirstObjectIndex != 0)
+					if (TileData[(j * UWWorldScale.TilesPerAxis) + k].FirstObjectIndex != 0)
 					{
-						TileData[j * 64 + k].LoadObjects(mOMasterlist, mOTextures);
+						TileData[(j * UWWorldScale.TilesPerAxis) + k].LoadObjects(mOMasterlist, mOTextures);
 					}
 				}
 			}

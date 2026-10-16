@@ -360,6 +360,8 @@ public class UWHelpWindow : MonoBehaviour
 
     private void OnGUI()
     {
+        UWImguiInput.BeginOnGUI();
+
         if (UWHelpLayout.Blend <= 0f || Screen.height <= 0)
         {
             IsTyping = false;
@@ -418,6 +420,7 @@ public class UWHelpWindow : MonoBehaviour
                 lfLeft, lfLeft + lfWidth);
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
+        UWImguiInput.AfterMatrix();
 
         Color lOWas = GUI.color;
         GUI.color = new Color(1f, 1f, 1f, UWHelpLayout.Blend);
@@ -440,12 +443,14 @@ public class UWHelpWindow : MonoBehaviour
             GUI.enabled = false;
 
         GUI.BeginGroup(new Rect(lfClipX, lfAreaTop, lfAreaX + lfAreaWidth - lfClipX, lfAreaHeight));
+        UWImguiInput.Sync();
 
         Rect lOArea = new Rect(lfAreaX - lfClipX, 0f, lfAreaWidth, lfAreaHeight);
 
         GUI.DrawTexture(lOArea, fTexture(BackgroundColour));
 
         GUILayout.BeginArea(new Rect(lOArea.x + 12f, lOArea.y + 12f, lOArea.width - 24f, lOArea.height - 24f));
+        UWImguiInput.Sync();
 
         fDrawTabs();
 
@@ -466,6 +471,7 @@ public class UWHelpWindow : MonoBehaviour
         else
         {
             mOScroll = GUILayout.BeginScrollView(mOScroll);
+            UWImguiInput.Sync();
 
             switch (meTab)
             {
@@ -476,12 +482,16 @@ public class UWHelpWindow : MonoBehaviour
             }
 
             GUILayout.EndScrollView();
+            mOScroll = UWImguiInput.WheelAfterScrollView(mOScroll);
+            UWImguiInput.Sync();
             IsTyping = false;
         }
 
         GUILayout.EndArea();
+        UWImguiInput.Sync();
 
         GUI.EndGroup();
+        UWImguiInput.Sync();
 
         GUI.enabled = lbWasEnabled;
 
@@ -490,13 +500,16 @@ public class UWHelpWindow : MonoBehaviour
         if (mOPendingPage != null && Event.current.type == EventType.Repaint)
         {
             GUI.matrix = Matrix4x4.identity;
+            UWImguiInput.AfterMatrix();
 
             float lfClipPixels = lfClipX * lfScale;
 
             GUI.BeginGroup(new Rect(lfClipPixels, 0f, mOPanelOnScreen.xMax - lfClipPixels, Screen.height));
+            UWImguiInput.Sync();
             GUI.DrawTexture(new Rect(mOPendingPageRect.x - lfClipPixels, mOPendingPageRect.y,
                 mOPendingPageRect.width, mOPendingPageRect.height), mOPendingPage);
             GUI.EndGroup();
+            UWImguiInput.Sync();
         }
 
         // The map as well, at whole screen pixels per map pixel.
@@ -517,7 +530,7 @@ public class UWHelpWindow : MonoBehaviour
 
             for (int liTab = liRowStart; liTab < Mathf.Min(liRowStart + TabsPerRow, msTabNames.Length); liTab++)
             {
-                if (GUILayout.Button(msTabNames[liTab], (int)meTab == liTab ? mOCurrentTab : mOTab,
+                if (UWImguiInput.LayoutButton(msTabNames[liTab], (int)meTab == liTab ? mOCurrentTab : mOTab,
                     GUILayout.Height(28f), GUILayout.Width(1f), GUILayout.ExpandWidth(true)))
                 {
                     meTab = (TabEnum)liTab;
@@ -560,11 +573,18 @@ public class UWHelpWindow : MonoBehaviour
         }
 
         mOScroll = GUILayout.BeginScrollView(mOScroll);
+        UWImguiInput.Sync();
 
         GUI.SetNextControlName(NotesControl);
         UWHelpNotes.Notes = GUILayout.TextArea(UWHelpNotes.Notes ?? string.Empty, mONotes, GUILayout.ExpandHeight(true));
 
+        // On Linux the click that focuses the notes may come through the Input System only.
+        if (UWImguiInput.PressedIn(GUILayoutUtility.GetLastRect()))
+            GUI.FocusControl(NotesControl);
+
         GUILayout.EndScrollView();
+        mOScroll = UWImguiInput.WheelAfterScrollView(mOScroll);
+        UWImguiInput.Sync();
 
         IsTyping = GUI.GetNameOfFocusedControl() == NotesControl;
     }
@@ -583,7 +603,7 @@ public class UWHelpWindow : MonoBehaviour
 
         GUILayout.Space(16f);
 
-        if (GUILayout.Button(mbShowMoreSpells ? "Hide the spells the manual does not name"
+        if (UWImguiInput.LayoutButton(mbShowMoreSpells ? "Hide the spells the manual does not name"
                 : "Show the spells the manual does not name", mOFoldout))
             mbShowMoreSpells = !mbShowMoreSpells;
 
@@ -660,11 +680,12 @@ public class UWHelpWindow : MonoBehaviour
             Rect lORow = GUILayoutUtility.GetLastRect();
             Event lOEvent = Event.current;
 
-            if (lbAllInBag && lOUi != null && GUI.enabled && lOEvent.type == EventType.MouseDown && lOEvent.button == 0
-                && lORow.Contains(lOEvent.mousePosition))
+            if (lbAllInBag && lOUi != null && UWImguiInput.PressedIn(lORow))
             {
                 lOUi.Runes.PutOnShelf(lORunes);
-                lOEvent.Use();
+
+                if (lOEvent.type == EventType.MouseDown)
+                    lOEvent.Use();
             }
 
             if (lbNamed)
@@ -775,7 +796,7 @@ public class UWHelpWindow : MonoBehaviour
 
         GUILayout.Space(16f);
 
-        if (GUILayout.Button(mbShowMoreMantras ? "Hide the mantras the manual does not name"
+        if (UWImguiInput.LayoutButton(mbShowMoreMantras ? "Hide the mantras the manual does not name"
                 : "Show the mantras the manual does not name", mOFoldout))
             mbShowMoreMantras = !mbShowMoreMantras;
 
@@ -956,7 +977,7 @@ public class UWHelpWindow : MonoBehaviour
 
         GUILayout.Space(16f);
 
-        if (GUILayout.Button(mbShowHiddenStats ? "Hide the hidden values" : "Show the hidden values", mOFoldout))
+        if (UWImguiInput.LayoutButton(mbShowHiddenStats ? "Hide the hidden values" : "Show the hidden values", mOFoldout))
             mbShowHiddenStats = !mbShowHiddenStats;
 
         if (!mbShowHiddenStats)
@@ -1037,7 +1058,7 @@ public class UWHelpWindow : MonoBehaviour
 
             if (leSlot == leWeaponSlot)
                 lsEffect += " (when striking)";
-            else if (leSlot == leShieldSlot && !UWPlayerCritterRow.IsShield(lOItem.ID))
+            else if (leSlot == leShieldSlot && !UWPlayerCritterRow.IsWornInShieldHand(lOItem.ID))
                 lsEffect += " (not in effect here)";
 
             // The slot alone, not the item's name - it saves the room (per user, 2026-10-02).
@@ -1203,7 +1224,7 @@ public class UWHelpWindow : MonoBehaviour
         try
         {
             // Block 2 from 0x18 on, as on the character panel (UWHudPanel.fGetClassName).
-            return fTitleCase(pOData.Strings.Blocks[2].Strings[0x18 + pOPlayer.CharacterClass]);
+            return fTitleCase(pOData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass]);
         }
         catch
         {
@@ -1347,7 +1368,9 @@ public class UWHelpWindow : MonoBehaviour
         int liScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * UWHudMap.TilePixels)));
 
         GUI.matrix = Matrix4x4.identity;
+        UWImguiInput.AfterMatrix();
         GUI.BeginGroup(lOClip);
+        UWImguiInput.Sync();
 
         GUI.DrawTexture(new Rect(0f, 0f, lOClip.width, lOClip.height), fTexture(FieldColour));
 
@@ -1374,6 +1397,7 @@ public class UWHelpWindow : MonoBehaviour
         }
 
         GUI.EndGroup();
+        UWImguiInput.Sync();
     }
 
     private static DataImport fData()
@@ -1399,13 +1423,13 @@ public class UWHelpWindow : MonoBehaviour
 
         GUILayout.BeginHorizontal();
 
-        if (GUILayout.Button("<", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
+        if (UWImguiInput.LayoutButton("<", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
             fTurn(-1);
 
         GUILayout.Label(string.Format("Page {0} of {1}", msPage + 1, liCount), mOCentred, GUILayout.Height(28f),
             GUILayout.ExpandWidth(true));
 
-        if (GUILayout.Button(">", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
+        if (UWImguiInput.LayoutButton(">", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
             fTurn(1);
 
         GUILayout.EndHorizontal();
@@ -1441,11 +1465,13 @@ public class UWHelpWindow : MonoBehaviour
             mOPendingPage = UWManual.GetPage(msPage, liWidth, liHeight);
             mOPendingPageRect = lOOnScreen;
         }
-        else if (GUI.enabled && lOEvent.type == EventType.MouseDown && lOEvent.button == 0
-            && lOLocal.Contains(lOEvent.mousePosition))
+
+        if (UWImguiInput.PressedIn(lOLocal))
         {
             fSetReading(true);
-            lOEvent.Use();
+
+            if (lOEvent.type == EventType.MouseDown)
+                lOEvent.Use();
         }
         else if (GUI.enabled && lOEvent.type == EventType.ScrollWheel && lOSpace.Contains(lOEvent.mousePosition))
         {
@@ -1504,6 +1530,7 @@ public class UWHelpWindow : MonoBehaviour
         }
 
         GUI.matrix = Matrix4x4.identity;
+        UWImguiInput.AfterMatrix();
         GUI.DrawTexture(new Rect(0f, 0f, lfWidth, lfHeight), fTexture(ReadingShadeColour));
 
         float lfX = Mathf.Round((lfWidth - lfShown) / 2f);
@@ -1527,7 +1554,8 @@ public class UWHelpWindow : MonoBehaviour
                 if (lOPage != null)
                     GUI.DrawTexture(lORect, lOPage);
             }
-            else if (lOEvent.type == EventType.MouseDown && lORect.Contains(lOEvent.mousePosition))
+
+            if (UWImguiInput.PressedIn(lORect))
                 lbClickedPage = true;
 
             lfX += liPageWidth;
@@ -1540,15 +1568,16 @@ public class UWHelpWindow : MonoBehaviour
         float lfUnitsWide = lfWidth / lfScale;
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
+        UWImguiInput.AfterMatrix();
 
         float lfArrowWidth = lfArrowZone / lfScale;
         float lfArrowTop = (ReferenceHeight / 2f) - 40f;
 
-        if (msPage > 0 && GUI.Button(new Rect(lfMargin / lfScale, lfArrowTop, lfArrowWidth, 80f), "<", mOArrow))
+        if (msPage > 0 && UWImguiInput.Button(new Rect(lfMargin / lfScale, lfArrowTop, lfArrowWidth, 80f), "<", mOArrow))
             fTurn(-liStep);
 
         if (fLastShown(liLeft, liRight) < liCount - 1
-            && GUI.Button(new Rect(lfUnitsWide - (lfMargin / lfScale) - lfArrowWidth, lfArrowTop, lfArrowWidth, 80f), ">", mOArrow))
+            && UWImguiInput.Button(new Rect(lfUnitsWide - (lfMargin / lfScale) - lfArrowWidth, lfArrowTop, lfArrowWidth, 80f), ">", mOArrow))
             fTurn(liStep);
 
         string lsPages = liRight >= 0 && liLeft >= 0
@@ -1607,12 +1636,14 @@ public class UWHelpWindow : MonoBehaviour
             fTurn(lOEvent.delta.y > 0f ? liStep : -liStep);
             lOEvent.Use();
         }
-        else if (lbClickedPage && lOEvent.type == EventType.MouseDown)
+        else if (lbClickedPage)
         {
             // The click that closes is the help's: the game gets neither its release nor the
             // button held down after it (per user, 2026-09-26).
             fSetReading(false, true);
-            lOEvent.Use();
+
+            if (lOEvent.type == EventType.MouseDown)
+                lOEvent.Use();
         }
     }
 

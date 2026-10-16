@@ -144,7 +144,7 @@ public class UWGameUI : MonoBehaviour
 
     /// <summary>
     /// Horizontal size of one original pixel relative to its height. 1 shows square pixels;
-    /// with UWSettings.DisplayAs4By3 it is 5/6, so the 320x200 picture appears at 4:3 like on
+    /// on the classic screen (always at 4:3 since 2026-10-10, UWDisplayAspect) it is 5/6, so the 320x200 picture appears at 4:3 like on
     /// the CRT the game was made for and like DOSBox shows it - for comparing our screenshots
     /// with DOSBox ones (per user, 2026-09-17). The whole GameFrame is squeezed sideways and
     /// every conversion between original pixels and screen pixels takes the factor on X.
@@ -363,7 +363,7 @@ public class UWGameUI : MonoBehaviour
         // already return the corrected value from the last pass instead of the
         // real raw aspect ratio computed from Camera.rect - the correction
         // would otherwise add up frame by frame.
-        // With DisplayAs4By3 the hole itself is already shown at the CRT proportion, so its raw
+        // At 4:3 (UWDisplayAspect) the hole itself is already shown at the CRT proportion, so its raw
         // aspect is the corrected one and must not be corrected a second time.
         mOCamera.ResetAspect();
         // General form for every factor in between, as the help window blends it: 1 corrects by
@@ -465,7 +465,7 @@ public class UWGameUI : MonoBehaviour
         Runes.fLoadSelectedRunes();
         var lOUWMain = mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.MAIN, 0);
         mOMainTexture = new Texture2D(lOUWMain.Width, lOUWMain.Height, TextureFormat.ARGB32, false);
-        mOMainTexture.name = "UWGameUI.cs:465";
+        mOMainTexture.name = "UWGameUI main screen";
         mOMainTexture.filterMode = TextureFilterMode;
         mOMainTexture.SetPixels32(fGetTextureInvert(lOUWMain));
         mOMainTexture.Apply();
@@ -475,7 +475,7 @@ public class UWGameUI : MonoBehaviour
         {
             UWTexture lOCursorTex = mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.CURSORS, i);
             Texture2D lOCursorTexture = new Texture2D(lOCursorTex.Width, lOCursorTex.Height, TextureFormat.RGBA32, false);
-            lOCursorTexture.name = "UWGameUI.cs:474";
+            lOCursorTexture.name = "UWGameUI cursor";
             lOCursorTexture.SetPixels32(fGetTextureInvert(lOCursorTex));
             lOCursorTexture.filterMode = TextureFilterMode;
             lOCursorTexture.Apply();
@@ -702,7 +702,8 @@ public class UWGameUI : MonoBehaviour
             // On the map you hold a quill, when erasing the eraser stone.
             // A projectile spell waits for its target and shows its own pointer for that.
             // When shooting, the same pointer as for the projectile spell shows as soon as the
-            // weapon has its minimum charge - see Interaction.IsRangedTargeting.
+            // wind-up is through (since 2026-10-12; the minimum charge before) - see
+            // Interaction.IsRangedTargeting.
             // In the main menu and in character creation only the cross (per user,
             // 2026-09-11) - the viewport below would otherwise show the arrows.
             // In conversation likewise only the cross (per user, 2026-09-13).
@@ -1027,8 +1028,10 @@ public class UWGameUI : MonoBehaviour
             mOInteraction = GetComponent<Interaction>();
 
         // In the main menu and in creation the keys stay completely silent (per user,
-        // 2026-09-11).
-        if (IsTextEntryActive || UWScreenUi.IsScreenMenuOpen)
+        // 2026-09-11), and while a sequence plays - or the key that ended it is still down in
+        // this frame (UWIntroPlayer.HoldsKeys, 2026-10-13).
+        if (IsTextEntryActive || UWScreenUi.IsScreenMenuOpen
+            || (UWScene.IntroPlayer != null && UWScene.IntroPlayer.HoldsKeys))
             return;
 
         // Ctrl+F and Ctrl+M are the original's option shortcuts (sound and music, with Ctrl+S,
@@ -1064,7 +1067,8 @@ public class UWGameUI : MonoBehaviour
     {
         UWModernHud lOHud = UWModernHud.Instance;
 
-        if (lOHud == null || UWConversationScreen.IsAnyOpen || UWRoamingSight.IsAnyRunning || mOInteraction == null)
+        if (lOHud == null || UWConversationScreen.IsAnyOpen || UWRoamingSight.IsAnyRunning
+            || UWRoamingSight.EndedByEscapeThisFrame || mOInteraction == null)
             return;
 
         UWControls.PlayerActions lOPlayer = pOControls.Player;
@@ -1147,8 +1151,9 @@ public class UWGameUI : MonoBehaviour
     /// <summary>
     /// The original's Ctrl shortcuts (built 2026-09-26, see UWHudOptions.ChooseByShortcut):
     /// Ctrl+S save, Ctrl+R restore, Ctrl+M music, Ctrl+F sound, Ctrl+D detail, Ctrl+Q quit.
-    /// Normal play only, as the original registers them. Partway through an action and on
-    /// level 9 the options refuse to open - see UWHudOptions.RefusesToOpen.
+    /// Normal play only, as the original registers them. Partway through an action the options
+    /// refuse to open (UWHudOptions.RefusesToOpen); on level 9 they open, only the Save entry
+    /// refuses (RefusesToSave).
     /// </summary>
     private void fCheckOptionShortcuts(UWControls pOControls)
     {
@@ -1437,7 +1442,7 @@ public class UWGameUI : MonoBehaviour
         }
 
         Texture2D lOScaled = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-        lOScaled.name = "UWGameUI.cs:5127";
+        lOScaled.name = "UWGameUI scaled picture";
         lOScaled.filterMode = FilterMode.Point;
         lOScaled.SetPixels32(lOPixels);
         lOScaled.Apply(false, false);
@@ -1975,9 +1980,9 @@ public class UWGameUI : MonoBehaviour
         return Pictures.ShowGravePicture(piFrame);
     }
 
-    public bool ShowScrollPicture()
+    public bool ShowScrollPicture(int piCutscene)
     {
-        return Pictures.ShowScrollPicture();
+        return Pictures.ShowScrollPicture(piCutscene);
     }
 
     public bool ShowWindowPicture(int piLevelIndex)

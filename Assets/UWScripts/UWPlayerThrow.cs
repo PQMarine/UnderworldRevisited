@@ -68,10 +68,6 @@ public static class UWPlayerThrow
     /// every throw would start at the feet.</summary>
     private const int RuntimePlayerObjectId = UWObjectMechanics.AdventurerObjectId;
 
-    private const int CrossbowBoltObjectId = UWObjectMechanics.CrossbowBoltObjectId;
-
-    private const int ArrowObjectId = UWObjectMechanics.ArrowObjectId;
-
     /// <summary>The original message when nothing fits in front of the player - string 0xFD
     /// of block 1 (seg025_711).</summary>
     public const string NoSpaceMessage = "There is no space to drop that.";
@@ -208,9 +204,15 @@ public static class UWPlayerThrow
 
         bool lbMissile = pOItem.ID >= FirstMissileObjectId && pOItem.ID <= LastMissileObjectId;
 
+        // A thrown class 1 object hits with its own table type, -ammo (missile_newhit); only
+        // ammunition is skill-scaled and of type 0x40 (2026-10-12, see
+        // UWPlayerAttack.GetThrownMissileDamage).
+        bool lbTyped = lbMissile && pOInteraction != null;
+
         return UWProjectileWorld.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
-            ThrownAmmoType, lbMissile && pOInteraction != null ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
-            UWDamageTypes.Missile, -1, pOInteraction, pOItem.Quality) != null;
+            ThrownAmmoType, lbTyped ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
+            lbTyped ? pOInteraction.GetThrownMissileDamageType(pOItem.ID) : UWDamageTypes.Missile, -1, pOInteraction,
+            pOItem.Quality) != null;
     }
 
     /// <summary>
@@ -275,7 +277,7 @@ public static class UWPlayerThrow
 
         // Arrows and bolts lie in the facing (per user, 2026-09-07) - see SpawnDroppedObject.
         bool lbDropped = pOInventory.DropCursorItemInWorld(fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y),
-            true, null, UWLevelLoader.HeadingFromDirection(pOCamera.forward));
+            true, UWLevelLoader.HeadingFromDirection(pOCamera.forward));
 
         if (lbWasLit)
             pOInventory.ApplyCarriedLight();
@@ -300,7 +302,7 @@ public static class UWPlayerThrow
         if (!pOLevelLoader.CanDropAt(lOSpot, true))
             return false;
 
-        if (pOLevelLoader.GetFloorHeightAt(lOSpot) > pOFeet.y + (piTolerance * UWObjectSpawner.HeightScale))
+        if (pOLevelLoader.GetFloorHeightAt(lOSpot) > pOFeet.y + (piTolerance * UWWorldScale.ZPosStep))
             return false;
 
         if (fIsBlockedByObject(lOSpot, pOFeet.y, piItemRadius, pOLevelLoader))
@@ -309,7 +311,7 @@ public static class UWPlayerThrow
         Vector3 lOFrom = pOCamera.position;
         Vector3 lOTo = new Vector3(lOSpot.x, lOFrom.y, lOSpot.z);
         Vector3 lOLine = lOTo - lOFrom;
-        float lfLength = lOLine.magnitude + (piItemRadius * UWObjectSpawner.SubTileScale);
+        float lfLength = lOLine.magnitude + (piItemRadius * UWWorldScale.SubTileStep);
 
         if (lOLine.sqrMagnitude < 0.0001f)
             return true;
@@ -335,7 +337,7 @@ public static class UWPlayerThrow
             return false;
 
         Collider[] lOColliders = Physics.OverlapSphere(new Vector3(pOSpot.x, pfFeet, pOSpot.z),
-            UWLevelMeshBuilder.TileSpacing, ~0, QueryTriggerInteraction.Ignore);
+            UWWorldScale.TileSize, ~0, QueryTriggerInteraction.Ignore);
 
         System.Collections.Generic.HashSet<UWEntityInfo> lODone = new System.Collections.Generic.HashSet<UWEntityInfo>();
 
@@ -359,10 +361,10 @@ public static class UWPlayerThrow
             Bounds lOBounds = lOCollider.bounds;
 
             // Only what reaches into the height the item is put down at.
-            if (lOBounds.max.y < pfFeet || lOBounds.min.y > pfFeet + UWLevelMeshBuilder.TileHalfSize)
+            if (lOBounds.max.y < pfFeet || lOBounds.min.y > pfFeet + UWWorldScale.TileHalfSize)
                 continue;
 
-            float lfReach = (piItemRadius + lOEntry.Radius) * UWObjectSpawner.SubTileScale;
+            float lfReach = (piItemRadius + lOEntry.Radius) * UWWorldScale.SubTileStep;
 
             if (Mathf.Abs(lOBounds.center.x - pOSpot.x) <= lfReach && Mathf.Abs(lOBounds.center.z - pOSpot.z) <= lfReach)
                 return true;
@@ -407,10 +409,12 @@ public static class UWPlayerThrow
     }
 
     /// <summary>The player's heading in 256ths of the circle, 0 is north, clockwise - the
-    /// object's heading bits times 32 plus its fine heading (seg025_57C).</summary>
+    /// object's heading bits times 32 plus its fine heading (seg025_57C), which the original
+    /// writes as PlayerFacing &gt;&gt; 8: UWHeadings.DegreesToHeadingByte, the truncation this
+    /// method always did and the compass shares since 2026-10-12 (decision 23).</summary>
     public static int GetPlayerHeading(Transform pOCamera)
     {
-        return Mathf.FloorToInt(Mathf.Repeat(pOCamera.eulerAngles.y, 360f) * 256f / 360f) & 0xFF;
+        return UWHeadings.DegreesToHeadingByte(pOCamera.eulerAngles.y);
     }
 
     /// <summary>The camera pitch as the original's 16 bit angle, positive is up.</summary>
@@ -421,7 +425,7 @@ public static class UWPlayerThrow
         if (lfPitch > 180f)
             lfPitch -= 360f;
 
-        return -(int)(lfPitch * UWViewpoint.FullCircleUnits / 360f);
+        return -(int)(lfPitch * UWWorldScale.FullCircleUnits / 360f);
     }
 
     /// <summary>Where the player's feet are - the zpos of the player object.</summary>
@@ -437,14 +441,17 @@ public static class UWPlayerThrow
         return new Vector3(lOBounds.center.x, lOBounds.min.y, lOBounds.center.z);
     }
 
-    /// <summary>An eighth-tile position as a world point. One unit into the sub-step, so that
-    /// the tile and sub-tile rounding of the level loader lands on exactly this spot and not
-    /// on the neighbouring tile at xpos 0.</summary>
+    /// <summary>An eighth-tile position as a world point: the one eighth-spot formula, the
+    /// original's (tile &lt;&lt; 8) + (xpos &lt;&lt; 5) + 0xF, 3.75 units into the step
+    /// (UWUnits.EighthsToWorldAxis, see UWPlacement). Until 2026-10-12 the drop went one unit
+    /// into the step instead, "so that the rounding of the level loader lands on this spot and
+    /// not on the neighbouring tile at xpos 0" - the loader rounds to the nearest spot, which
+    /// the common formula hits exactly; decision 22 of Docs/CLEANUP-PLAN.md (the item put down
+    /// in front of the player and the fit test's spot move 2.75 units into their eighth, the
+    /// user tests a drop onto a floor edge before and after).</summary>
     private static Vector3 fEighthToWorld(int piEighthX, int piEighthY, float pfHeight)
     {
-        Vector3 lOCorner = UWViewpoint.OriginalToWorld(piEighthX << 5, piEighthY << 5, 0);
-
-        return new Vector3(lOCorner.x + 1f, pfHeight, lOCorner.z + 1f);
+        return new Vector3(UWUnits.EighthsToWorldAxis(piEighthX), pfHeight, UWUnits.EighthsToWorldAxis(piEighthY));
     }
 
     private static int fGetMaskWithoutPlayer(Transform pOCamera)
@@ -473,10 +480,5 @@ public static class UWPlayerThrow
 
         piRadius = 0;
         piHeight = 0;
-    }
-
-    private static bool fIsWeightless(DataImport pOData, int piObjectId)
-    {
-        return pOData.CommonObjectProperties != null && pOData.CommonObjectProperties.IsWeightless(piObjectId);
     }
 }

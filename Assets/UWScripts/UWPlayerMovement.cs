@@ -380,6 +380,18 @@ public class UWPlayerMovement : MonoBehaviour
         mbFalling = true;
     }
 
+    /// <summary>
+    /// LEVITATE AND FLY GIVE A SMALL HOP when cast (do_spell calls phys_bounce_up for class 1
+    /// minors 3 and 5, UnderworldExhumed SPELLS.C and PHYSICS.C, read 2026-10-12): on the ground
+    /// the vertical speed becomes 0x8D, gravity off in any case - UWPlayerMotion.StopFalling,
+    /// the same routine. Only on the motion core; the old controller path has no such state.
+    /// </summary>
+    public void SpellHop()
+    {
+        if (UsesMotionCore)
+            Motion.StopFalling();
+    }
+
     /// <summary>BouncePlayer: intensity * 0x2F / 4 (integer), against the jump's 0x263.</summary>
     private const int BounceMotionPerIntensity = 0x2F;
 
@@ -470,6 +482,11 @@ public class UWPlayerMovement : MonoBehaviour
     /// user: "on lava the head bob is missing").</summary>
     public bool IsWalkingOnGround => fIsOnGround() && !fIsHovering()
         && (!IsInLiquid || IsOnLava);
+
+    /// <summary>Floating in the air with Levitate or Fly - the original's motion_state bit 0x08
+    /// (PHYSICS.C parse_player_terr), which makes the player louder (UWCharacter.IsInMotionState).
+    /// </summary>
+    public bool IsHovering => fIsHovering();
 
     /// <summary>
     /// How long the character may be without ground before counting as falling.
@@ -1011,8 +1028,7 @@ public class UWPlayerMovement : MonoBehaviour
 
         if (UWEasyMovement.IsTurn(piCommand))
         {
-            float lfYaw = Mathf.Repeat(transform.eulerAngles.y, 360f);
-            int liYaw = Mathf.RoundToInt(lfYaw * UWEasyMovement.Circle / 360f) & (UWEasyMovement.Circle - 1);
+            int liYaw = UWHeadings.DegreesToAngleUnits(transform.eulerAngles.y);
 
             liYaw = UWEasyMovement.Turn(liYaw, piCommand);
 
@@ -1053,7 +1069,7 @@ public class UWPlayerMovement : MonoBehaviour
             return true;
         }
 
-        float lfStep = liDistance * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing
+        float lfStep = liDistance * UWWorldScale.TileSize
             / UWEasyMovement.UnitsPerTile;
 
         Vector3 lOFlat = new Vector3(transform.forward.x, 0f, transform.forward.z);
@@ -1283,8 +1299,9 @@ public class UWPlayerMovement : MonoBehaviour
     /// </summary>
     public float MomentumFraction { get; private set; }
 
-    /// <summary>The original's PIT counter runs at 256 Hz (reference: main.cs).</summary>
-    private const float PitTicksPerSecond = 256f;
+    /// <summary>The original's PIT counter runs at 256 Hz (reference: main.cs; UWPlayerTick is
+    /// the home).</summary>
+    private const float PitTicksPerSecond = UWPlayerTick.PitTicksPerSecond;
 
     /// <summary>Where the character stood in the previous frame - for the distance actually
     /// travelled.</summary>
@@ -1306,10 +1323,10 @@ public class UWPlayerMovement : MonoBehaviour
         mOLastStepPosition = lOPosition;
 
         float lfFullSpeed = Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed)
-            / UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing;
+            / UWWorldScale.TileSize;
         float lfSpeed = Time.deltaTime > 0f
             ? new Vector3(lODelta.x, 0f, lODelta.z).magnitude / Time.deltaTime
-                / UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing
+                / UWWorldScale.TileSize
             : 0f;
 
         MomentumFraction = lfFullSpeed > 0f ? Mathf.Clamp01(lfSpeed / lfFullSpeed) : 0f;
@@ -1318,7 +1335,7 @@ public class UWPlayerMovement : MonoBehaviour
         // or more in one frame - the player being placed, not walking (per user, 2026-10-08:
         // a few steps were heard at the start).
         UWLevelLoader lOLoader = UWScene.LevelLoader;
-        bool lbPlaced = new Vector3(lODelta.x, 0f, lODelta.z).magnitude >= UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing;
+        bool lbPlaced = new Vector3(lODelta.x, 0f, lODelta.z).magnitude >= UWWorldScale.TileSize;
 
         if (mController == null || IsInLiquid || fIsHovering() || !fIsOnGround() || Time.deltaTime <= 0f
             || lbPlaced || (lOLoader != null && !lOLoader.HasWorld))
@@ -1495,7 +1512,7 @@ public class UWPlayerMovement : MonoBehaviour
 
     /// <summary>
     /// Landing in water SPLASHES instead of thudding: effect 5, the same splash a thrown
-    /// object makes (UWLevelLoader.fSplashAt) - not effect 0, which is the rushing one hears
+    /// object makes (UWProjectileWorld.Splash) - not effect 0, which is the rushing one hears
     /// while in the water.
     ///
     /// THE DECISION SITS HERE, at the landing, and nowhere else: walking into water is silent
@@ -2461,7 +2478,7 @@ public class UWPlayerMovement : MonoBehaviour
     /// </summary>
     private int fTransformYawToAngle()
     {
-        return Mathf.RoundToInt(Mathf.Repeat(transform.eulerAngles.y, 360f) * UWEasyMovement.Circle / 360f) & 0xFFFF;
+        return UWHeadings.DegreesToAngleUnits(transform.eulerAngles.y);
     }
 
     /// <summary>

@@ -356,16 +356,11 @@ public class UWModernPanel : MonoBehaviour
         mOLowestRows.Clear();
     }
 
-    private bool fIsModern()
-    {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
-
     private bool fIsShown()
     {
         // In a conversation as well, for the trade (UWModernConversation).
         // Not in Classic Wide: the frame's panel is the original's (UWModernClassicFrame).
-        return fIsModern() && UWModernHud.Instance != null && (UWModernHud.Instance.IsShowing || UWModernHud.Instance.IsTalking)
+        return UWControlScheme.IsModern && UWModernHud.Instance != null && (UWModernHud.Instance.IsShowing || UWModernHud.Instance.IsTalking)
             && mOUi != null && mOUi.mOUWData != null && mOCharacter != null && !UWModernLayout.IsClassic;
     }
 
@@ -503,7 +498,7 @@ public class UWModernPanel : MonoBehaviour
     {
         if (!fIsShown())
         {
-            if (mbOpen && !fIsModern())
+            if (mbOpen && !UWControlScheme.IsModern)
                 fGiveUp();
 
             mbPeek = false;
@@ -564,7 +559,7 @@ public class UWModernPanel : MonoBehaviour
         if (mbOpen && meTab == TabEnum.Character && Mathf.Abs(lfWheel) > 0.01f && mOViewRect.Contains(lOPointer))
             mfScroll -= Mathf.Sign(lfWheel) * ScrollStep;
 
-        if (!lOControls.Player.CursorDrag.WasPressedThisFrame())
+        if (!lOControls.Player.CursorDrag.WasPressedThisFrame() || UWModernPointer.PanelsHeld)
             return;
 
         if (mOPinRect.Contains(lOPointer))
@@ -844,6 +839,29 @@ public class UWModernPanel : MonoBehaviour
             + BelowPageRows + Mathf.CeilToInt(SkillRows * SkillRowHeight) + UWModernHudArt.LeatherBottom + 1;
     }
 
+    /// <summary>What the name was last fitted for - see fLayoutCharacter.</summary>
+    private string msNameFitKey;
+
+    /// <summary>The width the name may take beside the class, in whole pixels.</summary>
+    private float fNameRoom(float pfInner, float pfScale)
+    {
+        float lfClass = string.IsNullOrEmpty(mOClass.text) ? 0f : mOClass.preferredWidth + (2f * pfScale);
+
+        return Mathf.Max(0f, Mathf.Floor(pfInner - lfClass));
+    }
+
+    /// <summary>Makes the name smaller, down to piSmallest, until it fits beside the class;
+    /// whether it does.</summary>
+    private bool fShrinkNameToFit(float pfInner, int piSmallest, float pfScale)
+    {
+        float lfNameRoom = fNameRoom(pfInner, pfScale);
+
+        while (mOName.fontSize > piSmallest && mOName.preferredWidth > lfNameRoom)
+            mOName.fontSize--;
+
+        return mOName.preferredWidth <= lfNameRoom;
+    }
+
     /// <summary>The Character tab, laid out from the panel's top-left corner.</summary>
     private void fLayoutCharacter(float pfLeft, float pfTop, int piWidth)
     {
@@ -856,14 +874,47 @@ public class UWModernPanel : MonoBehaviour
         float lfInner = (piWidth - (2 * ContentPad)) * liScale;
         float lfX = pfLeft + (ContentPad * liScale);
 
-        // Name, class and level.
-        mOName.text = lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar";
-        mOName.fontSize = Mathf.Max(12, Mathf.RoundToInt(6f * liScale));
-        fSetRect(mOName.rectTransform, lfX, pfTop - ((NameTop + 9) * liScale), lfInner, 9 * liScale);
-
-        mOClass.text = UWHelpWindow.fClassName(lOData, lOPlayer) + ", level " + lOCharacter.Level;
+        // Name, class and level - one line, the name on the left, the class on the right.
+        string lsClassName = UWHelpWindow.fClassName(lOData, lOPlayer);
+        string lsClassLine = lsClassName + ", level " + lOCharacter.Level;
         mOClass.fontSize = liSmall;
         fSetRect(mOClass.rectTransform, lfX, pfTop - ((NameTop + 9) * liScale), lfInner, 9 * liScale);
+
+        string lsName = lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar";
+        int liLargest = Mathf.Max(12, Mathf.RoundToInt(6f * liScale));
+
+        // A name of up to 29 characters (since 2026-10-12, UWPlayerData.MaxNameLength) may not fit
+        // beside the class (per user, 2026-10-13: below 100 % interface scale the class covered
+        // the name). The name gets smaller, down to the class line's size; still too wide, the
+        // class gives way first - without the word "level", then without the class name, the
+        // number stays - and only then is the name cut with "..." (per user the same day).
+        // FITTED ONCE PER CHANGE, in whole pixels (per user the same day: at one window size the
+        // name flipped between cut and whole every frame - the measurement sat on the edge).
+        string lsFitKey = lsName + "|" + lsClassLine + "|" + Mathf.RoundToInt(lfInner) + "|" + liSmall + "|" + liLargest;
+
+        if (lsFitKey != msNameFitKey)
+        {
+            msNameFitKey = lsFitKey;
+            mOName.text = lsName;
+
+            string lsLevel = lOCharacter.Level.ToString();
+
+            foreach (string lsClass in new[] { lsClassLine, lsClassName + " " + lsLevel, lsLevel })
+            {
+                mOClass.text = lsClass;
+                mOName.fontSize = liLargest;
+
+                if (fShrinkNameToFit(lfInner, liSmall, liScale))
+                    break;
+            }
+
+            float lfNameRoom = fNameRoom(lfInner, liScale);
+
+            for (int liKeep = lsName.Length - 1; liKeep > 0 && mOName.preferredWidth > lfNameRoom; liKeep--)
+                mOName.text = lsName.Substring(0, liKeep).TrimEnd() + "...";
+        }
+
+        fSetRect(mOName.rectTransform, lfX, pfTop - ((NameTop + 9) * liScale), lfInner, 9 * liScale);
 
         // The page, centred - as wide as the backpack below it, which it docks onto.
         RectInt lOPage = UWModernHudArt.PaperdollPage;

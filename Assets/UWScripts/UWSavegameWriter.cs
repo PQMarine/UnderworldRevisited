@@ -62,19 +62,17 @@ public static class UWSavegameWriter
         UWTilePos lOTile = lOLoader.WorldPositionToTile(lOAt);
 
         int liFineX = Mathf.Clamp(Mathf.RoundToInt(
-            ((lOAt.x - (lOTile.X * UWLevelMeshBuilder.TileSpacing)) + UWLevelMeshBuilder.TileHalfSize)
-                * 256f / UWLevelMeshBuilder.TileSpacing), 0, 255);
+            ((lOAt.x - UWUnits.TileCentreToWorldAxis(lOTile.X)) + UWWorldScale.TileHalfSize)
+                * 256f / UWWorldScale.TileSize), 0, 255);
 
         int liFineY = Mathf.Clamp(Mathf.RoundToInt(
-            ((lOAt.z - (lOTile.Y * UWLevelMeshBuilder.TileSpacing)) + UWLevelMeshBuilder.TileHalfSize)
-                * 256f / UWLevelMeshBuilder.TileSpacing), 0, 255);
+            ((lOAt.z - UWUnits.TileCentreToWorldAxis(lOTile.Y)) + UWWorldScale.TileHalfSize)
+                * 256f / UWWorldScale.TileSize), 0, 255);
 
         // Eighths of a zpos step - and from the FLOOR below the character, not from the camera.
-        int liZ = Mathf.Clamp(Mathf.RoundToInt(
-            lOLoader.GetFloorHeightAt(lOAt) * 8f / UWObjectSpawner.HeightScale), 0, 1023);
+        int liZ = Mathf.Clamp(UWUnits.WorldHeightToOriginal(lOLoader.GetFloorHeightAt(lOAt)), 0, 1023);
 
-        int liHeading = Mathf.RoundToInt(
-            Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f) * 65536f / 360f) & 0xFFFF;
+        int liHeading = UWHeadings.DegreesToAngleUnits(lOCamera.transform.eulerAngles.y);
 
         // ON THE MOTION CORE (stage 3) the params block IS the position: PLAYER.DAT 0x54, 0x56
         // and 0x58 are its fine x, y and z, the heading its camera yaw - no rounding through
@@ -185,6 +183,7 @@ public static class UWSavegameWriter
             Fatigue = lOCharacter.Fatigue,
             MealHealCounter = lOCharacter.MealHealCounter,
             Counter3C = lOCharacter.Counter3C,
+            LoreByLevel = lOCharacter.LoreByLevel,
             // The original's running total: our sum plus what the load captured beside it
             // (UWInventoryModel.WeightOffsetTenthStones). Until 2026-09-25 the field kept the
             // value of loading, so the next load hid every change made in between.

@@ -139,8 +139,10 @@ public static class UWUserSettings
         /// direkt", so adjustable). The stick keeps its own rate.</summary>
         public float MouseLookSpeed = 0.5f;
 
-        /// <summary>Invert only the vertical mouse look in the modern control scheme.</summary>
-        public bool InvertMouseY;
+        /// <summary>The mouse look's up and down reversed in the modern scheme, as StickInvertY
+        /// for the stick (UWPlayerLook.ReadLookMouse; pull request 3 by krispit-dev, 2026-10-13).</summary>
+        public bool MouseInvertY;
+
         /// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
         /// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
         /// often reports as an Xbox one).</summary>
@@ -193,9 +195,9 @@ public static class UWUserSettings
         /// themselves"). Off by default, as Unity has it.</summary>
         public bool RunInBackground;
 
-        /// <summary>The classic screen at 4:3 - see UWDisplayAspect. True, because the settings
-        /// asset ships with it on, so a file written before this entry existed keeps the
-        /// picture it had.</summary>
+        /// <summary>The classic screen at 4:3 - always on since 2026-10-10 (UWDisplayAspect).
+        /// KEPT FOR THE FILE ONLY: settings.json fields are never removed, so a file written by an
+        /// older version still reads; nothing reads the value any more.</summary>
         public bool DisplayAs4By3 = true;
 
         /// <summary>The classic scheme's frame widened to the window (UWClassicWide; per user,
@@ -263,6 +265,15 @@ public static class UWUserSettings
 
         /// <summary>How strong the Smooth weapon jitter is, 0.1 to 1 of the original's range.</summary>
         public float WeaponJitterStrength = 1f;
+
+        /// <summary>The swimmer's view, a three-way switch like the head bob's (per user,
+        /// 2026-10-15: "like the original, but with a switch like the head bob, off as well"):
+        /// 0 calm, 1 the original's jitter (UWSwimViewRules), 2 our gentle sway. Original by
+        /// default.</summary>
+        public int SwimViewMode = 1;
+
+        /// <summary>How strong the Smooth swimming sway is, 0.1 to 1.</summary>
+        public float SwimViewStrength = 1f;
 
         /// <summary>The player's motion on the core (2026-10-06, per user: "per Schalter
         /// einstellbar, wer es nah am Original haben moechte kann das waehlen"): 0 Original - one
@@ -567,10 +578,10 @@ public static class UWUserSettings
         set { fGet().MouseLookSpeed = Mathf.Clamp(value, MinMouseLookSpeed, MaxMouseLookSpeed); }
     }
 
-    public static bool InvertMouseY
+    public static bool MouseInvertY
     {
-        get { return fGet().InvertMouseY; }
-        set { fGet().InvertMouseY = value; }
+        get { return fGet().MouseInvertY; }
+        set { fGet().MouseInvertY = value; }
     }
 
     public const float MinMouseLookSpeed = 0.05f;
@@ -718,8 +729,8 @@ public static class UWUserSettings
         set { fGet().ResolutionHeight = value; }
     }
 
-    /// <summary>The 4:3 switch. Everything that reads or changes it goes through
-    /// UWDisplayAspect, which also puts it into the live settings.</summary>
+    /// <summary>The 4:3 switch - kept for the settings.json field only (always on since
+    /// 2026-10-10, see UWDisplayAspect); nothing reads or changes it.</summary>
     public static bool DisplayAs4By3
     {
         get { return fGet().DisplayAs4By3; }
@@ -915,6 +926,27 @@ public static class UWUserSettings
     {
         get { return Mathf.Clamp(fGet().WeaponJitterStrength, MinHeadBobStrength, 1f); }
         set { fGet().WeaponJitterStrength = Mathf.Clamp(value, MinHeadBobStrength, 1f); }
+    }
+
+    /// <summary>The swimmer's view (UWSwimViewRules), like HeadBobMode.</summary>
+    public static UWDataImport.UWData.UWHeadBobRules.ModeEnum SwimViewMode
+    {
+        get
+        {
+            int liMode = fGet().SwimViewMode;
+
+            return liMode >= 0 && liMode <= (int)UWDataImport.UWData.UWHeadBobRules.ModeEnum.Smooth
+                ? (UWDataImport.UWData.UWHeadBobRules.ModeEnum)liMode : UWDataImport.UWData.UWHeadBobRules.ModeEnum.Original;
+        }
+
+        set { fGet().SwimViewMode = (int)value; }
+    }
+
+    /// <summary>The Smooth swimming view's strength, clamped like HeadBobStrength.</summary>
+    public static float SwimViewStrength
+    {
+        get { return Mathf.Clamp(fGet().SwimViewStrength, MinHeadBobStrength, 1f); }
+        set { fGet().SwimViewStrength = Mathf.Clamp(value, MinHeadBobStrength, 1f); }
     }
 
     /// <summary>Music and sound. Everything that changes them goes through UWSoundOptions,

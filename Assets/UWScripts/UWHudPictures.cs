@@ -71,23 +71,30 @@ public sealed class UWHudPictures
     }
 
     /// <summary>
-    /// Shows the picture of a picture scroll in the viewport - the same area and the same
-    /// modal handling as for the windows, only from a different cutscene.
+    /// Shows the picture of a scroll's cutscene in the viewport (UWObjectMechanics.GetBookCutscene,
+    /// the map piece's 0x108) - the same area and the same modal handling as for the windows,
+    /// only from a different cutscene; the first image of its first page, where the original
+    /// plays it.
     ///
     /// Returns false if the file is missing (the CUTS folder often lies only in the CD image).
     /// </summary>
-    public bool ShowScrollPicture()
+    public bool ShowScrollPicture(int piCutscene)
     {
-        if (mWindowPictureImage == null || mOUi.mOUWData == null)
+        if (mWindowPictureImage == null || mOUi.mOUWData == null || piCutscene < 0)
             return false;
 
-        if (mOScrollPicture == null)
+        string lsFile = UWCutscene.FileName(piCutscene, 1);
+
+        if (mOScrollPicture == null || msScrollPictureFile != lsFile)
         {
-            UWCutscene lOCutscene = mOUi.mOUWData.GetCutscene(UWObjectMechanics.PictureScrollCutsceneFile);
+            mOScrollPicture = null;
+            msScrollPictureFile = lsFile;
+
+            UWCutscene lOCutscene = mOUi.mOUWData.GetCutscene(lsFile);
 
             if (lOCutscene == null)
             {
-                Debug.LogWarning("UWGameUI: " + UWObjectMechanics.PictureScrollCutsceneFile
+                Debug.LogWarning("UWGameUI: " + lsFile
                     + " not found - picture scrolls stay empty. The CUTS folder belongs next to DATA.");
 
                 return false;
@@ -125,6 +132,9 @@ public sealed class UWHudPictures
 
     private Sprite mOScrollPicture;
 
+    /// <summary>The cutscene page mOScrollPicture was cut from.</summary>
+    private string msScrollPictureFile;
+
     private Vector2 mOScrollPictureCorner;
 
     /// <summary>Cuts a picture section out of a cutscene and makes a sprite
@@ -139,7 +149,7 @@ public sealed class UWHudPictures
             return null;
 
         Texture2D lOTexture = new Texture2D(piWidth, piHeight, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:5787";
+        lOTexture.name = "UWHudPictures cutscene sprite";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
 
@@ -259,7 +269,7 @@ public sealed class UWHudPictures
         int liHeight = liMaxY - liMinY + 1;
 
         Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWGameUI.cs:5906";
+        lOTexture.name = "UWHudPictures grave picture";
         lOTexture.filterMode = mOUi.TextureFilterMode;
         lOTexture.wrapMode = TextureWrapMode.Clamp;
 
@@ -404,7 +414,7 @@ public sealed class UWHudPictures
         {
             byte[] lyPixels = pOCutscene.GetFrame(liFrame);
             Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-            lOTexture.name = "UWGameUI.cs:6051";
+            lOTexture.name = "UWHudPictures window picture";
             lOTexture.filterMode = mOUi.TextureFilterMode;
             lOTexture.wrapMode = TextureWrapMode.Clamp;
 
@@ -477,7 +487,7 @@ public sealed class UWHudPictures
         // THE MODERN SCHEME has no classic frame: its view is the whole screen, so the whole
         // screen goes black (or flashes) - drawn over everything (per user, 2026-10-04: asleep
         // nothing went dark there).
-        if (fIsModern())
+        if (UWControlScheme.IsModern)
         {
             fFlashModern(pOColour, pfSeconds, pbBlockInput);
             return;
@@ -509,11 +519,6 @@ public sealed class UWHudPictures
     private Coroutine mOWindowFlashRoutine;
 
     private Image mOModernFlashImage;
-
-    private bool fIsModern()
-    {
-        return mOUi.mControlSchemeRef != null && mOUi.mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern;
-    }
 
     private void fFlashModern(Color pOColour, float pfSeconds, bool pbBlockInput)
     {

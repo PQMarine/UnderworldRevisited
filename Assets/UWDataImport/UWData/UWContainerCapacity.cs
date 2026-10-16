@@ -36,9 +36,6 @@ namespace UWDataImport.UWData
 
 		private const int ClassEdibles = 3;
 
-		/// <summary>The rune bag, for its own message.</summary>
-		private const int RuneBagObjectId = 143;
-
 		/// <param name="pOReplaced">An item that leaves the container in the same move (swapping
 		/// places) - its weight does not count against the capacity.</param>
 		public static ResultEnum Check(UWObject pOContainer, UWObject pOItem, DataImport pOData,
@@ -63,10 +60,27 @@ namespace UWDataImport.UWData
 
 			if (!fMatchesMask(lOEntry.ObjectMask, pOItem.ID))
 			{
-				return pOContainer.ID == RuneBagObjectId ? ResultEnum.RunesOnly : ResultEnum.WrongType;
+				return pOContainer.ID == UWObjectIds.RuneBag ? ResultEnum.RunesOnly : ResultEnum.WrongType;
 			}
 
 			return ResultEnum.Fits;
+		}
+
+		/// <summary>
+		/// The weight test alone, for a container AROUND the receiving one: ItemFitsSlot
+		/// (UnderworldExhumed inv/INVPANEL.C, read 2026-10-15) requires, for a slot inside the
+		/// open bag, room for the item in every open bag up the chain as well, not only in the
+		/// bag that takes it (no type test for those). Until 2026-10-15 ours tested the receiving
+		/// container alone, and a full sack could be overfilled through a box opened inside it
+		/// (reference audit round 2, A43). True for an unknown container or one without a limit.
+		/// </summary>
+		public static bool HasRoomFor(UWObject pOContainer, UWObject pOItem, DataImport pOData, UWObject pOReplaced = null)
+		{
+			if (pOContainer == null || pOItem == null || pOData == null || pOData.ObjectClassProperties == null
+				|| !pOData.ObjectClassProperties.TryGetContainer(pOContainer.ID, out UWObjectClassProperties.Container lOEntry))
+				return true;
+
+			return fFitsWeight(pOContainer, pOItem, pOReplaced, lOEntry.CapacityTenthStones, pOData.CommonObjectProperties);
 		}
 
 		/// <summary>Short form for callers that only want a yes or no.</summary>
@@ -102,8 +116,8 @@ namespace UWDataImport.UWData
 			if (piMask < UWObjectClassProperties.ContainerMaskFirstClass)
 				return piObjectId == piMask;
 
-			int liMajor = piObjectId >> 6;
-			int liMinor = (piObjectId >> 4) & 0x3;
+			int liMajor = UWObjectIds.Major(piObjectId);
+			int liMinor = UWObjectIds.Minor(piObjectId);
 			int liIndex = piObjectId & 0xF;
 
 			switch (piMask - UWObjectClassProperties.ContainerMaskFirstClass)

@@ -142,7 +142,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>NPC object ids start at 0x40; the mapping table is
 		/// zero-based.</summary>
-		public const int NpcFirstObjectId = 0x40;
+		public const int NpcFirstObjectId = UWObjectIds.FirstCreature;
 
 		private const int AnimationCount = 32;
 

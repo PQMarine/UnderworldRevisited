@@ -20,6 +20,12 @@ using UWDataImport.UWData;
 /// - LOOSE OBJECTS - weapons, loot, blood stains, debris: worn down, and at quality 0 they
 ///   become a pile of debris, with fire sometimes under a cloud of smoke.
 ///
+/// NO FLASH, NO BLOOD, NO EYES: damage_square (UnderworldExhumed SPELLS.C) hands each object
+/// straight to damage_item; the hit effects and the gargoyle eyes belong to do_damage (COMBAT.C),
+/// a blow's or a missile's direct hit. Until 2026-10-13 ours showed the hit effect on everything
+/// the player's blast struck, at the object's own position (per user: a flash on the nightstand
+/// whatever the fireball's height), and it took the effect slot the explosion needed.
+///
 /// Creatures are found by where they stand, because they walk and the tile lists are not kept
 /// up with them; everything else by the tile's object list.
 /// </summary>
@@ -30,10 +36,8 @@ public static class UWTileBlast
     /// </summary>
     /// <param name="piAttacker">Whom the struck creatures should hold responsible: a creature's
     /// index, UWCritterBrain.PlayerIndex, or -1 for nobody.</param>
-    /// <param name="pOReportTo">The player's own blast reports its hits (gargoyle eyes); null
-    /// for a creature's.</param>
     public static void Strike(UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount, int piDiceRange,
-        int piDamageType, int piAttacker, Interaction pOReportTo)
+        int piDamageType, int piAttacker)
     {
         if (pOLoader == null || pOLoader.CurrentLevel == null)
             return;
@@ -50,22 +54,20 @@ public static class UWTileBlast
         // in the same blast.
         UWObject[] lOLying = lOTile.ObjectsInTile != null ? lOTile.ObjectsInTile.ToArray() : new UWObject[0];
 
-        fStrikeCreatures(pOLoader, pOTile, lOTile, piDiceCount, piDiceRange, piDamageType, piAttacker,
-            pOReportTo, lODone);
-        fStrikeObjects(pOLoader, pOTile, lOTile, lOLying, piDiceCount, piDiceRange, piDamageType, pOReportTo, lODone);
+        fStrikeCreatures(pOLoader, pOTile, lOTile, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
+        fStrikeObjects(pOLoader, pOTile, lOTile, lOLying, piDiceCount, piDiceRange, piDamageType, lODone);
         fStrikePlayer(pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType);
     }
 
     private static void fStrikeCreatures(UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
-        int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, Interaction pOReportTo,
-        HashSet<UWDamageable> pODone)
+        int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
     {
-        Vector3 lOCentre = new Vector3(pOTile.X * UWLevelMeshBuilder.TileSpacing, pOTileData.FloorHeight,
-            pOTile.Y * UWLevelMeshBuilder.TileSpacing);
+        Vector3 lOCentre = new Vector3(UWUnits.TileCentreToWorldAxis(pOTile.X), pOTileData.FloorHeight,
+            UWUnits.TileCentreToWorldAxis(pOTile.Y));
 
         // Half the diagonal of a tile and a little more, so nothing at the edge slips through;
         // the tile number then decides.
-        Collider[] lOHits = Physics.OverlapSphere(lOCentre, UWLevelMeshBuilder.TileSpacing * 0.75f);
+        Collider[] lOHits = Physics.OverlapSphere(lOCentre, UWWorldScale.TileSize * 0.75f);
 
         foreach (Collider lOCollider in lOHits)
         {
@@ -82,15 +84,11 @@ public static class UWTileBlast
                 lOCritter.AnnounceAttacker(piAttacker);
 
             lODamageable.ApplyDamage(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType);
-
-            if (pOReportTo != null)
-                pOReportTo.ReportSpellHit(lOCollider.GetComponentInParent<UWEntityInfo>(), lODamageable,
-                    lOCollider.bounds.center);
         }
     }
 
     private static void fStrikeObjects(UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData, UWObject[] pOLying,
-        int piDiceCount, int piDiceRange, int piDamageType, Interaction pOReportTo, HashSet<UWDamageable> pODone)
+        int piDiceCount, int piDiceRange, int piDamageType, HashSet<UWDamageable> pODone)
     {
         if (pOTileData.ObjectsInTile == null || pOLying.Length == 0)
             return;
@@ -114,16 +112,13 @@ public static class UWTileBlast
 
             int liRoll = UWRandom.RollDice(piDiceCount, piDiceRange);
 
-            // A DOOR OR A CHEST has hit points and its own ending (UWDoorDamage, UWContainerDamage).
+            // A DOOR OR A CHEST has hit points and its own ending (UWDoor, UWContainerDamage).
             if (lODamageable != null)
             {
                 if (lODamageable.IsDestroyed || !pODone.Add(lODamageable))
                     continue;
 
                 lODamageable.ApplyDamage(liRoll, piDamageType);
-
-                if (pOReportTo != null)
-                    pOReportTo.ReportSpellHit(lOEntity, null, lOEntity.transform.position);
 
                 continue;
             }
@@ -149,19 +144,37 @@ public static class UWTileBlast
         }
     }
 
-    /// <summary>What DamageObject_Debris does with a destroyed loose object.</summary>
+    /// <summary>What DamageObject_Debris (remove_object) does with a destroyed loose object -
+    /// the rules in UWObjectDamageRules, the remove and the pile in UWDebris.</summary>
     private static void fDestroy(UWLevelLoader pOLoader, UWTilePos pOTile, UWObject pOObject,
         UWEntityInfo pOEntity, int piDamageType)
     {
         Vector3 lOPosition = pOEntity != null
             ? pOEntity.transform.position
-            : new Vector3(pOTile.X * UWLevelMeshBuilder.TileSpacing, 0f, pOTile.Y * UWLevelMeshBuilder.TileSpacing);
+            : new Vector3(UWUnits.TileCentreToWorldAxis(pOTile.X), 0f, UWUnits.TileCentreToWorldAxis(pOTile.Y));
 
-        // A BAG OR BOX lets its contents fall onto the tile first.
-        if (pOEntity != null && UWObjectDamageRules.SpillsWhenDestroyed(pOObject.ID) && UWScene.Interaction != null)
-            UWScene.Interaction.SpillWorldContainer(pOEntity, true, false);
+        UWObjectDamageRules.Remains lORemains;
 
-        UWObjectDamageRules.Remains lORemains = UWObjectDamageRules.DecideRemains(pOObject.ID, piDamageType);
+        if (UWObjectDamageRules.SpillsWhenDestroyed(pOObject.ID))
+        {
+            // A BAG OR BOX the culling test spares is LEFT AS IT IS, worn to quality 0 with its
+            // contents (remove_object, DAMAGE.C: Obj_Elem_Fate 10; read 2026-10-12). Until then
+            // ours spilled every destroyed bag.
+            if (UWObjectDamageRules.DestroyedBagIsSpared(pOObject,
+                    pOLoader.UWDataImporter != null ? pOLoader.UWDataImporter.CommonObjectProperties : null,
+                    pOLoader.CurrentLevel.Masterlist))
+                return;
+
+            // Otherwise its contents fall onto the tile first, and NO SMOKE FOR A CONTAINER:
+            // the smoke roll sits in the branch of the things that are no door, chest, barrel
+            // or bag (per user on the original 2026-10-12, a smashed chest never smokes).
+            if (pOEntity != null && UWScene.Interaction != null)
+                UWScene.Interaction.SpillWorldContainer(pOEntity, true, false, true);
+
+            lORemains = UWObjectDamageRules.Remains.Debris;
+        }
+        else
+            lORemains = UWObjectDamageRules.DecideRemains(pOObject.ID, piDamageType);
 
         // THE SMOKE STANDS WHERE THE OBJECT LAY: SpawnClass7Object copies its sub-position and,
         // with height factor 0, its zpos. Placed like any animated object there - the object's
@@ -173,19 +186,10 @@ public static class UWTileBlast
                     + new Vector3(0f, UWObjectSpawner.AnimatedHeightOffset, 0f),
                 UWObjectDamageRules.RollSmokeSeconds());
 
-        if (!pOLoader.RemoveObjectFromWorld(pOObject) && pOEntity != null)
-        {
-            pOLoader.ForgetObjectData(pOObject);
-            Object.Destroy(pOEntity.gameObject);
-        }
-
         if (lORemains == UWObjectDamageRules.Remains.Gone)
-            return;
-
-        // The object BECOMES the debris in the original, quality 0, contents gone; ours puts a
-        // new pile on the same spot, as a smashed chest does (UWContainerDamage).
-        pOLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), pOTile.X, pOTile.Y, 0, 0,
-            new Vector3(lOPosition.x, 0f, lOPosition.z));
+            UWDebris.Remove(pOLoader, pOEntity, pOObject);
+        else
+            UWDebris.ReplaceWithDebris(pOLoader, pOEntity, pOObject, pOTile, lOPosition);
     }
 
     private static void fStrikePlayer(UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount, int piDiceRange,

@@ -119,7 +119,6 @@ public static class UWModernHudArt
         return fToTexture(UWHudArt.BuildStoneShelf(pOTextures, piWidth), peFilter, "UWModernHudArt stone shelf");
     }
 
-    /// <summary>The power gem's own stand (UWHudArt.BuildGemStand); pOGem is where the gem lies on it.</summary>
     /// <summary>A picture of one of the game's .GR files as it is; null without it.</summary>
     public static Texture2D BuildPicture(UWTextures pOTextures, UWTexture.TextureTypes peType, int piIndex, FilterMode peFilter)
     {
@@ -137,7 +136,6 @@ public static class UWModernHudArt
         return lOPage != null ? fToTexture(UWPicture.From(lOPage), peFilter, "UWModernHudArt panel page " + piPage) : null;
     }
 
-    /// <summary>The original's conversation top, its sample names and portraits gone (UWHudArt.BuildConversationHeader).</summary>
     /// <summary>The classic frame widened by piExtra columns (UWHudArt.BuildClassicWideFrame), and
     /// what was built (its picture and cuts) for the parts laid on it.</summary>
     public static Texture2D BuildClassicWideFrame(UWTextures pOTextures, int piExtra, FilterMode peFilter, out UWHudArt.ClassicWideFrame pOFrame)
@@ -147,6 +145,7 @@ public static class UWModernHudArt
         return fToTexture(pOFrame.Picture, peFilter, "UWModernHudArt classic wide " + piExtra);
     }
 
+    /// <summary>The original's conversation top, its sample names and portraits gone (UWHudArt.BuildConversationHeader).</summary>
     public static Texture2D BuildConversationHeader(UWTextures pOTextures, FilterMode peFilter, bool pbOutline = false)
     {
         return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationHeader(pOTextures), pbOutline), peFilter, "UWModernHudArt conversation top");
@@ -172,6 +171,7 @@ public static class UWModernHudArt
         return fToTexture(UWHudArt.BuildCompassDisc(pOTextures, pbOutline), peFilter, "UWModernHudArt compass disc");
     }
 
+    /// <summary>The power gem's own stand (UWHudArt.BuildGemStand); pOGem is where the gem lies on it.</summary>
     public static Texture2D BuildGemStand(UWTextures pOTextures, FilterMode peFilter, out Vector2Int pOGem)
     {
         UWPicture lOStand = UWHudArt.BuildGemStand(pOTextures, out int liX, out int liY);
@@ -297,7 +297,6 @@ public static class UWModernHudArt
 
     /// <summary>A picture (rows top down) as a Unity texture (rows bottom up), the colour help
     /// applied.</summary>
-
     private static Texture2D fToTexture(UWPicture pOPicture, FilterMode peFilter, string psName)
     {
         Color32[] lyOut = new Color32[pOPicture.Pixels.Length];

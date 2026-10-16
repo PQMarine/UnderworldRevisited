@@ -20,7 +20,7 @@ namespace UWDataImport.UWData
 		public int ItemId => Object != null ? Object.ID : 0;
 
 		/// <summary>Major class 1: a creature (the player included).</summary>
-		public bool IsCreature => ((ItemId >> 6) & 7) == 1;
+		public bool IsCreature => UWObjectIds.IsCreature(ItemId);
 
 		/// <summary>Word +0x16: the home tile - for a mobile the tile it is linked in.</summary>
 		public int TileX;

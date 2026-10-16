@@ -26,15 +26,10 @@ namespace UWDataImport.UWData
 	{
 		public const int BowlObjectId = 0x8E;
 
-		public const int RotwormStewObjectId = 0x11B;
+		public const int RotwormStewObjectId = UWObjectIds.RotwormStew;
 
 		private static readonly int[] msRecipe = { 0xD9, 0xB8, 0xBE };
 
-		/// <summary>The text link from which on a readable is the recipe.</summary>
-		private const int RecipeLinkFirst = 0x100;
-
-		/// <summary>Word 0 bit 10 - a map piece, which plays its cutscene instead.</summary>
-		private const int MapPieceFlag = 0x2;
 
 		/// <summary>Block 1 lines, our numbering (the original's plus one).</summary>
 		public const int WrongIngredientsMessage = 149;
@@ -49,8 +44,8 @@ namespace UWDataImport.UWData
 			return pOItem != null
 				&& pOItem.GetCategory() == UWObject.ObjectCategoryEnum.BooksAndScrolls
 				&& !pOItem.IsEnchanted
-				&& (pOItem.Flags & MapPieceFlag) == 0
-				&& (pOItem.Quantity & 0x1FF) >= RecipeLinkFirst;
+				&& UWObjectMechanics.GetBookCutscene(pOItem) < 0
+				&& !UWObjectMechanics.ReadsWithHeader(pOItem);
 		}
 
 		/// <summary>Mixes the stew if the bowl holds the right things. Returns the block 1 line to

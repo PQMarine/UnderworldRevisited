@@ -74,7 +74,7 @@ public class UWTouchGather : MonoBehaviour
         if (lOCommon != null && lOCommon.TryGet(pOData.ID, out UWCommonObjectProperties.Entry lOEntry))
             liHeight = lOEntry.Height;
 
-        int liBottom = UWUnits.RoundToInt(transform.position.y / UWWorldScale.ZPosStep);
+        int liBottom = UWUnits.WorldToZPos(transform.position.y);
         int liFeet = pOCharacter.GetFeetZPos();
 
         return liFeet <= liBottom + liHeight && liFeet + pOCharacter.GetBodyHeightZ() >= liBottom;

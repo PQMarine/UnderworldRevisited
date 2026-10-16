@@ -11,7 +11,9 @@ Two schemes, both complete. **Shift+F2** switches between them at any time - or,
 *Original* and *Modern* under *Game* in the menu bar - and the scheme
 in force is kept for the next start. The help window's **Controls** tab lists the keys of the
 scheme in force, as you have bound them; keys and mouse buttons can be changed under
-*Controls* in the menu bar at the top edge.
+*Controls* in the menu bar at the top edge, which also inverts the modern scheme's mouse look
+up and down. In the main menu and the game menu, **F10** shows the menu bar for the keyboard:
+the arrow keys move, Enter or Space chooses, Escape or F10 leaves.
 
 ## The original scheme
 
@@ -50,7 +52,7 @@ screen's edges. The rules are the original's throughout; only the way to them is
 
 | | |
 |---|---|
-| Mouse | Look around (the pointer locked, a crosshair in the middle) |
+| Mouse | Look around (the pointer locked, a crosshair in the middle); up and down can be inverted under *Controls* in the menu bar |
 | Right mouse button | Free the pointer for the windows, or lock it again. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held |
 | W, A, S, D | Walk, step sideways |
 | Space | Jump; rise while hovering or flying |

@@ -70,31 +70,26 @@ public static class UWShrine
         }
 
         /// <summary>
-        /// The key goes straight onto the cursor, which is what SpawnObjectInHand does. A hand
-        /// that is not free refuses, and then the mantra marks nothing and can be chanted
-        /// again.
+        /// The key goes onto the pointer, as place_new puts it; a held object no longer refuses
+        /// it (the backpack, else the feet - UWInventory.GiveToPlayer, one behaviour for the
+        /// four gifts since 2026-10-12).
         /// </summary>
-        public bool TryGiveObjectToHand(int piObjectId)
+        public bool GiveObject(int piObjectId)
         {
             UWInventory lOInventory = UWScene.Inventory;
 
-            if (lOInventory == null || lOInventory.Model == null || lOInventory.Model.CursorItem != null)
+            if (lOInventory == null || lOInventory.Model == null)
                 return false;
 
-            UWObject lOItem = new UWObject((ushort)piObjectId);
+            // CreateObj's fresh object, as place_new makes the key (mantra_advance, SKILLS.C):
+            // quality 40 and the stack rule of its class. Until 2026-10-12 the key came at
+            // quality 0 without a count.
+            UWObject lOItem = UWObjectFactory.Create(piObjectId, mOData);
 
-            try
-            {
-                lOItem.Texture = mOData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId);
-            }
-            catch
-            {
+            if (lOItem == null)
                 return false;
-            }
 
-            lOInventory.Model.PickUpToCursor(lOItem);
-
-            return true;
+            return lOInventory.GiveToPlayer(lOItem, false);
         }
 
         private UWTilePos fGetTile()

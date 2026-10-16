@@ -34,7 +34,7 @@ public partial class UWSetupMenu
         {
             bool lbCurrent = (int)UWGamepad.ButtonStyle == liStyle;
 
-            if (GUI.Button(new Rect(pfLeft + 230f + (liStyle * lfStyleWidth), lfTop, lfStyleWidth, 26f), lsStyles[liStyle],
+            if (mOKeyNav.Button(new Rect(pfLeft + 230f + (liStyle * lfStyleWidth), lfTop, lfStyleWidth, 26f), lsStyles[liStyle],
                 lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
             {
                 UWUserSettings.GamepadButtonStyle = liStyle;
@@ -55,10 +55,10 @@ public partial class UWSetupMenu
 
         lfSpeed = Mathf.Round(lfSpeed / lfStep) * lfStep;
 
-        if (GUI.Button(new Rect(pfLeft + pfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
+        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
             lfSpeed = lfBefore - lfStep;
 
-        if (GUI.Button(new Rect(pfLeft + pfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
+        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
             lfSpeed = lfBefore + lfStep;
 
         GUI.Label(new Rect(pfLeft + pfInner - 95f, lfTop, 95f, 26f), Mathf.RoundToInt(lfSpeed * 100f) + " %", mOListLabel);
@@ -73,7 +73,7 @@ public partial class UWSetupMenu
 
         // THE STICKS: swapped for left-handed players, the look reversed up and down.
         // The sticks' presses go with them where the player has not changed them (UWKeyBindings).
-        bool lbSwap = GUI.Toggle(new Rect(pfLeft, lfTop, 300f, 26f), UWUserSettings.GamepadSwapSticks,
+        bool lbSwap = mOKeyNav.Toggle(new Rect(pfLeft, lfTop, 300f, 26f), UWUserSettings.GamepadSwapSticks,
             "  Swap the sticks (left-handed)", mOToggle);
 
         if (lbSwap != UWUserSettings.GamepadSwapSticks)
@@ -83,7 +83,7 @@ public partial class UWSetupMenu
             UWControls.ApplyKeyBindings();
         }
 
-        bool lbInvert = GUI.Toggle(new Rect(pfLeft + 310f, lfTop, pfInner - 310f, 26f), UWUserSettings.StickInvertY,
+        bool lbInvert = mOKeyNav.Toggle(new Rect(pfLeft + 310f, lfTop, pfInner - 310f, 26f), UWUserSettings.StickInvertY,
             "  Invert looking up and down", mOToggle);
 
         if (lbInvert != UWUserSettings.StickInvertY)
@@ -95,7 +95,7 @@ public partial class UWSetupMenu
         lfTop += 32f;
 
         // THE BUTTON HINTS in the modern interface (per user, 2026-10-08).
-        bool lbHints = GUI.Toggle(new Rect(pfLeft, lfTop, pfInner, 26f), UWUserSettings.GamepadButtonHints,
+        bool lbHints = mOKeyNav.Toggle(new Rect(pfLeft, lfTop, pfInner, 26f), UWUserSettings.GamepadButtonHints,
             "  Button hints in the game (crosshair, action bar)", mOToggle);
 
         if (lbHints != UWUserSettings.GamepadButtonHints)
@@ -123,6 +123,7 @@ public partial class UWSetupMenu
         Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.PadEntries.Count * RowHeight);
 
         mOGamepadScroll = GUI.BeginScrollView(lOListRect, mOGamepadScroll, lOContent);
+        UWImguiInput.Sync();
 
         for (int liAt = 0; liAt < UWKeyBindings.PadEntries.Count; liAt++)
         {
@@ -139,12 +140,13 @@ public partial class UWSetupMenu
 
             string lsButton = mOListeningFor == lOEntry ? "Press a button..." : UWKeyBindings.GetKeyName(lOEntry);
 
-            if (GUI.Button(new Rect(lOContent.width - 170f, lfRowTop + 3f, 160f, 26f), lsButton, mOButton)
+            if (mOKeyNav.Button(new Rect(lOContent.width - 170f, lfRowTop + 3f, 160f, 26f), lsButton, mOButton)
                 && mOListeningFor == null)
                 fListenForPad(lOEntry);
         }
 
         GUI.EndScrollView();
+        UWImguiInput.Sync();
 
         GUI.Label(new Rect(pfLeft, pODialog.yMax - 82f, pfInner, 22f), msBindingNotice, mODimLabel);
 
@@ -152,7 +154,7 @@ public partial class UWSetupMenu
 
         GUI.enabled = UWKeyBindings.HasGamepadChanges && mOListeningFor == null;
 
-        if (GUI.Button(new Rect(pfLeft, lfButtonTop, 180f, 30f), "Back to default", mOButton))
+        if (mOKeyNav.Button(new Rect(pfLeft, lfButtonTop, 180f, 30f), "Back to default", mOButton))
         {
             UWKeyBindings.ResetGamepad();
             msBindingNotice = string.Empty;
@@ -160,7 +162,7 @@ public partial class UWSetupMenu
 
         GUI.enabled = true;
 
-        if (GUI.Button(new Rect(pODialog.xMax - 130f, lfButtonTop, 110f, 30f), "Done", mOButton))
+        if (mOKeyNav.Button(new Rect(pODialog.xMax - 130f, lfButtonTop, 110f, 30f), "Done", mOButton))
         {
             mbControlsDialogOpen = false;
             mOListeningFor = null;
@@ -180,10 +182,10 @@ public partial class UWSetupMenu
 
         lfValue = Mathf.Round(lfValue / Step) * Step;
 
-        if (GUI.Button(new Rect(pfLeft + pfInner - 230f, pfTop, 26f, 26f), "<", mOButton))
+        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 230f, pfTop, 26f, 26f), "<", mOButton))
             lfValue = pfBefore - Step;
 
-        if (GUI.Button(new Rect(pfLeft + pfInner - 200f, pfTop, 26f, 26f), ">", mOButton))
+        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 200f, pfTop, 26f, 26f), ">", mOButton))
             lfValue = pfBefore + Step;
 
         string lsNow = pfNow < 0f ? "no pad" : "now " + Mathf.RoundToInt(pfNow * 100f) + " %";

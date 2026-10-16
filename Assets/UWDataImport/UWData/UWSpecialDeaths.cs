@@ -115,13 +115,13 @@ namespace UWDataImport.UWData
 		public static readonly int[] TyballAllies =
 			{ 0xD1, 0xDB, 0xD2, 0xDC, 0xD5, 0xD8, 0xD4, 0xD3, 0xDD };
 
-		/// <summary>The tile of his prison, whose move triggers go with him.</summary>
-		private const int TyballPrisonTileX = 0x17;
+		/// <summary>The tile of his prison, whose move triggers go with him (UWQuestPlaces).</summary>
+		private const int TyballPrisonTileX = UWQuestPlaces.TyballPrisonTileX;
 
-		private const int TyballPrisonTileY = 0x38;
+		private const int TyballPrisonTileY = UWQuestPlaces.TyballPrisonTileY;
 
 		/// <summary>The move trigger that locked the player in.</summary>
-		private const int MoveTriggerObjectId = 0x1A0;
+		private const int MoveTriggerObjectId = UWObjectMechanics.MoveTriggerId;
 
 		/// <summary>
 		/// The special case of this whoami, if there is one. Returns FALSE when the creature

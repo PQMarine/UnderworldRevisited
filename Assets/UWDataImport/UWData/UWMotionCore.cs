@@ -255,6 +255,8 @@ namespace UWDataImport.UWData
 			return default;
 		}
 
+		/// <summary>The original's bit test, kept as the instruction mirror; it is
+		/// UWObjectIds.IsCreature (major class 1, the objects 64 to 127).</summary>
 		private static bool fIsCreatureClass(int piItemId)
 		{
 			return ((piItemId >> 6) & 7) == 1;

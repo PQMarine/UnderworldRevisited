@@ -20,9 +20,9 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWSilverTreeRules
 	{
-		public const int SeedObjectId = 0x122;
+		public const int SeedObjectId = UWObjectIds.SilverSeed;
 
-		public const int TreeObjectId = 0x1CA;
+		public const int TreeObjectId = UWObjectIds.SilverTree;
 
 		/// <summary>Block 1 messages; the game numbers them 9 to 12, our export is one higher.</summary>
 		public const int WithersMessage = 9 + 1;
@@ -71,7 +71,7 @@ namespace UWDataImport.UWData
 				foreach (UWObject lOObject in lOTile.ObjectsInTile)
 				{
 					if (lOObject != null && (lOObject.ID == TreeObjectId
-						|| lOObject.GetCategory() == UWObject.ObjectCategoryEnum.Monsters))
+						|| UWObjectIds.IsCreature(lOObject.ID)))
 						return false;
 				}
 			}

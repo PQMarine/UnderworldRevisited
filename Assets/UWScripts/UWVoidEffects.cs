@@ -1,4 +1,5 @@
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The effects of the Ethereal Void on level 9 (per user, 2026-09-13: "Do the effects
@@ -76,7 +77,7 @@ public class UWVoidEffects : MonoBehaviour
         {
             mfTickAccumulator -= 1f;
 
-            if ((Random.Range(0, 0x8000) & 0x1F) == 0)
+            if ((UWRandom.Next(0x8000) & 0x1F) == 0)
                 fApplyEffects();
         }
     }
@@ -94,26 +95,26 @@ public class UWVoidEffects : MonoBehaviour
             int liNew = liHp;
 
             if (liHp > 0x64)
-                liNew -= Random.Range(0, 6);
+                liNew -= UWRandom.Next(6);
             else if (liHp > 0x32)
-                liNew -= Random.Range(0, 4);
-            else if (liHp > 0x14 && (Random.Range(0, 0x8000) & 3) < 1)
-                liNew -= Random.Range(0, 3);
-            else if (liHp > 1 && (Random.Range(0, 0x8000) & 7) == 0)
+                liNew -= UWRandom.Next(4);
+            else if (liHp > 0x14 && (UWRandom.Next(0x8000) & 3) < 1)
+                liNew -= UWRandom.Next(3);
+            else if (liHp > 1 && (UWRandom.Next(0x8000) & 7) == 0)
                 liNew -= 1;
 
             if (liNew != liHp)
                 mOCharacter.DrainVitality(liHp - liNew);
         }
 
-        if (Random.Range(0, 12) != 0)
+        if (UWRandom.Next(12) != 0)
         {
             UWScreenShake lOShake = UWScreenShake.Ensure();
 
             if (lOShake != null)
-                lOShake.Shake(UWScreenShake.LargeChannel, 0xF + Random.Range(0, 0x1E));
+                lOShake.Shake(UWScreenShake.LargeChannel, 0xF + UWRandom.Next(0x1E));
         }
 
-        mOGameUi.SetFrozenCompassStep(Random.Range(0, CompassSteps));
+        mOGameUi.SetFrozenCompassStep(UWRandom.Next(CompassSteps));
     }
 }

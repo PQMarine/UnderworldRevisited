@@ -41,8 +41,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckEasyStep(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Easy step (seg008_1B2A_216 with CheckIfItemFitsInTile on the core)");
+            Check.Group("Easy step (seg008_1B2A_216 with CheckIfItemFitsInTile on the core)");
 
             if (pOData == null || pOData.CommonObjectProperties == null)
             {

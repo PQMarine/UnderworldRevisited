@@ -161,7 +161,7 @@ namespace UWDataImport.UWData
 			if (piTargetType == TargetTiles)
 			{
 				StrikeTiles(pOCentre, TileRadius, liRemaining, pIHost,
-					pOTile => fApplyToTile(piMinorClass, pOTile, liTargets, pIHost));
+					pOTile => fApplyToTile(piMinorClass, pOTile, liTargets, 1, pIHost));
 
 				return true;
 			}
@@ -179,7 +179,7 @@ namespace UWDataImport.UWData
 					if (lOTile == null)
 						continue;
 
-					liRemaining -= fApplyToTile(piMinorClass, lOTile, liTargets, pIHost);
+					liRemaining -= fApplyToTile(piMinorClass, lOTile, liTargets, liRemaining, pIHost);
 
 					if (liRemaining <= 0)
 						return true;
@@ -229,11 +229,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// The centre of the area: four tiles in the view direction.
-		///
-		/// The reference computes this with the character's heading in 256ths of a
-		/// full circle; here the camera's view direction is the same thing, continuous, and the
-		/// rounding to whole tiles evens out the difference.
+		/// The centre of the area: four tiles along the player's heading, as gronk_area moves
+		/// there with move_along (MoveAlong) from the player's tile and his 256-step heading
+		/// (UWHeadings.DegreesToHeadingByte, the yaw truncated as the original's facing is).
 		/// </summary>
 		public static UWTilePos GetCentreTile(IUWSpellHost pIHost)
 		{
@@ -245,11 +243,38 @@ namespace UWDataImport.UWData
 		{
 			UWTilePos lOFrom = pIHost.PlayerTile;
 
-			pIHost.GetViewDirection(out float lfX, out float lfZ);
+			return MoveAlong(lOFrom, UWHeadings.DegreesToHeadingByte(pIHost.ViewYawDegrees), piDistanceTiles);
+		}
 
-			return new UWTilePos(
-				lOFrom.X + UWUnits.RoundToInt(lfX * piDistanceTiles),
-				lOFrom.Y + UWUnits.RoundToInt(lfZ * piDistanceTiles));
+		/// <summary>
+		/// MOVE_ALONG (UnderworldExhumed UTIL.C, read 2026-10-12): piDistance tiles from pOFrom along
+		/// a 256-step heading (0 north, clockwise). The table sine and cosine (cFstSinCos, the
+		/// unblended entry - UWMotionTables.SinCosCoarse) of 0x140 - heading are cut to a byte
+		/// (/ 0x80), times the distance, / 0x100, each step TRUNCATED and then, when not zero, one
+		/// added away from zero. Off the axes the centre lies further out than a rounded one: a
+		/// sideways share of 0.26 to 0.37 of four tiles gives two, not one. Until 2026-10-12 ours
+		/// rounded the view direction times the distance. Also the creatures' area spells.
+		/// </summary>
+		public static UWTilePos MoveAlong(UWTilePos pOFrom, int piHeading, int piDistance)
+		{
+			UWMotionTables.SinCosCoarse(((MoveAlongQuarterTurn - piHeading) & 0xFF) << 8, out int liSin, out int liCos);
+
+			return new UWTilePos(pOFrom.X + fMoveAlongStep(liCos, piDistance), pOFrom.Y + fMoveAlongStep(liSin, piDistance));
+		}
+
+		/// <summary>move_along's 0x140: the compass heading turned into the sine table's angle.</summary>
+		private const int MoveAlongQuarterTurn = 0x140;
+
+		private static int fMoveAlongStep(int piTable, int piDistance)
+		{
+			int liStep = (short)((piTable / 0x80) * piDistance) / 0x100;
+
+			if (liStep > 0)
+				liStep++;
+			else if (liStep < 0)
+				liStep--;
+
+			return liStep;
 		}
 
 		/// <summary>
@@ -281,18 +306,14 @@ namespace UWDataImport.UWData
 		/// user) - see TargetSpellMaxEffects. So the order below alone
 		/// decides WHICH.
 		///
-		/// THE MOST DISTANT CREATURE IS HIT. This is measured too: the user
-		/// cross-checked it against the view direction, and it holds (2026-09-09).
-		///
-		/// THIS IS A REAL SORT, not a side effect of a scan order. At first it
-		/// seemed likely that it fell out of the order in which the reference processes its only
-		/// area routine (callbacks.RunCodeOnTargetsInArea walks the square X
-		/// ascending and within that Y ascending, i.e. from a fixed corner). Then the
-		/// selection would have had to reverse when turning - it does not. So here it is sorted by
-		/// distance.
-		///
-		/// The reference says nothing about this: it knows no effect at all for a target spell
-		/// from an item.
+		/// WHICH ONE: THE FIRST IN process_area's ORDER (UnderworldExhumed SPELLS.C, nail_1area ->
+		/// gronk_area): the square from centre - 2 to centre + 3 on both axes (x0 = centre - 2,
+		/// width 5, the loops run to x0 + 5 inclusive), x ascending and within it y ascending, each
+		/// tile's creatures in list order; the first the spell counts on takes it. Confirmed by the
+		/// user on the original 2026-10-14 (audit B1): two goblins two and five tiles ahead in an
+		/// east-west row - facing east the NEAR one, facing west the FAR one, i.e. always the
+		/// western one. Until then ours sorted by distance and took the farthest, from an
+		/// observation of 2026-09-09 that fits this order when facing west or north.
 		///
 		/// NO RANDOM FILTER: that belongs to the tile pass of the area spells, which do
 		/// something per tile. This is about creatures, and they are rare enough anyway.
@@ -307,8 +328,10 @@ namespace UWDataImport.UWData
 
 			int liTargets = pIHost.CollectAreaTargets(lOCentre, TileRadius);
 
-			// THE MOST DISTANT FIRST. Measured, see header comment - so it is sorted
-			// instead of walked tile by tile.
+			// process_area's square and order, see the header comment.
+			int liX0 = lOCentre.X - TileRadius;
+			int liY0 = lOCentre.Y - TileRadius;
+			int liSide = TileRadius * 2 + 1;
 			List<int> lOSorted = new List<int>();
 
 			for (int liAt = 0; liAt < liTargets; liAt++)
@@ -318,24 +341,36 @@ namespace UWDataImport.UWData
 
 				UWTilePos lOTile = pIHost.AreaTargetTile(liAt);
 
-				if (System.Math.Abs(lOTile.X - lOCentre.X) > TileRadius
-					|| System.Math.Abs(lOTile.Y - lOCentre.Y) > TileRadius)
+				if (lOTile.X < liX0 || lOTile.X > liX0 + liSide || lOTile.Y < liY0 || lOTile.Y > liY0 + liSide)
 					continue;
 
 				lOSorted.Add(liAt);
 			}
 
+			// x ascending, then y ascending; within a tile the order they were collected in.
 			lOSorted.Sort((piLeft, piRight) =>
-				pIHost.AreaTargetDistanceSquared(piRight).CompareTo(pIHost.AreaTargetDistanceSquared(piLeft)));
+			{
+				UWTilePos lOLeft = pIHost.AreaTargetTile(piLeft);
+				UWTilePos lORight = pIHost.AreaTargetTile(piRight);
+
+				if (lOLeft.X != lORight.X)
+					return lOLeft.X.CompareTo(lORight.X);
+
+				return lOLeft.Y != lORight.Y ? lOLeft.Y.CompareTo(lORight.Y) : piLeft.CompareTo(piRight);
+			});
 
 			int liRemaining = TargetSpellMaxEffects;
 
 			foreach (int liTarget in lOSorted)
 			{
-				if (!pIHost.CastTargetSpellOnAreaTarget(liTarget, piMinorClass))
+				UWTargetSpellRules.Result leResult = pIHost.CastTargetSpellOnAreaTarget(liTarget, piMinorClass);
+
+				if (leResult == UWTargetSpellRules.Result.Missed)
 					continue;
 
-				pIHost.SpawnEffectAtAreaTarget(liTarget, SpellEffectObjectId);
+				// The picture only where the spell took (UWTargetSpellRules.Result).
+				if (leResult == UWTargetSpellRules.Result.Shown)
+					pIHost.SpawnEffectAtAreaTarget(liTarget, SpellEffectObjectId);
 
 				if (--liRemaining <= 0)
 					break;
@@ -354,18 +389,23 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private const int TargetSpellMaxEffects = 1;
 
-		/// <summary>The effect on ONE tile. Returns how many single effects
-		/// resulted - zero means the tile had nothing to offer and does not count
-		/// against the hit count.</summary>
-		private static int fApplyToTile(int piMinorClass, UWTile pOTile, int piTargets, IUWSpellHost pIHost)
+		/// <summary>The effect on ONE tile, at most piLimit single effects. Returns how many
+		/// resulted - zero means the tile had nothing to offer and does not count against the
+		/// hit count.
+		///
+		/// THE COUNT STOPS AT THE OBJECT THAT USES IT UP (process_area, UnderworldExhumed
+		/// SPELLS.C, read 2026-10-12: count is decremented per object and the walk returns at
+		/// once). Until 2026-10-12 ours finished the tile first, so Confusion on a crowded tile
+		/// could take one or two more.</summary>
+		private static int fApplyToTile(int piMinorClass, UWTile pOTile, int piTargets, int piLimit, IUWSpellHost pIHost)
 		{
 			switch (piMinorClass)
 			{
 				case SheetLightningMinor:
 					// DiceRoll(6, 5), so 6 to 30, of type 3, pure magic (DamageObjectsInTile with
-					// kind 2: tables 9D3/9D5/9D7).
-					fBurnTile(pOTile, LightningEffectObjectId, LightningDiceCount, LightningDiceRange,
-						UWDamageTypes.Magic, pIHost);
+					// kind 2: tables 9D3/9D5/9D7). The flash at a random height (sp_sheet_light).
+					fSpawnStrikePicture(pOTile, LightningEffectObjectId, pIHost);
+					pIHost.DamageObjectsInTile(pOTile.X, pOTile.Z, LightningDiceCount, LightningDiceRange, UWDamageTypes.Magic);
 
 					return 1;
 
@@ -373,10 +413,10 @@ namespace UWDataImport.UWData
 					return fFlameWind(pOTile, pIHost);
 
 				case ConfusionMinor:
-					return fConfuseTile(pOTile, piTargets, pIHost);
+					return fConfuseTile(pOTile, piTargets, piLimit, pIHost);
 
 				case RevealMinor:
-					return fRevealTile(pOTile, pIHost);
+					return fRevealTile(pOTile, piLimit, pIHost);
 
 				default:
 					return 0;
@@ -387,11 +427,21 @@ namespace UWDataImport.UWData
 		/// Flame Wind: fire not only on the tile hit, but in a CROSS around it -
 		/// centre plus the four neighbours. That is why the spell reaches further than the area
 		/// suggests.
+		///
+		/// THE PICTURE IS ONE EXPLOSION on the struck tile, at a random height, with three to five
+		/// flames scattered around it; the cross only takes the damage, solid tiles included
+		/// (sp_meteor and fireball_effect, UnderworldExhumed SPELLS.C and EFFECT.C, read
+		/// 2026-10-12). Until 2026-10-12 ours put an explosion on the floor of each of the five
+		/// tiles and skipped solid neighbours.
 		/// </summary>
 		private static int fFlameWind(UWTile pOTile, IUWSpellHost pIHost)
 		{
 			int liX = pOTile.X;
 			int liZ = pOTile.Z;
+
+			int liZPos = fSpawnStrikePicture(pOTile, FlameEffectObjectId, pIHost);
+
+			fScatterFlames(liX, liZ, liZPos, pIHost);
 
 			fBurnAt(liX, liZ, pIHost);
 			fBurnAt(liX + 1, liZ, pIHost);
@@ -402,16 +452,57 @@ namespace UWDataImport.UWData
 			return 1;
 		}
 
+		/// <summary>Deals the fire to everything on a tile of the cross. DamageObjectsInTile_seg038_3307_182A
+		/// rolls the dice anew FOR EVERY OBJECT of the tile's list (ours rolled once per tile until
+		/// 2026-09-27) and charges the caster - and that list holds the loose objects and, while
+		/// playing, the player himself (see UWObjectDamageRules; ours left both out until
+		/// 2026-09-27).</summary>
 		private static void fBurnAt(int piX, int piZ, IUWSpellHost pIHost)
 		{
-			UWTile lOTile = pIHost.CurrentLevel?.GetTile(piX, piZ);
-
-			if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
+			if (piX < 0 || piZ < 0 || piX >= MapSize || piZ >= MapSize)
 				return;
 
 			// DiceRoll(10, 6), so 10 to 60, of type 0x0B, fire - it bounces off a fire elemental
 			// (DamageObjectsInTile with kind 1).
-			fBurnTile(lOTile, FlameEffectObjectId, FlameDiceCount, FlameDiceRange, UWDamageTypes.Fire, pIHost);
+			pIHost.DamageObjectsInTile(piX, piZ, FlameDiceCount, FlameDiceRange, UWDamageTypes.Fire);
+		}
+
+		/// <summary>Tiles per side of a level map.</summary>
+		private const int MapSize = 64;
+
+		/// <summary>CreateObj's fine position for a new object: 3, 3 (MAPADDR.C).</summary>
+		private const int NewObjectFine = 3;
+
+		/// <summary>The ceiling in zpos steps; build_new_obj rolls below it.</summary>
+		private const int CeilingZPos = 0x80;
+
+		/// <summary>build_new_obj (SPELLS.C): the strike's picture at CreateObj's fine spot 3, 3 and
+		/// a random height between the floor and the ceiling (RollStrikeZPos). Returns that
+		/// height, which the flames of Flame Wind scatter around.</summary>
+		private static int fSpawnStrikePicture(UWTile pOTile, int piEffectObjectId, IUWSpellHost pIHost)
+		{
+			int liZPos = RollStrikeZPos(pOTile.FloorHeight >> 1);
+
+			pIHost.SpawnEffectInTile(pOTile.X, pOTile.Z, NewObjectFine, NewObjectFine, liZPos, piEffectObjectId);
+
+			return liZPos;
+		}
+
+		/// <summary>build_new_obj's height: the floor's zpos (tile height * 8) plus rand % (0x80 -
+		/// z) while it is below the ceiling.</summary>
+		public static int RollStrikeZPos(int piFloorZPos)
+		{
+			return piFloorZPos < CeilingZPos ? piFloorZPos + UWRandom.Next(CeilingZPos - piFloorZPos) : piFloorZPos;
+		}
+
+		/// <summary>fireball_effect (EFFECT.C) around the explosion in the middle of the tile - the
+		/// rule is UWExplosionRules.ScatterFlames, shared with the fireball's impact.</summary>
+		private static void fScatterFlames(int piTileX, int piTileY, int piZPos, IUWSpellHost pIHost)
+		{
+			foreach (UWExplosionRules.Flame lOFlame in UWExplosionRules.ScatterFlames(FlameEffectObjectId,
+				NewObjectFine, NewObjectFine, piZPos))
+				pIHost.SpawnEffectInTile(piTileX, piTileY, lOFlame.FineX, lOFlame.FineY, lOFlame.ZPos, lOFlame.ObjectId,
+					UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), lOFlame.StartFrame);
 		}
 
 		private const int FlameDiceCount = 10;
@@ -422,35 +513,26 @@ namespace UWDataImport.UWData
 
 		private const int LightningDiceRange = 5;
 
-		/// <summary>Places the effect on the tile and deals damage to everything that stands on
-		/// it. DamageObjectsInTile_seg038_3307_182A rolls the dice anew FOR EVERY OBJECT of the
-		/// tile's list (ours rolled once per tile until 2026-09-27) and charges the caster - and
-		/// that list holds the loose objects and, while playing, the player himself (see
-		/// UWObjectDamageRules; ours left both out until 2026-09-27).</summary>
-		private static void fBurnTile(UWTile pOTile, int piEffectObjectId, int piDiceCount, int piDiceRange,
-			int piDamageType, IUWSpellHost pIHost)
-		{
-			pIHost.SpawnEffectOnTileFloor(pOTile.X, pOTile.Z, piEffectObjectId);
-
-			pIHost.DamageObjectsInTile(pOTile.X, pOTile.Z, piDiceCount, piDiceRange, piDamageType);
-		}
-
 		/// <summary>Confuses every creature on the tile. Counts per creature, not per tile -
 		/// the reference does the same.</summary>
-		private static int fConfuseTile(UWTile pOTile, int piTargets, IUWSpellHost pIHost)
+		private static int fConfuseTile(UWTile pOTile, int piTargets, int piLimit, IUWSpellHost pIHost)
 		{
 			UWTilePos lOTile = new UWTilePos(pOTile.X, pOTile.Z);
 			int liCount = 0;
 
-			for (int liAt = 0; liAt < piTargets; liAt++)
+			for (int liAt = 0; liAt < piTargets && liCount < piLimit; liAt++)
 			{
 				if (pIHost.AreaTargetTile(liAt) != lOTile || !pIHost.AreaTargetIsCreature(liAt))
 					continue;
 
-				if (!pIHost.ConfuseAreaTarget(liAt))
+				UWTargetSpellRules.Result leResult = pIHost.ConfuseAreaTarget(liAt);
+
+				if (leResult == UWTargetSpellRules.Result.Missed)
 					continue;
 
-				pIHost.SpawnEffectAtAreaTarget(liAt, SpellEffectObjectId);
+				// A resisted Confusion still counts (sp_confusion returns 1), without the picture.
+				if (leResult == UWTargetSpellRules.Result.Shown)
+					pIHost.SpawnEffectAtAreaTarget(liAt, SpellEffectObjectId);
 
 				liCount++;
 			}
@@ -476,7 +558,7 @@ namespace UWDataImport.UWData
 		/// Iterates over a copy of the list, because a fired trap can put objects into the
 		/// tile.
 		/// </summary>
-		private static int fRevealTile(UWTile pOTile, IUWSpellHost pIHost)
+		private static int fRevealTile(UWTile pOTile, int piLimit, IUWSpellHost pIHost)
 		{
 			if (pOTile.ObjectsInTile == null || pOTile.ObjectsInTile.Count == 0)
 				return 0;
@@ -486,11 +568,11 @@ namespace UWDataImport.UWData
 
 			foreach (UWObject lOObject in lOObjects)
 			{
-				if (lOObject == null || (lOObject.ID >> 6) == TrapMajorClass)
+				if (lOObject == null || UWObjectIds.Major(lOObject.ID) == TrapMajorClass)
 					continue;
 
-				if (pIHost.FireLookTrigger(lOObject, UWTrapRules.RevealSearchSkill))
-					liCount++;
+				if (pIHost.FireLookTrigger(lOObject, UWTrapRules.RevealSearchSkill) && ++liCount >= piLimit)
+					break;
 			}
 
 			return liCount;

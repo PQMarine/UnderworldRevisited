@@ -132,7 +132,7 @@ namespace UWDataImport.UWData
 						? lOTexture.Values[(((y + liOffsetY) % lOTexture.Height) * lOTexture.Width) + ((x + liOffsetX) % lOTexture.Width)]
 						: fCloudsPattern(x + liOffsetX, y + liOffsetY);
 
-					lOOut.Set(x, y, lORamp[(int)(UWHudArt.fClamp(lfValue, 0f, 0.999f) * lORamp.Count)]);
+					lOOut.Set(x, y, lORamp[(int)(UWMath.Clamp(lfValue, 0f, 0.999f) * lORamp.Count)]);
 				}
 			}
 

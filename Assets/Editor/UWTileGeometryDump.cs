@@ -38,10 +38,10 @@ public static class UWTileGeometryDump
 
     private static void fDescribe(StringBuilder pOOut, UWLevel pOLevel, DataImport pOData, int piX, int piY, bool pbCentre)
     {
-        if (piX < 0 || piY < 0 || piX > 63 || piY > 63)
-            return;
+        UWTile lOTile = pOLevel.GetTile(piX, piY);
 
-        UWTile lOTile = pOLevel.TileData[(piY * 64) + piX];
+        if (lOTile == null)
+            return;
 
         pOOut.AppendLine(string.Format("{0} {1}/{2}: Type={3} Floor={4} Ceiling={5} Slope={6} WallTex={7} FloorTex={8} CeilingTex={9} Objects={10}",
             pbCentre ? "->" : "  ", piX, piY, lOTile.TileType, lOTile.FloorHeight, lOTile.CeilingHeight,

@@ -27,8 +27,14 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWCarriedSlots
 	{
-		/// <summary>The level the carried objects live in - set by the level loader.</summary>
-		public static UWLevel Level { get; set; }
+		/// <summary>The level the carried objects live in - set by the level loader. Since
+		/// 2026-10-14 (cleanup step 2.7) the session's (UWGameSession.World.CurrentLevel), so a new
+		/// game cannot inherit the previous one's level.</summary>
+		public static UWLevel Level
+		{
+			get { return UWGameSession.Current.World.CurrentLevel; }
+			set { UWGameSession.Current.World.CurrentLevel = value; }
+		}
 
 		/// <summary>An object's number for the rules that seed with it: its carried number, or
 		/// its place in the level's object list, or 0.</summary>

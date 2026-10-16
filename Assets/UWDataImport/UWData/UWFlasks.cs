@@ -5,6 +5,25 @@ namespace UWDataImport.UWData
 {
 	public class UWFlasks
 	{
+		/// <summary>
+		/// How many fill steps a flask has: TWELVE (UnderworldExhumed PANELS.C set_screen_frame
+		/// sets the goal to value * 12 / maximum, at most 12, and set_flask and adjust_flasks draw
+		/// the pictures base + 0 to base + 11). FLASKS.GR carries a thirteenth fill picture per
+		/// colour that the original never draws. Until 2026-10-12 ours had thirteen steps (the
+		/// reference's), so a full flask showed one slice more and the thresholds differed.
+		/// </summary>
+		public const int FillLevels = 12;
+
+		/// <summary>The fill step for a value and its maximum, in whole numbers as
+		/// set_screen_frame computes it: value * 12 / maximum, 0 to 12, 0 without a maximum.</summary>
+		public static int GetLevel(int piValue, int piMaximum)
+		{
+			if (piMaximum <= 0 || piValue <= 0)
+				return 0;
+
+			return Math.Min(FillLevels, (piValue * FillLevels) / piMaximum);
+		}
+
 		public enum FlaskTypeEnum
 		{
 			Red,
@@ -58,7 +77,7 @@ namespace UWDataImport.UWData
 		private const int HatchSpacing = 3;
 
 		/// <summary>The bubbling pictures of a colour follow right behind its thirteen fill
-		/// slices.</summary>
+		/// pictures (of which only twelve are drawn, see FillLevels).</summary>
 		private const int BubbleOffset = 13;
 
 		/// <summary>piBubbleFrame: the bubbling picture over the top of the liquid, or -1 (see
@@ -79,11 +98,11 @@ namespace UWDataImport.UWData
 				list = mGreen;
 				break;
 			}
-			// Clamped to the thirteen fill slices: vitality or mana above the maximum (the
+			// Clamped to the twelve fill steps (FillLevels): vitality or mana above the maximum (the
 			// original lowers the maximum on a level-up and leaves the current value - a save at
 			// 113 of 90, per user 2026-09-29) indexed past them into the bubbles and beyond, and
 			// the exception in UWCharacter.Init left the whole interface out.
-			int num = Math.Max(0, Math.Min(13, (int)(pFillStatus * 13f)));
+			int num = Math.Max(0, Math.Min(FillLevels, (int)(pFillStatus * FillLevels)));
 			int liTopStart = -1;
 			int num2 = 3 * mEmpty.Width;
 			UWTexture uWTexture = new UWTexture(mEmpty);

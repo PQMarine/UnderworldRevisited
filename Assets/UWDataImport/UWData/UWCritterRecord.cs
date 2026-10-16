@@ -15,7 +15,8 @@ namespace UWDataImport.UWData
 	/// the rest of the port read those.
 	///
 	/// OFFSETS: RawNpcBytes holds the 19 extra bytes after the 8 common ones, so record offset
-	/// 0x08 + n is RawNpcBytes[n] (UWLevel.load_object_list, UWLevelWriter.fWriteNpcBytes).
+	/// 0x08 + n is RawNpcBytes[n]; the offsets and masks are UWNpcRecordCodec's, which reads and
+	/// writes the bytes on load and save (2026-10-12).
 	/// Word 2 of the common bytes (zpos, facing eighth, fine position) is parsed into
 	/// UWObject.ZPos, Heading, YPos, XPos and written back from them.
 	///
@@ -25,7 +26,7 @@ namespace UWDataImport.UWData
 	public sealed class UWCritterRecord
 	{
 		/// <summary>The extra bytes of a mobile object record.</summary>
-		public const int NpcByteCount = 19;
+		public const int NpcByteCount = UWNpcRecordCodec.ByteCount;
 
 		private readonly UWNpc mONpc;
 
@@ -225,10 +226,10 @@ namespace UWDataImport.UWData
 
 		public int HitPoints
 		{
-			get { return fRaw()[0]; }
+			get { return fRaw()[UWNpcRecordCodec.HitPointsByte]; }
 			set
 			{
-				fRaw()[0] = (byte)(value & 0xFF);
+				fRaw()[UWNpcRecordCodec.HitPointsByte] = (byte)(value & 0xFF);
 				mONpc.HitPoints = (byte)(value & 0xFF);
 			}
 		}
@@ -238,8 +239,8 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 9: the moving heading, 256 steps per turn, 0 = +Y, 64 = +X.</summary>
 		public int FineHeading
 		{
-			get { return fRaw()[1]; }
-			set { fRaw()[1] = (byte)(value & 0xFF); }
+			get { return fRaw()[UWNpcRecordCodec.FineHeadingByte]; }
+			set { fRaw()[UWNpcRecordCodec.FineHeadingByte] = (byte)(value & 0xFF); }
 		}
 
 		// ------------------------------------------------- Byte 0x0A
@@ -247,41 +248,41 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x0A bits 0-3: the due slot of the 16-slot clock (53373, 54807).</summary>
 		public int DueSlot
 		{
-			get { return fRaw()[2] & 0xF; }
-			set { fSetBits(2, 0xF, value); }
+			get { return fRaw()[UWNpcRecordCodec.StateByte] & 0xF; }
+			set { fSetBits(UWNpcRecordCodec.StateByte, 0xF, value); }
 		}
 
 		/// <summary>Byte 0x0A bits 4-6: the tile state of the last physics step (the host's).</summary>
 		public int TileState
 		{
-			get { return (fRaw()[2] >> 4) & 7; }
-			set { fSetBits(2, 0x70, value << 4); }
+			get { return (fRaw()[UWNpcRecordCodec.StateByte] >> 4) & 7; }
+			set { fSetBits(UWNpcRecordCodec.StateByte, 0x70, value << 4); }
 		}
 
 		/// <summary>Byte 0x0A bit 7: attitude locked - skipped by the kin alarm, theft and the
 		/// kind balancing (scripts only).</summary>
-		public bool AttitudeLocked => fBit(2, 7);
+		public bool AttitudeLocked => fBit(UWNpcRecordCodec.StateByte, 7);
 
 		// ------------------------------------------------- Word 0x0B: goal, gtarg, frame
 
 		public int Goal
 		{
-			get { return fWord(3) & 0xF; }
+			get { return fWord(UWNpcRecordCodec.GoalWord) & UWNpcRecordCodec.GoalMask; }
 			set
 			{
-				fSetWordBits(3, 0xF, value);
-				mONpc.NPCGoal = (byte)(value & 0xF);
+				fSetWordBits(UWNpcRecordCodec.GoalWord, UWNpcRecordCodec.GoalMask, value);
+				mONpc.NPCGoal = (byte)(value & UWNpcRecordCodec.GoalMask);
 			}
 		}
 
 		/// <summary>Word 0x0B bits 4-11: the goal target's object index, 1 = the player.</summary>
 		public int GTarg
 		{
-			get { return (fWord(3) >> 4) & 0xFF; }
+			get { return (fWord(UWNpcRecordCodec.GoalWord) >> UWNpcRecordCodec.GTargShift) & UWNpcRecordCodec.GTargMask; }
 			set
 			{
-				fSetWordBits(3, 0xFF0, value << 4);
-				mONpc.NPCGTarg = (byte)(value & 0xFF);
+				fSetWordBits(UWNpcRecordCodec.GoalWord, UWNpcRecordCodec.GTargMask << UWNpcRecordCodec.GTargShift, value << UWNpcRecordCodec.GTargShift);
+				mONpc.NPCGTarg = (byte)(value & UWNpcRecordCodec.GTargMask);
 			}
 		}
 
@@ -289,8 +290,8 @@ namespace UWDataImport.UWData
 		/// as a phase counter, the attack machine counts it to 4.</summary>
 		public int Frame
 		{
-			get { return (fWord(3) >> 12) & 0xF; }
-			set { fSetWordBits(3, 0xF000, value << 12); }
+			get { return (fWord(UWNpcRecordCodec.GoalWord) >> 12) & 0xF; }
+			set { fSetWordBits(UWNpcRecordCodec.GoalWord, 0xF000, value << 12); }
 		}
 
 		/// <summary>frame := (frame + 1) &amp; 3, the goal routines' "frame++".</summary>
@@ -305,11 +306,11 @@ namespace UWDataImport.UWData
 		/// 54350). The port's NPCLevel.</summary>
 		public int BackupGoal
 		{
-			get { return fWord(5) & 0xF; }
+			get { return fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.BackupGoalMask; }
 			set
 			{
-				fSetWordBits(5, 0xF, value);
-				mONpc.NPCLevel = (byte)(value & 0xF);
+				fSetWordBits(UWNpcRecordCodec.AttitudeWord, UWNpcRecordCodec.BackupGoalMask, value);
+				mONpc.NPCLevel = (byte)(value & UWNpcRecordCodec.BackupGoalMask);
 			}
 		}
 
@@ -317,36 +318,36 @@ namespace UWDataImport.UWData
 		/// (SetNPCTargetDestination_seg006_1477_28EA, 46574).</summary>
 		public int DestinationHeight
 		{
-			get { return (fWord(5) >> 4) & 0xF; }
-			set { fSetWordBits(5, 0xF0, value << 4); }
+			get { return (fWord(UWNpcRecordCodec.AttitudeWord) >> 4) & 0xF; }
+			set { fSetWordBits(UWNpcRecordCodec.AttitudeWord, 0xF0, value << 4); }
 		}
 
 		/// <summary>Word 0x0D bit 9: no healing when the player leaves the level (CalmNPCS_ovr104_115
 		/// skips it) - breaking Tybal's orb sets it on him. The port's NPCNoHealing.</summary>
 		public bool NoLevelExitHealing
 		{
-			get { return (fWord(5) & 0x200) != 0; }
+			get { return (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.NoHealingBit) != 0; }
 			set
 			{
-				fSetWordBits(5, 0x200, value ? 0x200 : 0);
+				fSetWordBits(UWNpcRecordCodec.AttitudeWord, UWNpcRecordCodec.NoHealingBit, value ? UWNpcRecordCodec.NoHealingBit : 0);
 				mONpc.NPCNoHealing = value;
 			}
 		}
 
 		/// <summary>Word 0x0D bit 10: a strong individual, combat bonuses (spec 8.3).</summary>
-		public bool IsStrong => (fWord(5) & 0x400) != 0;
+		public bool IsStrong => (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.StrongBit) != 0;
 
 		/// <summary>Word 0x0D bit 13: talked to (conversation).</summary>
-		public bool TalkedTo => (fWord(5) & 0x2000) != 0;
+		public bool TalkedTo => (fWord(UWNpcRecordCodec.AttitudeWord) & UWNpcRecordCodec.TalkedToBit) != 0;
 
 		/// <summary>Word 0x0D bits 14-15: 0 hostile, 1 upset, 2 mellow, 3 friendly.</summary>
 		public int Attitude
 		{
-			get { return (fWord(5) >> 14) & 3; }
+			get { return (fWord(UWNpcRecordCodec.AttitudeWord) >> UWNpcRecordCodec.AttitudeShift) & UWNpcRecordCodec.AttitudeMask; }
 			set
 			{
-				fSetWordBits(5, 0xC000, value << 14);
-				mONpc.NPCAttitude = (byte)(value & 3);
+				fSetWordBits(UWNpcRecordCodec.AttitudeWord, UWNpcRecordCodec.AttitudeMask << UWNpcRecordCodec.AttitudeShift, value << UWNpcRecordCodec.AttitudeShift);
+				mONpc.NPCAttitude = (byte)(value & UWNpcRecordCodec.AttitudeMask);
 			}
 		}
 
@@ -355,22 +356,22 @@ namespace UWDataImport.UWData
 		/// <summary>Word 0x0F bits 0-5 and 6-11: the destination tile.</summary>
 		public int DestinationX
 		{
-			get { return fWord(7) & 0x3F; }
-			set { fSetWordBits(7, 0x3F, value); }
+			get { return fWord(UWNpcRecordCodec.DestinationWord) & 0x3F; }
+			set { fSetWordBits(UWNpcRecordCodec.DestinationWord, 0x3F, value); }
 		}
 
 		public int DestinationY
 		{
-			get { return (fWord(7) >> 6) & 0x3F; }
-			set { fSetWordBits(7, 0xFC0, value << 6); }
+			get { return (fWord(UWNpcRecordCodec.DestinationWord) >> 6) & 0x3F; }
+			set { fSetWordBits(UWNpcRecordCodec.DestinationWord, 0xFC0, value << 6); }
 		}
 
 		/// <summary>Word 0x0F bits 12-15: the swing charge index 0..15 (ChooseMeleeAttackToMake
 		/// 49540-49555, cleared at the blow 53070).</summary>
 		public int ChargeIndex
 		{
-			get { return (fWord(7) >> 12) & 0xF; }
-			set { fSetWordBits(7, 0xF000, value << 12); }
+			get { return (fWord(UWNpcRecordCodec.DestinationWord) >> 12) & 0xF; }
+			set { fSetWordBits(UWNpcRecordCodec.DestinationWord, 0xF000, value << 12); }
 		}
 
 		// ------------------------------------------------- Bytes 0x11, 0x12: damage and attacker
@@ -378,15 +379,15 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x11: damage taken since the last decision (DamageNPC adds, NPCBehaviours clears).</summary>
 		public int DamageTaken
 		{
-			get { return fRaw()[9]; }
-			set { fRaw()[9] = (byte)(value & 0xFF); }
+			get { return fRaw()[UWNpcRecordCodec.DamageByte]; }
+			set { fRaw()[UWNpcRecordCodec.DamageByte] = (byte)(value & 0xFF); }
 		}
 
 		/// <summary>Byte 0x12: the index of the last attacker, 1 the player, 0 none.</summary>
 		public int Attacker
 		{
-			get { return fRaw()[10]; }
-			set { fRaw()[10] = (byte)(value & 0xFF); }
+			get { return fRaw()[UWNpcRecordCodec.AttackerByte]; }
+			set { fRaw()[UWNpcRecordCodec.AttackerByte] = (byte)(value & 0xFF); }
 		}
 
 		// ------------------------------------------------- Byte 0x13: speed
@@ -394,15 +395,15 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x13 bits 0-6: the speed; momentum = speed * 0x2F.</summary>
 		public int Speed
 		{
-			get { return fRaw()[11] & 0x7F; }
-			set { fSetBits(11, 0x7F, value); }
+			get { return fRaw()[UWNpcRecordCodec.SpeedByte] & 0x7F; }
+			set { fSetBits(UWNpcRecordCodec.SpeedByte, 0x7F, value); }
 		}
 
 		/// <summary>Byte 0x13 bit 7: gravity on (the physics').</summary>
 		public bool Gravity
 		{
-			get { return fBit(11, 7); }
-			set { fSetBit(11, 7, value); }
+			get { return fBit(UWNpcRecordCodec.SpeedByte, 7); }
+			set { fSetBit(UWNpcRecordCodec.SpeedByte, 7, value); }
 		}
 
 		// ------------------------------------------------- Byte 0x14: interval and pitch
@@ -410,15 +411,15 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x14 bits 0-2: the update interval in slots.</summary>
 		public int Interval
 		{
-			get { return fRaw()[12] & 7; }
-			set { fSetBits(12, 7, value); }
+			get { return fRaw()[UWNpcRecordCodec.IntervalByte] & 7; }
+			set { fSetBits(UWNpcRecordCodec.IntervalByte, 7, value); }
 		}
 
 		/// <summary>Byte 0x14 bits 3-7: the pitch, 16 level (fliers).</summary>
 		public int Pitch
 		{
-			get { return (fRaw()[12] >> 3) & 0x1F; }
-			set { fSetBits(12, 0xF8, value << 3); }
+			get { return (fRaw()[UWNpcRecordCodec.IntervalByte] >> 3) & 0x1F; }
+			set { fSetBits(UWNpcRecordCodec.IntervalByte, 0xF8, value << 3); }
 		}
 
 		// ------------------------------------------------- Byte 0x15: animation
@@ -427,53 +428,53 @@ namespace UWDataImport.UWData
 		/// missile, 7 backing off, 0x0C dying, 0x0D spell, 0x20 standing, 0x2C walking).</summary>
 		public int Animation
 		{
-			get { return fRaw()[13] & 0x3F; }
-			set { fSetBits(13, 0x3F, value); }
+			get { return fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
+			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, value); }
 		}
 
 		/// <summary>Byte 0x15 bit 6: standing, no motion needed.</summary>
 		public bool IsStanding
 		{
-			get { return fBit(13, 6); }
-			set { fSetBit(13, 6, value); }
+			get { return fBit(UWNpcRecordCodec.AnimationByte, 6); }
+			set { fSetBit(UWNpcRecordCodec.AnimationByte, 6, value); }
 		}
 
 		/// <summary>Byte 0x15 bit 7: has a path (its slot in word 0x16 bits 0-3). The host's
 		/// path search keeps no slots; the bit still marks "following a path".</summary>
 		public bool HasPath
 		{
-			get { return fBit(13, 7); }
-			set { fSetBit(13, 7, value); }
+			get { return fBit(UWNpcRecordCodec.AnimationByte, 7); }
+			set { fSetBit(UWNpcRecordCodec.AnimationByte, 7, value); }
 		}
 
 		// ------------------------------------------------- Word 0x16: path slot and current tile
 
 		public int PathSlot
 		{
-			get { return fWord(14) & 0xF; }
-			set { fSetWordBits(14, 0xF, value); }
+			get { return fWord(UWNpcRecordCodec.HomeWord) & 0xF; }
+			set { fSetWordBits(UWNpcRecordCodec.HomeWord, 0xF, value); }
 		}
 
 		/// <summary>Word 0x16 bits 10-15: the current tile x (the asm's "XHome"; written by the
 		/// physics on every relink, 100871). The port's NPCXHome.</summary>
 		public int TileX
 		{
-			get { return (fWord(14) >> 10) & 0x3F; }
+			get { return (fWord(UWNpcRecordCodec.HomeWord) >> UWNpcRecordCodec.HomeXShift) & UWNpcRecordCodec.HomeMask; }
 			set
 			{
-				fSetWordBits(14, 0xFC00, value << 10);
-				mONpc.NPCXHome = (byte)(value & 0x3F);
+				fSetWordBits(UWNpcRecordCodec.HomeWord, UWNpcRecordCodec.HomeMask << UWNpcRecordCodec.HomeXShift, value << UWNpcRecordCodec.HomeXShift);
+				mONpc.NPCXHome = (byte)(value & UWNpcRecordCodec.HomeMask);
 			}
 		}
 
 		/// <summary>Word 0x16 bits 4-9: the current tile y.</summary>
 		public int TileY
 		{
-			get { return (fWord(14) >> 4) & 0x3F; }
+			get { return (fWord(UWNpcRecordCodec.HomeWord) >> UWNpcRecordCodec.HomeYShift) & UWNpcRecordCodec.HomeMask; }
 			set
 			{
-				fSetWordBits(14, 0x3F0, value << 4);
-				mONpc.NPCYHome = (byte)(value & 0x3F);
+				fSetWordBits(UWNpcRecordCodec.HomeWord, UWNpcRecordCodec.HomeMask << UWNpcRecordCodec.HomeYShift, value << UWNpcRecordCodec.HomeYShift);
+				mONpc.NPCYHome = (byte)(value & UWNpcRecordCodec.HomeMask);
 			}
 		}
 
@@ -482,11 +483,11 @@ namespace UWDataImport.UWData
 		/// <summary>Byte 0x18 bits 0-4: the fine part of the facing. The port's NPCHeading.</summary>
 		public int FacingResidual
 		{
-			get { return fRaw()[16] & 0x1F; }
+			get { return fRaw()[UWNpcRecordCodec.FacingByte] & UWNpcRecordCodec.FacingResidualMask; }
 			set
 			{
-				fSetBits(16, 0x1F, value);
-				mONpc.NPCHeading = (byte)(value & 0x1F);
+				fSetBits(UWNpcRecordCodec.FacingByte, UWNpcRecordCodec.FacingResidualMask, value);
+				mONpc.NPCHeading = (byte)(value & UWNpcRecordCodec.FacingResidualMask);
 			}
 		}
 
@@ -511,23 +512,23 @@ namespace UWDataImport.UWData
 		/// NPCBehaviours clears).</summary>
 		public bool NewDestination
 		{
-			get { return fBit(16, 5); }
-			set { fSetBit(16, 5, value); }
+			get { return fBit(UWNpcRecordCodec.FacingByte, 5); }
+			set { fSetBit(UWNpcRecordCodec.FacingByte, 5, value); }
 		}
 
 		/// <summary>Byte 0x18 bit 6: blocked (NPC_Goto 46937, 47000-47020).</summary>
 		public bool Blocked
 		{
-			get { return fBit(16, 6); }
-			set { fSetBit(16, 6, value); }
+			get { return fBit(UWNpcRecordCodec.FacingByte, 6); }
+			set { fSetBit(UWNpcRecordCodec.FacingByte, 6, value); }
 		}
 
 		/// <summary>Byte 0x18 bit 7: the straight tile line to the destination is known clear
 		/// (NPC_Goto 47040).</summary>
 		public bool StraightLineKnown
 		{
-			get { return fBit(16, 7); }
-			set { fSetBit(16, 7, value); }
+			get { return fBit(UWNpcRecordCodec.FacingByte, 7); }
+			set { fSetBit(UWNpcRecordCodec.FacingByte, 7, value); }
 		}
 
 		// ------------------------------------------------- Byte 0x19: perception and temper
@@ -535,57 +536,64 @@ namespace UWDataImport.UWData
 		/// <summary>Bit 0: target confirmed, in view or known.</summary>
 		public bool TargetConfirmed
 		{
-			get { return fBit(17, 0); }
-			set { fSetBit(17, 0, value); }
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 0); }
+			set { fSetBit(UWNpcRecordCodec.FlagsByte, 0, value); }
 		}
 
 		/// <summary>Bit 1: heard something, searching.</summary>
 		public bool HeardSomething
 		{
-			get { return fBit(17, 1); }
-			set { fSetBit(17, 1, value); }
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 1); }
+			set { fSetBit(UWNpcRecordCodec.FlagsByte, 1, value); }
 		}
 
 		/// <summary>Bits 2-3: the spell slot to cast at animation 0x0D frame 4 (1 = table byte
 		/// 0x2A, 2 = 0x2B, 3 = 0x2C), 0 none.</summary>
 		public int SpellSlot
 		{
-			get { return (fRaw()[17] >> 2) & 3; }
-			set { fSetBits(17, 0x0C, value << 2); }
+			get { return (fRaw()[UWNpcRecordCodec.FlagsByte] >> 2) & 3; }
+			set { fSetBits(UWNpcRecordCodec.FlagsByte, 0x0C, value << 2); }
 		}
 
 		/// <summary>Bit 4: has made a stand - the next hit gives goal 9 without a morale check.</summary>
 		public bool MadeStand
 		{
-			get { return fBit(17, 4); }
-			set { fSetBit(17, 4, value); }
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 4); }
+			set { fSetBit(UWNpcRecordCodec.FlagsByte, 4, value); }
 		}
 
 		/// <summary>Bit 5: pursues without morale check and without leash (the far-hit reaction).</summary>
 		public bool Relentless
 		{
-			get { return fBit(17, 5); }
-			set { fSetBit(17, 5, value); }
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 5); }
+			set { fSetBit(UWNpcRecordCodec.FlagsByte, 5, value); }
 		}
 
 		/// <summary>Bit 6: ally of the player. The port's NPCIsAlly.</summary>
 		public bool IsAlly
 		{
-			get { return fBit(17, 6); }
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 6); }
 			set
 			{
-				fSetBit(17, 6, value);
+				fSetBit(UWNpcRecordCodec.FlagsByte, 6, value);
 				mONpc.NPCIsAlly = value;
 			}
 		}
 
-		/// <summary>Bit 7: hungry (conversation import); no reader in the AI.</summary>
-		public bool Hungry => fBit(17, 7);
+		/// <summary>Bit 7: fed (OBJ_FED; the conversation imports npc_hunger 0x10 when set, 0xC0
+		/// when clear - CONVVARS.C update_converse_data). No reader in the AI. Written by the
+		/// time pass (cleared, CRITTIME.C up_crit) and the five-minute block (a coin,
+		/// yearly_checkup) since 2026-10-15; until then it was named Hungry and had no writer.</summary>
+		public bool Fed
+		{
+			get { return fBit(UWNpcRecordCodec.FlagsByte, 7); }
+			set { fSetBit(UWNpcRecordCodec.FlagsByte, 7, value); }
+		}
 
 		// ------------------------------------------------- Byte 0x1A
 
 		/// <summary>The conversation slot; nonzero lets SpecialDeathCases veto a death.</summary>
-		public int WhoAmI => fRaw()[18];
+		public int WhoAmI => fRaw()[UWNpcRecordCodec.WhoAmIByte];
 
 		// ------------------------------------------------- Goal writers of the original
 

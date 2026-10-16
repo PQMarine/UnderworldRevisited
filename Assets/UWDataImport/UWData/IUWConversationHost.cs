@@ -72,8 +72,8 @@ namespace UWDataImport.UWData
 		/// <summary>Puts an item onto a tile of the level (place_object).</summary>
 		bool SpawnObjectInTile(UWObject pOItem, int piTileX, int piTileY);
 
-		/// <summary>Drops an item at the player's feet, scattered over his tile - what does not
-		/// fit anywhere.</summary>
+		/// <summary>place_object with a negative x: the item goes down at the player's feet
+		/// (put_at at his tile, stay_centered, range 6, never culled).</summary>
 		void DropAtPlayer(UWObject pOItem);
 
 		/// <summary>Puts an item down around the player (PlaceObjectAtNPC_seg026_12E5 with the
@@ -84,14 +84,11 @@ namespace UWDataImport.UWData
 		/// <summary>Puts an item down around the partner (PlaceObjectAtNPC_seg026_12E5 with
 		/// radius 5) - bought goods the player left on the partner's side when the conversation
 		/// ends (end_barter_ovr095_3C2).</summary>
-		void DropAtNpc(UWObject pOItem, UWNpc pONpc);
+		/// False when the culling test took it (near_mob_put_at's failure).
+		bool DropAtNpc(UWObject pOItem, UWNpc pONpc);
 
 		/// <summary>The partner disappears from the world, display included (remove_talker).</summary>
 		bool RemoveObjectFromWorld(UWObject pOObject);
-
-		/// <summary>The creature turns on the player - attitude has already been set to
-		/// hostile; this makes its body attack.</summary>
-		void AngerNpc(UWNpc pONpc);
 
 		// ------------------------------------------------- Inventory and text
 

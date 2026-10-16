@@ -20,109 +20,247 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     public static partial class Program
     {
-        private static int miFailures;
-
         public static int Main(string[] psArgs)
         {
-            if (psArgs.Length < 1)
+            CheckRunner lORunner = new CheckRunner();
+            string lsPathArgument = null;
+            string lsSaves = null;
+            bool lbList = false;
+            bool lbRecord = false;
+
+            for (int liAt = 0; liAt < psArgs.Length; liAt++)
             {
-                Console.WriteLine("uwselfcheck - reads a complete installation and reports what came through.");
+                string lsArg = psArgs[liAt];
+                string lsValue = liAt + 1 < psArgs.Length ? psArgs[liAt + 1] : null;
+
+                switch (lsArg)
+                {
+                    case "--only": lORunner.Only.AddRange(fSplit(lsValue)); liAt++; break;
+                    case "--skip": lORunner.Skip.AddRange(fSplit(lsValue)); liAt++; break;
+                    case "--tag": lORunner.Tags.AddRange(fSplit(lsValue)); liAt++; break;
+                    case "--seed": lORunner.SeedOffset = int.Parse(lsValue ?? "0"); liAt++; break;
+                    case "--list": lbList = true; break;
+                    case "--quiet": Check.Quiet = true; break;
+                    case "--no-data": lORunner.NoData = true; break;
+                    case "--times": lORunner.Times = true; break;
+                    case "--record": lbRecord = true; break;
+                    case "--saves": lsSaves = lsValue; liAt++; break;
+                    case "--help":
+                    case "-h":
+                        fPrintUsage();
+                        return 2;
+                    default:
+                        if (lsArg.StartsWith("--", StringComparison.Ordinal))
+                        {
+                            Console.Error.WriteLine("Unknown option " + lsArg);
+                            return 2;
+                        }
+
+                        lsPathArgument = lsArg;
+                        break;
+                }
+            }
+
+            CheckCatalog lOCatalog = fBuildCatalog();
+
+            if (lbList)
+            {
+                foreach (CheckEntry lOEntry in lOCatalog.Entries)
+                    Console.WriteLine(string.Format("  {0,-26} {1}{2}", lOEntry.Name,
+                        lOEntry.NeedsData ? "data  " : "      ", string.Join(" ", lOEntry.Tags)));
+
+                return 0;
+            }
+
+            string lsDataPath = null;
+
+            if (lsPathArgument != null)
+            {
+                lsDataPath = DataPath.Resolve(lsPathArgument, out string lsError);
+
+                if (lsDataPath == null)
+                {
+                    Console.Error.WriteLine(lsError);
+
+                    return 2;
+                }
+
+                Console.WriteLine("Data folder: " + lsDataPath);
                 Console.WriteLine();
-                Console.WriteLine("  uwselfcheck <path>");
-                Console.WriteLine();
-                Console.WriteLine("<path> is the DATA folder of an installation, or the GOG installation");
-                Console.WriteLine("folder or game.gog itself.");
+            }
+            else if (!lORunner.NoData)
+            {
+                fPrintUsage();
 
                 return 2;
             }
-
-            string lsDataPath = DataPath.Resolve(psArgs[0], out string lsError);
-
-            if (lsDataPath == null)
-            {
-                Console.Error.WriteLine(lsError);
-
-                return 2;
-            }
-
-            Console.WriteLine("Data folder: " + lsDataPath);
-            Console.WriteLine();
 
             Stopwatch lOTotal = Stopwatch.StartNew();
+            CheckContext lOContext = new CheckContext(lsDataPath) { SavesPath = lsSaves, Record = lbRecord };
 
-            fCheckClickRules();
-            fCheckCritterBrain();
-            fCheckRuleIndex();
+            lORunner.Run(lOCatalog, lOContext);
+            lOTotal.Stop();
+            lORunner.PrintSummary(lOTotal.ElapsedMilliseconds);
 
-            DataImport lOData = fCheckLoad(lsDataPath);
-
-            if (lOData != null)
+            if (lORunner.Ran == 0)
             {
-                fCheckLevels(lOData);
-                fCheckStrings(lOData);
-                fCheckTextures(lOData);
-                fCheckModels(lsDataPath);
-                fCheckCutscenes(lsDataPath);
-                fCheckSound(lOData);
-                fCheckPlayerStatus(lOData);
-                fCheckStealth(lOData);
-                fCheckEasyMovement();
-                fCheckSoundInTheSave();
-                fCheckHitVolume();
-                fCheckPowerGem();
-                fCheckImpact();
-                fCheckWaterSwallowsRemains(lOData);
-                fCheckScrollEdges(lOData);
-                fCheckTheft(lOData);
-                fCheckSightLine();
-                fCheckRespawnDistance(lOData);
-                fCheckMapReveal(lOData);
-                fCheckMapPainter();
-                fCheckNewCreature();
-                fCheckSummonRoll(lOData);
-                fCheckObjectDamage(lsDataPath);
-                fCheckMoonstone(lOData);
-                fCheckEquipmentWear(lOData);
-                fCheckActiveMobileOrder(lOData);
-                fCheckConversationBasePointer();
-                fCheckOriginalRandom();
-                fCheckBowlAndStew(lOData);
-                fCheckGlowingRock(lOData);
-                fCheckOneShotChainRemoval(lsDataPath);
-                fCheckMapRewrite(lOData);
-                fCheckPaletteLightMap(lOData);
-                fCheckGrimeTint(lOData);
-                fCheckTalkRefusal();
-                fCheckConversationPatches(lOData);
-                fCheckContainsWord();
-                fCheckManualAttributes(lOData);
-                fCheckExplodingBook(lOData);
-                fCheckOrbManaAside();
-                fCheckWeaponMusic();
-                fCheckItemClassSpells(lOData);
-                fCheckLocks();
-                fCheckScatter();
-                fCheckObjectLimit(lOData);
-                fCheckSleepCreatures();
-                fCheckPoisonSpell();
-                fCheckDetectMonsters();
-                fCheckObjectMotion(lOData);
-                fCheckCreatureMotion(lOData);
-                fCheckPlayerMotion(lOData);
-                fCheckEasyStep(lOData);
-                fCheckPointerScheme(lOData);
-                fCheckCritterView();
-                fCheckPreciseMotion(lOData);
+                Console.WriteLine("No group matched the filter.");
+
+                return 3;
             }
 
-            lOTotal.Stop();
+            return Check.Failures == 0 ? 0 : 1;
+        }
 
-            Console.WriteLine();
-            Console.WriteLine(miFailures == 0
-                ? string.Format("Everything passed, in {0} ms.", lOTotal.ElapsedMilliseconds)
-                : string.Format("{0} check(s) FAILED, in {1} ms.", miFailures, lOTotal.ElapsedMilliseconds));
+        private static void fPrintUsage()
+        {
+            Console.WriteLine("uwselfcheck - reads a complete installation and reports what came through.");
+            Check.Group("  uwselfcheck <path> [options]");
+            Console.WriteLine("  uwselfcheck --no-data [options]");
+            Check.Group("<path> is the DATA folder of an installation, or the GOG installation");
+            Console.WriteLine("folder or game.gog itself.");
+            Check.Group("  --only a,b     run only the groups whose name contains a or b");
+            Console.WriteLine("  --skip a,b     skip the groups whose name contains a or b");
+            Console.WriteLine("  --tag t,u      run only the groups tagged t or u");
+            Console.WriteLine("  --list         print the catalog and stop");
+            Console.WriteLine("  --quiet        print only failures and the summary");
+            Console.WriteLine("  --no-data      run only the groups that need no game data");
+            Console.WriteLine("  --times        print the time every group took");
+            Console.WriteLine("  --seed n       add n to every group's random seed");
+            Console.WriteLine("  --saves <dir>  a folder of save games for the round-trip check");
+            Console.WriteLine("  --record       the pin checks write Tools/UWSelfCheck/Pins instead of comparing");
+            Check.Group("Exit code 0: everything passed; 1: a check failed; 2: no data; 3: no group matched.");
+        }
 
-            return miFailures == 0 ? 0 : 1;
+        private static IEnumerable<string> fSplit(string psList)
+        {
+            if (string.IsNullOrEmpty(psList))
+                yield break;
+
+            foreach (string lsPart in psList.Split(','))
+                if (lsPart.Trim().Length > 0)
+                    yield return lsPart.Trim();
+        }
+
+        /// <summary>
+        /// Every group in the order it runs. Three need no data and run first, as they always
+        /// did; "Load" reads the installation once; the rest take what it loaded. A group marked
+        /// MutatesData changes the loaded world, so the runner reloads the game state after it.
+        /// The "original" tag marks groups that pin numbers of UW.EXE, so a mod validator can
+        /// skip them.
+        /// </summary>
+        private static CheckCatalog fBuildCatalog()
+        {
+            CheckCatalog lOCatalog = new CheckCatalog();
+
+            lOCatalog.Add("Constants", pOContext => fCheckConstants(pOContext), false, "meta", "pin");
+            lOCatalog.Add("ClickRules", pOContext => fCheckClickRules(), false, "input", "original");
+            lOCatalog.Add("CritterBrain", pOContext => fCheckCritterBrain(), false, "brain", "combat", "original");
+            lOCatalog.Add("RuleIndex", pOContext => fCheckRuleIndex(), false, "meta");
+            lOCatalog.Add("Load", pOContext => fCheckLoad(pOContext), false, "env");
+            lOCatalog.Add("Levels", pOContext => fCheckLevels(pOContext.Data), true, "env");
+            lOCatalog.Add("Strings", pOContext => fCheckStrings(pOContext.Data), true, "env");
+            lOCatalog.Add("Textures", pOContext => fCheckTextures(pOContext.Data), true, "env");
+            lOCatalog.Add("Models", pOContext => fCheckModels(pOContext.DataPath), true, "env");
+            lOCatalog.Add("Cutscenes", pOContext => fCheckCutscenes(pOContext.DataPath), true, "env");
+            lOCatalog.Add("Sound", pOContext => fCheckSound(pOContext.Data), true, "env");
+            lOCatalog.Add("PlayerStatus", pOContext => fCheckPlayerStatus(pOContext.Data), true, "player", "original");
+            lOCatalog.Add("Stealth", pOContext => fCheckStealth(pOContext.Data), true, "player", "original");
+            lOCatalog.Add("EasyMovement", pOContext => fCheckEasyMovement(), false, "input", "original");
+            lOCatalog.Add("SoundInTheSave", pOContext => fCheckSoundInTheSave(), false, "player", "original");
+            lOCatalog.Add("HitVolume", pOContext => fCheckHitVolume(), false, "combat", "original");
+            lOCatalog.Add("PowerGem", pOContext => fCheckPowerGem(), false, "hud", "original");
+            lOCatalog.Add("Impact", pOContext => fCheckImpact(), false, "player", "original");
+            lOCatalog.Add("WaterSwallowsRemains", pOContext => fCheckWaterSwallowsRemains(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("ScrollEdges", pOContext => fCheckScrollEdges(pOContext.Data), true, "hud", "original");
+            lOCatalog.Add("StackRules", pOContext => fCheckStackRules(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("Theft", pOContext => fCheckTheft(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("SightLine", pOContext => fCheckSightLine(), false, "path", "original");
+            lOCatalog.Add("RespawnDistance", pOContext => fCheckRespawnDistance(pOContext.Data), true, "level", "time", "original");
+            lOCatalog.Add("MapReveal", pOContext => fCheckMapReveal(pOContext.Data), true, "level", "original").MutatesData = true;
+            lOCatalog.Add("MapPainter", pOContext => fCheckMapPainter(), false, "level", "original");
+            lOCatalog.Add("NewCreature", pOContext => fCheckNewCreature(), false, "level", "original");
+            lOCatalog.Add("SummonRoll", pOContext => fCheckSummonRoll(pOContext.Data), true, "spell", "original").MutatesData = true;
+            lOCatalog.Add("ObjectDamage", pOContext => fCheckObjectDamage(pOContext.DataPath), true, "damage", "original");
+            lOCatalog.Add("Moonstone", pOContext => fCheckMoonstone(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("EquipmentWear", pOContext => fCheckEquipmentWear(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("ActiveMobileOrder", pOContext => fCheckActiveMobileOrder(pOContext.Data), true, "level", "original");
+            lOCatalog.Add("ConversationBasePointer", pOContext => fCheckConversationBasePointer(), false, "conversation", "original");
+            lOCatalog.Add("OriginalRandom", pOContext => fCheckOriginalRandom(), false, "misc", "original");
+            lOCatalog.Add("BowlAndStew", pOContext => fCheckBowlAndStew(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("GlowingRock", pOContext => fCheckGlowingRock(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("OneShotChainRemoval", pOContext => fCheckOneShotChainRemoval(pOContext.Data), true, "trap", "original").MutatesData = true;
+            lOCatalog.Add("MapRewrite", pOContext => fCheckMapRewrite(pOContext.Data), true, "level", "original").MutatesData = true;
+            lOCatalog.Add("PaletteLightMap", pOContext => fCheckPaletteLightMap(pOContext.Data), true, "render");
+            lOCatalog.Add("GrimeTint", pOContext => fCheckGrimeTint(pOContext.Data), true, "render");
+            lOCatalog.Add("TalkRefusal", pOContext => fCheckTalkRefusal(), false, "conversation", "original");
+            lOCatalog.Add("ConversationPatches", pOContext => fCheckConversationPatches(pOContext.Data), true, "conversation");
+            lOCatalog.Add("ContainsWord", pOContext => fCheckContainsWord(), false, "conversation", "original");
+            lOCatalog.Add("ManualAttributes", pOContext => fCheckManualAttributes(pOContext.Data), true, "player", "original");
+            lOCatalog.Add("ExplodingBook", pOContext => fCheckExplodingBook(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("OrbManaAside", pOContext => fCheckOrbManaAside(), false, "player", "original");
+            lOCatalog.Add("Vitals", pOContext => fCheckVitals(pOContext.Data), true, "player", "original");
+            lOCatalog.Add("WeaponMusic", pOContext => fCheckWeaponMusic(), false, "music", "original");
+            lOCatalog.Add("ItemClassSpells", pOContext => fCheckItemClassSpells(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("Locks", pOContext => fCheckLocks(), false, "inventory", "trap", "original");
+            lOCatalog.Add("Scatter", pOContext => fCheckScatter(), false, "level", "original");
+            lOCatalog.Add("ObjectLimit", pOContext => fCheckObjectLimit(pOContext.Data), true, "level", "original");
+            lOCatalog.Add("SleepCreatures", pOContext => fCheckSleepCreatures(), false, "sleep", "path", "original");
+            lOCatalog.Add("Night", pOContext => fCheckNight(), false, "sleep", "original");
+            lOCatalog.Add("DyingCreature", pOContext => fCheckDyingCreatureKept(pOContext.Data), true, "brain", "data", "original").MutatesData = true;
+            lOCatalog.Add("BrainRound2", pOContext => fCheckBrainRound2(), false, "brain", "original");
+            lOCatalog.Add("NoAttacker", pOContext => fCheckDamageWithoutAttacker(), false, "brain", "trap", "original");
+            lOCatalog.Add("NightCulling", pOContext => fCheckNightCulling(pOContext.Data), true, "sleep", "level", "original").MutatesData = true;
+            lOCatalog.Add("YearlyCheckup", pOContext => fCheckYearlyCheckup(pOContext.Data), true, "brain", "time", "original").MutatesData = true;
+            lOCatalog.Add("CreatureTimePass",pOContext => fCheckCreatureTimePass(pOContext.Data), true, "sleep", "level", "original").MutatesData = true;
+            lOCatalog.Add("PoisonSpell", pOContext => fCheckPoisonSpell(), false, "spell", "original");
+            lOCatalog.Add("DetectMonsters", pOContext => fCheckDetectMonsters(), false, "spell", "original");
+            lOCatalog.Add("SpellRules", pOContext => fCheckSpellRules(pOContext.Data), true, "spell", "original");
+            lOCatalog.Add("ObjectMotion", pOContext => fCheckObjectMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("CreatureMotion", pOContext => fCheckCreatureMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("PlayerMotion", pOContext => fCheckPlayerMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("EasyStep", pOContext => fCheckEasyStep(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("PointerScheme", pOContext => fCheckPointerScheme(pOContext.Data), true, "input", "motion", "original");
+            lOCatalog.Add("CritterView", pOContext => fCheckCritterView(), false, "brain");
+            lOCatalog.Add("PreciseMotion", pOContext => fCheckPreciseMotion(pOContext.Data), true, "motion");
+            lOCatalog.Add("SaveRoundTrip", pOContext => fCheckSaveRoundTrip(pOContext), true, "data", "pin").MutatesData = true;
+            lOCatalog.Add("Codecs", pOContext => fCheckCodecs(pOContext), true, "data", "original");
+            lOCatalog.Add("HudArt", pOContext => fCheckHudArt(pOContext), true, "hud", "pin");
+            lOCatalog.Add("Reach", pOContext => fCheckReach(), false, "inventory", "original");
+            lOCatalog.Add("ItemApplications", pOContext => fCheckItemApplications(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("LockRules", pOContext => fCheckLockRules(), false, "inventory", "trap", "original");
+            lOCatalog.Add("DoorRules", pOContext => fCheckDoorRules(pOContext.Data), true, "trap", "level", "original");
+            lOCatalog.Add("InventoryModel", pOContext => fCheckInventoryModel(pOContext.Data), true, "inventory").MutatesData = true;
+            lOCatalog.Add("Eating", pOContext => fCheckEating(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("Spill", pOContext => fCheckSpill(pOContext.Data), true, "inventory", "damage", "original").MutatesData = true;
+            lOCatalog.Add("Factory", pOContext => fCheckFactory(pOContext), true, "inventory", "level", "original").MutatesData = true;
+            lOCatalog.Add("Placement", pOContext => fCheckPlacement(), false, "level", "original");
+            lOCatalog.Add("PickupRules", pOContext => fCheckPickupRules(pOContext.Data), true, "inventory", "original").MutatesData = true;
+            lOCatalog.Add("ItemTargetRules", pOContext => fCheckItemTargetRules(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("Look", pOContext => fCheckLook(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("WorldObjectSpell", pOContext => fCheckWorldObjectSpell(pOContext.Data), true, "inventory", "spell", "original");
+            lOCatalog.Add("WorldEdit", pOContext => fCheckWorldEdit(pOContext), true, "level", "original").MutatesData = true;
+            lOCatalog.Add("Traps", pOContext => fCheckTraps(pOContext.Data), true, "trap", "original").MutatesData = true;
+            lOCatalog.Add("DispatchCoverage", pOContext => fCheckDispatchCoverage(pOContext.Data), true, "trap", "conversation", "inventory", "original");
+            lOCatalog.Add("Session", pOContext => fCheckSession(pOContext), true, "data", "session");
+            lOCatalog.Add("SessionRandom", pOContext => fCheckSessionRandom(), false, "misc", "session", "original");
+            lOCatalog.Add("BarterOverflow", pOContext => fCheckBarterOverflow(pOContext), true, "conversation", "original");
+            lOCatalog.Add("BarterSetup", pOContext => fCheckBarterSetup(pOContext), true, "conversation", "original");
+            lOCatalog.Add("BarterHandover", pOContext => fCheckBarterHandover(pOContext), true, "conversation", "original");
+            lOCatalog.Add("TradeSlotDrop", pOContext => fCheckTradeSlotDrop(pOContext), true, "conversation", "inventory", "original");
+            lOCatalog.Add("TradeInventoryFunctions", pOContext => fCheckTradeInventoryFunctions(pOContext), true, "conversation", "inventory", "original");
+            lOCatalog.Add("IdentifyName", pOContext => fCheckIdentifyName(pOContext), true, "conversation", "inventory", "original");
+            lOCatalog.Add("ClosingPause", pOContext => fCheckClosingPause(pOContext), true, "conversation", "original");
+            lOCatalog.Add("ConversationAttitudes", pOContext => fCheckConversationAttitudes(pOContext), true, "conversation", "original").MutatesData = true;
+            lOCatalog.Add("RefusedDemand", pOContext => fCheckRefusedDemand(pOContext), true, "conversation", "original");
+            lOCatalog.Add("GoalWriteBack", pOContext => fCheckGoalWriteBack(pOContext), true, "conversation", "original");
+            lOCatalog.Add("PartnerName", pOContext => fCheckPartnerName(pOContext), true, "conversation", "original");
+            lOCatalog.Add("Uw1Builtins", pOContext => fCheckUw1Builtins(), false, "conversation", "original");
+            lOCatalog.Add("SaveCodec", pOContext => fCheckSaveCodec(pOContext), true, "data", "pin", "session");
+            lOCatalog.Add("Repair", pOContext => fCheckRepair(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("PlayerWorld", pOContext => fCheckPlayerWorld(pOContext.Data), true, "player", "level", "original");
+
+            return lOCatalog;
         }
 
         // ------------------------------------------------- the checks
@@ -143,8 +281,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckRuleIndex()
         {
-            Console.WriteLine();
-            Console.WriteLine("Index of the implemented places");
+            Check.Group("Index of the implemented places");
 
             string lsRoot = UWRuleIndexScan.FindProjectRoot();
 
@@ -328,18 +465,12 @@ namespace UnderworldRevisited.Tools
 
         private static void fExpectBool(string psName, bool pbActual, bool pbExpected)
         {
-            if (pbActual == pbExpected)
-                fPass(psName, pbActual.ToString());
-            else
-                fFail(psName, "got " + pbActual + ", expected " + pbExpected);
+            Check.Bool(psName, pbActual, pbExpected);
         }
 
         private static void fExpectInt(string psName, int piActual, int piExpected)
         {
-            if (piActual == piExpected)
-                fPass(psName, piActual.ToString());
-            else
-                fFail(psName, "got " + piActual + ", expected " + piExpected);
+            Check.Int(psName, piActual, piExpected);
         }
 
         // ------------------------------------------------- the creature brain
@@ -393,6 +524,8 @@ namespace UnderworldRevisited.Tools
 
             public bool IsMagicBlockedAt(int piTileX, int piTileY) => false;
 
+            public int DungeonLevel { get; set; } = 1;
+
             public bool TybalOrbStands => false;
 
             public int OwnObjectHeight => 16;
@@ -410,13 +543,49 @@ namespace UnderworldRevisited.Tools
 
             public bool IsStraightLineClear(int piToTileX, int piToTileY) => StraightClear;
 
-            public bool TryGetNextPathTile(int piToTileX, int piToTileY, int piRangeBudget, bool pbMayOpenDoors,
-                out int piNextTileX, out int piNextTileY)
-            {
-                piNextTileX = piToTileX;
-                piNextTileY = piToTileY;
+            /// <summary>A square the found path passes between start and destination; -1 for a
+            /// path straight from the start to the destination.</summary>
+            public int NextPathTileX = -1;
 
-                return PathAvailable;
+            public int NextPathTileY = -1;
+
+            /// <summary>The jump flags the found path's squares get (start first); none by default.</summary>
+            public bool[] PathJumps;
+
+            /// <summary>How often the path search ran.</summary>
+            public int PathSearches;
+
+            public UWCritterPathSlots Slots = new UWCritterPathSlots();
+
+            public UWCritterPathSlots PathSlots => Slots;
+
+            public bool TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight,
+                int piRangeBudget, List<UWTilePos> pOSquares, List<bool> pOJumps)
+            {
+                pOSquares.Clear();
+                pOJumps.Clear();
+                PathSearches++;
+
+                if (!PathAvailable)
+                    return false;
+
+                pOSquares.Add(new UWTilePos(piFromX, piFromY));
+
+                if (NextPathTileX >= 0)
+                    pOSquares.Add(new UWTilePos(NextPathTileX, NextPathTileY));
+
+                pOSquares.Add(new UWTilePos(piToTileX, piToTileY));
+
+                for (int liAt = 0; liAt < pOSquares.Count; liAt++)
+                    pOJumps.Add(PathJumps != null && liAt < PathJumps.Length && PathJumps[liAt]);
+
+                return true;
+            }
+
+            /// <summary>The floor level of one tile of the 16 x 16 floor.</summary>
+            public void SetFloor(int piTileX, int piTileY, int piLevel)
+            {
+                miFloors[(piTileY * 16) + piTileX] = piLevel;
             }
 
             public StepResult RunMotion()
@@ -1288,7 +1457,7 @@ namespace UnderworldRevisited.Tools
             fExpectBool("corpse: index 0 never drops", UWCritterCombat.ShouldDropCorpse(0, 0), false);
             fExpectInt("corpse: index 6 is object 0xC6", UWCritterCombat.GetCorpseObjectId(6), 0xC6);
             fExpectInt("corpse: byte 0x0A 0x38 gives index 6", new UWObjectClassProperties.Critter { Row = fRowWith(0x0A, 0x38) }.CorpseIndex, 6);
-            fExpectInt("corpse: the quality carries the kind", UWCritterCombat.GetCorpseQuality(0x4E), 0x0E);
+            fExpectInt("corpse: the owner carries the kind (build_corpse)", UWCritterCombat.GetCorpseOwner(0x4E), 0x0E);
             fExpectInt("blood: byte 8 0x28 gives object 217", UWCritterCombat.GetBloodObjectId(new UWObjectClassProperties.Critter { Row = fRowWith(8, 0x28) }.BloodIndex), 217);
             fExpectInt("blood: index 0 gives none", UWCritterCombat.GetBloodObjectId(0), -1);
             fExpectInt("blood: GetRemainsObjectId agrees", UWObjectMechanics.GetRemainsObjectId(0xE8), 0xD8 + 7);
@@ -1436,14 +1605,6 @@ namespace UnderworldRevisited.Tools
             fExpectInt("blocked: goal 5 stays", lORecord.Goal, 5);
         }
 
-        /// <summary>Spec 6.8: goal 10 turns within 0x190 squared eighths and talks within 0x90
-        /// when the player looks back.</summary>
-        /// <summary>
-        /// Goals 13 to 15 are the default case of the goal switch and do nothing but set the
-        /// interval (SwitchGoals_seg007_1798_3247, 54050-54056). Pinned on 2026-09-22, when the
-        /// Todo's "petrification" turned out to be a label of ours with nothing behind it and
-        /// the shipped level data turned out to place no such creature at all.
-        /// </summary>
         /// <summary>
         /// The two quest mantras, built 2026-09-22 out of
         /// ChantMantraAtShrine_ovr143_48D label 581 and the direction routine
@@ -1451,8 +1612,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckMantras()
         {
-            Console.WriteLine();
-            Console.WriteLine("Mantras");
+            Check.Group("Mantras");
 
             fExpectInt("mantra: INSAHN is the Cup of Wonder", UWShrineRules.CupOfWonderMantra, 20);
             fExpectInt("mantra: FANLO is the Key of Truth", UWShrineRules.KeyOfTruthMantra, 21);
@@ -1490,10 +1650,15 @@ namespace UnderworldRevisited.Tools
                 UWShrineRules.GetCardinalDirection(0, 0, 20, 9), 2);
         }
 
+        /// <summary>
+        /// Goals 13 to 15 are the default case of the goal switch and do nothing but set the
+        /// interval (SwitchGoals_seg007_1798_3247, 54050-54056). Pinned on 2026-09-22, when the
+        /// Todo's "petrification" turned out to be a label of ours with nothing behind it and
+        /// the shipped level data turned out to place no such creature at all.
+        /// </summary>
         private static void fCheckUnknownGoals()
         {
-            Console.WriteLine();
-            Console.WriteLine("Goals 13 to 15");
+            Check.Group("Goals 13 to 15");
 
             for (int liGoal = 13; liGoal <= 15; liGoal++)
             {
@@ -1514,6 +1679,8 @@ namespace UnderworldRevisited.Tools
             }
         }
 
+        /// <summary>Spec 6.8: goal 10 turns within 0x190 squared eighths and talks within 0x90
+        /// when the player looks back.</summary>
         private static void fCheckTalkGoal()
         {
             FakeCritterHost lOHost = new FakeCritterHost();
@@ -1816,24 +1983,16 @@ namespace UnderworldRevisited.Tools
         }
 
 
-        private static DataImport fCheckLoad(string psDataPath)
+        /// <summary>The one read of the installation; every group that needs data takes what
+        /// this loaded.</summary>
+        private static void fCheckLoad(CheckContext pOContext)
         {
-            try
-            {
-                Stopwatch lOWatch = Stopwatch.StartNew();
-                DataImport lOData = new DataImport(psDataPath);
-                lOWatch.Stop();
-
-                fPass("load", string.Format("{0} ms", lOWatch.ElapsedMilliseconds));
-
-                return lOData;
-            }
-            catch (Exception lOException)
-            {
-                fFail("load", lOException.Message);
-
-                return null;
-            }
+            if (pOContext.DataPath == null)
+                fPass("load", "no data folder given, the data groups are skipped");
+            else if (pOContext.TryLoad(out long llMilliseconds))
+                fPass("load", string.Format("{0} ms", llMilliseconds));
+            else
+                fFail("load", pOContext.LoadError);
         }
 
         /// <summary>All nine levels, every tile in place, and everything lying in them known
@@ -2237,8 +2396,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckWaterSwallowsRemains(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Water and what a death leaves");
+            Check.Group("Water and what a death leaves");
 
             if (pOData.CommonObjectProperties == null)
                 return;
@@ -2370,25 +2528,6 @@ namespace UnderworldRevisited.Tools
         private const int MeatObjectId = 0xB1;
 
         /// <summary>
-        /// A worn set through the whole status pass, with the real OBJECTS.DAT tables - spec
-        /// 8.8. It pins what PlayerStatusUpdate_ovr133_784 would write into the player's row:
-        /// the four armour bytes, the protection slots and the weapon skill of the defence.
-        /// </summary>
-        /// <summary>
-        /// The stealth check, built 2026-09-21: the three class-3 spells Stealth, Conceal and
-        /// Invisibility become bits 1 to 3 of one accumulator (Class3_Bonuses_ovr133_38E,
-        /// label 3BD: 1 shifted by minor class minus one), and the first loop of
-        /// ApplyDefenceStealthBonuses_ovr133_65D turns them into the two bases that
-        /// ApplyPlayerSneakScore_seg034_2F89_898 writes into the player's row byte 0x1D.
-        /// The names come from string block 6 at 16 * major + minor + 1 - 51 Stealth,
-        /// 52 Conceal, 53 Invisibilty.
-        /// </summary>
-        /// <summary>
-        /// The easy movement, built 2026-09-21: seg008_1B2A_216 (55427-55876) behind the three
-        /// arrows under the compass and, in the original, the uppercase codes of A, D, S, W
-        /// and X.
-        /// </summary>
-        /// <summary>
         /// Music and sound belong to the SAVE, not to the program: PLAYER.DAT 0xB5 carries
         /// both, bits 0-1 the sound effects and bits 2-3 the music, and the loading routine
         /// hands them straight to the two toggles (ovr133 labels 1A4-1C2, 380792-380822; the
@@ -2401,8 +2540,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckSoundInTheSave()
         {
-            Console.WriteLine();
-            Console.WriteLine("Sound settings in the save");
+            Check.Group("Sound settings in the save");
 
             // 0x35 is what the original writes into a fresh save: 01 sound, 01 music, 11 detail.
             fExpectBool("sound in save: the fresh 0x35 has the sound on",
@@ -2424,26 +2562,13 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
-        /// The volume of the hit sound comes from the damage BEFORE the armour
-        /// (AttackerAppliesFinalDamage_seg022_8A5: effect 3 or 4 at label 938, the armour only
-        /// at labels A04-A10). Corrected on the player's own blow on 2026-09-22; the
-        /// creature's blows had it right since C3.
-        /// </summary>
-        /// <summary>
-        /// The power gem while a blow is charged: one plus the charge over twelve, and with a
-        /// RANGED weapon no charge at all - frame 9, the first green one, the moment the
-        /// crosshair comes up (seg022_230E_1276 and 1294). Read on 2026-09-22 after the user
-        /// had seen the sling jump from red to green in 2026-09-10.
-        /// </summary>
-        /// <summary>
         /// The impact block of ApplyPlayerMotion_seg008_90D (labels AF3 to B95), read out on
         /// 2026-09-22 because the user could not provoke the wall impact reliably. The answer
         /// is the Acrobat skill.
         /// </summary>
         private static void fCheckImpact()
         {
-            Console.WriteLine();
-            Console.WriteLine("Impact");
+            Check.Group("Impact");
 
             // A full run is 0x3AC of momentum, so three points - enough to be heard, one short
             // of hurting.
@@ -2494,10 +2619,15 @@ namespace UnderworldRevisited.Tools
                 UWImpactRules.CausesDamage(UWImpactRules.GetImpactValue(UWImpactRules.JumpMomentum * 2, false)), true);
         }
 
+        /// <summary>
+        /// The power gem while a blow is charged: one plus the charge over twelve, and with a
+        /// RANGED weapon no charge at all - frame 9, the first green one, the moment the
+        /// crosshair comes up (seg022_230E_1276 and 1294). Read on 2026-09-22 after the user
+        /// had seen the sling jump from red to green in 2026-09-10.
+        /// </summary>
         private static void fCheckPowerGem()
         {
-            Console.WriteLine();
-            Console.WriteLine("Power gem");
+            Check.Group("Power gem");
 
             fExpectInt("gem: an uncharged blow is the red frame 1", UWPowerGem.GetFrame(0), 1);
             fExpectInt("gem: the first yellow starts at twelve", UWPowerGem.GetFrame(12), 2);
@@ -2514,10 +2644,15 @@ namespace UnderworldRevisited.Tools
                 UWPowerGem.GetRangedFrame(true), UWPowerGem.GetFrame(UWCombat.FullCharge));
         }
 
+        /// <summary>
+        /// The volume of the hit sound comes from the damage BEFORE the armour
+        /// (AttackerAppliesFinalDamage_seg022_8A5: effect 3 or 4 at label 938, the armour only
+        /// at labels A04-A10). Corrected on the player's own blow on 2026-09-22; the
+        /// creature's blows had it right since C3.
+        /// </summary>
         private static void fCheckHitVolume()
         {
-            Console.WriteLine();
-            Console.WriteLine("Hit volume");
+            Check.Group("Hit volume");
 
             // Armour that swallows everything: no damage, but the sound still has a value.
             int liBefore;
@@ -2536,6 +2671,42 @@ namespace UnderworldRevisited.Tools
 
             fExpectBool("hit volume: with armour the sound is louder than the damage by it",
                 liDamage == 0 || liBefore - liDamage == 3, true);
+
+            // THE EYES (do_damage, COMBAT.C): fx = hp * 3 / avghit, at most 2, frame 3 - fx.
+            fExpectInt("eyes: at the table average healthy", UWCombat.GetEyesGroup(30, 30), 0);
+            fExpectInt("eyes: above it healthy too", UWCombat.GetEyesGroup(50, 30), 0);
+            fExpectInt("eyes: 20 of 30 still healthy", UWCombat.GetEyesGroup(20, 30), 0);
+            fExpectInt("eyes: 19 of 30 wounded", UWCombat.GetEyesGroup(19, 30), 1);
+            fExpectInt("eyes: 9 of 30 critical", UWCombat.GetEyesGroup(9, 30), 2);
+            fExpectInt("eyes: an average of 0 is always critical", UWCombat.GetEyesGroup(40, 0), 2);
+
+            // THE EFFECT'S PART (do_damage hitloc &= 4 for an armour byte 0xFF).
+            UWObjectClassProperties.Critter lORow = new UWObjectClassProperties.Critter { Row = new byte[0x30] };
+
+            lORow.Row[1] = 0xFF;
+            fExpectInt("effect part: a part with its own armour keeps its height", UWCritterCombat.GetEffectPart(lORow, 2), 2);
+            fExpectInt("effect part: a blow on an 0xFF part splashes at the body", UWCritterCombat.GetEffectPart(lORow, 1), 0);
+            fExpectInt("effect part: a missile on it at the missile's height", UWCritterCombat.GetEffectPart(lORow, 5), 4);
+
+            // THE BLOW'S PROBE (resolve_attack) and pickloc against it (C3/C6, 2026-10-12).
+            UWCritterCombat.GetBlowProbe(0, 30, 9, 1, out int liProbeBottom, out int liProbeTop);
+            fExpectInt("probe: ninth 9 sits a whole body up", liProbeBottom, 30);
+            fExpectInt("probe: reach 1 is 12 high", liProbeTop - liProbeBottom, 12);
+            UWCritterCombat.GetBlowProbe(0, 30, 2, 2, out liProbeBottom, out liProbeTop);
+            fExpectInt("probe: ninth 2 stays at the feet", liProbeBottom, 0);
+            UWCritterCombat.GetBlowProbe(0, 30, 3, 2, out liProbeBottom, out liProbeTop);
+            fExpectInt("probe: ninth 3 (right column) is a third up", liProbeBottom, 10);
+            fExpectInt("pickloc: a probe middle above the top is the head",
+                UWArmourProtection.PickBodyPart(0, 20, 16, 28), UWArmourProtection.PartHead);
+            fExpectInt("pickloc: a probe middle below the feet is the legs",
+                UWArmourProtection.PickBodyPart(10, 30, 0, 12), UWArmourProtection.PartLegs);
+
+            // THE CONDITION WORD (LOOK.C): step 0 only at quality 0, class 3 from quality 1.
+            fExpectInt("condition: quality 0 is step 0", UWCombat.GetConditionStringIndex(10, 0), 60);
+            fExpectInt("condition: a torch of quality 1 is step 1", UWCombat.GetConditionStringIndex(10, 1), 61);
+            fExpectInt("condition: a lantern of 21 is step 2", UWCombat.GetConditionStringIndex(10, 21), 62);
+            fExpectInt("condition: class 3 at quality 1 is the top word", UWCombat.GetConditionStringIndex(0, 1, 3), 5);
+            fExpectInt("condition: quality 63 is step 4", UWCombat.GetConditionStringIndex(1, 63), 10);
         }
 
         /// <summary>A plain PLAYER.DAT block with nothing in it but the settings byte.</summary>
@@ -2554,8 +2725,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckScrollEdges(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Scroll edges");
+            Check.Group("Scroll edges");
 
             // Four strips, and they have to be there.
             fExpectInt("edges: the main screen starts at image 0",
@@ -2615,10 +2785,202 @@ namespace UnderworldRevisited.Tools
         /// what becomes of the owner (ovr104_E4C) - the cases of the disassembly, and the three
         /// messages by attitude from the game's own strings.
         /// </summary>
+        /// <summary>
+        /// UWStackRules, UWText and UWItemMessages (2026-10-11): the one stack definition
+        /// against the original's reading (is_quant and not the 0x200 bit; a 0 stays 0 in the
+        /// raw count; the enchanted flag plays no part), the safe lookups, and the sentences
+        /// built around a name. The last pass counts the enchanted is_quant objects below 512
+        /// in the shipped levels - the only objects on which the old enchanted test and the
+        /// original's threshold would differ.
+        /// </summary>
+        private static void fCheckStackRules(DataImport pOData)
+        {
+            Check.Group("Stack rules (UWStackRules)");
+
+            UWObject lOPile = new UWObject(0x10) { HasQuantity = true, Quantity = 7 };
+            UWObject lOSingle = new UWObject(0x10) { HasQuantity = true, Quantity = 1 };
+            UWObject lOZero = new UWObject(0x10) { HasQuantity = true, Quantity = 0 };
+            UWObject lOLinked = new UWObject(0x80) { HasQuantity = false, Quantity = 300 };
+            UWObject lOSpecial = new UWObject(0x20) { HasQuantity = true, Quantity = 719, IsEnchanted = true };
+            UWObject lOEnchantedPile = new UWObject(0x10) { HasQuantity = true, Quantity = 3, IsEnchanted = true };
+
+            fExpectInt("stack: a pile of seven counts seven", UWStackRules.Count(lOPile), 7);
+            fExpectInt("stack: a single piece counts one", UWStackRules.Count(lOSingle), 1);
+            fExpectInt("stack: a field of 0 stays 0 in the raw count (chkTenacious, the barter value)", UWStackRules.Count(lOZero), 0);
+            fExpectInt("stack: ... and is one piece where a number is shown", UWStackRules.CountAtLeastOne(lOZero), 1);
+            fExpectInt("stack: a link is one piece", UWStackRules.Count(lOLinked), 1);
+            fExpectInt("stack: a special property (719, the enchanted cap of SAVE4) is one piece", UWStackRules.Count(lOSpecial), 1);
+            fExpectBool("stack: ... and is not stackable", UWStackRules.IsStackable(lOSpecial), false);
+            fExpectBool("stack: ... but has a special property", UWStackRules.HasSpecialProperty(lOSpecial), true);
+            fExpectBool("stack: the enchanted flag alone does not stop a count (USEITEMS.C tests only 0x200)",
+                UWStackRules.IsStackable(lOEnchantedPile), true);
+            fExpectInt("stack: ... so an enchanted pile of three counts three", UWStackRules.Count(lOEnchantedPile), 3);
+            fExpectBool("stack: a pile is a stack", UWStackRules.IsStack(lOPile), true);
+            fExpectBool("stack: a single piece is not", UWStackRules.IsStack(lOSingle), false);
+            fExpectBool("stack: a special property is not", UWStackRules.IsStack(lOSpecial), false);
+            fExpectBool("stack: null is nothing", UWStackRules.IsStack(null) || UWStackRules.IsStackable(null), false);
+            fExpectInt("stack: ... and counts one", UWStackRules.CountAtLeastOne(null), 1);
+
+            fExpectBool("take one: off a pile of seven", UWStackRules.TryTakeOne(lOPile), true);
+            fExpectInt("take one: ... leaves six", lOPile.Quantity, 6);
+            fExpectBool("take one: a single piece goes whole (invRemoveObject)", UWStackRules.TryTakeOne(lOSingle), false);
+            fExpectInt("take one: ... and is untouched", lOSingle.Quantity, 1);
+            fExpectBool("take one: a special property goes whole, its spell untouched", UWStackRules.TryTakeOne(lOSpecial), false);
+            fExpectInt("take one: ... 719 stays", lOSpecial.Quantity, 719);
+            fExpectInt("stack: the cap is 511, the port's deliberate deviation", UWStackRules.MaxStackCount, 511);
+
+            Check.Group("Compass needle: the view's heading byte (UWHeadings)");
+
+            fExpectInt("compass: 11.2 degrees truncates to byte 7 (still north)", UWHeadings.DegreesToHeadingByte(11.2f), 7);
+            fExpectInt("compass: 11.3 degrees is byte 8 (the next step)", UWHeadings.DegreesToHeadingByte(11.3f), 8);
+
+            Check.Group("Safe string lookups (UWText)");
+
+            Check.Str("text: a missing block gives the fallback", UWText.Block(pOData, 999, 0, "none"), "none");
+            Check.Str("text: a missing entry gives the fallback", UWText.General(pOData, 1000000, "none"), "none");
+            Check.Str("text: no data gives the fallback", UWText.ObjectName(null, 1, false, false, "item"), "item");
+            fExpectBool("text: a general message is trimmed of CR/LF", UWText.General(pOData, 96).TrimEnd('\r', '\n') == UWText.General(pOData, 96)
+                && UWText.General(pOData, 96).Length > 0, true);
+
+            int liPoleId = -1;
+            int liBadNames = 0;
+            int liNamed = 0;
+
+            for (int liId = 0; liId < 464; liId++)
+            {
+                string lsRaw = UWText.RawObjectName(pOData, liId, null);
+
+                if (lsRaw == null)
+                    continue;
+
+                liNamed++;
+
+                if (lsRaw == "a_pole")
+                    liPoleId = liId;
+
+                string lsName = UWText.ObjectName(pOData, liId);
+                string lsPlural = UWText.ObjectName(pOData, liId, true);
+                string lsWithArticle = UWText.ObjectName(pOData, liId, false, true);
+
+                if (lsName.Length == 0 || lsName.IndexOf('_') >= 0 || lsName.IndexOf('&') >= 0
+                    || lsPlural.IndexOf('&') >= 0 || lsWithArticle.IndexOf('_') >= 0 || !lsWithArticle.EndsWith(lsName))
+                    liBadNames++;
+            }
+
+            if (liBadNames == 0)
+                fPass("text: every object name resolves its & and _", liNamed + " names");
+            else
+                fFail("text: every object name resolves its & and _", liBadNames + " of " + liNamed + " do not");
+
+            if (liPoleId >= 0)
+            {
+                Check.Str("text: the pole's bare name", UWText.ObjectName(pOData, liPoleId), "pole");
+                Check.Str("text: ... with its article", UWText.ObjectName(pOData, liPoleId, false, true), "a pole");
+                Check.Str("messages: the pole's refusal is the original's string 0x9E (ours 159)",
+                    UWItemMessages.CannotBeUsedOnThat(pOData, liPoleId), UWText.General(pOData, 159));
+            }
+            else
+                fFail("text: the pole's bare name", "no a_pole in block 4");
+
+            Check.Group("SpecialLook lines (UWItemDescriptions.SpecialLookLine)");
+
+            UWObject lOKey = new UWObject(0x100) { Owner = 1 };
+            UWObject lOPick = new UWObject(0x101);
+            UWObject lOSkull = new UWObject(0xC2) { Owner = 7 };
+            UWObject lOBonePile = new UWObject(0xC6) { Owner = 0x3F };
+            UWObject lONobody = new UWObject(0xC4) { Owner = 0x28 };
+
+            Check.Str("look: a key with lock 1 says block 5 line 0x64 + 1 (KeyLook)",
+                UWItemDescriptions.SpecialLookLine(lOKey, pOData), UWText.Block(pOData, 5, 0x64 + 1 + 1));
+            fExpectBool("look: a key without a line of its own says nothing",
+                UWItemDescriptions.SpecialLookLine(lOPick, pOData) == null, true);
+            Check.Str("look: a skull of creature 0x47 (BonesLook, 0x16)",
+                UWItemDescriptions.SpecialLookLine(lOSkull, pOData),
+                UWText.General(pOData, 0x16 + 1) + UWText.ObjectName(pOData, 0x47, false, true) + ".");
+            Check.Str("look: a pile of an adventurer's bones (0x17, the literal)",
+                UWItemDescriptions.SpecialLookLine(lOBonePile, pOData), UWText.General(pOData, 0x17 + 1) + "an adventurer.");
+            fExpectBool("look: owner 0x28 says nothing",
+                UWItemDescriptions.SpecialLookLine(lONobody, pOData) == null, true);
+
+            Check.Group("Item messages (UWItemMessages)");
+
+            UWObject lOCase = new UWObject(0x80);
+
+            fExpectBool("messages: a fitting item gives no message",
+                UWItemMessages.ContainerRejection(UWContainerCapacity.ResultEnum.Fits, lOCase, pOData) == null, true);
+            fExpectBool("messages: the rune bag's message is a game string",
+                UWItemMessages.ContainerRejection(UWContainerCapacity.ResultEnum.RunesOnly, lOCase, pOData).Length > 0, true);
+            fExpectBool("messages: a too-full container without the container gives nothing",
+                UWItemMessages.ContainerRejection(UWContainerCapacity.ResultEnum.TooHeavy, null, pOData) == null, true);
+            fExpectBool("messages: a too-full container names itself",
+                UWItemMessages.ContainerRejection(UWContainerCapacity.ResultEnum.TooHeavy, lOCase, pOData)
+                    == "The " + UWText.ObjectName(pOData, 0x80) + " is too full.", true);
+            Check.Str("messages: a missing name is \"item\", never empty",
+                UWItemMessages.IsTooFull(null, 0x80), "The item is too full.");
+            fExpectBool("messages: locked ends with the original's full stop (UseCont)",
+                UWItemMessages.IsLocked(pOData, 0x80).EndsWith(" is locked."), true);
+
+            // THE DATA: on which objects would the old enchanted test and the original's
+            // threshold differ? Only the records a tile reaches count (the free records of
+            // LEV.ARK carry junk); doors reuse the enchanted bit as a state bit and are never
+            // counted; anything else enchanted with a count below 512 is reported.
+            int liDiffering = 0;
+            List<string> lODiffering = new List<string>();
+
+            if (pOData.Levels != null)
+            {
+                for (int liLevel = 0; liLevel < pOData.Levels.Count; liLevel++)
+                {
+                    UWLevel lOLevel = pOData.Levels[liLevel];
+
+                    if (lOLevel == null || lOLevel.Masterlist == null || lOLevel.TileData == null)
+                        continue;
+
+                    HashSet<int> lOSeen = new HashSet<int>();
+                    Stack<int> lOToVisit = new Stack<int>();
+
+                    foreach (UWTile lOTile in lOLevel.TileData)
+                        if (lOTile != null && lOTile.FirstObjectIndex != 0)
+                            lOToVisit.Push(lOTile.FirstObjectIndex);
+
+                    while (lOToVisit.Count > 0)
+                    {
+                        int liAt = lOToVisit.Pop();
+
+                        if (liAt <= 0 || liAt >= lOLevel.Masterlist.Count || !lOSeen.Add(liAt))
+                            continue;
+
+                        UWObject lOObject = lOLevel.Masterlist[liAt];
+
+                        if (lOObject == null)
+                            continue;
+
+                        if (lOObject.Link != 0)
+                            lOToVisit.Push(lOObject.Link);
+
+                        if (!lOObject.HasQuantity && lOObject.Quantity != 0)
+                            lOToVisit.Push(lOObject.Quantity);
+
+                        if (lOObject.IsEnchanted && UWStackRules.IsStackable(lOObject)
+                            && lOObject.GetCategory() != UWObject.ObjectCategoryEnum.Doors)
+                        {
+                            liDiffering++;
+
+                            if (lODiffering.Count < 12)
+                                lODiffering.Add(string.Format("level {0} 0x{1:X3} {2} x{3}", liLevel + 1, lOObject.ID,
+                                    UWText.ObjectName(pOData, lOObject.ID), lOObject.Quantity));
+                        }
+                    }
+                }
+            }
+
+            fPass("stack: enchanted is_quant objects below 512 reachable from a tile (doors aside)",
+                liDiffering + (liDiffering > 0 ? ": " + string.Join(", ", lODiffering) : string.Empty));
+        }
+
         private static void fCheckTheft(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Theft");
+            Check.Group("Theft");
 
             fExpectBool("theft: a goblin minds the goblins' chest",
                 UWCritterRules.MindsTheft(6, 6, false, 0), true);
@@ -2681,8 +3043,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckSightLine()
         {
-            Console.WriteLine();
-            Console.WriteLine("Sight line");
+            Check.Group("Sight line");
 
             const int Z = 40;
             int liX0 = (10 * 8) + 4;
@@ -2762,8 +3123,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckRespawnDistance(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Respawn distance");
+            Check.Group("Respawn distance");
 
             UWTilePos lOPlayer = new UWTilePos(10, 10);
 
@@ -2812,13 +3172,6 @@ namespace UnderworldRevisited.Tools
             fExpectInt("weapon jitter: level 3 keeps the last", UWHeadBobRules.GetWeaponJitterRange(3), -1);
         }
 
-        /// <summary>
-        /// HOW FAR THE AUTOMAP DISCOVERS (UWExplorationRules.IsBrightEnoughToDiscover on the shade of
-        /// UWRenderSweep's grid): a drawn cell only below shade 8 of the light level's table with the
-        /// doubled distance. Measured against
-        /// the original on 2026-09-23 (four runs from the start of level 1): in the dark only the
-        /// tile walked on, with a torch (light level 2) also the ring at distance 1.
-        /// </summary>
         /// <summary>
         /// THE BOWL AND THE STEW (read 2026-09-28): the container masks as the original tests them
         /// (UWContainerCapacity) and the recipe's mixing (UWStewRules).
@@ -2926,12 +3279,11 @@ namespace UnderworldRevisited.Tools
         /// <summary>UWTrapChainRemoval on the lever of level 3, 52/13 (per user, 2026-10-01): its use
         /// trigger is one-shot, and the original's save after it shows the whole chain gone - the
         /// lever's link 0, the trigger, the three change terrain traps, the text trap and both move
-        /// triggers on the free list, the traps out of 44/12, 44/8 and 46/7. A fresh load, as the
-        /// check changes the level.</summary>
-        private static void fCheckOneShotChainRemoval(string psDataPath)
+        /// triggers on the free list, the traps out of 44/12, 44/8 and 46/7. The check changes
+        /// the level; the runner reloads the world afterwards (MutatesData).</summary>
+        private static void fCheckOneShotChainRemoval(DataImport pOData)
         {
-            DataImport lOData = new DataImport(psDataPath);
-            UWLevel lOLevel = lOData.Levels != null && lOData.Levels.Count > 2 ? lOData.Levels[2] : null;
+            UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 2 ? pOData.Levels[2] : null;
             UWObject lOLever = lOLevel?.GetTile(52, 13)?.ObjectsInTile?.Find(pOAt => pOAt.ID == 0x175);
 
             if (lOLever == null)
@@ -2961,9 +3313,6 @@ namespace UnderworldRevisited.Tools
                     lOLevel.GetTile(liX, liY).ObjectsInTile.Exists(pOAt => pOAt.ID == UWObjectMechanics.ChangeTerrainTrapId), false);
         }
 
-        /// <summary>UWLevel.MarkTileVisited writes a discovered tile again, as seg017_1FDD_DBC does
-        /// (per user, 2026-10-01: a lowered water basin stayed water on our map); a marker our host
-        /// does not recognise is kept. The byte is put back afterwards.</summary>
         /// <summary>UWGrimeTint (2026-10-07): no tone leaves every index as it is; a tone maps the
         /// ordinary colours to ordinary colours - never to a rotating water or lava index, never to
         /// 0 or the top sixteen - and does change some.</summary>
@@ -3054,6 +3403,9 @@ namespace UnderworldRevisited.Tools
             fFail("light map", "no tile with a wall east of it on level 1");
         }
 
+        /// <summary>UWLevel.MarkTileVisited writes a discovered tile again, as seg017_1FDD_DBC does
+        /// (per user, 2026-10-01: a lowered water basin stayed water on our map); a marker our host
+        /// does not recognise is kept. The byte is put back afterwards.</summary>
         private static void fCheckMapRewrite(DataImport pOData)
         {
             UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 0 ? pOData.Levels[0] : null;
@@ -3262,7 +3614,8 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>ovr143_95: a Mana gain in Tybal's lair goes into the orb's backup, the flask stays
-        /// "0 of 0"; elsewhere, or with the orb broken, into the maximum.</summary>
+        /// "0 of 0"; elsewhere, or with the orb broken, into the maximum. The maximum is recomputed
+        /// by the shrine's player_compute (RecomputeMaxima), not by the raise itself.</summary>
         private static void fCheckOrbManaAside()
         {
             bool lbWasDestroyed = UWGameFlags.OrbDestroyed;
@@ -3283,12 +3636,14 @@ namespace UnderworldRevisited.Tools
             lOVitals.SetMana(0f, 0f);
 
             fExpectBool("orb mana: a Mana gain in the lair", lOVitals.TryIncreaseSkill(liManaSkill), true);
+            lOVitals.RecomputeMaxima();
             fExpectInt("orb mana: the maximum stays 0", (int)lOVitals.MaxMana, 0);
             fExpectInt("orb mana: the backup holds the new maximum",
                 UWGameFlags.OrbManaBackup, UWExperience.GetMaximumMana(lOVitals.GetSkill(UWPlayerData.Skill.Mana), 24));
 
             lOHost.DungeonLevelIndex = UWTybalOrbRules.LairLevelIndex - 1;
             lOVitals.TryIncreaseSkill(liManaSkill);
+            lOVitals.RecomputeMaxima();
             fExpectInt("orb mana: elsewhere the maximum",
                 (int)lOVitals.MaxMana, UWExperience.GetMaximumMana(lOVitals.GetSkill(UWPlayerData.Skill.Mana), 24));
 
@@ -3372,13 +3727,15 @@ namespace UnderworldRevisited.Tools
         private sealed class BookHost : IUWItemUseHost
         {
             public readonly List<string> Messages = new List<string>();
+            public readonly List<int> GeneralMessages = new List<int>();
             public int CurseDice;
             public bool Consumed;
 
             public void ConsumeUsedItem() { Consumed = true; }
-            public void AddGeneralMessage(int piIndex) { }
+            public void AddGeneralMessage(int piIndex) { GeneralMessages.Add(piIndex); }
             public void AddMessage(string psMessage) { Messages.Add(psMessage); }
             public void CursePlayer(int piDice) { CurseDice = piDice; }
+            public int PlayerDamageTypeProof { get { return 0; } }
             public void FlashWindow(int piPaletteColour, float pfSeconds) { }
             public void PlayCutscene(int piCutscene) { }
             public bool CastSpellFromObject(int piSpellIndex) { return false; }
@@ -3426,8 +3783,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckDetectMonsters()
         {
-            Console.WriteLine();
-            Console.WriteLine("Detect Monsters");
+            Check.Group("Detect Monsters");
 
             // DetectMonster_seg038_134E: range 10 (strictly below), skill 0x2D, difficulty 0xF
             // minus the stealth nibble, and the second message above min(most, 3).
@@ -3444,8 +3800,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckPoisonSpell()
         {
-            Console.WriteLine();
-            Console.WriteLine("Poison spell");
+            Check.Group("Poison spell");
 
             // Poison_seg038_3307_834: 5 dice of 4, type 0x13, no lasting poison.
             // The distance cull: frozen only when far from the player AND from the view.
@@ -3474,15 +3829,23 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckSleepCreatures()
         {
-            Console.WriteLine();
-            Console.WriteLine("Sleep: who keeps the player awake");
+            Check.Group("Sleep: who keeps the player awake");
 
-            // CheckNearbyNPCHunger_ovr104_6F1: goal 5 or 4, or 9 with the target confirmed.
-            fExpectBool("sleep: goal 5 keeps awake", UWSleepRules.BlocksSleep(5, false), true);
-            fExpectBool("sleep: goal 4 keeps awake", UWSleepRules.BlocksSleep(4, false), true);
+            // check_for_hostile_creature (CRITTIME.C): goal 5, 4 or 9, each with the target confirmed.
+            fExpectBool("sleep: goal 5 confirmed keeps awake", UWSleepRules.BlocksSleep(5, true), true);
+            fExpectBool("sleep: goal 5 unconfirmed does not", UWSleepRules.BlocksSleep(5, false), false);
+            fExpectBool("sleep: goal 4 confirmed keeps awake", UWSleepRules.BlocksSleep(4, true), true);
+            fExpectBool("sleep: goal 4 that never saw him does not", UWSleepRules.BlocksSleep(4, false), false);
             fExpectBool("sleep: goal 9 unconfirmed does not", UWSleepRules.BlocksSleep(9, false), false);
             fExpectBool("sleep: goal 9 confirmed does", UWSleepRules.BlocksSleep(9, true), true);
             fExpectBool("sleep: a wanderer (goal 8) does not", UWSleepRules.BlocksSleep(8, true), false);
+
+            // gronk_area (SPELLS.C): -r..+r+1 on both axes.
+            fExpectBool("area: -2/-2 is in the radius-2 area", UWSleepRules.InArea(-2, -2, 2), true);
+            fExpectBool("area: +3/+3 is in it too", UWSleepRules.InArea(3, 3, 2), true);
+            fExpectBool("area: -3 is not", UWSleepRules.InArea(-3, 0, 2), false);
+            fExpectBool("area: +4 is not", UWSleepRules.InArea(0, 4, 2), false);
+            fExpectBool("area: the ambush reaches +9", UWSleepRules.InArea(9, -8, 8), true);
             fExpectInt("sleep: the square before sleeping is two tiles", UWSleepRules.HostileCheckTileRadius, 2);
             fExpectInt("sleep: the ambush square is eight tiles", UWSleepRules.AmbushTileRadius, 8);
 
@@ -3526,8 +3889,7 @@ namespace UnderworldRevisited.Tools
         /// level 7 the 209 guard #222 comes before #223 and #200, as the original removed.</summary>
         private static void fCheckActiveMobileOrder(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Allocated mobiles");
+            Check.Group("Allocated mobiles");
 
             UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 6 ? pOData.Levels[6] : null;
 
@@ -3553,8 +3915,7 @@ namespace UnderworldRevisited.Tools
         /// threshold nibble 9 gives 54, moved by -2 percent to 53.</summary>
         private static void fCheckOriginalRandom()
         {
-            Console.WriteLine();
-            Console.WriteLine("Original random generator");
+            Check.Group("Original random generator");
 
             UWOriginalRandom lORandom = new UWOriginalRandom(1);
 
@@ -3588,8 +3949,7 @@ namespace UnderworldRevisited.Tools
         /// function); the caller's locals must stay in the stack, not fall onto play_hp.</summary>
         private static void fCheckConversationBasePointer()
         {
-            Console.WriteLine();
-            Console.WriteLine("Conversation base pointer");
+            Check.Group("Conversation base pointer");
 
             const int PlayHpAddress = 4;
 
@@ -3645,8 +4005,27 @@ namespace UnderworldRevisited.Tools
         /// the dagger of the golem test - quality 15, seven points of wear, 8 left.</summary>
         private static void fCheckEquipmentWear(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Equipment wear");
+            // frp_check (COMBAT.C): a blow at a thing always lands, never critical (B2, per user on
+            // the original 2026-10-14: Attack and Unarmed 0, every blow at a door hit).
+            int liHits = 0;
+            int liCriticals = 0;
+
+            for (int liTry = 0; liTry < 200; liTry++)
+            {
+                UWPlayerAttack.MeleeResult lOBlow = UWPlayerAttack.ResolveMelee(pOData, UWCombat.FistObjectId,
+                    UWCombat.AttackKind.Bash, 1f, 10, 0, 10, 0, null, 0, 0, false, 0, 0, 0, true);
+
+                if (lOBlow.Hit)
+                    liHits++;
+
+                if (lOBlow.Check == UWSkillCheck.ResultEnum.CriticalSuccess)
+                    liCriticals++;
+            }
+
+            fExpectInt("blow at a thing: 200 of 200 land with Attack 0", liHits, 200);
+            fExpectInt("blow at a thing: never critical", liCriticals, 0);
+
+            Check.Group("Equipment wear");
 
             fExpectBool("wear: a door with id and 7 = 0 never wears the weapon", UWEquipmentWear.WearsWeaponOnDoor(0x140, 0), false);
             fExpectBool("wear: door 0x147 at the highest roll (11 < 14)", UWEquipmentWear.WearsWeaponOnDoor(0x147, 0x7FFF), true);
@@ -3659,6 +4038,16 @@ namespace UnderworldRevisited.Tools
                 UWEquipmentWear.IsWearableArmour(new UWObject(3), UWArmorItemMap.BodySlot.LeftHandSlot), false);
             fExpectBool("wear: the helmet slot takes what is in it",
                 UWEquipmentWear.IsWearableArmour(new UWObject(3), UWArmorItemMap.BodySlot.Helmet), true);
+
+            // ObjWorn (INVDATA.C): the shield hand counts 0x2B-0x2F as worn too, 0x2A not.
+            fExpectBool("wear: the shield hand takes a shield",
+                UWEquipmentWear.IsWearableArmour(new UWObject(0x3B), UWArmorItemMap.BodySlot.LeftHandSlot), true);
+            fExpectBool("wear: ... and a plate helmet",
+                UWEquipmentWear.IsWearableArmour(new UWObject(0x2E), UWArmorItemMap.BodySlot.LeftHandSlot), true);
+            fExpectBool("wear: ... and dragon skin boots",
+                UWPlayerCritterRow.IsWornInShieldHand(0x2F), true);
+            fExpectBool("wear: ... not leather boots 0x2A", UWPlayerCritterRow.IsWornInShieldHand(0x2A), false);
+            fExpectBool("wear: ... not a ring 0x36", UWPlayerCritterRow.IsWornInShieldHand(0x36), false);
             fExpectInt("wear: savegame slot 8 is the left hand", (int)UWInventoryModel.FromSavegameSlot(8),
                 (int)UWArmorItemMap.BodySlot.LeftHandSlot);
 
@@ -3675,8 +4064,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckMoonstone(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Moonstone");
+            Check.Group("Moonstone");
 
             int liSaved = UWGameFlags.MoonstoneLevel;
 
@@ -3711,8 +4099,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckItemClassSpells(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Item spells of class 13");
+            Check.Group("Item spells of class 13");
 
             // The red potion on level 3 at 49/52 and the wand of the Frog on level 4 at 46/47 -
             // see UWItemSpellRules.
@@ -3722,7 +4109,7 @@ namespace UnderworldRevisited.Tools
                 fItemClassSpellAt(pOData, 3, 46, 47, 0x9A), 13 * 100 + 3);
 
             // A rune spell is none of these: the potion of Lesser Heal form, 512 + 3.
-            UWObject lOPotion = new UWObject(0xBB) { HasQuantity = true, IsEnchanted = true, Flags = 4, Quantity = 512 + 3 };
+            UWObject lOPotion = new UWObject(0xBB) { HasQuantity = true, Flags = 4 | UWObjectRecordCodec.EnchantedFlag, Quantity = 512 + 3 };
             int liMajor;
             int liMinor;
             fExpectBool("item spell: a rune spell is not a class spell",
@@ -3731,8 +4118,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckScatter()
         {
-            Console.WriteLine();
-            Console.WriteLine("Scatter around a point");
+            Check.Group("Scatter around a point");
 
             int liX;
             int liY;
@@ -3754,8 +4140,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckObjectLimit(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Object limit (GetFreeObject, CullObjects)");
+            Check.Group("Object limit (GetFreeObject, CullObjects)");
 
             fExpectBool("limit: range 3 spares the player's own tile",
                 UWObjectLimitRules.TileQualifies(10, 10, 10, 10, UWObjectLimitRules.CullRange), false);
@@ -3813,8 +4198,7 @@ namespace UnderworldRevisited.Tools
             UWWorldCapture.CaptureDoor(null, lOGrate, true, false, false, 0, 0, null);
             fExpectInt("door capture: ... and down again when closed", lOGrate.ZPos, 96);
 
-            Console.WriteLine();
-            Console.WriteLine("Locks (UnlockDoor)");
+            Check.Group("Locks (UnlockDoor)");
 
             // A chest with a locked lock of id 5, difficulty 0, without the keep bit.
             UWObject lOLock = new UWObject((ushort)UWObjectMechanics.LockObjectId) { Flags = 1, Quantity = 5 };
@@ -3881,10 +4265,16 @@ namespace UnderworldRevisited.Tools
             return UWExplorationRules.IsBrightEnoughToDiscover(lOSweep.GetShade(piRow, piColumn));
         }
 
+        /// <summary>
+        /// HOW FAR THE AUTOMAP DISCOVERS (UWExplorationRules.IsBrightEnoughToDiscover on the shade of
+        /// UWRenderSweep's grid): a drawn cell only below shade 8 of the light level's table with the
+        /// doubled distance. Measured against
+        /// the original on 2026-09-23 (four runs from the start of level 1): in the dark only the
+        /// tile walked on, with a torch (light level 2) also the ring at distance 1.
+        /// </summary>
         private static void fCheckMapReveal(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Map reveal");
+            Check.Group("Map reveal");
 
             byte[] lyDark = pOData.Shades != null ? pOData.Shades.GetShadeTable(0, true) : null;
             byte[] lyTorch = pOData.Shades != null ? pOData.Shades.GetShadeTable(2, true) : null;
@@ -3987,8 +4377,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckMapPainter()
         {
-            Console.WriteLine();
-            Console.WriteLine("Map painting");
+            Check.Group("Map painting");
 
             // One open tile at 10/10, undiscovered open floor north of it, nothing elsewhere.
             byte[] lyAutomap = new byte[64 * 64];
@@ -4026,8 +4415,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckNewCreature()
         {
-            Console.WriteLine();
-            Console.WriteLine("New creatures");
+            Check.Group("New creatures");
 
             UWNpc lONpc = new UWNpc(70) { NPCAttitude = 3, NPCIsAlly = true, NPCGoal = 4 };
             UWCritterRecord lORecord = new UWCritterRecord(lONpc);
@@ -4054,8 +4442,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckObjectDamage(string psDataPath)
         {
-            Console.WriteLine();
-            Console.WriteLine("Damage to objects");
+            Check.Group("Damage to objects");
 
             fExpectBool("blast: the fireball explodes",
                 UWObjectDamageRules.TryGetBlast(0x14, out int liCount, out int liRange, out int liType), true);
@@ -4170,8 +4557,7 @@ namespace UnderworldRevisited.Tools
         /// </summary>
         private static void fCheckSummonRoll(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Summon Monster");
+            Check.Group("Summon Monster");
 
             if (pOData.ObjectClassProperties == null)
             {
@@ -4202,7 +4588,9 @@ namespace UnderworldRevisited.Tools
             fExpectBool("summon: casting 12 finds something", UWSummonSpellRules.RollMonster(12, pOData.ObjectClassProperties) >= 0, true);
 
             // A creature made at runtime takes a slot from the level's free list at once, below
-            // 256 (UWLevel.TryPlaceInFreeMobileSlot) - level 9, which no later check reads.
+            // 256 (UWLevel.TryPlaceInFreeMobileSlot). The creature stays in the level; the runner
+            // reloads the world after this group (MutatesData), so the object-limit count that
+            // runs later sees fresh levels.
             UWLevel lOLevel = pOData.Levels != null && pOData.Levels.Count > 8 ? pOData.Levels[8] : null;
             UWNpc lONew = new UWNpc(70);
             int liSlot;
@@ -4210,6 +4598,35 @@ namespace UnderworldRevisited.Tools
                 && lOLevel.Masterlist[liSlot] == lONew;
 
             fExpectBool("summon: a new creature gets a mobile slot from the free list", lbPlaced, true);
+
+            // ...and it is on the list of active critters in the saved block, else the original
+            // never moves it (per user 2026-10-12: a goblin summoned in ours stood frozen there).
+            string lsArk = pOData.DataPath != null ? Path.Combine(pOData.DataPath, "LEV.ARK") : null;
+
+            if (!lbPlaced || lsArk == null || !File.Exists(lsArk))
+            {
+                fFail("summon: a creature made in play is on the active list after saving", "no slot or no LEV.ARK");
+                return;
+            }
+
+            byte[] lyArk = File.ReadAllBytes(lsArk);
+            uint luOffset = BitConverter.ToUInt32(lyArk, 2 + (8 * 4));
+            byte[] lyOriginal = new byte[UWLevArkLayout.BlockSize];
+
+            Array.Copy(lyArk, (int)luOffset, lyOriginal, 0, lyOriginal.Length);
+
+            UWTile lOTile = lOLevel.GetTile(32, 32);
+
+            if (lOTile.ObjectsInTile == null)
+                lOTile.ObjectsInTile = new List<UWObject>();
+
+            lOTile.ObjectsInTile.Add(lONew);
+
+            byte[] lyBuilt = UWLevelWriter.BuildBlock(lOLevel, lyOriginal);
+            int liPlacedSlot = lOLevel.Masterlist.IndexOf(lONew);
+
+            fExpectBool("summon: a creature made in play is on the active list after saving",
+                UWLevArkCodec.ReadActiveMobiles(lyBuilt, 0).Contains(liPlacedSlot), true);
         }
 
         private static byte[] fPaint(byte[] pyAutomap)
@@ -4254,10 +4671,14 @@ namespace UnderworldRevisited.Tools
             }
         }
 
+        /// <summary>
+        /// The easy movement, built 2026-09-21: seg008_1B2A_216 (55427-55876) behind the three
+        /// arrows under the compass and, in the original, the uppercase codes of A, D, S, W
+        /// and X.
+        /// </summary>
         private static void fCheckEasyMovement()
         {
-            Console.WriteLine();
-            Console.WriteLine("Easy movement");
+            Check.Group("Easy movement");
 
             fExpectInt("easy: an eighth of the circle is 0x2000", UWEasyMovement.EighthStep, 0x2000);
             fExpectInt("easy: a tile is 0x100 of PLAYER.DAT 0x54", UWEasyMovement.UnitsPerTile, 0x100);
@@ -4330,10 +4751,18 @@ namespace UnderworldRevisited.Tools
                     && UWEasyMovement.DefaultRepeatSeconds < UWEasyMovement.MaxRepeatSeconds, true);
         }
 
+        /// <summary>
+        /// The stealth check, built 2026-09-21: the three class-3 spells Stealth, Conceal and
+        /// Invisibility become bits 1 to 3 of one accumulator (Class3_Bonuses_ovr133_38E,
+        /// label 3BD: 1 shifted by minor class minus one), and the first loop of
+        /// ApplyDefenceStealthBonuses_ovr133_65D turns them into the two bases that
+        /// ApplyPlayerSneakScore_seg034_2F89_898 writes into the player's row byte 0x1D.
+        /// The names come from string block 6 at 16 * major + minor + 1 - 51 Stealth,
+        /// 52 Conceal, 53 Invisibilty.
+        /// </summary>
         private static void fCheckStealth(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Stealth");
+            Check.Group("Stealth");
 
             // The bits themselves, the way the class-3 branch builds them.
             List<UWActiveSpellEffect> lOSpells = new List<UWActiveSpellEffect>();
@@ -4398,10 +4827,14 @@ namespace UnderworldRevisited.Tools
                     + UWPlayerVitals.GetMovingNoise(0.5f) - UWCritterRules.PlayerNoiseMovingOffset), 0);
         }
 
+        /// <summary>
+        /// A worn set through the whole status pass, with the real OBJECTS.DAT tables - spec
+        /// 8.8. It pins what PlayerStatusUpdate_ovr133_784 would write into the player's row:
+        /// the four armour bytes, the protection slots and the weapon skill of the defence.
+        /// </summary>
         private static void fCheckPlayerStatus(DataImport pOData)
         {
-            Console.WriteLine();
-            Console.WriteLine("Player status pass");
+            Check.Group("Player status pass");
 
             FakeEquipment lOWorn = new FakeEquipment();
 
@@ -4488,6 +4921,33 @@ namespace UnderworldRevisited.Tools
 
             UWArmourProtection.ResistBlowsAddsArmour = false;
 
+            // THE SHIELD HAND (ObjWorn, FixPlayerEquips, 2026-10-12): dragon skin boots held there
+            // protect from lava; an enchanted plate helmet there casts its enchantment (onto body
+            // and hands as a ring's would); an enchanted pair of dragon skin boots does not count.
+            FakeEquipment lOHand = new FakeEquipment();
+
+            lOHand.Put(UWArmorItemMap.BodySlot.LeftHandSlot, 0x2F, UWPlayerCritterRow.MaxQuality);
+            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            fExpectBool("shield hand: dragon skin boots there protect from lava", lOStatus.HasDragonSkinBoots, true);
+
+            lOHand.Enchant(UWArmorItemMap.BodySlot.LeftHandSlot, 0xC, 0x2);
+            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            fExpectBool("shield hand: ... not when enchanted", lOStatus.HasDragonSkinBoots, false);
+
+            lOHand.Enchant(UWArmorItemMap.BodySlot.LeftHandSlot, 0x2E, 0xC, 0x2);
+            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            fExpectInt("shield hand: an enchanted plate helmet protects the body by 3",
+                lOStatus.Protection[UWArmourProtection.PartBody], 3);
+            fExpectInt("shield hand: ... but gives no armour", lOStatus.Armour[UWArmourProtection.PartBody], 0);
+
+            // THROWN CLASS 1 OBJECTS (missile_newhit, OBJPHYS.C): ammunition (ammo byte -64) is of
+            // type 0x40; a launcher's type is -ammo, and only ammunition is skill-scaled.
+            fExpectInt("thrown: an arrow is ammunition", UWPlayerAttack.GetMissileAmmoByte(pOData, 0x12), UWPlayerAttack.AmmunitionMarker);
+            fExpectInt("thrown: ... of type 0x40", UWPlayerAttack.GetMissileDamageType(pOData, 0x12), UWDamageTypes.Missile);
+            fExpectInt("thrown: the lightning bolt's own type is 0x23", UWPlayerAttack.GetMissileDamageType(pOData, 0x15), 0x23);
+            fExpectBool("thrown: a sling is no ammunition",
+                UWPlayerAttack.GetMissileAmmoByte(pOData, 0x18) != UWPlayerAttack.AmmunitionMarker, true);
+
             fCheckWornRegeneration(pOData, lOWorn, lOStatus);
         }
 
@@ -4535,8 +4995,7 @@ namespace UnderworldRevisited.Tools
                 UWPlayerTick.FiveMinuteTicks % UWPlayerTick.MinuteTicks == 0, true);
             fExpectInt("tick: so the block is eight and a half real minutes",
                 UWPlayerTick.FiveMinuteTicks * UWPlayerTick.Seconds, 504);
-            fExpectInt("tick: the respawn interval is the same block, 504 seconds",
-                (int)UWRespawnRules.IntervalSeconds, 504);
+            // The respawn roll sits in the block itself since 2026-10-15 (YearlyCheckup group).
 
             // The names in string block 6 are (major << 4) | minor - the proof that the two
             // branches of the disassembly are these two enchantments.
@@ -4691,13 +5150,15 @@ namespace UnderworldRevisited.Tools
 
             public void OnKillRewarded(bool pbRewarded) { }
 
-            public void OnCurseStruck() { }
+            public void OnStatusPassDue() { }
 
             public void ResetIdentification() { }
 
-            public void OnActiveSpellsChanged(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen, bool pbTelekinesis) { }
+            public void OnFiveMinuteBlock() { FiveMinuteBlocks++; }
 
-            public int WornCurseDice => 0;
+            public int FiveMinuteBlocks;
+
+            public void OnActiveSpellsChanged(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen, bool pbTelekinesis) { }
 
             public int DungeonLevelIndex { get; set; }
 
@@ -4707,7 +5168,7 @@ namespace UnderworldRevisited.Tools
 
             public float MovementFraction => 0f;
 
-            public bool IsInLiquid => false;
+            public bool IsInMotionState => false;
 
             public bool IsChargingAttack => false;
         }
@@ -4754,14 +5215,12 @@ namespace UnderworldRevisited.Tools
 
         private static void fPass(string psName, string psDetail)
         {
-            Console.WriteLine(string.Format("  OK   {0,-10} {1}", psName, psDetail));
+            Check.Pass(psName, psDetail);
         }
 
         private static void fFail(string psName, string psDetail)
         {
-            miFailures++;
-
-            Console.WriteLine(string.Format("  FAIL {0,-10} {1}", psName, psDetail));
+            Check.Fail(psName, psDetail);
         }
     }
 }

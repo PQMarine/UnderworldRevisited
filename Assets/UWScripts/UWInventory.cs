@@ -161,7 +161,10 @@ public class UWInventory : MonoBehaviour, IUWEquipment
 
     public bool DropCursorItemInFirstFreeBackpackSlot() { return Model.DropCursorItemInFirstFreeBackpackSlot(); }
 
-    public bool DropCursorItemInEquip(UWArmorItemMap.BodySlot peSlot) { return Model.DropCursorItemInEquip(peSlot); }
+    public bool DropCursorItemInEquip(UWArmorItemMap.BodySlot peSlot, bool pbIntoContainerThere = true)
+    {
+        return Model.DropCursorItemInEquip(peSlot, pbIntoContainerThere);
+    }
 
     public IEnumerable<UWObject> EnumerateAll() { return Model.EnumerateAll(); }
 
@@ -226,17 +229,39 @@ public class UWInventory : MonoBehaviour, IUWEquipment
     /// Drops the item at the pointer into the 3D world (original: release outside the backpack/
     /// paperdoll). False if nothing hangs at the pointer, no level is loaded, or the target tile is
     /// invalid (see UWLevelLoader.SpawnDroppedObject - solid, or with pbRequireFlatFloor
-    /// sloped/diagonal). pOFlightStartPosition is only set when throwing (see UWItemDrag) - lets the
-    /// object visibly fly from there to the target position instead of appearing immediately.
+    /// sloped/diagonal). A throw goes through UWPlayerThrow and the motion core instead.
     /// </summary>
-    public bool DropCursorItemInWorld(Vector3 pOWorldPosition, bool pbRequireFlatFloor,
-        Vector3? pOFlightStartPosition = null, int? piHeading = null)
+    /// <summary>
+    /// UWInventoryModel.GiveToPlayer with its floor case presented: a thing that neither the
+    /// pointer nor the backpack takes lies down at the player's feet, as the dead player's held
+    /// item does (UWDeath). False only when nothing could be given at all - no item, or no
+    /// level to lay it in.
+    /// </summary>
+    public bool GiveToPlayer(UWObject pOItem, bool pbPreferBags)
+    {
+        if (pOItem == null)
+            return false;
+
+        if (Model.GiveToPlayer(pOItem, pbPreferBags) != UWInventoryModel.GiveOutcome.Floor)
+            return true;
+
+        UWPlayerMovement lOPlayer = UWScene.PlayerMovement;
+
+        if (mOLevelLoader == null || lOPlayer == null)
+            return false;
+
+        Vector3 lOPlace = lOPlayer.transform.position;
+        Vector3 lOFloor = new Vector3(lOPlace.x, mOLevelLoader.GetFloorHeightAt(lOPlace), lOPlace.z);
+
+        return mOLevelLoader.SpawnDroppedObject(pOItem, lOFloor, false);
+    }
+
+    public bool DropCursorItemInWorld(Vector3 pOWorldPosition, bool pbRequireFlatFloor, int? piHeading = null)
     {
         if (CursorItem == null || mOLevelLoader == null)
             return false;
 
-        if (!mOLevelLoader.SpawnDroppedObject(CursorItem, pOWorldPosition, pbRequireFlatFloor,
-            pOFlightStartPosition, piHeading, true, true))
+        if (!mOLevelLoader.SpawnDroppedObject(CursorItem, pOWorldPosition, pbRequireFlatFloor, piHeading, true, true))
             return false;
 
         Model.ReleaseCursorItem();
@@ -259,7 +284,9 @@ public class UWInventory : MonoBehaviour, IUWEquipment
     /// <summary>
     /// Removes a picked-up object from the level world for good: from the object list of its tile
     /// (prevents it from reappearing the next time the level is entered - UWLevelLoader rebuilds
-    /// the level from exactly this list) and destroys its GameObject.
+    /// the level from exactly this list) and destroys its GameObject. Since 2026-10-12 through
+    /// UWLevelLoader.RemoveObjectFromWorld (UWWorldEdit.Remove): this copy of it had left the
+    /// entity registry pointing at the destroyed picture.
     /// </summary>
     public void RemoveWorldObject(UWEntityInfo pOEntity)
     {
@@ -269,11 +296,9 @@ public class UWInventory : MonoBehaviour, IUWEquipment
         UWObject lOData = pOEntity.ObjectData;
 
         if (lOData != null && mOLevelLoader != null && mOLevelLoader.CurrentLevel != null)
-        {
-            UWTile lOTile = mOLevelLoader.TileQueries.GetTile(lOData.TileX, lOData.TileY);
-            lOTile?.ObjectsInTile.Remove(lOData);
-        }
+            mOLevelLoader.RemoveObjectFromWorld(lOData);
 
+        // The clicked picture itself, whether or not the registry knew it.
         Destroy(pOEntity.gameObject);
 
         // Only AFTERWARDS: some items carry an a_pick up trigger, and in the original it is an

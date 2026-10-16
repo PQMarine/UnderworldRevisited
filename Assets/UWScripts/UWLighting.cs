@@ -136,8 +136,9 @@ public class UWLighting : MonoBehaviour
         }
 
         // Which source makes the light: the carried item, unless the spell shines
-        // brighter (see MagicBrightness - the original takes the larger).
-        bool lbFromItem = miCarriedLightObjectId > 0 && CarriedBrightness >= miMagicBrightness;
+        // brighter (see MagicBrightness - the original takes the larger) or a remote view has
+        // its own (fBrightness).
+        bool lbFromItem = miCarriedLightObjectId > 0 && CarriedBrightness >= fBrightness();
 
         // What is carried is always the LIT number (lantern 148, torch 149, candle 150),
         // the comparisons below refer to the base number 144 to 147. The colour still comes from the
@@ -188,9 +189,9 @@ public class UWLighting : MonoBehaviour
 
     private int miRemasterState;
 
-    private const int TorchObjectId = UWObjectMechanics.TorchObjectId;
+    private const int TorchObjectId = UWObjectIds.Torch;
 
-    private const int CandleObjectId = 146;
+    private const int CandleObjectId = UWObjectIds.Candle;
 
     /// <summary>Whether the player carries open fire in Remastered mode - then it flickers and
     /// jitters like the placed fires.</summary>
@@ -199,7 +200,7 @@ public class UWLighting : MonoBehaviour
     private Vector3 mOCarriedBasePosition;
 
     /// <summary>a_lantern - the only light source that hangs at the belt.</summary>
-    private const int LanternObjectId = UWObjectMechanics.LanternObjectId;
+    private const int LanternObjectId = UWObjectIds.Lantern;
 
     /// <summary>A light spell has no item whose colour could be taken; it
     /// gets a cool white so that it differs from fire.</summary>
@@ -276,11 +277,90 @@ public class UWLighting : MonoBehaviour
             if (mbDebugBrightnessOverride)
                 return UWDataImport.UWData.UWShades.EntryCount - 1;
 
-            int liBrightness = Mathf.Max(CarriedBrightness, miMagicBrightness);
-
-            return Mathf.Clamp(liBrightness, 0, UWDataImport.UWData.UWShades.EntryCount - 1);
+            return Mathf.Clamp(fBrightness(), 0, UWDataImport.UWData.UWShades.EntryCount - 1);
         }
     }
+
+    /// <summary>
+    /// THE ONE HOME of the player's brightness: level 6 while Roaming Sight is active or a
+    /// crystal ball shows its vision (UWMiscSpellRules.RemoteViewLightLevel, set_light(6) in
+    /// FixPlayerEquips and crystal_ball), otherwise the larger of carried and cast brightness.
+    /// </summary>
+    private int fBrightness()
+    {
+        if (mbRoamingSightLight || miCrystalBallViews > 0)
+            return UWDataImport.UWData.UWMiscSpellRules.RemoteViewLightLevel;
+
+        return Mathf.Max(CarriedBrightness, miMagicBrightness);
+    }
+
+    /// <summary>Whether Roaming Sight is among the active spells (the original's WizEye, set by
+    /// the status pass from the active spells only - the slotless Roaming Sight does not set
+    /// it). UWCharacter.OnActiveSpellsChanged keeps it.</summary>
+    public bool RoamingSightLight
+    {
+        get { return mbRoamingSightLight; }
+        set
+        {
+            if (mbRoamingSightLight == value)
+                return;
+
+            mbRoamingSightLight = value;
+
+            fApplyPlayerLight();
+        }
+    }
+
+    private bool mbRoamingSightLight;
+
+    /// <summary>How many crystal ball visions are showing (hack trap 2, UWTriggerSystem
+    /// .FireCameraTrap); at the end of the last the brightness is the player's again, as
+    /// crystal_ball's FixPlayerEquips makes it.</summary>
+    private int miCrystalBallViews;
+
+    public void BeginCrystalBallLight()
+    {
+        miCrystalBallViews++;
+
+        fApplyPlayerLight();
+    }
+
+    public void EndCrystalBallLight()
+    {
+        if (miCrystalBallViews > 0)
+            miCrystalBallViews--;
+
+        fApplyPlayerLight();
+    }
+
+    /// <summary>
+    /// The player light at the remote view (UWRemoteCamera, every frame while a view is
+    /// claimed) or back at the body (null). In the original every light is around the eye,
+    /// and the eye is the remote camera then; the palette path measures from the rendering
+    /// camera already, the point light of the other render modes has to be carried there.
+    /// </summary>
+    public void FollowRemoteView(Vector3? pOPosition)
+    {
+        if (mOPlayerLight == null)
+            return;
+
+        if (pOPosition.HasValue)
+        {
+            mbFollowsRemoteView = true;
+            mOPlayerLight.transform.position = pOPosition.Value;
+
+            return;
+        }
+
+        if (!mbFollowsRemoteView)
+            return;
+
+        mbFollowsRemoteView = false;
+
+        fApplyPlayerLight();
+    }
+
+    private bool mbFollowsRemoteView;
 
     public void Init(DataImport pOData)
     {
@@ -399,7 +479,7 @@ public class UWLighting : MonoBehaviour
         miDebugMagicBrightness = miMagicBrightness;
         mbDebugHasPlayerLight = mOPlayerLight != null;
 
-        int liBrightness = Mathf.Max(CarriedBrightness, miMagicBrightness);
+        int liBrightness = fBrightness();
 
         miDebugAppliedBrightness = liBrightness;
 
@@ -421,7 +501,7 @@ public class UWLighting : MonoBehaviour
 
         mOPlayerLight.range = (mOData != null && mOData.Shades != null
             && mOData.Shades.TryGet(liBrightness, out lOShade) && lOShade.ViewingDistance > 0
-            ? lOShade.ViewingDistance * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing
+            ? lOShade.ViewingDistance * UWWorldScale.TileSize
             : liBrightness * mfRangePerBrightness) * mfSoftFalloffRangeFactor;
         // Shadows only in the Remastered render mode (per user, 2026-09-12: "shadows from the
         // torch light"). The original has none, and with the effect switched off nothing changes.
@@ -444,10 +524,10 @@ public class UWLighting : MonoBehaviour
         // With the exponent TWO the illumination at the respective edge is equal - the
         // lantern with five tiles then shines about one and a half times as strong as In Lor with
         // four. Zero restores the old behaviour.
-        float lfRangeInTiles = mOPlayerLight.range / UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing;
+        float lfRangeInTiles = mOPlayerLight.range / UWWorldScale.TileSize;
 
         mfBaseIntensity = mfBrightnessAtOneTile
-            * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing * UnderworldRevisited.Build.UWLevelMeshBuilder.TileSpacing
+            * UWWorldScale.TileSize * UWWorldScale.TileSize
             * Mathf.Pow(Mathf.Max(lfRangeInTiles, 0.001f), mfIntensityRangeExponent);
 
         fApplyRemasterCarriedLight();

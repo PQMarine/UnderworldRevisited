@@ -38,9 +38,9 @@ using UWDataImport.UWData;
 ///   - hovering shows the name and the weight;
 ///   - THE USE MODE (per user, 2026-10-04: the lantern could not be filled): the right button on
 ///     a thing that is applied to something else (oil flask, key, lockpick, pole ... -
-///     UWItemDrag.NeedsUseTarget) asks "Use ... on what?" and hangs its picture on the pointer;
+///     UWItemTargetRules.Classify) asks "Use ... on what?" and hangs its picture on the pointer;
 ///     the next left click applies it - onto a carried thing in a slot, or onto the world under
-///     the pointer (UWItemDrag.ApplyItemModern). The right button, Escape, locking the pointer or
+///     the pointer (UWItemTargetUse.Apply). The right button, Escape, locking the pointer or
 ///     closing the bags let it go. The anvil in the world comes the same way (BeginUse).
 ///
 /// CLICKING THE BACKPACK with the pointer free and the bags shut opens them, as B does - on a
@@ -94,9 +94,6 @@ public partial class UWModernBags : MonoBehaviour
     /// <summary>Screen pixels the pointer may move before a press counts as a drag.</summary>
     private const float ClickMoveThreshold = 6f;
 
-    /// <summary>The containers 128 to 139 have an open picture (bit 0), see UWHudInventory.</summary>
-    private const int LastContainerWithOpenVariant = 139;
-
     /// <summary>Weapons the right button puts into the hand: the melee ones and the bows,
     /// crossbows and slings - not the ammunition and spell missiles between (0x10 to 0x17).</summary>
     private const int LastMeleeWeaponId = 0x0F;
@@ -104,11 +101,6 @@ public partial class UWModernBags : MonoBehaviour
     private const int FirstLauncherId = 0x18;
 
     private const int LastLauncherId = 0x1F;
-
-    /// <summary>String block 1, our numbering - as UWItemDrag reports a refusing container.</summary>
-    private const int RunesOnlyMessage = 248;
-
-    private const int DoesNotFitMessage = 249;
 
     private sealed class Slot
     {
@@ -369,16 +361,11 @@ public partial class UWModernBags : MonoBehaviour
         return mOUi != null ? mOUi.mOUWData : null;
     }
 
-    private bool fIsModern()
-    {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern;
-    }
-
     /// <summary>Shown where the modern HUD is shown (not in a conversation, a screen menu or a
     /// cutscene).</summary>
     private bool fIsShown()
     {
-        return fIsModern() && UWModernHud.Instance != null && (UWModernHud.Instance.IsShowing || UWModernHud.Instance.IsTalking)
+        return UWControlScheme.IsModern && UWModernHud.Instance != null && (UWModernHud.Instance.IsShowing || UWModernHud.Instance.IsTalking)
             && fData() != null && fInventory() != null;
     }
 
@@ -522,7 +509,7 @@ public partial class UWModernBags : MonoBehaviour
         if (!fReturnCursorItem())
         {
             if (mOInteraction != null)
-                mOInteraction.AddMessage("There is no room for it in your pack.");
+                mOInteraction.AddGeneralMessage(UWStringIds.NoPlaceToPutMessage);
 
             return false;
         }
@@ -550,7 +537,7 @@ public partial class UWModernBags : MonoBehaviour
         if (fReturnToSplitOrigin(lOInventory))
             lbBack = true;
         else if (mOOriginEquip.HasValue && lOInventory.GetEquipped(mOOriginEquip.Value) == null)
-            lbBack = lOInventory.DropCursorItemInEquip(mOOriginEquip.Value);
+            lbBack = lOInventory.DropCursorItemInEquip(mOOriginEquip.Value, false);
         else if (mbOriginBackpack && miOriginIndex >= 0 && lOInventory.Backpack[miOriginIndex] == null)
             lbBack = lOInventory.DropCursorItemInBackpack(miOriginIndex);
         else if (mOOriginContainer != null && fIsCarried(mOOriginContainer))
@@ -621,7 +608,7 @@ public partial class UWModernBags : MonoBehaviour
         {
             // Leaving the modern scheme puts the pointer item back and gives the pointer up; a
             // thing with no room stays on it, the classic drag takes it over (UWItemDrag).
-            if (mbOpen && !fIsModern() && !Close())
+            if (mbOpen && !UWControlScheme.IsModern && !Close())
                 fGiveUpPointer();
 
             fEndSplit();
@@ -868,6 +855,11 @@ public partial class UWModernBags : MonoBehaviour
             }
         }
 
+        // Any other click waits while a spell waits (UWModernPointer.PanelsHeld); until 2026-10-13
+        // the bags and the paperdoll still picked things up (per user).
+        if (UWModernPointer.PanelsHeld)
+            return;
+
         if (fPanelSlotAt(pOPointer, out UWArmorItemMap.BodySlot leEquip))
         {
             UWObject lOEquipped = pOInventory.GetEquipped(leEquip);
@@ -945,7 +937,7 @@ public partial class UWModernBags : MonoBehaviour
     /// panel (per user, 2026-10-04: the most frequent use by far); Shift with it gives the menu.</summary>
     private void fRightPressed(Vector2 pOPointer, UWInventory pOInventory)
     {
-        if (mOInteraction == null)
+        if (mOInteraction == null || UWModernPointer.PanelsHeld)
             return;
 
         // In a conversation a trade slot looks (Trade.cs); one's own things keep their menu,
@@ -1068,12 +1060,21 @@ public partial class UWModernBags : MonoBehaviour
         // asked its question, see CancelUse). Its own flag first, so the thing is not used twice.
         mOUseItem = null;
 
+        // The pole on a carried thing keeps the mode (UWItemTargetRules.KeepsUseMode, 2026-10-15).
+        bool lbKeep = false;
+
         if (lODrag != null && lOTarget != null)
-            lODrag.ApplyItemModern(lOUse, lOTarget, null);
+            lbKeep = UWItemTargetUse.Apply(mOInteraction, lOUse, lOTarget, null);
         else if (lODrag != null && !lbOverUi)
         {
-            lODrag.ApplyItemModern(lOUse, null, pOPointer);
+            UWItemTargetUse.Apply(mOInteraction, lOUse, null, pOPointer);
             pOInventory.ApplyCarriedLight();
+        }
+
+        if (lbKeep)
+        {
+            mOUseItem = lOUse;
+            return;
         }
 
         CancelUse();
@@ -1155,13 +1156,7 @@ public partial class UWModernBags : MonoBehaviour
             return true;
         }
 
-        UWItemDrag lODrag = UWScene.ItemDrag;
-
-        if (lODrag != null && lODrag.UseCarriedItem(lOItem))
-            return true;
-
-        if (lODrag != null && lODrag.NeedsUseTarget(lOItem))
-            BeginUse(lOItem, false);
+        UWCarriedItemUse.Use(UWScene.ItemDrag, lOItem, UWCarriedItemUse.Context.ModernBags);
 
         return true;
     }
@@ -1195,7 +1190,7 @@ public partial class UWModernBags : MonoBehaviour
 
         try
         {
-            mOInteraction.AddMessage(mOInteraction.DescribeInventoryItem(pOItem));
+            mOInteraction.AddItemLookMessages(pOItem);
         }
         catch
         {
@@ -1359,28 +1354,18 @@ public partial class UWModernBags : MonoBehaviour
         fPruneBags();
     }
 
+    /// <summary>Says why a container refused the item - the sentences are
+    /// UWItemMessages.ContainerRejection, shared with UWItemDrag.</summary>
     private void fReportRejection(UWInventory pOInventory)
     {
         if (mOInteraction == null)
             return;
 
-        switch (pOInventory.LastContainerRejection)
-        {
-            case UWContainerCapacity.ResultEnum.RunesOnly:
-                mOInteraction.AddMessage(mOInteraction.GetGeneralMessage(RunesOnlyMessage));
-                break;
+        string lsMessage = UWItemMessages.ContainerRejection(pOInventory.LastContainerRejection,
+            pOInventory.LastContainerRejectionContainer, fData());
 
-            case UWContainerCapacity.ResultEnum.WrongType:
-                mOInteraction.AddMessage(mOInteraction.GetGeneralMessage(DoesNotFitMessage));
-                break;
-
-            case UWContainerCapacity.ResultEnum.TooHeavy:
-                UWObject lOContainer = pOInventory.LastContainerRejectionContainer;
-
-                if (lOContainer != null)
-                    mOInteraction.AddMessage("The " + UWItemDescriptions.GetBareName(lOContainer.ID, fData()) + " is too full.");
-                break;
-        }
+        if (lsMessage != null)
+            mOInteraction.AddMessage(lsMessage);
     }
 
     /// <summary>Where the right button puts a piece on: armour on its place, a ring on a free
@@ -1423,7 +1408,8 @@ public partial class UWModernBags : MonoBehaviour
         if (pOInventory.CursorItem == null)
             return;
 
-        if (!pOInventory.DropCursorItemInEquip(peSlot))
+        // Putting the piece ON: a bag in the slot is swapped, not filled (the drop fills it).
+        if (!pOInventory.DropCursorItemInEquip(peSlot, false))
         {
             fReturnCursorItem();
             return;
@@ -1486,7 +1472,7 @@ public partial class UWModernBags : MonoBehaviour
         if (lOInventory.CursorItem == null)
             return false;
 
-        if (!lOInventory.DropCursorItemInEquip(peSlot) || lOInventory.CursorItem != null)
+        if (!lOInventory.DropCursorItemInEquip(peSlot, false) || lOInventory.CursorItem != null)
             fReturnCursorItem();
         else
             fForgetOrigin();
@@ -1707,12 +1693,17 @@ public partial class UWModernBags : MonoBehaviour
     }
 
     /// <summary>Closes the windows of bags that are no longer carried (taken onto the pointer,
-    /// dropped, used up).</summary>
+    /// dropped, used up) or are no longer containers - the bowl the stew recipe turns into
+    /// rotworm stew (UWStewRules.TryMix; per user 2026-10-13 its window stayed open, empty, in
+    /// the modern scheme, where several bags can be open; the classic scheme's one open
+    /// container is closed by TryMix itself).</summary>
     private void fPruneBags()
     {
         for (int liAt = mOOpenBags.Count - 1; liAt >= 0; liAt--)
         {
-            if (!fIsCarried(mOOpenBags[liAt]))
+            UWObject lOBag = mOOpenBags[liAt];
+
+            if (!fIsCarried(lOBag) || lOBag.GetCategory() != UWObject.ObjectCategoryEnum.Containers)
                 fForgetBag(liAt);
         }
     }
@@ -2359,8 +2350,8 @@ public partial class UWModernBags : MonoBehaviour
             lOSource = pOItem.Icon ?? pOItem.Texture;
 
             // An open bag shows its open picture, as the original's open container does.
-            if (mbOpen && mOOpenBags.Contains(pOItem) && pOItem.ID <= LastContainerWithOpenVariant)
-                lOSource = fData().Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, pOItem.ID | 0x1) ?? lOSource;
+            if (mbOpen && mOOpenBags.Contains(pOItem) && UWObjectIds.HasOpenPicture(pOItem.ID))
+                lOSource = fData().Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, UWObjectIds.OpenPicture(pOItem.ID)) ?? lOSource;
         }
 
         float liScale = miScale;
@@ -2397,7 +2388,7 @@ public partial class UWModernBags : MonoBehaviour
         fSetRect(pOSlot.Icon.rectTransform, (UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale,
             ((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale, lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
-        int liCount = UWItemDescriptions.GetStackCount(pOItem);
+        int liCount = UWStackRules.CountAtLeastOne(pOItem);
 
         pOSlot.Count.enabled = liCount > 1;
 
@@ -2422,9 +2413,7 @@ public partial class UWModernBags : MonoBehaviour
 
     private string fTitle(UWObject pOItem)
     {
-        string lsName = UWItemDescriptions.GetBareName(pOItem.ID, fData());
-
-        return string.IsNullOrEmpty(lsName) ? string.Empty : char.ToUpperInvariant(lsName[0]) + lsName.Substring(1);
+        return UWText.Capitalised(UWText.ObjectName(fData(), pOItem.ID));
     }
 
     /// <summary>What a bag holds against what it takes; a bag without a limit (quiver, rune
@@ -2471,7 +2460,7 @@ public partial class UWModernBags : MonoBehaviour
         fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
             lOPointer.y - (lOIcon.height * liScale * 0.5f), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
-        int liCount = UWItemDescriptions.GetStackCount(lOItem);
+        int liCount = UWStackRules.CountAtLeastOne(lOItem);
 
         mOCursorCount.enabled = liCount > 1;
 
@@ -2535,13 +2524,8 @@ public partial class UWModernBags : MonoBehaviour
             return;
         }
 
-        int liCount = UWItemDescriptions.GetStackCount(lOItem);
-        string lsRaw = pOData.GetObjectDescription(lOItem.ID + 1);
-        string lsName = string.IsNullOrEmpty(lsRaw) ? string.Empty
-            : UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, liCount > 1);
-
-        if (lsName.Length > 0)
-            lsName = char.ToUpperInvariant(lsName[0]) + lsName.Substring(1);
+        int liCount = UWStackRules.CountAtLeastOne(lOItem);
+        string lsName = UWText.Capitalised(UWText.ObjectName(pOData, lOItem.ID, liCount > 1));
 
         string lsEffect = fKnownEffect(lOItem, pOData, ref lsName);
 

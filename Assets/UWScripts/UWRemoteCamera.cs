@@ -311,6 +311,8 @@ public sealed class UWRemoteCamera : MonoBehaviour
             if (mOScheme != null)
                 mOScheme.IsRemoteCameraActive = false;
 
+            fFollowWithLight(false);
+
             return;
         }
 
@@ -336,6 +338,8 @@ public sealed class UWRemoteCamera : MonoBehaviour
 
         transform.SetPositionAndRotation(lOTop.Position,
             Quaternion.Euler(lOTop.Pitch, lOTop.Yaw, lOTop.Roll));
+
+        fFollowWithLight(true);
 
         fMirrorOriginalValues(lOTop);
 
@@ -382,6 +386,17 @@ public sealed class UWRemoteCamera : MonoBehaviour
 
         if (!lbAnyHeld)
             End(lOTop.Id);
+    }
+
+    /// <summary>The player light goes with the view while one is claimed and back to the body
+    /// after it (UWLighting.FollowRemoteView; in the original every light is around the eye,
+    /// 2026-10-15).</summary>
+    private void fFollowWithLight(bool pbFollow)
+    {
+        UWLighting lOLighting = UWScene.Lighting;
+
+        if (lOLighting != null)
+            lOLighting.FollowRemoteView(pbFollow ? transform.position : (Vector3?)null);
     }
 
     private void fMirrorOriginalValues(Claim pOClaim)

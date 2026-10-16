@@ -7,10 +7,19 @@ using UnityEngine.InputSystem;
 ///
 /// BELONGS TO THE EFFECT, NOT TO THE CASTING. The view is set up and ended from
 /// UWCharacter.fApplyActiveSpells, and ALL endings converge there: expiry,
-/// clicking the icon away, sleep and loading a saved game. So there is no
-/// state in which the spell is still in the icon bar but the camera is already back -
-/// or vice versa. The reference has exactly this faulty state: it detaches the camera
-/// before it knows whether an effect slot was free at all.
+/// clicking the icon away, sleep and loading a saved game.
+///
+/// ONE EXCEPTION, THE ORIGINAL'S BUG (xt_spells, UnderworldExhumed SPELLS.C, read 2026-10-12;
+/// followed by the user's decision of 2026-10-12): cast with all three slots taken, the view
+/// detaches all the same with no spell in the bar (Begin with pbWithoutSpell). No expiry and no
+/// icon ends it then; the original's GameInputMode 8 locks the view window, the inventory, the
+/// runes, the options and saving, as ours does while the view roams. THE WAYS OUT, the
+/// original's: a death without a silver tree (real_death runs reset_game, which reattaches the
+/// eye, and the start menu follows) or quitting the program - in ours the death's main menu
+/// loads or starts anew, which rebuilds the scene. A resurrection at the silver tree clears the
+/// spells but not the view in the original; in ours a resurrection on another level ends it
+/// with the level change (one on the same level was not tried). OURS ADDS Escape in the modern scheme, as for the spell (below).
+/// Until 2026-10-12 ours left the camera alone when no slot was free.
 ///
 /// THE FIGURE STANDS STILL, gravity included - that is how the original does it, suppressing its entire
 /// movement calculation meanwhile. Whoever casts the spell mid-jump hangs in
@@ -96,6 +105,10 @@ public sealed class UWRoamingSight : MonoBehaviour
 
     private int miClaim;
 
+    /// <summary>The view roams without a Roaming Sight spell (see the class comment) - the
+    /// effect list's Stop does not end it.</summary>
+    private bool mbWithoutSpell;
+
     private UWControlScheme mOScheme;
 
     public bool IsRunning
@@ -106,6 +119,13 @@ public sealed class UWRoamingSight : MonoBehaviour
                 && UWRemoteCamera.Current.HasClaim(miClaim);
         }
     }
+
+    /// <summary>The frame Escape ended the view in (modern scheme).</summary>
+    private static int msEscapeFrame = -1;
+
+    /// <summary>Escape ended the view in this very frame - the game's key routing (UWGameUI) must
+    /// not open the menu with the same press, as it did for a cancelled dream (2026-10-13).</summary>
+    public static bool EndedByEscapeThisFrame => msEscapeFrame == Time.frameCount;
 
     /// <summary>Whether the player's view is roaming right now - the options button does not
     /// open meanwhile (UWHudOptions), as in the original.</summary>
@@ -121,11 +141,14 @@ public sealed class UWRoamingSight : MonoBehaviour
     }
 
     /// <summary>Detaches the view. Can be called repeatedly - UWCharacter.fApplyActiveSpells runs
-    /// on every spell change and on every twenty-second tick.</summary>
-    public void Begin(Vector3 pOBodyPosition, float pfBodyYaw)
+    /// on every spell change and on every twenty-second tick. pbWithoutSpell: cast with no free
+    /// slot, nothing in the effect list ends it.</summary>
+    public void Begin(Vector3 pOBodyPosition, float pfBodyYaw, bool pbWithoutSpell = false)
     {
         if (IsRunning)
             return;
+
+        mbWithoutSpell = pbWithoutSpell;
 
         UWRemoteCamera lOCamera = UWRemoteCamera.Ensure();
 
@@ -134,8 +157,20 @@ public sealed class UWRoamingSight : MonoBehaviour
             pfBodyYaw, mfPitchDegrees, false, fOnCameraEnded);
     }
 
+    /// <summary>The effect list has no Roaming Sight (UWCharacter.fApplyRoamingSight): ends the
+    /// view, unless it roams without the spell.</summary>
     public void Stop()
     {
+        if (mbWithoutSpell)
+            return;
+
+        fEnd();
+    }
+
+    private void fEnd()
+    {
+        mbWithoutSpell = false;
+
         if (miClaim <= 0)
             return;
 
@@ -157,6 +192,7 @@ public sealed class UWRoamingSight : MonoBehaviour
             return;
 
         miClaim = 0;
+        mbWithoutSpell = false;
 
         UWCharacter lOCharacter = GetComponent<UWCharacter>();
 
@@ -174,6 +210,7 @@ public sealed class UWRoamingSight : MonoBehaviour
         if (lOCamera == null || !lOCamera.HasClaim(miClaim))
         {
             miClaim = 0;
+            mbWithoutSpell = false;
 
             return;
         }
@@ -193,10 +230,22 @@ public sealed class UWRoamingSight : MonoBehaviour
         // interface is switched off there, so the icon bar cannot be clicked. Without
         // this line one would be trapped in the view until expiry. DELIBERATE ADDITION - the
         // original has no modern scheme.
+        // ESCAPE ENDS THE SPELL as the icon's click does, not the camera alone: fEnd clears the
+        // claim first, so fOnCameraEnded never ended the spell, and the next spell change or
+        // tick (UWCharacter.fApplyActiveSpells) began the view again (2026-10-13, reference
+        // audit, finding of the fix agents).
         if (mOScheme.Current == UWControlScheme.SchemeEnum.Modern
             && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
-            Stop();
+            bool lbWithSpell = !mbWithoutSpell;
+
+            msEscapeFrame = Time.frameCount;
+            fEnd();
+
+            UWCharacter lOCharacter = GetComponent<UWCharacter>();
+
+            if (lbWithSpell && lOCharacter != null)
+                lOCharacter.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
 
             return;
         }

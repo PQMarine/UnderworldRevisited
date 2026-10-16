@@ -111,9 +111,10 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// and the look acted on the press). Instead sets mODragSourceTradeSlot if a drag from the
     /// player's own area begins (then it continues like any other source).
     ///
-    /// As in the reference (uimanager_trade): the cross next to a slot toggles the
-    /// selection, the circle itself picks up the item (left) or describes it (right);
-    /// the partner's items can only be selected and looked at.
+    /// UseTradeSlot_ovr097_6E8 (BARTER.C): the slot picks up the item (a left drag), marks it (a
+    /// left click) or describes it (right); the partner's items can only be marked and looked at
+    /// until they are bought. The crosses beside the slots are only marks (see
+    /// UWConversationScreen.GetPlayerTradeSlotAt).
     /// </summary>
     private bool fTryHandleTradeClick(bool pbRightButton, Vector2 pOMousePos)
     {
@@ -122,18 +123,11 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         if (lOTrade == null)
             return false;
 
-        bool lbOnCross;
-        int liSlot = mOConversationScreen.GetPlayerTradeSlotAt(pOMousePos, out lbOnCross);
+        int liSlot = mOConversationScreen.GetPlayerTradeSlotAt(pOMousePos);
 
         if (liSlot >= 0)
         {
             int liChosen = liSlot;
-
-            if (lbOnCross)
-            {
-                mOPendingTradeAction = () => lOTrade.TogglePlayerSelected(liChosen);
-                return true;
-            }
 
             if (lOTrade.PlayerItems[liSlot] == null)
                 return true;
@@ -148,16 +142,16 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             return false;
         }
 
-        liSlot = mOConversationScreen.GetNpcTradeSlotAt(pOMousePos, out lbOnCross);
+        liSlot = mOConversationScreen.GetNpcTradeSlotAt(pOMousePos);
 
         if (liSlot < 0)
             return false;
 
         int liNpcSlot = liSlot;
 
-        if (pbRightButton && !lbOnCross && lOTrade.NpcItems[liSlot] != null)
+        if (pbRightButton && lOTrade.NpcItems[liSlot] != null)
             mOPendingTradeAction = () => mOConversationScreen.Session.LookAtPartnerTradeItem(lOTrade.NpcItems[liNpcSlot]);
-        else if (!lbOnCross && lOTrade.NpcGoodsBought && lOTrade.NpcBought[liSlot] && lOTrade.NpcItems[liSlot] != null)
+        else if (lOTrade.NpcGoodsBought && lOTrade.NpcBought[liSlot] && lOTrade.NpcItems[liSlot] != null)
         {
             // A bought good: a source like any other - dragged, or taken by a click.
             mODragSourceNpcTradeSlot = liSlot;
@@ -168,10 +162,6 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
 
         return true;
     }
-
-    /// <summary>"That is too heavy to take." (block 1 no. 0xFC of UW.EXE, 253 in ours).</summary>
-    private const int TooHeavyToTakeMessage = 253;
-
 
     /// <summary>What a press on the trade areas does on its release - see fTryHandleTradeClick.</summary>
     private System.Action mOPendingTradeAction;
@@ -276,7 +266,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         // ONLY IN THE CLASSIC SCHEME: its inventory is not on screen in the modern one, yet its
         // slots were still hit - a wand's Name Enchantment went onto an invisible backpack slot
         // under the modern bags and was gone (per user, 2026-10-04). The modern bags take it.
-        bool lbClassicScheme = mOControlScheme == null || mOControlScheme.Current == UWControlScheme.SchemeEnum.Original;
+        bool lbClassicScheme = !UWControlScheme.IsModern;
 
         if (lbClassicScheme && mOInteraction != null && mOInteraction.IsSpellTargeting
             && !fTryResolveTargetSpellInInventory())
@@ -295,7 +285,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         if (fUpdateCountPrompt())
             return;
 
-        bool lbIsOriginal = mOControlScheme == null || mOControlScheme.Current == UWControlScheme.SchemeEnum.Original;
+        bool lbIsOriginal = !UWControlScheme.IsModern;
 
         if (!lbIsOriginal)
         {
@@ -398,7 +388,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             && !mOControls.Player.Interact.WasPressedThisFrame())
             return false;
 
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = fPointerPosition();
 
         // In the view window Interaction does the targeting itself - there the right button counts, and the
         // left one walks.
@@ -440,9 +430,6 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             : null;
     }
 
-    /// <summary>Checks whether there is a pickable item under the mouse at all, and remembers
-    /// its source - the actual drag only begins in fUpdatePending, once the
-    /// movement threshold is exceeded.</summary>
     /// <summary>
     /// WHICH BUTTON CARRIES THE USE OVER THE UI - the one place that decides it. The left
     /// button always; the right one in the use mode, where over the UI it replaces the look
@@ -458,9 +445,12 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             mOConversationScreen != null && mOConversationScreen.IsOpen);
     }
 
+    /// <summary>Checks whether there is a pickable item under the mouse at all, and remembers
+    /// its source - the actual drag only begins in fUpdatePending, once the
+    /// movement threshold is exceeded.</summary>
     private void fTryStartPending(bool pbRightButton)
     {
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = fPointerPosition();
 
         // Always reset all sources before exactly one of them (if any
         // is hit at all) is set anew.
@@ -611,7 +601,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             // look command", no exception for usable items) or, on the left, either
             // the combat mode toggle on the active combat hand, opening a
             // container item, closing it via its icon, OR - on a
-            // usable inventory item (see fIsUsableItem) - the
+            // usable inventory item (see UWItemTargetRules.Classify) - the
             // start of use mode (confirmed by user: left click starts it, not
             // right click - an initial wrong assumption corrected here). Only for
             // inventory sources (backpack/container/equipment), not for world objects.
@@ -688,37 +678,19 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
                 {
                     fTryToggleCombatFromClick();
                 }
-                // The map is not read on LEFT click, but opens the
-                // overview map in full screen, with no message at all (per user, 2026-09-03).
-                // The right click still shows its text.
-                else if (lOPendingItem != null
-                    && lOPendingItem.ID == UWObjectMechanics.MapObjectId)
-                {
-                    fOpenMap();
-                }
-                else if (lOPendingItem != null && mOInteraction != null
-                    && mOInteraction.TryReadBook(lOPendingItem, false))
-                {
-                    // Read - nothing else.
-                }
-                // Wand, light source and food take effect IMMEDIATELY on click - they need
-                // no target. Only what is applied to something else, above all the
-                // key, goes into use mode (per user, 2026-09-05).
-                else if (lOPendingItem != null && fTryUseItemImmediately(lOPendingItem))
-                {
-                    // Used - nothing else.
-                }
-                else if (lOPendingItem != null && fIsUsableItem(lOPendingItem))
-                    fBeginUseMode(lOPendingItem);
+                // The rest is the chain every scheme shares (UWCarriedItemUse): the map opens on
+                // the LEFT click (the right click still shows its text), a book is read, what
+                // works at once is used, a key or tool starts the use mode - and a click that used
+                // nothing toggles the combat mode on the weapon hand.
                 else
-                    fTryToggleCombatFromClick();
+                    UWCarriedItemUse.Use(this, lOPendingItem, UWCarriedItemUse.Context.ClassicPanel);
             }
 
             mbIsPending = false;
             return;
         }
 
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = fPointerPosition();
 
         if (Vector2.Distance(mOPendingStartPos, lOMousePos) < ClickMoveThreshold)
             return; // Button still held, but no significant movement yet.
@@ -749,7 +721,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             && lOPending.ID != UWObjectMechanics.RuneBagId
             && mOConversationScreen != null && mOConversationScreen.IsOpen && mOUWData != null)
         {
-            mOConversationScreen.ShowLookText(mOUWData.GetGeneralMessage(CannotBarterContainerMessage).TrimEnd('\r', '\n'));
+            mOConversationScreen.ShowLookText(UWText.General(mOUWData, CannotBarterContainerMessage));
             return;
         }
 
@@ -766,22 +738,14 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         fTakeFromSource(1);
     }
 
-    /// <summary>String block 1: "That is too heavy for you to pick up."</summary>
-    private const int TooHeavyToPickUpMessage = 96;
-
     /// <summary>String block 1: "You cannot barter a container.  Instead, remove the contents
     /// you want to trade."</summary>
-    private const int CannotBarterContainerMessage = 187;
+    private const int CannotBarterContainerMessage = UWStringIds.CannotBarterContainerMessage;
 
     /// <summary>How many pieces lie at the drag source. 1 if it is not a stack.</summary>
     private int fGetPendingStackCount()
     {
-        UWObject lOItem = fPeekPendingItem();
-
-        if (lOItem == null || !lOItem.HasQuantity || lOItem.Quantity >= 512 || lOItem.Quantity < 1)
-            return 1;
-
-        return lOItem.Quantity;
+        return UWStackRules.CountAtLeastOne(fPeekPendingItem());
     }
 
     private UWObject fPeekPendingItem()
@@ -828,41 +792,50 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         UWObject lOSource = fPeekPendingItem();
         int liTotal = fGetPendingStackCount();
 
-        // From the world only what the carrying capacity still allows - otherwise it stays there, with
-        // "That is too heavy for you to pick up." (UW.EXE seg024_24DC_BF4, block 1 no. 0x5F,
-        // 96 in ours). For a stack the chosen quantity counts (per user,
-        // 2026-09-13).
-        if (mODragSourceWorldEntity != null && !mOInventory.CanCarry(lOSource, piCount))
+        // FROM THE WORLD: UWWorldPickup - the weight of the chosen count ("That is too heavy for
+        // you to pick up.", UW.EXE seg024_24DC_BF4, block 1 no. 0x5F, 96 in ours; for a stack the
+        // chosen quantity counts, per user 2026-09-13, as the original's AskHowMany cuts the
+        // stack before EncumCheck), the theft, the moonstone and the removal. The reach was
+        // measured at the press (Interaction.fApply), before the count prompt, as player_3dget
+        // asks InPickRange before AskHowMany.
+        if (mODragSourceWorldEntity != null)
         {
-            if (mOInteraction != null)
-                mOInteraction.AddGeneralMessage(TooHeavyToPickUpMessage);
+            if (mOInteraction == null || !UWWorldPickup.Take(mOInteraction, mODragSourceWorldEntity, piCount,
+                UWWorldPickup.Destination.Pointer, true))
+            {
+                fCancelDrag();
+                return;
+            }
 
-            fCancelDrag();
+            fBeginActualDrag();
             return;
         }
 
-        // PICKING UP IS THE THEFT. The original flags it the moment the object goes onto
-        // the pointer (reference: pickup.DoPickup calls thief.FlagTheftToObjectOwner before
-        // the object leaves its tile), not only when it lands in the backpack. Only the
-        // modern right-click pickup reported it so far, so with the classic dragging nobody
-        // got angry and the owner stayed on the item (per user, 2026-09-16).
-        if (mODragSourceWorldEntity != null && mOInteraction != null)
-            mOInteraction.ReportTheft(lOSource);
-
-        // Taking the moonstone (or what holds it) from the world: nobody knows where it is any
-        // more (UWMoonstoneRules, Pickup_seg024_A9E).
-        if (mODragSourceWorldEntity != null)
-            UWMoonstoneRules.OnTakenFromWorld(lOSource);
-
-        // From the partner's side the weight counts too: "That is too heavy to take." and the
-        // good stays there (ovr095_683).
-        if (mODragSourceNpcTradeSlot.HasValue && !mOInventory.CanCarry(lOSource, piCount))
+        // From either side of the trade the weight counts: "That is too heavy to take." and the
+        // good stays there (UWPickupRules.CheckFromTrade, the chosen count weighed as
+        // UseTradeSlot_ovr097_6E8 does for both sides; until 2026-10-15 ours weighed only the
+        // partner's).
+        if (mODragSourceNpcTradeSlot.HasValue || mODragSourceTradeSlot.HasValue)
         {
-            if (mOInteraction != null)
-                mOInteraction.AddGeneralMessage(TooHeavyToTakeMessage);
+            UWPickupRules.Result lOCheck = UWPickupRules.CheckFromTrade(lOSource, piCount, mOInventory.Model);
 
-            fCancelDrag();
-            return;
+            if (!lOCheck.CanTake)
+            {
+                // ON THE PARCHMENT, where the player looks (B16 of the cleanup plan, 2026-10-12):
+                // the original prints 0xFC with game_sprint while the barter is up
+                // (UseTradeSlot_ovr097_6E8), where the player reads it; ours wrote it into the
+                // message box, which the parchment covers, so the refusal was never seen. The
+                // modern trade shows it there as well (UWModernBags.fTakeFromTrade), as the barter
+                // refusal of a container above does.
+                if (lOCheck.MessageIndex >= 0 && mOConversationScreen != null && mOConversationScreen.IsOpen
+                    && mOUWData != null)
+                    mOConversationScreen.ShowLookText(UWText.General(mOUWData, lOCheck.MessageIndex));
+                else if (mOInteraction != null && lOCheck.MessageIndex >= 0)
+                    mOInteraction.AddGeneralMessage(lOCheck.MessageIndex);
+
+                fCancelDrag();
+                return;
+            }
         }
 
         // Part of a stack is only counted off, the stack stays where it is.
@@ -870,6 +843,8 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         {
             if (mODragSourceNpcTradeSlot.HasValue && fGetTrade() != null)
                 fGetTrade().NpcSlotChanged(mODragSourceNpcTradeSlot.Value);
+            else if (mODragSourceTradeSlot.HasValue && fGetTrade() != null)
+                fGetTrade().PlayerSlotPartTaken(mODragSourceTradeSlot.Value);
 
             fBeginActualDrag();
             return;
@@ -895,8 +870,6 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             mOInventory.BeginDragFromBackpack(mODragSourceBackpackSlot.Value);
         else if (mODragSourceSlot.HasValue)
             mOInventory.BeginDragFromEquip(mODragSourceSlot.Value);
-        else if (mODragSourceWorldEntity != null)
-            mOInventory.BeginDragFromWorld(mODragSourceWorldEntity);
 
         fBeginActualDrag();
     }
@@ -1234,28 +1207,24 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
 
         if (lOTrade != null)
         {
-            bool lbOnCross;
-            int liSlot = mOConversationScreen.GetPlayerTradeSlotAt(pOMousePos, out lbOnCross);
+            int liSlot = mOConversationScreen.GetPlayerTradeSlotAt(pOMousePos);
 
             if (liSlot >= 0)
             {
-                // A MATCHING STACK TAKES THE ITEM, as in the backpack (per user, 2026-09-29:
-                // in our trade area the items did not stack, in the original they do).
-                if (lOTrade.PlayerItems[liSlot] != null && mOInventory.TryStackInto(lOTrade.PlayerItems[liSlot]))
-                {
-                    lOTrade.PlayerSlotChanged(liSlot);
-                    return true;
-                }
+                // The slot's own rule (UWConversationTrade.DropOnPlayerSlot, CombineToSlot_ovr097_D30):
+                // a like pile takes the count (per user, 2026-09-29: the original stacks there),
+                // anything else swaps, a container there refuses - then the thing stays on the
+                // pointer, as a drop that found no place.
+                UWObject lOHeld = mOInventory.TakeCursorItem();
+                UWObject lOBack = lOTrade.DropOnPlayerSlot(liSlot, lOHeld);
 
-                UWObject lOPrevious = lOTrade.PutInPlayerSlot(liSlot, mOInventory.TakeCursorItem());
+                if (lOBack != null)
+                    mOInventory.BeginDragFromExternal(lOBack);
 
-                if (lOPrevious != null)
-                    mOInventory.BeginDragFromExternal(lOPrevious);
-
-                return true;
+                return lOBack != lOHeld;
             }
 
-            if (mOConversationScreen.GetNpcTradeSlotAt(pOMousePos, out lbOnCross) >= 0)
+            if (mOConversationScreen.GetNpcTradeSlotAt(pOMousePos) >= 0)
                 return false;
         }
 
@@ -1283,8 +1252,8 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             if (mOInventory.DropCursorItemInFirstFreeBackpackSlot())
                 return true;
 
-            // Original wording (confirmed by user).
-            mOInteraction?.AddMessage("There is no place to put that.");
+            // Original wording (confirmed by user): general message 259, ItemFitsSlot's 0x102.
+            mOInteraction?.AddGeneralMessage(UWStringIds.NoPlaceToPutMessage);
             return false;
         }
 
@@ -1477,7 +1446,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
 
         try
         {
-            mOInteraction.AddMessage(mOInteraction.DescribeInventoryItem(lOItem));
+            mOInteraction.AddItemLookMessages(lOItem);
         }
         catch
         {
@@ -1523,39 +1492,6 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         return true;
     }
 
-    /// <summary>Original: use mode (confirmed by user, 2026-08-27) - for
-    /// keys (KeysLockpickLock, without the lock object itself), the pole
-    /// (extends the reach, see UWObjectMechanics.PoleObjectId - per user
-    /// 2026-08-28: "when you use the pole, like e.g. a key"), spike, rock hammer,
-    /// oil flask, Key of Infinity and bones. Not for items that carry a spell.</summary>
-    private bool fIsUsableItem(UWObject pOItem)
-    {
-        if (pOItem.ID == UWObjectMechanics.PoleObjectId
-            || pOItem.ID == UWObjectMechanics.SpikeObjectId
-            || pOItem.ID == UWObjectMechanics.RockHammerObjectId
-            || pOItem.ID == UWObjectMechanics.OrbRockObjectId
-            || pOItem.ID == UWObjectMechanics.OilFlaskObjectId
-            || pOItem.ID == UWObjectMechanics.KeyOfInfinityObjectId
-            || UWEndgame.IsBones(pOItem.ID))
-            return true;
-
-        // An item that carries a spell never enters use mode. UW.EXE casts it right away
-        // (ObjectUse_seg040_352B_2 / WandUsage_seg040_E21 -> CastSpellFromObject_seg040_1F04);
-        // if that cast is refused (still on cooldown) it only plays sound 0x15 and the use ends.
-        // Until 2026-09-14 a refused cast put the item into use mode here, and the next click
-        // only said "cannot be used on that", because fTryUseItemOnTarget has no spell branch.
-        if (UWItemUse.SpellOf(pOItem, mOUWData).Exists)
-            return false;
-
-        // Food and light sources are NOT here: they need no target and
-        // take effect immediately on click, see fTryUseItemImmediately.
-        return pOItem.GetCategory() == UWObject.ObjectCategoryEnum.KeysLockpickLock
-            && pOItem.ID != UWObjectMechanics.LockObjectId;
-    }
-
-    /// <summary>Everything that takes effect immediately on click instead of waiting for a target
-    /// - the rules are in UWItemUse (P3 of the engine separation, 2026-09-18); this class is
-    /// its host and knows where the used piece came from.</summary>
     /// <summary>
     /// WHAT LANDS ON THE HEAD IS EATEN. In the original the routine that decides about a drop
     /// on a paperdoll slot calls Eat for slot 0 (MaybeContainerLogic_ovr121_B4B). The user
@@ -1611,6 +1547,9 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// and ConsumeUsedItem.</summary>
     private bool mbConsumeFromCursor;
 
+    /// <summary>Everything that takes effect immediately on click instead of waiting for a target
+    /// - the rules are in UWItemUse (P3 of the engine separation, 2026-09-18); this class is
+    /// its host and knows where the used piece came from.</summary>
     private bool fTryUseItemImmediately(UWObject pOItem)
     {
         UWCharacter lOCharacter = UWScene.Character;
@@ -1632,126 +1571,59 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// <summary>The item currently being used, for ConsumeUsedItem.</summary>
     private UWObject mOUsedItem;
 
-    /// <summary>For the modern action bar (UWModernActionBar): whether a piece is used ON something
-    /// in the world - the pole, the spike, the rock hammer, the orb rock, keys and lockpicks, the
-    /// Key of Infinity, bones. Not the oil flask, which goes onto an inventory item.</summary>
-    public bool NeedsWorldTarget(UWObject pOItem)
-    {
-        return pOItem != null && pOItem.ID != UWObjectMechanics.OilFlaskObjectId && fIsUsableItem(pOItem);
-    }
-
-    /// <summary>
-    /// The action bar's tools act on THE CROSSHAIR'S TARGET (decided per user, 2026-10-03): the
-    /// use mode's world branch (fTryApplyUseModeItem) with the screen's middle for the pointer -
-    /// the modern view fills the screen. Out of reach the reach rules refuse; on nothing at all
-    /// nothing happens, as there.
-    /// </summary>
-    public void UseItemOnCrosshair(UWObject pOItem)
-    {
-        if (pOItem == null || mOInteraction == null || mOInteraction.IsSpellTargeting)
-            return;
-
-        UWEntityInfo lOTarget = mOInteraction.TryGetEntityAt(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f), pOItem);
-
-        if (lOTarget != null && mOInteraction.TryReachTarget(lOTarget, pOItem)
-            && !fTryUseItemOnTarget(pOItem, lOTarget))
-            mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
-    }
-
-    /// <summary>Set while the modern bags use a piece (UseCarriedItem): ConsumeUsedItem takes it
-    /// out of the inventory wherever it lies.</summary>
+    /// <summary>Set while a carried piece is used from the modern scheme (UWCarriedItemUse): no
+    /// click source is remembered, ConsumeUsedItem takes it out of the inventory wherever it lies.</summary>
     private bool mbConsumeAnywhere;
 
-    /// <summary>
-    /// THE MODERN BAGS' USE (UWModernBags, the right button, WoW-like per user 2026-10-03): the
-    /// classic use click's chain for a carried piece - the map opens, a book or scroll is read,
-    /// what works at once (food, potions, wands, lights, the bedroll ...) is used. Not here:
-    /// containers (the bags open them themselves), the rune bag's shelf and the use mode of keys
-    /// and tools (stage 3 and the action bar). Returns whether something happened.
-    /// </summary>
-    public bool UseCarriedItem(UWObject pOItem)
+    // ------------------------------------------------- For UWCarriedItemUse
+
+    /// <summary>The game data this component reads (UWItemTargetRules.Classify needs it).</summary>
+    public UWDataImport.DataImport GameData => mOUWData;
+
+    /// <summary>Whether the inventory is there to use anything from.</summary>
+    public bool HasInventory => mOInventory != null;
+
+    /// <summary>The overview map of the current level, full screen.</summary>
+    public void OpenMap()
     {
-        if (pOItem == null || mOInventory == null)
-            return false;
+        fOpenMap();
+    }
 
-        if (pOItem.ID == UWObjectMechanics.MapObjectId)
-        {
-            fOpenMap();
-            return true;
-        }
-
-        if (mOInteraction != null && mOInteraction.TryReadBook(pOItem, false))
-            return true;
-
-        mbConsumeAnywhere = true;
-
-        bool lbWasTargeting = mOInteraction != null && mOInteraction.IsSpellTargeting;
-        bool lbUsed;
+    /// <summary>What takes effect at once (UWItemUse.TryUseImmediately) with this component as
+    /// its host. pbConsumeAnywhere: used from the modern scheme, the piece leaves from wherever it
+    /// lies; else from the classic click's source slot.</summary>
+    public bool UseAtOnce(UWObject pOItem, bool pbConsumeAnywhere)
+    {
+        mbConsumeAnywhere = pbConsumeAnywhere;
 
         try
         {
-            lbUsed = fTryUseItemImmediately(pOItem);
+            return fTryUseItemImmediately(pOItem);
         }
         finally
         {
             mbConsumeAnywhere = false;
         }
-
-        // A wand's spell takes the modern aim as the runes' do (Interaction.AfterModernCast).
-        if (lbUsed && !lbWasTargeting && mOInteraction != null)
-            mOInteraction.AfterModernCast();
-
-        return lbUsed;
     }
 
-    /// <summary>For the modern bags: whether the thing is applied to something else (key,
-    /// lockpick, oil flask, pole ... - the classic use mode).</summary>
-    public bool NeedsUseTarget(UWObject pOItem)
+    /// <summary>The classic use mode for a carried piece: its icon on the pointer and "Use ...
+    /// on what?".</summary>
+    public void BeginUseMode(UWObject pOItem)
     {
-        return pOItem != null && fIsUsableItem(pOItem);
+        fBeginUseMode(pOItem);
+    }
+
+    /// <summary>The classic left click that used nothing: the combat toggle on the weapon hand
+    /// (fTryToggleCombatFromClick).</summary>
+    public void ToggleCombatFromClick()
+    {
+        fTryToggleCombatFromClick();
     }
 
     /// <summary>For the modern bags: "Use &lt;thing&gt; on what?", as the classic use mode asks.</summary>
     public void ReportUsePrompt(UWObject pOItem)
     {
         fReportUsePrompt(pOItem);
-    }
-
-    /// <summary>
-    /// For the modern bags' use mode (UWModernBags): the thing onto a carried item
-    /// (pOInventoryTarget) or onto what lies under a screen point in the world (pOWorldPoint) -
-    /// the classic use mode's rules (fTryApplyUseModeItem): the anvil repairs and the oil flask
-    /// fills only carried things, everything else acts on the world.
-    /// </summary>
-    public void ApplyItemModern(UWObject pOItem, UWObject pOInventoryTarget, Vector2? pOWorldPoint)
-    {
-        if (pOItem == null || mOInteraction == null)
-            return;
-
-        if (pOItem.ID == UWObjectMechanics.AnvilObjectId)
-        {
-            if (pOInventoryTarget != null)
-                mOInteraction.TryRepairItem(pOInventoryTarget);
-
-            return;
-        }
-
-        if (pOItem.ID == UWObjectMechanics.OilFlaskObjectId)
-        {
-            if (pOInventoryTarget != null && !mOInteraction.TryOilItem(pOInventoryTarget, pOItem))
-                mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
-
-            return;
-        }
-
-        if (!pOWorldPoint.HasValue)
-            return;
-
-        UWEntityInfo lOTarget = mOInteraction.TryGetEntityAt(pOWorldPoint.Value, pOItem);
-
-        if (lOTarget != null && mOInteraction.TryReachTarget(lOTarget, pOItem)
-            && !fTryUseItemOnTarget(pOItem, lOTarget))
-            mOInteraction.AddMessage("The " + fGetBareItemName(pOItem) + " cannot be used on that.");
     }
 
     // ------------------------------------------------- IUWItemUseHost
@@ -1761,13 +1633,12 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         if (mOUsedItem == null)
             return;
 
-        // Used from the modern bags (UseCarriedItem): no click source is remembered, the piece
+        // Used from the modern scheme (UWCarriedItemUse): no click source is remembered, the piece
         // leaves from wherever it lies.
         if (mbConsumeAnywhere)
         {
-            if (UWObjectMechanics.IsStackable(mOUsedItem) && mOUsedItem.Quantity > 1)
+            if (UWStackRules.TryTakeOne(mOUsedItem))
             {
-                mOUsedItem.Quantity = (ushort)(mOUsedItem.Quantity - 1);
                 mOInventory.NotifyChanged();
 
                 return;
@@ -1783,12 +1654,8 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         // moved there in the meantime.
         if (mbConsumeFromCursor)
         {
-            if (UWObjectMechanics.IsStackable(mOUsedItem) && mOUsedItem.Quantity > 1)
-            {
-                mOUsedItem.Quantity = (ushort)(mOUsedItem.Quantity - 1);
-
+            if (UWStackRules.TryTakeOne(mOUsedItem))
                 return;
-            }
 
             mOInventory.TakeCursorItem();
 
@@ -1815,8 +1682,10 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         UWCharacter lOCharacter = UWScene.Character;
 
         if (lOCharacter != null)
-            lOCharacter.ApplyCurse(piDice, true);
+            lOCharacter.ApplyCurse(piDice);
     }
+
+    public int PlayerDamageTypeProof => UWScene.Character != null ? UWScene.Character.DamageTypeProof : 0;
 
     public void FlashWindow(int piPaletteColour, float pfSeconds)
     {
@@ -1913,27 +1782,17 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     /// Removes the consumed piece from the game - for a stack only one of them.
     ///
     /// Where it came from is stored in the same fields fPeekPendingItem fetched it from -
-    /// backpack, open container, paperdoll or ground. The order is the same as
+    /// backpack, open container or paperdoll (a world source never gets here: TryBeginWorldDrag
+    /// takes the thing at once and never leaves a pending click). The order is the same as
     /// there, so that both refer to the same piece.
     /// </summary>
     private void fConsumeItem(UWObject pOItem)
     {
-        // ONLY DECREMENT A REAL STACK. On an enchanted piece the same
-        // field carries the enchantment id - counting it down would silently change its spell
-        // (see UWObjectMechanics.IsStackable).
-        if (UWObjectMechanics.IsStackable(pOItem) && pOItem.Quantity > 1)
-        {
-            pOItem.Quantity = (ushort)(pOItem.Quantity - 1);
-
+        // ONLY DECREMENT A REAL STACK. On an enchanted piece the same field carries the
+        // enchantment id from 512 on - counting it down would silently change its spell
+        // (UWStackRules).
+        if (UWStackRules.TryTakeOne(pOItem))
             return;
-        }
-
-        if (mODragSourceWorldEntity != null)
-        {
-            mOInventory.RemoveWorldObject(mODragSourceWorldEntity);
-
-            return;
-        }
 
         if (mODragSourceContainerSlot.HasValue)
         {
@@ -1953,40 +1812,18 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
             mOInventory.RemoveFromEquip(mODragSourceSlot.Value);
     }
 
-    /// <summary>String block 1, our numbering: "You can only put runes in the rune bag."</summary>
-    private const int RunesOnlyMessage = 248;
-
-    /// <summary>String block 1, our numbering: "That item does not fit."</summary>
-    private const int DoesNotFitMessage = 249;
-
-    /// <summary>
-    /// Says why a container refused the item (see UWContainerCapacity).
-    ///
-    /// TooHeavy: "The map case is too full." (per user on the original, 2026-09-18). The
-    /// sentence is not in STRINGS.PAK, it is assembled like "Use ... on what?".
-    /// </summary>
+    /// <summary>Says why a container refused the item - the sentences are
+    /// UWItemMessages.ContainerRejection, shared with the modern bags.</summary>
     private void fReportContainerRejection()
     {
         if (mOInteraction == null || mOInventory == null)
             return;
 
-        switch (mOInventory.LastContainerRejection)
-        {
-            case UWContainerCapacity.ResultEnum.RunesOnly:
-                mOInteraction.AddMessage(mOInteraction.GetGeneralMessage(RunesOnlyMessage));
-                break;
+        string lsMessage = UWItemMessages.ContainerRejection(mOInventory.LastContainerRejection,
+            mOInventory.LastContainerRejectionContainer, mOUWData);
 
-            case UWContainerCapacity.ResultEnum.WrongType:
-                mOInteraction.AddMessage(mOInteraction.GetGeneralMessage(DoesNotFitMessage));
-                break;
-
-            case UWContainerCapacity.ResultEnum.TooHeavy:
-                UWObject lOContainer = mOInventory.LastContainerRejectionContainer;
-
-                if (lOContainer != null)
-                    mOInteraction.AddMessage("The " + fGetBareItemName(lOContainer) + " is too full.");
-                break;
-        }
+        if (lsMessage != null)
+            mOInteraction.AddMessage(lsMessage);
     }
 
     /// <summary>Goes to sleep - see UWSleep. The bedroll stays in the
@@ -2023,7 +1860,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     public void BeginUseModeFromWorld(UWObject pOItem)
     {
         // The modern scheme has its own use mode in the bags (UWModernBags.BeginUse).
-        if (mOControlScheme != null && mOControlScheme.Current != UWControlScheme.SchemeEnum.Original
+        if (UWControlScheme.IsModern
             && UWModernBags.Instance != null)
         {
             UWModernBags.Instance.BeginUse(pOItem, true);
@@ -2077,14 +1914,9 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         if (mOInteraction == null)
             return;
 
-        mOInteraction.AddMessage("Use " + fGetBareItemName(pOItem) + " on what?");
+        mOInteraction.AddMessage("Use " + UWText.ObjectName(mOUWData, pOItem.ID, false, false, UWItemMessages.UnnamedItem) + " on what?");
     }
 
-    /// <summary>Original (confirmed by user, 2026-08-27): right click applies the item
-    /// everywhere, left click only outside the 3D view window (there left still
-    /// controls movement). Every application - whether it hits a valid target or
-    /// not - ends use mode afterwards (confirmed by user: "after a
-    /// use, use mode is always cancelled").</summary>
     /// <summary>
     /// For Interaction (Original, right-click drag on a pickable thing in the 3D view): the
     /// thing goes onto the pointer - a stack asks for the count first, the carrying capacity
@@ -2096,8 +1928,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     {
         if (pOTarget == null || mOInventory == null || mOGameUi == null || mbIsDragging || mbIsPending || mbAskingCount
             || mOInventory.UseModeItem != null || mOInventory.CursorItem != null || mOGameUi.IsMapVisible
-            || (mOControlScheme != null && (mOControlScheme.IsInventoryInputBlocked
-                || mOControlScheme.Current != UWControlScheme.SchemeEnum.Original)))
+            || (mOControlScheme != null && mOControlScheme.IsInventoryInputBlocked) || UWControlScheme.IsModern)
             return false;
 
         mODragSourceSlot = null;
@@ -2111,7 +1942,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         mbPendingIsUseClick = false;
         mODragSourceWorldEntity = pOTarget;
         mbUsingRightButton = true;
-        mOPendingStartPos = Mouse.current.position.ReadValue();
+        mOPendingStartPos = fPointerPosition();
 
         int liStackCount = fGetPendingStackCount();
 
@@ -2157,17 +1988,29 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     {
         Vector2 lOMouse = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
 
-        if (mOGameUi != null && mOControlScheme != null && mOControlScheme.Current == UWControlScheme.SchemeEnum.Original
+        if (mOGameUi != null && !UWControlScheme.IsModern
             && UWScene.PlayerMovement != null && UWScene.PlayerMovement.IsCursorMovementInProgress)
             return mOGameUi.PointerPosition;
 
         return lOMouse;
     }
 
+    /// <summary>Original (confirmed by user, 2026-08-27): right click applies the item
+    /// everywhere, left click only outside the 3D view window (there left still
+    /// controls movement). Every application - whether it hits a valid target or
+    /// not - ends use mode afterwards (confirmed by user: "after a
+    /// use, use mode is always cancelled").</summary>
     private void fUpdateUseMode()
     {
         Vector2 lOMousePos = fPointerPosition();
         mODragIcon.rectTransform.position = lOMousePos;
+
+        // THE ITEM IS THE POINTER (UseThing: force_mouse_cursor with the item, UnderworldExhumed
+        // USEITEMS.C), so the system pointer stays hidden the whole time - not only at the start:
+        // UWControlScheme shows it again in the classic scheme whenever a hold changes (per user,
+        // 2026-10-13: the item hung on the pointer and the normal pointer showed as well).
+        if (Cursor.visible && !mbAskingCount && (mOInteraction == null || !mOInteraction.IsAskingYesNo))
+            Cursor.visible = false;
 
         // In a conversation there is no view window, only the parchment in front of it.
         bool lbInGameArea = mOGameUi.IsScreenPositionInGameArea(lOMousePos)
@@ -2178,167 +2021,63 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         bool lbTriggered = !lbInGameArea
             && (mOControls.Player.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed);
 
+        // A CLICK ON THE RUNES IS SWALLOWED: try_cast and mous_in_rune return in another input
+        // mode, so the original keeps the use mode and casts nothing (per user, 2026-10-13: with a
+        // key in use, a click into the hollow cast the spell in ours - the use mode ended first).
+        if (lbTriggered && mOGameUi.Runes != null && mOGameUi.Runes.IsPointerOverRunes(lOMousePos))
+            return;
+
         if (lbTriggered)
             fTryApplyUseModeItem(lOMousePos, lbInGameArea);
     }
 
-    /// <summary>Every usable item has its OWN allowed targets - no shared
-    /// "tap anything" case (checked by user in the original, 2026-08-28: "so far
-    /// I could only use it on switches"):
-    /// - Pole: switches only (Interaction.TryFireSwitchAt). Its only purpose is the greater
-    ///   reach (Interaction.TryReachTarget), with which a switch can be tapped through a
-    ///   portcullis.
-    /// - Key: doors, barrels and chests (Interaction.TryToggleDoorLockWithKey, which outputs its messages -
-    ///   success as well as failure - itself).
-    /// - Anvil and oil flask: an item in the inventory, not the world (see below).
-    /// The targets of the remaining items are listed in fTryUseItemOnTarget.
-    /// If the target does not fit the item, the original refusal "The &lt;Item&gt; cannot be
-    /// used on that." appears (confirmed verbatim by user). Picking up via use mode is
-    /// deliberately NOT supported - in the original the pole cannot pick anything up (also
-    /// checked by user).
+    /// <summary>
+    /// The use mode's click: the held item onto a carried thing or onto what is under the
+    /// pointer in the view window - which item takes which target and what it does there is
+    /// UWItemTargetRules, the carrying out UWItemTargetUse (cleanup step 2.4, 2026-10-12).
+    /// Every application - whether it hits a valid target or not - ends use mode afterwards
+    /// (confirmed by user: "after a use, use mode is always cancelled").
+    ///
+    /// THE ANVIL AND THE OIL FLASK GO ONTO A CARRIED THING: a click in the backpack, the open
+    /// container or on the paperdoll says what is repaired or filled; a click into the view
+    /// does nothing. The use mode ends FIRST there: it shows the pointer again, and the repair
+    /// question then hides it and remembers it as visible - the other way round the pointer
+    /// stayed hidden after the answer.
     ///
     /// NO additional look message for the hit target (confirmed by user,
     /// 2026-08-27 - a first attempt showed it additionally, which turned out to be duplicate/wrong:
     /// Interaction.cs already showed one through its own, independent
-    /// right-click handling, see the UseModeItem lock there). If the
-    /// cursor hits no UWEntityInfo at all (wall/floor/ceiling), nothing happens - not even a
-    /// refusal (confirmed by user for pole AND key).</summary>
+    /// right-click handling, see the UseModeItem lock there).
+    /// </summary>
     private void fTryApplyUseModeItem(Vector2 pOMousePos, bool pbInGameArea)
     {
         UWObject lOItem = mOInventory.UseModeItem;
 
-        // THE ANVIL GOES THE OTHER WAY ROUND: not an item onto the world, but
-        // a world object onto an item. You use it, and the next click in the
-        // backpack says what should be repaired (reference: anvil.Use and anvil.UseOn).
-        if (lOItem != null && lOItem.ID == UWObjectMechanics.AnvilObjectId)
+        if (lOItem != null && UWItemTargetRules.TakesCarriedTarget(lOItem.ID))
         {
             UWObject lOTarget = !pbInGameArea && mOInteraction != null ? fGetInventoryItemAt(pOMousePos) : null;
 
-            // End use mode FIRST: it shows the pointer again, and the repair question then hides
-            // it and remembers it as visible - the other way round the pointer stayed hidden
-            // after the answer.
             fEndUseMode();
-
-            if (lOTarget != null)
-                mOInteraction.TryRepairItem(lOTarget);
+            UWItemTargetUse.Apply(mOInteraction, lOItem, lOTarget, null);
 
             return;
         }
 
-        // THE OIL FLASK GOES ONTO AN ITEM IN THE BACKPACK, not onto the world: wood
-        // becomes a torch, torch and lantern are refilled (see
-        // Interaction.TryOilItem).
-        if (lOItem != null && lOItem.ID == UWObjectMechanics.OilFlaskObjectId)
+        if (lOItem != null && pbInGameArea)
+            UWItemTargetUse.Apply(mOInteraction, lOItem, null, pOMousePos);
+
+        // A WORLD TOOL ON A CARRIED THING answers with its own refusal (mous_in_inv calls the
+        // same second half, 2026-10-15; until then the click only ended the mode); the pole stays
+        // in the use mode afterwards. A click on no thing ends the mode silently, as pick_inv's 0.
+        if (lOItem != null && !pbInGameArea && mOInteraction != null)
         {
-            if (!pbInGameArea && mOInteraction != null)
-            {
-                UWObject lOTarget = fGetInventoryItemAt(pOMousePos);
+            UWObject lOCarried = fGetInventoryItemAt(pOMousePos);
 
-                if (lOTarget != null && !mOInteraction.TryOilItem(lOTarget, lOItem))
-                    mOInteraction.AddMessage("The " + fGetBareItemName(lOItem) + " cannot be used on that.");
-            }
-
-            fEndUseMode();
-
-            return;
-        }
-
-        if (lOItem != null && pbInGameArea && mOInteraction != null)
-        {
-            UWEntityInfo lOTarget = mOInteraction.TryGetEntityAt(pOMousePos, lOItem);
-
-            // Out of reach the refusal comes from there ("You are unable to use that from here.",
-            // see UWReachRules) - it beats the one about the wrong target.
-            if (lOTarget != null && mOInteraction.TryReachTarget(lOTarget, lOItem)
-                && !fTryUseItemOnTarget(lOItem, lOTarget))
-                mOInteraction.AddMessage("The " + fGetBareItemName(lOItem) + " cannot be used on that.");
+            if (lOCarried != null && UWItemTargetUse.Apply(mOInteraction, lOItem, lOCarried, null))
+                return;
         }
 
         fEndUseMode();
-    }
-
-    /// <summary>Applies the held item to the hit target. Returns false if
-    /// this combination is not supported at all - the caller then outputs the
-    /// original refusal. Messages of a MATCHING combination (e.g. "The key does not
-    /// fit."), however, come from the respective Interaction method itself, so
-    /// a failed but fundamentally sensible attempt also counts as
-    /// handled here.</summary>
-    private bool fTryUseItemOnTarget(UWObject pOItem, UWEntityInfo pOTarget)
-    {
-        if (pOItem.ID == UWObjectMechanics.PoleObjectId)
-        {
-            if (!mOInteraction.TryFireSwitchAt(pOTarget))
-                return false;
-
-            // Original wording (confirmed by user, 2026-08-28). "switch" is fixed
-            // there, regardless of what was actually hit - the user checked it
-            // on a button and it still said "switch".
-            mOInteraction.AddMessage("Using the " + fGetBareItemName(pOItem) + " you trigger the switch.");
-            return true;
-        }
-
-        // The lockpick looks like a key - the same object class - but does
-        // something else: it rolls against the lock instead of fitting or not.
-        if (pOItem.ID == UWObjectMechanics.LockpickObjectId
-            && (pOTarget.IsDoor || Interaction.IsWorldContainer(pOTarget)))
-        {
-            mOInteraction.TryPickLock(pOTarget, pOItem);
-            return true;
-        }
-
-        // The Key of Infinity is in a different object class than the
-        // ordinary keys and therefore comes BEFORE the key check.
-        if (pOItem.ID == UWObjectMechanics.KeyOfInfinityObjectId)
-            return mOInteraction.TryKeyOfInfinity(pOTarget);
-
-        // Bones ask for a target and report themselves - at the gravestone they are buried,
-        // Garamon's bones at his grave set the endgame in motion (see UWEndgame).
-        if (UWEndgame.IsBones(pOItem.ID))
-            return UWEndgame.UseBones(pOItem, pOTarget, mOInteraction, mOInventory,
-                UWScene.LevelLoader);
-
-        if (pOItem.ID == UWObjectMechanics.SpikeObjectId)
-            return mOInteraction.TrySpikeDoor(pOTarget, pOItem);
-
-        // The rock hammer accepts any target - on anything but a boulder it only says
-        // that nothing happens.
-        if (pOItem.ID == UWObjectMechanics.RockHammerObjectId)
-            return mOInteraction.TryBreakRock(pOTarget);
-
-        // The orb rock, likewise on any target: on Tyball's orb it smashes it, on anything
-        // else it says that nothing happens (built 2026-09-21).
-        if (pOItem.ID == UWObjectMechanics.OrbRockObjectId)
-            return mOInteraction.TryUseOrbRock(pOTarget, pOItem);
-
-        // A KEY fits a barrel or chest as well - their lock hangs in their own chain
-        // (see Interaction.TryToggleDoorLockWithKey), which is why the lockpick already
-        // works on them.
-        if (pOItem.GetCategory() == UWObject.ObjectCategoryEnum.KeysLockpickLock
-            && (pOTarget.IsDoor || Interaction.IsWorldContainer(pOTarget)))
-        {
-            mOInteraction.TryToggleDoorLockWithKey(pOTarget, pOItem);
-            return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>Item name without article for the refusal message ("The pole cannot be
-    /// used on that.") - +1 on the object ID as everywhere else, see
-    /// fLookAtPendingItem.</summary>
-    private string fGetBareItemName(UWObject pOItem)
-    {
-        if (mOUWData == null)
-            return "item";
-
-        try
-        {
-            return UWObjectDescriptionFormatter.FormatBareItemName(mOUWData.GetObjectDescription(pOItem.ID + 1));
-        }
-        catch
-        {
-            return "item";
-        }
     }
 
     private void fEndUseMode()
@@ -2406,7 +2145,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         // AT THE POINTER AT ONCE: the position used to follow only in the next update, so for
         // one frame the icon stood where the last drag or use had ended (per user, 2026-09-26).
         if (Mouse.current != null)
-            mODragIcon.rectTransform.position = Mouse.current.position.ReadValue();
+            mODragIcon.rectTransform.position = fPointerPosition();
 
         mODragIcon.enabled = true;
         mODragIcon.rectTransform.localScale = new Vector3(UWGameUI.HorizontalPixelFactor, 1f, 1f);

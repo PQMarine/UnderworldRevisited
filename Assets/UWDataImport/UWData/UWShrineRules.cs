@@ -51,12 +51,13 @@ namespace UWDataImport.UWData
 		public const int EmptyMantra = 22;
 
 		/// <summary>Where the Cup of Wonder lies, handed to the direction routine as fixed
-		/// numbers (label 5AA pushes 4, 3, 0x2D, 0x18).</summary>
-		public const int CupTileX = 24;
+		/// numbers (label 5AA pushes 4, 3, 0x2D, 0x18) - UWQuestPlaces and UWLevelIds hold them
+		/// since 2026-10-11. The level is ONE-BASED here, as the host's DungeonLevel is.</summary>
+		public const int CupTileX = UWQuestPlaces.CupTileX;
 
-		public const int CupTileY = 45;
+		public const int CupTileY = UWQuestPlaces.CupTileY;
 
-		public const int CupLevel = 3;
+		public const int CupLevel = UWLevelIds.CupOfWonder + 1;
 
 		/// <summary>Within this many tiles, counted as the two distances added up, no direction
 		/// is named any more - then it is only "very near"
@@ -65,14 +66,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>The Key of Truth, spawned into the hand (label 601 pushes 0xE1). String
 		/// block 4 entry 226 names it, and the object id is one lower.</summary>
-		public const int KeyOfTruthObjectId = 0xE1;
+		public const int KeyOfTruthObjectId = UWObjectIds.KeyOfTruth;
 
 		/// <summary>String block 1: "The Cup of Wonder is " (UW's 0x24).</summary>
 		private const int CupPrefixMessage = 36;
 
 		/// <summary>String block 1: the eight directions from "to the North" on, in the order
 		/// GetCardinal_ovr154_7C numbers them.</summary>
-		private const int FirstDirectionMessage = 37;
+		private const int FirstDirectionMessage = UWStringIds.FirstDirectionMessage;
 
 		/// <summary>String block 1: the level phrases. The index is this plus the player's
 		/// level minus the target's (label 1A1: 0x33 plus the difference), so "above you" one
@@ -130,9 +131,12 @@ namespace UWDataImport.UWData
 			/// label 621).</summary>
 			bool KeyOfTruthGiven { get; set; }
 
-			/// <summary>Puts the object on the cursor, as SpawnObjectInHand does. False when
-			/// there is no room, and then nothing is marked either.</summary>
-			bool TryGiveObjectToHand(int piObjectId);
+			/// <summary>Hands the player a new object of this kind: the pointer, else the
+			/// backpack, else the floor at the feet (UWInventoryModel.GiveToPlayer). False only
+			/// when nothing could be made, and then nothing is marked either. Until 2026-10-12
+			/// this was "the pointer or nothing", as place_new has it (mantra_advance, SKILLS.C);
+			/// B8 of the cleanup plan made the four gifts one behaviour.</summary>
+			bool GiveObject(int piObjectId);
 		}
 
 		/// <summary>
@@ -177,6 +181,10 @@ namespace UWDataImport.UWData
 			{
 				pOGeneralMessage(NotAMantraMessage);
 
+				// mantra_advance runs FixPlayerEquips at its end for this too - where a worn
+				// curse strikes (UWPlayerVitals.RequestStatusPass).
+				pOVitals.RequestStatusPass();
+
 				return;
 			}
 
@@ -206,20 +214,21 @@ namespace UWDataImport.UWData
 			}
 
 			if (pOVitals.SkillPoints <= 0)
-			{
 				pOGeneralMessage(NotReadyMessage);
-
-				return;
-			}
-
-			if (liMantra < FirstSpecialMantra)
-			{
+			else if (liMantra < FirstSpecialMantra)
 				fAdvanceGreatly(liMantra, pOVitals, pOData, pOGeneralMessage, pOMessage);
+			else
+				fAdvanceGroup(liMantra - FirstSpecialMantra, pOVitals, pOData, pOGeneralMessage, pOMessage);
 
-				return;
-			}
+			// THE MAXIMA ARE RECOMPUTED HERE, after every skill and group mantra, "not ready"
+			// included (mantra_advance calls player_compute(0) at the end of that branch): the
+			// mana and, since 2026-10-13, the vitality too. A raise itself does not (get_skill),
+			// so a trainer's Mana lesson shows only now or at the next level-up (2026-10-12; until
+			// then every raise recomputed it at once).
+			pOVitals.RecomputeMaxima();
 
-			fAdvanceGroup(liMantra - FirstSpecialMantra, pOVitals, pOData, pOGeneralMessage, pOMessage);
+			// And then FixPlayerEquips, the status pass where a worn curse strikes.
+			pOVitals.RequestStatusPass();
 		}
 
 		/// <summary>
@@ -264,15 +273,16 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// FANLO, the Key of Truth (case 1, label 5F0). It hands the key over ONCE, straight
 		/// onto the cursor, and says "None of your skills improved." while doing it - the
-		/// original's own wording here, odd as it reads. If the hand is not free nothing is
-		/// given and nothing is marked, so it can be chanted again.
+		/// original's own wording here, odd as it reads. In the original a held object makes
+		/// place_new return nothing, so nothing is given or marked and it can be chanted again;
+		/// ours hands the key over wherever it fits (IHost.GiveObject, since 2026-10-12).
 		/// </summary>
 		private static void fKeyOfTruth(Action<int> pOGeneralMessage, IHost pIHost)
 		{
 			if (pIHost == null || pIHost.KeyOfTruthGiven)
 				return;
 
-			if (!pIHost.TryGiveObjectToHand(KeyOfTruthObjectId))
+			if (!pIHost.GiveObject(KeyOfTruthObjectId))
 				return;
 
 			pOGeneralMessage(NoSkillImprovedMessage);
@@ -318,7 +328,14 @@ namespace UWDataImport.UWData
 			pOGeneralMessage(KnowledgeFillsYouMessage);
 			pOVitals.SpendSkillPoint();
 
-			pOMessage(fGetGeneralMessage(pOData, AdvancedGreatlyMessage) + fGetSkillName(piSkillNumber, pOData));
+			pOMessage(GetAdvancedGreatlyLine(pOData, piSkillNumber));
+		}
+
+		/// <summary>"You have advanced greatly in Sword." - with the full stop after the skill
+		/// (great_advance, game/SKILLS.C:230; missing until 2026-10-15, audit A32).</summary>
+		public static string GetAdvancedGreatlyLine(DataImport pOData, int piSkillNumber)
+		{
+			return fGetGeneralMessage(pOData, AdvancedGreatlyMessage) + fGetSkillName(piSkillNumber, pOData) + EndText;
 		}
 
 		/// <summary>
@@ -370,7 +387,14 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			pOMessage(fGetGeneralMessage(pOData, AdvancedMessage) + fJoinNames(lONames));
+			pOMessage(GetAdvancedLine(pOData, lONames));
+		}
+
+		/// <summary>"You have advanced in Sword, Axe and Mace." - with the full stop after the
+		/// list (report_advance, game/SKILLS.C:255; missing until 2026-10-15, audit A32).</summary>
+		public static string GetAdvancedLine(DataImport pOData, List<string> pONames)
+		{
+			return fGetGeneralMessage(pOData, AdvancedMessage) + fJoinNames(pONames) + EndText;
 		}
 
 		/// <summary>"Sword, Axe and Mace" - the last one with "and", the ones before with a comma.
@@ -427,30 +451,12 @@ namespace UWDataImport.UWData
 
 		private static string fGetGeneralMessage(DataImport pOData, int piIndex)
 		{
-			try
-			{
-				string lsMessage = pOData.GetGeneralMessage(piIndex);
-
-				return string.IsNullOrEmpty(lsMessage) ? string.Empty : lsMessage.TrimEnd('\r', '\n');
-			}
-			catch
-			{
-				return string.Empty;
-			}
+			return UWText.General(pOData, piIndex);
 		}
 
 		private static string fGetString(DataImport pOData, int piBlock, int piIndex)
 		{
-			try
-			{
-				string lsText = pOData.Strings.Blocks[piBlock].Strings[piIndex];
-
-				return lsText == null ? string.Empty : lsText.TrimEnd('\r', '\n');
-			}
-			catch
-			{
-				return string.Empty;
-			}
+			return UWText.Block(pOData, piBlock, piIndex);
 		}
 	}
 }

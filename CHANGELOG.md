@@ -1,0 +1,309 @@
+# Changelog
+
+What changed from release to release, in the player's terms. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Releases up to 0.7.0 are described on
+the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
+
+"Closer to the original" lists rules that now behave as the original game does, checked
+against its code and, where noted, by playing the original. The deliberate exceptions are in
+[Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
+
+## [Unreleased]
+
+### Closer to the original
+
+Magic
+- Paralyze and the other spells aimed at one creature ahead choose it as the original does, by
+  its search over the area, not always the farthest one.
+- Cancelling Levitate or Fly leaves a Slow Fall that is nearly done and ends at the next tick.
+- While a spell waits for its target, an item is being used on something or an item hangs on the
+  pointer, no spell can be cast and the runes cannot be clicked. In the modern scheme every panel
+  waits too while a spell waits; only a spell meant for an item takes the item clicked.
+- Casting checks the Casting skill plus 5 against twice the spell's circle. A short pause
+  follows every successful cast, and a cast within it is refused.
+- Mana is paid before the test for a place where magic does not work, so casting there costs
+  it. The cast sound plays only when the spell takes.
+- A backfire hurts the caster by (circle / 2) dice of 8, never below three hit points.
+- A weapon's Accuracy or Damage enchantment adds to the attack or to the base damage.
+- An area spell cast by a creature is aimed and sorted from the creature, not from the player.
+- The oil flask on something it cannot be used on says "You cannot use oil on that.".
+- The Key of Infinity works only on the one door it is made for, and is used up there.
+  Anywhere else: "It seems to have no effect.".
+- Active spells last as long as in the original: Light, Night Vision and Daylight much longer,
+  Thick Skin and its kin a little longer. Each lasts its full time, and "is nearly done" shows
+  on its last two ticks. When one ends, the last spell moves into its place.
+- After a cast, the first rune clicked starts a new shelf.
+- "Not experienced enough" and "not enough mana" play the fizzle sound.
+- A potion, scroll or wand of a lasting spell stays silent when three spells are already active.
+- Levitate and Fly give a small hop when cast.
+- Spell 50 does nothing in UW1; there is no Dispel Hunger. Its charge is still spent.
+- Open, Name Enchantment and Remove Trap need the object within reach ("You cannot reach
+  that."), and a click on nothing keeps the spell waiting.
+- Strengthen Door shows the target cursor.
+- A spell missile's damage type comes from the game's tables: acid does nothing to a ghost,
+  Missile Protection stops a magic missile.
+- An area spell's centre and its count follow the original; it stops at the creature that uses
+  the count up.
+- The spell picture shows only where a spell took; Smite Undead shows none.
+- Flame Wind and Sheet Lightning show one picture per struck tile, in the air.
+- A fireball's impact shows the explosion with three to five flames around it.
+- Create Food lands where the original puts it and needs room there.
+- Roaming Sight cast with three spells active still detaches the view, without an icon, as in
+  the original.
+
+Sleep
+- A comfortable night needs the bedroll and enough food. Every night heals hit points and
+  mana by a share of their maximum, a comfortable one about twice as much.
+- Passing out brings no dream and no "You make camp.". At night every open door of the level
+  may shut, three times in ten, and so may a raised portcullis or an opened secret door.
+- An undisturbed night lets time pass for the level: wounded creatures heal half way to their
+  kind's average, creatures go back to their posts, allies stop being allies, summoned and
+  wandering ones are gone, a race the player angered grows colder, and far odds and ends
+  are cleared away.
+- Only a creature that knows where the player is keeps him awake; a friendly guard nearby, or
+  one that never noticed him, no longer does.
+- A sleep ambush finds its way as the original's creatures do, closed doors included.
+- Passing out drunk in water, at the shore or on lava is deadly. A night without a dream is
+  1.5 seconds of black.
+
+Creatures
+- Leaving a level settles its creatures at once: half way to their average hit points, never
+  above it, facing a random way, forgetting what they had noticed.
+- An ally stops being one three times in four every five minutes, as in the original.
+- A Rune of Warding, a damage trap or lava hurts a creature without making it the player's
+  enemy, and a kill there gives no experience.
+- A creature that wants to talk keeps waiting for the player after a conversation that does not
+  change its goal.
+- Creatures walk instead of gliding in their combat pose, guards fall when the floor under them
+  sinks and burn on lava, lost attackers become guards again, and fliers hold their height to
+  where they are going.
+- Creatures find their ways as the original's do: the same order of search, at most sixteen
+  stored paths at once, leaps over pits on the way, and no sight line beyond ten tiles.
+- A creature that picks a lock opens the door on its next push, silently.
+- A creature dying while the game is saved finishes its death after loading, with its loot.
+
+Combat
+- A blow in the classic scheme finds its target as in the original, from the objects' extents in
+  the level data: it reaches a creature just round a corner and an open door's frame instead of
+  striking the wall.
+- A blow at a door, a chest or any other thing always lands, never critical, and does more from
+  the side or behind, as in the original.
+- A blow at a pillar, a bench, a shrine, a boulder or a gravestone hits it with the sound and the
+  flash, as in the original; a bench wears down to debris, the others take no harm.
+- A critical hit multiplies the base damage before the minimum of 2 is applied.
+- Toughness on a ring or a shield protects the body twice, not the hands.
+- A blocked blow sounds at the target: metal on metal or a dull thud.
+- A blow at a wall in reach sparks on the wall at the blow's height.
+- Every blow on a spiked door strikes the spike first, from creatures and spells too.
+- A door or portcullis does not close on a creature or a barrel in the doorway; it swings back
+  open, as it already did for the player.
+- A blow charges only after the wind-up; a blow released right then strikes with the weapon's
+  minimum. Bows, slings and crossbows do not charge: after the wind-up the crosshair appears,
+  and only a release after that shoots.
+- Where a blow lands follows the blow: a stab mostly hits the legs, an overhead bash often the
+  head, and the right column of the view raises the blow by a third. A creature's blow lands at
+  a random third of the player's height.
+- On easy, every missile does half damage to the player, a mage's fireball too, and the player's
+  own rebounding missile meets the armour.
+- A door spike takes a blow only after the door's sturdiness has reduced it; it lasts longer on
+  wooden doors and never breaks on metal ones.
+- A creature's miss, and its missile, start the combat music.
+- What lies in a smashed nightstand is lost. A smashed chest or barrel loses one lock; a second,
+  locked lock keeps it shut.
+- The player's blow passes over an ally when something else is in reach.
+- A creature's eyes compare its hit points with the average of its kind.
+- Boots and helmets held in the off hand cast their enchantment; dragon skin boots held there
+  protect from lava.
+- A torch or lantern at quality 1 no longer reads "burned out".
+- A critical that draws blood leaves a second splat; a missile hit sounds twice and bleeds at
+  its own height.
+- A thrown bow, sling or crossbow does its plain damage; only thrown ammunition is scaled.
+- A torch, wand or other non-weapon in the hand reaches only as far as the fist.
+
+Health and the character
+- Only blows and missiles shake the view; poison, falls, lava, traps, drowning and leeches do not.
+- A worn curse strikes whenever the inventory changes, a spell begins or ends, a light goes out,
+  on sleep, mantra and level arrival, after a crystal ball's vision and when the pole is taken up
+  or put to something - every time, with a flash - and never while standing still.
+  At 3 hit points or less it does nothing.
+- Poison is kept in a saved game, and hurts on the same tick as the mana roll.
+- Leeches always say they remove the poison and never shake the view.
+- The flasks have 12 steps and bubble only at the lower steps.
+- A Mana lesson at a trainer raises the maximum mana only at the next level or mantra.
+- A mantra at a shrine recomputes the maximum vitality from level and strength as well, and a
+  level-up no longer cuts the current vitality.
+- Every Lore lesson lets items be examined again, even when the skill does not rise.
+- Names can have up to 29 characters.
+- A skill picked a second time at character creation gains as in the original.
+- Swimming, lava, levitating and flying make the player louder, not only water.
+- Dreams 8 and 9 are remembered in a saved game.
+
+Doors
+- The player can open a spiked door; the spike comes off. (Checked in the original.)
+- Looking at a spiked door describes the door first, then says it is spiked.
+- A broken door can still be struck: closed, it bursts open at the next blow.
+- Looking at a key tells about its lock, looking at bones whose they are.
+- A door trap and the Gronk conversation open and close doors by the same rule, a moving door
+  included.
+- A creature walking through a door no longer sets off the trap meant for the player who
+  opens it, such as the storeroom doors on level 1.
+
+Containers and objects
+- Using a container in the world empties all of it, hidden things included. The pouch on
+  level 3 that summons a headless when picked up can be emptied first, and then nothing
+  comes. (Checked in the original.)
+- A bag burnt by fire stays where it lies, worn out, when it holds something valuable;
+  otherwise it spills and becomes debris. A destroyed chest or bag never smokes; a nightstand
+  burnt by fire smokes one time in four, as other burnt objects do.
+- New objects start in the original's condition: remains, bones, a caught fish, the pieces of
+  a broken boulder, the Key of Truth.
+- A fish, the Cup of Wonder, the silver tree's seed and the Key of Truth go into the hand,
+  else into the pack, else to the floor - never refused, never lost.
+- A trap that creates a creature copies only the first thing it carries.
+- A creature placed over water or lava by a trap or a spell never vanishes on placement.
+- An item put down lands where the original puts it within the tile.
+- Things scattered around a point (loot, a spilled barrel) follow the original's search for a
+  free spot; there is no random spot within a tile any more.
+- A respawned creature keeps its mark through a save, so no second one appears on top of it.
+- A creature the player summons is not temporary: it stays when the player leaves the level.
+- A creature from an ambush trap stays on its level when the player leaves; only wandering
+  creatures vanish then.
+- A pack without room says the original's "There is no place to put that.".
+- The anvil destroys an item on a bad failure only when the roll beats quality and skill, as in
+  the original, where it ate good items far too often before. Slings, bows and crossbows cannot
+  be repaired.
+- A rock hammer splits a boulder into several rocks of one or two sizes smaller; a small
+  boulder yields stones only half the time.
+- A thing dropped on a bag in a hand or shoulder slot goes into the bag. Bags opened inside each
+  other all have to have room.
+- Stacks cannot be combined; a combination makes a new object.
+- Spikes, keys, lockpicks, bones and the pole answer with the original's own words when used on
+  the wrong thing, carried things included.
+- A torch made from wood keeps the wood's condition; the seed of the silver tree is never
+  cleared away.
+- Charges show only on charged items, never on cursed ones. A bandit, a guard or a golem named in
+  lower case is called by that name when looked at.
+- Using a sceptre or ruby lying in the world spends one of its charges on its spell, as in the
+  original (the spell has nothing to act on there).
+- A glowing rock used from the floor joins the carried one; burning incense on the floor shows
+  its vision.
+- Fishing needs water no higher than the player. A window shows its picture only from close by.
+- Name Enchantment on a book, key or bones in the world reads its second line too.
+- On the flute the cup's appearance stands alone, a note is shorter and Alt raises the octave.
+
+Traps
+- A floor that a lever, a trap or the bullfrog raises or lowers carries the things lying on it
+  instead of leaving them in the air or in the floor.
+- The pit trap on level 3 no longer opens a hole in the wall; in UW1 it does nothing.
+- A Rune of Warding goes off once and is then gone. Casting it says "The Rune of Warding is
+  placed.", even facing a wall, and a monster wandering up while the player sleeps does not set
+  it off.
+- Poison resistance protects from poison traps and poisoned potions.
+- The fireball trap on level 5 flies flat along its own heading instead of homing in.
+- Only buttons and switches click when pressed, with or without anything attached.
+- A one-time ambush always appears; it failed once in 64 before.
+- The inventory check on level 7 does not count the item held on the pointer.
+- The troll of level 7 is found by his conversation, and walks home after talking.
+- The bullfrog puzzle's tiles rise only to height 13.
+- Disarming a poisoned potion names a "damage trap".
+- A used-up trap inside a door is removed from it.
+
+Trading and conversations
+- A partner hands nothing over while the player holds something on the pointer. With the
+  trade area full, the item goes down at the partner's feet.
+- A conversation that puts an item at the player's feet now does so.
+- In the classic trade, "That is too heavy to take." appears on the parchment.
+- A partner with more goods than the four trade slots passes over each further item five times
+  in eight, as in the original (five in seven before). He keeps his first weapon or bag, looks
+  at up to forty things, and his goods leave his pack while they are laid out.
+- An accepted offer leaves the player's worthless or disliked things in his slot, and coins paid
+  join the partner's coin pile.
+- The player's own trade slot: like piles join and keep the slot's quality, a bag in the slot
+  takes nothing, and taking an offer back checks the weight.
+- A partner naming an item for repair or appraisal says its plain name ("this longsword"), and
+  his price carries his own guesswork.
+- A conversation ending on the partner's line, or leaving him hostile, waits for a key.
+- Typed answers are kept as typed, up to 50 characters.
+- A conversation changes the attitude of the one creature it names, or of the partner's race
+  around him; loners keep theirs. A refused demand makes the partner attack as before, and a
+  guard talked to returns to guarding.
+- A hostile creature started by a trap answers "You get no response.".
+- In the classic scheme the number keys choose answers 1 to 4, as in the original.
+
+World
+- Armageddon frees every object slot of the level.
+- Blood, smoke, splashes and flashes need a free object slot, as in the original, and show
+  over water and lava too.
+- A planted silver tree looks right and stays animated after loading, in the original as well.
+- The flash of a blow on a chest, barrel or sack sits on the object at the blow's height.
+- The silver tree and a fountain's water cannot be reached through to take what is behind
+  them.
+- The compass needle turns at the original's points.
+- A lit taper stays lit when put down or thrown.
+- Stacks join by quality band and average their quality.
+- The Void is drawn unlit in the Palette mode.
+- Arriving by stairs, trap, Gate Travel or the silver tree on a tile that is taken puts the
+  player on the nearest free tile.
+- Roaming Sight and the crystal ball's vision see as in good light.
+- Map notes: at most 100 a level, they end at the parchment's edge, and the eraser takes the
+  nearest note.
+- The compass's time, mantra results, Track and repair lines end with a full stop.
+
+### Added
+- The menu bar and its dialogs can be used with the keyboard: F10 shows the bar, the arrow keys
+  move, Enter or Space chooses, Escape or F10 leaves. The modern game menu takes the arrow keys
+  too.
+- [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md): where the game deliberately differs from the original.
+- Controls: the modern scheme's mouse look can be inverted up and down, as the gamepad's stick
+  already could (idea and first version by krispit-dev).
+- Motion: the view while swimming follows the original (it jitters, more when swimming fast); a
+  switch beside the head bob sets it to Original, Smooth (the gentle sway of before, with a
+  strength slider) or Off.
+
+### Fixed
+- A Rune of Warding laid in a save of an earlier version is set off by creatures again.
+- Classic conversation: a long player name is no longer cut off above the portrait.
+- Classic scheme: an item being used on something replaces the pointer; the normal pointer no
+  longer shows beside it.
+- Using an item on something out of reach says "You cannot reach that.", as the original does.
+- Modern scheme: Escape during Roaming Sight ends the spell; the view no longer comes back a
+  moment later.
+- The player's arrow, bolt or spell missile leaves one blood splat on a creature, not two.
+- An explosion no longer flashes on everything it damages (the original shows hit effects only
+  for direct hits), and a missile's flash on an object appears at the missile's height.
+- Modern scheme: looking at a trapped object can find the trap and offer to disarm it again.
+- Cancelling a dream or another sequence with Escape no longer opens the game menu as well.
+- Modern Character tab: a long name no longer runs into the class line below 100 % interface
+  scale, and no longer flickers at some window sizes. When it does not fit, the class line drops
+  the word "level", then the class name, and only then is the name shortened with "...".
+- Levitate and Fly gave no hop, the quake trap never threw the player up, and sleeping did not
+  see levitation or water walking: these looked for the player's movement in the wrong place.
+- After restoring a game, the first rune clicked empties the hollow again when a cast came
+  before, as in the original.
+- A save keeps how many runes lie in the hollow; in the original the next rune overwrote the
+  first one of a hollow loaded from our save.
+- Palette mode: the flash of a blow on a door flickered against the door.
+- A creature summoned or created during play stood frozen in the original after loading our
+  save: it was missing from the level's list of moving creatures. Saving again repairs an
+  older save.
+- Linux: the menu bar and its dialogs ignored mouse clicks in borderless fullscreen below the
+  desktop's resolution (for example 1920x1080 on a 4K screen).
+- The options open in the Void; only saving is refused there, as in the original.
+- Switching the control scheme with a menu open left the game stuck.
+- Remastered: a creature behind a door could show through the door's lintel and frame.
+- The modern scheme's anvil sequence showed only its frame every second time.
+- A light lit from a stack could carry an unrelated object along into the save.
+- A chain of traps that counts down was saved with a wrong count after the eighth step.
+- The dragged item follows the pointer after switching from the modern to the classic scheme.
+- The setup bar's dialogs open one at a time.
+- Using an item from the modern action bar in Classic Wide aims at the middle of the view.
+- Landing and splash sounds are as loud as the original makes them for the object's weight.
+- The modern crosshair names a single item in the singular, a stack in the plural.
+- Modern conversation: a number typed into the split box no longer chooses an answer, and Q
+  looks at the thing under the pointer in the bags during a conversation.
+
+### Changed
+- A large code cleanup (phases 0 to 2 of [Docs/CLEANUP-PLAN.md](Docs/CLEANUP-PLAN.md)): rules
+  that existed several times now have one home, and the self-check covers them. Each game is
+  its own session, so nothing of one game carries over into the next after New Game or Load,
+  and its random numbers come from the original's own generator.
