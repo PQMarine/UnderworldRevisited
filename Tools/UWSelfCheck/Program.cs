@@ -4447,7 +4447,9 @@ namespace UnderworldRevisited.Tools
             fExpectInt("worn: a bow leaves the Unarmed skill", (int)lOStatus.WeaponSkill, (int)UWPlayerData.Skill.Unarmed);
 
             // The enchantments of class 0xC: leggings with minor 2 give protection 3 on the
-            // legs, a ring with minor 0x0A (bit 3 set) gives armour 3 on body AND hands.
+            // legs, a ring with minor 0x0A (bit 3 set) gives armour 3 TWICE on the body and none
+            // on the hands - player_affected_by adds it to armour[slots[0]] in both turns of its
+            // loop (Exhumed audit row 12, 2026-10-11; until then 3 on body and hands each).
             lOWorn.Enchant(UWArmorItemMap.BodySlot.Legs, 0xC, 0x2);
             lOWorn.Enchant(UWArmorItemMap.BodySlot.LeftRing, 0x36, 0xC, 0xA);
 
@@ -4457,10 +4459,10 @@ namespace UnderworldRevisited.Tools
                 lOStatus.Protection[UWArmourProtection.PartLegs], 3);
             fExpectInt("enchantment: they do not protect the head",
                 lOStatus.Protection[UWArmourProtection.PartHead], 0);
-            fExpectInt("enchantment: a ring with bit 3 armours the body by 3",
-                lOStatus.Armour[UWArmourProtection.PartBody], 9);
-            fExpectInt("enchantment: and the hands by the same 3",
-                lOStatus.Armour[UWArmourProtection.PartHands], 10);
+            fExpectInt("enchantment: a ring with bit 3 armours the body by 3 twice",
+                lOStatus.Armour[UWArmourProtection.PartBody], 12);
+            fExpectInt("enchantment: and the hands not at all",
+                lOStatus.Armour[UWArmourProtection.PartHands], 7);
 
             // THE SWITCH for the original's dead resistance nibble, asked for by the user on
             // 2026-09-20 (UWArmourProtection.ResistBlowsAddsArmour, UWSettings of the same

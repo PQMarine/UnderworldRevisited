@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UWDataImport;
@@ -162,6 +163,42 @@ public class UWModernHud : MonoBehaviour
 
     private bool[] mbGemMask;
 
+    /// <summary>The flasks standing free (UWModernLayout.IsFlasksApart): which pixels to keep, and
+    /// the keyed copies.</summary>
+    private bool[] mbFreeFlaskMask;
+
+    private readonly System.Collections.Generic.Dictionary<Texture2D, Texture2D> mOKeyedFree
+        = new System.Collections.Generic.Dictionary<Texture2D, Texture2D>();
+
+    /// <summary>The stone shelf deco panel (UWModernLayout.IsStoneShelfShown), its picture and the
+    /// width it was built at.</summary>
+    private RawImage mOStoneShelf;
+
+    private Texture2D mOStoneShelfTexture;
+
+    private string msStoneShelfKey;
+
+    /// <summary>The stone shelf's default width in its own pixels: as wide as the flasks' shelf.</summary>
+    public const int StoneShelfDefaultWidth = 81;
+
+    /// <summary>The stone shelf's width as set, in its own pixels.</summary>
+    public static int StoneShelfWidth => UWModernClassicPlus.IsActive ? UWModernClassicPlus.StoneShelfWidth
+        : UWUserSettings.ModernStoneShelfWidth > 0 ? UWUserSettings.ModernStoneShelfWidth : StoneShelfDefaultWidth;
+
+    /// <summary>The widest stone shelf: the whole screen at its size (per user, 2026-10-10: "one
+    /// should be able to pull the shelf across the whole screen"; before, 320).</summary>
+    public static int StoneShelfMaxWidth => Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
+        Mathf.CeilToInt(Screen.width / Mathf.Max(0.01f, PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.StoneShelf) * UWModernHudArt.PixelAspectX)));
+
+    /// <summary>The power gem apart (UWModernLayout.IsGemApart): its stand, and where the gem lies on it.</summary>
+    private RawImage mOGemStand;
+
+    private Texture2D mOGemStandTexture;
+
+    private Vector2Int mOGemOnStand;
+
+    private bool mbGemApart;
+
     /// <summary>The keyed copies of the flask and gem pictures, by the picture UWCharacter
     /// shows (it caches those itself, so this stays small).</summary>
     private readonly System.Collections.Generic.Dictionary<Texture2D, Texture2D> mOKeyed
@@ -193,6 +230,32 @@ public class UWModernHud : MonoBehaviour
     private static readonly Color msHeadingHover = new Color(0.925f, 0.77f, 0.44f, 1f);
 
     private Image mOMessageBack;
+
+    /// <summary>
+    /// THE BACKS BEHIND THE PARTS (per user, 2026-10-09: "the back behind" for the parts with art of
+    /// their own): the heading's strip, the vitals' shelf, the messages and the active spells keep
+    /// their art, a generated back (UWModernBacks) lies under it, the part's rect and a few of its
+    /// pixels more all round. For the messages it stands in the dark box's place. The compass draws
+    /// its own (UWModernCompass); the leather parts take theirs in the leather's place. The power
+    /// gem's stand joined on 2026-10-10 (per user: the background could be chosen for the then
+    /// movement arrows but did not show), the flasks apart the same day; the stone shelf, a deco
+    /// panel itself, offers none (UWModernLayoutEditor).
+    /// </summary>
+    private static readonly UWModernLayout.ElementEnum[] mePartsWithBackBehind =
+    {
+        UWModernLayout.ElementEnum.Heading, UWModernLayout.ElementEnum.Vitals, UWModernLayout.ElementEnum.Messages,
+        UWModernLayout.ElementEnum.Spells, UWModernLayout.ElementEnum.PowerGem,
+        UWModernLayout.ElementEnum.HealthFlask, UWModernLayout.ElementEnum.ManaFlask, UWModernLayout.ElementEnum.RuneHollow
+    };
+
+    /// <summary>The room around a part's rect, in its own pixels.</summary>
+    private const int PartBackPad = 3;
+
+    private readonly RawImage[] mOPartBacks = new RawImage[8];
+
+    private readonly Texture2D[] mOPartBackTextures = new Texture2D[8];
+
+    private readonly string[] msPartBackKeys = new string[8];
 
     private Text mOMessages;
 
@@ -266,6 +329,9 @@ public class UWModernHud : MonoBehaviour
 
         foreach (Texture2D lOOld in mOKeyed.Values)
             Destroy(lOOld);
+
+        foreach (Texture2D lOOld in mOKeyedFree.Values)
+            Destroy(lOOld);
     }
 
     private void Start()
@@ -294,11 +360,19 @@ public class UWModernHud : MonoBehaviour
 
     private void Update()
     {
+        fStepMenuByPad();
+
         // The right button switches the pointer (UWModernPointer) - not under the menu.
         UWModernPointer.Tick(IsShowing && !IsOpen && !UWControls.IsTextEntryActive);
 
         if (mOSpellIcons != null)
             fUpdateSpellClicks();
+
+        fUpdateMoveArrowClicks();
+        fUpdateRuneHollowClicks();
+
+        if (mOStats != null && IsShowing && !IsOpen && !UWControls.IsTextEntryActive && mOScheme != null)
+            mOStats.UpdateClicks(mOScheme.Controls);
     }
 
     private void LateUpdate()
@@ -317,6 +391,20 @@ public class UWModernHud : MonoBehaviour
             if (mOCanvas != null)
                 mOCanvas.enabled = false;
 
+            // The original's character page stays for the trade in a conversation (per user,
+            // 2026-10-10: it was not to be seen there); its canvas is its own.
+            if (mOInventoryPage != null)
+            {
+                if (IsTalking)
+                    mOInventoryPage.Update(miPixelScale);
+                else
+                    mOInventoryPage.Hide();
+            }
+
+            // The classic frame stays in a conversation, as the original's does.
+            if (mOClassicFrame != null)
+                mOClassicFrame.Tick(IsTalking);
+
             return;
         }
 
@@ -326,17 +414,35 @@ public class UWModernHud : MonoBehaviour
         mOCanvas.enabled = true;
 
         fApplyPixelScale();
+
+        if (mOClassicFrame != null)
+            mOClassicFrame.Tick(true);
+
         fUpdateWeapon();
         fUpdateVitals();
         fUpdateSpells();
         fPlaceSpells();
         fUpdateHeading();
         fUpdateStrip();
+        fUpdateCompass();
+        fUpdateRuneHollow();
+
+        if (mOStats != null)
+            mOStats.Update(miPixelScale);
+
+        if (mOInventoryPage != null)
+            mOInventoryPage.Update(miPixelScale);
+
         fUpdateMessages();
         fPlaceMessages();
+        fUpdateStoneShelf();
+        fUpdateBacks();
         fUpdatePicture();
         fUpdateTarget();
     }
+
+    /// <summary>The Classic Wide frame (UWModernClassicFrame), on a canvas of its own under this one.</summary>
+    private UWModernClassicFrame mOClassicFrame;
 
     private void fBuild()
     {
@@ -353,11 +459,32 @@ public class UWModernHud : MonoBehaviour
 
         mOWeapon = fCreateRawImage(lORoot.transform, "Weapon", new Vector2(0f, 0f), new Vector2(0f, 1f));
 
+        // The stone shelf deco panel, under everything else, so things can stand on it.
+        mOStoneShelf = fCreateRawImage(lORoot.transform, "Stone shelf", new Vector2(0f, 0f), new Vector2(0f, 0f));
+        UWPixelArtUI.Apply(mOStoneShelf);
+
+        // The backs behind the parts drawn here (fUpdateBacks), before their art so they lie under it.
+        for (int liAt = 0; liAt < mePartsWithBackBehind.Length; liAt++)
+        {
+            mOPartBacks[liAt] = fCreateRawImage(lORoot.transform, "Back " + mePartsWithBackBehind[liAt], Vector2.zero, Vector2.zero);
+            UWPixelArtUI.Apply(mOPartBacks[liAt]);
+        }
+
         mOMessageBack = fCreateImage(lORoot.transform, "Message back", new Vector2(0f, 0f), new Vector2(0f, 0f),
             new Color(0.05f, 0.05f, 0.06f, 0.55f));
         mOMessages = fCreateText(lORoot.transform, "Messages", new Vector2(0f, 0f), new Vector2(0f, 0f), TextAnchor.LowerLeft);
 
         mOShelf = fCreateRawImage(lORoot.transform, "Shelf", new Vector2(0f, 0f), new Vector2(0f, 0f));
+        mOGemStand = fCreateRawImage(lORoot.transform, "Power gem stand", new Vector2(0f, 0f), new Vector2(0f, 0f));
+        UWPixelArtUI.Apply(mOGemStand);
+        mORuneHollow = fCreateRawImage(lORoot.transform, "Rune hollow", new Vector2(0f, 0f), new Vector2(0f, 0f));
+        UWPixelArtUI.Apply(mORuneHollow);
+
+        for (int liAt = 0; liAt < mORuneHollowRunes.Length; liAt++)
+        {
+            mORuneHollowRunes[liAt] = fCreateRawImage(lORoot.transform, "Prepared rune", new Vector2(0f, 0f), new Vector2(0f, 0f));
+            UWIconPalette.Apply(mORuneHollowRunes[liAt]);
+        }
         mOHealthFlask = fCreateRawImage(lORoot.transform, "Vitality", new Vector2(0f, 0f), new Vector2(0f, 0f));
         mOPowerGem = fCreateRawImage(lORoot.transform, "Power gem", new Vector2(0f, 0f), new Vector2(0f, 0f));
         mOManaFlask = fCreateRawImage(lORoot.transform, "Mana", new Vector2(0f, 0f), new Vector2(0f, 0f));
@@ -387,6 +514,22 @@ public class UWModernHud : MonoBehaviour
         mOFoeState = fCreateText(lORoot.transform, "Foe state", new Vector2(0.5f, 1f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
 
         mOHeading = fCreateText(lORoot.transform, "Heading", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), TextAnchor.MiddleCenter);
+
+        // The original's compass as an element of its own (UWModernCompass), and its message
+        // scroll in the messages' place (UWModernScroll).
+        mOCompass = new UWModernCompass(mOUi);
+        mOCompass.Build(lORoot.transform);
+        mOStats = new UWModernStatsPage(mOUi);
+        mOStats.Build(lORoot.transform);
+        mOInventoryPage = new UWModernInventoryPage(mOUi);
+        mOInventoryPage.Build(transform);
+        mOScroll = new UWModernScroll(mOUi);
+        mOScroll.Build(lORoot.transform);
+
+        GameObject lOFrame = new GameObject("Classic wide");
+        lOFrame.transform.SetParent(transform, false);
+        mOClassicFrame = lOFrame.AddComponent<UWModernClassicFrame>();
+        mOClassicFrame.Init(mOUi);
 
         mOCrosshair = fCreateImage(lORoot.transform, "Crosshair", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             new Color(1f, 1f, 1f, 0.85f));
@@ -454,7 +597,8 @@ public class UWModernHud : MonoBehaviour
         lORect.pivot = pOPivot;
 
         Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = new Color(0.86f, 0.86f, 0.84f);
         lOText.raycastTarget = false;
@@ -523,17 +667,38 @@ public class UWModernHud : MonoBehaviour
         }
 
         float lfScale = Screen.height / ViewportHeight * mfWeaponScale;
+        float lfCentreX = Screen.width * 0.5f;
+        float lfBottom = 0f;
+
+        // CLASSIC WIDE: the weapon at the frame's pixel size, its offsets from row 131 as the
+        // classic scheme's (UWGameUI: wTopOffset), the view's middle across; it lies under the
+        // frame (UWModernClassicFrame.WeaponLayer), which covers what reaches below the hole (per
+        // user's screenshot, 2026-10-10: it sat too high at the hole's bottom).
+        UWModernClassicFrame lOFrame = UWModernClassicFrame.Instance;
+        Transform lOParent = UWModernClassicFrame.IsActive && lOFrame != null && lOFrame.WeaponLayer != null
+            ? lOFrame.WeaponLayer : mOCanvas.transform;
+
+        if (mOWeapon.transform.parent != lOParent)
+            mOWeapon.transform.SetParent(lOParent, false);
+
+        if (UWModernClassicFrame.IsActive)
+        {
+            lfScale = UWModernClassicFrame.RowScale;
+            lfCentreX = UWModernClassicFrame.Hole.center.x;
+            lfBottom = Screen.height - (UWModernClassicFrame.WeaponRow * UWModernClassicFrame.RowScale);
+        }
+
         WeaponCoordinate lOOffset = mOCharacter.GetWeaponOffset();
-        float lfLeft = (Screen.width * 0.5f)
-            + ((ViewportLeft + lOOffset.X + mOUi.GetWeaponSway() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale);
-        float lfTop = (lOOffset.Y - (lOTexture.height * (1f - mOCharacter.CurrentReadyWeaponTime))) * lfScale;
+        float lfLeft = lfCentreX
+            + ((ViewportLeft + lOOffset.X + mOUi.GetWeaponSway() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale * UWModernHudArt.PixelAspectX);
+        float lfTop = lfBottom + ((lOOffset.Y - (lOTexture.height * (1f - mOCharacter.CurrentReadyWeaponTime))) * lfScale);
 
         mOWeapon.texture = lOTexture;
         mOWeapon.enabled = true;
 
         RectTransform lORect = (RectTransform)mOWeapon.transform;
         lORect.anchoredPosition = new Vector2(lfLeft, lfTop);
-        lORect.sizeDelta = new Vector2(lOTexture.width * lfScale, lOTexture.height * lfScale);
+        lORect.sizeDelta = new Vector2(lOTexture.width * lfScale * UWModernHudArt.PixelAspectX, lOTexture.height * lfScale);
     }
 
     /// <summary>The flasks with their values and the power gem between them, bottom left on
@@ -548,29 +713,56 @@ public class UWModernHud : MonoBehaviour
         UWModernHudArt.ShelfLayout lOLayout = mOShelfLayout;
         int liTextSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * UWModernLayout.Scale(UWModernLayout.ElementEnum.Vitals)));
         float lfTextHeight = liTextSize * 1.5f;
-        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, new Rect(lfMargin, lfMargin, lOLayout.Width * liScale,
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, new Rect(lfMargin, lfMargin, lOLayout.Width * liScale * UWModernHudArt.PixelAspectX,
             ((lOLayout.Height + 1) * liScale) + lfTextHeight));
         Vector2 lOOrigin = lOPlaced.position;
+        bool lbFlasksApart = UWModernLayout.IsFlasksApart;
 
-        UWModernLayout.Report(UWModernLayout.ElementEnum.Vitals, lOPlaced);
+        // The flasks apart: no shelf, and the vitals' place only gives the flasks' default places.
+        if (!lbFlasksApart)
+            UWModernLayout.Report(UWModernLayout.ElementEnum.Vitals, lOPlaced);
 
         mOShelf.texture = mOShelfTexture;
-        mOShelf.enabled = mOShelfTexture != null;
+        mOShelf.enabled = mOShelfTexture != null && !lbFlasksApart;
 
         RectTransform lOShelfRect = (RectTransform)mOShelf.transform;
         lOShelfRect.anchoredPosition = lOOrigin;
-        lOShelfRect.sizeDelta = new Vector2(lOLayout.Width * liScale, lOLayout.Height * liScale);
+        lOShelfRect.sizeDelta = new Vector2(lOLayout.Width * liScale * UWModernHudArt.PixelAspectX, lOLayout.Height * liScale);
 
-        fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
-        fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
-        fPlaceOnShelf(mOManaFlask, fKeyed(mOCharacter.ManaFlaskTeture, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
+        if (lbFlasksApart)
+        {
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOCharacter.HealthFlaskTeture, mOHealthText,
+                Mathf.RoundToInt(mOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.MaxHP),
+                new Vector2(lOOrigin.x + (lOLayout.HealthFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOCharacter.ManaFlaskTeture, mOManaText,
+                Mathf.RoundToInt(mOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.MaxMana),
+                new Vector2(lOOrigin.x + (lOLayout.ManaFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
+        }
+        else
+        {
+            fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
+            fPlaceOnShelf(mOManaFlask, fKeyed(mOCharacter.ManaFlaskTeture, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
+        }
 
+        if (mbGemApart)
+            fUpdateGemStand(lOPlaced);
+        else
+        {
+            mOGemStand.enabled = false;
+            fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
+        }
+
+        if (lbFlasksApart)
+            return;
+
+        mOHealthText.enabled = true;
+        mOManaText.enabled = true;
         mOHealthText.fontSize = liTextSize;
         mOManaText.fontSize = liTextSize;
 
         float lfTextY = lOOrigin.y + ((lOLayout.Height + 1) * liScale);
-        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.HealthFlaskTeture) * 0.5f)) * liScale);
-        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.ManaFlaskTeture) * 0.5f)) * liScale);
+        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
 
         mOHealthText.text = Mathf.RoundToInt(mOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.MaxHP);
         mOManaText.text = Mathf.RoundToInt(mOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.MaxMana);
@@ -581,52 +773,189 @@ public class UWModernHud : MonoBehaviour
         ((RectTransform)mOManaText.transform).sizeDelta = new Vector2(120f, mOManaText.fontSize * 1.5f);
     }
 
-    /// <summary>The shelf and the masks, built once and again when the colour help changes.</summary>
+    /// <summary>
+    /// A FLASK APART (Classic+, per user 2026-10-10: "the flasks freed one by one"): an element of
+    /// its own with the flask standing free on its gold foot (UWHudArt.BuildFreeFlaskMask) and its
+    /// value above it, as on the shelf; by default where the shelf would hold it (pODefault, its
+    /// bottom left).
+    /// </summary>
+    private void fUpdateFlaskApart(UWModernLayout.ElementEnum peElement, RawImage pOImage, Texture2D pOSource, Text pOText,
+        string psValue, Vector2 pODefault)
+    {
+        Texture2D lOFlask = fKeyed(pOSource, mbFreeFlaskMask, mOKeyedFree);
+
+        if (lOFlask == null)
+        {
+            pOImage.enabled = false;
+            pOText.enabled = false;
+            return;
+        }
+
+        float lfScale = miPixelScale * UWModernLayout.Scale(peElement);
+        int liTextSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * UWModernLayout.Scale(peElement)));
+        float lfFlaskWidth = lOFlask.width * lfScale * UWModernHudArt.PixelAspectX;
+        float lfFlaskHeight = lOFlask.height * lfScale;
+        Rect lOPlaced = UWModernLayout.Place(peElement,
+            new Rect(pODefault.x, pODefault.y, lfFlaskWidth, lfFlaskHeight + lfScale + (liTextSize * 1.5f)));
+
+        UWModernLayout.Report(peElement, lOPlaced);
+
+        pOImage.texture = lOFlask;
+        pOImage.enabled = true;
+
+        RectTransform lORect = (RectTransform)pOImage.transform;
+        lORect.anchoredPosition = lOPlaced.position;
+        lORect.sizeDelta = new Vector2(lfFlaskWidth, lfFlaskHeight);
+
+        // No values in Classic Wide: the original shows none (the stats page has them).
+        pOText.enabled = !UWModernClassicFrame.IsActive;
+        pOText.fontSize = liTextSize;
+        pOText.text = psValue;
+        ((RectTransform)pOText.transform).anchoredPosition = new Vector2(lOPlaced.center.x, lOPlaced.y + lfFlaskHeight + lfScale);
+        ((RectTransform)pOText.transform).sizeDelta = new Vector2(120f, liTextSize * 1.5f);
+    }
+
+    /// <summary>
+    /// THE STONE SHELF, A DECO PANEL (per user, 2026-10-09: "the stone shelf freely placed and
+    /// sized, without a function - one can put the power gem or the flasks on it"): the original's
+    /// ledge at the width chosen in the inspector (UWUserSettings.ModernStoneShelfWidth), placed and
+    /// sized like any part, drawn under all of them; by default bottom left above the shelf.
+    /// </summary>
+    private void fUpdateStoneShelf()
+    {
+        if (!UWModernLayout.IsStoneShelfShown)
+        {
+            mOStoneShelf.enabled = false;
+            return;
+        }
+
+        int liWidth = Mathf.Clamp(StoneShelfWidth, UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, StoneShelfMaxWidth);
+        string lsKey = liWidth + "/" + UWColourVision.Version;
+
+        if (mOStoneShelfTexture == null || msStoneShelfKey != lsKey)
+        {
+            if (mOStoneShelfTexture != null)
+                Destroy(mOStoneShelfTexture);
+
+            mOStoneShelfTexture = UWModernHudArt.BuildStoneShelf(mOUi.mOUWData.Textures, liWidth, mOUi.TextureFilterMode);
+            msStoneShelfKey = lsKey;
+        }
+
+        float liScale = miPixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.StoneShelf);
+        float lfWidth = mOStoneShelfTexture.width * liScale * UWModernHudArt.PixelAspectX;
+        float lfHeight = mOStoneShelfTexture.height * liScale;
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.StoneShelf,
+            new Rect(ShelfMargin * miPixelScale, Screen.height * 0.35f, lfWidth, lfHeight));
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.StoneShelf, lOPlaced);
+
+        mOStoneShelf.texture = mOStoneShelfTexture;
+        mOStoneShelf.enabled = true;
+        ((RectTransform)mOStoneShelf.transform).anchoredPosition = lOPlaced.position;
+        ((RectTransform)mOStoneShelf.transform).sizeDelta = lOPlaced.size;
+    }
+
+    /// <summary>
+    /// THE POWER GEM APART (Classic+, per user, 2026-10-09: "in the original the gem stands alone" -
+    /// we had put it between the flasks): its own element (UWModernLayout.ElementEnum.PowerGem) on
+    /// the original's stone stand, by default right of the shelf, the gem picture (inactive,
+    /// charging, full) laid on the stand as on the shelf.
+    /// </summary>
+    private void fUpdateGemStand(Rect pOVitals)
+    {
+        float liScale = miPixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.PowerGem);
+        float lfWidth = mOGemStandTexture.width * liScale * UWModernHudArt.PixelAspectX;
+        float lfHeight = mOGemStandTexture.height * liScale;
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.PowerGem,
+            new Rect(pOVitals.xMax + (ShelfMargin * miPixelScale), pOVitals.y, lfWidth, lfHeight));
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.PowerGem, lOPlaced);
+
+        mOGemStand.texture = mOGemStandTexture;
+        mOGemStand.enabled = true;
+        ((RectTransform)mOGemStand.transform).anchoredPosition = lOPlaced.position;
+        ((RectTransform)mOGemStand.transform).sizeDelta = lOPlaced.size;
+
+        Texture2D lOGem = fKeyed(mOCharacter.PowerGemTeture, mbGemMask);
+
+        if (lOGem == null)
+        {
+            mOPowerGem.enabled = false;
+            return;
+        }
+
+        mOPowerGem.texture = lOGem;
+        mOPowerGem.enabled = true;
+
+        RectTransform lORect = (RectTransform)mOPowerGem.transform;
+        lORect.anchoredPosition = new Vector2(lOPlaced.x + (mOGemOnStand.x * liScale * UWModernHudArt.PixelAspectX),
+            lOPlaced.y + ((mOGemStandTexture.height - mOGemOnStand.y - lOGem.height) * liScale));
+        lORect.sizeDelta = new Vector2(lOGem.width * liScale * UWModernHudArt.PixelAspectX, lOGem.height * liScale);
+    }
+
+    /// <summary>The shelf and the masks, built once and again when the colour help changes or the
+    /// gem goes apart or back.</summary>
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOShelfTexture != null)
+        bool lbGemApart = UWModernLayout.IsGemApart;
+
+        if (miArtVersion == UWColourVision.Version && mOShelfTexture != null && mbGemApart == lbGemApart)
             return;
 
         miArtVersion = UWColourVision.Version;
+        mbGemApart = lbGemApart;
 
         if (mOShelfTexture != null)
             Destroy(mOShelfTexture);
+
+        if (mOGemStandTexture != null)
+            Destroy(mOGemStandTexture);
 
         foreach (Texture2D lOOld in mOKeyed.Values)
             Destroy(lOOld);
 
         mOKeyed.Clear();
 
+        foreach (Texture2D lOOld in mOKeyedFree.Values)
+            Destroy(lOOld);
+
+        mOKeyedFree.Clear();
+
         DataImport lOData = mOUi.mOUWData;
 
-        mOShelfTexture = UWModernHudArt.BuildShelf(lOData.Textures, mOUi.TextureFilterMode, out mOShelfLayout);
+        mOShelfTexture = UWModernHudArt.BuildShelf(lOData.Textures, mOUi.TextureFilterMode, out mOShelfLayout, mbGemApart);
+        mOGemStandTexture = UWModernHudArt.BuildGemStand(lOData.Textures, mOUi.TextureFilterMode, out mOGemOnStand);
         mbFlaskMask = UWModernHudArt.BuildFlaskMask(lOData.Flasks);
+        mbFreeFlaskMask = UWModernHudArt.BuildFreeFlaskMask(lOData.Flasks);
         mbGemMask = UWModernHudArt.BuildGemMask(lOData.PowerGem);
     }
 
-    /// <summary>A flask or gem picture with its backdrop keyed out, kept per picture.</summary>
-    private Texture2D fKeyed(Texture2D pOSource, bool[] pbMask)
+    /// <summary>A flask or gem picture with its backdrop keyed out, kept per picture (in
+    /// pOCache, mOKeyed unless given - the free flasks keep theirs apart).</summary>
+    private Texture2D fKeyed(Texture2D pOSource, bool[] pbMask,
+        System.Collections.Generic.Dictionary<Texture2D, Texture2D> pOCache = null)
     {
         if (pOSource == null)
             return null;
 
+        System.Collections.Generic.Dictionary<Texture2D, Texture2D> lOCache = pOCache ?? mOKeyed;
         Texture2D lOKeyed;
 
-        if (mOKeyed.TryGetValue(pOSource, out lOKeyed) && lOKeyed != null)
+        if (lOCache.TryGetValue(pOSource, out lOKeyed) && lOKeyed != null)
             return lOKeyed;
 
         // UWCharacter rebuilds its pictures when the colour help changes, so old keys die off;
         // a bound keeps them from piling up in between.
-        if (mOKeyed.Count > 256)
+        if (lOCache.Count > 256)
         {
-            foreach (Texture2D lOOld in mOKeyed.Values)
+            foreach (Texture2D lOOld in lOCache.Values)
                 Destroy(lOOld);
 
-            mOKeyed.Clear();
+            lOCache.Clear();
         }
 
         lOKeyed = UWModernHudArt.ApplyMask(pOSource, pbMask);
-        mOKeyed[pOSource] = lOKeyed;
+        lOCache[pOSource] = lOKeyed;
 
         return lOKeyed;
     }
@@ -645,9 +974,9 @@ public class UWModernHud : MonoBehaviour
         pOImage.enabled = true;
 
         RectTransform lORect = (RectTransform)pOImage.transform;
-        lORect.anchoredPosition = new Vector2(pOOrigin.x + (pOAt.x * liScale),
+        lORect.anchoredPosition = new Vector2(pOOrigin.x + (pOAt.x * liScale * UWModernHudArt.PixelAspectX),
             pOOrigin.y + ((mOShelfLayout.Height - pOAt.y - pOTexture.height) * liScale));
-        lORect.sizeDelta = new Vector2(pOTexture.width * liScale, pOTexture.height * liScale);
+        lORect.sizeDelta = new Vector2(pOTexture.width * liScale * UWModernHudArt.PixelAspectX, pOTexture.height * liScale);
     }
 
     private static float fWidth(Texture2D pOTexture) => pOTexture != null ? pOTexture.width : 0f;
@@ -723,7 +1052,7 @@ public class UWModernHud : MonoBehaviour
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
         {
             if (mOSpellIcons[liSlot].enabled && mOSpellTextures[liSlot] != null)
-                lfWidth += (mOSpellTextures[liSlot].width + 3) * liScale;
+                lfWidth += ((mOSpellTextures[liSlot].width * UWModernHudArt.PixelAspectX) + 3) * liScale;
         }
 
         // Its own place (UWModernLayout): right-aligned at its anchor, as wide as the spells - three
@@ -754,12 +1083,12 @@ public class UWModernHud : MonoBehaviour
                 continue;
             }
 
-            Rect lORect = new Rect(lfX, lfTop - (lOTexture.height * liScale), lOTexture.width * liScale, lOTexture.height * liScale);
+            Rect lORect = new Rect(lfX, lfTop - (lOTexture.height * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
 
             mOSpellRects[liSlot] = lORect;
             ((RectTransform)lOImage.transform).anchoredPosition = lORect.position;
             ((RectTransform)lOImage.transform).sizeDelta = lORect.size;
-            lfX += (lOTexture.width + 3) * liScale;
+            lfX += ((lOTexture.width * UWModernHudArt.PixelAspectX) + 3) * liScale;
         }
 
         // The hover text below the row, right-aligned to it.
@@ -778,7 +1107,11 @@ public class UWModernHud : MonoBehaviour
     /// ends it there instead of switching the pointer).</summary>
     public bool IsOverSpellIcons(Vector2 pOPointer)
     {
-        return fSpellAt(pOPointer) >= 0 || mOHeadingRect.Contains(pOPointer);
+        return fSpellAt(pOPointer) >= 0 || mOHeadingRect.Contains(pOPointer)
+            || (mOCompass != null && mOCompass.ScreenRect.Contains(pOPointer))
+            || mORuneHollowRect.Contains(pOPointer)
+            || (mOStats != null && mOStats.ScreenRect.Contains(pOPointer))
+            || (mOInventoryPage != null && mOInventoryPage.Contains(pOPointer));
     }
 
     private int fSpellAt(Vector2 pOPointer)
@@ -806,10 +1139,14 @@ public class UWModernHud : MonoBehaviour
 
         Vector2 lOAt = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
 
-        // The heading: the status, as the classic compass's click.
+        // The heading: the status, as the classic compass's click - and the original's compass
+        // the same (UWModernCompass).
         mbHeadingHovered = mOHeadingRect.Contains(lOAt);
 
-        if (mbHeadingHovered && mOScheme.Controls.Player.CursorDrag.WasPressedThisFrame())
+        // On the stone disc's arrows the press walks instead (fUpdateMoveArrowClicks).
+        bool lbOnCompass = mOCompass != null && mOCompass.ScreenRect.Contains(lOAt) && mOCompass.ArrowAt(lOAt) < 0;
+
+        if ((mbHeadingHovered || lbOnCompass) && mOScheme.Controls.Player.CursorDrag.WasPressedThisFrame())
         {
             mOUi.ReportStatus();
             return;
@@ -830,6 +1167,231 @@ public class UWModernHud : MonoBehaviour
             mOUi.Runes.CancelActiveSpell(liSlot);
     }
 
+    private UWModernCompass mOCompass;
+
+    /// <summary>The original's stats panel (UWModernLayout.IsStatsPanelShown).</summary>
+    private UWModernStatsPage mOStats;
+
+    /// <summary>The original's character panel with its inventory (UWModernLayout.IsCharacterPageShown).</summary>
+    private UWModernInventoryPage mOInventoryPage;
+
+    // ------------------------------------------------- The rune hollow
+
+    /// <summary>The hollow with the prepared runes (UWModernLayout.IsRuneHollowShown): its picture,
+    /// the three runes in it, the rune icons (palette indices, UWIconPalette), where it was drawn.</summary>
+    private RawImage mORuneHollow;
+
+    private Texture2D mORuneHollowTexture;
+
+    private int miRuneHollowVersion = -1;
+
+    private bool mbRuneHollowOutline;
+
+    private readonly RawImage[] mORuneHollowRunes = new RawImage[UWHudRunes.SelectedRuneCount];
+
+    private readonly Texture2D[] mORuneIcons = new Texture2D[UWPlayerData.RuneCount];
+
+    private Rect mORuneHollowRect;
+
+    /// <summary>
+    /// THE RUNE HOLLOW AS AN ELEMENT (Classic+, per user 2026-10-10: "the hollow with the
+    /// prepared runes"): the frame's recess (UWHudArt.BuildRuneHollow) with the prepared runes at
+    /// the frame's places in it, placed by UWModernLayout - by default right of the compass, under
+    /// the heading without it. A click casts as on the frame (fUpdateRuneHollowClicks).
+    /// </summary>
+    private void fUpdateRuneHollow()
+    {
+        mORuneHollowRect = Rect.zero;
+
+        if (!UWModernLayout.IsRuneHollowShown)
+        {
+            mORuneHollow.enabled = false;
+
+            foreach (RawImage lORune in mORuneHollowRunes)
+                lORune.enabled = false;
+
+            return;
+        }
+
+        bool lbOutline = UWModernClassicPlus.RuneHollowOutline;
+
+        if (mORuneHollowTexture == null || miRuneHollowVersion != UWColourVision.Version || mbRuneHollowOutline != lbOutline)
+        {
+            if (mORuneHollowTexture != null)
+                Destroy(mORuneHollowTexture);
+
+            mORuneHollowTexture = UWModernHudArt.BuildRuneHollow(mOUi.mOUWData.Textures, lbOutline, mOUi.TextureFilterMode);
+            miRuneHollowVersion = UWColourVision.Version;
+            mbRuneHollowOutline = lbOutline;
+        }
+
+        // The outline puts the hollow a pixel in.
+        int liPad = lbOutline ? 1 : 0;
+
+        float lfScale = miPixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RuneHollow);
+        float lfAspect = lfScale * UWModernHudArt.PixelAspectX;
+        float lfWidth = mORuneHollowTexture.width * lfAspect;
+        float lfHeight = mORuneHollowTexture.height * lfScale;
+        bool lbCompass = mOCompass != null && mOCompass.ScreenRect.width > 0f;
+        Rect lODefault = lbCompass
+            ? new Rect(mOCompass.ScreenRect.xMax + (2f * miPixelScale), mOCompass.ScreenRect.center.y - (lfHeight * 0.5f), lfWidth, lfHeight)
+            : new Rect(mOHeadingRect.center.x - (lfWidth * 0.5f), mOHeadingRect.y - (2f * miPixelScale) - lfHeight, lfWidth, lfHeight);
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.RuneHollow, lODefault);
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.RuneHollow, lOPlaced);
+
+        mORuneHollow.texture = mORuneHollowTexture;
+        mORuneHollow.enabled = true;
+        ((RectTransform)mORuneHollow.transform).anchoredPosition = lOPlaced.position;
+        ((RectTransform)mORuneHollow.transform).sizeDelta = lOPlaced.size;
+        mORuneHollowRect = lOPlaced;
+
+        System.Collections.Generic.IReadOnlyList<int> lOShelf = mOUi.Runes != null ? mOUi.Runes.SelectedRunes : null;
+
+        for (int liAt = 0; liAt < mORuneHollowRunes.Length; liAt++)
+        {
+            RawImage lOImage = mORuneHollowRunes[liAt];
+            int liRune = lOShelf != null && liAt < lOShelf.Count ? lOShelf[liAt] : -1;
+            Texture2D lOIcon = fRuneIcon(liRune);
+
+            lOImage.enabled = lOIcon != null;
+
+            if (lOIcon == null)
+                continue;
+
+            float lfIconHeight = lOIcon.height * lfScale;
+
+            lOImage.texture = lOIcon;
+            ((RectTransform)lOImage.transform).anchoredPosition = new Vector2(
+                lOPlaced.x + ((liPad + UWHudArt.RuneHollowRuneX + (liAt * UWHudArt.RuneHollowPitch)) * lfAspect),
+                lOPlaced.yMax - ((liPad + UWHudArt.RuneHollowRuneY) * lfScale) - lfIconHeight);
+            ((RectTransform)lOImage.transform).sizeDelta = new Vector2(lOIcon.width * lfAspect, lfIconHeight);
+        }
+    }
+
+    /// <summary>A rune's icon (OBJECTS.GR from the first rune on), built once.</summary>
+    private Texture2D fRuneIcon(int piRune)
+    {
+        if (piRune < 0 || piRune >= mORuneIcons.Length)
+            return null;
+
+        if (mORuneIcons[piRune] == null)
+        {
+            UWTexture lOSource = mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, UWPlayerData.FirstRuneObjectId + piRune);
+
+            if (lOSource != null)
+                mORuneIcons[piRune] = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
+        }
+
+        return mORuneIcons[piRune];
+    }
+
+    /// <summary>A left click anywhere in the hollow casts what lies in it, as on the frame
+    /// (UWHudRunes.fUpdateSpellCast: the right button does nothing, not while the view roams) -
+    /// with the pointer free.</summary>
+    private void fUpdateRuneHollowClicks()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        if (!IsShowing || IsOpen || UWControls.IsTextEntryActive || !UWModernPointer.IsFree || lOMouse == null
+            || mOScheme == null || mOScheme.Controls == null || mORuneHollowRect.width <= 0f || mOUi.Runes == null
+            || UWRoamingSight.IsAnyRunning)
+            return;
+
+        if (mOScheme.Controls.Player.CursorDrag.WasPressedThisFrame() && mORuneHollowRect.Contains(lOMouse.position.ReadValue()))
+            mOUi.Runes.CastShelf();
+    }
+
+    // ------------------------------------------------- The movement arrows on the compass's disc
+
+    /// <summary>Whether the button held on the compass disc's arrows was pressed there.</summary>
+    private bool mbArrowPress;
+
+    /// <summary>The command of each arrow, as the classic frame's (UWHudCompass).</summary>
+    private static readonly int[] miArrowCommands =
+    {
+        UWEasyMovement.CommandTurnLeft,
+        UWEasyMovement.CommandStepForward,
+        UWEasyMovement.CommandTurnRight
+    };
+
+    /// <summary>
+    /// THE MOVEMENT ARROWS ON THE COMPASS'S STONE DISC (UWModernCompass.ArrowAt) work as on the
+    /// classic frame (Interaction.fTryEasyMovement): either mouse button held on one steps or
+    /// turns and repeats (UWPlayerMovement.HoldEasyMovement) - with the pointer free, and only
+    /// for a press that began on the arrows, so a drag from elsewhere passing over them does not
+    /// walk. (The arrows as an element of their own, 2026-10-10, went again the same day, per
+    /// user: with the disc they are not needed, and alone they looked lost.)
+    /// </summary>
+    private void fUpdateMoveArrowClicks()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        if (!IsShowing || IsOpen || UWControls.IsTextEntryActive || !UWModernPointer.IsFree || lOMouse == null
+            || mOScheme == null || mOScheme.Controls == null || mOCompass == null)
+        {
+            mbArrowPress = false;
+            return;
+        }
+
+        UWControls lOControls = mOScheme.Controls;
+        bool lbHeld = lOControls.Player.CursorDrag.IsPressed() || lOControls.Player.Interact.IsPressed();
+        int liArrow = mOCompass.ArrowAt(lOMouse.position.ReadValue());
+
+        if (!lbHeld)
+        {
+            mbArrowPress = false;
+            return;
+        }
+
+        if (lOControls.Player.CursorDrag.WasPressedThisFrame() || lOControls.Player.Interact.WasPressedThisFrame())
+            mbArrowPress = liArrow >= 0;
+
+        if (!mbArrowPress || liArrow < 0 || UWScene.PlayerMovement == null)
+            return;
+
+        UWScene.PlayerMovement.HoldEasyMovement(miArrowCommands[liArrow]);
+    }
+
+    private UWModernScroll mOScroll;
+
+    /// <summary>The original's compass, and the heading's text giving way to it while it shows.</summary>
+    private void fUpdateCompass()
+    {
+        if (mOCompass == null)
+            return;
+
+        mOCompass.Update(miPixelScale);
+        mOHeading.enabled = mOCompass.ScreenRect.width <= 0f;
+    }
+
+    /// <summary>CLASSIC WIDE: the gargoyle is the frame's; the strip, the heading and the foe's
+    /// name stay away, and the eyes alone are drawn on its head, lit as the strip would show them.</summary>
+    private void fUpdateStripClassic()
+    {
+        mOStrip.enabled = false;
+        mOHeading.enabled = false;
+        mOFoeName.enabled = false;
+        mOFoeState.enabled = false;
+        mOHeadingRect = Rect.zero;
+
+        Texture2D lOEyes = mOEyes != null && mOEyes.IsLit ? mOEyes.CurrentFrame : null;
+
+        mOStripEyes.enabled = lOEyes != null;
+
+        if (lOEyes == null)
+            return;
+
+        Rect lORect = UWModernClassicFrame.EyesRect(lOEyes.width, lOEyes.height);
+        RectTransform lOTransform = (RectTransform)mOStripEyes.transform;
+
+        mOStripEyes.texture = lOEyes;
+        mOStripEyes.color = new Color(1f, 1f, 1f, mOEyes.Alpha);
+        // Anchored at the top centre, its pivot top left (fBuild).
+        lOTransform.anchoredPosition = new Vector2(lORect.x - (Screen.width * 0.5f), -(Screen.height - lORect.yMax));
+        lOTransform.sizeDelta = lORect.size;
+    }
+
     private static readonly string[] msHeadings =
     {
         "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
@@ -843,8 +1405,10 @@ public class UWModernHud : MonoBehaviour
         if (lOCamera == null)
             return;
 
-        float lfYaw = Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f);
-        int liStep = Mathf.RoundToInt(lfYaw / 22.5f) & 15;
+        // The classic compass's step (UWHudCompass.CurrentStep): the view's in sixteen points, and
+        // in the void the frozen one, as the original's compass shows it - until 2026-10-09 the
+        // heading followed the view there.
+        int liStep = mOUi.Compass.CurrentStep;
 
         mOHeading.text = msHeadings[liStep];
 
@@ -919,6 +1483,12 @@ public class UWModernHud : MonoBehaviour
             miStripArtVersion = UWColourVision.Version;
         }
 
+        if (UWModernClassicFrame.IsActive)
+        {
+            fUpdateStripClassic();
+            return;
+        }
+
         bool lbLit = mOEyes != null && mOEyes.IsLit;
         float lfElement = UWModernLayout.Scale(UWModernLayout.ElementEnum.Heading);
         float lfScale = miPixelScale * lfElement;
@@ -944,17 +1514,38 @@ public class UWModernHud : MonoBehaviour
 
         float lfEase = mfStripOpen * mfStripOpen * (3f - (2f * mfStripOpen));
         int liWidth = Mathf.RoundToInt(Mathf.Lerp(UWModernHudArt.StripClosedWidth, 2 * miStripOpenHalf, lfEase));
-        int liKey = (liWidth * 1000) + miStripOpenHalf;
+
+        // WHILE THE COMPASS STANDS IN FOR THE TEXT (per user, 2026-10-09: the closed strip was
+        // empty then) the gargoyle sits in the closed strip's middle and moves to its place at the
+        // left as the strip opens; without it the brand shows only on the open strip, as before.
+        // The compass's rect is the last frame's (fUpdateCompass runs after this).
+        bool lbCompass = mOCompass != null && mOCompass.ScreenRect.width > 0f;
+
+        // THE GARGOYLE AT THE ORIGINAL'S PIXEL PROPORTION (UWModernHudArt.PixelAspectX): the strip
+        // is built that much wider in its own pixels and shown that much narrower, so it keeps its
+        // width on the screen (the text's room) while the head and its eyes are narrowed.
+        int liTexWidth = Mathf.RoundToInt(liWidth / UWModernHudArt.PixelAspectX);
+        int liTexOpenHalf = Mathf.RoundToInt(miStripOpenHalf / UWModernHudArt.PixelAspectX);
+        int liBrandLeft = UWModernHudArt.BrandLeft(liTexWidth, liTexOpenHalf);
+
+        if (lbCompass)
+            liBrandLeft = Mathf.RoundToInt(Mathf.Lerp(UWHudArt.BrandCentredLeft(liTexWidth), liBrandLeft, lfEase));
+
+        // The brand's place follows from the width, the open half and the compass.
+        int liKey = (((liTexWidth * 1000) + liTexOpenHalf) * 2) + (lbCompass ? 1 : 0);
 
         if (!mOStripTextures.TryGetValue(liKey, out Texture2D lOTexture) || lOTexture == null)
         {
-            lOTexture = UWModernHudArt.BuildHeadingStrip(mOUi.mOUWData.Textures, liWidth, miStripOpenHalf, mOUi.TextureFilterMode);
+            lOTexture = lbCompass
+                ? UWModernHudArt.BuildHeadingStripWithBrandAt(mOUi.mOUWData.Textures, liTexWidth, liBrandLeft, mOUi.TextureFilterMode)
+                : UWModernHudArt.BuildHeadingStrip(mOUi.mOUWData.Textures, liTexWidth, liTexOpenHalf, mOUi.TextureFilterMode,
+                    Mathf.RoundToInt(UWModernHudArt.StripClosedWidth / UWModernHudArt.PixelAspectX));
             mOStripTextures[liKey] = lOTexture;
         }
 
         float lfTop = 4f * miPixelScale;
         float lfHeight = UWModernHudArt.StripHeight * lfScale;
-        float lfWidth = liWidth * lfScale;
+        float lfWidth = liTexWidth * lfScale * UWModernHudArt.PixelAspectX;
 
         // Its own place (UWModernLayout): the strip's rect, the heading's offset from the top
         // centre all its parts are anchored at.
@@ -977,7 +1568,7 @@ public class UWModernHud : MonoBehaviour
 
         // The eyes in the brand, once the strip shows them.
         Texture2D lOEyes = lbLit ? mOEyes.CurrentFrame : null;
-        int liEyesX = UWModernHudArt.BrandLeft(liWidth, miStripOpenHalf) + UWModernHudArt.EyesLeftInBrand;
+        int liEyesX = liBrandLeft + UWModernHudArt.EyesLeftInBrand;
 
         mOStripEyes.enabled = lOEyes != null && liEyesX >= UWModernHudArt.LeatherLeft;
 
@@ -985,9 +1576,9 @@ public class UWModernHud : MonoBehaviour
         {
             mOStripEyes.texture = lOEyes;
             mOStripEyes.color = new Color(1f, 1f, 1f, mOEyes.Alpha);
-            ((RectTransform)mOStripEyes.transform).anchoredPosition = new Vector2(lfShiftX + ((liEyesX - (liWidth * 0.5f)) * lfScale),
+            ((RectTransform)mOStripEyes.transform).anchoredPosition = new Vector2(lfShiftX + ((liEyesX - (liTexWidth * 0.5f)) * lfScale * UWModernHudArt.PixelAspectX),
                 -lfTop - ((UWModernHudArt.BrandTop + UWModernHudArt.EyesTopInBrand) * lfScale));
-            ((RectTransform)mOStripEyes.transform).sizeDelta = new Vector2(lOEyes.width * lfScale, lOEyes.height * lfScale);
+            ((RectTransform)mOStripEyes.transform).sizeDelta = new Vector2(lOEyes.width * lfScale * UWModernHudArt.PixelAspectX, lOEyes.height * lfScale);
         }
 
         // The foe at the right, once the strip is open.
@@ -1049,7 +1640,7 @@ public class UWModernHud : MonoBehaviour
 
         float liScale = miPixelScale;
         Vector2 lOSize = lOSprite.rect.size;
-        int liFrameWidth = Mathf.RoundToInt(lOSize.x) + UWModernHudArt.LeatherLeft + UWModernHudArt.LeatherRight + (2 * PictureBorder);
+        int liFrameWidth = Mathf.RoundToInt(lOSize.x * UWModernHudArt.PixelAspectX) + UWModernHudArt.LeatherLeft + UWModernHudArt.LeatherRight + (2 * PictureBorder);
         int liFrameHeight = Mathf.RoundToInt(lOSize.y) + UWModernHudArt.LeatherTop + UWModernHudArt.LeatherBottom + (2 * PictureBorder);
 
         if (mOPictureFrameTexture == null || mOPictureFrameSize.x != liFrameWidth || mOPictureFrameSize.y != liFrameHeight
@@ -1079,7 +1670,7 @@ public class UWModernHud : MonoBehaviour
 
         lOPicture.anchoredPosition = new Vector2(lfX + ((UWModernHudArt.LeatherLeft + PictureBorder) * liScale),
             lfY + ((UWModernHudArt.LeatherBottom + PictureBorder) * liScale));
-        lOPicture.sizeDelta = lOSize * liScale;
+        lOPicture.sizeDelta = new Vector2(lOSize.x * UWModernHudArt.PixelAspectX, lOSize.y) * liScale;
     }
 
     /// <summary>Where the message box starts above the flasks (screen pixels from the bottom) -
@@ -1092,6 +1683,9 @@ public class UWModernHud : MonoBehaviour
     /// on the mockup, 2026-10-04).</summary>
     private void fPlaceMessages()
     {
+        if (UWModernLayout.IsScrollShown)
+            return;
+
         // Its own size and place (UWModernLayout); by default above the shelf, right of the rune
         // panel while that covers it.
         float lfScale = UWModernLayout.Scale(UWModernLayout.ElementEnum.Messages);
@@ -1135,16 +1729,93 @@ public class UWModernHud : MonoBehaviour
             mOMessageBack.enabled = true;
     }
 
+    /// <summary>The backs behind the heading, the vitals, the messages and the spells (see
+    /// mePartsWithBackBehind): placed on the parts' rects of this frame, rebuilt when the size, the
+    /// back or the colours change.</summary>
+    private void fUpdateBacks()
+    {
+        // Classic Wide: the frame is the back of everything.
+        bool lbNone = UWModernClassicFrame.IsActive;
+
+        for (int liAt = 0; liAt < mePartsWithBackBehind.Length; liAt++)
+        {
+            if (lbNone)
+            {
+                mOPartBacks[liAt].enabled = false;
+                continue;
+            }
+
+            UWModernLayout.ElementEnum leElement = mePartsWithBackBehind[liAt];
+            RawImage lOImage = mOPartBacks[liAt];
+            UWModernBacks.Back lOBack = UWModernBacks.Get(leElement);
+            Rect lORect = Rect.zero;
+            bool lbShown = lOBack.Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None
+                && UWModernLayout.TryGetRect(leElement, out lORect);
+
+            if (leElement == UWModernLayout.ElementEnum.Messages && lbShown)
+            {
+                // In the dark box's place: shown when the box would be, or under the scroll.
+                lbShown = mOMessageBack.enabled || UWModernLayout.IsScrollShown;
+                mOMessageBack.enabled = false;
+            }
+
+            if (!lbShown)
+            {
+                lOImage.enabled = false;
+                continue;
+            }
+
+            float lfScale = Mathf.Max(1f, miPixelScale * UWModernLayout.Scale(leElement));
+            int liWidth = Mathf.CeilToInt(lORect.width / lfScale) + (2 * PartBackPad);
+            int liHeight = Mathf.CeilToInt(lORect.height / lfScale) + (2 * PartBackPad);
+            string lsKey = lOBack.Key + "/" + liWidth + "x" + liHeight + "/" + UWModernBacks.ArtVersion;
+
+            if (msPartBackKeys[liAt] != lsKey || mOPartBackTextures[liAt] == null)
+            {
+                if (mOPartBackTextures[liAt] != null)
+                    Destroy(mOPartBackTextures[liAt]);
+
+                mOPartBackTextures[liAt] = UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, liWidth, liHeight, lOBack,
+                    mOUi.TextureFilterMode, liAt + 1);
+                msPartBackKeys[liAt] = lsKey;
+                lOImage.texture = mOPartBackTextures[liAt];
+            }
+
+            RectTransform lOTransform = (RectTransform)lOImage.transform;
+
+            lOTransform.anchoredPosition = new Vector2(lORect.center.x - (liWidth * lfScale * 0.5f), lORect.center.y - (liHeight * lfScale * 0.5f));
+            lOTransform.sizeDelta = new Vector2(liWidth * lfScale, liHeight * lfScale);
+            lOImage.enabled = true;
+        }
+    }
+
     /// <summary>The last five messages, as the scroll holds them (Interaction.ActiveStrings).</summary>
     private void fUpdateMessages()
     {
+        // The original's scroll instead, when switched on: it draws and places itself.
+        if (mOScroll != null && UWModernLayout.IsScrollShown)
+        {
+            mOMessages.enabled = false;
+            mOMessageBack.enabled = false;
+            mOScroll.Update(mOInteraction, miPixelScale, new Vector2(6f * miPixelScale, mfLeftColumnBottom));
+            return;
+        }
+
+        if (mOScroll != null)
+            mOScroll.Hide();
+
+        mOMessages.enabled = true;
+
         System.Collections.Generic.IReadOnlyList<string> lOLines = mOInteraction.ActiveStrings;
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
         int liColour = 0;
 
-        for (int liAt = 0; lOLines != null && liAt < lOLines.Count; liAt++)
+        // The list keeps more for the tall scroll; the box shows the newest five.
+        int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - Interaction.ModernMessageCount) : 0;
+
+        for (int liAt = liFirst; lOLines != null && liAt < lOLines.Count; liAt++)
         {
-            if (liAt > 0)
+            if (liAt > liFirst)
                 lOText.Append('\n');
 
             fAppendColoured(lOText, UWFontRenderer.CleanText(lOLines[liAt]), ref liColour);
@@ -1232,6 +1903,12 @@ public class UWModernHud : MonoBehaviour
     {
         bool lbCross = !IsOpen && (mOScheme == null || !mOScheme.IsUIModalOpen);
 
+        // The view's middle against the screen's: in Classic Wide the hole's (UWModernClassicFrame).
+        Vector2 lOOffset = UWModernClassicFrame.ViewCentre - new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+        ((RectTransform)mOCrosshair.transform).anchoredPosition = lOOffset;
+        ((RectTransform)mOTarget.transform).anchoredPosition = lOOffset + new Vector2(0f, -4f * miPixelScale);
+
         // A spell waiting for its target (UWHudRunes.fAfterModernCast) shows the original's target
         // pointer instead of the crosshair - the free pointer turns into it (UWGameUI).
         // A ranged weapon charged to its minimum likewise (Interaction.IsRangedTargeting, per user,
@@ -1255,8 +1932,8 @@ public class UWModernHud : MonoBehaviour
         if (lOCursor != null)
         {
             mOTargetCursor.texture = lOCursor;
-            ((RectTransform)mOTargetCursor.transform).anchoredPosition = Vector2.zero;
-            ((RectTransform)mOTargetCursor.transform).sizeDelta = new Vector2(lOCursor.width * miPixelScale, lOCursor.height * miPixelScale);
+            ((RectTransform)mOTargetCursor.transform).anchoredPosition = lOOffset;
+            ((RectTransform)mOTargetCursor.transform).sizeDelta = new Vector2(lOCursor.width * miPixelScale * UWModernHudArt.PixelAspectX, lOCursor.height * miPixelScale);
         }
 
         // The hold of E for the direct use (Interaction.ModernUseHoldProgress): a ring filling
@@ -1270,7 +1947,7 @@ public class UWModernHud : MonoBehaviour
         {
             float lfRing = 24f * miPixelScale;
             RectTransform lORect = (RectTransform)mOHoldBar.transform;
-            Vector2 lOAt = Vector2.zero;
+            Vector2 lOAt = lOOffset;
 
             if (UWModernPointer.IsFree && UnityEngine.InputSystem.Mouse.current != null)
                 lOAt = UnityEngine.InputSystem.Mouse.current.position.ReadValue() - new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
@@ -1287,6 +1964,90 @@ public class UWModernHud : MonoBehaviour
 
         mfTargetTimer = 0.1f;
         mOTarget.text = lbCross ? mOInteraction.GetCrosshairTargetName() ?? string.Empty : string.Empty;
+
+        fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree);
+    }
+
+    private RawImage mOPadUseGlyph;
+
+    private RawImage mOPadLookGlyph;
+
+    private Text mOPadUseText;
+
+    private Text mOPadLookText;
+
+    /// <summary>
+    /// THE GAMEPAD'S BUTTON HINT under the crosshair's target name (per user, 2026-10-08: "my wife
+    /// would not manage without glyphs"): A with what it does there (Interaction.GetCrosshairPadVerb),
+    /// X to look - while the pad is in use and the hints are on (UWUserSettings.ShowsPadHints), with
+    /// the pointer locked. The glyphs of the buttons as bound now, their names where a glyph is
+    /// missing.
+    /// </summary>
+    private void fUpdatePadPrompt(bool pbLocked)
+    {
+        string lsVerb = pbLocked && UWUserSettings.ShowsPadHints && mOInteraction != null ? mOInteraction.GetCrosshairPadVerb() : null;
+
+        if (mOPadUseGlyph == null)
+        {
+            if (lsVerb == null)
+                return;
+
+            Transform lOParent = mOTarget.transform.parent;
+
+            mOPadUseGlyph = fCreateRawImage(lOParent, "Pad use glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
+            mOPadLookGlyph = fCreateRawImage(lOParent, "Pad look glyph", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f));
+            mOPadUseText = fCreateText(lOParent, "Pad use", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
+            mOPadLookText = fCreateText(lOParent, "Pad look", new Vector2(0.5f, 0.5f), new Vector2(0f, 1f), TextAnchor.MiddleLeft);
+        }
+
+        bool lbShow = lsVerb != null;
+
+        mOPadUseGlyph.enabled = lbShow;
+        mOPadLookGlyph.enabled = lbShow;
+        mOPadUseText.enabled = lbShow;
+        mOPadLookText.enabled = lbShow;
+
+        if (!lbShow)
+            return;
+
+        Texture2D lOUse = UWGlyphs.ForEntry("ModernUse", 1);
+        Texture2D lOLook = UWGlyphs.ForEntry("ModernLook", 1);
+        int liFontSize = mOTarget.fontSize;
+        float lfGlyph = Mathf.Round(liFontSize * 1.5f);
+        float lfGap = Mathf.Round(lfGlyph * 0.2f);
+
+        mOPadUseText.fontSize = liFontSize;
+        mOPadLookText.fontSize = liFontSize;
+        mOPadUseText.text = lOUse != null ? lsVerb : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernUse", 1)) + " " + lsVerb;
+        mOPadLookText.text = lOLook != null ? "Look" : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernLook", 1)) + " Look";
+
+        float lfUseWidth = mOPadUseText.preferredWidth;
+        float lfLookWidth = mOPadLookText.preferredWidth;
+        float lfUseGlyph = lOUse != null ? lfGlyph + lfGap : 0f;
+        float lfLookGlyph = lOLook != null ? lfGlyph + lfGap : 0f;
+        float lfTotal = lfUseGlyph + lfUseWidth + lfGlyph + lfLookGlyph + lfLookWidth;
+        float lfX = -lfTotal * 0.5f;
+        float lfY = -(4f * miPixelScale) - (liFontSize * 1.5f);
+
+        mOPadUseGlyph.texture = lOUse;
+        mOPadUseGlyph.enabled = lOUse != null;
+        fPlace(mOPadUseGlyph.transform, lfX, lfY, lfGlyph, lfGlyph);
+        fPlace(mOPadUseText.transform, lfX + lfUseGlyph, lfY, lfUseWidth + 2f, lfGlyph);
+
+        lfX += lfUseGlyph + lfUseWidth + lfGlyph;
+
+        mOPadLookGlyph.texture = lOLook;
+        mOPadLookGlyph.enabled = lOLook != null;
+        fPlace(mOPadLookGlyph.transform, lfX, lfY, lfGlyph, lfGlyph);
+        fPlace(mOPadLookText.transform, lfX + lfLookGlyph, lfY, lfLookWidth + 2f, lfGlyph);
+    }
+
+    private static void fPlace(Transform pOTransform, float pfX, float pfY, float pfWidth, float pfHeight)
+    {
+        RectTransform lORect = (RectTransform)pOTransform;
+
+        lORect.anchoredPosition = new Vector2(pfX, pfY);
+        lORect.sizeDelta = new Vector2(pfWidth, pfHeight);
     }
 
     // ------------------------------------------------- The game menu
@@ -1294,6 +2055,13 @@ public class UWModernHud : MonoBehaviour
     /// <summary>Escape and F1: open the menu, or close it - from a sub page back to the main one.</summary>
     public void ToggleMenu()
     {
+        // From the layout editor only through its save question (UWModernLayoutEditor.RequestLeave).
+        if (mePage == PageEnum.Layout && UWModernLayoutEditor.Instance != null)
+        {
+            UWModernLayoutEditor.Instance.RequestLeave(() => mePage = PageEnum.Main);
+            return;
+        }
+
         if (mePage == PageEnum.Closed)
             OpenMenu(PageEnum.Main);
         else if (mePage == PageEnum.Main)
@@ -1419,6 +2187,8 @@ public class UWModernHud : MonoBehaviour
     private GUIStyle mOTitleStyle;
 
     private GUIStyle mOButtonStyle;
+    private GUIStyle mOCurrentPresetStyle;
+    private GUIStyle mOSectionStyle;
 
     private GUIStyle mOLabelStyle;
 
@@ -1451,7 +2221,7 @@ public class UWModernHud : MonoBehaviour
         mOButtonHoverTexture = fTexture(msButtonHover);
         mOFieldTexture = fTexture(new Color(0.05f, 0.05f, 0.06f, 1f));
 
-        Font lOFont = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        Font lOFont = mOFont != null ? mOFont : UWInterfaceFont.Font;
 
         mOTitleStyle = new GUIStyle { font = lOFont, fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
         mOTitleStyle.normal.textColor = msAccent;
@@ -1467,6 +2237,12 @@ public class UWModernHud : MonoBehaviour
         mOButtonStyle.hover.textColor = msAccent;
         mOButtonStyle.active.background = mOButtonHoverTexture;
         mOButtonStyle.active.textColor = msAccent;
+
+        mOCurrentPresetStyle = new GUIStyle(mOButtonStyle);
+        mOCurrentPresetStyle.normal.textColor = msAccent;
+
+        mOSectionStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft };
+        mOSectionStyle.normal.textColor = msAccent;
 
         mOFieldStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(8, 8, 0, 0) };
         mOFieldStyle.normal.background = mOFieldTexture;
@@ -1499,6 +2275,13 @@ public class UWModernHud : MonoBehaviour
         GUI.DrawTexture(lOPanel, mOBackgroundTexture);
         GUILayout.BeginArea(new Rect(lOPanel.x + 24f, lOPanel.y + 18f, lOPanel.width - 48f, lOPanel.height - 36f));
 
+        // The buttons' places for the gamepad (fRecordEntry), gathered in the repaint.
+        mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
+        mfMenuScale = lfScale;
+
+        if (Event.current.type == EventType.Repaint)
+            mOEntryRectsDrawing.Clear();
+
         switch (mePage)
         {
             case PageEnum.Main: fDrawMain(); break;
@@ -1510,6 +2293,12 @@ public class UWModernHud : MonoBehaviour
 
         GUILayout.EndArea();
         GUI.matrix = lOMatrix;
+
+        if (Event.current.type == EventType.Repaint)
+        {
+            mOEntryRects.Clear();
+            mOEntryRects.AddRange(mOEntryRectsDrawing);
+        }
     }
 
     /// <summary>The UI size in percent of the automatic one - the layout editor's - and +.</summary>
@@ -1521,9 +2310,96 @@ public class UWModernHud : MonoBehaviour
 
     private bool fButton(string psText)
     {
+        return fButton(new GUIContent(psText));
+    }
+
+    /// <summary>One preset under "Edit layout": indented and lower than the other buttons, the one
+    /// in force in gold. A press chooses it; true for the press (Customize then opens the editor
+    /// even when it is already in force).</summary>
+    private bool fPresetButton(string psText, UWModernLayout.PresetEnum pePreset, UWModernLayout.PresetEnum peCurrent, bool pbBuilt)
+    {
+        GUILayout.Space(4f);
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(28f);
+
+        bool lbEnabled = GUI.enabled;
+
+        GUI.enabled = lbEnabled && pbBuilt;
+
+        bool lbPressed = GUILayout.Button(psText, pePreset == peCurrent ? mOCurrentPresetStyle : mOButtonStyle, GUILayout.Height(30f));
+
+        fRecordEntry();
+        GUI.enabled = lbEnabled;
+        GUILayout.EndHorizontal();
+
+        if (lbPressed && pePreset != peCurrent)
+            UWModernLayout.ChoosePreset(pePreset);
+
+        return lbPressed;
+    }
+
+    private bool fButton(GUIContent pOContent)
+    {
         GUILayout.Space(6f);
 
-        return GUILayout.Button(psText, mOButtonStyle, GUILayout.Height(38f));
+        bool lbPressed = GUILayout.Button(pOContent, mOButtonStyle, GUILayout.Height(38f));
+
+        fRecordEntry();
+
+        return lbPressed;
+    }
+
+    // ------------------------------------------------- The gamepad in the menu
+
+    /// <summary>The gamepad steps through the buttons (UWPadEntryStepper, per user 2026-10-08:
+    /// as in the context menu).</summary>
+    private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
+
+    /// <summary>The buttons' screen rectangles of the last drawn frame, and those being drawn.</summary>
+    private readonly List<Rect> mOEntryRects = new List<Rect>();
+
+    private readonly List<Rect> mOEntryRectsDrawing = new List<Rect>();
+
+    /// <summary>The menu's area and scale while it draws, for the buttons' screen places.</summary>
+    private Vector2 mOAreaAt;
+
+    private float mfMenuScale = 1f;
+
+    private PageEnum meSteppedPage = PageEnum.Closed;
+
+    /// <summary>The button just laid out, as a screen rectangle (pixels, bottom-left origin) - in
+    /// the repaint only, where GUILayout knows its place.</summary>
+    private void fRecordEntry()
+    {
+        if (Event.current.type != EventType.Repaint)
+            return;
+
+        Rect lORect = GUILayoutUtility.GetLastRect();
+        float lfX = (mOAreaAt.x + lORect.x) * mfMenuScale;
+        float lfTop = (mOAreaAt.y + lORect.y) * mfMenuScale;
+
+        mOEntryRectsDrawing.Add(new Rect(lfX, Screen.height - lfTop - (lORect.height * mfMenuScale),
+            lORect.width * mfMenuScale, lORect.height * mfMenuScale));
+    }
+
+    /// <summary>Once a frame while the menu is up: a new page (or the menu opened) snaps the pointer
+    /// onto its first button when the pad was used last.</summary>
+    private void fStepMenuByPad()
+    {
+        if (!IsOpen || mePage == PageEnum.Layout || UWSetupMenu.HasOpenPanel)
+        {
+            meSteppedPage = PageEnum.Closed;
+            return;
+        }
+
+        if (meSteppedPage != mePage)
+        {
+            meSteppedPage = mePage;
+            mOMenuStepper.Opened();
+            return;
+        }
+
+        mOMenuStepper.Update(mOEntryRects);
     }
 
     private void fDrawMain()
@@ -1541,45 +2417,38 @@ public class UWModernHud : MonoBehaviour
 
         // Music, sound and the detail level left this menu on 2026-10-06 (per user): the setup
         // bar at the top offers them in full while the menu is open (UWSetupMenu).
-        if (fButton("Right button: " + (UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer")))
+        // THE MOUSE'S RIGHT BUTTON AS A GLYPH (per user, 2026-10-08: not the pad's - "Right button"
+        // said nothing of which; Kenney's pixel prompts, UWGlyphs), "RMB" if it is missing.
+        Texture2D lOMouseRight = UWGlyphs.MouseRight;
+        string lsPointerOption = UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer";
+
+        if (fButton(lOMouseRight != null ? new GUIContent("  " + lsPointerOption, lOMouseRight) : new GUIContent("RMB: " + lsPointerOption)))
         {
             UWUserSettings.ModernPointerHold = !UWUserSettings.ModernPointerHold;
             UWUserSettings.Save();
         }
 
-        // THE MOUSE LOOK'S SPEED (per user, 2026-10-06: "sehr direkt"): a row of its own with
-        // the two arrows, five per cent a press, 5 to 200; the Controls dialog of the menu bar
-        // has the same as a slider.
-        GUILayout.BeginHorizontal();
+        // The mouse look's speed left this menu on 2026-10-08 (per user): the Controls dialog of
+        // the setup bar has it as a slider, reachable while the menu is open.
 
-        if (GUILayout.Button("<", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
-        {
-            UWUserSettings.MouseLookSpeed -= UWUserSettings.MouseLookSpeedStep;
-            UWUserSettings.Save();
-        }
+        // THE INTERFACE PRESETS under "Edit layout" as a heading (per user, 2026-10-09): Classic,
+        // Classic+, Modern and Customize, the last opening the layout editor (UWModernLayoutEditor,
+        // per user 2026-10-04; the UI size lives in its strip) on the own layout, which the other
+        // presets leave alone. Classic and Classic+ are planned - greyed until they are built.
+        GUILayout.Space(10f);
+        GUILayout.Label("Edit layout", mOSectionStyle, GUILayout.Height(24f));
 
-        GUILayout.Label("Mouse look: " + Mathf.RoundToInt(UWUserSettings.MouseLookSpeed * 100f) + " %", mOButtonStyle, GUILayout.Height(38f));
+        UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
 
-        if (GUILayout.Button(">", mOButtonStyle, GUILayout.Width(44f), GUILayout.Height(38f)))
-        {
-            UWUserSettings.MouseLookSpeed += UWUserSettings.MouseLookSpeedStep;
-            UWUserSettings.Save();
-        }
+        fPresetButton("Classic Wide", UWModernLayout.PresetEnum.Classic, lePreset, true);
+        fPresetButton("Classic Modular", UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
+        fPresetButton("Modern", UWModernLayout.PresetEnum.Modern, lePreset, true);
 
-        GUILayout.EndHorizontal();
-
-        // The layout editor (UWModernLayoutEditor, per user 2026-10-04) - the UI size lives in its
-        // strip since the same day.
-        if (fButton("Edit layout"))
+        if (fPresetButton("Customize", UWModernLayout.PresetEnum.Custom, lePreset, true))
             mePage = PageEnum.Layout;
 
-        // The minimap north up (default) or turning with the view - per user 2026-10-03: some
-        // prefer it turning (UWModernMinimap).
-        if (fButton("Minimap: " + (UWUserSettings.MinimapTurns ? "turns with the view" : "north up")))
-        {
-            UWUserSettings.MinimapTurns = !UWUserSettings.MinimapTurns;
-            UWUserSettings.Save();
-        }
+        // The minimap's north up / turning left this menu on 2026-10-09 (per user): the layout
+        // editor's inspector has it on the minimap ("North").
 
         // Quit at the very bottom of the panel, set apart from the settings (per user,
         // 2026-10-06: "das Quit nach unten schieben") - since music, sound and detail left the

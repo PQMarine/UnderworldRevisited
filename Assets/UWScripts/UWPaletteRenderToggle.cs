@@ -362,7 +362,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
                 liLightLevel),
             mbInterpolateLevels, mbDither, mbOrderedMatrix,
             mfDitherScale > 0f ? mfDitherScale : UWShadePalette.GetOriginalPixelSize(),
-            FullBright && mbActive);
+            (FullBright || fIsUnlitLevel()) && mbActive);
 
         // NIGHT VISION: at light level 5 the original loads MONO.DAT as its light table
         // (OpenAndApplyShadesDat_ovr142_0, per user 2026-10-01: the view turns grey in the
@@ -606,6 +606,22 @@ public class UWPaletteRenderToggle : MonoBehaviour
     }
 
     private const string ScrambleProperty = "_UWScramble";
+
+    /// <summary>The Void, level 9 (index 8).</summary>
+    private const int VoidLevelIndex = 8;
+
+    /// <summary>
+    /// THE VOID IS DRAWN UNLIT (process_grid, UnderworldExhumed GRIDDB.C, read 2026-10-11; the
+    /// Exhumed audit's row 25): on level 9 the original sets lighton to 0 for the frame, so every
+    /// wall, floor, ceiling, model face and sprite takes row 0 of the light table - the full
+    /// colours, no distance shading, no shade dither - and the special shading mode is off. The
+    /// light table itself stays the one in force (night vision's grey still applies). Until
+    /// 2026-10-11 ours shaded the Void like any level.
+    /// </summary>
+    private bool fIsUnlitLevel()
+    {
+        return mOLevelLoader != null && mOLevelLoader.CurrentLevelIndex == VoidLevelIndex;
+    }
 
     /// <summary>The hallucination effect on screen now (UWHallucinationState), for the help
     /// window's hidden values - NoEffect while none runs.</summary>

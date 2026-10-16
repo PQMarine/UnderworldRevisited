@@ -131,6 +131,34 @@ public class UWControls : System.IDisposable
         /// original scheme 1 to 3 look down, straight and up - read only there.</summary>
         public readonly InputAction[] ModernSlots;
 
+        /// <summary>The modern scheme's weapon button: the left mouse button and the gamepad's
+        /// right trigger (UWGamepad) - CursorDrag stays the mouse's for the windows.</summary>
+        public readonly InputAction ModernAttack;
+
+        /// <summary>The gamepad's B (UWGamepad): closes what is open.</summary>
+        public readonly InputAction PadBack;
+
+        /// <summary>The gamepad's Y: jumps.</summary>
+        public readonly InputAction PadJump;
+
+        /// <summary>The gamepad's left trigger: tapped casts the hollow, held the rune panel.</summary>
+        public readonly InputAction PadCast;
+
+        /// <summary>The gamepad's shoulders pick a slot of the action bar, up on the d-pad uses it.</summary>
+        public readonly InputAction PadSlotPrevious;
+
+        public readonly InputAction PadSlotNext;
+
+        public readonly InputAction PadSlotUse;
+
+        /// <summary>THE GAMEPAD'S POINTER (UWGamepadPointer): R3 switches it, A clicks, X is the right
+        /// button (the wheel is the walk stick over a window, UWGamepadPointer) - read only while it drives.</summary>
+        public readonly InputAction PadPointer;
+
+        public readonly InputAction PadClick;
+
+        public readonly InputAction PadContext;
+
         internal PlayerActions(InputActionMap pMap)
         {
             Move = pMap["Move"];
@@ -179,6 +207,16 @@ public class UWControls : System.IDisposable
             ModernBags = pMap["ModernBags"];
             ModernLook = pMap["ModernLook"];
             ModernRunes = pMap["ModernRunes"];
+            ModernAttack = pMap["ModernAttack"];
+            PadBack = pMap["PadBack"];
+            PadJump = pMap["PadJump"];
+            PadCast = pMap["PadCast"];
+            PadSlotPrevious = pMap["PadSlotPrevious"];
+            PadSlotNext = pMap["PadSlotNext"];
+            PadSlotUse = pMap["PadSlotUse"];
+            PadPointer = pMap["PadPointer"];
+            PadClick = pMap["PadClick"];
+            PadContext = pMap["PadContext"];
 
             ModernSlots = new InputAction[ModernSlotCount];
 
@@ -415,22 +453,22 @@ public class UWControls : System.IDisposable
         // HoverHeight further down). Use still works via right click, combat mode
         // via a click on the weapon on the paper doll - both the original's way.
         // They may come back in the modern scheme (per user, 2026-09-03).
+        // THE GAMEPAD LEFT THESE (UWGamepad, 2026-10-07): A on Interact freed the modern pointer,
+        // X drew the weapon, View switched the scheme. ToggleCombat has no binding left.
         InputAction lInteract = lMap.AddAction("Interact", InputActionType.Button);
         lInteract.AddBinding("<Mouse>/rightButton");
-        lInteract.AddBinding("<Gamepad>/buttonSouth");
 
-        InputAction lToggleCombat = lMap.AddAction("ToggleCombat", InputActionType.Button);
-        lToggleCombat.AddBinding("<Gamepad>/buttonWest");
+        lMap.AddAction("ToggleCombat", InputActionType.Button);
 
         InputAction lToggleScheme = lMap.AddAction("ToggleScheme", InputActionType.Button);
         lToggleScheme.AddBinding("<Keyboard>/f2");
-        lToggleScheme.AddBinding("<Gamepad>/select");
 
         // C since 2026-10-03: the modern scheme's character panel with the bags (UWModernBags) -
         // per user, after I; the original scheme reads it nowhere.
         InputAction lToggleInventory = lMap.AddAction("ToggleInventory", InputActionType.Button);
         lToggleInventory.AddBinding("<Keyboard>/#(c)");
-        lToggleInventory.AddBinding("<Gamepad>/buttonNorth");
+        // The pad's d-pad down since 2026-10-07 (per user: Y jumps instead).
+        lToggleInventory.AddBinding("<Gamepad>/dpad/down");
 
         // Height while hovering. Q and E come from the original (per user, 2026-09-03);
         // combat mode and interaction gave up these keys for it.
@@ -469,9 +507,18 @@ public class UWControls : System.IDisposable
 
         // Our own keys: the map (only with a map in the pack) and the font switch. The hash
         // notation binds to the character, as with Strafe above.
-        lMap.AddAction("ToggleMap", InputActionType.Button).AddBinding("<Keyboard>/#(m)");
+        // THE PAD'S VIEW BUTTON (per user, 2026-10-07): tapped the map, held the help - two
+        // interactions on the one button, so the readers ask WasPerformedThisFrame (a key
+        // without an interaction performs on its press as before).
+        InputAction lToggleMap = lMap.AddAction("ToggleMap", InputActionType.Button);
+        lToggleMap.AddBinding("<Keyboard>/#(m)");
+        lToggleMap.AddBinding("<Gamepad>/select").WithInteraction("tap(duration=0.5)");
+
         lMap.AddAction("ToggleFont", InputActionType.Button).AddBinding("<Keyboard>/#(f)");
-        lMap.AddAction("ToggleHelp", InputActionType.Button).AddBinding("<Keyboard>/tab");
+
+        InputAction lToggleHelp = lMap.AddAction("ToggleHelp", InputActionType.Button);
+        lToggleHelp.AddBinding("<Keyboard>/tab");
+        lToggleHelp.AddBinding("<Gamepad>/select").WithInteraction("hold(duration=0.5)");
 
         // The original's function keys (see KeyOptions).
         lMap.AddAction("KeyOptions", InputActionType.Button).AddBinding("<Keyboard>/f1");
@@ -507,8 +554,13 @@ public class UWControls : System.IDisposable
 
         // The modern scheme's own keys (see ModernUse). The hash notation binds to the character,
         // as with Strafe above.
-        lMap.AddAction("ModernUse", InputActionType.Button).AddBinding("<Keyboard>/#(e)");
-        lMap.AddAction("ModernReady", InputActionType.Button).AddBinding("<Keyboard>/#(r)");
+        InputAction lModernUse = lMap.AddAction("ModernUse", InputActionType.Button);
+        lModernUse.AddBinding("<Keyboard>/#(e)");
+        lModernUse.AddBinding("<Gamepad>/buttonSouth");
+
+        InputAction lModernReady = lMap.AddAction("ModernReady", InputActionType.Button);
+        lModernReady.AddBinding("<Keyboard>/#(r)");
+        lModernReady.AddBinding("<Gamepad>/leftStickPress");
 
         // The LEFT CTRL sinks since 2026-10-04 (per user; V from 2026-10-03, C before). The
         // original's Ctrl shortcuts take the right Ctrl then in the modern scheme (UWGameUI).
@@ -516,11 +568,49 @@ public class UWControls : System.IDisposable
         lModernHover.AddCompositeBinding("1DAxis")
             .With("Negative", "<Keyboard>/leftCtrl")
             .With("Positive", "<Keyboard>/space");
+        lModernHover.AddCompositeBinding("1DAxis")
+            .With("Negative", "<Gamepad>/dpad/left")
+            .With("Positive", "<Gamepad>/dpad/right");
 
-        lMap.AddAction("Menu", InputActionType.Button).AddBinding("<Keyboard>/escape");
+        InputAction lMenu = lMap.AddAction("Menu", InputActionType.Button);
+        lMenu.AddBinding("<Keyboard>/escape");
+        lMenu.AddBinding("<Gamepad>/start");
+
         lMap.AddAction("ModernBags", InputActionType.Button).AddBinding("<Keyboard>/#(b)");
-        lMap.AddAction("ModernLook", InputActionType.Button).AddBinding("<Keyboard>/#(q)");
+
+        InputAction lModernLook = lMap.AddAction("ModernLook", InputActionType.Button);
+        lModernLook.AddBinding("<Keyboard>/#(q)");
+        lModernLook.AddBinding("<Gamepad>/buttonWest");
+
         lMap.AddAction("ModernRunes", InputActionType.Button).AddBinding("<Keyboard>/z");
+
+        // THE GAMEPAD'S OWN (UWGamepad, per user 2026-10-07).
+        InputAction lModernAttack = lMap.AddAction("ModernAttack", InputActionType.Button);
+        lModernAttack.AddBinding("<Mouse>/leftButton");
+        lModernAttack.AddBinding("<Gamepad>/rightTrigger");
+
+        // B only goes back, Y jumps (per user, 2026-10-07; B jumped while nothing was open).
+        lMap.AddAction("PadBack", InputActionType.Button).AddBinding("<Gamepad>/buttonEast");
+        lMap.AddAction("PadJump", InputActionType.Button).AddBinding("<Gamepad>/buttonNorth");
+        lMap.AddAction("PadCast", InputActionType.Button).AddBinding("<Gamepad>/leftTrigger");
+        lMap.AddAction("PadSlotPrevious", InputActionType.Button).AddBinding("<Gamepad>/leftShoulder");
+        lMap.AddAction("PadSlotNext", InputActionType.Button).AddBinding("<Gamepad>/rightShoulder");
+        lMap.AddAction("PadSlotUse", InputActionType.Button).AddBinding("<Gamepad>/dpad/up");
+
+        lMap.AddAction("PadPointer", InputActionType.Button).AddBinding("<Gamepad>/rightStickPress");
+        // RT clicks as well: holding A while the same thumb steers the stick does not work for a
+        // drag (per user, 2026-10-07) - the index finger holds RT instead, as on a mouse, where it
+        // is the left button too (RT's strike then follows the pointer, Interaction). RB clicked
+        // for a while the same day and went back to the action bar (per user: six click buttons
+        // for two mouse buttons, and the bar was gone with the pointer free).
+        InputAction lPadClick = lMap.AddAction("PadClick", InputActionType.Button);
+        lPadClick.AddBinding("<Gamepad>/buttonSouth");
+        lPadClick.AddBinding("<Gamepad>/rightTrigger");
+        // LT is the right button as well, mirroring RT: X with the stick under the same thumb could
+        // not drag (per user, 2026-10-07). LB, likewise for a while, is the action bar's again.
+        InputAction lPadContext = lMap.AddAction("PadContext", InputActionType.Button);
+        lPadContext.AddBinding("<Gamepad>/buttonWest");
+        lPadContext.AddBinding("<Gamepad>/leftTrigger");
 
         for (int liSlot = 1; liSlot <= ModernSlotCount; liSlot++)
             lMap.AddAction("ModernSlot" + liSlot, InputActionType.Button).AddBinding("<Keyboard>/" + (liSlot % 10));

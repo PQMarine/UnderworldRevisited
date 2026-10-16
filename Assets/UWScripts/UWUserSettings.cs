@@ -61,11 +61,73 @@ public static class UWUserSettings
         /// its + and - in the history's corner).</summary>
         public int ConversationTextPercent;
 
-        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts.</summary>
+        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts - the
+        /// Custom preset's, kept while another preset is chosen.</summary>
         public string ModernLayout;
+
+        /// <summary>The modern scheme's interface preset (UWModernLayout.PresetEnum); -1 = not
+        /// chosen yet: Custom when an own layout exists, else Modern.</summary>
+        public int InterfacePreset = -1;
 
         /// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
         public bool MinimapHidden;
+
+        /// <summary>The action bar switched off, its keys with it (the layout editor; per user,
+        /// 2026-10-10).</summary>
+        public bool ActionBarHidden;
+
+        /// <summary>The original's compass in the own layout (the layout editor's Compass button,
+        /// UWModernCompass).</summary>
+        public bool ModernCompass;
+
+        /// <summary>The compass on its stone disc (UWModernLayout.IsCompassDisc), and its black outline.</summary>
+        public bool ModernCompassDisc;
+
+        public bool ModernCompassOutline;
+
+        /// <summary>The original's message scroll in the own layout (the layout editor's Scroll
+        /// button, UWModernScroll), and its lines (0 = the original's four; Shift+wheel).</summary>
+        public bool ModernScroll;
+
+        /// <summary>The parts' generated backs (UWModernBacks).</summary>
+        public string ModernBacks;
+
+        public int ModernScrollLines;
+
+        /// <summary>The modern interface's font: 0 modern, 1 the original's (UWUiFonts).</summary>
+        public int InterfaceFont;
+
+        /// <summary>The power gem on a stand of its own (UWModernLayout.IsGemApart).</summary>
+        public bool ModernGemApart;
+
+        /// <summary>The stone shelf deco panel shown, and its width in its own pixels (0 = default).</summary>
+        public bool ModernStoneShelf;
+
+        public int ModernStoneShelfWidth;
+
+        /// <summary>The flasks freed, each on its own (UWModernLayout.IsFlasksApart).</summary>
+        public bool ModernFlasksApart;
+
+        /// <summary>The rune hollow as an element (UWModernLayout.IsRuneHollowShown), and its black outline.</summary>
+        public bool ModernRuneHollow;
+
+        public bool ModernRuneHollowOutline;
+
+        /// <summary>The original's rune tablet in the rune panel's place (UWModernLayout.IsRuneTabletShown).</summary>
+        public bool ModernRuneTablet;
+
+        /// <summary>The original's stats panel as an element (UWModernLayout.IsStatsPanelShown).</summary>
+        public bool ModernStatsPanel;
+
+        /// <summary>The original's character panel as an element (UWModernLayout.IsCharacterPageShown).</summary>
+        public bool ModernCharacterPage;
+
+        /// <summary>The conversation in the original's look (UWModernLayout.IsConversationOriginal).</summary>
+        public bool ModernConversationOriginal;
+
+        /// <summary>The original look's pieces WITHOUT their black outline (on by default, per user
+        /// 2026-10-10: "with the outline it looks better").</summary>
+        public bool ModernConversationNoOutline;
 
         /// <summary>The modern pointer is free and the view turns only while the right button is
         /// held, instead of the button toggling (UWModernPointer; toggling by default, per user
@@ -79,6 +141,32 @@ public static class UWUserSettings
 
         /// <summary>Invert only the vertical mouse look in the modern control scheme.</summary>
         public bool InvertMouseY;
+        /// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
+        /// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
+        /// often reports as an Xbox one).</summary>
+        public int GamepadButtonStyle;
+
+        /// <summary>The right stick's look speed as a factor on its 180 degrees per second, 0.25 to
+        /// 2 (the gamepad tab of the Controls dialog, per user 2026-10-07).</summary>
+        public float StickLookSpeed = 1f;
+
+        /// <summary>The sticks swapped - the left one looks, the right one walks (per user,
+        /// 2026-10-07: wanted above all by left-handed players; UWKeyBindings.ApplyTo).</summary>
+        public bool GamepadSwapSticks;
+
+        /// <summary>The look stick's up and down reversed (UWPlayerLook.ReadLookStick).</summary>
+        public bool StickInvertY;
+
+        /// <summary>The deadzone of the physical left and right stick, 0 to 0.5 of the deflection
+        /// (per user, 2026-10-08: "sooner or later every controller drifts"; the Input System's own
+        /// 0.125 as the default - UWKeyBindings.fApplyStickSwap).</summary>
+        public float LeftStickDeadzone = 0.125f;
+
+        /// <summary>The gamepad's button hints in the modern interface - at the crosshair and the
+        /// action bar - while the pad is in use (per user, 2026-10-08).</summary>
+        public bool GamepadButtonHints = true;
+
+        public float RightStickDeadzone = 0.125f;
 
         /// <summary>The modern character panel stays out on its Character tab without freeing the
         /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
@@ -109,6 +197,13 @@ public static class UWUserSettings
         /// asset ships with it on, so a file written before this entry existed keeps the
         /// picture it had.</summary>
         public bool DisplayAs4By3 = true;
+
+        /// <summary>The classic scheme's frame widened to the window (UWClassicWide; per user,
+        /// 2026-10-10: the former 4:3 checkbox, the classic screen always at 4:3 now).</summary>
+        public bool ClassicWidescreen;
+
+        /// <summary>The 3D view's horizontal angle in degrees, 0 for each scheme's own (UWViewAngle).</summary>
+        public float ViewAngle;
 
         /// <summary>The world drawn at the original's resolution - see UWWorldResolution. Off by
         /// default: the full screen resolution, as before.</summary>
@@ -204,6 +299,14 @@ public static class UWUserSettings
         public bool SoundEnabled = true;
 
         public float SoundVolume = 0.8f;
+
+        /// <summary>What plays the music (UWAudioEngine.MusicDeviceEnum): 0 the AdLib, 1 General
+        /// MIDI, 2 the MT-32. 0 by default, the sound of the original as most heard it.</summary>
+        public int MusicDevice;
+
+        /// <summary>The folder with the player's own MT-32 ROMs; empty = the MT32 folder beside
+        /// settings.json.</summary>
+        public string Mt32RomPath = "";
     }
 
     private const string FileName = "settings.json";
@@ -311,10 +414,138 @@ public static class UWUserSettings
         set { fGet().MinimapHidden = value; }
     }
 
+    public static bool ActionBarHidden
+    {
+        get { return fGet().ActionBarHidden; }
+        set { fGet().ActionBarHidden = value; }
+    }
+
+    public static bool ModernCompass
+    {
+        get { return fGet().ModernCompass; }
+        set { fGet().ModernCompass = value; }
+    }
+
+    public static bool ModernCompassDisc
+    {
+        get { return fGet().ModernCompassDisc; }
+        set { fGet().ModernCompassDisc = value; }
+    }
+
+    public static bool ModernCompassOutline
+    {
+        get { return fGet().ModernCompassOutline; }
+        set { fGet().ModernCompassOutline = value; }
+    }
+
+    public static string ModernBacks
+    {
+        get { return fGet().ModernBacks; }
+        set { fGet().ModernBacks = value; }
+    }
+
+    public static bool ModernScroll
+    {
+        get { return fGet().ModernScroll; }
+        set { fGet().ModernScroll = value; }
+    }
+
+    public static int ModernScrollLines
+    {
+        get { return fGet().ModernScrollLines; }
+        set { fGet().ModernScrollLines = value; }
+    }
+
+    public static int InterfaceFont
+    {
+        get { return fGet().InterfaceFont; }
+        set { fGet().InterfaceFont = value; }
+    }
+
+    public static bool ModernGemApart
+    {
+        get { return fGet().ModernGemApart; }
+        set { fGet().ModernGemApart = value; }
+    }
+
+    public static bool ModernStoneShelf
+    {
+        get { return fGet().ModernStoneShelf; }
+        set { fGet().ModernStoneShelf = value; }
+    }
+
+    public static int ModernStoneShelfWidth
+    {
+        get { return fGet().ModernStoneShelfWidth; }
+        set { fGet().ModernStoneShelfWidth = value; }
+    }
+
+    public static bool ModernFlasksApart
+    {
+        get { return fGet().ModernFlasksApart; }
+        set { fGet().ModernFlasksApart = value; }
+    }
+
+    public static bool ModernRuneHollow
+    {
+        get { return fGet().ModernRuneHollow; }
+        set { fGet().ModernRuneHollow = value; }
+    }
+
+    public static bool ModernRuneHollowOutline
+    {
+        get { return fGet().ModernRuneHollowOutline; }
+        set { fGet().ModernRuneHollowOutline = value; }
+    }
+
+    public static bool ModernRuneTablet
+    {
+        get { return fGet().ModernRuneTablet; }
+        set { fGet().ModernRuneTablet = value; }
+    }
+
+    public static bool ModernStatsPanel
+    {
+        get { return fGet().ModernStatsPanel; }
+        set { fGet().ModernStatsPanel = value; }
+    }
+
+    public static bool ModernCharacterPage
+    {
+        get { return fGet().ModernCharacterPage; }
+        set { fGet().ModernCharacterPage = value; }
+    }
+
+    public static bool ModernConversationOriginal
+    {
+        get { return fGet().ModernConversationOriginal; }
+        set { fGet().ModernConversationOriginal = value; }
+    }
+
+    public static bool ModernConversationNoOutline
+    {
+        get { return fGet().ModernConversationNoOutline; }
+        set { fGet().ModernConversationNoOutline = value; }
+    }
+
     public static string ModernLayout
     {
         get { return fGet().ModernLayout; }
         set { fGet().ModernLayout = value; }
+    }
+
+    public static int InterfacePreset
+    {
+        get
+        {
+            int liPreset = fGet().InterfacePreset;
+
+            if (liPreset < 0)
+                return string.IsNullOrEmpty(fGet().ModernLayout) && !fGet().MinimapHidden ? 0 : 1;
+
+            return liPreset;
+        }
+        set { fGet().InterfacePreset = value; }
     }
 
     public static int ConversationTextPercent
@@ -348,6 +579,58 @@ public static class UWUserSettings
 
     /// <summary>The slider's and the arrows' step: five per cent.</summary>
     public const float MouseLookSpeedStep = 0.05f;
+
+    public static int GamepadButtonStyle
+    {
+        get { return fGet().GamepadButtonStyle; }
+        set { fGet().GamepadButtonStyle = value; }
+    }
+
+    /// <summary>The stick's look speed factor, clamped; UWPlayerLook reads it every frame.</summary>
+    public static float StickLookSpeed
+    {
+        get { return Mathf.Clamp(fGet().StickLookSpeed <= 0f ? 1f : fGet().StickLookSpeed, MinStickLookSpeed, MaxStickLookSpeed); }
+        set { fGet().StickLookSpeed = Mathf.Clamp(value, MinStickLookSpeed, MaxStickLookSpeed); }
+    }
+
+    public static bool GamepadSwapSticks
+    {
+        get { return fGet().GamepadSwapSticks; }
+        set { fGet().GamepadSwapSticks = value; }
+    }
+
+    public static bool StickInvertY
+    {
+        get { return fGet().StickInvertY; }
+        set { fGet().StickInvertY = value; }
+    }
+
+    public const float MaxStickDeadzone = 0.5f;
+
+    public static bool GamepadButtonHints
+    {
+        get { return fGet().GamepadButtonHints; }
+        set { fGet().GamepadButtonHints = value; }
+    }
+
+    /// <summary>The hints show now: the pad was used last and they are switched on.</summary>
+    public static bool ShowsPadHints => UWGamepad.IsActive && GamepadButtonHints;
+
+    public static float LeftStickDeadzone
+    {
+        get { return Mathf.Clamp(fGet().LeftStickDeadzone, 0f, MaxStickDeadzone); }
+        set { fGet().LeftStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
+    }
+
+    public static float RightStickDeadzone
+    {
+        get { return Mathf.Clamp(fGet().RightStickDeadzone, 0f, MaxStickDeadzone); }
+        set { fGet().RightStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
+    }
+
+    public const float MinStickLookSpeed = 0.25f;
+
+    public const float MaxStickLookSpeed = 2f;
 
     public static bool ModernPanelPinned
     {
@@ -441,6 +724,18 @@ public static class UWUserSettings
     {
         get { return fGet().DisplayAs4By3; }
         set { fGet().DisplayAs4By3 = value; }
+    }
+
+    public static bool ClassicWidescreen
+    {
+        get { return fGet().ClassicWidescreen; }
+        set { fGet().ClassicWidescreen = value; }
+    }
+
+    public static float ViewAngle
+    {
+        get { return fGet().ViewAngle; }
+        set { fGet().ViewAngle = value; }
     }
 
     /// <summary>The world at the original's resolution. Everything that reads or changes it goes
@@ -648,8 +943,111 @@ public static class UWUserSettings
         set { fGet().SoundVolume = Mathf.Clamp01(value); }
     }
 
+    public static int MusicDevice
+    {
+        get { return Mathf.Clamp(fGet().MusicDevice, 0, 2); }
+        set { fGet().MusicDevice = Mathf.Clamp(value, 0, 2); }
+    }
+
+    public static string Mt32RomPath
+    {
+        get { return fGet().Mt32RomPath ?? string.Empty; }
+        set { fGet().Mt32RomPath = value ?? string.Empty; }
+    }
+
+    /// <summary>
+    /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves
+    /// the editor and confirms the save" - so a preset can be a starting point and one can still go
+    /// back to one's own): while true nothing is written to the file; the changes live in memory and
+    /// the editor writes them, or puts the snapshot back, when it is left (UWModernLayoutEditor).
+    /// </summary>
+    public static bool SaveSuspended { get; set; }
+
+    /// <summary>Everything the layout editor sets: the parts' places and sizes, their backs, the
+    /// UI size, every part's switches and looks, the font.</summary>
+    private static readonly string[] msLayoutFields =
+    {
+        "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
+        "ModernScroll", "ModernScrollLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
+        "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
+        "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
+        "ActionBarHidden", "InterfaceFont"
+    };
+
+    /// <summary>The layout's settings at one moment (TakeLayoutSnapshot).</summary>
+    public sealed class LayoutSnapshot
+    {
+        internal object[] Values;
+    }
+
+    private static System.Reflection.FieldInfo[] msLayoutFieldInfos;
+
+    private static System.Reflection.FieldInfo[] fLayoutFieldInfos()
+    {
+        if (msLayoutFieldInfos != null)
+            return msLayoutFieldInfos;
+
+        List<System.Reflection.FieldInfo> lOFound = new List<System.Reflection.FieldInfo>();
+
+        foreach (string lsName in msLayoutFields)
+        {
+            System.Reflection.FieldInfo lOField = typeof(Data).GetField(lsName);
+
+            if (lOField != null)
+                lOFound.Add(lOField);
+            else
+                Debug.LogWarning("Layout setting not found: " + lsName);
+        }
+
+        msLayoutFieldInfos = lOFound.ToArray();
+
+        return msLayoutFieldInfos;
+    }
+
+    public static LayoutSnapshot TakeLayoutSnapshot()
+    {
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+        object[] lOValues = new object[lOFields.Length];
+
+        for (int liAt = 0; liAt < lOFields.Length; liAt++)
+            lOValues[liAt] = lOFields[liAt].GetValue(fGet());
+
+        return new LayoutSnapshot { Values = lOValues };
+    }
+
+    public static void RestoreLayout(LayoutSnapshot pOSnapshot)
+    {
+        if (pOSnapshot == null)
+            return;
+
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+
+        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
+            lOFields[liAt].SetValue(fGet(), pOSnapshot.Values[liAt]);
+    }
+
+    /// <summary>Whether the layout's settings are what the snapshot holds.</summary>
+    public static bool LayoutEquals(LayoutSnapshot pOSnapshot)
+    {
+        if (pOSnapshot == null)
+            return true;
+
+        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+
+        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
+        {
+            if (!Equals(lOFields[liAt].GetValue(fGet()), pOSnapshot.Values[liAt]))
+                return false;
+        }
+
+        return true;
+    }
+
     public static void Save()
     {
+        if (SaveSuspended)
+            return;
+
         try
         {
             File.WriteAllText(fGetPath(), JsonUtility.ToJson(fGet(), true));

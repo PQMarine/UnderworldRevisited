@@ -24,26 +24,26 @@ using UWDataImport.UWData;
 /// </summary>
 public partial class UWSetupMenu : MonoBehaviour
 {
-    private const float ReferenceHeight = 720f;
+    public const float ReferenceHeight = 720f;
 
     private const float BarHeight = 30f;
 
-    private static readonly Color BackgroundColour = new Color(0.05f, 0.05f, 0.06f, 1f);
+    public static readonly Color BackgroundColour = new Color(0.05f, 0.05f, 0.06f, 1f);
 
-    private static readonly Color BarColour = new Color(0.11f, 0.11f, 0.13f, 1f);
+    public static readonly Color BarColour = new Color(0.11f, 0.11f, 0.13f, 1f);
 
-    private static readonly Color PanelColour = new Color(0.14f, 0.14f, 0.16f, 1f);
+    public static readonly Color PanelColour = new Color(0.14f, 0.14f, 0.16f, 1f);
 
-    private static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
+    public static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
 
     /// <summary>A thin line between groups inside a menu.</summary>
-    private static readonly Color SeparatorColour = new Color(0.30f, 0.30f, 0.34f, 1f);
+    public static readonly Color SeparatorColour = new Color(0.30f, 0.30f, 0.34f, 1f);
 
-    private static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
+    public static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
 
-    private static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
+    public static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
 
-    private static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
+    public static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
 
     private enum MenuEnum
     {
@@ -557,11 +557,27 @@ public partial class UWSetupMenu : MonoBehaviour
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Keyboard and mouse", mOLabel);
-        lfTop += 28f;
+        // TWO TABS (per user, 2026-10-07): the gamepad's buttons are bound on their own
+        // (UWSetupMenu.Gamepad.cs). Not switched while a key is awaited.
+        GUI.enabled = mOListeningFor == null;
+
+        if (GUI.Button(new Rect(lfLeft, lfTop, 200f, 28f), "Keyboard and mouse", mbControlsGamepadTab ? mOListItem : mOCurrentItem))
+            mbControlsGamepadTab = false;
+
+        if (GUI.Button(new Rect(lfLeft + 210f, lfTop, 140f, 28f), "Gamepad", mbControlsGamepadTab ? mOCurrentItem : mOListItem))
+            mbControlsGamepadTab = true;
+
+        GUI.enabled = true;
+        lfTop += 36f;
+
+        if (mbControlsGamepadTab)
+        {
+            fDrawGamepadTab(lODialog, lfLeft, lfInner, lfTop);
+            return;
+        }
 
         lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Click an entry to change it, then press the new key or mouse button. Escape keeps the old one. The pointer movement itself is fixed, and the interface panels always use the physical mouse buttons. A gamepad follows later.") + 12f;
+            "Click an entry to change it, then press the new key or mouse button. Escape keeps the old one. The pointer movement itself is fixed, and the interface panels always use the physical mouse buttons. The gamepad has its own tab.") + 12f;
 
         // The easy movement repeats while a key or one of the three arrows under the compass
         // is held. The original's pace is too fast to aim with (per user, 2026-09-21: "one
@@ -1132,7 +1148,7 @@ public partial class UWSetupMenu : MonoBehaviour
     private void fDrawSoundDialog(float pfWidth)
     {
         float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 150f, lfDialogWidth, 280f);
+        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 150f, lfDialogWidth, 450f);
 
         fFill(lODialog, PanelColour);
 
@@ -1144,7 +1160,7 @@ public partial class UWSetupMenu : MonoBehaviour
         lfTop += 28f;
 
         lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Music and sound come from the emulated AdLib card, as in 1992. The original only knew on and off, and the same two switches sit in the options panel in the game; the volumes are ours. The two switches belong to the save game, as in the original - a save loaded here brings the state it was saved with, the volumes stay.") + 8f;
+            "Sound comes from the emulated AdLib card, as in 1992; the music can also play its MT-32 version on General MIDI. The original only knew on and off, and the same two switches sit in the options panel in the game; the volumes are ours. The two switches belong to the save game, as in the original - a save loaded here brings the state it was saved with, the volumes stay.") + 8f;
 
         bool lbMusic = GUI.Toggle(new Rect(lfLeft, lfTop, 220f, 26f), UWSoundOptions.MusicEnabled,
             "  Music", mOToggle);
@@ -1170,8 +1186,54 @@ public partial class UWSetupMenu : MonoBehaviour
 
         lfTop += 44f;
 
-        fDrawHint(lfLeft, lfTop, lfInner,
-            "The General MIDI and MT-32 versions of the music are not built - they would need a soundfont or an MT-32 emulation.");
+        // THE MUSIC DEVICE (UWAudioEngine.MusicDeviceEnum). General MIDI plays the MT-32 version on
+        // the soundfont that ships with the game, the MT-32 on Munt's emulation with the player's
+        // own ROMs.
+        string[] lsDevices = { "AdLib", "General MIDI", "MT-32" };
+        UWDataImport.UWData.UWMt32MusicDriver.RomSet lORoms = UWAudioEngine.Mt32Roms;
+        bool[] lbAvailable = { true, UWAudioEngine.IsGeneralMidiAvailable, lORoms != null };
+        float lfDeviceWidth = (lfInner - 230f) / lsDevices.Length;
+
+        GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Music played by", mOLabel);
+
+        for (int liDevice = 0; liDevice < lsDevices.Length; liDevice++)
+        {
+            bool lbCurrent = UWUserSettings.MusicDevice == liDevice;
+
+            GUI.enabled = lbAvailable[liDevice];
+
+            if (GUI.Button(new Rect(lfLeft + 230f + (liDevice * lfDeviceWidth), lfTop, lfDeviceWidth - 4f, 26f), lsDevices[liDevice],
+                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
+            {
+                UWUserSettings.MusicDevice = liDevice;
+                UWUserSettings.Save();
+            }
+
+            GUI.enabled = true;
+        }
+
+        lfTop += 36f;
+
+        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
+            "General MIDI: the game's MT-32 music on a soundfont cut from FluidR3 GM (Frank Wen, MIT), its instruments matched to the MT-32's by name - close, not the original's sound. MT-32: the same music on Munt's emulation of the Roland MT-32, as the game was written for it. Its ROMs belong to Roland and do not come with the game; put your own control and PCM ROM into the folder below.") + 6f;
+
+        string lsFolder = UWAudioEngine.Mt32RomFolder;
+        string lsRomState = lORoms != null ? "MT-32 ROMs: " + lORoms.Description : "MT-32: " + UWAudioEngine.Mt32Problem;
+
+        GUI.Label(new Rect(lfLeft, lfTop, lfInner - 150f, 26f), lsRomState, mOLabel);
+
+        if (GUI.Button(new Rect(lfLeft + lfInner - 140f, lfTop, 140f, 26f), "Open folder", mOButton))
+        {
+            try
+            {
+                System.IO.Directory.CreateDirectory(lsFolder);
+                Application.OpenURL((lsFolder.StartsWith("/") ? "file://" : "file:///") + lsFolder.Replace('\\', '/'));
+            }
+            catch (System.Exception lOError)
+            {
+                Debug.LogWarning("MT-32 ROM folder not opened: " + lOError.Message);
+            }
+        }
 
         if (GUI.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
             mbSoundDialogOpen = false;
@@ -1268,6 +1330,34 @@ public partial class UWSetupMenu : MonoBehaviour
                 "  4x needs a window 1600 pixels tall", mOListLabel);
     }
 
+    /// <summary>
+    /// THE VIEW ANGLE (UWViewAngle; per user, 2026-10-10: a slider, one for both schemes): the
+    /// horizontal angle of the 3D view in whole degrees, and "Orig." back to each scheme's own. At
+    /// the original's the slider stands at the angle shown now and the value reads "Original".
+    /// </summary>
+    private void fViewAngleRow(Rect pOPanel, float pfTop)
+    {
+        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 50f, 26f), "View", mOListLabel);
+
+        bool lbOriginal = UWViewAngle.IsOriginal;
+        float lfShown = lbOriginal ? UWViewAngle.HorizontalOf(Camera.main) : UWViewAngle.Horizontal;
+        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 58f, pfTop + 8f, pOPanel.width - 186f, 20f),
+            Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max), UWViewAngle.Min, UWViewAngle.Max);
+        int liWanted = Mathf.RoundToInt(lfWanted);
+
+        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 122f, pfTop, 66f, 26f), lbOriginal ? "Original" : liWanted + "°", mOListLabel);
+
+        if (liWanted != Mathf.RoundToInt(Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max)))
+            UWViewAngle.Horizontal = liWanted;
+
+        GUI.enabled = !lbOriginal;
+
+        if (GUI.Button(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 48f, 26f), "Orig.", mOListItem))
+            UWViewAngle.Horizontal = 0f;
+
+        GUI.enabled = true;
+    }
+
     /// <summary>The step of the Smooth head bob's strength slider.</summary>
     private const float HeadBobStrengthStep = 0.05f;
 
@@ -1298,8 +1388,11 @@ public partial class UWSetupMenu : MonoBehaviour
         // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog.
         const float PaletteEffectsRowHeight = 30f;
 
+        // The view angle's row under the widescreen switch (UWViewAngle).
+        const float ViewAngleRowHeight = 30f;
+
         Rect lOPanel = new Rect(168f, BarHeight, 300f,
-            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + WorldResolutionRowHeight + lfFactorRows);
+            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + ViewAngleRowHeight + WorldResolutionRowHeight + lfFactorRows);
 
         fFill(lOPanel, PanelColour);
 
@@ -1333,23 +1426,32 @@ public partial class UWSetupMenu : MonoBehaviour
 
         fFill(new Rect(lOPanel.x + 8f, lfAspectTop, lOPanel.width - 16f, 1f), SeparatorColour);
 
-        bool lbAspect = GUI.Toggle(new Rect(lOPanel.x + 8f, lfAspectTop + 6f, lOPanel.width - 16f, 26f),
-            UWDisplayAspect.Enabled, "  Classic screen at 4:3", mOToggle);
+        // The classic screen is always at 4:3 since 2026-10-10 (per user); the place is the classic
+        // frame's widescreen now (UWClassicWide).
+        bool lbWide = GUI.Toggle(new Rect(lOPanel.x + 8f, lfAspectTop + 6f, lOPanel.width - 16f, 26f),
+            UWUserSettings.ClassicWidescreen, "  Classic screen widescreen", mOToggle);
 
-        if (lbAspect != UWDisplayAspect.Enabled)
-            UWDisplayAspect.Enabled = lbAspect;
+        if (lbWide != UWUserSettings.ClassicWidescreen)
+        {
+            UWUserSettings.ClassicWidescreen = lbWide;
+            UWUserSettings.Save();
+        }
 
         // The world at the original's resolution (UWWorldResolution), asked for on Reddit
         // (2026-10-07): it takes effect at once as well, the interface stays sharp.
+        fViewAngleRow(lOPanel, lfAspectTop + 6f + ViewAngleRowHeight);
+
+        float lfResolutionTop = lfAspectTop + 6f + ViewAngleRowHeight + WorldResolutionRowHeight;
+
         bool lbOriginalResolution = GUI.Toggle(
-            new Rect(lOPanel.x + 8f, lfAspectTop + 6f + WorldResolutionRowHeight, lOPanel.width - 16f, 26f),
+            new Rect(lOPanel.x + 8f, lfResolutionTop, lOPanel.width - 16f, 26f),
             UWWorldResolution.Enabled, "  World at the original's resolution", mOToggle);
 
         if (lbOriginalResolution != UWWorldResolution.Enabled)
             UWWorldResolution.Enabled = lbOriginalResolution;
 
         if (lbResolutionOn)
-            fWorldResolutionFactorRow(lOPanel, lfAspectTop + 6f + (2f * WorldResolutionRowHeight), lbMaxLocked);
+            fWorldResolutionFactorRow(lOPanel, lfResolutionTop + WorldResolutionRowHeight, lbMaxLocked);
 
         fCloseMenuOnOutsideClick(lOPanel);
     }
@@ -1384,7 +1486,7 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private void fDrawGameMenu()
     {
-        Rect lOPanel = new Rect(8f, BarHeight, 260f, 162f);
+        Rect lOPanel = new Rect(8f, BarHeight, 260f, 196f);
 
         fFill(lOPanel, PanelColour);
 
@@ -1397,10 +1499,16 @@ public partial class UWSetupMenu : MonoBehaviour
 
         GUI.enabled = true;
 
+        // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard whose top row
+        // gives media keys unless Fn is held could not reach Shift+F2; under Game because the
+        // scheme changes the whole interface, not only the controls) - the same as Shift+F2,
+        // kept for the next start.
+        fDrawSchemeChoice(new Rect(lOPanel.x + 8f, lOPanel.y + 38f, lOPanel.width - 16f, 26f));
+
         // THE WHOLE OPENING AT STARTUP: the two company logos, the animated title and the
         // intro. Off it goes straight to the main menu, which is what one wants while testing
         // (per user, 2026-09-22). It takes effect at the next start.
-        bool lbOpening = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 38f, lOPanel.width - 16f, 26f),
+        bool lbOpening = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 72f, lOPanel.width - 16f, 26f),
             UWUserSettings.ShowOpeningSequence, "  Logos and intro at startup", mOToggle);
 
         if (lbOpening != UWUserSettings.ShowOpeningSequence)
@@ -1411,7 +1519,7 @@ public partial class UWSetupMenu : MonoBehaviour
 
         // KEEP RUNNING WITHOUT THE FOCUS (per user, 2026-09-28: for idle tests beside the
         // original, but everyone should decide for themselves). Takes effect at once.
-        bool lbBackground = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 68f, lOPanel.width - 16f, 26f),
+        bool lbBackground = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 102f, lOPanel.width - 16f, 26f),
             UWUserSettings.RunInBackground, "  Keep running in the background", mOToggle);
 
         if (lbBackground != UWUserSettings.RunInBackground)
@@ -1423,7 +1531,7 @@ public partial class UWSetupMenu : MonoBehaviour
         // DEAL THE ATTRIBUTE POINTS AT CHARACTER CREATION ONESELF (per user, 2026-10-01: for
         // those who do not like their values to depend on luck; off by default). Takes effect at
         // the next character creation.
-        bool lbManual = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 98f, lOPanel.width - 16f, 26f),
+        bool lbManual = GUI.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 132f, lOPanel.width - 16f, 26f),
             UWUserSettings.ManualAttributes, "  Choose attributes at creation", mOToggle);
 
         if (lbManual != UWUserSettings.ManualAttributes)
@@ -1432,7 +1540,7 @@ public partial class UWSetupMenu : MonoBehaviour
             UWUserSettings.Save();
         }
 
-        if (GUI.Button(new Rect(lOPanel.x, lOPanel.y + 128f, lOPanel.width, 30f), "Quit", mOListItem))
+        if (GUI.Button(new Rect(lOPanel.x, lOPanel.y + 162f, lOPanel.width, 30f), "Quit", mOListItem))
             fQuit();
 
         // A click anywhere else closes the menu.
@@ -1441,6 +1549,33 @@ public partial class UWSetupMenu : MonoBehaviour
         {
             meOpenMenu = MenuEnum.None;
             Event.current.Use();
+        }
+    }
+
+    /// <summary>The scheme's two buttons in one row of the Game menu: Original and Modern, the one in
+    /// force marked.</summary>
+    private void fDrawSchemeChoice(Rect pORow)
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+        string[] lsSchemes = { "Original", "Modern" };
+        int liScheme = lOScheme != null ? (int)lOScheme.Current : UWUserSettings.ControlScheme;
+        float lfWidth = pORow.width / lsSchemes.Length;
+
+        for (int liAt = 0; liAt < lsSchemes.Length; liAt++)
+        {
+            bool lbCurrent = liScheme == liAt;
+
+            if (GUI.Button(new Rect(pORow.x + (liAt * lfWidth), pORow.y, lfWidth - 4f, pORow.height), lsSchemes[liAt],
+                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
+            {
+                if (lOScheme != null)
+                    lOScheme.Choose((UWControlScheme.SchemeEnum)liAt);
+                else
+                {
+                    UWUserSettings.ControlScheme = liAt;
+                    UWUserSettings.Save();
+                }
+            }
         }
     }
 
@@ -1596,7 +1731,7 @@ public partial class UWSetupMenu : MonoBehaviour
         if (mOLabel != null)
             return;
 
-        mOFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mOFont = UWInterfaceFont.Font;
 
         mOLabel = new GUIStyle { font = mOFont, fontSize = 20, alignment = TextAnchor.MiddleLeft };
         mOLabel.normal.textColor = TextColour;

@@ -285,11 +285,14 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (IsTypingName)
             fEndTyping();
 
-        if (lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame)
+        // B as Escape (UWScreenUi.WasPadBackPressed).
+        if ((lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame) || UWScreenUi.WasPadBackPressed())
         {
             Hide();
             return;
         }
+
+        fStepByPad();
 
         int liHover = -1;
 
@@ -317,6 +320,43 @@ public class UWCharacterCreationScreen : MonoBehaviour
             return;
 
         fChoose(miHover);
+    }
+
+    /// <summary>The gamepad steps through the choices (UWPadEntryStepper, per user 2026-10-08: as
+    /// in the other menus); every new stage snaps the pointer onto its first choice.</summary>
+    private readonly UWPadEntryStepper mOPadStepper = new UWPadEntryStepper();
+
+    private readonly List<Rect> mOPadRects = new List<Rect>();
+
+    private string msSteppedStage;
+
+    private void fStepByPad()
+    {
+        mOPadRects.Clear();
+
+        foreach (Button lOButton in mOButtons)
+        {
+            Rect lORect = UWScreenUi.ScreenRectOf(lOButton.Image);
+
+            if (lORect.width > 0f)
+                mOPadRects.Add(lORect);
+        }
+
+        // A NEW QUESTION snaps onto the first choice: the stage and its choices. Not in the manual
+        // dealing of the attribute points (per user, 2026-10-08), whose plus and minus are pressed
+        // again and again - its choices change with every point, the pointer stays where it is.
+        string lsStage = mOGeneration.CurrentStage == UWCharacterGeneration.Stage.Attributes
+            ? mOGeneration.CurrentStage.ToString()
+            : mOGeneration.CurrentStage + "|" + string.Join("|", mOGeneration.Choices);
+
+        if (lsStage != msSteppedStage)
+        {
+            msSteppedStage = lsStage;
+            mOPadStepper.Opened();
+            return;
+        }
+
+        mOPadStepper.Update(mOPadRects);
     }
 
     private void fChoose(int piChoice)

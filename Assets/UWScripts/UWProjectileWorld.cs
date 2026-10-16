@@ -982,7 +982,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
     public void OnDemoted(UWMobileRecord pORecord)
     {
         if (mOLoader != null && mOLoader.UWDataImporter != null)
-            UWObjectMechanics.Extinguish(pORecord.Object, mOLoader.UWDataImporter.Textures);
+            UWObjectMechanics.ExtinguishInWorld(pORecord.Object, mOLoader.UWDataImporter.Textures);
     }
 
     public int Detonate(UWMobileRecord pORecord, int piTileX, int piTileY, int piOwner)

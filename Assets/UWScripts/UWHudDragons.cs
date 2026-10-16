@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -71,7 +72,13 @@ public class UWHudDragons
 
     private static readonly int[] msLastFrame = { 5, 9, 13 };
 
-    private static UWHudDragons msInstance;
+    /// <summary>Every pair built - the classic frame's and Classic Wide's (UWModernClassicFrame);
+    /// a request reaches them all.</summary>
+    private static readonly List<UWHudDragons> msInstances = new List<UWHudDragons>();
+
+    /// <summary>How far the right dragon's pictures lie right of their original places - the
+    /// widened frame's columns (Classic Wide).</summary>
+    private readonly int miRightShift;
 
     private readonly Func<int, Sprite> mOSpriteFor;
 
@@ -104,20 +111,22 @@ public class UWHudDragons
 
     private readonly System.Random mORandom = new System.Random();
 
-    public UWHudDragons(RectTransform pOParent, Func<int, Sprite> pOSpriteFor)
+    public UWHudDragons(RectTransform pOParent, Func<int, Sprite> pOSpriteFor, int piRightShift = 0)
     {
         mOSpriteFor = pOSpriteFor;
-        msInstance = this;
+        miRightShift = piRightShift;
+        msInstances.Add(this);
 
         for (int liSide = 0; liSide < 2; liSide++)
         {
             int liOffset = liSide * RightImageOffset;
+            Vector2Int lOShift = new Vector2Int(liSide * piRightShift, 0);
 
             // Draw order as the UW.EXE sprite layers: tail, neck, head, animation overlay.
-            mOTail[liSide] = fCreate("DragonTail" + liSide, pOParent, msTailPosition[liSide], TailRestImage + liOffset);
-            mONeck[liSide] = fCreate("DragonNeck" + liSide, pOParent, msNeckPosition[liSide], NeckImage + liOffset);
-            mOHead[liSide] = fCreate("DragonHead" + liSide, pOParent, msHeadPosition[liSide], HeadImage + liOffset);
-            mOOverlay[liSide] = fCreate("DragonOverlay" + liSide, pOParent, msHeadPosition[liSide], -1);
+            mOTail[liSide] = fCreate("DragonTail" + liSide, pOParent, msTailPosition[liSide] + lOShift, TailRestImage + liOffset);
+            mONeck[liSide] = fCreate("DragonNeck" + liSide, pOParent, msNeckPosition[liSide] + lOShift, NeckImage + liOffset);
+            mOHead[liSide] = fCreate("DragonHead" + liSide, pOParent, msHeadPosition[liSide] + lOShift, HeadImage + liOffset);
+            mOOverlay[liSide] = fCreate("DragonOverlay" + liSide, pOParent, msHeadPosition[liSide] + lOShift, -1);
         }
     }
 
@@ -127,8 +136,8 @@ public class UWHudDragons
     /// </summary>
     public static void Request(int piAnimation)
     {
-        if (msInstance != null)
-            msInstance.fRequest(piAnimation);
+        foreach (UWHudDragons lODragons in msInstances)
+            lODragons.fRequest(piAnimation);
     }
 
     private void fRequest(int piValue)
@@ -261,7 +270,7 @@ public class UWHudDragons
         miLoop[piSide] = piLoops;
 
         RectTransform lORect = (RectTransform)mOOverlay[piSide].transform;
-        Vector2Int lOCorner = msOverlayPosition[piSide, miCurrent[piSide] - 1];
+        Vector2Int lOCorner = msOverlayPosition[piSide, miCurrent[piSide] - 1] + new Vector2Int(piSide * miRightShift, 0);
         lORect.anchoredPosition = new Vector2(lOCorner.x, -lOCorner.y);
     }
 

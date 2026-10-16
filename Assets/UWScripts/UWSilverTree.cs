@@ -84,6 +84,15 @@ public static class UWSilverTree
 
         if (lOSeed != null && pOInventory != null)
         {
+            // THE MODERN SCHEME puts what it picks up into the bags (Interaction.fTryPickUp), the
+            // seed as well - it stayed on the pointer (per user, 2026-10-07). Only without room it
+            // goes onto the pointer, as in the original.
+            UWControlScheme lOScheme = UWScene.ControlScheme;
+            bool lbModern = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+
+            if (lbModern && pOInventory.TryStoreAnywhere(lOSeed))
+                return true;
+
             if (pOInventory.CursorItem == null)
                 pOInventory.BeginDragFromExternal(lOSeed);
             else

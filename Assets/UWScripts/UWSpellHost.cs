@@ -133,6 +133,14 @@ public sealed class UWSpellHost : IUWSpellHost
             mOCharacter.SpendMana(piAmount);
     }
 
+    public void Backfire(int piDice)
+    {
+        if (mOCharacter != null)
+            mOCharacter.ApplyBackfire(piDice);
+    }
+
+    public double RealSeconds => Time.timeAsDouble;
+
     public void RestoreManaFromSpell(int piMinorClass)
     {
         if (mOCharacter != null)

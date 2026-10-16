@@ -202,10 +202,13 @@ public class UWGameUI : MonoBehaviour
         float lfX = (pOScreen.x - fGetLetterboxMarginPixels()) / scaleX;
         float lfY = (pOScreen.y - UWUiFit.BottomMarginPixels) / scale;
 
-        piX = Mathf.FloorToInt(lfX);
         piY = Mathf.FloorToInt(lfY);
 
-        return lfX >= 0f && lfX < UWUiFit.FrameWidthUnits && lfY >= 0f && lfY < UWUiFit.FrameHeight;
+        // The widened frame's column back to the original's (UWClassicWide): the columns put in
+        // belong to no area.
+        piX = UWClassicWide.OriginalX(Mathf.FloorToInt(lfX), 199 - piY);
+
+        return piX >= 0 && lfX >= 0f && lfX < UWUiFit.FrameWidthUnits + UWClassicWide.Extra && lfY >= 0f && lfY < UWUiFit.FrameHeight;
     }
 
     /// <summary>Is the pointer inside an area of the original's table - both ends included, as
@@ -233,7 +236,7 @@ public class UWGameUI : MonoBehaviour
     /// </summary>
     public Rect GetViewportPictureScreenRect(Vector2 pOSize)
     {
-        return GetUiPictureScreenRect(GetViewportPictureCorner(pOSize), pOSize);
+        return GetUiPictureScreenRect(GetViewportPictureCorner(pOSize) + new Vector2(UWClassicWide.Left, 0f), pOSize);
     }
 
     /// <summary>Top-left corner (original UI pixels, top down) of a picture of the given size
@@ -268,7 +271,7 @@ public class UWGameUI : MonoBehaviour
 
     private float gameAreaRight
     {
-        get { return fGetLetterboxMarginPixels() + (226f * scaleX); }
+        get { return fGetLetterboxMarginPixels() + ((226f + UWClassicWide.Extra) * scaleX); }
     }
 
     private float gameAreaTop
@@ -322,9 +325,30 @@ public class UWGameUI : MonoBehaviour
 
         if (!pbOriginalScheme)
         {
+            // CLASSIC WIDE (UWModernClassicFrame): the classic scheme's area, widened. The hole is
+            // shown at the CRT's proportion already, so its raw aspect needs no correction; the
+            // vertical field of view is the original hole's from the horizontal one
+            // (mfOriginalSchemeFov at the corrected aspect), so a wider hole shows more to the
+            // sides and the same up and down.
+            if (UWModernClassicFrame.IsActive)
+            {
+                Rect lOArea = UWModernClassicFrame.CameraRect;
+
+                mOCamera.rect = new Rect(lOArea.x / Screen.width, lOArea.y / Screen.height, lOArea.width / Screen.width, lOArea.height / Screen.height);
+                mOCamera.ResetAspect();
+
+                float lfOriginalAspect = (UWHudArt.ClassicWideCameraRight - UWHudArt.ClassicWideCameraLeft)
+                    / (float)(UWHudArt.ClassicWideCameraBottom - UWHudArt.ClassicWideCameraTop) * VgaPixelAspectCorrection;
+                float lfHalf = Mathf.Tan(mfOriginalSchemeFov * Mathf.Deg2Rad / 2f) / lfOriginalAspect;
+
+                // The view angle set in the Graphics menu, if any (UWViewAngle).
+                mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, 2f * Mathf.Atan(lfHalf) * Mathf.Rad2Deg);
+                return;
+            }
+
             mOCamera.rect = new Rect(0f, 0f, 1f, 1f);
             mOCamera.ResetAspect();
-            mOCamera.fieldOfView = mfDefaultFov;
+            mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, mfDefaultFov);
             return;
         }
 
@@ -347,9 +371,12 @@ public class UWGameUI : MonoBehaviour
         float lfCorrectedAspect = mOCamera.aspect * VgaPixelAspectCorrection / HorizontalPixelFactor;
         mOCamera.aspect = lfCorrectedAspect;
 
+        // The vertical field of view is the original hole's (176 x 121 columns and rows): a hole
+        // widened by UWClassicWide shows more to the sides, the same up and down.
+        float lfHoleAspect = lfCorrectedAspect * (226f - 50f) / (226f + UWClassicWide.Extra - 50f);
         float lfHorizontalFovRad = mfOriginalSchemeFov * Mathf.Deg2Rad;
-        float lfVerticalFovRad = 2f * Mathf.Atan(Mathf.Tan(lfHorizontalFovRad / 2f) / lfCorrectedAspect);
-        mOCamera.fieldOfView = lfVerticalFovRad * Mathf.Rad2Deg;
+        float lfVerticalFovRad = 2f * Mathf.Atan(Mathf.Tan(lfHorizontalFovRad / 2f) / lfHoleAspect);
+        mOCamera.fieldOfView = UWViewAngle.Vertical(lfCorrectedAspect, lfVerticalFovRad * Mathf.Rad2Deg);
     }
 
     /// <summary>Is a projectile spell currently waiting for its target? As long as it is, the left
@@ -560,6 +587,11 @@ public class UWGameUI : MonoBehaviour
         bool lbShowClassicUi = mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original
             || Map.IsMapVisible;
 
+        // THE CLASSIC FRAME WIDENED (UWClassicWide): not over the conversation frame or the big
+        // map; with the help window only as wide as leaves it room.
+        UWClassicWide.Update(mControlSchemeRef == null || mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Original,
+            Conversation.mbConversationFrame || Map.IsMapVisible);
+
         mCanvasRoot.SetActive(lbShowClassicUi);
 
         if (!lbShowClassicUi)
@@ -580,11 +612,24 @@ public class UWGameUI : MonoBehaviour
                 ? UWHudRunes.SpellTargetCursor
                 : (int)UWCursors.CursorEnum.Center;
 
+            // The layout editor's arrows (UWModernLayoutEditor.PointerTile, per user 2026-10-10),
+            // as large as the game's own pointers; the middle is where they point.
+            if (Cursor.visible && UWModernLayout.IsEditing && UWModernLayoutEditor.PointerTile >= 0)
+            {
+                Texture2D lOArrow = UWGlyphs.Pointer(UWModernLayoutEditor.PointerTile, Mathf.Max(1, Mathf.FloorToInt(UWUiFit.Scale)));
+
+                if (lOArrow != null)
+                {
+                    Cursor.SetCursor(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f), PointerCursorMode);
+                    return;
+                }
+            }
+
             if (Cursor.visible && mOCursorTextures != null && liModernCursor < mOCursorTextures.Count)
             {
                 Texture2D lOCross = fGetScaledCursor(liModernCursor);
 
-                Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), CursorMode.Auto);
+                Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), PointerCursorMode);
             }
 
             return;
@@ -595,6 +640,8 @@ public class UWGameUI : MonoBehaviour
         // Bar width depends on the aspect ratio - the CanvasScaler already delivers the
         // actual canvas width in the same reference units as GameFrame.
         mGameFrame.localScale = new Vector3(HorizontalPixelFactor, 1f, 1f);
+        mGameFrame.sizeDelta = new Vector2(UWUiFit.FrameWidthUnits + UWClassicWide.Extra, UWUiFit.FrameHeight);
+        fApplyWideFrame();
 
         // The frame slides left while the help window is open (UWHelpLayout): the left bar
         // shrinks by what the right one gains.
@@ -702,10 +749,25 @@ public class UWGameUI : MonoBehaviour
                     ? new Vector2(0f, lOCursor.height * 0.5f)
                     : new Vector2(lOCursor.width * 0.5f, lOCursor.height * 0.5f);
 
-                Cursor.SetCursor(lOCursor, lOHotspot, CursorMode.Auto);
+                Cursor.SetCursor(lOCursor, lOHotspot, PointerCursorMode);
             }
         }
 	}
+
+    /// <summary>
+    /// How the pointer's picture is drawn: by the system (Auto), but on LINUX while the gamepad is
+    /// in use by Unity itself. The pad moves the system pointer by a warp (UWGamepadPointer), which
+    /// XWayland - Kubuntu's default session - only emulates, keeping the pointer invisible: on the
+    /// user's laptop clicks and tooltips came at the right place with no pointer to see (per user,
+    /// 2026-10-09; first seen in the VM and put down to it). With the mouse the system's pointer
+    /// stays, it follows the hand without a frame's delay.
+    /// </summary>
+    private static CursorMode PointerCursorMode =>
+#if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
+        UWGamepad.IsActive ? CursorMode.ForceSoftware : CursorMode.Auto;
+#else
+        CursorMode.Auto;
+#endif
 
     /// <summary>Has the freshly built scene been drawn at least once? See fIsFirstImageShown.
     /// </summary>
@@ -839,10 +901,17 @@ public class UWGameUI : MonoBehaviour
 
         mWeaponImage = fCreateImage("Weapon", mGameFrame, wLeftOffset, -wTopOffset, 1f, 1f, Color.white);
 
+        // The widened frame moves the parts (UWClassicWide); the weapon with the hole's middle.
+        UWClassicWide.Attach(mGameFrame);
+        UWClassicWide.InHole((RectTransform)mWeaponImage.transform);
+
         mBackgroundImage = fCreateImage("Background", mGameFrame, 0f, 0f, 320f, 200f, Color.white);
         fStretch(mBackgroundImage);
 
         Pictures.Build();
+
+        if (Pictures.mWindowPictureImage != null)
+            UWClassicWide.InHole((RectTransform)Pictures.mWindowPictureImage.transform);
 
         mMainFrameImage = fCreateImage("MainFrame", mGameFrame, 0f, 0f, 320f, 200f, Color.white);
         fStretch(mMainFrameImage);
@@ -920,6 +989,28 @@ public class UWGameUI : MonoBehaviour
     }
 
     /// <summary>
+    /// Text is being typed - a map note, a save game's name, a mantra or the input line, a
+    /// conversation's answer - unlike IsTextEntryActive, which also holds the keys for the help,
+    /// the instrument, the split box and the bags' menu. The gamepad's letter grid comes up for
+    /// these (UWLetterGrid; the character's name it asks of the creation screen itself).
+    /// </summary>
+    public bool IsTypingText
+    {
+        get
+        {
+            if (mOInteraction == null)
+                mOInteraction = GetComponent<Interaction>();
+
+            // Not the yes/no question (answered by A and B, Interaction) nor the count prompt
+            // (the d-pad turns the number, UWItemDrag; per user, 2026-10-07: no grid there).
+            bool lbCountPrompt = UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount;
+
+            return Map.mbMapWriting || Options.miSaveSlotTyping > 0 || UWModernHud.IsTypingName || UWConversationScreen.IsTypingAnswer
+                || (mOInteraction != null && (mOInteraction.IsChanting || (mOInteraction.ShowsPromptTextCursor && !lbCountPrompt)));
+        }
+    }
+
+    /// <summary>
     /// The two keys of our own: F switches all fonts between original and modern (see
     /// UWTextLabel), M opens the map. Both come from the Player map since 2026-09-17, so they can
     /// be changed in the menu bar (UWKeyBindings). Not while typing anywhere - map note, save
@@ -959,7 +1050,9 @@ public class UWGameUI : MonoBehaviour
         }
 
         // Not in a conversation: using the map is locked there, so the key (our addition) is too.
-        if (!lbCtrl && lOControls.Player.ToggleMap.WasPressedThisFrame() && !UWConversationScreen.IsAnyOpen)
+        // The gamepad's pointer takes the d-pad as its wheel - except to close the map again.
+        if (!lbCtrl && lOControls.Player.ToggleMap.WasPerformedThisFrame() && !UWConversationScreen.IsAnyOpen
+            && (Map.IsMapVisible || !UWGamepadPointer.Takes(lOControls.Player.ToggleMap)))
             fToggleMapByKey();
 
         fCheckOptionShortcuts(lOControls);
@@ -979,7 +1072,9 @@ public class UWGameUI : MonoBehaviour
         // The big map open: M or Escape close it (writing a note, the keys are the note's).
         if (Map.IsMapVisible)
         {
-            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()))
+            // The gamepad's B closes it too (UWGamepad).
+            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPerformedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()
+                || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown)))
                 Map.HideMap();
 
             return;
@@ -1010,26 +1105,32 @@ public class UWGameUI : MonoBehaviour
         UWModernPanel lOPanel = UWModernPanel.Instance;
         UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
 
-        if (lOPlayer.Menu.WasPressedThisFrame() && mOInteraction != null && mOInteraction.IsSpellTargeting && !lOHud.IsOpen
+        // The gamepad's B does what Escape does while something is open (PadBackCloses);
+        // otherwise it jumps (UWPlayerMovement).
+        bool lbBack = lOPlayer.Menu.WasPressedThisFrame()
+            || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting
+                && PadBackCloses());
+
+        if (lbBack && mOInteraction != null && mOInteraction.IsSpellTargeting && !lOHud.IsOpen
             && mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern)
             mOInteraction.CancelPendingSpell();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsUsing && !lOHud.IsOpen)
+        else if (lbBack && lOBags != null && lOBags.IsUsing && !lOHud.IsOpen)
             lOBags.CancelUse();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOBags != null && lOBags.IsOpen && !lOHud.IsOpen)
+        else if (lbBack && lOBags != null && lOBags.IsOpen && !lOHud.IsOpen)
             lOBags.Close();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lOPanel != null && lOPanel.IsClosable && !lOHud.IsOpen)
+        else if (lbBack && lOPanel != null && lOPanel.IsClosable && !lOHud.IsOpen)
             lOPanel.Close();
-        else if (lOPlayer.Menu.WasPressedThisFrame() && lORunePanel != null && lORunePanel.IsClosable && !lOHud.IsOpen)
+        else if (lbBack && lORunePanel != null && lORunePanel.IsClosable && !lOHud.IsOpen)
             lORunePanel.Close();
-        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lOPlayer.Menu.WasPressedThisFrame())
+        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lbBack)
             lOHud.ToggleMenu();
         else if (lOHud.IsOpen)
             return;
         else if (lOPlayer.KeyTrack.WasPressedThisFrame())
             Runes.TrackByKey();
         else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
-            UWScene.ItemDrag.TrySleep();
-        else if (lOPlayer.ToggleMap.WasPressedThisFrame())
+            UWScene.ItemDrag.CampByKey();
+        else if (lOPlayer.ToggleMap.WasPerformedThisFrame() && !UWGamepadPointer.Takes(lOPlayer.ToggleMap))
             fToggleMapByKey();
     }
 
@@ -1073,6 +1174,37 @@ public class UWGameUI : MonoBehaviour
 
         // "Partway" and "between worlds" are refused by the options themselves.
         Options.ChooseByShortcut(liEntry);
+    }
+
+    private int miPadBackFrame = -1;
+
+    private bool mbPadBackCloses;
+
+    /// <summary>
+    /// The gamepad's B (UWGamepad): whether it closes something - the menu, a waiting spell, the
+    /// use mode, the bags, a closable panel - in the modern scheme. Worked out once a frame, before
+    /// anything closes, so the jump (UWPlayerMovement) sees the same answer whichever runs first.
+    /// </summary>
+    public bool PadBackCloses()
+    {
+        if (miPadBackFrame == Time.frameCount)
+            return mbPadBackCloses;
+
+        miPadBackFrame = Time.frameCount;
+
+        UWModernBags lOBags = UWModernBags.Instance;
+        UWModernPanel lOPanel = UWModernPanel.Instance;
+        UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
+        UWModernHud lOHud = UWModernHud.Instance;
+
+        mbPadBackCloses = mControlSchemeRef != null && mControlSchemeRef.Current == UWControlScheme.SchemeEnum.Modern
+            && ((lOHud != null && lOHud.IsOpen) || (Map != null && Map.IsMapVisible)
+                || (mOInteraction != null && mOInteraction.IsSpellTargeting)
+                || (lOBags != null && (lOBags.IsUsing || lOBags.IsOpen))
+                || (lOPanel != null && lOPanel.IsClosable)
+                || (lORunePanel != null && lORunePanel.IsClosable));
+
+        return mbPadBackCloses;
     }
 
     /// <summary>
@@ -1130,7 +1262,7 @@ public class UWGameUI : MonoBehaviour
         else if (lOPlayer.KeyTrack.WasPressedThisFrame())
             Runes.TrackByKey();
         else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWScene.ItemDrag != null)
-            UWScene.ItemDrag.TrySleep();
+            UWScene.ItemDrag.CampByKey();
     }
 
     /// <summary>
@@ -1217,7 +1349,7 @@ public class UWGameUI : MonoBehaviour
     /// <summary>Below this vitality any damage makes a dragon cover its eyes.</summary>
     private const int CoverVitality = 16;
 
-    private Sprite fGetDragonSprite(int piIndex)
+    internal Sprite fGetDragonSprite(int piIndex)
     {
         Sprite lOSprite;
 
@@ -1458,6 +1590,83 @@ public class UWGameUI : MonoBehaviour
         lOImage.sprite = fToSprite(lOTexture);
     }
 
+    private int miWideExtraShown;
+
+    private Sprite mOWideSprite;
+
+    private Sprite mOMainSprite;
+
+    /// <summary>
+    /// The frame picture for the width (UWClassicWide): the original's at 320, else MAIN.BYT
+    /// widened by Extra columns (UWHudArt.BuildClassicWideFrame), built when the width changes.
+    /// The conversation frame swaps the picture itself (UWHudConversation), so nothing is set
+    /// while it shows, and after it the picture is set anew.
+    /// </summary>
+    private void fApplyWideFrame()
+    {
+        if (mMainFrameImage == null || mOUWData == null || mOMainTexture == null)
+            return;
+
+        if (Conversation.mbConversationFrame)
+        {
+            miWideExtraShown = -1;
+            return;
+        }
+
+        int liExtra = UWClassicWide.Extra;
+
+        if (liExtra == miWideExtraShown)
+            return;
+
+        miWideExtraShown = liExtra;
+
+        // The background behind the frame is a 320 x 200 picture: stretched over the widened
+        // frame its hole would not fit the frame's, and the frame covers all but its own hole
+        // (per user's screenshot, 2026-10-10: the view did not widen).
+        if (mBackgroundImage != null)
+            mBackgroundImage.enabled = liExtra <= 0;
+
+        if (liExtra <= 0)
+        {
+            if (mOMainSprite == null)
+                mOMainSprite = fToSprite(mOMainTexture);
+
+            mMainFrameImage.sprite = mOMainSprite;
+            return;
+        }
+
+        if (mOWideSprite != null)
+        {
+            Destroy(mOWideSprite.texture);
+            Destroy(mOWideSprite);
+        }
+
+        UWHudArt.ClassicWideFrame lOFrame = UWHudArt.BuildClassicWideFrame(mOUWData.Textures, liExtra);
+        UWPicture lOPicture = lOFrame.Picture;
+        Color32[] lyPixels = new Color32[lOPicture.Pixels.Length];
+
+        // Unity's rows run bottom-up.
+        for (int liRow = 0; liRow < lOPicture.Height; liRow++)
+        {
+            for (int liX = 0; liX < lOPicture.Width; liX++)
+            {
+                UWColor32 lOColour = lOPicture.Get(liX, liRow);
+
+                lyPixels[((lOPicture.Height - 1 - liRow) * lOPicture.Width) + liX] = new Color32(lOColour.R, lOColour.G, lOColour.B, lOColour.A);
+            }
+        }
+
+        Texture2D lOTexture = new Texture2D(lOPicture.Width, lOPicture.Height, TextureFormat.ARGB32, false);
+        lOTexture.name = "UWGameUI classic wide " + liExtra;
+        lOTexture.filterMode = TextureFilterMode;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+        lOTexture.SetPixels32(lyPixels);
+        lOTexture.Apply(false, false);
+
+        mOWideSprite = fToSprite(lOTexture);
+        mMainFrameImage.sprite = mOWideSprite;
+    }
+
     internal static Sprite fToSprite(Texture2D pOTexture)
     {
         if (pOTexture == null)
@@ -1476,6 +1685,14 @@ public class UWGameUI : MonoBehaviour
     /// </summary>
     public Vector2 PointerPosition { get; private set; }
 
+    /// <summary>The 3D view's rectangle on the screen (pixels, bottom-left origin) - the gamepad's
+    /// pointer keeps inside it during a held cursor movement (UWGamepadPointer).</summary>
+    public Rect GameAreaRect => Rect.MinMaxRect(gameAreaLeft, gameAreaBottom, gameAreaRight, gameAreaTop);
+
+    /// <summary>The classic message scroll's top edge on the screen (pixels, bottom-left origin) -
+    /// the gamepad's letter grid stays above it, where the input line rolls (UWLetterGrid).</summary>
+    public float MessageLogTopScreenY => GetUiPictureScreenRect(new Vector2(0f, UWHudMessageLog.messageLogTop), Vector2.zero).y;
+
     private void fCursorMovement()
     {
         Vector2 lOMousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
@@ -1487,6 +1704,12 @@ public class UWGameUI : MonoBehaviour
         // original from 1992, where it may also wander over paper doll & co.
         if (mMovementRef != null && mMovementRef.IsCursorMovementInProgress)
         {
+            // The gamepad's pointer: its own position, the Input System's is stale after the
+            // warps - with it the pointer stuck to the view's top and left edges (per user,
+            // 2026-10-07; UWGamepadPointer.OwnsPosition).
+            if (UWGamepadPointer.OwnsPosition)
+                lOMousePos = UWGamepadPointer.Position;
+
             float lfClampedX = Mathf.Clamp(lOMousePos.x, gameAreaLeft, gameAreaRight);
             float lfClampedY = Mathf.Clamp(lOMousePos.y, gameAreaBottom, gameAreaTop);
 

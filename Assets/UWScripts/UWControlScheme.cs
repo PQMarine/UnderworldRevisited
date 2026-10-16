@@ -202,11 +202,16 @@ public class UWControlScheme : MonoBehaviour
 
         if (lOToggle.WasPressedThisFrame()
             && (!(lOToggle.activeControl?.device is Keyboard) || UWControls.IsShiftHeld))
-        {
-            Apply(Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
-            UWUserSettings.ControlScheme = (int)Current;
-            UWUserSettings.Save();
-        }
+            Choose(Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
+    }
+
+    /// <summary>The player's choice of a scheme - Shift+F2 or the Controls dialog of the menu bar
+    /// (UWSetupMenu) - applied and kept for the next start.</summary>
+    public void Choose(SchemeEnum peScheme)
+    {
+        Apply(peScheme);
+        UWUserSettings.ControlScheme = (int)Current;
+        UWUserSettings.Save();
     }
 
     public void Apply(SchemeEnum peScheme)

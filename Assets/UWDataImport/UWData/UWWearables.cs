@@ -72,6 +72,17 @@ namespace UWDataImport.UWData
 			return mOArmors[peSex][fGetConditionStartIndex(peCondition) + fGetArmorTypeIndex(peArmorMaterial, peArmorType)];
 		}
 
+		/// <summary>
+		/// How many rows lower a piece belongs than its picture puts it (per user, 2026-10-09: "compared
+		/// with leather the plate legs sit two pixels too high", in the original too). The men's plate
+		/// legs (ARMOR_M 5, 20, 35, 50) cover rows 23 to 47 of their 19 x 51 picture, leather and chain
+		/// legs end at row 49 like the women's plate legs - so they are drawn two rows lower.
+		/// </summary>
+		public static int GetArmorDrop(Sex peSex, ArmorMaterials peArmorMaterial, ArmorTypes peArmorType)
+		{
+			return peSex == Sex.Male && peArmorMaterial == ArmorMaterials.Plate && peArmorType == ArmorTypes.Legs ? 2 : 0;
+		}
+
 		private int fGetConditionStartIndex(ArmorConditions peCondition)
 		{
 			return peCondition switch

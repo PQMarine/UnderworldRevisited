@@ -590,6 +590,24 @@ public sealed class UWHudRunes
         }
     }
 
+    /// <summary>A flask's message, as a click on it in the classic frame gives (Classic Wide,
+    /// UWModernClassicFrame): the poison first for the vitality.</summary>
+    internal void DescribeFlask(UWClickRules.FlaskPart pePart)
+    {
+        if (mOUi.mCharacter == null)
+            return;
+
+        if (pePart == UWClickRules.FlaskPart.Vitality)
+        {
+            fDescribePoison(UWClickRules.PoisonDegree(mOUi.mCharacter.Poison));
+            fDescribeFlask(VitalityMessage, mOUi.mCharacter.CurrentHP, mOUi.mCharacter.MaxHP);
+        }
+        else if (pePart == UWClickRules.FlaskPart.Mana)
+        {
+            fDescribeFlask(ManaMessage, mOUi.mCharacter.CurrentMana, mOUi.mCharacter.MaxMana);
+        }
+    }
+
     /// <summary>"You are ", the degree, " poisoned." - block 1 in our numbering 92, 85 + degree
     /// and 93, before the vitality line while poisoned (PrintFlaskHealthManaMessage).</summary>
     private const int YouAreMessage = 92;

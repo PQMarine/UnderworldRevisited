@@ -20,6 +20,12 @@ namespace UWDataImport.UWData
 	/// side), where the original draws nothing at all (per user the same day: specks far to the
 	/// side still showed through the wall; the order clamps its columns at 16 as well) - and left to
 	/// the order (Visible) otherwise, which is only what lies behind the eye.
+	///
+	/// THE ORDER ONLY IN THE ORIGINAL'S OWN CONE (per user, 2026-10-10: in the classic scheme's
+	/// widened view a skeleton showed through a wall at the side): the painter's order is the
+	/// heading's, so it is sound only for the tiles the heading's own run draws. A tile only a side
+	/// run draws is TRUE DEPTH - its sprites go by the real depth against the walls, as the
+	/// Remastered path does (UWPainterOrder.hlsl, UWPainterSpriteVisibleTrue).
 	/// </summary>
 	public sealed class UWSweepMask
 	{
@@ -28,6 +34,9 @@ namespace UWDataImport.UWData
 		public const byte Visible = 255;
 
 		public const byte Hidden = 0;
+
+		/// <summary>Drawn only by a side run: the real depth decides, not the order.</summary>
+		public const byte TrueDepth = 128;
 
 		/// <summary>Half the cone of one sweep, the original's edge rays (seg031_5B4).</summary>
 		public const int ConeHalfAngle = 0x2040;
@@ -42,6 +51,9 @@ namespace UWDataImport.UWData
 
 		private readonly bool[] mbDrawn = new bool[Size * Size];
 
+		/// <summary>Drawn by the run at the heading itself.</summary>
+		private readonly bool[] mbDrawnAhead = new bool[Size * Size];
+
 		private readonly bool[] mbInCone = new bool[Size * Size];
 
 		/// <summary>The angle from the eye to every tile corner (65 by 65), once per build.</summary>
@@ -54,6 +66,7 @@ namespace UWDataImport.UWData
 		public void Build(UWLevel pOLevel, int piX, int piY, int piHeading)
 		{
 			Array.Clear(mbDrawn, 0, mbDrawn.Length);
+			Array.Clear(mbDrawnAhead, 0, mbDrawnAhead.Length);
 			Array.Clear(mbInCone, 0, mbInCone.Length);
 
 			if (pOLevel != null && pOLevel.TileData != null)
@@ -61,7 +74,7 @@ namespace UWDataImport.UWData
 				fCornerAngles(piX, piY);
 
 				foreach (int liOffset in RunOffsets)
-					fRun(pOLevel, piX, piY, (piHeading + liOffset) & 0xFFFF);
+					fRun(pOLevel, piX, piY, (piHeading + liOffset) & 0xFFFF, liOffset == 0);
 
 				// Every tile not drawn: in the cone of a run, the grid's reach or not.
 				for (int liAt = 0; liAt < Mask.Length; liAt++)
@@ -81,10 +94,15 @@ namespace UWDataImport.UWData
 			}
 
 			for (int liAt = 0; liAt < Mask.Length; liAt++)
-				Mask[liAt] = mbDrawn[liAt] || !mbInCone[liAt] ? Visible : Hidden;
+			{
+				Mask[liAt] = mbDrawnAhead[liAt] ? Visible
+					: mbDrawn[liAt] ? TrueDepth
+					: mbInCone[liAt] ? Hidden
+					: Visible;
+			}
 		}
 
-		private void fRun(UWLevel pOLevel, int piX, int piY, int piHeading)
+		private void fRun(UWLevel pOLevel, int piX, int piY, int piHeading, bool pbAhead)
 		{
 			mOSweep.Run(pOLevel, piX, piY, piHeading, null);
 
@@ -112,7 +130,10 @@ namespace UWDataImport.UWData
 					int liAt = (liTileY * Size) + liTileX;
 
 					if (mOSweep.IsDrawn(liRow, liColumn))
+					{
 						mbDrawn[liAt] = true;
+						mbDrawnAhead[liAt] |= pbAhead;
+					}
 				}
 			}
 		}

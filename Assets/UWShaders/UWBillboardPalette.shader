@@ -149,7 +149,11 @@ Shader "UW/BillboardPalette"
                 if (UWPainterSweepHides(UWPainterTileOf(IN.pivotWS.xz)) && UWPainterSweepHides(lTile))
                     discard;
 
-                if (!UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex))
+                // Outside the original's own cone the real depth decides (UWPainterSweepTrueDepth).
+                bool lbTrueDepth = UWPainterSweepTrueDepth(UWPainterTileOf(IN.pivotWS.xz));
+
+                if (lbTrueDepth ? !UWPainterSpriteVisibleTrue(IN.positionCS.xy, lTile, IN.pivotWS, IN.positionWS)
+                    : !UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex))
                     discard;
 
                 outDepth = UWPainterSpriteBandDepth(UWPainterDepth(lTile, lfPart, UWPainterNearness(IN.pivotWS)));

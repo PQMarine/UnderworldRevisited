@@ -8,6 +8,10 @@
 /// never writes that asset back, so the lasting copy lives in UWUserSettings (settings.json).
 /// Everything that reads the switch reads it here, which puts the saved value in place before
 /// the first frame is drawn. Since 2026-09-22 it is in the Graphics menu of the bar (per user).
+///
+/// ALWAYS ON since 2026-10-10 (per user: "without the 4:3 fix everything looks wrong"): the
+/// checkbox in its place switches the classic frame's widescreen (UWClassicWide); the stored
+/// value is no longer read.
 /// </summary>
 public static class UWDisplayAspect
 {
@@ -19,16 +23,12 @@ public static class UWDisplayAspect
 
             UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
-            return lOSettings != null && lOSettings.DisplayAs4By3;
+            return lOSettings == null || lOSettings.DisplayAs4By3;
         }
 
         set
         {
             fEnsureLoaded();
-
-            UWUserSettings.DisplayAs4By3 = value;
-            UWUserSettings.Save();
-
             fApply();
         }
     }
@@ -50,6 +50,6 @@ public static class UWDisplayAspect
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
         if (lOSettings != null)
-            lOSettings.DisplayAs4By3 = UWUserSettings.DisplayAs4By3;
+            lOSettings.DisplayAs4By3 = true;
     }
 }

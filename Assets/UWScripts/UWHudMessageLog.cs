@@ -26,7 +26,7 @@ public sealed class UWHudMessageLog
     // message, newest at the bottom. Original: only the last 5, see Interaction.Update.
     // Fine-tuned per user test in the prefab.
     private const float messageLogLeft = 15f;
-    private const float messageLogTop = 169f;
+    internal const float messageLogTop = 169f;
     private const float messageLogWidth = 291f;
     private const float messageLogHeight = 30f;
 
@@ -104,7 +104,7 @@ public sealed class UWHudMessageLog
                 continue;
             }
 
-            lOLines.AddRange(UWFontRenderer.WrapText(lOFont, lsLine, (int)messageLogWidth));
+            lOLines.AddRange(UWFontRenderer.WrapText(lOFont, lsLine, fLogWidth()));
         }
 
         return lOLines;
@@ -169,7 +169,7 @@ public sealed class UWHudMessageLog
         // not in the stored text but only in the comparison key - otherwise
         // the finished lines keep it.
         string lsKey = lsText + (lbCursor ? "\u0001" : string.Empty)
-            + (mOUi.mOInteraction.IsWaitingForPage ? "\u0002" : string.Empty);
+            + (mOUi.mOInteraction.IsWaitingForPage ? "\u0002" : string.Empty) + "\u0003" + fLogWidth();
 
         if (lsKey == mLastMessageLogText)
             return;
@@ -244,6 +244,13 @@ public sealed class UWHudMessageLog
 
     private const string MoreMarkerText = "[MORE]";
 
+    /// <summary>The box's width for the text: the original's, longer in the widened frame
+    /// (UWClassicWide).</summary>
+    private static int fLogWidth()
+    {
+        return (int)messageLogWidth + UWClassicWide.Extra;
+    }
+
     private RawImage mMoreMarkerImage;
 
     /// <summary>
@@ -276,7 +283,7 @@ public sealed class UWHudMessageLog
                 continue;
             }
 
-            lOLines.AddRange(UWFontRenderer.WrapText(lOFont, lsLine, (int)messageLogWidth));
+            lOLines.AddRange(UWFontRenderer.WrapText(lOFont, lsLine, fLogWidth()));
         }
 
         int liLineHeight = lOFont.Height + UWFontRenderer.LineSpacing;
@@ -294,7 +301,7 @@ public sealed class UWHudMessageLog
 
         mMessageLogTexture = lOLines.Count == 0
             ? null
-            : UWFontRenderer.RenderLines(lOFont, lOLines, (int)messageLogWidth,
+            : UWFontRenderer.RenderLines(lOFont, lOLines, fLogWidth(),
                 fGetLogColourTable(), mOUi.TextureFilterMode, false, lOLineColours);
 
         if (mMessageLogTexture == null)
@@ -356,8 +363,9 @@ public sealed class UWHudMessageLog
     }
 
     /// <summary>The blinking box behind the running input. The font has no
-    /// character for it, so it is filled by hand. Size estimated.</summary>
-    private void fDrawPromptCursor(Texture2D pOTexture, UWFont pOFont,
+    /// character for it, so it is filled by hand. Size estimated. Also the modern scheme's scroll
+    /// (UWModernScroll).</summary>
+    internal static void fDrawPromptCursor(Texture2D pOTexture, UWFont pOFont,
         System.Collections.Generic.List<string> pOLines, Color32 pOColour)
     {
         if (pOLines.Count == 0)
@@ -417,6 +425,8 @@ public sealed class UWHudMessageLog
 
         Image lOMessageLogBackground = UWGameUI.fCreateImage("MessageLogBackground", mOUi.mGameFrame, messageLogLeft, -messageLogTop, messageLogWidth, messageLogHeight, lOLogBackgroundColor);
 
+        UWClassicWide.Widened(lOMessageLogBackground.rectTransform);
+
         GameObject lOMessageLogObj = new GameObject("MessageLog", typeof(RectTransform), typeof(Text));
         lOMessageLogObj.transform.SetParent(mOUi.mGameFrame, false);
 
@@ -426,9 +436,10 @@ public sealed class UWHudMessageLog
         lOMessageLogRect.pivot = new Vector2(0f, 1f);
         lOMessageLogRect.anchoredPosition = new Vector2(messageLogLeft, -messageLogTop);
         lOMessageLogRect.sizeDelta = new Vector2(messageLogWidth, messageLogHeight);
+        UWClassicWide.Widened(lOMessageLogRect);
 
         mMessageLogText = lOMessageLogObj.GetComponent<Text>();
-        mMessageLogText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        mMessageLogText.font = UWInterfaceFont.Font;
         mMessageLogText.fontSize = 5;
         mMessageLogText.alignment = TextAnchor.UpperLeft;
         mMessageLogText.color = lOLogTextColor;

@@ -128,6 +128,22 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     public Texture2D LegsArmorTexture;
     public Texture2D BootsTexture;
 
+    /// <summary>The armour pictures as the data has them (null when nothing is worn there), for the
+    /// modern panel's figure on a back of its own (UWHudArt.ComposePaperdoll).</summary>
+    public UWTexture HelmetSource;
+
+    public UWTexture ChestSource;
+
+    public UWTexture GlovesSource;
+
+    public UWTexture LegsSource;
+
+    public UWTexture BootsSource;
+
+    /// <summary>How many rows lower the legs' picture is drawn (UWWearables.GetArmorDrop) - already
+    /// moved inside LegsArmorTexture, to be added where LegsSource is drawn.</summary>
+    public int LegsDrop;
+
     public Texture2D PowerGemTeture;
     public Texture2D HealthFlaskTeture;
     public Texture2D ManaFlaskTeture;
@@ -300,6 +316,14 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     public void ApplyCurse(int piDice, bool pbFlash)
     {
         if (fVitals.ApplyCurse(piDice) && pbFlash)
+            OnCurseStruck();
+    }
+
+    /// <summary>A backfired spell (UWPlayerVitals.ApplyBackfire): the view flashes as for a curse
+    /// when it struck.</summary>
+    public void ApplyBackfire(int piDice)
+    {
+        if (fVitals.ApplyBackfire(piDice))
             OnCurseStruck();
     }
 
@@ -759,14 +783,34 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         }
 
         Texture2D lOTexture = fBuildArmorTexture(leMaterial, leCondition, leType);
+        int liDrop = leType == UWWearables.ArmorTypes.None ? 0
+            : UWWearables.GetArmorDrop(IsMale ? UWWearables.Sex.Male : UWWearables.Sex.Female, leMaterial, leType);
+
+        // The men's plate legs sit two rows too high in their picture (UWWearables.GetArmorDrop):
+        // the picture's rows moved down here, for the classic scheme and the modern panel alike.
+        if (liDrop > 0)
+        {
+            Color32[] lOPixels = lOTexture.GetPixels32();
+            Color32[] lOMoved = new Color32[lOPixels.Length];
+            int liWidth = lOTexture.width;
+
+            for (int liRow = 0; liRow < lOTexture.height - liDrop; liRow++)
+                System.Array.Copy(lOPixels, (liRow + liDrop) * liWidth, lOMoved, liRow * liWidth, liWidth);
+
+            lOTexture.SetPixels32(lOMoved);
+            lOTexture.Apply();
+        }
+
+        UWTexture lOSource = leType == UWWearables.ArmorTypes.None ? null
+            : mOUWData.Wearables.GetArmor(IsMale ? UWWearables.Sex.Male : UWWearables.Sex.Female, leMaterial, leCondition, leType);
 
         switch (peSlot)
         {
-            case UWArmorItemMap.BodySlot.Helmet: HelmetTexture = lOTexture; break;
-            case UWArmorItemMap.BodySlot.Chest: ChestArmorTexture = lOTexture; break;
-            case UWArmorItemMap.BodySlot.Gloves: GlovesTexture = lOTexture; break;
-            case UWArmorItemMap.BodySlot.Legs: LegsArmorTexture = lOTexture; break;
-            case UWArmorItemMap.BodySlot.Boots: BootsTexture = lOTexture; break;
+            case UWArmorItemMap.BodySlot.Helmet: HelmetTexture = lOTexture; HelmetSource = lOSource; break;
+            case UWArmorItemMap.BodySlot.Chest: ChestArmorTexture = lOTexture; ChestSource = lOSource; break;
+            case UWArmorItemMap.BodySlot.Gloves: GlovesTexture = lOTexture; GlovesSource = lOSource; break;
+            case UWArmorItemMap.BodySlot.Legs: LegsArmorTexture = lOTexture; LegsSource = lOSource; LegsDrop = liDrop; break;
+            case UWArmorItemMap.BodySlot.Boots: BootsTexture = lOTexture; BootsSource = lOSource; break;
         }
     }
 
@@ -1152,9 +1196,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     }
 
     /// <summary>Recovery after a night of sleep - see UWPlayerVitals.RegenerateOnSleep.</summary>
-    public void RegenerateOnSleep(int piVitalityFactor, int piMana)
+    public void RegenerateOnSleep(int piHitPointAmount, int piManaAmount)
     {
-        fVitals.RegenerateOnSleep(piVitalityFactor, piMana);
+        fVitals.RegenerateOnSleep(piHitPointAmount, piManaAmount);
     }
 
     /// <summary>Sets hit points to the maximum - Greater Heal.</summary>

@@ -835,9 +835,11 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// Puts the item from the pointer onto a stack of the same kind (see CanStack).
 		///
-		/// The QUALITY is averaged in the process, weighted by the counts and rounded down.
-		/// Read off the user's savegame (2026-09-05): two torches with 40 and 35 give
-		/// a stack of two with 37 - that is 37.5 rounded down.
+		/// The QUALITY is the plain average of the two, rounded down, whatever the counts
+		/// (AddToOccupiedSlot: (q1 + q2) >> 1, UnderworldExhumed INVPANEL.C, read 2026-10-11; the
+		/// Exhumed audit's row 11). The user's savegame (2026-09-05) agrees: two torches with 40
+		/// and 35 give a stack of two with 37. Until 2026-10-11 ours weighted it by the counts, which
+		/// gives the same for two single pieces but not for a stack and a piece.
 		/// </summary>
 		public bool TryStackInto(UWObject pOTarget)
 		{
@@ -848,11 +850,7 @@ namespace UWDataImport.UWData
 			int liCursorCount = fGetCount(CursorItem);
 			int liCount = liTargetCount + liCursorCount;
 
-			if (liCount > 0)
-			{
-				pOTarget.Quality = (ushort)(((pOTarget.Quality * liTargetCount)
-					+ (CursorItem.Quality * liCursorCount)) / liCount);
-			}
+			pOTarget.Quality = (ushort)((pOTarget.Quality + CursorItem.Quality) >> 1);
 
 			// A single piece without the quantity bit becomes a counted stack, as UW.EXE does.
 			pOTarget.HasQuantity = true;
@@ -866,26 +864,33 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
-		/// <summary>The condition step zero to five, as the condition word selects it - the same
-		/// calculation as in UWCombat.GetConditionStringIndex, only without the group offset.</summary>
-		private static int fGetConditionStep(UWObject pOItem)
+		/// <summary>The missiles, sling stone to arrow (0x10 to 0x12): they stack whatever their
+		/// quality (AddTogether).</summary>
+		private const int FirstMissileObjectId = 0x10;
+
+		private const int LastMissileObjectId = 0x12;
+
+		/// <summary>
+		/// THE QUALITY BAND (AddTogether, UnderworldExhumed INVPANEL.C, read 2026-10-11; the Exhumed
+		/// audit's row 11): two qualities match when they lie in the same sixteen (quality >> 4), and
+		/// a ruined piece (quality 0) only with another ruined one. Until 2026-10-11 ours compared
+		/// the condition word's six steps (per user on the original, 2026-09-01 and 2026-09-05:
+		/// differently worn things stay apart, two torches with 40 and 35 go together - both hold
+		/// with the band as well).
+		/// </summary>
+		private static bool fQualitiesMatch(int piFirst, int piSecond)
 		{
-			// The same calculation as for the condition word, only without the group offset - hence
-			// quality type zero. The quality class cannot be looked up here; it
-			// only changes whether a thing ALWAYS shows the top word, and then it does so for
-			// both sides of the comparison equally.
-			return UWCombat.GetConditionStringIndex(0, pOItem.Quality, 0,
-				UWObjectMechanics.IsAnyLight(pOItem.ID));
+			return (piFirst >> 4) == (piSecond >> 4) && ((piFirst != 0 && piSecond != 0) || piFirst == piSecond);
 		}
 
 		/// <summary>
 		/// Whether two items can be stacked, e.g. the thing at the pointer onto an existing stack.
 		///
-		/// The two match if they are the same object type, both carry a count
-		/// AND their condition word is the same - differently worn things stay separate (checked by the
-		/// user in the original, 2026-09-01). Enchanted pieces also stay on their
-		/// own, otherwise a stack would waste the enchantment, and keys only stack if they open
-		/// the same lock.
+		/// The two match if they are the same object type, both carry a count (or are a single
+		/// piece of a stackable kind), their qualities lie in the same band (fQualitiesMatch - not
+		/// asked for the missiles) and they stay below 512 together. Enchanted pieces also stay on
+		/// their own, otherwise a stack would waste the enchantment, and keys only stack if they
+		/// open the same lock.
 		/// </summary>
 		public static bool CanStack(UWObject pOFirst, UWObject pOSecond, UWCommonObjectProperties pOProperties = null)
 		{
@@ -895,14 +900,16 @@ namespace UWDataImport.UWData
 			if (pOFirst.ID != pOSecond.ID)
 				return false;
 
-			// Not the quality has to be equal, but its CONDITION WORD: what has the same name
-			// can be stacked (per user on the original, 2026-09-05). Two torches with 40 and 35
-			// are both "somewhat used" and go together; the stack then gets the
-			// average, see TryStackInto.
-			//
-			// The six-step level is enough for the comparison - the group depends on the object number, and
-			// that has already been checked as equal above.
-			if (fGetConditionStep(pOFirst) != fGetConditionStep(pOSecond))
+			bool lbMissile = pOFirst.ID >= FirstMissileObjectId && pOFirst.ID <= LastMissileObjectId;
+
+			if (!lbMissile && !fQualitiesMatch(pOFirst.Quality, pOSecond.Quality))
+				return false;
+
+			// THE KIND MUST BE STACKABLE (COMOBJ.DAT byte 3 bits 6-7 not 1 or 3, AddTogether) - for
+			// counted pieces too; until 2026-10-11 ours asked it only of a piece without the count.
+			UWCommonObjectProperties.Entry lOKind;
+
+			if (pOProperties != null && pOProperties.TryGet(pOFirst.ID, out lOKind) && !lOKind.StartsWithQuantity)
 				return false;
 
 			// A PIECE WITHOUT THE QUANTITY BIT stacks too if its kind is stackable (COMOBJ.DAT byte 3,
@@ -924,7 +931,9 @@ namespace UWDataImport.UWData
 				&& UWObjectMechanics.GetKeyId(pOFirst) != UWObjectMechanics.GetKeyId(pOSecond))
 				return false;
 
-			// From 512 on the field is no longer a count but a special property.
+			// From 512 on the field is no longer a count but a special property. A DELIBERATE
+			// DEVIATION: AddTogether merges while the total stays below 999, and a total from 512 to
+			// 998 then sets the special bit - the stack turns into something else. Ours stops at 511.
 			return fGetCount(pOFirst) + fGetCount(pOSecond) < 512;
 		}
 

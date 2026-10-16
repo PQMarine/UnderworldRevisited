@@ -129,7 +129,7 @@ public partial class UWModernBags
             if (pOItem.ID == UWObjectMechanics.RuneBagId)
                 mOMenuActions.Add(MenuActionEnum.OpenRunes);
             else
-                mOMenuActions.Add(mOOpenBags.Contains(pOItem) ? MenuActionEnum.Close : MenuActionEnum.Open);
+                mOMenuActions.Add(fIsBagOpen(pOItem, lOInventory) ? MenuActionEnum.Close : MenuActionEnum.Open);
         }
         else if (pOWindow == null)
         {
@@ -166,6 +166,7 @@ public partial class UWModernBags
         mOMenuAt = pOAt;
         miMenuOpenedFrame = Time.frameCount;
         mbPressDrag = false;
+        mOMenuStepper.Opened();
 
         // The keys are the menu's from now on, not only from UWGameUI's next look.
         UWControls.SetTextEntryActive(true);
@@ -212,6 +213,7 @@ public partial class UWModernBags
         mOMenuAt = pOAt;
         miMenuOpenedFrame = Time.frameCount;
         mbPressDrag = false;
+        mOMenuStepper.Opened();
 
         UWControls.SetTextEntryActive(true);
     }
@@ -246,6 +248,11 @@ public partial class UWModernBags
         if (mOMenuWindow == null)
             return lOInventory.GetEquipped(meMenuEquip);
 
+        // The original page's slots: window 0 stands in for them, never shown (per user,
+        // 2026-10-10: the menu there closed again at once).
+        if (fPageShown() && mOMenuWindow == fGetWindow(0))
+            return fGetItem(fPageWindow(), miMenuSlot);
+
         return mOMenuWindow.Root.gameObject.activeSelf ? fGetItem(mOMenuWindow, miMenuSlot) : null;
     }
 
@@ -266,6 +273,17 @@ public partial class UWModernBags
 
         if (Mouse.current == null || Time.frameCount == miMenuOpenedFrame)
             return;
+
+        // THE GAMEPAD (per user, 2026-10-08: the d-pad moves through buttons and options): B closes
+        // the menu, up and down put the pointer onto the next entry - A then chooses it with the
+        // pad's click, the highlight follows as with the mouse.
+        if (pOControls.Player.PadBack.WasPressedThisFrame())
+        {
+            fCloseMenu();
+            return;
+        }
+
+        mOMenuStepper.Update(mOMenuRects);
 
         if (pOControls.Player.Interact.WasPressedThisFrame())
         {
@@ -289,6 +307,9 @@ public partial class UWModernBags
 
         fCloseMenu();
     }
+
+    /// <summary>The gamepad steps through the entries (UWPadEntryStepper, per user 2026-10-08).</summary>
+    private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
 
     private void fRunMenu(MenuActionEnum peAction)
     {
@@ -387,7 +408,7 @@ public partial class UWModernBags
 
             case MenuActionEnum.Split:
                 fTryBeginSplit(lOItem, lOWindow, liSlot, leEquip,
-                    lOWindow != null && liSlot >= 0 && liSlot < lOWindow.Slots.Count ? lOWindow.Slots[liSlot].ScreenRect : new Rect(lOAt, Vector2.zero),
+                    lOWindow != null && liSlot >= 0 && liSlot < lOWindow.Slots.Count ? fSlotRect(lOWindow, liSlot) : new Rect(lOAt, Vector2.zero),
                     true);
                 break;
         }

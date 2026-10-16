@@ -18,7 +18,7 @@ namespace UWDataImport.UWData
 	///
 	/// Voices are allocated in order; if all are busy, the oldest gives way.
 	/// </summary>
-	public class UWAdlibMusicDriver
+	public class UWAdlibMusicDriver : IUWMidiDriver
 	{
 		public const int VoiceCount = UWOpl2.ChannelCount;
 

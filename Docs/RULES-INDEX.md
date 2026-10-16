@@ -84,6 +84,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `QuakeTrap` (seg008_DE7) | UWObjectMechanics.cs, UWTrapRules.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
 | `ManaChange` (seg038_2B6) | UWPlayerVitals.cs, UWWornRegeneration.cs |
+| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 
 ## All places, by segment
 
@@ -255,7 +256,6 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ovr119_0` | UWPlayerData.cs |
 | `LookAtActiveSpell` (ovr119_2C9) | UWClickRules.cs |
-| `PlayerCastsValidSpell` (ovr119_488) | UWSpellCasting.cs |
 
 ### ovr120
 
@@ -372,7 +372,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `ovr145_445` | UWHudPanel.cs |
+| `ovr145_445` | UWHudPanel.cs, UWModernStatsPage.cs |
 
 ### ovr150
 
@@ -391,9 +391,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ovr153_135C` | UWTrapChainRemoval.cs, UWTrapDisarming.cs |
 | `CheckForBitDInArea` (ovr153_148E) | UWTrapRules.cs |
-| `CheckIfWithin8TilesFromObject` (ovr153_14C4) | UWRespawnRules.cs, UWSleepRules.cs, Program.cs |
+| `CheckIfWithin8TilesFromObject` (ovr153_14C4) | UWRespawnRules.cs, Program.cs |
 | `TriggerCreateObjectTrap` (ovr153_1517) | UWRespawnRules.cs, UWSleep.cs |
-| `FindAndCloseDoors` (ovr153_15C4) | UWSleepRules.cs, UWSleep.cs |
 | `RunTrap` (ovr153_24A) | UWTrapChainRemoval.cs, UWTrapRules.cs |
 | `Traps` (ovr153_296) | UWTrapRules.cs |
 | `Trigger` (ovr153_3B) | UWTrapChainRemoval.cs, UWTrapRules.cs, UWProjectileWorld.cs, Program.cs, EasyStepChecks.cs |
@@ -557,7 +556,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlayMusicalInstrument` (seg014_1195) | UWAudioEngine.cs, UWInstrumentPlayer.cs |
+| `PlayMusicalInstrument` (seg014_1195) | UWMt32MusicDriver.cs, UWAudioEngine.cs, UWInstrumentPlayer.cs |
 | `SpawnCupOfWonder` (seg014_14C3) | UWPlayerData.cs, UWInstrumentPlayer.cs |
 | `ChangeThemeMusic` (seg014_15BA) | UWMusicSelector.cs |
 | `RefreshMusic` (seg014_160D) | UWMusicSelector.cs |
@@ -865,6 +864,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWItemDrag.cs, UWSoundEffects.cs |
 | `Class_4_2_ObjectUsage` (seg040_352B_16C4) | UWGlowingRockRules.cs |
+| `Fountain` (seg040_352B_1816) | UWObjectMechanics.cs, Interaction.cs |
 | `GlowingRock` (seg040_352B_186E) | UWGlowingRockRules.cs |
 | `UseReadable` (seg040_352B_19A8) | UWItemUse.cs, Interaction.cs, UWHudMap.cs |
 | `seg040_352B_1B35` | UWSwitchVisual.cs |
@@ -877,8 +877,9 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `DoorToggle` (seg040_352B_23B7) | UWConversationSession.cs |
 | `EmptyContainer` (seg040_352B_23EC) | Interaction.cs |
 | `seg040_352B_2494` | Interaction.cs |
-| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs |
+| `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 | `MagicChargeUpdate` (seg040_352B_2723) | UWItemUse.cs |
+| `seg040_352B_2A0` | Interaction.cs |
 | `seg040_352B_919` | UWItemUse.cs, UWEndgame.cs |
 | `PickLock` (seg040_498) | UWLockRules.cs |
 | `UseKey` (seg040_51D) | UWLockRules.cs |

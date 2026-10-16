@@ -796,8 +796,12 @@ namespace UWDataImport.UWData
 			if (lOLit == null)
 				return true;
 
-			lOLit.HasQuantity = false;
-			lOLit.Quantity = 1;
+			// ONE PIECE, COUNTED AS THE STACK WAS: with the quantity bit a count of one, without it
+			// an empty field. Until 2026-10-11 the lit piece had the bit cleared and 1 left in the
+			// field - which then reads as a LINK to record 1, and the save writer hung whatever it
+			// found there into the light as contents (per user, SAVE2: a lit candle from a stack of
+			// two weighed 5.3 stones - a jeweled shield had come to sit in it).
+			lOLit.Quantity = (ushort)(lOLit.HasQuantity ? 1 : 0);
 
 			UWObjectMechanics.SetObjectId(lOLit, pOItem.ID + UWObjectMechanics.LitLightOffset, lOTextures);
 

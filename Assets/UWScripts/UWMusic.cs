@@ -101,10 +101,29 @@ public static class UWMusic
     /// <summary>Every frame: reconcile the request with what is playing (reference: RefreshMusic).</summary>
     public static void Refresh(bool pbWeaponDrawn)
     {
+        // Without a world nothing starts by itself until a theme has been asked for: at the start
+        // the selector took the silence for a piece that had ended and played a level theme for
+        // the second until the main menu asked for its own (per user, 2026-10-08).
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (lOLoader != null && !lOLoader.HasWorld && msOSelector.CurrentTheme == 0 && msOSelector.NewTheme == 0)
+            return;
+
         msOSelector.Refresh(pbWeaponDrawn, Time.time);
     }
 
-    /// <summary>The pieces: the AdLib version "AW" plus the theme number in octal, played
+    /// <summary>The music device was switched while a piece played (UWAudioEngine): that theme
+    /// starts again on the new one.</summary>
+    public static void Replay()
+    {
+        int liTheme = msOSelector.CurrentTheme;
+
+        if (msOOutput.IsReady && liTheme > 0)
+            msOOutput.Play(liTheme);
+    }
+
+    /// <summary>The pieces: the AdLib version "AW" plus the theme number in octal, or on General
+    /// MIDI and the MT-32 the MT-32 version "UW" (the AdLib one again if a game lacks it), played
     /// through the audio engine.</summary>
     private sealed class UWMusicOutput : IUWMusicOutput
     {
@@ -121,8 +140,20 @@ public static class UWMusic
             if (lOEngine == null)
                 return;
 
-            UWXmi lOXmi = Data != null && Data.Sound != null
-                ? Data.Sound.GetMusic(UWMusicSelector.GetFileNumber(piTheme), true) : null;
+            string lsNumber = UWMusicSelector.GetFileNumber(piTheme);
+            bool lbAdlib = lOEngine.MusicDevice == UWAudioEngine.MusicDeviceEnum.AdLib;
+            UWXmi lOXmi = null;
+
+            if (!lbAdlib && Data != null && Data.Sound != null)
+            {
+                lOXmi = Data.Sound.GetMusic(lsNumber, false);
+
+                if (lOXmi == null || !lOXmi.IsLoaded || lOXmi.Sequences.Count == 0)
+                    lbAdlib = true;
+            }
+
+            if (lbAdlib)
+                lOXmi = Data != null && Data.Sound != null ? Data.Sound.GetMusic(lsNumber, true) : null;
 
             if (lOXmi == null || !lOXmi.IsLoaded || lOXmi.Sequences.Count == 0)
             {
@@ -130,7 +161,7 @@ public static class UWMusic
                 return;
             }
 
-            lOEngine.PlayMusic(lOXmi.Sequences[0], false);
+            lOEngine.PlayMusic(lOXmi.Sequences[0], false, lbAdlib);
         }
 
         public void Stop()

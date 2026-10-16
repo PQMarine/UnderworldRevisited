@@ -27,4 +27,12 @@
     <Compile Include="..\Assets\UWDataImport\**\*.cs" />
   </ItemGroup>
 
+  <!-- The General MIDI synthesizer (UWGmMusicDriver): the same DLL Unity references from
+       Assets/Plugins, built from MeltySynth's source (MIT) - see THIRD_PARTY_NOTICES. -->
+  <ItemGroup>
+    <Reference Include="MeltySynth">
+      <HintPath>..\Assets\Plugins\MeltySynth\MeltySynth.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

@@ -22,7 +22,7 @@ public static class UWUiFit
     public const float FrameWidthUnits = 320f;
 
     /// <summary>The frame's width in canvas units at the current pixel proportion.</summary>
-    public static float FrameWidth => FrameWidthUnits * UWGameUI.HorizontalPixelFactor;
+    public static float FrameWidth => (FrameWidthUnits + UWClassicWide.Extra) * UWGameUI.HorizontalPixelFactor;
 
     /// <summary>The window is narrower than the frame: fit to the width, bars top and bottom.
     /// </summary>

@@ -19,3 +19,6 @@
 *.FBX     binary
 *.dll     binary
 *.flare   binary
+
+# Shell scripts run on Linux: LF in every checkout
+*.sh      text eol=lf

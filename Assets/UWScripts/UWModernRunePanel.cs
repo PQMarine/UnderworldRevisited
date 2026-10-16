@@ -38,7 +38,10 @@ public class UWModernRunePanel : MonoBehaviour
     public static bool Pinned => UWUserSettings.ModernRunesPinned;
 
     /// <summary>Whether Escape has something to close here: open and not pinned.</summary>
-    public bool IsClosable => mbOpen && !Pinned;
+    /// <summary>Whether Escape has it to close: not pinned, and not the original's tablet alone,
+    /// which is always out (else Escape closed it, it opened again the next frame and the menu
+    /// never came - per user, 2026-10-10).</summary>
+    public bool IsClosable => mbOpen && !Pinned && !UWModernLayout.IsRuneTabletShown;
 
     /// <summary>The panel with its handle on the screen (pixels, bottom-left origin), empty while
     /// nothing of it shows.</summary>
@@ -198,6 +201,9 @@ public class UWModernRunePanel : MonoBehaviour
 
     private Vector2Int mOBackSize;
 
+    /// <summary>The backs' and colours' version the leather was built with (UWModernBacks.ArtVersion).</summary>
+    private int miBackArtVersion = -1;
+
     private Texture2D mOHandleTexture;
 
     private Texture2D mOTabTexture;
@@ -341,8 +347,10 @@ public class UWModernRunePanel : MonoBehaviour
 
     private bool fIsShown()
     {
+        // In Classic Wide only as the frame's tablet page (UWModernClassicFrame), never as a panel.
         return fIsModern() && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
-            && mOUi != null && mOUi.mOUWData != null && mOUi.mCharacter != null;
+            && mOUi != null && mOUi.mOUWData != null && mOUi.mCharacter != null
+            && !(UWModernLayout.IsClassic && !UWModernLayout.IsRuneTabletShown);
     }
 
     private DataImport fData()
@@ -497,6 +505,14 @@ public class UWModernRunePanel : MonoBehaviour
 
     public void Open(TabEnum peTab)
     {
+        // Classic Wide: the frame's panel turns to the tablet (per user, 2026-10-10: the rune bag
+        // did not open).
+        if (UWModernLayout.IsClassic)
+        {
+            UWModernClassicFrame.TurnTo(UWModernClassicFrame.PageEnum.Runes);
+            return;
+        }
+
         mbOpen = true;
         meTab = peTab;
     }
@@ -519,6 +535,57 @@ public class UWModernRunePanel : MonoBehaviour
 
     // ------------------------------------------------- Input
 
+    /// <summary>How long the gamepad's left trigger is held to open the panel instead of casting.</summary>
+    private const float PadCastHoldSeconds = 0.35f;
+
+    /// <summary>Seconds the left trigger is held, -1 when it is not.</summary>
+    private float mfPadCastHeld = -1f;
+
+    /// <summary>
+    /// THE GAMEPAD'S LEFT TRIGGER (UWGamepad): TAPPED it casts what lies in the hollow, as F8 does in
+    /// the original (UWHudRunes.CastByKey); HELD it opens or closes the panel, which is how runes
+    /// get into the hollow.
+    /// </summary>
+    private void fUpdatePadCast(UWControls pOControls)
+    {
+        UnityEngine.InputSystem.InputAction lOTrigger = pOControls.Player.PadCast;
+
+        // While the gamepad's pointer drives, LT is its right button (UWGamepadPointer.Takes).
+        if (lOTrigger.WasPressedThisFrame())
+        {
+            mfPadCastHeld = UWGamepadPointer.Takes(lOTrigger) ? -1f : 0f;
+            return;
+        }
+
+        if (mfPadCastHeld < 0f)
+            return;
+
+        if (lOTrigger.IsPressed())
+        {
+            mfPadCastHeld += Time.unscaledDeltaTime;
+
+            if (mfPadCastHeld >= PadCastHoldSeconds)
+            {
+                mfPadCastHeld = -1f;
+
+                if (Pinned)
+                    return;
+
+                if (mbOpen)
+                    Close();
+                else
+                    Open(meTab);
+            }
+
+            return;
+        }
+
+        mfPadCastHeld = -1f;
+
+        if (mOUi.Runes != null)
+            mOUi.Runes.CastByKey();
+    }
+
     private void Update()
     {
         if (!fIsShown())
@@ -532,8 +599,14 @@ public class UWModernRunePanel : MonoBehaviour
             return;
         }
 
-        if (Pinned && !mbOpen)
+        // The original's tablet alone (UWModernLayout.IsRuneTabletShown) is always out on its runes.
+        bool lbTablet = UWModernLayout.IsRuneTabletShown;
+
+        if ((Pinned || lbTablet) && !mbOpen)
             mbOpen = true;
+
+        if (lbTablet)
+            meTab = TabEnum.Runes;
 
         UWModernHud lOHud = UWModernHud.Instance;
 
@@ -549,13 +622,15 @@ public class UWModernRunePanel : MonoBehaviour
         if (lOControls == null)
             return;
 
-        if (lOControls.Player.ModernRunes.WasPressedThisFrame() && !Pinned)
+        if (lOControls.Player.ModernRunes.WasPressedThisFrame() && !Pinned && !lbTablet && !UWModernLayout.IsClassic)
         {
             if (mbOpen)
                 Close();
             else
                 Open(meTab);
         }
+
+        fUpdatePadCast(lOControls);
 
         Mouse lOMouse = Mouse.current;
 
@@ -737,7 +812,7 @@ public class UWModernRunePanel : MonoBehaviour
         if (lOPlayer == null || !mOTabletRect.Contains(pOPointer))
             return -1;
 
-        float lfX = (pOPointer.x - mOTabletRect.xMin) / miScale;
+        float lfX = (pOPointer.x - mOTabletRect.xMin) / (miScale * UWModernHudArt.PixelAspectX);
         float lfY = (mOTabletRect.yMax - pOPointer.y) / miScale;
 
         for (int liRune = 0; liRune < UWPlayerData.RuneCount; liRune++)
@@ -796,6 +871,14 @@ public class UWModernRunePanel : MonoBehaviour
 
         fEnsureArt();
 
+        UWModernClassicFrame.ApplySquash(mORoot);
+
+        if (UWModernLayout.IsRuneTabletShown)
+        {
+            fLayoutTabletOnly();
+            return;
+        }
+
         float liScale = miScale;
         bool lbPinned = Pinned;
 
@@ -835,13 +918,15 @@ public class UWModernRunePanel : MonoBehaviour
 
         mOPanelRect = mfShown > 0.5f ? new Rect(lfLeft, lfBottom, lfWidth, liHeight * liScale) : Rect.zero;
 
-        if (mOBackTexture == null || mOBackSize.y != liHeight)
+        if (mOBackTexture == null || mOBackSize.y != liHeight || miBackArtVersion != UWModernBacks.ArtVersion)
         {
             if (mOBackTexture != null)
                 Destroy(mOBackTexture);
 
-            mOBackTexture = UWModernHudArt.BuildLeather(fData().Textures, PanelWidth, liHeight, mOUi.TextureFilterMode);
+            mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, fData().Textures, PanelWidth, liHeight,
+                mOUi.TextureFilterMode);
             mOBackSize = new Vector2Int(PanelWidth, liHeight);
+            miBackArtVersion = UWModernBacks.ArtVersion;
             mOBack.texture = mOBackTexture;
         }
 
@@ -942,18 +1027,82 @@ public class UWModernRunePanel : MonoBehaviour
         return TabletTop + UWTextures.PanelHeight + HollowGap + HollowHeight + InfoRows + BottomPad;
     }
 
-    private void fLayoutRunes(float pfLeft, float pfTop, int piFont, int piSmall)
+    /// <summary>
+    /// THE ORIGINAL'S RUNE TABLET ALONE (Classic+, per user 2026-10-10: the original panels "each a
+    /// single panel", "always visible"): only the page with the runes of the bag, where the layout
+    /// editor puts it (UWModernLayout.ElementEnum.RuneTablet; by default at the right edge, at mid
+    /// height) - no leather, handle, tabs, pin, hollow or list; its clicks are the Runes tab's
+    /// (fClickRunes: a rune onto the shelf, the right button looks, the clear area empties it).
+    /// </summary>
+    private void fLayoutTabletOnly()
+    {
+        // Its own element's size, not the rune panel's (per user, 2026-10-10: it did not size).
+        miScale = UWModernHud.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RuneTablet);
+
+        float liScale = miScale;
+        float lfWidth = UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX;
+        float lfHeight = UWTextures.PanelHeight * liScale;
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.RuneTablet,
+            new Rect(Screen.width - lfWidth - (4f * liScale), (Screen.height - lfHeight) * 0.5f, lfWidth, lfHeight));
+
+        UWModernLayout.Report(UWModernLayout.ElementEnum.RuneTablet, lOPlaced);
+
+        mOBack.enabled = false;
+        mOHandle.enabled = false;
+        mOHandleText.enabled = false;
+        mOPin.enabled = false;
+        mOPinIcon.enabled = false;
+        mOTitle.enabled = false;
+        mOTitleRight.enabled = false;
+
+        for (int liTab = 0; liTab < mOTabBacks.Length; liTab++)
+        {
+            mOTabBacks[liTab].enabled = false;
+            mOTabTexts[liTab].enabled = false;
+            mOTabRects[liTab] = Rect.zero;
+        }
+
+        mOHandleRect = Rect.zero;
+        mOPinRect = Rect.zero;
+        mOHollowRect = Rect.zero;
+        mOListRect = Rect.zero;
+        mORunesContent.gameObject.SetActive(true);
+        mOListViewport.gameObject.SetActive(false);
+        fShowHollow(false);
+
+        mOPanelRect = lOPlaced;
+        ScreenRect = lOPlaced;
+        fPlaceTablet(lOPlaced);
+        fLayoutGhost();
+    }
+
+    /// <summary>The hollow, its frame, runes and the spell's lines - not with the tablet alone.</summary>
+    private void fShowHollow(bool pbShown)
+    {
+        mOHollow.enabled = pbShown;
+
+        foreach (Image lOLine in mOHollowFrame)
+            lOLine.enabled = pbShown;
+
+        if (!pbShown)
+        {
+            foreach (RawImage lORune in mOHollowRunes)
+                lORune.enabled = false;
+        }
+
+        mOSpellName.enabled = pbShown;
+        mOSpellCircle.enabled = pbShown;
+        mOHint.enabled = pbShown;
+    }
+
+    /// <summary>The tablet at a rect and the runes of the bag on it; how many there are.</summary>
+    private int fPlaceTablet(Rect pORect)
     {
         float liScale = miScale;
         UWPlayerData lOPlayer = fData().InitialPlayer;
-        UWHudRunes lORunes = mOUi.Runes;
         int liOwned = 0;
 
-        mOTitle.text = "Rune bag";
-
-        // The shelf with the runes of the bag.
-        mOTabletRect = new Rect(pfLeft + (TabletLeft * liScale), pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale),
-            UWTextures.PanelWidth * liScale, UWTextures.PanelHeight * liScale);
+        mOTabletRect = pORect;
         fSetRect(mOTablet.rectTransform, mOTabletRect.x, mOTabletRect.y, mOTabletRect.width, mOTabletRect.height);
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
@@ -969,12 +1118,28 @@ public class UWModernRunePanel : MonoBehaviour
             if (!mORunes[liRune].enabled)
                 continue;
 
-            float lfX = mOTabletRect.xMin + ((RuneLeft + ((liRune % RuneColumns) * RunePitchX)) * liScale);
+            float lfX = mOTabletRect.xMin + ((RuneLeft + ((liRune % RuneColumns) * RunePitchX)) * liScale * UWModernHudArt.PixelAspectX);
             float lfRowTop = mOTabletRect.yMax - ((RuneTop + ((liRune / RuneColumns) * RunePitchY)) * liScale);
 
             fSetRect(mORunes[liRune].rectTransform, lfX, lfRowTop - (lOTexture.height * liScale),
-                lOTexture.width * liScale, lOTexture.height * liScale);
+                lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
+
+        return liOwned;
+    }
+
+    private void fLayoutRunes(float pfLeft, float pfTop, int piFont, int piSmall)
+    {
+        float liScale = miScale;
+        UWHudRunes lORunes = mOUi.Runes;
+
+        mOTitle.text = "Rune bag";
+        fShowHollow(true);
+
+        // The shelf with the runes of the bag.
+        // At the original's pixel proportion (UWModernHudArt.PixelAspectX), in the middle of its place.
+        int liOwned = fPlaceTablet(new Rect(pfLeft + ((TabletLeft + (UWTextures.PanelWidth * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
+            pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale), UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX, UWTextures.PanelHeight * liScale));
 
         mOTitleRight.text = liOwned + " of " + UWPlayerData.RuneCount;
 
@@ -1000,8 +1165,9 @@ public class UWModernRunePanel : MonoBehaviour
             if (lOTexture != null)
             {
                 mOHollowRunes[liAt].texture = lOTexture;
-                fSetRect(mOHollowRunes[liAt].rectTransform, mOHollowRect.x + ((3 + (liAt * HollowRunePitch)) * liScale),
-                    mOHollowRect.yMax - ((3 + lOTexture.height) * liScale), lOTexture.width * liScale, lOTexture.height * liScale);
+                fSetRect(mOHollowRunes[liAt].rectTransform,
+                    mOHollowRect.x + ((3 + (liAt * HollowRunePitch) + (lOTexture.width * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
+                    mOHollowRect.yMax - ((3 + lOTexture.height) * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
             }
         }
 
@@ -1117,7 +1283,8 @@ public class UWModernRunePanel : MonoBehaviour
             {
                 lOEntry.Icon.enabled = true;
                 lOEntry.Icon.color = lbCastable ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
-                fSetRect(lOEntry.Icon.rectTransform, lfX, lfTop - (10.5f * liScale), 9 * liScale, 9 * liScale);
+                fSetRect(lOEntry.Icon.rectTransform, lfX + (9 * (1f - UWModernHudArt.PixelAspectX) * 0.5f * liScale), lfTop - (10.5f * liScale), 9 * liScale * UWModernHudArt.PixelAspectX,
+                    9 * liScale);
             }
 
             if (lOEntry == lOHovered || (mbDragging && !mbPressHollow && lOEntry.Sequence == miPressSequence))
@@ -1208,8 +1375,8 @@ public class UWModernRunePanel : MonoBehaviour
             Texture2D lOTexture = fGetIcon(lOIcon);
 
             mOGhostIcon.texture = lOTexture;
-            fSetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * 0.5f), lOPointer.y - (lOTexture.height * liScale * 0.5f),
-                lOTexture.width * liScale, lOTexture.height * liScale);
+            fSetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * UWModernHudArt.PixelAspectX * 0.5f),
+                lOPointer.y - (lOTexture.height * liScale * 0.5f), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
         else
         {
@@ -1245,10 +1412,10 @@ public class UWModernRunePanel : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOTabletTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOTabletTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
         fDestroyTextures();
 
         // The list's icons were built with the old colours.
@@ -1262,11 +1429,11 @@ public class UWModernRunePanel : MonoBehaviour
         UWTextures lOTextures = lOData.Textures;
         FilterMode leFilter = mOUi.TextureFilterMode;
 
-        mOHandleTexture = UWModernHudArt.BuildLeatherTab(lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
-        mOTabTexture = UWModernHudArt.BuildLeather(lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
-        mOPinTexture = UWModernHudArt.BuildLeather(lOTextures, PinWidth, TabHeaderHeight, leFilter);
+        mOHandleTexture = UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.RunePanel, lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
+        mOTabTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
+        mOPinTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, PinWidth, TabHeaderHeight, leFilter);
         mOPinIconTexture = UWModernPanel.BuildPinIcon(48);
-        mOGhostTexture = UWModernHudArt.BuildSlotCircle(lOTextures, leFilter);
+        mOGhostTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.RunePanel, lOTextures, leFilter);
 
         List<UWTexture> lOPanels = lOTextures.GetTexturesByType(UWTexture.TextureTypes.PANELS);
 
@@ -1324,7 +1491,15 @@ public class UWModernRunePanel : MonoBehaviour
         lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
         lOScaler.scaleFactor = 1f;
 
-        mORoot = (RectTransform)lORoot.transform;
+        // Everything in a content group, which the classic frame's panel turn squeezes
+        // (UWModernClassicFrame.ApplySquash).
+        GameObject lOContent = new GameObject("Content", typeof(RectTransform));
+        lOContent.transform.SetParent(lORoot.transform, false);
+        mORoot = (RectTransform)lOContent.transform;
+        mORoot.anchorMin = Vector2.zero;
+        mORoot.anchorMax = Vector2.zero;
+        mORoot.pivot = Vector2.zero;
+        mORoot.sizeDelta = Vector2.zero;
 
         mOTabBacks = new RawImage[2];
         mOTabTexts = new Text[2];
@@ -1478,7 +1653,8 @@ public class UWModernRunePanel : MonoBehaviour
         lORect.pivot = Vector2.zero;
 
         Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = pOColour;
         lOText.raycastTarget = false;

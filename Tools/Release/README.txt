@@ -58,26 +58,50 @@ CONTROLS
 
 Two control schemes, both complete. The original scheme, the one the game starts with: the
 mouse pointer steers as in 1992, and F1 to F10 and the Ctrl shortcuts work as in the original.
-Shift+F2 switches to the modern scheme: free mouse look, WASD, an action bar, bags, a character
-panel and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape).
+Shift+F2 switches to the modern scheme - or Original and Modern under Game in the menu bar, for
+keyboards whose F keys need Fn: free mouse look, WASD, an action bar, bags, a character panel
+and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape),
+which also offers presets: Modern; Classic Modular, the original's own pieces as parts of their
+own; Classic Wide, the original's frame widened to the screen; and one's own layout, which can
+start from a preset in the editor and is saved only when the editor is left.
 The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
-keys of the scheme in force. The full list of keys is in README.md.
+keys of the scheme in force. The full list of keys is in Docs/CONTROLS.md.
+
+A gamepad works in both schemes (tested with an Xbox controller). The sticks walk and look, A
+uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the right stick for
+the windows, with A and RT as the left mouse button and X and LT as the right one. Names and
+mantras are typed on a letter grid. Hold View for the help: its Controls tab shows the buttons
+as glyphs. Under Controls in the menu bar, its Gamepad tab: the button names (Xbox, PlayStation,
+Nintendo), every button, swapped sticks, inverted look and a deadzone per stick. On Linux the
+gamepad's pointer clicks only in an X11 session, not under native Wayland.
 
 The menu bar at the top of the main menu (and of the game menu) holds the settings. Under
 Motion you choose how the original's motion code is run: Original computes it step by step
 as the game did in 1992 - how many steps a second is the "Original fps" setting there -,
 Smooth computes the same rules once per frame for an even picture; each setting carries a
-short explanation. Controls has the mouse look speed of the modern scheme. Graphics has the
-detail levels, the classic screen at 4:3, and the world at the original's resolution or a
+short explanation. Controls has the mouse look speed of the modern scheme and the gamepad's
+settings. Graphics has the
+detail levels, the classic screen at 4:3 or widened to the screen ("Classic screen
+widescreen"), the view angle ("View"), and the world at the original's resolution or a
 multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
 effects of the port's own to the original's palette look (presets Subtle and Full) - use
 them with care, turned up they quickly take away the look of the original; "Very
 high - own effects..." sets every effect of the Remastered mode.
 
 
+MUSIC
+-----
+
+The Sound menu in the menu bar chooses what plays the music: the AdLib, as most heard it in
+1992; General MIDI, the music's MT-32 version on a soundfont that comes with the game; or the
+Roland MT-32 itself, emulated by Munt. The MT-32 needs the control and PCM ROM of a real MT-32
+or CM-32L, which belong to Roland and do not come with the game: put your own into the folder
+the "Open folder" button there opens. The menu shows which ROMs were recognised.
+
+
 LICENCES
 --------
 
-Underworld Revisited is released under the MIT License, see LICENSE. It contains code and a
-font from other projects under their own licences; their notices are in
+Underworld Revisited is released under the MIT License, see LICENSE. It contains code, a
+font, a soundfont and a library from other projects under their own licences; their notices are in
 THIRD_PARTY_NOTICES.md. README.md is the project's full description.

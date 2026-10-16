@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// THE HELP'S CONTROLS TAB (per user, 2026-10-04: "with all the functions of the modern scheme
@@ -21,6 +23,10 @@ public static class UWHelpControls
         public string Keys;
 
         public string Text;
+
+        /// <summary>Gamepad glyphs shown in the keys' column instead of Keys (UWGlyphs); Keys is
+        /// what stands there if they are missing.</summary>
+        public Texture2D[] Glyphs;
     }
 
     /// <summary>A heading with its lines; Intro is a dim line under the heading, or null.</summary>
@@ -37,12 +43,140 @@ public static class UWHelpControls
             Rows.Add(new Row { Keys = psKeys, Text = psText });
             return this;
         }
+
+        /// <summary>A row of gamepad glyphs; a missing one leaves the row to its text name.</summary>
+        public Section AddPad(string psFallback, string psText, params Texture2D[] pyGlyphs)
+        {
+            bool lbAll = pyGlyphs != null && pyGlyphs.Length > 0 && System.Array.TrueForAll(pyGlyphs, lOGlyph => lOGlyph != null);
+
+            Rows.Add(new Row { Keys = psFallback, Text = psText, Glyphs = lbAll ? pyGlyphs : null });
+            return this;
+        }
     }
 
-    /// <summary>The sections for the scheme in force.</summary>
+    /// <summary>The sections for the scheme in force - the gamepad's with them, first when the pad
+    /// was used last (UWGamepad.IsActive), last otherwise; only with a pad connected.</summary>
     public static List<Section> Build(bool pbModern)
     {
-        return pbModern ? fModern() : fClassic();
+        List<Section> lOSections = pbModern ? fModern() : fClassic();
+
+        if (Gamepad.current == null)
+            return lOSections;
+
+        List<Section> lOPad = pbModern ? fModernPad() : fClassicPad();
+
+        if (UWGamepad.IsActive)
+        {
+            lOPad.AddRange(lOSections);
+            return lOPad;
+        }
+
+        lOSections.AddRange(lOPad);
+        return lOSections;
+    }
+
+    /// <summary>The glyph of a gamepad entry's binding as it is now (UWKeyBindings.PadEntries).</summary>
+    private static Texture2D fPad(string psAction, int piBinding)
+    {
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
+        {
+            if (lOEntry.Action == psAction && lOEntry.Binding == piBinding)
+                return UWGlyphs.ForPath(UWKeyBindings.GetPath(lOEntry));
+        }
+
+        return null;
+    }
+
+    /// <summary>The name of a gamepad entry's button, for a row whose glyph is missing.</summary>
+    private static string fPadName(string psAction, int piBinding)
+    {
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
+        {
+            if (lOEntry.Action == psAction && lOEntry.Binding == piBinding)
+                return UWKeyBindings.GetKeyName(lOEntry);
+        }
+
+        return "-";
+    }
+
+    private static string fWalkStickName => UWUserSettings.GamepadSwapSticks ? "Right stick" : "Left stick";
+
+    private static string fLookStickName => UWUserSettings.GamepadSwapSticks ? "Left stick" : "Right stick";
+
+    private static Texture2D fWalkStick => UWGlyphs.Tiles(UWUserSettings.GamepadSwapSticks ? UWGlyphs.RightStickTile : UWGlyphs.LeftStickTile);
+
+    private static Texture2D fLookStick => UWGlyphs.Tiles(UWUserSettings.GamepadSwapSticks ? UWGlyphs.LeftStickTile : UWGlyphs.RightStickTile);
+
+    /// <summary>THE GAMEPAD IN THE MODERN SCHEME (stage 3 of the gamepad, per user 2026-10-08): the
+    /// glyphs of the bindings in force, in the chosen button style.</summary>
+    private static List<Section> fModernPad()
+    {
+        List<Section> lOSections = new List<Section>();
+
+        lOSections.Add(new Section
+        {
+            Title = "Gamepad",
+            Intro = "Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too."
+        }
+            .AddPad(fWalkStickName, "Walk and step sideways.", fWalkStick)
+            .AddPad(fLookStickName, "Look around.", fLookStick)
+            .AddPad(fPadName("ModernUse", 1), "Use what you aim at; held: use it directly.", fPad("ModernUse", 1))
+            .AddPad(fPadName("ModernLook", 1), "Look at it.", fPad("ModernLook", 1))
+            .AddPad(fPadName("PadJump", 0), "Jump.", fPad("PadJump", 0))
+            .AddPad(fPadName("PadBack", 0), "Close what is open.", fPad("PadBack", 0))
+            .AddPad(fPadName("ModernAttack", 1), "Draw the weapon; held: charge, let go to strike.", fPad("ModernAttack", 1))
+            .AddPad(fPadName("ModernReady", 1), "Put the weapon away.", fPad("ModernReady", 1))
+            .AddPad(fPadName("PadCast", 0), "Cast the runes in the hollow; held: the rune panel.", fPad("PadCast", 0))
+            .AddPad(fPadName("PadSlotPrevious", 0) + " " + fPadName("PadSlotNext", 0), "Pick a slot of the action bar.",
+                fPad("PadSlotPrevious", 0), fPad("PadSlotNext", 0))
+            .AddPad(fPadName("PadSlotUse", 0), "Use the slot.", fPad("PadSlotUse", 0))
+            .AddPad(fPadName("ToggleInventory", 1), "The character panel; held: every bag.", fPad("ToggleInventory", 1))
+            .AddPad(fPadName("ModernHover", 4) + " " + fPadName("ModernHover", 5), "Sink and rise while flying.",
+                fPad("ModernHover", 4), fPad("ModernHover", 5))
+            .AddPad(fPadName("ToggleMap", 1), "The map; held: this help.", fPad("ToggleMap", 1))
+            .AddPad(fPadName("Menu", 1), "The game menu.", fPad("Menu", 1))
+            .AddPad(fPadName("PadPointer", 0), "Free the pointer (onto the backpack) or lock it again.", fPad("PadPointer", 0)));
+
+        lOSections.Add(new Section
+        {
+            Title = "Gamepad: the free pointer",
+            Intro = "With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a "
+                + "conversation, the map - the pointer is free by itself."
+        }
+            .AddPad(fLookStickName, "Move the pointer.", fLookStick)
+            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), "The left mouse button; held: drag.",
+                fPad("PadClick", 0), fPad("PadClick", 1))
+            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), "The right mouse button.",
+                fPad("PadContext", 0), fPad("PadContext", 1))
+            .AddPad(fWalkStickName, "Over a window: scroll. In a menu: the next entry.", fWalkStick)
+            .AddPad("D-pad", "In a menu: the next entry.", UWGlyphs.Tiles(UWGlyphs.DpadVerticalTile)));
+
+        return lOSections;
+    }
+
+    /// <summary>The gamepad in the classic scheme: the sticks drive, the buttons are the mouse's.</summary>
+    private static List<Section> fClassicPad()
+    {
+        List<Section> lOSections = new List<Section>();
+
+        lOSections.Add(new Section
+        {
+            Title = "Gamepad",
+            Intro = "The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls "
+                + "dialog of the menu bar, its Gamepad tab."
+        }
+            .AddPad(fWalkStickName, "Walk; pushed well sideways: step sideways.", fWalkStick)
+            .AddPad(fLookStickName, "Turn; up and down tilt the view a step.", fLookStick)
+            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), "The left mouse button.",
+                fPad("PadClick", 0), fPad("PadClick", 1))
+            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), "The right mouse button.",
+                fPad("PadContext", 0), fPad("PadContext", 1))
+            .AddPad(fPadName("PadJump", 0), "Jump.", fPad("PadJump", 0))
+            .AddPad(fPadName("ToggleMap", 1), "The map; held: this help.", fPad("ToggleMap", 1))
+            .AddPad(fPadName("PadPointer", 0), "The stick moves the pointer instead, or turns again.", fPad("PadPointer", 0))
+            .AddPad(fWalkStickName, "With the pointer on the stick, over the frame: scroll.", fWalkStick));
+
+        return lOSections;
     }
 
     /// <summary>The key of a changeable binding as it is now, or the fallback.</summary>

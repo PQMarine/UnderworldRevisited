@@ -507,6 +507,8 @@ public class UWConversationScreen : MonoBehaviour
             return;
         }
 
+        fStepChoicesByPad();
+
         int liChoice = fReadChoice();
 
         if (liChoice <= 0)
@@ -514,6 +516,67 @@ public class UWConversationScreen : MonoBehaviour
 
         mOSession.Choose(liChoice);
         fRedraw();
+    }
+
+    /// <summary>The gamepad steps through the answers (UWPadEntryStepper).</summary>
+    private readonly UWPadEntryStepper mOChoiceStepper = new UWPadEntryStepper();
+
+    private readonly List<Rect> mOChoiceRects = new List<Rect>();
+
+    /// <summary>The answers the stepper last saw - new ones snap the pointer onto the first.</summary>
+    private string msSteppedChoices;
+
+    /// <summary>
+    /// THE ANSWERS ON THE D-PAD AND THE LEFT STICK (per user, 2026-10-08: as in the game menu and the
+    /// context menu): they put the pointer onto the next answer, A (the pad's click) chooses it; a
+    /// new set of answers snaps it onto the first while the pad is in use. The modern rows
+    /// (UWModernConversation) or the classic scroll's lines.
+    /// </summary>
+    private void fStepChoicesByPad()
+    {
+        if (mOSession == null || mOSession.Choices.Count == 0)
+        {
+            msSteppedChoices = null;
+            return;
+        }
+
+        if (fIsModern())
+        {
+            UWModernConversation lOModern = UWModernConversation.Instance;
+
+            if (lOModern == null)
+                return;
+
+            lOModern.GetChoiceRects(mOChoiceRects);
+        }
+        else
+        {
+            mOChoiceRects.Clear();
+
+            Vector3[] lyCorners = new Vector3[4];
+
+            foreach (RectTransform lOHitbox in mOChoiceHitboxes)
+            {
+                if (lOHitbox == null)
+                    continue;
+
+                lOHitbox.GetWorldCorners(lyCorners);
+                mOChoiceRects.Add(Rect.MinMaxRect(lyCorners[0].x, lyCorners[0].y, lyCorners[2].x, lyCorners[2].y));
+            }
+        }
+
+        if (mOChoiceRects.Count == 0)
+            return;
+
+        string lsChoices = mOSession.Choices.Count + "|" + mOSession.Choices[0];
+
+        if (lsChoices != msSteppedChoices)
+        {
+            msSteppedChoices = lsChoices;
+            mOChoiceStepper.Opened();
+        }
+
+        mOChoiceStepper.Update(mOChoiceRects);
     }
 
     // ------------------------------------------------------------------
@@ -680,6 +743,13 @@ public class UWConversationScreen : MonoBehaviour
         if (lOKeyboard != null && !IsKeyboardTaken && lOKeyboard.anyKey.wasPressedThisFrame
             && !lOKeyboard.fKey.wasPressedThisFrame && !lOKeyboard.tabKey.wasPressedThisFrame)
             return true;
+
+        // Any gamepad button as well, but not while the letter grid types (UWGamepad).
+        if (!IsKeyboardTaken && !UWLetterGrid.IsShown && miOpenedFrame != Time.frameCount && UWGamepad.AnyPressed(false))
+        {
+            UWGamepad.ConsumePress();
+            return true;
+        }
 
         Mouse lOMouse = Mouse.current;
 

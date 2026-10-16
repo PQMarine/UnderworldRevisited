@@ -170,6 +170,12 @@ public partial class UWModernBags : MonoBehaviour
         /// <summary>The contents index of the first slot (scrolled rows times four).</summary>
         public int FirstIndex;
 
+        /// <summary>The arrows in the right margin while rows lie hidden above or below
+        /// (fShowScrollArrows).</summary>
+        public RawImage ScrollUp;
+
+        public RawImage ScrollDown;
+
         public int SlotCount;
     }
 
@@ -235,6 +241,9 @@ public partial class UWModernBags : MonoBehaviour
     private static readonly Color msBadgeFill = new Color(0.18f, 0.094f, 0.035f, 1f);
 
     private Texture2D mODiscTexture;
+
+    /// <summary>The scroll arrow, pointing up (drawn flipped for down).</summary>
+    private Texture2D mOArrowTexture;
 
     /// <summary>The badge under the pointer, lighter, as a button.</summary>
     private Texture2D mODiscHoverTexture;
@@ -319,6 +328,9 @@ public partial class UWModernBags : MonoBehaviour
         if (mODiscTexture != null)
             Destroy(mODiscTexture);
 
+        if (mOArrowTexture != null)
+            Destroy(mOArrowTexture);
+
         if (mODiscHoverTexture != null)
             Destroy(mODiscHoverTexture);
 
@@ -391,13 +403,97 @@ public partial class UWModernBags : MonoBehaviour
             fOpen();
     }
 
+    /// <summary>How long the gamepad's Y is held to open every bag - a little longer than the
+    /// use's hold (Interaction.ModernUseHoldSeconds, 0.4 s; per user, 2026-10-07).</summary>
+    private const float PadOpenAllSeconds = 0.5f;
+
+    /// <summary>Seconds the gamepad's Y is held, -1 when it is not.</summary>
+    private float mfPadPanelHeld = -1f;
+
+    /// <summary>
+    /// THE GAMEPAD'S PANEL BUTTON, d-pad down since 2026-10-07 (Y before; UWGamepad): TAPPED, on the release, the character panel - the bags alone
+    /// while the panel is pinned, where it had nothing to do (per user's test, 2026-10-07); HELD,
+    /// every carried bag opens (fOpenAllBags, per user the same day).
+    /// </summary>
+    private void fUpdatePadPanelKey(InputAction pOKey)
+    {
+        // Not while the pad's pointer scrolls with the d-pad (UWGamepadPointer.Takes).
+        if (pOKey.WasPressedThisFrame())
+        {
+            mfPadPanelHeld = UWGamepad.IsFromGamepad(pOKey) && !UWGamepadPointer.Takes(pOKey) ? 0f : -1f;
+            return;
+        }
+
+        if (mfPadPanelHeld < 0f)
+            return;
+
+        if (pOKey.IsPressed())
+        {
+            mfPadPanelHeld += Time.unscaledDeltaTime;
+
+            if (mfPadPanelHeld >= PadOpenAllSeconds)
+            {
+                mfPadPanelHeld = -1f;
+                fOpenAllBags();
+            }
+
+            return;
+        }
+
+        mfPadPanelHeld = -1f;
+
+        if (UWModernPanel.Pinned)
+            fToggle();
+        else
+            fTogglePanel();
+    }
+
+    /// <summary>Every carried bag opens, in the backpack's order with a bag's inner bags after it -
+    /// not the rune bag, whose shelf comes with the spells (as the click on the shut backpack
+    /// leaves it). Passes, because an inner bag is found once its parent's contents are loaded
+    /// (fToggleBag).</summary>
+    private void fOpenAllBags()
+    {
+        UWInventory lOInventory = fInventory();
+
+        if (lOInventory == null)
+            return;
+
+        if (!mbOpen)
+            fOpen();
+
+        List<UWObject> lONew = new List<UWObject>();
+
+        for (int liPass = 0; liPass < 8; liPass++)
+        {
+            lONew.Clear();
+
+            foreach (UWObject lOItem in lOInventory.Model.EnumerateAll())
+            {
+                if (lOItem != null && lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers
+                    && lOItem.ID != UWObjectMechanics.RuneBagId && !mOOpenBags.Contains(lOItem) && !lONew.Contains(lOItem))
+                    lONew.Add(lOItem);
+            }
+
+            if (lONew.Count == 0)
+                return;
+
+            foreach (UWObject lOBag in lONew)
+            {
+                if (!mOOpenBags.Contains(lOBag))
+                    fToggleBag(lOBag);
+            }
+        }
+    }
+
     /// <summary>C: the character panel slides out or in (on its Character tab); the pointer stays
     /// as it is, and a pinned panel has nothing to do (per user, 2026-10-04).</summary>
     private void fTogglePanel()
     {
         UWModernPanel lOPanel = fPanel();
 
-        if (lOPanel == null || UWModernPanel.Pinned)
+        // The original's character page is always out (UWModernInventoryPage).
+        if (lOPanel == null || UWModernPanel.Pinned || fPageShown())
             return;
 
         if (lOPanel.IsOpen && lOPanel.Tab == UWModernPanel.TabEnum.Character)
@@ -408,6 +504,10 @@ public partial class UWModernBags : MonoBehaviour
 
     private void fOpen()
     {
+        // With the original's character page the bag windows stay shut (per user, 2026-10-10).
+        if (fPageShown())
+            return;
+
         mbOpen = true;
     }
 
@@ -486,18 +586,31 @@ public partial class UWModernBags : MonoBehaviour
         return UWModernPanel.Instance;
     }
 
-    /// <summary>The bags take clicks while their pointer is out or the character panel is open.</summary>
+    /// <summary>The bags take clicks while their pointer is out, the character panel is open or
+    /// the original's character page shows (UWModernInventoryPage).</summary>
     private bool fIsActive()
     {
-        return mbOpen || (fPanel() != null && fPanel().IsOpen);
+        return mbOpen || (fPanel() != null && fPanel().IsOpen) || fPageShown();
     }
 
-    /// <summary>The paperdoll slot under the pointer, if the panel shows one there.</summary>
+    private static bool fPageShown()
+    {
+        // In Classic Wide the frame's panel is the inventory even while it shows the stats or the
+        // tablet: no bag window then either (per user's screenshot, 2026-10-10: the chain brought
+        // up our backpack).
+        return (UWModernInventoryPage.Instance != null && UWModernInventoryPage.Instance.IsShown) || UWModernClassicFrame.IsActive;
+    }
+
+    /// <summary>The paperdoll slot under the pointer, if the panel or the original's page shows
+    /// one there.</summary>
     private static bool fPanelSlotAt(Vector2 pOPointer, out UWArmorItemMap.BodySlot peSlot)
     {
         peSlot = UWArmorItemMap.BodySlot.Helmet;
 
-        return fPanel() != null && fPanel().TryGetEquipSlotAt(pOPointer, out peSlot);
+        if (fPanel() != null && fPanel().TryGetEquipSlotAt(pOPointer, out peSlot))
+            return true;
+
+        return fPageShown() && UWModernInventoryPage.Instance.TryGetEquipSlotAt(pOPointer, out peSlot);
     }
 
     // ------------------------------------------------- Input
@@ -554,8 +667,22 @@ public partial class UWModernBags : MonoBehaviour
 
         fResolveOpenBags();
 
+        // IN A CONVERSATION THE PANEL STAYS (per user, 2026-10-08: the d-pad's down, which steps the
+        // answers there, closed it) - the conversation opened it on its Character tab for the trade
+        // (UWModernConversation.fBegin); neither the pad nor C toggles it meanwhile.
+        bool lbTalking = UWConversationScreen.IsAnyOpen;
+
+        // The gamepad's panel button has its own tap and hold (fUpdatePadPanelKey); C acts on the press.
+        if (!lbTalking)
+            fUpdatePadPanelKey(lOControls.Player.ToggleInventory);
+        else
+            mfPadPanelHeld = -1f;
+
         if (lOControls.Player.ToggleInventory.WasPressedThisFrame())
-            fTogglePanel();
+        {
+            if (!UWGamepad.IsFromGamepad(lOControls.Player.ToggleInventory) && !lbTalking)
+                fTogglePanel();
+        }
         else if (lOControls.Player.ModernBags.WasPressedThisFrame())
             fToggle();
         else if (!fIsActive() && UWModernPointer.IsFree && Mouse.current != null
@@ -614,8 +741,93 @@ public partial class UWModernBags : MonoBehaviour
             fRightPressed(lOPointer, lOInventory);
     }
 
+    /// <summary>A slot's place on the screen - the original page's for window 0 standing in for it.</summary>
+    private Rect fSlotRect(Window pOWindow, int piSlot)
+    {
+        if (fPageShown() && pOWindow == fGetWindow(0))
+            return UWModernInventoryPage.Instance.BackpackSlotRect(piSlot);
+
+        return pOWindow != null && piSlot >= 0 && piSlot < pOWindow.Slots.Count ? pOWindow.Slots[piSlot].ScreenRect : Rect.zero;
+    }
+
+    /// <summary>Whether a container is open: in a bag window, or with the original's page in its
+    /// slots (the model's one open container).</summary>
+    private bool fIsBagOpen(UWObject pOContainer, UWInventory pOInventory)
+    {
+        if (fPageShown())
+            return pOInventory != null && pOInventory.Model != null && pOInventory.Model.OpenContainer == pOContainer;
+
+        return mOOpenBags.Contains(pOContainer);
+    }
+
+    /// <summary>Window 0 standing in for the original page's eight slots: the backpack, or the
+    /// open container from its offset on.</summary>
+    private Window fPageWindow()
+    {
+        Window lOWindow = fGetWindow(0);
+        UWInventory lOInventory = fInventory();
+        UWInventoryModel lOModel = lOInventory != null ? lOInventory.Model : null;
+
+        lOWindow.Container = lOModel != null ? lOModel.OpenContainer : null;
+        lOWindow.FirstIndex = lOModel != null && lOModel.OpenContainer != null ? lOModel.ContainerScrollOffset : 0;
+
+        return lOWindow;
+    }
+
+    /// <summary>
+    /// The original page's container controls, as the classic frame's (UWItemDrag): the open
+    /// container's icon closes it, one level up - or, with a thing on the pointer, takes the thing
+    /// one level up (into the container it was opened from, else the first free backpack slot);
+    /// the arrows scroll a row (the left one raises the offset), the thing staying on the pointer.
+    /// True when the press was theirs.
+    /// </summary>
+    private bool fPageControls(Vector2 pOPointer, UWInventory pOInventory)
+    {
+        UWModernInventoryPage lOPage = UWModernInventoryPage.Instance;
+        UWInventoryModel lOModel = pOInventory.Model;
+
+        if (!fPageShown() || lOModel == null || lOModel.OpenContainer == null)
+            return false;
+
+        UWClickRules.InventorySpot leSpot = lOPage.SpotAt(pOPointer);
+
+        if (leSpot == UWClickRules.InventorySpot.ScrollLeft && lOPage.IsScrollUpShown)
+        {
+            lOModel.ScrollContainer(UWGameUI.ContainerColumns);
+            return true;
+        }
+
+        if (leSpot == UWClickRules.InventorySpot.ScrollRight && lOPage.IsScrollDownShown)
+        {
+            lOModel.ScrollContainer(-UWGameUI.ContainerColumns);
+            return true;
+        }
+
+        if (leSpot != UWClickRules.InventorySpot.ContainerIcon || !lOPage.IsContainerIconShown)
+            return false;
+
+        if (pOInventory.CursorItem == null)
+        {
+            lOModel.CloseContainer();
+            return true;
+        }
+
+        UWObject lOParent = lOModel.ParentContainer;
+        bool lbPlaced = lOParent != null
+            ? pOInventory.DropCursorItemIntoContainerItem(lOParent)
+            : pOInventory.DropCursorItemInFirstFreeBackpackSlot();
+
+        if (!lbPlaced)
+            fReportRejection(pOInventory);
+
+        return true;
+    }
+
     private void fLeftPressed(Vector2 pOPointer, UWInventory pOInventory)
     {
+        if (fPageControls(pOPointer, pOInventory))
+            return;
+
         if (pOInventory.CursorItem != null)
         {
             fPlace(pOPointer, pOInventory);
@@ -685,7 +897,7 @@ public partial class UWModernBags : MonoBehaviour
         if (lOItem == null)
             return;
 
-        if (fTryBeginSplit(lOItem, lOWindow, liSlot, UWArmorItemMap.BodySlot.Helmet, lOWindow.Slots[liSlot].ScreenRect))
+        if (fTryBeginSplit(lOItem, lOWindow, liSlot, UWArmorItemMap.BodySlot.Helmet, fSlotRect(lOWindow, liSlot)))
             return;
 
         fTake(lOWindow, liSlot, pOInventory);
@@ -1121,6 +1333,7 @@ public partial class UWModernBags : MonoBehaviour
             return;
         }
         else if ((fPanel() != null && fPanel().Contains(pOPointer)) || fIsTalking()
+            || (fPageShown() && UWModernInventoryPage.Instance.Contains(pOPointer))
             || (UWModernRunePanel.Instance != null && UWModernRunePanel.Instance.Contains(pOPointer))
             || (UWModernMinimap.Instance != null && UWModernMinimap.Instance.Contains(pOPointer)))
         {
@@ -1425,6 +1638,18 @@ public partial class UWModernBags : MonoBehaviour
 
     private void fToggleBag(UWObject pOContainer)
     {
+        // The original's page opens one container at a time in its slots, as the original
+        // (UWInventoryModel.TryOpenContainer: again on the open one closes it).
+        if (fPageShown())
+        {
+            UWInventory lOInventory = fInventory();
+
+            if (lOInventory != null && lOInventory.Model != null)
+                lOInventory.Model.TryOpenContainer(pOContainer);
+
+            return;
+        }
+
         if (mOOpenBags.Contains(pOContainer))
         {
             fCloseBag(pOContainer);
@@ -1529,8 +1754,40 @@ public partial class UWModernBags : MonoBehaviour
 
     // ------------------------------------------------- Hit tests
 
+    /// <summary>The middle of the backpack's first slot on the screen (pixels, bottom-left origin) -
+    /// where the freed pointer appears (UWModernPointer). False while the bags are not laid out.</summary>
+    public bool TryGetFirstBackpackSlot(out Vector2 pOCentre)
+    {
+        foreach (Window lOWindow in mOWindows)
+        {
+            if (lOWindow.Container != null || !lOWindow.Root.gameObject.activeSelf || lOWindow.SlotCount <= 0)
+                continue;
+
+            Rect lORect = lOWindow.Slots[0].ScreenRect;
+
+            if (lORect.width <= 0f)
+                break;
+
+            pOCentre = lORect.center;
+            return true;
+        }
+
+        pOCentre = Vector2.zero;
+        return false;
+    }
+
     private bool fFindSlot(Vector2 pOPointer, out Window pOWindow, out int piSlot)
     {
+        // The original's page: its eight slots are the backpack's, or the open container's from
+        // its offset on (window 0 standing in for them, never shown).
+        if (fPageShown())
+        {
+            piSlot = UWModernInventoryPage.Instance.BackpackSlotAt(pOPointer);
+            pOWindow = piSlot >= 0 ? fPageWindow() : null;
+
+            return piSlot >= 0;
+        }
+
         foreach (Window lOWindow in mOWindows)
         {
             if (!lOWindow.Root.gameObject.activeSelf)
@@ -1628,6 +1885,30 @@ public partial class UWModernBags : MonoBehaviour
         DataImport lOData = fData();
 
         mOSourceRects.Clear();
+
+        // With the original's character page the page is the backpack: no window of our own, no
+        // bag windows (per user, 2026-10-10); window 0 stands in for the page's slots.
+        if (fPageShown())
+        {
+            fPageWindow();
+
+            foreach (Window lOHidden in mOWindows)
+                lOHidden.Root.gameObject.SetActive(false);
+
+            mOLoadBack.enabled = false;
+            mOLoadFill.enabled = false;
+            // The conversation keeps left of the page as of the bags (UWModernConversation).
+            Rect lOPageRect = UWModernInventoryPage.Instance != null ? UWModernInventoryPage.Instance.ScreenRect : Rect.zero;
+
+            LeftEdge = lOPageRect.width > 0f ? Mathf.Min(Screen.width, lOPageRect.xMin) : Screen.width;
+
+            fUpdateHover();
+            fUpdateCursorIcon(lOInventory);
+            fUpdateTooltip(lOInventory, lOData);
+            fLayoutSplit();
+            fLayoutMenu();
+            return;
+        }
 
         // The backpack, always.
         Window lOPack = fGetWindow(0);
@@ -1793,7 +2074,7 @@ public partial class UWModernBags : MonoBehaviour
             if (pOWindow.BackTexture != null)
                 Destroy(pOWindow.BackTexture);
 
-            pOWindow.BackTexture = UWModernHudArt.BuildLeather(fData().Textures, liWidth, liHeight, mOUi.TextureFilterMode);
+            pOWindow.BackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Bags, fData().Textures, liWidth, liHeight, mOUi.TextureFilterMode);
             pOWindow.BackSize = new Vector2Int(liWidth, liHeight);
             pOWindow.BackVersion = miArtVersion;
             pOWindow.Back.texture = pOWindow.BackTexture;
@@ -1853,9 +2134,71 @@ public partial class UWModernBags : MonoBehaviour
             fShowItem(lOSlot, fGetItem(pOWindow, liSlot));
         }
 
+        fShowScrollArrows(pOWindow, piRows, liWidth, liHeight);
+
         float lfLine = Mathf.Max(2f, miScale * 0.75f);
 
         fSetFrame(pOWindow.Frame, -lfLine, -lfLine, (liWidth * liScale) + (2f * lfLine), (liHeight * liScale) + (2f * lfLine), lfLine);
+    }
+
+    /// <summary>The scroll arrow in original pixels: five wide, three high.</summary>
+    private const int ArrowWidth = 5;
+
+    private const int ArrowHeight = 3;
+
+    /// <summary>
+    /// THE SCROLL ARROWS (per user, 2026-10-08: show when a bag can be scrolled): in the right margin
+    /// beside the top row while rows lie hidden above, beside the bottom row while more follows
+    /// below - the same reckoning as the layout's (a spare empty row at the end, fLayout).
+    /// </summary>
+    private void fShowScrollArrows(Window pOWindow, int piRows, int piWidth, int piHeight)
+    {
+        int liScrolled = pOWindow.FirstIndex / Columns;
+        int liNeeded = pOWindow.Container != null && pOWindow.Container.Contents != null
+            ? (pOWindow.Container.Contents.Count / Columns) + 1
+            : 0;
+        bool lbUp = pOWindow.Container != null && liScrolled > 0;
+        bool lbDown = pOWindow.Container != null && liScrolled < liNeeded - piRows;
+
+        if (mOArrowTexture == null)
+            mOArrowTexture = fBuildArrow();
+
+        float liScale = miScale;
+        float lfX = (piWidth - SidePad + ((SidePad - ArrowWidth) * 0.5f)) * liScale;
+        float lfTopY = (piHeight - TitleRows - ArrowHeight) * liScale;
+        float lfBottomY = BottomPad * liScale;
+
+        pOWindow.ScrollUp.texture = mOArrowTexture;
+        pOWindow.ScrollUp.enabled = lbUp;
+        fSetRect(pOWindow.ScrollUp.rectTransform, lfX, lfTopY, ArrowWidth * liScale, ArrowHeight * liScale);
+
+        pOWindow.ScrollDown.texture = mOArrowTexture;
+        pOWindow.ScrollDown.enabled = lbDown;
+        fSetRect(pOWindow.ScrollDown.rectTransform, lfX, lfBottomY, ArrowWidth * liScale, ArrowHeight * liScale);
+    }
+
+    /// <summary>A gold triangle pointing up, five by three pixels, drawn sharp.</summary>
+    private static Texture2D fBuildArrow()
+    {
+        Texture2D lOTexture = new Texture2D(ArrowWidth, ArrowHeight, TextureFormat.RGBA32, false);
+        lOTexture.name = "UWModernBags scroll arrow";
+        lOTexture.filterMode = FilterMode.Point;
+        lOTexture.wrapMode = TextureWrapMode.Clamp;
+
+        Color32[] lyPixels = new Color32[ArrowWidth * ArrowHeight];
+        Color32 lOGold = msGold;
+
+        // Row 0 is the bottom: five wide, then three, then the tip.
+        for (int y = 0; y < ArrowHeight; y++)
+        {
+            for (int x = 0; x < ArrowWidth; x++)
+                lyPixels[(y * ArrowWidth) + x] = Mathf.Abs(x - (ArrowWidth / 2)) <= (ArrowHeight - 1 - y) ? lOGold : new Color32(0, 0, 0, 0);
+        }
+
+        lOTexture.SetPixels32(lyPixels);
+        lOTexture.Apply();
+
+        return lOTexture;
     }
 
     /// <summary>Badge sizes and places, in original pixels.</summary>
@@ -2051,8 +2394,8 @@ public partial class UWModernBags : MonoBehaviour
         pOSlot.Icon.enabled = true;
         pOSlot.ShownTexture = lOSource;
 
-        fSetRect(pOSlot.Icon.rectTransform, ((UWModernHudArt.SlotSize - lOIcon.width) / 2) * liScale,
-            ((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale, lOIcon.width * liScale, lOIcon.height * liScale);
+        fSetRect(pOSlot.Icon.rectTransform, (UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale,
+            ((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale, lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
         int liCount = UWItemDescriptions.GetStackCount(pOItem);
 
@@ -2125,8 +2468,8 @@ public partial class UWModernBags : MonoBehaviour
         // system pointer is hidden and the thing alone shows where one points, as in the
         // original, where the picked-up thing replaces the cursor. Restored once the hand is empty.
         fShowSystemPointer(false);
-        fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f),
-            lOIcon.width * liScale, lOIcon.height * liScale);
+        fSetRect(mOCursorIcon.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
+            lOPointer.y - (lOIcon.height * liScale * 0.5f), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
 
         int liCount = UWItemDescriptions.GetStackCount(lOItem);
 
@@ -2136,8 +2479,8 @@ public partial class UWModernBags : MonoBehaviour
         {
             mOCursorCount.text = liCount.ToString();
             mOCursorCount.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
-            fSetRect(mOCursorCount.rectTransform, lOPointer.x - (lOIcon.width * liScale * 0.5f), lOPointer.y - (lOIcon.height * liScale * 0.5f) - (2 * liScale),
-                (lOIcon.width + 2) * liScale, 6 * liScale);
+            fSetRect(mOCursorCount.rectTransform, lOPointer.x - (lOIcon.width * UWModernHudArt.PixelAspectX * liScale * 0.5f),
+                lOPointer.y - (lOIcon.height * liScale * 0.5f) - (2 * liScale), ((lOIcon.width * UWModernHudArt.PixelAspectX) + 2) * liScale, 6 * liScale);
         }
     }
 
@@ -2272,15 +2615,15 @@ public partial class UWModernBags : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWColourVision.Version && mOSlotTexture != null)
+        if (miArtVersion == UWModernBacks.ArtVersion && mOSlotTexture != null)
             return;
 
-        miArtVersion = UWColourVision.Version;
+        miArtVersion = UWModernBacks.ArtVersion;
 
         if (mOSlotTexture != null)
             Destroy(mOSlotTexture);
 
-        mOSlotTexture = UWModernHudArt.BuildSlotCircle(fData().Textures, mOUi.TextureFilterMode);
+        mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Bags, fData().Textures, mOUi.TextureFilterMode);
 
         if (mODiscTexture == null)
             mODiscTexture = fBuildCircle(64, 29f, 3.5f, msBadgeFill, msGold);
@@ -2383,8 +2726,14 @@ public partial class UWModernBags : MonoBehaviour
             lOWindow.Weight = fCreateText(lOWindow.Root, "Weight", TextAnchor.MiddleRight);
             lOWindow.Weight.color = new Color(0.90f, 0.84f, 0.69f);
 
+            lOWindow.ScrollUp = fCreateRawImage(lOWindow.Root, "Scroll up");
+            lOWindow.ScrollDown = fCreateRawImage(lOWindow.Root, "Scroll down");
+            lOWindow.ScrollDown.uvRect = new Rect(0f, 1f, 1f, -1f);
+
             lOWindow.Badge = fCreateRawImage(lOWindow.Root, "Badge");
             lOWindow.BadgeText = fCreateText(lOWindow.Root, "Badge number", TextAnchor.MiddleCenter);
+            // The number in the disc's middle by its ink, whatever the font (UWCentredGlyph).
+            lOWindow.BadgeText.gameObject.AddComponent<UWCentredGlyph>();
             lOWindow.BadgeText.color = new Color(1f, 0.92f, 0.69f);
 
             lOWindow.Frame = new Image[4];
@@ -2429,6 +2778,7 @@ public partial class UWModernBags : MonoBehaviour
         lOSlot.Ring = fCreateRawImage(lOSlot.Circle.rectTransform, "Ring");
         lOSlot.Badge = fCreateRawImage(lOSlot.Circle.rectTransform, "Badge");
         lOSlot.BadgeText = fCreateText(lOSlot.Circle.rectTransform, "Badge number", TextAnchor.MiddleCenter);
+        lOSlot.BadgeText.gameObject.AddComponent<UWCentredGlyph>();
         lOSlot.BadgeText.color = new Color(1f, 0.92f, 0.69f);
 
         return lOSlot;
@@ -2479,7 +2829,8 @@ public partial class UWModernBags : MonoBehaviour
         lORect.pivot = Vector2.zero;
 
         Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
+        UWUiFonts.Register(lOText, mOUi);
         lOText.alignment = peAlignment;
         lOText.color = new Color(0.86f, 0.86f, 0.84f);
         lOText.raycastTarget = false;

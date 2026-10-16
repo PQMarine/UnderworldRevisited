@@ -81,9 +81,15 @@ public static class UWModernHudArt
         return fToTexture(UWHudArt.BuildPaperdollPage(pOTextures), peFilter, "UWModernHudArt paperdoll");
     }
 
-    public static Texture2D BuildHeadingStrip(UWTextures pOTextures, int piWidth, int piOpenHalf, FilterMode peFilter)
+    public static Texture2D BuildHeadingStrip(UWTextures pOTextures, int piWidth, int piOpenHalf, FilterMode peFilter,
+        int piClosedWidth = UWHudArt.StripClosedWidth)
     {
-        return fToTexture(UWHudArt.BuildHeadingStrip(pOTextures, piWidth, piOpenHalf), peFilter, "UWModernHudArt heading strip");
+        return fToTexture(UWHudArt.BuildHeadingStrip(pOTextures, piWidth, piOpenHalf, piClosedWidth), peFilter, "UWModernHudArt heading strip");
+    }
+
+    public static Texture2D BuildHeadingStripWithBrandAt(UWTextures pOTextures, int piWidth, int piBrandLeft, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildHeadingStripWithBrandAt(pOTextures, piWidth, piBrandLeft), peFilter, "UWModernHudArt heading strip");
     }
 
     public static Texture2D BuildSlotCircle(UWTextures pOTextures, FilterMode peFilter)
@@ -91,9 +97,9 @@ public static class UWModernHudArt
         return fToTexture(UWHudArt.BuildSlotCircle(pOTextures), peFilter, "UWModernHudArt slot");
     }
 
-    public static Texture2D BuildShelf(UWTextures pOTextures, FilterMode peFilter, out ShelfLayout pOLayout)
+    public static Texture2D BuildShelf(UWTextures pOTextures, FilterMode peFilter, out ShelfLayout pOLayout, bool pbGemApart = false)
     {
-        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWHudArt.ShelfLayout lOLayout);
+        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWHudArt.ShelfLayout lOLayout, pbGemApart);
 
         pOLayout = new ShelfLayout
         {
@@ -107,9 +113,83 @@ public static class UWModernHudArt
         return fToTexture(lOShelf, peFilter, "UWModernHudArt shelf");
     }
 
+    /// <summary>The stone shelf deco panel at a width in its own pixels (UWHudArt.BuildStoneShelf).</summary>
+    public static Texture2D BuildStoneShelf(UWTextures pOTextures, int piWidth, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildStoneShelf(pOTextures, piWidth), peFilter, "UWModernHudArt stone shelf");
+    }
+
+    /// <summary>The power gem's own stand (UWHudArt.BuildGemStand); pOGem is where the gem lies on it.</summary>
+    /// <summary>A picture of one of the game's .GR files as it is; null without it.</summary>
+    public static Texture2D BuildPicture(UWTextures pOTextures, UWTexture.TextureTypes peType, int piIndex, FilterMode peFilter)
+    {
+        UWTexture lOPicture = pOTextures.GetTextureByType(peType, piIndex);
+
+        return lOPicture != null ? fToTexture(UWPicture.From(lOPicture), peFilter, "UWModernHudArt " + peType + " " + piIndex) : null;
+    }
+
+    /// <summary>A page of the original's right panel (PANELS.GR: 0 inventory, 1 runes, 2 stats);
+    /// null without it.</summary>
+    public static Texture2D BuildPanelPage(UWTextures pOTextures, int piPage, FilterMode peFilter)
+    {
+        UWTexture lOPage = pOTextures.GetTextureByType(UWTexture.TextureTypes.PANELS, piPage);
+
+        return lOPage != null ? fToTexture(UWPicture.From(lOPage), peFilter, "UWModernHudArt panel page " + piPage) : null;
+    }
+
+    /// <summary>The original's conversation top, its sample names and portraits gone (UWHudArt.BuildConversationHeader).</summary>
+    /// <summary>The classic frame widened by piExtra columns (UWHudArt.BuildClassicWideFrame), and
+    /// what was built (its picture and cuts) for the parts laid on it.</summary>
+    public static Texture2D BuildClassicWideFrame(UWTextures pOTextures, int piExtra, FilterMode peFilter, out UWHudArt.ClassicWideFrame pOFrame)
+    {
+        pOFrame = UWHudArt.BuildClassicWideFrame(pOTextures, piExtra);
+
+        return fToTexture(pOFrame.Picture, peFilter, "UWModernHudArt classic wide " + piExtra);
+    }
+
+    public static Texture2D BuildConversationHeader(UWTextures pOTextures, FilterMode peFilter, bool pbOutline = false)
+    {
+        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationHeader(pOTextures), pbOutline), peFilter, "UWModernHudArt conversation top");
+    }
+
+    /// <summary>The original's conversation parchment at a height (UWHudArt.BuildConversationParchment).</summary>
+    public static Texture2D BuildConversationParchment(UWTextures pOTextures, int piRows, FilterMode peFilter, bool pbKnobRollers = false,
+        bool pbOutline = false)
+    {
+        return fToTexture(UWHudArt.PadAndOutline(UWHudArt.BuildConversationParchment(pOTextures, piRows, pbKnobRollers), pbOutline), peFilter,
+            "UWModernHudArt conversation parchment " + piRows);
+    }
+
+    /// <summary>The rune hollow cut out of the frame (UWHudArt.BuildRuneHollow).</summary>
+    public static Texture2D BuildRuneHollow(UWTextures pOTextures, bool pbOutline, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildRuneHollow(pOTextures, pbOutline), peFilter, "UWModernHudArt rune hollow");
+    }
+
+    /// <summary>The compass's stone disc without the cross (UWHudArt.BuildCompassDisc).</summary>
+    public static Texture2D BuildCompassDisc(UWTextures pOTextures, bool pbOutline, FilterMode peFilter)
+    {
+        return fToTexture(UWHudArt.BuildCompassDisc(pOTextures, pbOutline), peFilter, "UWModernHudArt compass disc");
+    }
+
+    public static Texture2D BuildGemStand(UWTextures pOTextures, FilterMode peFilter, out Vector2Int pOGem)
+    {
+        UWPicture lOStand = UWHudArt.BuildGemStand(pOTextures, out int liX, out int liY);
+
+        pOGem = new Vector2Int(liX, liY);
+
+        return fToTexture(lOStand, peFilter, "UWModernHudArt gem stand");
+    }
+
     public static bool[] BuildFlaskMask(UWFlasks pOFlasks)
     {
         return UWHudArt.BuildFlaskMask(pOFlasks);
+    }
+
+    /// <summary>The flask standing free, without the shelf's stone (UWHudArt.BuildFreeFlaskMask).</summary>
+    public static bool[] BuildFreeFlaskMask(UWFlasks pOFlasks)
+    {
+        return UWHudArt.BuildFreeFlaskMask(pOFlasks);
     }
 
     public static bool[] BuildGemMask(UWPowerGem pOGem)
@@ -117,8 +197,107 @@ public static class UWModernHudArt
         return UWHudArt.BuildGemMask(pOGem);
     }
 
+    /// <summary>
+    /// THE ORIGINAL'S PIXEL PROPORTION (per user, 2026-10-09): its pictures were drawn for a screen
+    /// whose pixels are 1.2 times taller than wide (the classic scheme's 4:3 fix, UWDisplayAspect);
+    /// with square pixels the paperdoll looked "chubbier" and a shield "too wide". The modern scheme
+    /// keeps the heights and draws the original's figure and things this much as wide - the same
+    /// proportion without changing any part's height (per user: "the same result if we make it 20 %
+    /// narrower"). Leather, frames and generated backs are not affected.
+    /// </summary>
+    public const float PixelAspectX = 1f / 1.2f;
+
+    /// <summary>A part's generated back (UWBackdropArt, UWModernBacks).</summary>
+    public static Texture2D BuildBackdrop(UWTextures pOTextures, int piWidth, int piHeight, UWModernBacks.Back pOBack, FilterMode peFilter,
+        int piVariant = 0)
+    {
+        return fToTexture(UWBackdropArt.Build(pOTextures, piWidth, piHeight, pOBack.Shape, pOBack.Colour, pOBack.Pattern, pOBack.Border,
+            piVariant), peFilter, "UWModernHudArt back");
+    }
+
+    /// <summary>A leather part's leather - or its back in the leather's place, a rectangle, when it
+    /// has one (UWModernBacks.IsLeatherPart).</summary>
+    public static Texture2D BuildPartLeather(UWModernLayout.ElementEnum peElement, UWTextures pOTextures, int piWidth, int piHeight,
+        FilterMode peFilter, int piVariant = 0)
+    {
+        UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
+
+        if (lOBack.Shape == UWBackdropArt.ShapeEnum.None)
+            return BuildLeather(pOTextures, piWidth, piHeight, peFilter, piVariant);
+
+        lOBack.Shape = UWBackdropArt.ShapeEnum.Rect;
+
+        return BuildBackdrop(pOTextures, piWidth, piHeight, lOBack, peFilter, piVariant);
+    }
+
+    /// <summary>A leather part's tab, open on the right (BuildLeatherTab) - or its back's: the
+    /// rectangle made wider and its right part cut off, so the border stays open there.</summary>
+    public static Texture2D BuildPartLeatherTab(UWModernLayout.ElementEnum peElement, UWTextures pOTextures, int piWidth, int piHeight,
+        FilterMode peFilter)
+    {
+        UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
+
+        if (lOBack.Shape == UWBackdropArt.ShapeEnum.None)
+            return BuildLeatherTab(pOTextures, piWidth, piHeight, peFilter);
+
+        UWPicture lOWide = UWBackdropArt.Build(pOTextures, piWidth + 4, piHeight, UWBackdropArt.ShapeEnum.Rect, lOBack.Colour, lOBack.Pattern,
+            lOBack.Border);
+
+        return fToTexture(lOWide.Crop(new UWRectInt(0, 0, piWidth, piHeight)), peFilter, "UWModernHudArt back tab");
+    }
+
+    /// <summary>A leather part's slot circle - or, on a back of its own, the ring alone carved into
+    /// the back, the slot a light shadow (UWHudArt.BuildSlotRing; per user, 2026-10-09: the circles
+    /// showed squares of leather on a back).</summary>
+    public static Texture2D BuildPartSlot(UWModernLayout.ElementEnum peElement, UWTextures pOTextures, FilterMode peFilter)
+    {
+        UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
+
+        if (lOBack.Shape == UWBackdropArt.ShapeEnum.None)
+            return BuildSlotCircle(pOTextures, peFilter);
+
+        return fToTexture(UWHudArt.BuildSlotRing(pOTextures, UWBackdropArt.Ramp(pOTextures, lOBack.Colour)), peFilter, "UWModernHudArt slot ring");
+    }
+
+    /// <summary>The character panel's page - or, on a back of its own, only its circles carved into
+    /// the back, without the weight's stone (UWHudArt.BuildPaperdollMarks).</summary>
+    public static Texture2D BuildPartPaperdollPage(UWModernLayout.ElementEnum peElement, UWTextures pOTextures, FilterMode peFilter)
+    {
+        UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
+
+        if (lOBack.Shape == UWBackdropArt.ShapeEnum.None)
+            return BuildPaperdollPage(pOTextures, peFilter);
+
+        return fToTexture(UWHudArt.BuildPaperdollMarks(pOTextures, UWBackdropArt.Ramp(pOTextures, lOBack.Colour)), peFilter,
+            "UWModernHudArt paperdoll marks");
+    }
+
+    /// <summary>The paperdoll's figure - the body (BODIES.GR index) and the armour in the classic
+    /// order (helmet, gloves, legs, chest, boots) with their places on MAIN.BYT - without the page,
+    /// for a back of the character panel's own (UWHudArt.ComposePaperdoll); pOOrigin is where it
+    /// lies on MAIN.BYT.</summary>
+    public static Texture2D BuildFreeFigure(UWTextures pOTextures, int piBody, UWTexture[] pOArmour, Vector2Int[] pOAt, FilterMode peFilter,
+        out Vector2Int pOOrigin)
+    {
+        var lOPictures = new System.Collections.Generic.List<UWPicture>();
+        var lOAt = new System.Collections.Generic.List<(int X, int Y)>();
+
+        for (int liAt = 0; liAt < pOArmour.Length; liAt++)
+        {
+            lOPictures.Add(pOArmour[liAt] != null ? UWPicture.From(pOArmour[liAt]) : null);
+            lOAt.Add((pOAt[liAt].x, pOAt[liAt].y));
+        }
+
+        UWPicture lOFigure = UWHudArt.ComposePaperdoll(pOTextures, piBody, lOPictures, lOAt, out int liX, out int liY);
+
+        pOOrigin = new Vector2Int(liX, liY);
+
+        return fToTexture(lOFigure, peFilter, "UWModernHudArt figure");
+    }
+
     /// <summary>A picture (rows top down) as a Unity texture (rows bottom up), the colour help
     /// applied.</summary>
+
     private static Texture2D fToTexture(UWPicture pOPicture, FilterMode peFilter, string psName)
     {
         Color32[] lyOut = new Color32[pOPicture.Pixels.Length];

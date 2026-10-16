@@ -35,10 +35,8 @@ public class UWTextLabel : MonoBehaviour
 {
     private const string PrefsKey = "UWModernFont";
 
-    /// <summary>The modern font under Resources, and the built-in one if it is missing.</summary>
+    /// <summary>The modern font under Resources, and the interface font (UWInterfaceFont) if it is missing.</summary>
     private const string ModernFontResource = "Fonts/LexendExa";
-
-    private const string FallbackFontFile = "LegacyRuntime.ttf";
 
     /// <summary>Font size per unit of the original line pitch: font5x6p's capitals take 5 of
     /// its 6 rows, Lexend's capitals 0.7 of its size, so 5 / 6 / 0.7 = 1.19 - at the pitch of 6
@@ -372,7 +370,7 @@ public class UWTextLabel : MonoBehaviour
             mOModernFont = Resources.Load<Font>(ModernFontResource);
 
         if (mOModernFont == null)
-            mOModernFont = Resources.GetBuiltinResource<Font>(FallbackFontFile);
+            mOModernFont = UWInterfaceFont.Font;
 
         GameObject lOObject = new GameObject("Modern Font", typeof(RectTransform), typeof(Text));
         lOObject.transform.SetParent(transform, false);

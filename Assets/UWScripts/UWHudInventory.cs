@@ -804,6 +804,10 @@ public sealed class UWHudInventory
         mContainerPanelRect.pivot = new Vector2(0.5f, 0.5f);
         mContainerPanelRect.anchoredPosition = new Vector2(118.51324f, -0.50367f);
         mContainerPanelRect.sizeDelta = new Vector2(-234.98553f, -158.99f);
+
+        // Anchored to the frame's corners: in the widened classic frame it keeps its size, moved
+        // with the panel (UWClassicWide; per user's screenshot, 2026-10-10: it stretched left).
+        UWClassicWide.FrameSized(mContainerPanelRect, 236, 80);
         lOContainerPanel.gameObject.SetActive(false);
 
         // Hit zones lie directly in the GameFrame (not in the ContainerInventory panel

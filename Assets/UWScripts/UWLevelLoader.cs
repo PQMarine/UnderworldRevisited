@@ -2084,7 +2084,7 @@ public class UWLevelLoader : MonoBehaviour
         if (!fTrySnapOutOfRock(ref pOWorldPosition, lOTargetTile.X, lOTargetTile.Y, pOItem.ID))
             return false;
 
-        UWObjectMechanics.Extinguish(pOItem, UWDataImporter != null ? UWDataImporter.Textures : null);
+        UWObjectMechanics.ExtinguishInWorld(pOItem, UWDataImporter != null ? UWDataImporter.Textures : null);
 
         if (!UWLoreCheck.CanBeIdentified(pOItem,
                 UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null))

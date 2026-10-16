@@ -4,7 +4,7 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// Plays an XMI sequence: sends the events to the sound driver
-	/// (UWAdlibMusicDriver) at the right time.
+	/// (IUWMidiDriver: AdLib, General MIDI or MT-32) at the right time.
 	///
 	/// TIME: XMI runs at a FIXED 120 ticks per second. The pieces do carry tempo events
 	/// (meta 0x51, AW10 even two), but they do not count - the converter of the
@@ -70,7 +70,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Advance by this many samples; events that are due go to the driver.</summary>
-		public void Advance(int piSamples, UWAdlibMusicDriver pODriver)
+		public void Advance(int piSamples, IUWMidiDriver pODriver)
 		{
 			if (IsFinished)
 				return;

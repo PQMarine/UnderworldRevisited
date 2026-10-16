@@ -591,6 +591,13 @@ namespace UWDataImport.UWData
 		/// Until 2026-09-20 the port allowed helmet and chest only, treated both branches as
 		/// protection and dropped the +1 - so Henrietta's enchanted leggings did nothing at
 		/// all and her helmet gave one point too little.
+		///
+		/// TOUGHNESS ON A RING OR A SHIELD GOES TWICE ONTO THE BODY (player_affected_by,
+		/// UnderworldExhumed PLAYDATA.C, read 2026-10-11; the Exhumed audit's row 12): the loop over
+		/// the two parts adds the armour to armour[slots[0]] both times, so the body gets it twice
+		/// and the hands nothing - a slip of the original, kept as it plays. Protection there goes
+		/// once to each of the two parts, as it should. Until 2026-10-11 ours gave the toughness
+		/// once to each.
 		/// </summary>
 		private static void fApplyProtection(int piMinor, int piDollSlot, Status pOStatus)
 		{
@@ -598,11 +605,19 @@ namespace UWDataImport.UWData
 				return;
 
 			int liValue = (piMinor & ProtectionValueMask) + 1;
-			int[] lOTarget = (piMinor & ProtectionToArmourBit) != 0 ? pOStatus.Armour : pOStatus.Protection;
+			bool lbToughness = (piMinor & ProtectionToArmourBit) != 0;
+			int[] lOTarget = lbToughness ? pOStatus.Armour : pOStatus.Protection;
 
 			if (piDollSlot < msLocationDefenceIndex.Length)
 			{
 				lOTarget[msLocationDefenceIndex[piDollSlot]] += liValue;
+
+				return;
+			}
+
+			if (lbToughness)
+			{
+				lOTarget[PartBody] += 2 * liValue;
 
 				return;
 			}

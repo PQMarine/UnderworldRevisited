@@ -327,8 +327,13 @@ namespace UWDataImport.UWData
 		/// cap is simply ignored.
 		///
 		///   Combat    seven skills from attack, three attempts
-		///   Magic     three from mana, two attempts
+		///   Magic     three from mana, two attempts - while mana is below 8 each attempt takes
+		///             MANA at even odds, else one of the three
 		///   Other     ten from traps, four attempts
+		///
+		/// THE POINT IS SPENT EVEN WHEN NOTHING ROSE: then "None of your skills improved." (until
+		/// 2026-10-11 ours said "You are not ready to advance." and kept the point; UnderworldExhumed
+		/// SKILLS.C mantra_advance, the same day).
 		///
 		/// THE REMAINING THREE SPECIAL MANTRAS are built since 2026-09-22 and sit in Chant:
 		/// INSAHN says where the Cup of Wonder is, FANLO hands over the Key of Truth, and NO
@@ -347,20 +352,23 @@ namespace UWDataImport.UWData
 
 			for (int liAt = 0; liAt < liTries; liAt++)
 			{
-				int liSkill = UWRandom.Next(liFirst, liFirst + liCount);
+				int liSkill = liFirst == UWPlayerVitals.ManaSkillNumber && pOVitals.GetSkillByNumber(UWPlayerVitals.ManaSkillNumber) < 8
+					&& UWRandom.Next(2) == 0
+					? UWPlayerVitals.ManaSkillNumber
+					: UWRandom.Next(liFirst, liFirst + liCount);
 
 				if (pOVitals.TryIncreaseSkill(liSkill))
 					lONames.Add(fGetSkillName(liSkill, pOData));
 			}
 
+			pOVitals.SpendSkillPoint();
+
 			if (lONames.Count == 0)
 			{
-				pOGeneralMessage(NotReadyMessage);
+				pOGeneralMessage(NoSkillImprovedMessage);
 
 				return;
 			}
-
-			pOVitals.SpendSkillPoint();
 
 			pOMessage(fGetGeneralMessage(pOData, AdvancedMessage) + fJoinNames(lONames));
 		}

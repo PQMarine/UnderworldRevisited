@@ -73,6 +73,10 @@ public class Interaction : MonoBehaviour
     /// the weapon (see Update).</summary>
     private bool mbRightPressInViewport;
 
+    /// <summary>The weapon button's press came from the gamepad's trigger (UWGamepad): it strikes
+    /// at the crosshair whatever the mouse pointer lies on.</summary>
+    private bool mbAttackFromPad;
+
     private float mfPendingCharge;
 
     private AttackEnum mePendingAttack;
@@ -97,6 +101,13 @@ public class Interaction : MonoBehaviour
     {
         get { return mOActiveStrings; }
     }
+
+    /// <summary>Messages the list keeps: as many as the modern scroll's tallest setting
+    /// (UWModernScroll.MaxLines).</summary>
+    public const int MessageHistoryCount = UWModernScroll.MaxLines;
+
+    /// <summary>Messages the modern message box shows: the original's five.</summary>
+    public const int ModernMessageCount = 5;
 
     /// <summary>For everything that should play an original sound effect. The mapping
     /// event -> effect is still open, see UWSoundPlayer.</summary>
@@ -342,15 +353,19 @@ public class Interaction : MonoBehaviour
 
         if (lOAttackButton.WasPressedThisFrame())
         {
+            // While the gamepad's pointer drives, its trigger is the left mouse button
+            // (UWGamepadPointer.Takes): the strike goes where the pointer is, as with the mouse.
+            mbAttackFromPad = UWGamepad.IsFromGamepad(lOAttackButton) && !UWGamepadPointer.Takes(lOAttackButton);
+
             // The modern scheme: on the world, not on a window of its UI (a drag from a bag onto
             // the world must not strike).
-            mbRightPressInViewport = !fIsOriginalScheme() ? fMouseInWorld()
+            mbRightPressInViewport = !fIsOriginalScheme() ? mbAttackFromPad || fMouseInWorld()
                 : mGameUi == null || mGameUi.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
         }
 
         if (IsCombatModeActive && !IsAttacking && !mbAttackPending && mbRightPressInViewport
             && mCharacter != null && mCharacter.CanAttack && lOAttackButton.IsPressed() && !UWPlayerMovement.ConsumesRightClick()
-            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && fMouseInWorld())
+            && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && (mbAttackFromPad || fMouseInWorld()))
             fBeginAttack();
 
         // The weapon in hand follows the equipment. This is checked continuously because the
@@ -396,8 +411,12 @@ public class Interaction : MonoBehaviour
         // key press or click only hides it again and triggers nothing else.
         if (mGameUi != null && mGameUi.IsWindowPictureVisible)
         {
-            if (fAnyInputThisFrame())
+            // The gamepad too, a stick pushed out as well - walking off hides it.
+            if (fAnyInputThisFrame() || UWGamepad.AnyPressed(true))
+            {
+                UWGamepad.ConsumePress();
                 mGameUi.HideWindowPicture();
+            }
 
             return;
         }
@@ -529,8 +548,11 @@ public class Interaction : MonoBehaviour
 
         // Original: the log in the lower frame box shows the last 5 messages, new ones
         // appended at the bottom, old ones dropped at the top (see UWGameUI.fRefreshMessageLog for the
-        // actual Original display - here only the capping of the list itself).
-        if (mOActiveStrings.Count > 5)
+        // actual Original display - here only the capping of the list itself). The list keeps
+        // MessageHistoryCount, as many as the modern interface's scroll can be made tall
+        // (per user, 2026-10-09: eight lines showed only five); the classic box keeps the newest
+        // that fit, the modern message box the newest ModernMessageCount.
+        if (mOActiveStrings.Count > MessageHistoryCount)
         {
             mOActiveStrings.RemoveAt(0);
 
@@ -700,10 +722,10 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>The button that charges and releases the weapon: the right one in the original,
-    /// the left one in the modern scheme.</summary>
+    /// the left one in the modern scheme - or the gamepad's right trigger (ModernAttack).</summary>
     private InputAction fGetAttackButton()
     {
-        return fIsOriginalScheme() ? mInput.Interact : mInput.CursorDrag;
+        return fIsOriginalScheme() ? mInput.Interact : mInput.ModernAttack;
     }
 
     // ------------------------------------------------- The modern scheme's keys
@@ -744,7 +766,12 @@ public class Interaction : MonoBehaviour
 
         // Only R draws the weapon: the left button no longer does (per user, 2026-10-03), so
         // outside combat it is free; drawn, it charges and strikes (Update, fMouseInWorld).
-        if (mInput.ModernReady.WasPressedThisFrame())
+        // The gamepad's right trigger draws the weapon as well (UWGamepad): held on, it charges
+        // once the weapon is ready (Update). The mouse button does not draw.
+        bool lbPadDraws = !IsCombatModeActive && mInput.ModernAttack.WasPressedThisFrame()
+            && UWGamepad.IsFromGamepad(mInput.ModernAttack) && !UWGamepadPointer.Takes(mInput.ModernAttack);
+
+        if (mInput.ModernReady.WasPressedThisFrame() || lbPadDraws)
             ToggleCombatMode();
 
         // THE FREE POINTER OVER THE INTERFACE (per user, 2026-10-07): Q looks at the thing in the
@@ -756,7 +783,8 @@ public class Interaction : MonoBehaviour
 
         // Q looks (per user, 2026-10-03) - the right button switches the pointer
         // (UWModernPointer).
-        if (mInput.ModernLook.WasPressedThisFrame())
+        // The gamepad's pointer takes its X as the right button (UWGamepadPointer.Takes).
+        if (mInput.ModernLook.WasPressedThisFrame() && !UWGamepadPointer.Takes(mInput.ModernLook))
         {
             if (lbOverUi)
                 fLookAtUi(Mouse.current.position.ReadValue());
@@ -986,6 +1014,13 @@ public class Interaction : MonoBehaviour
     private void fUpdateModernUseKey(bool pbOverUi)
     {
         InputAction lOKey = mInput.ModernUse;
+
+        // The gamepad's pointer takes its A as the click (UWGamepadPointer.Takes).
+        if (lOKey.WasPressedThisFrame() && UWGamepadPointer.Takes(lOKey))
+        {
+            mfModernUseHeld = -1f;
+            return;
+        }
 
         if (lOKey.WasPressedThisFrame())
         {
@@ -1527,6 +1562,57 @@ public class Interaction : MonoBehaviour
     /// <summary>Objects with their own effect when used that are neither door nor switch.
     /// Deliberately one place with a case distinction instead of scattered special cases - the
     /// list grows with every object whose effect was checked in the original.</summary>
+    /// <summary>
+    /// THE FOUNTAIN, Fountain_seg040_352B_1816 (read 2026-10-08; per user on the original: not
+    /// every fountain heals - "The water refreshes you." and nothing else - and the one on level 1
+    /// not fully; until then every fountain healed fully): its enchantment (UWObjectMechanics.
+    /// TryGetEnchantmentClass) is cast on the user as a spell trap casts, and only the healing
+    /// class says "The waters of the fountain renew your strength."; the healing class's minor
+    /// class decides how much (UWSpellCasting). The water above the basin uses the fountain
+    /// linked to it (seg040_352B_2A0).
+    /// </summary>
+    private void fUseFountain(UWObject pOObject)
+    {
+        List<UWObject> lOMaster = mLevelLoader != null && mLevelLoader.CurrentLevel != null ? mLevelLoader.CurrentLevel.Masterlist : null;
+        UWObject lOFountain = pOObject != null && pOObject.ID == UWObjectMechanics.FountainWaterObjectId
+            ? fLinkedFountain(pOObject, lOMaster)
+            : pOObject;
+
+        if (lOFountain != null && UWObjectMechanics.TryGetEnchantmentClass(lOFountain, lOMaster, out int liMajor, out int liMinor)
+            && liMajor >= 0)
+        {
+            UWGameUI lOUi = UWScene.GameUi;
+
+            if (lOUi != null)
+                lOUi.CastSpellByClass(liMajor, liMinor);
+
+            AddGeneralMessage(liMajor == UWObjectMechanics.FountainHealMajorClass
+                ? UWObjectMechanics.FountainMessageIndex
+                : UWObjectMechanics.FountainRefreshMessageIndex);
+
+            return;
+        }
+
+        AddGeneralMessage(UWObjectMechanics.FountainRefreshMessageIndex);
+    }
+
+    /// <summary>The fountain the water above it links to - its contents link, else the next one.</summary>
+    private static UWObject fLinkedFountain(UWObject pOWater, List<UWObject> pOMaster)
+    {
+        if (pOMaster == null)
+            return null;
+
+        int liContents = pOWater.HasQuantity ? 0 : pOWater.Quantity;
+
+        foreach (int liAt in new[] { liContents, (int)pOWater.Link })
+        {
+            if (liAt > 0 && liAt < pOMaster.Count && pOMaster[liAt] != null && pOMaster[liAt].ID == UWObjectMechanics.FountainObjectId)
+                return pOMaster[liAt];
+        }
+
+        return null;
+    }
+
     private bool fTryUseObjectEffect(UWEntityInfo pOTarget)
     {
         if (pOTarget == null || pOTarget.ObjectData == null || mOUWDataImporter == null)
@@ -1540,8 +1626,7 @@ public class Interaction : MonoBehaviour
 
             case UWObjectMechanics.FountainObjectId:
             case UWObjectMechanics.FountainWaterObjectId:
-                AddGeneralMessage(UWObjectMechanics.FountainMessageIndex);
-                mCharacter?.RestoreVitality();
+                fUseFountain(pOTarget.ObjectData);
                 return true;
 
             // Reaching for the silver tree takes it back as a seed (see UWSilverTree).
@@ -1805,6 +1890,7 @@ public class Interaction : MonoBehaviour
         // user, 2026-09-15.
         if (!lbFound)
         {
+            fTryWallImpact();
             UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
             return;
         }
@@ -1827,6 +1913,9 @@ public class Interaction : MonoBehaviour
 
         if (lODamageable == null || lODamageable.IsDestroyed)
         {
+            if (lOTarget == null)
+                fTryWallImpact();
+
             UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
             return;
         }
@@ -1918,14 +2007,20 @@ public class Interaction : MonoBehaviour
     ///
     /// WALLS: if level geometry lies between character and target, the hit does not count.
     /// </summary>
-    private bool fFindClassicMeleeTarget(bool pbLog, out Collider pOCollider, out Vector3 pOPoint, out float pfDistance)
+    /// <summary>
+    /// THE BLOW'S PROBE as resolve_attack builds it: a box (radius + 1) eighths of a tile to each
+    /// side, its height from the weapon's radius, at the height of the swing (the low, middle or
+    /// high third of the avatar by the kind of blow, raised or lowered by the view's pitch),
+    /// centred (radius + 3) eighths ahead along the facing. The radius is the weapon's from
+    /// COMOBJ.DAT, the fist's without one. Shared by the target search and the wall's impact.
+    /// </summary>
+    private void fGetMeleeProbe(out Transform pOBody, out Vector3 pOForward, out Vector3 pOCentre,
+        out Vector3 pOHalfExtents, out Quaternion pORotation, out int piRadius)
     {
-        pOCollider = null;
-        pOPoint = Vector3.zero;
-        pfDistance = 0f;
-
         CharacterController lOController = GetComponentInParent<CharacterController>();
         Transform lOBody = lOController != null ? lOController.transform : transform;
+
+        pOBody = lOBody;
 
         // Weapon radius from COMOBJ.DAT; without a weapon the fist.
         UWObject lOWeapon = mInventory == null ? null : mInventory.GetEquipped(mInventory.MainHandSlot);
@@ -1992,6 +2087,87 @@ public class Interaction : MonoBehaviour
         Vector3 lOHalfExtents = new Vector3(lfHalfWidth, lfHeight * 0.5f, lfHalfWidth);
         Quaternion lORotation = Quaternion.LookRotation(lOForward, Vector3.up);
 
+        pOForward = lOForward;
+        pOCentre = lOCentre;
+        pOHalfExtents = lOHalfExtents;
+        pORotation = lORotation;
+        piRadius = liRadius;
+    }
+
+    /// <summary>
+    /// THE BLOW THAT MEETS A WALL (find_wall_coll, UnderworldExhumed COMBAT.C, read 2026-10-11;
+    /// the Exhumed audit's row 14): when the swing found no object, resolve_attack asks whether
+    /// its probe touches a wall; if so, find_wall_coll walks from the attacker along the facing in
+    /// steps of an eighth of a tile, (radius + 3) + 1 of them, at the probe's height, and at the
+    /// first step inside the wall puts the impact picture 0x1CB and, for the player's blow,
+    /// plays effect 7 - before the miss. Where the walk does not reach the wall (a wall touched
+    /// only at the probe's side) there is neither. Ours does the same with the same probe
+    /// (fGetMeleeProbe) and the walk as one level ray at its height (fTryFindWallInReach). Until
+    /// 2026-10-11 ours played the miss alone; the first version that day looked along at eye
+    /// height and missed the low walls (per user: "not at every wall").
+    /// </summary>
+    private void fTryWallImpact()
+    {
+        if (!fTryFindWallInReach(out Vector3 lOAt))
+            return;
+
+        UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, lOAt);
+
+        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+
+        StartCoroutine(fShowHitEffectDelayed(UWObjectMechanics.FlashEffectObjectId, lOAt,
+            lOSettings != null ? lOSettings.HitEffectDelaySeconds : 0.2f,
+            lOSettings != null ? lOSettings.HitEffectSeconds : 0.6f));
+    }
+
+    /// <summary>
+    /// Where the walk of find_wall_coll first enters the wall, or false: a level ray (radius
+    /// + 4) eighths long from the attacker along the facing at the probe's height - the walk's
+    /// steps of an eighth as one ray. The terrain the original tests is the walls (its hit bits
+    /// 0x300), so only a collider without an entity counts whose face stands upright, not the
+    /// floor or the ceiling a low or high blow brushes.
+    /// </summary>
+    private bool fTryFindWallInReach(out Vector3 pOAt)
+    {
+        pOAt = Vector3.zero;
+
+        fGetMeleeProbe(out Transform lOBody, out Vector3 lOForward, out Vector3 lOCentre, out Vector3 lOUnusedExtents,
+            out Quaternion lOUnusedRotation, out int liRadius);
+
+        const float EighthToWorld = UWLevelMeshBuilder.TileSpacing / 8f;
+
+        Vector3 lOOrigin = new Vector3(lOBody.position.x, lOCentre.y, lOBody.position.z);
+        RaycastHit[] lOHits = Physics.RaycastAll(lOOrigin, lOForward, (liRadius + 4) * EighthToWorld, ~0,
+            QueryTriggerInteraction.Ignore);
+
+        // RaycastAll comes in no order - the nearest first.
+        System.Array.Sort(lOHits, (pOLeft, pORight) => pOLeft.distance.CompareTo(pORight.distance));
+
+        foreach (RaycastHit lOHit in lOHits)
+        {
+            if (lOHit.collider == null || lOHit.collider.transform.IsChildOf(lOBody))
+                continue;
+
+            if (lOHit.collider.GetComponentInParent<UWEntityInfo>() != null || Mathf.Abs(lOHit.normal.y) > 0.5f)
+                return false;
+
+            pOAt = lOHit.point - (lOForward * EighthToWorld * 0.5f);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool fFindClassicMeleeTarget(bool pbLog, out Collider pOCollider, out Vector3 pOPoint, out float pfDistance)
+    {
+        pOCollider = null;
+        pOPoint = Vector3.zero;
+        pfDistance = 0f;
+
+        fGetMeleeProbe(out Transform lOBody, out Vector3 lOForward, out Vector3 lOCentre, out Vector3 lOHalfExtents,
+            out Quaternion lORotation, out int liRadius);
+
         Collider[] lOCandidates = Physics.OverlapBox(lOCentre, lOHalfExtents, lORotation, ~0, QueryTriggerInteraction.Collide);
 
         float lfBest = float.MaxValue;
@@ -2040,8 +2216,8 @@ public class Interaction : MonoBehaviour
         }
 
         if (pbLog)
-            Debug.Log(string.Format("[Attack] area in front of character: weapon {0} radius {1}, bottom {2:0.0} above the feet ({3:0.#} degrees pitch), height {4:0.0}, {5} candidates, {6}.",
-                liWeaponId, liRadius, lfBottom - lfFeetY, lfPitchDegrees, lfHeight, lOCandidates.Length,
+            Debug.Log(string.Format("[Attack] area in front of character: weapon radius {0}, centre {1:0.0} above the body's origin, height {2:0.0}, {3} candidates, {4}.",
+                liRadius, lOCentre.y - lOBody.position.y, lOHalfExtents.y * 2f, lOCandidates.Length,
                 pOCollider != null ? "target " + pOCollider.name : "nothing damageable"));
 
         return pOCollider != null;
@@ -2113,6 +2289,11 @@ public class Interaction : MonoBehaviour
                 UWPlayerThrow.GetPlayerHeading(mCharacter.transform) >> 5, lOCritterTarget.FacingEighth);
         }
 
+        // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon).
+        UWPlayerAttack.GetWeaponEnchantment(lOWeapon,
+            mOUWDataImporter != null && mOUWDataImporter.InitialPlayer != null ? mOUWDataImporter.InitialPlayer.InventoryRecords : null,
+            out int liEnchantAccuracy, out int liEnchantDamage);
+
         // The numbers - hit check and damage - are in UWPlayerAttack (P3 of the engine
         // separation, 2026-09-18). The linear charge fraction (0 to 1) kept on release, see
         // mfPendingCharge.
@@ -2124,7 +2305,7 @@ public class Interaction : MonoBehaviour
             mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
             mCharacter != null ? (System.Func<UWPlayerData.Skill, int>)mCharacter.GetSkill : null,
             lODamageable.Defence, liArmour,
-            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank);
+            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage);
 
         if (lOResult.NoWeapon)
             return;
@@ -2147,11 +2328,18 @@ public class Interaction : MonoBehaviour
 
         if (!lOResult.Hit)
         {
-            // Miss. No damage, no hit effect, no eyes display - only the
-            // sound of the miss (reference: combat.cs, "a miss"). The creature still notices
+            // Blocked. No damage, no hit effect, no eyes display - only the sound, at the target:
+            // 7 or 8 by the player's own row's weapon and armour kinds (do_miss reads both from
+            // the attacker's row; UWCritterCombat.GetBlockedSound). The creature still notices
             // the strike: the reference calls DamageObject with zero damage, and it
             // turns hostile and attacks (per user on the original, 2026-09-12).
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
+            UWObjectClassProperties.Critter lOOwnRow = default;
+
+            if (mOUWDataImporter.ObjectClassProperties != null)
+                mOUWDataImporter.ObjectClassProperties.TryGetCritter(UWCritterCombat.PlayerCritterObjectId, out lOOwnRow);
+
+            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(lOOwnRow.WeaponKind,
+                lOOwnRow.ArmourKind == UWCritterCombat.MetalKind), pOHitPoint);
 
             UWCritter lOMissedCritter = lOTarget != null ? lOTarget.GetComponentInParent<UWCritter>() : null;
 
@@ -3584,6 +3772,16 @@ public class Interaction : MonoBehaviour
         bool lbYes = false;
         bool lbNo = lOKeyboard.escapeKey.wasPressedThisFrame;
 
+        // THE GAMEPAD in the classic scheme (per user, 2026-10-07): A yes, B no - the pad's pointer
+        // stands aside meanwhile (UWGamepadPointer). The modern box is clicked with the pointer.
+        Gamepad lOPad = Gamepad.current;
+
+        if (lOPad != null && Time.frameCount != miYesNoAskedFrame && fIsOriginalScheme())
+        {
+            lbYes |= lOPad.buttonSouth.wasPressedThisFrame;
+            lbNo |= lOPad.buttonEast.wasPressedThisFrame;
+        }
+
         if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
         {
             lbYes = mbYesNoAnswer;
@@ -4344,6 +4542,13 @@ public class Interaction : MonoBehaviour
         bool lbConfirm = (lOMouse != null
                 && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
             || (lOKeyboard != null && lOKeyboard.anyKey.wasPressedThisFrame);
+
+        // Any gamepad button as well (UWGamepad).
+        if (!lbConfirm && UWGamepad.AnyPressed(false))
+        {
+            UWGamepad.ConsumePress();
+            lbConfirm = true;
+        }
 
         if (lbConfirm)
         {
@@ -5107,7 +5312,7 @@ public class Interaction : MonoBehaviour
                 return true;
 
             bool lbFree = fIsPointerFree() && Mouse.current != null;
-            Vector2 lOAt = lbFree ? Mouse.current.position.ReadValue() : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Vector2 lOAt = lbFree ? Mouse.current.position.ReadValue() : UWModernClassicFrame.ViewCentre;
 
             if (lbFree && UWModernPointer.IsOverUi(lOAt))
                 return true;
@@ -5291,11 +5496,40 @@ public class Interaction : MonoBehaviour
     private const int WallPanelObjectId = 0x16E;
 
     /// <summary>
-    /// The name of what the crosshair is on, for the modern HUD (UWModernHud) - the bare object
+    /// WHAT THE PAD'S A (E) DOES with what the crosshair is on, for the button hint under it
+    /// (UWModernHud, per user 2026-10-08): fModernUseOn's tap without acting - "Pick up" what can be
+    /// taken, "Talk" to a creature or a thing that answers, "Use" anything else - and null where
+    /// the tap does nothing (a wall, the floor, beyond the sight).
+    /// </summary>
+
     /// name out of string block 4 ("goblin", "door"), plural for a stack. Without the look's
     /// side effects (identifying, trap search, look triggers); nothing for walls, floors,
     /// wall panels, geometry and what lies beyond the sight.
     /// </summary>
+    public string GetCrosshairPadVerb()
+    {
+        if (mOUWDataImporter == null)
+            return null;
+
+        fAimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
+
+        UWEntityInfo lOTake = lOFrontmost != null && lOFrontmost.CanBePickedUp ? lOFrontmost : lOPickable;
+
+        if (lOTake != null && !fIsCreature(lOTake))
+            return "Pick up";
+
+        if (fIsGeometry(lOFrontmost))
+            return null;
+
+        if (fIsCreature(lOFrontmost))
+            return "Talk";
+
+        int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
+
+        return UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess) != UWClickRules.ThingTalkAnswer.CannotTalk
+            ? "Talk" : "Use";
+    }
+
     public string GetCrosshairTargetName()
     {
         if (mOUWDataImporter == null)

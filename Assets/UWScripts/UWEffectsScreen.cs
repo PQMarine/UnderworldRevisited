@@ -812,7 +812,7 @@ public class UWEffectsScreen
             lORect.pivot = new Vector2(0f, 1f);
 
             lOText = lOObject.GetComponent<Text>();
-            lOText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            lOText.font = UWInterfaceFont.Font;
             lOText.fontSize = TextSize;
             lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
             lOText.verticalOverflow = VerticalWrapMode.Overflow;

@@ -592,7 +592,7 @@ namespace UWDataImport.UWData
 				case Command.Free:
 					CameraYaw = (CameraYaw + fTurn(piDt)) & 0xFFFF;
 					liYaw = (CameraYaw + FreeOffset) & 0xFFFF;
-					liTarget = I16(I16((Walk >> 2) * ForwardSpeed) / 32);
+					liTarget = fFreeTarget();
 					Side = 0;
 					miCommandOffset = FreeOffset;
 					break;
@@ -652,6 +652,31 @@ namespace UWDataImport.UWData
 				MotionYaw = liYaw & 0xFFFF;
 
 			return liTarget;
+		}
+
+		/// <summary>
+		/// THE SPEED OF A FREE DIRECTION (per user, 2026-10-09: with the gamepad sideways and backwards
+		/// ran at the run's speed - a stick is never exactly sideways or back, so it was always Free,
+		/// and Free took the walk's speed in every direction; the keys' S+D did the same). The
+		/// original knows only its four directions with their own speeds - forward the walk, sideways
+		/// SlideSpeed, back BackSpeed -, so a free direction now takes the speed between them by its
+		/// angle: from the walk's straight ahead to SlideSpeed at the side, from there to BackSpeed
+		/// straight back. Side and back scale with the walk like forward (a stick's deflection,
+		/// UWPlayerMovement.fStickWalk), so a full stick or the keys give the original's values.
+		/// Chosen per user ("A - it feels bumpier than the gamepad did, but the game was like that")
+		/// over the milder side and back speeds of today's shooters, which would make dodging easier.
+		/// </summary>
+		private int fFreeTarget()
+		{
+			int liForward = I16(I16((Walk >> 2) * ForwardSpeed) / 32);
+			int liSide = (int)((long)SlideSpeed * Walk / WalkRun);
+			int liBack = (int)((long)BackSpeed * Walk / WalkRun);
+			int liAngle = System.Math.Abs((int)(short)(FreeOffset & 0xFFFF));
+
+			if (liAngle <= 0x4000)
+				return liForward + (int)((long)(liSide - liForward) * liAngle / 0x4000);
+
+			return liSide + (int)((long)(liBack - liSide) * (liAngle - 0x4000) / 0x4000);
 		}
 
 		/// <summary>Case 7 of the command: the take-off.</summary>

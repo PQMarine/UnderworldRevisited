@@ -31,6 +31,113 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWModernLayout
 {
+    /// <summary>
+    /// THE INTERFACE PRESETS (per user, 2026-10-09; under "Edit layout" in the game menu): Modern -
+    /// the modern interface at its default places; Custom - the own layout of the layout editor,
+    /// kept while another preset is chosen; Classic+ - the original's pieces freed as elements;
+    /// Classic - the classic frame brought to the whole screen. The last two are planned (Todo).
+    /// </summary>
+    public enum PresetEnum
+    {
+        Modern = 0,
+        Custom = 1,
+        ClassicPlus = 2,
+        Classic = 3
+    }
+
+    public static PresetEnum Preset
+    {
+        get
+        {
+            int liPreset = UWUserSettings.InterfacePreset;
+
+            return liPreset >= 0 && liPreset <= (int)PresetEnum.Classic ? (PresetEnum)liPreset : PresetEnum.Modern;
+        }
+    }
+
+    /// <summary>Chooses a preset; the parts take their places from it at once.</summary>
+    public static void ChoosePreset(PresetEnum pePreset)
+    {
+        UWUserSettings.InterfacePreset = (int)pePreset;
+        UWUserSettings.Save();
+        msLayout = null;
+    }
+
+    /// <summary>The own layout read anew from the settings (after the layout editor put a snapshot
+    /// back or started from a preset).</summary>
+    public static void Reload()
+    {
+        msLayout = null;
+    }
+
+    /// <summary>The own layout is in force: only then are places read from and written to it.</summary>
+    public static bool IsCustom => Preset == PresetEnum.Custom;
+
+    /// <summary>CLASSIC WIDE (UWModernClassicFrame): the classic frame over the whole screen, the
+    /// pieces at its places, the modern parts away.</summary>
+    public static bool IsClassic => Preset == PresetEnum.Classic;
+
+    /// <summary>Classic+ and Classic Wide bring the original's pieces by themselves.</summary>
+    private static bool fIsClassicKind => Preset == PresetEnum.ClassicPlus || Preset == PresetEnum.Classic;
+
+    /// <summary>The minimap hidden - a choice of the own layout only; Classic Wide has none.</summary>
+    public static bool IsMinimapHidden => IsClassic || Preset == PresetEnum.ClassicPlus || (IsCustom && UWUserSettings.MinimapHidden);
+
+    /// <summary>The action bar hidden - a choice of the own layout only (per user, 2026-10-10);
+    /// Classic Wide has none.</summary>
+    public static bool IsActionBarHidden => IsClassic || Preset == PresetEnum.ClassicPlus || (IsCustom && UWUserSettings.ActionBarHidden);
+
+    /// <summary>The original's compass shown (UWModernCompass) - switched on in the layout editor
+    /// for the own layout; Classic+ will bring it by itself.</summary>
+    public static bool IsCompassShown => (IsCustom && UWUserSettings.ModernCompass) || fIsClassicKind;
+
+    /// <summary>The compass on its stone disc with the movement arrows on the pedestal's front
+    /// instead of the free cross (UWModernCompass; per user, 2026-10-10) - the own layout's
+    /// choice, Classic+ brings it.</summary>
+    public static bool IsCompassDisc => (IsCustom && UWUserSettings.ModernCompassDisc) || Preset == PresetEnum.ClassicPlus;
+
+    /// <summary>The original's message scroll in the messages' place (UWModernScroll) - as the
+    /// compass: the own layout's choice, Classic+ will bring it.</summary>
+    public static bool IsScrollShown => (IsCustom && UWUserSettings.ModernScroll) || fIsClassicKind;
+
+    /// <summary>The power gem on a stand of its own instead of between the flasks (UWModernHud;
+    /// per user, 2026-10-09: the original's gem stands alone) - as the compass: the own layout's
+    /// choice, Classic+ will bring it.</summary>
+    public static bool IsGemApart => (IsCustom && (UWUserSettings.ModernGemApart || UWUserSettings.ModernFlasksApart)) || fIsClassicKind;
+
+    /// <summary>The two flasks freed, each an element of its own, and no shelf (UWModernHud; per
+    /// user, 2026-10-10: "the flasks freed one by one") - the gem then stands apart as well, the
+    /// shelf having nothing left on it. The own layout's choice, Classic+ brings it.</summary>
+    public static bool IsFlasksApart => (IsCustom && UWUserSettings.ModernFlasksApart) || fIsClassicKind;
+
+    /// <summary>The stone shelf deco panel shown (UWModernHud; per user, 2026-10-09) - the own
+    /// layout's choice, Classic Modular brings it.</summary>
+    public static bool IsStoneShelfShown => (IsCustom && UWUserSettings.ModernStoneShelf) || Preset == PresetEnum.ClassicPlus;
+
+    /// <summary>The hollow with the prepared runes as an element (UWModernHud; per user,
+    /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsRuneHollowShown => (IsCustom && UWUserSettings.ModernRuneHollow) || fIsClassicKind;
+
+    /// <summary>The original's rune tablet as an always visible element in the rune panel's place
+    /// (UWModernRunePanel; per user, 2026-10-10: the original panels "each a single panel",
+    /// "always visible") - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsRuneTabletShown => (IsCustom && UWUserSettings.ModernRuneTablet) || Preset == PresetEnum.ClassicPlus
+        || (IsClassic && UWModernClassicFrame.Page == UWModernClassicFrame.PageEnum.Runes);
+
+    /// <summary>The original's stats panel as an always visible element (UWModernStatsPage; per
+    /// user, 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsStatsPanelShown => (IsCustom && UWUserSettings.ModernStatsPanel) || Preset == PresetEnum.ClassicPlus
+        || (IsClassic && UWModernClassicFrame.Page == UWModernClassicFrame.PageEnum.Stats);
+
+    /// <summary>The original's character panel with its inventory as an always visible element
+    /// (UWModernInventoryPage; per user, 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsCharacterPageShown => (IsCustom && UWUserSettings.ModernCharacterPage) || fIsClassicKind;
+
+    /// <summary>The conversation in the original's look (UWModernConversation; per user,
+    /// 2026-10-10) - the own layout's choice, Classic+ brings it.</summary>
+    public static bool IsConversationOriginal => (IsCustom && UWUserSettings.ModernConversationOriginal) || fIsClassicKind;
+
+
     public enum ElementEnum
     {
         ActionBar,
@@ -42,15 +149,28 @@ public static class UWModernLayout
         Bags,
         CharacterPanel,
         RunePanel,
-        Conversation
+        Conversation,
+        Compass,
+        PowerGem,
+        StoneShelf,
+        /// <summary>The movement arrows as an element of their own - gone again on 2026-10-10 (per
+        /// user: the compass's disc carries them); the index stays so stored layouts keep theirs.</summary>
+        MoveArrows,
+        HealthFlask,
+        ManaFlask,
+        RuneHollow,
+        RuneTablet,
+        StatsPanel,
+        CharacterPage
     }
 
-    public const int ElementCount = 10;
+    public const int ElementCount = 20;
 
     public static readonly string[] Names =
     {
         "Action bar", "Minimap", "Heading", "Active spells", "Messages", "Vitality and mana", "Bags", "Character panel", "Rune panel",
-        "Conversation"
+        "Conversation", "Compass", "Power gem", "Stone shelf", "Movement arrows", "Vitality flask", "Mana flask", "Rune hollow",
+        "Rune tablet", "Stats panel", "Character page"
     };
 
     /// <summary>A panel left at its edge: it slides out and in on its handle.</summary>
@@ -69,7 +189,19 @@ public static class UWModernLayout
 
     private static readonly Rect[] msRects = new Rect[ElementCount];
 
-    private static readonly int[] miRectFrames = { -10, -10, -10, -10, -10, -10, -10, -10, -10, -10 };
+    // As long as the elements, each 'long ago' (until 2026-10-09 ten written out - the eleventh
+    // element, the compass, ran past them and took the layout editor down).
+    private static readonly int[] miRectFrames = fLongAgo();
+
+    private static int[] fLongAgo()
+    {
+        int[] liFrames = new int[ElementCount];
+
+        for (int liAt = 0; liAt < liFrames.Length; liAt++)
+            liFrames[liAt] = -10;
+
+        return liFrames;
+    }
 
     /// <summary>The layout editor is open (the game menu's Layout page).</summary>
     public static bool IsEditing => UWModernHud.Instance != null && UWModernHud.Instance.Page == UWModernHud.PageEnum.Layout;
@@ -79,9 +211,13 @@ public static class UWModernLayout
         return fLayout().Get((int)peElement).Percent;
     }
 
-    /// <summary>The part's own size factor, on top of the UI size.</summary>
+    /// <summary>The part's own size factor, on top of the UI size - in Classic Wide the frame's
+    /// row size for every part, so they lie on it pixel for pixel.</summary>
     public static float Scale(ElementEnum peElement)
     {
+        if (IsClassic)
+            return UWModernClassicFrame.RowScale / Mathf.Max(0.01f, UWModernHud.PixelScale);
+
         return Percent(peElement) / 100f;
     }
 
@@ -94,6 +230,10 @@ public static class UWModernLayout
     /// at its own size) unless it was moved; kept on the screen.</summary>
     public static Rect Place(ElementEnum peElement, Rect pODefault)
     {
+        // Classic Wide: the frame's places.
+        if (IsClassic && UWModernClassicFrame.TryGetPlace(peElement, pODefault, out Rect lOFrame))
+            return lOFrame;
+
         if (!IsPlaced(peElement))
             return pODefault;
 
@@ -156,11 +296,16 @@ public static class UWModernLayout
 
     private static UWHudLayout fLayout()
     {
-        return msLayout ??= UWHudLayout.Parse(UWUserSettings.ModernLayout, ElementCount);
+        // Custom its own places, Classic Modular its fixed ones, the others the default places.
+        return msLayout ??= UWHudLayout.Parse(IsCustom ? UWUserSettings.ModernLayout
+            : UWModernClassicPlus.IsActive ? UWModernClassicPlus.Layout : null, ElementCount);
     }
 
     private static void fSave()
     {
+        if (!IsCustom)
+            return;
+
         UWUserSettings.ModernLayout = fLayout().ToString();
         UWUserSettings.Save();
     }

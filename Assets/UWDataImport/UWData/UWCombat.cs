@@ -184,16 +184,23 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int ComputeDamage(int piWeaponDamage, bool pbUnarmed, int piStrength,
 			int piUnarmedSkill, int piCharge, int piTargetArmour, out int piBeforeArmour,
-			bool pbCritical = false, int piFlank = 0)
+			bool pbCritical = false, int piFlank = 0, int piBonus = 0)
 		{
-			int liBase = GetBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill);
+			int liBase = fGetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
 
 			// A critical hit multiplies the base value before rolling. The
 			// factor is 1 or 2 - (48 + (RNG & 31)) divided by 32 (the critical branch of the
 			// attack results; the reference rolled 0 to 29), so in half the cases
 			// double damage and otherwise no bonus at all.
+			//
+			// BEFORE THE MINIMUM (do_damage raises the damage to 2 only after the multiplier,
+			// UnderworldExhumed COMBAT.C, 2026-10-11; the Exhumed audit's row 31): until then ours
+			// doubled the already raised value, so a base of 0 or 1 hit for 4.
 			if (pbCritical)
 				liBase *= (48 + UWRandom.Next(0, 32)) >> 5;
+
+			if (liBase < MinimumBaseDamage)
+				liBase = MinimumBaseDamage;
 
 			int liRolled = RollDamage(liBase);
 
@@ -216,13 +223,21 @@ namespace UWDataImport.UWData
 		/// explains the user's observation that a mage with skill 0 knocks down an opponent just
 		/// as well as a fighter: the weapon skill lies in the hit roll, not here.
 		/// </summary>
-		public static int GetBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill)
+		/// <param name="piBonus">Added before the minimum: the wielded weapon's damage enchantment
+		/// (UWPlayerAttack.GetWeaponEnchantment, DoPlayerWeapon).</param>
+		public static int GetBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus = 0)
 		{
-			int liBase = pbUnarmed
-				? 4 + (piStrength / 6) + ((piUnarmedSkill * 2) / 5)
-				: (piStrength / 9) + piWeaponDamage;
+			int liBase = fGetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
 
 			return liBase < MinimumBaseDamage ? MinimumBaseDamage : liBase;
+		}
+
+		/// <summary>The base value before the minimum - see GetBaseDamage.</summary>
+		private static int fGetRawBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus)
+		{
+			return (pbUnarmed
+				? 4 + (piStrength / 6) + ((piUnarmedSkill * 2) / 5)
+				: (piStrength / 9) + piWeaponDamage) + piBonus;
 		}
 
 		/// <summary>
