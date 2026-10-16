@@ -643,6 +643,17 @@ public partial class UWSetupMenu : MonoBehaviour
 
         lfTop += 30f;
 
+        bool lbInvertMouseY = GUI.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f),
+        UWUserSettings.InvertMouseY, "  Invert mouse Y (modern)", mOToggle);
+
+        if (lbInvertMouseY != UWUserSettings.InvertMouseY)
+        {
+            UWUserSettings.InvertMouseY = lbInvertMouseY;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+
         Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lODialog.yMax - 90f - lfTop);
         Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.Entries.Count * 28f);
 
