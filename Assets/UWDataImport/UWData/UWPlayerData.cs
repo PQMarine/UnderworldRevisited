@@ -349,6 +349,30 @@ namespace UWDataImport.UWData
 
 		public const int SwimCounterOffset = 0xB9;
 
+		/// <summary>The kin alarm as saved (player.h crithit, typehit, crithittime, hitx, hity at
+		/// 0xBA-0xC1; set_creatures_from_saved_game, CRITTIME.C): the victim's mobile index, 0
+		/// none; its kind, 0xFF none; the game clock at the blow; the victim's tile. See
+		/// UWCritterAlarm.RestoreFrom.</summary>
+		public int AlarmIndex { get; private set; }
+
+		public int AlarmKind { get; private set; } = UWCritterAlarm.NoKind;
+
+		public uint AlarmTime { get; private set; }
+
+		public int AlarmTileX { get; private set; }
+
+		public int AlarmTileY { get; private set; }
+
+		private const int AlarmIndexOffset = 0xBA;
+
+		private const int AlarmKindOffset = 0xBB;
+
+		private const int AlarmTimeOffset = 0xBC;
+
+		private const int AlarmTileXOffset = 0xC0;
+
+		private const int AlarmTileYOffset = 0xC1;
+
 		/// <summary>An active spell from the save game - the same three values that
 		/// UWActiveSpellEffect keeps at runtime.</summary>
 		public struct ActiveSpell
@@ -1356,6 +1380,18 @@ namespace UWDataImport.UWData
 			/// <summary>The byte at SwimCounterOffset; below zero leaves it as it was.</summary>
 			public int SwimCounter = -1;
 
+			/// <summary>The kin alarm (UWCritterAlarm.SaveInto). An index below zero leaves all
+			/// five fields as they were, a tile below zero leaves time and tile.</summary>
+			public int AlarmIndex = -1;
+
+			public int AlarmKind = UWCritterAlarm.NoKind;
+
+			public uint AlarmTime;
+
+			public int AlarmTileX = -1;
+
+			public int AlarmTileY = -1;
+
 			/// <summary>Sound effects and music, each 1 on, 0 off, below zero leaves the two
 			/// bit pairs of SettingsOffset as they were. The original saves them per save game
 			/// and switches to them on loading - see SettingsOffset.</summary>
@@ -1460,6 +1496,19 @@ namespace UWDataImport.UWData
 
 			if (pOState.SwimCounter >= 0)
 				pyPlain[SwimCounterOffset] = (byte)(pOState.SwimCounter & 0xFF);
+
+			if (pOState.AlarmIndex >= 0)
+			{
+				pyPlain[AlarmIndexOffset] = (byte)(pOState.AlarmIndex & 0xFF);
+				pyPlain[AlarmKindOffset] = (byte)(pOState.AlarmKind & 0xFF);
+
+				if (pOState.AlarmTileX >= 0 && pOState.AlarmTileY >= 0)
+				{
+					UWBinary.Write32(pyPlain, AlarmTimeOffset, unchecked((int)pOState.AlarmTime));
+					pyPlain[AlarmTileXOffset] = (byte)(pOState.AlarmTileX & 0xFF);
+					pyPlain[AlarmTileYOffset] = (byte)(pOState.AlarmTileY & 0xFF);
+				}
+			}
 
 			if (pOState.SoundEnabled >= 0)
 				pyPlain[SettingsOffset] = (byte)((pyPlain[SettingsOffset] & ~(SoundSettingMask << SoundEnabledShift))
@@ -1965,6 +2014,16 @@ namespace UWDataImport.UWData
 			Hallucination = (pyData[IntoxicationOffset] >> 2) & 0x3;
 			Poison = (pyData[PoisonOffset] >> 2) & 0xF;
 			SwimCounter = pyData[SwimCounterOffset];
+
+			if (pyData.Length > AlarmTileYOffset)
+			{
+				AlarmIndex = pyData[AlarmIndexOffset];
+				AlarmKind = pyData[AlarmKindOffset];
+				AlarmTime = UWBinary.Read32OrZero(pyData, AlarmTimeOffset);
+				AlarmTileX = pyData[AlarmTileXOffset];
+				AlarmTileY = pyData[AlarmTileYOffset];
+			}
+
 			SoundEnabled = ((pyData[SettingsOffset] >> SoundEnabledShift) & SoundSettingMask) != 0;
 			MusicEnabled = ((pyData[SettingsOffset] >> MusicEnabledShift) & SoundSettingMask) != 0;
 

@@ -94,10 +94,7 @@ namespace UWDataImport.UWData
 		/// the feet. A SWIMMER REACHES AS ANYONE: UW1's InPickRange has no swimming term (the file
 		/// lists "no swimming reach" among UW1's differences from UW2); until 2026-10-15 ours
 		/// lowered the window by the swim counter / 8 (reference audit round 2, A52).
-		///
-		/// NOT BUILT (B1, waiting for a test in the original): BlockingTerrain, the original's
-		/// second test next to this one for use, take and the target mode - water, lava or a deep
-		/// pit between player and thing. It would join here as a further condition.
+		/// The original's second test, the terrain between, is IsBlockedByTerrain.
 		/// </summary>
 		public static bool CanReach(int piPlayerX, int piPlayerY, int piPlayerZ,
 			int piTargetX, int piTargetY, int piTargetZ,
@@ -118,6 +115,73 @@ namespace UWDataImport.UWData
 			int liFactor = pbUsingPole ? 2 : 1;
 
 			return liHeight <= liFactor * ReachBelow && liHeight >= -(liFactor * ReachAbove);
+		}
+
+		/// <summary>
+		/// THE TERRAIN BETWEEN (BlockingTerrain, UnderworldExhumed ui/INTERACT.C), the second test
+		/// next to CanReach for use, take and the target mode. Only for a thing off the player's
+		/// own tile: its height must lie in [pz, pz + 32] with pz the feet less 8 (doubled with
+		/// the pole); then the tiles from the player's tile to the thing's are walked, a step on
+		/// each axis at a time, the thing's tile included - a tile whose floor lies two or more
+		/// steps below pz blocks (bare hand only), and a tile between of another terrain class
+		/// than the player's (water, lava) blocks unless a bridge at a height between carries the
+		/// line (not with the pole). Per user on the original 2026-10-17 (SAVE4 level 1, an apple
+		/// across the one-tile water channel at 47/5): "You cannot reach that." from the edge of
+		/// 46/5, and taken one step closer - once the player's centre lies over the channel's
+		/// tile, nothing lies between any more. Until then ours had no such test.
+		/// The player's tile is his centre's; heights in zpos steps; the delegates read the
+		/// level: floor height nibble, terrain class (0 normal, 1 water, 2 lava), the highest
+		/// bridge's z or -1.
+		/// </summary>
+		public static bool IsBlockedByTerrain(int piPlayerTileX, int piPlayerTileY, int piPlayerZ,
+			int piTargetTileX, int piTargetTileY, int piTargetZ, int piDistanceSquared, bool pbUsingPole,
+			System.Func<int, int, int> pFFloorHeight, System.Func<int, int, int> pFTerrain,
+			System.Func<int, int, int> pFBridgeZ)
+		{
+			if (piDistanceSquared == UnlimitedDistance
+				|| (piTargetTileX == piPlayerTileX && piTargetTileY == piPlayerTileY))
+				return false;
+
+			int liPlayerTerrain = pFTerrain(piPlayerTileX, piPlayerTileY);
+			int liStepX = System.Math.Sign(piTargetTileX - piPlayerTileX);
+			int liStepY = System.Math.Sign(piTargetTileY - piPlayerTileY);
+			int liFactor = pbUsingPole ? 2 : 1;
+			int liReach = liFactor << 3;
+			int liHigh = liFactor << 5;
+			int liPz = piPlayerZ > liReach ? piPlayerZ - liReach : 0;
+
+			if (piTargetZ < liPz || liPz + liHigh < piTargetZ)
+				return true;
+
+			int liX = piPlayerTileX;
+			int liY = piPlayerTileY;
+
+			for (;;)
+			{
+				liX += liStepX;
+
+				if ((liStepX < 0 && liX < piTargetTileX) || (liStepX > 0 && liX > piTargetTileX))
+					liX = piTargetTileX;
+
+				liY += liStepY;
+
+				if ((liStepY < 0 && liY < piTargetTileY) || (liStepY > 0 && liY > piTargetTileY))
+					liY = piTargetTileY;
+
+				int liBridge = pFBridgeZ(liX, liY);
+				bool lbCarried = liBridge >= 0 && liBridge <= piTargetZ && liBridge >= liPz;
+
+				if (!lbCarried && (liPz >> 3) > pFFloorHeight(liX, liY) && piDistanceSquared == UseDistanceSquared)
+					return true;
+
+				if (liX == piTargetTileX && liY == piTargetTileY)
+					return false;
+
+				int liTerrain = pFTerrain(liX, liY);
+
+				if (piDistanceSquared <= UseDistanceSquared && !lbCarried && liTerrain != 0 && liTerrain != liPlayerTerrain)
+					return true;
+			}
 		}
 	}
 }

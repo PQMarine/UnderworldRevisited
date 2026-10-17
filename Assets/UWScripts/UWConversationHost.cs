@@ -125,9 +125,13 @@ public sealed class UWConversationHost : IUWConversationHost
         return fLoader != null && UWTriggerSystem.TrySetDoorState(piTileX, piTileY, piMode, fLoader);
     }
 
+    /// <summary>place_object on a tile: at the item's own fine spot (place_object sets only z, to
+    /// the floor; UWConversationTrade gives it 3/3), not the tile centre. Per user in the original
+    /// 2026-10-17 (audit round 2 B4): Judy's Key of Love lay on 33/8 at 3/3; ours saved it at 4/4
+    /// because this went through SpawnObjectInTile, which takes the centre.</summary>
     public bool SpawnObjectInTile(UWObject pOItem, int piTileX, int piTileY)
     {
-        return fLoader != null && fLoader.SpawnObjectInTile(pOItem, piTileX, piTileY);
+        return fLoader != null && fLoader.SpawnObjectInTileAtTemplatePosition(pOItem, piTileX, piTileY);
     }
 
     /// <summary>

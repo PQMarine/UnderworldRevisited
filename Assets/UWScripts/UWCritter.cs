@@ -418,12 +418,26 @@ public class UWCritter : MonoBehaviour, ICritterHost
         // record's byte 8 against the blow, so it must hold the same number - otherwise the
         // first scratch would kill. Written through to UWNpc.HitPoints, which is what the
         // writer saves (UWLevelWriter.fWriteNpcBytes).
+        // A creature SAVED WHILE DYING (animation 0x0C, hp 0) loads dead: its hit points stay 0 and
+        // the body counts as destroyed, without a second death (2026-10-17, B11). Before, the
+        // spawner's table value revived it, and one that never finishes dying could be killed
+        // again for a second share of experience.
+        bool lbLoadedDying = pONpc != null && mORecord.HitPoints == 0 && mORecord.Animation == UWCritterBrain.AnimDying;
+
         if (mODamageable != null)
         {
             miLastHealth = mODamageable.CurrentHealth;
 
-            if (mORecord.HitPoints != mODamageable.CurrentHealth && mODamageable.CurrentHealth > 0)
+            if (lbLoadedDying)
+                fEnsureDamageableDestroyed();
+            else if (mORecord.HitPoints != mODamageable.CurrentHealth && mODamageable.CurrentHealth > 0)
                 mORecord.HitPoints = mODamageable.CurrentHealth;
+
+            // Blows land on a dying creature: its record stays in the tile list until frame 3
+            // (Obj_Rem in critter_ai), the blow finds it and damage_critter runs - crit_die only
+            // refuses a second death. The brain does the same (fDeath); the body has to let the
+            // blow through (per user in the original 2026-10-17: hit effect and red eyes).
+            mODamageable.TakesBlowsWhenBroken = true;
         }
 
         // The saved animation and frame are shown by UWCritterAnimator.Initialise, which
@@ -2512,6 +2526,11 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>Its hit points are gone - it may still be falling.</summary>
     public bool IsDead => mODamageable != null && mODamageable.IsDestroyed;
 
+    /// <summary>Dying with a goal that skips the animation machine: the death never reaches
+    /// frame 3, so nothing may remove the body (UWCritterRules.SkipsAnimationMachine).</summary>
+    public bool NeverFinishesDying => mORecord != null && mORecord.Animation == UWCritterBrain.AnimDying
+        && UWCritterRules.SkipsAnimationMachine(mORecord.Goal);
+
     /// <summary>Critter table byte 0x1C, upper nibble; 0 without a table row.</summary>
     public int TravelRange => mbHasStats ? mOStats.TravelRange : 0;
 
@@ -2721,9 +2740,9 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
     // ------------------------------------------------- The kin alarm
 
-    /// <summary>When building a level: a fresh clock and alarm (UWScene), so nothing of the
-    /// old level survives loading a savegame (per user, 2026-09-12: a rat attacked at once
-    /// after loading because the static alarm was still fresh).</summary>
+    /// <summary>When building a level: a fresh clock and alarm (UWScene), see
+    /// UWGameSession.ResetCritterServices. Loading a save restores the save's alarm afterwards
+    /// (UWLevelLoader.fRestoreKinAlarm).</summary>
     public static void ResetAlarm()
     {
         UWScene.ResetCritterServices();

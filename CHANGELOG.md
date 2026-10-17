@@ -8,7 +8,29 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
-## [Unreleased]
+## [0.8.1] - 2026-10-17
+
+### Closer to the original
+- A stack of things shows its condition when looked at, as in the original: "5 day-old ears of
+  corn".
+- A large pile of coins offered to a partner who likes coins is worth its full value again;
+  before, it could count as almost nothing and the partner refused.
+- Water, lava or a deep drop between the player and a thing keeps the hand from it, as in the
+  original: "You cannot reach that."; a bridge carries the reach across.
+- Creatures alarmed by a blow stay alarmed in a game saved right after it, as in the original:
+  after loading, the victim's kin attack at once.
+- A falling creature can still be struck, as in the original. A drifting creature of the
+  Ethereal Void that is slain drifts on in its death throes instead of vanishing.
+- A blood splash or other short effect caught in a save plays out once after loading and goes,
+  as in the original; before, it looped for ever.
+- Water at the lowest floor height cannot be fished, as in the original.
+- The silver seed finds no room for roots where a barrel, bench, boulder or creature stands in the
+  way, as in the original; before, it grew a tree right inside furniture.
+- An item a conversation puts down on a tile lies at the original's spot in it, not in the middle.
+
+### Changed
+- Docs/DEVIATIONS.md: no rule depends on the frame rate. Standing on lava burns at a fixed rate
+  instead of once per drawn frame as in the original.
 
 ## [0.8.0] - 2026-10-17
 

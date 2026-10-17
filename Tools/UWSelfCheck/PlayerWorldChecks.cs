@@ -15,6 +15,8 @@ namespace UnderworldRevisited.Tools
         {
             Check.Group("Player and world, audit 2026-10-14");
 
+            fCheckReachTerrain();
+
             fCheckFullStops(pOData);
             fCheckMapNotes();
             fCheckSwimView();
@@ -23,6 +25,32 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>find_good_x_and_y (event/WORLDEV.C:76-167) on a made-up map: every tile open
         /// unless named, a tile fits when it is in the set of free tiles.</summary>
+        /// <summary>BlockingTerrain (UWReachRules.IsBlockedByTerrain) on the level 1 channel of
+        /// 2026-10-17: floor 9 at 46/5 and 48/5, water at floor 1 on 47/5 between.</summary>
+        private static void fCheckReachTerrain()
+        {
+            System.Func<int, int, int> lfFloor = (piX, piY) => piX == 47 ? 1 : 9;
+            System.Func<int, int, int> lfTerrain = (piX, piY) => piX == 47 ? 1 : 0;
+            System.Func<int, int, int> lfNoBridge = (piX, piY) => -1;
+            System.Func<int, int, int> lfBridge = (piX, piY) => piX == 47 ? 72 : -1;
+
+            fExpectBool("reach: across the water channel from 46/5 is blocked",
+                UWReachRules.IsBlockedByTerrain(46, 5, 72, 48, 5, 72, UWReachRules.UseDistanceSquared, false,
+                    lfFloor, lfTerrain, lfNoBridge), true);
+            fExpectBool("reach: ... with the centre over the channel's tile nothing lies between",
+                UWReachRules.IsBlockedByTerrain(47, 5, 72, 48, 5, 72, UWReachRules.UseDistanceSquared, false,
+                    lfFloor, lfTerrain, lfNoBridge), false);
+            fExpectBool("reach: ... a bridge at the right height carries the line",
+                UWReachRules.IsBlockedByTerrain(46, 5, 72, 48, 5, 72, UWReachRules.UseDistanceSquared, false,
+                    lfFloor, lfTerrain, lfBridge), false);
+            fExpectBool("reach: ... Telekinesis is never blocked",
+                UWReachRules.IsBlockedByTerrain(46, 5, 72, 48, 5, 72, UWReachRules.UnlimitedDistance, false,
+                    lfFloor, lfTerrain, lfNoBridge), false);
+            fExpectBool("reach: ... a thing on the player's own tile is never blocked",
+                UWReachRules.IsBlockedByTerrain(48, 5, 72, 48, 5, 72, UWReachRules.UseDistanceSquared, false,
+                    lfFloor, lfTerrain, lfNoBridge), false);
+        }
+
         private static void fCheckArrival(DataImport pOData)
         {
             Dictionary<int, UWTile.TileTypeEnum> lOTypes = new Dictionary<int, UWTile.TileTypeEnum>();

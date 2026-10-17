@@ -103,6 +103,9 @@ namespace UnderworldRevisited.Tools
             Check.Bool("fishing: water a step below the player", UWFishingRules.WaterLowEnough(3, 2), true);
             Check.Bool("fishing: water level with the player", UWFishingRules.WaterLowEnough(3, 3), true);
             Check.Bool("fishing: water a step above the player is refused", UWFishingRules.WaterLowEnough(3, 4), false);
+            Check.Bool("fishing: water of height 0 is refused from above (unsigned 0 - 1)", UWFishingRules.WaterLowEnough(1, 0), false);
+            Check.Bool("fishing: ... and swimming in it", UWFishingRules.WaterLowEnough(0, 0), false);
+            Check.Bool("fishing: swimming in water of height 1 works", UWFishingRules.WaterLowEnough(1, 1), true);
             Check.Bool("oil: ... and the flask is used up", lOResult.ItemUsed, true);
 
             UWObject lOLitTorch = new UWObject((ushort)(UWObjectMechanics.TorchObjectId + UWObjectMechanics.LitLightOffset));

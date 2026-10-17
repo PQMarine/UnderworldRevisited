@@ -12,6 +12,52 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     public static partial class Program
     {
+        /// <summary>EFFECT.C update_animobj and toast_animobj (2026-10-17): only listed class-7
+        /// objects animate; a finite length runs out and the object goes when its class has
+        /// flag 0x20 (the blood splash saved right after a blow, per user in the original).</summary>
+        private static void fCheckAnimationFate()
+        {
+            Check.Group("Animation list fate (EFFECT.C update_animobj, toast_animobj)");
+
+            List<UWObject> lOMaster = new List<UWObject>();
+
+            for (int liAt = 0; liAt < 8; liAt++)
+                lOMaster.Add(new UWObject(0x1C0));
+
+            byte[] lyBlock = new byte[UWAnimationOverlay.BlockLength];
+
+            // Object 5 for ever, object 6 with two frames left.
+            UWBinary.Write16(lyBlock, 0, 5 << 6);
+            UWBinary.Write16(lyBlock, 2, 0xFFFF);
+            UWBinary.Write16(lyBlock, 6, 6 << 6);
+            UWBinary.Write16(lyBlock, 8, 2);
+
+            // Load takes offset 0 for a missing block, so the block sits at 1.
+            byte[] lyPadded = new byte[UWAnimationOverlay.BlockLength + 1];
+
+            System.Array.Copy(lyBlock, 0, lyPadded, 1, lyBlock.Length);
+
+            UWAnimationOverlay lOList = UWAnimationOverlay.Load(lyPadded, 1, lOMaster);
+
+            fExpectBool("the block loads with two entries", lOList.IsLoaded && lOList.Entries.Count == 2, true);
+
+            const int RemoveAndCycle = 0x21;
+
+            fExpectInt("listed for ever: animates", (int)lOList.GetFate(lOMaster[5], true, RemoveAndCycle, out int _),
+                (int)UWAnimationOverlay.Fate.Forever);
+            fExpectInt("two frames left: plays out and goes", (int)lOList.GetFate(lOMaster[6], true, RemoveAndCycle, out int liLength),
+                (int)UWAnimationOverlay.Fate.ExpiresAndGoes);
+            fExpectInt("... with its length", liLength, 2);
+            fExpectInt("a class without flag 0x20 stops instead", (int)lOList.GetFate(lOMaster[6], true, 0x01, out int _),
+                (int)UWAnimationOverlay.Fate.ExpiresAndStops);
+            fExpectInt("the level's object off the list stands still", (int)lOList.GetFate(lOMaster[7], true, RemoveAndCycle, out int _),
+                (int)UWAnimationOverlay.Fate.StandsStill);
+            fExpectInt("a view-only effect keeps its own clock", (int)lOList.GetFate(new UWObject(0x1C0), false, RemoveAndCycle, out int _),
+                (int)UWAnimationOverlay.Fate.Forever);
+            fExpectInt("an unloaded list leaves everything animating",
+                (int)new UWAnimationOverlay().GetFate(lOMaster[7], true, RemoveAndCycle, out int _), (int)UWAnimationOverlay.Fate.Forever);
+        }
+
         private static void fCheckWorldEdit(CheckContext pOContext)
         {
             Check.Group("World edit (UWWorldEdit: slots, tile chain, events)");

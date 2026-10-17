@@ -18,6 +18,7 @@ public class UWCritterRemains : MonoBehaviour
 {
     private UWDamageable mODamageable;
     private UWCritterAnimator mOAnimator;
+    private UWCritter mOCritter;
     private UWLevelLoader mOLevelLoader;
 
     private int miRemainsObjectId = -1;
@@ -47,6 +48,7 @@ public class UWCritterRemains : MonoBehaviour
     {
         mODamageable = GetComponent<UWDamageable>();
         mOAnimator = GetComponent<UWCritterAnimator>();
+        mOCritter = GetComponent<UWCritter>();
 
         mODamageable.Destroyed += fOnDestroyed;
     }
@@ -60,6 +62,12 @@ public class UWCritterRemains : MonoBehaviour
     private void Update()
     {
         if (!mbDying)
+            return;
+
+        // Goals 3 and 11 never reach frame 3: the body stays as it is, moving on with the death
+        // pictures (UWCritterRules.SkipsAnimationMachine, per user in the original 2026-10-17).
+        // Until then the fallback below removed it after three seconds with loot and remains.
+        if (mOCritter != null && mOCritter.NeverFinishesDying)
             return;
 
         // Wait for the end of the death animation, so the creature does not vanish in the
@@ -80,6 +88,10 @@ public class UWCritterRemains : MonoBehaviour
 
     private void fOnDestroyed(UWDamageable pODamageable)
     {
+        // A dying creature still takes blows (UWCritter.Initialise), each one ending at 0 again.
+        if (mbDying)
+            return;
+
         mbDying = true;
 
         // THE DATA STAYS WHILE IT FALLS (critter_ai, UnderworldExhumed AI.C: the dying critter,

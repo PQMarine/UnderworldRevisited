@@ -284,7 +284,7 @@ namespace UWDataImport.UWData
 			miSpeedBefore = mORecord.Speed;
 
 			// 8, 9. Goals 3 and 11 skip the animation machine (label seg007_1798_2849).
-			if (mORecord.Goal == 3 || mORecord.Goal == 11)
+			if (UWCritterRules.SkipsAnimationMachine(mORecord.Goal))
 				fBehaviours();
 			else
 				fAnimationMachine();

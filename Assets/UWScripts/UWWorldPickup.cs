@@ -49,8 +49,9 @@ public static class UWWorldPickup
             return false;
 
         UWObject lOItem = pOEntity.ObjectData;
-        bool lbReachOk = pbReachChecked || pOInteraction.CanReachForPickup(pOEntity);
-        UWPickupRules.Result lOCheck = UWPickupRules.Check(lOItem, piCount, lbReachOk, lOInventory.Model);
+        int liReachRefusal = pbReachChecked ? -1 : pOInteraction.PickupReachRefusal(pOEntity);
+        UWPickupRules.Result lOCheck = UWPickupRules.Check(lOItem, piCount, liReachRefusal < 0, lOInventory.Model,
+            liReachRefusal < 0 ? UWReachRules.TooFarToTakeMessage : liReachRefusal);
 
         if (!lOCheck.CanTake)
         {

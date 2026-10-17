@@ -56,27 +56,24 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Open tile with soil. UW.EXE additionally asks CheckIfItemFitsInTile; here a tile that
-		/// already holds a creature or a tree is refused, the rest of that test is not rebuilt.
+		/// The tile half of plant_seed (SKILLS.C): an open tile with soil. The other half is
+		/// can_place for the tree at the exact spot (the host's fit test, not a tile scan): per user
+		/// in the original 2026-10-17 (audit round 2 B10, level 1, a barrel at 56/60), the seed aimed
+		/// at the barrel "does not seem to find space for roots", a step aside it grows beside it.
+		/// Until then ours refused a whole tile with a creature or tree and planted into furniture.
 		/// </summary>
 		public static bool CanTakeRoot(UWLevel pOLevel, UWTilePos pOTile)
 		{
 			UWTile lOTile = pOLevel?.GetTile(pOTile.X, pOTile.Y);
 
-			if (lOTile == null || lOTile.TileType != UWTile.TileTypeEnum.open || !IsSoil(lOTile.TextureFloor))
-				return false;
+			return lOTile != null && lOTile.TileType == UWTile.TileTypeEnum.open && IsSoil(lOTile.TextureFloor);
+		}
 
-			if (lOTile.ObjectsInTile != null)
-			{
-				foreach (UWObject lOObject in lOTile.ObjectsInTile)
-				{
-					if (lOObject != null && (lOObject.ID == TreeObjectId
-						|| UWObjectIds.IsCreature(lOObject.ID)))
-						return false;
-				}
-			}
-
-			return true;
+		/// <summary>The height plant_seed places the tree at and asks can_place with: the tile's
+		/// floor (height &lt;&lt; 3).</summary>
+		public static int PlantZ(UWTile pOTile)
+		{
+			return pOTile != null ? (pOTile.FloorHeight >> 4) << 3 : 0;
 		}
 	}
 }

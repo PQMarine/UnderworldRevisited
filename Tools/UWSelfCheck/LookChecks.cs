@@ -19,6 +19,23 @@ namespace UnderworldRevisited.Tools
             fCheckLookCreatures(pOData);
             fCheckLookOwner(pOData);
             fCheckLookBooks(pOData);
+            fCheckLookStack(pOData);
+        }
+
+        /// <summary>A stack keeps its quality word between the count and the plural (LookAt; per
+        /// user on the original 2026-10-17: "5 day old ears of corn").</summary>
+        private static void fCheckLookStack(DataImport pOData)
+        {
+            UWObject lOCorn = new UWObject(0xB4) { HasQuantity = true, Quantity = 5, Quality = 40 };
+            UWObject lOOne = new UWObject(0xB4) { HasQuantity = true, Quantity = 1, Quality = 40 };
+            string lsStack = UWItemDescriptions.DescribeItem(lOCorn, pOData, 0, null, UWLoreCheck.ResultNamed) ?? string.Empty;
+            string lsOne = UWItemDescriptions.DescribeItem(lOOne, pOData, 0, null, UWLoreCheck.ResultNamed) ?? string.Empty;
+            string lsWord = UWItemDescriptions.GetItemConditionWord(lOCorn, pOData);
+
+            fExpectBool("look: a stack shows its quality word (\"" + lsStack + "\")",
+                !string.IsNullOrEmpty(lsWord) && lsStack.StartsWith("You see 5 " + lsWord + " "), true);
+            fExpectBool("look: ... and a single piece keeps it too (\"" + lsOne + "\")",
+                lsOne.Contains(lsWord), true);
         }
 
         /// <summary>checkSpell with how 0 (A75): a thing in the world with a charged spell casts it

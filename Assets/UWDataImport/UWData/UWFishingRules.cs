@@ -13,13 +13,14 @@ namespace UWDataImport.UWData
 		/// 2026-10-15 ours let it lie up to two steps above (the reference's rule; reference audit
 		/// round 2, A49).
 		///
-		/// NOT BUILT (B8, waiting for a test in the original): the unsigned comparison makes water
-		/// of height 0 refuse every cast (0 - 1 is 0xFFFF). Ours accepts it; the test would join
-		/// here as "piWaterHeightSteps == 0 refuses".
+		/// WATER OF HEIGHT 0 REFUSES EVERY CAST: the comparison is unsigned, 0 - 1 is 0xFFFF. Per
+		/// user in the original 2026-10-17 (audit round 2 B8, level 1 at 7/7 facing the channel at
+		/// 6/7): "You cannot fish there." every time; up a slope in higher water it worked, while
+		/// swimming too. Until then ours let water of height 0 be fished.
 		/// </summary>
 		public static bool WaterLowEnough(int piPlayerHeightSteps, int piWaterHeightSteps)
 		{
-			return piPlayerHeightSteps >= piWaterHeightSteps;
+			return piPlayerHeightSteps > (ushort)(piWaterHeightSteps - 1);
 		}
 	}
 }

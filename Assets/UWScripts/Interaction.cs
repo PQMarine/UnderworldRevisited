@@ -1287,7 +1287,7 @@ public class Interaction : MonoBehaviour
             // player_3dlook gives within 0x48 only (UWReachRules.LookDetailDistanceSquared,
             // 2026-10-15; until then from any distance).
             if (pOTarget.IsWindow && mGameUi != null && mLevelLoader != null
-                && fCanReach(pOTarget, UWReachRules.LookDetailDistanceSquared, false))
+                && fReach(pOTarget, UWReachRules.LookDetailDistanceSquared, false, false) == ReachEnum.Reached)
                 mGameUi.ShowWindowPicture(mLevelLoader.CurrentLevelIndex);
         }
         else if (!string.IsNullOrEmpty(psChunkDescription))
@@ -3577,10 +3577,12 @@ public class Interaction : MonoBehaviour
     /// here, Telekinesis does.</summary>
     public bool TryReachForPickup(UWEntityInfo pOTarget)
     {
-        if (CanReachForPickup(pOTarget))
+        int liRefusal = PickupReachRefusal(pOTarget);
+
+        if (liRefusal < 0)
             return true;
 
-        AddGeneralMessage(UWReachRules.TooFarToTakeMessage);
+        AddGeneralMessage(liRefusal);
 
         return false;
     }
@@ -3589,7 +3591,28 @@ public class Interaction : MonoBehaviour
     /// comes from UWPickupRules.</summary>
     public bool CanReachForPickup(UWEntityInfo pOTarget)
     {
-        return fCanReach(pOTarget, UWReachRules.GetPickupDistanceSquared(fHasTelekinesis), false);
+        return PickupReachRefusal(pOTarget) < 0;
+    }
+
+    /// <summary>
+    /// Why a thing cannot be taken, or -1: player_3dget's game_sprint(inrange + 0x5D) - out of
+    /// range "That is too far away to take." (94), in range but the terrain between blocks "You
+    /// cannot reach that." (95; per user on the original 2026-10-17, the apple across the water
+    /// channel on level 1).
+    /// </summary>
+    public int PickupReachRefusal(UWEntityInfo pOTarget)
+    {
+        switch (fReach(pOTarget, UWReachRules.GetPickupDistanceSquared(fHasTelekinesis), false, true))
+        {
+            case ReachEnum.Reached:
+                return -1;
+
+            case ReachEnum.Blocked:
+                return UWReachRules.CannotReachMessage;
+
+            default:
+                return UWReachRules.TooFarToTakeMessage;
+        }
     }
 
     private bool fHasTelekinesis
@@ -3599,8 +3622,23 @@ public class Interaction : MonoBehaviour
 
     private bool fCanReach(UWEntityInfo pOTarget, int piDistanceSquared, bool pbUsingPole)
     {
+        return fReach(pOTarget, piDistanceSquared, pbUsingPole, true) == ReachEnum.Reached;
+    }
+
+    private enum ReachEnum
+    {
+        Reached,
+        OutOfRange,
+        Blocked
+    }
+
+    /// <summary>InPickRange and, with pbTerrain, BlockingTerrain (UWReachRules): the one
+    /// measurement behind use, take, the target mode and a target spell. The close look of
+    /// player_3dlook asks the range alone.</summary>
+    private ReachEnum fReach(UWEntityInfo pOTarget, int piDistanceSquared, bool pbUsingPole, bool pbTerrain)
+    {
         if (pOTarget == null)
-            return false;
+            return ReachEnum.OutOfRange;
 
         int liPlayerX, liPlayerY, liPlayerZ;
         int liTargetX, liTargetY, liTargetZ;
@@ -3608,8 +3646,49 @@ public class Interaction : MonoBehaviour
         fGetPlayerGridPosition(out liPlayerX, out liPlayerY, out liPlayerZ);
         fGetTargetGridPosition(pOTarget, out liTargetX, out liTargetY, out liTargetZ);
 
-        return UWReachRules.CanReach(liPlayerX, liPlayerY, liPlayerZ, liTargetX, liTargetY, liTargetZ,
-            piDistanceSquared, pbUsingPole);
+        if (!UWReachRules.CanReach(liPlayerX, liPlayerY, liPlayerZ, liTargetX, liTargetY, liTargetZ,
+            piDistanceSquared, pbUsingPole))
+            return ReachEnum.OutOfRange;
+
+        UWLevel lOLevel = mLevelLoader != null ? mLevelLoader.CurrentLevel : null;
+
+        if (!pbTerrain || lOLevel == null)
+            return ReachEnum.Reached;
+
+        UWTerrain lOTerrain = mOUWDataImporter != null ? mOUWDataImporter.Terrain : null;
+
+        bool lbBlocked = UWReachRules.IsBlockedByTerrain(liPlayerX >> 3, liPlayerY >> 3, liPlayerZ,
+            liTargetX >> 3, liTargetY >> 3, liTargetZ, piDistanceSquared, pbUsingPole,
+            (piX, piY) =>
+            {
+                UWTile lOTile = lOLevel.GetTile(piX, piY);
+
+                return lOTile != null ? (lOTile.FloorHeight >> 4) & 0xF : 0;
+            },
+            (piX, piY) =>
+            {
+                UWTile lOTile = lOLevel.GetTile(piX, piY);
+
+                return lOTile != null && lOTerrain != null ? ((int)lOTerrain.GetFloorTerrain(lOTile.TextureFloor) & 0xFF) >> 4 : 0;
+            },
+            (piX, piY) =>
+            {
+                UWTile lOTile = lOLevel.GetTile(piX, piY);
+                int liBridge = -1;
+
+                if (lOTile != null && lOTile.ObjectsInTile != null)
+                {
+                    foreach (UWObject lOObject in lOTile.ObjectsInTile)
+                    {
+                        if (lOObject != null && lOObject.ID == UWObjectIds.Bridge && lOObject.ZPos > liBridge)
+                            liBridge = lOObject.ZPos;
+                    }
+                }
+
+                return liBridge;
+            });
+
+        return lbBlocked ? ReachEnum.Blocked : ReachEnum.Reached;
     }
 
     /// <summary>The player on the tile grid: position in eighths of a tile, feet in zpos steps.

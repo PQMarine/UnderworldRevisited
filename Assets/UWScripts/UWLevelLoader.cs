@@ -24,10 +24,6 @@ public class UWLevelLoader : MonoBehaviour
     /// </summary>
     public const int MoveTriggerId = UWObjectMechanics.MoveTriggerId;
 
-    /// <summary>Range of the trigger objects. 0x01A0 is the move trigger.</summary>
-    private const int TriggerFirstId = UWTrapRules.FirstTriggerId;
-    private const int TriggerLastId = UWTrapRules.LastTriggerId;
-
     /// <summary>Lockout after a transition, so that a way back does not fire again immediately.</summary>
     private const float TransitionCooldown = 0.75f;
 
@@ -324,6 +320,11 @@ public class UWLevelLoader : MonoBehaviour
 
         fBuildLevel();
 
+        // The level build cleared the kin alarm; a save brings its own back, as RestoreGame
+        // calls set_creatures_from_saved_game after GetLevel (since 2026-10-17, audit round 2 C7).
+        if (lbFromSave)
+            fRestoreKinAlarm(lOPlayer);
+
         if (lbFromSave || (myNewCharacter != null && lOPlayer != null))
         {
             // The new character exactly like a loaded one: via its tile (32/2) and the
@@ -502,6 +503,13 @@ public class UWLevelLoader : MonoBehaviour
     /// </summary>
     public bool ObjectFitsAt(int piItemId, int piX8, int piY8, int piZ)
     {
+        return ObjectFitsAt(piItemId, piX8, piY8, piZ, true, 0);
+    }
+
+    /// <summary>can_place with its last two arguments: pbFlier lets the object hang above what it
+    /// would rest on, piRange is how far it may (plant_seed asks 0 and 0).</summary>
+    public bool ObjectFitsAt(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)
+    {
         if (!fEnsureArrivalCore())
             return false;
 
@@ -514,7 +522,7 @@ public class UWLevelLoader : MonoBehaviour
             ZPos = piZ
         };
 
-        return mOArrivalCore.CheckIfItemFitsInTile(piItemId, 0, piX8, piY8, piZ, true, 0, out int _, out int _);
+        return mOArrivalCore.CheckIfItemFitsInTile(piItemId, 0, piX8, piY8, piZ, pbFlier, piRange, out int _, out int _);
     }
 
     /// <summary>The core for the fit tests over the current world (arrival, scatter).</summary>
@@ -2496,14 +2504,14 @@ public class UWLevelLoader : MonoBehaviour
         piTileX = Mathf.Clamp(piTileX, 0, UWWorldScale.TilesPerAxis - 1);
         piTileZ = Mathf.Clamp(piTileZ, 0, UWWorldScale.TilesPerAxis - 1);
 
-        UWTile lOTile = CurrentLevel.GetTile(piTileX, piTileZ);
-
-        Vector3 lOWallSetback = fGetSpawnSetbackFromWall(lOTile, piTileX, piTileZ);
-
+        // THE TILE CENTRE, as player_setup puts him. Until 2026-10-17 a landing on a tile with a
+        // trigger to a teleport was set 16 units away from it (2026-08-23); no teleport of the
+        // original data lands on such a tile (all 60 checked), and the user's comparison of the
+        // level 1 -> 2 stairs (35/20) showed the same spot in both (audit round 2 C8).
         fPlacePlayerOnFloor(new Vector3(
-            UWUnits.TileCentreToWorldAxis(piTileX) + lOWallSetback.x,
+            UWUnits.TileCentreToWorldAxis(piTileX),
             0f,
-            UWUnits.TileCentreToWorldAxis(piTileZ) + lOWallSetback.z));
+            UWUnits.TileCentreToWorldAxis(piTileZ)));
     }
 
     /// <summary>
@@ -2547,41 +2555,14 @@ public class UWLevelLoader : MonoBehaviour
         fPlacePlayer(pOPosition);
     }
 
-    /// <summary>
-    /// When landing on a transition tile, one would otherwise stand in the centre - i.e. right at
-    /// the wall to the (unwalkable) trap tile, much too far forward. A small offset away from
-    /// this wall gives distance, as when leaving a staircase in the original.
-    /// </summary>
-    private Vector3 fGetSpawnSetbackFromWall(UWTile pOTile, int piTileX, int piTileZ)
+    /// <summary>The save's kin alarm, its height taken from the floor of the victim's tile
+    /// (UWCritterAlarm.RestoreFrom).</summary>
+    private void fRestoreKinAlarm(UWPlayerData pOPlayer)
     {
-        const float lfSpawnSetback = 16f;
+        UWTile lOTile = CurrentLevel != null ? CurrentLevel.GetTile(pOPlayer.AlarmTileX, pOPlayer.AlarmTileY) : null;
+        int liFloorLevel = lOTile != null ? lOTile.FloorHeight >> 4 : 0;
 
-        System.Collections.Generic.List<UWObject> lOMaster = CurrentLevel.Masterlist;
-
-        for (int i = 0; i < pOTile.ObjectsInTile.Count; i++)
-        {
-            UWObject lOTrigger = pOTile.ObjectsInTile[i];
-
-            if (lOTrigger == null || lOTrigger.ID < TriggerFirstId || lOTrigger.ID > TriggerLastId)
-                continue;
-
-            int liLink = lOTrigger.Quantity;
-
-            if (liLink <= 0 || liLink >= lOMaster.Count)
-                continue;
-
-            UWObject lOTrap = lOMaster[liLink];
-
-            if (lOTrap == null || lOTrap.ID != TeleportTrapId)
-                continue;
-
-            int liDx = System.Math.Sign(lOTrap.TileX - piTileX);
-            int liDz = System.Math.Sign(lOTrap.TileY - piTileZ);
-
-            return new Vector3(-liDx * lfSpawnSetback, 0f, -liDz * lfSpawnSetback);
-        }
-
-        return Vector3.zero;
+        UWGameSession.Current.CritterAlarm.RestoreFrom(pOPlayer, UWScene.CritterClock.Clock, liFloorLevel);
     }
 
     /// <summary>

@@ -210,6 +210,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("DyingCreature", pOContext => fCheckDyingCreatureKept(pOContext.Data), true, "brain", "data", "original").MutatesData = true;
             lOCatalog.Add("BrainRound2", pOContext => fCheckBrainRound2(), false, "brain", "original");
             lOCatalog.Add("NoAttacker", pOContext => fCheckDamageWithoutAttacker(), false, "brain", "trap", "original");
+            lOCatalog.Add("AnimationFate", pOContext => fCheckAnimationFate(), false, "world", "original");
+            lOCatalog.Add("EndlessDying", pOContext => fCheckEndlessDying(), false, "brain", "original");
+            lOCatalog.Add("KinAlarmSaved", pOContext => fCheckKinAlarmSaved(), false, "brain", "save", "original");
             lOCatalog.Add("NightCulling", pOContext => fCheckNightCulling(pOContext.Data), true, "sleep", "level", "original").MutatesData = true;
             lOCatalog.Add("YearlyCheckup", pOContext => fCheckYearlyCheckup(pOContext.Data), true, "brain", "time", "original").MutatesData = true;
             lOCatalog.Add("CreatureTimePass",pOContext => fCheckCreatureTimePass(pOContext.Data), true, "sleep", "level", "original").MutatesData = true;

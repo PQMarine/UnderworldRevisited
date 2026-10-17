@@ -16,9 +16,9 @@ namespace UWDataImport.UWData
 	///
 	/// Found 2026-10-11: a silver tree planted here and saved stood still in the original, one
 	/// planted there and saved animated here and there - our save copied the block unchanged.
-	/// Our renderer animates every class-7 object from the table and does not read this list;
-	/// it is carried for the file's sake, so a save of ours behaves in the original like one of
-	/// its own.
+	/// Since 2026-10-17 the renderer honours the list too (GetFate): a blood splash saved within a
+	/// second of a blow animated for ever here, while the original played it out once and took it
+	/// away (per user, SAVE4 L1 46/55).
 	/// </summary>
 	public sealed class UWAnimationOverlay
 	{
@@ -30,6 +30,54 @@ namespace UWDataImport.UWData
 
 		/// <summary>The length that never runs out.</summary>
 		public const int Forever = -1;
+
+		/// <summary>animclassd flag 0x20 (ANIMF_REMOVE): toast_animobj takes the object off the
+		/// map when its length runs out; without it the object stays, no longer animated.</summary>
+		public const int RemoveAtEndFlag = 0x20;
+
+		/// <summary>What becomes of a class-7 object of the level as loaded.</summary>
+		public enum Fate
+		{
+			/// <summary>Listed with length -1, or not the level's own object: animates for ever.</summary>
+			Forever,
+
+			/// <summary>Listed with frames left: plays them, then goes (RemoveAtEndFlag).</summary>
+			ExpiresAndGoes,
+
+			/// <summary>Listed with frames left, a class without RemoveAtEndFlag: plays them, then
+			/// stands still.</summary>
+			ExpiresAndStops,
+
+			/// <summary>Not listed: update_animobj never steps it, so it shows its owner field's
+			/// picture and nothing more.</summary>
+			StandsStill
+		}
+
+		/// <summary>
+		/// The fate of a class-7 object (EFFECT.C update_animobj, toast_animobj): only listed objects
+		/// animate, a finite length runs out. pbFromLevelData false - a view-only effect picture
+		/// with its own clock (UWLevelLoader.SpawnEffectAt) - and an unloaded list leave it
+		/// animating as before. piClassFlags is the class's animclassd flags byte.
+		/// </summary>
+		public Fate GetFate(UWObject pOObject, bool pbFromLevelData, int piClassFlags, out int piLengthTicks)
+		{
+			piLengthTicks = Forever;
+
+			if (!IsLoaded || !pbFromLevelData || pOObject == null)
+				return Fate.Forever;
+
+			Entry lOEntry = Find(pOObject);
+
+			if (lOEntry == null)
+				return Fate.StandsStill;
+
+			if (lOEntry.Length < 0)
+				return Fate.Forever;
+
+			piLengthTicks = lOEntry.Length;
+
+			return (piClassFlags & RemoveAtEndFlag) != 0 ? Fate.ExpiresAndGoes : Fate.ExpiresAndStops;
+		}
 
 		public sealed class Entry
 		{

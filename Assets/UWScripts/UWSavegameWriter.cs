@@ -168,7 +168,7 @@ public static class UWSavegameWriter
         for (int liAt = 0; liAt < lbRunes.Length && pOData.InitialPlayer != null; liAt++)
             lbRunes[liAt] = pOData.InitialPlayer.HasRune((UWPlayerData.Rune)liAt);
 
-        return new UWPlayerData.SavedState
+        UWPlayerData.SavedState lOState = new UWPlayerData.SavedState
         {
             MoonstoneLevel = UWGameFlags.MoonstoneLevel,
             SilverTreeLevel = UWGameFlags.SilverTreeLevel,
@@ -223,5 +223,11 @@ public static class UWSavegameWriter
             Equipment = lOInventory != null ? lOInventory.GetSavegameEquipment() : null,
             Backpack = lOInventory != null ? (UWObject[])lOInventory.Backpack.Clone() : null
         };
+
+        // The kin alarm goes with the save, as set_creatures_to_saved_game does it (since
+        // 2026-10-17, audit round 2 C7).
+        UWGameSession.Current.CritterAlarm.SaveInto(lOState, UWScene.CritterClock.Clock, lOCharacter.ClockValue);
+
+        return lOState;
     }
 }

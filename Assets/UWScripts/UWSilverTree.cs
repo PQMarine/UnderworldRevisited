@@ -56,7 +56,14 @@ public static class UWSilverTree
         // the animation started on it (the frame in the owner field, UWLevelLoader.fBuildObject).
         // The quantity is named here so that the saved tree stays what SAVE3 showed whatever
         // COMOBJ says.
+        // can_place for the tree at the spot in eighths, at the tile's floor, not a flier,
+        // range 0 (plant_seed, SKILLS.C) - furniture, boulders, creatures and the player count.
+        UWTile lOGround = pOLoader.CurrentLevel.GetTile(lOTile.X, lOTile.Y);
+        int liX8 = (lOTile.X << 3) + UWTileQueries.WorldToEighthFloor(lOSpot.x);
+        int liY8 = (lOTile.Y << 3) + UWTileQueries.WorldToEighthFloor(lOSpot.z);
+
         if (!UWSilverTreeRules.CanTakeRoot(pOLoader.CurrentLevel, lOTile)
+            || !pOLoader.ObjectFitsAt(TreeObjectId, liX8, liY8, UWSilverTreeRules.PlantZ(lOGround), false, 0)
             || !pOLoader.SpawnObjectById(TreeObjectId, lOTile.X, lOTile.Y, 1, UWObjectFactory.DefaultQuality,
                 new Vector3(lOSpot.x, pOLoader.GetFloorHeightAt(lOSpot), lOSpot.z),
                 pOTree => { pOTree.DoorDirection = true; }))

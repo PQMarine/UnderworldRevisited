@@ -117,13 +117,31 @@ namespace UWDataImport.UWData
 			// no article, so nothing may be cut off.
 			if (liCount > 1)
 			{
+				// The words before the name went into the SINGULAR part above (after the article),
+				// so the plural is built from the bare name and the words go between the count and
+				// it, in the same order: LookAt (UnderworldExhumed obj/LOOK.C) writes the count, the
+				// quality word, then the modifiers, then the plural - "5 day old ears of corn" (per
+				// user on the original 2026-10-17; ours dropped the word for every stack).
+				string lsBare = UWText.RawObjectName(pOData, pOItem.ID);
+
 				// If the plural form is missing entirely, the article is still on the left - it must go then,
 				// otherwise "2 a dagger" would come out.
-				string lsPlural = lsRaw != null && lsRaw.Contains("&")
-					? UWObjectDescriptionFormatter.FormatItemName(lsRaw, true)
-					: UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, false);
+				string lsPlural = lsBare != null && lsBare.Contains("&")
+					? UWObjectDescriptionFormatter.FormatItemName(lsBare, true)
+					: UWObjectDescriptionFormatter.FormatBareItemName(lsBare, false);
 
-				lsName = liCount + " " + lsPlural;
+				System.Text.StringBuilder lOWords = new System.Text.StringBuilder();
+
+				if (!string.IsNullOrEmpty(lsCondition))
+					lOWords.Append(lsCondition).Append(' ');
+
+				if (liLore == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed)
+					lOWords.Append("cursed ");
+
+				if (liLore == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier)
+					lOWords.Append("magical ");
+
+				lsName = liCount + " " + lOWords + lsPlural;
 			}
 
 			lsName += EnchantmentSuffix(lOEnchantment, liLore);

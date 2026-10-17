@@ -124,9 +124,10 @@ namespace UWDataImport.UWData
 		/// Kept with the session so a new game starts with an empty cache, as phase 1 decided (B21).</summary>
 		public UWObjectLightColour.Cache LightColours { get; } = new UWObjectLightColour.Cache();
 
-		/// <summary>A fresh clock and alarm for a newly built level - so nothing of the old level
-		/// survives a level change or loading a save game (per user, 2026-09-12: a rat attacked at
-		/// once after loading because the alarm was still fresh).</summary>
+		/// <summary>A fresh clock and alarm for a newly built level, as init_level_creature_stuff
+		/// clears crithit and typehit on entering one. Loading a save then brings the save's alarm
+		/// back (UWCritterAlarm.RestoreFrom, since 2026-10-17); before, the reset also covered
+		/// loading, after a rat attacked at once on 2026-09-12 - which the original does as well.</summary>
 		public void ResetCritterServices()
 		{
 			CritterClock = new UWCritterClock();

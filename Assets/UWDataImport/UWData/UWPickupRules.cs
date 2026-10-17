@@ -69,13 +69,16 @@ namespace UWDataImport.UWData
 		/// player_3dget does), the weight of what is taken (piCount pieces of a stack, 0 or the
 		/// whole count for all of it; a container with its contents).
 		/// </summary>
-		public static Result Check(UWObject pOItem, int piCount, bool pbReachOk, UWInventoryModel pOInventory)
+		/// piReachRefusal: what a failed reach says - out of range "That is too far away to take.",
+		/// blocked by the terrain between "You cannot reach that." (player_3dget, inrange + 0x5D).
+		public static Result Check(UWObject pOItem, int piCount, bool pbReachOk, UWInventoryModel pOInventory,
+			int piReachRefusal = UWReachRules.TooFarToTakeMessage)
 		{
 			if (pOItem == null || UWObjectIds.IsCreature(pOItem.ID))
 				return new Result(Outcome.NotPickable, -1);
 
 			if (!pbReachOk)
-				return new Result(Outcome.TooFar, UWReachRules.TooFarToTakeMessage);
+				return new Result(Outcome.TooFar, piReachRefusal);
 
 			if (pOInventory != null && !pOInventory.CanCarry(pOItem, piCount))
 				return new Result(Outcome.TooHeavy, UWStringIds.TooHeavyToPickUpMessage);

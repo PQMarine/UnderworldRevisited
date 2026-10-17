@@ -547,6 +547,10 @@ namespace UWDataImport.UWData
 			lOItem.XPos = 3;
 			lOItem.YPos = 3;
 
+			// SET_Z to the tile's floor (place_object, BABLHACK.C): an inventory item's own height
+			// must not lift it, the host places at this spot and never below the floor.
+			lOItem.ZPos = 0;
+
 			return mIHost.SpawnObjectInTile(lOItem, piTileX, piTileY) ? 1 : 0;
 		}
 
@@ -1535,15 +1539,18 @@ namespace UWDataImport.UWData
 					liValue = (short)(liValue * 3) >> 1;
 			}
 
-			// The products in 16 bits, as ovr095_16B1 multiplies (IMUL into AX alone) - with the
-			// raw count, so a field of 0 makes the value 0 (UWStackRules.Count).
+			// The products in 16 bits, as ovr095_16B1 multiplies - with the raw count, so a field of
+			// 0 makes the value 0 (UWStackRules.Count). UNSIGNED, as the original plays: per user on
+			// the original 2026-10-17, Shak (who likes coins: 4 each) takes 250 coins for his plate
+			// gauntlets every time; 1000 * quality 40 = 40000 wraps to a negative signed word, and
+			// ours, taking it signed, valued the whole pile at 1 and refused. 40000 / 64 = 625.
 			if (UWStackRules.IsStackable(pOItem))
-				liValue = (short)(liValue * pOItem.Quantity);
+				liValue = (ushort)(liValue * pOItem.Quantity);
 
 			int liQuality = pOItem.Quality & UWObjectMechanics.MaxQuality;
 
 			if (liValue > 0)
-				liValue = liQuality > 0 ? Math.Max(1, (short)(liValue * liQuality) >> 6) : 0;
+				liValue = liQuality > 0 ? Math.Max(1, (ushort)(liValue * liQuality) >> 6) : 0;
 
 			return new UWOriginalRandom(fObjectNumber(pOItem)).Noise(liValue, -piAccuracy, piAccuracy);
 		}

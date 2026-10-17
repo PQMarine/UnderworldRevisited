@@ -303,7 +303,11 @@ public class UWConversationScreen : MonoBehaviour
 
     private bool mbClosing;
 
-    private const float EndHoldSeconds = 2f;
+    /// <summary>Converse's scroll_wait(0x1F4) when the player spoke last (CONVERSE.C): ticks of the
+    /// game clock TICKS.ASM keeps at 256 a second (SCROLLIO.C scroll_wait, GAME_TIME), so 500 / 256,
+    /// just under two seconds. Ours took 2 s until 2026-10-17 (audit round 2 B5, settled from the
+    /// code; the 47 ms are not visible).</summary>
+    private const float EndHoldSeconds = 0x1F4 / 256f;
 
     private const float FadeSeconds = 1f;
 

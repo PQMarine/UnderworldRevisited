@@ -55,6 +55,19 @@ public class UWAnimatedBillboard : MonoBehaviour
             mOFilter.sharedMesh = mOFrames[liFrame];
     }
 
+    /// <summary>Stops the sequence on a picture of it (an object off the animation list, see
+    /// UWAnimationOverlay.Fate).</summary>
+    public void Freeze(int piFrame)
+    {
+        if (mOFrames != null && mOFrames.Length > 0 && mOFilter != null)
+        {
+            miFrame = Mathf.Clamp(piFrame, 0, mOFrames.Length - 1);
+            mOFilter.sharedMesh = mOFrames[miFrame];
+        }
+
+        enabled = false;
+    }
+
     private void Update()
     {
         if (mOFilter == null || mOFrames == null || mOFrames.Length < 2 || FramesPerSecond <= 0f)

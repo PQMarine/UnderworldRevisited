@@ -18,6 +18,11 @@ a bit that turns the stack into something else - 300 and 250 arrows become a sin
 same limit holds where a trade joins piles: a drop on the player's trade slot, the coins paid to
 a partner, and an item a conversation creates.
 
+**Nothing in the rules depends on the frame rate.** Some of the original's rules run once per
+drawn frame, so they run faster on a faster machine: standing on lava rolls for a point of fire
+damage at 1 in 5 every frame. Ours rolls at a fixed rate, 32 times a second, about what the
+original reaches in DOSBox (10 seconds on lava took about 70 of 78 hit points in both).
+
 **Attribute points can be dealt by hand at character creation.** An option in the Game menu,
 off by default: instead of rolling, the player distributes the class's bonus points. For those
 who do not want their character to depend on luck.
@@ -92,10 +97,6 @@ a short cutscene in the view window in the original; ours shows its first pictur
 
 **Far objects are drawn fine, not coarse.** In the original a far sprite looks blocky; a flying
 fireball grows from a single pixel to a block to its picture.
-
-**Every animated object animates.** The original animates only the objects on a level's
-animation list. Ours keeps that list and saves it, so a save behaves the same in the original,
-but draws every animated object in motion.
 
 ## Bugs of the original that are kept
 

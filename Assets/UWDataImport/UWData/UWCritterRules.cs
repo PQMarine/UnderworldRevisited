@@ -475,6 +475,20 @@ namespace UWDataImport.UWData
 		/// <summary>The body is removed at frame 3 of animation 0x0C (53030-53090).</summary>
 		public const int DeathRemovalFrame = 3;
 
+		/// <summary>
+		/// Goals 3 (follow) and 11 (flutter) go to critter_mv BEFORE the dying test (critter_ai,
+		/// AI.C:1133-1135): the animation machine with its frame-3 branch never runs for them.
+		/// So such a creature that dies never finishes dying - it keeps moving with hp 0 and the
+		/// death pictures in a loop, leaves no loot or remains and stays in the level; blows still
+		/// land on it, and crit_die does nothing more (per user in the original 2026-10-17, audit
+		/// round 2 B11: a goblin with goal 11 walked on dying, could be hit, nothing else came).
+		/// In the data only level 9 has such creatures (the void's flutterers, the Slasher).
+		/// </summary>
+		public static bool SkipsAnimationMachine(int piGoal)
+		{
+			return piGoal == 3 || piGoal == 11;
+		}
+
 		// ------------------------------------------------- Drowning (section 7, deviation 43)
 
 		/// <summary>The terrain and footing bits of the tile state the land creature's motion

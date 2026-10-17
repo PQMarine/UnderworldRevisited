@@ -1004,7 +1004,10 @@ namespace UnderworldRevisited.Build
             fSetPainterPlace(lOObject.GetComponent<MeshRenderer>(), pOObject.ID);
 
             if (lOAnimation != null && lOAnimation.Length > 1)
+            {
                 fAttachAnimation(lOObject, lOFilter, lOAnimation);
+                fApplyAnimationFate(lOObject, pOObject);
+            }
 
             BoxCollider lOCollider = lOObject.AddComponent<BoxCollider>();
 
@@ -1236,6 +1239,41 @@ namespace UnderworldRevisited.Build
             }
 
             return lOFrames.Count > 0 ? lOFrames.ToArray() : null;
+        }
+
+        /// <summary>
+        /// The level's animation list decides whether the sequence runs (UWAnimationOverlay.GetFate,
+        /// since 2026-10-17): an object of the level that the list does not hold shows its owner
+        /// field's picture still, one with frames left plays them and then goes (UWAnimationExpiry)
+        /// or stops. A view-only effect is no object of the level and keeps its own clock.
+        /// </summary>
+        private void fApplyAnimationFate(GameObject pOGameObject, UWObject pOObject)
+        {
+            UWLevel lOLevel = mOLevelLoader != null ? mOLevelLoader.CurrentLevel : null;
+            UWAnimatedBillboard lOAnimated = pOGameObject.GetComponent<UWAnimatedBillboard>();
+
+            if (lOLevel == null || lOLevel.Animations == null || lOAnimated == null || mOData == null
+                || mOData.ObjectClassProperties == null
+                || !mOData.ObjectClassProperties.TryGetAnimationObject(pOObject.ID, out UWObjectClassProperties.AnimationObject lOClass))
+                return;
+
+            bool lbOfTheLevel = lOLevel.Masterlist != null && lOLevel.Masterlist.Contains(pOObject);
+
+            UWAnimationOverlay.Fate lOFate = lOLevel.Animations.GetFate(pOObject, lbOfTheLevel, lOClass.Flags, out int liLength);
+
+            switch (lOFate)
+            {
+                case UWAnimationOverlay.Fate.StandsStill:
+                    // The owner field holds the picture's number in ANIMO.GR (add_animobj, do_animobj).
+                    lOAnimated.Freeze(pOObject.Owner - lOClass.StartFrame);
+                    break;
+
+                case UWAnimationOverlay.Fate.ExpiresAndGoes:
+                case UWAnimationOverlay.Fate.ExpiresAndStops:
+                    pOGameObject.AddComponent<UWAnimationExpiry>().Initialise(mOLevelLoader, pOObject,
+                        UWExplosionRules.LengthToSeconds(liLength), lOFate == UWAnimationOverlay.Fate.ExpiresAndGoes);
+                    break;
+            }
         }
 
         /// <summary>

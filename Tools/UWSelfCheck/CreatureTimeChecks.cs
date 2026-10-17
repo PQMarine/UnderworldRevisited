@@ -232,6 +232,128 @@ namespace UnderworldRevisited.Tools
             fExpectBool("no attacker: it can still die", lOHost.HasEvent("death"), true);
         }
 
+        /// <summary>critter_ai (AI.C:1133-1135): goals 3 and 11 skip the animation machine, so a
+        /// flutterer that dies never reaches frame 3 - no removal, however long it runs; a further
+        /// blow starts no second death (2026-10-17, audit round 2 B11, per user in the original).
+        /// A goal-8 creature beside it finishes as before.</summary>
+        private static void fCheckEndlessDying()
+        {
+            Check.Group("Endless dying of goals 3 and 11 (AI.C critter_ai)");
+
+            fExpectBool("goal 3 skips the animation machine", UWCritterRules.SkipsAnimationMachine(3), true);
+            fExpectBool("goal 11 too", UWCritterRules.SkipsAnimationMachine(11), true);
+            fExpectBool("goal 8 does not", UWCritterRules.SkipsAnimationMachine(8), false);
+
+            foreach (int liGoal in new[] { 11, 8 })
+            {
+                FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
+                UWCritterRecord lORecord = fMakeRecord(5, 5, liGoal, 2, -1, -1, 3);
+                UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+
+                lOHost.PlacePlayer((9 << 3) + 4, (9 << 3) + 4);
+                lOBrain.OnDamaged(lOHost, 0, 10);
+
+                bool lbRemoved = false;
+
+                for (int liAt = 0; liAt < 20 && !lbRemoved; liAt++)
+                    lbRemoved = lOBrain.Update(lOHost).Removed;
+
+                string lsWho = "goal " + liGoal;
+
+                fExpectInt(lsWho + ": dying with 0 hit points", lORecord.HitPoints, 0);
+                fExpectBool(lsWho + ": removed within 20 updates", lbRemoved, liGoal == 8);
+
+                if (liGoal != 11)
+                    continue;
+
+                fExpectInt(lsWho + ": still the death animation", lORecord.Animation, UWCritterBrain.AnimDying);
+                fExpectInt(lsWho + ": goal unchanged", lORecord.Goal, 11);
+
+                lOHost.Events.Clear();
+                lOBrain.OnDamaged(lOHost, 0, 5);
+                fExpectBool(lsWho + ": a further blow starts no second death", lOHost.HasEvent("death"), false);
+            }
+        }
+
+        /// <summary>CRITTIME.C set_creatures_to/from_saved_game (2026-10-17, audit round 2 C7):
+        /// the kin alarm goes into PLAYER.DAT 0xBA-0xC1 with its time as a game clock value and
+        /// comes back on loading as old as it was, against a critter clock that restarted at 0.</summary>
+        private static void fCheckKinAlarmSaved()
+        {
+            Check.Group("Kin alarm in the save (CRITTIME.C set_creatures_to/from_saved_game)");
+
+            string lsFolder = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+                "UWSelfCheck-alarm-" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(lsFolder);
+
+                byte[] lyPlain = UWPlayerData.BuildNewCharacter(new UWPlayerData.NewCharacter { Name = "Selfcheck" });
+
+                fExpectInt("fresh character: no victim", UWPlayerData.FromPlain(lyPlain).AlarmIndex, 0);
+                fExpectInt("fresh character: kind 0xFF", UWPlayerData.FromPlain(lyPlain).AlarmKind, UWCritterAlarm.NoKind);
+
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(lsFolder, "PLAYER.DAT"), UWPlayerData.Encrypt(lyPlain, 0x2A));
+
+                // The blow 0x80 ticks before saving, on a critter clock at 5000 and a game clock at 90000.
+                UWCritterAlarm lOAlarm = new UWCritterAlarm();
+
+                lOAlarm.Record(37, 4, 12, 50, 2, 5000 - 0x80);
+
+                UWPlayerData.SavedState lOState = new UWPlayerData.SavedState { ClockValue = 90000 };
+
+                lOAlarm.SaveInto(lOState, 5000, 90000);
+
+                string lsError = UWPlayerData.WritePosition(lsFolder, 1, 32 << 8, 2 << 8, 96 * 8, 0, lOState);
+
+                fExpectBool("the writer accepts the scratch save", lsError == null, true);
+
+                UWPlayerData lOLoaded = new UWPlayerData(lsFolder);
+
+                fExpectInt("0xBA: the victim", lOLoaded.AlarmIndex, 37);
+                fExpectInt("0xBB: its kind", lOLoaded.AlarmKind, 4);
+                fExpectInt("0xBC: the game clock at the blow", (int)lOLoaded.AlarmTime, 90000 - 0x80);
+                fExpectInt("0xC0: the tile x", lOLoaded.AlarmTileX, 12);
+                fExpectInt("0xC1: the tile y", lOLoaded.AlarmTileY, 50);
+
+                // Loaded on a fresh critter clock: the same age, so fresh for 0x180 more ticks.
+                UWCritterAlarm lORestored = new UWCritterAlarm();
+
+                lORestored.RestoreFrom(lOLoaded, 0, 3);
+
+                fExpectInt("restored: the victim", lORestored.Index, 37);
+                fExpectInt("restored: the floor level from the caller", lORestored.FloorLevel, 3);
+                fExpectBool("restored: fresh right after loading", lORestored.IsFresh(0), true);
+                fExpectBool("restored: fresh up to the window's end", lORestored.IsFresh(0x180), true);
+                fExpectBool("restored: stale after it", lORestored.IsFresh(0x181), false);
+
+                // A level change before saving: victim and kind cleared, time and tile left.
+                UWPlayerData.SavedState lOCleared = new UWPlayerData.SavedState { ClockValue = 95000 };
+
+                new UWCritterAlarm().SaveInto(lOCleared, 0, 95000);
+                UWPlayerData.WritePosition(lsFolder, 1, 32 << 8, 2 << 8, 96 * 8, 0, lOCleared);
+                lOLoaded = new UWPlayerData(lsFolder);
+
+                fExpectInt("level change: no victim", lOLoaded.AlarmIndex, 0);
+                fExpectInt("level change: kind 0xFF", lOLoaded.AlarmKind, UWCritterAlarm.NoKind);
+                fExpectInt("level change: the stale time stays", (int)lOLoaded.AlarmTime, 90000 - 0x80);
+
+                lORestored.RestoreFrom(lOLoaded, 0, 3);
+                fExpectBool("level change: nothing restored", lORestored.IsFresh(0), false);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(lsFolder, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
         /// <summary>A creature with stats, not a loner, below whose post an open tile with no
         /// other creature lies, and an open tile next to the post to push it to.</summary>
         private static bool fFindMovableCreature(UWTileQueries pOQueries, out UWNpc pONpc, out UWTilePos pOAway,

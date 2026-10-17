@@ -128,13 +128,12 @@ public static class UWScene
     public static UWDataImport.UWData.UWCritterClock CritterClock => UWDataImport.UWData.UWGameSession.Current.CritterClock;
 
     /// <summary>The kin alarm of the level (UWCritterBrain.OnDamaged writes it, every hostile
-    /// creature reads it). The original saves it with the game (PLAYER.DAT 0xBA-0xC1); the
-    /// port starts it fresh with every level build. The session's since 2026-10-14.</summary>
+    /// creature reads it). Fresh with every level build; the original saves it with the game
+    /// (PLAYER.DAT 0xBA-0xC1) and so do we since 2026-10-17. The session's since 2026-10-14.</summary>
     public static UWDataImport.UWData.UWCritterAlarm CritterAlarm => UWDataImport.UWData.UWGameSession.Current.CritterAlarm;
 
-    /// <summary>A fresh clock and alarm for a newly built level - so nothing of the old level
-    /// survives loading a savegame (per user, 2026-09-12: a rat attacked at once after
-    /// loading because the alarm was still fresh).</summary>
+    /// <summary>A fresh clock and alarm for a newly built level (UWGameSession.ResetCritterServices);
+    /// a loaded save brings its alarm back afterwards.</summary>
     public static void ResetCritterServices()
     {
         UWDataImport.UWData.UWGameSession.Current.ResetCritterServices();
