@@ -10,6 +10,8 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-17
+
 ### Closer to the original
 
 Magic
@@ -193,7 +195,7 @@ Containers and objects
 
 Traps
 - A floor that a lever, a trap or the bullfrog raises or lowers carries the things lying on it
-  instead of leaving them in the air or in the floor.
+  and the creatures standing on it, instead of leaving them in the air or in the floor.
 - The pit trap on level 3 no longer opens a hole in the wall; in UW1 it does nothing.
 - A Rune of Warding goes off once and is then gone. Casting it says "The Rune of Warding is
   placed.", even facing a wall, and a monster wandering up while the player sleeps does not set

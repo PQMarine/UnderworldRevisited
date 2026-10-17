@@ -1995,9 +1995,11 @@ namespace UWDataImport.UWData
 		/// Until 2026-10-13 ours changed the floor alone, and what lay there floated or sank into it
 		/// (reference audit, finding of the fix agents; per user the same for the levers of level 1).
 		///
-		/// THE CREATURES AND THE PLAYER follow the floor through their own motion (the original sets
-		/// their z here too); ours keeps no creature in the tile lists it walks from (UWTileBlast), so
-		/// this covers the things that lie still.
+		/// THE CREATURES go with the floor by the same rule: change_terrain walks the tile's list,
+		/// creatures included, and sets their z (per user on the original 2026-10-15: a troll on a
+		/// lowered bullfrog tile went down at once; ours waited until it moved, because our creatures
+		/// live in their records, not in the tile lists - IUWTrapHost.MoveCreaturesWithFloor). THE
+		/// PLAYER follows through his own motion (the original updates his physics here too).
 		/// </summary>
 		public static void SetTileHeight(UWTile pOTile, int piHeight, IUWTrapHost pIHost)
 		{
@@ -2008,11 +2010,17 @@ namespace UWDataImport.UWData
 
 			pOTile.FloorHeight = (ushort)(piHeight << 4);
 
-			if (piHeight == liOld || pOTile.ObjectsInTile == null)
+			if (piHeight == liOld)
 				return;
 
 			int liNewZ = piHeight << 3;
 			int liOldZ = liOld << 3;
+
+			if (pIHost != null)
+				pIHost.MoveCreaturesWithFloor(pOTile.X, pOTile.Z, liOldZ, liNewZ);
+
+			if (pOTile.ObjectsInTile == null)
+				return;
 
 			foreach (UWObject lOObject in pOTile.ObjectsInTile)
 			{

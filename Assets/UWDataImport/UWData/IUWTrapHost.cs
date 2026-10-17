@@ -46,6 +46,12 @@ namespace UWDataImport.UWData
 		/// picture follows, by the difference to piOldZPos.</summary>
 		void OnObjectHeightChanged(UWObject pOObject, int piOldZPos);
 
+		/// <summary>The creatures on a tile whose height changed go with the floor by
+		/// change_terrain's rule (UWTrapRules.SetTileHeight): on a rising tile those below the new
+		/// floor are lifted onto it, on a sinking tile those standing on the old floor go down.
+		/// Ours keeps the creatures in their live records, not in the tile list.</summary>
+		void MoveCreaturesWithFloor(int piTileX, int piTileY, int piOldZPos, int piNewZPos);
+
 		/// <summary>Objects inside a tile that was solid until now are drawn late.</summary>
 		void SpawnPendingObjectsInTile(int piTileX, int piTileY);
 

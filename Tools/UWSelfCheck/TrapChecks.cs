@@ -786,6 +786,8 @@ namespace UnderworldRevisited.Tools
 
             public void OnObjectHeightChanged(UWObject pOObject, int piOldZPos) { HeightMoves++; }
 
+            public void MoveCreaturesWithFloor(int piTileX, int piTileY, int piOldZPos, int piNewZPos) { }
+
             public int HeightMoves;
 
             public void SpawnPendingObjectsInTile(int piTileX, int piTileY) { }

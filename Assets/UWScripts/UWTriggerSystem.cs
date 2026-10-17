@@ -446,6 +446,27 @@ public static class UWTriggerSystem
                 lOEntity.transform.position += Vector3.up * (UWUnits.ZPosToWorld(pOObject.ZPos) - UWUnits.ZPosToWorld(piOldZPos));
         }
 
+        public void MoveCreaturesWithFloor(int piTileX, int piTileY, int piOldZPos, int piNewZPos)
+        {
+            foreach (UWCritter lOCritter in UWCritter.Active)
+            {
+                UWCritterRecord lORecord = lOCritter != null ? lOCritter.Record : null;
+
+                if (lORecord == null || lORecord.TileX != piTileX || lORecord.TileY != piTileY)
+                    continue;
+
+                bool lbMoves = piNewZPos > piOldZPos ? lORecord.ZPos < piNewZPos : lORecord.ZPos == piOldZPos;
+
+                if (!lbMoves)
+                    continue;
+
+                int liWas = lORecord.ZPos;
+
+                lORecord.ZPos = piNewZPos;
+                lOCritter.transform.position += Vector3.up * (UWUnits.ZPosToWorld(piNewZPos) - UWUnits.ZPosToWorld(liWas));
+            }
+        }
+
         public void SpawnPendingObjectsInTile(int piTileX, int piTileY)
         {
             if (mOLoader != null)
