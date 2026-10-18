@@ -22,7 +22,7 @@ using UnderworldRevisited.Build;
 /// rounding of the original, which works on the eighth grid.
 ///
 /// In flight a thrown item moves as an object of UW.EXE - bouncing, sliding, hopping off
-/// objects, pushing creatures, breaking - on the motion core, see UWProjectileWorld.
+/// objects, pushing creatures, breaking - on the motion core, see UWMotionHost and UWMissiles.
 /// </summary>
 public static class UWPlayerThrow
 {
@@ -56,12 +56,6 @@ public static class UWPlayerThrow
     /// <summary>The ammunition type UW.EXE gives every thrown item (seg025_3B3) - it is the
     /// momentum factor, see ThrowSpeed.</summary>
     private const int ThrownAmmoType = 0xF;
-
-    /// <summary>Missile objects - major class 0, minor class 1 - are the only ones that hurt
-    /// what they hit (UWProjectileFlight.StrikeCreature).</summary>
-    private const int FirstMissileObjectId = 0x10;
-
-    private const int LastMissileObjectId = 0x1F;
 
     /// <summary>The player's object number while playing, see UWObjectMechanics.AdventurerObjectId
     /// - with the saved 63 the start height branch of PrepareProjectileObject would be skipped and
@@ -191,7 +185,7 @@ public static class UWPlayerThrow
     /// <summary>
     /// The throw. Returns false if the start point in front of the player is blocked - then
     /// UW.EXE drops the item instead. The item is a mobile record on the motion core since
-    /// 2026-10-05 (UWProjectileWorld.LaunchFromPlayer): it flies at the ammunition type 0x0F,
+    /// 2026-10-05 (UWMissiles.LaunchFromPlayer): it flies at the ammunition type 0x0F,
     /// its life the item's quality, and lies where it comes to rest with everything it carries.
     /// </summary>
     private static bool fTryThrow(UWObject pOItem, int piX, int piY, Transform pOCamera,
@@ -202,14 +196,16 @@ public static class UWPlayerThrow
 
         GetMissileAim(piX, piY, pOCamera, out int liHeading, out int liMissilePitch);
 
-        bool lbMissile = pOItem.ID >= FirstMissileObjectId && pOItem.ID <= LastMissileObjectId;
+        // Missile objects - major class 0, minor class 1 - are the only ones that hurt what they
+        // hit (UWMissileHitRules.HurtsWhatItHits, one rule with the hit since 2026-10-17).
+        bool lbMissile = UWMissileHitRules.HurtsWhatItHits(pOItem.ID);
 
         // A thrown class 1 object hits with its own table type, -ammo (missile_newhit); only
         // ammunition is skill-scaled and of type 0x40 (2026-10-12, see
         // UWPlayerAttack.GetThrownMissileDamage).
         bool lbTyped = lbMissile && pOInteraction != null;
 
-        return UWProjectileWorld.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
+        return UWMissiles.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
             ThrownAmmoType, lbTyped ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
             lbTyped ? pOInteraction.GetThrownMissileDamageType(pOItem.ID) : UWDamageTypes.Missile, -1, pOInteraction,
             pOItem.Quality) != null;

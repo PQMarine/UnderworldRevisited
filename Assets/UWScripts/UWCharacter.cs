@@ -179,7 +179,28 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// </summary>
     private UWPlayerVitals mOVitals;
 
-    private UWPlayerVitals fVitals => mOVitals ?? (mOVitals = new UWPlayerVitals(this));
+    private UWPlayerVitals fVitals => mOVitals ?? (mOVitals = fCreateVitals());
+
+    /// <summary>The vitals with this character listening to everything they tell: the callbacks
+    /// of IUWVitalsHost until cleanup step 3.6 (2026-10-17), events on UWPlayerVitals since, each
+    /// going to the method that implemented the callback.</summary>
+    private UWPlayerVitals fCreateVitals()
+    {
+        UWPlayerVitals lOVitals = new UWPlayerVitals(this);
+
+        lOVitals.VitalsChanged += OnVitalsChanged;
+        lOVitals.DamageRecorded += OnDamageRecorded;
+        lOVitals.CombatShakeDue += ShakeOnDamage;
+        lOVitals.UnsteadyShakeDue += ShakeUnsteady;
+        lOVitals.MessageDue += AddMessage;
+        lOVitals.KillRewarded += OnKillRewarded;
+        lOVitals.StatusPassDue += OnStatusPassDue;
+        lOVitals.FiveMinuteBlockDue += OnFiveMinuteBlock;
+        lOVitals.IdentificationReset += ResetIdentification;
+        lOVitals.ActiveSpellsChanged += OnActiveSpellsChanged;
+
+        return lOVitals;
+    }
 
     public float MaxHP => fVitals.MaxHP;
 
@@ -327,11 +348,13 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>A curse or a backfire struck: the view flashes 0xA8.</summary>
     public void OnCurseStruck()
     {
-        UWGameUI lOUi = UWScene.GameUi;
-
-        if (lOUi != null)
-            lOUi.FlashWindowColour(CurseFlashColour, CurseFlashSeconds);
+        fPresentation.FlashWindow(CurseFlashColour, CurseFlashSeconds);
     }
+
+    /// <summary>What the vitals show and say (cleanup step 3.1, 2026-10-17): the lines go to this
+    /// character's Interaction, or nowhere without one, as AddMessage did; the curse flash and the
+    /// unsteady shake go through it too.</summary>
+    private IUWPresentation fPresentation => UWPresentation.For(UWScene.World, mInteraction);
 
     /// <summary>For maze navigation, which recolours the level geometry.</summary>
     private UWLevelLoader mOLevelLoaderForStatus;
@@ -355,7 +378,10 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         UWArmourProtection.ResistBlowsAddsArmour = UnderworldRevisited.UWSettings.Instance != null
             && UnderworldRevisited.UWSettings.Instance.ResistBlowsAddsArmour;
 
-        UWArmourProtection.Compute(mOInventory, mOUWData, fVitals.ActiveSpells, mOStatus);
+        // The engine-free model is the authority on what is worn (IUWEquipment, which the
+        // inventory implemented by forwarding to it, is gone since cleanup step 3.6, 2026-10-17).
+        UWArmourProtection.Compute(mOInventory != null ? mOInventory.Model : null, mOUWData, fVitals.ActiveSpells,
+            mOStatus);
 
         // The stealth bits go straight on to the noise and visibility, as the original's
         // status pass lowers its two bytes (ApplyDefenceStealthBonuses_ovr133_65D).
@@ -386,7 +412,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>A status pass of the original is due - see fRunStatusPass.</summary>
     private bool mbStatusPassDue;
 
-    /// <summary>IUWVitalsHost: a spell began or ended, the mushroom, sleep, a mantra - the
+    /// <summary>The vitals' StatusPassDue: a spell began or ended, the mushroom, sleep, a mantra - the
     /// original runs FixPlayerEquips now.</summary>
     public void OnStatusPassDue()
     {
@@ -504,7 +530,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         return fVitals.TryIncreaseSkill(piSkillNumber);
     }
 
-    /// <summary>IUWVitalsHost: better Lore makes the world unidentified again.</summary>
+    /// <summary>The vitals' IdentificationReset: better Lore makes the world unidentified again.</summary>
     public void ResetIdentification()
     {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
@@ -516,7 +542,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             lOLoader.UWDataImporter.CommonObjectProperties);
     }
 
-    /// <summary>IUWVitalsHost: the level's share of the five-minute block, in duration_check's
+    /// <summary>The vitals' FiveMinuteBlockDue: the level's share of the five-minute block, in duration_check's
     /// order - the wandering monsters' one-in-four roll (DoWanderingMonsters(1), the respawner
     /// with its distance test), then the creatures' checkup (UWLevelExit.YearlyCheckup,
     /// yearly_checkup).</summary>
@@ -528,12 +554,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             return;
 
         if (UWRespawnRules.RollOpportunity())
-        {
-            UWCreatureRespawner lORespawner = lOLoader.GetComponent<UWCreatureRespawner>();
-
-            if (lORespawner != null)
-                lORespawner.Run(false);
-        }
+            UWTriggerSystem.RespawnCreatures(lOLoader, false);
 
         UWLevelExit.YearlyCheckup(lOLoader.TileQueries);
     }
@@ -931,7 +952,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
     public float LastDamageTime { get; private set; } = -1f;
 
-    /// <summary>IUWVitalsHost: a hit or a curse was recorded - stamp the time.</summary>
+    /// <summary>The vitals' DamageRecorded: a hit or a curse was recorded - stamp the time.</summary>
     public void OnDamageRecorded()
     {
         LastDamageTime = Time.time;
@@ -960,29 +981,25 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         fVitals.ShakeForCombatHit(piDamageBeforeEasy, piDamageDone);
     }
 
-    /// <summary>IUWVitalsHost: a blow or a missile shakes the view.</summary>
+    /// <summary>The vitals' CombatShakeDue: a blow or a missile shakes the view.</summary>
     public void ShakeOnDamage(int piLevel)
     {
         UWScreenShake.ShakeOnDamage(piLevel);
     }
 
-    /// <summary>IUWVitalsHost: a failed sip shakes the view.</summary>
+    /// <summary>The vitals' UnsteadyShakeDue: a failed sip shakes the view.</summary>
     public void ShakeUnsteady(int piDuration)
     {
-        UWScreenShake lOShake = UWScreenShake.Ensure();
-
-        if (lOShake != null)
-            lOShake.Shake(UWScreenShake.LargeChannel, piDuration);
+        fPresentation.ShakeScreen(piDuration);
     }
 
-    /// <summary>IUWVitalsHost: a message for the scroll (the level-up line).</summary>
+    /// <summary>The vitals' MessageDue: a message for the scroll (the level-up line).</summary>
     public void AddMessage(string psMessage)
     {
-        if (mInteraction != null)
-            mInteraction.AddMessage(psMessage);
+        fPresentation.AddMessage(psMessage);
     }
 
-    /// <summary>IUWVitalsHost: a creature was slain. A dragon nods (UW.EXE
+    /// <summary>The vitals' KillRewarded: a creature was slain. A dragon nods (UW.EXE
     /// AwardKillEXP_seg022_1725, before the fanfare); the victory fanfare only if a reward is
     /// due (reference: AwardXPKill).</summary>
     public void OnKillRewarded(bool pbRewarded)
@@ -1112,7 +1129,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     }
 
     /// <summary>
-    /// IUWVitalsHost: the set of active spells changed. Class 11 comes decoded; light,
+    /// The vitals' ActiveSpellsChanged: the set of active spells changed. Class 11 comes decoded; light,
     /// motion, armour and protection depend not only on spells but also on equipment, and
     /// the same status pass computes both.
     /// </summary>
@@ -1187,8 +1204,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         }
     }
 
-    /// <summary>IUWVitalsHost: the level the player is on, for the orb's mana rule.</summary>
-    public int DungeonLevelIndex => UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevelIndex : -1;
+    /// <summary>IUWVitalsHost: the level the player is on, for the orb's mana rule - 0-based, -1
+    /// without a world (the vitals' convention, UWWorldLevels).</summary>
+    public int DungeonLevelIndex => UWWorldLevels.IndexOr(UWScene.World, -1);
 
     /// <summary>
     /// IUWVitalsHost: the regeneration bits of the worn equipment, for the tick - a Ring of
@@ -1342,7 +1360,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>IUWVitalsHost: winding up a blow is loud (reference: CombatStages.Charging).</summary>
     public bool IsChargingAttack => meAttackStatus == AttackStatusEnum.PowerUp || meAttackStatus == AttackStatusEnum.PoweUpComplete;
 
-    /// <summary>IUWVitalsHost: health, mana or poison changed - the flasks show it. Before
+    /// <summary>The vitals' VitalsChanged: health, mana or poison changed - the flasks show it. Before
     /// Init has handed over the flask pictures there is nothing to draw yet.</summary>
     public void OnVitalsChanged()
     {

@@ -115,7 +115,13 @@ public class DebugFunctions : MonoBehaviour
         UWCritter lONearest = null;
         float lfNearest = float.MaxValue;
 
-        foreach (UWCritter lOCritter in Object.FindObjectsByType<UWCritter>(FindObjectsSortMode.None))
+        // The creatures from the world's search (cleanup step 3.2, 2026-10-17; before, a scene search).
+        List<UWCritter> lOCritters = new List<UWCritter>();
+
+        if (UWScene.World != null)
+            UWScene.World.FindCritters(UWTileArea.WholeLevel, UWCreatureFilter.Any, lOCritters);
+
+        foreach (UWCritter lOCritter in lOCritters)
         {
             if (lOCritter == null || lOCritter.Brain == null)
                 continue;

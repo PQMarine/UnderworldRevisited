@@ -28,6 +28,11 @@ using UWDataImport.UWData;
 ///
 /// Creatures are found by where they stand, because they walk and the tile lists are not kept
 /// up with them; everything else by the tile's object list.
+///
+/// THE BLOWS LAND THROUGH THE WORLD since cleanup step 3.3 (2026-10-17): the creatures, the doors
+/// and chests and the player each take a UWBlow.Blast through IUWWorld.Damage. The wear of the
+/// loose objects without hit points stays here - no other site wears them (a missile or a blow
+/// leaves a loose object alone).
 /// </summary>
 public static class UWTileBlast
 {
@@ -35,7 +40,7 @@ public static class UWTileBlast
     /// Strikes the tile.
     /// </summary>
     /// <param name="piAttacker">Whom the struck creatures should hold responsible: a creature's
-    /// index, UWCritterBrain.PlayerIndex, or -1 for nobody.</param>
+    /// index, UWCritterBrain.PlayerIndex, or UWBlow.NoBlastAttacker (-1) for nobody.</param>
     public static void Strike(UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount, int piDiceRange,
         int piDamageType, int piAttacker)
     {
@@ -48,18 +53,19 @@ public static class UWTileBlast
             return;
 
         HashSet<UWDamageable> lODone = new HashSet<UWDamageable>();
+        UWWorld lOWorld = UWWorld.Of(pOLoader);
 
         // WHAT LIES THERE NOW: a creature this blast kills drops its remains at once in ours,
         // while the original lets it die over its death animation first - they must not burn
         // in the same blast.
         UWObject[] lOLying = lOTile.ObjectsInTile != null ? lOTile.ObjectsInTile.ToArray() : new UWObject[0];
 
-        fStrikeCreatures(pOLoader, pOTile, lOTile, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
-        fStrikeObjects(pOLoader, pOTile, lOTile, lOLying, piDiceCount, piDiceRange, piDamageType, lODone);
-        fStrikePlayer(pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType);
+        fStrikeCreatures(lOWorld, pOLoader, pOTile, lOTile, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
+        fStrikeObjects(lOWorld, pOLoader, pOTile, lOTile, lOLying, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
+        fStrikePlayer(lOWorld, pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType, piAttacker);
     }
 
-    private static void fStrikeCreatures(UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
+    private static void fStrikeCreatures(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
         int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
     {
         Vector3 lOCentre = new Vector3(UWUnits.TileCentreToWorldAxis(pOTile.X), pOTileData.FloorHeight,
@@ -80,15 +86,15 @@ public static class UWTileBlast
             if (pOLoader.WorldPositionToTile(lODamageable.transform.position) != pOTile)
                 continue;
 
-            if (piAttacker >= 0 && piAttacker != lOCritter.Index)
-                lOCritter.AnnounceAttacker(piAttacker);
-
-            lODamageable.ApplyDamage(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType);
+            // The attacker is told unless there is none or it is the creature itself (UWBlow.Blast).
+            // The roll comes before the announcement now; the announcement draws nothing.
+            pOWorld.Damage(UWWorld.TargetOf(lOCritter, lODamageable),
+                UWBlow.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType, piAttacker, lOCritter.Index));
         }
     }
 
-    private static void fStrikeObjects(UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData, UWObject[] pOLying,
-        int piDiceCount, int piDiceRange, int piDamageType, HashSet<UWDamageable> pODone)
+    private static void fStrikeObjects(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
+        UWObject[] pOLying, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
     {
         if (pOTileData.ObjectsInTile == null || pOLying.Length == 0)
             return;
@@ -118,7 +124,8 @@ public static class UWTileBlast
                 if (lODamageable.IsDestroyed || !pODone.Add(lODamageable))
                     continue;
 
-                lODamageable.ApplyDamage(liRoll, piDamageType);
+                pOWorld.Damage(UWWorld.TargetOf(lODamageable),
+                    UWBlow.Blast(liRoll, piDamageType, piAttacker, UWBlow.NoCreature));
 
                 continue;
             }
@@ -192,14 +199,15 @@ public static class UWTileBlast
             UWDebris.ReplaceWithDebris(pOLoader, pOEntity, pOObject, pOTile, lOPosition);
     }
 
-    private static void fStrikePlayer(UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount, int piDiceRange,
-        int piDamageType)
+    private static void fStrikePlayer(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount,
+        int piDiceRange, int piDamageType, int piAttacker)
     {
         UWCharacter lOPlayer = UWScene.Character;
 
         if (lOPlayer == null || pOLoader.WorldPositionToTile(lOPlayer.transform.position) != pOTile)
             return;
 
-        lOPlayer.ApplyDamage(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType);
+        pOWorld.Damage(UWDamageTarget.ThePlayer,
+            UWBlow.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType, piAttacker, UWBlow.NoCreature));
     }
 }

@@ -97,7 +97,7 @@ namespace UWDataImport.UWData
 		///
 		/// The original keeps a bit on the object for this and checks it during the regular
 		/// refill: if a creature spawned this way is already roaming near the player,
-		/// no further one is added (see UWCreatureRespawner). Without that the
+		/// no further one is added (see UWTriggerSystem.RespawnCreatures). Without that the
 		/// monsters pile up at a spot where one stays for a longer time.
 		/// </summary>
 		public bool WasSpawned;

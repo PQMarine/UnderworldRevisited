@@ -27,6 +27,66 @@ namespace UnderworldRevisited.Tools
             fCheckPoisonMinute();
             fCheckStatusPassEvents();
             fCheckCombatShake();
+
+            Check.Group("Vitals: what they tell, as events (cleanup step 3.6)");
+
+            fCheckVitalsEvents();
+        }
+
+        /// <summary>
+        /// The callbacks of IUWVitalsHost became events on UWPlayerVitals (cleanup step 3.6,
+        /// 2026-10-17): each is raised where the callback was called, in the same order, and
+        /// nobody listening is what no host was.
+        /// </summary>
+        private static void fCheckVitalsEvents()
+        {
+            System.Collections.Generic.List<string> lOTold = new System.Collections.Generic.List<string>();
+            UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost());
+
+            lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
+
+            lOVitals.VitalsChanged += () => lOTold.Add("vitals");
+            lOVitals.DamageRecorded += () => lOTold.Add("damage");
+            lOVitals.MessageDue += psLine => lOTold.Add("message");
+            lOVitals.UnsteadyShakeDue += piTicks => lOTold.Add("unsteady " + piTicks);
+            lOVitals.StatusPassDue += () => lOTold.Add("status pass");
+            lOVitals.ActiveSpellsChanged += (pbHaste, pbRoaming, pbFrozen, pbTelekinesis) => lOTold.Add("spells");
+
+            lOVitals.ApplyDamage(3, UWDamageTypes.None, 0);
+            fExpectInt("vitals events: a hit is recorded, then the flasks change",
+                fIndexOfSequence(lOTold, "damage", "vitals"), 0);
+
+            lOTold.Clear();
+            lOVitals.ApplyDamage(0, UWDamageTypes.None, 0);
+            fExpectInt("vitals events: no damage, nothing told", lOTold.Count, 0);
+
+            int liLevel = lOVitals.Level;
+
+            lOVitals.ChangeExperience(100000, 1);
+            fExpectBool("vitals events: a level-up is a message (level " + liLevel + " -> " + lOVitals.Level + ")",
+                lOVitals.Level > liLevel && lOTold.Contains("message"), true);
+
+            lOTold.Clear();
+            lOVitals.ShakeAfterPassingOut();
+            fExpectBool("vitals events: waking from a drink shakes 10 plus intoxication / 6",
+                lOTold.Count == 1 && lOTold[0] == "unsteady " + (10 + (lOVitals.Intoxication / 6)), true);
+
+            lOTold.Clear();
+            lOVitals.RequestStatusPass();
+            fExpectBool("vitals events: the status pass is asked for", lOTold.Contains("status pass"), true);
+
+            lOTold.Clear();
+            lOVitals.EndAllSpells();
+            fExpectBool("vitals events: clearing the spells tells the active spells", lOTold.Contains("spells"), true);
+
+            // Nobody listening: nothing is told and nothing breaks.
+            UWPlayerVitals lOAlone = new UWPlayerVitals(null);
+
+            lOAlone.Initialise(null, UWPlayerVitals.StartValues.Default);
+            lOAlone.ApplyDamage(3, UWDamageTypes.None, 0);
+            lOAlone.ShakeAfterPassingOut();
+            lOAlone.ChangeExperience(100000, 1);
+            fExpectBool("vitals events: without listeners the vitals still change", lOAlone.CurrentHP < lOAlone.MaxHP, true);
         }
 
         /// <summary>COMBAT.C do_damage: only a blow or a missile shakes, level from the damage
@@ -34,7 +94,7 @@ namespace UnderworldRevisited.Tools
         private static void fCheckCombatShake()
         {
             CountingVitalsHost lOHost = new CountingVitalsHost();
-            UWPlayerVitals lOVitals = new UWPlayerVitals(lOHost);
+            UWPlayerVitals lOVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
 
@@ -60,7 +120,7 @@ namespace UnderworldRevisited.Tools
         private static void fCheckStatusPassEvents()
         {
             CountingVitalsHost lOHost = new CountingVitalsHost();
-            UWPlayerVitals lOVitals = new UWPlayerVitals(lOHost);
+            UWPlayerVitals lOVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
             lOHost.StatusPasses = 0;
@@ -104,7 +164,7 @@ namespace UnderworldRevisited.Tools
         private static void fCheckMotionStateNoise()
         {
             CountingVitalsHost lOHost = new CountingVitalsHost { IsInMotionState = true };
-            UWPlayerVitals lOVitals = new UWPlayerVitals(lOHost);
+            UWPlayerVitals lOVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
             lOVitals.TickQuietness(1f);
@@ -156,7 +216,7 @@ namespace UnderworldRevisited.Tools
 
             lOStart.Intelligence = 1;
 
-            UWPlayerVitals lOVitals = new UWPlayerVitals(lOHost);
+            UWPlayerVitals lOVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
 
             lOVitals.Initialise(null, lOStart);
 
@@ -233,25 +293,16 @@ namespace UnderworldRevisited.Tools
 
             public int LastShakeLevel = -1;
 
-            public void OnVitalsChanged() { }
+            /// <summary>Counts what the vitals tell (their events since cleanup step 3.6,
+            /// 2026-10-17; callbacks of this host until then) and hands them back.</summary>
+            public UWPlayerVitals Watch(UWPlayerVitals pOVitals)
+            {
+                pOVitals.CombatShakeDue += piLevel => { Shakes++; LastShakeLevel = piLevel; };
+                pOVitals.StatusPassDue += () => StatusPasses++;
+                pOVitals.IdentificationReset += () => Resets++;
 
-            public void OnDamageRecorded() { }
-
-            public void ShakeOnDamage(int piLevel) { Shakes++; LastShakeLevel = piLevel; }
-
-            public void ShakeUnsteady(int piDuration) { }
-
-            public void AddMessage(string psMessage) { }
-
-            public void OnKillRewarded(bool pbRewarded) { }
-
-            public void OnStatusPassDue() { StatusPasses++; }
-
-            public void ResetIdentification() { Resets++; }
-
-            public void OnFiveMinuteBlock() { }
-
-            public void OnActiveSpellsChanged(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen, bool pbTelekinesis) { }
+                return pOVitals;
+            }
 
             public int DungeonLevelIndex => 0;
 

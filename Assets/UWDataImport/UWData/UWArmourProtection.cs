@@ -382,7 +382,7 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// The whole pass. pOActiveSpells may be null (then only the equipment counts).
 		/// </summary>
-		public static void Compute(IUWEquipment pOInventory, DataImport pOData,
+		public static void Compute(UWInventoryModel pOInventory, DataImport pOData,
 			IReadOnlyList<UWActiveSpellEffect> pOActiveSpells, Status pOStatus)
 		{
 			pOStatus.Reset();
@@ -486,7 +486,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>The base value of an armour piece onto its body part - quality-scaled, see
 		/// UWPlayerCritterRow.GetArmourValue.</summary>
-		private static void fAddArmourValue(IUWEquipment pOInventory, DataImport pOData,
+		private static void fAddArmourValue(UWInventoryModel pOInventory, DataImport pOData,
 			UWArmorItemMap.BodySlot peSlot, int piPart, Status pOStatus)
 		{
 			pOStatus.Armour[piPart] += UWPlayerCritterRow.GetArmourValue(pOInventory.GetEquipped(peSlot), pOData);
@@ -501,7 +501,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The enchantment of an equipment slot, if one is attached.</summary>
-		private static void fAddSlotEnchantment(IUWEquipment pOInventory,
+		private static void fAddSlotEnchantment(UWInventoryModel pOInventory,
 			UWArmorItemMap.BodySlot peSlot, int piDollSlot, Status pOStatus)
 		{
 			UWObject lOItem = pOInventory.GetEquipped(peSlot);

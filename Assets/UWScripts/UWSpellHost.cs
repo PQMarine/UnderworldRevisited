@@ -1,40 +1,31 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport.UWData;
-using UnderworldRevisited.Build;
 
 /// <summary>
 /// The Unity side of a cast: what the engine-free spell rules (UWSpellCasting and the
-/// class rules next to it) ask for through IUWSpellHost, read from UWCharacter, Interaction,
-/// UWLevelLoader, the camera and the HUD. Built by UWGameUI per cast.
+/// class rules next to it) ask for through IUWSpellHost, read from UWCharacter, Interaction
+/// and the HUD. Built per cast (UWHudRunes for the player, UWCritter for a creature's area spell
+/// or summoning).
 ///
-/// The targets of an area spell are collected here with the physics (the sphere deliberately
-/// reaches too far: the cross of Flame Wind extends one tile beyond the edge, and the corners
-/// of a square area lie further away than its edges - the rules filter by tile number anyway)
-/// and handed to the rules as numbered entries.
+/// The boulders of Tremor are not physics objects: World.DropBoulder hands them to the motion
+/// core (UWMissiles.DropBoulder, since 2026-10-05), which holds their start height and sub-tile
+/// and lets them fall as mobile records.
 ///
-/// The boulders of Tremor are not physics objects of this class: DropBoulder hands them to
-/// the motion core (UWProjectileWorld.DropBoulder, since 2026-10-05), which holds their
-/// start height and sub-tile and lets them fall as mobile records.
+/// THE WORLD OF THE CAST (cleanup step 3.6, 2026-10-17): the level, the travel, the player's
+/// tile and view, the messages, the sounds, the shake and the effect pictures went to the world
+/// (UWWorld), its avatar and its presentation in step 3.1; since step 3.6 the rules ask the
+/// world for them themselves, together with the objects a spell makes, Detect Monsters'
+/// creatures and the targets of an area spell (collected by the world, held by the rule as a
+/// list). World is the world with this cast's presentation - its lines go to the Interaction
+/// the cast was given, silent without one. The creature casting an area spell is the cast's
+/// value (UWCastContext) instead of the mutable AreaCaster. This host keeps the caster: his
+/// numbers, the pending projectile and target, the active spells and the icons.
+///
+/// PER CAST: it carries the caster, the Interaction and the HUD of this cast; the long-lived
+/// world keeps none of it.
 /// </summary>
 public sealed class UWSpellHost : IUWSpellHost
 {
-    /// <summary>This long an effect stays in the world - as with a projectile impact.</summary>
-    private const float EffectSeconds = 0.7f;
-
-    private struct Target
-    {
-        public UWTilePos Tile;
-
-        public UWDamageable Damageable;
-
-        public UWCritter Critter;
-
-        public UWEntityInfo Entity;
-
-        public Vector3 Centre;
-    }
-
     private readonly UWCharacter mOCharacter;
 
     private readonly Interaction mOInteraction;
@@ -45,23 +36,35 @@ public sealed class UWSpellHost : IUWSpellHost
 
     private readonly UWGameUI mOUi;
 
-    private readonly List<Target> mOTargets = new List<Target>();
+    /// <summary>The world with this cast's presentation; null without a loader.</summary>
+    private readonly IUWWorld mOWorld;
 
-    private readonly HashSet<UWDamageable> mOSeen = new HashSet<UWDamageable>();
+    private readonly UWCastContext mOCast;
 
+    /// <param name="pOCast">Who casts; the player when not given.</param>
     public UWSpellHost(UWCharacter pOCharacter, Interaction pOInteraction, UWLevelLoader pOLoader,
-        UWDataImport.DataImport pOData, UWGameUI pOUi)
+        UWDataImport.DataImport pOData, UWGameUI pOUi, UWCastContext? pOCast = null)
     {
         mOCharacter = pOCharacter;
         mOInteraction = pOInteraction;
         mOLoader = pOLoader;
         mOData = pOData;
         mOUi = pOUi;
+        mOCast = pOCast ?? UWCastContext.ThePlayer;
+
+        UWWorld lOWorld = UWWorld.Of(pOLoader);
+
+        // This cast's presentation: its lines go to pOInteraction, or nowhere without one.
+        mOWorld = UWScopedWorld.With(lOWorld, UWPresentation.For(lOWorld, pOInteraction));
     }
 
-    public UWDataImport.DataImport Data => mOData;
+    public IUWWorld World => mOWorld;
 
-    public UWLevel CurrentLevel => mOLoader != null ? mOLoader.CurrentLevel : null;
+    public UWCastContext Cast => mOCast;
+
+    /// <summary>The data the caster was handed (UWGameUI's, the creature's loader's) - kept as
+    /// given, not the world's.</summary>
+    public UWDataImport.DataImport Data => mOData;
 
     public bool IsMagicBlocked => mOCharacter != null && mOLoader != null
         && UWEndgame.IsMagicBlockedAt(mOLoader, mOCharacter.transform.position);
@@ -72,59 +75,17 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public int PlayerLevel => mOCharacter != null ? mOCharacter.Level : 0;
 
+    /// <summary>Mana ROUNDED DOWN for the spell rules (the cost check), where the conversation host
+    /// rounds to the nearest (IUWConversationHost.PlayerMana) - two conventions on purpose, kept
+    /// apart by cleanup step 3.1 (2026-10-17).</summary>
     public int PlayerMana => mOCharacter != null ? Mathf.FloorToInt(mOCharacter.CurrentMana) : 0;
 
     public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.GetSkill(UWPlayerData.Skill.Casting) : 0;
-
-    public UWTilePos PlayerTile => mOLoader != null && mOCharacter != null
-        ? mOLoader.WorldPositionToTile(mOCharacter.transform.position)
-        : new UWTilePos(0, 0);
-
-    /// <summary>The camera, or the body when there is none - both share the yaw.</summary>
-    private Transform fViewTransform
-    {
-        get
-        {
-            Camera lOCamera = Camera.main;
-
-            return lOCamera != null ? lOCamera.transform : (mOCharacter != null ? mOCharacter.transform : null);
-        }
-    }
-
-    public void GetViewDirection(out float pfX, out float pfZ)
-    {
-        Transform lOView = fViewTransform;
-        Vector3 lOFlat = lOView != null ? new Vector3(lOView.forward.x, 0f, lOView.forward.z) : Vector3.zero;
-
-        if (lOFlat.sqrMagnitude <= 0.0001f)
-            lOFlat = Vector3.forward;
-
-        lOFlat.Normalize();
-
-        pfX = lOFlat.x;
-        pfZ = lOFlat.z;
-    }
-
-    public float ViewYawDegrees => fViewTransform != null ? fViewTransform.eulerAngles.y : 0f;
-
-    public void GetEyePosition(out float pfX, out float pfZ)
-    {
-        Transform lOView = fViewTransform;
-
-        pfX = lOView != null ? lOView.position.x : 0f;
-        pfZ = lOView != null ? lOView.position.z : 0f;
-    }
 
     public void SpendMana(int piAmount)
     {
         if (mOCharacter != null)
             mOCharacter.SpendMana(piAmount);
-    }
-
-    public void Backfire(int piDice)
-    {
-        if (mOCharacter != null)
-            mOCharacter.ApplyBackfire(piDice);
     }
 
     public double RealSeconds => Time.timeAsDouble;
@@ -185,34 +146,29 @@ public sealed class UWSpellHost : IUWSpellHost
             mOCharacter.CurePoison();
     }
 
-    // ------------------------------------------------- Messages and sounds
-
-    public void AddMessage(string psMessage)
+    public void StartHallucination()
     {
-        if (mOInteraction != null)
-            mOInteraction.AddMessage(psMessage);
+        if (mOCharacter != null)
+            mOCharacter.StartHallucination();
     }
 
-    public void AddGeneralMessage(int piIndex)
-    {
-        if (mOInteraction != null)
-            mOInteraction.AddGeneralMessage(piIndex);
-    }
-
-    public string GetGeneralMessage(int piIndex)
-    {
-        return mOInteraction != null ? mOInteraction.GetGeneralMessage(piIndex) : string.Empty;
-    }
+    // ------------------------------------------------- Sounds and icons
 
     public void PlaySpellSound()
     {
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.Spell);
+        fPresentation.PlaySoundAtPlayer(UWSoundEffects.Spell);
     }
 
     public void PlaySpellFailureSound()
     {
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.SpellFailure);
+        fPresentation.PlaySoundAtPlayer(UWSoundEffects.SpellFailure);
     }
+
+    /// <summary>This cast's presentation - the world's, or for a cast without a level loader one
+    /// of its own, as before (the sounds never depended on the loader).</summary>
+    private IUWPresentation fPresentation => mOWorld != null
+        ? mOWorld.Presentation
+        : UWPresentation.For(null, mOInteraction);
 
     public void RefreshSpellIcons()
     {
@@ -240,112 +196,7 @@ public sealed class UWSpellHost : IUWSpellHost
             mOInteraction.FirePendingSpell();
     }
 
-    // ------------------------------------------------- The world
-
-    public void TravelTo(int piLevelIndex, int piTileX, int piTileY)
-    {
-        if (mOLoader != null)
-            mOLoader.TravelTo(piLevelIndex, piTileX, piTileY);
-    }
-
-    public bool SpawnObjectById(int piObjectId, int piTileX, int piTileY, int piQuantity, int piQuality)
-    {
-        return mOLoader != null && mOLoader.SpawnObjectById(piObjectId, piTileX, piTileY, piQuantity, piQuality);
-    }
-
-    public bool SpawnObjectAt(UWObject pOObject, float pfWorldX, float pfWorldZ)
-    {
-        return mOLoader != null && mOLoader.SpawnDroppedObject(pOObject, new Vector3(pfWorldX, 0f, pfWorldZ), false);
-    }
-
-    /// <summary>
-    /// CheckIfItemFitsInTile_seg026_1008 for a summoned creature: its COMOBJ footprint (radius
-    /// in eighths around the spot) from the floor up to its COMOBJ height; blocked by a living
-    /// creature, the player's body, or an object with a COMOBJ height (a barrel, a door) -
-    /// the same records ScanForCollisions gathers. Items lying on the floor (height 0) do not
-    /// count, as they do not in the original's scan.
-    /// </summary>
-    public bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ)
-    {
-        if (mOLoader == null || mOLoader.UWDataImporter == null)
-            return true;
-
-        UWCommonObjectProperties lOCommon = mOLoader.UWDataImporter.CommonObjectProperties;
-        int liRadius = 1;
-        int liHeight = 1;
-
-        if (lOCommon != null && lOCommon.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOOwn))
-        {
-            liRadius = Mathf.Max(1, (int)lOOwn.Radius);
-            liHeight = Mathf.Max(1, (int)lOOwn.Height);
-        }
-
-        float lfHalfWidth = liRadius * UWWorldScale.SubTileStep;
-        float lfHalfHeight = liHeight * UWWorldScale.ZPosStep * 0.5f;
-        Vector3 lOFloor = new Vector3(pfWorldX, 0f, pfWorldZ);
-
-        lOFloor.y = mOLoader.GetFloorHeightAt(lOFloor);
-
-        Collider[] lOHits = Physics.OverlapBox(lOFloor + (Vector3.up * lfHalfHeight),
-            new Vector3(lfHalfWidth, lfHalfHeight, lfHalfWidth), Quaternion.identity, Physics.AllLayers,
-            QueryTriggerInteraction.Ignore);
-
-        foreach (Collider lOCollider in lOHits)
-        {
-            if (lOCollider.GetComponentInParent<UWProjectileFlight>() != null)
-                continue;
-
-            if (lOCollider is CharacterController)
-                return false;
-
-            UWCritter lOCritter = lOCollider.GetComponentInParent<UWCritter>();
-
-            if (lOCritter != null)
-            {
-                UWDamageable lODamageable = lOCritter.GetComponent<UWDamageable>();
-
-                if (lODamageable != null && !lODamageable.IsDestroyed)
-                    return false;
-
-                continue;
-            }
-
-            UWEntityInfo lOEntity = lOCollider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOEntity != null && lOEntity.ObjectData != null && lOCommon != null
-                && lOCommon.TryGet(lOEntity.ObjectData.ID, out UWCommonObjectProperties.Entry lOEntry)
-                && lOEntry.Height > 0)
-                return false;
-        }
-
-        return true;
-    }
-
-    public bool SpawnWardRune(int piTileX, int piTileY)
-    {
-        return mOLoader != null && mOLoader.SpawnWardRune(piTileX, piTileY);
-    }
-
-    /// <summary>Places a boulder below the ceiling and lets it fall - a piece of the quake's
-    /// debris on the motion core (UWProjectileWorld.DropBoulder, since 2026-10-05).</summary>
-    public bool DropBoulder(int piObjectId, int piTileX, int piTileY)
-    {
-        return mOLoader != null && UWProjectileWorld.Ensure(mOLoader).DropBoulder(piObjectId, piTileX, piTileY) != null;
-    }
-
-    public void ShakeScreen(int piDuration)
-    {
-        UWScreenShake lOShake = UWScreenShake.Ensure();
-
-        if (lOShake != null)
-            lOShake.Shake(UWScreenShake.LargeChannel, piDuration);
-    }
-
-    /// <summary>The Tremor rumbles while it shakes - see UWMiscSpellRules.TremorSound.</summary>
-    public void PlaySoundAtPlayer(int piEffect)
-    {
-        UWSoundEffects.PlayAtAvatar(piEffect);
-    }
+    // ------------------------------------------------- What goes through this cast's channel
 
     /// <summary>Armageddon: the inventory, the rune shelf and the whole level are cleared;
     /// without equipment, armour, light and movement abilities are no longer correct, so the
@@ -369,159 +220,13 @@ public sealed class UWSpellHost : IUWSpellHost
             mOCharacter.RefreshStatus();
     }
 
-    public void StartHallucination()
-    {
-        if (mOCharacter != null)
-            mOCharacter.StartHallucination();
-    }
-
     public void FireBullfrog(int piMode)
     {
         UWTriggerSystem.FireBullfrog(piMode, mOLoader, mOInteraction);
     }
 
-    public IReadOnlyList<CreatureSighting> Creatures
-    {
-        get
-        {
-            List<CreatureSighting> lOSightings = new List<CreatureSighting>();
-
-            if (mOLoader == null)
-                return lOSightings;
-
-            UWCritter[] lOCritters = UWScene.FindCritters();
-
-            for (int liAt = 0; lOCritters != null && liAt < lOCritters.Length; liAt++)
-            {
-                UWCritter lOCritter = lOCritters[liAt];
-
-                if (lOCritter == null || lOCritter.IsDead || lOCritter.Record == null)
-                    continue;
-
-                UWEntityInfo lOEntity = lOCritter.GetComponent<UWEntityInfo>();
-                int liObjectId = lOEntity != null && lOEntity.ObjectData != null ? lOEntity.ObjectData.ID : 0;
-
-                lOSightings.Add(new CreatureSighting(
-                    new UWTilePos(lOCritter.Record.TileX, lOCritter.Record.TileY), liObjectId));
-            }
-
-            return lOSightings;
-        }
-    }
-
     public bool FireLookTrigger(UWObject pOObject, int piSearchSkill)
     {
         return UWTriggerSystem.TryFireLookTrigger(pOObject, mOLoader, mOInteraction, piSearchSkill);
-    }
-
-    /// <summary>The centre of a tile at floor height - that is where the effect stands. Sprites have
-    /// their pivot at the bottom edge, so they stand on the floor instead of in it.</summary>
-    public void SpawnEffectInTile(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos, int piEffectObjectId,
-        float pfSeconds = -1f, int piStartFrame = 0)
-    {
-        if (mOLoader == null || mOLoader.CurrentLevel == null || mOLoader.CurrentLevel.TileData == null
-            || piTileX < 0 || piTileY < 0 || piTileX >= UWWorldScale.TilesPerAxis
-            || piTileY >= UWWorldScale.TilesPerAxis)
-            return;
-
-        mOLoader.SpawnEffectAt(piEffectObjectId, new Vector3(
-            UWUnits.SubTileToWorldAxis(piTileX, piFineX),
-            UWUnits.ZPosToWorld(piZPos),
-            UWUnits.SubTileToWorldAxis(piTileY, piFineY)), pfSeconds > 0f ? pfSeconds : EffectSeconds, 0f, piStartFrame);
-    }
-
-    // ------------------------------------------------- Targets in an area
-
-    /// <summary>Collects everything damageable in and around the area, once per spell. Which
-    /// tile an entry belongs to is decided by rounding the world position, just like on a
-    /// projectile impact (see UWProjectileWorld.ApplyBlast).</summary>
-    public int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles)
-    {
-        mOTargets.Clear();
-        mOSeen.Clear();
-
-        if (mOLoader == null || mOLoader.CurrentLevel == null || mOLoader.CurrentLevel.TileData == null)
-            return 0;
-
-        UWTile lOCentreTile = mOLoader.CurrentLevel.GetTile(pOCentre.X, pOCentre.Y);
-
-        Vector3 lOCentre = new Vector3(
-            UWUnits.TileCentreToWorldAxis(pOCentre.X),
-            lOCentreTile != null ? lOCentreTile.FloorHeight : 0f,
-            UWUnits.TileCentreToWorldAxis(pOCentre.Y));
-
-        float lfRadius = (piRadiusTiles + 2) * UWWorldScale.TileSize * 1.5f;
-
-        Collider[] lOHits = Physics.OverlapSphere(lOCentre, lfRadius);
-
-        if (lOHits == null)
-            return 0;
-
-        foreach (Collider lOCollider in lOHits)
-        {
-            UWDamageable lODamageable = lOCollider.GetComponentInParent<UWDamageable>();
-
-            if (lODamageable == null || !mOSeen.Add(lODamageable))
-                continue;
-
-            Target lOTarget = new Target();
-
-            lOTarget.Damageable = lODamageable;
-            lOTarget.Critter = lODamageable.GetComponent<UWCritter>();
-            lOTarget.Entity = lOCollider.GetComponentInParent<UWEntityInfo>();
-            lOTarget.Centre = lOCollider.bounds.center;
-            lOTarget.Tile = mOLoader.WorldPositionToTile(lODamageable.transform.position);
-
-            mOTargets.Add(lOTarget);
-        }
-
-        return mOTargets.Count;
-    }
-
-    public UWTilePos AreaTargetTile(int piIndex)
-    {
-        return mOTargets[piIndex].Tile;
-    }
-
-    public bool AreaTargetIsCreature(int piIndex)
-    {
-        return mOTargets[piIndex].Critter != null && mOTargets[piIndex].Entity != null;
-    }
-
-    /// <summary>
-    /// A CREATURE CASTING (2026-09-27): set for a creature's area spell, which UW.EXE runs
-    /// through the same code with the creature as caster. Its damage is then charged to that
-    /// creature (DamageObjectsInTile passes the caster as the source), so the victim's damage
-    /// reaction turns on the caster and no kin alarm is raised as if the player had struck;
-    /// the gargoyle eyes stay for the player's own hits.
-    /// </summary>
-    public UWCritter AreaCaster { get; set; }
-
-    /// <summary>
-    /// UWTileBlast on the tile. The player's own spell now strikes him too when his tile is in
-    /// the area (per user, 2026-09-27, and PlacePlayerInTile keeping him in the tile list), and
-    /// the loose objects there are worn down. The player's hits are charged to him as the
-    /// projectile's blast charges them (AnnounceAttacker with the player's index).
-    /// </summary>
-    public void DamageObjectsInTile(int piTileX, int piTileY, int piDiceCount, int piDiceRange, int piDamageType)
-    {
-        UWTileBlast.Strike(mOLoader, new UWTilePos(piTileX, piTileY), piDiceCount, piDiceRange, piDamageType,
-            AreaCaster != null ? AreaCaster.Index : UWCritterBrain.PlayerIndex);
-    }
-
-    public UWTargetSpellRules.Result ConfuseAreaTarget(int piIndex)
-    {
-        return mOTargets[piIndex].Critter != null ? mOTargets[piIndex].Critter.Confuse() : UWTargetSpellRules.Result.Missed;
-    }
-
-    public UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass)
-    {
-        return UWTargetSpell.Cast(piMinorClass, mOTargets[piIndex].Entity);
-    }
-
-    public void SpawnEffectAtAreaTarget(int piIndex, int piEffectObjectId)
-    {
-        if (mOLoader != null)
-            mOLoader.SpawnEffectAt(piEffectObjectId, mOTargets[piIndex].Centre, EffectSeconds);
     }
 }

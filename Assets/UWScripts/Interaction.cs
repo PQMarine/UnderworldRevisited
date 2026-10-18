@@ -2256,7 +2256,7 @@ public class Interaction : MonoBehaviour
         fGetMeleeProbe(out Transform lOBody, out Vector3 lOForward, out Vector3 lOCentre, out Vector3 lOHalfExtents,
             out Quaternion lORotation, out int liRadius);
 
-        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(mLevelLoader);
+        UWMotionHost lOWorld = UWMotionHost.Ensure(mLevelLoader);
 
         if (lOWorld == null || mCharacter == null)
             return false;
@@ -2432,8 +2432,14 @@ public class Interaction : MonoBehaviour
 
         // The player's own strike is bash damage, just like a creature's (reference:
         // combat.AttackerAppliesFinalDamage with four). Of the creatures in uw1 only
-        // object 124 resists this type, the one with resistance byte 0x7F.
-        lODamageable.ApplyDamage(liDamage, UWDamageTypes.Physical);
+        // object 124 resists this type, the one with resistance byte 0x7F. Through the world
+        // since cleanup step 3.3 (2026-10-17): the creature is not told, its damage event charges
+        // the player (UWBlow.PlayerBlow).
+        UWWorld lOWorld = mLevelLoader != null ? UWWorld.Of(mLevelLoader) : UWScene.World;
+
+        if (lOWorld != null)
+            lOWorld.Damage(lOCritterTarget != null ? UWWorld.TargetOf(lOCritterTarget, lODamageable) : UWWorld.TargetOf(lODamageable),
+                UWBlow.PlayerBlow(liDamage));
 
         // The hit sound at the target, louder by the damage BEFORE the armour: the original
         // plays it at label 938 of AttackerAppliesFinalDamage_seg022_8A5 and only subtracts
@@ -2619,7 +2625,7 @@ public class Interaction : MonoBehaviour
     /// Fires one piece of ammunition. False when there is no room for it in front of the player -
     /// then "You need more space to fire that weapon." (MissileRelease_seg025_9F), which in the
     /// original comes all the time with a creature close in front (per user, 2026-09-24). The
-    /// arrow is a mobile record on the motion core since 2026-10-05 (UWProjectileWorld): it
+    /// arrow is a mobile record on the motion core since 2026-10-05 (UWMissiles): it
     /// starts radii + 4 eighths ahead, falls, bounces and lies where it comes to rest.
     /// </summary>
     private bool fLaunchPlayerMissile(int piAmmunitionId)
@@ -2639,14 +2645,14 @@ public class Interaction : MonoBehaviour
             UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
         }
         else
-            UWProjectileWorld.AimFromDirection(fGetModernAimRay().direction, liSpeedByte, out liHeading, out liPitch);
+            UWMissiles.AimFromDirection(fGetModernAimRay().direction, liSpeedByte, out liHeading, out liPitch);
 
         // A missile hit always counts with charge 0x80, however far the bow was drawn
         // (reference: combat.MissileAttackHit, "PlayerAttackCharge = 0x80"). The arrow's life
         // is the ammunition's quality (MissileRelease copies it from the piece).
         UWObject lOAmmunition = fFindAmmunition(piAmmunitionId);
 
-        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mLevelLoader).LaunchFromPlayer(null, piAmmunitionId,
+        UWProjectileFlight lOFlight = UWMissiles.Ensure(mLevelLoader).LaunchFromPlayer(null, piAmmunitionId,
             liHeading, liPitch, liSpeedByte, fGetMissileDamage(piAmmunitionId, UWCombat.NeutralCharge),
             UWDamageTypes.Missile, -1, this, lOAmmunition != null ? lOAmmunition.Quality : 0x3F);
 
@@ -4707,7 +4713,7 @@ public class Interaction : MonoBehaviour
 
         miPendingProjectileId = -1;
 
-        return UWProjectileWorld.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, piTileX, piTileY, piXPos, piYPos,
+        return UWMissiles.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, piTileX, piTileY, piXPos, piYPos,
             piZPos, piHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileDamage,
             UWRunicMagic.GetProjectileDamageType(liProjectile, fObjectProperties), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
     }
@@ -5002,10 +5008,10 @@ public class Interaction : MonoBehaviour
         {
             Ray lORay = pOAim ?? fGetInteractionRay();
 
-            UWProjectileWorld.AimFromDirection(lORay.direction, miPendingProjectileSpeedByte, out liHeading, out liPitch);
+            UWMissiles.AimFromDirection(lORay.direction, miPendingProjectileSpeedByte, out liHeading, out liPitch);
         }
 
-        UWProjectileFlight lOFlight = UWProjectileWorld.Ensure(mLevelLoader).LaunchFromPlayer(null, miPendingProjectileId,
+        UWProjectileFlight lOFlight = UWMissiles.Ensure(mLevelLoader).LaunchFromPlayer(null, miPendingProjectileId,
             liHeading, liPitch, miPendingProjectileSpeedByte, miPendingProjectileDamage,
             UWRunicMagic.GetProjectileDamageType(miPendingProjectileId, fObjectProperties), UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
             this, 0x3F);

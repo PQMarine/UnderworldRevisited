@@ -127,7 +127,7 @@ public class UWPlayerTerrain : MonoBehaviour
         // NO SOUND ON ENTERING. Until 2026-09-21 the water sound was played here; the user
         // listened for it in the original and there is none - walking into water is silent.
         // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLand)
-        // and anything that lands in the water (UWProjectileWorld.Splash).
+        // and anything that lands in the water (UWMotionHost.Splash).
         // What one DOES hear in the water is the rushing: effect 0 held for as long as one is
         // in it (UWSoundEffects.UpdateWaterLoop, built 2026-09-21 after the user described it).
         UWSoundEffects.UpdateWaterLoop(IsSwimming);

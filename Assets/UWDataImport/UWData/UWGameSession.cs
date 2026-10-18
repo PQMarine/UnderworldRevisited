@@ -114,6 +114,16 @@ namespace UWDataImport.UWData
 		/// 2026-10-15) - cleared with every level build, as init_level_creature_stuff does.</summary>
 		public UWCritterPathSlots CritterPaths { get; } = new UWCritterPathSlots();
 
+		/// <summary>What the world does later - after clock units, after a conversation, per frame
+		/// of a sequence, per player tick (cleanup step 3.4, 2026-10-17). Per session and not per
+		/// level, so a level change does not drop it (the void launch ends with one) and a new game
+		/// does.</summary>
+		public UWWorldScheduler Schedule { get; } = new UWWorldScheduler();
+
+		/// <summary>The launch into the void (step 3.4; its running state was the static
+		/// UWEndgame.mbLaunching).</summary>
+		public UWEndgameSequence Endgame { get; } = new UWEndgameSequence();
+
 		/// <summary>What the original keeps for a whole run and we keep for a session.</summary>
 		public UWSessionQuirks Quirks { get; } = new UWSessionQuirks();
 

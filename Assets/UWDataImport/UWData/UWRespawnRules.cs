@@ -4,8 +4,9 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// The periodic respawning of monsters (2026-09-06). Engine-free since 2026-09-18 (P3 of
-	/// the engine separation), out of UWCreatureRespawner, which runs the pass on the level; the
-	/// roll comes from the player's five-minute block (RollOpportunity) since 2026-10-15.
+	/// the engine separation), out of UWCreatureRespawner (since 2026-10-17
+	/// UWTriggerSystem.RespawnCreatures), which runs the pass on the level; the roll comes from
+	/// the player's five-minute block (RollOpportunity) since 2026-10-15.
 	///
 	/// In the original there are two kinds of creation traps (a_create object trap, 0x0187), and
 	/// the trap's FLAGS FIELD separates them. Cross-checked against all 72 creation traps in the game that

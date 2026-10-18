@@ -1,96 +1,7 @@
+using System.Collections.Generic;
+
 namespace UWDataImport.UWData
 {
-	/// <summary>
-	/// What sleeping needs from the game: whether the spot allows it, whether an enemy is
-	/// near, the sleep music, the respawner, and the dream or the second and a half of black.
-	/// The Unity side is UWSleep.
-	/// </summary>
-	public interface IUWSleepHost
-	{
-		/// <summary>Dry and on solid ground - water and lava forbid sleeping.</summary>
-		bool CanSleepHere { get; }
-
-		/// <summary>The creatures (not the player) standing on the tiles of the area of this
-		/// radius around the player's tile (UWSleepRules.InArea: gronk_area with distance 0, one
-		/// tile more on the +x and +y side), collected for CreatureRecord and the rest, column by
-		/// column. Returns how many.</summary>
-		int CollectCreatures(int piTileRadius);
-
-		/// <summary>The record of a collected creature, or null.</summary>
-		UWCritterRecord CreatureRecord(int piIndex);
-
-		/// <summary>Critter table byte 0x1C, upper nibble (UWObjectClassProperties.Critter.TravelRange).</summary>
-		int CreatureTravelRange(int piIndex);
-
-		/// <summary>The creature's flood_path with range 0 from its tile and height to pOTo at
-		/// piToHeight (floor levels), both ends included (UWCritter.TryGetPathTo).</summary>
-		bool TryGetCreaturePath(int piIndex, UWTilePos pOTo, int piToHeight, System.Collections.Generic.List<UWTilePos> pOPath);
-
-		/// <summary>Moves the creature onto this sub-tile spot (0..7 each) of the tile; false when
-		/// it does not fit there - a closed door, the player, another creature, a force field,
-		/// the wrong ground for its kind.</summary>
-		bool PlaceCreature(int piIndex, UWTilePos pOTile, int piSubX, int piSubY);
-
-		/// <summary>The type of a tile of the current level; solid outside the map.</summary>
-		UWTile.TileTypeEnum TileTypeAt(UWTilePos pOTile);
-
-		UWTilePos PlayerTile { get; }
-
-		/// <summary>The player's height in the record's units (zpos &gt;&gt; 3).</summary>
-		int PlayerFloorLevel { get; }
-
-		/// <summary>"Maps &amp; Legends" for sleeping (reference: sleep.cs, uw1 branch).</summary>
-		void PlaySleepTheme();
-
-		/// <summary>The respawner runs once - the original respawns while sleeping too.</summary>
-		void RunRespawner();
-
-		/// <summary>Time passes for the level's creatures (UWLevelExit.PassTime): healing, home
-		/// posts, the race moods, temporary creatures gone - the scene follows at once.</summary>
-		void LetTimePassForCreatures();
-
-		/// <summary>The carried lights burn for this many player ticks at once, with counter 0
-		/// (UWInventoryModel.BurnTick).</summary>
-		void BurnCarriedLights(int piTicks);
-
-		/// <summary>A line of string block 1, our numbering.</summary>
-		void AddGeneralMessage(int piIndex);
-
-		/// <summary>The dream plays as a cutscene. False when no player can show it - the
-		/// night then passes as black.</summary>
-		bool TryPlayDream(int piCutscene);
-
-		/// <summary>NO DREAM means a second and a half of black in the view window - this is how the
-		/// original shows that the night has passed.</summary>
-		void ShowNightBlack(float pfSeconds);
-
-		/// <summary>The player's motion state swims (MS_SWIM): in water or at its edge (the
-		/// shore), unless he walks on water - the original refuses a chosen sleep for it and kills
-		/// whoever PASSES OUT there (see fApplyDamagingSurface).</summary>
-		bool IsInWater { get; }
-
-		/// <summary>The motion state is lava (MS_LAVA): standing on it, not floating above it -
-		/// the same as water.</summary>
-		bool IsOnLava { get; }
-
-		/// <summary>Damage while asleep - see fApplyDamagingSurface.</summary>
-		void DamagePlayer(int piDamage);
-
-		/// <summary>The night's closing doors (DoClosingDoors(0), UnderworldExhumed TRIGGER.C): every
-		/// open door of the level that is not moving, on a tile without the tile's door bit, closes
-		/// with a chance of piChanceInTen in ten (UWRandom.Next(10) per door).</summary>
-		void CloseDoorsOnLevel(int piChanceInTen);
-
-		/// <summary>The night's tidying of far objects (Obj_GarbageCollect, UWWorldEdit.CollectGarbage):
-		/// up to piLimit objects on tiles more than 10 - piRange from the player, by the culling
-		/// test with that range. Returns how many went.</summary>
-		int CollectGarbage(int piRange, int piLimit);
-
-		/// <summary>On the ground: not jumping, falling or hovering - the original refuses a chosen
-		/// sleep in motion states 0x1B and while the vertical acceleration is not zero.</summary>
-		bool IsOnGround { get; }
-	}
-
 	/// <summary>
 	/// Sleeping (player_sleep, UnderworldExhumed SKILLS.C; before, the reference's sleep.Sleep).
 	/// Engine-free since 2026-09-18 (P3 of the engine separation), out of UWSleep.
@@ -124,7 +35,13 @@ namespace UWDataImport.UWData
 	/// since 2026-10-11; before, every door within eight tiles), as if someone closed it in the
 	/// night, and up to twenty far objects are tidied away (Obj_GarbageCollect, since
 	/// 2026-10-15). The monster respawner runs, and the carried lights burn down while asleep
-	/// (IUWSleepHost.BurnCarriedLights, since 2026-09-24).
+	/// (fBurnCarriedLights, since 2026-09-24).
+	///
+	/// THE WORLD INSTEAD OF A HOST (cleanup step 3.6, 2026-10-17): the night asks IUWWorld for
+	/// everything around the sleeper - the player's motion state, tile and inventory, the creatures
+	/// near him, the doors, the level's own time - and shows itself through the world's
+	/// presentation. Until then IUWSleepHost (22 members, implemented by UWSleep) did, most of it
+	/// forwarding to the world already; the night's door rule lived in that host.
 	/// </summary>
 	public static class UWSleepRules
 	{
@@ -186,11 +103,15 @@ namespace UWDataImport.UWData
 		/// <param name="piDungeonLevel">The dungeon level, 1-based - the second dream only comes
 		/// from the second level on.</param>
 		/// <param name="pbBedroll">In the bedroll - the only way to a comfortable night.</param>
-		public static bool Sleep(UWPlayerVitals pOVitals, int piDungeonLevel, IUWSleepHost pIHost,
+		/// <param name="pOWorld">The world around the sleeper; its presentation is the night's (the
+		/// scroll the sleep was asked from, see UWScopedWorld).</param>
+		public static bool Sleep(UWPlayerVitals pOVitals, int piDungeonLevel, IUWWorld pOWorld,
 			bool pbPassedOut = false, bool pbBedroll = false)
 		{
-			if (pOVitals == null || pIHost == null)
+			if (pOVitals == null || pOWorld == null)
 				return false;
+
+			IUWPresentation lOShown = pOWorld.Presentation;
 
 			// WHOEVER PASSES OUT IS NOT ASKED. The original's Sleep takes a method, and a
 			// negative one - the alcohol - jumps past every refusal (Sleep_ovr143_D1F, label
@@ -200,38 +121,40 @@ namespace UWDataImport.UWData
 			// then the ground has its say. The Void is refused like water or lava (label D44).
 			if (!pbPassedOut)
 			{
-				if (!pIHost.CanSleepHere || !pIHost.IsOnGround || piDungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
+				if (!CanSleepHere(pOWorld.Player) || !pOWorld.Player.IsOnGround
+					|| piDungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
 				{
-					pIHost.AddGeneralMessage(CannotSleepHereMessage);
+					lOShown.AddGeneralMessage(CannotSleepHereMessage);
 
 					return false;
 				}
 
-				if (IsHostileNear(pIHost))
+				if (IsHostileNear(pOWorld))
 				{
-					pIHost.AddGeneralMessage(EnemiesNearbyMessage);
+					lOShown.AddGeneralMessage(EnemiesNearbyMessage);
 
 					return false;
 				}
 
-				pIHost.AddGeneralMessage(MakeCampMessage);
+				lOShown.AddGeneralMessage(MakeCampMessage);
 			}
 
 			// The music after the refusals (player_sleep sets it only once the night is sure;
-			// ours played it before the enemies were asked until 2026-10-11).
-			pIHost.PlaySleepTheme();
+			// ours played it before the enemies were asked until 2026-10-11). "Maps & Legends" for
+			// sleeping (reference: sleep.cs, uw1 branch).
+			lOShown.ChangeMusicTheme(UWMusicSelector.MapsAndLegendsTheme);
 
 			if (!pbPassedOut)
-				pIHost.AddGeneralMessage(GoToSleepMessage);
+				lOShown.AddGeneralMessage(GoToSleepMessage);
 
-			pIHost.CloseDoorsOnLevel(DoorClosesInTen);
+			CloseDoorsAtNight(pOWorld, DoorClosesInTen);
 
 			// FAR JUNK GOES IN THE NIGHT: player_sleep (UnderworldExhumed SKILLS.C) runs
 			// Obj_GarbageCollect(1, 0x14) right after the doors - up to twenty objects on tiles
 			// more than nine from the player that are not tenacious against 1 + 0..2 go, each with
 			// that chance in ten. Ours culled only when the level ran out of slots until 2026-10-15
 			// (audit round 2, A2 / GI D13).
-			pIHost.CollectGarbage(NightCullRange, NightCullLimit);
+			pOWorld.CollectGarbage(NightCullRange, NightCullLimit);
 
 			int liHours = 2 + UWRandom.Next(5);
 
@@ -246,7 +169,7 @@ namespace UWDataImport.UWData
 			// THE LIGHTS BURN while asleep, right after each advance of the clock: 180 player
 			// ticks an hour, counter zero, so 1 + hours * 180 / rate points (UpdateInventoryLightSources
 			// called twice from the sleep routine, 2026-09-24). Ours burned nothing until then.
-			pIHost.BurnCarriedLights(liHours * SleepTicksPerHour);
+			fBurnCarriedLights(pOWorld, liHours * SleepTicksPerHour);
 
 			// Poison takes the whole series at once: at strength three that is 3+2+1.
 			if (pOVitals.Poison > 0)
@@ -257,14 +180,14 @@ namespace UWDataImport.UWData
 
 			// The ground under whoever passed out, after the poison (drop_drunk_player).
 			if (pbPassedOut)
-				fApplyDamagingSurface(pIHost);
+				fApplyDamagingSurface(pOWorld);
 
 			if (pOVitals.CurrentHP <= 0)
 				return true;
 
-			if (TryAmbush(pIHost))
+			if (TryAmbush(pOWorld))
 			{
-				fInterrupt(pOVitals, pIHost);
+				fInterrupt(pOVitals, lOShown);
 
 				return true;
 			}
@@ -274,8 +197,10 @@ namespace UWDataImport.UWData
 			// undisturbed night - the same pass as leaving the level (UWLevelExit). Until 2026-10-15
 			// ours ran it on the level change only, so wounded monsters stayed wounded, chasers away
 			// from their posts and allies allies after any number of nights (audit round 2, KR D2).
-			pIHost.LetTimePassForCreatures();
-			pIHost.RunRespawner();
+			pOWorld.LetTimePassForCreatures();
+			// Asleep, the distance test is off: every respawn trap fires (Sleep_ovr143_D1F
+			// calls TriggerCreateObjectTrap_ovr153_1517 with 0).
+			pOWorld.RunRespawn(true);
 
 			// Seven to ten hours in total. Whoever is wounded sleeps longer.
 			int liRest = 7 + UWRandom.Next(4) - liHours;
@@ -288,20 +213,20 @@ namespace UWDataImport.UWData
 
 			// The second burn comes whatever the rest is - at zero or below still the one point
 			// the counter zero brings.
-			pIHost.BurnCarriedLights(liRest * SleepTicksPerHour);
+			fBurnCarriedLights(pOWorld, liRest * SleepTicksPerHour);
 
 			// The comfort applies to both: recovery AND the probability that a later dream is
 			// rolled. Whoever passed out has none and does not dream.
 			int liComfort = !pbPassedOut && pbBedroll && pOVitals.Hunger > WellFedHunger ? 1 : 0;
 
-			fRecover(pOVitals, pIHost, liComfort);
+			fRecover(pOVitals, lOShown, liComfort);
 
 			// WHOEVER PASSED OUT DOES NOT WAIT: player_sleep calls dream only for a chosen sleep,
 			// and dream's moment of black is its own wait - passing out only fades out and in
 			// (fadeout3d, fadein3d), with no hold. Ours held two seconds of black until 2026-10-15
 			// (audit round 2, A34 / SW D14).
 			if (!pbPassedOut)
-				fDream(piDungeonLevel, liComfort, pIHost);
+				fDream(piDungeonLevel, liComfort, lOShown);
 
 			return true;
 		}
@@ -333,7 +258,7 @@ namespace UWDataImport.UWData
 		/// Missing here until 2026-09-23; noticed with Henrietta, who has buried him and still
 		/// dreamt the pending Tyball dream every time, while the original stayed dark (per user).
 		/// </summary>
-		private static void fDream(int piDungeonLevel, int piFood, IUWSleepHost pIHost)
+		private static void fDream(int piDungeonLevel, int piFood, IUWPresentation pOShown)
 		{
 			int liFlags = UWQuestFlags.Get(DreamQuestFlag);
 			int liStage = fGetDreamStage(liFlags, piDungeonLevel);
@@ -349,9 +274,9 @@ namespace UWDataImport.UWData
 					liStage = -1;
 			}
 
-			if (liStage < 0 || UWGameFlags.GaramonBuried || !pIHost.TryPlayDream(FirstDreamCutscene + liStage))
+			if (liStage < 0 || UWGameFlags.GaramonBuried || !pOShown.PlayCutscene(FirstDreamCutscene + liStage))
 			{
-				pIHost.ShowNightBlack(SleepFlashSeconds);
+				pOShown.ShowNightBlack(SleepFlashSeconds);
 
 				return;
 			}
@@ -378,7 +303,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Recovery and hunger after a full night's sleep.</summary>
-		private static void fRecover(UWPlayerVitals pOVitals, IUWSleepHost pIHost, int piComfort)
+		private static void fRecover(UWPlayerVitals pOVitals, IUWPresentation pOShown, int piComfort)
 		{
 			int liRegen = System.Math.Min(5, 2 + (pOVitals.Fatigue / 2));
 
@@ -386,7 +311,7 @@ namespace UWDataImport.UWData
 
 			if (pOVitals.Hunger == 0)
 			{
-				pIHost.AddGeneralMessage(StarvingMessage);
+				pOShown.AddGeneralMessage(StarvingMessage);
 				pOVitals.ApplyDamage(2, UWDamageTypes.None, 0);
 			}
 			else
@@ -401,7 +326,7 @@ namespace UWDataImport.UWData
 			pOVitals.ChangeHunger(-24 - UWRandom.Next(0x20));
 			pOVitals.ReduceIntoxication(UWPlayerVitals.SleepIntoxicationRelief);
 
-			pIHost.AddGeneralMessage(RestedMessage - piComfort);
+			pOShown.AddGeneralMessage(RestedMessage - piComfort);
 		}
 
 		// ------------------------------------------------- Who keeps the player awake
@@ -451,16 +376,46 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool InArea(int piDx, int piDy, int piRadius)
 		{
-			return piDx >= -piRadius && piDx <= piRadius + 1 && piDy >= -piRadius && piDy <= piRadius + 1;
+			return AreaAround(new UWTilePos(0, 0), piRadius).Contains(new UWTilePos(piDx, piDy));
 		}
 
-		public static bool IsHostileNear(IUWSleepHost pIHost)
+		/// <summary>The same area as a creature search's (IUWWorld.FindCreatures, cleanup step 3.2,
+		/// 2026-10-17): around the sleeper's tile, by the RECORD's tile, where the original keeps
+		/// it.</summary>
+		public static UWTileArea AreaAround(UWTilePos pOCentre, int piRadius)
 		{
-			int liCount = pIHost.CollectCreatures(HostileCheckTileRadius);
+			return UWTileArea.Around(pOCentre, piRadius, piRadius + 1, UWCreatureTile.Record);
+		}
+
+		/// <summary>
+		/// THE CREATURES AROUND THE SLEEPER: the living ones on the tiles of the area of this radius
+		/// around the player's tile (AreaAround), by the tile in their record, where the original
+		/// keeps it too - ordered as RunCodeOnObjectsInArea_seg038_3307_9C7 walks them: column by
+		/// column (x outer, y inner). Found by the world's creature search since cleanup step 3.2
+		/// (2026-10-17; before, a scene search); collected here instead of on the sleep's host since
+		/// step 3.6 (the same day), with the same sort over the same list. Clears pOInto and returns
+		/// how many.
+		/// </summary>
+		public static int CollectCreaturesAround(IUWWorld pOWorld, int piTileRadius, List<UWCreatureRef> pOInto)
+		{
+			pOWorld.FindCreatures(AreaAround(pOWorld.Player.FloorSpot.Tile, piTileRadius), UWCreatureFilter.Living,
+				pOInto);
+
+			pOInto.Sort((pOLeft, pORight) => pOLeft.Record.TileX != pORight.Record.TileX
+				? pOLeft.Record.TileX.CompareTo(pORight.Record.TileX)
+				: pOLeft.Record.TileY.CompareTo(pORight.Record.TileY));
+
+			return pOInto.Count;
+		}
+
+		public static bool IsHostileNear(IUWWorld pOWorld)
+		{
+			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
+			int liCount = CollectCreaturesAround(pOWorld, HostileCheckTileRadius, lOCreatures);
 
 			for (int liAt = 0; liAt < liCount; liAt++)
 			{
-				UWCritterRecord lORecord = pIHost.CreatureRecord(liAt);
+				UWCritterRecord lORecord = lOCreatures[liAt].Record;
 
 				if (lORecord != null && BlocksSleep(lORecord.Goal, lORecord.TargetConfirmed))
 					return true;
@@ -496,15 +451,17 @@ namespace UWDataImport.UWData
 		/// creature's own blockers (UWCritter.PlaceAtSpot).
 		/// Until 2026-09-24 ours interrupted for any hostile within two tiles and moved nobody.
 		/// </summary>
-		public static bool TryAmbush(IUWSleepHost pIHost)
+		public static bool TryAmbush(IUWWorld pOWorld)
 		{
-			int liCount = pIHost.CollectCreatures(AmbushTileRadius);
-			UWTilePos lOPlayer = pIHost.PlayerTile;
-			System.Collections.Generic.List<UWTilePos> lOPath = new System.Collections.Generic.List<UWTilePos>();
+			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
+			int liCount = CollectCreaturesAround(pOWorld, AmbushTileRadius, lOCreatures);
+			UWTilePos lOPlayer = pOWorld.Player.FloorSpot.Tile;
+			List<UWTilePos> lOPath = new List<UWTilePos>();
 
 			for (int liAt = 0; liAt < liCount; liAt++)
 			{
-				UWCritterRecord lORecord = pIHost.CreatureRecord(liAt);
+				UWCreatureRef lOCreature = lOCreatures[liAt];
+				UWCritterRecord lORecord = lOCreature.Record;
 
 				if (lORecord == null || lORecord.Attitude != HostileAttitude)
 					continue;
@@ -513,10 +470,11 @@ namespace UWDataImport.UWData
 					continue;
 
 				if (!WithinAmbushReach(lORecord.TileX - lOPlayer.X, lORecord.TileY - lOPlayer.Y,
-					pIHost.CreatureTravelRange(liAt)))
+					pOWorld.CreatureTravelRange(lOCreature)))
 					continue;
 
-				if (!pIHost.TryGetCreaturePath(liAt, lOPlayer, pIHost.PlayerFloorLevel, lOPath) || lOPath.Count - 1 < AmbushMinSteps)
+				if (!pOWorld.TryGetCreaturePath(lOCreature, lOPlayer, fSleeperHeight(pOWorld), lOPath)
+					|| lOPath.Count - 1 < AmbushMinSteps)
 					continue;
 
 				// A RUNE OF WARDING ON THE WAY DOES NOTHING: wander_that_monster (UnderworldExhumed
@@ -527,20 +485,95 @@ namespace UWDataImport.UWData
 				// and used the rune up (reference audit, traps D2).
 
 				UWTilePos lOLanding = lOPath[lOPath.Count - 3];
-				UWTile.TileTypeEnum leType = pIHost.TileTypeAt(lOLanding);
+				UWTile.TileTypeEnum leType = fTileTypeAt(pOWorld, lOLanding);
 
 				if (!TryGetAmbushSpot(leType, out int liSubX, out int liSubY)
 					|| !UWTileQueries.IsSubTileInOpenHalf(leType, liSubX, liSubY)
-					|| !pIHost.PlaceCreature(liAt, lOLanding, liSubX, liSubY))
+					|| !pOWorld.PlaceCreature(lOCreature, lOLanding, liSubX, liSubY))
 					continue;
 
 				lORecord.TargetConfirmed = true;
-				lORecord.SetDestination(lOPlayer.X, lOPlayer.Y, pIHost.PlayerFloorLevel);
+				lORecord.SetDestination(lOPlayer.X, lOPlayer.Y, fSleeperHeight(pOWorld));
 
 				return true;
 			}
 
 			return false;
+		}
+
+		/// <summary>The player's zpos (0 to 127) shifted by three, as the record keeps a height - the
+		/// FEET's height (the avatar's FeetSpot), not the floor's under the eye.</summary>
+		private static int fSleeperHeight(IUWWorld pOWorld)
+		{
+			return pOWorld.Player.FeetSpot.FloorLevel;
+		}
+
+		/// <summary>The type of a tile of the current level; solid outside the map.</summary>
+		private static UWTile.TileTypeEnum fTileTypeAt(IUWWorld pOWorld, UWTilePos pOTile)
+		{
+			UWTile lOTile = pOWorld.Tiles != null ? pOWorld.Tiles.GetTile(pOTile.X, pOTile.Y) : null;
+
+			return lOTile != null ? lOTile.TileType : UWTile.TileTypeEnum.solid;
+		}
+
+		// ------------------------------------------------- The ground, the doors, the lights
+
+		/// <summary>
+		/// Water and lava forbid a chosen sleep: the original refuses in motion states swimming
+		/// and lava (player_sleep's motion_state &amp; 0x1B) - the same states that kill whoever
+		/// passes out (IsSwimming, IsOnLava), so the shore refuses and water walking does not.
+		/// Floating is IsOnGround's: the original refuses a chosen sleep in motion states 0x1B and
+		/// while the vertical acceleration is not zero.
+		/// </summary>
+		public static bool CanSleepHere(IUWPlayerAvatar pOPlayer)
+		{
+			return !pOPlayer.IsSwimming && !pOPlayer.IsOnLava;
+		}
+
+		/// <summary>
+		/// The night's closing doors (DoClosingDoors(0), UnderworldExhumed TRIGGER.C): every open door
+		/// of the level, wherever it is, that is not moving, on a tile without the tile's door bit,
+		/// closes with a chance of piChanceInTen in ten (UWRandom.Next(10) per door) - the rule is
+		/// UWDoorRules.NightCloses. Until 2026-10-11 every door within eight tiles (the reference's
+		/// reading); until 2026-10-12 the swinging doors only, never a portcullis (B11:
+		/// DoClosingDoors walks every door object of the open range, the raised grate 0x14E
+		/// included - UnderworldExhumed event/TRIGGER.C). On the sleep's host until cleanup step
+		/// 3.6 (2026-10-17); a rule since, over the world's doors.
+		/// </summary>
+		public static void CloseDoorsAtNight(IUWWorld pOWorld, int piChanceInTen)
+		{
+			UWLevel lOLevel = pOWorld.Level;
+
+			// Walked over a copy: a door closing from here raises its state into the data, and
+			// the registry must not change under the loop.
+			foreach (IUWDoor lODoor in new List<IUWDoor>(pOWorld.Doors.All))
+			{
+				if (lODoor == null || lODoor.Data == null)
+					continue;
+
+				UWTile lOTileData = lOLevel != null ? lOLevel.GetTile(lODoor.Data.TileX, lODoor.Data.TileY) : null;
+				bool lbTileHasDoorBit = lOTileData != null && lOTileData.HasDoor;
+
+				// The roll is drawn for a candidate only, as the original's && does.
+				if (!UWDoorRules.IsNightCandidate(!lODoor.IsClosed, lODoor.IsMoving, lbTileHasDoorBit))
+					continue;
+
+				if (!UWDoorRules.NightCloses(!lODoor.IsClosed, lODoor.IsMoving, lbTileHasDoorBit,
+					UWRandom.Next(10), piChanceInTen))
+					continue;
+
+				lODoor.Close();
+			}
+		}
+
+		/// <summary>The carried lights burn for this many player ticks at once, with counter 0
+		/// (UWInventoryModel.BurnTick).</summary>
+		private static void fBurnCarriedLights(IUWWorld pOWorld, int piTicks)
+		{
+			UWInventoryModel lOInventory = pOWorld.Player.Inventory;
+
+			if (lOInventory != null)
+				lOInventory.BurnTick(piTicks, 0);
 		}
 
 		/// <summary>
@@ -594,10 +627,10 @@ namespace UWDataImport.UWData
 
 		/// <summary>An interrupted sleep brings little: a bit of fatigue gone, but
 		/// a lot of hunger.</summary>
-		private static void fInterrupt(UWPlayerVitals pOVitals, IUWSleepHost pIHost)
+		private static void fInterrupt(UWPlayerVitals pOVitals, IUWPresentation pOShown)
 		{
 			pOVitals.ReduceFatigue(InterruptedFatigueRelief);
-			pIHost.AddGeneralMessage(InterruptedMessage);
+			pOShown.AddGeneralMessage(InterruptedMessage);
 			pOVitals.ChangeHunger(-12 - UWRandom.Next(16));
 
 			// Half a night's intoxication (label EB3); ours left it until 2026-09-27.
@@ -613,10 +646,12 @@ namespace UWDataImport.UWData
 		/// Until 2026-10-15 ours burned 12 to 62 on lava (nothing when levitating or walking on
 		/// water) and let a shore tile pass (audit round 2, A31 / SW D7).
 		/// </summary>
-		private static void fApplyDamagingSurface(IUWSleepHost pIHost)
+		private static void fApplyDamagingSurface(IUWWorld pOWorld)
 		{
-			if (pIHost.IsInWater || pIHost.IsOnLava)
-				pIHost.DamagePlayer(DrownDamage);
+			// Drowning or lava in sleep, untyped (UWBlow.Sleep), through the world since cleanup
+			// step 3.3 (2026-10-17).
+			if (pOWorld.Player.IsSwimming || pOWorld.Player.IsOnLava)
+				pOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.Sleep(DrownDamage));
 		}
 
 		/// <summary>

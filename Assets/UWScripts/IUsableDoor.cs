@@ -38,6 +38,6 @@ public interface IUsableDoor
 
     /// <summary>Asked on every frame of a closing swing, the last included: true when the closed
     /// leaf would not fit - something stands in the doorway - and the door turns round. Set by
-    /// UWDoor (UWProjectileWorld.ClosedDoorBlocked); the player check of the tile blocker stays.</summary>
+    /// UWDoor (UWMotionHost.ClosedDoorBlocked); the player check of the tile blocker stays.</summary>
     System.Func<bool> ClosingBlocked { get; set; }
 }

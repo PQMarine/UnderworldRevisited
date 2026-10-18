@@ -41,9 +41,11 @@ namespace UWDataImport.UWData
 	/// 0x0B), Sheet Lightning pure magic (0x03) - both values from the reference. So Flame Wind
 	/// bounces off a fire elemental. See UWDamageTypes.
 	///
-	/// Engine-free since 2026-09-18 (P3): what stands in the area is collected by the host
-	/// (physics) and addressed here by index; the effect pictures and the damage go back
-	/// through the host as well.
+	/// Engine-free since 2026-09-18 (P3): what stands in the area is collected by the world
+	/// (IUWWorld.CollectAreaTargets, physics on the Unity side) and held here as a list for the
+	/// cast (UWAreaTarget; numbered entries on the spell host until cleanup step 3.6, 2026-10-17);
+	/// the effect pictures and the damage go back through the world, the damage charged to the
+	/// cast's caster (UWCastContext).
 	/// </summary>
 	public static class UWAreaSpellRules
 	{
@@ -120,8 +122,8 @@ namespace UWDataImport.UWData
 		/// <param name="piTargetType">The upper bits (GetAreaTargetType).</param>
 		public static bool Cast(int piMinorClass, int piTargetType, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || !pIHost.HasPlayer || pIHost.CurrentLevel == null
-				|| pIHost.CurrentLevel.TileData == null)
+			if (pIHost == null || !pIHost.HasPlayer || UWSpellCasting.LevelOf(pIHost) == null
+				|| UWSpellCasting.LevelOf(pIHost).TileData == null)
 				return false;
 
 			return CastAt(piMinorClass, piTargetType, GetCentreTile(pIHost), pIHost);
@@ -147,21 +149,24 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool CastAt(int piMinorClass, int piTargetType, UWTilePos pOCentre, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || pIHost.CurrentLevel == null || pIHost.CurrentLevel.TileData == null)
+			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null
+				|| UWSpellCasting.LevelOf(pIHost).TileData == null)
 				return false;
 
 			if (piMinorClass != RevealMinor && piMinorClass != SheetLightningMinor
 				&& piMinorClass != ConfusionMinor && piMinorClass != FlameWindMinor)
 				return false;
 
-			int liTargets = pIHost.CollectAreaTargets(pOCentre, TileRadius + 1);
+			List<UWAreaTarget> lOTargets = new List<UWAreaTarget>();
+
+			pIHost.World.CollectAreaTargets(pOCentre, TileRadius + 1, lOTargets);
 
 			int liRemaining = UWRandom.RollDice(HitDiceCount, HitDiceRange);
 
 			if (piTargetType == TargetTiles)
 			{
 				StrikeTiles(pOCentre, TileRadius, liRemaining, pIHost,
-					pOTile => fApplyToTile(piMinorClass, pOTile, liTargets, 1, pIHost));
+					pOTile => fApplyToTile(piMinorClass, pOTile, lOTargets, 1, pIHost));
 
 				return true;
 			}
@@ -174,12 +179,12 @@ namespace UWDataImport.UWData
 			{
 				for (int liZ = liY0; liZ <= liY0 + liSide; liZ++)
 				{
-					UWTile lOTile = pIHost.CurrentLevel.GetTile(liX, liZ);
+					UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(liX, liZ);
 
 					if (lOTile == null)
 						continue;
 
-					liRemaining -= fApplyToTile(piMinorClass, lOTile, liTargets, liRemaining, pIHost);
+					liRemaining -= fApplyToTile(piMinorClass, lOTile, lOTargets, liRemaining, pIHost);
 
 					if (liRemaining <= 0)
 						return true;
@@ -199,7 +204,7 @@ namespace UWDataImport.UWData
 		public static void StrikeTiles(UWTilePos pOCentre, int piRadius, int piHits, IUWSpellHost pIHost,
 			Func<UWTile, int> pOStrike)
 		{
-			if (pIHost == null || pIHost.CurrentLevel == null || pOStrike == null)
+			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null || pOStrike == null)
 				return;
 
 			int liSide = (piRadius * 2) + 1;
@@ -213,7 +218,7 @@ namespace UWDataImport.UWData
 				{
 					for (int liZ = liY0; liZ <= liY0 + liSide; liZ++)
 					{
-						UWTile lOTile = pIHost.CurrentLevel.GetTile(liX, liZ);
+						UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(liX, liZ);
 
 						if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid
 							|| UWRandom.Next((liSide * liSide) + TileRollExtra) >= liRemaining)
@@ -241,9 +246,10 @@ namespace UWDataImport.UWData
 		/// <summary>The same at another distance - Tremor's five tiles.</summary>
 		public static UWTilePos GetCentreTile(IUWSpellHost pIHost, int piDistanceTiles)
 		{
-			UWTilePos lOFrom = pIHost.PlayerTile;
+			UWTilePos lOFrom = UWSpellCasting.CasterTile(pIHost);
 
-			return MoveAlong(lOFrom, UWHeadings.DegreesToHeadingByte(pIHost.ViewYawDegrees), piDistanceTiles);
+			return MoveAlong(lOFrom, UWHeadings.DegreesToHeadingByte(pIHost.World.Player.ViewYawDegrees),
+				piDistanceTiles);
 		}
 
 		/// <summary>
@@ -320,13 +326,15 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool CastTargetSpellInArea(int piMinorClass, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || !pIHost.HasPlayer || pIHost.CurrentLevel == null
-				|| pIHost.CurrentLevel.TileData == null)
+			if (pIHost == null || !pIHost.HasPlayer || UWSpellCasting.LevelOf(pIHost) == null
+				|| UWSpellCasting.LevelOf(pIHost).TileData == null)
 				return false;
 
 			UWTilePos lOCentre = GetCentreTile(pIHost);
 
-			int liTargets = pIHost.CollectAreaTargets(lOCentre, TileRadius);
+			List<UWAreaTarget> lOTargets = new List<UWAreaTarget>();
+
+			pIHost.World.CollectAreaTargets(lOCentre, TileRadius, lOTargets);
 
 			// process_area's square and order, see the header comment.
 			int liX0 = lOCentre.X - TileRadius;
@@ -334,12 +342,12 @@ namespace UWDataImport.UWData
 			int liSide = TileRadius * 2 + 1;
 			List<int> lOSorted = new List<int>();
 
-			for (int liAt = 0; liAt < liTargets; liAt++)
+			for (int liAt = 0; liAt < lOTargets.Count; liAt++)
 			{
-				if (!pIHost.AreaTargetIsCreature(liAt))
+				if (!lOTargets[liAt].IsCreature)
 					continue;
 
-				UWTilePos lOTile = pIHost.AreaTargetTile(liAt);
+				UWTilePos lOTile = lOTargets[liAt].Tile;
 
 				if (lOTile.X < liX0 || lOTile.X > liX0 + liSide || lOTile.Y < liY0 || lOTile.Y > liY0 + liSide)
 					continue;
@@ -350,8 +358,8 @@ namespace UWDataImport.UWData
 			// x ascending, then y ascending; within a tile the order they were collected in.
 			lOSorted.Sort((piLeft, piRight) =>
 			{
-				UWTilePos lOLeft = pIHost.AreaTargetTile(piLeft);
-				UWTilePos lORight = pIHost.AreaTargetTile(piRight);
+				UWTilePos lOLeft = lOTargets[piLeft].Tile;
+				UWTilePos lORight = lOTargets[piRight].Tile;
 
 				if (lOLeft.X != lORight.X)
 					return lOLeft.X.CompareTo(lORight.X);
@@ -363,14 +371,15 @@ namespace UWDataImport.UWData
 
 			foreach (int liTarget in lOSorted)
 			{
-				UWTargetSpellRules.Result leResult = pIHost.CastTargetSpellOnAreaTarget(liTarget, piMinorClass);
+				UWTargetSpellRules.Result leResult = pIHost.World.CastTargetSpellOnAreaTarget(lOTargets[liTarget],
+					piMinorClass);
 
 				if (leResult == UWTargetSpellRules.Result.Missed)
 					continue;
 
 				// The picture only where the spell took (UWTargetSpellRules.Result).
 				if (leResult == UWTargetSpellRules.Result.Shown)
-					pIHost.SpawnEffectAtAreaTarget(liTarget, SpellEffectObjectId);
+					pIHost.World.ShowEffectAtAreaTarget(lOTargets[liTarget], SpellEffectObjectId, EffectSeconds);
 
 				if (--liRemaining <= 0)
 					break;
@@ -397,7 +406,8 @@ namespace UWDataImport.UWData
 		/// SPELLS.C, read 2026-10-12: count is decremented per object and the walk returns at
 		/// once). Until 2026-10-12 ours finished the tile first, so Confusion on a crowded tile
 		/// could take one or two more.</summary>
-		private static int fApplyToTile(int piMinorClass, UWTile pOTile, int piTargets, int piLimit, IUWSpellHost pIHost)
+		private static int fApplyToTile(int piMinorClass, UWTile pOTile, List<UWAreaTarget> pOTargets, int piLimit,
+			IUWSpellHost pIHost)
 		{
 			switch (piMinorClass)
 			{
@@ -405,7 +415,7 @@ namespace UWDataImport.UWData
 					// DiceRoll(6, 5), so 6 to 30, of type 3, pure magic (DamageObjectsInTile with
 					// kind 2: tables 9D3/9D5/9D7). The flash at a random height (sp_sheet_light).
 					fSpawnStrikePicture(pOTile, LightningEffectObjectId, pIHost);
-					pIHost.DamageObjectsInTile(pOTile.X, pOTile.Z, LightningDiceCount, LightningDiceRange, UWDamageTypes.Magic);
+					fStrikeTile(pOTile.X, pOTile.Z, LightningDiceCount, LightningDiceRange, UWDamageTypes.Magic, pIHost);
 
 					return 1;
 
@@ -413,7 +423,7 @@ namespace UWDataImport.UWData
 					return fFlameWind(pOTile, pIHost);
 
 				case ConfusionMinor:
-					return fConfuseTile(pOTile, piTargets, piLimit, pIHost);
+					return fConfuseTile(pOTile, pOTargets, piLimit, pIHost);
 
 				case RevealMinor:
 					return fRevealTile(pOTile, piLimit, pIHost);
@@ -464,7 +474,39 @@ namespace UWDataImport.UWData
 
 			// DiceRoll(10, 6), so 10 to 60, of type 0x0B, fire - it bounces off a fire elemental
 			// (DamageObjectsInTile with kind 1).
-			pIHost.DamageObjectsInTile(piX, piZ, FlameDiceCount, FlameDiceRange, UWDamageTypes.Fire);
+			fStrikeTile(piX, piZ, FlameDiceCount, FlameDiceRange, UWDamageTypes.Fire, pIHost);
+		}
+
+		/// <summary>
+		/// UWTileBlast on the tile (IUWWorld.StrikeTile). The player's own spell strikes him too
+		/// when his tile is in the area (per user, 2026-09-27, and PlacePlayerInTile keeping him in
+		/// the tile list), and the loose objects there are worn down. The hits are charged to the
+		/// caster (UWCastContext.AttackerIndex): the player's as the projectile's blast charges
+		/// them, a creature's to that creature. The spell host's DamageObjectsInTile with its
+		/// AreaCaster until cleanup step 3.6 (2026-10-17).
+		/// </summary>
+		private static void fStrikeTile(int piX, int piZ, int piDiceCount, int piDiceRange, int piDamageType,
+			IUWSpellHost pIHost)
+		{
+			pIHost.World.StrikeTile(new UWTilePos(piX, piZ), piDiceCount, piDiceRange, piDamageType,
+				pIHost.Cast.AttackerIndex);
+		}
+
+		/// <summary>This long an effect of an area spell stays in the world when the rule gives no
+		/// time of its own - as with a projectile impact. The spell host's EffectSeconds until
+		/// cleanup step 3.6 (2026-10-17).</summary>
+		private const float EffectSeconds = 0.7f;
+
+		/// <summary>An effect picture in a tile for a moment, at a fine spot (eighths, 0 to 7) and a
+		/// height in zpos steps - for pfSeconds when given (EffectSeconds otherwise), its animation
+		/// starting on piStartFrame (the spell host's SpawnEffectInTile until cleanup step 3.6).
+		/// The presentation keeps the guards: no level, or a tile off the map, shows nothing.</summary>
+		private static void fShowEffect(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos,
+			int piEffectObjectId, IUWSpellHost pIHost, float pfSeconds = -1f, int piStartFrame = 0)
+		{
+			pIHost.World.Presentation.ShowEffect(piEffectObjectId,
+				new UWSpot(new UWTilePos(piTileX, piTileY), piFineX, piFineY, piZPos),
+				pfSeconds > 0f ? pfSeconds : EffectSeconds, piStartFrame);
 		}
 
 		/// <summary>Tiles per side of a level map.</summary>
@@ -483,7 +525,7 @@ namespace UWDataImport.UWData
 		{
 			int liZPos = RollStrikeZPos(pOTile.FloorHeight >> 1);
 
-			pIHost.SpawnEffectInTile(pOTile.X, pOTile.Z, NewObjectFine, NewObjectFine, liZPos, piEffectObjectId);
+			fShowEffect(pOTile.X, pOTile.Z, NewObjectFine, NewObjectFine, liZPos, piEffectObjectId, pIHost);
 
 			return liZPos;
 		}
@@ -501,7 +543,7 @@ namespace UWDataImport.UWData
 		{
 			foreach (UWExplosionRules.Flame lOFlame in UWExplosionRules.ScatterFlames(FlameEffectObjectId,
 				NewObjectFine, NewObjectFine, piZPos))
-				pIHost.SpawnEffectInTile(piTileX, piTileY, lOFlame.FineX, lOFlame.FineY, lOFlame.ZPos, lOFlame.ObjectId,
+				fShowEffect(piTileX, piTileY, lOFlame.FineX, lOFlame.FineY, lOFlame.ZPos, lOFlame.ObjectId, pIHost,
 					UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), lOFlame.StartFrame);
 		}
 
@@ -515,24 +557,24 @@ namespace UWDataImport.UWData
 
 		/// <summary>Confuses every creature on the tile. Counts per creature, not per tile -
 		/// the reference does the same.</summary>
-		private static int fConfuseTile(UWTile pOTile, int piTargets, int piLimit, IUWSpellHost pIHost)
+		private static int fConfuseTile(UWTile pOTile, List<UWAreaTarget> pOTargets, int piLimit, IUWSpellHost pIHost)
 		{
 			UWTilePos lOTile = new UWTilePos(pOTile.X, pOTile.Z);
 			int liCount = 0;
 
-			for (int liAt = 0; liAt < piTargets && liCount < piLimit; liAt++)
+			for (int liAt = 0; liAt < pOTargets.Count && liCount < piLimit; liAt++)
 			{
-				if (pIHost.AreaTargetTile(liAt) != lOTile || !pIHost.AreaTargetIsCreature(liAt))
+				if (pOTargets[liAt].Tile != lOTile || !pOTargets[liAt].IsCreature)
 					continue;
 
-				UWTargetSpellRules.Result leResult = pIHost.ConfuseAreaTarget(liAt);
+				UWTargetSpellRules.Result leResult = pIHost.World.ConfuseAreaTarget(pOTargets[liAt]);
 
 				if (leResult == UWTargetSpellRules.Result.Missed)
 					continue;
 
 				// A resisted Confusion still counts (sp_confusion returns 1), without the picture.
 				if (leResult == UWTargetSpellRules.Result.Shown)
-					pIHost.SpawnEffectAtAreaTarget(liAt, SpellEffectObjectId);
+					pIHost.World.ShowEffectAtAreaTarget(pOTargets[liAt], SpellEffectObjectId, EffectSeconds);
 
 				liCount++;
 			}

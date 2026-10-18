@@ -262,6 +262,14 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("SaveCodec", pOContext => fCheckSaveCodec(pOContext), true, "data", "pin", "session");
             lOCatalog.Add("Repair", pOContext => fCheckRepair(pOContext.Data), true, "inventory", "original");
             lOCatalog.Add("PlayerWorld", pOContext => fCheckPlayerWorld(pOContext.Data), true, "player", "level", "original");
+            lOCatalog.Add("MissileHit", pOContext => fCheckMissileHit(), false, "combat", "damage", "original");
+            lOCatalog.Add("World", pOContext => fCheckWorld(), false, "world", "level");
+            lOCatalog.Add("Blow", pOContext => fCheckBlow(), false, "world", "combat", "damage");
+            lOCatalog.Add("WorldScheduler", pOContext => fCheckWorldScheduler(), false, "time", "session");
+            lOCatalog.Add("TriggerPacer", pOContext => fCheckTriggerPacer(), false, "time", "trap");
+            lOCatalog.Add("EndgameSequence", pOContext => fCheckEndgameSequence(), false, "time", "level", "original");
+            lOCatalog.Add("Story", pOContext => fCheckStory(pOContext.Data), true, "world", "shrine", "original");
+            lOCatalog.Add("SpellHost", pOContext => fCheckSpellHost(), false, "world", "spell", "original");
 
             return lOCatalog;
         }
@@ -4856,7 +4864,7 @@ namespace UnderworldRevisited.Tools
 
             UWArmourProtection.Status lOStatus = new UWArmourProtection.Status();
 
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             fExpectInt("worn: body is chest 6 plus shield 3", lOStatus.Armour[UWArmourProtection.PartBody], 9);
             fExpectInt("worn: hands are gloves 5 plus shield 3", lOStatus.Armour[UWArmourProtection.PartHands], 8);
@@ -4870,7 +4878,7 @@ namespace UnderworldRevisited.Tools
             lOWorn.Put(UWArmorItemMap.BodySlot.Chest, 0x22, 32);
             lOWorn.Put(UWArmorItemMap.BodySlot.LeftHandSlot, 0x3B, 32);
 
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             fExpectInt("worn: a half-worn chest and shield give 4 + 2", lOStatus.Armour[UWArmourProtection.PartBody], 6);
 
@@ -4878,7 +4886,7 @@ namespace UnderworldRevisited.Tools
             // var_6), and it is no shield either.
             lOWorn.Put(UWArmorItemMap.BodySlot.RightHandSlot, 0x10, UWPlayerCritterRow.MaxQuality);
 
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             fExpectInt("worn: a bow leaves the Unarmed skill", (int)lOStatus.WeaponSkill, (int)UWPlayerData.Skill.Unarmed);
 
@@ -4889,7 +4897,7 @@ namespace UnderworldRevisited.Tools
             lOWorn.Enchant(UWArmorItemMap.BodySlot.Legs, 0xC, 0x2);
             lOWorn.Enchant(UWArmorItemMap.BodySlot.LeftRing, 0x36, 0xC, 0xA);
 
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             fExpectInt("enchantment: leggings of minor 2 protect the legs by 3",
                 lOStatus.Protection[UWArmourProtection.PartLegs], 3);
@@ -4909,7 +4917,7 @@ namespace UnderworldRevisited.Tools
             lOWorn.Enchant(UWArmorItemMap.BodySlot.RightRing, 0x36, 0x2, 0x4);
 
             UWArmourProtection.ResistBlowsAddsArmour = false;
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             int liWithoutResistance = lOStatus.Armour[UWArmourProtection.PartHead];
 
@@ -4917,7 +4925,7 @@ namespace UnderworldRevisited.Tools
             fExpectInt("resistance: the switch off leaves the armour alone", liWithoutResistance, 6);
 
             UWArmourProtection.ResistBlowsAddsArmour = true;
-            UWArmourProtection.Compute(lOWorn, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOWorn.Model, pOData, null, lOStatus);
 
             fExpectInt("resistance: the switch on reaches every part",
                 lOStatus.Armour[UWArmourProtection.PartHead], liWithoutResistance + 4);
@@ -4930,15 +4938,15 @@ namespace UnderworldRevisited.Tools
             FakeEquipment lOHand = new FakeEquipment();
 
             lOHand.Put(UWArmorItemMap.BodySlot.LeftHandSlot, 0x2F, UWPlayerCritterRow.MaxQuality);
-            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOHand.Model, pOData, null, lOStatus);
             fExpectBool("shield hand: dragon skin boots there protect from lava", lOStatus.HasDragonSkinBoots, true);
 
             lOHand.Enchant(UWArmorItemMap.BodySlot.LeftHandSlot, 0xC, 0x2);
-            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOHand.Model, pOData, null, lOStatus);
             fExpectBool("shield hand: ... not when enchanted", lOStatus.HasDragonSkinBoots, false);
 
             lOHand.Enchant(UWArmorItemMap.BodySlot.LeftHandSlot, 0x2E, 0xC, 0x2);
-            UWArmourProtection.Compute(lOHand, pOData, null, lOStatus);
+            UWArmourProtection.Compute(lOHand.Model, pOData, null, lOStatus);
             fExpectInt("shield hand: an enchanted plate helmet protects the body by 3",
                 lOStatus.Protection[UWArmourProtection.PartBody], 3);
             fExpectInt("shield hand: ... but gives no armour", lOStatus.Armour[UWArmourProtection.PartBody], 0);
@@ -5017,7 +5025,7 @@ namespace UnderworldRevisited.Tools
             lOBare.Enchant(UWArmorItemMap.BodySlot.LeftRing, 0x36,
                 UWWornRegeneration.MajorClass, UWWornRegeneration.HealthMinorClass);
 
-            UWArmourProtection.Compute(lOBare, pOData, null, pOStatus);
+            UWArmourProtection.Compute(lOBare.Model, pOData, null, pOStatus);
 
             fExpectInt("regeneration: a worn ring sets the health bit",
                 pOStatus.RegenerationBits, UWWornRegeneration.HealthBit);
@@ -5025,12 +5033,12 @@ namespace UnderworldRevisited.Tools
             lOBare.Enchant(UWArmorItemMap.BodySlot.RightRing, 0x36,
                 UWWornRegeneration.MajorClass, UWWornRegeneration.ManaMinorClass);
 
-            UWArmourProtection.Compute(lOBare, pOData, null, pOStatus);
+            UWArmourProtection.Compute(lOBare.Model, pOData, null, pOStatus);
 
             fExpectInt("regeneration: two rings set both bits",
                 pOStatus.RegenerationBits, UWWornRegeneration.HealthBit | UWWornRegeneration.ManaBit);
 
-            UWArmourProtection.Compute(pOWorn, pOData, null, pOStatus);
+            UWArmourProtection.Compute(pOWorn.Model, pOData, null, pOStatus);
 
             fExpectInt("regeneration: without the rings the bits are gone", pOStatus.RegenerationBits, 0);
 
@@ -5141,27 +5149,16 @@ namespace UnderworldRevisited.Tools
         {
             public int Regeneration;
 
-            public void OnVitalsChanged() { }
-
-            public void OnDamageRecorded() { }
-
-            public void ShakeOnDamage(int piLevel) { }
-
-            public void ShakeUnsteady(int piDuration) { }
-
-            public void AddMessage(string psMessage) { }
-
-            public void OnKillRewarded(bool pbRewarded) { }
-
-            public void OnStatusPassDue() { }
-
-            public void ResetIdentification() { }
-
-            public void OnFiveMinuteBlock() { FiveMinuteBlocks++; }
-
             public int FiveMinuteBlocks;
 
-            public void OnActiveSpellsChanged(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen, bool pbTelekinesis) { }
+            /// <summary>Counts the five-minute blocks (an event of the vitals since cleanup step
+            /// 3.6, 2026-10-17) and hands the vitals back.</summary>
+            public UWPlayerVitals Watch(UWPlayerVitals pOVitals)
+            {
+                pOVitals.FiveMinuteBlockDue += () => FiveMinuteBlocks++;
+
+                return pOVitals;
+            }
 
             public int DungeonLevelIndex { get; set; }
 
@@ -5176,24 +5173,27 @@ namespace UnderworldRevisited.Tools
             public bool IsChargingAttack => false;
         }
 
-        /// <summary>The worn equipment for the status pass, without any engine.</summary>
-        private sealed class FakeEquipment : IUWEquipment
+        /// <summary>The worn equipment for the status pass, without any engine: a real inventory
+        /// model (the authority since cleanup step 3.6, 2026-10-17, when IUWEquipment went), filled
+        /// slot by slot.</summary>
+        private sealed class FakeEquipment
         {
-            private readonly Dictionary<UWArmorItemMap.BodySlot, UWObject> mOWorn =
-                new Dictionary<UWArmorItemMap.BodySlot, UWObject>();
+            public readonly UWInventoryModel Model = new UWInventoryModel(() => null, () => null);
 
-            public bool IsLeftHanded { get; set; }
+            public bool IsLeftHanded
+            {
+                get { return Model.IsLeftHanded; }
+                set { Model.IsLeftHanded = value; }
+            }
 
             public UWObject GetEquipped(UWArmorItemMap.BodySlot peSlot)
             {
-                UWObject lOItem;
-
-                return mOWorn.TryGetValue(peSlot, out lOItem) ? lOItem : null;
+                return Model.GetEquipped(peSlot);
             }
 
             public void Put(UWArmorItemMap.BodySlot peSlot, int piId, int piQuality)
             {
-                mOWorn[peSlot] = new UWObject((ushort)piId) { Quality = (ushort)piQuality };
+                Model.EquipSlots[(int)peSlot] = new UWObject((ushort)piId) { Quality = (ushort)piQuality };
             }
 
             /// <summary>An enchantment on the piece already in the slot: major and minor class

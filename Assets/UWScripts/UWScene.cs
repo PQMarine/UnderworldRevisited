@@ -114,12 +114,9 @@ public static class UWScene
 
     public static UWConversationScreen ConversationScreen => fGet(ref msConversationScreen);
 
-    /// <summary>All active creatures. Still a scene search - creatures come and go - but
-    /// only this one place does it.</summary>
-    public static UWCritter[] FindCritters()
-    {
-        return Object.FindObjectsByType<UWCritter>(FindObjectsInactive.Exclude);
-    }
+    /// <summary>The world on the level object (UWWorld, cleanup step 3.1, 2026-10-17), made when
+    /// missing; null without a level loader.</summary>
+    public static UWWorld World => UWWorld.Of(LevelLoader);
 
     /// <summary>The 16-slot clock of the level's creatures (Docs/AI/brain-and-host.md
     /// section 1). UWCritterDriver advances it once per frame; every UWCritter asks it

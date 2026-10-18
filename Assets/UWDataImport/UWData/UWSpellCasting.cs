@@ -137,6 +137,30 @@ namespace UWDataImport.UWData
 		/// spell - so a cast where no magic works costs the mana, and a backfire turns on the
 		/// caster.
 		/// </summary>
+		/// <summary>The level of the cast's world; null without one (a cast without a level loader) -
+		/// the spell host's CurrentLevel until cleanup step 3.6 (2026-10-17).</summary>
+		public static UWLevel LevelOf(IUWSpellHost pIHost)
+		{
+			return pIHost != null && pIHost.World != null ? pIHost.World.Level : null;
+		}
+
+		/// <summary>The caster's tile (the avatar's FloorSpot: UWCharacter sits on the main camera,
+		/// so it is the character's own tile); 0/0 without a caster or a world, as the spell host's
+		/// PlayerTile answered until cleanup step 3.6 (2026-10-17).</summary>
+		public static UWTilePos CasterTile(IUWSpellHost pIHost)
+		{
+			return pIHost.World != null && pIHost.HasPlayer ? pIHost.World.Player.FloorSpot.Tile : new UWTilePos(0, 0);
+		}
+
+		/// <summary>A backfired spell on the player: piDice d8 off the hit points, never below
+		/// three (none at all at three or fewer), the view flashing (backfire, SPELLS.C) - through
+		/// the world since cleanup step 3.3 (2026-10-17), from the rule since step 3.6.</summary>
+		private static void fBackfire(IUWSpellHost pIHost, int piDice)
+		{
+			if (pIHost.HasPlayer && pIHost.World != null)
+				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.Backfire(piDice));
+		}
+
 		public static OutcomeEnum CastRunes(int piFirstRune, int piSecondRune, int piThirdRune, IUWSpellHost pIHost)
 		{
 			if (pIHost == null || !pIHost.HasPlayer)
@@ -147,7 +171,7 @@ namespace UWDataImport.UWData
 
 			if (ldNow < lOQuirks.LastCastSeconds + lOQuirks.CastDelaySeconds)
 			{
-				pIHost.PlaySoundAtPlayer(TooSoonSound);
+				pIHost.World.Presentation.PlaySoundAtPlayer(TooSoonSound);
 
 				return OutcomeEnum.TooSoon;
 			}
@@ -158,7 +182,7 @@ namespace UWDataImport.UWData
 
 			if (!UWRunicMagic.TryGetSpell(liSequence, out lOSpell))
 			{
-				pIHost.AddMessage(NotASpellText);
+				pIHost.World.Presentation.AddMessage(NotASpellText);
 
 				return OutcomeEnum.NotASpell;
 			}
@@ -170,7 +194,7 @@ namespace UWDataImport.UWData
 			if (((pIHost.PlayerLevel + 1) / 2) < lOSpell.Level)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(NotExperiencedMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NotExperiencedMessage);
 
 				return OutcomeEnum.NotExperienced;
 			}
@@ -178,7 +202,7 @@ namespace UWDataImport.UWData
 			if (pIHost.PlayerMana < lOSpell.ManaCost)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(NotEnoughManaMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NotEnoughManaMessage);
 
 				return OutcomeEnum.NotEnoughMana;
 			}
@@ -193,7 +217,7 @@ namespace UWDataImport.UWData
 			if (leResult == UWSkillCheck.ResultEnum.Failure)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(IncantationFailedMessage);
+				pIHost.World.Presentation.AddGeneralMessage(IncantationFailedMessage);
 
 				return OutcomeEnum.Failed;
 			}
@@ -201,7 +225,7 @@ namespace UWDataImport.UWData
 			bool lbBackfire = leResult == UWSkillCheck.ResultEnum.CriticalFailure;
 
 			if (lbBackfire)
-				pIHost.AddGeneralMessage(SpellBackfiresMessage);
+				pIHost.World.Presentation.AddGeneralMessage(SpellBackfiresMessage);
 
 			// The pause before the next cast, from now - a backfire sets it too.
 			lOQuirks.LastCastSeconds = ldNow;
@@ -224,7 +248,7 @@ namespace UWDataImport.UWData
 			if (pIHost.IsMagicBlocked)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(CastingNotSuccessfulMessage);
+				pIHost.World.Presentation.AddGeneralMessage(CastingNotSuccessfulMessage);
 
 				return OutcomeEnum.Blocked;
 			}
@@ -234,7 +258,7 @@ namespace UWDataImport.UWData
 			// as do_spell took it. Until 2026-10-11 ours only paid the mana.
 			if (lbBackfire)
 			{
-				pIHost.Backfire(lOSpell.Level / 2);
+				fBackfire(pIHost, lOSpell.Level / 2);
 				pIHost.PlaySpellSound();
 
 				return OutcomeEnum.Backfired;
@@ -246,7 +270,7 @@ namespace UWDataImport.UWData
 			if (!ApplyEffect(lOSpell, false, pIHost, liDeferredCost))
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.AddGeneralMessage(CastingNotSuccessfulMessage);
+				pIHost.World.Presentation.AddGeneralMessage(CastingNotSuccessfulMessage);
 
 				return OutcomeEnum.Blocked;
 			}

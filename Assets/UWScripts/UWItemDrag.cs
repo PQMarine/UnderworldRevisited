@@ -1665,42 +1665,41 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         fConsumeItem(mOUsedItem);
     }
 
+    /// <summary>The item use's presentation (cleanup step 3.1, 2026-10-17): its lines go to this
+    /// component's Interaction, or nowhere without one, as the two message members did; the flash,
+    /// the cutscene and the refusal sound go through it too.</summary>
+    private IUWPresentation fPresentation => UWPresentation.For(UWScene.World, mOInteraction);
+
     public void AddGeneralMessage(int piIndex)
     {
-        if (mOInteraction != null)
-            mOInteraction.AddGeneralMessage(piIndex);
+        fPresentation.AddGeneralMessage(piIndex);
     }
 
     public void AddMessage(string psMessage)
     {
-        if (mOInteraction != null)
-            mOInteraction.AddMessage(psMessage);
+        fPresentation.AddMessage(psMessage);
     }
 
+    /// <summary>The exploding book's curse on the player, through the world since cleanup step 3.3
+    /// (2026-10-17).</summary>
     public void CursePlayer(int piDice)
     {
-        UWCharacter lOCharacter = UWScene.Character;
+        UWWorld lOWorld = UWScene.World;
 
-        if (lOCharacter != null)
-            lOCharacter.ApplyCurse(piDice);
+        if (lOWorld != null)
+            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.Curse(piDice));
     }
 
     public int PlayerDamageTypeProof => UWScene.Character != null ? UWScene.Character.DamageTypeProof : 0;
 
     public void FlashWindow(int piPaletteColour, float pfSeconds)
     {
-        UWGameUI lOUi = UWScene.GameUi;
-
-        if (lOUi != null)
-            lOUi.FlashWindowColour(piPaletteColour, pfSeconds);
+        fPresentation.FlashWindow(piPaletteColour, pfSeconds);
     }
 
     public void PlayCutscene(int piCutscene)
     {
-        UWIntroPlayer lOCutscene = UWScene.IntroPlayer;
-
-        if (lOCutscene != null)
-            lOCutscene.PlayCutscene(piCutscene);
+        fPresentation.PlayCutscene(piCutscene);
     }
 
     /// <summary>Do NOT fire immediately: on the click the pointer is over the inventory, not in
@@ -1725,7 +1724,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
 
     public void PlayMagicItemRefused()
     {
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.MagicItemRefused);
+        fPresentation.PlaySoundAtPlayer(UWSoundEffects.MagicItemRefused);
     }
 
     /// <summary>IUWItemUseHost: the bedroll used - a night in it.</summary>

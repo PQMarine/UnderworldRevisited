@@ -110,33 +110,26 @@ namespace UWDataImport.UWData
 		public const string Prompt = "Chant the mantra: ";
 
 		/// <summary>
-		/// What the two QUEST MANTRAS need beyond the skills: where the player stands, which of
-		/// the two bits of PLAYER.DAT 0x60 are already set, and a hand to put the key in.
-		/// Without a host the two mantras do nothing, as they did before 2026-09-22.
+		/// What the two QUEST MANTRAS need beyond the skills: where the player stands and on which
+		/// level (the world), which of the two bits of PLAYER.DAT 0x60 are already set (UWGameFlags:
+		/// 0x60 bit 7, the Cup of Wonder found - once found the mantra says nothing, label 59D; bit
+		/// 6, the Key of Truth given - handed over once, label 5F4, set at label 621), and a hand to
+		/// put the key in (IUWWorld.GiveToHand). Without a world the two mantras do nothing, as
+		/// they did before 2026-09-22 without a host.
+		///
+		/// The shrine's own host (UWShrineRules.IHost, implemented by UWShrine) answered these until
+		/// cleanup step 3.6 (2026-10-17), forwarding to the world and the flags.
+		///
+		/// THE PLAYER'S TILE, 0/0 without one (the avatar's FloorSpot; until 2026-10-17 the host read
+		/// the controller's transform, whose child the main camera is at local x/z 0, so the tile is
+		/// the same). The level is one-based, as PLAYER.DAT 0x5C keeps it and as the level phrases
+		/// are counted - the shrine's convention of the four (UWWorldLevels.NumberOr with 0).
 		/// </summary>
-		public interface IHost
+		private static UWTilePos fPlayerTile(IUWWorld pOWorld)
 		{
-			int TileX { get; }
+			UWSpot lOSpot = pOWorld.Player.FloorSpot;
 
-			int TileY { get; }
-
-			/// <summary>One-based, as PLAYER.DAT 0x5C keeps it.</summary>
-			int DungeonLevel { get; }
-
-			/// <summary>PLAYER.DAT 0x60 bit 7 - once the cup has been found the mantra says
-			/// nothing (label 59D).</summary>
-			bool CupOfWonderFound { get; }
-
-			/// <summary>PLAYER.DAT 0x60 bit 6 - the key is handed over once (label 5F4, set at
-			/// label 621).</summary>
-			bool KeyOfTruthGiven { get; set; }
-
-			/// <summary>Hands the player a new object of this kind: the pointer, else the
-			/// backpack, else the floor at the feet (UWInventoryModel.GiveToPlayer). False only
-			/// when nothing could be made, and then nothing is marked either. Until 2026-10-12
-			/// this was "the pointer or nothing", as place_new has it (mantra_advance, SKILLS.C);
-			/// B8 of the cleanup plan made the four gifts one behaviour.</summary>
-			bool GiveObject(int piObjectId);
+			return lOSpot.IsOnMap ? lOSpot.Tile : new UWTilePos(0, 0);
 		}
 
 		/// <summary>
@@ -170,7 +163,7 @@ namespace UWDataImport.UWData
 		/// callbacks - a line of string block 1 by number, or a finished sentence.
 		/// </summary>
 		public static void Chant(string psMantra, UWPlayerVitals pOVitals, DataImport pOData,
-			Action<int> pOGeneralMessage, Action<string> pOMessage, IHost pIHost = null)
+			Action<int> pOGeneralMessage, Action<string> pOMessage, IUWWorld pOWorld = null)
 		{
 			if (pOVitals == null || pOData == null || pOGeneralMessage == null || pOMessage == null)
 				return;
@@ -194,14 +187,14 @@ namespace UWDataImport.UWData
 			// one could not chant FANLO without a point.
 			if (liMantra == CupOfWonderMantra)
 			{
-				fCupOfWonder(pOData, pOMessage, pIHost);
+				fCupOfWonder(pOData, pOMessage, pOWorld);
 
 				return;
 			}
 
 			if (liMantra == KeyOfTruthMantra)
 			{
-				fKeyOfTruth(pOGeneralMessage, pIHost);
+				fKeyOfTruth(pOData, pOGeneralMessage, pOWorld);
 
 				return;
 			}
@@ -238,31 +231,33 @@ namespace UWDataImport.UWData
 		/// phrase, or "very near" when neither a direction nor a level is left to name. The
 		/// sentence ends with a full stop. Once the cup is found the mantra says nothing.
 		/// </summary>
-		private static void fCupOfWonder(DataImport pOData, Action<string> pOMessage, IHost pIHost)
+		private static void fCupOfWonder(DataImport pOData, Action<string> pOMessage, IUWWorld pOWorld)
 		{
-			if (pIHost == null || pIHost.CupOfWonderFound)
+			if (pOWorld == null || UWGameFlags.CupOfWonderFound)
 				return;
 
+			UWTilePos lOTile = fPlayerTile(pOWorld);
+			int liDungeonLevel = UWWorldLevels.NumberOr(pOWorld, 0);
 			System.Text.StringBuilder lOText = new System.Text.StringBuilder();
 
 			lOText.Append(fGetGeneralMessage(pOData, CupPrefixMessage));
 
-			int liDistance = Math.Abs(pIHost.TileX - CupTileX) + Math.Abs(pIHost.TileY - CupTileY);
+			int liDistance = Math.Abs(lOTile.X - CupTileX) + Math.Abs(lOTile.Y - CupTileY);
 			bool lbDirection = liDistance > CupNearDistance;
 
 			if (lbDirection)
 				lOText.Append(fGetGeneralMessage(pOData,
-					FirstDirectionMessage + GetCardinalDirection(pIHost.TileX, pIHost.TileY, CupTileX, CupTileY)));
+					FirstDirectionMessage + GetCardinalDirection(lOTile.X, lOTile.Y, CupTileX, CupTileY)));
 
-			if (pIHost.DungeonLevel != CupLevel && pIHost.DungeonLevel != 0)
+			if (liDungeonLevel != CupLevel && liDungeonLevel != 0)
 			{
 				if (lbDirection)
 					lOText.Append(AndText);
 
 				lOText.Append(fGetGeneralMessage(pOData,
-					LevelPhraseMessage + pIHost.DungeonLevel - CupLevel));
+					LevelPhraseMessage + liDungeonLevel - CupLevel));
 			}
-			else if (!lbDirection && pIHost.DungeonLevel != 0)
+			else if (!lbDirection && liDungeonLevel != 0)
 				lOText.Append(VeryNearText);
 
 			lOText.Append(EndText);
@@ -275,18 +270,28 @@ namespace UWDataImport.UWData
 		/// onto the cursor, and says "None of your skills improved." while doing it - the
 		/// original's own wording here, odd as it reads. In the original a held object makes
 		/// place_new return nothing, so nothing is given or marked and it can be chanted again;
-		/// ours hands the key over wherever it fits (IHost.GiveObject, since 2026-10-12).
+		/// ours hands the key over wherever it fits (IUWWorld.GiveToHand, since 2026-10-12).
+		///
+		/// THE KEY is CreateObj's fresh object, as place_new makes it (mantra_advance, SKILLS.C):
+		/// quality 40 and the stack rule of its class (UWObjectFactory). Until 2026-10-12 the key
+		/// came at quality 0 without a count. It goes onto the pointer, as place_new puts it; a held
+		/// object no longer refuses it (the backpack, else the feet - one behaviour for the four
+		/// gifts since 2026-10-12, B8 of the cleanup plan). False only when nothing could be made,
+		/// and then nothing is marked either. Until 2026-10-12 this was "the pointer or nothing",
+		/// as place_new has it.
 		/// </summary>
-		private static void fKeyOfTruth(Action<int> pOGeneralMessage, IHost pIHost)
+		private static void fKeyOfTruth(DataImport pOData, Action<int> pOGeneralMessage, IUWWorld pOWorld)
 		{
-			if (pIHost == null || pIHost.KeyOfTruthGiven)
+			if (pOWorld == null || UWGameFlags.KeyOfTruthGiven)
 				return;
 
-			if (!pIHost.GiveObject(KeyOfTruthObjectId))
+			UWObject lOKey = UWObjectFactory.Create(KeyOfTruthObjectId, pOData);
+
+			if (lOKey == null || !pOWorld.GiveToHand(lOKey, false))
 				return;
 
 			pOGeneralMessage(NoSkillImprovedMessage);
-			pIHost.KeyOfTruthGiven = true;
+			UWGameFlags.KeyOfTruthGiven = true;
 		}
 
 		private static int fFindMantra(string psMantra, DataImport pOData)

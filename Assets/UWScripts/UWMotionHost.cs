@@ -15,10 +15,18 @@ using UWDataImport.UWData;
 ///
 /// Lives on the level object beside UWCritterDriver, which runs the due steps right after the
 /// creatures' (Ensure).
+///
+/// THE SPLIT (cleanup step 3.5, 2026-10-17): this was UWProjectileWorld. The motion core's host
+/// stayed here - the two interfaces IUWMotionWorld and IUWMobileObjectHost, unchanged, the
+/// flights' list and their clock, the transient indices of the collision scans and the probes
+/// over the same bodies (the closing door, the player's blow). What the flights do in the game -
+/// the launches, a damage trap's strike, the hits, the blast and the impact - went to UWMissiles
+/// (Missiles), which this host calls back. The thin UWProjectileWorld facade left for the trap
+/// and spell hosts went in step 3.3 (2026-10-17), when they were rerouted.
 /// </summary>
-public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
+public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 {
-    public static UWProjectileWorld Instance { get; private set; }
+    public static UWMotionHost Instance { get; private set; }
 
     /// <summary>The indices the flights and the lying objects are known by in the collision
     /// scans - transient, the level's slots are not taken (a deviation noted in Todo.md 11.6).</summary>
@@ -26,20 +34,11 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     private const int FirstStaticIndex = 4096;
 
-    /// <summary>The boulder of the quake: on sub-position 3/3 of its tile, just below the
-    /// ceiling (QuakeSpell_seg038_3307_1211).</summary>
-    private const int BoulderSpawnZPos = 0x6E;
-
-    private const int BoulderSubTile = 3;
-
-    /// <summary>How long a missile's impact picture stays: mts_doanim starts the explosion and the
-    /// lightning's splash with the length 4, which lasts five ticks (UWExplosionRules.
-    /// LengthToSeconds) - 1.25 s; ours held 0.7 s until 2026-10-13.</summary>
-    private static readonly float ImpactSeconds = UWExplosionRules.LengthToSeconds(UWExplosionRules.ExplosionLengthTicks);
-
     private UWLevelLoader mOLoader;
 
     private UWMobileObjectMotion mOMotion;
+
+    private UWMissiles mOMissiles;
 
     private readonly List<UWProjectileFlight> mOFlights = new List<UWProjectileFlight>();
 
@@ -54,14 +53,14 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
     private int miNextStaticIndex = FirstStaticIndex;
 
     /// <summary>The component on the level object, made when it is missing.</summary>
-    public static UWProjectileWorld Ensure(UWLevelLoader pOLoader)
+    public static UWMotionHost Ensure(UWLevelLoader pOLoader)
     {
         if (Instance == null && pOLoader != null)
         {
-            Instance = pOLoader.GetComponent<UWProjectileWorld>();
+            Instance = pOLoader.GetComponent<UWMotionHost>();
 
             if (Instance == null)
-                Instance = pOLoader.gameObject.AddComponent<UWProjectileWorld>();
+                Instance = pOLoader.gameObject.AddComponent<UWMotionHost>();
         }
 
         return Instance;
@@ -85,6 +84,23 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
             mOMotion = new UWMobileObjectMotion(this, this, mOLoader.UWDataImporter.CommonObjectProperties);
 
         return mOMotion;
+    }
+
+    /// <summary>The flying objects' motion (UWMobileObjectMotion), made when the level's data is
+    /// there; null before. UWMissiles launches on it.</summary>
+    public UWMobileObjectMotion ObjectMotion => fMotion();
+
+    /// <summary>What the flights do in the game - launches, strikes, blast, impact (cleanup step
+    /// 3.5, 2026-10-17).</summary>
+    public UWMissiles Missiles
+    {
+        get
+        {
+            if (mOMissiles == null)
+                mOMissiles = new UWMissiles(this);
+
+            return mOMissiles;
+        }
     }
 
     private UWCreatureMotion mOCreatureMotion;
@@ -131,7 +147,8 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
     }
 
-    private UWCommonObjectProperties.Entry fEntry(int piItemId)
+    /// <summary>The COMOBJ entry of an object id, or the empty entry before the data is there.</summary>
+    public UWCommonObjectProperties.Entry Entry(int piItemId)
     {
         UWCommonObjectProperties.Entry lOEntry;
 
@@ -172,235 +189,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
     }
 
-    // ------------------------------------------------- The launches
-
-    /// <summary>The heading (1/256 of a turn, 0 north) and the pitch of a missile flying along
-    /// a direction at this speed byte: the pitch is the vertical part in units of 64 against the
-    /// horizontal speed byte * 0x2F (UWPlayerThrow.GetMissileDirection the other way round).
-    /// The heading ROUNDS and is not UWHeadings.DegreesToHeadingByte on purpose: that one
-    /// truncates the player's yaw as the original shifts its facing, while the original derives
-    /// these headings from its arctangent table, not from the player (decision 23 of
-    /// Docs/CLEANUP-PLAN.md, 2026-10-12).</summary>
-    public static void AimFromDirection(Vector3 pODirection, int piSpeedByte, out int piHeading, out int piPitch)
-    {
-        float lfHorizontal = Mathf.Sqrt((pODirection.x * pODirection.x) + (pODirection.z * pODirection.z));
-
-        piHeading = lfHorizontal > 0.0001f
-            ? Mathf.RoundToInt(Mathf.Atan2(pODirection.x, pODirection.z) * Mathf.Rad2Deg * 256f / 360f) & 0xFF
-            : 0;
-
-        if (lfHorizontal > 0.0001f)
-            piPitch = Mathf.RoundToInt(pODirection.y / lfHorizontal * piSpeedByte * 0x2F / 64f);
-        else
-            piPitch = pODirection.y > 0f ? 15 : -16;
-
-        piPitch = Mathf.Clamp(piPitch, -16, 15);
-    }
-
-    /// <summary>
-    /// The player's missile: a shot, a throw (pOItem is the thrown thing itself) or a spell
-    /// projectile, at an absolute heading and a pitch (UWPlayerThrow.GetMissileAim), with the
-    /// speed byte of the ammunition table (0x0F for a throw). Null when there is no room in
-    /// front of the player. piHp is the item's quality for a thrown thing or an arrow, 0x3F
-    /// for a spell.
-    /// </summary>
-    public UWProjectileFlight LaunchFromPlayer(UWObject pOItem, int piItemId, int piHeading, int piPitch, int piSpeedByte,
-        int piDamage, int piDamageType, int piImpactId, Interaction pOInteraction, int piHp)
-    {
-        Camera lOCamera = Camera.main;
-
-        if (lOCamera == null || fMotion() == null)
-            return null;
-
-        Vector3 lOFeet = UWPlayerThrow.GetFeet(lOCamera.transform);
-        int liX8 = UWViewpoint.WorldToOriginalX(lOFeet.x) >> 5;
-        int liY8 = UWViewpoint.WorldToOriginalY(lOFeet.z) >> 5;
-        UWCommonObjectProperties.Entry lOPlayer = fEntry(UWObjectMechanics.AdventurerObjectId);
-        UWPlayerTerrain lOTerrain = UWScene.PlayerTerrain;
-
-        UWMobileObjectMotion.Launcher lOLauncher = new UWMobileObjectMotion.Launcher
-        {
-            Index = 1,
-            IsCreature = true,
-            IsPlayer = true,
-            TileX = liX8 >> 3,
-            TileY = liY8 >> 3,
-            XPos = liX8 & 7,
-            YPos = liY8 & 7,
-            ZPos = UWViewpoint.WorldToOriginalZ(lOFeet.y) >> 3,
-            Octant = (piHeading >> 5) & 7,
-            FineHeadingBits = piHeading & 0x1F,
-            Height = lOPlayer.Height,
-            Radius = lOPlayer.Radius,
-            SwimCounter = lOTerrain != null ? lOTerrain.SwimCounter : 0
-        };
-
-        return fLaunch(pOItem, piItemId, lOLauncher, 0, piPitch, piSpeedByte, piDamage, piDamageType, piImpactId,
-            pOInteraction, null, piHp);
-    }
-
-    /// <summary>A creature's missile or spell projectile along its facing, at the pitch of its
-    /// aim (GetPitchToGTarg). Null when the start has no room - the original makes no missile then.</summary>
-    public UWProjectileFlight LaunchFromCreature(UWCritter pOCritter, int piItemId, int piPitch, int piDamage,
-        int piDamageType, int piImpactId)
-    {
-        if (pOCritter == null || pOCritter.Record == null || fMotion() == null)
-            return null;
-
-        UWCritterRecord lORecord = pOCritter.Record;
-        UWCommonObjectProperties.Entry lOOwn = fEntry(lORecord.ItemId);
-
-        UWMobileObjectMotion.Launcher lOLauncher = new UWMobileObjectMotion.Launcher
-        {
-            Index = pOCritter.Index,
-            IsCreature = true,
-            TileX = lORecord.TileX,
-            TileY = lORecord.TileY,
-            XPos = lORecord.FineX,
-            YPos = lORecord.FineY,
-            ZPos = lORecord.ZPos,
-            Octant = lORecord.FacingEighth & 7,
-            FineHeadingBits = lORecord.FullFacing & 0x1F,
-            Height = lOOwn.Height,
-            Radius = lOOwn.Radius
-        };
-
-        return fLaunch(null, piItemId, lOLauncher, 0, piPitch, piSpeedByte: fSpeedByte(piItemId), piDamage: piDamage,
-            piDamageType: piDamageType, piImpactId: piImpactId, pOInteraction: null, pOCritter: pOCritter, piHp: 0x3F);
-    }
-
-    /// <summary>A missile from a spot without a body of its own - the arrow trap, the spell
-    /// trap: launched at the spot itself, no height offset, no placement test (a launcher of
-    /// height 0).</summary>
-    public UWProjectileFlight LaunchFromSpot(int piItemId, int piTileX, int piTileY, int piXPos, int piYPos, int piZPos,
-        int piHeading, int piPitch, int piSpeedByte, int piDamage, int piDamageType, int piImpactId, Interaction pOInteraction)
-    {
-        if (fMotion() == null)
-            return null;
-
-        UWMobileObjectMotion.Launcher lOLauncher = new UWMobileObjectMotion.Launcher
-        {
-            Index = 0,
-            TileX = piTileX,
-            TileY = piTileY,
-            XPos = piXPos,
-            YPos = piYPos,
-            ZPos = piZPos,
-            Octant = (piHeading >> 5) & 7,
-            FineHeadingBits = piHeading & 0x1F,
-            Height = 0,
-            Radius = 0
-        };
-
-        return fLaunch(null, piItemId, lOLauncher, 0, piPitch, piSpeedByte, piDamage, piDamageType, piImpactId,
-            pOInteraction, null, 0x3F);
-    }
-
-    /// <summary>The ammunition table's speed byte of a missile.</summary>
-    private int fSpeedByte(int piItemId)
-    {
-        return mOLoader != null && mOLoader.UWDataImporter != null && mOLoader.UWDataImporter.ObjectProperties != null
-            ? mOLoader.UWDataImporter.ObjectProperties.GetRangedSpeed(piItemId)
-            : 0;
-    }
-
-    /// <summary>A missile made for the flight (an arrow shot, a spell, a trap's bolt): a fresh
-    /// object with its picture - the spawner bails out silently for one without (per user,
-    /// 2026-10-05: shot arrows vanished where they fell) - and a stack of one when its kind
-    /// counts (PrepareNewObjectProps_seg035_3E, as a landed projectile has it).</summary>
-    private UWObject fNewObject(int piItemId)
-    {
-        UWDataImport.DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
-
-        // CreateObj's fresh object (UWObjectFactory): the stack rule, quality 40 and the
-        // picture. Until 2026-10-12 a missile made here had quality 0.
-        UWObject lOObject = UWObjectFactory.Create(piItemId, lOData != null ? lOData.CommonObjectProperties : null);
-
-        if (lOData != null)
-            UWObjectAppearance.Apply(lOObject, lOData.Textures, null);
-
-        return lOObject;
-    }
-
-    private UWProjectileFlight fLaunch(UWObject pOItem, int piItemId, UWMobileObjectMotion.Launcher pOLauncher, int piMissileHeading,
-        int piPitch, int piSpeedByte, int piDamage, int piDamageType, int piImpactId, Interaction pOInteraction,
-        UWCritter pOCritter, int piHp)
-    {
-        UWMobileRecord lORecord = new UWMobileRecord
-        {
-            Object = pOItem ?? fNewObject(piItemId),
-            Index = miNextFlightIndex++
-        };
-
-        if (!fMotion().TryLaunch(lORecord, pOLauncher, true, piMissileHeading, piPitch, piSpeedByte))
-            return null;
-
-        lORecord.Hp = piHp;
-
-        // The thing lies in its launch direction when it comes to rest (per user, 2026-09-07:
-        // arrows and bolts lie in the facing).
-        lORecord.StaticHeading = lORecord.Octant;
-
-        return fSpawnFlight(lORecord, piDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pOInteraction != null && pOCritter == null);
-    }
-
-    /// <summary>The quake's boulder: a piece of debris with a random small speed and schedule
-    /// (QuakeSpell_seg038_3307_1211), falling from just below the ceiling.</summary>
-    public UWProjectileFlight DropBoulder(int piItemId, int piTileX, int piTileY)
-    {
-        if (fMotion() == null)
-            return null;
-
-        UWCritterClock lOClock = UWScene.CritterClock;
-
-        UWMobileRecord lORecord = new UWMobileRecord
-        {
-            Object = fNewObject(piItemId),
-            Index = miNextFlightIndex++,
-            TileX = piTileX,
-            TileY = piTileY,
-            XPos = BoulderSubTile,
-            YPos = BoulderSubTile,
-            ZPos = BoulderSpawnZPos,
-            FineX = (piTileX << 8) + (BoulderSubTile << 5) + 0xF,
-            FineY = (piTileY << 8) + (BoulderSubTile << 5) + 0xF,
-            FineZ = BoulderSpawnZPos << 3,
-            HeadingByte = Random() & 0xFF,
-            SpeedByte = (Random() & 3) + 2,
-            GravityBit = !fEntry(piItemId).IsWeightless,
-            VzField = 16,
-            Period = (Random() % 3) + 1,
-            Phase = ((lOClock != null ? lOClock.Phase : 0) + (Random() & 3)) & 0xF,
-            Hp = 0x3F
-        };
-
-        lORecord.Octant = lORecord.HeadingByte >> 5;
-        lORecord.StaticHeading = lORecord.Octant;
-
-        return fSpawnFlight(lORecord, 0, UWDamageTypes.Physical, -1, null, null, false);
-    }
-
-    private UWProjectileFlight fSpawnFlight(UWMobileRecord pORecord, int piDamage, int piDamageType, int piImpactId,
-        Interaction pOInteraction, UWCritter pOCritter, bool pbPlayersOwn, bool pbLaunchSound = true)
-    {
-        Vector3 lOAt = WorldPosition(pORecord);
-        GameObject lOSpawned = mOLoader.SpawnProjectile(pORecord.ItemId, lOAt, UWViewpoint.HeadingByteToDirection(pORecord.HeadingByte));
-
-        if (lOSpawned == null)
-            return null;
-
-        UWProjectileFlight lOFlight = lOSpawned.AddComponent<UWProjectileFlight>();
-
-        lOFlight.Begin(this, pORecord, piDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pbPlayersOwn);
-        mOFlights.Add(lOFlight);
-
-        // The launch sound of every missile (PrepareProjectileObject, effect 0x0A); a thing
-        // knocked loose makes none.
-        if (pbLaunchSound)
-            UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOAt);
-
-        return lOFlight;
-    }
+    // ------------------------------------------------- The flights' list
 
     /// <summary>The world point of a record's fine position - its bottom.</summary>
     public static Vector3 WorldPosition(UWMobileRecord pORecord)
@@ -408,81 +197,20 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         return UWViewpoint.OriginalToWorld(pORecord.FineX, pORecord.FineY, pORecord.FineZ);
     }
 
-    /// <summary>
-    /// A damage trap struck a thing in flight that set it off (DamageTrap_ovr107_CB2 ->
-    /// DamageObject, type 4). In the original the damage comes off the flying record's byte 8
-    /// inside the motion step, and ApplyProjectileMotion writes the hp it loaded before the step
-    /// back over it at the end - so the wear is undone (per user on the original, 2026-10-06: a
-    /// wand thrown ten times over the level 3 needles kept its quality 40). Only a hit that
-    /// DESTROYS has an effect, as DamageObjectAndDoors then hands it to DamageObject_Debris: the
-    /// thing becomes a pile of debris. So here: word 0 bit 13 protects, the resistances of COMOBJ
-    /// byte 8 scale it, the quality class halves it (UWObjectDamageRules.Wear) - and only when
-    /// that reaches 0 the thing becomes debris that flies on. A container is left alone
-    /// (the original spills it, EmptyContainer; a thrown bag with its things is not destroyed
-    /// here), and so is a thing that came to rest in the same frame.
-    /// </summary>
-    public void StrikeThing(int piIndex, int piDamage)
+    /// <summary>The next transient index of a flight (from FirstFlightIndex up).</summary>
+    public int NewFlightIndex()
     {
-        UWProjectileFlight lOFlight = fFlight(piIndex);
-
-        if (lOFlight == null || lOFlight.Record == null || piDamage <= 0)
-            return;
-
-        UWMobileRecord lORecord = lOFlight.Record;
-
-        if (UWObjectDamageRules.SpillsWhenDestroyed(lORecord.ItemId))
-            return;
-
-        UWCommonObjectProperties.Entry lOEntry = fEntry(lORecord.ItemId);
-        int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, UWDamageTypes.Physical);
-        bool lbProtected = lORecord.Object != null && lORecord.Object.DoorDirection;
-        int liUnused;
-
-        if (!UWObjectDamageRules.Wear(lORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liUnused))
-            return;
-
-        UWObjectDamageRules.Remains lORemains = UWObjectDamageRules.DecideRemains(lORecord.ItemId, UWDamageTypes.Physical);
-
-        fEndFlight(lORecord);
-
-        if (lORemains == UWObjectDamageRules.Remains.Gone || mOLoader == null)
-            return;
-
-        // THE DEBRIS FLIES ON (per user on the original, 2026-10-06: "the debris flies on with the
-        // same momentum"). DamageObject_Debris_seg023_D6 (READ the same evening), for a thing that
-        // is no door, chest, barrel or container and not struck by fire: unless word 0 bit 15
-        // (a quantity) is set, the chain behind its link - contents, enchantment - is cleared
-        // (ClearObjectChain); then the id bits 0-8 become 0xD5 or 0xD6, its flags and every other
-        // field stay; only a STATIC object goes through PlacedObjectCollison, a flying one moves
-        // on as it was, and the routine answers "not gone". So the same object gets the new id,
-        // the record keeps its place, heading, speed, vertical speed and hp (its quality at rest),
-        // and the picture is made anew.
-        int liDebris = UWObjectDamageRules.RollDebrisObjectId();
-        UWObject lOObject = lORecord.Object;
-
-        if (lOObject == null)
-            lORecord.Object = fNewObject(liDebris);
-        else
-        {
-            if (!lOObject.HasQuantity)
-            {
-                lOObject.Link = 0;
-
-                if (lOObject.Contents != null)
-                    lOObject.Contents.Clear();
-            }
-
-            lOObject.ID = (ushort)liDebris;
-
-            if (mOLoader.UWDataImporter != null)
-                UWObjectAppearance.Apply(lOObject, mOLoader.UWDataImporter.Textures, null);
-        }
-
-        fSpawnFlight(lORecord, lOFlight.Damage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Interaction,
-            lOFlight.Launcher, lOFlight.PlayersOwn, false);
+        return miNextFlightIndex++;
     }
 
-    private void fEndFlight(UWMobileRecord pORecord)
+    /// <summary>A flight joins the list the clock steps and the collision scans ask.</summary>
+    public void AddFlight(UWProjectileFlight pOFlight)
+    {
+        mOFlights.Add(pOFlight);
+    }
+
+    /// <summary>The flight of this record is over: out of the list, its picture gone.</summary>
+    public void EndFlight(UWMobileRecord pORecord)
     {
         for (int liAt = mOFlights.Count - 1; liAt >= 0; liAt--)
         {
@@ -498,7 +226,8 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
     }
 
-    private UWProjectileFlight fFlight(int piIndex)
+    /// <summary>The flight with this transient index, or null.</summary>
+    public UWProjectileFlight FlightAt(int piIndex)
     {
         foreach (UWProjectileFlight lOFlight in mOFlights)
         {
@@ -871,7 +600,9 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     private readonly List<PendingTrigger> mOPendingOtherTriggers = new List<PendingTrigger>();
 
-    private readonly Dictionary<long, float> mOOtherTriggerFiredAt = new Dictionary<long, float>();
+    /// <summary>When each mover's trigger last fired, on the game's clock (UWTriggerPacer, since
+    /// 2026-10-17; a Time.time dictionary before).</summary>
+    private readonly UWTriggerPacer mOOtherTriggerPacer = new UWTriggerPacer(256);
 
     /// <summary>The triggers creatures and things met this frame, fired after all their steps
     /// with the same spacing as the player's, with the mover as the one struck (damage and
@@ -884,22 +615,17 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         PendingTrigger[] lOPending = mOPendingOtherTriggers.ToArray();
         UWLevel lOLevel = mOLoader.CurrentLevel;
         Interaction lOInteraction = UWScene.Interaction;
-        float lfNow = Time.time;
+        long llNow = UWGameSession.Current.Schedule.Now;
 
         mOPendingOtherTriggers.Clear();
-
-        if (mOOtherTriggerFiredAt.Count > 256)
-            mOOtherTriggerFiredAt.Clear();
+        mOOtherTriggerPacer.BeginBatch();
 
         foreach (PendingTrigger lOAt in lOPending)
         {
             if (mOLoader.CurrentLevel != lOLevel)
                 break;
 
-            long llKey = ((long)lOAt.Mover << 32) | (uint)lOAt.Trigger.GetHashCode();
-            float lfLast;
-
-            if (mOOtherTriggerFiredAt.TryGetValue(llKey, out lfLast) && lfNow - lfLast < PlayerTriggerSpacingSeconds)
+            if (!mOOtherTriggerPacer.IsReady(lOAt.Trigger, lOAt.Mover, llNow))
                 continue;
 
             UWCritter lOCritter = lOAt.IsCreature ? fCritter(lOAt.Mover) : null;
@@ -907,26 +633,24 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
             if ((lOAt.IsCreature && lOCritter == null) || !fStillListed(lOAt.Trigger))
                 continue;
 
-            mOOtherTriggerFiredAt[llKey] = lfNow;
+            mOOtherTriggerPacer.MarkFired(lOAt.Trigger, lOAt.Mover, llNow);
             UWTriggerSystem.TryFireMoveTriggerBy(lOAt.Trigger, mOLoader, lOInteraction, lOCritter,
                 lOAt.IsCreature ? 0 : lOAt.Mover);
         }
     }
 
-    /// <summary>
-    /// How often one trigger fires at most while the player moves in its reach: once per 16 PIT
-    /// ticks, the original's frame at the user's DOSBox reference. The original fires per scan,
-    /// so its rate follows its frame rate; ours runs the motion once per rendered frame in Smooth
-    /// mode, and at 144 frames a second a damage trigger would hurt nine times as often.
-    /// </summary>
-    public const float PlayerTriggerSpacingSeconds = 16f / 256f;
-
     private readonly List<UWObject> mOPendingPlayerTriggers = new List<UWObject>();
 
-    private readonly Dictionary<UWObject, float> mOPlayerTriggerFiredAt = new Dictionary<UWObject, float>();
+    /// <summary>How often one trigger fires at most while the player moves in its reach: once per
+    /// clock unit (UWTriggerPacer, which carries the reasoning; PlayerTriggerSpacingSeconds and
+    /// Time.time until 2026-10-17).</summary>
+    private readonly UWTriggerPacer mOPlayerTriggerPacer = new UWTriggerPacer(64);
+
+    /// <summary>The player's index as a mover (TriggerMove), the pacer's key.</summary>
+    private const int PlayerMover = 1;
 
     /// <summary>The move triggers the player's motion met since the last call (TriggerMove),
-    /// each fired once - unless it fired less than PlayerTriggerSpacingSeconds ago. A level change
+    /// each fired once - unless it fired in the same clock unit (UWTriggerPacer). A level change
     /// by one of them drops the rest.</summary>
     public void FirePendingPlayerTriggers()
     {
@@ -936,27 +660,23 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         UWObject[] lOTriggers = mOPendingPlayerTriggers.ToArray();
         UWLevel lOLevel = mOLoader.CurrentLevel;
         Interaction lOInteraction = UWScene.Interaction;
-        float lfNow = Time.time;
+        long llNow = UWGameSession.Current.Schedule.Now;
 
         mOPendingPlayerTriggers.Clear();
-
-        if (mOPlayerTriggerFiredAt.Count > 64)
-            mOPlayerTriggerFiredAt.Clear();
+        mOPlayerTriggerPacer.BeginBatch();
 
         foreach (UWObject lOTrigger in lOTriggers)
         {
             if (mOLoader.CurrentLevel != lOLevel)
                 break;
 
-            float lfLast;
-
-            if (mOPlayerTriggerFiredAt.TryGetValue(lOTrigger, out lfLast) && lfNow - lfLast < PlayerTriggerSpacingSeconds)
+            if (!mOPlayerTriggerPacer.IsReady(lOTrigger, PlayerMover, llNow))
                 continue;
 
             if (!fStillListed(lOTrigger))
                 continue;
 
-            mOPlayerTriggerFiredAt[lOTrigger] = lfNow;
+            mOPlayerTriggerPacer.MarkFired(lOTrigger, PlayerMover, llNow);
             UWTriggerSystem.TryFireMoveTrigger(lOTrigger, mOLoader, lOInteraction);
         }
     }
@@ -977,23 +697,23 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     public bool MissileHits(int piMoverIndex, int piOtherIndex, int piMoverTileX, int piMoverTileY)
     {
-        UWProjectileFlight lOFlight = fFlight(piMoverIndex);
+        UWProjectileFlight lOFlight = FlightAt(piMoverIndex);
 
         if (lOFlight == null)
             return false;
 
         if (piOtherIndex == 1)
-            return lOFlight.StrikePlayer();
+            return Missiles.StrikePlayer(lOFlight);
 
         UWCritter lOCritter = fCritter(piOtherIndex);
 
         if (lOCritter != null)
-            return lOFlight.StrikeCreature(lOCritter);
+            return Missiles.StrikeCreature(lOFlight, lOCritter);
 
         UWObject lOObject;
 
         if (mOStaticByIndex.TryGetValue(piOtherIndex, out lOObject))
-            return lOFlight.StrikeObject(lOObject);
+            return Missiles.StrikeObject(lOFlight, lOObject);
 
         return false;
     }
@@ -1024,7 +744,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         UWMobileRecord lORecord = new UWMobileRecord
         {
             Object = lOObject,
-            Index = miNextFlightIndex++,
+            Index = NewFlightIndex(),
             XPos = lOObject.XPos & 7,
             YPos = lOObject.YPos & 7,
             ZPos = lOObject.ZPos & 0x7F,
@@ -1049,7 +769,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         // (until 2026-10-11 only the reverse map forgot it, so its old index answered nothing).
         mOStaticByIndex.Remove(piOtherIndex);
         mOStaticIndex.Remove(lOObject);
-        fSpawnFlight(lORecord, 0, UWDamageTypes.Physical, -1, null, null, false, false);
+        Missiles.KnockLoose(lORecord);
     }
 
     public void PlaySoundAt(int piSound, int piX8, int piY8, int piVolume)
@@ -1077,7 +797,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     public bool DamageSelf(UWMobileRecord pORecord, int piDamage, int piType)
     {
-        UWCommonObjectProperties.Entry lOEntry = fEntry(pORecord.ItemId);
+        UWCommonObjectProperties.Entry lOEntry = Entry(pORecord.ItemId);
         int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, piType == 8 ? UWDamageTypes.PlainFire : UWDamageTypes.None);
         int liNewHp;
 
@@ -1089,7 +809,7 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         }
 
         pORecord.Hp = 0;
-        fEndFlight(pORecord);
+        EndFlight(pORecord);
 
         return true;
     }
@@ -1120,22 +840,23 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
 
     public int Detonate(UWMobileRecord pORecord, int piTileX, int piTileY, int piOwner)
     {
-        UWProjectileFlight lOFlight = fFlight(pORecord.Index);
+        UWProjectileFlight lOFlight = FlightAt(pORecord.Index);
 
+        // DetonateProjectile at rest: the blast on the tile and the explosion's picture.
         if (lOFlight != null)
-            lOFlight.Detonate(piTileX, piTileY, piOwner);
+            Missiles.ApplyBlast(lOFlight, piTileX, piTileY, piOwner);
 
         return 0;
     }
 
     public void Remove(UWMobileRecord pORecord)
     {
-        fEndFlight(pORecord);
+        EndFlight(pORecord);
     }
 
     public void PlaceAtRest(UWMobileRecord pORecord, int piOctant, int piQuality)
     {
-        fEndFlight(pORecord);
+        EndFlight(pORecord);
 
         UWObject lOObject = pORecord.Object;
 
@@ -1151,57 +872,6 @@ public class UWProjectileWorld : MonoBehaviour, IUWMotionWorld, IUWMobileObjectH
         lOObject.ZPos = pORecord.ZPos;
 
         mOLoader.PlaceRestingObject(lOObject, pORecord.TileX, pORecord.TileY);
-    }
-
-    /// <summary>The blast of a detonating missile, its picture and its sound.</summary>
-    public void ApplyBlast(UWProjectileFlight pOFlight, int piTileX, int piTileY, int piOwner)
-    {
-        if (mOLoader == null)
-            return;
-
-        int liCount;
-        int liRange;
-        int liType;
-
-        if (UWObjectDamageRules.TryGetBlast(pOFlight.Record.ItemId, out liCount, out liRange, out liType))
-        {
-            int liAttacker = piOwner == 1 ? UWCritterBrain.PlayerIndex : piOwner > 1 ? piOwner : -1;
-
-            UWTileBlast.Strike(mOLoader, new UWTilePos(piTileX, piTileY), liCount, liRange, liType, liAttacker);
-        }
-
-        ShowImpact(pOFlight, WorldPosition(pOFlight.Record));
-    }
-
-    /// <summary>The impact picture of a missile that has one, and the player's own impact sound
-    /// (SpawnImpactAnimo_seg022_2D2 plays effect 7 only for the player's).</summary>
-    public void ShowImpact(UWProjectileFlight pOFlight, Vector3 pOAt)
-    {
-        if (mOLoader == null || pOFlight.ImpactId < 0)
-            return;
-
-        mOLoader.SpawnEffectAt(pOFlight.ImpactId, pOAt + (Vector3.up * 2f), ImpactSeconds);
-
-        // THE FIREBALL'S FLAMES: mts_doanim turns the fireball into the explosion and adds
-        // fireball_effect's three to five flames around it, in the struck tile (per user on the
-        // original, 2026-10-13: the impact is several animated parts; ours showed the one).
-        if (pOFlight.ImpactId == UWExplosionRules.ExplosionObjectId && pOFlight.Record != null)
-        {
-            UWMobileRecord lORecord = pOFlight.Record;
-
-            foreach (UWExplosionRules.Flame lOFlame in UWExplosionRules.ScatterFlames(pOFlight.ImpactId,
-                lORecord.XPos & 7, lORecord.YPos & 7, lORecord.ZPos))
-            {
-                mOLoader.SpawnEffectAt(lOFlame.ObjectId, new Vector3(
-                    UWUnits.SubTileToWorldAxis(lORecord.TileX, lOFlame.FineX),
-                    UWUnits.ZPosToWorld(lOFlame.ZPos),
-                    UWUnits.SubTileToWorldAxis(lORecord.TileY, lOFlame.FineY)),
-                    UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), 0f, lOFlame.StartFrame);
-            }
-        }
-
-        if (pOFlight.PlayersOwn)
-            UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, pOAt);
     }
 
     public UWLevelLoader Loader => mOLoader;

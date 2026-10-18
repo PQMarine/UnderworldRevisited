@@ -1,33 +1,30 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>
-	/// What the trap rules (UWTrapRules) need from the game around them. One host per firing:
-	/// it carries the level, the message channel of that firing (which may be silent) and,
-	/// for the rune of warding, the creature that stepped on the trigger. The Unity side is
-	/// UWTrapHost inside UWTriggerSystem.
+	/// What the trap rules (UWTrapRules) need from ONE FIRING: the world as the firing sees it
+	/// (its message channel, which may be silent), who set it off, and the engine work that
+	/// belongs to a firing - the switch that was used, the terrain change, the triggering creature
+	/// or thing, the traps that are nothing but engine work (the arrow's flight, a spell, the
+	/// remote camera, the trespass search over the creature bodies) and the conversation it may
+	/// start. The Unity side is UWTrapHost inside UWTriggerSystem, built per firing.
 	///
-	/// The traps that are nothing but engine work - the arrow's flight, a spell, the remote
-	/// camera, the trespass search over the creature bodies - stay whole on the host; the
-	/// rules only decide when they fire and record them.
+	/// THE WORLD (cleanup step 3.6, 2026-10-17): the level and its data, the player (his tile,
+	/// inventory, numbers, the damage, curse and poison that reach him), the messages, the
+	/// cutscenes, the quake's shake and bounce, the objects a trap makes or removes, the creation
+	/// trap's crowding check, the teleport and the door of a door trap are IUWWorld's. World is the
+	/// world with this firing's presentation - the silent scope for a firing without a message
+	/// channel (the respawn). Until then this interface had 37 members, most of them the world's.
 	/// </summary>
 	public interface IUWTrapHost
 	{
-		DataImport Data { get; }
+		/// <summary>The world with this firing's presentation; never null while a level is loaded.</summary>
+		IUWWorld World { get; }
 
-		UWLevel CurrentLevel { get; }
-
-		/// <summary>The dungeon level, 0-based.</summary>
-		int CurrentLevelIndex { get; }
-
-		int LevelCount { get; }
+		/// <summary>Who set the firing off.</summary>
+		UWTrapFiring Firing { get; }
 
 		/// <summary>Test switch: a create-object trap always fires, whatever its chance.</summary>
 		bool AlwaysFireCreateObjectTraps { get; }
-
-		/// <summary>Is a creature that was created during play (UWObject.IsSpawned) standing
-		/// within piTilesBack below and piTilesForward above this tile on both axes? The
-		/// crowding check of a creation trap - see UWTrapRules.fFireCreateObjectTrap.</summary>
-		bool IsSpawnedCreatureNear(int piTileX, int piTileY, int piTilesBack, int piTilesForward);
 
 		// ------------------------------------------------- Switches and levers
 
@@ -37,8 +34,7 @@ namespace UWDataImport.UWData
 		/// <summary>Flips the pressed image of a switch.</summary>
 		void ToggleSwitchVisual(UWObject pOSwitchObject);
 
-
-		// ------------------------------------------------- The world
+		// ------------------------------------------------- The terrain change
 
 		void RebuildGeometry();
 
@@ -55,49 +51,19 @@ namespace UWDataImport.UWData
 		/// <summary>Objects inside a tile that was solid until now are drawn late.</summary>
 		void SpawnPendingObjectsInTile(int piTileX, int piTileY);
 
-		bool SpawnObjectInTileAtTemplatePosition(UWObject pOCopy, int piTileX, int piTileY);
+		// ------------------------------------------------- The one who set it off
 
-		bool SpawnObjectById(int piObjectId, int piTileX, int piTileY);
+		/// <summary>A damage trap's value on the triggering thing: destroyed when the hit wears it
+		/// out, else untouched (the original's motion step writes its hp back).</summary>
+		void StrikeTriggeringThing(int piDamage);
 
-		bool RemoveObjectFromWorld(UWObject pOObject);
+		/// <summary>A damage trap's quality on the triggering creature, with no attacker (whack_thing
+		/// hands damage_item none: no alarm, no experience).</summary>
+		void DamageTriggeringCreature(int piDamage);
 
-		void TravelTo(int piLevelIndex, int piTileX, int piTileY);
-
-		/// <summary>The door side of an a_door trap: the lock is removed if there is one,
-		/// otherwise made from the template; then the door acts (1 open, 2 close, anything
-		/// else toggles).</summary>
-		void FireDoorTrap(UWObject pODoor, int piAction, UWObject pOLockTemplate);
-
-		// ------------------------------------------------- The player
-
-		bool HasPlayer { get; }
-
-		/// <summary>The tile the player stands on (the exploding book searches it).</summary>
-		UWTilePos PlayerTile { get; }
-
-		/// <summary>The player's inventory, or null without one.</summary>
-		UWInventoryModel Inventory { get; }
-
-		void DamagePlayer(int piDamage);
-
-		void PoisonPlayer(int piStrength);
-
-		/// <summary>The player's damage-type immunities of the moment - worn enchantments and
-		/// spells (UWCharacter.DamageTypeProof), the resist byte check_res reads.</summary>
-		int PlayerDamageTypeProof { get; }
-
-		int PlayerCastingSkill { get; }
-
-		// ------------------------------------------------- Messages
-
-		/// <summary>False when this firing has no message channel - the messages are then
-		/// dropped, and traps that only talk do nothing.</summary>
-		bool HasMessages { get; }
-
-		void AddMessage(string psMessage);
-
-		/// <summary>A line of string block 1, our numbering.</summary>
-		void AddGeneralMessage(int piIndex);
+		/// <summary>Hurts the triggering creature with no attacker, as a damage trap does, and
+		/// tells the player in which direction it happened.</summary>
+		void ApplyWardDamage(int piDamage, int piWardMessage, int piFirstDirectionMessage);
 
 		// ------------------------------------------------- Traps that are engine work
 
@@ -113,45 +79,42 @@ namespace UWDataImport.UWData
 		/// routine as a theft in the original). Returns how many were angered.</summary>
 		int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward);
 
-		/// <summary>The creature that stepped on the trigger, if it was one (rune of warding, and
-		/// since 2026-10-06 every move trigger a creature sets off).</summary>
-		bool HasTriggeringCreature { get; }
-
-		/// <summary>A thing - thrown, shot, knocked loose - set the trigger off.</summary>
-		bool HasTriggeringThing { get; }
-
-		/// <summary>A damage trap's value on the triggering thing: destroyed when the hit wears it
-		/// out, else untouched (the original's motion step writes its hp back).</summary>
-		void StrikeTriggeringThing(int piDamage);
-
-		/// <summary>A damage trap's quality on the triggering creature, with no attacker (whack_thing
-		/// hands damage_item none: no alarm, no experience).</summary>
-		void DamageTriggeringCreature(int piDamage);
-
-		/// <summary>Hurts the triggering creature with no attacker, as a damage trap does, and
-		/// tells the player in which direction it happened.</summary>
-		void ApplyWardDamage(int piDamage, int piWardMessage, int piFirstDirectionMessage);
+		// ------------------------------------------------- Through this firing's channel
 
 		bool BeginConversation(int piSlot);
 
 		bool TalkTo(UWObject pONpcData);
 
 		bool PlayVictory();
+	}
 
-		/// <summary>The class 9 curse on the player: dice plus dice eight-sided, never below
-		/// three hit points (UWPlayerVitals.ApplyCurse). The exploding book uses three dice.
-		/// </summary>
-		void CursePlayer(int piDice);
+	/// <summary>
+	/// WHO SET A FIRING OFF (cleanup step 3.6, 2026-10-17): the player, a creature (the rune of
+	/// warding, and since 2026-10-06 every move trigger a creature sets off) or a thing - thrown,
+	/// shot, knocked loose. A value the firing carries; until then two members of the trap host
+	/// (HasTriggeringCreature, HasTriggeringThing) and the door trap's own derivation of the opener.
+	/// </summary>
+	public readonly struct UWTrapFiring
+	{
+		/// <summary>A creature stepped on the trigger.</summary>
+		public readonly bool ByCreature;
 
-		/// <summary>Plays a cutscene - the freeing of Arial is cutscene 3.</summary>
-		void PlayCutscene(int piCutscene);
+		/// <summary>A thing in flight set the trigger off.</summary>
+		public readonly bool ByThing;
 
-		/// <summary>Shakes the screen, the quake trap's first bit - always 0x1E on the large channel;
-		/// the original ignores the intensity, the trap's
-		/// owner field.</summary>
-		void ShakeScreen(int piIntensity);
+		public UWTrapFiring(bool pbByCreature, bool pbByThing)
+		{
+			ByCreature = pbByCreature;
+			ByThing = pbByThing;
+		}
 
-		/// <summary>Throws the player up, the quake trap's second bit.</summary>
-		void BouncePlayer(int piIntensity);
+		/// <summary>The player set it off.</summary>
+		public static UWTrapFiring ByPlayer => new UWTrapFiring(false, false);
+
+		/// <summary>OpenDoor(CharacterThatTriggeredTrap, door): whoever set the chain off opens a door
+		/// it moves - the creature, else the thing, else the player.</summary>
+		public UWTrapRules.Setter Opener => ByCreature ? UWTrapRules.Setter.Creature
+			: ByThing ? UWTrapRules.Setter.Thing
+			: UWTrapRules.Setter.Player;
 	}
 }

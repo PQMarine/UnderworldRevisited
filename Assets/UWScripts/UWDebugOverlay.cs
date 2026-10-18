@@ -167,6 +167,9 @@ public class UWDebugOverlay : MonoBehaviour
         return lOText.ToString();
     }
 
+    /// <summary>The creatures of fAppendNearestCritter, kept between frames.</summary>
+    private readonly System.Collections.Generic.List<UWCritter> mOCritters = new System.Collections.Generic.List<UWCritter>();
+
     /// <summary>
     /// What the nearest creature is currently up to.
     ///
@@ -183,9 +186,11 @@ public class UWDebugOverlay : MonoBehaviour
         // THE LOOKED-AT CREATURE FIRST. The nearest enemy is not necessarily the one
         // that matters right now - with the fire elemental the line showed a spider instead,
         // which happened to be closer (per user, 2026-09-10).
-        UWCritter[] lOCritters = UWScene.FindCritters();
+        // The creatures from the world's search (cleanup step 3.2, 2026-10-17; before, a scene search).
+        System.Collections.Generic.List<UWCritter> lOCritters = mOCritters;
+        UWWorld lOWorld = UWScene.World;
 
-        if (lOCritters == null || lOCritters.Length == 0)
+        if (lOWorld == null || lOWorld.FindCritters(UWTileArea.WholeLevel, UWCreatureFilter.Any, lOCritters) == 0)
         {
             pOText.Append("\nEnemy: none on this level");
 
@@ -235,7 +240,7 @@ public class UWDebugOverlay : MonoBehaviour
             return;
 
         pOText.AppendFormat("\nEnemy {0} ({1} of {2})  {3:F0} away ({4:F1} tiles)  {5}  attack {6}",
-            lOShown.name, lbLookedAt ? "looked at" : "nearest", lOCritters.Length,
+            lOShown.name, lbLookedAt ? "looked at" : "nearest", lOCritters.Count,
             lfDistanceToShown, lfDistanceToShown / UWWorldScale.TileSize,
             lOShown.State, lOShown.AttackKind);
 

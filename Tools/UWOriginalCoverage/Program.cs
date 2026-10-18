@@ -151,7 +151,7 @@ namespace UnderworldRevisited.Tools
             // attitude changing spells, whose ally part is a deviation of ours that is written
             // down in UWSummonSpellRules. ONE NAME MISLEADS: CheckNearbyNPCHunger_ovr104_6F1
             // has nothing to do with hunger - it sets NearbyHostileAndAwareOfPlayer and is
-            // what Sleep asks before it lets one sleep; we have it as IUWSleepHost.IsEnemyNearby.
+            // what Sleep asks before it lets one sleep; we have it as UWSleepRules.IsHostileNear.
             { "ovr104", "built", "attitude, calming on a level change, the anger at a theft, the nearby check before sleeping" },
 
             // Gone through 2026-09-21. The inventory panel and what happens in it: dragging

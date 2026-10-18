@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 using UWDataImport;
 using UWDataImport.UWData;
@@ -44,32 +43,20 @@ public static class UWEndgame
 
     /// <summary>String block 1. UW.EXE calls 0x84, 0x86, 0x103 and 0x116 - our export is exactly
     /// one higher for all four (the usual +1 in this project, checked with the removed tool UWGaramonDump:
-    /// at 0x84 we have "The door is spiked.").</summary>
+    /// at 0x84 we have "The door is spiked."). The three messages of the launch (0x116 to 0x118)
+    /// live in UWEndgameSequence since 2026-10-17.</summary>
     private const int NoEffectMessage = UWStringIds.NoEffectMessage; // It seems to have no effect.
 
     private const int FinalRestingPlaceMessage = 0x86 + 1; // You thoughtfully give the bones a final resting place.
 
     private const int NotAtRestMessage = 0x103 + 1;        // The bones do not seem at rest in the grave, ...
 
-    private const int RendingSoundMessage = 0x116 + 1;     // A rending sound fills the air.
-
-    private const int SlasherDraggedMessage = 0x117 + 1;   // The Slasher of Veils is dragged from this world.
-
-    private const int SuckedThroughMessage = 0x118 + 1;    // You are sucked through the moongate . . . . .
-
-    /// <summary>The centre tile of the volcano on level 8, both axes - where the moongate
-    /// appears. The level, the radius and the quest flags live in UWEndgameRules.</summary>
-    private const int VolcanoCentre = UWEndgameRules.VolcanoCentre;
-
     /// <summary>The flame sprite a destroyed talisman turns into (reference 0x1C2).</summary>
     private const int TalismanFlameObjectId = 0x1C2;
 
-    private const int MoongateObjectId = UWObjectMechanics.MoongateObjectId;
-
-    /// <summary>Link field of the moongate in the volcano: 0x2C0, colour 192.</summary>
-    private const int MoongateLink = 0x2C0;
-
-    /// <summary>Destination in the void: level 9 (zero-based), tile 27/23 (VoidTileX/VoidTileY).</summary>
+    /// <summary>Destination in the void: level 9 (zero-based), tile 27/23 (UWEndgameRules.VoidTileX
+    /// and VoidTileY). The volcano centre where the moongate appears, the gate's link and the
+    /// flight's steps live in UWEndgameSequence and UWMoongateFlight since 2026-10-17.</summary>
     public const int VoidLevelIndex = UWEndgameRules.VoidLevelIndex;
 
     /// <summary>
@@ -86,29 +73,6 @@ public static class UWEndgame
         return UWEndgameRules.IsMagicBlocked(pOLoader.CurrentLevel, pOLoader.CurrentLevelIndex,
             pOLoader.WorldPositionToTile(pOWorldPosition));
     }
-
-    /// <summary>Destination tile in the void, 27/23 - see VoidLevelIndex.</summary>
-    private const int VoidTileX = UWEndgameRules.VoidTileX;
-
-    private const int VoidTileY = UWEndgameRules.VoidTileY;
-
-    /// <summary>The camera flight to the moongate: 64 steps (reference 0.1 s each, for us
-    /// UWSettings.MoongateStepSeconds). Per step 0x800 angle units of roll around the view axis
-    /// (reference PositionPlayerCamera, roll = steps &lt;&lt; 0xB) and 0xCCB along the circular path
-    /// around the gate, the view stays aimed at the gate - see fLaunchIntoVoid.</summary>
-    private const int MoongateSteps = 0x40;
-
-    private const float MoongateStepSeconds = 0.1f;
-
-    private const float MoongateRollPerStep = 0x800 * 360f / UWWorldScale.FullCircleUnits;
-
-    /// <summary>Angle along the circular path around the gate per step (reference MoveCameraToVoid: 0xCCB).
-    /// </summary>
-    private const float MoongateYawPerStep = 0xCCB * 360f / UWWorldScale.FullCircleUnits;
-
-    /// <summary>Sinking per step: two fine height units (reference, steps &lt;&lt; 1), for
-    /// us 0.25 world units each (UWWorldScale.UnitsPerOriginalUnit).</summary>
-    private const float MoongateSinkPerStep = 2f * UWWorldScale.UnitsPerOriginalUnit;
 
     /// <summary>The three flag bits live in UWGameFlags (seeded by UWLevelLoader, saved by
     /// UWSavegameWriter); these forward for the old callers.</summary>
@@ -132,8 +96,6 @@ public static class UWEndgame
         get { return UWGameFlags.CupOfWonderFound; }
         set { UWGameFlags.CupOfWonderFound = value; }
     }
-
-    private static bool mbLaunching;
 
     // ------------------------------------------------- Gravestones
 
@@ -230,13 +192,16 @@ public static class UWEndgame
             pOInteraction.BeginConversation(GaramonConversation);
 
         if (pOLoader != null)
-            pOLoader.StartCoroutine(fFireBurialTriggerAfterTalk(pOLoader, pOInteraction));
+            UWGameSession.Current.Schedule.AfterConversation(() => fFireBurialTrigger(pOLoader, pOInteraction));
 
         return true;
     }
 
     /// <summary>In the original TalkTo runs to the end before the trigger at 54/52 fires -
-    /// for us the conversation runs alongside, so we wait.
+    /// for us the conversation runs alongside, so we wait: on the world's scheduler since
+    /// 2026-10-17 (UWWorldScheduler.AfterConversation, which also covers a conversation that has
+    /// not opened yet); until then a coroutine on the level loader that polled the conversation
+    /// every frame.
     ///
     /// BUG OF THE ORIGINAL, DELIBERATELY REPRODUCED (per user, 2026-09-13): the
     /// burial conversation only has a placeholder partner on the stack (UseBones var_22,
@@ -245,17 +210,12 @@ public static class UWEndgame
     /// Whoever already answers up to "I shall think on it." here has a friendly Garamon; only
     /// a second conversation with the appeared ghost makes him mellow. So for us the
     /// burial conversation runs with the same placeholder, which stands in no tile.</summary>
-    private static IEnumerator fFireBurialTriggerAfterTalk(UWLevelLoader pOLoader, Interaction pOInteraction)
+    private static void fFireBurialTrigger(UWLevelLoader pOLoader, Interaction pOInteraction)
     {
-        yield return null;
-
-        while (UWConversationScreen.IsAnyOpen)
-            yield return null;
-
-        UWLevel lOLevel = pOLoader.CurrentLevel;
+        UWLevel lOLevel = pOLoader != null ? pOLoader.CurrentLevel : null;
 
         if (lOLevel == null)
-            yield break;
+            return;
 
         UWTile lOTile = lOLevel.GetTile(BurialTriggerTileX, BurialTriggerTileY);
 
@@ -272,7 +232,7 @@ public static class UWEndgame
     ///   afterwards           count down, the talisman perishes in flames; on the last one
     ///                        counter to 0xFF and off into the void
     /// Returns true if the talisman is destroyed - then it vanishes like a
-    /// sinking item. Called at the moment of impact (UWProjectileWorld.TalismanBurns).
+    /// sinking item. Called at the moment of impact (UWMotionHost.TalismanBurns).
     /// </summary>
     public static bool TryDestroyTalismanInLava(UWLevelLoader pOLoader, UWObject pOObject,
         int piTileX, int piTileZ, Vector3 pOLanding)
@@ -290,7 +250,7 @@ public static class UWEndgame
         switch (leOutcome)
         {
             case UWEndgameRules.TalismanOutcome.Launch:
-                pOLoader.StartCoroutine(fLaunchIntoVoid(pOLoader));
+                fLaunchIntoVoid(pOLoader);
                 return true;
 
             case UWEndgameRules.TalismanOutcome.Flame:
@@ -343,90 +303,75 @@ public static class UWEndgame
     }
 
     /// <summary>
-    /// The last talisman is destroyed - sequence per UW.EXE:
-    ///   on impact           "A rending sound fills the air."
-    ///   EndGameFunctions    moongate in the volcano centre (link 0x2C0),
-    ///                       "The Slasher of Veils is dragged from this world.",
-    ///                       LaunchPlayerAtMoongate_ovr134_D52: 64 steps, ONE FRAME PER STEP
-    ///                       (renderrelated_seg031_351, no delay - the speed depended on the
-    ///                       machine speed), then remove the gate, teleport to level 9
-    ///                       27/23, "You are sucked through the moongate . . . . ."
-    /// Camera per step following PositionCameraAtObject_seg034_2F89_B99, see below.
+    /// The last talisman is destroyed: the sequence (messages, gate, the camera's 64 steps into
+    /// the moongate, the journey to the void) is UWEndgameSequence on the session's scheduler since
+    /// 2026-10-17 (cleanup step 3.4); until then this was a coroutine on the level loader, waiting
+    /// with WaitForSeconds per step and guarded by a static flag. The wait per step is still the
+    /// setting UWSettings.MoongateStepSeconds (0: one step per frame).
     /// </summary>
-    private static IEnumerator fLaunchIntoVoid(UWLevelLoader pOLoader)
+    private static void fLaunchIntoVoid(UWLevelLoader pOLoader)
     {
-        if (mbLaunching)
-            yield break;
-
-        mbLaunching = true;
-
-        Interaction lOInteraction = UWScene.Interaction;
-
-        if (lOInteraction != null)
-            lOInteraction.AddGeneralMessage(RendingSoundMessage);
-
-        // Link 0x2C0 as in UW.EXE (EndGameFunctions: word 3 = ... | 0xB000, quantity bit set) -
-        // for the moongate that is the colour, see UWObjectSpawner.fGetModelFaceColor. Without it
-        // the gate stayed pink (per user, 2026-09-14).
-        pOLoader.SpawnObjectById(MoongateObjectId, VolcanoCentre, VolcanoCentre, MoongateLink);
-
-        if (lOInteraction != null)
-            lOInteraction.AddGeneralMessage(SlasherDraggedMessage);
-
-        Camera lOCamera = Camera.main;
-        UWRemoteCamera lORemote = UWRemoteCamera.Ensure();
-        int liClaim = -1;
-        Vector3 lOStart = lOCamera != null ? lOCamera.transform.position : Vector3.zero;
-        Vector3 lOGate = new Vector3(UWUnits.TileCentreToWorldAxis(VolcanoCentre), lOStart.y,
-            UWUnits.TileCentreToWorldAxis(VolcanoCentre));
-
-        // THE CAMERA CIRCLES THE GATE (reference PositionPlayerCamera, MoongateSucking): the
-        // angle grows by 0xCCB per step, the distance shrinks linearly from the starting distance
-        // to zero, the view always points at the gate, plus the roll and a sinking by two
-        // fine height units per step. Because the view is locked to the gate, it looks as if
-        // the gate rotates - as in the original (per user, 2026-09-14; the gates on level 9 do
-        // not rotate, so the model itself does not either). The direction of rotation is not confirmed.
-        Vector3 lOFromGate = lOStart - lOGate;
-        float lfRadius = lOFromGate.magnitude;
-        float lfStartAngle = lfRadius > 0.0001f
-            ? Mathf.Atan2(lOFromGate.x, lOFromGate.z) * Mathf.Rad2Deg
-            : (lOCamera != null ? lOCamera.transform.eulerAngles.y + 180f : 0f);
-
-        if (lORemote != null && lOCamera != null)
-            liClaim = lORemote.Begin(UWRemoteCamera.TrapPriority, lOStart, lfStartAngle + 180f, 0f, false, null);
-
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-        float lfStepSeconds = lOSettings != null ? lOSettings.MoongateStepSeconds : MoongateStepSeconds;
+        float lfStepSeconds = lOSettings != null ? lOSettings.MoongateStepSeconds : UWMoongateFlight.DefaultStepSeconds;
+        UWGameSession lOSession = UWGameSession.Current;
 
-        // Like UW.EXE: draw first, then count on - step 0 is still at the starting position.
-        for (int liStep = 0; liStep < MoongateSteps; liStep++)
+        lOSession.Endgame.Launch(UWWorld.Of(pOLoader), new LaunchHost(), lOSession.Schedule, lfStepSeconds);
+    }
+
+    /// <summary>What the launch asks of the scene: the main camera through the remote view, with
+    /// this flight's claim on it. The message scroll, the gate and the journey go to the world
+    /// (UWWorld: its presentation looks the scroll up at every message, SpawnNewObject, TravelTo)
+    /// since cleanup step 3.6 (2026-10-17).</summary>
+    private sealed class LaunchHost : UWEndgameSequence.IHost
+    {
+        private UWRemoteCamera mORemote;
+
+        private int miClaim = -1;
+
+        public bool TryGetCamera(out UWVector3 pOPosition, out float pfYaw)
         {
-            float lfAngle = lfStartAngle + (liStep * MoongateYawPerStep);
-            float lfDistance = lfRadius * (MoongateSteps - liStep) / MoongateSteps;
-            Vector3 lOPosition = lOGate + (new Vector3(Mathf.Sin(lfAngle * Mathf.Deg2Rad), 0f, Mathf.Cos(lfAngle * Mathf.Deg2Rad)) * lfDistance)
-                - new Vector3(0f, liStep * MoongateSinkPerStep, 0f);
+            Camera lOCamera = Camera.main;
 
-            if (liClaim >= 0)
-                lORemote.SetPose(liClaim, lOPosition, lfAngle + 180f, 0f, liStep * MoongateRollPerStep);
+            pOPosition = new UWVector3(0f, 0f, 0f);
+            pfYaw = 0f;
 
-            // 0 means one step per frame, as in the original.
-            if (lfStepSeconds > 0f)
-                yield return new WaitForSeconds(lfStepSeconds);
-            else
-                yield return null;
+            if (lOCamera == null)
+                return false;
+
+            Vector3 lOAt = lOCamera.transform.position;
+
+            pOPosition = new UWVector3(lOAt.x, lOAt.y, lOAt.z);
+            pfYaw = lOCamera.transform.eulerAngles.y;
+
+            return true;
         }
 
-        if (liClaim >= 0)
-            lORemote.End(liClaim);
+        public void BeginCamera(UWMoongateFlight.Pose pOPose)
+        {
+            mORemote = UWRemoteCamera.Ensure();
 
-        mbLaunching = false;
+            if (mORemote != null)
+                miClaim = mORemote.Begin(UWRemoteCamera.TrapPriority, fToVector(pOPose.Position), pOPose.Yaw, 0f, false, null);
+        }
 
-        pOLoader.TravelTo(VoidLevelIndex, VoidTileX, VoidTileY);
+        public void SetCameraPose(UWMoongateFlight.Pose pOPose)
+        {
+            if (miClaim >= 0 && mORemote != null)
+                mORemote.SetPose(miClaim, fToVector(pOPose.Position), pOPose.Yaw, 0f, pOPose.Roll);
+        }
 
-        lOInteraction = UWScene.Interaction;
+        public void EndCamera()
+        {
+            if (miClaim >= 0 && mORemote != null)
+                mORemote.End(miClaim);
 
-        if (lOInteraction != null)
-            lOInteraction.AddGeneralMessage(SuckedThroughMessage);
+            miClaim = -1;
+        }
+
+        private static Vector3 fToVector(UWVector3 pOPosition)
+        {
+            return new Vector3(pOPosition.X, pOPosition.Y, pOPosition.Z);
+        }
     }
 
     /// <summary>Is the ending currently running - sequence, victory screens, main menu?</summary>
@@ -477,10 +422,10 @@ public static class UWEndgame
     }
 
     /// <summary>From a loaded save game or a new character: only the run state - the flags
-    /// themselves are seeded into UWGameFlags by UWLevelLoader.</summary>
+    /// themselves are seeded into UWGameFlags by UWLevelLoader. The launch's state belongs to
+    /// the session since 2026-10-17 (UWGameSession.Endgame), which every start makes new.</summary>
     public static void SeedFrom(UWPlayerData pOPlayer)
     {
-        mbLaunching = false;
         IsVictoryRunning = false;
     }
 }

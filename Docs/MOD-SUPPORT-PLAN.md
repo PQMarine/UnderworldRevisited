@@ -402,6 +402,23 @@ Several seams this plan starts from now exist, so the phases below begin from th
   and the registration tables `UWTrapTable`, `UWDoActionTable`, `UWConversationFunctionTable`,
   `UWItemUseTable` and `UWFoodTable` (a mod row is one more registration).
 
+**State after phase 3 of the code cleanup (2026-10-18).** The hosts now meet one world:
+
+- `IUWWorld` (engine-free, implemented once by `UWWorld` on the level object) holds the level,
+  tiles, objects (spawn, drop, remove, give to the hand), doors (`IUWDoors`), the creature
+  search (`FindCreatures`), travel and teleport, and `Damage(target, UWBlow)` - the one road for
+  every blow on a creature or an object, the natural hook for a damage event. `IUWPresentation`
+  (messages, sound, effects, shake, flash, cutscenes) can be silenced per call, and
+  `IUWPlayerAvatar` reads the body.
+- The trap, spell and conversation hosts shrank to what is theirs (`UWTrapFiring` and
+  `UWCastContext` carry the call context); the sleep, shrine, special-death and equipment
+  hosts are gone, and the vitals report through C# events. UWSelfCheck runs traps, spells, sleep
+  and the shrine headless on a `FakeWorld`, so phase 4 item 8 is done.
+- `UWWorldScheduler` (per session) runs timed actions on the game clock, `UWTriggerPacer` the
+  trigger spacing, `UWEndgameSequence` the endgame: no rule depends on the frame rate
+  ([DEVIATIONS.md](DEVIATIONS.md)). Damage to the player alone (terrain, fall, curse tick)
+  still goes its own ways until the damage pipeline of cleanup phase 4.
+
 ### Phase 0: foundations (small)
 
 1. `UWModCatalog`, `UWModSet`, `mod.json`; the Mods folder; `EnabledMods` in settings; the

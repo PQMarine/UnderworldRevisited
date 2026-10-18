@@ -469,8 +469,57 @@ namespace UWDataImport.UWData
 			if (pOArguments == null || pOArguments.Count < 3 || mIHost == null)
 				return 0;
 
-			return mIHost.SetDoorState(pOArguments[0], pOArguments[1], pOArguments[2]) ? 1 : 0;
+			return fSetDoorState(pOArguments[0], pOArguments[1], pOArguments[2]) ? 1 : 0;
 		}
+
+		/// <summary>
+		/// Opens or closes the door or portcullis on a tile, without a switch
+		/// and without a trigger. This is used by the built-in conversation function
+		/// "gronk_door" (uw-formats.txt 7.6, Id 0x25): an NPC lets the player in or
+		/// locks him out. False without a door on the tile or a door component for it.
+		///
+		/// A lock is deliberately NOT touched here - unlike with the door trap. The
+		/// function means "open the door", not "change its lock", and the user has confirmed in the
+		/// original that a switch likewise leaves the lock state untouched.
+		///
+		/// The mode is gronk_door's: open, close or toggle (GronkDoorOpen ...).
+		/// Where the door is heading decides, not only whether it is shut: a door still swinging
+		/// shut counts as closed, so "open" turns it round (the talking door closes itself at the
+		/// start of its conversation and opens again at "Very well ..." - ours stayed shut, per
+		/// user, 2026-10-01). The rule is UWDoorRules.GronkTogglesDoor (2026-10-12): the original's
+		/// OpenDoor, CloseDoor and ToggleDoor, which the door trap uses as well.
+		///
+		/// UWTriggerSystem.TrySetDoorState behind the conversation host's SetDoorState until cleanup
+		/// step 3.6 (2026-10-17); a rule over the world's doors since.
+		/// </summary>
+		private bool fSetDoorState(int piTileX, int piTileY, int piMode)
+		{
+			IUWWorld lOWorld = mIHost.World;
+
+			if (lOWorld == null)
+				return false;
+
+			UWObject lODoorData = UWTrapRules.FindDoorInTile(piTileX, piTileY, lOWorld.Level);
+
+			if (lODoorData == null)
+				return false;
+
+			IUWDoor lODoor = lOWorld.Doors.Find(lODoorData);
+
+			if (lODoor == null)
+				return false;
+
+			// gronk_door passes no opener (OpenDoor(0, door)).
+			if (UWDoorRules.GronkTogglesDoor(piMode, lODoor.IsHeadingClosed, lODoor.IsMoving))
+				lODoor.Toggle(UWTrapRules.Setter.Thing);
+
+			return true;
+		}
+
+		/// <summary>The dungeon level, 1-based, 1 without a world - what the conversations call
+		/// dungeon_level, the conversation's convention of the four (UWWorldLevels; the host's
+		/// CurrentLevelNumber until cleanup step 3.6, 2026-10-17).</summary>
+		private int fDungeonLevel => UWWorldLevels.NumberOr(mIHost != null ? mIHost.World : null, 1);
 
 		public const int GronkDoorOpen = 0;
 
@@ -545,7 +594,7 @@ namespace UWDataImport.UWData
 		{
 			mOVm.SetImportedGlobal("npc_whoami", mONpc != null ? mONpc.NPCwhoami : piSlot);
 
-			mOVm.SetImportedGlobal("dungeon_level", mIHost != null ? mIHost.CurrentLevelNumber : 1);
+			mOVm.SetImportedGlobal("dungeon_level", fDungeonLevel);
 			mOVm.SetImportedGlobal("play_name", PlayerNameString);
 			mOVm.SetImportedGlobal("new_player_exp", 0);
 
@@ -746,7 +795,7 @@ namespace UWDataImport.UWData
 
 			if (mOVm.TryGetImportedGlobal("new_player_exp", out liExperience) && (short)liExperience != 0)
 			{
-				mIHost.ChangeExperience((short)liExperience, mIHost.CurrentLevelNumber);
+				mIHost.ChangeExperience((short)liExperience, fDungeonLevel);
 
 				// Do not award twice in case values are written back again.
 				mOVm.SetImportedGlobal("new_player_exp", 0);

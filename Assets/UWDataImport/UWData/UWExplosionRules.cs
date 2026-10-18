@@ -11,7 +11,7 @@ namespace UWDataImport.UWData
 	/// 0 to 2 and a length of 2 - r + 0..2 ticks (per user, 2026-10-13: with one length for all
 	/// they looked too even).
 	///
-	/// One rule for the fireball's impact (UWProjectileWorld.ShowImpact, per user 2026-10-13: the
+	/// One rule for the fireball's impact (UWMissiles.fShowImpact, per user 2026-10-13: the
 	/// original's impact is three animated parts and more, ours was one) and for Flame Wind
 	/// (UWAreaSpellRules, since 2026-10-12).
 	/// </summary>

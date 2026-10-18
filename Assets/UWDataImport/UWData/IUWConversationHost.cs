@@ -9,9 +9,19 @@ namespace UWDataImport.UWData
 	///
 	/// Health, mana and hit points come as whole numbers: the conversation globals are
 	/// integers anyway, and the host rounds the way the display does.
+	///
+	/// THE WORLD (cleanup step 3.6, 2026-10-17): the level, its number, the doors gronk_door moves,
+	/// the objects place_object puts down, the drops at the end of a barter, remove_talker and the
+	/// player's inventory are IUWWorld's; this interface keeps the player's numbers (they are the
+	/// conversation's own: rounded as the display rounds) and the two text services. Until then
+	/// it had a world block of its own, forwarding to the world and the level loader.
 	/// </summary>
 	public interface IUWConversationHost
 	{
+		/// <summary>The world the conversation takes place in; null without one (a test run
+		/// without a game).</summary>
+		IUWWorld World { get; }
+
 		// ------------------------------------------------- The player
 
 		/// <summary>False when no character is around (a test run without a game).</summary>
@@ -56,44 +66,7 @@ namespace UWDataImport.UWData
 
 		void ChangeExperience(int piAmount, int piDungeonLevel);
 
-		// ------------------------------------------------- The world
-
-		/// <summary>The level the conversation takes place on, or null without a world.</summary>
-		UWLevel CurrentLevel { get; }
-
-		/// <summary>The dungeon level, 1-based - what the conversations call dungeon_level.</summary>
-		int CurrentLevelNumber { get; }
-
-		/// <summary>Opens, closes or toggles the door on a tile (gronk_door, see
-		/// UWConversationSession.GronkDoorOpen and the two after it). False without a door.
-		/// </summary>
-		bool SetDoorState(int piTileX, int piTileY, int piMode);
-
-		/// <summary>Puts an item onto a tile of the level (place_object).</summary>
-		bool SpawnObjectInTile(UWObject pOItem, int piTileX, int piTileY);
-
-		/// <summary>place_object with a negative x: the item goes down at the player's feet
-		/// (put_at at his tile, stay_centered, range 6, never culled).</summary>
-		void DropAtPlayer(UWObject pOItem);
-
-		/// <summary>Puts an item down around the player (PlaceObjectAtNPC_seg026_12E5 with the
-		/// player object and radius 5) - what the player still has laid out when the conversation
-		/// ends (end_barter_ovr095_3C2).</summary>
-		void DropAroundPlayer(UWObject pOItem);
-
-		/// <summary>Puts an item down around the partner (PlaceObjectAtNPC_seg026_12E5 with
-		/// radius 5) - bought goods the player left on the partner's side when the conversation
-		/// ends (end_barter_ovr095_3C2).</summary>
-		/// False when the culling test took it (near_mob_put_at's failure).
-		bool DropAtNpc(UWObject pOItem, UWNpc pONpc);
-
-		/// <summary>The partner disappears from the world, display included (remove_talker).</summary>
-		bool RemoveObjectFromWorld(UWObject pOObject);
-
-		// ------------------------------------------------- Inventory and text
-
-		/// <summary>The player's inventory, or null without one.</summary>
-		UWInventoryModel Inventory { get; }
+		// ------------------------------------------------- Text
 
 		/// <summary>The full look description of an item ("You see ..."), or null.</summary>
 		string DescribeItem(UWObject pOItem, int piDetail = UWItemDescriptions.DetailFromLoreCheck);

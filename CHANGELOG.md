@@ -8,6 +8,19 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.8.2] - 2026-10-18
+
+### Fixed
+- Create Food shows the food again; since 0.8.0 it was made but not drawn.
+
+### Changed
+- Traps fire at a fixed 16 times a second at every frame rate (before, slightly fewer at
+  60 frames a second). The flight through the moongate at the end takes the same time at
+  every frame rate and pauses behind a menu.
+- Internal: traps, spells, conversations and sleep reach the world through one interface, every
+  blow on a creature or a thing takes one road, and timed events run on the game's clock
+  (code cleanup phase 3, see Docs/CLEANUP-PLAN.md). Nothing else should change in play.
+
 ## [0.8.1] - 2026-10-17
 
 ### Closer to the original

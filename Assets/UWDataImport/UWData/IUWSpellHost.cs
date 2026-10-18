@@ -1,22 +1,35 @@
-using System.Collections.Generic;
-
 namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// What the spell rules (UWSpellCasting, UWMiscSpellRules, UWAreaSpellRules,
-	/// UWSummonSpellRules) need from the game: the caster's numbers, where he stands and
-	/// looks, messages and sounds, the pending projectile and target cursors, the world, and
-	/// the creatures in an area as numbered targets. The Unity side is UWSpellHost, built by
-	/// UWGameUI per cast.
+	/// UWSummonSpellRules, UWItemSpellRules) need from ONE CAST: who casts, the caster's numbers,
+	/// the pending projectile and target cursors, the active spells and the spell icons - and the
+	/// world as this cast sees it. The Unity side is UWSpellHost, built per cast (UWHudRunes for
+	/// the player, UWCritter for a creature's area spell or summoning).
+	///
+	/// THE WORLD (cleanup step 3.6, 2026-10-17): the level, the player's tile and view, the
+	/// messages, sounds, shake and effect pictures, the travel, the objects a spell makes, the
+	/// creatures Detect Monsters finds and the targets of an area spell are IUWWorld's; World is
+	/// the world with this cast's presentation (its lines go to the Interaction the cast was given,
+	/// silent without one). Until then this interface had about fifty members, most of them the
+	/// world's, and the area targets were numbered entries on the host, valid between a collection
+	/// and its use, with the creature caster as a mutable property (AreaCaster). Now the targets
+	/// are a list the rule holds (UWAreaTarget) and the caster a value (UWCastContext).
 	///
 	/// The target spells that go onto a CLICKED creature or item (UWTargetSpell, the target
 	/// half of UWMiscSpell) stay on the Unity side: they are nothing but component calls.
 	/// </summary>
 	public interface IUWSpellHost
 	{
-		DataImport Data { get; }
+		/// <summary>The world with this cast's presentation; never null while a level is loaded
+		/// (a cast without a level loader has none).</summary>
+		IUWWorld World { get; }
 
-		UWLevel CurrentLevel { get; }
+		/// <summary>Who casts: the player, or the creature whose area spell this is.</summary>
+		UWCastContext Cast { get; }
+
+		/// <summary>The data the caster was handed (kept as given, not the world's).</summary>
+		DataImport Data { get; }
 
 		/// <summary>The void, or a tile with the no-magic bit under the caster.</summary>
 		bool IsMagicBlocked { get; }
@@ -27,27 +40,13 @@ namespace UWDataImport.UWData
 
 		int PlayerLevel { get; }
 
-		/// <summary>Mana in whole points.</summary>
+		/// <summary>Mana in whole points, ROUNDED DOWN (the cost check) - the conversation's
+		/// PlayerMana rounds to the nearest; two conventions on purpose (cleanup step 3.1).</summary>
 		int PlayerMana { get; }
 
 		int PlayerCastingSkill { get; }
 
-		UWTilePos PlayerTile { get; }
-
-		/// <summary>The view direction, flat and normalised, east and north.</summary>
-		void GetViewDirection(out float pfX, out float pfZ);
-
-		/// <summary>The view yaw in degrees, 0 north, clockwise.</summary>
-		float ViewYawDegrees { get; }
-
-		/// <summary>Where the eye is, east and north in world units.</summary>
-		void GetEyePosition(out float pfX, out float pfZ);
-
 		void SpendMana(int piAmount);
-
-		/// <summary>A backfired spell on the player: piDice d8 off the hit points, never below
-		/// three (none at all at three or fewer), the view flashing (backfire, SPELLS.C).</summary>
-		void Backfire(int piDice);
 
 		/// <summary>Real seconds since some start, for the pause between two casts.</summary>
 		double RealSeconds { get; }
@@ -71,15 +70,11 @@ namespace UWDataImport.UWData
 
 		void CurePoison();
 
-		// ------------------------------------------------- Messages and sounds
+		/// <summary>The hallucination counter of the player to its maximum - see
+		/// UWItemSpellRules.</summary>
+		void StartHallucination();
 
-		void AddMessage(string psMessage);
-
-		/// <summary>A line of string block 1, our numbering.</summary>
-		void AddGeneralMessage(int piIndex);
-
-		/// <summary>A line of string block 1 as text, for messages assembled from pieces.</summary>
-		string GetGeneralMessage(int piIndex);
+		// ------------------------------------------------- Sounds and icons
 
 		void PlaySpellSound();
 
@@ -100,91 +95,80 @@ namespace UWDataImport.UWData
 		/// <summary>Sends the pending projectile off at once.</summary>
 		void FirePendingSpell();
 
-		// ------------------------------------------------- The world
-
-		void TravelTo(int piLevelIndex, int piTileX, int piTileY);
-
-		bool SpawnObjectById(int piObjectId, int piTileX, int piTileY, int piQuantity, int piQuality);
-
-		/// <summary>Puts an object down on a world spot, on the floor of its tile.</summary>
-		bool SpawnObjectAt(UWObject pOObject, float pfWorldX, float pfWorldZ);
-
-		/// <summary>Whether a creature of this kind fits on the spot: nothing's body - a creature,
-		/// the player, a solid object - overlaps its footprint within its height
-		/// (the original's fit test, see UWSummonSpellRules).</summary>
-		bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ);
-
-		bool SpawnWardRune(int piTileX, int piTileY);
-
-		/// <summary>A boulder appears below the ceiling of the tile and falls.</summary>
-		bool DropBoulder(int piObjectId, int piTileX, int piTileY);
-
-		void ShakeScreen(int piDuration);
-
-		/// <summary>A sound at the caster - the Tremor's rumble, see
-		/// UWMiscSpellRules.TremorSound.</summary>
-		void PlaySoundAtPlayer(int piEffect);
+		// ------------------------------------------------- What goes through this cast's channel
 
 		/// <summary>Armageddon: inventory, runes, rune shelf and the whole level are cleared,
 		/// the character's status refreshed.</summary>
 		void Armageddon();
 
-		/// <summary>The hallucination counter of the player to its maximum - see
-		/// UWItemSpellRules.</summary>
-		void StartHallucination();
-
 		/// <summary>One action of the bullfrog puzzle, as its a_do traps fire it (mode 4 is the
-		/// reset) - see UWItemSpellRules.</summary>
+		/// reset) - see UWItemSpellRules. The firing's messages go to this cast's channel.</summary>
 		void FireBullfrog(int piMode);
 
-		/// <summary>All living creatures on the level, each with its tile (the record's, word 0x16)
-		/// and its object id - for Detect Monsters, which asks the kind's stealth.</summary>
-		IReadOnlyList<CreatureSighting> Creatures { get; }
-
-		/// <summary>Fires the look trigger of an object, as Reveal does it.</summary>
+		/// <summary>Fires the look trigger of an object, as Reveal does it - with this cast's
+		/// channel.</summary>
 		bool FireLookTrigger(UWObject pOObject, int piSearchSkill);
-
-		/// <summary>An effect picture stands in a tile for a moment, at a fine spot (eighths, 0 to
-		/// 7) and a height in zpos steps - for pfSeconds when given (else the host's usual time),
-		/// its animation starting on piStartFrame.</summary>
-		void SpawnEffectInTile(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos, int piEffectObjectId,
-			float pfSeconds = -1f, int piStartFrame = 0);
-
-		// ------------------------------------------------- Targets in an area
-
-		/// <summary>Collects what can be hit in and around an area and returns how many.
-		/// The targets are then addressed by index until the next collection.</summary>
-		int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles);
-
-		UWTilePos AreaTargetTile(int piIndex);
-
-		bool AreaTargetIsCreature(int piIndex);
-
-		/// <summary>Every thing on the tile takes a roll of its own - creatures, the player when he
-		/// stands there, doors and chests, the loose objects (see UWObjectDamageRules) - charged
-		/// to the caster, with the hit report for the player's own spell.</summary>
-		void DamageObjectsInTile(int piTileX, int piTileY, int piDiceCount, int piDiceRange, int piDamageType);
-
-		/// <summary>Confusion on that creature: Missed, Spent when resisted, Shown when it took.</summary>
-		UWTargetSpellRules.Result ConfuseAreaTarget(int piIndex);
-
-		/// <summary>A class 7 spell on that creature (UWTargetSpell).</summary>
-		UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(int piIndex, int piMinorClass);
-
-		void SpawnEffectAtAreaTarget(int piIndex, int piEffectObjectId);
 	}
 
-	/// <summary>A creature as Detect Monsters sees it: where it stands and what kind it is.</summary>
-	public struct CreatureSighting
+	/// <summary>
+	/// WHO CASTS (cleanup step 3.6, 2026-10-17): the player, or a creature whose area spell runs
+	/// through the same code with it as the caster (UW.EXE does so, read 2026-09-27). The blasts
+	/// of the cast are charged to the caster: a creature's damage goes to that creature, so the
+	/// victim's damage reaction turns on the caster and no kin alarm is raised as if the player had
+	/// struck; the gargoyle eyes stay for the player's own hits. A value the cast carries - until
+	/// then the mutable UWSpellHost.AreaCaster, set after the host was built.
+	/// </summary>
+	public readonly struct UWCastContext
 	{
-		public UWTilePos Tile;
+		/// <summary>Whether a creature casts.</summary>
+		public readonly bool ByCreature;
 
-		public int ObjectId;
+		/// <summary>The casting creature's index in the level's mobile list; 0 for the player.</summary>
+		public readonly int CreatureIndex;
 
-		public CreatureSighting(UWTilePos pOTile, int piObjectId)
+		private UWCastContext(bool pbByCreature, int piCreatureIndex)
+		{
+			ByCreature = pbByCreature;
+			CreatureIndex = piCreatureIndex;
+		}
+
+		/// <summary>The player casts (runes, a wand, a trap's spell for him).</summary>
+		public static UWCastContext ThePlayer => new UWCastContext(false, 0);
+
+		/// <summary>A creature casts.</summary>
+		public static UWCastContext Creature(int piCreatureIndex)
+		{
+			return new UWCastContext(true, piCreatureIndex);
+		}
+
+		/// <summary>Whom the cast's blasts are charged to: the creature's index, else the player's
+		/// (UWCritterBrain.PlayerIndex).</summary>
+		public int AttackerIndex => ByCreature ? CreatureIndex : UWCritterBrain.PlayerIndex;
+	}
+
+	/// <summary>
+	/// ONE THING AN AREA SPELL MAY STRIKE (cleanup step 3.6, 2026-10-17): its tile and whether it
+	/// is a creature, with the scene's own handle to act on it (IUWWorld.ConfuseAreaTarget and the
+	/// two after it). The world collects them (IUWWorld.CollectAreaTargets) and the rule holds the
+	/// list for the cast - until then the spell host kept them as numbered entries, valid between a
+	/// collection and its use.
+	/// </summary>
+	public readonly struct UWAreaTarget
+	{
+		/// <summary>The tile it belongs to.</summary>
+		public readonly UWTilePos Tile;
+
+		/// <summary>A creature with its object - the only kind the rules act on.</summary>
+		public readonly bool IsCreature;
+
+		/// <summary>The scene's handle (opaque to the rules).</summary>
+		public readonly object Body;
+
+		public UWAreaTarget(UWTilePos pOTile, bool pbIsCreature, object pOBody)
 		{
 			Tile = pOTile;
-			ObjectId = piObjectId;
+			IsCreature = pbIsCreature;
+			Body = pOBody;
 		}
 	}
 }

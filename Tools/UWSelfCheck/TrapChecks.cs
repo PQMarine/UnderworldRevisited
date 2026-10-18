@@ -42,6 +42,15 @@ namespace UnderworldRevisited.Tools
             fCheckSwitchPassesOn(pOData);
             fCheckQuakeAndBook(pOData);
 
+            Check.Group("Traps on the world (cleanup step 3.6)");
+
+            fCheckQuakeLength(pOData);
+            fCheckDoorTrapOnWorld(pOData);
+            fCheckCrowdingOnWorld(pOData);
+            fCheckSilentFiring(pOData);
+
+            Check.Group("Traps (UWTrapRules against TRIGGER.C and WORLDEV.C), continued");
+
             // A42: RemoveTrap names the trap by get_name - a poisoning damage trap too.
             Check.Str("disarm: a poisoning damage trap is a damage trap",
                 UWTrapDisarming.GetTrapName(new UWObject((ushort)UWObjectMechanics.DamageTrapId) { Owner = 1 }, pOData),
@@ -400,6 +409,143 @@ namespace UnderworldRevisited.Tools
             fExpectInt("switch: pressed from on it is off - the first trigger fires", lOOn.PlayerDamage, 3);
         }
 
+        /// <summary>The quake's shake is always 0x1E, whatever the owner field says (a named variant
+        /// in UWTrapRules since cleanup step 3.6 - Tremor passes its own length); the bounce takes
+        /// the owner.</summary>
+        private static void fCheckQuakeLength(DataImport pOData)
+        {
+            UWObject lOQuake = new UWObject((ushort)UWObjectMechanics.DoTrapId) { Quality = 0x3E, Owner = 5 };
+            FakeTrapHost lOHost = new FakeTrapHost(pOData, 0);
+
+            UWTrapRules.SetOffDisarmableTrap(lOQuake, null, null, 0, 0, lOHost);
+
+            fExpectBool("quake: the shake is 0x1E whatever the owner (5)", lOHost.Fake.Shown.Log.Contains("shake 30"), true);
+            fExpectInt("quake: the player is thrown up", lOHost.Bounces, 1);
+        }
+
+        /// <summary>
+        /// The a_door trap as a rule over the world's doors (UWDoorRules.DoorTrap; on the trap host
+        /// until cleanup step 3.6, 2026-10-17): at rest the lock is replaced, then the leaf acts by
+        /// the quality; a moving door keeps its lock and turns only against the trap's wish; the one
+        /// who set the chain off opens it.
+        /// </summary>
+        private static void fCheckDoorTrapOnWorld(DataImport pOData)
+        {
+            UWLevel lOLevel = pOData.Levels[0];
+            List<UWObject> lOMaster = lOLevel.Masterlist;
+            int liBase = lOMaster.Count;
+            UWTile lOTile = lOLevel.GetTile(1, 1);
+            UWObject lODoorData = new UWObject(0x140) { TileX = 1, TileY = 1 };
+
+            lOMaster.Add(new UWObject((ushort)UWObjectMechanics.DoorTrapId) { Quantity = (ushort)(liBase + 1) });
+            lOMaster.Add(new UWObject((ushort)UWObjectMechanics.LockObjectId));
+            lOTile.ObjectsInTile.Add(lODoorData);
+
+            try
+            {
+                UWObject lOTrigger = new UWObject((ushort)UWObjectMechanics.UseTriggerId)
+                {
+                    Quantity = (ushort)liBase, Flags = 6, Quality = 1, Owner = 1
+                };
+
+                // Close on an open door at rest: the lock is replaced, then it closes.
+                lOMaster[liBase].Quality = (ushort)UWObjectMechanics.DoorTrapCloseAction;
+
+                FakeTrapHost lOHost = new FakeTrapHost(pOData, 0);
+                FakeDoor lODoor = new FakeDoor(lOHost.Fake.Log, lODoorData, false);
+
+                lOHost.Fake.DoorList.Add(lODoor);
+                UWTrapRules.FireTraps(lOTrigger, null, lOHost);
+
+                fExpectInt("door trap: at rest the lock is replaced, then the door closes",
+                    fIndexOfSequence(lOHost.Fake.Log, "door 1/1 lock replaced", "door 1/1 closes"), 0);
+
+                // Open, set off by a creature: it opens the door.
+                lOMaster[liBase].Quality = (ushort)UWObjectMechanics.DoorTrapOpenAction;
+                lOHost = new FakeTrapHost(pOData, 0) { HasTriggeringCreature = true };
+                lOHost.Fake.DoorList.Add(new FakeDoor(lOHost.Fake.Log, lODoorData, true));
+                UWTrapRules.FireTraps(lOTrigger, null, lOHost);
+
+                fExpectBool("door trap: a creature's chain opens the door as the creature",
+                    lOHost.Fake.Log.Contains("door 1/1 opens") && lOHost.Fake.Log.Contains("door 1/1 moved by Creature"), true);
+
+                // Close on a door swinging shut: the lock stays, nothing moves.
+                lOMaster[liBase].Quality = (ushort)UWObjectMechanics.DoorTrapCloseAction;
+                lOHost = new FakeTrapHost(pOData, 0);
+                lOHost.Fake.DoorList.Add(new FakeDoor(lOHost.Fake.Log, lODoorData, true, true));
+                UWTrapRules.FireTraps(lOTrigger, null, lOHost);
+
+                fExpectBool("door trap: a closing door keeps its lock and goes on closing",
+                    lOHost.Fake.Log.Exists(psLine => psLine.StartsWith("door 1/1")), false);
+
+                // Open on a door swinging shut: it is turned round, by the player.
+                lOMaster[liBase].Quality = (ushort)UWObjectMechanics.DoorTrapOpenAction;
+                lOHost = new FakeTrapHost(pOData, 0);
+                lOHost.Fake.DoorList.Add(new FakeDoor(lOHost.Fake.Log, lODoorData, true, true));
+                UWTrapRules.FireTraps(lOTrigger, null, lOHost);
+
+                fExpectBool("door trap: a closing door is turned round against the trap's wish, no new lock",
+                    lOHost.Fake.Log.Contains("door 1/1 moved by Player") && !lOHost.Fake.Log.Contains("door 1/1 lock replaced"),
+                    true);
+            }
+            finally
+            {
+                lOTile.ObjectsInTile.Remove(lODoorData);
+                lOMaster.RemoveRange(liBase, 2);
+            }
+        }
+
+        /// <summary>A creation trap whose template is a creature creates nothing while one made
+        /// during play stands within four back and five forward (the world's creature search by
+        /// the body's tile).</summary>
+        private static void fCheckCrowdingOnWorld(DataImport pOData)
+        {
+            UWLevel lOLevel = pOData.Levels[0];
+            List<UWObject> lOMaster = lOLevel.Masterlist;
+            int liBase = lOMaster.Count;
+            UWNpc lOTemplate = new UWNpc((ushort)(UWObjectClassProperties.CritterFirstId + 1)) { TileX = 20, TileY = 20 };
+
+            lOMaster.Add(new UWObject((ushort)UWObjectMechanics.CreateObjectTrapId) { Quantity = (ushort)(liBase + 1) });
+            lOMaster.Add(lOTemplate);
+
+            try
+            {
+                FakeTrapHost lOHost = new FakeTrapHost(pOData, 0) { AlwaysFireCreateObjectTraps = true };
+
+                lOHost.Fake.Creatures.Add(fFakeCreature(1, 25, 25, 25, 25, pbSpawned: true));
+                UWTrapRules.FireTrapInTile(lOMaster[liBase], 21, 21, lOHost);
+
+                fExpectInt("crowding: a spawned creature five tiles on keeps the trap from creating", lOHost.Spawned.Count, 0);
+
+                lOHost = new FakeTrapHost(pOData, 0) { AlwaysFireCreateObjectTraps = true };
+                lOHost.Fake.Creatures.Add(fFakeCreature(1, 26, 26, 26, 26, pbSpawned: true));
+                UWTrapRules.FireTrapInTile(lOMaster[liBase], 21, 21, lOHost);
+
+                fExpectInt("crowding: six tiles on it creates, at the template's spot",
+                    lOHost.Fake.Log.FindAll(psLine => psLine.StartsWith("spawn")).Count, 1);
+            }
+            finally
+            {
+                lOMaster.RemoveRange(liBase, 2);
+            }
+        }
+
+        /// <summary>A firing without a message channel (the respawn) is the silent scope: a text
+        /// trap says nothing, the world still plays.</summary>
+        private static void fCheckSilentFiring(DataImport pOData)
+        {
+            FakeTrapHost lOHost = new FakeTrapHost(pOData, 0);
+
+            fExpectBool("silent firing: a host's world shows messages", lOHost.World.Presentation.ShowsMessages, true);
+
+            IUWWorld lOSilent = UWScopedWorld.With(lOHost.World, UWSilentPresentation.Of(lOHost.World.Presentation));
+
+            fExpectBool("silent firing: the scoped world shows none", lOSilent.Presentation.ShowsMessages, false);
+            fExpectBool("silent firing: ... and is the same level", ReferenceEquals(lOSilent.Level, lOHost.World.Level), true);
+            fExpectBool("silent firing: scoping it again keeps one layer",
+                UWScopedWorld.With(lOSilent, lOSilent.Presentation) == lOSilent, true);
+        }
+
         /// <summary>A59: the quake hack acts only when the player set it off; the exploding book
         /// hack finds the book on the player's tile, inside a bag lying there.</summary>
         private static void fCheckQuakeAndBook(DataImport pOData)
@@ -753,26 +899,139 @@ namespace UnderworldRevisited.Tools
         /// <summary>
         /// The game around one firing of the trap rules, recording what the rules asked of it.
         /// The player stands on 0/0 with no inventory unless a check gives him one.
+        ///
+        /// SINCE CLEANUP STEP 3.6 (2026-10-17) the world of the firing is a FakeWorld (WorldChecks.cs)
+        /// over the real level: the player's numbers are real vitals, the messages, shakes, blows,
+        /// spawns and removals its logs. The counters below read those logs, so the checks still ask
+        /// what they asked before.
         /// </summary>
         private sealed class FakeTrapHost : IUWTrapHost
         {
+            public readonly FakeWorld Fake;
+
             public FakeTrapHost(DataImport pOData, int piLevelIndex)
             {
-                Data = pOData;
-                CurrentLevelIndex = piLevelIndex;
+                Fake = new FakeWorld
+                {
+                    Data = pOData,
+                    Level = pOData.Levels[piLevelIndex],
+                    LevelIndex = piLevelIndex,
+                    LevelCount = pOData.Levels.Count,
+                    RemovesFromTiles = true
+                };
+
+                Fake.Body.Floor = new UWSpot(new UWTilePos(0, 0), 0, 0, 0);
+                Fake.Body.Numbers = fTrapPlayer(-1);
             }
 
-            public DataImport Data { get; }
+            /// <summary>A player with this casting skill (-1: the default).</summary>
+            private static UWPlayerVitals fTrapPlayer(int piCastingSkill)
+            {
+                UWPlayerVitals.StartValues lOStart = UWPlayerVitals.StartValues.Default;
 
-            public UWLevel CurrentLevel => Data.Levels[CurrentLevelIndex];
+                lOStart.CastingSkill = piCastingSkill;
 
-            public int CurrentLevelIndex { get; }
+                UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost());
 
-            public int LevelCount => Data.Levels.Count;
+                lOVitals.Initialise(null, lOStart);
+
+                return lOVitals;
+            }
+
+            public IUWWorld World => Fake;
+
+            public UWTrapFiring Firing => new UWTrapFiring(HasTriggeringCreature, HasTriggeringThing);
+
+            public bool HasTriggeringCreature { get; set; }
+
+            public bool HasTriggeringThing { get; set; }
 
             public bool AlwaysFireCreateObjectTraps { get; set; }
 
-            public bool IsSpawnedCreatureNear(int piTileX, int piTileY, int piTilesBack, int piTilesForward) => false;
+            // ------------------------------------------------- What the check sets on the player
+
+            public UWTilePos PlayerTile
+            {
+                get { return Fake.Body.Floor.Tile; }
+                set { Fake.Body.Floor = new UWSpot(value, 0, 0, 0); }
+            }
+
+            public UWInventoryModel Inventory
+            {
+                get { return Fake.Body.Carried; }
+                set { Fake.Body.Carried = value; }
+            }
+
+            public int PlayerCastingSkill
+            {
+                get { return Fake.Body.Numbers.GetSkill(UWPlayerData.Skill.Casting); }
+                set { Fake.Body.Numbers = fTrapPlayer(value); }
+            }
+
+            public int PlayerDamageTypeProof
+            {
+                get { return Fake.Body.Proof; }
+                set { Fake.Body.Proof = value; }
+            }
+
+            // ------------------------------------------------- What the check reads
+
+            /// <summary>The untyped damage the player took (the trap's UWBlow on ThePlayer); setting
+            /// it to 0 forgets the blows so far.</summary>
+            public int PlayerDamage
+            {
+                get
+                {
+                    int liSum = 0;
+
+                    foreach (string lsLine in Fake.Blows)
+                    {
+                        if (lsLine.StartsWith("player takes "))
+                            liSum += int.Parse(lsLine.Substring("player takes ".Length).Split(' ')[0]);
+                    }
+
+                    return liSum;
+                }
+                set
+                {
+                    if (value == 0)
+                        Fake.Blows.RemoveAll(psLine => psLine.StartsWith("player takes "));
+                }
+            }
+
+            public int PlayerPoison => Fake.Body.Numbers.Poison;
+
+            public int Curses => Fake.Blows.FindAll(psLine => psLine.StartsWith("player cursed")).Count;
+
+            public int Shakes => Fake.Shown.Log.FindAll(psLine => psLine.StartsWith("shake")).Count;
+
+            public int Bounces => Fake.Body.Bounces;
+
+            /// <summary>The lines for the scroll: a composed one as it is, a line of string block 1
+            /// as "#n".</summary>
+            public List<string> Messages
+            {
+                get
+                {
+                    List<string> lOLines = new List<string>();
+
+                    foreach (string lsLine in Fake.Shown.Log)
+                    {
+                        if (lsLine.StartsWith("message "))
+                            lOLines.Add(lsLine.Substring("message ".Length));
+                        else if (lsLine.StartsWith("general "))
+                            lOLines.Add("#" + lsLine.Substring("general ".Length));
+                    }
+
+                    return lOLines;
+                }
+            }
+
+            public List<UWObject> Spawned => Fake.Spawned;
+
+            public List<UWObject> Removed => Fake.Removed;
+
+            // ------------------------------------------------- The firing's own
 
             public void AdvanceLever(UWObject pOSwitchObject) { }
 
@@ -792,57 +1051,15 @@ namespace UnderworldRevisited.Tools
 
             public void SpawnPendingObjectsInTile(int piTileX, int piTileY) { }
 
-            public readonly List<UWObject> Spawned = new List<UWObject>();
+            public void StrikeTriggeringThing(int piDamage) { }
 
-            public bool SpawnObjectInTileAtTemplatePosition(UWObject pOCopy, int piTileX, int piTileY)
-            {
-                Spawned.Add(pOCopy);
+            public int CreatureDamage;
 
-                return true;
-            }
+            public void DamageTriggeringCreature(int piDamage) { CreatureDamage += piDamage; }
 
-            public bool SpawnObjectById(int piObjectId, int piTileX, int piTileY) => true;
+            public int WardHits;
 
-            public readonly List<UWObject> Removed = new List<UWObject>();
-
-            public bool RemoveObjectFromWorld(UWObject pOObject)
-            {
-                Removed.Add(pOObject);
-
-                UWTile lOTile = CurrentLevel.GetTile(pOObject.TileX, pOObject.TileY);
-
-                return lOTile != null && lOTile.ObjectsInTile.Remove(pOObject);
-            }
-
-            public void TravelTo(int piLevelIndex, int piTileX, int piTileY) { }
-
-            public void FireDoorTrap(UWObject pODoor, int piAction, UWObject pOLockTemplate) { }
-
-            public bool HasPlayer => true;
-
-            public UWTilePos PlayerTile { get; set; }
-
-            public UWInventoryModel Inventory { get; set; }
-
-            public int PlayerDamage;
-
-            public void DamagePlayer(int piDamage) { PlayerDamage += piDamage; }
-
-            public int PlayerPoison;
-
-            public void PoisonPlayer(int piStrength) { PlayerPoison = piStrength; }
-
-            public int PlayerCastingSkill { get; set; }
-
-            public int PlayerDamageTypeProof { get; set; }
-
-            public bool HasMessages => true;
-
-            public readonly List<string> Messages = new List<string>();
-
-            public void AddMessage(string psMessage) { Messages.Add(psMessage); }
-
-            public void AddGeneralMessage(int piIndex) { Messages.Add("#" + piIndex); }
+            public void ApplyWardDamage(int piDamage, int piWardMessage, int piFirstDirectionMessage) { WardHits++; }
 
             public bool FireArrowTrap(UWObject pOTrap, int piTileX, int piTileY) => true;
 
@@ -859,20 +1076,6 @@ namespace UnderworldRevisited.Tools
 
             public int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward) => 0;
 
-            public bool HasTriggeringCreature { get; set; }
-
-            public bool HasTriggeringThing { get; set; }
-
-            public void StrikeTriggeringThing(int piDamage) { }
-
-            public int CreatureDamage;
-
-            public void DamageTriggeringCreature(int piDamage) { CreatureDamage += piDamage; }
-
-            public int WardHits;
-
-            public void ApplyWardDamage(int piDamage, int piWardMessage, int piFirstDirectionMessage) { WardHits++; }
-
             public bool BeginConversation(int piSlot) => true;
 
             public UWObject TalkedTo;
@@ -885,20 +1088,6 @@ namespace UnderworldRevisited.Tools
             }
 
             public bool PlayVictory() => true;
-
-            public int Curses;
-
-            public void CursePlayer(int piDice) { Curses++; }
-
-            public void PlayCutscene(int piCutscene) { }
-
-            public int Shakes;
-
-            public void ShakeScreen(int piIntensity) { Shakes++; }
-
-            public int Bounces;
-
-            public void BouncePlayer(int piIntensity) { Bounces++; }
         }
     }
 }

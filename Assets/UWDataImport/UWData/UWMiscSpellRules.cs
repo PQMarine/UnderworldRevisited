@@ -259,19 +259,25 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fDetectCreatures(IUWSpellHost pIHost, int piRange, int piSkill)
 		{
-			if (pIHost.CurrentLevel == null)
+			if (UWSpellCasting.LevelOf(pIHost) == null)
 				return false;
 
-			UWTilePos lOPlayerTile = pIHost.PlayerTile;
+			UWTilePos lOPlayerTile = UWSpellCasting.CasterTile(pIHost);
 
 			int[] liPerDirection = new int[8];
 
-			IReadOnlyList<CreatureSighting> lOCreatures = pIHost.Creatures;
+			// The living creatures of the whole level by their record's tile, through the world's
+			// creature search since cleanup step 3.2 (2026-10-17; before, a scene search on the host),
+			// asked here instead of on the spell host since step 3.6 (the same day). The range stays
+			// in this rule.
+			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
 
-			for (int liAt = 0; lOCreatures != null && liAt < lOCreatures.Count; liAt++)
+			pIHost.World.FindCreatures(UWTileArea.WholeLevel, UWCreatureFilter.Living, lOCreatures);
+
+			for (int liAt = 0; liAt < lOCreatures.Count; liAt++)
 			{
-				int liDeltaX = lOCreatures[liAt].Tile.X - lOPlayerTile.X;
-				int liDeltaY = lOCreatures[liAt].Tile.Y - lOPlayerTile.Y;
+				int liDeltaX = lOCreatures[liAt].RecordTile.X - lOPlayerTile.X;
+				int liDeltaY = lOCreatures[liAt].RecordTile.Y - lOPlayerTile.Y;
 
 				if (System.Math.Abs(liDeltaX) >= piRange || System.Math.Abs(liDeltaY) >= piRange)
 					continue;
@@ -290,7 +296,7 @@ namespace UWDataImport.UWData
 				// the second line nearly every time; the original counts 3, 2 and 3 there and gave it
 				// once in 30 (per user, 2026-09-24).
 				liPerDirection[UWShrineRules.GetCardinalDirection(lOPlayerTile.X, lOPlayerTile.Y,
-					lOCreatures[liAt].Tile.X, lOCreatures[liAt].Tile.Y)]++;
+					lOCreatures[liAt].RecordTile.X, lOCreatures[liAt].RecordTile.Y)]++;
 			}
 
 			int liBest = 0;
@@ -307,7 +313,7 @@ namespace UWDataImport.UWData
 
 			if (liMost == 0)
 			{
-				pIHost.AddGeneralMessage(NoActivityMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoActivityMessage);
 
 				return true;
 			}
@@ -328,7 +334,9 @@ namespace UWDataImport.UWData
 		/// 2026-10-15, audit A32).</summary>
 		private static void fAddDetection(IUWSpellHost pIHost, int piDirection, int piCount)
 		{
-			pIHost.AddMessage(GetDetectionLine(pIHost.GetGeneralMessage, piDirection, piCount));
+			IUWPresentation lOShown = pIHost.World.Presentation;
+
+			lOShown.AddMessage(GetDetectionLine(lOShown.GetGeneralMessage, piDirection, piCount));
 		}
 
 		/// <summary>The line of fAddDetection, public for the self-check.</summary>
@@ -393,7 +401,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fTremor(IUWSpellHost pIHost)
 		{
-			UWLevel lOLevel = pIHost.CurrentLevel;
+			UWLevel lOLevel = UWSpellCasting.LevelOf(pIHost);
 
 			if (lOLevel == null || lOLevel.TileData == null)
 				return false;
@@ -402,13 +410,14 @@ namespace UWDataImport.UWData
 				UWRandom.RollDice(TremorDiceCount, TremorDieSides), pIHost,
 				pOTile =>
 				{
-					pIHost.DropBoulder(UWObjectIds.LargeBoulderB + UWRandom.Next(BoulderKinds), pOTile.X, pOTile.Z);
+					pIHost.World.DropBoulder(UWObjectIds.LargeBoulderB + UWRandom.Next(BoulderKinds), pOTile.X,
+						pOTile.Z);
 
 					return 1;
 				});
 
-			pIHost.ShakeScreen(TremorShakeDuration);
-			pIHost.PlaySoundAtPlayer(TremorSound);
+			pIHost.World.Presentation.ShakeScreen(TremorShakeDuration);
+			pIHost.World.Presentation.PlaySoundAtPlayer(TremorSound);
 
 			return true;
 		}
@@ -431,7 +440,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fArmageddon(IUWSpellHost pIHost)
 		{
-			if (pIHost.CurrentLevel == null)
+			if (UWSpellCasting.LevelOf(pIHost) == null)
 				return false;
 
 			if (pIHost.Data != null && pIHost.Data.InitialPlayer != null)
@@ -470,7 +479,7 @@ namespace UWDataImport.UWData
 
 			if (liLevel <= 0 || liLevel > pIHost.Data.Levels.Count)
 			{
-				pIHost.AddGeneralMessage(NoMoonstoneMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoMoonstoneMessage);
 
 				return true;
 			}
@@ -479,12 +488,12 @@ namespace UWDataImport.UWData
 
 			if (lOStone == null)
 			{
-				pIHost.AddGeneralMessage(NoMoonstoneMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoMoonstoneMessage);
 
 				return true;
 			}
 
-			pIHost.TravelTo(liLevel - 1, lOStone.TileX, lOStone.TileY);
+			pIHost.World.TravelTo(liLevel - 1, lOStone.TileX, lOStone.TileY);
 
 			return true;
 		}

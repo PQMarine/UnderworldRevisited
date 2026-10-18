@@ -55,7 +55,7 @@ public static class UWTargetSpell
 
             case SmiteUndeadSpell:
                 // Never a picture (sp_ward_undead).
-                return fSmiteUndead(lODamageable) ? UWTargetSpellRules.Result.Spent : UWTargetSpellRules.Result.Missed;
+                return fSmiteUndead(lOCritter, lODamageable) ? UWTargetSpellRules.Result.Spent : UWTargetSpellRules.Result.Missed;
 
             case AllySpell:
                 // A real ally since 2026-09-23 (UWCritter.Befriend, Ally_seg038_3307_8F8).
@@ -63,7 +63,7 @@ public static class UWTargetSpell
 
             case PoisonSpell:
                 // Always the picture, resisted or not (sp_poison puts it before the damage).
-                fPoison(lODamageable);
+                fPoison(lOCritter, lODamageable);
 
                 return UWTargetSpellRules.Result.Shown;
 
@@ -92,23 +92,37 @@ public static class UWTargetSpell
     /// asks only the undead bit (ScaleDamageAgainstObject with type 0x80) and then deals 0xFF of
     /// type 3; UW1 has no lich at all, the name is in none of its strings (per user, liches are
     /// UW2's). The reference's half-life-force case belongs to UW2.
+    ///
+    /// The blow lands through the world since cleanup step 3.3 (2026-10-17, fDamage).
     /// </summary>
-    private static bool fSmiteUndead(UWDamageable pODamageable)
+    private static bool fSmiteUndead(UWCritter pOCritter, UWDamageable pODamageable)
     {
         if (!pODamageable.IsUndead)
             return false;
 
-        pODamageable.ApplyDamage(SmiteDamage, UWDamageTypes.Magic);
+        fDamage(pOCritter, pODamageable, UWBlow.TargetSpell(SmiteDamage, UWDamageTypes.Magic));
 
         return true;
     }
 
     /// <summary>Poison: one hit of 5 to 20, poison and magic together - see
     /// UWTargetSpellRules. The resistances are asked by UWDamageTypes.Scale.</summary>
-    private static bool fPoison(UWDamageable pODamageable)
+    private static bool fPoison(UWCritter pOCritter, UWDamageable pODamageable)
     {
-        pODamageable.ApplyDamage(UWTargetSpellRules.RollPoisonDamage(), UWTargetSpellRules.PoisonDamageType);
+        fDamage(pOCritter, pODamageable,
+            UWBlow.TargetSpell(UWTargetSpellRules.RollPoisonDamage(), UWTargetSpellRules.PoisonDamageType));
 
         return true;
+    }
+
+    /// <summary>The spell's damage on the creature through IUWWorld.Damage (cleanup step 3.3,
+    /// 2026-10-17). The creature is not told who cast it: its damage event charges the player by
+    /// default, as when this called UWDamageable.ApplyDamage itself (UWBlowAttribution.Untold).</summary>
+    private static void fDamage(UWCritter pOCritter, UWDamageable pODamageable, UWBlow pOBlow)
+    {
+        UWWorld lOWorld = UWScene.World;
+
+        if (lOWorld != null)
+            lOWorld.Damage(UWWorld.TargetOf(pOCritter, pODamageable), pOBlow);
     }
 }

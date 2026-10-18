@@ -131,7 +131,7 @@ namespace UnderworldRevisited.Tools
             Check.Group("Five-minute checkup (CRITTIME.C yearly_checkup)");
 
             FakeVitalsHost lOVitalsHost = new FakeVitalsHost();
-            UWPlayerVitals lOVitals = new UWPlayerVitals(lOVitalsHost);
+            UWPlayerVitals lOVitals = lOVitalsHost.Watch(new UWPlayerVitals(lOVitalsHost));
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
 

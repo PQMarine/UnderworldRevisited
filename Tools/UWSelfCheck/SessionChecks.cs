@@ -396,24 +396,30 @@ namespace UnderworldRevisited.Tools
         /// and the given level - built as a proxy, so the forty members need no hand-written body.</summary>
         public class ConversationHostStub : DispatchProxy
         {
-            private UWLevel mOLevel;
+            /// <summary>The conversation's world (cleanup step 3.6, 2026-10-17): a FakeWorld over the
+            /// given level, its number the level's own (0 without one, as this stub answered the
+            /// host's CurrentLevelNumber before).</summary>
+            private object mOWorld;
 
             public static IUWConversationHost Create(UWLevel pOLevel)
             {
+                return Create(new FakeWorld { Level = pOLevel, LevelIndex = (pOLevel != null ? pOLevel.LevelNumber : 0) - 1 });
+            }
+
+            /// <summary>A stub over a world the check holds - to read what the conversation did to it.</summary>
+            internal static IUWConversationHost Create(IUWWorld pOWorld)
+            {
                 IUWConversationHost lIHost = Create<IUWConversationHost, ConversationHostStub>();
 
-                ((ConversationHostStub)(object)lIHost).mOLevel = pOLevel;
+                ((ConversationHostStub)(object)lIHost).mOWorld = pOWorld;
 
                 return lIHost;
             }
 
             protected override object Invoke(MethodInfo pOMethod, object[] pOArguments)
             {
-                if (pOMethod.Name == "get_CurrentLevel")
-                    return mOLevel;
-
-                if (pOMethod.Name == "get_CurrentLevelNumber")
-                    return mOLevel != null ? mOLevel.LevelNumber : 0;
+                if (pOMethod.Name == "get_World")
+                    return mOWorld;
 
                 return pOMethod.ReturnType.IsValueType && pOMethod.ReturnType != typeof(void)
                     ? Activator.CreateInstance(pOMethod.ReturnType)

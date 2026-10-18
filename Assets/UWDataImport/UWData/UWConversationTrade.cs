@@ -106,11 +106,15 @@ namespace UWDataImport.UWData
 		private readonly Func<string, int> mORegisterString;
 		private readonly UWOriginalRandom mORandom;
 
+		/// <summary>The world the conversation takes place in, or null without one (the host's world
+		/// block until cleanup step 3.6, 2026-10-17).</summary>
+		private IUWWorld fWorld => mIHost != null ? mIHost.World : null;
+
 		/// <summary>The player's inventory, or null without one.</summary>
-		private UWInventoryModel fInventory => mIHost != null ? mIHost.Inventory : null;
+		private UWInventoryModel fInventory => fWorld != null ? fWorld.Player.Inventory : null;
 
 		/// <summary>The level the conversation takes place on, or null without a world.</summary>
-		private UWLevel fLevel => mIHost != null ? mIHost.CurrentLevel : null;
+		private UWLevel fLevel => fWorld != null ? fWorld.Level : null;
 
 		/// <summary>Writes what the trade functions hand to a conversation into the log - for
 		/// tracking down why a partner does not take what he asked for. It is how the array
@@ -541,7 +545,9 @@ namespace UWDataImport.UWData
 
 			if (piTileX < 0)
 			{
-				mIHost.DropAtPlayer(lOItem);
+				if (fWorld != null)
+					fWorld.DropAtPlayer(lOItem);
+
 				return 1;
 			}
 			lOItem.XPos = 3;
@@ -551,17 +557,21 @@ namespace UWDataImport.UWData
 			// must not lift it, the host places at this spot and never below the floor.
 			lOItem.ZPos = 0;
 
-			return mIHost.SpawnObjectInTile(lOItem, piTileX, piTileY) ? 1 : 0;
+			// At the item's own fine spot (place_object sets only z, to the floor; 3/3 above), not
+			// the tile centre. Per user in the original 2026-10-17 (audit round 2 B4): Judy's Key of
+			// Love lay on 33/8 at 3/3; ours saved it at 4/4 when this went through the loader's
+			// SpawnObjectInTile, which takes the centre.
+			return fWorld != null && fWorld.Spawn(lOItem, new UWTilePos(piTileX, piTileY)) ? 1 : 0;
 		}
 
 		/// <summary>remove_talker: the partner disappears from the world - display included. The
 		/// conversation runs to its end as usual.</summary>
 		private void fRemoveTalker()
 		{
-			if (mONpc == null || mIHost == null)
+			if (mONpc == null || fWorld == null)
 				return;
 
-			mIHost.RemoveObjectFromWorld(mONpc);
+			fWorld.Remove(mONpc);
 		}
 
 		/// <summary>The strings do_offer reads, and do_demand.</summary>
@@ -1846,8 +1856,8 @@ namespace UWDataImport.UWData
 				PlayerItems[liSlot] = null;
 				PlayerSelected[liSlot] = false;
 
-				if (lOItem != null && mIHost != null)
-					mIHost.DropAroundPlayer(lOItem);
+				if (lOItem != null && fWorld != null)
+					fWorld.DropAroundPlayer(lOItem);
 
 				lOItem = NpcItems[liSlot];
 
@@ -1855,8 +1865,8 @@ namespace UWDataImport.UWData
 				NpcSelected[liSlot] = false;
 				NpcBought[liSlot] = false;
 
-				if (lOItem != null && mIHost != null)
-					mIHost.DropAtNpc(lOItem, mONpc);
+				if (lOItem != null && fWorld != null)
+					fWorld.DropAtCreature(lOItem, mONpc);
 			}
 
 			Version++;
@@ -1864,16 +1874,16 @@ namespace UWDataImport.UWData
 
 		private void fDropAtPlayer(UWObject pOItem)
 		{
-			if (mIHost == null || pOItem == null)
+			if (fWorld == null || pOItem == null)
 				return;
 
-			mIHost.DropAtPlayer(pOItem);
+			fWorld.DropAtPlayer(pOItem);
 		}
 
 		/// <summary>near_mob_put_at(talking_to, item, 5, cull); false when the culling test took it.</summary>
 		private bool fDropAtNpc(UWObject pOItem)
 		{
-			return mIHost != null && pOItem != null && mIHost.DropAtNpc(pOItem, mONpc);
+			return fWorld != null && pOItem != null && fWorld.DropAtCreature(pOItem, mONpc);
 		}
 
 		/// <summary>change_critter_goal(talking_to, GOAL_ATTACK, 1) of a refused demand: attack the

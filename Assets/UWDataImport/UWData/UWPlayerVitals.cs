@@ -12,7 +12,9 @@ namespace UWDataImport.UWData
 	///
 	/// Engine-free since 2026-09-18 (P3 of the engine separation), out of UWCharacter, which
 	/// hosts one of these (IUWVitalsHost) and forwards its old API - the flasks, the paper
-	/// doll, the weapon animation and the camera stay there.
+	/// doll, the weapon animation and the camera stay there. Since cleanup step 3.6
+	/// (2026-10-17) what the vitals TELL the game are events (VitalsChanged, the shakes, the
+	/// messages, the status pass, ...); IUWVitalsHost keeps only what they ASK.
 	/// </summary>
 	public sealed class UWPlayerVitals
 	{
@@ -55,10 +57,74 @@ namespace UWDataImport.UWData
 
 		private DataImport mOData;
 
+		/// <param name="pIHost">What the vitals ask of the game around them (the dungeon level, the
+		/// worn regeneration, the movement); may be null - then those answer as for a player who
+		/// stands still nowhere, and the Lore attempt records nothing.</param>
 		public UWPlayerVitals(IUWVitalsHost pIHost)
 		{
 			mIHost = pIHost;
 		}
+
+		// ------------------------------------------------- What the vitals tell (cleanup step 3.6)
+		//
+		// WHY EVENTS: until 2026-10-17 these were callbacks on IUWVitalsHost, which only UWCharacter
+		// implemented, so every headless user (the self-check, the sleep, the traps) had to write a
+		// host with ten empty bodies. Now the game subscribes to what it shows - UWCharacter to all of
+		// them - and a check subscribes to what it counts. They are raised at exactly the moments the
+		// callbacks were called; nobody subscribed is what no host was.
+
+		/// <summary>Health, mana or poison changed - the flasks show it.</summary>
+		public event Action VitalsChanged;
+
+		/// <summary>A hit or a curse was just recorded in LastDamage - the host stamps the time.</summary>
+		public event Action DamageRecorded;
+
+		/// <summary>A blow or a missile shakes the view (ShakeForCombatHit): the combat shake is set
+		/// to the level handed (0 to 3) times five, so level 0 ends a running one.</summary>
+		public event Action<int> CombatShakeDue;
+
+		/// <summary>A failed sip or the waking after passing out: the view shakes for this many ticks
+		/// on the large channel.</summary>
+		public event Action<int> UnsteadyShakeDue;
+
+		/// <summary>A line for the message scroll - the level-up.</summary>
+		public event Action<string> MessageDue;
+
+		/// <summary>A creature was slain: the dragon nods, and if a reward is due (true) the fanfare
+		/// plays. Raised before the experience changes.</summary>
+		public event Action<bool> KillRewarded;
+
+		/// <summary>
+		/// The original would run its status pass now (UnderworldExhumed PLAYDATA.C
+		/// FixPlayerEquips): a spell began or ended, the mushroom began or wore off, the active
+		/// spells were cleared for sleep, a mantra was chanted. That pass is where a worn cursed
+		/// item strikes (class 9, backfire) - the host runs it (UWCharacter). Since 2026-10-12;
+		/// until then the curse struck on every player tick (OnCurseStruck, WornCurseDice).
+		/// </summary>
+		public event Action StatusPassDue;
+
+		/// <summary>
+		/// The level's share of the five-minute block (duration_check, UnderworldExhumed
+		/// PLAYTIME.C, every 24th player tick): the wandering monsters' one-in-four roll
+		/// (UWRespawnRules.RollOpportunity) and the creatures' checkup (UWLevelExit.YearlyCheckup).
+		/// Raised after hunger and intoxication and before the strength roll, in the original's
+		/// order of draws. Since 2026-10-15.
+		/// </summary>
+		public event Action FiveMinuteBlockDue;
+
+		/// <summary>Lore rose (or was tried): every item in the world may be identified anew.</summary>
+		public event Action IdentificationReset;
+
+		/// <summary>What class 11 contributes to the active spells, decoded.</summary>
+		public delegate void ActiveSpellsHandler(bool pbHastened, bool pbRoamingSight, bool pbTimeFrozen,
+			bool pbTelekinesis);
+
+		/// <summary>
+		/// The set of active spells changed. What class 11 contributes is handed over decoded;
+		/// everything that can also sit on equipment is recomputed by the host's status pass
+		/// afterwards.
+		/// </summary>
+		public event ActiveSpellsHandler ActiveSpellsChanged;
 
 		// ------------------------------------------------- Health and mana
 
@@ -205,8 +271,7 @@ namespace UWDataImport.UWData
 
 		private void fVitalsChanged()
 		{
-			if (mIHost != null)
-				mIHost.OnVitalsChanged();
+			VitalsChanged?.Invoke();
 		}
 
 		// ------------------------------------------------- Experience
@@ -225,8 +290,7 @@ namespace UWDataImport.UWData
 			// EXPChange unhalved (deviation 50 adopted 2026-09-20).
 			int liReward = UWExperience.GetKillReward(pOCritter, pbStrong);
 
-			if (mIHost != null)
-				mIHost.OnKillRewarded(liReward > 0);
+			KillRewarded?.Invoke(liReward > 0);
 
 			if (liReward <= 0)
 				return;
@@ -245,8 +309,7 @@ namespace UWDataImport.UWData
 
 			fApplyLevel();
 
-			if (mIHost != null)
-				mIHost.AddMessage(fGetLevelUpMessage());
+			MessageDue?.Invoke(fGetLevelUpMessage());
 		}
 
 		/// <summary>Experience from a conversation (new_player_exp) - without the halving of
@@ -263,8 +326,7 @@ namespace UWDataImport.UWData
 
 			fApplyLevel();
 
-			if (mIHost != null)
-				mIHost.AddMessage(fGetLevelUpMessage());
+			MessageDue?.Invoke(fGetLevelUpMessage());
 		}
 
 		/// <summary>Sets hunger, hit points, mana and poison as a conversation returns them at
@@ -514,7 +576,7 @@ namespace UWDataImport.UWData
 			if (piSkillNumber != LoreSkillNumber || mIHost == null)
 				return;
 
-			mIHost.ResetIdentification();
+			IdentificationReset?.Invoke();
 
 			// And the Lore skill is noted for this level (UWPlayerData.LoreByLevel): get_skill
 			// writes player->lore[PlayerLevel] up to level 8.
@@ -650,8 +712,7 @@ namespace UWDataImport.UWData
 			if (liCheck < 0)
 				return DrinkResult.PassedOut;
 
-			if (mIHost != null)
-				mIHost.ShakeUnsteady(Intoxication / 6);
+			UnsteadyShakeDue?.Invoke(Intoxication / 6);
 
 			return DrinkResult.Unsteady;
 		}
@@ -735,8 +796,7 @@ namespace UWDataImport.UWData
 		/// <summary>The shaking after waking from a drink: 10 plus intoxication / 6.</summary>
 		public void ShakeAfterPassingOut()
 		{
-			if (mIHost != null)
-				mIHost.ShakeUnsteady(DrinkShakeBase + (Intoxication / 6));
+			UnsteadyShakeDue?.Invoke(DrinkShakeBase + (Intoxication / 6));
 		}
 
 		/// <summary>How much intoxication a night removes: 32 after a full night, 16 after an
@@ -808,8 +868,7 @@ namespace UWDataImport.UWData
 				LastDamageType = piDamageType;
 				miDamageThisTick += piDamage;
 
-				if (mIHost != null)
-					mIHost.OnDamageRecorded();
+				DamageRecorded?.Invoke();
 
 				CurrentHP -= piDamage;
 
@@ -837,10 +896,10 @@ namespace UWDataImport.UWData
 		/// <param name="piDamageDone">The damage that was dealt, after the halving.</param>
 		public void ShakeForCombatHit(int piDamageBeforeEasy, int piDamageDone)
 		{
-			if (piDamageDone <= 0 || mIHost == null)
+			if (piDamageDone <= 0)
 				return;
 
-			mIHost.ShakeOnDamage(Math.Min(Math.Max(0, piDamageBeforeEasy) / DamageLevelDivisor, MaxDamageLevel));
+			CombatShakeDue?.Invoke(Math.Min(Math.Max(0, piDamageBeforeEasy) / DamageLevelDivisor, MaxDamageLevel));
 		}
 
 		/// <summary>A curse brings nobody below this limit, and at or below it does nothing
@@ -905,8 +964,7 @@ namespace UWDataImport.UWData
 			LastDamage = piDamage;
 			LastDamageType = UWDamageTypes.None;
 
-			if (mIHost != null)
-				mIHost.OnDamageRecorded();
+			DamageRecorded?.Invoke();
 
 			CurrentHP = CurrentHP - piDamage < CurseMinimumHealth
 				? CurseMinimumHealth
@@ -1159,14 +1217,13 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// The original would run its status pass, FixPlayerEquips, now - the host does it,
-		/// and that is where a worn curse strikes (IUWVitalsHost.OnStatusPassDue). Called by the
+		/// and that is where a worn curse strikes (the StatusPassDue event). Called by the
 		/// rules that call FixPlayerEquips in the original: a spell begins or ends, the mushroom
 		/// begins or wears off, sleep, a mantra (UWShrineRules).
 		/// </summary>
 		public void RequestStatusPass()
 		{
-			if (mIHost != null)
-				mIHost.OnStatusPassDue();
+			StatusPassDue?.Invoke();
 		}
 
 		/// <summary>
@@ -1211,8 +1268,7 @@ namespace UWDataImport.UWData
 					lbRoaming = true;
 			}
 
-			if (mIHost != null)
-				mIHost.OnActiveSpellsChanged(lbHastened, lbRoaming, TimeIsFrozen, HasTelekinesis);
+			ActiveSpellsChanged?.Invoke(lbHastened, lbRoaming, TimeIsFrozen, HasTelekinesis);
 		}
 
 		/// <summary>
@@ -1439,8 +1495,7 @@ namespace UWDataImport.UWData
 			// THE LEVEL'S SHARE comes here, between the drunkenness and the fatigue in the
 			// original's block (duration_check, PLAYTIME.C): the creatures' checkup. Ours had none
 			// until 2026-10-15.
-			if (mIHost != null)
-				mIHost.OnFiveMinuteBlock();
+			FiveMinuteBlockDue?.Invoke();
 
 			// On STRENGTH, which is an attribute and not a skill (the player's creature row
 			// byte 5, see UWPlayerCritterRow).

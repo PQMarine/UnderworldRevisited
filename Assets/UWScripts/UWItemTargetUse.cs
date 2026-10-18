@@ -261,7 +261,7 @@ public static class UWItemTargetUse
     }
 
     /// <summary>
-    /// The orb rock THROWN at Tybal's orb (UWProjectileFlight, the collision's object use):
+    /// The orb rock THROWN at Tybal's orb (UWMissiles.StrikeObject, the collision's object use):
     /// the same breaking as from the hand, but the rock is not used up - it lies where it fell,
     /// as in the original (per user, 2026-09-23). A throw at anything else says nothing.
     /// </summary>
@@ -299,12 +299,15 @@ public static class UWItemTargetUse
         if (UWScene.Character != null)
             UWTybalOrbRules.OnOrbDestroyed(UWScene.Character.Vitals);
 
-        // And Tybal, wherever he stands on this level, loses half his strength for good.
-        UWCritter[] lOCritters = UWScene.FindCritters();
+        // And Tybal, wherever he stands on this level, loses half his strength for good. The
+        // creatures come from the world's search (cleanup step 3.2, 2026-10-17).
+        System.Collections.Generic.List<UWCritter> lOCritters = new System.Collections.Generic.List<UWCritter>();
 
-        for (int liAt = 0; lOCritters != null && liAt < lOCritters.Length; liAt++)
+        UWWorld.Of(pOLevelLoader).FindCritters(UWTileArea.WholeLevel, UWCreatureFilter.Any, lOCritters);
+
+        for (int liAt = 0; liAt < lOCritters.Count; liAt++)
         {
-            if (lOCritters[liAt] != null && lOCritters[liAt].IsTybal)
+            if (lOCritters[liAt].IsTybal)
                 lOCritters[liAt].WeakenByBrokenOrb();
         }
     }

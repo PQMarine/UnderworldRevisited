@@ -18,7 +18,8 @@ namespace UWDataImport.UWData
 		/// <summary>A composed line for the message scroll - "That fish tasted great.".</summary>
 		void AddMessage(string psMessage);
 
-		/// <summary>The class 9 curse on the player, with the flash (see IUWTrapHost.CursePlayer).
+		/// <summary>The class 9 curse on the player, with the flash (the trap rules' curse is the
+		/// same blow, UWBlow.Curse).
 		/// </summary>
 		void CursePlayer(int piDice);
 

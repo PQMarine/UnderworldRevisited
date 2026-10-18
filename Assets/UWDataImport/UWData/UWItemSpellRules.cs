@@ -143,7 +143,7 @@ namespace UWDataImport.UWData
 
 			if (piMinorClass == HallucinationMinorClass && pIHost.HasPlayer)
 			{
-				pIHost.AddGeneralMessage(HallucinationMessage);
+				pIHost.World.Presentation.AddGeneralMessage(HallucinationMessage);
 				pIHost.StartHallucination();
 			}
 		}

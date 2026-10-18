@@ -284,6 +284,20 @@ namespace UnderworldRevisited.Tools
             // holds (2026-09-28).
             { "UWCritterCombat.cs", "UWEquipmentWear.cs" },
             { "UWPlayerCritterRow.cs", "UWEquipmentWear.cs" },
+
+            // MissileAttackHit_seg022_14BF: the missile's charge (UWCritterRules) and the armour
+            // arithmetic (UWCritterCombat) are numbers it shares with the blows; UWMissileHitRules
+            // holds what the hit does with them on a creature, the player and an object - moved out
+            // of UWProjectileFlight in cleanup step 3.5 (2026-10-17).
+            { "UWCritterCombat.cs", "UWMissileHitRules.cs" },
+            { "UWCritterRules.cs", "UWMissileHitRules.cs" },
+
+            // RunCodeOnObjectsInArea_seg038_3307_9C7 is the original's area walker, called by
+            // both: the theft and trespass take its inclusive bounds (UWCritterRules), the night
+            // its column-by-column order for the creatures around the sleeper (UWSleepRules,
+            // moved there from the sleep's host in cleanup step 3.6, 2026-10-17). Neither
+            // implements the walker; each names the part it relies on.
+            { "UWCritterRules.cs", "UWSleepRules.cs" },
         };
 
         /// <summary>Whether these two files are declared as an intended pair.</summary>

@@ -7,14 +7,16 @@ using UWDataImport.UWData;
 /// the player, UWLevelLoader for the world, UWInventory for the backpack, Interaction for
 /// the look descriptions and UWConversationScreen for the look text. Created per
 /// conversation by UWConversationScreen; the components are looked up once when first needed.
+///
+/// THE WORLD (cleanup step 3.6, 2026-10-17): the level, its number, gronk_door's door, the
+/// objects place_object puts down, the drops at the end of a barter, remove_talker and the
+/// inventory are the world's (UWWorld), which the rules ask themselves; this host keeps the
+/// player's numbers and the two text services. Per conversation: the long-lived world keeps
+/// none of its state.
 /// </summary>
 public sealed class UWConversationHost : IUWConversationHost
 {
     private UWCharacter mOCharacter;
-
-    private UWLevelLoader mOLoader;
-
-    private UWInventory mOInventory;
 
     private Interaction mOInteraction;
 
@@ -30,12 +32,24 @@ public sealed class UWConversationHost : IUWConversationHost
         mbLookedUp = true;
 
         mOCharacter = UWScene.Character;
-        mOInventory = UWScene.Inventory;
         mOInteraction = UWScene.Interaction;
         mOScreen = UWScene.ConversationScreen;
 
-        mOLoader = UWScene.LevelLoader;
+        mOWorld = UWWorld.Of(UWScene.LevelLoader);
     }
+
+    /// <summary>The world on the loader's object (cleanup step 3.1, 2026-10-17), looked up with the
+    /// rest when first needed. Null without a loader.</summary>
+    public IUWWorld World
+    {
+        get
+        {
+            fLookUp();
+            return mOWorld;
+        }
+    }
+
+    private UWWorld mOWorld;
 
     private UWCharacter fCharacter
     {
@@ -46,14 +60,6 @@ public sealed class UWConversationHost : IUWConversationHost
         }
     }
 
-    private UWLevelLoader fLoader
-    {
-        get
-        {
-            fLookUp();
-            return mOLoader;
-        }
-    }
 
     // ------------------------------------------------- The player
 
@@ -65,6 +71,9 @@ public sealed class UWConversationHost : IUWConversationHost
 
     public int PlayerMaxHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.MaxHP) : 0;
 
+    /// <summary>Mana ROUNDED TO THE NEAREST, as the flasks show it - the spell host rounds down
+    /// (IUWSpellHost.PlayerMana); two conventions on purpose, kept apart by cleanup step 3.1
+    /// (2026-10-17).</summary>
     public int PlayerMana => fCharacter != null ? Mathf.RoundToInt(fCharacter.CurrentMana) : 0;
 
     public int PlayerAttack => fCharacter != null ? fCharacter.Attack : 0;
@@ -114,106 +123,7 @@ public sealed class UWConversationHost : IUWConversationHost
             fCharacter.ChangeExperience(piAmount, piDungeonLevel);
     }
 
-    // ------------------------------------------------- The world
-
-    public UWLevel CurrentLevel => fLoader != null ? fLoader.CurrentLevel : null;
-
-    public int CurrentLevelNumber => fLoader != null ? fLoader.CurrentLevelIndex + 1 : 1;
-
-    public bool SetDoorState(int piTileX, int piTileY, int piMode)
-    {
-        return fLoader != null && UWTriggerSystem.TrySetDoorState(piTileX, piTileY, piMode, fLoader);
-    }
-
-    /// <summary>place_object on a tile: at the item's own fine spot (place_object sets only z, to
-    /// the floor; UWConversationTrade gives it 3/3), not the tile centre. Per user in the original
-    /// 2026-10-17 (audit round 2 B4): Judy's Key of Love lay on 33/8 at 3/3; ours saved it at 4/4
-    /// because this went through SpawnObjectInTile, which takes the centre.</summary>
-    public bool SpawnObjectInTile(UWObject pOItem, int piTileX, int piTileY)
-    {
-        return fLoader != null && fLoader.SpawnObjectInTileAtTemplatePosition(pOItem, piTileX, piTileY);
-    }
-
-    /// <summary>
-    /// place_object with a negative x (BABLHACK.C): put_at at the player's tile with its fine
-    /// position 0/0, drop_around_place's stay_centered set (that point is tried first), range 6
-    /// and nocull - the object is never culled. Until 2026-10-12 a random spot of the player's
-    /// tile, a roll the original never makes.
-    /// </summary>
-    public void DropAtPlayer(UWObject pOItem)
-    {
-        if (fLoader == null || pOItem == null)
-            return;
-
-        Camera lOCamera = Camera.main;
-
-        if (lOCamera == null)
-            return;
-
-        Vector3 lOFeet = UWPlayerThrow.GetFeet(lOCamera.transform);
-        UWTilePos lOTile = fLoader.WorldPositionToTile(lOFeet);
-        Vector3 lOCorner = new Vector3(UWUnits.EighthsToWorldAxis(lOTile.X << 3), lOFeet.y,
-            UWUnits.EighthsToWorldAxis(lOTile.Y << 3));
-
-        fLoader.SpawnScatteredAround(pOItem, lOCorner, PlaceObjectRange, lOTile, false, true, true);
-    }
-
-    /// <summary>place_object's range at the player's feet, in eighths.</summary>
-    private const int PlaceObjectRange = 6;
-
-    public void DropAroundPlayer(UWObject pOItem)
-    {
-        if (fLoader == null || pOItem == null)
-            return;
-
-        Camera lOCamera = Camera.main;
-
-        if (lOCamera == null)
-            return;
-
-        Vector3 lOFeet = UWPlayerThrow.GetFeet(lOCamera.transform);
-
-        // No second try when it returns false: then the culling test took it, as in the original.
-        fLoader.SpawnScatteredAround(pOItem, lOFeet, BarterDropRadius, fLoader.WorldPositionToTile(lOFeet));
-    }
-
-    /// <summary>Radius of end_barter's PlaceObjectAtNPC, in eighths of a tile.</summary>
-    private const int BarterDropRadius = 5;
-
-    /// <summary>
-    /// near_mob_put_at(talking_to, item, 5, cull): around the partner's own spot, radius 5, the
-    /// culling test deciding when no spot fits. False when the culling test took it (the 3 of
-    /// npc_barter_give). Until 2026-10-12 a failure went on to the player's tile, which the
-    /// original never does.
-    /// </summary>
-    public bool DropAtNpc(UWObject pOItem, UWNpc pONpc)
-    {
-        if (fLoader == null || pOItem == null || pONpc == null)
-            return false;
-
-        UWEntityInfo lOEntity;
-        Vector3 lOCentre = fLoader.TryGetEntity(pONpc, out lOEntity) && lOEntity != null
-            ? lOEntity.transform.position
-            : UnderworldRevisited.Build.UWObjectSpawner.GetObjectWorldPosition(pONpc.TileX, pONpc.TileY, pONpc);
-
-        return fLoader.SpawnScatteredAround(pOItem, lOCentre, BarterDropRadius, fLoader.WorldPositionToTile(lOCentre));
-    }
-
-    public bool RemoveObjectFromWorld(UWObject pOObject)
-    {
-        return fLoader != null && pOObject != null && fLoader.RemoveObjectFromWorld(pOObject);
-    }
-
-    // ------------------------------------------------- Inventory and text
-
-    public UWInventoryModel Inventory
-    {
-        get
-        {
-            fLookUp();
-            return mOInventory != null ? mOInventory.Model : null;
-        }
-    }
+    // ------------------------------------------------- Text
 
     public string DescribeItem(UWObject pOItem, int piDetail = UWItemDescriptions.DetailFromLoreCheck)
     {

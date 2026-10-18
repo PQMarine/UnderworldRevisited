@@ -80,7 +80,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool Cast(int piMinorClass, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || !pIHost.HasPlayer || pIHost.CurrentLevel == null)
+			if (pIHost == null || !pIHost.HasPlayer || UWSpellCasting.LevelOf(pIHost) == null)
 				return false;
 
 			switch (piMinorClass)
@@ -111,15 +111,15 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fCreateFood(IUWSpellHost pIHost)
 		{
-			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
 			int liId = UWObjectIds.FirstFood + UWRandom.Next(FoodCount);
 
-			if (!fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out UWTilePos lOTile,
-					out float lfAtX, out float lfAtZ)
+			if (!fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
+					out UWTilePos lOTile, out float lfAtX, out float lfAtZ)
 				|| !fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
 			{
-				pIHost.AddGeneralMessage(NoRoomMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoRoomMessage);
 
 				return true;
 			}
@@ -127,10 +127,14 @@ namespace UWDataImport.UWData
 			// FRESHLY CONJURED FOOD IS THE BEST FOOD. Without the quality value it got
 			// ZERO and thus the worst grade - in the original it is the best, since it has
 			// only just come into being (per user, 2026-09-10).
-			UWObject lOFood = UWObjectFactory.Create(liId, pIHost.Data != null ? pIHost.Data.CommonObjectProperties : null,
-				UWObjectFactory.Unset, ConjuredFoodQuality);
+			//
+			// WITH ITS PICTURE (UWObjectFactory.Create over the game data): the overload over the
+			// COMOBJ table alone gave the food no texture, and the spawner skips an object without one,
+			// so since the swerved-point fix (24aa80fb, 2026-10-12) the food lay in the level unseen
+			// (per user, 2026-10-18: the sound and the mana, but no food).
+			UWObject lOFood = UWObjectFactory.Create(liId, pIHost.Data, UWObjectFactory.Unset, ConjuredFoodQuality);
 
-			return lOFood != null && pIHost.SpawnObjectAt(lOFood, lfAtX, lfAtZ);
+			return lOFood != null && pIHost.World.DropObjectAt(lOFood, lfAtX, lfAtZ);
 		}
 
 		/// <summary>
@@ -152,13 +156,15 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fWardingRune(IUWSpellHost pIHost)
 		{
-			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
 			// The spot only - its tile test is the food's and the summoning's, not the rune's.
-			fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out UWTilePos lOTile,
-				out _, out _);
+			fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
+				out UWTilePos lOTile, out _, out _);
 
-			pIHost.AddGeneralMessage(pIHost.SpawnWardRune(lOTile.X, lOTile.Y) ? WardPlacedMessage : NoRoomMessage);
+			pIHost.World.Presentation.AddGeneralMessage(pIHost.World.SpawnWardRune(lOTile.X, lOTile.Y)
+				? WardPlacedMessage
+				: NoRoomMessage);
 
 			return true;
 		}
@@ -191,12 +197,12 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fSummonMonster(IUWSpellHost pIHost)
 		{
-			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
-			if (!fFindSpotFrom(SummonDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out UWTilePos lOTile,
-					out float lfAtX, out float lfAtZ))
+			if (!fFindSpotFrom(SummonDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
+					out UWTilePos lOTile, out float lfAtX, out float lfAtZ))
 			{
-				pIHost.AddGeneralMessage(NoRoomMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoRoomMessage);
 
 				return true;
 			}
@@ -213,7 +219,7 @@ namespace UWDataImport.UWData
 
 			if (!fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
 			{
-				pIHost.AddGeneralMessage(NoRoomMessage);
+				pIHost.World.Presentation.AddGeneralMessage(NoRoomMessage);
 
 				return true;
 			}
@@ -227,7 +233,7 @@ namespace UWDataImport.UWData
 			// The player's summoning adds only the ally bit (byte 0x19 bit 6).
 			lORecord.IsAlly = true;
 
-			return pIHost.SpawnObjectAt(lONpc, lfAtX, lfAtZ);
+			return pIHost.World.DropObjectAt(lONpc, lfAtX, lfAtZ);
 		}
 
 		/// <summary>
@@ -242,7 +248,7 @@ namespace UWDataImport.UWData
 		public static bool SummonByCreature(IUWSpellHost pIHost, float pfFromX, float pfFromZ, float pfYawDegrees,
 			int piDungeonLevel, UWTilePos pOPlayerTile)
 		{
-			if (pIHost == null || pIHost.CurrentLevel == null || pIHost.Data == null
+			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null || pIHost.Data == null
 				|| pIHost.Data.ObjectClassProperties == null)
 				return false;
 
@@ -267,7 +273,7 @@ namespace UWDataImport.UWData
 			lORecord.DestinationX = pOPlayerTile.X;
 			lORecord.DestinationY = pOPlayerTile.Y;
 
-			return pIHost.SpawnObjectAt(lONpc, lfAtX, lfAtZ);
+			return pIHost.World.DropObjectAt(lONpc, lfAtX, lfAtZ);
 		}
 
 		/// <summary>A creature's summoning draws with the dungeon level times this.</summary>
@@ -357,9 +363,10 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fFindSpot(int piDistance, IUWSpellHost pIHost, out UWTilePos pOTile)
 		{
-			pIHost.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
-			return fFindSpotFrom(piDistance, lfEyeX, lfEyeZ, pIHost.ViewYawDegrees, pIHost, out pOTile, out _, out _);
+			return fFindSpotFrom(piDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost, out pOTile,
+				out _, out _);
 		}
 
 		/// <summary>
@@ -374,13 +381,13 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static bool fSummonSpotFits(UWTilePos pOTile, float pfAtX, float pfAtZ, int piId, IUWSpellHost pIHost)
 		{
-			UWTile lOTile = pIHost.CurrentLevel.GetTile(pOTile.X, pOTile.Y);
+			UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(pOTile.X, pOTile.Y);
 
 			if (!UWTileQueries.IsSubTileInOpenHalf(lOTile.TileType, UWTileQueries.WorldToSubTile(pfAtX, pOTile.X),
 					UWTileQueries.WorldToSubTile(pfAtZ, pOTile.Y)))
 				return false;
 
-			return pIHost.CreatureFitsAt(piId, pfAtX, pfAtZ);
+			return pIHost.World.CreatureFitsAt(piId, pfAtX, pfAtZ);
 		}
 
 		/// <summary>The spot piDistance eighths from a world position along a yaw (0 north,
@@ -404,7 +411,7 @@ namespace UWDataImport.UWData
 			// The same tile lookup the level loader uses (it clamps to the map).
 			pOTile = UWTileQueries.WorldToTile(pfAtX, pfAtZ);
 
-			UWTile lOTile = pIHost.CurrentLevel.GetTile(pOTile.X, pOTile.Y);
+			UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(pOTile.X, pOTile.Y);
 
 			return lOTile != null && lOTile.TileType != UWTile.TileTypeEnum.solid;
 		}

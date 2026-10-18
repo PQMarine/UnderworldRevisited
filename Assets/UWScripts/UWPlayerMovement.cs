@@ -1512,7 +1512,7 @@ public class UWPlayerMovement : MonoBehaviour
 
     /// <summary>
     /// Landing in water SPLASHES instead of thudding: effect 5, the same splash a thrown
-    /// object makes (UWProjectileWorld.Splash) - not effect 0, which is the rushing one hears
+    /// object makes (UWMotionHost.Splash) - not effect 0, which is the rushing one hears
     /// while in the water.
     ///
     /// THE DECISION SITS HERE, at the landing, and nowhere else: walking into water is silent
@@ -1853,7 +1853,7 @@ public class UWPlayerMovement : MonoBehaviour
     public bool UsesMotionCore => mbUseMotionCore && Motion != null;
 
     /// <summary>The world the motion was built on - a new level object gets a new motion.</summary>
-    private UWProjectileWorld mOMotionWorld;
+    private UWMotionHost mOMotionWorld;
 
     /// <summary>The PIT ticks not yet handed to the frame.</summary>
     private float mfCoreTickRemainder;
@@ -1935,7 +1935,7 @@ public class UWPlayerMovement : MonoBehaviour
         if (lOLoader == null || lOLoader.UWDataImporter == null)
             return Motion;
 
-        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(lOLoader);
+        UWMotionHost lOWorld = UWMotionHost.Ensure(lOLoader);
 
         if (lOWorld == null)
             return Motion;
@@ -2108,9 +2108,9 @@ public class UWPlayerMovement : MonoBehaviour
                 fApplyMotionToTransform(lOMotion, mfCoreTickRemainder / liStep);
         }
 
-        // The move triggers the steps met (UWProjectileWorld.TriggerMove): fired now, after the
+        // The move triggers the steps met (UWMotionHost.TriggerMove): fired now, after the
         // frame, so that a teleport is not overwritten by the step.
-        UWProjectileWorld lOTriggerWorld = UWScene.LevelLoader != null ? UWProjectileWorld.Ensure(UWScene.LevelLoader) : null;
+        UWMotionHost lOTriggerWorld = UWScene.LevelLoader != null ? UWMotionHost.Ensure(UWScene.LevelLoader) : null;
 
         if (lOTriggerWorld != null)
             lOTriggerWorld.FirePendingPlayerTriggers();

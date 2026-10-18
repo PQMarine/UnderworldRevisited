@@ -1072,7 +1072,7 @@ public class UWHelpWindow : MonoBehaviour
             return;
         }
 
-        UWArmourProtection.Compute(pOInventory, pOData, null, mOWornStatus);
+        UWArmourProtection.Compute(pOInventory.Model, pOData, null, mOWornStatus);
 
         GUILayout.Space(6f);
         GUILayout.Label("Together, without cast spells:", mODimText);

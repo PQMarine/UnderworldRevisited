@@ -71,7 +71,7 @@ public class UWMoveTrigger : MonoBehaviour
         // WHO MAY SET IT OFF (UWTrapRules.MaySetOff, UseTrigger): the player only with flags bit 2 -
         // never the rune of warding's trigger (flags 8). Until 2026-10-12 this path told the rune
         // apart by its flags 0 and searched the creatures for it itself; the creatures' motion
-        // sets it off now (UWProjectileWorld.TriggerMove).
+        // sets it off now (UWMotionHost.TriggerMove).
         if (!UWTrapRules.MaySetOff(mOTriggerData, UWTrapRules.Setter.Player))
             return;
 
@@ -82,7 +82,7 @@ public class UWMoveTrigger : MonoBehaviour
             return;
 
         // ON THE MOTION CORE the player's collision fires the trigger as the original does - on
-        // every motion frame in reach, not on entering (UWProjectileWorld.TriggerMove,
+        // every motion frame in reach, not on entering (UWMotionHost.TriggerMove,
         // 2026-10-06). This volume serves the old CharacterController path only.
         if (lOMovement.UsesMotionCore)
             return;

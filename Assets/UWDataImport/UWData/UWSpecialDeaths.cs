@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace UWDataImport.UWData
 {
 	/// <summary>
@@ -24,7 +26,10 @@ namespace UWDataImport.UWData
 	///   0xE7  Tyball: see UWSpecialDeaths.TyballAllies - the cutscene, the dream bit, his
 	///         allies and the traps of his prison.
 	///
-	/// Engine-free; what has to touch the world goes through IUWSpecialDeathHost.
+	/// Engine-free; what has to touch the world goes through IUWWorld, what belongs to the creature
+	/// through its record (UWCreatureRef), the story bits through UWGameFlags. Until cleanup step
+	/// 3.6 (2026-10-17) a host of its own (UWSpecialDeaths.IHost, nine members, implemented on
+	/// UWCritter) did all of it.
 	/// </summary>
 	public static class UWSpecialDeaths
 	{
@@ -36,41 +41,6 @@ namespace UWDataImport.UWData
 
 			/// <summary>Mode 1: it is dead, and the consequences follow.</summary>
 			Dead
-		}
-
-		/// <summary>What a special death needs from the world.</summary>
-		public interface IHost
-		{
-			/// <summary>Starts the conversation with this creature.</summary>
-			void TalkToThisCreature();
-
-			/// <summary>Ends the fight and sets the creature standing: no attacker (byte 0x12),
-			/// EndCombat, animation 0x20, frame 0. The hit points stay as they are.</summary>
-			void StandDown();
-
-			/// <summary>Byte 8, the hit points.</summary>
-			void SetHitPoints(int piHitPoints);
-
-			/// <summary>The tile state bits of byte 0x0A as the golem's marker: true the
-			/// first time, false afterwards.</summary>
-			bool TryMarkRewarded();
-
-			/// <summary>EXPChange with the given tenths.</summary>
-			void AwardExperience(int piExperience);
-
-			void PlayCutscene(int piCutscene);
-
-			/// <summary>Removes, for each of these whoami numbers, the FIRST creature that carries
-			/// it in the level's list of allocated mobiles (UWLevel.GetActiveMobileOrder;
-			/// see RunFunctionOnWhoAmIList_seg038_3307_D4E, which stops at the first match; per user,
-			/// 2026-09-29, the original removed nine of fourteen).</summary>
-			void RemoveCreaturesByWhoami(int[] piWhoamis);
-
-			/// <summary>Removes every object of that id from one tile.</summary>
-			void RemoveObjectsInTile(int piTileX, int piTileY, int piObjectId);
-
-			/// <summary>PLAYER.DAT 0x62 bit 2 - see UWPlayerData.TalismansDestroyable.</summary>
-			void SetTalismansDestroyable(bool pbValue);
 		}
 
 		public const int TalkerWhoami = 0x0B;
@@ -126,17 +96,19 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// The special case of this whoami, if there is one. Returns FALSE when the creature
 		/// does not die after all - only the nameless one and the golem do that, and only
-		/// while dying.
+		/// while dying. pOCreature is the dying or dead creature itself (its record carries the
+		/// hit points, the stand-down and the golem's marker). Without a world nothing special
+		/// happens, as without a host until cleanup step 3.6 (2026-10-17).
 		/// </summary>
-		public static bool Apply(int piWhoami, Stage peStage, IHost pIHost)
+		public static bool Apply(int piWhoami, Stage peStage, IUWWorld pOWorld, UWCreatureRef pOCreature)
 		{
-			if (pIHost == null)
+			if (pOWorld == null)
 				return true;
 
 			if (peStage == Stage.Dying)
-				return fApplyWhileDying(piWhoami, pIHost);
+				return fApplyWhileDying(piWhoami, pOWorld, pOCreature);
 
-			fApplyWhenDead(piWhoami, pIHost);
+			fApplyWhenDead(piWhoami, pOWorld);
 
 			return true;
 		}
@@ -151,12 +123,17 @@ namespace UWDataImport.UWData
 				|| piWhoami == TyballWhoami;
 		}
 
-		private static bool fApplyWhileDying(int piWhoami, IHost pIHost)
+		private static bool fApplyWhileDying(int piWhoami, IUWWorld pOWorld, UWCreatureRef pOCreature)
 		{
+			UWCritterRecord lORecord = pOCreature.Record;
+
 			if (piWhoami == TalkerWhoami)
 			{
-				pIHost.TalkToThisCreature();
-				pIHost.SetHitPoints(SurvivorHitPoints);
+				pOWorld.TalkTo(pOCreature);
+
+				// Byte 8, the hit points.
+				if (lORecord != null)
+					lORecord.HitPoints = SurvivorHitPoints;
 
 				return false;
 			}
@@ -165,16 +142,53 @@ namespace UWDataImport.UWData
 				return true;
 
 			// The reward only the first time; the marker is his own tile state.
-			if (pIHost.TryMarkRewarded())
-				pIHost.AwardExperience(GolemExperience);
+			if (fTryMarkRewarded(lORecord))
+				fAwardExperience(pOWorld, GolemExperience);
 
-			pIHost.StandDown();
-			pIHost.TalkToThisCreature();
+			fStandDown(pOWorld, lORecord);
+			pOWorld.TalkTo(pOCreature);
 
 			return false;
 		}
 
-		private static void fApplyWhenDead(int piWhoami, IHost pIHost)
+		/// <summary>The golem's marker: the original misuses the tile state bits of byte 0x0A for it,
+		/// and so do we - they are recomputed by the physics anyway. True the first time, false
+		/// afterwards.</summary>
+		private static bool fTryMarkRewarded(UWCritterRecord pORecord)
+		{
+			if (pORecord == null || pORecord.TileState != 0)
+				return false;
+
+			pORecord.TileState = 1;
+
+			return true;
+		}
+
+		/// <summary>EXPChange with the given tenths, as the golem's reward - the dungeon level is
+		/// what the player stands on, exactly as with a kill.</summary>
+		private static void fAwardExperience(IUWWorld pOWorld, int piExperience)
+		{
+			UWPlayerVitals lOVitals = pOWorld.Player.Vitals;
+
+			if (lOVitals != null)
+				lOVitals.ChangeExperience(piExperience, pOWorld.LevelIndex + 1);
+		}
+
+		/// <summary>Ends the fight and sets the creature standing: no attacker (byte 0x12),
+		/// EndCombat, animation 0x20, frame 0 - the hit points stay as they are.</summary>
+		private static void fStandDown(IUWWorld pOWorld, UWCritterRecord pORecord)
+		{
+			if (pORecord != null)
+			{
+				pORecord.Attacker = 0;
+				pORecord.Animation = UWCritterBrain.AnimStanding;
+				pORecord.Frame = 0;
+			}
+
+			pOWorld.Player.LeaveCombatMode();
+		}
+
+		private static void fApplyWhenDead(int piWhoami, IUWWorld pOWorld)
 		{
 			switch (piWhoami)
 			{
@@ -191,26 +205,101 @@ namespace UWDataImport.UWData
 					return;
 
 				case GaramonWhoami:
-					pIHost.SetTalismansDestroyable(false);
+					// PLAYER.DAT 0x62 bit 2 - see UWPlayerData.TalismansDestroyable.
+					UWGameFlags.TalismansDestroyable = false;
 					return;
 
 				case TyballWhoami:
-					fApplyTyball(pIHost);
+					fApplyTyball(pOWorld);
 					return;
 			}
 		}
 
 		/// <summary>TyballDeath_ovr107_13D1: the cutscene, the dream bit, his allies, and the
 		/// move triggers of the prison he locked the player into.</summary>
-		private static void fApplyTyball(IHost pIHost)
+		private static void fApplyTyball(IUWWorld pOWorld)
 		{
-			pIHost.PlayCutscene(TyballCutscene);
+			pOWorld.Presentation.PlayCutscene(TyballCutscene);
 
 			UWQuestFlags.Set(UWPlayerData.DreamQuestFlag,
 				UWQuestFlags.Get(UWPlayerData.DreamQuestFlag) | TyballDreamBit);
 
-			pIHost.RemoveCreaturesByWhoami(TyballAllies);
-			pIHost.RemoveObjectsInTile(TyballPrisonTileX, TyballPrisonTileY, MoveTriggerObjectId);
+			RemoveCreaturesByWhoami(pOWorld, TyballAllies);
+			RemoveObjectsInTile(pOWorld, TyballPrisonTileX, TyballPrisonTileY, MoveTriggerObjectId);
+		}
+
+		/// <summary>
+		/// Removes, for each of these whoami numbers, the FIRST creature that carries it in the
+		/// level's list of allocated mobiles (UWLevel.GetActiveMobileOrder; see
+		/// RunFunctionOnWhoAmIList_seg038_3307_D4E, which stops at the first match; per user,
+		/// 2026-09-29, the original removed nine of fourteen).
+		///
+		/// ONE CREATURE PER ENTRY (RunFunctionOnWhoAmIList_seg038_3307_D4E with 0 for "go on": it
+		/// stops at the first match in the active mobile list). Per user, 2026-09-29: the original
+		/// removed nine of the fourteen - one of the three 209 guards, one of the two 219 and one of
+		/// the three 220 - while ours removed all. The first is the first in the level's list of
+		/// allocated mobiles (UWLevel.GetActiveMobileOrder, the file's list at 0x7AFC): the
+		/// original's #222 before #223 and #200 is exactly that order.
+		///
+		/// A snapshot from the world's search (cleanup step 3.2, 2026-10-17; before, a scene search):
+		/// the removals below do not disturb it. A dead one (its body destroyed) is passed over. On
+		/// the special-death host until cleanup step 3.6 (the same day).
+		/// </summary>
+		public static void RemoveCreaturesByWhoami(IUWWorld pOWorld, int[] piWhoamis)
+		{
+			if (piWhoamis == null)
+				return;
+
+			UWLevel lOLevel = pOWorld.Level;
+			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
+
+			pOWorld.FindCreatures(UWTileArea.WholeLevel, UWCreatureFilter.Any, lOCreatures);
+
+			foreach (int liWhoami in piWhoamis)
+			{
+				UWNpc lOFirst = null;
+				int liFirstOrder = int.MaxValue;
+
+				foreach (UWCreatureRef lOCreature in lOCreatures)
+				{
+					UWNpc lONpc = lOCreature.Record != null ? lOCreature.Record.Npc : null;
+
+					if (lONpc == null || lONpc.NPCwhoami != liWhoami || lOCreature.IsDead)
+						continue;
+
+					int liOrder = lOLevel != null ? lOLevel.GetActiveMobileOrder(lOCreature.Index) : int.MaxValue;
+
+					if (lOFirst == null || liOrder < liFirstOrder)
+					{
+						lOFirst = lONpc;
+						liFirstOrder = liOrder;
+					}
+				}
+
+				if (lOFirst != null)
+					pOWorld.Remove(lOFirst);
+			}
+		}
+
+		/// <summary>Removes every object of that id from one tile (walked over a copy of the tile's
+		/// list).</summary>
+		public static void RemoveObjectsInTile(IUWWorld pOWorld, int piTileX, int piTileY, int piObjectId)
+		{
+			UWLevel lOLevel = pOWorld.Level;
+
+			if (lOLevel == null || lOLevel.TileData == null)
+				return;
+
+			UWTile lOTile = lOLevel.GetTile(piTileX, piTileY);
+
+			if (lOTile == null || lOTile.ObjectsInTile == null)
+				return;
+
+			foreach (UWObject lOObject in new List<UWObject>(lOTile.ObjectsInTile))
+			{
+				if (lOObject != null && lOObject.ID == piObjectId)
+					pOWorld.Remove(lOObject);
+			}
 		}
 	}
 }

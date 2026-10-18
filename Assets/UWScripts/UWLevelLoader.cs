@@ -499,7 +499,7 @@ public class UWLevelLoader : MonoBehaviour
     /// can_place as drop_around_place asks it (UnderworldExhumed motion/COLLIDE.C): the object at
     /// x, y in eighths and the coarse height z, as a flier, range 0 - the terrain and every solid
     /// object around, the player and the creatures included (UWMotionCore.CheckIfItemFitsInTile
-    /// over UWProjectileWorld's bodies). The object is not in the world yet: index 0.
+    /// over UWMotionHost's bodies). The object is not in the world yet: index 0.
     /// </summary>
     public bool ObjectFitsAt(int piItemId, int piX8, int piY8, int piZ)
     {
@@ -529,7 +529,7 @@ public class UWLevelLoader : MonoBehaviour
     private bool fEnsureArrivalCore()
     {
         UWCommonObjectProperties lOProperties = UWDataImporter != null ? UWDataImporter.CommonObjectProperties : null;
-        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(this);
+        UWMotionHost lOWorld = UWMotionHost.Ensure(this);
 
         if (CurrentLevel == null || lOProperties == null || lOWorld == null)
             return false;
@@ -543,7 +543,7 @@ public class UWLevelLoader : MonoBehaviour
         return true;
     }
 
-    private UWProjectileWorld mOArrivalWorld;
+    private UWMotionHost mOArrivalWorld;
 
     /// <summary>find_good_x_and_y over the current level (UWArrivalRules): pbClear is the second
     /// pass, which removes from every tile it tries what UWArrivalRules.IsClearedForArrival names.
@@ -722,10 +722,6 @@ public class UWLevelLoader : MonoBehaviour
         // UWGraphicsDetail.fSetPaletteRenderer would add it on the first switch of the detail level.
         if (GetComponent<UWPaletteRenderToggle>() == null)
             gameObject.AddComponent<UWPaletteRenderToggle>();
-
-        // The same for the regular refilling of monsters.
-        if (GetComponent<UWCreatureRespawner>() == null)
-            gameObject.AddComponent<UWCreatureRespawner>();
 
         // And for the frame tick of the creatures: the 16-slot clock and the walk over every
         // creature that is due (see UWCritterDriver).
@@ -1390,7 +1386,7 @@ public class UWLevelLoader : MonoBehaviour
         return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, true, liTemplateZ);
     }
 
-    /// <summary>A thing come to rest on the motion core (UWProjectileWorld.PlaceAtRest): at the
+    /// <summary>A thing come to rest on the motion core (UWMotionHost.PlaceAtRest): at the
     /// record's eighth and height, as a lying object - the core has already decided that the
     /// liquid did not take it, so no sinking here.</summary>
     public bool PlaceRestingObject(UWObject pOObject, int piTileX, int piTileZ)
@@ -1718,7 +1714,7 @@ public class UWLevelLoader : MonoBehaviour
     /// tile.
     ///
     /// A THROWN item does not come through here any more: it flies on the motion core and
-    /// lands via PlaceRestingObject (UWProjectileWorld.PlaceAtRest, since 2026-10-05).
+    /// lands via PlaceRestingObject (UWMotionHost.PlaceAtRest, since 2026-10-05).
     /// </summary>
     public bool SpawnDroppedObject(UWObject pOObject, Vector3 pOWorldPosition, bool pbRequireFlatFloor,
         int? piHeading = null, bool pbCanSinkInLiquid = true, bool pbRestOnBridge = false)
@@ -2152,7 +2148,7 @@ public class UWLevelLoader : MonoBehaviour
                     // CREATE TRAPS get NOTHING here. Until 2026-09-06 there was a
                     // tile volume here that fired on entering - that does not exist in the original.
                     // Whoever has a trigger is addressed through it; the
-                    // rest are refilled by UWCreatureRespawner on the clock.
+                    // rest are refilled by the respawn on the player tick (UWTriggerSystem.RespawnCreatures).
                     // ONLY MOVE TRIGGERS get a volume. The filter used to let every trigger
                     // id through (0x1A0 to 0x1BF, so pick-up, use and look triggers too),
                     // which built volumes that UWTriggerSystem.TryFireMoveTrigger rejects
@@ -2194,7 +2190,7 @@ public class UWLevelLoader : MonoBehaviour
     /// (UWTrapRules.CastTrapSpell). Any tile, a wall included. False when the level had no slot.
     ///
     /// NO TRIGGER VOLUME since 2026-10-12: the trigger carries flags 8, so the creatures' motion
-    /// sets it off as any move trigger (UWProjectileWorld.TriggerMove), and the player never
+    /// sets it off as any move trigger (UWMotionHost.TriggerMove), and the player never
     /// does. Until then the trigger had flags 0 and UWMoveTrigger polled the creatures around it.
     /// </summary>
     public bool SpawnWardRune(int piTileX, int piTileZ)

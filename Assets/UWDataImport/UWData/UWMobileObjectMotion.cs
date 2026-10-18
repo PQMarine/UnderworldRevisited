@@ -479,7 +479,7 @@ namespace UWDataImport.UWData
 		/// <summary>MakeMobile_seg029_29EE_A1F with InitMobileRecord_seg029_29EE_B3A: the object
 		/// becomes a mobile record again - due one unit after the clock, period 2, no speed, the
 		/// position in the middle of its eighth, hp from the quality (the record's Hp on entry).
-		/// Also the host's way to knock a lying object loose (UWProjectileWorld.PushObject).</summary>
+		/// Also the host's way to knock a lying object loose (UWMotionHost.PushObject).</summary>
 		public void MakeMobile(UWMobileRecord pORecord, int piTileX, int piTileY)
 		{
 			UWCommonObjectProperties.Entry lOEntry = fEntry(pORecord.ItemId);

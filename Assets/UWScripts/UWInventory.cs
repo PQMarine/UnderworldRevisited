@@ -15,7 +15,7 @@ using UWDataImport.UWData;
 /// Sits on the same GameObject as Interaction (created from there via AddComponent when needed,
 /// see Interaction.Awake) - no manual wiring in the scene required.
 /// </summary>
-public class UWInventory : MonoBehaviour, IUWEquipment
+public class UWInventory : MonoBehaviour
 {
     public const int BackpackSize = UWInventoryModel.BackpackSize;
 

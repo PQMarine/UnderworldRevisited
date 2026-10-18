@@ -16,8 +16,11 @@ using UWDataImport.UWData;
 /// and 2026-10-05); and everyone who operates a door - the player, a creature, the door trap,
 /// gronk_door, the blow that breaks it, the night - calls Toggle, Open, Close, ReplaceLock or
 /// BurstOpen and lets UWDoorRules decide what the original would do.
+///
+/// The rules reach it as an IUWDoor through IUWWorld.Doors since cleanup step 3.6 (2026-10-17):
+/// the night's closing doors are a rule over those (UWSleepRules.CloseDoorsAtNight).
 /// </summary>
-public class UWDoor : MonoBehaviour
+public class UWDoor : MonoBehaviour, IUWDoor
 {
     private static readonly List<UWDoor> msAll = new List<UWDoor>();
 
@@ -62,7 +65,7 @@ public class UWDoor : MonoBehaviour
     }
 
     /// <summary>Whether the closed leaf would not fit where it stands - see
-    /// UWProjectileWorld.ClosedDoorBlocked.</summary>
+    /// UWMotionHost.ClosedDoorBlocked.</summary>
     private bool fClosedLeafBlocked()
     {
         UWObject lOData = Data;
@@ -71,7 +74,7 @@ public class UWDoor : MonoBehaviour
         if (lOData == null || lOLoader == null)
             return false;
 
-        UWProjectileWorld lOWorld = UWProjectileWorld.Ensure(lOLoader);
+        UWMotionHost lOWorld = UWMotionHost.Ensure(lOLoader);
 
         return lOWorld != null && lOWorld.ClosedDoorBlocked(lOData);
     }

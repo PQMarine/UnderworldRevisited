@@ -8,7 +8,7 @@ using UWDataImport.UWData;
 /// elapsed PIT ticks - 256 per second, from the scaled frame time, so the clock holds of
 /// UWGameClock pause it like everything else - halved under the player's Speed enchantment,
 /// and then every creature runs as many updates as it is due (UWCritter.RunDueUpdates), and
-/// after them the flying objects (UWProjectileWorld.RunDue).
+/// after them the flying objects (UWMotionHost.RunDue).
 ///
 /// FREEZE TIME (since stage 2 of the motion rework, 2026-10-05): the frame's units are
 /// consumed but ProcessMobileObjects is not called (115082), so the world clock C4 stands
@@ -23,7 +23,10 @@ using UWDataImport.UWData;
 /// A conversation is a modal loop in the original: nothing moves meanwhile, so the walk is
 /// skipped there too (the clock hold already stops the frame time).
 ///
-/// Attached to the level object next to UWCreatureRespawner (UWLevelLoader.Start).
+/// SINCE 2026-10-17 it also advances the session's world scheduler (UWWorldScheduler) once per
+/// frame, after the walk.
+///
+/// Attached to the level object (UWLevelLoader.Start).
 /// </summary>
 public class UWCritterDriver : MonoBehaviour
 {
@@ -54,16 +57,25 @@ public class UWCritterDriver : MonoBehaviour
 
     private void Update()
     {
-        if (UWConversationScreen.IsAnyOpen)
-            return;
+        bool lbTalking = UWConversationScreen.IsAnyOpen;
+        int liTicks = 0;
 
-        mfTickRemainder += Time.deltaTime * UWCritter.PitTicksPerSecond;
+        if (!lbTalking)
+        {
+            mfTickRemainder += Time.deltaTime * UWCritter.PitTicksPerSecond;
 
-        int liTicks = Mathf.FloorToInt(mfTickRemainder);
+            liTicks = Mathf.FloorToInt(mfTickRemainder);
 
-        mfTickRemainder -= liTicks;
+            mfTickRemainder -= liTicks;
 
-        fRun(liTicks, false);
+            fRun(liTicks, false);
+        }
+
+        // THE WORLD'S SCHEDULER after the creatures and the flying objects (cleanup step 3.4,
+        // 2026-10-17): the same frame ticks, before Speed halves them and Freeze Time drops them
+        // and without the easy move's fixed step, as the Time.time it replaces ran on. A held
+        // clock or an open conversation is no running frame: it stands still.
+        UWGameSession.Current.Schedule.Advance(liTicks, !lbTalking && !UWGameClock.IsHeld);
     }
 
     /// <summary>The easy move's fixed step: 64 ticks, four units (UWPlayerMovement).</summary>
@@ -104,7 +116,7 @@ public class UWCritterDriver : MonoBehaviour
         }
 
         // The flying objects on the same clock (ProcessMobileObjects walks them in one list).
-        UWProjectileWorld lOProjectiles = UWProjectileWorld.Instance;
+        UWMotionHost lOProjectiles = UWMotionHost.Instance;
 
         if (lOProjectiles != null)
             lOProjectiles.RunDue(lOClock);

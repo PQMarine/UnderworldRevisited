@@ -13,7 +13,7 @@ namespace UWDataImport.UWData
 	/// Sits on the same GameObject as Interaction (created from there via AddComponent when
 	/// needed, see Interaction.Awake) - no manual wiring in the scene required.
 	/// </summary>
-	public sealed class UWInventoryModel : IUWEquipment
+	public sealed class UWInventoryModel
 	{
 		private readonly Func<DataImport> mFData;
 
@@ -154,8 +154,16 @@ namespace UWDataImport.UWData
 			get { return IsLeftHanded ? UWArmorItemMap.BodySlot.LeftHandSlot : UWArmorItemMap.BodySlot.RightHandSlot; }
 		}
 
-		/// <summary>Handedness of the character, set from the save game or character creation
-		/// (UWCharacter.Init).</summary>
+		/// <summary>
+		/// Handedness of the character, set from the save game or character creation
+		/// (UWCharacter.Init); bit 0 of PLAYER.DAT 0x64 (set = right-handed).
+		///
+		/// THE STATUS PASS NEEDS IT: PlayerStatusUpdate_ovr133_784 reads the weapon from
+		/// inventory slot 8 minus that bit and the SHIELD from slot 7 plus it (labels 7EB and
+		/// 887), so the two hands are not interchangeable. Without it the shield's armour and
+		/// the weapon skill of the defence would come from the wrong hand. (Moved from
+		/// IUWEquipment, deleted in cleanup step 3.6, 2026-10-17.)
+		/// </summary>
 		public bool IsLeftHanded { get; set; }
 
 		/// <summary>
@@ -758,6 +766,14 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
+		/// <summary>
+		/// The item in that body slot, or null - what the rules need to know about the player's
+		/// equipment (UWArmourProtection's status pass).
+		///
+		/// THE MODEL IS THE AUTHORITY (cleanup step 3.6, 2026-10-17): the rules take it directly.
+		/// Until then they asked IUWEquipment (P2 of the engine separation, 2026-09-17), which both
+		/// this model and the Unity inventory implemented - the inventory only forwarding here.
+		/// </summary>
 		public UWObject GetEquipped(UWArmorItemMap.BodySlot peSlot)
 		{
 			return EquipSlots[(int)peSlot];

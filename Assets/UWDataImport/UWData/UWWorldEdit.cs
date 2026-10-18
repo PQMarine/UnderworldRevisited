@@ -263,7 +263,7 @@ namespace UWDataImport.UWData
 		/// bridge over the water it stays dry. LAVA SPARES quality class 3 and fire-resistant
 		/// objects before it culls (keys, incense, strong thread - Tybal died on lava in his lair
 		/// and took them with him, per user 2026-09-24); see UWLiquidCulling.SparedByLava. A
-		/// THROWN object lands on the motion core instead (UWProjectileWorld, UWLiquidCulling) -
+		/// THROWN object lands on the motion core instead (UWMotionHost, UWLiquidCulling) -
 		/// the talisman in the volcano's lava and the splash of a landing are decided there.
 		///
 		/// NO SPLASH HERE: the splash belongs to what FALLS into the water, not to what is put

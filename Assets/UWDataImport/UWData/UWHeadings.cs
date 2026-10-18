@@ -71,7 +71,7 @@ namespace UWDataImport.UWData
 		/// way, pp-&gt;heading &gt;&gt; 8), never rounded. The throw's heading and the compass disc
 		/// read the camera this way - one conversion since 2026-10-12, decision 23 of
 		/// Docs/CLEANUP-PLAN.md; until then the compass rounded (halves to even) and could sit
-		/// one step ahead of the throw. UWProjectileWorld.AimFromDirection still ROUNDS: the
+		/// one step ahead of the throw. UWMissiles.AimFromDirection still ROUNDS: the
 		/// original takes those headings from its arctangent table, not from the player's yaw.</summary>
 		public static int DegreesToHeadingByte(float pfDegrees)
 		{
