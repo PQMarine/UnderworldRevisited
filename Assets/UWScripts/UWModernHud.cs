@@ -215,7 +215,7 @@ public class UWModernHud : MonoBehaviour
     private Texture2D[] mOSpellTextures;
 
     /// <summary>The active spells' places this frame (screen pixels), and the hover text.</summary>
-    private readonly Rect[] mOSpellRects = new Rect[UWCharacter.MaxActiveSpells];
+    private readonly Rect[] mOSpellRects = new Rect[UWPlayerVitals.MaxActiveSpells];
 
     private Text mOSpellTip;
 
@@ -492,8 +492,8 @@ public class UWModernHud : MonoBehaviour
         mOHealthText = fCreateText(lORoot.transform, "Vitality value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
         mOManaText = fCreateText(lORoot.transform, "Mana value", new Vector2(0f, 0f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
 
-        mOSpellIcons = new RawImage[UWCharacter.MaxActiveSpells];
-        mOSpellTextures = new Texture2D[UWCharacter.MaxActiveSpells];
+        mOSpellIcons = new RawImage[UWPlayerVitals.MaxActiveSpells];
+        mOSpellTextures = new Texture2D[UWPlayerVitals.MaxActiveSpells];
 
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
             mOSpellIcons[liSlot] = fCreateRawImage(lORoot.transform, "Spell " + liSlot, Vector2.zero, Vector2.zero);
@@ -653,9 +653,9 @@ public class UWModernHud : MonoBehaviour
     /// viewport's bottom on the screen's bottom and its centre on the screen's centre.</summary>
     private void fUpdateWeapon()
     {
-        Texture2D lOTexture = mOCharacter.CurrentWeaponTexture;
+        Texture2D lOTexture = mOCharacter.Weapon.CurrentWeaponTexture;
 
-        if (!mOCharacter.DrawWWeapon || lOTexture == null)
+        if (!mOCharacter.Weapon.DrawWWeapon || lOTexture == null)
         {
             mOWeapon.enabled = false;
             return;
@@ -683,10 +683,10 @@ public class UWModernHud : MonoBehaviour
             lfBottom = Screen.height - (UWModernClassicFrame.WeaponRow * UWModernClassicFrame.RowScale);
         }
 
-        WeaponCoordinate lOOffset = mOCharacter.GetWeaponOffset();
+        WeaponCoordinate lOOffset = mOCharacter.Weapon.GetWeaponOffset();
         float lfLeft = lfCentreX
             + ((ViewportLeft + lOOffset.X + mOUi.GetWeaponSway() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale * UWModernHudArt.PixelAspectX);
-        float lfTop = lfBottom + ((lOOffset.Y - (lOTexture.height * (1f - mOCharacter.CurrentReadyWeaponTime))) * lfScale);
+        float lfTop = lfBottom + ((lOOffset.Y - (lOTexture.height * (1f - mOCharacter.Weapon.CurrentReadyWeaponTime))) * lfScale);
 
         mOWeapon.texture = lOTexture;
         mOWeapon.enabled = true;
@@ -726,17 +726,17 @@ public class UWModernHud : MonoBehaviour
 
         if (lbFlasksApart)
         {
-            fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOCharacter.HealthFlaskTeture, mOHealthText,
-                Mathf.RoundToInt(mOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.MaxHP),
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOCharacter.Flasks.HealthFlaskTeture, mOHealthText,
+                Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxHP),
                 new Vector2(lOOrigin.x + (lOLayout.HealthFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
-            fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOCharacter.ManaFlaskTeture, mOManaText,
-                Mathf.RoundToInt(mOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.MaxMana),
+            fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOCharacter.Flasks.ManaFlaskTeture, mOManaText,
+                Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxMana),
                 new Vector2(lOOrigin.x + (lOLayout.ManaFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
         }
         else
         {
-            fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
-            fPlaceOnShelf(mOManaFlask, fKeyed(mOCharacter.ManaFlaskTeture, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
+            fPlaceOnShelf(mOHealthFlask, fKeyed(mOCharacter.Flasks.HealthFlaskTeture, mbFlaskMask), lOLayout.HealthFlask, lOOrigin, liScale);
+            fPlaceOnShelf(mOManaFlask, fKeyed(mOCharacter.Flasks.ManaFlaskTeture, mbFlaskMask), lOLayout.ManaFlask, lOOrigin, liScale);
         }
 
         if (mbGemApart)
@@ -744,7 +744,7 @@ public class UWModernHud : MonoBehaviour
         else
         {
             mOGemStand.enabled = false;
-            fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
+            fPlaceOnShelf(mOPowerGem, fKeyed(mOCharacter.Weapon.PowerGemTeture, mbGemMask), lOLayout.Gem, lOOrigin, liScale);
         }
 
         if (lbFlasksApart)
@@ -756,11 +756,11 @@ public class UWModernHud : MonoBehaviour
         mOManaText.fontSize = liTextSize;
 
         float lfTextY = lOOrigin.y + ((lOLayout.Height + 1) * liScale);
-        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
-        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.Flasks.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
+        float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.Flasks.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
 
-        mOHealthText.text = Mathf.RoundToInt(mOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.MaxHP);
-        mOManaText.text = Mathf.RoundToInt(mOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.MaxMana);
+        mOHealthText.text = Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxHP);
+        mOManaText.text = Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxMana);
 
         ((RectTransform)mOHealthText.transform).anchoredPosition = new Vector2(lfHealthCentre, lfTextY);
         ((RectTransform)mOHealthText.transform).sizeDelta = new Vector2(120f, mOHealthText.fontSize * 1.5f);
@@ -871,7 +871,7 @@ public class UWModernHud : MonoBehaviour
         ((RectTransform)mOGemStand.transform).anchoredPosition = lOPlaced.position;
         ((RectTransform)mOGemStand.transform).sizeDelta = lOPlaced.size;
 
-        Texture2D lOGem = fKeyed(mOCharacter.PowerGemTeture, mbGemMask);
+        Texture2D lOGem = fKeyed(mOCharacter.Weapon.PowerGemTeture, mbGemMask);
 
         if (lOGem == null)
         {
@@ -980,10 +980,10 @@ public class UWModernHud : MonoBehaviour
     /// classic shelf builds them (UWHudRunes).</summary>
     private void fUpdateSpells()
     {
-        if (miSpellVersion == mOCharacter.ActiveSpellVersion)
+        if (miSpellVersion == mOCharacter.Vitals.ActiveSpellVersion)
             return;
 
-        miSpellVersion = mOCharacter.ActiveSpellVersion;
+        miSpellVersion = mOCharacter.Vitals.ActiveSpellVersion;
 
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
         {
@@ -997,9 +997,9 @@ public class UWModernHud : MonoBehaviour
 
             UWTexture lOSource = null;
 
-            if (liSlot < mOCharacter.ActiveSpells.Count)
+            if (liSlot < mOCharacter.Vitals.ActiveSpells.Count)
             {
-                UWActiveSpellEffect lOSpell = mOCharacter.ActiveSpells[liSlot];
+                UWActiveSpellEffect lOSpell = mOCharacter.Vitals.ActiveSpells[liSlot];
                 int liIcon = UWRunicMagic.GetIconIndex(lOSpell.MajorClass, lOSpell.MinorClass);
 
                 if (liIcon < UWRunicMagic.NoIcon)
@@ -1313,7 +1313,7 @@ public class UWModernHud : MonoBehaviour
     /// <summary>
     /// THE MOVEMENT ARROWS ON THE COMPASS'S STONE DISC (UWModernCompass.ArrowAt) work as on the
     /// classic frame (Interaction.fTryEasyMovement): either mouse button held on one steps or
-    /// turns and repeats (UWPlayerMovement.HoldEasyMovement) - with the pointer free, and only
+    /// turns and repeats (UWPlayerInput.HoldEasyMovement) - with the pointer free, and only
     /// for a press that began on the arrows, so a drag from elsewhere passing over them does not
     /// walk. (The arrows as an element of their own, 2026-10-10, went again the same day, per
     /// user: with the disc they are not needed, and alone they looked lost.)
@@ -1345,7 +1345,7 @@ public class UWModernHud : MonoBehaviour
         if (!mbArrowPress || liArrow < 0 || UWScene.PlayerMovement == null)
             return;
 
-        UWScene.PlayerMovement.HoldEasyMovement(miArrowCommands[liArrow]);
+        UWScene.PlayerMovement.Input.HoldEasyMovement(miArrowCommands[liArrow]);
     }
 
     private UWModernScroll mOScroll;

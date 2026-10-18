@@ -195,6 +195,68 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// DAMAGE_OBJECT ON THE RECORD OF A DOOR WITHOUT A BODY (UnderworldExhumed combat/DAMAGE.C,
+		/// read 2026-10-18): a door in a wall square, which the spawner builds no picture and so no
+		/// UWDamageable for. A blast reaches it since 2026-10-18 (damage_square has no tile test,
+		/// cleanup 4.0 follow-up); LEV.ARK has eight such doors without the protection bit, five
+		/// secret doors of level 7 among them. damage_object's order: bit 13 or class 3 take
+		/// nothing (UWObjectDamageRules.ShrugsOff), the damage is halved once per class, nothing
+		/// left takes nothing, a closed door's spike (owner bit 0, strength above 0) takes the blow
+		/// (UWItemApplications.TryDamageDoorSpike), else the quality goes down. piDamage has been
+		/// through the resistances. True when the door broke - BurstOpenRecord follows.
+		/// </summary>
+		public static bool WearRecord(UWObject pODoor, int piDamage, int piQualityClass)
+		{
+			if (pODoor == null || UWObjectDamageRules.ShrugsOff(pODoor.DoorDirection, piQualityClass))
+				return false;
+
+			int liDamage = piDamage >> piQualityClass;
+
+			if (liDamage <= 0)
+				return false;
+
+			if (UWItemApplications.TryDamageDoorSpike(pODoor, UWObjectIds.IsClosedDoor(pODoor.ID), liDamage))
+				return false;
+
+			bool lbBroken = UWObjectDamageRules.Wear(pODoor.Quality, liDamage, 0, false, out int liQuality);
+
+			pODoor.Quality = (ushort)liQuality;
+
+			return lbBroken;
+		}
+
+		/// <summary>
+		/// REMOVE_OBJECT ON THE BROKEN RECORD (DAMAGE.C), the data half of UWDoor.BurstOpen for a
+		/// door without a body: a closed door opens (OpenDoor, USEITEMS.C: the spike bit off, then
+		/// the end state of the swing - the open id and flags, raised by 0x18 - as
+		/// UWWorldCapture.CaptureDoor writes it for the movers), and every lock leaves its chain
+		/// (remove_lock with all). OpenDoor's open event (checkTrap kind 7) is not fired: none of
+		/// the bodiless doors of LEV.ARK has a chain (self-check WallSquares). Returns whether it
+		/// opened, for the door's sound.
+		/// </summary>
+		public static bool BurstOpenRecord(UWLevel pOLevel, UWObject pODoor)
+		{
+			if (pODoor == null)
+				return false;
+
+			bool lbOpens = BurstOpens(UWObjectIds.IsClosedDoor(pODoor.ID));
+
+			if (lbOpens)
+			{
+				ClearSpike(pODoor);
+				UWWorldCapture.CaptureDoor(pOLevel, pODoor, true, true, false, 0, 0, null);
+			}
+
+			if (pOLevel != null && !pODoor.HasQuantity)
+			{
+				pODoor.EnsureContentsLoaded(pOLevel.Masterlist);
+				pODoor.Contents.RemoveAll(pOItem => pOItem != null && pOItem.ID == UWObjectMechanics.LockObjectId);
+			}
+
+			return lbOpens;
+		}
+
+		/// <summary>
 		/// The lock a door carries: the first lock object (0x10F) in the door's chain
 		/// (checkLock walks the door's link for a MAJOR_SPEC minor 0 item 0xF). UWLockState
 		/// resolves it the same way; this is the one place that asks for a door's lock, resolved at

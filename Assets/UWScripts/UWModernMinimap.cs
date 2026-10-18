@@ -24,7 +24,7 @@ using UWDataImport.UWData;
 ///   - With the character panel PINNED it lies in the panel's head, without its own frame
 ///     (UWModernPanel.TryGetMinimapArea) - after the panel in the frame, so it follows at once.
 /// </summary>
-[DefaultExecutionOrder(100)]
+[DefaultExecutionOrder(UWUpdateOrder.ModernMinimap)]
 public class UWModernMinimap : MonoBehaviour
 {
     public static UWModernMinimap Instance { get; private set; }

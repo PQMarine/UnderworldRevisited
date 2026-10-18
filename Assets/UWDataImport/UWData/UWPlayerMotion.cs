@@ -109,15 +109,6 @@ namespace UWDataImport.UWData
 		/// <summary>MotionWeightRelated_C8 when carrying no more than half the capacity.</summary>
 		public const int FullMotionWeight = 0x60;
 
-		/// <summary>The swim counter PD[0xB9] on entering water (SetPlayerDataOxB9).</summary>
-		public const int SwimCounterOnEntering = 0x60;
-
-		/// <summary>While the counter is above this, the periodic player update
-		/// (seg028_2985_24C) runs the swim checks, and one hangs deeper in the water than the
-		/// feet position says (UWReachRules; until 2026-10-11 declared there and on the Unity
-		/// side as well).</summary>
-		public const int SwimCounterCheckThreshold = 0x50;
-
 		/// <summary>dseg_D4: the speed ratio in tenths per state.</summary>
 		private static readonly int[] SpeedRatio = { 10, 3, 5, 10, 1, 7, 2 };
 
@@ -189,10 +180,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>PD[0xB8] bits 0-4: what the player stands in or hovers by.</summary>
 		public int SurfaceBits { get; private set; }
-
-		/// <summary>PD[0xB9]: 0x60 on entering water, 0 out of it; the periodic swim checks of the
-		/// host raise it.</summary>
-		public int SwimCounter;
 
 		/// <summary>PreviousTileState_24A0.</summary>
 		public int PreviousTileState;
@@ -421,6 +408,15 @@ namespace UWDataImport.UWData
 			return (short)piValue;
 		}
 
+		/// <summary>The feet in zpos steps, the params' height over eight: what phys_affect_player
+		/// writes into the player object (UnderworldExhumed PHYSICS.C:401, PN.z >> 3). The one
+		/// home of the player's coarse height since cleanup 4.1 (2026-10-18; UWCharacter.GetFeetZPos
+		/// read the CharacterController's bounds before).</summary>
+		public int FeetZPos
+		{
+			get { return (Params.Z >> 3) & 0x7F; }
+		}
+
 		/// <summary>The player as the collision scan sees him: index 1, item 0x7F, at the params'
 		/// eighth and coarse height.</summary>
 		public UWMotionBody Body
@@ -433,7 +429,7 @@ namespace UWDataImport.UWData
 					ItemId = UWObjectMechanics.AdventurerObjectId,
 					XPos = (Params.X >> 5) & 7,
 					YPos = (Params.Y >> 5) & 7,
-					ZPos = (Params.Z >> 3) & 0x7F,
+					ZPos = FeetZPos,
 					IsMobile = true,
 					IsCreature = true,
 					Direction = (CameraYaw >> 13) & 7
@@ -861,10 +857,12 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		/// <summary>The state part of ProcessPlayerTileState (labels 56 to D3).</summary>
+		/// <summary>The state part of ProcessPlayerTileState (labels 56 to D3). The swim counter
+		/// PD[0xB9] it sets there - 0x60 entering water, 0x10 at the edge, 0 out of the water - is
+		/// UWPlayerTerrainRules' since cleanup step 4.4 (2026-10-17): the core's copy was never read,
+		/// the host's is the one the view, the missiles and the save game use.</summary>
 		private void fProcessStateChange(int piState)
 		{
-			bool lbInWater = false;
 			State leState = State.Normal;
 
 			PreviousTileState = piState;
@@ -874,13 +872,7 @@ namespace UWDataImport.UWData
 				if ((Abilities & AbilityWaterWalk) == 0)
 				{
 					if ((piState & UWMotionTables.ContactWater) != 0)
-					{
-						lbInWater = true;
-						SwimCounter = SwimCounterOnEntering;
 						Last.EnteredWater = true;
-					}
-					else
-						SwimCounter = 0x10;
 
 					leState = State.Swimming;
 				}
@@ -898,9 +890,6 @@ namespace UWDataImport.UWData
 			}
 
 			fUpdateMotionState(leState);
-
-			if (!lbInWater)
-				SwimCounter = 0;
 		}
 
 		/// <summary>

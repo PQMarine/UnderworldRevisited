@@ -41,10 +41,11 @@ namespace UWDataImport.UWData
 
 		/// <summary>TWO HIT SOUNDS (2026-10-12; ours played none): missile_thwack plays the hit
 		/// effect on the struck mobile, then do_damage plays it again louder by the damage BEFORE
-		/// the armour (UnderworldExhumed combat/COMBAT.C). This is that second volume.</summary>
+		/// the armour (UnderworldExhumed combat/COMBAT.C). This is that second volume - the blows'
+		/// own (UWAttackResolution.HitVolume, cleanup step 4.9, 2026-10-18).</summary>
 		public static int HitSoundVolume(int piDamageBeforeArmour)
 		{
-			return piDamageBeforeArmour << 2;
+			return UWAttackResolution.HitVolume(piDamageBeforeArmour);
 		}
 
 		/// <summary>NO TRACE WHEN THE ARMOUR SWALLOWS IT: do_damage (COMBAT.C) returns before the
@@ -64,24 +65,6 @@ namespace UWDataImport.UWData
 		{
 			return UWArmourProtection.PickBodyPart(piPlayerFeet, piPlayerFeet + piPlayerBodyHeight, piMissileZ,
 				piMissileZ + piMissileHeight);
-		}
-
-		/// <summary>
-		/// EVERY MISSILE HIT ON THE PLAYER goes missile_newhit -> missile_thwack -> do_damage
-		/// (UnderworldExhumed motion/OBJPHYS.C, combat/COMBAT.C): the armour of the part hit comes
-		/// off (the player is Creature[63] there) and the easy difficulty halves what is left,
-		/// whoever fired it and whatever its type. Until 2026-10-12 ours halved only a creature's
-		/// arrow, bolt or stone - a mage's fireball or lightning bolt hit an easy player in full -
-		/// and the player's own rebounding missile skipped armour and halving. The shake's level
-		/// (piShakeDamage) is taken before the easy halving (C5).
-		/// </summary>
-		public static int PlayerDamage(int piDamage, int piArmour, bool pbEasy, out int piShakeDamage)
-		{
-			int liDamage = UWCritterCombat.SubtractArmour(piDamage, piArmour);
-
-			piShakeDamage = liDamage;
-
-			return UWCritterCombat.HalveOnEasy(liDamage, pbEasy);
 		}
 
 		/// <summary>A CREATURE'S MISSILE starts the combat music like its blow: damage_critter

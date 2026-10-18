@@ -21,20 +21,22 @@ using UnderworldRevisited.Build;
 ///
 /// Not rebuilt: the palette effect before the cutscene (stub114_48). The death cutscenes are in
 /// normal colours in the original, not red (per user, 2026-09-14), and play inside the viewport.
+///
+/// AN EVENT, NOT A POLL (cleanup step 4.3, 2026-10-17): the vitals raise Died when the hit points
+/// cross to zero; this marks the death pending and handles it on its next frame, once the world
+/// is there and no victory runs - as the poll waited for them. The decision and the numbers are
+/// UWDeathRules' (engine-free).
 /// </summary>
+// After the frame's damage and the victory check: a death is handled in its frame (UWUpdateOrder,
+// cleanup 4.7).
+[DefaultExecutionOrder(UWUpdateOrder.Death)]
 public class UWDeath : MonoBehaviour
 {
     private const int DeathCutscene = 0x102;
 
     private const int FinalDeathCutscene = 0x103;
 
-    /// <summary>First bones object; UW.EXE adds RNG % 5.</summary>
-    private const int FirstBonesObjectId = UWEndgameRules.FirstBonesObjectId;
-
     private const int TalismanQuestFlag = UWPlayerData.TalismanQuestFlag;
-
-    /// <summary>Vitality set when the talisman counter is 0 instead of dying.</summary>
-    private const int NoDeathVitality = 4;
 
     /// <summary>Music theme after the resurrection (UW.EXE ChangeThemeMusic(4)).</summary>
     private const int ResurrectionTheme = 4;
@@ -46,39 +48,76 @@ public class UWDeath : MonoBehaviour
 
     private UWCharacter mOCharacter;
 
+    /// <summary>The vitals listened to (the character's), so OnDestroy can let go of them.</summary>
+    private UWPlayerVitals mOVitals;
+
+    /// <summary>The vitals said Died and it is not handled yet.</summary>
+    private bool mbDeathPending;
+
     private void OnDestroy()
     {
         IsDying = false;
+
+        if (mOVitals != null)
+            mOVitals.Died -= fOnDied;
+    }
+
+    /// <summary>The vitals' Died: the hit points crossed to zero.</summary>
+    private void fOnDied()
+    {
+        mbDeathPending = true;
     }
 
     private void Update()
     {
-        if (IsDying)
-            return;
-
         if (mOLoader == null)
             mOLoader = GetComponent<UWLevelLoader>();
 
         if (mOCharacter == null)
             mOCharacter = UWScene.Character;
 
+        fListen();
+
+        if (IsDying || !mbDeathPending)
+            return;
+
         if (mOLoader == null || mOCharacter == null || !mOLoader.HasWorld || UWEndgame.IsVictoryRunning)
             return;
 
-        if (mOCharacter.CurrentHP > 0f)
+        mbDeathPending = false;
+
+        // Healed in the meantime (the world or a victory held it): no death, as the poll had none.
+        if (mOCharacter.Vitals.CurrentHP > 0f)
             return;
 
-        if (UWQuestFlags.Get(TalismanQuestFlag) == 0)
+        UWDeathRules.Outcome leOutcome = UWDeathRules.Decide(UWQuestFlags.Get(TalismanQuestFlag), UWSilverTree.TreeLevel,
+            mOLoader.CurrentLevelIndex, mOLoader.LevelCount);
+
+        if (leOutcome == UWDeathRules.Outcome.Spared)
         {
-            mOCharacter.ApplyConversationValues(mOCharacter.Hunger, NoDeathVitality,
-                Mathf.RoundToInt(mOCharacter.CurrentMana), mOCharacter.Poison);
+            mOCharacter.Vitals.ApplyConversationValues(mOCharacter.Vitals.Hunger, UWDeathRules.SparedVitality,
+                Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana), mOCharacter.Vitals.Poison);
             return;
         }
 
-        StartCoroutine(fDie());
+        StartCoroutine(fDie(leOutcome == UWDeathRules.Outcome.Resurrect));
     }
 
-    private IEnumerator fDie()
+    /// <summary>Listens to the character's vitals once they are there. Zero hit points already
+    /// at that moment (a save game with none) count as a death, as the poll found it.</summary>
+    private void fListen()
+    {
+        if (mOVitals != null || mOCharacter == null)
+            return;
+
+        mOVitals = mOCharacter.Vitals;
+        mOVitals.Died += fOnDied;
+
+        if (mOVitals.CurrentHP <= 0f)
+            mbDeathPending = true;
+    }
+
+    private IEnumerator fDie(bool pbResurrect)
     {
         IsDying = true;
 
@@ -87,7 +126,7 @@ public class UWDeath : MonoBehaviour
 
         UWMusic.ChangeTheme(UWMusic.DeathTheme);
 
-        mOCharacter.ChangeExperience(-(mOCharacter.Experience >> 3), mOLoader.CurrentLevelIndex + 1);
+        mOCharacter.Vitals.ChangeExperience(-UWDeathRules.ExperienceLoss(mOCharacter.Vitals.Experience), mOLoader.CurrentLevelIndex + 1);
 
         if (lOInteraction != null)
             lOInteraction.IsCombatModeActive = false;
@@ -99,11 +138,13 @@ public class UWDeath : MonoBehaviour
         if (lOInventory != null && lOInventory.CursorItem != null)
             lOInventory.DropCursorItemInWorld(lOFloor, false);
 
-        mOLoader.SpawnObjectById(UWEndgameRules.RollBonesObjectId(), lOTile.X, lOTile.Y, 0, -1, lOFloor);
+        // put_at at the player's own spot (SKILLS.C): drop_around_place's Obj_AddEnd, the tail of
+        // the tile's list (2026-10-18).
+        mOLoader.SpawnObjectById(UWEndgameRules.RollBonesObjectId(), lOTile.X, lOTile.Y, 0, -1, lOFloor,
+            UWWorldEdit.Arrival.PutDown);
 
         int liTreeLevel = UWSilverTree.TreeLevel;
-        bool lbResurrect = liTreeLevel > 0 && liTreeLevel <= mOLoader.LevelCount
-            && mOLoader.CurrentLevelIndex != UWEndgame.VoidLevelIndex;
+        bool lbResurrect = pbResurrect;
 
         // The world stands still while the cutscene runs.
         UWGameClock.Hold(UWGameClock.DeathHold);
@@ -169,16 +210,13 @@ public class UWDeath : MonoBehaviour
     /// </summary>
     private void fRestore()
     {
-        int liMaxHp = Mathf.RoundToInt(mOCharacter.MaxHP);
-        int liMaxMana = Mathf.RoundToInt(mOCharacter.MaxMana);
+        // RNG * 3 / 0x8000: 0 to 2 (UWDeathRules, do_resurrect).
+        int liHp = UWDeathRules.ResurrectionHitPoints(Mathf.RoundToInt(mOCharacter.Vitals.MaxHP));
+        int liMana = UWDeathRules.ResurrectionMana(Mathf.RoundToInt(mOCharacter.Vitals.MaxMana));
 
-        // RNG * 3 / 0x8000: 0 to 2.
-        int liHp = liMaxHp > 8 ? liMaxHp - 2 - UWRandom.Next(3) : liMaxHp;
-        int liMana = liMaxMana > 8 ? liMaxMana - (2 + (liMaxMana / 8)) : liMaxMana;
-
-        mOCharacter.ApplyConversationValues(mOCharacter.Hunger, liHp, liMana, 0);
-        mOCharacter.EndAllSpells();
-        mOCharacter.StartFlaskFill();
+        mOCharacter.Vitals.ApplyConversationValues(mOCharacter.Vitals.Hunger, liHp, liMana, 0);
+        mOCharacter.Vitals.EndAllSpells();
+        mOCharacter.Flasks.StartFlaskFill();
 
         UWMusic.ChangeTheme(ResurrectionTheme);
     }

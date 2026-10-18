@@ -84,7 +84,7 @@ namespace UWDataImport.UWData
 		public const int TargetMajorClass = 7;
 
 		/// <summary>Mana restoration - castable only via items, see
-		/// UWCharacter.RestoreManaFromSpell.</summary>
+		/// UWPlayerVitals.RestoreManaFromSpell.</summary>
 		private const int ManaMajorClass = 10;
 
 		/// <summary>This minor class heals fully - the Greater Heal.</summary>
@@ -146,9 +146,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>The caster's tile (the avatar's FloorSpot: UWCharacter sits on the main camera,
 		/// so it is the character's own tile); 0/0 without a caster or a world, as the spell host's
-		/// PlayerTile answered until cleanup step 3.6 (2026-10-17).</summary>
+		/// PlayerTile answered until cleanup step 3.6 (2026-10-17). A CREATURE'S CAST is measured
+		/// from the creature: its record's tile (UWCastContext.CasterSpot; cleanup step 4.10,
+		/// 2026-10-18 - B3, the area spell measured from the player until 2026-10-11).</summary>
 		public static UWTilePos CasterTile(IUWSpellHost pIHost)
 		{
+			if (pIHost.Cast.ByCreature)
+				return pIHost.Cast.CasterSpot.Tile;
+
 			return pIHost.World != null && pIHost.HasPlayer ? pIHost.World.Player.FloorSpot.Tile : new UWTilePos(0, 0);
 		}
 
@@ -158,7 +163,7 @@ namespace UWDataImport.UWData
 		private static void fBackfire(IUWSpellHost pIHost, int piDice)
 		{
 			if (pIHost.HasPlayer && pIHost.World != null)
-				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.Backfire(piDice));
+				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Backfire(piDice)));
 		}
 
 		public static OutcomeEnum CastRunes(int piFirstRune, int piSecondRune, int piThirdRune, IUWSpellHost pIHost)
@@ -324,6 +329,20 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
+		/// <summary>
+		/// A spell by its place in the spell list, with no rules of rune casting: cast (SPELLS.C),
+		/// which hands spells[piSpellIndex] to do_spell - a creature's cast at frame 4 of its cast
+		/// sequence (critter_ai, AI.C) with its UWCreatureSpellHost (cleanup step 4.10, 2026-10-18).
+		/// An index past the list does nothing. False when the spell did not take.
+		/// </summary>
+		public static bool CastSpell(int piSpellIndex, IUWSpellHost pIHost)
+		{
+			if (pIHost == null || piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
+				return false;
+
+			return ApplyEffect(UWRunicMagic.AllSpells[piSpellIndex], false, pIHost);
+		}
+
 		/// <summary>The effect of a successful spell, by major class - see the class comment.
 		/// False when it did not take: no magic here, or a lasting spell with no free slot.</summary>
 		public static bool ApplyEffect(UWRunicMagic.Spell pOSpell, bool pbFromObject, IUWSpellHost pIHost,
@@ -333,7 +352,13 @@ namespace UWDataImport.UWData
 
 			// Spells from items do not take effect here either (UW.EXE: the same abort in
 			// CastSpells, without message for wands and traps).
-			if (pIHost.HasPlayer && pIHost.IsMagicBlocked)
+			//
+			// THE ONE REFUSAL FOR EVERY CASTER (do_spell, UnderworldExhumed SPELLS.C: an anti-magic
+			// square under the caster or level 9, before the class switch): the player's host
+			// answers for him, a creature's for the creature (UWCreatureSpellHost, cleanup step 4.10,
+			// 2026-10-18), and a host with no caster finds nothing blocked. Until then only the
+			// player's cast asked here.
+			if (pIHost.IsMagicBlocked)
 				return false;
 
 			if (pOSpell.MajorClass == HealMajorClass)
@@ -398,6 +423,12 @@ namespace UWDataImport.UWData
 			// Class 11 is the bag full of special cases - see UWMiscSpellRules.
 			if (pOSpell.MajorClass == UWMiscSpellRules.MajorClass)
 			{
+				// xt_spells runs for the player only (SPELLS.C: caster == ThePlayer) - a creature's
+				// Tremor (creature 0x7C's third spell) does nothing, and draws no duration first
+				// (cleanup step 4.10, 2026-10-18; the creature's own dispatch skipped the class).
+				if (!pIHost.HasPlayer)
+					return true;
+
 				UWMiscSpellRules.Cast(liMinor, RollStability(UWRunicMagic.GetStabilityClass(pOSpell.MinorClass)), pIHost);
 
 				pIHost.RefreshSpellIcons();

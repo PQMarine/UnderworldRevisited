@@ -202,11 +202,13 @@ public static class UWPlayerThrow
 
         // A thrown class 1 object hits with its own table type, -ammo (missile_newhit); only
         // ammunition is skill-scaled and of type 0x40 (2026-10-12, see
-        // UWPlayerAttack.GetThrownMissileDamage).
+        // UWPlayerAttack.GetThrownMissileBaseDamage). The flight carries the base, its dice are
+        // rolled at the hit; a throw of what is no missile carries none (since cleanup step 4.9b,
+        // 2026-10-18; 0 rolled damage until then).
         bool lbTyped = lbMissile && pOInteraction != null;
 
         return UWMissiles.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
-            ThrownAmmoType, lbTyped ? pOInteraction.GetThrownMissileDamage(pOItem.ID) : 0,
+            ThrownAmmoType, lbTyped ? pOInteraction.GetThrownMissileBaseDamage(pOItem.ID) : UWAttackResolution.NoMissileDamage,
             lbTyped ? pOInteraction.GetThrownMissileDamageType(pOItem.ID) : UWDamageTypes.Missile, -1, pOInteraction,
             pOItem.Quality) != null;
     }

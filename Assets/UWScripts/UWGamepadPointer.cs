@@ -7,19 +7,19 @@ using UnityEngine.InputSystem;
 /// index finger to hold while the thumb steers - per user, the same day; LT likewise for X), X is the right
 /// button, the WALK STICK turns the wheel while the pointer is over a window or a window holds
 /// the world (per user, 2026-10-08: the d-pad keeps its work in both modes - it scrolled until
-/// then; StickScrolls, UWPlayerMovement.fMoveInput stops the walk meanwhile). The pad drives the REAL pointer and presses
+/// then; StickScrolls, UWPlayerInput.fMoveInput stops the walk meanwhile). The pad drives the REAL pointer and presses
 /// the real buttons (UWOsMouse), so every window works as with the mouse, IMGUI ones included.
 ///
 /// WHEN: R3 switches it on and off (the modern scheme frees or locks its pointer with it,
 /// UWModernPointer); on its own while a window holds the world - the game menu, the options, the
 /// map, a conversation, the character creation, the manual (UWControlScheme.IsUIModalOpen,
 /// IsConversationOpen) - and with no scheme at all. While it drives, the stick does not turn the
-/// view (UWPlayerLook, UWPlayerMovement.fClassicTurn), and the gamepad buttons it uses do not do
+/// view (UWPlayerLook, UWPlayerInput.fClassicTurn), and the gamepad buttons it uses do not do
 /// their other work (Takes: A's use, X's look, the d-pad's slot and map).
 /// </summary>
 // LATE IN THE FRAME: what waits for any key takes a pad press first (UWGamepad.ConsumePress), so
 // the pointer does not click with it as well.
-[DefaultExecutionOrder(1000)]
+[DefaultExecutionOrder(UWUpdateOrder.GamepadPointer)]
 public class UWGamepadPointer : MonoBehaviour
 {
     /// <summary>Switched on by R3.</summary>
@@ -316,7 +316,7 @@ public class UWGamepadPointer : MonoBehaviour
         // the button was let go (per user, 2026-10-07). There the pad's own position counts,
         // kept inside the view.
         UWGameUI lOUi = UWScene.GameUi;
-        bool lbHeldInView = lOUi != null && UWScene.PlayerMovement != null && UWScene.PlayerMovement.IsCursorMovementInProgress;
+        bool lbHeldInView = lOUi != null && UWScene.PlayerMovement != null && UWScene.PlayerMovement.Input.IsCursorMovementInProgress;
 
         // The real mouse moved it since: go on from there.
         Vector2 lOMousePosition = lOMouse.position.ReadValue();

@@ -89,7 +89,7 @@ public class UWControls : System.IDisposable
         /// <summary>
         /// The easy movement on the same WASD keys, held together with SHIFT - one step
         /// forward, one back, one turn of 45 degrees each way (UWEasyMovement). The shift is
-        /// asked for in UWPlayerMovement, not bound here, so that the actions stay ordinary
+        /// asked for in UWPlayerInput, not bound here, so that the actions stay ordinary
         /// buttons. W may step off a ledge, X is the same step without it.
         /// </summary>
         public readonly InputAction EasyForward;
@@ -542,7 +542,7 @@ public class UWControls : System.IDisposable
 
         // The easy movement (UWEasyMovement). The original hangs it on the UPPERCASE codes of
         // A, D, S, W and X, which is its shift; here the keys are bound plain and the shift is
-        // checked in UWPlayerMovement, because the same keys still have to walk without it.
+        // checked in UWPlayerInput, because the same keys still have to walk without it.
         // W STEPS OFF A LEDGE, X DOES NOT - that is the original's difference between its W
         // and its S (per user, who found it by trying, 2026-09-21). Our S is the modern
         // backward key, so the careful step went to the X that was left over.

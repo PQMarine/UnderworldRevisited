@@ -45,6 +45,10 @@ namespace UWDataImport.UWData
 
 			public float FallbackCurrentMana;
 
+			/// <summary>Plays on the easy difficulty whatever the player data says - for the self-check of
+			/// the damage pipeline's halving (cleanup step 4.2, 2026-10-17); false keeps the data's.</summary>
+			public bool EasyDifficulty;
+
 			public static StartValues Default => new StartValues
 			{
 				Strength = -1, Dexterity = -1, Intelligence = -1, Attack = -1, Level = -1,
@@ -65,6 +69,9 @@ namespace UWDataImport.UWData
 			mIHost = pIHost;
 		}
 
+		/// <summary>The host, for the damage pipeline's armour and proof (null without one).</summary>
+		internal IUWVitalsHost Host => mIHost;
+
 		// ------------------------------------------------- What the vitals tell (cleanup step 3.6)
 		//
 		// WHY EVENTS: until 2026-10-17 these were callbacks on IUWVitalsHost, which only UWCharacter
@@ -79,9 +86,23 @@ namespace UWDataImport.UWData
 		/// <summary>A hit or a curse was just recorded in LastDamage - the host stamps the time.</summary>
 		public event Action DamageRecorded;
 
-		/// <summary>A blow or a missile shakes the view (ShakeForCombatHit): the combat shake is set
-		/// to the level handed (0 to 3) times five, so level 0 ends a running one.</summary>
+		/// <summary>A blow or a missile shakes the view (UWDamageRequest.Shakes): the combat shake is
+		/// set to the level handed (0 to 3) times five, so level 0 ends a running one.</summary>
 		public event Action<int> CombatShakeDue;
+
+		/// <summary>A damage request went through UWDamagePipeline - once per request, after the hit
+		/// points and the shake: the host flashes the view (UWDamageRequest.FlashColour, when it
+		/// landed) and tells the combat music (TellsMusic). Since cleanup step 4.2 (2026-10-17);
+		/// each site flashed and told the music itself until then.</summary>
+		public event Action<UWDamageRequest, UWDamageOutcome> Damaged;
+
+		/// <summary>
+		/// The hit points crossed to zero - from a hit, the Void's drain or a conversation's play_hp.
+		/// Raised once per crossing, after the flasks were told; what follows is UWDeathRules'
+		/// (UWDeath). Since cleanup step 4.3 (2026-10-17): UWDeath polled the hit points every frame
+		/// until then.
+		/// </summary>
+		public event Action Died;
 
 		/// <summary>A failed sip or the waking after passing out: the view shakes for this many ticks
 		/// on the large channel.</summary>
@@ -111,6 +132,12 @@ namespace UWDataImport.UWData
 		/// order of draws. Since 2026-10-15.
 		/// </summary>
 		public event Action FiveMinuteBlockDue;
+
+		/// <summary>The player tick's swim check is due (PLAYTIME.C duration_check runs sink_sink_sink
+		/// after the regeneration, before the minute block): the host runs UWPlayerTerrainRules.SwimCheck,
+		/// which only acts while the swim counter is above 0x50. Since cleanup step 4.4 (2026-10-17);
+		/// the check ran on a clock of its own until then.</summary>
+		public event Action SwimCheckDue;
 
 		/// <summary>Lore rose (or was tried): every item in the world may be identified anew.</summary>
 		public event Action IdentificationReset;
@@ -202,7 +229,7 @@ namespace UWDataImport.UWData
 			Intelligence = pOStart.Intelligence >= 0 ? pOStart.Intelligence : (lOPlayer != null ? lOPlayer.Intelligence : 10);
 			Attack = pOStart.Attack >= 0 ? pOStart.Attack : (lOPlayer != null ? lOPlayer.Attack : 10);
 			Defence = lOPlayer != null ? lOPlayer.Defense : 0;
-			IsEasyDifficulty = lOPlayer != null && lOPlayer.IsEasyDifficulty;
+			IsEasyDifficulty = pOStart.EasyDifficulty || (lOPlayer != null && lOPlayer.IsEasyDifficulty);
 
 			for (int liSkill = 0; liSkill < miSkills.Length; liSkill++)
 				miSkills[liSkill] = lOPlayer != null ? lOPlayer.GetSkill((UWPlayerData.Skill)liSkill) : 0;
@@ -338,6 +365,8 @@ namespace UWDataImport.UWData
 			if (piHunger != Hunger)
 				Hunger = Math.Clamp(piHunger & 0xFF, 0, FullHunger);
 
+			bool lbWasAlive = CurrentHP > 0f;
+
 			if (piHp != UWUnits.RoundToInt(CurrentHP))
 				CurrentHP = Math.Clamp(piHp & 0xFF, 0f, MaxHP);
 
@@ -348,6 +377,10 @@ namespace UWDataImport.UWData
 				Poison = Math.Clamp(piPoison & 0xF, 0, MaxPoison);
 
 			fVitalsChanged();
+
+			// A conversation can set the hit points to zero (play_hp): that is a death as well.
+			if (lbWasAlive && CurrentHP <= 0f)
+				Died?.Invoke();
 		}
 
 		/// <summary>
@@ -815,12 +848,6 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		/// <summary>The combat shake's level is the damage divided by four, capped at three
-		/// (COMBAT.C do_damage) - see ShakeForCombatHit.</summary>
-		private const int DamageLevelDivisor = 4;
-
-		private const int MaxDamageLevel = 3;
-
 		/// <summary>
 		/// The last hit - amount and type. FOR DEBUGGING ONLY (F1): from the hit points alone
 		/// you cannot see WHERE the damage came from; with the fire elemental exactly that was
@@ -841,9 +868,16 @@ namespace UWDataImport.UWData
 			return liDamage;
 		}
 
+		// WHAT THE DAMAGE PIPELINE DOES TO THE NUMBERS (cleanup step 4.2, 2026-10-17): every damage
+		// to the player is a UWDamageRequest through UWDamagePipeline.Apply, which decides the
+		// armour, the halving and the proof and then lands the result through one of the three
+		// helpers below. Until then they were the public ApplyDamage, ApplyCurse/ApplyBackfire and
+		// DrainVitality, each site choosing one.
+
 		/// <summary>
-		/// Damage to the player, with its type. Subtracts hit points and reports whether he
-		/// died from it. This class deliberately does not decide what happens on death.
+		/// Damage to the player, with its type, after the proof (UWDamagePipeline): subtracts hit
+		/// points and reports whether they crossed to zero with it. This class deliberately does not
+		/// decide what happens on death.
 		///
 		/// THE TYPE DECIDES WHETHER IT ARRIVES AT ALL. The player has no entry in the
 		/// resistance table (see UWDamageTypes) - what he wards off comes solely from
@@ -856,121 +890,79 @@ namespace UWDataImport.UWData
 		///
 		/// Without a type it stays as before: no resistance, full damage. That is the
 		/// right fallback for everything that also goes through unfiltered in the original -
-		/// starvation, drowning and the damage trap.
-		/// </summary>
-		public bool ApplyDamage(int piDamage, int piDamageType, int piDamageTypeProof)
-		{
-			piDamage = UWDamageTypes.Scale(piDamageTypeProof, piDamage, piDamageType);
-
-			if (piDamage > 0)
-			{
-				LastDamage = piDamage;
-				LastDamageType = piDamageType;
-				miDamageThisTick += piDamage;
-
-				DamageRecorded?.Invoke();
-
-				CurrentHP -= piDamage;
-
-				if (CurrentHP < 0f)
-					CurrentHP = 0f;
-
-				fVitalsChanged();
-
-				// NO SHAKE HERE: only a blow or a missile shakes the view (ShakeForCombatHit).
-				// Until 2026-10-12 every damage did - poison, falls, lava, traps, drowning.
-			}
-
-			return CurrentHP <= 0f;
-		}
-
-		/// <summary>
-		/// A blow or a missile hit the player: the view shakes (UnderworldExhumed COMBAT.C
-		/// do_damage, the user's decision of 2026-10-12 to follow it). The LEVEL is the damage
-		/// after the armour and BEFORE the Easy halving divided by four, at most three; it shakes
-		/// only when the damage after the halving is not zero, and whether a resistance then
-		/// swallows the hit does not matter. The host overwrites the running combat shake with
-		/// level times five (set_effect), so a level of zero ends it.
-		/// </summary>
-		/// <param name="piDamageBeforeEasy">The damage after the armour, before halving on Easy.</param>
-		/// <param name="piDamageDone">The damage that was dealt, after the halving.</param>
-		public void ShakeForCombatHit(int piDamageBeforeEasy, int piDamageDone)
-		{
-			if (piDamageDone <= 0)
-				return;
-
-			CombatShakeDue?.Invoke(Math.Min(Math.Max(0, piDamageBeforeEasy) / DamageLevelDivisor, MaxDamageLevel));
-		}
-
-		/// <summary>A curse brings nobody below this limit, and at or below it does nothing
-		/// (backfire, UnderworldExhumed SPELLS.C).</summary>
-		private const int CurseMinimumHealth = 3;
-
-		/// <summary>The curse rolls eight-sided dice.</summary>
-		private const int CurseDieSides = 8;
-
-		/// <summary>
-		/// A cursed piece of equipment strikes, or Bronus' book explodes - both are class 9,
-		/// which the original sends to backfire (PLAYDATA.C player_affected_by, WORLDEV.C, the
-		/// book). Returns whether it struck at all; the host flashes the view when it did.
+		/// starvation, drowning, the sleeper's water and lava.
 		///
-		/// THE ROLL IS "subclass times d8": rollem(subclass, 8), subclass plus that many rolls
-		/// from zero to seven. For the cursed crowns with subclass 5 that is five to forty.
-		///
-		/// IT CANNOT KILL, AND AT THREE OR LESS IT DOES NOTHING. Since 2026-10-12 the curse goes
-		/// through ApplyBackfire like the original: until then it had no lower guard of its own
-		/// and lifted one or two hit points UP to three.
-		///
-		/// NO RESISTANCE AND NO SHAKING: the value comes straight off the hit points, without
-		/// the damage types. The hit is still recorded so that it shows up in the F1 display.
+		/// NO SHAKE HERE: only a blow or a missile shakes the view (UWDamageRequest.Shakes).
+		/// Until 2026-10-12 every damage did - poison, falls, lava, traps, drowning.
 		/// </summary>
-		public bool ApplyCurse(int piDice)
+		internal bool TakeHit(int piDamage, int piDamageType)
 		{
-			if (piDice <= 0)
-				return false;
+			LastDamage = piDamage;
+			LastDamageType = piDamageType;
+			miDamageThisTick += piDamage;
 
-			return ApplyBackfire(piDice);
-		}
+			DamageRecorded?.Invoke();
 
-		/// <summary>
-		/// A BACKFIRED SPELL (backfire, UnderworldExhumed SPELLS.C, read 2026-10-11): piDice d8 as
-		/// the curse rolls them (dice plus that many rolls of 0 to 7), but at three hit points or
-		/// fewer nothing happens at all, and otherwise it leaves at least three. Returns whether it
-		/// struck - only then does the view flash (fill_FB 0xA8 for the player).
-		///
-		/// The dice are rolled BEFORE the hit point test, as backfire does (since 2026-10-12), so
-		/// the draws stay in the original's order even when nothing happens.
-		/// </summary>
-		public bool ApplyBackfire(int piDice)
-		{
-			int liDamage = Math.Max(0, UWRandom.RollDice(piDice, CurseDieSides));
-
-			if (CurrentHP <= CurseMinimumHealth)
-				return false;
-
-			fApplyCurseDamage(liDamage);
-
-			return true;
+			return fLowerHitPoints(CurrentHP - piDamage);
 		}
 
 		/// <summary>
 		/// What a curse and a backfire share (one helper since 2026-10-11, before that the same
 		/// lines twice): the hit is recorded without a damage type - no resistance, but F1 shows
-		/// it - and taken straight off the hit points, which stay at CurseMinimumHealth at the
-		/// least. The dice are rolled by the caller, so the order of the draws is unchanged.
+		/// it - and taken straight off the hit points, which stay at piFloor at the least. The dice
+		/// are rolled by the caller (UWDamagePipeline), so the order of the draws is unchanged.
+		///
+		/// NO RESISTANCE AND NO SHAKING: the value comes straight off the hit points, without
+		/// the damage types. The hit is still recorded so that it shows up in the F1 display.
 		/// </summary>
-		private void fApplyCurseDamage(int piDamage)
+		internal void TakeBackfire(int piDamage, int piFloor)
 		{
 			LastDamage = piDamage;
 			LastDamageType = UWDamageTypes.None;
 
 			DamageRecorded?.Invoke();
 
-			CurrentHP = CurrentHP - piDamage < CurseMinimumHealth
-				? CurseMinimumHealth
-				: CurrentHP - piDamage;
+			fLowerHitPoints(CurrentHP - piDamage < piFloor ? piFloor : CurrentHP - piDamage);
+		}
+
+		/// <summary>
+		/// Subtracts hit points without it being a hit - no shaking, no damage type, no record.
+		/// For the Ethereal Void (UWVoidEffects), which sets the points directly in UW.EXE.
+		/// Never goes below zero.
+		/// </summary>
+		internal bool TakeDrain(int piAmount)
+		{
+			return fLowerHitPoints(Math.Max(0f, CurrentHP - piAmount));
+		}
+
+		/// <summary>The one place the damage sets the hit points: never below zero, the flasks told,
+		/// and Died raised when they cross to zero. Returns whether they did.</summary>
+		private bool fLowerHitPoints(float pfHitPoints)
+		{
+			bool lbWasAlive = CurrentHP > 0f;
+
+			CurrentHP = pfHitPoints < 0f ? 0f : pfHitPoints;
 
 			fVitalsChanged();
+
+			if (!lbWasAlive || CurrentHP > 0f)
+				return false;
+
+			Died?.Invoke();
+
+			return true;
+		}
+
+		/// <summary>The pipeline's combat shake (CombatShakeDue).</summary>
+		internal void TellCombatShake(int piLevel)
+		{
+			CombatShakeDue?.Invoke(piLevel);
+		}
+
+		/// <summary>The pipeline's word after each request (Damaged).</summary>
+		internal void TellDamaged(in UWDamageRequest pORequest, in UWDamageOutcome pOOutcome)
+		{
+			Damaged?.Invoke(pORequest, pOOutcome);
 		}
 
 		/// <summary>Subtracts mana and updates the flask. Never below zero.</summary>
@@ -984,7 +976,7 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		/// <summary>Counterpart to ApplyDamage, for instance for healing potions.</summary>
+		/// <summary>Counterpart to the damage (UWDamagePipeline), for instance for healing potions.</summary>
 		public void Heal(int piAmount)
 		{
 			if (piAmount <= 0)
@@ -994,21 +986,6 @@ namespace UWDataImport.UWData
 
 			if (CurrentHP > MaxHP)
 				CurrentHP = MaxHP;
-
-			fVitalsChanged();
-		}
-
-		/// <summary>
-		/// Subtracts hit points without it being a hit - no shaking, no damage type.
-		/// For the Ethereal Void (UWVoidEffects), which sets the points directly in UW.EXE.
-		/// Never goes below zero.
-		/// </summary>
-		public void DrainVitality(int piAmount)
-		{
-			if (piAmount <= 0)
-				return;
-
-			CurrentHP = Math.Max(0f, CurrentHP - piAmount);
 
 			fVitalsChanged();
 		}
@@ -1066,8 +1043,9 @@ namespace UWDataImport.UWData
 
 			// POISON DAMAGE IS POISON: the reference gives type 0x10 for it (playerdatloop, in the
 			// minute block). Poison Resistance thereby nullifies the poison damage - the
-			// poison itself still runs its course.
-			ApplyDamage(Poison, UWDamageTypes.Poison, piDamageTypeProof);
+			// poison itself still runs its course. Through the damage pipeline since cleanup step 4.2
+			// (2026-10-17), against the proof the tick was handed.
+			UWDamagePipeline.Apply(this, UWDamageRequest.PoisonTick(Poison, piDamageTypeProof));
 
 			Poison--;
 
@@ -1417,6 +1395,9 @@ namespace UWDataImport.UWData
 			if (mIHost != null)
 				fTickWornRegeneration(mIHost.WornRegeneration);
 
+			// The swim check, between the regeneration and the minute (duration_check).
+			SwimCheckDue?.Invoke();
+
 			// The minute: the poison, then the mana roll (duration_check, plyregen[1] % 3).
 			if (miTickCounter % MinuteTicks == 0)
 			{
@@ -1441,6 +1422,8 @@ namespace UWDataImport.UWData
 		/// away without it because its tick kills the player a few lines earlier
 		/// (PlayerUpdateTick_seg024_24DC_3A4, label 479) and never reaches the block with a
 		/// corpse; our death runs on the host side and the tick can still come in.
+		/// REVISITED in cleanup step 4.3 (2026-10-17), and kept: the vitals now raise Died on the
+		/// crossing, but UWDeath acts on its next frame, and a long frame runs several ticks.
 		/// </summary>
 		private void fTickWornRegeneration(int piBits)
 		{

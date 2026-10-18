@@ -197,7 +197,8 @@ namespace UWDataImport.UWData
 		public double CastDelaySeconds;
 
 		/// <summary>The switch for the original's dead resistance nibble (UWSettings), pushed by the
-		/// host before every status pass - see UWArmourProtection.ResistBlowsAddsArmour. A rule
+		/// host once per game (UWCharacter.Init; before every status refresh until cleanup step 4.6,
+		/// 2026-10-18) - see UWArmourProtection.ResistBlowsAddsArmour. A rule
 		/// switch rather than a quirk; it moves to the rule set (plan section 6) when that lands.</summary>
 		public bool ResistBlowsAddsArmour;
 	}

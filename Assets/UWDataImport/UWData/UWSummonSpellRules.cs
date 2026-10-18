@@ -80,7 +80,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool Cast(int piMinorClass, IUWSpellHost pIHost)
 		{
-			if (pIHost == null || !pIHost.HasPlayer || UWSpellCasting.LevelOf(pIHost) == null)
+			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null)
+				return false;
+
+			// A CREATURE CASTS (creat_spell with a critter as the caster, SPELLS.C; through the one
+			// effect path since cleanup step 4.10, 2026-10-18): Summon Monster, the only class 8
+			// spell a creature holds (UWCreatureSpellHost) - its food and rune are not built.
+			if (pIHost.Cast.ByCreature)
+				return piMinorClass == SummonMonsterSpell && fSummonForCreature(pIHost);
+
+			if (!pIHost.HasPlayer)
 				return false;
 
 			switch (piMinorClass)
@@ -278,6 +287,28 @@ namespace UWDataImport.UWData
 
 		/// <summary>A creature's summoning draws with the dungeon level times this.</summary>
 		private const int CreatureLevelPerDungeonLevel = 4;
+
+		/// <summary>
+		/// Summon Monster by the creature of the cast (UWCastContext): from the centre of its
+		/// record's eighth - creat_spell's (HOMEX &lt;&lt; 3) + FINEX - along its heading, with the
+		/// dungeon level (PlayerLevel, 1-based) and the player's tile as the new creature's
+		/// destination (OBJ_HOMEX(ThePlayer)); without a player body, the caster's tile. The same
+		/// numbers UWCritter handed SummonByCreature until cleanup step 4.10 (2026-10-18): the
+		/// body's point, which is the record's since step 4.8, the facing in degrees, the loader's
+		/// level index + 1 and the player's tile under the character.
+		/// </summary>
+		private static bool fSummonForCreature(IUWSpellHost pIHost)
+		{
+			UWSpot lOCaster = pIHost.Cast.CasterSpot;
+			UWSpot lOPlayer = pIHost.World.Player.FloorSpot;
+
+			return SummonByCreature(pIHost,
+				UWUnits.SubTileToWorldAxis(lOCaster.Tile.X, lOCaster.FineX),
+				UWUnits.SubTileToWorldAxis(lOCaster.Tile.Y, lOCaster.FineY),
+				UWHeadings.HeadingByteToDegrees(pIHost.Cast.CasterHeading),
+				pIHost.World.LevelIndex + 1,
+				lOPlayer.IsOnMap ? lOPlayer.Tile : lOCaster.Tile);
+		}
 
 		/// <summary>The new creature of a summoning: set up as ovr101_5E does
 		/// (UWCritterRecord.InitialiseAsNew) on the tile it will stand on - the home post stays

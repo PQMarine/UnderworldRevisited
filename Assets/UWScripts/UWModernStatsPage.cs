@@ -145,16 +145,16 @@ public class UWModernStatsPage
 
         fLine(0, fName(lOPlayer), NameY, TextAnchor.MiddleCenter, 0, msValue, liFont, lOPlaced);
         fLine(1, fClass(lOPlayer), ClassY, TextAnchor.MiddleLeft, LabelLeft, msValue, liFont, lOPlaced);
-        fLine(2, fLevel(lOCharacter.Level), ClassY, TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
+        fLine(2, fLevel(lOCharacter.Vitals.Level), ClassY, TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
 
         string[] lsValues =
         {
-            lOCharacter.Strength.ToString(),
-            lOCharacter.Dexterity.ToString(),
-            lOCharacter.Intelligence.ToString(),
-            Mathf.RoundToInt(lOCharacter.CurrentHP) + "/" + Mathf.RoundToInt(lOCharacter.MaxHP),
-            Mathf.RoundToInt(lOCharacter.CurrentMana) + "/" + Mathf.RoundToInt(lOCharacter.MaxMana),
-            (lOCharacter.Experience / 10).ToString()
+            lOCharacter.Vitals.Strength.ToString(),
+            lOCharacter.Vitals.Dexterity.ToString(),
+            lOCharacter.Vitals.Intelligence.ToString(),
+            Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
+            Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
+            (lOCharacter.Vitals.Experience / 10).ToString()
         };
 
         for (int liRow = 0; liRow < lsValues.Length; liRow++)
@@ -306,9 +306,9 @@ public class UWModernStatsPage
 
         UWCharacter lOCharacter = mOUi.mCharacter;
 
-        psValue = piEntry == 0 ? lOCharacter.Attack.ToString()
-            : piEntry == 1 ? lOCharacter.Defence.ToString()
-            : lOCharacter.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
+        psValue = piEntry == 0 ? lOCharacter.Vitals.Attack.ToString()
+            : piEntry == 1 ? lOCharacter.Vitals.Defence.ToString()
+            : lOCharacter.Vitals.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
     }
 
     private RawImage fCreateImage(Transform pOParent, string psName)

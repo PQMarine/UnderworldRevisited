@@ -86,6 +86,13 @@ namespace UWDataImport.UWData
 		/// No magic on a tile with the no-magic bit or in the void (DungeonLevel 9) - for runes,
 		/// wands and spell traps alike (the reference's spellcasting.CastSpell does the same).
 		/// In the original neither Time Freeze nor Gate Travel works on level 9 (per user, 2026-09-14).
+		///
+		/// THE ONE REFUSAL OF A CAST, the player's and a creature's (do_spell, UnderworldExhumed
+		/// SPELLS.C: a critter or the player is refused on an anti-magic square of its own or with
+		/// PlayerLevel 9, before the class switch). Since cleanup step 4.10 (2026-10-18) the
+		/// creatures' spells go through it as well (UWCreatureSpellHost.IsMagicBlocked, the caster's
+		/// tile); until then a creature's missile spell flew in the Void (B2 of Docs/CLEANUP-PLAN.md,
+		/// the Exhumed audit's row 30) and its area spell and summoning had a copy of this test.
 		/// </summary>
 		public static bool IsMagicBlocked(UWLevel pOLevel, int piLevelIndex, UWTilePos pOTile)
 		{
@@ -95,7 +102,20 @@ namespace UWDataImport.UWData
 			if (piLevelIndex == VoidLevelIndex)
 				return true;
 
-			UWTile lOData = pOLevel.GetTile(pOTile.X, pOTile.Y);
+			return IsAntiMagicTile(pOLevel, pOTile);
+		}
+
+		/// <summary>
+		/// The tile's no-magic bit alone (anti_magic_p, UnderworldExhumed SPELLS.C: bit 0 of the
+		/// square's door byte), without the Void: what a creature's mind asks before it starts a
+		/// cast (crit_magik_attack and maybe_cast_defensive_spell, AI.C) and before it chooses to
+		/// answer a far hit with magic (critter_mv) - so a caster in the Void still raises its arms,
+		/// and only the cast itself is refused there (IsMagicBlocked). Off the map: false. The
+		/// creature host's own copy of the test until cleanup step 4.10 (2026-10-18).
+		/// </summary>
+		public static bool IsAntiMagicTile(UWLevel pOLevel, UWTilePos pOTile)
+		{
+			UWTile lOData = pOLevel != null ? pOLevel.GetTile(pOTile.X, pOTile.Y) : null;
 
 			return lOData != null && lOData.NoMagicAllowed;
 		}
@@ -225,8 +245,27 @@ namespace UWDataImport.UWData
 			/// <summary>Counted down, the talisman perishes in flames.</summary>
 			Flame,
 
-			/// <summary>The last one: counter to 0xFF and off into the void.</summary>
-			Launch
+			/// <summary>The last one: the counter reaches 0 and the rending sound plays; the
+			/// talisman is gone without a flame. The journey is CheckVictory's, which watches the
+			/// counter (since 2026-10-18).</summary>
+			Last
+		}
+
+		/// <summary>The counter after the journey: check_victory sets 0xFF so that its test does
+		/// not fire again (UnderworldExhumed game/SKILLS.C).</summary>
+		public const int TalismansAfterVictory = 0xFF;
+
+		/// <summary>
+		/// check_victory's test (game/SKILLS.C, run every frame from editor_dispatch): the talisman
+		/// counter (quest 36) at 0 starts the journey through the moongate into the void, however
+		/// it got there. Until 2026-10-18 ours launched from the impact of the last talisman alone
+		/// and set 0xFF at once, so a save with the counter at 0 left the player on his level
+		/// and immortal (per user on the original the same day: such a save swirls into level 9
+		/// right after loading). The impact now only counts down to 0, as mob_to_static does.
+		/// </summary>
+		public static bool AllTalismansGone()
+		{
+			return UWQuestFlags.Get(TalismanQuestFlag) == 0;
 		}
 
 		/// <summary>
@@ -252,13 +291,15 @@ namespace UWDataImport.UWData
 				return TalismanOutcome.DreamMarked;
 			}
 
-			piRemaining = UWQuestFlags.Get(TalismanQuestFlag) - 1;
+			// The counter is a byte that mob_to_static decrements (motion/OBJPHYS.C): from 0 it
+			// wraps to 0xFF, a flame like any other.
+			piRemaining = (UWQuestFlags.Get(TalismanQuestFlag) - 1) & 0xFF;
 
-			if (piRemaining <= 0)
+			if (piRemaining == 0)
 			{
-				UWQuestFlags.Set(TalismanQuestFlag, 0xFF);
+				UWQuestFlags.Set(TalismanQuestFlag, 0);
 
-				return TalismanOutcome.Launch;
+				return TalismanOutcome.Last;
 			}
 
 			UWQuestFlags.Set(TalismanQuestFlag, piRemaining);

@@ -69,6 +69,9 @@ namespace UWDataImport.UWData
 		private const int DrownDamage = 0xFF;
 		private const int GoToSleepMessage = 0x11;
 		private const int StarvingMessage = 0x12;
+
+		/// <summary>A night on an empty stomach costs two untyped points (damage_item(..., 2, 0)).</summary>
+		private const int StarvingDamage = 2;
 		private const int RestedMessage = 0x14;
 		private const int CannotSleepHereMessage = 0x15;
 		private const int InterruptedMessage = 0x16;
@@ -158,6 +161,11 @@ namespace UWDataImport.UWData
 
 			int liHours = 2 + UWRandom.Next(5);
 
+			// THE PROOF BEFORE THE NIGHT, for the poison below: player_sleep clears the active
+			// spells, but the player's resist byte keeps them until its FixPlayerEquips at the end
+			// (UnderworldExhumed SKILLS.C, PLAYDATA.C), while ours recomputes the proof at once.
+			int liProofBeforeNight = pOWorld.Player.DamageTypeProof;
+
 			pOVitals.EndAllSpells();
 			pOVitals.AdvanceClockHours(liHours);
 
@@ -171,10 +179,14 @@ namespace UWDataImport.UWData
 			// called twice from the sleep routine, 2026-09-24). Ours burned nothing until then.
 			fBurnCarriedLights(pOWorld, liHours * SleepTicksPerHour);
 
-			// Poison takes the whole series at once: at strength three that is 3+2+1.
+			// Poison takes the whole series at once: at strength three that is 3+2+1. POISON
+			// RESISTANCE WARDS IT OFF, as on the awake tick: damage_item(..., DMG_POISON) runs
+			// check_res (SKILLS.C player_sleep, DAMAGE.C). Ours ignored it until 2026-10-17 (B5,
+			// decided by the original; UWDamageRequest.SleepPoison).
 			if (pOVitals.Poison > 0)
 			{
-				pOVitals.ApplyDamage((pOVitals.Poison + 1) * pOVitals.Poison / 2, UWDamageTypes.Poison, 0);
+				UWDamagePipeline.Apply(pOVitals,
+					UWDamageRequest.SleepPoison((pOVitals.Poison + 1) * pOVitals.Poison / 2, liProofBeforeNight));
 				pOVitals.CurePoison();
 			}
 
@@ -312,7 +324,7 @@ namespace UWDataImport.UWData
 			if (pOVitals.Hunger == 0)
 			{
 				pOShown.AddGeneralMessage(StarvingMessage);
-				pOVitals.ApplyDamage(2, UWDamageTypes.None, 0);
+				UWDamagePipeline.Apply(pOVitals, UWDamageRequest.Starvation(StarvingDamage));
 			}
 			else
 			{
@@ -648,10 +660,11 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static void fApplyDamagingSurface(IUWWorld pOWorld)
 		{
-			// Drowning or lava in sleep, untyped (UWBlow.Sleep), through the world since cleanup
-			// step 3.3 (2026-10-17).
+			// Drowning or lava in sleep, untyped - so neither Flameproof nor the dragon skin boots
+			// help (B5, decided by the original: drop_drunk_player hands damage_item type 0) -
+			// through the world since cleanup step 3.3 (2026-10-17), as a request since step 4.2.
 			if (pOWorld.Player.IsSwimming || pOWorld.Player.IsOnLava)
-				pOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.Sleep(DrownDamage));
+				pOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.SleepSurface(DrownDamage)));
 		}
 
 		/// <summary>

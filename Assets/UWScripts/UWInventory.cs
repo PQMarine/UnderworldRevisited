@@ -253,7 +253,8 @@ public class UWInventory : MonoBehaviour
         Vector3 lOPlace = lOPlayer.transform.position;
         Vector3 lOFloor = new Vector3(lOPlace.x, mOLevelLoader.GetFloorHeightAt(lOPlace), lOPlace.z);
 
-        return mOLevelLoader.SpawnDroppedObject(pOItem, lOFloor, false);
+        // Put down at the feet, at the tail of the tile's list (ReturnObject's Obj_AddEnd).
+        return mOLevelLoader.SpawnDroppedObject(pOItem, lOFloor, false, UWWorldEdit.Arrival.PutDown);
     }
 
     public bool DropCursorItemInWorld(Vector3 pOWorldPosition, bool pbRequireFlatFloor, int? piHeading = null)
@@ -261,7 +262,9 @@ public class UWInventory : MonoBehaviour
         if (CursorItem == null || mOLevelLoader == null)
             return false;
 
-        if (!mOLevelLoader.SpawnDroppedObject(CursorItem, pOWorldPosition, pbRequireFlatFloor, piHeading, true, true))
+        // ReturnObject's Obj_AddEnd: at the tail of the tile's list (2026-10-18).
+        if (!mOLevelLoader.SpawnDroppedObject(CursorItem, pOWorldPosition, pbRequireFlatFloor, UWWorldEdit.Arrival.PutDown,
+                piHeading, true, true))
             return false;
 
         Model.ReleaseCursorItem();

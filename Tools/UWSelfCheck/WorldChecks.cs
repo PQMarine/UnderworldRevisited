@@ -270,29 +270,27 @@ namespace UnderworldRevisited.Tools
                 return !DestroyedCreatures.Contains(pOTarget.Index);
             }
 
-            public void SetCreatureAttacker(UWDamageTarget pOTarget, int piAttacker)
+            /// <summary>A creature's line names the attacker the blow carries (cleanup step 4.8); an
+            /// object's keeps none.</summary>
+            public void DamageBody(UWDamageTarget pOTarget, int piDamage, int piDamageType, int piAttacker)
             {
-                Blows.Add("attacker of " + pOTarget.Index + " = " + piAttacker);
+                Blows.Add(pOTarget + " takes " + piDamage + " type " + piDamageType
+                    + (pOTarget.Kind == UWDamageTargetKind.Creature ? " by " + piAttacker : ""));
             }
 
-            public void DamageBody(UWDamageTarget pOTarget, int piDamage, int piDamageType)
-            {
-                Blows.Add(pOTarget + " takes " + piDamage + " type " + piDamageType);
-            }
+            /// <summary>Every request the player's end took (cleanup step 4.2), beside its line.</summary>
+            public readonly List<UWDamageRequest> PlayerRequests = new List<UWDamageRequest>();
 
-            public void DamagePlayer(int piDamage, int piDamageType)
+            public void DamagePlayer(UWDamageRequest pORequest)
             {
-                Blows.Add("player takes " + piDamage + " type " + piDamageType);
-            }
+                PlayerRequests.Add(pORequest);
 
-            public void CursePlayer(int piDice)
-            {
-                Blows.Add("player cursed " + piDice);
-            }
-
-            public void BackfirePlayer(int piDice)
-            {
-                Blows.Add("player backfire " + piDice);
+                if (pORequest.Source == UWDamageSource.Curse)
+                    Blows.Add("player cursed " + pORequest.Amount);
+                else if (pORequest.Source == UWDamageSource.Backfire)
+                    Blows.Add("player backfire " + pORequest.Amount);
+                else
+                    Blows.Add("player takes " + pORequest.Amount + " type " + pORequest.Type);
             }
 
             public void StrikeThingInFlight(int piFlightIndex, int piDamage, int piDamageType)
@@ -344,9 +342,9 @@ namespace UnderworldRevisited.Tools
                 return pOObject != null;
             }
 
-            public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity)
+            public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity, UWWorldEdit.Arrival peArrival)
             {
-                Log.Add(string.Format("spawn {0:X} {1}/{2} {3:X}", piObjectId, pOTile.X, pOTile.Y, piQuantity));
+                Log.Add(string.Format("spawn {0:X} {1}/{2} {3:X} {4}", piObjectId, pOTile.X, pOTile.Y, piQuantity, peArrival));
 
                 return true;
             }
@@ -438,38 +436,56 @@ namespace UnderworldRevisited.Tools
                 return CreaturesFit;
             }
 
-            /// <summary>What an area spell finds, in this order (the fake's physics).</summary>
-            public readonly List<UWAreaTarget> AreaTargets = new List<UWAreaTarget>();
+            /// <summary>The check's names for the creatures it puts into the level's tile lists (the
+            /// log names them so; an unnamed one by its object id).</summary>
+            public readonly Dictionary<UWObject, string> Names = new Dictionary<UWObject, string>();
 
-            /// <summary>What a confusion or a target spell does to each target, by its Body.</summary>
+            /// <summary>What a confusion or a target spell does to each creature; a creature named
+            /// in Answers answers its own.</summary>
             public UWTargetSpellRules.Result TargetAnswer = UWTargetSpellRules.Result.Shown;
 
-            public int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles, List<UWAreaTarget> pOInto)
-            {
-                pOInto.Clear();
-                pOInto.AddRange(AreaTargets);
-                Log.Add("collect around " + pOCentre.X + "/" + pOCentre.Y + " radius " + piRadiusTiles);
+            public readonly Dictionary<UWObject, UWTargetSpellRules.Result> Answers =
+                new Dictionary<UWObject, UWTargetSpellRules.Result>();
 
-                return pOInto.Count;
+            public string NameOf(UWObject pOObject)
+            {
+                return pOObject == null ? "nothing" : Names.TryGetValue(pOObject, out string lsName) ? lsName : pOObject.ID.ToString("X");
             }
 
-            public UWTargetSpellRules.Result ConfuseAreaTarget(UWAreaTarget pOTarget)
+            /// <summary>Puts a creature (UWNpc, object id piId) at the tail of the tile's list in
+            /// Level, as a creature that walked in is relinked (UWWorldEdit.Move), under a name.</summary>
+            public UWNpc PutCreature(int piTileX, int piTileY, string psName, int piId = UWObjectIds.FirstCreature)
             {
-                Log.Add("confuse " + pOTarget.Body);
+                UWNpc lONpc = new UWNpc((ushort)piId) { TileX = piTileX, TileY = piTileY };
 
-                return TargetAnswer;
+                Level.GetTile(piTileX, piTileY).ObjectsInTile.Add(lONpc);
+                Names[lONpc] = psName;
+
+                return lONpc;
             }
 
-            public UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(UWAreaTarget pOTarget, int piMinorClass)
+            private UWTargetSpellRules.Result fAnswerOf(UWObject pOCreature)
             {
-                Log.Add("target spell " + piMinorClass + " on " + pOTarget.Body);
-
-                return TargetAnswer;
+                return Answers.TryGetValue(pOCreature, out UWTargetSpellRules.Result leAnswer) ? leAnswer : TargetAnswer;
             }
 
-            public void ShowEffectAtAreaTarget(UWAreaTarget pOTarget, int piEffectObjectId, float pfSeconds)
+            public UWTargetSpellRules.Result ConfuseCreature(UWObject pOCreature)
             {
-                Log.Add("effect " + piEffectObjectId + " at " + pOTarget.Body);
+                Log.Add("confuse " + NameOf(pOCreature));
+
+                return fAnswerOf(pOCreature);
+            }
+
+            public UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass)
+            {
+                Log.Add("target spell " + piMinorClass + " on " + NameOf(pOCreature));
+
+                return fAnswerOf(pOCreature);
+            }
+
+            public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
+            {
+                Log.Add("effect " + piEffectObjectId + " at " + NameOf(pOCreature));
             }
 
             public void StrikeTile(UWTilePos pOTile, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker)

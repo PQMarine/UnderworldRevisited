@@ -661,28 +661,28 @@ public class UWGameUI : MonoBehaviour
         mBackdropTopRect.sizeDelta = new Vector2(mBackdropTopRect.sizeDelta.x, lfVerticalMargin);
         mBackdropBottomRect.sizeDelta = new Vector2(mBackdropBottomRect.sizeDelta.x, lfVerticalMargin);
 
-        mWeaponImage.gameObject.SetActive(mCharacter.DrawWWeapon);
+        mWeaponImage.gameObject.SetActive(mCharacter.Weapon.DrawWWeapon);
 
-        if (mCharacter.DrawWWeapon)
+        if (mCharacter.Weapon.DrawWWeapon)
         {
-            WeaponCoordinate lOOffset = mCharacter.GetWeaponOffset();
-            fUpdateSprite(mWeaponImage, mCharacter.CurrentWeaponTexture, ref mPrevWeaponTex);
+            WeaponCoordinate lOOffset = mCharacter.Weapon.GetWeaponOffset();
+            fUpdateSprite(mWeaponImage, mCharacter.Weapon.CurrentWeaponTexture, ref mPrevWeaponTex);
 
-            float lfY = -wTopOffset + lOOffset.Y - (mCharacter.CurrentWeaponTexture.height * (1f - mCharacter.CurrentReadyWeaponTime));
+            float lfY = -wTopOffset + lOOffset.Y - (mCharacter.Weapon.CurrentWeaponTexture.height * (1f - mCharacter.Weapon.CurrentReadyWeaponTime));
 
             ((RectTransform)mWeaponImage.transform).anchoredPosition = new Vector2(wLeftOffset + lOOffset.X + GetWeaponSway(), lfY);
         }
 
-        fUpdateSprite(mCharImage, mCharacter.CharTexture, ref mPrevCharTex);
+        fUpdateSprite(mCharImage, mCharacter.Paperdoll.CharTexture, ref mPrevCharTex);
         fMatchSize(mCharBackdropImage, mCharImage);
-        fUpdateSprite(mHelmetImage, mCharacter.HelmetTexture, ref mPrevHelmetTex);
-        fUpdateSprite(mGlovesImage, mCharacter.GlovesTexture, ref mPrevGlovesTex);
-        fUpdateSprite(mChestImage, mCharacter.ChestArmorTexture, ref mPrevChestTex);
-        fUpdateSprite(mLegsImage, mCharacter.LegsArmorTexture, ref mPrevLegsTex);
-        fUpdateSprite(mBootsImage, mCharacter.BootsTexture, ref mPrevBootsTex);
-        fUpdateSprite(mPowerGemImage, mCharacter.PowerGemTeture, ref mPrevPowerGemTex);
-        fUpdateSprite(mHealthFlaskImage, mCharacter.HealthFlaskTeture, ref mPrevHealthFlaskTex);
-        fUpdateSprite(mManaFlaskImage, mCharacter.ManaFlaskTeture, ref mPrevManaFlaskTex);
+        fUpdateSprite(mHelmetImage, mCharacter.Paperdoll.HelmetTexture, ref mPrevHelmetTex);
+        fUpdateSprite(mGlovesImage, mCharacter.Paperdoll.GlovesTexture, ref mPrevGlovesTex);
+        fUpdateSprite(mChestImage, mCharacter.Paperdoll.ChestArmorTexture, ref mPrevChestTex);
+        fUpdateSprite(mLegsImage, mCharacter.Paperdoll.LegsArmorTexture, ref mPrevLegsTex);
+        fUpdateSprite(mBootsImage, mCharacter.Paperdoll.BootsTexture, ref mPrevBootsTex);
+        fUpdateSprite(mPowerGemImage, mCharacter.Weapon.PowerGemTeture, ref mPrevPowerGemTex);
+        fUpdateSprite(mHealthFlaskImage, mCharacter.Flasks.HealthFlaskTeture, ref mPrevHealthFlaskTex);
+        fUpdateSprite(mManaFlaskImage, mCharacter.Flasks.ManaFlaskTeture, ref mPrevManaFlaskTex);
 
         Inventory.Update();
         MessageLog.Refresh();
@@ -1110,7 +1110,7 @@ public class UWGameUI : MonoBehaviour
         UWModernRunePanel lORunePanel = UWModernRunePanel.Instance;
 
         // The gamepad's B does what Escape does while something is open (PadBackCloses);
-        // otherwise it jumps (UWPlayerMovement).
+        // otherwise it jumps (UWPlayerInput).
         bool lbBack = lOPlayer.Menu.WasPressedThisFrame()
             || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting
                 && PadBackCloses());
@@ -1188,7 +1188,7 @@ public class UWGameUI : MonoBehaviour
     /// <summary>
     /// The gamepad's B (UWGamepad): whether it closes something - the menu, a waiting spell, the
     /// use mode, the bags, a closable panel - in the modern scheme. Worked out once a frame, before
-    /// anything closes, so the jump (UWPlayerMovement) sees the same answer whichever runs first.
+    /// anything closes, so the jump (UWPlayerInput) sees the same answer whichever runs first.
     /// </summary>
     public bool PadBackCloses()
     {
@@ -1342,9 +1342,9 @@ public class UWGameUI : MonoBehaviour
 
         if (mCharacter != null)
         {
-            int liDamage = mCharacter.TakeDamageThisTick();
+            int liDamage = mCharacter.Vitals.TakeDamageThisTick();
 
-            if (liDamage > 0 && ((liDamage * 4) > mCharacter.MaxHP || mCharacter.CurrentHP < CoverVitality))
+            if (liDamage > 0 && ((liDamage * 4) > mCharacter.Vitals.MaxHP || mCharacter.Vitals.CurrentHP < CoverVitality))
                 UWHudDragons.Request(UWHudDragons.CoverAnimation);
         }
 
@@ -1517,7 +1517,7 @@ public class UWGameUI : MonoBehaviour
         UWPlayerMovement lOMovement = UWScene.PlayerMovement;
         UWHeadBobRules.ModeEnum leMode = UWUserSettings.WeaponJitterMode;
 
-        if (leMode == UWHeadBobRules.ModeEnum.Off || lOMovement == null || mCharacter == null || !mCharacter.CanAttack)
+        if (leMode == UWHeadBobRules.ModeEnum.Off || lOMovement == null || mCharacter == null || !mCharacter.Weapon.CanAttack)
         {
             mfWeaponJitterTarget = 0f;
             mfWeaponJitter = 0f;
@@ -1707,7 +1707,7 @@ public class UWGameUI : MonoBehaviour
         // CursorLockMode.Confined only knows the border of the whole game window, not
         // this smaller rectangle. Outside a drag the pointer stays free, as in the
         // original from 1992, where it may also wander over paper doll & co.
-        if (mMovementRef != null && mMovementRef.IsCursorMovementInProgress)
+        if (mMovementRef != null && mMovementRef.Input.IsCursorMovementInProgress)
         {
             // The gamepad's pointer: its own position, the Input System's is stale after the
             // warps - with it the pointer stuck to the view's top and left edges (per user,
@@ -1818,7 +1818,7 @@ public class UWGameUI : MonoBehaviour
         }
         else
         {
-            if (mMovementRef != null && !mMovementRef.IsCursorMovementInProgress)
+            if (mMovementRef != null && !mMovementRef.Input.IsCursorMovementInProgress)
                 CursorMovement = UWCursors.CursorEnum.Center;
         }
     }

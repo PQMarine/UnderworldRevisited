@@ -876,7 +876,7 @@ public class UWModernPanel : MonoBehaviour
 
         // Name, class and level - one line, the name on the left, the class on the right.
         string lsClassName = UWHelpWindow.fClassName(lOData, lOPlayer);
-        string lsClassLine = lsClassName + ", level " + lOCharacter.Level;
+        string lsClassLine = lsClassName + ", level " + lOCharacter.Vitals.Level;
         mOClass.fontSize = liSmall;
         fSetRect(mOClass.rectTransform, lfX, pfTop - ((NameTop + 9) * liScale), lfInner, 9 * liScale);
 
@@ -897,7 +897,7 @@ public class UWModernPanel : MonoBehaviour
             msNameFitKey = lsFitKey;
             mOName.text = lsName;
 
-            string lsLevel = lOCharacter.Level.ToString();
+            string lsLevel = lOCharacter.Vitals.Level.ToString();
 
             foreach (string lsClass in new[] { lsClassLine, lsClassName + " " + lsLevel, lsLevel })
             {
@@ -937,7 +937,7 @@ public class UWModernPanel : MonoBehaviour
             UWTextures lOTextures = fData().Textures;
             UWTexture[] lOPieces =
             {
-                lOCharacter.HelmetSource, lOCharacter.GlovesSource, lOCharacter.LegsSource, lOCharacter.ChestSource, lOCharacter.BootsSource
+                lOCharacter.Paperdoll.HelmetSource, lOCharacter.Paperdoll.GlovesSource, lOCharacter.Paperdoll.LegsSource, lOCharacter.Paperdoll.ChestSource, lOCharacter.Paperdoll.BootsSource
             };
             string lsKey = lOCharacter.CharIndex.ToString();
 
@@ -950,7 +950,7 @@ public class UWModernPanel : MonoBehaviour
                     Destroy(mOFreeBodyTexture);
 
                 mOFreeBodyTexture = UWModernHudArt.BuildFreeFigure(lOTextures, lOCharacter.CharIndex, lOPieces,
-                    new[] { msHelmetAt, msGlovesAt, msLegsAt + new Vector2Int(0, lOCharacter.LegsDrop), msChestAt, msBootsAt }, mOUi.TextureFilterMode,
+                    new[] { msHelmetAt, msGlovesAt, msLegsAt + new Vector2Int(0, lOCharacter.Paperdoll.LegsDrop), msChestAt, msBootsAt }, mOUi.TextureFilterMode,
                     out mOFreeBodyAt);
                 msFreeBodyKey = lsKey;
             }
@@ -999,10 +999,10 @@ public class UWModernPanel : MonoBehaviour
 
         string[] lsValues =
         {
-            lOCharacter.Strength.ToString(), lOCharacter.Dexterity.ToString(), lOCharacter.Intelligence.ToString(),
-            Mathf.RoundToInt(lOCharacter.CurrentHP) + " / " + Mathf.RoundToInt(lOCharacter.MaxHP),
-            Mathf.RoundToInt(lOCharacter.CurrentMana) + " / " + Mathf.RoundToInt(lOCharacter.MaxMana),
-            (lOCharacter.Experience / 10).ToString()
+            lOCharacter.Vitals.Strength.ToString(), lOCharacter.Vitals.Dexterity.ToString(), lOCharacter.Vitals.Intelligence.ToString(),
+            Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
+            Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
+            (lOCharacter.Vitals.Experience / 10).ToString()
         };
 
         float lfColumn = lfInner / 3f;
@@ -1027,7 +1027,7 @@ public class UWModernPanel : MonoBehaviour
         mOSkillsHeading.fontSize = liFont;
         fSetRect(mOSkillsHeading.rectTransform, lfX, lfY - (7 * liScale), lfInner, 7 * liScale);
 
-        int liPoints = lOCharacter.SkillPoints;
+        int liPoints = lOCharacter.Vitals.SkillPoints;
 
         mOSkillPoints.text = liPoints == 1 ? "1 point to spend" : liPoints + " points to spend";
         mOSkillPoints.enabled = liPoints > 0;
@@ -1041,9 +1041,9 @@ public class UWModernPanel : MonoBehaviour
 
         for (int liEntry = 0; liEntry < mOSkillNames.Length; liEntry++)
         {
-            int liValue = liEntry == 0 ? lOCharacter.Attack
-                : liEntry == 1 ? lOCharacter.Defence
-                : lOCharacter.GetSkill((UWPlayerData.Skill)(liEntry - 2));
+            int liValue = liEntry == 0 ? lOCharacter.Vitals.Attack
+                : liEntry == 1 ? lOCharacter.Vitals.Defence
+                : lOCharacter.Vitals.GetSkill((UWPlayerData.Skill)(liEntry - 2));
             float lfSkillX = lfX + ((liEntry / SkillRows) * (lfSkillColumn + (2 * liScale)));
             float lfSkillY = lfY - (((liEntry % SkillRows) + 1) * SkillRowHeight * liScale);
 

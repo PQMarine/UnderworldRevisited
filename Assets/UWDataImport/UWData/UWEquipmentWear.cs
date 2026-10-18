@@ -68,9 +68,12 @@ namespace UWDataImport.UWData
 			return (piRoll * 12) / 0x8000 < (piObjectId & 7) * 2;
 		}
 
+		/// <summary>The same with the roll drawn - for a door only: frp_check (UnderworldExhumed
+		/// combat/COMBAT.C:291-292) tests the door's class before it calls rand(). Until cleanup step
+		/// 4.9b (2026-10-18) ours drew the roll for every blow of the player, a creature's too.</summary>
 		public static bool WearsWeaponOnDoor(int piObjectId)
 		{
-			return WearsWeaponOnDoor(piObjectId, UWRandom.Next(0, 0x8000));
+			return UWObjectIds.IsDoor(piObjectId) && WearsWeaponOnDoor(piObjectId, UWRandom.Next(0, 0x8000));
 		}
 
 		/// <summary>Whether the item in the weapon hand can wear: a melee weapon.</summary>

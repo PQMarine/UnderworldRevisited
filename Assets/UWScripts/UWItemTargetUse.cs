@@ -467,7 +467,7 @@ public static class UWItemTargetUse
         UWObject pOContainerLock)
     {
         UWLockRules.PickResult lOResult = UWLockRules.PickLock(pODoorLock, pOContainer, pOContainerLock,
-            pOInteraction.Character != null ? pOInteraction.Character.GetSkill(UWPlayerData.Skill.Picklock) : 0);
+            pOInteraction.Character != null ? pOInteraction.Character.Vitals.GetSkill(UWPlayerData.Skill.Picklock) : 0);
 
         if (lOResult.Unlocked)
             UWSoundEffects.PlayAtAvatar(UWSoundEffects.Lockpick);

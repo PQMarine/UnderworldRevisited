@@ -8,8 +8,9 @@ namespace UWDataImport.UWData
 	/// dependency (deviation rows 45-51 of Docs/AI/creature-ai.md, spec 8.3-8.7).
 	///
 	/// The host (UWCritter) does what needs the world - the reach scan for the defender, the
-	/// heights for the body part, the sounds and the effects - and calls these in the
-	/// original's order:
+	/// heights for the body part, the sounds and the effects. The chain below runs in
+	/// UWAttackResolution since cleanup step 4.9 (2026-10-18), for the creature's blow, the
+	/// player's melee and a missile on the player alike, in the original's order:
 	///
 	///   score, damage      GetAttackScore, GetAttackDamage, the strong bonuses
 	///   to-hit             GetHitScore into UWSkillCheck.GetResult (2 crit, 1 hit, 0 miss, -1)
@@ -311,7 +312,9 @@ namespace UWDataImport.UWData
 		public const int NoArmourByte = 0xFF;
 
 		/// <summary>The damage of a creature's missile: the ammunition table's byte 0 through
-		/// the dice with charge 0x80 and flank 0 - no skill roll, the physics decides the hit.</summary>
+		/// the dice with charge 0x80 and flank 0 - no skill roll, the physics decides the hit.
+		/// Every missile's dice, rolled at its hit since cleanup step 4.9b (2026-10-18;
+		/// UWAttackResolution.RollMissile).</summary>
 		public static int RollMissileDamage(int piAmmoDamage)
 		{
 			return ScaleByCharge(RollDamage(piAmmoDamage), UWCritterRules.MissileCharge, 0);

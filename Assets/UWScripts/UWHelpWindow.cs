@@ -927,9 +927,9 @@ public class UWHelpWindow : MonoBehaviour
         UWPlayerData lOPlayer = lOData.InitialPlayer;
 
         GUILayout.Label(lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar", mOHeading);
-        GUILayout.Label(string.Format("Level {0} {1}", lOCharacter.Level, fClassName(lOData, lOPlayer)), mOText);
+        GUILayout.Label(string.Format("Level {0} {1}", lOCharacter.Vitals.Level, fClassName(lOData, lOPlayer)), mOText);
 
-        string lsCondition = UWStatusReport.GetConditionLine(lOData, lOCharacter.Hunger, lOCharacter.Fatigue);
+        string lsCondition = UWStatusReport.GetConditionLine(lOData, lOCharacter.Vitals.Hunger, lOCharacter.Vitals.Fatigue);
 
         if (!string.IsNullOrEmpty(lsCondition))
             GUILayout.Label(lsCondition.Trim(), mODimText);
@@ -937,12 +937,12 @@ public class UWHelpWindow : MonoBehaviour
         GUILayout.Space(10f);
         GUILayout.Label("Attributes", mOSubHeading);
 
-        fStatRow("Strength", lOCharacter.Strength.ToString());
-        fStatRow("Dexterity", lOCharacter.Dexterity.ToString());
-        fStatRow("Intelligence", lOCharacter.Intelligence.ToString());
-        fStatRow("Vitality", Mathf.RoundToInt(lOCharacter.CurrentHP) + " / " + Mathf.RoundToInt(lOCharacter.MaxHP));
-        fStatRow("Mana", Mathf.RoundToInt(lOCharacter.CurrentMana) + " / " + Mathf.RoundToInt(lOCharacter.MaxMana));
-        fStatRow("Experience", (lOCharacter.Experience / 10).ToString());
+        fStatRow("Strength", lOCharacter.Vitals.Strength.ToString());
+        fStatRow("Dexterity", lOCharacter.Vitals.Dexterity.ToString());
+        fStatRow("Intelligence", lOCharacter.Vitals.Intelligence.ToString());
+        fStatRow("Vitality", Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxHP));
+        fStatRow("Mana", Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxMana));
+        fStatRow("Experience", (lOCharacter.Vitals.Experience / 10).ToString());
 
         int liCarried = -1;
 
@@ -966,11 +966,11 @@ public class UWHelpWindow : MonoBehaviour
             string lsValue;
 
             if (liEntry == 0)
-                lsValue = lOCharacter.Attack.ToString();
+                lsValue = lOCharacter.Vitals.Attack.ToString();
             else if (liEntry == 1)
-                lsValue = lOCharacter.Defence.ToString();
+                lsValue = lOCharacter.Vitals.Defence.ToString();
             else
-                lsValue = lOCharacter.GetSkill((UWPlayerData.Skill)(liEntry - 2)).ToString();
+                lsValue = lOCharacter.Vitals.GetSkill((UWPlayerData.Skill)(liEntry - 2)).ToString();
 
             fStatRow(fSkillName(lOData, liEntry), lsValue);
         }
@@ -987,28 +987,28 @@ public class UWHelpWindow : MonoBehaviour
         GUILayout.Label("The game keeps these, but shows them only as words or not at all.", mODimText);
         GUILayout.Space(4f);
 
-        fStatRow("Food", lOCharacter.Hunger + " / " + UWCharacter.FullHunger);
+        fStatRow("Food", lOCharacter.Vitals.Hunger + " / " + UWPlayerVitals.FullHunger);
         GUILayout.Label("255 is full; the status line changes every 30.", mODimText);
-        fStatRow("Fatigue", lOCharacter.Fatigue + " / 255");
+        fStatRow("Fatigue", lOCharacter.Vitals.Fatigue + " / 255");
         GUILayout.Label("0 is rested; the status line changes every 23.", mODimText);
-        fStatRow("Poison", lOCharacter.Poison + " / 15");
-        fStatRow("Hallucination", lOCharacter.Hallucination + " / " + UWCharacter.MaxHallucination
+        fStatRow("Poison", lOCharacter.Vitals.Poison + " / 15");
+        fStatRow("Hallucination", lOCharacter.Vitals.Hallucination + " / " + UWPlayerVitals.MaxHallucination
             + fHallucinationEffectText());
         GUILayout.Label("A mushroom adds one, the potion sets three; one wears off every 21 seconds.",
             mODimText);
-        fStatRow("Unspent skill points", lOCharacter.SkillPoints.ToString());
+        fStatRow("Unspent skill points", lOCharacter.Vitals.SkillPoints.ToString());
         GUILayout.Label("A mantra at a shrine spends them. One more every 3000 experience and every level.",
             mODimText);
 
-        fStatRow("Exact experience", fTenths(lOCharacter.Experience));
+        fStatRow("Exact experience", fTenths(lOCharacter.Vitals.Experience));
 
-        int liNext = UWExperience.GetNextLevelExperience(lOCharacter.Level);
+        int liNext = UWExperience.GetNextLevelExperience(lOCharacter.Vitals.Level);
 
         if (liNext < 0)
             fStatRow("Next level", "none, this is the highest");
         else
             fStatRow("Next level at", string.Format("{0} ({1} to go)", liNext / 10,
-                fTenths(Mathf.Max(0, liNext - lOCharacter.Experience))));
+                fTenths(Mathf.Max(0, liNext - lOCharacter.Vitals.Experience))));
 
         if (liCarried >= 0 && lOPlayer != null)
             fStatRow("Load", fTenths(liCarried) + " of " + fTenths(lOPlayer.MaxWeight) + " stones");

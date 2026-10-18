@@ -539,7 +539,7 @@ namespace UWDataImport.UWData
 		/// with Shak and the cartographer); in x_traps every value from 10000 on only reads.</summary>
 		private const int SkillIncrease = 10000;
 
-		/// <summary>The highest skill value - UWCharacter.MaxSkillValue on the Unity side.</summary>
+		/// <summary>The highest skill value - UWPlayerVitals.MaxSkillValue on the Unity side.</summary>
 		private const int MaxSkillValue = UWPlayerData.MaxSkillValue;
 
 		/// <summary>x_skills(number, value): sets or raises a skill and returns

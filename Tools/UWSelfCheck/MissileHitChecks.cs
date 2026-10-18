@@ -43,13 +43,32 @@ namespace UnderworldRevisited.Tools
             fExpectInt("player: a high missile strikes the head",
                 UWMissileHitRules.PickPlayerBodyPart(10, 30, 50, 4), UWArmourProtection.PartHead);
 
-            int liShake;
+            // The armour and the halving of a missile on the player: the damage pipeline's since
+            // cleanup step 4.2 (2026-10-17), see the DamagePipeline group.
+            FakeVitalsHost lOArmoured = new FakeVitalsHost();
 
-            fExpectInt("player: armour comes off first", UWMissileHitRules.PlayerDamage(9, 2, false, out liShake), 7);
-            fExpectInt("player: ... the shake level is the same then", liShake, 7);
-            fExpectInt("player: easy halves what the armour leaves (7 >> 1)", UWMissileHitRules.PlayerDamage(9, 2, true, out liShake), 3);
-            fExpectInt("player: ... the shake level is taken before the halving (C5)", liShake, 7);
-            fExpectInt("player: armour that swallows it leaves 0 on easy too", UWMissileHitRules.PlayerDamage(3, 4, true, out liShake), 0);
+            lOArmoured.Armour[UWArmourProtection.PartLegs] = 2;
+
+            UWDamageOutcome lOHit = UWDamagePipeline.Apply(fPipelineVitals(lOArmoured, null),
+                UWDamageRequest.Missile(9, UWDamageTypes.Missile, UWArmourProtection.PartLegs, true, false));
+
+            fExpectInt("player: armour comes off first", lOHit.Applied, 7);
+            fExpectInt("player: ... the shake level is the same then (7 / 4)", lOHit.ShakeLevel, 1);
+
+            UWPlayerVitals.StartValues lOEasyStart = UWPlayerVitals.StartValues.Default;
+
+            lOEasyStart.EasyDifficulty = true;
+
+            UWPlayerVitals lOEasy = new UWPlayerVitals(lOArmoured);
+
+            lOEasy.Initialise(null, lOEasyStart);
+            lOHit = UWDamagePipeline.Apply(lOEasy, UWDamageRequest.Missile(9, UWDamageTypes.Missile, UWArmourProtection.PartLegs, true, false));
+            fExpectInt("player: easy halves what the armour leaves (7 >> 1)", lOHit.Applied, 3);
+            fExpectInt("player: ... the shake level is taken before the halving (C5)", lOHit.AfterArmour, 7);
+
+            lOArmoured.Armour[UWArmourProtection.PartLegs] = 4;
+            lOHit = UWDamagePipeline.Apply(lOEasy, UWDamageRequest.Missile(3, UWDamageTypes.Missile, UWArmourProtection.PartLegs, true, false));
+            fExpectInt("player: armour that swallows it leaves 0 on easy too", lOHit.Applied, 0);
 
             fExpectBool("music: a creature's missile starts the combat music", UWMissileHitRules.StartsCombatMusic(true), true);
             fExpectBool("music: the player's own or a trap's does not", UWMissileHitRules.StartsCombatMusic(false), false);

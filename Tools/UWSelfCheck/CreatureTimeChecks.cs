@@ -202,7 +202,7 @@ namespace UnderworldRevisited.Tools
             UWNpc lONpc = fFindOtherCreature(lOQueries, null);
             UWTile lOTile = lOQueries.FindTileHolding(lONpc);
 
-            UWWorldCapture.CaptureCritter(lOQueries, lONpc, true, true, 0, 20, 0, 5, false, 0f, 0f, 0f);
+            UWWorldCapture.CaptureCritter(lOQueries, new UWCritterRecord(lONpc), true, 20, false);
 
             fExpectBool("dying: still in its tile list", lOTile != null && lOTile.ObjectsInTile.Contains(lONpc), true);
             fExpectInt("dying: with 0 hit points", lONpc.HitPoints, 0);

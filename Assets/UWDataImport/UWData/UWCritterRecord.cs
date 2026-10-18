@@ -23,7 +23,7 @@ namespace UWDataImport.UWData
 	/// The array reference is read anew on every access, never cached: UWConversationSession
 	/// replaces the array when it writes the hunger bit.
 	/// </summary>
-	public sealed class UWCritterRecord
+	public sealed class UWCritterRecord : IUWHitPointStore
 	{
 		/// <summary>The extra bytes of a mobile object record.</summary>
 		public const int NpcByteCount = UWNpcRecordCodec.ByteCount;
@@ -224,6 +224,8 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- Byte 8: hit points
 
+		/// <summary>Byte 8, the creature's one store of hit points: its body's UWHealth keeps them
+		/// here (IUWHitPointStore, cleanup step 4.8, 2026-10-18).</summary>
 		public int HitPoints
 		{
 			get { return fRaw()[UWNpcRecordCodec.HitPointsByte]; }

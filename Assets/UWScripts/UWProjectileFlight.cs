@@ -19,8 +19,11 @@ public class UWProjectileFlight : MonoBehaviour
 {
     public UWMobileRecord Record { get; private set; }
 
-    /// <summary>The missile's damage before the target's armour, and its type.</summary>
-    public int Damage { get; private set; }
+    /// <summary>The missile's damage before its dice - the base the hit rolls
+    /// (UWAttackResolution.Missile, missile_thwack -> do_damage; since cleanup step 4.9b,
+    /// 2026-10-18, the rolled damage until then) or UWAttackResolution.NoMissileDamage - and its
+    /// type.</summary>
+    public int BaseDamage { get; private set; }
 
     public int DamageType { get; private set; }
 
@@ -60,12 +63,12 @@ public class UWProjectileFlight : MonoBehaviour
 
     private bool mbEnded;
 
-    public void Begin(UWMissiles pOMissiles, UWMobileRecord pORecord, int piDamage, int piDamageType, int piImpactId,
+    public void Begin(UWMissiles pOMissiles, UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
         Interaction pOInteraction, UWCritter pOLauncher, bool pbPlayersOwn)
     {
         mOMissiles = pOMissiles;
         Record = pORecord;
-        Damage = piDamage;
+        BaseDamage = piBaseDamage;
         DamageType = piDamageType;
         ImpactId = piImpactId;
         Interaction = pOInteraction;

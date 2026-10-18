@@ -12,9 +12,21 @@ public class UWDamageable : MonoBehaviour
     /// happens in each case is decided by the subscriber, not by this class.</summary>
     public System.Action<UWDamageable> Destroyed;
 
-    /// <summary>On every hit, even if it does not kill. A peaceful critter becomes hostile through
-    /// this (see UWCritter).</summary>
+    /// <summary>On every hit, even if it does not kill - a door writes its condition into the data
+    /// (UWDoor). A creature hears of its blows through CreatureTakesBlow instead.</summary>
     public System.Action<UWDamageable> Damaged;
+
+    /// <summary>
+    /// THE CREATURE BEHIND THIS BODY TAKES EACH BLOW WITH ITS ATTACKER (cleanup step 4.8,
+    /// 2026-10-18): called on every blow that lands, before Damaged, with what of it reached the
+    /// body (after the resistances) and who dealt it - a creature's index, the player's
+    /// (UWCritterBrain.PlayerIndex) or nobody (UWBlow.Nobody). UWCritter hands it to DamageNPC
+    /// (UWCritterBrain.OnDamaged), which stores the attacker in byte 0x12 and takes the damage off
+    /// the record's hit points - the body subtracts nothing itself then (see ApplyDamage). Until
+    /// then the attacker waited in UWCritter as a pending index (AnnounceAttacker) for the next
+    /// Damaged event.
+    /// </summary>
+    public System.Action<int, int> CreatureTakesBlow;
 
     /// <summary>Something in front of the thing that takes the blow before its hit points - the
     /// spike of a closed door (UWDoor.TryDamageSpike, 2026-10-12). Called with the damage as it
@@ -86,8 +98,10 @@ public class UWDamageable : MonoBehaviour
     public int LastDamageType { get; private set; }
 
     /// <summary>Subtracts damage and reports whether the target was destroyed by it - see
-    /// UWHealth.ApplyDamage. Damaged fires on every blow that lands, Destroyed after it.</summary>
-    public bool ApplyDamage(int piDamage, int piDamageType = UWDamageTypes.None)
+    /// UWHealth.ApplyDamage. CreatureTakesBlow and Damaged fire on every blow that lands, Destroyed
+    /// after them. piAttacker: whom a creature holds responsible (UWBlow.Attacker); a door, a
+    /// barrel or a chest keeps none.</summary>
+    public bool ApplyDamage(int piDamage, int piDamageType, int piAttacker)
     {
         bool lbBrokenAlready = mOHealth.IsDestroyed;
 
@@ -104,20 +118,42 @@ public class UWDamageable : MonoBehaviour
         if (lbBrokenAlready && liDamage <= 0)
             return false;
 
-        bool lbDestroyed = mOHealth.TakeScaledDamage(liDamage);
-
         LastDamageType = piDamageType;
 
-        Damaged?.Invoke(this);
+        // A CREATURE'S MIND TAKES THE BLOW (cleanup step 4.8, 2026-10-18): DamageNPC subtracts it
+        // from the record, which holds the hit points (UWHealth.KeepHitPointsIn), and commits the
+        // death or lets a named creature refuse it - MarkDestroyed raises Destroyed then. Until
+        // then the body subtracted its own copy first and the mind worked out the amount from
+        // the difference; a refused death gave the copy at least 1 hit point back
+        // (UWCritter.fKeepBodyAlive), which is what the save then wrote (B23).
+        if (CreatureTakesBlow != null)
+        {
+            CreatureTakesBlow(liDamage, piAttacker);
+            Damaged?.Invoke(this);
 
-        // A Damaged handler may have refused the death and given the hit points back - the
-        // golem and the nameless one of UWSpecialDeaths (UWCritter.fKeepBodyAlive).
-        lbDestroyed = lbDestroyed && mOHealth.IsDestroyed;
+            return !lbBrokenAlready && mOHealth.IsDestroyed;
+        }
+
+        bool lbDestroyed = mOHealth.TakeScaledDamage(liDamage);
+
+        Damaged?.Invoke(this);
 
         if (lbDestroyed)
             Destroyed?.Invoke(this);
 
         return lbDestroyed;
+    }
+
+    /// <summary>A creature's death is committed (cleanup step 4.8, 2026-10-18): UWCritter when the
+    /// brain starts it or a drowning or a load ends in it. Destroyed fires once, as on the blow
+    /// that broke a door. Until then UWCritter drained the body with a blow of its own.</summary>
+    public void MarkDestroyed()
+    {
+        if (mOHealth.IsDestroyed)
+            return;
+
+        mOHealth.MarkDestroyed();
+        Destroyed?.Invoke(this);
     }
 
     public int GetConditionStringIndex()

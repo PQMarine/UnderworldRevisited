@@ -52,12 +52,12 @@ namespace UnderworldRevisited.Tools
             lOVitals.StatusPassDue += () => lOTold.Add("status pass");
             lOVitals.ActiveSpellsChanged += (pbHaste, pbRoaming, pbFrozen, pbTelekinesis) => lOTold.Add("spells");
 
-            lOVitals.ApplyDamage(3, UWDamageTypes.None, 0);
+            UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Plain(3, UWDamageTypes.None));
             fExpectInt("vitals events: a hit is recorded, then the flasks change",
                 fIndexOfSequence(lOTold, "damage", "vitals"), 0);
 
             lOTold.Clear();
-            lOVitals.ApplyDamage(0, UWDamageTypes.None, 0);
+            UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Plain(0, UWDamageTypes.None));
             fExpectInt("vitals events: no damage, nothing told", lOTold.Count, 0);
 
             int liLevel = lOVitals.Level;
@@ -83,7 +83,7 @@ namespace UnderworldRevisited.Tools
             UWPlayerVitals lOAlone = new UWPlayerVitals(null);
 
             lOAlone.Initialise(null, UWPlayerVitals.StartValues.Default);
-            lOAlone.ApplyDamage(3, UWDamageTypes.None, 0);
+            UWDamagePipeline.Apply(lOAlone, UWDamageRequest.Plain(3, UWDamageTypes.None));
             lOAlone.ShakeAfterPassingOut();
             lOAlone.ChangeExperience(100000, 1);
             fExpectBool("vitals events: without listeners the vitals still change", lOAlone.CurrentHP < lOAlone.MaxHP, true);
@@ -98,17 +98,26 @@ namespace UnderworldRevisited.Tools
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
 
-            lOVitals.ApplyDamage(12, UWDamageTypes.Physical, 0);
-            lOVitals.ApplyDamage(8, UWDamageTypes.Poison, 0);
+            UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Plain(12, UWDamageTypes.Physical));
+            UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Plain(8, UWDamageTypes.Poison));
             fExpectInt("shake: plain damage (fall, poison, lava, trap) does not shake", lOHost.Shakes, 0);
 
-            lOVitals.ShakeForCombatHit(14, 7);
+            // The blows through the damage pipeline since cleanup step 4.2 (2026-10-17), on Easy.
+            UWPlayerVitals.StartValues lOEasy = UWPlayerVitals.StartValues.Default;
+
+            lOEasy.EasyDifficulty = true;
+
+            UWPlayerVitals lOEasyVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
+
+            lOEasyVitals.Initialise(null, lOEasy);
+
+            UWDamagePipeline.Apply(lOEasyVitals, UWDamageRequest.CreatureBlow(14, 0, false));
             fExpectInt("shake: a blow of 14, 7 on Easy, shakes at level 3", lOHost.LastShakeLevel, 3);
 
-            lOVitals.ShakeForCombatHit(5, 2);
+            UWDamagePipeline.Apply(lOEasyVitals, UWDamageRequest.CreatureBlow(5, 0, false));
             fExpectInt("shake: a blow of 5 sets level 1 (overwriting)", lOHost.LastShakeLevel, 1);
 
-            lOVitals.ShakeForCombatHit(1, 0);
+            UWDamagePipeline.Apply(lOEasyVitals, UWDamageRequest.CreatureBlow(1, 0, false));
             fExpectInt("shake: nothing dealt, no shake", lOHost.Shakes, 2);
         }
 
@@ -199,7 +208,7 @@ namespace UnderworldRevisited.Tools
             BookHost lOWeakHost = new BookHost();
             UWObject lOMore = new UWObject((ushort)UWItemUse.LeechObjectId);
 
-            lOWeak.ApplyDamage(7, UWDamageTypes.None, 0);
+            UWDamagePipeline.Apply(lOWeak, UWDamageRequest.Plain(7, UWDamageTypes.None));
             lOWeak.ApplyPoison(5);
             lOInventory.Backpack[2] = lOMore;
             UWItemUse.TryUseImmediately(lOMore, pOData, lOWeak, lOInventory, lOWeakHost);
@@ -315,6 +324,13 @@ namespace UnderworldRevisited.Tools
             public bool IsInMotionState { get; set; }
 
             public bool IsChargingAttack => false;
+
+            /// <summary>The armour per body part a check sets (the damage pipeline, cleanup step 4.2).</summary>
+            public int[] Armour = new int[4];
+
+            public int GetArmourAt(int piPart) => piPart >= 0 && piPart < Armour.Length ? Armour[piPart] : 0;
+
+            public int DamageTypeProof { get; set; }
         }
 
         /// <summary>SKILLS.C get_skill does not call player_compute: a raise leaves the maximum
@@ -380,15 +396,17 @@ namespace UnderworldRevisited.Tools
         {
             UWPlayerVitals lOVitals = fWoundedVitals(new FakeVitalsHost());
 
-            lOVitals.ApplyDamage(8, UWDamageTypes.None, 0);
-            fExpectBool("curse: at 2 hit points it does not strike", lOVitals.ApplyCurse(5), false);
+            UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Plain(8, UWDamageTypes.None));
+            fExpectBool("curse: at 2 hit points it does not strike",
+                UWDamagePipeline.Apply(lOVitals, UWDamageRequest.Curse(5)).Landed, false);
             fExpectInt("curse: and the 2 stay 2 (no lift to 3)", (int)lOVitals.CurrentHP, 2);
 
             UWPlayerVitals lOStrong = fWoundedVitals(new FakeVitalsHost());
 
-            fExpectBool("curse: at 10 hit points eight dice strike", lOStrong.ApplyCurse(8), true);
+            fExpectBool("curse: at 10 hit points eight dice strike",
+                UWDamagePipeline.Apply(lOStrong, UWDamageRequest.Curse(8)).Landed, true);
             fExpectInt("curse: and leaves at least 3", (int)lOStrong.CurrentHP, 3);
-            fExpectBool("curse: no dice, no strike", lOStrong.ApplyCurse(0), false);
+            fExpectBool("curse: no dice, no strike", UWDamagePipeline.Apply(lOStrong, UWDamageRequest.Curse(0)).Landed, false);
         }
 
         /// <summary>

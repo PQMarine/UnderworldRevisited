@@ -35,6 +35,10 @@ namespace UWDataImport.UWData
 
 			/// <summary>The flanking bonus the blow carried (0 to 4).</summary>
 			public int Flank;
+
+			/// <summary>The whole of it as UWAttackResolution answered (cleanup step 4.9, 2026-10-18):
+			/// the blocked sound of a miss, the hit volume, the blow that lands.</summary>
+			public UWAttackOutcome Outcome;
 		}
 
 		/// <summary>
@@ -99,11 +103,19 @@ namespace UWDataImport.UWData
 
 		/// <param name="piEnchantAccuracy">The weapon's accuracy enchantment (GetWeaponEnchantment).</param>
 		/// <param name="piEnchantDamage">The weapon's damage enchantment, on the base damage.</param>
+		/// <param name="pIDefender">The struck creature, or UWAttackResolution.ObjectDefender for a
+		/// thing (null is taken as a thing).</param>
+		/// <param name="piPart">The creature's part the blow's probe picked (pickloc), or
+		/// UWAttackResolution.NoPart.</param>
+		/// <param name="piTargetObjectId">The struck thing's object id - a door may wear the weapon.</param>
+		/// <param name="pbTargetWearsWeapon">The struck creature does not spare a weapon on a bad miss.</param>
+		/// <param name="pFWearWeapon">Rolls the dice (count, range) and wears the weapon in the hand;
+		/// called between the check and the dice (UWAttackResolution.PlayerBlow), none without it.</param>
 		public static MeleeResult ResolveMelee(DataImport pOData, int piWeaponId, UWCombat.AttackKind peKind,
 			float pfChargeFraction, int piStrength, int piAttack, int piDexterity, int piUnarmedSkill,
-			System.Func<UWPlayerData.Skill, int> pFGetSkill, int piTargetDefence, int piTargetArmour,
+			System.Func<UWPlayerData.Skill, int> pFGetSkill, IUWAttackDefender pIDefender, int piPart,
 			bool pbEasyDifficulty = false, int piFlank = 0, int piEnchantAccuracy = 0, int piEnchantDamage = 0,
-			bool pbObjectTarget = false)
+			int piTargetObjectId = -1, bool pbTargetWearsWeapon = false, System.Action<int, int> pFWearWeapon = null)
 		{
 			MeleeResult lOResult = new MeleeResult();
 
@@ -148,21 +160,33 @@ namespace UWDataImport.UWData
 			// bonus still goes into the damage (do_damage). Per user on the original 2026-10-14:
 			// a Level 1 character with Attack and Unarmed 0 hit a door with every blow. Until then
 			// ours rolled against the thing's defence 0 and could miss with the blocked sound.
-			lOResult.Check = pbObjectTarget ? UWSkillCheck.ResultEnum.Success
-				: UWSkillCheck.Check(lOResult.Accuracy + piFlank, piTargetDefence);
+			// (UWAttackResolution.Check since cleanup step 4.9, 2026-10-18.)
+			//
+			// THE CHECK AND THE DAMAGE are the creatures' since cleanup step 4.9 (2026-10-18):
+			// do_attack is one routine for every attacker (UWAttackResolution). The weapon's
+			// damage, the strength and the enchantment make the base before the minimum
+			// (UWCombat.GetRawBaseDamage); the blocked sound takes the kinds of his own row, 0x7F
+			// (do_miss), which Interaction read itself until then.
+			UWObjectClassProperties.Critter lOOwnRow;
 
-			if (!UWSkillCheck.IsSuccess(lOResult.Check))
-				return lOResult;
+			pOData.ObjectClassProperties.TryGetCritter(UWCritterCombat.PlayerCritterObjectId, out lOOwnRow);
 
-			lOResult.Hit = true;
+			UWAttackerStats lOAttacker = new UWAttackerStats(UWCritterBrain.PlayerIndex, lOResult.Accuracy,
+				UWCombat.GetRawBaseDamage(UWCombat.GetWeaponDamage(lOMelee, peKind), lbUnarmed, piStrength, piUnarmedSkill,
+					piEnchantDamage),
+				liCharge, piFlank, lOOwnRow.WeaponKind, lOOwnRow.ArmourKind == UWCritterCombat.MetalKind);
 
-			lOResult.Damage = UWCombat.ComputeDamage(
-				UWCombat.GetWeaponDamage(lOMelee, peKind),
-				lbUnarmed, piStrength, piUnarmedSkill, liCharge, piTargetArmour,
-				out int liBeforeArmour,
-				lOResult.Check == UWSkillCheck.ResultEnum.CriticalSuccess, piFlank, piEnchantDamage);
+			// THE WEAPON WEARS IN frp_check, between the check and the dice (UWAttackResolution.
+			// PlayerBlow, cleanup step 4.9b, 2026-10-18, by the user's decision to follow the
+			// original; Interaction wore it after this call until then).
+			UWAttackOutcome lOOutcome = UWAttackResolution.PlayerBlow(lOAttacker,
+				pIDefender ?? UWAttackResolution.ObjectDefender, piPart, piTargetObjectId, pbTargetWearsWeapon, pFWearWeapon);
 
-			lOResult.DamageBeforeArmour = liBeforeArmour;
+			lOResult.Outcome = lOOutcome;
+			lOResult.Check = lOOutcome.Result;
+			lOResult.Hit = lOOutcome.Hit;
+			lOResult.Damage = lOOutcome.Damage;
+			lOResult.DamageBeforeArmour = lOOutcome.Rolled;
 
 			return lOResult;
 		}
@@ -238,11 +262,18 @@ namespace UWDataImport.UWData
 		/// plus 192) divided by 256 - so at skill 0 three quarters remain, at 8 it becomes
 		/// one and a half times. A check against ten subtracts another half from that or
 		/// adds three quarters.
+		///
+		/// THE BASE ONLY since cleanup step 4.9b (2026-10-18, by the user's decision to follow the
+		/// original): the dice are rolled at the hit (UWAttackResolution.Missile, missile_thwack ->
+		/// do_damage), with charge 0x80 there; until then this rolled them at the launch. The skill
+		/// check stays at the launch - the original makes it in missile_newhit at the hit as well
+		/// (UnderworldExhumed motion/OBJPHYS.C:114), but the user's decision keeps the base as the
+		/// launch computes it. Without data NoMissileDamage (0 at the hit, as before).
 		/// </summary>
-		public static int GetMissileDamage(DataImport pOData, int piAmmunitionId, int piCharge, int piMissileSkill)
+		public static int GetMissileBaseDamage(DataImport pOData, int piAmmunitionId, int piMissileSkill)
 		{
 			if (pOData == null || pOData.ObjectProperties == null)
-				return 0;
+				return UWAttackResolution.NoMissileDamage;
 
 			int liBase = pOData.ObjectProperties.GetRangedDamage(piAmmunitionId);
 
@@ -262,7 +293,7 @@ namespace UWDataImport.UWData
 			if (liFactor < 0)
 				liFactor = 0;
 
-			return UWCombat.ComputeDamage((liBase * liFactor) >> 8, false, 0, 0, piCharge, 0);
+			return (liBase * liFactor) >> 8;
 		}
 
 		/// <summary>The ammunition byte of the missile table (OBJECTS.DAT 0x82 + 3n + 2, signed)
@@ -290,17 +321,19 @@ namespace UWDataImport.UWData
 		/// The damage of a class 1 object the PLAYER THROWS by hand. missile_newhit
 		/// (UnderworldExhumed motion/OBJPHYS.C) scales by the Missile skill only when the table
 		/// marks the object as ammunition (ammo byte -64); a thrown bow, sling or crossbow does
-		/// its table damage unscaled (2026-10-12; until then every 0x10-0x1F was scaled).
+		/// its table damage unscaled (2026-10-12; until then every 0x10-0x1F was scaled). The base
+		/// only since cleanup step 4.9b (2026-10-18): the dice are rolled at the hit, see
+		/// GetMissileBaseDamage.
 		/// </summary>
-		public static int GetThrownMissileDamage(DataImport pOData, int piObjectId, int piCharge, int piMissileSkill)
+		public static int GetThrownMissileBaseDamage(DataImport pOData, int piObjectId, int piMissileSkill)
 		{
 			if (pOData == null || pOData.ObjectProperties == null)
-				return 0;
+				return UWAttackResolution.NoMissileDamage;
 
 			if (GetMissileAmmoByte(pOData, piObjectId) == AmmunitionMarker)
-				return GetMissileDamage(pOData, piObjectId, piCharge, piMissileSkill);
+				return GetMissileBaseDamage(pOData, piObjectId, piMissileSkill);
 
-			return UWCombat.ComputeDamage(pOData.ObjectProperties.GetRangedDamage(piObjectId), false, 0, 0, piCharge, 0);
+			return pOData.ObjectProperties.GetRangedDamage(piObjectId);
 		}
 	}
 }

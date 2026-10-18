@@ -226,6 +226,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("PointerScheme", pOContext => fCheckPointerScheme(pOContext.Data), true, "input", "motion", "original");
             lOCatalog.Add("CritterView", pOContext => fCheckCritterView(), false, "brain");
             lOCatalog.Add("PreciseMotion", pOContext => fCheckPreciseMotion(pOContext.Data), true, "motion");
+            lOCatalog.Add("MotionStepper", pOContext => fCheckMotionStepper(), false, "motion", "time");
+            lOCatalog.Add("MotionStepperWalk", pOContext => fCheckMotionStepperWalk(pOContext.Data), true, "motion", "time");
+            lOCatalog.Add("FootstepRules", pOContext => fCheckFootstepRules(), false, "player", "original");
             lOCatalog.Add("SaveRoundTrip", pOContext => fCheckSaveRoundTrip(pOContext), true, "data", "pin").MutatesData = true;
             lOCatalog.Add("Codecs", pOContext => fCheckCodecs(pOContext), true, "data", "original");
             lOCatalog.Add("HudArt", pOContext => fCheckHudArt(pOContext), true, "hud", "pin");
@@ -265,11 +268,24 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("MissileHit", pOContext => fCheckMissileHit(), false, "combat", "damage", "original");
             lOCatalog.Add("World", pOContext => fCheckWorld(), false, "world", "level");
             lOCatalog.Add("Blow", pOContext => fCheckBlow(), false, "world", "combat", "damage");
+            lOCatalog.Add("CreatureState", pOContext => fCheckCreatureState(), false, "brain", "save", "damage");
+            lOCatalog.Add("DamagePipeline", pOContext => fCheckDamagePipeline(), false, "player", "combat", "damage", "original");
+            lOCatalog.Add("AttackResolution", pOContext => fCheckAttackResolution(), false, "combat", "damage", "original");
+            lOCatalog.Add("Death", pOContext => fCheckDeath(), false, "player", "original");
+            lOCatalog.Add("TerrainRules", pOContext => fCheckTerrainRules(), false, "player", "time", "original");
+            lOCatalog.Add("VoidRules", pOContext => fCheckVoidRules(), false, "player", "level", "original");
             lOCatalog.Add("WorldScheduler", pOContext => fCheckWorldScheduler(), false, "time", "session");
             lOCatalog.Add("TriggerPacer", pOContext => fCheckTriggerPacer(), false, "time", "trap");
             lOCatalog.Add("EndgameSequence", pOContext => fCheckEndgameSequence(), false, "time", "level", "original");
             lOCatalog.Add("Story", pOContext => fCheckStory(pOContext.Data), true, "world", "shrine", "original");
             lOCatalog.Add("SpellHost", pOContext => fCheckSpellHost(), false, "world", "spell", "original");
+            lOCatalog.Add("AreaWalk", pOContext => fCheckAreaWalk(), false, "world", "spell", "damage", "original");
+            lOCatalog.Add("AreaWalkLevel", pOContext => fCheckAreaWalkOnLevel(pOContext.Data), true, "world", "spell", "level", "original");
+            lOCatalog.Add("CreatureCasting", pOContext => fCheckCreatureCasting(pOContext.Data), true, "world", "spell", "brain", "original");
+            lOCatalog.Add("WallSquares", pOContext => fCheckWallSquares(pOContext.Data), true, "world", "spell", "damage", "original");
+            lOCatalog.Add("WeaponSwing", pOContext => fCheckWeaponSwing(pOContext.Data), true, "hud", "combat");
+            lOCatalog.Add("Paperdoll", pOContext => fCheckPaperdoll(), false, "hud", "inventory");
+            lOCatalog.Add("FlaskGauge", pOContext => fCheckFlaskGauge(), false, "hud", "player");
 
             return lOCatalog;
         }
@@ -643,7 +659,10 @@ namespace UnderworldRevisited.Tools
 
             public void OnDeathStarted(bool pbByPlayer) => Events.Add("death");
 
-            public bool VetoDeath() => false;
+            /// <summary>Whether a named creature refuses its death (UWSpecialDeaths: the golem).</summary>
+            public bool Vetoes;
+
+            public bool VetoDeath() => Vetoes;
 
             public void OnDeathFinished() => Events.Add("removed");
 
@@ -2619,7 +2638,8 @@ namespace UnderworldRevisited.Tools
 
             // THE JUMP IS THE ANCHOR of the fall: it takes off with 0x263 and comes down at the
             // same speed, so it must sound and must not hurt. That is what our conversion of a
-            // fall speed into momentum is calibrated on (UWPlayerMovement.fReportLanding).
+            // fall speed into momentum was calibrated on (UWPlayerMovement.fReportLanding, the
+            // CharacterController path's, removed in cleanup 4.1 on 2026-10-18).
             int liJump = UWImpactRules.GetImpactValue(UWImpactRules.JumpMomentum, false);
 
             fExpectInt("impact: a jump on the spot is worth two", liJump, 2);
@@ -4024,7 +4044,8 @@ namespace UnderworldRevisited.Tools
             for (int liTry = 0; liTry < 200; liTry++)
             {
                 UWPlayerAttack.MeleeResult lOBlow = UWPlayerAttack.ResolveMelee(pOData, UWCombat.FistObjectId,
-                    UWCombat.AttackKind.Bash, 1f, 10, 0, 10, 0, null, 0, 0, false, 0, 0, 0, true);
+                    UWCombat.AttackKind.Bash, 1f, 10, 0, 10, 0, null, UWAttackResolution.ObjectDefender,
+                    UWAttackResolution.NoPart);
 
                 if (lOBlow.Hit)
                     liHits++;
@@ -4988,8 +5009,8 @@ namespace UnderworldRevisited.Tools
             // THE SHARED TICK. Its length used to sit in four places and ran twenty seconds
             // on the Unity side (2026-09-21); everything now derives from UWPlayerTick, so
             // these checks guard that nothing drifts apart again. The Unity hosts cannot be
-            // reached from here - UWCharacter.SpellTickSeconds and
-            // UWSettings.SwimCheckInterval take the same constant.
+            // reached from here - UWCharacter.SpellTickSeconds takes the same constant, and the
+            // swim check runs on the tick itself (cleanup step 4.4, 2026-10-17).
             fExpectInt("tick: one player tick is 21 seconds", UWPlayerTick.Seconds, 21);
 
             // THE DIFFICULTY in the attack score (2026-09-21): seven points on easy, measured
@@ -5171,6 +5192,13 @@ namespace UnderworldRevisited.Tools
             public bool IsInMotionState => false;
 
             public bool IsChargingAttack => false;
+
+            /// <summary>The armour per body part a check sets (the damage pipeline, cleanup step 4.2).</summary>
+            public int[] Armour = new int[4];
+
+            public int GetArmourAt(int piPart) => piPart >= 0 && piPart < Armour.Length ? Armour[piPart] : 0;
+
+            public int DamageTypeProof { get; set; }
         }
 
         /// <summary>The worn equipment for the status pass, without any engine: a real inventory

@@ -4,8 +4,10 @@ namespace UWDataImport.UWData
 	/// What the spell rules (UWSpellCasting, UWMiscSpellRules, UWAreaSpellRules,
 	/// UWSummonSpellRules, UWItemSpellRules) need from ONE CAST: who casts, the caster's numbers,
 	/// the pending projectile and target cursors, the active spells and the spell icons - and the
-	/// world as this cast sees it. The Unity side is UWSpellHost, built per cast (UWHudRunes for
-	/// the player, UWCritter for a creature's area spell or summoning).
+	/// world as this cast sees it. The player's is UWSpellHost on the Unity side, built per cast
+	/// by UWHudRunes; a creature's is the engine-free UWCreatureSpellHost, built per cast by
+	/// UWCritter (since cleanup step 4.10, 2026-10-18; a UWSpellHost with the creature as the
+	/// area caster until then).
 	///
 	/// THE WORLD (cleanup step 3.6, 2026-10-17): the level, the player's tile and view, the
 	/// messages, sounds, shake and effect pictures, the travel, the objects a spell makes, the
@@ -13,8 +15,10 @@ namespace UWDataImport.UWData
 	/// the world with this cast's presentation (its lines go to the Interaction the cast was given,
 	/// silent without one). Until then this interface had about fifty members, most of them the
 	/// world's, and the area targets were numbered entries on the host, valid between a collection
-	/// and its use, with the creature caster as a mutable property (AreaCaster). Now the targets
-	/// are a list the rule holds (UWAreaTarget) and the caster a value (UWCastContext).
+	/// and its use, with the creature caster as a mutable property (AreaCaster). Now the caster is
+	/// a value (UWCastContext), and since cleanup step 4.0 (2026-10-18) the rule walks the squares'
+	/// object lists for the targets itself (UWAreaWalk; a list of physics hits, UWAreaTarget, in
+	/// between).
 	///
 	/// The target spells that go onto a CLICKED creature or item (UWTargetSpell, the target
 	/// half of UWMiscSpell) stay on the Unity side: they are nothing but component calls.
@@ -25,17 +29,21 @@ namespace UWDataImport.UWData
 		/// (a cast without a level loader has none).</summary>
 		IUWWorld World { get; }
 
-		/// <summary>Who casts: the player, or the creature whose area spell this is.</summary>
+		/// <summary>Who casts: the player, or the creature whose spell this is.</summary>
 		UWCastContext Cast { get; }
 
 		/// <summary>The data the caster was handed (kept as given, not the world's).</summary>
 		DataImport Data { get; }
 
-		/// <summary>The void, or a tile with the no-magic bit under the caster.</summary>
+		/// <summary>The void, or a tile with the no-magic bit under the caster
+		/// (UWEndgameRules.IsMagicBlocked) - do_spell's one refusal, which UWSpellCasting.ApplyEffect
+		/// asks for every caster.</summary>
 		bool IsMagicBlocked { get; }
 
 		// ------------------------------------------------- The caster
 
+		/// <summary>The player casts and has a body: the effects that are his only (do_spell's
+		/// who == ThePlayer) take place. False for a creature's cast.</summary>
 		bool HasPlayer { get; }
 
 		int PlayerLevel { get; }
@@ -86,7 +94,8 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- Pending spells
 
 		/// <summary>A projectile waits for the click that gives its direction. piManaCost is paid only
-		/// when it is released (0 for a wand or a trap).</summary>
+		/// when it is released (0 for a wand or a trap). A creature's is released at once
+		/// (do_spell: release_missile for any caster but the player).</summary>
 		void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost);
 
 		/// <summary>A spell of class 7 or 11 waits for the click that names its target.</summary>
@@ -111,12 +120,18 @@ namespace UWDataImport.UWData
 	}
 
 	/// <summary>
-	/// WHO CASTS (cleanup step 3.6, 2026-10-17): the player, or a creature whose area spell runs
+	/// WHO CASTS (cleanup step 3.6, 2026-10-17): the player, or a creature whose spell runs
 	/// through the same code with it as the caster (UW.EXE does so, read 2026-09-27). The blasts
 	/// of the cast are charged to the caster: a creature's damage goes to that creature, so the
 	/// victim's damage reaction turns on the caster and no kin alarm is raised as if the player had
 	/// struck; the gargoyle eyes stay for the player's own hits. A value the cast carries - until
 	/// then the mutable UWSpellHost.AreaCaster, set after the host was built.
+	///
+	/// WHERE THE CREATURE STANDS AND LOOKS (cleanup step 4.10, 2026-10-18): its record's spot and
+	/// 256-step heading, from which the rules measure the cast - gronk_area moves from the
+	/// caster's square along its heading, creat_spell from its fine position (SPELLS.C) - and at
+	/// which do_spell tests for magic. Until then the creature worked out the area's centre and
+	/// the summoning's spot itself and handed the rules the results.
 	/// </summary>
 	public readonly struct UWCastContext
 	{
@@ -126,49 +141,33 @@ namespace UWDataImport.UWData
 		/// <summary>The casting creature's index in the level's mobile list; 0 for the player.</summary>
 		public readonly int CreatureIndex;
 
-		private UWCastContext(bool pbByCreature, int piCreatureIndex)
+		/// <summary>The casting creature's spot from its record (tile, eighths, zpos); Nowhere for
+		/// the player, whose spot is his avatar's.</summary>
+		public readonly UWSpot CasterSpot;
+
+		/// <summary>The casting creature's heading, 0 to 255 (0 north, clockwise:
+		/// UWCritterRecord.FullFacing); 0 for the player, whose view is his avatar's.</summary>
+		public readonly int CasterHeading;
+
+		private UWCastContext(bool pbByCreature, int piCreatureIndex, UWSpot pOSpot, int piHeading)
 		{
 			ByCreature = pbByCreature;
 			CreatureIndex = piCreatureIndex;
+			CasterSpot = pOSpot;
+			CasterHeading = piHeading;
 		}
 
 		/// <summary>The player casts (runes, a wand, a trap's spell for him).</summary>
-		public static UWCastContext ThePlayer => new UWCastContext(false, 0);
+		public static UWCastContext ThePlayer => new UWCastContext(false, 0, UWSpot.Nowhere, 0);
 
-		/// <summary>A creature casts.</summary>
-		public static UWCastContext Creature(int piCreatureIndex)
+		/// <summary>A creature casts, standing on pOSpot and looking along piHeading.</summary>
+		public static UWCastContext Creature(int piCreatureIndex, UWSpot pOSpot, int piHeading)
 		{
-			return new UWCastContext(true, piCreatureIndex);
+			return new UWCastContext(true, piCreatureIndex, pOSpot, piHeading & 0xFF);
 		}
 
 		/// <summary>Whom the cast's blasts are charged to: the creature's index, else the player's
 		/// (UWCritterBrain.PlayerIndex).</summary>
 		public int AttackerIndex => ByCreature ? CreatureIndex : UWCritterBrain.PlayerIndex;
-	}
-
-	/// <summary>
-	/// ONE THING AN AREA SPELL MAY STRIKE (cleanup step 3.6, 2026-10-17): its tile and whether it
-	/// is a creature, with the scene's own handle to act on it (IUWWorld.ConfuseAreaTarget and the
-	/// two after it). The world collects them (IUWWorld.CollectAreaTargets) and the rule holds the
-	/// list for the cast - until then the spell host kept them as numbered entries, valid between a
-	/// collection and its use.
-	/// </summary>
-	public readonly struct UWAreaTarget
-	{
-		/// <summary>The tile it belongs to.</summary>
-		public readonly UWTilePos Tile;
-
-		/// <summary>A creature with its object - the only kind the rules act on.</summary>
-		public readonly bool IsCreature;
-
-		/// <summary>The scene's handle (opaque to the rules).</summary>
-		public readonly object Body;
-
-		public UWAreaTarget(UWTilePos pOTile, bool pbIsCreature, object pOBody)
-		{
-			Tile = pOTile;
-			IsCreature = pbIsCreature;
-			Body = pOBody;
-		}
 	}
 }

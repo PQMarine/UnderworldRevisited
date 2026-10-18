@@ -385,7 +385,8 @@ namespace UWDataImport.UWData
 		/// user "carry on with the player's Tremor"): the spell hands the tile-mode area walk the
 		/// hit count DiceRoll(8, 3) (8 to 24), distance 5 and radius 3, so the area lies IN FRONT
 		/// of the caster, the square from centre - 3 to centre + 4 both ways, with up to five
-		/// passes (UWAreaSpellRules.StrikeTiles, the same walk as Sheet Lightning and Flame Wind).
+		/// passes (UWAreaWalk with AREA_RANDOM, the same walk as Sheet Lightning and Flame Wind:
+		/// gronk_area(caster, rollem(8, 3), tremor_area, AREA_RANDOM, 5, 3), SPELLS.C xt_spells).
 		/// On every struck tile QuakeSpell makes one boulder, 0x154 + RNG % 3, at sub-position 3/3
 		/// and zpos 0x6E, and returns 1 even when the boulder could not be placed - every stroke
 		/// uses a hit. Then the screen shakes and effect 0x12 sounds at the caster.
@@ -406,14 +407,14 @@ namespace UWDataImport.UWData
 			if (lOLevel == null || lOLevel.TileData == null)
 				return false;
 
-			UWAreaSpellRules.StrikeTiles(UWAreaSpellRules.GetCentreTile(pIHost, TremorDistance), TremorRadius,
-				UWRandom.RollDice(TremorDiceCount, TremorDieSides), pIHost,
-				pOTile =>
+			UWAreaWalk.Square(lOLevel, UWAreaSpellRules.GetCentreTile(pIHost, TremorDistance), TremorRadius,
+				UWRandom.RollDice(TremorDiceCount, TremorDieSides), pIHost.Cast.AttackerIndex, UWAreaWalk.RandomSquares,
+				(pOTile, pOTarget) =>
 				{
 					pIHost.World.DropBoulder(UWObjectIds.LargeBoulderB + UWRandom.Next(BoulderKinds), pOTile.X,
 						pOTile.Z);
 
-					return 1;
+					return true;
 				});
 
 			pIHost.World.Presentation.ShakeScreen(TremorShakeDuration);

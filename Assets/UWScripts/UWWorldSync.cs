@@ -9,13 +9,6 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWWorldSync
 {
-    /// <summary>
-    /// From this distance from its start position on, a creature counts as having moved. The
-    /// conversion back to the eighths grid is not lossless - whoever stood still should keep their
-    /// position exactly as it was loaded. One grid step is eight units.
-    /// </summary>
-    private const float MovedThreshold = 1f;
-
     public static void Capture(UWLevelLoader pOLoader)
     {
         if (pOLoader == null || pOLoader.CurrentLevel == null)
@@ -47,29 +40,26 @@ public static class UWWorldSync
         }
     }
 
+    /// <summary>
+    /// THE RECORD, not the body (cleanup step 4.8, 2026-10-18): hit points, attitude, goal and
+    /// position are what the creature's record holds (UWWorldCapture.CaptureCritter). Until then
+    /// this handed over the body's hit points and its logical world point (UWCritter.BodyPosition),
+    /// which the capture converted back, and "moved" was that point more than one unit away from
+    /// where the body was set up. The facing needs no write of its own: the record writes the
+    /// heading eighth and the fine residual through to the UWNpc as the brain turns the creature
+    /// (contract section 6).
+    /// </summary>
     private static void fCaptureCritter(UWLevelLoader pOLoader, UWEntityInfo pOEntity, UWCritter pOCritter)
     {
-        UWNpc lONpc = pOEntity.ObjectData as UWNpc;
+        UWCritterRecord lORecord = pOCritter.Record;
 
-        if (lONpc == null)
+        if (!(pOEntity.ObjectData is UWNpc) || lORecord == null || lORecord.Npc != pOEntity.ObjectData)
             return;
 
-        UWDamageable lODamageable = pOEntity.GetComponent<UWDamageable>();
+        UWDamageable lODamageable = pOCritter.Damageable;
 
-        // THE LOGICAL BODY, not the picture: since the rebuild the transform only shows the
-        // picture catching up with the last step (UWCritter.BodyPosition), and the record
-        // already holds this position - the capture keeps the two exactly in step.
-        Vector3 lOAt = pOCritter.BodyPosition;
-        bool lbMoved = (lOAt - pOCritter.SpawnPosition).sqrMagnitude > MovedThreshold * MovedThreshold;
-
-        // The facing needs no write of its own any more: the creature record
-        // (UWCritterRecord) writes the heading eighth and the fine residual through to the
-        // UWNpc as the brain turns the creature (contract section 6).
-        UWWorldCapture.CaptureCritter(pOLoader.TileQueries, lONpc,
-            lODamageable != null && lODamageable.IsDestroyed,
-            lODamageable != null, lODamageable != null ? lODamageable.CurrentHealth : 0,
-            lODamageable != null ? lODamageable.InitialHealth : 0,
-            pOCritter.Attitude, pOCritter.Goal, lbMoved, lOAt.x, lOAt.y, lOAt.z);
+        UWWorldCapture.CaptureCritter(pOLoader.TileQueries, lORecord, lODamageable != null && lODamageable.IsDestroyed,
+            lODamageable != null ? lODamageable.InitialHealth : 0, pOCritter.HasMoved);
     }
 
     /// <summary>The door writes its own state (leaf, hit points, lock) the moment it changes;

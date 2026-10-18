@@ -116,8 +116,8 @@ public static class UWTargetSpell
     }
 
     /// <summary>The spell's damage on the creature through IUWWorld.Damage (cleanup step 3.3,
-    /// 2026-10-17). The creature is not told who cast it: its damage event charges the player by
-    /// default, as when this called UWDamageable.ApplyDamage itself (UWBlowAttribution.Untold).</summary>
+    /// 2026-10-17). Charged to the player (UWBlow.TargetSpell), as its damage event did by default
+    /// when this called UWDamageable.ApplyDamage itself.</summary>
     private static void fDamage(UWCritter pOCritter, UWDamageable pODamageable, UWBlow pOBlow)
     {
         UWWorld lOWorld = UWScene.World;

@@ -194,7 +194,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// <summary>
     /// The bodies of the Unity scene behind UWBlowRouting: each member does exactly what the
     /// damage sites did themselves until 2026-10-17. A target without a body is looked up - a
-    /// creature in UWCritter.Active by its index, an object through its entity.
+    /// creature by its index (UWCritter.AtIndex), an object through its entity.
     /// </summary>
     private sealed class Bodies : IUWBlowBodies
     {
@@ -215,13 +215,10 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
             if (pOTarget.Kind == UWDamageTargetKind.Creature)
             {
-                foreach (UWCritter lOCritter in UWCritter.Active)
-                {
-                    if (lOCritter != null && lOCritter.Index == pOTarget.Index)
-                        return lOCritter.GetComponent<UWDamageable>();
-                }
+                // The registry by index (cleanup step 4.8, 2026-10-18; a walk of Active until then).
+                UWCritter lOCritter = UWCritter.AtIndex(pOTarget.Index);
 
-                return null;
+                return lOCritter != null ? lOCritter.Damageable : null;
             }
 
             UWLevelLoader lOLoader = mOWorld.Loader;
@@ -240,45 +237,22 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
             return lOBody != null && !lOBody.IsDestroyed;
         }
 
-        public void SetCreatureAttacker(UWDamageTarget pOTarget, int piAttacker)
-        {
-            UWDamageable lOBody = fBodyOf(pOTarget);
-            UWCritter lOCritter = lOBody != null ? lOBody.GetComponent<UWCritter>() : null;
-
-            if (lOCritter != null)
-                lOCritter.AnnounceAttacker(piAttacker);
-        }
-
-        public void DamageBody(UWDamageTarget pOTarget, int piDamage, int piDamageType)
+        public void DamageBody(UWDamageTarget pOTarget, int piDamage, int piDamageType, int piAttacker)
         {
             UWDamageable lOBody = fBodyOf(pOTarget);
 
             if (lOBody != null)
-                lOBody.ApplyDamage(piDamage, piDamageType);
+                lOBody.ApplyDamage(piDamage, piDamageType, piAttacker);
         }
 
-        public void DamagePlayer(int piDamage, int piDamageType)
+        /// <summary>The player's end: the request through the damage pipeline (cleanup step 4.2,
+        /// 2026-10-17).</summary>
+        public void DamagePlayer(UWDamageRequest pORequest)
         {
             UWCharacter lOPlayer = UWScene.Character;
 
             if (lOPlayer != null)
-                lOPlayer.ApplyDamage(piDamage, piDamageType);
-        }
-
-        public void CursePlayer(int piDice)
-        {
-            UWCharacter lOPlayer = UWScene.Character;
-
-            if (lOPlayer != null)
-                lOPlayer.ApplyCurse(piDice);
-        }
-
-        public void BackfirePlayer(int piDice)
-        {
-            UWCharacter lOPlayer = UWScene.Character;
-
-            if (lOPlayer != null)
-                lOPlayer.ApplyBackfire(piDice);
+                lOPlayer.Damage(pORequest);
         }
 
         public void StrikeThingInFlight(int piFlightIndex, int piDamage, int piDamageType)
@@ -358,9 +332,9 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// <summary>UWLevelLoader.SpawnObjectById with CreateObj's own quality and the given count or
     /// link (the trap host's SpawnObjectById with 0, and the endgame host's SpawnObject with the
     /// moongate's link, until cleanup step 3.6, 2026-10-17).</summary>
-    public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity)
+    public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity, UWWorldEdit.Arrival peArrival)
     {
-        return Loader != null && Loader.SpawnObjectById(piObjectId, pOTile.X, pOTile.Y, piQuantity);
+        return Loader != null && Loader.SpawnObjectById(piObjectId, pOTile.X, pOTile.Y, peArrival, piQuantity);
     }
 
     /// <summary>
@@ -424,10 +398,12 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     }
 
     /// <summary>UWLevelLoader.SpawnDroppedObject at the point on the floor of its tile, not
-    /// requiring a flat floor (the spell host's SpawnObjectAt until cleanup step 3.6, 2026-10-17).</summary>
+    /// requiring a flat floor (the spell host's SpawnObjectAt until cleanup step 3.6, 2026-10-17).
+    /// At the head of the tile's list: creat_spell Obj_Adds what it conjures (2026-10-18).</summary>
     public bool DropObjectAt(UWObject pOObject, float pfWorldX, float pfWorldZ)
     {
-        return Loader != null && Loader.SpawnDroppedObject(pOObject, new Vector3(pfWorldX, 0f, pfWorldZ), false);
+        return Loader != null && Loader.SpawnDroppedObject(pOObject, new Vector3(pfWorldX, 0f, pfWorldZ), false,
+            UWWorldEdit.Arrival.Created);
     }
 
     public bool SpawnWardRune(int piTileX, int piTileY)
@@ -510,96 +486,47 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
     // ------------------------------------------------- Area spells (cleanup step 3.6)
 
-    /// <summary>What an area target is in the scene: the body that takes the spell, its creature
-    /// and entity, and the middle of its collider for the effect picture.</summary>
-    private sealed class AreaBody
-    {
-        public UWCritter Critter;
-
-        public UWEntityInfo Entity;
-
-        public Vector3 Centre;
-    }
-
     /// <summary>
-    /// Collects everything damageable in and around the area, once per spell. Which tile an entry
-    /// belongs to is decided by rounding the world position, just like on a projectile impact
-    /// (see UWMissiles.ApplyBlast).
-    ///
-    /// The targets are collected with the physics (the sphere deliberately reaches too far: the
-    /// cross of Flame Wind extends one tile beyond the edge, and the corners of a square area lie
-    /// further away than its edges - the rules filter by tile number anyway). Moved from the spell
-    /// host in cleanup step 3.6 (2026-10-17), where they were numbered entries valid until the next
-    /// collection; now the rule holds the list. The physics stays: the creature search by record
-    /// tile instead is the separate, checked step the plan keeps for later (it changes who is hit at
-    /// tile edges and the order within a tile).
+    /// The creature behind a level object an area spell's walk hands over (UWAreaWalk over the
+    /// squares' lists): the entity the loader made for it. Since cleanup step 4.0 (2026-10-18,
+    /// decision 11 of Docs/CLEANUP-PLAN.md) the rules choose the creatures by the tile lists, as
+    /// process_area does; until then this world collected the area targets with the physics
+    /// (CollectAreaTargets: everything damageable within (radius + 2) * 1.5 tiles of the centre,
+    /// each on the tile its transform stood on).
     /// </summary>
-    public int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles, List<UWAreaTarget> pOInto)
+    private UWEntityInfo fEntityOf(UWObject pOCreature)
     {
-        pOInto.Clear();
-
-        UWLevelLoader lOLoader = Loader;
-
-        if (lOLoader == null || lOLoader.CurrentLevel == null || lOLoader.CurrentLevel.TileData == null)
-            return 0;
-
-        UWTile lOCentreTile = lOLoader.CurrentLevel.GetTile(pOCentre.X, pOCentre.Y);
-
-        Vector3 lOCentre = new Vector3(
-            UWUnits.TileCentreToWorldAxis(pOCentre.X),
-            lOCentreTile != null ? lOCentreTile.FloorHeight : 0f,
-            UWUnits.TileCentreToWorldAxis(pOCentre.Y));
-
-        float lfRadius = (piRadiusTiles + 2) * UWWorldScale.TileSize * 1.5f;
-
-        Collider[] lOHits = Physics.OverlapSphere(lOCentre, lfRadius);
-
-        if (lOHits == null)
-            return 0;
-
-        HashSet<UWDamageable> lOSeen = new HashSet<UWDamageable>();
-
-        foreach (Collider lOCollider in lOHits)
-        {
-            UWDamageable lODamageable = lOCollider.GetComponentInParent<UWDamageable>();
-
-            if (lODamageable == null || !lOSeen.Add(lODamageable))
-                continue;
-
-            AreaBody lOBody = new AreaBody
-            {
-                Critter = lODamageable.GetComponent<UWCritter>(),
-                Entity = lOCollider.GetComponentInParent<UWEntityInfo>(),
-                Centre = lOCollider.bounds.center
-            };
-
-            pOInto.Add(new UWAreaTarget(lOLoader.WorldPositionToTile(lODamageable.transform.position),
-                lOBody.Critter != null && lOBody.Entity != null, lOBody));
-        }
-
-        return pOInto.Count;
+        return Loader != null && pOCreature != null && Loader.TryGetEntity(pOCreature, out UWEntityInfo lOEntity)
+            ? lOEntity
+            : null;
     }
 
-    public UWTargetSpellRules.Result ConfuseAreaTarget(UWAreaTarget pOTarget)
+    public UWTargetSpellRules.Result ConfuseCreature(UWObject pOCreature)
     {
-        AreaBody lOBody = pOTarget.Body as AreaBody;
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
 
-        return lOBody != null && lOBody.Critter != null ? lOBody.Critter.Confuse() : UWTargetSpellRules.Result.Missed;
+        return lOCritter != null ? lOCritter.Confuse() : UWTargetSpellRules.Result.Missed;
     }
 
-    public UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(UWAreaTarget pOTarget, int piMinorClass)
+    public UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass)
     {
-        AreaBody lOBody = pOTarget.Body as AreaBody;
-
-        return UWTargetSpell.Cast(piMinorClass, lOBody != null ? lOBody.Entity : null);
+        return UWTargetSpell.Cast(piMinorClass, fEntityOf(pOCreature));
     }
 
-    public void ShowEffectAtAreaTarget(UWAreaTarget pOTarget, int piEffectObjectId, float pfSeconds)
+    /// <summary>The picture at the middle of the creature's collider, where it stood on the
+    /// collider the physics found until 2026-10-18; at the entity's own point without one.</summary>
+    public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
     {
-        AreaBody lOBody = pOTarget.Body as AreaBody;
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
 
-        if (Loader != null && lOBody != null)
-            Loader.SpawnEffectAt(piEffectObjectId, lOBody.Centre, pfSeconds);
+        if (Loader == null || lOEntity == null)
+            return;
+
+        Collider lOCollider = lOEntity.GetComponentInChildren<Collider>();
+
+        Loader.SpawnEffectAt(piEffectObjectId,
+            lOCollider != null ? lOCollider.bounds.center : lOEntity.transform.position, pfSeconds);
     }
 
     /// <summary>UWTileBlast on the tile - the area spells' DamageObjectsInTile.</summary>
@@ -627,6 +554,13 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     {
         if (pOCreature.Record == null)
             return null;
+
+        // The registry by index first (cleanup step 4.8, 2026-10-18); a creature without an index
+        // (no data) is still walked for.
+        UWCritter lOByIndex = UWCritter.AtIndex(pOCreature.Index);
+
+        if (lOByIndex != null && lOByIndex.Record == pOCreature.Record)
+            return lOByIndex;
 
         IReadOnlyList<UWCritter> lOActive = UWCritter.Active;
 

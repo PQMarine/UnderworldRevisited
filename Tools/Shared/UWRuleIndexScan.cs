@@ -251,6 +251,13 @@ namespace UnderworldRevisited.Tools
             // read from.
             { "UWCombat.cs", "UWCritterCombat.cs" },
             { "UWCombat.cs", "UWPlayerCritterRow.cs" },
+            // UWAttackResolution runs that chain for every attacker (cleanup step 4.9, 2026-10-18)
+            // on UWCritterCombat's and UWCombat's numbers; it names AttackerAppliesFinalDamage for
+            // the flank added before the armour, a comment moved with the critical from
+            // UWCombat.ComputeDamage.
+            { "UWAttackResolution.cs", "UWCritterCombat.cs" },
+            { "UWAttackResolution.cs", "UWCombat.cs" },
+            { "UWAttackResolution.cs", "UWPlayerCritterRow.cs" },
 
             // Neither of the two implements RegisterEventHandler_seg010_105 - UWClickRules
             // names it as the place where the original's click areas are registered,

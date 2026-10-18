@@ -103,6 +103,19 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// DAMAGE_OBJECT'S FIRST TEST (UnderworldExhumed combat/DAMAGE.C): an object whose word 0
+		/// bit 13 is set (pbProtected, UWObject.DoorDirection) or whose quality class is 3 takes
+		/// nothing, whatever the blow - the one home of that condition since 2026-10-18 (cleanup
+		/// 4.0 follow-up: blasts reach the wall squares now, where the traps and triggers lie, and
+		/// every one of them carries the bit). Wear, UWHealth.IsIndestructible and the spawner's
+		/// door and container health ask here.
+		/// </summary>
+		public static bool ShrugsOff(bool pbProtected, int piQualityClass)
+		{
+			return pbProtected || piQualityClass >= ImmuneQualityClass;
+		}
+
+		/// <summary>
 		/// Wears an object down. The damage has already been scaled by the resistances; it is
 		/// halved once per quality class and taken off the quality, which never drops below 0.
 		/// Returns true when the object is destroyed by it.
@@ -112,7 +125,7 @@ namespace UWDataImport.UWData
 		{
 			piNewQuality = piQuality;
 
-			if (pbProtected || piQualityClass >= ImmuneQualityClass)
+			if (ShrugsOff(pbProtected, piQualityClass))
 				return false;
 
 			int liDamage = piDamage >> piQualityClass;

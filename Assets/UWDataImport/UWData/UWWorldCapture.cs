@@ -77,15 +77,24 @@ namespace UWDataImport.UWData
 		private const int OriginalCritterRadius = 2;
 
 		/// <summary>
-		/// A creature. Dead ones leave the level data; hit points are written when they changed or
-		/// the data carried some; attitude and goal always; the position only when the creature has
-		/// moved (pbMoved), because the conversion back to the eighths grid is not lossless. Returns
-		/// whether the position was written - the host then writes the facing.
+		/// A creature, FROM ITS RECORD (cleanup step 4.8, 2026-10-18; section 7.4 of
+		/// Docs/CLEANUP-PLAN.md): the record is the creature's one store of hit points, attitude,
+		/// goal and position, so what is captured is what the brain and the motion core left there.
+		/// Until then the host handed in the body's hit points and the body's world point, which this
+		/// converted back to tile, eighth and zpos - the same numbers, except where the body had not
+		/// followed the record yet (a floor trap that lifted the creature, a flier set down by goal 3)
+		/// or a swimmer was drawn lower (UWSettings.SwimmerHeightOffset).
+		///
+		/// A dying one stays with 0 hit points; hit points are written when they changed or the data
+		/// carried some; attitude and goal always; the tile list and the wall distance only when the
+		/// creature has moved since it was set up (pbMoved), so whoever stood still keeps its place
+		/// exactly as it was loaded. Returns whether the position was captured.
 		/// </summary>
-		public static bool CaptureCritter(UWTileQueries pOQueries, UWNpc pONpc, bool pbDestroyed,
-			bool pbHasHealth, int piCurrentHealth, int piInitialHealth, int piAttitude, int piGoal,
-			bool pbMoved, float pfWorldX, float pfWorldY, float pfWorldZ)
+		public static bool CaptureCritter(UWTileQueries pOQueries, UWCritterRecord pORecord, bool pbDestroyed,
+			int piInitialHealth, bool pbMoved)
 		{
+			UWNpc pONpc = pORecord != null ? pORecord.Npc : null;
+
 			if (pOQueries == null || pONpc == null)
 				return false;
 
@@ -103,33 +112,34 @@ namespace UWDataImport.UWData
 				return false;
 			}
 
-			// Hit points are stored as a full byte in the record (npc_hp). A creature whose data held
-			// 0 got the table values on setup - those stay untouched as long as it has not been hurt.
-			if (pbHasHealth && (pONpc.HitPoints > 0 || piCurrentHealth != piInitialHealth))
-				pONpc.HitPoints = (byte)Math.Clamp(piCurrentHealth, 1, MaxHitPoints);
+			// Hit points are stored as a full byte in the record (npc_hp); a record holding 0 keeps
+			// it from setup on as the original does (UWCritter.Initialise, 2026-10-18).
+			// AS THEY ARE, 0 INCLUDED (B23, cleanup step 4.8, 2026-10-18): the hit points come from the
+			// record now (UWHealth.KeepHitPointsIn), and a living creature holds 0 only when its
+			// death was refused - the golem until his script sets 125, as in the original. Until then
+			// they came from the body's own copy, clamped to at least 1, so he saved with 1.
+			int liHitPoints = pORecord.HitPoints;
 
-			pONpc.NPCAttitude = (byte)piAttitude;
-			pONpc.NPCGoal = (byte)piGoal;
+			if (pONpc.HitPoints > 0 || liHitPoints != piInitialHealth)
+				pONpc.HitPoints = (byte)Math.Clamp(liHitPoints, 0, MaxHitPoints);
+
+			pONpc.NPCAttitude = (byte)pORecord.Attitude;
+			pONpc.NPCGoal = (byte)pORecord.Goal;
 
 			if (!pbMoved)
 				return false;
-
-			UWTilePos lOTile = UWTileQueries.WorldToTile(pfWorldX, pfWorldZ);
-
-			pOQueries.MoveObjectData(pONpc, lOTile.X, lOTile.Y);
 
 			// The word at 0x16 (uw-formats calls it npc_xhome/npc_yhome) is the CURRENT tile of the
 			// creature: in every LEV.ARK written by the original it matches, for all creatures, the
 			// tile in whose list they hang (SAVE1-4 and DATA checked, 2026-09-11). The original unlinks
 			// a creature that moves on from its old tile via this word. If the load tile was still
 			// stored here, our entry stayed in the new tile and the player saw the creature twice (per
-			// user: two Bragits). The home is stored in quality and owner.
-			pONpc.NPCXHome = (byte)lOTile.X;
-			pONpc.NPCYHome = (byte)lOTile.Y;
+			// user: two Bragits). The home is stored in quality and owner. The record's TileX/TileY
+			// ARE that word (written through to NPCXHome/NPCYHome), and the fine position and zpos
+			// are the UWNpc's own, so only the list has to be made sure of.
+			UWTilePos lOTile = new UWTilePos(pORecord.TileX, pORecord.TileY);
 
-			pONpc.XPos = UWTileQueries.WorldToSubTile(pfWorldX, lOTile.X);
-			pONpc.YPos = UWTileQueries.WorldToSubTile(pfWorldZ, lOTile.Y);
-			pONpc.ZPos = Math.Clamp(UWUnits.WorldToZPos(pfWorldY), 0, MaxZPos);
+			pOQueries.MoveObjectData(pONpc, lOTile.X, lOTile.Y);
 
 			fKeepClearOfWalls(pOQueries, pONpc, lOTile);
 

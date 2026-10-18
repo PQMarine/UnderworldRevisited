@@ -774,11 +774,11 @@ public sealed class UWHudPanel
 
         string[] lsValues =
         {
-            mOUi.mCharacter.Strength.ToString(),
-            mOUi.mCharacter.Dexterity.ToString(),
-            mOUi.mCharacter.Intelligence.ToString(),
-            Mathf.RoundToInt(mOUi.mCharacter.CurrentHP) + "/" + Mathf.RoundToInt(mOUi.mCharacter.MaxHP),
-            Mathf.RoundToInt(mOUi.mCharacter.CurrentMana) + "/" + Mathf.RoundToInt(mOUi.mCharacter.MaxMana),
+            mOUi.mCharacter.Vitals.Strength.ToString(),
+            mOUi.mCharacter.Vitals.Dexterity.ToString(),
+            mOUi.mCharacter.Vitals.Intelligence.ToString(),
+            Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxHP),
+            Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxMana),
             fGetExperienceText()
         };
 
@@ -810,19 +810,19 @@ public sealed class UWHudPanel
         {
             int liSignature = 17;
 
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Strength;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Dexterity;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Intelligence;
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.CurrentHP);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.MaxHP);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.CurrentMana);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.MaxMana);
-            liSignature = (liSignature * 31) + (mOUi.mCharacter.Experience / 10);
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Level;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.SkillPoints;
+            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Strength;
+            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Dexterity;
+            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Intelligence;
+            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentHP);
+            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxHP);
+            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentMana);
+            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxMana);
+            liSignature = (liSignature * 31) + (mOUi.mCharacter.Vitals.Experience / 10);
+            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Level;
+            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.SkillPoints;
 
-            for (int liSkill = 0; liSkill < UWCharacter.SkillNumberCount; liSkill++)
-                liSignature = (liSignature * 31) + mOUi.mCharacter.GetSkillByNumber(liSkill);
+            for (int liSkill = 0; liSkill < UWPlayerVitals.SkillNumberCount; liSkill++)
+                liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.GetSkillByNumber(liSkill);
 
             if (liSignature == miStatsSignature)
                 return;
@@ -840,7 +840,7 @@ public sealed class UWHudPanel
     /// </summary>
     private string fGetExperienceText()
     {
-        return (mOUi.mCharacter.Experience / 10).ToString();
+        return (mOUi.mCharacter.Vitals.Experience / 10).ToString();
     }
 
     /// <summary>
@@ -899,7 +899,7 @@ public sealed class UWHudPanel
 
         if (piEntry == 0)
         {
-            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Attack.ToString() : string.Empty;
+            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Vitals.Attack.ToString() : string.Empty;
 
             return;
         }
@@ -910,13 +910,13 @@ public sealed class UWHudPanel
             // loaded save game, from before we kept our own - a mantra at a shrine raised it
             // ("You have advanced greatly in defense") and the page kept the old number (per
             // user, ANRA on SAVE1).
-            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Defence.ToString() : string.Empty;
+            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Vitals.Defence.ToString() : string.Empty;
 
             return;
         }
 
         if (mOUi.mCharacter != null)
-            psValue = mOUi.mCharacter.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
+            psValue = mOUi.mCharacter.Vitals.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
     }
 
     private void fRefreshSkillList()
@@ -1127,7 +1127,7 @@ public sealed class UWHudPanel
     /// <summary>Level as ordinal number, as in the original: 1ST, 2ND, 3RD, 4TH ...</summary>
     private string fGetLevelText()
     {
-        int liLevel = mOUi.mCharacter.Level;
+        int liLevel = mOUi.mCharacter.Vitals.Level;
         int liLastTwo = liLevel % 100;
         int liLast = liLevel % 10;
 

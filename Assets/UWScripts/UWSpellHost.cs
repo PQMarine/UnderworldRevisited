@@ -4,8 +4,9 @@ using UWDataImport.UWData;
 /// <summary>
 /// The Unity side of a cast: what the engine-free spell rules (UWSpellCasting and the
 /// class rules next to it) ask for through IUWSpellHost, read from UWCharacter, Interaction
-/// and the HUD. Built per cast (UWHudRunes for the player, UWCritter for a creature's area spell
-/// or summoning).
+/// and the HUD. Built per cast by UWHudRunes for the player. Until cleanup step 4.10
+/// (2026-10-18) also by UWCritter for a creature's area spell or summoning, with the creature as
+/// the cast's caster; a creature casts through UWCreatureSpellHost since.
 ///
 /// The boulders of Tremor are not physics objects: World.DropBoulder hands them to the motion
 /// core (UWMissiles.DropBoulder, since 2026-10-05), which holds their start height and sub-tile
@@ -39,18 +40,14 @@ public sealed class UWSpellHost : IUWSpellHost
     /// <summary>The world with this cast's presentation; null without a loader.</summary>
     private readonly IUWWorld mOWorld;
 
-    private readonly UWCastContext mOCast;
-
-    /// <param name="pOCast">Who casts; the player when not given.</param>
     public UWSpellHost(UWCharacter pOCharacter, Interaction pOInteraction, UWLevelLoader pOLoader,
-        UWDataImport.DataImport pOData, UWGameUI pOUi, UWCastContext? pOCast = null)
+        UWDataImport.DataImport pOData, UWGameUI pOUi)
     {
         mOCharacter = pOCharacter;
         mOInteraction = pOInteraction;
         mOLoader = pOLoader;
         mOData = pOData;
         mOUi = pOUi;
-        mOCast = pOCast ?? UWCastContext.ThePlayer;
 
         UWWorld lOWorld = UWWorld.Of(pOLoader);
 
@@ -60,7 +57,9 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public IUWWorld World => mOWorld;
 
-    public UWCastContext Cast => mOCast;
+    /// <summary>The player casts (a creature's cast is UWCreatureSpellHost's since cleanup step
+    /// 4.10, 2026-10-18).</summary>
+    public UWCastContext Cast => UWCastContext.ThePlayer;
 
     /// <summary>The data the caster was handed (UWGameUI's, the creature's loader's) - kept as
     /// given, not the world's.</summary>
@@ -73,19 +72,19 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public bool HasPlayer => mOCharacter != null;
 
-    public int PlayerLevel => mOCharacter != null ? mOCharacter.Level : 0;
+    public int PlayerLevel => mOCharacter != null ? mOCharacter.Vitals.Level : 0;
 
     /// <summary>Mana ROUNDED DOWN for the spell rules (the cost check), where the conversation host
     /// rounds to the nearest (IUWConversationHost.PlayerMana) - two conventions on purpose, kept
     /// apart by cleanup step 3.1 (2026-10-17).</summary>
-    public int PlayerMana => mOCharacter != null ? Mathf.FloorToInt(mOCharacter.CurrentMana) : 0;
+    public int PlayerMana => mOCharacter != null ? Mathf.FloorToInt(mOCharacter.Vitals.CurrentMana) : 0;
 
-    public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.GetSkill(UWPlayerData.Skill.Casting) : 0;
+    public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.Vitals.GetSkill(UWPlayerData.Skill.Casting) : 0;
 
     public void SpendMana(int piAmount)
     {
         if (mOCharacter != null)
-            mOCharacter.SpendMana(piAmount);
+            mOCharacter.Vitals.SpendMana(piAmount);
     }
 
     public double RealSeconds => Time.timeAsDouble;
@@ -93,24 +92,24 @@ public sealed class UWSpellHost : IUWSpellHost
     public void RestoreManaFromSpell(int piMinorClass)
     {
         if (mOCharacter != null)
-            mOCharacter.RestoreManaFromSpell(piMinorClass);
+            mOCharacter.Vitals.RestoreManaFromSpell(piMinorClass);
     }
 
     public void Heal(int piAmount)
     {
         if (mOCharacter != null)
-            mOCharacter.Heal(piAmount);
+            mOCharacter.Vitals.Heal(piAmount);
     }
 
     public void HealFully()
     {
         if (mOCharacter != null)
-            mOCharacter.HealFully();
+            mOCharacter.Vitals.HealFully();
     }
 
     public bool TryAddActiveSpell(int piMajorClass, int piMinorClass, int piStability)
     {
-        return mOCharacter != null && mOCharacter.TryAddActiveSpell(piMajorClass, piMinorClass, piStability);
+        return mOCharacter != null && mOCharacter.Vitals.TryAddActiveSpell(piMajorClass, piMinorClass, piStability);
     }
 
     public void BeginRoamingSightWithoutSpell()
@@ -143,13 +142,13 @@ public sealed class UWSpellHost : IUWSpellHost
     public void CurePoison()
     {
         if (mOCharacter != null)
-            mOCharacter.CurePoison();
+            mOCharacter.Vitals.CurePoison();
     }
 
     public void StartHallucination()
     {
         if (mOCharacter != null)
-            mOCharacter.StartHallucination();
+            mOCharacter.Vitals.StartHallucination();
     }
 
     // ------------------------------------------------- Sounds and icons

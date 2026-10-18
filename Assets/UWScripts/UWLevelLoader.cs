@@ -443,7 +443,7 @@ public class UWLevelLoader : MonoBehaviour
         fPlacePlayerAtTile(lbFound ? liArriveX : piTileX, lbFound ? liArriveY : piTileZ);
 
         if (!lbFound && UWScene.Character != null)
-            UWScene.Character.ApplyDamage(ArrivalNowhereDamage);
+            UWScene.Character.Damage(UWDamageRequest.ArrivalNowhere(ArrivalNowhereDamage));
 
         Debug.Log(string.Format("Entered level {0}, tile ({1},{2}) for ({3},{4})", miLevelIndex + 1,
             liArriveX, liArriveY, piTileX, piTileZ));
@@ -823,8 +823,8 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>
     /// Reports whether the crown of maze navigation is worn (see UWMazeNavigation).
     ///
-    /// Called every frame and only does something if something really has
-    /// changed - the switch costs a rebuild of the geometry.
+    /// Called on every status refresh (every frame until cleanup step 4.6, 2026-10-18) and only
+    /// does something if something really has changed - the switch costs a rebuild of the geometry.
     /// </summary>
     public void SetMazeNavigation(bool pbOn)
     {
@@ -1070,19 +1070,23 @@ public class UWLevelLoader : MonoBehaviour
     /// what has the quantity bit set - see UWObject.HasQuantity.</param>
     /// <param name="piQuality">Condition from zero to 63, or minus one for CreateObj's 40
     /// (since 2026-10-12; before that minus one left it at 0).</param>
-    public bool SpawnObjectById(int piObjectId, int piTileX, int piTileZ,
+    /// <param name="peArrival">Where in the tile's list it goes (UWWorldEdit.Arrival).</param>
+    public bool SpawnObjectById(int piObjectId, int piTileX, int piTileZ, UWWorldEdit.Arrival peArrival,
         int piQuantity = 0, int piQuality = -1)
     {
-        return SpawnObjectById(piObjectId, piTileX, piTileZ, piQuantity, piQuality, null);
+        return SpawnObjectById(piObjectId, piTileX, piTileZ, piQuantity, piQuality, null, peArrival);
     }
 
     /// <summary>As above, but at a specific world position within the tile - for
     /// blood and remains that lie where the creature died. Null means tile centre.
     /// </summary>
+    /// <param name="peArrival">Where in the tile's list it goes (UWWorldEdit.Arrival).</param>
     /// <param name="pOPrepare">Sets fields on the fresh object before it is placed (the planted
     /// silver tree's tenacious bit, for one).</param>
+    /// <param name="piInPlaceAt">The list index for UWWorldEdit.Arrival.InPlace.</param>
     public bool SpawnObjectById(int piObjectId, int piTileX, int piTileZ,
-        int piQuantity, int piQuality, Vector3? pOWorldPosition, System.Action<UWObject> pOPrepare = null)
+        int piQuantity, int piQuality, Vector3? pOWorldPosition, UWWorldEdit.Arrival peArrival,
+        System.Action<UWObject> pOPrepare = null, int piInPlaceAt = -1)
     {
         UWObject lOObject = fBuildObject(piObjectId, piQuantity, piQuality);
 
@@ -1099,9 +1103,10 @@ public class UWLevelLoader : MonoBehaviour
 
         if (pOWorldPosition.HasValue)
             return CurrentLevel != null && mOObjectRoot != null
-                && fSpawnObjectAt(lOObject, piTileX, piTileZ, pOWorldPosition.Value, false);
+                && fSpawnObjectAt(lOObject, piTileX, piTileZ, pOWorldPosition.Value, peArrival, false,
+                    piInPlaceAt: piInPlaceAt);
 
-        return SpawnObjectInTile(lOObject, piTileX, piTileZ);
+        return SpawnObjectInTile(lOObject, piTileX, piTileZ, peArrival);
     }
 
     /// <summary>A new object of this kind with its picture, or null without data.</summary>
@@ -1165,6 +1170,10 @@ public class UWLevelLoader : MonoBehaviour
     /// pbStayCentered, pbNoCull: drop_around_place's stay_centered (the point is tried first)
     /// and put_at's nocull (the object is never culled) - place_object at the player's feet.
     ///
+    /// THE ORDER IN THE LIST (2026-10-18): a spot found joins its tile's list at the tail, as
+    /// drop_around_place's Obj_AddEnd; the point itself, when no spot fitted, at the head, as
+    /// put_at's Obj_Add (UWWorldEdit.Arrival PutDown, PutAtPoint).
+    ///
     /// pbAvoidWorldContainers: a spot must keep the two radii away from any barrel, chest or
     /// nightstand in its tile - the one piece of the original's object collision taken over
     /// (per user, 2026-09-16: nothing from a spilled barrel comes to rest on the next one).
@@ -1189,21 +1198,25 @@ public class UWLevelLoader : MonoBehaviour
 
         // The rolls and the tile fit are UWPlacement's (engine-free since 2026-10-12); only the
         // container clearance, which reads the spawned bodies, stays here.
+        UWWorldEdit.Arrival leArrival = UWWorldEdit.Arrival.PutDown;
+
         if (!UWPlacement.TryScatter(TileQueries, liCentreX, liCentreY, piRadiusEighths, fGetObjectRadius(pOObject.ID),
             pOCentre.y, fScatterAlsoFits(pOObject.ID, pbAvoidWorldContainers, pbFitsLikeCanPlace, piZ),
             out liX, out liY, pbStayCentered))
         {
             if (!pbNoCull && TileQueries.Culls(pOObject.ID, UWStackRules.Count(pOObject)))
                 return false;
+
+            leArrival = UWWorldEdit.Arrival.PutAtPoint;
         }
 
         Vector3 lOSpot = new Vector3(UWUnits.EighthsToWorldAxis(liX), pOCentre.y, UWUnits.EighthsToWorldAxis(liY));
 
-        if (fSpawnObjectAt(pOObject, liX >> 3, liY >> 3, lOSpot, false))
+        if (fSpawnObjectAt(pOObject, liX >> 3, liY >> 3, lOSpot, leArrival, false))
             return true;
 
         return pOFallbackTile.HasValue
-            && SpawnObjectInTile(pOObject, pOFallbackTile.Value.X, pOFallbackTile.Value.Y);
+            && SpawnObjectInTile(pOObject, pOFallbackTile.Value.X, pOFallbackTile.Value.Y, UWWorldEdit.Arrival.PutAtPoint);
     }
 
     /// <summary>The player's tile, the centre of the culling (UWWorldEdit.PlayerTile); far off
@@ -1370,6 +1383,10 @@ public class UWLevelLoader : MonoBehaviour
     /// and puts everything on the floor - it deviates there. Noticed with Garamon's ghost, whose
     /// template stands at ZPos 24 and floats in the original (per user, 2026-09-13). Nothing ends up
     /// below the floor.
+    ///
+    /// AT THE TAIL of the tile's list (UWWorldEdit.Arrival.PutDown): the trap's copy goes through
+    /// put_at with stay_centered, whose first spot is this one (drop_around_place, Obj_AddEnd), and
+    /// the conversation's place_object at a square appends as well (BABLHACK.C, Obj_AddEnd).
     /// </summary>
     public bool SpawnObjectInTileAtTemplatePosition(UWObject pOObject, int piTileX, int piTileZ)
     {
@@ -1383,13 +1400,17 @@ public class UWLevelLoader : MonoBehaviour
             0f,
             UWUnits.SubTileToWorldAxis(piTileZ, pOObject.YPos));
 
-        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, true, liTemplateZ);
+        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, UWWorldEdit.Arrival.PutDown, false, true,
+            liTemplateZ);
     }
 
     /// <summary>A thing come to rest on the motion core (UWMotionHost.PlaceAtRest): at the
     /// record's eighth and height, as a lying object - the core has already decided that the
-    /// liquid did not take it, so no sinking here.</summary>
-    public bool PlaceRestingObject(UWObject pOObject, int piTileX, int piTileZ)
+    /// liquid did not take it, so no sinking here. peArrival: Landed for the motion core
+    /// (mob_to_static's Obj_Add, the head), InPlace with piInPlaceAt for a thing that only
+    /// changed its id where it lay.</summary>
+    public bool PlaceRestingObject(UWObject pOObject, int piTileX, int piTileZ, UWWorldEdit.Arrival peArrival,
+        int piInPlaceAt = -1)
     {
         if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
             return false;
@@ -1399,7 +1420,8 @@ public class UWLevelLoader : MonoBehaviour
             0f,
             UWUnits.SubTileToWorldAxis(piTileZ, pOObject.YPos));
 
-        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, false, false, pOObject.ZPos);
+        return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, peArrival, false, false, pOObject.ZPos,
+            piInPlaceAt);
     }
 
     /// <summary>Places an object in the centre of a tile - for create traps that give a
@@ -1410,7 +1432,7 @@ public class UWLevelLoader : MonoBehaviour
     /// half a tile, which is why the first spawned monster got the floor height of the
     /// neighbouring tile (user, 2026-08-29) - has since been fixed at the root,
     /// see WorldPositionToTile.</summary>
-    public bool SpawnObjectInTile(UWObject pOObject, int piTileX, int piTileZ)
+    public bool SpawnObjectInTile(UWObject pOObject, int piTileX, int piTileZ, UWWorldEdit.Arrival peArrival)
     {
         if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
             return false;
@@ -1418,7 +1440,7 @@ public class UWLevelLoader : MonoBehaviour
         return fSpawnObjectAt(pOObject, piTileX, piTileZ, new Vector3(
             UWUnits.TileCentreToWorldAxis(piTileX),
             0f,
-            UWUnits.TileCentreToWorldAxis(piTileZ)), false);
+            UWUnits.TileCentreToWorldAxis(piTileZ)), peArrival, false);
     }
 
     /// <summary>
@@ -1715,9 +1737,12 @@ public class UWLevelLoader : MonoBehaviour
     ///
     /// A THROWN item does not come through here any more: it flies on the motion core and
     /// lands via PlaceRestingObject (UWMotionHost.PlaceAtRest, since 2026-10-05).
+    ///
+    /// peArrival: PutDown for what the player puts down (ReturnObject's Obj_AddEnd, the tail),
+    /// Created for what a spell conjures on the spot (creat_spell's Obj_Add, the head).
     /// </summary>
     public bool SpawnDroppedObject(UWObject pOObject, Vector3 pOWorldPosition, bool pbRequireFlatFloor,
-        int? piHeading = null, bool pbCanSinkInLiquid = true, bool pbRestOnBridge = false)
+        UWWorldEdit.Arrival peArrival, int? piHeading = null, bool pbCanSinkInLiquid = true, bool pbRestOnBridge = false)
     {
         if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
             return false;
@@ -1742,7 +1767,7 @@ public class UWLevelLoader : MonoBehaviour
             && !fTrySnapOutOfRock(ref pOWorldPosition, lOTargetTile.X, lOTargetTile.Y, pOObject.ID))
             return false;
 
-        return fSpawnObjectAt(pOObject, lOTargetTile.X, lOTargetTile.Y, pOWorldPosition,
+        return fSpawnObjectAt(pOObject, lOTargetTile.X, lOTargetTile.Y, pOWorldPosition, peArrival,
             pbRequireFlatFloor, pbCanSinkInLiquid, pbRestOnBridge ? fGetBridgeZPosBelow(pOWorldPosition) : -1);
     }
 
@@ -1969,9 +1994,11 @@ public class UWLevelLoader : MonoBehaviour
     /// is PASSED IN instead of being determined here from the world position: whoever already
     /// knows the tile should not have to recompute it via a round trip (see
     /// SpawnObjectInTile). The fine position and the height come from the world position here;
-    /// the slot, the lists and the liquid are UWWorldEdit.Place's, the picture UWWorldView's.</summary>
+    /// the slot, the lists and the liquid are UWWorldEdit.Place's, the picture UWWorldView's; where
+    /// in the tile's list it goes is peArrival's (UWWorldEdit.Arrival, piInPlaceAt for InPlace).</summary>
     private bool fSpawnObjectAt(UWObject pOObject, int liTileX, int liTileZ, Vector3 pOWorldPosition,
-        bool pbRequireFlatFloor, bool pbCanSinkInLiquid = true, int piMinimumZPos = -1)
+        UWWorldEdit.Arrival peArrival, bool pbRequireFlatFloor, bool pbCanSinkInLiquid = true, int piMinimumZPos = -1,
+        int piInPlaceAt = -1)
     {
         UWTile lOTile = CurrentLevel.GetTile(liTileX, liTileZ);
 
@@ -1992,8 +2019,8 @@ public class UWLevelLoader : MonoBehaviour
 
         // Nothing sinks that lies ABOVE the floor - on a bridge over the water it stays dry.
         return WorldEdit.Place(pOObject, liTileX, liTileZ, fGetSubTilePos(pOWorldPosition.x, liTileX),
-            fGetSubTilePos(pOWorldPosition.z, liTileZ), liZPos, pbCanSinkInLiquid && !lbAboveFloor)
-            != UWWorldEdit.PlaceResult.Refused;
+            fGetSubTilePos(pOWorldPosition.z, liTileZ), liZPos, pbCanSinkInLiquid && !lbAboveFloor, peArrival,
+            piInPlaceAt) != UWWorldEdit.PlaceResult.Refused;
     }
 
     /// <summary>
@@ -2518,8 +2545,9 @@ public class UWLevelLoader : MonoBehaviour
     /// Until 2026-09-11 there was a fixed offset of 34 above the tile floor here. But the
     /// controller has its centre at the origin, the feet lie half a height below,
     /// and the character fell a bit after every load and level change (per user). As long as
-    /// a lock held gravity, it even hung there in mid-air (see
-    /// UWPlayerMovement.Update).
+    /// a lock held gravity, it even hung there in mid-air. The offset is
+    /// UWPlayerMovement.FootOffset, the one the motion core's write-back uses (this method had a
+    /// copy until cleanup 4.1, 2026-10-18).
     /// </summary>
     private void fPlacePlayerOnFloor(Vector3 pOPosition)
     {
@@ -2531,22 +2559,9 @@ public class UWLevelLoader : MonoBehaviour
     private void fPlacePlayerOnFloor(Vector3 pOPosition, float pfStandHeight)
     {
         GameObject lOPlayer = UWScene.Player;
-        float lfFootOffset = 0f;
+        UWPlayerMovement lOMovement = lOPlayer != null ? lOPlayer.GetComponent<UWPlayerMovement>() : null;
 
-        if (lOPlayer != null)
-        {
-            CharacterController lOController = lOPlayer.GetComponent<CharacterController>();
-
-            if (lOController != null)
-            {
-                float lfBottom = lOController.center.y
-                    - Mathf.Max(lOController.height * 0.5f, lOController.radius);
-
-                lfFootOffset = (-lfBottom * lOPlayer.transform.lossyScale.y) + lOController.skinWidth;
-            }
-        }
-
-        pOPosition.y = pfStandHeight + lfFootOffset;
+        pOPosition.y = pfStandHeight + (lOMovement != null ? lOMovement.FootOffset : 0f);
 
         fPlacePlayer(pOPosition);
     }
@@ -2625,13 +2640,11 @@ public class UWLevelLoader : MonoBehaviour
 
         UWPlayerMovement lOMovement = lOPlayer.GetComponent<UWPlayerMovement>();
 
+        // The motion core takes the spot (stage 3): PlaceAt with the feet's fine position. PlaceAt
+        // clears the motion's speeds, so nothing of a fall carries over to the new spot - the
+        // CharacterController path's ResetVerticalVelocity did that until cleanup 4.1 (2026-10-18).
         if (lOMovement != null)
-        {
-            lOMovement.ResetVerticalVelocity();
-
-            // The motion core takes the spot (stage 3): PlaceAt with the feet's fine position.
             lOMovement.PlaceFromTransform();
-        }
     }
 
     /// <summary>

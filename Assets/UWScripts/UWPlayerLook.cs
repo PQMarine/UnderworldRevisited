@@ -13,6 +13,8 @@ using UnityEngine;
 /// In the original scheme the cursor movement itself turns (see UWPlayerMovement); tilting
 /// happens there only in fixed steps via the keys 1 to 3 (fUpdateClassicPitch).
 /// </summary>
+// Before the movement: the frame's turn goes into the frame's walk (UWUpdateOrder, cleanup 4.7).
+[DefaultExecutionOrder(UWUpdateOrder.Look)]
 public class UWPlayerLook : MonoBehaviour
 {
     [SerializeField]

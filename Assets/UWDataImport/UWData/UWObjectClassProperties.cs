@@ -641,7 +641,7 @@ namespace UWDataImport.UWData
 		///   6, popcorn 2, mushroom 0 - all positive, that is the nutrition value.
 		///
 		///   Water -1, ale -3, port -8 - the magnitude is the DRUNKENNESS the
-		///   drink causes (see UWCharacter.Drink).
+		///   drink causes (see UWPlayerVitals.Drink).
 		///
 		///   Red and green elixir -127; those go their own way as potions.
 		///   Bottle of wine 0 - in the original you cannot open it at all.

@@ -90,6 +90,8 @@ namespace UnderworldRevisited.Tools
             fExpectInt("player: ... stands on the ground", lOPlayer.Params.Contact, UWMotionTables.ContactGround);
             fExpectInt("player: ... in the normal state", (int)lOPlayer.CurrentState, (int)UWPlayerMotion.State.Normal);
             fExpectInt("player: ... with the full forward speed", lOPlayer.ForwardSpeed, 0x3AC);
+            fExpectInt("player: ... the feet in zpos steps are the params' z over eight (phys_affect_player)", lOPlayer.FeetZPos, 0x80 >> 3);
+            fExpectInt("player: ... and the collision body carries the same height", lOPlayer.Body.ZPos, lOPlayer.FeetZPos);
             fExpectInt("player: the z table ends in zeros (floors 14 and 15)", UWPlayerMotion.PlaceZByFloor[14] + UWPlayerMotion.PlaceZByFloor[15], 0);
             fExpectInt("player: ... and climbs by 0x40 (floor 13)", UWPlayerMotion.PlaceZByFloor[13], 0x340);
 
@@ -263,7 +265,6 @@ namespace UnderworldRevisited.Tools
             fExpectBool("player: ... through the edge state first", lbEdge, true);
             fExpectInt("player: ... swimming", (int)lOPlayer.CurrentState, (int)UWPlayerMotion.State.Swimming);
             fExpectInt("player: ... at three tenths", lOPlayer.ForwardSpeed, 0x3AC * 3 / 10);
-            fExpectInt("player: ... the counter at 0x60", lOPlayer.SwimCounter, 0x60);
             fExpectInt("player: ... the surface bit 1", lOPlayer.SurfaceBits, 1);
             fExpectInt("player: ... on the water", lOPlayer.Params.Contact, UWMotionTables.ContactWater);
 
@@ -272,7 +273,6 @@ namespace UnderworldRevisited.Tools
             lOPlayer.Abilities = UWPlayerMotion.AbilityWaterWalk;
             fRunFrames(lOPlayer, UWPlayerMotion.Command.Walk, UWPlayerMotion.WalkRun, 40);
             fExpectInt("player: water walking keeps the normal state over water", (int)lOPlayer.CurrentState, (int)UWPlayerMotion.State.Normal);
-            fExpectInt("player: ... and the counter at 0", lOPlayer.SwimCounter, 0);
 
             // ------------------------------------------------- lava
             lOWorld = new FakeMotionWorld();

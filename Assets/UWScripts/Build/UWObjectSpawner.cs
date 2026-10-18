@@ -496,7 +496,7 @@ namespace UnderworldRevisited.Build
             }
 
             // The UWDamageable's single armour value is the body's (row byte 0). A blow or a
-            // missile asks UWCritter.GetArmourAgainst for the part it hits instead
+            // missile asks UWCritter.GetArmourOfPart for the part it hits instead
             // (AttackerAppliesFinalDamage: row[part % 4], 0xFF falls back to byte 0, deviation
             // 49); this one remains for everything that has no heights, such as a blast.
             int liArmour = lOCritter.ArmourOfPart(UWArmourProtection.PartBody);
@@ -515,7 +515,8 @@ namespace UnderworldRevisited.Build
             // data folder only 37 match the table, 281 have fewer, 272 more.
             // The reference subtracts damage from npc_hp and lets the creature die at 0
             // (damage.cs). Only then does an injury also survive saving and loading. Where
-            // the data holds 0, the table value is used.
+            // the data holds 0, the body starts from the table value, but the record keeps its
+            // 0 and is the store the body reads (UWCritter.Initialise, since 2026-10-18).
             UWNpc lONpc = pOObject as UWNpc;
             int liHitPoints = lONpc != null && lONpc.HitPoints > 0 ? lONpc.HitPoints : lOCritter.Vitality;
 
@@ -572,7 +573,7 @@ namespace UnderworldRevisited.Build
 
             // Class 3 shrugs every blow off (reference: damage.DamageOtherObjectTypes returns
             // straight away for it) - the metal door, the portcullis, pillar and bridge.
-            return liQualityClass != UWCombat.AlwaysBestQualityClass && !pOObject.DoorDirection;
+            return !UWObjectDamageRules.ShrugsOff(pOObject.DoorDirection, liQualityClass);
         }
 
         /// <summary>Hit points for a door. What a broken door does is UWDoor's (BurstOpen, since

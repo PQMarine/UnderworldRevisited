@@ -159,7 +159,9 @@ namespace UWDataImport.UWData
 		/// zpos &gt;&gt; 3 of a creature standing on it reads). Off the map: 0.</summary>
 		int FloorLevelAt(int piTileX, int piTileY);
 
-		/// <summary>The tile's no-magic bit (UWTile.NoMagicAllowed).</summary>
+		/// <summary>The tile's no-magic bit (UWTile.NoMagicAllowed; anti_magic_p, the original's
+		/// mind asks nothing more - UWEndgameRules.IsAntiMagicTile). The Void is the cast's refusal,
+		/// not the mind's (UWCreatureSpellHost, cleanup step 4.10).</summary>
 		bool IsMagicBlockedAt(int piTileX, int piTileY);
 
 		/// <summary>The dungeon level, 1-based (PlayerLevel) - acceptable_danger's level 6
@@ -231,9 +233,11 @@ namespace UWDataImport.UWData
 		/// </summary>
 		StepResult RunMotion();
 
-		/// <summary>Goal 3's teleport (48458-48471): put the body on this tile at its centre
-		/// and floor, relink it. The host's walkability check (deviation 37) may refuse; the
-		/// brain then leaves the record alone.</summary>
+		/// <summary>Goal 3's teleport (48458-48471): put the record on this tile at its centre
+		/// (eighth 4/4) and floor (the tile's height times eight, a flier too), relink it, the body
+		/// there. The one write of the position (cleanup step 4.8, 2026-10-18; the brain wrote the
+		/// record a second time after the call until then). The host's walkability check
+		/// (deviation 37) may refuse; the record then stays as it was.</summary>
 		bool Teleport(int piTileX, int piTileY);
 
 		// ------------------------------------------------- Doors (NPCTryToOpenDoor, 47474)

@@ -2,13 +2,16 @@ namespace UWDataImport.UWData
 {
 	/// <summary>
 	/// The last talisman is destroyed - sequence per UW.EXE:
-	///   on impact           "A rending sound fills the air."
-	///   EndGameFunctions    moongate in the volcano centre (link 0x2C0),
+	///   on impact           "A rending sound fills the air.", the counter (quest 36) at 0
+	///                       (UWEndgameRules.DropTalismanInLava; the impact is not this class's)
+	///   EndGameFunctions    run every frame while the counter is 0 (check_victory,
+	///                       UWEndgameRules.AllTalismansGone; since 2026-10-18, the impact
+	///                       launched until then): moongate in the centre of the level (link 0x2C0),
 	///                       "The Slasher of Veils is dragged from this world.",
 	///                       LaunchPlayerAtMoongate_ovr134_D52: 64 steps, ONE FRAME PER STEP
 	///                       (renderrelated_seg031_351, no delay - the speed depended on the
 	///                       machine speed), then remove the gate, teleport to level 9
-	///                       27/23, "You are sucked through the moongate . . . . ."
+	///                       27/23, the counter to 0xFF, "You are sucked through the moongate . . . . ."
 	/// Camera per step following PositionCameraAtObject_seg034_2F89_B99, see UWMoongateFlight.
 	///
 	/// ENGINE-FREE ON THE GAME'S CLOCK SINCE 2026-10-17 (cleanup step 3.4): until then the coroutine
@@ -43,7 +46,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>String block 1, our export one higher than UW.EXE's numbers (see UWEndgame:
 		/// UW.EXE calls 0x116, 0x117 and 0x118).</summary>
-		private const int RendingSoundMessage = 0x116 + 1;     // A rending sound fills the air.
+		public const int RendingSoundMessage = 0x116 + 1;      // A rending sound fills the air.
 
 		private const int SlasherDraggedMessage = 0x117 + 1;   // The Slasher of Veils is dragged from this world.
 
@@ -77,9 +80,10 @@ namespace UWDataImport.UWData
 		private int miShownStep;
 
 		/// <summary>
-		/// The impact of the last talisman: the messages, the gate and the start of the flight at
-		/// once; the steps follow on pOSchedule. pfStepSeconds is the wait per step (0: one step
-		/// per running frame). False when a launch is already running.
+		/// The journey, started by the victory check when the talisman counter is 0 (the impact of
+		/// the last talisman only plays the rending sound since 2026-10-18): the message, the gate
+		/// and the start of the flight at once; the steps follow on pOSchedule. pfStepSeconds is
+		/// the wait per step (0: one step per running frame). False when a launch is already running.
 		/// </summary>
 		public bool Launch(IUWWorld pOWorld, IHost pIHost, UWWorldScheduler pOSchedule, float pfStepSeconds)
 		{
@@ -94,16 +98,16 @@ namespace UWDataImport.UWData
 			mbStarted = false;
 			miFrames = 0;
 
-			// The scroll is looked up at every message (the world's presentation): the journey
-			// rebuilds the level before the last one.
-			mOWorld.Presentation.AddGeneralMessage(RendingSoundMessage);
-
 			// Link 0x2C0 as in UW.EXE (EndGameFunctions: word 3 = ... | 0xB000, quantity bit set) -
 			// for the moongate that is the colour, see UWObjectSpawner.fGetModelFaceColor. Without it
 			// the gate stayed pink (per user, 2026-09-14).
+			// Obj_AddEnd (SKILLS.C): at the tail of the tile's list (2026-10-18).
 			mOWorld.SpawnNewObject(UWObjectMechanics.MoongateObjectId,
-				new UWTilePos(UWEndgameRules.VolcanoCentre, UWEndgameRules.VolcanoCentre), MoongateLink);
+				new UWTilePos(UWEndgameRules.VolcanoCentre, UWEndgameRules.VolcanoCentre), MoongateLink,
+				UWWorldEdit.Arrival.PutDown);
 
+			// The scroll is looked up at every message (the world's presentation): the journey
+			// rebuilds the level before the last one.
 			mOWorld.Presentation.AddGeneralMessage(SlasherDraggedMessage);
 
 			UWVector3 lOCamera;
@@ -165,6 +169,9 @@ namespace UWDataImport.UWData
 
 			IsLaunching = false;
 
+			// check_victory: the teleport, then the counter to 0xFF, then the journey - a save
+			// during the flight keeps the 0 and starts it again on loading.
+			UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, UWEndgameRules.TalismansAfterVictory);
 			mOWorld.TravelTo(UWEndgameRules.VoidLevelIndex, UWEndgameRules.VoidTileX, UWEndgameRules.VoidTileY);
 			mOWorld.Presentation.AddGeneralMessage(SuckedThroughMessage);
 			mIHost = null;

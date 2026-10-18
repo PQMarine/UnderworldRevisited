@@ -1149,6 +1149,10 @@ Collected from the reviews; each blocks or shapes one step. None has been decide
     offset 0x7AFC, which `UWLevel.fLoadActiveMobiles` already reads); newcomers are appended as
     `Obj_Alloc` does. The driver walks that list instead of `UWCritter.Active`.
 11. Area and blast targets by record tile instead of physics (changes who gets hit at tile edges)?
+    DECIDED 2026-10-18 (per user): as the original - `gronk_area`/`process_area` (SPELLS.C) walk the
+    object lists of the squares in the area, no physics; the class 7 spells take the first creature
+    in that walk. Built as the first step of phase 4; checked afterwards in the original (fireball at
+    a wall corner, Flame Wind on a crowd, Poison with two creatures side by side).
 12. `UWGameUI` serialized layout values: move to the static table (losing Inspector tuning)?
 13. `TryGetEntityAt` and `fApplyTargetSpell` skip the sight limit: intended?
 14. Classic count-aware weight check for bought goods vs modern whole-stack: which matches the

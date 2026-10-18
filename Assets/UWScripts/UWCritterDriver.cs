@@ -24,7 +24,7 @@ using UWDataImport.UWData;
 /// skipped there too (the clock hold already stops the frame time).
 ///
 /// SINCE 2026-10-17 it also advances the session's world scheduler (UWWorldScheduler) once per
-/// frame, after the walk.
+/// frame, after the walk; since 2026-10-18 it then runs the victory check (UWEndgame.CheckVictory).
 ///
 /// Attached to the level object (UWLevelLoader.Start).
 /// </summary>
@@ -43,6 +43,9 @@ public class UWCritterDriver : MonoBehaviour
     /// <summary>Whether the player's Speed enchantment halved the world's slot advances this
     /// frame (114998-115008). UWCritter reads it for the picture's interpolation time.</summary>
     public static bool PlayerHasSpeed { get; private set; }
+
+    /// <summary>The level object this driver sits on, for the victory check.</summary>
+    private UWLevelLoader mOLoader;
 
     private void Awake()
     {
@@ -75,7 +78,18 @@ public class UWCritterDriver : MonoBehaviour
         // 2026-10-17): the same frame ticks, before Speed halves them and Freeze Time drops them
         // and without the easy move's fixed step, as the Time.time it replaces ran on. A held
         // clock or an open conversation is no running frame: it stands still.
-        UWGameSession.Current.Schedule.Advance(liTicks, !lbTalking && !UWGameClock.IsHeld);
+        bool lbWorldRuns = !lbTalking && !UWGameClock.IsHeld;
+
+        UWGameSession.Current.Schedule.Advance(liTicks, lbWorldRuns);
+
+        // check_victory, every frame of the original's main loop (since 2026-10-18).
+        if (lbWorldRuns)
+        {
+            if (mOLoader == null)
+                mOLoader = GetComponent<UWLevelLoader>();
+
+            UWEndgame.CheckVictory(mOLoader);
+        }
     }
 
     /// <summary>The easy move's fixed step: 64 ticks, four units (UWPlayerMovement).</summary>
@@ -128,10 +142,10 @@ public class UWCritterDriver : MonoBehaviour
     {
         UWCharacter lOCharacter = UWScene.Character;
 
-        if (lOCharacter == null || lOCharacter.ActiveSpells == null)
+        if (lOCharacter == null || lOCharacter.Vitals.ActiveSpells == null)
             return false;
 
-        foreach (UWActiveSpellEffect lOSpell in lOCharacter.ActiveSpells)
+        foreach (UWActiveSpellEffect lOSpell in lOCharacter.Vitals.ActiveSpells)
         {
             if (lOSpell.MajorClass == UWMiscSpellRules.MajorClass && lOSpell.MinorClass == UWMiscSpellRules.SpeedEffectMinor)
                 return true;

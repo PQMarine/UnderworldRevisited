@@ -236,15 +236,21 @@ namespace UnderworldRevisited.Tools
         {
             Check.Group("Endgame sequence (UWEndgameSequence, UWMoongateFlight: the launch into the void)");
 
-            // THE ORDER at the impact, then the journey and the last message.
+            // THE ORDER at the start, then the journey and the last message. The rending sound is
+            // the impact's, not the launch's, since the victory check starts it (2026-10-18).
+            int liSavedCounter = UWQuestFlags.Get(UWEndgameRules.TalismanQuestFlag);
+
+            UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, 0);
+
             UWWorldScheduler lOSchedule = new UWWorldScheduler();
             UWEndgameSequence lOSequence = new UWEndgameSequence();
             LoggingEndgameHost lOHost = new LoggingEndgameHost { Clock = lOSchedule };
             const float lfStep = 1f / 15f;
 
             Check.Bool("launch: starts", lOSequence.Launch(lOHost.World, lOHost, lOSchedule, lfStep), true);
-            Check.Str("launch: at the impact", string.Join("; ", lOHost.Log),
-                "general 279; spawn 15A 32/32 2C0; general 280; camera");
+            Check.Str("launch: at the start", string.Join("; ", lOHost.Log),
+                "spawn 15A 32/32 2C0 PutDown; general 280; camera");
+            Check.Int("launch: the counter stays 0 during the flight", UWQuestFlags.Get(UWEndgameRules.TalismanQuestFlag), 0);
             Check.Int("launch: step 0 shown at once", lOHost.Poses.Count, 1);
             Check.Bool("launch: running", lOSequence.IsLaunching, true);
             Check.Bool("launch: a second one while it runs does nothing",
@@ -285,7 +291,28 @@ namespace UnderworldRevisited.Tools
             Check.Near("launch: 64 steps of 1/15 s on the game clock", ldSeconds, 64.0 / 15.0, 1.0 / 60.0);
             Check.Int("launch: every step shown once at 60 fps", lOHost.Poses.Count, UWMoongateFlight.Steps);
             Check.Str("launch: then the camera ends, the journey, the last message",
-                string.Join("; ", lOHost.Log.GetRange(4, lOHost.Log.Count - 4)), "end camera; travel 8 27/23; general 281");
+                string.Join("; ", lOHost.Log.GetRange(3, lOHost.Log.Count - 3)), "end camera; travel 8 27/23; general 281");
+            Check.Int("launch: the counter 0xFF after the journey (check_victory)", UWQuestFlags.Get(UWEndgameRules.TalismanQuestFlag),
+                UWEndgameRules.TalismansAfterVictory);
+            Check.Bool("launch: no victory check due at 0xFF", UWEndgameRules.AllTalismansGone(), false);
+
+            // THE TALISMANS IN THE VOLCANO count down; the last one only brings the counter to 0,
+            // which the victory check watches (mob_to_static, check_victory).
+            int liLeft;
+
+            UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, 2);
+            Check.Str("talisman: one of two burns", UWEndgameRules.DropTalismanInLava(310, UWEndgameRules.VolcanoLevelIndex,
+                32, 32, true, true, out liLeft).ToString(), "Flame");
+            Check.Int("talisman: ... one left", liLeft, 1);
+            Check.Bool("talisman: ... no victory yet", UWEndgameRules.AllTalismansGone(), false);
+            Check.Str("talisman: the last one", UWEndgameRules.DropTalismanInLava(10, UWEndgameRules.VolcanoLevelIndex,
+                33, 31, true, true, out liLeft).ToString(), "Last");
+            Check.Int("talisman: ... the counter at 0", UWQuestFlags.Get(UWEndgameRules.TalismanQuestFlag), 0);
+            Check.Bool("talisman: ... the victory check is due", UWEndgameRules.AllTalismansGone(), true);
+            Check.Str("talisman: one more at 0 wraps to 0xFF, a flame", UWEndgameRules.DropTalismanInLava(54,
+                UWEndgameRules.VolcanoLevelIndex, 32, 32, true, true, out liLeft).ToString(), "Flame");
+            Check.Int("talisman: ... the counter 0xFF", UWQuestFlags.Get(UWEndgameRules.TalismanQuestFlag), 0xFF);
+            UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, 0);
             Check.Bool("launch: no longer running", lOSequence.IsLaunching, false);
             Check.Int("launch: its step is gone", lOSchedule.RunningSteps, 0);
 
@@ -340,6 +367,8 @@ namespace UnderworldRevisited.Tools
             Check.Int("flight: step at 1/15 s after 17 ticks", UWMoongateFlight.StepAt(lfStep, 17, 0), 0);
             Check.Int("flight: and after 18", UWMoongateFlight.StepAt(lfStep, 18, 0), 1);
             Check.Int("flight: step length 0 counts frames", UWMoongateFlight.StepAt(0f, 5000, 7), 7);
+
+            UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, liSavedCounter);
         }
     }
 }

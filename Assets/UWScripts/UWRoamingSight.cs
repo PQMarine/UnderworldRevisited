@@ -197,7 +197,7 @@ public sealed class UWRoamingSight : MonoBehaviour
         UWCharacter lOCharacter = GetComponent<UWCharacter>();
 
         if (lOCharacter != null)
-            lOCharacter.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
+            lOCharacter.Vitals.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
     }
 
     private void Update()
@@ -245,7 +245,7 @@ public sealed class UWRoamingSight : MonoBehaviour
             UWCharacter lOCharacter = GetComponent<UWCharacter>();
 
             if (lbWithSpell && lOCharacter != null)
-                lOCharacter.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
+                lOCharacter.Vitals.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
 
             return;
         }

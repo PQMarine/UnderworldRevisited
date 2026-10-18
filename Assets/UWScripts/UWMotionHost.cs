@@ -243,13 +243,8 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         if (piIndex <= 1 || piIndex >= FirstFlightIndex)
             return null;
 
-        foreach (UWCritter lOCritter in UWCritter.Active)
-        {
-            if (lOCritter != null && lOCritter.Index == piIndex)
-                return lOCritter;
-        }
-
-        return null;
+        // The registry by index (cleanup step 4.8, 2026-10-18; a walk of UWCritter.Active until then).
+        return UWCritter.AtIndex(piIndex);
     }
 
     /// <summary>A collision index of a lying object (the transient static indices begin at 4096;
@@ -871,7 +866,8 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         lOObject.YPos = (ushort)pORecord.YPos;
         lOObject.ZPos = pORecord.ZPos;
 
-        mOLoader.PlaceRestingObject(lOObject, pORecord.TileX, pORecord.TileY);
+        // mob_to_static's Obj_Add: at the head of the tile's list (2026-10-18).
+        mOLoader.PlaceRestingObject(lOObject, pORecord.TileX, pORecord.TileY, UWWorldEdit.Arrival.Landed);
     }
 
     public UWLevelLoader Loader => mOLoader;

@@ -414,7 +414,7 @@ public class UWModernRunePanel : MonoBehaviour
         {
             UWGameUI lOUi = UWScene.GameUi;
 
-            return lOUi != null && lOUi.mCharacter != null ? (lOUi.mCharacter.Level + 1) / 2 : 0;
+            return lOUi != null && lOUi.mCharacter != null ? (lOUi.mCharacter.Vitals.Level + 1) / 2 : 0;
         }
     }
 
@@ -427,7 +427,7 @@ public class UWModernRunePanel : MonoBehaviour
         if (!UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell) || lOUi == null || lOUi.mCharacter == null)
             return false;
 
-        return HasRunes(piSequence) && lOSpell.Level <= CharacterCircle && lOUi.mCharacter.CurrentMana >= lOSpell.ManaCost;
+        return HasRunes(piSequence) && lOSpell.Level <= CharacterCircle && lOUi.mCharacter.Vitals.CurrentMana >= lOSpell.ManaCost;
     }
 
     public static string SpellName(int piSequence)

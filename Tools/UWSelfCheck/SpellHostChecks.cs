@@ -6,11 +6,13 @@ namespace UnderworldRevisited.Tools
 {
     /// <summary>
     /// Cleanup step 3.6 (2026-10-17): the spell rules on the fake world. The spell host shrank to
-    /// the caster (FakeSpellHost below); the area targets are a list the rule holds, the creature
-    /// caster a value (UWCastContext). Checked here for the first time without a scene: Confusion's
-    /// walk over the targets, Sheet Lightning's strikes charged to the caster, the class 7 spell on
-    /// the first creature in process_area's order, Detect Monsters on the world's creatures, and
-    /// Tremor's boulders, shake and rumble.
+    /// the caster (FakeSpellHost below), the creature caster a value (UWCastContext). Checked here
+    /// for the first time without a scene: Confusion's walk over the targets, Sheet Lightning's
+    /// strikes charged to the caster, the class 7 spell on the first creature in process_area's
+    /// order, Detect Monsters on the world's creatures, and Tremor's boulders, shake and rumble.
+    /// Since cleanup step 4.0 (2026-10-18) the area spells find the creatures in the fake level's
+    /// tile lists (FakeWorld.PutCreature) instead of a list of physics hits; the walk itself is
+    /// checked in AreaWalkChecks.
     /// </summary>
     public static partial class Program
     {
@@ -119,8 +121,8 @@ namespace UnderworldRevisited.Tools
             fExpectBool("cast: the player is no creature", UWCastContext.ThePlayer.ByCreature, false);
             fExpectInt("cast: the player's blasts are charged to him", UWCastContext.ThePlayer.AttackerIndex,
                 UWCritterBrain.PlayerIndex);
-            fExpectBool("cast: a creature casts", UWCastContext.Creature(7).ByCreature, true);
-            fExpectInt("cast: a creature's blasts are charged to it", UWCastContext.Creature(7).AttackerIndex, 7);
+            fExpectBool("cast: a creature casts", UWCastContext.Creature(7, UWSpot.Nowhere, 0).ByCreature, true);
+            fExpectInt("cast: a creature's blasts are charged to it", UWCastContext.Creature(7, UWSpot.Nowhere, 0).AttackerIndex, 7);
         }
 
         /// <summary>A world for one cast: the player on 10/10 looking north on an open level.</summary>
@@ -139,16 +141,15 @@ namespace UnderworldRevisited.Tools
         private static void fCheckAreaConfusion()
         {
             FakeWorld lOWorld = fCastWorld();
+            UWObject lOItem = new UWObject(0x01) { TileX = 20, TileY = 20 };
 
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(19, 20), true, "A"));
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(20, 20), false, "B"));
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(30, 30), true, "C"));
+            lOWorld.PutCreature(19, 20, "A");
+            lOWorld.Level.GetTile(20, 20).ObjectsInTile.Add(lOItem);
+            lOWorld.Names[lOItem] = "B";
+            lOWorld.PutCreature(30, 30, "C");
 
             fExpectBool("confusion: cast", UWAreaSpellRules.CastAt(3, 0x00, new UWTilePos(20, 20),
                 new FakeSpellHost(lOWorld, UWCastContext.ThePlayer)), true);
-            fExpectBool("confusion: the targets were collected once, radius 3",
-                lOWorld.Log.FindAll(psLine => psLine.StartsWith("collect")).Count == 1
-                && lOWorld.Log.Contains("collect around 20/20 radius 3"), true);
             fExpectInt("confusion: the creature in the area is confused and sparkles",
                 fIndexOfSequence(lOWorld.Log, "confuse A", "effect 455 at A"), 0);
             fExpectBool("confusion: the object in the area is left", lOWorld.Log.Contains("confuse B"), false);
@@ -157,7 +158,7 @@ namespace UnderworldRevisited.Tools
             // Resisted: it counts, without the picture.
             lOWorld = fCastWorld();
             lOWorld.TargetAnswer = UWTargetSpellRules.Result.Spent;
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(19, 20), true, "A"));
+            lOWorld.PutCreature(19, 20, "A");
             UWAreaSpellRules.CastAt(3, 0x00, new UWTilePos(20, 20), new FakeSpellHost(lOWorld, UWCastContext.ThePlayer));
             fExpectBool("confusion: resisted, no sparkle", lOWorld.Log.Contains("confuse A")
                 && !lOWorld.Log.Contains("effect 455 at A"), true);
@@ -171,8 +172,8 @@ namespace UnderworldRevisited.Tools
             FakeSpellHost lOHost = new FakeSpellHost(lOWorld, UWCastContext.ThePlayer);
             UWTilePos lOCentre = UWAreaSpellRules.GetCentreTile(lOHost);
 
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(lOCentre.X + 1, lOCentre.Y), true, "E"));
-            lOWorld.AreaTargets.Add(new UWAreaTarget(new UWTilePos(lOCentre.X - 1, lOCentre.Y), true, "W"));
+            lOWorld.PutCreature(lOCentre.X + 1, lOCentre.Y, "E");
+            lOWorld.PutCreature(lOCentre.X - 1, lOCentre.Y, "W");
 
             fExpectBool("target spell in the area: cast", UWAreaSpellRules.CastTargetSpellInArea(6, lOHost), true);
             fExpectBool("target spell in the area: the western creature takes it",
@@ -206,7 +207,7 @@ namespace UnderworldRevisited.Tools
             fExpectInt("sheet lightning: a flash for each", lOWorld.Shown.Log.FindAll(psLine => psLine.StartsWith("effect 453")).Count, 3);
 
             lOWorld = fCastWorld();
-            UWAreaSpellRules.CastAt(2, 0x40, new UWTilePos(20, 20), new FakeSpellHost(lOWorld, UWCastContext.Creature(7)));
+            UWAreaSpellRules.CastAt(2, 0x40, new UWTilePos(20, 20), new FakeSpellHost(lOWorld, UWCastContext.Creature(7, UWSpot.Nowhere, 0)));
             fExpectBool("sheet lightning: a creature's stroke is charged to it",
                 lOWorld.Log.Contains("strike 18/18 6d5 type " + UWDamageTypes.Magic + " by 7"), true);
         }

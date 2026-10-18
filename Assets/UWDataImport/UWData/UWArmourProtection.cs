@@ -73,7 +73,8 @@ namespace UWDataImport.UWData
 		/// visible even while it does nothing.
 		///
 		/// Kept with the session since 2026-10-14 (UWGameSession.Quirks, cleanup step 2.7); the
-		/// host pushes it before every status pass.
+		/// host pushes it once per game, when the character is set up (cleanup step 4.6,
+		/// 2026-10-18; before every status refresh until then).
 		/// </summary>
 		public static bool ResistBlowsAddsArmour
 		{
@@ -114,7 +115,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// Cursed items. The minor class is the NUMBER OF DICE with which the
-		/// curse strikes - see UWCharacter.ApplyCurse.
+		/// curse strikes - see UWDamageRequest.Curse.
 		///
 		/// In uw1 there are three kinds of cursed items, all on level 7 in Tybal's maze (counted in the
 		/// level data, 2026-09-10): the crowns 48 (four times) and 49 (twice) with
@@ -233,7 +234,7 @@ namespace UWDataImport.UWData
 		/// resist byte of the player's object 127 (init_spells and player_affected_by in
 		/// UnderworldExhumed game/PLAYDATA.C), and check_res (combat/DAMAGE.C) tests every damage
 		/// to the player against it. Ours does the same through Status.DamageTypeProof in
-		/// UWPlayerVitals.ApplyDamage.
+		/// UWDamagePipeline.
 		/// </summary>
 		private static readonly int[] msProofBits = { 0x40, 0x08, 0x10, 0x01, 0x02 };
 
@@ -297,16 +298,6 @@ namespace UWDataImport.UWData
 			/// </summary>
 			public int MotionAbilities;
 
-			/// <summary>
-			/// The same set of bits, but only the part that comes from a CAST spell.
-			///
-			/// The difference matters when lifting off: whoever casts Levitate lifts off at once
-			/// while standing (per user in the original, 2026-09-03). A ring, by contrast, lets you
-			/// walk quite normally - it only carries you once the ground is gone (per user, 2026-09-09). See
-			/// UWPlayerMovement.fUpdateHover.
-			/// </summary>
-			public int SpellMotionAbilities;
-
 			/// <summary>Bit field of the stealth bonuses (class 3, minor class 2 to 4):
 			/// Stealth, Conceal and Invisibility, as bits 1, 2 and 3. What they do is in
 			/// ApplyToNoise and ApplyToVisibility.</summary>
@@ -369,7 +360,6 @@ namespace UWDataImport.UWData
 				WeaponSkill = UWPlayerData.Skill.Unarmed;
 				Brightness = 0;
 				MotionAbilities = 0;
-				SpellMotionAbilities = 0;
 				StealthBonus = 0;
 				DamageTypeProof = 0;
 				RegenerationBits = 0;
@@ -422,10 +412,6 @@ namespace UWDataImport.UWData
 						pOActiveSpells[liAt].MinorClass, DollNone, pOStatus);
 				}
 			}
-
-			// The movement bits collected up to here come from cast spells - whatever is
-			// added afterwards comes from equipment. See Status.SpellMotionAbilities.
-			pOStatus.SpellMotionAbilities = pOStatus.MotionAbilities;
 
 			if (pOInventory != null)
 			{

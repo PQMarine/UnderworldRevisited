@@ -1123,19 +1123,15 @@ namespace UWDataImport.UWData
 
 			if (miTileDist2 > UWCritterRules.FollowTeleportTilesSquared)
 			{
-				// [48458-48471] four tiles short of the target on the line towards the follower.
+				// [48458-48471] four tiles short of the target on the line towards the follower. The
+				// host puts the record there - tile, eighth 4/4, the tile's height times eight
+				// (seg007_1798_3E4, UnderworldExhumed AI.C) - and relinks it; the brain wrote the same
+				// fields again after the call until cleanup step 4.8 (2026-10-18).
 				int liRoot = IntSqrt(miTileDist2);
 				int liX = mOTarget.TileX + ((mORecord.TileX - mOTarget.TileX) * UWCritterRules.FollowTeleportShortTiles / liRoot);
 				int liY = mOTarget.TileY + ((mORecord.TileY - mOTarget.TileY) * UWCritterRules.FollowTeleportShortTiles / liRoot);
 
-				if (mIHost.Teleport(liX, liY))
-				{
-					mORecord.TileX = liX;
-					mORecord.TileY = liY;
-					mORecord.FineX = 4;
-					mORecord.FineY = 4;
-					mORecord.ZPos = mIHost.FloorLevelAt(liX, liY) << 3;
-				}
+				mIHost.Teleport(liX, liY);
 
 				return;
 			}

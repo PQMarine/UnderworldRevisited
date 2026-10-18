@@ -266,13 +266,13 @@ public class UWModernInventoryPage
 
         UWCharacter lOCharacter = mOUi.mCharacter;
 
-        fPlace(mOArmour[0], lOCharacter.CharTexture, msBodyAt);
-        fPlace(mOArmour[1], lOCharacter.HelmetTexture, msHelmetAt);
-        fPlace(mOArmour[2], lOCharacter.GlovesTexture, msGlovesAt);
-        // The legs' picture carries its drop itself (UWCharacter.LegsDrop).
-        fPlace(mOArmour[3], lOCharacter.LegsArmorTexture, msLegsAt);
-        fPlace(mOArmour[4], lOCharacter.ChestArmorTexture, msChestAt);
-        fPlace(mOArmour[5], lOCharacter.BootsTexture, msBootsAt);
+        fPlace(mOArmour[0], lOCharacter.Paperdoll.CharTexture, msBodyAt);
+        fPlace(mOArmour[1], lOCharacter.Paperdoll.HelmetTexture, msHelmetAt);
+        fPlace(mOArmour[2], lOCharacter.Paperdoll.GlovesTexture, msGlovesAt);
+        // The legs' picture carries its drop itself (UWPaperdollView.LegsDrop).
+        fPlace(mOArmour[3], lOCharacter.Paperdoll.LegsArmorTexture, msLegsAt);
+        fPlace(mOArmour[4], lOCharacter.Paperdoll.ChestArmorTexture, msChestAt);
+        fPlace(mOArmour[5], lOCharacter.Paperdoll.BootsTexture, msBootsAt);
 
         UWInventory lOInventory = mOUi.mOInventory;
 

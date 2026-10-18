@@ -49,14 +49,6 @@ namespace UWDataImport.UWData
 		/// <summary>some_leeches (0x125).</summary>
 		public const int LeechObjectId = 0x125;
 
-		/// <summary>Colour of the flash when the leeches bite - 0xA8 in uw1 (the reference:
-		/// leech.use).</summary>
-		private const int LeechFlashColour = 0xA8;
-
-		private const float LeechFlashSeconds = 0.2f;
-
-		/// <summary>backfire(ThePlayer, 2): the leeches bite with two eight-sided dice.</summary>
-		private const int LeechDice = 2;
 
 		/// <summary>a_block of burning incense (277) - see fUseIncense.</summary>
 		public const int BurningIncenseObjectId = 277;
@@ -376,7 +368,7 @@ namespace UWDataImport.UWData
 					pOVitals.ApplyPoison(lOTrap.Quality);
 			}
 			else
-				pOVitals.ApplyDamage(lOTrap.Quality, UWDamageTypes.None, 0);
+				UWDamagePipeline.Apply(pOVitals, UWDamageRequest.PotionTrap(lOTrap.Quality));
 		}
 
 		/// <summary>
@@ -487,10 +479,9 @@ namespace UWDataImport.UWData
 
 			pOVitals.CurePoison();
 
-			bool lbBit = pOVitals.ApplyBackfire(LeechDice);
-
-			if (lbBit)
-				pIHost.FlashWindow(LeechFlashColour, LeechFlashSeconds);
+			// The bite and its flash: the damage pipeline's since cleanup step 4.2 (2026-10-17,
+			// UWDamageRequest.Leeches).
+			UWDamagePipeline.Apply(pOVitals, UWDamageRequest.Leeches());
 
 			pIHost.ConsumeUsedItem();
 

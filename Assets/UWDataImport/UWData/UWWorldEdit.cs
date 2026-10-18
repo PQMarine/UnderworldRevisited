@@ -26,6 +26,13 @@ namespace UWDataImport.UWData
 	/// static slot while it lives and never culls (TryTakeEffectSlot, decision 8); WipeAll
 	/// empties the whole store as Map_ObjFix does.
 	///
+	/// THE ORDER WITHIN A SQUARE (cleanup 4.0 follow-up, 2026-10-18, decided by the user: as the
+	/// original): where an object joins a tile's list is decided in one place, by how it arrives
+	/// (Arrival, JoinsAtHead, fLink) - the original's Obj_Add puts it at the head, Obj_AddEnd at the
+	/// tail. The order is data: LEV.ARK keeps it in the chains, the area spells walk it
+	/// (UWAreaWalk), the class 7 spells take the first creature of it. Until then every arrival
+	/// was appended, a creature walking into a square too.
+	///
 	/// One instance per level; UWLevelLoader builds it with the level and hands in the two
 	/// things the rules cannot know: how many objects the player carries (they hold static
 	/// slots of this level, see UWObjectLimitRules.MakeRoomForInventory) and the player's tile
@@ -44,6 +51,82 @@ namespace UWDataImport.UWData
 
 			/// <summary>Placed and at once taken by water or lava (UWTileQueries.TileSwallows).</summary>
 			Swallowed
+		}
+
+		/// <summary>
+		/// HOW AN OBJECT COMES INTO A TILE'S LIST, which decides where in it (JoinsAtHead). Read in
+		/// UnderworldExhumed on 2026-10-18: every insertion into a square's list there is Obj_Add
+		/// (the head) or Obj_AddEnd (the tail), OBJECTS.C; the level loader keeps the chains of
+		/// LEV.ARK as they are, in both.
+		/// </summary>
+		public enum Arrival
+		{
+			/// <summary>A creature or a moving thing changes squares: set_phys_data (motion/OBJPHYS.C)
+			/// takes it out of the old list and Obj_Adds it to the new one - and so do the far
+			/// follower's jump to its target (goal 3, AI.C), up_crit's way home and
+			/// wander_that_monster's step (CRITTIME.C). The head.</summary>
+			Moved,
+
+			/// <summary>A thrown or knocked-loose thing, or one that fell from where it was put
+			/// (obj_deal's static_to_mob), comes to rest: mob_to_static
+			/// (OBJPHYS.C) Obj_Adds the static record that replaces the mobile one - static_to_mob,
+			/// up_mob's fallback and the flight itself had put it at the head before. The
+			/// head.</summary>
+			Landed,
+
+			/// <summary>A new object made on the spot and Obj_Added there: creat_spell's food and
+			/// monster (SPELLS.C), build_corpse's blood (PATHFIND.C), the silver tree (SKILLS.C), the
+			/// emerald trap's Vas stone (WORLDEV.C), cast_trap_spell's trigger and trap (TRIGGER.C).
+			/// The head.</summary>
+			Created,
+
+			/// <summary>put_at (motion/COLLIDE.C) when drop_around_place found no spot: the object
+			/// is Obj_Added at the point itself. The head.</summary>
+			PutAtPoint,
+
+			/// <summary>drop_around_place's spot (COLLIDE.C, Obj_AddEnd) - put_at and near_mob_put_at
+			/// for loot, corpses, spilled contents, barter, the create trap's copy, bones, rock
+			/// pieces and worn-out junk - and the other Obj_AddEnds: ReturnObject (the player puts
+			/// something down, MISSILE.C), place_object at a square (BABLHACK.C), the moongate
+			/// (SKILLS.C). The tail.</summary>
+			PutDown,
+
+			/// <summary>An object becomes another where it lies: remove_object's debris (DAMAGE.C)
+			/// and the burnt incense (UseUnique, USEITEMS.C) change only the id (SET_ITEM), so the
+			/// record keeps its place in the chain. Ours takes the old one out and puts the new one
+			/// at the index the old one held (Place's piInPlaceAt, from ListIndexOf).</summary>
+			InPlace
+		}
+
+		/// <summary>Whether an arrival joins at the head of the list (Obj_Add); PutDown joins at
+		/// the tail (Obj_AddEnd), InPlace where the replaced object lay.</summary>
+		public static bool JoinsAtHead(Arrival peArrival)
+		{
+			return peArrival != Arrival.PutDown && peArrival != Arrival.InPlace;
+		}
+
+		/// <summary>THE ONE PLACE A TILE'S LIST GAINS AN OBJECT, where JoinsAtHead puts it.
+		/// piInPlaceAt: InPlace's index, clamped to the list (none: the tail); any other arrival
+		/// ignores it.</summary>
+		private static void fLink(UWTile pOTile, UWObject pOObject, Arrival peArrival, int piInPlaceAt)
+		{
+			List<UWObject> lOList = pOTile.ObjectsInTile;
+
+			if (peArrival == Arrival.InPlace)
+				lOList.Insert(piInPlaceAt < 0 || piInPlaceAt > lOList.Count ? lOList.Count : piInPlaceAt, pOObject);
+			else if (JoinsAtHead(peArrival))
+				lOList.Insert(0, pOObject);
+			else
+				lOList.Add(pOObject);
+		}
+
+		/// <summary>Where in its tile's list an object lies now, -1 when in none - for an InPlace
+		/// arrival, taken before the old object goes.</summary>
+		public int ListIndexOf(UWObject pOObject)
+		{
+			UWTile lOTile = Queries != null ? Queries.FindTileHolding(pOObject) : null;
+
+			return lOTile != null ? lOTile.ObjectsInTile.IndexOf(pOObject) : -1;
 		}
 
 		public UWWorldEdit(UWTileQueries pOQueries)
@@ -250,8 +333,9 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// Puts an object into the list of tile (x, y) at the given fine position and height: a
 		/// slot first (ReserveSlot, culling if the level is full), a creature's mobile slot, the
-		/// record's place, the tile list (appended), the animation list for an animated object,
-		/// then ObjectPlaced. The record is left untouched when the object is refused.
+		/// record's place, the tile list (where peArrival puts it, fLink; every placement was
+		/// appended until 2026-10-18), the animation list for an animated object, then
+		/// ObjectPlaced. The record is left untouched when the object is refused.
 		///
 		/// In water and lava only what actually sinks is lost - see
 		/// UWCommonObjectProperties.Entry.SinksInLiquid. The roll comes before the object joins
@@ -271,7 +355,7 @@ namespace UWDataImport.UWData
 		/// creature's own, although what it left behind went into the water as well).
 		/// </summary>
 		public PlaceResult Place(UWObject pOObject, int piTileX, int piTileY, int piXPos, int piYPos, int piZPos,
-			bool pbCanSink)
+			bool pbCanSink, Arrival peArrival, int piInPlaceAt = -1)
 		{
 			UWTile lOTile = Level != null ? Level.GetTile(piTileX, piTileY) : null;
 
@@ -301,7 +385,7 @@ namespace UWDataImport.UWData
 			// creature too - a trap's copy over water could vanish and kept its mobile slot.
 			bool lbSinks = pbCanSink && !(pOObject is UWNpc) && Queries.TileSwallows(lOTile, pOObject);
 
-			lOTile.ObjectsInTile.Add(pOObject);
+			fLink(lOTile, pOObject, peArrival, piInPlaceAt);
 
 			// An animated object placed in a tile goes onto the level's animation list, as
 			// add_animobj does in the original (UWAnimationOverlay).
@@ -362,9 +446,8 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// OBJ_ADD: the object at the HEAD of the tile's list (Obj_AddEnd is the tail, which Place
-		/// does), its record's place left as it is - for a trap or a trigger a spell lays
-		/// (cast_trap_spell). Any tile, a solid one too: the original makes no tile test there. No
+		/// OBJ_ADD: the object at the HEAD of the tile's list (Arrival.Created), its record's place
+		/// left as it is - for a trap or a trigger a spell lays (cast_trap_spell). Any tile, a solid one too: the original makes no tile test there. No
 		/// slot test (TakeStaticNumber did it), no sinking, no animation list. Raises ObjectPlaced.
 		/// </summary>
 		public bool AddAtHead(UWObject pOObject, int piTileX, int piTileY)
@@ -377,7 +460,7 @@ namespace UWDataImport.UWData
 			pOObject.TileX = piTileX;
 			pOObject.TileY = piTileY;
 
-			lOTile.ObjectsInTile.Insert(0, pOObject);
+			fLink(lOTile, pOObject, Arrival.Created, -1);
 
 			ObjectPlaced?.Invoke(pOObject, piTileX, piTileY);
 
@@ -435,8 +518,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Moves an object into the list of another tile - a creature that walked on. If it
-		/// stays on its tile, the order stays as well. Whatever is in no list is not
+		/// Moves an object into the list of another tile - a creature that walked on, at the HEAD
+		/// of the new list (Arrival.Moved: set_phys_data's Obj_Add; appended until 2026-10-18).
+		/// If it stays on its tile, the order stays as well. Whatever is in no list is not
 		/// re-inserted. The picture moves by itself (the creature's own motion); ObjectMoved
 		/// tells who wants to know.
 		/// </summary>
@@ -480,7 +564,7 @@ namespace UWDataImport.UWData
 			if (lOCurrent != lOTarget)
 			{
 				lOCurrent.ObjectsInTile.Remove(pOObject);
-				lOTarget.ObjectsInTile.Add(pOObject);
+				fLink(lOTarget, pOObject, Arrival.Moved, -1);
 			}
 
 			pOObject.TileX = piTileX;

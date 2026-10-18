@@ -66,8 +66,8 @@ namespace UWDataImport.UWData
 		/// A blow lands on the player, a creature, an object or a thing in flight (cleanup step 3.3,
 		/// 2026-10-17): every damage site of the objects and creatures, and the hosts' damage and
 		/// curse on the player, end here (UWBlowRouting). The site keeps its own amount, sounds,
-		/// pictures and messages around the call; the blow says how a struck creature learns its
-		/// attacker (UWBlowAttribution).
+		/// pictures and messages around the call; the blow names the attacker a struck creature
+		/// records (UWBlow.Attacker; how it learned it was UWBlowAttribution until cleanup step 4.8).
 		/// </summary>
 		void Damage(UWDamageTarget pOTarget, UWBlow pOBlow);
 
@@ -100,8 +100,9 @@ namespace UWDataImport.UWData
 		/// <summary>A new object of this kind (CreateObj: quality 40) in the centre of a tile - the
 		/// Vas rune of the emerald puzzle, the moongate in the volcano. piQuantity 0 gives the stack
 		/// rule of its class; above 0 it is the count, or for the moongate its link field (0x2C0,
-		/// its colour), with the quantity bit set. False without data.</summary>
-		bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity);
+		/// its colour), with the quantity bit set. peArrival: where in the tile's list (the stone
+		/// at the head, the moongate at the tail - UWWorldEdit.Arrival). False without data.</summary>
+		bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity, UWWorldEdit.Arrival peArrival);
 
 		/// <summary>place_object with a negative x: the item goes down at the player's feet
 		/// (put_at at his tile, stay_centered, range 6, never culled). Nothing without a view to find
@@ -138,24 +139,25 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- Area spells (cleanup step 3.6)
 
-		/// <summary>Clears pOInto and collects what an area spell may strike in and around the area
-		/// of this radius around the centre (UWAreaTarget: its tile, whether it is a creature);
-		/// returns how many. The Unity side asks the physics, as the spell host did.</summary>
-		int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles, List<UWAreaTarget> pOInto);
+		// Which creatures an area spell reaches is the rules' walk over the squares' lists
+		// (UWAreaWalk, cleanup step 4.0, 2026-10-18); the world only acts on the creature it is
+		// handed - its level object from a tile list. The physics collection (CollectAreaTargets)
+		// is gone.
 
-		/// <summary>Confusion on a collected creature: Missed, Spent when resisted, Shown when it
-		/// took.</summary>
-		UWTargetSpellRules.Result ConfuseAreaTarget(UWAreaTarget pOTarget);
+		/// <summary>Confusion on the creature with this level object: Missed when it has no body to
+		/// take it, Spent when resisted, Shown when it took.</summary>
+		UWTargetSpellRules.Result ConfuseCreature(UWObject pOCreature);
 
-		/// <summary>A class 7 spell on a collected creature (UWTargetSpell).</summary>
-		UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(UWAreaTarget pOTarget, int piMinorClass);
+		/// <summary>A class 7 spell on the creature with this level object (UWTargetSpell).</summary>
+		UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass);
 
-		/// <summary>An effect picture at a collected target's middle for pfSeconds.</summary>
-		void ShowEffectAtAreaTarget(UWAreaTarget pOTarget, int piEffectObjectId, float pfSeconds);
+		/// <summary>An effect picture at the middle of that creature's body for pfSeconds.</summary>
+		void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds);
 
-		/// <summary>Every thing on the tile takes a roll of its own - creatures, the player when he
-		/// stands there, doors and chests, the loose objects (UWTileBlast, see UWObjectDamageRules) -
-		/// charged to piAttacker (a creature's index or the player's).</summary>
+		/// <summary>Every thing on the tile takes a roll of its own - the player when he stands there,
+		/// then the tile's list in its order: creatures, doors and chests, the loose objects
+		/// (UWTileBlast over UWAreaWalk.DamageSquare, see UWObjectDamageRules) - charged to
+		/// piAttacker (a creature's index or the player's).</summary>
 		void StrikeTile(UWTilePos pOTile, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker);
 
 		// ------------------------------------------------- A found creature (cleanup step 3.6)
@@ -279,9 +281,9 @@ namespace UWDataImport.UWData
 			return mOInner.Spawn(pOObject, pOTile);
 		}
 
-		public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity)
+		public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity, UWWorldEdit.Arrival peArrival)
 		{
-			return mOInner.SpawnNewObject(piObjectId, pOTile, piQuantity);
+			return mOInner.SpawnNewObject(piObjectId, pOTile, piQuantity, peArrival);
 		}
 
 		public void DropAtPlayer(UWObject pOItem)
@@ -319,24 +321,19 @@ namespace UWDataImport.UWData
 			return mOInner.CreatureFitsAt(piObjectId, pfWorldX, pfWorldZ);
 		}
 
-		public int CollectAreaTargets(UWTilePos pOCentre, int piRadiusTiles, List<UWAreaTarget> pOInto)
+		public UWTargetSpellRules.Result ConfuseCreature(UWObject pOCreature)
 		{
-			return mOInner.CollectAreaTargets(pOCentre, piRadiusTiles, pOInto);
+			return mOInner.ConfuseCreature(pOCreature);
 		}
 
-		public UWTargetSpellRules.Result ConfuseAreaTarget(UWAreaTarget pOTarget)
+		public UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass)
 		{
-			return mOInner.ConfuseAreaTarget(pOTarget);
+			return mOInner.CastTargetSpellOnCreature(pOCreature, piMinorClass);
 		}
 
-		public UWTargetSpellRules.Result CastTargetSpellOnAreaTarget(UWAreaTarget pOTarget, int piMinorClass)
+		public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
 		{
-			return mOInner.CastTargetSpellOnAreaTarget(pOTarget, piMinorClass);
-		}
-
-		public void ShowEffectAtAreaTarget(UWAreaTarget pOTarget, int piEffectObjectId, float pfSeconds)
-		{
-			mOInner.ShowEffectAtAreaTarget(pOTarget, piEffectObjectId, pfSeconds);
+			mOInner.ShowEffectAtCreature(pOCreature, piEffectObjectId, pfSeconds);
 		}
 
 		public void StrikeTile(UWTilePos pOTile, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker)

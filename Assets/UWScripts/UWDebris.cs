@@ -7,7 +7,8 @@ using UWDataImport.UWData;
 /// UWContainerDamage.fLeaveDebris each had the remove-or-forget lines and their own quality
 /// value for the pile). The original turns the object itself into the debris (remove_object's
 /// SET_ITEM); ours takes the object out and puts a fresh pile on the same spot, so the pile
-/// does not jump to the tile centre.
+/// does not jump to the tile centre, and at the same place in the tile's list
+/// (UWWorldEdit.Arrival.InPlace, 2026-10-18; until then at its tail).
 /// </summary>
 public static class UWDebris
 {
@@ -32,12 +33,15 @@ public static class UWDebris
     public static void ReplaceWithDebris(UWLevelLoader pOLoader, UWEntityInfo pOEntity, UWObject pOObject,
         UWTilePos pOTile, Vector3 pOPosition)
     {
+        int liListIndex = pOLoader != null && pOLoader.WorldEdit != null ? pOLoader.WorldEdit.ListIndexOf(pOObject) : -1;
+
         Remove(pOLoader, pOEntity, pOObject);
 
         if (pOLoader == null)
             return;
 
         pOLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), pOTile.X, pOTile.Y, 0,
-            UWObjectDamageRules.DebrisQuality, new Vector3(pOPosition.x, 0f, pOPosition.z));
+            UWObjectDamageRules.DebrisQuality, new Vector3(pOPosition.x, 0f, pOPosition.z), UWWorldEdit.Arrival.InPlace,
+            null, liListIndex);
     }
 }

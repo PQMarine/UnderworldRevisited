@@ -134,10 +134,10 @@ namespace UWDataImport.UWData
 		/// 27 blows per goblin.
 		/// </summary>
 		public static int ComputeDamage(int piWeaponDamage, bool pbUnarmed, int piStrength,
-			int piUnarmedSkill, int piCharge, int piTargetArmour, bool pbCritical = false)
+			int piUnarmedSkill, int piCharge, int piTargetArmour)
 		{
 			return ComputeDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piCharge,
-				piTargetArmour, out int liUnused, pbCritical);
+				piTargetArmour, out int liUnused);
 		}
 
 		/// <summary>
@@ -145,33 +145,24 @@ namespace UWDataImport.UWData
 		/// SOUND is played with: AttackerAppliesFinalDamage_seg022_8A5 plays effect 3 or 4 with
 		/// the volume offset at label 938, four lines before it subtracts the armour at labels
 		/// A04 to A10. So a blow the armour swallows entirely is still heard at full volume.
+		///
+		/// THE MISSILES' DAMAGE since cleanup step 4.9 (2026-10-18): no critical and no flank. The
+		/// player's melee blow, which took both here, goes through UWAttackResolution with the
+		/// creatures' blows (the critical's multiplier and the flank are there). Since cleanup step
+		/// 4.9b (2026-10-18) a missile's dice are rolled at its hit (UWAttackResolution.RollMissile),
+		/// and the game calls this no more; the self-check's pins on it stay.
 		/// </summary>
 		public static int ComputeDamage(int piWeaponDamage, bool pbUnarmed, int piStrength,
-			int piUnarmedSkill, int piCharge, int piTargetArmour, out int piBeforeArmour,
-			bool pbCritical = false, int piFlank = 0, int piBonus = 0)
+			int piUnarmedSkill, int piCharge, int piTargetArmour, out int piBeforeArmour)
 		{
-			int liBase = fGetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
-
-			// A critical hit multiplies the base value before rolling. The
-			// factor is 1 or 2 - (48 + (RNG & 31)) divided by 32 (the critical branch of the
-			// attack results; the reference rolled 0 to 29), so in half the cases
-			// double damage and otherwise no bonus at all.
-			//
-			// BEFORE THE MINIMUM (do_damage raises the damage to 2 only after the multiplier,
-			// UnderworldExhumed COMBAT.C, 2026-10-11; the Exhumed audit's row 31): until then ours
-			// doubled the already raised value, so a base of 0 or 1 hit for 4.
-			if (pbCritical)
-				liBase *= (48 + UWRandom.Next(0, 32)) >> 5;
+			int liBase = GetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, 0);
 
 			if (liBase < MinimumBaseDamage)
 				liBase = MinimumBaseDamage;
 
 			int liRolled = RollDamage(liBase);
 
-			// The FLANKING BONUS is added before the armour (AttackerAppliesFinalDamage_seg022_8A5):
-			// ExecuteAttack computes it for every melee blow, the player's too; a
-			// missile has none.
-			piBeforeArmour = ((liRolled * piCharge) >> 7) + piFlank;
+			piBeforeArmour = (liRolled * piCharge) >> 7;
 
 			// Armour is subtracted and can swallow the hit completely. In the original
 			// there is no minimum damage for this.
@@ -191,13 +182,15 @@ namespace UWDataImport.UWData
 		/// (UWPlayerAttack.GetWeaponEnchantment, DoPlayerWeapon).</param>
 		public static int GetBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus = 0)
 		{
-			int liBase = fGetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
+			int liBase = GetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
 
 			return liBase < MinimumBaseDamage ? MinimumBaseDamage : liBase;
 		}
 
-		/// <summary>The base value before the minimum - see GetBaseDamage.</summary>
-		private static int fGetRawBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus)
+		/// <summary>The base value before the minimum - see GetBaseDamage. The player's blow hands
+		/// it to UWAttackResolution, whose critical multiplies it BEFORE the minimum (cleanup step
+		/// 4.9, 2026-10-18; private until then).</summary>
+		public static int GetRawBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus)
 		{
 			return (pbUnarmed
 				? 4 + (piStrength / 6) + ((piUnarmedSkill * 2) / 5)

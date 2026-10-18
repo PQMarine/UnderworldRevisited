@@ -321,10 +321,10 @@ public sealed class UWHudCompass
         // First wipe, then the four lines - see Interaction.ClearMessages.
         mOUi.mOInteraction.ClearMessages();
 
-        mOUi.mOInteraction.AddMessage(UWStatusReport.GetConditionLine(mOUi.mOUWData, mOUi.mCharacter.Hunger, mOUi.mCharacter.Fatigue));
+        mOUi.mOInteraction.AddMessage(UWStatusReport.GetConditionLine(mOUi.mOUWData, mOUi.mCharacter.Vitals.Hunger, mOUi.mCharacter.Vitals.Fatigue));
         mOUi.mOInteraction.AddMessage(UWStatusReport.GetLevelLine(mOUi.mOUWData, mOUi.Map.mOLevelLoader.CurrentLevelIndex + 1));
-        mOUi.mOInteraction.AddMessage(UWStatusReport.GetDayLine(mOUi.mOUWData, mOUi.mCharacter.ClockValue));
-        mOUi.mOInteraction.AddMessage(UWStatusReport.GetTimeLine(mOUi.mOUWData, mOUi.mCharacter.ClockValue));
+        mOUi.mOInteraction.AddMessage(UWStatusReport.GetDayLine(mOUi.mOUWData, mOUi.mCharacter.Vitals.ClockValue));
+        mOUi.mOInteraction.AddMessage(UWStatusReport.GetTimeLine(mOUi.mOUWData, mOUi.mCharacter.Vitals.ClockValue));
     }
 
     /// <summary>

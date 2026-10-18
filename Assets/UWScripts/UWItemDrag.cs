@@ -32,7 +32,7 @@ using UWDataImport.UWData;
 ///
 /// World pickup (original): right-click drag on a pickable object directly in the
 /// 3D world (not backpack/paperdoll) works the same way - only with the right mouse button,
-/// since the left one controls movement there (see UWPlayerMovement.fGetOriginalVelocity).
+/// since the left one controls movement there (see UWPlayerInput.fBuildOriginalCoreCommand).
 /// A simple right click (no drag) on such an object only shows its name,
 /// just like with a backpack item - the actual pickup only happens on an
 /// actual drag. Modern pickup (instant via right click, no drag) stays
@@ -173,7 +173,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
     private bool mbPendingIsUseClick;
     private int? mODragSourceScrollDelta;
 
-    /// <summary>For UWPlayerMovement: during an original-style drag, crossing
+    /// <summary>For UWPlayerInput: during an original-style drag, crossing
     /// the 3D view window must not also count as cursor movement.</summary>
     public bool IsDragging
     {
@@ -328,7 +328,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         {
             if (UWMouseButtons.LeftPressed)
                 fTryStartPending(false);
-            else if (mOControls.Player.Interact.WasPressedThisFrame() && !UWPlayerMovement.ConsumesRightClick())
+            else if (mOControls.Player.Interact.WasPressedThisFrame() && !UWPlayerInput.ConsumesRightClick())
                 fTryStartPending(true);
 
             return;
@@ -1687,7 +1687,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         UWWorld lOWorld = UWScene.World;
 
         if (lOWorld != null)
-            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.Curse(piDice));
+            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Curse(piDice)));
     }
 
     public int PlayerDamageTypeProof => UWScene.Character != null ? UWScene.Character.DamageTypeProof : 0;
@@ -1988,7 +1988,7 @@ public class UWItemDrag : MonoBehaviour, IUWItemUseHost
         Vector2 lOMouse = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
 
         if (mOGameUi != null && !UWControlScheme.IsModern
-            && UWScene.PlayerMovement != null && UWScene.PlayerMovement.IsCursorMovementInProgress)
+            && UWScene.PlayerMovement != null && UWScene.PlayerMovement.Input.IsCursorMovementInProgress)
             return mOGameUi.PointerPosition;
 
         return lOMouse;

@@ -229,8 +229,9 @@ public static class UWEndgame
     /// Does a talisman fall into the lava on level 8 near the centre? Following the reference's
     /// motion.ObjectHitsFloorTile:
     ///   before the burial    set the dream bit, the talisman stays where it lies
-    ///   afterwards           count down, the talisman perishes in flames; on the last one
-    ///                        counter to 0xFF and off into the void
+    ///   afterwards           count down, the talisman perishes in flames; the last one
+    ///                        only brings the counter to 0 with the rending sound, and
+    ///                        CheckVictory starts the journey (since 2026-10-18)
     /// Returns true if the talisman is destroyed - then it vanishes like a
     /// sinking item. Called at the moment of impact (UWMotionHost.TalismanBurns).
     /// </summary>
@@ -241,7 +242,7 @@ public static class UWEndgame
             return false;
 
         UWCharacter lOCharacter = UWScene.Character;
-        bool lbAlive = lOCharacter == null || lOCharacter.CurrentHP > 0f;
+        bool lbAlive = lOCharacter == null || lOCharacter.Vitals.CurrentHP > 0f;
         int liRemaining;
 
         UWEndgameRules.TalismanOutcome leOutcome = UWEndgameRules.DropTalismanInLava(pOObject.ID,
@@ -249,8 +250,12 @@ public static class UWEndgame
 
         switch (leOutcome)
         {
-            case UWEndgameRules.TalismanOutcome.Launch:
-                fLaunchIntoVoid(pOLoader);
+            case UWEndgameRules.TalismanOutcome.Last:
+                UWWorld lOWorld = UWWorld.Of(pOLoader);
+
+                if (lOWorld != null)
+                    lOWorld.Presentation.AddGeneralMessage(UWEndgameSequence.RendingSoundMessage);
+
                 return true;
 
             case UWEndgameRules.TalismanOutcome.Flame:
@@ -303,7 +308,25 @@ public static class UWEndgame
     }
 
     /// <summary>
-    /// The last talisman is destroyed: the sequence (messages, gate, the camera's 64 steps into
+    /// THE VICTORY CHECK, once per running frame (UWCritterDriver, after the world's scheduler):
+    /// check_victory (UnderworldExhumed game/SKILLS.C) starts the journey whenever the talisman
+    /// counter is 0, not at the impact of the last talisman - so a save with the counter at 0
+    /// swirls into the void right after loading, as the user saw in the original (2026-10-18).
+    /// The flight sets the counter to 0xFF at its end; while it runs it does not start again.
+    /// </summary>
+    public static void CheckVictory(UWLevelLoader pOLoader)
+    {
+        if (pOLoader == null || !pOLoader.HasWorld || IsVictoryRunning)
+            return;
+
+        if (!UWEndgameRules.AllTalismansGone() || UWGameSession.Current.Endgame.IsLaunching)
+            return;
+
+        fLaunchIntoVoid(pOLoader);
+    }
+
+    /// <summary>
+    /// The talisman counter is 0: the sequence (messages, gate, the camera's 64 steps into
     /// the moongate, the journey to the void) is UWEndgameSequence on the session's scheduler since
     /// 2026-10-17 (cleanup step 3.4); until then this was a coroutine on the level loader, waiting
     /// with WaitForSeconds per step and guarded by a static flag. The wait per step is still the

@@ -82,7 +82,7 @@ namespace UWDataImport.UWData
 		/// there are real values up to the end. A zero pair therefore marks the end.
 		///
 		/// This is needed for the moment a strike lands (see
-		/// UWCharacter.AttackConnected) - that counts from the END of the animation, which lies
+		/// UWWeaponSwing.AttackConnected) - that counts from the END of the animation, which lies
 		/// somewhere else depending on the attack type.
 		/// </summary>
 		public int GetReleaseFrameCount(AttackTypes pAttackType)

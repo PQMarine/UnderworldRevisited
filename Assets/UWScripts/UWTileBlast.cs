@@ -26,8 +26,12 @@ using UWDataImport.UWData;
 /// the player's blast struck, at the object's own position (per user: a flash on the nightstand
 /// whatever the fireball's height), and it took the effect slot the explosion needed.
 ///
-/// Creatures are found by where they stand, because they walk and the tile lists are not kept
-/// up with them; everything else by the tile's object list.
+/// WHO IS STRUCK: the tile's object list in its order (UWAreaWalk.DamageSquare, damage_square in
+/// UnderworldExhumed SPELLS.C) - the creatures among them by their record tile, whatever their
+/// height or place within the tile - and the player at its head when he stands there. Since
+/// cleanup step 4.0 (2026-10-18, decision 11 of Docs/CLEANUP-PLAN.md); until then the creatures
+/// were found with a physics sphere around the middle of the tile's floor (0.75 of a tile) and put
+/// on the tile their transform stood on, struck before the objects and the player last.
 ///
 /// THE BLOWS LAND THROUGH THE WORLD since cleanup step 3.3 (2026-10-17): the creatures, the doors
 /// and chests and the player each take a UWBlow.Blast through IUWWorld.Damage. The wear of the
@@ -39,8 +43,9 @@ public static class UWTileBlast
     /// <summary>
     /// Strikes the tile.
     /// </summary>
-    /// <param name="piAttacker">Whom the struck creatures should hold responsible: a creature's
-    /// index, UWCritterBrain.PlayerIndex, or UWBlow.NoBlastAttacker (-1) for nobody.</param>
+    /// <param name="piAttacker">Whom the struck creatures hold responsible, the blast's launcher: a
+    /// creature's index (the struck creature's own too), UWCritterBrain.PlayerIndex, or
+    /// UWBlow.NoBlastAttacker (-1) for nobody.</param>
     public static void Strike(UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount, int piDiceRange,
         int piDamageType, int piAttacker)
     {
@@ -49,106 +54,113 @@ public static class UWTileBlast
 
         UWTile lOTile = pOLoader.CurrentLevel.GetTile(pOTile.X, pOTile.Y);
 
-        if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
+        // NO TILE TEST: damage_square (UnderworldExhumed SPELLS.C) strikes the list of whatever
+        // square it is handed, a wall square too - Flame Wind's cross reaches into the walls next
+        // to its stroke (cleanup 4.0 follow-up, 2026-10-18, decided by the user: as the original).
+        // What lies there: traps and triggers, every one with the protection bit (ShrugsOff), and
+        // eight doors and one item of LEV.ARK without it (self-check WallSquares). Until then
+        // ours left a solid square alone.
+        if (lOTile == null)
             return;
 
         HashSet<UWDamageable> lODone = new HashSet<UWDamageable>();
         UWWorld lOWorld = UWWorld.Of(pOLoader);
-
-        // WHAT LIES THERE NOW: a creature this blast kills drops its remains at once in ours,
-        // while the original lets it die over its death animation first - they must not burn
-        // in the same blast.
-        UWObject[] lOLying = lOTile.ObjectsInTile != null ? lOTile.ObjectsInTile.ToArray() : new UWObject[0];
-
-        fStrikeCreatures(lOWorld, pOLoader, pOTile, lOTile, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
-        fStrikeObjects(lOWorld, pOLoader, pOTile, lOTile, lOLying, piDiceCount, piDiceRange, piDamageType, piAttacker, lODone);
-        fStrikePlayer(lOWorld, pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType, piAttacker);
-    }
-
-    private static void fStrikeCreatures(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
-        int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
-    {
-        Vector3 lOCentre = new Vector3(UWUnits.TileCentreToWorldAxis(pOTile.X), pOTileData.FloorHeight,
-            UWUnits.TileCentreToWorldAxis(pOTile.Y));
-
-        // Half the diagonal of a tile and a little more, so nothing at the edge slips through;
-        // the tile number then decides.
-        Collider[] lOHits = Physics.OverlapSphere(lOCentre, UWWorldScale.TileSize * 0.75f);
-
-        foreach (Collider lOCollider in lOHits)
-        {
-            UWCritter lOCritter = lOCollider.GetComponentInParent<UWCritter>();
-            UWDamageable lODamageable = lOCritter != null ? lOCritter.GetComponent<UWDamageable>() : null;
-
-            if (lODamageable == null || lODamageable.IsDestroyed || !pODone.Add(lODamageable))
-                continue;
-
-            if (pOLoader.WorldPositionToTile(lODamageable.transform.position) != pOTile)
-                continue;
-
-            // The attacker is told unless there is none or it is the creature itself (UWBlow.Blast).
-            // The roll comes before the announcement now; the announcement draws nothing.
-            pOWorld.Damage(UWWorld.TargetOf(lOCritter, lODamageable),
-                UWBlow.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType, piAttacker, lOCritter.Index));
-        }
-    }
-
-    private static void fStrikeObjects(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, UWTile pOTileData,
-        UWObject[] pOLying, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
-    {
-        if (pOTileData.ObjectsInTile == null || pOLying.Length == 0)
-            return;
-
         UWCommonObjectProperties lOCommon = pOLoader.UWDataImporter != null
             ? pOLoader.UWDataImporter.CommonObjectProperties : null;
 
-        // Through the snapshot: a destroyed object leaves the list and debris joins it.
-        foreach (UWObject lOObject in pOLying)
+        // WHAT LIES THERE NOW: a creature this blast kills drops its remains at once in ours,
+        // while the original lets it die over its death animation first - they must not burn
+        // in the same blast. DamageSquare walks the list as it was before the first blow.
+        UWAreaWalk.DamageSquare(lOTile,
+            () => fStrikePlayer(lOWorld, pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType, piAttacker),
+            pOObject =>
+            {
+                if (pOObject is UWNpc)
+                    fStrikeCreature(lOWorld, pOLoader, pOObject, piDiceCount, piDiceRange, piDamageType, piAttacker,
+                        lODone);
+                else
+                    fStrikeObject(lOWorld, pOLoader, pOTile, lOCommon, pOObject, piDiceCount, piDiceRange,
+                        piDamageType, piAttacker, lODone);
+            });
+    }
+
+    /// <summary>A creature of the tile's list: its body takes the blow unless it is dying.</summary>
+    private static void fStrikeCreature(UWWorld pOWorld, UWLevelLoader pOLoader, UWObject pONpc, int piDiceCount,
+        int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
+    {
+        pOLoader.TryGetEntity(pONpc, out UWEntityInfo lOEntity);
+
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
+        UWDamageable lODamageable = lOCritter != null ? lOCritter.GetComponent<UWDamageable>() : null;
+
+        if (lODamageable == null || lODamageable.IsDestroyed || !pODone.Add(lODamageable))
+            return;
+
+        // The blast's launcher is charged, the creature itself too when it is caught in its own
+        // blast, and nobody for a blast nobody launched (UWBlow.Blast, cleanup step 4.10). The roll
+        // comes before the blow; naming the attacker draws nothing.
+        pOWorld.Damage(UWWorld.TargetOf(lOCritter, lODamageable),
+            UWBlow.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType, piAttacker));
+    }
+
+    /// <summary>Any other object of the tile's list: a door or a chest takes the blow, a loose
+    /// object is worn down.</summary>
+    private static void fStrikeObject(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile,
+        UWCommonObjectProperties pOCommon, UWObject pOObject, int piDiceCount, int piDiceRange, int piDamageType,
+        int piAttacker, HashSet<UWDamageable> pODone)
+    {
+        pOLoader.TryGetEntity(pOObject, out UWEntityInfo lOEntity);
+
+        UWDamageable lODamageable = lOEntity != null ? lOEntity.GetComponentInParent<UWDamageable>() : null;
+
+        // WORD 0 BIT 13 PROTECTS (DamageObjectAndDoors) - a door too, whatever its hit points.
+        if (pOObject.DoorDirection)
+            return;
+
+        int liRoll = UWRandom.RollDice(piDiceCount, piDiceRange);
+
+        // A DOOR OR A CHEST has hit points and its own ending (UWDoor, UWContainerDamage).
+        if (lODamageable != null)
         {
-            if (lOObject == null || lOObject is UWNpc || !pOTileData.ObjectsInTile.Contains(lOObject))
-                continue;
+            if (lODamageable.IsDestroyed || !pODone.Add(lODamageable))
+                return;
 
-            pOLoader.TryGetEntity(lOObject, out UWEntityInfo lOEntity);
+            pOWorld.Damage(UWWorld.TargetOf(lODamageable),
+                UWBlow.Blast(liRoll, piDamageType, piAttacker));
 
-            UWDamageable lODamageable = lOEntity != null ? lOEntity.GetComponentInParent<UWDamageable>() : null;
-
-            // WORD 0 BIT 13 PROTECTS (DamageObjectAndDoors) - a door too, whatever its hit points.
-            if (lOObject.DoorDirection)
-                continue;
-
-            int liRoll = UWRandom.RollDice(piDiceCount, piDiceRange);
-
-            // A DOOR OR A CHEST has hit points and its own ending (UWDoor, UWContainerDamage).
-            if (lODamageable != null)
-            {
-                if (lODamageable.IsDestroyed || !pODone.Add(lODamageable))
-                    continue;
-
-                pOWorld.Damage(UWWorld.TargetOf(lODamageable),
-                    UWBlow.Blast(liRoll, piDamageType, piAttacker, UWBlow.NoCreature));
-
-                continue;
-            }
-
-            UWCommonObjectProperties.Entry lOEntry = default;
-
-            if (lOCommon == null || !lOCommon.TryGet(lOObject.ID, out lOEntry))
-                continue;
-
-            int liDamage = UWDamageTypes.Scale(lOEntry.Resistances, liRoll, piDamageType);
-
-            if (!UWObjectDamageRules.Wear(lOObject.Quality, liDamage, lOEntry.QualityClass, false,
-                    out int liQuality))
-            {
-                lOObject.Quality = (ushort)liQuality;
-
-                continue;
-            }
-
-            lOObject.Quality = 0;
-
-            fDestroy(pOLoader, pOTile, lOObject, lOEntity, piDamageType);
+            return;
         }
+
+        UWCommonObjectProperties.Entry lOEntry = default;
+
+        if (pOCommon == null || !pOCommon.TryGet(pOObject.ID, out lOEntry))
+            return;
+
+        int liDamage = UWDamageTypes.Scale(lOEntry.Resistances, liRoll, piDamageType);
+
+        // A DOOR WITHOUT A BODY - one in a wall square, which the spawner leaves unbuilt: its
+        // record takes damage_object and remove_object (UWDoorRules.WearRecord, BurstOpenRecord)
+        // and stays a door; it must not wear down into debris like a loose object.
+        if (UWObjectIds.IsDoor(pOObject.ID))
+        {
+            if (UWDoorRules.WearRecord(pOObject, liDamage, lOEntry.QualityClass)
+                && UWDoorRules.BurstOpenRecord(pOLoader.CurrentLevel, pOObject))
+                fPlayDoorSound(pOTile, pOObject);
+
+            return;
+        }
+
+        if (!UWObjectDamageRules.Wear(pOObject.Quality, liDamage, lOEntry.QualityClass, false,
+                out int liQuality))
+        {
+            pOObject.Quality = (ushort)liQuality;
+
+            return;
+        }
+
+        pOObject.Quality = 0;
+
+        fDestroy(pOLoader, pOTile, pOObject, lOEntity, piDamageType);
     }
 
     /// <summary>What DamageObject_Debris (remove_object) does with a destroyed loose object -
@@ -199,6 +211,18 @@ public static class UWTileBlast
             UWDebris.ReplaceWithDebris(pOLoader, pOEntity, pOObject, pOTile, lOPosition);
     }
 
+    /// <summary>OpenDoor's sound where the door is (play_effect 0x14 for a portcullis, 0xB for
+    /// any other door) - for a bodiless door the blast broke; a door with a body plays it from its
+    /// mover.</summary>
+    private static void fPlayDoorSound(UWTilePos pOTile, UWObject pODoor)
+    {
+        UWSoundEffects.PlayAt((pODoor.ID & 7) == PortcullisInClass ? UWSoundEffects.Portcullis : UWSoundEffects.Door,
+            UWObjectSpawner.GetObjectWorldPosition(pOTile.X, pOTile.Y, pODoor));
+    }
+
+    /// <summary>The portcullis among the doors (OpenDoor's inclass 6).</summary>
+    private const int PortcullisInClass = 6;
+
     private static void fStrikePlayer(UWWorld pOWorld, UWLevelLoader pOLoader, UWTilePos pOTile, int piDiceCount,
         int piDiceRange, int piDamageType, int piAttacker)
     {
@@ -207,7 +231,9 @@ public static class UWTileBlast
         if (lOPlayer == null || pOLoader.WorldPositionToTile(lOPlayer.transform.position) != pOTile)
             return;
 
+        // Plain damage of the blast's type, no armour, no halving (UWDamageRequest.Blast, cleanup
+        // step 4.2, 2026-10-17); the player keeps no attacker.
         pOWorld.Damage(UWDamageTarget.ThePlayer,
-            UWBlow.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType, piAttacker, UWBlow.NoCreature));
+            UWBlow.ToPlayer(UWDamageRequest.Blast(UWRandom.RollDice(piDiceCount, piDiceRange), piDamageType)));
     }
 }

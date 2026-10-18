@@ -463,7 +463,7 @@ public sealed class UWHudPictures
     /// <summary>
     /// Short flash of the viewport in a PALETTE COLOUR - for the curse of a
     /// cursed piece of equipment, which in the reference flashes with colour 0xA8 (see
-    /// UWCharacter.ApplyCurse).
+    /// UWDamageRequest.Curse).
     ///
     /// Unlike when sleeping, input stays ON: it is ten hundredths of a second, and
     /// whoever lost control during it would be left standing in the middle of combat.

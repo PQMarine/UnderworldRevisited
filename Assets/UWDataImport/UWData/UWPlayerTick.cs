@@ -20,8 +20,8 @@ namespace UWDataImport.UWData
 	/// the worn regeneration, poison, mana and the intoxication on every third tick, hunger,
 	/// fatigue and natural healing on every twenty-fourth (all UWPlayerVitals.RunGameTick), the
 	/// respawning of monsters (UWRespawnRules) and the swimming check
-	/// (UWPlayerTerrain.fUpdateSwimCounter) - the original runs those last two in the same
-	/// periodic player loop. They all take their interval from here, so there is ONE number
+	/// (UWPlayerTerrainRules.SwimCheck, on the tick itself since cleanup step 4.4) - the original
+	/// runs those last two in the same periodic player loop. They all take their interval from here, so there is ONE number
 	/// and not five that could drift apart.
 	///
 	/// UNTIL 2026-09-21 the port ran the tick at twenty seconds, about five per cent fast.

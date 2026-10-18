@@ -94,12 +94,13 @@ namespace UWDataImport.UWData
 			return fHasPlayer(pIHost) ? pIHost.World.Player.Vitals.GetSkill(UWPlayerData.Skill.Casting) : 0;
 		}
 
-		/// <summary>The damage trap on the player: untyped, nobody's (UWBlow.Trap; B5 of
-		/// Docs/CLEANUP-PLAN.md, decision 1 open).</summary>
+		/// <summary>The damage trap on the player: type 4 as on everything else (WORLDEV.C
+		/// whack_thing), untyped until 2026-10-17 - B5 of Docs/CLEANUP-PLAN.md, decided by the
+		/// original; the same for the player, whose proof has no bit 4 (UWDamageRequest.Trap).</summary>
 		private static void fDamagePlayer(IUWTrapHost pIHost, int piDamage)
 		{
 			if (fHasPlayer(pIHost))
-				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.Trap(piDamage, UWDamageTypes.None));
+				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Trap(piDamage)));
 		}
 
 		private static void fPoisonPlayer(IUWTrapHost pIHost, int piStrength)
@@ -109,11 +110,11 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The class 9 curse on the player: dice plus dice eight-sided, never below
-		/// three hit points (UWPlayerVitals.ApplyCurse). The exploding book uses three dice.</summary>
+		/// three hit points (UWDamageRequest.Curse). The exploding book uses three dice.</summary>
 		private static void fCursePlayer(IUWTrapHost pIHost, int piDice)
 		{
 			if (pIHost.World != null)
-				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.Curse(piDice));
+				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Curse(piDice)));
 		}
 
 		/// <summary>Is a creature that was created during play (UWObject.IsSpawned) standing
@@ -2010,8 +2011,10 @@ namespace UWDataImport.UWData
 			foreach (UWObject lOEmerald in lOFound)
 				pIHost.World.Remove(lOEmerald);
 
+			// emerald_trap Obj_Adds the stone: at the head of the tile's list (2026-10-18).
 			pIHost.World.SpawnNewObject(
-				UWPlayerData.FirstRuneObjectId + (int)UWPlayerData.Rune.Vas, new UWTilePos(piTileX, piTileY + 1), 0);
+				UWPlayerData.FirstRuneObjectId + (int)UWPlayerData.Rune.Vas, new UWTilePos(piTileX, piTileY + 1), 0,
+				UWWorldEdit.Arrival.Created);
 
 			UWTrapLog.Detail = "-> Vas rune stone";
 

@@ -383,31 +383,8 @@ namespace UnderworldRevisited
         [Tooltip("How fast the view follows the target height, in units per second. Mainly affects the transition when entering and leaving.")]
         public float SwimViewFollowSpeed = 60f;
 
-        [Tooltip("Swimming speed without skill, as a fraction of walking speed. The original's speed table says 3 of 10; in comparison that still felt too fast, because our base speed is a value of its own and not the original's.")]
-        [Range(0.1f, 1f)]
-        public float SwimSpeedUnskilled = 0.26f;
-
-        [Tooltip("Swimming speed at full skill. In UW1 there is NO skill bonus on speed, hence the same value - the bonus is new in UW2.")]
-        [Range(0.1f, 1f)]
-        public float SwimSpeedSkilled = 0.26f;
-
         [Tooltip("Swimming skill value at which speed and view steadiness are fully maxed out.")]
         public float SwimSkillForFullEffect = 15f;
-
-        [Tooltip("Seconds between two swimming checks while the swim counter is above 0x50 (see UWPlayerTerrain.fUpdateSwimCounter). Each failure lowers the view, above 0x78 the character drowns. The reference makes this check in its periodic player loop, so the interval is that loop's length: 21 seconds (UWPlayerTick). Fits the user's earlier estimate of about one minute until an unpractised swimmer takes damage: two to three failed checks. Replaces the guessed SwimExhaustion settings (2026-09-17).")]
-        public float SwimCheckInterval = UWPlayerTick.Seconds;
-
-        [Tooltip("How strongly the current changes swimming speed. 0.5 means one and a half times as fast with the current, half as fast against it. OFF, because the observation it was based on is a bug of the original - see UWPlayerTerrain.fUpdateFlow.")]
-        [Range(0f, 1f)]
-        public float WaterFlowStrength = 0f;
-
-        [Tooltip("Direction of the current in degrees around the vertical axis: 0 north (+Z), 90 east (+X), 180 south, 270 west. In UW1 all water carries the same direction, because all water tiles have the same terrain value. 225 is southwest, per the user's observation on level 1.")]
-        [Range(0f, 360f)]
-        public float WaterFlowHeadingDegrees = 225f;
-
-        [Tooltip("Speed on lava, as a fraction of walking speed. Confirmed by the original's speed table (5 of 10).")]
-        [Range(0.1f, 1f)]
-        public float LavaSpeedFactor = 0.5f;
 
         [Tooltip("Seconds between two lava damage rolls. UW.EXE rolls once per game frame (GameObjectLoop_seg034_2F89_518 -> WalkOnSurfaceTypes_seg034_93D); 1/32 s uses the same game loop rate as the void effects (VoidEffectTicksPerSecond, per user, 2026-09-14). The earlier 0.5 s did far too little damage.")]
         public float LavaDamageInterval = 1f / 32f;

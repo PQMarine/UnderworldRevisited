@@ -281,13 +281,13 @@ public class UWIntroPlayer : MonoBehaviour
         fDrawCentred(lOFont, lOPlayer != null ? lOPlayer.Name : string.Empty, liY, lOColour);
 
         liY -= liHeight;
-        fDrawCentred(lOFont, fGetString(1, 0xBB) + lOCharacter.Level + " "
+        fDrawCentred(lOFont, fGetString(1, 0xBB) + lOCharacter.Vitals.Level + " "
             + fGetString(2, 0x17 + (lOPlayer != null ? lOPlayer.CharacterClass : 0)), liY, lOColour);
 
         liY -= liHeight;
         fDrawCentred(lOFont, fGetString(1, 0xBC), liY, lOColour);
 
-        int liDays = (int)((uint)lOCharacter.ClockValue / 0x1C2000u) / 12;
+        int liDays = (int)((uint)lOCharacter.Vitals.ClockValue / 0x1C2000u) / 12;
 
         liY -= liHeight;
         fDrawCentred(lOFont, fGetString(1, 0xBD) + liDays + fGetString(1, 0xBE), liY, lOColour);
@@ -296,12 +296,12 @@ public class UWIntroPlayer : MonoBehaviour
 
         int[] liValues =
         {
-            lOCharacter.Strength,
-            lOCharacter.Dexterity,
-            lOCharacter.Intelligence,
-            Mathf.RoundToInt(lOCharacter.MaxHP),
-            Mathf.RoundToInt(lOCharacter.MaxMana),
-            lOCharacter.Experience / 10
+            lOCharacter.Vitals.Strength,
+            lOCharacter.Vitals.Dexterity,
+            lOCharacter.Vitals.Intelligence,
+            Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
+            Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
+            lOCharacter.Vitals.Experience / 10
         };
 
         for (int liAt = 0; liAt < liValues.Length; liAt++)
@@ -315,13 +315,13 @@ public class UWIntroPlayer : MonoBehaviour
 
         liY -= 2 * liHeight;
 
-        for (int liAt = 0; liAt < UWCharacter.SkillNumberCount; liAt++)
+        for (int liAt = 0; liAt < UWPlayerVitals.SkillNumberCount; liAt++)
         {
             if (liAt % 3 == 0)
                 liY -= liHeight;
 
             int liX = ((liAt % 3) * VictorySkillColumnWidth) + VictorySkillFirstX;
-            string lsValue = lOCharacter.GetSkillByNumber(liAt).ToString();
+            string lsValue = lOCharacter.Vitals.GetSkillByNumber(liAt).ToString();
 
             fDrawText(lOFont, fGetString(2, 0x1F + liAt), liX, liY, lOColour);
             fDrawText(lOFont, lsValue,

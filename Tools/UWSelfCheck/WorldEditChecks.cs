@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using UWDataImport;
 using UWDataImport.UWData;
 
@@ -94,6 +96,7 @@ namespace UnderworldRevisited.Tools
             }
 
             fCheckWorldEditPlacement(lOData, lOLevel, lOEdit, lOEvents, lOFirst, lOSecond, lOSolid);
+            fCheckWorldEditOrder(pOContext, lOLevel, lOEdit, lOFirst, lOSecond);
             fCheckWorldEditCreature(lOData, lOLevel, lOEdit, lOEvents, lOFirst);
             fCheckWorldEditFullLevel(lOData, lOLevel, lOEdit, lOEvents, lOFirst);
             fCheckWorldEditListsAgree(lOLevel);
@@ -139,9 +142,9 @@ namespace UnderworldRevisited.Tools
 
             pOEvents.Clear();
 
-            Check.Bool("place: an item into a dry open tile", pOEdit.Place(lODagger, pOFirst.X, pOFirst.Y, 5, 2, 7, true)
-                == UWWorldEdit.PlaceResult.Placed, true);
-            Check.Bool("place: ... appended at the end of the tile's chain",
+            Check.Bool("place: an item into a dry open tile", pOEdit.Place(lODagger, pOFirst.X, pOFirst.Y, 5, 2, 7, true,
+                UWWorldEdit.Arrival.PutDown) == UWWorldEdit.PlaceResult.Placed, true);
+            Check.Bool("place: ... put down, appended at the end of the tile's chain",
                 lOFirst.ObjectsInTile.Count == liBefore + 1 && lOFirst.ObjectsInTile[liBefore] == lODagger, true);
             Check.Int("place: ... the record names the tile and the spot (x*1000 + y*100 + xpos*10 + ypos)",
                 (lODagger.TileX * 1000) + (lODagger.TileY * 100) + (lODagger.XPos * 10) + lODagger.YPos,
@@ -156,8 +159,8 @@ namespace UnderworldRevisited.Tools
 
             pOEdit.Move(lODagger, pOSecond.X, pOSecond.Y);
             Check.Bool("move: out of the first tile's chain", lOFirst.ObjectsInTile.Contains(lODagger), false);
-            Check.Bool("move: ... to the end of the second's",
-                lOSecond.ObjectsInTile[lOSecond.ObjectsInTile.Count - 1] == lODagger, true);
+            Check.Bool("move: ... to the head of the second's (set_phys_data's Obj_Add)",
+                lOSecond.ObjectsInTile[0] == lODagger, true);
             Check.Int("move: ... the record follows", (lODagger.TileX * 100) + lODagger.TileY, (pOSecond.X * 100) + pOSecond.Y);
             Check.Str("move: ... ObjectMoved names both tiles", string.Join("; ", pOEvents),
                 string.Format("moved 1 {0}/{1} {2}/{3}", pOFirst.X, pOFirst.Y, pOSecond.X, pOSecond.Y));
@@ -174,10 +177,119 @@ namespace UnderworldRevisited.Tools
             lORock.TileX = 9;
             lORock.XPos = 1;
             pOEvents.Clear();
-            Check.Bool("place: a solid tile refuses", pOEdit.Place(lORock, pOSolid.X, pOSolid.Y, 5, 5, 5, true)
-                == UWWorldEdit.PlaceResult.Refused, true);
+            Check.Bool("place: a solid tile refuses", pOEdit.Place(lORock, pOSolid.X, pOSolid.Y, 5, 5, 5, true,
+                UWWorldEdit.Arrival.PutDown) == UWWorldEdit.PlaceResult.Refused, true);
             Check.Int("place: ... the record is left as it was", (lORock.TileX * 10) + lORock.XPos, 91);
             Check.Int("place: ... and nothing is told", pOEvents.Count, 0);
+        }
+
+        /// <summary>
+        /// THE ORDER WITHIN A SQUARE (cleanup 4.0 follow-up, 2026-10-18): Obj_Add puts an object at
+        /// the head of a square's list, Obj_AddEnd at its tail, and UWWorldEdit.Arrival says which
+        /// an arrival is. A creature walking into a square with objects lands at the head
+        /// (set_phys_data), what is put down lands at the tail (drop_around_place, ReturnObject),
+        /// what is made on the spot or comes to rest at the head (creat_spell, mob_to_static), the
+        /// debris takes the place of what it replaces (SET_ITEM). The saved chain is the list's
+        /// order: the moved creature is the first object of its square in the block written.
+        /// </summary>
+        private static void fCheckWorldEditOrder(CheckContext pOContext, UWLevel pOLevel, UWWorldEdit pOEdit,
+            UWTilePos pOFirst, UWTilePos pOSecond)
+        {
+            DataImport lOData = pOContext.Data;
+            UWTile lOFirst = pOLevel.GetTile(pOFirst.X, pOFirst.Y);
+            UWObject lODropped = UWObjectFactory.Create(1, lOData.CommonObjectProperties);
+            UWObject lOThrown = UWObjectFactory.Create(2, lOData.CommonObjectProperties);
+            UWObject lOFood = UWObjectFactory.Create(0xB0, lOData.CommonObjectProperties);
+            UWObject lOAtPoint = UWObjectFactory.Create(3, lOData.CommonObjectProperties);
+            UWObject lOBat = UWObjectFactory.Create(0x40, lOData.CommonObjectProperties);
+
+            Check.Seq("order: head for Moved, Landed, Created, PutAtPoint; not for PutDown, InPlace",
+                new[]
+                {
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.Moved) ? 1 : 0,
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.Landed) ? 1 : 0,
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.Created) ? 1 : 0,
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.PutAtPoint) ? 1 : 0,
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.PutDown) ? 1 : 0,
+                    UWWorldEdit.JoinsAtHead(UWWorldEdit.Arrival.InPlace) ? 1 : 0
+                },
+                new[] { 1, 1, 1, 1, 0, 0 });
+
+            pOEdit.Place(lODropped, pOFirst.X, pOFirst.Y, 3, 3, 0, false, UWWorldEdit.Arrival.PutDown);
+            Check.Bool("order: put down - the tail",
+                lOFirst.ObjectsInTile[lOFirst.ObjectsInTile.Count - 1] == lODropped, true);
+
+            pOEdit.Place(lOThrown, pOFirst.X, pOFirst.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Landed);
+            Check.Bool("order: come to rest - the head", lOFirst.ObjectsInTile[0] == lOThrown, true);
+
+            pOEdit.Place(lOFood, pOFirst.X, pOFirst.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Created);
+            Check.Bool("order: conjured on the spot - the head, before the landed one",
+                lOFirst.ObjectsInTile[0] == lOFood && lOFirst.ObjectsInTile[1] == lOThrown, true);
+
+            pOEdit.Place(lOAtPoint, pOFirst.X, pOFirst.Y, 3, 3, 0, false, UWWorldEdit.Arrival.PutAtPoint);
+            Check.Bool("order: put_at with no spot - the head", lOFirst.ObjectsInTile[0] == lOAtPoint, true);
+
+            // A creature in the next square walks into the first, which holds objects now.
+            pOEdit.Place(lOBat, pOSecond.X, pOSecond.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Created);
+            pOEdit.Move(lOBat, pOFirst.X, pOFirst.Y);
+            Check.Bool("order: a creature walking into a square with objects - the head",
+                lOFirst.ObjectsInTile.Count > 1 && lOFirst.ObjectsInTile[0] == lOBat, true);
+
+            // The thrown thing becomes debris where it lies: the pile takes its place.
+            int liAt = pOEdit.ListIndexOf(lOThrown);
+            UWObject lODebris = UWObjectFactory.Create(UWObjectIds.FirstDebris, lOData.CommonObjectProperties);
+
+            pOEdit.Remove(lOThrown);
+            pOEdit.Place(lODebris, pOFirst.X, pOFirst.Y, 3, 3, 0, false, UWWorldEdit.Arrival.InPlace, liAt);
+            Check.Bool("order: debris in place of what it replaces (index " + liAt + ")",
+                liAt > 0 && pOEdit.ListIndexOf(lODebris) == liAt, true);
+
+            fCheckSavedChainOrder(pOContext, pOLevel, lOFirst, lOBat);
+
+            foreach (UWObject lOPlaced in new[] { lODropped, lOFood, lOAtPoint, lOBat, lODebris })
+                pOEdit.Remove(lOPlaced);
+        }
+
+        /// <summary>The block UWLevelWriter builds from the level: the square's chain holds the
+        /// list's ids in the list's order, the moved creature first.</summary>
+        private static void fCheckSavedChainOrder(CheckContext pOContext, UWLevel pOLevel, UWTile pOTile, UWObject pOFirst)
+        {
+            string lsArk = pOContext.DataPath != null ? Path.Combine(pOContext.DataPath, "LEV.ARK") : null;
+
+            if (lsArk == null || !File.Exists(lsArk))
+            {
+                Check.Fail("order: the saved chain", "no LEV.ARK");
+
+                return;
+            }
+
+            byte[] lyArk = File.ReadAllBytes(lsArk);
+            uint luOffset = BitConverter.ToUInt32(lyArk, 2 + (UWLevArkLayout.MapBlock(pOLevel.LevelNumber - 1) * 4));
+            byte[] lyOriginal = new byte[UWLevArkLayout.BlockSize];
+
+            Array.Copy(lyArk, (int)luOffset, lyOriginal, 0, lyOriginal.Length);
+
+            byte[] lyBuilt = UWLevelWriter.BuildBlock(pOLevel, lyOriginal);
+            int liTileAt = ((pOTile.Z * UWWorldScale.TilesPerAxis) + pOTile.X) * UWLevArkLayout.TileRecordSize;
+            int liIndex = (int)(BitConverter.ToUInt32(lyBuilt, liTileAt) >> UWLevArkLayout.TileFirstObjectShift);
+            List<int> lOChain = new List<int>();
+            List<int> lOList = new List<int>();
+
+            for (int liGuard = 0; liIndex != 0 && liGuard < 1024; liGuard++)
+            {
+                int liRecord = liIndex < UWLevArkLayout.MobileCount
+                    ? UWLevArkLayout.MobileBase + (liIndex * UWLevArkLayout.MobileRecordSize)
+                    : UWLevArkLayout.StaticBase + ((liIndex - UWLevArkLayout.MobileCount) * UWLevArkLayout.StaticRecordSize);
+
+                lOChain.Add(BitConverter.ToUInt16(lyBuilt, liRecord) & 0x1FF);
+                liIndex = BitConverter.ToUInt16(lyBuilt, liRecord + 4) >> 6;
+            }
+
+            foreach (UWObject lOObject in pOTile.ObjectsInTile)
+                lOList.Add(lOObject.ID);
+
+            Check.Str("order: the saved chain is the list's order", string.Join(",", lOChain), string.Join(",", lOList));
+            Check.Int("order: ... the moved creature first", lOChain.Count > 0 ? lOChain[0] : -1, pOFirst.ID);
         }
 
         /// <summary>A creature takes its mobile slot from the top of the free list when placed and
@@ -190,7 +302,7 @@ namespace UnderworldRevisited.Tools
             int liFree = pOLevel.FreeMobileSlots.Count;
             UWObject lOBat = UWObjectFactory.Create(0x40, pOData.CommonObjectProperties);
 
-            Check.Bool("creature: placed", pOEdit.Place(lOBat, pOAt.X, pOAt.Y, 3, 3, 0, false)
+            Check.Bool("creature: placed", pOEdit.Place(lOBat, pOAt.X, pOAt.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Created)
                 == UWWorldEdit.PlaceResult.Placed, true);
             Check.Int("creature: ... takes the top of the mobile free list", pOLevel.Masterlist.IndexOf(lOBat), liTop);
             Check.Int("creature: ... which leaves it", pOLevel.FreeMobileSlots.Count, liFree - 1);
@@ -205,7 +317,7 @@ namespace UnderworldRevisited.Tools
 
             UWObject lOSecondBat = UWObjectFactory.Create(0x40, pOData.CommonObjectProperties);
 
-            pOEdit.Place(lOSecondBat, pOAt.X, pOAt.Y, 3, 3, 0, false);
+            pOEdit.Place(lOSecondBat, pOAt.X, pOAt.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Created);
             Check.Int("creature: the next one takes the same slot", pOLevel.Masterlist.IndexOf(lOSecondBat), liTop);
 
             pOEvents.Clear();
@@ -233,7 +345,8 @@ namespace UnderworldRevisited.Tools
             UWObject lOLast = UWObjectFactory.Create(1, pOData.CommonObjectProperties);
 
             Check.Bool("full: the last slot is taken without culling",
-                pOEdit.Place(lOLast, pOAt.X, pOAt.Y, 3, 3, 0, false) == UWWorldEdit.PlaceResult.Placed, true);
+                pOEdit.Place(lOLast, pOAt.X, pOAt.Y, 3, 3, 0, false, UWWorldEdit.Arrival.PutDown)
+                == UWWorldEdit.PlaceResult.Placed, true);
             Check.Int("full: ... nothing culled (its own ObjectPlaced only)", pOEvents.Count, 1);
 
             // Now carrying as much as the level holds: every request culls, and it never suffices.
@@ -241,7 +354,8 @@ namespace UnderworldRevisited.Tools
             pOEvents.Clear();
 
             UWObject lORefused = UWObjectFactory.Create(1, pOData.CommonObjectProperties);
-            UWWorldEdit.PlaceResult leResult = pOEdit.Place(lORefused, pOAt.X, pOAt.Y, 3, 3, 0, false);
+            UWWorldEdit.PlaceResult leResult = pOEdit.Place(lORefused, pOAt.X, pOAt.Y, 3, 3, 0, false,
+                UWWorldEdit.Arrival.PutDown);
             int liCulled = pOEvents.FindAll(psEvent => psEvent.StartsWith("removed")).Count;
 
             Check.Bool("full: an object finds no slot and is refused", leResult == UWWorldEdit.PlaceResult.Refused, true);
@@ -303,7 +417,8 @@ namespace UnderworldRevisited.Tools
 
             pOEdit.PlayerTile = () => pOAt;
 
-            UWWorldEdit.PlaceResult leResult = pOEdit.Place(lOItem, pOAt.X, pOAt.Y, 3, 3, 0, false);
+            UWWorldEdit.PlaceResult leResult = pOEdit.Place(lOItem, pOAt.X, pOAt.Y, 3, 3, 0, false,
+                UWWorldEdit.Arrival.PutDown);
 
             Check.Bool("effect: a running effect's slot counts for an object placed meanwhile (it culls)",
                 pOEvents.Exists(psEvent => psEvent.StartsWith("removed")), true);
@@ -430,7 +545,7 @@ namespace UnderworldRevisited.Tools
 
             UWObject lOBat = UWObjectFactory.Create(0x40, pOData.CommonObjectProperties);
 
-            pOEdit.Place(lOBat, pOAt.X, pOAt.Y, 3, 3, 0, false);
+            pOEdit.Place(lOBat, pOAt.X, pOAt.Y, 3, 3, 0, false, UWWorldEdit.Arrival.Created);
             Check.Int("wipe: a creature made afterwards takes slot 255", pOLevel.Masterlist.IndexOf(lOBat), 255);
             Check.Int("wipe: ... the first of the active list", pOLevel.GetActiveMobileOrder(255), 0);
         }

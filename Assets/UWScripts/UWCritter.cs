@@ -33,7 +33,7 @@ using UnderworldRevisited.Build;
 /// position after a step and the goal a conversation or spell script sets.
 /// </summary>
 [RequireComponent(typeof(UWDamageable))]
-public class UWCritter : MonoBehaviour, ICritterHost
+public class UWCritter : MonoBehaviour, ICritterHost, IUWAttackDefender
 {
     /// <summary>What the animation slot of the brain's Motion amounts to, for the callers
     /// that still ask (UWDebugOverlay). Kept as an adapter over the record: Pursuing and
@@ -123,9 +123,6 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>First ammunition object: the arrow. The critter table counts from here.</summary>
     private const int FirstAmmunitionObjectId = UWObjectMechanics.FirstAmmunitionObjectId;
 
-    /// <summary>Major class of the missile spells - the only creature spells built.</summary>
-    private const int ProjectileSpellMajorClass = 5;
-
     /// <summary>How far in front of the surface a blow's impact sits, in world units.</summary>
     private const float BlowEffectSetback = 4f;
 
@@ -138,6 +135,36 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>Every enabled creature of the scene, for UWCritterDriver. A list kept by
     /// OnEnable/OnDisable instead of a scene search per frame.</summary>
     public static IReadOnlyList<UWCritter> Active => msActive;
+
+    /// <summary>The enabled creatures by their master-list index (cleanup step 4.8, 2026-10-18),
+    /// kept beside Active by the same OnEnable/OnDisable and by Initialise, which gives a creature
+    /// its index after it was enabled.</summary>
+    private static readonly Dictionary<int, UWCritter> msByIndex = new Dictionary<int, UWCritter>();
+
+    /// <summary>
+    /// The enabled creature with this master-list index, or null - index 0 (no data) and the
+    /// player's index 1 included. ONE LOOKUP INSTEAD OF A WALK OF Active (cleanup step 4.8,
+    /// 2026-10-18; section 7.4 of Docs/CLEANUP-PLAN.md): the blow's body (UWWorld), the motion
+    /// core's mobiles (UWMotionHost) and a creature's defender each walked the list or the master
+    /// list for it. When a slot is taken again in the frame its former creature is still being
+    /// destroyed, the new creature is the one found (the walk found the former, first in Active).
+    /// </summary>
+    public static UWCritter AtIndex(int piIndex)
+    {
+        return piIndex > PlayerIndex && msByIndex.TryGetValue(piIndex, out UWCritter lOCritter) ? lOCritter : null;
+    }
+
+    private void fRegisterIndex()
+    {
+        if (miIndex > PlayerIndex && isActiveAndEnabled)
+            msByIndex[miIndex] = this;
+    }
+
+    private void fUnregisterIndex()
+    {
+        if (miIndex > PlayerIndex && msByIndex.TryGetValue(miIndex, out UWCritter lOCritter) && lOCritter == this)
+            msByIndex.Remove(miIndex);
+    }
 
     // ------------------------------------------------- Components and data
 
@@ -182,36 +209,11 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
     // ------------------------------------------------- Damage bookkeeping
 
-    /// <summary>Who the next Damaged event of the UWDamageable is charged to: 1 the player
-    /// (the default - every blow, missile and spell of the port that is not a creature's or
-    /// the lava's comes from him), a creature's index for its blow, 0 for lava.</summary>
-    private int miPendingAttacker = PlayerIndex;
-
     /// <summary>This creature's index in the level's mobile list - who it is to everyone
     /// else's damage attribution.</summary>
     public int Index
     {
         get { return miIndex; }
-    }
-
-    /// <summary>
-    /// WHO IS ABOUT TO HIT THIS CREATURE. DamageNPC (54563-54802) stores the attacker in byte
-    /// 0x12 - one for the player, and FOR A PROJECTILE THE PROJECTILE'S OWN BYTE 0x12, which
-    /// is its launcher. Only then can the damage reaction do its work: it ignores a hit that
-    /// came from neither the player nor an ally of either side, and it makes the attacker its
-    /// goal target (see UWCritterBrain.fDamageReaction).
-    ///
-    /// The announcement holds for the next hit only; afterwards it falls back to the player,
-    /// which is what the world does when nobody says otherwise. Until 2026-09-22 a creature
-    /// shot by another creature's arrow blamed the player.
-    ///
-    /// Only the world calls it since cleanup step 3.3 (2026-10-17): UWBlowRouting announces as
-    /// the blow says (UWBlowAttribution) - before a missile or a blast, around a creature's blow
-    /// or damage nobody dealt.
-    /// </summary>
-    public void AnnounceAttacker(int piIndex)
-    {
-        miPendingAttacker = piIndex;
     }
 
     /// <summary>The hit points this creature takes blows on - the body a damage site hands to
@@ -229,12 +231,6 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (lOWorld != null)
             lOWorld.Damage(pOTarget, pOBlow);
     }
-
-    private int miLastHealth;
-
-    /// <summary>Set while the host itself drains the UWDamageable to match a death the brain
-    /// decided (drowning, hit points reaching zero in the record) - that event is not a blow.</summary>
-    private bool mbSuppressDamageEvent;
 
     // ------------------------------------------------- Trace
 
@@ -311,12 +307,29 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>The goal of the object data.</summary>
     public int Goal => mORecord != null ? mORecord.Goal : 0;
 
-    /// <summary>Where the creature stood at build time. UWWorldSync only writes a new position
-    /// if it has moved away from it.</summary>
-    public Vector3 SpawnPosition { get; private set; }
+    /// <summary>Where the record stood at build time: tile, eighth and zpos (cleanup step 4.8,
+    /// 2026-10-18; the body's world point until then).</summary>
+    private int miSpawnTileX;
 
-    /// <summary>The logical position of the body (the picture may still be catching up) - for
-    /// UWWorldSync, which writes the position into the data.</summary>
+    private int miSpawnTileY;
+
+    private int miSpawnFineX;
+
+    private int miSpawnFineY;
+
+    private int miSpawnZPos;
+
+    /// <summary>The record has left the spot it was set up on - UWWorldSync only relinks it and
+    /// pulls it clear of the walls then, so whoever stood still keeps its place exactly as loaded.
+    /// Any change of tile, eighth or zpos counts, as any of them moved the body by more than the
+    /// one unit the old test asked for (an eighth is 8 units, a zpos step 2).</summary>
+    public bool HasMoved => mORecord != null && mONpc != null
+        && (mORecord.TileX != miSpawnTileX || mORecord.TileY != miSpawnTileY || mORecord.FineX != miSpawnFineX
+            || mORecord.FineY != miSpawnFineY || mORecord.ZPos != miSpawnZPos);
+
+    /// <summary>The logical position of the body (the picture may still be catching up): the
+    /// record's spot as a world point - for the view, the effects and the remains. The record is
+    /// the position (UWWorldSync captures it since cleanup step 4.8, 2026-10-18).</summary>
     public Vector3 BodyPosition => mOBody;
 
     /// <summary>Is this a water creature? For UWCritterAnimator, which has to lift its image
@@ -397,6 +410,8 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
         mOBrain = new UWCritterBrain(mORecord, pOStats, miIndex);
 
+        fRegisterIndex();
+
         // THE RECORD IS THE POSITION (stage 2 of the motion rework, 2026-10-05): the body
         // stands at the record's eighth and zpos, as the original draws it, and the motion
         // core moves the record. A creature without data keeps the spot the spawner gave it.
@@ -409,27 +424,35 @@ public class UWCritter : MonoBehaviour, ICritterHost
         mOBody = lOAt;
         mOPictureFrom = lOAt;
         mfPictureSeconds = 0f;
-        SpawnPosition = lOAt;
 
-        // THE RECORD'S HIT POINTS ARE THE BRAIN'S. Where the data held 0 the spawner gave the
-        // UWDamageable the table value (UWObjectSpawner); the brain's DamageNPC compares the
-        // record's byte 8 against the blow, so it must hold the same number - otherwise the
-        // first scratch would kill. Written through to UWNpc.HitPoints, which is what the
-        // writer saves (UWLevelWriter.fWriteNpcBytes).
+        miSpawnTileX = mORecord.TileX;
+        miSpawnTileY = mORecord.TileY;
+        miSpawnFineX = mORecord.FineX;
+        miSpawnFineY = mORecord.FineY;
+        miSpawnZPos = mORecord.ZPos;
+
+        // THE RECORD'S HIT POINTS ARE THE BRAIN'S. Until 2026-10-18 a record holding 0 got the
+        // table value here (the spawner's UWDamageable started there), so that the first scratch
+        // would not kill. THE ORIGINAL KEEPS THE 0: nothing fills a creature's hit points on
+        // loading (UnderworldExhumed has no such step), and a living creature with 0 is one
+        // whose death was refused - the golem saved before his script sets 125 - and dies at the
+        // next blow (per user's decision the same day, cleanup 4.8). The shipped levels hold 0
+        // only in five 0x7D/0x7E records of level 9, whose table value is 0 as well.
         // A creature SAVED WHILE DYING (animation 0x0C, hp 0) loads dead: its hit points stay 0 and
         // the body counts as destroyed, without a second death (2026-10-17, B11). Before, the
         // spawner's table value revived it, and one that never finishes dying could be killed
         // again for a second share of experience.
+        // FROM HERE ON THE RECORD IS THE BODY'S ONLY STORE (cleanup step 4.8, 2026-10-18, B23): the
+        // UWDamageable reads and writes byte 8 (UWHealth.KeepHitPointsIn), so nothing has to keep
+        // two counts in step any more.
         bool lbLoadedDying = pONpc != null && mORecord.HitPoints == 0 && mORecord.Animation == UWCritterBrain.AnimDying;
 
         if (mODamageable != null)
         {
-            miLastHealth = mODamageable.CurrentHealth;
+            mODamageable.Health.KeepHitPointsIn(mORecord);
 
             if (lbLoadedDying)
-                fEnsureDamageableDestroyed();
-            else if (mORecord.HitPoints != mODamageable.CurrentHealth && mODamageable.CurrentHealth > 0)
-                mORecord.HitPoints = mODamageable.CurrentHealth;
+                mODamageable.MarkDestroyed();
 
             // Blows land on a dying creature: its record stays in the tile list until frame 3
             // (Obj_Rem in critter_ai), the blow finds it and damage_critter runs - crit_die only
@@ -469,16 +492,12 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (mORecord.IsAlly != mONpc.NPCIsAlly)
             mORecord.IsAlly = mONpc.NPCIsAlly;
 
+        // The body reads the record's hit points (cleanup step 4.8, 2026-10-18), so it follows by
+        // itself (the golem's script sets 125 after he was beaten, 2026-09-28) - all 125 of them:
+        // until then the body's copy stopped at its maximum, the larger of the table's and the
+        // loaded hit points.
         if (mONpc.HitPoints > 0 && mORecord.HitPoints != mONpc.HitPoints)
             mORecord.HitPoints = mONpc.HitPoints;
-
-        // The body follows (the golem's script sets 125 after he was beaten, 2026-09-28).
-        if (mODamageable != null && !mODamageable.IsDestroyed && mORecord.HitPoints > 0
-            && mODamageable.CurrentHealth != mORecord.HitPoints)
-        {
-            mODamageable.Health.SetCurrentHealth(mORecord.HitPoints);
-            miLastHealth = mODamageable.CurrentHealth;
-        }
 
         fTrace("refreshed from data: goal {0} gtarg {1} attitude {2}", mORecord.Goal, mORecord.GTarg, mORecord.Attitude);
     }
@@ -486,26 +505,30 @@ public class UWCritter : MonoBehaviour, ICritterHost
     private void Awake()
     {
         mODamageable = GetComponent<UWDamageable>();
-        mODamageable.Damaged += fOnDamaged;
+        mODamageable.CreatureTakesBlow += fTakeBlow;
     }
 
     private void OnEnable()
     {
         if (!msActive.Contains(this))
             msActive.Add(this);
+
+        fRegisterIndex();
     }
 
     private void OnDisable()
     {
         msActive.Remove(this);
+        fUnregisterIndex();
     }
 
     private void OnDestroy()
     {
         msActive.Remove(this);
+        fUnregisterIndex();
 
         if (mODamageable != null)
-            mODamageable.Damaged -= fOnDamaged;
+            mODamageable.CreatureTakesBlow -= fTakeBlow;
     }
 
     /// <summary>The picture between two due updates: the transform moves from where the
@@ -784,11 +807,12 @@ public class UWCritter : MonoBehaviour, ICritterHost
         return lOTile != null ? lOTile.FloorHeight >> 4 : 0;
     }
 
+    /// <summary>The mind's question before a cast: the anti-magic bit alone, the Void left to the
+    /// cast's refusal (UWEndgameRules.IsAntiMagicTile, cleanup step 4.10).</summary>
     bool ICritterHost.IsMagicBlockedAt(int piTileX, int piTileY)
     {
-        UWTile lOTile = fGetTileAt(piTileX, piTileY);
-
-        return lOTile != null && lOTile.NoMagicAllowed;
+        return mOLevelLoader != null
+            && UWEndgameRules.IsAntiMagicTile(mOLevelLoader.CurrentLevel, new UWTilePos(piTileX, piTileY));
     }
 
     /// <summary>Tybal's rule: his lair, level 7, while the orb stands (UWTybalOrbRules, the bit
@@ -865,9 +889,9 @@ public class UWCritter : MonoBehaviour, ICritterHost
         lOTarget.TileY = lOTile.Y;
         lOTarget.ObjectHeight = mOPlayer.GetBodyHeightZ();
         lOTarget.FacingEighth = UWPlayerThrow.GetPlayerHeading(mOPlayerTransform) >> 5;
-        lOTarget.Loudness = mOPlayer.Quietness;
-        lOTarget.Visibility = mOPlayer.Visibility;
-        lOTarget.HitPoints = mOPlayer.CurrentHP > 0f ? Mathf.Max(1, (int)mOPlayer.CurrentHP) : 0;
+        lOTarget.Loudness = mOPlayer.Vitals.Quietness;
+        lOTarget.Visibility = mOPlayer.Vitals.Visibility;
+        lOTarget.HitPoints = mOPlayer.Vitals.CurrentHP > 0f ? Mathf.Max(1, (int)mOPlayer.Vitals.CurrentHP) : 0;
         lOTarget.Goal = 0;
         lOTarget.IsAlly = false;
         lOTarget.Kind = 0;
@@ -1079,10 +1103,16 @@ public class UWCritter : MonoBehaviour, ICritterHost
     UWCritterPathSlots ICritterHost.PathSlots => UWDataImport.UWData.UWGameSession.Current.CritterPaths;
 
     /// <summary>
-    /// Goal 3's relocation: the record onto the tile centre at floor height (a flier keeps its
-    /// height above the floor), relinked, the body there at once. UW.EXE checks nothing; here
-    /// a solid tile or one outside the map refuses (deviation 37, kept for safety) - a creature
-    /// inside a wall would be worse than a skipped jump.
+    /// Goal 3's relocation: the record onto the tile centre at floor height, relinked, the body
+    /// there at once. UW.EXE checks nothing; here a solid tile or one outside the map refuses
+    /// (deviation 37, kept for safety) - a creature inside a wall would be worse than a skipped
+    /// jump.
+    ///
+    /// ONE WRITE, HERE (cleanup step 4.8, 2026-10-18): seg007_1798_3E4 (UnderworldExhumed AI.C)
+    /// moves the follower to the middle of the tile at the tile's height times eight, a flier too.
+    /// Until then this wrote the record with a flier's height above the floor kept and the brain
+    /// wrote it again at floor height after the call, so the record ended at the floor while the
+    /// body showed the flier at its old height above it until the next step.
     /// </summary>
     bool ICritterHost.Teleport(int piTileX, int piTileY)
     {
@@ -1094,16 +1124,7 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (!mbFlying && mbSwimming != fIsWater(lOTile))
             return false;
 
-        int liAbove = 0;
-
-        if (mbFlying)
-        {
-            UWTile lOHere = fGetTileAt(mORecord.TileX, mORecord.TileY);
-
-            liAbove = Mathf.Max(0, mORecord.ZPos - (lOHere != null ? (lOHere.FloorHeight >> 4) << 3 : 0));
-        }
-
-        fRelocate(piTileX, piTileY, 4, 4, Mathf.Clamp(((lOTile.FloorHeight >> 4) << 3) + liAbove, 0, 0x7F));
+        fRelocate(piTileX, piTileY, 4, 4, (lOTile.FloorHeight >> 4) << 3);
         fTrace("teleported to {0}/{1}", piTileX, piTileY);
 
         return true;
@@ -1288,7 +1309,7 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
         if (lODefender != null)
         {
-            fStrikeCreature(fIndexOf(lODefender.mONpc), lODefender, piAttack, piCharge, piFlank);
+            fStrikeCreature(lODefender.miIndex, lODefender, piAttack, piCharge, piFlank);
 
             return;
         }
@@ -1327,15 +1348,15 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// (CalculateAttackResults_seg022_230E_6B9 rolls none against an object) and no armour
     /// (AttackerAppliesFinalDamage_seg022_8A5 subtracts it only for creatures); the rolled
     /// damage, charge and flank go into DamageObject with type 4. A door without hit points
-    /// (the portcullis) takes the blow and nothing happens to it.
+    /// (the portcullis) takes the blow and nothing happens to it. The numbers are
+    /// UWAttackResolution's, a thing as the defender (cleanup step 4.9, 2026-10-18).
     /// </summary>
     private void fStrikeObject(UWDamageable pOObject, Vector3 pOAt, int piAttack, int piCharge, int piFlank)
     {
-        fGetAttackNumbers(piAttack, out int liUnusedScore, out int liBase);
+        UWAttackOutcome lOOutcome = UWAttackResolution.Resolve(fGetAttacker(piAttack, piCharge, piFlank),
+            UWAttackResolution.ObjectDefender, UWAttackResolution.NoPart);
 
-        int liRolled = UWCritterCombat.ScaleByCharge(UWCritterCombat.RollDamage(liBase), piCharge, piFlank);
-
-        fEvent("blow {0}: hits {1} for {2}", piAttack, pOObject != null ? pOObject.name : "an object", liRolled);
+        fEvent("blow {0}: hits {1} for {2}", piAttack, pOObject != null ? pOObject.name : "an object", lOOutcome.Rolled);
 
         // THE IMPACT AND THE SOUND AT THE HEIGHT OF THE BLOW (per user, 2026-09-29: the door was
         // hit without either). The original plays sound 4 at the object with volume damage * 4
@@ -1372,10 +1393,10 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (mOLevelLoader != null)
             mOLevelLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, BlowEffectSeconds);
 
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt, liRolled << 2);
+        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt, lOOutcome.HitVolume);
 
         if (pOObject != null && pOObject.TakesBlows)
-            fDamage(UWWorld.TargetOf(pOObject), UWBlow.CreatureBlow(liRolled, miIndex));
+            fDamage(UWWorld.TargetOf(pOObject), lOOutcome.Blow);
     }
 
     /// <summary>COMOBJ radius of every door, open or closed, portcullis included (0x140-0x14F).</summary>
@@ -1593,30 +1614,6 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>The impact flash and hit sound where the blow met the world. A collider that
     /// overlapped the capsule's start has no point (Unity reports zero); the impact then sits
     /// one radius ahead of the creature.</summary>
-    /// <summary>Whether the player's piece on this part is metal for do_miss: the slot of the
-    /// part ((part + 1) &amp; 3 of helm, chest, gloves, leggings), not empty, not leather.</summary>
-    private static bool fIsPlayerArmourMetal(int piPart)
-    {
-        UWInventory lOInventory = UWScene.Inventory;
-
-        if (lOInventory == null)
-            return false;
-
-        UWArmorItemMap.BodySlot leSlot;
-
-        switch (piPart)
-        {
-            case UWArmourProtection.PartBody: leSlot = UWArmorItemMap.BodySlot.Chest; break;
-            case UWArmourProtection.PartHands: leSlot = UWArmorItemMap.BodySlot.Gloves; break;
-            case UWArmourProtection.PartLegs: leSlot = UWArmorItemMap.BodySlot.Legs; break;
-            default: leSlot = UWArmorItemMap.BodySlot.Helmet; break;
-        }
-
-        UWObject lOPiece = lOInventory.GetEquipped(leSlot);
-
-        return lOPiece != null && !UWCritterCombat.IsLeatherArmour(lOPiece.ID);
-    }
-
     private void fShowImpactOnWorld(RaycastHit pOHit)
     {
         if (mOLevelLoader == null)
@@ -1633,25 +1630,24 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
     /// <summary>The score and the base damage of this attack (NPCExecuteAttack labels
     /// 1629-1679): the table's to-hit and damage bytes of attack i, half the signed byte
-    /// 0x11 and a fifth of byte 5, the strong individual's 7 + RNG(6) and 4 + RNG(12).</summary>
-    private void fGetAttackNumbers(int piAttack, out int piScore, out int piDamage)
+    /// 0x11 and a fifth of byte 5, the strong individual's 7 + RNG(6) and 4 + RNG(12) - with the
+    /// charge, the flank, this creature's index and its row's kinds and poison as one attacker for
+    /// UWAttackResolution (UWAttackerStats.Creature, cleanup step 4.9, 2026-10-18;
+    /// fGetAttackNumbers until then, the same draws).</summary>
+    private UWAttackerStats fGetAttacker(int piAttack, int piCharge, int piFlank)
     {
-        if (!mbHasStats)
-        {
-            piScore = 0;
-            piDamage = 3;
+        return UWAttackerStats.Creature(mOStats, mbHasStats, piAttack, mbHasStats && mORecord.IsStrong, miIndex,
+            piCharge, piFlank);
+    }
 
-            return;
-        }
-
-        piScore = UWCritterCombat.GetAttackScore(mOStats, piAttack);
-        piDamage = UWCritterCombat.GetAttackDamage(mOStats, piAttack);
-
-        if (mORecord.IsStrong)
-        {
-            piScore += UWCritterCombat.GetStrongScoreBonus();
-            piDamage += UWCritterCombat.GetStrongDamageBonus();
-        }
+    /// <summary>This creature's blow on a body - the player or another creature - whose feet and
+    /// top (zpos) are given: the ninth, the strong bonus, the part, the check, in the original's
+    /// order (UWAttackResolution.CreatureBlow, cleanup step 4.9b, 2026-10-18).</summary>
+    private UWAttackOutcome fStrikeBody(int piAttack, int piCharge, int piFlank, int piOwnHeight, IUWAttackDefender pIDefender,
+        int piDefenderFeet, int piDefenderTop, out UWAttackerStats pOAttacker)
+    {
+        return UWAttackResolution.CreatureBlow(mOStats, mbHasStats, piAttack, mbHasStats && mORecord.IsStrong, miIndex,
+            piCharge, piFlank, mORecord.ZPos, piOwnHeight, pIDefender, piDefenderFeet, piDefenderTop, out pOAttacker);
     }
 
     /// <summary>
@@ -1674,94 +1670,66 @@ public class UWCritter : MonoBehaviour, ICritterHost
         int liOwnHeight;
         fGetOwnSize(out liOwnRadius, out liOwnHeight);
 
-        int liOwnFeet = mORecord.ZPos;
         int liPlayerFeet = mOPlayer.GetFeetZPos();
 
         // THE PART FROM THE BLOW'S PROBE, a random third of this body (critter_attack's wsize 2
         // and the ninth rand() % 9 from AI.C, into resolve_attack and pickloc) - C3, by the user's
         // decision of 2026-10-12; until then this whole body, which sent tall creatures' blows
         // at the head far less often than the original does.
-        UWCritterCombat.RollCritterBlowProbe(liOwnFeet, liOwnHeight, out int liProbeBottom, out int liProbeTop);
+        //
+        // THE CHECK, THE CRITICAL AND THE DICE are UWAttackResolution's since cleanup step 4.9
+        // (2026-10-18), the player's defence and protection of the part UWPlayerCombatant's
+        // (UWCharacter.Combatant): the check value is his row byte 0x12, his protection of the
+        // part comes off the score; a critical doubles the base 1 in 2 and wears the piece of the
+        // part (UWPlayerCombatant.OnCriticalHit) before the dice.
+        //
+        // IN THE ORIGINAL'S ORDER since cleanup step 4.9b (2026-10-18, by the user's decision): the
+        // ninth, the strong creature's bonus, the part, the check (UWAttackResolution.CreatureBlow;
+        // ours drew the part before the strong bonus until then).
+        UWPlayerCombatant lOPlayerBody = mOPlayer.Combatant;
+        UWAttackOutcome lOOutcome = fStrikeBody(piAttack, piCharge, piFlank, liOwnHeight, lOPlayerBody, liPlayerFeet,
+            liPlayerFeet + mOPlayer.GetBodyHeightZ(), out UWAttackerStats lOAttacker);
+        int liPart = lOOutcome.Part;
 
-        int liPart = UWArmourProtection.PickBodyPart(liPlayerFeet, liPlayerFeet + mOPlayer.GetBodyHeightZ(),
-            liProbeBottom, liProbeTop);
-
-        int liScore;
-        int liBase;
-        fGetAttackNumbers(piAttack, out liScore, out liBase);
-
-        // THE CHECK VALUE IS THE PLAYER'S ROW BYTE 0x12, not his Defence skill: the original
-        // puts the skill plus half the skill of the weapon in hand there
-        // (PlayerStatusUpdate_ovr133_784, labels 86A-938, see UWPlayerCritterRow).
-        int liDefence = mOPlayer.DefenceCheck;
-
-        UWSkillCheck.ResultEnum leResult = UWCritterCombat.ResolveHit(liScore, piFlank,
-            mOPlayer.GetProtectionAt(liPart), liDefence);
-
-        if (!UWSkillCheck.IsSuccess(leResult))
+        if (!lOOutcome.Hit)
         {
             fEvent("blow {0} {1} (score {2} + flank {3} vs defence {4})", piAttack,
-                leResult == UWSkillCheck.ResultEnum.CriticalFailure ? "missed badly" : "missed",
-                liScore, piFlank, liDefence);
+                lOOutcome.Result == UWSkillCheck.ResultEnum.CriticalFailure ? "missed badly" : "missed",
+                lOAttacker.Score, piFlank, lOPlayerBody.Defence);
 
             // Blocked: 7 or 8 at the player, by this creature's weapon kind and the piece he wears
-            // on the struck part (UWCritterCombat.GetBlockedSound).
-            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(mOStats.WeaponKind, fIsPlayerArmourMetal(liPart)),
-                mOPlayer.transform.position);
+            // on the struck part (UWCritterCombat.GetBlockedSound, through UWAttackResolution).
+            UWSoundEffects.PlayAt(lOOutcome.BlockedSound, mOPlayer.transform.position);
 
             // A MISS STILL STARTS THE COMBAT MUSIC: do_attack hands the player damage_item with
             // 0 (COMBAT.C), and damage_critter picks MUSIC_DANGER or MUSIC_COMBAT for the player
             // whenever the attacker is known (critter/AI.C). Until 2026-10-12 only a hit did.
-            UWMusic.OnPlayerDamaged(mOPlayer.CurrentHP, mOPlayer.MaxHP);
+            // Through the world as the miss's request since cleanup step 4.2 (2026-10-17;
+            // UWDamageRequest.CreatureMiss, the outcome's blow since step 4.9).
+            fDamage(UWDamageTarget.ThePlayer, lOOutcome.Blow);
 
             return;
         }
 
-        bool lbCritical = leResult == UWSkillCheck.ResultEnum.CriticalSuccess;
-
-        if (lbCritical)
-        {
-            liBase *= UWCritterCombat.GetCriticalMultiplier();
-
-            UWGameUI lOUi = UWScene.GameUi;
-
-            if (lOUi != null)
-                lOUi.FlashWindowColour(UWCritterCombat.CriticalFlashColour, CriticalFlashSeconds);
-
-            // The piece in the slot of UWCritterCombat.GetCriticalEquipmentSlot wears by 2d4
-            // (UWEquipmentWear, built 2026-09-28 - this said "only objects 0-15, nothing
-            // happens", but the call uses the armour test).
-            Interaction lOWearer = UWScene.Interaction;
-
-            if (lOWearer != null)
-                lOWearer.WearOnCriticalHit(liPart);
-        }
-
-        int liRolled = UWCritterCombat.ScaleByCharge(UWCritterCombat.RollDamage(liBase), piCharge, piFlank);
+        // THE RED FLASH (0xB8) comes with the damage request (UWDamageRequest.CreatureBlow,
+        // cleanup step 4.2, 2026-10-17); it was flashed here until then.
 
         // Sound 3 at the avatar, volume damage * 4 - before the armour, so an absorbed blow
         // still sounds (label 938).
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, liRolled << 2);
+        UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, lOOutcome.HitVolume);
 
-        int liDamage = UWCritterCombat.SubtractArmour(liRolled, mOPlayer.GetArmourAt(liPart));
-        int liShakeDamage = liDamage;
+        fEvent("blow {0} {1} part {2} for {3} before the armour (charge {4}, flank {5})", piAttack,
+            lOOutcome.Critical ? "critical" : "hit", liPart, lOOutcome.Rolled, piCharge, piFlank);
 
-        liDamage = UWCritterCombat.HalveOnEasy(liDamage, mOPlayer.IsEasyDifficulty);
+        // A BLOW IS BLUNT DAMAGE: DamageObject with type 4 (label A3D). The armour of the part, half
+        // on the easy difficulty, the combat shake from the damage before the Easy halving (C5,
+        // 2026-10-12), the critical's flash and the combat music - all in the damage pipeline
+        // since cleanup step 4.2 (2026-10-17; UWDamageRequest.CreatureBlow, which the outcome's
+        // blow carries since step 4.9).
+        fDamage(UWDamageTarget.ThePlayer, lOOutcome.Blow);
 
-        fEvent("blow {0} {1} part {2} for {3} of {4} (charge {5}, flank {6})", piAttack,
-            lbCritical ? "critical" : "hit", liPart, liDamage, liRolled, piCharge, piFlank);
-
-        // A BLOW IS BLUNT DAMAGE: DamageObject with type 4 (label A3D).
-        fDamage(UWDamageTarget.ThePlayer, UWBlow.CreatureBlow(liDamage, miIndex));
-        // The combat shake, from the damage before the Easy halving (C5, 2026-10-12).
-        mOPlayer.ShakeForCombatHit(liShakeDamage, liDamage);
-        UWMusic.OnPlayerDamaged(mOPlayer.CurrentHP, mOPlayer.MaxHP);
-
-        fTryPoisonPlayer();
+        fTryPoisonPlayer(lOAttacker, lOOutcome);
     }
-
-    /// <summary>The red flash of a critical hit on the player, as short as the curse's.</summary>
-    private const float CriticalFlashSeconds = 0.1f;
 
     /// <summary>
     /// The blow against another creature: refused for the same ally bit (ExecuteAttack
@@ -1777,7 +1745,9 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (pOOther == null || pOOther.mODamageable == null || pOOther.mODamageable.IsDestroyed)
             return;
 
-        if (pOOther.mORecord != null && pOOther.mORecord.IsAlly == mORecord.IsAlly)
+        // The same side is spared (UWAttackResolution.SparesSameSide, do_attack).
+        if (pOOther.mORecord != null && UWAttackResolution.SparesSameSide(false, UWDefenderKind.Creature,
+            mORecord.IsAlly, pOOther.mORecord.IsAlly))
         {
             fEvent("blow {0} refused: same side as {1}", piAttack, piTargetIndex);
 
@@ -1788,44 +1758,38 @@ public class UWCritter : MonoBehaviour, ICritterHost
         int liOwnHeight;
         fGetOwnSize(out liOwnRadius, out liOwnHeight);
 
-        int liScore;
-        int liBase;
-        fGetAttackNumbers(piAttack, out liScore, out liBase);
+        // THE PART BEFORE THE CHECK, as the original's resolve_attack picks it before frp_check
+        // (since cleanup step 4.9b, 2026-10-18, by the user's decision; ours rolled the check first
+        // and the probe and the part after it until then): the blow's probe, a random third of this
+        // body (C3, 2026-10-12, as in fStrikePlayer), the strong creature's bonus, the part, then the
+        // check (UWAttackResolution.CreatureBlow). A hit: the critical, the dice, the charge and the
+        // flank, then the armour of the part with the strong defender's 5/3 (pOOther as
+        // IUWAttackDefender).
+        int liOtherRadius;
+        int liOtherHeight;
+        pOOther.fGetOwnSize(out liOtherRadius, out liOtherHeight);
 
-        int liDefence = pOOther.mbHasStats ? pOOther.mOStats.DefensePower : pOOther.mODamageable.Defence;
-        UWSkillCheck.ResultEnum leResult = UWCritterCombat.ResolveHit(liScore, piFlank, 0, liDefence);
-        int liDamage = 0;
-        // The blow's probe, a random third of this body (C3, 2026-10-12, as in fStrikePlayer).
-        UWCritterCombat.RollCritterBlowProbe(mORecord.ZPos, liOwnHeight, out int liProbeBottom, out int liProbeTop);
+        UWAttackOutcome lOOutcome = fStrikeBody(piAttack, piCharge, piFlank, liOwnHeight, pOOther, pOOther.mORecord.ZPos,
+            pOOther.mORecord.ZPos + liOtherHeight, out _);
+        int liPart = lOOutcome.Part;
+        UWSkillCheck.ResultEnum leResult = lOOutcome.Result;
 
-        int liPart = pOOther.fPickPartHitBy(liProbeBottom, liProbeTop);
-
-        if (UWSkillCheck.IsSuccess(leResult))
-        {
-            if (leResult == UWSkillCheck.ResultEnum.CriticalSuccess)
-                liBase *= UWCritterCombat.GetCriticalMultiplier();
-
-            int liRolled = UWCritterCombat.ScaleByCharge(UWCritterCombat.RollDamage(liBase), piCharge, piFlank);
-
-            UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOOther.mOBody, liRolled << 2);
-
-            liDamage = UWCritterCombat.SubtractArmour(liRolled, pOOther.GetArmourOfPart(liPart));
-        }
+        if (lOOutcome.Hit)
+            UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOOther.mOBody, lOOutcome.HitVolume);
         else
         {
             // Blocked: 7 or 8 at the defender - the armour kind read from THIS creature's row, as
-            // do_miss does (UWCritterCombat.GetBlockedSound).
-            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(mOStats.WeaponKind,
-                mOStats.ArmourKind == UWCritterCombat.MetalKind), pOOther.mOBody);
+            // do_miss does (UWCritterCombat.GetBlockedSound, through UWAttackResolution).
+            UWSoundEffects.PlayAt(lOOutcome.BlockedSound, pOOther.mOBody);
         }
 
-        fEvent("blow {0} at creature {1}: {2} part {3} for {4}", piAttack, piTargetIndex, leResult, liPart, liDamage);
+        fEvent("blow {0} at creature {1}: {2} part {3} for {4}", piAttack, piTargetIndex, leResult, liPart, lOOutcome.Damage);
 
-        // Charged to this creature for this blow only (UWBlowAttribution.ThisBlowOnly).
-        fDamage(UWWorld.TargetOf(pOOther, pOOther.mODamageable), UWBlow.CreatureBlow(liDamage, miIndex));
+        // Charged to this creature (UWBlow.CreatureBlow), 0 on a miss.
+        fDamage(UWWorld.TargetOf(pOOther, pOOther.mODamageable), lOOutcome.Blow);
 
-        if (liDamage > 0)
-            pOOther.fShowHitEffect(liPart, liDamage);
+        if (lOOutcome.LeavesTrace)
+            pOOther.fShowHitEffect(liPart, lOOutcome.Damage);
     }
 
     /// <summary>
@@ -1898,17 +1862,18 @@ public class UWCritter : MonoBehaviour, ICritterHost
     }
 
     /// <summary>
-    /// The armour a blow or a missile from these heights (zpos, feet and top of the
-    /// attacker or of the projectile) meets: the part PickBodyHitPoint picks over this body,
-    /// + 4 for a missile (MissileAttackHit label 158B), then GetArmourOfPart. Replaces the
-    /// UWDamageable's single value for the player's blows (Interaction) and projectiles
-    /// (UWMissiles.StrikeCreature) - deviation 49.
+    /// The part a missile from these heights (zpos, the projectile's z and top) strikes on this
+    /// body: the part PickBodyHitPoint picks, + 4 for a missile (MissileAttackHit label 158B).
+    /// Its armour (GetArmourOfPart, this creature as IUWAttackDefender) replaces the
+    /// UWDamageable's single value for projectiles (UWMissiles.StrikeCreature) - deviation 49.
+    /// PICKED ONCE for the armour and the effect's place, as missile_thwack picks hitloc once
+    /// (UnderworldExhumed combat/COMBAT.C:772; cleanup step 4.9b, 2026-10-18, by the user's
+    /// decision to follow the original): until then GetArmourAgainst and ShowHitEffect each
+    /// picked it, and the blood could sit at another part than the one whose armour counted.
     /// </summary>
-    public int GetArmourAgainst(int piAttackerFeet, int piAttackerTop, bool pbMissile = false)
+    public int PickMissilePart(int piMissileZ, int piMissileTop)
     {
-        int liPart = fPickPartHitBy(piAttackerFeet, piAttackerTop);
-
-        return GetArmourOfPart(pbMissile ? UWCritterCombat.GetMissileBodyPart(liPart) : liPart);
+        return UWCritterCombat.GetMissileBodyPart(fPickPartHitBy(piMissileZ, piMissileTop));
     }
 
     /// <summary>
@@ -1916,15 +1881,13 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// an arrow, a thrown rock, a bolt. The original runs the same AttackerAppliesFinalDamage
     /// for a missile (MissileAttackHit_seg022_14BF, label 158B), so the effect is the
     /// creature's own (row byte 8 bits 3-4) at the height of the part hit. Ours showed nothing
-    /// at all for the player's arrow (per user, 2026-09-20).
+    /// at all for the player's arrow (per user, 2026-09-20). The part is the one PickMissilePart
+    /// picked for the armour (since cleanup step 4.9b, 2026-10-18); a missile's hitz is its z
+    /// plus half its height (missile_thwack), piMissileZ.
     /// </summary>
-    public void ShowHitEffect(int piAttackerFeet, int piAttackerTop, int piDamage, bool pbMissile)
+    public void ShowMissileHitEffect(int piPart, int piDamage, int piMissileZ)
     {
-        int liPart = fPickPartHitBy(piAttackerFeet, piAttackerTop);
-
-        // A missile's hitz is its z plus half its height (missile_thwack).
-        fShowHitEffect(pbMissile ? UWCritterCombat.GetMissileBodyPart(liPart) : liPart, piDamage,
-            pbMissile ? (piAttackerFeet + piAttackerTop) / 2 : 0);
+        fShowHitEffect(piPart, piDamage, piMissileZ);
     }
 
     /// <summary>
@@ -1932,17 +1895,50 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// after ExecuteAttack returned 1 - a hit, even one the armour swallowed - his poison
     /// nibble must be below the row's byte 0x0F and a Poison Resistance must not scale a
     /// test damage of type 0x10 to zero; then the nibble becomes byte 0x0F &amp; 0xF. No
-    /// roll, no armour hurdle.
+    /// roll, no armour hurdle. (UWAttackResolution.PoisonNibble since cleanup step 4.9,
+    /// 2026-10-18, with the row's byte in the attacker.)
     /// </summary>
-    private void fTryPoisonPlayer()
+    private void fTryPoisonPlayer(in UWAttackerStats pOAttacker, in UWAttackOutcome pOOutcome)
     {
-        int liPoison = mbHasStats ? mOStats.PoisonDamage : 0;
+        int liNibble = UWAttackResolution.PoisonNibble(pOAttacker, pOOutcome, mOPlayer.Vitals.Poison, mOPlayer.DamageTypeProof);
 
-        if (!UWCritterCombat.ShouldPoison(mOPlayer.Poison, liPoison, mOPlayer.DamageTypeProof))
+        if (liNibble < 0)
             return;
 
-        fEvent("poisons the player with {0}", UWCritterCombat.GetPoisonNibble(liPoison));
-        mOPlayer.ApplyPoison(UWCritterCombat.GetPoisonNibble(liPoison));
+        fEvent("poisons the player with {0}", liNibble);
+        mOPlayer.Vitals.ApplyPoison(liNibble);
+    }
+
+    // ------------------------------------------------- IUWAttackDefender (cleanup step 4.9)
+
+    /// <summary>This creature as the defender of a blow (UWAttackResolution, cleanup step 4.9,
+    /// 2026-10-18): a creature.</summary>
+    UWDefenderKind IUWAttackDefender.DefenderKind => UWDefenderKind.Creature;
+
+    /// <summary>Its row byte 0x12 (frp_check's cr->defence) - the body's Defence without table
+    /// data, as the creature's blow read it (the player's blow read the body's, which the spawner
+    /// fills from the same byte).</summary>
+    int IUWAttackDefender.Defence => mbHasStats ? mOStats.DefensePower : (mODamageable != null ? mODamageable.Defence : 0);
+
+    /// <summary>A creature has no enchantment protection (frp_check asks the player's only).</summary>
+    int IUWAttackDefender.ProtectionAt(int piPart) => 0;
+
+    /// <summary>GetArmourOfPart. A part that was never picked (the player's blow without a
+    /// character to measure the probe from) keeps the body's one value, as that blow did.</summary>
+    int IUWAttackDefender.ArmourAt(int piPart)
+    {
+        if (piPart < 0)
+            return mODamageable != null ? mODamageable.Armour : 0;
+
+        return GetArmourOfPart(piPart);
+    }
+
+    /// <summary>Never asked: do_miss reads the ATTACKER's row for a creature as target.</summary>
+    bool IUWAttackDefender.IsArmourMetalAt(int piPart) => false;
+
+    /// <summary>Nothing of a creature wears on a critical hit (frp_check: the player only).</summary>
+    void IUWAttackDefender.OnCriticalHit(int piPart)
+    {
     }
 
     /// <summary>
@@ -1967,60 +1963,20 @@ public class UWCritter : MonoBehaviour, ICritterHost
     }
 
     /// <summary>
-    /// SpellTrapWandCast at frame 4 of animation 0x0D. ONLY THE MISSILE SPELLS ARE BUILT
-    /// (major class 5), as before: magic missile, lightning, fireball and acid cover imp,
-    /// gazer, mage, fire elemental and acid slug. TODO: the area and special spells of trolls
-    /// and wisps through the port's spell host.
-    /// </summary>
-    void ICritterHost.OnSpellCast(int piSpellIndex, int piPitch)
-    {
-        fEvent("spell {0} cast, pitch {1}", piSpellIndex, piPitch);
-
-        if (piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
-            return;
-
-        UWRunicMagic.Spell lOSpell = UWRunicMagic.AllSpells[piSpellIndex];
-
-        if (lOSpell.MajorClass == AreaSpellMajorClass)
-        {
-            fCastAreaSpell(lOSpell);
-
-            return;
-        }
-
-        if (lOSpell.MajorClass == UWSummonSpellRules.MajorClass
-            && UWRunicMagic.GetEffectMinor(lOSpell.MinorClass) == SummonMonsterMinor)
-        {
-            fSummonMonster();
-
-            return;
-        }
-
-        if (lOSpell.MajorClass != ProjectileSpellMajorClass)
-            return;
-
-        int liProjectile = UWRunicMagic.GetProjectileId(UWRunicMagic.GetEffectMinor(lOSpell.MinorClass));
-
-        if (liProjectile < 0)
-            return;
-
-        CritterTarget lOTarget = ((ICritterHost)this).GetObject(mORecord.GTarg);
-
-        if (!lOTarget.Exists)
-            return;
-
-        fLaunchProjectile(liProjectile, UWRunicMagic.GetProjectileDamageType(liProjectile,
-            mOLevelLoader != null && mOLevelLoader.UWDataImporter != null ? mOLevelLoader.UWDataImporter.ObjectProperties : null), piPitch);
-    }
-
-    /// <summary>Spell class 6, the area spells (Sheet Lightning, Flame Wind).</summary>
-    private const int AreaSpellMajorClass = 6;
-
-    /// <summary>How far ahead the area's centre lies, in tiles (Class6Spells_seg038_3307_DBA
-    /// passes distance 4 to RunCodeOnTargetsAroundObject).</summary>
-    private const int AreaCentreTiles = 4;
-
-    /// <summary>
+    /// SpellTrapWandCast at frame 4 of animation 0x0D. Until 2026-09-27 ONLY THE MISSILE SPELLS
+    /// WERE BUILT (major class 5): magic missile, lightning, fireball and acid cover imp,
+    /// gazer, mage, fire elemental and acid slug; the area and special spells of trolls and
+    /// wisps were left for the port's spell host.
+    ///
+    /// THROUGH THE ONE EFFECT PATH since cleanup step 4.10 (2026-10-18): critter_ai casts
+    /// cast(spells[i], critter, 0) (UnderworldExhumed AI.C), which is do_spell's dispatch for every
+    /// caster - here UWSpellCasting.CastSpell with this creature's UWCreatureSpellHost (its record's
+    /// spot and heading, and fReleaseSpellMissile as its launcher). The area spells and Summon
+    /// Monster (since 2026-09-27) and the missile spells had dispatches of their own here until
+    /// then, and only the first two refused in the Void (B2); do_spell's refusal now holds for all
+    /// (UWEndgameRules.IsMagicBlocked), while the mind still starts a cast there (it tests the
+    /// anti-magic bit alone, as the original's). The comments of the two paths it replaced:
+    ///
     /// A CREATURE'S AREA SPELL (2026-09-27): SpellTrapWandCast_seg038_27 hands the creature's
     /// spell to CastSpells_seg038_3307_78 with the creature as the caster, and class 6 goes to
     /// Class6Spells with it - the area lies four tiles ahead ALONG THE CREATURE'S HEADING, the
@@ -2032,60 +1988,44 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// passes none), and Light and Resist Blows, which it runs for the player only - do
     /// nothing in the original either, nor does class 0xB (Tremor, Local Teleport), which
     /// MajorSpellClassB runs for the player only. Summoning (class 8): fSummonMonster.
-    /// </summary>
-    private void fCastAreaSpell(UWRunicMagic.Spell pOSpell)
-    {
-        if (mOLevelLoader == null || mOLevelLoader.CurrentLevel == null || mOLevelLoader.UWDataImporter == null)
-            return;
-
-        if (((ICritterHost)this).IsMagicBlockedAt(mORecord.TileX, mORecord.TileY)
-            || mOLevelLoader.CurrentLevelIndex == UWEndgame.VoidLevelIndex)
-            return;
-
-        // gronk_area's move_along (UWAreaSpellRules.MoveAlong; rounded until 2026-10-12).
-        UWTilePos lOCentre = UWAreaSpellRules.MoveAlong(new UWTilePos(mORecord.TileX, mORecord.TileY),
-            mORecord.FullFacing, AreaCentreTiles);
-
-        // This creature casts: the cast's value, the host's mutable AreaCaster until cleanup step
-        // 3.6 (2026-10-17).
-        UWSpellHost lOHost = new UWSpellHost(UWScene.Character, UWScene.Interaction, mOLevelLoader,
-            mOLevelLoader.UWDataImporter, UWScene.GameUi, UWCastContext.Creature(Index));
-
-        fEvent("area spell {0} at {1}/{2}", UWRunicMagic.GetEffectMinor(pOSpell.MinorClass), lOCentre.X, lOCentre.Y);
-
-        UWAreaSpellRules.CastAt(UWRunicMagic.GetEffectMinor(pOSpell.MinorClass),
-            UWRunicMagic.GetAreaTargetType(pOSpell.MinorClass), lOCentre, lOHost);
-    }
-
-    /// <summary>Summon Monster's minor class in spell class 8.</summary>
-    private const int SummonMonsterMinor = 4;
-
-    /// <summary>
+    ///
     /// A CREATURE SUMMONS (2026-09-27, mage 106's third spell): Class8Spells with the creature
     /// as caster - see UWSummonSpellRules.SummonByCreature. The spot lies along the creature's
     /// facing from its body; the new creature is hostile and heads for the player. Nothing on a
     /// no-magic tile or in the void, as CastSpells refuses there.
     /// </summary>
-    private void fSummonMonster()
+    void ICritterHost.OnSpellCast(int piSpellIndex, int piPitch)
     {
-        if (mOLevelLoader == null || mOLevelLoader.CurrentLevel == null || mOLevelLoader.UWDataImporter == null)
+        fEvent("spell {0} cast, pitch {1}", piSpellIndex, piPitch);
+
+        UWWorld lOWorld = mOLevelLoader != null ? UWWorld.Of(mOLevelLoader) : null;
+
+        if (lOWorld == null || lOWorld.Level == null || lOWorld.Data == null)
             return;
 
-        if (((ICritterHost)this).IsMagicBlockedAt(mORecord.TileX, mORecord.TileY)
-            || mOLevelLoader.CurrentLevelIndex == UWEndgame.VoidLevelIndex)
+        UWCastContext lOCast = UWCastContext.Creature(Index,
+            new UWSpot(new UWTilePos(mORecord.TileX, mORecord.TileY), mORecord.FineX, mORecord.FineY, mORecord.ZPos),
+            mORecord.FullFacing);
+
+        UWCreatureSpellHost lOHost = new UWCreatureSpellHost(lOWorld, lOCast,
+            piProjectile => fReleaseSpellMissile(piProjectile, piPitch));
+
+        if (!UWSpellCasting.CastSpell(piSpellIndex, lOHost))
+            fEvent("spell {0}: did not take (no magic here)", piSpellIndex);
+    }
+
+    /// <summary>A spell missile of the creature (release_missile -> spell_fire): at the target
+    /// along its facing at the brain's pitch, its damage type from the projectile table. Only
+    /// while the creature has a target, as before cleanup step 4.10 (2026-10-18).</summary>
+    private void fReleaseSpellMissile(int piProjectile, int piPitch)
+    {
+        CritterTarget lOTarget = ((ICritterHost)this).GetObject(mORecord.GTarg);
+
+        if (!lOTarget.Exists)
             return;
 
-        UWTilePos lOPlayerTile = fEnsurePlayer() && mOPlayerTransform != null
-            ? mOLevelLoader.WorldPositionToTile(mOPlayerTransform.position)
-            : new UWTilePos(mORecord.TileX, mORecord.TileY);
-
-        UWSpellHost lOHost = new UWSpellHost(UWScene.Character, UWScene.Interaction, mOLevelLoader,
-            mOLevelLoader.UWDataImporter, UWScene.GameUi);
-
-        bool lbSummoned = UWSummonSpellRules.SummonByCreature(lOHost, mOBody.x, mOBody.z,
-            UWHeadings.HeadingByteToDegrees(mORecord.FullFacing), mOLevelLoader.CurrentLevelIndex + 1, lOPlayerTile);
-
-        fEvent("summons: {0}", lbSummoned ? "a creature" : "no room or nothing fitting");
+        fLaunchProjectile(piProjectile, UWRunicMagic.GetProjectileDamageType(piProjectile,
+            mOLevelLoader != null && mOLevelLoader.UWDataImporter != null ? mOLevelLoader.UWDataImporter.ObjectProperties : null), piPitch);
     }
 
     /// <summary>
@@ -2103,12 +2043,14 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
         // The ammunition table's damage through the dice with charge 0x80 and flank 0
         // (MissileAttackHit_seg022_14BF, deviation 46); the target's armour of the part hit
-        // and the difficulty are subtracted on impact (UWMissiles.StrikePlayer).
+        // and the difficulty are subtracted on impact (UWMissiles.StrikePlayer). The dice are
+        // rolled at the hit since cleanup step 4.9b (2026-10-18, by the user's decision to follow
+        // the original's missile_thwack -> do_damage; UWAttackResolution.Missile); the flight
+        // carries the base.
         int liBase = mOLevelLoader.UWDataImporter.ObjectProperties.GetRangedDamage(piObjectId);
-        int liDamage = UWCritterCombat.RollMissileDamage(liBase);
 
         UWProjectileFlight lOFlight = UWMissiles.Ensure(mOLevelLoader).LaunchFromCreature(this, piObjectId, piPitch,
-            liDamage, piDamageType, UWRunicMagic.GetProjectileImpactId(piObjectId));
+            liBase, piDamageType, UWRunicMagic.GetProjectileImpactId(piObjectId));
 
         if (lOFlight == null)
         {
@@ -2192,18 +2134,18 @@ public class UWCritter : MonoBehaviour, ICritterHost
     /// <summary>
     /// Death began in the brain (animation 0x0C, frame 0, interval 4): the experience for a
     /// kill by the player (AwardKillEXP; the formula lives in UWPlayerVitals), and the
-    /// UWDamageable drained to zero if a brain-side death (drowning, a record that ran out
-    /// first) did not come through it - so UWCritterRemains and the rest of the port see the
-    /// creature as destroyed. The dragon nod comes with the kill experience (UWCharacter.OnKillRewarded).
+    /// UWDamageable marked destroyed (cleanup step 4.8, 2026-10-18; drained to zero until then) -
+    /// so UWCritterRemains and the rest of the port see the creature as destroyed. The dragon nod
+    /// comes with the kill experience (UWCharacter.OnKillRewarded).
     /// </summary>
     void ICritterHost.OnDeathStarted(bool pbByPlayer)
     {
         fEvent("dying{0}", pbByPlayer ? " by the player" : "");
 
         if (pbByPlayer && mbHasStats && fEnsurePlayer() && mOLevelLoader != null)
-            mOPlayer.AwardKillExperience(mOStats, mORecord.IsStrong, mOLevelLoader.CurrentLevelIndex + 1);
+            mOPlayer.Vitals.AwardKillExperience(mOStats, mORecord.IsStrong, mOLevelLoader.CurrentLevelIndex + 1);
 
-        fEnsureDamageableDestroyed();
+        fMarkDestroyed();
     }
 
     /// <summary>
@@ -2221,29 +2163,14 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
         // The world and the creature itself since cleanup step 3.6 (2026-10-17); a host of its own
         // (SpecialDeathHost, here) until then.
-        bool lbVeto = !UWSpecialDeaths.Apply(liWhoami, UWSpecialDeaths.Stage.Dying, UWWorld.Of(mOLevelLoader),
+        // A refused death must not kill the body (per user, 2026-09-28: the golem fell to dust
+        // after his conversation). Nothing to do for it since cleanup step 4.8 (2026-10-18): the
+        // body is destroyed only when the death is committed (UWHealth.MarkDestroyed), not when its
+        // hit points reach 0, so the golem lives on with his record's 0, as in the original, until
+        // his script sets 125. Until then the body counted its own copy, which had reached 0 when
+        // the brain asked, and got at least 1 back (fKeepBodyAlive) - the 1 the save wrote (B23).
+        return !UWSpecialDeaths.Apply(liWhoami, UWSpecialDeaths.Stage.Dying, UWWorld.Of(mOLevelLoader),
             UWWorld.RefOf(this));
-
-        if (lbVeto)
-            fKeepBodyAlive();
-
-        return lbVeto;
-    }
-
-    /// <summary>
-    /// A refused death must not kill the body: the UWDamageable counts its own hit points and
-    /// had already reached 0 when the brain asked, and at 0 it fires Destroyed and
-    /// UWCritterRemains lets the creature crumble (per user, 2026-09-28: the golem fell to dust
-    /// after his conversation). The body gets the record's hit points back, at least 1 - the
-    /// golem's record stays at 0, as in the original, until his script sets 125.
-    /// </summary>
-    private void fKeepBodyAlive()
-    {
-        if (mODamageable == null || mORecord == null)
-            return;
-
-        mODamageable.Health.SetCurrentHealth(Mathf.Max(1, mORecord.HitPoints));
-        miLastHealth = mODamageable.CurrentHealth;
     }
 
     /// <summary>
@@ -2264,7 +2191,7 @@ public class UWCritter : MonoBehaviour, ICritterHost
     void ICritterHost.OnDeathFinished()
     {
         fEvent("death finished");
-        fEnsureDamageableDestroyed();
+        fMarkDestroyed();
 
         // SpecialDeathCases with mode 1 - what follows a named creature death. The original
         // asks it from NPCInitialProcessing, when a dead one is next processed; the moment the
@@ -2291,15 +2218,12 @@ public class UWCritter : MonoBehaviour, ICritterHost
             Destroy(gameObject);
     }
 
-    private void fEnsureDamageableDestroyed()
+    /// <summary>The body counts as destroyed from now on (UWDamageable.MarkDestroyed raises
+    /// Destroyed once).</summary>
+    private void fMarkDestroyed()
     {
-        if (mODamageable == null || mODamageable.IsDestroyed)
-            return;
-
-        mbSuppressDamageEvent = true;
-        mODamageable.ApplyDamage(mODamageable.CurrentHealth, UWDamageTypes.None);
-        mbSuppressDamageEvent = false;
-        miLastHealth = 0;
+        if (mODamageable != null)
+            mODamageable.MarkDestroyed();
     }
 
     void ICritterHost.OnGoalChanged(int piOldGoal, int piNewGoal, int piGTarg)
@@ -2310,44 +2234,27 @@ public class UWCritter : MonoBehaviour, ICritterHost
     // ------------------------------------------------- Damage intake
 
     /// <summary>
-    /// Every blow, missile, spell or burn the UWDamageable took, as DamageNPC: the amount is
-    /// what the health lost, the attacker whoever announced himself in miPendingAttacker -
-    /// the player unless a creature's blow or the lava said otherwise. The brain updates its
-    /// bytes 0x11, 0x12 and 8, writes the kin alarm, starts the death and switches the
-    /// music; the mind reacts at its next update. If the UWDamageable died of a blow the
-    /// record would have survived (they can drift through healing scripts), the record dies
-    /// with it.
+    /// Every blow, missile, spell or burn the UWDamageable took, as DamageNPC, with the attacker
+    /// the blow names (UWDamageable.CreatureTakesBlow, cleanup step 4.8, 2026-10-18): a creature's
+    /// index, the player, or nobody - a miss of the player's blow too, which lands with 0. The
+    /// brain updates its bytes 0x11, 0x12 and 8, writes the kin alarm, starts the death and
+    /// switches the music; the mind reacts at its next update.
+    ///
+    /// THE AMOUNT IS WHAT THE HIT POINTS LOSE, at most the record's hit points: the tally of byte
+    /// 0x11 grows by that, as it did when the amount was the drop of the body's own copy (until
+    /// 2026-10-18; damage_critter, UnderworldExhumed AI.C, adds the whole damage). A creature
+    /// whose death was refused holds 0 and so tallies 0 - the copy's 1 is gone (B23).
     /// </summary>
-    private void fOnDamaged(UWDamageable pODamageable)
+    private void fTakeBlow(int piDamage, int piAttacker)
     {
-        if (mbSuppressDamageEvent || mOBrain == null)
+        if (mOBrain == null)
             return;
 
-        int liNow = pODamageable != null ? pODamageable.CurrentHealth : 0;
-        int liAmount = Mathf.Max(0, miLastHealth - liNow);
+        int liAmount = Mathf.Max(0, Mathf.Min(piDamage, mORecord.HitPoints));
 
-        miLastHealth = liNow;
-
-        if (pODamageable != null && pODamageable.IsDestroyed && mORecord.HitPoints > liAmount)
-            liAmount = mORecord.HitPoints;
-
-        int liAttacker = miPendingAttacker;
-
-        miPendingAttacker = PlayerIndex;
-
-        fTrace("damaged {0} by {1} (hp {2})", liAmount, liAttacker == PlayerIndex ? "the player" : liAttacker.ToString(), liNow);
-        mOBrain.OnDamaged(this, liAttacker, liAmount);
-    }
-
-    /// <summary>A blow of the player missed: DamageObject with zero - the creature still
-    /// records the attacker and reacts (per user on the original, 2026-09-12).</summary>
-    public void OnMissedByPlayer()
-    {
-        if (mOBrain == null || mODamageable == null || mODamageable.IsDestroyed)
-            return;
-
-        fTrace("missed by the player");
-        mOBrain.OnDamaged(this, PlayerIndex, 0);
+        fTrace("damaged {0} by {1} (hp {2})", liAmount, piAttacker == PlayerIndex ? "the player" : piAttacker.ToString(),
+            mORecord.HitPoints - liAmount);
+        mOBrain.OnDamaged(this, piAttacker, liAmount);
     }
 
     // ------------------------------------------------- Spells on the creature
@@ -2474,8 +2381,9 @@ public class UWCritter : MonoBehaviour, ICritterHost
 
     /// <summary>
     /// The night's time pass rewrote the record (UWLevelExit.PassTime, 2026-10-15): the body
-    /// stands at the record's spot and facing at once, and the health takes the record's hit
-    /// points - the pass heals a wounded creature half way to its kind's average.
+    /// stands at the record's spot and facing at once. The pass heals a wounded creature half way
+    /// to its kind's average in the record, which the health reads (cleanup step 4.8, 2026-10-18;
+    /// copied over until then).
     /// </summary>
     public void FollowRecord()
     {
@@ -2483,12 +2391,6 @@ public class UWCritter : MonoBehaviour, ICritterHost
             return;
 
         fSetBodyNow();
-
-        if (mORecord.HitPoints > 0 && mODamageable.CurrentHealth != mORecord.HitPoints)
-        {
-            mODamageable.Health.SetCurrentHealth(mORecord.HitPoints);
-            miLastHealth = mODamageable.CurrentHealth;
-        }
 
         fTrace("time passed: tile {0}/{1}, facing {2}, hp {3}", mORecord.TileX, mORecord.TileY,
             mORecord.FacingEighth, mORecord.HitPoints);
@@ -2503,10 +2405,9 @@ public class UWCritter : MonoBehaviour, ICritterHost
         if (mORecord == null || mODamageable == null || mODamageable.IsDestroyed)
             return;
 
-        int liHitPoints = UWTybalOrbRules.WeakenedHitPoints(mODamageable.CurrentHealth);
-
-        mODamageable.Health.SetCurrentHealth(liHitPoints);
-        mORecord.HitPoints = mODamageable.CurrentHealth;
+        // Into the record, through the health's 1-to-maximum bound (one write since cleanup step
+        // 4.8, 2026-10-18; the health's copy and the record until then).
+        mODamageable.Health.SetCurrentHealth(UWTybalOrbRules.WeakenedHitPoints(mODamageable.CurrentHealth));
         mORecord.NoLevelExitHealing = true;
 
         fTrace("weakened by the broken orb: {0} hit points", mORecord.HitPoints);

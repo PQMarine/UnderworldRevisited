@@ -607,9 +607,9 @@ public static class UWTriggerSystem
         if (liAmmunition <= 0)
             return false;
 
-        int liDamage = UWCombat.ComputeDamage(
-            pOLevelLoader.UWDataImporter.ObjectProperties.GetRangedDamage(liAmmunition),
-            false, 0, 0, UWCombat.NeutralCharge, 0);
+        // The base: its dice are rolled at the hit (UWAttackResolution.Missile, missile_thwack ->
+        // do_damage; since cleanup step 4.9b, 2026-10-18, rolled here until then).
+        int liDamage = pOLevelLoader.UWDataImporter.ObjectProperties.GetRangedDamage(liAmmunition);
 
         int liHeading = (((pOTrap.Heading & 7) << 5) + TrapHeadingOffset) & 0xFF;
 
@@ -623,7 +623,7 @@ public static class UWTriggerSystem
         // The start point belongs in the log too: on short flight paths you otherwise see too
         // little of the bolt to judge whether it is placed correctly (per user,
         // 2026-09-07: "I could not tell where our bolt spawns.").
-        UWTrapLog.Detail = string.Format("-> {0} ({1} damage) direction {2}, start {3}/{4} xpos {5} ypos {6}, height {7} above floor {8}",
+        UWTrapLog.Detail = string.Format("-> {0} ({1} base damage) direction {2}, start {3}/{4} xpos {5} ypos {6}, height {7} above floor {8}",
             UWTrapLog.GetName(pOLevelLoader.UWDataImporter, liAmmunition), liDamage, pOTrap.Heading & 7,
             piTileX, piTileY, pOTrap.XPos, pOTrap.YPos,
             Mathf.RoundToInt((pOTrap.ZPos * UWWorldScale.ZPosStep) - fGetFloorHeight(pOLevelLoader, piTileX, piTileY)),

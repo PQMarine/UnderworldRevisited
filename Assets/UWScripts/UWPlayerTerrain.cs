@@ -28,6 +28,8 @@ using UnderworldRevisited.Build;
 /// damage there either, see UWCritter.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
+// After the movement: the view of where the frame ended (UWUpdateOrder, cleanup 4.7).
+[DefaultExecutionOrder(UWUpdateOrder.Terrain)]
 public class UWPlayerTerrain : MonoBehaviour
 {
     private UWLevelLoader mOLevelLoader;
@@ -40,29 +42,19 @@ public class UWPlayerTerrain : MonoBehaviour
     private float mfAppliedCameraOffset;
     private float mfAppliedCameraRoll;
 
-    private readonly UWTickClock mOSwimCheckTick = new UWTickClock(20f);
-    private bool mbWasSwimming;
+    /// <summary>The swim counter and the lava's rolls (cleanup step 4.4, 2026-10-17).</summary>
+    private readonly UWPlayerTerrainRules mORules = new UWPlayerTerrainRules();
+
     private UWPlayerData mOSwimCounterSource;
     private UWInventory mOInventory;
 
-    /// <summary>PLAYER.DAT 0xB9, see fUpdateSwimCounter. Public for the save game.</summary>
-    public int SwimCounter { get; private set; }
+    /// <summary>PLAYER.DAT 0xB9, see UWPlayerTerrainRules. Public for the save game.</summary>
+    public int SwimCounter => mORules.SwimCounter;
 
-    public const int SwimCounterOnEntering = UWPlayerMotion.SwimCounterOnEntering;
-
-    private const int SwimCounterCheckThreshold = UWPlayerMotion.SwimCounterCheckThreshold;
-
-    private const int SwimCounterRiseLimit = 0x8C;
-
-    private const int SwimCounterDrownThreshold = 0x78;
+    public const int SwimCounterOnEntering = UWPlayerTerrainRules.SwimCounterOnEntering;
 
     /// <summary>A counter unit is an eighth of a zpos step, a zpos step two world units.</summary>
     private const float SwimCounterWorldUnit = 0.25f;
-
-    private const int DrownFlashColour = 0xC6;
-
-    private const float DrownFlashSeconds = 0.1f;
-    private float mfNextLavaDamageTime;
 
     public bool IsSwimming { get; private set; }
 
@@ -97,7 +89,7 @@ public class UWPlayerTerrain : MonoBehaviour
         // Water walking keeps you on top: the reference then does not let swimming
         // start at all. Lava is not affected by this.
         bool lbWaterWalk = mOMovement != null
-            && (mOMovement.MagicalMotionAbilities & UWCharacter.WaterWalkBit) != 0;
+            && (mOMovement.MagicalMotionAbilities & UWPlayerVitals.WaterWalkBit) != 0;
 
         IsSwimming = lbInLiquid && !lbWaterWalk && mOLevelLoader.IsWaterTile(lOTile);
         IsOnLava = lbInLiquid && mOLevelLoader.IsLavaTile(lOTile);
@@ -108,78 +100,28 @@ public class UWPlayerTerrain : MonoBehaviour
         // contact state of the original - water (2) swims, lava (4) burns, whatever the height
         // on the slope; the water-edge state 0x20 does not, as the original keeps its counter at
         // 0 there. The view's water line then sits over the feet, not over the tile's low edge.
+        // The movement reads the contact itself (UWPlayerMovement.IsInWater, IsOnLava; cleanup
+        // step 4.7, 2026-10-18 - until then it was copied there from here).
         if (mOMovement != null && mOMovement.UsesMotionCore)
         {
-            int liContact = mOMovement.Motion.Params.Contact;
-
-            IsSwimming = liContact == UWMotionTables.ContactWater;
-            IsOnLava = liContact == UWMotionTables.ContactLava;
-            lbInLiquid = IsSwimming || IsOnLava;
+            IsSwimming = mOMovement.IsInWater;
+            IsOnLava = mOMovement.IsOnLava;
             lfTileFloor = mOMovement.CoreFeetHeight;
-        }
-
-        if (mOMovement != null)
-        {
-            mOMovement.IsInLiquid = lbInLiquid;
-            mOMovement.IsOnLava = IsOnLava;
         }
 
         // NO SOUND ON ENTERING. Until 2026-09-21 the water sound was played here; the user
         // listened for it in the original and there is none - walking into water is silent.
-        // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLand)
+        // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLandingSound)
         // and anything that lands in the water (UWMotionHost.Splash).
         // What one DOES hear in the water is the rushing: effect 0 held for as long as one is
         // in it (UWSoundEffects.UpdateWaterLoop, built 2026-09-21 after the user described it).
         UWSoundEffects.UpdateWaterLoop(IsSwimming);
 
-        fUpdateHeightAboveFloor();
-
-        fUpdateSwimCounter(lOSettings);
-        fUpdateSpeed(lOSettings);
+        fUpdateSwimCounter();
         fUpdateCamera(lOSettings, lfTileFloor);
-        fUpdateFlow(lOSettings, lOTile);
         fUpdateDamage(lOSettings);
         fUpdateAutomap();
     }
-
-    /// <summary>
-    /// How high the feet are above the tile floor.
-    ///
-    /// Needed by levitation (see UWPlayerMovement.fIsAirborne): the CharacterController's
-    /// ground contact keeps dropping out briefly on stairs and slopes, the distance
-    /// to the tile floor does not. The floor height comes from the tile data and is
-    /// correctly interpolated on a slope (UWLevelLoader.GetFloorHeightAt).
-    ///
-    /// Lives here because this class already works with the level loader and tile every frame.
-    /// </summary>
-    /// <summary>How far below the feet the next walkable surface lies. The tile floor is the
-    /// fallback - what counts is what one actually stands on: a bridge over water lies well
-    /// above the water tile's floor, and measured against the tile floor the Ring of Levitation
-    /// switched the hover on in the middle of the bridge (isGrounded drops out for single frames
-    /// while walking) - at bridge height, without a visible lift, only the speed fell to the
-    /// levitation factor until a swim reset it (per user on level 2, 2026-09-18).</summary>
-    private void fUpdateHeightAboveFloor()
-    {
-        if (mOMovement == null || mOLevelLoader == null || mOLevelLoader.CurrentLevel == null)
-            return;
-
-        float lfFloor = mOLevelLoader.GetFloorHeightAt(transform.position);
-        Bounds lOBounds = mOController.bounds;
-        RaycastHit lOHit;
-
-        // From inside the capsule downwards: the own collider is not reported by a ray that
-        // starts inside it. Only as far as the hover decisions look (see UWPlayerMovement).
-        if (Physics.Raycast(lOBounds.center, Vector3.down, out lOHit,
-            lOBounds.extents.y + GroundProbeDepth, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
-            && lOHit.point.y > lfFloor)
-            lfFloor = lOHit.point.y;
-
-        mOMovement.HeightAboveFloor = lOBounds.min.y - lfFloor;
-    }
-
-    /// <summary>How far below the feet the ground probe looks - more than the walking
-    /// clearance of the hover (one and a half steps), so that a step down still reads as floor.</summary>
-    private const float GroundProbeDepth = UWTile.HeightLevel * 3f;
 
     /// <summary>The tile entered last. As long as you stay on it, there is nothing to
     /// do.</summary>
@@ -334,10 +276,10 @@ public class UWPlayerTerrain : MonoBehaviour
             return;
 
         int liDungeonLevel = mOLevelLoader.CurrentLevelIndex + 1;
-        int liExperience = UWExplorationRules.GetExperience(piCounter, liDungeonLevel, mOPlayer.Level);
+        int liExperience = UWExplorationRules.GetExperience(piCounter, liDungeonLevel, mOPlayer.Vitals.Level);
 
         if (liExperience > 0)
-            mOPlayer.ChangeExperience(liExperience, liDungeonLevel);
+            mOPlayer.Vitals.ChangeExperience(liExperience, liDungeonLevel);
     }
 
     private bool fIsOpenTile(int piTileX, int piTileY)
@@ -445,26 +387,6 @@ public class UWPlayerTerrain : MonoBehaviour
         return mOController.bounds.min.y <= pfTileFloor + lfTolerance;
     }
 
-    private void fUpdateSpeed(UWSettings pOSettings)
-    {
-        if (mOMovement == null)
-            return;
-
-        if (IsSwimming)
-        {
-            float lfSlow = pOSettings != null ? pOSettings.SwimSpeedUnskilled : 0.35f;
-            float lfFast = pOSettings != null ? pOSettings.SwimSpeedSkilled : 0.8f;
-
-            mOMovement.SpeedMultiplier = Mathf.Lerp(lfSlow, lfFast, fGetSwimSkillFraction(pOSettings));
-
-            return;
-        }
-
-        mOMovement.SpeedMultiplier = IsOnLava
-            ? (pOSettings != null ? pOSettings.LavaSpeedFactor : 0.5f)
-            : 1f;
-    }
-
     /// <summary>
     /// While swimming the view sinks to the given height above the tile floor and
     /// sways around it. The calculation uses the camera's world position, so it does not
@@ -482,7 +404,7 @@ public class UWPlayerTerrain : MonoBehaviour
             float lfHeight = pOSettings != null ? pOSettings.SwimViewHeight : 17f;
 
             // SwimViewHeight is the view at the counter of 0x60 set on entering; every failed
-            // swimming check lowers it further (see fUpdateSwimCounter).
+            // swimming check lowers it further (see UWPlayerTerrainRules.SwimCheck).
             lfHeight -= (SwimCounter - SwimCounterOnEntering) * SwimCounterWorldUnit;
 
             // THE SWAY by the swimming view's switch (UWUserSettings.SwimViewMode, 2026-10-15):
@@ -671,181 +593,111 @@ public class UWPlayerTerrain : MonoBehaviour
 
     private bool mbSwimJitterApplied;
 
+    // THE CURRENT THAT IS NOT (the mechanism, fUpdateFlow with UWSettings.WaterFlowStrength and
+    // WaterFlowHeadingDegrees, was switched off since 2026-09-03 and removed in cleanup step 4.4,
+    // 2026-10-17, as nothing on the motion core read it). Its record stays:
+    //
+    // Current.
+    //
+    // The user observes in the original that at one spot you swim noticeably faster
+    // west than in other directions (level 1, tile 13/26). The tile data
+    // shows nothing there - the tile is flat, without slope, without an object, and its four
+    // neighbours likewise. TERRAIN.DAT does not help at first either: the file does know
+    // current directions (0x48, 0x50, 0x58, 0x60 - uw-formats.txt misreads these values
+    // as swamp and ice), but none of them occurs in UW1.
+    //
+    // The solution lies in the original's movement routine: it does not read the
+    // whole terrain value, only its bits 3 to 5, and turns them into one of four
+    // slide directions. Ordinary water has the value 0x10, so (0x10 & 0x38) >> 3 = 2,
+    // and the branch runs as soon as the swim bit is set.
+    //
+    // From this follows something easily overlooked: EVERY water in UW1 flows, and
+    // everywhere in the same direction - all water tiles of the game carry the same value.
+    // The user's spot is therefore nothing special, it is merely the one where it
+    // was noticed.
+    //
+    // It acts as a FACTOR on your own movement, not as a push: whoever stands still does
+    // not drift (checked by user in the original, 2026-09-01). This is computed in
+    // UWPlayerMovement, where the movement direction is available.
+    //
+    // Which direction it is, the data do not say unambiguously. The routine knows only four
+    // axes, but the user observed in the middle part of level 1 that it goes faster to the west
+    // AND to the south (2026-09-01) - that is a diagonal, not an axis.
+    // So the direction is stored here as a free angle: 225 degrees, south-west.
+    //
+    // RESOLVED, and against us (2026-09-03): the same south-west drift occurs in the
+    // original while LEVITATING too and, as the user checked afterwards, even when
+    // just walking on dry ground. So it has nothing to do with water - we
+    // attributed a current that does not exist to a bug in the original. That is exactly why
+    // the diagonal could not be explained.
+    //
+    // The strength is therefore set to zero, which switches the whole thing off. The mechanism
+    // stays in place in case real per-tile currents turn up after all; we do NOT
+    // replicate the original's bug.
+
     /// <summary>
-    /// Current.
-    ///
-    /// The user observes in the original that at one spot you swim noticeably faster
-    /// west than in other directions (level 1, tile 13/26). The tile data
-    /// shows nothing there - the tile is flat, without slope, without an object, and its four
-    /// neighbours likewise. TERRAIN.DAT does not help at first either: the file does know
-    /// current directions (0x48, 0x50, 0x58, 0x60 - uw-formats.txt misreads these values
-    /// as swamp and ice), but none of them occurs in UW1.
-    ///
-    /// The solution lies in the original's movement routine: it does not read the
-    /// whole terrain value, only its bits 3 to 5, and turns them into one of four
-    /// slide directions. Ordinary water has the value 0x10, so (0x10 & 0x38) >> 3 = 2,
-    /// and the branch runs as soon as the swim bit is set.
-    ///
-    /// From this follows something easily overlooked: EVERY water in UW1 flows, and
-    /// everywhere in the same direction - all water tiles of the game carry the same value.
-    /// The user's spot is therefore nothing special, it is merely the one where it
-    /// was noticed.
-    ///
-    /// It acts as a FACTOR on your own movement, not as a push: whoever stands still does
-    /// not drift (checked by user in the original, 2026-09-01). This is computed in
-    /// UWPlayerMovement, where the movement direction is available.
-    ///
-    /// Which direction it is, the data do not say unambiguously. The routine knows only four
-    /// axes, but the user observed in the middle part of level 1 that it goes faster to the west
-    /// AND to the south (2026-09-01) - that is a diagonal, not an axis.
-    /// So the direction is stored here as a free angle: 225 degrees, south-west.
-    ///
-    /// RESOLVED, and against us (2026-09-03): the same south-west drift occurs in the
-    /// original while LEVITATING too and, as the user checked afterwards, even when
-    /// just walking on dry ground. So it has nothing to do with water - we
-    /// attributed a current that does not exist to a bug in the original. That is exactly why
-    /// the diagonal could not be explained.
-    ///
-    /// The strength is therefore set to zero, which switches the whole thing off. The mechanism
-    /// stays in place in case real per-tile currents turn up after all; we do NOT
-    /// replicate the original's bug.
+    /// THE LAVA on the game's own clock (cleanup step 4.4, 2026-10-17; Time.time until then):
+    /// the PIT ticks the world ran since the last frame (UWWorldScheduler.Now - it stands still
+    /// wherever the game clock holds), handed to UWPlayerTerrainRules.TickLava, which rolls at
+    /// UWSettings.LavaDamageInterval with LavaDamageChance; each hit is UWSettings.LavaDamage of
+    /// plain fire (UWDamageRequest.Lava) - Flameproof wards it off, the dragon skin boots keep
+    /// the roll from coming at all. Original and Smooth, 60 or 144 frames: the same rate.
     /// </summary>
-    private void fUpdateFlow(UWSettings pOSettings, UWTile pOTile)
+    private void fUpdateDamage(UWSettings pOSettings)
     {
-        if (mOMovement == null)
+        long llNow = UWGameSession.Current.Schedule.Now;
+
+        // A new game or a loaded one starts its clock again: no time has passed.
+        int liTicks = llNow >= mlLastWorldTicks ? (int)System.Math.Min(int.MaxValue, llNow - mlLastWorldTicks) : 0;
+
+        mlLastWorldTicks = llNow;
+
+        if (mOPlayer == null)
             return;
 
-        float lfStrength = pOSettings != null ? pOSettings.WaterFlowStrength : 0.5f;
+        float lfInterval = pOSettings != null ? pOSettings.LavaDamageInterval : 0.5f;
+        int liDamage = pOSettings != null ? pOSettings.LavaDamage : 4;
+        float lfChance = pOSettings != null ? pOSettings.LavaDamageChance : 0.2f;
 
-        if (!IsSwimming || lfStrength <= 0f)
-        {
-            mOMovement.FlowStrength = 0f;
-            mOMovement.FlowDirection = Vector3.zero;
+        int liHits = mORules.TickLava(liTicks, IsOnLava, mOPlayer.HasDragonSkinBoots,
+            UWPlayerTerrainRules.SecondsToTicks(lfInterval), lfChance);
 
-            return;
-        }
-
-        float lfHeading = pOSettings != null ? pOSettings.WaterFlowHeadingDegrees : 225f;
-
-        // 0 degrees points to +Z, clockwise like a compass.
-        float lfRadians = lfHeading * Mathf.Deg2Rad;
-
-        mOMovement.FlowDirection = new Vector3(Mathf.Sin(lfRadians), 0f, Mathf.Cos(lfRadians));
-        mOMovement.FlowStrength = lfStrength;
+        // Lava burns without being magical - the reference gives damage type 0x08 here
+        // (motion_player). Whoever has Flameproof active stands in it unharmed.
+        for (int liHit = 0; liHit < liHits; liHit++)
+            mOPlayer.Damage(UWDamageRequest.Lava(liDamage));
     }
 
-    private void fUpdateDamage(UWSettings pOSettings)
+    /// <summary>The world's game time at the last frame, in PIT ticks (UWWorldScheduler.Now).</summary>
+    private long mlLastWorldTicks;
+
+    /// <summary>
+    /// THE SWIM COUNTER, PLAYER.DAT 0xB9 - its rules are UWPlayerTerrainRules' (cleanup step 4.4,
+    /// 2026-10-17): here the counter is loaded from a save game and follows the swimming state
+    /// every frame; the check that raises it and drowns runs on the player tick (RunSwimCheck).
+    /// </summary>
+    private void fUpdateSwimCounter()
+    {
+        fLoadSwimCounter();
+
+        mORules.UpdateSwimming(IsSwimming);
+    }
+
+    /// <summary>
+    /// The vitals' SwimCheckDue, on the player tick where the original has it (PLAYTIME.C
+    /// duration_check: after the regeneration, before the minute block). Until cleanup step 4.4
+    /// (2026-10-17) it ran on a 21-second clock of its own (UWSettings.SwimCheckInterval), out of
+    /// phase with the tick. The drowning is UWDamageRequest.Drowning: the blue flash, untyped.
+    /// </summary>
+    public void RunSwimCheck()
     {
         if (mOPlayer == null)
             return;
 
-        // THE DRAGON SKIN BOOTS KEEP OUT THE LAVA - and only the lava. The reference checks
-        // their flag right before the lava damage (motion_player) and nowhere else;
-        // a fireball still hits. Consistent with that, the boots themselves carry the
-        // fire resistance in comobj.dat.
-        if (IsOnLava && !mOPlayer.HasDragonSkinBoots)
-        {
-            float lfInterval = pOSettings != null ? pOSettings.LavaDamageInterval : 0.5f;
-            int liDamage = pOSettings != null ? pOSettings.LavaDamage : 4;
+        int liDamage = mORules.SwimCheck(fGetSwimSkill(), fGetLoadForSwimming());
 
-            float lfChance = pOSettings != null ? pOSettings.LavaDamageChance : 0.2f;
-
-            lfInterval = Mathf.Max(0.005f, lfInterval);
-
-            // Several rolls per rendered frame are possible: 1/32 s is shorter than a frame at
-            // low frame rates. After a pause on the lava the backlog is dropped.
-            if (mfNextLavaDamageTime < Time.time - 0.25f)
-                mfNextLavaDamageTime = Time.time;
-
-            while (Time.time >= mfNextLavaDamageTime)
-            {
-                mfNextLavaDamageTime += lfInterval;
-
-                // In the original a roll is made per game frame (see LavaDamageInterval) and only in one of
-                // five a single point is subtracted. So lava hurts, but does not kill
-                // at the first step.
-                // Lava burns without being magical - the reference gives damage type 0x08 here
-                // (motion_player). Whoever has Flameproof active stands in it unharmed.
-                if (UWRandom.NextDouble() < lfChance)
-                    mOPlayer.ApplyDamage(liDamage, UWDamageTypes.PlainFire);
-            }
-        }
-        else
-        {
-            mfNextLavaDamageTime = 0f;
-        }
-
-    }
-
-    /// <summary>
-    /// THE SWIM COUNTER of the original, PLAYER.DAT 0xB9 (per user, 2026-09-17: "the view really
-    /// sinks", checked in the original). Replaces the guessed exhaustion (fixed time, then damage
-    /// every two seconds) that stood here before.
-    ///
-    /// UW.EXE:
-    ///   - Entering water sets it to 0x60 (SetPlayerDataOxB9_seg008_B), leaving it to 0.
-    ///   - The camera sits 0xA4 above the body minus the counter (seg034_2F89_971), so it is
-    ///     the counter that lowers the view in the water at all. One unit is an eighth of a zpos
-    ///     step, a quarter of our world unit.
-    ///   - In the periodic player update (seg028_2985_24C), while the counter is above 0x50,
-    ///     SwimSkillCheck_seg028_4AE runs: swimming skill against (carried weight * 32) / carrying
-    ///     capacity. On a failure it rises by (3 - result) four-sided dice - three on a failure,
-    ///     four on a critical one - but only while it is still below 0x8C.
-    ///   - Above 0x78 a second check follows; everything but a critical success costs
-    ///     (2 - result) + 2 sided dice twice in hit points with a flash in palette colour 0xC6 (blue in game).
-    /// So the view sinks with every failed check, and a heavily loaded, unpractised swimmer
-    /// drowns sooner. How often the periodic update runs is not read out of the clock code;
-    /// it runs on the player tick, because the reference has this check in exactly that
-    /// periodic loop (UWPlayerTick; the interval stays a setting, SwimCheckInterval).
-    /// </summary>
-    private void fUpdateSwimCounter(UWSettings pOSettings)
-    {
-        fLoadSwimCounter();
-
-        if (IsSwimming != mbWasSwimming)
-        {
-            SwimCounter = IsSwimming ? SwimCounterOnEntering : 0;
-            mbWasSwimming = IsSwimming;
-        }
-
-        float lfInterval = pOSettings != null ? pOSettings.SwimCheckInterval : UWPlayerTick.Seconds;
-
-        // Elapsed time in, whole checks out (UWTickClock); the interval is a setting.
-        mOSwimCheckTick.IntervalSeconds = lfInterval;
-
-        int liChecks = mOSwimCheckTick.Advance(Time.deltaTime);
-
-        for (int liCheck = 0; liCheck < liChecks; liCheck++)
-        {
-            if (SwimCounter > SwimCounterCheckThreshold)
-                fSwimSkillCheck();
-        }
-    }
-
-    private void fSwimSkillCheck()
-    {
-        int liTarget = fGetLoadForSwimming();
-        int liSkill = fGetSwimSkill();
-
-        UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(liSkill, liTarget);
-
-        if (!UWSkillCheck.IsSuccess(leResult) && SwimCounter < SwimCounterRiseLimit)
-            SwimCounter = (SwimCounter + UWRandom.RollDice(3 - (int)leResult, 4)) & 0xFF;
-
-        if (SwimCounter <= SwimCounterDrownThreshold || mOPlayer == null)
-            return;
-
-        int liSeverity = 2 - (int)UWSkillCheck.Check(liSkill, liTarget);
-
-        if (liSeverity == 0)
-            return;
-
-        UWGameUI lOUi = UWScene.GameUi;
-
-        if (lOUi != null)
-            lOUi.FlashWindowColour(DrownFlashColour, DrownFlashSeconds);
-
-        mOPlayer.ApplyDamage(UWRandom.RollDice(2, liSeverity + 2));
+        if (liDamage > 0)
+            mOPlayer.Damage(UWDamageRequest.Drowning(liDamage));
     }
 
     /// <summary>(carried weight * 32) / carrying capacity, both in tenth-stones as the display
@@ -877,14 +729,13 @@ public class UWPlayerTerrain : MonoBehaviour
             return;
 
         mOSwimCounterSource = lOPlayer;
-        SwimCounter = lOPlayer != null && lOPlayer.IsLoaded ? lOPlayer.SwimCounter : 0;
-        mbWasSwimming = SwimCounter > 0;
+        mORules.LoadSwimCounter(lOPlayer != null && lOPlayer.IsLoaded ? lOPlayer.SwimCounter : 0);
     }
 
     /// <summary>N plus N rolls from zero to the range minus one, as DiceRoll in UW.EXE.</summary>
     private int fGetSwimSkill()
     {
-        return mOPlayer != null ? mOPlayer.GetSkill(UWPlayerData.Skill.Swimming) : 0;
+        return mOPlayer != null ? mOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Swimming) : 0;
     }
 
     private float fGetSwimSkillFraction(UWSettings pOSettings)

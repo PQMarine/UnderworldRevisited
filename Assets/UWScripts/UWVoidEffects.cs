@@ -3,36 +3,21 @@ using UWDataImport.UWData;
 
 /// <summary>
 /// The effects of the Ethereal Void on level 9 (per user, 2026-09-13: "Do the effects
-/// on level 9").
-///
-/// FOLLOWING UW.EXE (UW1_asm.asm, EtherealVoidSpecialEffects_seg008_150, called from
-/// PlayerUpdateTick_seg024_24DC_3A4): on every game tick on level 9, with a chance
-/// of 1 in 32 (RNG and 0x1F equal to zero):
-///   Flash         palette colour 0xB5 in the view window
-///   Life drain    above 100 points 0 to 5, above 50 then 0 to 3, above 20 with chance 1 in 4
-///                 0 to 2; otherwise, as long as more than 1 remains, with chance 1 in 8 exactly one
-///   Quake         with chance 11 in 12, large channel, duration 15 plus 0 to 29
-///   Compass       jumps to a random one of the 16 directions
-/// The reference (etherealvoid.cs) ALWAYS quakes and, above 20 points, subtracts nothing
-/// when the roll fails - there it deviates from the disassembly; UW.EXE is followed.
+/// on level 9") - the rule, its odds and its order of draws are UWVoidRules' (cleanup step 4.5,
+/// 2026-10-17); this shows them: the flash, the drain through the damage pipeline
+/// (UWDamageRequest.VoidDrain), the quake, the compass.
 ///
 /// THE COMPASS does not follow the view direction on level 9 (reference playerdatloop: UpdateCompass
 /// only outside level 9). It stays where it was on entering and only jumps
 /// on an effect.
 ///
-/// THE TICK RATE is not established: how often the game tick ran in the original depends on the machine,
-/// and the reference itself notes it as unresolved. It is therefore kept in UWSettings.
+/// THE TICKS come from the game's own clock (UWWorldScheduler.Now, PIT ticks; Time.deltaTime until
+/// cleanup step 4.5) at UWSettings.VoidEffectTicksPerSecond, so no frame rate changes them.
 /// </summary>
 public class UWVoidEffects : MonoBehaviour
 {
     /// <summary>Level 9, zero-based.</summary>
     private const int VoidLevelIndex = UWEndgame.VoidLevelIndex;
-
-    private const int FlashPaletteIndex = 0xB5;
-
-    private const float FlashSeconds = 0.08f;
-
-    private const int CompassSteps = 16;
 
     private UWLevelLoader mOLevelLoader;
 
@@ -40,10 +25,20 @@ public class UWVoidEffects : MonoBehaviour
 
     private UWCharacter mOCharacter;
 
-    private float mfTickAccumulator;
+    private readonly UWVoidRules mORules = new UWVoidRules();
+
+    /// <summary>The world's game time at the last frame, in PIT ticks (UWWorldScheduler.Now).</summary>
+    private long mlLastWorldTicks;
 
     private void Update()
     {
+        long llNow = UWGameSession.Current.Schedule.Now;
+
+        // A new game or a loaded one starts its clock again: no time has passed.
+        int liPitTicks = llNow >= mlLastWorldTicks ? (int)System.Math.Min(int.MaxValue, llNow - mlLastWorldTicks) : 0;
+
+        mlLastWorldTicks = llNow;
+
         if (mOLevelLoader == null)
             mOLevelLoader = GetComponent<UWLevelLoader>();
 
@@ -59,62 +54,46 @@ public class UWVoidEffects : MonoBehaviour
 
         // UI and shaking hang off the main camera; if it is off (noclip), the
         // effects rest as in a pause.
-        if (!lbInVoid || Time.deltaTime <= 0f || !mOGameUi.isActiveAndEnabled)
+        if (!lbInVoid || liPitTicks <= 0 || !mOGameUi.isActiveAndEnabled)
         {
-            mfTickAccumulator = 0f;
+            if (!lbInVoid || !mOGameUi.isActiveAndEnabled)
+                mORules.Reset();
+
             return;
         }
 
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
         float lfTicksPerSecond = lOSettings != null ? lOSettings.VoidEffectTicksPerSecond : 32f;
 
-        if (lfTicksPerSecond <= 0f)
-            return;
-
-        mfTickAccumulator += Time.deltaTime * lfTicksPerSecond;
-
-        while (mfTickAccumulator >= 1f)
-        {
-            mfTickAccumulator -= 1f;
-
-            if ((UWRandom.Next(0x8000) & 0x1F) == 0)
-                fApplyEffects();
-        }
-    }
-
-    private void fApplyEffects()
-    {
-        mOGameUi.FlashWindowColour(FlashPaletteIndex, FlashSeconds);
+        int liTicks = mORules.Advance(liPitTicks, lfTicksPerSecond);
 
         if (mOCharacter == null)
             mOCharacter = UWScene.Character;
 
-        if (mOCharacter != null)
+        for (int liTick = 0; liTick < liTicks; liTick++)
         {
-            int liHp = Mathf.RoundToInt(mOCharacter.CurrentHP);
-            int liNew = liHp;
+            int liHp = mOCharacter != null ? Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) : 0;
 
-            if (liHp > 0x64)
-                liNew -= UWRandom.Next(6);
-            else if (liHp > 0x32)
-                liNew -= UWRandom.Next(4);
-            else if (liHp > 0x14 && (UWRandom.Next(0x8000) & 3) < 1)
-                liNew -= UWRandom.Next(3);
-            else if (liHp > 1 && (UWRandom.Next(0x8000) & 7) == 0)
-                liNew -= 1;
-
-            if (liNew != liHp)
-                mOCharacter.DrainVitality(liHp - liNew);
+            if (UWVoidRules.Tick(liHp, out UWVoidRules.Effect lOEffect))
+                fApplyEffects(lOEffect);
         }
+    }
 
-        if (UWRandom.Next(12) != 0)
+    private void fApplyEffects(UWVoidRules.Effect pOEffect)
+    {
+        mOGameUi.FlashWindowColour(UWVoidRules.FlashColour, UWVoidRules.FlashSeconds);
+
+        if (mOCharacter != null && pOEffect.Drain > 0)
+            mOCharacter.Damage(UWDamageRequest.VoidDrain(pOEffect.Drain));
+
+        if (pOEffect.QuakeTicks > 0)
         {
             UWScreenShake lOShake = UWScreenShake.Ensure();
 
             if (lOShake != null)
-                lOShake.Shake(UWScreenShake.LargeChannel, 0xF + UWRandom.Next(0x1E));
+                lOShake.Shake(UWScreenShake.LargeChannel, pOEffect.QuakeTicks);
         }
 
-        mOGameUi.SetFrozenCompassStep(UWRandom.Next(CompassSteps));
+        mOGameUi.SetFrozenCompassStep(pOEffect.CompassStep);
     }
 }

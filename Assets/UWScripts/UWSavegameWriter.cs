@@ -136,7 +136,7 @@ public static class UWSavegameWriter
 
         List<UWPlayerData.ActiveSpell> lOSpells = new List<UWPlayerData.ActiveSpell>();
 
-        foreach (UWActiveSpellEffect lOSpell in lOCharacter.ActiveSpells)
+        foreach (UWActiveSpellEffect lOSpell in lOCharacter.Vitals.ActiveSpells)
         {
             lOSpells.Add(new UWPlayerData.ActiveSpell
             {
@@ -161,7 +161,7 @@ public static class UWSavegameWriter
         int[] liSkills = new int[UWPlayerData.SkillCount];
 
         for (int liAt = 0; liAt < liSkills.Length; liAt++)
-            liSkills[liAt] = lOCharacter.GetSkillByNumber(UWCharacter.FirstNamedSkillNumber + liAt);
+            liSkills[liAt] = lOCharacter.Vitals.GetSkillByNumber(UWPlayerVitals.FirstNamedSkillNumber + liAt);
 
         bool[] lbRunes = new bool[UWPlayerData.RuneCount];
 
@@ -179,24 +179,24 @@ public static class UWSavegameWriter
             KeyOfTruthGiven = UWGameFlags.KeyOfTruthGiven,
             OrbDestroyed = UWGameFlags.OrbDestroyed,
             OrbManaBackup = UWGameFlags.OrbManaBackup,
-            Hunger = lOCharacter.Hunger,
-            Fatigue = lOCharacter.Fatigue,
-            MealHealCounter = lOCharacter.MealHealCounter,
-            Counter3C = lOCharacter.Counter3C,
-            LoreByLevel = lOCharacter.LoreByLevel,
+            Hunger = lOCharacter.Vitals.Hunger,
+            Fatigue = lOCharacter.Vitals.Fatigue,
+            MealHealCounter = lOCharacter.Vitals.MealHealCounter,
+            Counter3C = lOCharacter.Vitals.Counter3C,
+            LoreByLevel = lOCharacter.Vitals.LoreByLevel,
             // The original's running total: our sum plus what the load captured beside it
             // (UWInventoryModel.WeightOffsetTenthStones). Until 2026-09-25 the field kept the
             // value of loading, so the next load hid every change made in between.
             CarriedWeight = lOInventory != null && pOData.CommonObjectProperties != null
                 ? Mathf.Max(0, lOInventory.Model.GetCarriedTenthStones(pOData.CommonObjectProperties)) : -1,
-            ClockValue = lOCharacter.ClockValue,
-            CurrentVitality = Mathf.RoundToInt(lOCharacter.CurrentHP),
-            MaxVitality = Mathf.RoundToInt(lOCharacter.MaxHP),
-            CurrentMana = Mathf.RoundToInt(lOCharacter.CurrentMana),
-            MaxMana = Mathf.RoundToInt(lOCharacter.MaxMana),
-            Poison = lOCharacter.Poison,
-            Intoxication = lOCharacter.Intoxication,
-            Hallucination = lOCharacter.Hallucination,
+            ClockValue = lOCharacter.Vitals.ClockValue,
+            CurrentVitality = Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP),
+            MaxVitality = Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
+            CurrentMana = Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana),
+            MaxMana = Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
+            Poison = lOCharacter.Vitals.Poison,
+            Intoxication = lOCharacter.Vitals.Intoxication,
+            Hallucination = lOCharacter.Vitals.Hallucination,
             SwimCounter = fGetSwimCounter(),
             // Music and sound belong to the SAVE in the original, not to the program - see
             // UWPlayerData.SettingsOffset and UWSoundOptions.
@@ -208,16 +208,16 @@ public static class UWSavegameWriter
             SelectedRunes = lOUi != null ? lOUi.SelectedRunes : null,
 
             HasCharacter = true,
-            Strength = lOCharacter.Strength,
-            Dexterity = lOCharacter.Dexterity,
-            Intelligence = lOCharacter.Intelligence,
-            Attack = lOCharacter.Attack,
-            Defense = lOCharacter.Defence,
+            Strength = lOCharacter.Vitals.Strength,
+            Dexterity = lOCharacter.Vitals.Dexterity,
+            Intelligence = lOCharacter.Vitals.Intelligence,
+            Attack = lOCharacter.Vitals.Attack,
+            Defense = lOCharacter.Vitals.Defence,
             Skills = liSkills,
-            Level = lOCharacter.Level,
-            Experience = lOCharacter.Experience,
-            AvailableSkillPoints = lOCharacter.SkillPoints,
-            TotalSkillPoints = lOCharacter.SkillPointsTotal,
+            Level = lOCharacter.Vitals.Level,
+            Experience = lOCharacter.Vitals.Experience,
+            AvailableSkillPoints = lOCharacter.Vitals.SkillPoints,
+            TotalSkillPoints = lOCharacter.Vitals.SkillPointsTotal,
             Runes = lbRunes,
 
             Equipment = lOInventory != null ? lOInventory.GetSavegameEquipment() : null,
@@ -226,7 +226,7 @@ public static class UWSavegameWriter
 
         // The kin alarm goes with the save, as set_creatures_to_saved_game does it (since
         // 2026-10-17, audit round 2 C7).
-        UWGameSession.Current.CritterAlarm.SaveInto(lOState, UWScene.CritterClock.Clock, lOCharacter.ClockValue);
+        UWGameSession.Current.CritterAlarm.SaveInto(lOState, UWScene.CritterClock.Clock, lOCharacter.Vitals.ClockValue);
 
         return lOState;
     }

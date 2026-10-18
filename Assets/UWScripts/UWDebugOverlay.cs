@@ -277,23 +277,23 @@ public class UWDebugOverlay : MonoBehaviour
             return;
 
         pOText.AppendFormat("\nHealth {0}/{1}   Mana {2:F0}/{3:F0}",
-            mOCharacter.CurrentHP, mOCharacter.MaxHP,
-            mOCharacter.CurrentMana, mOCharacter.MaxMana);
+            mOCharacter.Vitals.CurrentHP, mOCharacter.Vitals.MaxHP,
+            mOCharacter.Vitals.CurrentMana, mOCharacter.Vitals.MaxMana);
 
-        if (mOCharacter.Poison > 0)
-            pOText.AppendFormat("   POISONED {0}", mOCharacter.Poison);
+        if (mOCharacter.Vitals.Poison > 0)
+            pOText.AppendFormat("   POISONED {0}", mOCharacter.Vitals.Poison);
 
         // WHERE THE LAST HIT CAME FROM. The damage type reveals the source: physical is
         // melee, fire a fireball or lava, missile an arrow, "-" something
         // untyped like starvation or a trap.
         if (mOCharacter.LastDamageTime >= 0f)
         {
-            string lsType = mOCharacter.LastDamageType == UWDamageTypes.None
+            string lsType = mOCharacter.Vitals.LastDamageType == UWDamageTypes.None
                 ? "untyped"
-                : fDescribeDamageTypes(mOCharacter.LastDamageType);
+                : fDescribeDamageTypes(mOCharacter.Vitals.LastDamageType);
 
             pOText.AppendFormat("\nLast hit {0} ({1}) {2:F1}s ago",
-                mOCharacter.LastDamage, lsType, Time.time - mOCharacter.LastDamageTime);
+                mOCharacter.Vitals.LastDamage, lsType, Time.time - mOCharacter.LastDamageTime);
         }
 
         fAppendArmour(pOText);
@@ -331,7 +331,7 @@ public class UWDebugOverlay : MonoBehaviour
         // value is what a creature rolls against (skill + half the weapon skill, see
         // UWPlayerCritterRow).
         pOText.AppendFormat("   Defence {0} (skill {1} + half of {2})", mOCharacter.DefenceCheck,
-            mOCharacter.Defence, mOCharacter.DefenceWeaponSkill);
+            mOCharacter.Vitals.Defence, mOCharacter.DefenceWeaponSkill);
 
         // The resistance of spell class 2 is already included in the four armour values above.
         // It is still shown separately here, because otherwise you cannot see whether a high
@@ -340,7 +340,7 @@ public class UWDebugOverlay : MonoBehaviour
             pOText.AppendFormat("   Resistance +{0}", mOCharacter.DamageResistance);
 
         // What the character is currently immune to. Since 2026-09-10 this also takes effect:
-        // the damage is deflected entirely, see UWCharacter.ApplyDamage.
+        // the damage is deflected entirely, see UWDamagePipeline.
         if (mOCharacter.DamageTypeProof != 0)
             pOText.AppendFormat("   Immune to {0}",
                 fDescribeDamageTypes(mOCharacter.DamageTypeProof));

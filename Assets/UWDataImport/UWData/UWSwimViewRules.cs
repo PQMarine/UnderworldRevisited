@@ -34,7 +34,7 @@ namespace UWDataImport.UWData
 		private static readonly int[] miRollTable = { -4, -3, -2, -1, 0, 1, 2, 3, 4, 3, 2, 1, 0, -1, -2, -3 };
 
 		/// <summary>Above this swim counter the view moves (swim_count > 0x50).</summary>
-		public const int SwayThreshold = UWPlayerMotion.SwimCounterCheckThreshold;
+		public const int SwayThreshold = UWPlayerTerrainRules.SwimCounterCheckThreshold;
 
 		/// <summary>The amplitude never drops below this.</summary>
 		public const int MinAmplitude = 1;

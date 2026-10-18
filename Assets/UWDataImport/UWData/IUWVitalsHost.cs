@@ -42,5 +42,15 @@ namespace UWDataImport.UWData
 		bool IsInMotionState { get; }
 
 		bool IsChargingAttack { get; }
+
+		/// <summary>How much the armour absorbs at this body part (UWArmourProtection.Status.Armour)
+		/// - for the damage pipeline's blows and missiles (cleanup step 4.2, 2026-10-17; the sites
+		/// asked the character themselves until then).</summary>
+		int GetArmourAt(int piPart);
+
+		/// <summary>The immunities of the moment, the original's resist byte of the player's object
+		/// (UWArmourProtection.Status.DamageTypeProof) - what UWDamagePipeline tests a type against
+		/// (cleanup step 4.2, 2026-10-17).</summary>
+		int DamageTypeProof { get; }
 	}
 }

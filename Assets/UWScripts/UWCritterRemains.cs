@@ -166,8 +166,11 @@ public class UWCritterRemains : MonoBehaviour
         UWTilePos lOTile = fGetDeathTile();
         Vector3 lOAt = new Vector3(lOBody.x, 0f, lOBody.z);
 
+        // build_corpse Obj_Adds the blood: at the head of the tile's list (2026-10-18); the corpse
+        // goes through near_mob_put_at (SpawnScatteredAround's order).
         if (miRemainsObjectId >= 0)
-            mOLevelLoader.SpawnObjectById(miRemainsObjectId, lOTile.X, lOTile.Y, 0, -1, lOAt);
+            mOLevelLoader.SpawnObjectById(miRemainsObjectId, lOTile.X, lOTile.Y, 0, -1, lOAt,
+                UWWorldEdit.Arrival.Created);
 
         if (!mbHasStats || !UWCritterCombat.ShouldDropCorpse(mOStats.CorpseIndex, UWRandom.Next(UWCritterRules.CorpseRoll)))
             return;

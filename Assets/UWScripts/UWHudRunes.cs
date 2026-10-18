@@ -437,7 +437,7 @@ public sealed class UWHudRunes
         if (mOUi.mCharacter == null || mOUi.mOUWData == null)
             return;
 
-        UWMiscSpellRules.Track(fMakeSpellHost(), mOUi.mCharacter.GetSkill(UWPlayerData.Skill.Track));
+        UWMiscSpellRules.Track(fMakeSpellHost(), mOUi.mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Track));
     }
 
     /// <summary>Casts the selected runes - the rules (lookup, circle, mana, skill check,
@@ -542,10 +542,10 @@ public sealed class UWHudRunes
     /// Needed because they also expire by themselves and not only on casting.</summary>
     internal void fRefreshSpellIconsIfChanged()
     {
-        if (mOUi.mCharacter == null || miSpellIconVersion == mOUi.mCharacter.ActiveSpellVersion)
+        if (mOUi.mCharacter == null || miSpellIconVersion == mOUi.mCharacter.Vitals.ActiveSpellVersion)
             return;
 
-        miSpellIconVersion = mOUi.mCharacter.ActiveSpellVersion;
+        miSpellIconVersion = mOUi.mCharacter.Vitals.ActiveSpellVersion;
 
         fRefreshSpellIcons();
     }
@@ -558,7 +558,7 @@ public sealed class UWHudRunes
             return;
 
         if (mSpellIconImages == null)
-            mSpellIconImages = new RawImage[UWCharacter.MaxActiveSpells];
+            mSpellIconImages = new RawImage[UWPlayerVitals.MaxActiveSpells];
 
         for (int liSlot = 0; liSlot < mSpellIconImages.Length; liSlot++)
         {
@@ -581,13 +581,13 @@ public sealed class UWHudRunes
 
             RawImage lOImage = mSpellIconImages[liSlot];
 
-            if (liSlot >= mOUi.mCharacter.ActiveSpells.Count)
+            if (liSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
             {
                 lOImage.enabled = false;
                 continue;
             }
 
-            UWActiveSpellEffect lOSpell = mOUi.mCharacter.ActiveSpells[liSlot];
+            UWActiveSpellEffect lOSpell = mOUi.mCharacter.Vitals.ActiveSpells[liSlot];
 
             int liIcon = UWRunicMagic.GetIconIndex(lOSpell.MajorClass, lOSpell.MinorClass);
 
@@ -643,12 +643,12 @@ public sealed class UWHudRunes
         switch (UWClickRules.FlaskAt(liX, liY))
         {
             case UWClickRules.FlaskPart.Vitality:
-                fDescribePoison(UWClickRules.PoisonDegree(mOUi.mCharacter.Poison));
-                fDescribeFlask(VitalityMessage, mOUi.mCharacter.CurrentHP, mOUi.mCharacter.MaxHP);
+                fDescribePoison(UWClickRules.PoisonDegree(mOUi.mCharacter.Vitals.Poison));
+                fDescribeFlask(VitalityMessage, mOUi.mCharacter.Vitals.CurrentHP, mOUi.mCharacter.Vitals.MaxHP);
                 break;
 
             case UWClickRules.FlaskPart.Mana:
-                fDescribeFlask(ManaMessage, mOUi.mCharacter.CurrentMana, mOUi.mCharacter.MaxMana);
+                fDescribeFlask(ManaMessage, mOUi.mCharacter.Vitals.CurrentMana, mOUi.mCharacter.Vitals.MaxMana);
                 break;
 
             case UWClickRules.FlaskPart.Chain:
@@ -666,12 +666,12 @@ public sealed class UWHudRunes
 
         if (pePart == UWClickRules.FlaskPart.Vitality)
         {
-            fDescribePoison(UWClickRules.PoisonDegree(mOUi.mCharacter.Poison));
-            fDescribeFlask(VitalityMessage, mOUi.mCharacter.CurrentHP, mOUi.mCharacter.MaxHP);
+            fDescribePoison(UWClickRules.PoisonDegree(mOUi.mCharacter.Vitals.Poison));
+            fDescribeFlask(VitalityMessage, mOUi.mCharacter.Vitals.CurrentHP, mOUi.mCharacter.Vitals.MaxHP);
         }
         else if (pePart == UWClickRules.FlaskPart.Mana)
         {
-            fDescribeFlask(ManaMessage, mOUi.mCharacter.CurrentMana, mOUi.mCharacter.MaxMana);
+            fDescribeFlask(ManaMessage, mOUi.mCharacter.Vitals.CurrentMana, mOUi.mCharacter.Vitals.MaxMana);
         }
     }
 
@@ -758,11 +758,11 @@ public sealed class UWHudRunes
 
         int liSlot = UWClickRules.ActiveSpellSlotAt(liX);
 
-        if (liSlot < 0 || liSlot >= mOUi.mCharacter.ActiveSpells.Count)
+        if (liSlot < 0 || liSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
             return;
 
         if (lbLeft)
-            mOUi.mCharacter.CancelActiveSpell(liSlot);
+            mOUi.mCharacter.Vitals.CancelActiveSpell(liSlot);
         else
             fDescribeActiveSpell(liSlot);
 
@@ -791,10 +791,10 @@ public sealed class UWHudRunes
 
     internal void CancelActiveSpell(int piSlot)
     {
-        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.ActiveSpells.Count)
+        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
             return;
 
-        mOUi.mCharacter.CancelActiveSpell(piSlot);
+        mOUi.mCharacter.Vitals.CancelActiveSpell(piSlot);
         fRefreshSpellIcons();
     }
 
@@ -802,10 +802,10 @@ public sealed class UWHudRunes
     /// for none - the message of a click, and the modern HUD's hover text.</summary>
     internal string ActiveSpellText(int piSlot)
     {
-        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.ActiveSpells.Count)
+        if (mOUi.mCharacter == null || piSlot < 0 || piSlot >= mOUi.mCharacter.Vitals.ActiveSpells.Count)
             return string.Empty;
 
-        UWActiveSpellEffect lOSpell = mOUi.mCharacter.ActiveSpells[piSlot];
+        UWActiveSpellEffect lOSpell = mOUi.mCharacter.Vitals.ActiveSpells[piSlot];
 
         int liIcon = UWRunicMagic.GetIconIndex(lOSpell.MajorClass, lOSpell.MinorClass);
 

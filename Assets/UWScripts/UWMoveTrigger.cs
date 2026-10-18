@@ -83,7 +83,8 @@ public class UWMoveTrigger : MonoBehaviour
 
         // ON THE MOTION CORE the player's collision fires the trigger as the original does - on
         // every motion frame in reach, not on entering (UWMotionHost.TriggerMove,
-        // 2026-10-06). This volume serves the old CharacterController path only.
+        // 2026-10-06). This volume served the CharacterController path only, which went in
+        // cleanup 4.1 (2026-10-18): with a world the motion always exists, so this returns.
         if (lOMovement.UsesMotionCore)
             return;
 

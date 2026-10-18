@@ -89,6 +89,24 @@ namespace UnderworldRevisited.Tools
                 fExpectInt("passing out: on dry ground nothing", fCountBlows(lOWorld, "player takes"), 0);
                 fExpectBool("passing out: no dream and no hold of black",
                     lOWorld.Shown.Log.Contains("black") || lOWorld.Shown.Log.Exists(psLine => psLine.StartsWith("cutscene")), false);
+
+                // SKILLS.C player_sleep: damage_item(..., DMG_POISON) runs check_res, so Poison
+                // Resistance wards the night's poison off (B5, decided by the original 2026-10-17).
+                UWPlayerVitals lOWarded = fNewSleeper();
+
+                lOWorld = fNightWorld();
+                lOWorld.Body.Proof = UWDamageTypes.Poison;
+                lOWarded.ApplyPoison(3);
+                UWSleepRules.Sleep(lOWarded, 1, lOWorld, false, false);
+                fExpectBool("night: Poison Resistance wards off the poison's 3 + 2 + 1, and it is cured",
+                    lOWarded.LastDamage == 0 && lOWarded.Poison == 0, true);
+
+                UWPlayerVitals lOPoisoned = fNewSleeper();
+
+                lOPoisoned.ApplyPoison(3);
+                UWSleepRules.Sleep(lOPoisoned, 1, fNightWorld(), false, false);
+                fExpectBool("night: without it the poison takes 3 + 2 + 1 at once",
+                    lOPoisoned.LastDamage == 6 && lOPoisoned.LastDamageType == UWDamageTypes.Poison, true);
             }
             finally
             {

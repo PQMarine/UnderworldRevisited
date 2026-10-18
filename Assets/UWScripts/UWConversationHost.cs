@@ -65,62 +65,62 @@ public sealed class UWConversationHost : IUWConversationHost
 
     public bool HasPlayer => fCharacter != null;
 
-    public int PlayerHunger => fCharacter != null ? fCharacter.Hunger : 0;
+    public int PlayerHunger => fCharacter != null ? fCharacter.Vitals.Hunger : 0;
 
-    public int PlayerHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.CurrentHP) : 0;
+    public int PlayerHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.CurrentHP) : 0;
 
-    public int PlayerMaxHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.MaxHP) : 0;
+    public int PlayerMaxHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.MaxHP) : 0;
 
     /// <summary>Mana ROUNDED TO THE NEAREST, as the flasks show it - the spell host rounds down
     /// (IUWSpellHost.PlayerMana); two conventions on purpose, kept apart by cleanup step 3.1
     /// (2026-10-17).</summary>
-    public int PlayerMana => fCharacter != null ? Mathf.RoundToInt(fCharacter.CurrentMana) : 0;
+    public int PlayerMana => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.CurrentMana) : 0;
 
-    public int PlayerAttack => fCharacter != null ? fCharacter.Attack : 0;
+    public int PlayerAttack => fCharacter != null ? fCharacter.Vitals.Attack : 0;
 
-    public int PlayerStrength => fCharacter != null ? fCharacter.Strength : 0;
+    public int PlayerStrength => fCharacter != null ? fCharacter.Vitals.Strength : 0;
 
-    public int PlayerDexterity => fCharacter != null ? fCharacter.Dexterity : 0;
+    public int PlayerDexterity => fCharacter != null ? fCharacter.Vitals.Dexterity : 0;
 
-    public int PlayerLevel => fCharacter != null ? fCharacter.Level : 0;
+    public int PlayerLevel => fCharacter != null ? fCharacter.Vitals.Level : 0;
 
-    public int PlayerClock => fCharacter != null ? fCharacter.ClockValue : 0;
+    public int PlayerClock => fCharacter != null ? fCharacter.Vitals.ClockValue : 0;
 
-    public int PlayerPoison => fCharacter != null ? fCharacter.Poison : 0;
+    public int PlayerPoison => fCharacter != null ? fCharacter.Vitals.Poison : 0;
 
-    public bool PlayerWeaponDrawn => fCharacter != null && fCharacter.DrawWWeapon;
+    public bool PlayerWeaponDrawn => fCharacter != null && fCharacter.Weapon.DrawWWeapon;
 
     public int GetPlayerSkill(UWPlayerData.Skill peSkill)
     {
-        return fCharacter != null ? fCharacter.GetSkill(peSkill) : 0;
+        return fCharacter != null ? fCharacter.Vitals.GetSkill(peSkill) : 0;
     }
 
     public int GetPlayerSkillByNumber(int piSkillNumber)
     {
-        return fCharacter != null ? fCharacter.GetSkillByNumber(piSkillNumber) : 0;
+        return fCharacter != null ? fCharacter.Vitals.GetSkillByNumber(piSkillNumber) : 0;
     }
 
     public void SetPlayerSkillByNumber(int piSkillNumber, int piValue)
     {
         if (fCharacter != null)
-            fCharacter.SetSkillByNumber(piSkillNumber, piValue);
+            fCharacter.Vitals.SetSkillByNumber(piSkillNumber, piValue);
     }
 
     public bool TryIncreasePlayerSkill(int piSkillNumber)
     {
-        return fCharacter != null && fCharacter.TryIncreaseSkill(piSkillNumber);
+        return fCharacter != null && fCharacter.Vitals.TryIncreaseSkill(piSkillNumber);
     }
 
     public void ApplyConversationValues(int piHunger, int piHitPoints, int piMana, int piPoison)
     {
         if (fCharacter != null)
-            fCharacter.ApplyConversationValues(piHunger, piHitPoints, piMana, piPoison);
+            fCharacter.Vitals.ApplyConversationValues(piHunger, piHitPoints, piMana, piPoison);
     }
 
     public void ChangeExperience(int piAmount, int piDungeonLevel)
     {
         if (fCharacter != null)
-            fCharacter.ChangeExperience(piAmount, piDungeonLevel);
+            fCharacter.Vitals.ChangeExperience(piAmount, piDungeonLevel);
     }
 
     // ------------------------------------------------- Text

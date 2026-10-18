@@ -258,8 +258,8 @@ public class Interaction : MonoBehaviour
     {
         get
         {
-            return IsCombatModeActive && IsAttacking && mCharacter != null && mCharacter.HasRangedWeapon
-                && mCharacter.IsWindupComplete;
+            return IsCombatModeActive && IsAttacking && mCharacter != null && mCharacter.Weapon.HasRangedWeapon
+                && mCharacter.Weapon.IsWindupComplete;
         }
     }
 
@@ -271,7 +271,7 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private void fUpdateCharge(float pfDeltaSeconds)
     {
-        if (!IsAttacking || (mCharacter != null && (!mCharacter.IsWindupComplete || mCharacter.HasRangedWeapon)))
+        if (!IsAttacking || (mCharacter != null && (!mCharacter.Weapon.IsWindupComplete || mCharacter.Weapon.HasRangedWeapon)))
             return;
 
         if (mfChargeElapsed < 0f)
@@ -307,7 +307,7 @@ public class Interaction : MonoBehaviour
         mCharacter = GetComponent<UWCharacter>();
 
         if (mCharacter != null)
-            mCharacter.AttackConnected += fOnAttackConnected;
+            mCharacter.Weapon.AttackConnected += fOnAttackConnected;
 
         // No manual wiring in the scene needed - creates itself if
         // not present yet (same pattern as UWDebugOverlay in UWLevelLoader).
@@ -402,14 +402,14 @@ public class Interaction : MonoBehaviour
         }
 
         if (IsCombatModeActive && !IsAttacking && !mbAttackPending && mbRightPressInViewport
-            && mCharacter != null && mCharacter.CanAttack && lOAttackButton.IsPressed() && !UWPlayerMovement.ConsumesRightClick()
+            && mCharacter != null && mCharacter.Weapon.CanAttack && lOAttackButton.IsPressed() && !UWPlayerInput.ConsumesRightClick()
             && (mControlScheme == null || !mControlScheme.IsWorldInputBlocked) && (mbAttackFromPad || fMouseInWorld()))
             fBeginAttack();
 
         // The weapon in hand follows the equipment. This is checked continuously because the
         // weapon can be changed in the original even in the middle of combat mode - then first the
         // old one is sheathed and then the new one drawn (see
-        // UWCharacter.SetWeaponType). The call is cheap: it only does something when the
+        // UWWeaponSwing.SetWeaponType). The call is cheap: it only does something when the
         // weapon has actually changed.
         if (IsCombatModeActive)
             fUpdateWeaponType();
@@ -482,7 +482,7 @@ public class Interaction : MonoBehaviour
         // The three arrows under the compass move, a click on the compass itself prints the
         // status - both use the click up. The arrows come first because they lie below the
         // disc and a miss there should not report the status. The arrows also take the HELD
-        // button, because holding one repeats the step (UWPlayerMovement.HoldEasyMovement).
+        // button, because holding one repeats the step (UWPlayerInput.HoldEasyMovement).
         // (The compass belongs to the classic frame, which the modern scheme does not show.)
         if (!UWControlScheme.IsModern && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
         {
@@ -501,8 +501,8 @@ public class Interaction : MonoBehaviour
             fUpdateModernActions();
 
         // A right click that jumps during a cursor movement is used up (see
-        // UWPlayerMovement.ConsumesRightClick).
-        bool lbRightClickFree = !UWPlayerMovement.ConsumesRightClick();
+        // UWPlayerInput.ConsumesRightClick).
+        bool lbRightClickFree = !UWPlayerInput.ConsumesRightClick();
 
         if (lbRightClickFree && !UWControlScheme.IsModern && mInput.Interact.WasPressedThisFrame())
         {
@@ -515,7 +515,7 @@ public class Interaction : MonoBehaviour
                 // THE WEAPON CHARGES ONLY FROM A PRESS IN THE VIEWPORT (per user on the original,
                 // 2026-09-19, correcting the first reading that combat mode locked everything):
                 // over the UI the right button does what it always does there, in combat mode too.
-                if (mbRightPressInViewport && (mCharacter == null || mCharacter.CanAttack))
+                if (mbRightPressInViewport && (mCharacter == null || mCharacter.Weapon.CanAttack))
                     fBeginAttack();
             }
             else if (mInventory == null || mInventory.CursorItem == null)
@@ -524,7 +524,7 @@ public class Interaction : MonoBehaviour
         else if (lbRightClickFree && lOAttackButton.WasReleasedThisFrame() && IsCombatModeActive && IsAttacking)
         {
             // Releasing starts the strike animation; whether it hits is only decided
-            // when it reaches its hit frame (see UWCharacter.AttackConnected).
+            // when it reaches its hit frame (see UWWeaponSwing.AttackConnected).
             // The charge and the attack type must therefore be kept until then -
             // both are reset just below.
             // The charge counter is passed on unchanged; the conversion to the
@@ -541,7 +541,7 @@ public class Interaction : MonoBehaviour
             // 2026-09-01). The minimum charge does NOT decide this - it is the
             // lower bound of the damage factor. A strike from a barely charged weapon
             // does happen, but does little.
-            mbAttackPending = mCharacter == null || mCharacter.IsWindupComplete;
+            mbAttackPending = mCharacter == null || mCharacter.Weapon.IsWindupComplete;
 
             // A LAUNCHER SHOOTS ON RELEASE, not at a hit frame: PlayerCombat_seg022_11BA calls
             // MissileRelease_seg025_9F the moment the button comes up, with the pointer in the
@@ -564,7 +564,7 @@ public class Interaction : MonoBehaviour
             // or a strike depends on its windup state; whether the
             // strike hits is decided by mbAttackPending here.
             if (mCharacter != null)
-                mCharacter.ReleaseAttack();
+                mCharacter.Weapon.ReleaseAttack();
 
             IsAttacking = false;
             fClearCharge();
@@ -1226,7 +1226,7 @@ public class Interaction : MonoBehaviour
     /// oil flask go the other way round). Outside the view window nothing happens here.</summary>
     private void fUpdateUseModeInWorld()
     {
-        if (UWPlayerMovement.ConsumesRightClick() || !mInput.Interact.WasPressedThisFrame() || UWScene.ItemDrag == null)
+        if (UWPlayerInput.ConsumesRightClick() || !mInput.Interact.WasPressedThisFrame() || UWScene.ItemDrag == null)
             return;
 
         Vector2 lOMousePos = Mouse.current.position.ReadValue();
@@ -1276,7 +1276,7 @@ public class Interaction : MonoBehaviour
             // looking. A HIDDEN trigger additionally requires a Search skill check - the
             // difficulty is stored in the trigger itself (see UWTriggerSystem).
             UWTriggerSystem.TryFireLookTrigger(pOTarget.ObjectData, mLevelLoader, this,
-                mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Search) : 0);
+                mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Search) : 0);
 
             // And a trap is spotted in the process, if one notices it - see fTryDetectTrap.
             fTryDetectTrap(pOTarget);
@@ -1735,7 +1735,9 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>Burning incense on the floor: the vision plays and the block becomes debris where
-    /// it lies (UWItemUse.BurnIncense) - the record keeps its place, its picture is put down anew.</summary>
+    /// it lies (UWItemUse.BurnIncense) - the record keeps its place, its picture is put down anew,
+    /// and its place in the tile's list too (UseUnique's SET_ITEM; UWWorldEdit.Arrival.InPlace,
+    /// 2026-10-18).</summary>
     private void fBurnIncenseInWorld(UWObject pOIncense)
     {
         UWItemDrag lOHost = UWScene.ItemDrag;
@@ -1746,10 +1748,12 @@ public class Interaction : MonoBehaviour
         int liTileX = pOIncense.TileX;
         int liTileY = pOIncense.TileY;
 
+        int liListIndex = mLevelLoader.WorldEdit != null ? mLevelLoader.WorldEdit.ListIndexOf(pOIncense) : -1;
+
         UWItemUse.BurnIncense(pOIncense, mOUWDataImporter, null, lOHost);
 
         if (mLevelLoader.RemoveObjectFromWorld(pOIncense))
-            mLevelLoader.PlaceRestingObject(pOIncense, liTileX, liTileY);
+            mLevelLoader.PlaceRestingObject(pOIncense, liTileX, liTileY, UWWorldEdit.Arrival.InPlace, liListIndex);
     }
 
     /// <summary>A thing in the world enters use mode as if it had been clicked in the pack:
@@ -2320,10 +2324,12 @@ public class Interaction : MonoBehaviour
 
         // A CREATURE'S ARMOUR IS THAT OF THE PART HIT: PickBodyHitPoint over the two bodies,
         // then row[part % 4] with the 0xFF fallback and a strong defender's 5/3
-        // (AttackerAppliesFinalDamage labels 990-A02, deviation 49). The UWDamageable's one
-        // value stays for doors and containers.
+        // (AttackerAppliesFinalDamage labels 990-A02, deviation 49) - the creature as the
+        // defender of UWAttackResolution since cleanup step 4.9 (2026-10-18). A thing - a door, a
+        // chest - takes no armour (do_damage subtracts it for creatures only; the UWDamageable's
+        // one value of a thing is 0 from the spawner anyway).
         UWCritter lOCritterTarget = lOTarget != null ? lOTarget.GetComponentInParent<UWCritter>() : null;
-        int liArmour = lODamageable.Armour;
+        IUWAttackDefender lIDefender = lOCritterTarget != null ? lOCritterTarget : UWAttackResolution.ObjectDefender;
         int liFlank = 0;
 
         // The blow's probe (fGetMeleeProbe; the modern scheme's ray finds its target without it,
@@ -2331,7 +2337,7 @@ public class Interaction : MonoBehaviour
         fGetMeleeProbe(out Transform lOUnusedBody, out Vector3 lOUnusedForward, out Vector3 lOUnusedCentre,
             out Vector3 lOUnusedExtents, out Quaternion lOUnusedRotation, out int liUnusedRadius);
 
-        int liPart = -1;
+        int liPart = UWAttackResolution.NoPart;
 
         if (lOCritterTarget != null && mCharacter != null)
         {
@@ -2343,7 +2349,6 @@ public class Interaction : MonoBehaviour
             int liProbeBottom = mCharacter.GetFeetZPos() + miMeleeProbeOffsetZ;
 
             liPart = lOCritterTarget.PickPartHitBy(liProbeBottom, liProbeBottom + miMeleeProbeHeightZ);
-            liArmour = lOCritterTarget.GetArmourOfPart(liPart);
 
             // CalcFlankingBonus_seg022_230E_D48 from both headings in eighths, as a creature's
             // blow has it (UWCritterBrain): 0 face to face, 4 from behind.
@@ -2363,38 +2368,36 @@ public class Interaction : MonoBehaviour
             mOUWDataImporter != null && mOUWDataImporter.InitialPlayer != null ? mOUWDataImporter.InitialPlayer.InventoryRecords : null,
             out int liEnchantAccuracy, out int liEnchantDamage);
 
+        // THE WEAPON WEARS (UWEquipmentWear, per user 2026-09-28: the dagger lost quality twice
+        // in the original, never in ours): a blow at a door on its roll, a critical failure
+        // against a creature that does not spare it - in frp_check, between the check and the
+        // dice, since cleanup step 4.9b (2026-10-18, by the user's decision to follow the
+        // original; UWAttackResolution.PlayerBlow calls fWearWeapon). Worn here after the dice
+        // until then.
+        int liTargetId = lOTarget != null && lOTarget.ObjectData != null ? lOTarget.ObjectData.ID : -1;
+
         // The numbers - hit check and damage - are in UWPlayerAttack (P3 of the engine
         // separation, 2026-09-18). The linear charge fraction (0 to 1) kept on release, see
         // mfPendingCharge.
         UWPlayerAttack.MeleeResult lOResult = UWPlayerAttack.ResolveMelee(mOUWDataImporter, liWeaponId,
             fGetAttackKind(mePendingAttack), mfPendingCharge,
-            mCharacter != null ? mCharacter.Strength : 0,
-            mCharacter != null ? mCharacter.Attack : 0,
-            mCharacter != null ? mCharacter.Dexterity : 0,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
-            mCharacter != null ? (System.Func<UWPlayerData.Skill, int>)mCharacter.GetSkill : null,
-            lODamageable.Defence, liArmour,
-            mCharacter != null && mCharacter.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage,
-            lOCritterTarget == null);
+            mCharacter != null ? mCharacter.Vitals.Strength : 0,
+            mCharacter != null ? mCharacter.Vitals.Attack : 0,
+            mCharacter != null ? mCharacter.Vitals.Dexterity : 0,
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
+            mCharacter != null ? (System.Func<UWPlayerData.Skill, int>)mCharacter.Vitals.GetSkill : null,
+            lIDefender, liPart,
+            mCharacter != null && mCharacter.Vitals.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage,
+            liTargetId, lOCritterTarget != null && lOCritterTarget.WearsWeaponOnCriticalFailure, fWearWeapon);
 
         if (lOResult.NoWeapon)
             return;
 
         if (lbLog)
             Debug.Log(string.Format("[Attack] hit check {0} + flank {3} against {1}: {2}, damage {4} ({5} before armour {6}).",
-                lOResult.Accuracy, lODamageable.Defence, lOResult.Check, lOResult.Flank,
-                lOResult.Damage, lOResult.DamageBeforeArmour, liArmour));
-
-        // THE WEAPON WEARS (UWEquipmentWear, per user 2026-09-28: the dagger lost quality twice
-        // in the original, never in ours): a blow at a door on its roll, a critical failure
-        // against a creature that does not spare it.
-        int liTargetId = lOTarget != null && lOTarget.ObjectData != null ? lOTarget.ObjectData.ID : -1;
-
-        if (UWEquipmentWear.WearsWeaponOnDoor(liTargetId))
-            fWearWeapon(UWEquipmentWear.DoorDiceCount, UWEquipmentWear.DoorDiceRange);
-        else if (lOResult.Check == UWSkillCheck.ResultEnum.CriticalFailure && lOCritterTarget != null
-            && lOCritterTarget.WearsWeaponOnCriticalFailure)
-            fWearWeapon(UWEquipmentWear.CriticalFailureDiceCount, UWEquipmentWear.CriticalFailureDiceRange);
+                lOResult.Accuracy, lIDefender.Defence, lOResult.Check, lOResult.Flank,
+                lOResult.Damage, lOResult.DamageBeforeArmour,
+                lOCritterTarget != null ? lIDefender.ArmourAt(liPart) : 0));
 
         if (!lOResult.Hit)
         {
@@ -2402,19 +2405,18 @@ public class Interaction : MonoBehaviour
             // 7 or 8 by the player's own row's weapon and armour kinds (do_miss reads both from
             // the attacker's row; UWCritterCombat.GetBlockedSound). The creature still notices
             // the strike: the reference calls DamageObject with zero damage, and it
-            // turns hostile and attacks (per user on the original, 2026-09-12).
-            UWObjectClassProperties.Critter lOOwnRow = default;
+            // turns hostile and attacks (per user on the original, 2026-09-12). The row's kinds
+            // are read by UWPlayerAttack.ResolveMelee, the sound chosen by UWAttackResolution
+            // (cleanup step 4.9, 2026-10-18).
+            UWSoundEffects.PlayAt(lOResult.Outcome.BlockedSound, pOHitPoint);
 
-            if (mOUWDataImporter.ObjectClassProperties != null)
-                mOUWDataImporter.ObjectClassProperties.TryGetCritter(UWCritterCombat.PlayerCritterObjectId, out lOOwnRow);
-
-            UWSoundEffects.PlayAt(UWCritterCombat.GetBlockedSound(lOOwnRow.WeaponKind,
-                lOOwnRow.ArmourKind == UWCritterCombat.MetalKind), pOHitPoint);
-
+            // The miss lands through the world as the player's blow with 0 (cleanup step 4.8,
+            // 2026-10-18; UWCritter.OnMissedByPlayer told the mind past the body until then).
             UWCritter lOMissedCritter = lOTarget != null ? lOTarget.GetComponentInParent<UWCritter>() : null;
+            UWWorld lOMissWorld = mLevelLoader != null ? UWWorld.Of(mLevelLoader) : UWScene.World;
 
-            if (lOMissedCritter != null)
-                lOMissedCritter.OnMissedByPlayer();
+            if (lOMissedCritter != null && lOMissWorld != null)
+                lOMissWorld.Damage(UWWorld.TargetOf(lOMissedCritter, lOMissedCritter.Damageable), lOResult.Outcome.Blow);
 
             return;
         }
@@ -2439,14 +2441,14 @@ public class Interaction : MonoBehaviour
 
         if (lOWorld != null)
             lOWorld.Damage(lOCritterTarget != null ? UWWorld.TargetOf(lOCritterTarget, lODamageable) : UWWorld.TargetOf(lODamageable),
-                UWBlow.PlayerBlow(liDamage));
+                lOResult.Outcome.Blow);
 
         // The hit sound at the target, louder by the damage BEFORE the armour: the original
         // plays it at label 938 of AttackerAppliesFinalDamage_seg022_8A5 and only subtracts
         // the armour at labels A04-A10, so a blow the armour swallows is still heard at full
         // volume. We had the volume from the damage after armour until 2026-09-22. The
         // creature's own blows (UWCritter) had it right already.
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOHitPoint, lOResult.DamageBeforeArmour << 2);
+        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOHitPoint, lOResult.Outcome.HitVolume);
 
         // Armour that swallows the whole blow leaves no visible trace: UW.EXE
         // (AttackerAppliesFinalDamage, seg022_230E_A6B) skips the blood or flash animation and
@@ -2649,11 +2651,12 @@ public class Interaction : MonoBehaviour
 
         // A missile hit always counts with charge 0x80, however far the bow was drawn
         // (reference: combat.MissileAttackHit, "PlayerAttackCharge = 0x80"). The arrow's life
-        // is the ammunition's quality (MissileRelease copies it from the piece).
+        // is the ammunition's quality (MissileRelease copies it from the piece). The flight carries
+        // the base; its dice are rolled at the hit (since cleanup step 4.9b, 2026-10-18).
         UWObject lOAmmunition = fFindAmmunition(piAmmunitionId);
 
         UWProjectileFlight lOFlight = UWMissiles.Ensure(mLevelLoader).LaunchFromPlayer(null, piAmmunitionId,
-            liHeading, liPitch, liSpeedByte, fGetMissileDamage(piAmmunitionId, UWCombat.NeutralCharge),
+            liHeading, liPitch, liSpeedByte, fGetMissileBaseDamage(piAmmunitionId),
             UWDamageTypes.Missile, -1, this, lOAmmunition != null ? lOAmmunition.Quality : 0x3F);
 
         if (lOFlight == null)
@@ -2666,27 +2669,29 @@ public class Interaction : MonoBehaviour
         return true;
     }
 
-    /// <summary>The damage of a fired projectile: the Missile skill stretches or squeezes it -
-    /// see UWPlayerAttack.GetMissileDamage.</summary>
-    private int fGetMissileDamage(int piAmmunitionId, int piCharge)
+    /// <summary>The base damage of a fired projectile: the Missile skill stretches or squeezes it -
+    /// see UWPlayerAttack.GetMissileBaseDamage (the dice at the hit since cleanup step 4.9b,
+    /// 2026-10-18).</summary>
+    private int fGetMissileBaseDamage(int piAmmunitionId)
     {
-        return UWPlayerAttack.GetMissileDamage(mOUWDataImporter, piAmmunitionId, piCharge,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Missile) : 0);
+        return UWPlayerAttack.GetMissileBaseDamage(mOUWDataImporter, piAmmunitionId,
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
     }
 
     /// <summary>
-    /// The damage of a missile the player throws BY HAND - see UWPlayerThrow.
+    /// The base damage of a missile the player throws BY HAND - see UWPlayerThrow.
     ///
-    /// Charge 0x80, like every missile hit (missile_thwack). The Missile skill scales only
-    /// ammunition (UWPlayerAttack.GetThrownMissileDamage, 2026-10-12).
+    /// Charge 0x80 at the hit, like every missile hit (missile_thwack), where the dice are rolled
+    /// since cleanup step 4.9b (2026-10-18). The Missile skill scales only ammunition
+    /// (UWPlayerAttack.GetThrownMissileBaseDamage, 2026-10-12).
     /// </summary>
-    public int GetThrownMissileDamage(int piObjectId)
+    public int GetThrownMissileBaseDamage(int piObjectId)
     {
         if (mOUWDataImporter == null || mOUWDataImporter.ObjectProperties == null)
-            return 0;
+            return UWAttackResolution.NoMissileDamage;
 
-        return UWPlayerAttack.GetThrownMissileDamage(mOUWDataImporter, piObjectId, UWCombat.NeutralCharge,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Missile) : 0);
+        return UWPlayerAttack.GetThrownMissileBaseDamage(mOUWDataImporter, piObjectId,
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
     }
 
     /// <summary>The damage type of a class 1 object the player throws: -ammo of its missile
@@ -2760,7 +2765,7 @@ public class Interaction : MonoBehaviour
     /// 2026-08-30). The same division into thirds that movement also follows.
     ///
     /// Both are set: the type for the damage calculation (mCurrentAttack, see
-    /// fGetAttackKind) and the one for the weapon animation (UWCharacter.CurrentAttackType).
+    /// fGetAttackKind) and the one for the weapon animation (UWWeaponSwing.AttackType).
     ///
     /// Unarmed there is only ONE animation - the weapon data list the same coordinates for the fist
     /// for all three types. The damage values of the melee table do differ there
@@ -2841,7 +2846,7 @@ public class Interaction : MonoBehaviour
     }
 
     /// <summary>Sets both the kind for the damage (mCurrentAttack) and the one for the weapon
-    /// animation (UWCharacter.CurrentAttackType, read every frame, so a change while the weapon
+    /// animation (UWWeaponSwing.AttackType, read every frame, so a change while the weapon
     /// winds up shows at once).</summary>
     private void fSetAttackKind(AttackTypes peKind)
     {
@@ -2853,7 +2858,7 @@ public class Interaction : MonoBehaviour
         }
 
         if (mCharacter != null)
-            mCharacter.CurrentAttackType = peKind;
+            mCharacter.Weapon.AttackType = peKind;
 
         // The middle column of the kind's row; the classic scheme sets the clicked column after.
         miCurrentNinth = (fGetSwingRow() * 3) + 2;
@@ -2874,7 +2879,7 @@ public class Interaction : MonoBehaviour
     /// <summary>
     /// Takes the weapon from the main hand into the display. Called every frame while
     /// combat mode is active, because the weapon can be changed in the middle of combat
-    /// mode (see Update and UWCharacter.SetWeaponType); it only does something when the
+    /// mode (see Update and UWWeaponSwing.SetWeaponType); it only does something when the
     /// weapon has actually changed.
     ///
     /// Which animation belongs to which weapon is given by the SkillType field of the
@@ -2888,16 +2893,16 @@ public class Interaction : MonoBehaviour
         UWObject lOWeapon = mInventory == null ? null : mInventory.GetEquipped(mInventory.MainHandSlot);
         int liWeaponId = lOWeapon == null ? UWCombat.FistObjectId : lOWeapon.ID;
 
-        // WITH BOW OR SLING NOTHING IS VISIBLE - see UWCharacter.HasRangedWeapon.
+        // WITH BOW OR SLING NOTHING IS VISIBLE - see UWWeaponSwing.HasRangedWeapon.
         int liAmmunitionId;
 
         // What was in view a moment ago decides whether the change needs the two motions -
-        // see UWCharacter.SetWeaponType. With a bow in hand nothing was.
-        bool lbNothingWasVisible = mCharacter.HasRangedWeapon;
+        // see UWWeaponSwing.SetWeaponType. With a bow in hand nothing was.
+        bool lbNothingWasVisible = mCharacter.Weapon.HasRangedWeapon;
 
-        mCharacter.HasRangedWeapon = fTryGetAmmunitionId(liWeaponId, out liAmmunitionId);
+        mCharacter.Weapon.HasRangedWeapon = fTryGetAmmunitionId(liWeaponId, out liAmmunitionId);
 
-        if (mCharacter.HasRangedWeapon)
+        if (mCharacter.Weapon.HasRangedWeapon)
             return;
 
         UWObjectClassProperties.MeleeWeapon lOMelee;
@@ -2911,7 +2916,7 @@ public class Interaction : MonoBehaviour
         // AN EMPTY HAND IS THE FIST, not whatever was held before. Without this the weapon
         // type simply kept its last value, which is how an axe could turn up in a hand that
         // held none (per user, 2026-09-20).
-        mCharacter.SetWeaponType(leType, lbNothingWasVisible);
+        mCharacter.Weapon.SetWeaponType(leType, lbNothingWasVisible);
     }
     private static UWCombat.AttackKind fGetAttackKind(AttackEnum peAttack)
     {
@@ -2983,9 +2988,10 @@ public class Interaction : MonoBehaviour
 
                 // A NEW pile from CreateObj (INVDATA.C: junk = CreateObj(debris), nothing set on
                 // it afterwards), so CreateObj's quality 40 - until 2026-10-12 this gave 0, as
-                // the smashed world object's debris rightly does (UWContainerDamage).
+                // the smashed world object's debris rightly does (UWContainerDamage). Put down
+                // with near_mob_put_at, so at the tail of the tile's list (2026-10-18).
                 mLevelLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), lOTile.X, lOTile.Y, 0, -1,
-                    new Vector3(lOAt.x, 0f, lOAt.z));
+                    new Vector3(lOAt.x, 0f, lOAt.z), UWWorldEdit.Arrival.PutDown);
             }
         }
 
@@ -3244,7 +3250,7 @@ public class Interaction : MonoBehaviour
         UWPlayerMovement lOMovement = UWScene.PlayerMovement;
 
         if (lOMovement != null)
-            lOMovement.HoldEasyMovement(liCommand);
+            lOMovement.Input.HoldEasyMovement(liCommand);
 
         return true;
     }
@@ -3426,7 +3432,7 @@ public class Interaction : MonoBehaviour
             return null;
 
         return UWItemDescriptions.DescribeItem(pOItem, mOUWDataImporter,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Lore) : 0,
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Lore) : 0,
             fGetItemObjectList(), piDetail);
     }
 
@@ -3623,7 +3629,7 @@ public class Interaction : MonoBehaviour
 
     private bool fHasTelekinesis
     {
-        get { return mCharacter != null && mCharacter.HasTelekinesis; }
+        get { return mCharacter != null && mCharacter.Vitals.HasTelekinesis; }
     }
 
     private bool fCanReach(UWEntityInfo pOTarget, int piDistanceSquared, bool pbUsingPole)
@@ -4101,7 +4107,7 @@ public class Interaction : MonoBehaviour
         string lsQuestion;
 
         if (!UWRepairRules.TryGetQuestion(pOItem, mOUWDataImporter,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Repair) : 0, out lsQuestion))
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Repair) : 0, out lsQuestion))
         {
             AddGeneralMessage(UWRepairRules.CannotRepairMessage);
 
@@ -4161,14 +4167,14 @@ public class Interaction : MonoBehaviour
 
         // Repairing is loud (reference: repair.cs sets PlayerQuietness 0xF).
         if (mCharacter != null)
-            mCharacter.MakeNoise(UWRepairRules.RepairNoise);
+            mCharacter.Vitals.MakeNoise(UWRepairRules.RepairNoise);
 
         UWRepairRules.Result lOResult = UWRepairRules.Attempt(pOItem, mOUWDataImporter,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Repair) : 0);
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Repair) : 0);
 
         // A REPAIR TAKES TIME - see UWRepairRules.Attempt for the minutes.
         if (mCharacter != null)
-            mCharacter.AdvanceClockMinutes(lOResult.Minutes);
+            mCharacter.Vitals.AdvanceClockMinutes(lOResult.Minutes);
 
         if (!string.IsNullOrEmpty(lOResult.Message))
             AddMessage(lOResult.Message);
@@ -4215,7 +4221,7 @@ public class Interaction : MonoBehaviour
             return;
 
         if (!UWTrapDisarming.Detect(pOTarget.ObjectData, mLevelLoader.CurrentLevel.Masterlist,
-            mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Search) : 0))
+            mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Search) : 0))
             return;
 
         // Asked like every yes/no question (per user, 2026-09-30) - see fAskYesNo.
@@ -4261,7 +4267,7 @@ public class Interaction : MonoBehaviour
 
         int liSkill = piSkill >= 0
             ? piSkill
-            : (mCharacter != null ? mCharacter.GetSkill(UWPlayerData.Skill.Traps) : 0);
+            : (mCharacter != null ? mCharacter.Vitals.GetSkill(UWPlayerData.Skill.Traps) : 0);
 
         UWTrapDisarming.Result lOResult = UWTrapDisarming.Disarm(pOTarget.ObjectData,
             mLevelLoader.CurrentLevel, liSkill, mOUWDataImporter);
@@ -4652,7 +4658,8 @@ public class Interaction : MonoBehaviour
     /// </summary>
     private int miPendingProjectileId = -1;
 
-    private int miPendingProjectileDamage;
+    /// <summary>Its base damage, rolled at the hit (cleanup step 4.9b, 2026-10-18).</summary>
+    private int miPendingProjectileBaseDamage;
 
     /// <summary>The ammunition table's speed byte of the waiting projectile (RangedAmmoType).</summary>
     private int miPendingProjectileSpeedByte;
@@ -4714,7 +4721,7 @@ public class Interaction : MonoBehaviour
         miPendingProjectileId = -1;
 
         return UWMissiles.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, piTileX, piTileY, piXPos, piYPos,
-            piZPos, piHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileDamage,
+            piZPos, piHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileBaseDamage,
             UWRunicMagic.GetProjectileDamageType(liProjectile, fObjectProperties), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
     }
 
@@ -4795,13 +4802,16 @@ public class Interaction : MonoBehaviour
     /// the reference takes the value of his power gem at this point - but that belongs to
     /// melee and, when casting, holds whatever the last swing left behind. That
     /// is evidently arbitrary; we calculate with the plain value.
+    ///
+    /// THE ROLL AT THE HIT since cleanup step 4.9b (2026-10-18, by the user's decision to follow
+    /// the original: missile_thwack -> do_damage rolls it, UWAttackResolution.Missile, with charge
+    /// 0x80): the table value is kept as the flight's base; it was rolled here until then.
     /// </summary>
     public void BeginSpellTargeting(int piProjectileId, int piDamage, int piSpeed, int piManaCost = 0)
     {
         miPendingProjectileId = piProjectileId;
         miPendingManaCost = piManaCost;
-        miPendingProjectileDamage = UWCombat.ComputeDamage(piDamage, false, 0, 0,
-            UWCombat.NeutralCharge, 0);
+        miPendingProjectileBaseDamage = piDamage;
         miPendingProjectileSpeedByte = piSpeed;
     }
 
@@ -4967,7 +4977,7 @@ public class Interaction : MonoBehaviour
         //
         // THIS REPLACES THE ASSUMPTION OF 2026-09-05 that the left button fires the shot
         // in addition to walking. The walking itself was already correct and stays as it
-        // is (see UWPlayerMovement.IsCursorMovementInProgress).
+        // is (see UWPlayerInput.IsCursorMovementInProgress).
         if (!lbRightButton)
             return true;
 
@@ -5012,7 +5022,7 @@ public class Interaction : MonoBehaviour
         }
 
         UWProjectileFlight lOFlight = UWMissiles.Ensure(mLevelLoader).LaunchFromPlayer(null, miPendingProjectileId,
-            liHeading, liPitch, miPendingProjectileSpeedByte, miPendingProjectileDamage,
+            liHeading, liPitch, miPendingProjectileSpeedByte, miPendingProjectileBaseDamage,
             UWRunicMagic.GetProjectileDamageType(miPendingProjectileId, fObjectProperties), UWRunicMagic.GetProjectileImpactId(miPendingProjectileId),
             this, 0x3F);
 
@@ -5025,13 +5035,13 @@ public class Interaction : MonoBehaviour
 
         // Released: now the rune spell's mana is paid (see miPendingManaCost).
         if (miPendingManaCost > 0 && mCharacter != null)
-            mCharacter.SpendMana(miPendingManaCost);
+            mCharacter.Vitals.SpendMana(miPendingManaCost);
 
         miPendingManaCost = 0;
     }
 
     /// <summary>The player's missile has hit: an object's flash, a creature's eyes at the top
-    /// edge as in melee. A CREATURE'S BLOOD comes from UWCritter.ShowHitEffect alone, which the
+    /// edge as in melee. A CREATURE'S BLOOD comes from UWCritter.ShowMissileHitEffect alone, which the
     /// missile calls first: do_damage (UnderworldExhumed COMBAT.C) puts it once, a second only for
     /// a critical blow, which a missile never is. Until 2026-10-13 ours showed two (reference
     /// audit, finding of the fix agents).</summary>

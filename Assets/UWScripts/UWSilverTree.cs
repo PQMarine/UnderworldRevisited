@@ -65,7 +65,7 @@ public static class UWSilverTree
         if (!UWSilverTreeRules.CanTakeRoot(pOLoader.CurrentLevel, lOTile)
             || !pOLoader.ObjectFitsAt(TreeObjectId, liX8, liY8, UWSilverTreeRules.PlantZ(lOGround), false, 0)
             || !pOLoader.SpawnObjectById(TreeObjectId, lOTile.X, lOTile.Y, 1, UWObjectFactory.DefaultQuality,
-                new Vector3(lOSpot.x, pOLoader.GetFloorHeightAt(lOSpot), lOSpot.z),
+                new Vector3(lOSpot.x, pOLoader.GetFloorHeightAt(lOSpot), lOSpot.z), UWWorldEdit.Arrival.Created,
                 pOTree => { pOTree.DoorDirection = true; }))
         {
             fMessage(pOInteraction, UWSilverTreeRules.NoRootsMessage);

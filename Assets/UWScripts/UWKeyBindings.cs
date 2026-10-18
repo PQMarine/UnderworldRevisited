@@ -308,7 +308,7 @@ public static class UWKeyBindings
     /// <summary>
     /// The sticks swapped or back: Move's stick binding and LookStick's trade their paths. Every
     /// reader follows the actions - the modern walk and look, the classic turn, strafe and tilt
-    /// (UWPlayerMovement.fClassicTurn, UWPlayerLook) -, so nothing else needs to know.
+    /// (UWPlayerInput.fClassicTurn, UWPlayerLook) -, so nothing else needs to know.
     /// </summary>
     private static void fApplyStickSwap(UWControls pOControls)
     {

@@ -92,13 +92,7 @@ MonoBehaviour:
   ClassicLookStepDegrees: 15
   ClassicLookSteps: 3
   SwimViewFollowSpeed: 60
-  SwimSpeedUnskilled: 0.26
-  SwimSpeedSkilled: 0.26
   SwimSkillForFullEffect: 15
-  SwimCheckInterval: 21
-  WaterFlowStrength: 0
-  WaterFlowHeadingDegrees: 225
-  LavaSpeedFactor: 0.5
   LavaDamageInterval: 0.03125
   LavaDamageChance: 0.2
   LavaDamage: 1

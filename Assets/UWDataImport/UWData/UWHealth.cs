@@ -1,6 +1,18 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>
+	/// WHERE A CREATURE'S HIT POINTS LIVE: its record's byte 8 (UWCritterRecord.HitPoints), the one
+	/// store since cleanup step 4.8 (2026-10-18; section 7.4 of Docs/CLEANUP-PLAN.md). Until then
+	/// UWHealth counted its own copy beside the record, kept in step at six places, and the save took
+	/// the copy clamped to at least 1 - so a golem whose death was refused saved with 1 hit point
+	/// although his record held 0 (B23).
+	/// </summary>
+	public interface IUWHitPointStore
+	{
+		int HitPoints { get; set; }
+	}
+
+	/// <summary>
 	/// Hit points of something that can take damage - critters, doors, barrels and chests - and
 	/// the rules for taking damage. Engine-free since 2026-09-17 (P2 of the engine separation);
 	/// UWDamageable on the Unity side holds one and raises its events.
@@ -15,9 +27,43 @@ namespace UWDataImport.UWData
 		private int miCurrentHealth = 1;
 		private int miInitialHealth = 1;
 
+		/// <summary>A creature's record, which holds the hit points instead of miCurrentHealth (see
+		/// KeepHitPointsIn); null for a door, a barrel or a chest.</summary>
+		private IUWHitPointStore mIStore;
+
+		/// <summary>With a store: the death is committed (see MarkDestroyed).</summary>
+		private bool mbDestroyed;
+
 		public int MaxHealth => miMaxHealth;
 
-		public int CurrentHealth => miCurrentHealth;
+		public int CurrentHealth => mIStore != null ? mIStore.HitPoints : miCurrentHealth;
+
+		/// <summary>
+		/// THE HIT POINTS GO TO THE CREATURE'S RECORD from here on (cleanup step 4.8, 2026-10-18; see
+		/// IUWHitPointStore): CurrentHealth reads it, every write goes to it, and destroyed no longer
+		/// means "no hit points" but the death committed (MarkDestroyed) - a creature whose death
+		/// was refused lives on with 0 hit points, as the golem does until his script sets 125
+		/// (UWSpecialDeaths), and still takes blows. MaxHealth and InitialHealth stay as Initialise
+		/// set them.
+		/// </summary>
+		public void KeepHitPointsIn(IUWHitPointStore pIStore)
+		{
+			mIStore = pIStore;
+		}
+
+		/// <summary>Whether the hit points live in a record (KeepHitPointsIn).</summary>
+		public bool HasStore => mIStore != null;
+
+		/// <summary>The death is committed: with a store the flag, else the hit points go to 0 - the
+		/// creature that drowned or loaded dying, and the one a blow killed (cleanup step 4.8;
+		/// UWCritter drained its copy with a blow of its own until then).</summary>
+		public void MarkDestroyed()
+		{
+			if (mIStore != null)
+				mbDestroyed = true;
+			else
+				miCurrentHealth = 0;
+		}
 
 		/// <summary>Armour: subtracted from the damage. For critters taken from the table.</summary>
 		public int Armour { get; private set; }
@@ -43,10 +89,10 @@ namespace UWDataImport.UWData
 		/// <summary>Resistance byte from comobj.dat - see UWDamageTypes.</summary>
 		public int Resistances { get; private set; }
 
-		public bool IsDestroyed => miCurrentHealth <= 0;
+		public bool IsDestroyed => mIStore != null ? mbDestroyed : miCurrentHealth <= 0;
 
 		/// <summary>Fraction of the remaining hit points, 0 to 1.</summary>
-		public float HealthFraction => miMaxHealth <= 0 ? 0f : miCurrentHealth / (float)miMaxHealth;
+		public float HealthFraction => miMaxHealth <= 0 ? 0f : CurrentHealth / (float)miMaxHealth;
 
 		/// <summary>How many points it was created with. Saving writes hit points back only if they
 		/// differ from this or the data itself carried some.</summary>
@@ -54,7 +100,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Quality class 3: takes no damage at all. It still has hit points, because the
 		/// look message reads its condition from them.</summary>
-		public bool IsIndestructible => QualityClass == UWCombat.AlwaysBestQualityClass || IsProtected;
+		public bool IsIndestructible => UWObjectDamageRules.ShrugsOff(IsProtected, QualityClass);
 
 		/// <summary>
 		/// WORD 0 BIT 13 PROTECTS (read 2026-09-27; per user: "the protection bit on doors"):
@@ -116,25 +162,30 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Takes damage already scaled by ScaleDamage off the hit points and reports
-		/// whether the target was destroyed by it.</summary>
+		/// whether the target was destroyed by it. Not for a creature with a store: its mind takes
+		/// the blow (DamageNPC, UWCritterBrain.OnDamaged) and commits the death.</summary>
 		public bool TakeScaledDamage(int piDamage)
 		{
-			miCurrentHealth -= piDamage < 0 ? 0 : piDamage;
+			int liHealth = CurrentHealth - (piDamage < 0 ? 0 : piDamage);
 
-			if (miCurrentHealth > 0)
-				return false;
+			fSetHealth(liHealth > 0 ? liHealth : 0);
 
-			miCurrentHealth = 0;
-
-			return true;
+			return liHealth <= 0;
 		}
 
 		/// <summary>Sets the hit points outright, 1 up to the maximum - for rules that change them
-		/// without a blow, as breaking Tybal's orb halves his (UWTybalOrbRules). Not for a kill.
-		/// </summary>
+		/// without a blow. Not for a kill.</summary>
 		public void SetCurrentHealth(int piHealth)
 		{
-			miCurrentHealth = System.Math.Max(1, System.Math.Min(miMaxHealth, piHealth));
+			fSetHealth(System.Math.Max(1, System.Math.Min(miMaxHealth, piHealth)));
+		}
+
+		private void fSetHealth(int piHealth)
+		{
+			if (mIStore != null)
+				mIStore.HitPoints = piHealth;
+			else
+				miCurrentHealth = piHealth;
 		}
 
 		/// <summary>
@@ -152,7 +203,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public int GetConditionStringIndex()
 		{
-			return UWCombat.GetConditionStringIndex(QualityType, miCurrentHealth, QualityClass);
+			return UWCombat.GetConditionStringIndex(QualityType, CurrentHealth, QualityClass);
 		}
 	}
 }

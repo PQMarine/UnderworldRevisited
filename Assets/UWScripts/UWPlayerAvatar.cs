@@ -177,7 +177,7 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
             // so the sleeper always counted as standing).
             UWPlayerMovement lOMovement = fMovement();
 
-            return lOMovement == null || (!lOMovement.IsJumping && lOMovement.IsWalkingOnGround);
+            return lOMovement == null || lOMovement.IsWalkingOnGround;
         }
     }
 

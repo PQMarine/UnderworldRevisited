@@ -554,7 +554,7 @@ public class UWPaletteRenderToggle : MonoBehaviour
     {
         UWCharacter lOCharacter = UWScene.Character;
 
-        if (!mOHallucination.Update(lOCharacter != null ? lOCharacter.Hallucination : 0))
+        if (!mOHallucination.Update(lOCharacter != null ? lOCharacter.Vitals.Hallucination : 0))
             return;
 
         if (mOHallucinationTable != null)
