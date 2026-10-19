@@ -8,7 +8,7 @@ using UWDataImport.UWData;
 /// missile, a trap's bolt, the quake's boulder - and a thing knocked loose; a damage trap's
 /// strike on a thing in flight, with the debris flying on; the hits on a creature, the player
 /// and an object (MissileAttackHit_seg022_14BF), the detonation's blast and the impact picture;
-/// and the player walking into his own missile. The motion is UWMotionHost's: it keeps the
+/// and the player walking into a missile. The motion is UWMotionHost's: it keeps the
 /// flights, steps their records on the world clock and calls back here when one strikes,
 /// detonates or comes to rest. The numbers of a hit are UWMissileHitRules'; the one place a
 /// missile's damage lands on its target is fApplyMissileDamage.
@@ -25,12 +25,6 @@ public sealed class UWMissiles
     /// lightning's splash with the length 4, which lasts five ticks (UWExplosionRules.
     /// LengthToSeconds) - 1.25 s; ours held 0.7 s until 2026-10-13.</summary>
     private static readonly float ImpactSeconds = UWExplosionRules.LengthToSeconds(UWExplosionRules.ExplosionLengthTicks);
-
-    /// <summary>The touch test of the player's own missile: how far it must have flown first,
-    /// and how close the player must come.</summary>
-    private const float SelfHitDistance = 32f;
-
-    private const float BumpRadius = 24f;
 
     private readonly UWMotionHost mOHost;
 
@@ -148,9 +142,14 @@ public sealed class UWMissiles
 
     /// <summary>A missile from a spot without a body of its own - the arrow trap, the spell
     /// trap: launched at the spot itself, no height offset, no placement test (a launcher of
-    /// height 0).</summary>
+    /// height 0).
+    /// NOBODY'S (2026-10-19, the user's decision "as the original"): missile_fire gives a missile
+    /// from a source that is no creature the owner 0 (UnderworldExhumed combat/MISSILE.C:245-300),
+    /// so its hit is charged to nobody - no experience, no kin alarm, no music for a creature it
+    /// strikes, no report to the eyes, no impact sound of the player's. Until then the traps
+    /// handed the Interaction in, and the flight counted as the player's.</summary>
     public UWProjectileFlight LaunchFromSpot(int piItemId, int piTileX, int piTileY, int piXPos, int piYPos, int piZPos,
-        int piHeading, int piPitch, int piSpeedByte, int piBaseDamage, int piDamageType, int piImpactId, Interaction pOInteraction)
+        int piHeading, int piPitch, int piSpeedByte, int piBaseDamage, int piDamageType, int piImpactId)
     {
         if (mOHost.ObjectMotion == null)
             return null;
@@ -170,7 +169,7 @@ public sealed class UWMissiles
         };
 
         return fLaunch(null, piItemId, lOLauncher, 0, piPitch, piSpeedByte, piBaseDamage, piDamageType, piImpactId,
-            pOInteraction, null, 0x3F);
+            null, null, 0x3F);
     }
 
     /// <summary>The ammunition table's speed byte of a missile.</summary>
@@ -221,7 +220,7 @@ public sealed class UWMissiles
         // arrows and bolts lie in the facing).
         lORecord.StaticHeading = lORecord.Octant;
 
-        return fSpawnFlight(lORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pOInteraction != null && pOCritter == null);
+        return fSpawnFlight(lORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter);
     }
 
     /// <summary>The quake's boulder: a piece of debris with a random small speed and schedule
@@ -257,18 +256,59 @@ public sealed class UWMissiles
         lORecord.Octant = lORecord.HeadingByte >> 5;
         lORecord.StaticHeading = lORecord.Octant;
 
-        return fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null, false);
+        return fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null);
     }
 
     /// <summary>A lying object knocked loose by a collision (UWMotionHost.PushObject): its record,
     /// already made mobile, flies as a thrown thing does - no damage, no launch sound.</summary>
     public UWProjectileFlight KnockLoose(UWMobileRecord pORecord)
     {
-        return fSpawnFlight(pORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null, false, false);
+        return fSpawnFlight(pORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null, false);
+    }
+
+    /// <summary>
+    /// THE THINGS IN FLIGHT OF THE LEVEL DATA FLY ON (2026-10-19): on building a level - a loaded
+    /// save, a level entered again - every record of UWLevel.InFlight becomes a flight of the
+    /// motion core from the record as it stands, as move_mobile steps the original's mobile
+    /// non-creatures after a load like any other (UnderworldExhumed critter/AI.C:1539-1567,
+    /// PATHFIND.C:174-198, OBJPHYS.C:211-360; see UWMobileRecordCodec). No launch: no sound, no
+    /// placement test. Its hit takes the base, the type and the attacker from the item and the
+    /// owner byte (UWProjectileFlight.FromLevelData), so a loaded arrow of the player's is still his
+    /// (experience, alarm, the music). Freeze Time holds it as any flight (the clock drops the
+    /// units), and it flies on when the freeze ends. Per user on the original, 2026-10-19: arrows
+    /// shot during Freeze Time, saved and loaded in ours hung in the air for good and one pointed
+    /// the wrong way - ours made lying objects of them.
+    /// </summary>
+    public void ResumeFlights(UWLevel pOLevel)
+    {
+        if (pOLevel == null || pOLevel.InFlight.Count == 0 || mOHost.ObjectMotion == null || fLoader == null)
+            return;
+
+        UWLevelLoader lOLoader = fLoader;
+        UWDataImport.DataImport lOData = lOLoader.UWDataImporter;
+
+        foreach (UWMobileRecord lORecord in new System.Collections.Generic.List<UWMobileRecord>(pOLevel.InFlight))
+        {
+            if (lORecord == null || lORecord.Object == null)
+                continue;
+
+            int liItemId = lORecord.ItemId;
+            bool lbPlayers = lORecord.Owner == UWMissileHitRules.PlayerOwner;
+            int liType = UWMissileHitRules.HurtsWhatItHits(liItemId)
+                ? UWPlayerAttack.GetMissileDamageType(lOData, liItemId)
+                : UWDamageTypes.Physical;
+
+            lORecord.Index = mOHost.NewFlightIndex();
+
+            fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, liType, UWRunicMagic.GetProjectileImpactId(liItemId),
+                lbPlayers ? UWScene.Interaction : null,
+                lORecord.Owner > UWMissileHitRules.PlayerOwner ? UWCritter.AtIndex(lORecord.Owner) : null,
+                false, true);
+        }
     }
 
     private UWProjectileFlight fSpawnFlight(UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
-        Interaction pOInteraction, UWCritter pOCritter, bool pbPlayersOwn, bool pbLaunchSound = true)
+        Interaction pOInteraction, UWCritter pOCritter, bool pbLaunchSound = true, bool pbFromLevelData = false)
     {
         Vector3 lOAt = UWMotionHost.WorldPosition(pORecord);
         GameObject lOSpawned = fLoader.SpawnProjectile(pORecord.ItemId, lOAt, UWViewpoint.HeadingByteToDirection(pORecord.HeadingByte));
@@ -278,8 +318,11 @@ public sealed class UWMissiles
 
         UWProjectileFlight lOFlight = lOSpawned.AddComponent<UWProjectileFlight>();
 
-        lOFlight.Begin(this, pORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pbPlayersOwn);
+        lOFlight.Begin(this, pORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pbFromLevelData);
         mOHost.AddFlight(lOFlight);
+
+        // A contact at the start does not strike (HitPlayerWalkingIn, 2026-10-19).
+        lOFlight.TouchingPlayer = fInPlayerReach(lOFlight);
 
         // The launch sound of every missile (PrepareProjectileObject, effect 0x0A); a thing
         // knocked loose makes none.
@@ -366,14 +409,34 @@ public sealed class UWMissiles
         }
 
         fSpawnFlight(lORecord, lOFlight.BaseDamage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Interaction,
-            lOFlight.Launcher, lOFlight.PlayersOwn, false);
+            lOFlight.Launcher, false, lOFlight.FromLevelData);
     }
 
     // ------------------------------------------------- The hits (MissileAttackHit_seg022_14BF)
 
-    private int fAttackerIndex(UWProjectileFlight pOFlight)
+    /// <summary>Who the hit is charged to: the owner byte, as damage_critter takes it from last_hit
+    /// (UWMissileHitRules.AttackerOf): 1 the player, a creature's index, 0 nobody - a trap's. For a
+    /// flight read from the level data since 2026-10-19; for every flight since the same day (the
+    /// user's decision "as the original": a trap's missile was charged to the player until then, the
+    /// launching creature or the player otherwise - what the launch writes into the byte).</summary>
+    private static int fAttackerIndex(UWProjectileFlight pOFlight)
     {
-        return pOFlight.Launcher != null ? pOFlight.Launcher.Index : UWCritterBrain.PlayerIndex;
+        return UWMissileHitRules.AttackerOf(pOFlight.Record.Owner);
+    }
+
+    /// <summary>The base the hit rolls: the launch's, or for a flight read from the level data the
+    /// record's (UWPlayerAttack.GetMissileHitBaseDamage, missile_newhit at the hit, with the
+    /// player's Missile skill for his own).</summary>
+    private int fBaseDamage(UWProjectileFlight pOFlight)
+    {
+        if (!pOFlight.FromLevelData)
+            return pOFlight.BaseDamage;
+
+        UWLevelLoader lOLoader = fLoader;
+        UWCharacter lOPlayer = UWScene.Character;
+
+        return UWPlayerAttack.GetMissileHitBaseDamage(lOLoader != null ? lOLoader.UWDataImporter : null, pOFlight.Record.ItemId,
+            pOFlight.Record.Owner, lOPlayer != null ? lOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
     }
 
     /// <summary>The missile's COMOBJ height, the top of its box over its z.</summary>
@@ -406,20 +469,61 @@ public sealed class UWMissiles
     /// 2026-10-18, by the user's decision to follow the original; at the launch until then).</summary>
     private UWAttackOutcome fResolveHit(UWProjectileFlight pOFlight, IUWAttackDefender pIDefender, int piPart)
     {
-        return UWAttackResolution.Missile(pOFlight.BaseDamage, pOFlight.DamageType, fAttackerIndex(pOFlight), pIDefender, piPart,
-            pOFlight.Launcher != null, pOFlight.PlayersOwn);
+        return UWAttackResolution.Missile(fBaseDamage(pOFlight), pOFlight.DamageType, fAttackerIndex(pOFlight), pIDefender, piPart,
+            pOFlight.Record.Owner);
     }
 
     /// <summary>The missile strikes a creature: the target's armour of the part hit, the hit
     /// effect, the eyes for the player's own. The creature stays (false).</summary>
     public bool StrikeCreature(UWProjectileFlight pOFlight, UWCritter pOCritter)
     {
-        if (!UWMissileHitRules.HurtsWhatItHits(pOFlight.Record.ItemId) || pOCritter == null)
+        if (!UWMissileHitRules.HurtsWhatItHits(pOFlight.Record.ItemId) || !fDamageCreature(pOFlight, pOCritter))
+            return false;
+
+        if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
+            fShowImpact(pOFlight, pOFlight.transform.position);
+
+        return false;
+    }
+
+    /// <summary>
+    /// A CREATURE WALKS INTO A MISSILE (2026-10-19, the user's decision "as the original"): its own
+    /// motion step meets a flying or hanging missile, and do_objhit uses the usable missile on the
+    /// creature as the mover - UseObj runs missile_newhit with the creature as what it hit
+    /// (UnderworldExhumed motion/OBJPHYS.C:141-200, obj/USEITEMS.C:90-92, OBJPHYS.C:102-132), the
+    /// same hit as the missile's own (missile_thwack -> do_damage): the part, the dice of the base,
+    /// the armour, the two sounds, the trace, charged to the missile's owner byte (AttackerOf - the
+    /// player's arrow gives him the experience of a kill and sets off the kin alarm). On every step
+    /// that meets it, as the core's marking allows - a creature is not stopped by the mobile mark
+    /// (UWMotionCore.CollideObjects). The missile flies on (bounce_obj, UWMotionHost.PushObject), so
+    /// no impact picture here, as for the player walking into one (HitPlayerWalkingIn). Until then
+    /// the creature passed through it unhurt (UWMotionHost.UseOnMover did nothing).
+    /// </summary>
+    public void HitCreatureWalkingIn(UWProjectileFlight pOFlight, UWCritter pOCritter)
+    {
+        if (pOFlight == null || pOFlight.Record == null
+            || !UWMissileHitRules.HurtsWhoWalksIntoIt(pOFlight.Record.ItemId, mOHost.Entry(pOFlight.Record.ItemId).UsedWhenThrown))
+            return;
+
+        fDamageCreature(pOFlight, pOCritter);
+    }
+
+    /// <summary>The missile's hit on a creature without the impact picture - StrikeCreature's and
+    /// HitCreatureWalkingIn's. False when nothing was struck (no creature, or a body that takes no
+    /// blows).</summary>
+    private bool fDamageCreature(UWProjectileFlight pOFlight, UWCritter pOCritter)
+    {
+        if (pOCritter == null)
             return false;
 
         UWDamageable lODamageable = pOCritter.GetComponent<UWDamageable>();
 
-        if (lODamageable == null || lODamageable.IsDestroyed)
+        // A DYING CREATURE IS STRUCK TOO (cleanup step 4.12c, 2026-10-19, the user's decision "as
+        // the original"): the missile's collision finds it in its tile list until frame 3 and
+        // missile_thwack has no dying test (UnderworldExhumed combat/COMBAT.C:756-779, critter/
+        // AI.C:1135-1140) - the sounds, the damage and the trace as on a living one. The body's one
+        // rule (UWDamageable.TakesBlows); until then a destroyed body was passed over here.
+        if (lODamageable == null || !lODamageable.TakesBlows)
             return false;
 
         int liBottom = pOFlight.Record.ZPos;
@@ -451,10 +555,7 @@ public sealed class UWMissiles
         if (pOFlight.PlayersOwn && pOFlight.Interaction != null && lOOutcome.LeavesTrace)
             pOFlight.Interaction.ReportSpellHit(pOCritter.GetComponentInParent<UWEntityInfo>(), lODamageable, pOCritter.BodyPosition);
 
-        if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
-            fShowImpact(pOFlight, pOFlight.transform.position);
-
-        return false;
+        return true;
     }
 
     /// <summary>The missile strikes the player: less the armour of the part hit and halved on
@@ -465,7 +566,7 @@ public sealed class UWMissiles
             return false;
 
         fDamagePlayer(pOFlight);
-        pOFlight.TouchingPlayer = true;
+        pOFlight.LastPlayerHitTick = UWGameSession.Current.Schedule.Now;
 
         if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
             fShowImpact(pOFlight, pOFlight.transform.position);
@@ -505,9 +606,12 @@ public sealed class UWMissiles
         // nothing further); A CREATURE'S MISSILE starts the combat music like its blow -
         // damage_critter (critter/AI.C) finds the shooter in the missile's last_hit and picks
         // MUSIC_DANGER or MUSIC_COMBAT for the player, damage or not (2026-10-12; ours played
-        // nothing); a missile with an attacker shakes the view (COMBAT.C missile_thwack ->
-        // do_damage, C5, 2026-10-12), one without (fromwho -1) does not, the shake's level taken
-        // before the easy halving. (The outcome's blow carries UWDamageRequest.Missile.)
+        // nothing); THE PLAYER'S OWN (last_hit 1) gets MUSIC_FOE_HURT or MUSIC_COMBAT, a trap's
+        // (last_hit 0) none - by the record's owner byte, UWMissileHitRules.MusicFor (per user on
+        // the original, 2026-10-19: his own frozen arrow started the music); every missile shakes the
+        // view (COMBAT.C missile_thwack -> do_damage, C5, 2026-10-12; a trap's too since 2026-10-19 -
+        // its fromwho is its last_hit 0, not -1), the shake's level taken before the easy halving.
+        // (The outcome's blow carries UWDamageRequest.Missile.)
         fApplyMissileDamage(UWDamageTarget.ThePlayer, lOOutcome);
     }
 
@@ -628,37 +732,96 @@ public sealed class UWMissiles
             UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, pOAt);
     }
 
-    // ------------------------------------------------- The player walking into his own missile
+    // ------------------------------------------------- The player walking into a missile
 
     /// <summary>
     /// The player can still walk into his own missile from behind (per user on the original,
-    /// 2026-09-05: damage, and it flies on). The motion core does not do it for him: his body
-    /// meeting a flight is an obstacle there (seg029_29EE_3 hands a flight's index to PushObject,
-    /// which moves nothing) - so this stays a touch test of its own, run from the flight's
-    /// Update after its picture moved (re-checked in cleanup step 3.5, 2026-10-17, and again in
-    /// step 4.1, 2026-10-18, when the core became the only path: it still deals no damage).
+    /// 2026-09-05: damage, and it flies on). Until 2026-10-19 the motion core did not do it for
+    /// him: his body meeting a flight was an obstacle there (seg029_29EE_3 handed a flight's index
+    /// to PushObject, which moved nothing) - so it was a touch test of its own, run from the
+    /// flight's Update after its picture moved (re-checked in cleanup step 3.5, 2026-10-17, and
+    /// again in step 4.1, 2026-10-18, when the core became the only path: it still dealt no damage).
+    /// SINCE 2026-10-19 (the user's decision "as the original") THE CORE'S MEETING STRIKES: his
+    /// motion step meets the missile, do_objhit uses it on him (UWMotionHost.UseOnMover, here) and
+    /// bounce_obj pushes it on in his heading at the speed 0xEB, with no vertical speed - his
+    /// record's mass is 0 (PN.mass is never set; UnderworldExhumed motion/OBJPHYS.C:69-95,
+    /// PLAYMOVE.C:391-397) - so it flies on ahead of him (UWMotionHost.PushObject). A missile of no
+    /// mass (fireball, lightning, acid, magic missile) is not pushed.
     ///
     /// Does the player walk into it from behind? Then damage, but the missile flies on. What
     /// counts is the TOUCH, not every frame: whoever stays in contact takes damage once,
     /// whoever breaks away and walks in again takes it again - exactly as the user describes
-    /// it in the original. THE BOUNCE (in the original the player bounces off a little but can
+    /// it in the original. SINCE 2026-10-19 (evening) EVERY MEETING STRIKES, at the fixed rate
+    /// UWMissileHitRules.WalkInHitIntervalTicks: per user on the original, pressing against his
+    /// frozen arrow hurt again and again, and fast - do_objhit runs on every motion step. Without
+    /// the freeze the push sends the missile off after the first hit, which is the once-per-touch
+    /// the user saw on 2026-09-05. THE BOUNCE (in the original the player bounces off a little but can
     /// catch up with the missile again, per user 2026-09-05) is the core's: the collision stops
     /// or deflects him. The push back this test gave the CharacterController path
-    /// (UWPlayerMovement.AddKnockback) did nothing on the core and went in cleanup 4.1.
+    /// (UWPlayerMovement.AddKnockback) did nothing on the core and went in cleanup 4.1. The touch
+    /// begins with the core's meeting and ends when he is out of reach (UpdatePlayerTouch,
+    /// UWMissileHitRules.InTouchReach); the original strikes on every step that meets it, which
+    /// the push mostly makes one.
+    ///
+    /// ALSO WHILE IT HANGS IN FREEZE TIME (2026-10-19): per user on the original, walking into his
+    /// own arrow shot during Freeze Time hurt him - the player's motion meets the missile and
+    /// do_objhit uses it on him (UnderworldExhumed motion/OBJPHYS.C:139-200 -> obj/USEITEMS.C:90-92
+    /// missile_newhit), however far it has flown. Until then the test waited for 32 units of
+    /// flight, which a missile held by the freeze (or one just loaded) never makes. What keeps the
+    /// launch itself from counting is the contact at the start instead (TouchingPlayer, set when
+    /// the flight begins, see fSpawnFlight): only a touch that begins later strikes.
+    ///
+    /// ANY MISSILE, NOT ONLY HIS OWN (2026-10-19, the user's decision "as the original"): do_objhit
+    /// uses every usable missile (COMOBJ byte 6 bit 1, 0x10-0x17) the player's motion meets on him,
+    /// whoever fired it (UWMissileHitRules.HurtsWhoWalksIntoIt) - a creature's arrow hanging in
+    /// Freeze Time or flying slowly ahead of him, a trap's bolt. The hit is charged to its owner
+    /// (UWMissileHitRules.AttackerOf: a creature's to that creature, a trap's to nobody, his own to
+    /// himself), and the music follows the owner byte (UWMissileHitRules.MusicFor). Until then
+    /// only his own (and a trap's, which counted as his) did. Named UpdateSelfBump until then.
     /// </summary>
-    public void UpdateSelfBump(UWProjectileFlight pOFlight)
+    public void HitPlayerWalkingIn(UWProjectileFlight pOFlight)
     {
-        UWCharacter lOPlayer = UWScene.Character;
-
-        if (!pOFlight.PlayersOwn || !UWMissileHitRules.HurtsWhatItHits(pOFlight.Record.ItemId) || lOPlayer == null
-            || pOFlight.Travelled < SelfHitDistance)
+        if (pOFlight == null || pOFlight.Record == null
+            || !UWMissileHitRules.HurtsWhoWalksIntoIt(pOFlight.Record.ItemId, mOHost.Entry(pOFlight.Record.ItemId).UsedWhenThrown))
             return;
 
-        bool lbTouching = (lOPlayer.transform.position - pOFlight.transform.position).sqrMagnitude <= BumpRadius * BumpRadius;
+        // The contact at the launch does not strike; every later meeting does, at the fixed rate.
+        if (pOFlight.TouchingPlayer)
+            return;
 
-        if (lbTouching && !pOFlight.TouchingPlayer)
-            fDamagePlayer(pOFlight);
+        long llNow = UWGameSession.Current.Schedule.Now;
 
-        pOFlight.TouchingPlayer = lbTouching;
+        if (!UWMissileHitRules.WalkInHitDue(llNow, pOFlight.LastPlayerHitTick))
+            return;
+
+        fDamagePlayer(pOFlight);
+        pOFlight.LastPlayerHitTick = llNow;
+    }
+
+    /// <summary>From the flight's Update: the contact at the launch ends when the player is out of
+    /// its reach (UWMissileHitRules.InTouchReach) - from then on every meeting strikes.</summary>
+    public void UpdatePlayerTouch(UWProjectileFlight pOFlight)
+    {
+        if (pOFlight.TouchingPlayer && !fInPlayerReach(pOFlight))
+            pOFlight.TouchingPlayer = false;
+    }
+
+    /// <summary>The player's motion - his eighth, his feet, his COMOBJ box - within the touch reach
+    /// of the flight's record.</summary>
+    private bool fInPlayerReach(UWProjectileFlight pOFlight)
+    {
+        UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+        if (lOMovement == null || !lOMovement.UsesMotionCore || pOFlight.Record == null)
+            return false;
+
+        UWPlayerMotion lOMotion = lOMovement.Motion;
+        UWMobileRecord lORecord = pOFlight.Record;
+        UWCommonObjectProperties.Entry lOPlayer = mOHost.Entry(UWObjectMechanics.AdventurerObjectId);
+        UWCommonObjectProperties.Entry lOMissile = mOHost.Entry(lORecord.ItemId);
+
+        return UWMissileHitRules.InTouchReach(lOMotion.Params.X >> 5, lOMotion.Params.Y >> 5, lOMotion.FeetZPos,
+            lOPlayer.Radius & 7, lOPlayer.Height, (lORecord.TileX << 3) + (lORecord.XPos & 7),
+            (lORecord.TileY << 3) + (lORecord.YPos & 7), lORecord.ZPos, lOMissile.Radius & 7, lOMissile.Height);
     }
 }

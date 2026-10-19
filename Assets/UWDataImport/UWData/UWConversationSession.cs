@@ -135,6 +135,11 @@ namespace UWDataImport.UWData
 			Trade = new UWConversationTrade(pOData, pONpc, pIHost,
 				piString => Say(fGetConversationString(mOConversation.StringBlock, piString)),
 				PlayerSay, RegisterString);
+
+			// The partner's inventory, rolled once before the script runs (Converse,
+			// UnderworldExhumed conv/CONVERSE.C:329-330; since 2026-10-19, on the first trade lookup
+			// until then) - see UWConversationTrade.GenerateInventory.
+			Trade.GenerateInventory();
 		}
 
 		/// <summary>The memory of this conversation, see UWConversationGlobals.</summary>

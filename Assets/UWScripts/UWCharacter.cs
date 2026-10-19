@@ -235,8 +235,8 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// blow's red, drowning's blue, and 0xA8 when a curse, a backfire or the leeches struck -
     /// backfire flashes for the player whoever called it, UnderworldExhumed SPELLS.C; until
     /// 2026-10-12 equipping a cursed item did not flash, as the reference has it; in uw1 there is
-    /// no message), and the combat music hears of a creature's blow or missile (UWMusic, hit or
-    /// not). Each site flashed and told the music itself until cleanup step 4.2 (2026-10-17).
+    /// no message), and the combat music hears of a creature's blow or missile, or of his own
+    /// missile (UWMusic, hit or not; his own since 2026-10-19, UWDamageMusic). Each site flashed and told the music itself until cleanup step 4.2 (2026-10-17).
     /// </summary>
     private void fOnDamaged(UWDamageRequest pORequest, UWDamageOutcome pOOutcome)
     {
@@ -244,7 +244,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             fPresentation.FlashWindow(pORequest.FlashColour, pORequest.FlashSeconds);
 
         if (pORequest.TellsMusic)
-            UWMusic.OnPlayerDamaged(fVitals.CurrentHP, fVitals.MaxHP);
+            UWMusic.OnPlayerDamaged(fVitals.CurrentHP, fVitals.MaxHP, pORequest.Music == UWDamageMusic.Player);
     }
 
     /// <summary>What the vitals show and say (cleanup step 3.1, 2026-10-17): the lines go to this
@@ -493,9 +493,18 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         LastDamageTime = Time.time;
     }
 
+    /// <summary>The level of the last combat shake (0 to 3) and when it came, for the F1
+    /// overlay - so a test can see whether a hit shook and how hard (2026-10-19: the user saw no
+    /// shake from a trap's arrow and the overlay showed no level).</summary>
+    public int LastShakeLevel { get; private set; } = -1;
+
+    public float LastShakeTime { get; private set; } = -1f;
+
     /// <summary>The vitals' CombatShakeDue: a blow or a missile shakes the view.</summary>
     public void ShakeOnDamage(int piLevel)
     {
+        LastShakeLevel = piLevel;
+        LastShakeTime = Time.time;
         UWScreenShake.ShakeOnDamage(piLevel);
     }
 

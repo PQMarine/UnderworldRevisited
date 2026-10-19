@@ -25,7 +25,7 @@ public class UWDoor : MonoBehaviour, IUWDoor
     private static readonly List<UWDoor> msAll = new List<UWDoor>();
 
     /// <summary>Every door of the level - for a creature's blow, which treats a door as an
-    /// object in its tile (UWCritter.fTryDoorInReach), and for the night (UWSleep).</summary>
+    /// object in its tile (UWCreatureWorld.fTryDoorInReach), and for the night (UWSleep).</summary>
     public static IReadOnlyList<UWDoor> All => msAll;
 
     /// <summary>Where the door object stands: the centre of the closed leaf, taken when the

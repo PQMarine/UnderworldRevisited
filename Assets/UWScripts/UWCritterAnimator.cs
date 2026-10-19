@@ -63,11 +63,6 @@ public class UWCritterAnimator : MonoBehaviour
 
     private float mfNextVoidFrameTime;
 
-    /// <summary>The death animation has reached its last frame - the brain's frame 3 of
-    /// animation 0x0C (UWCritter.OnDeathFinished). After that the remains can appear (see
-    /// UWCritterRemains).</summary>
-    public bool DeathFinished { get; private set; }
-
     /// <summary>A big object's radius in eighths of a tile - COMOBJ byte 1 bits 0-2 when bit 3 (in
     /// our table IsAnimated) marks it big - or 0; see UWOwnTile.BigRadiusProperty.</summary>
     private static int fGetBigRadius(DataImport pOData, int piObjectId)
@@ -238,12 +233,6 @@ public class UWCritterAnimator : MonoBehaviour
         fApply();
     }
 
-    /// <summary>The brain reached frame 3 of the death animation (UWCritter.OnDeathFinished).</summary>
-    public void MarkDeathFinished()
-    {
-        DeathFinished = true;
-    }
-
     private void Update()
     {
         if (mOAtlas == null || mOFilter == null)
@@ -277,12 +266,11 @@ public class UWCritterAnimator : MonoBehaviour
             return;
         }
 
+        // The last death picture stays. Until cleanup step 4.12 (2026-10-19) this also raised a
+        // DeathFinished flag, like the brain's frame 3 through UWCritter.CompleteDeath, which
+        // UWCritterRemains polled every frame; the actor's death machine ends a death now.
         if (miCurrentSlot == UWCritterAnimations.SlotDeath && miFrameInSegment >= mOCurrentFrames.Length - 1)
-        {
-            DeathFinished = true;
-
             return;
-        }
 
         miFrameInSegment = (miFrameInSegment + 1) % mOCurrentFrames.Length;
         fShowFrame(mOCurrentFrames[miFrameInSegment]);

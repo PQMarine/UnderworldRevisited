@@ -305,6 +305,25 @@ namespace UnderworldRevisited.Tools
             // moved there from the sleep's host in cleanup step 3.6, 2026-10-17). Neither
             // implements the walker; each names the part it relies on.
             { "UWCritterRules.cs", "UWSleepRules.cs" },
+
+            // The creature's host moved engine-free in cleanup step 4.11 (2026-10-18): UWCreatureActor
+            // took UWCritter's members with their comments, which name the places the brain's events
+            // come from (NPCExecuteAttack, CheckForAttackHit, MissileAttackHit, CastSpells) and the
+            // rules it calls for them - the blow's arithmetic (UWAttackResolution, UWCritterCombat,
+            // UWCombat, UWPlayerCritterRow, UWEquipmentWear), the missile hit (UWMissileHitRules,
+            // UWCritterRules), the straight line (UWTileRoute) and the lockpick (UWLockRules). As a
+            // Unity file the host was never counted; the actor is the same caller, not a second
+            // implementation.
+            { "UWCreatureActor.cs", "UWAttackResolution.cs" },
+            { "UWCreatureActor.cs", "UWCombat.cs" },
+            { "UWCreatureActor.cs", "UWCritterCombat.cs" },
+            { "UWCreatureActor.cs", "UWPlayerCritterRow.cs" },
+            { "UWCreatureActor.cs", "UWEquipmentWear.cs" },
+            { "UWCreatureActor.cs", "UWCritterRules.cs" },
+            { "UWCreatureActor.cs", "UWMissileHitRules.cs" },
+            { "UWCreatureActor.cs", "UWCritterBrain.cs" },
+            { "UWCreatureActor.cs", "UWTileRoute.cs" },
+            { "UWCreatureActor.cs", "UWLockRules.cs" },
         };
 
         /// <summary>Whether these two files are declared as an intended pair.</summary>

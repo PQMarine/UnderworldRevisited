@@ -155,13 +155,31 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The player was hit: if still doing well, the undecided combat theme,
-		/// otherwise the losing one (reference: damage.cs).</summary>
-		public void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth, float pfNow)
+		/// otherwise the losing one (reference: damage.cs) - or, when his own missile hit him, the
+		/// winning one (PlayerHurtTheme).</summary>
+		public void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth, float pfNow, bool pbByPlayer)
 		{
-			int liRatio = ((int)pfCurrentHealth << 6) / ((int)pfMaxHealth + 1);
-
-			ChangeTheme(liRatio >= 0x10 ? EvenCombatTheme : LosingCombatTheme);
+			ChangeTheme(PlayerHurtTheme((int)pfCurrentHealth, (int)pfMaxHealth, pbByPlayer));
 			MarkCombat(pfNow);
+		}
+
+		/// <summary>
+		/// THE THEME OF A DAMAGE TO THE PLAYER, damage_critter (UnderworldExhumed critter/AI.C:
+		/// 1500-1515) with the player as the one damaged: the ratio of his hit points, hp * 64 /
+		/// (playerdat->avghit + 1) - playerdat is Creature[63], his own row (game/PLAYER.C:152) -
+		/// against 0x10. Hurt by a creature (who above 1): MUSIC_DANGER below, else MUSIC_COMBAT. Hurt
+		/// by HIMSELF (who 1, his own missile, pbByPlayer): the branch for a creature the player
+		/// hits, MUSIC_FOE_HURT below, else MUSIC_COMBAT (per user on the original, 2026-10-19: his
+		/// own frozen arrow started the combat music).
+		/// </summary>
+		public static int PlayerHurtTheme(int piCurrentHealth, int piMaxHealth, bool pbByPlayer)
+		{
+			int liRatio = (piCurrentHealth << 6) / (piMaxHealth + 1);
+
+			if (liRatio >= 0x10)
+				return EvenCombatTheme;
+
+			return pbByPlayer ? WinningCombatTheme : LosingCombatTheme;
 		}
 
 		// A CREATURE'S SIDE OF THE COMBAT MUSIC is the brain's since 2026-09-20 (ICritterHost.

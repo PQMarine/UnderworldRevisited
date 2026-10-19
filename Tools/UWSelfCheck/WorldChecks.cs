@@ -193,7 +193,8 @@ namespace UnderworldRevisited.Tools
         /// logging presentation, the fake body, and the travels as lines. Shared with the checks of
         /// the later phase 3 steps. Since step 3.3 (2026-10-17) its blows land through the real
         /// UWBlowRouting on bodies that only log (Blows); a creature whose index is in
-        /// DestroyedCreatures takes none.
+        /// RemovedCreatures takes none (DestroyedCreatures until cleanup step 4.12c, 2026-10-19: since
+        /// then a dying creature takes blows, only a removed one none - UWCreatureActor.TakesBlows).
         /// </summary>
         private sealed class FakeWorld : IUWWorld, IUWBlowBodies
         {
@@ -201,7 +202,7 @@ namespace UnderworldRevisited.Tools
 
             public readonly List<string> Blows = new List<string>();
 
-            public readonly HashSet<int> DestroyedCreatures = new HashSet<int>();
+            public readonly HashSet<int> RemovedCreatures = new HashSet<int>();
 
             public readonly LoggingPresentation Shown;
 
@@ -267,7 +268,7 @@ namespace UnderworldRevisited.Tools
 
             public bool CreatureTakesBlows(UWDamageTarget pOTarget)
             {
-                return !DestroyedCreatures.Contains(pOTarget.Index);
+                return !RemovedCreatures.Contains(pOTarget.Index);
             }
 
             /// <summary>A creature's line names the attacker the blow carries (cleanup step 4.8); an

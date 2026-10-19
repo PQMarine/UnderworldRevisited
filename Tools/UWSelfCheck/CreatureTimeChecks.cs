@@ -216,7 +216,7 @@ namespace UnderworldRevisited.Tools
 
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 0, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 5, 4), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 5, 4), 5, lOHost);
 
             lOHost.ClockValue = 1000;
             lOHost.PlacePlayer((6 << 3) + 4, 44);
@@ -248,7 +248,7 @@ namespace UnderworldRevisited.Tools
             {
                 FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
                 UWCritterRecord lORecord = fMakeRecord(5, 5, liGoal, 2, -1, -1, 3);
-                UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+                UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
                 lOHost.PlacePlayer((9 << 3) + 4, (9 << 3) + 4);
                 lOBrain.OnDamaged(lOHost, 0, 10);

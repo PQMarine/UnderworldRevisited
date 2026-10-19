@@ -21,7 +21,10 @@ a partner, and an item a conversation creates.
 **Nothing in the rules depends on the frame rate.** Some of the original's rules run once per
 drawn frame, so they run faster on a faster machine: standing on lava rolls for a point of fire
 damage at 1 in 5 every frame. Ours rolls at a fixed rate, 32 times a second, about what the
-original reaches in DOSBox (10 seconds on lava took about 70 of 78 hit points in both).
+original reaches in DOSBox (10 seconds on lava took about 70 of 78 hit points in both). The same
+rate holds for a missile the player presses against, which the original strikes him with on
+every frame (one held by Freeze Time kills fast), and the screen shake counts its rounds 20
+times a second.
 
 **Attribute points can be dealt by hand at character creation.** An option in the Game menu,
 off by default: instead of rolling, the player distributes the class's bonus points. For those
@@ -63,10 +66,6 @@ water for a walker, and a flier keeps its height.
 
 **Typed mantras and names lose spaces at their ends.** In the original " MU " with a space is not
 a mantra, and the spaces belong to a name.
-
-**A dying creature that no longer gets updates is removed after three seconds.** The original
-finishes a death only in the creature's own updates, so a creature far from the player can lie
-dying for a long time. Ours completes it after three seconds, with its loot and remains.
 
 **A night does not touch objects flying through the air.** After an undisturbed night the
 original also lands or removes the moving objects of the level; ours lets them fly on.

@@ -48,6 +48,10 @@ public static class UWWorldSync
     /// where the body was set up. The facing needs no write of its own: the record writes the
     /// heading eighth and the fine residual through to the UWNpc as the brain turns the creature
     /// (contract section 6).
+    ///
+    /// A DYING creature is the actor's death machine's (UWCreatureActor.IsDead, cleanup step 4.12,
+    /// 2026-10-19): it is captured with 0 hit points and its dying sequence. Until then the body's
+    /// destroyed flag was asked, which only the machine sets.
     /// </summary>
     private static void fCaptureCritter(UWLevelLoader pOLoader, UWEntityInfo pOEntity, UWCritter pOCritter)
     {
@@ -58,7 +62,7 @@ public static class UWWorldSync
 
         UWDamageable lODamageable = pOCritter.Damageable;
 
-        UWWorldCapture.CaptureCritter(pOLoader.TileQueries, lORecord, lODamageable != null && lODamageable.IsDestroyed,
+        UWWorldCapture.CaptureCritter(pOLoader.TileQueries, lORecord, pOCritter.IsDead,
             lODamageable != null ? lODamageable.InitialHealth : 0, pOCritter.HasMoved);
     }
 

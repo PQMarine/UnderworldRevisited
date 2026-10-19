@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace UWDataImport.UWData
 {
@@ -36,6 +38,12 @@ namespace UWDataImport.UWData
 	/// object followed by its contents), not a dictionary's enumeration (since 2026-10-12).
 	/// It decides which new creature is appended to the active list first, and a dictionary
 	/// only happened to keep its insertion order.
+	///
+	/// THE THINGS IN FLIGHT (UWLevel.InFlight, 2026-10-19) go back into their tiles' lists as the
+	/// original keeps them: mobile records (a mobile slot, the nineteen bytes from the motion's
+	/// record, UWMobileRecordCodec) on the active mobile list, at their place in the list (the head
+	/// once they changed tiles). The original and ours load them as flights again. Until then a
+	/// flight was in no list and so not in the save at all.
 	/// </summary>
 	public static class UWLevelWriter
 	{
@@ -61,6 +69,10 @@ namespace UWDataImport.UWData
 
 			List<UWObject> lOMaster = pOLevel.Masterlist;
 
+			// --- 0. The tiles' lists as they go into the file: each with its flights linked back in.
+			Dictionary<UWObject, UWMobileRecord> lOFlights = new Dictionary<UWObject, UWMobileRecord>();
+			List<UWObject>[] lOChains = fChainsWithFlights(pOLevel, lOFlights);
+
 			// --- 1. Who sits where in the file - an object's number is its slot in the
 			//        Masterlist, as long as it is below 1024.
 			Dictionary<UWObject, int> lOOriginalIndex = new Dictionary<UWObject, int>();
@@ -81,12 +93,10 @@ namespace UWDataImport.UWData
 
 			for (int liTile = 0; liTile < UWLevArkLayout.TileCount && liTile < pOLevel.TileData.Length; liTile++)
 			{
-				UWTile lOTile = pOLevel.TileData[liTile];
-
-				if (lOTile == null || lOTile.ObjectsInTile == null)
+				if (lOChains[liTile] == null)
 					continue;
 
-				foreach (UWObject lOObject in lOTile.ObjectsInTile)
+				foreach (UWObject lOObject in lOChains[liTile])
 					fCollect(lOObject, lOMaster, lOLive, lOChildren, lOUnresolved, lOOrder);
 			}
 
@@ -102,7 +112,20 @@ namespace UWDataImport.UWData
 			{
 				int liIndex;
 
-				if (lOOriginalIndex.TryGetValue(lOObject, out liIndex) && liIndex >= UWLevArkLayout.FirstFreeMobileSlot)
+				// A flight keeps only a mobile number - the slot its record holds first; one that was a
+				// lying object (knocked loose, a throw from the bag) gets a mobile slot, as
+				// static_to_mob and missile_fire take one.
+				UWMobileRecord lOFlight;
+
+				if (lOFlights.TryGetValue(lOObject, out lOFlight) && lOFlight.Slot >= UWLevArkLayout.FirstFreeMobileSlot
+					&& UWLevArkLayout.IsMobileSlot(lOFlight.Slot) && lOFlight.Slot < lOMaster.Count
+					&& lOMaster[lOFlight.Slot] == lOObject && !lOUsed.Contains(lOFlight.Slot))
+				{
+					lOIndex[lOObject] = lOFlight.Slot;
+					lOUsed.Add(lOFlight.Slot);
+				}
+				else if (lOOriginalIndex.TryGetValue(lOObject, out liIndex) && liIndex >= UWLevArkLayout.FirstFreeMobileSlot
+					&& (lOFlight == null || UWLevArkLayout.IsMobileSlot(liIndex)))
 				{
 					lOIndex[lOObject] = liIndex;
 					lOUsed.Add(liIndex);
@@ -140,14 +163,22 @@ namespace UWDataImport.UWData
 				if (lOIndex.ContainsKey(lOObject))
 					continue;
 
-				// Critters need a mobile slot with the extra bytes.
+				// Critters need a mobile slot with the extra bytes, and so does a thing in flight.
 				bool lbCritter = UWObjectIds.IsCreature(lOObject.ID);
-				List<int> lOList = lbCritter ? lOMobileFree : lOStaticFree;
+				bool lbFlight = lOFlights.ContainsKey(lOObject);
+				List<int> lOList = lbCritter || lbFlight ? lOMobileFree : lOStaticFree;
 
 				// An item may take a mobile slot if need be, but a critter may not take a
-				// static one - it would lack the extra bytes.
+				// static one - it would lack the extra bytes. A flight without a mobile slot is
+				// written as a lying object where it is.
 				if (lOList.Count == 0 && !lbCritter && lOMobileFree.Count > 0)
 					lOList = lOMobileFree;
+
+				if (lOList.Count == 0 && lbFlight && lOStaticFree.Count > 0)
+				{
+					lOList = lOStaticFree;
+					Warnings.Add(string.Format("Level {0}: no mobile slot for object {1} in flight, saved lying", pOLevel.LevelNumber, lOObject.ID));
+				}
 
 				if (lOList.Count == 0)
 				{
@@ -162,7 +193,7 @@ namespace UWDataImport.UWData
 				// slot (UWCarriedSlots), and handing it over - to Shak for repair - does not move it.
 				// A conversation may have kept the number (Shak's global 2, take_id_from_npc), so a
 				// new one from the top of the free list lost the item after saving (2026-10-01).
-				if (!lbCritter && UWLevArkLayout.IsStaticSlot(lOObject.SlotIndex) && lOStaticFree.Contains(lOObject.SlotIndex))
+				if (!lbCritter && !lbFlight && UWLevArkLayout.IsStaticSlot(lOObject.SlotIndex) && lOStaticFree.Contains(lOObject.SlotIndex))
 				{
 					liIndex = lOObject.SlotIndex;
 					lOStaticFree.Remove(liIndex);
@@ -181,12 +212,8 @@ namespace UWDataImport.UWData
 
 			for (int liTile = 0; liTile < UWLevArkLayout.TileCount && liTile < pOLevel.TileData.Length; liTile++)
 			{
-				UWTile lOTile = pOLevel.TileData[liTile];
-
-				if (lOTile == null || lOTile.ObjectsInTile == null)
-					continue;
-
-				fLinkChain(lOTile.ObjectsInTile, lOIndex, lONext);
+				if (lOChains[liTile] != null)
+					fLinkChain(lOChains[liTile], lOIndex, lONext);
 			}
 
 			foreach (KeyValuePair<UWObject, List<UWObject>> lOPair in lOChildren)
@@ -221,7 +248,20 @@ namespace UWDataImport.UWData
 
 				UWObjectRecordCodec.Write(lyOut, liOffset, lOObject, lOObject.ID, liNext, liSpecial);
 
-				if (UWLevArkLayout.IsMobileSlot(liIndex) && lOObject is UWNpc lONpc)
+				UWMobileRecord lOFlight;
+
+				if (lOFlights.TryGetValue(lOObject, out lOFlight))
+				{
+					UWBinary.Write16(lyOut, liOffset + 2, UWMobileRecordCodec.PositionWord(lOFlight));
+
+					if (UWLevArkLayout.IsMobileSlot(liIndex))
+					{
+						byte[] lyMobile = UWMobileRecordCodec.Write(lOFlight, (lOObject as UWNpc)?.RawNpcBytes);
+
+						System.Array.Copy(lyMobile, 0, lyOut, liOffset + UWObjectRecordCodec.RecordSize, lyMobile.Length);
+					}
+				}
+				else if (UWLevArkLayout.IsMobileSlot(liIndex) && lOObject is UWNpc lONpc)
 					UWNpcRecordCodec.Write(lyOut, liOffset + UWObjectRecordCodec.RecordSize, lONpc);
 			}
 
@@ -245,9 +285,9 @@ namespace UWDataImport.UWData
 
 				int liHead = 0;
 
-				if (lOTile.ObjectsInTile != null)
+				if (lOChains[liTile] != null)
 				{
-					foreach (UWObject lOObject in lOTile.ObjectsInTile)
+					foreach (UWObject lOObject in lOChains[liTile])
 					{
 						if (lOObject != null && lOIndex.ContainsKey(lOObject))
 						{
@@ -271,7 +311,7 @@ namespace UWDataImport.UWData
 			// --- 7. Free lists and active critters
 			UWLevArkCodec.WriteMobileFreeList(lyOut, 0, lOMobileFree);
 			UWLevArkCodec.WriteStaticFreeList(lyOut, 0, lOStaticFree);
-			fWriteActiveMobiles(lyOut, pyOriginal, pOLevel, lOOrder, lOIndex);
+			fWriteActiveMobiles(lyOut, pyOriginal, pOLevel, lOChains, lOFlights, lOOrder, lOIndex);
 
 			// --- 8. New objects into the Masterlist at their number
 			foreach (KeyValuePair<UWObject, int> lOPair in lOIndex)
@@ -288,6 +328,62 @@ namespace UWDataImport.UWData
 			}
 
 			return lyOut;
+		}
+
+		/// <summary>
+		/// The tiles' lists with the level's flights linked back in (UWLevel.InFlight): each at its
+		/// place (UWMobileRecord.ChainPosition, the head once it changed tiles), the lowest place first
+		/// so that two flights of one tile come back in their order. A tile without flights gives its
+		/// own list. pOFlights collects the flights by their objects.
+		/// </summary>
+		private static List<UWObject>[] fChainsWithFlights(UWLevel pOLevel, Dictionary<UWObject, UWMobileRecord> pOFlights)
+		{
+			List<UWObject>[] lOChains = new List<UWObject>[UWLevArkLayout.TileCount];
+			bool[] lbCopied = new bool[UWLevArkLayout.TileCount];
+
+			for (int liTile = 0; liTile < UWLevArkLayout.TileCount && liTile < pOLevel.TileData.Length; liTile++)
+			{
+				UWTile lOTile = pOLevel.TileData[liTile];
+
+				lOChains[liTile] = lOTile != null ? lOTile.ObjectsInTile : null;
+			}
+
+			List<UWMobileRecord> lOFlights = new List<UWMobileRecord>();
+
+			foreach (UWMobileRecord lORecord in pOLevel.InFlight)
+			{
+				if (lORecord != null && lORecord.Object != null && !pOFlights.ContainsKey(lORecord.Object))
+				{
+					pOFlights[lORecord.Object] = lORecord;
+					lOFlights.Add(lORecord);
+				}
+			}
+
+			// Stable: two flights at the same place keep the order of InFlight.
+			foreach (UWMobileRecord lORecord in Enumerable.OrderBy(lOFlights, pORecord => pORecord.ChainPosition))
+			{
+				int liTile = ((lORecord.TileY & 0x3F) * UWWorldScale.TilesPerAxis) + (lORecord.TileX & 0x3F);
+
+				if (liTile >= pOLevel.TileData.Length || pOLevel.TileData[liTile] == null
+					|| (lOChains[liTile] != null && lOChains[liTile].Contains(lORecord.Object)))
+				{
+					pOFlights.Remove(lORecord.Object);
+
+					continue;
+				}
+
+				if (!lbCopied[liTile])
+				{
+					lOChains[liTile] = lOChains[liTile] != null ? new List<UWObject>(lOChains[liTile]) : new List<UWObject>();
+					lbCopied[liTile] = true;
+				}
+
+				List<UWObject> lOChain = lOChains[liTile];
+
+				lOChain.Insert(Math.Max(0, Math.Min(lORecord.ChainPosition, lOChain.Count)), lORecord.Object);
+			}
+
+			return lOChains;
 		}
 
 		/// <summary>Adds an object and everything attached to it to the order.
@@ -410,27 +506,29 @@ namespace UWDataImport.UWData
 		/// takes its slot then (UWLevel.TryPlaceInFreeMobileSlot), so it was left off, and a
 		/// goblin summoned in ours stood frozen in the original and could not be pushed (per
 		/// user on SAVE4). Saving such a save again now repairs it.
+		///
+		/// A THING IN FLIGHT belongs on it as well (2026-10-19): Obj_Alloc(1) appended it at the
+		/// launch (UnderworldExhumed obj/OBJECTS.C:236), and move_mobile steps it from there
+		/// (critter/AI.C:1539-1567).
 		/// </summary>
-		private static void fWriteActiveMobiles(byte[] pyOut, byte[] pyOriginal, UWLevel pOLevel,
-			List<UWObject> pOOrder, Dictionary<UWObject, int> pOIndex)
+		private static void fWriteActiveMobiles(byte[] pyOut, byte[] pyOriginal, UWLevel pOLevel, List<UWObject>[] pOChains,
+			Dictionary<UWObject, UWMobileRecord> pOFlights, List<UWObject> pOOrder, Dictionary<UWObject, int> pOIndex)
 		{
 			HashSet<int> lOStanding = new HashSet<int>();
 			List<int> lOStandingInOrder = new List<int>();
 			HashSet<UWObject> lOInTiles = new HashSet<UWObject>();
 
-			for (int liTile = 0; liTile < UWLevArkLayout.TileCount && liTile < pOLevel.TileData.Length; liTile++)
+			foreach (List<UWObject> lOChain in pOChains)
 			{
-				UWTile lOTile = pOLevel.TileData[liTile];
-
-				if (lOTile != null && lOTile.ObjectsInTile != null)
-					lOInTiles.UnionWith(lOTile.ObjectsInTile);
+				if (lOChain != null)
+					lOInTiles.UnionWith(lOChain);
 			}
 
 			foreach (UWObject lOObject in pOOrder)
 			{
 				int liIndex;
 
-				if (!lOInTiles.Contains(lOObject) || !UWObjectIds.IsCreature(lOObject.ID)
+				if (!lOInTiles.Contains(lOObject) || !(UWObjectIds.IsCreature(lOObject.ID) || pOFlights.ContainsKey(lOObject))
 					|| !pOIndex.TryGetValue(lOObject, out liIndex) || !UWLevArkLayout.IsMobileSlot(liIndex))
 					continue;
 

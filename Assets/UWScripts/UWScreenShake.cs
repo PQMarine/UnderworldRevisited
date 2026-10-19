@@ -6,15 +6,16 @@ using UWDataImport.UWData;
 /// player camera (the reference: motion_player.WalkOnSurfaceType, its section Seg35_B88, and
 /// playerdatcamera.PositionPlayerCamera lines 161-166).
 ///
-/// TWO CHANNELS that add up. They are kept in separate counters, and each channel has its
-/// own upper limit:
+/// TWO CHANNELS that add up, counted in rounds by UWShakeRounds (since 2026-10-19 the original's
+/// own rule, PLAYMOVE.C):
 ///
-///   0x20  the small shake  strength = duration / 10, at most 3
-///   0x40  the large shake  strength = duration / 10, at most 8
+///   0x20  the small shake  strength = counter / 8, at most 3
+///   0x40  the large shake  strength = counter / 10, at most 8
 ///
-/// If only one of the two is running, the other stands at ONE instead of zero - the reference
-/// sets both counter values to 1 at the start of its routine and overwrites only the channel
-/// that is actually running. So a shake is never really weak.
+/// If only one of the two is running, the other stands at ONE instead of zero. The round in
+/// which a counter runs out sees it wrapped to 255 - every shake ends with a strong jolt, and a
+/// hit of level 0 is that jolt alone (per user on the original, 2026-10-19). Until then ours
+/// divided both by 10 and stopped at 0, so a light hit showed nothing.
 ///
 /// (0x80 exists only in uw2; SetScreenShake bails out before it for uw1.)
 ///
@@ -32,6 +33,7 @@ using UWDataImport.UWData;
 /// The shaker is therefore built as a separate component, not as part of combat: every
 /// caller hooks in with one line.
 /// </summary>
+[DefaultExecutionOrder(UWUpdateOrder.Shake)]
 public sealed class UWScreenShake : MonoBehaviour
 {
     /// <summary>The small channel - in the original bit 0x20 of the tile state.</summary>
@@ -96,15 +98,11 @@ public sealed class UWScreenShake : MonoBehaviour
     [Tooltip("Does the screen pitch while shaking? Not confirmed in the original - turn on for testing.")]
     private bool mbApplyPitch;
 
-    /// <summary>Upper limits of the two channels - see class comment.</summary>
-    private const int SmallMaximum = 3;
+    /// <summary>The two channels' counters and the original's round (UWShakeRounds).</summary>
+    private readonly UWShakeRounds mORounds = new UWShakeRounds();
 
-    private const int LargeMaximum = 8;
-
-    /// <summary>The value a channel that is NOT running stands at.</summary>
-    private const int IdleStrength = 1;
-
-    private readonly int[] miDuration = new int[2];
+    /// <summary>The strength of the round now shown, 0 for none; held until the next tick.</summary>
+    private int miRoundStrength;
 
     private float mfNextTick;
 
@@ -112,12 +110,17 @@ public sealed class UWScreenShake : MonoBehaviour
     /// is subtracted again. See LateUpdate.</summary>
     private Vector3 mOAppliedEuler;
 
+    /// <summary>The angles we left on the camera: an axis that still holds them is ours to take
+    /// back; one another script has set anew since (the terrain's roll, the look's pitch, each
+    /// set absolutely) is clean already and stays (2026-10-19).</summary>
+    private Vector3 mOWrittenEuler;
+
     private bool mbApplied;
 
     /// <summary>Is a shake currently running?</summary>
     public bool IsShaking
     {
-        get { return miDuration[SmallChannel] > 0 || miDuration[LargeChannel] > 0; }
+        get { return mORounds.AnyRunning || miRoundStrength > 0; }
     }
 
     /// <summary>Finds the shaker on the player camera or attaches one.</summary>
@@ -144,7 +147,9 @@ public sealed class UWScreenShake : MonoBehaviour
         if (piChannel < 0 || piChannel > LargeChannel)
             return;
 
-        miDuration[piChannel] = piDuration > 0 ? piDuration : 0;
+        // set_effect: also 0 starts the channel - its last round is the jolt.
+        mORounds.Start(piChannel == SmallChannel ? UWShakeRounds.CombatChannel : UWShakeRounds.TremorChannel,
+            Mathf.Max(0, piDuration));
     }
 
     /// <summary>
@@ -190,7 +195,12 @@ public sealed class UWScreenShake : MonoBehaviour
     {
         if (mbApplied)
         {
-            transform.localEulerAngles = transform.localEulerAngles - mOAppliedEuler;
+            Vector3 lONow = transform.localEulerAngles;
+
+            lONow.x = fTakeBack(lONow.x, mOWrittenEuler.x, mOAppliedEuler.x);
+            lONow.y = fTakeBack(lONow.y, mOWrittenEuler.y, mOAppliedEuler.y);
+            lONow.z = fTakeBack(lONow.z, mOWrittenEuler.z, mOAppliedEuler.z);
+            transform.localEulerAngles = lONow;
 
             mOAppliedEuler = Vector3.zero;
             mbApplied = false;
@@ -198,10 +208,7 @@ public sealed class UWScreenShake : MonoBehaviour
 
         fTick();
 
-        if (!IsShaking)
-            return;
-
-        int liStrength = fGetStrength();
+        int liStrength = miRoundStrength;
 
         if (liStrength <= 0)
             return;
@@ -214,37 +221,27 @@ public sealed class UWScreenShake : MonoBehaviour
             fGetAngle(liStrength, RollAmplitude));
 
         transform.localEulerAngles = transform.localEulerAngles + mOAppliedEuler;
+        mOWrittenEuler = transform.localEulerAngles;
 
         mbApplied = true;
     }
 
-    /// <summary>Counts the running channels down - once per tick, regardless of whether
-    /// the character is moving.</summary>
+    /// <summary>One round of the original per tick, regardless of whether the character is
+    /// moving: its strength is shown until the next tick (UWShakeRounds).</summary>
     private void fTick()
     {
         if (mfTicksPerSecond <= 0f || Time.time < mfNextTick)
             return;
 
         mfNextTick = Time.time + (1f / mfTicksPerSecond);
-
-        for (int liAt = 0; liAt < miDuration.Length; liAt++)
-        {
-            if (miDuration[liAt] > 0)
-                miDuration[liAt]--;
-        }
+        miRoundStrength = mORounds.Round();
     }
 
-    /// <summary>The strength from both channels. An idle channel contributes one, not
-    /// zero - see class comment.</summary>
-    private int fGetStrength()
+    /// <summary>Takes our offset back from an axis that still holds what we wrote; an axis
+    /// another script has set anew keeps its value.</summary>
+    private static float fTakeBack(float pfNow, float pfWritten, float pfOffset)
     {
-        int liLarge = miDuration[LargeChannel] > 0
-            ? Mathf.Min(miDuration[LargeChannel] / 10, LargeMaximum) : IdleStrength;
-
-        int liSmall = miDuration[SmallChannel] > 0
-            ? Mathf.Min(miDuration[SmallChannel] / 10, SmallMaximum) : IdleStrength;
-
-        return liLarge + liSmall;
+        return Mathf.Abs(Mathf.DeltaAngle(pfNow, pfWritten)) < 0.0001f ? pfNow - pfOffset : pfNow;
     }
 
     /// <summary>One deflection in degrees: strength times a random value in the axis range,

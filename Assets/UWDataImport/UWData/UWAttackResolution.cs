@@ -517,14 +517,15 @@ namespace UWDataImport.UWData
 		/// ammunition scaled by his Missile skill) - do_damage's dice with missile_thwack's power 0x80
 		/// and no angle (RollMissile). A creature takes it less the armour of the part (the same byte
 		/// for the missile's part + 4); the player the missile's request (UWDamageRequest.Missile:
-		/// the armour, the halving, the shake and the music by launcher); a thing the damage whole.
+		/// the armour, the halving, the shake (every missile's) and the music by piOwner, the missile's
+		/// last_hit - see UWMissileHitRules.MusicFor, 2026-10-19); a thing the damage whole.
 		/// Every missile's hit since cleanup step 4.9b (2026-10-18): on the player, on a creature
 		/// (UWMissiles.StrikeCreature, whose part - picked once, as missile_thwack picks it at
 		/// UnderworldExhumed combat/COMBAT.C:772 - also places the blood) and on a thing. The part
 		/// is picked before the dice, as pickloc comes before do_damage (COMBAT.C:772-779).
 		/// </summary>
 		public static UWAttackOutcome Missile(int piBaseDamage, int piDamageType, int piAttacker, IUWAttackDefender pIDefender,
-			int piPart, bool pbFromCreature, bool pbPlayersOwn)
+			int piPart, int piOwner)
 		{
 			UWDefenderKind leKind = pIDefender != null ? pIDefender.DefenderKind : UWDefenderKind.Object;
 			int liRolled = RollMissile(piBaseDamage);
@@ -535,7 +536,7 @@ namespace UWDataImport.UWData
 			return new UWAttackOutcome(UWSkillCheck.ResultEnum.Success, leKind, piPart, liRolled, liDamage, NoSound, piAttacker,
 				true, piDamageType,
 				leKind == UWDefenderKind.Player
-					? UWDamageRequest.Missile(liRolled, piDamageType, piPart, pbFromCreature, pbPlayersOwn)
+					? UWDamageRequest.Missile(liRolled, piDamageType, piPart, piOwner)
 					: default);
 		}
 

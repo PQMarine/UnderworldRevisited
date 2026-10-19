@@ -21,7 +21,7 @@ namespace UWDataImport.UWData
 	/// Current, so their callers keep working while the rules move to taking the session as a
 	/// parameter, domain by domain (plan section 7.1). Current goes last.
 	/// </summary>
-	public sealed class UWGameSession
+	public sealed class UWGameSession : ICritterServices
 	{
 		private static UWGameSession msCurrent;
 
@@ -144,6 +144,18 @@ namespace UWDataImport.UWData
 			CritterAlarm = new UWCritterAlarm();
 			CritterPaths.Clear();
 		}
+
+		// The creature minds' services (ICritterServices, cleanup step 4.13, 2026-10-19): the brain
+		// draws, reads the clock, writes the alarm and stores its path through these, read anew at
+		// every call, so a level build's fresh clock and alarm (ResetCritterServices) reach it.
+
+		IUWRandom ICritterServices.Random => Random;
+
+		long ICritterServices.Clock => CritterClock.Clock;
+
+		UWCritterAlarm ICritterServices.Alarm => CritterAlarm;
+
+		UWCritterPathSlots ICritterServices.PathSlots => CritterPaths;
 
 		/// <summary>
 		/// Takes over quest flags, game variables and the story flags from a save game's or a new

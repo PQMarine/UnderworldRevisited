@@ -60,16 +60,20 @@ namespace UnderworldRevisited.Tools
             fExpectBool("request: a miss lands nothing and tells the music",
                 UWDamageRequest.CreatureMiss().Rule == UWDamageRule.Miss && UWDamageRequest.CreatureMiss().TellsMusic, true);
 
-            UWDamageRequest lOArrow = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, true, false);
-            UWDamageRequest lOTrapBolt = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, false, false);
-            UWDamageRequest lOOwn = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, false, true);
+            UWDamageRequest lOArrow = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, 6);
+            UWDamageRequest lOTrapBolt = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, 0);
+            UWDamageRequest lOOwn = UWDamageRequest.Missile(6, UWDamageTypes.Missile, 1, UWMissileHitRules.PlayerOwner);
 
             fExpectBool("request: every missile takes the armour and the halving",
                 lOArrow.SubtractArmour && lOArrow.HalveOnEasy && lOTrapBolt.SubtractArmour && lOTrapBolt.HalveOnEasy
                 && lOOwn.SubtractArmour && lOOwn.HalveOnEasy, true);
-            fExpectBool("request: a creature's missile shakes and tells the music", lOArrow.Shakes && lOArrow.TellsMusic, true);
-            fExpectBool("request: a missile nobody fired neither shakes nor tells", lOTrapBolt.Shakes || lOTrapBolt.TellsMusic, false);
-            fExpectBool("request: his own rebounding missile shakes, the music stays", lOOwn.Shakes && !lOOwn.TellsMusic, true);
+            fExpectBool("request: a creature's missile shakes and tells the music as a creature's",
+                lOArrow.Shakes && lOArrow.Music == UWDamageMusic.Creature, true);
+            // missile_thwack's fromwho is the last_hit, 0 for a trap's, never -1 (COMBAT.C:761-780, 382-389;
+            // since 2026-10-19 - ours did not shake for it until then).
+            fExpectBool("request: a missile nobody fired shakes but tells no music", lOTrapBolt.Shakes && !lOTrapBolt.TellsMusic, true);
+            fExpectBool("request: his own missile shakes and tells the music as his own (damage_critter who 1, 2026-10-19)",
+                lOOwn.Shakes && lOOwn.Music == UWDamageMusic.Player, true);
 
             UWDamageRequest[] lOPlain =
             {
@@ -157,9 +161,9 @@ namespace UnderworldRevisited.Tools
             fExpectBool("blow on Easy: 4 less 3 is 1, halved 0 - no damage and no shake",
                 lOOutcome.Applied == 0 && lOOutcome.ShakeLevel < 0 && !lOEasyTold.Contains("recorded"), true);
 
-            lOOutcome = UWDamagePipeline.Apply(lOEasy, UWDamageRequest.Missile(9, UWDamageTypes.Missile, 2, false, false));
-            fExpectBool("missile nobody fired on Easy: 9 less 3, halved 3, no shake",
-                lOOutcome.Applied == 3 && lOOutcome.ShakeLevel < 0, true);
+            lOOutcome = UWDamagePipeline.Apply(lOEasy, UWDamageRequest.Missile(9, UWDamageTypes.Missile, 2, 0));
+            fExpectBool("missile nobody fired on Easy: 9 less 3, halved 3, the shake from the 6 before the halving",
+                lOOutcome.Applied == 3 && lOOutcome.ShakeLevel == 1, true);
 
             // A magic missile the armour swallows does not reach the proof: no draw (the missile
             // site never called the damage then).
@@ -173,7 +177,7 @@ namespace UnderworldRevisited.Tools
 
             try
             {
-                UWDamagePipeline.Apply(fPipelineVitals(lOWarded, null), UWDamageRequest.Missile(9, UWDamageTypes.Magic, 1, true, false));
+                UWDamagePipeline.Apply(fPipelineVitals(lOWarded, null), UWDamageRequest.Missile(9, UWDamageTypes.Magic, 1, 6));
             }
             finally
             {

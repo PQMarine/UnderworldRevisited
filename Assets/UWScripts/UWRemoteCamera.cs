@@ -13,7 +13,7 @@ using UnityEngine.Rendering.Universal;
 /// A SECOND CAMERA, NOT THE MOVED PLAYER CAMERA. UWCharacter sits on the player camera
 /// (see UWLevelLoader.fInitialiseUi), and a good dozen places measure
 /// against Camera.main when they mean "where is the character": the creatures use it to find their
-/// target (UWCritter.fEnsurePlayer), the trespass trap its radius, the
+/// target (UWCreatureWorld.SnapshotPlayer), the trespass trap its radius, the
 /// trap projectile launch its direction, the area spell its view axis. If the
 /// player camera flew away, the creatures would chase the camera for minutes during
 /// Roaming Sight. This way Camera.main stays with the body, and only the IMAGE moves.

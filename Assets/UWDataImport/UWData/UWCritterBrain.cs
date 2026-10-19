@@ -138,7 +138,30 @@ namespace UWDataImport.UWData
 
 		private readonly int miIndex;
 
+		/// <summary>The level's random source, clock, kin alarm and path slots (cleanup step 4.13,
+		/// 2026-10-19; ICritterHost's Random, Clock, Alarm and PathSlots until then).</summary>
+		private readonly ICritterServices mIServices;
+
+		/// <summary>The COMOBJ object height of this creature's kind, for the sight line's eye
+		/// height (spec 3.1) - ICritterHost.OwnObjectHeight until cleanup step 4.13.</summary>
+		private readonly int miOwnObjectHeight;
+
+		/// <summary>Byte 1 of the 16 entries of the 16 x 3 ammunition table (OBJECTS.DAT 0x82,
+		/// UWObjectProperties' ranged speed), the velocity GetPitchToGTarg divides by -
+		/// ICritterHost.MissileVelocity until cleanup step 4.13.</summary>
+		private readonly int[] miMissileVelocities;
+
 		public UWCritterRecord Record => mORecord;
+
+		/// <summary>Its own object height as handed to the constructor (the self-check reads it).</summary>
+		public int OwnObjectHeight => miOwnObjectHeight;
+
+		/// <summary>
+		/// For traces: the goal or target changed (SetNewGoalAndGtarg, ResetGoalAndGtarg, the
+		/// reactions) - old goal, new goal, new target. An event since cleanup step 4.13 (2026-10-19;
+		/// ICritterHost.OnGoalChanged until then): only the trace listens.
+		/// </summary>
+		public event Action<int, int, int> GoalChanged;
 
 		public int Index => miIndex;
 
@@ -183,16 +206,34 @@ namespace UWDataImport.UWData
 
 		private bool mbRemoved;
 
-		public UWCritterBrain(UWCritterRecord pORecord, UWObjectClassProperties.Critter pORow, int piIndex)
+		/// <param name="pORecord">The creature's record.</param>
+		/// <param name="pORow">Its table row.</param>
+		/// <param name="piIndex">Its index in the level's master list.</param>
+		/// <param name="pIServices">The level's random source, clock, alarm and path slots.</param>
+		/// <param name="piOwnObjectHeight">The COMOBJ object height of its kind.</param>
+		/// <param name="piMissileVelocities">The ammunition table's velocities,
+		/// UWObjectProperties.RangedObjectCount entries.</param>
+		public UWCritterBrain(UWCritterRecord pORecord, UWObjectClassProperties.Critter pORow, int piIndex,
+			ICritterServices pIServices, int piOwnObjectHeight, int[] piMissileVelocities)
 		{
 			mORecord = pORecord;
 			mORow = pORow;
 			miIndex = piIndex;
+			mIServices = pIServices;
+			miOwnObjectHeight = piOwnObjectHeight;
+			miMissileVelocities = piMissileVelocities;
 		}
 
 		private int fRandom(int piN)
 		{
-			return piN <= 1 ? 0 : mIHost.Random(piN);
+			return piN <= 1 ? 0 : mIServices.Random.Next(piN);
+		}
+
+		/// <summary>The velocity of entry n of the ammunition table (UWObjectProperties.GetRangedSpeed
+		/// takes the object id's low four bits) - GetPitchToGTarg's divisor; the self-check reads it.</summary>
+		public int MissileVelocity(int piAmmoIndex)
+		{
+			return miMissileVelocities[piAmmoIndex & (UWObjectProperties.RangedObjectCount - 1)];
 		}
 
 		private bool fIsFlier => mORow.IsFlier;
@@ -268,13 +309,18 @@ namespace UWDataImport.UWData
 			// bookkeeping here and fall through to the animation machine instead of waiting an
 			// interval. Already dying is skipped - a second drowning report must not restart
 			// the death.
+			// THE HIT POINTS STAY (cleanup step 4.12b, 2026-10-19, the user's decision "as the
+			// original"): crit_hndlr_walk writes only the sequence 0x0C, frame 3 and rate 1
+			// (UnderworldExhumed critter/PATHFIND.C:251-253), no hp; ours set them to 0 as well
+			// until then. Only a creature of goal 3 or 11 shows it: it skips the animation machine,
+			// never reaches the removal and lives on with its hit points and the sequence; a blow
+			// to 0 starts no death (fDeath, crit_die refuses a creature in sequence 0x0C).
 			if (mOStep.Drowned && mORecord.Animation != AnimDying)
 			{
 				mbActive = false;
 				mORecord.Animation = AnimDying;
 				mORecord.Frame = UWCritterRules.DeathRemovalFrame;
 				mORecord.Interval = UWCritterRules.IntervalStuck;
-				mORecord.HitPoints = 0;
 				pIHost.OnDrowned();
 			}
 
@@ -380,7 +426,7 @@ namespace UWDataImport.UWData
 					fGetDistancesToGTarg();
 
 					int liAmmo = mORow.AmmunitionIndex;
-					int liPitch = fPitchToTarget(mIHost.MissileVelocity(liAmmo), true);
+					int liPitch = fPitchToTarget(MissileVelocity(liAmmo), true);
 
 					mIHost.OnMissileLaunched(liAmmo, liPitch);
 					mORecord.Animation = AnimCombatIdle;
@@ -469,7 +515,7 @@ namespace UWDataImport.UWData
 		/// hearing range in Manhattan tiles, within 0x200 PIT ticks of the player's blow.</summary>
 		private void fKinAlarm()
 		{
-			UWCritterAlarm lOAlarm = mIHost.Alarm;
+			UWCritterAlarm lOAlarm = mIServices.Alarm;
 
 			if (lOAlarm == null)
 				return;
@@ -481,7 +527,7 @@ namespace UWDataImport.UWData
 			if (!lbKin && !lbAlly)
 				return;
 
-			if (!lOAlarm.IsFresh(mIHost.Clock))
+			if (!lOAlarm.IsFresh(mIServices.Clock))
 				return;
 
 			int liManhattan = Math.Abs(mORecord.TileX - lOAlarm.TileX) + Math.Abs(mORecord.TileY - lOAlarm.TileY);
@@ -652,7 +698,7 @@ namespace UWDataImport.UWData
 			int liOld = mORecord.Goal;
 
 			mORecord.SetNewGoal(piGoal, piGTarg);
-			mIHost.OnGoalChanged(liOld, piGoal, piGTarg);
+			GoalChanged?.Invoke(liOld, piGoal, piGTarg);
 		}
 
 		private void fResetGoal()
@@ -660,7 +706,7 @@ namespace UWDataImport.UWData
 			int liOld = mORecord.Goal;
 
 			mORecord.ResetGoal();
-			mIHost.OnGoalChanged(liOld, mORecord.Goal, mORecord.GTarg);
+			GoalChanged?.Invoke(liOld, mORecord.Goal, mORecord.GTarg);
 		}
 
 		// ------------------------------------------------- GetDistancesToGTarg_seg007_326B (54088-54190)
@@ -740,7 +786,7 @@ namespace UWDataImport.UWData
 			if (liD2 <= liSee * liSee)
 			{
 				if (UWCritterRules.IsFacing(mORecord.FacingEighth, liDx, liDy)
-					&& mIHost.HasLineOfSight(mORecord.X, mORecord.Y, mORecord.ZPos + mIHost.OwnObjectHeight,
+					&& mIHost.HasLineOfSight(mORecord.X, mORecord.Y, mORecord.ZPos + miOwnObjectHeight,
 						mOTarget.X, mOTarget.Y, mOTarget.ZPos + mOTarget.ObjectHeight))
 				{
 					mORecord.TargetConfirmed = true;
@@ -1615,7 +1661,7 @@ namespace UWDataImport.UWData
 					// [47060-47261] find_free_path, then flood_path: a free slot first (not taken
 					// yet), the search, and only a found path takes the slot and is followed at
 					// once. With all sixteen slots taken the creature wanders blocked.
-					UWCritterPathSlots lOSlots = mIHost.PathSlots;
+					UWCritterPathSlots lOSlots = mIServices.PathSlots;
 					int liSlot;
 
 					if (lOSlots != null && lOSlots.TryFindFree(out liSlot)
@@ -1671,12 +1717,12 @@ namespace UWDataImport.UWData
 		private bool mbDidMove;
 
 		/// <summary>The stored path of this creature: its slot (word 0x16 bits 0-3).</summary>
-		private UWCritterPath fPath => mIHost.PathSlots[mORecord.PathSlot];
+		private UWCritterPath fPath => mIServices.PathSlots[mORecord.PathSlot];
 
 		/// <summary>The has-a-path bit names a slot this creature stored itself (see
 		/// UWCritterPathSlots.IsOwner: the bit may come from touching a mobile instead).</summary>
-		private bool fOwnsPath => mORecord.HasPath && mIHost.PathSlots != null
-			&& mIHost.PathSlots.IsOwner(mORecord.PathSlot, miIndex);
+		private bool fOwnsPath => mORecord.HasPath && mIServices.PathSlots != null
+			&& mIServices.PathSlots.IsOwner(mORecord.PathSlot, miIndex);
 
 		/// <summary>
 		/// THE PATH IS LET GO (freepaths |= 1 &lt;&lt; slot; SET_B15_7(meptr, 0)): the has-a-path bit
@@ -1691,7 +1737,7 @@ namespace UWDataImport.UWData
 				return;
 
 			if (fOwnsPath)
-				mIHost.PathSlots.Free(mORecord.PathSlot);
+				mIServices.PathSlots.Free(mORecord.PathSlot);
 
 			mORecord.HasPath = false;
 		}
@@ -2070,7 +2116,7 @@ namespace UWDataImport.UWData
 
 		private bool fHasSightOfTarget()
 		{
-			return mIHost.HasLineOfSight(mORecord.X, mORecord.Y, mORecord.ZPos + mIHost.OwnObjectHeight,
+			return mIHost.HasLineOfSight(mORecord.X, mORecord.Y, mORecord.ZPos + miOwnObjectHeight,
 				mOTarget.X, mOTarget.Y, mOTarget.ZPos + mOTarget.ObjectHeight);
 		}
 
@@ -2165,8 +2211,9 @@ namespace UWDataImport.UWData
 			if (piAttackerIndex != 0)
 				mORecord.Attacker = piAttackerIndex;
 
-			if (piAttackerIndex == PlayerIndex && !mORecord.AttitudeLocked && pIHost.Alarm != null)
-				pIHost.Alarm.Record(miIndex, mORow.GeneralType, mORecord.TileX, mORecord.TileY, mORecord.FloorLevel, pIHost.Clock);
+			if (piAttackerIndex == PlayerIndex && !mORecord.AttitudeLocked && mIServices.Alarm != null)
+				mIServices.Alarm.Record(miIndex, mORow.GeneralType, mORecord.TileX, mORecord.TileY, mORecord.FloorLevel,
+					mIServices.Clock);
 
 			if (mORecord.HitPoints <= piDamage)
 			{

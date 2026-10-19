@@ -12,25 +12,21 @@ using UWDataImport.UWData;
 /// The sequence: the creature falls (death animation, see UWCritterAnimator), and once that
 /// has played through, it disappears and the remains lie in its place. They are
 /// an ordinary world object - lookable, and depending on the kind also pickable.
+///
+/// NO WAITING HERE ANY MORE (cleanup step 4.12, 2026-10-19; B22): the death is one state machine
+/// on the creature's actor (UWCreatureActor, section "Death"), which calls CompleteDeath once at
+/// the brain's frame 3, on the creature's own updates. Until then this component listened for the
+/// body's Destroyed, polled the animator every frame for the end of the death pictures and, three
+/// seconds of real time after the death, removed the creature itself - with remains and loot but
+/// without the special death, so a creature dying far from the player (the brain's distance cull)
+/// or under Freeze Time lost its story consequences (Tybal, Garamon, the quest flags).
 /// </summary>
 [RequireComponent(typeof(UWDamageable))]
 public class UWCritterRemains : MonoBehaviour
 {
-    private UWDamageable mODamageable;
-    private UWCritterAnimator mOAnimator;
-    private UWCritter mOCritter;
     private UWLevelLoader mOLevelLoader;
 
     private int miRemainsObjectId = -1;
-    private bool mbDying;
-    private float mfRemoveAt;
-
-    /// <summary>How long the body stays if there is no death animation -
-    /// then its end cannot be waited for. Also the upper limit when there is one
-    /// (see fOnDestroyed). Longer than the brain's four death updates of a quarter second
-    /// (plus the slot it waits for), so that CompleteDeath at the original's frame 3 is the
-    /// normal end and this only catches a creature without a brain.</summary>
-    private const float FallbackDeathSeconds = 3f;
 
     public void Initialise(UWObjectClassProperties.Critter pOStats, UWLevelLoader pOLevelLoader)
     {
@@ -44,76 +40,20 @@ public class UWCritterRemains : MonoBehaviour
 
     private bool mbHasStats;
 
-    private void Awake()
-    {
-        mODamageable = GetComponent<UWDamageable>();
-        mOAnimator = GetComponent<UWCritterAnimator>();
-        mOCritter = GetComponent<UWCritter>();
-
-        mODamageable.Destroyed += fOnDestroyed;
-    }
-
-    private void OnDestroy()
-    {
-        if (mODamageable != null)
-            mODamageable.Destroyed -= fOnDestroyed;
-    }
-
-    private void Update()
-    {
-        if (!mbDying)
-            return;
-
-        // Goals 3 and 11 never reach frame 3: the body stays as it is, moving on with the death
-        // pictures (UWCritterRules.SkipsAnimationMachine, per user in the original 2026-10-17).
-        // Until then the fallback below removed it after three seconds with loot and remains.
-        if (mOCritter != null && mOCritter.NeverFinishesDying)
-            return;
-
-        // Wait for the end of the death animation, so the creature does not vanish in the
-        // middle of falling. If there is none, the fallback time applies.
-        bool lbFinished = mOAnimator != null ? mOAnimator.DeathFinished : Time.time >= mfRemoveAt;
-
-        if (!lbFinished && Time.time < mfRemoveAt)
-            return;
-
-        mbDying = false;
-
-        fForgetData();
-        fLeaveRemains();
-        fDropLoot();
-
-        Destroy(gameObject);
-    }
-
-    private void fOnDestroyed(UWDamageable pODamageable)
-    {
-        // A dying creature still takes blows (UWCritter.Initialise), each one ending at 0 again.
-        if (mbDying)
-            return;
-
-        mbDying = true;
-
-        // THE DATA STAYS WHILE IT FALLS (critter_ai, UnderworldExhumed AI.C: the dying critter,
-        // sequence 0x0C, stays in its tile list until frame 3, where it is taken out and the
-        // loot, the remains and the spill come). A save or a level change in between keeps it
-        // with 0 hit points and the dying sequence, and the death finishes after loading or on
-        // re-entry. Until 2026-10-15 ours dropped the data here at once, so such a save lost the
-        // creature with its loot and remains (audit round 2, A25 / KR N2). It goes in
-        // CompleteDeath, or with the fallback in Update.
-
-        // The death sound is the brain's since 2026-09-20 (Death_seg007_1798_35CB plays sound 6
-        // for kinds with table byte 8 & 7 == 1, through ICritterHost.PlaySound).
-
-        // Upper limit even if there is an animation - a creature without death frames
-        // would otherwise stay standing forever.
-        mfRemoveAt = Time.time + FallbackDeathSeconds;
-    }
-
     /// <summary>
-    /// Frame 3 of the death animation reached in the brain (UWCritter.OnDeathFinished):
-    /// the remains, the loot, and the body goes - the same as the end of the wait in Update,
-    /// only at the original's moment.
+    /// Frame 3 of the death animation reached in the brain (UWCreatureActor's OnDeathFinished, through
+    /// UWCritter.CompleteDeath): the remains, the loot, and the body goes - at the original's moment,
+    /// once, from the actor's death machine.
+    ///
+    /// THE DATA STAYS WHILE IT FALLS (critter_ai, UnderworldExhumed AI.C: the dying critter,
+    /// sequence 0x0C, stays in its tile list until frame 3, where it is taken out and the
+    /// loot, the remains and the spill come). A save or a level change in between keeps it
+    /// with 0 hit points and the dying sequence, and the death finishes after loading or on
+    /// re-entry. Until 2026-10-15 ours dropped the data at the start of the death, so such a save
+    /// lost the creature with its loot and remains (audit round 2, A25 / KR N2). It goes here.
+    ///
+    /// The death sound is the brain's since 2026-09-20 (Death_seg007_1798_35CB plays sound 6
+    /// for kinds with table byte 8 &amp; 7 == 1, through ICritterHost.PlaySound).
     ///
     /// A DROWNED creature takes this path like any other (deviation 43, built 2026-09-20):
     /// the death branch at animation 0x0C frame 3 calls DropNPCLoot, DropNPCRemains and
@@ -124,17 +64,25 @@ public class UWCritterRemains : MonoBehaviour
     /// measured all three cases in the original on 2026-09-20: drowned in the middle of the
     /// water nothing is left at all, drowned close to the shore a piece of meat stayed lying
     /// there, and loot of a creature killed at the edge that falls in vanishes with a splash.
+    ///
+    /// IN THE ORIGINAL'S ORDER since cleanup step 4.12b (2026-10-19, the user's decision "as the
+    /// original"): critter_ai's dying branch (UnderworldExhumed critter/AI.C:1140-1144) takes the
+    /// creature out of its tile list, then generate_inventory rolls the loot INTO its chain,
+    /// build_corpse leaves the blood and rolls and places the corpse, and ONE drop_some_objects
+    /// scatters the chain - loot and carried items together, the loot first (it was added at the
+    /// head). Until then ours left the blood and the corpse first, scattered the carried items,
+    /// and rolled and scattered the loot after them on its own - other random draws in another
+    /// order.
     /// </summary>
     public void CompleteDeath()
     {
         if (this == null || gameObject == null)
             return;
 
-        mbDying = false;
-
         fForgetData();
+        fGenerateInventory();
         fLeaveRemains();
-        fDropLoot();
+        fDropSomeObjects();
 
         Destroy(gameObject);
     }
@@ -156,6 +104,10 @@ public class UWCritterRemains : MonoBehaviour
     /// 2026-09-25 - until then the corpse lay on the body as well, see UWScatterRules). The
     /// corpse's owner carries the kind (item id &amp; 0x3F) - see UWCritterCombat.GetCorpseOwner.
     /// The corpse was missing until 2026-09-20 (deviation 51).
+    ///
+    /// build_corpse (UnderworldExhumed critter/PATHFIND.C:146-167): after the loot is rolled and
+    /// before the chain is spilled (AI.C:1142, since cleanup step 4.12b, 2026-10-19), so the
+    /// corpse roll and the corpse's spot come after the loot's draws and before the spill's.
     /// </summary>
     private void fLeaveRemains()
     {
@@ -183,56 +135,79 @@ public class UWCritterRemains : MonoBehaviour
     }
 
     /// <summary>
-    /// What the creature carried goes down around its body (drop_link_chain's put_at, see
-    /// UWScatterRules) - money, food, equipment, odds and ends. What exactly is computed by UWCritterLoot from the critter
-    /// table.
+    /// generate_inventory (UnderworldExhumed obj/TREASURE.C:202-216, called at AI.C:1141): the loot
+    /// - money, food, equipment, odds and ends, computed by UWCritterLoot from the critter table -
+    /// rolled INTO the creature's chain, each piece at its head (UWCritterLoot.AddToChain), before
+    /// the remains; fDropSomeObjects spills it with the rest.
     ///
     /// TIMING: the original already rolls the loot when someone looks inside - when
     /// trading -, and remembers that it was generated. Trading does the same here
     /// (UWConversationTrade, NPCLootSpawned); otherwise the loot is only rolled on death.
+    /// If it has already traded, its loot has long been rolled into it; then it is not rolled
+    /// a second time.
+    ///
+    /// The pieces are the objects SpawnObjectByIdAround made until cleanup step 4.12b
+    /// (UWLevelLoader.BuildObject); their slots are reserved when they are put down, as before.
     /// </summary>
-    private void fDropLoot()
+    private void fGenerateInventory()
     {
-        if (!mbHasStats || mOLevelLoader == null || mOLevelLoader.UWDataImporter == null
-            || mOLevelLoader.CurrentLevel == null)
+        UWNpc lONpc = fGetNpcWithContents();
+
+        if (lONpc == null || lONpc.NPCLootSpawned)
             return;
 
-        UWTilePos lOTile = fGetDeathTile();
-
-        // What the creature carries - its object chain - drops first. If it has already
-        // traded, its loot has long been rolled into it (NPCLootSpawned, see
-        // UWConversationTrade); then it is not rolled a second time.
-        UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
-        UWNpc lONpc = lOEntity != null ? lOEntity.ObjectData as UWNpc : null;
-
-        if (lONpc != null)
-        {
-            lONpc.EnsureContentsLoaded(mOLevelLoader.CurrentLevel.Masterlist);
-
-            // Scattered around the body as in the original, not all in one spot (per user,
-            // 2026-09-13) - within 6 eighths, which can reach the neighbouring tile
-            // (drop_some_objects -> drop_link_chain, read 2026-09-25; see UWScatterRules). A
-            // creature keeps nothing back, not even a lock or trigger in its pack
-            // (UWSpillRules, corpse); the scatter is the same call a container's spill uses
-            // (UWSpill, cleanup 2.6, 2026-10-12).
-            UWSpill.Apply(mOLevelLoader, lONpc, UWSpillRules.Partition(lONpc.Contents),
-                fGetBodyPosition(), lOTile, false);
-
-            if (lONpc.NPCLootSpawned)
-                return;
-
-            lONpc.NPCLootSpawned = true;
-        }
+        lONpc.NPCLootSpawned = true;
 
         System.Collections.Generic.List<UWCritterLoot.Drop> lODrops = UWCritterLoot.Generate(
             mOStats, mOLevelLoader.UWDataImporter.CommonObjectProperties,
             mOLevelLoader.CurrentLevel.LevelNumber, mOLevelLoader.UWDataImporter.ObjectProperties);
+        System.Collections.Generic.List<UWObject> lOLoot = new System.Collections.Generic.List<UWObject>();
 
-        // The original rolls the loot into the creature's inventory and spills it with the
-        // rest (DropNPCLoot, then SpillInventory), so it goes down the same way.
         foreach (UWCritterLoot.Drop lODrop in lODrops)
-            mOLevelLoader.SpawnObjectByIdAround(lODrop.ObjectId, lODrop.Quantity, lODrop.Quality,
-                fGetBodyPosition(), UWScatterRules.LootRadius, lOTile);
+            lOLoot.Add(mOLevelLoader.BuildObject(lODrop.ObjectId, lODrop.Quantity, lODrop.Quality));
+
+        UWCritterLoot.AddToChain(lONpc.Contents, lOLoot);
+    }
+
+    /// <summary>
+    /// drop_some_objects (TREASURE.C:83-86, called at AI.C:1143): the whole chain - the loot rolled
+    /// in at its head and what the creature carried - goes down around its body in ONE pass
+    /// (drop_link_chain's put_at, see UWScatterRules).
+    /// </summary>
+    private void fDropSomeObjects()
+    {
+        UWNpc lONpc = fGetNpcWithContents();
+
+        if (lONpc == null)
+            return;
+
+        // Scattered around the body as in the original, not all in one spot (per user,
+        // 2026-09-13) - within 6 eighths, which can reach the neighbouring tile
+        // (drop_some_objects -> drop_link_chain, read 2026-09-25; see UWScatterRules). A
+        // creature keeps nothing back, not even a lock or trigger in its pack
+        // (UWSpillRules, corpse); the scatter is the same call a container's spill uses
+        // (UWSpill, cleanup 2.6, 2026-10-12).
+        UWSpill.Apply(mOLevelLoader, lONpc, UWSpillRules.Partition(lONpc.Contents),
+            fGetBodyPosition(), fGetDeathTile(), false);
+    }
+
+    /// <summary>The creature's object data with its chain loaded, when it has a table row and the
+    /// level is there; null otherwise, and then nothing is rolled or spilled. (A creature without
+    /// object data rolled its loot on its own until cleanup step 4.12b; the original's
+    /// generate_inventory rolls into the critter, and the spawner gives every creature its UWNpc.)</summary>
+    private UWNpc fGetNpcWithContents()
+    {
+        if (!mbHasStats || mOLevelLoader == null || mOLevelLoader.UWDataImporter == null
+            || mOLevelLoader.CurrentLevel == null)
+            return null;
+
+        UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
+        UWNpc lONpc = lOEntity != null ? lOEntity.ObjectData as UWNpc : null;
+
+        if (lONpc != null)
+            lONpc.EnsureContentsLoaded(mOLevelLoader.CurrentLevel.Masterlist);
+
+        return lONpc;
     }
 
     /// <summary>

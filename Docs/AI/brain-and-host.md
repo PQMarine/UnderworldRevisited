@@ -14,15 +14,18 @@
 | `UWCritterRules.cs` | Every constant of spec section 9 plus the heading helpers, the flank bonus, the morale check and the path range budget. |
 | `UWObjectClassProperties.Critter` | Now carries the raw 48-byte `Row` with named accessors for the bytes the AI reads (flier, swimmer, door skill, ranged type, footstep category, loudness as a target, ...). |
 | `UWLevelWriter` | No longer copies the load-time `NPCHunger` over byte 0x19 bits 0-5; the AI flags survive a save. |
+| `UWCreatureActor.cs` | Since cleanup step 4.11 (2026-10-18): the host itself, engine-free - the record, row, index and brain of one creature, the `ICritterHost` and the creature's decisions around the mind (blow, doors, missiles, spells, talk, music, death events, damage intake). It asks the level's `ICreatureWorld` (Unity: `UWCreatureWorld`) and shows itself through `ICreatureView` (Unity: `UWCritter`). |
 
-The Unity host (`UWCritter.cs`, `UWCritterAnimator.cs`) is built around this API. This document
+The host (`UWCreatureActor.cs` since cleanup step 4.11; on the Unity side `UWCreatureWorld.cs`, `UWCritter.cs`,
+`UWCritterAnimator.cs`) is built around this API. This document
 is the contract between the two halves: what the brain owns, what the host owns, and what they
 say to each other.
 
 ## 1. The loop the host runs
 
 Per level one `UWCritterClock` and one `UWCritterAlarm`; per creature one `UWCritterRecord`
-(over its `UWNpc`), its `Critter` table row, and one `UWCritterBrain(record, row, objectIndex)`.
+(over its `UWNpc`), its `Critter` table row, and one `UWCritterBrain(record, row, objectIndex,
+services, ownObjectHeight, missileVelocities)` (section 2a).
 Since stage 2 of the motion rework (2026-10-05) the physics is the engine-free
 `UWCreatureMotion` on the level's `IUWMotionWorld` (`UWProjectileWorld`), the same core the
 missiles fly on.
@@ -63,13 +66,9 @@ clockwise, 64 = +X east), time in PIT ticks. No floats cross the boundary.
 
 | Member | The host delivers |
 |---|---|
-| `long Clock` | `UWCritterClock.Clock` of the level, PIT ticks. |
-| `int Random(int n)` | A uniform 0..n-1, the original's `RNG_seg005_DE7` divided by n. Must be a real RNG in the game; the self-check scripts it. The brain calls it in the original's order, so a scripted stream reproduces a decision exactly. |
-| `UWCritterAlarm Alarm` | The level's kin alarm object. Reset it on a level change (`Reset()`); it is saved with the game in the original (PLAYER.DAT 0xBA-0xC1), which the port may add later. |
 | `int FloorLevelAt(x, y)` | The tile's floor nibble (the tile word's bits 4-7; `UWTile.FloorHeight >> 4` in the port's units), 0 off the map. |
 | `bool IsMagicBlockedAt(x, y)` | `UWTile.NoMagicAllowed`. |
 | `bool TybalOrbStands` | True only on level index 7 while PlayerData 0x60 bit 5 is clear. |
-| `int OwnObjectHeight` | COMOBJ byte 0 of this creature's kind (the object height), added to zpos for the eye of the sight line. |
 | `CritterTarget GetObject(index)` | A snapshot of any mobile object by index (1 = the player); `Exists` false for none. Filled from the object's record and its kind's row; for the player: `Loudness` = `UWPlayerVitals.Quietness`, `Visibility` = the player's visibility nibble, `WeaponDrawn`, `HitPoints` nonzero while alive, `ObjectHeight` the player's COMOBJ height. |
 | `bool HasLineOfSight(x0, y0, z0, x1, y1, z1)` | `TestBetweenPoints` semantics: a line in eighths with the height interpolated, blocked by the wall bits of the tiles crossed and where the height falls below the next tile's floor; doors do not block. The heights already include the object heights. `UWTilePath.HasClearTileLine` is the current approximation without heights (deviation 23, to be completed). |
 | `bool IsStraightLineClear(toX, toY)` | The straight tile line from the creature's tile to the destination is walkable for THIS creature (walker, flier or swimmer, water, lava with fire resistance, closed doors it could open). The original's `seg006_1477_1938`. |
@@ -79,7 +78,20 @@ clockwise, 64 = +X east), time in PIT ticks. No floats cross the boundary.
 | `bool UseDoor(doorIndex)` | `ObjectUse` on the door; true when it is open afterwards. |
 | `void PickDoor(doorIndex, skill)` | A lockpick attempt with minus the skill (`UnlockDoor_seg040_352B_1D3B`). |
 | `void BashDoor(doorIndex, damage)` | `DamageObject` type 4 on the door. |
-| `int MissileVelocity(ammoIndex)` | Byte 1 of entry n of the 16 x 3 ammunition table at OBJECTS.DAT 0x82 (`UWObjectProperties`' ranged speed). |
+
+## 2a. What the brain gets at its birth (cleanup step 4.13, 2026-10-19)
+
+Until then `ICritterHost` also carried the members below; they are the level's and the session's,
+or constants of the creature's kind, not questions about the world around one creature.
+
+| Constructor argument | What it is |
+|---|---|
+| `ICritterServices services` | The game's is the session (`UWGameSession`), read anew at every call. `Random`: an `IUWRandom`, `Next(n)` a uniform 0..n-1, the original's `RNG_seg005_DE7` divided by n; the brain draws in the original's order (never for n of 0 or 1), so a scripted stream reproduces a decision exactly. `Clock`: `UWCritterClock.Clock` of the level, PIT ticks. `Alarm`: the level's kin alarm object, fresh with every level build, saved with the game (PLAYER.DAT 0xBA-0xC1). `PathSlots`: the level's sixteen stored paths. |
+| `int ownObjectHeight` | COMOBJ byte 0 of this creature's kind (the object height), added to zpos for the eye of the sight line. |
+| `int[] missileVelocities` | Byte 1 of the 16 entries of the 16 x 3 ammunition table at OBJECTS.DAT 0x82 (`UWObjectProperties`' ranged speed), entry n for ammunition n. |
+
+The goal trace is the brain's `GoalChanged(old, new, gtarg)` event (the host's `OnGoalChanged`
+until then).
 
 The brain's own record supplies everything else about itself; the host must keep the record's
 position fields current (section 6).
@@ -135,7 +147,7 @@ Filled by `UWCreatureMotion.Step` from the callbacks of the original (`seg006_14
 | `HitClosedDoor` | `RelatedToColliding_2473` | A closed door (class 0x14, index below 8) was among the overlapping records (`seg030_2B26_170C`; land creatures only, the other callbacks have no door search). |
 | `HeadingDeflected` | `HasCurrObjHeadingChanged_2449` | Byte 9 after the step differs from before (the wall deflection). The brain keeps that heading and never sets the blocked bit on it. |
 | `Stuck` | `IsNPCActive := 0` | Airborne (0x1000: gravity on, interval 1, the creature falls) or drowned. |
-| `Drowned` | the splash path 41420 | A land creature's sub-step ended with water alone under it (0x10 of the 0xF8 bits): the brain sets animation 0x0C frame 3, interval 1, hp 0 and raises `OnDrowned`; the body is removed at the frame-3 pass. Water with something carrying the creature stops it when it holds no path. |
+| `Drowned` | the splash path 41420 | A land creature's sub-step ended with water alone under it (0x10 of the 0xF8 bits): the brain sets animation 0x0C frame 3 and interval 1 and raises `OnDrowned` - the hit points stay, as crit_hndlr_walk keeps them (since cleanup step 4.12b, 2026-10-19; hp 0 until then); the body is removed at the frame-3 pass. Water with something carrying the creature stops it when it holds no path. |
 | `TouchedCeiling` | `dseg_2462` | A flier met the step flag 0x100 (a raised floor ahead); its vertical speed is pushed up (0x80) and the brain turns the pitch. |
 | `TileChanged`, `OldTileX`, `OldTileY` | the relink of `ApplyProjectileMotion` | The step left the tile; the host relinks the object's tile list. |
 | `LavaBurn` | the lava roll of `ApplyProjectileMotion` | 1 in 5 per moving update on lava: the host applies 1 point of plain fire (type 8) to the body, charged to nobody. |
@@ -162,7 +174,6 @@ as the original does.
 | `OnDeathStarted(byPlayer)` | `DamageNPC` killed it: animation 0x0C frame 0, interval 4. | `AwardKillEXP` when by the player (4 * base + 2d(base), strong x (24..47) / 16, deviation 50), the dragon nod. |
 | `VetoDeath()` (query) | A creature with a whoami is about to die. | `SpecialDeathCases(obj, 0)`; true keeps it alive at 0 hp. |
 | `OnDeathFinished()` | Frame 3 of animation 0x0C. | `SpecialDeathCases(obj, 1)`, unlink, loot, blood object 0xD8 + n, corpse 0xC0 + n with 7 in 16 (deviation 51), spill the inventory, free the object. |
-| `OnGoalChanged(old, new, gtarg)` | Every `SetNewGoalAndGtarg`, `ResetGoalAndGtarg` and reaction. | Traces only. |
 
 Incoming: `brain.OnDamaged(host, attackerIndex, damage)` is `DamageNPC` (spec 4.3, 8.7): the
 host calls it for every hit and miss on the creature with the attacker's index (1 the player,

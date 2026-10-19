@@ -294,6 +294,13 @@ public class UWDebugOverlay : MonoBehaviour
 
             pOText.AppendFormat("\nLast hit {0} ({1}) {2:F1}s ago",
                 mOCharacter.Vitals.LastDamage, lsType, Time.time - mOCharacter.LastDamageTime);
+
+            // The combat shake of that hit, if it shook at all (level 0 sets a zero duration and
+            // shows nothing, as set_effect(0x20, 0) in the original; 2026-10-19).
+            if (mOCharacter.LastShakeTime >= 0f && Mathf.Abs(mOCharacter.LastShakeTime - mOCharacter.LastDamageTime) < 0.1f)
+                pOText.AppendFormat(", shake level {0}", mOCharacter.LastShakeLevel);
+            else
+                pOText.Append(", no shake");
         }
 
         fAppendArmour(pOText);

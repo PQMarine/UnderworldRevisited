@@ -84,7 +84,7 @@ namespace UnderworldRevisited.Tools
             // The brain: home at 12/5, no straight line, a path over 6/5.
             FakeCritterHost lOHost = new FakeCritterHost { StraightClear = false, NextPathTileX = 6, NextPathTileY = 5, DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 1, 2, 12, 5);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((12 << 3) + 4, (9 << 3) + 4);
             lOBrain.Update(lOHost);
@@ -111,7 +111,7 @@ namespace UnderworldRevisited.Tools
                 lOHost.Slots.Take(liAt, 100 + liAt);
 
             lORecord = fMakeRecord(5, 5, 1, 2, 12, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((12 << 3) + 4, (9 << 3) + 4);
             lOBrain.Update(lOHost);
 
@@ -126,7 +126,7 @@ namespace UnderworldRevisited.Tools
             lORecord.NewDestination = false;
             lORecord.HasPath = true;
             lORecord.PathSlot = 0;
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((12 << 3) + 4, (9 << 3) + 4);
             lOBrain.Update(lOHost);
 
@@ -149,7 +149,7 @@ namespace UnderworldRevisited.Tools
             };
 
             UWCritterRecord lORecord = fMakeRecord(5, 5, 1, 2, 7, 5);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.Animation = UWCritterBrain.AnimStanding;
             lOHost.PlacePlayer((12 << 3) + 4, (9 << 3) + 4);
@@ -168,7 +168,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 0, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             // An ally hit by creature 7, which is gone.
             lORecord.IsAlly = true;
@@ -188,7 +188,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 1, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.SetDestination(5, 5, 0);
             lORecord.NewDestination = false;
@@ -214,7 +214,7 @@ namespace UnderworldRevisited.Tools
             lORecord.ZPos = UWCritterRules.FlierTargetHeightBase;
             lOHost.SetFloor(12, 5, 4);
 
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, lORow, 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, lORow, 5, lOHost);
 
             lOHost.PlacePlayer((12 << 3) + 4, (9 << 3) + 4);
             lOBrain.Update(lOHost);
@@ -233,7 +233,7 @@ namespace UnderworldRevisited.Tools
             lORow.Row[0x0A] = 0x80;
             lORecord.ZPos = 0x78;
 
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, lORow, 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, lORow, 5, lOHost);
 
             lOHost.PlacePlayer((12 << 3) + 4, (5 << 3) + 4);
             lOBrain.Update(lOHost);
@@ -268,7 +268,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 6, 1);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.FineHeading = 0x40;
             lOHost.Step = new StepResult { Collided = true };
@@ -295,7 +295,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 0, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((12 << 3) + 4, (5 << 3) + 4);
             lOBrain.Update(lOHost);
@@ -305,7 +305,7 @@ namespace UnderworldRevisited.Tools
 
             // The wander stand: standing, frame 3, a roll of 15 keeps it standing (lazy 5 > 15 fails).
             lORecord = fMakeRecord(5, 5, 2, 2);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.Animation = UWCritterBrain.AnimStanding;
             lOHost.DefaultRoll = 15;
             lOBrain.Update(lOHost);
@@ -320,7 +320,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { DefaultRoll = 1 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 2, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.Animation = 7;
             lOHost.PlacePlayer((12 << 3) + 4, (5 << 3) + 4);
@@ -343,7 +343,7 @@ namespace UnderworldRevisited.Tools
             };
 
             UWCritterRecord lORecord = fMakeRecord(5, 5, 1, 0, 12, 12);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((12 << 3) + 4, (5 << 3) + 4);
             lOBrain.Update(lOHost);

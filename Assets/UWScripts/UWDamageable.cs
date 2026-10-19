@@ -64,9 +64,20 @@ public class UWDamageable : MonoBehaviour
     /// </summary>
     public bool TakesBlowsWhenBroken;
 
-    /// <summary>Whether a blow can land on this at all: not broken, or broken but still taking
-    /// blows (TakesBlowsWhenBroken). Not indestructible is asked by ApplyDamage itself.</summary>
-    public bool TakesBlows => !IsDestroyed || TakesBlowsWhenBroken;
+    /// <summary>
+    /// A CREATURE'S BODY ASKS ITS DEATH MACHINE (cleanup step 4.12c, 2026-10-19, the user's decision
+    /// "as the original"): UWCritter sets this to UWCreatureActor.TakesBlows - every blow lands until
+    /// the creature is removed at frame 3, the dying one included. Null for a door, a barrel or a
+    /// chest, which go by their hit points and TakesBlowsWhenBroken.
+    /// </summary>
+    public System.Func<bool> TakesBlowsRule;
+
+    /// <summary>Whether a blow can land on this at all: a creature until its death machine removes
+    /// it (TakesBlowsRule); a thing when not broken, or broken but still taking blows
+    /// (TakesBlowsWhenBroken). Not indestructible is asked by ApplyDamage itself. The one test of
+    /// the world's blow routing (UWWorld's CreatureTakesBlows), ApplyDamage and the sites before
+    /// them.</summary>
+    public bool TakesBlows => TakesBlowsRule != null ? TakesBlowsRule() : !IsDestroyed || TakesBlowsWhenBroken;
 
     public float HealthFraction => mOHealth.HealthFraction;
 
@@ -105,7 +116,9 @@ public class UWDamageable : MonoBehaviour
     {
         bool lbBrokenAlready = mOHealth.IsDestroyed;
 
-        if (mOHealth.IsIndestructible || (lbBrokenAlready && !TakesBlowsWhenBroken))
+        // TakesBlows: for a thing broken and not TakesBlowsWhenBroken (the test here until cleanup
+        // step 4.12c, 2026-10-19), for a creature removed by its death machine.
+        if (mOHealth.IsIndestructible || !TakesBlows)
             return false;
 
         int liDamage = mOHealth.ScaleDamage(piDamage, piDamageType);
@@ -114,8 +127,10 @@ public class UWDamageable : MonoBehaviour
             return false;
 
         // Broken already: nothing left after the shift leaves it alone (damage_object returns
-        // before anything when the damage is 0).
-        if (lbBrokenAlready && liDamage <= 0)
+        // before anything when the damage is 0). Not a dying creature (cleanup step 4.12c,
+        // 2026-10-19): damage_critter runs with 0 too and records the attacker (UnderworldExhumed
+        // combat/DAMAGE.C:187-195, critter/AI.C:1458-1513), as on a living one.
+        if (lbBrokenAlready && liDamage <= 0 && CreatureTakesBlow == null)
             return false;
 
         LastDamageType = piDamageType;

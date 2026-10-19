@@ -155,6 +155,89 @@ namespace UnderworldRevisited.Tools
             Check.Bool("accepted deal: the marked good lies on his side, bought", lOTrade.NpcBought[1] && lOTrade.NpcItems[1] != null, true);
         }
 
+        /// <summary>
+        /// Cleanup step 4.12c (2026-10-19, the user's decision "as the original"): the trade's first
+        /// look into the partner rolls his loot INTO his chain as generate_inventory does - each piece
+        /// at the head (Obj_Add, UnderworldExhumed obj/TREASURE.C:202-216, OBJECTS.C:267), the last
+        /// rolled first, then what he carried; once. Until then the loot went to the tail in the
+        /// rolled order. The roll itself is unchanged (the same draws from the same seed).
+        /// SINCE 2026-10-19 (the user's decision "as the original") the conversation's START rolls
+        /// it, before the script runs (Converse, conv/CONVERSE.C:329-330) - the first trade lookup
+        /// until then; a lookup afterwards rolls nothing.
+        /// </summary>
+        private static void fCheckTradeLootRoll(CheckContext pOContext)
+        {
+            Check.Group("Trade loot roll (generate_inventory: at the head of the chain, once)");
+
+            DataImport lOData = pOContext.Data;
+            UWLevel lOLevel = pOContext.Level(0);
+            const int Seed = 4121;
+
+            if (lOLevel == null || lOData.ObjectClassProperties == null || lOData.CommonObjectProperties == null)
+            {
+                Check.Fail("trade loot roll", "no level or no tables");
+                return;
+            }
+
+            // The first creature kind whose roll from the seed gives at least two pieces.
+            int liKind = -1;
+            List<int> liRolled = null;
+
+            for (int liId = UWObjectIds.FirstCreature; liId < UWObjectIds.FirstCreature + 0x40 && liKind < 0; liId++)
+            {
+                if (!lOData.ObjectClassProperties.TryGetCritter(liId, out UWObjectClassProperties.Critter lORow))
+                    continue;
+
+                UWRandom.Use(new UWSessionRandom(Seed));
+
+                List<UWCritterLoot.Drop> lODrops = UWCritterLoot.Generate(lORow, lOData.CommonObjectProperties,
+                    lOLevel.LevelNumber, lOData.ObjectProperties);
+
+                UWRandom.Use(null);
+
+                if (lODrops.Count >= 2)
+                {
+                    liKind = liId;
+                    liRolled = lODrops.Select(pODrop => pODrop.ObjectId).ToList();
+                }
+            }
+
+            if (liKind < 0)
+            {
+                Check.Fail("trade loot roll", "no creature kind rolls two pieces");
+                return;
+            }
+
+            int liCarriedA = fWorthlessId(lOData);
+            int liCarriedB = fValuableIds(lOData, 1)[0];
+            UWNpc lONpc = new UWNpc((ushort)liKind) { NPCLootSpawned = false, NPCAttitude = UWNpc.AttitudeFriendly };
+
+            lONpc.EnsureContentsLoaded(null);
+            lONpc.Contents.Add(new UWObject((ushort)liCarriedA) { Quality = 40 });
+            lONpc.Contents.Add(new UWObject((ushort)liCarriedB) { Quality = 40 });
+
+            // The conversation's start rolls the loot (CONVERSE.C:329-330), before any trade function.
+            UWRandom.Use(new UWSessionRandom(Seed));
+            UWConversationSession lOSession = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel));
+            UWRandom.Use(null);
+
+            List<int> liExpected = Enumerable.Reverse(liRolled).ToList();
+
+            liExpected.Add(liCarriedA);
+            liExpected.Add(liCarriedB);
+            Check.Seq("trade roll: at the conversation's start, the loot at the head of the chain, the last rolled first, then what he carried",
+                lONpc.Contents.Select(pOItem => (int)pOItem.ID).ToArray(), liExpected.ToArray());
+            Check.Bool("trade roll: remembered", lONpc.NPCLootSpawned, true);
+
+            // The first look into his chain (Resolve walks it) rolls nothing more.
+            lOSession.Trade.Resolve(1);
+            Check.Int("trade roll: once - the first trade lookup rolls nothing", lONpc.Contents.Count, liExpected.Count);
+
+            UWConversationSession lOAgain = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel));
+
+            Check.Int("trade roll: once - the next conversation rolls nothing", lONpc.Contents.Count, liExpected.Count);
+        }
+
         /// <summary>The original's gold coin (ITEM_GOLD_COIN).</summary>
         private const int CheckGoldCoin = 0xA1;
 

@@ -28,7 +28,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost { ClockValue = 1000 };
             UWCritterRecord lORecord = fMakeRecord(5, 5, 3, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.ZPos = 24;
             lOHost.PlacePlayer((14 << 3) + 4, (5 << 3) + 4);
@@ -92,7 +92,7 @@ namespace UnderworldRevisited.Tools
             lOHealth.KeepHitPointsIn(lORecord);
 
             FakeCritterHost lOHost = new FakeCritterHost { Vetoes = true, ClockValue = 1000 };
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((6 << 3) + 4, 44);
             lOBrain.OnDamaged(lOHost, UWCritterBrain.PlayerIndex, 12);

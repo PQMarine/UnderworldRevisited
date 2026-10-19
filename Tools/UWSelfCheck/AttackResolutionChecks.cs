@@ -637,7 +637,7 @@ namespace UnderworldRevisited.Tools
             try
             {
                 UWAttackOutcome lOOnPlayer = UWAttackResolution.Missile(9, UWDamageTypes.Missile, 6,
-                    new UWFixedDefender(UWDefenderKind.Player, 0, 2), UWArmourProtection.PartLegs, true, false);
+                    new UWFixedDefender(UWDefenderKind.Player, 0, 2), UWArmourProtection.PartLegs, 6);
                 UWDamageRequest lORequest = lOOnPlayer.Blow.PlayerRequest;
 
                 Check.Str("missile: the dice of base 9 at the hit, nothing else", string.Join(" ", lORandom.Ranges),
@@ -659,15 +659,17 @@ namespace UnderworldRevisited.Tools
                 UWRandom.Use(new RecordingRandom(3));
 
                 UWAttackOutcome lOOwn = UWAttackResolution.Missile(4, UWDamageTypes.Missile, UWCritterBrain.PlayerIndex,
-                    new UWFixedDefender(UWDefenderKind.Player), UWArmourProtection.PartBody, false, true);
+                    new UWFixedDefender(UWDefenderKind.Player), UWArmourProtection.PartBody, UWMissileHitRules.PlayerOwner);
 
-                fExpectBool("own missile: shakes, no music",
-                    lOOwn.Blow.PlayerRequest.Shakes && !lOOwn.Blow.PlayerRequest.TellsMusic, true);
+                // damage_critter's who 1 (critter/AI.C:1502-1508): his own missile tells the music
+                // as the player's (per user on the original, 2026-10-19; silent until then).
+                fExpectBool("own missile: shakes, the music hears it as his own",
+                    lOOwn.Blow.PlayerRequest.Shakes && lOOwn.Blow.PlayerRequest.Music == UWDamageMusic.Player, true);
 
                 UWRandom.Use(new RecordingRandom(5, 2));
 
                 UWAttackOutcome lOOnCreature = UWAttackResolution.Missile(9, UWDamageTypes.Missile, 6,
-                    new UWFixedDefender(UWDefenderKind.Creature, 0, 4), UWArmourProtection.PartLegs, true, false);
+                    new UWFixedDefender(UWDefenderKind.Creature, 0, 4), UWArmourProtection.PartLegs, 6);
 
                 fExpectBool("missile on a creature: less its armour, charged to the launcher",
                     lOOnCreature.Damage == 5 && lOOnCreature.Blow.Source == UWBlowSource.Missile
@@ -676,7 +678,7 @@ namespace UnderworldRevisited.Tools
                 UWRandom.Use(new RecordingRandom(5, 2));
 
                 UWAttackOutcome lOOnThing = UWAttackResolution.Missile(9, UWDamageTypes.Missile, 6,
-                    UWAttackResolution.ObjectDefender, UWAttackResolution.NoPart, true, false);
+                    UWAttackResolution.ObjectDefender, UWAttackResolution.NoPart, 6);
 
                 fExpectInt("missile on a thing: whole", lOOnThing.Damage, 9);
 
@@ -686,7 +688,7 @@ namespace UnderworldRevisited.Tools
                 UWRandom.Use(lORandom);
 
                 UWAttackOutcome lONone = UWAttackResolution.Missile(UWAttackResolution.NoMissileDamage, UWDamageTypes.Missile, 6,
-                    new UWFixedDefender(UWDefenderKind.Creature), UWArmourProtection.PartLegs, true, false);
+                    new UWFixedDefender(UWDefenderKind.Creature), UWArmourProtection.PartLegs, 6);
 
                 fExpectBool("missile without damage: no dice, nothing rolled, nothing lands",
                     lORandom.Ranges.Count == 0 && lONone.Rolled == 0 && lONone.Damage == 0, true);
@@ -718,7 +720,7 @@ namespace UnderworldRevisited.Tools
                 UWRandom.UseSeed(liSeed);
 
                 UWAttackOutcome lOHit = UWAttackResolution.Missile(liBase, UWDamageTypes.Missile, 6,
-                    UWAttackResolution.ObjectDefender, UWAttackResolution.NoPart, true, false);
+                    UWAttackResolution.ObjectDefender, UWAttackResolution.NoPart, 6);
 
                 if (lOHit.Rolled != liLaunch || lOHit.Rolled != liCreature || UWRandom.Next(1000) != liLaunchNext)
                     liDiffers++;

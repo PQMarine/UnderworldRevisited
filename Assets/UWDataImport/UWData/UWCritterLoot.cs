@@ -20,7 +20,8 @@ namespace UWDataImport.UWData
 	/// IN THE ORIGINAL THE LOOT SITS IN THE CREATURE'S BELLY: it is generated as soon as
 	/// someone looks inside (trade) or the creature dies, and is then dumped into the world.
 	/// We do the same: trading rolls it (UWConversationTrade), otherwise it is rolled on
-	/// death - see UWCritterRemains.
+	/// death - see UWCritterRemains, which rolls it into the chain (AddToChain) before the
+	/// remains and spills it with the rest in one go, in critter_ai's order.
 	/// </summary>
 	public static class UWCritterLoot
 	{
@@ -64,6 +65,29 @@ namespace UWDataImport.UWData
 			fAddOther(pOCritter, pOCommon, piDungeonLevel, lODrops);
 
 			return lODrops;
+		}
+
+		/// <summary>
+		/// The rolled loot into the creature's chain as generate_inventory puts it there: each piece
+		/// with Obj_Add at the HEAD of the chain, in the order it was rolled (UnderworldExhumed
+		/// obj/TREASURE.C:131-133, 146-147, 175, 196, and OBJECTS.C:267 Obj_Add), so the last piece
+		/// rolled leads and what the creature carried follows. The death spills that chain in one
+		/// drop_some_objects (critter/AI.C:1141-1143) - since cleanup step 4.12b (2026-10-19, the
+		/// user's decision "as the original"); until then the death scattered the carried chain and
+		/// then the loot on its own, in the rolled order. pOChain is the creature's Contents (index 0
+		/// the head). The trade's roll (UWConversationTrade, generate_inventory from BARTER.C) puts its
+		/// pieces in the same way since cleanup step 4.12c (2026-10-19; at the tail until then).
+		/// </summary>
+		public static void AddToChain(List<UWObject> pOChain, IEnumerable<UWObject> pOLoot)
+		{
+			if (pOChain == null || pOLoot == null)
+				return;
+
+			foreach (UWObject lOPiece in pOLoot)
+			{
+				if (lOPiece != null)
+					pOChain.Insert(0, lOPiece);
+			}
 		}
 
 		/// <summary>Identifier of physical missiles in the ranged weapon table.</summary>

@@ -21,8 +21,9 @@ namespace UWDataImport.UWData
 	/// full value. What the partner likes counts one and a half times, what he dislikes not at all.
 	///
 	/// THE PARTNER'S POSSESSIONS are his object chain (Special Link). What he does not already carry,
-	/// UWCritterLoot rolls on the first trade - just like on death -, and the creature
-	/// remembers that (NPCLootSpawned) so it does not happen twice.
+	/// UWCritterLoot rolls when the conversation starts (GenerateInventory, since 2026-10-19; on the
+	/// first trade until then) - just like on death -, and the creature remembers that
+	/// (NPCLootSpawned) so it does not happen twice.
 	///
 	/// HANDLES: the conversation functions pass items around as numbers - find_inv returns
 	/// one, count_inv or give_to_npc get it back. They are the OBJECT NUMBERS of the level, as
@@ -1664,8 +1665,9 @@ namespace UWDataImport.UWData
 		// Partner's possessions
 		// ------------------------------------------------------------------
 
-		/// <summary>The creature's object chain, extended by the rolled loot the first
-		/// time.</summary>
+		/// <summary>The creature's object chain, extended by the rolled loot the first time
+		/// (GenerateInventory - the conversation's start rolls it; this stays the guard the
+		/// original's barter routines keep too, BARTER.C:127-128, 920-921, 948-949).</summary>
 		private List<UWObject> fGetNpcInventory()
 		{
 			UWLevel lOLevel = fLevel;
@@ -1673,10 +1675,32 @@ namespace UWDataImport.UWData
 			if (mONpc == null || lOLevel == null)
 				return null;
 
+			GenerateInventory();
+
+			return mONpc.Contents;
+		}
+
+		/// <summary>
+		/// generate_inventory (UnderworldExhumed obj/TREASURE.C:202-216): the partner's loot, rolled
+		/// once - NPCLootSpawned is the original's OBJ_HAS_INV bit - and laid at the head of his chain.
+		/// THE CONVERSATION'S START ROLLS IT (2026-10-19, the user's decision "as the original"):
+		/// Converse calls it before the script runs, for a partner not rolled yet (conv/CONVERSE.C:
+		/// 329-330), so UWConversationSession calls this right after the trade is set up. Until then
+		/// ours rolled it on the first trade lookup of the script (fGetNpcInventory), between the
+		/// script's own draws, and not at all in a conversation without a trade function. The roll,
+		/// the creation and the slots are the same.
+		/// </summary>
+		public void GenerateInventory()
+		{
+			UWLevel lOLevel = fLevel;
+
+			if (mONpc == null || lOLevel == null)
+				return;
+
 			mONpc.EnsureContentsLoaded(lOLevel.Masterlist);
 
 			if (mONpc.Contents == null)
-				return null;
+				return;
 
 			if (!mONpc.NPCLootSpawned)
 			{
@@ -1686,6 +1710,7 @@ namespace UWDataImport.UWData
 				{
 					List<UWCritterLoot.Drop> lODrops = UWCritterLoot.Generate(mOStats,
 						mOData.CommonObjectProperties, lOLevel.LevelNumber, mOData.ObjectProperties);
+					List<UWObject> lOLoot = new List<UWObject>();
 
 					foreach (UWCritterLoot.Drop lODrop in lODrops)
 					{
@@ -1700,12 +1725,20 @@ namespace UWDataImport.UWData
 						if (UWCarriedSlots.Level != null)
 							lOItem.SlotIndex = UWCarriedSlots.Level.TakeStaticSlot();
 
-						mONpc.Contents.Add(lOItem);
+						lOLoot.Add(lOItem);
 					}
+
+					// AT THE HEAD OF THE CHAIN, piece by piece (cleanup step 4.12c, 2026-10-19, the
+					// user's decision "as the original"): generate_inventory Obj_Adds each rolled piece
+					// (UnderworldExhumed obj/TREASURE.C:202-216, OBJECTS.C:267), so the last piece
+					// rolled leads and what the partner carried follows - in the trade window
+					// (setup_to_barter walks the chain from its head) and in a later death's spill. The
+					// same insertion as the death's roll (UWCritterLoot.AddToChain). Until then the
+					// trade appended the loot at the tail in the rolled order. The roll, the creation
+					// and the slots are unchanged.
+					UWCritterLoot.AddToChain(mONpc.Contents, lOLoot);
 				}
 			}
-
-			return mONpc.Contents;
 		}
 
 		/// <summary>A new item for the NPC's inventory, without a place in the world: CreateObj

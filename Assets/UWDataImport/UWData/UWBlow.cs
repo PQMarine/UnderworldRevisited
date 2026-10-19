@@ -286,8 +286,10 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public interface IUWBlowBodies
 	{
-		/// <summary>The creature is there and not destroyed - every creature site asked this before
-		/// its blow (or ApplyDamageWithoutAttacker did).</summary>
+		/// <summary>The creature is there and takes blows: alive or dying, not removed by its death
+		/// machine (UWCreatureActor.TakesBlows, since cleanup step 4.12c, 2026-10-19 - "not destroyed"
+		/// until then, which every creature site asked before its blow, or
+		/// ApplyDamageWithoutAttacker did).</summary>
 		bool CreatureTakesBlows(UWDamageTarget pOTarget);
 
 		/// <summary>The hit points of a creature or an object take the damage (UWDamageable.

@@ -318,6 +318,27 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// THE BASE OF A MISSILE'S HIT BY ITS RECORD ALONE, as missile_newhit takes it
+		/// (UnderworldExhumed motion/OBJPHYS.C:102-132): the Missile[] damage of the item, scaled by
+		/// the Missile skill and its check when the owner byte (last_hit) is the player's 1 and the
+		/// table marks the item as ammunition (GetThrownMissileBaseDamage), else the table damage. The
+		/// original keeps nothing else of the launch, so a flight read from the level data (a save,
+		/// a level re-entered; 2026-10-19) takes its base here, at the hit. Only the missile objects
+		/// hurt (UWMissileHitRules.HurtsWhatItHits, UseObj's class 0 minor 1); anything else has
+		/// UWAttackResolution.NoMissileDamage.
+		/// </summary>
+		public static int GetMissileHitBaseDamage(DataImport pOData, int piItemId, int piOwner, int piMissileSkill)
+		{
+			if (pOData == null || pOData.ObjectProperties == null || !UWMissileHitRules.HurtsWhatItHits(piItemId))
+				return UWAttackResolution.NoMissileDamage;
+
+			if (piOwner == UWMissileHitRules.PlayerOwner)
+				return GetThrownMissileBaseDamage(pOData, piItemId, piMissileSkill);
+
+			return pOData.ObjectProperties.GetRangedDamage(piItemId);
+		}
+
+		/// <summary>
 		/// The damage of a class 1 object the PLAYER THROWS by hand. missile_newhit
 		/// (UnderworldExhumed motion/OBJPHYS.C) scales by the Missile skill only when the table
 		/// marks the object as ammunition (ammo byte -64); a thrown bow, sling or crossbow does

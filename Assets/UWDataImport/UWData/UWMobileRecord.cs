@@ -81,6 +81,17 @@ namespace UWDataImport.UWData
 		/// <summary>Byte +0x1A bits 0-2: the heading the object has as a static object again.</summary>
 		public int StaticHeading;
 
+		/// <summary>Where it stands in its tile's list while in flight (0 the head). A flight read
+		/// from the level data keeps its place there; set_phys_data puts one that changes tiles at
+		/// the head of the new list (Obj_Add, UnderworldExhumed motion/OBJPHYS.C:298), and so do
+		/// missile_fire and static_to_mob - so does UWLevelWriter, which links the flights back in
+		/// on saving (2026-10-19).</summary>
+		public int ChainPosition;
+
+		/// <summary>The mobile slot of the level data it holds while in flight (Obj_Alloc(1)), 0 for
+		/// none yet - the writer finds it one on saving (2026-10-19).</summary>
+		public int Slot;
+
 		/// <summary>The record as a body of the collision scans.</summary>
 		public UWMotionBody ToBody()
 		{

@@ -183,6 +183,9 @@ namespace UWDataImport.UWData
 				miHomeY = liTileY;
 				pORecord.TileX = liTileX;
 				pORecord.TileY = liTileY;
+
+				// Obj_Add: at the head of the new tile's list (set_phys_data, OBJPHYS.C:298).
+				pORecord.ChainPosition = 0;
 			}
 
 			pORecord.ZPos = (p.Z >> 3) & 0x7F;
@@ -493,6 +496,31 @@ namespace UWDataImport.UWData
 
 			if (liClass != 5 && (lOEntry.Byte9 & 3) != 2)
 				pORecord.StaticHeading = pORecord.Octant & 7;
+		}
+
+		/// <summary>
+		/// A MOBILE THING PUSHED ON (2026-10-19, the user's decision "as the original"): bounce_obj
+		/// hands the struck object the mover's heading, the speed 0xEB and the vertical speed scaled
+		/// by the masses (the core's fTransferMomentum, which leaves out an object of no mass), and
+		/// set_phys_data writes them into the mobile record - byte 9 the heading, the speed byte
+		/// 0xEB / 0x2F = 5, the pitch field 16 + vz / 64 clamped to 0..31; the gravity bit and the
+		/// position stay (UnderworldExhumed motion/OBJPHYS.C:69-95, 336-350). So a hanging or slow
+		/// arrow a creature or the player walks into flies on ahead of him. Also the write-back of a
+		/// lying object knocked loose (UWMotionHost.PushObject).
+		/// </summary>
+		public static void Push(UWMobileRecord pORecord, int piHeading, int piSpeed, int piVz)
+		{
+			pORecord.HeadingByte = (piHeading >> 8) & 0xFF;
+			pORecord.SpeedByte = (piSpeed / 0x2F) & 0x7F;
+
+			int liField = (piVz / 64) + 16;
+
+			if (liField < 0)
+				liField = 0;
+			else if (liField > 31)
+				liField = 31;
+
+			pORecord.VzField = liField;
 		}
 
 		/// <summary>InitMobileRecord_seg029_29EE_B3A (line 101261).</summary>

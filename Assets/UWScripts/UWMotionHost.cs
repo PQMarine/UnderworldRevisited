@@ -135,7 +135,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     }
 
     /// <summary>The creatures' motion on the same world (stage 2 of the motion rework):
-    /// UWCritter.RunMotion steps its record on it.</summary>
+    /// UWCreatureActor's RunMotion steps its record on it.</summary>
     public UWCreatureMotion CreatureMotion
     {
         get
@@ -203,14 +203,60 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         return miNextFlightIndex++;
     }
 
-    /// <summary>A flight joins the list the clock steps and the collision scans ask.</summary>
+    /// <summary>
+    /// A flight joins the list the clock steps and the collision scans ask - and the level's
+    /// things in flight (UWLevel.InFlight, 2026-10-19), which go into a save and stay with the
+    /// level while the player is elsewhere. Its object holds a mobile slot on the active list while
+    /// it flies, as Obj_Alloc(1) gives every missile and static_to_mob every thing set moving
+    /// (UnderworldExhumed obj/OBJECTS.C:225-245, combat/MISSILE.C:258-310, motion/OBJPHYS.C:362-385);
+    /// a flight read from the level data has its slot already. Without a free slot it flies on and
+    /// the writer finds it one on saving.
+    /// </summary>
     public void AddFlight(UWProjectileFlight pOFlight)
     {
         mOFlights.Add(pOFlight);
+
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+        UWMobileRecord lORecord = pOFlight != null ? pOFlight.Record : null;
+
+        if (lOLevel == null || lORecord == null || lORecord.Object == null)
+            return;
+
+        if (!lOLevel.InFlight.Contains(lORecord))
+            lOLevel.InFlight.Add(lORecord);
+
+        if (!fHoldsSlot(lOLevel, lORecord))
+        {
+            int liSlot;
+
+            lORecord.Slot = lOLevel.TryPlaceInFreeMobileSlot(lORecord.Object, out liSlot) ? liSlot : 0;
+        }
+    }
+
+    /// <summary>Whether the record's object holds its mobile slot on the active list.</summary>
+    private static bool fHoldsSlot(UWLevel pOLevel, UWMobileRecord pORecord)
+    {
+        int liSlot = pORecord.Slot;
+
+        return liSlot > 0 && UWLevArkLayout.IsMobileSlot(liSlot) && pOLevel.Masterlist != null
+            && liSlot < pOLevel.Masterlist.Count && pOLevel.Masterlist[liSlot] == pORecord.Object
+            && pOLevel.GetActiveMobileOrder(liSlot) != int.MaxValue;
     }
 
     /// <summary>The flight of this record is over: out of the list, its picture gone.</summary>
     public void EndFlight(UWMobileRecord pORecord)
+    {
+        fEndFlight(pORecord, false);
+    }
+
+    /// <summary>
+    /// The flight is over: out of the list and of the level's things in flight, its picture gone,
+    /// its mobile slot back on the free list (Obj_Free, OBJECTS.C:250-262). A thing that comes to
+    /// rest (pbRests) is a lying object from now on, in a static slot of its own as mob_to_static
+    /// gives it (OBJPHYS.C:455-467): its old mobile number is forgotten, so the writer numbers it
+    /// anew.
+    /// </summary>
+    private void fEndFlight(UWMobileRecord pORecord, bool pbRests)
     {
         for (int liAt = mOFlights.Count - 1; liAt >= 0; liAt--)
         {
@@ -224,6 +270,45 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
                     lOFlight.End();
             }
         }
+
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+
+        if (lOLevel == null || pORecord == null || !lOLevel.InFlight.Remove(pORecord) || pORecord.Object == null)
+            return;
+
+        if (!fHoldsSlot(lOLevel, pORecord))
+            return;
+
+        lOLevel.ReleaseMobileSlotAt(pORecord.Slot);
+
+        if (pbRests)
+            lOLevel.Masterlist[pORecord.Slot] = null;
+
+        pORecord.Slot = 0;
+    }
+
+    /// <summary>
+    /// The level is left or built anew (UWLevelLoader.fBuildLevel): the pictures go with the old
+    /// level's objects, the flights' records stay in that level's InFlight and fly on when the
+    /// player comes back (UWMissiles.ResumeFlights). Not stepped any more from here, so none of
+    /// them lands in the new level.
+    /// </summary>
+    public void ForgetFlights()
+    {
+        mOFlights.Clear();
+    }
+
+    /// <summary>The level's things in flight wiped with every object (Armageddon,
+    /// UWLevel.ResetObjectStore): their pictures go too.</summary>
+    public void EndAllFlights()
+    {
+        foreach (UWProjectileFlight lOFlight in mOFlights)
+        {
+            if (lOFlight != null)
+                lOFlight.End();
+        }
+
+        mOFlights.Clear();
     }
 
     /// <summary>The flight with this transient index, or null.</summary>
@@ -531,6 +616,31 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     {
         // The glowing rock joining a carried one is the player's (UWTouchGather); a flying
         // thing passing it does nothing in the original either (the user is not the player).
+        //
+        // A CREATURE OR THE PLAYER WALKING INTO A FLYING MISSILE is struck by it (2026-10-19, the
+        // user's decision "as the original"): do_objhit uses the usable missile on the mover, UseObj
+        // runs missile_newhit with the mover as what it hit (UnderworldExhumed motion/OBJPHYS.C:
+        // 141-200, obj/USEITEMS.C:90-92), charged to the missile's owner. Then the core hands the
+        // mover's momentum to a missile with mass - an arrow, a bolt, a stone (bounce_obj,
+        // OBJPHYS.C:69-95, speed 0xEB; PushObject below) - so it flies on ahead and does not strike
+        // the same creature on every step. Until then a creature passed through it unhurt, and the
+        // player's walk-in was a distance test of its own (UWMissiles.HitPlayerWalkingIn).
+        UWProjectileFlight lOFlight = FlightAt(piOtherIndex);
+
+        if (lOFlight == null)
+            return;
+
+        if (piMoverIndex == PlayerMover)
+        {
+            Missiles.HitPlayerWalkingIn(lOFlight);
+
+            return;
+        }
+
+        UWCritter lOCritter = fCritter(piMoverIndex);
+
+        if (lOCritter != null)
+            Missiles.HitCreatureWalkingIn(lOFlight, lOCritter);
     }
 
     /// <summary>
@@ -718,7 +828,10 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// but never read by his motion in the original; a lying object is KNOCKED LOOSE (stage 2,
     /// 2026-10-05): it becomes a flight again - MakeMobile with the transferred heading, speed
     /// and vertical speed and no gravity bit - and slides, drops off its ledge or bounces as a
-    /// thrown thing does, to lie where it stops.</summary>
+    /// thrown thing does, to lie where it stops. A THING IN FLIGHT takes them into its record
+    /// (2026-10-19, the user's decision "as the original"; nothing moved it until then):
+    /// bounce_obj -> set_phys_data on a mobile object (UWMobileObjectMotion.Push), so an arrow a
+    /// creature or the player walks into flies on ahead of him, from its next step on.</summary>
     public void PushObject(int piOtherIndex, int piHeading, int piSpeed, int piVz, int piHitTileX, int piHitTileY)
     {
         UWCritter lOCritter = fCritter(piOtherIndex);
@@ -726,6 +839,17 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         if (lOCritter != null)
         {
             lOCritter.Push(piHeading, piSpeed, piVz);
+
+            return;
+        }
+
+        UWProjectileFlight lOFlight = FlightAt(piOtherIndex);
+
+        if (lOFlight != null)
+        {
+            // The record turns; the picture follows at the flight's next step - while Freeze Time
+            // holds it the arrow stays as it is (per user on the original, 2026-10-19).
+            UWMobileObjectMotion.Push(lOFlight.Record, piHeading, piSpeed, piVz);
 
             return;
         }
@@ -751,9 +875,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         // The write-back of the transferred params (ApplyProjectileMotion on the struck
         // record): heading, speed byte, vertical speed field; a static object's gravity is 0.
-        lORecord.HeadingByte = (piHeading >> 8) & 0xFF;
-        lORecord.SpeedByte = (piSpeed / 0x2F) & 0x7F;
-        lORecord.VzField = Mathf.Clamp((piVz / 64) + 16, 0, 31);
+        UWMobileObjectMotion.Push(lORecord, piHeading, piSpeed, piVz);
         lORecord.GravityBit = false;
         lORecord.StaticHeading = lOObject.Heading & 7;
 
@@ -851,7 +973,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
     public void PlaceAtRest(UWMobileRecord pORecord, int piOctant, int piQuality)
     {
-        EndFlight(pORecord);
+        fEndFlight(pORecord, true);
 
         UWObject lOObject = pORecord.Object;
 

@@ -12,7 +12,7 @@ using UWDataImport.UWData;
 ///
 /// What a hit does in the game - the damage of a missile, the strike on the player, the
 /// smashing of Tybal's orb, the impact picture, the detonation's blast - and the player walking
-/// into his own missile went to UWMissiles in cleanup step 3.5 (2026-10-17), the hit maths to
+/// into a missile went to UWMissiles in cleanup step 3.5 (2026-10-17), the hit maths to
 /// UWMissileHitRules; the touch test still runs from Update, after the picture moved.
 /// </summary>
 public class UWProjectileFlight : MonoBehaviour
@@ -35,17 +35,27 @@ public class UWProjectileFlight : MonoBehaviour
     /// <summary>The creature that launched it, or null for the player's and the traps'.</summary>
     public UWCritter Launcher { get; private set; }
 
-    /// <summary>Launched by the player: his impact sound, his hits reported to the eyes, and
-    /// the touch test for walking into it.</summary>
-    public bool PlayersOwn { get; private set; }
+    /// <summary>The player's own - his impact sound, his hits reported to the eyes: the record's
+    /// owner byte (last_hit) is his index, 1. ONE RULE BY THE OWNER BYTE since 2026-10-19 (the
+    /// user's decision "as the original"): a trap's missile is nobody's, its owner 0 (missile_fire,
+    /// UnderworldExhumed combat/MISSILE.C:245-300); until then a flight launched with the
+    /// Interaction counted as the player's, and the traps passed it.</summary>
+    public bool PlayersOwn => Record != null && UWMissileHitRules.IsPlayersOwn(Record.Owner);
 
-    /// <summary>How far the picture has moved since the launch, in world units (the touch test
-    /// waits for its first stretch, UWMissiles.UpdateSelfBump).</summary>
-    public float Travelled { get; private set; }
+    /// <summary>Read from the level data - a save, a level entered again (UWMissiles.ResumeFlights,
+    /// 2026-10-19): nothing of its launch is known but the record, so its hit takes the base, the
+    /// type and the attacker from the record's item and owner byte, as missile_newhit does
+    /// (UnderworldExhumed motion/OBJPHYS.C:102-132).</summary>
+    public bool FromLevelData { get; private set; }
 
-    /// <summary>The player touches it: whoever stays in contact takes damage once (set by the
-    /// strike on the player and by the touch test).</summary>
+    /// <summary>The player touched it at the launch: that contact does not strike until he is out
+    /// of reach (UWMissiles.UpdatePlayerTouch) - the first stretch of flight the test waited for
+    /// until 2026-10-19 never came while Freeze Time held the missile.</summary>
     public bool TouchingPlayer { get; set; }
+
+    /// <summary>The game clock (PIT ticks) of this missile's last hit on the player, -1 for none:
+    /// a walk-in strikes again only after UWMissileHitRules.WalkInHitIntervalTicks (2026-10-19).</summary>
+    public long LastPlayerHitTick { get; set; } = -1;
 
     private UWMissiles mOMissiles;
 
@@ -64,7 +74,7 @@ public class UWProjectileFlight : MonoBehaviour
     private bool mbEnded;
 
     public void Begin(UWMissiles pOMissiles, UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
-        Interaction pOInteraction, UWCritter pOLauncher, bool pbPlayersOwn)
+        Interaction pOInteraction, UWCritter pOLauncher, bool pbFromLevelData)
     {
         mOMissiles = pOMissiles;
         Record = pORecord;
@@ -73,7 +83,7 @@ public class UWProjectileFlight : MonoBehaviour
         ImpactId = piImpactId;
         Interaction = pOInteraction;
         Launcher = pOLauncher;
-        PlayersOwn = pbPlayersOwn;
+        FromLevelData = pbFromLevelData;
 
         mOFrom = transform.position;
         mOTo = mOFrom;
@@ -98,7 +108,6 @@ public class UWProjectileFlight : MonoBehaviour
         mOTo = UWMotionHost.WorldPosition(Record);
         mfSince = 0f;
         mfInterval = fStepSeconds(pbPlayerHasSpeed);
-        Travelled += Vector3.Distance(mOFrom, mOTo);
 
         fFace();
     }
@@ -110,7 +119,9 @@ public class UWProjectileFlight : MonoBehaviour
         return pbPlayerHasSpeed ? lfSeconds * 2f : lfSeconds;
     }
 
-    /// <summary>An arrow's model points along its heading; a picture faces the camera by itself.</summary>
+    /// <summary>An arrow's model points along its heading - the record's heading byte, also for a
+    /// flight read from the level data and while Freeze Time holds it (2026-10-19; such a record
+    /// was a lying arrow in its static octant until then); a picture faces the camera by itself.</summary>
     private void fFace()
     {
         if (!mbIsModel || Record.HeadingByte == miShownHeading)
@@ -132,7 +143,7 @@ public class UWProjectileFlight : MonoBehaviour
         transform.position = Vector3.Lerp(mOFrom, mOTo, lfT);
 
         if (mOMissiles != null)
-            mOMissiles.UpdateSelfBump(this);
+            mOMissiles.UpdatePlayerTouch(this);
     }
 
     /// <summary>The flight is over: the picture goes.</summary>

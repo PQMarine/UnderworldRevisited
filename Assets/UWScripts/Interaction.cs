@@ -4722,7 +4722,7 @@ public class Interaction : MonoBehaviour
 
         return UWMissiles.Ensure(mLevelLoader).LaunchFromSpot(liProjectile, piTileX, piTileY, piXPos, piYPos,
             piZPos, piHeading, 0, miPendingProjectileSpeedByte, miPendingProjectileBaseDamage,
-            UWRunicMagic.GetProjectileDamageType(liProjectile, fObjectProperties), UWRunicMagic.GetProjectileImpactId(liProjectile), this) != null;
+            UWRunicMagic.GetProjectileDamageType(liProjectile, fObjectProperties), UWRunicMagic.GetProjectileImpactId(liProjectile)) != null;
     }
 
     /// <summary>The OBJECTS.DAT tables, for a spell projectile's damage type.</summary>

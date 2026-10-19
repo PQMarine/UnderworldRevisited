@@ -325,6 +325,8 @@ namespace UWDataImport.UWData
 			mOFreeStaticSlots = UWLevArkCodec.ReadStaticFreeList(pyRawLevelData, (int)miBlockOffset);
 			mOActiveMobiles = UWLevArkCodec.ReadActiveMobiles(pyRawLevelData, (int)miBlockOffset);
 
+			fTakeFlightsOutOfTiles();
+
 			// A rune of warding an older save of ours laid without its flags (2026-10-14).
 			UWTrapRules.RepairOldWardRunes(this);
 		}
@@ -339,6 +341,53 @@ namespace UWDataImport.UWData
 		/// UWLevArkCodec.ReadActiveMobiles in the constructor.
 		/// </summary>
 		private List<int> mOActiveMobiles;
+
+		/// <summary>
+		/// THE THINGS IN FLIGHT ON THIS LEVEL (2026-10-19): arrows, bolts, spell missiles, thrown
+		/// and knocked-loose things that are moving - the original's mobile non-creatures on the
+		/// active list (see UWMobileRecordCodec), which move_mobile steps like any flight. They are
+		/// in no tile list here: a flight is not a lying object, the motion host asks its flights
+		/// itself (UWMotionHost). The level keeps them while the player is elsewhere, the motion
+		/// host steps them while he is here (it adds and removes its flights), and UWLevelWriter
+		/// writes them back as mobile records in their tiles' lists. In the active list's order.
+		/// Until 2026-10-19 a flight from a save stood still as a lying object, and a flight of ours
+		/// was lost on saving or leaving the level.
+		/// </summary>
+		public List<UWMobileRecord> InFlight { get; } = new List<UWMobileRecord>();
+
+		/// <summary>The flights of the level data out of their tiles' lists into InFlight, each with
+		/// its place in its list as read (all places first, then the removals, so two flights of one
+		/// tile come back where they were).</summary>
+		private void fTakeFlightsOutOfTiles()
+		{
+			if (mOActiveMobiles == null || mOMasterlist == null || TileData == null)
+				return;
+
+			List<UWMobileRecord> lOFound = new List<UWMobileRecord>();
+
+			foreach (int liIndex in mOActiveMobiles)
+			{
+				UWObject lOObject = liIndex > 0 && liIndex < mOMasterlist.Count ? mOMasterlist[liIndex] : null;
+				UWTile lOTile = lOObject != null ? GetTile(lOObject.TileX, lOObject.TileY) : null;
+				int liAt = lOTile != null && lOTile.ObjectsInTile != null ? lOTile.ObjectsInTile.IndexOf(lOObject) : -1;
+
+				if (!UWMobileRecordCodec.IsInFlight(lOObject, true, liAt >= 0))
+					continue;
+
+				UWMobileRecord lORecord = UWMobileRecordCodec.Read(lOObject, ((UWNpc)lOObject).RawNpcBytes,
+					lOObject.TileX, lOObject.TileY);
+
+				lORecord.ChainPosition = liAt;
+				lORecord.Slot = liIndex;
+				lOFound.Add(lORecord);
+			}
+
+			foreach (UWMobileRecord lORecord in lOFound)
+			{
+				GetTile(lORecord.TileX, lORecord.TileY).ObjectsInTile.Remove(lORecord.Object);
+				InFlight.Add(lORecord);
+			}
+		}
 
 		/// <summary>The place of a mobile slot in the list of the allocated mobiles, or
 		/// int.MaxValue when it is not in it.</summary>
@@ -375,17 +424,25 @@ namespace UWDataImport.UWData
 			if (pOObject == null || mOFreeMobileSlots == null || mOMasterlist == null)
 				return;
 
-			int liIndex = mOMasterlist.IndexOf(pOObject);
+			ReleaseMobileSlotAt(mOMasterlist.IndexOf(pOObject));
+		}
 
-			if (liIndex < UWLevArkLayout.FirstFreeMobileSlot || !UWLevArkLayout.IsMobileSlot(liIndex)
-				|| mOFreeMobileSlots.Contains(liIndex))
+		/// <summary>The same for a slot known by its number - a thing in flight keeps the slot it
+		/// holds in its record (UWMobileRecord.Slot, 2026-10-19).</summary>
+		public void ReleaseMobileSlotAt(int piIndex)
+		{
+			if (mOFreeMobileSlots == null)
 				return;
 
-			mOFreeMobileSlots.Add(liIndex);
+			if (piIndex < UWLevArkLayout.FirstFreeMobileSlot || !UWLevArkLayout.IsMobileSlot(piIndex)
+				|| mOFreeMobileSlots.Contains(piIndex))
+				return;
+
+			mOFreeMobileSlots.Add(piIndex);
 
 			// Out of the allocated list: the last entry takes its place (free_critter, seg027_2861_A83).
 			if (mOActiveMobiles != null)
-				UWLevArkCodec.RemoveActiveMobile(mOActiveMobiles, liIndex);
+				UWLevArkCodec.RemoveActiveMobile(mOActiveMobiles, piIndex);
 		}
 
 		/// <summary>The static free list, slots 256 to 1023, in storage order
@@ -463,6 +520,9 @@ namespace UWDataImport.UWData
 
 			if (mOActiveMobiles != null)
 				mOActiveMobiles.Clear();
+
+			// The things in flight were on the active list (2026-10-19).
+			InFlight.Clear();
 
 			Animations.Entries.Clear();
 		}

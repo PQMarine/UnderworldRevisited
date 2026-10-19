@@ -103,7 +103,9 @@ namespace UWDataImport.UWData
 			// list until frame 3 - after loading or on re-entry the death finishes and the loot and
 			// remains come (critter_ai, UnderworldExhumed AI.C). Until 2026-10-15 it was dropped
 			// here, and with it its loot (audit round 2, A25 / KR N2). The remains take it out of
-			// the data at the end of the death (UWCritterRemains).
+			// the data at the end of the death (UWCritterRemains, called once by the actor's death
+			// machine at frame 3; pbDestroyed is that machine's Dying, UWCreatureActor.IsDead, since
+			// cleanup step 4.12, 2026-10-19).
 			if (pbDestroyed)
 			{
 				pONpc.HitPoints = 0;
@@ -113,7 +115,7 @@ namespace UWDataImport.UWData
 			}
 
 			// Hit points are stored as a full byte in the record (npc_hp); a record holding 0 keeps
-			// it from setup on as the original does (UWCritter.Initialise, 2026-10-18).
+			// it from setup on as the original does (the UWCreatureActor constructor, 2026-10-18).
 			// AS THEY ARE, 0 INCLUDED (B23, cleanup step 4.8, 2026-10-18): the hit points come from the
 			// record now (UWHealth.KeepHitPointsIn), and a living creature holds 0 only when its
 			// death was refused - the golem until his script sets 125, as in the original. Until then

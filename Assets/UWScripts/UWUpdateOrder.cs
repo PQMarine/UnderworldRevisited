@@ -22,6 +22,10 @@
 ///                   the look has tilted. The head bob reads the speed the movement measured in
 ///                   the last LateUpdate - smoothed over a tenth of a second, so that frame is of
 ///                   no account.
+///   Shake     +15   the screen shake (UWScreenShake), the LAST to turn the camera in LateUpdate:
+///                   after the terrain has set its roll absolutely. At 0 it ran before the
+///                   terrain, which overwrote every shake's roll in the same frame - no hit
+///                   shook the view after step 4.7 (per user, 2026-10-19, a trap's arrow).
 ///   Death     +20   a death the frame's damage caused is handled in the same frame, after the
 ///                   victory check (UWCritterDriver).
 ///
@@ -44,6 +48,8 @@ public static class UWUpdateOrder
     public const int Movement = 0;
 
     public const int Terrain = 10;
+
+    public const int Shake = 15;
 
     public const int Death = 20;
 

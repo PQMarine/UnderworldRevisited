@@ -220,8 +220,10 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("DetectMonsters", pOContext => fCheckDetectMonsters(), false, "spell", "original");
             lOCatalog.Add("SpellRules", pOContext => fCheckSpellRules(pOContext.Data), true, "spell", "original");
             lOCatalog.Add("ObjectMotion", pOContext => fCheckObjectMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("Flights", pOContext => fCheckFlights(pOContext), true, "motion", "data", "original");
             lOCatalog.Add("CreatureMotion", pOContext => fCheckCreatureMotion(pOContext.Data), true, "motion", "original");
             lOCatalog.Add("PlayerMotion", pOContext => fCheckPlayerMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("MissileWalkIn", pOContext => fCheckMissileWalkIn(pOContext.Data), true, "motion", "combat", "original");
             lOCatalog.Add("EasyStep", pOContext => fCheckEasyStep(pOContext.Data), true, "motion", "original");
             lOCatalog.Add("PointerScheme", pOContext => fCheckPointerScheme(pOContext.Data), true, "input", "motion", "original");
             lOCatalog.Add("CritterView", pOContext => fCheckCritterView(), false, "brain");
@@ -229,6 +231,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("MotionStepper", pOContext => fCheckMotionStepper(), false, "motion", "time");
             lOCatalog.Add("MotionStepperWalk", pOContext => fCheckMotionStepperWalk(pOContext.Data), true, "motion", "time");
             lOCatalog.Add("FootstepRules", pOContext => fCheckFootstepRules(), false, "player", "original");
+            lOCatalog.Add("ShakeRounds", pOContext => fCheckShakeRounds(), false, "player", "original");
             lOCatalog.Add("SaveRoundTrip", pOContext => fCheckSaveRoundTrip(pOContext), true, "data", "pin").MutatesData = true;
             lOCatalog.Add("Codecs", pOContext => fCheckCodecs(pOContext), true, "data", "original");
             lOCatalog.Add("HudArt", pOContext => fCheckHudArt(pOContext), true, "hud", "pin");
@@ -253,6 +256,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("BarterOverflow", pOContext => fCheckBarterOverflow(pOContext), true, "conversation", "original");
             lOCatalog.Add("BarterSetup", pOContext => fCheckBarterSetup(pOContext), true, "conversation", "original");
             lOCatalog.Add("BarterHandover", pOContext => fCheckBarterHandover(pOContext), true, "conversation", "original");
+            lOCatalog.Add("TradeLootRoll", pOContext => fCheckTradeLootRoll(pOContext), true, "conversation", "inventory", "original");
             lOCatalog.Add("TradeSlotDrop", pOContext => fCheckTradeSlotDrop(pOContext), true, "conversation", "inventory", "original");
             lOCatalog.Add("TradeInventoryFunctions", pOContext => fCheckTradeInventoryFunctions(pOContext), true, "conversation", "inventory", "original");
             lOCatalog.Add("IdentifyName", pOContext => fCheckIdentifyName(pOContext), true, "conversation", "inventory", "original");
@@ -282,6 +286,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("AreaWalk", pOContext => fCheckAreaWalk(), false, "world", "spell", "damage", "original");
             lOCatalog.Add("AreaWalkLevel", pOContext => fCheckAreaWalkOnLevel(pOContext.Data), true, "world", "spell", "level", "original");
             lOCatalog.Add("CreatureCasting", pOContext => fCheckCreatureCasting(pOContext.Data), true, "world", "spell", "brain", "original");
+            lOCatalog.Add("CreatureActor", pOContext => fCheckCreatureActor(pOContext.Data), true, "world", "brain", "combat", "original").MutatesData = true;
+            lOCatalog.Add("CreatureDeath", pOContext => fCheckCreatureDeath(pOContext.Data), true, "world", "brain", "save", "original");
+            lOCatalog.Add("CreatureHost", pOContext => fCheckCreatureHost(pOContext.Data), true, "world", "brain", "session");
             lOCatalog.Add("WallSquares", pOContext => fCheckWallSquares(pOContext.Data), true, "world", "spell", "damage", "original");
             lOCatalog.Add("WeaponSwing", pOContext => fCheckWeaponSwing(pOContext.Data), true, "hud", "combat");
             lOCatalog.Add("Paperdoll", pOContext => fCheckPaperdoll(), false, "hud", "inventory");
@@ -507,15 +514,24 @@ namespace UnderworldRevisited.Tools
         /// then a default), the player as object 1 wherever the check puts him, the outcome of
         /// the last step as the check sets it, and every event the brain raises as a line.
         /// The path search steps one tile towards the destination, x first.
+        /// The level's services too (ICritterServices, cleanup step 4.13, 2026-10-19): the clock, the
+        /// alarm, the path slots and the scripted rolls as an IUWRandom (ScriptedRolls); fMakeBrain
+        /// hands them, the own height and the velocities to a brain and listens to its goal changes.
         /// </summary>
-        private sealed class FakeCritterHost : ICritterHost
+        private sealed class FakeCritterHost : ICritterHost, ICritterServices
         {
             public long ClockValue;
 
-            public readonly Queue<int> Rolls = new Queue<int>();
+            private readonly ScriptedRolls mORolls = new ScriptedRolls();
+
+            public Queue<int> Rolls => mORolls.Queue;
 
             /// <summary>What Random answers when the queue is empty, taken modulo n.</summary>
-            public int DefaultRoll;
+            public int DefaultRoll
+            {
+                get { return mORolls.Default; }
+                set { mORolls.Default = value; }
+            }
 
             public readonly UWCritterAlarm AlarmValue = new UWCritterAlarm();
 
@@ -535,12 +551,7 @@ namespace UnderworldRevisited.Tools
 
             public long Clock => ClockValue;
 
-            public int Random(int piN)
-            {
-                int liValue = Rolls.Count > 0 ? Rolls.Dequeue() : DefaultRoll;
-
-                return piN <= 0 ? 0 : liValue % piN;
-            }
+            public IUWRandom Random => mORolls;
 
             public UWCritterAlarm Alarm => AlarmValue;
 
@@ -555,7 +566,22 @@ namespace UnderworldRevisited.Tools
 
             public bool TybalOrbStands => false;
 
+            /// <summary>The own object height a brain of this fake gets (fMakeBrain).</summary>
             public int OwnObjectHeight => 16;
+
+            /// <summary>The ammunition velocities a brain of this fake gets: 20 each.</summary>
+            public int[] MissileVelocities
+            {
+                get
+                {
+                    int[] liVelocities = new int[UWObjectProperties.RangedObjectCount];
+
+                    for (int liAt = 0; liAt < liVelocities.Length; liAt++)
+                        liVelocities[liAt] = 20;
+
+                    return liVelocities;
+                }
+            }
 
             public UWTilePos ViewTile { get; set; } = new UWTilePos(-100, -100);
 
@@ -638,8 +664,6 @@ namespace UnderworldRevisited.Tools
 
             public void BashDoor(int piDoorIndex, int piDamage) => Events.Add("bash door " + piDoorIndex + " " + piDamage);
 
-            public int MissileVelocity(int piAmmoIndex) => 20;
-
             public void OnSwingStarted(int piAttack) => Events.Add("swing " + piAttack);
 
             public void OnBlow(int piTargetIndex, int piAttack, int piCharge, int piSwingType, int piFlank)
@@ -717,6 +741,45 @@ namespace UnderworldRevisited.Tools
 
                 return liCount;
             }
+        }
+
+        /// <summary>The scripted RNG of FakeCritterHost: a queue of values, then a default, each
+        /// taken modulo n (cleanup step 4.13, 2026-10-19; FakeCritterHost.Random until then).</summary>
+        private sealed class ScriptedRolls : IUWRandom
+        {
+            public readonly Queue<int> Queue = new Queue<int>();
+
+            public int Default;
+
+            public int Next(int piMaxExclusive)
+            {
+                int liValue = Queue.Count > 0 ? Queue.Dequeue() : Default;
+
+                return piMaxExclusive <= 0 ? 0 : liValue % piMaxExclusive;
+            }
+
+            public int Next(int piMin, int piMaxExclusive)
+            {
+                return piMin + Next(piMaxExclusive - piMin);
+            }
+
+            public double NextDouble()
+            {
+                return Next(0x8000) / (double)0x8000;
+            }
+        }
+
+        /// <summary>A brain on the fake's services, own height and velocities, its goal changes into
+        /// the fake's events (cleanup step 4.13, 2026-10-19).</summary>
+        private static UWCritterBrain fMakeBrain(UWCritterRecord pORecord, UWObjectClassProperties.Critter pORow, int piIndex,
+            FakeCritterHost pOHost)
+        {
+            UWCritterBrain lOBrain = new UWCritterBrain(pORecord, pORow, piIndex, pOHost, pOHost.OwnObjectHeight,
+                pOHost.MissileVelocities);
+
+            lOBrain.GoalChanged += pOHost.OnGoalChanged;
+
+            return lOBrain;
         }
 
         /// <summary>A creature of a made-up kind with the table values the checks need.</summary>
@@ -858,7 +921,7 @@ namespace UnderworldRevisited.Tools
             // watched for it in the original and saw only the splash (2026-09-20).
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 5, 0);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lORecord.Animation = UWCritterBrain.AnimWalking;
             lORecord.Speed = 8;
@@ -869,7 +932,9 @@ namespace UnderworldRevisited.Tools
             fExpectInt("drowning: the death animation 0x0C is set", lORecord.Animation, UWCritterBrain.AnimDying);
             fExpectInt("drowning: at frame 3", lORecord.Frame, UWCritterRules.DeathRemovalFrame);
             fExpectInt("drowning: with interval 1", lORecord.Interval, UWCritterRules.IntervalStuck);
-            fExpectInt("drowning: the hit points are gone", lORecord.HitPoints, 0);
+            // As the original since cleanup step 4.12b (2026-10-19): crit_hndlr_walk writes no hp
+            // (PATHFIND.C:251-253); ours set 0 until then.
+            fExpectInt("drowning: the hit points stay (crit_hndlr_walk)", lORecord.HitPoints, 20);
             fExpectInt("drowning: exactly one splash", lOHost.CountEvents("drowned"), 1);
             fExpectBool("drowning: the body goes in the same update", lOMotion.Removed, true);
             fExpectInt("drowning: the death removal ran once", lOHost.CountEvents("removed"), 1);
@@ -878,6 +943,28 @@ namespace UnderworldRevisited.Tools
             lOMotion = lOBrain.Update(lOHost);
 
             fExpectInt("drowning: no second splash", lOHost.CountEvents("drowned"), 1);
+
+            // Goal 3 skips the animation machine: drowned, it never reaches the removal and lives on
+            // with its hit points and sequence 0x0C; a blow to 0 starts no death (crit_die refuses a
+            // creature in sequence 0x0C, AI.C:1438) - as the original since cleanup step 4.12b.
+            FakeCritterHost lOGoal3Host = new FakeCritterHost();
+            UWCritterRecord lOGoal3 = fMakeRecord(5, 5, 3, 0);
+
+            lOGoal3Host.PlacePlayer((5 << 3) + 4, (6 << 3) + 4);
+            lOGoal3.Animation = UWCritterBrain.AnimWalking;
+            lOGoal3Host.Step = new StepResult { Drowned = true };
+
+            UWCritterBrain lOGoal3Brain = fMakeBrain(lOGoal3, fMakeRow(), 5, lOGoal3Host);
+
+            lOMotion = lOGoal3Brain.Update(lOGoal3Host);
+            fExpectBool("drowning, goal 3: the splash, sequence 0x0C at frame 3, the hit points kept, not removed",
+                lOGoal3Host.CountEvents("drowned") == 1 && lOGoal3.Animation == UWCritterBrain.AnimDying
+                && lOGoal3.Frame == UWCritterRules.DeathRemovalFrame && lOGoal3.HitPoints == 20 && !lOMotion.Removed
+                && lOGoal3Host.CountEvents("removed") == 0, true);
+
+            lOGoal3Brain.OnDamaged(lOGoal3Host, 1, 500);
+            fExpectBool("drowning, goal 3: a blow to 0 starts no death",
+                lOGoal3.HitPoints == 0 && lOGoal3Host.CountEvents("death") == 0, true);
 
             // A swimmer and a flier: the host never reports the water, so nothing happens.
             foreach (bool lbFlier in new[] { false, true })
@@ -889,7 +976,7 @@ namespace UnderworldRevisited.Tools
                 lORow.Row[0x0A] = (byte)(lbFlier ? 0x80 : 0x40);
                 lOWaterHost.PlacePlayer((5 << 3) + 4, (5 << 3) + 4);
 
-                UWCritterBrain lOWaterBrain = new UWCritterBrain(lOWaterRecord, lORow, 5);
+                UWCritterBrain lOWaterBrain = fMakeBrain(lOWaterRecord, lORow, 5, lOWaterHost);
 
                 lOWaterHost.Step = new StepResult
                 {
@@ -1115,7 +1202,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(2, 2, 0, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((13 << 3) + 4, (2 << 3) + 4);
 
@@ -1135,7 +1222,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 5, 0);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer(44 + 9, 44);
 
@@ -1155,7 +1242,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer(44 + 8, 44);
             lOBrain.Update(lOHost);
 
@@ -1170,7 +1257,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 5, 0);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             // The player looks east, away from the creature east of him: a blow from behind.
             lOHost.PlacePlayer(44 + 8, 44, 2);
@@ -1216,7 +1303,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 10);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
 
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lOBrain.OnDamaged(lOHost, 1, 3);
@@ -1238,7 +1325,7 @@ namespace UnderworldRevisited.Tools
             // Near: hp 10 of 20, morale 0, damage 3 -> 15 >= 8 + roll, flee on any roll.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 13);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
             lOHost.PlacePlayer((6 << 3) + 4, 44);
             lOBrain.OnDamaged(lOHost, 1, 3);
             lOHost.Rolls.Enqueue(2);
@@ -1250,7 +1337,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 13);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
             lOHost.PlacePlayer((6 << 3) + 4, 44);
             lORecord.MadeStand = true;
             lOBrain.OnDamaged(lOHost, 1, 3);
@@ -1260,7 +1347,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 13);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
             lOHost.PlacePlayer((6 << 3) + 4, 44);
             lORecord.MadeStand = true;
             lORecord.Relentless = true;
@@ -1275,7 +1362,7 @@ namespace UnderworldRevisited.Tools
             // the same creature does flee.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 13);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
 
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lOBrain.OnDamaged(lOHost, 1, 3);
@@ -1296,7 +1383,7 @@ namespace UnderworldRevisited.Tools
             // Another creature's blow does not provoke a bystander.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 2, -1, -1, 13);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(3, 20, 0), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(3, 20, 0), 5, lOHost);
             lOHost.PlacePlayer((6 << 3) + 4, 44);
             lOHost.Objects[7] = new CritterTarget { Exists = true, Index = 7, IsCreature = true, ItemId = 0x45, X = 52, Y = 44, TileX = 6, TileY = 5, HitPoints = 9 };
             lOBrain.OnDamaged(lOHost, 7, 3);
@@ -1569,7 +1656,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 5, 0);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lORecord.SetDestination(8, 5, 0);
@@ -1590,7 +1677,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lOHost.Objects[7] = new CritterTarget { Exists = true, Index = 7, IsCreature = true, ItemId = 0x45, X = 52, Y = 44, TileX = 6, TileY = 5, HitPoints = 9, Goal = 5 };
             lORecord.SetDestination(8, 5, 0);
@@ -1607,7 +1694,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lORecord.SetDestination(8, 5, 0);
             lORecord.NewDestination = false;
@@ -1621,7 +1708,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lORecord.SetDestination(8, 5, 0);
             lORecord.NewDestination = false;
@@ -1694,7 +1781,7 @@ namespace UnderworldRevisited.Tools
             {
                 FakeCritterHost lOHost = new FakeCritterHost();
                 UWCritterRecord lORecord = fMakeRecord(5, 5, liGoal, 0);
-                UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+                UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
                 lOHost.PlacePlayer((6 << 3) + 4, (6 << 3) + 4);
                 lOBrain.Update(lOHost);
@@ -1715,7 +1802,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 10, 2);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer(44 + 20, 44, 6, 15, 15);
             lOBrain.Update(lOHost);
@@ -1758,7 +1845,7 @@ namespace UnderworldRevisited.Tools
             // Heard: d2 3 < 4.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 4;
             lOHost.PlacePlayer((6 << 3) + 4, (6 << 3) + 4);
             lOBrain.Update(lOHost);
@@ -1767,7 +1854,7 @@ namespace UnderworldRevisited.Tools
             // Not heard at d2 4 (strict), not seen when facing away, unchanged: heard bit and walk over.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 0;
             lOHost.PlacePlayer((7 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1778,7 +1865,7 @@ namespace UnderworldRevisited.Tools
             // Seen at d2 4 when facing east.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 2;
             lOHost.PlacePlayer((7 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1788,7 +1875,7 @@ namespace UnderworldRevisited.Tools
             // Seen at d2 16 (non-strict), one eighth off.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 1;
             lOHost.PlacePlayer((9 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1797,7 +1884,7 @@ namespace UnderworldRevisited.Tools
             // Blocked sight line: not seen, unchanged.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 2;
             lOHost.LineOfSight = false;
             lOHost.PlacePlayer((9 << 3) + 4, 44);
@@ -1807,7 +1894,7 @@ namespace UnderworldRevisited.Tools
             // d2 25: beyond sight, below hear2 * 4 = 64 -> unchanged.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 2;
             lOHost.PlacePlayer((10 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1817,7 +1904,7 @@ namespace UnderworldRevisited.Tools
             // d2 64: lost, the target bit cleared.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 0, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.FacingEighth = 2;
             lORecord.TargetConfirmed = false;
             lORecord.HeardSomething = false;
@@ -1838,7 +1925,7 @@ namespace UnderworldRevisited.Tools
             // Home 5/5, travel range 3: leash beyond 4 * 9 = 36 squared tiles, i.e. from 7 tiles.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(12, 5, 5, 0, 5, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.BackupGoal = 4;
             lORecord.TargetConfirmed = true;
             lOHost.PlacePlayer((15 << 3) + 4, 44);
@@ -1852,7 +1939,7 @@ namespace UnderworldRevisited.Tools
             // with the coin) does not run.
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(11, 5, 5, 0, 5, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.BackupGoal = 4;
             lORecord.SetDestination(14, 5, 0);
             lOHost.PlacePlayer((14 << 3) + 4, 44);
@@ -1861,7 +1948,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(12, 5, 5, 0, 5, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.BackupGoal = 4;
             lORecord.Relentless = true;
             lORecord.SetDestination(15, 5, 0);
@@ -1871,7 +1958,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(12, 5, 5, 0, 5, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.SetDestination(15, 5, 0);
             lOHost.PlacePlayer((15 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1879,7 +1966,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(12, 5, 5, 0, 5, 5);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lORecord.BackupGoal = 4;
             lOHost.PlacePlayer((13 << 3) + 4, 44);
             lOBrain.Update(lOHost);
@@ -1893,7 +1980,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lORecord = fMakeRecord(5, 5, 5, 0);
-            UWCritterBrain lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            UWCritterBrain lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
 
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lORecord.Speed = 8;
@@ -1913,7 +2000,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((8 << 3) + 4, (8 << 3) + 4);
             lORecord.Speed = 8;
             lORecord.FineHeading = 0;
@@ -1925,7 +2012,7 @@ namespace UnderworldRevisited.Tools
 
             lOHost = new FakeCritterHost();
             lORecord = fMakeRecord(5, 5, 5, 0);
-            lOBrain = new UWCritterBrain(lORecord, fMakeRow(), 5);
+            lOBrain = fMakeBrain(lORecord, fMakeRow(), 5, lOHost);
             lOHost.PlacePlayer((8 << 3) + 4, 44);
             lORecord.Speed = 8;
             lORecord.FineHeading = 200;
@@ -1944,7 +2031,7 @@ namespace UnderworldRevisited.Tools
         {
             FakeCritterHost lOHost = new FakeCritterHost();
             UWCritterRecord lOVictim = fMakeRecord(5, 5, 0, 2);
-            UWCritterBrain lOVictimBrain = new UWCritterBrain(lOVictim, fMakeRow(3, 20, 5, 4), 5);
+            UWCritterBrain lOVictimBrain = fMakeBrain(lOVictim, fMakeRow(3, 20, 5, 4), 5, lOHost);
 
             lOHost.ClockValue = 1000;
             lOHost.PlacePlayer((6 << 3) + 4, 44);
@@ -1954,7 +2041,7 @@ namespace UnderworldRevisited.Tools
             fExpectInt("alarm: and its tile", lOHost.Alarm.TileX * 100 + lOHost.Alarm.TileY, 505);
 
             UWCritterRecord lOKin = fMakeRecord(8, 5, 0, 2);
-            UWCritterBrain lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(3, 20, 5, 4), 9);
+            UWCritterBrain lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 9, lOHost);
 
             // The alarm's destination is the victim's tile, not the player's, so the goal 5
             // routine that follows in the same update would re-search with 1 in 8 (and reset
@@ -1969,12 +2056,12 @@ namespace UnderworldRevisited.Tools
             lOHost.DefaultRoll = 0;
 
             lOKin = fMakeRecord(9, 5, 0, 2);
-            lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(3, 20, 5, 4), 9);
+            lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 9, lOHost);
             lOKinBrain.Update(lOHost);
             fExpectInt("alarm: kin at Manhattan 4 is out of hearing", lOKin.Goal, 0);
 
             lOKin = fMakeRecord(8, 5, 0, 2);
-            lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(4, 20, 5, 4), 9);
+            lOKinBrain = fMakeBrain(lOKin, fMakeRow(4, 20, 5, 4), 9, lOHost);
             lOKinBrain.Update(lOHost);
             fExpectInt("alarm: another kind does not care", lOKin.Goal, 0);
 
@@ -1983,7 +2070,7 @@ namespace UnderworldRevisited.Tools
             // player hits a creature nearby).
             lOKin = fMakeRecord(8, 5, 0, 2);
             lOKin.IsAlly = true;
-            lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(4, 20, 5, 4), 9);
+            lOKinBrain = fMakeBrain(lOKin, fMakeRow(4, 20, 5, 4), 9, lOHost);
             lOHost.Objects[5] = new CritterTarget
             {
                 Exists = true, Index = 5, IsCreature = true, TileX = 5, TileY = 5,
@@ -2000,13 +2087,13 @@ namespace UnderworldRevisited.Tools
             fExpectInt("alarm: ... and turns hostile", lOKin.Attitude, 0);
 
             lOKin = fMakeRecord(8, 5, 0, 2);
-            lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(3, 20, 5, 4), 9);
+            lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 9, lOHost);
             lOHost.ClockValue = 1000 + 0x201;
             lOKinBrain.Update(lOHost);
             fExpectInt("alarm: after 0x200 PIT ticks the alarm is over", lOKin.Goal, 0);
 
             lOKin = fMakeRecord(8, 5, 0, 2);
-            lOKinBrain = new UWCritterBrain(lOKin, fMakeRow(3, 20, 5, 4), 5);
+            lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 5, lOHost);
             lOHost.ClockValue = 1000;
             lOKinBrain.Update(lOHost);
             fExpectInt("alarm: the victim itself is not its own kin", lOKin.Goal, 0);

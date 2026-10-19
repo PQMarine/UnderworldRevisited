@@ -8,7 +8,7 @@ namespace UWDataImport.UWData
 	/// same kind (or an ally), within the hearing range in Manhattan tiles, and no older than
 	/// 0x200 PIT ticks - then hostile, target confirmed, goal 5 towards the victim's tile.
 	///
-	/// One instance per level, held by the host (ICritterHost.Alarm) rather than static, so a
+	/// One instance per level, held by the session (ICritterServices.Alarm since cleanup step 4.13) rather than static, so a
 	/// level change resets it (341140: index 0, kind 0xFF) and the self-check can build its
 	/// own. The original saves it with the game (PLAYER.DAT 0xBA-0xC1, 341052-341140) and
 	/// restores it on loading - see SaveInto and RestoreFrom.

@@ -64,6 +64,19 @@ namespace UWDataImport.UWData
 		Other
 	}
 
+	/// <summary>Who the combat music hears a damage from (damage_critter, UnderworldExhumed
+	/// critter/AI.C:1458-1515, with who the attacker's index or a missile's last_hit): nobody (who
+	/// 0, a trap's missile), a creature (who above 1: MUSIC_DANGER or MUSIC_COMBAT for the player)
+	/// or the player himself (who 1: MUSIC_FOE_HURT or MUSIC_COMBAT; his own missile). 2026-10-19.</summary>
+	public enum UWDamageMusic
+	{
+		None,
+
+		Creature,
+
+		Player
+	}
+
 	/// <summary>How a request takes the hit points - the four ways the sites had their own
 	/// methods for until cleanup step 4.2 (2026-10-17): ApplyDamage, ApplyCurse and ApplyBackfire,
 	/// DrainVitality, and the miss that only told the music.</summary>
@@ -160,9 +173,13 @@ namespace UWDataImport.UWData
 		/// (do_damage's set_effect, C5 of 2026-10-12).</summary>
 		public readonly bool Shakes;
 
-		/// <summary>The combat music hears of it (damage_critter picks MUSIC_DANGER or MUSIC_COMBAT
-		/// for the player when the attacker is known, critter/AI.C) - hit or not.</summary>
-		public readonly bool TellsMusic;
+		/// <summary>Who the combat music hears it from (damage_critter, critter/AI.C) - hit or not:
+		/// nobody, a creature (MUSIC_DANGER or MUSIC_COMBAT) or the player himself (MUSIC_FOE_HURT or
+		/// MUSIC_COMBAT; his own missile, since 2026-10-19).</summary>
+		public readonly UWDamageMusic Music;
+
+		/// <summary>The combat music hears of it at all.</summary>
+		public bool TellsMusic => Music != UWDamageMusic.None;
 
 		/// <summary>The palette colour the view window flashes when the damage lands, or NoFlash.</summary>
 		public readonly int FlashColour;
@@ -174,7 +191,7 @@ namespace UWDataImport.UWData
 
 		private UWDamageRequest(int piAmount, int piType, UWDamageSource peSource, UWDamageRule peRule,
 			int piBodyPart = NoBodyPart, bool pbSubtractArmour = false, bool pbHalveOnEasy = false, bool pbShakes = false,
-			bool pbTellsMusic = false, int piFlashColour = NoFlash, float pfFlashSeconds = 0f, int piProof = HostProof)
+			UWDamageMusic peMusic = UWDamageMusic.None, int piFlashColour = NoFlash, float pfFlashSeconds = 0f, int piProof = HostProof)
 		{
 			Amount = piAmount;
 			Type = piType;
@@ -184,7 +201,7 @@ namespace UWDataImport.UWData
 			SubtractArmour = pbSubtractArmour;
 			HalveOnEasy = pbHalveOnEasy;
 			Shakes = pbShakes;
-			TellsMusic = pbTellsMusic;
+			Music = peMusic;
 			FlashColour = piFlashColour;
 			FlashSeconds = pfFlashSeconds;
 			Proof = piProof;
@@ -194,7 +211,7 @@ namespace UWDataImport.UWData
 		public UWDamageRequest WithProof(int piProof)
 		{
 			return new UWDamageRequest(Amount, Type, Source, Rule, BodyPart, SubtractArmour, HalveOnEasy, Shakes,
-				TellsMusic, FlashColour, FlashSeconds, piProof);
+				Music, FlashColour, FlashSeconds, piProof);
 		}
 
 		// ------------------------------------------------- The sites (section 7.5)
@@ -208,7 +225,7 @@ namespace UWDataImport.UWData
 		public static UWDamageRequest CreatureBlow(int piRolled, int piBodyPart, bool pbCritical)
 		{
 			return new UWDamageRequest(piRolled, UWDamageTypes.Physical, UWDamageSource.CreatureBlow, UWDamageRule.Hit,
-				piBodyPart, true, true, true, true,
+				piBodyPart, true, true, true, UWDamageMusic.Creature,
 				pbCritical ? CriticalFlashColour : NoFlash, pbCritical ? CriticalFlashSeconds : 0f);
 		}
 
@@ -217,7 +234,7 @@ namespace UWDataImport.UWData
 		public static UWDamageRequest CreatureMiss()
 		{
 			return new UWDamageRequest(0, UWDamageTypes.Physical, UWDamageSource.CreatureBlow, UWDamageRule.Miss,
-				pbTellsMusic: true);
+				peMusic: UWDamageMusic.Creature);
 		}
 
 		/// <summary>
@@ -228,16 +245,22 @@ namespace UWDataImport.UWData
 		/// arrow, bolt or stone - a mage's fireball or lightning bolt hit an easy player in full -
 		/// and the player's own rebounding missile skipped armour and halving. The shake's level is
 		/// taken before the easy halving (C5). piDamage is the missile's damage before the armour.
-		/// One fired by a creature tells the combat music, and one with an attacker - a creature's
-		/// or the player's own - shakes the view (UWMissileHitRules.StartsCombatMusic, ShakesPlayer).
-		/// The two hit sounds stay at the site. (UWMissileHitRules.PlayerDamage until cleanup step
-		/// 4.2, 2026-10-17.)
+		/// The combat music hears of it by the missile's owner, piOwner (its last_hit byte:
+		/// UWMissileHitRules.MusicFor - a creature's, the player's own, or none for a trap's; since
+		/// 2026-10-19, a creature's alone until then). The two hit sounds stay at the site.
+		/// (UWMissileHitRules.PlayerDamage until cleanup step 4.2, 2026-10-17.)
+		/// EVERY MISSILE SHAKES THE VIEW (2026-10-19): missile_thwack sets fromwho to the missile's
+		/// last_hit - 0 for a trap's, never -1 (UnderworldExhumed combat/COMBAT.C:761-780) - and
+		/// do_damage skips the shake only for fromwho -1 (COMBAT.C:382-389; -1 is clear_fight_state's,
+		/// COMBAT.C:627-637), so a trap's missile shakes as a creature's and the player's own do.
+		/// Since 2026-10-12 (C5) ours shook only for a creature's or the player's own
+		/// (UWMissileHitRules.ShakesPlayer), which a trap's missile launched in play passed as "the
+		/// player's" and one read from the level data did not.
 		/// </summary>
-		public static UWDamageRequest Missile(int piDamage, int piType, int piBodyPart, bool pbFromCreature,
-			bool pbPlayersOwn)
+		public static UWDamageRequest Missile(int piDamage, int piType, int piBodyPart, int piOwner)
 		{
 			return new UWDamageRequest(piDamage, piType, UWDamageSource.Missile, UWDamageRule.Hit, piBodyPart, true, true,
-				UWMissileHitRules.ShakesPlayer(pbFromCreature, pbPlayersOwn), UWMissileHitRules.StartsCombatMusic(pbFromCreature));
+				true, UWMissileHitRules.MusicFor(piOwner));
 		}
 
 		/// <summary>A blast on the player's tile: its dice already rolled, its type; no armour, no

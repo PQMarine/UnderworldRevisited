@@ -138,21 +138,17 @@ namespace UWDataImport.UWData
 	/// fine heading, its clearance probes as the substitute for the original's collision
 	/// scan) and reports the outcome as a StepResult. The contract is written out in
 	/// Docs/AI/brain-and-host.md.
+	///
+	/// SHRUNK TO THE QUESTIONS ABOUT THE WORLD AROUND THIS CREATURE AND THE EVENTS OUT OF ITS MIND
+	/// (cleanup step 4.13, 2026-10-19; section 7.4 of Docs/CLEANUP-PLAN.md): the random source, the
+	/// critter clock, the kin alarm and the path slots are the level's and the session's, not one
+	/// creature's - the brain gets them as ICritterServices in its constructor; its own object
+	/// height and the ammunition table's velocities are constants of its kind and the data, handed
+	/// to the constructor as values; the goal trace is the brain's GoalChanged event. 32 members
+	/// until then, 25 since.
 	/// </summary>
 	public interface ICritterHost
 	{
-		// ------------------------------------------------- Time and chance
-
-		/// <summary>The game clock in PIT ticks (UWCritterClock.Clock) - the kin alarm window.</summary>
-		long Clock { get; }
-
-		/// <summary>The original's RNG_seg005_DE7 followed by a division by n: a uniform
-		/// 0..n-1. "1 in n" is Random(n) == 0. The self-check scripts it with a queue.</summary>
-		int Random(int piN);
-
-		/// <summary>The kin alarm globals of this level (written by UWCritterBrain.OnDamaged).</summary>
-		UWCritterAlarm Alarm { get; }
-
 		// ------------------------------------------------- The level
 
 		/// <summary>The tile's floor in height levels (the tile word's floor nibble, what
@@ -173,10 +169,6 @@ namespace UWDataImport.UWData
 		/// UWTybalOrbRules). The MAGES, kind 0x13, then keep stand-off 1 and never cast - not
 		/// Tybal himself, who is kind 0x19.</summary>
 		bool TybalOrbStands { get; }
-
-		/// <summary>The COMOBJ object height of this creature's kind, for the sight line's eye
-		/// height (spec 3.1) and the missile launch height.</summary>
-		int OwnObjectHeight { get; }
 
 		// ------------------------------------------------- Other objects
 
@@ -220,9 +212,6 @@ namespace UWDataImport.UWData
 		bool TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight, int piRangeBudget,
 			System.Collections.Generic.List<UWTilePos> pOSquares, System.Collections.Generic.List<bool> pOJumps);
 
-		/// <summary>The level's sixteen stored path slots (UWGameSession.CritterPaths).</summary>
-		UWCritterPathSlots PathSlots { get; }
-
 		/// <summary>
 		/// The physics of this update (NPCInitialProcessing 52702-52990: NeedsToMove, the params,
 		/// the pre-state, the step on the core, the write-back), called by the brain after the
@@ -250,12 +239,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>DamageObject on the door with this damage of type 4.</summary>
 		void BashDoor(int piDoorIndex, int piDamage);
-
-		// ------------------------------------------------- Missiles and spells
-
-		/// <summary>Byte 1 of entry n of the 16 x 3 ammunition table (OBJECTS.DAT 0x82,
-		/// UWObjectProperties' ranged speed), the velocity GetPitchToGTarg divides by.</summary>
-		int MissileVelocity(int piAmmoIndex);
 
 		// ------------------------------------------------- Events out of the brain
 
@@ -307,9 +290,29 @@ namespace UWDataImport.UWData
 		/// <summary>Frame 3 of animation 0x0C: SpecialDeathCases(obj, 1), unlink, loot, remains,
 		/// inventory, free the object. The brain's Update returns Removed afterwards.</summary>
 		void OnDeathFinished();
+	}
 
-		/// <summary>For traces: the goal or target changed (SetNewGoalAndGtarg, ResetGoalAndGtarg,
-		/// the reactions).</summary>
-		void OnGoalChanged(int piOldGoal, int piNewGoal, int piGTarg);
+	/// <summary>
+	/// WHAT EVERY CREATURE'S MIND ON THE LEVEL DRAWS ON (cleanup step 4.13, 2026-10-19): the random
+	/// source, the critter clock, the kin alarm and the sixteen path slots - one set per level and
+	/// session, none of it one creature's, so it left ICritterHost. The game's is the session
+	/// (UWGameSession, which owns all four); the self-check's brain fake scripts the rolls with a
+	/// queue (an IUWRandom) and sets the clock.
+	/// </summary>
+	public interface ICritterServices
+	{
+		/// <summary>The original's RNG_seg005_DE7 followed by a division by n: Next(n) is a uniform
+		/// 0..n-1, "1 in n" is Next(n) == 0. The brain draws in the original's order and never for a
+		/// range of 0 or 1.</summary>
+		IUWRandom Random { get; }
+
+		/// <summary>The game clock in PIT ticks (UWCritterClock.Clock) - the kin alarm window.</summary>
+		long Clock { get; }
+
+		/// <summary>The kin alarm globals of this level (written by UWCritterBrain.OnDamaged).</summary>
+		UWCritterAlarm Alarm { get; }
+
+		/// <summary>The level's sixteen stored path slots (UWGameSession.CritterPaths).</summary>
+		UWCritterPathSlots PathSlots { get; }
 	}
 }

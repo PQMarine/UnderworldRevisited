@@ -614,8 +614,7 @@ public static class UWTriggerSystem
         int liHeading = (((pOTrap.Heading & 7) << 5) + TrapHeadingOffset) & 0xFF;
 
         UWProjectileFlight lOFlight = UWMissiles.Ensure(pOLevelLoader).LaunchFromSpot(liAmmunition, piTileX, piTileY,
-            pOTrap.XPos, pOTrap.YPos, pOTrap.ZPos, liHeading, TrapPitch, TrapSpeedByte, liDamage, UWDamageTypes.Missile, -1,
-            pOInteraction);
+            pOTrap.XPos, pOTrap.YPos, pOTrap.ZPos, liHeading, TrapPitch, TrapSpeedByte, liDamage, UWDamageTypes.Missile, -1);
 
         if (lOFlight == null)
             return false;

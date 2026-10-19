@@ -5,7 +5,7 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// THE RANDOM SOURCE OF ONE SESSION (cleanup step 2.8, 2026-10-14; UWGameSession.Random): the
 	/// one seeded generator every rule draws from - combat, loot, the creature brain
-	/// (ICritterHost.Random), the motion core (IUWMotionWorld.Random), the conversation's random
+	/// (ICritterServices.Random), the motion core (IUWMotionWorld.Random), the conversation's random
 	/// (UWConversationVM.IHost.Random) and everything that calls UWRandom. Before, UWRandom kept a
 	/// static System.Random seeded from the clock, shared by every game of the process and not
 	/// reproducible.

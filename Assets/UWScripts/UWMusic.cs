@@ -92,10 +92,11 @@ public static class UWMusic
     }
 
     /// <summary>The player was hit: if still doing well, the undecided combat theme,
-    /// otherwise the losing one (reference: damage.cs).</summary>
-    public static void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth)
+    /// otherwise the losing one (reference: damage.cs), the winning one when his own missile hit
+    /// him (pbByPlayer, UWMusicSelector.PlayerHurtTheme).</summary>
+    public static void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth, bool pbByPlayer)
     {
-        msOSelector.OnPlayerDamaged(pfCurrentHealth, pfMaxHealth, Time.time);
+        msOSelector.OnPlayerDamaged(pfCurrentHealth, pfMaxHealth, Time.time, pbByPlayer);
     }
 
     /// <summary>Every frame: reconcile the request with what is playing (reference: RefreshMusic).</summary>

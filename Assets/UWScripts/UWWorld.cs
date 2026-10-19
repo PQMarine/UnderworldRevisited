@@ -81,6 +81,13 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// feet).</summary>
     public UWPlayerAvatar Avatar => mOPlayer ?? (mOPlayer = new UWPlayerAvatar(this));
 
+    private UWCreatureWorld mOCreatures;
+
+    /// <summary>The creatures' side of this world (cleanup step 4.11, 2026-10-18): what a creature's
+    /// UWCreatureActor asks beyond IUWWorld - the motion engines, the melee search, the launch, the
+    /// talk, the music. Owned here like the presentation and the avatar; it keeps no state.</summary>
+    public UWCreatureWorld Creatures => mOCreatures ?? (mOCreatures = new UWCreatureWorld(this));
+
     public void TravelTo(int piLevelIndex, int piTileX, int piTileY)
     {
         if (Loader != null)
@@ -230,11 +237,16 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
             return null;
         }
 
+        /// <summary>The body there takes blows: a creature until its death machine removes it, the
+        /// dying one too (UWDamageable.TakesBlows, UWCreatureActor.TakesBlows - cleanup step 4.12c,
+        /// 2026-10-19, "as the original": damage_critter runs on a dying creature, UnderworldExhumed
+        /// critter/AI.C:1458-1513). Until then a committed (destroyed) body took no damage here, the
+        /// player's blow neither.</summary>
         public bool CreatureTakesBlows(UWDamageTarget pOTarget)
         {
             UWDamageable lOBody = fBodyOf(pOTarget);
 
-            return lOBody != null && !lOBody.IsDestroyed;
+            return lOBody != null && lOBody.TakesBlows;
         }
 
         public void DamageBody(UWDamageTarget pOTarget, int piDamage, int piDamageType, int piAttacker)
@@ -420,11 +432,14 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
     /// <summary>
     /// CheckIfItemFitsInTile_seg026_1008 for a summoned creature: its COMOBJ footprint (radius
-    /// in eighths around the spot) from the floor up to its COMOBJ height; blocked by a living
+    /// in eighths around the spot) from the floor up to its COMOBJ height; blocked by a
     /// creature, the player's body, or an object with a COMOBJ height (a barrel, a door) -
     /// the same records ScanForCollisions gathers. Items lying on the floor (height 0) do not
     /// count, as they do not in the original's scan. Moved from the spell host (cleanup step 3.6,
     /// 2026-10-17); the physics query stays as it was.
+    /// A DYING CREATURE IS IN THE WAY TOO (2026-10-19, the user's decision "as the original"): its
+    /// record stays in its tile list until frame 3 and can_place's scan has no dying test
+    /// (UWCreatureActor.IsInTileList); until then a destroyed body let the summon through.
     /// </summary>
     public bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ)
     {
@@ -465,10 +480,22 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
             if (lOCritter != null)
             {
-                UWDamageable lODamageable = lOCritter.GetComponent<UWDamageable>();
+                UWCreatureActor lOActor = lOCritter.Actor;
 
-                if (lODamageable != null && !lODamageable.IsDestroyed)
-                    return false;
+                // A creature not set up yet (no actor) blocks while its body is not destroyed, as
+                // every creature did until 2026-10-19.
+                if (lOActor != null)
+                {
+                    if (lOActor.IsInTileList)
+                        return false;
+                }
+                else
+                {
+                    UWDamageable lODamageable = lOCritter.GetComponent<UWDamageable>();
+
+                    if (lODamageable != null && !lODamageable.IsDestroyed)
+                        return false;
+                }
 
                 continue;
             }
@@ -537,15 +564,15 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
     // ------------------------------------------------- A found creature (cleanup step 3.6)
 
-    /// <summary>The creature's own talk (ICritterHost.OnTalk: nothing while a conversation is
+    /// <summary>The creature's own talk (UWCreatureActor.Talk: nothing while a conversation is
     /// open, else Interaction.TryTalkToNpcData) - the special deaths' TalkToThisCreature until
     /// cleanup step 3.6 (2026-10-17).</summary>
     public void TalkTo(UWCreatureRef pOCreature)
     {
         UWCritter lOCritter = CritterOf(pOCreature);
 
-        if (lOCritter != null)
-            ((ICritterHost)lOCritter).OnTalk();
+        if (lOCritter != null && lOCritter.Actor != null)
+            lOCritter.Actor.Talk();
     }
 
     /// <summary>The creature behind a reference: the active creature that carries its record (the

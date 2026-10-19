@@ -45,7 +45,12 @@ public static class UWTargetSpell
 
         // ALL FIVE TARGET CREATURES. The reference checks major class 1 for this, i.e.
         // NPC; for us that is the critter component.
-        if (lOCritter == null || lODamageable == null || lODamageable.IsDestroyed)
+        // A DYING CREATURE TOO (cleanup step 4.12c, 2026-10-19, the user's decision "as the
+        // original"): sp_ward_undead and sp_poison have no dying test (UnderworldExhumed
+        // combat/SPELLS.C:344-361), so Smite Undead and Poison strike it - the body's one rule
+        // (UWDamageable.TakesBlows); until then a destroyed body was missed here. Cause Fear, Ally
+        // and Paralyse still miss a dying one (their own IsDead test, UWCreatureActor).
+        if (lOCritter == null || lODamageable == null || !lODamageable.TakesBlows)
             return UWTargetSpellRules.Result.Missed;
 
         switch (piMinorClass)

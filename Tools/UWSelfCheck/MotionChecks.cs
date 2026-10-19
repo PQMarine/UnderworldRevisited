@@ -467,6 +467,19 @@ namespace UnderworldRevisited.Tools
             fExpectBool("motion: the thing comes to rest beyond the edge", liSteps > 0 && lOWorld.Rested == 1, true);
             fExpectBool("motion: ... on the lower floor", lOWorld.RestTileY > 10, true);
             fExpectInt("motion: ... at the lower floor's height", lOWorld.RestZPos, 16);
+
+            // The owner byte at the launch (missile_fire, combat/MISSILE.C:290-300): the player's 1;
+            // a source that is no creature - the trap's spot (UWMissiles.LaunchFromSpot) - 0.
+            UWMobileRecord lOTrapArrow = new UWMobileRecord { Object = new UWObject(0x12), Index = 1025 };
+            UWMobileObjectMotion.Launcher lOSpot = new UWMobileObjectMotion.Launcher
+            {
+                Index = 0, TileX = 8, TileY = 8, XPos = 4, YPos = 4, ZPos = 60, Octant = 0, FineHeadingBits = 0, Height = 0,
+                Radius = 0
+            };
+
+            fExpectBool("motion: the player's throw is his (owner 1), a trap's arrow nobody's (owner 0)",
+                lORecord.Owner == UWMissileHitRules.PlayerOwner && lOMotion.TryLaunch(lOTrapArrow, lOSpot, true, 0, 0, 0x14)
+                && lOTrapArrow.Owner == 0, true);
         }
 
         private static void fCheckStraightDrop(DataImport pOData, int piItemId)

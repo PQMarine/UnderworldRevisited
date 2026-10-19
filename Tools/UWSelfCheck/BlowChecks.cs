@@ -101,10 +101,12 @@ namespace UnderworldRevisited.Tools
 
             FakeWorld lOWorld = new FakeWorld();
 
-            lOWorld.DestroyedCreatures.Add(7);
+            // Only a REMOVED creature takes nothing; a dying one takes the blow with its attacker since
+            // cleanup step 4.12c (2026-10-19, as the original's damage_critter; "destroyed" until then).
+            lOWorld.RemovedCreatures.Add(7);
             lOWorld.Damage(lOCreature, UWBlow.CreatureBlow(5, 9));
             lOWorld.Damage(lOCreature, UWBlow.Missile(5, UWDamageTypes.Missile, 9));
-            fExpectInt("a destroyed creature: no attacker, no damage", lOWorld.Blows.Count, 0);
+            fExpectInt("a removed creature: no attacker, no damage", lOWorld.Blows.Count, 0);
 
             lOLog = fLand(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Trap(5)));
             fExpectBool("trap on the player: his hit points, type 4 (whack_thing, B5)",

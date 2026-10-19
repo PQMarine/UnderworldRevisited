@@ -67,20 +67,109 @@ namespace UWDataImport.UWData
 				piMissileZ + piMissileHeight);
 		}
 
-		/// <summary>A CREATURE'S MISSILE starts the combat music like its blow: damage_critter
-		/// (critter/AI.C) finds the shooter in the missile's last_hit and picks MUSIC_DANGER or
-		/// MUSIC_COMBAT for the player, damage or not (2026-10-12; ours played nothing).</summary>
-		public static bool StartsCombatMusic(bool pbFromCreature)
+		/// <summary>The owner byte (last_hit, record byte 0x12) of the player's missile: his mobile
+		/// index. 0 is nobody's (a trap's), above 1 a creature's index.</summary>
+		public const int PlayerOwner = 1;
+
+		/// <summary>
+		/// WHOM A MISSILE'S HIT IS CHARGED TO: its owner byte, as damage_critter takes who from the
+		/// missile's last_hit (UnderworldExhumed critter/AI.C:1474-1476) - the player, a creature's
+		/// index, or nobody (UWBlow.Nobody) for a trap's, whose owner missile_fire leaves 0
+		/// (combat/MISSILE.C:245-300). The one rule for every flight since 2026-10-19 (the user's
+		/// decision "as the original"): until then a launched flight was charged to its launching
+		/// creature or else the player, so a trap's missile counted as the player's.
+		/// </summary>
+		public static int AttackerOf(int piOwner)
 		{
-			return pbFromCreature;
+			if (piOwner == PlayerOwner)
+				return UWCritterBrain.PlayerIndex;
+
+			return piOwner > PlayerOwner ? piOwner : UWBlow.Nobody;
 		}
 
-		/// <summary>A missile with an attacker shakes the view (COMBAT.C missile_thwack -> do_damage,
-		/// C5, 2026-10-12): a creature's or the player's own; one without (fromwho -1, a trap's)
-		/// does not.</summary>
-		public static bool ShakesPlayer(bool pbFromCreature, bool pbPlayersOwn)
+		/// <summary>
+		/// WALKING INTO A MISSILE HURTS, WHOSEVER IT IS: do_objhit uses a struck object whose COMOBJ
+		/// usable bit is set (byte 6 bit 1, UWCommonObjectProperties.UsedWhenThrown - the missiles
+		/// 0x10-0x17) on the mover, and UseObj runs missile_newhit for a missile object with the
+		/// mover as what it hit (UnderworldExhumed motion/OBJPHYS.C:141-200, obj/USEITEMS.C:90-92),
+		/// charged to the missile's owner (AttackerOf). Since 2026-10-19 (the user's decision "as the
+		/// original") for every such flight the player walks into; his own alone until then.
+		/// </summary>
+		public static bool HurtsWhoWalksIntoIt(int piItemId, bool pbUsable)
 		{
-			return pbFromCreature || pbPlayersOwn;
+			return pbUsable && HurtsWhatItHits(piItemId);
+		}
+
+		/// <summary>The eighths beyond the two radii the player may be from a missile and still be
+		/// touching it (InTouchReach).</summary>
+		public const int TouchSlackEighths = 1;
+
+		/// <summary>
+		/// HOW OFTEN A MISSILE THE PLAYER PRESSES AGAINST STRIKES HIM: in the original on every
+		/// motion step that meets it (do_objhit, UnderworldExhumed motion/OBJPHYS.C:141-200), and the
+		/// player's motion runs once per drawn frame - against a missile held by Freeze Time he dies
+		/// fast (per user on the original, 2026-10-19: the arrow stays as it is and the damage is not
+		/// small). Ours strikes at a fixed rate instead, at most once per this many PIT ticks while the
+		/// motion meets the missile: 8, 1/32 s, the rate of the lava's rolls, which is what the
+		/// original reaches in the user's DOSBox (Docs/DEVIATIONS.md, Rules: nothing hangs on the
+		/// frame rate). Without the freeze the push sends the missile off after the first hit anyway.
+		/// Until that day ours struck once per touch.
+		/// </summary>
+		public const int WalkInHitIntervalTicks = 8;
+
+		/// <summary>A meeting strikes when no walk-in hit of this missile came within the interval
+		/// (piLastHit -1: none yet).</summary>
+		public static bool WalkInHitDue(long plNow, long plLastHit)
+		{
+			return plLastHit < 0 || plNow - plLastHit >= WalkInHitIntervalTicks;
+		}
+
+		/// <summary>
+		/// THE PLAYER STILL TOUCHES THE MISSILE: his box (his COMOBJ radius, not the scan's shrunk
+		/// one) and the missile's within one eighth more across, their heights overlapping. Since
+		/// 2026-10-19 (evening) it only keeps the contact at the LAUNCH from striking until he is out of
+		/// this reach; a walk-in strikes on every meeting at the fixed rate WalkInHitIntervalTicks, as
+		/// the original on every step (per user on the original the same evening). Before, once per
+		/// touch; a distance of 24 world units between the pictures until that morning.
+		/// </summary>
+		public static bool InTouchReach(int piPlayerX8, int piPlayerY8, int piPlayerFeet, int piPlayerRadius, int piPlayerHeight,
+			int piMissileX8, int piMissileY8, int piMissileZ, int piMissileRadius, int piMissileHeight)
+		{
+			int liReach = piPlayerRadius + piMissileRadius + TouchSlackEighths;
+			int liDx = piPlayerX8 - piMissileX8;
+			int liDy = piPlayerY8 - piMissileY8;
+
+			if (liDx > liReach || -liDx > liReach || liDy > liReach || -liDy > liReach)
+				return false;
+
+			// A missile of height 0 is a point one unit high (the scan's record, CreateColllisionRecord).
+			int liTop = piMissileZ + (piMissileHeight > 0 ? piMissileHeight : 1);
+
+			return liTop >= piPlayerFeet && piMissileZ <= piPlayerFeet + piPlayerHeight;
+		}
+
+		/// <summary>The player's own missile (AttackerOf is the player): his impact sound, his hits
+		/// reported to the eyes (2026-10-19, by the owner byte).</summary>
+		public static bool IsPlayersOwn(int piOwner)
+		{
+			return piOwner == PlayerOwner;
+		}
+
+		/// <summary>
+		/// WHO THE COMBAT MUSIC HEARS A MISSILE'S HIT ON THE PLAYER FROM: damage_critter
+		/// (UnderworldExhumed critter/AI.C:1458-1515) takes who from the missile's last_hit. A
+		/// CREATURE'S (who above 1) starts the music like its blow - MUSIC_DANGER or MUSIC_COMBAT for
+		/// the player, damage or not (2026-10-12; ours played nothing). THE PLAYER'S OWN (who 1) runs
+		/// the first branch, as for a creature he hits: MUSIC_FOE_HURT or MUSIC_COMBAT by his own hit
+		/// points (per user on the original, 2026-10-19: walking into his own arrow during Freeze
+		/// Time started the combat music; ours kept it silent). A trap's (who 0) plays nothing.
+		/// </summary>
+		public static UWDamageMusic MusicFor(int piOwner)
+		{
+			if (piOwner == PlayerOwner)
+				return UWDamageMusic.Player;
+
+			return piOwner > PlayerOwner ? UWDamageMusic.Creature : UWDamageMusic.None;
 		}
 
 		/// <summary>THE FLASH AT THE MISSILE'S HEIGHT on a struck object: missile_thwack sets hitz to

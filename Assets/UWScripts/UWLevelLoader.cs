@@ -809,6 +809,10 @@ public class UWLevelLoader : MonoBehaviour
     /// view's answer to LevelCleared.</summary>
     private void fWipeObjects()
     {
+        // The things in flight go with the rest (UWLevel.ResetObjectStore empties their list).
+        if (UWMotionHost.Instance != null)
+            UWMotionHost.Instance.EndAllFlights();
+
         WorldEdit.WipeAll();
     }
 
@@ -869,6 +873,11 @@ public class UWLevelLoader : MonoBehaviour
         // The carried objects take their numbers from this level (UWCarriedSlots).
         UWCarriedSlots.Level = CurrentLevel;
 
+        // The flights of the level left stay in its data (UWLevel.InFlight) and are not stepped any
+        // more; their pictures go with the old root (2026-10-19).
+        if (UWMotionHost.Instance != null)
+            UWMotionHost.Instance.ForgetFlights();
+
         if (mOLevelRoot != null)
         {
             // Deactivate first, then destroy: Destroy only takes effect at the end of the frame, until then
@@ -896,6 +905,13 @@ public class UWLevelLoader : MonoBehaviour
         // complete, and the transitions do not hang on objects.
         if (ArmageddonActive)
             fWipeObjects();
+
+        // The things in flight of the level data fly on - a save's, or the ones left in the air
+        // when the player went elsewhere (UWMissiles.ResumeFlights, 2026-10-19).
+        UWMissiles lOMissiles = UWMissiles.Ensure(this);
+
+        if (lOMissiles != null)
+            lOMissiles.ResumeFlights(CurrentLevel);
     }
 
     /// <summary>
@@ -1107,6 +1123,14 @@ public class UWLevelLoader : MonoBehaviour
                     piInPlaceAt: piInPlaceAt);
 
         return SpawnObjectInTile(lOObject, piTileX, piTileZ, peArrival);
+    }
+
+    /// <summary>A new object of this kind with its picture, not yet in the world, or null without
+    /// data - the same object SpawnObjectByIdAround puts down (a dead creature's loot, rolled into
+    /// its chain before the spill since cleanup step 4.12b, 2026-10-19; UWCritterRemains).</summary>
+    public UWObject BuildObject(int piObjectId, int piQuantity, int piQuality)
+    {
+        return fBuildObject(piObjectId, piQuantity, piQuality);
     }
 
     /// <summary>A new object of this kind with its picture, or null without data.</summary>

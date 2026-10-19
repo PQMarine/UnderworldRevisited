@@ -38,7 +38,8 @@ namespace UWDataImport.UWData
 	/// phys_bounce_up do_spell would give the creature) - this host builds none of them: their
 	/// members do nothing here.
 	///
-	/// The comments of the paths it replaces stay with UWCritter.OnSpellCast.
+	/// The comments of the paths it replaces stay with UWCreatureActor's OnSpellCast (UWCritter's until
+	/// cleanup step 4.11).
 	///
 	/// PER CAST, engine-free: the world, the cast's value and the creature's missile launcher; the
 	/// self-check builds it on its fake world.

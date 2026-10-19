@@ -68,9 +68,11 @@ public static class UWTileBlast
         UWCommonObjectProperties lOCommon = pOLoader.UWDataImporter != null
             ? pOLoader.UWDataImporter.CommonObjectProperties : null;
 
-        // WHAT LIES THERE NOW: a creature this blast kills drops its remains at once in ours,
-        // while the original lets it die over its death animation first - they must not burn
-        // in the same blast. DamageSquare walks the list as it was before the first blow.
+        // WHAT LIES THERE NOW: DamageSquare walks the list as it was before the first blow, so
+        // nothing the blast itself puts there is struck by it. Until cleanup step 4.12
+        // (2026-10-19) a creature this blast killed dropped its remains at once in ours, which
+        // must not burn in the same blast; now they come at frame 3 of its death, as in the
+        // original, and a dying creature on the square still takes the blast (4.12c).
         UWAreaWalk.DamageSquare(lOTile,
             () => fStrikePlayer(lOWorld, pOLoader, pOTile, piDiceCount, piDiceRange, piDamageType, piAttacker),
             pOObject =>
@@ -84,7 +86,11 @@ public static class UWTileBlast
             });
     }
 
-    /// <summary>A creature of the tile's list: its body takes the blow unless it is dying.</summary>
+    /// <summary>A creature of the tile's list: its body takes the blow, a dying one too since cleanup
+    /// step 4.12c (2026-10-19, the user's decision "as the original": damage_square rolls and strikes
+    /// every object of the square, UnderworldExhumed combat/SPELLS.C:864-878, and a dying creature
+    /// stays in it until frame 3, critter/AI.C:1135-1140) - the body's one rule
+    /// (UWDamageable.TakesBlows). Until then a dying one was passed over, without its roll.</summary>
     private static void fStrikeCreature(UWWorld pOWorld, UWLevelLoader pOLoader, UWObject pONpc, int piDiceCount,
         int piDiceRange, int piDamageType, int piAttacker, HashSet<UWDamageable> pODone)
     {
@@ -93,7 +99,7 @@ public static class UWTileBlast
         UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
         UWDamageable lODamageable = lOCritter != null ? lOCritter.GetComponent<UWDamageable>() : null;
 
-        if (lODamageable == null || lODamageable.IsDestroyed || !pODone.Add(lODamageable))
+        if (lODamageable == null || !lODamageable.TakesBlows || !pODone.Add(lODamageable))
             return;
 
         // The blast's launcher is charged, the creature itself too when it is caught in its own

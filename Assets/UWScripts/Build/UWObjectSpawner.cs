@@ -516,7 +516,7 @@ namespace UnderworldRevisited.Build
             // The reference subtracts damage from npc_hp and lets the creature die at 0
             // (damage.cs). Only then does an injury also survive saving and loading. Where
             // the data holds 0, the body starts from the table value, but the record keeps its
-            // 0 and is the store the body reads (UWCritter.Initialise, since 2026-10-18).
+            // 0 and is the store the body reads (the UWCreatureActor constructor, since 2026-10-18).
             UWNpc lONpc = pOObject as UWNpc;
             int liHitPoints = lONpc != null && lONpc.HitPoints > 0 ? lONpc.HitPoints : lOCritter.Vitality;
 

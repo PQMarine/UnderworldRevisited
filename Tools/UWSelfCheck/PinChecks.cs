@@ -199,12 +199,14 @@ namespace UnderworldRevisited.Tools
         /// from the bytes alone: in the original's data the list holds exactly the creatures
         /// standing in a tile (UWLevelWriter.fWriteActiveMobiles). Entries that hold none leave
         /// it (the last moving in), standing creatures it lacks are appended in tile order - our
-        /// saves before 2026-10-12 left off creatures made during play. Returns how many
-        /// entries changed.
+        /// saves before 2026-10-12 left off creatures made during play. A non-creature in a mobile
+        /// slot in a tile's list that is on the list is a thing in flight and stays where it is
+        /// (UWMobileRecordCodec, 2026-10-19). Returns how many entries changed.
         /// </summary>
         private static int fRepairActiveList(byte[] pyData, int piBlock)
         {
             List<int> lOStanding = new List<int>();
+            List<int> lOInTiles = new List<int>();
 
             for (int liTile = 0; liTile < UWLevArkLayout.TileCount; liTile++)
             {
@@ -223,6 +225,9 @@ namespace UnderworldRevisited.Tools
                     if (UWLevArkLayout.IsMobileSlot(liIndex) && UWObjectIds.IsCreature(liId) && !lOStanding.Contains(liIndex))
                         lOStanding.Add(liIndex);
 
+                    if (UWLevArkLayout.IsMobileSlot(liIndex) && liId != 0 && !UWObjectIds.IsCreature(liId))
+                        lOInTiles.Add(liIndex);
+
                     liIndex = BitConverter.ToUInt16(pyData, liAt + 4) >> 6;
                 }
             }
@@ -232,7 +237,7 @@ namespace UnderworldRevisited.Tools
 
             foreach (int liListed in new List<int>(lOList))
             {
-                if (!lOStanding.Contains(liListed))
+                if (!lOStanding.Contains(liListed) && !lOInTiles.Contains(liListed))
                 {
                     UWLevArkCodec.RemoveActiveMobile(lOList, liListed);
                     liChanged++;
