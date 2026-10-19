@@ -8,6 +8,59 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.8.3] - 2026-10-19
+
+### Closer to the original
+
+The end
+- The journey through the moongate into the Void starts whenever no talisman is left to destroy,
+  also right after loading such a save, as in the original.
+
+Creatures
+- The golem keeps the 125 hit points his conversation gives him, also after saving and loading.
+  A creature saved with 0 hit points keeps them.
+- An explosion is charged to whoever launched it: a creature caught in its own fireball, or killed
+  by another creature's, gives the player no experience and raises no alarm against him.
+- Creatures cast through the same spell path as the player and the traps. Nothing a creature
+  casts works in the Void or on a tile without magic, and its area spells lie along its own facing.
+- Flame Wind and other blasts strike everyone on their tiles, whatever their height (a bat flying
+  high is hit too), and objects in wall squares: a secret door can be burst open.
+- A creature that dies far away or during Freeze Time finishes its death when it moves again, with
+  its special death (Tybal, the golem) and its loot exactly once; before, it vanished after three
+  seconds. Killed during Freeze Time, it shows its first death picture at once.
+- Blows, missiles, blasts, Poison and Smite Undead still land on a falling creature, and the
+  player's blow on it alerts its kin. A falling body blocks a summoning. A drowning creature keeps
+  its hit points.
+- A creature's loot is rolled and scattered in the original's order. A conversation partner's goods
+  are rolled when the conversation starts and show newest first in the trade window.
+- A creature walking into a missile is hit by it and pushes it on.
+
+Combat
+- Blows, weapon wear and missiles roll their dice in the original's order. A missile rolls its damage
+  when it hits and takes armour and blood from the same body part.
+- Walking into a missile hurts, whoever shot it, and the hit is charged to the shooter. Pressing
+  against one held by Freeze Time hurts again and again, and fast; the arrow keeps its direction
+  until it flies on.
+- The player's own missile starts the combat music when it hits him. A trap's missile belongs to
+  nobody: no experience, no alarm, no music.
+- Every missile hit shakes the view, a trap's included. The shake runs as in the original: a light
+  hit gives a short jolt, and every shake ends with one.
+- Sleeping while poisoned respects Poison Resistance.
+- Jumping into water splashes.
+
+### Fixed
+- Things in flight are saved: an arrow in the air was lost when saving, and one in a save of the
+  original hung in the air for good and pointed the wrong way. Saves with an arrow in the air now
+  load in both games, and it flies on.
+
+### Changed
+- Walking into a missile and the screen shake run at fixed rates, not once per drawn frame as in the
+  original (Docs/DEVIATIONS.md).
+- The F1 overlay shows whether the last hit shook the view, and how hard.
+- Internal: the player's damage, death, terrain and movement, and the creatures' game side, their
+  attacks, spells and death, are restructured into engine-free rules (code cleanup phase 4, see
+  Docs/CLEANUP-PLAN.md).
+
 ## [0.8.2] - 2026-10-18
 
 ### Fixed
