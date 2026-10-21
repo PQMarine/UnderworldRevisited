@@ -210,6 +210,8 @@ public static class UWHelpControls
         string lsCamp = fKey("KeyCamp", 0, "F10");
         string lsOptions = fKey("KeyOptions", 0, "F1");
         string lsScheme = fKey("ToggleScheme", 0, "F2");
+        string lsWalkSlow = fKey("WalkSlow", 0, "Left Shift");
+        string lsUse = fKey("ModernUse", 0, "E");
 
         List<Section> lOSections = new List<Section>();
 
@@ -221,25 +223,28 @@ public static class UWHelpControls
         }
             .Add(lsRight, "Free the pointer, or lock it again to look around. The game menu has the other way "
                 + "round as an option: the pointer stays free and the view turns while the button is held.")
-            .Add("Locked", "The crosshair aims: E, " + lsLook + " and the left button act on what it is on.")
-            .Add("Free", "The windows take the clicks; E and " + lsLook + " act on what is under the pointer, in the "
-                + "world as in the bags, the character panel and the action bar (holding E does nothing over a window)."));
+            .Add("Locked", "The crosshair aims: " + lsUse + ", " + lsLook + " and the left button act on what it is on.")
+            .Add("Free", "The windows take the clicks; " + lsUse + " and " + lsLook + " act on what is under the pointer, in the "
+                + "world as in the bags, the character panel and the action bar (holding " + lsUse + " does nothing over a window)."));
 
         lOSections.Add(new Section { Title = "Moving" }
             .Add(lsMove, "Walk forward and back, step sideways.")
+            .Add(lsWalkSlow, "Held: walk slowly instead of running. The Controls dialog can make it switch on and off.")
+            .Add(fKey("EasyModifier", 0, "Left Alt") + " + " + lsMove + " / X", "Easy movement: one step forward or back, or a turn "
+                + "of 45 degrees; held, it repeats. X steps forward without stepping off a ledge.")
             .Add("Mouse", "Turn and look up and down (pointer locked).")
             .Add(fKey("Jump", 0, "Space"), "Jump.")
-            .Add("Space / Left Ctrl", "While flying or levitating: rise and sink."));
+            .Add(fKey("ModernHover", 2, "Space") + " / " + fKey("ModernHover", 1, "Left Ctrl"), "While flying or levitating: rise and sink."));
 
         lOSections.Add(new Section { Title = "Acting" }
-            .Add("E (tap)", "The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it.")
-            .Add("E (hold)", "Use it directly, even what could be picked up - a sack is emptied instead of taken.")
+            .Add(lsUse + " (tap)", "The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it.")
+            .Add(lsUse + " (hold)","Use it directly, even what could be picked up - a sack is emptied instead of taken.")
             .Add(lsLook, "Look at it.")
             .Add(lsLeft + " (free pointer)", "On a thing in the world: its menu - Talk, Use, Look, Pick up. Held and "
                 + "dragged: take it onto the pointer."));
 
         lOSections.Add(new Section { Title = "Combat" }
-            .Add("R", "Draw or put away the weapon in your hand.")
+            .Add(fKey("ModernReady", 0, "R"), "Draw or put away the weapon in your hand.")
             .Add(lsLeft + " (held)", "Charge the weapon; let go to strike. The power gem shows the charge.")
             .Add("The strike", "Pointer locked: look up for an overhead bash, down for a thrust, straight ahead for "
                 + "a slash. Pointer free: the upper third of the screen bashes, the lower third thrusts, the middle slashes.")

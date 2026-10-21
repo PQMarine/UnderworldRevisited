@@ -135,8 +135,14 @@ public class Interaction : MonoBehaviour
     /// (UWModernScroll.MaxLines).</summary>
     public const int MessageHistoryCount = UWModernScroll.MaxLines;
 
-    /// <summary>Messages the modern message box shows: the original's five.</summary>
-    public const int ModernMessageCount = 5;
+    /// <summary>Messages the modern message box shows: the original's five, or the layout editor's
+    /// Lines (UWUserSettings.ModernMessageLines; issue 4, 2026-10-21), as few as the scroll's
+    /// fewest and as many as the list keeps.</summary>
+    public static int ModernMessageCount => Mathf.Clamp(
+        UWUserSettings.ModernMessageLines > 0 ? UWUserSettings.ModernMessageLines : DefaultModernMessageCount,
+        UWModernScroll.MinLines, MessageHistoryCount);
+
+    public const int DefaultModernMessageCount = 5;
 
     /// <summary>For everything that should play an original sound effect. The mapping
     /// event -> effect is still open, see UWSoundPlayer.</summary>

@@ -30,9 +30,11 @@ public static class UWGlyphs
 
     public const int DpadHorizontalTile = 39;
 
-    /// <summary>The orange double arrows: left-right and four ways (the layout editor's pointers,
-    /// per user 2026-10-10).</summary>
+    /// <summary>The orange double arrows: left-right, up-down and four ways (the layout editor's
+    /// pointers, per user 2026-10-10; up-down for the message box's lines, 2026-10-21).</summary>
     public const int ArrowLeftRightTile = 611;
+
+    public const int ArrowUpDownTile = 645;
 
     public const int ArrowFourWaysTile = 679;
 

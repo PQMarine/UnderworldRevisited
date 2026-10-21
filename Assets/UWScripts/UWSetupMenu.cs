@@ -706,6 +706,18 @@ public partial class UWSetupMenu : MonoBehaviour
 
         lfTop += 30f;
 
+        // THE SLOW-WALK KEY held or switched (issue 4, 2026-10-21).
+        bool lbWalkToggle = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.WalkSlowToggle,
+            "  Slow walk key switches on and off instead of being held (modern)", mOToggle);
+
+        if (lbWalkToggle != UWUserSettings.WalkSlowToggle)
+        {
+            UWUserSettings.WalkSlowToggle = lbWalkToggle;
+            UWUserSettings.Save();
+        }
+
+        lfTop += 30f;
+
         Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lODialog.yMax - 90f - lfTop);
         Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.Entries.Count * 28f);
 

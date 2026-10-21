@@ -127,8 +127,6 @@ public class UWModernHud : MonoBehaviour
 
     private const float ViewportHeight = 112f;
 
-    private const int MessageLines = 5;
-
     private const string MenuModalHold = "modern menu";
 
     private const string MenuClockHold = "modern menu";
@@ -626,7 +624,7 @@ public class UWModernHud : MonoBehaviour
         mOTarget.fontSize = liFontSize;
 
         float lfMessageWidth = Mathf.Min(Screen.width * 0.45f, liFontSize * 36f);
-        float lfMessageHeight = liFontSize * 1.35f * MessageLines + (2f * lfMargin);
+        float lfMessageHeight = liFontSize * 1.35f * Interaction.ModernMessageCount + (2f * lfMargin);
         float lfFlaskRow = ((ShelfMargin + 42) * liScale) + (liFontSize * 1.5f) + lfMargin;
 
         mfLeftColumnBottom = lfFlaskRow;
@@ -1687,7 +1685,7 @@ public class UWModernHud : MonoBehaviour
         float lfMargin = 6f * miPixelScale * lfScale;
         int liFontSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * lfScale));
         float lfWidth = Mathf.Min(Screen.width * 0.45f, liFontSize * 36f);
-        float lfHeight = (liFontSize * 1.35f * MessageLines) + (2f * lfMargin);
+        float lfHeight = (liFontSize * 1.35f * Interaction.ModernMessageCount) + (2f * lfMargin);
 
         // As tall as its text needs at least - long lines wrap, and the font's lines are taller
         // than 1.35 of its size (per user, 2026-10-04: the text stood out over the box's top).
@@ -1784,7 +1782,7 @@ public class UWModernHud : MonoBehaviour
         }
     }
 
-    /// <summary>The last five messages, as the scroll holds them (Interaction.ActiveStrings).</summary>
+    /// <summary>The last messages, as many as the box has lines (Interaction.ModernMessageCount).</summary>
     private void fUpdateMessages()
     {
         // The original's scroll instead, when switched on: it draws and places itself.
@@ -1805,7 +1803,7 @@ public class UWModernHud : MonoBehaviour
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
         int liColour = 0;
 
-        // The list keeps more for the tall scroll; the box shows the newest five.
+        // The list keeps more for the tall scroll; the box shows the newest of its lines.
         int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - Interaction.ModernMessageCount) : 0;
 
         for (int liAt = liFirst; lOLines != null && liAt < lOLines.Count; liAt++)

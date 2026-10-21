@@ -118,13 +118,23 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private readonly Rect[] mOGripRects = new Rect[2];
 
+    /// <summary>The message box's top edge being dragged for its lines (per user, 2026-10-21: as
+    /// Shift and the wheel), the lines when the drag began and the screen pixels of one line.</summary>
+    private bool mbLining;
+
+    private int miLinesFrom;
+
+    private float mfLinePixels;
+
     /// <summary>The mouse pointer the editor shows (per user, 2026-10-10, Kenney's arrows): the
-    /// left-right arrow over and on the stone shelf's grips, the four-way arrow over a part that
-    /// moves and while moving it, else the system's own.</summary>
+    /// left-right arrow over and on the stone shelf's grips, the up-down arrow on the message
+    /// box's top edge, the four-way arrow over a part that moves and while moving it, else the
+    /// system's own.</summary>
     private enum PointerEnum
     {
         System,
         LeftRight,
+        UpDown,
         FourWays
     }
 
@@ -225,9 +235,10 @@ public class UWModernLayoutEditor : MonoBehaviour
                 miDragged = -1;
                 UWModernLayout.Save();
 
-                if (miWidening != 0)
+                if (miWidening != 0 || mbLining)
                 {
                     miWidening = 0;
+                    mbLining = false;
                     fSaveSettings();
                 }
             }
@@ -254,6 +265,18 @@ public class UWModernLayoutEditor : MonoBehaviour
                 miWidening = liGrip;
                 mODragFrom = lOPointer;
                 mfShelfPixel = mODragRect.width / Mathf.Min(UWModernHud.StoneShelfWidth, UWModernHud.StoneShelfMaxWidth);
+                return;
+            }
+
+            if (fLinesEdgeAt(lOPointer) && UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out mODragRect))
+            {
+                miSelected = (int)UWModernLayout.ElementEnum.Messages;
+                miDragged = miSelected;
+                mbSizing = false;
+                mbLining = true;
+                mODragFrom = lOPointer;
+                miLinesFrom = fMessageLines();
+                mfLinePixels = mODragRect.height / Mathf.Max(1, fMessageRows());
                 return;
             }
 
@@ -299,17 +322,64 @@ public class UWModernLayoutEditor : MonoBehaviour
             UWModernLayout.ElementEnum leElement = (UWModernLayout.ElementEnum)liElement;
 
             // Shift and the wheel on the original's scroll: its lines, the paper extended in its
-            // middle (UWModernScroll, per user 2026-10-09).
-            if (liElement >= 0 && leElement == UWModernLayout.ElementEnum.Messages && UWModernLayout.IsScrollShown
+            // middle (UWModernScroll, per user 2026-10-09); on the dark box its lines likewise.
+            if (liElement >= 0 && leElement == UWModernLayout.ElementEnum.Messages
                 && UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed)
             {
-                UWUserSettings.ModernScrollLines = Mathf.Clamp(UWModernScroll.Lines + (lfWheel > 0f ? 1 : -1), UWModernScroll.MinLines, UWModernScroll.MaxLines);
+                fSetMessageLines(fMessageLines() + (lfWheel > 0f ? 1 : -1));
                 UWUserSettings.Save();
             }
             else if (liElement >= 0 && UWModernLayout.TryGetRect(leElement, out Rect lORect))
                 UWModernLayout.SetPercent(leElement, UWModernLayout.Percent(leElement)
                     + (lfWheel > 0f ? UWModernLayout.PercentStep : -UWModernLayout.PercentStep), lORect);
         }
+    }
+
+    /// <summary>The modern message box one line taller or shorter (Interaction.ModernMessageCount).</summary>
+    private static void fStepModernMessageLines(int piStep)
+    {
+        UWUserSettings.ModernMessageLines = Mathf.Clamp(Interaction.ModernMessageCount + piStep,
+            UWModernScroll.MinLines, Interaction.MessageHistoryCount);
+    }
+
+    /// <summary>The messages' line setting of the style shown: the scroll's or the dark box's.</summary>
+    private static int fMessageLines()
+    {
+        return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : Interaction.ModernMessageCount;
+    }
+
+    /// <summary>The rows the style shows for it.</summary>
+    private static int fMessageRows()
+    {
+        return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : Interaction.ModernMessageCount;
+    }
+
+    private static void fSetMessageLines(int piLines)
+    {
+        if (UWModernLayout.IsScrollShown)
+            UWUserSettings.ModernScrollLines = Mathf.Clamp(piLines, UWModernScroll.MinLines, UWModernScroll.MaxLines);
+        else
+            UWUserSettings.ModernMessageLines = Mathf.Clamp(piLines, UWModernScroll.MinLines, Interaction.MessageHistoryCount);
+    }
+
+    /// <summary>The pointer on the message box's top edge, a little beyond it either way.</summary>
+    private bool fLinesEdgeAt(Vector2 pOPointer)
+    {
+        if (!UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out Rect lORect))
+            return false;
+
+        float lfReach = 3f * UWModernHud.PixelScale;
+
+        return new Rect(lORect.x, lORect.yMax - lfReach, lORect.width, 2f * lfReach).Contains(pOPointer);
+    }
+
+    /// <summary>The top edge dragged: a line per line height the pointer moved, up taller.</summary>
+    private void fDragLines(float pfDeltaY)
+    {
+        int liLines = miLinesFrom + Mathf.RoundToInt(pfDeltaY / Mathf.Max(1f, mfLinePixels));
+
+        if (liLines != fMessageLines())
+            fSetMessageLines(liLines);
     }
 
     private void fOpenForDrag(UWModernLayout.ElementEnum peElement)
@@ -332,7 +402,8 @@ public class UWModernLayoutEditor : MonoBehaviour
             return;
 
         PointerTile = pePointer == PointerEnum.System ? -1
-            : pePointer == PointerEnum.LeftRight ? UWGlyphs.ArrowLeftRightTile : UWGlyphs.ArrowFourWaysTile;
+            : pePointer == PointerEnum.LeftRight ? UWGlyphs.ArrowLeftRightTile
+            : pePointer == PointerEnum.UpDown ? UWGlyphs.ArrowUpDownTile : UWGlyphs.ArrowFourWaysTile;
         mePointer = pePointer;
     }
 
@@ -392,6 +463,12 @@ public class UWModernLayoutEditor : MonoBehaviour
         if (miWidening != 0)
         {
             fWiden(lODelta.x);
+            return;
+        }
+
+        if (mbLining)
+        {
+            fDragLines(lODelta.y);
             return;
         }
 
@@ -710,11 +787,13 @@ public class UWModernLayoutEditor : MonoBehaviour
         PointerEnum lePointer = PointerEnum.System;
 
         if (miDragged >= 0)
-            lePointer = miWidening != 0 ? PointerEnum.LeftRight : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
+            lePointer = miWidening != 0 ? PointerEnum.LeftRight : mbLining ? PointerEnum.UpDown : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
         else if (!fWindowContains(lOPointer))
         {
             if (fGripAt(lOPointer) != 0)
                 lePointer = PointerEnum.LeftRight;
+            else if (fLinesEdgeAt(lOPointer))
+                lePointer = PointerEnum.UpDown;
             else if (fElementAt(lOPointer, out bool lbHandle) >= 0 && !lbHandle)
                 lePointer = PointerEnum.FourWays;
         }
@@ -1194,6 +1273,17 @@ public class UWModernLayoutEditor : MonoBehaviour
                         fSaveSettings();
                     }));
                 }
+                else
+                {
+                    // The dark box's lines (issue 4, 2026-10-21: its height could not be changed).
+                    int liLines = Interaction.ModernMessageCount;
+
+                    mOItems.Add(fStepper("Lines", liLines.ToString(), liLines > UWModernScroll.MinLines, liLines < Interaction.MessageHistoryCount, liAt =>
+                    {
+                        fStepModernMessageLines(liAt == 0 ? -1 : 1);
+                        fSaveSettings();
+                    }));
+                }
                 break;
 
             case UWModernLayout.ElementEnum.CharacterPanel:
@@ -1456,6 +1546,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         UWUserSettings.ModernConversationOriginal = lbClassic;
         UWUserSettings.MinimapHidden = lbClassic;
         UWUserSettings.ActionBarHidden = lbClassic;
+        UWUserSettings.ModernMessageLines = 0;
 
         if (lbClassic)
         {

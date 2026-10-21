@@ -87,10 +87,11 @@ public class UWControls : System.IDisposable
         public readonly InputAction OptQuit;
 
         /// <summary>
-        /// The easy movement on the same WASD keys, held together with SHIFT - one step
-        /// forward, one back, one turn of 45 degrees each way (UWEasyMovement). The shift is
-        /// asked for in UWPlayerInput, not bound here, so that the actions stay ordinary
-        /// buttons. W may step off a ledge, X is the same step without it.
+        /// The easy movement on the same WASD keys, held together with SHIFT (the classic scheme)
+        /// or EasyModifier (the modern one, Left Alt) - one step forward, one back, one turn of
+        /// 45 degrees each way (UWEasyMovement). The modifier is asked for in UWPlayerInput, not
+        /// bound here, so that the actions stay ordinary buttons. W may step off a ledge, X is the
+        /// same step without it.
         /// </summary>
         public readonly InputAction EasyForward;
 
@@ -109,6 +110,17 @@ public class UWControls : System.IDisposable
         public readonly InputAction ModernUse;
 
         public readonly InputAction ModernReady;
+
+        /// <summary>THE MODERN SCHEME'S SLOW WALK (issue 4, 2026-10-21): held, or pressed once with
+        /// UWUserSettings.WalkSlowToggle, the walk keys go at the original's S value
+        /// (UWPlayerMotion.WalkSlow) instead of the run. Left Shift by default, as in shooters
+        /// that run by default (per user, the same day); the classic scheme keeps Shift for the
+        /// easy movement, as the original.</summary>
+        public readonly InputAction WalkSlow;
+
+        /// <summary>The modern scheme's easy-movement modifier (Left Alt, per user 2026-10-21 - Shift
+        /// walks there); the classic scheme asks for Shift itself (UWPlayerInput.ReadEasyMovement).</summary>
+        public readonly InputAction EasyModifier;
 
         public readonly InputAction ModernHover;
 
@@ -200,6 +212,8 @@ public class UWControls : System.IDisposable
             EasyTurnRight = pMap["EasyTurnRight"];
             ModernUse = pMap["ModernUse"];
             ModernReady = pMap["ModernReady"];
+            WalkSlow = pMap["WalkSlow"];
+            EasyModifier = pMap["EasyModifier"];
             ModernHover = pMap["ModernHover"];
             Menu = pMap["Menu"];
             ModernBags = pMap["ModernBags"];
@@ -337,7 +351,7 @@ public class UWControls : System.IDisposable
             mPlayerMap["OptSound"], mPlayerMap["OptDetail"], mPlayerMap["OptQuit"],
             mPlayerMap["EasyForward"], mPlayerMap["EasyWalkForward"], mPlayerMap["EasyBack"],
             mPlayerMap["EasyTurnLeft"], mPlayerMap["EasyTurnRight"],
-            mPlayerMap["ModernUse"], mPlayerMap["ModernReady"], mPlayerMap["ModernHover"], mPlayerMap["Menu"],
+            mPlayerMap["ModernUse"], mPlayerMap["ModernReady"], mPlayerMap["WalkSlow"], mPlayerMap["EasyModifier"], mPlayerMap["ModernHover"], mPlayerMap["Menu"],
             mPlayerMap["ModernBags"], mPlayerMap["ModernLook"], mPlayerMap["ModernRunes"],
             mPlayerMap["ModernSlot1"], mPlayerMap["ModernSlot2"], mPlayerMap["ModernSlot3"], mPlayerMap["ModernSlot4"],
             mPlayerMap["ModernSlot5"], mPlayerMap["ModernSlot6"], mPlayerMap["ModernSlot7"], mPlayerMap["ModernSlot8"],
@@ -561,6 +575,11 @@ public class UWControls : System.IDisposable
         InputAction lModernReady = lMap.AddAction("ModernReady", InputActionType.Button);
         lModernReady.AddBinding("<Keyboard>/#(r)");
         lModernReady.AddBinding("<Gamepad>/leftStickPress");
+
+        // The slow walk and the easy movement's modifier of the modern scheme (see WalkSlow); the
+        // pad's stick walks slowly by its deflection already.
+        lMap.AddAction("WalkSlow", InputActionType.Button).AddBinding("<Keyboard>/leftShift");
+        lMap.AddAction("EasyModifier", InputActionType.Button).AddBinding("<Keyboard>/leftAlt");
 
         // The LEFT CTRL sinks since 2026-10-04 (per user; V from 2026-10-03, C before). The
         // original's Ctrl shortcuts take the right Ctrl then in the modern scheme (UWGameUI).

@@ -101,15 +101,19 @@ public sealed class UWPlayerInput
 
     /// <summary>
     /// THE EASY MOVEMENT on the keyboard: shift with W, S, A, D and X (UWEasyMovement holds
-    /// the rule and where it comes from). Returns whether shift claims the movement keys this
-    /// frame - then the ordinary walking stays still, otherwise one would step and walk at
-    /// once.
+    /// the rule and where it comes from) - in the modern scheme its own modifier instead
+    /// (UWControls.EasyModifier, Left Alt), Shift walks slowly there. Returns whether the
+    /// modifier claims the movement keys this frame - then the ordinary walking stays still,
+    /// otherwise one would step and walk at once.
     /// </summary>
     public bool ReadEasyMovement()
     {
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
+        bool lbModifier = UWControlScheme.IsModern
+            ? mInput.EasyModifier.IsPressed()
+            : lOKeyboard != null && lOKeyboard.shiftKey.isPressed;
 
-        if (lOKeyboard == null || !lOKeyboard.shiftKey.isPressed)
+        if (lOKeyboard == null || !lbModifier)
         {
             fReleaseEasyMovementIfIdle();
 
@@ -198,6 +202,8 @@ public sealed class UWPlayerInput
     public void BuildCommand(UWPlayerMotion pOMotion, bool pbEasyHeld, UWMotionStepper pOStepper)
     {
         bool lbTyping = mGameUi != null && mGameUi.IsTextEntryActive;
+
+        fReadWalkSlowToggle();
         bool lbJumpClick = UWMouseButtons.RightPressed && ConsumesRightClick();
 
         // A JUMP IS A PRESS, AND A PRESS MUST WAIT FOR A STEP (2026-10-06, per user: "Springen
@@ -208,6 +214,12 @@ public sealed class UWPlayerInput
         {
             bool lbShift = UnityEngine.InputSystem.Keyboard.current != null
                 && UnityEngine.InputSystem.Keyboard.current.shiftKey.isPressed;
+
+            // In the modern scheme Shift is the slow walk (2026-10-21): a jump on the move is the
+            // jump, the standing one only from a standstill - the standing jump does nothing while
+            // the player moves (UWPlayerMotion.fCommand).
+            if (lbShift && mScheme != null && UWControlScheme.IsModern && fMoveInput().sqrMagnitude >= 0.01f)
+                lbShift = false;
 
             pOStepper.PressJump(lbShift ? UWPlayerMotion.Command.StandingJump : UWPlayerMotion.Command.Jump);
         }
@@ -285,10 +297,88 @@ public sealed class UWPlayerInput
     }
 
     /// <summary>The walk for a stick: the run scaled by its deflection (UWGamepad) - the keys and
-    /// a full stick give the run itself.</summary>
-    private static int fStickWalk(Vector2 pODirection)
+    /// a full stick give the run itself, the modern slow walk no more than the original's S
+    /// (UWPlayerMotion.WalkSlow).</summary>
+    private int fStickWalk(Vector2 pODirection)
     {
-        return Mathf.Max(1, Mathf.RoundToInt(UWPlayerMotion.WalkRun * Mathf.Clamp01(pODirection.magnitude)));
+        int liWalk = Mathf.Max(1, Mathf.RoundToInt(UWPlayerMotion.WalkRun * Mathf.Clamp01(pODirection.magnitude)));
+
+        return fIsWalkingSlow() ? Mathf.Min(liWalk, UWPlayerMotion.WalkSlow) : liWalk;
+    }
+
+    /// <summary>The slow walk switched on by the key (UWUserSettings.WalkSlowToggle).</summary>
+    private bool mbWalkSlowOn;
+
+    /// <summary>Another key or a mouse button went down while the slow-walk key was held -
+    /// Shift+F2, Shift and a click to split a stack -, or the free pointer was on a window: its
+    /// release does not switch.</summary>
+    private bool mbWalkSlowChord;
+
+    /// <summary>
+    /// THE SLOW-WALK KEY (UWControls.WalkSlow; issue 4, 2026-10-21): held it walks slowly, or with
+    /// the toggle setting each release switches the slow walk. The switch waits for the release
+    /// and skips it when another key or a mouse button was pressed meanwhile, and when the free
+    /// pointer lay on a window at the press or the release (per user, the same day: Shift is the
+    /// windows' own there) - whatever key the action is bound to.
+    /// </summary>
+    private void fReadWalkSlowToggle()
+    {
+        if (!UWUserSettings.WalkSlowToggle || mScheme == null || !UWControlScheme.IsModern)
+        {
+            mbWalkSlowOn = UWUserSettings.WalkSlowToggle && mbWalkSlowOn;
+
+            return;
+        }
+
+        // The press frame only asks for the pointer: its own key went down then, and the walk
+        // keys held from before do not count.
+        if (mInput.WalkSlow.WasPressedThisFrame())
+            mbWalkSlowChord = fPointerOnWindow();
+        else if (mInput.WalkSlow.IsPressed() && !mbWalkSlowChord)
+            mbWalkSlowChord = fOtherInputPressed();
+
+        if (mInput.WalkSlow.WasReleasedThisFrame() && !mbWalkSlowChord && !fPointerOnWindow())
+            mbWalkSlowOn = !mbWalkSlowOn;
+    }
+
+    /// <summary>A key or a mouse button pressed in this frame.</summary>
+    private static bool fOtherInputPressed()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        if (lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame
+            || lOMouse.middleButton.wasPressedThisFrame))
+            return true;
+
+        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
+
+        if (lOKeyboard == null)
+            return false;
+
+        foreach (UnityEngine.InputSystem.Controls.KeyControl lOKey in lOKeyboard.allKeys)
+        {
+            if (lOKey != null && lOKey.wasPressedThisFrame)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The free modern pointer lies on one of the windows (UWModernPointer.IsOverUi).</summary>
+    private static bool fPointerOnWindow()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        return UWModernPointer.IsFree && lOMouse != null && UWModernPointer.IsOverUi(lOMouse.position.ReadValue());
+    }
+
+    /// <summary>The slow walk, of the modern scheme only - the classic one's Shift is the easy movement.</summary>
+    private bool fIsWalkingSlow()
+    {
+        if (mScheme == null || !UWControlScheme.IsModern)
+            return false;
+
+        return UWUserSettings.WalkSlowToggle ? mbWalkSlowOn : mInput.WalkSlow.IsPressed();
     }
 
     /// <summary>

@@ -28,6 +28,7 @@ As in 1992: the mouse pointer is visible and steers the walking.
 | W, S | Forward, backward |
 | A, D | Turn left, right |
 | The two keys next to X | Step sideways |
+| Shift with W, S, A, D, X | Easy movement, as the original's: one step or a turn of 45 degrees, repeated while held; X steps without stepping off a ledge |
 | J or Space | Jump |
 | 1, 2, 3 | Look down, straight ahead, up |
 | Q, E | Sink, rise - while hovering or flying |
@@ -55,6 +56,8 @@ screen's edges. The rules are the original's throughout; only the way to them is
 | Mouse | Look around (the pointer locked, a crosshair in the middle); up and down can be inverted under *Controls* in the menu bar |
 | Right mouse button | Free the pointer for the windows, or lock it again. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held |
 | W, A, S, D | Walk, step sideways |
+| Left Shift | Held: walk slowly instead of running. Under *Controls* it can switch the slow walk on and off instead |
+| Left Alt with W, A, S, D, X | Easy movement: one step or a turn of 45 degrees, repeated while held; X steps without stepping off a ledge |
 | Space | Jump; rise while hovering or flying |
 | Left Ctrl | Sink while hovering or flying |
 | E | The usual thing for what you aim at: pick it up, talk, open, use. Held: use it directly |
@@ -83,7 +86,9 @@ can be moved and sized there, and the UI size as a whole is set there too. The p
 out from their edges while they stay there, and become free windows once moved. The minimap
 and the action bar can be switched off, and the original's pieces - compass, message scroll,
 power gem, flasks, rune hollow, rune tablet, stats panel, character page - switched on as parts
-of their own; a part's inspector sets its size and a background in the original's colours.
+of their own; a part's inspector sets its size and a background in the original's colours. The
+messages' lines are set in their inspector, with Shift and the mouse wheel on them, or by
+dragging their top edge.
 
 Under Edit layout the game menu also offers the **presets**: *Modern*, the parts at their
 default places; *Classic Modular*, the original's pieces laid out over the whole view; *Classic

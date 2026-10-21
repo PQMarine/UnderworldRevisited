@@ -8,6 +8,21 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.8.4] - 2026-10-21
+
+### Added
+
+- Modern scheme: a slow-walk key (Left Shift by default, changeable under Controls). Held, the
+  walk keys go at the original's walking pace instead of running; a checkbox in the Controls
+  dialog makes the key switch the slow walk on and off instead (not while the pointer is on a
+  window). Requested in issue #4.
+- Modern scheme: the easy movement moved from Shift to Left Alt (changeable under Controls), so
+  Shift can walk. The classic scheme keeps Shift, as the original.
+- The modern scheme's E, R, the action bar keys 1 to 0 and its fly keys can now be changed under
+  Controls (issue #4).
+- The modern message box has a "Lines" setting in the layout editor (2 to 8); Shift and the mouse
+  wheel on the box, or dragging its top edge, set it too, for the message scroll as well. Issue #4.
+
 ## [0.8.3] - 2026-10-19
 
 ### Closer to the original

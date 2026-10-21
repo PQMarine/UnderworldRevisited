@@ -94,6 +94,9 @@ public static class UWUserSettings
 
         public int ModernScrollLines;
 
+        /// <summary>The modern message box's lines (0 = five; Interaction.ModernMessageCount).</summary>
+        public int ModernMessageLines;
+
         /// <summary>The modern interface's font: 0 modern, 1 the original's (UWUiFonts).</summary>
         public int InterfaceFont;
 
@@ -142,6 +145,10 @@ public static class UWUserSettings
         /// <summary>The mouse look's up and down reversed in the modern scheme, as StickInvertY
         /// for the stick (UWPlayerLook.ReadLookMouse; pull request 3 by krispit-dev, 2026-10-13).</summary>
         public bool MouseInvertY;
+
+        /// <summary>The slow-walk key switches the slow walk on and off instead of being held
+        /// (UWPlayerInput.fIsWalkingSlow; issue 4, 2026-10-21).</summary>
+        public bool WalkSlowToggle;
 
         /// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
         /// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
@@ -467,6 +474,12 @@ public static class UWUserSettings
         set { fGet().ModernScrollLines = value; }
     }
 
+    public static int ModernMessageLines
+    {
+        get { return fGet().ModernMessageLines; }
+        set { fGet().ModernMessageLines = value; }
+    }
+
     public static int InterfaceFont
     {
         get { return fGet().InterfaceFont; }
@@ -582,6 +595,12 @@ public static class UWUserSettings
     {
         get { return fGet().MouseInvertY; }
         set { fGet().MouseInvertY = value; }
+    }
+
+    public static bool WalkSlowToggle
+    {
+        get { return fGet().WalkSlowToggle; }
+        set { fGet().WalkSlowToggle = value; }
     }
 
     public const float MinMouseLookSpeed = 0.05f;
@@ -1000,7 +1019,7 @@ public static class UWUserSettings
     private static readonly string[] msLayoutFields =
     {
         "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
-        "ModernScroll", "ModernScrollLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
+        "ModernScroll", "ModernScrollLines", "ModernMessageLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
         "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
         "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
         "ActionBarHidden", "InterfaceFont"
