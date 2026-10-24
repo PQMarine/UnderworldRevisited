@@ -27,6 +27,20 @@ namespace UWDataImport.UWData
 		/// does nothing to, bones on anything but the grave.</summary>
 		public const int NoEffectMessage = 133;
 
+		/// <summary>"No save game there." - a restore from an empty slot, in the classic options
+		/// (UWHudOptions) and the modern game menu (UWModernGameMenu) alike; until 2026-10-19 the modern
+		/// menu read it from the classic class. The reference gives 161 for uw1, checked against the
+		/// printout of the block.</summary>
+		public const int NoSaveGameThereMessage = 162;
+
+		/// <summary>"Save Game Failed." (red, colour code 4) - both schemes' save, as
+		/// NoSaveGameThereMessage.</summary>
+		public const int SaveGameFailedMessage = 165;
+
+		/// <summary>"Save Game Succeeded." (green, colour code 6) - both schemes' save, as
+		/// NoSaveGameThereMessage.</summary>
+		public const int SaveGameSucceededMessage = 166;
+
 		/// <summary>"You cannot use oil on that." - UseOilOn's refusal (USEITEMS.C, UW.EXE 0xB1).</summary>
 		public const int CannotUseOilMessage = 178;
 

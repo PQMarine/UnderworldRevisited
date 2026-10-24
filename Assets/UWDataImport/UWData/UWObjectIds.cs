@@ -37,6 +37,35 @@ namespace UWDataImport.UWData
 			return (piObjectId >> 4) & 3;
 		}
 
+		// ------------------------------------------------- Weapons
+
+		/// <summary>The melee weapons, 0x00 to 0x0F (minor class 0 of major class 0): the weapon
+		/// hand wears only with one of them (UWEquipmentWear, ovr120_C0F).</summary>
+		public const int LastMeleeWeapon = 0x0F;
+
+		/// <summary>The bows, crossbows and slings, 0x18 to 0x1F; between them and the melee
+		/// weapons lie the ammunition and the spell missiles (0x10 to 0x17).</summary>
+		public const int FirstLauncher = 0x18;
+
+		public const int LastLauncher = 0x1F;
+
+		/// <summary>A melee weapon, 0x00 to 0x0F.</summary>
+		public static bool IsMeleeWeapon(int piObjectId)
+		{
+			return piObjectId <= LastMeleeWeapon;
+		}
+
+		/// <summary>
+		/// A weapon the hand takes: the melee ones and the launchers, not the ammunition and spell
+		/// missiles between (cleanup 5.1, 2026-10-19). The modern bags' right button puts such a
+		/// thing into the hand and the modern action bar takes it as a weapon; both wrote the same
+		/// three constants and the same test until then.
+		/// </summary>
+		public static bool IsHandWeapon(int piObjectId)
+		{
+			return IsMeleeWeapon(piObjectId) || (piObjectId >= FirstLauncher && piObjectId <= LastLauncher);
+		}
+
 		// ------------------------------------------------- Player and creatures
 
 		/// <summary>The player's object number WHILE PLAYING: 127, "an adventurer" - height 23,

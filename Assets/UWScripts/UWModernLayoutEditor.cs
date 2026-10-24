@@ -45,22 +45,14 @@ using UnityEngine.UI;
 /// </summary>
 public class UWModernLayoutEditor : MonoBehaviour
 {
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
-
-    private static readonly Color msGoldDim = new Color(0.925f, 0.77f, 0.44f, 0.6f);
-
-    private static readonly Color msHover = new Color(1f, 0.92f, 0.69f, 1f);
+    private static readonly Color msGoldDim = UWModernPalette.WithAlpha(UWModernPalette.Gold, 0.6f);
 
     private static readonly Color msGuide = new Color(0.47f, 0.78f, 1f, 0.9f);
-
-    private static readonly Color msText = new Color(0.94f, 0.87f, 0.71f);
 
     /// <summary>Screen pixels within which an edge snaps.</summary>
     private const float SnapDistance = 10f;
 
     private UWGameUI mOUi;
-
-    private Font mOFont;
 
     private Canvas mOCanvas;
 
@@ -181,7 +173,6 @@ public class UWModernLayoutEditor : MonoBehaviour
     private void Start()
     {
         mOUi = GetComponent<UWGameUI>();
-        mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
     private void OnDestroy()
@@ -197,11 +188,7 @@ public class UWModernLayoutEditor : MonoBehaviour
                 Destroy(lOTexture);
         }
 
-        foreach (Texture2D lOTexture in mOPreviews.Values)
-        {
-            if (lOTexture != null)
-                Destroy(lOTexture);
-        }
+        mOPreviews.ReleaseAll();
     }
 
     // ------------------------------------------------- Input
@@ -264,7 +251,7 @@ public class UWModernLayoutEditor : MonoBehaviour
                 mbSizing = false;
                 miWidening = liGrip;
                 mODragFrom = lOPointer;
-                mfShelfPixel = mODragRect.width / Mathf.Min(UWModernHud.StoneShelfWidth, UWModernHud.StoneShelfMaxWidth);
+                mfShelfPixel = mODragRect.width / Mathf.Min(UWModernStoneShelf.StoneShelfWidth, UWModernStoneShelf.StoneShelfMaxWidth);
                 return;
             }
 
@@ -348,10 +335,10 @@ public class UWModernLayoutEditor : MonoBehaviour
         return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : Interaction.ModernMessageCount;
     }
 
-    /// <summary>The rows the style shows for it.</summary>
+    /// <summary>The rows the style shows for it - the scroll's paper has one more (UWModernScroll.Rows).</summary>
     private static int fMessageRows()
     {
-        return UWModernLayout.IsScrollShown ? UWModernScroll.Lines : Interaction.ModernMessageCount;
+        return UWModernLayout.IsScrollShown ? UWModernScroll.Rows : Interaction.ModernMessageCount;
     }
 
     private static void fSetMessageLines(int piLines)
@@ -368,7 +355,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         if (!UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out Rect lORect))
             return false;
 
-        float lfReach = 3f * UWModernHud.PixelScale;
+        float lfReach = 3f * UWModernUi.PixelScale;
 
         return new Rect(lORect.x, lORect.yMax - lfReach, lORect.width, 2f * lfReach).Contains(pOPointer);
     }
@@ -507,7 +494,7 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         if (mbSnap)
         {
-            float lfMargin = 4f * UWModernHud.PixelScale;
+            float lfMargin = 4f * UWModernUi.PixelScale;
             System.Collections.Generic.List<float> lOLines = new System.Collections.Generic.List<float>
             {
                 0f, lfMargin, Screen.width * 0.5f, Screen.width - lfMargin, Screen.width
@@ -528,7 +515,7 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         float lfPixels = miWidening > 0 ? lfEdge - mODragRect.xMin : mODragRect.xMax - lfEdge;
         int liWidth = Mathf.Clamp(Mathf.RoundToInt(lfPixels / Mathf.Max(0.01f, mfShelfPixel)),
-            UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, UWModernHud.StoneShelfMaxWidth);
+            UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth);
         float lfWidth = liWidth * mfShelfPixel;
 
         UWUserSettings.ModernStoneShelfWidth = liWidth;
@@ -540,7 +527,7 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// to the other parts' edges and centres, within SnapDistance - per axis.</summary>
     private Rect fSnap(Rect pORect)
     {
-        float lfMargin = 4f * UWModernHud.PixelScale;
+        float lfMargin = 4f * UWModernUi.PixelScale;
         System.Collections.Generic.List<float> lOLinesX = new System.Collections.Generic.List<float>
         {
             lfMargin, Screen.width * 0.5f, Screen.width - lfMargin
@@ -696,7 +683,7 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         mOCanvas.enabled = true;
 
-        float lfScale = UWModernHud.PixelScale;
+        float lfScale = UWModernUi.PixelScale;
         Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
         int liHovered = miDragged >= 0 ? miDragged : fElementAt(lOPointer, out bool _);
 
@@ -720,13 +707,13 @@ public class UWModernLayoutEditor : MonoBehaviour
             }
 
             bool lbActive = liAt == liHovered || liAt == miSelected;
-            Color lOColour = lbActive ? msHover : msGoldDim;
+            Color lOColour = lbActive ? UWModernPalette.LightText : msGoldDim;
             float lfLine = Mathf.Max(2f, lfScale * (lbActive ? 0.75f : 0.5f));
 
-            fSetRect(mOLines[liAt][0].rectTransform, lORect.x, lORect.yMax, lORect.width, lfLine);
-            fSetRect(mOLines[liAt][1].rectTransform, lORect.x, lORect.y - lfLine, lORect.width, lfLine);
-            fSetRect(mOLines[liAt][2].rectTransform, lORect.x - lfLine, lORect.y - lfLine, lfLine, lORect.height + (2f * lfLine));
-            fSetRect(mOLines[liAt][3].rectTransform, lORect.xMax, lORect.y - lfLine, lfLine, lORect.height + (2f * lfLine));
+            UWUiKit.SetRect(mOLines[liAt][0].rectTransform, lORect.x, lORect.yMax, lORect.width, lfLine);
+            UWUiKit.SetRect(mOLines[liAt][1].rectTransform, lORect.x, lORect.y - lfLine, lORect.width, lfLine);
+            UWUiKit.SetRect(mOLines[liAt][2].rectTransform, lORect.x - lfLine, lORect.y - lfLine, lfLine, lORect.height + (2f * lfLine));
+            UWUiKit.SetRect(mOLines[liAt][3].rectTransform, lORect.xMax, lORect.y - lfLine, lfLine, lORect.height + (2f * lfLine));
 
             foreach (Image lOLine in mOLines[liAt])
                 lOLine.color = lOColour;
@@ -736,14 +723,14 @@ public class UWModernLayoutEditor : MonoBehaviour
 
             lOTag.text = UWModernLayout.Names[liAt] + (UWModernLayout.IsDocked(leElement) ? " (docked)" : string.Empty);
             lOTag.fontSize = Mathf.Max(10, Mathf.RoundToInt(3.8f * lfScale));
-            lOTag.color = lbActive ? msHover : msText;
+            lOTag.color = lbActive ? UWModernPalette.LightText : UWModernPalette.Text;
 
             float lfTagWidth = lOTag.preferredWidth + (4f * lfScale);
             float lfTagHeight = lOTag.fontSize * 1.5f;
             float lfTagY = lORect.yMax + lfLine + lfTagHeight <= Screen.height ? lORect.yMax + lfLine : lORect.yMax - lfTagHeight;
 
-            fSetRect(mOTags[liAt].rectTransform, lORect.x, lfTagY, lfTagWidth, lfTagHeight);
-            fSetRect(lOTag.rectTransform, lORect.x, lfTagY, lfTagWidth, lfTagHeight);
+            UWUiKit.SetRect(mOTags[liAt].rectTransform, lORect.x, lfTagY, lfTagWidth, lfTagHeight);
+            UWUiKit.SetRect(lOTag.rectTransform, lORect.x, lfTagY, lfTagWidth, lfTagHeight);
             mOTags[liAt].color = new Color(0.12f, 0.08f, 0.05f, 0.85f);
 
             // The handle and the size.
@@ -751,12 +738,12 @@ public class UWModernLayoutEditor : MonoBehaviour
             Rect lOHandle = new Rect(lORect.xMax - (lfHandle * 0.6f), lORect.y - (lfHandle * 0.4f), lfHandle, lfHandle);
 
             mOHandleRects[liAt] = lOHandle;
-            fSetRect(mOHandles[liAt].rectTransform, lOHandle.x, lOHandle.y, lOHandle.width, lOHandle.height);
-            mOHandles[liAt].color = lbActive ? msHover : msGold;
+            UWUiKit.SetRect(mOHandles[liAt].rectTransform, lOHandle.x, lOHandle.y, lOHandle.width, lOHandle.height);
+            mOHandles[liAt].color = lbActive ? UWModernPalette.LightText : UWModernPalette.Gold;
 
             mOPercents[liAt].text = UWModernLayout.Percent(leElement) + " %";
             mOPercents[liAt].fontSize = Mathf.Max(9, Mathf.RoundToInt(3.6f * lfScale));
-            fSetRect(mOPercents[liAt].rectTransform, lORect.x, lORect.y + lfScale, lORect.width - lfHandle, mOPercents[liAt].fontSize * 1.4f);
+            UWUiKit.SetRect(mOPercents[liAt].rectTransform, lORect.x, lORect.y + lfScale, lORect.width - lfHandle, mOPercents[liAt].fontSize * 1.4f);
         }
 
         // The stone shelf's grips: a bar in the middle of each side edge, grabbed a little beyond it.
@@ -779,8 +766,8 @@ public class UWModernLayoutEditor : MonoBehaviour
             float lfBottom = lOShelf.y + (5f * lfScale * 0.6f);
 
             mOGripRects[liSide] = new Rect(lfEdge - lfReach, lfBottom, 2f * lfReach, Mathf.Max(lfReach, lOShelf.yMax - lfBottom));
-            fSetRect(mOGrips[liSide].rectTransform, lfEdge - (lfBar * 0.5f), lOShelf.y + (lOShelf.height * 0.2f), lfBar, lOShelf.height * 0.6f);
-            mOGrips[liSide].color = liGripHovered == (liSide == 0 ? -1 : 1) ? msHover : msGold;
+            UWUiKit.SetRect(mOGrips[liSide].rectTransform, lfEdge - (lfBar * 0.5f), lOShelf.y + (lOShelf.height * 0.2f), lfBar, lOShelf.height * 0.6f);
+            mOGrips[liSide].color = liGripHovered == (liSide == 0 ? -1 : 1) ? UWModernPalette.LightText : UWModernPalette.Gold;
         }
 
         // The pointer: what a press here would do.
@@ -805,10 +792,10 @@ public class UWModernLayoutEditor : MonoBehaviour
         mOGuideY.enabled = miDragged >= 0 && !mbSizing && mfGuideY >= 0f;
 
         if (mOGuideX.enabled)
-            fSetRect(mOGuideX.rectTransform, mfGuideX - 1f, 0f, 2f, Screen.height);
+            UWUiKit.SetRect(mOGuideX.rectTransform, mfGuideX - 1f, 0f, 2f, Screen.height);
 
         if (mOGuideY.enabled)
-            fSetRect(mOGuideY.rectTransform, 0f, mfGuideY - 1f, Screen.width, 2f);
+            UWUiKit.SetRect(mOGuideY.rectTransform, 0f, mfGuideY - 1f, Screen.width, 2f);
 
     }
 
@@ -1046,8 +1033,10 @@ public class UWModernLayoutEditor : MonoBehaviour
         }, lbShaped));
     }
 
-    /// <summary>The samples of the backs' colours and patterns, built once per colour help.</summary>
-    private readonly System.Collections.Generic.Dictionary<int, Texture2D> mOPreviews = new System.Collections.Generic.Dictionary<int, Texture2D>();
+    /// <summary>The samples of the backs' colours and patterns, built once per colour help (the
+    /// stamp, UWArtCache: until 2026-10-19 the colour help's version was part of the key and the
+    /// old samples stayed).</summary>
+    private readonly UWArtCache<int> mOPreviews = new UWArtCache<int>();
 
     /// <summary>The size of a sample in the back's own pixels.</summary>
     private const int PreviewWidth = 30;
@@ -1057,9 +1046,10 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// <summary>A sample of a back in this colour and pattern: a rectangle without a border.</summary>
     private Texture2D fBackPreview(int piColour, int piPattern)
     {
-        int liKey = (UWColourVision.Version * 100) + (piColour * 10) + piPattern;
+        int liKey = (piColour * 10) + piPattern;
+        UWDataImport.UWData.UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-        if (mOPreviews.TryGetValue(liKey, out Texture2D lOTexture) && lOTexture != null)
+        if (mOPreviews.TryGet(liKey, lOStamp, out Texture2D lOTexture))
             return lOTexture;
 
         if (mOUi == null || mOUi.mOUWData == null)
@@ -1073,10 +1063,8 @@ public class UWModernLayoutEditor : MonoBehaviour
             Border = false
         };
 
-        lOTexture = UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, PreviewWidth, PreviewHeight, lOBack, FilterMode.Point, piColour + 1);
-        mOPreviews[liKey] = lOTexture;
-
-        return lOTexture;
+        return mOPreviews.Set(liKey, lOStamp,
+            UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, PreviewWidth, PreviewHeight, lOBack, FilterMode.Point, piColour + 1));
     }
 
     /// <summary>What the inspector offers for the selection now.</summary>
@@ -1247,8 +1235,8 @@ public class UWModernLayoutEditor : MonoBehaviour
                 // A deco panel (per user, 2026-10-09): shown or not, and its width in the shelf's own
                 // pixels, a tile (12) at a time.
                 // The edges can be dragged with the mouse too (fGripAt).
-                int liMax = UWModernHud.StoneShelfMaxWidth;
-                int liWidth = Mathf.Min(UWModernHud.StoneShelfWidth, liMax);
+                int liMax = UWModernStoneShelf.StoneShelfMaxWidth;
+                int liWidth = Mathf.Min(UWModernStoneShelf.StoneShelfWidth, liMax);
 
                 mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0, liAt => { UWUserSettings.ModernStoneShelf = liAt == 0; fSaveSettings(); }));
                 mOItems.Add(fStepper("Width", liWidth.ToString(), liWidth > UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, liWidth < liMax, liAt =>
@@ -1267,7 +1255,9 @@ public class UWModernLayoutEditor : MonoBehaviour
                 {
                     int liLines = UWModernScroll.Lines;
 
-                    mOItems.Add(fStepper("Lines", liLines.ToString(), liLines > UWModernScroll.MinLines, liLines < UWModernScroll.MaxLines, liAt =>
+                    // The lines it shows are its paper's rows, one more than the setting counts
+                    // (UWModernScroll.Rows, 2026-10-20).
+                    mOItems.Add(fStepper("Lines", (liLines + 1).ToString(), liLines > UWModernScroll.MinLines, liLines < UWModernScroll.MaxLines, liAt =>
                     {
                         UWUserSettings.ModernScrollLines = Mathf.Clamp(liLines + (liAt == 0 ? -1 : 1), UWModernScroll.MinLines, UWModernScroll.MaxLines);
                         fSaveSettings();
@@ -1447,7 +1437,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         // THE KEYS of a dialog (per user, 2026-10-14: on Linux neither a click nor a key got out of
         // this question): Enter saves, Escape goes back to editing. Read from the Input System, as
         // IMGUI's own events do not reliably reach the game's windows there; the Escape that opened
-        // the question was taken in an earlier frame (UWModernHud.ToggleMenu, RequestLeave).
+        // the question was taken in an earlier frame (UWModernGameMenu.ToggleMenu, RequestLeave).
         UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
         bool lbEnter = lOKeys != null && Event.current.type == EventType.Repaint
             && (lOKeys.enterKey.wasPressedThisFrame || lOKeys.numpadEnterKey.wasPressedThisFrame);
@@ -1564,7 +1554,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         // layout just set).
         if (lbClassic)
             UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
-                UWModernHud.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
+                UWModernStoneShelf.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
 
         miSelected = -1;
     }
@@ -1620,11 +1610,11 @@ public class UWModernLayoutEditor : MonoBehaviour
         lfY += HintHeight;
 
         // The UI size: the base every part's size multiplies.
-        int liUiPercent = UWModernHud.UiPercent;
+        int liUiPercent = UWModernUi.UiPercent;
 
         fDrawStepper(lfX, lfY, lfInner, fStepper("UI size", liUiPercent + " %",
-            liUiPercent > UWModernHud.MinUiPercent, liUiPercent < UWModernHud.MaxUiPercent,
-            liAt => UWModernHud.SetUiPercent(liUiPercent + (liAt == 0 ? -UWModernHud.UiPercentStep : UWModernHud.UiPercentStep))));
+            liUiPercent > UWModernUi.MinUiPercent, liUiPercent < UWModernUi.MaxUiPercent,
+            liAt => UWModernUi.SetUiPercent(liUiPercent + (liAt == 0 ? -UWModernUi.UiPercentStep : UWModernUi.UiPercentStep))));
         lfY += RowHeight + RowGap;
 
         // The starting point: the own layout, or a preset copied into it. The segments as wide as
@@ -1660,7 +1650,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         // Done fires on the release (IMGUI buttons do), so the press reaches nothing behind it
         // once the menu is gone (per user, 2026-10-04: Done over the minimap opened the big map).
         if (UWImguiInput.Button(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), "Done", mOButtonStyle) && UWModernHud.Instance != null)
-            RequestLeave(UWModernHud.Instance.CloseMenu);
+            RequestLeave(UWModernHud.Instance.Menu.CloseMenu);
 
         lfY += RowHeight + RowGap;
 
@@ -1801,104 +1791,31 @@ public class UWModernLayoutEditor : MonoBehaviour
     }
 
 
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
-    }
-
     // ------------------------------------------------- Building
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Modern layout editor", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
-
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         // Over the HUD, the bags, the pointer's thing, the boxes and the conversation's preview (46).
-        mOCanvas.sortingOrder = 47;
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern layout editor", UWUiSorting.LayoutEditor);
 
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
-
-        RectTransform lORootRect = (RectTransform)lORoot.transform;
+        RectTransform lORootRect = (RectTransform)mOCanvas.transform;
 
         for (int liAt = 0; liAt < UWModernLayout.ElementCount; liAt++)
         {
             mOLines[liAt] = new Image[4];
 
             for (int liLine = 0; liLine < 4; liLine++)
-                mOLines[liAt][liLine] = fCreateImage(lORootRect, "Frame", msGoldDim);
+                mOLines[liAt][liLine] = UWUiKit.CreateImage(lORootRect, "Frame", msGoldDim);
 
-            mOTags[liAt] = fCreateImage(lORootRect, "Tag", Color.black);
-            mOTagTexts[liAt] = fCreateText(lORootRect, "Name", TextAnchor.MiddleCenter, msText);
-            mOHandles[liAt] = fCreateImage(lORootRect, "Handle", msGold);
-            mOPercents[liAt] = fCreateText(lORootRect, "Size", TextAnchor.LowerRight, msText);
+            mOTags[liAt] = UWUiKit.CreateImage(lORootRect, "Tag", Color.black);
+            mOTagTexts[liAt] = UWUiKit.CreateText(lORootRect, "Name", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi, UWUiKit.EditorText);
+            mOHandles[liAt] = UWUiKit.CreateImage(lORootRect, "Handle", UWModernPalette.Gold);
+            mOPercents[liAt] = UWUiKit.CreateText(lORootRect, "Size", TextAnchor.LowerRight, UWModernPalette.Text, mOUi, UWUiKit.EditorText);
         }
 
-        mOGrips[0] = fCreateImage(lORootRect, "Grip left", msGold);
-        mOGrips[1] = fCreateImage(lORootRect, "Grip right", msGold);
-        mOGuideX = fCreateImage(lORootRect, "Guide x", msGuide);
-        mOGuideY = fCreateImage(lORootRect, "Guide y", msGuide);
-    }
-
-    private static RawImage fCreateRawImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-
-        return lOImage;
-    }
-
-    private static Image fCreateImage(Transform pOParent, string psName, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Image));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Image lOImage = lOObject.GetComponent<Image>();
-        lOImage.color = pOColour;
-        lOImage.raycastTarget = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName, TextAnchor peAlignment, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
-        lOText.alignment = peAlignment;
-        lOText.color = pOColour;
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
+        mOGrips[0] = UWUiKit.CreateImage(lORootRect, "Grip left", UWModernPalette.Gold);
+        mOGrips[1] = UWUiKit.CreateImage(lORootRect, "Grip right", UWModernPalette.Gold);
+        mOGuideX = UWUiKit.CreateImage(lORootRect, "Guide x", msGuide);
+        mOGuideY = UWUiKit.CreateImage(lORootRect, "Guide y", msGuide);
     }
 }

@@ -6,8 +6,8 @@ using UWDataImport.UWData;
 /// circle, the stone shelf, the heading strip with the gargoyle, the paperdoll page, the keep
 /// masks of the flasks and the gem - are composed engine-free in UWHudArt (moved there
 /// 2026-10-05, per user: reusable for UW2 or another engine); here they only become textures,
-/// with the colour help applied as UWGameUI.fGetTextureInvert does. Callers rebuild when
-/// UWColourVision.Version changes.
+/// with the colour help applied (UWTextureFactory.FromPicture, since 2026-10-19). Callers rebuild
+/// when UWColourVision.Version changes.
 /// </summary>
 public static class UWModernHudArt
 {
@@ -117,23 +117,6 @@ public static class UWModernHudArt
     public static Texture2D BuildStoneShelf(UWTextures pOTextures, int piWidth, FilterMode peFilter)
     {
         return fToTexture(UWHudArt.BuildStoneShelf(pOTextures, piWidth), peFilter, "UWModernHudArt stone shelf");
-    }
-
-    /// <summary>A picture of one of the game's .GR files as it is; null without it.</summary>
-    public static Texture2D BuildPicture(UWTextures pOTextures, UWTexture.TextureTypes peType, int piIndex, FilterMode peFilter)
-    {
-        UWTexture lOPicture = pOTextures.GetTextureByType(peType, piIndex);
-
-        return lOPicture != null ? fToTexture(UWPicture.From(lOPicture), peFilter, "UWModernHudArt " + peType + " " + piIndex) : null;
-    }
-
-    /// <summary>A page of the original's right panel (PANELS.GR: 0 inventory, 1 runes, 2 stats);
-    /// null without it.</summary>
-    public static Texture2D BuildPanelPage(UWTextures pOTextures, int piPage, FilterMode peFilter)
-    {
-        UWTexture lOPage = pOTextures.GetTextureByType(UWTexture.TextureTypes.PANELS, piPage);
-
-        return lOPage != null ? fToTexture(UWPicture.From(lOPage), peFilter, "UWModernHudArt panel page " + piPage) : null;
     }
 
     /// <summary>The classic frame widened by piExtra columns (UWHudArt.BuildClassicWideFrame), and
@@ -296,63 +279,9 @@ public static class UWModernHudArt
     }
 
     /// <summary>A picture (rows top down) as a Unity texture (rows bottom up), the colour help
-    /// applied.</summary>
+    /// applied (UWTextureFactory.FromPicture).</summary>
     private static Texture2D fToTexture(UWPicture pOPicture, FilterMode peFilter, string psName)
     {
-        Color32[] lyOut = new Color32[pOPicture.Pixels.Length];
-        int liAt = 0;
-
-        for (int y = pOPicture.Height - 1; y >= 0; y--)
-        {
-            for (int x = 0; x < pOPicture.Width; x++)
-            {
-                UWColor32 lOColour = pOPicture.Get(x, y);
-
-                lyOut[liAt++] = lOColour.A == 0
-                    ? new Color32(0, 0, 0, 0)
-                    : UWColourVision.Apply(new Color32(lOColour.R, lOColour.G, lOColour.B, lOColour.A));
-            }
-        }
-
-        Texture2D lOTexture = new Texture2D(pOPicture.Width, pOPicture.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = psName;
-        lOTexture.filterMode = peFilter;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lyOut);
-        lOTexture.Apply();
-
-        return lOTexture;
-    }
-
-    /// <summary>A copy of a Unity texture (rows bottom up, as UWGameUI.fGetTextureInvert makes
-    /// them) with the pixels outside a top-down keep mask transparent.</summary>
-    public static Texture2D ApplyMask(Texture2D pOSource, bool[] pbKeepTopDown)
-    {
-        Color32[] lyPixels = pOSource.GetPixels32();
-        int liWidth = pOSource.width;
-        int liHeight = pOSource.height;
-
-        if (pbKeepTopDown != null && pbKeepTopDown.Length == lyPixels.Length)
-        {
-            for (int y = 0; y < liHeight; y++)
-            {
-                int liMaskRow = (liHeight - 1 - y) * liWidth;
-
-                for (int x = 0; x < liWidth; x++)
-                {
-                    if (!pbKeepTopDown[liMaskRow + x])
-                        lyPixels[(y * liWidth) + x] = new Color32(0, 0, 0, 0);
-                }
-            }
-        }
-
-        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernHudArt keyed";
-        lOTexture.filterMode = pOSource.filterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lyPixels);
-        lOTexture.Apply();
-
-        return lOTexture;
+        return UWTextureFactory.FromPicture(pOPicture, peFilter, psName);
     }
 }

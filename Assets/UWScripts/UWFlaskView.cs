@@ -124,8 +124,8 @@ public sealed class UWFlaskView
     ///
     /// ITS OWN CACHE, because UWFlasks builds a NEW UWTexture on every call: the cache over the
     /// texture object never found it again and kept a fresh Texture2D per change. The key is
-    /// what the picture is made of, and the whole cache is thrown away when the colour help
-    /// changes (see UWColourVision).
+    /// what the picture is made of, and a picture made before the colour help changed is made
+    /// anew (see UWColourVision; the stamp, UWArtCache, since 2026-10-19).
     /// </summary>
     private Texture2D fGetFlaskTexture(UWFlasks.FlaskTypeEnum peType, float pfFill, bool pbHatch, int piBubbleFrame)
     {
@@ -133,35 +133,15 @@ public sealed class UWFlaskView
         int liKey = ((int)peType * 1000) + (liLevel * 2) + (pbHatch ? 1 : 0)
             + ((piBubbleFrame + 1) * 10000);
 
-        if (miFlaskColourVersion != UWColourVision.Version)
-        {
-            foreach (Texture2D lOOld in mOFlaskCache.Values)
-                Object.Destroy(lOOld);
+        UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-            mOFlaskCache.Clear();
-
-            miFlaskColourVersion = UWColourVision.Version;
-        }
-
-        Texture2D lOTexture;
-
-        if (mOFlaskCache.TryGetValue(liKey, out lOTexture) && lOTexture != null)
+        if (mOFlaskCache.TryGet(liKey, lOStamp, out Texture2D lOTexture))
             return lOTexture;
 
         UWTexture lOFlask = mFlasks.GetFlask(peType, pfFill, pbHatch, piBubbleFrame);
 
-        lOTexture = new Texture2D(lOFlask.Width, lOFlask.Height, TextureFormat.ARGB32, false);
-        lOTexture.name = "UWFlaskView flask";
-        lOTexture.filterMode = meFilterMode;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOFlask));
-        lOTexture.Apply();
-
-        mOFlaskCache[liKey] = lOTexture;
-
-        return lOTexture;
+        return mOFlaskCache.Set(liKey, lOStamp, UWTextureFactory.FromTexture(lOFlask, meFilterMode, "UWFlaskView flask"));
     }
 
-    private readonly Dictionary<int, Texture2D> mOFlaskCache = new Dictionary<int, Texture2D>();
-
-    private int miFlaskColourVersion = -1;
+    private readonly UWArtCache<int> mOFlaskCache = new UWArtCache<int>();
 }

@@ -155,34 +155,17 @@ public static class UWClassicWide
     /// <summary>The columns beyond 320 a frame of this width (canvas units) has at 4:3.</summary>
     private static int fColumnsFor(float pfWidth)
     {
-        return Mathf.Max(0, Mathf.FloorToInt(pfWidth / UWGameUI.VgaPixelAspectCorrection) - (int)UWUiFit.FrameWidthUnits);
+        return Mathf.Max(0, Mathf.FloorToInt(pfWidth / UWClassicScreen.VgaPixelAspectCorrection) - (int)UWUiFit.FrameWidthUnits);
     }
 
     /// <summary>
     /// An original column from a column of the widened frame at a row from the top: -1 in the
-    /// columns put in (they belong to no area of the original's click table).
+    /// columns put in (they belong to no area of the original's click table). The rule is
+    /// UWClassicGeometry.OriginalColumn's (cleanup 5.18, 2026-10-23), with this frame's Extra.
     /// </summary>
     public static int OriginalX(int piX, int piRow)
     {
-        if (Extra <= 0)
-            return piX;
-
-        int liCutLeft = UWHudArt.ClassicWideCut(piRow, 0);
-        int liCutRight = UWHudArt.ClassicWideCut(piRow, 1);
-
-        if (piX < liCutLeft)
-            return piX;
-
-        if (piX < liCutLeft + Left)
-            return -1;
-
-        if (piX < liCutRight + Left)
-            return piX - Left;
-
-        if (piX < liCutRight + Extra)
-            return -1;
-
-        return piX - Extra;
+        return UWClassicGeometry.OriginalColumn(piX, piRow, Extra);
     }
 
     /// <summary>Moves the frame's parts by their bands, the hole's by its middle, and widens the

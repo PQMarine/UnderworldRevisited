@@ -42,7 +42,7 @@ namespace UWDataImport.UWData
 	///
 	/// ENGINE-FREE since 2026-09-18 (P3 of the engine separation): the world, the player's
 	/// numbers and the inventory come through IUWConversationHost, the inventory as the
-	/// UWInventoryModel of P2. UWItemDrag and UWConversationScreen work on the slot arrays
+	/// UWInventoryModel of P2. UWItemDrag and UWConversationView work on the slot arrays
 	/// as before.
 	/// </summary>
 	public class UWConversationTrade

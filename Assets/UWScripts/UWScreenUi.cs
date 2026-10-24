@@ -16,73 +16,20 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWScreenUi
 {
-    public const int ScreenWidth = 320;
+    public const int ScreenWidth = UWClassicLayout.Screen.Width;
 
-    public const int ScreenHeight = 200;
+    public const int ScreenHeight = UWClassicLayout.Screen.Height;
 
     /// <summary>Canvas with a black backdrop and the 320x200 frame in the centre.</summary>
     public static Canvas CreateCanvas(Transform pOParent, string psName, int piSortingOrder, out RectTransform pOFrame)
     {
-        GameObject lOCanvasObject = new GameObject(psName, typeof(Canvas), typeof(CanvasScaler));
-        lOCanvasObject.transform.SetParent(pOParent, false);
-
-        Canvas lOCanvas = lOCanvasObject.GetComponent<Canvas>();
-        lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        lOCanvas.sortingOrder = piSortingOrder;
-
-        CanvasScaler lOScaler = lOCanvasObject.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        lOScaler.referenceResolution = new Vector2(ScreenWidth, ScreenHeight);
-        lOScaler.matchWidthOrHeight = 1f;
-
         // Fitted whole into the window, bars over and under it when narrow (UWUiFit).
-        lOCanvasObject.AddComponent<UWFitCanvas>();
+        Canvas lOCanvas = UWUiKit.CreateClassicCanvas(pOParent, psName, piSortingOrder);
 
-        GameObject lOBackdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
-        lOBackdrop.transform.SetParent(lOCanvasObject.transform, false);
-
-        RectTransform lOBackdropRect = (RectTransform)lOBackdrop.transform;
-        lOBackdropRect.anchorMin = Vector2.zero;
-        lOBackdropRect.anchorMax = Vector2.one;
-        lOBackdropRect.offsetMin = Vector2.zero;
-        lOBackdropRect.offsetMax = Vector2.zero;
-
-        Image lOBackdropImage = lOBackdrop.GetComponent<Image>();
-        lOBackdropImage.color = Color.black;
-        lOBackdropImage.raycastTarget = false;
-
-        GameObject lOFrameObject = new GameObject("Frame", typeof(RectTransform));
-        lOFrameObject.transform.SetParent(lOCanvasObject.transform, false);
-
-        pOFrame = (RectTransform)lOFrameObject.transform;
-        lOFrameObject.AddComponent<UWPixelAspectFrame>();
-        pOFrame.anchorMin = new Vector2(0.5f, 0.5f);
-        pOFrame.anchorMax = new Vector2(0.5f, 0.5f);
-        pOFrame.pivot = new Vector2(0.5f, 0.5f);
-        pOFrame.sizeDelta = new Vector2(ScreenWidth, ScreenHeight);
-        pOFrame.anchoredPosition = Vector2.zero;
+        UWUiKit.CreateBackdrop(lOCanvas.transform, "Backdrop", Color.black);
+        pOFrame = UWUiKit.CreateClassicFrame(lOCanvas.transform, "Frame");
 
         return lOCanvas;
-    }
-
-    /// <summary>A RawImage with its top left corner at (left, top) in original pixels.
-    /// </summary>
-    public static RawImage CreateRawImage(RectTransform pOParent, string psName, int piLeft, int piTop)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = new Vector2(0f, 1f);
-        lORect.anchorMax = new Vector2(0f, 1f);
-        lORect.pivot = new Vector2(0f, 1f);
-        lORect.anchoredPosition = new Vector2(piLeft, -piTop);
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
     }
 
     public static void Place(RawImage pOImage, int piLeft, int piTop)
@@ -204,7 +151,8 @@ public static class UWScreenUi
 
     /// <summary>
     /// Shows text in an original font, or optionally in the modern one (see UWTextLabel).
-    /// The field's old texture is released.
+    /// The field's old text goes back to UWTextTextures (cleanup step 5.5, 2026-10-19; until then
+    /// its texture was destroyed here).
     /// </summary>
     public static void SetText(RawImage pOImage, UWFont pOFont, List<string> pOLines, Color32 pOColour,
         int piWidth, bool pbCentred)
@@ -218,12 +166,8 @@ public static class UWScreenUi
             return;
         }
 
-        if (pOImage.texture != null)
-            Object.Destroy(pOImage.texture);
-
-        Texture2D lOTexture = UWFontRenderer.RenderLines(pOFont, pOLines, piWidth, pOColour, FilterMode.Point, pbCentred);
-
-        UWTextLabel.Get(pOImage).Set(pOFont, lOTexture, pOLines, new List<Color32> { pOColour }, pbCentred);
+        UWTextLabel.Get(pOImage).SetText(pOFont, pOLines, piWidth, new[] { pOColour }, UWTextRaster.ColoursEnum.Codes, pbCentred,
+            FilterMode.Point);
     }
 
     public static void SetText(RawImage pOImage, UWFont pOFont, string psText, Color32 pOColour, int piWidth, bool pbCentred)
@@ -291,9 +235,6 @@ public static class UWScreenUi
     // Loading cover
     // ------------------------------------------------------------------
 
-    /// <summary>Above everything, including the intro (100).</summary>
-    private const int LoadingCoverSortingOrder = 1000;
-
     private static GameObject msLoadingCover;
 
     /// <summary>
@@ -320,27 +261,15 @@ public static class UWScreenUi
 
         Canvas lOCanvas = msLoadingCover.GetComponent<Canvas>();
         lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        lOCanvas.sortingOrder = LoadingCoverSortingOrder;
+        lOCanvas.sortingOrder = UWUiSorting.LoadingCover;
 
-        GameObject lOBlack = new GameObject("Black", typeof(RectTransform), typeof(Image));
-        lOBlack.transform.SetParent(msLoadingCover.transform, false);
-
-        RectTransform lORect = (RectTransform)lOBlack.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.one;
-        lORect.offsetMin = Vector2.zero;
-        lORect.offsetMax = Vector2.zero;
-
-        Image lOImage = lOBlack.GetComponent<Image>();
-        lOImage.color = Color.black;
-        lOImage.raycastTarget = false;
-        msLoadingCoverImage = lOImage;
+        msLoadingCoverImage = UWUiKit.CreateBackdrop(msLoadingCover.transform, "Black", Color.black);
     }
 
     private static Image msLoadingCoverImage;
 
     /// <summary>The cover as a fade: 0 transparent, 1 black. The end of a conversation
-    /// uses it to fade out and back in (see UWConversationScreen).</summary>
+    /// uses it to fade out and back in (see UWConversationController).</summary>
     public static void SetLoadingCoverAlpha(float pfAlpha)
     {
         if (msLoadingCoverImage != null)

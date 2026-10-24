@@ -4,7 +4,8 @@ namespace UWDataImport.UWData
 	/// What using an item (UWItemUse) needs from the game: taking the used piece out of
 	/// wherever it was dragged from, messages, the view flash, a cutscene, casting the spell
 	/// of a wand, sleeping, planting, playing, fishing and the carried light. The Unity side
-	/// is UWItemDrag, which knows where the item came from.
+	/// is UWItemUseHost, one per use, which knows where the item came from (cleanup step 5.15,
+	/// 2026-10-22; until then UWItemDrag was the one host of every use).
 	/// </summary>
 	public interface IUWItemUseHost
 	{

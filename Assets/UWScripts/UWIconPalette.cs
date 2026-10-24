@@ -46,7 +46,7 @@ public static class UWIconPalette
 
     /// <summary>
     /// The same with the shader's UW_PIXEL_SMOOTH: for the modern UI, whose free scale is often
-    /// no whole number (UWModernHud.PixelScale) - each texel stays a hard square, only the seams
+    /// no whole number (UWModernUi.PixelScale) - each texel stays a hard square, only the seams
     /// are blended. One shared material as well, so batching stays.
     /// </summary>
     public static void ApplySmooth(Graphic pOGraphic)

@@ -54,7 +54,7 @@ public static class UWUserSettings
         public bool MinimapTurns;
 
         /// <summary>The modern UI's size chosen in the game menu, in percent of the automatic
-        /// one, 0 = 100 (UWModernHud.PixelScale).</summary>
+        /// one, 0 = 100 (UWModernUi.PixelScale).</summary>
         public int ModernUiPercent;
 
         /// <summary>The modern conversation's text size in percent, 0 = 100 (UWModernConversation,

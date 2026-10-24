@@ -93,7 +93,7 @@ namespace UWDataImport
 		public UWShades Shades => GameData.Shades;
 
 		/// <summary>The game keeps map notes for this many levels (UWLevArkLayout, where the
-		/// file's block numbers live since 2026-10-12; UWHudMap reads the count here).</summary>
+		/// file's block numbers live since 2026-10-12; UWMapNotesModel reads the count here).</summary>
 		public const int MapNoteLevelCount = UWLevArkLayout.MapNoteLevelCount;
 
 		/// <summary>Writes map notes, automaps and the levels back into LEV.ARK - see

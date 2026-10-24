@@ -188,11 +188,13 @@ namespace UnderworldRevisited.Tools
         /// The files whose job is to DESCRIBE the game's tables and records rather than to hold
         /// a rule. They name a routine to prove what a byte means, which is why they turn up
         /// beside the rule that uses the byte - a split by intent, not a duplicate.
+        /// UWClassicLayout (cleanup 5.3, 2026-10-19) is the classic screen's layout table: its
+        /// source tags name the routine a place or size was read in, beside the rule that draws it.
         /// </summary>
         private static readonly string[] msDescribers =
         {
             "UWObjectClassProperties.cs", "UWCommonObjectProperties.cs", "UWCritterRecord.cs",
-            "UWPlayerData.cs", "UWObjectMechanics.cs", "UWCritterAnimations.cs"
+            "UWPlayerData.cs", "UWObjectMechanics.cs", "UWCritterAnimations.cs", "UWClassicLayout.cs"
         };
 
         private static bool fIsDescriber(string psFile)
@@ -324,6 +326,25 @@ namespace UnderworldRevisited.Tools
             { "UWCreatureActor.cs", "UWCritterBrain.cs" },
             { "UWCreatureActor.cs", "UWTileRoute.cs" },
             { "UWCreatureActor.cs", "UWLockRules.cs" },
+
+            // What the conversation shows moved engine-free in cleanup step 5.12 (2026-10-20), with
+            // the classic screen's comments. The view counts the vine edges' frame and steps it where
+            // seg043_37F0_8EB does (a cleared parchment); which strips and how many steps is
+            // UWScrollEdgeRules'. getInputText_ovr103_1117 has two halves: the layout keeps
+            // wdialog's limits on what may be typed, the session hands the typed text to the
+            // machine as it was typed. As a Unity file the screen was never counted.
+            { "UWConversationView.cs", "UWScrollEdgeRules.cs" },
+            { "UWConversationLayout.cs", "UWConversationSession.cs" },
+
+            // The message log moved engine-free in cleanup step 5.7 (2026-10-20), with the classic
+            // box's and Interaction's comments. The model names the print routine seg043_37F0_4BF for
+            // its colour codes (the immediates it writes into the font colour) and seg043_37F0_8EB as
+            // the scroll that paging moves; it counts the main edges' frame where those routines
+            // scroll, which strips and how many frames is UWScrollEdgeRules'. The conversation view
+            // names 8EB for its own scroll, the parchment's. As Unity files the box and Interaction
+            // were never counted.
+            { "UWMessageLogModel.cs", "UWScrollEdgeRules.cs" },
+            { "UWMessageLogModel.cs", "UWConversationView.cs" },
         };
 
         /// <summary>Whether these two files are declared as an intended pair.</summary>

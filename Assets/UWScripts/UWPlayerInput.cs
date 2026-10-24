@@ -95,7 +95,7 @@ public sealed class UWPlayerInput
     /// <summary>Left button held with a press that started in the viewport, original scheme.</summary>
     private bool fIsCursorMoving()
     {
-        return mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Original
+        return mScheme != null && !UWControlScheme.IsModern
             && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
     }
 
@@ -201,7 +201,7 @@ public sealed class UWPlayerInput
     /// </summary>
     public void BuildCommand(UWPlayerMotion pOMotion, bool pbEasyHeld, UWMotionStepper pOStepper)
     {
-        bool lbTyping = mGameUi != null && mGameUi.IsTextEntryActive;
+        bool lbTyping = mGameUi != null && mGameUi.TextEntry.IsTextEntryActive;
 
         fReadWalkSlowToggle();
         bool lbJumpClick = UWMouseButtons.RightPressed && ConsumesRightClick();
@@ -228,7 +228,7 @@ public sealed class UWPlayerInput
         if (pbEasyHeld)
             return;
 
-        bool lbModern = mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Modern;
+        bool lbModern = mScheme != null && UWControlScheme.IsModern;
 
         if ((mOHost.MagicalMotionAbilities & (LevitateBit | FlyBit)) != 0)
         {
@@ -364,12 +364,12 @@ public sealed class UWPlayerInput
         return false;
     }
 
-    /// <summary>The free modern pointer lies on one of the windows (UWModernPointer.IsOverUi).</summary>
+    /// <summary>The free modern pointer lies on one of the windows (UWModernUi.IsOverUi).</summary>
     private static bool fPointerOnWindow()
     {
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 
-        return UWModernPointer.IsFree && lOMouse != null && UWModernPointer.IsOverUi(lOMouse.position.ReadValue());
+        return UWModernPointer.IsFree && lOMouse != null && UWModernUi.IsOverUi(lOMouse.position.ReadValue());
     }
 
     /// <summary>The slow walk, of the modern scheme only - the classic one's Shift is the easy movement.</summary>
@@ -428,7 +428,7 @@ public sealed class UWPlayerInput
     /// <summary>
     /// The original scheme: with the left button held and the press begun in the viewport the
     /// pointer drives with the original's own values (UWPlayerMotion.PointerCommand, from the
-    /// pointer's pixel in the 172 by 113 area, UWGameUI.CursorAreaX/Y; since 2026-10-06 - the
+    /// pointer's pixel in the 172 by 113 area, UWPointerZones.CursorAreaX/Y; since 2026-10-06 - the
     /// port scaled the keys' 0x70 and 0x5A by the zone distance before). Both buttons outside
     /// the fight mode jump, on the run and again on every landing while held
     /// (UWPlayerMotion.PointerJumpCommand); in the fight mode they drive on. Without the pointer
@@ -456,7 +456,7 @@ public sealed class UWPlayerInput
         //
         // It triggers NOTHING in the process - the spell stays pending, targeting in the
         // viewport is done with the right button only (per user, 2026-09-10; the opposite
-        // assumption was in Interaction.fUpdateSpellTargeting until then).
+        // assumption was in UWPendingSpell.UpdateTargeting until then).
         // ONLY A PRESS THAT STARTED IN THE VIEWPORT moves. A left click on the panels (backpack,
         // runes, compass) used to count as a cursor drag too: the pointer was clamped into the
         // viewport and the player stopped, even while walking with the keyboard (per user,
@@ -464,7 +464,7 @@ public sealed class UWPlayerInput
         // The left button is read through UWMouseButtons: a click under a held right button is
         // ignored there, everywhere (per user on the original, 2026-09-19).
         if (!lbHeldDrag && mGameUi != null && UWMouseButtons.LeftPressed && UnityEngine.InputSystem.Mouse.current != null)
-            mbCursorDragStartedInViewport = mGameUi.IsScreenPositionInGameArea(UnityEngine.InputSystem.Mouse.current.position.ReadValue());
+            mbCursorDragStartedInViewport = mGameUi.ClassicScreen.IsScreenPositionInGameArea(UnityEngine.InputSystem.Mouse.current.position.ReadValue());
 
         IsCursorMovementInProgress = !lbHeldDrag && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
 
@@ -476,7 +476,7 @@ public sealed class UWPlayerInput
             {
                 UWPlayerMotion.Command leCommand;
 
-                UWPlayerMotion.PointerCommand(mGameUi.CursorAreaX, mGameUi.CursorAreaY,
+                UWPlayerMotion.PointerCommand(mGameUi.PointerZones.CursorAreaX, mGameUi.PointerZones.CursorAreaY,
                     UWPlayerMotion.PointerAreaWidth, UWPlayerMotion.PointerAreaHeight,
                     out leCommand, out miPointerWalk, out miPointerTurn);
 

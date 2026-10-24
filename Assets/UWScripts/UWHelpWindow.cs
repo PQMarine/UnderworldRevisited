@@ -19,7 +19,7 @@ using UWDataImport.UWData;
 /// Not in a screen menu: those are centred canvases of their own that do not follow the frame, so
 /// the help closes when one opens. A CONVERSATION keeps it (per user, 2026-09-26: it closed when a
 /// conversation started): the conversation's frame slides with the game frame
-/// (UWConversationScreen.fFollowHelpLayout) and leaves the keys to the help while it has them.
+/// (UWClassicConversationRenderer.Tick) and leaves the keys to the help while it has them.
 /// </summary>
 public class UWHelpWindow : MonoBehaviour
 {
@@ -68,7 +68,7 @@ public class UWHelpWindow : MonoBehaviour
     private const int TabsPerRow = 4;
 
     /// <summary>Whether the player types in the notes - then the game's keys stay silent (see
-    /// UWGameUI.IsTextEntryActive).</summary>
+    /// UWTextEntryState.IsTextEntryActive).</summary>
     public static bool IsTyping { get; private set; }
 
     private TabEnum meTab = TabEnum.Spells;
@@ -176,7 +176,7 @@ public class UWHelpWindow : MonoBehaviour
     public static bool IsReading { get; private set; }
 
     /// <summary>The help has the keyboard - typing in the notes or reading the manual (see
-    /// UWGameUI.IsTextEntryActive).</summary>
+    /// UWTextEntryState.IsTextEntryActive).</summary>
     public static bool BlocksGameKeys => IsTyping || IsReading;
 
     /// <summary>Where the help lies on the screen (pixels, top left), for keeping the game's
@@ -229,9 +229,9 @@ public class UWHelpWindow : MonoBehaviour
         // TAB, NOT WITH ALT (per user, 2026-09-26): Alt+Tab switches to another program and must
         // not open or close anything on the way. Nor with Shift - Shift+Tab is left alone.
         // In the modern scheme the character panel takes Tab and opens on its Help tab
-        // (UWModernPanel, per user 2026-10-03); the help is drawn inside it.
-        bool lbModern = lOScheme != null && lOScheme.Current != UWControlScheme.SchemeEnum.Original
-            && UWModernPanel.Instance != null;
+        // (UWModernPanel, per user 2026-10-03); the help is drawn inside it. Not in Classic Wide,
+        // which has no such panel (UWModernPanel.HoldsHelp).
+        bool lbModern = lOScheme != null && UWModernPanel.HoldsHelp;
 
         // Not under a setup-menu panel either - the Game-folder dialog took Tab as help
         // (Linux first run, 2026-10-06).
@@ -387,13 +387,22 @@ public class UWHelpWindow : MonoBehaviour
         float lfAreaTop = 0f;
         float lfAreaHeight = ReferenceHeight;
 
-        if (lOScheme != null && lOScheme.Current != UWControlScheme.SchemeEnum.Original)
+        if (lOScheme != null && UWControlScheme.Ui.Policy.HelpOverPicture)
         {
             lfWidth = Mathf.Min(UWHelpLayout.MaxWidthPerHeight * CanvasHeight, lfCanvasWidth * UWHelpLayout.OverlayShare);
             lfLeft = lfCanvasWidth - lfWidth;
             lbBesideFrame = false;
 
-            if (UWModernPanel.Instance != null)
+            // Classic Wide has no panel for it: the help lies right of the frame, which closes up
+            // to leave it room (UWModernClassicFrame.HelpBeside, per user 2026-10-21), or over the
+            // picture's right side where the screen is too narrow for that.
+            if (UWModernClassicFrame.HelpBeside)
+            {
+                lfLeft = UWModernClassicFrame.RightEdge / lfUnit;
+                lfWidth = Mathf.Min(lfCanvasWidth - lfLeft, UWHelpLayout.MaxWidthPerHeight * CanvasHeight);
+            }
+
+            if (UWModernPanel.HoldsHelp)
             {
                 if (!UWModernPanel.Instance.TryGetHelpArea(out Rect lOInPanel))
                 {
@@ -416,7 +425,7 @@ public class UWHelpWindow : MonoBehaviour
         float lfClipLeft = lfLeft;
 
         if (lbBesideFrame)
-            lfClipLeft = Mathf.Clamp(UWHelpLayout.FrameRightEdge(lfCanvasWidth, UWGameUI.HorizontalPixelFactor),
+            lfClipLeft = Mathf.Clamp(UWHelpLayout.FrameRightEdge(lfCanvasWidth, UWClassicScreen.HorizontalPixelFactor),
                 lfLeft, lfLeft + lfWidth);
 
         GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
@@ -625,7 +634,7 @@ public class UWHelpWindow : MonoBehaviour
         int liCircle = 0;
         UWPlayerData lOPlayer = pOData != null ? pOData.InitialPlayer : null;
         UWGameUI lOUi = UWScene.GameUi;
-        IReadOnlyList<int> lOShelf = lOUi != null ? lOUi.Runes.SelectedRunes : null;
+        IReadOnlyList<int> lOShelf = lOUi != null ? lOUi.Runes.Shelf.Selected : null;
 
         foreach (UWRunicMagic.Spell lOSpell in UWRunicMagic.AllSpells)
         {
@@ -646,11 +655,8 @@ public class UWHelpWindow : MonoBehaviour
             }
 
             string lsName = pOData != null ? UWRunicMagic.GetName(lOSpell, pOData.Strings) : string.Empty;
-            List<int> lORunes = fRunesOf(lOSpell.RuneSequence);
-            bool lbAllInBag = lOPlayer != null;
-
-            foreach (int liRune in lORunes)
-                lbAllInBag &= lOPlayer != null && lOPlayer.HasRune((UWPlayerData.Rune)liRune);
+            List<int> lORunes = UWRuneShelfModel.RunesOf(lOSpell.RuneSequence);
+            bool lbAllInBag = UWRuneShelfModel.HasRunes(lOSpell.RuneSequence, lOPlayer);
 
             bool lbOnShelf = fIsOnShelf(lOShelf, lORunes);
 
@@ -696,22 +702,6 @@ public class UWHelpWindow : MonoBehaviour
         }
     }
 
-    /// <summary>The runes of a sequence, first to last, empty slots left out.</summary>
-    private static List<int> fRunesOf(int piSequence)
-    {
-        List<int> lORunes = new List<int>(3);
-
-        for (int liShift = 10; liShift >= 0; liShift -= 5)
-        {
-            int liRune = (piSequence >> liShift) & 0x1F;
-
-            if (liRune < UWRunicMagic.EmptyRune)
-                lORunes.Add(liRune);
-        }
-
-        return lORunes;
-    }
-
     private static bool fIsOnShelf(IReadOnlyList<int> pOShelf, List<int> pORunes)
     {
         if (pOShelf == null || pOShelf.Count != pORunes.Count)
@@ -752,7 +742,7 @@ public class UWHelpWindow : MonoBehaviour
         if (lOSource == null)
             return null;
 
-        Color32[] lOPixels = UWGameUI.fGetTextureInvert(lOSource);
+        Color32[] lOPixels = UWTextureFactory.Colours(lOSource);
 
         if (pbGrey)
         {
@@ -765,12 +755,8 @@ public class UWHelpWindow : MonoBehaviour
             }
         }
 
-        Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHelpWindow rune " + piRune + (pbGrey ? " grey" : string.Empty);
-        lOTexture.filterMode = FilterMode.Point;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lOPixels);
-        lOTexture.Apply(false, false);
+        Texture2D lOTexture = UWTextureFactory.FromColours(lOPixels, lOSource.Width, lOSource.Height, FilterMode.Point,
+            TextureWrapMode.Clamp, "UWHelpWindow rune " + piRune + (pbGrey ? " grey" : string.Empty));
 
         lOCache[piRune] = lOTexture;
 
@@ -826,7 +812,7 @@ public class UWHelpWindow : MonoBehaviour
     private void fDrawControls()
     {
         UWControlScheme lOScheme = UWScene.ControlScheme;
-        bool lbModern = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+        bool lbModern = lOScheme != null && UWControlScheme.IsModern;
 
         GUILayout.Label(lbModern ? "Modern controls" : "Classic controls", mOHeading);
 
@@ -904,6 +890,9 @@ public class UWHelpWindow : MonoBehaviour
     /// asked for (per user, 2026-09-26).</summary>
     private bool mbShowHiddenStats;
 
+    /// <summary>What the tab shows of the character (UWCharacterSheet, readable).</summary>
+    private readonly UWCharacterSheet mOSheet = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Readable);
+
     /// <summary>
     /// THE STATS TAB (feature wish of the user, 2026-09-26): what the character panel shows, in
     /// readable type and all twenty skills at once, live while the help is open. Below it,
@@ -926,8 +915,12 @@ public class UWHelpWindow : MonoBehaviour
 
         UWPlayerData lOPlayer = lOData.InitialPlayer;
 
-        GUILayout.Label(lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar", mOHeading);
-        GUILayout.Label(string.Format("Level {0} {1}", lOCharacter.Vitals.Level, fClassName(lOData, lOPlayer)), mOText);
+        // What the panel shows, readable (UWCharacterSheet: title case, "a / b"; cleanup 5.9,
+        // 2026-10-20).
+        UWCharacterSheet lOSheet = mOSheet.Bind(lOData.Strings, lOPlayer, lOCharacter.Vitals);
+
+        GUILayout.Label(lOSheet.Name, mOHeading);
+        GUILayout.Label(lOSheet.LevelWithClass, mOText);
 
         string lsCondition = UWStatusReport.GetConditionLine(lOData, lOCharacter.Vitals.Hunger, lOCharacter.Vitals.Fatigue);
 
@@ -937,12 +930,8 @@ public class UWHelpWindow : MonoBehaviour
         GUILayout.Space(10f);
         GUILayout.Label("Attributes", mOSubHeading);
 
-        fStatRow("Strength", lOCharacter.Vitals.Strength.ToString());
-        fStatRow("Dexterity", lOCharacter.Vitals.Dexterity.ToString());
-        fStatRow("Intelligence", lOCharacter.Vitals.Intelligence.ToString());
-        fStatRow("Vitality", Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxHP));
-        fStatRow("Mana", Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana) + " / " + Mathf.RoundToInt(lOCharacter.Vitals.MaxMana));
-        fStatRow("Experience", (lOCharacter.Vitals.Experience / 10).ToString());
+        for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
+            fStatRow(UWCharacterSheet.ValueLabels[liRow], lOSheet.Value(liRow));
 
         int liCarried = -1;
 
@@ -951,28 +940,18 @@ public class UWHelpWindow : MonoBehaviour
             liCarried = lOUi.mOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
 
             // What the circle below the paper doll shows: the capacity left, in whole stones.
-            int liLeft = Mathf.Max(0, (lOPlayer != null ? lOPlayer.MaxWeight : 0) - liCarried);
-
-            fStatRow("Can still carry", (liLeft / 10) + " stones");
+            fStatRow("Can still carry", UWInventoryWeight.RemainingStones(lOPlayer, liCarried) + " stones");
         }
 
         GUILayout.Space(10f);
         GUILayout.Label("Skills", mOSubHeading);
 
         // Attack and Defense first, then the eighteen skills - the order of the panel's list
-        // (UWHudPanel.fGetSkillEntry).
-        for (int liEntry = 0; liEntry < 2 + (int)UWPlayerData.Skill.Swimming + 1; liEntry++)
+        // (UWCharacterSheet.TryGetSkill).
+        for (int liEntry = 0; liEntry < UWCharacterSheet.SkillEntries; liEntry++)
         {
-            string lsValue;
-
-            if (liEntry == 0)
-                lsValue = lOCharacter.Vitals.Attack.ToString();
-            else if (liEntry == 1)
-                lsValue = lOCharacter.Vitals.Defence.ToString();
-            else
-                lsValue = lOCharacter.Vitals.GetSkill((UWPlayerData.Skill)(liEntry - 2)).ToString();
-
-            fStatRow(fSkillName(lOData, liEntry), lsValue);
+            lOSheet.TryGetSkill(liEntry, out string lsName, out string lsValue);
+            fStatRow(lsName, lsValue);
         }
 
         GUILayout.Space(16f);
@@ -1216,40 +1195,6 @@ public class UWHelpWindow : MonoBehaviour
         return (piTenths / 10) + "." + Mathf.Abs(piTenths % 10);
     }
 
-    internal static string fClassName(DataImport pOData, UWPlayerData pOPlayer)
-    {
-        if (pOPlayer == null)
-            return string.Empty;
-
-        try
-        {
-            // Block 2 from 0x18 on, as on the character panel (UWHudPanel.fGetClassName).
-            return fTitleCase(pOData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass]);
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
-    internal static string fSkillName(DataImport pOData, int piEntry)
-    {
-        try
-        {
-            return fTitleCase(pOData.Strings.Blocks[2].Strings[UWPlayerData.SkillNameStringIndex + piEntry]);
-        }
-        catch
-        {
-            return "?";
-        }
-    }
-
-    private static string fTitleCase(string psText)
-    {
-        return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
-            (psText ?? string.Empty).Trim().ToLowerInvariant());
-    }
-
     // ------------------------------------------------- Map
 
     /// <summary>How many tiles the map tab shows across; the wheel changes it.</summary>
@@ -1345,19 +1290,19 @@ public class UWHelpWindow : MonoBehaviour
         if (lOUi == null)
             return;
 
-        UWHudMap lOMap = lOUi.Map;
+        UWAutomapPictures lOMap = lOUi.AutomapPictures;
 
-        if (!lOMap.TryGetMinimapPlayerPixel(out Vector2 lOPlayer))
+        if (!lOMap.TryGetPlayerPixel(out Vector2 lOPlayer))
             return;
 
         if (mOMapTiles == null || lOPlayer != mOMapBuiltAt || Time.unscaledTime - mfMapBuiltTime >= MapRefreshSeconds)
         {
-            mOMapTiles = lOMap.BuildMinimapTiles();
+            mOMapTiles = lOMap.BuildTiles();
             mOMapBuiltAt = lOPlayer;
             mfMapBuiltTime = Time.unscaledTime;
         }
 
-        Texture2D lOParchment = lOMap.GetMinimapParchment();
+        Texture2D lOParchment = lOMap.GetParchment();
 
         float lfLeft = Mathf.Max(mOPendingMapRect.x, pfClipPixels);
         Rect lOClip = new Rect(lfLeft, mOPendingMapRect.y, mOPendingMapRect.xMax - lfLeft, mOPendingMapRect.height);
@@ -1365,7 +1310,7 @@ public class UWHelpWindow : MonoBehaviour
         if (lOClip.width <= 0f || lOClip.height <= 0f)
             return;
 
-        int liScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * UWHudMap.TilePixels)));
+        int liScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * UWAutomapPictures.TilePixels)));
 
         GUI.matrix = Matrix4x4.identity;
         UWImguiInput.AfterMatrix();
@@ -1383,14 +1328,14 @@ public class UWHelpWindow : MonoBehaviour
 
         if (mOMapTiles != null)
         {
-            Vector2 lOTiles = UWHudMap.TilesTopLeft;
-            float lfSize = UWHudMap.TilesPerAxis * UWHudMap.TilePixels * liScale;
+            Vector2 lOTiles = UWAutomapPictures.TilesTopLeft;
+            float lfSize = UWAutomapPictures.TilesSize * liScale;
 
             GUI.DrawTexture(new Rect(lfOriginX + (lOTiles.x * liScale), lfOriginY + (lOTiles.y * liScale), lfSize, lfSize),
                 mOMapTiles);
         }
 
-        foreach (UWHudMap.MinimapNote lONote in lOMap.GetMinimapNotes())
+        foreach (UWAutomapPictures.Note lONote in lOMap.GetNotes())
         {
             GUI.DrawTexture(new Rect(lfOriginX + (lONote.TopLeft.x * liScale), lfOriginY + (lONote.TopLeft.y * liScale),
                 lONote.Texture.width * liScale, lONote.Texture.height * liScale), lONote.Texture);

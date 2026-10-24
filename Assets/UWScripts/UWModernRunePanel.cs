@@ -13,7 +13,7 @@ using UWDataImport.UWData;
 /// after the bags and the character panel. Nothing here frees or locks the pointer.
 ///
 ///   - RUNES: the original's rune shelf (PANELS.GR picture 1) with the runes of the bag; a click
-///     lays a rune into the hollow below (the fourth pushes out the first, UWHudRunes.AddToShelf),
+///     lays a rune into the hollow below (the fourth pushes out the first, UWRuneShelfModel.Add),
 ///     the right button looks at it, the strip at the bottom clears the hollow. The hollow IS the
 ///     game's rune shelf - the classic scheme sees the same runes, the save game keeps them. A
 ///     click on it casts; dragged by it, the spell goes onto the action bar (UWModernActionBar).
@@ -23,7 +23,7 @@ using UWDataImport.UWData;
 ///   - The Runes tab is only as tall as it needs, the Spells tab takes the rows down to the
 ///     message box; the message box moves right of the panel while it covers it (UWModernHud).
 /// </summary>
-public class UWModernRunePanel : MonoBehaviour
+public class UWModernRunePanel : UWModernDockedPanel
 {
     public enum TabEnum
     {
@@ -33,65 +33,36 @@ public class UWModernRunePanel : MonoBehaviour
 
     public static UWModernRunePanel Instance { get; private set; }
 
-    public bool IsOpen => mbOpen;
-
     public static bool Pinned => UWUserSettings.ModernRunesPinned;
 
     /// <summary>Whether Escape has something to close here: open and not pinned.</summary>
     /// <summary>Whether Escape has it to close: not pinned, and not the original's tablet alone,
     /// which is always out (else Escape closed it, it opened again the next frame and the menu
     /// never came - per user, 2026-10-10).</summary>
-    public bool IsClosable => mbOpen && !Pinned && !UWModernLayout.IsRuneTabletShown;
+    public override bool IsClosable => mbOpen && !Pinned && !UWModernLayout.IsRuneTabletShown;
+
+    /// <summary>At the left edge, its handle at its right - the character panel's mirror
+    /// (UWModernDockedPanel).</summary>
+    protected override bool DockedLeft => true;
+
+    protected override UWModernLayout.ElementEnum Element => UWModernLayout.ElementEnum.RunePanel;
+
+    protected override bool IsPinned => Pinned;
 
     /// <summary>The panel with its handle on the screen (pixels, bottom-left origin), empty while
     /// nothing of it shows.</summary>
     public Rect ScreenRect { get; private set; }
 
-    /// <summary>The layout in original pixels.</summary>
+    /// <summary>The layout in original pixels (the docked panel's measures are UWModernDockedPanel's).</summary>
     private const int PanelWidth = 96;
-
-    private const int TopMargin = 14;
-
-    private const int HandleWidth = 9;
-
-    private const int HandleHeight = 40;
-
-    private const int HandleTop = 104;
-
-    private const int PeekWidth = 15;
-
-    private const int PeekReach = 14;
-
-    private const int TabHeaderWidth = 30;
-
-    private const int TabHeaderHeight = 9;
-
-    private const int PinWidth = 11;
-
-    private const int ContentPad = 6;
 
     private const int TitleTop = 4;
 
-    /// <summary>The rune shelf picture, centred in the frame, and its grid (UWHudPanel's).</summary>
+    /// <summary>The rune shelf picture, centred in the frame; its grid, the compartments' hit test
+    /// and the clear strip are UWRuneShelfModel's (the classic shelf's).</summary>
     private const int TabletLeft = 7;
 
     private const int TabletTop = 15;
-
-    private const int RuneLeft = 8;
-
-    private const int RuneTop = 5;
-
-    private const int RunePitchX = 18;
-
-    private const int RunePitchY = 15;
-
-    private const int RuneColumns = 4;
-
-    private const int RuneCell = 14;
-
-    private const int ClearTop = 93;
-
-    private const int ClearBottom = 110;
 
     /// <summary>The hollow with the chosen runes below the shelf.</summary>
     private const int HollowGap = 4;
@@ -114,47 +85,9 @@ public class UWModernRunePanel : MonoBehaviour
 
     private const int RowRows = 12;
 
-    private const float SlideRate = 14f;
-
     private const float ClickMoveThreshold = 6f;
 
-    private static readonly Color msText = new Color(0.94f, 0.87f, 0.71f);
-
-    private static readonly Color msDim = new Color(0.78f, 0.71f, 0.57f);
-
-    private static readonly Color msGrey = new Color(0.55f, 0.50f, 0.42f);
-
-    private static readonly Color msRunesText = new Color(0.77f, 0.84f, 1f);
-
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
-
-    private static readonly Color msRule = new Color(0.47f, 0.28f, 0.12f, 1f);
-
     private static readonly Color msHollowFill = new Color(0.14f, 0.08f, 0.03f, 0.8f);
-
-    private UWGameUI mOUi;
-
-    private UWControlScheme mOScheme;
-
-    private Font mOFont;
-
-    private Canvas mOCanvas;
-
-    private RectTransform mORoot;
-
-    private RawImage mOBack;
-
-    private RawImage mOHandle;
-
-    private Text mOHandleText;
-
-    private RawImage[] mOTabBacks;
-
-    private Text[] mOTabTexts;
-
-    private RawImage mOPin;
-
-    private RawImage mOPinIcon;
 
     private Text mOTitle;
 
@@ -197,20 +130,10 @@ public class UWModernRunePanel : MonoBehaviour
 
     private Text mOGhostText;
 
-    private Texture2D mOBackTexture;
-
-    private Vector2Int mOBackSize;
-
-    /// <summary>The backs' and colours' version the leather was built with (UWModernBacks.ArtVersion).</summary>
-    private int miBackArtVersion = -1;
-
-    private Texture2D mOHandleTexture;
-
-    private Texture2D mOTabTexture;
-
-    private Texture2D mOPinTexture;
-
-    private Texture2D mOPinIconTexture;
+    /// <summary>The handle, built for the backs' and colours' version with the tab, pin and ghost
+    /// (fEnsureArt) - its stamp says whether they are current. The leather, the tab's and the
+    /// pin's pictures are UWModernDockedPanel's.</summary>
+    private readonly UWVersionedTexture mOHandleArt = new UWVersionedTexture();
 
     private Texture2D mOTabletTexture;
 
@@ -218,36 +141,15 @@ public class UWModernRunePanel : MonoBehaviour
 
     private Texture2D[] mORuneTextures;
 
-    private readonly Dictionary<UWTexture, Texture2D> mOIconTextures = new Dictionary<UWTexture, Texture2D>();
-
-    private int miArtVersion = -1;
-
-    private bool mbOpen;
-
-    private bool mbPeek;
-
     private TabEnum meTab = TabEnum.Runes;
-
-    private float mfShown;
-
-    private float mfRows;
-
-    private float miScale = 1f;
 
     /// <summary>The spell list scrolled down this many original rows.</summary>
     private float mfScroll;
 
     private float mfListRows;
 
-    // Screen rectangles of the last layout, for the clicks.
-    private Rect mOPanelRect;
-
-    private Rect mOHandleRect;
-
-    private Rect mOPinRect;
-
-    private readonly Rect[] mOTabRects = new Rect[2];
-
+    // Screen rectangles of the last layout, for the clicks (the panel's, the handle's, the pin's
+    // and the tabs' are UWModernDockedPanel's).
     private Rect mOTabletRect;
 
     private Rect mOHollowRect;
@@ -303,47 +205,26 @@ public class UWModernRunePanel : MonoBehaviour
     {
         mOUi = GetComponent<UWGameUI>();
         mOScheme = GetComponentInParent<UWControlScheme>();
-        mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
     private void fDestroyTextures()
     {
-        foreach (Texture2D lOTexture in new[] { mOBackTexture, mOHandleTexture, mOTabTexture, mOPinTexture, mOPinIconTexture,
-            mOTabletTexture, mOGhostTexture })
-        {
-            if (lOTexture != null)
-                Destroy(lOTexture);
-        }
+        // The tablet and the runes are shared (UWGrTextures, UWIconCache) and not ours to destroy.
+        fDestroyChromeArt();
+        mOHandleArt.Release();
 
-        mOBackTexture = null;
-        mOHandleTexture = null;
-        mOTabTexture = null;
-        mOPinTexture = null;
-        mOPinIconTexture = null;
+        if (mOGhostTexture != null)
+            Destroy(mOGhostTexture);
+
         mOTabletTexture = null;
         mOGhostTexture = null;
-
-        if (mORuneTextures != null)
-        {
-            foreach (Texture2D lORune in mORuneTextures)
-            {
-                if (lORune != null)
-                    Destroy(lORune);
-            }
-
-            mORuneTextures = null;
-        }
-
-        foreach (Texture2D lOIcon in mOIconTextures.Values)
-            Destroy(lOIcon);
-
-        mOIconTextures.Clear();
+        mORuneTextures = null;
     }
 
-    private bool fIsShown()
+    protected override bool fIsShown()
     {
         // In Classic Wide only as the frame's tablet page (UWModernClassicFrame), never as a panel.
-        return UWControlScheme.IsModern && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
+        return UWModernUi.IsActive && UWModernUi.IsShowing
             && mOUi != null && mOUi.mOUWData != null && mOUi.mCharacter != null
             && !(UWModernLayout.IsClassic && !UWModernLayout.IsRuneTabletShown);
     }
@@ -353,81 +234,63 @@ public class UWModernRunePanel : MonoBehaviour
         return mOUi != null ? mOUi.mOUWData : null;
     }
 
-    /// <summary>Whether a screen point lies on the panel, its handle, tabs or pin - nothing goes
-    /// into the world through it.</summary>
-    public bool Contains(Vector2 pOPointer)
-    {
-        return fIsShown() && (mOPanelRect.Contains(pOPointer) || mOHandleRect.Contains(pOPointer)
-            || mOTabRects[0].Contains(pOPointer) || mOTabRects[1].Contains(pOPointer) || mOPinRect.Contains(pOPointer));
-    }
 
     // ------------------------------------------------- The spells, for the panel and the bar
 
-    /// <summary>The runes of a sequence, first to last, empty slots left out.</summary>
-    public static List<int> RunesOf(int piSequence)
-    {
-        List<int> lORunes = new List<int>(3);
-
-        for (int liShift = 10; liShift >= 0; liShift -= 5)
-        {
-            int liRune = (piSequence >> liShift) & 0x1F;
-
-            if (liRune < UWRunicMagic.EmptyRune)
-                lORunes.Add(liRune);
-        }
-
-        return lORunes;
-    }
-
-    public static int SequenceOf(IReadOnlyList<int> pORunes)
-    {
-        int liFirst = pORunes != null && pORunes.Count > 0 ? pORunes[0] : UWRunicMagic.EmptyRune;
-        int liSecond = pORunes != null && pORunes.Count > 1 ? pORunes[1] : UWRunicMagic.EmptyRune;
-        int liThird = pORunes != null && pORunes.Count > 2 ? pORunes[2] : UWRunicMagic.EmptyRune;
-
-        return UWRunicMagic.GetSequence(liFirst, liSecond, liThird);
-    }
-
-    /// <summary>Whether every rune of the sequence is in the bag.</summary>
-    public static bool HasRunes(int piSequence)
+    /// <summary>The bag of the game's character, null without the game's data.</summary>
+    private static UWPlayerData fBag()
     {
         UWGameUI lOUi = UWScene.GameUi;
-        UWPlayerData lOPlayer = lOUi != null && lOUi.mOUWData != null ? lOUi.mOUWData.InitialPlayer : null;
 
-        if (lOPlayer == null)
-            return false;
+        return lOUi != null && lOUi.mOUWData != null ? lOUi.mOUWData.InitialPlayer : null;
+    }
 
-        foreach (int liRune in RunesOf(piSequence))
-        {
-            if (!lOPlayer.HasRune((UWPlayerData.Rune)liRune))
-                return false;
-        }
-
-        return true;
+    /// <summary>Whether every rune of the sequence is in the bag (UWRuneShelfModel.HasRunes).</summary>
+    public static bool HasRunes(int piSequence)
+    {
+        return UWRuneShelfModel.HasRunes(piSequence, fBag());
     }
 
     /// <summary>The highest circle the character can cast: its level halved, rounded up
-    /// (UWSpellCasting.CastRunes).</summary>
+    /// (UWSpellCasting.CircleOf).</summary>
     public static int CharacterCircle
     {
         get
         {
             UWGameUI lOUi = UWScene.GameUi;
 
-            return lOUi != null && lOUi.mCharacter != null ? (lOUi.mCharacter.Vitals.Level + 1) / 2 : 0;
+            return lOUi != null && lOUi.mCharacter != null ? UWSpellCasting.CircleOf(lOUi.mCharacter.Vitals.Level) : 0;
         }
     }
 
-    /// <summary>Whether the spell could be cast now: a spell, its runes in the bag, within the
-    /// character's circle, enough mana. The skill check still decides.</summary>
-    public static bool CanCastNow(int piSequence)
+    /// <summary>
+    /// Whether the spell could be cast now, and if not why: UWSpellCasting.CanCast with the
+    /// character's bag, level and whole mana (cleanup 5.10, 2026-10-20; until then the panel
+    /// wrote the rules out itself). The skill check still decides. Without the game's data a rune
+    /// counts as missing, without a character the circle is none. The bar greys a slot short of
+    /// Ok; the panel shows Ok and NotEnoughMana as castable (fIsCastableOnPanel).
+    /// </summary>
+    public static UWSpellCasting.CastCheckEnum CastCheck(int piSequence)
     {
         UWGameUI lOUi = UWScene.GameUi;
+        UWPlayerData lOBag = fBag();
 
-        if (!UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell) || lOUi == null || lOUi.mCharacter == null)
-            return false;
+        if (lOBag == null)
+            return UWSpellCasting.CastCheckEnum.RuneMissing;
 
-        return HasRunes(piSequence) && lOSpell.Level <= CharacterCircle && lOUi.mCharacter.Vitals.CurrentMana >= lOSpell.ManaCost;
+        UWCharacter lOCharacter = lOUi.mCharacter;
+
+        return UWSpellCasting.CanCast(piSequence, lOCharacter != null ? lOCharacter.Vitals.Level : 0,
+            lOCharacter != null ? Mathf.FloorToInt(lOCharacter.Vitals.CurrentMana) : 0, lOBag);
+    }
+
+    /// <summary>The panel's grey: a spell whose runes are in the bag and whose circle the
+    /// character reaches - the mana left out (CastCheck).</summary>
+    private static bool fIsCastableOnPanel(int piSequence)
+    {
+        UWSpellCasting.CastCheckEnum leCheck = CastCheck(piSequence);
+
+        return leCheck == UWSpellCasting.CastCheckEnum.Ok || leCheck == UWSpellCasting.CastCheckEnum.NotEnoughMana;
     }
 
     public static string SpellName(int piSequence)
@@ -512,7 +375,7 @@ public class UWModernRunePanel : MonoBehaviour
         meTab = peTab;
     }
 
-    public void Close()
+    public override void Close()
     {
         if (Pinned)
             return;
@@ -522,10 +385,16 @@ public class UWModernRunePanel : MonoBehaviour
         miPressSequence = -1;
     }
 
-    private static void fSetPinned(bool pbPinned)
+    protected override void fSetPinnedSetting(bool pbPinned)
     {
         UWUserSettings.ModernRunesPinned = pbPinned;
         UWUserSettings.Save();
+    }
+
+    /// <summary>The handle or the closed panel's edge opens it on the tab it last showed.</summary>
+    protected override void fOpenByClick()
+    {
+        Open(meTab);
     }
 
     // ------------------------------------------------- Input
@@ -538,7 +407,7 @@ public class UWModernRunePanel : MonoBehaviour
 
     /// <summary>
     /// THE GAMEPAD'S LEFT TRIGGER (UWGamepad): TAPPED it casts what lies in the hollow, as F8 does in
-    /// the original (UWHudRunes.CastByKey); HELD it opens or closes the panel, which is how runes
+    /// the original (UWGameActions.CastShelf); HELD it opens or closes the panel, which is how runes
     /// get into the hollow.
     /// </summary>
     private void fUpdatePadCast(UWControls pOControls)
@@ -578,14 +447,14 @@ public class UWModernRunePanel : MonoBehaviour
         mfPadCastHeld = -1f;
 
         if (mOUi.Runes != null)
-            mOUi.Runes.CastByKey();
+            mOUi.Actions.CastShelf();
     }
 
     private void Update()
     {
         if (!fIsShown())
         {
-            if (mbOpen && !UWControlScheme.IsModern)
+            if (mbOpen && !UWModernUi.IsActive)
                 mbOpen = false;
 
             mbPeek = false;
@@ -603,9 +472,7 @@ public class UWModernRunePanel : MonoBehaviour
         if (lbTablet)
             meTab = TabEnum.Runes;
 
-        UWModernHud lOHud = UWModernHud.Instance;
-
-        if (lOHud.IsOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || mOUi.IsMapVisible)
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys || mOUi.Map.IsMapVisible)
         {
             mbDragging = false;
             miPressSequence = -1;
@@ -639,11 +506,8 @@ public class UWModernRunePanel : MonoBehaviour
         }
 
         Vector2 lOPointer = lOMouse.position.ReadValue();
-        Rect lONear = new Rect(mOHandleRect.xMin, mOHandleRect.yMin - (4 * miScale),
-            mOHandleRect.width + (PeekReach * miScale), mOHandleRect.height + (8 * miScale));
 
-        mbPeek = !mbOpen && !UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.RunePanel)
-            && (lONear.Contains(lOPointer) || mOPanelRect.Contains(lOPointer));
+        fUpdatePeek(lOPointer);
 
         fUpdateDrag(lOControls, lOPointer);
 
@@ -658,41 +522,28 @@ public class UWModernRunePanel : MonoBehaviour
         if (!lbLeft && !lbRight)
             return;
 
+        // THE TABLET TAKES NO CLICKS WHILE THE CLASSIC WIDE PANEL TURNS (per user, 2026-10-20),
+        // as the classic shelf (UWHudRunes asks UWPanelTurn.IsAtRestOn): it stands squeezed then.
+        if (lbTablet && UWModernClassicFrame.IsTurning)
+            return;
+
         // A thing on the pointer is not put down through the panel (UWModernBags asks Contains).
         if (mOUi.mOInventory != null && mOUi.mOInventory.CursorItem != null)
             return;
 
-        if (lbLeft && mOPinRect.Contains(lOPointer))
-        {
-            fSetPinned(!Pinned);
+        // The pin, the handle, the closed panel's edge (UWModernDockedPanel).
+        if (lbLeft && fClickChrome(lOPointer))
             return;
-        }
-
-        if (lbLeft && mOHandleRect.Contains(lOPointer))
-        {
-            if (mbOpen)
-                Close();
-            else
-                Open(meTab);
-
-            return;
-        }
 
         if (!mbOpen)
-        {
-            if (lbLeft && mOPanelRect.Contains(lOPointer))
-                Open(meTab);
-
             return;
-        }
 
-        for (int liTab = 0; lbLeft && liTab < mOTabRects.Length; liTab++)
+        int liTab = lbLeft ? fTabAt(lOPointer) : -1;
+
+        if (liTab >= 0)
         {
-            if (mOTabRects[liTab].Contains(lOPointer))
-            {
-                meTab = (TabEnum)liTab;
-                return;
-            }
+            meTab = (TabEnum)liTab;
+            return;
         }
 
         if (meTab == TabEnum.Runes)
@@ -710,16 +561,12 @@ public class UWModernRunePanel : MonoBehaviour
         if (lORunes == null || lORunes.InAnotherInputMode)
             return;
 
-        // The clear strip at the bottom of the shelf.
-        if (pbLeft && mOTabletRect.Contains(pOPointer))
+        // The clear strip at the bottom of the shelf (UWRuneShelfModel.IsClearStrip).
+        if (pbLeft && mOTabletRect.Contains(pOPointer)
+            && UWRuneShelfModel.IsClearStrip((mOTabletRect.yMax - pOPointer.y) / miScale))
         {
-            float lfRow = (mOTabletRect.yMax - pOPointer.y) / miScale;
-
-            if (lfRow >= ClearTop && lfRow <= ClearBottom)
-            {
-                lORunes.ClearRuneShelf();
-                return;
-            }
+            lORunes.ClearRuneShelf();
+            return;
         }
 
         int liRune = fRuneAt(pOPointer);
@@ -736,7 +583,7 @@ public class UWModernRunePanel : MonoBehaviour
 
         if (pbLeft && mOHollowRect.Contains(pOPointer))
         {
-            miPressSequence = SequenceOf(lORunes.SelectedRunes);
+            miPressSequence = lORunes.Shelf.Sequence;
             mbPressHollow = true;
             mOPressStart = pOPointer;
         }
@@ -794,14 +641,18 @@ public class UWModernRunePanel : MonoBehaviour
         if (lbHollow)
         {
             if (mOHollowRect.Contains(pOPointer))
-                lORunes.CastShelf();
+                mOUi.Actions.CastShelf();
         }
         else if (HasRunes(liSequence))
         {
-            lORunes.PutOnShelf(RunesOf(liSequence));
+            lORunes.PutOnShelf(UWRuneShelfModel.RunesOf(liSequence));
         }
     }
 
+    /// <summary>The rune of the bag under the pointer on the tablet, at the original's pixel
+    /// proportion: the tablet is the page, so the original's gapless cells lie around its
+    /// compartments as on the classic shelf (UWRuneShelfModel.RuneCellAt, decision 27,
+    /// 2026-10-20; until then the 14 x 14 compartments alone, with gaps between).</summary>
     private int fRuneAt(Vector2 pOPointer)
     {
         UWPlayerData lOPlayer = fData().InitialPlayer;
@@ -812,16 +663,7 @@ public class UWModernRunePanel : MonoBehaviour
         float lfX = (pOPointer.x - mOTabletRect.xMin) / (miScale * UWModernHudArt.PixelAspectX);
         float lfY = (mOTabletRect.yMax - pOPointer.y) / miScale;
 
-        for (int liRune = 0; liRune < UWPlayerData.RuneCount; liRune++)
-        {
-            float lfLeft = RuneLeft + ((liRune % RuneColumns) * RunePitchX);
-            float lfTop = RuneTop + ((liRune / RuneColumns) * RunePitchY);
-
-            if (lfX >= lfLeft && lfX < lfLeft + RuneCell && lfY >= lfTop && lfY < lfTop + RuneCell)
-                return lOPlayer.HasRune((UWPlayerData.Rune)liRune) ? liRune : -1;
-        }
-
-        return -1;
+        return UWRuneShelfModel.RuneCellAt(lfX, lfY,liRune => lOPlayer.HasRune((UWPlayerData.Rune)liRune));
     }
 
     private ListEntry fEntryAt(Vector2 pOPointer)
@@ -864,7 +706,7 @@ public class UWModernRunePanel : MonoBehaviour
 
         mOCanvas.enabled = true;
         // Its own size (UWModernLayout - docked, never moved).
-        miScale = UWModernHud.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RunePanel);
+        miScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RunePanel);
 
         fEnsureArt();
 
@@ -886,14 +728,14 @@ public class UWModernRunePanel : MonoBehaviour
         int liTargetRows = meTab == TabEnum.Runes ? Mathf.Min(liRoom, fRunesRows()) : liRoom;
         // Moved in the layout editor it is a free window: no handle, no peeking, no sliding.
         bool lbFree = UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.RunePanel);
-        float lfTargetShown = mbOpen ? PanelWidth * liScale : mbPeek && !lbFree ? PeekWidth * liScale : 0f;
-        float lfStep = 1f - Mathf.Exp(-SlideRate * Time.unscaledDeltaTime);
+        float lfTargetShown = fTargetShown(PanelWidth * liScale, lbFree);
+        float lfStep = fSlideStep();
 
         if (mfRows <= 0f)
             mfRows = liTargetRows;
 
-        mfShown = lbFree || Mathf.Abs(mfShown - lfTargetShown) < 1f ? lfTargetShown : Mathf.Lerp(mfShown, lfTargetShown, lfStep);
-        mfRows = Mathf.Abs(mfRows - liTargetRows) < 0.5f ? liTargetRows : Mathf.Lerp(mfRows, liTargetRows, lfStep);
+        mfShown = lbFree ? lfTargetShown : fGlide(mfShown, lfTargetShown, lfStep, 1f);
+        mfRows = fGlide(mfRows, liTargetRows, lfStep, 0.5f);
 
         int liHeight = Mathf.Max(60, Mathf.RoundToInt(mfRows));
         float lfLeft = Mathf.Round(mfShown - (PanelWidth * liScale));
@@ -915,71 +757,17 @@ public class UWModernRunePanel : MonoBehaviour
 
         mOPanelRect = mfShown > 0.5f ? new Rect(lfLeft, lfBottom, lfWidth, liHeight * liScale) : Rect.zero;
 
-        if (mOBackTexture == null || mOBackSize.y != liHeight || miBackArtVersion != UWModernBacks.ArtVersion)
-        {
-            if (mOBackTexture != null)
-                Destroy(mOBackTexture);
-
-            mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, fData().Textures, PanelWidth, liHeight,
-                mOUi.TextureFilterMode);
-            mOBackSize = new Vector2Int(PanelWidth, liHeight);
-            miBackArtVersion = UWModernBacks.ArtVersion;
-            mOBack.texture = mOBackTexture;
-        }
-
-        mOBack.enabled = mfShown > 0.5f;
-        fSetRect(mOBack.rectTransform, lfLeft, lfBottom, lfWidth, liHeight * liScale);
+        // The leather (UWModernDockedPanel).
+        fLayoutBack(PanelWidth, liHeight, lfLeft, lfBottom);
 
         // The handle out of the right edge, mirrored, over the frame there - not when pinned.
         Rect lOHandle = new Rect(lfLeft + lfWidth, Screen.height - ((HandleTop + HandleHeight) * liScale),
             HandleWidth * liScale, HandleHeight * liScale);
 
-        mOHandleRect = lbPinned || lbFree ? Rect.zero : lOHandle;
-        mOHandle.enabled = !lbPinned && !lbFree;
-        mOHandleText.enabled = !lbPinned && !lbFree;
-        fSetRect(mOHandle.rectTransform, lOHandle.x - (UWModernHudArt.LeatherLeft * liScale), lOHandle.y,
-            (HandleWidth + UWModernHudArt.LeatherLeft) * liScale, lOHandle.height);
+        fLayoutHandle(lOHandle, lbPinned, lbFree);
 
-        RectTransform lOLabel = mOHandleText.rectTransform;
-        lOLabel.pivot = new Vector2(0.5f, 0.5f);
-        lOLabel.anchoredPosition = lOHandle.center;
-        lOLabel.sizeDelta = new Vector2(lOHandle.height, lOHandle.width);
-        lOLabel.localRotation = Quaternion.Euler(0f, 0f, -90f);
-        mOHandleText.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
-
-        // The tab headers and the pin over the top edge, once the panel is out.
-        bool lbOut = mbOpen && mfShown > PeekWidth * liScale;
-
-        for (int liTab = 0; liTab < mOTabBacks.Length; liTab++)
-        {
-            Rect lOTab = new Rect(lfLeft + ((ContentPad + (liTab * (TabHeaderWidth + 2))) * liScale), lfTop - (2 * liScale),
-                TabHeaderWidth * liScale, TabHeaderHeight * liScale);
-
-            mOTabRects[liTab] = lbOut ? lOTab : Rect.zero;
-            mOTabBacks[liTab].enabled = lbOut;
-            mOTabTexts[liTab].enabled = lbOut;
-            mOTabBacks[liTab].color = (int)meTab == liTab ? Color.white : new Color(0.68f, 0.68f, 0.68f, 1f);
-            mOTabTexts[liTab].color = (int)meTab == liTab ? msText : msDim;
-            mOTabTexts[liTab].fontSize = Mathf.Max(9, Mathf.RoundToInt(4.2f * liScale));
-            fSetRect(mOTabBacks[liTab].rectTransform, lOTab.x, lOTab.y, lOTab.width, lOTab.height);
-            fSetRect(mOTabTexts[liTab].rectTransform, lOTab.x, lOTab.y + liScale, lOTab.width, lOTab.height);
-        }
-
-        Rect lOPin = new Rect(lfLeft + ((PanelWidth - ContentPad - PinWidth) * liScale), lfTop - (2 * liScale),
-            PinWidth * liScale, TabHeaderHeight * liScale);
-
-        mOPinRect = lbOut ? lOPin : Rect.zero;
-        mOPin.enabled = lbOut;
-        mOPinIcon.enabled = lbOut;
-        mOPin.color = lbPinned ? Color.white : new Color(0.68f, 0.68f, 0.68f, 1f);
-        mOPinIcon.color = lbPinned ? Color.white : new Color(0.78f, 0.78f, 0.78f, 1f);
-        fSetRect(mOPin.rectTransform, lOPin.x, lOPin.y, lOPin.width, lOPin.height);
-
-        RectTransform lOPinIcon = mOPinIcon.rectTransform;
-        lOPinIcon.pivot = new Vector2(0.5f, 0.5f);
-        lOPinIcon.anchoredPosition = lOPin.center + new Vector2(0f, 0.5f * liScale);
-        lOPinIcon.sizeDelta = new Vector2(7f * liScale, 7f * liScale);
-        lOPinIcon.localRotation = Quaternion.Euler(0f, 0f, lbPinned ? 0f : -35f);
+        // The tab headers and the pin over the top edge, once the panel is out (UWModernDockedPanel).
+        fLayoutTabRow(lfLeft, lfTop, PanelWidth, (int)meTab, lbPinned);
 
         ScreenRect = lbFree
             ? (mOPanelRect.width > 0f ? Rect.MinMaxRect(mOPanelRect.xMin, mOPanelRect.yMin, mOPanelRect.xMax, lfTop + lfTabRise) : Rect.zero)
@@ -1001,8 +789,8 @@ public class UWModernRunePanel : MonoBehaviour
         mOTitleRight.enabled = lbContent;
         mOTitle.fontSize = Mathf.Max(11, Mathf.RoundToInt(5.2f * liScale));
         mOTitleRight.fontSize = liSmall;
-        fSetRect(mOTitle.rectTransform, lfInnerX, lfTop - ((TitleTop + 9) * liScale), lfInner, 9 * liScale);
-        fSetRect(mOTitleRight.rectTransform, lfInnerX, lfTop - ((TitleTop + 9) * liScale), lfInner - liScale, 9 * liScale);
+        UWUiKit.SetRect(mOTitle.rectTransform, lfInnerX, lfTop - ((TitleTop + 9) * liScale), lfInner, 9 * liScale);
+        UWUiKit.SetRect(mOTitleRight.rectTransform, lfInnerX, lfTop - ((TitleTop + 9) * liScale), lfInner - liScale, 9 * liScale);
 
         mORunesContent.gameObject.SetActive(lbContent && meTab == TabEnum.Runes);
         mOListViewport.gameObject.SetActive(lbContent && meTab == TabEnum.Spells);
@@ -1034,7 +822,7 @@ public class UWModernRunePanel : MonoBehaviour
     private void fLayoutTabletOnly()
     {
         // Its own element's size, not the rune panel's (per user, 2026-10-10: it did not size).
-        miScale = UWModernHud.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RuneTablet);
+        miScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RuneTablet);
 
         float liScale = miScale;
         float lfWidth = UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX;
@@ -1100,7 +888,7 @@ public class UWModernRunePanel : MonoBehaviour
         int liOwned = 0;
 
         mOTabletRect = pORect;
-        fSetRect(mOTablet.rectTransform, mOTabletRect.x, mOTabletRect.y, mOTabletRect.width, mOTabletRect.height);
+        UWUiKit.SetRect(mOTablet.rectTransform, mOTabletRect.x, mOTabletRect.y, mOTabletRect.width, mOTabletRect.height);
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
         {
@@ -1115,10 +903,10 @@ public class UWModernRunePanel : MonoBehaviour
             if (!mORunes[liRune].enabled)
                 continue;
 
-            float lfX = mOTabletRect.xMin + ((RuneLeft + ((liRune % RuneColumns) * RunePitchX)) * liScale * UWModernHudArt.PixelAspectX);
-            float lfRowTop = mOTabletRect.yMax - ((RuneTop + ((liRune / RuneColumns) * RunePitchY)) * liScale);
+            float lfX = mOTabletRect.xMin + (UWRuneShelfModel.SlotLeft(liRune) * liScale * UWModernHudArt.PixelAspectX);
+            float lfRowTop = mOTabletRect.yMax - (UWRuneShelfModel.SlotTop(liRune) * liScale);
 
-            fSetRect(mORunes[liRune].rectTransform, lfX, lfRowTop - (lOTexture.height * liScale),
+            UWUiKit.SetRect(mORunes[liRune].rectTransform, lfX, lfRowTop - (lOTexture.height * liScale),
                 lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
 
@@ -1145,10 +933,10 @@ public class UWModernRunePanel : MonoBehaviour
 
         mOHollowRect = new Rect(pfLeft + (((PanelWidth - HollowWidth) / 2) * liScale), lfHollowTop - (HollowHeight * liScale),
             HollowWidth * liScale, HollowHeight * liScale);
-        fSetRect(mOHollow.rectTransform, mOHollowRect.x, mOHollowRect.y, mOHollowRect.width, mOHollowRect.height);
+        UWUiKit.SetRect(mOHollow.rectTransform, mOHollowRect.x, mOHollowRect.y, mOHollowRect.width, mOHollowRect.height);
 
-        IReadOnlyList<int> lOShelf = lORunes != null ? lORunes.SelectedRunes : null;
-        int liSequence = SequenceOf(lOShelf);
+        IReadOnlyList<int> lOShelf = lORunes != null ? lORunes.Shelf.Selected : null;
+        int liSequence = UWRuneShelfModel.SequenceOf(lOShelf);
         bool lbSpell = UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
         bool lbHover = Mouse.current != null && UWModernPointer.IsFree && mOHollowRect.Contains(Mouse.current.position.ReadValue());
 
@@ -1162,14 +950,14 @@ public class UWModernRunePanel : MonoBehaviour
             if (lOTexture != null)
             {
                 mOHollowRunes[liAt].texture = lOTexture;
-                fSetRect(mOHollowRunes[liAt].rectTransform,
+                UWUiKit.SetRect(mOHollowRunes[liAt].rectTransform,
                     mOHollowRect.x + ((3 + (liAt * HollowRunePitch) + (lOTexture.width * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
                     mOHollowRect.yMax - ((3 + lOTexture.height) * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
             }
         }
 
         // The frame: gold under the pointer when it holds a spell - take it by it.
-        Color lOFrame = lbSpell && (lbHover || mbDragging) ? msGold : msRule;
+        Color lOFrame = lbSpell && (lbHover || mbDragging) ? UWModernPalette.Gold : UWModernPalette.Rule;
 
         fSetFrame(mOHollowFrame, mOHollowRect, lOFrame);
 
@@ -1184,24 +972,24 @@ public class UWModernRunePanel : MonoBehaviour
 
         if (lbSpell)
         {
-            bool lbCastable = HasRunes(liSequence) && lOSpell.Level <= liCircle;
+            bool lbCastable = fIsCastableOnPanel(liSequence);
 
             mOSpellName.text = SpellName(liSequence);
-            mOSpellName.color = lbCastable ? msText : msGrey;
+            mOSpellName.color = lbCastable ? UWModernPalette.Text : UWModernPalette.Grey;
             mOSpellCircle.text = "Circle " + lOSpell.Level + "  -  " + lOSpell.ManaCost + " mana";
             mOHint.text = lOSpell.Level > liCircle ? "above your circle" : "drag onto the bar, click to cast";
         }
         else
         {
             mOSpellName.text = lOShelf != null && lOShelf.Count > 0 ? "Not a spell" : "No runes chosen";
-            mOSpellName.color = msGrey;
+            mOSpellName.color = UWModernPalette.Grey;
             mOSpellCircle.text = string.Empty;
             mOHint.text = "click runes on the shelf";
         }
 
-        fSetRect(mOSpellName.rectTransform, pfLeft, lfInfoTop - (9 * liScale), lfWidth, 9 * liScale);
-        fSetRect(mOSpellCircle.rectTransform, pfLeft, lfInfoTop - (16 * liScale), lfWidth, 7 * liScale);
-        fSetRect(mOHint.rectTransform, pfLeft, lfInfoTop - (24 * liScale), lfWidth, 7 * liScale);
+        UWUiKit.SetRect(mOSpellName.rectTransform, pfLeft, lfInfoTop - (9 * liScale), lfWidth, 9 * liScale);
+        UWUiKit.SetRect(mOSpellCircle.rectTransform, pfLeft, lfInfoTop - (16 * liScale), lfWidth, 7 * liScale);
+        UWUiKit.SetRect(mOHint.rectTransform, pfLeft, lfInfoTop - (24 * liScale), lfWidth, 7 * liScale);
     }
 
     private void fLayoutSpells(float pfLeft, float pfTop, float pfBottom, int piFont, int piSmall)
@@ -1218,7 +1006,7 @@ public class UWModernRunePanel : MonoBehaviour
         mOListRect = new Rect(pfLeft + (UWModernHudArt.LeatherLeft * liScale), pfBottom + (UWModernHudArt.LeatherBottom * liScale),
             (PanelWidth - UWModernHudArt.LeatherLeft - UWModernHudArt.LeatherRight) * liScale,
             pfTop - (ListTop * liScale) - (pfBottom + (UWModernHudArt.LeatherBottom * liScale)));
-        fSetRect(mOListViewport, mOListRect.x, mOListRect.y, mOListRect.width, Mathf.Max(0f, mOListRect.height));
+        UWUiKit.SetRect(mOListViewport, mOListRect.x, mOListRect.y, mOListRect.width, Mathf.Max(0f, mOListRect.height));
 
         float lfViewRows = mOListRect.height / liScale;
 
@@ -1258,36 +1046,35 @@ public class UWModernRunePanel : MonoBehaviour
             if (lOEntry.Sequence < 0)
             {
                 lOEntry.Name.fontSize = piSmall;
-                lOEntry.Name.color = lOEntry.Circle <= liCircle ? msDim : msGrey;
-                fSetRect(lOEntry.Name.rectTransform, lfX, lfTop - (8 * liScale), lfInner, 7 * liScale);
-                fSetRect(lOEntry.Rule.rectTransform, lfX, lfTop - (9 * liScale), lfInner - (4 * liScale), Mathf.Max(2f, liScale * 0.5f));
+                lOEntry.Name.color = lOEntry.Circle <= liCircle ? UWModernPalette.Dim : UWModernPalette.Grey;
+                UWUiKit.SetRect(lOEntry.Name.rectTransform, lfX, lfTop - (8 * liScale), lfInner, 7 * liScale);
+                UWUiKit.SetRect(lOEntry.Rule.rectTransform, lfX, lfTop - (9 * liScale), lfInner - (4 * liScale), Mathf.Max(2f, liScale * 0.5f));
                 continue;
             }
 
-            bool lbOwned = lOPlayer != null && HasRunes(lOEntry.Sequence);
-            bool lbCastable = lbOwned && lOEntry.Spell.Level <= liCircle;
+            bool lbCastable = lOPlayer != null && fIsCastableOnPanel(lOEntry.Sequence);
             float lfTextX = 13 * liScale;
 
             lOEntry.Name.fontSize = piSmall + 1;
-            lOEntry.Name.color = lbCastable ? msText : msGrey;
-            fSetRect(lOEntry.Name.rectTransform, lfTextX, lfTop - (6.5f * liScale), lfInner - lfTextX, 6 * liScale);
+            lOEntry.Name.color = lbCastable ? UWModernPalette.Text : UWModernPalette.Grey;
+            UWUiKit.SetRect(lOEntry.Name.rectTransform, lfTextX, lfTop - (6.5f * liScale), lfInner - lfTextX, 6 * liScale);
 
             lOEntry.Runes.fontSize = Mathf.Max(8, piSmall - 1);
-            lOEntry.Runes.color = lbCastable ? msRunesText : msGrey;
-            fSetRect(lOEntry.Runes.rectTransform, lfTextX, lfTop - (11.5f * liScale), lfInner - lfTextX, 5 * liScale);
+            lOEntry.Runes.color = lbCastable ? UWModernPalette.RunesText : UWModernPalette.Grey;
+            UWUiKit.SetRect(lOEntry.Runes.rectTransform, lfTextX, lfTop - (11.5f * liScale), lfInner - lfTextX, 5 * liScale);
 
             if (lOEntry.Icon != null)
             {
                 lOEntry.Icon.enabled = true;
                 lOEntry.Icon.color = lbCastable ? Color.white : new Color(0.45f, 0.45f, 0.45f, 1f);
-                fSetRect(lOEntry.Icon.rectTransform, lfX + (9 * (1f - UWModernHudArt.PixelAspectX) * 0.5f * liScale), lfTop - (10.5f * liScale), 9 * liScale * UWModernHudArt.PixelAspectX,
+                UWUiKit.SetRect(lOEntry.Icon.rectTransform, lfX + (9 * (1f - UWModernHudArt.PixelAspectX) * 0.5f * liScale), lfTop - (10.5f * liScale), 9 * liScale * UWModernHudArt.PixelAspectX,
                     9 * liScale);
             }
 
             if (lOEntry == lOHovered || (mbDragging && !mbPressHollow && lOEntry.Sequence == miPressSequence))
             {
                 mORowHighlight.enabled = true;
-                fSetRect(mORowHighlight.rectTransform, liScale, lfTop - (RowRows * liScale), lfInner - (2 * liScale), RowRows * liScale);
+                UWUiKit.SetRect(mORowHighlight.rectTransform, liScale, lfTop - (RowRows * liScale), lfInner - (2 * liScale), RowRows * liScale);
             }
         }
     }
@@ -1309,9 +1096,9 @@ public class UWModernRunePanel : MonoBehaviour
 
                 ListEntry lOHeader = new ListEntry { Circle = liCircle, Top = liTop, Rows = HeaderRows };
 
-                lOHeader.Name = fCreateText(mOListContent, "Circle", TextAnchor.LowerLeft, msDim);
-                lOHeader.Name.text = "Circle " + liCircle + "  -  " + (liCircle * 3) + " mana";
-                lOHeader.Rule = fCreateImage(mOListContent, "Rule", msRule);
+                lOHeader.Name = UWUiKit.CreateText(mOListContent, "Circle", TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
+                lOHeader.Name.text = "Circle " + liCircle + "  -  " + lOSpell.ManaCost + " mana";
+                lOHeader.Rule = UWUiKit.CreateImage(mOListContent, "Rule", UWModernPalette.Rule);
                 mOEntries.Add(lOHeader);
                 liTop += HeaderRows;
             }
@@ -1325,16 +1112,16 @@ public class UWModernRunePanel : MonoBehaviour
                 Rows = RowRows
             };
 
-            lOEntry.Name = fCreateText(mOListContent, "Spell", TextAnchor.MiddleLeft, msText);
+            lOEntry.Name = UWUiKit.CreateText(mOListContent, "Spell", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
             lOEntry.Name.text = UWRunicMagic.GetName(lOSpell, lOData.Strings);
-            lOEntry.Runes = fCreateText(mOListContent, "Runes", TextAnchor.MiddleLeft, msRunesText);
+            lOEntry.Runes = UWUiKit.CreateText(mOListContent, "Runes", TextAnchor.MiddleLeft, UWModernPalette.RunesText, mOUi);
             lOEntry.Runes.text = UWRunicMagic.DescribeRunes(lOSpell.RuneSequence);
 
             UWTexture lOIcon = SpellIcon(lOSpell.RuneSequence);
 
             if (lOIcon != null)
             {
-                lOEntry.Icon = fCreateRawImage(mOListContent, "Icon");
+                lOEntry.Icon = UWUiKit.CreateRawImage(mOListContent, "Icon");
                 lOEntry.Icon.texture = fGetIcon(lOIcon);
                 UWIconPalette.ApplySmooth(lOEntry.Icon);
             }
@@ -1362,7 +1149,7 @@ public class UWModernRunePanel : MonoBehaviour
         Vector2 lOPointer = Mouse.current.position.ReadValue();
         UWTexture lOIcon = SpellIcon(miPressSequence);
 
-        fSetRect(mOGhostBack.rectTransform, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f), lfSlot, lfSlot);
+        UWUiKit.SetRect(mOGhostBack.rectTransform, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f), lfSlot, lfSlot);
 
         mOGhostIcon.enabled = lOIcon != null;
         mOGhostText.enabled = lOIcon == null;
@@ -1372,14 +1159,14 @@ public class UWModernRunePanel : MonoBehaviour
             Texture2D lOTexture = fGetIcon(lOIcon);
 
             mOGhostIcon.texture = lOTexture;
-            fSetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * UWModernHudArt.PixelAspectX * 0.5f),
+            UWUiKit.SetRect(mOGhostIcon.rectTransform, lOPointer.x - (lOTexture.width * liScale * UWModernHudArt.PixelAspectX * 0.5f),
                 lOPointer.y - (lOTexture.height * liScale * 0.5f), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
         }
         else
         {
             mOGhostText.text = RuneLabel(miPressSequence);
             mOGhostText.fontSize = Mathf.Max(9, Mathf.RoundToInt(3.6f * liScale));
-            fSetRect(mOGhostText.rectTransform, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f), lfSlot, lfSlot);
+            UWUiKit.SetRect(mOGhostText.rectTransform, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f), lfSlot, lfSlot);
         }
     }
 
@@ -1387,10 +1174,10 @@ public class UWModernRunePanel : MonoBehaviour
     {
         float lfLine = Mathf.Max(2f, miScale * 0.6f);
 
-        fSetRect(pOLines[0].rectTransform, pORect.xMin - lfLine, pORect.yMax, pORect.width + (2 * lfLine), lfLine);
-        fSetRect(pOLines[1].rectTransform, pORect.xMin - lfLine, pORect.yMin - lfLine, pORect.width + (2 * lfLine), lfLine);
-        fSetRect(pOLines[2].rectTransform, pORect.xMin - lfLine, pORect.yMin, lfLine, pORect.height);
-        fSetRect(pOLines[3].rectTransform, pORect.xMax, pORect.yMin, lfLine, pORect.height);
+        UWUiKit.SetRect(pOLines[0].rectTransform, pORect.xMin - lfLine, pORect.yMax, pORect.width + (2 * lfLine), lfLine);
+        UWUiKit.SetRect(pOLines[1].rectTransform, pORect.xMin - lfLine, pORect.yMin - lfLine, pORect.width + (2 * lfLine), lfLine);
+        UWUiKit.SetRect(pOLines[2].rectTransform, pORect.xMin - lfLine, pORect.yMin, lfLine, pORect.height);
+        UWUiKit.SetRect(pOLines[3].rectTransform, pORect.xMax, pORect.yMin, lfLine, pORect.height);
 
         foreach (Image lOLine in pOLines)
             lOLine.color = pOColour;
@@ -1398,21 +1185,16 @@ public class UWModernRunePanel : MonoBehaviour
 
     private Texture2D fGetIcon(UWTexture pOSource)
     {
-        if (!mOIconTextures.TryGetValue(pOSource, out Texture2D lOIcon) || lOIcon == null)
-        {
-            lOIcon = UWIconTextureBuilder.Build(pOSource, mOUi.TextureFilterMode);
-            mOIconTextures[pOSource] = lOIcon;
-        }
-
-        return lOIcon;
+        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
     }
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWModernBacks.ArtVersion && mOTabletTexture != null)
+        UWArtStamp lOStamp = UWVersionedTexture.Backs();
+
+        if (mOHandleArt.IsCurrent(lOStamp) && mOTabletTexture != null)
             return;
 
-        miArtVersion = UWModernBacks.ArtVersion;
         fDestroyTextures();
 
         // The list's icons were built with the old colours.
@@ -1426,23 +1208,16 @@ public class UWModernRunePanel : MonoBehaviour
         UWTextures lOTextures = lOData.Textures;
         FilterMode leFilter = mOUi.TextureFilterMode;
 
-        mOHandleTexture = UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.RunePanel, lOTextures, HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter);
-        mOTabTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, TabHeaderWidth, TabHeaderHeight, leFilter);
-        mOPinTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.RunePanel, lOTextures, PinWidth, TabHeaderHeight, leFilter);
-        mOPinIconTexture = UWModernPanel.BuildPinIcon(48);
+        mOHandleArt.Set(lOStamp, UWModernHudArt.BuildPartLeatherTab(UWModernLayout.ElementEnum.RunePanel, lOTextures,
+            HandleWidth + UWModernHudArt.LeatherLeft, HandleHeight, leFilter));
+
+        // The tab headers, the pin and its icon (UWModernDockedPanel).
+        fBuildChromeArt(lOTextures, leFilter);
         mOGhostTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.RunePanel, lOTextures, leFilter);
 
-        List<UWTexture> lOPanels = lOTextures.GetTexturesByType(UWTexture.TextureTypes.PANELS);
-
-        if (lOPanels != null && lOPanels.Count > 1)
-        {
-            mOTabletTexture = new Texture2D(lOPanels[1].Width, lOPanels[1].Height, TextureFormat.RGBA32, false);
-            mOTabletTexture.name = "UWModernRunePanel shelf";
-            mOTabletTexture.filterMode = leFilter;
-            mOTabletTexture.wrapMode = TextureWrapMode.Clamp;
-            mOTabletTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[1]));
-            mOTabletTexture.Apply(false, false);
-        }
+        // The original's rune tablet (PANELS.GR 1), its transparent pixels keeping their colours;
+        // it follows the colour help in place (UWGrTextures).
+        mOTabletTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 1, leFilter, UWGrTextures.ModeEnum.Colours);
 
         mORuneTextures = new Texture2D[UWPlayerData.RuneCount];
 
@@ -1450,218 +1225,84 @@ public class UWModernRunePanel : MonoBehaviour
         {
             UWTexture lOSource = lOTextures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, UWPlayerData.FirstRuneObjectId + liRune);
 
-            mORuneTextures[liRune] = lOSource != null ? UWIconTextureBuilder.Build(lOSource, leFilter) : null;
+            mORuneTextures[liRune] = UWIconCache.Texture(lOSource, leFilter);
             mORunes[liRune].texture = mORuneTextures[liRune];
         }
 
-        mOHandle.texture = mOHandleTexture;
-        mOPin.texture = mOPinTexture;
-        mOPinIcon.texture = mOPinIconTexture;
+        mOHandle.texture = mOHandleArt.Texture;
         mOTablet.texture = mOTabletTexture;
         mOTablet.enabled = mOTabletTexture != null;
         mOGhostBack.texture = mOGhostTexture;
-
-        foreach (RawImage lOTab in mOTabBacks)
-            lOTab.texture = mOTabTexture;
-
-        mOBackSize = Vector2Int.zero;
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
     }
 
     // ------------------------------------------------- Building
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Modern rune panel", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
-
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 41;
-
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern rune panel", UWUiSorting.ModernRunePanel);
 
         // Everything in a content group, which the classic frame's panel turn squeezes
         // (UWModernClassicFrame.ApplySquash).
-        GameObject lOContent = new GameObject("Content", typeof(RectTransform));
-        lOContent.transform.SetParent(lORoot.transform, false);
-        mORoot = (RectTransform)lOContent.transform;
-        mORoot.anchorMin = Vector2.zero;
-        mORoot.anchorMax = Vector2.zero;
-        mORoot.pivot = Vector2.zero;
+        mORoot = UWUiKit.CreateGroup(mOCanvas.transform, "Content");
         mORoot.sizeDelta = Vector2.zero;
 
-        mOTabBacks = new RawImage[2];
-        mOTabTexts = new Text[2];
+        // The tab headers, the pin, the leather and the handle, mirrored (UWModernDockedPanel).
+        fBuildChrome(mORoot, new[] { "Runes", "Spells" }, "Runes");
 
-        string[] lsTabs = { "Runes", "Spells" };
-
-        for (int liTab = 0; liTab < 2; liTab++)
-        {
-            mOTabBacks[liTab] = fCreateRawImage(mORoot, "Tab " + lsTabs[liTab]);
-            UWPixelArtUI.Apply(mOTabBacks[liTab]);
-            mOTabTexts[liTab] = fCreateText(mORoot, lsTabs[liTab], TextAnchor.MiddleCenter, msText);
-            mOTabTexts[liTab].text = lsTabs[liTab];
-        }
-
-        mOPin = fCreateRawImage(mORoot, "Pin");
-        UWPixelArtUI.Apply(mOPin);
-        mOPinIcon = fCreateRawImage(mORoot, "Pin icon");
-
-        mOBack = fCreateRawImage(mORoot, "Leather");
-        UWPixelArtUI.Apply(mOBack);
-
-        // The handle is the character panel's, mirrored: its open side joins the panel.
-        mOHandle = fCreateRawImage(mORoot, "Handle");
-        UWPixelArtUI.Apply(mOHandle);
-        mOHandle.uvRect = new Rect(1f, 0f, -1f, 1f);
-        mOHandleText = fCreateText(mORoot, "Handle label", TextAnchor.MiddleCenter, msText);
-        mOHandleText.text = "Runes";
-
-        mOTitle = fCreateText(mORoot, "Title", TextAnchor.MiddleLeft, msText);
-        mOTitleRight = fCreateText(mORoot, "Title right", TextAnchor.MiddleRight, msDim);
+        mOTitle = UWUiKit.CreateText(mORoot, "Title", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
+        mOTitleRight = UWUiKit.CreateText(mORoot, "Title right", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);
 
         // The Runes tab.
-        mORunesContent = fCreateGroup(mORoot, "Runes");
-        mOTablet = fCreateRawImage(mORunesContent, "Rune shelf");
+        mORunesContent = UWUiKit.CreateGroup(mORoot, "Runes");
+        mOTablet = UWUiKit.CreateRawImage(mORunesContent, "Rune shelf");
         UWPixelArtUI.Apply(mOTablet);
 
         mORunes = new RawImage[UWPlayerData.RuneCount];
 
         for (int liRune = 0; liRune < mORunes.Length; liRune++)
         {
-            mORunes[liRune] = fCreateRawImage(mORunesContent, UWRunicMagic.RuneNames[liRune]);
+            mORunes[liRune] = UWUiKit.CreateRawImage(mORunesContent, UWRunicMagic.RuneNames[liRune]);
             UWIconPalette.ApplySmooth(mORunes[liRune]);
         }
 
-        mOHollow = fCreateImage(mORunesContent, "Hollow", msHollowFill);
+        mOHollow = UWUiKit.CreateImage(mORunesContent, "Hollow", msHollowFill);
         mOHollowFrame = new Image[4];
 
         for (int liLine = 0; liLine < mOHollowFrame.Length; liLine++)
-            mOHollowFrame[liLine] = fCreateImage(mORunesContent, "Frame", msRule);
+            mOHollowFrame[liLine] = UWUiKit.CreateImage(mORunesContent, "Frame", UWModernPalette.Rule);
 
-        mOHollowRunes = new RawImage[UWHudRunes.SelectedRuneCount];
+        mOHollowRunes = new RawImage[UWRuneShelfModel.Capacity];
 
         for (int liAt = 0; liAt < mOHollowRunes.Length; liAt++)
         {
-            mOHollowRunes[liAt] = fCreateRawImage(mORunesContent, "Chosen rune");
+            mOHollowRunes[liAt] = UWUiKit.CreateRawImage(mORunesContent, "Chosen rune");
             UWIconPalette.ApplySmooth(mOHollowRunes[liAt]);
         }
 
-        mOSpellName = fCreateText(mORunesContent, "Spell", TextAnchor.MiddleCenter, msText);
-        mOSpellCircle = fCreateText(mORunesContent, "Circle", TextAnchor.MiddleCenter, msDim);
-        mOHint = fCreateText(mORunesContent, "Hint", TextAnchor.MiddleCenter, msDim);
+        mOSpellName = UWUiKit.CreateText(mORunesContent, "Spell", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
+        mOSpellCircle = UWUiKit.CreateText(mORunesContent, "Circle", TextAnchor.MiddleCenter, UWModernPalette.Dim, mOUi);
+        mOHint = UWUiKit.CreateText(mORunesContent, "Hint", TextAnchor.MiddleCenter, UWModernPalette.Dim, mOUi);
 
         // The Spells tab: a clipped viewport with the rows inside.
-        GameObject lOViewport = new GameObject("Spell list", typeof(RectTransform), typeof(RectMask2D));
-        lOViewport.transform.SetParent(mORoot, false);
-        mOListViewport = (RectTransform)lOViewport.transform;
-        mOListViewport.anchorMin = Vector2.zero;
-        mOListViewport.anchorMax = Vector2.zero;
-        mOListViewport.pivot = Vector2.zero;
+        mOListViewport = UWUiKit.CreateClipArea(mORoot, "Spell list");
 
-        mOListContent = fCreateGroup(mOListViewport, "Rows");
-        mORowHighlight = fCreateImage(mOListContent, "Hover", new Color(msGold.r, msGold.g, msGold.b, 0.18f));
+        mOListContent = UWUiKit.CreateGroup(mOListViewport, "Rows");
+        mORowHighlight = UWUiKit.CreateImage(mOListContent, "Hover", UWModernPalette.WithAlpha(UWModernPalette.Gold, 0.18f));
 
         // The dragged spell over everything, the action bar included.
-        GameObject lOGhost = new GameObject("Dragged spell", typeof(RectTransform), typeof(Canvas));
-        lOGhost.transform.SetParent(mORoot, false);
-        mOGhostCanvas = lOGhost.GetComponent<Canvas>();
-        mOGhostCanvas.overrideSorting = true;
-        mOGhostCanvas.sortingOrder = 43;
+        mOGhostCanvas = UWUiKit.CreateLayerCanvas(mORoot, "Dragged spell", UWUiSorting.ModernRuneGhost);
 
-        RectTransform lOGhostRect = (RectTransform)lOGhost.transform;
+        RectTransform lOGhostRect = (RectTransform)mOGhostCanvas.transform;
         lOGhostRect.anchorMin = Vector2.zero;
         lOGhostRect.anchorMax = Vector2.zero;
         lOGhostRect.pivot = Vector2.zero;
 
-        mOGhostBack = fCreateRawImage(lOGhostRect, "Slot");
-        mOGhostBack.enabled = true;
+        mOGhostBack = UWUiKit.CreateRawImage(lOGhostRect, "Slot", true);
         mOGhostBack.color = new Color(1f, 1f, 1f, 0.85f);
         UWPixelArtUI.Apply(mOGhostBack);
-        mOGhostIcon = fCreateRawImage(lOGhostRect, "Icon");
+        mOGhostIcon = UWUiKit.CreateRawImage(lOGhostRect, "Icon");
         UWIconPalette.ApplySmooth(mOGhostIcon);
-        mOGhostText = fCreateText(lOGhostRect, "Runes", TextAnchor.MiddleCenter, msRunesText);
+        mOGhostText = UWUiKit.CreateText(lOGhostRect, "Runes", TextAnchor.MiddleCenter, UWModernPalette.RunesText, mOUi);
         mOGhostCanvas.enabled = false;
-    }
-
-    private static RectTransform fCreateGroup(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        return lORect;
-    }
-
-    private static RawImage fCreateRawImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
-    }
-
-    private static Image fCreateImage(Transform pOParent, string psName, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Image));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Image lOImage = lOObject.GetComponent<Image>();
-        lOImage.color = pOColour;
-        lOImage.raycastTarget = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName, TextAnchor peAlignment, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.alignment = peAlignment;
-        lOText.color = pOColour;
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
     }
 }

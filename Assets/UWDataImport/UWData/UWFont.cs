@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	///
 	/// A Unity font (which the classic UI once used) cannot rebuild the original lettering
 	/// pixel-exactly. This class provides the real character bitmaps, which
-	/// UWFontRenderer draws.
+	/// UWTextRaster draws.
 	///
 	/// The six fonts of the game:
 	///   font4x5p.sys  small font

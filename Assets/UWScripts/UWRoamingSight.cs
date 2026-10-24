@@ -234,7 +234,7 @@ public sealed class UWRoamingSight : MonoBehaviour
         // claim first, so fOnCameraEnded never ended the spell, and the next spell change or
         // tick (UWCharacter.fApplyActiveSpells) began the view again (2026-10-13, reference
         // audit, finding of the fix agents).
-        if (mOScheme.Current == UWControlScheme.SchemeEnum.Modern
+        if (UWControlScheme.Ui.Policy.RoamingSightEndsOnEscape
             && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             bool lbWithSpell = !mbWithoutSpell;
@@ -268,7 +268,7 @@ public sealed class UWRoamingSight : MonoBehaviour
             + mOScheme.Controls.Player.Move.ReadValue<Vector2>().x;
         lfForward = mOScheme.Controls.Player.Move.ReadValue<Vector2>().y;
 
-        if (mOScheme.Current == UWControlScheme.SchemeEnum.Original)
+        if (UWControlScheme.Ui.Policy.PointerThirdsSteerSight)
         {
             fReadPointerThirds(out float lfPointerTurn, out float lfPointerForward);
 
@@ -312,7 +312,7 @@ public sealed class UWRoamingSight : MonoBehaviour
 
         Vector2 lOPointer = Mouse.current.position.ReadValue();
 
-        if (!lOGameUi.IsScreenPositionInGameArea(lOPointer))
+        if (!lOGameUi.ClassicScreen.IsScreenPositionInGameArea(lOPointer))
             return;
 
         UWPlayerThrow.GetPointerInView(lOGameUi, lOPointer, out int liX, out int liY);

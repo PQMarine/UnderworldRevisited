@@ -59,11 +59,8 @@ public sealed class UWHudPictures
         mWindowPictureImage.sprite = lOSprite;
         lORect.sizeDelta = lOSize;
         // The position is set here on every display and thus deliberately overwrites what
-        // is in the prefab: moving it in the prefab has no effect, for readjusting use
-        // the fine offset.
-        lORect.anchoredPosition = new Vector2(
-            mOWindowPictureCorner.x + mOUi.mOWindowPictureNudge.x,
-            -(mOWindowPictureCorner.y + mOUi.mOWindowPictureNudge.y));
+        // is in the prefab: moving it in the prefab has no effect.
+        lORect.anchoredPosition = new Vector2(mOWindowPictureCorner.x, -mOWindowPictureCorner.y);
 
         mWindowPictureImage.enabled = true;
 
@@ -109,9 +106,7 @@ public sealed class UWHudPictures
                 (int)lOContentMin.x, (int)lOContentMin.y,
                 (int)lOContentSize.x, (int)lOContentSize.y);
 
-            mOScrollPictureCorner = new Vector2(
-                UWGameUI.windowHoleLeft + Mathf.Floor((UWGameUI.windowHoleWidthInclusive - lOContentSize.x) * 0.5f),
-                UWGameUI.windowHoleTop + UWGameUI.windowContentInsetTop);
+            mOScrollPictureCorner = UWClassicScreen.GetViewportPictureCorner(lOContentSize);
         }
 
         if (mOScrollPicture == null)
@@ -121,9 +116,7 @@ public sealed class UWHudPictures
 
         mWindowPictureImage.sprite = mOScrollPicture;
         lORect.sizeDelta = mOScrollPicture.rect.size;
-        lORect.anchoredPosition = new Vector2(
-            mOScrollPictureCorner.x + mOUi.mOWindowPictureNudge.x,
-            -(mOScrollPictureCorner.y + mOUi.mOWindowPictureNudge.y));
+        lORect.anchoredPosition = new Vector2(mOScrollPictureCorner.x, -mOScrollPictureCorner.y);
 
         mWindowPictureImage.enabled = true;
 
@@ -211,17 +204,13 @@ public sealed class UWHudPictures
         // The same spot as the window pictures (fBuildWindowPictures): the grave pictures lie
         // on the canvas likewise at bottom right, with the same block - horizontally centred,
         // vertically with the measured distance from the top.
-        lOCorner = new Vector2(
-            UWGameUI.windowHoleLeft + Mathf.Floor((UWGameUI.windowHoleWidthInclusive - lOSize.x) * 0.5f),
-            UWGameUI.windowHoleTop + UWGameUI.windowContentInsetTop);
+        lOCorner = UWClassicScreen.GetViewportPictureCorner(lOSize);
 
         RectTransform lORect = (RectTransform)mWindowPictureImage.transform;
 
         mWindowPictureImage.sprite = lOSprite;
         lORect.sizeDelta = lOSize;
-        lORect.anchoredPosition = new Vector2(
-            lOCorner.x + mOUi.mOWindowPictureNudge.x,
-            -(lOCorner.y + mOUi.mOWindowPictureNudge.y));
+        lORect.anchoredPosition = new Vector2(lOCorner.x, -lOCorner.y);
 
         mWindowPictureImage.enabled = true;
 
@@ -402,9 +391,7 @@ public sealed class UWHudPictures
         // left and right, CONFIRMED per user test). VERTICALLY NOT: centred would be 5
         // pixels at the top, measured in it is 2 (four rounds of user tests, 2026-08-29). Which
         // rule the original uses is open - the value is measured, not derived.
-        mOWindowPictureCorner = new Vector2(
-            UWGameUI.windowHoleLeft + Mathf.Floor((UWGameUI.windowHoleWidthInclusive - lOContentSize.x) * 0.5f),
-            UWGameUI.windowHoleTop + UWGameUI.windowContentInsetTop);
+        mOWindowPictureCorner = UWClassicScreen.GetViewportPictureCorner(lOContentSize);
 
         // Frame 7 is the delta back to frame 0 (animator loop), not a picture of its own.
         int liCount = Mathf.Min(pOCutscene.FrameCount, 7);
@@ -487,7 +474,7 @@ public sealed class UWHudPictures
         // THE MODERN SCHEME has no classic frame: its view is the whole screen, so the whole
         // screen goes black (or flashes) - drawn over everything (per user, 2026-10-04: asleep
         // nothing went dark there).
-        if (UWControlScheme.IsModern)
+        if (UWControlScheme.Ui.Policy.FlashFillsScreen)
         {
             fFlashModern(pOColour, pfSeconds, pbBlockInput);
             return;
@@ -498,8 +485,8 @@ public sealed class UWHudPictures
 
         if (mWindowFlashImage == null)
         {
-            mWindowFlashImage = UWGameUI.fCreateImage("WindowFlash", mOUi.mGameFrame,
-                UWGameUI.windowHoleLeft, -UWGameUI.windowHoleTop, UWGameUI.windowHoleWidth, UWGameUI.windowHoleHeight, Color.black);
+            mWindowFlashImage = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "WindowFlash",
+                UWClassicLayout.Frame.WindowHoleLeft, -UWClassicLayout.Frame.WindowHoleTop, UWClassicLayout.Frame.WindowHoleWidth, UWClassicLayout.Frame.WindowHoleHeight, Color.black);
 
             // IN FRONT of the frame picture, so that the frame still lies above and the black
             // area sits cleanly in the hole - just like the window picture (see there).
@@ -524,24 +511,11 @@ public sealed class UWHudPictures
     {
         if (mOModernFlashImage == null)
         {
-            GameObject lORoot = new GameObject("Modern flash", typeof(Canvas), typeof(CanvasScaler));
-            lORoot.transform.SetParent(mOUi.transform, false);
+            // Its scaler was left at Unity's defaults, which are the kit's one pixel per unit.
+            Canvas lOCanvas = UWUiKit.CreateOverlayCanvas(mOUi.transform, "Modern flash", UWUiSorting.ModernFlash);
 
-            Canvas lOCanvas = lORoot.GetComponent<Canvas>();
-            lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            lOCanvas.sortingOrder = 60;
-
-            GameObject lOImage = new GameObject("Black", typeof(RectTransform), typeof(Image));
-            lOImage.transform.SetParent(lORoot.transform, false);
-
-            RectTransform lORect = (RectTransform)lOImage.transform;
-            lORect.anchorMin = Vector2.zero;
-            lORect.anchorMax = Vector2.one;
-            lORect.offsetMin = Vector2.zero;
-            lORect.offsetMax = Vector2.zero;
-
-            mOModernFlashImage = lOImage.GetComponent<Image>();
-            mOModernFlashImage.raycastTarget = false;
+            // Coloured just below: black, or the palette colour of the flash.
+            mOModernFlashImage = UWUiKit.CreateBackdrop(lOCanvas.transform, "Black", Color.white);
             mOModernFlashImage.enabled = false;
         }
 
@@ -596,8 +570,8 @@ public sealed class UWHudPictures
     /// <summary>The picture in the 3D window - created before the main frame so that it sits IN the hole and the frame lies above it, exactly as in the original, where the UI around it stays visible.</summary>
     internal void Build()
     {
-        mWindowPictureImage = UWGameUI.fCreateImage("WindowPicture", mOUi.mGameFrame,
-            UWGameUI.windowHoleLeft, -UWGameUI.windowHoleTop, 1f, 1f, Color.white);
+        mWindowPictureImage = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "WindowPicture",
+            UWClassicLayout.Frame.WindowHoleLeft, -UWClassicLayout.Frame.WindowHoleTop, 1f, 1f, Color.white);
         mWindowPictureImage.enabled = false;
     }
 }

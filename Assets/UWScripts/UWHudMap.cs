@@ -18,6 +18,9 @@ public sealed class UWHudMap
     internal UWHudMap(UWGameUI pOUi)
     {
         mOUi = pOUi;
+        mONotes = new UWMapNotesModel(
+            piLevel => mOUi.mOUWData != null ? mOUi.mOUWData.GetMapNotes(piLevel) : null, fMeasureNote);
+        mOTextEntry = new UWTextEntry(fOnMapTextInput);
     }
 
     // ------------------------------------------------- Full-screen map
@@ -30,39 +33,25 @@ public sealed class UWHudMap
     ///
     /// Tile size and origin: three pixels a tile, the cell of tile x/y at (3x + 7, 3y + 4)
     /// from the bottom - estimated from a screenshot at first, READ 2026-09-26 in ovr092_48B.
+    /// What the tiles show is UWAutomapView's since 2026-10-19 (cleanup 5.11), drawn for all
+    /// three places that show the map by UWAutomapPictures.
     /// </summary>
-    private const int MapTileSize = 3;
+    private const float MapLeft = UWAutomapView.BlockLeft;
 
-    private const float MapLeft = 7f;
+    private const float MapTop = UWAutomapView.BlockTop;
 
-    private const float MapTop = 4f;
+    private const int MapTilesSize = UWAutomapView.BlockSize;
 
-    private const int MapTilesPerAxis = 64;
+    /// <summary>The ink of the notes and the level number (UWClassicLayout.Map.NoteColour).</summary>
+    private static readonly Color32 msNoteColour = UWAutomapPictures.NoteColour;
 
-    /// <summary>
-    /// ROLLED ONCE (per user, 2026-09-26): the original rolls each pixel's small colour step anew
-    /// on every drawing, but the help window's map tab redraws the tiles every half second, and a
-    /// fresh roll each time made the parchment shimmer. So each random value is a hash of the
-    /// pixel, the level, what it is drawn for and a seed taken once per run: random-looking, but
-    /// the same on every redraw and every opening of the map. The drawing itself is
-    /// UWAutomapPainter's, after UW.EXE (since 2026-09-26).
-    /// </summary>
-    private static readonly uint msMapSeed = unchecked((uint)System.Environment.TickCount * 2654435761u);
+    /// <summary>The notes, the shown level page, the eraser and what a click does (cleanup 5.11,
+    /// 2026-10-19); this class keeps the screen, the pointer and the keyboard.</summary>
+    private readonly UWMapNotesModel mONotes;
 
-    private static int fMapRandom(int piLevelIndex, int piX, int piY, UWAutomapPainter.RandomUse peUse)
-    {
-        unchecked
-        {
-            uint luHash = msMapSeed ^ ((uint)(piLevelIndex + 1) * 83492791u) ^ ((uint)piX * 73856093u)
-                ^ ((uint)piY * 19349663u) ^ ((uint)((int)peUse + 1) * 2246822519u);
-
-            luHash ^= luHash >> 13;
-            luHash *= 0x5BD1E995u;
-            luHash ^= luHash >> 15;
-
-            return (int)(luHash & 0x7FFF);
-        }
-    }
+    /// <summary>The note's typing - the text events and, where none arrive (Linux), the keys
+    /// themselves (B26, 2026-10-19: until then the map alone did not read the keys).</summary>
+    private readonly UWTextEntry mOTextEntry;
 
     internal RawImage mMapBackgroundImage;
 
@@ -86,7 +75,7 @@ public sealed class UWHudMap
     /// the map data are missing.</summary>
     public bool ShowMap(int piLevelIndex)
     {
-        miMapLevel = piLevelIndex;
+        mONotes.Show(piLevelIndex);
 
         fBuildMapScreen();
 
@@ -96,9 +85,8 @@ public sealed class UWHudMap
         if (!fBuildMapTiles(piLevelIndex))
             return false;
 
-        fBuildMapCloseDebug();
         fRefreshMapLevelNumber(piLevelIndex);
-        fRefreshMapNotes(miMapLevel);
+        fRefreshMapNotes();
 
         mMapBackgroundImage.gameObject.SetActive(true);
         mMapBackgroundImage.transform.SetAsLastSibling();
@@ -131,9 +119,9 @@ public sealed class UWHudMap
         // uimanager_map).
         UWMusic.ResumeAfterInterruption(mOUi.mOInteraction != null && mOUi.mOInteraction.IsCombatModeActive);
 
-        fEndMapNote(true);
-
-        mbMapEraseMode = false;
+        // The note being written is kept, the eraser put down.
+        if (mONotes.Close())
+            fAfterNoteEnded();
 
         fSetMapModal(false);
     }
@@ -150,140 +138,15 @@ public sealed class UWHudMap
     }
 
     /// <summary>
-    /// The marker on the own tile.
-    ///
-    /// A small gold cross with a dark shadow and two grey pixels below it (a small dagger),
-    /// drawn by hand after the original (per user, 2026-09-03). Which graphic the original
-    /// uses for it is still open - the reference hooks in a hand-assigned picture there that
-    /// cannot be derived from the game data.
-    /// </summary>
-    private void fDrawPlayerMark(Color32[] pOPixels, int piSize, int piLevelIndex)
-    {
-        if (mOLevelLoader == null || mOUi.mCharacter == null)
-            return;
-
-        // Only on the level the character really stands on.
-        if (piLevelIndex != mOLevelLoader.CurrentLevelIndex)
-            return;
-
-        UWTilePos lOTile = mOLevelLoader.WorldPositionToTile(mOUi.mCharacter.transform.position);
-
-        if (fDrawOriginalPlayerMark(pOPixels, piSize, lOTile))
-            return;
-
-        // Gold with a dark shadow offset by one pixel - that is how it looks in the original
-        // (per user with cutout, 2026-09-03).
-        Color32 lOMark = new Color32(230, 180, 60, 255);
-        Color32 lOShadow = new Color32(40, 25, 15, 255);
-
-        // Below the golden part sit two grey pixels, light and a bit darker - which gives the
-        // impression of a small dagger (per user, 2026-09-03).
-        Color32 lOLightGrey = new Color32(200, 200, 205, 255);
-        Color32 lODarkGrey = new Color32(140, 140, 145, 255);
-
-        int liLeft = lOTile.X * MapTileSize;
-        int liMiddle = MapTileSize / 2;
-
-        // The two grey pixels attach at the bottom - so that the marker still sits on its
-        // tile, the golden part and its shadow move up by two pixels
-        // (per user, 2026-09-03).
-        int liBottom = (lOTile.Y * MapTileSize) + 2;
-
-        // The shadow lies offset one pixel to the right and down and reaches as far
-        // as the marker itself, so down below the grey pixels.
-        for (int liAt = 0; liAt < MapTileSize; liAt++)
-        {
-            fSetPixel(pOPixels, piSize, liLeft + liAt + 1, liBottom + liMiddle - 1, lOShadow);
-            fSetPixel(pOPixels, piSize, liLeft + liMiddle + 1, liBottom + liAt - 1, lOShadow);
-        }
-
-        fSetPixel(pOPixels, piSize, liLeft + liMiddle + 1, liBottom - 2, lOShadow);
-        fSetPixel(pOPixels, piSize, liLeft + liMiddle + 1, liBottom - 3, lOShadow);
-
-        for (int liAt = 0; liAt < MapTileSize; liAt++)
-        {
-            fSetPixel(pOPixels, piSize, liLeft + liAt, liBottom + liMiddle, lOMark);
-            fSetPixel(pOPixels, piSize, liLeft + liMiddle, liBottom + liAt, lOMark);
-        }
-
-        fSetPixel(pOPixels, piSize, liLeft + liMiddle, liBottom - 1, lOLightGrey);
-        fSetPixel(pOPixels, piSize, liLeft + liMiddle, liBottom - 2, lODarkGrey);
-    }
-
-    /// <summary>
-    /// THE ORIGINAL'S OWN PICTURE (read 2026-09-30, per user: "the shadow of the cross is not
-    /// right yet"): ovr092_F66 draws the mark through seg009_265 with graphic 0x103F, which is
-    /// BUTTONS.GR image 0x3F (0x1000 + n counts from the file after ANIMO.GR, loaded at
-    /// ovr115_8B3). It is 8 by 5: a small gold dagger in the first three columns - point
-    /// at the top, a guard of three shades of gold, grey blade below - and its dark blue
-    /// shadow falling to the right. Index 0 is clear. The dagger's column sits on the tile's
-    /// middle column and its lowest pixel on the tile's lowest row, where the hand-drawn mark
-    /// had them (per user, 2026-09-03); the picture replaces its colours and shadow.
-    /// </summary>
-    private bool fDrawOriginalPlayerMark(Color32[] pOPixels, int piSize, UWTilePos pOTile)
-    {
-        UWTexture lOMark = mOUi.mOUWData != null && mOUi.mOUWData.Textures != null
-            ? mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.BUTTONS, PlayerMarkImage)
-            : null;
-
-        if (lOMark == null || lOMark.Width <= 0 || lOMark.Height <= 0)
-            return false;
-
-        byte[] laIndices = lOMark.GetMainPaletteIndices();
-
-        if (laIndices == null || laIndices.Length < lOMark.Width * lOMark.Height || mOUi.mOUWData.Palettes == null)
-            return false;
-
-        // IN THE MAP'S PALETTE, not the game's (per user, 2026-09-30: the shadow is grey-black in
-        // the original, ours dark blue): ovr092_F66 switches to palette 1 for the whole map
-        // screen, the parchment's palette, and the same indices are brown and dull gold there.
-        UWPalette lOPalette = mOUi.mOUWData.Palettes.GetPalette(MapPaletteIndex);
-
-        if (lOPalette == null)
-            return false;
-
-        int liLeft = (pOTile.X * MapTileSize) + (MapTileSize / 2) - PlayerMarkDaggerColumn;
-        int liBottom = pOTile.Y * MapTileSize;
-
-        for (int liRow = 0; liRow < lOMark.Height; liRow++)
-        {
-            for (int liColumn = 0; liColumn < lOMark.Width; liColumn++)
-            {
-                int liAt = (liRow * lOMark.Width) + liColumn;
-
-                if (laIndices[liAt] == 0)
-                    continue;
-
-                byte[] laRgb = lOPalette.GetRGB(laIndices[liAt]);
-
-                // The picture's first row is its top; the map texture counts from the bottom.
-                fSetPixel(pOPixels, piSize, liLeft + liColumn, liBottom + (lOMark.Height - 1 - liRow),
-                    new Color32(laRgb[0], laRgb[1], laRgb[2], 255));
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>The palette of the map screen (ovr092_F66, GetPalette(1)).</summary>
-    private const int MapPaletteIndex = 1;
-
-    /// <summary>BUTTONS.GR image of the player mark - see fDrawOriginalPlayerMark.</summary>
-    private const int PlayerMarkImage = 0x3F;
-
-    /// <summary>The picture's column that holds the dagger.</summary>
-    private const int PlayerMarkDaggerColumn = 1;
-
-    /// <summary>
     /// The level number next to the baked-in word "Level".
     ///
     /// The word itself is in the background picture, only the number after it is drawn - and
     /// CENTRED, so that a two-digit number does not wander to the right (per user,
     /// 2026-09-03).
     /// </summary>
-    private const float MapLevelNumberCentre = 289f;
+    private const float MapLevelNumberCentre = UWClassicLayout.Map.LevelNumberCentre;
 
-    private const float MapLevelNumberTop = 5f;
+    private const float MapLevelNumberTop = UWClassicLayout.Map.LevelNumberTop;
 
     private RawImage mMapLevelImage;
 
@@ -303,17 +166,6 @@ public sealed class UWHudMap
 
         string lsText = (piLevelIndex + 1).ToString();
 
-        int liWidth = Mathf.Max(1,
-            lOFont.MeasureText(lsText, 0, UWFontRenderer.CharacterSpacing)
-            - UWFontRenderer.CharacterSpacing);
-
-        Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont,
-            new System.Collections.Generic.List<string> { lsText },
-            liWidth, new Color32(60, 40, 25, 255), mOUi.TextureFilterMode, false);
-
-        if (lOTexture == null)
-            return;
-
         if (mMapLevelImage == null)
         {
             GameObject lOObject = new GameObject("MapLevelNumber", typeof(RectTransform), typeof(RawImage));
@@ -329,9 +181,10 @@ public sealed class UWHudMap
             mMapLevelImage.raycastTarget = false;
         }
 
-        UWTextLabel.Get(mMapLevelImage).Set(lOFont, lOTexture,
-            new System.Collections.Generic.List<string> { lsText },
-            new System.Collections.Generic.List<Color32> { new Color32(60, 40, 25, 255) }, false);
+        // The previous level's number is given back to UWTextTextures; until 2026-10-19 its
+        // texture stayed behind on every level change (B33, cleanup step 5.5).
+        UWTextLabel.Get(mMapLevelImage).SetLine(lOFont, lsText, UWTextRaster.TightWidth(lOFont, lsText), msNoteColour, false,
+            mOUi.TextureFilterMode);
     }
 
     /// <summary>
@@ -344,10 +197,14 @@ public sealed class UWHudMap
     /// Written with font4x5p, the small font - in the original the letters are
     /// four pixels tall (per user, 2026-09-03). At first font5x6p was here and thus
     /// two pixels too big.
+    ///
+    /// Where each label stands and how wide it is comes from UWMapNotesModel.Layout - the same
+    /// layout the help window's map tab and the modern minimap use (UWAutomapPictures.GetNotes,
+    /// cleanup 5.11, 2026-10-19).
     /// </summary>
     private System.Collections.Generic.List<RawImage> mOMapNoteImages;
 
-    private void fRefreshMapNotes(int piLevelIndex)
+    private void fRefreshMapNotes()
     {
         if (mMapBackgroundImage == null || mOUi.mOUWData == null)
             return;
@@ -358,36 +215,19 @@ public sealed class UWHudMap
         foreach (RawImage lOOld in mOMapNoteImages)
             UWTextLabel.Hide(lOOld);
 
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes =
-            mOUi.mOUWData.GetMapNotes(piLevelIndex);
-
-        if (lONotes == null)
-            return;
-
         UWFont lOFont = mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Small);
 
         if (lOFont == null)
             return;
 
-        for (int liNote = 0; liNote < lONotes.Count; liNote++)
+        foreach (UWMapNotesModel.ShownNote lONote in mONotes.Layout())
         {
-            UWLevel.MapNote lONote = lONotes[liNote];
-
-            if (string.IsNullOrEmpty(lONote.Text))
-            {
-                // A still empty line shows only the quill.
-                if (mbMapWriting && liNote == miMapWriteNote)
-                    fRefreshMapWriteQuill(lONote.X, UWHudPanel.FrameHeight - lONote.Y, lOFont.Height);
-
-                continue;
-            }
-
-            while (mOMapNoteImages.Count <= liNote)
+            while (mOMapNoteImages.Count <= lONote.Index)
                 mOMapNoteImages.Add(null);
 
-            if (mOMapNoteImages[liNote] == null)
+            if (mOMapNoteImages[lONote.Index] == null)
             {
-                GameObject lOObject = new GameObject("MapNote" + liNote,
+                GameObject lOObject = new GameObject("MapNote" + lONote.Index,
                     typeof(RectTransform), typeof(RawImage));
                 lOObject.transform.SetParent(mMapBackgroundImage.transform, false);
 
@@ -396,44 +236,31 @@ public sealed class UWHudMap
                 lORect.anchorMax = new Vector2(0f, 1f);
                 lORect.pivot = new Vector2(0f, 1f);
 
-                mOMapNoteImages[liNote] = lOObject.GetComponent<RawImage>();
-                mOMapNoteImages[liNote].raycastTarget = false;
+                mOMapNoteImages[lONote.Index] = lOObject.GetComponent<RawImage>();
+                mOMapNoteImages[lONote.Index].raycastTarget = false;
             }
 
-            int liWidth = Mathf.Max(1,
-                lOFont.MeasureText(lONote.Text, 0, UWFontRenderer.CharacterSpacing)
-                - UWFontRenderer.CharacterSpacing);
+            RawImage lOImage = mOMapNoteImages[lONote.Index];
+            UWTextLabel lOLabel = UWTextLabel.Get(lOImage);
 
-            Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont,
-                new System.Collections.Generic.List<string> { lONote.Text },
-                liWidth, new Color32(60, 40, 25, 255), mOUi.TextureFilterMode, false);
+            // The label gives the previous text of the note back to UWTextTextures - otherwise one
+            // texture stayed behind on every redraw (leak, 2026-09-13; cleanup step 5.5).
+            lOLabel.SetLine(lOFont, lONote.Text, lONote.Width, msNoteColour, false, mOUi.TextureFilterMode);
+
+            Texture2D lOTexture = lOLabel.Picture;
 
             if (lOTexture == null)
                 continue;
 
-            RawImage lOImage = mOMapNoteImages[liNote];
-
-            // Release the previous texture of the note - otherwise one stays behind on every redraw
-            // (leak, 2026-09-13).
-            if (lOImage.texture != null && lOImage.texture != lOTexture)
-                Object.Destroy(lOImage.texture);
-
-            UWTextLabel.Get(lOImage).Set(lOFont, lOTexture,
-                new System.Collections.Generic.List<string> { lONote.Text },
-                new System.Collections.Generic.List<Color32> { new Color32(60, 40, 25, 255) }, false);
-
             RectTransform lONoteRect = (RectTransform)lOImage.transform;
 
-            lONoteRect.anchoredPosition = new Vector2(
-                lONote.X, -(UWHudPanel.FrameHeight - lONote.Y));
-
-            // While writing, the quill stands right behind the text.
-            if (mbMapWriting && liNote == miMapWriteNote)
-            {
-                fRefreshMapWriteQuill(lONote.X + lOTexture.width,
-                    UWHudPanel.FrameHeight - lONote.Y, lOTexture.height);
-            }
+            lONoteRect.anchoredPosition = new Vector2(lONote.Left, -lONote.Top);
         }
+
+        // While writing, the quill stands right behind the text; a still empty line shows only
+        // the quill.
+        if (mONotes.TryGetQuill(out int liQuillLeft, out int liQuillTop))
+            fRefreshMapWriteQuill(liQuillLeft, liQuillTop);
     }
 
     private void fBuildMapScreen()
@@ -457,12 +284,7 @@ public sealed class UWHudMap
         lORect.anchoredPosition = Vector2.zero;
         lORect.sizeDelta = new Vector2(UWHudPanel.FrameWidth, UWHudPanel.FrameHeight);
 
-        Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHudMap map screen";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-        lOTexture.Apply(false, false);
+        Texture2D lOTexture = UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWHudMap map screen", TextureWrapMode.Clamp);
 
         mMapBackgroundImage = lOObject.GetComponent<RawImage>();
         mMapBackgroundImage.texture = lOTexture;
@@ -476,8 +298,7 @@ public sealed class UWHudMap
         lOTileRect.anchorMax = new Vector2(0f, 1f);
         lOTileRect.pivot = new Vector2(0f, 1f);
         lOTileRect.anchoredPosition = new Vector2(MapLeft, -MapTop);
-        lOTileRect.sizeDelta = new Vector2(
-            MapTilesPerAxis * MapTileSize, MapTilesPerAxis * MapTileSize);
+        lOTileRect.sizeDelta = new Vector2(MapTilesSize, MapTilesSize);
 
         mMapTilesImage = lOTiles.GetComponent<RawImage>();
         mMapTilesImage.raycastTarget = false;
@@ -503,266 +324,26 @@ public sealed class UWHudMap
         if (!fEnsureLevelLoader())
             return false;
 
-        int liSize = MapTilesPerAxis * MapTileSize;
+        if (myMapTiles == null)
+            myMapTiles = new byte[UWAutomapView.BufferLength];
 
-        Color32[] lOPixels = new Color32[liSize * liSize];
-
-        fComposeMapTiles(piLevelIndex, lOPixels, liSize);
-        fApplyMapTexture(lOPixels, liSize);
-
-        return true;
-    }
-
-    /// <summary>
-    /// The discovered tiles of a level as pixels (MapTilesPerAxis * MapTileSize square, row 0
-    /// at the bottom) and - on the level the character stands on - his mark. Transparent where the
-    /// parchment stays as it is. Shared by the map and the help window's map tab
-    /// (BuildMinimapTiles).
-    ///
-    /// SINCE 2026-09-26 PAINTED AS UW.EXE PAINTS IT (UWAutomapPainter, after ovr092): on the
-    /// parchment's palette indices, each pixel the parchment plus a small random step, borders
-    /// only outside the sides whose neighbour is not a discovered tile, a diagonal bordered on its
-    /// open half's two sides only. Until then the look came from the reference's fixed colour
-    /// tones plus rules tuned by eye (a floor overhang into undiscovered neighbours, lines on a
-    /// diagonal's solid half towards open neighbours) - the latter made the "knob" where two
-    /// diagonals meet (per user, 2026-09-26).
-    /// </summary>
-    private void fComposeMapTiles(int piLevelIndex, Color32[] lOPixels, int liSize, bool pbPlayerMark = true)
-    {
-        UWLevel lOLevel = mOUi.mOUWData != null && mOUi.mOUWData.Levels != null
-            && piLevelIndex >= 0 && piLevelIndex < mOUi.mOUWData.Levels.Count
-            ? mOUi.mOUWData.Levels[piLevelIndex] : null;
-
-        UWTexture lOParchment;
-
-        // Levels 10 to 99 have no automap, only notes - the parchment then stays
-        // empty, fRefreshMapNotes still draws the labels.
-        if (lOLevel == null || lOLevel.AutomapTiles == null
-            || !mOUi.mOUWData.Textures.BitmapFiles.TryGetValue(UWTexture.TextureTypes.BLNKMAP, out lOParchment)
-            || lOParchment == null || lOParchment.PaletteIndices == null
-            || lOParchment.PaletteIndices.Length < UWAutomapPainter.ScreenWidth * UWAutomapPainter.ScreenHeight)
-        {
-            if (pbPlayerMark)
-                fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
-
-            return;
-        }
-
-        byte[] lyScreen = (byte[])lOParchment.PaletteIndices.Clone();
-
-        UWAutomapPainter.Paint(lyScreen, lOLevel.AutomapTiles,
-            (piX, piY, peUse) => fMapRandom(piLevelIndex, piX, piY, peUse));
-
-        UWPalette lOPalette = lOParchment.Palettes.GetPalette(lOParchment.MainPaletteIndex);
-
-        for (int liY = 0; liY < liSize; liY++)
-        {
-            // The painter's screen is stored from the top, its y counts from the bottom.
-            int liRow = (UWAutomapPainter.ScreenHeight - 1 - (liY + UWAutomapPainter.CellBottom)) * UWAutomapPainter.ScreenWidth;
-
-            for (int liX = 0; liX < liSize; liX++)
-            {
-                int liAt = liRow + liX + UWAutomapPainter.CellLeft;
-                byte lyIndex = lyScreen[liAt];
-
-                if (lyIndex == lOParchment.PaletteIndices[liAt])
-                    continue;
-
-                UWColor32 lOColour = lOPalette.GetUWColor(lyIndex);
-
-                lOPixels[(liY * liSize) + liX] = UWColourVision.Apply(new Color32(lOColour.R, lOColour.G, lOColour.B, 255));
-            }
-        }
-
-        if (pbPlayerMark)
-            fDrawPlayerMark(lOPixels, liSize, piLevelIndex);
-    }
-
-    // ------------------------------------------------- The help window's map tab
-
-    /// <summary>Where the tiles sit on the 320x200 map screen (top-left, screen pixels) and
-    /// how large one tile is - for the help window's map tab.</summary>
-    internal static Vector2 TilesTopLeft => new Vector2(MapLeft, MapTop);
-
-    internal const int TilePixels = MapTileSize;
-
-    internal const int TilesPerAxis = MapTilesPerAxis;
-
-    /// <summary>The tiles with the player's mark [1] and without [0] - each a texture of its own,
-    /// as the help's map tab and the modern minimap both hold theirs.</summary>
-    private readonly Texture2D[] mOMinimapTiles = new Texture2D[2];
-
-    private readonly Color32[][] mOMinimapPixels = new Color32[2][];
-
-    /// <summary>The discovered tiles of the level the character stands on, freshly drawn
-    /// into the help window's own texture (the map's own stays untouched). pbPlayerMark: the
-    /// original's cross where the character stands - the modern minimap leaves it out, its arrow
-    /// says it (per user, 2026-10-04).</summary>
-    internal Texture2D BuildMinimapTiles(bool pbPlayerMark = true)
-    {
-        if (!fEnsureLevelLoader())
-            return null;
-
-        int liSize = MapTilesPerAxis * MapTileSize;
-        int liKind = pbPlayerMark ? 1 : 0;
-
-        if (mOMinimapPixels[liKind] == null || mOMinimapPixels[liKind].Length != liSize * liSize)
-            mOMinimapPixels[liKind] = new Color32[liSize * liSize];
-        else
-            System.Array.Clear(mOMinimapPixels[liKind], 0, mOMinimapPixels[liKind].Length);
-
-        fComposeMapTiles(mOLevelLoader.CurrentLevelIndex, mOMinimapPixels[liKind], liSize, pbPlayerMark);
-
-        if (mOMinimapTiles[liKind] == null)
-        {
-            mOMinimapTiles[liKind] = new Texture2D(liSize, liSize, TextureFormat.RGBA32, false);
-            mOMinimapTiles[liKind].name = "UWHudMap minimap tiles";
-            mOMinimapTiles[liKind].filterMode = FilterMode.Point;
-            mOMinimapTiles[liKind].wrapMode = TextureWrapMode.Clamp;
-        }
-
-        mOMinimapTiles[liKind].SetPixels32(mOMinimapPixels[liKind]);
-        mOMinimapTiles[liKind].Apply(false, false);
-
-        return mOMinimapTiles[liKind];
-    }
-
-    private Texture2D mOMinimapParchment;
-
-    /// <summary>The blank map (BLNKMAP.GR, 320x200) as a texture of its own, for the help
-    /// window's map tab.</summary>
-    internal Texture2D GetMinimapParchment()
-    {
-        if (mOMinimapParchment != null || mOUi.mOUWData == null)
-            return mOMinimapParchment;
-
-        UWTexture lOSource;
-
-        if (!mOUi.mOUWData.Textures.BitmapFiles.TryGetValue(UWTexture.TextureTypes.BLNKMAP, out lOSource)
-            || lOSource == null)
-            return null;
-
-        mOMinimapParchment = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        mOMinimapParchment.name = "UWHudMap minimap parchment";
-        mOMinimapParchment.filterMode = FilterMode.Point;
-        mOMinimapParchment.wrapMode = TextureWrapMode.Clamp;
-        mOMinimapParchment.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-        mOMinimapParchment.Apply(false, false);
-
-        return mOMinimapParchment;
-    }
-
-    /// <summary>One note of the map as the help window draws it: the rendered text and its
-    /// top-left corner on the 320x200 map screen.</summary>
-    internal struct MinimapNote
-    {
-        public Texture2D Texture;
-        public Vector2 TopLeft;
-    }
-
-    private readonly System.Collections.Generic.List<MinimapNote> mOMinimapNotes =
-        new System.Collections.Generic.List<MinimapNote>();
-
-    private string msMinimapNotesKey;
-
-    /// <summary>The notes of the level the character stands on, rendered as on the map (small
-    /// font, dark brown). Only rebuilt when a note changed. Read-only - notes are written and
-    /// erased on the real map alone (per user, 2026-09-26).</summary>
-    internal System.Collections.Generic.List<MinimapNote> GetMinimapNotes()
-    {
-        if (!fEnsureLevelLoader() || mOUi.mOUWData == null)
-            return mOMinimapNotes;
-
-        int liLevel = mOLevelLoader.CurrentLevelIndex;
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(liLevel);
-
-        System.Text.StringBuilder lOKey = new System.Text.StringBuilder().Append(liLevel);
-
-        if (lONotes != null)
-        {
-            foreach (UWLevel.MapNote lONote in lONotes)
-                lOKey.Append('|').Append(lONote.X).Append(',').Append(lONote.Y).Append(',').Append(lONote.Text);
-        }
-
-        string lsKey = lOKey.ToString();
-
-        if (lsKey == msMinimapNotesKey)
-            return mOMinimapNotes;
-
-        msMinimapNotesKey = lsKey;
-
-        foreach (MinimapNote lOOld in mOMinimapNotes)
-        {
-            if (lOOld.Texture != null)
-                Object.Destroy(lOOld.Texture);
-        }
-
-        mOMinimapNotes.Clear();
-
-        UWFont lOFont = mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Small);
-
-        if (lONotes == null || lOFont == null)
-            return mOMinimapNotes;
-
-        foreach (UWLevel.MapNote lONote in lONotes)
-        {
-            if (string.IsNullOrEmpty(lONote.Text))
-                continue;
-
-            int liWidth = Mathf.Max(1,
-                lOFont.MeasureText(lONote.Text, 0, UWFontRenderer.CharacterSpacing) - UWFontRenderer.CharacterSpacing);
-
-            Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont,
-                new System.Collections.Generic.List<string> { lONote.Text },
-                liWidth, new Color32(60, 40, 25, 255), FilterMode.Point, false);
-
-            if (lOTexture == null)
-                continue;
-
-            mOMinimapNotes.Add(new MinimapNote
-            {
-                Texture = lOTexture,
-                TopLeft = new Vector2(lONote.X, UWHudPanel.FrameHeight - lONote.Y)
-            });
-        }
-
-        return mOMinimapNotes;
-    }
-
-    /// <summary>The middle of the character's tile on the 320x200 map screen (top-left
-    /// origin), or false when there is no level.</summary>
-    internal bool TryGetMinimapPlayerPixel(out Vector2 pOPixel)
-    {
-        pOPixel = Vector2.zero;
-
-        if (!fEnsureLevelLoader() || mOUi.mCharacter == null)
+        // The discovered tiles and, on the level the character stands on, his mark - drawn as
+        // for the help window's map tab and the modern minimap (UWAutomapView).
+        if (!mOUi.AutomapPictures.Compose(myMapTiles, piLevelIndex, true))
             return false;
 
-        UWTilePos lOTile = mOLevelLoader.WorldPositionToTile(mOUi.mCharacter.transform.position);
+        if (mMapTilesTexture == null)
+            mMapTilesTexture = UWTextureFactory.Upload(myMapTiles, MapTilesSize, MapTilesSize, mOUi.TextureFilterMode,
+                TextureWrapMode.Clamp, "UWHudMap map tiles");
+        else
+            UWTextureFactory.Reupload(mMapTilesTexture, myMapTiles);
 
-        // The tiles' rows count from the bottom (row 0 is the south edge).
-        pOPixel = new Vector2(
-            MapLeft + (lOTile.X * MapTileSize) + (MapTileSize / 2f),
-            MapTop + ((MapTilesPerAxis - lOTile.Y) * MapTileSize) - (MapTileSize / 2f));
+        mMapTilesImage.texture = mMapTilesTexture;
 
         return true;
     }
 
-    private void fApplyMapTexture(Color32[] pOPixels, int piSize)
-    {
-        if (mMapTilesTexture == null)
-        {
-            mMapTilesTexture = new Texture2D(piSize, piSize, TextureFormat.RGBA32, false);
-            mMapTilesTexture.name = "UWHudMap map tiles";
-            mMapTilesTexture.filterMode = mOUi.TextureFilterMode;
-            mMapTilesTexture.wrapMode = TextureWrapMode.Clamp;
-        }
-
-        mMapTilesTexture.SetPixels32(pOPixels);
-        mMapTilesTexture.Apply(false, false);
-
-        mMapTilesImage.texture = mMapTilesTexture;
-    }
+    private byte[] myMapTiles;
 
     private Texture2D mMapTilesTexture;
 
@@ -780,92 +361,13 @@ public sealed class UWHudMap
         return mOLevelLoader != null;
     }
 
-    /// <summary>Sets a pixel, provided it lies on the picture. The player mark can reach
-    /// beyond the tile edge and fall out at the map edge.</summary>
-    private static void fSetPixel(Color32[] pOPixels, int piSize, int piX, int piY, Color32 pOColour)
-    {
-        if (piX < 0 || piY < 0 || piX >= piSize || piY >= piSize)
-            return;
-
-        pOPixels[(piY * piSize) + piX] = pOColour;
-    }
-
     /// <summary>The CLOSE button at bottom right on the parchment, estimated on the background
     /// picture. A click on it closes the map.</summary>
-    private static readonly Rect mOMapCloseRect = new Rect(263f, 150f, 47f, 26f);
+    private static readonly Rect mOMapCloseRect = fRect(UWClassicLayout.Map.Close);
 
-    private Image mMapCloseDebugImage;
-
-    private void fBuildMapCloseDebug()
+    private static Rect fRect(UWRectInt pORect)
     {
-        if (!mOUi.mbShowMapCloseArea || mMapCloseDebugImage != null || mMapBackgroundImage == null)
-            return;
-
-        mMapCloseDebugImage = UWGameUI.fCreateImage("MapCloseArea",
-            (RectTransform)mMapBackgroundImage.transform, mOMapCloseRect.x, -mOMapCloseRect.y,
-            mOMapCloseRect.width, mOMapCloseRect.height,
-            new Color(0f, 1f, 0f, 0.35f));
-    }
-
-    /// <summary>
-    /// The currently shown level. On opening it is the own one, with the two side corners
-    /// on the right it can be changed.
-    /// </summary>
-    private int miMapLevel;
-
-    /// <summary>The corners at top and bottom right of the parchment, estimated on the background
-    /// picture. The top one goes one level up, the bottom one down.</summary>
-    private static readonly Rect mOMapPageUpRect = new Rect(298f, 2f, 22f, 18f);
-
-    private static readonly Rect mOMapPageDownRect = new Rect(298f, 178f, 22f, 20f);
-
-    private UWLevel fGetMapLevel()
-    {
-        if (mOUi.mOUWData == null || mOUi.mOUWData.Levels == null
-            || miMapLevel < 0 || miMapLevel >= mOUi.mOUWData.Levels.Count)
-            return null;
-
-        return mOUi.mOUWData.Levels[miMapLevel];
-    }
-
-    /// <summary>Pages one level further if one of the two corners was hit.
-    /// Returns true if the click is consumed.</summary>
-    private bool fUpdateMapPaging(Vector2 pOLocal)
-    {
-        int liStep = 0;
-
-        if (fIsInMapRect(mOMapPageUpRect, pOLocal))
-            liStep = -1;
-        else if (fIsInMapRect(mOMapPageDownRect, pOLocal))
-            liStep = 1;
-
-        if (liStep == 0)
-            return false;
-
-        // Up to level 99: that many note pages the game keeps, even if only the
-        // first nine have a map.
-        int liCount = DataImport.MapNoteLevelCount;
-
-        int liNew = Mathf.Clamp(miMapLevel + liStep, 0, liCount - 1);
-
-        if (liNew == miMapLevel)
-            return true;
-
-        miMapLevel = liNew;
-
-        fBuildMapTiles(miMapLevel);
-        fRefreshMapLevelNumber(miMapLevel);
-        fRefreshMapNotes(miMapLevel);
-
-        return true;
-    }
-
-    private static bool fIsInMapRect(Rect pORect, Vector2 pOLocal)
-    {
-        float lfY = -pOLocal.y;
-
-        return pOLocal.x >= pORect.x && pOLocal.x <= pORect.x + pORect.width
-            && lfY >= pORect.y && lfY <= pORect.y + pORect.height;
+        return new Rect(pORect.X, pORect.Y, pORect.Width, pORect.Height);
     }
 
     /// <summary>The pointers of the map view from CURSORS.GR: 12 is the flat-lying
@@ -875,73 +377,10 @@ public sealed class UWHudMap
 
     internal const int MapEraseCursor = 13;
 
-    /// <summary>The ERASE area, estimated on the background picture: the stone including
-    /// the label below it.</summary>
-    private static readonly Rect mOMapEraseRect = new Rect(274f, 117f, 28f, 32f);
-
-    internal bool mbMapEraseMode;
-
-    /// <summary>
-    /// A click on ERASE switches to erase mode - the pointer becomes the eraser stone.
-    /// The next click, with either button, erases the note below, if one lies there, and
-    /// brings the quill back (per user in the original, 2026-09-03).
-    /// </summary>
-    private bool fUpdateMapErase(Vector2 pOLocal, bool pbLeft)
-    {
-        // Both buttons switch on erase mode and thus also erase (per user
-        // on the original, 2026-09-03). The parameter stays because the caller knows it.
-        float lfY = -pOLocal.y;
-
-        if (!mbMapEraseMode)
-        {
-            if (pOLocal.x < mOMapEraseRect.x || pOLocal.x > mOMapEraseRect.x + mOMapEraseRect.width
-                || lfY < mOMapEraseRect.y || lfY > mOMapEraseRect.y + mOMapEraseRect.height)
-                return false;
-
-            mbMapEraseMode = true;
-
-            return true;
-        }
-
-        fEraseNoteAt(pOLocal);
-
-        mbMapEraseMode = false;
-
-        return true;
-    }
-
-    /// <summary>Erases the note under the pointer - of several, the one whose middle is nearest
-    /// (UWMapNoteRules.FindNoteToErase, DetermineBetterHit; until 2026-10-15 the first one).
-    /// If you miss, erase mode ends anyway.</summary>
-    private void fEraseNoteAt(Vector2 pOLocal)
-    {
-        if (mOUi.mOUWData == null)
-            return;
-
-        // The notes of the SHOWN level, not of the one the character stands on.
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
-
-        if (lONotes == null)
-            return;
-
-        // The pointer in the notes' own coordinates: x a screen pixel, y from the bottom.
-        int liNote = UWMapNoteRules.FindNoteToErase(lONotes, Mathf.RoundToInt(pOLocal.x),
-            Mathf.RoundToInt(UWHudPanel.FrameHeight + pOLocal.y), fMeasureNote);
-
-        if (liNote < 0)
-            return;
-
-        lONotes.RemoveAt(liNote);
-
-        fRefreshMapNotes(miMapLevel);
-    }
-
     /// <summary>string_width of the notes' small font: the sum of the glyph widths.</summary>
     private int fMeasureNote(string psText)
     {
-        UWFont lOFont = mOUi.mOUWData != null ? mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Small) : null;
-
-        return lOFont != null ? lOFont.MeasureText(psText, 0, UWFontRenderer.CharacterSpacing) : 0;
+        return UWAutomapPictures.MeasureNote(mOUi.mOUWData != null ? mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Small) : null, psText);
     }
 
     /// <summary>
@@ -956,25 +395,17 @@ public sealed class UWHudMap
     private RawImage mMapWriteQuillImage;
 
     /// <summary>
-    /// Where the quill sits relative to the text end, in pixels.
-    ///
-    /// Negative X moves it to the left, positive Y down.
-    ///
-    /// Both are at zero: the lower left corner of the quill sits exactly at the text end, and
-    /// that fits (per user, 2026-09-03). The compensation is done instead via the
-    /// text start, which lies three pixels left of and below the click.
-    ///
-    /// CAUTION: should the quill pointer ever be enlarged - see the open question
-    /// that the pointers look bigger in the original -, mOUi offset must follow.
+    /// Where the quill stands: its lower left corner, the tip, at the text's end, its lowest row
+    /// UWClassicLayout.Map.WritingQuillRowsBelowTop rows below the text's top - the row above
+    /// the clicked one, where the original puts it (AUTOMAP.C mouse_putxy(curx + 10, my + 0x12)
+    /// with the picture's middle as the hot spot; 2026-10-23). Until then the corner sat at the
+    /// text's bottom, per user on the original 2026-09-03, with the text itself placed from a
+    /// pointer the system drew too small.
     /// </summary>
-    private const float MapWriteQuillOffsetX = 0f;
-
-    private const float MapWriteQuillOffsetY = 0f;
-
-    private void fRefreshMapWriteQuill(float pfLeft, float pfTop, float pfHeight)
+    private void fRefreshMapWriteQuill(float pfLeft, float pfTop)
     {
-        if (mMapBackgroundImage == null || mOUi.mOCursorTextures == null
-            || MapWriteCursor >= mOUi.mOCursorTextures.Count)
+        if (mMapBackgroundImage == null || mOUi.PointerCursor.Pictures == null
+            || MapWriteCursor >= mOUi.PointerCursor.Pictures.Count)
             return;
 
         if (mMapWriteQuillImage == null)
@@ -989,13 +420,13 @@ public sealed class UWHudMap
 
             mMapWriteQuillImage = lOObject.GetComponent<RawImage>();
             mMapWriteQuillImage.raycastTarget = false;
-            mMapWriteQuillImage.texture = mOUi.mOCursorTextures[MapWriteCursor];
+            mMapWriteQuillImage.texture = mOUi.PointerCursor.Pictures[MapWriteCursor];
             mMapWriteQuillImage.SetNativeSize();
         }
 
         ((RectTransform)mMapWriteQuillImage.transform).anchoredPosition = new Vector2(
-            pfLeft + MapWriteQuillOffsetX,
-            -(pfTop + pfHeight + MapWriteQuillOffsetY));
+            pfLeft,
+            -(pfTop + UWClassicLayout.Map.WritingQuillRowsBelowTop));
 
         mMapWriteQuillImage.enabled = true;
         mMapWriteQuillImage.transform.SetAsLastSibling();
@@ -1009,143 +440,66 @@ public sealed class UWHudMap
     /// finishes the line, Escape keeps it too and closes the map (see fUpdateMapWriting).
     ///
     /// The position is stored as a SCREEN pixel, with Y from the bottom - just as the save game
-    /// keeps it.
+    /// keeps it. The note's text, its length and the click that starts it are UWMapNotesModel's
+    /// since 2026-10-19 (cleanup 5.11).
     /// </summary>
-    private const int MapNoteMaxLength = UWMapNoteRules.MaxLength;
+    internal bool IsWritingNote => mONotes.IsWriting;
 
-    internal bool mbMapWriting;
+    /// <summary>The eraser is armed: the pointer is the eraser stone (UWGameUI's cursor).</summary>
+    internal bool IsErasing => mONotes.IsErasing;
 
-    private int miMapWriteNote = -1;
-
-    private void fBeginMapNote(Vector2 pOLocal)
+    /// <summary>A note has started at the click.</summary>
+    private void fAfterNoteStarted()
     {
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
+        // While writing, the quill sticks to the text and no longer follows the mouse.
+        // The system pointer therefore goes away, the quill is drawn by us.
+        Cursor.visible = false;
 
-        // A hundred notes fill the page: the click does nothing (UWMapNoteRules.CanAddNote).
-        if (lONotes == null || !UWMapNoteRules.CanAddNote(lONotes.Count))
-            return;
-
-        lONotes.Add(new UWLevel.MapNote
-        {
-            Text = string.Empty,
-            // The text starts three pixels left of and three below the click - so the
-            // quill tip lands exactly on the clicked pixel again (per user on the original,
-            // 2026-09-03). Y counts from the bottom, so lower means smaller.
-            X = Mathf.RoundToInt(pOLocal.x) - 3,
-            Y = Mathf.RoundToInt(UWHudPanel.FrameHeight + pOLocal.y) - 3
-        });
-
-        miMapWriteNote = lONotes.Count - 1;
-
-        if (!mbMapWriting)
-        {
-            mbMapWriting = true;
-
-            // While writing, the quill sticks to the text and no longer follows the mouse.
-            // The system pointer therefore goes away, the quill is drawn by us.
-            Cursor.visible = false;
-
-            if (UnityEngine.InputSystem.Keyboard.current != null)
-                UnityEngine.InputSystem.Keyboard.current.onTextInput += fOnMapTextInput;
-        }
+        mOTextEntry.Begin();
 
         // Draw ONLY here: the quill depends on the writing state, and that is set one line
         // earlier. Before mOUi it did not appear (per user, 2026-09-03).
-        fRefreshMapNotes(miMapLevel);
+        fRefreshMapNotes();
     }
 
     private void fEndMapNote(bool pbKeep)
     {
-        if (!mbMapWriting)
-            return;
+        if (mONotes.End(pbKeep))
+            fAfterNoteEnded();
+    }
 
-        mbMapWriting = false;
-
+    /// <summary>The note being written has ended - kept, or dropped when empty.</summary>
+    private void fAfterNoteEnded()
+    {
         Cursor.visible = true;
 
         if (mMapWriteQuillImage != null)
             mMapWriteQuillImage.enabled = false;
 
-        if (UnityEngine.InputSystem.Keyboard.current != null)
-            UnityEngine.InputSystem.Keyboard.current.onTextInput -= fOnMapTextInput;
+        mOTextEntry.End();
 
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
-
-        // An empty line is not kept - not even when confirming.
-        if (lONotes != null && miMapWriteNote >= 0 && miMapWriteNote < lONotes.Count
-            && (!pbKeep || string.IsNullOrEmpty(lONotes[miMapWriteNote].Text)))
-        {
-            lONotes.RemoveAt(miMapWriteNote);
-        }
-
-        miMapWriteNote = -1;
-
-        fRefreshMapNotes(miMapLevel);
+        fRefreshMapNotes();
     }
 
     private void fOnMapTextInput(char pcChar)
     {
-        if (!mbMapWriting)
-            return;
-
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
-
-        if (lONotes == null || miMapWriteNote < 0 || miMapWriteNote >= lONotes.Count)
-            return;
-
-        // CAPITAL LETTERS: font4x5p knows no lower case ones, and in the original all notes are
-        // in capitals. Typed in lower case, nothing arrived at all otherwise (per user, 2026-09-03).
-        // Codes 0x20 to 0x7A only, and nothing past the parchment's right edge or 46 characters
-        // (UWMapNoteRules.TryAppend, 2026-10-15).
-        string lsText;
-
-        if (UWMapNoteRules.TryAppend(lONotes[miMapWriteNote].Text, pcChar, lONotes[miMapWriteNote].X, fMeasureNote, out lsText))
-            fSetMapNoteText(lsText);
+        if (mONotes.Type(pcChar))
+            fRefreshMapNotes();
     }
 
-    private string fGetMapNoteText()
-    {
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
-
-        return lONotes != null && miMapWriteNote >= 0 && miMapWriteNote < lONotes.Count
-            ? lONotes[miMapWriteNote].Text
-            : string.Empty;
-    }
-
-    private void fSetMapNoteText(string psText)
-    {
-        System.Collections.Generic.List<UWLevel.MapNote> lONotes = mOUi.mOUWData.GetMapNotes(miMapLevel);
-
-        if (lONotes == null || miMapWriteNote < 0 || miMapWriteNote >= lONotes.Count)
-            return;
-
-        if (psText.Length > MapNoteMaxLength)
-            psText = psText.Substring(0, MapNoteMaxLength);
-
-        UWLevel.MapNote lONote = lONotes[miMapWriteNote];
-
-        lONote.Text = psText;
-
-        lONotes[miMapWriteNote] = lONote;
-
-        fRefreshMapNotes(miMapLevel);
-    }
-
-    /// <summary>Backspace, Enter and Escape. The characters themselves come via
-    /// onTextInput.</summary>
+    /// <summary>Backspace, Enter and Escape; the characters themselves come via onTextInput,
+    /// and where none come (Linux) from the keys (UWTextEntry.ReadKeys).</summary>
     private bool fUpdateMapWriting()
     {
-        if (!mbMapWriting)
+        if (!mONotes.IsWriting)
             return false;
 
-        UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
-
-        if (lOKeyboard == null)
+        if (UnityEngine.InputSystem.Keyboard.current == null)
             return true;
 
         // Escape takes over the text AND closes the map immediately (per user on the
         // original, 2026-09-03) - so it does not discard.
-        if (lOKeyboard.escapeKey.wasPressedThisFrame)
+        if (UWTextEntry.EscapePressed)
         {
             fEndMapNote(true);
             HideMap();
@@ -1153,26 +507,25 @@ public sealed class UWHudMap
             return true;
         }
 
-        if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
+        if (UWTextEntry.EnterPressed)
         {
             fEndMapNote(true);
 
             return true;
         }
 
-        if (lOKeyboard.backspaceKey.wasPressedThisFrame)
-        {
-            string lsText = fGetMapNoteText();
+        if (UWTextEntry.BackspacePressed && mONotes.Backspace())
+            fRefreshMapNotes();
 
-            if (lsText.Length > 0)
-                fSetMapNoteText(lsText.Substring(0, lsText.Length - 1));
-        }
+        // Where no text events arrive (Linux), the keys themselves (UWTypedKeys) - the four other
+        // text inputs always read them, the map note did not until 2026-10-19 (B26).
+        mOTextEntry.ReadKeys();
 
         return true;
     }
 
     /// <summary>As long as the map is open, nothing happens in the world. The click on CLOSE
-    /// closes it.</summary>
+    /// closes it. What a click does is UWMapNotesModel.Click's.</summary>
     internal void Update()
     {
         if (!IsMapVisible)
@@ -1193,14 +546,12 @@ public sealed class UWHudMap
         Vector2 lOLocal;
 
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            (RectTransform)mMapBackgroundImage.transform, 
+            (RectTransform)mMapBackgroundImage.transform,
             UnityEngine.InputSystem.Mouse.current.position.ReadValue(), null, out lOLocal))
             return;
 
-        // While writing, any click only ends the note (the typing loop of ManageDungeonMap
-        // breaks on a mouse command and returns) - also on ERASE, CLOSE or an arrow, which with
-        // the arrows taking the right button too would otherwise page away from the note
-        // being written (2026-10-15).
+        // While writing at the start of the frame, any click only ends the note - also when Enter
+        // ended it in this very frame.
         if (lbWriting)
         {
             fEndMapNote(true);
@@ -1208,30 +559,31 @@ public sealed class UWHudMap
             return;
         }
 
-        // Erase mode swallows the click.
-        if (fUpdateMapErase(lOLocal, lbLeft))
-            return;
-
-        // The level arrows take either button, as every button area of ManageDungeonMap does
-        // (AUTOMAP.C: any mouse command below 4; until 2026-10-15 a right click there started
-        // a note).
-        if (fUpdateMapPaging(lOLocal))
-            return;
-
-        // CLOSE and ERASE listen to BOTH buttons (per user on the original, 2026-09-03).
-        float lfY = -lOLocal.y;
-
-        if (lOLocal.x >= mOMapCloseRect.x && lOLocal.x <= mOMapCloseRect.x + mOMapCloseRect.width
-            && lfY >= mOMapCloseRect.y && lfY <= mOMapCloseRect.y + mOMapCloseRect.height)
+        // Both buttons alike (per user on the original, 2026-09-03): the parchment's y counts
+        // from the top.
+        switch (mONotes.Click(lOLocal.x, -lOLocal.y))
         {
-            HideMap();
+            case UWMapNotesModel.ClickEnum.NoteEnded:
+                fAfterNoteEnded();
+                break;
 
-            return;
+            case UWMapNotesModel.ClickEnum.Erased:
+                fRefreshMapNotes();
+                break;
+
+            case UWMapNotesModel.ClickEnum.Paged:
+                fBuildMapTiles(mONotes.ShownLevel);
+                fRefreshMapLevelNumber(mONotes.ShownLevel);
+                fRefreshMapNotes();
+                break;
+
+            case UWMapNotesModel.ClickEnum.Close:
+                HideMap();
+                break;
+
+            case UWMapNotesModel.ClickEnum.NoteStarted:
+                fAfterNoteStarted();
+                break;
         }
-
-        // Both buttons start a line and both commit it again (per user
-        // on the original). A click while writing only finishes and does
-        // NOT immediately start the next one (above).
-        fBeginMapNote(lOLocal);
     }
 }

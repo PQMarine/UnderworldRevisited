@@ -233,7 +233,7 @@ namespace UWDataImport.UWData
 
 		public string GetSkillName(int piSkillNumber)
 		{
-			return fGetString(UWStringIds.SkillNameBase + piSkillNumber);
+			return UWCharacterText.SkillName(mOStrings, piSkillNumber);
 		}
 
 		public string GetAttributeLabel(int piIndex)
@@ -241,7 +241,7 @@ namespace UWDataImport.UWData
 			return fGetString(AttributeStringBase + piIndex);
 		}
 
-		public string ClassName => CharacterClass >= 0 ? fGetString(UWStringIds.ClassNameBase + CharacterClass) : string.Empty;
+		public string ClassName => UWCharacterText.ClassName(mOStrings, CharacterClass);
 
 		public string SexName => fGetString(SexStringBase + (IsFemale ? 1 : 0));
 

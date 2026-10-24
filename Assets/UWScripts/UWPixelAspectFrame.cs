@@ -12,7 +12,7 @@ public class UWPixelAspectFrame : MonoBehaviour
 {
     private void LateUpdate()
     {
-        float lfFactor = UWGameUI.HorizontalPixelFactor;
+        float lfFactor = UWClassicScreen.HorizontalPixelFactor;
 
         if (!Mathf.Approximately(transform.localScale.x, lfFactor))
             transform.localScale = new Vector3(lfFactor, 1f, 1f);

@@ -33,6 +33,7 @@ namespace UnderworldRevisited.Tools
             fCheckSpellTrapCaster(pOData);
 
             fCheckInventoryTrap(pOData);
+            fCheckDroppedTrapFound(pOData);
             fCheckConversationTrap(pOData);
             fCheckTerrainBounds(pOData);
             fCheckTrapInDoorRemoved(pOData);
@@ -73,6 +74,51 @@ namespace UnderworldRevisited.Tools
         /// <summary>A30: FindObj with how 4 - paperdoll, backpack, then contents; never the cursor;
         /// only the first find is weighed against z. A bag in the pack holds a single crystal
         /// splinter and then a stack of five; the trap asks for two.</summary>
+        /// <summary>
+        /// A THING CARRIED AND DROPPED keeps links that count in the save's records (2026-10-22, per
+        /// user: the poisoned potion taken from the pack and put down asked no trap question): its
+        /// resolved chain decides, the level record its stale link points at must not. Both forms,
+        /// the trap straight under the potion and a trigger with the trap behind it.
+        /// </summary>
+        private static void fCheckDroppedTrapFound(DataImport pOData)
+        {
+            List<UWObject> lOSave = new List<UWObject>
+            {
+                null,
+                new UWObject(0xBB) { HasQuantity = false, Quantity = 2 },
+                new UWObject((ushort)UWObjectMechanics.DamageTrapId) { Quality = 10, Owner = 1 }
+            };
+
+            UWObject lOPotion = lOSave[1];
+
+            lOPotion.EnsureContentsLoaded(lOSave);
+
+            // The level: at the potion's stale link 2 lies something else entirely.
+            List<UWObject> lOLevel = new List<UWObject> { null, new UWObject(0x80), new UWObject(0x95) };
+
+            bool lbFound = UWObjectMechanics.TryFindDisarmableTrap(lOPotion, lOLevel, out UWObject lOTrap, out UWObject lOTrigger);
+
+            fExpectBool("dropped trap: a carried potion's trap is found through its resolved chain", lbFound, true);
+            fExpectBool("dropped trap: ... it is the potion's damage trap, no trigger",
+                lOTrap == lOSave[2] && lOTrigger == null, true);
+
+            List<UWObject> lOSaveTriggered = new List<UWObject>
+            {
+                null,
+                new UWObject(0xBB) { HasQuantity = false, Quantity = 2 },
+                new UWObject((ushort)UWObjectMechanics.MoveTriggerId) { HasQuantity = false, Quantity = 3 },
+                new UWObject((ushort)UWObjectMechanics.DamageTrapId) { Quality = 4 }
+            };
+
+            foreach (UWObject lORecord in lOSaveTriggered)
+                lORecord?.EnsureContentsLoaded(lOSaveTriggered);
+
+            lbFound = UWObjectMechanics.TryFindDisarmableTrap(lOSaveTriggered[1], lOLevel, out lOTrap, out lOTrigger);
+
+            fExpectBool("dropped trap: behind a trigger, through the trigger's resolved chain",
+                lbFound && lOTrap == lOSaveTriggered[3] && lOTrigger == lOSaveTriggered[2], true);
+        }
+
         private static void fCheckInventoryTrap(DataImport pOData)
         {
             const int Splinter = 0x111;

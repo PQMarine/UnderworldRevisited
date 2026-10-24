@@ -235,6 +235,11 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("SaveRoundTrip", pOContext => fCheckSaveRoundTrip(pOContext), true, "data", "pin").MutatesData = true;
             lOCatalog.Add("Codecs", pOContext => fCheckCodecs(pOContext), true, "data", "original");
             lOCatalog.Add("HudArt", pOContext => fCheckHudArt(pOContext), true, "hud", "pin");
+            lOCatalog.Add("ClassicLayout", pOContext => fCheckClassicLayout(), false, "hud", "original");
+            lOCatalog.Add("ClassicLayoutColours", pOContext => fCheckClassicLayoutColours(pOContext.Data), true, "hud", "original");
+            lOCatalog.Add("ClassicGeometry", pOContext => fCheckClassicGeometry(), false, "hud", "input");
+            lOCatalog.Add("DragonAnimator", pOContext => fCheckDragonAnimator(), false, "hud", "original");
+            lOCatalog.Add("OptionsMenu", pOContext => fCheckOptionsMenu(), false, "hud", "original");
             lOCatalog.Add("Reach", pOContext => fCheckReach(), false, "inventory", "original");
             lOCatalog.Add("ItemApplications", pOContext => fCheckItemApplications(pOContext.Data), true, "inventory", "original");
             lOCatalog.Add("LockRules", pOContext => fCheckLockRules(), false, "inventory", "trap", "original");
@@ -292,7 +297,32 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("WallSquares", pOContext => fCheckWallSquares(pOContext.Data), true, "world", "spell", "damage", "original");
             lOCatalog.Add("WeaponSwing", pOContext => fCheckWeaponSwing(pOContext.Data), true, "hud", "combat");
             lOCatalog.Add("Paperdoll", pOContext => fCheckPaperdoll(), false, "hud", "inventory");
+            lOCatalog.Add("UiTables", pOContext => fCheckUiTables(), false, "hud", "inventory");
+            lOCatalog.Add("RuneShelf", pOContext => fCheckRuneShelf(), false, "hud", "spell", "original");
+            lOCatalog.Add("UiMessageIds", pOContext => fCheckUiMessageIds(pOContext.Data), true, "hud", "original");
             lOCatalog.Add("FlaskGauge", pOContext => fCheckFlaskGauge(), false, "hud", "player");
+            lOCatalog.Add("UploadPixels", pOContext => fCheckUploadPixels(), false, "hud");
+            lOCatalog.Add("UploadPixelsData", pOContext => fCheckUploadPixelsData(pOContext.Data), true, "hud");
+            lOCatalog.Add("ArtStamp", pOContext => fCheckArtStamp(), false, "hud");
+            lOCatalog.Add("AutomapView", pOContext => fCheckAutomapView(), false, "hud", "level");
+            lOCatalog.Add("AutomapViewData", pOContext => fCheckAutomapViewData(pOContext.Data), true, "hud", "level");
+            lOCatalog.Add("MapNotesModel", pOContext => fCheckMapNotesModel(), false, "hud", "input", "original");
+            lOCatalog.Add("UiHelpers", pOContext => fCheckUiHelpers(), false, "hud", "inventory");
+            lOCatalog.Add("UiHelpersData", pOContext => fCheckUiHelpersData(pOContext.Data), true, "hud", "inventory");
+            lOCatalog.Add("InventoryView", pOContext => fCheckInventoryView(pOContext.Data), true, "hud", "inventory");
+            lOCatalog.Add("TextRaster", pOContext => fCheckTextRaster(pOContext.Data), true, "hud");
+            lOCatalog.Add("PanelTurn", pOContext => fCheckPanelTurn(), false, "hud");
+            lOCatalog.Add("CharacterSheet", pOContext => fCheckCharacterSheet(), false, "hud", "player");
+            lOCatalog.Add("CharacterSheetData", pOContext => fCheckCharacterSheetData(pOContext.Data), true, "hud", "player");
+            lOCatalog.Add("ConversationView", pOContext => fCheckConversationView(pOContext.Data), true, "hud", "conversation", "original");
+            lOCatalog.Add("MessageLogModel", pOContext => fCheckMessageLogModel(), false, "hud", "original");
+            lOCatalog.Add("CountInput", pOContext => fCheckCountInput(), false, "hud", "input", "inventory");
+            lOCatalog.Add("CursorReturn", pOContext => fCheckCursorReturn(pOContext.Data), true, "hud", "inventory");
+            lOCatalog.Add("DragSource", pOContext => fCheckDragSource(pOContext), true, "hud", "inventory", "conversation");
+            lOCatalog.Add("YesNoQuestion", pOContext => fCheckYesNoQuestion(), false, "hud", "input");
+            lOCatalog.Add("PendingSpell", pOContext => fCheckPendingSpell(), false, "spell", "input", "original");
+            lOCatalog.Add("AttackState", pOContext => fCheckAttackState(), false, "combat", "input", "original");
+            lOCatalog.Add("UiSchemePolicy", pOContext => fCheckUiSchemePolicy(), false, "hud", "input");
 
             return lOCatalog;
         }

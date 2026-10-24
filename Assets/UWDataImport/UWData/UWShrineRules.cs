@@ -32,10 +32,6 @@ namespace UWDataImport.UWData
 		/// <summary>This many mantras exist.</summary>
 		public const int MantraCount = 26;
 
-		/// <summary>String block 2: the skill list starts here - entry 32 is
-		/// "Attack".</summary>
-		private const int FirstSkillNameString = UWPlayerData.SkillNameStringIndex;
-
 		/// <summary>From here on they are no longer skill mantras.</summary>
 		public const int FirstSpecialMantra = 20;
 
@@ -451,7 +447,7 @@ namespace UWDataImport.UWData
 
 		private static string fGetSkillName(int piSkillNumber, DataImport pOData)
 		{
-			return fGetString(pOData, 2, FirstSkillNameString + piSkillNumber);
+			return UWCharacterText.SkillName(pOData != null ? pOData.Strings : null, piSkillNumber);
 		}
 
 		private static string fGetGeneralMessage(DataImport pOData, int piIndex)

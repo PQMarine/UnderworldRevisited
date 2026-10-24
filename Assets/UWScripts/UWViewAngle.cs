@@ -5,9 +5,10 @@ using UnityEngine;
 /// one for both schemes, per user the same day on the question): the HORIZONTAL angle of the 3D
 /// view as one sees it, 60 to 120 degrees, kept in UWUserSettings.ViewAngle. At 0, "Original",
 /// every scheme keeps its own: the classic hole and Classic Wide the original's vertical angle
-/// (75 degrees across its 4:3 hole, so a widened hole shows more to the sides, Hor+), the modern
+/// (UWClassicLayout.Frame.HorizontalViewAngle across its 4:3 hole, so a widened hole shows more
+/// to the sides, Hor+), the modern
 /// scheme the camera's own. A set angle is turned into the vertical one Unity's camera takes, from
-/// the view's aspect (UWGameUI.fApplyGameCamera).
+/// the view's aspect (UWViewportCamera.Apply).
 /// </summary>
 public static class UWViewAngle
 {
@@ -47,7 +48,7 @@ public static class UWViewAngle
     public static float HorizontalOf(Camera pOCamera)
     {
         if (pOCamera == null)
-            return 75f;
+            return UWDataImport.UWData.UWClassicLayout.Frame.HorizontalViewAngle;
 
         return 2f * Mathf.Atan(Mathf.Tan(pOCamera.fieldOfView * Mathf.Deg2Rad / 2f) * pOCamera.aspect) * Mathf.Rad2Deg;
     }

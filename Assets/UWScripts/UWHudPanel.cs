@@ -30,26 +30,24 @@ public sealed class UWHudPanel
     /// is the inventory back side, and the same pixels are in the main screen. When
     /// sliding it over, ALL samples match at mOUi spot (see the removed tool UWPanelFit).
     ///
-    /// ROTATION: eight steps (PanelRotationSteps), at step four you see the panel from the side and thus
+    /// ROTATION: eight steps (UWPanelTurn.Steps), at step four you see the panel from the side and thus
     /// only a line (per user, 2026-09-02). Implemented as squashing the width by the
     /// cosine, the content is squashed along with it and stays recognisable.
     /// </summary>
-    private const float PanelLeft = 236f;
+    private const float PanelLeft = UWClassicLayout.Panel.Left;
 
-    private const float PanelTop = 7f;
+    private const float PanelTop = UWClassicLayout.Panel.Top;
 
-    internal const float PanelWidth = 83f;
+    internal const float PanelWidth = UWClassicLayout.Panel.Width;
 
-    private const float PanelHeight = 114f;
-
-    private const int PanelRotationSteps = 8;
+    private const float PanelHeight = UWClassicLayout.Panel.Height;
 
     /// <summary>Width of the panel when seen from the side.</summary>
     private const float PanelEdgeWidth = 3f;
 
-    internal const float FrameWidth = 320f;
+    internal const float FrameWidth = UWClassicLayout.Screen.Width;
 
-    internal const float FrameHeight = 200f;
+    internal const float FrameHeight = UWClassicLayout.Screen.Height;
 
     /// <summary>Node above everything belonging to the panel - only it gets squashed.</summary>
     private RectTransform mPanelPivot;
@@ -68,48 +66,21 @@ public sealed class UWHudPanel
 
     private RawImage mRunePanelImage;
 
-    /// <summary>Grid of the rune shelf, measured on the picture - see fBuildRuneSlots.</summary>
-    private const int RuneColumns = 4;
-
-    // One pixel right and one down since 2026-09-26 (per user, against the original).
-    private const float RuneSlotLeft = 8f;
-
-    private const float RuneSlotTop = 5f;
-
-    private const float RuneSlotPitchX = 18f;
-
-    private const float RuneSlotPitchY = 15f;
-
     internal RawImage[] mRuneSlotImages;
 
-    /// <summary>Which of the three pages the panel can show. Until 2026-09-03 there were two,
-    /// as a bool - the rune bag added a third.</summary>
-    internal enum PanelSideEnum
-    {
-        Inventory,
-        Status,
-        Runes
-    }
+    /// <summary>Which of the three pages the panel shows, the turn's steps and the conversation's
+    /// hold on the inventory page: UWPanelTurn since cleanup 5.9 (2026-10-20). This class draws
+    /// them and keeps the step timing (mfPanelStepUntil).</summary>
+    private readonly UWPanelTurn mOTurn = new UWPanelTurn();
 
-    internal PanelSideEnum mePanelSide = PanelSideEnum.Inventory;
-
-    private PanelSideEnum mePanelTargetSide;
-
-    internal int miPanelStep = -1;
+    internal UWPanelTurn Turn => mOTurn;
 
     private float mfPanelStepUntil;
 
-    /// <summary>The page the panel showed before a conversation began; null outside one.</summary>
-    private PanelSideEnum? mePanelSideBeforeConversation;
-
-    /// <summary>Ends a turn under way at once, as the last step of fUpdatePanelRotation does.</summary>
-    private void fCancelPanelTurn()
+    /// <summary>Puts the turn's pictures back at rest - the page at full width, no edge, the chain
+    /// at picture 0 - after the last step or a turn cut short.</summary>
+    private void fRestTurnPictures()
     {
-        if (miPanelStep < 0)
-            return;
-
-        miPanelStep = -1;
-
         if (mPanelPivot != null)
             mPanelPivot.localScale = Vector3.one;
 
@@ -134,7 +105,7 @@ public sealed class UWHudPanel
     {
         // The open map lies over everything - nothing behind it may hit any more (per
         // user, 2026-09-03; the same case as with the stats page).
-        return mePanelSide == PanelSideEnum.Inventory && miPanelStep < 0 && !mOUi.Map.IsMapVisible;
+        return mOTurn.IsAtRestOn(UWPanelTurn.SideEnum.Inventory) && !mOUi.Map.IsMapVisible;
     }
 
     /// <summary>
@@ -272,17 +243,17 @@ public sealed class UWHudPanel
     /// main screen and would otherwise shine through behind the other
     /// positions.
     /// </summary>
-    private const float ChainLeft = 272f;
+    private const float ChainLeft = UWClassicLayout.Panel.ChainLeft;
 
-    private const float ChainTop = 121f;
+    private const float ChainTop = UWClassicLayout.Panel.ChainTop;
 
-    private const int ChainFrameCount = 8;
+    private const int ChainFrameCount = UWClassicLayout.Panel.ChainFrames;
 
     /// <summary>The short piece at the top of the panel where the chain attaches. Measured the same way:
     /// 272 / 3, all sixteen set pixels match.</summary>
-    private const float ShortChainTop = 3f;
+    private const float ShortChainTop = UWClassicLayout.Panel.ShortChainTop;
 
-    private const int ShortChainFirstFrame = 8;
+    private const int ShortChainFirstFrame = UWClassicLayout.Panel.ShortChainFirstFrame;
 
     private RawImage mChainImage;
 
@@ -325,14 +296,7 @@ public sealed class UWHudPanel
         {
             UWTexture lOSource = pOChains[piFirst + liFrame];
 
-            Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-            lOTexture.name = "UWHudPanel chain frame";
-            lOTexture.filterMode = mOUi.TextureFilterMode;
-            lOTexture.wrapMode = TextureWrapMode.Clamp;
-            lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-            lOTexture.Apply(false, false);
-
-            lOFrames[liFrame] = lOTexture;
+            lOFrames[liFrame] = UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWHudPanel chain frame", TextureWrapMode.Clamp);
         }
 
         return lOFrames;
@@ -340,7 +304,7 @@ public sealed class UWHudPanel
 
     private RawImage fBuildChainImage(string psName, Texture2D[] pOFrames, float pfTop)
     {
-        UWGameUI.fCreateImage(psName + "Blackout", mOUi.mGameFrame, ChainLeft, -pfTop,
+        UWUiKit.CreateFrameImage(mOUi.mGameFrame, psName + "Blackout", ChainLeft, -pfTop,
             pOFrames[0].width, pOFrames[0].height, Color.black);
 
         GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
@@ -412,12 +376,7 @@ public sealed class UWHudPanel
         lORect.anchoredPosition = new Vector2(PanelLeft + (PanelWidth * 0.5f), -PanelTop);
         lORect.sizeDelta = new Vector2(lOSource.Width, lOSource.Height);
 
-        Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHudPanel panel edge";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-        lOTexture.Apply(false, false);
+        Texture2D lOTexture = UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWHudPanel panel edge", TextureWrapMode.Clamp);
 
         mPanelEdgeImage = lOObject.GetComponent<RawImage>();
         mPanelEdgeImage.texture = lOTexture;
@@ -442,7 +401,7 @@ public sealed class UWHudPanel
         if (mPanelPivot == null || mOUi.mOUWData == null || mPanelBlackout != null)
             return;
 
-        Image lOBlackout = UWGameUI.fCreateImage("PanelBlackout", mOUi.mGameFrame,
+        Image lOBlackout = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "PanelBlackout",
             PanelLeft, -PanelTop, PanelWidth, PanelHeight, Color.black);
 
         mPanelBlackout = lOBlackout.rectTransform;
@@ -468,12 +427,8 @@ public sealed class UWHudPanel
         lORect.anchoredPosition = new Vector2(PanelLeft, -PanelTop);
         lORect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-        Texture2D lOTexture = new Texture2D(lOPanels[0].Width, lOPanels[0].Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHudPanel inventory page";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[0]));
-        lOTexture.Apply(false, false);
+        Texture2D lOTexture = UWTextureFactory.FromTexture(lOPanels[0], mOUi.TextureFilterMode, "UWHudPanel inventory page",
+            TextureWrapMode.Clamp);
 
         RawImage lOImage = lOBackground.GetComponent<RawImage>();
         lOImage.texture = lOTexture;
@@ -508,12 +463,8 @@ public sealed class UWHudPanel
         mStatsRoot.anchoredPosition = new Vector2(PanelLeft, -PanelTop);
         mStatsRoot.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-        Texture2D lOBackground = new Texture2D(lOPanels[2].Width, lOPanels[2].Height, TextureFormat.RGBA32, false);
-        lOBackground.name = "UWHudPanel stats page";
-        lOBackground.filterMode = mOUi.TextureFilterMode;
-        lOBackground.wrapMode = TextureWrapMode.Clamp;
-        lOBackground.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[2]));
-        lOBackground.Apply(false, false);
+        Texture2D lOBackground = UWTextureFactory.FromTexture(lOPanels[2], mOUi.TextureFilterMode, "UWHudPanel stats page",
+            TextureWrapMode.Clamp);
 
         mStatsPanelImage = lORoot.GetComponent<RawImage>();
         mStatsPanelImage.texture = lOBackground;
@@ -545,12 +496,8 @@ public sealed class UWHudPanel
         mRuneRoot.anchoredPosition = new Vector2(PanelLeft, -PanelTop);
         mRuneRoot.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-        Texture2D lOBackground = new Texture2D(lOPanels[1].Width, lOPanels[1].Height, TextureFormat.RGBA32, false);
-        lOBackground.name = "UWHudPanel rune shelf";
-        lOBackground.filterMode = mOUi.TextureFilterMode;
-        lOBackground.wrapMode = TextureWrapMode.Clamp;
-        lOBackground.SetPixels32(UWGameUI.fGetTextureInvert(lOPanels[1]));
-        lOBackground.Apply(false, false);
+        Texture2D lOBackground = UWTextureFactory.FromTexture(lOPanels[1], mOUi.TextureFilterMode, "UWHudPanel rune shelf",
+            TextureWrapMode.Clamp);
 
         mRunePanelImage = lORoot.GetComponent<RawImage>();
         mRunePanelImage.texture = lOBackground;
@@ -596,13 +543,14 @@ public sealed class UWHudPanel
             lORect.anchorMin = new Vector2(0f, 1f);
             lORect.anchorMax = new Vector2(0f, 1f);
             lORect.pivot = new Vector2(0f, 1f);
-            lORect.anchoredPosition = new Vector2(
-                RuneSlotLeft + ((liRune % RuneColumns) * RuneSlotPitchX),
-                -(RuneSlotTop + ((liRune / RuneColumns) * RuneSlotPitchY)));
+            // The grid of the rune shelf, measured on the picture (UWRuneShelfModel.SlotLeft and
+            // SlotTop): one pixel right and one down since 2026-09-26 (per user, against the
+            // original).
+            lORect.anchoredPosition = new Vector2(UWRuneShelfModel.SlotLeft(liRune), -UWRuneShelfModel.SlotTop(liRune));
             lORect.sizeDelta = new Vector2(lOSource.Width, lOSource.Height);
 
             RawImage lOImage = lOObject.GetComponent<RawImage>();
-            lOImage.texture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
+            lOImage.texture = UWIconCache.Texture(lOSource, mOUi.TextureFilterMode);
             lOImage.raycastTarget = false;
             UWIconPalette.Apply(lOImage);
             lOImage.enabled = false;
@@ -632,32 +580,26 @@ public sealed class UWHudPanel
         }
     }
 
-    /// <summary>Starts the rotation if none is already running.</summary>
+    /// <summary>Starts the rotation if none is already running: the chain's page
+    /// (UWPanelTurn.ChainTarget - from the rune shelf back to the inventory, not on to the
+    /// stats; per user, 2026-09-03).</summary>
     public void TogglePanelSide()
     {
-        // The chain leads from the inventory to the stats page - and from every other page
-        // back to the inventory. From the rune shelf it therefore does NOT go on to the stats
-        // (per user, 2026-09-03): as soon as the inventory is turned away, the chain brings it
-        // back.
-        fStartPanelTurn(mePanelSide == PanelSideEnum.Inventory
-            ? PanelSideEnum.Status
-            : PanelSideEnum.Inventory);
+        fStartPanelTurn(mOTurn.ChainTarget);
     }
 
     /// <summary>Turns to the rune shelf, or from there back to the inventory. Hooked to the
     /// click on the rune bag (see UWItemDrag).</summary>
     public void ToggleRunePanel()
     {
-        fStartPanelTurn(mePanelSide == PanelSideEnum.Runes
-            ? PanelSideEnum.Inventory
-            : PanelSideEnum.Runes);
+        fStartPanelTurn(mOTurn.RuneBagTarget);
     }
 
     /// <summary>Turns to the given page. During a running rotation nothing
     /// happens, likewise if the page is already at the front.</summary>
-    private void fStartPanelTurn(PanelSideEnum peTarget)
+    private void fStartPanelTurn(UWPanelTurn.SideEnum peTarget)
     {
-        if (miPanelStep >= 0 || peTarget == mePanelSide)
+        if (mOTurn.IsTurning || peTarget == mOTurn.Side)
             return;
 
         fBuildPanelPivot();
@@ -670,85 +612,66 @@ public sealed class UWHudPanel
         if (mPanelPivot == null || mStatsRoot == null || mRuneRoot == null)
             return;
 
-        mePanelTargetSide = peTarget;
-        miPanelStep = 0;
+        mOTurn.Begin(peTarget);
         mfPanelStepUntil = Time.unscaledTime;
     }
 
-    /// <summary>One rotation step per time tick. The width follows the cosine over 180 degrees, in
-    /// the middle the page is switched.</summary>
+    /// <summary>One rotation step per time tick (UWPanelTurn.Advance: the width follows the cosine
+    /// over 180 degrees, in the middle the page is switched; the last step keeps its own dwell
+    /// time).</summary>
     private void fUpdatePanelRotation()
     {
-        if (miPanelStep < 0 || mPanelPivot == null)
+        if (!mOTurn.IsTurning || mPanelPivot == null)
             return;
 
         if (Time.unscaledTime < mfPanelStepUntil)
             return;
 
-        // The last step needs its own dwell time. Until 2026-09-02 the reset happened directly
-        // after it, in the same pass - it was set and immediately
-        // overwritten again and thus never visible (reported per user, first for
-        // step 6, after the switch to eight steps for step 7).
-        if (miPanelStep >= PanelRotationSteps)
+        UWPanelTurn.Frame lOFrame = mOTurn.Advance();
+
+        if (lOFrame.Finished)
         {
-            miPanelStep = -1;
-            mPanelPivot.localScale = Vector3.one;
-
-            if (mPanelEdgeImage != null)
-                mPanelEdgeImage.enabled = false;
-
-            fSetChainFrame(0);
+            fRestTurnPictures();
 
             return;
         }
 
-        mfPanelStepUntil = Time.unscaledTime + Mathf.Max(0.01f, mOUi.mfPanelStepSeconds);
-
-        // Eight steps, as many as the chain has pictures (per user, 2026-09-02). The
-        // angle runs in eighths over 180 degrees, the edge-on position thus falls on
-        // step 4 - exactly where the chain also has its edge picture.
-        float lfAngle = (miPanelStep / (float)PanelRotationSteps) * Mathf.PI;
-
-        float lfScale = Mathf.Abs(Mathf.Cos(lfAngle));
+        mfPanelStepUntil = Time.unscaledTime + UWClassicLayout.Panel.TurnStepSeconds;
 
         // In the middle step the panel stands on its edge: instead of squashing it to zero
         // its own edge picture from PANELS.GR is shown.
-        bool lbOnEdge = miPanelStep == PanelRotationSteps / 2;
-
-        mPanelPivot.localScale = new Vector3(lbOnEdge ? 0f : lfScale, 1f, 1f);
+        mPanelPivot.localScale = new Vector3(lOFrame.Scale, 1f, 1f);
 
         if (mPanelEdgeImage != null)
-            mPanelEdgeImage.enabled = lbOnEdge;
+            mPanelEdgeImage.enabled = lOFrame.OnEdge;
 
         // The chain rotates along, but in its own pictures instead of by squashing - one picture per
         // step, without skipping.
-        fSetChainFrame(miPanelStep);
+        fSetChainFrame(lOFrame.ChainFrame);
 
         // Halfway the content flips over.
-        if (lbOnEdge)
-            fShowPanelSide(mePanelTargetSide);
-
-        miPanelStep++;
+        if (lOFrame.Flipped)
+            fShowPanelSide();
     }
 
-    /// <summary>Turns the page. Only the three page nodes are switched - what is visible within
-    /// a page is still decided by the page itself.</summary>
-    private void fShowPanelSide(PanelSideEnum peSide)
+    /// <summary>Shows the page UWPanelTurn.Side names. Only the three page nodes are switched -
+    /// what is visible within a page is still decided by the page itself.</summary>
+    private void fShowPanelSide()
     {
-        mePanelSide = peSide;
+        UWPanelTurn.SideEnum leSide = mOTurn.Side;
 
         if (mInventorySide != null)
-            mInventorySide.gameObject.SetActive(peSide == PanelSideEnum.Inventory);
+            mInventorySide.gameObject.SetActive(leSide == UWPanelTurn.SideEnum.Inventory);
 
         if (mStatsRoot != null)
-            mStatsRoot.gameObject.SetActive(peSide == PanelSideEnum.Status);
+            mStatsRoot.gameObject.SetActive(leSide == UWPanelTurn.SideEnum.Stats);
 
         if (mRuneRoot != null)
-            mRuneRoot.gameObject.SetActive(peSide == PanelSideEnum.Runes);
+            mRuneRoot.gameObject.SetActive(leSide == UWPanelTurn.SideEnum.Runes);
 
-        if (peSide == PanelSideEnum.Status)
+        if (leSide == UWPanelTurn.SideEnum.Stats)
             fRefreshStats();
-        else if (peSide == PanelSideEnum.Runes)
+        else if (leSide == UWPanelTurn.SideEnum.Runes)
             fRefreshRunes();
     }
 
@@ -760,36 +683,43 @@ public sealed class UWHudPanel
     /// seven pixels apart. The values stand right-aligned next to them.
     ///
     /// Font is font5x6i, the italic one - in the original the font of the character values.
+    ///
+    /// What the lines say comes from UWCharacterSheet in the original's spelling (cleanup 5.9,
+    /// 2026-10-20) - the name upper case and cut to fifteen, the class upper case, the level as
+    /// an ordinal, "a/b"; the modern original stats page reads the same.
     /// </summary>
     private void fRefreshStats()
     {
         if (mStatsRoot == null || mOUi.mOUWData == null || mOUi.mCharacter == null)
             return;
 
-        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
+        UWCharacterSheet lOSheet = fBindSheet();
 
-        fSetStatsLine(0, fGetCharacterName(lOPlayer), mOUi.mOStatsNameY, StatsAlignEnum.Centred, 0f);
-        fSetStatsLine(1, fGetClassName(lOPlayer), mOUi.mOStatsClassY, StatsAlignEnum.Left, 0f);
-        fSetStatsLine(2, fGetLevelText(), mOUi.mOStatsClassY, StatsAlignEnum.Right, mOUi.mOStatsLevelRight);
+        fSetStatsLine(0, lOSheet.Name, UWClassicLayout.Stats.NameRow, StatsAlignEnum.Centred, 0f);
+        fSetStatsLine(1, lOSheet.ClassName, UWClassicLayout.Stats.ClassRow, StatsAlignEnum.Left, 0f);
+        fSetStatsLine(2, lOSheet.LevelText, UWClassicLayout.Stats.ClassRow, StatsAlignEnum.Right, UWClassicLayout.Stats.LevelRight);
 
-        string[] lsValues =
+        for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
         {
-            mOUi.mCharacter.Vitals.Strength.ToString(),
-            mOUi.mCharacter.Vitals.Dexterity.ToString(),
-            mOUi.mCharacter.Vitals.Intelligence.ToString(),
-            Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxHP),
-            Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxMana),
-            fGetExperienceText()
-        };
-
-        for (int liRow = 0; liRow < lsValues.Length; liRow++)
-        {
-            fSetStatsLine(3 + liRow, lsValues[liRow],
-                mOUi.mOStatsFirstRowY + (liRow * mOUi.mOStatsRowHeight), StatsAlignEnum.Right,
-                mOUi.mOStatsValueRight);
+            fSetStatsLine(3 + liRow, lOSheet.Value(liRow),
+                UWClassicLayout.Stats.FirstRow + (liRow * UWClassicLayout.Stats.RowHeight), StatsAlignEnum.Right,
+                UWClassicLayout.Stats.ValueRight);
         }
 
         fRefreshSkillList();
+    }
+
+    /// <summary>The stats page's sheet: the original's spelling, six rows of the skill list and
+    /// their paging.</summary>
+    private readonly UWCharacterSheet mOSheet = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Original, UWClassicLayout.Stats.SkillRows);
+
+    /// <summary>The sheet bound to the game's strings, the player data and the live vitals.</summary>
+    private UWCharacterSheet fBindSheet()
+    {
+        DataImport lOData = mOUi.mOUWData;
+
+        return mOSheet.Bind(lOData != null ? lOData.Strings : null, lOData != null ? lOData.InitialPlayer : null,
+            mOUi.mCharacter != null ? mOUi.mCharacter.Vitals : null);
     }
 
     /// <summary>Signature of the values shown on the stats page when it was last drawn.</summary>
@@ -803,44 +733,18 @@ public sealed class UWHudPanel
     /// </summary>
     internal void fRefreshStatsIfChanged()
     {
-        if (mePanelSide != PanelSideEnum.Status || mOUi.mCharacter == null)
+        if (mOTurn.Side != UWPanelTurn.SideEnum.Stats || mOUi.mCharacter == null)
             return;
 
-        unchecked
-        {
-            int liSignature = 17;
+        // Every number the page shows (UWCharacterSheet.Signature).
+        int liSignature = fBindSheet().Signature;
 
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Strength;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Dexterity;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Intelligence;
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentHP);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxHP);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.CurrentMana);
-            liSignature = (liSignature * 31) + Mathf.RoundToInt(mOUi.mCharacter.Vitals.MaxMana);
-            liSignature = (liSignature * 31) + (mOUi.mCharacter.Vitals.Experience / 10);
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.Level;
-            liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.SkillPoints;
+        if (liSignature == miStatsSignature)
+            return;
 
-            for (int liSkill = 0; liSkill < UWPlayerVitals.SkillNumberCount; liSkill++)
-                liSignature = (liSignature * 31) + mOUi.mCharacter.Vitals.GetSkillByNumber(liSkill);
-
-            if (liSignature == miStatsSignature)
-                return;
-
-            miStatsSignature = liSignature;
-        }
+        miStatsSignature = liSignature;
 
         fRefreshStats();
-    }
-
-    /// <summary>
-    /// Experience is stored in tenths in the file - whole points are shown, so
-    /// divided by ten and truncated. Internally calculation continues with the tenths, the
-    /// thresholds in UWExperience are in mOUi unit too.
-    /// </summary>
-    private string fGetExperienceText()
-    {
-        return (mOUi.mCharacter.Vitals.Experience / 10).ToString();
     }
 
     /// <summary>
@@ -854,13 +758,9 @@ public sealed class UWHudPanel
     /// Their names are in string block 2 from entry 32 on and match in order
     /// with UWPlayerData.Skill.
     /// </summary>
-    private const float StatsSkillFirstRowY = 64f;
+    private const float StatsSkillFirstRowY = UWClassicLayout.Stats.SkillFirstRow;
 
-    private const int StatsSkillRows = 6;
-
-    private const int StatsSkillCount = 20;
-
-    private const int StatsSkillNameString = UWPlayerData.SkillNameStringIndex;
+    private const int StatsSkillRows = UWClassicLayout.Stats.SkillRows;
 
     /// <summary>
     /// The two paging buttons. The VISIBLE symbols sit at about X 30 and 45,
@@ -873,68 +773,31 @@ public sealed class UWHudPanel
     /// the offset clamped to 0..14. Ours had the direction right and split at 43 over the
     /// bottom 10 rows.
     /// </summary>
-    private static readonly Rect mOStatsScrollUpRect = new Rect(0f, 106f, 37f, 8f);
+    private static readonly Rect mOStatsScrollUpRect = new Rect(UWClassicLayout.Stats.PageBack.X, UWClassicLayout.Stats.PageBack.Y,
+        UWClassicLayout.Stats.PageBack.Width, UWClassicLayout.Stats.PageBack.Height);
 
-    private static readonly Rect mOStatsScrollDownRect = new Rect(37f, 106f, 46f, 8f);
-
-    private int miStatsSkillOffset;
-
-    /// <summary>Name and value of a list entry.</summary>
-    private void fGetSkillEntry(int piEntry, out string psName, out string psValue)
-    {
-        psName = string.Empty;
-        psValue = string.Empty;
-
-        if (piEntry < 0 || piEntry >= StatsSkillCount || mOUi.mOUWData == null)
-            return;
-
-        try
-        {
-            psName = mOUi.mOUWData.Strings.Blocks[2].Strings[StatsSkillNameString + piEntry].Trim();
-        }
-        catch
-        {
-            return;
-        }
-
-        if (piEntry == 0)
-        {
-            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Vitals.Attack.ToString() : string.Empty;
-
-            return;
-        }
-
-        if (piEntry == 1)
-        {
-            // The live value (UWPlayerVitals.Defence). Until 2026-10-01 this still read the
-            // loaded save game, from before we kept our own - a mantra at a shrine raised it
-            // ("You have advanced greatly in defense") and the page kept the old number (per
-            // user, ANRA on SAVE1).
-            psValue = mOUi.mCharacter != null ? mOUi.mCharacter.Vitals.Defence.ToString() : string.Empty;
-
-            return;
-        }
-
-        if (mOUi.mCharacter != null)
-            psValue = mOUi.mCharacter.Vitals.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
-    }
+    private static readonly Rect mOStatsScrollDownRect = new Rect(UWClassicLayout.Stats.PageForward.X, UWClassicLayout.Stats.PageForward.Y,
+        UWClassicLayout.Stats.PageForward.Width, UWClassicLayout.Stats.PageForward.Height);
 
     private void fRefreshSkillList()
     {
+        UWCharacterSheet lOSheet = fBindSheet();
+
         for (int liRow = 0; liRow < StatsSkillRows; liRow++)
         {
-            int liEntry = miStatsSkillOffset + liRow;
-
             string lsName;
             string lsValue;
 
-            fGetSkillEntry(liEntry, out lsName, out lsValue);
+            // Name and value of the entry at this row (UWCharacterSheet.TryGetSkill: the name
+            // from UWCharacterText, the one home of the skill words; the live values).
+            lOSheet.TryGetSkill(lOSheet.EntryAtRow(liRow), out lsName, out lsValue);
 
-            float lfY = StatsSkillFirstRowY + (liRow * mOUi.mOStatsRowHeight);
+            float lfY = StatsSkillFirstRowY + (liRow * UWClassicLayout.Stats.RowHeight);
+            Color lOSkillColour = UWUiKit.Colour(UWClassicLayout.Stats.SkillColour);
 
-            fSetStatsLine(9 + liRow, lsName, lfY, StatsAlignEnum.Left, 0f, mOUi.mOStatsSkillColour);
-            fSetStatsLine(15 + liRow, lsValue, lfY, StatsAlignEnum.Right, mOUi.mOStatsValueRight,
-                mOUi.mOStatsSkillColour);
+            fSetStatsLine(9 + liRow, lsName, lfY, StatsAlignEnum.Left, 0f, lOSkillColour);
+            fSetStatsLine(15 + liRow, lsValue, lfY, StatsAlignEnum.Right, UWClassicLayout.Stats.ValueRight,
+                lOSkillColour);
         }
     }
 
@@ -942,7 +805,7 @@ public sealed class UWHudPanel
     /// row, as the original does (ovr145_445).</summary>
     private void fUpdateStatsScrollClicks()
     {
-        if (mePanelSide != PanelSideEnum.Status || miPanelStep >= 0 || mStatsRoot == null)
+        if (!mOTurn.IsAtRestOn(UWPanelTurn.SideEnum.Stats) || mStatsRoot == null)
             return;
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
@@ -962,9 +825,8 @@ public sealed class UWHudPanel
         if (liStep == 0)
             return;
 
-        int liMax = Mathf.Max(0, StatsSkillCount - StatsSkillRows);
-
-        miStatsSkillOffset = Mathf.Clamp(miStatsSkillOffset + liStep, 0, liMax);
+        // One entry per click, clamped to the list (UWCharacterSheet.PageSkills).
+        mOSheet.PageSkills(liStep);
 
         fRefreshSkillList();
     }
@@ -996,7 +858,7 @@ public sealed class UWHudPanel
     /// redrawn on changed text.</summary>
     private void fSetStatsLine(int piIndex, string psText, float pfY, StatsAlignEnum peAlign, float pfRight)
     {
-        fSetStatsLine(piIndex, psText, pfY, peAlign, pfRight, mOUi.mOStatsColour);
+        fSetStatsLine(piIndex, psText, pfY, peAlign, pfRight, UWUiKit.Colour(UWClassicLayout.Stats.ValueColour));
     }
 
     private void fSetStatsLine(int piIndex, string psText, float pfY, StatsAlignEnum peAlign,
@@ -1005,7 +867,6 @@ public sealed class UWHudPanel
         if (mStatsLines == null)
         {
             mStatsLines = new RawImage[StatsLineCount];
-            msStatsLineTexts = new string[StatsLineCount];
         }
 
         if (piIndex < 0 || piIndex >= mStatsLines.Length)
@@ -1028,44 +889,30 @@ public sealed class UWHudPanel
 
         if (string.IsNullOrEmpty(psText))
         {
-            msStatsLineTexts[piIndex] = null;
             UWTextLabel.Hide(lOLine);
             return;
         }
 
-        if (msStatsLineTexts[piIndex] != psText)
-        {
-            msStatsLineTexts[piIndex] = psText;
+        UWFont lOFont = mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Italic);
 
-            UWFont lOFont = mOUi.mOUWData.Fonts.Get(UWFonts.FontType.Italic);
+        if (lOFont == null)
+            return;
 
-            if (lOFont == null)
-                return;
-
-            // The texture exactly as wide as the text. Previously there was an estimate here
-            // (character count times font height plus two), and because UWFontRenderer CENTRES the line
-            // within the given width, the padding right and left depended on
-            // the character count. What got right-aligned was thus the texture, not
-            // the text - every line needed its own edge. Recalculated against the original
-            // (2026-09-03): for "18" it was 18 pixels for 11 pixels of text.
-            //
-            // MeasureText counts one more spacing after the last character, which
-            // is subtracted here - otherwise one pixel of padding would remain.
-            int liWidth = Mathf.Max(1,
-                lOFont.MeasureText(psText, 0, UWFontRenderer.CharacterSpacing)
-                - UWFontRenderer.CharacterSpacing);
-
-            Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont,
-                new System.Collections.Generic.List<string> { psText },
-                liWidth, pOColour, mOUi.TextureFilterMode);
-
-            if (lOTexture == null)
-                return;
-
-            UWTextLabel.Get(lOLine).Set(lOFont, lOTexture,
-                new System.Collections.Generic.List<string> { psText },
-                new System.Collections.Generic.List<Color32> { pOColour }, true, FontStyle.Italic);
-        }
+        // The texture exactly as wide as the text. Previously there was an estimate here
+        // (character count times font height plus two), and because the renderer CENTRES the line
+        // within the given width, the padding right and left depended on
+        // the character count. What got right-aligned was thus the texture, not
+        // the text - every line needed its own edge. Recalculated against the original
+        // (2026-09-03): for "18" it was 18 pixels for 11 pixels of text.
+        //
+        // MeasureText counts one more spacing after the last character, which
+        // is subtracted (UWTextRaster.TightWidth) - otherwise one pixel of padding would remain.
+        //
+        // The label asks UWTextTextures for a new picture only when the text changed; until
+        // 2026-10-19 every change (each HP or mana tick while the page was open) left the old
+        // texture behind (B33, cleanup step 5.5).
+        UWTextLabel.Get(lOLine).SetLine(lOFont, psText, UWTextRaster.TightWidth(lOFont, psText), pOColour, true,
+            mOUi.TextureFilterMode, FontStyle.Italic);
 
         RectTransform lOLineRect = (RectTransform)lOLine.transform;
 
@@ -1083,67 +930,11 @@ public sealed class UWHudPanel
 
             default:
                 lOLineRect.pivot = new Vector2(0f, 1f);
-                lOLineRect.anchoredPosition = new Vector2(mOUi.mOStatsLabelLeft, -pfY);
+                lOLineRect.anchoredPosition = new Vector2(UWClassicLayout.Stats.LabelLeft, -pfY);
                 break;
         }
 
         UWTextLabel.Get(lOLine).Show();
-    }
-
-    /// <summary>The name in the stats header: at most fifteen characters, upper-cased
-    /// (UnderworldExhumed STATS.C sp_hdr copies 0xF of the name). It matters since 2026-10-12,
-    /// when names grew from 14 to 29 characters.</summary>
-    private const int StatsNameLength = 0xF;
-
-    private string fGetCharacterName(UWPlayerData pOPlayer)
-    {
-        if (pOPlayer == null || string.IsNullOrEmpty(pOPlayer.Name))
-            return "AVATAR";
-
-        string lsName = pOPlayer.Name.Length > StatsNameLength ? pOPlayer.Name.Substring(0, StatsNameLength) : pOPlayer.Name;
-
-        return lsName.ToUpper();
-    }
-
-    /// <summary>Class name from string block 2 from 0x18 on.</summary>
-    private string fGetClassName(UWPlayerData pOPlayer)
-    {
-        if (pOPlayer == null)
-            return string.Empty;
-
-        try
-        {
-            // Fighter is at 24, not at 23 - the export in AllStrings.txt writes the
-            // raw runtime indices, so there is no offset here. With the old base
-            // every class was off by one (reported per user, 2026-09-03).
-            return mOUi.mOUWData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass].Trim().ToUpper();
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
-    /// <summary>Level as ordinal number, as in the original: 1ST, 2ND, 3RD, 4TH ...</summary>
-    private string fGetLevelText()
-    {
-        int liLevel = mOUi.mCharacter.Vitals.Level;
-        int liLastTwo = liLevel % 100;
-        int liLast = liLevel % 10;
-
-        string lsSuffix = "TH";
-
-        if (liLastTwo < 11 || liLastTwo > 13)
-        {
-            if (liLast == 1)
-                lsSuffix = "ST";
-            else if (liLast == 2)
-                lsSuffix = "ND";
-            else if (liLast == 3)
-                lsSuffix = "RD";
-        }
-
-        return liLevel + lsSuffix;
     }
 
     /// <summary>Three header lines, six values, plus six skill names and their six
@@ -1151,8 +942,6 @@ public sealed class UWHudPanel
     private const int StatsLineCount = 21;
 
     private RawImage[] mStatsLines;
-
-    private string[] msStatsLineTexts;
 
     /// <summary>Panel: the clicks on it and the running rotation. THE CHAIN HAS NO AREA OF ITS
     /// OWN (2026-09-26): in the original it turns the panel from the flask area's middle
@@ -1182,30 +971,25 @@ public sealed class UWHudPanel
         // 2026-09-18; the compass is already out through Interaction's conversation gate).
         // Only a turn that is under way finishes; the backpack stays UWItemDrag's, trading
         // needs it.
-        if (UWConversationScreen.IsAnyOpen)
+        if (UWConversationController.IsAnyOpen)
         {
             // THE INVENTORY SHOWS DURING A CONVERSATION whatever page was up before - the stats
             // page or the rune shelf - and afterwards that page is back (per user on the
             // original, 2026-09-18). Switched without the turn, a turn under way is cut short.
-            if (!mePanelSideBeforeConversation.HasValue)
-            {
-                mePanelSideBeforeConversation = miPanelStep >= 0 ? mePanelTargetSide : mePanelSide;
-                fCancelPanelTurn();
+            // The hold and the page to give back are UWPanelTurn's (HoldForConversation).
+            UWPanelTurn.ConversationChange lOChange = mOTurn.HoldForConversation();
 
-                if (mePanelSide != PanelSideEnum.Inventory)
-                    fShowPanelSide(PanelSideEnum.Inventory);
-            }
+            if (lOChange.TurnCut)
+                fRestTurnPictures();
+
+            if (lOChange.SideChanged)
+                fShowPanelSide();
 
             return;
         }
 
-        if (mePanelSideBeforeConversation.HasValue)
-        {
-            if (mePanelSideBeforeConversation.Value != mePanelSide)
-                fShowPanelSide(mePanelSideBeforeConversation.Value);
-
-            mePanelSideBeforeConversation = null;
-        }
+        if (mOTurn.ReleaseAfterConversation())
+            fShowPanelSide();
 
         // BEFORE ANYTHING ELSE: as long as the options panel is open, the mouse belongs to it.
         if (mOUi.Options.Update())

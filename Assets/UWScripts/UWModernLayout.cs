@@ -204,7 +204,7 @@ public static class UWModernLayout
     }
 
     /// <summary>The layout editor is open (the game menu's Layout page).</summary>
-    public static bool IsEditing => UWModernHud.Instance != null && UWModernHud.Instance.Page == UWModernHud.PageEnum.Layout;
+    public static bool IsEditing => UWModernHud.Instance != null && UWModernHud.Instance.Menu.Page == UWModernGameMenu.PageEnum.Layout;
 
     public static int Percent(ElementEnum peElement)
     {
@@ -216,7 +216,7 @@ public static class UWModernLayout
     public static float Scale(ElementEnum peElement)
     {
         if (IsClassic)
-            return UWModernClassicFrame.RowScale / Mathf.Max(0.01f, UWModernHud.PixelScale);
+            return UWModernClassicFrame.RowScale / Mathf.Max(0.01f, UWModernUi.PixelScale);
 
         return Percent(peElement) / 100f;
     }
@@ -237,7 +237,7 @@ public static class UWModernLayout
         if (!IsPlaced(peElement))
             return pODefault;
 
-        return fLayout().Place((int)peElement, pODefault.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale).ToUnity();
+        return fLayout().Place((int)peElement, pODefault.ToUW(), Screen.width, Screen.height, UWModernUi.PixelScale).ToUnity();
     }
 
     /// <summary>Where the part was drawn this frame.</summary>
@@ -258,7 +258,7 @@ public static class UWModernLayout
     /// <summary>The part moved to this rect: its anchor by thirds, its distance from it.</summary>
     public static void Move(ElementEnum peElement, Rect pORect, bool pbSave = true)
     {
-        fLayout().Move((int)peElement, pORect.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale);
+        fLayout().Move((int)peElement, pORect.ToUW(), Screen.width, Screen.height, UWModernUi.PixelScale);
 
         if (pbSave)
             fSave();
@@ -268,7 +268,7 @@ public static class UWModernLayout
     /// none yet) and grows away from it.</summary>
     public static void SetPercent(ElementEnum peElement, int piPercent, Rect pOCurrent, bool pbSave = true)
     {
-        fLayout().SetPercent((int)peElement, piPercent, pOCurrent.ToUW(), Screen.width, Screen.height, UWModernHud.PixelScale);
+        fLayout().SetPercent((int)peElement, piPercent, pOCurrent.ToUW(), Screen.width, Screen.height, UWModernUi.PixelScale);
 
         if (pbSave)
             fSave();

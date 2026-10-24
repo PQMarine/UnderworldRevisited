@@ -45,7 +45,7 @@ public class UWGamepadPointer : MonoBehaviour
     private static Vector2 msOPosition;
 
     /// <summary>The pad placed the pointer and was used last: its position is the pointer's. The
-    /// Input System's own is not to be trusted after a warp (UWGameUI.fCursorMovement asks this
+    /// Input System's own is not to be trusted after a warp (UWPointerZones.Update asks this
     /// during the classic walk by the pointer).</summary>
     public static bool OwnsPosition => msbPlaced && UWGamepad.IsActive;
 
@@ -134,7 +134,7 @@ public class UWGamepadPointer : MonoBehaviour
 
         UWControlScheme lOScheme = UWScene.ControlScheme;
 
-        msbClicks = msbDriving || (lbFree && lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Original);
+        msbClicks = msbDriving || (lbFree && lOScheme != null && !UWControlScheme.IsModern);
         msbStickScrolls = msbDriving && fIsOverWindow(lOScheme);
     }
 
@@ -146,12 +146,8 @@ public class UWGamepadPointer : MonoBehaviour
 
         Vector2 lOAt = msbPlaced ? msOPosition : (Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero);
 
-        if (pOScheme.Current == UWControlScheme.SchemeEnum.Modern)
-            return UWModernPointer.IsOverUi(lOAt);
-
-        UWGameUI lOUi = UWScene.GameUi;
-
-        return lOUi != null && !lOUi.IsScreenPositionInGameArea(lOAt);
+        // A window of the modern UI, or outside the classic view window (IUWUiScheme).
+        return UWControlScheme.Ui.IsPointerOverInterface(lOAt);
     }
 
     private static bool fIsHeldByWindow(UWControlScheme pOScheme)
@@ -166,7 +162,7 @@ public class UWGamepadPointer : MonoBehaviour
         pbFree = false;
 
         // NOT BY Cursor.visible: the classic drag hides the system pointer behind the thing's
-        // icon (UWItemDrag.fBeginActualDrag), and taking that for "off" let the button go at once
+        // icon (UWDragIcon.Hold, from UWItemDrag.fBeginActualDrag), and taking that for "off" let the button go at once
         // - the thing fell back, and in a container the neighbour seemed to be taken (per user,
         // 2026-10-07). The letter grid has the pad while it is up (UWLetterGrid), the classic
         // count and yes/no prompts read it themselves (UWItemDrag, Interaction).
@@ -180,14 +176,14 @@ public class UWGamepadPointer : MonoBehaviour
         UWControlScheme lOScheme = UWScene.ControlScheme;
 
         if (lOInteraction != null && lOInteraction.IsAskingYesNo
-            && (lOScheme == null || lOScheme.Current == UWControlScheme.SchemeEnum.Original))
+            && (lOScheme == null || UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo))
             return false;
 
         pbFree = true;
 
         // THE MODERN SCHEME'S FREE POINTER IS THE PAD'S as well, however it was freed (per user,
         // 2026-10-07: with the pointer freed, RT, RB, LT and LB did their game work instead).
-        bool lbModernFree = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern && lOScheme.IsPointerFree;
+        bool lbModernFree = UWControlScheme.Ui.IsPointerUnlocked;
 
         return IsOn || lbModernFree || fIsHeldByWindow(lOScheme);
     }
@@ -237,7 +233,7 @@ public class UWGamepadPointer : MonoBehaviour
 
         UWControls.PlayerActions lOPlayer = lOControls.Player;
         UWControlScheme lOScheme = UWScene.ControlScheme;
-        bool lbModern = lOScheme != null && lOScheme.Current == UWControlScheme.SchemeEnum.Modern;
+        bool lbModern = lOScheme != null && UWControlScheme.IsModern;
 
         // The modern pointer locked some other way (the right mouse button): R3's state goes.
         if (IsOn && lbModern && !lOScheme.IsPointerFree && !fIsHeldByWindow(lOScheme))
@@ -340,7 +336,8 @@ public class UWGamepadPointer : MonoBehaviour
 
         if (lbHeldInView)
         {
-            Rect lOView = lOUi.GameAreaRect;
+            // The original's view window, not the whole hole (2026-10-23, with UWPointerZones).
+            Rect lOView = lOUi.ClassicScreen.MovementAreaRect;
 
             mOAt.x = Mathf.Clamp(mOAt.x, lOView.xMin, lOView.xMax);
             mOAt.y = Mathf.Clamp(mOAt.y, lOView.yMin, lOView.yMax);
@@ -384,7 +381,8 @@ public class UWGamepadPointer : MonoBehaviour
     private void fWheel(UWControls.PlayerActions pOPlayer)
     {
         // Not under an open context menu: there the stick steps through the entries (UWModernBags).
-        float lfStick = StickScrolls && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting && !UWPadEntryStepper.IsActive
+        float lfStick = StickScrolls && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting
+            && (!UWPadEntryStepper.IsActive || UWPadEntryStepper.StickYields)
             && UWGamepad.IsFromGamepad(pOPlayer.Move)
             ? pOPlayer.Move.ReadValue<Vector2>().y : 0f;
 

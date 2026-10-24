@@ -962,12 +962,12 @@ public class UWIntroPlayer : MonoBehaviour
         // high" - the second measurement agrees with UW.EXE.
         if (Path.GetFileName(psPath).StartsWith(FinalDeathFilePrefix, System.StringComparison.OrdinalIgnoreCase))
             lOCorner.y += FinalDeathNudgeY;
-        Rect lOScreen = lOUi.GetUiPictureScreenRect(lOCorner, new Vector2(lOBlock.width, lOBlock.height));
+        Rect lOScreen = lOUi.ClassicScreen.GetUiPictureScreenRect(lOCorner, new Vector2(lOBlock.width, lOBlock.height));
 
         // THE MODERN SCHEME hides the classic view window: the picture lies in the middle in a
         // leather frame at the UI's size, as the view's pictures do (UWModernHud, per user
         // 2026-10-04: the anvil's sequence was not in such a frame).
-        mbModernFrame = UWControlScheme.IsModern;
+        mbModernFrame = UWControlScheme.Ui.Policy.CutsceneInLeatherFrame;
 
         if (mbModernFrame)
             lOScreen = fPlaceModernFrame(lOUi, lOBlock);
@@ -998,7 +998,7 @@ public class UWIntroPlayer : MonoBehaviour
     /// leather frame around it; returns the picture's screen rectangle.</summary>
     private Rect fPlaceModernFrame(UWGameUI pOUi, RectInt pOBlock)
     {
-        float liScale = UWModernHud.PixelScale;
+        float liScale = UWModernUi.PixelScale;
         float lfWidth = pOBlock.width * liScale;
         float lfHeight = pOBlock.height * liScale;
         Rect lOPicture = new Rect(Mathf.Round((Screen.width - lfWidth) * 0.5f), Mathf.Round((Screen.height * 0.55f) - (lfHeight * 0.5f)),
@@ -1070,7 +1070,7 @@ public class UWIntroPlayer : MonoBehaviour
             string lsReference = Path.Combine(fGetCutsPath(), ViewportReferenceFile);
             RectInt lOReference = File.Exists(lsReference) ? fMeasurePaintedBlock(lsReference) : pOBlock;
 
-            mOViewportOffset = pOUi.GetViewportPictureCorner(new Vector2(lOReference.width, lOReference.height))
+            mOViewportOffset = UWClassicScreen.GetViewportPictureCorner(new Vector2(lOReference.width, lOReference.height))
                 - new Vector2(lOReference.x, lOReference.y);
             mbViewportOffsetKnown = File.Exists(lsReference);
         }
@@ -1761,18 +1761,10 @@ public class UWIntroPlayer : MonoBehaviour
         // normal font (per user, 2026-09-14).
         UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
         List<string> lOLines = UWFontRenderer.WrapText(lOFont, psText, SubtitleWidth);
-        Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont, lOLines, SubtitleWidth, pOColour, FilterMode.Point);
 
-        if (lOTexture == null)
-        {
-            UWTextLabel.Hide(mOSubtitleImage);
-            return;
-        }
-
-        if (mOSubtitleImage.texture != null)
-            Destroy(mOSubtitleImage.texture);
-
-        UWTextLabel.Get(mOSubtitleImage).Set(lOFont, lOTexture, lOLines, new List<Color32> { pOColour }, true);
+        // Centred, as the cutscenes show it; the old subtitle goes back to UWTextTextures.
+        UWTextLabel.Get(mOSubtitleImage).SetText(lOFont, lOLines, SubtitleWidth, new[] { pOColour }, UWTextRaster.ColoursEnum.Codes,
+            true, FilterMode.Point);
     }
 
     private void fEnsureCanvas()
@@ -1780,46 +1772,14 @@ public class UWIntroPlayer : MonoBehaviour
         if (mOCanvas != null)
             return;
 
-        GameObject lOCanvasObject = new GameObject("UW Intro Canvas", typeof(Canvas), typeof(CanvasScaler));
-        lOCanvasObject.transform.SetParent(transform, false);
-
-        mOCanvas = lOCanvasObject.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 100;
-
-        CanvasScaler lOScaler = lOCanvasObject.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        lOScaler.referenceResolution = new Vector2(ScreenWidth, ScreenHeight);
-        lOScaler.matchWidthOrHeight = 1f;
-
         // Fitted whole into the window, bars over and under it when narrow (UWUiFit).
-        lOCanvasObject.AddComponent<UWFitCanvas>();
+        mOCanvas = UWUiKit.CreateClassicCanvas(transform, "UW Intro Canvas", UWUiSorting.Intro);
 
         // The black backdrop first, then the frame for full-screen pictures - see mOFullScreenFrame.
-        GameObject lOBackdropObject = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
-        lOBackdropObject.transform.SetParent(lOCanvasObject.transform, false);
-
-        RectTransform lOBackdropRect = (RectTransform)lOBackdropObject.transform;
-        lOBackdropRect.anchorMin = Vector2.zero;
-        lOBackdropRect.anchorMax = Vector2.one;
-        lOBackdropRect.offsetMin = Vector2.zero;
-        lOBackdropRect.offsetMax = Vector2.zero;
-
-        mOBackdrop = lOBackdropObject.GetComponent<Image>();
-        mOBackdrop.color = Color.black;
-        mOBackdrop.raycastTarget = false;
+        mOBackdrop = UWUiKit.CreateBackdrop(mOCanvas.transform, "Backdrop", Color.black);
         mOBackdrop.enabled = false;
 
-        GameObject lOFrameObject = new GameObject("Full screen frame", typeof(RectTransform));
-        lOFrameObject.transform.SetParent(lOCanvasObject.transform, false);
-
-        mOFullScreenFrame = (RectTransform)lOFrameObject.transform;
-        mOFullScreenFrame.anchorMin = new Vector2(0.5f, 0.5f);
-        mOFullScreenFrame.anchorMax = new Vector2(0.5f, 0.5f);
-        mOFullScreenFrame.pivot = new Vector2(0.5f, 0.5f);
-        mOFullScreenFrame.sizeDelta = new Vector2(ScreenWidth, ScreenHeight);
-        mOFullScreenFrame.anchoredPosition = Vector2.zero;
-        lOFrameObject.AddComponent<UWPixelAspectFrame>();
+        mOFullScreenFrame = UWUiKit.CreateClassicFrame(mOCanvas.transform, "Full screen frame");
 
         // Picture track first, so the subtitle lies on top of it.
         mOPictureTexture = new Texture2D(ScreenWidth, ScreenHeight, TextureFormat.RGBA32, false);
@@ -1828,32 +1788,13 @@ public class UWIntroPlayer : MonoBehaviour
         mOPictureTexture.wrapMode = TextureWrapMode.Clamp;
         mOPictureBuffer = new Color32[ScreenWidth * ScreenHeight];
 
-        GameObject lOPictureObject = new GameObject("Picture", typeof(RectTransform), typeof(RawImage));
-        lOPictureObject.transform.SetParent(lOCanvasObject.transform, false);
-
-        RectTransform lOPictureRect = (RectTransform)lOPictureObject.transform;
-        lOPictureRect.anchorMin = Vector2.zero;
-        lOPictureRect.anchorMax = Vector2.one;
-        lOPictureRect.offsetMin = Vector2.zero;
-        lOPictureRect.offsetMax = Vector2.zero;
-
-        mOPictureImage = lOPictureObject.GetComponent<RawImage>();
+        // Over the whole canvas; the pivot stays in the middle, Unity's default.
+        mOPictureImage = UWUiKit.CreateRawImage(mOCanvas.transform, "Picture", UWUiKit.Centre, UWUiKit.Centre);
+        UWUiKit.Stretch(mOPictureImage.rectTransform);
         mOPictureImage.texture = mOPictureTexture;
-        mOPictureImage.raycastTarget = false;
-        mOPictureImage.enabled = false;
 
-        GameObject lOSubtitleObject = new GameObject("Subtitle", typeof(RectTransform), typeof(RawImage));
-        lOSubtitleObject.transform.SetParent(lOCanvasObject.transform, false);
-
-        RectTransform lORect = (RectTransform)lOSubtitleObject.transform;
-        lORect.anchorMin = new Vector2(0.5f, 0f);
-        lORect.anchorMax = new Vector2(0.5f, 0f);
-        lORect.pivot = new Vector2(0.5f, 0f);
-        lORect.anchoredPosition = new Vector2(0f, mfSubtitleBottomOffset);
-
-        mOSubtitleImage = lOSubtitleObject.GetComponent<RawImage>();
-        mOSubtitleImage.raycastTarget = false;
-        mOSubtitleImage.enabled = false;
+        mOSubtitleImage = UWUiKit.CreateRawImage(mOCanvas.transform, "Subtitle", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
+        mOSubtitleImage.rectTransform.anchoredPosition = new Vector2(0f, mfSubtitleBottomOffset);
     }
 
     /// <summary>The black backdrop follows the picture: on behind every full-screen picture,
@@ -1874,7 +1815,7 @@ public class UWIntroPlayer : MonoBehaviour
 
         // WITH THE HELP OPEN THE PICTURE SLIDES LEFT with the game frame (per user, 2026-09-30:
         // a dream played while the help was open lay partly under it) - the same shift the
-        // conversation's frame follows (UWConversationScreen.fFollowHelpLayout).
+        // conversation's frame follows (UWClassicConversationRenderer.Tick).
         if (mOFullScreenFrame != null)
             mOFullScreenFrame.anchoredPosition = new Vector2(UWHelpLayout.FrameShift(UWUiFit.CanvasWidth), 0f);
     }

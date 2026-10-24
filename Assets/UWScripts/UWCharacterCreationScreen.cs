@@ -31,8 +31,6 @@ using UWDataImport.UWData;
 /// </summary>
 public class UWCharacterCreationScreen : MonoBehaviour
 {
-    private const int SortingOrder = 96;
-
     private const int ScreenPalette = 3;
 
     private const int TextColourIndex = 0x49;
@@ -207,7 +205,6 @@ public class UWCharacterCreationScreen : MonoBehaviour
     private FilterMode meFilter = FilterMode.Point;
     private int miHover = -1;
     private string msTyped = string.Empty;
-    private bool mbTypingHooked;
     private UWControlScheme mOControls;
 
     public void Init(DataImport pOData)
@@ -409,11 +406,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
             IsTypingName = true;
             msTyped = string.Empty;
 
-            if (pOKeyboard != null && !mbTypingHooked)
-            {
-                pOKeyboard.onTextInput += fOnTextInput;
-                mbTypingHooked = true;
-            }
+            if (pOKeyboard != null)
+                fNameEntry().Begin();
 
             fDrawNameInput();
         }
@@ -421,13 +415,13 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (pOKeyboard == null)
             return;
 
-        if (pOKeyboard.escapeKey.wasPressedThisFrame)
+        if (UWTextEntry.EscapePressed)
         {
             Hide();
             return;
         }
 
-        if (pOKeyboard.enterKey.wasPressedThisFrame || pOKeyboard.numpadEnterKey.wasPressedThisFrame)
+        if (UWTextEntry.EnterPressed)
         {
             string lsName = msTyped.Trim();
 
@@ -440,20 +434,31 @@ public class UWCharacterCreationScreen : MonoBehaviour
             return;
         }
 
-        if (pOKeyboard.backspaceKey.wasPressedThisFrame && msTyped.Length > 0)
+        if (UWTextEntry.BackspacePressed && msTyped.Length > 0)
         {
             msTyped = msTyped.Substring(0, msTyped.Length - 1);
             fDrawNameInput();
         }
 
         // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
-        foreach (char lcChar in UWTypedKeys.ReadTyped())
-            fOnTextInput(lcChar);
+        fNameEntry().ReadKeys();
+    }
+
+    /// <summary>The name's typing (UWTextEntry since 2026-10-19: the text events, the keys where
+    /// none arrive, one filter).</summary>
+    private UWTextEntry mONameEntry;
+
+    private UWTextEntry fNameEntry()
+    {
+        if (mONameEntry == null)
+            mONameEntry = new UWTextEntry(fOnTextInput);
+
+        return mONameEntry;
     }
 
     private void fOnTextInput(char pcChar)
     {
-        if (!IsTypingName || pcChar < 0x20 || pcChar > 0x7E)
+        if (!IsTypingName)
             return;
 
         // Up to 29 characters while the pen is still inside the box (pickopt, since 2026-10-12;
@@ -474,10 +479,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
     {
         IsTypingName = false;
 
-        if (mbTypingHooked && Keyboard.current != null)
-            Keyboard.current.onTextInput -= fOnTextInput;
-
-        mbTypingHooked = false;
+        fNameEntry().End();
     }
 
     private void fDrawNameInput()
@@ -603,7 +605,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
             Button lOButton = fCreateButton(liLeft, liTop, ButtonImage);
 
-            lOButton.Label = UWScreenUi.CreateRawImage((RectTransform)lOButton.Image.transform, "Text",
+            lOButton.Label = UWUiKit.CreateRawImageAt((RectTransform)lOButton.Image.transform, "Text",
                 0, (ButtonHeight - mOFont.Height) / 2);
             UWScreenUi.SetText(lOButton.Label, mOFont, mOGeneration.Choices[liAt], mOTextColour, ButtonWidth, true);
 
@@ -631,7 +633,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
             Button lOButton = fCreateButton(SingleColumnLeft, liTop, PortraitFrameImage);
 
-            lOButton.Portrait = UWScreenUi.CreateRawImage((RectTransform)lOButton.Image.transform, "Face", 0, 0);
+            lOButton.Portrait = UWUiKit.CreateRawImageAt((RectTransform)lOButton.Image.transform, "Face", 0, 0);
             UWScreenUi.SetTexture(lOButton.Portrait, fGetImage(liFirst + liAt, true));
 
             fAddFocus(lOButton, PortraitFrameFocusImage);
@@ -644,7 +646,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
     {
         Button lOButton = new Button
         {
-            Image = UWScreenUi.CreateRawImage(mOFrame, "Answer", piLeft, piTop)
+            Image = UWUiKit.CreateRawImageAt(mOFrame, "Answer", piLeft, piTop)
         };
 
         UWScreenUi.SetTexture(lOButton.Image, fGetImage(piImage, false));
@@ -656,20 +658,17 @@ public class UWCharacterCreationScreen : MonoBehaviour
     /// Transparent inside, visible only under the pointer.</summary>
     private void fAddFocus(Button pOButton, int piImage)
     {
-        pOButton.Focus = UWScreenUi.CreateRawImage((RectTransform)pOButton.Image.transform, "Focus", 0, 0);
+        pOButton.Focus = UWUiKit.CreateRawImageAt((RectTransform)pOButton.Image.transform, "Focus", 0, 0);
         UWScreenUi.SetTexture(pOButton.Focus, fGetImage(piImage, true));
         pOButton.Focus.enabled = false;
     }
 
     private void fClearButtons()
     {
+        // The labels' texts go back to UWTextTextures with the labels (UWTextLabel.OnDestroy); the
+        // service owns the textures, so they are not destroyed here (cleanup step 5.5, 2026-10-19).
         foreach (Button lOButton in mOButtons)
-        {
-            if (lOButton.Label != null && lOButton.Label.texture != null)
-                Destroy(lOButton.Label.texture);
-
             Destroy(lOButton.Image.gameObject);
-        }
 
         mOButtons.Clear();
     }
@@ -712,25 +711,25 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
         mOFont = mOData.Fonts.Get(UWFonts.FontType.CharacterGeneration);
 
-        mOCanvas = UWScreenUi.CreateCanvas(transform, "UW Character Creation", SortingOrder, out mOFrame);
+        mOCanvas = UWScreenUi.CreateCanvas(transform, "UW Character Creation", UWUiSorting.CharacterCreation, out mOFrame);
 
-        mOBackground = UWScreenUi.CreateRawImage(mOFrame, "Book", 0, 0);
+        mOBackground = UWUiKit.CreateRawImageAt(mOFrame, "Book", 0, 0);
         UWScreenUi.SetTexture(mOBackground, UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CHARGEN, 0, meFilter));
 
-        mOName = UWScreenUi.CreateRawImage(mOFrame, "Name", NameLeft, NameTop);
-        mOSex = UWScreenUi.CreateRawImage(mOFrame, "Sex", SexLeft, SexClassTop);
-        mOClass = UWScreenUi.CreateRawImage(mOFrame, "Class", ClassLeft, SexClassTop);
-        mOBody = UWScreenUi.CreateRawImage(mOFrame, "Body", BodyLeft, BodyTop);
-        mOStatLabels = UWScreenUi.CreateRawImage(mOFrame, "Attributes", StatLabelLeft, StatTop);
-        mOStatValues = UWScreenUi.CreateRawImage(mOFrame, "AttributeValues", StatValueLeft, StatTop);
-        mOSkillLabels = UWScreenUi.CreateRawImage(mOFrame, "Skills", SkillLabelLeft, SkillTop);
-        mOSkillValues = UWScreenUi.CreateRawImage(mOFrame, "SkillValues", SkillValueLeft, SkillTop);
+        mOName = UWUiKit.CreateRawImageAt(mOFrame, "Name", NameLeft, NameTop);
+        mOSex = UWUiKit.CreateRawImageAt(mOFrame, "Sex", SexLeft, SexClassTop);
+        mOClass = UWUiKit.CreateRawImageAt(mOFrame, "Class", ClassLeft, SexClassTop);
+        mOBody = UWUiKit.CreateRawImageAt(mOFrame, "Body", BodyLeft, BodyTop);
+        mOStatLabels = UWUiKit.CreateRawImageAt(mOFrame, "Attributes", StatLabelLeft, StatTop);
+        mOStatValues = UWUiKit.CreateRawImageAt(mOFrame, "AttributeValues", StatValueLeft, StatTop);
+        mOSkillLabels = UWUiKit.CreateRawImageAt(mOFrame, "Skills", SkillLabelLeft, SkillTop);
+        mOSkillValues = UWUiKit.CreateRawImageAt(mOFrame, "SkillValues", SkillValueLeft, SkillTop);
 
-        mOQuestion = UWScreenUi.CreateRawImage(mOFrame, "Question", QuestionLeft, 0);
+        mOQuestion = UWUiKit.CreateRawImageAt(mOFrame, "Question", QuestionLeft, 0);
 
-        mONameBox = UWScreenUi.CreateRawImage(mOFrame, "NameBox", NameBoxLeft, NameBoxTop);
-        mONamePrompt = UWScreenUi.CreateRawImage((RectTransform)mONameBox.transform, "Name:", NamePromptLeft, NameTextTop);
-        mONameInput = UWScreenUi.CreateRawImage((RectTransform)mONameBox.transform, "Input", NameInputLeft, NameTextTop);
+        mONameBox = UWUiKit.CreateRawImageAt(mOFrame, "NameBox", NameBoxLeft, NameBoxTop);
+        mONamePrompt = UWUiKit.CreateRawImageAt((RectTransform)mONameBox.transform, "Name:", NamePromptLeft, NameTextTop);
+        mONameInput = UWUiKit.CreateRawImageAt((RectTransform)mONameBox.transform, "Input", NameInputLeft, NameTextTop);
 
         mOCanvas.gameObject.SetActive(false);
     }

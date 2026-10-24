@@ -483,6 +483,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     private void OnDestroy()
     {
         mOPaperdoll.Detach();
+        mOPaperdoll.Release();
     }
 
     public float LastDamageTime { get; private set; } = -1f;
@@ -537,7 +538,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// Is Freeze Time currently active? Then no critter moves any more (see UWCritter).
     ///
     /// STATIC, because every critter of the level needs this in its own frame update and there
-    /// is only one player character - the same pattern as UWConversationScreen.IsAnyOpen.
+    /// is only one player character - the same pattern as UWConversationController.IsAnyOpen.
     /// </summary>
     public static bool TimeIsFrozen { get; private set; }
 
@@ -784,7 +785,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         // the conversation (see UWItemDrag) draws the weapon only once the conversation has ended,
         // the same for sheathing and for a strike (per user on the original, 2026-09-18).
         // Everything from here to the end of Update is the weapon.
-        if (UWConversationScreen.IsAnyOpen)
+        if (UWConversationController.IsAnyOpen)
             return;
 
         // The weapon hand and the gem (UWWeaponView and its engine-free UWWeaponSwing since

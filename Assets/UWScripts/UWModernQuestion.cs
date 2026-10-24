@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE MODERN SCHEME'S QUESTION BOX (per user, 2026-10-04: every question there alike, as the
@@ -44,19 +45,11 @@ public class UWModernQuestion : MonoBehaviour
 
     private const int InputHeight = 10;
 
-    private static readonly Color msText = new Color(0.94f, 0.87f, 0.71f);
-
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
-
-    private static readonly Color msHover = new Color(1f, 0.92f, 0.69f, 1f);
-
     private UWGameUI mOUi;
 
     private Interaction mOInteraction;
 
     private UWControlScheme mOScheme;
-
-    private Font mOFont;
 
     private Canvas mOCanvas;
 
@@ -68,13 +61,11 @@ public class UWModernQuestion : MonoBehaviour
 
     private Text[] mOButtonTexts;
 
-    private Texture2D mOBackTexture;
+    /// <summary>The box's leather (for its height) and the buttons', built for the colours
+    /// (UWVersionedTexture).</summary>
+    private readonly UWVersionedTexture mOBackArt = new UWVersionedTexture();
 
-    private Vector2Int mOBackSize;
-
-    private Texture2D mOButtonTexture;
-
-    private int miArtVersion = -1;
+    private readonly UWVersionedTexture mOButtonArt = new UWVersionedTexture();
 
     private const string Hold = "modern question";
 
@@ -107,11 +98,8 @@ public class UWModernQuestion : MonoBehaviour
         if (Instance == this)
             Instance = null;
 
-        foreach (Texture2D lOTexture in new[] { mOBackTexture, mOButtonTexture })
-        {
-            if (lOTexture != null)
-                Destroy(lOTexture);
-        }
+        mOBackArt.Release();
+        mOButtonArt.Release();
     }
 
     private void Start()
@@ -119,7 +107,6 @@ public class UWModernQuestion : MonoBehaviour
         mOUi = GetComponent<UWGameUI>();
         mOInteraction = GetComponent<Interaction>();
         mOScheme = GetComponentInParent<UWControlScheme>();
-        mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
     /// <summary>Whether a screen point lies on the box.</summary>
@@ -140,8 +127,8 @@ public class UWModernQuestion : MonoBehaviour
 
     private bool fIsModernShowing()
     {
-        return mOScheme != null && mOScheme.Current == UWControlScheme.SchemeEnum.Modern && mOInteraction != null
-            && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing;
+        return mOScheme != null && UWModernUi.IsActive && mOInteraction != null
+            && UWModernUi.IsShowing;
     }
 
     private bool mbMantra;
@@ -258,20 +245,16 @@ public class UWModernQuestion : MonoBehaviour
 
         mOCanvas.enabled = true;
 
-        float liScale = UWModernHud.PixelScale;
+        float liScale = UWModernUi.PixelScale;
 
-        if (miArtVersion != UWColourVision.Version || mOButtonTexture == null)
+        UWArtStamp lOButtonStamp = UWVersionedTexture.Colours();
+
+        if (!mOButtonArt.IsCurrent(lOButtonStamp))
         {
-            miArtVersion = UWColourVision.Version;
-
-            if (mOButtonTexture != null)
-                Destroy(mOButtonTexture);
-
-            mOButtonTexture = UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, ButtonWidth, ButtonHeight, mOUi.TextureFilterMode);
-            mOBackSize = Vector2Int.zero;
+            mOButtonArt.Set(lOButtonStamp, UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, ButtonWidth, ButtonHeight, mOUi.TextureFilterMode));
 
             foreach (RawImage lOButton in mOButtons)
-                lOButton.texture = mOButtonTexture;
+                lOButton.texture = mOButtonArt.Texture;
         }
 
         // The question, wrapped to the box's width; the box as tall as it needs.
@@ -285,15 +268,10 @@ public class UWModernQuestion : MonoBehaviour
         int liInputRows = mbMantra ? InputHeight + 4 : 0;
         int liHeight = Pad + liTextRows + 6 + liInputRows + ButtonHeight + Pad;
 
-        if (mOBackTexture == null || mOBackSize.y != liHeight)
-        {
-            if (mOBackTexture != null)
-                Destroy(mOBackTexture);
+        UWArtStamp lOBackStamp = UWVersionedTexture.Colours(liHeight);
 
-            mOBackTexture = UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, BoxWidth, liHeight, mOUi.TextureFilterMode);
-            mOBackSize = new Vector2Int(BoxWidth, liHeight);
-            mOBack.texture = mOBackTexture;
-        }
+        if (!mOBackArt.IsCurrent(lOBackStamp))
+            mOBack.texture = mOBackArt.Set(lOBackStamp, UWModernHudArt.BuildLeather(mOUi.mOUWData.Textures, BoxWidth, liHeight, mOUi.TextureFilterMode));
 
         float lfWidth = BoxWidth * liScale;
         float lfHeight = liHeight * liScale;
@@ -301,8 +279,8 @@ public class UWModernQuestion : MonoBehaviour
         float lfY = Mathf.Round((Screen.height * 0.55f) - (lfHeight * 0.5f));
 
         mORect = new Rect(lfX, lfY, lfWidth, lfHeight);
-        fSetRect(mOBack.rectTransform, lfX, lfY, lfWidth, lfHeight);
-        fSetRect(mOQuestion.rectTransform, lfX + (Pad * liScale), lfY + lfHeight - ((Pad + liTextRows) * liScale), lfInner, liTextRows * liScale);
+        UWUiKit.SetRect(mOBack.rectTransform, lfX, lfY, lfWidth, lfHeight);
+        UWUiKit.SetRect(mOQuestion.rectTransform, lfX + (Pad * liScale), lfY + lfHeight - ((Pad + liTextRows) * liScale), lfInner, liTextRows * liScale);
 
         // The mantra's field below the prompt, with a blinking caret.
         mOInputBack.enabled = mbMantra;
@@ -313,12 +291,14 @@ public class UWModernQuestion : MonoBehaviour
             float lfInputY = lfY + lfHeight - ((Pad + liTextRows + 4 + InputHeight) * liScale);
             float lfInputWidth = InputWidth * liScale;
             float lfInputX = lfX + ((lfWidth - lfInputWidth) * 0.5f);
-            bool lbCaret = Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f;
+            // At the one rate of both schemes (decision 17, 2026-10-20; until then the first half
+            // of every second).
+            bool lbCaret = UWMessageLogModel.IsCursorOn(Time.unscaledTime);
 
-            fSetRect(mOInputBack.rectTransform, lfInputX, lfInputY, lfInputWidth, InputHeight * liScale);
+            UWUiKit.SetRect(mOInputBack.rectTransform, lfInputX, lfInputY, lfInputWidth, InputHeight * liScale);
             mOInputText.text = (mOInteraction.MantraText ?? string.Empty) + (lbCaret ? "_" : " ");
             mOInputText.fontSize = Mathf.Max(10, Mathf.RoundToInt(4.6f * liScale));
-            fSetRect(mOInputText.rectTransform, lfInputX + (3 * liScale), lfInputY + (0.5f * liScale), lfInputWidth - (6 * liScale),
+            UWUiKit.SetRect(mOInputText.rectTransform, lfInputX + (3 * liScale), lfInputY + (0.5f * liScale), lfInputWidth - (6 * liScale),
                 InputHeight * liScale);
         }
 
@@ -334,53 +314,30 @@ public class UWModernQuestion : MonoBehaviour
                 ButtonWidth * liScale, ButtonHeight * liScale);
 
             mOButtonRects[liButton] = lOButton;
-            fSetRect(mOButtons[liButton].rectTransform, lOButton.x, lOButton.y, lOButton.width, lOButton.height);
-            fSetRect(mOButtonTexts[liButton].rectTransform, lOButton.x, lOButton.y + (0.5f * liScale), lOButton.width, lOButton.height);
+            UWUiKit.SetRect(mOButtons[liButton].rectTransform, lOButton.x, lOButton.y, lOButton.width, lOButton.height);
+            UWUiKit.SetRect(mOButtonTexts[liButton].rectTransform, lOButton.x, lOButton.y + (0.5f * liScale), lOButton.width, lOButton.height);
             mOButtonTexts[liButton].fontSize = Mathf.Max(10, Mathf.RoundToInt(4.4f * liScale));
-            mOButtonTexts[liButton].color = lOButton.Contains(lOPointer) ? msHover : msGold;
+            mOButtonTexts[liButton].color = lOButton.Contains(lOPointer) ? UWModernPalette.LightText : UWModernPalette.Gold;
         }
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
     }
 
     // ------------------------------------------------- Building
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Modern question", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern question", UWUiSorting.ModernQuestion);
 
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 44;
+        RectTransform lORootRect = (RectTransform)mOCanvas.transform;
 
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
-
-        RectTransform lORootRect = (RectTransform)lORoot.transform;
-
-        mOBack = fCreateRawImage(lORootRect, "Leather");
+        mOBack = UWUiKit.CreateRawImage(lORootRect, "Leather", true);
         UWPixelArtUI.Apply(mOBack);
 
-        mOQuestion = fCreateText(lORootRect, "Question", TextAnchor.UpperCenter, msText);
+        mOQuestion = UWUiKit.CreateText(lORootRect, "Question", TextAnchor.UpperCenter, UWModernPalette.Text, mOUi);
         mOQuestion.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-        GameObject lOInput = new GameObject("Mantra field", typeof(RectTransform), typeof(Image));
-        lOInput.transform.SetParent(lORootRect, false);
-        RectTransform lOInputRect = (RectTransform)lOInput.transform;
-        lOInputRect.anchorMin = Vector2.zero;
-        lOInputRect.anchorMax = Vector2.zero;
-        lOInputRect.pivot = Vector2.zero;
-        mOInputBack = lOInput.GetComponent<Image>();
-        mOInputBack.color = new Color(0.10f, 0.06f, 0.03f, 0.85f);
-        mOInputBack.raycastTarget = false;
+        mOInputBack = UWUiKit.CreateImage(lORootRect, "Mantra field", UWModernPalette.InputFill);
 
-        mOInputText = fCreateText(lORootRect, "Mantra", TextAnchor.MiddleLeft, msText);
+        mOInputText = UWUiKit.CreateText(lORootRect, "Mantra", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
 
         mOButtons = new RawImage[2];
         mOButtonTexts = new Text[2];
@@ -389,52 +346,10 @@ public class UWModernQuestion : MonoBehaviour
 
         for (int liButton = 0; liButton < 2; liButton++)
         {
-            mOButtons[liButton] = fCreateRawImage(lORootRect, lsButtons[liButton]);
+            mOButtons[liButton] = UWUiKit.CreateRawImage(lORootRect, lsButtons[liButton], true);
             UWPixelArtUI.Apply(mOButtons[liButton]);
-            mOButtonTexts[liButton] = fCreateText(lORootRect, lsButtons[liButton] + " text", TextAnchor.MiddleCenter, msGold);
+            mOButtonTexts[liButton] = UWUiKit.CreateText(lORootRect, lsButtons[liButton] + " text", TextAnchor.MiddleCenter, UWModernPalette.Gold, mOUi);
             mOButtonTexts[liButton].text = lsButtons[liButton];
         }
-    }
-
-    private static RawImage fCreateRawImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName, TextAnchor peAlignment, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.alignment = peAlignment;
-        lOText.color = pOColour;
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The two dragons on the HUD, after UW.EXE (UpdateUIAnim_seg036_3087_3DF mode 4 for the
@@ -11,74 +12,50 @@ using UnityEngine.UI;
 /// MAIN.BYT only holds the green bodies. Neck pieces, resting heads and tails come from
 /// DRAGONS.GR and are drawn as separate pictures (UW.EXE seg036_3087_16E).
 ///
-/// THREE HEAD ANIMATIONS, requested by the game:
-///   1 scroll  the message scroll moves on         frames 2..5 twice, then hidden
-///   2 nod     the player kills a creature         frames 6,7,8,9,8,9,8,9,8,7,6
-///   3 cover   heavy damage or damage below 16 HP  frames 10..13, hold 6 steps, back to 10
-/// The right dragon uses the same frames plus 18. A request for an animation that already runs
-/// or waits on either dragon is ignored; each dragon has one waiting slot, and a waiting request
-/// cuts the running animation short (scroll finishes its pass, nod plays backward, cover ends
-/// its hold).
-///
-/// THE TAIL WAG (frames 14,15,16,17,16,15,14) is rolled at random, about 5 % per step. UW.EXE
-/// sets the wrong redraw bit for it (the flask bit instead of the dragon's), so the wag only
-/// plays while that dragon's state machine runs anyway - during or right after a head
-/// animation. That quirk is kept, and so is the shared tail frame counter of both dragons.
-///
-/// TIMING: one step every 64 ticks of the 256 Hz game timer, 0.25 s, at most one step per
-/// frame. The dragons only run on the main game screen; on the map and in conversations they
-/// stand still and continue afterwards.
+/// THE FRAME LOGIC - the three head animations, the tail wag, the requests and the order of the
+/// random draws - is UWDragonAnimator's (engine-free, cleanup 5.18, 2026-10-23); this class keeps
+/// the pictures, the clock-seeded generator and the step timing: one step every 64 ticks of the
+/// 256 Hz game timer, 0.25 s, at most one step per frame. The dragons only run on the main game
+/// screen; on the map and in conversations they stand still and continue afterwards.
 /// </summary>
-public class UWHudDragons
+public class UWHudDragons : UWDragonAnimator.IPictures
 {
-    public const int ScrollAnimation = 1;
+    public const int ScrollAnimation = UWDragonAnimator.ScrollAnimation;
 
-    public const int NodAnimation = 2;
+    public const int NodAnimation = UWDragonAnimator.NodAnimation;
 
-    public const int CoverAnimation = 3;
+    public const int CoverAnimation = UWDragonAnimator.CoverAnimation;
 
     /// <summary>0.25 s: 64 ticks of the 256 Hz timer.</summary>
     private const float StepsPerSecond = 4f;
 
     /// <summary>Right dragon images are the left ones plus this.</summary>
-    private const int RightImageOffset = 18;
+    private const int RightImageOffset = UWDragonAnimator.RightImageOffset;
 
-    private const int NeckImage = 0;
+    private const int NeckImage = UWDragonAnimator.NeckImage;
 
-    private const int HeadImage = 1;
+    private const int HeadImage = UWDragonAnimator.HeadImage;
 
-    private const int TailRestImage = 14;
+    private const int TailRestImage = UWDragonAnimator.TailRestImage;
 
-    /// <summary>RNG() &lt; 0x666 of 0..32767, UW.EXE seg036_3087_5A5.</summary>
-    private const int TailRollThreshold = 0x666;
+    // Screen top-left corners in 320x200 reference pixels (UW.EXE EXE y converted: top = 199 - y),
+    // UWClassicLayout.Dragons.
+    private static readonly Vector2Int[] msNeckPosition = fPoints(UWClassicLayout.Dragons.Neck);
 
-    private static readonly int[] msTailSequence = { 14, 15, 16, 17, 16, 15, 14 };
+    private static readonly Vector2Int[] msHeadPosition = fPoints(UWClassicLayout.Dragons.Head);
 
-    // Screen top-left corners in 320x200 reference pixels (UW.EXE EXE y converted: top = 199 - y).
-    private static readonly Vector2Int[] msNeckPosition = { new Vector2Int(36, 134), new Vector2Int(228, 134) };
+    private static readonly Vector2Int[] msTailPosition = fPoints(UWClassicLayout.Dragons.Tail);
 
-    private static readonly Vector2Int[] msHeadPosition = { new Vector2Int(36, 145), new Vector2Int(204, 145) };
-
-    private static readonly Vector2Int[] msTailPosition = { new Vector2Int(40, 65), new Vector2Int(224, 65) };
-
-    // [side, animation - 1]: overlay corner, first and last frame (dseg 824/830, 91E/92A).
-    private static readonly Vector2Int[,] msOverlayPosition =
+    private static Vector2Int[] fPoints((int X, int Y)[] pyPoints)
     {
-        { new Vector2Int(40, 155), new Vector2Int(48, 145), new Vector2Int(36, 145) },
-        { new Vector2Int(204, 155), new Vector2Int(204, 145), new Vector2Int(200, 145) }
-    };
-
-    private static readonly int[] msFirstFrame = { 2, 6, 10 };
-
-    private static readonly int[] msLastFrame = { 5, 9, 13 };
+        return Array.ConvertAll(pyPoints, pyPoint => new Vector2Int(pyPoint.X, pyPoint.Y));
+    }
 
     /// <summary>Every pair built - the classic frame's and Classic Wide's (UWModernClassicFrame);
-    /// a request reaches them all.</summary>
+    /// a request reaches them all. A pair leaves it when its owner replaces it (Release) or when its
+    /// pictures are gone with the scene (fForgetGone) - until 2026-10-19 it was never emptied, and
+    /// every scene load and every Classic Wide resize added a pair (B33, cleanup step 5.5).</summary>
     private static readonly List<UWHudDragons> msInstances = new List<UWHudDragons>();
-
-    /// <summary>How far the right dragon's pictures lie right of their original places - the
-    /// widened frame's columns (Classic Wide).</summary>
-    private readonly int miRightShift;
 
     private readonly Func<int, Sprite> mOSpriteFor;
 
@@ -90,22 +67,8 @@ public class UWHudDragons
 
     private readonly Image[] mOOverlay = new Image[2];
 
-    private readonly int[] miCurrent = new int[2];
-
-    private readonly int[] miPending = new int[2];
-
-    private readonly int[] miPhase = new int[2];
-
-    private readonly int[] miCounter = new int[2];
-
-    private readonly int[] miLoop = new int[2];
-
-    private readonly bool[] mbRunning = new bool[2];
-
-    private readonly bool[] mbTailWag = new bool[2];
-
-    /// <summary>Shared by both dragons, as in UW.EXE (dseg 91C).</summary>
-    private int miTailCounter;
+    /// <summary>The frame logic, with this pair's generator.</summary>
+    private readonly UWDragonAnimator mOAnimator;
 
     private long miLastStep = -1;
 
@@ -114,7 +77,8 @@ public class UWHudDragons
     public UWHudDragons(RectTransform pOParent, Func<int, Sprite> pOSpriteFor, int piRightShift = 0)
     {
         mOSpriteFor = pOSpriteFor;
-        miRightShift = piRightShift;
+        mOAnimator = new UWDragonAnimator(this, piRightShift, mORandom.Next);
+        fForgetGone();
         msInstances.Add(this);
 
         for (int liSide = 0; liSide < 2; liSide++)
@@ -131,37 +95,28 @@ public class UWHudDragons
     }
 
     /// <summary>
-    /// A request from the game - UW.EXE UpdateUIAnim_seg036_3087_3DF case 4. Picks the dragon:
-    /// a free one if only one is free, otherwise at random or the one without a waiting request.
+    /// A request from the game - UW.EXE UpdateUIAnim_seg036_3087_3DF case 4. Every pair picks its
+    /// dragon (UWDragonAnimator.Request).
     /// </summary>
     public static void Request(int piAnimation)
     {
+        fForgetGone();
+
         foreach (UWHudDragons lODragons in msInstances)
-            lODragons.fRequest(piAnimation);
+            lODragons.mOAnimator.Request(piAnimation);
     }
 
-    private void fRequest(int piValue)
+    /// <summary>The pair no longer takes requests - its owner builds a new one (Classic Wide on a
+    /// resize; the old pictures are destroyed only at the end of the frame).</summary>
+    public void Release()
     {
-        if (piValue == miPending[0] || piValue == miPending[1] || piValue == miCurrent[0] || piValue == miCurrent[1])
-            return;
+        msInstances.Remove(this);
+    }
 
-        int liSide;
-
-        if (miCurrent[0] == 0 && miCurrent[1] == 0)
-            liSide = mORandom.Next(2);
-        else if (miCurrent[0] != 0 && miCurrent[1] == 0)
-            liSide = 1;
-        else if (miCurrent[0] == 0)
-            liSide = 0;
-        else if (miPending[0] == 0 && miPending[1] == 0)
-            liSide = mORandom.Next(2);
-        else if (miPending[0] != 0 && miPending[1] == 0)
-            liSide = 1;
-        else
-            liSide = 0;
-
-        miPending[liSide] = piValue;
-        mbRunning[liSide] = true;
+    /// <summary>Drops the pairs whose pictures were destroyed (Unity's null: the scene went).</summary>
+    private static void fForgetGone()
+    {
+        msInstances.RemoveAll(lODragons => lODragons.mONeck[0] == null);
     }
 
     /// <summary>Sibling index of the lowest dragon picture - pictures that must lie below the
@@ -189,8 +144,8 @@ public class UWHudDragons
         {
             fSetEnabled(mOTail[liSide], pbVisible);
             fSetEnabled(mONeck[liSide], pbVisible);
-            fSetEnabled(mOHead[liSide], pbVisible && miCurrent[liSide] != CoverAnimation);
-            fSetEnabled(mOOverlay[liSide], pbVisible && mOOverlay[liSide].sprite != null && miPhase[liSide] != 0);
+            fSetEnabled(mOHead[liSide], pbVisible && !mOAnimator.IsCovering(liSide));
+            fSetEnabled(mOOverlay[liSide], pbVisible && mOOverlay[liSide].sprite != null && mOAnimator.IsOverlayActive(liSide));
         }
     }
 
@@ -204,215 +159,47 @@ public class UWHudDragons
 
         miLastStep = liStep;
 
-        // The flask bubble roll comes first in UW.EXE; it does not change the dragons.
-        mORandom.Next(32768);
-
-        int liRoll = mORandom.Next(32768);
-
-        if (liRoll < TailRollThreshold && !mbTailWag[liRoll & 1])
-            mbTailWag[liRoll & 1] = true;
-
-        for (int liSide = 0; liSide < 2; liSide++)
-        {
-            if (mbRunning[liSide])
-                fStep(liSide);
-        }
+        mOAnimator.Step();
     }
 
-    private void fStep(int piSide)
+    // ------------------------------------------------- The pictures (UWDragonAnimator.IPictures)
+
+    void UWDragonAnimator.IPictures.ShowTail(int piSide, int piImage)
     {
-        if (mbTailWag[piSide])
-        {
-            fShow(mOTail[piSide], msTailSequence[miTailCounter] + (piSide * RightImageOffset));
-
-            if (++miTailCounter >= msTailSequence.Length)
-            {
-                miTailCounter = 0;
-                mbTailWag[piSide] = false;
-            }
-        }
-
-        if (miPhase[piSide] == 0 && miPending[piSide] != 0)
-        {
-            miCurrent[piSide] = miPending[piSide];
-            miPhase[piSide] = 1;
-        }
-
-        switch (miCurrent[piSide])
-        {
-            case 0:
-                if (!mbTailWag[piSide])
-                    mbRunning[piSide] = false;
-                break;
-
-            case ScrollAnimation:
-                fStepScroll(piSide);
-                break;
-
-            case NodAnimation:
-                fStepNod(piSide);
-                break;
-
-            case CoverAnimation:
-                fStepCover(piSide);
-                break;
-        }
+        fShow(mOTail[piSide], piImage);
     }
 
-    private int fFirst(int piSide) => msFirstFrame[miCurrent[piSide] - 1] + (piSide * RightImageOffset);
-
-    private int fLast(int piSide) => msLastFrame[miCurrent[piSide] - 1] + (piSide * RightImageOffset);
-
-    private void fBegin(int piSide, int piLoops)
+    void UWDragonAnimator.IPictures.ShowOverlay(int piSide, int piImage)
     {
-        miPending[piSide] = 0;
-        miCounter[piSide] = fFirst(piSide);
-        miLoop[piSide] = piLoops;
-
-        RectTransform lORect = (RectTransform)mOOverlay[piSide].transform;
-        Vector2Int lOCorner = msOverlayPosition[piSide, miCurrent[piSide] - 1] + new Vector2Int(piSide * miRightShift, 0);
-        lORect.anchoredPosition = new Vector2(lOCorner.x, -lOCorner.y);
+        fShow(mOOverlay[piSide], piImage);
     }
 
-    private void fEnd(int piSide)
+    void UWDragonAnimator.IPictures.HideOverlay(int piSide)
     {
         fSetEnabled(mOOverlay[piSide], false);
-        miCurrent[piSide] = 0;
-        miPhase[piSide] = 0;
     }
 
-    /// <summary>Scroll: P1 start, P3 forward loop, P4 last pass, P5 hide.</summary>
-    private void fStepScroll(int piSide)
+    void UWDragonAnimator.IPictures.PlaceOverlay(int piSide, int piX, int piY)
     {
-        switch (miPhase[piSide])
-        {
-            case 1:
-                fBegin(piSide, 1);
-                miPhase[piSide] = 3;
-                goto case 3;
+        RectTransform lORect = (RectTransform)mOOverlay[piSide].transform;
 
-            case 3:
-                fShow(mOOverlay[piSide], miCounter[piSide]++);
-
-                if (miCounter[piSide] > fLast(piSide))
-                {
-                    miCounter[piSide] = fFirst(piSide);
-                    miLoop[piSide]--;
-                }
-
-                if (miPending[piSide] != 0 || miLoop[piSide] == 0)
-                    miPhase[piSide] = 4;
-                break;
-
-            case 4:
-                fShow(mOOverlay[piSide], miCounter[piSide]++);
-
-                if (miCounter[piSide] > fLast(piSide))
-                    miPhase[piSide] = 5;
-                break;
-
-            case 5:
-                fEnd(piSide);
-                break;
-        }
+        lORect.anchoredPosition = new Vector2(piX, -piY);
     }
 
-    /// <summary>Nod: P2 lead-in, P3 loop over the last two frames, P4 backward, P5 hide.</summary>
-    private void fStepNod(int piSide)
+    void UWDragonAnimator.IPictures.ShowHead(int piSide, int piImage)
     {
-        switch (miPhase[piSide])
-        {
-            case 1:
-                fBegin(piSide, 3);
-                miPhase[piSide] = 2;
-                goto case 2;
-
-            case 2:
-                fShow(mOOverlay[piSide], miCounter[piSide]++);
-
-                if (miCounter[piSide] > fFirst(piSide) + 1)
-                    miPhase[piSide] = 3;
-                break;
-
-            case 3:
-                fShow(mOOverlay[piSide], miCounter[piSide]++);
-
-                if (miCounter[piSide] > fLast(piSide))
-                {
-                    miCounter[piSide] = fFirst(piSide) + 2;
-                    miLoop[piSide]--;
-                }
-
-                if (miPending[piSide] != 0 || miLoop[piSide] == 0)
-                    miPhase[piSide] = 4;
-                break;
-
-            case 4:
-                fShow(mOOverlay[piSide], miCounter[piSide]--);
-
-                if (miCounter[piSide] < fFirst(piSide))
-                    miPhase[piSide] = 5;
-                break;
-
-            case 5:
-                fEnd(piSide);
-                break;
-        }
+        fShow(mOHead[piSide], piImage);
     }
 
-    /// <summary>Cover: P1 hide the head, P2 forward, P3 hold, P4 backward, P5 head back.</summary>
-    private void fStepCover(int piSide)
+    void UWDragonAnimator.IPictures.HideHead(int piSide)
     {
-        switch (miPhase[piSide])
-        {
-            case 1:
-                fSetEnabled(mOHead[piSide], false);
-                fBegin(piSide, 6);
-                miPhase[piSide] = 2;
-                goto case 2;
-
-            case 2:
-                fShow(mOOverlay[piSide], miCounter[piSide]++);
-
-                if (miCounter[piSide] > fLast(piSide))
-                {
-                    miCounter[piSide]--;
-                    miPhase[piSide] = 3;
-                }
-                break;
-
-            case 3:
-                if (miPending[piSide] != 0 || --miLoop[piSide] == 0)
-                    miPhase[piSide] = 4;
-                break;
-
-            case 4:
-                fShow(mOOverlay[piSide], --miCounter[piSide]);
-
-                if (miCounter[piSide] == fFirst(piSide))
-                    miPhase[piSide] = 5;
-                break;
-
-            case 5:
-                fShow(mOHead[piSide], HeadImage + (piSide * RightImageOffset));
-                fEnd(piSide);
-                break;
-        }
+        fSetEnabled(mOHead[piSide], false);
     }
 
     private Image fCreate(string psName, RectTransform pOParent, Vector2Int pOCorner, int piImage)
     {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Image));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = new Vector2(0f, 1f);
-        lORect.anchorMax = new Vector2(0f, 1f);
-        lORect.pivot = new Vector2(0f, 1f);
-        lORect.anchoredPosition = new Vector2(pOCorner.x, -pOCorner.y);
-
-        Image lOImage = lOObject.GetComponent<Image>();
-        lOImage.raycastTarget = false;
+        Image lOImage = UWUiKit.CreateImage(pOParent, psName, UWUiKit.TopLeft, UWUiKit.TopLeft, Color.white);
+        lOImage.rectTransform.anchoredPosition = new Vector2(pOCorner.x, -pOCorner.y);
 
         if (piImage >= 0)
             fShow(lOImage, piImage);

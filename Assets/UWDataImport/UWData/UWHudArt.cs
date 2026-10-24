@@ -65,7 +65,8 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- The shelf (MAIN.BYT)
 
-		private const int ShelfTop = 125;
+		/// <summary>The shelf's first row: the flasks' (UWClassicLayout.Flasks).</summary>
+		private const int ShelfTop = UWClassicLayout.Flasks.Top;
 
 		private const int ShelfBottom = 166;
 
@@ -75,20 +76,20 @@ namespace UWDataImport.UWData
 		private const int ShelfLeftX1 = 272;
 
 		/// <summary>The shelf with the mana flask (drawn at 284,125).</summary>
-		private const int ShelfRightX0 = 284;
+		private const int ShelfRightX0 = UWClassicLayout.Flasks.ManaLeft;
 
 		private const int ShelfRightX1 = 318;
 
 		/// <summary>The flask the left part holds, from its left edge.</summary>
-		private const int HealthFlaskX = 248 - ShelfLeftX0;
+		private const int HealthFlaskX = UWClassicLayout.Flasks.HealthLeft - ShelfLeftX0;
 
 		/// <summary>The rows of the 12 columns between the flasks that carry the chain ring.</summary>
 		private const int ChainRows = 15;
 
 		/// <summary>Where MAIN.BYT draws the power gem; its pedestal is the 6 rows below it.</summary>
-		private const int GemX = 4;
+		private const int GemX = UWClassicLayout.PowerGem.Left;
 
-		private const int GemY = 139;
+		private const int GemY = UWClassicLayout.PowerGem.Top;
 
 		private const int GemWidth = 31;
 
@@ -276,7 +277,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The page's place in MAIN.BYT (rows from the top).</summary>
-		public static readonly UWRectInt PaperdollPage = new UWRectInt(236, 7, 82, 75);
+		public static readonly UWRectInt PaperdollPage = UWClassicLayout.Paperdoll.Page;
 
 		/// <summary>The widened page: as wide as the backpack window.</summary>
 		public const int PaperdollPageWidth = 86;
@@ -315,7 +316,7 @@ namespace UWDataImport.UWData
 		/// own colours (burned into the leather it looked like a graphics fault in so few pixels, per
 		/// user the same day), its eyes lit by the original's EYES.GR after a hit, the foe's name at
 		/// the right. Closed it is only as wide as the heading; while the eyes are lit it opens
-		/// as wide as the brand and the foe's name need, the same to both sides (UWModernHud.fUpdateStrip;
+		/// as wide as the brand and the foe's name need, the same to both sides (UWModernHeadingStrip.fUpdateStrip;
 		/// a fixed 150 left too much room, per user 2026-10-04). The clouds are anchored at the strip's
 		/// centre and the brand at the open strip's left edge, so both stand still while it opens.
 		/// </summary>
@@ -341,7 +342,7 @@ namespace UWDataImport.UWData
 		public const int EyesTopInBrand = 3;
 
 		/// <summary>The gargoyle's head in MAIN.BYT, its eyes at 130-133 and 142-145, rows 4 and 5.</summary>
-		private static readonly UWRectInt msGargoyleHead = new UWRectInt(126, 0, 24, 18);
+		private static readonly UWRectInt msGargoyleHead = UWClassicLayout.Frame.GargoyleHead;
 
 		/// <summary>The brand's left edge in a strip of this width that opens to piOpenHalf.</summary>
 		public static int BrandLeft(int piWidth, int piOpenHalf)
@@ -784,9 +785,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Where the body picture lies on MAIN.BYT (UWModernPanel.msBodyAt).</summary>
-		public const int PaperdollBodyX = 260;
+		public const int PaperdollBodyX = UWClassicLayout.Paperdoll.BodyLeft;
 
-		public const int PaperdollBodyY = 11;
+		public const int PaperdollBodyY = UWClassicLayout.Paperdoll.BodyTop;
 
 		/// <summary>The first body picture of CHRBTNS.GR, the character creation's (bodies in the
 		/// order of BODIES.GR).</summary>
@@ -1484,7 +1485,7 @@ namespace UWDataImport.UWData
 		/// (BuildStoneShelf).</summary>
 		public const int GemStandX = 1;
 
-		public const int GemStandY = 139;
+		public const int GemStandY = UWClassicLayout.PowerGem.Top;
 
 		private static readonly UWRectInt msGemStand = new UWRectInt(GemStandX, GemStandY, 37, 19);
 
@@ -1964,31 +1965,28 @@ namespace UWDataImport.UWData
 			return piX < msClassicWideCuts[liBand, 0] ? 0 : piX < msClassicWideCuts[liBand, 1] ? piExtra / 2 : piExtra;
 		}
 
-		/// <summary>The bands' first rows (the top bar from row 0) and the view's hole.</summary>
-		public const int ClassicWideTopRows = 19;
+		/// <summary>The bands' first rows (the top bar from row 0) and the view's hole
+		/// (UWClassicLayout.ClassicWide).</summary>
+		public const int ClassicWideTopRows = UWClassicLayout.ClassicWide.TopRows;
 
-		public const int ClassicWideLedgeTop = 128;
+		public const int ClassicWideLedgeTop = UWClassicLayout.ClassicWide.LedgeTop;
 
-		public const int ClassicWideScrollTop = 168;
+		public const int ClassicWideScrollTop = UWClassicLayout.ClassicWide.ScrollTop;
 
-		public static readonly UWRectInt ClassicWideHole = new UWRectInt(52, 19, 172, 109);
+		public static readonly UWRectInt ClassicWideHole = UWClassicLayout.ClassicWide.Hole;
 
 		/// <summary>The camera's area in the classic scheme (UWGameUI: x 50 to 226, rows 17 to 138),
 		/// the hole's flood bounded by it.</summary>
-		public const int ClassicWideCameraLeft = 50;
+		public const int ClassicWideCameraLeft = UWClassicLayout.Frame.WindowHoleLeft;
 
-		public const int ClassicWideCameraRight = 226;
+		public const int ClassicWideCameraRight = UWClassicLayout.Frame.WindowHoleRight;
 
-		public const int ClassicWideCameraTop = 17;
+		public const int ClassicWideCameraTop = UWClassicLayout.Frame.WindowHoleTop;
 
-		public const int ClassicWideCameraBottom = 138;
+		public const int ClassicWideCameraBottom = UWClassicLayout.Frame.WindowHoleBottom;
 
-		/// <summary>The two cuts of each band (top bar, view, ledge, scroll).</summary>
-		/// The view's band cuts at the hole's edges, where its columns are black from top to bottom
-		/// (x 53 to 222): the hole's contents then move with its middle, the bars with their sides
-		/// (the classic scheme's parts, UWClassicWide). Columns 223 and 224 carry the right vine's
-		/// leaves - a cut at 224 left a piece of them behind (per user's screenshot, 2026-10-10).
-		private static readonly int[,] msClassicWideCuts = { { 78, 198 }, { 53, 223 }, { 100, 173 }, { 82, 223 } };
+		/// <summary>The two cuts of each band (top bar, view, ledge, scroll): UWClassicLayout.ClassicWide.Cuts.</summary>
+		private static readonly int[,] msClassicWideCuts = UWClassicLayout.ClassicWide.Cuts;
 
 		/// <summary>A band's first (0) or second (1) cut, by a row from the top.</summary>
 		public static int ClassicWideCut(int piRow, int piWhich)
@@ -2053,7 +2051,9 @@ namespace UWDataImport.UWData
 			UWTexture lOCompassDisc = pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, 0);
 
 			if (lOCompassDisc != null)
-				lOOut.Overlay(UWPicture.From(lOCompassDisc), 112 + ClassicWideShiftX(112, 131, liExtra), 131);
+				lOOut.Overlay(UWPicture.From(lOCompassDisc),
+					UWClassicLayout.Compass.Left + ClassicWideShiftX(UWClassicLayout.Compass.Left, UWClassicLayout.Compass.Top, liExtra),
+					UWClassicLayout.Compass.Top);
 
 			// The hole: the black reached from the view's middle through black, within the camera's
 			// area (the classic scheme's, x 50 to 226 and rows 17 to 138, widened) - not the frame's
@@ -2393,12 +2393,12 @@ namespace UWDataImport.UWData
 
 		/// <summary>The conversation's top in CONV.BYT: the two name plates, the portraits' frames
 		/// and the two trade areas between them (x 43 to 232, rows 0 to 46).</summary>
-		public static readonly UWRectInt ConversationHeader = new UWRectInt(43, 0, 190, 47);
+		public static readonly UWRectInt ConversationHeader = UWClassicLayout.Conversation.Header;
 
 		/// <summary>The parchment under it, its rolled rims included, and the ends of its two wooden
 		/// rollers over the view's bars (x 42 to 233, rows 47 to 135; the bars and the vines on them
 		/// go).</summary>
-		public static readonly UWRectInt ConversationParchment = new UWRectInt(42, 47, 192, 89);
+		public static readonly UWRectInt ConversationParchment = UWClassicLayout.Conversation.Parchment;
 
 		/// <summary>The side columns of that crop where the bars lie (10 at either side), and the
 		/// rows the rollers' ends take there: the upper roller 47 to 56 with the chain it hangs on
@@ -2426,7 +2426,13 @@ namespace UWDataImport.UWData
 		private static readonly UWColor32 NamePlateColour = new UWColor32(72, 40, 12, 255);
 
 		/// <summary>The two portraits' places (34 x 34), filled with black under the real ones.</summary>
-		private static readonly UWRectInt[] msPortraitPlaces = { new UWRectInt(45, 11, 34, 34), new UWRectInt(197, 11, 34, 34) };
+		private static readonly UWRectInt[] msPortraitPlaces =
+		{
+			new UWRectInt(UWClassicLayout.Conversation.NpcPortraitLeft, UWClassicLayout.Conversation.PortraitTop,
+				UWClassicLayout.Conversation.PortraitSize, UWClassicLayout.Conversation.PortraitSize),
+			new UWRectInt(UWClassicLayout.Conversation.PlayerPortraitLeft, UWClassicLayout.Conversation.PortraitTop,
+				UWClassicLayout.Conversation.PortraitSize, UWClassicLayout.Conversation.PortraitSize)
+		};
 
 		/// <summary>
 		/// THE ORIGINAL'S CONVERSATION TOP (Classic+, per user 2026-10-10: "free the conversation
@@ -2850,19 +2856,20 @@ namespace UWDataImport.UWData
 
 		/// <summary>The hollow for the prepared runes in the frame's lower edge, with a pixel or two
 		/// of its slate rim all round.</summary>
-		public const int RuneHollowX = 173;
+		public const int RuneHollowX = UWClassicLayout.RuneHollow.Left;
 
-		public const int RuneHollowY = 136;
+		public const int RuneHollowY = UWClassicLayout.RuneHollow.Top;
 
-		private static readonly UWRectInt msRuneHollow = new UWRectInt(RuneHollowX, RuneHollowY, 49, 19);
+		private static readonly UWRectInt msRuneHollow = new UWRectInt(RuneHollowX, RuneHollowY,
+			UWClassicLayout.RuneHollow.Width, UWClassicLayout.RuneHollow.Height);
 
 		/// <summary>Where the first prepared rune lies in it (the frame draws them from 176/138,
 		/// UWHudRunes), and the step to the next.</summary>
-		public const int RuneHollowRuneX = 176 - 173;
+		public const int RuneHollowRuneX = UWClassicLayout.RuneHollow.RuneLeft - RuneHollowX;
 
-		public const int RuneHollowRuneY = 138 - 136;
+		public const int RuneHollowRuneY = UWClassicLayout.RuneHollow.RuneTop - RuneHollowY;
 
-		public const int RuneHollowPitch = 15;
+		public const int RuneHollowPitch = UWClassicLayout.RuneHollow.RunePitch;
 
 		/// <summary>
 		/// THE RUNE HOLLOW AS AN ELEMENT (Classic+, per user 2026-10-10: "the hollow with the
@@ -2908,7 +2915,7 @@ namespace UWDataImport.UWData
 		/// with a pixel of room left, right and below for the outline.</summary>
 		public const int CompassDiscX = CompassMaskX - 1;
 
-		public const int CompassDiscY = 131;
+		public const int CompassDiscY = UWClassicLayout.Compass.Top;
 
 		/// <summary>Where msCompassDiscMask starts in MAIN.BYT.</summary>
 		private const int CompassMaskX = 107;
@@ -2986,7 +2993,7 @@ namespace UWDataImport.UWData
 			UWTexture lOStone = pOTextures.GetTextureByType(UWTexture.TextureTypes.COMPASS, 0);
 
 			if (lOStone != null)
-				lODisc.Overlay(UWPicture.From(lOStone), 112 - CompassMaskX, 131 - CompassDiscY);
+				lODisc.Overlay(UWPicture.From(lOStone), UWClassicLayout.Compass.Left - CompassMaskX, UWClassicLayout.Compass.Top - CompassDiscY);
 
 			bool[,] lbKnown = new bool[liWidth, liHeight];
 			List<int> lOTodo = new List<int>();
@@ -3227,7 +3234,7 @@ namespace UWDataImport.UWData
 		public static int CompassDiscArrowAt(int piX, int piY)
 		{
 			int liX = CompassDiscX + piX;
-			int liY = 199 - (CompassDiscY + piY);
+			int liY = UWClassicLayout.Screen.Height - 1 - (CompassDiscY + piY);
 
 			for (int liArrow = 0; liArrow < UWClickRules.EasyArrows.Length; liArrow++)
 			{

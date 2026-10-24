@@ -20,6 +20,11 @@ public sealed class UWHudInventory
         mOUi = pOUi;
     }
 
+    /// <summary>What the page shows, read once a frame at the start of Update (cleanup step 5.8,
+    /// 2026-10-20): the slots, the hands and rings, the open container's picture, the arrows and
+    /// the weight - the same view the modern original page (UWModernInventoryPage) draws.</summary>
+    private readonly UWInventoryView mOView = new UWInventoryView();
+
     private Image[] mBackpackSlotImages;
     internal UWObject[] mBackpackItemsShown;
 
@@ -33,9 +38,9 @@ public sealed class UWHudInventory
     // fBuildCanvas for the values taken over 1:1 there). Replaces the backpack visually AND
     // as hit target while a container is open (see fRefreshContainerVisibility/
     // GetBackpackSlotUnderMouse).
-    // Public, since UWItemDrag derives the scroll step from it (a click on a
-    // scroll arrow pages by one whole row, see UWItemDrag/UWInventory.ScrollContainer).
-    public const int ContainerColumns = BackpackColumns;
+    // A click on a scroll arrow pages by one whole row - UWInventoryView.ScrollStep since cleanup
+    // step 5.8 (2026-10-20); until then UWItemDrag derived the step from this constant.
+    private const int ContainerColumns = BackpackColumns;
     internal const int ContainerSlotCount = UWInventory.ContainerSlotCount;
     internal RectTransform mContainerPanelRect;
     private Image[] mContainerSlotImages;
@@ -46,9 +51,9 @@ public sealed class UWHudInventory
     // Original: the picture of the open container, above and left-aligned to the container panel.
     // Left click on it closes (see UWItemDrag/IsContainerOpenIconUnderMouse). The
     // containers 128 to 139 show their open variant, urn, quiver and bowl (140 to
-    // 142) have none and show themselves - see fGetContainerOpenIconId.
-    private const float containerOpenIconLeft = 241f;
-    private const float containerOpenIconTop = 80f;
+    // 142) have none and show themselves - see fRefreshContainerOpenIcon.
+    private const float containerOpenIconLeft = UWClassicLayout.Container.OpenIconLeft;
+    private const float containerOpenIconTop = UWClassicLayout.Container.OpenIconTop;
     private Image mContainerOpenIconImage;
     private UWObject mContainerOpenIconShownFor;
 
@@ -63,12 +68,12 @@ public sealed class UWHudInventory
     // in fBuildCanvas) - both side by side (not stacked), down arrow at the edge,
     // up arrow directly next to it.
     internal const float containerScrollTop = containerOpenIconTop;
-    private const float containerScrollDownRight = 314f;
-    internal const float containerScrollSize = 8f;
+    private const float containerScrollDownRight = UWClassicLayout.Container.ScrollDownRight;
+    internal const float containerScrollSize = UWClassicLayout.Container.ScrollSize;
 
     // UpArrow needs, beyond merely leaning on "directly left of the DownArrow" (see Init),
     // some additional spacing to the left (CONFIRMED per user).
-    private const float containerScrollUpExtraLeftOffset = 3f;
+    private const float containerScrollUpExtraLeftOffset = UWClassicLayout.Container.ScrollUpExtraLeft;
     private Image mContainerScrollUpImage;
     private Image mContainerScrollDownImage;
 
@@ -107,14 +112,14 @@ public sealed class UWHudInventory
     // DOSBox screenshot comparison (window ~2x native 320x200,
     // content starts about 20px below the title bar), not yet pixel-exact -
     // to be corrected per further screenshot comparison.
-    private const int BackpackColumns = 4;
-    private const int BackpackRows = 2;
+    private const int BackpackColumns = UWClassicLayout.Backpack.Columns;
+    private const int BackpackRows = UWClassicLayout.Backpack.Rows;
     internal const int BackpackSlotCount = UWInventory.BackpackSize;
-    private const float backpackSlotSize = 14f;
-    private const float backpackSlotSpacingX = 5f;
-    private const float backpackSlotSpacingY = 4f;
-    private const float backpackGridTop = 83f;
-    private const float backpackGridLeft = 242f;
+    private const float backpackSlotSize = UWClassicLayout.Backpack.SlotSize;
+    private const float backpackSlotSpacingX = UWClassicLayout.Backpack.SpacingX;
+    private const float backpackSlotSpacingY = UWClassicLayout.Backpack.SpacingY;
+    private const float backpackGridTop = UWClassicLayout.Backpack.GridTop;
+    private const float backpackGridLeft = UWClassicLayout.Backpack.GridLeft;
 
     /// <summary>
     /// Three edge conversions were tried here and discarded again (2026-08-26)
@@ -133,16 +138,17 @@ public sealed class UWHudInventory
         if (pOImage == null || pOSource == null)
             return;
 
-        Texture2D lOTexture = UWIconTextureBuilder.Build(pOSource, mOUi.TextureFilterMode);
+        Sprite lOSprite = UWIconCache.Sprite(pOSource, mOUi.TextureFilterMode);
 
-        pOImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+        pOImage.sprite = lOSprite;
         pOImage.color = Color.white;
         UWIconPalette.Apply(pOImage);
-        ((RectTransform)pOImage.transform).sizeDelta = new Vector2(lOTexture.width, lOTexture.height);
+        ((RectTransform)pOImage.transform).sizeDelta = new Vector2(lOSprite.texture.width, lOSprite.texture.height);
     }
 
     /// <summary>Occupied ring/hand/use slots as icons - exactly like fRefreshBackpackSlots,
-    /// only via UWInventory.GetEquipped instead of Backpack[i].</summary>
+    /// only from the view's Hands (UWInventory.GetEquipped, in the order of ArmorHitZoneSlots after
+    /// its armour slots, which is UWPaperdollLayout.IconSlots) instead of Backpack[i].</summary>
     private void fRefreshEquipSlotIcons()
     {
         if (mOUi.mOInventory == null || mEquipSlotIcons == null)
@@ -150,15 +156,16 @@ public sealed class UWHudInventory
 
         for (int i = 0; i < mEquipSlotIcons.Length; i++)
         {
-            UWObject lOItem = mOUi.mOInventory.GetEquipped(ArmorHitZoneSlots[ArmorSlotCount + i]);
+            UWInventoryView.Slot lOSlot = mOView.Hands[i];
+            UWObject lOItem = lOSlot.Item;
 
             // The stack count depends on the QUANTITY of the item, and that changes without
             // a different item lying in the slot. It is therefore updated BEFORE the shortcut
             // further below (per user: in the hand slots it was missing entirely,
             // 2026-09-05).
-            fRefreshEquipStackCount(i, lOItem);
+            fRefreshEquipStackCount(i, lOSlot);
 
-            UWTexture lOSource = lOItem?.Icon ?? lOItem?.Texture;
+            UWTexture lOSource = lOSlot.Picture;
 
             if (lOItem == mEquipIconItemsShown[i] && lOSource == mEquipIconSourcesShown[i])
                 continue;
@@ -177,12 +184,11 @@ public sealed class UWHudInventory
 
             // A burning torch or candle flickers - not as a picture sequence, but because
             // the original rotates colour ranges in a circle (see UWPaletteRotation). The lantern
-            // drops out by itself, its colours lie outside.
-            Texture2D lOTexture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
-
+            // drops out by itself, its colours lie outside. The icon is shared (UWIconCache): until
+            // 2026-10-19 every change made a new texture and sprite that nothing destroyed (B33).
             UWIconPalette.Apply(lOImage);
 
-            lOImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+            lOImage.sprite = UWIconCache.Sprite(lOSource, mOUi.TextureFilterMode);
             lOImage.enabled = true;
         }
     }
@@ -197,7 +203,7 @@ public sealed class UWHudInventory
         if (mContainerPanelRect == null || mBackpackSlotImages == null)
             return;
 
-        bool lbOpen = mOUi.mOInventory != null && mOUi.mOInventory.OpenContainer != null;
+        bool lbOpen = mOView.ShowsContainer;
 
         if (lbOpen == mContainerPanelRect.gameObject.activeSelf)
             return;
@@ -212,22 +218,24 @@ public sealed class UWHudInventory
     }
 
     /// <summary>Occupied container slots as icons - exactly like fRefreshBackpackSlots, only
-    /// via UWInventory.GetContainerItem instead of Backpack[i]. With the container closed it keeps
+    /// from the view's Container (UWInventory.GetContainerItem, from the scroll offset on) instead
+    /// of Backpack[i]. With the container closed it keeps
     /// its last state (slots are invisible then anyway, see
     /// fRefreshContainerVisibility) instead of clearing - saves needless sprite changes
     /// on the next opening of the same container.</summary>
     private void fRefreshContainerSlots()
     {
-        if (mOUi.mOInventory == null || mContainerSlotImages == null || mOUi.mOInventory.OpenContainer == null)
+        if (mOUi.mOInventory == null || mContainerSlotImages == null || !mOView.ShowsContainer)
             return;
 
         for (int i = 0; i < mContainerSlotImages.Length; i++)
         {
-            UWObject lODisplayItem = mOUi.mOInventory.GetContainerItem(i);
+            UWInventoryView.Slot lOSlot = mOView.Container[i];
+            UWObject lODisplayItem = lOSlot.Item;
 
-            fRefreshContainerStackCount(i, lODisplayItem);
+            fRefreshContainerStackCount(i, lOSlot);
 
-            UWTexture lOSource = lODisplayItem?.Icon ?? lODisplayItem?.Texture;
+            UWTexture lOSource = lOSlot.Picture;
 
             if (lODisplayItem == mContainerItemsShown[i] && lOSource == mContainerSourcesShown[i])
                 continue;
@@ -244,11 +252,9 @@ public sealed class UWHudInventory
                 continue;
             }
 
-            Texture2D lOTexture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
-
             UWIconPalette.Apply(lOImage);
 
-            lOImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+            lOImage.sprite = UWIconCache.Sprite(lOSource, mOUi.TextureFilterMode);
             lOImage.enabled = true;
         }
     }
@@ -281,7 +287,7 @@ public sealed class UWHudInventory
     /// </summary>
     private UWClickRules.InventorySpot fSpotAt(Vector2 pOScreenPos)
     {
-        if (!mOUi.TryGetOriginalPoint(pOScreenPos, out int liX, out int liY)
+        if (!mOUi.ClassicScreen.TryGetOriginalPoint(pOScreenPos, out int liX, out int liY)
             || !UWClickRules.InventoryPage.Contains(liX, liY))
             return UWClickRules.InventorySpot.None;
 
@@ -296,51 +302,36 @@ public sealed class UWHudInventory
     }
 
     /// <summary>
+    /// Original: the picture of the currently open container (OBJECTS.GR) - only reloaded on
+    /// an actual change, as with the other icon refreshes. If an entry is missing, the icon
+    /// stays invisible instead of crashing.
+    ///
     /// Which picture stands above the open container - as in the reference
     /// (container.Use): the containers 128 to 139 show their open variant (bit 0 set),
     /// urn, quiver and bowl (140 to 142) have none and show themselves
-    /// (UWObjectIds.OpenPicture since 2026-10-11).
+    /// (UWObjectIds.OpenPicture since 2026-10-11; the picture itself from
+    /// UWObjectAppearance.OpenContainerPicture since cleanup step 5.6, 2026-10-20, the one
+    /// rule the modern bags and the modern original page take too; read through
+    /// UWInventoryView.ContainerPicture since step 5.8).
     ///
     /// Until 2026-09-11 the picture stayed invisible for these three. But it is also the
     /// button for closing - you could no longer get out of an opened bowl (per
     /// user). And instead of "+ 1" it now says "| 1": an already open number would otherwise
     /// not stay itself but jump to the next container.
     /// </summary>
-    private static int fGetContainerOpenIconId(int piObjectId)
-    {
-        return UWObjectIds.OpenPicture(piObjectId);
-    }
-
-    /// <summary>Original: the picture of the currently open container (OBJECTS.GR, see
-    /// fGetContainerOpenIconId) - only reloaded on an actual change, as with the
-    /// other icon refreshes. If an entry is missing, the icon stays invisible instead of
-    /// crashing.</summary>
     private void fRefreshContainerOpenIcon()
     {
         if (mContainerOpenIconImage == null)
             return;
 
-        UWObject lOContainer = mOUi.mOInventory?.OpenContainer;
+        UWObject lOContainer = mOView.OpenContainer;
 
         if (lOContainer == mContainerOpenIconShownFor)
             return;
 
         mContainerOpenIconShownFor = lOContainer;
 
-        UWTexture lOSource = null;
-
-        if (lOContainer != null && mOUi.mOUWData != null)
-        {
-            try
-            {
-                lOSource = mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS,
-                    fGetContainerOpenIconId(lOContainer.ID));
-            }
-            catch
-            {
-                lOSource = null;
-            }
-        }
+        UWTexture lOSource = mOView.ContainerPicture;
 
         if (lOSource == null)
         {
@@ -348,11 +339,11 @@ public sealed class UWHudInventory
             return;
         }
 
-        Texture2D lOTexture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
+        Sprite lOSprite = UWIconCache.Sprite(lOSource, mOUi.TextureFilterMode);
 
-        mContainerOpenIconImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+        mContainerOpenIconImage.sprite = lOSprite;
         UWIconPalette.Apply(mContainerOpenIconImage);
-        ((RectTransform)mContainerOpenIconImage.transform).sizeDelta = new Vector2(lOTexture.width, lOTexture.height);
+        ((RectTransform)mContainerOpenIconImage.transform).sizeDelta = new Vector2(lOSprite.texture.width, lOSprite.texture.height);
         mContainerOpenIconImage.enabled = true;
     }
 
@@ -369,21 +360,22 @@ public sealed class UWHudInventory
         if (mContainerOpenIconImage == null || !mContainerOpenIconImage.enabled)
             return false;
 
-        return fSpotAt(pOScreenPos) == UWClickRules.InventorySpot.ContainerIcon;
+        return UWInventoryView.ControlOf(fSpotAt(pOScreenPos)) == UWInventoryView.ControlEnum.ContainerIcon;
     }
 
     /// <summary>Original: the scroll arrows are only visible/active as long as there is anything
     /// left to page in the respective direction. The UpArrow INCREASES the
     /// offset (see UWInventory.ScrollContainer/CanIncreaseContainerScrollOffset), so it shows
     /// when more content remains afterwards - not to be confused with a
-    /// literal "CanScrollUp" reading. Only switched anew on an actual change.</summary>
+    /// literal "CanScrollUp" reading. Only switched anew on an actual change. The condition is
+    /// UWInventoryView.ShowsScrollUp/ShowsScrollDown since cleanup step 5.8 (2026-10-20).</summary>
     private void fRefreshContainerScrollButtons()
     {
         if (mContainerScrollUpImage == null || mContainerScrollDownImage == null || mOUi.mOInventory == null)
             return;
 
-        bool lbCanUp = mOUi.mOInventory.OpenContainer != null && mOUi.mOInventory.CanIncreaseContainerScrollOffset;
-        bool lbCanDown = mOUi.mOInventory.OpenContainer != null && mOUi.mOInventory.CanDecreaseContainerScrollOffset;
+        bool lbCanUp = mOView.ShowsScrollUp;
+        bool lbCanDown = mOView.ShowsScrollDown;
 
         if (mContainerScrollUpImage.gameObject.activeSelf != lbCanUp)
             mContainerScrollUpImage.gameObject.SetActive(lbCanUp);
@@ -404,8 +396,8 @@ public sealed class UWHudInventory
         if (mContainerScrollUpImage == null || !mContainerScrollUpImage.gameObject.activeSelf)
             return false;
 
-        // The up arrow is the left one of the two (see BuildContainerView).
-        return fSpotAt(pOScreenPos) == UWClickRules.InventorySpot.ScrollLeft;
+        // The up arrow is the left one of the two (see BuildContainerView, UWInventoryView.ControlOf).
+        return UWInventoryView.ControlOf(fSpotAt(pOScreenPos)) == UWInventoryView.ControlEnum.ScrollUp;
     }
 
     public bool IsContainerScrollDownUnderMouse(Vector2 pOScreenPos)
@@ -417,7 +409,7 @@ public sealed class UWHudInventory
         if (mContainerScrollDownImage == null || !mContainerScrollDownImage.gameObject.activeSelf)
             return false;
 
-        return fSpotAt(pOScreenPos) == UWClickRules.InventorySpot.ScrollRight;
+        return UWInventoryView.ControlOf(fSpotAt(pOScreenPos)) == UWInventoryView.ControlEnum.ScrollDown;
     }
 
     /// <summary>Number labels at the backpack slots for stacks, and the total load.</summary>
@@ -431,7 +423,7 @@ public sealed class UWHudInventory
     /// Writes the item count into the corner of a backpack slot. Single items get
     /// no number - only what is there multiple times.
     /// </summary>
-    private void fRefreshStackCount(int piSlot, UWObject pOItem)
+    private void fRefreshStackCount(int piSlot, UWInventoryView.Slot pOSlot)
     {
         if (mBackpackSlotImages == null || piSlot < 0 || piSlot >= mBackpackSlotImages.Length)
             return;
@@ -439,12 +431,12 @@ public sealed class UWHudInventory
         if (mBackpackCountLabels == null)
             mBackpackCountLabels = new RawImage[mBackpackSlotImages.Length];
 
-        fSetStackLabel(ref mBackpackCountLabels[piSlot], mBackpackSlotImages[piSlot], pOItem);
+        fSetStackLabel(ref mBackpackCountLabels[piSlot], mBackpackSlotImages[piSlot], pOSlot);
     }
 
     /// <summary>The same for the hand and ring slots - a stack can lie there too,
     /// such as torches in the hand.</summary>
-    private void fRefreshEquipStackCount(int piSlot, UWObject pOItem)
+    private void fRefreshEquipStackCount(int piSlot, UWInventoryView.Slot pOSlot)
     {
         if (mEquipSlotIcons == null || piSlot < 0 || piSlot >= mEquipSlotIcons.Length)
             return;
@@ -452,14 +444,14 @@ public sealed class UWHudInventory
         if (mEquipCountLabels == null)
             mEquipCountLabels = new RawImage[mEquipSlotIcons.Length];
 
-        fSetStackLabel(ref mEquipCountLabels[piSlot], mEquipSlotIcons[piSlot], pOItem);
+        fSetStackLabel(ref mEquipCountLabels[piSlot], mEquipSlotIcons[piSlot], pOSlot);
     }
 
     private RawImage[] mEquipCountLabels;
 
     /// <summary>The same for the slots of an opened container - that is where
     /// stacked things mostly lie.</summary>
-    private void fRefreshContainerStackCount(int piSlot, UWObject pOItem)
+    private void fRefreshContainerStackCount(int piSlot, UWInventoryView.Slot pOSlot)
     {
         if (mContainerSlotImages == null || piSlot < 0 || piSlot >= mContainerSlotImages.Length)
             return;
@@ -467,16 +459,16 @@ public sealed class UWHudInventory
         if (mContainerCountLabels == null)
             mContainerCountLabels = new RawImage[mContainerSlotImages.Length];
 
-        fSetStackLabel(ref mContainerCountLabels[piSlot], mContainerSlotImages[piSlot], pOItem);
+        fSetStackLabel(ref mContainerCountLabels[piSlot], mContainerSlotImages[piSlot], pOSlot);
     }
 
-    private void fSetStackLabel(ref RawImage pOLabel, Image pOSlotIcon, UWObject pOItem)
+    private void fSetStackLabel(ref RawImage pOLabel, Image pOSlotIcon, UWInventoryView.Slot pOSlot)
     {
-        int liCount = UWStackRules.CountAtLeastOne(pOItem);
+        int liCount = pOSlot.Count;
 
         RawImage lOLabel = pOLabel;
 
-        if (liCount <= 1)
+        if (!pOSlot.ShowsCount)
         {
             UWTextLabel.Hide(lOLabel);
 
@@ -511,14 +503,11 @@ public sealed class UWHudInventory
         // Computed from the inventory, so that the number follows every move. The
         // difference to the load the save game keeps lies in
         // UWInventory.WeightOffsetTenthStones - see there for why.
-        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
-
-        int liCarried = mOUi.mOInventory.GetCarriedTenthStones(mOUi.mOUWData.CommonObjectProperties);
-
-        int liTenthStones = (lOPlayer != null ? lOPlayer.MaxWeight : 0) - liCarried;
-
-        if (liTenthStones < 0)
-            liTenthStones = 0;
+        //
+        // Never below 0, in whole stones - UWInventoryWeight.RemainingStones, the rule the modern
+        // original page and the help window take too (cleanup step 5.6, 2026-10-20), read through
+        // UWInventoryView.RemainingStones since step 5.8.
+        int liStones = mOView.RemainingStones;
 
         if (mWeightLabel == null)
         {
@@ -526,53 +515,44 @@ public sealed class UWHudInventory
 
             // Centred reference point: in the original the number stands centred in the circle, so a
             // two-digit one grows to both sides (per user, 2026-09-01).
-            // mOWeightLabelPosition is therefore the CENTRE, not the top-left corner.
+            // UWClassicLayout.Backpack.WeightCentre is therefore the CENTRE, not the top-left corner.
             RectTransform lORect = (RectTransform)mWeightLabel.transform;
             lORect.anchorMin = new Vector2(0f, 1f);
             lORect.anchorMax = new Vector2(0f, 1f);
             lORect.pivot = new Vector2(0.5f, 0.5f);
-            lORect.anchoredPosition = new Vector2(mOUi.mOWeightLabelPosition.x, -mOUi.mOWeightLabelPosition.y);
+            lORect.anchoredPosition = new Vector2(UWClassicLayout.Backpack.WeightCentreX, -UWClassicLayout.Backpack.WeightCentreY);
+
+            // UNDER THE MAP: the label is made on the classic frame's first refresh, which in the
+            // modern scheme is the first opening of the big map - made last, it stood on the map
+            // (per user, 2026-10-21, after a load from the main menu).
+            RawImage lOMap = mOUi.Map != null ? mOUi.Map.mMapBackgroundImage : null;
+
+            if (lOMap != null && lOMap.transform.parent == mWeightLabel.transform.parent)
+                mWeightLabel.transform.SetSiblingIndex(lOMap.transform.GetSiblingIndex());
         }
 
         // The original shows whole stones, no decimal place (per screenshot from the
         // user, 2026-09-01: it shows 7 there).
-        fSetNumberLabel(mWeightLabel, (liTenthStones / 10).ToString(), UWFonts.FontType.Normal, mOUi.mOWeightColour,
+        fSetNumberLabel(mWeightLabel, liStones.ToString(), UWFonts.FontType.Normal, UWUiKit.Colour(UWClassicLayout.Backpack.WeightColour),
             WeightRaise);
     }
 
     private RawImage fCreateNumberLabel(Transform pOParent)
     {
-        GameObject lOObject = new GameObject("Number", typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        // Top left at the slot, as in the original.
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = new Vector2(0f, 1f);
-        lORect.anchorMax = new Vector2(0f, 1f);
-        lORect.pivot = new Vector2(0f, 1f);
+        // Top left at the slot, as in the original; shown from the start.
+        RawImage lOImage = UWUiKit.CreateRawImage(pOParent, "Number", UWUiKit.TopLeft, UWUiKit.TopLeft, true);
 
         // One point to the right, otherwise the number sticks to the edge. Was two while the
         // character spacing was one point too wide (per user, 2026-09-01 and 2026-09-03).
-        lORect.anchoredPosition = new Vector2(1f, 0f);
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
+        lOImage.rectTransform.anchoredPosition = new Vector2(1f, 0f);
 
         return lOImage;
     }
 
     private void fSetNumberLabel(RawImage pOLabel, string psText, UWFonts.FontType peFont)
     {
-        fSetNumberLabel(pOLabel, psText, peFont, mOUi.mOCountColour, QuantityRaise);
+        fSetNumberLabel(pOLabel, psText, peFont, UWUiKit.Colour(UWClassicLayout.Backpack.CountColour), QuantityRaise);
     }
-
-    /// <summary>What a number label currently shows - text, font, colour - and its texture.
-    /// Carrying capacity and stack counts are set every frame; without mOUi cache
-    /// every frame created a new texture that was never released (per user, 2026-09-13: over
-    /// 900,000 textures 28x17 and 8x6 in the log of UWResourceWatch, the game ran
-    /// increasingly unevenly).</summary>
-    private readonly System.Collections.Generic.Dictionary<RawImage, System.Collections.Generic.KeyValuePair<string, Texture2D>>
-        mONumberLabelCache = new System.Collections.Generic.Dictionary<RawImage, System.Collections.Generic.KeyValuePair<string, Texture2D>>();
 
     /// <summary>The numbers' modern font against the other modern fields, judged by eye (per
     /// user, 2026-09-28): the weight two canvas units higher, the quantities at the same height
@@ -587,6 +567,11 @@ public sealed class UWHudInventory
 
     private const float NumberShiftRight = -1f;
 
+    /// <summary>Carrying capacity and stack counts are set every frame; the label only asks
+    /// UWTextTextures for a picture when the text changed. Without that every frame created a new
+    /// texture that was never released (per user, 2026-09-13: over 900,000 textures 28x17 and 8x6
+    /// in the log of UWResourceWatch, the game ran increasingly unevenly) - until 2026-10-19 a cache
+    /// of its own here, the label's slot since (cleanup step 5.5).</summary>
     private void fSetNumberLabel(RawImage pOLabel, string psText, UWFonts.FontType peFont, Color pOColour,
         float pfRaise)
     {
@@ -595,36 +580,10 @@ public sealed class UWHudInventory
         if (lOFont == null || pOLabel == null)
             return;
 
-        string lsKey = psText + "|" + (int)peFont + "|" + ColorUtility.ToHtmlStringRGBA(pOColour)
-            + "|" + (int)mOUi.TextureFilterMode;
-
-        System.Collections.Generic.KeyValuePair<string, Texture2D> lOCached;
-        bool lbCached = mONumberLabelCache.TryGetValue(pOLabel, out lOCached);
-
-        if (lbCached && lOCached.Key == lsKey && lOCached.Value != null && pOLabel.texture == lOCached.Value)
-        {
-            UWTextLabel.Get(pOLabel).Show();
-            return;
-        }
-
-        Texture2D lOTexture = UWFontRenderer.RenderLines(lOFont,
-            new System.Collections.Generic.List<string> { psText },
-            psText.Length * (lOFont.Height + 2), pOColour, mOUi.TextureFilterMode);
-
-        if (lOTexture == null)
-            return;
-
-        if (lbCached && lOCached.Value != null && lOCached.Value != lOTexture)
-            Object.Destroy(lOCached.Value);
-
-        mONumberLabelCache[pOLabel] = new System.Collections.Generic.KeyValuePair<string, Texture2D>(lsKey, lOTexture);
-
         // Bold in the modern font - the numbers are small, mOUi keeps them readable
         // (per user, 2026-09-11). Moved by pfRaise and NumberShiftRight (see WeightRaise).
-        UWTextLabel.Get(pOLabel).Set(lOFont, lOTexture,
-            new System.Collections.Generic.List<string> { psText },
-            new System.Collections.Generic.List<Color32> { pOColour }, true, FontStyle.Bold,
-            UWTextLabel.ModernExtraRaise + pfRaise, NumberShiftRight);
+        UWTextLabel.Get(pOLabel).SetLine(lOFont, psText, psText.Length * (lOFont.Height + 2), pOColour, true,
+            mOUi.TextureFilterMode, FontStyle.Bold, UWTextLabel.ModernExtraRaise + pfRaise, NumberShiftRight);
     }
 
     /// <summary>Occupied backpack slots as icons - unlike fUpdateSprite the
@@ -640,11 +599,12 @@ public sealed class UWHudInventory
             // An item currently being dragged is already removed from UWInventory.Backpack (see
             // UWInventory.CursorItem/BeginDragFrom*), no hiding per reference comparison
             // needed here - the array is the complete truth during a drag.
-            UWObject lODisplayItem = i < mOUi.mOInventory.Backpack.Length ? mOUi.mOInventory.Backpack[i] : null;
+            UWInventoryView.Slot lOSlot = mOView.Backpack[i];
+            UWObject lODisplayItem = lOSlot.Item;
 
-            fRefreshStackCount(i, lODisplayItem);
+            fRefreshStackCount(i, lOSlot);
 
-            UWTexture lOSource = lODisplayItem?.Icon ?? lODisplayItem?.Texture;
+            UWTexture lOSource = lOSlot.Picture;
 
             if (lODisplayItem == mBackpackItemsShown[i] && lOSource == mBackpackSourcesShown[i])
                 continue;
@@ -661,11 +621,9 @@ public sealed class UWHudInventory
                 continue;
             }
 
-            Texture2D lOTexture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
-
             UWIconPalette.Apply(lOImage);
 
-            lOImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+            lOImage.sprite = UWIconCache.Sprite(lOSource, mOUi.TextureFilterMode);
             lOImage.enabled = true;
         }
     }
@@ -703,30 +661,7 @@ public sealed class UWHudInventory
         if (!mOUi.Panel.fIsInventoryClickable())
             return null;
 
-        return GetSlotOfSpot(fSpotAt(pOScreenPos));
-    }
-
-    /// <summary>The equipment slot a spot of the inventory page stands for, or null - also for
-    /// the modern character panel (UWModernPanel), which shows the same page.</summary>
-    internal static UWArmorItemMap.BodySlot? GetSlotOfSpot(UWClickRules.InventorySpot peSpot)
-    {
-        // By where the spot lies: "Left" is the screen's left, the character's right - the
-        // same sides as our slots (RightHandSlot is drawn on the left, see BuildEquipmentSlots).
-        switch (peSpot)
-        {
-            case UWClickRules.InventorySpot.Helmet: return UWArmorItemMap.BodySlot.Helmet;
-            case UWClickRules.InventorySpot.Chest: return UWArmorItemMap.BodySlot.Chest;
-            case UWClickRules.InventorySpot.Gloves: return UWArmorItemMap.BodySlot.Gloves;
-            case UWClickRules.InventorySpot.Legs: return UWArmorItemMap.BodySlot.Legs;
-            case UWClickRules.InventorySpot.Boots: return UWArmorItemMap.BodySlot.Boots;
-            case UWClickRules.InventorySpot.ShoulderLeft: return UWArmorItemMap.BodySlot.RightOffHandSlot;
-            case UWClickRules.InventorySpot.ShoulderRight: return UWArmorItemMap.BodySlot.LeftOffHandSlot;
-            case UWClickRules.InventorySpot.HandLeft: return UWArmorItemMap.BodySlot.RightHandSlot;
-            case UWClickRules.InventorySpot.HandRight: return UWArmorItemMap.BodySlot.LeftHandSlot;
-            case UWClickRules.InventorySpot.RingLeft: return UWArmorItemMap.BodySlot.RightRing;
-            case UWClickRules.InventorySpot.RingRight: return UWArmorItemMap.BodySlot.LeftRing;
-            default: return null;
-        }
+        return UWClickRules.BodySlotOf(fSpotAt(pOScreenPos));
     }
 
     /// <summary>For UWItemDrag: the backpack item at a given backpack slot.</summary>
@@ -752,7 +687,7 @@ public sealed class UWHudInventory
 
             // Invisible (alpha 0) - the circle graphic is already in the original panel
             // background, mOUi rectangle now serves only as hit area.
-            Image lOSlotBackground = UWGameUI.fCreateImage($"BackpackSlot{i}", mOUi.mGameFrame, lfX, -lfY, backpackSlotSize, backpackSlotSize, new Color(1f, 1f, 1f, 0f));
+            Image lOSlotBackground = UWUiKit.CreateFrameImage(mOUi.mGameFrame, $"BackpackSlot{i}", lfX, -lfY, backpackSlotSize, backpackSlotSize, new Color(1f, 1f, 1f, 0f));
 
             GameObject lOIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             lOIcon.transform.SetParent(lOSlotBackground.transform, false);
@@ -777,17 +712,17 @@ public sealed class UWHudInventory
         // lyEquipIconSlots). Starts inactive - only becomes visible when
         // UWInventory.OpenContainer != null (see fRefreshContainerVisibility). The background
         // sprite (INV.GR image 6) is set in Init.
-        Image lOContainerPanel = UWGameUI.fCreateImage("ContainerInventory", mOUi.mGameFrame, 0f, 0f, 0f, 0f, Color.white);
+        Image lOContainerPanel = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "ContainerInventory", 0f, 0f, 0f, 0f, Color.white);
         mContainerPanelRect = (RectTransform)lOContainerPanel.transform;
         mContainerPanelRect.anchorMin = Vector2.zero;
         mContainerPanelRect.anchorMax = Vector2.one;
         mContainerPanelRect.pivot = new Vector2(0.5f, 0.5f);
-        mContainerPanelRect.anchoredPosition = new Vector2(118.51324f, -0.50367f);
-        mContainerPanelRect.sizeDelta = new Vector2(-234.98553f, -158.99f);
+        mContainerPanelRect.anchoredPosition = new Vector2(UWClassicLayout.Container.PanelAnchoredX, UWClassicLayout.Container.PanelAnchoredY);
+        mContainerPanelRect.sizeDelta = new Vector2(UWClassicLayout.Container.PanelSizeDeltaX, UWClassicLayout.Container.PanelSizeDeltaY);
 
         // Anchored to the frame's corners: in the widened classic frame it keeps its size, moved
         // with the panel (UWClassicWide; per user's screenshot, 2026-10-10: it stretched left).
-        UWClassicWide.FrameSized(mContainerPanelRect, 236, 80);
+        UWClassicWide.FrameSized(mContainerPanelRect, UWClassicLayout.Container.FrameLeft, UWClassicLayout.Container.FrameTop);
         lOContainerPanel.gameObject.SetActive(false);
 
         // Hit zones lie directly in the GameFrame (not in the ContainerInventory panel
@@ -802,7 +737,7 @@ public sealed class UWHudInventory
             float lfX = backpackGridLeft + (liCol * (backpackSlotSize + backpackSlotSpacingX));
             float lfY = backpackGridTop + (liRow * (backpackSlotSize + backpackSlotSpacingY));
 
-            Image lOSlotBackground = UWGameUI.fCreateImage($"ContainerSlot{i}", mOUi.mGameFrame, lfX, -lfY, backpackSlotSize, backpackSlotSize, new Color(1f, 1f, 1f, 0f));
+            Image lOSlotBackground = UWUiKit.CreateFrameImage(mOUi.mGameFrame, $"ContainerSlot{i}", lfX, -lfY, backpackSlotSize, backpackSlotSize, new Color(1f, 1f, 1f, 0f));
             lOSlotBackground.gameObject.SetActive(false);
 
             GameObject lOIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
@@ -844,46 +779,38 @@ public sealed class UWHudInventory
         // invisible depending on fRefreshContainerScrollButtons. Alpha 0.4 instead of 0 (unlike
         // pure hit zones such as the backpack slots), since without a
         // real graphic nothing at all would be visible to calibrate them. Pivot
-        // bottom-right (not via fCreateImage, which only knows top-left) - both hang
+        // bottom-right (not via UWUiKit.CreateFrameImage, which only knows top-left) - both hang
         // on the same right-aligned anchor line, grow upwards, down arrow at the edge,
         // up arrow directly left of it.
-        mContainerScrollDownImage = mOUi.fCreateScrollArrowPlaceholder("ContainerScrollDown", containerScrollDownRight);
-        mContainerScrollUpImage = mOUi.fCreateScrollArrowPlaceholder("ContainerScrollUp", containerScrollDownRight - containerScrollSize);
+        mContainerScrollDownImage = mOUi.Classic.fCreateScrollArrowPlaceholder("ContainerScrollDown", containerScrollDownRight);
+        mContainerScrollUpImage = mOUi.Classic.fCreateScrollArrowPlaceholder("ContainerScrollUp", containerScrollDownRight - containerScrollSize);
     }
 
     /// <summary>The ring and hand slots of the paper doll with their icons.</summary>
     internal void BuildEquipmentSlots()
     {
         // Ring/hand slots: positions and sizes set per user in the prefab editor and
-        // taken over here - rings much smaller
+        // taken over (UWPaperdollLayout.IconSlots since cleanup 5.1, 2026-10-19) - rings much smaller
         // (4x4) than the four hand slots (16x16), since ring-shaped items are visually much smaller.
         // They show their own item icon (like a backpack slot), no body-fitted
         // sprite - hit zone and display are the same element. Order must match
         // ArmorHitZoneSlots (see there).
-        (float x, float y, float size)[] lyEquipIconSlots =
-        {
-            (291.03f, 56.9f, 4f),      // LeftRing
-            (260f, 56.9f, 4f),         // RightRing
-            (242f, 34.82566f, 16f),    // RightHandSlot
-            (296f, 34.826f, 16f),      // LeftHandSlot
-            (294f, 12.792999f, 16f),   // LeftOffHandSlot
-            (244.9f, 12.793f, 16f),    // RightOffHandSlot
-        };
+        UWPaperdollLayout.IconSlot[] lyEquipIconSlots = UWPaperdollLayout.IconSlots;
 
         // Ring icons are themselves 16x16 despite the tiny 4x4 hit zone (see above) - at their
         // natural size from OBJECTS.GR, squashed onto the hit zone per stretch fill,
         // the ring icon did not sit right (CONFIRMED per user test). Centred instead of
         // stretched, with a small Y offset - values taken over 1:1 from the result the user
         // found in the prefab editor.
-        const float RingIconSize = 16f;
-        const float RingIconYOffset = 0.8f;
+        const float RingIconSize = UWPaperdollLayout.RingIconSize;
+        const float RingIconYOffset = UWPaperdollLayout.RingIconYOffset;
 
         mEquipSlotIcons = new Image[ArmorHitZoneSlots.Length - ArmorSlotCount];
 
         for (int i = 0; i < mEquipSlotIcons.Length; i++)
         {
             UWArmorItemMap.BodySlot leSlot = ArmorHitZoneSlots[ArmorSlotCount + i];
-            Image lOSlotBackground = UWGameUI.fCreateImage($"EquipIcon_{leSlot}", mOUi.mGameFrame, lyEquipIconSlots[i].x, -lyEquipIconSlots[i].y, lyEquipIconSlots[i].size, lyEquipIconSlots[i].size, new Color(1f, 1f, 1f, 0f));
+            Image lOSlotBackground = UWUiKit.CreateFrameImage(mOUi.mGameFrame, $"EquipIcon_{leSlot}", lyEquipIconSlots[i].X, -lyEquipIconSlots[i].Y, lyEquipIconSlots[i].Size, lyEquipIconSlots[i].Size, new Color(1f, 1f, 1f, 0f));
 
             GameObject lOIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             lOIcon.transform.SetParent(lOSlotBackground.transform, false);
@@ -916,7 +843,7 @@ public sealed class UWHudInventory
     /// <summary>The fixed graphics of the container view, loaded once in Init: the background of an opened container (INV.GR image 6, identified per user) and the scroll arrows.</summary>
     internal void LoadSprites()
     {
-        mOUi.fSetStaticSprite(mContainerPanelRect, UWTexture.TextureTypes.INV, 6);
+        mOUi.Classic.fSetStaticSprite(mContainerPanelRect, UWTexture.TextureTypes.INV, 6);
 
         // Original: scroll arrows at the container panel (identified per user) - unlike
         // backpack/container icons a fixed, never changing graphic, therefore loaded here
@@ -949,6 +876,8 @@ public sealed class UWHudInventory
     /// <summary>The per-frame refresh of the container view, the backpack, the weight and the equipment icons.</summary>
     internal void Update()
     {
+        mOView.Refresh(mOUi.mOInventory != null ? mOUi.mOInventory.Model : null, mOUi.mOUWData);
+
         fRefreshContainerVisibility();
         fRefreshBackpackSlots();
         fRefreshWeight();

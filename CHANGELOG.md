@@ -8,6 +8,66 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.9.0] - 2026-10-24
+
+### Closer to the original
+
+The view and the pointer
+- The classic view has the original's field of view: 74.7 degrees across its 113-row window, from
+  the numbers the original sets up its window with. Walls no longer look a little too far away.
+- While the left button is held in the classic view, the pointer stays inside the original's view
+  window and no longer runs past its edge or into the rune hollow below it.
+- The rune shelf takes a click anywhere in its cells, without gaps between the runes, as the
+  original's (both schemes).
+
+Combat
+- The power gem pulses as the original's: for a bow or a sling from the moment the shot is ready,
+  for a blow once it is fully charged.
+- With no arrows or sling stones the attack is refused at once, without a wind-up.
+- Walking into water in the middle of a charged blow puts the weapon away with its own animation.
+
+Things
+- A trapped thing that was carried and dropped keeps its trap: searching for it finds it.
+- An open container on the paperdoll shows its open picture.
+
+The map
+- A note the original wrote keeps every byte of it when the save comes back from this game.
+
+### Fixed
+- Classic scheme: the pointer no longer shows up while a map note is typed, during a yes/no
+  question (the anvil) or the count prompt.
+- Gamepad: answering the count prompt or a yes/no question with a button no longer clicks
+  again at the pointer.
+- Classic Wide and Classic Modular: Tab opens the help, and the frame closes up for it as the
+  classic widescreen frame does; the split box works on the original's page; the page, the rune
+  tablet and the stats take no clicks while the panel turns; the inventory page shows during a
+  conversation; the frame and the eyes follow the colour help; "There is no place to put that."
+  shows as in the classic frame.
+- Modern scheme: the Character tab shows a stack's count in the hand, shoulder and ring slots;
+  the right button closes a container (its window's badge, the original page's open-container
+  icon); a container on the original page shows its open picture; the mantra shows only its box,
+  not a running line among the messages.
+- Modern conversation: the gamepad's walk stick scrolls the history while the pointer is on it, a
+  glyph shows it; a name or answer with angle brackets shows as typed.
+- Messages page by the lines the scroll or box shows, with [MORE] where the classic box has it,
+  and the cursor blinks at the same rate in both schemes. The Classic Wide scroll uses its width.
+- Map notes can be typed on Linux.
+- The classic weight number no longer stands on the big map in the modern scheme.
+- The paperdoll and the power gem follow the colour help; dragged icons show no black lines.
+- Memory: level changes, map rebuilds, icons and runes no longer leave pictures and meshes
+  behind.
+
+### Changed
+- The pointer is drawn by the game in both schemes, at the size of the frame's pixels (classic)
+  or of the crosshair (modern); Windows drew it smaller than asked.
+- A map note starts at the quill's tip, its letters ending on the row above it. That comes close
+  to the original, but at the same click a note may sit about a letter's width beside the
+  original's (Docs/DEVIATIONS.md).
+- Internal: the interface is restructured for both schemes - the classic and the modern one are
+  drawn from shared, engine-free descriptions of what they show, and the game asks one interface
+  object instead of testing the scheme in many places (code cleanup phase 5, see
+  Docs/CLEANUP-PLAN.md). The classic layout's values moved out of the Inspector into one table.
+
 ## [0.8.4] - 2026-10-21
 
 ### Added

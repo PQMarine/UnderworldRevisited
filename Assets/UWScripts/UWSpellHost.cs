@@ -172,7 +172,7 @@ public sealed class UWSpellHost : IUWSpellHost
     public void RefreshSpellIcons()
     {
         if (mOUi != null)
-            mOUi.RefreshSpellIcons();
+            mOUi.Runes.RefreshSpellIcons();
     }
 
     // ------------------------------------------------- Pending spells
@@ -211,7 +211,7 @@ public sealed class UWSpellHost : IUWSpellHost
             lOInventory.ClearAll();
 
         if (mOUi != null)
-            mOUi.ClearRuneShelf();
+            mOUi.Runes.ClearRuneShelf();
 
         mOLoader.ApplyArmageddon();
 

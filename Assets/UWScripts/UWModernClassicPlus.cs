@@ -33,7 +33,7 @@ public static class UWModernClassicPlus
     public const int ScrollLines = 5;
 
     /// <summary>The stone shelf's width in its own pixels: the screen beside the stats panel.</summary>
-    public static int StoneShelfWidth => Mathf.Max(UWHudArt.StoneShelfMinWidth, UWModernHud.StoneShelfMaxWidth - UWTextures.PanelWidth);
+    public static int StoneShelfWidth => Mathf.Max(UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth - UWTextures.PanelWidth);
 
     /// <summary>The compass disc's outline: on in Classic Modular, else the own layout's choice.</summary>
     public static bool CompassOutline => IsActive || UWUserSettings.ModernCompassOutline;

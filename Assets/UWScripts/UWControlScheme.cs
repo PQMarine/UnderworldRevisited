@@ -45,8 +45,24 @@ public class UWControlScheme : MonoBehaviour
     /// component or UWScene.ControlScheme, each with its own null rule; every one of them
     /// read the same Current. Null-safe: without a scheme component - the main menu, a scene
     /// before the player exists - it is the Original scheme, as every caller assumed.
+    ///
+    /// The last 24 tests of the form "scheme.Current == SchemeEnum.X" came here on 2026-10-19
+    /// (cleanup 5.1). Where a caller held its own reference it keeps that reference's null
+    /// check: UWScene.ControlScheme is null while the player object is off (noclip), and the
+    /// caller's answer for that case stays as it was. Not a scheme test and left alone: the
+    /// change detection of UWPlayerLook and the scheme selector of UWSetupMenu.
     /// </summary>
     public static bool IsModern => msInstance != null && msInstance.Current == SchemeEnum.Modern;
+
+    /// <summary>
+    /// THE INTERFACE THE GAME LOGIC TALKS TO (cleanup 5.19, 2026-10-23): UWClassicUiScheme or
+    /// UWModernUiScheme, swapped in Apply with the scheme - the game logic asks it what the
+    /// interface in force does instead of testing IsModern and branching (IUWUiScheme). The same
+    /// null rule as IsModern: without a scheme component it is the classic one.
+    /// </summary>
+    public static IUWUiScheme Ui => msInstance != null ? msInstance.mOUi : UWClassicUiScheme.Instance;
+
+    private IUWUiScheme mOUi = UWClassicUiScheme.Instance;
 
     private readonly HashSet<string> mOUiModalHolds = new HashSet<string>();
 
@@ -62,16 +78,24 @@ public class UWControlScheme : MonoBehaviour
         get { return mOUiModalHolds.Count > 0; }
     }
 
+    /// <summary>
+    /// A HOLD THAT DOES NOT CHANGE LEAVES THE POINTER ALONE (2026-10-22): the cursor state is
+    /// applied only when a hold is really added or taken away. Until then every call applied it,
+    /// and UWModernPointer.Tick releases its pointer hold in EVERY frame of the classic scheme -
+    /// so the classic scheme showed the system pointer again each frame, over the yes/no question
+    /// (per user: it came back on Y), the count prompt and the map note (the morning's fix in
+    /// UWGameUI.LateUpdate, gone again), whatever had hidden it.
+    /// </summary>
     public void HoldUiModal(string psReason)
     {
-        mOUiModalHolds.Add(psReason);
-        fApplyCursorState();
+        if (mOUiModalHolds.Add(psReason))
+            fApplyCursorState();
     }
 
     public void ReleaseUiModal(string psReason)
     {
-        mOUiModalHolds.Remove(psReason);
-        fApplyCursorState();
+        if (mOUiModalHolds.Remove(psReason))
+            fApplyCursorState();
     }
 
     public void SetUiModal(string psReason, bool pbOpen)
@@ -116,14 +140,14 @@ public class UWControlScheme : MonoBehaviour
 
     public void HoldPointer(string psReason)
     {
-        mOPointerHolds.Add(psReason);
-        fApplyCursorState();
+        if (mOPointerHolds.Add(psReason))
+            fApplyCursorState();
     }
 
     public void ReleasePointer(string psReason)
     {
-        mOPointerHolds.Remove(psReason);
-        fApplyCursorState();
+        if (mOPointerHolds.Remove(psReason))
+            fApplyCursorState();
     }
 
     /// <summary>
@@ -137,7 +161,7 @@ public class UWControlScheme : MonoBehaviour
     public bool IsRemoteCameraActive { get; set; }
 
     /// <summary>
-    /// Set by UWConversationScreen while a conversation is running.
+    /// Set by UWConversationController while a conversation is running.
     ///
     /// A SEPARATE FIELD, NOT IsUIModalOpen: the conversation halts look, movement and the
     /// world, but NOT the inventory - in the original the paperdoll stays usable during the
@@ -237,6 +261,10 @@ public class UWControlScheme : MonoBehaviour
 
         Current = peScheme;
 
+        // The interface the game logic talks to follows the scheme (Ui) - before the menus are
+        // handed over, which the new scheme's interface sees as before.
+        mOUi = peScheme == SchemeEnum.Modern ? (IUWUiScheme)UWModernUiScheme.Instance : UWClassicUiScheme.Instance;
+
         if (leBefore != peScheme && mbStarted)
             fHandOverMenus(leBefore);
 
@@ -264,14 +292,14 @@ public class UWControlScheme : MonoBehaviour
             lOOptions.CloseForSchemeChange();
 
             if (lOModern != null)
-                lOModern.OpenMenu(UWModernHud.PageEnum.Main);
+                lOModern.Menu.OpenMenu(UWModernGameMenu.PageEnum.Main);
         }
         else
         {
             if (lOModern == null || !lOModern.IsOpen)
                 return;
 
-            lOModern.CloseMenu();
+            lOModern.Menu.CloseMenu();
 
             if (lOOptions != null)
                 lOOptions.OpenForSchemeChange();

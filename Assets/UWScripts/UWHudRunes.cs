@@ -29,59 +29,43 @@ public sealed class UWHudRunes
     /// from X 174 to 219 and from Y 136 to 153. Three rune tiles of 14 pixels each fit
     /// exactly with a spacing of 15 - the last one ends on the right edge.
     /// </summary>
-    private const float SelectedRuneLeft = 176f;
+    private const float SelectedRuneLeft = UWClassicLayout.RuneHollow.RuneLeft;
 
-    private const float SelectedRuneTop = 138f;
+    private const float SelectedRuneTop = UWClassicLayout.RuneHollow.RuneTop;
 
-    private const float SelectedRunePitch = 15f;
+    private const float SelectedRunePitch = UWClassicLayout.RuneHollow.RunePitch;
 
-    /// <summary>No more than three: the fourth pushes out the left one (per user
-    /// on the original, 2026-09-03). Matches the three slots in the save game (0x47-0x49).
+    /// <summary>
+    /// THE SELECTION (cleanup 5.10, 2026-10-20): the runes in the hollow, how a click adds, puts,
+    /// clears and loads them and the flag of the last cast live in the engine-free
+    /// UWRuneShelfModel; this class draws them and is the Unity door the modern parts go through
+    /// (the input-mode gate, the redraw). The modern hollow, rune panel and help window read
+    /// Shelf.
     /// </summary>
-    public const int SelectedRuneCount = 3;
-
-    /// <summary>The green-marked strip at the bottom of the shelf clears the selection. The WHOLE
-    /// strip is clickable, not only the two symbols on it (tested per user in the original).
-    /// Position estimated on the panel picture - below the last compartment row, which
-    /// ends at Y 92.</summary>
-    private const float RuneClearTop = 93f;
-
-    private const float RuneClearBottom = 110f;
-
-    private readonly System.Collections.Generic.List<int> mOSelectedRunes =
-        new System.Collections.Generic.List<int>();
+    private readonly UWRuneShelfModel mOShelf = new UWRuneShelfModel();
 
     private RawImage[] mSelectedRuneImages;
 
-    /// <summary>
-    /// A CAST STARTS A NEW SHELF (mous_in_rune and try_cast, UnderworldExhumed RUNES.C, read
-    /// 2026-10-12): every cast attempt from the hollow sets a flag - also "Not a spell" and one
-    /// refused as too soon - and the next rune clicked empties the hollow first. After In Lor a
-    /// click on Ort gives "Ort", not "In Lor Ort". Clicking the hollow again recasts as before.
-    /// Until 2026-10-12 ours always appended; without a cast in between the fourth rune still
-    /// pushes out the first (per user, 2026-09-03).
-    ///
-    /// ONE FLAG FOR THE WHOLE SESSION: the original's is a static byte that nothing resets, so a
-    /// cast before restoring a game still empties the restored hollow at the first rune (per user
-    /// on the original, 2026-10-13). Ours lived on this component, which a restore builds anew.
-    /// </summary>
-    private static bool msbCastSinceLastRune;
+    internal UWRuneShelfModel Shelf
+    {
+        get { return mOShelf; }
+    }
 
     /// <summary>The selected runes, from left to right. Read by UWSavegameWriter for the
     /// save game.</summary>
     public System.Collections.Generic.IReadOnlyList<int> SelectedRunes
     {
-        get { return mOSelectedRunes; }
+        get { return mOShelf.Selected; }
     }
 
     /// <summary>
     /// Empties rune shelf and casting hollow and redraws both - for Armageddon
     /// (see UWMiscSpell). The bag itself lives in the player data
-    /// (UWPlayerData.ClearRunes), the selection by contrast here in the display.
+    /// (UWPlayerData.ClearRunes), the selection by contrast in UWRuneShelfModel.
     /// </summary>
     public void ClearRuneShelf()
     {
-        mOSelectedRunes.Clear();
+        mOShelf.Clear();
 
         fRefreshSelectedRunes();
         mOUi.Panel.fRefreshRunes();
@@ -92,11 +76,7 @@ public sealed class UWHudRunes
     /// sure the runes are in the bag.</summary>
     internal void PutOnShelf(System.Collections.Generic.IReadOnlyList<int> pORunes)
     {
-        mOSelectedRunes.Clear();
-        msbCastSinceLastRune = false;
-
-        for (int liAt = 0; pORunes != null && liAt < pORunes.Count && mOSelectedRunes.Count < SelectedRuneCount; liAt++)
-            mOSelectedRunes.Add(pORunes[liAt]);
+        mOShelf.Put(pORunes);
 
         fRefreshSelectedRunes();
     }
@@ -122,14 +102,13 @@ public sealed class UWHudRunes
 
     /// <summary>Whether the pointer lies on the casting hollow or, with the shelf shown, on a
     /// rune or the clear strip - where the original's try_cast and mous_in_rune swallow a click
-    /// in another input mode, so a use mode must not end there (UWItemDrag.fUpdateUseMode).</summary>
+    /// in another input mode, so a use mode must not end there (UWClassicUseMode.Update).</summary>
     internal bool IsPointerOverRunes(Vector2 pOScreenPos)
     {
-        if (mOUi.IsPointerInOriginalArea(pOScreenPos, UWClickRules.RuneShelf, out int _, out int _))
+        if (mOUi.ClassicScreen.IsPointerInOriginalArea(pOScreenPos, UWClickRules.RuneShelf, out int _, out int _))
             return true;
 
-        if (mOUi.Panel.mePanelSide != UWHudPanel.PanelSideEnum.Runes || mOUi.Panel.miPanelStep >= 0
-            || mOUi.Panel.mRuneRoot == null)
+        if (!mOUi.Panel.Turn.IsAtRestOn(UWPanelTurn.SideEnum.Runes) || mOUi.Panel.mRuneRoot == null)
             return false;
 
         return fGetRuneUnderMouse(pOScreenPos) >= 0 || fIsInRuneClearArea(pOScreenPos);
@@ -148,18 +127,10 @@ public sealed class UWHudRunes
     }
 
     /// <summary>A rune into the hollow, appended on the right - from the fourth on the left one
-    /// drops out, and the first rune after a cast starts a new shelf (msbCastSinceLastRune).</summary>
+    /// drops out, and the first rune after a cast starts a new shelf (UWRuneShelfModel.Add).</summary>
     private void fAddRune(int piRune)
     {
-        if (msbCastSinceLastRune)
-            mOSelectedRunes.Clear();
-
-        msbCastSinceLastRune = false;
-
-        mOSelectedRunes.Add(piRune);
-
-        while (mOSelectedRunes.Count > SelectedRuneCount)
-            mOSelectedRunes.RemoveAt(0);
+        mOShelf.Add(piRune);
 
         fRefreshSelectedRunes();
     }
@@ -170,7 +141,11 @@ public sealed class UWHudRunes
         fLookAtRune(piRune);
     }
 
-    /// <summary>For the modern rune panel: a click on its hollow casts what lies there.</summary>
+    /// <summary>Casts what lies in the hollow - UWGameActions.CastShelf, the one entry of every
+    /// trigger since cleanup 5.17 (2026-10-23): the modern rune panel's hollow and the rune
+    /// hollow, a click into the classic hollow (fUpdateSpellCast), the pad's LT, and F8, the
+    /// original's cast key: the same handler as a click into the hollow (PlayerAttemptsSpellCast in
+    /// its key table; CastByKey until then).</summary>
     internal void CastShelf()
     {
         fCastSelectedRunes();
@@ -195,7 +170,7 @@ public sealed class UWHudRunes
 
     /// <summary>
     /// THE MODERN SCHEME'S AIM (per user, 2026-10-04): the right button switches the pointer
-    /// there, so the LEFT button gives the target (Interaction.fUpdateSpellTargeting). By the
+    /// there, so the LEFT button gives the target (UWPendingSpell.UpdateTargeting). By the
     /// POINTER'S STATE: locked, a projectile flies at once towards the crosshair - one aims with
     /// the view already (Interaction.FirePendingSpell); free, it waits for the click and flies
     /// there, the original's target pointer showing - which also keeps the original's way of
@@ -213,7 +188,7 @@ public sealed class UWHudRunes
     /// the strip at the bottom clears the selection.</summary>
     internal void fUpdateRuneClicks()
     {
-        if (mOUi.Panel.mePanelSide != UWHudPanel.PanelSideEnum.Runes || mOUi.Panel.miPanelStep >= 0 || mOUi.Panel.mRuneRoot == null)
+        if (!mOUi.Panel.Turn.IsAtRestOn(UWPanelTurn.SideEnum.Runes) || mOUi.Panel.mRuneRoot == null)
             return;
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
@@ -237,7 +212,7 @@ public sealed class UWHudRunes
         // with them.
         if (lbLeft && fIsInRuneClearArea(lOPosition))
         {
-            mOSelectedRunes.Clear();
+            mOShelf.Clear();
             fRefreshSelectedRunes();
 
             return;
@@ -259,44 +234,41 @@ public sealed class UWHudRunes
         fAddRune(liRune);
     }
 
-    /// <summary>Which rune lies under the pointer? Only compartments that really hold
-    /// one - RectangleContainsScreenPoint also hits disabled pictures.</summary>
+    /// <summary>Which rune lies under the pointer? The original's gapless cells
+    /// (UWRuneShelfModel.RuneCellAt, decision 27, 2026-10-20), only for a rune whose picture is
+    /// shown. Until cleanup 5.10 RectangleContainsScreenPoint on each 16 x 16 picture, then the
+    /// same pictures in the model, with gaps between them.</summary>
     private int fGetRuneUnderMouse(Vector2 pOScreenPos)
     {
-        if (mOUi.Panel.mRuneSlotImages == null)
+        RawImage[] lOImages = mOUi.Panel.mRuneSlotImages;
+
+        if (lOImages == null || !fToShelf(pOScreenPos, out Vector2 lOLocal))
             return -1;
 
-        for (int liRune = 0; liRune < mOUi.Panel.mRuneSlotImages.Length; liRune++)
-        {
-            if (mOUi.Panel.mRuneSlotImages[liRune] == null || !mOUi.Panel.mRuneSlotImages[liRune].enabled)
-                continue;
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(
-                mOUi.Panel.mRuneSlotImages[liRune].rectTransform, pOScreenPos))
-                return liRune;
-        }
-
-        return -1;
+        return UWRuneShelfModel.RuneCellAt(lOLocal.x, -lOLocal.y,
+            liRune => liRune < lOImages.Length && lOImages[liRune] != null && lOImages[liRune].enabled);
     }
 
     /// <summary>Is the pointer on the clear strip? Computed in panel coordinates,
     /// because the strip has no hit area of its own.</summary>
     private bool fIsInRuneClearArea(Vector2 pOScreenPos)
     {
-        if (mOUi.Panel.mRuneRoot == null)
-            return false;
-
-        Vector2 lOLocal;
-
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-            mOUi.Panel.mRuneRoot, pOScreenPos, null, out lOLocal))
+        if (!fToShelf(pOScreenPos, out Vector2 lOLocal))
             return false;
 
         // mRuneRoot has its pivot at top left, Y runs negative downwards.
-        float lfY = -lOLocal.y;
-
         return lOLocal.x >= 0f && lOLocal.x <= UWHudPanel.PanelWidth
-            && lfY >= RuneClearTop && lfY <= RuneClearBottom;
+            && UWRuneShelfModel.IsClearStrip(-lOLocal.y);
+    }
+
+    /// <summary>A screen point in the rune page's own coordinates (mRuneRoot, pivot at the top
+    /// left, Y negative downwards), wherever the frame and the panel lie.</summary>
+    private bool fToShelf(Vector2 pOScreenPos, out Vector2 pOLocal)
+    {
+        pOLocal = Vector2.zero;
+
+        return mOUi.Panel.mRuneRoot != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            mOUi.Panel.mRuneRoot, pOScreenPos, null, out pOLocal);
     }
 
     /// <summary>Right click on a rune: the same look message as for an item
@@ -329,7 +301,7 @@ public sealed class UWHudRunes
             return;
 
         if (mSelectedRuneImages == null)
-            mSelectedRuneImages = new RawImage[SelectedRuneCount];
+            mSelectedRuneImages = new RawImage[UWRuneShelfModel.Capacity];
 
         for (int liSlot = 0; liSlot < mSelectedRuneImages.Length; liSlot++)
         {
@@ -352,13 +324,13 @@ public sealed class UWHudRunes
                 // Below the dragons: the right dragon's head lies over the rune hollow (per user,
                 // 2026-09-14). The runes are created later than the dragons, so they are moved in
                 // front of them in the drawing order.
-                if (mOUi.mODragons != null)
-                    lOObject.transform.SetSiblingIndex(mOUi.mODragons.FirstSiblingIndex);
+                if (mOUi.Classic.Dragons != null)
+                    lOObject.transform.SetSiblingIndex(mOUi.Classic.Dragons.FirstSiblingIndex);
             }
 
             RawImage lOImage = mSelectedRuneImages[liSlot];
 
-            if (liSlot >= mOSelectedRunes.Count)
+            if (liSlot >= mOShelf.Selected.Count)
             {
                 lOImage.enabled = false;
                 continue;
@@ -366,7 +338,7 @@ public sealed class UWHudRunes
 
             UWTexture lOSource = mOUi.mOUWData.Textures.GetTextureByType(
                 UWTexture.TextureTypes.OBJECTS,
-                UWPlayerData.FirstRuneObjectId + mOSelectedRunes[liSlot]);
+                UWPlayerData.FirstRuneObjectId + mOShelf.Selected[liSlot]);
 
             if (lOSource == null)
             {
@@ -376,7 +348,9 @@ public sealed class UWHudRunes
 
             UWIconPalette.Apply(lOImage);
 
-            lOImage.texture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
+            // Shared (UWIconCache): until 2026-10-19 every refresh made new textures that nothing
+            // destroyed (B33).
+            lOImage.texture = UWIconCache.Texture(lOSource, mOUi.TextureFilterMode);
             ((RectTransform)lOImage.transform).sizeDelta =
                 new Vector2(lOSource.Width, lOSource.Height);
             lOImage.enabled = true;
@@ -402,10 +376,10 @@ public sealed class UWHudRunes
 
         Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
 
-        if (!mOUi.IsPointerInOriginalArea(lOPosition, UWClickRules.RuneShelf, out int _, out int _))
+        if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.RuneShelf, out int _, out int _))
             return;
 
-        fCastSelectedRunes();
+        mOUi.Actions.CastShelf();
     }
 
     /// <summary>
@@ -421,13 +395,6 @@ public sealed class UWHudRunes
         mOUi.Map.fEnsureLevelLoader();
 
         return new UWSpellHost(mOUi.mCharacter, mOUi.mOInteraction, mOUi.Map.mOLevelLoader, mOUi.mOUWData, mOUi);
-    }
-
-    /// <summary>F8, the original's cast key: the same handler as a click into the hollow
-    /// (PlayerAttemptsSpellCast in its key table).</summary>
-    internal void CastByKey()
-    {
-        fCastSelectedRunes();
     }
 
     /// <summary>F9, the original's track key: the Detect Monsters search with the player's Track
@@ -450,9 +417,9 @@ public sealed class UWHudRunes
         if (mOUi.mOInteraction == null || mOUi.mOUWData == null || mOUi.mCharacter == null || fInAnotherInputMode())
             return;
 
-        msbCastSinceLastRune = true;
+        mOShelf.NoteCast();
 
-        UWSpellCasting.CastRunes(fGetSelectedRune(0), fGetSelectedRune(1), fGetSelectedRune(2), fMakeSpellHost());
+        UWSpellCasting.CastRunes(mOShelf.RuneInSlot(0), mOShelf.RuneInSlot(1), mOShelf.RuneInSlot(2), fMakeSpellHost());
         fAfterModernCast();
     }
 
@@ -482,42 +449,11 @@ public sealed class UWHudRunes
         fRefreshSpellIcons();
     }
 
-    /// <summary>
-    /// Takes over the three spell slots from the save game.
-    ///
-    /// They are at 0x47 in PLAYER.DAT, one byte per slot, with 0x24 for empty. Whoever leaves
-    /// the game with selected runes finds them in the hollow again on loading -
-    /// until 2026-09-05 every save game in our version started with empty slots.
-    ///
-    /// The order matters: the list is filled from left to right, and a
-    /// fourth rune pushes out the first.
-    /// </summary>
+    /// <summary>Takes over the three spell slots from the save game (UWRuneShelfModel.Load); the
+    /// pictures follow once the interface is built (UWGameUI.Init).</summary>
     internal void fLoadSelectedRunes()
     {
-        mOSelectedRunes.Clear();
-
-        UWPlayerData lOPlayer = mOUi.mOUWData != null ? mOUi.mOUWData.InitialPlayer : null;
-
-        if (lOPlayer == null)
-            return;
-
-        for (int liSlot = 0; liSlot < SelectedRuneCount; liSlot++)
-        {
-            int liRune = lOPlayer.GetSelectedRune(liSlot);
-
-            if (liRune < 0)
-                continue;
-
-            mOSelectedRunes.Add(liRune);
-        }
-    }
-
-    /// <summary>The rune at the given slot, or the empty value.</summary>
-    private int fGetSelectedRune(int piSlot)
-    {
-        return piSlot >= 0 && piSlot < mOSelectedRunes.Count
-            ? mOSelectedRunes[piSlot]
-            : UWRunicMagic.EmptyRune;
+        mOShelf.Load(mOUi.mOUWData != null ? mOUi.mOUWData.InitialPlayer : null);
     }
 
     /// <summary>
@@ -530,11 +466,11 @@ public sealed class UWHudRunes
     ///
     /// The FIRST spell lies on the right, further ones attach to the left.
     /// </summary>
-    private const float SpellIconRight = 85f;
+    private const float SpellIconRight = UWClassicLayout.ActiveSpells.Right;
 
-    private const float SpellIconTop = 138f;
+    private const float SpellIconTop = UWClassicLayout.ActiveSpells.Top;
 
-    private const float SpellIconPitch = 16f;
+    private const float SpellIconPitch = UWClassicLayout.ActiveSpells.Pitch;
 
     private RawImage[] mSpellIconImages;
 
@@ -606,7 +542,9 @@ public sealed class UWHudRunes
             // the shader via the rotation table, previously UWCycledIcon pre-baked the steps.
             UWIconPalette.Apply(lOImage);
 
-            lOImage.texture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
+            // Shared (UWIconCache): until 2026-10-19 every change of the active spells made new
+            // textures that nothing destroyed (B33).
+            lOImage.texture = UWIconCache.Texture(lOSource, mOUi.TextureFilterMode);
             ((RectTransform)lOImage.transform).sizeDelta =
                 new Vector2(lOSource.Width, lOSource.Height);
             lOImage.enabled = true;
@@ -637,7 +575,7 @@ public sealed class UWHudRunes
         // area (UWHudPanel), and the vitality comes after the poison line.
         Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
 
-        if (!mOUi.IsPointerInOriginalArea(lOPosition, UWClickRules.Flasks, out int liX, out int liY))
+        if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.Flasks, out int liX, out int liY))
             return;
 
         switch (UWClickRules.FlaskAt(liX, liY))
@@ -753,7 +691,7 @@ public sealed class UWHudRunes
         // the pictures sat one column right of that.
         Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
 
-        if (!mOUi.IsPointerInOriginalArea(lOPosition, UWClickRules.ActiveSpells, out int liX, out int _))
+        if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.ActiveSpells, out int liX, out int _))
             return;
 
         int liSlot = UWClickRules.ActiveSpellSlotAt(liX);

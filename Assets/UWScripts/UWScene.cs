@@ -38,7 +38,7 @@ public static class UWScene
     private static UWPlayerTerrain msPlayerTerrain;
     private static UWPlayerMovement msPlayerMovement;
     private static UWMainMenu msMainMenu;
-    private static UWConversationScreen msConversationScreen;
+    private static UWConversationController msConversationController;
 
     public static GameObject LevelObject
     {
@@ -112,7 +112,7 @@ public static class UWScene
 
     public static UWMainMenu MainMenu => fGet(ref msMainMenu);
 
-    public static UWConversationScreen ConversationScreen => fGet(ref msConversationScreen);
+    public static UWConversationController ConversationController => fGet(ref msConversationController);
 
     /// <summary>The world on the level object (UWWorld, cleanup step 3.1, 2026-10-17), made when
     /// missing; null without a level loader.</summary>

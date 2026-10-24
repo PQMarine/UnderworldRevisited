@@ -29,12 +29,12 @@ public static class UWHelpLayout
     /// <summary>Width of the help when it lies over the picture, as a share of the canvas.</summary>
     public const float OverlayShare = 0.45f;
 
-    private const float CanvasHeight = 200f;
+    private const float CanvasHeight = UWDataImport.UWData.UWClassicLayout.Screen.Height;
 
-    private const float FrameWidth = 320f;
+    private const float FrameWidth = UWDataImport.UWData.UWClassicLayout.Screen.Width;
 
-    /// <summary>The 4:3 pixel width - UWGameUI.VgaPixelAspectCorrection.</summary>
-    private const float FourByThreeFactor = 5f / 6f;
+    /// <summary>The 4:3 pixel width - UWClassicScreen.VgaPixelAspectCorrection.</summary>
+    private const float FourByThreeFactor = UWDataImport.UWData.UWClassicLayout.Screen.PixelAspect;
 
     /// <summary>Whether the help is (being) opened.</summary>
     public static bool IsOpen { get; private set; }

@@ -28,13 +28,9 @@ using UWDataImport.UWData;
 /// </summary>
 public class UWMainMenu : MonoBehaviour
 {
-    private const int SortingOrder = 95;
-
     /// <summary>Where the four buttons sit (the reference's scene, divided by four).</summary>
     private static readonly Vector2Int[] miButtonPositions =
-    {
-        new Vector2Int(98, 81), new Vector2Int(81, 104), new Vector2Int(72, 128), new Vector2Int(85, 153)
-    };
+        System.Array.ConvertAll(UWClassicLayout.MainMenu.Buttons, pyButton => new Vector2Int(pyButton.X, pyButton.Y));
 
     private const int ButtonCount = 4;
 
@@ -51,17 +47,17 @@ public class UWMainMenu : MonoBehaviour
     private const int AcknowledgementsCutscene = 0xA;
 
     /// <summary>The list of savegames, centred below the lettering.</summary>
-    private const int SaveListTop = 84;
+    private const int SaveListTop = UWClassicLayout.MainMenu.SaveListTop;
 
-    private const int SaveListPitch = 20;
+    private const int SaveListPitch = UWClassicLayout.MainMenu.SaveListPitch;
 
     /// <summary>Palette of the screen and the two text colours of the list (the reference:
     /// PaletteIndexSaveGameSelected 0xA2, ...UnSelected 0xAA).</summary>
-    private const int ScreenPalette = 2;
+    private const int ScreenPalette = UWClassicLayout.MainMenu.Palette;
 
-    private const int SelectedColourIndex = 0xA2;
+    private const int SelectedColourIndex = UWClassicLayout.MainMenu.SelectedColourIndex;
 
-    private const int UnselectedColourIndex = 0xAA;
+    private const int UnselectedColourIndex = UWClassicLayout.MainMenu.UnselectedColourIndex;
 
     private enum Mode
     {
@@ -528,12 +524,12 @@ public class UWMainMenu : MonoBehaviour
         if (mOCanvas != null)
             return;
 
-        mOCanvas = UWScreenUi.CreateCanvas(transform, "UW Main Menu", SortingOrder, out mOFrame);
+        mOCanvas = UWScreenUi.CreateCanvas(transform, "UW Main Menu", UWUiSorting.MainMenu, out mOFrame);
 
         FilterMode leFilter = UnderworldRevisited.UWSettings.Instance != null
             ? UnderworldRevisited.UWSettings.Instance.TextureFilterMode : FilterMode.Point;
 
-        mOBackground = UWScreenUi.CreateRawImage(mOFrame, "Title Screen", 0, 0);
+        mOBackground = UWUiKit.CreateRawImageAt(mOFrame, "Title Screen", 0, 0);
         UWScreenUi.SetTexture(mOBackground, UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.OPSCR, 0, leFilter));
 
         for (int liAt = 0; liAt < ButtonCount; liAt++)
@@ -541,13 +537,13 @@ public class UWMainMenu : MonoBehaviour
             mOButtonOff[liAt] = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.OPBTN, liAt * 2, leFilter);
             mOButtonOn[liAt] = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.OPBTN, (liAt * 2) + 1, leFilter);
 
-            mOButtons[liAt] = UWScreenUi.CreateRawImage(mOFrame, "Button " + (liAt + 1),
+            mOButtons[liAt] = UWUiKit.CreateRawImageAt(mOFrame, "Button " + (liAt + 1),
                 miButtonPositions[liAt].x, miButtonPositions[liAt].y);
         }
 
         for (int liSlot = 0; liSlot < UWSavegameSlots.SlotCount; liSlot++)
         {
-            mOSaveLabels[liSlot] = UWScreenUi.CreateRawImage(mOFrame, "Savegame " + (liSlot + 1),
+            mOSaveLabels[liSlot] = UWUiKit.CreateRawImageAt(mOFrame, "Savegame " + (liSlot + 1),
                 0, SaveListTop + (liSlot * SaveListPitch));
             mOSaveLabels[liSlot].gameObject.SetActive(false);
         }

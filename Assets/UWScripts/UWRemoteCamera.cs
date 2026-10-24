@@ -295,7 +295,7 @@ public sealed class UWRemoteCamera : MonoBehaviour
     }
 
     /// <summary>
-    /// LATE, not in Update: UWGameUI.fApplyGameCamera sets the viewport rect and field of view
+    /// LATE, not in Update: UWViewportCamera.Apply sets the viewport rect and field of view
     /// of the player camera in Update, and there is no fixed script execution order in the
     /// project. The only reliable thing is that all Updates run before all LateUpdates.
     /// </summary>

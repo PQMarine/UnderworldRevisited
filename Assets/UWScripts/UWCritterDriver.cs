@@ -60,7 +60,7 @@ public class UWCritterDriver : MonoBehaviour
 
     private void Update()
     {
-        bool lbTalking = UWConversationScreen.IsAnyOpen;
+        bool lbTalking = UWConversationController.IsAnyOpen;
         int liTicks = 0;
 
         if (!lbTalking)
@@ -95,7 +95,7 @@ public class UWCritterDriver : MonoBehaviour
     /// <summary>The easy move's fixed step: 64 ticks, four units (UWPlayerMovement).</summary>
     public void StepWorld()
     {
-        if (UWConversationScreen.IsAnyOpen)
+        if (UWConversationController.IsAnyOpen)
             return;
 
         fRun(0, true);

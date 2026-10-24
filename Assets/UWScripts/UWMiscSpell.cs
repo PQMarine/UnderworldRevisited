@@ -25,7 +25,7 @@ public static class UWMiscSpell
 
     /// <summary>
     /// A class 11 spell that goes onto a clicked target in reach (see
-    /// Interaction.fApplyTargetSpell): Unlock, Name Enchantment and Remove Trap.
+    /// UWPendingSpell.fApplyTargetSpell): Unlock, Name Enchantment and Remove Trap.
     ///
     /// EACH SPEAKS FOR ITSELF, as obj_spells (UnderworldExhumed SPELLS.C, read 2026-10-12):
     /// Unlock says "The spell unlocks the lock." or "The spell has no discernable effect.",
@@ -57,7 +57,7 @@ public static class UWMiscSpell
 
     /// <summary>
     /// A class 11 target spell on an item in the inventory - see
-    /// Interaction.ResolveTargetSpellOnItem.
+    /// UWPendingSpell.ResolveInInventory.
     ///
     /// So far exactly one: Name Enchantment. Unlock needs a door and finds nothing
     /// matching in the backpack.

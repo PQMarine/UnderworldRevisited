@@ -63,6 +63,13 @@ namespace UWDataImport.UWData
 			public int X;
 
 			public int Y;
+
+			/// <summary>The 50-byte text field as the file held it, null for a note written here.
+			/// The original copies its whole typing buffer into the field, so the bytes after the
+			/// text's zero are whatever the buffer held before (found 2026-10-23 in a SAVE0 the
+			/// original wrote: "A", 0, then 01 F1 F1 01 F1 ...). They mean nothing, but a save
+			/// round trip keeps them while the text is unchanged (UWSaveCodec.BuildMapNoteBlock).</summary>
+			public byte[] TextField;
 		}
 
 		public System.Collections.Generic.List<MapNote> MapNotes { get; private set; }
@@ -119,11 +126,15 @@ namespace UWDataImport.UWData
 					lOText.Append((char)lyChar);
 				}
 
+				byte[] lyField = new byte[50];
+				System.Array.Copy(pyRawLevelData, liAt, lyField, 0, lyField.Length);
+
 				lONotes.Add(new MapNote
 				{
 					Text = lOText.ToString(),
 					X = pyRawLevelData[liAt + 0x32] | (pyRawLevelData[liAt + 0x33] << 8),
-					Y = pyRawLevelData[liAt + 0x34] | (pyRawLevelData[liAt + 0x35] << 8)
+					Y = pyRawLevelData[liAt + 0x34] | (pyRawLevelData[liAt + 0x35] << 8),
+					TextField = lyField
 				});
 			}
 

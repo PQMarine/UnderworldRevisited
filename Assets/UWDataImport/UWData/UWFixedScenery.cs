@@ -80,7 +80,7 @@ namespace UWDataImport.UWData
 			298, // a_campfire
 			// an_urn: confirmed per user in the original, 2026-09-30 (level 2, 24/36, six spikes
 			// inside) - cannot be picked up although COMOBJ.DAT sets its pickable bit, like the
-			// orb and the fountain; used, it spills like a barrel (Interaction.fTryUseObjectEffect).
+			// orb and the fountain; used, it spills like a barrel (UWWorldUse.fTryUseObjectEffect).
 			140,
 			// The animated objects (0x01C0 to 0x01CF): water, fire, the silver tree and
 			// the like. These are animations, not items - the fountain on tile

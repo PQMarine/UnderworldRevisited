@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport;
 using UWDataImport.UWData;
@@ -134,15 +133,28 @@ public sealed class UWWeaponView
 
     private int miShownFrameVersion = -1;
 
+    /// <summary>The colour help the shown pictures were taken with (UWColourVision.Version).</summary>
+    private int miShownColours = -1;
+
     /// <summary>Converts what the swing chose since the last call: the weapon picture whenever it
     /// was chosen anew (UWCharacter.fUpdateWeapon converted on every call), the gem when its
-    /// picture changed.</summary>
+    /// picture changed - and both when the colour help changed (2026-10-19: the gem kept the
+    /// colours it was first built with, and a weapon held still kept its picture until the next
+    /// frame).</summary>
     private void fSync()
     {
-        if (mOSwing.FrameVersion != miShownFrameVersion)
+        bool lbColours = UWColourVision.Version != miShownColours;
+
+        if (mOSwing.FrameVersion != miShownFrameVersion || lbColours)
         {
             miShownFrameVersion = mOSwing.FrameVersion;
             fGetCurrentWeaponTexture();
+        }
+
+        if (lbColours)
+        {
+            miShownColours = UWColourVision.Version;
+            mOCurrentPowerGemSource = null;
         }
 
         fUpdatePowerGemTeture(mOSwing.GemPicture);
@@ -169,36 +181,16 @@ public sealed class UWWeaponView
         if (pOTexture == null)
             return null;
 
-        Texture2D lOCached;
+        // A change of the colour help makes every cached picture stale (the stamp, UWArtCache).
+        UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-        // A change of the colour help makes every cached picture stale.
-        if (miUiColourVersion != UWColourVision.Version)
-        {
-            foreach (Texture2D lOOld in mOUiTextureCache.Values)
-                Object.Destroy(lOOld);
-
-            mOUiTextureCache.Clear();
-
-            miUiColourVersion = UWColourVision.Version;
-        }
-
-        if (!mOUiTextureCache.TryGetValue(pOTexture, out lOCached) || lOCached == null)
-        {
-            lOCached = new Texture2D(pOTexture.Width, pOTexture.Height, TextureFormat.ARGB32, false);
-            lOCached.name = "UWWeaponView weapon";
-            lOCached.filterMode = meFilterMode;
-            lOCached.SetPixels32(UWGameUI.fGetTextureInvert(pOTexture));
-            lOCached.Apply();
-
-            mOUiTextureCache[pOTexture] = lOCached;
-        }
+        if (!mOUiTextureCache.TryGet(pOTexture, lOStamp, out Texture2D lOCached))
+            lOCached = mOUiTextureCache.Set(pOTexture, lOStamp, UWTextureFactory.FromTexture(pOTexture, meFilterMode, "UWWeaponView weapon"));
 
         return lOCached;
     }
 
-    private readonly Dictionary<UWTexture, Texture2D> mOUiTextureCache = new Dictionary<UWTexture, Texture2D>();
-
-    private int miUiColourVersion = -1;
+    private readonly UWArtCache<UWTexture> mOUiTextureCache = new UWArtCache<UWTexture>();
 
     /// <summary>
     /// Sets the image of the power orb.
@@ -210,6 +202,10 @@ public sealed class UWWeaponView
     ///
     /// Now each of the fourteen orb images is converted once and kept, and a
     /// change only happens when the image really changes.
+    ///
+    /// Since 2026-10-19 the images carry the stamp of the colour help they were made with
+    /// (UWArtCache, as the weapon's frames): after a change each is made anew once and the old
+    /// one destroyed.
     /// </summary>
     private void fUpdatePowerGemTeture(UWTexture pTexture)
     {
@@ -218,23 +214,15 @@ public sealed class UWWeaponView
 
         mOCurrentPowerGemSource = pTexture;
 
-        Texture2D lOCached;
+        UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-        if (!mOPowerGemTextures.TryGetValue(pTexture, out lOCached))
-        {
-            lOCached = new Texture2D(pTexture.Width, pTexture.Height, TextureFormat.ARGB32, false);
-            lOCached.name = "UWWeaponView gem";
-            lOCached.SetPixels32(UWGameUI.fGetTextureInvert(pTexture));
-            lOCached.filterMode = meFilterMode;
-            lOCached.Apply();
-
-            mOPowerGemTextures[pTexture] = lOCached;
-        }
+        if (!mOPowerGemTextures.TryGet(pTexture, lOStamp, out Texture2D lOCached))
+            lOCached = mOPowerGemTextures.Set(pTexture, lOStamp, UWTextureFactory.FromTexture(pTexture, meFilterMode, "UWWeaponView gem"));
 
         PowerGemTeture = lOCached;
     }
 
-    private readonly Dictionary<UWTexture, Texture2D> mOPowerGemTextures = new Dictionary<UWTexture, Texture2D>();
+    private readonly UWArtCache<UWTexture> mOPowerGemTextures = new UWArtCache<UWTexture>();
 
     private UWTexture mOCurrentPowerGemSource;
 }

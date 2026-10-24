@@ -12,8 +12,9 @@ using UnityEngine.InputSystem.Controls;
 /// (Windows), they alone count, else every letter would arrive twice.
 ///
 /// Letters follow Shift, digits and the punctuation keys give their unshifted label, the space
-/// bar a blank. Enough for a name, a mantra, an answer and a save name - the typing sites
-/// feed the result to their text handlers (fOnTextInput and the like), which filter as before.
+/// bar a blank. Enough for a name, a mantra, an answer, a save name and a map note - UWTextEntry
+/// feeds the result through its one filter to the typing places' handlers (since 2026-10-19;
+/// until then each place called it itself, and the map note did not, B26).
 /// </summary>
 public static class UWTypedKeys
 {
@@ -30,14 +31,7 @@ public static class UWTypedKeys
         if (lOKeyboard == null)
             return string.Empty;
 
-        if (msHooked != lOKeyboard)
-        {
-            if (msHooked != null)
-                msHooked.onTextInput -= fOnTextInput;
-
-            lOKeyboard.onTextInput += fOnTextInput;
-            msHooked = lOKeyboard;
-        }
+        Hook();
 
         int liFrame = Time.frameCount;
 
@@ -81,6 +75,22 @@ public static class UWTypedKeys
         }
 
         return msBuffer.ToString();
+    }
+
+    /// <summary>Listens to the current keyboard's text events (again after a device change).
+    /// UWTextEntry.Begin calls it, so the events are heard before the first key is read.</summary>
+    public static void Hook()
+    {
+        Keyboard lOKeyboard = Keyboard.current;
+
+        if (lOKeyboard == null || msHooked == lOKeyboard)
+            return;
+
+        if (msHooked != null)
+            msHooked.onTextInput -= fOnTextInput;
+
+        lOKeyboard.onTextInput += fOnTextInput;
+        msHooked = lOKeyboard;
     }
 
     private static void fOnTextInput(char pcChar)

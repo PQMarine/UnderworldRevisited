@@ -666,7 +666,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
     // ------------------------------------------------- Talk and music
 
-    public bool CanTalk => !UWConversationScreen.IsAnyOpen && UWScene.Interaction != null;
+    public bool CanTalk => !UWConversationController.IsAnyOpen && UWScene.Interaction != null;
 
     public void Talk(UWNpc pONpc)
     {

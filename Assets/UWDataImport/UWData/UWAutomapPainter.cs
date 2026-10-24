@@ -34,17 +34,18 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWAutomapPainter
 	{
-		public const int ScreenWidth = 320;
+		public const int ScreenWidth = UWClassicLayout.Screen.Width;
 
-		public const int ScreenHeight = 200;
+		public const int ScreenHeight = UWClassicLayout.Screen.Height;
 
 		public const int TilesPerAxis = UWWorldScale.TilesPerAxis;
 
-		public const int TileSize = 3;
+		/// <summary>The cell's size and origin: UWClassicLayout.Map (ovr092_48B).</summary>
+		public const int TileSize = UWClassicLayout.Map.TileSize;
 
-		public const int CellLeft = 7;
+		public const int CellLeft = UWClassicLayout.Map.CellLeft;
 
-		public const int CellBottom = 4;
+		public const int CellBottom = UWClassicLayout.Map.CellBottom;
 
 		/// <summary>Where a random value is drawn, so that a caller can keep each one stable
 		/// (the port rolls once per pixel instead of on every drawing, per user 2026-09-26).</summary>

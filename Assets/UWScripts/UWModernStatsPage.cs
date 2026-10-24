@@ -13,12 +13,14 @@ using UWDataImport.UWData;
 /// page carries (strength, dexterity, intelligence, vitality, mana, experience), and the skill
 /// list - six rows of twenty entries (attack, defence, the eighteen skills), names in the
 /// skills' blue-grey. The texts are the interface's (UWUiFonts: modern or the original's font).
+/// What they say, the list's offset and its paging are UWCharacterSheet's in the original's
+/// spelling, as on the classic page (cleanup 5.9, 2026-10-20).
 ///
 /// THE LIST PAGES as in the original (ovr145_445): a left click in the page's bottom eight rows,
 /// left of x 37 back, from 37 on forward, one entry per click; the wheel over the page does the
-/// same. With the pointer free; the page counts as interface (UWModernHud.IsOverSpellIcons).
+/// same. With the pointer free; the page counts as interface (UWModernHud.IsOverParts).
 /// </summary>
-public class UWModernStatsPage
+public class UWModernStatsPage : IUWModernPart
 {
     private const int NameY = 7;
 
@@ -36,8 +38,6 @@ public class UWModernStatsPage
 
     private const int SkillRows = 6;
 
-    private const int SkillCount = 20;
-
     /// <summary>The paging: the bottom eight rows, split at x 37.</summary>
     private const int PagingTop = 106;
 
@@ -53,12 +53,11 @@ public class UWModernStatsPage
 
     private Texture2D mOPageTexture;
 
-    private int miArtVersion = -1;
-
     /// <summary>Name, class, level, the six values, then six skill names and six skill values.</summary>
     private Text[] mOLines;
 
-    private int miOffset;
+    /// <summary>What the page says, and the list's offset.</summary>
+    private readonly UWCharacterSheet mOSheet = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Original, SkillRows);
 
     private float miScale = 1f;
 
@@ -76,25 +75,21 @@ public class UWModernStatsPage
 
     public void Build(Transform pOParent)
     {
-        GameObject lOContent = new GameObject("Stats page content", typeof(RectTransform));
-        lOContent.transform.SetParent(pOParent, false);
-        mOContent = (RectTransform)lOContent.transform;
-        mOContent.anchorMin = Vector2.zero;
-        mOContent.anchorMax = Vector2.zero;
-        mOContent.pivot = Vector2.zero;
+        mOContent = UWUiKit.CreateGroup(pOParent, "Stats page content");
         mOContent.sizeDelta = Vector2.zero;
 
         Transform pORoot = mOContent;
 
-        mOPage = fCreateImage(pORoot, "Stats page");
+        mOPage = UWUiKit.CreateRawImage(pORoot, "Stats page");
         UWPixelArtUI.Apply(mOPage);
         mOLines = new Text[9 + (2 * SkillRows)];
 
+        // Unity's own alignment and colour: each line gets its own when it is placed (fLine).
         for (int liAt = 0; liAt < mOLines.Length; liAt++)
-            mOLines[liAt] = fCreateText(pORoot, "Stats line " + liAt);
+            mOLines[liAt] = UWUiKit.CreateText(pORoot, "Stats line " + liAt, TextAnchor.UpperLeft, Color.white, mOUi, UWUiKit.StatsText);
     }
 
-    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernHud.PixelScale.</summary>
+    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernUi.PixelScale.</summary>
     public void Update(float pfPixelScale)
     {
         ScreenRect = Rect.zero;
@@ -110,14 +105,9 @@ public class UWModernStatsPage
             return;
         }
 
-        if (mOPageTexture == null || miArtVersion != UWColourVision.Version)
-        {
-            if (mOPageTexture != null)
-                Object.Destroy(mOPageTexture);
-
-            mOPageTexture = UWModernHudArt.BuildPanelPage(mOUi.mOUWData.Textures, 2, mOUi.TextureFilterMode);
-            miArtVersion = UWColourVision.Version;
-        }
+        // The original's stats page, shared and following the colour help in place (UWGrTextures).
+        mOPageTexture = UWGrTextures.Get(mOUi.mOUWData.Textures, UWTexture.TextureTypes.PANELS, 2, mOUi.TextureFilterMode,
+            UWGrTextures.ModeEnum.Picture);
 
         if (mOPageTexture == null)
         {
@@ -137,32 +127,21 @@ public class UWModernStatsPage
 
         mOPage.texture = mOPageTexture;
         mOPage.enabled = true;
-        fSetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
+        UWUiKit.SetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
 
-        UWCharacter lOCharacter = mOUi.mCharacter;
-        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
+        UWCharacterSheet lOSheet = mOSheet.Bind(mOUi.mOUWData.Strings, mOUi.mOUWData.InitialPlayer, mOUi.mCharacter.Vitals);
         int liFont = Mathf.Max(8, Mathf.RoundToInt(6.8f * miScale));
 
-        fLine(0, fName(lOPlayer), NameY, TextAnchor.MiddleCenter, 0, msValue, liFont, lOPlaced);
-        fLine(1, fClass(lOPlayer), ClassY, TextAnchor.MiddleLeft, LabelLeft, msValue, liFont, lOPlaced);
-        fLine(2, fLevel(lOCharacter.Vitals.Level), ClassY, TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
+        fLine(0, lOSheet.Name, NameY, TextAnchor.MiddleCenter, 0, msValue, liFont, lOPlaced);
+        fLine(1, lOSheet.ClassName, ClassY, TextAnchor.MiddleLeft, LabelLeft, msValue, liFont, lOPlaced);
+        fLine(2, lOSheet.LevelText, ClassY, TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
 
-        string[] lsValues =
-        {
-            lOCharacter.Vitals.Strength.ToString(),
-            lOCharacter.Vitals.Dexterity.ToString(),
-            lOCharacter.Vitals.Intelligence.ToString(),
-            Mathf.RoundToInt(lOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
-            Mathf.RoundToInt(lOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
-            (lOCharacter.Vitals.Experience / 10).ToString()
-        };
-
-        for (int liRow = 0; liRow < lsValues.Length; liRow++)
-            fLine(3 + liRow, lsValues[liRow], FirstRowY + (liRow * RowHeight), TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
+        for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
+            fLine(3 + liRow, lOSheet.Value(liRow), FirstRowY + (liRow * RowHeight), TextAnchor.MiddleRight, ValueRight, msValue, liFont, lOPlaced);
 
         for (int liRow = 0; liRow < SkillRows; liRow++)
         {
-            fSkill(miOffset + liRow, out string lsName, out string lsValue);
+            lOSheet.TryGetSkill(lOSheet.EntryAtRow(liRow), out string lsName, out string lsValue);
 
             int liY = SkillFirstRowY + (liRow * RowHeight);
 
@@ -181,7 +160,9 @@ public class UWModernStatsPage
 
         Vector2 lOPointer = lOMouse.position.ReadValue();
 
-        if (!ScreenRect.Contains(lOPointer))
+        // No paging while the Classic Wide panel turns (per user, 2026-10-20), as the classic
+        // stats page (UWHudPanel asks UWPanelTurn.IsAtRestOn): the page stands squeezed then.
+        if (!ScreenRect.Contains(lOPointer) || UWModernClassicFrame.IsTurning)
             return;
 
         int liStep = 0;
@@ -199,7 +180,7 @@ public class UWModernStatsPage
         }
 
         if (liStep != 0)
-            miOffset = Mathf.Clamp(miOffset + liStep, 0, SkillCount - SkillRows);
+            mOSheet.PageSkills(liStep);
     }
 
     public void Hide()
@@ -238,120 +219,6 @@ public class UWModernStatsPage
             : peAlign == TextAnchor.MiddleRight ? pOPage.x + (piX * lfAspect) - pOPage.width
             : pOPage.x + (piX * lfAspect);
 
-        fSetRect(lOText.rectTransform, lfX, lfTop - lfHeight, pOPage.width, lfHeight);
-    }
-
-    /// <summary>The header name as the original's stats page has it: at most fifteen characters,
-    /// upper-cased (UnderworldExhumed STATS.C sp_hdr; matters since names hold 29, 2026-10-12).</summary>
-    private string fName(UWPlayerData pOPlayer)
-    {
-        if (pOPlayer == null || string.IsNullOrEmpty(pOPlayer.Name))
-            return "AVATAR";
-
-        return (pOPlayer.Name.Length > StatsNameLength ? pOPlayer.Name.Substring(0, StatsNameLength) : pOPlayer.Name).ToUpper();
-    }
-
-    private const int StatsNameLength = 0xF;
-
-    /// <summary>The class from string block 2 from 0x18 on (UWHudPanel.fGetClassName).</summary>
-    private string fClass(UWPlayerData pOPlayer)
-    {
-        try
-        {
-            return pOPlayer != null ? mOUi.mOUWData.Strings.Blocks[2].Strings[UWStringIds.ClassNameBase + pOPlayer.CharacterClass].Trim().ToUpper() : string.Empty;
-        }
-        catch
-        {
-            return string.Empty;
-        }
-    }
-
-    private static string fLevel(int piLevel)
-    {
-        int liLastTwo = piLevel % 100;
-        int liLast = piLevel % 10;
-        string lsSuffix = "TH";
-
-        if (liLastTwo < 11 || liLastTwo > 13)
-        {
-            if (liLast == 1)
-                lsSuffix = "ST";
-            else if (liLast == 2)
-                lsSuffix = "ND";
-            else if (liLast == 3)
-                lsSuffix = "RD";
-        }
-
-        return piLevel + lsSuffix;
-    }
-
-    /// <summary>An entry of the list: attack, defence, then the skills (string block 2, as
-    /// UWHudPanel.fGetSkillEntry).</summary>
-    private void fSkill(int piEntry, out string psName, out string psValue)
-    {
-        psName = string.Empty;
-        psValue = string.Empty;
-
-        if (piEntry < 0 || piEntry >= SkillCount)
-            return;
-
-        try
-        {
-            psName = mOUi.mOUWData.Strings.Blocks[2].Strings[UWPlayerData.SkillNameStringIndex + piEntry].Trim();
-        }
-        catch
-        {
-            return;
-        }
-
-        UWCharacter lOCharacter = mOUi.mCharacter;
-
-        psValue = piEntry == 0 ? lOCharacter.Vitals.Attack.ToString()
-            : piEntry == 1 ? lOCharacter.Vitals.Defence.ToString()
-            : lOCharacter.Vitals.GetSkill((UWPlayerData.Skill)(piEntry - 2)).ToString();
-    }
-
-    private RawImage fCreateImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-        lOText.enabled = false;
-
-        return lOText;
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
+        UWUiKit.SetRect(lOText.rectTransform, lfX, lfTop - lfHeight, pOPage.width, lfHeight);
     }
 }

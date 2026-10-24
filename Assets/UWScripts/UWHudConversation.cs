@@ -34,19 +34,19 @@ public sealed class UWHudConversation
     /// the conversation partner, right the player character. Measured on CONV.BYT: there 798
     /// of 846 pixels match the frame, the rest is the sample name (2026-09-11).
     /// </summary>
-    private const int convNameFrameNpcLeft = 43;
+    private const int convNameFrameNpcLeft = UWClassicLayout.Conversation.NpcNameFrameLeft;
 
-    private const int convNameFramePlayerLeft = 139;
+    private const int convNameFramePlayerLeft = UWClassicLayout.Conversation.PlayerNameFrameLeft;
 
     /// <summary>The empty container background (CONVERSE.GR 5) - the same position as the
     /// panel (see the constants of the rotatable panel further up, PanelLeft/PanelTop).</summary>
-    private const int convPanelLeft = 236;
+    private const int convPanelLeft = UWClassicLayout.Panel.Left;
 
-    private const int convPanelTop = 7;
+    private const int convPanelTop = UWClassicLayout.Panel.Top;
 
     /// <summary>The colour in which CONV.BYT carries its sample text - in the parchment as in
     /// the scroll. It occurs nowhere else in either area.</summary>
-    private const byte convSampleTextIndex = 0x2E;
+    private const byte convSampleTextIndex = UWClassicLayout.Conversation.SampleTextIndex;
 
     /// <summary>
     /// Switches the frame to the conversation screen or back.
@@ -77,13 +77,13 @@ public sealed class UWHudConversation
     /// fShowParchmentEdge.</summary>
     private RawImage mParchmentEdgeImage;
 
-    private const int ParchmentEdgeLeft = 100;
+    private const int ParchmentEdgeLeft = UWClassicLayout.Conversation.ParchmentEdgeLeft;
 
-    private const int ParchmentEdgeTop = 131;
+    private const int ParchmentEdgeTop = UWClassicLayout.Conversation.ParchmentEdgeTop;
 
-    private const int ParchmentEdgeRight = 220;
+    private const int ParchmentEdgeRight = UWClassicLayout.Conversation.ParchmentEdgeRight;
 
-    private const int ParchmentEdgeBottom = 135;
+    private const int ParchmentEdgeBottom = UWClassicLayout.Conversation.ParchmentEdgeBottom;
 
     /// <summary>
     /// In conversation the parchment's lower edge (rows 131-135 of CONV.BYT) covers the top of
@@ -121,7 +121,7 @@ public sealed class UWHudConversation
             mParchmentEdgeImage.raycastTarget = false;
         }
 
-        // The frame texture is stored bottom-up (fGetTextureInvert).
+        // The frame texture is stored bottom-up (UWTextureFactory).
         float lfWidth = mOConversationTexture.width;
         float lfHeight = mOConversationTexture.height;
 
@@ -226,13 +226,7 @@ public sealed class UWHudConversation
         UWTexture lOCleaned = new UWTexture("CONV.BYT", lyIndices, UWTexture.TextureTypes.CONV,
             lOConv.Palettes, lOConv.MainPaletteIndex);
 
-        Texture2D lOTexture = new Texture2D(lOCleaned.Width, lOCleaned.Height, TextureFormat.ARGB32, false);
-        lOTexture.name = "UWHudConversation picture";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOCleaned));
-        lOTexture.Apply();
-
-        return lOTexture;
+        return UWTextureFactory.FromTexture(lOCleaned, mOUi.TextureFilterMode, "UWHudConversation picture");
     }
 
     private static void fCleanSampleText(byte[] pyIndices, int piLeft, int piTop, int piRight, int piBottom, int piSourceRowOffset)

@@ -9,7 +9,7 @@ using UnityEngine;
 /// six-pixel threshold of its own. On small movements the two disagreed, and each carried rules
 /// against the other (lbHandledByItemDrag, PageInputConsumedThisFrame for the view).
 ///
-/// Now Interaction measures the aim once on the press (see Interaction.fBeginWorldPointer),
+/// Now Interaction measures the aim once on the press (see UWClassicWorldGesture.Begin),
 /// this class turns the button's movement into ONE gesture, and Interaction resolves the gesture
 /// into an action (look, use, drag a pickable thing) - the same actions the command icons of the
 /// original (Talk, Get, Look, Use) will call once they exist.

@@ -798,7 +798,7 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     public int TravelRange => mOActor != null ? mOActor.TravelRange : 0;
 
     /// <summary>The ally bit of the mobile record - the player's blow passes over an ally
-    /// (Interaction.fFindClassicMeleeTarget, set_hitobj).</summary>
+    /// (UWPlayerMelee.fFindClassicMeleeTarget, set_hitobj).</summary>
     public bool IsAlly => mOActor != null && mOActor.IsAlly;
 
     /// <summary>The table's average hit points (critter byte 4, avghit) - what the eyes measure

@@ -71,7 +71,7 @@ namespace UWDataImport.UWData
 		/// display therefore simply kept the previous weapon.
 		///
 		/// This is kept up to date continuously while combat mode is active, see
-		/// Interaction.fUpdateWeaponType.
+		/// UWPlayerAttackInput.fUpdateWeaponType.
 		/// </summary>
 		public bool HasRangedWeapon { get; set; }
 
@@ -294,6 +294,14 @@ namespace UWDataImport.UWData
 				CurrentReadyWeaponTime = 1f;
 				fUpdatePowerGemTeture(mPowerGem.Inactive);
 
+				// THE SHEATHING STARTS FROM ITS OWN PICTURE, wherever a blow stood (adjust_weapon,
+				// UnderworldExhumed PANELS.C, read 2026-10-22: the goal "sheathed" sets the state to
+				// sheathing from its first frame). Ours kept the picture of the charge - walking into
+				// water mid-charge, the raised weapon dropped out instead of the sheathing (per user,
+				// the same day, the original shows it).
+				mCurrentWeaponFrameIndex = 0;
+				fUpdateWeapon();
+
 				CombatModeLeft?.Invoke();
 			}
 			else if (mIsCombatModeActive && meAttackStatus == AttackStatusEnum.Readying) //Readying weapon
@@ -379,7 +387,16 @@ namespace UWDataImport.UWData
 			}
 			else if(meAttackStatus == AttackStatusEnum.PoweUpComplete)
 			{
-				if (pOHand.AttackCharge < 1f)
+				// FRAME 9 PULSES (adjust_power, UnderworldExhumed PANELS.C, read 2026-10-22): the gem
+				// set to 9 runs through frames 9 to 13 for as long as it stays there - the full blow
+				// from a charge of 96 on (1 + 96 / 12), and a bow's or a sling's aim, which sets 9 at
+				// once. Until then ours pulsed only at the full 100 and never for a launcher, which
+				// showed one green frame (per user, the same day).
+				bool lbPulses = HasRangedWeapon
+					? UWPowerGem.GetRangedFrame(pOHand.IsRangedTargeting) >= UWPowerGem.RangedFrame
+					: UWPowerGem.GetFrame(GetChargeForGem(pOHand.AttackCharge)) >= UWPowerGem.RangedFrame;
+
+				if (!lbPulses)
 				{
 					// The orb depends solely on the charge counter, not on the minimum charge: the
 					// original computes frame = 1 + charge/12 over the full range of 0 to 100.

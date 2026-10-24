@@ -13,7 +13,7 @@ namespace UWDataImport.UWData
 	/// Sits on the same GameObject as Interaction (created from there via AddComponent when
 	/// needed, see Interaction.Awake) - no manual wiring in the scene required.
 	/// </summary>
-	public sealed class UWInventoryModel
+	public sealed partial class UWInventoryModel
 	{
 		private readonly Func<DataImport> mFData;
 
@@ -177,9 +177,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>Original: the use mode (right-click on a usable item, see
 		/// UWItemDrag) - unlike CursorItem, the item stays in its place,
-		/// only its icon appears at the cursor (see UWItemDrag.fUpdateUseMode). Every use ends
+		/// only its icon appears at the cursor (see UWClassicUseMode.Update). Every use ends
 		/// the mode afterwards via CancelUseMode (confirmed by user, 2026-08-27, see
-		/// UWItemDrag.fEndUseMode), as does leaving the original control scheme.</summary>
+		/// UWClassicUseMode.End), as does leaving the original control scheme.</summary>
 		public UWObject UseModeItem { get; private set; }
 
 		public void EnterUseMode(UWObject pOItem)
@@ -283,7 +283,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// Does an item still fit within the carrying capacity - maximum load from the player data against
-		/// the carried load, the same calculation as the display (UWGameUI.fRefreshWeight)?
+		/// the carried load, the same calculation as the display (UWInventoryWeight.RemainingTenthStones)?
 		/// piCount &gt; 0 weighs only that many pieces of a stack; 0 the whole item including
 		/// contents. Without data nothing is refused.
 		/// </summary>
@@ -315,7 +315,7 @@ namespace UWDataImport.UWData
 				liWeight = lOProperties.TryGet(pOItem.ID, out lOEntry) ? lOEntry.MassTenthStones * piCount : 0;
 			}
 
-			int liRemaining = fData.InitialPlayer.MaxWeight - GetCarriedTenthStones(lOProperties);
+			int liRemaining = UWInventoryWeight.RemainingTenthStones(fData.InitialPlayer, GetCarriedTenthStones(lOProperties));
 
 			return liWeight <= liRemaining;
 		}
@@ -900,7 +900,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Takes an equipment piece off the paperdoll without attaching it to the
 		/// pointer - for everything that is CONSUMED instead of moved (see
-		/// UWItemDrag.fConsumeItem).</summary>
+		/// UWDragSource.Consume).</summary>
 		public void RemoveFromEquip(UWArmorItemMap.BodySlot peSlot)
 		{
 			if (EquipSlots[(int)peSlot] == null)
@@ -1225,7 +1225,7 @@ namespace UWDataImport.UWData
 		/// also no swap when occupied - if the backpack is full, it simply fails and
 		/// the item keeps sticking to the pointer). The container itself stays open (confirmed by
 		/// the user - unlike a simple click without an item at the pointer, which
-		/// closes it, see UWItemDrag.fUpdatePending).
+		/// closes it, see UWItemDrag.fReleasePending).
 		/// </summary>
 		public bool DropCursorItemInFirstFreeBackpackSlot()
 		{
@@ -1437,42 +1437,6 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Cancels a drag for good (scheme change during dragging, or similar) -
-		/// CursorItem returns to its known origin place (which at this point is
-		/// guaranteed to still be empty, see BeginDragFrom*), or - if no origin is known
-		/// (after a swap, see DropCursorItemIn*) - to the first free
-		/// backpack place as a safety net.
-		/// </summary>
-		public void CancelCursorItem(int? piOriginBackpackSlot, UWArmorItemMap.BodySlot? peOriginEquipSlot)
-		{
-			if (CursorItem == null)
-				return;
-
-			UWObject lOItem = CursorItem;
-			CursorItem = null;
-
-			if (piOriginBackpackSlot.HasValue)
-			{
-				Backpack[piOriginBackpackSlot.Value] = lOItem;
-			}
-			else if (peOriginEquipSlot.HasValue)
-			{
-				EquipSlots[(int)peOriginEquipSlot.Value] = lOItem;
-			}
-			else
-			{
-				int liFreeSlot = Array.IndexOf(Backpack, null);
-
-				if (liFreeSlot >= 0)
-					Backpack[liFreeSlot] = lOItem;
-				else
-					CursorItem = lOItem; // Backpack full - better kept at the pointer than lost.
-			}
-
-			InventoryChanged?.Invoke();
-		}
-
-		/// <summary>
 		/// Equips an item on a specific slot, regardless of where it comes from.
 		/// Only checks whether item and slot match per UWArmorItemMap - does NOT care
 		/// where an already equipped item goes (see pODisplaced) or whether the
@@ -1508,7 +1472,7 @@ namespace UWDataImport.UWData
 			// An item from outside the backpack would push the equipped one into the backpack; with
 			// a full backpack that item used to be lost. Refuse instead. No caller today: the
 			// modern scheme's old armour panel was its only one (removed 2026-10-03, the modern bags
-			// equip through the pointer, UWModernBags.fEquip). The original controls swap the
+			// equip through the pointer, UWModernBagDrag.Equip). The original controls swap the
 			// equipped item onto the pointer (DropCursorItemInEquip).
 			if (liBackpackIndex < 0 && EquipSlots[(int)leSlot] != null && Array.IndexOf(Backpack, null) < 0)
 				return false;
@@ -1754,6 +1718,17 @@ namespace UWDataImport.UWData
 		/// <summary>The containers this one was opened from, outermost first - see
 		/// TryOpenContainer.</summary>
 		private readonly List<UWObject> mOContainerPath = new List<UWObject>();
+
+		/// <summary>
+		/// Whether a container is open: the open one or one it was opened from. The original turns
+		/// every bag of its open chain into the open item (OpenTheBag/MakeBagClose, UnderworldExhumed
+		/// BAGS.C: even minor class to odd), so such a bag on the paperdoll shows its open picture
+		/// (per user on the original, 2026-10-21).
+		/// </summary>
+		public bool IsContainerOpen(UWObject pOContainer)
+		{
+			return pOContainer != null && (pOContainer == OpenContainer || mOContainerPath.Contains(pOContainer));
+		}
 
 		/// <summary>The container the open one was opened from, or null when it was opened from
 		/// the pack - where closing goes back to, and where an item dropped on the container

@@ -131,9 +131,9 @@ public static class UWPlayerThrow
     /// </summary>
     public static void GetPointerInView(UWGameUI pOGameUi, Vector2 pOMousePos, out int piX, out int piY)
     {
-        int liPixelX = Mathf.Min(Mathf.FloorToInt(pOGameUi.GetHorizontalFractionInGameArea(pOMousePos) * HoleWidthPixels),
+        int liPixelX = Mathf.Min(Mathf.FloorToInt(pOGameUi.ClassicScreen.GetHorizontalFractionInGameArea(pOMousePos) * HoleWidthPixels),
             HoleWidthPixels - 1);
-        int liPixelY = Mathf.Min(Mathf.FloorToInt(pOGameUi.GetVerticalFractionInGameArea(pOMousePos) * HoleHeightPixels),
+        int liPixelY = Mathf.Min(Mathf.FloorToInt(pOGameUi.ClassicScreen.GetVerticalFractionInGameArea(pOMousePos) * HoleHeightPixels),
             HoleHeightPixels - 1);
 
         piX = Mathf.Clamp(liPixelX + HoleLeftInWindow, 0, ViewMaxX);

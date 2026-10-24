@@ -11,7 +11,7 @@ using UWDataImport.UWData;
 /// composed into ONE picture per step, over the box all of them take together, so the element
 /// keeps one size whatever the heading; the step is the classic compass's own
 /// (UWHudCompass.CurrentStep), frozen in the void as there. Scaled by whole pixels like the rest
-/// of the modern HUD (UWModernHud.PixelScale) and the element's own size, placed by
+/// of the modern HUD (UWModernUi.PixelScale) and the element's own size, placed by
 /// UWModernLayout - by default top centre under the heading strip. A click reports the status,
 /// as the classic compass and the heading do.
 ///
@@ -29,24 +29,21 @@ using UWDataImport.UWData;
 /// out again: the original's compass lay embedded in the frame, and lifted out of it every back
 /// looked stuck on; the free cross looked best.
 /// </summary>
-public class UWModernCompass
+public class UWModernCompass : IUWModernPart
 {
     private readonly UWGameUI mOUi;
 
     private RawImage mOImage;
 
-    private readonly System.Collections.Generic.Dictionary<int, Texture2D> mOSteps = new System.Collections.Generic.Dictionary<int, Texture2D>();
+    /// <summary>The pictures by step, back and look, each built for the colours (UWArtCache).</summary>
+    private readonly UWArtCache<int> mOSteps = new UWArtCache<int>();
 
     /// <summary>The room around the cross when it has a back.</summary>
     private const int Pad = 5;
 
-    private int miArtVersion = -1;
-
     /// <summary>The stone disc without the cross (IsCompassDisc), built once per colour help and
     /// outline.</summary>
-    private Texture2D mODisc;
-
-    private bool mbDiscOutline;
+    private readonly UWVersionedTexture mODisc = new UWVersionedTexture();
 
     /// <summary>The room around the picture the current one has (Pad with a back, else 0).</summary>
     private int miShownPad;
@@ -63,21 +60,11 @@ public class UWModernCompass
 
     public void Build(Transform pORoot)
     {
-        GameObject lOObject = new GameObject("Compass", typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pORoot, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = new Vector2(0.5f, 1f);
-        lORect.anchorMax = new Vector2(0.5f, 1f);
-        lORect.pivot = new Vector2(0.5f, 1f);
-
-        mOImage = lOObject.GetComponent<RawImage>();
-        mOImage.raycastTarget = false;
-        mOImage.enabled = false;
+        mOImage = UWUiKit.CreateRawImage(pORoot, "Compass", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f));
         UWPixelArtUI.Apply(mOImage);
     }
 
-    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernHud.PixelScale.</summary>
+    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernUi.PixelScale.</summary>
     public void Update(float pfPixelScale)
     {
         ScreenRect = Rect.zero;
@@ -91,24 +78,6 @@ public class UWModernCompass
             return;
         }
 
-        // The colour help changes the pictures (UWColourVision): built anew then.
-        if (miArtVersion != UWColourVision.Version)
-        {
-            foreach (Texture2D lOOld in mOSteps.Values)
-            {
-                if (lOOld != null)
-                    Object.Destroy(lOOld);
-            }
-
-            mOSteps.Clear();
-
-            if (mODisc != null)
-                Object.Destroy(mODisc);
-
-            mODisc = null;
-            miArtVersion = UWColourVision.Version;
-        }
-
         int liStep = mOUi.Compass.CurrentStep;
         UWModernBacks.Back lOBack = UWModernBacks.Get(UWModernLayout.ElementEnum.Compass);
         bool lbDisc = UWModernLayout.IsCompassDisc;
@@ -116,11 +85,11 @@ public class UWModernCompass
         int liKey = (((((lOBack.Key * 100) + liStep) * 4) + (lbDisc ? 1 : 0) + (lbDisc && UWModernClassicPlus.CompassOutline ? 2 : 0)) * 2)
             + (lbWhole ? 1 : 0);
 
-        if (!mOSteps.TryGetValue(liKey, out Texture2D lOTexture) || lOTexture == null)
-        {
-            lOTexture = fBuild(liStep, lOBack, lbDisc);
-            mOSteps[liKey] = lOTexture;
-        }
+        // The colour help changes the pictures (UWColourVision): built anew then.
+        UWArtStamp lOStamp = UWVersionedTexture.Colours();
+
+        if (!mOSteps.TryGet(liKey, lOStamp, out Texture2D lOTexture))
+            lOTexture = mOSteps.Set(liKey, lOStamp, fBuild(liStep, lOBack, lbDisc));
 
         if (lOTexture == null)
         {
@@ -152,7 +121,7 @@ public class UWModernCompass
     /// <summary>
     /// The movement arrow on the stone disc under a screen point, -1 for none or without the
     /// disc - the original's click areas (UWHudArt.CompassDiscArrowAt), so the arrows work as on
-    /// the classic frame (UWModernHud.fUpdateMoveArrowClicks).
+    /// the classic frame (UWModernHudInput.fUpdateMoveArrowClicks).
     /// </summary>
     public int ArrowAt(Vector2 pOPointer)
     {
@@ -212,23 +181,18 @@ public class UWModernCompass
     /// <summary>The cross laid on the stone disc; the cross's texture goes.</summary>
     private Texture2D fOnDisc(Texture2D pOCross)
     {
-        if (mODisc != null && mbDiscOutline != UWModernClassicPlus.CompassOutline)
-        {
-            Object.Destroy(mODisc);
-            mODisc = null;
-        }
+        bool lbOutline = UWModernClassicPlus.CompassOutline;
+        UWArtStamp lODiscStamp = UWVersionedTexture.Colours(lbOutline ? 1 : 0);
 
-        if (mODisc == null)
-        {
-            mbDiscOutline = UWModernClassicPlus.CompassOutline;
-            mODisc = UWModernHudArt.BuildCompassDisc(mOUi.mOUWData.Textures, mbDiscOutline, mOUi.TextureFilterMode);
-        }
+        if (!mODisc.IsCurrent(lODiscStamp))
+            mODisc.Set(lODiscStamp, UWModernHudArt.BuildCompassDisc(mOUi.mOUWData.Textures, lbOutline, mOUi.TextureFilterMode));
 
-        int liWidth = mODisc.width;
-        int liHeight = mODisc.height;
-        int liLeft = 112 - UWHudArt.CompassDiscX;
-        int liTop = 131 - UWHudArt.CompassDiscY;
-        Color32[] lOPixels = mODisc.GetPixels32();
+        Texture2D lODisc = mODisc.Texture;
+        int liWidth = lODisc.width;
+        int liHeight = lODisc.height;
+        int liLeft = UWClassicLayout.Compass.Left - UWHudArt.CompassDiscX;
+        int liTop = UWClassicLayout.Compass.Top - UWHudArt.CompassDiscY;
+        Color32[] lOPixels = lODisc.GetPixels32();
         Color32[] lOCrossPixels = pOCross.GetPixels32();
 
         // Rows bottom up in both: the cross's top row lies liTop rows under the disc's top.

@@ -1,7 +1,7 @@
 /// <summary>
 /// The 4:3 switch: the classic 320x200 screen shown at the proportion of the CRT the game was made
 /// for, every original pixel 1.2 times taller than wide, as DOSBox shows it (see
-/// UWGameUI.HorizontalPixelFactor).
+/// UWClassicScreen.HorizontalPixelFactor).
 ///
 /// ALWAYS ON since 2026-10-10 (per user: "without the 4:3 fix everything looks wrong"): the
 /// checkbox in its place switches the classic frame's widescreen (UWClassicWide). Until then the

@@ -355,7 +355,7 @@ namespace UnderworldRevisited.Tools
                     {
                         if (lOField.IsLiteral)
                             lONow[lsName] = fFormatConstant(lOField.GetRawConstantValue());
-                        else if (lOField.IsInitOnly && fIsPinnable(lOField.FieldType))
+                        else if (lOField.IsInitOnly && (fIsPinnable(lOField.FieldType) || fIsLayoutTable(lOType)))
                             lONow[lsName] = fFormatConstant(lOField.GetValue(null));
                     }
                     catch (Exception lOException)
@@ -377,6 +377,13 @@ namespace UnderworldRevisited.Tools
                 return fTypeName(pOType.DeclaringType) + "." + pOType.Name;
 
             return pOType.Name;
+        }
+
+        /// <summary>UWClassicLayout (cleanup 5.3, 2026-10-19) is the classic screen's pixel home: all
+        /// of it is pinned, its rectangles, colours and point tables too.</summary>
+        private static bool fIsLayoutTable(Type pOType)
+        {
+            return pOType.DeclaringType == typeof(UWClassicLayout);
         }
 
         private static bool fIsPinnable(Type pOType)
@@ -430,6 +437,28 @@ namespace UnderworldRevisited.Tools
 
             if (pOValue is IFormattable lOFormattable)
                 return lOFormattable.ToString(null, CultureInfo.InvariantCulture);
+
+            // A struct of the layout table (UWRectInt, UWColor32): its public fields by name. A
+            // value tuple prints itself.
+            Type lOValueType = pOValue.GetType();
+
+            if (lOValueType.IsValueType && !lOValueType.IsPrimitive && !lOValueType.IsEnum
+                && !lOValueType.FullName.StartsWith("System.ValueTuple", StringComparison.Ordinal))
+            {
+                StringBuilder lOText = new StringBuilder("{");
+                bool lbFirst = true;
+
+                foreach (FieldInfo lOField in lOValueType.GetFields(BindingFlags.Public | BindingFlags.Instance))
+                {
+                    if (!lbFirst)
+                        lOText.Append(", ");
+
+                    lbFirst = false;
+                    lOText.Append(lOField.Name).Append('=').Append(fFormatConstant(lOField.GetValue(pOValue)));
+                }
+
+                return lOText.Append("}").ToString();
+            }
 
             return pOValue.ToString();
         }

@@ -10,9 +10,9 @@ using UWDataImport.UWData;
 /// wide as the opened character panel (UWModernPanel), which hides it while it is open.
 ///
 ///   - The map in the original's look - the parchment, the discovered tiles, the notes - as the
-///     help window's map tab draws it (UWHudMap.BuildMinimapTiles and its fellows), around the
-///     character, refreshed every half second and on every step. Only with the map carried, as
-///     the real one.
+///     help window's map tab draws it (UWAutomapPictures since 2026-10-19, before that
+///     UWHudMap.BuildMinimapTiles and its fellows), around the character, refreshed every half
+///     second and on every step. Only with the map carried, as the real one.
 ///   - North up by default; turning with the view is an option of the layout editor's inspector
 ///     on the minimap (UWUserSettings.MinimapTurns - per user: some prefer it; in the game menu
 ///     until 2026-10-09).
@@ -52,19 +52,11 @@ public class UWModernMinimap : MonoBehaviour
 
     private const float MapHeight = 200f;
 
-    private static readonly Color msText = new Color(0.94f, 0.87f, 0.71f);
-
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
-
-    private static readonly Color msButtonFill = new Color(0.18f, 0.094f, 0.035f, 1f);
-
     private UWGameUI mOUi;
 
     private UWControlScheme mOScheme;
 
     private UWHelpWindow mOHelp;
-
-    private Font mOFont;
 
     private Canvas mOCanvas;
 
@@ -92,13 +84,12 @@ public class UWModernMinimap : MonoBehaviour
 
     private Text[] mOButtonTexts;
 
-    private Texture2D mOFrameTexture;
+    /// <summary>The frame's leather, built for the colours and backs (UWVersionedTexture).</summary>
+    private readonly UWVersionedTexture mOFrameArt = new UWVersionedTexture();
 
     private Texture2D mOArrowTexture;
 
     private Texture2D mODiscTexture;
-
-    private int miArtVersion = -1;
 
     private float miScale = 1f;
 
@@ -122,7 +113,9 @@ public class UWModernMinimap : MonoBehaviour
         if (Instance == this)
             Instance = null;
 
-        foreach (Texture2D lOTexture in new[] { mOFrameTexture, mOArrowTexture, mODiscTexture })
+        mOFrameArt.Release();
+
+        foreach (Texture2D lOTexture in new[] { mOArrowTexture, mODiscTexture })
         {
             if (lOTexture != null)
                 Destroy(lOTexture);
@@ -134,7 +127,6 @@ public class UWModernMinimap : MonoBehaviour
         mOUi = GetComponent<UWGameUI>();
         mOHelp = GetComponent<UWHelpWindow>();
         mOScheme = GetComponentInParent<UWControlScheme>();
-        mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
     /// <summary>Whether the minimap is on screen: the modern HUD shows and the character panel
@@ -145,8 +137,8 @@ public class UWModernMinimap : MonoBehaviour
 
         // Switched off in the layout editor (per user, 2026-10-04: some will not want it at all) -
         // a choice of the own layout, the Modern preset shows it.
-        if (UWModernLayout.IsMinimapHidden || !UWControlScheme.IsModern
-            || UWModernHud.Instance == null || !UWModernHud.Instance.IsShowing
+        if (UWModernLayout.IsMinimapHidden || !UWModernUi.IsActive
+            || !UWModernUi.IsShowing
             || mOUi == null || mOUi.mOUWData == null)
             return false;
 
@@ -191,7 +183,7 @@ public class UWModernMinimap : MonoBehaviour
 
         float lfInner = (Size - UWModernHudArt.LeatherLeft - UWModernHudArt.LeatherRight) * miScale;
 
-        return Mathf.Clamp(Mathf.RoundToInt(lfInner / (DefaultTilesAcross * UWHudMap.TilePixels)), MinZoom, MaxZoom);
+        return Mathf.Clamp(Mathf.RoundToInt(lfInner / (DefaultTilesAcross * UWAutomapPictures.TilePixels)), MinZoom, MaxZoom);
     }
 
     private void fSetZoom(int piZoom)
@@ -212,7 +204,7 @@ public class UWModernMinimap : MonoBehaviour
         if (!mbShown || mOScheme == null || !mOScheme.IsPointerFree || Mouse.current == null)
             return;
 
-        if (UWModernHud.Instance.IsOpen || UWControls.IsTextEntryActive)
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive)
             return;
 
         Vector2 lOPointer = Mouse.current.position.ReadValue();
@@ -277,7 +269,7 @@ public class UWModernMinimap : MonoBehaviour
         bool lbInHead = lOHead.width > 0f;
 
         // Its own size and place (UWModernLayout, the layout editor) - not in the pinned panel's head.
-        miScale = UWModernHud.PixelScale * (lbInHead ? 1f : UWModernLayout.Scale(UWModernLayout.ElementEnum.Minimap));
+        miScale = UWModernUi.PixelScale * (lbInHead ? 1f : UWModernLayout.Scale(UWModernLayout.ElementEnum.Minimap));
 
         fEnsureArt();
 
@@ -285,7 +277,7 @@ public class UWModernMinimap : MonoBehaviour
         float lfSize = Size * liScale;
 
         // Over the pinned panel, which shares the sorting order otherwise.
-        mOCanvas.sortingOrder = lbInHead ? 42 : 41;
+        mOCanvas.sortingOrder = lbInHead ? UWUiSorting.ModernMinimapInHead : UWUiSorting.ModernMinimap;
         mOFrame.enabled = !lbInHead;
 
         // The map's window inside the leather frame - or in the panel's head.
@@ -297,18 +289,18 @@ public class UWModernMinimap : MonoBehaviour
             lfWidth = lOHead.width;
             lfHeight = lOHead.height;
             mORect = lOHead;
-            fSetRect(mOViewport, lOHead.x, lOHead.y, lfWidth, lfHeight);
+            UWUiKit.SetRect(mOViewport, lOHead.x, lOHead.y, lfWidth, lfHeight);
             UWModernLayout.Report(UWModernLayout.ElementEnum.Minimap, lOHead);
         }
         else
         {
-            float lfMargin = Margin * UWModernHud.PixelScale;
+            float lfMargin = Margin * UWModernUi.PixelScale;
 
             mORect = UWModernLayout.Place(UWModernLayout.ElementEnum.Minimap,
                 new Rect(Screen.width - lfMargin - lfSize, Screen.height - lfMargin - lfSize, lfSize, lfSize));
             UWModernLayout.Report(UWModernLayout.ElementEnum.Minimap, mORect);
-            fSetRect(mOFrame.rectTransform, mORect.x, mORect.y, lfSize, lfSize);
-            fSetRect(mOViewport, mORect.x + (UWModernHudArt.LeatherLeft * liScale), mORect.y + (UWModernHudArt.LeatherBottom * liScale),
+            UWUiKit.SetRect(mOFrame.rectTransform, mORect.x, mORect.y, lfSize, lfSize);
+            UWUiKit.SetRect(mOViewport, mORect.x + (UWModernHudArt.LeatherLeft * liScale), mORect.y + (UWModernHudArt.LeatherBottom * liScale),
                 lfWidth, lfHeight);
         }
 
@@ -316,18 +308,18 @@ public class UWModernMinimap : MonoBehaviour
         float lfHeading = Camera.main != null ? Mathf.Repeat(Camera.main.transform.eulerAngles.y, 360f) : 0f;
         bool lbTurns = UWUserSettings.MinimapTurns;
         UWLevelLoader lOLoader = UWScene.LevelLoader;
-        UWHudMap lOMap = mOUi.Map;
-        bool lbMap = mOUi.IsCarryingMap && lOMap != null && lOMap.TryGetMinimapPlayerPixel(out Vector2 lOPlayer);
+        UWAutomapPictures lOMap = mOUi.AutomapPictures;
+        bool lbMap = mOUi.IsCarryingMap && lOMap != null && lOMap.TryGetPlayerPixel(out Vector2 lOPlayer);
 
         mOContent.gameObject.SetActive(lbMap);
         mOArrow.enabled = lbMap;
         mONoMap.enabled = !lbMap;
         mONoMap.fontSize = Mathf.Max(10, Mathf.RoundToInt(4f * liScale));
-        fSetRect(mONoMap.rectTransform, 0f, 0f, lfWidth, lfHeight);
+        UWUiKit.SetRect(mONoMap.rectTransform, 0f, 0f, lfWidth, lfHeight);
 
         if (lbMap)
         {
-            lOMap.TryGetMinimapPlayerPixel(out lOPlayer);
+            lOMap.TryGetPlayerPixel(out lOPlayer);
             fLayoutMap(lOMap, lOPlayer, lOCentre, lbTurns ? lfHeading : 0f);
         }
 
@@ -352,7 +344,7 @@ public class UWModernMinimap : MonoBehaviour
 
         mOLevel.text = lOLoader != null ? "Level " + (lOLoader.CurrentLevelIndex + 1) : string.Empty;
         mOLevel.fontSize = Mathf.Max(9, Mathf.RoundToInt(3.6f * liScale));
-        fSetRect(mOLevel.rectTransform, 0f, liScale, lfWidth - (2f * liScale), 6f * liScale);
+        UWUiKit.SetRect(mOLevel.rectTransform, 0f, liScale, lfWidth - (2f * liScale), 6f * liScale);
 
         // + and - at the bottom left.
         float lfButton = ButtonSize * liScale;
@@ -362,10 +354,10 @@ public class UWModernMinimap : MonoBehaviour
             float lfX = (2f * liScale) + (liButton * (lfButton + liScale));
             float lfY = 2f * liScale;
 
-            fSetRect(mOButtons[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
+            UWUiKit.SetRect(mOButtons[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
             // The disc's own rect: the sign is centred by its ink (UWCentredGlyph); the old nudge up
             // by 0.3 put it too high since (per user, 2026-10-09).
-            fSetRect(mOButtonTexts[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
+            UWUiKit.SetRect(mOButtonTexts[liButton].rectTransform, lfX, lfY, lfButton, lfButton);
             mOButtonTexts[liButton].fontSize = Mathf.Max(10, Mathf.RoundToInt(5.5f * liScale));
             mOButtons[liButton].enabled = lbMap;
             mOButtonTexts[liButton].enabled = lbMap;
@@ -376,18 +368,18 @@ public class UWModernMinimap : MonoBehaviour
 
     /// <summary>The parchment, the tiles and the notes, the character's tile in the middle,
     /// turned by pfTurn degrees (counter-clockwise, so the heading points up).</summary>
-    private void fLayoutMap(UWHudMap pOMap, Vector2 pOPlayer, Vector2 pOCentre, float pfTurn)
+    private void fLayoutMap(UWAutomapPictures pOMap, Vector2 pOPlayer, Vector2 pOCentre, float pfTurn)
     {
         int liZoom = fZoom();
 
         if (pOPlayer != mOBuiltAt || Time.unscaledTime - mfBuiltTime >= RefreshSeconds || mOTiles.texture == null)
         {
-            mOTiles.texture = pOMap.BuildMinimapTiles(false);
+            mOTiles.texture = pOMap.BuildTiles(false);
             mOBuiltAt = pOPlayer;
             mfBuiltTime = Time.unscaledTime;
         }
 
-        Texture2D lOParchment = pOMap.GetMinimapParchment();
+        Texture2D lOParchment = pOMap.GetParchment();
 
         mOParchment.texture = lOParchment;
         mOParchment.enabled = lOParchment != null;
@@ -402,19 +394,19 @@ public class UWModernMinimap : MonoBehaviour
         // own space, so it turns with it; the pivot on the character keeps it in the middle.
         mOContent.localScale = new Vector3(UWModernHudArt.PixelAspectX, 1f, 1f);
 
-        fSetRect(mOParchment.rectTransform, 0f, 0f, MapWidth * liZoom, MapHeight * liZoom);
+        UWUiKit.SetRect(mOParchment.rectTransform, 0f, 0f, MapWidth * liZoom, MapHeight * liZoom);
 
-        Vector2 lOTiles = UWHudMap.TilesTopLeft;
-        float lfTiles = UWHudMap.TilesPerAxis * UWHudMap.TilePixels;
+        Vector2 lOTiles = UWAutomapPictures.TilesTopLeft;
+        float lfTiles = UWAutomapPictures.TilesSize;
 
         mOTiles.enabled = mOTiles.texture != null;
-        fSetRect(mOTiles.rectTransform, lOTiles.x * liZoom, (MapHeight - lOTiles.y - lfTiles) * liZoom, lfTiles * liZoom, lfTiles * liZoom);
+        UWUiKit.SetRect(mOTiles.rectTransform, lOTiles.x * liZoom, (MapHeight - lOTiles.y - lfTiles) * liZoom, lfTiles * liZoom, lfTiles * liZoom);
 
-        List<UWHudMap.MinimapNote> lONotes = pOMap.GetMinimapNotes();
+        List<UWAutomapPictures.Note> lONotes = pOMap.GetNotes();
 
         while (mONotes.Count < lONotes.Count)
         {
-            RawImage lONote = fCreateRawImage(mOContent, "Note");
+            RawImage lONote = UWUiKit.CreateRawImage(mOContent, "Note");
 
             UWPixelArtUI.Apply(lONote);
             mONotes.Add(lONote);
@@ -430,11 +422,11 @@ public class UWModernMinimap : MonoBehaviour
                 continue;
             }
 
-            UWHudMap.MinimapNote lONote = lONotes[liNote];
+            UWAutomapPictures.Note lONote = lONotes[liNote];
 
             lOImage.texture = lONote.Texture;
             lOImage.enabled = true;
-            fSetRect(lOImage.rectTransform, lONote.TopLeft.x * liZoom,
+            UWUiKit.SetRect(lOImage.rectTransform, lONote.TopLeft.x * liZoom,
                 (MapHeight - lONote.TopLeft.y - lONote.Texture.height) * liZoom,
                 lONote.Texture.width * liZoom, lONote.Texture.height * liZoom);
         }
@@ -442,16 +434,13 @@ public class UWModernMinimap : MonoBehaviour
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWModernBacks.ArtVersion && mOFrameTexture != null)
+        UWArtStamp lOStamp = UWVersionedTexture.Backs();
+
+        if (mOFrameArt.IsCurrent(lOStamp))
             return;
 
-        miArtVersion = UWModernBacks.ArtVersion;
-
-        if (mOFrameTexture != null)
-            Destroy(mOFrameTexture);
-
-        mOFrameTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Minimap, mOUi.mOUWData.Textures, Size, Size, mOUi.TextureFilterMode);
-        mOFrame.texture = mOFrameTexture;
+        mOFrame.texture = mOFrameArt.Set(lOStamp,
+            UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Minimap, mOUi.mOUWData.Textures, Size, Size, mOUi.TextureFilterMode));
 
         if (mOArrowTexture == null)
             mOArrowTexture = fBuildArrow(64);
@@ -488,14 +477,7 @@ public class UWModernMinimap : MonoBehaviour
             }
         }
 
-        Texture2D lOTexture = new Texture2D(piSize, piSize, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernMinimap arrow";
-        lOTexture.filterMode = FilterMode.Bilinear;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lyPixels);
-        lOTexture.Apply();
-
-        return lOTexture;
+        return UWTextureFactory.FromColours(lyPixels, piSize, piSize, FilterMode.Bilinear, TextureWrapMode.Clamp, "UWModernMinimap arrow");
     }
 
     /// <summary>Inside the arrow (two triangles meeting at the notch), grown by pfGrow.</summary>
@@ -542,78 +524,51 @@ public class UWModernMinimap : MonoBehaviour
             for (int x = 0; x < piSize; x++)
             {
                 float lfDistance = Mathf.Sqrt(((x - lfCentre) * (x - lfCentre)) + ((y - lfCentre) * (y - lfCentre)));
-                Color lOColour = Color.Lerp(msButtonFill, msGold, Mathf.Clamp01(lfDistance - (lfRadius - lfRim) + 0.5f));
+                Color lOColour = Color.Lerp(UWModernPalette.BadgeFill, UWModernPalette.Gold, Mathf.Clamp01(lfDistance - (lfRadius - lfRim) + 0.5f));
 
                 lOColour.a = 1f - Mathf.Clamp01(lfDistance - lfRadius + 0.5f);
                 lyPixels[(y * piSize) + x] = lOColour;
             }
         }
 
-        Texture2D lOTexture = new Texture2D(piSize, piSize, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernMinimap button";
-        lOTexture.filterMode = FilterMode.Bilinear;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lyPixels);
-        lOTexture.Apply();
-
-        return lOTexture;
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
+        return UWTextureFactory.FromColours(lyPixels, piSize, piSize, FilterMode.Bilinear, TextureWrapMode.Clamp, "UWModernMinimap button");
     }
 
     // ------------------------------------------------- Building
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Modern minimap", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern minimap", UWUiSorting.ModernMinimap);
 
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 41;
+        RectTransform lORootRect = (RectTransform)mOCanvas.transform;
 
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
-
-        RectTransform lORootRect = (RectTransform)lORoot.transform;
-
-        mOFrame = fCreateRawImage(lORootRect, "Leather");
-        mOFrame.enabled = true;
+        mOFrame = UWUiKit.CreateRawImage(lORootRect, "Leather", true);
         UWPixelArtUI.Apply(mOFrame);
 
-        GameObject lOViewport = new GameObject("Map window", typeof(RectTransform), typeof(RectMask2D));
-        lOViewport.transform.SetParent(lORootRect, false);
-        mOViewport = (RectTransform)lOViewport.transform;
-        mOViewport.anchorMin = Vector2.zero;
-        mOViewport.anchorMax = Vector2.zero;
-        mOViewport.pivot = Vector2.zero;
+        mOViewport = UWUiKit.CreateClipArea(lORootRect, "Map window");
 
+        // Only anchored here: its pivot follows the player's place, about which the map turns.
         GameObject lOContent = new GameObject("Map", typeof(RectTransform));
         lOContent.transform.SetParent(mOViewport, false);
         mOContent = (RectTransform)lOContent.transform;
         mOContent.anchorMin = Vector2.zero;
         mOContent.anchorMax = Vector2.zero;
 
-        mOParchment = fCreateRawImage(mOContent, "Parchment");
-        mOTiles = fCreateRawImage(mOContent, "Tiles");
+        mOParchment = UWUiKit.CreateRawImage(mOContent, "Parchment");
+        mOTiles = UWUiKit.CreateRawImage(mOContent, "Tiles");
 
         // Hard texels also when the map turns (UWPixelArtUI).
         UWPixelArtUI.Apply(mOParchment);
         UWPixelArtUI.Apply(mOTiles);
 
-        mOArrow = fCreateRawImage(mOViewport, "Character");
+        mOArrow = UWUiKit.CreateRawImage(mOViewport, "Character");
 
-        mONorth = fCreateText(mOViewport, "North", TextAnchor.MiddleCenter);
+        mONorth = UWUiKit.CreateText(mOViewport, "North", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
         mONorth.text = "N";
 
-        mOLevel = fCreateText(mOViewport, "Level", TextAnchor.LowerRight);
+        mOLevel = UWUiKit.CreateText(mOViewport, "Level", TextAnchor.LowerRight, UWModernPalette.Text, mOUi);
 
-        mONoMap = fCreateText(mOViewport, "No map", TextAnchor.MiddleCenter);
+        mONoMap = UWUiKit.CreateText(mOViewport, "No map", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
         mONoMap.text = "No map";
 
         mOButtons = new RawImage[2];
@@ -623,54 +578,11 @@ public class UWModernMinimap : MonoBehaviour
 
         for (int liButton = 0; liButton < 2; liButton++)
         {
-            mOButtons[liButton] = fCreateRawImage(mOViewport, "Zoom " + lsButtons[liButton]);
-            mOButtonTexts[liButton] = fCreateText(mOViewport, "Zoom text", TextAnchor.MiddleCenter);
+            mOButtons[liButton] = UWUiKit.CreateRawImage(mOViewport, "Zoom " + lsButtons[liButton]);
+            mOButtonTexts[liButton] = UWUiKit.CreateText(mOViewport, "Zoom text", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
             mOButtonTexts[liButton].text = lsButtons[liButton];
             // The sign in the disc's middle by its ink, whatever the font (UWCentredGlyph).
             mOButtonTexts[liButton].gameObject.AddComponent<UWCentredGlyph>();
         }
-    }
-
-    private static RawImage fCreateRawImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName, TextAnchor peAlignment)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.alignment = peAlignment;
-        lOText.color = msText;
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
     }
 }

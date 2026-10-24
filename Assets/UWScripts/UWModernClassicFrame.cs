@@ -38,11 +38,16 @@ public class UWModernClassicFrame : MonoBehaviour
         Runes = 2
     }
 
-    public static PageEnum Page { get; set; }
+    public static PageEnum Page => (PageEnum)msOTurn.Side;
+
+    /// <summary>The page and the turn's steps (UWPanelTurn, the classic panel's rule; cleanup 5.9,
+    /// 2026-10-20). Static as the page was: it outlives a frame built anew; a turn does not
+    /// (Awake cuts it short, as a new frame's step started at rest).</summary>
+    private static readonly UWPanelTurn msOTurn = new UWPanelTurn();
 
     /// <summary>The panel turns (eight steps, UWHudPanel's): the page shown is squeezed across
     /// (ApplySquash), the frame draws the black behind it, the edge and the chain.</summary>
-    public static bool IsTurning => Instance != null && Instance.miStep >= 0;
+    public static bool IsTurning => Instance != null && msOTurn.IsTurning;
 
     /// <summary>
     /// Squeezes a page's parts across about the panel's middle while the panel turns, as the
@@ -55,7 +60,7 @@ public class UWModernClassicFrame : MonoBehaviour
         if (pOContent == null)
             return;
 
-        float lfScale = IsActive && Instance != null && Instance.miStep >= 0 ? Instance.mfSquash : 1f;
+        float lfScale = IsActive && Instance != null && msOTurn.IsTurning ? Instance.mfSquash : 1f;
         float lfCentre = (PanelX + Extra + (PanelWidth * 0.5f)) * ColumnScale;
 
         pOContent.localScale = new Vector3(lfScale, 1f, 1f);
@@ -72,16 +77,16 @@ public class UWModernClassicFrame : MonoBehaviour
     private float mfSquash = 1f;
 
     /// <summary>The row the weapon's offsets count from (UWGameUI: wTopOffset).</summary>
-    public const int WeaponRow = 131;
+    public const int WeaponRow = UWClassicLayout.Frame.WeaponTop;
 
     /// <summary>Under the frame's picture: the weapon goes here, so the frame covers it below the hole.</summary>
     public Transform WeaponLayer { get; private set; }
 
     public static bool IsActive => UWModernLayout.Preset == UWModernLayout.PresetEnum.Classic;
 
-    private const int FrameWidth = 320;
+    private const int FrameWidth = UWClassicLayout.Screen.Width;
 
-    private const int FrameHeight = 200;
+    private const int FrameHeight = UWClassicLayout.Screen.Height;
 
     /// <summary>Screen pixels per frame row, and per frame column (the original's proportion).</summary>
     public static float RowScale => Screen.height / (float)FrameHeight;
@@ -89,13 +94,39 @@ public class UWModernClassicFrame : MonoBehaviour
     public static float ColumnScale => RowScale * UWModernHudArt.PixelAspectX;
 
     /// <summary>The columns put in to fill the screen's width, and how many of them left of the
-    /// middle (UWHudArt.BuildClassicWideFrame takes half).</summary>
-    public static int Extra => Mathf.Max(0, Mathf.RoundToInt(Screen.width / ColumnScale) - FrameWidth);
+    /// middle (UWHudArt.BuildClassicWideFrame takes half). WITH THE HELP BESIDE IT (per user,
+    /// 2026-10-21, as UWClassicWide does for the classic scheme) only as many as leave the help
+    /// its full width at the right - set at once when the help opens and kept until it has
+    /// closed, so the frame is built anew only then.</summary>
+    public static int Extra
+    {
+        get
+        {
+            int liFull = Mathf.Max(0, Mathf.RoundToInt(Screen.width / ColumnScale) - FrameWidth);
+
+            if (!HelpBeside)
+                return liFull;
+
+            return Mathf.Min(liFull, Mathf.Max(0, Mathf.FloorToInt((Screen.width - HelpWidth) / ColumnScale) - FrameWidth));
+        }
+    }
+
+    /// <summary>The help's full width beside the frame, in screen pixels (UWHelpLayout.MaxWidthPerHeight).</summary>
+    private static float HelpWidth => UWHelpLayout.MaxWidthPerHeight * Screen.height;
+
+    /// <summary>The help window lies beside the frame instead of over it: open or still closing,
+    /// and room for at least UWHelpLayout.MinSideWidth beside the original's 320 columns.</summary>
+    public static bool HelpBeside => IsActive && (UWHelpLayout.IsOpen || UWHelpLayout.Blend > 0f)
+        && Screen.width - (FrameWidth * ColumnScale) >= UWHelpLayout.MinSideWidth * RowScale;
+
+    /// <summary>The frame's right edge in screen pixels - the help lies from there on.</summary>
+    public static float RightEdge => (FrameWidth + Extra) * ColumnScale;
 
     public static int Left => Extra / 2;
 
-    /// <summary>The camera's area, the classic scheme's widened (UWGameUI.fApplyGameCamera).</summary>
-    public static Rect CameraRect => fSpan(50, 17, 226, 138);
+    /// <summary>The camera's area, the classic scheme's widened (UWViewportCamera.Apply).</summary>
+    public static Rect CameraRect => fSpan(UWClassicLayout.Frame.WindowHoleLeft, UWClassicLayout.Frame.WindowHoleTop,
+        UWClassicLayout.Frame.WindowHoleRight, UWClassicLayout.Frame.WindowHoleBottom);
 
     /// <summary>The view's hole in the frame: what the player sees of the world.</summary>
     public static Rect Hole => fSpan(UWHudArt.ClassicWideHole.X, UWHudArt.ClassicWideHole.Y,
@@ -107,39 +138,37 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>The panel (PANELS.GR 0 to 2, 83 x 114) and its edge picture (3), the chain's
     /// pictures (CHAINS.GR 0 to 7 between the flasks, 8 to 15 the short one above the panel) - as
     /// UWHudPanel.</summary>
-    private const int PanelX = 236;
+    private const int PanelX = UWClassicLayout.Panel.Left;
 
-    private const int PanelY = 7;
+    private const int PanelY = UWClassicLayout.Panel.Top;
 
-    private const int PanelWidth = 83;
+    private const int PanelWidth = UWClassicLayout.Panel.Width;
 
-    private const int PanelHeight = 114;
+    private const int PanelHeight = UWClassicLayout.Panel.Height;
 
-    private const int ChainX = 272;
+    private const int ChainX = UWClassicLayout.Panel.ChainLeft;
 
-    private const int ChainY = 121;
+    private const int ChainY = UWClassicLayout.Panel.ChainTop;
 
-    private const int ShortChainY = 3;
+    private const int ShortChainY = UWClassicLayout.Panel.ShortChainTop;
 
-    private const int ChainFrames = 8;
+    private const int ChainFrames = UWClassicLayout.Panel.ChainFrames;
 
-    private const int ShortChainFirst = 8;
-
-    private const int TurnSteps = 8;
+    private const int ShortChainFirst = UWClassicLayout.Panel.ShortChainFirstFrame;
 
     /// <summary>How far the active spells' row moves right on the widened left stone, at most.</summary>
     private const int SpellsRight = 24;
 
     /// <summary>The gargoyle's eyes (EYES.GR, 20 x 3) on its head in MAIN.BYT (UWHudArt: the head at
     /// 126/0, the eyes two columns in and three rows down).</summary>
-    private const int EyesX = 126 + UWHudArt.EyesLeftInBrand;
+    private const int EyesX = UWClassicLayout.Frame.GargoyleHeadLeft + UWHudArt.EyesLeftInBrand;
 
     private const int EyesY = UWHudArt.EyesTopInBrand;
 
     /// <summary>The flask pictures' rows (UWFlasks, 24 x 33), under the panel at row 125 (UWGameUI).</summary>
-    private const int FlaskTop = 125;
+    private const int FlaskTop = UWClassicLayout.Flasks.Top;
 
-    private const int FlaskRows = 33;
+    private const int FlaskRows = UWClassicLayout.Flasks.Rows;
 
     private UWGameUI mOUi;
 
@@ -147,24 +176,22 @@ public class UWModernClassicFrame : MonoBehaviour
 
     private RawImage mOImage;
 
+    /// <summary>The black right of the frame while it is narrowed for the help.</summary>
+    private Image mOGap;
+
     private RectTransform mODragonSpace;
 
     private UWHudDragons mODragons;
 
-    private Texture2D mOTexture;
+    /// <summary>The frame, built for the width and the colours (UWVersionedTexture).</summary>
+    private readonly UWVersionedTexture mOTexture = new UWVersionedTexture();
 
     private UWHudArt.ClassicWideFrame mOFrame;
 
     private int miExtra = -1;
 
-    private int miArtVersion = -1;
-
-    // The panel's turn: the step (-1 at rest), when the next comes, the page turned to.
-    private int miStep = -1;
-
+    // The panel's turn: when the next step comes (the steps are msOTurn's).
     private float mfStepAt;
-
-    private PageEnum meTarget;
 
     private RawImage mOPanelBlack;
 
@@ -199,6 +226,7 @@ public class UWModernClassicFrame : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        msOTurn.Cancel();
     }
 
     private void OnDestroy()
@@ -319,7 +347,7 @@ public class UWModernClassicFrame : MonoBehaviour
     }
 
     /// <summary>Whether a screen point lies on the frame, not in its hole: no click goes into the
-    /// world there (UWModernPointer.IsOverUi).</summary>
+    /// world there (UWModernUi.IsOverUi).</summary>
     public bool IsOverFrame(Vector2 pOPointer)
     {
         return IsActive && mOCanvas != null && mOCanvas.enabled && !Hole.Contains(pOPointer);
@@ -356,7 +384,7 @@ public class UWModernClassicFrame : MonoBehaviour
 
         fEnsureTexture();
 
-        if (mOTexture == null)
+        if (mOTexture.Texture == null)
         {
             fSetShown(false);
             return;
@@ -369,13 +397,22 @@ public class UWModernClassicFrame : MonoBehaviour
         lORect.anchoredPosition = Vector2.zero;
         lORect.sizeDelta = new Vector2((FrameWidth + Extra) * ColumnScale, FrameHeight * RowScale);
 
+        // Black right of a frame narrowed for the help: the camera draws only into the hole.
+        float lfGap = Screen.width - RightEdge;
+
+        mOGap.enabled = lfGap > 0.5f;
+
+        if (mOGap.enabled)
+            UWUiKit.SetRect(mOGap.rectTransform, RightEdge, 0f, lfGap, Screen.height);
+
         // The dragons in the frame's own pixels: their pictures sized in them, the space scaled.
         mODragonSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
         mODragonSpace.anchoredPosition = Vector2.zero;
 
-        if (mODragons != null && !mOUi.IsMapVisible && !UWConversationScreen.IsAnyOpen)
+        if (mODragons != null && !mOUi.Map.IsMapVisible && !UWConversationController.IsAnyOpen)
             mODragons.Tick();
 
+        fHoldForConversation();
         fUpdateInput();
         fUpdateTurn();
         fUpdateFightIcon();
@@ -411,64 +448,30 @@ public class UWModernClassicFrame : MonoBehaviour
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Classic wide frame", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
-
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
         // Under the HUD's parts (40) and the conversation (39).
-        mOCanvas.sortingOrder = 38;
-
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Classic wide frame", UWUiSorting.ClassicWideFrame);
 
         // The weapon's layer first, so the frame lies over it.
-        GameObject lOWeapon = new GameObject("Weapon layer", typeof(RectTransform));
-        lOWeapon.transform.SetParent(lORoot.transform, false);
+        WeaponLayer = UWUiKit.CreateStretchedGroup(mOCanvas.transform, "Weapon layer");
 
-        RectTransform lOWeaponRect = (RectTransform)lOWeapon.transform;
-        lOWeaponRect.anchorMin = Vector2.zero;
-        lOWeaponRect.anchorMax = Vector2.one;
-        lOWeaponRect.offsetMin = Vector2.zero;
-        lOWeaponRect.offsetMax = Vector2.zero;
-        WeaponLayer = lOWeaponRect;
-
-        GameObject lOImage = new GameObject("Frame", typeof(RectTransform), typeof(RawImage));
-        lOImage.transform.SetParent(lORoot.transform, false);
-
-        RectTransform lORect = (RectTransform)lOImage.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        mOImage = lOImage.GetComponent<RawImage>();
-        mOImage.raycastTarget = false;
+        mOImage = UWUiKit.CreateRawImage(mOCanvas.transform, "Frame", true);
         UWPixelArtUI.Apply(mOImage);
 
-        GameObject lOSpace = new GameObject("Dragons", typeof(RectTransform));
-        lOSpace.transform.SetParent(lORoot.transform, false);
+        mOGap = UWUiKit.CreateImage(mOCanvas.transform, "Help gap", Color.black);
+        mOGap.raycastTarget = false;
 
         // The dragons over the parts (the rune hollow lies under the right one's head, per user,
         // 2026-10-10): a canvas of their own above the HUD's.
-        mODragonCanvas = lOSpace.AddComponent<Canvas>();
-        mODragonCanvas.overrideSorting = true;
-        mODragonCanvas.sortingOrder = 41;
+        mODragonCanvas = UWUiKit.CreateLayerCanvas(mOCanvas.transform, "Dragons", UWUiSorting.ClassicWideDragons);
 
-        mODragonSpace = (RectTransform)lOSpace.transform;
-        mODragonSpace.anchorMin = new Vector2(0f, 1f);
-        mODragonSpace.anchorMax = new Vector2(0f, 1f);
-        mODragonSpace.pivot = new Vector2(0f, 1f);
+        mODragonSpace = (RectTransform)mODragonCanvas.transform;
+        mODragonSpace.anchorMin = UWUiKit.TopLeft;
+        mODragonSpace.anchorMax = UWUiKit.TopLeft;
+        mODragonSpace.pivot = UWUiKit.TopLeft;
         mODragonSpace.sizeDelta = Vector2.zero;
 
         // The turn's pictures in a space of their own, in the frame's pixels as the dragons'.
-        GameObject lOTurn = new GameObject("Panel turn", typeof(RectTransform));
-        lOTurn.transform.SetParent(lORoot.transform, false);
-
-        mOTurnSpace = (RectTransform)lOTurn.transform;
-        mOTurnSpace.anchorMin = new Vector2(0f, 1f);
-        mOTurnSpace.anchorMax = new Vector2(0f, 1f);
-        mOTurnSpace.pivot = new Vector2(0f, 1f);
+        mOTurnSpace = UWUiKit.CreateGroup(mOCanvas.transform, "Panel turn", UWUiKit.TopLeft);
         mOTurnSpace.sizeDelta = Vector2.zero;
 
         mOPanelBlack = fTurnImage("Panel black", new Vector2(0f, 1f), Color.black);
@@ -485,18 +488,8 @@ public class UWModernClassicFrame : MonoBehaviour
 
     private RawImage fTurnImage(string psName, Vector2 pOPivot, Color pOColour)
     {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(mOTurnSpace, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = new Vector2(0f, 1f);
-        lORect.anchorMax = new Vector2(0f, 1f);
-        lORect.pivot = pOPivot;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
+        RawImage lOImage = UWUiKit.CreateRawImage(mOTurnSpace, psName, UWUiKit.TopLeft, pOPivot);
         lOImage.color = pOColour;
-        lOImage.enabled = false;
         UWPixelArtUI.Apply(lOImage);
 
         return lOImage;
@@ -519,14 +512,8 @@ public class UWModernClassicFrame : MonoBehaviour
         if (lOSource == null || lOSource.Width <= 0 || lOSource.Height <= 0)
             return null;
 
-        Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernClassicFrame " + peType + " " + piIndex;
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-        lOTexture.Apply(false, false);
-
-        return lOTexture;
+        return UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWModernClassicFrame " + peType + " " + piIndex,
+            TextureWrapMode.Clamp);
     }
 
     private void fEnsureTurnArt()
@@ -546,21 +533,40 @@ public class UWModernClassicFrame : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// THE INVENTORY SHOWS DURING A CONVERSATION, as on the classic panel (UWHudPanel, per user on
+    /// the original, 2026-09-18): the stats page or the rune tablet gives way to the character
+    /// page without a turn, a turn under way is cut short, and afterwards the page from before is
+    /// back. Per user, 2026-10-20: in a conversation one cannot turn the panel or open the rune
+    /// bag, so the inventory must show for the trade; this frame used to keep whatever page was up.
+    /// The hold is UWPanelTurn's, the classic panel's.
+    /// </summary>
+    private void fHoldForConversation()
+    {
+        if (UWConversationController.IsAnyOpen)
+        {
+            if (msOTurn.HoldForConversation().TurnCut)
+                mfSquash = 1f;
+
+            return;
+        }
+
+        msOTurn.ReleaseAfterConversation();
+    }
+
     /// <summary>Starts the panel's turn to a page, as the original's chain does (UWHudPanel).</summary>
     private void fTurnTo(PageEnum pePage)
     {
-        if (miStep >= 0 || pePage == Page)
+        if (!msOTurn.Begin((UWPanelTurn.SideEnum)pePage))
             return;
 
-        meTarget = pePage;
-        miStep = 0;
         mfStepAt = Time.unscaledTime;
     }
 
     /// <summary>
     /// THE PANEL'S TURN (per user's screenshot, 2026-10-10: the chain's pull had no animation),
     /// as the classic scheme's (UWHudPanel.fUpdatePanelRotation): eight steps of
-    /// UWGameUI.mfPanelStepSeconds, the page's width the cosine over 180 degrees, in the middle
+    /// UWClassicLayout.Panel.TurnStepSeconds, the page's width the cosine over 180 degrees, in the middle
     /// step the panel's edge picture and the page turned; the chain turns along in its own
     /// pictures. Under the turning page the panel's place is black (the frame has the inventory's
     /// circles baked in). The pages themselves hide meanwhile (IsTurning).
@@ -570,7 +576,7 @@ public class UWModernClassicFrame : MonoBehaviour
         mOTurnSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
         mOTurnSpace.anchoredPosition = Vector2.zero;
 
-        if (miStep < 0)
+        if (!msOTurn.IsTurning)
         {
             mOPanelBlack.enabled = false;
             mOPanelPage.enabled = false;
@@ -586,25 +592,23 @@ public class UWModernClassicFrame : MonoBehaviour
 
         if (Time.unscaledTime >= mfStepAt)
         {
-            if (miStep >= TurnSteps)
+            // The step's picture and the page's flip on the edge step: UWPanelTurn.Advance.
+            UWPanelTurn.Frame lOFrame = msOTurn.Advance();
+
+            if (lOFrame.Finished)
             {
-                miStep = -1;
                 mfSquash = 1f;
                 fUpdateTurn();
                 return;
             }
 
-            mfStepAt = Time.unscaledTime + Mathf.Max(0.01f, mOUi.mfPanelStepSeconds);
+            mfStepAt = Time.unscaledTime + UWClassicLayout.Panel.TurnStepSeconds;
 
-            if (miStep == TurnSteps / 2)
-                Page = meTarget;
-
-            float lfWidth = Mathf.Abs(Mathf.Cos(miStep / (float)TurnSteps * Mathf.PI));
-            bool lbEdge = miStep == TurnSteps / 2;
+            bool lbEdge = lOFrame.OnEdge;
             float lfX = PanelX + Extra;
 
             // The page itself is squeezed (ApplySquash); on its edge it is gone.
-            mfSquash = lbEdge ? 0f : lfWidth;
+            mfSquash = lOFrame.Scale;
 
             fPlace(mOPanelBlack, null, lfX, PanelY, PanelWidth, PanelHeight);
             mOPanelPage.enabled = false;
@@ -613,10 +617,8 @@ public class UWModernClassicFrame : MonoBehaviour
                 mOEdgeTexture != null ? mOEdgeTexture.height : 0f);
             mOPanelEdge.enabled = lbEdge && mOEdgeTexture != null;
 
-            fPlaceChain(mOChainBlack, mOChain, mOChainTextures[miStep], ChainX + Extra, ChainY);
-            fPlaceChain(mOShortChainBlack, mOShortChain, mOShortChainTextures[miStep], ChainX + Extra, ShortChainY);
-
-            miStep++;
+            fPlaceChain(mOChainBlack, mOChain, mOChainTextures[lOFrame.ChainFrame], ChainX + Extra, ChainY);
+            fPlaceChain(mOShortChainBlack, mOShortChain, mOShortChainTextures[lOFrame.ChainFrame], ChainX + Extra, ShortChainY);
         }
     }
 
@@ -652,22 +654,20 @@ public class UWModernClassicFrame : MonoBehaviour
     {
         int liExtra = Extra;
 
-        if (mOTexture != null && miExtra == liExtra && miArtVersion == UWColourVision.Version)
+        UWArtStamp lOStamp = UWVersionedTexture.Colours(liExtra);
+
+        if (mOTexture.IsCurrent(lOStamp))
             return;
 
-        if (mOTexture != null)
-            Destroy(mOTexture);
-
-        mOTexture = UWModernHudArt.BuildClassicWideFrame(mOUi.mOUWData.Textures, liExtra, mOUi.TextureFilterMode, out mOFrame);
-        mOImage.texture = mOTexture;
-        miArtVersion = UWColourVision.Version;
+        mOImage.texture = mOTexture.Set(lOStamp, UWModernHudArt.BuildClassicWideFrame(mOUi.mOUWData.Textures, liExtra, mOUi.TextureFilterMode, out mOFrame));
 
         if (miExtra != liExtra || mODragons == null)
         {
             for (int liAt = mODragonSpace.childCount - 1; liAt >= 0; liAt--)
                 Destroy(mODragonSpace.GetChild(liAt).gameObject);
 
-            mODragons = new UWHudDragons(mODragonSpace, mOUi.fGetDragonSprite, liExtra);
+            mODragons?.Release();
+            mODragons = new UWHudDragons(mODragonSpace, mOUi.Classic.GetDragonSprite, liExtra);
         }
 
         miExtra = liExtra;
@@ -683,13 +683,13 @@ public class UWModernClassicFrame : MonoBehaviour
         UWModernHud lOHud = UWModernHud.Instance;
 
         if (lOScheme == null || lOScheme.IsUIModalOpen || UWControls.IsTextEntryActive || lOHud == null || lOHud.IsOpen
-            || UWConversationScreen.IsAnyOpen)
+            || UWConversationController.IsAnyOpen)
             return;
 
         UWControls lOControls = lOScheme.Controls;
 
         if (lOControls != null && lOControls.Player.ModernRunes.WasPressedThisFrame())
-            fTurnTo(Page == PageEnum.Runes ? PageEnum.Inventory : PageEnum.Runes);
+            fTurnTo((PageEnum)msOTurn.RuneBagTarget);
 
         if (!UWModernPointer.IsFree || Mouse.current == null || (!UWMouseButtons.LeftPressed && !UWMouseButtons.RightPressed)
             || UWModernPointer.PanelsHeld)
@@ -724,12 +724,12 @@ public class UWModernClassicFrame : MonoBehaviour
         UWClickRules.FlaskPart lePart = UWClickRules.FlaskAt(liX - lOArea.X0, liY - lOArea.Y0);
 
         if (lePart == UWClickRules.FlaskPart.Chain)
-            fTurnTo(Page == PageEnum.Inventory ? PageEnum.Stats : PageEnum.Inventory);
+            fTurnTo((PageEnum)msOTurn.ChainTarget);
         else if (mOUi.Runes != null)
             mOUi.Runes.DescribeFlask(lePart);
     }
 
-    /// <summary>The gargoyle's eyes' place on the screen (UWModernHud draws them there).</summary>
+    /// <summary>The gargoyle's eyes' place on the screen (UWModernHeadingStrip draws them there).</summary>
     public static Rect EyesRect(int piWidth, int piHeight)
     {
         return new Rect(fX(EyesX, EyesY), fTop(EyesY + piHeight), piWidth * ColumnScale, piHeight * RowScale);

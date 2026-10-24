@@ -188,6 +188,21 @@ namespace UWDataImport.UWData
 			return pOTextures != null ? fGet(pOTextures, UWTexture.TextureTypes.OBJECTS, piObjectId) : null;
 		}
 
+		/// <summary>
+		/// THE PICTURE OF AN OPEN CONTAINER: the OBJECTS.GR image of its open variant
+		/// (UWObjectIds.OpenPicture - sack to gold coffer with bit 0 set, urn, quiver and bowl
+		/// themselves), null without a container or an image. The ONE home of this rule since
+		/// cleanup step 5.6 (2026-10-20): the classic frame's picture above the open container
+		/// (UWHudInventory), the modern bags' open bag (UWModernBags) and the modern original page
+		/// (UWModernInventoryPage) all ask here. The last showed the closed picture until then - it
+		/// took the object's own Icon ?? Texture (B29 of the cleanup plan; decided by the user the
+		/// same day: it shows the open one, as the other two do).
+		/// </summary>
+		public static UWTexture OpenContainerPicture(UWTextures pOTextures, UWObject pOContainer)
+		{
+			return pOContainer != null ? Picture(pOTextures, UWObjectIds.OpenPicture(pOContainer.ID)) : null;
+		}
+
 		/// <summary>UWTextures throws for an index its file does not have; an object without a
 		/// picture is not an error here (the spawner skips it, the sites gave up on it).</summary>
 		private static UWTexture fGet(UWTextures pOTextures, UWTexture.TextureTypes peType, int piIndex)

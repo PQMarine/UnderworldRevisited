@@ -15,21 +15,15 @@ namespace UWDataImport.UWData
 	/// cast without an Interaction) drops its lines and still shakes, flashes and plays - see
 	/// UWSilentPresentation. Until now the trap host expressed that by a null Interaction.
 	/// </summary>
-	public interface IUWPresentation
+	public interface IUWPresentation : IUWMessageSink
 	{
 		/// <summary>False in a silent scope: the lines are dropped, and traps that only talk do
 		/// nothing (IUWTrapHost.HasMessages until cleanup step 3.6; the trap rules ask this).</summary>
 		bool ShowsMessages { get; }
 
-		/// <summary>A composed line for the message scroll; an empty one is dropped.</summary>
-		void AddMessage(string psMessage);
-
-		/// <summary>A line of string block 1, our numbering; a missing entry adds nothing.</summary>
-		void AddGeneralMessage(int piIndex);
-
-		/// <summary>A line of string block 1 as text, for messages assembled from pieces. Empty in a
-		/// silent scope, as the hosts answered it without an Interaction.</summary>
-		string GetGeneralMessage(int piIndex);
+		// AddMessage, AddGeneralMessage and GetGeneralMessage are IUWMessageSink's (cleanup step
+		// 5.13, 2026-10-22); a silent scope answers GetGeneralMessage empty, as the hosts did
+		// without an Interaction.
 
 		/// <summary>A sound effect at the player, without a position (UW.EXE's sound at the
 		/// avatar).</summary>

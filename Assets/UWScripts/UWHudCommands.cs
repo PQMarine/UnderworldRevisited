@@ -62,7 +62,7 @@ public sealed class UWHudCommands
 
         for (int liAt = 0; liAt < msEntries.Length; liAt++)
         {
-            mOImages[liAt] = UWGameUI.fCreateImage("Command " + msEntries[liAt].Mode, mOUi.mGameFrame,
+            mOImages[liAt] = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "Command " + msEntries[liAt].Mode,
                 msEntries[liAt].Left, -msEntries[liAt].Top, 1f, 1f, Color.white);
 
             mOUi.Options.fSetUiSprite(mOImages[liAt], UWTexture.TextureTypes.LFTI, msEntries[liAt].IdleArt);
@@ -94,7 +94,7 @@ public sealed class UWHudCommands
 
         // NOT WHILE THE VIEW ROAMS (per user, 2026-09-27: the modes are locked in the original
         // during Roaming Sight).
-        if (UWConversationScreen.IsAnyOpen || !UWMouseButtons.LeftPressed || UWRoamingSight.IsAnyRunning)
+        if (UWConversationController.IsAnyOpen || !UWMouseButtons.LeftPressed || UWRoamingSight.IsAnyRunning)
             return false;
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
@@ -108,7 +108,7 @@ public sealed class UWHudCommands
         // button, the sixth step, keeps its own handling in UWHudOptions.
         Vector2 lOPosition = lOMouse.position.ReadValue();
 
-        if (!mOUi.IsPointerInOriginalArea(lOPosition, UWClickRules.CommandIcons, out int _, out int liY))
+        if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.CommandIcons, out int _, out int liY))
             return false;
 
         UWCommandMode leMode = UWClickRules.CommandIconAt(liY);

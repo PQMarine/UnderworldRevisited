@@ -33,7 +33,7 @@ public static class UWModernPointer
     /// asks this one rule before it takes a click - the bags, the paperdoll, the action bar's
     /// slots, the character panel and its pages, the minimap, the active spells and the heading,
     /// the classic frame of the modern presets. Only the bags let an item target spell take its
-    /// target first (UWModernBags.fLeftPressed); Escape lets the spell go (UWGameUI); walking,
+    /// target first (UWModernBagClicks.LeftPressed); Escape lets the spell go (UWGameUI); walking,
     /// the wheel and the aim into the world go on. The rune panel keeps the runes' own wider rule
     /// (UWHudRunes.InAnotherInputMode).
     /// </summary>
@@ -150,10 +150,10 @@ public static class UWModernPointer
 
     /// <summary>The free pointer lies on the world: not on a window, nothing on it, no split box,
     /// menu, question or use mode taking the click. With the weapon drawn the left button strikes
-    /// there (Interaction.fMouseInWorld, per user 2026-10-04).</summary>
+    /// there (Interaction.MouseInWorld, per user 2026-10-04).</summary>
     public static bool FreePointerOnWorld()
     {
-        // The split box's clicks are its own (UWModernBags.StackSplit), and so is the use mode's.
+        // The split box's clicks are its own (UWModernBagSplit), and so is the use mode's.
         if (!IsFree || Mouse.current == null || UWModernBags.IsSplitting || UWModernBags.IsMenuOpen
             || UWModernQuestion.IsBlocking
             || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing))
@@ -164,27 +164,7 @@ public static class UWModernPointer
         if (lOInventory != null && lOInventory.CursorItem != null)
             return false;
 
-        return !fIsOverUi(Mouse.current.position.ReadValue());
-    }
-
-    /// <summary>Whether a screen point lies on a window of the modern UI (for Interaction's aim).</summary>
-    public static bool IsOverUi(Vector2 pOPointer)
-    {
-        return fIsOverUi(pOPointer);
-    }
-
-    /// <summary>Whether a screen point lies on a window of the modern UI - there the right button
-    /// uses instead of switching.</summary>
-    private static bool fIsOverUi(Vector2 pOPointer)
-    {
-        return (UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(pOPointer))
-            || (UWModernPanel.Instance != null && UWModernPanel.Instance.Contains(pOPointer))
-            || (UWModernRunePanel.Instance != null && UWModernRunePanel.Instance.Contains(pOPointer))
-            || (UWModernQuestion.Instance != null && UWModernQuestion.Instance.Contains(pOPointer))
-            || (UWModernHud.Instance != null && UWModernHud.Instance.IsOverSpellIcons(pOPointer))
-            || (UWModernMinimap.Instance != null && UWModernMinimap.Instance.Contains(pOPointer))
-            || (UWModernActionBar.Instance != null && UWModernActionBar.Instance.ScreenRect.Contains(pOPointer))
-            || (UWModernClassicFrame.Instance != null && UWModernClassicFrame.Instance.IsOverFrame(pOPointer));
+        return !UWModernUi.IsOverUi(Mouse.current.position.ReadValue());
     }
 
     /// <summary>The right button, read once a frame by UWModernHud.</summary>
@@ -197,7 +177,7 @@ public static class UWModernPointer
         if (lOScheme == null)
             return;
 
-        if (lOScheme.Current != UWControlScheme.SchemeEnum.Modern)
+        if (!UWModernUi.IsActive)
         {
             Release();
             return;
@@ -215,7 +195,7 @@ public static class UWModernPointer
 
         UnityEngine.InputSystem.InputAction lOButton = lOControls.Player.Interact;
         Vector2 lOPointer = Mouse.current.position.ReadValue();
-        bool lbOverUi = IsFree && fIsOverUi(lOPointer);
+        bool lbOverUi = IsFree && UWModernUi.IsOverUi(lOPointer);
 
         // THE GAMEPAD'S RIGHT BUTTON does not switch the pointer - R3 does that for the pad (per
         // user, 2026-10-07: the pointer only got locked again).

@@ -74,7 +74,7 @@ public partial class UWSetupMenu : MonoBehaviour
     public static bool KeyNavActive { get; private set; }
 
     /// <summary>One of the bar's menus or dialogs is open - the in-game menus under it stand
-    /// back then (UWModernHud, UWHudOptions).</summary>
+    /// back then (UWModernGameMenu, UWHudOptions).</summary>
     public static bool HasOpenPanel { get; private set; }
 
     /// <summary>
@@ -87,12 +87,12 @@ public partial class UWSetupMenu : MonoBehaviour
     {
         UWModernHud lOModern = UWModernHud.Instance;
 
-        if (lOModern != null && lOModern.ShowsMenuPage)
+        if (lOModern != null && lOModern.Menu.ShowsMenuPage)
             return true;
 
         UWGameUI lOGameUi = UWScene.GameUi;
 
-        return lOGameUi != null && lOGameUi.IsOptionsOpen;
+        return lOGameUi != null && lOGameUi.Classic.IsOptionsOpen;
     }
 
     private DataImport mOData;
@@ -104,8 +104,6 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>The effects screen's own frame in the game (fChooseLevel), on a canvas above the
     /// game's interfaces.</summary>
     private RectTransform mOEffectsFrame;
-
-    private const int EffectsCanvasOrder = 500;
 
     private bool mbBarShown;
 
@@ -340,7 +338,7 @@ public partial class UWSetupMenu : MonoBehaviour
         {
             if (mOEffectsFrame == null)
             {
-                Canvas lOCanvas = UWScreenUi.CreateCanvas(transform, "Effects Screen Canvas", EffectsCanvasOrder, out mOEffectsFrame);
+                Canvas lOCanvas = UWScreenUi.CreateCanvas(transform, "Effects Screen Canvas", UWUiSorting.EffectsScreen, out mOEffectsFrame);
                 Transform lOBackdrop = lOCanvas.transform.Find("Backdrop");
 
                 if (lOBackdrop != null)

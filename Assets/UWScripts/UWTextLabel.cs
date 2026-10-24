@@ -28,15 +28,18 @@ using UWDataImport.UWData;
 /// Lexend Tera, taken first on a measurement that counted a gap too many, ran a fifth too wide
 /// (per user with screenshots).
 ///
-/// Every place that draws text calls Set with texture and lines, and Hide to
+/// Every place that draws text calls SetText or SetLine with what it shows, and Hide to
 /// hide it - no longer RawImage.enabled, otherwise the switching would get mixed up.
+///
+/// THE LABEL ASKS UWTextTextures FOR ITS PICTURE (cleanup step 5.5, 2026-10-19): it holds its
+/// text through a slot, compares each request with it and only asks the service when the text
+/// changed; it never destroys a texture, the service owns them, and it gives its text back when it
+/// goes. Until then every caller rendered its own texture (UWFontRenderer.RenderLines), kept its
+/// own cache or none, and destroyed the old texture by hand or leaked it (B33).
 /// </summary>
 public class UWTextLabel : MonoBehaviour
 {
     private const string PrefsKey = "UWModernFont";
-
-    /// <summary>The modern font under Resources, and the interface font (UWInterfaceFont) if it is missing.</summary>
-    private const string ModernFontResource = "Fonts/LexendExa";
 
     /// <summary>Font size per unit of the original line pitch: font5x6p's capitals take 5 of
     /// its 6 rows, Lexend's capitals 0.7 of its size, so 5 / 6 / 0.7 = 1.19 - at the pitch of 6
@@ -57,8 +60,6 @@ public class UWTextLabel : MonoBehaviour
     private static bool mbLoaded;
 
     private static bool mbModern;
-
-    private static Font mOModernFont;
 
     /// <summary>Line pitch per font size: what Unity uses for a value of 1,
     /// measured once.</summary>
@@ -127,6 +128,84 @@ public class UWTextLabel : MonoBehaviour
         get { return mbShown; }
     }
 
+    /// <summary>The text shown, held from UWTextTextures.</summary>
+    private readonly UWTextTextures.Slot mOSlot = new UWTextTextures.Slot();
+
+    /// <summary>The modern font's settings of the last fSet - a text set again unchanged with the
+    /// same settings is only shown again (the weight and the stack counts are set every frame).</summary>
+    private FontStyle meStyleSet;
+
+    private float mfRaiseSet;
+
+    private float mfShiftSet;
+
+    /// <summary>One line in one colour each per request, reused - SetLine allocates nothing.</summary>
+    private readonly string[] mlsOneLine = new string[1];
+
+    private readonly Color32[] myOneColour = new Color32[1];
+
+    /// <summary>
+    /// Shows lines in the original font (pictured by UWTextTextures) and the same lines in the
+    /// modern one. pyColours is the colour code table (Codes: \digit switches, across lines) or
+    /// one colour per line (PerLine), see UWTextRaster; pbCursor adds the blinking input box behind
+    /// the last line - as a "_" in the modern font. pfExtraRaise moves the modern font up by so many
+    /// canvas units on top of the measured capital gap, pfShiftRight to the right. Nothing to draw
+    /// hides the field.
+    /// </summary>
+    public void SetText(UWFont pOFont, IReadOnlyList<string> pOLines, int piWidth, Color32[] pyColours,
+        UWTextRaster.ColoursEnum peColours, bool pbCentred, FilterMode peFilter, bool pbCursor = false,
+        FontStyle peStyle = FontStyle.Normal, float pfExtraRaise = ModernExtraRaise, float pfShiftRight = 0f)
+    {
+        UWTextTextures.Handle lOHandle = mOSlot.Set(pOFont, pOLines, piWidth, pyColours, peColours, pbCentred, peFilter, pbCursor,
+            out bool lbChanged);
+
+        if (lOHandle == null)
+        {
+            Hide();
+            return;
+        }
+
+        if (!lbChanged && mOImage != null && mOImage.texture == lOHandle.Texture && meStyleSet == peStyle
+            && mfRaiseSet == pfExtraRaise && mfShiftSet == pfShiftRight)
+        {
+            Show();
+            return;
+        }
+
+        List<string> lOModernLines = new List<string>(lOHandle.Lines);
+
+        // The modern font gets the input box as a character.
+        if (pbCursor)
+            lOModernLines[lOModernLines.Count - 1] += "_";
+
+        fSet(pOFont, lOHandle.Texture, lOModernLines, lOHandle.LineColours, pbCentred, peStyle, pfExtraRaise, pfShiftRight);
+    }
+
+    /// <summary>One line in one colour (see SetText).</summary>
+    public void SetLine(UWFont pOFont, string psText, int piWidth, Color32 pOColour, bool pbCentred, FilterMode peFilter,
+        FontStyle peStyle = FontStyle.Normal, float pfExtraRaise = ModernExtraRaise, float pfShiftRight = 0f)
+    {
+        if (string.IsNullOrEmpty(psText))
+        {
+            Hide();
+            return;
+        }
+
+        mlsOneLine[0] = psText;
+        myOneColour[0] = pOColour;
+
+        SetText(pOFont, mlsOneLine, piWidth, myOneColour, UWTextRaster.ColoursEnum.Codes, pbCentred, peFilter, false, peStyle,
+            pfExtraRaise, pfShiftRight);
+    }
+
+    /// <summary>The picture of the text shown (its size is the field's), or null.</summary>
+    public Texture2D Picture => mOSlot.Current?.Texture;
+
+    private void OnDestroy()
+    {
+        mOSlot.Release();
+    }
+
     /// <summary>
     /// Shows lines. pOTexture is the fully drawn original font (the RawImage
     /// gets it and its size), pOLines are the same lines for the modern font,
@@ -134,10 +213,13 @@ public class UWTextLabel : MonoBehaviour
     /// modern font up by so many canvas units on top of the measured capital gap, pfShiftRight
     /// to the right.
     /// </summary>
-    public void Set(UWFont pOFont, Texture2D pOTexture, List<string> pOLines, List<Color32> pOColours,
-        bool pbCentred, FontStyle peStyle = FontStyle.Normal, float pfExtraRaise = ModernExtraRaise,
-        float pfShiftRight = 0f)
+    private void fSet(UWFont pOFont, Texture2D pOTexture, List<string> pOLines, List<Color32> pOColours,
+        bool pbCentred, FontStyle peStyle, float pfExtraRaise, float pfShiftRight)
     {
+        meStyleSet = peStyle;
+        mfRaiseSet = pfExtraRaise;
+        mfShiftSet = pfShiftRight;
+
         if (mOImage == null)
             mOImage = GetComponent<RawImage>();
 
@@ -366,12 +448,6 @@ public class UWTextLabel : MonoBehaviour
         if (mOText != null)
             return;
 
-        if (mOModernFont == null)
-            mOModernFont = Resources.Load<Font>(ModernFontResource);
-
-        if (mOModernFont == null)
-            mOModernFont = UWInterfaceFont.Font;
-
         GameObject lOObject = new GameObject("Modern Font", typeof(RectTransform), typeof(Text));
         lOObject.transform.SetParent(transform, false);
 
@@ -383,7 +459,8 @@ public class UWTextLabel : MonoBehaviour
         lORect.offsetMax = Vector2.zero;
 
         mOText = lOObject.GetComponent<Text>();
-        mOText.font = mOModernFont;
+        // The modern font, and the interface font if it is missing.
+        mOText.font = UWInterfaceFont.ModernOrInterface;
         mOText.supportRichText = true;
         mOText.horizontalOverflow = HorizontalWrapMode.Overflow;
         mOText.verticalOverflow = VerticalWrapMode.Overflow;
@@ -463,13 +540,14 @@ public class UWTextLabel : MonoBehaviour
                 : pOColours[liLine < pOColours.Count ? liLine : pOColours.Count - 1];
 
             // Unity Text treats angle brackets as markup; they do not occur in the game
-            // text, but the names of save games could contain some.
+            // text, but the names of save games could contain some (UWRichText.Escape, the one
+            // rule for every rich text since cleanup step 5.12).
             // A LINE BREAK INSIDE A LINE draws nothing in the original font, which has no glyph for
             // it, but Unity breaks the line there - an extra line that pushed [MORE] out of the
             // box (per user, 2026-09-30: Ketchaval's "the Gray tribe.\n Years ago,"). The lines
             // are already wrapped, so it goes.
-            string lsLine = fStripColourCodes(pOLines[liLine] ?? string.Empty).Replace("\r", string.Empty)
-                .Replace("\n", string.Empty).Replace("<", "‹").Replace(">", "›");
+            string lsLine = UWRichText.Escape(fStripColourCodes(pOLines[liLine] ?? string.Empty).Replace("\r", string.Empty)
+                .Replace("\n", string.Empty));
 
             lOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGBA(lOColour)).Append('>')
                 .Append(lsLine).Append("</color>");

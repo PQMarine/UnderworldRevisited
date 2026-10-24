@@ -7,7 +7,7 @@ public interface IUsableDoor
 {
     void StartUsingDoor();
 
-    /// <summary>For Interaction.fTryUseDoor (the lock check only applies to opening, not
+    /// <summary>For UWWorldUse.fTryUseDoor (the lock check only applies to opening, not
     /// to closing). DoorMover/PortcullisMover already had this property before,
     /// just not as part of the interface.</summary>
     bool IsClosed { get; }

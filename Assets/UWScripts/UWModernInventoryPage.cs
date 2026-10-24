@@ -12,13 +12,13 @@ using UWDataImport.UWData;
 ///
 /// On it, at the classic frame's places (the page lies at 236/7 of the 320 x 200 frame): the
 /// body and the armour as UWCharacter draws them, the things in the hands, on the shoulders and
-/// on the fingers (UWModernPanel's msIconSlots), and the eight backpack slots from the original's
+/// on the fingers (UWPaperdollLayout.IconSlots), and the eight backpack slots from the original's
 /// table of the page (UWClickRules.InventorySpotAt). All of it at the original's pixel proportion
 /// (UWModernHudArt.PixelAspectX), as the other original pieces.
 ///
 /// The things are taken and put down by UWModernBags, which asks this page for its slots
 /// (TryGetEquipSlotAt, BackpackSlotAt, SpotAt), as it asks the modern character panel; while the
-/// page shows, the bags' own windows stay shut (UWModernBags.fPageShown).
+/// page shows, the bags' own windows stay shut (UWModernBagPages.IsPageShown).
 ///
 /// THE OPEN CONTAINER as in the original (UWInventoryModel.OpenContainer, one at a time): its
 /// things in the eight slots from the scroll offset on, on the container view's back (INV.GR 6
@@ -27,7 +27,7 @@ using UWDataImport.UWData;
 /// (BUTTONS.GR 27 and 28, shown only where they can scroll; a row per click) - the classic
 /// UWHudInventory's places.
 /// </summary>
-public class UWModernInventoryPage
+public class UWModernInventoryPage : IUWModernPart
 {
     public static UWModernInventoryPage Instance { get; private set; }
 
@@ -36,41 +36,24 @@ public class UWModernInventoryPage
 
     private const int PageY = 7;
 
-    /// <summary>Where the original draws the body and the armour (UWModernPanel's), MAIN.BYT pixels.</summary>
-    private static readonly Vector2Int msBodyAt = new Vector2Int(260, 11);
+    /// <summary>Where the original draws the body and the armour (UWPaperdollLayout), MAIN.BYT pixels.</summary>
+    private static readonly Vector2Int msBodyAt = new Vector2Int(UWPaperdollLayout.BodyX, UWPaperdollLayout.BodyY);
 
-    private static readonly Vector2Int msHelmetAt = new Vector2Int(267, 10);
+    private static readonly Vector2Int msHelmetAt = new Vector2Int(UWPaperdollLayout.HelmetX, UWPaperdollLayout.HelmetY);
 
-    private static readonly Vector2Int msGlovesAt = new Vector2Int(261, 42);
+    private static readonly Vector2Int msGlovesAt = new Vector2Int(UWPaperdollLayout.GlovesX, UWPaperdollLayout.GlovesY);
 
-    private static readonly Vector2Int msLegsAt = new Vector2Int(268, 24);
+    private static readonly Vector2Int msLegsAt = new Vector2Int(UWPaperdollLayout.LegsX, UWPaperdollLayout.LegsY);
 
-    private static readonly Vector2Int msChestAt = new Vector2Int(262, 22);
+    private static readonly Vector2Int msChestAt = new Vector2Int(UWPaperdollLayout.ChestX, UWPaperdollLayout.ChestY);
 
-    private static readonly Vector2Int msBootsAt = new Vector2Int(266, 66);
-
-    /// <summary>The six slots that show a thing's own icon, as the classic page places them
-    /// (UWModernPanel.msIconSlots): top-left corner and size; the rings' 4 x 4 carries a 16 x 16
-    /// icon centred, 0.8 up.</summary>
-    private static readonly (UWArmorItemMap.BodySlot Slot, float X, float Y, float Size)[] msIconSlots =
-    {
-        (UWArmorItemMap.BodySlot.LeftRing, 291.03f, 56.9f, 4f),
-        (UWArmorItemMap.BodySlot.RightRing, 260f, 56.9f, 4f),
-        (UWArmorItemMap.BodySlot.RightHandSlot, 242f, 34.82566f, 16f),
-        (UWArmorItemMap.BodySlot.LeftHandSlot, 296f, 34.826f, 16f),
-        (UWArmorItemMap.BodySlot.LeftOffHandSlot, 294f, 12.792999f, 16f),
-        (UWArmorItemMap.BodySlot.RightOffHandSlot, 244.9f, 12.793f, 16f),
-    };
-
-    private const float RingIconYOffset = 0.8f;
+    private static readonly Vector2Int msBootsAt = new Vector2Int(UWPaperdollLayout.BootsX, UWPaperdollLayout.BootsY);
 
     private readonly UWGameUI mOUi;
 
     private RawImage mOPage;
 
     private Texture2D mOPageTexture;
-
-    private int miArtVersion = -1;
 
     private RawImage[] mOArmour;
 
@@ -84,7 +67,7 @@ public class UWModernInventoryPage
 
     /// <summary>The remaining carrying capacity in whole stones, in the page's circle as the classic
     /// UWHudInventory shows it (per user, 2026-10-11: Classic Wide and Classic Modular showed no
-    /// weight) - its centre at the frame's 305/62 (UWGameUI.mOWeightLabelPosition), in its colour.</summary>
+    /// weight) - its centre at the frame's 305/62 (UWClassicLayout.Backpack.WeightCentre), in its colour.</summary>
     private Text mOWeight;
 
     /// <summary>The open container's back, its icon and the two scroll arrows.</summary>
@@ -118,9 +101,11 @@ public class UWModernInventoryPage
 
     private const int ScrollGap = 3;
 
-    private readonly Dictionary<UWTexture, Texture2D> mOIconTextures = new Dictionary<UWTexture, Texture2D>();
-
     private float miScale = 1f;
+
+    /// <summary>What the page shows, read once a frame while it shows (cleanup step 5.8,
+    /// 2026-10-20): the same view the classic frame (UWHudInventory) draws.</summary>
+    private readonly UWInventoryView mOView = new UWInventoryView();
 
     /// <summary>Its own canvas (above the HUD, under the bags' pointer item and menu): it shows in
     /// a conversation as well, for the trade, where the HUD's canvas is off.</summary>
@@ -129,7 +114,7 @@ public class UWModernInventoryPage
     /// <summary>Where it was drawn (bottom-left origin); empty while hidden.</summary>
     public Rect ScreenRect { get; private set; }
 
-    /// <summary>Whether the page shows (the bags take clicks then, UWModernBags.fIsActive).</summary>
+    /// <summary>Whether the page shows (the bags take clicks then, UWModernBags.IsActive).</summary>
     public bool IsShown => ScreenRect.width > 0f;
 
     public UWModernInventoryPage(UWGameUI pOUi)
@@ -142,78 +127,64 @@ public class UWModernInventoryPage
 
     public void Build(Transform pOParent)
     {
-        GameObject lOCanvasObject = new GameObject("Original character page", typeof(Canvas), typeof(CanvasScaler));
-        lOCanvasObject.transform.SetParent(pOParent, false);
-
-        mOCanvas = lOCanvasObject.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 41;
+        mOCanvas = UWUiKit.CreateOverlayCanvas(pOParent, "Original character page", UWUiSorting.ModernInventoryPage);
         mOCanvas.enabled = false;
-
-        CanvasScaler lOScaler = lOCanvasObject.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
 
         // The page's parts in one group, which the classic frame's panel turn squeezes
         // (UWModernClassicFrame.ApplySquash).
-        GameObject lOContent = new GameObject("Content", typeof(RectTransform));
-        lOContent.transform.SetParent(lOCanvasObject.transform, false);
-        mOContent = (RectTransform)lOContent.transform;
-        mOContent.anchorMin = Vector2.zero;
-        mOContent.anchorMax = Vector2.zero;
-        mOContent.pivot = Vector2.zero;
+        mOContent = UWUiKit.CreateGroup(mOCanvas.transform, "Content");
         mOContent.sizeDelta = Vector2.zero;
 
         Transform pORoot = mOContent;
 
-        mOPage = fCreateImage(pORoot, "Inventory page");
+        mOPage = UWUiKit.CreateRawImage(pORoot, "Inventory page");
         UWPixelArtUI.Apply(mOPage);
 
         mOArmour = new RawImage[6];
 
         for (int liAt = 0; liAt < mOArmour.Length; liAt++)
         {
-            mOArmour[liAt] = fCreateImage(pORoot, "Paperdoll " + liAt);
+            mOArmour[liAt] = UWUiKit.CreateRawImage(pORoot, "Paperdoll " + liAt);
             UWPixelArtUI.Apply(mOArmour[liAt]);
         }
 
-        mOIcons = new RawImage[msIconSlots.Length];
+        mOIcons = new RawImage[UWPaperdollLayout.IconSlots.Length];
 
         for (int liAt = 0; liAt < mOIcons.Length; liAt++)
         {
-            mOIcons[liAt] = fCreateImage(pORoot, "Equipped " + msIconSlots[liAt].Slot);
+            mOIcons[liAt] = UWUiKit.CreateRawImage(pORoot, "Equipped " + UWPaperdollLayout.IconSlots[liAt].Slot);
             UWIconPalette.Apply(mOIcons[liAt]);
         }
 
-        mOContainerBack = fCreateImage(pORoot, "Container back");
+        mOContainerBack = UWUiKit.CreateRawImage(pORoot, "Container back");
         UWPixelArtUI.Apply(mOContainerBack);
 
         mOBackpack = new RawImage[UWInventoryModel.BackpackSize];
 
         for (int liAt = 0; liAt < mOBackpack.Length; liAt++)
         {
-            mOBackpack[liAt] = fCreateImage(pORoot, "Backpack " + liAt);
+            mOBackpack[liAt] = UWUiKit.CreateRawImage(pORoot, "Backpack " + liAt);
             UWIconPalette.Apply(mOBackpack[liAt]);
         }
 
-        mOCounts = new Text[UWInventoryModel.BackpackSize + msIconSlots.Length];
+        mOCounts = new Text[UWInventoryModel.BackpackSize + UWPaperdollLayout.IconSlots.Length];
 
         for (int liAt = 0; liAt < mOCounts.Length; liAt++)
-            mOCounts[liAt] = fCreateText(pORoot, "Count " + liAt);
+            mOCounts[liAt] = UWUiKit.CreateText(pORoot, "Count " + liAt, TextAnchor.LowerRight, UWModernPalette.HudText, mOUi, UWUiKit.PageText);
 
-        mOWeight = fCreateText(pORoot, "Weight");
+        mOWeight = UWUiKit.CreateText(pORoot, "Weight", TextAnchor.LowerRight, UWModernPalette.HudText, mOUi, UWUiKit.PageText);
         mOWeight.alignment = TextAnchor.MiddleCenter;
-        mOWeight.color = mOUi.mOWeightColour;
+        mOWeight.color = UWUiKit.Colour(UWClassicLayout.Backpack.WeightColour);
 
-        mOContainerIcon = fCreateImage(pORoot, "Open container");
+        mOContainerIcon = UWUiKit.CreateRawImage(pORoot, "Open container");
         UWIconPalette.Apply(mOContainerIcon);
-        mOScrollUp = fCreateImage(pORoot, "Container scroll up");
+        mOScrollUp = UWUiKit.CreateRawImage(pORoot, "Container scroll up");
         UWPixelArtUI.Apply(mOScrollUp);
-        mOScrollDown = fCreateImage(pORoot, "Container scroll down");
+        mOScrollDown = UWUiKit.CreateRawImage(pORoot, "Container scroll down");
         UWPixelArtUI.Apply(mOScrollDown);
     }
 
-    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernHud.PixelScale.</summary>
+    /// <summary>Once a frame while the modern HUD shows; pfPixelScale is UWModernUi.PixelScale.</summary>
     public void Update(float pfPixelScale)
     {
         ScreenRect = Rect.zero;
@@ -231,17 +202,13 @@ public class UWModernInventoryPage
 
         UWModernClassicFrame.ApplySquash(mOContent);
 
-        if (mOPageTexture == null || miArtVersion != UWColourVision.Version)
-        {
-            if (mOPageTexture != null)
-                Object.Destroy(mOPageTexture);
+        // The original's pictures, shared and following the colour help in place (UWGrTextures).
+        UWTextures lOTextures = mOUi.mOUWData.Textures;
 
-            mOPageTexture = UWModernHudArt.BuildPanelPage(mOUi.mOUWData.Textures, 0, mOUi.TextureFilterMode);
-            fRebuild(ref mOContainerBackTexture, UWModernHudArt.BuildPicture(mOUi.mOUWData.Textures, UWTexture.TextureTypes.INV, 6, mOUi.TextureFilterMode));
-            fRebuild(ref mOScrollUpTexture, UWModernHudArt.BuildPicture(mOUi.mOUWData.Textures, UWTexture.TextureTypes.BUTTONS, 27, mOUi.TextureFilterMode));
-            fRebuild(ref mOScrollDownTexture, UWModernHudArt.BuildPicture(mOUi.mOUWData.Textures, UWTexture.TextureTypes.BUTTONS, 28, mOUi.TextureFilterMode));
-            miArtVersion = UWColourVision.Version;
-        }
+        mOPageTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.PANELS, 0, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
+        mOContainerBackTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.INV, 6, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
+        mOScrollUpTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, 27, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
+        mOScrollDownTexture = UWGrTextures.Get(lOTextures, UWTexture.TextureTypes.BUTTONS, 28, mOUi.TextureFilterMode, UWGrTextures.ModeEnum.Picture);
 
         if (mOPageTexture == null)
         {
@@ -262,7 +229,7 @@ public class UWModernInventoryPage
 
         mOPage.texture = mOPageTexture;
         mOPage.enabled = true;
-        fSetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
+        UWUiKit.SetRect(mOPage.rectTransform, lOPlaced.x, lOPlaced.y, lOPlaced.width, lOPlaced.height);
 
         UWCharacter lOCharacter = mOUi.mCharacter;
 
@@ -276,36 +243,37 @@ public class UWModernInventoryPage
 
         UWInventory lOInventory = mOUi.mOInventory;
 
-        for (int liSlot = 0; liSlot < msIconSlots.Length; liSlot++)
-        {
-            (UWArmorItemMap.BodySlot leSlot, float lfX, float lfY, float lfSize) = msIconSlots[liSlot];
-            UWObject lOItem = lOInventory != null ? lOInventory.GetEquipped(leSlot) : null;
+        mOView.Refresh(lOInventory != null ? lOInventory.Model : null, mOUi.mOUWData);
 
-            fPlaceIcon(mOIcons[liSlot], lOItem, lfX + (lfSize * 0.5f), lfY + (lfSize * 0.5f) - (lfSize < 16f ? RingIconYOffset : 0f));
-            fPlaceCount(mOCounts[UWInventoryModel.BackpackSize + liSlot], lOItem, lfX + Mathf.Max(lfSize, 16f), lfY + Mathf.Max(lfSize, 16f));
+        for (int liSlot = 0; liSlot < UWPaperdollLayout.IconSlots.Length; liSlot++)
+        {
+            (UWArmorItemMap.BodySlot _, float lfX, float lfY, float lfSize) = UWPaperdollLayout.IconSlots[liSlot];
+            UWInventoryView.Slot lOSlot = mOView.Hands[liSlot];
+
+            fPlaceIcon(mOIcons[liSlot], lOSlot.Picture, lfX + (lfSize * 0.5f), lfY + (lfSize * 0.5f) - (lfSize < 16f ? UWPaperdollLayout.RingIconYOffset : 0f));
+            fPlaceCount(mOCounts[UWInventoryModel.BackpackSize + liSlot], lOSlot, lfX + Mathf.Max(lfSize, 16f), lfY + Mathf.Max(lfSize, 16f));
         }
 
         // The backpack's things in the eight circles - the slots' areas from the original's table
         // (y counted from the bottom of the frame) - or the open container's from its offset on.
-        UWInventoryModel lOModel = lOInventory != null ? lOInventory.Model : null;
-        UWObject lOOpen = lOModel != null ? lOModel.OpenContainer : null;
-
-        fPlaceContainerView(lOModel, lOOpen);
+        fPlaceContainerView();
 
         for (int liSlot = 0; liSlot < mOBackpack.Length; liSlot++)
         {
-            UWObject lOItem = lOModel == null ? null : lOOpen != null ? lOModel.GetContainerItem(liSlot) : lOModel.Backpack[liSlot];
-            UWClickRules.Area lOArea = fBackpackArea(liSlot);
+            UWInventoryView.Slot lOSlot = mOView.PageSlot(liSlot);
+            UWClickRules.Area lOArea = UWClickRules.BackpackArea(liSlot);
 
-            fPlaceIcon(mOBackpack[liSlot], lOItem, (lOArea.X0 + lOArea.X1 + 1) * 0.5f, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
-            fPlaceCount(mOCounts[liSlot], lOItem, lOArea.X1 + 1, 200 - lOArea.Y0);
+            fPlaceIcon(mOBackpack[liSlot], lOSlot.Picture, (lOArea.X0 + lOArea.X1 + 1) * 0.5f, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
+            fPlaceCount(mOCounts[liSlot], lOSlot, lOArea.X1 + 1, 200 - lOArea.Y0);
         }
 
         fPlaceWeight(lOInventory);
     }
 
     /// <summary>The remaining carrying capacity (maximum weight minus the load, at least 0) in
-    /// whole stones, centred in the circle - as UWHudInventory.fRefreshWeight computes it.</summary>
+    /// whole stones, centred in the circle - as UWHudInventory.fRefreshWeight shows it, both from
+    /// UWInventoryWeight.RemainingStones since 2026-10-20 (UWInventoryView.RemainingStones since
+    /// cleanup step 5.8).</summary>
     private void fPlaceWeight(UWInventory pOInventory)
     {
         UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
@@ -316,16 +284,16 @@ public class UWModernInventoryPage
             return;
         }
 
-        int liTenthStones = Mathf.Max(0, lOPlayer.MaxWeight - pOInventory.GetCarriedTenthStones(mOUi.mOUWData.CommonObjectProperties));
-        Vector2 lOCentre = mOUi.mOWeightLabelPosition;
+        int liStones = mOView.RemainingStones;
+        Vector2 lOCentre = new Vector2(UWClassicLayout.Backpack.WeightCentreX, UWClassicLayout.Backpack.WeightCentreY);
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
         float lfWidth = 30f * lfAspect;
         float lfHeight = 10f * miScale;
 
         mOWeight.enabled = true;
-        mOWeight.text = (liTenthStones / 10).ToString();
+        mOWeight.text = liStones.ToString();
         mOWeight.fontSize = Mathf.Max(9, Mathf.RoundToInt(5f * miScale));
-        fSetRect(mOWeight.rectTransform, ScreenRect.x + ((lOCentre.x - PageX) * lfAspect) - (lfWidth * 0.5f),
+        UWUiKit.SetRect(mOWeight.rectTransform, ScreenRect.x + ((lOCentre.x - PageX) * lfAspect) - (lfWidth * 0.5f),
             ScreenRect.yMax - ((lOCentre.y - PageY) * miScale) - (lfHeight * 0.5f), lfWidth, lfHeight);
     }
 
@@ -360,9 +328,9 @@ public class UWModernInventoryPage
     }
 
     /// <summary>The open container's back, icon and arrows at the classic frame's places, or none.</summary>
-    private void fPlaceContainerView(UWInventoryModel pOModel, UWObject pOOpen)
+    private void fPlaceContainerView()
     {
-        bool lbOpen = pOOpen != null;
+        bool lbOpen = mOView.ShowsContainer;
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
 
         mOContainerBack.enabled = lbOpen && mOContainerBackTexture != null;
@@ -370,12 +338,16 @@ public class UWModernInventoryPage
         if (mOContainerBack.enabled)
         {
             mOContainerBack.texture = mOContainerBackTexture;
-            fSetRect(mOContainerBack.rectTransform, ScreenRect.x + ((ContainerBackX - PageX) * lfAspect),
+            UWUiKit.SetRect(mOContainerBack.rectTransform, ScreenRect.x + ((ContainerBackX - PageX) * lfAspect),
                 ScreenRect.yMax - ((ContainerBackY - PageY + mOContainerBackTexture.height) * miScale),
                 mOContainerBackTexture.width * lfAspect, mOContainerBackTexture.height * miScale);
         }
 
-        UWTexture lOSource = lbOpen ? pOOpen.Icon ?? pOOpen.Texture : null;
+        // The open variant, as the classic frame and the modern bags show it - until 2026-10-20
+        // this took pOOpen.Icon ?? pOOpen.Texture and so the closed picture (B29 of the cleanup
+        // plan, decided by the user: the open one, UWObjectAppearance.OpenContainerPicture; read
+        // through UWInventoryView.ContainerPicture since cleanup step 5.8).
+        UWTexture lOSource = mOView.ContainerPicture;
 
         if (lOSource != null)
         {
@@ -383,14 +355,14 @@ public class UWModernInventoryPage
 
             mOContainerIcon.texture = lOIcon;
             mOContainerIcon.enabled = true;
-            fSetRect(mOContainerIcon.rectTransform, ScreenRect.x + ((ContainerIconX - PageX) * lfAspect),
+            UWUiKit.SetRect(mOContainerIcon.rectTransform, ScreenRect.x + ((ContainerIconX - PageX) * lfAspect),
                 ScreenRect.yMax - ((ContainerIconBottom - PageY) * miScale), lOIcon.width * lfAspect, lOIcon.height * miScale);
         }
         else
             mOContainerIcon.enabled = false;
 
-        bool lbUp = lbOpen && pOModel.CanIncreaseContainerScrollOffset && mOScrollUpTexture != null;
-        bool lbDown = lbOpen && pOModel.CanDecreaseContainerScrollOffset && mOScrollDownTexture != null;
+        bool lbUp = mOView.ShowsScrollUp && mOScrollUpTexture != null;
+        bool lbDown = mOView.ShowsScrollDown && mOScrollDownTexture != null;
         float lfDownWidth = mOScrollDownTexture != null ? mOScrollDownTexture.width : 0f;
 
         fPlaceArrow(mOScrollDown, mOScrollDownTexture, lbDown, ScrollRight);
@@ -408,16 +380,8 @@ public class UWModernInventoryPage
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
 
         pOImage.texture = pOTexture;
-        fSetRect(pOImage.rectTransform, ScreenRect.x + ((pfRight - pOTexture.width - PageX) * lfAspect),
+        UWUiKit.SetRect(pOImage.rectTransform, ScreenRect.x + ((pfRight - pOTexture.width - PageX) * lfAspect),
             ScreenRect.yMax - ((ScrollBottom - PageY) * miScale), pOTexture.width * lfAspect, pOTexture.height * miScale);
-    }
-
-    private static void fRebuild(ref Texture2D pOTexture, Texture2D pONew)
-    {
-        if (pOTexture != null)
-            Object.Destroy(pOTexture);
-
-        pOTexture = pONew;
     }
 
     /// <summary>Whether the up arrow (it raises the offset, UWInventoryModel) and the down arrow show.</summary>
@@ -442,7 +406,7 @@ public class UWModernInventoryPage
         if (!fSpotAt(pOPointer, out UWClickRules.InventorySpot leSpot))
             return false;
 
-        UWArmorItemMap.BodySlot? leSlot = UWHudInventory.GetSlotOfSpot(leSpot);
+        UWArmorItemMap.BodySlot? leSlot = UWClickRules.BodySlotOf(leSpot);
 
         if (!leSlot.HasValue)
             return false;
@@ -457,7 +421,7 @@ public class UWModernInventoryPage
         if (!IsShown || piSlot < 0 || piSlot >= UWInventoryModel.BackpackSize)
             return Rect.zero;
 
-        UWClickRules.Area lOArea = fBackpackArea(piSlot);
+        UWClickRules.Area lOArea = UWClickRules.BackpackArea(piSlot);
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
 
         return new Rect(ScreenRect.x + ((lOArea.X0 - PageX) * lfAspect), ScreenRect.yMax - ((200 - lOArea.Y0 - PageY) * miScale),
@@ -476,12 +440,19 @@ public class UWModernInventoryPage
         return fSpotAt(pOPointer, out UWClickRules.InventorySpot leSpot) ? leSpot : UWClickRules.InventorySpot.None;
     }
 
-    /// <summary>The spot of the page under a screen point, in the frame's coordinates.</summary>
+    /// <summary>
+    /// The spot of the page under a screen point, in the frame's coordinates. NONE WHILE THE
+    /// CLASSIC WIDE PANEL TURNS (per user, 2026-10-20: turning to the stats or the rune tablet,
+    /// the page's slots, paperdoll and arrows still took clicks), as the classic panel locks its
+    /// slots during the turn (UWHudPanel.fIsInventoryClickable): the page stands squeezed then and
+    /// the spots no longer lie where they appear. The page still counts as UI (Contains), so
+    /// nothing goes into the world through it meanwhile.
+    /// </summary>
     private bool fSpotAt(Vector2 pOPointer, out UWClickRules.InventorySpot peSpot)
     {
         peSpot = UWClickRules.InventorySpot.None;
 
-        if (!Contains(pOPointer))
+        if (!Contains(pOPointer) || UWModernClassicFrame.IsTurning)
             return false;
 
         int liX = PageX + Mathf.FloorToInt((pOPointer.x - ScreenRect.x) / (miScale * UWModernHudArt.PixelAspectX));
@@ -490,16 +461,6 @@ public class UWModernInventoryPage
         peSpot = UWClickRules.InventorySpotAt(liX, 199 - liRow);
 
         return peSpot != UWClickRules.InventorySpot.None;
-    }
-
-    /// <summary>The original's area of a backpack slot.</summary>
-    private static UWClickRules.Area fBackpackArea(int piSlot)
-    {
-        // The table's own areas: the first row from x 240 in steps of 19, the second below it.
-        int liX0 = 240 + ((piSlot % 4) * 19);
-        int liY0 = piSlot < 4 ? 101 : 83;
-
-        return new UWClickRules.Area(liX0, liY0, liX0 + 17, liY0 + 17);
     }
 
     /// <summary>A picture of the figure at its place on the frame (MAIN.BYT pixels); an empty
@@ -516,14 +477,15 @@ public class UWModernInventoryPage
 
         pOImage.texture = pOTexture;
         pOImage.enabled = true;
-        fSetRect(pOImage.rectTransform, ScreenRect.x + ((pOAt.x - PageX) * lfAspect),
+        UWUiKit.SetRect(pOImage.rectTransform, ScreenRect.x + ((pOAt.x - PageX) * lfAspect),
             ScreenRect.yMax - ((pOAt.y - PageY + pOTexture.height) * miScale), pOTexture.width * lfAspect, pOTexture.height * miScale);
     }
 
-    /// <summary>A thing's icon centred on a point of the frame (MAIN.BYT pixels, rows from the top).</summary>
-    private void fPlaceIcon(RawImage pOImage, UWObject pOItem, float pfCentreX, float pfCentreRow)
+    /// <summary>A thing's picture (UWInventoryView.Slot.Picture) centred on a point of the frame
+    /// (MAIN.BYT pixels, rows from the top).</summary>
+    private void fPlaceIcon(RawImage pOImage, UWTexture pOSource, float pfCentreX, float pfCentreRow)
     {
-        UWTexture lOSource = pOItem != null ? pOItem.Icon ?? pOItem.Texture : null;
+        UWTexture lOSource = pOSource;
 
         if (lOSource == null)
         {
@@ -536,20 +498,20 @@ public class UWModernInventoryPage
 
         pOImage.texture = lOTexture;
         pOImage.enabled = true;
-        fSetRect(pOImage.rectTransform, Mathf.Round(ScreenRect.x + ((pfCentreX - PageX - (lOTexture.width * 0.5f)) * lfAspect)),
+        UWUiKit.SetRect(pOImage.rectTransform, Mathf.Round(ScreenRect.x + ((pfCentreX - PageX - (lOTexture.width * 0.5f)) * lfAspect)),
             Mathf.Round(ScreenRect.yMax - ((pfCentreRow - PageY + (lOTexture.height * 0.5f)) * miScale)),
             lOTexture.width * lfAspect, lOTexture.height * miScale);
     }
 
     /// <summary>A stack's count at the bottom right of its slot (frame pixels: the slot's right
     /// edge and bottom row), none for a single thing.</summary>
-    private void fPlaceCount(Text pOText, UWObject pOItem, float pfRight, float pfBottomRow)
+    private void fPlaceCount(Text pOText, UWInventoryView.Slot pOSlot, float pfRight, float pfBottomRow)
     {
-        int liCount = pOItem != null ? UWStackRules.CountAtLeastOne(pOItem) : 0;
+        int liCount = pOSlot.Count;
 
-        pOText.enabled = liCount > 1;
+        pOText.enabled = pOSlot.ShowsCount;
 
-        if (liCount <= 1)
+        if (!pOSlot.ShowsCount)
             return;
 
         float lfAspect = miScale * UWModernHudArt.PixelAspectX;
@@ -557,69 +519,13 @@ public class UWModernInventoryPage
 
         pOText.text = liCount.ToString();
         pOText.fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * miScale));
-        fSetRect(pOText.rectTransform, ScreenRect.x + ((pfRight - PageX) * lfAspect) - (40f * miScale) + miScale,
+        UWUiKit.SetRect(pOText.rectTransform, ScreenRect.x + ((pfRight - PageX) * lfAspect) - (40f * miScale) + miScale,
             ScreenRect.yMax - ((pfBottomRow - PageY) * miScale) - miScale, 40f * miScale, lfHeight);
     }
 
-    private Text fCreateText(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.alignment = TextAnchor.LowerRight;
-        lOText.color = new Color(0.86f, 0.86f, 0.84f);
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-        lOText.enabled = false;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
-    }
-
-    /// <summary>An icon (palette indices, UWIconPalette), built once.</summary>
+    /// <summary>An icon (palette indices, UWIconPalette), shared (UWIconCache).</summary>
     private Texture2D fIcon(UWTexture pOSource)
     {
-        if (!mOIconTextures.TryGetValue(pOSource, out Texture2D lOTexture) || lOTexture == null)
-        {
-            lOTexture = UWIconTextureBuilder.Build(pOSource, mOUi.TextureFilterMode);
-            mOIconTextures[pOSource] = lOTexture;
-        }
-
-        return lOTexture;
-    }
-
-    private static RawImage fCreateImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
+        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
     }
 }

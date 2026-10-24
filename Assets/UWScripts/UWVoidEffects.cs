@@ -50,7 +50,7 @@ public class UWVoidEffects : MonoBehaviour
 
         bool lbInVoid = mOLevelLoader.CurrentLevelIndex == VoidLevelIndex;
 
-        mOGameUi.FreezeCompass(lbInVoid);
+        mOGameUi.Compass.FreezeCompass(lbInVoid);
 
         // UI and shaking hang off the main camera; if it is off (noclip), the
         // effects rest as in a pause.
@@ -81,7 +81,7 @@ public class UWVoidEffects : MonoBehaviour
 
     private void fApplyEffects(UWVoidRules.Effect pOEffect)
     {
-        mOGameUi.FlashWindowColour(UWVoidRules.FlashColour, UWVoidRules.FlashSeconds);
+        mOGameUi.Pictures.FlashWindowColour(UWVoidRules.FlashColour, UWVoidRules.FlashSeconds);
 
         if (mOCharacter != null && pOEffect.Drain > 0)
             mOCharacter.Damage(UWDamageRequest.VoidDrain(pOEffect.Drain));
@@ -94,6 +94,6 @@ public class UWVoidEffects : MonoBehaviour
                 lOShake.Shake(UWScreenShake.LargeChannel, pOEffect.QuakeTicks);
         }
 
-        mOGameUi.SetFrozenCompassStep(pOEffect.CompassStep);
+        mOGameUi.Compass.SetFrozenCompassStep(pOEffect.CompassStep);
     }
 }

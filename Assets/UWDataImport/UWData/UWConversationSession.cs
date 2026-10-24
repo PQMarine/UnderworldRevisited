@@ -15,7 +15,7 @@ namespace UWDataImport.UWData
 	/// ENGINE-FREE since 2026-09-18 (P3 of the engine separation): everything it needs from
 	/// the game - the player's numbers, the world, the inventory, item descriptions - comes
 	/// through IUWConversationHost. The Unity side implements that in UWConversationHost;
-	/// UWConversationScreen only shows what this class keeps.
+	/// UWConversationView only shows what this class keeps.
 	/// </summary>
 	public class UWConversationSession : UWConversationVM.IHost
 	{
@@ -191,7 +191,7 @@ namespace UWDataImport.UWData
 				return;
 
 			// Shown for a moment in the answer scroll, not written into the conversation (see
-			// UWConversationScreen.ShowLookText) - where there is no such place, as a line.
+			// UWConversationController.ShowLookText) - where there is no such place, as a line.
 			if (!mIHost.ShowLookText(lsText))
 				Print(lsText);
 		}
@@ -312,7 +312,7 @@ namespace UWDataImport.UWData
 		/// not left hostile; otherwise it stays until a key or a click (scroll_wait(0)). Until then
 		/// ours decided by whether the player had ever been offered an answer, so a farewell after
 		/// the last choice or a partner turned hostile faded on its own. The pause's length is
-		/// still ours (UWConversationScreen.EndHoldSeconds; open question U3).
+		/// still ours (UWConversationController.EndHoldSeconds; open question U3).
 		/// </summary>
 		public bool EndsWithTimedPause => IsFinished && mbPlayerSpokeLast && !mbLeftHostile;
 

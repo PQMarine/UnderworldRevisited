@@ -5,8 +5,8 @@ using UWDataImport.UWData;
 /// The Unity side of a conversation: what UWConversationSession and UWConversationTrade ask
 /// for through IUWConversationHost, read from the components of the scene - UWCharacter for
 /// the player, UWLevelLoader for the world, UWInventory for the backpack, Interaction for
-/// the look descriptions and UWConversationScreen for the look text. Created per
-/// conversation by UWConversationScreen; the components are looked up once when first needed.
+/// the look descriptions and UWConversationController for the look text. Created per
+/// conversation by UWConversationController; the components are looked up once when first needed.
 ///
 /// THE WORLD (cleanup step 3.6, 2026-10-17): the level, its number, gronk_door's door, the
 /// objects place_object puts down, the drops at the end of a barter, remove_talker and the
@@ -20,7 +20,7 @@ public sealed class UWConversationHost : IUWConversationHost
 
     private Interaction mOInteraction;
 
-    private UWConversationScreen mOScreen;
+    private UWConversationController mOScreen;
 
     private bool mbLookedUp;
 
@@ -33,7 +33,7 @@ public sealed class UWConversationHost : IUWConversationHost
 
         mOCharacter = UWScene.Character;
         mOInteraction = UWScene.Interaction;
-        mOScreen = UWScene.ConversationScreen;
+        mOScreen = UWScene.ConversationController;
 
         mOWorld = UWWorld.Of(UWScene.LevelLoader);
     }

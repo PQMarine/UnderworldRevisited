@@ -37,42 +37,13 @@ public static class UWIconTextureBuilder
     /// LINEAR, not sRGB - otherwise Unity applies a gamma curve to the index. In the
     /// gamma colour space the project runs in, this has no effect; it only matters if
     /// the project is ever switched to linear.
+    ///
+    /// Since 2026-10-19 (cleanup step 5.4) the pixels are made engine-free
+    /// (UWUploadPixels.IconIndices) and uploaded by UWTextureFactory; every icon shown is made
+    /// once and shared by UWIconCache, which owns it.
     /// </summary>
     public static Texture2D Build(UWTexture pOSource, FilterMode peFilterMode)
     {
-        UWColor32[] lyColors = pOSource.GetUWColor32();
-        byte[] lyIndices = pOSource.GetMainPaletteIndices();
-
-        int liWidth = pOSource.Width;
-        int liHeight = pOSource.Height;
-
-        // Rows flipped (the file stores top-to-bottom, Unity expects
-        // bottom-to-top).
-        Color32[] lyPixels = new Color32[liWidth * liHeight];
-        int liOut = 0;
-
-        for (int y = liHeight - 1; y >= 0; y--)
-        {
-            for (int x = 0; x < liWidth; x++)
-            {
-                int liAt = (y * liWidth) + x;
-
-                byte lyIndex = lyIndices != null && liAt < lyIndices.Length ? lyIndices[liAt] : (byte)0;
-
-                lyPixels[liOut] = lyColors[liAt].A != 0
-                    ? new Color32(lyIndex, 0, 0, 255)
-                    : new Color32(0, 0, 0, 0);
-
-                liOut++;
-            }
-        }
-
-        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false, true);
-        lOTexture.name = "UWIconTextureBuilder.cs:70";
-        lOTexture.filterMode = peFilterMode;
-        lOTexture.SetPixels32(lyPixels);
-        lOTexture.Apply();
-
-        return lOTexture;
+        return UWTextureFactory.FromIndices(pOSource, peFilterMode, "UWIconTextureBuilder icon");
     }
 }

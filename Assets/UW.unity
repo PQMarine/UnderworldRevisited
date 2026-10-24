@@ -389,28 +389,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UWBackground: {fileID: 2800000, guid: 13dc03545706d7d45acb4bfda556a0a7, type: 3}
   TextureFilterMode: 0
-  mfOriginalSchemeFov: 90
-  mOWindowPictureNudge: {x: 0, y: 0}
-  mbShowMapCloseArea: 0
-  mOWeightLabelPosition: {x: 305, y: 62}
-  mOCountColour: {r: 1, g: 1, b: 1, a: 1}
-  mOWeightColour: {r: 1, g: 0.7451, b: 0.4627, a: 1}
-  mfPanelStepSeconds: 0.25
-  mOChainHitRect:
-    serializedVersion: 2
-    x: 272
-    y: 121
-    width: 11
-    height: 14
-  mOStatsFirstRowY: 21
-  mOStatsRowHeight: 7
-  mOStatsValueRight: 76
-  mOStatsLevelRight: 76
-  mOStatsLabelLeft: 6
-  mOStatsNameY: 7
-  mOStatsClassY: 14
-  mOStatsColour: {r: 0, g: 0, b: 0, a: 1}
-  mOStatsSkillColour: {r: 0.38431373, g: 0.39215687, b: 0.49803922, a: 1}
 --- !u!114 &795809859
 MonoBehaviour:
   m_ObjectHideFlags: 0

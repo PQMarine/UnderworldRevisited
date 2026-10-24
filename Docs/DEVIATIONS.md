@@ -24,7 +24,8 @@ damage at 1 in 5 every frame. Ours rolls at a fixed rate, 32 times a second, abo
 original reaches in DOSBox (10 seconds on lava took about 70 of 78 hit points in both). The same
 rate holds for a missile the player presses against, which the original strikes him with on
 every frame (one held by Freeze Time kills fast), and the screen shake counts its rounds 20
-times a second.
+times a second. The text cursor in the message scroll, which the original blinks by counting
+passes of its input loop, blinks at 0.4 seconds on and 0.4 off in both interface schemes.
 
 **Attribute points can be dealt by hand at character creation.** An option in the Game menu,
 off by default: instead of rolling, the player distributes the class's bonus points. For those
@@ -88,6 +89,12 @@ starts dragging it at the same time.
 
 **The use-mode pointer stays after a drop into the trade area.** In the original the pointer
 turns back to the normal one while the use mode stays lit.
+
+**A map note does not start exactly where the original starts it.** The note is placed from the
+quill's tip, its first letter at the tip's column with its top four rows above the tip's row, as
+the original's rule reads; the original's quill and its hot spot do not quite match that rule, so
+a note written in ours may sit about a letter's width beside one written in DOSBox at the same
+click. Kept on purpose (2026-10-23).
 
 ## Presentation
 

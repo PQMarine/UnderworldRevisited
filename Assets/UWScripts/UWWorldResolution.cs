@@ -7,7 +7,7 @@ using UnityEngine.Rendering.Universal;
 /// edges, while the interface stays at the full resolution. A world pixel is as tall as a pixel
 /// of the classic frame on this screen (UWUiFit.Scale screen pixels), so:
 ///
-///   classic scheme  the camera fills the hole of the frame (UWGameUI.fApplyGameCamera), 121 rows
+///   classic scheme  the camera fills the hole of the frame (UWViewportCamera.Apply), 121 rows
 ///                   tall - exactly the original's grid, the world's pixels line up with the frame's;
 ///   modern scheme   the whole screen, 200 rows, the width following the screen's aspect ratio
 ///                   (as the Doom ports do it).
@@ -19,7 +19,7 @@ using UnityEngine.Rendering.Universal;
 /// value is kept; the locked step gives 3x until the window is tall enough.
 ///
 /// The pixels are square at the row height. With the classic screen at 4:3 the original's
-/// columns are 5/6 as wide as that (UWGameUI.HorizontalPixelFactor), so the classic hole has 147
+/// columns are 5/6 as wide as that (UWClassicScreen.HorizontalPixelFactor), so the classic hole has 147
 /// columns instead of 176 - URP's render scale is one factor for both axes.
 ///
 /// HOW: URP's own render scale with the nearest-neighbour upscaling filter. Every camera that

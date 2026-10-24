@@ -17,12 +17,12 @@ using UnityEngine.UI;
 /// </summary>
 public static class UWUiFit
 {
-    public const float FrameHeight = 200f;
+    public const float FrameHeight = UWDataImport.UWData.UWClassicLayout.Screen.Height;
 
-    public const float FrameWidthUnits = 320f;
+    public const float FrameWidthUnits = UWDataImport.UWData.UWClassicLayout.Screen.Width;
 
     /// <summary>The frame's width in canvas units at the current pixel proportion.</summary>
-    public static float FrameWidth => (FrameWidthUnits + UWClassicWide.Extra) * UWGameUI.HorizontalPixelFactor;
+    public static float FrameWidth => (FrameWidthUnits + UWClassicWide.Extra) * UWClassicScreen.HorizontalPixelFactor;
 
     /// <summary>The window is narrower than the frame: fit to the width, bars top and bottom.
     /// </summary>

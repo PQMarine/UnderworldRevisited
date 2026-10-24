@@ -46,9 +46,30 @@ namespace UWDataImport.UWData
 			TooSoon
 		}
 
+		/// <summary>Whether a rune cast may start, and if not why (CanCast).</summary>
+		public enum CastCheckEnum
+		{
+			Ok,
+
+			/// <summary>A rune of the sequence is not in the bag.</summary>
+			RuneMissing,
+
+			NotASpell,
+
+			/// <summary>The spell's circle lies above the character's (CircleOf).</summary>
+			NotExperienced,
+
+			NotEnoughMana
+		}
+
 		/// <summary>What the original shows when the runes are no spell - not in the string
 		/// block, UWGameUI printed the same literal.</summary>
 		private const string NotASpellText = "Not a spell";
+
+		/// <summary>The modern action bar's refusal of a spell whose rune is not in the bag
+		/// (CastCheckEnum.RuneMissing). Ours: the original's hollow cannot even hold such a rune, so
+		/// it has no message for it.</summary>
+		public const string RuneMissingText = "A rune of that spell is not in your bag.";
 
 		/// <summary>Messages from string block 1. The reference numbers each one lower - the
 		/// usual offset in this project.</summary>
@@ -166,6 +187,43 @@ namespace UWDataImport.UWData
 				pIHost.World.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Backfire(piDice)));
 		}
 
+		/// <summary>The highest circle a character of this level can cast: the level halved,
+		/// rounded up (player_cast: the level must reach 2 * circle - 1).</summary>
+		public static int CircleOf(int piLevel)
+		{
+			return (piLevel + 1) / 2;
+		}
+
+		/// <summary>
+		/// THE ONE TEST WHETHER A RUNE CAST MAY START (cleanup 5.10, 2026-10-20), for the cast itself
+		/// (CastRunes) and for what the modern scheme shows greyed (UWModernRunePanel's hollow and
+		/// spell list, UWModernActionBar's slots and its refusal). Until then the panel and the bar
+		/// had their own copies: the circle formula, the mana as a float against CastRunes' floored
+		/// one (the same answer, the costs being whole numbers).
+		///
+		/// In this order: the bag first - a bar slot's spell with a rune not in the bag is refused
+		/// before anything else, as the bar did (ours; pass no bag for the hollow, whose runes came
+		/// from the shelf, and try_cast never asks); then as player_cast (UnderworldExhumed RUNES.C):
+		/// the lookup, the circle, the mana. piMana is the whole mana (UWSpellHost.PlayerMana floors
+		/// it). The pause since the last cast and the skill check are the cast's (CastRunes).
+		/// </summary>
+		public static CastCheckEnum CanCast(int piSequence, int piPlayerLevel, int piMana, UWPlayerData pOBag)
+		{
+			if (pOBag != null && !UWRuneShelfModel.HasRunes(piSequence, pOBag))
+				return CastCheckEnum.RuneMissing;
+
+			if (!UWRunicMagic.TryGetSpell(piSequence, out UWRunicMagic.Spell lOSpell))
+				return CastCheckEnum.NotASpell;
+
+			if (CircleOf(piPlayerLevel) < lOSpell.Level)
+				return CastCheckEnum.NotExperienced;
+
+			if (piMana < lOSpell.ManaCost)
+				return CastCheckEnum.NotEnoughMana;
+
+			return CastCheckEnum.Ok;
+		}
+
 		public static OutcomeEnum CastRunes(int piFirstRune, int piSecondRune, int piThirdRune, IUWSpellHost pIHost)
 		{
 			if (pIHost == null || !pIHost.HasPlayer)
@@ -183,9 +241,11 @@ namespace UWDataImport.UWData
 
 			int liSequence = UWRunicMagic.GetSequence(piFirstRune, piSecondRune, piThirdRune);
 
-			UWRunicMagic.Spell lOSpell;
+			// Lookup, circle and mana through the one test (CanCast); no bag - the hollow holds what
+			// the shelf offered.
+			CastCheckEnum leCheck = CanCast(liSequence, pIHost.PlayerLevel, pIHost.PlayerMana, null);
 
-			if (!UWRunicMagic.TryGetSpell(liSequence, out lOSpell))
+			if (leCheck == CastCheckEnum.NotASpell)
 			{
 				pIHost.World.Presentation.AddMessage(NotASpellText);
 
@@ -196,7 +256,7 @@ namespace UWDataImport.UWData
 			// this and for too little mana as well (fail_spell plays effect 0x16 for all four of its
 			// reasons, UnderworldExhumed RUNES.C, read 2026-10-12); until 2026-10-12 ours only
 			// printed the message here.
-			if (((pIHost.PlayerLevel + 1) / 2) < lOSpell.Level)
+			if (leCheck == CastCheckEnum.NotExperienced)
 			{
 				pIHost.PlaySpellFailureSound();
 				pIHost.World.Presentation.AddGeneralMessage(NotExperiencedMessage);
@@ -204,13 +264,15 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.NotExperienced;
 			}
 
-			if (pIHost.PlayerMana < lOSpell.ManaCost)
+			if (leCheck == CastCheckEnum.NotEnoughMana)
 			{
 				pIHost.PlaySpellFailureSound();
 				pIHost.World.Presentation.AddGeneralMessage(NotEnoughManaMessage);
 
 				return OutcomeEnum.NotEnoughMana;
 			}
+
+			UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
 
 			// THE CHECK: Casting + 5 against twice the circle (player_cast; until 2026-10-11 ours had
 			// Casting against three times the circle, the reference's - 6 to 13 points harder, the

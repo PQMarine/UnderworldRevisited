@@ -159,8 +159,14 @@ Shader "UW/IconPalette"
                 float2 at = IN.texcoord * size;
                 float2 seam = floor(at + 0.5);
                 float2 blend = clamp((at - seam) / max(fwidth(at), 1e-5), -0.5, 0.5) + 0.5;
-                float2 low = (seam - 0.5) / size;
-                float2 high = (seam + 0.5) / size;
+                // Only texels of the picture: at its edge the neighbour beyond it is the edge
+                // texel itself (2026-10-19, per user: a dragged dagger or sword showed thin black
+                // lines in the modern scheme and Classic Modular). The icons wrap with Repeat, so the
+                // texel beyond the left edge was the right edge's - a sword's black outline from
+                // one corner was blended into the edge pixels at the other side, wherever the free
+                // pointer put an edge between two screen pixels.
+                float2 low = clamp(seam - 0.5, 0.5, size - 0.5) / size;
+                float2 high = clamp(seam + 0.5, 0.5, size - 0.5) / size;
 
                 // Mixed with their opacity, so a transparent neighbour does not darken the edge.
                 float4 c00 = UWTexelColour(low);

@@ -112,7 +112,7 @@ public sealed class UWPresentation : IUWPresentation
         UWGameUI lOUi = UWScene.GameUi;
 
         if (lOUi != null)
-            lOUi.FlashWindowColour(piPaletteColour, pfSeconds);
+            lOUi.Pictures.FlashWindowColour(piPaletteColour, pfSeconds);
     }
 
     public void ShowNightBlack(float pfSeconds)
@@ -120,7 +120,7 @@ public sealed class UWPresentation : IUWPresentation
         UWGameUI lOUi = UWScene.GameUi;
 
         if (lOUi != null)
-            lOUi.FlashWindowBlack(pfSeconds);
+            lOUi.Pictures.FlashWindowBlack(pfSeconds);
     }
 
     public bool PlayCutscene(int piCutscene)

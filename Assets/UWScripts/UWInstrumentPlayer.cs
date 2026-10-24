@@ -26,7 +26,7 @@ using UWDataImport.UWData;
 ///              the hand, "An object appears in the air and falls into your hand...", and
 ///              PLAYER.DAT 0x60 bit 7 is set.
 ///
-/// While playing, the keyboard is locked for everything else (UWGameUI.IsTextEntryActive).
+/// While playing, the keyboard is locked for everything else (UWTextEntryState.IsTextEntryActive).
 /// </summary>
 public class UWInstrumentPlayer : MonoBehaviour
 {

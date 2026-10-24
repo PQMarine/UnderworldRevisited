@@ -84,7 +84,7 @@ public static class UWWorldPicker
         public readonly List<Hit> Hits = new List<Hit>();
 
         /// <summary>The frontmost rule found something - FrontmostHit is its raycast hit, for
-        /// the sight band (Interaction.fIsWithinSight) and the chunk's description.</summary>
+        /// the sight band (Interaction.IsWithinSight) and the chunk's description.</summary>
         public bool HasFrontmost;
 
         public RaycastHit FrontmostHit;

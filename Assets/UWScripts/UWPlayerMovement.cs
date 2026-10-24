@@ -149,7 +149,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// <summary>The forward speed of the current scheme on normal ground - the original's base
     /// speed of 0x3AC, which the weapon jitter's thresholds are counted against.</summary>
     public float NormalForwardSpeed =>
-        mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Modern ? mfModernForwardSpeed : mfOriginalForwardSpeed;
+        mScheme != null && UWControlScheme.IsModern ? mfModernForwardSpeed : mfOriginalForwardSpeed;
 
     /// <summary>Measures the speed after the frame's move (UWPlayerFootsteps.MeasureSpeed).</summary>
     private void LateUpdate()
@@ -475,7 +475,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // 2026-09-11, then about the CharacterController path).
         //
         // A cursor walk ends here too, otherwise the clamp of the pointer to the viewport
-        // (UWGameUI.fCursorMovement) outlived a conversation an NPC started while the left
+        // (UWPointerZones) outlived a conversation an NPC started while the left
         // button was down, and the pointer could not reach the parchment (per user,
         // 2026-09-19, with the goal-10 outcast).
         if (lbBlocked)

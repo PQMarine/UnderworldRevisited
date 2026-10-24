@@ -37,6 +37,27 @@ namespace UWDataImport.UWData
 			return fItem(pOItem, pOProperties, 0);
 		}
 
+		/// <summary>
+		/// THE CAPACITY LEFT in tenths of stones: the player's carrying capacity
+		/// (UWPlayerData.MaxWeight, none without a player) minus the carried load - negative when
+		/// overloaded. The one home of this subtraction since cleanup step 5.6 (2026-10-20): the
+		/// classic frame's circle (UWHudInventory), the modern original page
+		/// (UWModernInventoryPage), the help window's stats and UWInventoryModel.CanCarry each
+		/// wrote it themselves until then.
+		/// </summary>
+		public static int RemainingTenthStones(UWPlayerData pOPlayer, int piCarriedTenthStones)
+		{
+			return (pOPlayer != null ? pOPlayer.MaxWeight : 0) - piCarriedTenthStones;
+		}
+
+		/// <summary>What the circle below the paper doll shows: the capacity left in WHOLE stones,
+		/// never below 0 - the original shows no decimal place (per screenshot from the user,
+		/// 2026-09-01, see UWHudInventory.fRefreshWeight).</summary>
+		public static int RemainingStones(UWPlayerData pOPlayer, int piCarriedTenthStones)
+		{
+			return System.Math.Max(0, RemainingTenthStones(pOPlayer, piCarriedTenthStones)) / 10;
+		}
+
 		/// <summary>Tenths of stones as a readable number, e.g. "12.4".</summary>
 		public static string Format(int piTenthStones)
 		{

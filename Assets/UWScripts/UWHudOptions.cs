@@ -8,8 +8,13 @@ using System.Collections.Generic;
 /// <summary>
 /// The HUD section "the options panel with save, restore, music, sound, detail and quit".
 /// Its own class since 2026-09-18 (stage two of the HUD rebuild); the owner hands in the game
-/// data, the frame, the character, the interaction and the inventory through mOUi. UWGameUI
-/// keeps the public entry points as forwards.
+/// data, the frame, the character, the interaction and the inventory through mOUi.
+///
+/// THE STATE MACHINE IS UWOptionsMenuModel'S (engine-free, cleanup 5.18, 2026-10-23): the screens,
+/// their pictures, the key highlight and what a choice does. This class draws the pictures,
+/// reads the mouse and the keys, types the save game's name, holds time and input while the
+/// panel is up, writes the messages and carries out the choices (the save, load and quit flows
+/// of UWSaveFlow, shared with the modern game menu, UWSoundOptions, UWGraphicsDetail).
 /// </summary>
 public sealed class UWHudOptions
 {
@@ -35,129 +40,27 @@ public sealed class UWHudOptions
     /// of that bar (talk, pick up, look, fight, use) do not exist in our version -
     /// the verbs run via the mouse buttons. Only mOUi one is needed.
     /// </summary>
-    private const float optionsButtonLeft = 8f;
+    private const float optionsButtonLeft = UWClassicLayout.Options.ButtonLeft;
 
-    private const float optionsButtonTop = 10f;
+    private const float optionsButtonTop = UWClassicLayout.Options.ButtonTop;
 
-    private const float optionsPanelLeft = 4f;
+    private const float optionsPanelLeft = UWClassicLayout.Options.PanelLeft;
 
-    private const float optionsPanelTop = 10f;
+    private const float optionsPanelTop = UWClassicLayout.Options.PanelTop;
 
-    private const float optionsEntryLeft = 5f;
+    private const float optionsEntryLeft = UWClassicLayout.Options.EntryLeft;
 
-    private const float optionsEntryTop = 12f;
+    private const float optionsEntryTop = UWClassicLayout.Options.EntryTop;
 
-    private const float optionsEntryPitch = 15f;
+    private const float optionsEntryPitch = UWClassicLayout.Options.EntryPitch;
 
-    private const int optionsEntryCount = 7;
+    private const int optionsEntryCount = UWClassicLayout.Options.EntryCount;
 
-    // Picture numbers in OPTBTNS.GR. The order is that of the reference
-    // (uimanager_options.OptionButtonIndices); for uw1 they are directly the
-    // picture numbers, only uw2 first cuts its buttons to shape.
-    private const int optAllOptionButtons = 1;
+    /// <summary>No picture at this slot (UWOptionsMenuModel.NoPicture).</summary>
+    private const int optNone = UWOptionsMenuModel.NoPicture;
 
-    private const int optAllSaveButtons = 2;
-
-    private const int optSaveGame = 6;
-
-    private const int optRestoreGame = 8;
-
-    private const int optMusic = 10;
-
-    private const int optSound = 12;
-
-    private const int optDetail = 14;
-
-    private const int optDetailButtons = 5;
-
-    private const int optLowDetail = 38;
-
-    /// <summary>"QUIT GAME: ARE YOU SURE?" with its two buttons - YES on slot 2, NO on slot 3
-    /// (matched against the panel, OPTBTNS 3).</summary>
-    private const int optQuitBackground = 3;
-
-    private const int optYes = 57;
-
-    private const int optNo = 59;
-
-    /// <summary>"DETAIL LEVEL IS: LOW" - the three others follow (53 to 56). 34 by 18, one pixel
-    /// further up and left than the slot grid (matched against the detail panel, OPTBTNS 5).</summary>
-    private const int optDetailLabel = 53;
-
-    private const int optReturnToGame = 16;
-
-    private const int optQuitGame = 18;
-
-    private const int optCancel = 24;
-
-    // THE MUSIC AND SOUND SCREENS (read 2026-09-26, ovr130_2AA and the entry table from
-    // 0x1A6D): background 4, the state at the top ("MUSIC IS ON." / "... OFF.", "SOUND IS
-    // ON." / "... OFF"), under it "TURN MUSIC:" / "TURN SOUND:", then ON, OFF and DONE.
-
-    private const int optOnOffBackground = 4;
-
-    private const int optOn = 20;
-
-    private const int optOff = 22;
-
-    /// <summary>The DONE of the music and sound screens; the detail screen has its own
-    /// (optDetailDone).</summary>
-    private const int optOnOffDone = 26;
-
-    private const int optMusicIsOn = 47;
-
-    private const int optMusicIsOff = 48;
-
-    private const int optSoundIsOn = 49;
-
-    private const int optSoundIsOff = 50;
-
-    private const int optTurnMusic = 51;
-
-    private const int optTurnSound = 52;
-
-    /// <summary>The detail screen's DONE: picture 28 in the original's table, not 26.</summary>
-    private const int optDetailDone = 28;
-
-    private const int optSave1 = 30;
-
-    private const int optRestoreGameLabel = 46;
-
-    /// <summary>Each button has two pictures: the idle one and, one further, the
-    /// highlighted one.</summary>
-    private const int optHighlightOffset = 1;
-
-    /// <summary>No picture at mOUi slot.</summary>
-    private const int optNone = -1;
-
-    private enum OptionsMenuEnum
-    {
-        Closed,
-        Top,
-        Restore,
-        Save,
-        Detail,
-        Quit,
-        Music,
-        Sound
-    }
-
-    /// <summary>The panel was opened by a Ctrl shortcut (the original's flag 0x1A34): then the
-    /// music and sound screens close the whole panel after their choice instead of going back
-    /// to the top menu.</summary>
-    private bool mbOpenedByShortcut;
-
-    /// <summary>
-    /// THE HIGHLIGHT A SCREEN STARTS WITH (per user on the original, 2026-09-26: the top entry
-    /// is lit at once; read the same day in the screens' drawing routines): the top menu
-    /// SAVE, the save and load screens the first slot, the detail screen the current level,
-    /// the quit question NO, the music and sound screens the button of the current state.
-    /// </summary>
-    private void fSetKeyHighlight(int piEntry)
-    {
-        miKeyEntry = piEntry;
-        meKeyMenu = meOptionsMenu;
-    }
+    /// <summary>The screens, their pictures, the key highlight, what a choice does.</summary>
+    private readonly UWOptionsMenuModel mOModel = new UWOptionsMenuModel();
 
     /// <summary>Into which slot (1 to 4) a name is currently being typed, or 0 for none.
     /// </summary>
@@ -170,23 +73,13 @@ public sealed class UWHudOptions
 
     /// <summary>
     /// The save screen: heading, the four slots, cancel - the same layout as
-    /// for loading, only with "Save Game" as heading. The reference puts exactly the
-    /// picture of the topmost button on the first slot for it.
+    /// for loading, only with "Save Game" as heading (UWOptionsMenuModel.ShowSave).
     /// </summary>
     private void fShowSaveMenu()
     {
-        meOptionsMenu = OptionsMenuEnum.Save;
         miSaveSlotTyping = 0;
-
-        fSetOptionsEntries(optAllSaveButtons, new int[]
-        {
-            optSaveGame,
-            optSave1, optSave1 + 2, optSave1 + 4, optSave1 + 6,
-            optCancel,
-            optNone
-        });
-
-        fSetKeyHighlight(1);
+        mOModel.ShowSave();
+        fApplyPage();
         fListSaveGames();
     }
 
@@ -200,10 +93,8 @@ public sealed class UWHudOptions
     /// </summary>
     private void fBeginSaveName(int piSlot)
     {
-        string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
-
         miSaveSlotTyping = piSlot;
-        msSaveTypedName = UWSavegameSlots.GetName(lsRoot, piSlot);
+        msSaveTypedName = UWSaveFlow.SlotName(piSlot);
 
         if (msSaveTypedName.Length > SaveNameMaxLength)
             msSaveTypedName = msSaveTypedName.Substring(0, SaveNameMaxLength);
@@ -213,8 +104,7 @@ public sealed class UWHudOptions
         if (mOUi.mControlSchemeRef != null)
             mOUi.mControlSchemeRef.Controls.Disable();
 
-        if (UnityEngine.InputSystem.Keyboard.current != null)
-            UnityEngine.InputSystem.Keyboard.current.onTextInput += fOnSaveNameTextInput;
+        fSaveNameEntry().Begin();
 
         // As in the original (per user, 2026-09-12): the box is cleared, the green
         // prompt appears, below it ">" and the previous name with the blinking
@@ -236,10 +126,21 @@ public sealed class UWHudOptions
 
     private bool mbSaveNameFresh;
 
+    /// <summary>The name's typing (UWTextEntry since 2026-10-19: the text events, the keys where
+    /// none arrive, one filter).</summary>
+    private UWTextEntry mOSaveNameEntry;
+
+    private UWTextEntry fSaveNameEntry()
+    {
+        if (mOSaveNameEntry == null)
+            mOSaveNameEntry = new UWTextEntry(fOnSaveNameTextInput);
+
+        return mOSaveNameEntry;
+    }
+
     private void fEndSaveName()
     {
-        if (UnityEngine.InputSystem.Keyboard.current != null)
-            UnityEngine.InputSystem.Keyboard.current.onTextInput -= fOnSaveNameTextInput;
+        fSaveNameEntry().End();
 
         if (mOUi.mControlSchemeRef != null)
             mOUi.mControlSchemeRef.Controls.Enable();
@@ -254,7 +155,7 @@ public sealed class UWHudOptions
 
     private void fOnSaveNameTextInput(char pcChar)
     {
-        if (miSaveSlotTyping == 0 || pcChar < 0x20 || pcChar > 0x7E)
+        if (miSaveSlotTyping == 0)
             return;
 
         if (mbSaveNameFresh)
@@ -282,25 +183,12 @@ public sealed class UWHudOptions
     /// <summary>
     /// The end of saving, as in the original (per user, 2026-09-12): ONLY the result in
     /// the top line - green "Save Game Succeeded.", red "Save Game Failed." (also on
-    /// Escape), without "Saving Game" and dots - and back into the game, not into the
-    /// save screen.
+    /// Escape), without "Saving Game" and dots (UWSaveFlow.ReportSave) - and back into the
+    /// game, not into the save screen.
     /// </summary>
     private void fFinishSave(string psError, bool pbCancelled)
     {
-        if (mOUi.mOInteraction != null && mOUi.mOUWData != null)
-        {
-            mOUi.mOInteraction.ResetMessages();
-
-            // Through UWText since 2026-10-11, so the message is trimmed of its CR/LF like every
-            // other general message.
-            mOUi.mOInteraction.AddMessage(UWText.General(mOUi.mOUWData, psError == null && !pbCancelled
-                ? SaveGameSucceededMessage
-                : SaveGameFailedMessage));
-
-            if (psError != null)
-                mOUi.mOInteraction.AddMessage(psError);
-        }
-
+        UWSaveFlow.ReportSave(mOUi.mOInteraction, mOUi.mOUWData, psError, pbCancelled);
         fCloseOptionsMenu();
     }
 
@@ -329,7 +217,7 @@ public sealed class UWHudOptions
         if (lOKeyboard == null)
             return true;
 
-        if (lOKeyboard.escapeKey.wasPressedThisFrame)
+        if (UWTextEntry.EscapePressed)
         {
             fEndSaveName();
             fFinishSave(null, true);
@@ -337,7 +225,7 @@ public sealed class UWHudOptions
             return true;
         }
 
-        if (lOKeyboard.backspaceKey.wasPressedThisFrame)
+        if (UWTextEntry.BackspacePressed)
         {
             mbSaveNameFresh = false;
 
@@ -349,7 +237,7 @@ public sealed class UWHudOptions
             return true;
         }
 
-        if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
+        if (UWTextEntry.EnterPressed)
         {
             fConfirmSaveName();
 
@@ -357,23 +245,21 @@ public sealed class UWHudOptions
         }
 
         // Where no text events arrive (Linux), the keys themselves (UWTypedKeys).
-        foreach (char lcChar in UWTypedKeys.ReadTyped())
-            fOnSaveNameTextInput(lcChar);
+        fSaveNameEntry().ReadKeys();
 
         return true;
     }
 
-    /// <summary>Enter or mouse button: the name applies, saving happens.</summary>
+    /// <summary>Enter or mouse button: the name applies, saving happens (UWSaveFlow.Write with
+    /// the name as typed, untrimmed - the classic panel's rule).</summary>
     private void fConfirmSaveName()
     {
         int liSlot = miSaveSlotTyping;
         string lsName = msSaveTypedName;
 
         fEndSaveName();
-        fFinishSave(UWSavegameWriter.Save(liSlot, lsName), false);
+        fFinishSave(UWSaveFlow.Write(liSlot, lsName), false);
     }
-
-    private OptionsMenuEnum meOptionsMenu = OptionsMenuEnum.Closed;
 
     private Image mOptionsButtonImage;
 
@@ -381,32 +267,26 @@ public sealed class UWHudOptions
 
     private Image[] mOptionsEntryImages;
 
-    /// <summary>Which picture lies on which slot - for highlighting and to
-    /// know whether a slot is clickable at all.</summary>
-    private int[] miOptionsEntryArt;
-
     internal void Build()
     {
-        mOptionsButtonImage = UWGameUI.fCreateImage("OptionsButton", mOUi.mGameFrame,
+        mOptionsButtonImage = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "OptionsButton",
             optionsButtonLeft, -optionsButtonTop, 1f, 1f, Color.white);
 
         fSetUiSprite(mOptionsButtonImage, UWTexture.TextureTypes.LFTI, 0);
 
-        mOptionsPanelImage = UWGameUI.fCreateImage("OptionsPanel", mOUi.mGameFrame,
+        mOptionsPanelImage = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "OptionsPanel",
             optionsPanelLeft, -optionsPanelTop, 1f, 1f, Color.white);
 
         mOptionsPanelImage.enabled = false;
 
         mOptionsEntryImages = new Image[optionsEntryCount];
-        miOptionsEntryArt = new int[optionsEntryCount];
 
         for (int liAt = 0; liAt < optionsEntryCount; liAt++)
         {
-            mOptionsEntryImages[liAt] = UWGameUI.fCreateImage("OptionsEntry" + liAt, mOUi.mGameFrame,
+            mOptionsEntryImages[liAt] = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "OptionsEntry" + liAt,
                 optionsEntryLeft, -(optionsEntryTop + (liAt * optionsEntryPitch)), 1f, 1f, Color.white);
 
             mOptionsEntryImages[liAt].enabled = false;
-            miOptionsEntryArt[liAt] = optNone;
         }
     }
 
@@ -430,58 +310,37 @@ public sealed class UWHudOptions
         if (pOImage.sprite != null && mOUiSpriteShown.TryGetValue(pOImage, out liShown) && liShown == liKey)
             return;
 
-        UWTexture lOSource;
+        // Shared (UWGrTextures, since 2026-10-19): nothing to release any more.
+        Sprite lOSprite = UWGrTextures.IconSprite(mOUi.mOUWData.Textures, peType, piIndex, mOUi.TextureFilterMode);
 
-        try
-        {
-            lOSource = mOUi.mOUWData.Textures.GetTextureByType(peType, piIndex);
-        }
-        catch
-        {
+        if (lOSprite == null)
             return;
-        }
-
-        if (lOSource == null)
-            return;
-
-        Texture2D lOTexture = UWIconTextureBuilder.Build(lOSource, mOUi.TextureFilterMode);
-
-        // Release the previous picture of mOUi Image - it belongs only to it.
-        if (pOImage.sprite != null && mOUiSpriteShown.ContainsKey(pOImage))
-        {
-            Texture2D lOOld = pOImage.sprite.texture;
-            Sprite lOOldSprite = pOImage.sprite;
-
-            pOImage.sprite = null;
-            Object.Destroy(lOOldSprite);
-
-            if (lOOld != null)
-                Object.Destroy(lOOld);
-        }
 
         mOUiSpriteShown[pOImage] = liKey;
 
-        pOImage.sprite = Sprite.Create(lOTexture,
-            new Rect(0f, 0f, lOTexture.width, lOTexture.height), new Vector2(0.5f, 0.5f), 1f);
+        pOImage.sprite = lOSprite;
         pOImage.color = Color.white;
         UWIconPalette.Apply(pOImage);
-        ((RectTransform)pOImage.transform).sizeDelta = new Vector2(lOTexture.width, lOTexture.height);
+        ((RectTransform)pOImage.transform).sizeDelta = new Vector2(lOSprite.texture.width, lOSprite.texture.height);
     }
 
-    /// <summary>Fills the seven slots. Minus one leaves a slot empty.</summary>
-    private void fSetOptionsEntries(int piBackground, int[] piEntries)
+    /// <summary>Draws the model's screen: the background and the seven slots, each at its grid
+    /// place or the model's nudge; an empty slot (NoPicture) stays dark.</summary>
+    private void fApplyPage()
     {
         if (mOptionsPanelImage == null)
             return;
 
-        if (piBackground == optNone)
+        int liBackground = mOModel.Background;
+
+        if (liBackground == optNone)
         {
             mOptionsPanelImage.enabled = false;
             mOUi.Commands.SetVisible(true);
         }
         else
         {
-            fSetUiSprite(mOptionsPanelImage, UWTexture.TextureTypes.OPTBTNS, piBackground);
+            fSetUiSprite(mOptionsPanelImage, UWTexture.TextureTypes.OPTBTNS, liBackground);
             mOptionsPanelImage.enabled = true;
 
             // The panel covers the whole icon column in the original (35 by 108 at 4/10); ours
@@ -492,107 +351,22 @@ public sealed class UWHudOptions
 
         for (int liAt = 0; liAt < optionsEntryCount; liAt++)
         {
-            fPlaceOptionsEntry(liAt, 0f, 0f);
+            (int DeltaX, int DeltaY) lOOffset = mOModel.EntryOffset(liAt);
 
-            miOptionsEntryArt[liAt] = piEntries[liAt];
+            fPlaceOptionsEntry(liAt, lOOffset.DeltaX, lOOffset.DeltaY);
 
-            if (piEntries[liAt] == optNone)
+            int liArt = mOModel.EntryAt(liAt);
+
+            if (liArt == optNone)
             {
                 mOptionsEntryImages[liAt].enabled = false;
 
                 continue;
             }
 
-            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS, piEntries[liAt]);
+            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS, liArt);
             mOptionsEntryImages[liAt].enabled = true;
         }
-    }
-
-    /// <summary>The top screen: seven buttons, as in the original.</summary>
-    private void fShowTopOptionsMenu()
-    {
-        meOptionsMenu = OptionsMenuEnum.Top;
-
-        fSetOptionsEntries(optAllOptionButtons, new int[]
-        {
-            optSaveGame, optRestoreGame, optMusic, optSound, optDetail, optReturnToGame, optQuitGame
-        });
-
-        fSetKeyHighlight(0);
-    }
-
-    /// <summary>
-    /// The music or the sound screen (ovr130_2AA): the state and "TURN ...:" over ON, OFF and
-    /// DONE, the button of the current state lit. Until 2026-09-26 the top menu's entry
-    /// switched at once with a line in the scroll (per user: the original has these screens).
-    /// </summary>
-    private void fShowOnOffMenu(bool pbMusic)
-    {
-        meOptionsMenu = pbMusic ? OptionsMenuEnum.Music : OptionsMenuEnum.Sound;
-
-        bool lbOn = pbMusic ? UWSoundOptions.MusicEnabled : UWSoundOptions.SoundEnabled;
-        int liState = pbMusic ? (lbOn ? optMusicIsOn : optMusicIsOff) : (lbOn ? optSoundIsOn : optSoundIsOff);
-
-        fSetOptionsEntries(optOnOffBackground, new int[]
-        {
-            liState, pbMusic ? optTurnMusic : optTurnSound,
-            optOn, optOff, optOnOffDone,
-            optNone, optNone
-        });
-
-        fSetKeyHighlight(lbOn ? 2 : 3);
-    }
-
-    /// <summary>
-    /// A choice on the music or sound screen (ovr130_3B5, ovr130_40D): ON and OFF switch and
-    /// draw the screen anew, DONE switches nothing. Opened by a Ctrl shortcut, every one of
-    /// the three closes the panel; otherwise ON and OFF stay on the screen and DONE goes back
-    /// to the top menu.
-    /// </summary>
-    private void fClickOnOffEntry(int piEntry)
-    {
-        bool lbMusic = meOptionsMenu == OptionsMenuEnum.Music;
-
-        if (piEntry == 2 || piEntry == 3)
-        {
-            if (lbMusic)
-                UWSoundOptions.MusicEnabled = piEntry == 2;
-            else
-                UWSoundOptions.SoundEnabled = piEntry == 2;
-        }
-
-        if (mbOpenedByShortcut)
-        {
-            fCloseOptionsMenu();
-            return;
-        }
-
-        if (piEntry == 4)
-            fShowTopOptionsMenu();
-        else
-            fShowOnOffMenu(lbMusic);
-    }
-
-    /// <summary>
-    /// The detail screen of the original, with new meanings (per user, 2026-09-17): LOW the
-    /// palette renderer, MEDIUM Remastered without effects, HIGH Remastered with all of them,
-    /// VERY HIGH the viewer's own values on the effects screen (see UWGraphicsDetail). The
-    /// panel carries "SET NEW LEVEL TO:" itself; the label at the top names the current level.
-    /// </summary>
-    private void fShowDetailMenu()
-    {
-        meOptionsMenu = OptionsMenuEnum.Detail;
-
-        fSetOptionsEntries(optDetailButtons, new int[]
-        {
-            optDetailLabel + (int)UWGraphicsDetail.CurrentLevel,
-            optNone,
-            optLowDetail, optLowDetail + 2, optLowDetail + 4, optLowDetail + 6,
-            optDetailDone
-        });
-
-        fPlaceOptionsEntry(0, -1f, -1f);
-        fSetKeyHighlight(2 + (int)UWGraphicsDetail.CurrentLevel);
     }
 
     /// <summary>Moves a slot away from its grid position; every other screen uses the grid,
@@ -605,53 +379,18 @@ public sealed class UWHudOptions
 
     private UWEffectsScreen mOEffectsScreen;
 
-    private void fClickDetailEntry(int piEntry)
+    /// <summary>The music and sound switches and the detail level the model draws its screens
+    /// from.</summary>
+    private static UWOptionsMenuModel.Settings fSettings()
     {
-        switch (piEntry)
-        {
-            case 2:
-            case 3:
-            case 4:
-                UWGraphicsDetail.SetLevel((UWGraphicsDetail.LevelEnum)(piEntry - 2));
-                fShowDetailMenu();
-                return;
-
-            case 5:
-                UWGraphicsDetail.SetLevel(UWGraphicsDetail.LevelEnum.VeryHigh);
-                fShowDetailMenu();
-
-                if (mOEffectsScreen == null)
-                    mOEffectsScreen = new UWEffectsScreen(mOUi.mOUWData, mOUi.mGameFrame);
-
-                mOEffectsScreen.Open();
-                return;
-
-            case 6:
-                fShowTopOptionsMenu();
-                return;
-        }
+        return new UWOptionsMenuModel.Settings(UWSoundOptions.MusicEnabled, UWSoundOptions.SoundEnabled, (int)UWGraphicsDetail.CurrentLevel);
     }
 
-    /// <summary>
-    /// The load screen: a heading, the four slots and cancel.
-    ///
-    /// The NAMES are not on the buttons but in the scroll - exactly that is
-    /// how the reference does it (listsaves), and therefore the slots only have one
-    /// picture each with "I" to "IV".
-    /// </summary>
+    /// <summary>The restore screen (UWOptionsMenuModel.ShowRestore), with the games listed.</summary>
     private void fShowRestoreMenu()
     {
-        meOptionsMenu = OptionsMenuEnum.Restore;
-
-        fSetOptionsEntries(optAllSaveButtons, new int[]
-        {
-            optRestoreGameLabel,
-            optSave1, optSave1 + 2, optSave1 + 4, optSave1 + 6,
-            optCancel,
-            optNone
-        });
-
-        fSetKeyHighlight(1);
+        mOModel.ShowRestore();
+        fApplyPage();
         fListSaveGames();
     }
 
@@ -663,8 +402,6 @@ public sealed class UWHudOptions
             return;
 
         string[] lsNumerals = { "I", "II", "III", "IV" };
-        string lsRoot = UnderworldRevisited.UWSettings.Instance != null
-            ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
 
         mOUi.mOInteraction.ResetMessages();
 
@@ -675,7 +412,7 @@ public sealed class UWHudOptions
 
         for (int liAt = 1; liAt <= UWSavegameSlots.SlotCount; liAt++)
             mOUi.mOInteraction.AddMessage(lsNumerals[liAt - 1] + "- "
-                + UWSavegameSlots.GetName(lsRoot, liAt));
+                + UWSaveFlow.SlotName(liAt));
     }
 
     private const string SaveListHeading = "\\6     Save Game Descriptions";
@@ -684,26 +421,18 @@ public sealed class UWHudOptions
     /// typed line below stays green (per user, 2026-09-12).</summary>
     private const int SaveDescriptionPromptMessage = 169;
 
-    internal const int SaveGameFailedMessage = 165;
-
-    internal const int SaveGameSucceededMessage = 166;
-
     /// <summary>In the original the dots fill up during writing; in our version that is
     /// finished immediately, so they are there right away. Twelve, as in the user's picture.</summary>
     public const string ProgressDots = "............";
 
     private void fCloseOptionsMenu()
     {
-        meOptionsMenu = OptionsMenuEnum.Closed;
-        mbOpenedByShortcut = false;
+        mOModel.Close();
 
         if (mOEffectsScreen != null)
             mOEffectsScreen.Close();
 
-        fSetOptionsEntries(optNone, new int[]
-        {
-            optNone, optNone, optNone, optNone, optNone, optNone, optNone
-        });
+        fApplyPage();
 
         if (mOUi.mControlSchemeRef != null)
             mOUi.mControlSchemeRef.ReleaseUiModal("options");
@@ -734,7 +463,7 @@ public sealed class UWHudOptions
     private bool mbOptionsHoldTime;
 
     /// <summary>Whether the options panel is up.</summary>
-    internal bool IsOpen => meOptionsMenu != OptionsMenuEnum.Closed;
+    internal bool IsOpen => mOModel.IsOpen;
 
     /// <summary>F1, the original's first function key (the command column's sixth step, see
     /// UWControls.KeyOptions): opens the panel as the button does.</summary>
@@ -816,27 +545,14 @@ public sealed class UWHudOptions
             || (lOInteraction != null && (lOInteraction.IsSpellTargeting || lOInteraction.IsRangedTargeting));
     }
 
-    /// <summary>The entries of the top menu, counted from the top (the original counts them
-    /// from the bottom: quit 0 ... save 6).</summary>
-    internal const int TopSave = 0;
-
-    internal const int TopRestore = 1;
-
-    internal const int TopMusic = 2;
-
-    internal const int TopSound = 3;
-
-    internal const int TopDetail = 4;
-
-    internal const int TopQuit = 6;
-
     /// <summary>
     /// THE ORIGINAL'S CTRL SHORTCUTS (read 2026-09-26: the key table sends Ctrl+S, R, M, F, D
     /// and Q to ovr130_7E8, which sets the top menu and has ovr130_6F2 choose its entry through
     /// ovr130_689 - s 6, r 5, m 4, f 3, d 2, q 0 from the bottom): they open the options and
     /// choose that entry as a click would, and the panel stays open on that entry's screen -
     /// the options loop ovr130_0 runs on. The flag 0x1A34 stays set meanwhile, so the music
-    /// and sound screens then close the whole panel after their choice (mbOpenedByShortcut).
+    /// and sound screens then close the whole panel after their choice
+    /// (UWOptionsMenuModel.OpenedByShortcut). The entry is one of UWOptionsMenuModel.Top*.
     /// </summary>
     internal void ChooseByShortcut(int piTopEntry)
     {
@@ -847,8 +563,8 @@ public sealed class UWHudOptions
             return;
 
         fOpenOptions();
-        mbOpenedByShortcut = true;
-        fClickOptionsEntry(piTopEntry);
+        mOModel.MarkOpenedByShortcut();
+        fChoose(piTopEntry);
     }
 
     /// <summary>The scheme changes while the panel is up (UWControlScheme.Apply): the panel
@@ -872,9 +588,9 @@ public sealed class UWHudOptions
         if (mOUi.mControlSchemeRef != null)
             mOUi.mControlSchemeRef.HoldUiModal("options");
 
-        mbOpenedByShortcut = false;
         fHoldTimeForOptions(true);
-        fShowTopOptionsMenu();
+        mOModel.Open();
+        fApplyPage();
     }
 
     /// <summary>
@@ -902,22 +618,22 @@ public sealed class UWHudOptions
         // The setup bar's menus and dialogs over the open panel (per user, 2026-10-06: the bar
         // shows itself in the options too): their clicks are theirs.
         if (UWSetupMenu.HasOpenPanel)
-            return meOptionsMenu != OptionsMenuEnum.Closed;
+            return mOModel.IsOpen;
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 
         if (lOMouse == null)
-            return meOptionsMenu != OptionsMenuEnum.Closed;
+            return mOModel.IsOpen;
 
         Vector2 lOPosition = lOMouse.position.ReadValue();
         bool lbClicked = UWMouseButtons.LeftPressed;
 
-        if (meOptionsMenu == OptionsMenuEnum.Closed)
+        if (!mOModel.IsOpen)
         {
             // THE SIXTH STEP OF THE COMMAND COLUMN (2026-09-26): the original has no area of its
             // own for the button - the column's handler opens the options at (y + 2) / 18 = 5,
             // rows 11 to 28 (UWClickRules.CommandIconAt). Ours used the picture.
-            bool lbOnButton = mOUi.IsPointerInOriginalArea(lOPosition, UWClickRules.CommandIcons, out int _, out int liColumnY)
+            bool lbOnButton = mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.CommandIcons, out int _, out int liColumnY)
                 && UWClickRules.CommandIconAt(liColumnY) == UWCommandMode.Options;
 
             // NO HOVER in the original (per user, 2026-09-19): the button shows its idle picture until
@@ -944,7 +660,7 @@ public sealed class UWHudOptions
 
         for (int liAt = 0; liAt < optionsEntryCount; liAt++)
         {
-            if (miOptionsEntryArt[liAt] == optNone || !mOptionsEntryImages[liAt].enabled)
+            if (mOModel.EntryAt(liAt) == optNone || !mOptionsEntryImages[liAt].enabled)
                 continue;
 
             if (fIsInRect(lOPosition, (RectTransform)mOptionsEntryImages[liAt].transform))
@@ -957,12 +673,8 @@ public sealed class UWHudOptions
         // panel (ovr130_1BE). The highlight stops at the ends and does not step onto an entry
         // that cannot be chosen. NO MOUSE HOVER (per user on the original, 2026-09-26): only
         // this highlight is ever lit - the pointer over an entry lights nothing, a click just
-        // chooses the entry under it.
-        if (meKeyMenu != meOptionsMenu)
-        {
-            meKeyMenu = meOptionsMenu;
-            miKeyEntry = -1;
-        }
+        // chooses the entry under it. The stepping is UWOptionsMenuModel's.
+        mOModel.ResetKeyEntryIfPageChanged();
 
         bool lbChooseByKey = false;
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
@@ -981,232 +693,122 @@ public sealed class UWHudOptions
                 : 0;
 
             if (liStep != 0)
-                miKeyEntry = fStepKeyEntry(miKeyEntry, liStep);
+                mOModel.StepKey(liStep);
 
             lbChooseByKey = (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
-                && miKeyEntry >= 0;
+                && mOModel.KeyEntry >= 0;
         }
 
         // A CLICK MOVES THE HIGHLIGHT onto the entry it chooses, so the chosen save game stays lit
         // while its name is typed or it loads (per user, 2026-09-27: since the hover went, the
         // chosen slot was no longer lit when saving or loading).
-        bool lbChooseByClick = !lbChooseByKey && lbClicked && liHovered >= 0 && fIsOptionsEntryClickable(liHovered);
+        bool lbChooseByClick = !lbChooseByKey && lbClicked && liHovered >= 0 && mOModel.IsEntryClickable(liHovered);
 
         if (lbChooseByClick)
-            miKeyEntry = liHovered;
-
-        int liLit = miKeyEntry;
+            mOModel.HighlightByClick(liHovered);
 
         // Only one is ever highlighted, and the heading never - it has no
-        // second picture at all.
+        // second picture at all (UWOptionsMenuModel.PictureOf).
         for (int liAt = 0; liAt < optionsEntryCount; liAt++)
         {
-            if (miOptionsEntryArt[liAt] == optNone)
+            if (mOModel.EntryAt(liAt) == optNone)
                 continue;
 
-            bool lbHighlight = liAt == liLit && fIsOptionsEntryClickable(liAt);
-
-            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS,
-                miOptionsEntryArt[liAt] + (lbHighlight ? optHighlightOffset : 0));
+            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS, mOModel.PictureOf(liAt));
         }
 
-        if (lbChooseByKey && fIsOptionsEntryClickable(miKeyEntry))
-            fClickOptionsEntry(miKeyEntry);
+        if (lbChooseByKey && mOModel.IsEntryClickable(mOModel.KeyEntry))
+            fChoose(mOModel.KeyEntry);
         else if (lbChooseByClick)
-            fClickOptionsEntry(liHovered);
+            fChoose(liHovered);
 
         return true;
     }
 
-    /// <summary>The entry the keys have highlighted, -1 for none (then the mouse's counts).
-    /// </summary>
-    private int miKeyEntry = -1;
-
-    /// <summary>The menu the key highlight belongs to - a new menu starts without one.</summary>
-    private OptionsMenuEnum meKeyMenu = OptionsMenuEnum.Closed;
-
-    /// <summary>One step of the key highlight (entries counted from the top). Without a
-    /// highlight yet, Down starts on the first entry that can be chosen and Up on the last;
-    /// otherwise it moves one entry and stays where it is at the end or before an entry that
-    /// cannot be chosen, as the original's ovr130_6F2 does.</summary>
-    private int fStepKeyEntry(int piFrom, int piStep)
+    /// <summary>A click or Enter on an entry: the model changes the page and says what to carry
+    /// out (UWOptionsMenuModel.Choose); the screen is drawn anew.</summary>
+    private void fChoose(int piEntry)
     {
-        if (piFrom < 0)
+        UWOptionsMenuModel.Outcome lOOutcome = mOModel.Choose(piEntry, fSettings());
+
+        switch (lOOutcome.Action)
         {
-            for (int liAt = piStep > 0 ? 0 : optionsEntryCount - 1; liAt >= 0 && liAt < optionsEntryCount; liAt += piStep)
-            {
-                if (fIsKeyEntryUsable(liAt))
-                    return liAt;
-            }
+            case UWOptionsMenuModel.ActionEnum.AskSave:
+                // The Void and "partway" refuse here, not at the opener (check_save).
+                if (!RefusesToSave())
+                    fShowSaveMenu();
 
-            return -1;
-        }
+                return;
 
-        int liTo = piFrom + piStep;
+            case UWOptionsMenuModel.ActionEnum.ListSaves:
+                fApplyPage();
+                fListSaveGames();
+                return;
 
-        return liTo >= 0 && liTo < optionsEntryCount && fIsKeyEntryUsable(liTo) ? liTo : piFrom;
-    }
+            case UWOptionsMenuModel.ActionEnum.BeginSaveName:
+                fApplyPage();
+                fBeginSaveName(lOOutcome.Value);
+                return;
 
-    private bool fIsKeyEntryUsable(int piEntry)
-    {
-        return miOptionsEntryArt[piEntry] != optNone && mOptionsEntryImages[piEntry].enabled
-            && fIsOptionsEntryClickable(piEntry);
-    }
+            case UWOptionsMenuModel.ActionEnum.Restore:
+                fApplyPage();
+                fRestore(lOOutcome.Value);
+                return;
 
-    /// <summary>The heading of the load and save screens is not a button.</summary>
-    private bool fIsOptionsEntryClickable(int piEntry)
-    {
-        if (meOptionsMenu == OptionsMenuEnum.Detail)
-            return piEntry >= 2;
+            case UWOptionsMenuModel.ActionEnum.SetMusic:
+                UWSoundOptions.MusicEnabled = lOOutcome.Value != 0;
+                break;
 
-        if (meOptionsMenu == OptionsMenuEnum.Quit)
-            return piEntry == 2 || piEntry == 3;
+            case UWOptionsMenuModel.ActionEnum.SetSound:
+                UWSoundOptions.SoundEnabled = lOOutcome.Value != 0;
+                break;
 
-        if (meOptionsMenu == OptionsMenuEnum.Music || meOptionsMenu == OptionsMenuEnum.Sound)
-            return piEntry >= 2 && piEntry <= 4;
+            case UWOptionsMenuModel.ActionEnum.SetDetail:
+                UWGraphicsDetail.SetLevel((UWGraphicsDetail.LevelEnum)lOOutcome.Value);
+                mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
+                break;
 
-        return !((meOptionsMenu == OptionsMenuEnum.Restore || meOptionsMenu == OptionsMenuEnum.Save)
-            && piEntry == 0);
-    }
+            case UWOptionsMenuModel.ActionEnum.SetDetailAndOpenEffects:
+                UWGraphicsDetail.SetLevel(UWGraphicsDetail.LevelEnum.VeryHigh);
+                mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
+                fApplyPage();
 
-    /// <summary>String block 1: "No save game there." The reference gives 161 for uw1,
-    /// checked against the printout of the block.</summary>
-    internal const int NoSaveGameThereMessage = 162;
+                if (mOEffectsScreen == null)
+                    mOEffectsScreen = new UWEffectsScreen(mOUi.mOUWData, mOUi.mGameFrame);
 
-    private void fClickOptionsEntry(int piEntry)
-    {
-        if (meOptionsMenu == OptionsMenuEnum.Top)
-        {
-            switch (piEntry)
-            {
-                case 0:
-                    // The Void and "partway" refuse here, not at the opener (check_save).
-                    if (!RefusesToSave())
-                        fShowSaveMenu();
+                mOEffectsScreen.Open();
+                return;
 
-                    return;
-
-                case 1:
-                    fShowRestoreMenu();
-                    return;
-
-                case 5:
-                    fCloseOptionsMenu();
-                    return;
-
-                case 6:
-                    fShowQuitMenu();
-                    return;
-
-                // Music and sound: the original's own screens since 2026-09-26 (until then
-                // the entry switched at once with a line in the scroll).
-                case 2:
-                    fShowOnOffMenu(true);
-                    return;
-
-                case 3:
-                    fShowOnOffMenu(false);
-                    return;
-
-                case 4:
-                    fShowDetailMenu();
-                    return;
-            }
-
-            return;
-        }
-
-        if (meOptionsMenu == OptionsMenuEnum.Detail)
-        {
-            fClickDetailEntry(piEntry);
-
-            return;
-        }
-
-        if (meOptionsMenu == OptionsMenuEnum.Music || meOptionsMenu == OptionsMenuEnum.Sound)
-        {
-            fClickOnOffEntry(piEntry);
-
-            return;
-        }
-
-        if (meOptionsMenu == OptionsMenuEnum.Quit)
-        {
-            if (piEntry == 2)
+            case UWOptionsMenuModel.ActionEnum.QuitToMainMenu:
                 fQuitToMainMenu();
-            else if (piEntry == 3)
-                fShowTopOptionsMenu();
-
-            return;
+                return;
         }
 
-        if (meOptionsMenu == OptionsMenuEnum.Save)
+        if (lOOutcome.ClosesPanel)
         {
-            if (piEntry == 5)
-                fShowTopOptionsMenu();
-            else if (piEntry >= 1 && piEntry <= UWSavegameSlots.SlotCount)
-                fBeginSaveName(piEntry);
-
+            fCloseOptionsMenu();
             return;
         }
 
-        if (meOptionsMenu != OptionsMenuEnum.Restore)
-            return;
+        fApplyPage();
+    }
 
-        if (piEntry == 5)
-        {
-            fShowTopOptionsMenu();
-
-            return;
-        }
-
-        string lsRoot = UnderworldRevisited.UWSettings.Instance != null
-            ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
-
-        if (UWSavegameSlots.Restore(lsRoot, piEntry))
-            return;
-
-        // Nothing on the slot - message, and stay on the load screen, just as in the original.
-        if (mOUi.mOInteraction != null)
-            mOUi.mOInteraction.AddGeneralMessage(NoSaveGameThereMessage);
+    /// <summary>A slot of the restore screen: the game loads, or nothing is there - message, and
+    /// stay on the load screen, just as in the original (UWSaveFlow.Restore).</summary>
+    private void fRestore(int piSlot)
+    {
+        UWSaveFlow.Restore(mOUi.mOInteraction, piSlot);
     }
 
     /// <summary>
     /// "Quit Game" asks first, as in the original, and then goes BACK TO THE MAIN MENU instead of
-    /// ending the program (per user, 2026-09-17) - from there one can load, start a new character
-    /// or really quit. The panel is the same in both control schemes.
+    /// ending the program (per user, 2026-09-17; UWSaveFlow.QuitToMainMenu). The panel is the same
+    /// in both control schemes.
     /// </summary>
-    private void fShowQuitMenu()
-    {
-        meOptionsMenu = OptionsMenuEnum.Quit;
-
-        fSetOptionsEntries(optQuitBackground, new int[]
-        {
-            optNone, optNone, optYes, optNo, optNone, optNone, optNone
-        });
-
-        fSetKeyHighlight(3);
-    }
-
     private void fQuitToMainMenu()
     {
         fCloseOptionsMenu();
-
-        UWMainMenu lOMenu = UWScene.MainMenu;
-
-        if (lOMenu != null)
-        {
-            lOMenu.Show();
-
-            return;
-        }
-
-        // No menu in the scene (should not happen): then at least end the program, as before.
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
+        UWSaveFlow.QuitToMainMenu();
     }
 
     /// <summary>Is the mouse pointer over mOUi area? The same test as for the

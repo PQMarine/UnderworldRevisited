@@ -866,6 +866,46 @@ public class UWLevelLoader : MonoBehaviour
             RebuildGeometry();
     }
 
+    /// <summary>
+    /// THE MESHES OF A LEVEL LEFT (found 2026-10-21 in Player.log: some hundred more meshes after
+    /// every level change, textures flat): the level's chunks, objects and creature frames are
+    /// meshes made at runtime (UWChunkGeometry, UWObjectSpawner, UWCritterAnimator), assets of
+    /// their own that outlive the destroyed root - only a scene load (a save game) unloaded them.
+    /// One frame after the old root is gone - Destroy takes effect at the frame's end - the
+    /// unused assets are unloaded, as the scene load does; what the scripts still hold (the
+    /// caches) stays. Several rebuilds in one frame ask once.
+    /// </summary>
+    private void fUnloadUnusedSoon()
+    {
+        if (mbUnloadPending)
+            return;
+
+        mbUnloadPending = true;
+        StartCoroutine(fUnloadUnusedNextFrame());
+    }
+
+    private bool mbUnloadPending;
+
+    private System.Collections.IEnumerator fUnloadUnusedNextFrame()
+    {
+        yield return null;
+
+        mbUnloadPending = false;
+        Resources.UnloadUnusedAssets();
+    }
+
+    /// <summary>The meshes of a geometry built for it alone (RebuildGeometry's chunks), destroyed
+    /// with it at once - a lever or a terrain trap rebuilds in play, where the full unload would
+    /// stall a frame.</summary>
+    private static void fDestroyMeshes(GameObject pORoot)
+    {
+        foreach (MeshFilter lOFilter in pORoot.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (lOFilter.sharedMesh != null)
+                Destroy(lOFilter.sharedMesh);
+        }
+    }
+
     private void fBuildLevel()
     {
         UWCritter.ResetAlarm();
@@ -884,6 +924,7 @@ public class UWLevelLoader : MonoBehaviour
             // the old transition triggers would still fire.
             mOLevelRoot.SetActive(false);
             Destroy(mOLevelRoot);
+            fUnloadUnusedSoon();
         }
 
         mOLevelRoot = new GameObject("Level " + (miLevelIndex + 1));
@@ -957,6 +998,7 @@ public class UWLevelLoader : MonoBehaviour
         {
             lOExisting.gameObject.SetActive(false);
             lOExisting.SetParent(null, false);
+            fDestroyMeshes(lOExisting.gameObject);
             Destroy(lOExisting.gameObject);
         }
 
@@ -2724,7 +2766,7 @@ public class UWLevelLoader : MonoBehaviour
 
         lOInteraction.ResetMessages();
         lOInteraction.AddMessage(UWDataImporter.GetGeneralMessage(RestoringGameMessage)
-            + UWGameUI.ProgressDots
+            + UWHudOptions.ProgressDots
             + UWDataImporter.GetGeneralMessage(RestoreGameCompleteMessage).TrimEnd('\r', '\n'));
     }
 

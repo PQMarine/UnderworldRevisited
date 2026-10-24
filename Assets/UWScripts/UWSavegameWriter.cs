@@ -205,7 +205,7 @@ public static class UWSavegameWriter
             ActiveSpells = lOSpells,
             QuestFlags = liFlags,
             GameVariables = liVariables,
-            SelectedRunes = lOUi != null ? lOUi.SelectedRunes : null,
+            SelectedRunes = lOUi != null ? lOUi.Runes.SelectedRunes : null,
 
             HasCharacter = true,
             Strength = lOCharacter.Vitals.Strength,

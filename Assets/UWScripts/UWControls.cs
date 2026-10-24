@@ -331,46 +331,32 @@ public class UWControls : System.IDisposable
             lOControls.fApplyTextEntry();
     }
 
-    /// <summary>The actions that stay silent while typing: everything tied to the keyboard.
-    /// The debug map lies entirely on keys.</summary>
+    /// <summary>The actions that stay silent while typing: everything tied to the keyboard - the
+    /// list is UWTextEntryState's since cleanup 5.18 (2026-10-23). The debug map lies entirely
+    /// on keys.</summary>
     private void fApplyTextEntry()
     {
         if (!mbEnabled)
             return;
 
-        InputAction[] lOKeyboardActions =
-        {
-            mPlayerMap["Move"], mPlayerMap["ToggleScheme"], mPlayerMap["ToggleInventory"],
-            mPlayerMap["HoverHeight"], mPlayerMap["Turn"], mPlayerMap["Strafe"], mPlayerMap["Jump"],
-            mPlayerMap["LookDown"], mPlayerMap["LookReset"], mPlayerMap["LookUp"],
-            mPlayerMap["ToggleMap"], mPlayerMap["ToggleFont"],
-            mPlayerMap["KeyOptions"], mPlayerMap["KeyTalk"], mPlayerMap["KeyGet"], mPlayerMap["KeyLook"],
-            mPlayerMap["KeyFight"], mPlayerMap["KeyUse"], mPlayerMap["KeyPanel"], mPlayerMap["KeyCast"],
-            mPlayerMap["KeyTrack"], mPlayerMap["KeyCamp"],
-            mPlayerMap["OptSave"], mPlayerMap["OptRestore"], mPlayerMap["OptMusic"],
-            mPlayerMap["OptSound"], mPlayerMap["OptDetail"], mPlayerMap["OptQuit"],
-            mPlayerMap["EasyForward"], mPlayerMap["EasyWalkForward"], mPlayerMap["EasyBack"],
-            mPlayerMap["EasyTurnLeft"], mPlayerMap["EasyTurnRight"],
-            mPlayerMap["ModernUse"], mPlayerMap["ModernReady"], mPlayerMap["WalkSlow"], mPlayerMap["EasyModifier"], mPlayerMap["ModernHover"], mPlayerMap["Menu"],
-            mPlayerMap["ModernBags"], mPlayerMap["ModernLook"], mPlayerMap["ModernRunes"],
-            mPlayerMap["ModernSlot1"], mPlayerMap["ModernSlot2"], mPlayerMap["ModernSlot3"], mPlayerMap["ModernSlot4"],
-            mPlayerMap["ModernSlot5"], mPlayerMap["ModernSlot6"], mPlayerMap["ModernSlot7"], mPlayerMap["ModernSlot8"],
-            mPlayerMap["ModernSlot9"], mPlayerMap["ModernSlot10"],
-            mNoclipMap["Move"], mNoclipMap["Up"], mNoclipMap["Down"], mNoclipMap["Sprint"]
-        };
+        foreach (string lsAction in UWTextEntryState.LockedPlayerActions)
+            fApplyTextEntry(mPlayerMap[lsAction]);
 
-        foreach (InputAction lOAction in lOKeyboardActions)
-        {
-            if (IsTextEntryActive)
-                lOAction.Disable();
-            else
-                lOAction.Enable();
-        }
+        foreach (string lsAction in UWTextEntryState.LockedNoclipActions)
+            fApplyTextEntry(mNoclipMap[lsAction]);
 
         if (IsTextEntryActive)
             mDebugMap.Disable();
         else
             mDebugMap.Enable();
+    }
+
+    private static void fApplyTextEntry(InputAction pOAction)
+    {
+        if (IsTextEntryActive)
+            pOAction.Disable();
+        else
+            pOAction.Enable();
     }
 
     /// <summary>The slots of the modern action bar, on the keys 1 to 0.</summary>

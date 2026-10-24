@@ -118,8 +118,11 @@ Shader "UW/PixelArtUI"
                 float2 at = IN.texcoord * size;
                 float2 seam = floor(at + 0.5);
                 float2 blend = clamp((at - seam) / max(fwidth(at), 1e-5), -0.5, 0.5) + 0.5;
-                float2 low = (seam - 0.5) / size;
-                float2 high = (seam + 0.5) / size;
+                // Only texels of the picture: at its edge the neighbour beyond it is the edge texel
+                // itself, whatever the texture's wrap mode (2026-10-19, as UW/IconPalette: with
+                // Repeat the opposite edge was blended into the edge pixels).
+                float2 low = clamp(seam - 0.5, 0.5, size - 0.5) / size;
+                float2 high = clamp(seam + 0.5, 0.5, size - 0.5) / size;
 
                 float4 p0 = lerp(UWPremultiplied(low), UWPremultiplied(float2(high.x, low.y)), blend.x);
                 float4 p1 = lerp(UWPremultiplied(float2(low.x, high.y)), UWPremultiplied(high), blend.x);

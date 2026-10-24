@@ -556,6 +556,49 @@ namespace UWDataImport.UWData
 				? peSpot - InventorySpot.Backpack0 : -1;
 		}
 
+		/// <summary>The table's area of a backpack slot (0 to 7), where the modern original page
+		/// (UWModernInventoryPage) centres the slot's icon and puts its count - until cleanup step
+		/// 5.8 (2026-10-20) that page rebuilt the same areas from 240 in steps of 19. An empty
+		/// area for a slot outside 0 to 7.</summary>
+		public static Area BackpackArea(int piSlot)
+		{
+			foreach ((Area lOArea, InventorySpot leSpot) in msInventorySpots)
+			{
+				if (piSlot >= 0 && BackpackSlotOf(leSpot) == piSlot)
+					return lOArea;
+			}
+
+			return default;
+		}
+
+		/// <summary>
+		/// The equipment slot a spot of the inventory page stands for, or null - for the classic
+		/// frame (UWHudInventory), the modern character panel (UWModernPanel) and the modern
+		/// original page (UWModernInventoryPage), which show the same page. Until cleanup step
+		/// 5.6 (2026-10-20) this was UWHudInventory.GetSlotOfSpot, a table in the classic view the
+		/// two modern classes called.
+		/// </summary>
+		public static UWArmorItemMap.BodySlot? BodySlotOf(InventorySpot peSpot)
+		{
+			// By where the spot lies: "Left" is the screen's left, the character's right - the
+			// same sides as our slots (RightHandSlot is drawn on the left, see UWHudInventory.BuildEquipmentSlots).
+			switch (peSpot)
+			{
+				case InventorySpot.Helmet: return UWArmorItemMap.BodySlot.Helmet;
+				case InventorySpot.Chest: return UWArmorItemMap.BodySlot.Chest;
+				case InventorySpot.Gloves: return UWArmorItemMap.BodySlot.Gloves;
+				case InventorySpot.Legs: return UWArmorItemMap.BodySlot.Legs;
+				case InventorySpot.Boots: return UWArmorItemMap.BodySlot.Boots;
+				case InventorySpot.ShoulderLeft: return UWArmorItemMap.BodySlot.RightOffHandSlot;
+				case InventorySpot.ShoulderRight: return UWArmorItemMap.BodySlot.LeftOffHandSlot;
+				case InventorySpot.HandLeft: return UWArmorItemMap.BodySlot.RightHandSlot;
+				case InventorySpot.HandRight: return UWArmorItemMap.BodySlot.LeftHandSlot;
+				case InventorySpot.RingLeft: return UWArmorItemMap.BodySlot.RightRing;
+				case InventorySpot.RingRight: return UWArmorItemMap.BodySlot.LeftRing;
+				default: return null;
+			}
+		}
+
 		/// <summary>
 		/// The degree word of "You are ... poisoned." that the vitality flask puts before its
 		/// line while the player is poisoned (same routine): (poison - 1) / 3 over the five

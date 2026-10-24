@@ -80,7 +80,7 @@ Gameplay:
 | B14 | `fCheckSummonRoll` adds a creature to level 9 that `fCheckObjectLimit` later counts ("every fresh level") | `Tools/UWSelfCheck/Program.cs:4209, 3784` |
 | B15 | Modern pickup path (`UseTarget` -> `GetTarget`) checks use reach, not pickup reach; `pOPickableBehind` gets no reach check; `Interaction.cs:1343-1346` is unreachable | `Interaction.cs:1120, 1343-1346, 4333` |
 | B16 | Classic "too heavy" message for bought goods goes to the log, which the conversation parchment hides | `UWItemDrag.cs:862, 1462-1464` |
-| B17 | Classic target spell on an empty click consumes the spell (original); modern resolves only on an item | `UWItemDrag.cs:392` vs `UWModernBags.cs:855-869` |
+| B17 | Classic target spell on an empty click consumes the spell (original); modern resolves only on an item. DECIDED 2026-10-22 (per user): both stay as they are - `UWPendingSpell` (5.14) holds the one rule with a per-scheme policy | `UWItemDrag.cs:392` vs `UWModernBags.cs:855-869` |
 | B18 | Three crosshair definitions; `UseItemOnCrosshair` uses `Screen.width*0.5`, wrong in Classic Wide | `UWItemDrag.cs:1654` |
 | B19 | `ApplyWardDamage` has no `IsDestroyed` guard | `UWTriggerSystem.cs:713-721` |
 | B20 | `UWEndgame` and `UWContainerDamage` roll with `UnityEngine.Random` (also `UWCritter.cs:806-809`, `UWDeath.cs:102/176`, `UWVoidEffects.cs:79-117`, `UWLevelLoader.cs:1411-1432`), bypassing `UWRandom`; not reproducible in the self-check | |
@@ -712,7 +712,17 @@ Target (the Input System device bindings stay; rebinding works at that level):
   Escape/back.
 - `UWHotkeys` table replacing `UWGameUI.cs:1019-1266`; `UWPointer` (one position, one button
   state, one `IsFree`; sources Mouse, Pad, ClassicWarp; owns warp and `Cursor.*`, the "over UI"
-  registry) done in two parts (read-only redirect of all 83 reads, then ownership); `UWTextEntry`
+  registry) done in two parts (read-only redirect of all 83 reads, then ownership). THE GOAL FOR
+  `UWPointer` (DECIDED 2026-10-23, per user): a pointer of our own, as under DOS - the position
+  kept from the mouse deltas like the mouse driver kept it, the picture drawn by us at the
+  frame's scale, the system pointer locked and hidden; the classic clamp becomes a line, no
+  `WarpCursorPosition`, no XWayland emulation, the pad and the mouse one path. Preconditions:
+  the IMGUI parts (modern game menu, help, setup bar) on our kit, since they take position and
+  clicks from the real pointer (today the pad warps it and clicks through `UWOsMouse`); a
+  pointer speed setting, since the deltas come without the system's acceleration; focus loss and
+  Alt+Tab in the classic scheme as the modern one has them. Until then the pointer is drawn by
+  Unity (`CursorMode.ForceSoftware`, 2026-10-23: the system limits a hardware pointer's size) and
+  the held walk draws its own at the clamped position (`UWPointerCursor`); `UWTextEntry`
   (hook plus `UWTypedKeys` fallback, one filter, max length, Backspace/Enter/Esc events; fixes B26);
   `UWHoldTap`/`UWRepeat` (three tap/hold and five repeat copies); `UWBindingInfo` (four lookup
   loops, two control-name tables).
@@ -1097,9 +1107,9 @@ Structural risks:
 - Texture ownership: callers destroy textures today; a cache must take ownership in one step or
   textures are destroyed twice; `fDrawPromptCursor` writes into its texture and must never get a
   cached one; label size drives the conversation hit areas.
-- Serialized values: `UWGameUI` keeps `[SerializeField]` layout values in the scene (equal to the
-  code defaults today; a stale `mOChainHitRect` at `UW.unity:399`); moving them to a static table
-  removes Inspector tuning (ask first). `settings.json` field names, `graphics.json` schema,
+- Serialized values: gone since decision 12 (2026-10-22) - `UWGameUI` has no `[SerializeField]`
+  layout values any more, `UWClassicLayout` holds them (the view angle was 90 in the scene, not
+  the code's 75). `settings.json` field names, `graphics.json` schema,
   `HelpTab` numeric ids, binding ordinals, `ModernLayout`/`ModernBacks` opaque strings.
 - Host lifetime and scheduler: per-firing and per-cast state must not leak into the long-lived
   `UWWorld`; `AfterConversation` must handle "not yet open"; the moongate camera needs a per-frame
@@ -1125,8 +1135,12 @@ Collected from the reviews; each blocks or shapes one step. None has been decide
    bits, bit 12 is the enchanted bit) and the single truth; `IsEnchanted` becomes a view on bit 3;
    the writer writes all four bits. No byte changes for consistent data; the round-trip pin guards it.
 5. B29: the modern character page shows the open-container picture (a visible change)?
+   DECIDED 2026-10-20 (per user): yes - the modern character page shows the open container's
+   picture, as the classic scheme and UWModernBags do (step 5.6).
 6. B30: the classic Classic Wide frame follows the colour help like Classic+ (visible when the
    colour filter is on)?
+   DECIDED 2026-10-19 (per user): yes - the Classic Wide frame and the eyes' picture follow the
+   colour help like every other picture, and rebuild when it changes.
 7. Shrine gift quality (today none; `UWObjectFactory` would give 0x28) and the two
    `NewObjectQuality` values (0x28 loot vs 0x3F summon): which does the original use where?
    DECIDED 2026-10-12: `CreateObj` (MAPADDR.C) gives every new object quality 40 (0x28), owner 0,
@@ -1154,12 +1168,26 @@ Collected from the reviews; each blocks or shapes one step. None has been decide
     in that walk. Built as the first step of phase 4; checked afterwards in the original (fireball at
     a wall corner, Flame Wind on a crowd, Poison with two creatures side by side).
 12. `UWGameUI` serialized layout values: move to the static table (losing Inspector tuning)?
+    DECIDED 2026-10-22 (per user): everything leaves the Inspector. The layout values and colours go to
+    `UWClassicLayout`; the classic scheme's view angle too - the Graphics menu's view angle (`UWViewAngle`)
+    already overrides it, at Original it is the original's own; the map's CLOSE debug switch and the
+    zero window-picture nudge go as well. The stale `mOChainHitRect` entry leaves `UW.unity`.
+    BUILT 2026-10-22. Found on the way: the scene held the view angle at 90 degrees since the first
+    commit while the code's default said 75 - the game always showed 90, so 90 is the constant
+    (`Frame.HorizontalViewAngle`); the plan's claim that the scene equalled the defaults was wrong there.
 13. `TryGetEntityAt` and `fApplyTargetSpell` skip the sight limit: intended?
 14. Classic count-aware weight check for bought goods vs modern whole-stack: which matches the
     original?
 15. `UWModernHud`'s own text colour vs the shared palette: keep the difference?
+    DECIDED 2026-10-19 (per user): keep it, named as its own entry of the palette - phase 5
+    changes nothing of the look.
 16. Classic Wide resize cost: quantise `Extra` (visible as coarser steps while dragging the window)?
 17. Message log [MORE] policy and cursor blink: one rule for both schemes, and which?
+    DECIDED 2026-10-20 (per user): both schemes page by what the shown scroll holds, its lines
+    less one for [MORE] (classic unchanged: four and [MORE]; the modern scroll follows its size,
+    which fixes B28); the cursor blinks at one fixed rate in both, 0.4 s on and 0.4 s off (the
+    classic box's; the original counts passes of its input loop, SCROLLIO.C, so its speed hung on
+    the CPU), recorded in Docs/DEVIATIONS.md, Rules.
 18. `Easy*` actions follow a `Move` rebind?
 19. `Docs/CLEANUP-PLAN.md` is public; the detailed per-area reviews stay private. Keep it that way?
 
@@ -1202,6 +1230,24 @@ Found by step 2.6 (2026-10-12):
     nothing in the original, ours sent the headless. Now everything goes down as there; a smashed or
     burnt container fires its use triggers first (damage_object, checkTrap kind 4 before
     remove_object).
+
+26. Which UI technique, also with a view to Linux, macOS and other engines?
+    DECIDED 2026-10-19 (per user): the platforms are not the question (uGUI, IMGUI and UI Toolkit
+    all run on Windows, Linux and macOS); the interface must not hang on Unity, for the Unreal front
+    end beside Unity (Todo 11.7) and a possible SDL host (11.8). So: what to show, what a click does
+    and every measure live in engine-free view models and tables (section 8.3); the CLASSIC scheme
+    is drawn completely into our own engine-free pixel buffers (UWPicture and the HUD art builders,
+    the text textures), Unity only uploads the finished picture; new kit pieces (the texture
+    factory, the text textures) build on those buffers. The MODERN scheme stays on uGUI for now, as a
+    thin renderer over the same view models; whether it becomes an own pixel UI too is decided when
+    an Unreal or SDL front end becomes concrete. No move to UI Toolkit. The IMGUI windows move to
+    the same kit over phase 5.
+
+27. Rune hit areas: classic hits the 16x16 rune pictures (with two extra columns and a shared row),
+    modern the 14x14 compartments, both with gaps; the original (mous_in_rune, UnderworldExhumed
+    RUNES.C:117-127, INVPANEL.C:161) tiles the page into gapless 18x15 cells.
+    DECIDED 2026-10-20 (per user): as the original in both schemes - gapless cells (the modern
+    shelf's cells mapped onto its compartments); the clear strip already matches.
 
 ## 13. Bookkeeping
 

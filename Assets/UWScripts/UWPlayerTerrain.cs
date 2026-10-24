@@ -237,7 +237,7 @@ public class UWPlayerTerrain : MonoBehaviour
 
     /// <summary>The viewing distance of the current light level in tile rows: how deep the
     /// render band goes, and with it how far one can see at all - what is not drawn cannot be
-    /// looked at either (see Interaction.fIsWithinSight).</summary>
+    /// looked at either (see Interaction.IsWithinSight).</summary>
     public int ViewingDistance
     {
         get { return fGetViewingDistance(); }

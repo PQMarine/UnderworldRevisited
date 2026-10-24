@@ -201,7 +201,7 @@ public class UWDebugTools : MonoBehaviour
                 lOUi = UWScene.GameUi;
 
             if (lOUi != null)
-                lOUi.CastSpellFromObject(liAt, false);
+                lOUi.Runes.CastSpellFromObject(liAt, false);
 
             break;
         }

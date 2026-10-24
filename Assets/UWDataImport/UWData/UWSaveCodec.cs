@@ -205,7 +205,7 @@ namespace UWDataImport.UWData
 
 				if (liNoteLevel >= 0 && liNoteLevel < UWLevArkLayout.MapNoteLevelCount)
 				{
-					lyBlocks[liBlock] = fBuildMapNoteBlock(lOWorld.GetMapNotes(liNoteLevel));
+					lyBlocks[liBlock] = BuildMapNoteBlock(lOWorld.GetMapNotes(liNoteLevel));
 					continue;
 				}
 
@@ -324,7 +324,7 @@ namespace UWDataImport.UWData
 		/// the note pages beyond level 9, the real levels 1 to 9 delete it). Here it
 		/// disappears together with its block.
 		/// </summary>
-		private static byte[] fBuildMapNoteBlock(List<UWLevel.MapNote> pONotes)
+		public static byte[] BuildMapNoteBlock(List<UWLevel.MapNote> pONotes)
 		{
 			if (pONotes == null || pONotes.Count == 0)
 				return null;
@@ -340,8 +340,14 @@ namespace UWDataImport.UWData
 
 				string lsText = pONotes[liNote].Text ?? string.Empty;
 
-				for (int liChar = 0; liChar < lsText.Length && liChar < liTextSize - 1; liChar++)
-					lyBlock[liAt + liChar] = (byte)lsText[liChar];
+				// A note read from the file with its text unchanged goes back byte for byte, the
+				// original's leftovers after the text's zero included (UWLevel.MapNote.TextField,
+				// 2026-10-23: without them a save the original wrote came back 16 bytes off).
+				if (fFieldHolds(pONotes[liNote].TextField, lsText, liTextSize))
+					Array.Copy(pONotes[liNote].TextField, 0, lyBlock, liAt, liTextSize);
+				else
+					for (int liChar = 0; liChar < lsText.Length && liChar < liTextSize - 1; liChar++)
+						lyBlock[liAt + liChar] = (byte)lsText[liChar];
 
 				lyBlock[liAt + 0x32] = (byte)(pONotes[liNote].X & 0xFF);
 				lyBlock[liAt + 0x33] = (byte)((pONotes[liNote].X >> 8) & 0xFF);
@@ -350,6 +356,19 @@ namespace UWDataImport.UWData
 			}
 
 			return lyBlock;
+		}
+
+		/// <summary>Whether the raw field still spells the text, up to its zero.</summary>
+		private static bool fFieldHolds(byte[] pyField, string psText, int piTextSize)
+		{
+			if (pyField == null || pyField.Length != piTextSize || psText.Length >= piTextSize)
+				return false;
+
+			for (int liChar = 0; liChar < psText.Length; liChar++)
+				if (pyField[liChar] != (byte)psText[liChar])
+					return false;
+
+			return pyField[psText.Length] == 0;
 		}
 
 		// ------------------------------------------------- A whole slot

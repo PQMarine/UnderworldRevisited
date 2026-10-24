@@ -216,7 +216,7 @@ public class UWPlayerLook : MonoBehaviour
         if (mOGameUi == null)
             mOGameUi = GetComponentInChildren<UWGameUI>();
 
-        if (mOGameUi != null && mOGameUi.IsTextEntryActive)
+        if (mOGameUi != null && mOGameUi.TextEntry.IsTextEntryActive)
             return;
 
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;

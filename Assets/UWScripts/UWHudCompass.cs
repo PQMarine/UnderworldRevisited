@@ -41,7 +41,7 @@ public sealed class UWHudCompass
 
         for (int liAt = 0; liAt < mCompassBackgrounds.Length; liAt++)
         {
-            mCompassBackgrounds[liAt] = UWGameUI.fCreateImage("CompassBg" + liAt, mOUi.mGameFrame,
+            mCompassBackgrounds[liAt] = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "CompassBg" + liAt,
                 compassLeft, -compassTop, 1f, 1f, Color.white);
 
             fSetCompassSprite(mCompassBackgrounds[liAt], liAt);
@@ -51,7 +51,7 @@ public sealed class UWHudCompass
 
         for (int liAt = 0; liAt < mCompassNeedles.Length; liAt++)
         {
-            mCompassNeedles[liAt] = UWGameUI.fCreateImage("CompassNeedle" + liAt, mOUi.mGameFrame,
+            mCompassNeedles[liAt] = UWUiKit.CreateFrameImage(mOUi.mGameFrame, "CompassNeedle" + liAt,
                 msCompassNeedleLeft[liAt], -msCompassNeedleTop[liAt], 1f, 1f, Color.white);
 
             fSetCompassSprite(mCompassNeedles[liAt], CompassBackgroundCount + liAt);
@@ -85,12 +85,7 @@ public sealed class UWHudCompass
             return;
         }
 
-        Texture2D lOTexture = new Texture2D(lOSource.Width, lOSource.Height, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHudCompass picture";
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(UWGameUI.fGetTextureInvert(lOSource));
-        lOTexture.Apply(false, false);
+        Texture2D lOTexture = UWTextureFactory.FromTexture(lOSource, mOUi.TextureFilterMode, "UWHudCompass picture", TextureWrapMode.Clamp);
 
         pOImage.sprite = Sprite.Create(lOTexture, new Rect(0f, 0f, lOTexture.width, lOTexture.height),
             new Vector2(0f, 1f), 1f);
@@ -178,7 +173,7 @@ public sealed class UWHudCompass
             fPictureAt(liPicture, out int liX, out int liY);
 
             UWDataImport.UWData.UWTexture lOSource = lOPictures[liPicture];
-            Color32[] lOPixels = UWGameUI.fGetTextureInvert(lOSource);
+            Color32[] lOPixels = UWTextureFactory.Colours(lOSource);
             bool[] lbKeep = null;
 
             // Freed: the keep mask from the picture's own colours, rows top-down.
@@ -197,7 +192,7 @@ public sealed class UWHudCompass
                 }
             }
 
-            // Rows come bottom-up from fGetTextureInvert, as the canvas's.
+            // Rows come bottom-up from UWTextureFactory.Colours, as the canvas's.
             int liBaseRow = liHeight - (liY - liTop) - lOSource.Height;
 
             for (int liRow = 0; liRow < lOSource.Height; liRow++)
@@ -215,14 +210,7 @@ public sealed class UWHudCompass
             }
         }
 
-        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernCompass step " + piStep;
-        lOTexture.filterMode = peFilter;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lOCanvas);
-        lOTexture.Apply(false, false);
-
-        return lOTexture;
+        return UWTextureFactory.FromColours(lOCanvas, liWidth, liHeight, peFilter, TextureWrapMode.Clamp, "UWModernCompass step " + piStep);
     }
 
     /// <summary>The composite's top-left corner in the 320x200 frame (BuildComposite's box): where
@@ -304,7 +292,7 @@ public sealed class UWHudCompass
     /// </summary>
     public bool IsScreenPositionOnCompass(Vector2 pOScreenPos)
     {
-        return mOUi.IsPointerInOriginalArea(pOScreenPos, UWClickRules.Compass, out int _, out int _);
+        return mOUi.ClassicScreen.IsPointerInOriginalArea(pOScreenPos, UWClickRules.Compass, out int _, out int _);
     }
 
     /// <summary>
@@ -350,7 +338,7 @@ public sealed class UWHudCompass
     /// 199, and the pointer key "up" puts it at 199), so the row from the top is 199 - y, not
     /// 200 - y - the arrows lie on rows 152 to 166, the middle one on 155 to 168. They are now
     /// tested through the same table as the other areas (UWClickRules.EasyArrows,
-    /// UWGameUI.IsPointerInOriginalArea).
+    /// UWClassicScreen.IsPointerInOriginalArea).
     /// </summary>
     internal bool TryGetEasyMovementCommand(Vector2 pOScreenPos, out int piCommand)
     {
@@ -358,7 +346,7 @@ public sealed class UWHudCompass
 
         for (int liAt = 0; liAt < UWClickRules.EasyArrows.Length; liAt++)
         {
-            if (!mOUi.IsPointerInOriginalArea(pOScreenPos, UWClickRules.EasyArrows[liAt], out int _, out int _))
+            if (!mOUi.ClassicScreen.IsPointerInOriginalArea(pOScreenPos, UWClickRules.EasyArrows[liAt], out int _, out int _))
                 continue;
 
             piCommand = miArrowCommand[liAt];
@@ -387,13 +375,11 @@ public sealed class UWHudCompass
     private const int CompassNeedleCount = 16;
 
     // Position and size of the compass disc, converted from the reference's scene.
-    private const float compassLeft = 112f;
-    private const float compassTop = 131f;
+    private const float compassLeft = UWClassicLayout.Compass.Left;
+    private const float compassTop = UWClassicLayout.Compass.Top;
 
     // The sixteen needle positions, north first, then clockwise.
-    private static readonly float[] msCompassNeedleLeft =
-        { 136f, 128f, 120f, 116f, 112f, 112f, 116f, 124f, 136f, 144f, 156f, 160f, 160f, 156f, 152f, 144f };
+    private static readonly float[] msCompassNeedleLeft = UWClassicLayout.Compass.NeedleLeft;
 
-    private static readonly float[] msCompassNeedleTop =
-        { 131f, 133f, 134f, 137f, 141f, 146f, 147f, 150f, 152f, 150f, 147f, 146f, 141f, 137f, 134f, 133f };
+    private static readonly float[] msCompassNeedleTop = UWClassicLayout.Compass.NeedleTop;
 }

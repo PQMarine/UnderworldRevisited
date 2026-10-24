@@ -29,9 +29,9 @@ using UWDataImport.UWData;
 ///     resolved after loading.
 ///   - SPELLS (stage 3, per user 2026-10-04): dragged from the rune panel (UWModernRunePanel) a
 ///     slot holds a rune sequence instead - its picture from SPELLS.GR where the spell has one,
-///     else its runes; grey while it cannot be cast (a rune not in the bag, above the circle, too
-///     little mana). Its key casts it by the original's rules (UWHudRunes.CastSequence) without
-///     touching the hollow; saved as "S" and the sequence.
+///     else its runes; grey while it cannot be cast (UWSpellCasting.CanCast: a rune not in the bag,
+///     above the circle, too little mana). Its key casts it by the original's rules
+///     (UWHudRunes.CastSequence) without touching the hollow; saved as "S" and the sequence.
 /// </summary>
 public class UWModernActionBar : MonoBehaviour
 {
@@ -50,14 +50,6 @@ public class UWModernActionBar : MonoBehaviour
 
     private const float DimAlpha = 0.35f;
 
-    private const int LastMeleeWeaponId = 0x0F;
-
-    private const int FirstLauncherId = 0x18;
-
-    private const int LastLauncherId = 0x1F;
-
-    private static readonly Color msGold = new Color(0.925f, 0.77f, 0.44f, 1f);
-
     private static readonly Color msKey = new Color(1f, 0.94f, 0.78f);
 
     private UWGameUI mOUi;
@@ -65,8 +57,6 @@ public class UWModernActionBar : MonoBehaviour
     private UWControlScheme mOScheme;
 
     private Interaction mOInteraction;
-
-    private Font mOFont;
 
     private Canvas mOCanvas;
 
@@ -84,9 +74,10 @@ public class UWModernActionBar : MonoBehaviour
 
     private RawImage mOLinkIcon;
 
-    private Texture2D mOBackTexture;
+    /// <summary>The bar's leather and slot, built for the colours and backs (UWVersionedTexture).</summary>
+    private readonly UWVersionedTexture mOBackArt = new UWVersionedTexture();
 
-    private Texture2D mOSlotTexture;
+    private readonly UWVersionedTexture mOSlotArt = new UWVersionedTexture();
 
     private Texture2D mORingTexture;
 
@@ -108,10 +99,6 @@ public class UWModernActionBar : MonoBehaviour
     private Texture2D mOPadRingTexture;
 
     private static readonly Color msPadRing = new Color(0.85f, 0.92f, 1f, 1f);
-
-    private int miArtVersion = -1;
-
-    private readonly Dictionary<UWTexture, Texture2D> mOIconTextures = new Dictionary<UWTexture, Texture2D>();
 
     private readonly UWObject[] mOSlots = new UWObject[SlotCount];
 
@@ -172,14 +159,15 @@ public class UWModernActionBar : MonoBehaviour
         if (mOWatched != null)
             mOWatched.ItemMerged -= fOnMerged;
 
-        foreach (Texture2D lOTexture in new[] { mOBackTexture, mOSlotTexture, mORingTexture, mOPadRingTexture })
+        mOBackArt.Release();
+        mOSlotArt.Release();
+
+        foreach (Texture2D lOTexture in new[] { mORingTexture, mOPadRingTexture })
         {
             if (lOTexture != null)
                 Destroy(lOTexture);
         }
 
-        foreach (Texture2D lOIcon in mOIconTextures.Values)
-            Destroy(lOIcon);
     }
 
     private void Start()
@@ -187,13 +175,12 @@ public class UWModernActionBar : MonoBehaviour
         mOUi = GetComponent<UWGameUI>();
         mOInteraction = GetComponent<Interaction>();
         mOScheme = GetComponentInParent<UWControlScheme>();
-        mOFont = Resources.Load<Font>("Fonts/LexendExa");
     }
 
     private bool fIsShown()
     {
-        return UWControlScheme.IsModern && !UWModernLayout.IsActionBarHidden
-            && UWModernHud.Instance != null && UWModernHud.Instance.IsShowing
+        return UWModernUi.IsActive && !UWModernLayout.IsActionBarHidden
+            && UWModernUi.IsShowing
             && mOUi != null && mOUi.mOUWData != null && mOUi.mOInventory != null;
     }
 
@@ -237,7 +224,7 @@ public class UWModernActionBar : MonoBehaviour
 
     /// <summary>Binds a slot to a piece; a piece already on the bar moves there (its old slot
     /// empties). Refuses what does not belong on the bar.</summary>
-    /// <summary>Q over the bar (Interaction.fUpdateModernActions): looks at the thing in the slot
+    /// <summary>Q over the bar (UWModernWorldInput.UpdateActions): looks at the thing in the slot
     /// under the pointer. A spell or an empty slot: false.</summary>
     public bool TryLookAt(Vector2 pOPointer)
     {
@@ -253,7 +240,7 @@ public class UWModernActionBar : MonoBehaviour
         return true;
     }
 
-    /// <summary>E tapped over the bar (Interaction.fUpdateModernUseKey): the slot under the pointer
+    /// <summary>E tapped over the bar (UWModernWorldInput.fUpdateModernUseKey): the slot under the pointer
     /// is used as its number key uses it. False when no slot is there.</summary>
     public bool TryUseAt(Vector2 pOPointer)
     {
@@ -336,7 +323,7 @@ public class UWModernActionBar : MonoBehaviour
 
     private static bool fIsWeapon(UWObject pOItem)
     {
-        return pOItem.ID <= LastMeleeWeaponId || (pOItem.ID >= FirstLauncherId && pOItem.ID <= LastLauncherId);
+        return UWObjectIds.IsHandWeapon(pOItem.ID);
     }
 
     // ------------------------------------------------- Saving and loading
@@ -460,19 +447,19 @@ public class UWModernActionBar : MonoBehaviour
     }
 
     /// <summary>A spell slot: cast by the original's rules - unless a rune is missing from the bag,
-    /// which the original's hollow cannot even hold.</summary>
+    /// which the original's hollow cannot even hold (UWSpellCasting.CanCast's first reason).</summary>
     private void fCast(int piSequence)
     {
         if (mOInteraction == null || mOUi.Runes == null)
             return;
 
-        if (!UWModernRunePanel.HasRunes(piSequence))
+        if (UWModernRunePanel.CastCheck(piSequence) == UWSpellCasting.CastCheckEnum.RuneMissing)
         {
-            mOInteraction.AddMessage("A rune of that spell is not in your bag.");
+            mOInteraction.AddMessage(UWSpellCasting.RuneMissingText);
             return;
         }
 
-        mOUi.Runes.CastSequence(piSequence);
+        mOUi.Actions.CastSequence(piSequence);
     }
 
     // ------------------------------------------------- Input
@@ -489,8 +476,8 @@ public class UWModernActionBar : MonoBehaviour
         fWatchModel();
         fResolveIfLoaded();
 
-        if (UWModernHud.Instance.IsOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys
-            || mOUi.IsMapVisible)
+        if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive || UWHelpWindow.BlocksGameKeys
+            || mOUi.Map.IsMapVisible)
             return;
 
         UWControls lOControls = mOScheme.Controls;
@@ -505,8 +492,8 @@ public class UWModernActionBar : MonoBehaviour
         }
 
         // Not where the gamepad's pointer takes the button (UWGamepadPointer.Takes), nor in a
-        // conversation, where the d-pad steps the answers (UWConversationScreen).
-        bool lbPadFree = !UWConversationScreen.IsAnyOpen;
+        // conversation, where the d-pad steps the answers (UWConversationController).
+        bool lbPadFree = !UWConversationController.IsAnyOpen;
 
         if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotPrevious))
             fStepPadSlot(-1);
@@ -598,7 +585,7 @@ public class UWModernActionBar : MonoBehaviour
             return;
 
         pOImage.texture = pOGlyph;
-        fSetRect(pOImage.rectTransform, pfX, pfY, pfSize, pfSize);
+        UWUiKit.SetRect(pOImage.rectTransform, pfX, pfY, pfSize, pfSize);
     }
 
     /// <summary>A link dragged while the bar goes away goes back to its slot.</summary>
@@ -654,7 +641,7 @@ public class UWModernActionBar : MonoBehaviour
 
         mOCanvas.enabled = true;
         // Its own size and place (UWModernLayout, the layout editor).
-        miScale = UWModernHud.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.ActionBar);
+        miScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.ActionBar);
 
         fEnsureArt();
 
@@ -662,13 +649,13 @@ public class UWModernActionBar : MonoBehaviour
         int liWidth = (Pad * 2) + (SlotCount * UWModernHudArt.SlotSize) + ((SlotCount - 1) * SlotGap);
         int liHeight = (Pad * 2) + UWModernHudArt.SlotSize;
         Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.ActionBar,
-            new Rect(Mathf.Round((Screen.width - (liWidth * liScale)) * 0.5f), Margin * UWModernHud.PixelScale, liWidth * liScale, liHeight * liScale));
+            new Rect(Mathf.Round((Screen.width - (liWidth * liScale)) * 0.5f), Margin * UWModernUi.PixelScale, liWidth * liScale, liHeight * liScale));
         float lfLeft = lOPlaced.x;
         float lfBottom = lOPlaced.y;
 
         UWModernLayout.Report(UWModernLayout.ElementEnum.ActionBar, lOPlaced);
 
-        fSetRect(mOBack.rectTransform, lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
+        UWUiKit.SetRect(mOBack.rectTransform, lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
         ScreenRect = new Rect(lfLeft, lfBottom, liWidth * liScale, liHeight * liScale);
 
         UWInventory lOInventory = mOUi.mOInventory;
@@ -682,7 +669,7 @@ public class UWModernActionBar : MonoBehaviour
             float lfY = lfBottom + (Pad * liScale);
 
             mOSlotRects[liSlot] = new Rect(lfX, lfY, lfSlot, lfSlot);
-            fSetRect(mOCircles[liSlot].rectTransform, lfX, lfY, lfSlot, lfSlot);
+            UWUiKit.SetRect(mOCircles[liSlot].rectTransform, lfX, lfY, lfSlot, lfSlot);
 
             UWObject lOItem = mOSlots[liSlot];
             bool lbOnPointer = lOItem != null && lOItem == lOInventory.CursorItem;
@@ -701,17 +688,17 @@ public class UWModernActionBar : MonoBehaviour
             mOCounts[liSlot].enabled = liCount > 1;
             mOCounts[liSlot].text = liCount.ToString();
             mOCounts[liSlot].fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
-            fSetRect(mOCounts[liSlot].rectTransform, lfX, lfY - liScale, lfSlot - liScale, lfSlot * 0.6f);
+            UWUiKit.SetRect(mOCounts[liSlot].rectTransform, lfX, lfY - liScale, lfSlot - liScale, lfSlot * 0.6f);
 
             mOKeys[liSlot].fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * liScale));
-            fSetRect(mOKeys[liSlot].rectTransform, lfX + liScale, lfY + (lfSlot * 0.45f), lfSlot, lfSlot * 0.55f);
+            UWUiKit.SetRect(mOKeys[liSlot].rectTransform, lfX + liScale, lfY + (lfSlot * 0.45f), lfSlot, lfSlot * 0.55f);
 
             // The drawn weapon gets its ring.
             bool lbDrawn = lbShown && lOItem == lODrawn;
             float lfRing = (UWModernHudArt.SlotSize + 2) * liScale;
 
             mORings[liSlot].enabled = lbDrawn;
-            fSetRect(mORings[liSlot].rectTransform, lfX - liScale, lfY - liScale, lfRing, lfRing);
+            UWUiKit.SetRect(mORings[liSlot].rectTransform, lfX - liScale, lfY - liScale, lfRing, lfRing);
         }
 
         // The gamepad's slot, a pale ring a little outside the gold one.
@@ -719,7 +706,7 @@ public class UWModernActionBar : MonoBehaviour
         float lfPadRing = (UWModernHudArt.SlotSize + 4) * liScale;
 
         mOPadRing.enabled = UWGamepad.IsActive;
-        fSetRect(mOPadRing.rectTransform, lOPadSlot.x - (2f * liScale), lOPadSlot.y - (2f * liScale), lfPadRing, lfPadRing);
+        UWUiKit.SetRect(mOPadRing.rectTransform, lOPadSlot.x - (2f * liScale), lOPadSlot.y - (2f * liScale), lfPadRing, lfPadRing);
 
         // The hints: LB and RB beside the bar, the use button over the chosen slot.
         bool lbHints = UWUserSettings.ShowsPadHints;
@@ -754,10 +741,10 @@ public class UWModernActionBar : MonoBehaviour
     }
 
     /// <summary>A spell in a slot: its SPELLS.GR picture where it has one, else its runes; grey
-    /// while it cannot be cast now (UWModernRunePanel.CanCastNow).</summary>
+    /// while it cannot be cast now (UWModernRunePanel.CastCheck, UWSpellCasting.CanCast).</summary>
     private void fShowSpell(RawImage pOImage, Text pOText, int piSequence, float pfSlotX, float pfSlotY)
     {
-        bool lbCastable = UWModernRunePanel.CanCastNow(piSequence);
+        bool lbCastable = UWModernRunePanel.CastCheck(piSequence) == UWSpellCasting.CastCheckEnum.Ok;
         UWTexture lOSource = UWModernRunePanel.SpellIcon(piSequence);
         float liScale = miScale;
 
@@ -769,7 +756,7 @@ public class UWModernActionBar : MonoBehaviour
             pOImage.texture = lOIcon;
             pOImage.enabled = true;
             pOImage.color = lbCastable ? Color.white : new Color(0.4f, 0.4f, 0.4f, 1f);
-            fSetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
+            UWUiKit.SetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
                 pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * UWModernHudArt.PixelAspectX * liScale, lOIcon.height * liScale);
             return;
         }
@@ -780,10 +767,10 @@ public class UWModernActionBar : MonoBehaviour
         pOImage.enabled = false;
         pOText.enabled = true;
         pOText.text = lsLabel;
-        pOText.color = lbCastable ? new Color(0.77f, 0.84f, 1f) : new Color(0.55f, 0.50f, 0.42f);
+        pOText.color = lbCastable ? UWModernPalette.RunesText : UWModernPalette.Grey;
         pOText.fontSize = Mathf.Max(8, Mathf.RoundToInt((liLines > 2 ? 3f : 3.6f) * liScale));
         pOText.lineSpacing = 0.85f;
-        fSetRect(pOText.rectTransform, pfSlotX, pfSlotY, UWModernHudArt.SlotSize * liScale, UWModernHudArt.SlotSize * liScale);
+        UWUiKit.SetRect(pOText.rectTransform, pfSlotX, pfSlotY, UWModernHudArt.SlotSize * liScale, UWModernHudArt.SlotSize * liScale);
     }
 
     private void fShowIcon(RawImage pOImage, UWObject pOItem, float pfSlotX, float pfSlotY, float pfAlpha)
@@ -802,41 +789,29 @@ public class UWModernActionBar : MonoBehaviour
         pOImage.texture = lOIcon;
         pOImage.enabled = true;
         pOImage.color = new Color(1f, 1f, 1f, pfAlpha);
-        fSetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
+        UWUiKit.SetRect(pOImage.rectTransform, pfSlotX + ((UWModernHudArt.SlotSize - (lOIcon.width * UWModernHudArt.PixelAspectX)) * 0.5f * liScale),
             pfSlotY + (((UWModernHudArt.SlotSize - lOIcon.height) / 2) * liScale), lOIcon.width * UWModernHudArt.PixelAspectX * liScale,
             lOIcon.height * liScale);
     }
 
     private Texture2D fGetIcon(UWTexture pOSource)
     {
-        if (!mOIconTextures.TryGetValue(pOSource, out Texture2D lOIcon) || lOIcon == null)
-        {
-            lOIcon = UWIconTextureBuilder.Build(pOSource, mOUi.TextureFilterMode);
-            mOIconTextures[pOSource] = lOIcon;
-        }
-
-        return lOIcon;
+        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
     }
 
     private void fEnsureArt()
     {
-        if (miArtVersion == UWModernBacks.ArtVersion && mOBackTexture != null)
+        UWArtStamp lOStamp = UWVersionedTexture.Backs();
+
+        if (mOBackArt.IsCurrent(lOStamp))
             return;
-
-        miArtVersion = UWModernBacks.ArtVersion;
-
-        if (mOBackTexture != null)
-            Destroy(mOBackTexture);
-
-        if (mOSlotTexture != null)
-            Destroy(mOSlotTexture);
 
         UWTextures lOTextures = mOUi.mOUWData.Textures;
         int liWidth = (Pad * 2) + (SlotCount * UWModernHudArt.SlotSize) + ((SlotCount - 1) * SlotGap);
         int liHeight = (Pad * 2) + UWModernHudArt.SlotSize;
 
-        mOBackTexture = UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.ActionBar, lOTextures, liWidth, liHeight, mOUi.TextureFilterMode);
-        mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.ActionBar, lOTextures, mOUi.TextureFilterMode);
+        mOBackArt.Set(lOStamp, UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.ActionBar, lOTextures, liWidth, liHeight, mOUi.TextureFilterMode));
+        mOSlotArt.Set(lOStamp, UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.ActionBar, lOTextures, mOUi.TextureFilterMode));
 
         if (mORingTexture == null)
             mORingTexture = BuildRing(128, 60f, 6f);
@@ -846,11 +821,11 @@ public class UWModernActionBar : MonoBehaviour
 
         mOPadRing.texture = mOPadRingTexture;
 
-        mOBack.texture = mOBackTexture;
+        mOBack.texture = mOBackArt.Texture;
 
         for (int liSlot = 0; liSlot < SlotCount; liSlot++)
         {
-            mOCircles[liSlot].texture = mOSlotTexture;
+            mOCircles[liSlot].texture = mOSlotArt.Texture;
             mORings[liSlot].texture = mORingTexture;
         }
     }
@@ -859,7 +834,7 @@ public class UWModernActionBar : MonoBehaviour
     /// buttons' (UWModernPanel).</summary>
     internal static Texture2D BuildRing(int piSize, float pfRadius, float pfRim)
     {
-        return BuildRing(piSize, pfRadius, pfRim, msGold);
+        return BuildRing(piSize, pfRadius, pfRim, UWModernPalette.Gold);
     }
 
     /// <summary>A ring of any colour (the gamepad's slot).</summary>
@@ -881,41 +856,18 @@ public class UWModernActionBar : MonoBehaviour
             }
         }
 
-        Texture2D lOTexture = new Texture2D(piSize, piSize, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernActionBar ring";
-        lOTexture.filterMode = FilterMode.Bilinear;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lyPixels);
-        lOTexture.Apply();
-
-        return lOTexture;
-    }
-
-    private static void fSetRect(RectTransform pORect, float pfX, float pfY, float pfWidth, float pfHeight)
-    {
-        pORect.anchoredPosition = new Vector2(pfX, pfY);
-        pORect.sizeDelta = new Vector2(pfWidth, pfHeight);
+        return UWTextureFactory.FromColours(lyPixels, piSize, piSize, FilterMode.Bilinear, TextureWrapMode.Clamp, "UWModernActionBar ring");
     }
 
     // ------------------------------------------------- Building
 
     private void fBuild()
     {
-        GameObject lORoot = new GameObject("Modern action bar", typeof(Canvas), typeof(CanvasScaler));
-        lORoot.transform.SetParent(transform, false);
+        mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern action bar", UWUiSorting.ModernActionBar);
 
-        mOCanvas = lORoot.GetComponent<Canvas>();
-        mOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        mOCanvas.sortingOrder = 41;
+        RectTransform lORootRect = (RectTransform)mOCanvas.transform;
 
-        CanvasScaler lOScaler = lORoot.GetComponent<CanvasScaler>();
-        lOScaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
-        lOScaler.scaleFactor = 1f;
-
-        RectTransform lORootRect = (RectTransform)lORoot.transform;
-
-        mOBack = fCreateRawImage(lORootRect, "Leather");
-        mOBack.enabled = true;
+        mOBack = UWUiKit.CreateRawImage(lORootRect, "Leather", true);
         UWPixelArtUI.Apply(mOBack);
 
         mOCircles = new RawImage[SlotCount];
@@ -927,73 +879,29 @@ public class UWModernActionBar : MonoBehaviour
 
         for (int liSlot = 0; liSlot < SlotCount; liSlot++)
         {
-            mOCircles[liSlot] = fCreateRawImage(lORootRect, "Slot " + (liSlot + 1));
-            mOCircles[liSlot].enabled = true;
+            mOCircles[liSlot] = UWUiKit.CreateRawImage(lORootRect, "Slot " + (liSlot + 1), true);
             UWPixelArtUI.Apply(mOCircles[liSlot]);
 
-            mOIcons[liSlot] = fCreateRawImage(lORootRect, "Icon");
+            mOIcons[liSlot] = UWUiKit.CreateRawImage(lORootRect, "Icon");
             UWIconPalette.ApplySmooth(mOIcons[liSlot]);
 
-            mOSpellTexts[liSlot] = fCreateText(lORootRect, "Spell runes", TextAnchor.MiddleCenter, Color.white);
+            mOSpellTexts[liSlot] = UWUiKit.CreateText(lORootRect, "Spell runes", TextAnchor.MiddleCenter, Color.white, mOUi);
 
-            mORings[liSlot] = fCreateRawImage(lORootRect, "Drawn");
+            mORings[liSlot] = UWUiKit.CreateRawImage(lORootRect, "Drawn");
 
-            mOKeys[liSlot] = fCreateText(lORootRect, "Key", TextAnchor.UpperLeft, msKey);
+            mOKeys[liSlot] = UWUiKit.CreateText(lORootRect, "Key", TextAnchor.UpperLeft, msKey, mOUi);
             mOKeys[liSlot].text = ((liSlot + 1) % 10).ToString();
 
-            mOCounts[liSlot] = fCreateText(lORootRect, "Count", TextAnchor.LowerRight, Color.white);
+            mOCounts[liSlot] = UWUiKit.CreateText(lORootRect, "Count", TextAnchor.LowerRight, Color.white, mOUi);
         }
 
-        mOPadRing = fCreateRawImage(lORootRect, "Gamepad slot");
-        mOPadPrevious = fCreateRawImage(lORootRect, "Gamepad previous slot");
-        mOPadNext = fCreateRawImage(lORootRect, "Gamepad next slot");
-        mOPadUse = fCreateRawImage(lORootRect, "Gamepad use slot");
+        mOPadRing = UWUiKit.CreateRawImage(lORootRect, "Gamepad slot");
+        mOPadPrevious = UWUiKit.CreateRawImage(lORootRect, "Gamepad previous slot");
+        mOPadNext = UWUiKit.CreateRawImage(lORootRect, "Gamepad next slot");
+        mOPadUse = UWUiKit.CreateRawImage(lORootRect, "Gamepad use slot");
 
-        mOLinkIcon = fCreateRawImage(lORootRect, "Dragged link");
+        mOLinkIcon = UWUiKit.CreateRawImage(lORootRect, "Dragged link");
         UWIconPalette.ApplySmooth(mOLinkIcon);
-        mOLinkText = fCreateText(lORootRect, "Dragged spell", TextAnchor.MiddleCenter, Color.white);
-    }
-
-    private static RawImage fCreateRawImage(Transform pOParent, string psName)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
-
-        return lOImage;
-    }
-
-    private Text fCreateText(Transform pOParent, string psName, TextAnchor peAlignment, Color pOColour)
-    {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(Text), typeof(Outline));
-        lOObject.transform.SetParent(pOParent, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        Text lOText = lOObject.GetComponent<Text>();
-        lOText.font = mOFont != null ? mOFont : UWInterfaceFont.Font;
-        UWUiFonts.Register(lOText, mOUi);
-        lOText.alignment = peAlignment;
-        lOText.color = pOColour;
-        lOText.raycastTarget = false;
-        lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        lOText.verticalOverflow = VerticalWrapMode.Overflow;
-
-        Outline lOOutline = lOObject.GetComponent<Outline>();
-        lOOutline.effectColor = new Color(0.16f, 0.09f, 0.04f, 0.9f);
-        lOOutline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        return lOText;
+        mOLinkText = UWUiKit.CreateText(lORootRect, "Dragged spell", TextAnchor.MiddleCenter, Color.white, mOUi);
     }
 }

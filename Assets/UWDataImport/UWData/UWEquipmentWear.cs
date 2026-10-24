@@ -38,9 +38,6 @@ namespace UWDataImport.UWData
 
 		public const int CriticalHitDiceRange = 4;
 
-		/// <summary>The melee weapons, 0x00-0x0F: the weapon hand wears only with one of them.</summary>
-		private const int WeaponIdLimit = 0x10;
-
 		/// <summary>The creature table byte whose bit 0 spares the weapon on a critical failure.</summary>
 		private const int SparesWeaponRowByte = 0x0A;
 
@@ -79,7 +76,7 @@ namespace UWDataImport.UWData
 		/// <summary>Whether the item in the weapon hand can wear: a melee weapon.</summary>
 		public static bool IsWearableWeapon(UWObject pOItem)
 		{
-			return pOItem != null && pOItem.ID < WeaponIdLimit;
+			return pOItem != null && UWObjectIds.IsMeleeWeapon(pOItem.ID);
 		}
 
 		/// <summary>Whether the item a critical hit finds in the slot can wear: in a hand what

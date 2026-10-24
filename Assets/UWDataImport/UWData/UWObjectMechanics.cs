@@ -1084,20 +1084,40 @@ namespace UWDataImport.UWData
 			if (pOObject == null || pORecords == null || pOObject.HasQuantity || pOObject.Quantity == 0)
 				return false;
 
-			foreach (UWObject lOAt in UWObjectChain.Walk(pOObject, pORecords, pORecords.Count))
+			// A RESOLVED CHAIN comes first, as FindSpellObject and FindDamageTrapInChain take it (see
+			// fFindInResolvedChain): a thing carried and dropped keeps links that count in the save's
+			// records, not the level's - the poisoned potion taken from the pack and put on the
+			// floor never asked the trap question, the original did (per user, 2026-10-22).
+			IEnumerable<UWObject> lOChain = pOObject.Contents != null
+				? (IEnumerable<UWObject>)pOObject.Contents
+				: UWObjectChain.Walk(pOObject, pORecords, pORecords.Count);
+
+			foreach (UWObject lOAt in lOChain)
 			{
+				if (lOAt == null)
+					continue;
+
 				if (UWObjectIds.Major(lOAt.ID) == TrapMajorClass)
 				{
 					UWObject lOTrap = lOAt;
 
 					if (UWObjectIds.Minor(lOAt.ID) >= 2)
 					{
-						// A trigger: the trap hangs off ITS special link.
-						if (lOAt.Quantity <= 0 || lOAt.Quantity >= pORecords.Count)
-							return false;
-
+						// A trigger: the trap hangs off ITS special link - its resolved chain's
+						// first object where it has one, the same reason as above.
 						pOTrigger = lOAt;
-						lOTrap = pORecords[lOAt.Quantity];
+
+						if (lOAt.Contents != null)
+						{
+							lOTrap = lOAt.Contents.Count > 0 ? lOAt.Contents[0] : null;
+						}
+						else
+						{
+							if (lOAt.Quantity <= 0 || lOAt.Quantity >= pORecords.Count)
+								return false;
+
+							lOTrap = pORecords[lOAt.Quantity];
+						}
 					}
 
 					if (lOTrap == null || (lOTrap.ID & 0x3F) > LastDisarmableTrapIndex)

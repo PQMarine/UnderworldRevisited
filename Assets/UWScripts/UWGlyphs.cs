@@ -25,6 +25,11 @@ public static class UWGlyphs
 
     public const int RightStickTile = 287;
 
+    /// <summary>The sticks with up and down only (a list's scrolling).</summary>
+    public const int LeftStickVerticalTile = 218;
+
+    public const int RightStickVerticalTile = 286;
+
     /// <summary>The d-pad up and down, left and right together.</summary>
     public const int DpadVerticalTile = 40;
 

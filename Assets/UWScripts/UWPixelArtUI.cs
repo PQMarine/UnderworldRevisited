@@ -4,7 +4,7 @@ using UnityEngine.UI;
 /// <summary>
 /// The shared material of the modern UI's pictures in colour (shader UW/PixelArtUI): the
 /// leather, the slot circles, the shelf, the flasks and the gem, the paperdoll, the map. At the
-/// free scale (UWModernHud.PixelScale) each texel stays a hard square and only the seams between
+/// free scale (UWModernUi.PixelScale) each texel stays a hard square and only the seams between
 /// texels are blended. Icons with palette indices take UWIconPalette.ApplySmooth instead.
 /// </summary>
 public static class UWPixelArtUI

@@ -5,7 +5,7 @@ namespace UWDataImport.UWData
 	/// damage to the player is one source, Player, whose request names its site (cleanup step 4.2).</summary>
 	public enum UWBlowSource
 	{
-		/// <summary>The player's melee blow (Interaction.fApplyMeleeHit).</summary>
+		/// <summary>The player's melee blow (UWPlayerMelee.fApplyMeleeHit).</summary>
 		PlayerBlow,
 
 		/// <summary>A creature's blow on another creature, a door or an object in the way.</summary>

@@ -103,7 +103,7 @@ public static class UWSilverTree
         // (UWInventoryModel.GiveToPlayer, one behaviour for the four gifts since 2026-10-12;
         // until then a full hand and backpack lost the seed).
         if (lOSeed != null && pOInventory != null)
-            pOInventory.GiveToPlayer(lOSeed, UWControlScheme.IsModern);
+            pOInventory.GiveToPlayer(lOSeed, UWControlScheme.Ui.Policy.PickupGoesToBags);
 
         return true;
     }

@@ -174,9 +174,9 @@ public class UWInventory : MonoBehaviour
 
     public UWObject TakeCursorItem() { return Model.TakeCursorItem(); }
 
-    public void CancelCursorItem(int? piOriginBackpackSlot, UWArmorItemMap.BodySlot? peOriginEquipSlot)
+    public bool ReturnCursorItem(UWCursorOrigin pOOrigin, UWInventoryModel.ReturnEnum peWay)
     {
-        Model.CancelCursorItem(piOriginBackpackSlot, peOriginEquipSlot);
+        return Model.ReturnCursorItem(pOOrigin, peWay);
     }
 
     public bool TryEquip(UWObject pOItem, UWArmorItemMap.BodySlot peSlot, out UWObject pODisplaced)

@@ -486,7 +486,7 @@ public static class UWTriggerSystem
 
             UWGameUI lOUi = UWScene.GameUi;
 
-            if (lOUi == null || !lOUi.CastSpellByClass(piMajorClass, piMinorClass))
+            if (lOUi == null || !lOUi.Runes.CastSpellByClass(piMajorClass, piMinorClass))
                 return false;
 
             if (piMajorClass != UWTrapRules.ProjectileMajorClass || lOInteraction == null)

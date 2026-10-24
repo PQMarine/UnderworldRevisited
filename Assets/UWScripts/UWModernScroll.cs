@@ -17,7 +17,9 @@ using UWDataImport.UWData;
 /// height per line more, and the rolling edges (SCRLEDGE.GR, 4x29 at x 11 and 306) get the same
 /// rows in their middle. The rest as the classic box: the original font (FONT5X6P) in the log's
 /// colours, the newest lines kept, the blinking input box, [MORE] in white at the last line's
-/// start, and the edges turning one frame per scroll (UWScrollEdgeRules).
+/// start, and the edges turning one frame per scroll (UWScrollEdgeRules) - by the same rules,
+/// UWMessageLogModel (cleanup step 5.7, 2026-10-20). A long text pages by this scroll's lines
+/// while it is shown (decision 17, UWGameUI.ShownLogLines).
 /// </summary>
 public class UWModernScroll
 {
@@ -82,8 +84,6 @@ public class UWModernScroll
 
     private static readonly Color32 msPaper = new Color32(0x8C, 0x68, 0x54, 255);
 
-    private const string MoreMarkerText = "[MORE]";
-
     private readonly UWGameUI mOUi;
 
     private RawImage mOPaper;
@@ -92,19 +92,20 @@ public class UWModernScroll
 
     private RawImage mOMore;
 
-    private readonly Dictionary<int, Texture2D> mOPapers = new Dictionary<int, Texture2D>();
+    /// <summary>The papers by width, extra rows and edge frame, each built for the colours
+    /// (UWArtCache).</summary>
+    private readonly UWArtCache<int> mOPapers = new UWArtCache<int>();
 
-    private int miArtVersion = -1;
+    /// <summary>What the scroll shows (cleanup step 5.7, 2026-10-20): the lines, [MORE], the input
+    /// box and the edges' frame, by the rules the classic box follows too.</summary>
+    private readonly UWMessageLogModel mOModel = new UWMessageLogModel();
 
-    private int miEdgeFrame;
+    /// <summary>The text and [MORE], held from UWTextTextures (cleanup step 5.5, 2026-10-19: until
+    /// then a texture of their own, rebuilt on a key string made every frame, the input box drawn
+    /// into the finished texture).</summary>
+    private readonly UWTextTextures.Slot mOTextSlot = new UWTextTextures.Slot();
 
-    private List<string> mOLastShownLines = new List<string>();
-
-    private string msTextKey;
-
-    private Texture2D mOTextTexture;
-
-    private Texture2D mOMoreTexture;
+    private readonly UWTextTextures.Slot mOMoreSlot = new UWTextTextures.Slot();
 
     private Color32[] myColourTable;
 
@@ -118,11 +119,27 @@ public class UWModernScroll
         : UWModernClassicPlus.IsActive ? UWModernClassicPlus.ScrollLines
         : Mathf.Clamp(UWUserSettings.ModernScrollLines > 0 ? UWUserSettings.ModernScrollLines : 4, MinLines, MaxLines);
 
+    /// <summary>
+    /// THE ROWS THE PAPER HOLDS: Lines and one more - the paper is the original's box of 30 rows
+    /// (five lines) at four Lines and grows or shrinks a line with each. Shown and paged by these
+    /// rows, as the classic box (per user, 2026-10-20: in Classic Wide [MORE] stood in the fourth
+    /// row, the fifth empty, where the classic box has it in the fifth).
+    /// </summary>
+    public static int Rows => Lines + 1;
+
     /// <summary>Classic Wide: the columns the frame's scroll is wider than the original's.</summary>
     private static int fWide()
     {
         return UWModernClassicFrame.IsActive ? UWModernClassicFrame.Extra : 0;
     }
+
+    /// <summary>
+    /// The paper's width for the text: the original's 291 columns, in Classic Wide as many more as
+    /// the frame was widened by (fBuildPaper fills the paper that wide, up to the right edge strip).
+    /// The text is wrapped AND drawn at it (B27, fixed 2026-10-20: until then it was wrapped this wide
+    /// but drawn into a texture 291 wide, so a long line lost its end in Classic Wide).
+    /// </summary>
+    private static int TextWidth => PaperWidth + fWide();
 
     public void Build(Transform pORoot)
     {
@@ -133,17 +150,7 @@ public class UWModernScroll
 
     private static RawImage fCreate(Transform pORoot, string psName)
     {
-        GameObject lOObject = new GameObject(psName, typeof(RectTransform), typeof(RawImage));
-        lOObject.transform.SetParent(pORoot, false);
-
-        RectTransform lORect = (RectTransform)lOObject.transform;
-        lORect.anchorMin = Vector2.zero;
-        lORect.anchorMax = Vector2.zero;
-        lORect.pivot = Vector2.zero;
-
-        RawImage lOImage = lOObject.GetComponent<RawImage>();
-        lOImage.raycastTarget = false;
-        lOImage.enabled = false;
+        RawImage lOImage = UWUiKit.CreateRawImage(pORoot, psName);
         UWPixelArtUI.Apply(lOImage);
 
         return lOImage;
@@ -163,38 +170,24 @@ public class UWModernScroll
         if (lOFont == null)
             return;
 
-        if (miArtVersion != UWColourVision.Version)
-        {
-            foreach (Texture2D lOOld in mOPapers.Values)
-            {
-                if (lOOld != null)
-                    Object.Destroy(lOOld);
-            }
-
-            mOPapers.Clear();
-            miArtVersion = UWColourVision.Version;
-        }
-
         int liLines = Lines;
         int liLineHeight = lOFont.Height + UWFontRenderer.LineSpacing;
         int liExtra = (liLines - 4) * liLineHeight;
-        List<string> lOShown = fShownLines(pOInteraction, lOFont, liLines);
 
-        // The edges turn one frame per line that left the top, as in the classic box.
-        int liScrolled = UWScrollEdgeRules.GetScrollAmount(mOLastShownLines, lOShown);
+        // The messages wrapped to the paper, the newest that fit, [MORE]'s row kept free while it
+        // waits, the input box blinking at the one rate of both schemes (decision 17); the edges turn
+        // one frame per line that left the top, as in the classic box (UWMessageLogModel).
+        bool lbCursor = pOInteraction.ShowsPromptTextCursor && UWMessageLogModel.IsCursorOn(Time.unscaledTime);
 
-        mOLastShownLines = new List<string>(lOShown);
+        mOModel.Update(lOFont, pOInteraction.ActiveStrings, TextWidth, Rows, pOInteraction.IsWaitingForPage, lbCursor);
 
-        if (liScrolled > 0)
-            miEdgeFrame = UWScrollEdgeRules.Advance(miEdgeFrame, UWScrollEdgeRules.MainFrames, liScrolled);
+        int liEdgeFrame = mOModel.EdgeFrame;
+        int liKey = (((fWide() * 1000) + liExtra) * 100) + liEdgeFrame;
 
-        int liKey = (((fWide() * 1000) + liExtra) * 100) + miEdgeFrame;
+        UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
-        if (!mOPapers.TryGetValue(liKey, out Texture2D lOPaper) || lOPaper == null)
-        {
-            lOPaper = fBuildPaper(liExtra, miEdgeFrame);
-            mOPapers[liKey] = lOPaper;
-        }
+        if (!mOPapers.TryGet(liKey, lOStamp, out Texture2D lOPaper))
+            lOPaper = mOPapers.Set(liKey, lOStamp, fBuildPaper(liExtra, liEdgeFrame));
 
         if (lOPaper == null)
             return;
@@ -212,50 +205,46 @@ public class UWModernScroll
         ((RectTransform)mOPaper.transform).anchoredPosition = lOPlaced.position;
         ((RectTransform)mOPaper.transform).sizeDelta = lOPlaced.size;
 
-        // The text: newest lines from the paper's top, the input box blinking.
-        bool lbCursor = pOInteraction.ShowsPromptTextCursor && Mathf.Repeat(Time.unscaledTime, 1f) < 0.5f;
-        string lsKey = string.Join("\n", lOShown) + (lbCursor ? "|_" : "|");
-
-        if (lsKey != msTextKey)
-        {
-            msTextKey = lsKey;
-
-            if (mOTextTexture != null)
-                Object.Destroy(mOTextTexture);
-
-            List<Color32> lOLineColours = new List<Color32>();
-
-            mOTextTexture = lOShown.Count == 0 ? null
-                : UWFontRenderer.RenderLines(lOFont, lOShown, PaperWidth, fColourTable(), mOUi.TextureFilterMode, false, lOLineColours);
-
-            if (mOTextTexture != null && lbCursor)
-                UWHudMessageLog.fDrawPromptCursor(mOTextTexture, lOFont, lOShown,
-                    lOLineColours.Count > 0 ? lOLineColours[lOLineColours.Count - 1] : fColourTable()[0]);
-        }
+        // The text: newest lines from the paper's top, the input box blinking; drawn as wide as it
+        // was wrapped (B27).
+        Texture2D lOTextTexture = mOTextSlot.Set(lOFont, mOModel.ShownLines, mOModel.Width,
+            UWHudMessageLog.LogColourTable(mOUi.mOUWData, ref myColourTable), UWTextRaster.ColoursEnum.Codes, false,
+            mOUi.TextureFilterMode, mOModel.CursorOn, out _)?.Texture;
 
         // The paper's top-left in the picture: x 15, row 2 of it (169 - 167).
         float lfPaperLeft = lOPlaced.x + (PaperLeft * lfScaleX);
         float lfPaperTop = lOPlaced.yMax - ((PaperTop - SourceTop) * lfScale);
 
-        mOText.enabled = mOTextTexture != null;
+        mOText.enabled = lOTextTexture != null;
 
         if (mOText.enabled)
         {
-            mOText.texture = mOTextTexture;
-            ((RectTransform)mOText.transform).anchoredPosition = new Vector2(lfPaperLeft, lfPaperTop - (mOTextTexture.height * lfScale));
-            ((RectTransform)mOText.transform).sizeDelta = new Vector2(mOTextTexture.width * lfScaleX, mOTextTexture.height * lfScale);
+            mOText.texture = lOTextTexture;
+            ((RectTransform)mOText.transform).anchoredPosition = new Vector2(lfPaperLeft, lfPaperTop - (lOTextTexture.height * lfScale));
+            ((RectTransform)mOText.transform).sizeDelta = new Vector2(lOTextTexture.width * lfScaleX, lOTextTexture.height * lfScale);
         }
 
-        // [MORE] in white at the last line's start, as the classic box shows it.
-        mOMore.enabled = pOInteraction.IsWaitingForPage && fEnsureMore(lOFont);
+        // [MORE] in white at the last line's start, as the classic box shows it (its row,
+        // UWMessageLogModel.MoreRow; the picture's bottom edge one line below that row's top).
+        mOMore.enabled = mOModel.MoreShown && fEnsureMore(lOFont);
 
         if (mOMore.enabled)
         {
-            mOMore.texture = mOMoreTexture;
+            Texture2D lOMoreTexture = mOMoreSlot.Current.Texture;
+
+            mOMore.texture = lOMoreTexture;
             ((RectTransform)mOMore.transform).anchoredPosition = new Vector2(lfPaperLeft,
-                lfPaperTop - ((liLines * liLineHeight) * lfScale));
-            ((RectTransform)mOMore.transform).sizeDelta = new Vector2(mOMoreTexture.width * lfScaleX, mOMoreTexture.height * lfScale);
+                lfPaperTop - (((mOModel.MoreRowShown + 1) * liLineHeight) * lfScale));
+            ((RectTransform)mOMore.transform).sizeDelta = new Vector2(lOMoreTexture.width * lfScaleX, lOMoreTexture.height * lfScale);
         }
+    }
+
+    /// <summary>Gives the texts back to UWTextTextures and destroys the papers (the HUD goes).</summary>
+    public void Release()
+    {
+        mOTextSlot.Release();
+        mOMoreSlot.Release();
+        mOPapers.ReleaseAll();
     }
 
     public void Hide()
@@ -270,61 +259,14 @@ public class UWModernScroll
             mOMore.enabled = false;
     }
 
-    /// <summary>The messages wrapped to the paper, the newest that fit; while [MORE] waits its line
-    /// is kept free.</summary>
-    private static List<string> fShownLines(Interaction pOInteraction, UWFont pOFont, int piLines)
-    {
-        List<string> lOLines = new List<string>();
-        IReadOnlyList<string> lOMessages = pOInteraction.ActiveStrings;
+    private static readonly string[] msMoreLines = { UWMessageLogModel.MoreMarkerText };
 
-        for (int liAt = 0; lOMessages != null && liAt < lOMessages.Count; liAt++)
-        {
-            string lsLine = lOMessages[liAt];
-
-            if (string.IsNullOrEmpty(lsLine))
-            {
-                lOLines.Add(string.Empty);
-                continue;
-            }
-
-            lOLines.AddRange(UWFontRenderer.WrapText(pOFont, lsLine, PaperWidth + fWide()));
-        }
-
-        int liRoom = pOInteraction.IsWaitingForPage ? piLines - 1 : piLines;
-
-        while (lOLines.Count > Mathf.Max(1, liRoom))
-            lOLines.RemoveAt(0);
-
-        return lOLines;
-    }
+    private static readonly Color32[] myMoreColours = { new Color32(255, 255, 255, 255) };
 
     private bool fEnsureMore(UWFont pOFont)
     {
-        if (mOMoreTexture != null)
-            return true;
-
-        int liWidth = Mathf.Max(1, pOFont.MeasureText(MoreMarkerText, 0, UWFontRenderer.CharacterSpacing) - UWFontRenderer.CharacterSpacing);
-
-        mOMoreTexture = UWFontRenderer.RenderLines(pOFont, new List<string> { MoreMarkerText }, liWidth, Color.white,
-            mOUi.TextureFilterMode, false);
-
-        return mOMoreTexture != null;
-    }
-
-    /// <summary>The log's colours by code (UWHudMessageLog.LogColourIndices) from the palette.</summary>
-    private Color32[] fColourTable()
-    {
-        if (myColourTable != null)
-            return myColourTable;
-
-        Color32[] lyTable = new Color32[UWHudMessageLog.LogColourIndices.Length];
-
-        for (int liAt = 0; liAt < lyTable.Length; liAt++)
-            lyTable[liAt] = UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, UWHudMessageLog.LogColourIndices[liAt]);
-
-        myColourTable = lyTable;
-
-        return lyTable;
+        return mOMoreSlot.Set(pOFont, msMoreLines, UWTextRaster.TightWidth(pOFont, UWMessageLogModel.MoreMarkerText), myMoreColours,
+            UWTextRaster.ColoursEnum.Codes, false, mOUi.TextureFilterMode, false, out _)?.Texture != null;
     }
 
     /// <summary>
@@ -405,14 +347,7 @@ public class UWModernScroll
         for (int liRow = 0; liRow < liHeight; liRow++)
             System.Array.Copy(lOTopDown, liRow * liWidth, lOBottomUp, (liHeight - 1 - liRow) * liWidth, liWidth);
 
-        Texture2D lOTexture = new Texture2D(liWidth, liHeight, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernScroll " + piExtra;
-        lOTexture.filterMode = mOUi.TextureFilterMode;
-        lOTexture.wrapMode = TextureWrapMode.Clamp;
-        lOTexture.SetPixels32(lOBottomUp);
-        lOTexture.Apply(false, false);
-
-        return lOTexture;
+        return UWTextureFactory.FromColours(lOBottomUp, liWidth, liHeight, mOUi.TextureFilterMode, TextureWrapMode.Clamp, "UWModernScroll " + piExtra);
     }
 
     /// <summary>Output row to source row: up to the repeated row as they are, then that row for

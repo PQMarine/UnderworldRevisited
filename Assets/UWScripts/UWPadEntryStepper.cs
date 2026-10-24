@@ -17,6 +17,12 @@ public sealed class UWPadEntryStepper
     /// <summary>A menu stepped by the pad is open (this frame or the last).</summary>
     public static bool IsActive => Time.frameCount - msiLastFrame <= 1;
 
+    private static int msiYieldFrame = -10;
+
+    /// <summary>The walk stick is the wheel's, not the stepper's (this frame or the last): the
+    /// pointer stands on the area Update was given for scrolling (UWGamepadPointer turns the wheel).</summary>
+    public static bool StickYields => Time.frameCount - msiYieldFrame <= 1;
+
     /// <summary>Put the pointer onto the first entry once the entries are there.</summary>
     public bool SnapPending;
 
@@ -29,9 +35,14 @@ public sealed class UWPadEntryStepper
         mbStickHeld = true;
     }
 
-    /// <summary>Once a frame while the menu is open, with its entries' screen rectangles (pixels,
-    /// bottom-left origin) in their order.</summary>
-    public void Update(IReadOnlyList<Rect> pOEntries)
+    /// <summary>
+    /// Once a frame while the menu is open, with its entries' screen rectangles (pixels,
+    /// bottom-left origin) in their order. pOWheelArea (screen pixels, empty for none): WITH THE
+    /// POINTER ON IT THE WALK STICK SCROLLS instead of stepping, the d-pad still steps (per user,
+    /// 2026-10-20: a long speech in the modern conversation could not be scrolled with the pad -
+    /// the stick over the history scrolls it, over the answers it steps them).
+    /// </summary>
+    public void Update(IReadOnlyList<Rect> pOEntries, Rect pOWheelArea = default)
     {
         msiLastFrame = Time.frameCount;
 
@@ -49,6 +60,16 @@ public sealed class UWPadEntryStepper
         }
 
         int liStep = lOPad.dpad.down.wasPressedThisFrame ? 1 : lOPad.dpad.up.wasPressedThisFrame ? -1 : 0;
+        Vector2 lOPointer = UWGamepadPointer.OwnsPosition ? UWGamepadPointer.Position : lOMouse.position.ReadValue();
+        bool lbWheel = pOWheelArea.width > 0f && pOWheelArea.Contains(lOPointer);
+
+        // On the wheel's area the stick counts as held, so that leaving it with the stick still
+        // pushed does not step at once.
+        if (lbWheel)
+        {
+            msiYieldFrame = Time.frameCount;
+            mbStickHeld = true;
+        }
 
         // THE WALK STICK READ ON THE PAD ITSELF: the context menu holds the keys (UWControls.
         // SetTextEntryActive), and Move, having keys, is switched off with them - the stick stepped
@@ -68,7 +89,6 @@ public sealed class UWPadEntryStepper
         if (liStep == 0)
             return;
 
-        Vector2 lOPointer = UWGamepadPointer.OwnsPosition ? UWGamepadPointer.Position : lOMouse.position.ReadValue();
         int liAt = -1;
 
         for (int liEntry = 0; liEntry < pOEntries.Count; liEntry++)

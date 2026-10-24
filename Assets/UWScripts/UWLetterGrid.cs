@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 /// streaming services have it): A to Z, the digits and a few signs in rows of ten, below them
 /// case, space, delete, cancel and done. It comes up by itself while the game asks for text -
 /// the character's name, a save game's name, a mantra, a conversation's typed answer, the
-/// "how many" prompt, a map note (UWGameUI.IsTypingText) - and the gamepad was used last; a key
+/// "how many" prompt, a map note (UWTextEntryState.IsTypingText) - and the gamepad was used last; a key
 /// on the real keyboard puts it away until that input ends.
 ///
 /// It TYPES REAL KEYS (UWOsKeys), so every kind of text input takes them as from the keyboard.
@@ -54,8 +54,8 @@ public class UWLetterGrid : MonoBehaviour
     {
         UWControlScheme lOScheme = UWScene.ControlScheme;
 
-        return UWConversationScreen.IsTypingAnswer
-            && (lOScheme == null || lOScheme.Current == UWControlScheme.SchemeEnum.Original);
+        return UWConversationController.IsTypingAnswer
+            && (lOScheme == null || UWControlScheme.Ui.Policy.AnswerTypedOnScroll);
     }
 
     private const float RepeatDelaySeconds = 0.35f;
@@ -91,7 +91,7 @@ public class UWLetterGrid : MonoBehaviour
 
     private static readonly Color msKey = new Color(0.25f, 0.19f, 0.12f, 1f);
 
-    private static readonly Color msFocus = new Color(0.925f, 0.77f, 0.44f, 1f);
+    private static readonly Color msFocus = UWModernPalette.Gold;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void fCreate()
@@ -108,7 +108,7 @@ public class UWLetterGrid : MonoBehaviour
 
         UWGameUI lOUi = UWScene.GameUi;
 
-        return lOUi != null && lOUi.IsTypingText;
+        return lOUi != null && lOUi.TextEntry.IsTypingText;
     }
 
     private void Update()
@@ -329,10 +329,10 @@ public class UWLetterGrid : MonoBehaviour
         UWGameUI lOUi = UWScene.GameUi;
 
         if (lOUi == null || UWCharacterCreationScreen.IsTypingName
-            || lOScheme == null || lOScheme.Current != UWControlScheme.SchemeEnum.Original)
+            || lOScheme == null || !UWControlScheme.Ui.Policy.AnswerTypedOnScroll)
             return 720f - BottomMargin;
 
-        float lfScrollTop = (Screen.height - lOUi.MessageLogTopScreenY) / pfScale;
+        float lfScrollTop = (Screen.height - lOUi.ClassicScreen.MessageLogTopScreenY) / pfScale;
 
         return Mathf.Min(720f - BottomMargin, lfScrollTop - 6f);
     }
