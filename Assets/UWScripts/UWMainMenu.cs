@@ -253,12 +253,12 @@ public class UWMainMenu : MonoBehaviour
         fShowButtons();
 
         // The black cover of the start and of the step after the title (UWLevelLoader.Start,
-        // UWIntroPlayer.fAfterSplashScreens) is there so that the game never shows before the
+        // UWSplashSequence.AfterSplashScreens) is there so that the game never shows before the
         // menu. Now the menu stands.
         UWScreenUi.HideLoadingCover();
 
         // The menu plays "Introduction" (the reference: main.cs, LoadXMI(IntroTheme)).
-        UWMusic.ChangeTheme(UWMusic.IntroTheme);
+        UWAudioService.ChangeTheme(UWMusicSelector.IntroTheme);
     }
 
     /// <summary>After the victory screens (UWEndgame.PlayVictory). The world behind it is
@@ -275,7 +275,7 @@ public class UWMainMenu : MonoBehaviour
         meMode = Mode.Hidden;
         IsOpen = false;
 
-        UWMusic.PickLevelTheme();
+        UWAudioService.PickLevelTheme();
 
         if (mOCanvas != null)
             mOCanvas.gameObject.SetActive(false);
@@ -454,10 +454,8 @@ public class UWMainMenu : MonoBehaviour
 
     private void fUpdateSaveList()
     {
-        Keyboard lOKeyboard = Keyboard.current;
-
-        // B as Escape (UWScreenUi.WasPadBackPressed).
-        if ((lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame) || UWScreenUi.WasPadBackPressed())
+        // B as Escape (UWScreenUi.WasPadBackPressed until cleanup step 7.5; the chain, UWBack).
+        if (UWBack.Takes(UWBackOwner.MainMenuSaves))
         {
             fShowButtons();
             return;
@@ -516,7 +514,7 @@ public class UWMainMenu : MonoBehaviour
             mOControls.SetUiModal("main menu", pbModal);
 
         if (pbModal)
-            Cursor.visible = true;
+            UWPointer.IsShown = true;
     }
 
     private void fEnsureCanvas()

@@ -1,0 +1,1782 @@
+==== rebinds 0, style 0, sticks swapped False
+-- Controls window, keyboard
+Player|Move|1 | Walk forward | W
+Player|Move|2 | Walk backward | S
+Player|Move|3 | Left (modern: strafe) | A
+Player|Move|4 | Right (modern: strafe) | D
+Player|Turn|1 | Turn left (classic) | A
+Player|Turn|2 | Turn right (classic) | D
+Player|Strafe|1 | Strafe left (classic) | "y"
+Player|Strafe|2 | Strafe right (classic) | "c"
+Player|Jump|0 | Jump | Space
+Player|Jump|1 | Jump (second key) | "j"
+Player|WalkSlow|0 | Walk slowly (modern) | Left Shift
+Player|EasyModifier|0 | Easy movement with W A S D X (modern) | Left Alt
+Player|HoverHeight|1 | Sink while flying (classic) | Q
+Player|HoverHeight|2 | Rise while flying (classic) | E
+Player|ModernHover|1 | Sink while flying (modern) | Left Control
+Player|ModernHover|2 | Rise while flying (modern) | Space
+Player|LookDown|0 | Look down (classic) | 1
+Player|LookReset|0 | Look straight (classic) | 2
+Player|LookUp|0 | Look up (classic) | 3
+Player|ToggleInventory|0 | Character panel (modern) | "c"
+Player|ModernBags|0 | Bags (modern) | "b"
+Player|ModernLook|0 | Look (modern) | "q"
+Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernUse|0 | Use, talk, pick up (modern) | "e"
+Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
+Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
+Player|ModernSlot2|0 | Action bar slot 2 (modern) | 2
+Player|ModernSlot3|0 | Action bar slot 3 (modern) | 3
+Player|ModernSlot4|0 | Action bar slot 4 (modern) | 4
+Player|ModernSlot5|0 | Action bar slot 5 (modern) | 5
+Player|ModernSlot6|0 | Action bar slot 6 (modern) | 6
+Player|ModernSlot7|0 | Action bar slot 7 (modern) | 7
+Player|ModernSlot8|0 | Action bar slot 8 (modern) | 8
+Player|ModernSlot9|0 | Action bar slot 9 (modern) | 9
+Player|ModernSlot10|0 | Action bar slot 10 (modern) | 0
+Player|ToggleScheme|0 | Switch control scheme (with Shift) | F2
+Player|CursorDrag|0 | Walk, drag, attack | Left Button
+Player|Interact|0 | Look and use | Right Button
+Player|ToggleMap|0 | Open the map | "m"
+Player|ToggleFont|0 | Switch the font | "f"
+Player|ToggleHelp|0 | Open the help (not with Alt) | Tab
+Player|KeyOptions|0 | Options | F1
+Player|KeyTalk|0 | Talk mode | F2
+Player|KeyGet|0 | Get mode | F3
+Player|KeyLook|0 | Look mode | F4
+Player|KeyFight|0 | Fight (draw the weapon) | F5
+Player|KeyUse|0 | Use mode | F6
+Player|KeyPanel|0 | Turn the panel | F7
+Player|KeyCast|0 | Cast the runes on the shelf | F8
+Player|KeyTrack|0 | Track (look for creatures nearby) | F9
+Player|KeyCamp|0 | Make camp | F10
+-- help, modern
+# The pointer / The mouse either turns the view (pointer locked, a crosshair in the middle) or moves a free pointer over the windows and the world. Only the right button switches between the two.
+Right Button | Free the pointer, or lock it again to look around. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held. |
+Locked | The crosshair aims: "e", "q" and the left button act on what it is on. |
+Free | The windows take the clicks; "e" and "q" act on what is under the pointer, in the world as in the bags, the character panel and the action bar (holding "e" does nothing over a window). |
+# Moving / -
+W A S D | Walk forward and back, step sideways. |
+Left Shift | Held: walk slowly instead of running. The Controls dialog can make it switch on and off. |
+Left Alt + W A S D / X | Easy movement: one step forward or back, or a turn of 45 degrees; held, it repeats. X steps forward without stepping off a ledge. |
+Mouse | Turn and look up and down (pointer locked). |
+Space | Jump. |
+Space / Left Control | While flying or levitating: rise and sink. |
+# Acting / -
+"e" (tap) | The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it. |
+"e" (hold) | Use it directly, even what could be picked up - a sack is emptied instead of taken. |
+"q" | Look at it. |
+Left Button (free pointer) | On a thing in the world: its menu - Talk, Use, Look, Pick up. Held and dragged: take it onto the pointer. |
+# Combat / -
+"r" | Draw or put away the weapon in your hand. |
+Left Button (held) | Charge the weapon; let go to strike. The power gem shows the charge. |
+The strike | Pointer locked: look up for an overhead bash, down for a thrust, straight ahead for a slash. Pointer free: the upper third of the screen bashes, the lower third thrusts, the middle slashes. |
+Bow, sling | Charge as above; the red target circle shows when the charge is enough. The shot flies to the free pointer, else to the crosshair. |
+# Magic / -
+Z | The rune panel. Its handle at the left edge opens it as well, and its pin keeps it out. |
+Runes tab | Click a rune to lay it in the hollow (the fourth pushes out the first), right click to look at it, the strip below the hollow clears it. Click the hollow to cast, or drag it onto the action bar. |
+Spells tab | Every spell by circle, grey what you cannot cast now. Click one to lay its runes, drag it onto the action bar. |
+Targets | A spell that needs a target flies at once at the crosshair with the pointer locked. With the pointer free the target cursor waits for a left click; Escape lets the spell go. |
+Active spells | Top right. Left click: what it does; right click: end it. |
+# The bags and the character / -
+"b" | Open or close the bags. The backpack always shows at the bottom right. |
+"c" | The character panel: the paperdoll, your attributes and skills. Its pin keeps it out. |
+Left Button | Take a thing and put it down - drag it, or click and click. On a container it goes inside; outside the windows it is dropped (low on the screen) or thrown (higher). |
+Shift + Left Button | Split a stack. |
+Right Button | A thing's menu: Use, Equip, Look, Pick up, Split. A container opens or closes at once (Shift for its menu). What is used on something else - a key, the oil flask - then waits for a left click on its target. |
+The head | Food and drink put down on the paperdoll's head are eaten. |
+1 ... 0 | The action bar. Drop a thing or drag a spell onto a slot; the key or a click uses it, a weapon goes into your hand. Drag a slot off the bar to empty it. |
+Sleep, Track | The bedroll and the boots beside the paperdoll's feet - or F10 and F9. |
+# Conversation / -
+1 ... 9 | Choose an answer - or click it. The mouse wheel scrolls the conversation. |
+Trading | Drag your things from the bags onto "Your offer". A left click on a trade slot marks it for the deal (a gold ring), a right click looks at it; drag your offer back out when you change your mind. |
+# Map, menu and the rest / -
+"m" | The big map, with the map in your pack. The minimap top right: + and - or the mouse wheel zoom it, a click opens the big map. |
+Tab | This help, in the character panel. |
+Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
+Right Ctrl + S / R | Save, restore. |
+Shift + F2 | Switch to the classic controls. |
+-- help, classic
+# The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
+Left Button | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
+Right Button | Do what the lit icon says - look by default; talk, get, use after its icon. With the weapon drawn: held to charge, let go to strike; the third of the view the pointer is in chooses the strike. |
+Shift + F2 | Switch to the modern controls. |
+# Keys / Changeable under Controls in the menu bar at the top edge.
+W | Walk forward |
+S | Walk backward |
+A | Left (modern: strafe) |
+D | Right (modern: strafe) |
+A | Turn left |
+D | Turn right |
+"y" | Strafe left |
+"c" | Strafe right |
+Space | Jump |
+"j" | Jump (second key) |
+Q | Sink while flying |
+E | Rise while flying |
+1 | Look down |
+2 | Look straight |
+3 | Look up |
+F2 | Switch control scheme (with Shift) |
+Left Button | Walk, drag, attack |
+Right Button | Look and use |
+"m" | Open the map |
+"f" | Switch the font |
+Tab | Open the help (not with Alt) |
+F1 | Options |
+F2 | Talk mode |
+F3 | Get mode |
+F4 | Look mode |
+F5 | Fight (draw the weapon) |
+F6 | Use mode |
+F7 | Turn the panel |
+F8 | Cast the runes on the shelf |
+F9 | Track (look for creatures nearby) |
+F10 | Make camp |
+-- the world's mouse buttons
+CursorDrag = <Mouse>/leftButton
+Interact = <Mouse>/rightButton
+-- the easy steps' keys (binding 0 in force), modern: W A S D
+EasyForward = <Keyboard>/w
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/s
+EasyTurnLeft = <Keyboard>/a
+EasyTurnRight = <Keyboard>/d
+-- the easy steps' keys (binding 0 in force), classic: W A S D
+EasyForward = <Keyboard>/w
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/s
+EasyTurnLeft = <Keyboard>/a
+EasyTurnRight = <Keyboard>/d
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | A | UWGlyphs 4
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | B | UWGlyphs 5
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | LS | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | RS | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+A | Use what you aim at; held: use it directly. | UWGlyphs 4
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+B | Close what is open. | UWGlyphs 5
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+LS | Put the weapon away. | UWGlyphs 220
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+Menu | The game menu. | UWGlyphs 617
+RS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+A RT | The left mouse button; held: drag. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+A RT | The left mouse button. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+RS | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+PadBack|0 = <Gamepad>/buttonEast | B | UWGlyphs 5
+PadPointer|0 = <Gamepad>/rightStickPress | RS | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 0, style 0, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | A | UWGlyphs 4
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | B | UWGlyphs 5
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | RS | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+A | Use what you aim at; held: use it directly. | UWGlyphs 4
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+B | Close what is open. | UWGlyphs 5
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+RS | Put the weapon away. | UWGlyphs 288
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+Menu | The game menu. | UWGlyphs 617
+LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+A RT | The left mouse button; held: drag. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+A RT | The left mouse button. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+LS | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+PadBack|0 = <Gamepad>/buttonEast | B | UWGlyphs 5
+PadPointer|0 = <Gamepad>/leftStickPress | LS | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 0, style 1, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | Cross | UWGlyphs 567,568
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | Circle | UWGlyphs 563,564
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | L3 | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | R3 | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+Cross | Use what you aim at; held: use it directly. | UWGlyphs 567,568
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+Circle | Close what is open. | UWGlyphs 563,564
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+L3 | Put the weapon away. | UWGlyphs 220
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Options | The game menu. | UWGlyphs 617
+R3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+Cross R2 | The left mouse button; held: drag. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+Cross R2 | The left mouse button. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+R3 | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+PadBack|0 = <Gamepad>/buttonEast | Circle | UWGlyphs 563,564
+PadPointer|0 = <Gamepad>/rightStickPress | R3 | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 0, style 1, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | Cross | UWGlyphs 567,568
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | Circle | UWGlyphs 563,564
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | R3 | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+Cross | Use what you aim at; held: use it directly. | UWGlyphs 567,568
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+Circle | Close what is open. | UWGlyphs 563,564
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+R3 | Put the weapon away. | UWGlyphs 288
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Options | The game menu. | UWGlyphs 617
+L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+Cross R2 | The left mouse button; held: drag. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+Cross R2 | The left mouse button. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+L3 | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+PadBack|0 = <Gamepad>/buttonEast | Circle | UWGlyphs 563,564
+PadPointer|0 = <Gamepad>/leftStickPress | L3 | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 0, style 2, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | B | UWGlyphs 14
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | A | UWGlyphs 13
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | L stick | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | R stick | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+B | Use what you aim at; held: use it directly. | UWGlyphs 14
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+A | Close what is open. | UWGlyphs 13
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+L stick | Put the weapon away. | UWGlyphs 220
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
++ | The game menu. | UWGlyphs 685
+R stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+B ZR | The left mouse button; held: drag. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+B ZR | The left mouse button. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+R stick | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+PadBack|0 = <Gamepad>/buttonEast | A | UWGlyphs 13
+PadPointer|0 = <Gamepad>/rightStickPress | R stick | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685
+==== rebinds 0, style 2, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | B | UWGlyphs 14
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | A | UWGlyphs 13
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | R stick | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+B | Use what you aim at; held: use it directly. | UWGlyphs 14
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+A | Close what is open. | UWGlyphs 13
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+R stick | Put the weapon away. | UWGlyphs 288
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
++ | The game menu. | UWGlyphs 685
+L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+B ZR | The left mouse button; held: drag. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+B ZR | The left mouse button. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+L stick | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+PadBack|0 = <Gamepad>/buttonEast | A | UWGlyphs 13
+PadPointer|0 = <Gamepad>/leftStickPress | L stick | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685
+==== rebinds 1, style 0, sticks swapped False
+-- Controls window, keyboard
+Player|Move|1 | Walk forward | T
+Player|Move|2 | Walk backward | S
+Player|Move|3 | Left (modern: strafe) | A
+Player|Move|4 | Right (modern: strafe) | D
+Player|Turn|1 | Turn left (classic) | A
+Player|Turn|2 | Turn right (classic) | D
+Player|Strafe|1 | Strafe left (classic) | "y"
+Player|Strafe|2 | Strafe right (classic) | "c"
+Player|Jump|0 | Jump | Space
+Player|Jump|1 | Jump (second key) | "j"
+Player|WalkSlow|0 | Walk slowly (modern) | Left Shift
+Player|EasyModifier|0 | Easy movement with T A S D X (modern) | Left Alt
+Player|HoverHeight|1 | Sink while flying (classic) | Q
+Player|HoverHeight|2 | Rise while flying (classic) | E
+Player|ModernHover|1 | Sink while flying (modern) | Left Control
+Player|ModernHover|2 | Rise while flying (modern) | Space
+Player|LookDown|0 | Look down (classic) | 1
+Player|LookReset|0 | Look straight (classic) | 2
+Player|LookUp|0 | Look up (classic) | 3
+Player|ToggleInventory|0 | Character panel (modern) | "c"
+Player|ModernBags|0 | Bags (modern) | "b"
+Player|ModernLook|0 | Look (modern) | "q"
+Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernUse|0 | Use, talk, pick up (modern) | "e"
+Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
+Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
+Player|ModernSlot2|0 | Action bar slot 2 (modern) | 2
+Player|ModernSlot3|0 | Action bar slot 3 (modern) | 3
+Player|ModernSlot4|0 | Action bar slot 4 (modern) | 4
+Player|ModernSlot5|0 | Action bar slot 5 (modern) | 5
+Player|ModernSlot6|0 | Action bar slot 6 (modern) | 6
+Player|ModernSlot7|0 | Action bar slot 7 (modern) | 7
+Player|ModernSlot8|0 | Action bar slot 8 (modern) | 8
+Player|ModernSlot9|0 | Action bar slot 9 (modern) | 9
+Player|ModernSlot10|0 | Action bar slot 10 (modern) | 0
+Player|ToggleScheme|0 | Switch control scheme (with Shift) | F2
+Player|CursorDrag|0 | Walk, drag, attack | Left Button
+Player|Interact|0 | Look and use | Right Button
+Player|ToggleMap|0 | Open the map | "m"
+Player|ToggleFont|0 | Switch the font | "f"
+Player|ToggleHelp|0 | Open the help (not with Alt) | Tab
+Player|KeyOptions|0 | Options | F1
+Player|KeyTalk|0 | Talk mode | F2
+Player|KeyGet|0 | Get mode | F3
+Player|KeyLook|0 | Look mode | F4
+Player|KeyFight|0 | Fight (draw the weapon) | F5
+Player|KeyUse|0 | Use mode | F6
+Player|KeyPanel|0 | Turn the panel | F7
+Player|KeyCast|0 | Cast the runes on the shelf | F8
+Player|KeyTrack|0 | Track (look for creatures nearby) | F9
+Player|KeyCamp|0 | Make camp | F10
+-- help, modern
+# The pointer / The mouse either turns the view (pointer locked, a crosshair in the middle) or moves a free pointer over the windows and the world. Only the right button switches between the two.
+Right Button | Free the pointer, or lock it again to look around. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held. |
+Locked | The crosshair aims: "e", "q" and the left button act on what it is on. |
+Free | The windows take the clicks; "e" and "q" act on what is under the pointer, in the world as in the bags, the character panel and the action bar (holding "e" does nothing over a window). |
+# Moving / -
+T A S D | Walk forward and back, step sideways. |
+Left Shift | Held: walk slowly instead of running. The Controls dialog can make it switch on and off. |
+Left Alt + T A S D / X | Easy movement: one step forward or back, or a turn of 45 degrees; held, it repeats. X steps forward without stepping off a ledge. |
+Mouse | Turn and look up and down (pointer locked). |
+Space | Jump. |
+Space / Left Control | While flying or levitating: rise and sink. |
+# Acting / -
+"e" (tap) | The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it. |
+"e" (hold) | Use it directly, even what could be picked up - a sack is emptied instead of taken. |
+"q" | Look at it. |
+Left Button (free pointer) | On a thing in the world: its menu - Talk, Use, Look, Pick up. Held and dragged: take it onto the pointer. |
+# Combat / -
+"r" | Draw or put away the weapon in your hand. |
+Left Button (held) | Charge the weapon; let go to strike. The power gem shows the charge. |
+The strike | Pointer locked: look up for an overhead bash, down for a thrust, straight ahead for a slash. Pointer free: the upper third of the screen bashes, the lower third thrusts, the middle slashes. |
+Bow, sling | Charge as above; the red target circle shows when the charge is enough. The shot flies to the free pointer, else to the crosshair. |
+# Magic / -
+Z | The rune panel. Its handle at the left edge opens it as well, and its pin keeps it out. |
+Runes tab | Click a rune to lay it in the hollow (the fourth pushes out the first), right click to look at it, the strip below the hollow clears it. Click the hollow to cast, or drag it onto the action bar. |
+Spells tab | Every spell by circle, grey what you cannot cast now. Click one to lay its runes, drag it onto the action bar. |
+Targets | A spell that needs a target flies at once at the crosshair with the pointer locked. With the pointer free the target cursor waits for a left click; Escape lets the spell go. |
+Active spells | Top right. Left click: what it does; right click: end it. |
+# The bags and the character / -
+"b" | Open or close the bags. The backpack always shows at the bottom right. |
+"c" | The character panel: the paperdoll, your attributes and skills. Its pin keeps it out. |
+Left Button | Take a thing and put it down - drag it, or click and click. On a container it goes inside; outside the windows it is dropped (low on the screen) or thrown (higher). |
+Shift + Left Button | Split a stack. |
+Right Button | A thing's menu: Use, Equip, Look, Pick up, Split. A container opens or closes at once (Shift for its menu). What is used on something else - a key, the oil flask - then waits for a left click on its target. |
+The head | Food and drink put down on the paperdoll's head are eaten. |
+1 ... 0 | The action bar. Drop a thing or drag a spell onto a slot; the key or a click uses it, a weapon goes into your hand. Drag a slot off the bar to empty it. |
+Sleep, Track | The bedroll and the boots beside the paperdoll's feet - or F10 and F9. |
+# Conversation / -
+1 ... 9 | Choose an answer - or click it. The mouse wheel scrolls the conversation. |
+Trading | Drag your things from the bags onto "Your offer". A left click on a trade slot marks it for the deal (a gold ring), a right click looks at it; drag your offer back out when you change your mind. |
+# Map, menu and the rest / -
+"m" | The big map, with the map in your pack. The minimap top right: + and - or the mouse wheel zoom it, a click opens the big map. |
+Tab | This help, in the character panel. |
+Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
+Right Ctrl + S / R | Save, restore. |
+Shift + F2 | Switch to the classic controls. |
+-- help, classic
+# The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
+Left Button | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
+Right Button | Do what the lit icon says - look by default; talk, get, use after its icon. With the weapon drawn: held to charge, let go to strike; the third of the view the pointer is in chooses the strike. |
+Shift + F2 | Switch to the modern controls. |
+# Keys / Changeable under Controls in the menu bar at the top edge.
+T | Walk forward |
+S | Walk backward |
+A | Left (modern: strafe) |
+D | Right (modern: strafe) |
+A | Turn left |
+D | Turn right |
+"y" | Strafe left |
+"c" | Strafe right |
+Space | Jump |
+"j" | Jump (second key) |
+Q | Sink while flying |
+E | Rise while flying |
+1 | Look down |
+2 | Look straight |
+3 | Look up |
+F2 | Switch control scheme (with Shift) |
+Left Button | Walk, drag, attack |
+Right Button | Look and use |
+"m" | Open the map |
+"f" | Switch the font |
+Tab | Open the help (not with Alt) |
+F1 | Options |
+F2 | Talk mode |
+F3 | Get mode |
+F4 | Look mode |
+F5 | Fight (draw the weapon) |
+F6 | Use mode |
+F7 | Turn the panel |
+F8 | Cast the runes on the shelf |
+F9 | Track (look for creatures nearby) |
+F10 | Make camp |
+-- the world's mouse buttons
+CursorDrag = <Mouse>/leftButton
+Interact = <Mouse>/rightButton
+-- the easy steps' keys (binding 0 in force), modern: T A S D
+EasyForward = <Keyboard>/t
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/s
+EasyTurnLeft = <Keyboard>/a
+EasyTurnRight = <Keyboard>/d
+-- the easy steps' keys (binding 0 in force), classic: T A S D
+EasyForward = <Keyboard>/t
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/s
+EasyTurnLeft = <Keyboard>/a
+EasyTurnRight = <Keyboard>/d
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | A | UWGlyphs 4
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | B | UWGlyphs 5
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | LS | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | RS | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+A | Use what you aim at; held: use it directly. | UWGlyphs 4
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+B | Close what is open. | UWGlyphs 5
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+LS | Put the weapon away. | UWGlyphs 220
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+Menu | The game menu. | UWGlyphs 617
+RS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+A RT | The left mouse button; held: drag. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+A RT | The left mouse button. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+RS | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+PadBack|0 = <Gamepad>/buttonEast | B | UWGlyphs 5
+PadPointer|0 = <Gamepad>/rightStickPress | RS | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 1, style 0, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | A | UWGlyphs 4
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | B | UWGlyphs 5
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | RS | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+A | Use what you aim at; held: use it directly. | UWGlyphs 4
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+B | Close what is open. | UWGlyphs 5
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+RS | Put the weapon away. | UWGlyphs 288
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+Menu | The game menu. | UWGlyphs 617
+LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+A RT | The left mouse button; held: drag. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+A RT | The left mouse button. | UWGlyphs 4 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+LS | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+PadBack|0 = <Gamepad>/buttonEast | B | UWGlyphs 5
+PadPointer|0 = <Gamepad>/leftStickPress | LS | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | A | UWGlyphs 4
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 1, style 1, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | Cross | UWGlyphs 567,568
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | Circle | UWGlyphs 563,564
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | L3 | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | R3 | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+Cross | Use what you aim at; held: use it directly. | UWGlyphs 567,568
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+Circle | Close what is open. | UWGlyphs 563,564
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+L3 | Put the weapon away. | UWGlyphs 220
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Options | The game menu. | UWGlyphs 617
+R3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+Cross R2 | The left mouse button; held: drag. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+Cross R2 | The left mouse button. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+R3 | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+PadBack|0 = <Gamepad>/buttonEast | Circle | UWGlyphs 563,564
+PadPointer|0 = <Gamepad>/rightStickPress | R3 | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 1, style 1, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | Cross | UWGlyphs 567,568
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | Circle | UWGlyphs 563,564
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | R3 | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+Cross | Use what you aim at; held: use it directly. | UWGlyphs 567,568
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+Circle | Close what is open. | UWGlyphs 563,564
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+R3 | Put the weapon away. | UWGlyphs 288
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Options | The game menu. | UWGlyphs 617
+L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+Cross R2 | The left mouse button; held: drag. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+Cross R2 | The left mouse button. | UWGlyphs 567,568 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+L3 | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+PadBack|0 = <Gamepad>/buttonEast | Circle | UWGlyphs 563,564
+PadPointer|0 = <Gamepad>/leftStickPress | L3 | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | Cross | UWGlyphs 567,568
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 1, style 2, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | B | UWGlyphs 14
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | A | UWGlyphs 13
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | L stick | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | R stick | UWGlyphs 288
+Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+B | Use what you aim at; held: use it directly. | UWGlyphs 14
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+A | Close what is open. | UWGlyphs 13
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+L stick | Put the weapon away. | UWGlyphs 220
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
++ | The game menu. | UWGlyphs 685
+R stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+B ZR | The left mouse button; held: drag. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+B ZR | The left mouse button. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+R stick | The stick moves the pointer instead, or turns again. | UWGlyphs 288
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+PadBack|0 = <Gamepad>/buttonEast | A | UWGlyphs 13
+PadPointer|0 = <Gamepad>/rightStickPress | R stick | UWGlyphs 288
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685
+==== rebinds 1, style 2, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | B | UWGlyphs 14
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | A | UWGlyphs 13
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | R stick | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+B | Use what you aim at; held: use it directly. | UWGlyphs 14
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+A | Close what is open. | UWGlyphs 13
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+R stick | Put the weapon away. | UWGlyphs 288
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
++ | The game menu. | UWGlyphs 685
+L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+B ZR | The left mouse button; held: drag. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+B ZR | The left mouse button. | UWGlyphs 14 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+L stick | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+PadBack|0 = <Gamepad>/buttonEast | A | UWGlyphs 13
+PadPointer|0 = <Gamepad>/leftStickPress | L stick | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/buttonSouth | B | UWGlyphs 14
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685
+==== rebinds 2, style 0, sticks swapped False
+-- Controls window, keyboard
+Player|Move|1 | Walk forward | Up Arrow
+Player|Move|2 | Walk backward | Down Arrow
+Player|Move|3 | Left (modern: strafe) | Left Arrow
+Player|Move|4 | Right (modern: strafe) | Right Arrow
+Player|Turn|1 | Turn left (classic) | Q
+Player|Turn|2 | Turn right (classic) | E
+Player|Strafe|1 | Strafe left (classic) | "y"
+Player|Strafe|2 | Strafe right (classic) | "c"
+Player|Jump|0 | Jump | Space
+Player|Jump|1 | Jump (second key) | K
+Player|WalkSlow|0 | Walk slowly (modern) | Caps Lock
+Player|EasyModifier|0 | Easy movement with Up Arrow Left Arrow Down Arrow Right Arrow X (modern) | Right Alt
+Player|HoverHeight|1 | Sink while flying (classic) | Q
+Player|HoverHeight|2 | Rise while flying (classic) | E
+Player|ModernHover|1 | Sink while flying (modern) | Left Control
+Player|ModernHover|2 | Rise while flying (modern) | Space
+Player|LookDown|0 | Look down (classic) | 1
+Player|LookReset|0 | Look straight (classic) | 2
+Player|LookUp|0 | Look up (classic) | 3
+Player|ToggleInventory|0 | Character panel (modern) | "c"
+Player|ModernBags|0 | Bags (modern) | "b"
+Player|ModernLook|0 | Look (modern) | "q"
+Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernUse|0 | Use, talk, pick up (modern) | F
+Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
+Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
+Player|ModernSlot2|0 | Action bar slot 2 (modern) | 2
+Player|ModernSlot3|0 | Action bar slot 3 (modern) | 3
+Player|ModernSlot4|0 | Action bar slot 4 (modern) | 4
+Player|ModernSlot5|0 | Action bar slot 5 (modern) | 5
+Player|ModernSlot6|0 | Action bar slot 6 (modern) | 6
+Player|ModernSlot7|0 | Action bar slot 7 (modern) | 7
+Player|ModernSlot8|0 | Action bar slot 8 (modern) | 8
+Player|ModernSlot9|0 | Action bar slot 9 (modern) | 9
+Player|ModernSlot10|0 | Action bar slot 10 (modern) | 0
+Player|ToggleScheme|0 | Switch control scheme (with Shift) | F2
+Player|CursorDrag|0 | Walk, drag, attack | G
+Player|Interact|0 | Look and use | Middle Button
+Player|ToggleMap|0 | Open the map | Numpad 5
+Player|ToggleFont|0 | Switch the font | "f"
+Player|ToggleHelp|0 | Open the help (not with Alt) | Tab
+Player|KeyOptions|0 | Options | F1
+Player|KeyTalk|0 | Talk mode | F2
+Player|KeyGet|0 | Get mode | F3
+Player|KeyLook|0 | Look mode | F4
+Player|KeyFight|0 | Fight (draw the weapon) | F5
+Player|KeyUse|0 | Use mode | F6
+Player|KeyPanel|0 | Turn the panel | F7
+Player|KeyCast|0 | Cast the runes on the shelf | F8
+Player|KeyTrack|0 | Track (look for creatures nearby) | F9
+Player|KeyCamp|0 | Make camp | F10
+-- help, modern
+# The pointer / The mouse either turns the view (pointer locked, a crosshair in the middle) or moves a free pointer over the windows and the world. Only the right button switches between the two.
+Middle Button | Free the pointer, or lock it again to look around. The game menu has the other way round as an option: the pointer stays free and the view turns while the button is held. |
+Locked | The crosshair aims: F, "q" and the left button act on what it is on. |
+Free | The windows take the clicks; F and "q" act on what is under the pointer, in the world as in the bags, the character panel and the action bar (holding F does nothing over a window). |
+# Moving / -
+Up Arrow Left Arrow Down Arrow Right Arrow | Walk forward and back, step sideways. |
+Caps Lock | Held: walk slowly instead of running. The Controls dialog can make it switch on and off. |
+Right Alt + Up Arrow Left Arrow Down Arrow Right Arrow / X | Easy movement: one step forward or back, or a turn of 45 degrees; held, it repeats. X steps forward without stepping off a ledge. |
+Mouse | Turn and look up and down (pointer locked). |
+Space | Jump. |
+Space / Left Control | While flying or levitating: rise and sink. |
+# Acting / -
+F (tap) | The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it. |
+F (hold) | Use it directly, even what could be picked up - a sack is emptied instead of taken. |
+"q" | Look at it. |
+G (free pointer) | On a thing in the world: its menu - Talk, Use, Look, Pick up. Held and dragged: take it onto the pointer. |
+# Combat / -
+"r" | Draw or put away the weapon in your hand. |
+G (held) | Charge the weapon; let go to strike. The power gem shows the charge. |
+The strike | Pointer locked: look up for an overhead bash, down for a thrust, straight ahead for a slash. Pointer free: the upper third of the screen bashes, the lower third thrusts, the middle slashes. |
+Bow, sling | Charge as above; the red target circle shows when the charge is enough. The shot flies to the free pointer, else to the crosshair. |
+# Magic / -
+Z | The rune panel. Its handle at the left edge opens it as well, and its pin keeps it out. |
+Runes tab | Click a rune to lay it in the hollow (the fourth pushes out the first), right click to look at it, the strip below the hollow clears it. Click the hollow to cast, or drag it onto the action bar. |
+Spells tab | Every spell by circle, grey what you cannot cast now. Click one to lay its runes, drag it onto the action bar. |
+Targets | A spell that needs a target flies at once at the crosshair with the pointer locked. With the pointer free the target cursor waits for a left click; Escape lets the spell go. |
+Active spells | Top right. Left click: what it does; right click: end it. |
+# The bags and the character / -
+"b" | Open or close the bags. The backpack always shows at the bottom right. |
+"c" | The character panel: the paperdoll, your attributes and skills. Its pin keeps it out. |
+G | Take a thing and put it down - drag it, or click and click. On a container it goes inside; outside the windows it is dropped (low on the screen) or thrown (higher). |
+Shift + G | Split a stack. |
+Middle Button | A thing's menu: Use, Equip, Look, Pick up, Split. A container opens or closes at once (Shift for its menu). What is used on something else - a key, the oil flask - then waits for a left click on its target. |
+The head | Food and drink put down on the paperdoll's head are eaten. |
+1 ... 0 | The action bar. Drop a thing or drag a spell onto a slot; the key or a click uses it, a weapon goes into your hand. Drag a slot off the bar to empty it. |
+Sleep, Track | The bedroll and the boots beside the paperdoll's feet - or F10 and F9. |
+# Conversation / -
+1 ... 9 | Choose an answer - or click it. The mouse wheel scrolls the conversation. |
+Trading | Drag your things from the bags onto "Your offer". A left click on a trade slot marks it for the deal (a gold ring), a right click looks at it; drag your offer back out when you change your mind. |
+# Map, menu and the rest / -
+Numpad 5 | The big map, with the map in your pack. The minimap top right: + and - or the mouse wheel zoom it, a click opens the big map. |
+Tab | This help, in the character panel. |
+Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
+Right Ctrl + S / R | Save, restore. |
+Shift + F2 | Switch to the classic controls. |
+-- help, classic
+# The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
+G | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
+Middle Button | Do what the lit icon says - look by default; talk, get, use after its icon. With the weapon drawn: held to charge, let go to strike; the third of the view the pointer is in chooses the strike. |
+Shift + F2 | Switch to the modern controls. |
+# Keys / Changeable under Controls in the menu bar at the top edge.
+Up Arrow | Walk forward |
+Down Arrow | Walk backward |
+Left Arrow | Left (modern: strafe) |
+Right Arrow | Right (modern: strafe) |
+Q | Turn left |
+E | Turn right |
+"y" | Strafe left |
+"c" | Strafe right |
+Space | Jump |
+K | Jump (second key) |
+Q | Sink while flying |
+E | Rise while flying |
+1 | Look down |
+2 | Look straight |
+3 | Look up |
+F2 | Switch control scheme (with Shift) |
+G | Walk, drag, attack |
+Middle Button | Look and use |
+Numpad 5 | Open the map |
+"f" | Switch the font |
+Tab | Open the help (not with Alt) |
+F1 | Options |
+F2 | Talk mode |
+F3 | Get mode |
+F4 | Look mode |
+F5 | Fight (draw the weapon) |
+F6 | Use mode |
+F7 | Turn the panel |
+F8 | Cast the runes on the shelf |
+F9 | Track (look for creatures nearby) |
+F10 | Make camp |
+-- the world's mouse buttons
+CursorDrag = <Keyboard>/g
+Interact = <Mouse>/middleButton
+-- the easy steps' keys (binding 0 in force), modern: Up Arrow Left Arrow Down Arrow Right Arrow
+EasyForward = <Keyboard>/upArrow
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/downArrow
+EasyTurnLeft = <Keyboard>/leftArrow
+EasyTurnRight = <Keyboard>/rightArrow
+-- the easy steps' keys (binding 0 in force), classic: Up Arrow Q Down Arrow E
+EasyForward = <Keyboard>/upArrow
+EasyWalkForward = <Keyboard>/#(x)
+EasyBack = <Keyboard>/downArrow
+EasyTurnLeft = <Keyboard>/q
+EasyTurnRight = <Keyboard>/e
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | LB | UWGlyphs 553
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | LS | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | View | UWGlyphs 616
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Y | UWGlyphs 7
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+LB | Close what is open. | UWGlyphs 553
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+LS | Put the weapon away. | UWGlyphs 220
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+View | The game menu. | UWGlyphs 616
+LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+Y RT | The left mouse button; held: drag. | UWGlyphs 7 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+Y RT | The left mouse button. | UWGlyphs 7 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+LS | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | Y | UWGlyphs 7
+PadBack|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadPointer|0 = <Gamepad>/leftStickPress | LS | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 2, style 0, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | X | UWGlyphs 6
+Player|PadBack|0 | Close what is open | LB | UWGlyphs 553
+Player|PadJump|0 | Jump | Y | UWGlyphs 7
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | RT | UWGlyphs 556
+Player|ModernReady|1 | Draw or put away the weapon | RS | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | LT | UWGlyphs 555
+Player|PadSlotPrevious|0 | Action bar: previous slot | LB | UWGlyphs 553
+Player|PadSlotNext|0 | Action bar: next slot | RB | UWGlyphs 554
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | View | UWGlyphs 616
+Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
+Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Y | UWGlyphs 7
+Player|PadClick|1 | Pointer: click, second button | RT | UWGlyphs 556
+Player|PadContext|0 | Pointer: right button | X | UWGlyphs 6
+Player|PadContext|1 | Pointer: right button, second button | LT | UWGlyphs 555
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+X | Look at it. | UWGlyphs 6
+Y | Jump. | UWGlyphs 7
+LB | Close what is open. | UWGlyphs 553
+RT | Draw the weapon; held: charge, let go to strike. | UWGlyphs 556
+RS | Put the weapon away. | UWGlyphs 288
+LT | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 555
+LB RB | Pick a slot of the action bar. | UWGlyphs 553 UWGlyphs 554
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+View | The map; held: this help. | UWGlyphs 616
+View | The game menu. | UWGlyphs 616
+LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+Y RT | The left mouse button; held: drag. | UWGlyphs 7 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+Y RT | The left mouse button. | UWGlyphs 7 UWGlyphs 556
+X LT | The right mouse button. | UWGlyphs 6 UWGlyphs 555
+Y | Jump. | UWGlyphs 7
+View | The map; held: this help. | UWGlyphs 616
+LS | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | Y | UWGlyphs 7
+PadBack|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadPointer|0 = <Gamepad>/leftStickPress | LS | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | LT | UWGlyphs 555
+PadContext|0 = <Gamepad>/buttonWest | X | UWGlyphs 6
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | LB | UWGlyphs 553
+PadSlotNext|0 = <Gamepad>/rightShoulder | RB | UWGlyphs 554
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | X | UWGlyphs 6
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = A | UWGlyphs 4
+<Gamepad>/buttonEast = B | UWGlyphs 5
+<Gamepad>/buttonWest = X | UWGlyphs 6
+<Gamepad>/buttonNorth = Y | UWGlyphs 7
+<Gamepad>/start = Menu | UWGlyphs 617
+==== rebinds 2, style 1, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | L1 | UWGlyphs 631
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | L3 | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Share | UWGlyphs 618
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Triangle | UWGlyphs 561,562
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+L1 | Close what is open. | UWGlyphs 631
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+L3 | Put the weapon away. | UWGlyphs 220
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Share | The game menu. | UWGlyphs 618
+L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+Triangle R2 | The left mouse button; held: drag. | UWGlyphs 561,562 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+Triangle R2 | The left mouse button. | UWGlyphs 561,562 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+L3 | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | Triangle | UWGlyphs 561,562
+PadBack|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadPointer|0 = <Gamepad>/leftStickPress | L3 | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 2, style 1, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | Square | UWGlyphs 565,566
+Player|PadBack|0 | Close what is open | L1 | UWGlyphs 631
+Player|PadJump|0 | Jump | Triangle | UWGlyphs 561,562
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | R2 | UWGlyphs 630
+Player|ModernReady|1 | Draw or put away the weapon | R3 | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | L2 | UWGlyphs 629
+Player|PadSlotPrevious|0 | Action bar: previous slot | L1 | UWGlyphs 631
+Player|PadSlotNext|0 | Action bar: next slot | R1 | UWGlyphs 632
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | Share | UWGlyphs 618
+Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
+Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | Triangle | UWGlyphs 561,562
+Player|PadClick|1 | Pointer: click, second button | R2 | UWGlyphs 630
+Player|PadContext|0 | Pointer: right button | Square | UWGlyphs 565,566
+Player|PadContext|1 | Pointer: right button, second button | L2 | UWGlyphs 629
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+Square | Look at it. | UWGlyphs 565,566
+Triangle | Jump. | UWGlyphs 561,562
+L1 | Close what is open. | UWGlyphs 631
+R2 | Draw the weapon; held: charge, let go to strike. | UWGlyphs 630
+R3 | Put the weapon away. | UWGlyphs 288
+L2 | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 629
+L1 R1 | Pick a slot of the action bar. | UWGlyphs 631 UWGlyphs 632
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+Share | The map; held: this help. | UWGlyphs 618
+Share | The game menu. | UWGlyphs 618
+L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+Triangle R2 | The left mouse button; held: drag. | UWGlyphs 561,562 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+Triangle R2 | The left mouse button. | UWGlyphs 561,562 UWGlyphs 630
+Square L2 | The right mouse button. | UWGlyphs 565,566 UWGlyphs 629
+Triangle | Jump. | UWGlyphs 561,562
+Share | The map; held: this help. | UWGlyphs 618
+L3 | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | Triangle | UWGlyphs 561,562
+PadBack|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadPointer|0 = <Gamepad>/leftStickPress | L3 | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | L2 | UWGlyphs 629
+PadContext|0 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L1 | UWGlyphs 631
+PadSlotNext|0 = <Gamepad>/rightShoulder | R1 | UWGlyphs 632
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | Square | UWGlyphs 565,566
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = Cross | UWGlyphs 567,568
+<Gamepad>/buttonEast = Circle | UWGlyphs 563,564
+<Gamepad>/buttonWest = Square | UWGlyphs 565,566
+<Gamepad>/buttonNorth = Triangle | UWGlyphs 561,562
+<Gamepad>/start = Options | UWGlyphs 617
+==== rebinds 2, style 2, sticks swapped False
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | L | UWGlyphs 627
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | L stick | UWGlyphs 220
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | - | UWGlyphs 684
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | X | UWGlyphs 15
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Left stick | Walk and step sideways. | UWGlyphs 219
+Right stick | Look around. | UWGlyphs 287
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+L | Close what is open. | UWGlyphs 627
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+L stick | Put the weapon away. | UWGlyphs 220
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
+- | The game menu. | UWGlyphs 684
+L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Right stick | Move the pointer. | UWGlyphs 287
+X ZR | The left mouse button; held: drag. | UWGlyphs 15 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Left stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 219
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Left stick | Walk; pushed well sideways: step sideways. | UWGlyphs 219
+Right stick | Turn; up and down tilt the view a step. | UWGlyphs 287
+X ZR | The left mouse button. | UWGlyphs 15 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+L stick | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Left stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 219
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | X | UWGlyphs 15
+PadBack|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadPointer|0 = <Gamepad>/leftStickPress | L stick | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685
+==== rebinds 2, style 2, sticks swapped True
+-- Controls window, gamepad
+Player|ModernUse|1 | Use (held: use directly) | D-pad left | UWGlyphs 38
+Player|ModernLook|1 | Look | Y | UWGlyphs 16
+Player|PadBack|0 | Close what is open | L | UWGlyphs 627
+Player|PadJump|0 | Jump | X | UWGlyphs 15
+Player|ToggleInventory|1 | Character panel (held: every bag) | D-pad down | UWGlyphs 37
+Player|ModernAttack|1 | Draw the weapon and strike | ZR | UWGlyphs 626
+Player|ModernReady|1 | Draw or put away the weapon | R stick | UWGlyphs 288
+Player|PadCast|0 | Cast the runes (held: rune panel) | ZL | UWGlyphs 625
+Player|PadSlotPrevious|0 | Action bar: previous slot | L | UWGlyphs 627
+Player|PadSlotNext|0 | Action bar: next slot | R | UWGlyphs 628
+Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
+Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
+Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
+Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
+Player|Menu|1 | Menu | - | UWGlyphs 684
+Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
+Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
+Player|PadClick|0 | Pointer: click (held: drag) | X | UWGlyphs 15
+Player|PadClick|1 | Pointer: click, second button | ZR | UWGlyphs 626
+Player|PadContext|0 | Pointer: right button | Y | UWGlyphs 16
+Player|PadContext|1 | Pointer: right button, second button | ZL | UWGlyphs 625
+-- help, modern pad
+# Gamepad / Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too.
+Right stick | Walk and step sideways. | UWGlyphs 287
+Left stick | Look around. | UWGlyphs 219
+D-pad left | Use what you aim at; held: use it directly. | UWGlyphs 38
+Y | Look at it. | UWGlyphs 16
+X | Jump. | UWGlyphs 15
+L | Close what is open. | UWGlyphs 627
+ZR | Draw the weapon; held: charge, let go to strike. | UWGlyphs 626
+R stick | Put the weapon away. | UWGlyphs 288
+ZL | Cast the runes in the hollow; held: the rune panel. | UWGlyphs 625
+L R | Pick a slot of the action bar. | UWGlyphs 627 UWGlyphs 628
+D-pad up | Use the slot. | UWGlyphs 35
+D-pad down | The character panel; held: every bag. | UWGlyphs 37
+D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
+- | The map; held: this help. | UWGlyphs 684
+- | The game menu. | UWGlyphs 684
+L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
+# Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
+Left stick | Move the pointer. | UWGlyphs 219
+X ZR | The left mouse button; held: drag. | UWGlyphs 15 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+Right stick | Over a window: scroll. In a menu: the next entry. | UWGlyphs 287
+D-pad | In a menu: the next entry. | UWGlyphs 40
+-- help, classic pad
+# Gamepad / The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls dialog of the menu bar, its Gamepad tab.
+Right stick | Walk; pushed well sideways: step sideways. | UWGlyphs 287
+Left stick | Turn; up and down tilt the view a step. | UWGlyphs 219
+X ZR | The left mouse button. | UWGlyphs 15 UWGlyphs 626
+Y ZL | The right mouse button. | UWGlyphs 16 UWGlyphs 625
+X | Jump. | UWGlyphs 15
+- | The map; held: this help. | UWGlyphs 684
+L stick | The stick moves the pointer instead, or turns again. | UWGlyphs 220
+Right stick | With the pointer on the stick, over the frame: scroll. | UWGlyphs 287
+-- the hints' pad entries
+PadClick|0 = <Gamepad>/buttonNorth | X | UWGlyphs 15
+PadBack|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadPointer|0 = <Gamepad>/leftStickPress | L stick | UWGlyphs 220
+PadCast|0 = <Gamepad>/leftTrigger | ZL | UWGlyphs 625
+PadContext|0 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+PadSlotPrevious|0 = <Gamepad>/leftShoulder | L | UWGlyphs 627
+PadSlotNext|0 = <Gamepad>/rightShoulder | R | UWGlyphs 628
+PadSlotUse|0 = <Gamepad>/dpad/up | D-pad up | UWGlyphs 35
+ModernUse|1 = <Gamepad>/dpad/left | D-pad left | UWGlyphs 38
+ModernLook|1 = <Gamepad>/buttonWest | Y | UWGlyphs 16
+-- the letter grid's hint line
+<Gamepad>/buttonSouth = B | UWGlyphs 14
+<Gamepad>/buttonEast = A | UWGlyphs 13
+<Gamepad>/buttonWest = Y | UWGlyphs 16
+<Gamepad>/buttonNorth = X | UWGlyphs 15
+<Gamepad>/start = + | UWGlyphs 685

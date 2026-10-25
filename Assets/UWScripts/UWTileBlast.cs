@@ -222,7 +222,7 @@ public static class UWTileBlast
     /// mover.</summary>
     private static void fPlayDoorSound(UWTilePos pOTile, UWObject pODoor)
     {
-        UWSoundEffects.PlayAt((pODoor.ID & 7) == PortcullisInClass ? UWSoundEffects.Portcullis : UWSoundEffects.Door,
+        UWAudioService.PlayEffectAt((pODoor.ID & 7) == PortcullisInClass ? UWSoundEffectId.Portcullis : UWSoundEffectId.Door,
             UWObjectSpawner.GetObjectWorldPosition(pOTile.X, pOTile.Y, pODoor));
     }
 

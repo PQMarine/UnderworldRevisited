@@ -50,11 +50,15 @@ public class UWModernHeadingStrip : UWModernPart
         new Color32(120, 210, 110, 255), new Color32(230, 200, 90, 255), new Color32(230, 90, 70, 255)
     };
 
-    private static readonly string[] msFoeStates = { "Healthy", "Wounded", "Critical" };
+    /// <summary>The foe's states and the sixteen headings by their ids in the text table (UWText,
+    /// cleanup step 8.5, 2026-10-24).</summary>
+    private static readonly string[] msFoeStates = { "hud.foe.healthy", "hud.foe.wounded", "hud.foe.critical" };
 
     private static readonly string[] msHeadings =
     {
-        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+        "hud.heading.n", "hud.heading.nne", "hud.heading.ne", "hud.heading.ene", "hud.heading.e", "hud.heading.ese",
+        "hud.heading.se", "hud.heading.sse", "hud.heading.s", "hud.heading.ssw", "hud.heading.sw", "hud.heading.wsw",
+        "hud.heading.w", "hud.heading.wnw", "hud.heading.nw", "hud.heading.nnw"
     };
 
     /// <summary>The original's compass, which stands in for the heading's text while it shows.</summary>
@@ -143,7 +147,7 @@ public class UWModernHeadingStrip : UWModernPart
         // heading followed the view there.
         int liStep = mOUi.Compass.CurrentStep;
 
-        mOHeading.text = msHeadings[liStep];
+        mOHeading.text = UWText.T(msHeadings[liStep]);
 
         // Its button area around the word, and gold under the free pointer.
         float lfHeadingWidth = Mathf.Max(mOHeading.preferredWidth, FontSize * 2f) + FontSize;
@@ -182,7 +186,7 @@ public class UWModernHeadingStrip : UWModernPart
         // closed, so the brand does not move while it opens.
         mOFoeName.text = lsName ?? string.Empty;
         mOFoeName.fontSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * lfElement));
-        mOFoeState.text = msFoeStates[liGroup];
+        mOFoeState.text = UWText.T(msFoeStates[liGroup]);
         mOFoeState.fontSize = Mathf.Max(9, Mathf.RoundToInt(FontSize * 0.75f * lfElement));
         mOHeading.fontSize = Mathf.RoundToInt(FontSize * 1.1f * lfElement);
 

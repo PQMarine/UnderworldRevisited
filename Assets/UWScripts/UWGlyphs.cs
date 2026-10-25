@@ -43,16 +43,10 @@ public static class UWGlyphs
 
     public const int ArrowFourWaysTile = 679;
 
-    /// <summary>The controls by their place on the pad, as UWGamepad names them.</summary>
-    private static readonly string[] msControls =
-    {
-        "buttonSouth", "buttonEast", "buttonWest", "buttonNorth", "leftShoulder", "rightShoulder",
-        "leftTrigger", "rightTrigger", "leftStickPress", "rightStickPress", "start", "select",
-        "dpad/up", "dpad/down", "dpad/left", "dpad/right"
-    };
-
-    /// <summary>Their tiles per style (UWGamepad.ButtonStyleEnum), in the order above; several tiles
-    /// are laid over each other. Nintendo's face buttons are swapped against the place.</summary>
+    /// <summary>The tiles of the gamepad's controls per style (UWGamepad.ButtonStyleEnum), in the order
+    /// of the controls by place (UWBindingInfo.PadControlIndex, the one list since cleanup step 7.2,
+    /// 2026-10-25; a copy of it stood here until then); several tiles are laid over each other.
+    /// Nintendo's face buttons are swapped against the place.</summary>
     private static readonly int[][][] msTiles =
     {
         // Xbox: the coloured A B X Y, LB RB LT RT, the stick presses, Menu and View, the d-pad.
@@ -91,32 +85,15 @@ public static class UWGlyphs
     /// A, the cross or B), null for a control without one.</summary>
     public static Texture2D ForPath(string psPath)
     {
-        if (string.IsNullOrEmpty(psPath))
-            return null;
-
-        const string Prefix = "<Gamepad>/";
-        string lsControl = psPath.StartsWith(Prefix) ? psPath.Substring(Prefix.Length) : psPath;
-        int liAt = System.Array.IndexOf(msControls, lsControl);
+        int liAt = UWBindingInfo.PadControlIndex(psPath);
 
         return liAt < 0 ? null : Tiles(msTiles[(int)UWGamepad.ButtonStyle][liAt]);
     }
 
-    /// <summary>The binding path of a gamepad entry as it is now (UWKeyBindings.PadEntries), or null.</summary>
-    public static string PadPath(string psAction, int piBinding)
-    {
-        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
-        {
-            if (lOEntry.Action == psAction && lOEntry.Binding == piBinding)
-                return UWKeyBindings.GetPath(lOEntry);
-        }
-
-        return null;
-    }
-
-    /// <summary>The glyph of a gamepad entry's button as it is bound now.</summary>
+    /// <summary>The glyph of a gamepad entry's button as it is bound now (UWBindingInfo.PadPath).</summary>
     public static Texture2D ForEntry(string psAction, int piBinding)
     {
-        return ForPath(PadPath(psAction, piBinding));
+        return ForPath(UWBindingInfo.PadPath(psAction, piBinding));
     }
 
     /// <summary>Tiles laid over each other, twice their size with sharp pixels; null if the sheet

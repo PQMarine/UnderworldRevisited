@@ -126,7 +126,7 @@ public class UWLighting : MonoBehaviour
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
         bool lbRemastered = lOSettings != null
-            && lOSettings.IsRemasteredActive;
+            && UWRenderPathHost.Mode == UnderworldRevisited.UWSettings.RenderModeEnum.Remastered;
 
         if (!lbRemastered)
         {
@@ -156,15 +156,21 @@ public class UWLighting : MonoBehaviour
         mOPlayerLight.transform.localPosition = lOOffset;
 
         mOCarriedBasePosition = lOOffset;
-        mbCarriedOpenFire = lbFromItem && (liBaseId == TorchObjectId || liBaseId == CandleObjectId);
+        // Open fire by the light-source table (torch and candle; the lantern burns behind glass).
+        mbCarriedOpenFire = lbFromItem && UWLightSourceTable.IsOpenFire(liBaseId);
 
         mOPlayerLight.color = lbFromItem
-            ? UWLightColour.FromObject(mOData, miCarriedLightObjectId, new Color(1f, 0.78f, 0.5f))
-            : MagicLightColour;
+            ? UWLightColour.FromObject(mOData, miCarriedLightObjectId, UWLightColour.Fallback)
+            : fMagicLightColour();
 
         mfBaseIntensity *= lOSettings.RemasterCarriedLightFactor;
     }
 
+    /// <summary>
+    /// The light is set up anew when the Remastered values change (UWSettings.Revision: the detail
+    /// level, an Inspector edit) - until 2026-10-24 a hash of six of them, the render mode among
+    /// them, taken every frame. The render mode itself comes from UWRenderPathHost.OnChanged.
+    /// </summary>
     private void fRefreshOnRemasterChange()
     {
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
@@ -172,26 +178,32 @@ public class UWLighting : MonoBehaviour
         if (lOSettings == null || mOPlayerLight == null)
             return;
 
-        int liState = lOSettings.RenderMode.GetHashCode()
-            ^ (lOSettings.RemasterCarriedLightFactor.GetHashCode() * 3)
-            ^ (lOSettings.RemasterHandLightOffset.GetHashCode() * 7)
-            ^ (lOSettings.RemasterBeltLightOffset.GetHashCode() * 11)
-            ^ (lOSettings.RemasterMagicLightOffset.GetHashCode() * 13)
-            ^ (lOSettings.RemasterTorchShadows.GetHashCode() * 17);
-
-        if (liState == miRemasterState)
+        if (lOSettings.Revision == miRemasterRevision)
             return;
 
-        miRemasterState = liState;
+        miRemasterRevision = lOSettings.Revision;
 
         fApplyPlayerLight();
     }
 
-    private int miRemasterState;
+    private int miRemasterRevision = -1;
 
-    private const int TorchObjectId = UWObjectIds.Torch;
+    private void OnEnable()
+    {
+        UWRenderPathHost.OnChanged += fOnRenderModeChanged;
+    }
 
-    private const int CandleObjectId = UWObjectIds.Candle;
+    private void OnDisable()
+    {
+        UWRenderPathHost.OnChanged -= fOnRenderModeChanged;
+    }
+
+    /// <summary>The render path changed: the light is set up for it (its place, colour and
+    /// shadows differ in Remastered, and the palette path has none).</summary>
+    private void fOnRenderModeChanged(UnderworldRevisited.UWSettings.RenderModeEnum peMode)
+    {
+        fApplyPlayerLight();
+    }
 
     /// <summary>Whether the player carries open fire in Remastered mode - then it flickers and
     /// jitters like the placed fires.</summary>
@@ -202,9 +214,28 @@ public class UWLighting : MonoBehaviour
     /// <summary>a_lantern - the only light source that hangs at the belt.</summary>
     private const int LanternObjectId = UWObjectIds.Lantern;
 
-    /// <summary>A light spell has no item whose colour could be taken; it
-    /// gets a cool white so that it differs from fire.</summary>
+    /// <summary>A light spell has no item whose colour could be taken. Daylight (Vas In Lor) and
+    /// what shines brighter get a cool white so that they differ from fire.</summary>
     private static readonly Color MagicLightColour = new Color(0.8f, 0.88f, 1f);
+
+    /// <summary>The brightest spell light that still takes the torch's warm colour: In Lor's
+    /// level 3 (MagicBrightness).</summary>
+    private const int WarmMagicBrightness = 3;
+
+    /// <summary>
+    /// THE SPELL'S LIGHT COLOUR (per user, 2026-10-24): Light (In Lor, level 3 and below) shines
+    /// yellowish like a torch - the original lights the view by level alone and has no colour to
+    /// follow; Daylight stays the cool white (MagicLightColour). The colour is the lit torch's
+    /// own, from its picture as for a carried torch (UWLightColour).
+    /// </summary>
+    private Color fMagicLightColour()
+    {
+        if (miMagicBrightness > WarmMagicBrightness)
+            return MagicLightColour;
+
+        return UWLightColour.FromObject(mOData,
+            UWDataImport.UWData.UWObjectIds.Torch + UWDataImport.UWData.UWObjectIds.LitLightOffset, UWLightColour.Fallback);
+    }
 
     private bool mbKnowsLightPosition;
 
@@ -508,7 +539,7 @@ public class UWLighting : MonoBehaviour
         UnderworldRevisited.UWSettings lORenderSettings = UnderworldRevisited.UWSettings.Instance;
 
         mOPlayerLight.shadows = lORenderSettings != null
-            && lORenderSettings.IsRemasteredActive
+            && UWRenderPathHost.Mode == UnderworldRevisited.UWSettings.RenderModeEnum.Remastered
             && lORenderSettings.RemasterTorchShadows
                 ? LightShadows.Soft : LightShadows.None;
 
@@ -574,30 +605,24 @@ public class UWLighting : MonoBehaviour
         if (mOPlayerLight == null || !mOPlayerLight.enabled || mfFlickerAmount <= 0f)
             return;
 
-        // Two superimposed noise values so that the flicker does not look periodic.
-        float lfNoise = Mathf.PerlinNoise(Time.time * mfFlickerSpeed, 0f)
-            + Mathf.PerlinNoise(0f, Time.time * mfFlickerSpeed * 0.37f);
+        // Two superimposed noise values so that the flicker does not look periodic (UWFlicker).
+        float lfNoise = UWFlicker.CarriedNoise(UWLightFlicker.Perlin, Time.time, mfFlickerSpeed);
 
         float lfAmount = mfFlickerAmount;
         UnderworldRevisited.UWSettings lOFireSettings = mbCarriedOpenFire ? UnderworldRevisited.UWSettings.Instance : null;
 
         // Open fire in the hand flickers in Remastered mode like the placed fires,
-        // and its light jitters so that the shadows dance (see UWLightFlicker).
+        // and its light jitters so that the shadows dance (UWFlicker.Jitter, seed 0).
         if (lOFireSettings != null)
         {
             lfAmount = lOFireSettings.RemasterFireFlicker;
 
-            Vector3 lOWobble = new Vector3(
-                Mathf.PerlinNoise(3.1f, Time.time * 6.3f) - 0.5f,
-                Mathf.PerlinNoise(7.7f, Time.time * 5.1f) - 0.5f,
-                Mathf.PerlinNoise(11.9f, Time.time * 6.9f) - 0.5f);
+            UWFlicker.Jitter(UWLightFlicker.Perlin, 0f, Time.time, lOFireSettings.RemasterFireJitter,
+                out float lfX, out float lfY, out float lfZ);
 
-            mOPlayerLight.transform.localPosition = mOCarriedBasePosition
-                + (lOWobble * (2f * lOFireSettings.RemasterFireJitter));
+            mOPlayerLight.transform.localPosition = mOCarriedBasePosition + new Vector3(lfX, lfY, lfZ);
         }
 
-        float lfFactor = 1f + ((lfNoise - 1f) * lfAmount);
-
-        mOPlayerLight.intensity = mfBaseIntensity * lfFactor;
+        mOPlayerLight.intensity = mfBaseIntensity * UWFlicker.CarriedFactor(lfAmount, lfNoise);
     }
 }

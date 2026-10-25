@@ -563,7 +563,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
     {
         if (pOOutcome.Hit)
         {
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, pOOutcome.HitVolume);
+            UWAudioService.PlayEffect(UWSoundEffectId.HitPlayer, pOOutcome.HitVolume);
 
             return;
         }
@@ -571,7 +571,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
         UWCharacter lOPlayer = UWScene.Character;
 
         if (lOPlayer != null)
-            UWSoundEffects.PlayAt(pOOutcome.BlockedSound, lOPlayer.transform.position);
+            UWAudioService.PlayEffectAt(pOOutcome.BlockedSound, lOPlayer.transform.position);
     }
 
     /// <summary>
@@ -620,7 +620,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
         if (lOLoader != null)
             lOLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, UWCritter.BlowEffectSeconds);
 
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt, piVolume);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt, piVolume);
     }
 
     /// <summary>The impact flash and hit sound where the blow met the world. A collider that
@@ -640,13 +640,13 @@ public sealed class UWCreatureWorld : ICreatureWorld
                 * (UWCritterRules.AttackReachRadius * UWWorldScale.SubTileStep));
 
         lOLoader.SpawnEffectAt(UWObjectMechanics.FlashEffectObjectId, lOAt, UWCritter.BlowEffectSeconds);
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt);
     }
 
     public void ShowDoorBashed(in UWMeleeContact pOContact, int piVolume)
     {
         if (pOContact.Place is Vector3 lOAt)
-            UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOAt, piVolume);
+            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOAt, piVolume);
     }
 
     // ------------------------------------------------- Missiles
@@ -676,10 +676,10 @@ public sealed class UWCreatureWorld : ICreatureWorld
             lOInteraction.TryTalkToNpcData(pONpc);
     }
 
-    public int MusicTheme => UWMusic.CurrentTheme;
+    public int MusicTheme => UWAudioService.CurrentTheme;
 
     public void MarkCombatMusic()
     {
-        UWMusic.MarkCombat();
+        UWAudioService.MarkCombat();
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE MODERN SCHEME'S POINTER (per user, 2026-10-03: "we are very close to the MMO controls"):
@@ -39,8 +40,9 @@ public static class UWModernPointer
     /// </summary>
     public static bool PanelsHeld => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting;
 
-    /// <summary>The frame the right button switched the pointer: that press uses nothing.</summary>
-    public static int SwitchedFrame { get; private set; } = -1;
+    // The frame the right button switched the pointer (SwitchedFrame, until cleanup step 7.8): the
+    // switch holds its press for the frame now (UWInput.HoldPress), its readers ask
+    // UWInput.PressedUnheld.
 
     /// <summary>Holding the right button locked the pointer to look around; it frees again on the
     /// release.</summary>
@@ -100,12 +102,13 @@ public static class UWModernPointer
 
         msiPlaceFrame = -1;
 
-        if (!IsFree || Mouse.current == null || UWModernBags.Instance == null
+        if (!IsFree || !UWPointer.HasMouse || UWModernBags.Instance == null
             || !UWModernBags.Instance.TryGetFirstBackpackSlot(out Vector2 lOSlot))
             return;
 
-        Mouse.current.WarpCursorPosition(lOSlot);
-        UWGamepadPointer.PlaceAt(lOSlot);
+        // Our own pointer onto the slot (UWPointer.MoveTo; a warp of the system pointer until cleanup
+        // step 7.7B).
+        UWPointer.MoveTo(lOSlot, UWPointer.SourceEnum.Pad);
     }
 
     /// <summary>Locks the pointer for the mouse look - unless a thing hangs on it and finds no
@@ -154,7 +157,7 @@ public static class UWModernPointer
     public static bool FreePointerOnWorld()
     {
         // The split box's clicks are its own (UWModernBagSplit), and so is the use mode's.
-        if (!IsFree || Mouse.current == null || UWModernBags.IsSplitting || UWModernBags.IsMenuOpen
+        if (!IsFree || !UWPointer.HasMouse || UWModernBags.IsSplitting || UWModernBags.IsMenuOpen
             || UWModernQuestion.IsBlocking
             || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing))
             return false;
@@ -164,7 +167,7 @@ public static class UWModernPointer
         if (lOInventory != null && lOInventory.CursorItem != null)
             return false;
 
-        return !UWModernUi.IsOverUi(Mouse.current.position.ReadValue());
+        return !UWModernUi.IsOverUi(UWPointer.Position);
     }
 
     /// <summary>The right button, read once a frame by UWModernHud.</summary>
@@ -184,7 +187,7 @@ public static class UWModernPointer
         }
 
         // The question box takes the right button as its Cancel (UWModernQuestion).
-        if (!pbActive || lOScheme.IsUIModalOpen || lOScheme.IsConversationOpen || lOScheme.IsInputHeld || Mouse.current == null
+        if (!pbActive || lOScheme.IsUIModalOpen || lOScheme.IsConversationOpen || lOScheme.IsInputHeld || !UWPointer.HasMouse
             || UWModernQuestion.IsBlocking || UWModernBags.IsMenuOpen)
             return;
 
@@ -194,7 +197,7 @@ public static class UWModernPointer
             return;
 
         UnityEngine.InputSystem.InputAction lOButton = lOControls.Player.Interact;
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         bool lbOverUi = IsFree && UWModernUi.IsOverUi(lOPointer);
 
         // THE GAMEPAD'S RIGHT BUTTON does not switch the pointer - R3 does that for the pad (per
@@ -224,7 +227,7 @@ public static class UWModernPointer
             if (lOButton.WasPressedThisFrame() && !lbPadRight && !lbOverUi && Lock())
             {
                 msbHeldLook = true;
-                SwitchedFrame = Time.frameCount;
+                UWInput.HoldPress(UWAct.Interact);
             }
 
             return;
@@ -235,7 +238,8 @@ public static class UWModernPointer
         if (!lOButton.WasPressedThisFrame() || lbOverUi || lbPadRight)
             return;
 
-        SwitchedFrame = Time.frameCount;
+        // The switching press uses nothing else in this frame (the bags, the action bar, the rune panel).
+        UWInput.HoldPress(UWAct.Interact);
 
         if (IsFree)
             Lock();

@@ -8,7 +8,7 @@ using UWDataImport.UWData;
 /// TWO WAYS, because the interface and the world get their colours from different places:
 ///
 ///   INTERFACE AND PALETTE RENDERER go through the palette. The colour table
-///   (UWShadePalette.BuildColourTable) and the pictures of the menu screens
+///   (UWTextureFactory.ColourTable) and the pictures of the menu screens
 ///   (UWScreenUi.BuildTexture) are put through the filter while they are built, so paper doll,
 ///   flasks, inventory, map and the classic 3D view all follow.
 ///

@@ -60,7 +60,7 @@ public sealed class UWModernWorldInput
     {
         if (fInventory() != null && fInventory().CursorItem != null)
         {
-            mfModernUseHeld = -1f;
+            mOModernUse.Cancel();
             return;
         }
 
@@ -69,7 +69,7 @@ public sealed class UWModernWorldInput
         // The gamepad's right trigger draws the weapon as well (UWGamepad): held on, it charges
         // once the weapon is ready (Update). The mouse button does not draw.
         bool lbPadDraws = !mOInteraction.IsCombatModeActive && mOInteraction.Input.ModernAttack.WasPressedThisFrame()
-            && UWGamepad.IsFromGamepad(mOInteraction.Input.ModernAttack) && !UWGamepadPointer.Takes(mOInteraction.Input.ModernAttack);
+            && UWGamepad.IsFromGamepad(mOInteraction.Input.ModernAttack) && !UWInput.PadPointerTakes(mOInteraction.Input.ModernAttack);
 
         if (mOInteraction.Input.ModernReady.WasPressedThisFrame() || lbPadDraws)
             mOInteraction.ToggleCombatMode();
@@ -78,16 +78,16 @@ public sealed class UWModernWorldInput
         // slot under the pointer - character panel, bags, action bar -, E tapped uses it there
         // and E held does nothing (fUpdateModernUseKey); until then both fell back to what the
         // crosshair aimed at in the world.
-        bool lbOverUi = IsPointerFree() && Mouse.current != null
-            && UWModernUi.IsOverUi(Mouse.current.position.ReadValue());
+        bool lbOverUi = IsPointerFree() && UWPointer.HasMouse
+            && UWModernUi.IsOverUi(UWPointer.Position);
 
         // Q looks (per user, 2026-10-03) - the right button switches the pointer
         // (UWModernPointer).
-        // The gamepad's pointer takes its X as the right button (UWGamepadPointer.Takes).
-        if (mOInteraction.Input.ModernLook.WasPressedThisFrame() && !UWGamepadPointer.Takes(mOInteraction.Input.ModernLook))
+        // The gamepad's pointer takes its X as the right button (the PadPointer context, UWInput.PadPointerTakes).
+        if (mOInteraction.Input.ModernLook.WasPressedThisFrame() && !UWInput.PadPointerTakes(mOInteraction.Input.ModernLook))
         {
             if (lbOverUi)
-                mOInteraction.Look.LookAtUi(Mouse.current.position.ReadValue());
+                mOInteraction.Look.LookAtUi(UWPointer.Position);
             else
             {
                 fAimAtModern(out UWEntityInfo lOFrontmost, out string lsChunk, out UWEntityInfo _);
@@ -114,9 +114,7 @@ public sealed class UWModernWorldInput
     /// </summary>
     private void fUpdateModernPointerWorld()
     {
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null || Camera.main == null || !IsPointerFree() || mOInteraction.IsCombatModeActive
+        if (!UWPointer.HasMouse || Camera.main == null || !IsPointerFree() || mOInteraction.IsCombatModeActive
             || UWModernBags.IsMenuOpen || UWModernBags.IsSplitting || UWModernQuestion.IsBlocking
             || (UWModernBags.Instance != null && UWModernBags.Instance.IsUsing))
         {
@@ -124,7 +122,7 @@ public sealed class UWModernWorldInput
             return;
         }
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         if (UWMouseButtons.LeftPressed)
         {
@@ -181,9 +179,9 @@ public sealed class UWModernWorldInput
     /// world, else at the crosshair (per user, 2026-10-04).</summary>
     public Ray AimRay()
     {
-        if (IsPointerFree() && Mouse.current != null && Camera.main != null)
+        if (IsPointerFree() && UWPointer.HasMouse && Camera.main != null)
         {
-            Vector2 lOPointer = Mouse.current.position.ReadValue();
+            Vector2 lOPointer = UWPointer.Position;
 
             if (!UWModernUi.IsOverUi(lOPointer))
                 return Camera.main.ScreenPointToRay(lOPointer);
@@ -248,15 +246,16 @@ public sealed class UWModernWorldInput
     /// <summary>How long E has to be held for the direct use.</summary>
     private const float ModernUseHoldSeconds = 0.4f;
 
-    /// <summary>How long E has been held, -1 when it is not (or the press was taken elsewhere).</summary>
-    private float mfModernUseHeld = -1f;
-
-    private bool mbModernUseHoldFired;
+    /// <summary>E's tap and hold (UWHoldTap since cleanup step 7.3, 2026-10-25; the time held, added up
+    /// frame by frame, and a fired flag here until then): the hold due ModernUseHoldSeconds after the
+    /// press by the unscaled clock, the press going on until the release, which taps only before the
+    /// hold and only as a release.</summary>
+    private readonly UWHoldTap mOModernUse = new UWHoldTap(ModernUseHoldSeconds, UWHoldTap.UseKey);
 
     /// <summary>How far the hold of E has come, 0 to 1, for the HUD; -1 while there is none to
     /// show (not held, just tapped, or already fired).</summary>
-    public float ModernUseHoldProgress => mfModernUseHeld >= 0.1f && !mbModernUseHoldFired && !mbModernUseOnUi
-        ? Mathf.Clamp01(mfModernUseHeld / ModernUseHoldSeconds) : -1f;
+    public float ModernUseHoldProgress => mOModernUse.HeldSeconds >= 0.1f && !mOModernUse.HoldDone && !mbModernUseOnUi
+        ? Mathf.Clamp01(mOModernUse.HeldSeconds / ModernUseHoldSeconds) : -1f;
 
     /// <summary>E went down with the free pointer over the interface: its tap uses the slot there,
     /// its hold does nothing.</summary>
@@ -276,11 +275,11 @@ public sealed class UWModernWorldInput
     /// pointer over a window, nothing on the pointer.</summary>
     public void UpdateLookOverUi()
     {
-        if ((fInventory() != null && fInventory().CursorItem != null) || Mouse.current == null
-            || !mOInteraction.Input.ModernLook.WasPressedThisFrame() || UWGamepadPointer.Takes(mOInteraction.Input.ModernLook))
+        if ((fInventory() != null && fInventory().CursorItem != null) || !UWPointer.HasMouse
+            || !mOInteraction.Input.ModernLook.WasPressedThisFrame() || UWInput.PadPointerTakes(mOInteraction.Input.ModernLook))
             return;
 
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         if (UWModernUi.IsOverUi(lOPointer))
             mOInteraction.Look.LookAtUi(lOPointer);
@@ -290,57 +289,47 @@ public sealed class UWModernWorldInput
     {
         InputAction lOKey = mOInteraction.Input.ModernUse;
 
-        // The gamepad's pointer takes its A as the click (UWGamepadPointer.Takes).
-        if (lOKey.WasPressedThisFrame() && UWGamepadPointer.Takes(lOKey))
+        // The gamepad's pointer takes its A as the click (the PadPointer context, UWInput.PadPointerTakes).
+        if (lOKey.WasPressedThisFrame() && UWInput.PadPointerTakes(lOKey))
         {
-            mfModernUseHeld = -1f;
+            mOModernUse.Cancel();
             return;
         }
 
         if (lOKey.WasPressedThisFrame())
         {
-            mfModernUseHeld = 0f;
-            mbModernUseHoldFired = false;
+            mOModernUse.Press(Time.unscaledTime);
             mbModernUseOnUi = pbOverUi;
             return;
         }
 
-        if (mfModernUseHeld < 0f)
+        if (!mOModernUse.IsPressed)
             return;
 
         // Begun on the world and the pointer went onto a window: that press is gone.
         if (!mbModernUseOnUi && pbOverUi)
         {
-            mfModernUseHeld = -1f;
+            mOModernUse.Cancel();
             return;
         }
 
-        if (lOKey.IsPressed())
+        switch (mOModernUse.Update(lOKey.IsPressed(), lOKey.WasReleasedThisFrame(), Time.unscaledTime))
         {
-            mfModernUseHeld += Time.unscaledDeltaTime;
-
-            if (!mbModernUseHoldFired && mfModernUseHeld >= ModernUseHoldSeconds)
-            {
+            case UWHoldTap.ResultEnum.Hold:
                 // Held over the interface: nothing (per user, 2026-10-07).
-                mbModernUseHoldFired = true;
-
                 if (!mbModernUseOnUi)
                     fModernUse(true);
-            }
 
-            return;
+                break;
+            case UWHoldTap.ResultEnum.Tap:
+                // Released (not lost while a panel held the world): a tap that did not reach the hold.
+                if (!mbModernUseOnUi)
+                    fModernUse(false);
+                else if (pbOverUi)
+                    fUseAtUi(UWPointer.Position);
+
+                break;
         }
-
-        // Released (or lost while a panel held the world): a tap that did not reach the hold.
-        if (lOKey.WasReleasedThisFrame() && !mbModernUseHoldFired)
-        {
-            if (!mbModernUseOnUi)
-                fModernUse(false);
-            else if (pbOverUi)
-                fUseAtUi(Mouse.current.position.ReadValue());
-        }
-
-        mfModernUseHeld = -1f;
     }
 
     /// <summary>
@@ -417,18 +406,18 @@ public sealed class UWModernWorldInput
         UWEntityInfo lOTake = lOFrontmost != null && lOFrontmost.CanBePickedUp ? lOFrontmost : lOPickable;
 
         if (lOTake != null && !Interaction.IsCreatureEntity(lOTake))
-            return "Pick up";
+            return UWText.T("hud.crosshair.pick_up");
 
         if (Interaction.IsGeometryEntity(lOFrontmost))
             return null;
 
         if (Interaction.IsCreatureEntity(lOFrontmost))
-            return "Talk";
+            return UWText.T("hud.crosshair.talk");
 
         int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
 
         return UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess) != UWClickRules.ThingTalkAnswer.CannotTalk
-            ? "Talk" : "Use";
+            ? UWText.T("hud.crosshair.talk") : UWText.T("hud.crosshair.use");
     }
 
     /// <summary>

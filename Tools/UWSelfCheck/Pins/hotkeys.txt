@@ -1,0 +1,65 @@
+00.00 = [0] GameUi / font | Both | mods Any | needs None | not Typing, ScreenMenu, Cutscene, Rebinding | each
+00.01 = F = Pressed Player|ToggleFont | mods NoCtrl | needs None | not None | silent while typing -> ToggleFont
+01.00 = [1] GameUi / modern, map up | Modern | mods Any | needs ModernHud, Interaction, MapVisible | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, RoamingEndedByEscape, Rebinding | first match | stops
+01.01 = M, View tapped = Performed Player|ToggleMap | mods NoCtrl | needs None | not None | silent while typing -> HideMap
+01.02 = Escape, Start, pad B = Back to ModernMap | mods NoCtrl | needs None | not None -> HideMap
+02.00 = [2] GameUi / modern, right Ctrl | Modern | mods RightCtrl | needs ModernHud, Interaction | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, RoamingEndedByEscape, MapVisible, Rebinding | first match | stops
+02.01 = Right Ctrl+S = Pressed Player|OptSave | mods Any | needs None | not None | silent while typing -> ModernMenuSave
+02.02 = Right Ctrl+R = Pressed Player|OptRestore | mods Any | needs None | not None | silent while typing -> ModernMenuLoad
+02.03 = Right Ctrl+M = Pressed Player|OptMusic | mods Any | needs None | not None | silent while typing -> ModernMenuMain
+02.04 = Right Ctrl+F = Pressed Player|OptSound | mods Any | needs None | not None | silent while typing -> ModernMenuMain
+02.05 = Right Ctrl+D = Pressed Player|OptDetail | mods Any | needs None | not None | silent while typing -> ModernMenuMain
+02.06 = Right Ctrl+Q = Pressed Player|OptQuit | mods Any | needs None | not None | silent while typing -> ModernMenuMain
+03.00 = [3] GameUi / modern | Modern | mods NoShiftAlt | needs ModernHud, Interaction | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, RoamingEndedByEscape, MapVisible, Rebinding | first match | stops
+03.01 = Escape, Start, pad B = Back to ModernChain | mods Any | needs None | not None -> CloseChain
+03.02 = F1 = Pressed Player|KeyOptions | mods Any | needs None | not None | silent while typing -> ToggleModernMenu
+03.03 = Escape, Start, pad B = Back to ModernMenu | mods Any | needs None | not None -> ToggleModernMenu
+03.04 = (menu open) = Always | mods Any | needs MenuOpen | not None -> None
+03.05 = F9 = Pressed Player|KeyTrack | mods Any | needs None | not None | silent while typing -> Track
+03.06 = F10 = Pressed Player|KeyCamp | mods Any | needs CanCamp | not None | silent while typing -> Camp
+03.07 = M, View tapped = Performed Player|ToggleMap | mods Any | needs None | not PadPointerTakes | silent while typing -> ToggleMap
+04.00 = [4] GameUi / classic map | Classic | mods NoCtrl | needs None | not Typing, ScreenMenu, Cutscene, Conversation, Rebinding | first match
+04.01 = M, View tapped = Performed Player|ToggleMap | mods Any | needs MapVisible | not None | silent while typing -> ToggleMap
+04.02 = M, View tapped = Performed Player|ToggleMap | mods Any | needs None | not MapVisible, PadPointerTakes | silent while typing -> ToggleMap
+05.00 = [5] GameUi / classic Ctrl | Classic | mods Ctrl | needs Interaction | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, MapVisible, OptionsOpen, Rebinding | first match
+05.01 = Ctrl+S = Pressed Player|OptSave | mods Any | needs None | not None | silent while typing -> ShortcutSave
+05.02 = Ctrl+R = Pressed Player|OptRestore | mods Any | needs None | not None | silent while typing -> ShortcutRestore
+05.03 = Ctrl+M = Pressed Player|OptMusic | mods Any | needs None | not None | silent while typing -> ShortcutMusic
+05.04 = Ctrl+F = Pressed Player|OptSound | mods Any | needs None | not None | silent while typing -> ShortcutSound
+05.05 = Ctrl+D = Pressed Player|OptDetail | mods Any | needs None | not None | silent while typing -> ShortcutDetail
+05.06 = Ctrl+Q = Pressed Player|OptQuit | mods Any | needs None | not None | silent while typing -> ShortcutQuit
+06.00 = [6] GameUi / classic, roaming | Classic | mods Plain | needs Roaming, Interaction | not Typing, ScreenMenu, Cutscene, Conversation, MapVisible, Rebinding | first match | stops
+06.01 = F7 = Pressed Player|KeyPanel | mods Any | needs None | not None | silent while typing -> TurnPanel
+07.00 = [7] GameUi / classic | Classic | mods Plain | needs Interaction | not Typing, ScreenMenu, Cutscene, Conversation, Roaming, MapVisible, Rebinding | first match
+07.01 = F1 = Pressed Player|KeyOptions | mods Any | needs None | not None | silent while typing -> OpenOptions
+07.02 = (options up) = Always | mods Any | needs OptionsOpen | not None -> None
+07.03 = F2 = Pressed Player|KeyTalk | mods Any | needs None | not None | silent while typing -> ModeTalk
+07.04 = F3 = Pressed Player|KeyGet | mods Any | needs None | not None | silent while typing -> ModeGet
+07.05 = F4 = Pressed Player|KeyLook | mods Any | needs None | not None | silent while typing -> ModeLook
+07.06 = F5 = Pressed Player|KeyFight | mods Any | needs None | not None | silent while typing -> ModeFight
+07.07 = F6 = Pressed Player|KeyUse | mods Any | needs None | not None | silent while typing -> ModeUse
+07.08 = F7 = Pressed Player|KeyPanel | mods Any | needs None | not None | silent while typing -> TurnPanel
+07.09 = F8 = Pressed Player|KeyCast | mods Any | needs None | not None | silent while typing -> CastShelf
+07.10 = F9 = Pressed Player|KeyTrack | mods Any | needs None | not None | silent while typing -> Track
+07.11 = F10 = Pressed Player|KeyCamp | mods Any | needs CanCamp | not None | silent while typing -> Camp
+08.00 = [8] Scheme / scheme | Both | mods Any | needs None | not Rebinding | each
+08.01 = Shift+F2, pad View = Pressed Player|ToggleScheme | mods ShiftOnKeyboard | needs None | not None | silent while typing -> SwitchScheme
+09.00 = [9] Help / help | Both | mods NoShiftAlt | needs None | not KeysLocked, HelpKeys, PanelHoldsHelp, SetupPanel, HelpCovered, Rebinding | each
+09.01 = Tab, View held = Performed Player|ToggleHelp | mods Any | needs None | not None -> ToggleHelp
+10.00 = [10] ModernPanel / panel help | Modern | mods NoShiftAlt | needs None | not MapVisible, MenuOpen, KeysLocked, HelpKeys, SetupPanel, Rebinding | each
+10.01 = Tab, View held = Performed Player|ToggleHelp | mods Any | needs None | not None -> TogglePanelHelp
+11.00 = [11] DebugKeys / debug | Both | mods Any | needs None | not Rebinding | each
+11.01 = P = Pressed Debug|TeleportDebug | mods Any | needs None | not None | silent while typing -> Teleport
+11.02 = N = Pressed Debug|ToggleSpectator | mods Any | needs None | not ScreenMenu | silent while typing -> ToggleNoclip
+12.00 = [12] DebugKeys / debug levels | Both | mods Any | needs Noclip | not Rebinding | first match
+12.01 = Page Up = Pressed Debug|NextLevel | mods Any | needs None | not None | silent while typing -> NextLevel
+12.02 = Page Down = Pressed Debug|PrevLevel | mods Any | needs None | not None | silent while typing -> PreviousLevel
+13.00 = [13] DebugKeys / debug more | Both | mods Any | needs None | not Rebinding | each
+13.01 = F11 = Pressed Debug|ToggleBrightness | mods NoShift | needs Lighting | not ScreenMenu | silent while typing -> ToggleBrightness
+13.02 = Shift+F12 = Pressed Debug|DumpShaderGlobals | mods Any | needs None | not None | silent while typing -> DumpShaderGlobals
+13.03 = Shift+F11 = Pressed Debug|ForceCast | mods Any | needs None | not ScreenMenu | silent while typing -> ForceCast
+14.00 = [14] DebugOverlay / overlay | Both | mods Any | needs None | not Rebinding | each
+14.01 = Shift+F1 = Pressed Debug|ToggleOverlay | mods Any | needs None | not None | silent while typing -> ToggleOverlay
+15.00 = [15] DebugTools / debug tools | Both | mods Shift | needs None | not OtherTyping, Rebinding | each
+15.01 = Shift+F7 = RawF7 | mods Any | needs None | not None -> ToggleDebugJump
+15.02 = Shift+F10 = RawF10 | mods Any | needs None | not None -> ToggleDebugSearch

@@ -20,12 +20,11 @@ namespace UWDataImport.UWData
 	/// semitones, not two (only "Fleeing", UW13, bends at all).
 	///
 	/// The XMIDI controllers 110-120 are the Miles driver's own and never reach the device -
-	/// above all 120, which General MIDI reads as All Sound Off.
+	/// above all 120, which General MIDI reads as All Sound Off. UWXmiSequencer drops them since
+	/// cleanup step 6.6 (2026-10-24), the one home of that rule (IsXmidiController).
 	/// </summary>
 	public class UWGmMusicDriver : IUWRenderingMidiDriver
 	{
-		private const int DrumChannel = 9;
-
 		private const int BendSemitones = 12;
 
 		/// <summary>
@@ -110,16 +109,13 @@ namespace UWDataImport.UWData
 			{
 				case 0xC0:
 					// The MT-32's rhythm part ignores a program change; General MIDI would switch kits.
-					if (liChannel == DrumChannel)
+					if (liChannel == UWXmiSequencer.DrumChannel)
 						return;
 
 					mOSynth.ProcessMidiMessage(liChannel, 0xC0, Mt32ToGm[piData1 & 0x7F], 0);
 					return;
 
 				case 0xB0:
-					if (piData1 >= 110 && piData1 <= 120)
-						return;
-
 					if (piData1 == 10)
 						piData2 = 127 - piData2;
 

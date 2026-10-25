@@ -120,7 +120,7 @@ public sealed class UWPlayerMissiles
         // The twang: bow and crossbow only, never the sling - and also when the shot failed
         // for lack of room (both paths of MissileRelease_seg025_9F end in it).
         if (lOWeapon.ID == BowObjectId || lOWeapon.ID == CrossbowObjectId)
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.BowTwang);
+            UWAudioService.PlayEffect(UWSoundEffectId.BowTwang);
 
         return true;
     }
@@ -233,7 +233,7 @@ public sealed class UWPlayerMissiles
         // the free pointer stands on the world, else along the crosshair (per user, 2026-10-04).
         if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView && fUi() != null)
         {
-            UWPlayerThrow.GetPointerInView(fUi(), Mouse.current.position.ReadValue(), out int liX, out int liY);
+            UWPlayerThrow.GetPointerInView(fUi(), UWPointer.Position, out int liX, out int liY);
             UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
         }
         else

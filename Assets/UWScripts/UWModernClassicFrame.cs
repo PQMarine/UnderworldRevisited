@@ -691,13 +691,13 @@ public class UWModernClassicFrame : MonoBehaviour
         if (lOControls != null && lOControls.Player.ModernRunes.WasPressedThisFrame())
             fTurnTo((PageEnum)msOTurn.RuneBagTarget);
 
-        if (!UWModernPointer.IsFree || Mouse.current == null || (!UWMouseButtons.LeftPressed && !UWMouseButtons.RightPressed)
+        if (!UWModernPointer.IsFree || !UWPointer.HasMouse || (!UWMouseButtons.LeftPressed && !UWMouseButtons.RightPressed)
             || UWModernPointer.PanelsHeld)
             return;
 
         // The original's point: right of both cuts in these rows, so Extra columns off; rows from
         // the bottom, as the click table counts.
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         int liX = Mathf.FloorToInt(lOPointer.x / ColumnScale) - Extra;
         int liY = Mathf.FloorToInt(lOPointer.y / RowScale);
 

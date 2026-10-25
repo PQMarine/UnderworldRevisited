@@ -119,11 +119,32 @@ public static class UWModernUi
         UWModernHud lOHud = pOHud;
 
         if (lOHud == null || !lOHud.IsShowing || lOHud.IsOpen || UWControls.IsTextEntryActive || !UWModernPointer.IsFree
-            || Mouse.current == null || lOHud.Scheme == null || lOHud.Scheme.Controls == null)
+            || !UWPointer.HasMouse || lOHud.Scheme == null || lOHud.Scheme.Controls == null)
             return false;
 
-        pOPointer = Mouse.current.position.ReadValue();
+        pOPointer = UWPointer.Position;
         pOControls = lOHud.Scheme.Controls;
+
+        return true;
+    }
+
+    /// <summary>
+    /// THE POINTER GATE OF THE KIT'S WINDOWS (cleanup 8b.1, 2026-10-24): the setup bar and the windows
+    /// moved off IMGUI (UWKitRows) take their clicks here, as the HUD's buttons at HudTakesPointer: a
+    /// mouse is there and the pointer is not in the modern look mode (UWPointer.IsLookLocked; the
+    /// system pointer's lock until cleanup step 7.7B). pOPointer is UWPointer's position (screen pixels,
+    /// y up): ours in the game, the pad's where it placed the free pointer and was used last, else the
+    /// system's. The presses are UWPointer's left button - the pad's A presses its own mouse's, so they
+    /// arrive there as well.
+    /// </summary>
+    public static bool WindowTakesPointer(out Vector2 pOPointer)
+    {
+        pOPointer = Vector2.zero;
+
+        if (!UWPointer.HasMouse || UWPointer.IsLookLocked)
+            return false;
+
+        pOPointer = UWPointer.Position;
 
         return true;
     }

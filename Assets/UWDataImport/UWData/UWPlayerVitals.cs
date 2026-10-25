@@ -763,7 +763,7 @@ namespace UWDataImport.UWData
 		/// RunGameTick; this said "the minute tick" until 2026-10-12).
 		///
 		/// WHAT IS SEEN while it runs is UWHallucinationState - one of three effects, rolled once
-		/// (the palette one is built, see UWPaletteRenderToggle). The
+		/// (the palette one is built, see UWPaletteCommon). The
 		/// counter still runs: it is stored in the save game, and the visuals can be hooked up
 		/// to it later without anything else needing to change. The mushroom raises it by one,
 		/// the Hallucination spell of some potions and a scroll sets it to the maximum.

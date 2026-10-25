@@ -75,10 +75,8 @@ public class UWImguiHotControlGuard : MonoBehaviour
 
     private static bool fAnyMouseButtonHeld()
     {
-        Mouse lOMouse = Mouse.current;
-
-        return lOMouse != null && (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed
-            || lOMouse.middleButton.isPressed);
+        return UWPointer.HasMouse && (UWPointer.LeftHeld || UWPointer.RightHeld
+            || UWPointer.MiddleHeld);
     }
 
     private void OnDestroy()

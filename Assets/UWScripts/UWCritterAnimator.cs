@@ -64,7 +64,7 @@ public class UWCritterAnimator : MonoBehaviour
     private float mfNextVoidFrameTime;
 
     /// <summary>A big object's radius in eighths of a tile - COMOBJ byte 1 bits 0-2 when bit 3 (in
-    /// our table IsAnimated) marks it big - or 0; see UWOwnTile.BigRadiusProperty.</summary>
+    /// our table IsAnimated) marks it big - or 0; see UWShaderIds.BigRadius.</summary>
     private static int fGetBigRadius(DataImport pOData, int piObjectId)
     {
         UWCommonObjectProperties.Entry lOEntry;
@@ -115,7 +115,7 @@ public class UWCritterAnimator : MonoBehaviour
 
             // Its own index atlas for Remastered's hallucination and ghosts (UWHallucination.hlsl) -
             // the template carries the object atlas's.
-            lOMaterial.SetTexture("_IndexTex", mOAtlas.IndexTexture != null ? mOAtlas.IndexTexture : Texture2D.blackTexture);
+            lOMaterial.SetTexture(UWShaderIds.IndexTex, mOAtlas.IndexTexture != null ? mOAtlas.IndexTexture : Texture2D.blackTexture);
 
             // The creature's own tile does not cover it, only what is nearer (see UWOwnTile). First
             // built for the lurker, whose image hangs twelve rows under the water; since
@@ -125,9 +125,9 @@ public class UWCritterAnimator : MonoBehaviour
             UWOwnTile.Enable(lOMaterial);
 
             // A BIG OBJECT'S RADIUS, as the original's object sorting reads it (per user,
-            // 2026-09-28: the draw order of the original) - see UWOwnTile.BigRadiusProperty.
-            if (lOMaterial.HasProperty(UWOwnTile.BigRadiusProperty))
-                lOMaterial.SetFloat(UWOwnTile.BigRadiusProperty, liBigRadius);
+            // 2026-09-28: the draw order of the original) - see UWShaderIds.BigRadius.
+            if (lOMaterial.HasProperty(UWShaderIds.BigRadius))
+                lOMaterial.SetFloat(UWShaderIds.BigRadius, liBigRadius);
 
             mOMaterialCache[liMaterialKey] = lOMaterial;
         }
@@ -187,7 +187,7 @@ public class UWCritterAnimator : MonoBehaviour
 
     /// <summary>How many creature atlases have been built so far. The palette renderer
     /// uses it to detect that a KIND has been added and its colour atlas ->
-    /// index atlas mapping is stale (see UWPaletteRenderToggle).</summary>
+    /// index atlas mapping is stale (see UWPaletteRenderPath).</summary>
     public static int AtlasCount
     {
         get { return mOAtlasCache.Count; }
@@ -195,7 +195,7 @@ public class UWCritterAnimator : MonoBehaviour
 
     /// <summary>
     /// Enters, for every creature texture built so far, its index version - for the
-    /// palette renderer, see UWPaletteRenderToggle.
+    /// palette renderer, see UWPaletteRenderPath.
     /// </summary>
     public static void CollectIndexTextures(System.Collections.Generic.Dictionary<Texture, Texture> pOInto)
     {

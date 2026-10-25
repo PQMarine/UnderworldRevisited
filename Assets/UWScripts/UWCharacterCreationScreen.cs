@@ -282,8 +282,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (IsTypingName)
             fEndTyping();
 
-        // B as Escape (UWScreenUi.WasPadBackPressed).
-        if ((lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame) || UWScreenUi.WasPadBackPressed())
+        // B as Escape (UWScreenUi.WasPadBackPressed until cleanup step 7.5; the chain, UWBack).
+        if (UWBack.Takes(UWBackOwner.CharacterCreation))
         {
             Hide();
             return;
@@ -415,7 +415,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
         if (pOKeyboard == null)
             return;
 
-        if (UWTextEntry.EscapePressed)
+        if (UWBack.Takes(UWBackOwner.CharacterName))
         {
             Hide();
             return;
@@ -701,7 +701,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
             mOControls.SetUiModal("character creation", pbModal);
 
         if (pbModal)
-            Cursor.visible = true;
+            UWPointer.IsShown = true;
     }
 
     private void fEnsureCanvas()

@@ -10,6 +10,11 @@ using UWDataImport.UWData;
 /// </summary>
 public static class UWLightColour
 {
+    /// <summary>The warm fire colour for an image without colour information
+    /// (UWLightSourceTable.Fallback*), one value for the placed lights and the carried item.</summary>
+    public static readonly Color Fallback = new Color(UWLightSourceTable.FallbackRed,
+        UWLightSourceTable.FallbackGreen, UWLightSourceTable.FallbackBlue);
+
     public static Color FromObject(DataImport pOData, int piId, Color pOFallback)
     {
         float lfRed, lfGreen, lfBlue;

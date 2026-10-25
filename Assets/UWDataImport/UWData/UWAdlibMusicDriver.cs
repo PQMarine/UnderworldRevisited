@@ -22,8 +22,6 @@ namespace UWDataImport.UWData
 	{
 		public const int VoiceCount = UWOpl2.ChannelCount;
 
-		private const int DrumChannel = 9;
-
 		private const int BendSemitones = 2;
 
 		private static readonly int[] msModulatorOffsets = { 0x00, 0x01, 0x02, 0x08, 0x09, 0x0A, 0x10, 0x11, 0x12 };
@@ -162,7 +160,7 @@ namespace UWDataImport.UWData
 			UWAdlibBank.MelodicPatch lOPatch;
 			double lfPitch;
 
-			if (piChannel == DrumChannel)
+			if (piChannel == UWXmiSequencer.DrumChannel)
 			{
 				lOPatch = mOBank.GetDrum(piNote);
 

@@ -500,13 +500,13 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         else if (!lbTalking && mbActive)
             fEnd();
 
-        if (!mbActive || Mouse.current == null)
+        if (!mbActive || !UWPointer.HasMouse)
             return;
 
         // The wheel over the history scrolls it (older lines upwards).
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
-        float lfWheel = Mouse.current.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f && mOHistoryRect.Contains(lOPointer) && mOHistory != null)
             mfScroll += Mathf.Sign(lfWheel) * 3f * mOHistory.fontSize * 1.2f;
@@ -692,8 +692,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// </summary>
     private void fPlaceScrollHint(bool pbReal, float pfScale)
     {
-        Vector2 lOPointer = UWGamepadPointer.OwnsPosition ? UWGamepadPointer.Position
-            : Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.negativeInfinity;
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : Vector2.negativeInfinity;
         bool lbShown = pbReal && UWGamepad.IsActive && mOHistoryRect.Contains(lOPointer);
 
         mOScrollHint.enabled = lbShown;
@@ -752,8 +751,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         string lsPartner = pOView.PartnerName ?? string.Empty;
         string[] lsTitles =
         {
-            lsPartner.Length > 0 && lsPartner.Length <= 9 ? UWRichText.Escape(lsPartner) + "'s goods" : "Goods",
-            "Your offer"
+            lsPartner.Length > 0 && lsPartner.Length <= 9 ? UWText.F("hud.trade.partner_goods", UWRichText.Escape(lsPartner)) : UWText.T("hud.trade.goods"),
+            UWText.T("hud.trade.your_offer")
         };
 
         for (int liSide = 0; liSide < 2; liSide++)
@@ -1042,7 +1041,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         fSetLeather(mOAnswersBack, piWidth, piHeight, 3);
         fPlace(mOAnswersBack.rectTransform, pfX, pfTop, piWidth, piHeight, pfScale);
 
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         float lfRowX = pfX + (Pad * pfScale);
         float lfY = Screen.height - pfTop - (5 * pfScale);
 
@@ -1361,7 +1360,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         mOAnswersBack.texture = mOOrigAnswers;
         fPlaceOrig(mOAnswersBack.rectTransform, lOBlock, OrigParchmentX - 1, OrigAnswersTop - 1, mOOrigAnswers.width, mOOrigAnswers.height, pfScale);
 
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         float lfRowX = lOBlock.x + (OrigTextX * lfAspect);
         float lfY = lOBlock.yMax - (OrigAnswerTextTop * pfScale);
 

@@ -190,11 +190,14 @@ namespace UnderworldRevisited.Tools
         /// beside the rule that uses the byte - a split by intent, not a duplicate.
         /// UWClassicLayout (cleanup 5.3, 2026-10-19) is the classic screen's layout table: its
         /// source tags name the routine a place or size was read in, beside the rule that draws it.
+        /// UWSoundEffectId (cleanup 6.6, 2026-10-24) is the table of SOUNDS.DAT numbers: it names
+        /// the routines that play a number to prove what the number is.
         /// </summary>
         private static readonly string[] msDescribers =
         {
             "UWObjectClassProperties.cs", "UWCommonObjectProperties.cs", "UWCritterRecord.cs",
-            "UWPlayerData.cs", "UWObjectMechanics.cs", "UWCritterAnimations.cs", "UWClassicLayout.cs"
+            "UWPlayerData.cs", "UWObjectMechanics.cs", "UWCritterAnimations.cs", "UWClassicLayout.cs",
+            "UWSoundEffectId.cs"
         };
 
         private static bool fIsDescriber(string psFile)
@@ -345,6 +348,11 @@ namespace UnderworldRevisited.Tools
             // were never counted.
             { "UWMessageLogModel.cs", "UWScrollEdgeRules.cs" },
             { "UWMessageLogModel.cs", "UWConversationView.cs" },
+
+            // PlayMusicalInstrument_seg014_1195 asks the music driver for a channel of its own:
+            // the mix sends the instrument's events on one (cleanup 6.6, 2026-10-24, out of the
+            // Unity UWAudioEngine), the MT-32 driver is the driver side that lends it a part.
+            { "UWAudioMixCore.cs", "UWMt32MusicDriver.cs" },
         };
 
         /// <summary>Whether these two files are declared as an intended pair.</summary>

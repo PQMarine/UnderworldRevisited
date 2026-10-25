@@ -222,7 +222,7 @@ public sealed class UWLevelWindow : EditorWindow
         if (lOMaterial == null)
             return;
 
-        lOMaterial.SetFloat("_AmbientFloor", mOSettings.AmbientFloor);
+        lOMaterial.SetFloat(UWShaderIds.AmbientFloor, mOSettings.AmbientFloor);
 
         GameObject lORoot = UWLevelAssembler.CreateLevelRoot(PreviewRootName, lOChunks, lOMaterial, miLevelIndex, mbAddColliders);
 
@@ -280,7 +280,7 @@ public sealed class UWLevelWindow : EditorWindow
         if (lOMaterial == null)
             return null;
 
-        lOMaterial.SetFloat("_AmbientFloor", mOSettings.AmbientFloor);
+        lOMaterial.SetFloat(UWShaderIds.AmbientFloor, mOSettings.AmbientFloor);
         AssetDatabase.CreateAsset(lOMaterial, lsMaterialPath);
 
         return lOMaterial;

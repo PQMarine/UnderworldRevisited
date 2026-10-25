@@ -32,8 +32,9 @@ using UnityEngine.Rendering.Universal;
 /// post-processing passes; without them the last copy samples the small picture bilinearly and
 /// it looks blurred (per user, 2026-10-07, the first build: "wirkt es aber unscharf"). With no
 /// effect of a volume active the post-processing leaves the colours as they are. When the switch
-/// goes off the camera gets back what the render mode wants (UWRemasterRenderer turns it on for
-/// Remastered and off for the palette path).
+/// goes off the camera gets back what the render mode wants. The switch itself is
+/// UWRenderPathHost's, the one writer of the camera's flags since cleanup step 6.5 (2026-10-24):
+/// this class says it needs it (ForcesPostProcessing).
 ///
 /// THE PIPELINE ASSET ITSELF IS SET TO NEAREST-NEIGHBOUR (UWRenderPipeline.asset, Upscaling
 /// Filter): a build strips the shader variant of the point upscaling (_POINT_SAMPLING in
@@ -146,7 +147,10 @@ public class UWWorldResolution : MonoBehaviour
         meOriginalFilter = mOAsset.upscalingFilter;
     }
 
-    private bool mbForcedPostProcessing;
+    /// <summary>Whether the cameras need their post-processing for the nearest-neighbour
+    /// upscaling now: the switch is on and the pipeline asset is there (UWRenderPathHost sets
+    /// it on the player camera and the remote view).</summary>
+    public static bool ForcesPostProcessing => msInstance != null && msInstance.mOAsset != null && Enabled;
 
     private void LateUpdate()
     {
@@ -157,41 +161,10 @@ public class UWWorldResolution : MonoBehaviour
         {
             fSet(mfOriginalRenderScale, meOriginalFilter);
 
-            if (mbForcedPostProcessing)
-            {
-                UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-
-                fSetPostProcessing(lOSettings != null && lOSettings.IsRemasteredActive);
-                mbForcedPostProcessing = false;
-            }
-
             return;
         }
 
         fSet(fTargetScale(), UpscalingFilterSelection.Point);
-        fSetPostProcessing(true);
-        mbForcedPostProcessing = true;
-    }
-
-    /// <summary>The post-processing switch of the player camera and of the remote camera
-    /// (Roaming Sight, the camera trap), which draws in its place.</summary>
-    private static void fSetPostProcessing(bool pbOn)
-    {
-        fSetPostProcessing(Camera.main, pbOn);
-
-        if (UWRemoteCamera.Current != null)
-            fSetPostProcessing(UWRemoteCamera.Current.ViewCamera, pbOn);
-    }
-
-    private static void fSetPostProcessing(Camera pOCamera, bool pbOn)
-    {
-        if (pOCamera == null)
-            return;
-
-        UniversalAdditionalCameraData lOData = pOCamera.GetUniversalAdditionalCameraData();
-
-        if (lOData != null && lOData.renderPostProcessing != pbOn)
-            lOData.renderPostProcessing = pbOn;
     }
 
     /// <summary>The render scale that gives the camera EffectiveFactor rows per original pixel row:

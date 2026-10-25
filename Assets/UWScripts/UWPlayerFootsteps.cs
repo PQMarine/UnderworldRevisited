@@ -134,7 +134,7 @@ public sealed class UWPlayerFootsteps
 
         int liMomentum = UWFootstepRules.Momentum(lfSpeed, lfFullSpeed);
 
-        UWSoundEffects.PlayAtAvatar(mbStepToggle ? UWSoundEffects.FootstepA : UWSoundEffects.FootstepB,
+        UWAudioService.PlayEffect(mbStepToggle ? UWSoundEffectId.FootstepA : UWSoundEffectId.FootstepB,
             UWFootstepRules.NoteOffset(liMomentum));
         mbStepToggle = !mbStepToggle;
 

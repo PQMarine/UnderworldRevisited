@@ -72,8 +72,7 @@ uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the
 the windows, with A and RT as the left mouse button and X and LT as the right one. Names and
 mantras are typed on a letter grid. Hold View for the help: its Controls tab shows the buttons
 as glyphs. Under Controls in the menu bar, its Gamepad tab: the button names (Xbox, PlayStation,
-Nintendo), every button, swapped sticks, inverted look and a deadzone per stick. On Linux the
-gamepad's pointer clicks only in an X11 session, not under native Wayland.
+Nintendo), every button, swapped sticks, inverted look and a deadzone per stick.
 
 The menu bar at the top of the main menu (and of the game menu) holds the settings. Under
 Motion you choose how the original's motion code is run: Original computes it step by step

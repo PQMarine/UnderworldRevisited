@@ -82,7 +82,7 @@ public sealed class UWPresentation : IUWPresentation
 
     public void PlaySoundAtPlayer(int piEffect)
     {
-        UWSoundEffects.PlayAtAvatar(piEffect);
+        UWAudioService.PlayEffect(piEffect);
     }
 
     /// <summary>The picture stands at the spot's eighths and height; sprites have their pivot at
@@ -135,10 +135,10 @@ public sealed class UWPresentation : IUWPresentation
         return true;
     }
 
-    /// <summary>UWMusic.ChangeTheme - the night's "Maps &amp; Legends", which the sleep's host asked
+    /// <summary>UWAudioService.ChangeTheme - the night's "Maps &amp; Legends", which the sleep's host asked
     /// for itself until cleanup step 3.6 (2026-10-17).</summary>
     public void ChangeMusicTheme(int piTheme)
     {
-        UWMusic.ChangeTheme(piTheme);
+        UWAudioService.ChangeTheme(piTheme);
     }
 }

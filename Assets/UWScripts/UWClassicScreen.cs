@@ -42,8 +42,8 @@ public sealed class UWClassicScreen
         }
     }
 
-    // Pointer zones, by contrast, work in real screen pixels, since they evaluate the real
-    // mouse position (WarpCursorPosition, zone classification).
+    // Pointer zones, by contrast, work in real screen pixels, since they evaluate the pointer's
+    // position (UWPointer: the clamp, the zone classification).
     internal float scale
     {
         // Fitted whole into the window (UWUiFit): by the height, or by the width when narrow.
@@ -107,7 +107,7 @@ public sealed class UWClassicScreen
     /// Screen rectangle (pixels, origin bottom left) of a picture of the given size in original
     /// pixels, placed in the viewport exactly like the window and gravestone pictures:
     /// horizontally centred in the hole, WindowContentInsetTop below its top edge
-    /// (UWClassicGeometry.ViewportPictureCorner). Used by UWIntroPlayer for the viewport cutscenes.
+    /// (UWClassicGeometry.ViewportPictureCorner). Used by UWCutsceneView for the viewport cutscenes.
     /// </summary>
     public Rect GetViewportPictureScreenRect(Vector2 pOSize)
     {

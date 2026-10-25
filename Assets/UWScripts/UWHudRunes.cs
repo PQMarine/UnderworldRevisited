@@ -191,9 +191,7 @@ public sealed class UWHudRunes
         if (!mOUi.Panel.Turn.IsAtRestOn(UWPanelTurn.SideEnum.Runes) || mOUi.Panel.mRuneRoot == null)
             return;
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return;
 
         bool lbLeft = UWMouseButtons.LeftPressed;
@@ -206,7 +204,7 @@ public sealed class UWHudRunes
         if (fInAnotherInputMode())
             return;
 
-        Vector2 lOPosition = lOMouse.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         // The clear strip first: it lies below the compartments and does not overlap
         // with them.
@@ -370,11 +368,11 @@ public sealed class UWHudRunes
         // NOT WHILE THE VIEW ROAMS (per user, 2026-09-27: the prepared spell cannot be cast in
         // the original during Roaming Sight). Only the click; whether F8 is refused as well was
         // not tested.
-        if (UnityEngine.InputSystem.Mouse.current == null || !UWMouseButtons.LeftPressed
+        if (!UWPointer.HasMouse || !UWMouseButtons.LeftPressed
             || UWRoamingSight.IsAnyRunning)
             return;
 
-        Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.RuneShelf, out int _, out int _))
             return;
@@ -563,7 +561,7 @@ public sealed class UWHudRunes
 
     internal void fUpdateFlaskClicks()
     {
-        if (mOUi.mCharacter == null || UnityEngine.InputSystem.Mouse.current == null)
+        if (mOUi.mCharacter == null || !UWPointer.HasMouse)
             return;
 
         if (!UWMouseButtons.LeftPressed
@@ -573,7 +571,7 @@ public sealed class UWHudRunes
         // THE ORIGINAL'S AREA since 2026-09-26 (UWClickRules.Flasks and FlaskAt): one area over
         // both flasks and the chain; the chain's part of it turns the panel like the chain's own
         // area (UWHudPanel), and the vitality comes after the poison line.
-        Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.Flasks, out int liX, out int liY))
             return;
@@ -677,7 +675,7 @@ public sealed class UWHudRunes
     internal void fUpdateSpellIconClicks()
     {
         if (mSpellIconImages == null || mOUi.mCharacter == null
-            || UnityEngine.InputSystem.Mouse.current == null)
+            || !UWPointer.HasMouse)
             return;
 
         bool lbLeft = UWMouseButtons.LeftPressed;
@@ -689,7 +687,7 @@ public sealed class UWHudRunes
         // THE ORIGINAL'S AREA since 2026-09-26 (UWClickRules.ActiveSpells and
         // ActiveSpellSlotAt): 16 columns per slot from the right, the first slot at x 84 to 99 -
         // the pictures sat one column right of that.
-        Vector2 lOPosition = UnityEngine.InputSystem.Mouse.current.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.ActiveSpells, out int liX, out int _))
             return;

@@ -3,25 +3,24 @@ using UWDataImport.UWData;
 
 /// <summary>
 /// Feeds the palette path's sprites the tiles the original would draw from the current eye
-/// (UWSweepMask): every frame after the camera moved, a 64 by 64 mask as the global texture
-/// _UWSweepMask, read by UWPainterOrder.hlsl (UWPainterSweepHides) in UWBillboardPalette. Off - the
-/// texture marked not ready - outside the palette path, where the true depth needs no help.
-/// Created once and kept across scene loads.
+/// (UWSweepMask): a 64 by 64 mask as the global texture _UWSweepMask, read by UWPainterOrder.hlsl
+/// (UWPainterSweepHides) in UWBillboardPalette. Off - the texture marked not ready and taken away
+/// (Clear) - outside the palette path, where the true depth needs no help. A child of the palette
+/// path (UWPaletteRenderPath), ticked only while it is in force, since cleanup step 6.5
+/// (2026-10-24); until then a component of its own, kept across scene loads, that asked the
+/// render mode every frame.
+///
+/// BUILT ONLY WHEN SOMETHING IT READS CHANGED (B35, 2026-10-11; completed in cleanup step 6.3,
+/// 2026-10-24): the eye's tile position, its heading and the level, and the tiles themselves -
+/// the sweep reads nothing but their types, and those change only through a geometry rebuild
+/// (UWLevelLoader.GeometryRevision). A standing eye costs nothing; until this step it still built
+/// the mask twice a second in case a trap had changed the tiles around it.
 /// </summary>
-public class UWSweepMaskDriver : MonoBehaviour
+public sealed class UWSweepMaskDriver
 {
-    private static UWSweepMaskDriver msInstance;
-
-    private static readonly int msMaskId = Shader.PropertyToID("_UWSweepMask");
-
-    private static readonly int msMaskReadyId = Shader.PropertyToID("_UWSweepMaskReady");
-
     private readonly UWSweepMask mOMask = new UWSweepMask();
 
     private Texture2D mOTexture;
-
-    /// <summary>How long a mask built for a standing eye is kept before it is built again.</summary>
-    private const float StandingRebuildSeconds = 0.5f;
 
     private bool mbApplied;
 
@@ -33,30 +32,17 @@ public class UWSweepMaskDriver : MonoBehaviour
 
     private int miBuiltHeading;
 
-    private float mfBuiltAt;
+    private int miBuiltRevision;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void fCreate()
+    /// <summary>Every frame while the palette path is in force (UWPaletteRenderPath.LateTick).</summary>
+    public void Tick()
     {
-        if (msInstance != null)
-            return;
-
-        GameObject lOObject = new GameObject("UW Sweep Mask");
-
-        DontDestroyOnLoad(lOObject);
-        msInstance = lOObject.AddComponent<UWSweepMaskDriver>();
-    }
-
-    private void LateUpdate()
-    {
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         Camera lOCamera = UWViewpoint.Current;
 
-        if (lOSettings == null || lOSettings.IsRemasteredActive || lOLoader == null || lOLoader.CurrentLevel == null
-            || lOCamera == null)
+        if (lOLoader == null || lOLoader.CurrentLevel == null || lOCamera == null)
         {
-            Shader.SetGlobalFloat(msMaskReadyId, 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.SweepMaskReady, 0f);
             mbApplied = false;
 
             return;
@@ -67,13 +53,14 @@ public class UWSweepMaskDriver : MonoBehaviour
         int liY = UWViewpoint.WorldToOriginalY(lOEye.z);
         int liHeading = UWViewpoint.DegreesToAngle(Mathf.Repeat(lOCamera.transform.eulerAngles.y, 360f)) & 0xFFFF;
 
-        // Only after the eye moved, as the class comment says (until 2026-10-11 every frame:
-        // three sweeps, 4225 arc tangents and a texture upload). A standing eye still gets a
-        // fresh mask twice a second, because a trap can change the tiles around it.
-        bool lbSame = mbApplied && lOLoader.CurrentLevel == mOBuiltLevel && liX == miBuiltX && liY == miBuiltY
-            && liHeading == miBuiltHeading;
+        // Only after the eye moved or the tiles changed, as the class comment says (until
+        // 2026-10-11 every frame: three sweeps, 4225 arc tangents and a texture upload; until
+        // 2026-10-24 also every half second for a standing eye, as a trap can change the tiles
+        // around it - the geometry revision says when one did).
+        int liRevision = lOLoader.GeometryRevision;
 
-        if (lbSame && Time.unscaledTime - mfBuiltAt < StandingRebuildSeconds)
+        if (mbApplied && lOLoader.CurrentLevel == mOBuiltLevel && liX == miBuiltX && liY == miBuiltY
+            && liHeading == miBuiltHeading && liRevision == miBuiltRevision)
             return;
 
         mOMask.Build(lOLoader.CurrentLevel, liX, liY, liHeading);
@@ -81,7 +68,7 @@ public class UWSweepMaskDriver : MonoBehaviour
         miBuiltX = liX;
         miBuiltY = liY;
         miBuiltHeading = liHeading;
-        mfBuiltAt = Time.unscaledTime;
+        miBuiltRevision = liRevision;
         mbApplied = true;
 
         if (mOTexture == null)
@@ -95,16 +82,29 @@ public class UWSweepMaskDriver : MonoBehaviour
         mOTexture.SetPixelData(mOMask.Mask, 0);
         mOTexture.Apply(false, false);
 
-        Shader.SetGlobalTexture(msMaskId, mOTexture);
-        Shader.SetGlobalFloat(msMaskReadyId, 1f);
+        UWShaderGlobals.SetTexture(UWShaderIds.SweepMask, mOTexture);
+        UWShaderGlobals.SetFloat(UWShaderIds.SweepMaskReady, 1f);
     }
 
-    private void OnDestroy()
+    /// <summary>The palette path goes: not ready, and the mask taken away; built again from the
+    /// first frame it is back.</summary>
+    public void Clear()
     {
-        if (msInstance == this)
-            msInstance = null;
+        UWShaderGlobals.SetFloat(UWShaderIds.SweepMaskReady, 0f);
+        UWShaderGlobals.ClearTexture(UWShaderIds.SweepMask);
+        mbApplied = false;
+    }
 
+    /// <summary>The palette path goes with its scene.</summary>
+    public void Dispose()
+    {
         if (mOTexture != null)
-            Destroy(mOTexture);
+        {
+            UWShaderGlobals.Invalidate(mOTexture);
+            Object.Destroy(mOTexture);
+        }
+
+        mOTexture = null;
+        mbApplied = false;
     }
 }

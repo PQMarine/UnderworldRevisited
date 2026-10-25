@@ -33,12 +33,19 @@
 /// check) and Interaction stay at 0, unordered against the movement as before; the easy
 /// movement's repeat tolerates that (UWPlayerInput.HoldEasyMovement).
 ///
+/// The pointer first of all, Pointer -300 (UWPointerDriver, cleanup step 7.7B, 2026-10-25): the
+/// frame's position, capture and clamp are there before anyone reads them; since cleanup step 7.8
+/// also the pad pointer's decision (the PadPointer context) and the places that wait for a pad press
+/// as the frame begins (UWPadOwners).
+///
 /// The interface's slots, older than this class: FitCanvas -200 (before the canvas scaler reads
 /// its settings), ModernMinimap +100 (after the panel it may lie in), GamepadPointer +1000 (late:
-/// what waits for any key takes a pad press first).
+/// what waits for a pad press acts on it first; the pointer asks UWPadOwners whether it may click).
 /// </summary>
 public static class UWUpdateOrder
 {
+    public const int Pointer = -300;
+
     public const int FitCanvas = -200;
 
     public const int Character = -50;

@@ -4,9 +4,11 @@ using UnityEngine;
 
 /// <summary>
 /// THE OPERATING SYSTEM'S KEYS, pressed by the gamepad's letter grid (UWLetterGrid, per user
-/// 2026-10-07). Real key presses for the same reason as UWOsMouse's real clicks: the text inputs
-/// are of several kinds - IMGUI fields (the modern save name), the Input System's text events
-/// (UWTypedKeys), the keys read directly (Backspace, Enter) - and a real key reaches them all.
+/// 2026-10-07). Real key presses, as the pad's pointer once pressed real clicks (UWOsMouse, gone with
+/// cleanup step 7.7B: its clicks press a mouse of its own, UWPointer.PadButton): the text inputs take
+/// typing in several ways - the Input System's text events (UWTypedKeys, UWTextEntry), the keys read
+/// directly (Backspace, Enter, Escape) - and a real key reaches them all. The one place left where the
+/// pad makes a real system event.
 ///
 /// Windows: SendInput, a character as a Unicode packet, Backspace, Enter and Escape as keys with
 /// their scan code. Linux: XTest with the keysym's keycode, Shift for capitals - UNTESTED, and

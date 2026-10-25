@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE GAMEPAD'S LETTER GRID (per user, 2026-10-07: no on-screen keyboard, but a letter grid as the
@@ -21,14 +22,15 @@ public class UWLetterGrid : MonoBehaviour
 
     private static readonly string[] msRows = { "ABCDEFGHIJ", "KLMNOPQRST", "UVWXYZ'-.,", "1234567890" };
 
-    private static readonly string[] msBottom = { "Aa", "Space", "Delete", "Cancel", "Done" };
+    /// <summary>The bottom row's keys, ids in the text table (cleanup step 8.5, 2026-10-24).</summary>
+    private static readonly string[] msBottomIds = { "grid.key.case", "grid.key.space", "grid.key.delete", "grid.key.cancel", "grid.key.done" };
 
     private const int Columns = 10;
 
     /// <summary>The bottom row's keys are two columns wide.</summary>
     private const int BottomRow = 4;
 
-    // The layout, on 720 lines (OnGUI).
+    // The layout, on 720 lines (LateUpdate; OnGUI until cleanup 8b.4).
     private const float KeyWidth = 50f;
 
     private const float KeyHeight = 42f;
@@ -46,7 +48,7 @@ public class UWLetterGrid : MonoBehaviour
     /// <summary>Screen pixels at the bottom the grid takes while it is up, with a little room above
     /// it - the modern conversation lifts its answers above them (per user, 2026-10-07: the grid
     /// lay over the typed answer's field).</summary>
-    public static float ReservedPixels => IsShown && !fIsAtTop() ? (GridHeight + BottomMargin + 8f) * (Screen.height / 720f) : 0f;
+    public static float ReservedPixels => IsShown && !fIsAtTop() ? (GridHeight + BottomMargin + 8f) * UWGuiTheme.Scale : 0f;
 
     /// <summary>The classic conversation's answer stands on the original's scroll at the bottom,
     /// which cannot move: there the grid goes to the top.</summary>
@@ -62,6 +64,11 @@ public class UWLetterGrid : MonoBehaviour
 
     private const float RepeatSeconds = 0.09f;
 
+    /// <summary>The direction held and when it steps again (UWRepeat since cleanup step 7.3,
+    /// 2026-10-25): a step on the push, again after RepeatDelaySeconds, then RepeatSeconds after
+    /// each step; another direction is a new push.</summary>
+    private readonly UWRepeat mORepeat = new UWRepeat(RepeatDelaySeconds, RepeatSeconds, UWRepeat.RuleEnum.FromNow);
+
     private int miRow;
 
     private int miColumn;
@@ -75,17 +82,8 @@ public class UWLetterGrid : MonoBehaviour
 
     private bool mbDismissed;
 
-    private Vector2Int mOHeld;
-
-    private float mfNextRepeat;
 
     private float mfOwnKeysUntil;
-
-    private Texture2D mOWhite;
-
-    private GUIStyle mOKeyStyle;
-
-    private GUIStyle mOHintStyle;
 
     private static readonly Color msPanel = new Color(0.11f, 0.08f, 0.05f, 0.94f);
 
@@ -132,7 +130,7 @@ public class UWLetterGrid : MonoBehaviour
             miColumn = 0;
             mbUpper = true;
             mbCaseByHand = false;
-            mOHeld = Vector2Int.zero;
+            mORepeat.Reset();
         }
 
         Keyboard lOKeyboard = Keyboard.current;
@@ -162,7 +160,7 @@ public class UWLetterGrid : MonoBehaviour
 
         if (lOPad.buttonSouth.wasPressedThisFrame)
             fActivate();
-        else if (lOPad.buttonEast.wasPressedThisFrame)
+        else if (UWBack.Takes(UWBackOwner.LetterGrid))
             fSendKey(UWOsKeys.KeyEnum.Backspace);
         else if (lOPad.buttonWest.wasPressedThisFrame)
             fType(' ');
@@ -185,17 +183,11 @@ public class UWLetterGrid : MonoBehaviour
         else if (Mathf.Abs(lOPush.y) >= 0.5f)
             lODirection.y = lOPush.y > 0f ? -1 : 1;
 
-        if (lODirection == Vector2Int.zero)
-        {
-            mOHeld = Vector2Int.zero;
-            return;
-        }
+        // The direction as one number for the repeat, never 0 for a push (0 lets go).
+        int liHeld = lODirection == Vector2Int.zero ? 0 : ((lODirection.x + 2) * 4) + lODirection.y + 2;
 
-        if (lODirection == mOHeld && Time.unscaledTime < mfNextRepeat)
+        if (!mORepeat.Hold(liHeld, Time.unscaledTime))
             return;
-
-        mfNextRepeat = Time.unscaledTime + (lODirection == mOHeld ? RepeatSeconds : RepeatDelaySeconds);
-        mOHeld = lODirection;
 
         // The bottom row's keys span two columns: sideways there by two.
         int liStep = miRow == BottomRow ? 2 : 1;
@@ -267,35 +259,56 @@ public class UWLetterGrid : MonoBehaviour
         mbCaseByHand = true;
     }
 
-    // ------------------------------------------------- Drawing
+    // ------------------------------------------------- Drawing on the kit (cleanup 8b.4)
 
-    private void OnGUI()
+    /// <summary>
+    /// THE GRID ON THE KIT (cleanup 8b.4, 2026-10-24; phase 8b, decision 26): drawn by UWKitRows in the
+    /// letter grid's look (the IMGUI skin's font, LegacyRuntime) on a canvas of its own
+    /// (UWUiSorting.LetterGrid) in LateUpdate, from the same numbers as the IMGUI form in OnGUI (drawn
+    /// in its Repaint only, GUI.depth -1000; gone at the end of phase 8b): on 720 lines, scaled to the
+    /// screen, at the bottom in the middle (at the top for the classic conversation, fIsAtTop; above
+    /// the classic message scroll otherwise, fBottom), the keys in rows of ten with the bottom row's
+    /// keys two wide, the focused key gold with dark text, the hint line of glyphs and texts centred
+    /// under them. It takes no input itself - the pad is read in Update - so the drawer's pointer is
+    /// dropped.
+    /// </summary>
+    private UWKitRows mOKit;
+
+    private void LateUpdate()
     {
-        if (!IsShown || Event.current.type != EventType.Repaint)
+        bool lbShown = IsShown;
+
+        if (mOKit == null)
+        {
+            if (!lbShown)
+                return;
+
+            mOKit = new UWKitRows(transform, UWUiSorting.LetterGrid, UWRowLookEnum.LetterGrid);
+        }
+
+        mOKit.Begin(lbShown, false, false, false);
+
+        if (!lbShown)
             return;
 
-        fEnsureStyles();
+        mOKit.DropPointer();
 
-        // Laid out on 720 lines, scaled to the screen, at the bottom in the middle (at the top for
-        // the classic conversation, fIsAtTop).
-        float lfScale = Screen.height / 720f;
+        float lfScale = UWGuiTheme.Scale;
         float lfWidth = (Columns * KeyWidth) + ((Columns - 1) * Gap) + (2f * Pad);
         float lfHeight = GridHeight;
-        float lfLeft = ((Screen.width / lfScale) - lfWidth) * 0.5f;
+        float lfLeft = (mOKit.Width - lfWidth) * 0.5f;
         float lfTop = fIsAtTop() ? BottomMargin : fBottom(lfScale) - lfHeight;
+        UWKitRows.HelpLook lOKey = new UWKitRows.HelpLook
+        {
+            Size = UWGuiTheme.LetterGridKeySize, Colour = Color.white, Anchor = TextAnchor.MiddleCenter, Bold = true
+        };
 
-        Matrix4x4 lOBefore = GUI.matrix;
-        int liDepth = GUI.depth;
-
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        GUI.depth = -1000;
-
-        fFill(new Rect(lfLeft, lfTop, lfWidth, lfHeight), msPanel);
+        mOKit.Fill(new Rect(lfLeft, lfTop, lfWidth, lfHeight), msPanel);
 
         for (int liRow = 0; liRow <= BottomRow; liRow++)
         {
             float lfY = lfTop + Pad + (liRow * (KeyHeight + Gap));
-            int liKeys = liRow < BottomRow ? Columns : msBottom.Length;
+            int liKeys = liRow < BottomRow ? Columns : msBottomIds.Length;
 
             for (int liKey = 0; liKey < liKeys; liKey++)
             {
@@ -303,18 +316,76 @@ public class UWLetterGrid : MonoBehaviour
                 float lfX = lfLeft + Pad + (liKey * liSpan * (KeyWidth + Gap));
                 float lfW = (liSpan * KeyWidth) + ((liSpan - 1) * Gap);
                 bool lbFocus = liRow == miRow && (liRow < BottomRow ? liKey == miColumn : liKey == miColumn / 2);
-                string lsLabel = liRow < BottomRow ? fShown(msRows[liRow][liKey]) : msBottom[liKey];
+                string lsLabel = liRow < BottomRow ? fShown(msRows[liRow][liKey]) : UWText.T(msBottomIds[liKey]);
+                Rect lORect = new Rect(lfX, lfY, lfW, KeyHeight);
 
-                fFill(new Rect(lfX, lfY, lfW, KeyHeight), lbFocus ? msFocus : msKey);
-                mOKeyStyle.normal.textColor = lbFocus ? Color.black : Color.white;
-                GUI.Label(new Rect(lfX, lfY, lfW, KeyHeight), lsLabel, mOKeyStyle);
+                lOKey.Colour = lbFocus ? Color.black : Color.white;
+                mOKit.Fill(lORect, lbFocus ? msFocus : msKey);
+                mOKit.HelpText(lORect, lsLabel, lOKey);
             }
         }
 
-        fDrawHints(lfLeft, lfTop + lfHeight - Pad - 26f, lfWidth);
+        fDrawKitHints(lfLeft, lfTop + lfHeight - Pad - 26f, lfWidth);
 
-        GUI.matrix = lOBefore;
-        GUI.depth = liDepth;
+        mOKit.End();
+    }
+
+    /// <summary>
+    /// The hint line below the keys: each button as its GLYPH in the chosen style (per user,
+    /// 2026-10-08; UWGlyphs) - its name where a glyph is missing - and what it does, centred. On the
+    /// kit each text as wide as the skin's label measured it (no padding left or right), on one line:
+    /// no wrapping, the hint labels are as wide as their text, and a rounding broke them in two (per
+    /// user, 2026-10-08).
+    /// </summary>
+    private void fDrawKitHints(float pfLeft, float pfTop, float pfWidth)
+    {
+        const float GlyphSize = 24f;
+        const float GlyphGap = 4f;
+        const float ItemGap = 18f;
+
+        UWKitRows.HelpLook lOHint = new UWKitRows.HelpLook
+        {
+            Size = UWGuiTheme.LetterGridHintSize, Colour = UWGuiTheme.LetterGridHint, Anchor = TextAnchor.MiddleCenter
+        };
+        Texture2D[] lyGlyphs = new Texture2D[msHintPaths.Length];
+        string[] lsLabels = new string[msHintPaths.Length];
+        float[] lfWidths = new float[msHintPaths.Length];
+        float lfTotal = 0f;
+
+        for (int liItem = 0; liItem < msHintPaths.Length; liItem++)
+        {
+            lyGlyphs[liItem] = UWGlyphs.ForPath(msHintPaths[liItem]);
+            string lsHint = UWText.T(msHintIds[liItem]);
+
+            lsLabels[liItem] = lyGlyphs[liItem] != null ? lsHint
+                : UWBindingInfo.ButtonName(msHintPaths[liItem]) + " " + lsHint;
+            lfWidths[liItem] = mOKit.HelpTextWidth(lsLabels[liItem], lOHint);
+
+            lfTotal += (lyGlyphs[liItem] != null ? GlyphSize + GlyphGap : 0f) + lfWidths[liItem] + (liItem > 0 ? ItemGap : 0f);
+        }
+
+        float lfX = pfLeft + ((pfWidth - lfTotal) * 0.5f);
+
+        for (int liItem = 0; liItem < msHintPaths.Length; liItem++)
+        {
+            if (liItem > 0)
+                lfX += ItemGap;
+
+            if (lyGlyphs[liItem] != null)
+            {
+                mOKit.Picture(new Rect(lfX, pfTop, GlyphSize, GlyphSize), lyGlyphs[liItem]);
+                lfX += GlyphSize + GlyphGap;
+            }
+
+            mOKit.HelpText(new Rect(lfX, pfTop, lfWidths[liItem], GlyphSize), lsLabels[liItem], lOHint);
+            lfX += lfWidths[liItem];
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (mOKit != null)
+            mOKit.Dispose();
     }
 
     /// <summary>
@@ -330,11 +401,11 @@ public class UWLetterGrid : MonoBehaviour
 
         if (lOUi == null || UWCharacterCreationScreen.IsTypingName
             || lOScheme == null || !UWControlScheme.Ui.Policy.AnswerTypedOnScroll)
-            return 720f - BottomMargin;
+            return UWGuiTheme.ReferenceHeight - BottomMargin;
 
         float lfScrollTop = (Screen.height - lOUi.ClassicScreen.MessageLogTopScreenY) / pfScale;
 
-        return Mathf.Min(720f - BottomMargin, lfScrollTop - 6f);
+        return Mathf.Min(UWGuiTheme.ReferenceHeight - BottomMargin, lfScrollTop - 6f);
     }
 
     private static readonly string[] msHintPaths =
@@ -342,91 +413,11 @@ public class UWLetterGrid : MonoBehaviour
         "<Gamepad>/buttonSouth", "<Gamepad>/buttonEast", "<Gamepad>/buttonWest", "<Gamepad>/buttonNorth", "<Gamepad>/start"
     };
 
-    private static readonly string[] msHintTexts = { "type", "delete", "space", "Aa", "done" };
-
-    /// <summary>
-    /// The hint line below the keys: each button as its GLYPH in the chosen style (per user,
-    /// 2026-10-08; UWGlyphs) - its name where a glyph is missing - and what it does, centred.
-    /// </summary>
-    private void fDrawHints(float pfLeft, float pfTop, float pfWidth)
-    {
-        const float GlyphSize = 24f;
-        const float GlyphGap = 4f;
-        const float ItemGap = 18f;
-
-        Texture2D[] lyGlyphs = new Texture2D[msHintPaths.Length];
-        string[] lsLabels = new string[msHintPaths.Length];
-        float lfTotal = 0f;
-
-        for (int liItem = 0; liItem < msHintPaths.Length; liItem++)
-        {
-            lyGlyphs[liItem] = UWGlyphs.ForPath(msHintPaths[liItem]);
-            lsLabels[liItem] = lyGlyphs[liItem] != null ? msHintTexts[liItem]
-                : UWGamepad.ButtonName(msHintPaths[liItem]) + " " + msHintTexts[liItem];
-
-            lfTotal += (lyGlyphs[liItem] != null ? GlyphSize + GlyphGap : 0f)
-                + mOHintStyle.CalcSize(new GUIContent(lsLabels[liItem])).x + (liItem > 0 ? ItemGap : 0f);
-        }
-
-        float lfX = pfLeft + ((pfWidth - lfTotal) * 0.5f);
-
-        for (int liItem = 0; liItem < msHintPaths.Length; liItem++)
-        {
-            if (liItem > 0)
-                lfX += ItemGap;
-
-            if (lyGlyphs[liItem] != null)
-            {
-                GUI.DrawTexture(new Rect(lfX, pfTop, GlyphSize, GlyphSize), lyGlyphs[liItem]);
-                lfX += GlyphSize + GlyphGap;
-            }
-
-            float lfTextWidth = mOHintStyle.CalcSize(new GUIContent(lsLabels[liItem])).x;
-
-            GUI.Label(new Rect(lfX, pfTop, lfTextWidth, GlyphSize), lsLabels[liItem], mOHintStyle);
-            lfX += lfTextWidth;
-        }
-    }
+    /// <summary>What each button does, ids in the text table (cleanup step 8.5, 2026-10-24).</summary>
+    private static readonly string[] msHintIds = { "grid.hint.type", "grid.hint.delete", "grid.hint.space", "grid.hint.case", "grid.hint.done" };
 
     private string fShown(char pcChar)
     {
         return (char.IsLetter(pcChar) && !mbUpper ? char.ToLowerInvariant(pcChar) : pcChar).ToString();
-    }
-
-    private void fFill(Rect pORect, Color pOColour)
-    {
-        Color lOBefore = GUI.color;
-
-        GUI.color = pOColour;
-        GUI.DrawTexture(pORect, mOWhite);
-        GUI.color = lOBefore;
-    }
-
-    private void fEnsureStyles()
-    {
-        if (mOWhite == null)
-            mOWhite = Texture2D.whiteTexture;
-
-        if (mOKeyStyle != null)
-            return;
-
-        mOKeyStyle = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 20,
-            fontStyle = FontStyle.Bold
-        };
-
-        // No wrapping: the hint labels are as wide as their text, and a rounding broke them in two
-        // (per user, 2026-10-08).
-        mOHintStyle = new GUIStyle(GUI.skin.label)
-        {
-            wordWrap = false,
-            clipping = TextClipping.Overflow,
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 14
-        };
-
-        mOHintStyle.normal.textColor = new Color(0.85f, 0.8f, 0.7f);
     }
 }

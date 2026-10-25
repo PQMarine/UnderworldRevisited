@@ -128,8 +128,7 @@ public class UWInstrumentPlayer : MonoBehaviour
         if (mOInteraction != null)
             mOInteraction.AddGeneralMessage(StartMessage);
 
-        if (UWAudioEngine.Instance != null)
-            UWAudioEngine.Instance.BeginInstrument(msPrograms[miInstrument]);
+        UWAudioService.BeginInstrument(msPrograms[miInstrument]);
     }
 
     private void Update()
@@ -149,7 +148,7 @@ public class UWInstrumentPlayer : MonoBehaviour
         if (lOKeyboard == null)
             return;
 
-        if (lOKeyboard.escapeKey.wasPressedThisFrame)
+        if (UWBack.Takes(UWBackOwner.Instrument))
         {
             fEnd();
             return;
@@ -190,8 +189,7 @@ public class UWInstrumentPlayer : MonoBehaviour
         miRing[miRingAt] = piNote;
         miRingAt = (miRingAt + 1) % RingSize;
 
-        if (UWAudioEngine.Instance != null)
-            UWAudioEngine.Instance.PlayInstrumentNote(piNote);
+        UWAudioService.PlayInstrumentNote(piNote);
 
         miSoundingNote = piNote;
         mfNoteOffTime = Time.time + NoteSeconds;
@@ -199,8 +197,8 @@ public class UWInstrumentPlayer : MonoBehaviour
 
     private void fStopNote()
     {
-        if (miSoundingNote >= 0 && UWAudioEngine.Instance != null)
-            UWAudioEngine.Instance.StopInstrumentNote(miSoundingNote);
+        if (miSoundingNote >= 0)
+            UWAudioService.StopInstrumentNote(miSoundingNote);
 
         miSoundingNote = -1;
     }
@@ -227,11 +225,10 @@ public class UWInstrumentPlayer : MonoBehaviour
     }
 
     /// <summary>The channel goes back to the music, as UW.EXE releases the one it got from the
-    /// driver (matters on the MT-32 - UWAudioEngine.EndInstrument).</summary>
+    /// driver (matters on the MT-32 - UWAudioMixCore.EndInstrument).</summary>
     private static void fReleaseChannel()
     {
-        if (UWAudioEngine.Instance != null)
-            UWAudioEngine.Instance.EndInstrument();
+        UWAudioService.EndInstrument();
     }
 
     /// <summary>The Cup of Wonder - see the class comment. True when it appeared (play_cup_tune's

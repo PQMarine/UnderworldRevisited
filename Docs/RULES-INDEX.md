@@ -48,6 +48,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `SkillCheck` (seg037_32E6_C) | UWCritterCombat.cs, UWCritterRules.cs, UWPlayerCritterRow.cs |
 | `seg043_37F0_8EB` | UWConversationView.cs, UWMessageLogModel.cs, UWScrollEdgeRules.cs |
 | `ovr092_48B` | UWAutomapPainter.cs, UWClassicLayout.cs |
+| `PlayMusicalInstrument` (seg014_1195) | UWAudioMixCore.cs, UWMt32MusicDriver.cs |
 | `InitMotionParams` (seg029_29EE_3CC) | UWCommonObjectProperties.cs, UWMobileObjectMotion.cs |
 | `seg043_37F0_163` | UWClassicLayout.cs, UWScrollEdgeRules.cs |
 | `getInputText` (ovr103_1117) | UWConversationLayout.cs, UWConversationSession.cs |
@@ -69,6 +70,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `RegisterEventHandler` (seg010_105) | UWClickRules.cs, UWEasyMovement.cs |
 | `CheckForAttackHit` (seg022_466) | UWCreatureActor.cs, UWCritterRules.cs |
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs |
+| `SurfaceFootsteps` (seg034_2F89_713) | UWSoundEffectId.cs, UWTvfxVoice.cs |
 | `MajorSpellClassB` (seg038_1645) | UWMiscSpellRules.cs, UWPlayerCritterRow.cs |
 | `CastSpells` (seg038_3307_78) | UWCreatureActor.cs, UWPlayerCritterRow.cs |
 | `RunCodeOnObjectsInArea` (seg038_3307_9C7) | UWCritterRules.cs, UWSleepRules.cs |
@@ -98,6 +100,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `QuakeTrap` (seg008_DE7) | UWObjectMechanics.cs, UWTrapRules.cs |
 | `ObjectCullingTest` (seg027_2861_1A6) | UWLiquidCulling.cs, UWTileQueries.cs |
 | `SwimSkillCheck` (seg028_4AE) | UWPlayerData.cs, UWPlayerTerrainRules.cs |
+| `seg030_2B26` | UWImpactRules.cs, UWSoundEffectId.cs |
 | `ManaChange` (seg038_2B6) | UWPlayerVitals.cs, UWWornRegeneration.cs |
 | `GetItemEnchantment` (seg040_352B_257C) | UWItemUse.cs, UWObjectMechanics.cs |
 
@@ -214,12 +217,12 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlayCutscene` (ovr105_1402) | UWIntroPlayer.cs |
-| `CutsceneDisplayString` (ovr105_3B6) | UWIntroPlayer.cs |
-| `Cutscene_3_Pause` (ovr105_5CD) | UWIntroPlayer.cs |
-| `Cutscene_14_Wait` (ovr105_5FA) | UWIntroPlayer.cs |
-| `Cutscene_13_TextAndSound` (ovr105_719) | UWIntroPlayer.cs |
-| `CutsceneDataProcessing` (ovr105_869) | UWIntroPlayer.cs |
+| `PlayCutscene` (ovr105_1402) | UWCutsceneRunner.cs, UWCutsceneView.cs |
+| `CutsceneDisplayString` (ovr105_3B6) | UWCutsceneView.cs |
+| `Cutscene_3_Pause` (ovr105_5CD) | UWCutsceneRunner.cs |
+| `Cutscene_14_Wait` (ovr105_5FA) | UWCutsceneRunner.cs |
+| `Cutscene_13_TextAndSound` (ovr105_719) | UWCutsceneRunner.cs |
+| `CutsceneDataProcessing` (ovr105_869) | UWCutsceneRunner.cs |
 
 ### ovr107
 
@@ -247,8 +250,8 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `ovr114_1B3` | UWIntroPlayer.cs |
-| `ovr114_2B9` | UWIntroPlayer.cs |
+| `ovr114_1B3` | UWCutsceneRunner.cs |
+| `ovr114_2B9` | UWCutsceneRunner.cs |
 | `j_FlashColour` (ovr114_4D6) | UWCritterCombat.cs |
 | `DoTrapCamera` (ovr114_4FE) | UWRemoteCamera.cs |
 
@@ -365,7 +368,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `OpenAndApplyShadesDat` (ovr142_0) | UWShadePalette.cs, UWPaletteRenderToggle.cs |
+| `OpenAndApplyShadesDat` (ovr142_0) | UWLookupTables.cs, UWShadePalette.cs, UWRemasterRenderPath.cs, UWRenderPathHost.cs |
 | `ovr142_181` | UWHallucinationState.cs |
 
 ### ovr143
@@ -374,7 +377,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ovr143_0` | UWMiscSpellRules.cs, Program.cs |
 | `ChangeHunger` (ovr143_1107) | UWPlayerVitals.cs, Program.cs |
-| `EndGameFunctions` (ovr143_1186) | UWEndgame.cs, UWIntroPlayer.cs |
+| `EndGameFunctions` (ovr143_1186) | UWEndgame.cs, UWIntroPlayer.cs, UWVictoryScreens.cs |
 | `PlantSilverSeed` (ovr143_12FB) | UWPlayerData.cs, UWSilverTreeRules.cs |
 | `FindTeleportToObject` (ovr143_14AD) | UWMoonstoneRules.cs |
 | `Resurrection` (ovr143_1521) | UWDeathRules.cs, UWDeath.cs |
@@ -385,7 +388,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `ovr143_384` | UWPlayerVitals.cs |
 | `ChantMantraAtShrine` (ovr143_48D) | UWPlayerData.cs, UWShrineRules.cs, Program.cs |
 | `ovr143_70` | UWMiscSpellRules.cs |
-| `VictoryScreen` (ovr143_76F) | UWEndgame.cs, UWIntroPlayer.cs |
+| `VictoryScreen` (ovr143_76F) | UWEndgame.cs, UWVictoryScreens.cs |
 | `ovr143_95` | UWTybalOrbRules.cs, Program.cs |
 | `GaramonDream` (ovr143_B73) | UWSleepRules.cs |
 | `Sleep` (ovr143_D1F) | UWInventoryModel.cs, UWPlayerVitals.cs, UWRespawnRules.cs, UWSleepRules.cs, UWWornRegeneration.cs, UWTriggerSystem.cs |
@@ -577,15 +580,15 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `PlayMusicalInstrument` (seg014_1195) | UWMt32MusicDriver.cs, UWAudioEngine.cs, UWInstrumentPlayer.cs |
+| `PlayMusicalInstrument` (seg014_1195) | UWAudioMixCore.cs, UWMt32MusicDriver.cs, UWInstrumentPlayer.cs, UWRuleIndexScan.cs |
 | `SpawnCupOfWonder` (seg014_14C3) | UWPlayerData.cs, UWInstrumentPlayer.cs |
 | `ChangeThemeMusic` (seg014_15BA) | UWMusicSelector.cs |
 | `RefreshMusic` (seg014_160D) | UWMusicSelector.cs |
-| `seg014_1DC5_1C78` | UWIntroPlayer.cs |
+| `seg014_1DC5_1C78` | UWCutsceneRunner.cs |
 | `seg014_1DC5_740` | UWPlayerData.cs |
 | `seg014_1DC5_754` | UWPlayerData.cs |
 | `seg014_1DC5_BFD` | UWTvfxVoice.cs |
-| `seg014_8AE` | UWSoundAttenuation.cs, UWSoundEffects.cs |
+| `seg014_8AE` | UWSoundAttenuation.cs, UWAudioService.cs |
 
 ### seg017
 
@@ -622,7 +625,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg022_230E_A6B` | UWPlayerMelee.cs |
 | `CalcFlankingBonus` (seg022_230E_D48) | UWCritterRules.cs, UWPlayerMelee.cs, Program.cs |
 | `seg022_230E_F16` | UWPlayerData.cs |
-| `SpawnImpactAnimo` (seg022_2D2) | UWMissiles.cs, UWSoundEffects.cs |
+| `SpawnImpactAnimo` (seg022_2D2) | UWSoundEffectId.cs, UWMissiles.cs |
 | `CheckForAttackHit` (seg022_466) | UWCreatureActor.cs, UWCritterRules.cs, UWCreatureWorld.cs |
 | `AttackerAppliesFinalDamage` (seg022_8A5) | UWAttackResolution.cs, UWCombat.cs, UWCreatureActor.cs, UWCritterCombat.cs, UWObjectClassProperties.cs, UWPlayerCritterRow.cs, UWPlayerData.cs, UWCreatureWorld.cs, UWHitFeedback.cs, UWPlayerMelee.cs, UWRuleIndexScan.cs, Program.cs |
 | `PickBodyHitPoint` (seg022_A) | UWArmourProtection.cs |
@@ -743,7 +746,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | Place | Files |
 |---|---|
 | `ProcessCollisions` (seg030_115F) | UWMotionCore.cs |
-| `seg030_2B26` | UWImpactRules.cs, UWSoundEffects.cs |
+| `seg030_2B26` | UWImpactRules.cs, UWSoundEffectId.cs |
 | `SetCollisionTarget` (seg030_2B26_10C) | UWMotionCore.cs |
 | `seg030_2B26_11F2` | UWMotionCore.cs |
 | `GetCollisionHeightState` (seg030_2B26_1259) | UWMotionCore.cs |
@@ -810,7 +813,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg034_2F89_4E` | UWClassicGeometry.cs, UWClassicLayout.cs, UWGameClock.cs, UWPlayerMotion.cs, UWPlayerInput.cs, UWPlayerMovement.cs, UWPointerZones.cs, PointerSchemeChecks.cs, Program.cs |
 | `GameObjectLoop` (seg034_2F89_518) | UWPlayerVitals.cs, UWSettings.cs |
 | `PlayerMotion` (seg034_2F89_604) | UWHeadBobRules.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, Program.cs |
-| `SurfaceFootsteps` (seg034_2F89_713) | UWTvfxVoice.cs, UWSoundEffects.cs |
+| `SurfaceFootsteps` (seg034_2F89_713) | UWSoundEffectId.cs, UWTvfxVoice.cs, UWAudioService.cs |
 | `ApplyPlayerSneakScore` (seg034_2F89_898) | UWArmourProtection.cs, UWCritterRules.cs, UWPlayerVitals.cs, Program.cs |
 | `seg034_2F89_971` | UWPlayerTerrainRules.cs |
 | `SetScreenShake` (seg034_2F89_B6A) | UWScreenShake.cs |
@@ -881,14 +884,14 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWItemUseHost.cs, UWSoundEffects.cs |
+| `CastSpellFromObject` (seg040_1F04) | UWItemUse.cs, UWSoundEffectId.cs, UWItemUseHost.cs |
 | `Class_4_2_ObjectUsage` (seg040_352B_16C4) | UWGlowingRockRules.cs |
 | `Fountain` (seg040_352B_1816) | UWObjectMechanics.cs, UWWorldUse.cs |
 | `GlowingRock` (seg040_352B_186E) | UWGlowingRockRules.cs |
 | `UseReadable` (seg040_352B_19A8) | UWItemUse.cs, UWHudMap.cs, UWLookService.cs |
 | `seg040_352B_1B35` | UWSwitchVisual.cs |
 | `UnlockDoor` (seg040_352B_1D3B) | ICritterHost.cs, UWCreatureActor.cs, UWLockRules.cs |
-| `seg040_352B_1F54` | UWSoundEffects.cs |
+| `seg040_352B_1F54` | UWSoundEffectId.cs |
 | `seg040_352B_20CD` | UWWorldCapture.cs, UWLookService.cs |
 | `OpenDoor` (seg040_352B_21E6) | UWConversationSession.cs, UWWorldCapture.cs, IUsableDoor.cs, UWLookService.cs |
 | `CloseDoor` (seg040_352B_22FD) | UWConversationSession.cs |

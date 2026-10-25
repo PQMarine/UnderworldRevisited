@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The game's manual in the help window (decided per user, 2026-09-25): the GOG version
@@ -62,8 +63,7 @@ public static class UWManual
 
         if (lsPath == null)
         {
-            Problem = "The manual was not found. The GOG version brings it as " + FileName
-                + " in the folder of game.gog.";
+            Problem = UWText.F("help.manual.not_found", FileName);
 
             return false;
         }
@@ -78,7 +78,7 @@ public static class UWManual
 
             if (mODocument == IntPtr.Zero)
             {
-                Problem = "The manual could not be opened: " + lsPath;
+                Problem = UWText.F("help.manual.not_opened", lsPath);
 
                 return false;
             }
@@ -106,7 +106,7 @@ public static class UWManual
         catch (Exception lOError) when (lOError is DllNotFoundException || lOError is EntryPointNotFoundException
             || lOError is BadImageFormatException)
         {
-            Problem = "Showing the manual is not available on this system yet.";
+            Problem = UWText.T("help.manual.unavailable");
             Debug.LogWarning("[Manual] PDFium could not be loaded: " + lOError.Message);
             mbLibraryUp = false;
 

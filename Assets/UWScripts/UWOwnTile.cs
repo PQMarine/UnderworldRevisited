@@ -2,46 +2,19 @@ using UnityEngine;
 
 /// <summary>
 /// The shader rule "what stands in a tile is not covered by that tile's own floor, ceiling or
-/// walls" (Assets/UWShaders/UWOwnTile.hlsl) - the one place its names live on the C# side.
+/// walls" (Assets/UWShaders/UWOwnTile.hlsl). Its names live in UWShaderIds since 2026-10-24
+/// (OwnTileKeyword, OwnTile, BigRadius, KeyBonus, ChainIndex, ModelFloorY and the globals), with
+/// every other shader name of the game; its globals are written through UWShaderGlobals.
 ///
 /// The original paints tile by tile from the back to the front, and what stands in a tile after
 /// that tile. Who uses the rule: every creature (UWCritterAnimator; the lurker in its water since
 /// 2026-09-17, a goblin's arm at a wall since 2026-09-22), the item sprites, thrown ones included
 /// (UWLevelLoader), and the single-coloured faces of the 3D models - the shrine on level 3, 28/44
-/// (UWLevelLoader, UWPaletteRenderToggle, UWObjectSpawner). The palette copies of a material take
-/// the keyword over from their source (UWPaletteRenderToggle.fGetPaletteBillboard).
+/// (UWLevelLoader, UWPaletteRenderPath, UWObjectSpawner). The palette copies of a material take
+/// the keyword over from their source (UWPaletteRenderPath.fGetPaletteBillboard).
 /// </summary>
 public static class UWOwnTile
 {
-    /// <summary>The shader keyword that switches the rule on.</summary>
-    public const string Keyword = "_UW_OWN_TILE";
-
-    /// <summary>The toggle property of the billboard shaders that goes with the keyword.</summary>
-    public const string Property = "_OwnTile";
-
-    /// <summary>The material float with a BIG object's radius in eighths of a tile (COMOBJ byte 1
-    /// bits 0-2 when bit 3 is set - creatures), 0 for the items: the original hands a big object
-    /// that pokes into the nearer row or the next inner column to that tile (see UWOwnTile.hlsl,
-    /// UWOwnTileSpriteDepth).</summary>
-    public const string BigRadiusProperty = "_BigRadius";
-
-    /// <summary>Added to an object's sort key in the painter's order (UWPainterOrder.hlsl): -1 for
-    /// the animations 0x1C0-0x1FF, which the original sorts one step nearer. Set per renderer
-    /// (UWObjectSpawner.fSetPainterPlace).</summary>
-    public const string KeyBonusProperty = "_KeyBonus";
-
-    /// <summary>A 3D model's tile floor, per renderer: the model's origin may lie below it, the
-    /// shrine's does by two units, so the box needs the real floor.</summary>
-    public static readonly int ModelFloorId = Shader.PropertyToID("_UWModelFloorY");
-
-    private static readonly int msTileSizeId = Shader.PropertyToID("_UWOwnTileSize");
-
-    private static readonly int msCeilingId = Shader.PropertyToID("_UWOwnTileCeilingY");
-
-    private static readonly int msFloorHeightsId = Shader.PropertyToID("_UWFloorHeights");
-
-    private static readonly int msFloorHeightsReadyId = Shader.PropertyToID("_UWFloorHeightsReady");
-
     private static Texture2D msFloorHeights;
 
     /// <summary>
@@ -58,7 +31,7 @@ public static class UWOwnTile
     {
         if (pOLevel == null)
         {
-            Shader.SetGlobalFloat(msFloorHeightsReadyId, 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.FloorHeightsReady, 0f);
             return;
         }
 
@@ -99,13 +72,9 @@ public static class UWOwnTile
 
         msFloorHeights.SetPixels(lOPixels);
         msFloorHeights.Apply(false, false);
-        Shader.SetGlobalTexture(msFloorHeightsId, msFloorHeights);
-        Shader.SetGlobalFloat(msFloorHeightsReadyId, 1f);
+        UWShaderGlobals.SetTexture(UWShaderIds.FloorHeights, msFloorHeights);
+        UWShaderGlobals.SetFloat(UWShaderIds.FloorHeightsReady, 1f);
     }
-
-    private static readonly int msDoorPlanesId = Shader.PropertyToID("_UWDoorPlanes");
-
-    private static readonly int msDoorPlanesReadyId = Shader.PropertyToID("_UWDoorPlanesReady");
 
     private static Texture2D msDoorPlanes;
 
@@ -136,7 +105,7 @@ public static class UWOwnTile
 
         msDoorsApplied = false;
         DoorPlanesGeneration++;
-        Shader.SetGlobalFloat(msDoorPlanesReadyId, 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.DoorPlanesReady, 0f);
     }
 
     /// <summary>Counts the level builds, so a bridge destroyed with the old level does not clear
@@ -274,11 +243,6 @@ public static class UWOwnTile
     /// <summary>The highest chain place kept; a sprite without one counts as the last.</summary>
     public const int MaxChainIndex = 63;
 
-    /// <summary>The sprite's place in its tile's chain (UWObjectSpawner.fSetPainterPlace).</summary>
-    public const string ChainIndexProperty = "_ChainIndex";
-
-    private static readonly int msModelOrderId = Shader.PropertyToID("_UWModelOrder");
-
     private static Texture2D msModelOrder;
 
     private static Color[] msModelPixels;
@@ -315,10 +279,10 @@ public static class UWOwnTile
             msModelOrder.Apply(false, false);
         }
 
-        Shader.SetGlobalTexture(msModelOrderId, msModelOrder);
+        UWShaderGlobals.SetTexture(UWShaderIds.ModelOrder, msModelOrder);
         msDoorsApplied = true;
-        Shader.SetGlobalTexture(msDoorPlanesId, msDoorPlanes);
-        Shader.SetGlobalFloat(msDoorPlanesReadyId, 1f);
+        UWShaderGlobals.SetTexture(UWShaderIds.DoorPlanes, msDoorPlanes);
+        UWShaderGlobals.SetFloat(UWShaderIds.DoorPlanesReady, 1f);
     }
 
     /// <summary>Switches the rule on for a material.</summary>
@@ -327,16 +291,16 @@ public static class UWOwnTile
         if (pOMaterial == null)
             return;
 
-        if (pOMaterial.HasProperty(Property))
-            pOMaterial.SetFloat(Property, 1f);
+        if (pOMaterial.HasProperty(UWShaderIds.OwnTile))
+            pOMaterial.SetFloat(UWShaderIds.OwnTile, 1f);
 
-        pOMaterial.EnableKeyword(Keyword);
+        pOMaterial.EnableKeyword(UWShaderIds.OwnTileKeyword);
     }
 
     /// <summary>Copies the switch from one material to another (the palette copies).</summary>
     public static void CopyTo(Material pOSource, Material pOTarget)
     {
-        if (pOSource != null && pOTarget != null && pOSource.IsKeywordEnabled(Keyword))
+        if (pOSource != null && pOTarget != null && pOSource.IsKeywordEnabled(UWShaderIds.OwnTileKeyword))
             Enable(pOTarget);
     }
 
@@ -344,7 +308,7 @@ public static class UWOwnTile
     /// box. Without them the rule knows only the ground, as it did until 2026-09-22.</summary>
     public static void SetGlobals()
     {
-        Shader.SetGlobalFloat(msTileSizeId, UWDataImport.UWData.UWWorldScale.TileSize);
-        Shader.SetGlobalFloat(msCeilingId, UWDataImport.UWData.UWWorldScale.CeilingHeight);
+        UWShaderGlobals.SetFloat(UWShaderIds.OwnTileSize, UWDataImport.UWData.UWWorldScale.TileSize);
+        UWShaderGlobals.SetFloat(UWShaderIds.OwnTileCeilingY, UWDataImport.UWData.UWWorldScale.CeilingHeight);
     }
 }

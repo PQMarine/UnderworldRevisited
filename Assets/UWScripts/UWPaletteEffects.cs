@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering.Universal;
 using UWDataImport.UWData;
 using UnderworldRevisited.Build;
 
@@ -24,46 +23,27 @@ using UnderworldRevisited.Build;
 ///                      (_UWPaletteShadows).
 ///   glow               lava and the light sources' bright pixels keep their full colour
 ///                      (_UWPaletteGlow, _UWGlowSprite on the light sources' renderers).
-///   light sources      the Remastered mode's list of glowing things (UWRemasterLights) and every
+///   light sources      the list of glowing things both modes share (UWLightSourceTable) and every
 ///                      lava tile, each lit like a carried light of its own level by the
 ///                      original's SHADES.DAT table, walls casting shadows (UWPaletteLightMap,
 ///                      _UWPaletteLightMap); fire flickers. Within the player's own view distance
 ///                      only (per user: a source must not let one see further than the original).
 ///
-/// Set every LateUpdate while the palette path is on; in Remastered the effects are off here and
-/// the occlusion feature belongs to UWRemasterRenderer. Created once and kept across scene loads.
+/// Ticked by the palette path (UWPaletteRenderPath.LateTick) while it is in force and cleared
+/// when it goes (Clear): every effect off, and the globals only the palette shaders read taken
+/// away, so a Remastered dump shows none of them. Until cleanup step 6.5 (2026-10-24) this was a
+/// component of its own, kept across scene loads, that asked the render mode every frame and in
+/// Remastered kept the light map, the normal array and the shadow list set. The grime is the one
+/// effect both modes draw (ApplyShared, from UWRenderPathHost every frame). URP's occlusion
+/// feature is the host's: the palette path wants it while the ambient occlusion is above 0
+/// (UWPaletteRenderPath.WantsOcclusion).
+/// The values go through UWShaderGlobals (2026-10-24), which writes only what changed: the copies
+/// of the user's settings once, the shadow array and the light map while something moves.
 /// </summary>
-public class UWPaletteEffects : MonoBehaviour
+public sealed class UWPaletteEffects
 {
     /// <summary>The most levels ambient occlusion may darken by.</summary>
     public const float MaxAmbientOcclusion = 6f;
-
-    private static readonly int msAmbientOcclusionId = Shader.PropertyToID("_UWPaletteAO");
-
-    private static readonly int msLightsId = Shader.PropertyToID("_UWPaletteLights");
-
-    private static readonly int msGrimeId = Shader.PropertyToID("_UWPaletteGrime");
-
-    private static readonly int msGrimeTintId = Shader.PropertyToID("_UWGrimeTint");
-
-    private static readonly int msGrimeToneColourId = Shader.PropertyToID("_UWGrimeToneColour");
-
-    private static readonly int msReliefId = Shader.PropertyToID("_UWPaletteRelief");
-
-    private static readonly int msCavityId = Shader.PropertyToID("_UWPaletteCavity");
-
-    private static readonly int msNormalArrayId = Shader.PropertyToID("_UWPaletteNormalArray");
-
-    private static readonly int msDepthId = Shader.PropertyToID("_UWPaletteDepth");
-
-    private static readonly int msParallaxId = Shader.PropertyToID("_UWPaletteParallax");
-
-    private static readonly int msSelfShadowId = Shader.PropertyToID("_UWPaletteSelfShadow");
-
-
-    private static readonly int msGlowId = Shader.PropertyToID("_UWPaletteGlow");
-
-    private static readonly int msGlowSpriteId = Shader.PropertyToID("_UWGlowSprite");
 
     /// <summary>The renderers marked as glowing light sources, to unmark them again.</summary>
     private readonly List<Renderer> mOGlowing = new List<Renderer>();
@@ -158,32 +138,18 @@ public class UWPaletteEffects : MonoBehaviour
         }
     }
 
-    /// <summary>The normal and height array, built the first time relief or hollows are on.</summary>
+    /// <summary>The normal and height array, asked for the first time relief or hollows are on;
+    /// UWTextureCache owns it (a destroyed one reads as null here).</summary>
     private Texture2DArray mONormalArray;
-
-    /// <summary>The height strength the normal array was built with.</summary>
-    private float mfNormalStrength;
-
-    private static readonly int msGrimeTintTableId = Shader.PropertyToID("_UWGrimeTintTable");
 
     /// <summary>The grime's colour tables, one row per tone (UWGrimeTint), built once.</summary>
     private Texture2D mOGrimeTintTable;
 
-    private static readonly int msShadowsId = Shader.PropertyToID("_UWPaletteShadows");
-
-    private static readonly int msShadowCountId = Shader.PropertyToID("_UWPaletteShadowCount");
-
-    private static readonly int msShadowStrengthId = Shader.PropertyToID("_UWPaletteShadowStrength");
-
-    /// <summary>The most levels a ground shadow may darken by.</summary>
-    public const float MaxGroundShadows = 6f;
+    /// <summary>The most levels a ground shadow may darken by (UWGroundShadowRule).</summary>
+    public const float MaxGroundShadows = UWGroundShadowRule.MaxPaletteLevels;
 
     /// <summary>As many casters as the shader takes (UW_GROUND_SHADOWS).</summary>
     private const int MaxShadowCasters = 64;
-
-    /// <summary>The smallest blob's diameter - a coin or a key would get a barely visible dot
-    /// (as UWRemasterGroundShadows).</summary>
-    private const float MinShadowDiameter = 10f;
 
     private readonly List<Transform> mOCasters = new List<Transform>();
 
@@ -193,40 +159,21 @@ public class UWPaletteEffects : MonoBehaviour
 
     private readonly List<int> mOCasterOrder = new List<int>();
 
+    /// <summary>Each caster's squared distance from the eye this frame, by caster - read by
+    /// fCompareCasters, which is made once: until 2026-10-24 (cleanup step 6.3) the sort took a
+    /// closure over the eye, a new allocation every frame.</summary>
+    private readonly List<float> mOCasterDistance = new List<float>();
+
+    private System.Comparison<int> mOCompareCasters;
+
     private float mfNextCasterScan;
 
     /// <summary>The most levels the grime along the walls may darken by.</summary>
     public const float MaxGrime = 6f;
 
-    private static readonly int msLightMapId = Shader.PropertyToID("_UWPaletteLightMap");
-
-    /// <summary>The light level a source shines with, as a carried light of that level would
-    /// (0-7, UWShades): a candle or a mushroom like a candle, a torch or an orb like a torch, a
-    /// lantern or a fire brighter. Not from the data - their brightness field is zero (see
-    /// UWRemasterLights) -, chosen by what they are.</summary>
-    private static readonly Dictionary<int, float> msLightLevels = new Dictionary<int, float>
-    {
-        { UWObjectIds.Torch, 2f },       // torch
-        { UWObjectIds.Candle, 1f },      // candle
-        { UWObjectIds.Lantern, 3f },     // lantern
-        { 298, 3f },                     // campfire
-        { 120, 3f },                     // fire elemental
-        { UWObjectIds.GlowingRock, 1f }, // glowing stone
-        { 184, 1f },   // glowing mushroom
-        { 279, 2f },   // orb
-        { 274, 2f },   // orb stone
-    };
-
-    /// <summary>The light level of a lava tile: 1 (by SHADES.DAT 4, 8, 14 at 0, 1, 2 tiles), dimmed
-    /// by LavaDim levels: 7, 11, dark - a dull glow with a reach of about two tiles. It was 2 without
-    /// a dimming (2, 6, 13) until the user found the brightening too strong, then 1 (4, 8, 14), still
-    /// too bright: "In meiner Vorstellung macht Lava nur ein dumpfes Licht" (2026-10-07).</summary>
-    private const float LavaLightLevel = 1f;
-
-    private const float LavaDim = 3f;
-
-    /// <summary>How far the light level of open fire swings, in levels.</summary>
-    private const float FireFlicker = 0.5f;
+    // The light level each source shines with (UWLightSourceTable.Row.PaletteLightLevel), the lava
+    // tile's level and dimming (UWLightSourceTable.LavaPalette*) and the swing of open fire
+    // (UWFlicker.PaletteFireLevel) are shared tables and rules since cleanup step 6.4 (2026-10-24).
 
     /// <summary>How often the sources are looked for again, in seconds (a torch taken or put
     /// down, a creature on fire walking).</summary>
@@ -252,89 +199,84 @@ public class UWPaletteEffects : MonoBehaviour
 
     private float mfNextSourceCheck;
 
-    private static UWPaletteEffects msInstance;
+    /// <summary>The ambient occlusion the user asked for, in levels.</summary>
+    public static float AmbientOcclusionLevels => Mathf.Clamp(UWUserSettings.PaletteAmbientOcclusion, 0f, MaxAmbientOcclusion);
 
-    private ScreenSpaceAmbientOcclusion mOOcclusion;
-
-    private bool mbSearchedOcclusion;
-
-    private bool mbOwnsOcclusion;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void fCreate()
+    /// <summary>
+    /// What both render modes draw of these effects: the grime (UWGrime.hlsl; per user,
+    /// 2026-10-07, in Remastered too), set by UWRenderPathHost every frame in either mode.
+    /// </summary>
+    public static void ApplyShared()
     {
-        if (msInstance != null)
-            return;
-
-        GameObject lOObject = new GameObject("UW Palette Effects");
-
-        DontDestroyOnLoad(lOObject);
-        msInstance = lOObject.AddComponent<UWPaletteEffects>();
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteGrime, Mathf.Clamp(UWUserSettings.PaletteGrime, 0f, MaxGrime));
+        UWShaderGlobals.SetVector(UWShaderIds.GrimeToneColour, fGrimeToneColour());
     }
 
-    private void LateUpdate()
+    /// <summary>Every frame while the palette path is in force (UWPaletteRenderPath.LateTick).</summary>
+    public void Tick()
     {
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-        bool lbPalette = lOSettings != null && !lOSettings.IsRemasteredActive;
+        float lfOcclusion = AmbientOcclusionLevels;
 
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteAO, lfOcclusion);
+        fUpdateGrimeTint();
+        fUpdateRelief();
 
-        float lfOcclusion = lbPalette ? Mathf.Clamp(UWUserSettings.PaletteAmbientOcclusion, 0f, MaxAmbientOcclusion) : 0f;
+        fUpdateLights(UWUserSettings.PaletteLightSources);
+        fUpdateShadows(Mathf.Clamp(UWUserSettings.PaletteGroundShadows, 0f, MaxGroundShadows));
+        fUpdateGlow(UWUserSettings.PaletteGlow);
+    }
 
-        Shader.SetGlobalFloat(msAmbientOcclusionId, lfOcclusion);
-        // The grime in both render modes (UWGrime.hlsl; per user, 2026-10-07).
-        Shader.SetGlobalFloat(msGrimeId, Mathf.Clamp(UWUserSettings.PaletteGrime, 0f, MaxGrime));
-        Shader.SetGlobalVector(msGrimeToneColourId, fGrimeToneColour());
-        fUpdateGrimeTint(lbPalette);
-        fUpdateRelief(lbPalette);
+    /// <summary>
+    /// The palette path goes (UWPaletteRenderPath.Deactivate): every effect off, the glow marks
+    /// taken away, and the textures and the shadow list only the palette shaders read cleared
+    /// (cleanup step 6.5, 2026-10-24; until then they stayed set in Remastered).
+    /// </summary>
+    public void Clear()
+    {
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteAO, 0f);
 
-        fUpdateLights(lbPalette && UWUserSettings.PaletteLightSources);
-        fUpdateShadows(lbPalette ? Mathf.Clamp(UWUserSettings.PaletteGroundShadows, 0f, MaxGroundShadows) : 0f);
-        fUpdateGlow(lbPalette && UWUserSettings.PaletteGlow);
+        UWShaderGlobals.SetFloat(UWShaderIds.GrimeTint, 0f);
+        UWShaderGlobals.ClearTexture(UWShaderIds.GrimeTintTable);
 
-        // The occlusion feature: on while the palette path wants it; off again only if it was
-        // this one that turned it on - in Remastered UWRemasterRenderer decides.
-        if (lfOcclusion > 0f)
-        {
-            fSetOcclusion(true);
-            mbOwnsOcclusion = true;
-        }
-        else if (mbOwnsOcclusion)
-        {
-            if (lbPalette)
-                fSetOcclusion(false);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteRelief, 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteCavity, 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteDepth, 0f);
+        UWShaderGlobals.ClearTexture(UWShaderIds.PaletteNormalArray);
+        UWShaderGlobals.SetVector(UWShaderIds.PaletteParallax, Vector4.zero);
+        UWShaderGlobals.SetVector(UWShaderIds.PaletteSelfShadow, Vector4.zero);
 
-            mbOwnsOcclusion = false;
-        }
+        fUpdateLights(false);
+        UWShaderGlobals.ClearTexture(UWShaderIds.PaletteLightMap);
+
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteShadowStrength, 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteShadowCount, 0f);
+        UWShaderGlobals.ClearVectorArray(UWShaderIds.PaletteShadows);
+
+        fUpdateGlow(false);
     }
 
     // ------------------------------------------------- Relief and hollows
 
-    private void fUpdateRelief(bool pbPalette)
+    private void fUpdateRelief()
     {
         // RELIEF IS NOT OFFERED (per user, 2026-10-07: "Relief zusaetzlich macht es aber nur
         // schlimmer"): lit by whole levels from the eye it reads as painted noise, and on the
         // shifted texels of the depth its normals flip between stone and joint. Form comes from
         // the depth and its self shadow, the joints from the hollows. The shader keeps it at 0.
         float lfRelief = 0f;
-        float lfCavity = pbPalette ? Mathf.Clamp(UWUserSettings.PaletteCavity, 0f, MaxRelief) : 0f;
-        float lfDepth = pbPalette ? Mathf.Clamp(UWUserSettings.PaletteDepth, 0f, MaxDepth) : 0f;
+        float lfCavity = Mathf.Clamp(UWUserSettings.PaletteCavity, 0f, MaxRelief);
+        float lfDepth = Mathf.Clamp(UWUserSettings.PaletteDepth, 0f, MaxDepth);
 
         if (lfCavity > 0f || lfDepth > 0f)
         {
             UWLevelLoader lOLoader = UWScene.LevelLoader;
             UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
-            // Built once, and again when the height strength changes (UWRemasterRenderer does
-            // the same for its copy; until 2026-10-11 this one stayed at the first strength).
-            if (lOLoader != null && lOLoader.UWDataImporter != null && lOSettings != null
-                && (mONormalArray == null || !Mathf.Approximately(mfNormalStrength, lOSettings.RemasterHeightStrength)))
-            {
-                if (mONormalArray != null)
-                    Destroy(mONormalArray);
-
-                mONormalArray = UWTextureArrayBuilder.BuildNormals(lOLoader.UWDataImporter, lOSettings.RemasterHeightStrength);
-                mfNormalStrength = lOSettings.RemasterHeightStrength;
-            }
+            // Built once, and again when the height strength changes (until 2026-10-11 this one
+            // stayed at the first strength) - by UWTextureCache since 2026-10-24, the same array
+            // Remastered uses.
+            if (lOLoader != null && lOLoader.UWDataImporter != null && lOSettings != null)
+                mONormalArray = UWTextureCache.GetNormalArray(lOLoader.UWDataImporter, lOSettings.RemasterHeightStrength);
         }
 
         if (mONormalArray == null)
@@ -345,22 +287,22 @@ public class UWPaletteEffects : MonoBehaviour
         }
         else
         {
-            Shader.SetGlobalTexture(msNormalArrayId, mONormalArray);
+            UWShaderGlobals.SetTexture(UWShaderIds.PaletteNormalArray, mONormalArray);
         }
 
-        Shader.SetGlobalFloat(msReliefId, lfRelief);
-        Shader.SetGlobalFloat(msCavityId, lfCavity);
-        Shader.SetGlobalFloat(msDepthId, lfDepth);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteRelief, lfRelief);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteCavity, lfCavity);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteDepth, lfDepth);
 
-        // The Remastered parallax and self shadow values (UWRemasterRenderer sets the same on its
+        // The Remastered parallax and self shadow values (UWRemasterRenderPath sets the same on its
         // material), so both modes share one tuning.
         UnderworldRevisited.UWSettings lOValues = UnderworldRevisited.UWSettings.Instance;
 
         if (lOValues != null)
         {
-            Shader.SetGlobalVector(msParallaxId, new Vector4(lOValues.RemasterParallaxDepth, lOValues.RemasterParallaxLevels,
+            UWShaderGlobals.SetVector(UWShaderIds.PaletteParallax, new Vector4(lOValues.RemasterParallaxDepth, lOValues.RemasterParallaxLevels,
                 lOValues.RemasterParallaxSteps, lOValues.RemasterParallaxInvert ? -1f : 1f));
-            Shader.SetGlobalVector(msSelfShadowId, new Vector4(lOValues.RemasterSelfShadowDepth, lOValues.RemasterSelfShadowReach,
+            UWShaderGlobals.SetVector(UWShaderIds.PaletteSelfShadow, new Vector4(lOValues.RemasterSelfShadowDepth, lOValues.RemasterSelfShadowReach,
                 lOValues.RemasterSelfShadowSoftness, 0f));
         }
     }
@@ -386,33 +328,18 @@ public class UWPaletteEffects : MonoBehaviour
         return new Vector4(liR * lfScale, liG * lfScale, liB * lfScale, 1f);
     }
 
-    private void fUpdateGrimeTint(bool pbPalette)
+    private void fUpdateGrimeTint()
     {
         int liTone = Mathf.Clamp(UWUserSettings.PaletteGrimeTone, 0, UWGrimeTint.ToneCount - 1);
         UWLevelLoader lOLoader = UWScene.LevelLoader;
 
         if (mOGrimeTintTable == null && lOLoader != null && lOLoader.UWDataImporter != null && lOLoader.UWDataImporter.Palettes != null)
-        {
-            UWPalette lOPalette = lOLoader.UWDataImporter.Palettes.GetPalette(0);
-
-            mOGrimeTintTable = new Texture2D(UWGrimeTint.PaletteSize, UWGrimeTint.ToneCount, TextureFormat.R8, false, true);
-            mOGrimeTintTable.name = "UW Grime Tint";
-            mOGrimeTintTable.filterMode = FilterMode.Point;
-            mOGrimeTintTable.wrapMode = TextureWrapMode.Clamp;
-
-            byte[] lyAll = new byte[UWGrimeTint.PaletteSize * UWGrimeTint.ToneCount];
-
-            for (int liRow = 0; liRow < UWGrimeTint.ToneCount; liRow++)
-                System.Array.Copy(UWGrimeTint.Build(lOPalette, (UWGrimeTint.ToneEnum)liRow), 0, lyAll, liRow * UWGrimeTint.PaletteSize, UWGrimeTint.PaletteSize);
-
-            mOGrimeTintTable.SetPixelData(lyAll, 0);
-            mOGrimeTintTable.Apply(false, false);
-        }
+            mOGrimeTintTable = UWTextureFactory.GrimeTintTable(lOLoader.UWDataImporter.Palettes.GetPalette(0));
 
         if (mOGrimeTintTable != null)
-            Shader.SetGlobalTexture(msGrimeTintTableId, mOGrimeTintTable);
+            UWShaderGlobals.SetTexture(UWShaderIds.GrimeTintTable, mOGrimeTintTable);
 
-        Shader.SetGlobalFloat(msGrimeTintId, pbPalette && mOGrimeTintTable != null ? liTone : 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.GrimeTint, mOGrimeTintTable != null ? liTone : 0f);
     }
 
     // ------------------------------------------------- Glow
@@ -421,7 +348,7 @@ public class UWPaletteEffects : MonoBehaviour
     /// every SourceInterval, as things come and go); off, the marks are taken away again.</summary>
     private void fUpdateGlow(bool pbOn)
     {
-        Shader.SetGlobalFloat(msGlowId, pbOn ? 1f : 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteGlow, pbOn ? 1f : 0f);
 
         if (!pbOn)
         {
@@ -445,7 +372,7 @@ public class UWPaletteEffects : MonoBehaviour
 
         foreach (UWEntityInfo lOEntity in lOLoader.GetWorldEntities())
         {
-            if (lOEntity == null || lOEntity.ObjectData == null || !msLightLevels.ContainsKey(lOEntity.ObjectData.ID))
+            if (lOEntity == null || lOEntity.ObjectData == null || !UWLightSourceTable.IsLightSource(lOEntity.ObjectData.ID))
                 continue;
 
             mOGlowing.AddRange(lOEntity.GetComponentsInChildren<Renderer>(true));
@@ -467,10 +394,10 @@ public class UWPaletteEffects : MonoBehaviour
 
             lORenderer.GetPropertyBlock(mOGlowBlock);
 
-            if (Mathf.Approximately(mOGlowBlock.GetFloat(msGlowSpriteId), pfValue))
+            if (Mathf.Approximately(mOGlowBlock.GetFloat(UWShaderIds.GlowSprite), pfValue))
                 continue;
 
-            mOGlowBlock.SetFloat(msGlowSpriteId, pfValue);
+            mOGlowBlock.SetFloat(UWShaderIds.GlowSprite, pfValue);
             lORenderer.SetPropertyBlock(mOGlowBlock);
         }
     }
@@ -481,14 +408,14 @@ public class UWPaletteEffects : MonoBehaviour
     /// looked for again every SourceInterval.</summary>
     private void fUpdateShadows(float pfStrength)
     {
-        Shader.SetGlobalFloat(msShadowStrengthId, pfStrength);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteShadowStrength, pfStrength);
 
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         Camera lOCamera = Camera.main;
 
         if (pfStrength <= 0f || lOLoader == null || lOCamera == null)
         {
-            Shader.SetGlobalFloat(msShadowCountId, 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.PaletteShadowCount, 0f);
             return;
         }
 
@@ -501,15 +428,22 @@ public class UWPaletteEffects : MonoBehaviour
         Vector3 lOEye = lOCamera.transform.position;
 
         mOCasterOrder.Clear();
+        mOCasterDistance.Clear();
 
         for (int liAt = 0; liAt < mOCasters.Count; liAt++)
         {
-            if (mOCasters[liAt] != null && mOCasters[liAt].gameObject.activeInHierarchy)
+            bool lbActive = mOCasters[liAt] != null && mOCasters[liAt].gameObject.activeInHierarchy;
+
+            mOCasterDistance.Add(lbActive ? (mOCasters[liAt].position - lOEye).sqrMagnitude : 0f);
+
+            if (lbActive)
                 mOCasterOrder.Add(liAt);
         }
 
-        mOCasterOrder.Sort((a, b) => (mOCasters[a].position - lOEye).sqrMagnitude
-            .CompareTo((mOCasters[b].position - lOEye).sqrMagnitude));
+        if (mOCompareCasters == null)
+            mOCompareCasters = fCompareCasters;
+
+        mOCasterOrder.Sort(mOCompareCasters);
 
         int liCount = Mathf.Min(MaxShadowCasters, mOCasterOrder.Count);
 
@@ -521,13 +455,19 @@ public class UWPaletteEffects : MonoBehaviour
             mOShadowData[liAt] = new Vector4(lOAt.x, lOAt.y, lOAt.z, mOCasterRadius[liCaster]);
         }
 
-        Shader.SetGlobalVectorArray(msShadowsId, mOShadowData);
-        Shader.SetGlobalFloat(msShadowCountId, liCount);
+        UWShaderGlobals.SetVectorArray(UWShaderIds.PaletteShadows, mOShadowData);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteShadowCount, liCount);
+    }
+
+    /// <summary>Nearer the eye first (this frame's distances, mOCasterDistance).</summary>
+    private int fCompareCasters(int piA, int piB)
+    {
+        return mOCasterDistance[piA].CompareTo(mOCasterDistance[piB]);
     }
 
     /// <summary>Who casts a ground shadow: what stands in the world as a sprite, as in the
     /// Remastered mode (UWRemasterGroundShadows) - not the light sources, nothing in flight; as
-    /// wide as its collider in plan view.</summary>
+    /// wide as its collider in plan view. The one rule of both modes: UWGroundShadowRule.</summary>
     private void fCollectCasters(UWLevelLoader pOLoader)
     {
         mOCasters.Clear();
@@ -535,22 +475,12 @@ public class UWPaletteEffects : MonoBehaviour
 
         foreach (UWEntityInfo lOEntity in pOLoader.GetWorldEntities())
         {
-            if (lOEntity == null || lOEntity.ObjectData == null || !lOEntity.gameObject.activeInHierarchy
-                || UWRemasterLights.IsLightSource(lOEntity.ObjectData.ID)
-                || lOEntity.GetComponent<UWProjectileFlight>() != null)
+            if (lOEntity == null || !lOEntity.gameObject.activeInHierarchy
+                || !UWGroundShadowCasters.TryGetWidth(lOEntity, true, out float lfWidth))
                 continue;
-
-            MeshRenderer lORenderer = lOEntity.GetComponent<MeshRenderer>();
-            Shader lOShader = lORenderer != null && lORenderer.sharedMaterial != null ? lORenderer.sharedMaterial.shader : null;
-
-            if (lOShader == null || (lOShader.name != "UW/Billboard" && lOShader.name != "UW/BillboardPalette"))
-                continue;
-
-            BoxCollider lOCollider = lOEntity.GetComponent<BoxCollider>();
-            float lfWidth = lOCollider != null ? Mathf.Max(lOCollider.size.x, lOCollider.size.z) : 16f;
 
             mOCasters.Add(lOEntity.transform);
-            mOCasterRadius.Add(Mathf.Max(MinShadowDiameter, lfWidth) * 0.5f);
+            mOCasterRadius.Add(UWGroundShadowRule.PaletteRadius(lfWidth));
         }
     }
 
@@ -562,7 +492,7 @@ public class UWPaletteEffects : MonoBehaviour
 
         if (!pbOn || lOLoader == null || lOLoader.CurrentLevel == null || lOLoader.UWDataImporter == null)
         {
-            Shader.SetGlobalFloat(msLightsId, 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.PaletteLights, 0f);
             mOLightLevel = null;
             return;
         }
@@ -599,16 +529,14 @@ public class UWPaletteEffects : MonoBehaviour
                 lOSource.Y = lOFollow.position.z / UWWorldScale.TileSize;
             }
 
-            float lfPhase = mOSourcePhase[liAt];
-            float lfNoise = Mathf.PerlinNoise(lfPhase, Time.time * 3f) - 0.5f;
-
-            lOSource.LightLevel = mOSourceBase[liAt] + (lfNoise * 2f * FireFlicker);
+            lOSource.LightLevel = UWFlicker.PaletteFireLevel(UWLightFlicker.Perlin, mOSourcePhase[liAt],
+                Time.time, mOSourceBase[liAt]);
             mOSources[liAt] = lOSource;
         }
 
         mOLightMap.Compose(mOSources);
         fUploadLightMap();
-        Shader.SetGlobalFloat(msLightsId, 1f);
+        UWShaderGlobals.SetFloat(UWShaderIds.PaletteLights, 1f);
     }
 
     /// <summary>The sources of the level: every entity on the list of glowing things (open fire
@@ -627,13 +555,13 @@ public class UWPaletteEffects : MonoBehaviour
         foreach (UWEntityInfo lOEntity in lOEntities)
         {
             if (lOEntity == null || lOEntity.ObjectData == null || !lOEntity.gameObject.activeInHierarchy
-                || !msLightLevels.TryGetValue(lOEntity.ObjectData.ID, out float lfLevel)
-                || !UWRemasterLights.IsLightSource(lOEntity.ObjectData.ID, out bool lbOpenFire))
+                || !UWLightSourceTable.TryGet(lOEntity.ObjectData.ID, out UWLightSourceTable.Row lORow))
                 continue;
 
+            float lfLevel = lORow.PaletteLightLevel;
             Vector3 lOAt = lOEntity.transform.position;
             bool lbCreature = lOEntity.GetComponent<UWCritter>() != null;
-            bool lbChanging = lbOpenFire || lbCreature;
+            bool lbChanging = lORow.OpenFire || lbCreature;
 
             mOSources.Add(new UWPaletteLightMap.Source
             {
@@ -644,7 +572,7 @@ public class UWPaletteEffects : MonoBehaviour
             });
             mOSourceFollow.Add(lbCreature ? lOEntity.transform : null);
             mOSourceBase.Add(lfLevel);
-            mOSourcePhase.Add((lOAt.x * 0.137f) + (lOAt.z * 0.711f));
+            mOSourcePhase.Add(UWFlicker.PalettePhase(lOAt.x, lOAt.z));
 
             if (!lbChanging)
                 liSignature = (liSignature * 31) + Mathf.RoundToInt(lOAt.x) + (Mathf.RoundToInt(lOAt.z) * 7919) + lOEntity.ObjectData.ID;
@@ -661,9 +589,10 @@ public class UWPaletteEffects : MonoBehaviour
                 if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid || lOQueries == null || !lOQueries.IsLavaTile(lOTile))
                     continue;
 
-                mOSources.Add(new UWPaletteLightMap.Source { X = liX, Y = liY, LightLevel = LavaLightLevel, Dim = LavaDim });
+                mOSources.Add(new UWPaletteLightMap.Source { X = liX, Y = liY,
+                    LightLevel = UWLightSourceTable.LavaPaletteLightLevel, Dim = UWLightSourceTable.LavaPaletteDim });
                 mOSourceFollow.Add(null);
-                mOSourceBase.Add(LavaLightLevel);
+                mOSourceBase.Add(UWLightSourceTable.LavaPaletteLightLevel);
                 mOSourcePhase.Add(0f);
                 liSignature = (liSignature * 31) + liX + (liY * 64);
             }
@@ -688,37 +617,23 @@ public class UWPaletteEffects : MonoBehaviour
 
         mOLightTexture.SetPixelData(mOLightMap.Map, 0);
         mOLightTexture.Apply(false, false);
-        Shader.SetGlobalTexture(msLightMapId, mOLightTexture);
+        UWShaderGlobals.SetTexture(UWShaderIds.PaletteLightMap, mOLightTexture);
     }
 
-    private void fSetOcclusion(bool pbOn)
+    /// <summary>The palette path goes with its scene (UWPaletteRenderPath.Dispose).</summary>
+    public void Dispose()
     {
-        if (!mbSearchedOcclusion)
+        // Not the normal array: UWTextureCache owns it (since 2026-10-24).
+        foreach (Texture lOTexture in new Texture[] { mOLightTexture, mOGrimeTintTable })
         {
-            mbSearchedOcclusion = true;
-
-            ScreenSpaceAmbientOcclusion[] lOFound = Resources.FindObjectsOfTypeAll<ScreenSpaceAmbientOcclusion>();
-
-            if (lOFound != null && lOFound.Length > 0)
-                mOOcclusion = lOFound[0];
+            if (lOTexture != null)
+            {
+                UWShaderGlobals.Invalidate(lOTexture);
+                Object.Destroy(lOTexture);
+            }
         }
 
-        if (mOOcclusion != null && mOOcclusion.isActive != pbOn)
-            mOOcclusion.SetActive(pbOn);
-    }
-
-    private void OnDestroy()
-    {
-        if (msInstance == this)
-            msInstance = null;
-
-        if (mOLightTexture != null)
-            Destroy(mOLightTexture);
-
-        if (mOGrimeTintTable != null)
-            Destroy(mOGrimeTintTable);
-
-        if (mONormalArray != null)
-            Destroy(mONormalArray);
+        mOLightTexture = null;
+        mOGrimeTintTable = null;
     }
 }

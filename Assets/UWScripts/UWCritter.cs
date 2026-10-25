@@ -594,17 +594,17 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     }
 
     /// <summary>LoadSoundAtCoordinate at the creature: the numbers are the original's, which
-    /// UWSoundEffects plays directly (footsteps 1, 2, 5, 0x0D, 0x0E, 0x17; death 6).</summary>
+    /// UWAudioService plays directly (footsteps 1, 2, 5, 0x0D, 0x0E, 0x17; death 6).</summary>
     public void PlaySound(int piSound)
     {
-        UWSoundEffects.PlayAt(piSound, mOBody);
+        UWAudioService.PlayEffectAt(piSound, mOBody);
     }
 
     /// <summary>Nothing in reach, or the world in the way: sound 0x0A at the attacker (label
     /// C34, CombatMissImpactSound(0)).</summary>
     public void PlayMissSound()
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.Miss, mOBody);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.Miss, mOBody);
     }
 
     /// <summary>Sound 4 at this defender with the pre-armour value on a hit; blocked: 7 or 8 at
@@ -613,9 +613,9 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     public void PlayStruckSound(in UWAttackOutcome pOOutcome)
     {
         if (pOOutcome.Hit)
-            UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, mOBody, pOOutcome.HitVolume);
+            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, mOBody, pOOutcome.HitVolume);
         else
-            UWSoundEffects.PlayAt(pOOutcome.BlockedSound, mOBody);
+            UWAudioService.PlayEffectAt(pOOutcome.BlockedSound, mOBody);
     }
 
     /// <summary>
@@ -685,7 +685,7 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
     /// </summary>
     public void ShowDrowning()
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.Water, mOBody);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.Water, mOBody);
 
         if (mOLevelLoader != null)
             mOLevelLoader.SpawnEffectAt(SplashEffectObjectId, mOBody, UWLevelLoader.SplashEffectSeconds);
@@ -891,85 +891,41 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
         Trace(msLastEvent);
     }
 
-    /// <summary>The trace, oldest line first. Empty while tracing is off.</summary>
-    public string GetTrace()
+    /// <summary>
+    /// The creature as the F1 panel shows it (UWDebugOverlay, cleanup 8c, 2026-10-25; until then
+    /// DescribeCombatStats and GetTrace wrote its lines): the record's and the actor's numbers through
+    /// the engine-free view (UWDebugCreature.FillRecord: goal, target, slot and interval, animation
+    /// and frame, the temper bits, the kin alarm - added 2026-09-27 for the summoned ally that stayed
+    /// mellow next to a creature the player hit), and the scene's part here - the index, the body's
+    /// height and the floor under it, the picture's slot and frame, the last event and the trace.
+    /// </summary>
+    public void FillDebug(UWDataImport.UWData.UWDebugCreature pOView)
     {
-        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+        UWCritterClock lOClock = UWScene.CritterClock;
 
+        pOView.FillRecord(mORecord, mOActor, UWScene.CritterAlarm, lOClock != null ? lOClock.Clock : 0, lOClock != null ? lOClock.Phase : 0);
+
+        if (pOView.HasRecord)
+        {
+            UWCritterAnimator lOAnimator = GetComponent<UWCritterAnimator>();
+            UWTile lOTile = fGetTileAt(mOBody);
+
+            pOView.Index = Index;
+            pOView.BodyY = mOBody.y;
+            pOView.TileFloor = lOTile == null ? -1 : lOTile.FloorHeight;
+            pOView.PictureSlot = lOAnimator == null ? -1 : lOAnimator.CurrentSlot;
+            pOView.PictureFrame = lOAnimator == null ? -1 : lOAnimator.CurrentFrameInSegment;
+            pOView.LastEvent = msLastEvent;
+        }
+
+        // The trace, oldest line first. Empty while tracing is off.
         for (int liAt = 0; liAt < TraceLength; liAt++)
         {
             string lsLine = msTrace[(miTraceNext + liAt) % TraceLength];
 
             if (!string.IsNullOrEmpty(lsLine))
-                lOText.Append("\n    ").Append(lsLine);
+                pOView.Trace.Add(lsLine);
         }
-
-        return lOText.ToString();
-    }
-
-    /// <summary>The record as the F1 overlay shows it (see UWDebugOverlay.fAppendNearestCritter):
-    /// goal, target, slot and interval, animation and frame, the temper bits, the last event.</summary>
-    public string DescribeCombatStats()
-    {
-        if (mORecord == null)
-            return "  (no record)";
-
-        UWObjectClassProperties.Critter lOStats = mOActor.Stats;
-        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
-
-        lOText.AppendFormat("\n  Goal {0}  gtarg {1}  backup {2}  attitude {3}  hp {4}  index {5}",
-            mORecord.Goal, mORecord.GTarg, mORecord.BackupGoal, mORecord.Attitude, mORecord.HitPoints, Index);
-
-        // The kin alarm as this creature sees it - added 2026-09-27 for the summoned ally that
-        // stayed mellow next to a creature the player hit (Todo "Summon Monster").
-        UWCritterAlarm lOAlarm = UWScene.CritterAlarm;
-        long liClock = UWScene.CritterClock != null ? UWScene.CritterClock.Clock : 0;
-
-        lOText.AppendFormat("\n  Ally {0}  passive {1}  hearing {2}  kind {3}",
-            mORecord.IsAlly ? 1 : 0, lOStats.IsPassive ? 1 : 0, lOStats.NoiseRange, lOStats.GeneralType);
-
-        if (lOAlarm != null && lOAlarm.Index != 0)
-            lOText.AppendFormat("\n  Alarm: victim {0} kind {1} at {2}/{3}, age {4} of {5}, fresh {6}, manhattan {7}",
-                lOAlarm.Index, lOAlarm.Kind, lOAlarm.TileX, lOAlarm.TileY, liClock - lOAlarm.Clock,
-                UWCritterRules.KinAlarmPitTicks, lOAlarm.IsFresh(liClock) ? 1 : 0,
-                Mathf.Abs(mORecord.TileX - lOAlarm.TileX) + Mathf.Abs(mORecord.TileY - lOAlarm.TileY));
-        else
-            lOText.Append("\n  Alarm: none");
-
-        lOText.AppendFormat("\n  Slot {0} of phase {1}  interval {2}  anim 0x{3:X2} frame {4}  speed {5}  heading {6}  facing {7}+{8}",
-            mORecord.DueSlot, UWScene.CritterClock.Phase, mORecord.Interval, mORecord.Animation, mORecord.Frame,
-            mORecord.Speed, mORecord.FineHeading, mORecord.FacingEighth, mORecord.FacingResidual);
-
-        lOText.AppendFormat("\n  Confirmed {0}  heard {1}  blocked {2}  path {3}  straight {4}  stand {5}  relentless {6}  charge {7}  pitch {8}",
-            mORecord.TargetConfirmed ? 1 : 0, mORecord.HeardSomething ? 1 : 0, mORecord.Blocked ? 1 : 0,
-            mORecord.HasPath ? 1 : 0, mORecord.StraightLineKnown ? 1 : 0, mORecord.MadeStand ? 1 : 0,
-            mORecord.Relentless ? 1 : 0, mORecord.ChargeIndex, mORecord.Pitch);
-
-        lOText.AppendFormat("\n  Destination {0}/{1} h{2}  tile {3}/{4} fine {5}/{6} z {7}  shots {8}",
-            mORecord.DestinationX, mORecord.DestinationY, mORecord.DestinationHeight,
-            mORecord.TileX, mORecord.TileY, mORecord.FineX, mORecord.FineY, mORecord.ZPos, mOActor.ShotsFired);
-
-        if (mOActor.HasStats)
-            lOText.AppendFormat("\n  Vitality {0}  morale {1}  initiative {2}  hear {3}  see {4}  door skill {5}  {6}{7}",
-                lOStats.Vitality, lOStats.Morale, lOStats.Initiative, lOStats.NoiseRange, lOStats.SightRange,
-                lOStats.DoorSkill, mOActor.IsFlying ? "flier " : (mOActor.IsSwimming ? "swimmer " : "walker "),
-                lOStats.IsCaster ? "caster" : "");
-
-        StepResult lOLastStep = mOActor.LastStep;
-
-        if (lOLastStep.Collided)
-            lOText.AppendFormat("\n  Last step collided: object {0} item 0x{1:X3}{2}",
-                lOLastStep.HitObjectIndex, lOLastStep.HitObjectItemId, lOLastStep.HitClosedDoor ? " (closed door)" : "");
-
-        UWCritterAnimator lOAnimator = GetComponent<UWCritterAnimator>();
-        UWTile lOTile = fGetTileAt(mOBody);
-
-        lOText.AppendFormat("\n  y {0:F0}  tile floor {1}  picture slot 0x{2:X2} frame {3}  last event: {4}",
-            mOBody.y, lOTile == null ? -1 : lOTile.FloorHeight,
-            lOAnimator == null ? -1 : lOAnimator.CurrentSlot,
-            lOAnimator == null ? -1 : lOAnimator.CurrentFrameInSegment, msLastEvent);
-
-        return lOText.ToString();
     }
 
     private UWTile fGetTileAt(Vector3 pOWorldPosition)

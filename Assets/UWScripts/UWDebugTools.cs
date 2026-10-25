@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UWDataImport.UWData;
@@ -6,7 +7,7 @@ using UnderworldRevisited.Build;
 /// <summary>
 /// Helpers for testing, all for the workshop only (2026-09-06).
 ///
-/// JUMP (F7): an input line into which "level,X,Y" is typed - "3,45,13" takes you
+/// JUMP (Shift+F7): an input line into which "level,X,Y" is typed - "3,45,13" takes you
 /// to level 3, tile 45/13. While it is open, all game controls are
 /// disabled; otherwise the character would start walking while typing and the digits would end up in
 /// some actions.
@@ -17,12 +18,16 @@ using UnderworldRevisited.Build;
 /// position - the same switch that also brightens the old render path
 /// (key B, see UWLighting.ToggleDebugBrightness).
 ///
-/// SPELL SELECTION (F10): a searchable list of all spells that casts one without circle,
-/// mana and check - see fDrawSpellBox.
+/// SPELL SELECTION (Shift+F10): a searchable list of all spells that casts one without circle,
+/// mana and check - see DrawTab.
 ///
-/// Drawing uses IMGUI instead of marker bodies in the world: no materials,
-/// no render path, nothing that could get in the way of the palette renderer - and the name
-/// comes along right away.
+/// ON THE KIT (cleanup 8c, 2026-10-25): the jump line and the spell list are the TOOLS TAB of the
+/// debug panel (UWDebugPanel, beside the F1 report), with their fields on the kit's text field
+/// (UWKitRows on UWTextEntry and UWTypedKeys, so they type on Linux as well); Shift+F7 opens the tab
+/// with the jump line typing, Shift+F10 with the search, the same key again or Escape closes it. The
+/// labels in the world are uGUI texts and lines on a canvas of their own (UWDebugLabels) - no
+/// materials, no render path, nothing in the palette renderer's way, as IMGUI's were. Until then two
+/// IMGUI boxes and OnGUI.
 /// </summary>
 public class UWDebugTools : MonoBehaviour
 {
@@ -32,25 +37,49 @@ public class UWDebugTools : MonoBehaviour
 
     private UWLevelLoader mOLoader;
 
-    private UWPaletteRenderToggle mOPalette;
+    private UWRenderPathHost mOPalette;
 
     private UWControlScheme mOScheme;
 
-    private bool mbJumpOpen;
+    /// <summary>The tools' tab is open (one flag since cleanup 8c; the jump and the spell box had one
+    /// each, and closing one released the hold the other still needed).</summary>
+    private bool mbOpen;
 
     private static UWDebugTools msInstance;
 
-    /// <summary>Is one of the input lines open? Then the special keys stay silent, see
+    /// <summary>The tools of the scene, null without one.</summary>
+    public static UWDebugTools Instance => msInstance;
+
+    /// <summary>Is the tools' tab open? Then the special keys stay silent, see
     /// UWControls.IsTextEntryActive.</summary>
-    public static bool IsTyping => msInstance != null && (msInstance.mbJumpOpen || msInstance.mbSpellOpen);
+    public static bool IsTyping => msInstance != null && msInstance.mbOpen;
+
+    /// <summary>The tools' tab is open (the panel shows it).</summary>
+    public static bool IsOpen => IsTyping;
+
+    private enum FieldEnum
+    {
+        None,
+        Jump,
+        Search
+    }
+
+    /// <summary>The key that opened the tab (its second press closes it again), and the field that
+    /// takes the keyboard when the tab is drawn next.</summary>
+    private FieldEnum meOpenedFor;
+
+    private FieldEnum meFocusPending;
 
     private string msJumpText = string.Empty;
 
-    private GUIStyle mOStyle;
+    private const string JumpField = "UWJump";
 
-    private GUIStyle mOLabelStyle;
+    private const string SearchField = "UWSpellSearch";
 
-    private const string JumpControlName = "UWJump";
+    /// <summary>The jump line's length, as the IMGUI field's.</summary>
+    private const int JumpMaxLength = 24;
+
+    private UWDebugLabels mOLabels;
 
     public void Init(UWLevelLoader pOLoader)
     {
@@ -58,53 +87,112 @@ public class UWDebugTools : MonoBehaviour
         mOLoader = pOLoader;
     }
 
+    private void OnDestroy()
+    {
+        if (msInstance == this)
+            msInstance = null;
+    }
+
     private void Update()
     {
         if (Keyboard.current == null)
             return;
 
-        // While typing in another input, F7 and F10 stay silent (UWControls.IsTextEntryActive);
-        // they still close their own lines.
-        bool lbOtherTyping = UWControls.IsTextEntryActive && !mbJumpOpen && !mbSpellOpen;
-
+        // While typing in another input, Shift+F7 and Shift+F10 stay silent
+        // (UWControls.IsTextEntryActive); they still close their own tab.
         // Shift+F7 and Shift+F10 since 2026-09-26: plain F7 turns the panel and F10 makes camp,
-        // as in the original.
-        if (Keyboard.current.f7Key.wasPressedThisFrame && UWControls.IsShiftHeld && !lbOtherTyping)
+        // as in the original. Read off the keys themselves - the debug map's actions fall silent
+        // while the tab is open. UWHotkeys' rows since cleanup step 7.5.
+        if (mOKeys == null)
+            mOKeys = new ToolKeys(this);
+
+        UWHotkeys.Route(UWHotkeySite.DebugTools, mOKeys);
+
+        if (mbOpen && UWBack.Takes(UWBackOwner.DebugTools))
+            Close();
+    }
+
+    private ToolKeys mOKeys;
+
+    /// <summary>The tools' hotkeys (UWHotkeys): Shift+F7 the jump, Shift+F10 the spell search.</summary>
+    private sealed class ToolKeys : UWHotkeyHost
+    {
+        private readonly UWDebugTools mOTools;
+
+        public ToolKeys(UWDebugTools pOTools)
         {
-            fSetModal(!mbJumpOpen, ref mbJumpOpen);
+            mOTools = pOTools;
         }
 
-        if (Keyboard.current.f10Key.wasPressedThisFrame && UWControls.IsShiftHeld && !lbOtherTyping)
+        protected override UWControls Controls => mOTools.mOScheme != null ? mOTools.mOScheme.Controls : null;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
         {
-            mbJumpOpen = false;
-            fSetModal(!mbSpellOpen, ref mbSpellOpen);
+            return peGate == UWHotkeyGate.OtherTyping && UWControls.IsTextEntryActive && !mOTools.mbOpen;
         }
 
-        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        public override bool Run(UWHotkeyHandler peHandler)
         {
-            if (mbSpellOpen)
-                fSetModal(false, ref mbSpellOpen);
+            if (peHandler == UWHotkeyHandler.ToggleDebugJump)
+                mOTools.fToggle(FieldEnum.Jump);
+            else if (peHandler == UWHotkeyHandler.ToggleDebugSearch)
+                mOTools.fToggle(FieldEnum.Search);
+            else
+                return false;
 
-            if (mbJumpOpen)
-                fSetModal(false, ref mbJumpOpen);
+            return true;
         }
     }
 
+    /// <summary>The tab's key: opens the tab with its field typing; pressed again it closes the tab,
+    /// the other key's press moves the typing to its field (until cleanup 8c Shift+F10 closed the jump
+    /// box and opened the spells, Shift+F7 opened the jump box beside the spells).</summary>
+    private void fToggle(FieldEnum peField)
+    {
+        if (mbOpen && meOpenedFor == peField)
+        {
+            Close();
+
+            return;
+        }
+
+        if (!mbOpen)
+            fSetOpen(true);
+
+        meOpenedFor = peField;
+        meFocusPending = peField;
+    }
+
+    /// <summary>Opens the tab without a field typing (the panel's Tools tab).</summary>
+    public void Open()
+    {
+        if (mbOpen)
+            return;
+
+        fSetOpen(true);
+        meOpenedFor = FieldEnum.None;
+        meFocusPending = FieldEnum.None;
+    }
+
+    /// <summary>Closes the tab (Escape, its key again, a jump, a cast, the panel's Report tab).</summary>
+    public void Close()
+    {
+        if (mbOpen)
+            fSetOpen(false);
+    }
+
     /// <summary>
-    /// Opens or closes the input line.
+    /// Opens or closes the tab.
     ///
     /// All controls are switched off and on again in the process. Merely releasing the
     /// pointer is not enough: movement reads its actions directly, the character
     /// would keep walking while typing.
     /// </summary>
-    private void fSetJumpOpen(bool pbOpen)
+    private void fSetOpen(bool pbOpen)
     {
-        fSetModal(pbOpen, ref mbJumpOpen);
-    }
-
-    private void fSetModal(bool pbOpen, ref bool pbFlag)
-    {
-        pbFlag = pbOpen;
+        mbOpen = pbOpen;
+        meOpenedFor = FieldEnum.None;
+        meFocusPending = FieldEnum.None;
 
         if (pbOpen)
             msJumpText = string.Empty;
@@ -123,31 +211,45 @@ public class UWDebugTools : MonoBehaviour
             mOScheme.Controls.Enable();
     }
 
-    private void OnGUI()
+    private void LateUpdate()
     {
-        if (mOLoader == null)
+        bool lbLabels = mOLoader != null && fIsFullBright();
+
+        if (mOLabels == null)
+        {
+            if (!lbLabels)
+                return;
+
+            mOLabels = new UWDebugLabels(transform);
+        }
+
+        mOLabels.Begin(lbLabels);
+
+        if (!lbLabels)
             return;
 
-        fEnsureStyles();
-
-        if (fIsFullBright())
-            fDrawInvisibleObjects();
-
-        if (mbJumpOpen)
-            fDrawJumpBox();
-
-        if (mbSpellOpen)
-            fDrawSpellBox();
+        fDrawInvisibleObjects();
+        mOLabels.End();
     }
 
-    private bool mbSpellOpen;
+    // ------------------------------------------------- The tools' tab
 
     private Vector2 mOSpellScroll;
 
     private string msSpellFilter = string.Empty;
 
+    /// <summary>Each spell's line (fDescribeSpell), made once: the search runs over them.</summary>
+    private string[] msSpellLabels;
+
+    private readonly List<int> mOShownSpells = new List<int>();
+
+    private const float FieldHeight = 26f;
+
+    private const float SpellRowHeight = 20f;
+
     /// <summary>
-    /// Spell selection for testing (F10).
+    /// The tools' tab in the debug panel's area (UWDebugPanel, cleanup 8c): the jump line, then the
+    /// spell selection - the search field and the list.
     ///
     /// Casting goes through UWGameUI.CastSpellFromObject - the same path a
     /// wand takes: WITHOUT spell circle, without mana and without skill check. The
@@ -157,57 +259,141 @@ public class UWDebugTools : MonoBehaviour
     /// casting, waits for the click that gives the direction; a class 7 spell waits for
     /// its target. Otherwise neither could be tested.
     /// </summary>
-    private void fDrawSpellBox()
+    public void DrawTab(UWKitRows pOKit, Rect pOArea)
     {
-        if (mOLoader.UWDataImporter == null)
+        if (mOLoader == null || mOLoader.UWDataImporter == null)
             return;
 
-        float lfWidth = 420f;
-        float lfHeight = 420f;
+        UWKitRows.HelpLook lOText = new UWKitRows.HelpLook { Size = UWDebugPanel.TextSize, Colour = UWGuiTheme.Text, Anchor = TextAnchor.MiddleLeft };
+        UWKitRows.HelpLook lODim = lOText;
 
-        Rect lORect = new Rect((Screen.width - lfWidth) * 0.5f, 40f, lfWidth, lfHeight);
+        lODim.Colour = UWGuiTheme.DimText;
 
-        GUI.color = new Color(0f, 0f, 0f, 0.9f);
-        GUI.DrawTexture(lORect, Texture2D.whiteTexture);
-        GUI.color = Color.white;
+        float lfX = pOArea.x;
+        float lfY = pOArea.y;
 
-        GUILayout.BeginArea(new Rect(lORect.x + 12f, lORect.y + 8f, lORect.width - 24f, lORect.height - 16f));
+        // The jump line: "level,X,Y" or "X,Y" on this level.
+        string lsJump = "Jump:  level,X,Y";
+        float lfLabel = pOKit.HelpTextWidth("Search:", lOText) + 12f;
 
-        GUILayout.Label("Cast spell - without circle, mana and check. [Esc] closes.");
+        lfLabel = Mathf.Max(lfLabel, pOKit.HelpTextWidth(lsJump, lOText) + 12f);
+        pOKit.HelpText(new Rect(lfX, lfY, lfLabel, FieldHeight), lsJump, lOText);
 
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Search:", GUILayout.Width(50f));
-        msSpellFilter = GUILayout.TextField(msSpellFilter);
-        GUILayout.EndHorizontal();
+        if (meFocusPending == FieldEnum.Jump)
+            pOKit.FocusField(JumpField, msJumpText, JumpMaxLength);
 
-        mOSpellScroll = GUILayout.BeginScrollView(mOSpellScroll);
+        msJumpText = pOKit.TextField(new Rect(lfX + lfLabel, lfY, 160f, FieldHeight), JumpField, msJumpText, JumpMaxLength);
 
-        for (int liAt = 0; liAt < UWRunicMagic.AllSpells.Count; liAt++)
+        bool lbGo = pOKit.Action(new Rect(lfX + lfLabel + 168f, lfY, 50f, FieldHeight), "Go");
+
+        pOKit.HelpText(new Rect(lfX + lfLabel + 228f, lfY, Mathf.Max(0f, pOArea.width - lfLabel - 228f), FieldHeight), "[Enter] go   [Esc] cancel", lODim);
+
+        if (lbGo || pOKit.EnterIn(JumpField))
         {
-            string lsLabel = fDescribeSpell(liAt);
+            fJump(msJumpText);
 
-            if (!string.IsNullOrEmpty(msSpellFilter)
-                && lsLabel.IndexOf(msSpellFilter, System.StringComparison.OrdinalIgnoreCase) < 0)
-                continue;
-
-            if (!GUILayout.Button(lsLabel, GUILayout.Height(22f)))
-                continue;
-
-            fSetModal(false, ref mbSpellOpen);
-
-            UWGameUI lOUi = mOLoader.GetComponent<UWGameUI>();
-
-            if (lOUi == null)
-                lOUi = UWScene.GameUi;
-
-            if (lOUi != null)
-                lOUi.Runes.CastSpellFromObject(liAt, false);
-
-            break;
+            return;
         }
 
-        GUILayout.EndScrollView();
-        GUILayout.EndArea();
+        lfY += FieldHeight + 12f;
+
+        // The spell selection.
+        pOKit.HelpText(new Rect(lfX, lfY, pOArea.width, 18f), "Cast spell - without circle, mana and check. [Esc] closes.", lODim);
+        lfY += 22f;
+
+        pOKit.HelpText(new Rect(lfX, lfY, lfLabel, FieldHeight), "Search:", lOText);
+
+        if (meFocusPending == FieldEnum.Search)
+            pOKit.FocusField(SearchField, msSpellFilter);
+
+        meFocusPending = FieldEnum.None;
+        msSpellFilter = pOKit.TextField(new Rect(lfX + lfLabel, lfY, Mathf.Min(300f, pOArea.width - lfLabel), FieldHeight), SearchField, msSpellFilter);
+        lfY += FieldHeight + 8f;
+
+        fFilterSpells();
+
+        Rect lOView = new Rect(lfX, lfY, pOArea.width, Mathf.Max(SpellRowHeight, pOArea.yMax - lfY));
+        float lfContent = mOShownSpells.Count * SpellRowHeight;
+        float lfRowWidth = lOView.width - (lfContent > lOView.height ? UWKitRows.ScrollBarRoom + 2f : 0f);
+        int liCast = -1;
+
+        mOSpellScroll = pOKit.BeginScroll(lOView, mOSpellScroll, new Rect(0f, 0f, lOView.width, lfContent));
+
+        for (int liRow = 0; liRow < mOShownSpells.Count; liRow++)
+        {
+            float lfRowY = liRow * SpellRowHeight;
+
+            // Only the rows in sight are drawn.
+            if (lfRowY + SpellRowHeight < mOSpellScroll.y || lfRowY > mOSpellScroll.y + lOView.height)
+                continue;
+
+            if (fDrawSpellRow(pOKit, new Rect(0f, lfRowY, lfRowWidth, SpellRowHeight - 1f), mOShownSpells[liRow], lOText, lODim))
+                liCast = mOShownSpells[liRow];
+        }
+
+        pOKit.EndScroll();
+
+        if (liCast < 0)
+            return;
+
+        Close();
+
+        UWGameUI lOUi = mOLoader.GetComponent<UWGameUI>();
+
+        if (lOUi == null)
+            lOUi = UWScene.GameUi;
+
+        if (lOUi != null)
+            lOUi.Runes.CastSpellFromObject(liCast, false);
+    }
+
+    /// <summary>The spells whose line holds the search text (any case), in their order.</summary>
+    private void fFilterSpells()
+    {
+        if (msSpellLabels == null || msSpellLabels.Length != UWRunicMagic.AllSpells.Count)
+        {
+            msSpellLabels = new string[UWRunicMagic.AllSpells.Count];
+
+            for (int liAt = 0; liAt < msSpellLabels.Length; liAt++)
+                msSpellLabels[liAt] = fDescribeSpell(liAt);
+        }
+
+        mOShownSpells.Clear();
+
+        for (int liAt = 0; liAt < msSpellLabels.Length; liAt++)
+        {
+            if (!string.IsNullOrEmpty(msSpellFilter)
+                && msSpellLabels[liAt].IndexOf(msSpellFilter, System.StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            mOShownSpells.Add(liAt);
+        }
+    }
+
+    /// <summary>A spell's row: lit under the pointer, cast on the release over it; its number, name,
+    /// class, circle and runes in columns.</summary>
+    private bool fDrawSpellRow(UWKitRows pOKit, Rect pORect, int piSpell, UWKitRows.HelpLook pOText, UWKitRows.HelpLook pODim)
+    {
+        UWRunicMagic.Spell lOSpell = UWRunicMagic.AllSpells[piSpell];
+        bool lbClicked = pOKit.HelpButton(pORect, string.Empty, pOText, new Color(0f, 0f, 0f, 0f), UWGuiTheme.Hover, UWGuiTheme.Text);
+        float lfX = pORect.x + 6f;
+
+        pOKit.HelpText(new Rect(lfX, pORect.y, 28f, pORect.height), piSpell.ToString(), pODim);
+        pOKit.HelpText(new Rect(lfX + 30f, pORect.y, 210f, pORect.height), fSpellName(lOSpell), pOText);
+        pOKit.HelpText(new Rect(lfX + 244f, pORect.y, 80f, pORect.height),
+            string.Format("Class {0}-{1:X}", lOSpell.MajorClass, lOSpell.MinorClass & 0xF), pODim);
+        pOKit.HelpText(new Rect(lfX + 326f, pORect.y, 64f, pORect.height), string.Format("Circle {0}", lOSpell.Level), pODim);
+        pOKit.HelpText(new Rect(lfX + 392f, pORect.y, Mathf.Max(0f, pORect.width - 398f), pORect.height),
+            UWRunicMagic.DescribeRunes(lOSpell.RuneSequence), pOText);
+
+        return lbClicked;
+    }
+
+    private string fSpellName(UWRunicMagic.Spell pOSpell)
+    {
+        string lsName = UWRunicMagic.GetName(pOSpell, mOLoader.UWDataImporter.Strings);
+
+        return string.IsNullOrWhiteSpace(lsName) ? "(no name)" : lsName;
     }
 
     /// <summary>Number, name, class and rune sequence - so the spell can be found again
@@ -216,36 +402,19 @@ public class UWDebugTools : MonoBehaviour
     {
         UWRunicMagic.Spell lOSpell = UWRunicMagic.AllSpells[piIndex];
 
-        string lsName = UWRunicMagic.GetName(lOSpell, mOLoader.UWDataImporter.Strings);
-
-        if (string.IsNullOrWhiteSpace(lsName))
-            lsName = "(no name)";
-
         return string.Format("{0,2}  {1,-28} Class {2}-{3:X}  Circle {4}  {5}",
-            piIndex, lsName, lOSpell.MajorClass, lOSpell.MinorClass & 0xF, lOSpell.Level,
+            piIndex, fSpellName(lOSpell), lOSpell.MajorClass, lOSpell.MinorClass & 0xF, lOSpell.Level,
             UWRunicMagic.DescribeRunes(lOSpell.RuneSequence));
     }
+
+    // ------------------------------------------------- Invisible objects
 
     private bool fIsFullBright()
     {
         if (mOPalette == null)
-            mOPalette = mOLoader.GetComponent<UWPaletteRenderToggle>();
+            mOPalette = mOLoader.GetComponent<UWRenderPathHost>();
 
         return mOPalette != null && mOPalette.FullBright;
-    }
-
-    private void fEnsureStyles()
-    {
-        if (mOStyle != null)
-            return;
-
-        mOStyle = new GUIStyle(GUI.skin.textField);
-        mOStyle.fontSize = 18;
-
-        mOLabelStyle = new GUIStyle(GUI.skin.label);
-        mOLabelStyle.fontSize = 11;
-        mOLabelStyle.alignment = TextAnchor.MiddleCenter;
-        mOLabelStyle.normal.textColor = new Color(1f, 0.85f, 0.3f);
     }
 
     /// <summary>
@@ -293,13 +462,11 @@ public class UWDebugTools : MonoBehaviour
                 string lsText = string.Format("{0}\n{1}/{2}",
                     UWTrapLog.GetName(mOLoader != null ? mOLoader.UWDataImporter : null, lOObject.ID), lOTile.X, lOTile.Z);
 
-                Vector2 lOAt = new Vector2(lOScreen.x, Screen.height - lOScreen.y);
+                Vector2 lOAt = new Vector2(lOScreen.x, lOScreen.y);
 
                 fDrawTargetLine(lOCamera, lOObject, lOAt);
 
-                Rect lORect = new Rect(lOAt.x - 90f, lOAt.y - 16f, 180f, 32f);
-
-                GUI.Label(lORect, lsText, mOLabelStyle);
+                mOLabels.Label(lOAt, lsText);
             }
         }
     }
@@ -344,34 +511,7 @@ public class UWDebugTools : MonoBehaviour
         if (lOScreen.z <= 0f)
             return;
 
-        fDrawLine(pOFrom, new Vector2(lOScreen.x, Screen.height - lOScreen.y));
-    }
-
-    /// <summary>
-    /// A line in the UI.
-    ///
-    /// IMGUI can only draw rectangles, so a thin strip is rotated. The
-    /// detour via GL drawing would depend on the render pipeline; this works
-    /// the same everywhere.
-    /// </summary>
-    private void fDrawLine(Vector2 pOFrom, Vector2 pOTo)
-    {
-        Vector2 lODelta = pOTo - pOFrom;
-        float lfLength = lODelta.magnitude;
-
-        if (lfLength < 1f)
-            return;
-
-        Matrix4x4 lOPrevious = GUI.matrix;
-        Color lOColour = GUI.color;
-
-        GUI.color = new Color(1f, 0.85f, 0.3f, 0.5f);
-
-        GUIUtility.RotateAroundPivot(Mathf.Atan2(lODelta.y, lODelta.x) * Mathf.Rad2Deg, pOFrom);
-        GUI.DrawTexture(new Rect(pOFrom.x, pOFrom.y - 1f, lfLength, 2f), Texture2D.whiteTexture);
-
-        GUI.matrix = lOPrevious;
-        GUI.color = lOColour;
+        mOLabels.Line(pOFrom, new Vector2(lOScreen.x, lOScreen.y));
     }
 
     /// <summary>In noclip mode the player camera is switched off - then the spectator
@@ -381,36 +521,7 @@ public class UWDebugTools : MonoBehaviour
         return UWScene.ActiveCamera;
     }
 
-    private void fDrawJumpBox()
-    {
-        Rect lORect = new Rect((Screen.width * 0.5f) - 180f, 60f, 360f, 34f);
-
-        GUI.color = new Color(0f, 0f, 0f, 0.85f);
-        GUI.DrawTexture(new Rect(lORect.x - 8f, lORect.y - 26f, lORect.width + 16f, lORect.height + 34f),
-            Texture2D.whiteTexture);
-        GUI.color = Color.white;
-
-        GUI.Label(new Rect(lORect.x, lORect.y - 24f, lORect.width, 22f),
-            "Jump:  level,X,Y     [Enter] go   [Esc] cancel");
-
-        // The input MUST be caught before the field is drawn - afterwards the
-        // field has already consumed the event.
-        if (Event.current.type == EventType.KeyDown
-            && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
-        {
-            fJump(msJumpText);
-
-            Event.current.Use();
-
-            return;
-        }
-
-        GUI.SetNextControlName(JumpControlName);
-
-        msJumpText = GUI.TextField(lORect, msJumpText, 24, mOStyle);
-
-        GUI.FocusControl(JumpControlName);
-    }
+    // ------------------------------------------------- The jump
 
     /// <summary>
     /// "3,45,13" means level 3, tile 45/13. Two numbers without a level ("45,13") jump
@@ -421,7 +532,7 @@ public class UWDebugTools : MonoBehaviour
     /// </summary>
     private void fJump(string psText)
     {
-        fSetJumpOpen(false);
+        Close();
 
         if (string.IsNullOrEmpty(psText))
             return;
@@ -505,5 +616,4 @@ public class UWDebugTools : MonoBehaviour
             lOTile.FloorHeight + UWWorldScale.TileHalfSize,
             UWUnits.TileCentreToWorldAxis(piTileY)));
     }
-
 }

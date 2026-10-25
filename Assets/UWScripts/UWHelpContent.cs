@@ -12,81 +12,84 @@ using System.Collections.Generic;
 ///
 /// THE MANTRAS: SUMM RA, MU AHM and OM CAH are the three the manual names; the others come
 /// in the closed panel. Words and skill names come from the game data (UWShrineRules).
+///
+/// THE NOTES ARE TEXT IDS since cleanup step 8.5 (2026-10-24): the words themselves are in the
+/// text table (UWTextEnglish.Help.cs), the tabs show them through UWText.T.
 /// </summary>
 public static class UWHelpContent
 {
-    /// <summary>Our note per spell number (UWRunicMagic.AllSpells) for the spells the manual
-    /// names. A spell missing here is one the manual does not name.</summary>
+    /// <summary>Our note's text id per spell number (UWRunicMagic.AllSpells) for the spells the
+    /// manual names. A spell missing here is one the manual does not name.</summary>
     public static readonly Dictionary<int, string> ManualSpellNotes = new Dictionary<int, string>
     {
         // First circle
-        { 0, "Lights up the surroundings for a while." },
-        { 1, "Protects against blows like a full suit of armour, for a while." },
-        { 2, "Shoots a magic missile at a target." },
-        { 3, "Conjures a meal." },
-        { 4, "Muffles your steps for a short time, so creatures notice you less." },
+        { 0, "help.spells.note.0" },
+        { 1, "help.spells.note.1" },
+        { 2, "help.spells.note.2" },
+        { 3, "help.spells.note.3" },
+        { 4, "help.spells.note.4" },
 
         // Second circle
-        { 7, "Lets you drift down gently for a short time." },
-        { 8, "Heals light wounds." },
-        { 9, "Tells you of creatures nearby that you cannot see." },
-        { 10, "May make a foe lose heart and run." },
-        { 11, "Lays a ward that tells you when something disturbs it." },
+        { 7, "help.spells.note.7" },
+        { 8, "help.spells.note.8" },
+        { 9, "help.spells.note.9" },
+        { 10, "help.spells.note.10" },
+        { 11, "help.spells.note.11" },
 
         // Third circle
-        { 12, "You move faster than your foes, for a while." },
-        { 13, "Makes you harder to see for a short time." },
-        { 14, "Lets you see in the dark, for a while." },
-        { 15, "Hurls a lightning bolt at a target." },
-        { 16, "Spikes a door shut." },
+        { 12, "help.spells.note.12" },
+        { 13, "help.spells.note.13" },
+        { 14, "help.spells.note.14" },
+        { 15, "help.spells.note.15" },
+        { 16, "help.spells.note.16" },
 
         // Fourth circle
-        { 19, "Heals serious wounds." },
-        { 20, "Lifts you straight up into the air for a short time." },
-        { 21, "Poisons a foe." },
-        { 22, "Gives some protection from fire for a short time." },
-        { 23, "Disarms a trap you aim at." },
+        { 19, "help.spells.note.19" },
+        { 20, "help.spells.note.20" },
+        { 21, "help.spells.note.21" },
+        { 22, "help.spells.note.22" },
+        { 23, "help.spells.note.23" },
 
         // Fifth circle
-        { 24, "Hurls a fireball at a target." },
-        { 26, "Tells you what magic an object holds." },
-        { 27, "Makes you proof against missiles, for a while." },
-        { 28, "Unlocks a locked door or chest." },
-        { 29, "Cures poison." },
+        { 24, "help.spells.note.24" },
+        { 26, "help.spells.note.26" },
+        { 27, "help.spells.note.27" },
+        { 28, "help.spells.note.28" },
+        { 29, "help.spells.note.29" },
 
         // Sixth circle
-        { 30, "Heals you completely." },
-        { 32, "Takes you to your moonstone at once." },
-        { 33, "Holds a foe in place." },
-        { 34, "Bright light for a long time." },
-        { 35, "Lets you take and use a single object from afar, for a while." },
+        { 30, "help.spells.note.30" },
+        { 32, "help.spells.note.32" },
+        { 33, "help.spells.note.33" },
+        { 34, "help.spells.note.34" },
+        { 35, "help.spells.note.35" },
 
         // Seventh circle
-        { 36, "Lets you fly for a while, then glide to the ground." },
-        { 37, "Turns a creature to fight on your side." },
-        { 39, "Makes you nearly invisible, for a while." },
-        { 40, "Makes the foes around you stagger as if drunk." },
-        { 41, "Reveals hidden objects and secret ways around you." },
+        { 36, "help.spells.note.36" },
+        { 37, "help.spells.note.37" },
+        { 39, "help.spells.note.39" },
+        { 40, "help.spells.note.40" },
+        { 41, "help.spells.note.41" },
 
         // Eighth circle
-        { 42, "Greatly hardens you against damage, for a while." },
-        { 43, "Makes the ground quake and the rocks burst." },
-        { 44, "Lets you see the world from above, for a while." },
-        { 45, "Rains flaming missiles on the area." },
-        { 46, "Stops time for everyone but you, for a while." }
+        { 42, "help.spells.note.42" },
+        { 43, "help.spells.note.43" },
+        { 44, "help.spells.note.44" },
+        { 45, "help.spells.note.45" },
+        { 46, "help.spells.note.46" }
     };
 
-    /// <summary>The group mantras the manual names, in its order, with our note.</summary>
+    /// <summary>The group mantras the manual names, in its order, with our note's text id.</summary>
     public static readonly KeyValuePair<int, string>[] ManualMantras =
     {
-        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 3, "Improves some of your combat skills."),
-        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 4, "Improves some of your magic skills."),
-        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 5, "Improves some of your other skills.")
+        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 3, "help.mantras.note.combat"),
+        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 4, "help.mantras.note.magic"),
+        new KeyValuePair<int, string>(UWDataImport.UWData.UWShrineRules.FirstSpecialMantra + 5, "help.mantras.note.other")
     };
 
-    /// <summary>Our note for the two quest mantras (UWShrineRules.CupOfWonderMantra and
+    /// <summary>Our note's text id for the two quest mantras (UWShrineRules.CupOfWonderMantra and
     /// KeyOfTruthMantra).</summary>
-    public const string CupOfWonderNote = "Tells you where the Cup of Wonder lies.";
+    public const string CupOfWonderNote = "help.mantras.note.cup_of_wonder";
 
-    public const string KeyOfTruthNote = "Gives you the Key of Truth.";
+    public const string KeyOfTruthNote = "help.mantras.note.key_of_truth";
 }

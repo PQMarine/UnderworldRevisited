@@ -354,7 +354,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
             fResetAttackState();
 
             // PutAwayWeapon picks a level theme whatever plays (UWMusicSelector.OnCombatModeLeft).
-            UWMusic.PickLevelTheme();
+            UWAudioService.PickLevelTheme();
         }
 
         if (mOUWDataImporter == null)
@@ -411,10 +411,12 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         // key press or click only hides it again and triggers nothing else.
         if (mGameUi != null && mGameUi.Pictures.IsWindowPictureVisible)
         {
-            // The gamepad too, a stick pushed out as well - walking off hides it.
+            // The gamepad too, a stick pushed out as well - walking off hides it. The press is the
+            // picture's: the pad's pointer does not click with it (UWPadOwners asks PictureTakesKeys
+            // when the frame begins; UWGamepad.ConsumePress here until cleanup step 7.8).
             if (fAnyInputThisFrame() || UWGamepad.AnyPressed(true))
             {
-                UWGamepad.ConsumePress();
+                miPictureHiddenFrame = Time.frameCount;
                 mGameUi.Pictures.HideWindowPicture();
             }
 
@@ -442,13 +444,13 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         // (The compass belongs to the classic frame, which the modern scheme does not show.)
         if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
         {
-            if (mOGesture.TryEasyMovement(Mouse.current.position.ReadValue()))
+            if (mOGesture.TryEasyMovement(UWPointer.Position))
                 return;
         }
 
         if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed))
         {
-            if (mOGesture.TryReportStatus(Mouse.current.position.ReadValue()))
+            if (mOGesture.TryReportStatus(UWPointer.Position))
                 return;
         }
 
@@ -1265,6 +1267,26 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     /// that confirms the last page starts no drag (UWMessageLog).</summary>
     public bool PageInputConsumedThisFrame => mOLog.PageInputConsumedThisFrame;
 
+    /// <summary>
+    /// THE PAGING TAKES THIS FRAME'S PRESS (cleanup 7, wave 2b, per user 2026-10-25: one Escape closes
+    /// only the topmost - Escape paged and opened the modern game menu as well): Update gets to the
+    /// paging - no mantra, nothing modal, no conversation, no yes/no question before it - and a page
+    /// waits; or the press of this frame paged already. UWBack asks (its Paging row).
+    /// </summary>
+    internal bool PagingTakesKeys => (fReachesAnyKeyWaits && IsWaitingForPage) || PageInputConsumedThisFrame;
+
+    /// <summary>The window picture takes this frame's press, as the paging (UWBack, its WindowPicture
+    /// row): Update gets to it and it is up, or the press of this frame hid it.</summary>
+    internal bool PictureTakesKeys => (fReachesAnyKeyWaits && !IsWaitingForPage && mGameUi != null && mGameUi.Pictures.IsWindowPictureVisible)
+        || miPictureHiddenFrame == Time.frameCount;
+
+    /// <summary>The frame a press hid the window picture.</summary>
+    private int miPictureHiddenFrame = -1;
+
+    /// <summary>Update comes past its modal gates to the paging and the window picture, in its order.</summary>
+    private bool fReachesAnyKeyWaits => !IsChanting && !(mControlScheme != null && mControlScheme.IsWorldInputBlocked)
+        && !(mConversationScreen != null && mConversationScreen.IsOpen) && !IsAskingYesNo;
+
     /// <summary>Shows a text page by page below what the box holds; psLeading come before it and
     /// count as printed (UWMessageLog.ShowPagedText).</summary>
     public void ShowPagedText(string psText, params string[] psLeading)
@@ -1428,7 +1450,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     internal Ray InteractionRay()
     {
         if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView)
-            return Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+            return Camera.main.ScreenPointToRay(UWPointer.Position);
 
         return UWWorldPicker.CrosshairRay();
     }

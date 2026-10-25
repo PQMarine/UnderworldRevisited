@@ -186,6 +186,16 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
             && fData() != null && fInventory() != null;
     }
 
+    /// <summary>
+    /// THE SPLIT BOX GETS THE PAD'S PRESS (cleanup step 7.8): Update comes to it - the bags shown, no
+    /// question box, the box open and not let go for the game menu, a locked pointer or the map - and
+    /// it reads A and its B there (UWModernBagSplit.fUpdateSplitPad). UWPadOwners asks when the frame
+    /// begins, so that the pad's pointer does not click with that press.
+    /// </summary>
+    internal bool SplitTakesPad => fIsShown() && !UWModernQuestion.IsBlocking && Split.IsOpen
+        && !(UWModernUi.IsMenuOpen || !UWModernPointer.IsFree || mOScheme == null || mOScheme.Controls == null
+            || (mOUi != null && mOUi.Map.IsMapVisible));
+
     /// <summary>The left edge of the bag windows shown, in screen pixels (the screen's width
     /// when none) - the modern conversation keeps left of them.</summary>
     public float LeftEdge { get; internal set; } = float.MaxValue;
@@ -216,8 +226,10 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// use's hold (Interaction.ModernUseHoldSeconds, 0.4 s; per user, 2026-10-07).</summary>
     private const float PadOpenAllSeconds = 0.5f;
 
-    /// <summary>Seconds the gamepad's Y is held, -1 when it is not.</summary>
-    private float mfPadPanelHeld = -1f;
+    /// <summary>The pad's panel button's tap and hold (UWHoldTap since cleanup step 7.3, 2026-10-25;
+    /// the seconds held, added up frame by frame, here until then): the hold due PadOpenAllSeconds
+    /// after the press by the unscaled clock ends the press; the button up before that taps.</summary>
+    private readonly UWHoldTap mOPadPanel = new UWHoldTap(PadOpenAllSeconds, UWHoldTap.PadButton);
 
     /// <summary>
     /// THE GAMEPAD'S PANEL BUTTON, d-pad down since 2026-10-07 (Y before; UWGamepad): TAPPED, on the release, the character panel - the bags alone
@@ -226,35 +238,31 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// </summary>
     private void fUpdatePadPanelKey(InputAction pOKey)
     {
-        // Not while the pad's pointer scrolls with the d-pad (UWGamepadPointer.Takes).
+        // Not while the pad's pointer takes the button (the PadPointer context,
+        // UWInput.PadPointerTakes).
         if (pOKey.WasPressedThisFrame())
         {
-            mfPadPanelHeld = UWGamepad.IsFromGamepad(pOKey) && !UWGamepadPointer.Takes(pOKey) ? 0f : -1f;
+            if (UWGamepad.IsFromGamepad(pOKey) && !UWInput.PadPointerTakes(pOKey))
+                mOPadPanel.Press(Time.unscaledTime);
+            else
+                mOPadPanel.Cancel();
+
             return;
         }
 
-        if (mfPadPanelHeld < 0f)
-            return;
-
-        if (pOKey.IsPressed())
+        switch (mOPadPanel.Update(pOKey.IsPressed(), pOKey.WasReleasedThisFrame(), Time.unscaledTime))
         {
-            mfPadPanelHeld += Time.unscaledDeltaTime;
-
-            if (mfPadPanelHeld >= PadOpenAllSeconds)
-            {
-                mfPadPanelHeld = -1f;
+            case UWHoldTap.ResultEnum.Hold:
                 OpenBags.OpenAll();
-            }
+                break;
+            case UWHoldTap.ResultEnum.Tap:
+                if (UWModernPanel.Pinned)
+                    fToggle();
+                else
+                    fTogglePanel();
 
-            return;
+                break;
         }
-
-        mfPadPanelHeld = -1f;
-
-        if (UWModernPanel.Pinned)
-            fToggle();
-        else
-            fTogglePanel();
     }
 
     /// <summary>C: the character panel slides out or in (on its Character tab); the pointer stays
@@ -381,7 +389,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         if (!lbTalking)
             fUpdatePadPanelKey(lOControls.Player.ToggleInventory);
         else
-            mfPadPanelHeld = -1f;
+            mOPadPanel.Cancel();
 
         if (lOControls.Player.ToggleInventory.WasPressedThisFrame())
         {
@@ -390,13 +398,13 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         }
         else if (lOControls.Player.ModernBags.WasPressedThisFrame())
             fToggle();
-        else if (!IsActive && UWModernPointer.IsFree && Mouse.current != null
+        else if (!IsActive && UWModernPointer.IsFree && UWPointer.HasMouse
             && (lOControls.Player.CursorDrag.WasPressedThisFrame()
-                || (lOControls.Player.Interact.WasPressedThisFrame() && UWModernPointer.SwitchedFrame != Time.frameCount)))
+                || UWInput.PressedUnheld(lOControls, UWAct.Interact)))
         {
             // The click that opens the bags does nothing else - the same click handled below as
             // well closed the container it had just opened (per user, 2026-10-04).
-            Clicks.ClickShutBackpack(Mouse.current.position.ReadValue());
+            Clicks.ClickShutBackpack(UWPointer.Position);
             return;
         }
 
@@ -418,15 +426,13 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
             return;
         }
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return;
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         UWInventory lOInventory = fInventory();
 
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f)
             Pages.Scroll(lOPointer, lfWheel > 0f ? -1 : 1);
@@ -438,11 +444,10 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
 
         Trade.UpdatePress(lOControls, lOPointer, lOInventory);
 
-        if (lOControls.Player.Interact.WasPressedThisFrame() && Drag.IsUsing
-            && UWModernPointer.SwitchedFrame != Time.frameCount)
+        // Not the press that switched the pointer (UWInput.PressedUnheld).
+        if (UWInput.PressedUnheld(lOControls, UWAct.Interact) && Drag.IsUsing)
             CancelUse();
-        else if (lOControls.Player.Interact.WasPressedThisFrame() && lOInventory.CursorItem == null
-            && UWModernPointer.SwitchedFrame != Time.frameCount)
+        else if (UWInput.PressedUnheld(lOControls, UWAct.Interact) && lOInventory.CursorItem == null)
             Clicks.RightPressed(lOPointer, lOInventory);
     }
 

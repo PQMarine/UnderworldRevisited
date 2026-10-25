@@ -1,5 +1,5 @@
 // THE PALETTE RENDERER'S SHADER for floor, ceiling and walls. In use when the render mode
-// is Palette (see UWLevelAssembler.CreateMaterial and UWPaletteRenderToggle);
+// is Palette (see UWLevelAssembler.CreateMaterial and UWPaletteRenderPath);
 // UWDungeon.shader covers the URP path with its Remastered effects.
 //
 // Counterpart to UW/Dungeon, but without any URP lighting. The texture array holds no

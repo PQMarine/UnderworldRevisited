@@ -33,9 +33,14 @@ public sealed class UWCountPrompt
 
     private readonly Interaction mOInteraction;
 
+    /// <summary>The digits typed, by the key's place (UWTextEntry.Digits, cleanup step 7.1, 2026-10-25;
+    /// the prompt read the digit row and the keypad itself until then, the same keys).</summary>
+    private readonly UWTextEntry mODigits;
+
     public UWCountPrompt(Interaction pOInteraction)
     {
         mOInteraction = pOInteraction;
+        mODigits = UWTextEntry.Digits(pcDigit => mOInput.TypeDigit(pcDigit - '0'));
     }
 
     /// <summary>The prompt is running (the gamepad's pointer and letter grid stand aside,
@@ -49,9 +54,10 @@ public sealed class UWCountPrompt
     public void Begin(int piMaximum)
     {
         mOInput.Begin(piMaximum);
+        mODigits.Begin();
 
         // During the prompt the pointer is hidden (per user, 2026-09-01).
-        Cursor.visible = false;
+        UWPointer.IsShown = false;
 
         fRefresh();
     }
@@ -88,6 +94,7 @@ public sealed class UWCountPrompt
         }
 
         mOInput.Commit(piCount);
+        mODigits.End();
 
         return Outcome.Taken;
     }
@@ -106,7 +113,8 @@ public sealed class UWCountPrompt
         }
 
         mOInput.Cancel();
-        Cursor.visible = true;
+        mODigits.End();
+        UWPointer.IsShown = true;
 
         return Outcome.Cancelled;
     }
@@ -120,12 +128,10 @@ public sealed class UWCountPrompt
 
         fRefresh();
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse != null && UWMouseButtons.LeftPressed)
+        if (UWPointer.HasMouse && UWMouseButtons.LeftPressed)
             return fEnd(1);
 
-        if (lOMouse != null && UWMouseButtons.RightPressed)
+        if (UWPointer.HasMouse && UWMouseButtons.RightPressed)
             return fEnd(mOInput.Maximum);
 
         Outcome leByPad = fUpdatePad();
@@ -138,7 +144,7 @@ public sealed class UWCountPrompt
         if (lOKeyboard == null)
             return Outcome.Running;
 
-        if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
+        if (UWTextEntry.EnterPressed)
         {
             // Enter with an empty field cancels, but leaves no dash - unlike
             // Esc (per user, 2026-09-01). The line shows the number as typed, the count
@@ -149,7 +155,7 @@ public sealed class UWCountPrompt
             return fEnd(mOInput.Value);
         }
 
-        if (lOKeyboard.escapeKey.wasPressedThisFrame)
+        if (UWBack.Takes(UWBackOwner.CountPrompt, UWBackKey.Escape))
             return fCancel(true);
 
         // The preset 1 disappears on the FIRST key press, whichever key. If it was
@@ -159,14 +165,10 @@ public sealed class UWCountPrompt
         if (lOKeyboard.anyKey.wasPressedThisFrame)
             mOInput.FirstKeyPressed();
 
-        if (lOKeyboard.backspaceKey.wasPressedThisFrame)
+        if (UWTextEntry.BackspacePressed)
             mOInput.Backspace();
 
-        for (int liDigit = 0; liDigit <= 9; liDigit++)
-        {
-            if (fWasDigitPressed(lOKeyboard, liDigit))
-                mOInput.TypeDigit(liDigit);
-        }
+        mODigits.ReadKeys();
 
         return Outcome.Running;
     }
@@ -184,27 +186,32 @@ public sealed class UWCountPrompt
         if (lOPad == null)
             return Outcome.Running;
 
-        // THE PRESS IS USED UP (UWGamepad.ConsumePress): A and X are the classic scheme's mouse
-        // buttons as well, and the pad's pointer runs later in the frame, when the prompt is
-        // already over - it clicked with the same press and put the count straight back into its
-        // slot (per user, 2026-10-22). The split box does the same.
-        if (lOPad.buttonSouth.wasPressedThisFrame)
-        {
-            UWGamepad.ConsumePress();
+        // THE PRESS IS THE PROMPT'S: A and X are the classic scheme's mouse buttons as well, and
+        // the pad's pointer runs later in the frame, when the prompt is already over - it clicked
+        // with the same press and put the count straight back into its slot (per user, 2026-10-22).
+        // The pointer leaves A, X and the prompt's B alone while the prompt was open when the frame
+        // began (UWPadOwners, the owner table UWPressOwners; UWGamepad.ConsumePress here until
+        // cleanup step 7.8). The split box does the same. A, X and B ARE THE POINTER'S CLICK, ITS
+        // RIGHT BUTTON AND BACK as they are bound (PadClick, PadContext, PadBack, their first
+        // binding; cleanup step 7.6 - read by their place until then); the d-pad by its place.
+        if (UWInput.PadPressed(UWAct.PadClick, 0, "<Gamepad>/buttonSouth"))
             return fEnd(mOInput.Value > 0 ? mOInput.Value : 1);
-        }
 
-        if (lOPad.buttonWest.wasPressedThisFrame)
-        {
-            UWGamepad.ConsumePress();
+        if (UWInput.PadPressed(UWAct.PadContext, 0, "<Gamepad>/buttonWest"))
             return fEnd(mOInput.Maximum);
-        }
 
-        if (lOPad.buttonEast.wasPressedThisFrame)
-        {
-            UWGamepad.ConsumePress();
+        // RT AND LT ARE THE MOUSE'S BUTTONS HERE (per user, 2026-10-25): the classic scheme's pad
+        // clicks with them, but the pointer has no buttons while the prompt runs - so they answer as
+        // the left and the right button above do, one and all (PadClick, PadContext, their second
+        // binding).
+        if (UWInput.PadPressed(UWAct.PadClick, 1, "<Gamepad>/rightTrigger"))
+            return fEnd(1);
+
+        if (UWInput.PadPressed(UWAct.PadContext, 1, "<Gamepad>/leftTrigger"))
+            return fEnd(mOInput.Maximum);
+
+        if (UWBack.Takes(UWBackOwner.CountPrompt, UWBackKey.PadButton))
             return fCancel(true);
-        }
 
         int liDirection = (lOPad.dpad.up.isPressed ? 1 : 0) - (lOPad.dpad.down.isPressed ? 1 : 0);
 
@@ -212,22 +219,5 @@ public sealed class UWCountPrompt
             fRefresh();
 
         return Outcome.Running;
-    }
-
-    private static bool fWasDigitPressed(Keyboard pOKeyboard, int piDigit)
-    {
-        switch (piDigit)
-        {
-            case 0: return pOKeyboard.digit0Key.wasPressedThisFrame || pOKeyboard.numpad0Key.wasPressedThisFrame;
-            case 1: return pOKeyboard.digit1Key.wasPressedThisFrame || pOKeyboard.numpad1Key.wasPressedThisFrame;
-            case 2: return pOKeyboard.digit2Key.wasPressedThisFrame || pOKeyboard.numpad2Key.wasPressedThisFrame;
-            case 3: return pOKeyboard.digit3Key.wasPressedThisFrame || pOKeyboard.numpad3Key.wasPressedThisFrame;
-            case 4: return pOKeyboard.digit4Key.wasPressedThisFrame || pOKeyboard.numpad4Key.wasPressedThisFrame;
-            case 5: return pOKeyboard.digit5Key.wasPressedThisFrame || pOKeyboard.numpad5Key.wasPressedThisFrame;
-            case 6: return pOKeyboard.digit6Key.wasPressedThisFrame || pOKeyboard.numpad6Key.wasPressedThisFrame;
-            case 7: return pOKeyboard.digit7Key.wasPressedThisFrame || pOKeyboard.numpad7Key.wasPressedThisFrame;
-            case 8: return pOKeyboard.digit8Key.wasPressedThisFrame || pOKeyboard.numpad8Key.wasPressedThisFrame;
-            default: return pOKeyboard.digit9Key.wasPressedThisFrame || pOKeyboard.numpad9Key.wasPressedThisFrame;
-        }
     }
 }

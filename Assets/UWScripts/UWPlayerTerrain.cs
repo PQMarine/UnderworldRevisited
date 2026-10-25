@@ -114,8 +114,8 @@ public class UWPlayerTerrain : MonoBehaviour
         // The sound belongs to what falls IN: the player's own jump (UWPlayerMovement.fLandingSound)
         // and anything that lands in the water (UWMotionHost.Splash).
         // What one DOES hear in the water is the rushing: effect 0 held for as long as one is
-        // in it (UWSoundEffects.UpdateWaterLoop, built 2026-09-21 after the user described it).
-        UWSoundEffects.UpdateWaterLoop(IsSwimming);
+        // in it (UWAudioService.UpdateWaterLoop, built 2026-09-21 after the user described it).
+        UWAudioService.UpdateWaterLoop(IsSwimming);
 
         fUpdateSwimCounter();
         fUpdateCamera(lOSettings, lfTileFloor);

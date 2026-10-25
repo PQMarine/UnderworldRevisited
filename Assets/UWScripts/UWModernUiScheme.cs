@@ -24,18 +24,6 @@ public sealed class UWModernUiScheme : IUWUiScheme
     /// modern message box's lines (Interaction.ModernMessageCount).</summary>
     public int ShownLogLines => UWModernLayout.IsScrollShown ? UWModernScroll.Rows : Interaction.ModernMessageCount;
 
-    /// <summary>The menu, the big map, or a link of UWModernUi's closable chain (the waiting spell, the
-    /// bags' use mode, the bags, the closable panels) - the same list Escape closes from.</summary>
-    public bool PadBackCloses
-    {
-        get
-        {
-            UWGameUI lOUi = UWScene.GameUi;
-
-            return UWModernUi.IsMenuOpen || (lOUi != null && lOUi.Map != null && lOUi.Map.IsMapVisible) || UWModernUi.HasClosable;
-        }
-    }
-
     /// <summary>The pointer hold of UWModernPointer, the bags and whatever else freed it
     /// (UWControlScheme.IsPointerFree).</summary>
     public bool IsPointerUnlocked
@@ -84,7 +72,7 @@ public sealed class UWModernUiScheme : IUWUiScheme
         {
             Interaction lOInteraction = UWScene.Interaction;
 
-            return lOInteraction != null && lOInteraction.IsPointerFree() && Mouse.current != null
+            return lOInteraction != null && lOInteraction.IsPointerFree() && UWPointer.HasMouse
                 ? UWAttackKindSource.PointerThirdsOnScreen
                 : UWAttackKindSource.ViewPitch;
         }
@@ -104,9 +92,9 @@ public sealed class UWModernUiScheme : IUWUiScheme
             return false;
 
         Interaction lOInteraction = UWScene.Interaction;
-        bool lbFree = lOInteraction != null && lOInteraction.IsPointerFree() && Mouse.current != null;
+        bool lbFree = lOInteraction != null && lOInteraction.IsPointerFree() && UWPointer.HasMouse;
 
-        pOAt = lbFree ? Mouse.current.position.ReadValue() : UWModernClassicFrame.ViewCentre;
+        pOAt = lbFree ? UWPointer.Position : UWModernClassicFrame.ViewCentre;
 
         if (lbFree && UWModernUi.IsOverUi(pOAt))
             return false;

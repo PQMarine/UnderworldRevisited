@@ -470,7 +470,7 @@ public static class UWItemTargetUse
             pOInteraction.Character != null ? pOInteraction.Character.Vitals.GetSkill(UWPlayerData.Skill.Picklock) : 0);
 
         if (lOResult.Unlocked)
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Lockpick);
+            UWAudioService.PlayEffect(UWSoundEffectId.Lockpick);
 
         pOInteraction.AddGeneralMessage(lOResult.MessageIndex);
     }

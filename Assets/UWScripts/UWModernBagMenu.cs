@@ -50,22 +50,23 @@ internal sealed class UWModernBagMenu
         WorldPickUp
     }
 
+    /// <summary>The ids of the entries' texts in the text table (UWText, cleanup step 8.5, 2026-10-24).</summary>
     private static readonly Dictionary<MenuActionEnum, string> msMenuLabels = new Dictionary<MenuActionEnum, string>
     {
-        { MenuActionEnum.Use, "Use" },
-        { MenuActionEnum.Open, "Open" },
-        { MenuActionEnum.Close, "Close" },
-        { MenuActionEnum.OpenRunes, "Open" },
-        { MenuActionEnum.Equip, "Equip" },
-        { MenuActionEnum.TakeOff, "Take off" },
-        { MenuActionEnum.Look, "Look" },
-        { MenuActionEnum.PickUp, "Pick up" },
-        { MenuActionEnum.Split, "Split" },
-        { MenuActionEnum.Cancel, "Cancel" },
-        { MenuActionEnum.Talk, "Talk" },
-        { MenuActionEnum.WorldUse, "Use" },
-        { MenuActionEnum.WorldLook, "Look" },
-        { MenuActionEnum.WorldPickUp, "Pick up" }
+        { MenuActionEnum.Use, "hud.menu.use" },
+        { MenuActionEnum.Open, "hud.menu.open" },
+        { MenuActionEnum.Close, "hud.menu.close" },
+        { MenuActionEnum.OpenRunes, "hud.menu.open_runes" },
+        { MenuActionEnum.Equip, "hud.menu.equip" },
+        { MenuActionEnum.TakeOff, "hud.menu.take_off" },
+        { MenuActionEnum.Look, "hud.menu.look" },
+        { MenuActionEnum.PickUp, "hud.menu.pick_up" },
+        { MenuActionEnum.Split, "hud.menu.split" },
+        { MenuActionEnum.Cancel, "hud.menu.cancel" },
+        { MenuActionEnum.Talk, "hud.menu.talk" },
+        { MenuActionEnum.WorldUse, "hud.menu.world_use" },
+        { MenuActionEnum.WorldLook, "hud.menu.world_look" },
+        { MenuActionEnum.WorldPickUp, "hud.menu.world_pick_up" }
     };
 
     /// <summary>The menu in original pixels.</summary>
@@ -261,19 +262,19 @@ internal sealed class UWModernBagMenu
             return;
         }
 
-        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        if (Keyboard.current != null && UWBack.Takes(UWBackOwner.BagMenu, UWBackKey.Escape))
         {
             Close();
             return;
         }
 
-        if (Mouse.current == null || Time.frameCount == miMenuOpenedFrame)
+        if (!UWPointer.HasMouse || Time.frameCount == miMenuOpenedFrame)
             return;
 
         // THE GAMEPAD (per user, 2026-10-08: the d-pad moves through buttons and options): B closes
         // the menu, up and down put the pointer onto the next entry - A then chooses it with the
         // pad's click, the highlight follows as with the mouse.
-        if (pOControls.Player.PadBack.WasPressedThisFrame())
+        if (UWBack.Takes(UWBackOwner.BagMenu, UWBackKey.PadBack))
         {
             Close();
             return;
@@ -290,7 +291,7 @@ internal sealed class UWModernBagMenu
         if (!pOControls.Player.CursorDrag.WasPressedThisFrame())
             return;
 
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         for (int liAt = 0; liAt < mOMenuRects.Count && liAt < mOMenuActions.Count; liAt++)
         {
@@ -448,7 +449,7 @@ internal sealed class UWModernBagMenu
             mOMenuTexts.Add(lOText);
         }
 
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         float lfRowTop = lfY + lfHeight - (MenuPad * liScale);
 
         mOMenuRects.Clear();
@@ -470,7 +471,7 @@ internal sealed class UWModernBagMenu
 
             mOMenuRects.Add(lORow);
             lOText.enabled = true;
-            lOText.text = msMenuLabels[mOMenuActions[liAt]];
+            lOText.text = UWText.T(msMenuLabels[mOMenuActions[liAt]]);
             lOText.color = mOMenuActions[liAt] == MenuActionEnum.Cancel ? UWModernPalette.Dim : lbHover ? UWModernPalette.Gold : UWModernPalette.Text;
             lOText.fontSize = Mathf.Max(9, Mathf.RoundToInt(4.2f * liScale));
             UWUiKit.SetRect(lOText.rectTransform, lORow.x + (2 * liScale), lORow.y + (0.5f * liScale), lORow.width - (2 * liScale), lORow.height);

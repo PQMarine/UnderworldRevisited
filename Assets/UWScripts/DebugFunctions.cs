@@ -4,6 +4,12 @@ using System.Collections;
 using System.Collections.Generic;
 using UWDataImport.UWData;
 
+/// <summary>
+/// The debug keys of the scene: noclip (N) with the level keys (Page Up/Down), the debug brightness
+/// (F11), the test teleport (P), the shader globals dump (Shift+F12) and the forced creature cast
+/// (Shift+F11), and the noclip entry the debug tools' jump uses (EnterSpectator). It draws nothing:
+/// its empty OnGUI, left from a position label long commented out, went in cleanup 8c (2026-10-25).
+/// </summary>
 public class DebugFunctions : MonoBehaviour
 {
     private bool mbToggle;
@@ -45,67 +51,117 @@ public class DebugFunctions : MonoBehaviour
             mOLighting = UWScene.Lighting;
         }
 
-        if (mControls.Debug.TeleportDebug.WasPressedThisFrame())
-        {
-            mOPlayer.transform.position = new Vector3(2020, 212, 128);
-        }
+        // The keys are UWHotkeys' rows since cleanup step 7.5 (2026-10-25), in the order they were
+        // read here: P, N, the level keys, F11, Shift+F12, Shift+F11.
+        if (mOKeys == null)
+            mOKeys = new DebugKeys(this);
 
-        // N and B are silent in the main menu and character creation (see UWScreenUi.IsScreenMenuOpen).
-        if (mControls.Debug.ToggleSpectator.WasPressedThisFrame() && !UWScreenUi.IsScreenMenuOpen)
-        {
-            if (!mbToggle)
-            {
-                mbToggle = !mbToggle;
-
-                mOSpectatorCam.transform.position = mOPlayer.transform.position;
-                mOSpectatorCam.transform.localRotation = mOPlayer.transform.localRotation;
-                mOPlayer.SetActive(false);
-                mOSpectatorCam.SetActive(true);
-                fSetSpectatorView(true);
-
-                if (mOLighting != null && !mOLighting.IsBright)
-                    mOLighting.ToggleDebugBrightness();
-            }
-            else
-            {
-                mbToggle = !mbToggle;
-                mOPlayer.transform.position = mOSpectatorCam.transform.position;
-                //mOPlayer.transform.localRotation = mOSpectatorCam.transform.localRotation;
-                fSetSpectatorView(false);
-                mOPlayer.SetActive(true);
-
-                // Back to the normal light with the end of noclip (per user, 2026-10-12);
-                // until then the debug brightness stayed on after leaving.
-                if (mOLighting != null && mOLighting.IsBright)
-                    mOLighting.ToggleDebugBrightness();
-            }
-        }
-
-        // Switch level directly to get to a spot quickly - only in
-        // noclip mode, since the player does not move along with it.
-        if (mbToggle && mOLevelLoader != null)
-        {
-            if (mControls.Debug.NextLevel.WasPressedThisFrame())
-                fJumpLevel(1);
-            else if (mControls.Debug.PrevLevel.WasPressedThisFrame())
-                fJumpLevel(-1);
-        }
-
-        if (mControls.Debug.ToggleBrightness.WasPressedThisFrame() && mOLighting != null && !UWScreenUi.IsScreenMenuOpen)
-            mOLighting.ToggleDebugBrightness();
-
-        if (mControls.Debug.DumpShaderGlobals.WasPressedThisFrame())
-            UWShaderGlobalsDump.Dump();
-
-        // Shift+F11: the nearest creature with a spell casts its second one at once (its first
-        // when the second slot is empty) - for the test of a creature's area spell, which the
-        // original rolls with its caster strength out of 128 and only out of melee reach.
-        if (mControls.Debug.ForceCast.WasPressedThisFrame() && !UWScreenUi.IsScreenMenuOpen)
-            fForceNearestCast();
+        UWHotkeys.Route(UWHotkeySite.DebugKeys, mOKeys);
 
         // The F6 switch between the lowest detail level and the last other one is gone since
         // 2026-09-26 (per user) - the Graphics menu of the bar and the options panel choose it.
 	}
+
+    private DebugKeys mOKeys;
+
+    /// <summary>The debug keys' gates and handlers (UWHotkeys), on this component's own controls.</summary>
+    private sealed class DebugKeys : UWHotkeyHost
+    {
+        private readonly DebugFunctions mODebug;
+
+        public DebugKeys(DebugFunctions pODebug)
+        {
+            mODebug = pODebug;
+        }
+
+        protected override UWControls Controls => mODebug.mControls;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
+        {
+            switch (peGate)
+            {
+                // N and B are silent in the main menu and character creation (see UWScreenUi.IsScreenMenuOpen).
+                case UWHotkeyGate.ScreenMenu: return UWScreenUi.IsScreenMenuOpen;
+
+                // Switch level directly to get to a spot quickly - only in noclip mode, since the
+                // player does not move along with it.
+                case UWHotkeyGate.Noclip: return mODebug.mbToggle && mODebug.mOLevelLoader != null;
+                case UWHotkeyGate.Lighting: return mODebug.mOLighting != null;
+                default: return false;
+            }
+        }
+
+        public override bool Run(UWHotkeyHandler peHandler)
+        {
+            switch (peHandler)
+            {
+                case UWHotkeyHandler.Teleport:
+                    mODebug.mOPlayer.transform.position = new Vector3(2020, 212, 128);
+                    return true;
+
+                case UWHotkeyHandler.ToggleNoclip:
+                    mODebug.fToggleSpectator();
+                    return true;
+
+                case UWHotkeyHandler.NextLevel:
+                    mODebug.fJumpLevel(1);
+                    return true;
+
+                case UWHotkeyHandler.PreviousLevel:
+                    mODebug.fJumpLevel(-1);
+                    return true;
+
+                case UWHotkeyHandler.ToggleBrightness:
+                    mODebug.mOLighting.ToggleDebugBrightness();
+                    return true;
+
+                case UWHotkeyHandler.DumpShaderGlobals:
+                    UWShaderGlobalsDump.Dump();
+                    return true;
+
+                // Shift+F11: the nearest creature with a spell casts its second one at once (its first
+                // when the second slot is empty) - for the test of a creature's area spell, which the
+                // original rolls with its caster strength out of 128 and only out of melee reach.
+                case UWHotkeyHandler.ForceCast:
+                    mODebug.fForceNearestCast();
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>N: into noclip or out of it.</summary>
+    private void fToggleSpectator()
+    {
+        if (!mbToggle)
+        {
+            mbToggle = !mbToggle;
+
+            mOSpectatorCam.transform.position = mOPlayer.transform.position;
+            mOSpectatorCam.transform.localRotation = mOPlayer.transform.localRotation;
+            mOPlayer.SetActive(false);
+            mOSpectatorCam.SetActive(true);
+            fSetSpectatorView(true);
+
+            if (mOLighting != null && !mOLighting.IsBright)
+                mOLighting.ToggleDebugBrightness();
+        }
+        else
+        {
+            mbToggle = !mbToggle;
+            mOPlayer.transform.position = mOSpectatorCam.transform.position;
+            //mOPlayer.transform.localRotation = mOSpectatorCam.transform.localRotation;
+            fSetSpectatorView(false);
+            mOPlayer.SetActive(true);
+
+            // Back to the normal light with the end of noclip (per user, 2026-10-12);
+            // until then the debug brightness stayed on after leaving.
+            if (mOLighting != null && mOLighting.IsBright)
+                mOLighting.ToggleDebugBrightness();
+        }
+    }
 
     private void fForceNearestCast()
     {
@@ -223,11 +279,5 @@ public class DebugFunctions : MonoBehaviour
     {
         mOLevelLoader.DebugLoadLevel(mOLevelLoader.CurrentLevelIndex + piDirection);
         mOSpectatorCam.transform.position = new Vector3(32 * 64f, 200f, 32 * 64f);
-    }
-
-    void OnGUI()
-    {
-
-        //GUI.Label(new Rect(10, 120, 500, 100), "X = " + (int)transform.position.x + " Y= " + (int)transform.position.y + " Z= " + (int)transform.position.z);
     }
 }

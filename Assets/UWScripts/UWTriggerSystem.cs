@@ -31,9 +31,9 @@ public static class UWTriggerSystem
             UWEntityInfo lOEntity;
 
             if (pOLevelLoader != null && pOLevelLoader.TryGetEntity(pOObject, out lOEntity) && lOEntity != null)
-                UWSoundEffects.PlayAt(UWSoundEffects.Lockpick, lOEntity.transform.position);
+                UWAudioService.PlayEffectAt(UWSoundEffectId.Lockpick, lOEntity.transform.position);
             else
-                UWSoundEffects.PlayAtAvatar(UWSoundEffects.Lockpick);
+                UWAudioService.PlayEffect(UWSoundEffectId.Lockpick);
         }
 
         return lbFired;

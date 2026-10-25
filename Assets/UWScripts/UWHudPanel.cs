@@ -808,12 +808,10 @@ public sealed class UWHudPanel
         if (!mOTurn.IsAtRestOn(UWPanelTurn.SideEnum.Stats) || mStatsRoot == null)
             return;
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null || !UWMouseButtons.LeftPressed)
+        if (!UWPointer.HasMouse || !UWMouseButtons.LeftPressed)
             return;
 
-        Vector2 lOPosition = lOMouse.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         int liStep = 0;
 

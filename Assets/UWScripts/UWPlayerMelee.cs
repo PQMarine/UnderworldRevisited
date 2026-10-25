@@ -88,7 +88,7 @@ public sealed class UWPlayerMelee
             if (!mbBlowStruckNothing)
                 fTryWallImpact();
 
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
+            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
             return;
         }
 
@@ -113,7 +113,7 @@ public sealed class UWPlayerMelee
             if (lOTarget == null)
                 fTryWallImpact();
 
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Miss);
+            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
             return;
         }
 
@@ -569,7 +569,7 @@ public sealed class UWPlayerMelee
             // turns hostile and attacks (per user on the original, 2026-09-12). The row's kinds
             // are read by UWPlayerAttack.ResolveMelee, the sound chosen by UWAttackResolution
             // (cleanup step 4.9, 2026-10-18).
-            UWSoundEffects.PlayAt(lOResult.Outcome.BlockedSound, pOHitPoint);
+            UWAudioService.PlayEffectAt(lOResult.Outcome.BlockedSound, pOHitPoint);
 
             // The miss lands through the world as the player's blow with 0 (cleanup step 4.8,
             // 2026-10-18; UWCritter.OnMissedByPlayer told the mind past the body until then).
@@ -609,7 +609,7 @@ public sealed class UWPlayerMelee
         // the armour at labels A04-A10, so a blow the armour swallows is still heard at full
         // volume. We had the volume from the damage after armour until 2026-09-22. The
         // creature's own blows (UWCritter) had it right already.
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOHitPoint, lOResult.Outcome.HitVolume);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOHitPoint, lOResult.Outcome.HitVolume);
 
         // Armour that swallows the whole blow leaves no visible trace: UW.EXE
         // (AttackerAppliesFinalDamage, seg022_230E_A6B) skips the blood or flash animation and

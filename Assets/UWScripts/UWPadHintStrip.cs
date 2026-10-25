@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE GAMEPAD'S HINT STRIP (per user, 2026-10-08, after the hints at the crosshair and the bar):
@@ -71,17 +72,18 @@ public class UWPadHintStrip : MonoBehaviour
 
         if (UWModernBags.IsSplitting)
         {
-            fAdd(UWGlyphs.Tiles(UWGlyphs.DpadHorizontalTile), "count");
-            fAdd(UWGlyphs.ForPath("<Gamepad>/buttonSouth"), "take");
-            fAdd(UWGlyphs.ForPath("<Gamepad>/buttonEast"), "cancel");
+            fAdd(UWGlyphs.Tiles(UWGlyphs.DpadHorizontalTile), UWText.T("pad.hint.count"));
+            // A and B as they are bound (the split box reads them so since cleanup step 7.6).
+            fAdd(UWGlyphs.ForEntry("PadClick", 0), UWText.T("pad.hint.take"));
+            fAdd(UWGlyphs.ForEntry("PadBack", 0), UWText.T("pad.hint.cancel"));
             return;
         }
 
         if (UWModernBags.IsMenuOpen)
         {
-            fAdd(UWGlyphs.Tiles(UWGlyphs.DpadVerticalTile), "step");
-            fAdd(UWGlyphs.ForEntry("PadClick", 0), "choose");
-            fAdd(UWGlyphs.ForEntry("PadBack", 0), "cancel");
+            fAdd(UWGlyphs.Tiles(UWGlyphs.DpadVerticalTile), UWText.T("pad.hint.step"));
+            fAdd(UWGlyphs.ForEntry("PadClick", 0), UWText.T("pad.hint.choose"));
+            fAdd(UWGlyphs.ForEntry("PadBack", 0), UWText.T("pad.hint.cancel"));
             return;
         }
 
@@ -89,37 +91,36 @@ public class UWPadHintStrip : MonoBehaviour
 
         if (!lOScheme.IsPointerFree)
         {
-            fAdd(UWGlyphs.ForEntry("PadPointer", 0), "pointer");
+            fAdd(UWGlyphs.ForEntry("PadPointer", 0), UWText.T("pad.hint.pointer"));
 
             if (lORunes != null && lORunes.IsOpen)
-                fAdd(UWGlyphs.ForEntry("PadCast", 0), "cast");
+                fAdd(UWGlyphs.ForEntry("PadCast", 0), UWText.T("pad.hint.cast"));
 
             return;
         }
 
-        Vector2 lOAt = UWGamepadPointer.OwnsPosition ? UWGamepadPointer.Position
-            : (UnityEngine.InputSystem.Mouse.current != null ? UnityEngine.InputSystem.Mouse.current.position.ReadValue() : Vector2.zero);
+        Vector2 lOAt = UWPointer.HasMouse ? UWPointer.Position : Vector2.zero;
         UWModernBags lOBags = UWModernBags.Instance;
         UWModernPanel lOPanel = UWModernPanel.Instance;
 
         if (lORunes != null && lORunes.IsOpen && lORunes.Contains(lOAt))
         {
-            fAdd(UWGlyphs.ForEntry("PadClick", 0), "choose");
-            fAdd(UWGlyphs.ForEntry("PadContext", 0), "look");
-            fAdd(UWGlyphs.ForEntry("PadBack", 0), "close");
+            fAdd(UWGlyphs.ForEntry("PadClick", 0), UWText.T("pad.hint.choose"));
+            fAdd(UWGlyphs.ForEntry("PadContext", 0), UWText.T("pad.hint.look"));
+            fAdd(UWGlyphs.ForEntry("PadBack", 0), UWText.T("pad.hint.close"));
         }
         else if ((lOBags != null && lOBags.IsOverWindow(lOAt)) || (lOPanel != null && lOPanel.IsOpen && lOPanel.Contains(lOAt)))
         {
-            fAdd(UWGlyphs.ForEntry("PadClick", 0), "take / put");
-            fAdd(UWGlyphs.ForEntry("PadContext", 0), "menu");
-            fAdd(UWGlyphs.ForEntry("PadBack", 0), "close");
+            fAdd(UWGlyphs.ForEntry("PadClick", 0), UWText.T("pad.hint.take_put"));
+            fAdd(UWGlyphs.ForEntry("PadContext", 0), UWText.T("pad.hint.menu"));
+            fAdd(UWGlyphs.ForEntry("PadBack", 0), UWText.T("pad.hint.close"));
         }
         else
         {
-            fAdd(UWGlyphs.ForEntry("PadClick", 0), "menu");
+            fAdd(UWGlyphs.ForEntry("PadClick", 0), UWText.T("pad.hint.menu"));
         }
 
-        fAdd(UWGlyphs.ForEntry("PadPointer", 0), "look");
+        fAdd(UWGlyphs.ForEntry("PadPointer", 0), UWText.T("pad.hint.look"));
     }
 
     private void fAdd(Texture2D pOGlyph, string psText)

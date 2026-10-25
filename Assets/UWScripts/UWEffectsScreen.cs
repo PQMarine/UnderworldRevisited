@@ -150,40 +150,45 @@ public class UWEffectsScreen
 
     public bool IsOpen { get; private set; }
 
-    public UWEffectsScreen(DataImport pOData, RectTransform pOFrame)
+    /// <summary>Whose screen it is in the Escape chain (UWBack): the setup bar's or the classic
+    /// options'.</summary>
+    private readonly UWBackOwner meBackOwner;
+
+    public UWEffectsScreen(DataImport pOData, RectTransform pOFrame, UWBackOwner peBackOwner = UWBackOwner.OptionsEffects)
     {
         mOData = pOData;
         mOFrame = pOFrame;
+        meBackOwner = peBackOwner;
 
-        fAddToggle("Torch and fire lights", v => v.TorchLights, (v, b) => v.TorchLights = b);
-        fAddToggle("Torch shadows", v => v.TorchShadows, (v, b) => v.TorchShadows = b);
-        fAddRow("Shadows at once", KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
-        fAddToggle("Lava lights", v => v.LavaLights, (v, b) => v.LavaLights = b);
-        fAddRow("Light brightness", KindEnum.Slider, 0f, 3f, v => v.LightBrightness, (v, f) => v.LightBrightness = f);
-        fAddRow("Relief", KindEnum.Slider, 0f, 4f, v => v.NormalStrength, (v, f) => v.NormalStrength = f);
-        fAddRow("Shine", KindEnum.Slider, 0f, 2f, v => v.SpecularStrength, (v, f) => v.SpecularStrength = f);
-        fAddRow("Wall depth", KindEnum.Slider, 0f, 0.2f, v => v.ParallaxDepth, (v, f) => v.ParallaxDepth = f);
-        fAddRow("Relief shadows", KindEnum.Slider, 0f, 1f, v => v.SelfShadow, (v, f) => v.SelfShadow = f);
-        fAddRow("Dark joints", KindEnum.Slider, 0f, 1f, v => v.Cavity, (v, f) => v.Cavity = f);
-        fAddRow("Lava glow", KindEnum.Slider, 0f, 4f, v => v.EmissiveStrength, (v, f) => v.EmissiveStrength = f);
-        fAddRow("Bloom", KindEnum.Slider, 0f, 3f, v => v.BloomIntensity, (v, f) => v.BloomIntensity = f);
-        fAddToggle("Ambient occlusion", v => v.AmbientOcclusion, (v, b) => v.AmbientOcclusion = b);
-        fAddRow("Tonemapping", KindEnum.Tonemapping, 0f, 2f, v => (float)v.Tonemapping,
+        fAddToggle(UWText.T("effects.torch_and_fire_lights"), v => v.TorchLights, (v, b) => v.TorchLights = b);
+        fAddToggle(UWText.T("effects.torch_shadows"), v => v.TorchShadows, (v, b) => v.TorchShadows = b);
+        fAddRow(UWText.T("effects.shadows_at_once"), KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
+        fAddToggle(UWText.T("effects.lava_lights"), v => v.LavaLights, (v, b) => v.LavaLights = b);
+        fAddRow(UWText.T("effects.light_brightness"), KindEnum.Slider, 0f, 3f, v => v.LightBrightness, (v, f) => v.LightBrightness = f);
+        fAddRow(UWText.T("effects.relief"), KindEnum.Slider, 0f, 4f, v => v.NormalStrength, (v, f) => v.NormalStrength = f);
+        fAddRow(UWText.T("effects.shine"), KindEnum.Slider, 0f, 2f, v => v.SpecularStrength, (v, f) => v.SpecularStrength = f);
+        fAddRow(UWText.T("effects.wall_depth"), KindEnum.Slider, 0f, 0.2f, v => v.ParallaxDepth, (v, f) => v.ParallaxDepth = f);
+        fAddRow(UWText.T("effects.relief_shadows"), KindEnum.Slider, 0f, 1f, v => v.SelfShadow, (v, f) => v.SelfShadow = f);
+        fAddRow(UWText.T("effects.dark_joints"), KindEnum.Slider, 0f, 1f, v => v.Cavity, (v, f) => v.Cavity = f);
+        fAddRow(UWText.T("effects.lava_glow"), KindEnum.Slider, 0f, 4f, v => v.EmissiveStrength, (v, f) => v.EmissiveStrength = f);
+        fAddRow(UWText.T("effects.bloom"), KindEnum.Slider, 0f, 3f, v => v.BloomIntensity, (v, f) => v.BloomIntensity = f);
+        fAddToggle(UWText.T("effects.ambient_occlusion"), v => v.AmbientOcclusion, (v, b) => v.AmbientOcclusion = b);
+        fAddRow(UWText.T("effects.tonemapping"), KindEnum.Tonemapping, 0f, 2f, v => (float)v.Tonemapping,
             (v, f) => v.Tonemapping = (UWSettings.RemasterTonemappingEnum)Mathf.RoundToInt(f));
-        fAddRow("Sprite glow", KindEnum.Slider, 0f, 3f, v => v.SpriteGlow, (v, f) => v.SpriteGlow = f);
-        fAddRow("Fire flicker", KindEnum.Slider, 0f, 0.8f, v => v.FireFlicker, (v, f) => v.FireFlicker = f);
-        fAddRow("Sparks", KindEnum.Slider, 0f, 3f, v => v.FireSparks, (v, f) => v.FireSparks = f);
-        fAddRow("Smoke", KindEnum.Slider, 0f, 1f, v => v.FireSmoke, (v, f) => v.FireSmoke = f);
-        fAddRow("Dust", KindEnum.Slider, 0f, 3f, v => v.Dust, (v, f) => v.Dust = f);
-        fAddRow("Ground shadows", KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
+        fAddRow(UWText.T("effects.sprite_glow"), KindEnum.Slider, 0f, 3f, v => v.SpriteGlow, (v, f) => v.SpriteGlow = f);
+        fAddRow(UWText.T("effects.fire_flicker"), KindEnum.Slider, 0f, 0.8f, v => v.FireFlicker, (v, f) => v.FireFlicker = f);
+        fAddRow(UWText.T("effects.sparks"), KindEnum.Slider, 0f, 3f, v => v.FireSparks, (v, f) => v.FireSparks = f);
+        fAddRow(UWText.T("effects.smoke"), KindEnum.Slider, 0f, 1f, v => v.FireSmoke, (v, f) => v.FireSmoke = f);
+        fAddRow(UWText.T("effects.dust"), KindEnum.Slider, 0f, 3f, v => v.Dust, (v, f) => v.Dust = f);
+        fAddRow(UWText.T("effects.ground_shadows"), KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
 
         // THE GRIME, shared with the palette path (UWGrime.hlsl): its setting lives in the user's
         // settings, not in the effect values; saved when the screen closes.
-        fAddRow("Grime along the walls", KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
+        fAddRow(UWText.T("effects.grime_along_the_walls"), KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
             v => UWUserSettings.PaletteGrime, (v, f) => UWUserSettings.PaletteGrime = Mathf.Round(f * 2f) / 2f);
         mORows[mORows.Count - 1].AllOn = 3f;
         mORows[mORows.Count - 1].AllOff = 0f;
-        fAddRow("Grime colour", KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
+        fAddRow(UWText.T("effects.grime_colour"), KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
             v => UWUserSettings.PaletteGrimeTone, (v, f) => UWUserSettings.PaletteGrimeTone = Mathf.RoundToInt(f));
     }
 
@@ -265,24 +270,23 @@ public class UWEffectsScreen
         if (!IsOpen)
             return;
 
-        Keyboard lOKeyboard = Keyboard.current;
-
-        if (lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame)
+        // Escape closes it; the setup bar's screen takes the pad's B and Start as well (cleanup 7, wave
+        // 2b: one back press closes only the topmost - they closed the game menu under it). Whose keys
+        // they are, the back chain says (UWBackChain, the owner's row).
+        if (UWBack.Takes(meBackOwner))
         {
             Close();
 
             return;
         }
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return;
 
         int liX;
         int liY;
 
-        if (!fToScreenPixel(lOMouse.position.ReadValue(), out liX, out liY))
+        if (!fToScreenPixel(UWPointer.Position, out liX, out liY))
         {
             liX = -1;
             liY = -1;
@@ -301,32 +305,32 @@ public class UWEffectsScreen
             mbDirty = true;
         }
 
-        if (!lOMouse.leftButton.isPressed)
+        if (!UWPointer.LeftHeld)
         {
             miDragRow = -1;
             mbMoving = false;
         }
 
         // The mouse wheel scrolls the rows while the pointer is over the screen.
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (liY >= 0 && Mathf.Abs(lfWheel) > 0.01f)
             fScrollBy(lfWheel > 0f ? -1 : 1);
 
         if (mbMoving)
         {
-            fMove(lOMouse.position.ReadValue());
+            fMove(UWPointer.Position);
         }
         else if (miDragRow >= 0)
         {
             fSetFromBar(mORows[miDragRow], lOValues, liX);
         }
-        else if (lOMouse.leftButton.wasPressedThisFrame)
+        else if (UWPointer.LeftPressed)
         {
             // The title row outside its buttons takes the screen along.
             if (liY >= 0 && liY < FirstRowTop - 2 && liButton < 0)
             {
-                fBeginMove(lOMouse.position.ReadValue());
+                fBeginMove(UWPointer.Position);
                 fRedraw();
 
                 return;
@@ -532,7 +536,7 @@ public class UWEffectsScreen
         UWGraphicsDetail.EffectValues lOValues = UWGraphicsDetail.CustomValues;
 
         fDrawBackground();
-        fDrawTextCentred(TitleTop, "Remastered effects");
+        fDrawTextCentred(TitleTop, UWText.T("effects.title"));
 
         // The rows shown, from miScroll on; the text slots are per shown line, so a slot below the
         // last row is emptied.
@@ -556,7 +560,7 @@ public class UWEffectsScreen
             switch (lORow.Kind)
             {
                 case KindEnum.Toggle:
-                    fDrawText("value" + liShown, ControlLeft, liTop, lfValue >= 0.5f ? "On" : "Off");
+                    fDrawText("value" + liShown, ControlLeft, liTop, lfValue >= 0.5f ? UWText.T("effects.on") : UWText.T("effects.off"));
                     break;
 
                 case KindEnum.Tonemapping:
@@ -578,7 +582,7 @@ public class UWEffectsScreen
 
         fDrawScrollBar();
 
-        fDrawText("all", AllLabelLeft, ButtonTop + 5, "All:");
+        fDrawText("all", AllLabelLeft, ButtonTop + 5, UWText.T("effects.all"));
         fDrawButton(OnButtonLeft, OnButtonImage);
         fDrawButton(OffButtonLeft, OffButtonImage);
         fDrawButton(DoneButtonLeft, DoneButtonImage);
@@ -590,10 +594,10 @@ public class UWEffectsScreen
     {
         switch (piValue)
         {
-            case 1: return "Dirt";
-            case 2: return "Moss";
-            case 3: return "Soot";
-            default: return "No colour";
+            case 1: return UWText.T("effects.tone.dirt");
+            case 2: return UWText.T("effects.tone.moss");
+            case 3: return UWText.T("effects.tone.soot");
+            default: return UWText.T("effects.tone.none");
         }
     }
 
@@ -622,9 +626,9 @@ public class UWEffectsScreen
     {
         switch (piValue)
         {
-            case 1: return "Neutral";
+            case 1: return UWText.T("effects.tonemapping.neutral");
             case 2: return "ACES";
-            default: return "Off";
+            default: return UWText.T("effects.tonemapping.off");
         }
     }
 

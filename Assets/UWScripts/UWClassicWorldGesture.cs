@@ -59,7 +59,7 @@ public sealed class UWClassicWorldGesture
     /// </summary>
     public void Begin()
     {
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = UWPointer.Position;
         UWWorldPointer.Aim lOAim = new UWWorldPointer.Aim { PressPosition = lOMousePos };
 
         // With Original, outside the small 3D view window (e.g. right click on the backpack or
@@ -182,7 +182,7 @@ public sealed class UWClassicWorldGesture
 
         UWWorldPointer.Aim lOAim = mOPointer.Current;
 
-        UWWorldPointer.EventKind leEvent = mOPointer.Poll(Mouse.current.position.ReadValue(),
+        UWWorldPointer.EventKind leEvent = mOPointer.Poll(UWPointer.Position,
             mOInteraction.Input.Interact.WasReleasedThisFrame());
 
         // Modern has no dragging, its pickup sits in UseTarget.
@@ -209,7 +209,7 @@ public sealed class UWClassicWorldGesture
         if (UWPlayerInput.ConsumesRightClick() || !mOInteraction.Input.Interact.WasPressedThisFrame() || UWScene.ItemDrag == null)
             return;
 
-        Vector2 lOMousePos = Mouse.current.position.ReadValue();
+        Vector2 lOMousePos = UWPointer.Position;
 
         if (fUi() != null && !fUi().ClassicScreen.IsScreenPositionInGameArea(lOMousePos))
             return;

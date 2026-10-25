@@ -380,9 +380,9 @@ public sealed class UWRemoteCamera : MonoBehaviour
             return;
 
         bool lbAnyHeld = (Keyboard.current != null && Keyboard.current.anyKey.isPressed)
-            || (Mouse.current != null
-                && (Mouse.current.leftButton.isPressed || Mouse.current.rightButton.isPressed
-                    || Mouse.current.middleButton.isPressed));
+            || (UWPointer.HasMouse
+                && (UWPointer.LeftHeld || UWPointer.RightHeld
+                    || UWPointer.MiddleHeld));
 
         if (!lbAnyHeld)
             End(lOTop.Id);

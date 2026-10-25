@@ -256,7 +256,7 @@ public class UWGameUI : MonoBehaviour
         // The key lock while typing, for all actions - see UWControls.IsTextEntryActive.
         UWControls.SetTextEntryActive(TextEntry.LocksKeys);
 
-        fCheckFontToggle();
+        fRouteKeys();
 
         Runes.fRefreshSpellIconsIfChanged();
 
@@ -398,13 +398,14 @@ public class UWGameUI : MonoBehaviour
         Classic.BuildPaperdollAndPanels();
     }
 
+    private UWGameUiKeys mOKeys;
+
     /// <summary>
-    /// The two keys of our own: F switches all fonts between original and modern (see
-    /// UWTextLabel), M opens the map. Both come from the Player map since 2026-09-17, so they can
-    /// be changed in the menu bar (UWKeyBindings). Not while typing anywhere - map note, save
-    /// game name, mantra, input line - there the letters belong to the text.
+    /// THE KEYS BOTH SCHEMES ROUTE HERE - F, M, F1 to F10, the Ctrl shortcuts, the modern back press:
+    /// UWHotkeys' rows of this site (cleanup step 7.5, 2026-10-25; the four if-chains before), their
+    /// gates and handlers UWGameUiKeys'.
     /// </summary>
-    private void fCheckFontToggle()
+    private void fRouteKeys()
     {
         UWControls lOControls = mControlSchemeRef != null ? mControlSchemeRef.Controls : null;
 
@@ -414,106 +415,10 @@ public class UWGameUI : MonoBehaviour
         if (mOInteraction == null)
             mOInteraction = GetComponent<Interaction>();
 
-        // In the main menu and in creation the keys stay completely silent (per user,
-        // 2026-09-11), and while a sequence plays - or the key that ended it is still down in
-        // this frame (UWIntroPlayer.HoldsKeys, 2026-10-13).
-        if (TextEntry.IsTextEntryActive || UWScreenUi.IsScreenMenuOpen
-            || (UWScene.IntroPlayer != null && UWScene.IntroPlayer.HoldsKeys))
-            return;
+        if (mOKeys == null)
+            mOKeys = new UWGameUiKeys(this);
 
-        // Ctrl+F and Ctrl+M are the original's option shortcuts (sound and music, with Ctrl+S,
-        // R, D and Q; per user in the original, 2026-09-26: it is Ctrl, Alt does nothing) - not
-        // ours.
-        bool lbCtrl = UWControls.IsCtrlHeld;
-
-        if (!lbCtrl && lOControls.Player.ToggleFont.WasPressedThisFrame())
-            UWTextLabel.UseModernFont = !UWTextLabel.UseModernFont;
-
-        // THE MODERN SCHEME has no classic frame: the options, the map and the command icons live
-        // on it, and opened there they were invisible and held the game (found 2026-10-03). There
-        // F1, Escape and the Ctrl shortcuts open the modern game menu (UWModernGameMenu); the map, the
-        // command keys and the rune shelf wait for their modern counterparts; F9 and F10 stay.
-        if (mControlSchemeRef != null && UWControlScheme.IsModern)
-        {
-            fCheckModernKeys(lOControls);
-            return;
-        }
-
-        // Not in a conversation: using the map is locked there, so the key (our addition) is too.
-        // The gamepad's pointer takes the d-pad as its wheel - except to close the map again.
-        if (!lbCtrl && lOControls.Player.ToggleMap.WasPerformedThisFrame() && !UWConversationController.IsAnyOpen
-            && (Map.IsMapVisible || !UWGamepadPointer.Takes(lOControls.Player.ToggleMap)))
-            fToggleMapByKey();
-
-        fCheckOptionShortcuts(lOControls);
-        fCheckOriginalKeys(lOControls);
-    }
-
-    /// <summary>The keys of the modern scheme that UWGameUI routes - see fCheckFontToggle.</summary>
-    private void fCheckModernKeys(UWControls pOControls)
-    {
-        UWModernHud lOHud = UWModernHud.Instance;
-
-        if (lOHud == null || UWConversationController.IsAnyOpen || UWRoamingSight.IsAnyRunning
-            || UWRoamingSight.EndedByEscapeThisFrame || mOInteraction == null)
-            return;
-
-        UWControls.PlayerActions lOPlayer = pOControls.Player;
-
-        // The big map open: M or Escape close it (writing a note, the keys are the note's).
-        if (Map.IsMapVisible)
-        {
-            // The gamepad's B closes it too (UWGamepad).
-            if (!UWControls.IsCtrlHeld && (lOPlayer.ToggleMap.WasPerformedThisFrame() || lOPlayer.Menu.WasPressedThisFrame()
-                || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown)))
-                Map.HideMap();
-
-            return;
-        }
-
-        // THE RIGHT CTRL ONLY: the left one sinks in the modern scheme (per user, 2026-10-04) -
-        // held while walking back it would open the save page with S, with R the restore page.
-        if (UWControls.IsRightCtrlHeld && !UWControls.IsShiftHeld && !UWControls.IsAltHeld)
-        {
-            if (lOPlayer.OptSave.WasPressedThisFrame())
-                lOHud.Menu.OpenMenu(UWModernGameMenu.PageEnum.Save);
-            else if (lOPlayer.OptRestore.WasPressedThisFrame())
-                lOHud.Menu.OpenMenu(UWModernGameMenu.PageEnum.Load);
-            else if (lOPlayer.OptMusic.WasPressedThisFrame() || lOPlayer.OptSound.WasPressedThisFrame()
-                || lOPlayer.OptDetail.WasPressedThisFrame() || lOPlayer.OptQuit.WasPressedThisFrame())
-                lOHud.Menu.OpenMenu(UWModernGameMenu.PageEnum.Main);
-
-            return;
-        }
-
-        if (UWControls.IsShiftHeld || UWControls.IsAltHeld)
-            return;
-
-        // Escape first lets a waiting spell go (UWHudRunes.fAfterModernCast), then closes the bags
-        // (UWModernBags), the character panel (UWModernPanel; a pinned one only leaves its Help
-        // tab) and the rune panel (UWModernRunePanel); the menu comes after. The order is
-        // UWModernUi's closable chain since 2026-10-22, one list for Escape and PadBackCloses.
-
-        // The gamepad's B does what Escape does while something is open (PadBackCloses);
-        // otherwise it jumps (UWPlayerInput).
-        bool lbBack = lOPlayer.Menu.WasPressedThisFrame()
-            || (lOPlayer.PadBack.WasPressedThisFrame() && !UWLetterGrid.IsShown && !UWModernBags.IsMenuOpen && !UWModernBags.IsSplitting
-                && PadBackCloses());
-
-        if (lbBack && !lOHud.IsOpen && UWModernUi.CloseNext())
-        {
-            // Something of the chain was closed; the menu waits for the next press.
-        }
-        else if (lOPlayer.KeyOptions.WasPressedThisFrame() || lbBack)
-            lOHud.Menu.ToggleMenu();
-        else if (lOHud.IsOpen)
-            return;
-        else if (lOPlayer.KeyTrack.WasPressedThisFrame())
-            Actions.Track();
-        else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWGameActions.CanCamp)
-            Actions.Camp();
-        else if (lOPlayer.ToggleMap.WasPerformedThisFrame() && !UWGamepadPointer.Takes(lOPlayer.ToggleMap))
-            fToggleMapByKey();
+        UWHotkeys.Route(UWHotkeySite.GameUi, mOKeys);
     }
 
     /// <summary>The modern minimap's click (UWModernMinimap): the big map, with the map carried.</summary>
@@ -527,126 +432,11 @@ public class UWGameUI : MonoBehaviour
     }
 
     /// <summary>
-    /// The original's Ctrl shortcuts (built 2026-09-26, see UWHudOptions.ChooseByShortcut):
-    /// Ctrl+S save, Ctrl+R restore, Ctrl+M music, Ctrl+F sound, Ctrl+D detail, Ctrl+Q quit.
-    /// Normal play only, as the original registers them. Partway through an action the options
-    /// refuse to open (UWHudOptions.RefusesToOpen); on level 9 they open, only the Save entry
-    /// refuses (RefusesToSave).
-    /// </summary>
-    private void fCheckOptionShortcuts(UWControls pOControls)
-    {
-        if (!UWControls.IsCtrlHeld || UWControls.IsShiftHeld || UWControls.IsAltHeld)
-            return;
-
-        // Not while the view roams: the options are locked then, as in the original.
-        if (UWConversationController.IsAnyOpen || Map.IsMapVisible || Options.IsOpen || mOInteraction == null
-            || UWRoamingSight.IsAnyRunning)
-            return;
-
-        UWControls.PlayerActions lOPlayer = pOControls.Player;
-        int liEntry = lOPlayer.OptSave.WasPressedThisFrame() ? UWOptionsMenuModel.TopSave
-            : lOPlayer.OptRestore.WasPressedThisFrame() ? UWOptionsMenuModel.TopRestore
-            : lOPlayer.OptMusic.WasPressedThisFrame() ? UWOptionsMenuModel.TopMusic
-            : lOPlayer.OptSound.WasPressedThisFrame() ? UWOptionsMenuModel.TopSound
-            : lOPlayer.OptDetail.WasPressedThisFrame() ? UWOptionsMenuModel.TopDetail
-            : lOPlayer.OptQuit.WasPressedThisFrame() ? UWOptionsMenuModel.TopQuit
-            : -1;
-
-        if (liEntry < 0)
-            return;
-
-        // "Partway" and "between worlds" are refused by the options themselves.
-        Options.ChooseByShortcut(liEntry);
-    }
-
-    private int miPadBackFrame = -1;
-
-    private bool mbPadBackCloses;
-
-    /// <summary>
-    /// The gamepad's B (UWGamepad): whether it closes something - the menu, a waiting spell, the
-    /// use mode, the bags, a closable panel - in the modern scheme. Worked out once a frame, before
-    /// anything closes, so the jump (UWPlayerInput) sees the same answer whichever runs first.
-    /// </summary>
-    public bool PadBackCloses()
-    {
-        if (miPadBackFrame == Time.frameCount)
-            return mbPadBackCloses;
-
-        miPadBackFrame = Time.frameCount;
-
-        // The menu, the big map, or a link of UWModernUi's closable chain (the waiting spell, the
-        // bags' use mode, the bags, the closable panels) - the same list Escape closes from
-        // (UWModernUiScheme.PadBackCloses; nothing in the classic scheme).
-        mbPadBackCloses = mControlSchemeRef != null && UWControlScheme.Ui.PadBackCloses;
-
-        return mbPadBackCloses;
-    }
-
-    /// <summary>
-    /// THE ORIGINAL'S FUNCTION KEYS (built 2026-09-26, see UWControls.KeyOptions): F1 options,
-    /// F2 to F6 the command modes as a click on their icon, F7 turns the panel, F8 casts, F9
-    /// tracks (UWMiscSpellRules.Track, since 2026-09-27), F10 makes camp. Not with Shift (our own keys) nor Alt (Alt+F4) nor Ctrl; not in a
-    /// conversation - the original registers them for its normal mode only -, not over the
-    /// map and not while the options panel is up.
-    /// </summary>
-    private void fCheckOriginalKeys(UWControls pOControls)
-    {
-        if (UWControls.IsShiftHeld || UWControls.IsAltHeld || UWControls.IsCtrlHeld)
-            return;
-
-        if (UWConversationController.IsAnyOpen || Map.IsMapVisible || mOInteraction == null)
-            return;
-
-        UWControls.PlayerActions lOPlayer = pOControls.Player;
-
-        // WHILE THE VIEW ROAMS only F7 turns the panel - in the original too, as does the chain
-        // (per user, 2026-09-27: F1 to F6 and F8 are refused there). F9 and F10 are refused as a
-        // DELIBERATE DEVIATION (decided per user the same day): the original still tracks and
-        // makes camp, and sleeping leaves the spell gone from the bar but the view stuck.
-        if (UWRoamingSight.IsAnyRunning)
-        {
-            if (lOPlayer.KeyPanel.WasPressedThisFrame())
-                Panel.TogglePanelSide();
-
-            return;
-        }
-
-        if (lOPlayer.KeyOptions.WasPressedThisFrame())
-        {
-            Options.OpenByKey();
-            return;
-        }
-
-        if (Options.IsOpen)
-            return;
-
-        if (lOPlayer.KeyTalk.WasPressedThisFrame())
-            mOInteraction.SetCommandMode(UWCommandMode.Talk);
-        else if (lOPlayer.KeyGet.WasPressedThisFrame())
-            mOInteraction.SetCommandMode(UWCommandMode.Get);
-        else if (lOPlayer.KeyLook.WasPressedThisFrame())
-            mOInteraction.SetCommandMode(UWCommandMode.Look);
-        else if (lOPlayer.KeyFight.WasPressedThisFrame())
-            mOInteraction.SetCommandMode(UWCommandMode.Fight);
-        else if (lOPlayer.KeyUse.WasPressedThisFrame())
-            mOInteraction.SetCommandMode(UWCommandMode.Use);
-        else if (lOPlayer.KeyPanel.WasPressedThisFrame())
-            Panel.TogglePanelSide();
-        else if (lOPlayer.KeyCast.WasPressedThisFrame())
-            Actions.CastShelf();
-        else if (lOPlayer.KeyTrack.WasPressedThisFrame())
-            Actions.Track();
-        else if (lOPlayer.KeyCamp.WasPressedThisFrame() && UWGameActions.CanCamp)
-            Actions.Camp();
-    }
-
-    /// <summary>
     /// The map key (M by default): closes the map when it is up, otherwise opens it - but only
     /// if the character really carries a map (object 315), just as it can otherwise only be
     /// opened by using one (per user, 2026-09-17). The original has no key for it.
     /// </summary>
-    private void fToggleMapByKey()
+    internal void fToggleMapByKey()
     {
         if (Map.mMapBackgroundImage != null && Map.mMapBackgroundImage.gameObject.activeSelf)
         {
@@ -703,10 +493,7 @@ public class UWGameUI : MonoBehaviour
             mOClassic.Release();
 
         if (mOPointerCursor != null)
-        {
             mOPointerCursor.ReleaseScaledCursors();
-            mOPointerCursor.ReleaseHeldPointer();
-        }
     }
 
     internal static Sprite fToSprite(Texture2D pOTexture)

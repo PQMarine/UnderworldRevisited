@@ -232,9 +232,9 @@ internal sealed class UWModernBagView
 
         int liCarried = lOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
         int liMax = lOData.InitialPlayer != null ? lOData.InitialPlayer.MaxWeight : 0;
-        string lsLoad = UWInventoryWeight.Format(liCarried) + " / " + UWInventoryWeight.Format(liMax) + " st";
+        string lsLoad = UWText.F("hud.bag.weight_of", UWInventoryWeight.Format(liCarried), UWInventoryWeight.Format(liMax));
 
-        lOPages.LayoutWindow(lOPack, 2, lfRight, lfBottom, -1, "Backpack", lsLoad);
+        lOPages.LayoutWindow(lOPack, 2, lfRight, lfBottom, -1, UWText.T("hud.bag.backpack"), lsLoad);
 
         mOLoadBack.enabled = true;
         mOLoadFill.enabled = true;
@@ -293,9 +293,9 @@ internal sealed class UWModernBagView
         UWModernBagPages lOPages = mOBags.Pages;
         bool lbOpen = mOBags.IsOpen;
 
-        if (lbOpen && UWModernPointer.IsFree && Mouse.current != null)
+        if (lbOpen && UWModernPointer.IsFree && UWPointer.HasMouse)
         {
-            Vector2 lOPointer = Mouse.current.position.ReadValue();
+            Vector2 lOPointer = UWPointer.Position;
 
             if (lOPages.FindSlot(lOPointer, out Window lOSlotWindow, out int liSlot))
             {
@@ -312,8 +312,8 @@ internal sealed class UWModernBagView
         Window lOHoveredWindow = null;
         Window lOCloseWindow = null;
 
-        if (lbOpen && UWModernPointer.IsFree && Mouse.current != null)
-            lOPages.FindCloseBadge(Mouse.current.position.ReadValue(), out lOCloseWindow);
+        if (lbOpen && UWModernPointer.IsFree && UWPointer.HasMouse)
+            lOPages.FindCloseBadge(UWPointer.Position, out lOCloseWindow);
 
         if (lOCloseWindow != null)
         {
@@ -374,9 +374,9 @@ internal sealed class UWModernBagView
         UWObject lOItem = null;
         Vector2 lOPointer = Vector2.zero;
 
-        if (mOBags.IsActive && UWModernPointer.IsFree && pOInventory.CursorItem == null && Mouse.current != null)
+        if (mOBags.IsActive && UWModernPointer.IsFree && pOInventory.CursorItem == null && UWPointer.HasMouse)
         {
-            lOPointer = Mouse.current.position.ReadValue();
+            lOPointer = UWPointer.Position;
 
             if (UWModernBagPages.PanelSlotAt(lOPointer, out UWArmorItemMap.BodySlot leEquip))
                 lOItem = pOInventory.GetEquipped(leEquip);
@@ -399,7 +399,7 @@ internal sealed class UWModernBagView
         if (liCount > 1)
             lsName = liCount + " " + lsName;
 
-        string lsWeight = UWInventoryWeight.Format(UWInventoryWeight.GetItemTenthStones(lOItem, pOData.CommonObjectProperties)) + " st";
+        string lsWeight = UWText.F("hud.bag.weight", UWInventoryWeight.Format(UWInventoryWeight.GetItemTenthStones(lOItem, pOData.CommonObjectProperties)));
 
         int liFontSize = UWModernUi.FontSize;
         int liLines = string.IsNullOrEmpty(lsEffect) ? 2 : 3;
@@ -448,15 +448,15 @@ internal sealed class UWModernBagView
         string lsEffect = string.Empty;
 
         if (lOEnchantment.IsCursed && psName.Length > 0)
-            psName = "Cursed " + char.ToLowerInvariant(psName[0]) + psName.Substring(1);
+            psName = UWText.F("hud.item.cursed", char.ToLowerInvariant(psName[0]) + psName.Substring(1));
         else if (!string.IsNullOrEmpty(lOEnchantment.Name))
-            lsEffect = "of " + lOEnchantment.Name;
+            lsEffect = UWText.F("hud.item.of", lOEnchantment.Name);
 
         if (lOEnchantment.Charges >= 0)
         {
-            string lsCharges = lOEnchantment.Charges == 0 ? "with no full charges"
-                : lOEnchantment.Charges == 1 ? "with 1 full charge"
-                : "with " + lOEnchantment.Charges + " full charges";
+            string lsCharges = lOEnchantment.Charges == 0 ? UWText.T("hud.item.no_charges")
+                : lOEnchantment.Charges == 1 ? UWText.T("hud.item.one_charge")
+                : UWText.F("hud.item.charges", lOEnchantment.Charges);
 
             lsEffect = lsEffect.Length > 0 ? lsEffect + " " + lsCharges : lsCharges;
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnderworldRevisited;
@@ -14,25 +15,15 @@ using UnityEngine;
 /// The names are the ones the scripts set (grep SetGlobal) and the shaders read; a global that
 /// is neither a texture nor set at all prints as 0, which is the point: a refactor that forgets
 /// to set one shows up as a changed line.
+///
+/// Since 2026-10-24 (cleanup step 6.1) the names come from UWShaderIds, sorted as the list here
+/// was, so a dump of the build before and one after the step compare line by line. At the end
+/// it checks the cache of UWShaderGlobals against what Unity holds: a "stale in UWShaderGlobals"
+/// line appears only when they differ (a global written past the owner, a destroyed texture not
+/// invalidated), so a dump of a sound build is the same as before the owner existed.
 /// </summary>
 public static class UWShaderGlobalsDump
 {
-    private static readonly string[] msNames =
-    {
-        "_UWColourTable", "_UWCutoffDistance", "_UWDither", "_UWDitherPattern", "_UWDitherScale",
-        "_UWDoorPlanes", "_UWDoorPlanesReady", "_UWFloorHeights", "_UWFloorHeightsReady", "_UWFloorSlices",
-        "_UWFullBright", "_UWGrimeTint", "_UWGrimeTintTable", "_UWGrimeToneColour", "_UWHallucinationPalette",
-        "_UWInterpolateLevels", "_UWInverseLookup", "_UWLightEffect", "_UWLightEffectTable", "_UWLightLevel",
-        "_UWModelOrder", "_UWOwnTileCeilingY", "_UWOwnTileSize", "_UWPaletteAO", "_UWPaletteCavity",
-        "_UWPaletteDepth", "_UWPaletteGlow", "_UWPaletteGrime", "_UWPaletteLightMap", "_UWPaletteLights",
-        "_UWPaletteNormalArray", "_UWPaletteParallax", "_UWPaletteRelief", "_UWPaletteSelfShadow",
-        "_UWPaletteShadowCount", "_UWPaletteShadowStrength", "_UWPaletteShadows", "_UWRemasterInverseLookup",
-        "_UWRemasterLightEffect", "_UWRemasterPalettes", "_UWRemasterXfer", "_UWRemasterXferColours",
-        "_UWRotationStep", "_UWRotationStepCount", "_UWRotationTable", "_UWScramble", "_UWShadeTable",
-        "_UWSweepMask", "_UWSweepMaskReady", "_UWTileSpacing", "_UWWallSlices", "_UWWorldColourTable",
-        "_UWXferColours", "_UWXferReady",
-    };
-
     /// <summary>Writes the dump next to the settings and returns its path, or null when it failed.</summary>
     public static string Dump()
     {
@@ -42,11 +33,17 @@ public static class UWShaderGlobalsDump
         fAppendWhere(lOText);
         lOText.Append('\n');
 
-        foreach (string lsName in msNames)
+        List<string> lONames = new List<string>(UWShaderIds.GlobalNames);
+
+        lONames.Sort(StringComparer.Ordinal);
+
+        foreach (string lsName in lONames)
             lOText.Append(lsName).Append(" = ").Append(fDescribe(lsName)).Append('\n');
 
         lOText.Append('\n');
         fAppendResources(lOText);
+
+        int liStale = UWShaderGlobals.AppendStale(lOText);
 
         try
         {
@@ -55,6 +52,9 @@ public static class UWShaderGlobalsDump
 
             File.WriteAllText(lsPath, lOText.ToString());
             Debug.Log("Shader globals written to " + lsPath);
+
+            if (liStale > 0)
+                Debug.LogWarning(liStale + " shader globals differ from the cache of UWShaderGlobals, see " + lsPath);
 
             if (UWScene.Interaction != null)
                 UWScene.Interaction.AddMessage("Shader globals written to " + Path.GetFileName(lsPath));
@@ -93,7 +93,7 @@ public static class UWShaderGlobalsDump
 
         pOText.Append("render mode = ").Append(UWSettings.Instance != null ? UWSettings.Instance.RenderMode.ToString() : "?")
             .Append(", detail ").Append(UWGraphicsDetail.CurrentLevel)
-            .Append(", palette active ").Append(UWPaletteRenderToggle.IsPaletteActive).Append('\n');
+            .Append(", palette active ").Append(UWRenderPathHost.IsPaletteApplied).Append('\n');
         pOText.Append("screen = ").Append(Screen.width).Append('x').Append(Screen.height).Append('\n');
     }
 

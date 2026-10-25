@@ -81,61 +81,7 @@ namespace UnderworldRevisited.Build
         }
 
         /// <summary>
-        /// The surface table for the "Remastered" render mode: for each of the 256
-        /// palette indices, what kind of material it is.
-        ///
-        /// WHY VIA THE PALETTE: the original has no material data, but its palette
-        /// is ordered. Two ranges are assigned and treated specially by the game itself,
-        /// because it ROTATES them (see UWPaletteRotation): 16 to 23 is lava, 48 to
-        /// 63 is water. Whatever is painted in these colours in a texture IS lava or
-        /// water - regardless of which texture it appears in.
-        ///
-        /// This yields per index:
-        ///   R = gloss factor applied to the gloss strength (0.5 is neutral). Water reflects,
-        ///       lava barely, stone lies in between.
-        ///   G = emission. Only lava glows; that way it glimmers even without a light source
-        ///       and drives the bloom.
-        ///   B = metal. NOT BUILT - there is no assigned range for metal in the palette,
-        ///       and guessing would be wrong here. Stays zero.
-        ///
-        /// A table of 256 entries instead of a third texture per slice: the index is
-        /// already stored pixel by pixel in the index array (BuildIndexed), and so
-        /// the whole stage costs 1 KB instead of several megabytes.
-        /// </summary>
-        public static Texture2D BuildMaterialLookup()
-        {
-            Texture2D lOTable = new Texture2D(PaletteSwatchCount, 1, TextureFormat.RGBA32, false, true);
-
-            lOTable.name = "UWSurfaces";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSwatchCount];
-
-            for (int liIndex = 0; liIndex < PaletteSwatchCount; liIndex++)
-            {
-                byte lyGloss = 128;
-                byte lyGlow = 0;
-
-                if (UWPaletteRotation.IsWaterIndex(liIndex))
-                    lyGloss = 255;
-                else if (UWPaletteRotation.IsLavaIndex(liIndex))
-                {
-                    lyGloss = 40;
-                    lyGlow = 255;
-                }
-
-                lOPixels[liIndex] = new Color32(lyGloss, lyGlow, 0, 255);
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>
-        /// The normals for the "Remastered" render mode (see UWRemasterRenderer).
+        /// The normals for the "Remastered" render mode (see UWRemasterRenderPath).
         ///
         /// Same slice layout as Build, so the same meshes and UVs fit; the shader
         /// reads with the same coordinate. RGB holds the normal in tangent space,
@@ -305,7 +251,7 @@ namespace UnderworldRevisited.Build
         }
 
         /// <summary>
-        /// FOR THE PALETTE RENDERER (used by UWPaletteRenderToggle and UWRemasterRenderer). Builds the same
+        /// FOR THE PALETTE RENDERER (used by UWPaletteRenderPath and UWRemasterRenderPath). Builds the same
         /// array as Build, but instead of finished colours each pixel holds the
         /// PALETTE INDEX in the red channel. The colour only arises in the shader via the
         /// colour table from UWShadePalette - only this makes the lighting of the

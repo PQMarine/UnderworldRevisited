@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE LAYOUT EDITOR (per user on a mockup, 2026-10-04; every part since the same day): "Edit layout"
@@ -43,7 +44,7 @@ using UnityEngine.UI;
 /// "Panels: out" slides the character panel (Character tab) and the rune panel out - by default
 /// they stay in, as the minimap hides behind the open character panel. Both go back as they were.
 /// </summary>
-public class UWModernLayoutEditor : MonoBehaviour
+public partial class UWModernLayoutEditor : MonoBehaviour
 {
     private static readonly Color msGoldDim = UWModernPalette.WithAlpha(UWModernPalette.Gold, 0.6f);
 
@@ -147,17 +148,9 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     public static UWModernLayoutEditor Instance { get; private set; }
 
-    /// <summary>What "Preset" shows as chosen: the own layout, or the preset copied into it.</summary>
-    private enum StartEnum
-    {
-        Custom = 0,
-        Modern = 1,
-        ClassicModular = 2
-    }
-
-    private static readonly string[] msStartNames = { "Custom", "Modern", "Classic Modular" };
-
-    private StartEnum meStart;
+    /// <summary>What "Preset" shows as chosen: the own layout, or the preset copied into it (the
+    /// starting points and their values are UWLayoutPresets' since cleanup step 8.4).</summary>
+    private UWDataImport.UWData.UWLayoutStart meStart;
 
     /// <summary>The own layout as saved, taken when the editor opens.</summary>
     private UWUserSettings.LayoutSnapshot mOSaved;
@@ -168,6 +161,7 @@ public class UWModernLayoutEditor : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        mOKitRows = new UWKitRows(transform, UWUiSorting.LayoutEditorWindow, UWRowLookEnum.LayoutEditor);
     }
 
     private void Start()
@@ -182,13 +176,10 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         fShowPointer(PointerEnum.System);
 
-        foreach (Texture2D lOTexture in mOTextures.Values)
-        {
-            if (lOTexture != null)
-                Destroy(lOTexture);
-        }
-
         mOPreviews.ReleaseAll();
+
+        if (mOKitRows != null)
+            mOKitRows.Dispose();
     }
 
     // ------------------------------------------------- Input
@@ -204,18 +195,17 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         mbWasEditing = lbEditing;
 
-        if (!lbEditing || Mouse.current == null || mOLeave != null)
+        if (!lbEditing || !UWPointer.HasMouse || mOLeave != null)
         {
             miDragged = -1;
             return;
         }
 
-        Mouse lOMouse = Mouse.current;
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         if (miDragged >= 0)
         {
-            if (lOMouse.leftButton.isPressed)
+            if (UWPointer.LeftHeld)
                 fDrag(lOPointer);
             else
             {
@@ -240,7 +230,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         mfGuideX = -1f;
         mfGuideY = -1f;
 
-        if (lOMouse.leftButton.wasPressedThisFrame)
+        if (UWPointer.LeftPressed)
         {
             int liGrip = fGripAt(lOPointer);
 
@@ -291,7 +281,7 @@ public class UWModernLayoutEditor : MonoBehaviour
             return;
         }
 
-        if (lOMouse.rightButton.wasPressedThisFrame)
+        if (UWPointer.RightPressed)
         {
             int liElement = fElementAt(lOPointer, out bool _);
 
@@ -301,7 +291,7 @@ public class UWModernLayoutEditor : MonoBehaviour
             return;
         }
 
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f)
         {
@@ -604,7 +594,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         // The session: the own layout as saved, nothing written until it is left.
         mOSaved = UWUserSettings.TakeLayoutSnapshot();
         UWUserSettings.SaveSuspended = true;
-        meStart = StartEnum.Custom;
+        meStart = UWDataImport.UWData.UWLayoutStart.Custom;
         mOLeave = null;
     }
 
@@ -675,6 +665,11 @@ public class UWModernLayoutEditor : MonoBehaviour
                 mOCanvas.enabled = false;
 
             fShowPointer(PointerEnum.System);
+
+            // The window goes with the frames (cleanup 8b.4).
+            mOKitRows.Begin(false, false, false, false);
+            mOWindowScreenRect = Rect.zero;
+
             return;
         }
 
@@ -684,7 +679,7 @@ public class UWModernLayoutEditor : MonoBehaviour
         mOCanvas.enabled = true;
 
         float lfScale = UWModernUi.PixelScale;
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         int liHovered = miDragged >= 0 ? miDragged : fElementAt(lOPointer, out bool _);
 
         for (int liAt = 0; liAt < UWModernLayout.ElementCount; liAt++)
@@ -721,7 +716,7 @@ public class UWModernLayoutEditor : MonoBehaviour
             // The name on a tag above the part - inside it at the screen's top.
             Text lOTag = mOTagTexts[liAt];
 
-            lOTag.text = UWModernLayout.Names[liAt] + (UWModernLayout.IsDocked(leElement) ? " (docked)" : string.Empty);
+            lOTag.text = UWModernLayout.IsDocked(leElement) ? UWText.F("editor.part.docked", UWModernLayout.Name(liAt)) : UWModernLayout.Name(liAt);
             lOTag.fontSize = Mathf.Max(10, Mathf.RoundToInt(3.8f * lfScale));
             lOTag.color = lbActive ? UWModernPalette.LightText : UWModernPalette.Text;
 
@@ -797,6 +792,8 @@ public class UWModernLayoutEditor : MonoBehaviour
         if (mOGuideY.enabled)
             UWUiKit.SetRect(mOGuideY.rectTransform, 0f, mfGuideY - 1f, Screen.width, 2f);
 
+        // The editor's window over the frames, on the kit (cleanup 8b.4).
+        fDrawKitWindow();
     }
 
     // ------------------------------------------------- The editor's window
@@ -814,6 +811,14 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// row, numbers with - and + -, last Reset for the part. With nothing selected it lists the
     /// parts that are switched off, each with Show, so none is out of reach. The window is dragged
     /// by its title and stays where it was put while the game runs.
+    ///
+    /// ON THE KIT (cleanup 8b.4, 2026-10-24; phase 8b, decision 26): the window and its save question
+    /// are drawn by UWKitRows in the editor's look (UWRowLookEnum.LayoutEditor) on a canvas of their
+    /// own over the editor's frames (UWUiSorting.LayoutEditorWindow), in LateUpdate after them - the
+    /// same rows, rectangles and order as the IMGUI form (UWGuiRows' Window, ModalWindow and DragBy in
+    /// OnGUI), which went with the side-by-side switch at the end of phase 8b. Sized by text on the
+    /// kit: the label column, the window's width and the hints' heights grow where the language needs
+    /// it; in English they stand as laid out.
     /// </summary>
     private enum InspectorKindEnum
     {
@@ -861,7 +866,8 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// <summary>The window's size in the menu bar's reference units (720 rows high).</summary>
     private const float WindowWidth = 320f;
 
-    private const float WindowPad = 10f;
+    /// <summary>Also the title row's text inset (UWKitRows.Title in the editor's look).</summary>
+    internal const float WindowPad = 10f;
 
     private const float TitleHeight = 26f;
 
@@ -875,33 +881,30 @@ public class UWModernLayoutEditor : MonoBehaviour
 
     private const float StepButtonWidth = 26f;
 
-    private const int WindowId = 0x55574C45;
-
     private static Rect msWindowRect = new Rect(-1f, 70f, WindowWidth, 200f);
 
     private int miSelected = -1;
 
     private readonly System.Collections.Generic.List<InspectorItem> mOItems = new System.Collections.Generic.List<InspectorItem>();
 
-    private readonly System.Collections.Generic.Dictionary<Color, Texture2D> mOTextures = new System.Collections.Generic.Dictionary<Color, Texture2D>();
+    /// <summary>The window's rows on the kit (cleanup 8b.4), in the editor's look; no arrow-key
+    /// navigation here (cleanup step 8.4 drew them through UWGuiRows, the one place that called GUI.*
+    /// for them, as for the setup bar).</summary>
+    private UWKitRows mOKitRows;
 
-    private GUIStyle mOWindowStyle;
+    /// <summary>The window's width, its label column and its hint's height in this pass (fLayOut):
+    /// WindowWidth, LabelWidth and HintHeight as laid out, wider or taller on the kit where the text
+    /// needs it (cleanup 8b.4: the pseudo-language must not clip).</summary>
+    private float mfWindowWidth = WindowWidth;
 
-    private GUIStyle mOTitleStyle;
+    private float mfLabelWidth = LabelWidth;
 
-    private GUIStyle mOLabelStyle;
+    private float mfHintHeight = HintHeight;
 
-    private GUIStyle mOHintStyle;
+    /// <summary>The save question's width and its text's height in this pass, likewise.</summary>
+    private float mfAskWidth = AskWidth;
 
-    private GUIStyle mOHeadingStyle;
-
-    private GUIStyle mOValueStyle;
-
-    private GUIStyle mOButtonStyle;
-
-    private GUIStyle mOSegmentStyle;
-
-    private GUIStyle mOToggleStyle;
+    private float mfAskTextHeight = AskTextHeight;
 
     /// <summary>The window on the screen, in screen pixels with y up as the pointer has it, for
     /// Update to leave presses on it alone.</summary>
@@ -959,80 +962,6 @@ public class UWModernLayoutEditor : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// A part's generated back (UWModernBacks, UWBackdropArt; per user, 2026-10-09): its shape, and
-    /// once it has one the colour, the pattern and the border - colour and pattern apart, per user.
-    /// Every part has it; a leather part chooses between its leather and a back in its place, which
-    /// is always a rectangle.
-    /// </summary>
-    private void fAddBackItems(UWModernLayout.ElementEnum peElement)
-    {
-        UWModernBacks.Back lOBack = UWModernBacks.Get(peElement);
-        bool lbLeather = UWModernBacks.IsLeatherPart(peElement);
-
-        // "Background" written out ("Back" also reads as "go back"), "Default" for the leather -
-        // the modern scheme's default, not the original's look (per user, 2026-10-09, after
-        // "Original") -, "Custom" for a back of the part's own ("Leather / Own" did not please).
-        if (lbLeather)
-        {
-            mOItems.Add(fChoice("Background", new[] { "Default", "Custom" }, lOBack.Shape == UWDataImport.UWData.UWBackdropArt.ShapeEnum.None ? 0 : 1, liAt =>
-            {
-                UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
-
-                lONew.Shape = liAt == 0 ? UWDataImport.UWData.UWBackdropArt.ShapeEnum.None : UWDataImport.UWData.UWBackdropArt.ShapeEnum.Rect;
-                UWModernBacks.Set(peElement, lONew);
-            }));
-        }
-        else
-        {
-            mOItems.Add(fChoice("Background", new[] { "None", "Oval", "Rect" }, (int)lOBack.Shape, liAt =>
-            {
-                UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
-
-                lONew.Shape = (UWDataImport.UWData.UWBackdropArt.ShapeEnum)liAt;
-                UWModernBacks.Set(peElement, lONew);
-            }));
-        }
-
-        bool lbShaped = lOBack.Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None;
-
-        // Each choice shown as a sample of itself (per user, the same day, instead of bare radio
-        // buttons): the colours in the pattern chosen, the patterns in the colour chosen.
-        InspectorItem lOColours = fRadio("Colour", 4, (int)lOBack.Colour, liAt =>
-        {
-            UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
-
-            lONew.Colour = (UWDataImport.UWData.UWBackdropArt.ColourEnum)liAt;
-            UWModernBacks.Set(peElement, lONew);
-        }, lbShaped);
-        InspectorItem lOPatterns = fRadio("Pattern", 4, (int)lOBack.Pattern, liAt =>
-        {
-            UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
-
-            lONew.Pattern = (UWDataImport.UWData.UWBackdropArt.PatternEnum)liAt;
-            UWModernBacks.Set(peElement, lONew);
-        }, lbShaped);
-
-        lOColours.Previews = new Texture2D[4];
-        lOPatterns.Previews = new Texture2D[4];
-
-        for (int liAt = 0; liAt < 4; liAt++)
-        {
-            lOColours.Previews[liAt] = fBackPreview(liAt, (int)lOBack.Pattern);
-            lOPatterns.Previews[liAt] = fBackPreview((int)lOBack.Colour, liAt);
-        }
-
-        mOItems.Add(lOColours);
-        mOItems.Add(lOPatterns);
-        mOItems.Add(fChoice("Border", new[] { "On", "Off" }, lOBack.Border ? 0 : 1, liAt =>
-        {
-            UWModernBacks.Back lONew = UWModernBacks.Get(peElement);
-
-            lONew.Border = liAt == 0;
-            UWModernBacks.Set(peElement, lONew);
-        }, lbShaped));
-    }
-
     /// <summary>The samples of the backs' colours and patterns, built once per colour help (the
     /// stamp, UWArtCache: until 2026-10-19 the colour help's version was part of the key and the
     /// old samples stayed).</summary>
@@ -1067,400 +996,264 @@ public class UWModernLayoutEditor : MonoBehaviour
             UWModernHudArt.BuildBackdrop(mOUi.mOUWData.Textures, PreviewWidth, PreviewHeight, lOBack, FilterMode.Point, piColour + 1));
     }
 
-    /// <summary>What the inspector offers for the selection now.</summary>
-    private void fGatherItems()
+    /// <summary>The height a row of the inspector takes: an Info line half a row more - on the kit as
+    /// tall as its wrapped text where that is more (cleanup 8b.4).</summary>
+    private static float fItemHeight(IUWRows pORows, InspectorItem pOItem, float pfInner)
     {
-        mOItems.Clear();
+        if (pOItem.Kind != InspectorKindEnum.Info)
+            return RowHeight;
 
-        if (miSelected < 0)
+        float lfHeight = RowHeight * 1.5f;
+
+        return pORows.SizesByText ? Mathf.Max(lfHeight, pORows.TextHeight(pOItem.Label, UWRowInfoEnum.Dim, pfInner)) : lfHeight;
+    }
+
+    /// <summary>The UI size's row: the base every part's size multiplies.</summary>
+    private static InspectorItem fUiSizeItem()
+    {
+        int liUiPercent = UWModernUi.UiPercent;
+
+        return fStepper(UWDataImport.UWData.UWUserSettingsTable.ModernUiPercent, liUiPercent,
+            liUiPercent > UWModernUi.MinUiPercent, liUiPercent < UWModernUi.MaxUiPercent,
+            liAt => UWModernUi.SetUiPercent(liUiPercent + (liAt == 0 ? -UWModernUi.UiPercentStep : UWModernUi.UiPercentStep)));
+    }
+
+    /// <summary>
+    /// The window's size for this pass (both forms): its height follows the content - title, help,
+    /// the editor's four rows, the line, the part's name and its rows; its width, its label column
+    /// and the hint as laid out in the IMGUI form, on the kit wider or taller where the language
+    /// needs it (cleanup 8b.4: a label wider than the column widens it, the rows' choices, buttons,
+    /// steppers, the Preset segments, the three switches and the heading widen the window). First
+    /// shown, it stands in the middle of the screen.
+    /// </summary>
+    private void fLayOut(IUWRows pORows, float pfScreenWidth)
+    {
+        mfWindowWidth = WindowWidth;
+        mfLabelWidth = LabelWidth;
+        mfHintHeight = HintHeight;
+
+        if (pORows.SizesByText)
         {
-            // Nothing selected: the settings of the whole interface - its font (UWUiFonts; per user,
-            // 2026-10-09: the original's font as an option, Modern keeping its own) -, then the
-            // parts switched off, to be switched on again.
-            mOItems.Add(fChoice("Font", new[] { "Modern", "Original" }, UWUserSettings.InterfaceFont == 1 ? 1 : 0,
-                liAt => { UWUserSettings.InterfaceFont = liAt; fSaveSettings(); }));
+            float lfShift = UWRowSizing.LabelShift(pORows.LabelWidth(fUiSizeItem().Label), LabelWidth);
 
-            if (UWUserSettings.MinimapHidden)
-                mOItems.Add(fAction("Minimap", "Show", liAt => { UWUserSettings.MinimapHidden = false; fSaveSettings(); }));
-
-            if (UWUserSettings.ActionBarHidden)
-                mOItems.Add(fAction("Action bar", "Show", liAt => { UWUserSettings.ActionBarHidden = false; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernCompass)
-                mOItems.Add(fAction("Compass", "Show", liAt => { UWUserSettings.ModernCompass = true; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernStoneShelf)
-                mOItems.Add(fAction("Stone shelf", "Show", liAt => { UWUserSettings.ModernStoneShelf = true; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernRuneHollow)
-                mOItems.Add(fAction("Rune hollow", "Show", liAt => { UWUserSettings.ModernRuneHollow = true; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernRuneTablet)
-                mOItems.Add(fAction("Rune tablet", "Show", liAt => { UWUserSettings.ModernRuneTablet = true; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernStatsPanel)
-                mOItems.Add(fAction("Stats panel", "Show", liAt => { UWUserSettings.ModernStatsPanel = true; fSaveSettings(); }));
-
-            if (!UWUserSettings.ModernCharacterPage)
-                mOItems.Add(fAction("Character page", "Show", liAt => { UWUserSettings.ModernCharacterPage = true; fSaveSettings(); }));
-
-
-            if (mOItems.Count == 1)
-                mOItems.Add(fInfo("Click a part to see its settings."));
-
-            return;
-        }
-
-        UWModernLayout.ElementEnum leElement = (UWModernLayout.ElementEnum)miSelected;
-        int liPercent = UWModernLayout.Percent(leElement);
-
-        mOItems.Add(fStepper("Size", liPercent + " %", true, true, liAt =>
-        {
-            if (UWModernLayout.TryGetRect(leElement, out Rect lORect))
-                UWModernLayout.SetPercent(leElement, liPercent + (liAt == 0 ? -UWModernLayout.PercentStep : UWModernLayout.PercentStep), lORect);
-        }));
-
-        switch (leElement)
-        {
-            case UWModernLayout.ElementEnum.ActionBar:
-                // Off hides the bar and its keys (per user, 2026-10-10); Show brings it back.
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.ActionBarHidden ? 1 : 0,
-                    liAt => { UWUserSettings.ActionBarHidden = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.Minimap:
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.MinimapHidden ? 1 : 0,
-                    liAt => { UWUserSettings.MinimapHidden = liAt == 1; fSaveSettings(); }));
-                mOItems.Add(fChoice("North", new[] { "Up", "Turns" }, UWUserSettings.MinimapTurns ? 1 : 0,
-                    liAt => { UWUserSettings.MinimapTurns = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.Heading:
-                mOItems.Add(fChoice("Direction", new[] { "Text", "Compass" }, UWUserSettings.ModernCompass ? 1 : 0,
-                    liAt => { UWUserSettings.ModernCompass = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.Compass:
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, UWUserSettings.ModernCompass ? 0 : 1,
-                    liAt => { UWUserSettings.ModernCompass = liAt == 0; fSaveSettings(); }));
-                // The free cross or the original's stone disc with the movement arrows (per user, 2026-10-10).
-                mOItems.Add(fChoice("Look", new[] { "Cross", "Disc" }, UWUserSettings.ModernCompassDisc ? 1 : 0,
-                    liAt => { UWUserSettings.ModernCompassDisc = liAt == 1; fSaveSettings(); }));
-
-                // The disc's black outline, as the original's in the frame (per user, 2026-10-10).
-                if (UWModernLayout.IsCompassDisc)
-                    mOItems.Add(fChoice("Outline", new[] { "Off", "On" }, UWUserSettings.ModernCompassOutline ? 1 : 0,
-                        liAt => { UWUserSettings.ModernCompassOutline = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.Vitals:
-                // The power gem between the flasks (Modern) or on a stand of its own (the original's;
-                // per user, 2026-10-09).
-                mOItems.Add(fChoice("Power gem", new[] { "Shelf", "Apart" }, UWUserSettings.ModernGemApart ? 1 : 0,
-                    liAt => { UWUserSettings.ModernGemApart = liAt == 1; fSaveSettings(); }));
-                // The flasks freed one by one (per user, 2026-10-10) - the shelf goes, the gem stands apart.
-                mOItems.Add(fChoice("Flasks", new[] { "Shelf", "Apart" }, UWUserSettings.ModernFlasksApart ? 1 : 0,
-                    liAt => { UWUserSettings.ModernFlasksApart = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.Conversation:
-                // The original's look (per user, 2026-10-10: "free the conversation UI").
-                mOItems.Add(fChoice("Look", new[] { "Modern", "Original" }, UWUserSettings.ModernConversationOriginal ? 1 : 0,
-                    liAt => { UWUserSettings.ModernConversationOriginal = liAt == 1; fSaveSettings(); }));
-
-                // The history's and the answers' text size: here only, no more in the game (per
-                // user, 2026-10-10).
-                int liTextPercent = UWModernConversation.TextPercent;
-
-                mOItems.Add(fStepper("Text", liTextPercent + " %", liTextPercent > UWModernConversation.MinTextPercent,
-                    liTextPercent < UWModernConversation.MaxTextPercent, liAt =>
-                    {
-                        UWUserSettings.ConversationTextPercent = Mathf.Clamp(liTextPercent
-                            + (liAt == 0 ? -UWModernConversation.TextPercentStep : UWModernConversation.TextPercentStep),
-                            UWModernConversation.MinTextPercent, UWModernConversation.MaxTextPercent);
-                        fSaveSettings();
-                    }));
-
-                // The original look's black outline, on by default (per user, 2026-10-10).
-                if (UWModernLayout.IsConversationOriginal)
-                    mOItems.Add(fChoice("Outline", new[] { "On", "Off" }, UWUserSettings.ModernConversationNoOutline ? 1 : 0,
-                        liAt => { UWUserSettings.ModernConversationNoOutline = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.CharacterPage:
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
-                    liAt => { UWUserSettings.ModernCharacterPage = liAt == 0; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.StatsPanel:
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
-                    liAt => { UWUserSettings.ModernStatsPanel = liAt == 0; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.RuneTablet:
-                // Off brings the rune panel back.
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
-                    liAt => { UWUserSettings.ModernRuneTablet = liAt == 0; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.RuneHollow:
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0,
-                    liAt => { UWUserSettings.ModernRuneHollow = liAt == 0; fSaveSettings(); }));
-                // A black outline, as the compass disc's (per user, 2026-10-10).
-                mOItems.Add(fChoice("Outline", new[] { "Off", "On" }, UWUserSettings.ModernRuneHollowOutline ? 1 : 0,
-                    liAt => { UWUserSettings.ModernRuneHollowOutline = liAt == 1; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.HealthFlask:
-            case UWModernLayout.ElementEnum.ManaFlask:
-                mOItems.Add(fChoice("Stands", new[] { "Apart", "On shelf" }, 0,
-                    liAt => { UWUserSettings.ModernFlasksApart = liAt == 0; fSaveSettings(); }));
-                break;
-
-            case UWModernLayout.ElementEnum.PowerGem:
-                // Back on the shelf takes the flasks back as well: without them there is none.
-                mOItems.Add(fChoice("Stands", new[] { "Apart", "On shelf" }, 0, liAt =>
-                {
-                    UWUserSettings.ModernGemApart = liAt == 0;
-
-                    if (liAt == 1)
-                        UWUserSettings.ModernFlasksApart = false;
-
-                    fSaveSettings();
-                }));
-                break;
-
-            case UWModernLayout.ElementEnum.StoneShelf:
+            foreach (InspectorItem lOItem in mOItems)
             {
-                // A deco panel (per user, 2026-10-09): shown or not, and its width in the shelf's own
-                // pixels, a tile (12) at a time.
-                // The edges can be dragged with the mouse too (fGripAt).
-                int liMax = UWModernStoneShelf.StoneShelfMaxWidth;
-                int liWidth = Mathf.Min(UWModernStoneShelf.StoneShelfWidth, liMax);
-
-                mOItems.Add(fChoice("Shown", new[] { "On", "Off" }, 0, liAt => { UWUserSettings.ModernStoneShelf = liAt == 0; fSaveSettings(); }));
-                mOItems.Add(fStepper("Width", liWidth.ToString(), liWidth > UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, liWidth < liMax, liAt =>
-                {
-                    UWUserSettings.ModernStoneShelfWidth = Mathf.Clamp(liWidth + (liAt == 0 ? -12 : 12), UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, liMax);
-                    fSaveSettings();
-                }));
-                break;
+                if (lOItem.Kind != InspectorKindEnum.Info && !string.IsNullOrEmpty(lOItem.Label))
+                    lfShift = Mathf.Max(lfShift, UWRowSizing.LabelShift(pORows.LabelWidth(lOItem.Label), LabelWidth));
             }
 
-            case UWModernLayout.ElementEnum.Messages:
-                mOItems.Add(fChoice("Style", new[] { "Modern", "Scroll" }, UWUserSettings.ModernScroll ? 1 : 0,
-                    liAt => { UWUserSettings.ModernScroll = liAt == 1; fSaveSettings(); }));
-
-                if (UWUserSettings.ModernScroll)
-                {
-                    int liLines = UWModernScroll.Lines;
-
-                    // The lines it shows are its paper's rows, one more than the setting counts
-                    // (UWModernScroll.Rows, 2026-10-20).
-                    mOItems.Add(fStepper("Lines", (liLines + 1).ToString(), liLines > UWModernScroll.MinLines, liLines < UWModernScroll.MaxLines, liAt =>
-                    {
-                        UWUserSettings.ModernScrollLines = Mathf.Clamp(liLines + (liAt == 0 ? -1 : 1), UWModernScroll.MinLines, UWModernScroll.MaxLines);
-                        fSaveSettings();
-                    }));
-                }
-                else
-                {
-                    // The dark box's lines (issue 4, 2026-10-21: its height could not be changed).
-                    int liLines = Interaction.ModernMessageCount;
-
-                    mOItems.Add(fStepper("Lines", liLines.ToString(), liLines > UWModernScroll.MinLines, liLines < Interaction.MessageHistoryCount, liAt =>
-                    {
-                        fStepModernMessageLines(liAt == 0 ? -1 : 1);
-                        fSaveSettings();
-                    }));
-                }
-                break;
-
-            case UWModernLayout.ElementEnum.CharacterPanel:
-            case UWModernLayout.ElementEnum.RunePanel:
-                bool lbDocked = UWModernLayout.IsDocked(leElement);
-
-                mOItems.Add(fAction("Window", lbDocked ? "Docked" : "Dock", liAt => UWModernLayout.Reset(leElement), !lbDocked));
-                break;
+            mfLabelWidth = LabelWidth + lfShift;
+            mfWindowWidth = Mathf.Max(WindowWidth, fInnerNeeded(pORows) + (2f * WindowPad));
+            mfHintHeight = Mathf.Max(HintHeight, pORows.TextHeight(UWText.T("editor.hint"), UWRowInfoEnum.Dim, mfWindowWidth - (2f * WindowPad)));
         }
 
-        if (fOffersBack(leElement))
-            fAddBackItems(leElement);
-
-        mOItems.Add(fAction(string.Empty, "Reset part", liAt => UWModernLayout.Reset(leElement)));
-    }
-
-    private Texture2D fTexture(Color pOColour)
-    {
-        if (mOTextures.TryGetValue(pOColour, out Texture2D lOTexture) && lOTexture != null)
-            return lOTexture;
-
-        lOTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWModernLayoutEditor";
-        lOTexture.SetPixel(0, 0, pOColour);
-        lOTexture.Apply();
-        mOTextures[pOColour] = lOTexture;
-
-        return lOTexture;
-    }
-
-    /// <summary>The styles, in the menu bar's look (UWSetupMenu.fEnsureStyles).</summary>
-    private void fEnsureStyles()
-    {
-        if (mOWindowStyle != null)
-            return;
-
-        Font lOFont = UWInterfaceFont.Font;
-        Color lOButtonHover = new Color(0.30f, 0.30f, 0.35f, 1f);
-
-        mOWindowStyle = new GUIStyle { border = new RectOffset(1, 1, 1, 1) };
-        mOWindowStyle.normal.background = fTexture(UWSetupMenu.PanelColour);
-        mOWindowStyle.onNormal.background = fTexture(UWSetupMenu.PanelColour);
-
-        mOLabelStyle = new GUIStyle { font = lOFont, fontSize = 15, alignment = TextAnchor.MiddleLeft };
-        mOLabelStyle.normal.textColor = UWSetupMenu.TextColour;
-
-        mOTitleStyle = new GUIStyle(mOLabelStyle) { fontSize = 16, padding = new RectOffset((int)WindowPad, 0, 0, 0) };
-        mOTitleStyle.normal.textColor = UWSetupMenu.AccentColour;
-        mOTitleStyle.normal.background = fTexture(UWSetupMenu.BarColour);
-
-        mOHintStyle = new GUIStyle(mOLabelStyle) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperLeft };
-        mOHintStyle.normal.textColor = UWSetupMenu.DimTextColour;
-
-        mOHeadingStyle = new GUIStyle(mOLabelStyle) { fontSize = 16 };
-        mOHeadingStyle.normal.textColor = UWSetupMenu.AccentColour;
-
-        mOValueStyle = new GUIStyle(mOLabelStyle) { alignment = TextAnchor.MiddleCenter };
-
-        mOButtonStyle = new GUIStyle(mOLabelStyle) { alignment = TextAnchor.MiddleCenter };
-        mOButtonStyle.normal.background = fTexture(UWSetupMenu.HoverColour);
-        mOButtonStyle.hover.background = fTexture(lOButtonHover);
-        mOButtonStyle.hover.textColor = UWSetupMenu.TextColour;
-        mOButtonStyle.active.background = fTexture(UWSetupMenu.AccentColour);
-        mOButtonStyle.active.textColor = UWSetupMenu.BackgroundColour;
-
-        // The segmented choice: the one in force in the accent colour.
-        mOSegmentStyle = new GUIStyle(mOButtonStyle) { margin = new RectOffset(0, 0, 0, 0) };
-        mOSegmentStyle.onNormal.background = fTexture(UWSetupMenu.AccentColour);
-        mOSegmentStyle.onNormal.textColor = UWSetupMenu.BackgroundColour;
-        mOSegmentStyle.onHover.background = fTexture(UWSetupMenu.AccentColour);
-        mOSegmentStyle.onHover.textColor = UWSetupMenu.BackgroundColour;
-        mOSegmentStyle.onActive.background = fTexture(UWSetupMenu.AccentColour);
-        mOSegmentStyle.onActive.textColor = UWSetupMenu.BackgroundColour;
-
-        mOToggleStyle = new GUIStyle(GUI.skin.toggle) { font = lOFont, fontSize = 15 };
-        mOToggleStyle.normal.textColor = UWSetupMenu.TextColour;
-        mOToggleStyle.onNormal.textColor = UWSetupMenu.TextColour;
-        mOToggleStyle.hover.textColor = UWSetupMenu.TextColour;
-        mOToggleStyle.onHover.textColor = UWSetupMenu.TextColour;
-        mOToggleStyle.active.textColor = UWSetupMenu.TextColour;
-        mOToggleStyle.onActive.textColor = UWSetupMenu.TextColour;
-    }
-
-    /// <summary>The height a row of the inspector takes.</summary>
-    private static float fItemHeight(InspectorItem pOItem)
-    {
-        return pOItem.Kind == InspectorKindEnum.Info ? RowHeight * 1.5f : RowHeight;
-    }
-
-    private void OnGUI()
-    {
-        UWImguiInput.BeginOnGUI();
-
-        if (!UWModernLayout.IsEditing || mOCanvas == null || !mOCanvas.enabled)
-        {
-            mOWindowScreenRect = Rect.zero;
-            return;
-        }
-
-        fEnsureStyles();
-        fGatherItems();
-
-        float lfScale = Screen.height / UWSetupMenu.ReferenceHeight;
-        float lfScreenWidth = Screen.width / lfScale;
-
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        UWImguiInput.AfterMatrix();
-
-        // The height follows the content: title, help, the editor's four rows, the line, the
-        // part's name and its rows.
-        float lfHeight = TitleHeight + WindowPad + HintHeight + (4f * (RowHeight + RowGap)) + 9f + RowHeight + RowGap;
+        float lfInner = mfWindowWidth - (2f * WindowPad);
+        float lfHeight = TitleHeight + WindowPad + mfHintHeight + (4f * (RowHeight + RowGap)) + 9f + RowHeight + RowGap;
 
         foreach (InspectorItem lOItem in mOItems)
-            lfHeight += fItemHeight(lOItem) + RowGap;
+            lfHeight += fItemHeight(pORows, lOItem, lfInner) + RowGap;
 
         lfHeight += WindowPad - RowGap;
 
         if (msWindowRect.x < 0f)
-            msWindowRect.x = Mathf.Round((lfScreenWidth - WindowWidth) * 0.5f);
+            msWindowRect.x = Mathf.Round((pfScreenWidth - mfWindowWidth) * 0.5f);
 
-        msWindowRect.width = WindowWidth;
+        msWindowRect.width = mfWindowWidth;
         msWindowRect.height = lfHeight;
-        msWindowRect = GUI.Window(WindowId, msWindowRect, fDrawWindow, GUIContent.none, mOWindowStyle);
-        GUI.enabled = true;
+    }
 
-        // Never off the screen.
-        msWindowRect.x = Mathf.Clamp(msWindowRect.x, 0f, Mathf.Max(0f, lfScreenWidth - msWindowRect.width));
-        msWindowRect.y = Mathf.Clamp(msWindowRect.y, 0f, Mathf.Max(0f, UWSetupMenu.ReferenceHeight - msWindowRect.height));
+    /// <summary>The width the window's rows need inside its margins on the kit (fLayOut), at least
+    /// the inner width it was laid out with.</summary>
+    private float fInnerNeeded(IUWRows pORows)
+    {
+        float lfNeed = Mathf.Max(WindowWidth - (2f * WindowPad), fRowNeeded(pORows, fUiSizeItem()));
 
-        mOWindowScreenRect = new Rect(msWindowRect.x * lfScale, Screen.height - (msWindowRect.yMax * lfScale),
-            msWindowRect.width * lfScale, msWindowRect.height * lfScale);
+        foreach (InspectorItem lOItem in mOItems)
+            lfNeed = Mathf.Max(lfNeed, fRowNeeded(pORows, lOItem));
 
-        // The save question over everything.
-        if (mOLeave != null)
+        // Preset: its label and the segments, their names and a margin each (UWRowSizing.SpreadNeeded).
+        string[] lsNames = UWDataImport.UWData.UWLayoutPresets.StartNames;
+        float[] laNames = new float[lsNames.Length];
+
+        for (int liAt = 0; liAt < lsNames.Length; liAt++)
+            laNames[liAt] = pORows.LabelWidth(lsNames[liAt]);
+
+        float lfPreset = pORows.LabelWidth(UWText.T("editor.preset")) + RowGap + UWRowSizing.SpreadNeeded(laNames);
+
+        // The three switches in thirds, Reset all and Done in halves.
+        float lfSwitch = Mathf.Max(pORows.ToggleWidth(" " + UWText.T("editor.panels_out")),
+            Mathf.Max(pORows.ToggleWidth(" " + UWText.T("editor.dialog")), pORows.ToggleWidth(" " + UWText.T("editor.snap")))) + UWRowSizing.Margin;
+        float lfButton = Mathf.Max(pORows.FitWidth(UWText.T("editor.reset_all"), 0f), pORows.FitWidth(UWText.T("editor.done"), 0f));
+
+        lfNeed = Mathf.Max(lfNeed, Mathf.Max(lfPreset, Mathf.Max(3f * lfSwitch, (2f * lfButton) + RowGap)));
+
+        return Mathf.Max(lfNeed, pORows.TextWidth(fHeading(), UWRowInfoEnum.Heading));
+    }
+
+    /// <summary>What a row with a label needs: the label column and the control right of it - the
+    /// choices each their name and padding, a button its text and padding, a stepper its two buttons
+    /// and its value.</summary>
+    private float fRowNeeded(IUWRows pORows, InspectorItem pOItem)
+    {
+        float lfPadding = 2f * UWRowSizing.Padding;
+
+        switch (pOItem.Kind)
         {
-            Rect lOAsk = new Rect((lfScreenWidth - AskWidth) * 0.5f, (UWSetupMenu.ReferenceHeight - AskHeight) * 0.5f, AskWidth, AskHeight);
+            case InspectorKindEnum.Choice:
+            {
+                float lfChoices = 0f;
 
-            GUI.ModalWindow(AskWindowId, lOAsk, fDrawAsk, GUIContent.none, mOWindowStyle);
+                foreach (string lsChoice in pOItem.Choices)
+                    lfChoices += pORows.LabelWidth(lsChoice) + lfPadding;
+
+                return mfLabelWidth + lfChoices;
+            }
+
+            case InspectorKindEnum.Stepper:
+                return mfLabelWidth + (2f * StepButtonWidth) + pORows.LabelWidth(pOItem.Value) + lfPadding;
+
+            case InspectorKindEnum.Action:
+                return mfLabelWidth + pORows.FitWidth(pOItem.Choices[0], 0f);
+
+            default:
+                return 0f;
         }
     }
 
-    private const int AskWindowId = 0x55574C46;
+    /// <summary>The inspector's heading: the selected part's name, or that nothing is selected.</summary>
+    private string fHeading()
+    {
+        return miSelected >= 0
+            ? (UWModernLayout.IsDocked((UWModernLayout.ElementEnum)miSelected) ? UWText.F("editor.part.docked", UWModernLayout.Name(miSelected))
+                : UWModernLayout.Name(miSelected))
+            : UWText.T("editor.no_selection");
+    }
+
+    /// <summary>Never off the screen.</summary>
+    private static void fKeepOnScreen(float pfScreenWidth)
+    {
+        msWindowRect.x = Mathf.Clamp(msWindowRect.x, 0f, Mathf.Max(0f, pfScreenWidth - msWindowRect.width));
+        msWindowRect.y = Mathf.Clamp(msWindowRect.y, 0f, Mathf.Max(0f, UWGuiTheme.ReferenceHeight - msWindowRect.height));
+    }
+
+    /// <summary>The window in screen pixels with y up, for Update to leave presses on it alone.</summary>
+    private void fSetWindowScreenRect(float pfScale)
+    {
+        mOWindowScreenRect = new Rect(msWindowRect.x * pfScale, Screen.height - (msWindowRect.yMax * pfScale),
+            msWindowRect.width * pfScale, msWindowRect.height * pfScale);
+    }
+
+    /// <summary>
+    /// THE WINDOW ON THE KIT (cleanup 8b.4, 2026-10-24), after the frames in LateUpdate: laid out as the
+    /// IMGUI form was (fLayOut), dragged by its title row and kept on the screen as GUI.Window and
+    /// DragWindow did, its rows (fDrawWindowRows) in the window's own coordinates; the save question
+    /// over it in the middle of the screen, MODAL as IMGUI's ModalWindow: while it is up the window
+    /// takes no pointer (UWKitRows.PointerWithheld) and is drawn greyed as before.
+    /// </summary>
+    private void fDrawKitWindow()
+    {
+        mOKitRows.Begin(true, false, false, false);
+
+        fGatherItems();
+
+        float lfScreenWidth = mOKitRows.Width;
+
+        fLayOut(mOKitRows, lfScreenWidth);
+
+        mOKitRows.PointerWithheld = mOLeave != null;
+
+        msWindowRect.position = mOKitRows.Drag(new Rect(msWindowRect.x, msWindowRect.y, msWindowRect.width, TitleHeight), msWindowRect.position,
+            Vector2.zero, new Vector2(Mathf.Max(0f, lfScreenWidth - msWindowRect.width), Mathf.Max(0f, UWGuiTheme.ReferenceHeight - msWindowRect.height)));
+        fKeepOnScreen(lfScreenWidth);
+        fSetWindowScreenRect(UWGuiTheme.Scale);
+
+        mOKitRows.Frame(msWindowRect);
+        mOKitRows.BeginWindow(msWindowRect);
+        fDrawWindowRows(mOKitRows);
+        mOKitRows.EndWindow();
+
+        mOKitRows.Enabled = true;
+        mOKitRows.PointerWithheld = false;
+
+        // The save question over everything. THE KEYS of a dialog (per user, 2026-10-14: on Linux
+        // neither a click nor a key got out of this question): Enter saves, Escape goes back to
+        // editing. Read from the Input System (as IMGUI's own events did not reliably reach the
+        // game's windows there), once a frame; the Escape that opened the question was taken in an
+        // earlier frame (UWModernGameMenu.ToggleMenu, RequestLeave).
+        if (mOLeave != null)
+        {
+            Keyboard lOKeys = Keyboard.current;
+            bool lbEnter = lOKeys != null && (lOKeys.enterKey.wasPressedThisFrame || lOKeys.numpadEnterKey.wasPressedThisFrame);
+            bool lbEscape = lOKeys != null && Time.frameCount != miLeaveAskedFrame && UWBack.Takes(UWBackOwner.LayoutAsk);
+            Rect lOAsk = fAskRect(mOKitRows, lfScreenWidth);
+
+            mOKitRows.Frame(lOAsk);
+            mOKitRows.BeginWindow(lOAsk);
+            fDrawAskRows(mOKitRows, lbEnter, lbEscape);
+            mOKitRows.EndWindow();
+        }
+
+        mOKitRows.End();
+    }
 
     private const float AskWidth = 300f;
 
-    private const float AskHeight = TitleHeight + WindowPad + 44f + RowHeight + WindowPad;
+    /// <summary>The question's text, between its title and its buttons.</summary>
+    private const float AskTextHeight = 44f;
 
-    /// <summary>The save question: Save, Discard (the own layout as it was), or back to editing.</summary>
-    private void fDrawAsk(int piId)
+    /// <summary>The save question in the middle of the screen: 300 wide as laid out, on the kit wider
+    /// where its buttons' texts need it and taller where its text does (cleanup 8b.4).</summary>
+    private Rect fAskRect(IUWRows pORows, float pfScreenWidth)
     {
-        float lfInner = AskWidth - (2f * WindowPad);
+        mfAskWidth = AskWidth;
+        mfAskTextHeight = AskTextHeight;
 
-        GUI.Label(new Rect(0f, 0f, AskWidth, TitleHeight), "Save the layout?", mOTitleStyle);
-        GUI.Label(new Rect(WindowPad, TitleHeight + WindowPad, lfInner, 44f),
-            "The layout was changed. Save it as your own layout, or discard the changes?", mOHintStyle);
+        if (pORows.SizesByText)
+        {
+            float lfButton = Mathf.Max(pORows.FitWidth(UWText.T("editor.ask.save"), 0f),
+                Mathf.Max(pORows.FitWidth(UWText.T("editor.ask.discard"), 0f), pORows.FitWidth(UWText.T("editor.ask.back"), 0f)));
 
-        float lfY = TitleHeight + WindowPad + 44f;
+            mfAskWidth = Mathf.Max(AskWidth, (3f * lfButton) + (2f * RowGap) + (2f * WindowPad));
+            mfAskTextHeight = Mathf.Max(AskTextHeight,
+                pORows.TextHeight(UWText.T("editor.ask.text"), UWRowInfoEnum.Dim, mfAskWidth - (2f * WindowPad)));
+        }
+
+        float lfHeight = TitleHeight + WindowPad + mfAskTextHeight + RowHeight + WindowPad;
+
+        return new Rect((pfScreenWidth - mfAskWidth) * 0.5f, (UWGuiTheme.ReferenceHeight - lfHeight) * 0.5f, mfAskWidth, lfHeight);
+    }
+
+    /// <summary>The save question: Save, Discard (the own layout as it was), or back to editing;
+    /// pbEnter saves, pbEscape goes back to editing.</summary>
+    private void fDrawAskRows(IUWRows pORows, bool pbEnter, bool pbEscape)
+    {
+        float lfInner = mfAskWidth - (2f * WindowPad);
+
+        pORows.Title(new Rect(0f, 0f, mfAskWidth, TitleHeight), UWText.T("editor.ask.title"));
+        pORows.Info(new Rect(WindowPad, TitleHeight + WindowPad, lfInner, mfAskTextHeight),
+            UWText.T("editor.ask.text"), UWRowInfoEnum.Dim);
+
+        float lfY = TitleHeight + WindowPad + mfAskTextHeight;
         float lfThird = (lfInner - (2f * RowGap)) / 3f;
         System.Action lOLeave = mOLeave;
 
-        // THE KEYS of a dialog (per user, 2026-10-14: on Linux neither a click nor a key got out of
-        // this question): Enter saves, Escape goes back to editing. Read from the Input System, as
-        // IMGUI's own events do not reliably reach the game's windows there; the Escape that opened
-        // the question was taken in an earlier frame (UWModernGameMenu.ToggleMenu, RequestLeave).
-        UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
-        bool lbEnter = lOKeys != null && Event.current.type == EventType.Repaint
-            && (lOKeys.enterKey.wasPressedThisFrame || lOKeys.numpadEnterKey.wasPressedThisFrame);
-        bool lbEscape = lOKeys != null && Event.current.type == EventType.Repaint && lOKeys.escapeKey.wasPressedThisFrame
-            && Time.frameCount != miLeaveAskedFrame;
-
-        if (lbEscape)
+        if (pbEscape)
         {
             mOLeave = null;
         }
-        else if (lbEnter || UWImguiInput.Button(new Rect(WindowPad, lfY, lfThird, RowHeight), "Save", mOButtonStyle))
+        else if (pbEnter || pORows.Action(new Rect(WindowPad, lfY, lfThird, RowHeight), UWText.T("editor.ask.save")))
         {
             mOLeave = null;
             fFinish(true);
             lOLeave();
         }
-        else if (UWImguiInput.Button(new Rect(WindowPad + lfThird + RowGap, lfY, lfThird, RowHeight), "Discard", mOButtonStyle))
+        else if (pORows.Action(new Rect(WindowPad + lfThird + RowGap, lfY, lfThird, RowHeight), UWText.T("editor.ask.discard")))
         {
             mOLeave = null;
             fFinish(false);
             lOLeave();
         }
-        else if (UWImguiInput.Button(new Rect(WindowPad + (2f * (lfThird + RowGap)), lfY, lfThird, RowHeight), "Back", mOButtonStyle))
+        else if (pORows.Action(new Rect(WindowPad + (2f * (lfThird + RowGap)), lfY, lfThird, RowHeight), UWText.T("editor.ask.back")))
         {
             mOLeave = null;
         }
@@ -1490,6 +1283,11 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// <summary>The frame the save question came up in: the Escape that asked it is not its answer.</summary>
     private int miLeaveAskedFrame = -1;
 
+    /// <summary>The save question is up - UWBack: its Escape is the question's alone (cleanup 7, wave 2b;
+    /// until then the game menu took it as well, and its leave did nothing only because UWGameUI's
+    /// Update came before the question's LateUpdate).</summary>
+    public static bool IsAskingLeave => Instance != null && Instance.mOLeave != null;
+
     /// <summary>Ends the session: writes the settings, or first puts the own layout back.</summary>
     private void fFinish(bool pbSave)
     {
@@ -1510,130 +1308,70 @@ public class UWModernLayoutEditor : MonoBehaviour
     /// <summary>
     /// "Preset": the own layout as saved, or a preset copied into it - Modern its default places and
     /// no original pieces, Classic Modular its places, pieces and looks (UWModernClassicPlus), the
-    /// backs cleared as it has none. The UI size and the font stay as they are.
+    /// backs cleared as it has none. The UI size and the font stay as they are. The values are the
+    /// preset table's (UWLayoutPresets, cleanup step 8.4; until then twenty lines here).
     /// </summary>
-    private void fChooseStart(StartEnum peStart)
+    private void fChooseStart(UWDataImport.UWData.UWLayoutStart peStart)
     {
         meStart = peStart;
         fRestore(mOSaved);
 
-        if (peStart == StartEnum.Custom)
+        if (peStart == UWDataImport.UWData.UWLayoutStart.Custom)
             return;
 
-        bool lbClassic = peStart == StartEnum.ClassicModular;
-
-        UWUserSettings.ModernLayout = lbClassic ? UWModernClassicPlus.Layout : string.Empty;
-        UWUserSettings.ModernCompass = lbClassic;
-        UWUserSettings.ModernCompassDisc = lbClassic;
-        UWUserSettings.ModernScroll = lbClassic;
-        UWUserSettings.ModernGemApart = lbClassic;
-        UWUserSettings.ModernFlasksApart = lbClassic;
-        UWUserSettings.ModernStoneShelf = lbClassic;
-        UWUserSettings.ModernRuneHollow = lbClassic;
-        UWUserSettings.ModernRuneTablet = lbClassic;
-        UWUserSettings.ModernStatsPanel = lbClassic;
-        UWUserSettings.ModernCharacterPage = lbClassic;
-        UWUserSettings.ModernConversationOriginal = lbClassic;
-        UWUserSettings.MinimapHidden = lbClassic;
-        UWUserSettings.ActionBarHidden = lbClassic;
-        UWUserSettings.ModernMessageLines = 0;
-
-        if (lbClassic)
-        {
-            UWUserSettings.ModernScrollLines = UWModernClassicPlus.ScrollLines;
-            UWUserSettings.ModernCompassOutline = true;
-            UWUserSettings.ModernRuneHollowOutline = true;
-            UWUserSettings.ModernConversationNoOutline = false;
-            UWUserSettings.ModernBacks = string.Empty;
-        }
+        UWDataImport.UWData.UWLayoutPresets.Apply(peStart, UWUserSettings.Data);
 
         UWModernLayout.Reload();
         UWModernBacks.Reloaded();
 
         // The shelf as wide as the screen leaves beside the stats panel (its size read from the
         // layout just set).
-        if (lbClassic)
+        if (peStart == UWDataImport.UWData.UWLayoutStart.ClassicModular)
             UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
                 UWModernStoneShelf.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
 
         miSelected = -1;
     }
 
-    /// <summary>A row of segments, each as wide as its name needs and the rest shared out evenly
-    /// (squeezed alike when the row is too narrow); returns the chosen one.</summary>
-    private int fSegments(Rect pORect, int piChosen, string[] psNames)
+    /// <summary>The window's rows in its own coordinates, through the drawer (cleanup 8b.4: the kit's,
+    /// until the end of phase 8b also the IMGUI form's - one code for both).</summary>
+    private void fDrawWindowRows(IUWRows pORows)
     {
-        float[] lfWidths = new float[psNames.Length];
-        float lfNeeded = 0f;
-
-        for (int liAt = 0; liAt < psNames.Length; liAt++)
-        {
-            lfWidths[liAt] = mOSegmentStyle.CalcSize(new GUIContent(psNames[liAt])).x;
-            lfNeeded += lfWidths[liAt];
-        }
-
-        float lfSpare = Mathf.Max(0f, (pORect.width - lfNeeded) / psNames.Length);
-        float lfSqueeze = Mathf.Min(1f, pORect.width / Mathf.Max(1f, lfNeeded));
-        float lfX = pORect.x;
-        int liChosen = piChosen;
-
-        for (int liAt = 0; liAt < psNames.Length; liAt++)
-        {
-            float lfWidth = (lfWidths[liAt] * lfSqueeze) + lfSpare;
-
-            if (UWImguiInput.Toggle(new Rect(lfX, pORect.y, lfWidth, pORect.height), liAt == piChosen, psNames[liAt], mOSegmentStyle) && liAt != piChosen)
-                liChosen = liAt;
-
-            lfX += lfWidth;
-        }
-
-        return liChosen;
-    }
-
-    private void fDrawWindow(int piId)
-    {
-        // Inside the window's clip (UWImguiInput.Sync).
-        UWImguiInput.Sync();
-
-        float lfInner = WindowWidth - (2f * WindowPad);
+        float lfInner = mfWindowWidth - (2f * WindowPad);
         float lfX = WindowPad;
 
-        GUI.enabled = mOLeave == null;
+        pORows.Enabled = mOLeave == null;
 
-        GUI.Label(new Rect(0f, 0f, WindowWidth, TitleHeight), "Edit layout", mOTitleStyle);
+        pORows.Title(new Rect(0f, 0f, mfWindowWidth, TitleHeight), UWText.T("editor.title"));
 
         float lfY = TitleHeight + WindowPad;
 
-        GUI.Label(new Rect(lfX, lfY, lfInner, HintHeight),
-            "Click a part for its settings. Drag it to move, wheel to size, right click to reset. Drag this title to move the window.",
-            mOHintStyle);
-        lfY += HintHeight;
+        pORows.Info(new Rect(lfX, lfY, lfInner, mfHintHeight),
+            UWText.T("editor.hint"),
+            UWRowInfoEnum.Dim);
+        lfY += mfHintHeight;
 
         // The UI size: the base every part's size multiplies.
-        int liUiPercent = UWModernUi.UiPercent;
-
-        fDrawStepper(lfX, lfY, lfInner, fStepper("UI size", liUiPercent + " %",
-            liUiPercent > UWModernUi.MinUiPercent, liUiPercent < UWModernUi.MaxUiPercent,
-            liAt => UWModernUi.SetUiPercent(liUiPercent + (liAt == 0 ? -UWModernUi.UiPercentStep : UWModernUi.UiPercentStep))));
+        fDrawStepper(pORows, lfX, lfY, lfInner, fUiSizeItem());
         lfY += RowHeight + RowGap;
 
         // The starting point: the own layout, or a preset copied into it. The segments as wide as
         // their names need (per user, 2026-10-11: "Classic Modular" did not fit a third).
-        float lfLabel = mOLabelStyle.CalcSize(new GUIContent("Preset")).x + RowGap;
+        float lfLabel = pORows.LabelWidth(UWText.T("editor.preset")) + RowGap;
 
-        GUI.Label(new Rect(lfX, lfY, lfLabel, RowHeight), "Preset", mOLabelStyle);
+        pORows.Label(new Rect(lfX, lfY, lfLabel, RowHeight), UWText.T("editor.preset"));
 
-        int liStart = fSegments(new Rect(lfX + lfLabel, lfY, lfInner - lfLabel, RowHeight), (int)meStart, msStartNames);
+        int liStart = pORows.Segments(new Rect(lfX + lfLabel, lfY, lfInner - lfLabel, RowHeight), (int)meStart, UWDataImport.UWData.UWLayoutPresets.StartNames);
 
         if (liStart != (int)meStart)
-            fChooseStart((StartEnum)liStart);
+            fChooseStart((UWDataImport.UWData.UWLayoutStart)liStart);
 
         lfY += RowHeight + RowGap;
 
         float lfThird = lfInner / 3f;
-        bool lbPanels = UWImguiInput.Toggle(new Rect(lfX, lfY, lfThird, RowHeight), mbPanelsOut, " Panels out", mOToggleStyle);
-        bool lbDialog = UWImguiInput.Toggle(new Rect(lfX + lfThird, lfY, lfThird, RowHeight), UWModernConversation.Previewing, " Dialog", mOToggleStyle);
-        bool lbSnap = UWImguiInput.Toggle(new Rect(lfX + (2f * lfThird), lfY, lfThird, RowHeight), mbSnap, " Snap", mOToggleStyle);
+        bool lbPanels = pORows.Toggle(new Rect(lfX, lfY, lfThird, RowHeight), mbPanelsOut, " " + UWText.T("editor.panels_out"));
+        bool lbDialog = pORows.Toggle(new Rect(lfX + lfThird, lfY, lfThird, RowHeight), UWModernConversation.Previewing, " " + UWText.T("editor.dialog"));
+        bool lbSnap = pORows.Toggle(new Rect(lfX + (2f * lfThird), lfY, lfThird, RowHeight), mbSnap, " " + UWText.T("editor.snap"));
 
         if (lbPanels != mbPanelsOut)
             fSetPanelsOut(lbPanels);
@@ -1644,47 +1382,46 @@ public class UWModernLayoutEditor : MonoBehaviour
 
         float lfHalf = (lfInner - RowGap) * 0.5f;
 
-        if (UWImguiInput.Button(new Rect(lfX, lfY, lfHalf, RowHeight), "Reset all", mOButtonStyle))
+        if (pORows.Action(new Rect(lfX, lfY, lfHalf, RowHeight), UWText.T("editor.reset_all")))
             UWModernLayout.ResetAll();
 
-        // Done fires on the release (IMGUI buttons do), so the press reaches nothing behind it
-        // once the menu is gone (per user, 2026-10-04: Done over the minimap opened the big map).
-        if (UWImguiInput.Button(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), "Done", mOButtonStyle) && UWModernHud.Instance != null)
+        // Done fires on the release (IMGUI buttons do, the kit's as well), so the press reaches
+        // nothing behind it once the menu is gone (per user, 2026-10-04: Done over the minimap
+        // opened the big map).
+        if (pORows.Action(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), UWText.T("editor.done")) && UWModernHud.Instance != null)
             RequestLeave(UWModernHud.Instance.Menu.CloseMenu);
 
         lfY += RowHeight + RowGap;
 
         // The inspector.
-        GUI.DrawTexture(new Rect(0f, lfY + 4f, WindowWidth, 1f), fTexture(UWSetupMenu.SeparatorColour));
+        pORows.Separator(new Rect(0f, lfY + 4f, mfWindowWidth, 1f));
         lfY += 9f;
 
-        string lsHeading = miSelected >= 0
-            ? UWModernLayout.Names[miSelected] + (UWModernLayout.IsDocked((UWModernLayout.ElementEnum)miSelected) ? " (docked)" : string.Empty)
-            : "No part selected";
-
-        GUI.Label(new Rect(lfX, lfY, lfInner, RowHeight), lsHeading, mOHeadingStyle);
+        pORows.Info(new Rect(lfX, lfY, lfInner, RowHeight), fHeading(), UWRowInfoEnum.Heading);
         lfY += RowHeight + RowGap;
 
         foreach (InspectorItem lOItem in mOItems)
         {
+            float lfItemHeight = fItemHeight(pORows, lOItem, lfInner);
+
             switch (lOItem.Kind)
             {
                 case InspectorKindEnum.Info:
-                    GUI.Label(new Rect(lfX, lfY, lfInner, fItemHeight(lOItem)), lOItem.Label, mOHintStyle);
+                    pORows.Info(new Rect(lfX, lfY, lfInner, lfItemHeight), lOItem.Label, UWRowInfoEnum.Dim);
                     break;
 
                 case InspectorKindEnum.Stepper:
-                    fDrawStepper(lfX, lfY, lfInner, lOItem);
+                    fDrawStepper(pORows, lfX, lfY, lfInner, lOItem);
                     break;
 
                 case InspectorKindEnum.Choice:
-                    GUI.Label(new Rect(lfX, lfY, LabelWidth, RowHeight), lOItem.Label, mOLabelStyle);
-                    GUI.enabled = lOItem.Enabled;
+                    pORows.Label(new Rect(lfX, lfY, mfLabelWidth, RowHeight), lOItem.Label);
+                    pORows.Enabled = lOItem.Enabled;
 
-                    int liChosen = GUI.Toolbar(new Rect(lfX + LabelWidth, lfY, lfInner - LabelWidth, RowHeight),
-                        Mathf.Clamp(lOItem.Current, 0, lOItem.Choices.Length - 1), lOItem.Choices, mOSegmentStyle);
+                    int liChosen = pORows.Toolbar(new Rect(lfX + mfLabelWidth, lfY, lfInner - mfLabelWidth, RowHeight),
+                        Mathf.Clamp(lOItem.Current, 0, lOItem.Choices.Length - 1), lOItem.Choices);
 
-                    GUI.enabled = true;
+                    pORows.Enabled = true;
 
                     if (liChosen != lOItem.Current && lOItem.Enabled && lOItem.Choose != null)
                         lOItem.Choose(liChosen);
@@ -1692,96 +1429,64 @@ public class UWModernLayoutEditor : MonoBehaviour
 
                 case InspectorKindEnum.Radio:
                 {
-                    GUI.Label(new Rect(lfX, lfY, LabelWidth, RowHeight), lOItem.Label, mOLabelStyle);
-                    GUI.enabled = lOItem.Enabled;
+                    pORows.Label(new Rect(lfX, lfY, mfLabelWidth, RowHeight), lOItem.Label);
+                    pORows.Enabled = lOItem.Enabled;
 
-                    float lfEach = (lfInner - LabelWidth) / Mathf.Max(1, lOItem.Choices.Length);
+                    float lfEach = (lfInner - mfLabelWidth) / Mathf.Max(1, lOItem.Choices.Length);
 
                     if (lOItem.Previews != null)
                     {
-                        fDrawPreviews(lfX + LabelWidth, lfY, lfEach, lOItem);
-                        GUI.enabled = true;
+                        fDrawPreviews(pORows, lfX + mfLabelWidth, lfY, lfEach, lOItem);
+                        pORows.Enabled = true;
                         break;
                     }
 
                     for (int liAt = 0; liAt < lOItem.Choices.Length; liAt++)
                     {
-                        bool lbOn = UWImguiInput.Toggle(new Rect(lfX + LabelWidth + (liAt * lfEach), lfY, lfEach, RowHeight), liAt == lOItem.Current, string.Empty, mOToggleStyle);
+                        bool lbOn = pORows.Toggle(new Rect(lfX + mfLabelWidth + (liAt * lfEach), lfY, lfEach, RowHeight), liAt == lOItem.Current, string.Empty);
 
                         if (lbOn && liAt != lOItem.Current && lOItem.Enabled && lOItem.Choose != null)
                             lOItem.Choose(liAt);
                     }
 
-                    GUI.enabled = true;
+                    pORows.Enabled = true;
                     break;
                 }
 
                 case InspectorKindEnum.Action:
-                    GUI.Label(new Rect(lfX, lfY, LabelWidth, RowHeight), lOItem.Label, mOLabelStyle);
-                    GUI.enabled = lOItem.Enabled;
+                    pORows.Label(new Rect(lfX, lfY, mfLabelWidth, RowHeight), lOItem.Label);
+                    pORows.Enabled = lOItem.Enabled;
 
-                    if (UWImguiInput.Button(new Rect(lfX + LabelWidth, lfY, lfInner - LabelWidth, RowHeight), lOItem.Choices[0], mOButtonStyle)
+                    if (pORows.Action(new Rect(lfX + mfLabelWidth, lfY, lfInner - mfLabelWidth, RowHeight), lOItem.Choices[0])
                         && lOItem.Choose != null)
                         lOItem.Choose(0);
 
-                    GUI.enabled = true;
+                    pORows.Enabled = true;
                     break;
             }
 
-            lfY += fItemHeight(lOItem) + RowGap;
+            lfY += lfItemHeight + RowGap;
         }
-
-        GUI.DragWindow(new Rect(0f, 0f, WindowWidth, TitleHeight));
     }
 
-    /// <summary>A radio row's choices as samples (InspectorItem.Previews): each a picture in a frame,
-    /// the chosen one framed in the accent colour, dimmed while the row is off; a click chooses.</summary>
-    private void fDrawPreviews(float pfX, float pfY, float pfEach, InspectorItem pOItem)
+    /// <summary>A radio row's choices as samples (InspectorItem.Previews), through the drawer
+    /// (Samples); a click on another one chooses it.</summary>
+    private void fDrawPreviews(IUWRows pORows, float pfX, float pfY, float pfEach, InspectorItem pOItem)
     {
-        const float Gap = 3f;
-        Color lOOld = GUI.color;
+        int liPressed = pORows.Samples(pfX, pfY, pfEach, RowHeight, pOItem.Previews, pOItem.Current, pOItem.Enabled);
 
-        for (int liAt = 0; liAt < pOItem.Previews.Length; liAt++)
-        {
-            Rect lOCell = new Rect(pfX + (liAt * pfEach) + Gap, pfY + 2f, pfEach - (2f * Gap), RowHeight - 4f);
-            bool lbChosen = liAt == pOItem.Current;
-            float lfFrame = lbChosen ? 2f : 1f;
-
-            GUI.color = pOItem.Enabled ? Color.white : new Color(1f, 1f, 1f, 0.35f);
-            GUI.DrawTexture(lOCell, fTexture(lbChosen && pOItem.Enabled ? UWSetupMenu.AccentColour : UWSetupMenu.SeparatorColour));
-
-            if (pOItem.Previews[liAt] != null)
-                GUI.DrawTexture(new Rect(lOCell.x + lfFrame, lOCell.y + lfFrame, lOCell.width - (2f * lfFrame), lOCell.height - (2f * lfFrame)),
-                    pOItem.Previews[liAt], ScaleMode.StretchToFill);
-
-            if (UWImguiInput.Button(lOCell, GUIContent.none, GUIStyle.none) && pOItem.Enabled && !lbChosen && pOItem.Choose != null)
-                pOItem.Choose(liAt);
-        }
-
-        GUI.color = lOOld;
+        if (liPressed >= 0 && pOItem.Choose != null)
+            pOItem.Choose(liPressed);
     }
 
-    /// <summary>A row with its name, - , the value and +.</summary>
-    private void fDrawStepper(float pfX, float pfY, float pfWidth, InspectorItem pOItem)
+    /// <summary>A row with its name, - , the value and + (the drawer's Stepper).</summary>
+    private void fDrawStepper(IUWRows pORows, float pfX, float pfY, float pfWidth, InspectorItem pOItem)
     {
-        float lfControl = pfWidth - LabelWidth;
-        float lfLeft = pfX + LabelWidth;
+        int liStep = pORows.Stepper(new Rect(pfX, pfY, pfWidth, RowHeight), mfLabelWidth, StepButtonWidth, pOItem.Label, pOItem.Value,
+            pOItem.CanDown, pOItem.CanUp);
 
-        GUI.Label(new Rect(pfX, pfY, LabelWidth, RowHeight), pOItem.Label, mOLabelStyle);
-
-        GUI.enabled = pOItem.CanDown;
-
-        if (UWImguiInput.Button(new Rect(lfLeft, pfY, StepButtonWidth, RowHeight), "-", mOButtonStyle) && pOItem.Choose != null)
-            pOItem.Choose(0);
-
-        GUI.enabled = pOItem.CanUp;
-
-        if (UWImguiInput.Button(new Rect(lfLeft + lfControl - StepButtonWidth, pfY, StepButtonWidth, RowHeight), "+", mOButtonStyle) && pOItem.Choose != null)
-            pOItem.Choose(1);
-
-        GUI.enabled = true;
-
-        GUI.Label(new Rect(lfLeft + StepButtonWidth, pfY, lfControl - (2f * StepButtonWidth), RowHeight), pOItem.Value, mOValueStyle);
+        if (liStep != 0 && pOItem.Choose != null)
+            pOItem.Choose(liStep < 0 ? 0 : 1);
     }
 
     /// <summary>The pointer (screen pixels, y up) is on the editor's window.</summary>

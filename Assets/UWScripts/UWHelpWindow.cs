@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UWDataImport;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -13,55 +11,29 @@ using UWDataImport.UWData;
 /// over the whole picture) and the CONTROLS of the scheme in force (UWHelpControls, 2026-10-04).
 ///
 /// THE LOOK is modern and readable (per user), the same as the setup bar: IMGUI with the built-in
-/// font, because the scene has no EventSystem on purpose (see UWItemDrag) and IMGUI brings the
-/// text area and the scroll list along.
+/// font until phase 8b, because the scene has no EventSystem on purpose (see UWItemDrag) and IMGUI
+/// brought the text area and the scroll list along; the kit brings its own since 8b.3.
 ///
 /// Not in a screen menu: those are centred canvases of their own that do not follow the frame, so
 /// the help closes when one opens. A CONVERSATION keeps it (per user, 2026-09-26: it closed when a
 /// conversation started): the conversation's frame slides with the game frame
 /// (UWClassicConversationRenderer.Tick) and leaves the keys to the help while it has them.
+///
+/// THE TABS ARE CLASSES (cleanup 8.6, 2026-10-24): each tab draws itself (UWHelpTab and its seven
+/// kinds); the window keeps the frame - where the help lies in each scheme and preset, the
+/// scaling, the tab row, the reading mode's state and hold - and draws the active tab into it.
+///
+/// ON THE KIT (cleanup 8b.3, 2026-10-24; phase 8b, decision 26): the window, its tab row, the seven
+/// tabs and the reading mode are drawn on the uGUI kit (UWKitRows, its own canvas
+/// UWUiSorting.HelpWindow) in LateUpdate, in the same place, clip and scale as the IMGUI form (fPlace
+/// served both); the IMGUI form drew in OnGUI only under the side-by-side switch until it went with
+/// the switch in cleanup 8b.4. The notes type into a text area of the kit
+/// (UWTextEntry, UWTypedKeys); the clicks come from the Input System through the modern root's gate
+/// (UWModernUi.WindowTakesPointer), the pad's pointer pressing the real button as before.
 /// </summary>
 public class UWHelpWindow : MonoBehaviour
 {
-    /// <summary>The help's own reference height, as the setup bar's.</summary>
-    private const float ReferenceHeight = 720f;
-
     private const float CanvasHeight = 200f;
-
-    private const string NotesControl = "UWHelpNotes";
-
-    /// <summary>Room below each spell or mantra entry.</summary>
-    private const float EntrySpacing = 8f;
-
-    private static readonly Color BackgroundColour = new Color(0.08f, 0.08f, 0.09f, 0.96f);
-
-    private static readonly Color TabColour = new Color(0.14f, 0.14f, 0.16f, 1f);
-
-    private static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
-
-    private static readonly Color FieldColour = new Color(0.05f, 0.05f, 0.06f, 1f);
-
-    private static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
-
-    private static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
-
-    private static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
-
-    /// <summary>AccentColour for rich text.</summary>
-    private const string AccentHex = "CCA357";
-
-    private enum TabEnum
-    {
-        Stats,
-        Map,
-        Notes,
-        Spells,
-        Mantras,
-        Manual,
-        Controls
-    }
-
-    private static readonly string[] msTabNames = { "Stats", "Map", "Notes", "Spells", "Mantras", "Manual", "Controls" };
 
     /// <summary>Seven tabs do not fit in one row beside the 4:3 frame - two rows of four (of three
     /// until the Controls tab came, 2026-10-04).</summary>
@@ -71,7 +43,21 @@ public class UWHelpWindow : MonoBehaviour
     /// UWTextEntryState.IsTextEntryActive).</summary>
     public static bool IsTyping { get; private set; }
 
-    private TabEnum meTab = TabEnum.Spells;
+    /// <summary>The tabs in the order of their saved numbers (UWHelpTabId), made in Awake.</summary>
+    private UWHelpTab[] mOTabs;
+
+    private UWHelpTab mOActive;
+
+    /// <summary>The manual's tab, which also draws the reading mode.</summary>
+    private UWHelpManualTab mOManual;
+
+    private UWHelpContext mOContext;
+
+    /// <summary>The kit's pieces on the help's own canvas, and the flow that lays the tabs out on
+    /// them (cleanup 8b.3).</summary>
+    private UWKitRows mOKit;
+
+    private UWHelpKitFlow mOKitFlow;
 
     /// <summary>
     /// THE HELP KEEPS ITS STATE (per user, 2026-10-01): open or closed, the tab and the map
@@ -109,62 +95,30 @@ public class UWHelpWindow : MonoBehaviour
 
     private void Awake()
     {
-        int liTab = UWUserSettings.HelpTab;
+        mOManual = new UWHelpManualTab();
+        mOTabs = new UWHelpTab[]
+        {
+            new UWHelpStatsTab(), new UWHelpMapTab(), new UWHelpNotesTab(), new UWHelpSpellsTab(),
+            new UWHelpMantrasTab(), mOManual, new UWHelpControlsTab()
+        };
+        mOContext = new UWHelpContext(this);
+        mOKit = new UWKitRows(transform, UWUiSorting.HelpWindow);
+        mOKitFlow = new UWHelpKitFlow(mOKit);
 
-        if (liTab >= 0 && liTab < msTabNames.Length)
-            meTab = (TabEnum)liTab;
+        // Each tab at its saved number - a wrong order would mix up the settings file's tab.
+        for (int liAt = 0; liAt < mOTabs.Length; liAt++)
+        {
+            if ((int)mOTabs[liAt].Id != liAt)
+                Debug.LogError("UWHelpWindow: the tab " + mOTabs[liAt].TitleId + " stands at " + liAt);
+        }
 
-        miMapSpan = Mathf.Clamp(UWUserSettings.HelpMapSpan, MinMapSpan, MaxMapSpan);
+        mOActive = mOTabs[(int)UWHelpTabIds.FromSaved(UWUserSettings.HelpTab)];
     }
 
-    private Vector2 mOScroll;
-
-    /// <summary>The panels with what the manual does not name - closed until asked for.</summary>
-    private bool mbShowMoreSpells;
-
-    private bool mbShowMoreMantras;
-
-    private readonly Dictionary<Color, Texture2D> mOTextures = new Dictionary<Color, Texture2D>();
-
-    private Font mOFont;
-
-    private GUIStyle mOText;
-
-    private GUIStyle mODimText;
-
-    private GUIStyle mOHeading;
-
-    private GUIStyle mOSubHeading;
-
-    private GUIStyle mOFoldout;
-
-    private GUIStyle mOTab;
-
-    private GUIStyle mOCurrentTab;
-
-    private GUIStyle mONotes;
-
-    private GUIStyle mOCentred;
-
-    /// <summary>A stat row's label and value (fStatRow) - one line each, no wrapping.</summary>
-    private GUIStyle mOLabel;
-
-    private GUIStyle mOValue;
-
-    /// <summary>A rune picture in the spell list: no padding, a little room between them.</summary>
-    private GUIStyle mOIcon;
-
-    private GUIStyle mOArrow;
-
-    // ------------------------------------------------- The manual
+    // ------------------------------------------------- The manual's reading mode
 
     /// <summary>The name of the modal hold while reading (UWControlScheme.HoldUiModal).</summary>
     private const string ReadingHold = "help reading";
-
-    private static readonly Color ReadingShadeColour = new Color(0.03f, 0.03f, 0.04f, 0.94f);
-
-    /// <summary>The page shown, from zero - kept while the game runs.</summary>
-    private static int msPage;
 
     /// <summary>
     /// THE READING MODE (per user, 2026-09-26): a click on the page lays the manual over the
@@ -182,16 +136,6 @@ public class UWHelpWindow : MonoBehaviour
     /// <summary>Where the help lies on the screen (pixels, top left), for keeping the game's
     /// clicks off it.</summary>
     private Rect mOPanelOnScreen;
-
-    /// <summary>The side view's page, drawn after the layout at whole pixels.</summary>
-    private Texture2D mOPendingPage;
-
-    private Rect mOPendingPageRect;
-
-    /// <summary>Scale and screen origin of the layout area, in the scaled GUI units.</summary>
-    private float mfScale = 1f;
-
-    private Vector2 mOAreaOrigin;
 
     private void Update()
     {
@@ -223,37 +167,93 @@ public class UWHelpWindow : MonoBehaviour
         if (BlocksGameKeys)
             return;
 
-        UWControlScheme lOScheme = UWScene.ControlScheme;
-        UWControls lOControls = lOScheme != null ? lOScheme.Controls : null;
-
         // TAB, NOT WITH ALT (per user, 2026-09-26): Alt+Tab switches to another program and must
         // not open or close anything on the way. Nor with Shift - Shift+Tab is left alone.
         // In the modern scheme the character panel takes Tab and opens on its Help tab
         // (UWModernPanel, per user 2026-10-03); the help is drawn inside it. Not in Classic Wide,
-        // which has no such panel (UWModernPanel.HoldsHelp).
-        bool lbModern = lOScheme != null && UWModernPanel.HoldsHelp;
+        // which has no such panel (UWModernPanel.HoldsHelp). Not under a setup-menu panel either -
+        // the Game-folder dialog took Tab as help (Linux first run, 2026-10-06). The row is
+        // UWHotkeys' since cleanup step 7.5.
+        if (mOKeys == null)
+            mOKeys = new HelpKeys(this);
 
-        // Not under a setup-menu panel either - the Game-folder dialog took Tab as help
-        // (Linux first run, 2026-10-06).
-        if (lOControls != null && !lbModern && !UWControls.IsShiftHeld && !UWControls.IsAltHeld && !UWControls.IsTextEntryActive
-            && !UWSetupMenu.HasOpenPanel
-            && lOControls.Player.ToggleHelp.WasPerformedThisFrame()
-            && !fIsCovered())
-            fSetOpen(!UWHelpLayout.IsOpen, true);
+        if (mOKeys.Scheme != null && mOKeys.Scheme.Controls != null)
+            UWHotkeys.Route(UWHotkeySite.Help, mOKeys);
+    }
+
+    private HelpKeys mOKeys;
+
+    /// <summary>The help's hotkey (UWHotkeys): Tab opens and closes it.</summary>
+    private sealed class HelpKeys : UWHotkeyHost
+    {
+        private readonly UWHelpWindow mOHelp;
+
+        public HelpKeys(UWHelpWindow pOHelp)
+        {
+            mOHelp = pOHelp;
+        }
+
+        public UWControlScheme Scheme => UWScene.ControlScheme;
+
+        protected override UWControls Controls => Scheme != null ? Scheme.Controls : null;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
+        {
+            switch (peGate)
+            {
+                case UWHotkeyGate.HelpKeys: return BlocksGameKeys;
+                case UWHotkeyGate.PanelHoldsHelp: return Scheme != null && UWModernPanel.HoldsHelp;
+                case UWHotkeyGate.KeysLocked: return UWControls.IsTextEntryActive;
+                case UWHotkeyGate.SetupPanel: return UWSetupMenu.HasOpenPanel;
+                case UWHotkeyGate.HelpCovered: return fIsCovered();
+                default: return false;
+            }
+        }
+
+        public override bool Run(UWHotkeyHandler peHandler)
+        {
+            if (peHandler != UWHotkeyHandler.ToggleHelp)
+                return false;
+
+            mOHelp.fSetOpen(!UWHelpLayout.IsOpen, true);
+            return true;
+        }
     }
 
     /// <summary>Turns to the map tab - for a click on the modern scheme's minimap
     /// (UWModernMinimap), which opens the panel's Help tab on it.</summary>
     internal void ShowMapTab()
     {
-        meTab = TabEnum.Map;
-        mOScroll = Vector2.zero;
+        fShow(mOTabs[(int)UWHelpTabId.Map]);
+    }
 
-        if (UWUserSettings.HelpTab != (int)TabEnum.Map)
+    /// <summary>Turns to a tab - its list back at the top - and stores it as the one to come back
+    /// to.</summary>
+    private void fShow(UWHelpTab pOTab)
+    {
+        // The tab left behind types no more (the kit's notes area lets go, cleanup 8b.3).
+        if (mOActive != pOTab)
+            mOActive.OnHidden();
+
+        if (mOKit != null)
+            mOKit.LetGoOfArea();
+
+        mOActive = pOTab;
+        pOTab.OnShown();
+
+        int liTab = (int)pOTab.Id;
+
+        if (UWUserSettings.HelpTab != liTab)
         {
-            UWUserSettings.HelpTab = (int)TabEnum.Map;
+            UWUserSettings.HelpTab = liTab;
             UWUserSettings.Save();
         }
+    }
+
+    /// <summary>The notes' Tab while typing closes the help - the player's own Tab.</summary>
+    internal void CloseByPlayer()
+    {
+        fSetOpen(false, true);
     }
 
     /// <summary>The modern character panel opens or closes the help with its Help tab - the
@@ -279,7 +279,13 @@ public class UWHelpWindow : MonoBehaviour
         if (!pbOpen)
         {
             IsTyping = false;
-            fSetReading(false);
+            SetReading(false);
+
+            // The kit's notes let go at once, not after the slide (cleanup 8b.3).
+            mOActive.OnHidden();
+
+            if (mOKit != null)
+                mOKit.LetGoOfArea();
         }
     }
 
@@ -288,7 +294,7 @@ public class UWHelpWindow : MonoBehaviour
     /// not use, drop or walk anything (per user, 2026-09-26).</summary>
     private static bool msbSwallowUntilReleased;
 
-    private static void fSetReading(bool pbReading, bool pbByClick = false)
+    internal static void SetReading(bool pbReading, bool pbByClick = false)
     {
         if (IsReading == pbReading)
             return;
@@ -318,10 +324,8 @@ public class UWHelpWindow : MonoBehaviour
         if (!msbSwallowUntilReleased)
             return;
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse != null && (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed
-            || lOMouse.middleButton.isPressed))
+        if (UWPointer.HasMouse && (UWPointer.LeftHeld || UWPointer.RightHeld
+            || UWPointer.MiddleHeld))
             return;
 
         msbSwallowUntilReleased = false;
@@ -332,12 +336,10 @@ public class UWHelpWindow : MonoBehaviour
 
     private bool fIsMouseOverPanel()
     {
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return false;
 
-        Vector2 lOAt = lOMouse.position.ReadValue();
+        Vector2 lOAt = UWPointer.Position;
 
         return mOPanelOnScreen.Contains(new Vector2(lOAt.x, Screen.height - lOAt.y));
     }
@@ -345,7 +347,7 @@ public class UWHelpWindow : MonoBehaviour
     private void OnDisable()
     {
         IsTyping = false;
-        fSetReading(false);
+        SetReading(false);
 
         if (msbSwallowUntilReleased)
         {
@@ -354,26 +356,37 @@ public class UWHelpWindow : MonoBehaviour
         }
 
         UWMouseButtons.IsBlockedByHelp = false;
+
+        // The kit's canvas goes dark with the window (cleanup 8b.3).
+        fHideKit();
+    }
+
+    private void OnDestroy()
+    {
+        if (mOKit != null)
+        {
+            mOKit.LetGoOfArea();
+            mOKit.Dispose();
+        }
     }
 
     // ------------------------------------------------- Drawing
 
-    private void OnGUI()
+    /// <summary>
+    /// WHERE THE HELP LIES THIS FRAME, for both forms (the IMGUI form's numbers, moved out of OnGUI in
+    /// cleanup 8b.3, 2026-10-24): in the windows' layout units (UWGuiTheme, 720 lines) the left edge it is
+    /// cut off at (pfClipX - the sliding classic frame's right edge), its area and its top and height
+    /// (the modern panel's inner area on its Help tab). False while the modern panel is closed or still
+    /// sliding - then nothing is drawn.
+    /// </summary>
+    private bool fPlace(out float pfClipX, out float pfAreaX, out float pfAreaWidth, out float pfAreaTop, out float pfAreaHeight)
     {
-        UWImguiInput.BeginOnGUI();
-
-        if (UWHelpLayout.Blend <= 0f || Screen.height <= 0)
-        {
-            IsTyping = false;
-            mOPanelOnScreen = Rect.zero;
-            fSetReading(false);
-            return;
-        }
-
-        fEnsureStyles();
-
         float lfUnit = Screen.height / CanvasHeight;
         float lfCanvasWidth = Screen.width / lfUnit;
+
+        pfClipX = 0f;
+        pfAreaX = 0f;
+        pfAreaWidth = 0f;
 
         UWHelpLayout.OpenLayout(lfCanvasWidth, out float _, out float lfLeft, out float lfWidth);
 
@@ -383,9 +396,10 @@ public class UWHelpWindow : MonoBehaviour
 
         // THE MODERN CHARACTER PANEL holds the help on its Help tab (UWModernPanel): drawn into
         // the panel's inner area, and not at all while the panel is closed or still sliding.
-        float lfScale = Screen.height / ReferenceHeight;
-        float lfAreaTop = 0f;
-        float lfAreaHeight = ReferenceHeight;
+        float lfScale = UWGuiTheme.Scale;
+
+        pfAreaTop = 0f;
+        pfAreaHeight = UWGuiTheme.ReferenceHeight;
 
         if (lOScheme != null && UWControlScheme.Ui.Policy.HelpOverPicture)
         {
@@ -405,1269 +419,215 @@ public class UWHelpWindow : MonoBehaviour
             if (UWModernPanel.HoldsHelp)
             {
                 if (!UWModernPanel.Instance.TryGetHelpArea(out Rect lOInPanel))
-                {
-                    IsTyping = false;
-                    mOPanelOnScreen = Rect.zero;
-                    fSetReading(false);
-                    return;
-                }
+                    return false;
 
                 lfLeft = lOInPanel.x / lfUnit;
                 lfWidth = lOInPanel.width / lfUnit;
-                lfAreaTop = (Screen.height - lOInPanel.yMax) / lfScale;
-                lfAreaHeight = lOInPanel.height / lfScale;
+                pfAreaTop = (Screen.height - lOInPanel.yMax) / lfScale;
+                pfAreaHeight = lOInPanel.height / lfScale;
             }
         }
 
         // Beside the sliding frame the help lies BEHIND it: cut off at the frame's right edge,
         // so the frame uncovers it while sliding left (per user, 2026-09-25). IMGUI is drawn over
-        // every canvas, hence the clip instead of a draw order.
+        // every canvas, hence the clip instead of a draw order (the kit's canvas lies over the
+        // frame's as well, UWUiSorting.HelpWindow).
         float lfClipLeft = lfLeft;
 
         if (lbBesideFrame)
             lfClipLeft = Mathf.Clamp(UWHelpLayout.FrameRightEdge(lfCanvasWidth, UWClassicScreen.HorizontalPixelFactor),
                 lfLeft, lfLeft + lfWidth);
 
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        UWImguiInput.AfterMatrix();
-
-        Color lOWas = GUI.color;
-        GUI.color = new Color(1f, 1f, 1f, UWHelpLayout.Blend);
-
-        float lfClipX = lfClipLeft * lfUnit / lfScale;
-        float lfAreaX = lfLeft * lfUnit / lfScale;
-        float lfAreaWidth = lfWidth * lfUnit / lfScale;
-
-        mfScale = lfScale;
-        mOAreaOrigin = new Vector2(lfAreaX + 12f, lfAreaTop + 12f);
-        mOPanelOnScreen = new Rect(lfClipX * lfScale, lfAreaTop * lfScale, (lfAreaX + lfAreaWidth - lfClipX) * lfScale,
-            lfAreaHeight * lfScale);
-        mOPendingPage = null;
-        mbPendingMap = false;
-
-        // While reading, the overlay has the mouse - the panel below must not react to it.
-        bool lbWasEnabled = GUI.enabled;
-
-        if (IsReading)
-            GUI.enabled = false;
-
-        GUI.BeginGroup(new Rect(lfClipX, lfAreaTop, lfAreaX + lfAreaWidth - lfClipX, lfAreaHeight));
-        UWImguiInput.Sync();
-
-        Rect lOArea = new Rect(lfAreaX - lfClipX, 0f, lfAreaWidth, lfAreaHeight);
-
-        GUI.DrawTexture(lOArea, fTexture(BackgroundColour));
-
-        GUILayout.BeginArea(new Rect(lOArea.x + 12f, lOArea.y + 12f, lOArea.width - 24f, lOArea.height - 24f));
-        UWImguiInput.Sync();
-
-        fDrawTabs();
-
-        GUILayout.Space(10f);
-
-        if (meTab == TabEnum.Notes)
-            fDrawNotes();
-        else if (meTab == TabEnum.Manual)
-        {
-            fDrawManual();
-            IsTyping = false;
-        }
-        else if (meTab == TabEnum.Map)
-        {
-            fDrawMap();
-            IsTyping = false;
-        }
-        else
-        {
-            mOScroll = GUILayout.BeginScrollView(mOScroll);
-            UWImguiInput.Sync();
-
-            switch (meTab)
-            {
-                case TabEnum.Stats: fDrawStats(); break;
-                case TabEnum.Spells: fDrawSpells(); break;
-                case TabEnum.Mantras: fDrawMantras(); break;
-                case TabEnum.Controls: fDrawControls(); break;
-            }
-
-            GUILayout.EndScrollView();
-            mOScroll = UWImguiInput.WheelAfterScrollView(mOScroll);
-            UWImguiInput.Sync();
-            IsTyping = false;
-        }
-
-        GUILayout.EndArea();
-        UWImguiInput.Sync();
-
-        GUI.EndGroup();
-        UWImguiInput.Sync();
-
-        GUI.enabled = lbWasEnabled;
-
-        // The page at whole screen pixels, so its texels meet the pixels one to one - and
-        // clipped like the panel, so it too lies behind the sliding frame.
-        if (mOPendingPage != null && Event.current.type == EventType.Repaint)
-        {
-            GUI.matrix = Matrix4x4.identity;
-            UWImguiInput.AfterMatrix();
-
-            float lfClipPixels = lfClipX * lfScale;
-
-            GUI.BeginGroup(new Rect(lfClipPixels, 0f, mOPanelOnScreen.xMax - lfClipPixels, Screen.height));
-            UWImguiInput.Sync();
-            GUI.DrawTexture(new Rect(mOPendingPageRect.x - lfClipPixels, mOPendingPageRect.y,
-                mOPendingPageRect.width, mOPendingPageRect.height), mOPendingPage);
-            GUI.EndGroup();
-            UWImguiInput.Sync();
-        }
-
-        // The map as well, at whole screen pixels per map pixel.
-        if (mbPendingMap && Event.current.type == EventType.Repaint)
-            fDrawPendingMap(lfClipX * lfScale);
-
-        if (IsReading)
-            fDrawReading();
-
-        GUI.color = lOWas;
-    }
-
-    private void fDrawTabs()
-    {
-        for (int liRowStart = 0; liRowStart < msTabNames.Length; liRowStart += TabsPerRow)
-        {
-            GUILayout.BeginHorizontal();
-
-            for (int liTab = liRowStart; liTab < Mathf.Min(liRowStart + TabsPerRow, msTabNames.Length); liTab++)
-            {
-                if (UWImguiInput.LayoutButton(msTabNames[liTab], (int)meTab == liTab ? mOCurrentTab : mOTab,
-                    GUILayout.Height(28f), GUILayout.Width(1f), GUILayout.ExpandWidth(true)))
-                {
-                    meTab = (TabEnum)liTab;
-                    mOScroll = Vector2.zero;
-                    GUI.FocusControl(null);
-
-                    if (UWUserSettings.HelpTab != liTab)
-                    {
-                        UWUserSettings.HelpTab = liTab;
-                        UWUserSettings.Save();
-                    }
-                }
-            }
-
-            GUILayout.EndHorizontal();
-        }
-    }
-
-    private void fDrawNotes()
-    {
-        GUILayout.Label("Your own notes, kept with the save game.", mODimText);
-        GUILayout.Space(6f);
-
-        // Tab closes the help while typing too - the game's keys are silent then. Taken BEFORE
-        // the text area, which would otherwise type a tab into the notes; with Alt it is the
-        // switch to another program and is left alone.
-        Event lOEvent = Event.current;
-        bool lbTyping = GUI.GetNameOfFocusedControl() == NotesControl;
-
-        if (lbTyping && lOEvent.type == EventType.KeyDown && !lOEvent.alt && !lOEvent.shift
-            && (lOEvent.keyCode == KeyCode.Tab || lOEvent.character == '\t'))
-        {
-            lOEvent.Use();
-
-            if (lOEvent.keyCode == KeyCode.Tab)
-            {
-                GUI.FocusControl(null);
-                fSetOpen(false, true);
-            }
-        }
-
-        mOScroll = GUILayout.BeginScrollView(mOScroll);
-        UWImguiInput.Sync();
-
-        GUI.SetNextControlName(NotesControl);
-        UWHelpNotes.Notes = GUILayout.TextArea(UWHelpNotes.Notes ?? string.Empty, mONotes, GUILayout.ExpandHeight(true));
-
-        // On Linux the click that focuses the notes may come through the Input System only.
-        if (UWImguiInput.PressedIn(GUILayoutUtility.GetLastRect()))
-            GUI.FocusControl(NotesControl);
-
-        GUILayout.EndScrollView();
-        mOScroll = UWImguiInput.WheelAfterScrollView(mOScroll);
-        UWImguiInput.Sync();
-
-        IsTyping = GUI.GetNameOfFocusedControl() == NotesControl;
-    }
-
-    private void fDrawSpells()
-    {
-        DataImport lOData = fData();
-
-        GUILayout.Label("Spells", mOHeading);
-        GUILayout.Label("Put the runes on the shelf from the rune bag, then click the shelf to cast. "
-            + "A spell costs three mana per circle, and your level halved (rounded up) must reach its circle. "
-            + "Click a spell here to lay its runes into the hollow; grey runes are not in your bag yet.",
-            mODimText);
-
-        fDrawSpellList(lOData, true);
-
-        GUILayout.Space(16f);
-
-        if (UWImguiInput.LayoutButton(mbShowMoreSpells ? "Hide the spells the manual does not name"
-                : "Show the spells the manual does not name", mOFoldout))
-            mbShowMoreSpells = !mbShowMoreSpells;
-
-        if (mbShowMoreSpells)
-            fDrawSpellList(lOData, false);
-    }
-
-    /// <summary>
-    /// The rune spells circle by circle - the ones the manual names, or the others.
-    ///
-    /// RUNE ICONS AND A CLICK TO EQUIP (feature wish of the user, 2026-09-27): each spell shows
-    /// its runes as the game's rune pictures, grey where the rune is not in the bag yet (per
-    /// user). A left click on the row lays the runes into the casting hollow, replacing what
-    /// lay there - only when all of them are in the bag, as the shelf itself only offers what
-    /// the bag holds. The spell lying in the hollow right now is marked.
-    /// </summary>
-    private void fDrawSpellList(DataImport pOData, bool pbManual)
-    {
-        int liCircle = 0;
-        UWPlayerData lOPlayer = pOData != null ? pOData.InitialPlayer : null;
-        UWGameUI lOUi = UWScene.GameUi;
-        IReadOnlyList<int> lOShelf = lOUi != null ? lOUi.Runes.Shelf.Selected : null;
-
-        foreach (UWRunicMagic.Spell lOSpell in UWRunicMagic.AllSpells)
-        {
-            if (lOSpell.RuneSequence == UWRunicMagic.EmptySequence)
-                continue;
-
-            bool lbNamed = UWHelpContent.ManualSpellNotes.TryGetValue(lOSpell.Index, out string lsNote);
-
-            if (lbNamed != pbManual)
-                continue;
-
-            if (lOSpell.Level != liCircle)
-            {
-                liCircle = lOSpell.Level;
-
-                GUILayout.Space(10f);
-                GUILayout.Label(string.Format("Circle {0}  -  {1} mana", liCircle, lOSpell.ManaCost), mOSubHeading);
-            }
-
-            string lsName = pOData != null ? UWRunicMagic.GetName(lOSpell, pOData.Strings) : string.Empty;
-            List<int> lORunes = UWRuneShelfModel.RunesOf(lOSpell.RuneSequence);
-            bool lbAllInBag = UWRuneShelfModel.HasRunes(lOSpell.RuneSequence, lOPlayer);
-
-            bool lbOnShelf = fIsOnShelf(lOShelf, lORunes);
-
-            GUILayout.BeginHorizontal();
-
-            foreach (int liRune in lORunes)
-            {
-                bool lbInBag = lOPlayer != null && lOPlayer.HasRune((UWPlayerData.Rune)liRune);
-                Texture2D lOIcon = fRuneIcon(pOData, liRune, !lbInBag);
-
-                // Drawn into a fixed rect: a label would not scale the 16 pixel picture up.
-                Rect lOIconRect = GUILayoutUtility.GetRect(RuneIconSize, RuneIconSize, mOIcon,
-                    GUILayout.Width(RuneIconSize), GUILayout.Height(RuneIconSize));
-
-                if (lOIcon != null && Event.current.type == EventType.Repaint)
-                    GUI.DrawTexture(lOIconRect, lOIcon, ScaleMode.ScaleToFit);
-            }
-
-            GUILayout.Space(8f);
-            GUILayout.Label(string.Format("<b>{0}</b>   <color=#{1}>{2}</color>{3}",
-                string.IsNullOrEmpty(lsName) ? "?" : lsName, AccentHex,
-                UWRunicMagic.DescribeRunes(lOSpell.RuneSequence),
-                lbOnShelf ? "   <i>(in the hollow)</i>" : string.Empty), mOText);
-
-            GUILayout.EndHorizontal();
-
-            Rect lORow = GUILayoutUtility.GetLastRect();
-            Event lOEvent = Event.current;
-
-            if (lbAllInBag && lOUi != null && UWImguiInput.PressedIn(lORow))
-            {
-                lOUi.Runes.PutOnShelf(lORunes);
-
-                if (lOEvent.type == EventType.MouseDown)
-                    lOEvent.Use();
-            }
-
-            if (lbNamed)
-                GUILayout.Label(lsNote, mODimText);
-
-            // Room between the spells, so each stands apart (per user, 2026-09-26).
-            GUILayout.Space(EntrySpacing);
-        }
-    }
-
-    private static bool fIsOnShelf(IReadOnlyList<int> pOShelf, List<int> pORunes)
-    {
-        if (pOShelf == null || pOShelf.Count != pORunes.Count)
-            return false;
-
-        for (int liAt = 0; liAt < pORunes.Count; liAt++)
-        {
-            if (pOShelf[liAt] != pORunes[liAt])
-                return false;
-        }
+        pfClipX = lfClipLeft * lfUnit / lfScale;
+        pfAreaX = lfLeft * lfUnit / lfScale;
+        pfAreaWidth = lfWidth * lfUnit / lfScale;
 
         return true;
     }
 
-    /// <summary>How large a rune picture stands in the list (help units, 720 lines).</summary>
-    private const float RuneIconSize = 22f;
-
-    private readonly Texture2D[] mORuneIcons = new Texture2D[UWRunicMagic.EmptyRune];
-
-    private readonly Texture2D[] mOGreyRuneIcons = new Texture2D[UWRunicMagic.EmptyRune];
-
-    /// <summary>A rune's picture (the rune stone object, 0xE8 + rune) in real colours - the
-    /// panel's icon textures carry palette indices for a shader IMGUI does not have. Grey:
-    /// desaturated and dimmed, for a rune not in the bag.</summary>
-    private Texture2D fRuneIcon(DataImport pOData, int piRune, bool pbGrey)
+    /// <summary>The help is not drawn: nothing typed or read, no panel to keep the clicks off.</summary>
+    private void fNotDrawn()
     {
-        if (pOData == null || piRune < 0 || piRune >= mORuneIcons.Length)
-            return null;
-
-        Texture2D[] lOCache = pbGrey ? mOGreyRuneIcons : mORuneIcons;
-
-        if (lOCache[piRune] != null)
-            return lOCache[piRune];
-
-        UWTexture lOSource = pOData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS,
-            UWPlayerData.FirstRuneObjectId + piRune);
-
-        if (lOSource == null)
-            return null;
-
-        Color32[] lOPixels = UWTextureFactory.Colours(lOSource);
-
-        if (pbGrey)
-        {
-            for (int liAt = 0; liAt < lOPixels.Length; liAt++)
-            {
-                Color32 lOPixel = lOPixels[liAt];
-                byte lyGrey = (byte)((((lOPixel.r * 30) + (lOPixel.g * 59) + (lOPixel.b * 11)) / 100) * 55 / 100);
-
-                lOPixels[liAt] = new Color32(lyGrey, lyGrey, lyGrey, lOPixel.a);
-            }
-        }
-
-        Texture2D lOTexture = UWTextureFactory.FromColours(lOPixels, lOSource.Width, lOSource.Height, FilterMode.Point,
-            TextureWrapMode.Clamp, "UWHelpWindow rune " + piRune + (pbGrey ? " grey" : string.Empty));
-
-        lOCache[piRune] = lOTexture;
-
-        return lOTexture;
+        IsTyping = false;
+        mOPanelOnScreen = Rect.zero;
+        SetReading(false);
     }
-
-    private void fDrawMantras()
-    {
-        DataImport lOData = fData();
-
-        GUILayout.Label("Mantras", mOHeading);
-        GUILayout.Label("Talk to an ankh shrine and type a mantra. It raises your skills only when you "
-            + "have earned a skill point.", mODimText);
-
-        GUILayout.Space(10f);
-
-        foreach (KeyValuePair<int, string> lOMantra in UWHelpContent.ManualMantras)
-        {
-            GUILayout.Label("<b>" + UWShrineRules.GetMantra(lOMantra.Key, lOData) + "</b>", mOText);
-            GUILayout.Label(lOMantra.Value + " (" + fGroupSkills(lOMantra.Key, lOData) + ")", mODimText);
-            GUILayout.Space(EntrySpacing);
-        }
-
-        GUILayout.Space(16f);
-
-        if (UWImguiInput.LayoutButton(mbShowMoreMantras ? "Hide the mantras the manual does not name"
-                : "Show the mantras the manual does not name", mOFoldout))
-            mbShowMoreMantras = !mbShowMoreMantras;
-
-        if (!mbShowMoreMantras)
-            return;
-
-        GUILayout.Space(10f);
-        GUILayout.Label("One skill each, raised greatly", mOSubHeading);
-
-        for (int liMantra = 0; liMantra < UWShrineRules.FirstSpecialMantra; liMantra++)
-            GUILayout.Label(string.Format("<b>{0}</b>   <color=#{1}>{2}</color>",
-                UWShrineRules.GetMantra(liMantra, lOData), AccentHex, UWShrineRules.GetSkillName(liMantra, lOData)),
-                mOText);
-
-        GUILayout.Space(10f);
-        GUILayout.Label("Quests", mOSubHeading);
-
-        GUILayout.Label("<b>" + UWShrineRules.GetMantra(UWShrineRules.CupOfWonderMantra, lOData) + "</b>", mOText);
-        GUILayout.Label(UWHelpContent.CupOfWonderNote, mODimText);
-        GUILayout.Space(EntrySpacing);
-        GUILayout.Label("<b>" + UWShrineRules.GetMantra(UWShrineRules.KeyOfTruthMantra, lOData) + "</b>", mOText);
-        GUILayout.Label(UWHelpContent.KeyOfTruthNote, mODimText);
-    }
-
-    /// <summary>The controls of the scheme in force (UWHelpControls): per section a heading, a dim
-    /// line and the keys in the accent colour beside what they do.</summary>
-    private void fDrawControls()
-    {
-        UWControlScheme lOScheme = UWScene.ControlScheme;
-        bool lbModern = lOScheme != null && UWControlScheme.IsModern;
-
-        GUILayout.Label(lbModern ? "Modern controls" : "Classic controls", mOHeading);
-
-        foreach (UWHelpControls.Section lOSection in UWHelpControls.Build(lbModern))
-        {
-            GUILayout.Space(10f);
-            GUILayout.Label(lOSection.Title, mOSubHeading);
-
-            if (!string.IsNullOrEmpty(lOSection.Intro))
-                GUILayout.Label(lOSection.Intro, mODimText);
-
-            foreach (UWHelpControls.Row lORow in lOSection.Rows)
-            {
-                GUILayout.BeginHorizontal();
-
-                // GAMEPAD GLYPHS in the keys' column (UWHelpControls.AddPad, UWGlyphs), glyphs and text
-                // centred on each other (per user, 2026-10-08: the text stood at the glyphs' top).
-                if (lORow.Glyphs != null)
-                {
-                    if (mOTextMiddle == null)
-                        mOTextMiddle = new GUIStyle(mOText) { alignment = TextAnchor.MiddleLeft };
-
-                    GUILayout.BeginVertical(GUILayout.Width(ControlsKeyWidth));
-                    GUILayout.FlexibleSpace();
-                    GUILayout.BeginHorizontal();
-
-                    foreach (Texture2D lOGlyph in lORow.Glyphs)
-                        GUILayout.Label(lOGlyph, GUIStyle.none, GUILayout.Width(ControlsGlyphSize), GUILayout.Height(ControlsGlyphSize));
-
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndHorizontal();
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndVertical();
-
-                    GUILayout.Label(lORow.Text, mOTextMiddle, GUILayout.MinHeight(ControlsGlyphSize));
-                }
-                else
-                {
-                    GUILayout.Label("<color=#" + AccentHex + "><b>" + lORow.Keys + "</b></color>", mOText, GUILayout.Width(ControlsKeyWidth));
-                    GUILayout.Label(lORow.Text, mOText);
-                }
-
-                GUILayout.EndHorizontal();
-                GUILayout.Space(3f);
-            }
-        }
-    }
-
-    /// <summary>The keys' column of the Controls tab.</summary>
-    private const float ControlsKeyWidth = 130f;
-
-    /// <summary>A gamepad glyph there: Kenney's 16 pixels twice over (UWGlyphs).</summary>
-    private const float ControlsGlyphSize = 32f;
-
-    /// <summary>The text beside gamepad glyphs, centred on them.</summary>
-    private GUIStyle mOTextMiddle;
-
-    /// <summary>"Attack, Defense, ..." - the skills a group mantra draws from.</summary>
-    private static string fGroupSkills(int piMantra, DataImport pOData)
-    {
-        if (!UWShrineRules.TryGetGroup(piMantra, out int liFirst, out int liCount, out int _))
-            return string.Empty;
-
-        List<string> lONames = new List<string>();
-
-        for (int liSkill = liFirst; liSkill < liFirst + liCount; liSkill++)
-            lONames.Add(UWShrineRules.GetSkillName(liSkill, pOData).Trim());
-
-        return string.Join(", ", lONames);
-    }
-
-    // ------------------------------------------------- Stats
-
-    /// <summary>The panel with the values the original never shows as numbers - closed until
-    /// asked for (per user, 2026-09-26).</summary>
-    private bool mbShowHiddenStats;
-
-    /// <summary>What the tab shows of the character (UWCharacterSheet, readable).</summary>
-    private readonly UWCharacterSheet mOSheet = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Readable);
 
     /// <summary>
-    /// THE STATS TAB (feature wish of the user, 2026-09-26): what the character panel shows, in
-    /// readable type and all twenty skills at once, live while the help is open. Below it,
-    /// folded away, the values the game keeps but only hints at: food, fatigue, poison, the
-    /// unspent skill points, the exact experience and the next level's threshold, the load.
+    /// THE HELP ON THE KIT (cleanup 8b.3, 2026-10-24; phase 8b): after Update decided whether it is
+    /// open and where the frame stands, the window, its tab row and the active tab are drawn on the kit
+    /// (UWKitRows on its own canvas, UWUiSorting.HelpWindow), laid out as the IMGUI form in OnGUI was
+    /// (gone since cleanup 8b.4) - the same place in every scheme and preset, the same clip at the
+    /// sliding frame's edge, the same scaling, faded with the slide. The tabs draw through DrawKit
+    /// (UWHelpKitFlow); the reading mode over everything after them.
     /// </summary>
-    private void fDrawStats()
+    private void LateUpdate()
     {
-        UWCharacter lOCharacter = UWScene.Character;
-        UWGameUI lOUi = UWScene.GameUi;
-        DataImport lOData = fData();
+        if (mOKit == null)
+            return;
 
-        if (lOCharacter == null || lOData == null)
+        if (UWHelpLayout.Blend <= 0f || Screen.height <= 0
+            || !fPlace(out float lfClipX, out float lfAreaX, out float lfAreaWidth, out float lfAreaTop, out float lfAreaHeight))
         {
-            GUILayout.Label("Stats", mOHeading);
-            GUILayout.Label("No character is loaded.", mODimText);
-
+            fHideKit();
+            fNotDrawn();
             return;
         }
 
-        UWPlayerData lOPlayer = lOData.InitialPlayer;
+        float lfScale = UWGuiTheme.Scale;
 
-        // What the panel shows, readable (UWCharacterSheet: title case, "a / b"; cleanup 5.9,
-        // 2026-10-20).
-        UWCharacterSheet lOSheet = mOSheet.Bind(lOData.Strings, lOPlayer, lOCharacter.Vitals);
+        mOKit.Begin(true, false, false, false);
 
-        GUILayout.Label(lOSheet.Name, mOHeading);
-        GUILayout.Label(lOSheet.LevelWithClass, mOText);
+        // The setup bar's windows lie over the help (its canvas over this one): while the bar
+        // captures the pointer its clicks are its own, as the in-game menus under it stand back.
+        // So are the modern game menu's while it is open (on the kit over this canvas since 8b.4,
+        // UWUiSorting.ModernGameMenu): with both on IMGUI the first window to use the click had it,
+        // wherever they overlapped.
+        if (UWSetupMenu.IsCapturingInput || UWModernUi.IsMenuOpen)
+            mOKit.DropPointer();
 
-        string lsCondition = UWStatusReport.GetConditionLine(lOData, lOCharacter.Vitals.Hunger, lOCharacter.Vitals.Fatigue);
+        mOKit.SetAlpha(UWHelpLayout.Blend);
 
-        if (!string.IsNullOrEmpty(lsCondition))
-            GUILayout.Label(lsCondition.Trim(), mODimText);
+        mOPanelOnScreen = new Rect(lfClipX * lfScale, lfAreaTop * lfScale, (lfAreaX + lfAreaWidth - lfClipX) * lfScale,
+            lfAreaHeight * lfScale);
+        mOContext.Scale = lfScale;
+        mOContext.ClipPixels = lfClipX * lfScale;
 
-        GUILayout.Space(10f);
-        GUILayout.Label("Attributes", mOSubHeading);
+        // While reading, the overlay has the mouse - the panel below must not react to it.
+        mOKit.Enabled = !IsReading;
 
-        for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
-            fStatRow(UWCharacterSheet.ValueLabels[liRow], lOSheet.Value(liRow));
+        mOKit.BeginClipArea(new Rect(lfClipX, lfAreaTop, lfAreaX + lfAreaWidth - lfClipX, lfAreaHeight));
+        mOKit.Fill(new Rect(lfAreaX, lfAreaTop, lfAreaWidth, lfAreaHeight), UWGuiTheme.Overlay);
 
-        int liCarried = -1;
+        Rect lOInner = new Rect(lfAreaX + 12f, lfAreaTop + 12f, lfAreaWidth - 24f, lfAreaHeight - 24f);
 
-        if (lOUi != null && lOUi.mOInventory != null)
+        mOKit.BeginClipArea(lOInner);
+
+        float lfTop = fDrawKitTabs(lOInner) + 10f;
+        Rect lOBody = new Rect(lOInner.x, lfTop, lOInner.width, Mathf.Max(0f, lOInner.yMax - lfTop));
+        UWHelpTab lOTab = mOActive;
+
+        // Only the notes type: another tab takes the keys from their area.
+        if (lOTab.Id != UWHelpTabId.Notes)
+            mOKit.LetGoOfArea();
+
+        if (lOTab.Scrolls)
         {
-            liCarried = lOUi.mOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
+            // The tab's list in a scroll list as IMGUI's scroll view: its height from the last frame,
+            // the bar's room taken from the list's width while it is taller than the room.
+            float lfContent = lOTab.KitContentHeight;
+            bool lbBar = lfContent > lOBody.height;
 
-            // What the circle below the paper doll shows: the capacity left, in whole stones.
-            fStatRow("Can still carry", UWInventoryWeight.RemainingStones(lOPlayer, liCarried) + " stones");
+            lOTab.Scroll = mOKit.BeginScroll(lOBody, lOTab.Scroll, new Rect(0f, 0f, lOBody.width, lfContent));
+            mOKitFlow.Begin(0f, 0f, lOBody.width - (lbBar ? UWKitRows.ScrollBarRoom : 0f), lOBody.height);
+            lOTab.DrawKit(mOContext, mOKitFlow);
+            lOTab.KitContentHeight = mOKitFlow.Y;
+            mOKit.EndScroll();
         }
-
-        GUILayout.Space(10f);
-        GUILayout.Label("Skills", mOSubHeading);
-
-        // Attack and Defense first, then the eighteen skills - the order of the panel's list
-        // (UWCharacterSheet.TryGetSkill).
-        for (int liEntry = 0; liEntry < UWCharacterSheet.SkillEntries; liEntry++)
-        {
-            lOSheet.TryGetSkill(liEntry, out string lsName, out string lsValue);
-            fStatRow(lsName, lsValue);
-        }
-
-        GUILayout.Space(16f);
-
-        if (UWImguiInput.LayoutButton(mbShowHiddenStats ? "Hide the hidden values" : "Show the hidden values", mOFoldout))
-            mbShowHiddenStats = !mbShowHiddenStats;
-
-        if (!mbShowHiddenStats)
-            return;
-
-        GUILayout.Space(10f);
-        GUILayout.Label("The game keeps these, but shows them only as words or not at all.", mODimText);
-        GUILayout.Space(4f);
-
-        fStatRow("Food", lOCharacter.Vitals.Hunger + " / " + UWPlayerVitals.FullHunger);
-        GUILayout.Label("255 is full; the status line changes every 30.", mODimText);
-        fStatRow("Fatigue", lOCharacter.Vitals.Fatigue + " / 255");
-        GUILayout.Label("0 is rested; the status line changes every 23.", mODimText);
-        fStatRow("Poison", lOCharacter.Vitals.Poison + " / 15");
-        fStatRow("Hallucination", lOCharacter.Vitals.Hallucination + " / " + UWPlayerVitals.MaxHallucination
-            + fHallucinationEffectText());
-        GUILayout.Label("A mushroom adds one, the potion sets three; one wears off every 21 seconds.",
-            mODimText);
-        fStatRow("Unspent skill points", lOCharacter.Vitals.SkillPoints.ToString());
-        GUILayout.Label("A mantra at a shrine spends them. One more every 3000 experience and every level.",
-            mODimText);
-
-        fStatRow("Exact experience", fTenths(lOCharacter.Vitals.Experience));
-
-        int liNext = UWExperience.GetNextLevelExperience(lOCharacter.Vitals.Level);
-
-        if (liNext < 0)
-            fStatRow("Next level", "none, this is the highest");
         else
-            fStatRow("Next level at", string.Format("{0} ({1} to go)", liNext / 10,
-                fTenths(Mathf.Max(0, liNext - lOCharacter.Vitals.Experience))));
+        {
+            mOKitFlow.Begin(lOBody.x, lOBody.y, lOBody.width, lOBody.yMax);
+            lOTab.DrawKit(mOContext, mOKitFlow);
+        }
 
-        if (liCarried >= 0 && lOPlayer != null)
-            fStatRow("Load", fTenths(liCarried) + " of " + fTenths(lOPlayer.MaxWeight) + " stones");
+        // CapturesKeys is the notes while typing and the manual while it is read large; the
+        // reading counts on its own (IsReading, set the moment it opens or closes), so IsTyping
+        // stays the typing alone.
+        IsTyping = lOTab.CapturesKeys && !IsReading;
 
-        fDrawWornMagic(lOData, lOUi != null ? lOUi.mOInventory : null);
+        mOKit.EndClipArea();
+        mOKit.EndClipArea();
+
+        mOKit.Enabled = true;
+
+        if (IsReading)
+            mOManual.DrawReadingKit(mOContext, mOKit);
+
+        mOKit.End();
     }
 
-    /// <summary>The worn equipment's own effects, without cast spells - see fDrawWornMagic.</summary>
-    private readonly UWArmourProtection.Status mOWornStatus = new UWArmourProtection.Status();
-
-    /// <summary>
-    /// WHAT THE WORN MAGIC DOES (per user, 2026-10-02: "show the effect of the equipped magic
-    /// items in the hidden values"). First every enchanted item on the paper doll with the name
-    /// of its enchantment - whether identified or not -, then the sum of them as the status pass
-    /// counts it (UWArmourProtection.Compute without the active spells): only the five armour
-    /// pieces, the two rings and a shield cast theirs; a weapon's acts only when it strikes.
-    /// </summary>
-    private void fDrawWornMagic(DataImport pOData, UWInventory pOInventory)
+    /// <summary>The kit's canvas goes dark and its text area lets go.</summary>
+    private void fHideKit()
     {
-        GUILayout.Space(10f);
-        GUILayout.Label("Worn magic", mOSubHeading);
-
-        if (pOInventory == null)
-        {
-            GUILayout.Label("No inventory.", mODimText);
-            return;
-        }
-
-        bool lbLeftHanded = pOInventory.IsLeftHanded;
-        UWArmorItemMap.BodySlot leWeaponSlot = UWArmourProtection.GetWeaponSlot(lbLeftHanded);
-        UWArmorItemMap.BodySlot leShieldSlot = UWArmourProtection.GetShieldSlot(lbLeftHanded);
-        bool lbAny = false;
-
-        foreach (UWArmorItemMap.BodySlot leSlot in msWornMagicSlots)
-        {
-            UWObject lOItem = pOInventory.GetEquipped(leSlot);
-
-            if (lOItem == null)
-                continue;
-
-            UWEnchantment.Result lOEnchantment = UWEnchantment.Get(lOItem, null, pOData.Strings);
-
-            if (!lOEnchantment.HasEnchantment)
-                continue;
-
-            string lsEffect = lOEnchantment.IsCursed ? "Curse" : lOEnchantment.Name;
-
-            if (leSlot == leWeaponSlot)
-                lsEffect += " (when striking)";
-            else if (leSlot == leShieldSlot && !UWPlayerCritterRow.IsWornInShieldHand(lOItem.ID))
-                lsEffect += " (not in effect here)";
-
-            // The slot alone, not the item's name - it saves the room (per user, 2026-10-02).
-            fStatRow(fSlotName(leSlot, leWeaponSlot, leShieldSlot), lsEffect);
-            lbAny = true;
-        }
-
-        if (!lbAny)
-        {
-            GUILayout.Label("Nothing worn is enchanted.", mODimText);
-            return;
-        }
-
-        UWArmourProtection.Compute(pOInventory.Model, pOData, null, mOWornStatus);
-
-        GUILayout.Space(6f);
-        GUILayout.Label("Together, without cast spells:", mODimText);
-
-        int[] liProtection = mOWornStatus.Protection;
-
-        if (liProtection[UWArmourProtection.PartBody] + liProtection[UWArmourProtection.PartHands]
-            + liProtection[UWArmourProtection.PartLegs] + liProtection[UWArmourProtection.PartHead] > 0)
-            fStatRow("Protection", string.Format("head {0}, body {1}, hands {2}, legs {3}",
-                liProtection[UWArmourProtection.PartHead], liProtection[UWArmourProtection.PartBody],
-                liProtection[UWArmourProtection.PartHands], liProtection[UWArmourProtection.PartLegs]));
-
-        if (mOWornStatus.DamageResistance > 0)
-            fStatRow("Resistance", fSpellName(pOData, ResistanceClass, mOWornStatus.DamageResistance));
-
-        if (mOWornStatus.Brightness > 0)
-            fStatRow("Light", fSpellName(pOData, LightClass, mOWornStatus.Brightness));
-
-        fBitRow(pOData, "Movement", MotionClass, 1, 5, mOWornStatus.MotionAbilities, piMinor => 1 << (piMinor - 1));
-        fBitRow(pOData, "Stealth", BonusClass, 2, 4, mOWornStatus.StealthBonus, piMinor => 1 << (piMinor - 1));
-        fBitRow(pOData, "Immunity", BonusClass, 5, 9, mOWornStatus.DamageTypeProof, piMinor => msProofBitOfMinor[piMinor - 5]);
-        fBitRow(pOData, "Regeneration", UWWornRegeneration.MajorClass, 0xE, 0xF, mOWornStatus.RegenerationBits,
-            piMinor => UWWornRegeneration.GetBits(UWWornRegeneration.MajorClass, piMinor));
-
-        if (mOWornStatus.CurseDice > 0)
-            fStatRow("Curse", mOWornStatus.CurseDice + " dice of eight, now and then");
-
-        if (mOWornStatus.HasMazeNavigation)
-            fStatRow("Maze navigation", "shows the way in Tybal's maze");
-
-        if (mOWornStatus.HasDragonSkinBoots)
-            fStatRow("Dragon skin boots", "no harm from lava");
-    }
-
-    /// <summary>The slots that can carry worn magic: the five armour pieces, the rings and the
-    /// two front hands.</summary>
-    private static readonly UWArmorItemMap.BodySlot[] msWornMagicSlots =
-    {
-        UWArmorItemMap.BodySlot.Helmet, UWArmorItemMap.BodySlot.Chest, UWArmorItemMap.BodySlot.Gloves,
-        UWArmorItemMap.BodySlot.Legs, UWArmorItemMap.BodySlot.Boots, UWArmorItemMap.BodySlot.LeftRing,
-        UWArmorItemMap.BodySlot.RightRing, UWArmorItemMap.BodySlot.RightHandSlot, UWArmorItemMap.BodySlot.LeftHandSlot
-    };
-
-    // The enchantment classes the summary names (UWArmourProtection.fApplyEnchantment).
-    private const int LightClass = 0;
-
-    private const int MotionClass = 1;
-
-    private const int ResistanceClass = 2;
-
-    private const int BonusClass = 3;
-
-    /// <summary>The immunities' bits, minor class 5 to 9 (UWArmourProtection.msProofBits).</summary>
-    private static readonly int[] msProofBitOfMinor = { 0x40, 0x08, 0x10, 0x01, 0x02 };
-
-    /// <summary>One row naming every enchantment of a class whose bit is set.</summary>
-    private void fBitRow(DataImport pOData, string psLabel, int piMajor, int piFirstMinor, int piLastMinor,
-        int piBits, System.Func<int, int> pFBitOf)
-    {
-        List<string> lONames = new List<string>();
-
-        for (int liMinor = piFirstMinor; liMinor <= piLastMinor; liMinor++)
-        {
-            if ((piBits & pFBitOf(liMinor)) != 0)
-                lONames.Add(fSpellName(pOData, piMajor, liMinor));
-        }
-
-        if (lONames.Count > 0)
-            fStatRow(psLabel, string.Join(", ", lONames));
-    }
-
-    /// <summary>A spell name from string block 6, (major &lt;&lt; 4) | minor plus the project's one.</summary>
-    private static string fSpellName(DataImport pOData, int piMajor, int piMinor)
-    {
-        try
-        {
-            return pOData.Strings.Blocks[UWEnchantment.SpellStringBlock].Strings[((piMajor << 4) | piMinor) + 1].Trim();
-        }
-        catch
-        {
-            return "?";
-        }
-    }
-
-    private static string fSlotName(UWArmorItemMap.BodySlot peSlot, UWArmorItemMap.BodySlot peWeaponSlot,
-        UWArmorItemMap.BodySlot peShieldSlot)
-    {
-        if (peSlot == peWeaponSlot)
-            return "Weapon hand";
-
-        if (peSlot == peShieldSlot)
-            return "Shield hand";
-
-        switch (peSlot)
-        {
-            case UWArmorItemMap.BodySlot.LeftRing: return "Left ring";
-            case UWArmorItemMap.BodySlot.RightRing: return "Right ring";
-            default: return peSlot.ToString();
-        }
-    }
-
-    /// <summary>Which of the three pictures the hallucination shows (UWHallucinationState), or
-    /// nothing while none runs.</summary>
-    private static string fHallucinationEffectText()
-    {
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-        UWPaletteRenderToggle lOToggle = lOLoader != null ? lOLoader.GetComponent<UWPaletteRenderToggle>() : null;
-
-        if (lOToggle == null)
-            return string.Empty;
-
-        switch (lOToggle.HallucinationEffect)
-        {
-            case UWDataImport.UWData.UWHallucinationState.ScrambleEffect:
-                return ", scrambled textures";
-
-            case UWDataImport.UWData.UWHallucinationState.PaletteEffect:
-                return ", palette " + lOToggle.HallucinationPalette;
-
-            case UWDataImport.UWData.UWHallucinationState.LightTableEffect:
-                return ", dark light table";
-
-            default:
-                return string.Empty;
-        }
-    }
-
-    /// <summary>A label on the left, its value on the right.</summary>
-    private void fStatRow(string psLabel, string psValue)
-    {
-        GUILayout.BeginHorizontal();
-        GUILayout.Label(psLabel, mOLabel);
-        GUILayout.FlexibleSpace();
-        GUILayout.Label("<color=#" + AccentHex + ">" + psValue + "</color>", mOValue);
-        GUILayout.EndHorizontal();
-    }
-
-    /// <summary>A value kept in tenths, with its decimal place.</summary>
-    private static string fTenths(int piTenths)
-    {
-        return (piTenths / 10) + "." + Mathf.Abs(piTenths % 10);
-    }
-
-    // ------------------------------------------------- Map
-
-    /// <summary>How many tiles the map tab shows across; the wheel changes it.</summary>
-    private int miMapSpan = 20;
-
-    private const int MapSpanStep = 4;
-
-    private const int MinMapSpan = 8;
-
-    private const int MaxMapSpan = 64;
-
-    /// <summary>How often the tiles are redrawn while standing still - the automap also fills in
-    /// from what is seen, not only where one walks.</summary>
-    private const float MapRefreshSeconds = 0.5f;
-
-    private bool mbPendingMap;
-
-    private Rect mOPendingMapRect;
-
-    private Texture2D mOMapTiles;
-
-    private Vector2 mOMapBuiltAt = new Vector2(-1f, -1f);
-
-    private float mfMapBuiltTime = -1f;
-
-    /// <summary>
-    /// THE MAP TAB (feature wish of the user, 2026-09-26): a cut-out of the map around the
-    /// character, in the original's look - the parchment, the discovered tiles, the notes -, kept
-    /// up to date while the help is open. Only with the map carried, as the real one. Notes are
-    /// only shown: they are written and erased on the real map alone (per user).
-    /// </summary>
-    private void fDrawMap()
-    {
-        UWGameUI lOUi = UWScene.GameUi;
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-
-        if (lOUi == null || lOLoader == null)
-        {
-            GUILayout.Label("Map", mOHeading);
-            GUILayout.Label("No level is loaded.", mODimText);
-
-            return;
-        }
-
-        if (!lOUi.IsCarryingMap)
-        {
-            GUILayout.Label("Map", mOHeading);
-            GUILayout.Label("You carry no map. Pick it up again to see it here.", mODimText);
-
-            return;
-        }
-
-        GUILayout.Label(string.Format("Level {0}. The wheel zooms; notes are written on the map itself.",
-            lOLoader.CurrentLevelIndex + 1), mODimText);
-        GUILayout.Space(6f);
-
-        Rect lOSpace = GUILayoutUtility.GetRect(16f, 16f, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-        Event lOEvent = Event.current;
-
-        if (lOEvent.type == EventType.Layout || lOSpace.width < 4f || lOSpace.height < 4f)
+        if (mOKit == null)
             return;
 
-        if (lOEvent.type == EventType.Repaint)
-        {
-            float lfLeft = Mathf.Round((mOAreaOrigin.x + lOSpace.x) * mfScale);
-            float lfTop = Mathf.Round((mOAreaOrigin.y + lOSpace.y) * mfScale);
-
-            mOPendingMapRect = new Rect(lfLeft, lfTop,
-                Mathf.Round((mOAreaOrigin.x + lOSpace.xMax) * mfScale) - lfLeft,
-                Mathf.Round((mOAreaOrigin.y + lOSpace.yMax) * mfScale) - lfTop);
-            mbPendingMap = true;
-        }
-        else if (GUI.enabled && lOEvent.type == EventType.ScrollWheel && lOSpace.Contains(lOEvent.mousePosition))
-        {
-            miMapSpan = Mathf.Clamp(miMapSpan + (lOEvent.delta.y > 0f ? MapSpanStep : -MapSpanStep), MinMapSpan, MaxMapSpan);
-            lOEvent.Use();
-
-            if (UWUserSettings.HelpMapSpan != miMapSpan)
-            {
-                UWUserSettings.HelpMapSpan = miMapSpan;
-                UWUserSettings.Save();
-            }
-        }
-    }
-
-    /// <summary>The map cut-out at whole screen pixels per map pixel, centred on the character,
-    /// clipped to its space and to the panel's left edge (it too lies behind the sliding frame).
-    /// </summary>
-    private void fDrawPendingMap(float pfClipPixels)
-    {
-        UWGameUI lOUi = UWScene.GameUi;
-
-        if (lOUi == null)
-            return;
-
-        UWAutomapPictures lOMap = lOUi.AutomapPictures;
-
-        if (!lOMap.TryGetPlayerPixel(out Vector2 lOPlayer))
-            return;
-
-        if (mOMapTiles == null || lOPlayer != mOMapBuiltAt || Time.unscaledTime - mfMapBuiltTime >= MapRefreshSeconds)
-        {
-            mOMapTiles = lOMap.BuildTiles();
-            mOMapBuiltAt = lOPlayer;
-            mfMapBuiltTime = Time.unscaledTime;
-        }
-
-        Texture2D lOParchment = lOMap.GetParchment();
-
-        float lfLeft = Mathf.Max(mOPendingMapRect.x, pfClipPixels);
-        Rect lOClip = new Rect(lfLeft, mOPendingMapRect.y, mOPendingMapRect.xMax - lfLeft, mOPendingMapRect.height);
-
-        if (lOClip.width <= 0f || lOClip.height <= 0f)
-            return;
-
-        int liScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * UWAutomapPictures.TilePixels)));
-
-        GUI.matrix = Matrix4x4.identity;
-        UWImguiInput.AfterMatrix();
-        GUI.BeginGroup(lOClip);
-        UWImguiInput.Sync();
-
-        GUI.DrawTexture(new Rect(0f, 0f, lOClip.width, lOClip.height), fTexture(FieldColour));
-
-        float lfOriginX = Mathf.Round(mOPendingMapRect.center.x - lfLeft - (lOPlayer.x * liScale));
-        float lfOriginY = Mathf.Round((mOPendingMapRect.height / 2f) - (lOPlayer.y * liScale));
-
-        if (lOParchment != null)
-            GUI.DrawTexture(new Rect(lfOriginX, lfOriginY, lOParchment.width * liScale, lOParchment.height * liScale),
-                lOParchment);
-
-        if (mOMapTiles != null)
-        {
-            Vector2 lOTiles = UWAutomapPictures.TilesTopLeft;
-            float lfSize = UWAutomapPictures.TilesSize * liScale;
-
-            GUI.DrawTexture(new Rect(lfOriginX + (lOTiles.x * liScale), lfOriginY + (lOTiles.y * liScale), lfSize, lfSize),
-                mOMapTiles);
-        }
-
-        foreach (UWAutomapPictures.Note lONote in lOMap.GetNotes())
-        {
-            GUI.DrawTexture(new Rect(lfOriginX + (lONote.TopLeft.x * liScale), lfOriginY + (lONote.TopLeft.y * liScale),
-                lONote.Texture.width * liScale, lONote.Texture.height * liScale), lONote.Texture);
-        }
-
-        GUI.EndGroup();
-        UWImguiInput.Sync();
-    }
-
-    private static DataImport fData()
-    {
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-
-        return lOLoader != null ? lOLoader.UWDataImporter : null;
-    }
-
-    private void fDrawManual()
-    {
-        if (!UWManual.EnsureOpen())
-        {
-            GUILayout.Label("Manual", mOHeading);
-            GUILayout.Label(UWManual.Problem ?? "The manual cannot be shown.", mODimText);
-
-            return;
-        }
-
-        int liCount = UWManual.PageCount;
-
-        msPage = Mathf.Clamp(msPage, 0, Mathf.Max(0, liCount - 1));
-
-        GUILayout.BeginHorizontal();
-
-        if (UWImguiInput.LayoutButton("<", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
-            fTurn(-1);
-
-        GUILayout.Label(string.Format("Page {0} of {1}", msPage + 1, liCount), mOCentred, GUILayout.Height(28f),
-            GUILayout.ExpandWidth(true));
-
-        if (UWImguiInput.LayoutButton(">", mOFoldout, GUILayout.Width(44f), GUILayout.Height(28f)))
-            fTurn(1);
-
-        GUILayout.EndHorizontal();
-
-        GUILayout.Label("Click the page to read it large.", mODimText);
-        GUILayout.Space(6f);
-
-        Rect lOSpace = GUILayoutUtility.GetRect(16f, 16f, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
-        Event lOEvent = Event.current;
-
-        if (lOEvent.type == EventType.Layout || lOSpace.width < 4f || lOSpace.height < 4f)
-            return;
-
-        // The page as large as the space allows, placed on whole screen pixels.
-        Vector2 lOSize = UWManual.GetPageSize(msPage);
-        float lfLeft = (mOAreaOrigin.x + lOSpace.x) * mfScale;
-        float lfTop = (mOAreaOrigin.y + lOSpace.y) * mfScale;
-        float lfRoomWidth = lOSpace.width * mfScale;
-        float lfRoomHeight = lOSpace.height * mfScale;
-
-        int liWidth = Mathf.FloorToInt(Mathf.Min(lfRoomWidth, lfRoomHeight * lOSize.x / lOSize.y));
-        int liHeight = Mathf.RoundToInt(liWidth * lOSize.y / lOSize.x);
-
-        if (liWidth < 16 || liHeight < 16)
-            return;
-
-        Rect lOOnScreen = new Rect(Mathf.Round(lfLeft + ((lfRoomWidth - liWidth) / 2f)), Mathf.Round(lfTop), liWidth, liHeight);
-        Rect lOLocal = new Rect((lOOnScreen.x / mfScale) - mOAreaOrigin.x, (lOOnScreen.y / mfScale) - mOAreaOrigin.y,
-            liWidth / mfScale, liHeight / mfScale);
-
-        if (lOEvent.type == EventType.Repaint)
-        {
-            mOPendingPage = UWManual.GetPage(msPage, liWidth, liHeight);
-            mOPendingPageRect = lOOnScreen;
-        }
-
-        if (UWImguiInput.PressedIn(lOLocal))
-        {
-            fSetReading(true);
-
-            if (lOEvent.type == EventType.MouseDown)
-                lOEvent.Use();
-        }
-        else if (GUI.enabled && lOEvent.type == EventType.ScrollWheel && lOSpace.Contains(lOEvent.mousePosition))
-        {
-            fTurn(lOEvent.delta.y > 0f ? 1 : -1);
-            lOEvent.Use();
-        }
-    }
-
-    private static void fTurn(int piPages)
-    {
-        msPage = Mathf.Clamp(msPage + piPages, 0, Mathf.Max(0, UWManual.PageCount - 1));
+        mOKit.LetGoOfArea();
+        mOKit.Begin(false, false, false, false);
     }
 
     /// <summary>
-    /// The manual over the whole picture. Page one is the cover and stands alone on the
-    /// right; after it the even pages lie left and the odd ones right, as in the printed
-    /// booklet. Two pages when both fit at screen height, one otherwise.
+    /// The tab row on the kit: two rows of four (three in the second), the current tab in gold on the
+    /// lit face, the others lighting under the pointer - IMGUI's buttons, which shared each row's width
+    /// evenly. SIZED BY TEXT (decided per user 2026-10-24): each row shares its width by UWRowSizing
+    /// (the even shares while every title fits its share), and a row whose titles do not fit side by
+    /// side at all breaks into more rows, so a longer language or a narrow help does not clip them.
+    /// Returns the row's bottom.
     /// </summary>
-    private void fDrawReading()
+    private float fDrawKitTabs(Rect pOInner)
     {
-        int liCount = UWManual.PageCount;
+        UWKitRows.HelpLook lOLook = UWHelpKitFlow.ButtonLook(UWGuiTheme.HelpTabSize);
+        float lfY = pOInner.y;
 
-        if (liCount <= 0)
+        for (int liRowStart = 0; liRowStart < mOTabs.Length; liRowStart += TabsPerRow)
         {
-            fSetReading(false);
-            return;
-        }
+            int liEnd = Mathf.Min(liRowStart + TabsPerRow, mOTabs.Length);
+            int liAt = liRowStart;
 
-        float lfWidth = Screen.width;
-        float lfHeight = Screen.height;
-        float lfMargin = Mathf.Round(lfHeight * 0.03f);
-        float lfBar = Mathf.Round(lfHeight * 0.05f);
-        float lfArrowZone = Mathf.Round(lfHeight * 0.08f);
-        float lfPageHeight = lfHeight - (2f * lfMargin) - lfBar;
-        float lfRoom = lfWidth - (2f * (lfMargin + lfArrowZone));
-
-        // Which pages: the spread around the current page if two fit.
-        int liLeft = (msPage % 2 == 1) ? msPage : msPage - 1;
-        int liRight = liLeft + 1 < liCount ? liLeft + 1 : -1;
-        float lfSpreadWidth = fPageWidth(liLeft, lfPageHeight) + fPageWidth(liRight, lfPageHeight);
-        bool lbSpread = lfSpreadWidth <= lfRoom;
-
-        if (!lbSpread)
-        {
-            liLeft = msPage;
-            liRight = -1;
-        }
-
-        // Shrink when even a single page is too wide (a very narrow window).
-        float lfShown = fPageWidth(liLeft, lfPageHeight) + fPageWidth(liRight, lfPageHeight);
-
-        if (lfShown > lfRoom && lfShown > 0f)
-        {
-            lfPageHeight *= lfRoom / lfShown;
-            lfShown = lfRoom;
-        }
-
-        GUI.matrix = Matrix4x4.identity;
-        UWImguiInput.AfterMatrix();
-        GUI.DrawTexture(new Rect(0f, 0f, lfWidth, lfHeight), fTexture(ReadingShadeColour));
-
-        float lfX = Mathf.Round((lfWidth - lfShown) / 2f);
-        float lfY = Mathf.Round(lfMargin + ((lfHeight - (2f * lfMargin) - lfBar - lfPageHeight) / 2f));
-        Event lOEvent = Event.current;
-        bool lbClickedPage = false;
-
-        foreach (int liPage in new[] { liLeft, liRight })
-        {
-            if (liPage < 0)
-                continue;
-
-            int liPageWidth = Mathf.RoundToInt(fPageWidth(liPage, lfPageHeight));
-            int liPageHeight = Mathf.RoundToInt(lfPageHeight);
-            Rect lORect = new Rect(lfX, lfY, liPageWidth, liPageHeight);
-
-            if (lOEvent.type == EventType.Repaint)
+            while (liAt < liEnd)
             {
-                Texture2D lOPage = UWManual.GetPage(liPage, liPageWidth, liPageHeight);
+                int liTake = liEnd - liAt;
 
-                if (lOPage != null)
-                    GUI.DrawTexture(lORect, lOPage);
-            }
+                while (liTake > 1 && fTabsWidth(liAt, liTake, lOLook) > pOInner.width)
+                    liTake--;
 
-            if (UWImguiInput.PressedIn(lORect))
-                lbClickedPage = true;
+                float[] laTexts = new float[liTake];
+                float[] laWidths = new float[liTake];
 
-            lfX += liPageWidth;
-        }
+                for (int liTab = 0; liTab < liTake; liTab++)
+                    laTexts[liTab] = mOKit.HelpTextWidth(UWText.T(mOTabs[liAt + liTab].TitleId), lOLook);
 
-        int liStep = lbSpread ? 2 : 1;
+                UWRowSizing.SegmentWidths(pOInner.width, laTexts, laWidths);
 
-        // Arrows, page number and hint in the help's own scale.
-        float lfScale = Screen.height / ReferenceHeight;
-        float lfUnitsWide = lfWidth / lfScale;
+                float lfX = pOInner.x;
 
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        UWImguiInput.AfterMatrix();
+                for (int liTab = 0; liTab < liTake; liTab++)
+                {
+                    UWHelpTab lOTab = mOTabs[liAt + liTab];
+                    bool lbCurrent = lOTab == mOActive;
+                    UWKitRows.HelpLook lOTabLook = lOLook;
 
-        float lfArrowWidth = lfArrowZone / lfScale;
-        float lfArrowTop = (ReferenceHeight / 2f) - 40f;
+                    lOTabLook.Colour = lbCurrent ? UWGuiTheme.Accent : UWGuiTheme.Text;
 
-        if (msPage > 0 && UWImguiInput.Button(new Rect(lfMargin / lfScale, lfArrowTop, lfArrowWidth, 80f), "<", mOArrow))
-            fTurn(-liStep);
-
-        if (fLastShown(liLeft, liRight) < liCount - 1
-            && UWImguiInput.Button(new Rect(lfUnitsWide - (lfMargin / lfScale) - lfArrowWidth, lfArrowTop, lfArrowWidth, 80f), ">", mOArrow))
-            fTurn(liStep);
-
-        string lsPages = liRight >= 0 && liLeft >= 0
-            ? string.Format("Pages {0} and {1} of {2}", liLeft + 1, liRight + 1, liCount)
-            : string.Format("Page {0} of {1}", Mathf.Max(liLeft, liRight) + 1, liCount);
-
-        GUI.Label(new Rect(0f, ReferenceHeight - (lfBar / lfScale) - (lfMargin / lfScale), lfUnitsWide, lfBar / lfScale),
-            lsPages + "      Arrow keys or the wheel turn the pages, Esc or a click on the page closes", mOCentred);
-
-        // The keys and the wheel - the game hears none of them while reading.
-        if (lOEvent.type == EventType.KeyDown)
-        {
-            switch (lOEvent.keyCode)
-            {
-                case KeyCode.LeftArrow:
-                case KeyCode.PageUp:
-                    fTurn(-liStep);
-                    lOEvent.Use();
-                    break;
-
-                case KeyCode.RightArrow:
-                case KeyCode.PageDown:
-                case KeyCode.Space:
-                    fTurn(liStep);
-                    lOEvent.Use();
-                    break;
-
-                case KeyCode.Home:
-                    msPage = 0;
-                    lOEvent.Use();
-                    break;
-
-                case KeyCode.End:
-                    msPage = liCount - 1;
-                    lOEvent.Use();
-                    break;
-
-                case KeyCode.Escape:
-                    fSetReading(false);
-                    lOEvent.Use();
-                    break;
-
-                case KeyCode.Tab:
-                    // Not with Alt: that is the switch to another program.
-                    if (!lOEvent.alt)
+                    if (mOKit.HelpButton(new Rect(lfX, lfY, laWidths[liTab], TabHeight), UWText.T(lOTab.TitleId), lOTabLook,
+                        lbCurrent ? UWGuiTheme.Hover : UWGuiTheme.Panel, UWGuiTheme.Hover, lbCurrent ? UWGuiTheme.Accent : UWGuiTheme.Text))
                     {
-                        fSetReading(false);
-                        lOEvent.Use();
+                        mOKit.LetGoOfArea();
+                        fShow(lOTab);
                     }
 
-                    break;
+                    lfX += laWidths[liTab];
+                }
+
+                lfY += TabHeight;
+                liAt += liTake;
             }
         }
-        else if (lOEvent.type == EventType.ScrollWheel)
-        {
-            fTurn(lOEvent.delta.y > 0f ? liStep : -liStep);
-            lOEvent.Use();
-        }
-        else if (lbClickedPage)
-        {
-            // The click that closes is the help's: the game gets neither its release nor the
-            // button held down after it (per user, 2026-09-26).
-            fSetReading(false, true);
 
-            if (lOEvent.type == EventType.MouseDown)
-                lOEvent.Use();
-        }
+        return lfY;
     }
 
-    private static float fPageWidth(int piPage, float pfHeight)
+    /// <summary>The width piCount tabs from piFirst need side by side: their titles and padding.</summary>
+    private float fTabsWidth(int piFirst, int piCount, in UWKitRows.HelpLook pOLook)
     {
-        if (piPage < 0)
-            return 0f;
+        float lfWidth = 0f;
 
-        Vector2 lOSize = UWManual.GetPageSize(piPage);
+        for (int liTab = piFirst; liTab < piFirst + piCount; liTab++)
+            lfWidth += mOKit.HelpTextWidth(UWText.T(mOTabs[liTab].TitleId), pOLook) + (2f * UWRowSizing.Padding);
 
-        return lOSize.y > 0f ? pfHeight * lOSize.x / lOSize.y : 0f;
+        return lfWidth;
     }
 
-    private static int fLastShown(int piLeft, int piRight)
-    {
-        return Mathf.Max(piLeft, piRight);
-    }
-
-    // ------------------------------------------------- Styles
-
-    private void fEnsureStyles()
-    {
-        if (mOText != null)
-            return;
-
-        mOFont = UWInterfaceFont.Font;
-
-        mOText = new GUIStyle { font = mOFont, fontSize = 15, wordWrap = true, richText = true };
-        mOText.normal.textColor = TextColour;
-
-        mODimText = new GUIStyle(mOText) { fontSize = 13 };
-        mODimText.normal.textColor = DimTextColour;
-
-        mOHeading = new GUIStyle(mOText) { fontSize = 20, fontStyle = FontStyle.Bold };
-        mOHeading.normal.textColor = AccentColour;
-
-        mOSubHeading = new GUIStyle(mOText) { fontSize = 16, fontStyle = FontStyle.Bold, margin = new RectOffset(0, 0, 6, 2) };
-        mOSubHeading.normal.textColor = AccentColour;
-
-        mOTab = new GUIStyle(mOText) { fontSize = 14, alignment = TextAnchor.MiddleCenter, wordWrap = false };
-        mOTab.normal.background = fTexture(TabColour);
-        mOTab.hover.background = fTexture(HoverColour);
-        mOTab.hover.textColor = TextColour;
-
-        mOCurrentTab = new GUIStyle(mOTab);
-        mOCurrentTab.normal.textColor = AccentColour;
-        mOCurrentTab.hover.textColor = AccentColour;
-        mOCurrentTab.normal.background = fTexture(HoverColour);
-
-        mOFoldout = new GUIStyle(mOTab) { fontSize = 13, padding = new RectOffset(10, 10, 6, 6) };
-
-        mOCentred = new GUIStyle(mOText) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
-
-        mOLabel = new GUIStyle(mOText) { wordWrap = false };
-
-        mOValue = new GUIStyle(mOText) { wordWrap = false, alignment = TextAnchor.UpperRight };
-
-        mOIcon = new GUIStyle { padding = new RectOffset(0, 0, 0, 0), margin = new RectOffset(0, 3, 0, 0) };
-
-        mOArrow = new GUIStyle(mOTab) { fontSize = 28 };
-
-        mONotes = new GUIStyle(mOText) { padding = new RectOffset(8, 8, 8, 8), richText = false };
-        mONotes.normal.background = fTexture(FieldColour);
-        mONotes.focused.background = fTexture(FieldColour);
-        mONotes.focused.textColor = TextColour;
-        mONotes.hover.textColor = TextColour;
-    }
-
-    private Texture2D fTexture(Color pOColour)
-    {
-        if (mOTextures.TryGetValue(pOColour, out Texture2D lOTexture) && lOTexture != null)
-            return lOTexture;
-
-        lOTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWHelpWindow";
-        lOTexture.SetPixel(0, 0, pOColour);
-        lOTexture.Apply();
-        mOTextures[pOColour] = lOTexture;
-
-        return lOTexture;
-    }
+    /// <summary>A tab button's height.</summary>
+    private const float TabHeight = 28f;
 }

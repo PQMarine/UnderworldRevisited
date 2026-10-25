@@ -327,7 +327,7 @@ public sealed class UWMissiles
         // The launch sound of every missile (PrepareProjectileObject, effect 0x0A); a thing
         // knocked loose makes none.
         if (pbLaunchSound)
-            UWSoundEffects.PlayAt(UWSoundEffects.Miss, lOAt);
+            UWAudioService.PlayEffectAt(UWSoundEffectId.Miss, lOAt);
 
         return lOFlight;
     }
@@ -539,8 +539,8 @@ public sealed class UWMissiles
         // TWO HIT SOUNDS (2026-10-12; ours played none): missile_thwack plays effect 4 on the
         // struck mobile, then do_damage plays it again louder by the damage before the armour
         // (UnderworldExhumed combat/COMBAT.C).
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOCritter.BodyPosition);
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, pOCritter.BodyPosition, lOOutcome.HitVolume);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOCritter.BodyPosition);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOCritter.BodyPosition, lOOutcome.HitVolume);
 
         fApplyMissileDamage(UWWorld.TargetOf(pOCritter, lODamageable), lOOutcome);
 
@@ -598,8 +598,8 @@ public sealed class UWMissiles
 
         // Effect 3 twice: missile_thwack's, then do_damage's louder by the damage before the
         // armour (COMBAT.C; ours played the first alone until 2026-10-12).
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer);
-        UWSoundEffects.PlayAtAvatar(UWSoundEffects.HitPlayer, lOOutcome.HitVolume);
+        UWAudioService.PlayEffect(UWSoundEffectId.HitPlayer);
+        UWAudioService.PlayEffect(UWSoundEffectId.HitPlayer, lOOutcome.HitVolume);
 
         // THE REST IS THE DAMAGE PIPELINE'S since cleanup step 4.2 (2026-10-17; the request is
         // UWDamageRequest.Missile): the armour of the part and the easy halving (nothing left,
@@ -666,7 +666,7 @@ public sealed class UWMissiles
 
         // Only do_damage's sound for a static object (missile_thwack plays its own for the player
         // and a mobile), louder by the damage before the armour (since 2026-10-12).
-        UWSoundEffects.PlayAt(UWSoundEffects.HitCritter, lOPoint, lOOutcome.HitVolume);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOPoint, lOOutcome.HitVolume);
 
         if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
             fShowImpact(pOFlight, pOFlight.transform.position);
@@ -729,7 +729,7 @@ public sealed class UWMissiles
         }
 
         if (pOFlight.PlayersOwn)
-            UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, pOAt);
+            UWAudioService.PlayEffectAt(UWSoundEffectId.SpellImpact, pOAt);
     }
 
     // ------------------------------------------------- The player walking into a missile

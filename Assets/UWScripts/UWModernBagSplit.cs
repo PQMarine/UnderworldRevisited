@@ -57,17 +57,18 @@ internal sealed class UWModernBagSplit
     // The count of a stack and its cap are UWStackRules.CountAtLeastOne and
     // UWStackRules.MaxStackCount (the port's deliberate "stacks stop at 511") since 2026-10-11.
 
-    private static readonly Key[] msDigitKeys =
-    {
-        Key.Digit0, Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4,
-        Key.Digit5, Key.Digit6, Key.Digit7, Key.Digit8, Key.Digit9
-    };
+    /// <summary>The digits typed, by the key's place (UWTextEntry.Digits, cleanup step 7.1, 2026-10-25;
+    /// the box read the digit row and the keypad itself until then, the same keys). No more than the
+    /// stack holds (UWCountInput clamps while typing here).</summary>
+    private UWTextEntry mOSplitDigits;
 
-    private static readonly Key[] msNumpadKeys =
+    private UWTextEntry fSplitDigits()
     {
-        Key.Numpad0, Key.Numpad1, Key.Numpad2, Key.Numpad3, Key.Numpad4,
-        Key.Numpad5, Key.Numpad6, Key.Numpad7, Key.Numpad8, Key.Numpad9
-    };
+        if (mOSplitDigits == null)
+            mOSplitDigits = UWTextEntry.Digits(pcDigit => mOSplitInput.TypeDigit(pcDigit - '0'));
+
+        return mOSplitDigits;
+    }
 
     /// <summary>The stack being split; null while no box is open.</summary>
     private UWObject mOSplitItem;
@@ -142,6 +143,7 @@ internal sealed class UWModernBagSplit
         meSplitEquip = peEquip;
         mOSplitAnchor = pOAnchor;
         mOSplitInput.Begin(UWStackRules.CountAtLeastOne(pOItem));
+        fSplitDigits().Begin();
         mOBags.Clicks.EndPress();
 
         // The keys are the box's from now on, not only from UWGameUI's next look.
@@ -183,6 +185,8 @@ internal sealed class UWModernBagSplit
 
         if (mOSplitInput.IsOpen)
             mOSplitInput.Cancel();
+
+        fSplitDigits().End();
     }
 
     /// <summary>
@@ -190,8 +194,10 @@ internal sealed class UWModernBagSplit
     /// right - so left and right, not up and down): the d-pad's left and right or the walk stick
     /// pushed sideways step the count, held faster and after two seconds by ten (the repeat is
     /// UWCountInput's, the same as the classic prompt's); A takes that many, B lets the box go.
-    /// The buttons by their place on the pad; the press is used up, so the pad's pointer does not
-    /// click with it (UWGamepad.ConsumePress). True when the box closed.
+    /// A and B as they are bound (cleanup step 7.6; by their place on the pad before), the d-pad by
+    /// its place; the press is the box's, so the pad's pointer does not click with it (UWPadOwners asks
+    /// UWModernBags.SplitTakesPad when the frame begins; UWGamepad.ConsumePress until cleanup step
+    /// 7.8). True when the box closed.
     /// </summary>
     private bool fUpdateSplitPad()
     {
@@ -200,17 +206,17 @@ internal sealed class UWModernBagSplit
         if (lOPad == null)
             return false;
 
-        if (lOPad.buttonSouth.wasPressedThisFrame)
+        // A and B as they are bound (PadClick, PadBack: their first binding, cleanup step 7.6 - by
+        // their place until then); the d-pad and the stick by their place.
+        if (UWInput.PadPressed(UWAct.PadClick, 0, "<Gamepad>/buttonSouth"))
         {
-            UWGamepad.ConsumePress();
             fEnterSplit();
 
             return true;
         }
 
-        if (lOPad.buttonEast.wasPressedThisFrame)
+        if (UWBack.Takes(UWBackOwner.BagSplit, UWBackKey.PadButton))
         {
-            UWGamepad.ConsumePress();
             End();
             return true;
         }
@@ -254,13 +260,13 @@ internal sealed class UWModernBagSplit
 
         if (lOKeyboard != null)
         {
-            if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
+            if (UWTextEntry.EnterPressed)
             {
                 fEnterSplit();
                 return;
             }
 
-            if (lOKeyboard.escapeKey.wasPressedThisFrame)
+            if (UWBack.Takes(UWBackOwner.BagSplit, UWBackKey.Escape))
             {
                 End();
                 return;
@@ -271,24 +277,17 @@ internal sealed class UWModernBagSplit
             else if (lOKeyboard.downArrowKey.wasPressedThisFrame || lOKeyboard.numpadMinusKey.wasPressedThisFrame)
                 mOSplitInput.Step(-1);
 
-            if (lOKeyboard.backspaceKey.wasPressedThisFrame)
+            if (UWTextEntry.BackspacePressed)
                 mOSplitInput.Backspace();
 
-            // No more than the stack holds (UWCountInput clamps while typing here).
-            for (int liDigit = 0; liDigit <= 9; liDigit++)
-            {
-                if (lOKeyboard[msDigitKeys[liDigit]].wasPressedThisFrame || lOKeyboard[msNumpadKeys[liDigit]].wasPressedThisFrame)
-                    mOSplitInput.TypeDigit(liDigit);
-            }
+            fSplitDigits().ReadKeys();
         }
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return;
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        Vector2 lOPointer = UWPointer.Position;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f && mOSplitRect.Contains(lOPointer))
             mOSplitInput.Step(lfWheel > 0f ? 1 : -1);
@@ -393,7 +392,7 @@ internal sealed class UWModernBagSplit
 
         float lfRowY = lfY + (SplitRow * liScale);
         float lfButton = SplitButton * liScale;
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
 
         mOSplitMinusRect = new Rect(lfX + (SplitMinusX * liScale), lfRowY, lfButton, lfButton);
         mOSplitPlusRect = new Rect(lfX + (SplitPlusX * liScale), lfRowY, lfButton, lfButton);
@@ -451,7 +450,7 @@ internal sealed class UWModernBagSplit
         mOSplitPlusText.color = UWModernPalette.LightText;
 
         mOSplitOk = UWUiKit.CreateText(mOSplitRoot, "OK", TextAnchor.MiddleCenter, UWModernPalette.HudText, lOUi);
-        mOSplitOk.text = "OK";
+        mOSplitOk.text = UWText.T("hud.split.ok");
     }
 
     internal void Release()

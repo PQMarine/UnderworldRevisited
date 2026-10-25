@@ -77,9 +77,7 @@ public static class UWMouseButtons
     {
         get
         {
-            Mouse lOMouse = Mouse.current;
-
-            return LeftPressed || RightPressed || (lOMouse != null && lOMouse.middleButton.wasPressedThisFrame);
+            return LeftPressed || RightPressed || (UWPointer.HasMouse && UWPointer.MiddlePressed);
         }
     }
 
@@ -118,42 +116,42 @@ public static class UWMouseButtons
         return mORight;
     }
 
+    /// <summary>The action's key or button in force (UWBindingInfo.PathOr since cleanup step 7.2,
+    /// 2026-10-25; a lookup of its own here until then).</summary>
     private static string fGetPath(string psAction, string psDefault)
     {
-        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
-        {
-            if (lOEntry.Action != psAction || lOEntry.Map != "Player")
-                continue;
-
-            string lsPath = UWKeyBindings.GetPath(lOEntry);
-
-            return string.IsNullOrEmpty(lsPath) ? psDefault : lsPath;
-        }
-
-        return psDefault;
+        return UWBindingInfo.PathOr(psAction, psDefault);
     }
 
     /// <summary>No button reaches the game - the help window has the mouse (UWHelpWindow: while
-    /// reading the manual, or over its panel) or a typed input holds it (the mantra prompt,
-    /// Interaction). Two owners, so that one does not lift the other's block.</summary>
-    public static bool IsBlocked => IsBlockedByHelp || IsBlockedByPrompt;
+    /// reading the manual, or over its panel), a typed input holds it (the mantra prompt,
+    /// Interaction) or the pointer is on the debug panel (UWDebugOverlay, cleanup 8c: a click on a
+    /// section's heading must not walk, use or strike). Three owners, so that one does not lift
+    /// another's block.</summary>
+    public static bool IsBlocked => IsBlockedByHelp || IsBlockedByPrompt || IsBlockedByDebug;
 
     public static bool IsBlockedByHelp { get; set; }
 
     public static bool IsBlockedByPrompt { get; set; }
 
+    public static bool IsBlockedByDebug { get; set; }
+
+    // THE PAD'S CLICKS COUNT AS THE MOUSE'S (cleanup step 7.7B, 2026-10-25): the pad presses a mouse of
+    // its own (UWPointer.PadButton), and the binding's path finds the system mouse's control - so a mouse
+    // button is asked on both (UWPointer.Pressed/Held/Released), as the pad's system clicks counted before.
+
     private static bool fPressed(ButtonControl pOControl)
     {
-        return !IsBlocked && pOControl != null && pOControl.wasPressedThisFrame;
+        return !IsBlocked && pOControl != null && UWPointer.Pressed(pOControl);
     }
 
     private static bool fReleased(ButtonControl pOControl)
     {
-        return !IsBlocked && pOControl != null && pOControl.wasReleasedThisFrame;
+        return !IsBlocked && pOControl != null && UWPointer.Released(pOControl);
     }
 
     private static bool fHeld(ButtonControl pOControl)
     {
-        return !IsBlocked && pOControl != null && pOControl.isPressed;
+        return !IsBlocked && pOControl != null && UWPointer.Held(pOControl);
     }
 }

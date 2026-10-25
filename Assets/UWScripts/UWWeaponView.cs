@@ -21,8 +21,8 @@ public sealed class UWWeaponView
     public UWWeaponView()
     {
         mOSwing.AttackConnected += fOnConnected;
-        mOSwing.CombatModeEntered += UWMusic.OnWeaponDrawn;
-        mOSwing.CombatModeLeft += UWMusic.OnCombatModeLeft;
+        mOSwing.CombatModeEntered += UWAudioService.OnWeaponDrawn;
+        mOSwing.CombatModeLeft += UWAudioService.OnCombatModeLeft;
         mOSwing.Struck += fOnStruck;
     }
 

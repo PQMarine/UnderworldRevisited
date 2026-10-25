@@ -1,22 +1,19 @@
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// Makes a light burn restlessly: noise on the intensity, and for open fire additionally a
 /// slight jitter of the light position and a sprite self-glow that flickers along.
 ///
-/// THE JITTER is the real gain: a light that only gets brighter and darker
-/// looks like a bad light bulb. If it also wanders by one or two units, the shadows
-/// dance on the wall - that is what fire looks like (per user, 2026-09-12: "open fire could
-/// flicker a bit more").
-///
-/// TWO NOISE VALUES layered, a slow one for the rise and fall of the flame and a
-/// fast one for the twitching - with only one it looks periodic.
-///
-/// The player light has its own flicker in UWLighting.
+/// The formulas - THE JITTER, the TWO NOISE VALUES layered - are UWFlicker's since cleanup step
+/// 6.4 (2026-10-24), shared with the carried light (UWLighting) and the palette light sources
+/// (UWPaletteEffects); this component applies them to a Light and its renderers.
 /// </summary>
 public class UWLightFlicker : MonoBehaviour
 {
-    private const string GlowProperty = "_SpriteGlow";
+    /// <summary>Unity's noise for UWFlicker's formulas, one cached delegate (no allocation per
+    /// frame).</summary>
+    public static readonly UWFlicker.Noise2D Perlin = Mathf.PerlinNoise;
 
     private Light mOLight;
 
@@ -61,25 +58,19 @@ public class UWLightFlicker : MonoBehaviour
 
         float lfTime = Time.time;
 
-        float lfNoise = (Mathf.PerlinNoise(mfSeed, lfTime * 4.1f) * 0.65f)
-            + (Mathf.PerlinNoise(mfSeed + 17.3f, lfTime * 11.7f) * 0.35f);
+        float lfNoise = UWFlicker.PlacedNoise(Perlin, mfSeed, lfTime);
 
-        float lfFactor = 1f - (mfAmount * lfNoise);
-
-        mOLight.intensity = mfBaseIntensity * lfFactor;
+        mOLight.intensity = mfBaseIntensity * UWFlicker.PlacedFactor(mfAmount, lfNoise);
 
         if (mfJitter > 0f)
         {
-            Vector3 lOWobble = new Vector3(
-                Mathf.PerlinNoise(mfSeed + 3.1f, lfTime * 6.3f) - 0.5f,
-                Mathf.PerlinNoise(mfSeed + 7.7f, lfTime * 5.1f) - 0.5f,
-                Mathf.PerlinNoise(mfSeed + 11.9f, lfTime * 6.9f) - 0.5f);
+            UWFlicker.Jitter(Perlin, mfSeed, lfTime, mfJitter, out float lfX, out float lfY, out float lfZ);
 
-            transform.localPosition = mOBasePosition + (lOWobble * (2f * mfJitter));
+            transform.localPosition = mOBasePosition + new Vector3(lfX, lfY, lfZ);
         }
 
         if (mORenderers != null && mfGlow > 0f)
-            SetGlow(mORenderers, mfGlow * (1f - (mfGlowFlicker * lfNoise)), ref mOBlock);
+            SetGlow(mORenderers, mfGlow * UWFlicker.PlacedFactor(mfGlowFlicker, lfNoise), ref mOBlock);
     }
 
     /// <summary>
@@ -103,7 +94,7 @@ public class UWLightFlicker : MonoBehaviour
                 continue;
 
             lORenderer.GetPropertyBlock(pOBlock);
-            pOBlock.SetFloat(GlowProperty, pfGlow);
+            pOBlock.SetFloat(UWShaderIds.SpriteGlow, pfGlow);
             lORenderer.SetPropertyBlock(pOBlock);
         }
     }

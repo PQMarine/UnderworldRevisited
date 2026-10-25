@@ -1,7 +1,7 @@
 namespace UWDataImport.UWData
 {
 	/// <summary>The player of the pieces, as the theme logic sees it. The Unity side is
-	/// UWMusic over UWAudioEngine.</summary>
+	/// UWAudioService over UWAudioMixer (until 2026-10-24 UWMusic over UWAudioEngine).</summary>
 	public interface IUWMusicOutput
 	{
 		bool IsReady { get; }
@@ -18,7 +18,7 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// Which music plays when - the theme logic of the original (reference: xmimusic.cs,
 	/// uw1 branch, from the disassembly). Engine-free since 2026-09-18 (P3 of the engine
-	/// separation), out of UWMusic, which keeps the audio engine and passes the time in.
+	/// separation), out of UWMusic; UWAudioService (cleanup 6.6) passes the time in.
 	///
 	/// THE THEMES, number as in the game, file "AW" plus number in octal (8 becomes AW10):
 	///

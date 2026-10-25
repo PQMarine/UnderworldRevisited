@@ -1,6 +1,6 @@
 // CORE OF THE PALETTE RENDERER. Included by the palette shaders UW/DungeonPalette,
 // UW/ModelPalette, UW/DecalPalette and UW/BillboardPalette. The palette path is the default;
-// the detail level of the Graphics menu switches to the URP lighting (see UWPaletteRenderToggle).
+// the detail level of the Graphics menu switches to the URP lighting (see UWPaletteRenderPath).
 //
 // The shared lookup chain of all palette shaders. It replaces URP lighting
 // completely - there is no point light, no normal vector, no shadow casting.
@@ -39,7 +39,7 @@
 #ifndef UW_PALETTE_LOOKUP_INCLUDED
 #define UW_PALETTE_LOOKUP_INCLUDED
 
-// The world's colour table (UWShadePalette.WorldColourTableProperty): _UWColourTable, or at
+// The world's colour table (UWShaderIds.WorldColourTable): _UWColourTable, or at
 // Night Vision the one built from MONO.DAT. The interface reads _UWColourTable itself.
 TEXTURE2D(_UWWorldColourTable);
 SAMPLER(sampler_UWWorldColourTable);
@@ -50,15 +50,15 @@ SAMPLER(sampler_UWShadeTable);
 TEXTURE2D(_UWRotationTable);
 SAMPLER(sampler_UWRotationTable);
 
-// Set per frame by UWPaletteRenderToggle (via UWShadePalette.ApplyGlobals). _UWLightLevel is
+// Set per frame by UWRenderPathHost (via UWShadePalette.ApplyGlobals). _UWLightLevel is
 // the light level 0 to 7, _UWRotationStep the current step of the palette rotation,
 // _UWRotationStepCount the number of rotation steps, _UWTileSpacing the edge length
-// of a tile in world units and _UWCutoffDistance the view distance at this light level.
+// of a tile in world units. (_UWCutoffDistance, the view distance per light level, went on
+// 2026-10-24: no shader read it - the distance shading is the shade table's.)
 float _UWLightLevel;
 float _UWRotationStep;
 float _UWRotationStepCount;
 float _UWTileSpacing;
-float _UWCutoffDistance;
 
 // 1 = in-between levels between two tile distances, 0 = the level of the whole tile.
 float _UWInterpolateLevels;

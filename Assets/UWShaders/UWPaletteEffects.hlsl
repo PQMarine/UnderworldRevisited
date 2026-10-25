@@ -27,7 +27,7 @@ float _UWPaletteAO;
 // level the sources give (times 16, 255 none) - each one falls off by the player's own SHADES.DAT
 // table and walls shadow it.
 //
-// HOW FAR: first only within the player's own view distance (_UWCutoffDistance; per user the same
+// HOW FAR: first only within the player's own view distance (SHADES.DAT; per user the same
 // day, a source should not let one see further than SHADES.DAT allows) - but then a fire near the
 // edge of that distance lost its own surroundings and its glow lay on the floor in front of the
 // player ("wirkt immernoch unnatuerlich", per user with a screenshot). Now the limit is the reach

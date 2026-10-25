@@ -38,8 +38,8 @@ namespace UWDataImport.UWData
 	/// Emulation of the YM3812 (OPL2), the AdLib sound chip - the sound the original
 	/// produces on a Sound Blaster: music from the AW*.XMI pieces with the instruments
 	/// from UW.AD, and the sound effects it animates as TVFX programs on the same kind of
-	/// chip (see UWTvfxVoice; UWAudioEngine runs one instance for music and one for
-	/// effects). Ultima Underworld 1 has no sampled effects.
+	/// chip (see UWTvfxVoice; UWAudioMixCore runs one instance for music, UWAdlibMusicDevice, and
+	/// one for effects, UWEffectSynth). Ultima Underworld 1 has no sampled effects.
 	///
 	/// PORT OF YMFM (2026-09-15, see the license header): only the OPL2 path of ymfm's
 	/// generic engine (fm_engine_base / fm_channel / fm_operator with
@@ -56,7 +56,7 @@ namespace UWDataImport.UWData
 	/// user in the intro: four notes in the original, two in ours, 2026-09-11).
 	///
 	/// The sample rate is the chip's, 49716 Hz (3.579545 MHz divided by prescale 4 and
-	/// 18 operators). Anyone who needs a different one resamples - see UWAudioEngine.
+	/// 18 operators). Anyone who needs a different one resamples - see UWAudioMixCore.
 	/// </summary>
 	public class UWOpl2
 	{

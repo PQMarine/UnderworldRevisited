@@ -101,7 +101,7 @@ public sealed class UWClassicUseMode
         if (mOInteraction == null)
             return;
 
-        mOInteraction.AddMessage("Use " + UWText.ObjectName(mOUWData, pOItem.ID, false, false, UWItemMessages.UnnamedItem) + " on what?");
+        mOInteraction.AddMessage(UWText.F("prompt.use_on_what", UWText.ObjectName(mOUWData, pOItem.ID, false, false, UWItemMessages.UnnamedItem)));
     }
 
     /// <summary>Once a frame while a thing is in use (UWItemDrag.Update): the icon on the pointer,

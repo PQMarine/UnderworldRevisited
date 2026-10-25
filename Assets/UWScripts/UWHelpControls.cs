@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE HELP'S CONTROLS TAB (per user, 2026-10-04: "with all the functions of the modern scheme
@@ -12,8 +13,12 @@ using UnityEngine.InputSystem;
 ///   - THE CLASSIC SCHEME as the original's mouse in a few lines and the changeable keys with
 ///     their labels (UWKeyBindings).
 ///
-/// The names of changeable keys come from the bindings in force (UWKeyBindings.GetKeyName), so a
-/// key the player moved shows where it is now; the fixed ones are written out.
+/// The names of changeable keys come from the bindings in force (UWBindingInfo, cleanup step 7.2,
+/// 2026-10-25; three lookups of their own here until then), so a key the player moved shows where it
+/// is now; the fixed ones are written out.
+///
+/// THE TEXTS come from the text table (UWText, "help.controls.", cleanup step 8.5, 2026-10-24);
+/// single key caps ("W", "F9", "1 ... 0") stay as they are.
 /// </summary>
 public static class UWHelpControls
 {
@@ -75,33 +80,21 @@ public static class UWHelpControls
         return lOSections;
     }
 
-    /// <summary>The glyph of a gamepad entry's binding as it is now (UWKeyBindings.PadEntries).</summary>
+    /// <summary>The glyph of a gamepad entry's binding as it is now (UWGlyphs.ForEntry).</summary>
     private static Texture2D fPad(string psAction, int piBinding)
     {
-        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
-        {
-            if (lOEntry.Action == psAction && lOEntry.Binding == piBinding)
-                return UWGlyphs.ForPath(UWKeyBindings.GetPath(lOEntry));
-        }
-
-        return null;
+        return UWGlyphs.ForEntry(psAction, piBinding);
     }
 
     /// <summary>The name of a gamepad entry's button, for a row whose glyph is missing.</summary>
     private static string fPadName(string psAction, int piBinding)
     {
-        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
-        {
-            if (lOEntry.Action == psAction && lOEntry.Binding == piBinding)
-                return UWKeyBindings.GetKeyName(lOEntry);
-        }
-
-        return "-";
+        return UWBindingInfo.PadName(psAction, piBinding);
     }
 
-    private static string fWalkStickName => UWUserSettings.GamepadSwapSticks ? "Right stick" : "Left stick";
+    private static string fWalkStickName => UWUserSettings.GamepadSwapSticks ? UWText.T("help.controls.key.right_stick") : UWText.T("help.controls.key.left_stick");
 
-    private static string fLookStickName => UWUserSettings.GamepadSwapSticks ? "Left stick" : "Right stick";
+    private static string fLookStickName => UWUserSettings.GamepadSwapSticks ? UWText.T("help.controls.key.left_stick") : UWText.T("help.controls.key.right_stick");
 
     private static Texture2D fWalkStick => UWGlyphs.Tiles(UWUserSettings.GamepadSwapSticks ? UWGlyphs.RightStickTile : UWGlyphs.LeftStickTile);
 
@@ -115,41 +108,40 @@ public static class UWHelpControls
 
         lOSections.Add(new Section
         {
-            Title = "Gamepad",
-            Intro = "Changeable in the Controls dialog of the menu bar, its Gamepad tab - the button names too."
+            Title = UWText.T("help.controls.pad.title"),
+            Intro = UWText.T("help.controls.pad.intro")
         }
-            .AddPad(fWalkStickName, "Walk and step sideways.", fWalkStick)
-            .AddPad(fLookStickName, "Look around.", fLookStick)
-            .AddPad(fPadName("ModernUse", 1), "Use what you aim at; held: use it directly.", fPad("ModernUse", 1))
-            .AddPad(fPadName("ModernLook", 1), "Look at it.", fPad("ModernLook", 1))
-            .AddPad(fPadName("PadJump", 0), "Jump.", fPad("PadJump", 0))
-            .AddPad(fPadName("PadBack", 0), "Close what is open.", fPad("PadBack", 0))
-            .AddPad(fPadName("ModernAttack", 1), "Draw the weapon; held: charge, let go to strike.", fPad("ModernAttack", 1))
-            .AddPad(fPadName("ModernReady", 1), "Put the weapon away.", fPad("ModernReady", 1))
-            .AddPad(fPadName("PadCast", 0), "Cast the runes in the hollow; held: the rune panel.", fPad("PadCast", 0))
-            .AddPad(fPadName("PadSlotPrevious", 0) + " " + fPadName("PadSlotNext", 0), "Pick a slot of the action bar.",
+            .AddPad(fWalkStickName, UWText.T("help.controls.pad.walk"), fWalkStick)
+            .AddPad(fLookStickName, UWText.T("help.controls.pad.look_around"), fLookStick)
+            .AddPad(fPadName("ModernUse", 1), UWText.T("help.controls.pad.use"), fPad("ModernUse", 1))
+            .AddPad(fPadName("ModernLook", 1), UWText.T("help.controls.pad.look"), fPad("ModernLook", 1))
+            .AddPad(fPadName("PadJump", 0), UWText.T("help.controls.pad.jump"), fPad("PadJump", 0))
+            .AddPad(fPadName("PadBack", 0), UWText.T("help.controls.pad.back"), fPad("PadBack", 0))
+            .AddPad(fPadName("ModernAttack", 1), UWText.T("help.controls.pad.attack"), fPad("ModernAttack", 1))
+            .AddPad(fPadName("ModernReady", 1), UWText.T("help.controls.pad.ready"), fPad("ModernReady", 1))
+            .AddPad(fPadName("PadCast", 0), UWText.T("help.controls.pad.cast"), fPad("PadCast", 0))
+            .AddPad(fPadName("PadSlotPrevious", 0) + " " + fPadName("PadSlotNext", 0), UWText.T("help.controls.pad.slot_pick"),
                 fPad("PadSlotPrevious", 0), fPad("PadSlotNext", 0))
-            .AddPad(fPadName("PadSlotUse", 0), "Use the slot.", fPad("PadSlotUse", 0))
-            .AddPad(fPadName("ToggleInventory", 1), "The character panel; held: every bag.", fPad("ToggleInventory", 1))
-            .AddPad(fPadName("ModernHover", 4) + " " + fPadName("ModernHover", 5), "Sink and rise while flying.",
+            .AddPad(fPadName("PadSlotUse", 0), UWText.T("help.controls.pad.slot_use"), fPad("PadSlotUse", 0))
+            .AddPad(fPadName("ToggleInventory", 1), UWText.T("help.controls.pad.character_panel"), fPad("ToggleInventory", 1))
+            .AddPad(fPadName("ModernHover", 4) + " " + fPadName("ModernHover", 5), UWText.T("help.controls.pad.sink_rise"),
                 fPad("ModernHover", 4), fPad("ModernHover", 5))
-            .AddPad(fPadName("ToggleMap", 1), "The map; held: this help.", fPad("ToggleMap", 1))
-            .AddPad(fPadName("Menu", 1), "The game menu.", fPad("Menu", 1))
-            .AddPad(fPadName("PadPointer", 0), "Free the pointer (onto the backpack) or lock it again.", fPad("PadPointer", 0)));
+            .AddPad(fPadName("ToggleMap", 1), UWText.T("help.controls.pad.map"), fPad("ToggleMap", 1))
+            .AddPad(fPadName("Menu", 1), UWText.T("help.controls.pad.menu"), fPad("Menu", 1))
+            .AddPad(fPadName("PadPointer", 0), UWText.T("help.controls.pad.pointer"), fPad("PadPointer", 0)));
 
         lOSections.Add(new Section
         {
-            Title = "Gamepad: the free pointer",
-            Intro = "With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a "
-                + "conversation, the map - the pointer is free by itself."
+            Title = UWText.T("help.controls.pad_pointer.title"),
+            Intro = UWText.T("help.controls.pad_pointer.intro")
         }
-            .AddPad(fLookStickName, "Move the pointer.", fLookStick)
-            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), "The left mouse button; held: drag.",
+            .AddPad(fLookStickName, UWText.T("help.controls.pad_pointer.move"), fLookStick)
+            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), UWText.T("help.controls.pad_pointer.click"),
                 fPad("PadClick", 0), fPad("PadClick", 1))
-            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), "The right mouse button.",
+            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), UWText.T("help.controls.pad.right_button"),
                 fPad("PadContext", 0), fPad("PadContext", 1))
-            .AddPad(fWalkStickName, "Over a window: scroll. In a menu: the next entry.", fWalkStick)
-            .AddPad("D-pad", "In a menu: the next entry.", UWGlyphs.Tiles(UWGlyphs.DpadVerticalTile)));
+            .AddPad(fWalkStickName, UWText.T("help.controls.pad_pointer.scroll"), fWalkStick)
+            .AddPad(UWText.T("help.controls.key.dpad"), UWText.T("help.controls.pad_pointer.dpad"), UWGlyphs.Tiles(UWGlyphs.DpadVerticalTile)));
 
         return lOSections;
     }
@@ -161,20 +153,19 @@ public static class UWHelpControls
 
         lOSections.Add(new Section
         {
-            Title = "Gamepad",
-            Intro = "The pad's buttons are the mouse's buttons, where the pointer is. Changeable in the Controls "
-                + "dialog of the menu bar, its Gamepad tab."
+            Title = UWText.T("help.controls.pad.title"),
+            Intro = UWText.T("help.controls.classic_pad.intro")
         }
-            .AddPad(fWalkStickName, "Walk; pushed well sideways: step sideways.", fWalkStick)
-            .AddPad(fLookStickName, "Turn; up and down tilt the view a step.", fLookStick)
-            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), "The left mouse button.",
+            .AddPad(fWalkStickName, UWText.T("help.controls.classic_pad.walk"), fWalkStick)
+            .AddPad(fLookStickName, UWText.T("help.controls.classic_pad.turn"), fLookStick)
+            .AddPad(fPadName("PadClick", 0) + " " + fPadName("PadClick", 1), UWText.T("help.controls.classic_pad.left_button"),
                 fPad("PadClick", 0), fPad("PadClick", 1))
-            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), "The right mouse button.",
+            .AddPad(fPadName("PadContext", 0) + " " + fPadName("PadContext", 1), UWText.T("help.controls.pad.right_button"),
                 fPad("PadContext", 0), fPad("PadContext", 1))
-            .AddPad(fPadName("PadJump", 0), "Jump.", fPad("PadJump", 0))
-            .AddPad(fPadName("ToggleMap", 1), "The map; held: this help.", fPad("ToggleMap", 1))
-            .AddPad(fPadName("PadPointer", 0), "The stick moves the pointer instead, or turns again.", fPad("PadPointer", 0))
-            .AddPad(fWalkStickName, "With the pointer on the stick, over the frame: scroll.", fWalkStick));
+            .AddPad(fPadName("PadJump", 0), UWText.T("help.controls.pad.jump"), fPad("PadJump", 0))
+            .AddPad(fPadName("ToggleMap", 1), UWText.T("help.controls.pad.map"), fPad("ToggleMap", 1))
+            .AddPad(fPadName("PadPointer", 0), UWText.T("help.controls.classic_pad.pointer"), fPad("PadPointer", 0))
+            .AddPad(fWalkStickName, UWText.T("help.controls.classic_pad.scroll"), fWalkStick));
 
         return lOSections;
     }
@@ -182,23 +173,13 @@ public static class UWHelpControls
     /// <summary>The key of a changeable binding as it is now, or the fallback.</summary>
     private static string fKey(string psAction, int piBinding, string psFallback)
     {
-        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
-        {
-            if (lOEntry.Action != psAction || lOEntry.Binding != piBinding)
-                continue;
-
-            string lsName = UWKeyBindings.GetKeyName(lOEntry);
-
-            return string.IsNullOrEmpty(lsName) || lsName == "-" ? psFallback : lsName;
-        }
-
-        return psFallback;
+        return UWBindingInfo.KeyName(psAction, piBinding, psFallback);
     }
 
     private static List<Section> fModern()
     {
-        string lsLeft = fKey("CursorDrag", 0, "Left button");
-        string lsRight = fKey("Interact", 0, "Right button");
+        string lsLeft = fKey("CursorDrag", 0, UWText.T("help.controls.key.left_button"));
+        string lsRight = fKey("Interact", 0, UWText.T("help.controls.key.right_button"));
         string lsMove = fKey("Move", 1, "W") + " " + fKey("Move", 3, "A") + " " + fKey("Move", 2, "S") + " " + fKey("Move", 4, "D");
         string lsLook = fKey("ModernLook", 0, "Q");
         string lsBags = fKey("ModernBags", 0, "B");
@@ -210,88 +191,69 @@ public static class UWHelpControls
         string lsCamp = fKey("KeyCamp", 0, "F10");
         string lsOptions = fKey("KeyOptions", 0, "F1");
         string lsScheme = fKey("ToggleScheme", 0, "F2");
-        string lsWalkSlow = fKey("WalkSlow", 0, "Left Shift");
+        string lsWalkSlow = fKey("WalkSlow", 0, UWText.T("help.controls.key.left_shift"));
         string lsUse = fKey("ModernUse", 0, "E");
 
         List<Section> lOSections = new List<Section>();
 
         lOSections.Add(new Section
         {
-            Title = "The pointer",
-            Intro = "The mouse either turns the view (pointer locked, a crosshair in the middle) or moves a free "
-                + "pointer over the windows and the world. Only the right button switches between the two."
+            Title = UWText.T("help.controls.modern.pointer.title"),
+            Intro = UWText.T("help.controls.modern.pointer.intro")
         }
-            .Add(lsRight, "Free the pointer, or lock it again to look around. The game menu has the other way "
-                + "round as an option: the pointer stays free and the view turns while the button is held.")
-            .Add("Locked", "The crosshair aims: " + lsUse + ", " + lsLook + " and the left button act on what it is on.")
-            .Add("Free", "The windows take the clicks; " + lsUse + " and " + lsLook + " act on what is under the pointer, in the "
-                + "world as in the bags, the character panel and the action bar (holding " + lsUse + " does nothing over a window)."));
+            .Add(lsRight, UWText.T("help.controls.modern.pointer.right"))
+            .Add(UWText.T("help.controls.modern.pointer.locked"), UWText.F("help.controls.modern.pointer.locked_text", lsUse, lsLook))
+            .Add(UWText.T("help.controls.modern.pointer.free"), UWText.F("help.controls.modern.pointer.free_text", lsUse, lsLook)));
 
-        lOSections.Add(new Section { Title = "Moving" }
-            .Add(lsMove, "Walk forward and back, step sideways.")
-            .Add(lsWalkSlow, "Held: walk slowly instead of running. The Controls dialog can make it switch on and off.")
-            .Add(fKey("EasyModifier", 0, "Left Alt") + " + " + lsMove + " / X", "Easy movement: one step forward or back, or a turn "
-                + "of 45 degrees; held, it repeats. X steps forward without stepping off a ledge.")
-            .Add("Mouse", "Turn and look up and down (pointer locked).")
-            .Add(fKey("Jump", 0, "Space"), "Jump.")
-            .Add(fKey("ModernHover", 2, "Space") + " / " + fKey("ModernHover", 1, "Left Ctrl"), "While flying or levitating: rise and sink."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.moving.title") }
+            .Add(lsMove, UWText.T("help.controls.modern.moving.walk"))
+            .Add(lsWalkSlow, UWText.T("help.controls.modern.moving.walk_slow"))
+            .Add(fKey("EasyModifier", 0, UWText.T("help.controls.key.left_alt")) + " + " + UWBindingInfo.EasyStepKeyNames(true) + " / X",
+                UWText.T("help.controls.modern.moving.easy"))
+            .Add(UWText.T("help.controls.key.mouse"), UWText.T("help.controls.modern.moving.mouse"))
+            .Add(fKey("Jump", 0, UWText.T("help.controls.key.space")), UWText.T("help.controls.modern.moving.jump"))
+            .Add(fKey("ModernHover", 2, UWText.T("help.controls.key.space")) + " / " + fKey("ModernHover", 1, UWText.T("help.controls.key.left_ctrl")),
+                UWText.T("help.controls.modern.moving.hover")));
 
-        lOSections.Add(new Section { Title = "Acting" }
-            .Add(lsUse + " (tap)", "The usual thing for what you aim at: pick it up, talk, open a door, pull a lever, use it.")
-            .Add(lsUse + " (hold)","Use it directly, even what could be picked up - a sack is emptied instead of taken.")
-            .Add(lsLook, "Look at it.")
-            .Add(lsLeft + " (free pointer)", "On a thing in the world: its menu - Talk, Use, Look, Pick up. Held and "
-                + "dragged: take it onto the pointer."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.acting.title") }
+            .Add(UWText.F("help.controls.modern.acting.tap", lsUse), UWText.T("help.controls.modern.acting.tap_text"))
+            .Add(UWText.F("help.controls.modern.acting.hold", lsUse), UWText.T("help.controls.modern.acting.hold_text"))
+            .Add(lsLook, UWText.T("help.controls.modern.acting.look"))
+            .Add(UWText.F("help.controls.modern.acting.free_pointer", lsLeft), UWText.T("help.controls.modern.acting.free_pointer_text")));
 
-        lOSections.Add(new Section { Title = "Combat" }
-            .Add(fKey("ModernReady", 0, "R"), "Draw or put away the weapon in your hand.")
-            .Add(lsLeft + " (held)", "Charge the weapon; let go to strike. The power gem shows the charge.")
-            .Add("The strike", "Pointer locked: look up for an overhead bash, down for a thrust, straight ahead for "
-                + "a slash. Pointer free: the upper third of the screen bashes, the lower third thrusts, the middle slashes.")
-            .Add("Bow, sling", "Charge as above; the red target circle shows when the charge is enough. The shot "
-                + "flies to the free pointer, else to the crosshair."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.combat.title") }
+            .Add(fKey("ModernReady", 0, "R"), UWText.T("help.controls.modern.combat.ready"))
+            .Add(UWText.F("help.controls.modern.combat.held", lsLeft), UWText.T("help.controls.modern.combat.held_text"))
+            .Add(UWText.T("help.controls.modern.combat.strike"), UWText.T("help.controls.modern.combat.strike_text"))
+            .Add(UWText.T("help.controls.modern.combat.bow"), UWText.T("help.controls.modern.combat.bow_text")));
 
-        lOSections.Add(new Section { Title = "Magic" }
-            .Add(lsRunes, "The rune panel. Its handle at the left edge "
-                + "opens it as well, and its pin keeps it out.")
-            .Add("Runes tab", "Click a rune to lay it in the hollow (the fourth pushes out the first), right click "
-                + "to look at it, the strip below the hollow clears it. Click the hollow to cast, or drag it onto "
-                + "the action bar.")
-            .Add("Spells tab", "Every spell by circle, grey what you cannot cast now. Click one to lay its runes, "
-                + "drag it onto the action bar.")
-            .Add("Targets", "A spell that needs a target flies at once at the crosshair with the pointer locked. "
-                + "With the pointer free the target cursor waits for a left click; Escape lets the spell go.")
-            .Add("Active spells", "Top right. Left click: what it does; right click: end it."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.magic.title") }
+            .Add(lsRunes, UWText.T("help.controls.modern.magic.runes"))
+            .Add(UWText.T("help.controls.modern.magic.runes_tab"), UWText.T("help.controls.modern.magic.runes_tab_text"))
+            .Add(UWText.T("help.controls.modern.magic.spells_tab"), UWText.T("help.controls.modern.magic.spells_tab_text"))
+            .Add(UWText.T("help.controls.modern.magic.targets"), UWText.T("help.controls.modern.magic.targets_text"))
+            .Add(UWText.T("help.controls.modern.magic.active"), UWText.T("help.controls.modern.magic.active_text")));
 
-        lOSections.Add(new Section { Title = "The bags and the character" }
-            .Add(lsBags, "Open or close the bags. The backpack always shows at the bottom right.")
-            .Add(lsPanel, "The character panel: the paperdoll, your attributes and skills. Its pin keeps it out.")
-            .Add(lsLeft, "Take a thing and put it down - drag it, or click and click. On a container it goes "
-                + "inside; outside the windows it is dropped (low on the screen) or thrown (higher).")
-            .Add("Shift + " + lsLeft, "Split a stack.")
-            .Add(lsRight, "A thing's menu: Use, Equip, Look, Pick up, Split. A container opens or closes at once "
-                + "(Shift for its menu). What is used on something else - a key, the oil flask - then waits for "
-                + "a left click on its target.")
-            .Add("The head", "Food and drink put down on the paperdoll's head are eaten.")
-            .Add("1 ... 0", "The action bar. Drop a thing or drag a spell onto a slot; the key or a click uses "
-                + "it, a weapon goes into your hand. Drag a slot off the bar to empty it.")
-            .Add("Sleep, Track", "The bedroll and the boots beside the paperdoll's feet - or " + lsCamp + " and "
-                + lsTrack + "."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.bags.title") }
+            .Add(lsBags, UWText.T("help.controls.modern.bags.bags"))
+            .Add(lsPanel, UWText.T("help.controls.modern.bags.panel"))
+            .Add(lsLeft, UWText.T("help.controls.modern.bags.left"))
+            .Add(UWText.F("help.controls.key.shift_plus", lsLeft), UWText.T("help.controls.modern.bags.split"))
+            .Add(lsRight, UWText.T("help.controls.modern.bags.right"))
+            .Add(UWText.T("help.controls.modern.bags.head"), UWText.T("help.controls.modern.bags.head_text"))
+            .Add("1 ... 0", UWText.T("help.controls.modern.bags.action_bar"))
+            .Add(UWText.T("help.controls.modern.bags.sleep_track"), UWText.F("help.controls.modern.bags.sleep_track_text", lsCamp, lsTrack)));
 
-        lOSections.Add(new Section { Title = "Conversation" }
-            .Add("1 ... 9", "Choose an answer - or click it. The mouse wheel scrolls the conversation.")
-            .Add("Trading", "Drag your things from the bags onto \"Your offer\". A left click on a trade slot marks "
-                + "it for the deal (a gold ring), a right click looks at it; drag your offer back out when you "
-                + "change your mind."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.conversation.title") }
+            .Add("1 ... 9", UWText.T("help.controls.modern.conversation.answer"))
+            .Add(UWText.T("help.controls.modern.conversation.trading"), UWText.T("help.controls.modern.conversation.trading_text")));
 
-        lOSections.Add(new Section { Title = "Map, menu and the rest" }
-            .Add(lsMap, "The big map, with the map in your pack. The minimap top right: + and - or the mouse "
-                + "wheel zoom it, a click opens the big map.")
-            .Add(lsHelp, "This help, in the character panel.")
-            .Add("Escape", "Closes what is open - a waiting spell, the bags, the panels - then the game menu ("
-                + lsOptions + " as well).")
-            .Add("Right Ctrl + S / R", "Save, restore.")
-            .Add("Shift + " + lsScheme, "Switch to the classic controls."));
+        lOSections.Add(new Section { Title = UWText.T("help.controls.modern.rest.title") }
+            .Add(lsMap, UWText.T("help.controls.modern.rest.map"))
+            .Add(lsHelp, UWText.T("help.controls.modern.rest.help"))
+            .Add(UWText.T("help.controls.key.escape"), UWText.F("help.controls.modern.rest.escape", lsOptions))
+            .Add(UWText.T("help.controls.modern.rest.save_keys"), UWText.T("help.controls.modern.rest.save"))
+            .Add(UWText.F("help.controls.key.shift_plus", lsScheme), UWText.T("help.controls.modern.rest.scheme")));
 
         return lOSections;
     }
@@ -302,24 +264,23 @@ public static class UWHelpControls
 
         lOSections.Add(new Section
         {
-            Title = "The mouse",
-            Intro = "The controls of the original: the pointer stays free, the view lies in the frame."
+            Title = UWText.T("help.controls.classic.mouse.title"),
+            Intro = UWText.T("help.controls.classic.mouse.intro")
         }
-            .Add(fKey("CursorDrag", 0, "Left button"), "In the view: walk towards the pointer, held. On the frame: "
-                + "the icons, the runes, the compass, and taking and putting down things.")
-            .Add(fKey("Interact", 0, "Right button"), "Do what the lit icon says - look by default; talk, get, use "
-                + "after its icon. With the weapon drawn: held to charge, let go to strike; the third of the view "
-                + "the pointer is in chooses the strike.")
-            .Add("Shift + " + fKey("ToggleScheme", 0, "F2"), "Switch to the modern controls."));
+            .Add(fKey("CursorDrag", 0, UWText.T("help.controls.key.left_button")), UWText.T("help.controls.classic.mouse.left"))
+            .Add(fKey("Interact", 0, UWText.T("help.controls.key.right_button")), UWText.T("help.controls.classic.mouse.right"))
+            .Add(UWText.F("help.controls.key.shift_plus", fKey("ToggleScheme", 0, "F2")), UWText.T("help.controls.classic.mouse.scheme")));
 
-        Section lOKeys = new Section { Title = "Keys", Intro = "Changeable under Controls in the menu bar at the top edge." };
+        Section lOKeys = new Section { Title = UWText.T("help.controls.classic.keys.title"), Intro = UWText.T("help.controls.classic.keys.intro") };
 
+        // The modern scheme's keys are left out, the classic ones named without "(classic)"
+        // (until step 8.5 by the label's words, now by the entry's scheme).
         foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
         {
-            if (lOEntry.Label.Contains("(modern)"))
+            if (lOEntry.Scheme == UWKeyBindings.SchemeEnum.Modern)
                 continue;
 
-            lOKeys.Add(UWKeyBindings.GetKeyName(lOEntry), lOEntry.Label.Replace(" (classic)", string.Empty));
+            lOKeys.Add(UWBindingInfo.Name(lOEntry), lOEntry.PlainLabel);
         }
 
         lOSections.Add(lOKeys);

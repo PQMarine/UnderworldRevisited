@@ -90,7 +90,7 @@ public sealed class UWPendingSpell
             return;
 
         if (IsTargetSpellPending || UWControlScheme.Ui.IsPointerUnlocked)
-            mOInteraction.AddMessage("Choose the target with the left button.");
+            mOInteraction.AddMessage(UWText.T("prompt.choose_target"));
         else
             Fire();
     }
@@ -280,7 +280,7 @@ public sealed class UWPendingSpell
 
         if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView && lOUi != null)
         {
-            UWPlayerThrow.GetPointerInView(lOUi, Mouse.current.position.ReadValue(), out int liX, out int liY);
+            UWPlayerThrow.GetPointerInView(lOUi, UWPointer.Position, out int liX, out int liY);
             UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
         }
         else

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport.UWData;
 
 namespace UWDataImport
 {
@@ -51,7 +52,7 @@ namespace UWDataImport
                 Browse(Found.Count > 0 ? Found[0] : string.Empty);
 
             if (Found.Count == 0 && string.IsNullOrEmpty(psRemembered))
-                SetStatus("No GOG installation was found in the usual folders. Please choose it.", false);
+                SetStatus(UWText.T("setup.folder.none_found"), false);
         }
 
         /// <summary>Goes to a folder; an empty or missing path shows the drives.</summary>
@@ -86,7 +87,7 @@ namespace UWDataImport
             }
             catch (Exception lOError)
             {
-                SetStatus("This folder cannot be read: " + lOError.Message, true);
+                SetStatus(UWText.F("setup.folder.unreadable", lOError.Message), true);
 
                 return;
             }
@@ -170,7 +171,7 @@ namespace UWDataImport
             string lsHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
             if (!string.IsNullOrEmpty(lsHome) && psDrive.TrimEnd('/') == lsHome.TrimEnd('/'))
-                return "Home";
+                return UWText.T("setup.folder.home");
 
             string lsTrimmed = psDrive.TrimEnd('\\', '/');
 
@@ -212,11 +213,11 @@ namespace UWDataImport
         private void fUpdateStatus()
         {
             if (CanUseCurrent)
-                SetStatus(ImageFileName + " found - this folder can be used.", false);
+                SetStatus(UWText.F("setup.folder.usable", ImageFileName), false);
             else if (!IsDriveList)
-                SetStatus("No " + ImageFileName + " in this folder.", false);
+                SetStatus(UWText.F("setup.folder.no_image", ImageFileName), false);
             else
-                SetStatus("Choose the drive and folder of your GOG installation.", false);
+                SetStatus(UWText.T("setup.folder.choose"), false);
         }
 
         /// <summary>No hidden or system folders, and none starting with $ or a dot.</summary>

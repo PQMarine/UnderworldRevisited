@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Utilities;
+using UWDataImport.UWData;
 
 /// <summary>
 /// The keys and mouse buttons the player may change (phase 3 of the menu bar, 2026-09-17). A
@@ -23,16 +24,45 @@ using UnityEngine.InputSystem.Utilities;
 /// </summary>
 public static class UWKeyBindings
 {
+    /// <summary>Which scheme a key belongs to, said after its name: "Turn left (classic)".</summary>
+    public enum SchemeEnum
+    {
+        Both,
+        Classic,
+        Modern
+    }
+
     /// <summary>One changeable key.</summary>
     public class Entry
     {
         public string Map;
         public string Action;
         public int Binding;
-        public string Label;
+
+        /// <summary>The name's id in the text table (cleanup step 8.5, 2026-10-24): "keys." for the
+        /// keyboard's, "pad.binding." for the gamepad's.</summary>
+        public string LabelId;
+
+        public SchemeEnum Scheme;
+
+        /// <summary>Filled into the name where it has a {0} (the action bar's slots).</summary>
+        public int Number;
+
+        /// <summary>Filled into the name where it has a {0}, asked anew each time (the easy movement's
+        /// modifier names the keys of the steps, which follow the walk keys - decision 18).</summary>
+        public System.Func<string> FillWith;
+
+        /// <summary>The name without the scheme: the help's classic key list, which shows only the
+        /// classic ones (until step 8.5 it cut " (classic)" off the label).</summary>
+        public string PlainLabel => FillWith != null ? UWText.F(LabelId, FillWith())
+            : Number > 0 ? UWText.F(LabelId, Number) : UWText.T(LabelId);
+
+        /// <summary>The name as the Controls dialog lists it, with its scheme after it.</summary>
+        public string Label => Scheme == SchemeEnum.Both ? PlainLabel
+            : UWText.F(Scheme == SchemeEnum.Classic ? "keys.scheme.classic" : "keys.scheme.modern", PlainLabel);
 
         /// <summary>One of the gamepad's (PadEntries): takes a gamepad button, named by the chosen
-        /// style (UWGamepad.ButtonName).</summary>
+        /// style (UWBindingInfo.ButtonName).</summary>
         public bool Gamepad;
 
         /// <summary>Map, action and binding as it is stored - the first three fields of a line
@@ -42,94 +72,102 @@ public static class UWKeyBindings
 
     private static readonly Entry[] mOEntries =
     {
-        fEntry("Player", "Move", 1, "Walk forward"),
-        fEntry("Player", "Move", 2, "Walk backward"),
-        fEntry("Player", "Move", 3, "Left (modern: strafe)"),
-        fEntry("Player", "Move", 4, "Right (modern: strafe)"),
-        fEntry("Player", "Turn", 1, "Turn left (classic)"),
-        fEntry("Player", "Turn", 2, "Turn right (classic)"),
-        fEntry("Player", "Strafe", 1, "Strafe left (classic)"),
-        fEntry("Player", "Strafe", 2, "Strafe right (classic)"),
-        fEntry("Player", "Jump", 0, "Jump"),
-        fEntry("Player", "Jump", 1, "Jump (second key)"),
-        fEntry("Player", "WalkSlow", 0, "Walk slowly (modern)"),
-        fEntry("Player", "EasyModifier", 0, "Easy movement with W A S D X (modern)"),
-        fEntry("Player", "HoverHeight", 1, "Sink while flying (classic)"),
-        fEntry("Player", "HoverHeight", 2, "Rise while flying (classic)"),
-        fEntry("Player", "ModernHover", 1, "Sink while flying (modern)"),
-        fEntry("Player", "ModernHover", 2, "Rise while flying (modern)"),
-        fEntry("Player", "LookDown", 0, "Look down (classic)"),
-        fEntry("Player", "LookReset", 0, "Look straight (classic)"),
-        fEntry("Player", "LookUp", 0, "Look up (classic)"),
-        fEntry("Player", "ToggleInventory", 0, "Character panel (modern)"),
-        fEntry("Player", "ModernBags", 0, "Bags (modern)"),
-        fEntry("Player", "ModernLook", 0, "Look (modern)"),
-        fEntry("Player", "ModernRunes", 0, "Runes and spells (modern)"),
-        fEntry("Player", "ModernUse", 0, "Use, talk, pick up (modern)"),
-        fEntry("Player", "ModernReady", 0, "Draw or put away the weapon (modern)"),
-        fEntry("Player", "ModernSlot1", 0, "Action bar slot 1 (modern)"),
-        fEntry("Player", "ModernSlot2", 0, "Action bar slot 2 (modern)"),
-        fEntry("Player", "ModernSlot3", 0, "Action bar slot 3 (modern)"),
-        fEntry("Player", "ModernSlot4", 0, "Action bar slot 4 (modern)"),
-        fEntry("Player", "ModernSlot5", 0, "Action bar slot 5 (modern)"),
-        fEntry("Player", "ModernSlot6", 0, "Action bar slot 6 (modern)"),
-        fEntry("Player", "ModernSlot7", 0, "Action bar slot 7 (modern)"),
-        fEntry("Player", "ModernSlot8", 0, "Action bar slot 8 (modern)"),
-        fEntry("Player", "ModernSlot9", 0, "Action bar slot 9 (modern)"),
-        fEntry("Player", "ModernSlot10", 0, "Action bar slot 10 (modern)"),
-        fEntry("Player", "ToggleScheme", 0, "Switch control scheme (with Shift)"),
-        fEntry("Player", "CursorDrag", 0, "Walk, drag, attack"),
-        fEntry("Player", "Interact", 0, "Look and use"),
-        fEntry("Player", "ToggleMap", 0, "Open the map"),
-        fEntry("Player", "ToggleFont", 0, "Switch the font"),
-        fEntry("Player", "ToggleHelp", 0, "Open the help (not with Alt)"),
-        fEntry("Player", "KeyOptions", 0, "Options"),
-        fEntry("Player", "KeyTalk", 0, "Talk mode"),
-        fEntry("Player", "KeyGet", 0, "Get mode"),
-        fEntry("Player", "KeyLook", 0, "Look mode"),
-        fEntry("Player", "KeyFight", 0, "Fight (draw the weapon)"),
-        fEntry("Player", "KeyUse", 0, "Use mode"),
-        fEntry("Player", "KeyPanel", 0, "Turn the panel"),
-        fEntry("Player", "KeyCast", 0, "Cast the runes on the shelf"),
-        fEntry("Player", "KeyTrack", 0, "Track (look for creatures nearby)"),
-        fEntry("Player", "KeyCamp", 0, "Make camp")
+        fEntry("Player", "Move", 1, "keys.walk_forward"),
+        fEntry("Player", "Move", 2, "keys.walk_backward"),
+        fEntry("Player", "Move", 3, "keys.left"),
+        fEntry("Player", "Move", 4, "keys.right"),
+        fEntry("Player", "Turn", 1, "keys.turn_left", SchemeEnum.Classic),
+        fEntry("Player", "Turn", 2, "keys.turn_right", SchemeEnum.Classic),
+        fEntry("Player", "Strafe", 1, "keys.strafe_left", SchemeEnum.Classic),
+        fEntry("Player", "Strafe", 2, "keys.strafe_right", SchemeEnum.Classic),
+        fEntry("Player", "Jump", 0, "keys.jump"),
+        fEntry("Player", "Jump", 1, "keys.jump_second"),
+        fEntry("Player", "WalkSlow", 0, "keys.walk_slowly", SchemeEnum.Modern),
+        fFilled(fEntry("Player", "EasyModifier", 0, "keys.easy_movement", SchemeEnum.Modern), () => UWBindingInfo.EasyStepKeyNames(true)),
+        fEntry("Player", "HoverHeight", 1, "keys.sink", SchemeEnum.Classic),
+        fEntry("Player", "HoverHeight", 2, "keys.rise", SchemeEnum.Classic),
+        fEntry("Player", "ModernHover", 1, "keys.sink", SchemeEnum.Modern),
+        fEntry("Player", "ModernHover", 2, "keys.rise", SchemeEnum.Modern),
+        fEntry("Player", "LookDown", 0, "keys.look_down", SchemeEnum.Classic),
+        fEntry("Player", "LookReset", 0, "keys.look_straight", SchemeEnum.Classic),
+        fEntry("Player", "LookUp", 0, "keys.look_up", SchemeEnum.Classic),
+        fEntry("Player", "ToggleInventory", 0, "keys.character_panel", SchemeEnum.Modern),
+        fEntry("Player", "ModernBags", 0, "keys.bags", SchemeEnum.Modern),
+        fEntry("Player", "ModernLook", 0, "keys.look", SchemeEnum.Modern),
+        fEntry("Player", "ModernRunes", 0, "keys.runes", SchemeEnum.Modern),
+        fEntry("Player", "ModernUse", 0, "keys.use", SchemeEnum.Modern),
+        fEntry("Player", "ModernReady", 0, "keys.ready", SchemeEnum.Modern),
+        fEntry("Player", "ModernSlot1", 0, "keys.slot", SchemeEnum.Modern, 1),
+        fEntry("Player", "ModernSlot2", 0, "keys.slot", SchemeEnum.Modern, 2),
+        fEntry("Player", "ModernSlot3", 0, "keys.slot", SchemeEnum.Modern, 3),
+        fEntry("Player", "ModernSlot4", 0, "keys.slot", SchemeEnum.Modern, 4),
+        fEntry("Player", "ModernSlot5", 0, "keys.slot", SchemeEnum.Modern, 5),
+        fEntry("Player", "ModernSlot6", 0, "keys.slot", SchemeEnum.Modern, 6),
+        fEntry("Player", "ModernSlot7", 0, "keys.slot", SchemeEnum.Modern, 7),
+        fEntry("Player", "ModernSlot8", 0, "keys.slot", SchemeEnum.Modern, 8),
+        fEntry("Player", "ModernSlot9", 0, "keys.slot", SchemeEnum.Modern, 9),
+        fEntry("Player", "ModernSlot10", 0, "keys.slot", SchemeEnum.Modern, 10),
+        fEntry("Player", "ToggleScheme", 0, "keys.switch_scheme"),
+        fEntry("Player", "CursorDrag", 0, "keys.cursor_drag"),
+        fEntry("Player", "Interact", 0, "keys.interact"),
+        fEntry("Player", "ToggleMap", 0, "keys.map"),
+        fEntry("Player", "ToggleFont", 0, "keys.font"),
+        fEntry("Player", "ToggleHelp", 0, "keys.help"),
+        fEntry("Player", "KeyOptions", 0, "keys.options"),
+        fEntry("Player", "KeyTalk", 0, "keys.talk"),
+        fEntry("Player", "KeyGet", 0, "keys.get"),
+        fEntry("Player", "KeyLook", 0, "keys.look_mode"),
+        fEntry("Player", "KeyFight", 0, "keys.fight"),
+        fEntry("Player", "KeyUse", 0, "keys.use_mode"),
+        fEntry("Player", "KeyPanel", 0, "keys.panel"),
+        fEntry("Player", "KeyCast", 0, "keys.cast"),
+        fEntry("Player", "KeyTrack", 0, "keys.track"),
+        fEntry("Player", "KeyCamp", 0, "keys.camp")
     };
 
     /// <summary>The gamepad's (UWGamepad): the index is that of the gamepad binding in UWControls -
     /// for ModernHover the parts of its second composite.</summary>
     private static readonly Entry[] mOPadEntries =
     {
-        fPadEntry("ModernUse", 1, "Use (held: use directly)"),
-        fPadEntry("ModernLook", 1, "Look"),
-        fPadEntry("PadBack", 0, "Close what is open"),
-        fPadEntry("PadJump", 0, "Jump"),
-        fPadEntry("ToggleInventory", 1, "Character panel (held: every bag)"),
-        fPadEntry("ModernAttack", 1, "Draw the weapon and strike"),
-        fPadEntry("ModernReady", 1, "Draw or put away the weapon"),
-        fPadEntry("PadCast", 0, "Cast the runes (held: rune panel)"),
-        fPadEntry("PadSlotPrevious", 0, "Action bar: previous slot"),
-        fPadEntry("PadSlotNext", 0, "Action bar: next slot"),
-        fPadEntry("PadSlotUse", 0, "Action bar: use the slot"),
-        fPadEntry("ToggleMap", 1, "Open the map (tapped)"),
-        fPadEntry("ModernHover", 4, "Sink while flying"),
-        fPadEntry("ModernHover", 5, "Rise while flying"),
-        fPadEntry("Menu", 1, "Menu"),
-        fPadEntry("ToggleHelp", 1, "Help (held)"),
-        fPadEntry("PadPointer", 0, "Pointer on the stick, on or off"),
-        fPadEntry("PadClick", 0, "Pointer: click (held: drag)"),
-        fPadEntry("PadClick", 1, "Pointer: click, second button"),
-        fPadEntry("PadContext", 0, "Pointer: right button"),
-        fPadEntry("PadContext", 1, "Pointer: right button, second button")
+        fPadEntry("ModernUse", 1, "pad.binding.use"),
+        fPadEntry("ModernLook", 1, "pad.binding.look"),
+        fPadEntry("PadBack", 0, "pad.binding.back"),
+        fPadEntry("PadJump", 0, "pad.binding.jump"),
+        fPadEntry("ToggleInventory", 1, "pad.binding.character_panel"),
+        fPadEntry("ModernAttack", 1, "pad.binding.attack"),
+        fPadEntry("ModernReady", 1, "pad.binding.ready"),
+        fPadEntry("PadCast", 0, "pad.binding.cast"),
+        fPadEntry("PadSlotPrevious", 0, "pad.binding.slot_previous"),
+        fPadEntry("PadSlotNext", 0, "pad.binding.slot_next"),
+        fPadEntry("PadSlotUse", 0, "pad.binding.slot_use"),
+        fPadEntry("ToggleMap", 1, "pad.binding.map"),
+        fPadEntry("ModernHover", 4, "pad.binding.sink"),
+        fPadEntry("ModernHover", 5, "pad.binding.rise"),
+        fPadEntry("Menu", 1, "pad.binding.menu"),
+        fPadEntry("ToggleHelp", 1, "pad.binding.help"),
+        fPadEntry("PadPointer", 0, "pad.binding.pointer"),
+        fPadEntry("PadClick", 0, "pad.binding.click"),
+        fPadEntry("PadClick", 1, "pad.binding.click_second"),
+        fPadEntry("PadContext", 0, "pad.binding.context"),
+        fPadEntry("PadContext", 1, "pad.binding.context_second")
     };
 
-    private static Entry fEntry(string psMap, string psAction, int piBinding, string psLabel)
+    private static Entry fEntry(string psMap, string psAction, int piBinding, string psLabelId,
+        SchemeEnum peScheme = SchemeEnum.Both, int piNumber = 0)
     {
-        return new Entry { Map = psMap, Action = psAction, Binding = piBinding, Label = psLabel };
+        return new Entry { Map = psMap, Action = psAction, Binding = piBinding, LabelId = psLabelId, Scheme = peScheme, Number = piNumber };
     }
 
-    private static Entry fPadEntry(string psAction, int piBinding, string psLabel)
+    private static Entry fFilled(Entry pOEntry, System.Func<string> pFFillWith)
     {
-        return new Entry { Map = "Player", Action = psAction, Binding = piBinding, Label = psLabel, Gamepad = true };
+        pOEntry.FillWith = pFFillWith;
+
+        return pOEntry;
+    }
+
+    private static Entry fPadEntry(string psAction, int piBinding, string psLabelId)
+    {
+        return new Entry { Map = "Player", Action = psAction, Binding = piBinding, LabelId = psLabelId, Gamepad = true };
     }
 
     /// <summary>The keyboard and mouse entries.</summary>
@@ -138,50 +176,8 @@ public static class UWKeyBindings
     /// <summary>The gamepad's entries.</summary>
     public static IReadOnlyList<Entry> PadEntries => mOPadEntries;
 
-    /// <summary>What the key of an entry is called on screen, e.g. "W" or "Page Up".</summary>
-    public static string GetKeyName(Entry pOEntry)
-    {
-        string lsPath = GetPath(pOEntry);
-
-        if (pOEntry.Gamepad)
-            return UWGamepad.ButtonName(lsPath);
-
-        if (string.IsNullOrEmpty(lsPath))
-            return "-";
-
-        string lsName = InputControlPath.ToHumanReadableString(lsPath,
-            InputControlPath.HumanReadableStringOptions.OmitDevice);
-
-        if (string.IsNullOrEmpty(lsName))
-            return lsPath;
-
-        // A key bound by the character it types ("#(f)", the built-in letters, so they follow the
-        // keyboard layout) reads 'F' with quotes - a key the player bound reads F (per user,
-        // 2026-10-04: the quotes looked odd in the Controls tab).
-        if (lsName.Length > 2 && lsName[0] == '\'' && lsName[lsName.Length - 1] == '\'')
-            lsName = lsName.Substring(1, lsName.Length - 2).ToUpperInvariant();
-
-        return lsName;
-    }
-
-    /// <summary>The path in force: the player's own if there is one, otherwise the built-in one
-    /// from UWControls.</summary>
-    public static string GetPath(Entry pOEntry)
-    {
-        string lsOverride = fFindOverride(pOEntry.Key);
-
-        if (lsOverride != null)
-            return lsOverride;
-
-        InputAction lOAction = fFindAction(UWControls.AnyInstance, pOEntry);
-
-        if (lOAction == null || pOEntry.Binding >= lOAction.bindings.Count)
-            return null;
-
-        string lsBuiltIn = lOAction.bindings[pOEntry.Binding].path;
-
-        return pOEntry.Gamepad ? fSwappedPress(lsBuiltIn) : lsBuiltIn;
-    }
+    // Which key an entry has in force and what it is called: UWBindingInfo.Path and Name since cleanup
+    // step 7.2 (2026-10-25; GetPath and GetKeyName here until then).
 
     private const string LeftStickPress = "<Gamepad>/leftStickPress";
 
@@ -189,7 +185,7 @@ public static class UWKeyBindings
 
     /// <summary>With the sticks swapped, a stick's press goes with its stick - for the buttons the
     /// player has not changed (per user, 2026-10-07: "swap L3 and R3 too unless they were changed").</summary>
-    private static string fSwappedPress(string psPath)
+    internal static string SwappedPress(string psPath)
     {
         if (!UWUserSettings.GamepadSwapSticks)
             return psPath;
@@ -211,7 +207,7 @@ public static class UWKeyBindings
             if (lOOther == pOEntry)
                 continue;
 
-            if (string.Equals(GetPath(lOOther), psPath, System.StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(UWBindingInfo.Path(lOOther), psPath, System.StringComparison.OrdinalIgnoreCase))
                 return lOOther;
         }
 
@@ -267,7 +263,7 @@ public static class UWKeyBindings
     {
         foreach (Entry lOEntry in pOEntries)
         {
-            if (fFindOverride(lOEntry.Key) != null)
+            if (FindOverride(lOEntry.Key) != null)
                 return true;
         }
 
@@ -288,7 +284,7 @@ public static class UWKeyBindings
             if (lOAction == null || lOEntry.Binding >= lOAction.bindings.Count)
                 continue;
 
-            string lsOverride = fFindOverride(lOEntry.Key);
+            string lsOverride = FindOverride(lOEntry.Key);
 
             // An action has to be disabled while its bindings change.
             bool lbWasEnabled = lOAction.enabled;
@@ -299,11 +295,11 @@ public static class UWKeyBindings
             // AN EMPTY PATH IS NOT "DEFAULT" BUT "NO BINDING": applying "" to every unchanged entry
             // switched the whole control off, and "Back to default" left nothing working at all
             // (per user, 2026-09-17). Without an override the override has to be REMOVED.
-            // An unchanged gamepad button on a stick's press follows the stick swap (fSwappedPress).
+            // An unchanged gamepad button on a stick's press follows the stick swap (SwappedPress).
             string lsBuiltIn = lOAction.bindings[lOEntry.Binding].path;
 
-            if (lsOverride == null && lOEntry.Gamepad && fSwappedPress(lsBuiltIn) != lsBuiltIn)
-                lsOverride = fSwappedPress(lsBuiltIn);
+            if (lsOverride == null && lOEntry.Gamepad && SwappedPress(lsBuiltIn) != lsBuiltIn)
+                lsOverride = SwappedPress(lsBuiltIn);
 
             if (lsOverride == null)
                 lOAction.RemoveBindingOverride(lOEntry.Binding);
@@ -314,7 +310,55 @@ public static class UWKeyBindings
                 lOAction.Enable();
         }
 
+        ApplyEasySteps(pOControls, UWControlScheme.IsModern);
         fApplyStickSwap(pOControls);
+    }
+
+    /// <summary>
+    /// THE EASY STEPS FOLLOW THE WALK AND TURN KEYS (decision 18, per user 2026-10-25;
+    /// UWEasyMovement.FollowedKeys): each step's action (EasyForward, EasyBack, EasyTurnLeft,
+    /// EasyTurnRight) gets the key in force of the walk or turn binding it belongs to in the scheme
+    /// pbModern, as an override of its one binding - none where that key is its built-in one, so with
+    /// the built-in keys nothing changes. Shift (classic) or EasyModifier (modern) is still asked for
+    /// in UWPlayerInput. EasyWalkForward (X) keeps its own key.
+    ///
+    /// The steps have no entries of their own, so a line for them in an old settings.json
+    /// ("Player|EasyForward|0|...") was never applied and still is not: it stays in the file as it
+    /// is and does nothing. An action's override is changed only when it differs from what it holds -
+    /// a change has to switch the action off and on, which drops a press already held. Called with
+    /// the bindings (ApplyTo) and when the scheme changes (UWControlScheme.Apply).
+    /// </summary>
+    public static void ApplyEasySteps(UWControls pOControls, bool pbModern)
+    {
+        if (pOControls == null)
+            return;
+
+        foreach (UWEasyMovement.FollowedKey lOFollowed in UWEasyMovement.FollowedKeys)
+        {
+            InputAction lOAction = pOControls.FindAction("Player", lOFollowed.EasyAction);
+
+            if (lOAction == null || lOAction.bindings.Count == 0)
+                continue;
+
+            string lsPath = UWBindingInfo.EasyStepPath(lOFollowed, pbModern);
+            string lsOverride = lsPath != null && lsPath != lOAction.bindings[0].path ? lsPath : null;
+
+            if (lOAction.bindings[0].overridePath == lsOverride)
+                continue;
+
+            bool lbWasEnabled = lOAction.enabled;
+
+            if (lbWasEnabled)
+                lOAction.Disable();
+
+            if (lsOverride == null)
+                lOAction.RemoveBindingOverride(0);
+            else
+                lOAction.ApplyBindingOverride(0, lsOverride);
+
+            if (lbWasEnabled)
+                lOAction.Enable();
+        }
     }
 
     private const string LeftStick = "<Gamepad>/leftStick";
@@ -385,7 +429,8 @@ public static class UWKeyBindings
         return pOControls == null ? null : pOControls.FindAction(pOEntry.Map, pOEntry.Action);
     }
 
-    private static string fFindOverride(string psKey)
+    /// <summary>The player's own path for a stored key ("Map|Action|Binding"), or null.</summary>
+    internal static string FindOverride(string psKey)
     {
         string lsPrefix = psKey + "|";
 
@@ -407,7 +452,34 @@ public static class UWKeyBindings
     /// </summary>
     public static void Listen(System.Action<string> pODone)
     {
-        fListenFrom(Time.unscaledTime, pODone);
+        fListenFrom(Time.unscaledTime, fHoldKeysUntil(pODone));
+    }
+
+    /// <summary>
+    /// THE WAIT HOLDS THE KEYS (cleanup 7, wave 2b, per user 2026-10-25: one Escape closes only the
+    /// topmost): while the Controls window waits for a key or a button, and in the frame the wait
+    /// ended, the press is the wait's - the Escape that cancels it closed the modern game menu with
+    /// the window, the key that became the binding fired its old hotkey. The back chain (UWBack, its
+    /// Rebind row) and every hotkey site (UWHotkeyHost, the Rebinding gate) ask this. The wait reads
+    /// its press in the input update, before any Update of the same frame.
+    /// </summary>
+    public static bool HoldsKeys => msbListening || msiListenEndedFrame == Time.frameCount;
+
+    private static bool msbListening;
+
+    private static int msiListenEndedFrame = -1;
+
+    /// <summary>Marks the wait begun, and ended when pODone is called.</summary>
+    private static System.Action<string> fHoldKeysUntil(System.Action<string> pODone)
+    {
+        msbListening = true;
+
+        return psPath =>
+        {
+            msbListening = false;
+            msiListenEndedFrame = Time.frameCount;
+            pODone(psPath);
+        };
     }
 
     /// <summary>
@@ -416,6 +488,11 @@ public static class UWKeyBindings
     /// count (the sticks are fixed), nor do keys and mouse buttons.
     /// </summary>
     public static void ListenGamepad(System.Action<string> pODone)
+    {
+        fListenGamepad(fHoldKeysUntil(pODone));
+    }
+
+    private static void fListenGamepad(System.Action<string> pODone)
     {
         InputSystem.onAnyButtonPress.CallOnce(pOControl =>
         {
@@ -431,7 +508,7 @@ public static class UWKeyBindings
                 return;
             }
 
-            ListenGamepad(pODone);
+            fListenGamepad(pODone);
         });
     }
 

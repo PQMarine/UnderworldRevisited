@@ -13,7 +13,7 @@ using UnityEngine.Rendering.Universal;
 ///      post-processing at all, not even bloom. The default version from the URP package
 ///      is hooked in.
 ///   2. It had no occlusion feature (SSAO). It is created, but SWITCHED OFF -
-///      UWRemasterRenderer only switches it on in Remastered mode.
+///      UWRenderPathHost only switches it on while a render path wants it.
 ///   3. Colour grading was set to LDR. Tonemapping is meant for HDR; since
 ///      post-processing is completely off in the other modes, the change makes no
 ///      difference there.
@@ -24,7 +24,7 @@ using UnityEngine.Rendering.Universal;
 /// distance.
 ///
 /// The camera switches its post-processing on and off by itself at runtime, see
-/// UWRemasterRenderer - in Modern and Palette it stays off so the image there
+/// UWRemasterRenderPath - in Modern and Palette it stays off so the image there
 /// remains unchanged.
 /// </summary>
 public static class UWRemasterSetup

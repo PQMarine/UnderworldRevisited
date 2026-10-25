@@ -19,10 +19,35 @@ namespace UWDataImport.UWData
 	/// 117 jumps back as long as the counter has not run out. Whether the whole piece
 	/// repeats is set by Loop.
 	///
+	/// THE MILES DRIVER'S OWN CONTROLLERS 110-120 (cleanup step 6.6, 2026-10-24): XMIDI uses them
+	/// for channel locks, patch banks, callbacks, branches and the loops above; they are meant for
+	/// the driver, never for a device. Each music driver used to drop them itself (General MIDI
+	/// and the MT-32 dropped 110-120, above all 120, which General MIDI reads as All Sound Off);
+	/// since 2026-10-24 they stop here (IsXmidiController), and the instrument path of
+	/// UWAudioMixCore asks the same rule. The game's pieces carry 116/117 (AW01, UW01) and 120
+	/// (UW11, UW13, read out 2026-10-24); the AdLib pieces have no other, so no device hears a
+	/// different event than before.
+	///
 	/// The sequencer is driven by the sound thread per sample (Advance).
 	/// </summary>
 	public class UWXmiSequencer
 	{
+		/// <summary>The rhythm part, MIDI channel 10 counted from 0 - the AdLib driver plays it
+		/// from the percussion bank, General MIDI passes it unchanged.</summary>
+		public const int DrumChannel = 9;
+
+		/// <summary>The first and last of the XMIDI controllers - see the class comment.</summary>
+		public const int FirstXmidiController = 110;
+
+		public const int LastXmidiController = 120;
+
+		/// <summary>Is this controller one of the Miles driver's own (110-120), which never
+		/// reach a device? The one home of that rule.</summary>
+		public static bool IsXmidiController(int piController)
+		{
+			return piController >= FirstXmidiController && piController <= LastXmidiController;
+		}
+
 		private const int TicksPerQuarter = 60;
 
 		private const int DefaultTempo = 500000;
@@ -121,6 +146,9 @@ namespace UWDataImport.UWData
 
 					continue;
 				}
+
+				if ((lOEvent.Status & 0xF0) == 0xB0 && IsXmidiController(lOEvent.Data1))
+					continue;
 
 				pODriver.Handle(lOEvent.Status, lOEvent.Data1, lOEvent.Data2);
 			}

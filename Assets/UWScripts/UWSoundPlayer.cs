@@ -14,7 +14,7 @@ using UWDataImport.UWData;
 ///
 /// Playback runs through a dedicated AudioSource without a position. This requires
 /// an AudioListener in the scene - which was missing here and is created when needed,
-/// see fEnsureListener.
+/// see UWAudioListenerGuard.
 /// </summary>
 public class UWSoundPlayer : MonoBehaviour
 {
@@ -54,12 +54,6 @@ public class UWSoundPlayer : MonoBehaviour
 
             return mOData != null && mOData.Sound != null && mOData.Sound.IsAvailable;
         }
-    }
-
-    /// <summary>All available speech recordings, without extension.</summary>
-    public List<string> ListSpeechClips()
-    {
-        return IsAvailable ? mOData.Sound.ListSpeechClips() : new List<string>();
     }
 
     /// <summary>Converts a recording into an AudioClip. The result is kept; null
@@ -110,17 +104,8 @@ public class UWSoundPlayer : MonoBehaviour
             mOSource.Stop();
     }
 
-    /// <summary>
-    /// Makes sure there is an AudioListener. Without one Unity is completely
-    /// silent, without any error message - and that is exactly what happened here: the scene
-    /// contained a single listener, on the SpectatorCamera, and it was disabled. Sound had
-    /// never been set up in the project, because until now there was nothing to play.
-    ///
-    /// The disabled listener is left untouched - it belongs to a camera that is
-    /// deliberately off. Instead the active camera gets its own. This is
-    /// logged, because a component attaching itself to other scene objects should not
-    /// happen silently.
-    /// </summary>
+    /// <summary>Makes sure there is an AudioListener, once per player (UWAudioListenerGuard);
+    /// without a main camera this object gets it.</summary>
     private void fEnsureListener()
     {
         if (mbListenerChecked)
@@ -128,19 +113,7 @@ public class UWSoundPlayer : MonoBehaviour
 
         mbListenerChecked = true;
 
-        foreach (AudioListener lOExisting in Object.FindObjectsByType<AudioListener>())
-        {
-            if (lOExisting.enabled && lOExisting.gameObject.activeInHierarchy)
-                return;
-        }
-
-        Camera lOCamera = Camera.main;
-        GameObject lOTarget = lOCamera != null ? lOCamera.gameObject : gameObject;
-
-        lOTarget.AddComponent<AudioListener>();
-
-        Debug.Log("UWSoundPlayer: no active AudioListener found - attached one to '"
-            + lOTarget.name + "', otherwise everything stays silent.");
+        UWAudioListenerGuard.Ensure(gameObject);
     }
 
     private void fEnsureSource()

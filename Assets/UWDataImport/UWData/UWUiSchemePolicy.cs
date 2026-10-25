@@ -166,7 +166,7 @@ namespace UWDataImport.UWData
 		public bool FlashFillsScreen { get; private set; }
 
 		/// <summary>A cutscene's picture lies in the middle in a leather frame at the UI's size; else
-		/// in the classic view window (UWIntroPlayer).</summary>
+		/// in the classic view window (UWCutsceneView).</summary>
 		public bool CutsceneInLeatherFrame { get; private set; }
 
 		/// <summary>The help lies over the picture - in the modern character panel's Help tab, or

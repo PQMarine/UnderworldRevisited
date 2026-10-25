@@ -38,7 +38,7 @@ public sealed class UWHitFeedback
     /// after the swing's delay, the impact picture 0x1CB there.</summary>
     public void ShowWallImpact(Vector3 pOAt)
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.SpellImpact, pOAt);
+        UWAudioService.PlayEffectAt(UWSoundEffectId.SpellImpact, pOAt);
 
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 

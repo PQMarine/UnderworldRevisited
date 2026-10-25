@@ -116,6 +116,8 @@ public static class UWGraphicsDetail
             pOSettings.RemasterFireSmoke = FireSmoke;
             pOSettings.RemasterDust = Dust;
             pOSettings.RemasterGroundShadow = GroundShadow;
+
+            pOSettings.MarkChanged();
         }
 
         public EffectValues Copy()
@@ -260,6 +262,32 @@ public static class UWGraphicsDetail
         Save();
     }
 
+    /// <summary>
+    /// THE ONE PATH A DETAIL LEVEL IS CHOSEN BY (cleanup step 8.8, 2026-10-24): the bar's Graphics
+    /// menu (UWSetupMenu) and the classic options' detail screen (UWHudOptions) each set the level
+    /// and opened the effects screen for VERY HIGH on their own until then. Sets the level, lets the
+    /// caller show its own state anew (the options panel draws its detail screen again; the bar
+    /// has nothing to draw), and for VERY HIGH opens the effects screen the caller hands over -
+    /// each keeps its own frame for it: the options panel the game's frame, the bar the main menu's
+    /// frame or, in the game, a canvas of its own; null offers none. The modern game menu's Detail
+    /// page has no effects screen and sets the level alone (SetLevel).
+    /// </summary>
+    public static void Choose(LevelEnum peLevel, Action pFShowLevel, Func<UWEffectsScreen> pFEffectsScreen)
+    {
+        SetLevel(peLevel);
+
+        if (pFShowLevel != null)
+            pFShowLevel();
+
+        if (peLevel != LevelEnum.VeryHigh || pFEffectsScreen == null)
+            return;
+
+        UWEffectsScreen lOScreen = pFEffectsScreen();
+
+        if (lOScreen != null)
+            lOScreen.Open();
+    }
+
     /// <summary>The viewer's own values, for the options window. Changing them does nothing
     /// until ApplyCustom.</summary>
     public static EffectValues CustomValues
@@ -282,7 +310,8 @@ public static class UWGraphicsDetail
     }
 
     /// <summary>Takes the viewer's values over into the settings - they take effect at once
-    /// (UWRemasterRenderer and UWRemasterLights read them every frame).</summary>
+    /// (UWRemasterRenderPath and its lights read them every frame, the material values when the
+    /// settings' revision moved).</summary>
     public static void ApplyCustom()
     {
         UWSettings lOSettings = UWSettings.Instance;
@@ -332,22 +361,12 @@ public static class UWGraphicsDetail
             ? UWSettings.RenderModeEnum.Palette : UWSettings.RenderModeEnum.Remastered;
     }
 
-    /// <summary>Switches the palette renderer on or off while the game runs. At the start it
-    /// switches itself on from the render mode (UWPaletteRenderToggle.fAutoStart).</summary>
+    /// <summary>Switches the palette renderer on or off while the game runs, through the one
+    /// owner of the render mode (UWRenderPathHost, cleanup step 6.5, 2026-10-24). At the start the
+    /// host follows the render mode by itself.</summary>
     private static void fSetPaletteRenderer(bool pbOn)
     {
-        GameObject lOLevel = UWScene.LevelObject;
-
-        if (lOLevel == null)
-            return;
-
-        UWPaletteRenderToggle lOToggle = lOLevel.GetComponent<UWPaletteRenderToggle>();
-
-        if (lOToggle == null)
-            lOToggle = lOLevel.AddComponent<UWPaletteRenderToggle>();
-
-        if (lOToggle.IsActive != pbOn)
-            lOToggle.Toggle();
+        UWRenderPathHost.Switch(pbOn ? UWSettings.RenderModeEnum.Palette : UWSettings.RenderModeEnum.Remastered);
     }
 
     private static Profile fLoad()

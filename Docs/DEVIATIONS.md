@@ -90,6 +90,11 @@ starts dragging it at the same time.
 **The use-mode pointer stays after a drop into the trade area.** In the original the pointer
 turns back to the normal one while the use mode stays lit.
 
+**A click during a cutscene's spoken line goes on.** The original takes a key or a click only
+while no recording plays; ours lets it skip on with speech as well, and the next line's recording
+replaces the one that was playing. A click also ends the final death's blinking skulls, which
+the original ignores there. Kept on purpose (2026-10-24).
+
 **A map note does not start exactly where the original starts it.** The note is placed from the
 quill's tip, its first letter at the tip's column with its top four rows above the tip's row, as
 the original's rule reads; the original's quill and its hot spot do not quite match that rule, so

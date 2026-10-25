@@ -8,36 +8,33 @@ using UnityEngine;
 /// ours (per user, 2026-09-21, when the Sound entry was added to the menu bar of the main
 /// screen) - an AdLib card was set up outside the game, so the game had nothing to offer there.
 ///
-/// WHY A CLASS OF ITS OWN: the live values sit in UWSettings, a ScriptableObject, so that the
-/// Inspector shows and can change them while playing. A build never writes that asset back,
-/// which is why the lasting copy lives in UWUserSettings (settings.json) - the same split as
-/// UWColourVision and UWGraphicsDetail. Everything that CHANGES a value goes through here:
-/// the in-game options panel (UWHudOptions) and the Sound menu of UWSetupMenu.
+/// WHY A CLASS OF ITS OWN: everything that CHANGES a value goes through here - the in-game
+/// options panel (UWHudOptions), the Sound menu of UWSetupMenu and a loaded save - so that each
+/// change is saved at once and switching the music off stops it. The values live in
+/// UWUserSettings (settings.json) and nowhere else since cleanup step 8.8 (2026-10-24); until then
+/// they were copied into UWSettings as well, a live copy for the Inspector that UWAudioMixer read,
+/// and the mixer asks here now.
 /// </summary>
 public static class UWSoundOptions
 {
     /// <summary>The steps the volume sliders snap to, and what their arrows move by. Five
     /// percent, so a round value can be hit (as with the easy movement interval).</summary>
-    public const float VolumeStep = 0.05f;
+    public const float VolumeStep = UWDataImport.UWData.UWUserSettingsTable.VolumeStep;
 
     public static bool MusicEnabled
     {
         get
         {
-            fEnsureLoaded();
-
             return UWUserSettings.MusicEnabled;
         }
 
         set
         {
-            fEnsureLoaded();
-
             UWUserSettings.MusicEnabled = value;
-            fApplyAndSave();
+            UWUserSettings.Save();
 
-            if (!value && UWAudioEngine.Instance != null)
-                UWAudioEngine.Instance.StopMusic();
+            if (!value)
+                UWAudioService.StopMusic();
         }
     }
 
@@ -45,35 +42,36 @@ public static class UWSoundOptions
     {
         get
         {
-            fEnsureLoaded();
-
             return UWUserSettings.SoundEnabled;
         }
 
         set
         {
-            fEnsureLoaded();
-
             UWUserSettings.SoundEnabled = value;
-            fApplyAndSave();
+            UWUserSettings.Save();
         }
     }
 
+    // THE VOLUMES ARE SAVED ONLY WHEN THEY CHANGE (found in cleanup 8.2, fixed per user
+    // 2026-10-24): the sound dialog assigns its sliders' values on every OnGUI pass, and each
+    // assignment wrote settings.json, several times a frame while the dialog was open.
     public static float MusicVolume
     {
         get
         {
-            fEnsureLoaded();
-
             return UWUserSettings.MusicVolume;
         }
 
         set
         {
-            fEnsureLoaded();
+            float lfVolume = Mathf.Clamp01(value);
 
-            UWUserSettings.MusicVolume = Mathf.Clamp01(value);
-            fApplyAndSave();
+            // Only a change is saved: the sound dialog assigns its sliders on every pass.
+            if (lfVolume == UWUserSettings.MusicVolume)
+                return;
+
+            UWUserSettings.MusicVolume = lfVolume;
+            UWUserSettings.Save();
         }
     }
 
@@ -81,28 +79,20 @@ public static class UWSoundOptions
     {
         get
         {
-            fEnsureLoaded();
-
             return UWUserSettings.SoundVolume;
         }
 
         set
         {
-            fEnsureLoaded();
+            float lfVolume = Mathf.Clamp01(value);
 
-            UWUserSettings.SoundVolume = Mathf.Clamp01(value);
-            fApplyAndSave();
+            // Only a change is saved: the sound dialog assigns its sliders on every pass.
+            if (lfVolume == UWUserSettings.SoundVolume)
+                return;
+
+            UWUserSettings.SoundVolume = lfVolume;
+            UWUserSettings.Save();
         }
-    }
-
-    /// <summary>
-    /// Puts what was saved into the live settings. Called by itself before every access, and
-    /// by UWAudioEngine before it reads, so that a fresh start plays at the saved volume even
-    /// if nobody has opened a menu.
-    /// </summary>
-    public static void EnsureLoaded()
-    {
-        fEnsureLoaded();
     }
 
     /// <summary>
@@ -117,45 +107,11 @@ public static class UWSoundOptions
     /// </summary>
     public static void ApplyFromSave(bool pbMusic, bool pbSound)
     {
-        fEnsureLoaded();
-
         UWUserSettings.MusicEnabled = pbMusic;
         UWUserSettings.SoundEnabled = pbSound;
-
-        fApplyAndSave();
-
-        if (!pbMusic && UWAudioEngine.Instance != null)
-            UWAudioEngine.Instance.StopMusic();
-    }
-
-    private static bool mbLoaded;
-
-    private static void fEnsureLoaded()
-    {
-        if (mbLoaded)
-            return;
-
-        mbLoaded = true;
-
-        fApply();
-    }
-
-    private static void fApplyAndSave()
-    {
-        fApply();
         UWUserSettings.Save();
-    }
 
-    private static void fApply()
-    {
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-
-        if (lOSettings == null)
-            return;
-
-        lOSettings.MusicEnabled = UWUserSettings.MusicEnabled;
-        lOSettings.SoundEnabled = UWUserSettings.SoundEnabled;
-        lOSettings.MusicVolume = UWUserSettings.MusicVolume;
-        lOSettings.SoundVolume = UWUserSettings.SoundVolume;
+        if (!pbMusic)
+            UWAudioService.StopMusic();
     }
 }

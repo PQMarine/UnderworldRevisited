@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// Single source of truth for which control scheme is currently active, and
@@ -9,10 +10,10 @@ using UnityEngine.InputSystem;
 /// Original: movement via the mouse pointer position in the game window, as in the original from
 /// 1992 - the pointer is visible and free, held with the left mouse button. Modern:
 /// free mouse look plus WASD/gamepad stick, as usual in today's games - the pointer
-/// is invisible and locked to the centre of the screen.
+/// is invisible and locked to the centre of the screen (UWPointer.IsLookLocked).
 ///
 /// Other scripts ask exclusively here (Current, Controls), instead of
-/// interpreting Cursor.visible or the state of individual movement/look scripts themselves
+/// interpreting the pointer's visibility or the state of individual movement/look scripts themselves
 /// or creating their own UWControls instance for the same player.
 /// </summary>
 public class UWControlScheme : MonoBehaviour
@@ -53,6 +54,14 @@ public class UWControlScheme : MonoBehaviour
     /// change detection of UWPlayerLook and the scheme selector of UWSetupMenu.
     /// </summary>
     public static bool IsModern => msInstance != null && msInstance.Current == SchemeEnum.Modern;
+
+    /// <summary>The player's controls (the one component's, from Awake to OnDestroy - known while the
+    /// player object is off, as msInstance is); null without a scheme component. What UWInput reads.</summary>
+    public static UWControls SharedControls => msInstance != null ? msInstance.mControls : null;
+
+    /// <summary>The one component, null without one - known while the player object is off, unlike
+    /// UWScene.ControlScheme.</summary>
+    public static UWControlScheme Shared => msInstance;
 
     /// <summary>
     /// THE INTERFACE THE GAME LOGIC TALKS TO (cleanup 5.19, 2026-10-23): UWClassicUiScheme or
@@ -179,19 +188,39 @@ public class UWControlScheme : MonoBehaviour
 
     private bool mbIsConversationOpen;
 
+    /// <summary>The input contexts this component's holds put on the stack (cleanup step 7.4,
+    /// 2026-10-25): UiModal for a modal hold, the detached view or an input hold, Conversation while
+    /// one runs - over the World.</summary>
+    public UWInputContext HeldContexts
+    {
+        get
+        {
+            UWInputContext leSet = UWInputContext.World;
+
+            if (IsUIModalOpen || IsRemoteCameraActive || IsInputHeld)
+                leSet |= UWInputContext.UiModal;
+
+            if (mbIsConversationOpen)
+                leSet |= UWInputContext.Conversation;
+
+            return leSet;
+        }
+    }
+
     /// <summary>World input is paused: either a display lies on top, the view
-    /// is detached, or a conversation is running. Look, movement and use query this.
+    /// is detached, or a conversation is running. Look, movement and use query this
+    /// (UWInputContexts.BlocksWorld).
     /// </summary>
     public bool IsWorldInputBlocked
     {
-        get { return IsUIModalOpen || IsRemoteCameraActive || mbIsConversationOpen || IsInputHeld; }
+        get { return UWInputContexts.BlocksWorld(HeldContexts); }
     }
 
     /// <summary>Inventory input is paused - like the world, just not during a conversation (see
-    /// IsConversationOpen). UWItemDrag queries this.</summary>
+    /// IsConversationOpen). UWItemDrag queries this (UWInputContexts.BlocksInventory).</summary>
     public bool IsInventoryInputBlocked
     {
-        get { return IsUIModalOpen || IsRemoteCameraActive || IsInputHeld; }
+        get { return UWInputContexts.BlocksInventory(HeldContexts); }
     }
 
     private void Awake()
@@ -238,12 +267,41 @@ public class UWControlScheme : MonoBehaviour
 
     private void Update()
     {
-        // On the keyboard SHIFT+F2 since 2026-09-26: plain F2 is the original's talk key.
-        InputAction lOToggle = mControls.Player.ToggleScheme;
+        // On the keyboard SHIFT+F2 since 2026-09-26: plain F2 is the original's talk key (UWHotkeys,
+        // ShiftOnKeyboard; cleanup step 7.5).
+        if (mOKeys == null)
+            mOKeys = new SchemeKeys(this);
 
-        if (lOToggle.WasPressedThisFrame()
-            && (!(lOToggle.activeControl?.device is Keyboard) || UWControls.IsShiftHeld))
-            Choose(Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
+        UWHotkeys.Route(UWHotkeySite.Scheme, mOKeys);
+    }
+
+    private SchemeKeys mOKeys;
+
+    /// <summary>The scheme's hotkey (UWHotkeys): Shift+F2 switches it.</summary>
+    private sealed class SchemeKeys : UWHotkeyHost
+    {
+        private readonly UWControlScheme mOScheme;
+
+        public SchemeKeys(UWControlScheme pOScheme)
+        {
+            mOScheme = pOScheme;
+        }
+
+        protected override UWControls Controls => mOScheme.mControls;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
+        {
+            return false;
+        }
+
+        public override bool Run(UWHotkeyHandler peHandler)
+        {
+            if (peHandler != UWHotkeyHandler.SwitchScheme)
+                return false;
+
+            mOScheme.Choose(mOScheme.Current == SchemeEnum.Original ? SchemeEnum.Modern : SchemeEnum.Original);
+            return true;
+        }
     }
 
     /// <summary>The player's choice of a scheme - Shift+F2 or the Controls dialog of the menu bar
@@ -267,6 +325,10 @@ public class UWControlScheme : MonoBehaviour
 
         if (leBefore != peScheme && mbStarted)
             fHandOverMenus(leBefore);
+
+        // The easy steps lie on the turn keys in the classic scheme and on the keys beside the walk
+        // in the modern one (decision 18): put anew - an unchanged step is left alone.
+        UWControls.ApplyEasySteps();
 
         fApplyCursorState();
     }
@@ -306,21 +368,21 @@ public class UWControlScheme : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// THE LOOK MODE AND THE POINTER'S VISIBILITY, through UWPointer since cleanup step 7.7B
+    /// (2026-10-25; Cursor.visible and Cursor.lockState here until then): the modern scheme without a
+    /// modal hold, a conversation or its free pointer turns the view with the mouse and hides the
+    /// pointer; otherwise the pointer shows - in the game it is our own, captured (UWPointer), in the
+    /// menus the system's.
+    /// </summary>
     private void fApplyCursorState()
     {
-        if (Current == SchemeEnum.Modern && !IsUIModalOpen && !mbIsConversationOpen && !IsPointerFree)
-        {
-            Cursor.visible = false;
-            Cursor.lockState = CursorLockMode.Locked;
-        }
-        else
-        {
-            // With Original the real system pointer always stays visible and free anyway,
-            // as in the original from 1992 - UWGameUI only actively clamps it to the small view
-            // window during a held cursor movement. With Modern and an open
-            // UI panel (IsUIModalOpen) the same applies temporarily.
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
-        }
+        bool lbLook = Current == SchemeEnum.Modern && !IsUIModalOpen && !mbIsConversationOpen && !IsPointerFree;
+
+        // With Original the pointer always stays visible and free anyway, as in the original
+        // from 1992 - UWPointerZones only clamps it to the small view window during a held cursor
+        // movement. With Modern and an open UI panel (IsUIModalOpen) the same applies temporarily.
+        UWPointer.IsLookLocked = lbLook;
+        UWPointer.IsShown = !lbLook;
     }
 }

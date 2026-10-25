@@ -153,12 +153,10 @@ public class UWModernStatsPage : IUWModernPart
     /// <summary>The list's paging by the left button and the wheel - with the pointer free.</summary>
     public void UpdateClicks(UWControls pOControls)
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (pOControls == null || lOMouse == null || ScreenRect.width <= 0f || !UWModernPointer.IsFree)
+        if (pOControls == null || !UWPointer.HasMouse || ScreenRect.width <= 0f || !UWModernPointer.IsFree)
             return;
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         // No paging while the Classic Wide panel turns (per user, 2026-10-20), as the classic
         // stats page (UWHudPanel asks UWPanelTurn.IsAtRestOn): the page stands squeezed then.
@@ -166,7 +164,7 @@ public class UWModernStatsPage : IUWModernPart
             return;
 
         int liStep = 0;
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f)
             liStep = lfWheel > 0f ? -1 : 1;

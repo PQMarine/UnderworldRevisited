@@ -124,7 +124,7 @@ public class UWDeath : MonoBehaviour
         Interaction lOInteraction = UWScene.Interaction;
         UWInventory lOInventory = UWScene.Inventory;
 
-        UWMusic.ChangeTheme(UWMusic.DeathTheme);
+        UWAudioService.ChangeTheme(UWMusicSelector.DeathTheme);
 
         mOCharacter.Vitals.ChangeExperience(-UWDeathRules.ExperienceLoss(mOCharacter.Vitals.Experience), mOLoader.CurrentLevelIndex + 1);
 
@@ -218,7 +218,7 @@ public class UWDeath : MonoBehaviour
         mOCharacter.Vitals.EndAllSpells();
         mOCharacter.Flasks.StartFlaskFill();
 
-        UWMusic.ChangeTheme(ResurrectionTheme);
+        UWAudioService.ChangeTheme(ResurrectionTheme);
     }
 
     /// <summary>The game is over: main menu, the world stays frozen behind it.</summary>

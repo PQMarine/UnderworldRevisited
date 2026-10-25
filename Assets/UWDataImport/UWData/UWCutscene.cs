@@ -98,6 +98,56 @@ namespace UWDataImport.UWData
 			myFrame = new byte[Width * Height];
 		}
 
+		/// <summary>Bounding box (top-down canvas pixels) of everything that differs from the
+		/// top-left background colour in any frame of the file - the same background rule as
+		/// UWGameUI.fMeasureWindowContent. The whole canvas when nothing is painted. Decodes its
+		/// own copy of the file, so a playing one keeps its place. Moved from
+		/// UWIntroPlayer.fMeasurePaintedBlock (cleanup step 8.7, 2026-10-24), which places the
+		/// viewport cutscenes by it.</summary>
+		public static void MeasurePaintedBlock(string psPath, out int piX, out int piY, out int piWidth, out int piHeight)
+		{
+			UWCutscene lOCutscene = new UWCutscene(psPath);
+			int liMinX = lOCutscene.Width, liMinY = lOCutscene.Height, liMaxX = -1, liMaxY = -1;
+			byte lyBackground = 0;
+
+			for (int liFrame = 0; liFrame < lOCutscene.FrameCount; liFrame++)
+			{
+				byte[] lyPixels = lOCutscene.GetFrame(liFrame);
+
+				if (liFrame == 0 && lyPixels.Length > 0)
+					lyBackground = lyPixels[0];
+
+				for (int liY = 0; liY < lOCutscene.Height; liY++)
+				{
+					for (int liX = 0; liX < lOCutscene.Width; liX++)
+					{
+						if (lyPixels[(liY * lOCutscene.Width) + liX] == lyBackground)
+							continue;
+
+						if (liX < liMinX) liMinX = liX;
+						if (liX > liMaxX) liMaxX = liX;
+						if (liY < liMinY) liMinY = liY;
+						if (liY > liMaxY) liMaxY = liY;
+					}
+				}
+			}
+
+			if (liMaxX < liMinX || liMaxY < liMinY)
+			{
+				piX = 0;
+				piY = 0;
+				piWidth = lOCutscene.Width;
+				piHeight = lOCutscene.Height;
+
+				return;
+			}
+
+			piX = liMinX;
+			piY = liMinY;
+			piWidth = liMaxX - liMinX + 1;
+			piHeight = liMaxY - liMinY + 1;
+		}
+
 		/// <summary>
 		/// The frame as palette indices, Width * Height bytes, row 0 at the top. Any order is
 		/// allowed: later frames are decoded onwards from the current one, earlier frames from

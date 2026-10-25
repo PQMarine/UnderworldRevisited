@@ -259,7 +259,7 @@ public static class UWPlayerThrow
         {
             pOInteraction?.AddMessage(NoSpaceMessage);
 
-            UWSoundEffects.PlayAtAvatar(UWSoundEffects.Landing);
+            UWAudioService.PlayEffect(UWSoundEffectId.Landing);
 
             return false;
         }

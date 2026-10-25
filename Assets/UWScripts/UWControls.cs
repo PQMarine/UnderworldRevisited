@@ -1,4 +1,5 @@
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// All input action maps of the game: Player (movement/look/interaction),
@@ -91,7 +92,9 @@ public class UWControls : System.IDisposable
         /// or EasyModifier (the modern one, Left Alt) - one step forward, one back, one turn of
         /// 45 degrees each way (UWEasyMovement). The modifier is asked for in UWPlayerInput, not
         /// bound here, so that the actions stay ordinary buttons. W may step off a ledge, X is the
-        /// same step without it.
+        /// same step without it. FOUR OF THEM FOLLOW THE WALK AND TURN KEYS (decision 18,
+        /// 2026-10-25): UWKeyBindings.ApplyEasySteps puts the walk's or the turn's key in force on
+        /// them as an override, per scheme (UWEasyMovement.FollowedKeys); X keeps its own.
         /// </summary>
         public readonly InputAction EasyForward;
 
@@ -328,35 +331,119 @@ public class UWControls : System.IDisposable
         IsTextEntryActive = pbActive;
 
         foreach (UWControls lOControls in msInstances)
-            lOControls.fApplyTextEntry();
+            lOControls.fApplyLocks();
     }
 
-    /// <summary>The actions that stay silent while typing: everything tied to the keyboard - the
-    /// list is UWTextEntryState's since cleanup 5.18 (2026-10-23). The debug map lies entirely
-    /// on keys.</summary>
-    private void fApplyTextEntry()
+    /// <summary>
+    /// THE SHORTCUT MODIFIER IS HELD (cleanup 7, wave 2b, per user 2026-10-25): the modern right Ctrl
+    /// or the classic Ctrl - UWHotkeys.IsShortcutModifierHeld. Meanwhile the player's actions that
+    /// share a key with the Ctrl shortcuts (S, R, M, F, D, Q by default: the walk keys, ModernReady,
+    /// HoverHeight, ModernLook, the map, the font, the easy steps) stay silent, as the typing lock
+    /// silences its own: right Ctrl+R opened the restore page and readied the weapon, Ctrl+S saved and
+    /// walked. Which actions is worked out from their keys when the modifier goes down (a rebind
+    /// counts). Only the Player map: the noclip camera's left Ctrl sinks with its own walk keys. Move is
+    /// one action for all walk keys, so W and A pause with S and D while the modifier is held; a walk
+    /// key still down walks on once it is let go (a value action looks at its keys when switched on).
+    ///
+    /// Put after every input update (fAfterInputUpdate), before any Update reads an action.
+    /// </summary>
+    public static bool IsShortcutModifierHeld { get; private set; }
+
+    public static void SetShortcutModifierHeld(bool pbHeld)
+    {
+        if (IsShortcutModifierHeld == pbHeld)
+            return;
+
+        IsShortcutModifierHeld = pbHeld;
+
+        foreach (UWControls lOControls in msInstances)
+            lOControls.fApplyLocks();
+    }
+
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void fHookShortcutModifier()
+    {
+        InputSystem.onAfterUpdate -= fAfterInputUpdate;
+        InputSystem.onAfterUpdate += fAfterInputUpdate;
+    }
+
+    /// <summary>Once an input update has its events in: whether the scheme's shortcut modifier is held
+    /// now (on change only the actions are switched).</summary>
+    private static void fAfterInputUpdate()
+    {
+        if (!UnityEngine.Application.isPlaying)
+            return;
+
+        SetShortcutModifierHeld(UWHotkeys.IsShortcutModifierHeld(UWControlScheme.IsModern, UWHotkeyHost.HeldMods));
+    }
+
+    /// <summary>The actions the shortcut modifier switched off in this instance, to switch on again.</summary>
+    private readonly bool[] mbShortcutSilenced = new bool[UWActionTable.Count];
+
+    /// <summary>
+    /// The two locks onto the actions. The actions that stay silent while typing: everything tied to
+    /// the keyboard - the TextEntry input context's (UWInputContexts.SilencedWhileTyping since cleanup
+    /// step 7.4, 2026-10-25; UWTextEntryState's list before, recorded by UWInputLockCheck). The debug
+    /// map lies entirely on keys. And while the shortcut modifier is held, the Player map's actions on
+    /// the shortcuts' keys (wave 2b). An action neither lock touches is left as it is.
+    /// </summary>
+    private void fApplyLocks()
     {
         if (!mbEnabled)
             return;
 
-        foreach (string lsAction in UWTextEntryState.LockedPlayerActions)
-            fApplyTextEntry(mPlayerMap[lsAction]);
+        bool[] lbKeyed = IsShortcutModifierHeld ? fShortcutKeyed() : null;
 
-        foreach (string lsAction in UWTextEntryState.LockedNoclipActions)
-            fApplyTextEntry(mNoclipMap[lsAction]);
+        for (int liAct = 0; liAct < UWActionTable.Count; liAct++)
+        {
+            bool lbTyping = UWInputContexts.SilencedWhileTyping((UWAct)liAct);
+            bool lbShortcut = lbKeyed != null && lbKeyed[liAct];
 
-        if (IsTextEntryActive)
-            mDebugMap.Disable();
-        else
-            mDebugMap.Enable();
+            if (!lbTyping && !lbShortcut && !mbShortcutSilenced[liAct])
+                continue;
+
+            mbShortcutSilenced[liAct] = lbShortcut;
+
+            if ((IsTextEntryActive && lbTyping) || lbShortcut)
+                mOActs[liAct].Disable();
+            else
+                mOActs[liAct].Enable();
+        }
     }
 
-    private static void fApplyTextEntry(InputAction pOAction)
+    /// <summary>The Player map's actions with a key of the scheme's Ctrl shortcuts (their own acts not
+    /// counted), by the controls the bindings resolve to now.</summary>
+    private bool[] fShortcutKeyed()
     {
-        if (IsTextEntryActive)
-            pOAction.Disable();
-        else
-            pOAction.Enable();
+        bool[] lbKeyed = new bool[UWActionTable.Count];
+        System.Collections.Generic.List<UWAct> lOShortcuts = UWHotkeys.ShortcutActs(UWControlScheme.IsModern);
+        System.Collections.Generic.HashSet<InputControl> lOKeys = new System.Collections.Generic.HashSet<InputControl>();
+
+        foreach (UWAct leAct in lOShortcuts)
+        {
+            foreach (InputControl lOControl in mOActs[(int)leAct].controls)
+            {
+                if (lOControl.device is Keyboard)
+                    lOKeys.Add(lOControl);
+            }
+        }
+
+        for (int liAct = 0; liAct < (int)UWActionTable.FirstNoclip; liAct++)
+        {
+            if (lOShortcuts.Contains((UWAct)liAct))
+                continue;
+
+            foreach (InputControl lOControl in mOActs[liAct].controls)
+            {
+                if (lOKeys.Contains(lOControl))
+                {
+                    lbKeyed[liAct] = true;
+                    break;
+                }
+            }
+        }
+
+        return lbKeyed;
     }
 
     /// <summary>The slots of the modern action bar, on the keys 1 to 0.</summary>
@@ -365,6 +452,13 @@ public class UWControls : System.IDisposable
     public PlayerActions Player { get; }
     public NoclipActions Noclip { get; }
     public DebugActions Debug { get; }
+
+    /// <summary>Every action by its UWAct (cleanup step 7.4, 2026-10-25), found once by the map and
+    /// name UWActionTable gives - the strings the maps are built with here.</summary>
+    private readonly InputAction[] mOActs = new InputAction[UWActionTable.Count];
+
+    /// <summary>An action by its UWAct - what UWInput reads.</summary>
+    public InputAction this[UWAct peAct] => mOActs[(int)peAct];
 
     public UWControls()
     {
@@ -375,6 +469,18 @@ public class UWControls : System.IDisposable
         Player = new PlayerActions(mPlayerMap);
         Noclip = new NoclipActions(mNoclipMap);
         Debug = new DebugActions(mDebugMap);
+
+        // The table and the maps must agree action for action (the self-check holds the table against
+        // the maps as recorded, UWInputLockCheck); a gap shows here at once.
+        for (int liAct = 0; liAct < UWActionTable.Count; liAct++)
+        {
+            UWAct leAct = (UWAct)liAct;
+
+            mOActs[liAct] = FindAction(UWActionTable.MapOf(leAct), UWActionTable.NameOf(leAct));
+
+            if (mOActs[liAct] == null)
+                UnityEngine.Debug.LogError("UWControls: no action " + UWActionTable.MapOf(leAct) + "|" + UWActionTable.NameOf(leAct));
+        }
 
         msInstances.Add(this);
 
@@ -393,6 +499,14 @@ public class UWControls : System.IDisposable
             UWKeyBindings.ApplyTo(lOControls);
     }
 
+    /// <summary>The easy steps onto the walk and turn keys of the scheme in force, on every live
+    /// instance (UWKeyBindings.ApplyEasySteps; the scheme changed).</summary>
+    public static void ApplyEasySteps()
+    {
+        foreach (UWControls lOControls in msInstances)
+            UWKeyBindings.ApplyEasySteps(lOControls, UWControlScheme.IsModern);
+    }
+
     /// <summary>An action by map and name, or null.</summary>
     public InputAction FindAction(string psMap, string psAction)
     {
@@ -409,8 +523,8 @@ public class UWControls : System.IDisposable
         mbEnabled = true;
 
         // Enabling a map also re-enables the locked actions.
-        if (IsTextEntryActive)
-            fApplyTextEntry();
+        if (IsTextEntryActive || IsShortcutModifierHeld)
+            fApplyLocks();
     }
 
     public void Disable()

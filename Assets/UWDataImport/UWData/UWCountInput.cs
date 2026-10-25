@@ -79,11 +79,10 @@ namespace UWDataImport.UWData
 
 		private readonly Policy mOPolicy;
 
-		private int miPadDirection;
-
-		private float mfPadNext;
-
-		private float mfPadSince;
+		/// <summary>The d-pad's held direction and its repeat (UWRepeat since cleanup step 7.3,
+		/// 2026-10-25; three fields here until then): a step on the push, again after
+		/// FirstRepeatSeconds, then RepeatSeconds after each step.</summary>
+		private readonly UWRepeat mOPadRepeat = new UWRepeat(FirstRepeatSeconds, RepeatSeconds, UWRepeat.RuleEnum.FromNow);
 
 		public UWCountInput(Policy pOPolicy)
 		{
@@ -120,7 +119,7 @@ namespace UWDataImport.UWData
 			Text = Preset;
 			IsFirstKey = true;
 			TakenCount = 0;
-			miPadDirection = 0;
+			mOPadRepeat.Reset();
 		}
 
 		/// <summary>The classic prompt's rule: on the first key press, whichever key, the preset goes
@@ -202,28 +201,10 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool HoldDirection(int piDirection, float pfNow)
 		{
-			if (piDirection == 0)
-			{
-				miPadDirection = 0;
+			if (!mOPadRepeat.Hold(piDirection, pfNow))
 				return false;
-			}
 
-			if (piDirection != miPadDirection)
-			{
-				miPadDirection = piDirection;
-				mfPadSince = pfNow;
-				mfPadNext = pfNow + FirstRepeatSeconds;
-			}
-			else if (pfNow < mfPadNext)
-			{
-				return false;
-			}
-			else
-			{
-				mfPadNext = pfNow + RepeatSeconds;
-			}
-
-			Step(piDirection * (pfNow - mfPadSince > FastAfterSeconds ? FastStep : 1));
+			Step(piDirection * (pfNow - mOPadRepeat.PressedAt > FastAfterSeconds ? FastStep : 1));
 
 			return true;
 		}
@@ -234,7 +215,7 @@ namespace UWDataImport.UWData
 		{
 			TakenCount = Math.Max(1, Math.Min(Maximum, piCount));
 			IsOpen = false;
-			miPadDirection = 0;
+			mOPadRepeat.Reset();
 
 			return TakenCount;
 		}
@@ -244,7 +225,7 @@ namespace UWDataImport.UWData
 		{
 			TakenCount = 0;
 			IsOpen = false;
-			miPadDirection = 0;
+			mOPadRepeat.Reset();
 		}
 
 		/// <summary>Enter: the typed number is taken (true), or the prompt is cancelled (false) - for

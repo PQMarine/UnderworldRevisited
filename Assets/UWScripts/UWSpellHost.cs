@@ -155,12 +155,12 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public void PlaySpellSound()
     {
-        fPresentation.PlaySoundAtPlayer(UWSoundEffects.Spell);
+        fPresentation.PlaySoundAtPlayer(UWSoundEffectId.Spell);
     }
 
     public void PlaySpellFailureSound()
     {
-        fPresentation.PlaySoundAtPlayer(UWSoundEffects.SpellFailure);
+        fPresentation.PlaySoundAtPlayer(UWSoundEffectId.SpellFailure);
     }
 
     /// <summary>This cast's presentation - the world's, or for a cast without a level loader one

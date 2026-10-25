@@ -259,7 +259,7 @@ public class UWModernActionBar : MonoBehaviour
         if (!CanBind(pOItem))
         {
             if (mOInteraction != null)
-                mOInteraction.AddMessage("That does not go on the action bar.");
+                mOInteraction.AddMessage(UWText.T("prompt.not_on_action_bar"));
 
             return false;
         }
@@ -491,22 +491,23 @@ public class UWModernActionBar : MonoBehaviour
                 fUse(liSlot);
         }
 
-        // Not where the gamepad's pointer takes the button (UWGamepadPointer.Takes), nor in a
-        // conversation, where the d-pad steps the answers (UWConversationController).
+        // Not where the gamepad's pointer takes the button (the PadPointer context,
+        // UWInput.PadPointerTakes), nor in a conversation, where the d-pad steps the answers
+        // (UWConversationController).
         bool lbPadFree = !UWConversationController.IsAnyOpen;
 
-        if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotPrevious))
+        if (lbPadFree && lOControls.Player.PadSlotPrevious.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotPrevious))
             fStepPadSlot(-1);
-        else if (lbPadFree && lOControls.Player.PadSlotNext.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotNext))
+        else if (lbPadFree && lOControls.Player.PadSlotNext.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotNext))
             fStepPadSlot(1);
 
-        if (lbPadFree && lOControls.Player.PadSlotUse.WasPressedThisFrame() && !UWGamepadPointer.Takes(lOControls.Player.PadSlotUse))
+        if (lbPadFree && lOControls.Player.PadSlotUse.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotUse))
             fUse(miPadSlot);
 
-        if (!mOScheme.IsPointerFree || Mouse.current == null || UWModernPointer.PanelsHeld)
+        if (!mOScheme.IsPointerFree || !UWPointer.HasMouse || UWModernPointer.PanelsHeld)
             return;
 
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         bool lbEmptyPointer = mOUi.mOInventory.CursorItem == null;
 
         if (lOControls.Player.CursorDrag.WasPressedThisFrame() && lbEmptyPointer && mOLink == null && miLinkSpell < 0
@@ -553,9 +554,9 @@ public class UWModernActionBar : MonoBehaviour
             miPressSlot = -1;
         }
 
-        // The right button on a slot uses it too, as on the bags.
-        if (lOControls.Player.Interact.WasPressedThisFrame() && lbEmptyPointer
-            && UWModernPointer.SwitchedFrame != Time.frameCount && TryGetSlotAt(lOPointer, out int liRight))
+        // The right button on a slot uses it too, as on the bags - not the press that switched the
+        // pointer (UWInput.PressedUnheld).
+        if (UWInput.PressedUnheld(lOControls, UWAct.Interact) && lbEmptyPointer && TryGetSlotAt(lOPointer, out int liRight))
             fUse(liRight);
     }
 
@@ -725,9 +726,9 @@ public class UWModernActionBar : MonoBehaviour
         // The link being dragged follows the pointer.
         mOLinkText.enabled = false;
 
-        if ((mOLink != null || miLinkSpell >= 0) && Mouse.current != null)
+        if ((mOLink != null || miLinkSpell >= 0) && UWPointer.HasMouse)
         {
-            Vector2 lOPointer = Mouse.current.position.ReadValue();
+            Vector2 lOPointer = UWPointer.Position;
 
             if (miLinkSpell >= 0)
                 fShowSpell(mOLinkIcon, mOLinkText, miLinkSpell, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f));

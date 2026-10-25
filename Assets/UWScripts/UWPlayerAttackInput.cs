@@ -117,8 +117,9 @@ public sealed class UWPlayerAttackInput
         if (lOAttackButton.WasPressedThisFrame())
         {
             // While the gamepad's pointer drives, its trigger is the left mouse button
-            // (UWGamepadPointer.Takes): the strike goes where the pointer is, as with the mouse.
-            mOState.FromPad = UWGamepad.IsFromGamepad(lOAttackButton) && !UWGamepadPointer.Takes(lOAttackButton);
+            // (the PadPointer context, UWInput.PadPointerTakes): the strike goes where the pointer is,
+            // as with the mouse.
+            mOState.FromPad = UWGamepad.IsFromGamepad(lOAttackButton) && !UWInput.PadPointerTakes(lOAttackButton);
 
             // In the classic view window; the modern scheme: on the world, not on a window of its
             // UI (a drag from a bag onto the world must not strike) - IUWUiScheme.PressAimsAtWorld.
@@ -363,7 +364,7 @@ public sealed class UWPlayerAttackInput
 
         if (leSource == UWAttackKindSource.PointerThirdsOnScreen)
         {
-            float lfAt = Mouse.current.position.ReadValue().y / Mathf.Max(1f, Screen.height);
+            float lfAt = UWPointer.Position.y / Mathf.Max(1f, Screen.height);
 
             fSetAttackKind(UWPlayerAttackState.KindOfThird(lfAt));
 
@@ -380,7 +381,7 @@ public sealed class UWPlayerAttackInput
         UWGameUI lOUi = fUi();
 
         float lfFraction = lOUi != null
-            ? lOUi.ClassicScreen.GetVerticalFractionInGameArea(Mouse.current.position.ReadValue())
+            ? lOUi.ClassicScreen.GetVerticalFractionInGameArea(UWPointer.Position)
             : 0.5f;
 
         fSetAttackKind(UWPlayerAttackState.KindOfThird(lfFraction));
@@ -391,7 +392,7 @@ public sealed class UWPlayerAttackInput
         // (3, 6, 9) sits a third higher than the rest of its row. Until then ours took the middle
         // column for every row. The modern scheme keeps the middle column (fSetAttackKind).
         float lfAcross = lOUi != null
-            ? lOUi.ClassicScreen.GetHorizontalFractionInGameArea(Mouse.current.position.ReadValue())
+            ? lOUi.ClassicScreen.GetHorizontalFractionInGameArea(UWPointer.Position)
             : 0.5f;
 
         mOState.SetColumn(UWPlayerAttackState.ColumnOfThird(lfAcross));

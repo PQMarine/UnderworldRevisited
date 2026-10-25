@@ -24,13 +24,12 @@ public static class UWModernClassicPlus
 {
     public static bool IsActive => UWModernLayout.Preset == UWModernLayout.PresetEnum.ClassicPlus;
 
-    /// <summary>The places, as the own layout keeps them (UWUserSettings.ModernLayout).</summary>
-    public const string Layout =
-        "2:0.5:1:0:-4:100;3:0.5:0:-57.3:40:100;4:0:0:0:6:80;10:0.5:0:-0.12:5.9:100;11:0.5:0:45.42:5.73:100;12:0:0:0:0:100;"
-        + "14:1:0:-100.3:5.7:100;15:1:0:-75.4:6:100;16:1:0:-127.6:5.7:100;17:0:0.5:-3.3:-35:100;18:1:0:0:0:100;19:1:0.5:-0.13:36:100;";
+    /// <summary>The places, as the own layout keeps them (UWUserSettings.ModernLayout); the preset
+    /// table holds them since cleanup step 8.4 (UWLayoutPresets), the editor's start copies them.</summary>
+    public const string Layout = UWLayoutPresets.ClassicModularLayout;
 
     /// <summary>Lines of text the message scroll holds.</summary>
-    public const int ScrollLines = 5;
+    public const int ScrollLines = UWLayoutPresets.ClassicModularScrollLines;
 
     /// <summary>The stone shelf's width in its own pixels: the screen beside the stats panel.</summary>
     public static int StoneShelfWidth => Mathf.Max(UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth - UWTextures.PanelWidth);

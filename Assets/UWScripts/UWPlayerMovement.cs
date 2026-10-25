@@ -299,7 +299,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// </summary>
     private int fLandingSound()
     {
-        return IsInLiquid && !IsOnLava ? UWSoundEffects.Splash : UWSoundEffects.Landing;
+        return IsInLiquid && !IsOnLava ? UWSoundEffectId.Splash : UWSoundEffectId.Landing;
     }
 
     /// <summary>Is the character currently levitating or flying?</summary>
@@ -635,7 +635,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         }
 
         if (lOResult.LandingSound)
-            UWSoundEffects.PlayAtAvatar(fLandingSound(), UWImpactRules.GetVolume(lOResult.ImpactValue));
+            UWAudioService.PlayEffect(fLandingSound(), UWImpactRules.GetVolume(lOResult.ImpactValue));
     }
 
     /// <summary>The transform from the params: the feet at the fine position and height, the

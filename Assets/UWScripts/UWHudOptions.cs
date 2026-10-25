@@ -119,7 +119,7 @@ public sealed class UWHudOptions
             mOUi.mOInteraction.AddGeneralMessage(SaveDescriptionPromptMessage);
         }
 
-        Cursor.visible = false;
+        UWPointer.IsShown = false;
 
         fRefreshSaveNamePrompt();
     }
@@ -150,7 +150,7 @@ public sealed class UWHudOptions
         if (mOUi.mOInteraction != null)
             mOUi.mOInteraction.EndPromptMessage();
 
-        Cursor.visible = true;
+        UWPointer.IsShown = true;
     }
 
     private void fOnSaveNameTextInput(char pcChar)
@@ -203,9 +203,7 @@ public sealed class UWHudOptions
         // Left as well as right mouse button confirm the name, although the pointer is not
         // visible - as with the quantity input (per user on the original, 2026-09-12). The
         // click that chose the slot was in the previous frame and no longer counts.
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse != null && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
+        if (UWPointer.HasMouse && (UWMouseButtons.LeftPressed || UWMouseButtons.RightPressed))
         {
             fConfirmSaveName();
 
@@ -217,7 +215,7 @@ public sealed class UWHudOptions
         if (lOKeyboard == null)
             return true;
 
-        if (UWTextEntry.EscapePressed)
+        if (UWBack.Takes(UWBackOwner.ClassicSaveName))
         {
             fEndSaveName();
             fFinishSave(null, true);
@@ -378,6 +376,9 @@ public sealed class UWHudOptions
     }
 
     private UWEffectsScreen mOEffectsScreen;
+
+    /// <summary>The options' own effects screen is up (UWBack: the options' Escape waits for it).</summary>
+    internal bool IsEffectsScreenOpen => mOEffectsScreen != null && mOEffectsScreen.IsOpen;
 
     /// <summary>The music and sound switches and the detail level the model draws its screens
     /// from.</summary>
@@ -620,12 +621,10 @@ public sealed class UWHudOptions
         if (UWSetupMenu.HasOpenPanel)
             return mOModel.IsOpen;
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return mOModel.IsOpen;
 
-        Vector2 lOPosition = lOMouse.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
         bool lbClicked = UWMouseButtons.LeftPressed;
 
         if (!mOModel.IsOpen)
@@ -681,13 +680,20 @@ public sealed class UWHudOptions
 
         if (lOKeyboard != null && miSaveSlotTyping <= 0)
         {
-            if (lOKeyboard.escapeKey.wasPressedThisFrame)
+            if (UWBack.Takes(UWBackOwner.ClassicOptions))
             {
                 fCloseOptionsMenu();
 
                 return true;
             }
 
+        }
+
+        // The help that has the keyboard (its notes typed, its manual read) and the setup bar's
+        // keyboard navigation lie over the panel and take the arrows, Space and Enter - and Escape in
+        // the back chain (cleanup 7, wave 2b: one key, one taker).
+        if (lOKeyboard != null && miSaveSlotTyping <= 0 && !UWHelpWindow.BlocksGameKeys && !UWSetupMenu.IsKeyNavOn)
+        {
             int liStep = lOKeyboard.upArrowKey.wasPressedThisFrame ? -1
                 : lOKeyboard.downArrowKey.wasPressedThisFrame || lOKeyboard.spaceKey.wasPressedThisFrame ? 1
                 : 0;
@@ -764,19 +770,11 @@ public sealed class UWHudOptions
                 break;
 
             case UWOptionsMenuModel.ActionEnum.SetDetail:
-                UWGraphicsDetail.SetLevel((UWGraphicsDetail.LevelEnum)lOOutcome.Value);
-                mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
-                break;
-
             case UWOptionsMenuModel.ActionEnum.SetDetailAndOpenEffects:
-                UWGraphicsDetail.SetLevel(UWGraphicsDetail.LevelEnum.VeryHigh);
-                mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
-                fApplyPage();
-
-                if (mOEffectsScreen == null)
-                    mOEffectsScreen = new UWEffectsScreen(mOUi.mOUWData, mOUi.mGameFrame);
-
-                mOEffectsScreen.Open();
+                // The one path with the bar's Graphics menu (UWGraphicsDetail.Choose, cleanup step
+                // 8.8): the level, this detail screen drawn anew, and for VERY HIGH (only that
+                // entry gives SetDetailAndOpenEffects) the effects screen in the game's frame.
+                UWGraphicsDetail.Choose((UWGraphicsDetail.LevelEnum)lOOutcome.Value, fShowDetailAnew, fEffectsScreen);
                 return;
 
             case UWOptionsMenuModel.ActionEnum.QuitToMainMenu:
@@ -791,6 +789,22 @@ public sealed class UWHudOptions
         }
 
         fApplyPage();
+    }
+
+    /// <summary>The detail screen drawn anew with the level now set (UWGraphicsDetail.Choose).</summary>
+    private void fShowDetailAnew()
+    {
+        mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
+        fApplyPage();
+    }
+
+    /// <summary>The effects screen of VERY HIGH in the game's frame, made the first time.</summary>
+    private UWEffectsScreen fEffectsScreen()
+    {
+        if (mOEffectsScreen == null)
+            mOEffectsScreen = new UWEffectsScreen(mOUi.mOUWData, mOUi.mGameFrame);
+
+        return mOEffectsScreen;
     }
 
     /// <summary>A slot of the restore screen: the game loads, or nothing is there - message, and

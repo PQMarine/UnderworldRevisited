@@ -18,61 +18,20 @@ using UnderworldRevisited.Build;
 /// additional lights; with the effects off or in the palette path nothing changes.
 ///
 /// WHICH OBJECTS is not stated in the object data - their brightness field is zero for all
-/// placed objects. The list comes from the NAMES and was counted at the locations found
-/// (see the removed tool UWLightObjectDump):
-/// torch 145 (9 pieces), candle 146 (4), lantern 144 (6), campfire 298 (22),
-/// fire elemental 120 (23), glowing stone 297 (83, all on level 5), mushroom 184 (18),
-/// orb 279 (4) and orb stone 274 (10).
+/// placed objects. The list, with each object's range, brightness, flicker, shadows, glow and
+/// fire, is UWLightSourceTable's since cleanup step 6.4 (2026-10-24), shared with the palette
+/// light sources.
 ///
 /// THE LIGHT COLOUR IS NOT GUESSED but taken from the object's own image:
 /// the mean of its brightest pixels. A campfire thus glows orange, a
 /// glowing mushroom greenish, an orb bluish - without a colour table anywhere.
+///
+/// A child of the Remastered path since cleanup step 6.5 (IUWRemasterFeature, 2026-10-24): ticked
+/// while it is in force, cleared when it goes; until then a component of its own that asked the
+/// render mode every frame.
 /// </summary>
-public class UWRemasterLights : MonoBehaviour
+public sealed class UWRemasterLights : IUWRemasterFeature
 {
-    /// <summary>What makes up a glowing object: range in tiles, brightness at
-    /// one tile distance and how strongly it flickers (0 = steady).</summary>
-    private struct Recipe
-    {
-        public int Id;
-
-        public float Tiles;
-
-        public float Brightness;
-
-        /// <summary>How strongly it flickers. For open fire a factor on the setting
-        /// RemasterFireFlicker, otherwise the value itself (the lantern barely flickers behind glass).
-        /// Independently of this, the sprite's glow flickers only weakly
-        /// (RemasterSpriteFlicker).</summary>
-        public float Flicker;
-
-        public bool Shadows;
-
-        /// <summary>Open fire: flickers more strongly, and the light jitters a little so the
-        /// shadows dance.</summary>
-        public bool OpenFire;
-
-        /// <summary>How strongly the bright spots of the sprite itself glow.</summary>
-        public float Glow;
-
-        /// <summary>Size of the fire for sparks and smoke (UWRemasterParticles), 0 = none.
-        /// </summary>
-        public float Fire;
-    }
-
-    private static readonly Recipe[] mORecipes =
-    {
-        new Recipe { Id = UWObjectIds.Torch,   Tiles = 3f,   Brightness = 0.8f,  Flicker = 1f,    Shadows = true,  OpenFire = true,  Glow = 1.5f, Fire = 1f },    // torch
-        new Recipe { Id = UWObjectIds.Candle,  Tiles = 1.5f, Brightness = 0.5f,  Flicker = 0.9f,  Shadows = false, OpenFire = true,  Glow = 1.2f, Fire = 0.35f }, // candle
-        new Recipe { Id = UWObjectIds.Lantern, Tiles = 3.5f, Brightness = 0.9f,  Flicker = 0.08f, Shadows = true,  OpenFire = false, Glow = 1f },   // lantern
-        new Recipe { Id = 298, Tiles = 4f,   Brightness = 1.1f,  Flicker = 1.2f,  Shadows = true,  OpenFire = true,  Glow = 1.8f, Fire = 1.8f },  // campfire
-        new Recipe { Id = 120, Tiles = 4f,   Brightness = 1.0f,  Flicker = 1.2f,  Shadows = false, OpenFire = true,  Glow = 1.5f, Fire = 1.4f },  // fire elemental
-        new Recipe { Id = UWObjectIds.GlowingRock, Tiles = 2f, Brightness = 0.35f, Flicker = 0f,  Shadows = false, OpenFire = false, Glow = 1f },   // glowing stone
-        new Recipe { Id = 184, Tiles = 1.5f, Brightness = 0.25f, Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 0.8f }, // glowing mushroom
-        new Recipe { Id = 279, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f },   // orb
-        new Recipe { Id = 274, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f },   // orb stone
-    };
-
     /// <summary>Renderers whose sprite is currently glowing - reset to zero on cleanup.
     /// </summary>
     private readonly List<Renderer> mOGlowingRenderers = new List<Renderer>();
@@ -80,17 +39,16 @@ public class UWRemasterLights : MonoBehaviour
     private MaterialPropertyBlock mOBlock;
 
     /// <summary>Lava lights its surroundings. One light per this many tiles - one per
-    /// lava tile would be hundreds on a lava level.</summary>
+    /// lava tile would be hundreds on a lava level. Its reach, brightness, flicker and colour are
+    /// UWLightSourceTable.Lava*.</summary>
     private const int LavaLightSpacing = 3;
 
     private const int MaxLavaLights = 48;
 
-    private const float LavaLightTiles = 3f;
-
-    private const float LavaLightBrightness = 0.7f;
-
     /// <summary>From this share of lava colours on, a floor texture counts as lava.</summary>
     private const float LavaFloorShare = 0.5f;
+
+    private readonly UWRenderPathHost mOHost;
 
     private UWLevelLoader mOLevelLoader;
 
@@ -113,18 +71,21 @@ public class UWRemasterLights : MonoBehaviour
 
     private bool mbBuilt;
 
-    private void Update()
+    public UWRemasterLights(UWRenderPathHost pOHost)
     {
-        if (mOLevelLoader == null)
-            mOLevelLoader = GetComponent<UWLevelLoader>();
+        mOHost = pOHost;
+    }
 
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+    public void Tick(UnderworldRevisited.UWSettings pOSettings)
+    {
+        mOLevelLoader = mOHost.LevelLoader;
+
+        UnderworldRevisited.UWSettings lOSettings = pOSettings;
 
         if (mOLevelLoader == null || lOSettings == null)
             return;
 
-        bool lbWanted = lOSettings.IsRemasteredActive
-            && lOSettings.RemasterTorchLights;
+        bool lbWanted = lOSettings.RemasterTorchLights;
 
         if (!lbWanted)
         {
@@ -242,9 +203,9 @@ public class UWRemasterLights : MonoBehaviour
             if (lOEntity == null || lOEntity.ObjectData == null)
                 continue;
 
-            Recipe lORecipe;
+            UWLightSourceTable.Row lORecipe;
 
-            if (!fTryGetRecipe(lOEntity.ObjectData.ID, out lORecipe))
+            if (!UWLightSourceTable.TryGet(lOEntity.ObjectData.ID, out lORecipe))
                 continue;
 
             // The LIGHT of open fire flickers strongly and jitters, the GLOW of the sprite
@@ -327,9 +288,10 @@ public class UWRemasterLights : MonoBehaviour
                 Vector3 lOAt = new Vector3(UWUnits.TileCentreToWorldAxis(liX),
                     lOTile.FloorHeight + 16f, UWUnits.TileCentreToWorldAxis(liY));
 
-                fCreateLight(transform, lOAt, LavaLightTiles,
-                    LavaLightBrightness * pOSettings.RemasterLightBrightness,
-                    new Color(1f, 0.45f, 0.12f), 0.12f, false, 0f, null, 0f);
+                fCreateLight(mOHost.transform, lOAt, UWLightSourceTable.LavaTiles,
+                    UWLightSourceTable.LavaBrightness * pOSettings.RemasterLightBrightness,
+                    new Color(UWLightSourceTable.LavaRed, UWLightSourceTable.LavaGreen, UWLightSourceTable.LavaBlue),
+                    UWLightSourceTable.LavaFlicker, false, 0f, null, 0f);
 
                 liCount++;
             }
@@ -387,7 +349,7 @@ public class UWRemasterLights : MonoBehaviour
         for (int liAt = 0; liAt < mOLights.Count; liAt++)
         {
             if (mOLights[liAt] != null)
-                Destroy(mOLights[liAt]);
+                Object.Destroy(mOLights[liAt]);
         }
 
         mOLights.Clear();
@@ -407,53 +369,17 @@ public class UWRemasterLights : MonoBehaviour
     /// switch (UWLighting otherwise only sets it on a new light source).</summary>
     private void fRefreshPlayerLight()
     {
-        UWLighting lOLighting = GetComponent<UWLighting>();
+        UWLighting lOLighting = mOHost.Lighting;
 
         if (lOLighting != null)
             lOLighting.RefreshPlayerLight();
-    }
-
-    /// <summary>Whether an object counts as a light source here - for UWRemasterGroundShadows, which
-    /// places no dark spot under light sources.</summary>
-    public static bool IsLightSource(int piId)
-    {
-        Recipe lORecipe;
-
-        return fTryGetRecipe(piId, out lORecipe);
-    }
-
-    /// <summary>Whether this object is one of the light sources, and whether it is open fire
-    /// (the palette renderer's light sources use the same list, UWPaletteEffects).</summary>
-    public static bool IsLightSource(int piId, out bool pbOpenFire)
-    {
-        bool lbFound = fTryGetRecipe(piId, out Recipe lORecipe);
-
-        pbOpenFire = lbFound && lORecipe.OpenFire;
-
-        return lbFound;
-    }
-
-    private static bool fTryGetRecipe(int piId, out Recipe pORecipe)
-    {
-        for (int liAt = 0; liAt < mORecipes.Length; liAt++)
-        {
-            if (mORecipes[liAt].Id == piId)
-            {
-                pORecipe = mORecipes[liAt];
-                return true;
-            }
-        }
-
-        pORecipe = default(Recipe);
-
-        return false;
     }
 
     /// <summary>The light colour from the object's image - see UWLightColour, which the
     /// player's carried light also uses.</summary>
     private Color fGetLightColour(int piId)
     {
-        return UWLightColour.FromObject(mOLevelLoader.UWDataImporter, piId, new Color(1f, 0.78f, 0.5f));
+        return UWLightColour.FromObject(mOLevelLoader.UWDataImporter, piId, UWLightColour.Fallback);
     }
 
     private static float fGetLavaShare(UWTexture pOTexture)
@@ -474,7 +400,15 @@ public class UWRemasterLights : MonoBehaviour
         return (float)liLava / lyIndices.Length;
     }
 
-    private void OnDestroy()
+    /// <summary>Remastered goes: the lights, the dust and the sprites' glow go.</summary>
+    public void Clear()
+    {
+        if (mbBuilt)
+            fClear();
+    }
+
+    /// <summary>The scene goes (as the component's OnDestroy did).</summary>
+    public void Dispose()
     {
         fClear();
     }

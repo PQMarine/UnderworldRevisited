@@ -64,9 +64,7 @@ public sealed class UWPlayerInput
     /// </summary>
     public static bool ConsumesRightClick()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return false;
 
         if (miJumpClickFrame != Time.frameCount)
@@ -101,8 +99,9 @@ public sealed class UWPlayerInput
 
     /// <summary>
     /// THE EASY MOVEMENT on the keyboard: shift with W, S, A, D and X (UWEasyMovement holds
-    /// the rule and where it comes from) - in the modern scheme its own modifier instead
-    /// (UWControls.EasyModifier, Left Alt), Shift walks slowly there. Returns whether the
+    /// the rule and where it comes from; since decision 18, 2026-10-25, the four are whatever keys
+    /// the walk and the turn lie on, UWKeyBindings.ApplyEasySteps) - in the modern scheme its own
+    /// modifier instead (UWControls.EasyModifier, Left Alt), Shift walks slowly there. Returns whether the
     /// modifier claims the movement keys this frame - then the ordinary walking stays still,
     /// otherwise one would step and walk at once.
     /// </summary>
@@ -144,46 +143,39 @@ public sealed class UWPlayerInput
     /// with, see UWEasyMovement.DefaultRepeatSeconds.
     ///
     /// Called every frame while the key or the mouse button is down, by the movement for the
-    /// keys and by Interaction for the three arrows.
+    /// keys and by Interaction for the three arrows. The repeat is UWRepeat's since cleanup step
+    /// 7.3 (2026-10-25): the interval as the first delay and between the steps, each counted from
+    /// the step before, on the game's clock (Time.time, as before).
     /// </summary>
     public void HoldEasyMovement(int piCommand)
     {
         miEasyHoldFrame = Time.frameCount;
 
-        if (!mbEasyHeld || miEasyHeldCommand != piCommand)
-        {
-            mbEasyHeld = true;
-            miEasyHeldCommand = piCommand;
-            mfNextEasyRepeat = Time.time + UWUserSettings.EasyMovementInterval;
+        float lfInterval = UWUserSettings.EasyMovementInterval;
 
+        mOEasyRepeat.Delay = lfInterval;
+        mOEasyRepeat.Every = lfInterval;
+
+        // The commands run from -2 to 2: shifted, so that none is the repeat's "nothing held".
+        if (mOEasyRepeat.Hold(piCommand + EasyCommandShift, Time.time))
             mOHost.TryEasyMovement(piCommand);
-
-            return;
-        }
-
-        if (Time.time < mfNextEasyRepeat)
-            return;
-
-        mfNextEasyRepeat = Time.time + UWUserSettings.EasyMovementInterval;
-
-        mOHost.TryEasyMovement(piCommand);
     }
 
     /// <summary>Lets go of the repeat unless someone asked for it in this frame or the one
-    /// before - Interaction and the movement update in an order that is not fixed.</summary>
+    /// before - Interaction and the movement update in an order that is not fixed. (Which caller
+    /// holds the step is told by the frame; the repeat's timing is the clock's.)</summary>
     private void fReleaseEasyMovementIfIdle()
     {
-        if (mbEasyHeld && miEasyHoldFrame < Time.frameCount - 1)
-            mbEasyHeld = false;
+        if (mOEasyRepeat.Held != 0 && miEasyHoldFrame < Time.frameCount - 1)
+            mOEasyRepeat.Reset();
     }
 
-    private bool mbEasyHeld;
+    private const int EasyCommandShift = 10;
 
-    private int miEasyHeldCommand;
+    private readonly UWRepeat mOEasyRepeat = new UWRepeat(UWEasyMovement.DefaultRepeatSeconds, UWEasyMovement.DefaultRepeatSeconds,
+        UWRepeat.RuleEnum.FromNow);
 
     private int miEasyHoldFrame = -2;
-
-    private float mfNextEasyRepeat;
 
     /// <summary>The bits that matter here - the same values as in UWCharacter.</summary>
     private const int LevitateBit = UWPlayerVitals.LevitateBit;
@@ -344,10 +336,8 @@ public sealed class UWPlayerInput
     /// <summary>A key or a mouse button pressed in this frame.</summary>
     private static bool fOtherInputPressed()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame
-            || lOMouse.middleButton.wasPressedThisFrame))
+        if (UWPointer.HasMouse && (UWPointer.LeftPressed || UWPointer.RightPressed
+            || UWPointer.MiddlePressed))
             return true;
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
@@ -367,9 +357,7 @@ public sealed class UWPlayerInput
     /// <summary>The free modern pointer lies on one of the windows (UWModernUi.IsOverUi).</summary>
     private static bool fPointerOnWindow()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        return UWModernPointer.IsFree && lOMouse != null && UWModernUi.IsOverUi(lOMouse.position.ReadValue());
+        return UWModernPointer.IsFree && UWPointer.HasMouse && UWModernUi.IsOverUi(UWPointer.Position);
     }
 
     /// <summary>The slow walk, of the modern scheme only - the classic one's Shift is the easy movement.</summary>
@@ -463,8 +451,8 @@ public sealed class UWPlayerInput
         // 2026-09-14). Once started, the drag may leave the viewport as before.
         // The left button is read through UWMouseButtons: a click under a held right button is
         // ignored there, everywhere (per user on the original, 2026-09-19).
-        if (!lbHeldDrag && mGameUi != null && UWMouseButtons.LeftPressed && UnityEngine.InputSystem.Mouse.current != null)
-            mbCursorDragStartedInViewport = mGameUi.ClassicScreen.IsScreenPositionInGameArea(UnityEngine.InputSystem.Mouse.current.position.ReadValue());
+        if (!lbHeldDrag && mGameUi != null && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
+            mbCursorDragStartedInViewport = mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
 
         IsCursorMovementInProgress = !lbHeldDrag && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
 

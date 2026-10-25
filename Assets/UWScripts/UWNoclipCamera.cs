@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// Free debug camera without collision, toggled via DebugFunctions (key N).
@@ -68,8 +69,9 @@ public class UWNoclipCamera : MonoBehaviour
     /// Without a listener on this camera everything was silent, and Unity reported "no
     /// audio listeners" every frame - the player and its camera are disabled, and the listener here
     /// is switched off in the scene (per user, 2026-09-13). Simply enabling it, however, gave
-    /// "two listeners active" (per user, same day): UWAudioEngine and UWSoundPlayer
-    /// create one themselves if they find none, and that one stayed alongside the one from the
+    /// "two listeners active" (per user, same day): the sound engine and UWSoundPlayer
+    /// (UWAudioListenerGuard since 2026-10-24) create one themselves if they find none, and that
+    /// one stayed alongside the one from the
     /// scene. Hence: at most one here, and only enabled when no other is active.
     /// It goes off with the object on exit; the player then hears through their own.
     /// </summary>
@@ -104,9 +106,7 @@ public class UWNoclipCamera : MonoBehaviour
             fKeepSingleListener();
         }
 
-        UWControls.NoclipActions lInput = mControls.Noclip;
-
-        Vector2 lOLookDelta = lInput.Look.ReadValue<Vector2>();
+        Vector2 lOLookDelta = UWInput.Value<Vector2>(mControls, UWAct.NoclipLook);
 
         transform.Rotate(0f, lOLookDelta.x * mfSensitivityX, 0f, Space.World);
 
@@ -115,15 +115,15 @@ public class UWNoclipCamera : MonoBehaviour
         Vector3 lOEuler = transform.eulerAngles;
         transform.eulerAngles = new Vector3(mfPitch, lOEuler.y, 0f);
 
-        Vector2 lOMove = lInput.Move.ReadValue<Vector2>();
-        float lfUp = (lInput.Up.IsPressed() ? 1f : 0f) - (lInput.Down.IsPressed() ? 1f : 0f);
+        Vector2 lOMove = UWInput.Value<Vector2>(mControls, UWAct.NoclipMove);
+        float lfUp = (UWInput.Held(mControls, UWAct.NoclipUp) ? 1f : 0f) - (UWInput.Held(mControls, UWAct.NoclipDown) ? 1f : 0f);
 
         Vector3 lODirection = (transform.forward * lOMove.y) + (transform.right * lOMove.x) + (Vector3.up * lfUp);
 
         if (lODirection.sqrMagnitude > 1f)
             lODirection.Normalize();
 
-        float lfSpeed = mfSpeed * (lInput.Sprint.IsPressed() ? mfSprintMultiplier : 1f);
+        float lfSpeed = mfSpeed * (UWInput.Held(mControls, UWAct.NoclipSprint) ? mfSprintMultiplier : 1f);
 
         transform.position += lODirection * lfSpeed * Time.deltaTime;
     }

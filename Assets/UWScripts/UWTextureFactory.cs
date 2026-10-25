@@ -1,4 +1,5 @@
 using UnityEngine;
+using UWDataImport;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -17,6 +18,9 @@ using UWDataImport.UWData;
 ///
 /// The caller owns what it gets here and destroys it; shared pictures come from UWGrTextures,
 /// UWIconCache and UWArtCache, which own theirs.
+///
+/// Since cleanup step 6.2 (2026-10-24) the renderer's lookup tables are made here as well (see
+/// "Lookup tables" below); the world's texture arrays come from UWTextureCache.
 /// </summary>
 public static class UWTextureFactory
 {
@@ -109,6 +113,137 @@ public static class UWTextureFactory
         byte[] lyKept = UWUploadPixels.Keep(ToBytes(pOSource.GetPixels32()), liWidth, liHeight, pbKeepTopDown);
 
         return Upload(lyKept, liWidth, liHeight, pOSource.filterMode, TextureWrapMode.Clamp, "UWModernHudArt keyed");
+    }
+
+    // ------------------------------------------------- Lookup tables
+
+    // THE RENDERER'S LOOKUP TABLES (cleanup step 6.2, 2026-10-24): the bytes come engine-free
+    // from UWLookupTables, the texture settings of every table live here - so the frozen flags
+    // (Docs/CLEANUP-PLAN.md section 11: colour tables linear = false, index tables linear = true,
+    // no mipmaps on index textures) hold by construction. Until 2026-10-24 UWShadePalette,
+    // UWTextureArrayBuilder.BuildMaterialLookup and UWPaletteEffects each built theirs with their
+    // own "new Texture2D, Point, Clamp, fill, Apply". Every table is Point, Clamp, without mipmaps
+    // and stays readable (the inverse cube excepted, as before). The caller owns what it gets:
+    // UWPaletteCommon the palette tables, UWTextureCache the material lookup, UWPaletteEffects the
+    // grime tint.
+    //
+    // COLOUR SPACE (see UWShadePalette's class comment): a COLOUR table holds real colours and is
+    // sRGB (linear = false); an INDEX table holds palette indices or steps and is linear, so no
+    // gamma curve would ever touch an index. Today the project runs in gamma colour space and
+    // Unity converts nothing - it only matters if the project is ever switched to linear.
+
+    /// <summary>The colour table (UWLookupTables.ColourTable): LIGHT.DAT, or MONO.DAT for Night
+    /// Vision, through palette piPalette (the hallucination's other palette) with the colour
+    /// help.</summary>
+    public static Texture2D ColourTable(DataImport pOData, int piPalette = 0, bool pbMonochrome = false)
+    {
+        byte[] lyPixels = UWLookupTables.ColourTable(pOData, piPalette, pbMonochrome, UWColourVision.Filter, out bool lbMono);
+
+        return lyPixels == null ? null : fColourTable(lbMono ? "UWColourTable (mono)" : "UWColourTable", UWLookupTables.PaletteSize,
+            UWLookupTables.ShadeLevelCount, lyPixels);
+    }
+
+    /// <summary>The shade table (UWLookupTables.ShadeTable), one byte per cell.</summary>
+    public static Texture2D ShadeTable(DataImport pOData, bool pbDiagonalStretch = false)
+    {
+        byte[] lyPixels = UWLookupTables.ShadeTable(pOData, pbDiagonalStretch);
+
+        return lyPixels == null ? null : fIndexTable("UWShadeTable", UWLookupTables.DistanceCount, UWLookupTables.LightLevelCount,
+            TextureFormat.R8, lyPixels);
+    }
+
+    /// <summary>The rotation table (UWLookupTables.RotationTable): indices in red.</summary>
+    public static Texture2D RotationTable()
+    {
+        return fIndexTable("UWRotationTable", UWLookupTables.PaletteSize, UWLookupTables.RotationStepCount, TextureFormat.RGBA32,
+            UWLookupTables.RotationTable());
+    }
+
+    /// <summary>The inverse cube of the XFER mixing (UWLookupTables.InverseLookup): indices, so
+    /// linear (a Texture3D is), and no longer readable after the upload, as it always was.</summary>
+    public static Texture3D InverseLookup(DataImport pOData, bool pbColourHelp = true)
+    {
+        byte[] lyCube = UWLookupTables.InverseLookup(pOData, pbColourHelp ? UWColourVision.Filter : null);
+
+        if (lyCube == null)
+            return null;
+
+        int liSize = UWTransparencyTables.InverseLookupSize;
+        Texture3D lOCube = new Texture3D(liSize, liSize, liSize, TextureFormat.R8, false);
+
+        lOCube.name = pbColourHelp ? "UWInverseLookup" : "UWInverseLookup (raw)";
+        lOCube.filterMode = FilterMode.Point;
+        lOCube.wrapMode = TextureWrapMode.Clamp;
+        lOCube.SetPixelData(lyCube, 0);
+        lOCube.Apply(false, true);
+
+        return lOCube;
+    }
+
+    /// <summary>What every table of XFER.DAT makes of every index (UWLookupTables.XferColours).</summary>
+    public static Texture2D XferColours(DataImport pOData, bool pbColourHelp = true)
+    {
+        byte[] lyPixels = UWLookupTables.XferColours(pOData, pbColourHelp ? UWColourVision.Filter : null);
+
+        return lyPixels == null ? null : fColourTable(pbColourHelp ? "UWXferColours" : "UWXferColours (raw)",
+            UWLookupTables.PaletteSize, UWTransparencyTables.Count, lyPixels);
+    }
+
+    /// <summary>The hallucination's light table effect (UWLookupTables.LightTableEffect).</summary>
+    public static Texture2D LightTableEffect(DataImport pOData, bool pbColourHelp = true)
+    {
+        byte[] lyPixels = UWLookupTables.LightTableEffect(pOData, pbColourHelp ? UWColourVision.Filter : null);
+
+        return lyPixels == null ? null : fColourTable(pbColourHelp ? "UWLightTableEffect" : "UWLightTableEffect (raw)",
+            UWLookupTables.PaletteSize, lyPixels.Length / (UWLookupTables.PaletteSize * UWLookupTables.BytesPerColour), lyPixels);
+    }
+
+    /// <summary>The eight palettes in raw colours (UWLookupTables.RawPalettes), for Remastered.</summary>
+    public static Texture2D RawPalettes(DataImport pOData)
+    {
+        byte[] lyPixels = UWLookupTables.RawPalettes(pOData);
+
+        return lyPixels == null ? null : fColourTable("UWRawPalettes", UWLookupTables.PaletteSize, UWLookupTables.RawPaletteCount,
+            lyPixels);
+    }
+
+    /// <summary>The grime's colour tables (UWLookupTables.GrimeTint): palette indices.</summary>
+    public static Texture2D GrimeTintTable(UWPalette pOPalette)
+    {
+        return fIndexTable("UW Grime Tint", UWGrimeTint.PaletteSize, UWGrimeTint.ToneCount, TextureFormat.R8,
+            UWLookupTables.GrimeTint(pOPalette));
+    }
+
+    /// <summary>Remastered's gloss and glow per palette index (UWLookupTables.MaterialLookup) -
+    /// looked up by index, so linear like an index table.</summary>
+    public static Texture2D MaterialLookup()
+    {
+        return fIndexTable("UWSurfaces", UWLookupTables.PaletteSize, 1, TextureFormat.RGBA32, UWLookupTables.MaterialLookup());
+    }
+
+    /// <summary>A table of real colours: RGBA, sRGB (linear = false).</summary>
+    private static Texture2D fColourTable(string psName, int piWidth, int piHeight, byte[] pyRgba)
+    {
+        return fTable(psName, piWidth, piHeight, TextureFormat.RGBA32, false, pyRgba);
+    }
+
+    /// <summary>A table of indices or steps: linear, whatever its format.</summary>
+    private static Texture2D fIndexTable(string psName, int piWidth, int piHeight, TextureFormat peFormat, byte[] pyBytes)
+    {
+        return fTable(psName, piWidth, piHeight, peFormat, true, pyBytes);
+    }
+
+    private static Texture2D fTable(string psName, int piWidth, int piHeight, TextureFormat peFormat, bool pbLinear, byte[] pyBytes)
+    {
+        Texture2D lOTable = new Texture2D(piWidth, piHeight, peFormat, false, pbLinear);
+
+        lOTable.name = psName;
+        lOTable.filterMode = FilterMode.Point;
+        lOTable.wrapMode = TextureWrapMode.Clamp;
+        lOTable.SetPixelData(pyBytes, 0);
+        lOTable.Apply(false, false);
+
+        return lOTable;
     }
 
     /// <summary>Upload bytes as Unity colours.</summary>

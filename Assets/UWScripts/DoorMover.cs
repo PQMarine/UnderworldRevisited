@@ -219,7 +219,7 @@ public class DoorMover : MonoBehaviour, IUsableDoor
 
     public void StartUsingDoor()
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.Door, transform.position);
+        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Door, transform.position);
 
         mfMotionStartOpen = mfOpenNow;
 

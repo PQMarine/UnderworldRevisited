@@ -29,7 +29,7 @@ public static class UWUiPaletteSwap
 
     private static float msfNextScan;
 
-    /// <summary>Called every frame by UWPaletteRenderToggle.</summary>
+    /// <summary>Called every frame by UWRenderPathHost, in both render paths.</summary>
     public static void Follow(bool pbActive)
     {
         if (!pbActive)

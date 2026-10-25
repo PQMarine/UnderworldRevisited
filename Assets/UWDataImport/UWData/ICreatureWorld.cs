@@ -103,10 +103,10 @@ namespace UWDataImport.UWData
 		/// <summary>The creature's conversation with the player (Interaction.TryTalkToNpcData).</summary>
 		void Talk(UWNpc pONpc);
 
-		/// <summary>The theme playing now (UWMusic.CurrentTheme).</summary>
+		/// <summary>The theme playing now (UWAudioService.CurrentTheme).</summary>
 		int MusicTheme { get; }
 
-		/// <summary>A blow was struck: the combat music timer starts anew (UWMusic.MarkCombat).</summary>
+		/// <summary>A blow was struck: the combat music timer starts anew (UWAudioService.MarkCombat).</summary>
 		void MarkCombatMusic();
 	}
 

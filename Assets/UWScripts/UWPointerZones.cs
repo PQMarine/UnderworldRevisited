@@ -9,15 +9,16 @@ using UWDataImport.UWData;
 /// pointer's place in the view decides the movement - strafing and backing in the bottom band,
 /// turning in the middle one, walking with turning in the top one, the speed and the turn rate
 /// from the distance to the band's border (Update). The pointer is clamped to the original's
-/// view window meanwhile (WarpCursorPosition; the window of place_3d_view, 172 x 113 at 52/19,
-/// since 2026-10-23 - the hole of the frame picture until then), and the position it was clamped
-/// to is the one everyone draws the pointer at (PointerPosition). The motion core takes the
-/// pointer's pixel in the original's 172 x 113 area (CursorAreaX/Y, UWPlayerMotion.PointerCommand);
-/// the pointer's picture follows CursorMovement (UWPointerCursor, which draws the pointer itself
-/// at the clamped position while the mouse holds, IsMouseHeld).
+/// view window meanwhile (the window of place_3d_view, 172 x 113 at 52/19, since 2026-10-23 - the
+/// hole of the frame picture until then): our own pointer's position since cleanup step 7.7B
+/// (UWPointer.ClampTo, held there until the walk ends; a WarpCursorPosition of the system pointer
+/// until then), and the position it was clamped to is the one everyone draws the pointer at
+/// (PointerPosition, UWPointer.Position). The motion core takes the pointer's pixel in the
+/// original's 172 x 113 area (CursorAreaX/Y, UWPlayerMotion.PointerCommand); the pointer's picture
+/// follows CursorMovement (UWPointerCursor).
 ///
-/// Works in real screen pixels, since it evaluates the real mouse position; the window's
-/// rectangle comes from UWClassicScreen. The zone constants are UWClassicLayout.PointerZones'.
+/// Works in screen pixels, from the pointer's position (UWPointer); the window's rectangle comes
+/// from UWClassicScreen. The zone constants are UWClassicLayout.PointerZones'.
 /// </summary>
 public sealed class UWPointerZones
 {
@@ -63,25 +64,20 @@ public sealed class UWPointerZones
     }
 
     /// <summary>
-    /// WHERE THE POINTER IS DRAWN this frame: the mouse position, or during a cursor movement
+    /// WHERE THE POINTER IS DRAWN this frame: the pointer's position, during a cursor movement
     /// the position it was clamped to (2026-10-06, per user with a screenshot: a ring on the
-    /// pointer hung far to the right of it in the panel while turning right). After
-    /// WarpCursorPosition the Input System keeps reporting the pushed-out position, so whoever
-    /// reads Mouse.current.position - UWItemDrag for the thing on the pointer - draws beyond
-    /// the edge the pointer itself is held at. This is the one position everyone draws with.
+    /// pointer hung far to the right of it in the panel while turning right). Until cleanup step
+    /// 7.7B the clamp warped the system pointer, and the Input System kept reporting the pushed-out
+    /// position; since then the clamp holds our own pointer, so UWPointer.Position is the clamped
+    /// one for everyone and this is the same.
     /// </summary>
     public Vector2 PointerPosition { get; private set; }
-
-    /// <summary>A cursor movement is under way and the MOUSE drives it: the pointer is clamped
-    /// here each frame, and UWPointerCursor draws it at the clamped position meanwhile (the pad's
-    /// pointer is its own and never overshoots, UWGamepadPointer).</summary>
-    public bool IsMouseHeld => mOMovement != null && mOMovement.Input.IsCursorMovementInProgress && !UWGamepadPointer.OwnsPosition;
 
     /// <summary>Once a frame at the end of UWGameUI.Update, after the HUD parts: the clamp, the
     /// drawn position, the zone.</summary>
     internal void Update()
     {
-        Vector2 lOMousePos = Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero;
+        Vector2 lOMousePos = UWPointer.Position;
 
         // THE ORIGINAL'S VIEW WINDOW, 172 x 113 at 52/19 (UWClassicScreen.MovementAreaRect; per
         // user from the original, 2026-10-23: the pointer stays in the view while the button is
@@ -89,28 +85,14 @@ public sealed class UWPointerZones
         // the bottom, so the pointer's picture hung into the rune hollow.
         Rect lOArea = mOUi.ClassicScreen.MovementAreaRect;
 
-        // During a held cursor drag (original scheme) the real pointer is
-        // actively clamped to the small 3D viewport - via WarpCursorPosition, because
-        // CursorLockMode.Confined only knows the border of the whole game window, not
-        // this smaller rectangle. Outside a drag the pointer stays free, as in the
-        // original from 1992, where it may also wander over paper doll & co.
+        // During a held cursor drag (original scheme) the pointer is held in the small 3D
+        // viewport - CursorLockMode.Confined only knows the border of the whole game window, not
+        // this smaller rectangle. Since cleanup step 7.7B our own pointer is held (UWPointer.ClampTo:
+        // now, and after every move until the walk ends - the mouse and the pad alike, one position);
+        // a WarpCursorPosition of the system pointer until then. Outside a drag the pointer stays
+        // free, as in the original from 1992, where it may also wander over paper doll & co.
         if (mOMovement != null && mOMovement.Input.IsCursorMovementInProgress)
-        {
-            // The gamepad's pointer: its own position, the Input System's is stale after the
-            // warps - with it the pointer stuck to the view's top and left edges (per user,
-            // 2026-10-07; UWGamepadPointer.OwnsPosition).
-            if (UWGamepadPointer.OwnsPosition)
-                lOMousePos = UWGamepadPointer.Position;
-
-            float lfClampedX = Mathf.Clamp(lOMousePos.x, lOArea.xMin, lOArea.xMax);
-            float lfClampedY = Mathf.Clamp(lOMousePos.y, lOArea.yMin, lOArea.yMax);
-
-            if (!Mathf.Approximately(lfClampedX, lOMousePos.x) || !Mathf.Approximately(lfClampedY, lOMousePos.y))
-            {
-                lOMousePos = new Vector2(lfClampedX, lfClampedY);
-                Mouse.current.WarpCursorPosition(lOMousePos);
-            }
-        }
+            lOMousePos = UWPointer.ClampTo(lOArea);
 
         PointerPosition = lOMousePos;
 

@@ -657,9 +657,9 @@ internal sealed class UWModernBagPages
         if (pOData.ObjectClassProperties != null
             && pOData.ObjectClassProperties.TryGetContainer(pOBag.ID, out UWObjectClassProperties.Container lOEntry)
             && lOEntry.CapacityTenthStones > 0)
-            return UWInventoryWeight.Format(liHeld) + " / " + UWInventoryWeight.Format(lOEntry.CapacityTenthStones) + " st";
+            return UWText.F("hud.bag.weight_of", UWInventoryWeight.Format(liHeld), UWInventoryWeight.Format(lOEntry.CapacityTenthStones));
 
-        return UWInventoryWeight.Format(liHeld) + " st";
+        return UWText.F("hud.bag.weight", UWInventoryWeight.Format(liHeld));
     }
 
     // ------------------------------------------------- Building

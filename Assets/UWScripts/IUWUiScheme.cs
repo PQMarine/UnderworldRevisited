@@ -26,10 +26,6 @@ public interface IUWUiScheme
     /// five (Interaction.ModernMessageCount).</summary>
     int ShownLogLines { get; }
 
-    /// <summary>The gamepad's B closes something of the interface - the modern game menu, the big
-    /// map, a link of the modern closable chain (UWModernUi) - rather than jumping.</summary>
-    bool PadBackCloses { get; }
-
     /// <summary>The pointer was freed from the mouse look (UWModernPointer: the right button, R3,
     /// the bags); the classic scheme has no lock, its pointer was never freed.</summary>
     bool IsPointerUnlocked { get; }

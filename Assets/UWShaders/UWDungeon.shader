@@ -8,7 +8,7 @@
 // UV channel 0 is float3: xy = texture coordinate, z = slice index.
 //
 // TWO MODES in one shader, switched via the keyword
-// _UW_REMASTER (see UWRemasterRenderer):
+// _UW_REMASTER (see UWRemasterRenderPath):
 //
 //   off - the plain URP path: the finished texture colour, lit by URP.
 //   on  - "Remastered": the same colour, plus relief from the normal array and a

@@ -720,7 +720,11 @@ Target (the Input System device bindings stay; rebinding works at that level):
   the IMGUI parts (modern game menu, help, setup bar) on our kit, since they take position and
   clicks from the real pointer (today the pad warps it and clicks through `UWOsMouse`); a
   pointer speed setting, since the deltas come without the system's acceleration; focus loss and
-  Alt+Tab in the classic scheme as the modern one has them. Until then the pointer is drawn by
+  Alt+Tab in the classic scheme as the modern one has them. DECIDED 2026-10-25 (per user): a
+  "Pointer speed" slider, 0.25 to 4, default 1 = one mouse count per screen pixel (Windows' default
+  without acceleration), no acceleration; the mouse is captured only in the running game - the main
+  menu, the game menu and the setup windows free the system pointer, drawn with our picture at its
+  position. Until then the pointer is drawn by
   Unity (`CursorMode.ForceSoftware`, 2026-10-23: the system limits a hardware pointer's size) and
   the held walk draws its own at the clamped position (`UWPointerCursor`); `UWTextEntry`
   (hook plus `UWTypedKeys` fallback, one filter, max length, Backspace/Enter/Esc events; fixes B26);
@@ -991,7 +995,7 @@ the user the same day.
 | `UWInput` facade with `UWAct` and the context stack (first a thin wrapper, then the typing lock as contexts; the lock list's exact set kept as a test) | 8 | everything keyboard in both schemes; typing in every text box; rebind and reset |
 | `UWHotkeys` table and one Escape/back chain | 6 | F1-F10; Ctrl shortcuts (classic Ctrl, modern right Ctrl); M, F, Tab; Esc in every open state; pad B |
 | Pad raw reads into actions | 3 | each pad flow, with the pad rebound too |
-| `UWPointer` part A (read-only redirect of all 83 reads) and part B (ownership of warp and cursor state) | 12 | classic cursor walk and clamp; drag with held button; modern lock and free; hold-to-look; pad pointer in both schemes; item in hand; Linux pad pointer |
+| `UWPointer` part A (read-only redirect of all 83 reads) and part B (ownership of warp and cursor state; part B after phase 8b) | 12 | classic cursor walk and clamp; drag with held button; modern lock and free; hold-to-look; pad pointer in both schemes; item in hand; Linux pad pointer |
 | Remove `Takes()`, `SwitchedFrame`, `ConsumePress` latches in favour of the context | 4 | the pointer tests plus right-click on every window |
 
 ### Phase 8: menus, settings, help, intro (about 55-70 h)
@@ -1006,6 +1010,21 @@ the user the same day.
 | Help tabs as classes | 5-6 | all seven tabs; notes Tab; map zoom; reading mode; modern panel and classic frame |
 | `UWCutsceneRunner` with self-checks; split `UWIntroPlayer` | 14-16 | logos, intro, dreams, death cutscenes, end sequence, skips |
 | `UWSettings` overlap cleanup; merge `fChooseLevel` with `fClickDetailEntry` | 2-3 | music and sound persist; detail levels in bar and classic options |
+
+### Phase 8b: the IMGUI windows onto the kit (about 15-25 h, added 2026-10-24)
+
+Decision 26 moves the IMGUI windows to the same kit as the modern interface; phase 5 rebuilt the
+HUD, the bags and the panels, but the modern game menu, the setup bar with its dialogs, the help
+window, the layout editor's window and the letter grid stayed IMGUI (found 2026-10-24, decided per
+user the same day: after phase 8, before phase 7). Phase 8 leaves them table-driven with one thin
+IMGUI drawer; this step swaps that drawer for one on the kit, window by window. The debug overlays
+(F1, Shift+F12) may stay IMGUI. Afterwards no window takes its clicks from the system pointer, the
+precondition for `UWPointer` part B and the pointer of our own (section 8.5).
+
+| Step | Hours | User test |
+|---|---|---|
+| Row, slider, choice, toggle, tab and frame pieces on the kit, fed by phase 8's row and page tables; label columns and bar items sized by their text (the pseudo-language of 8.5 showed fixed widths clipping, 2026-10-24) | 5-8 | one dialog side by side with its IMGUI form; the pseudo-language (`-language pseudo`) without clipping |
+| Port window by window: modern game menu, setup bar and dialogs, help window, layout editor window, letter grid | 10-17 | each window: every row, scaling, pad stepping, typing; screenshots for the user's approval |
 
 ### Phase 9: self-check split, tools, art builders (about 60-75 h)
 
@@ -1040,9 +1059,10 @@ the user the same day.
 | 6 rendering and audio | 55-70 |
 | 7 input | 45 |
 | 8 menus, settings, help, intro | 55-70 |
+| 8b the IMGUI windows onto the kit | 15-25 |
 | 9 self-check, tools, art builders | 60-75 |
 | 10 rule set, mirror hygiene, namespaces | 40-55 |
-| Total | about 610-755 |
+| Total | about 625-780 |
 
 Phases 0 to 3 (about 155-195 h) give the safety nets, every bug fix, all dead code, the session,
 the codecs and the world interface: that is the minimum before mod support (`Docs/MOD-SUPPORT-PLAN.md`
@@ -1189,6 +1209,9 @@ Collected from the reviews; each blocks or shapes one step. None has been decide
     classic box's; the original counts passes of its input loop, SCROLLIO.C, so its speed hung on
     the CPU), recorded in Docs/DEVIATIONS.md, Rules.
 18. `Easy*` actions follow a `Move` rebind?
+    DECIDED 2026-10-25 (per user): yes - the easy steps take the keys of the walk and turn actions
+    they belong to, with Shift (classic) or EasyModifier (modern); X stays its own key for the step
+    that does not go off a ledge. No new rows in the Controls window. Built in phase 7.
 19. `Docs/CLEANUP-PLAN.md` is public; the detailed per-area reviews stay private. Keep it that way?
 
 Found by the conversions step of phase 1 (2026-10-11), copies that differ and were left as they are:
@@ -1241,7 +1264,9 @@ Found by step 2.6 (2026-10-12):
     factory, the text textures) build on those buffers. The MODERN scheme stays on uGUI for now, as a
     thin renderer over the same view models; whether it becomes an own pixel UI too is decided when
     an Unreal or SDL front end becomes concrete. No move to UI Toolkit. The IMGUI windows move to
-    the same kit over phase 5.
+    the same kit over phase 5 - in fact phase 5 left the game menu, the setup bar, the help window,
+    the editor window and the letter grid on IMGUI; they move in phase 8b, after phase 8 made them
+    table-driven (per user, 2026-10-24).
 
 27. Rune hit areas: classic hits the 16x16 rune pictures (with two extra columns and a shared row),
     modern the 14x14 compartments, both with gaps; the original (mous_in_rune, UnderworldExhumed

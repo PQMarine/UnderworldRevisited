@@ -14,8 +14,9 @@ using UWDataImport.UWData;
 /// now with the company logos and the real main menu.
 ///
 /// THE LOOK is deliberately plain and modern: at this point there is no game data, so neither
-/// the original's pictures nor its fonts exist. Drawn with IMGUI, because the scene has no
-/// EventSystem on purpose (see UWItemDrag) and IMGUI brings text field and scroll list along.
+/// the original's pictures nor its fonts exist. Drawn with IMGUI until phase 8b, because the scene
+/// has no EventSystem on purpose (see UWItemDrag) and IMGUI brought text field and scroll list
+/// along; on the uGUI kit (UWKitRows) since cleanup 8b.1-8b.2, which brings its own.
 ///
 /// OVER THE MAIN MENU (phase 2): the same bar folds out when the mouse reaches the top edge, with
 /// the game folder and the four detail levels; VERY HIGH opens UWEffectsScreen in the main menu's
@@ -24,30 +25,28 @@ using UWDataImport.UWData;
 /// </summary>
 public partial class UWSetupMenu : MonoBehaviour
 {
-    public const float ReferenceHeight = 720f;
-
     private const float BarHeight = 30f;
 
-    public static readonly Color BackgroundColour = new Color(0.05f, 0.05f, 0.06f, 1f);
-
-    public static readonly Color BarColour = new Color(0.11f, 0.11f, 0.13f, 1f);
-
-    public static readonly Color PanelColour = new Color(0.14f, 0.14f, 0.16f, 1f);
-
-    public static readonly Color HoverColour = new Color(0.22f, 0.22f, 0.26f, 1f);
-
-    /// <summary>A thin line between groups inside a menu.</summary>
-    public static readonly Color SeparatorColour = new Color(0.30f, 0.30f, 0.34f, 1f);
-
-    public static readonly Color TextColour = new Color(0.86f, 0.86f, 0.84f, 1f);
-
-    public static readonly Color DimTextColour = new Color(0.55f, 0.55f, 0.55f, 1f);
-
-    public static readonly Color AccentColour = new Color(0.80f, 0.64f, 0.34f, 1f);
-
-    private enum MenuEnum
+    /// <summary>
+    /// THE BAR'S DIALOGS IN ONE STATE (cleanup 8.1, 2026-10-24): one dialog at a time, so one value
+    /// instead of a flag per dialog. Until 2026-10-11 Controls and Colours could be open at once
+    /// and the Motion item left the palette dialog standing (fCloseDialogs); the Display and Sound
+    /// items still left the folder dialog open under them until this enum.
+    ///
+    /// GAME AND GRAPHICS ARE WINDOWS TOO (per user, 2026-10-24, cleanup step 8.4): until then the
+    /// bar's two drop-down menus, which could lie over an open dialog and closed on a click outside
+    /// them; now they open, close and step like the other items' dialogs, one at a time.
+    /// </summary>
+    private enum DialogEnum
     {
         None,
+        Folder,
+        Controls,
+        Colours,
+        Sound,
+        Motion,
+        Display,
+        PaletteEffects,
         Game,
         Graphics
     }
@@ -62,16 +61,47 @@ public partial class UWSetupMenu : MonoBehaviour
     /// clicks meanwhile (UWMainMenu).</summary>
     public static bool IsCapturingInput { get; private set; }
 
+    /// <summary>The bar's effects screen (VERY HIGH) is up - UWBack: the bar's keys wait for it.</summary>
+    public static bool IsEffectsScreenOpen => msMainMenuInstance != null && msMainMenuInstance.mOEffects != null
+        && msMainMenuInstance.mOEffects.IsOpen;
+
     /// <summary>
-    /// THE ARROW KEYS STEER THE BAR AND ITS DIALOGS (UWImguiKeyNav, per user 2026-10-12: a fallback
-    /// for when the mouse cannot click them, as on Linux in a downscaled fullscreen). F10 over the
-    /// main menu or an in-game menu shows the bar with the focus on its first item; the arrows step,
-    /// Enter or Space presses, Escape or F10 again leaves.
+    /// THE BAR AND ITS WINDOWS ON THE KIT (cleanup 8b.1, 2026-10-24; phase 8b): the bar - with the
+    /// first-run screen's ground and title - and the Sound window are drawn on the uGUI kit
+    /// (UWKitRows) in LateUpdate, fed by the same page tables through a page drawer of their own.
+    ///
+    /// EVERY WINDOW ON THE KIT since cleanup 8b.2 (2026-10-24): Game, Motion, Graphics, Display,
+    /// Controls, Colours, Palette effects, the folder dialog and the first-run screen followed Sound.
+    /// Since cleanup 8b.4 the IMGUI form is gone (UWGuiRows, UWImguiKeyNav, the side-by-side switch):
+    /// the bar has no OnGUI any more.
+    ///
+    /// THE ARROW KEYS STEER THE BAR AND ITS DIALOGS (per user 2026-10-12: a fallback for when the
+    /// mouse cannot click them, as on Linux in a downscaled fullscreen; the kit's UWKitKeyNav since
+    /// 8b.1). F10 over the main menu or an in-game menu shows the bar with the focus on its first
+    /// item; the arrows step, Enter or Space presses, Escape or F10 again leaves.
     /// </summary>
-    private readonly UWImguiKeyNav mOKeyNav = new UWImguiKeyNav();
+    private UWKitRows mOKitRows;
+
+    private UWSetupPageDrawer mOKitPages;
+
+    /// <summary>
+    /// THE DRAWER THE WINDOWS DRAW THROUGH (cleanup 8b.2, 2026-10-24): every window of the bar - its
+    /// page and the rows it draws itself (the key lists, the flask preview, the folder's list and
+    /// path, the view angle) - draws through these two, which served the kit's and the IMGUI form in
+    /// turn; since cleanup 8b.4 the kit's (mOKitRows, mOKitPages), set in Awake.
+    /// </summary>
+    private IUWRows mOPassRows;
+
+    private UWSetupPageDrawer mOPassPages;
 
     /// <summary>The bar's keyboard navigation is on - the modern game menu leaves the keys to it.</summary>
     public static bool KeyNavActive { get; private set; }
+
+    /// <summary>The bar's keyboard navigation is on, asked now (KeyNavActive is put once a frame in
+    /// Update) - UWBack: the bar is drawn over the game menu and the classic options, so its Escape
+    /// is theirs no more (cleanup 7, wave 2b).</summary>
+    public static bool IsKeyNavOn => msMainMenuInstance != null && msMainMenuInstance.mOKitRows != null
+        && msMainMenuInstance.fKeyNavIsActive;
 
     /// <summary>One of the bar's menus or dialogs is open - the in-game menus under it stand
     /// back then (UWModernGameMenu, UWHudOptions).</summary>
@@ -107,27 +137,9 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private bool mbBarShown;
 
-    private GUIStyle mOCurrentItem;
-
-    private GUIStyle mOListLabel;
-
-    private GUIStyle mOToggle;
-
     private bool mbFirstRun;
 
-    private MenuEnum meOpenMenu = MenuEnum.None;
-
-    private bool mbFolderDialogOpen;
-
-    private bool mbControlsDialogOpen;
-
-    private bool mbColoursDialogOpen;
-
-    private bool mbSoundDialogOpen;
-
-    private bool mbMotionDialogOpen;
-
-    private bool mbDisplayDialogOpen;
+    private DialogEnum meOpenDialog = DialogEnum.None;
 
     private readonly UWGameFolderBrowser mOBrowser = new UWGameFolderBrowser();
 
@@ -138,24 +150,6 @@ public partial class UWSetupMenu : MonoBehaviour
     private Vector2 mOScroll;
 
     private bool mbApplyPending;
-
-    private GUIStyle mOLabel;
-
-    private GUIStyle mODimLabel;
-
-    private GUIStyle mOTitle;
-
-    private GUIStyle mOBarItem;
-
-    private GUIStyle mOListItem;
-
-    private GUIStyle mOButton;
-
-    private GUIStyle mOTextField;
-
-    private Font mOFont;
-
-    private readonly Dictionary<Color, Texture2D> mOTextures = new Dictionary<Color, Texture2D>();
 
     /// <summary>The bar over the real main menu (phase 2): hidden until the mouse reaches the top
     /// edge, with the game folder and the graphics detail. Called by UWMainMenu whenever its
@@ -184,6 +178,17 @@ public partial class UWSetupMenu : MonoBehaviour
         EnsureForMainMenu(pOData, null);
     }
 
+    private void Awake()
+    {
+        mOKitRows = new UWKitRows(transform, UWUiSorting.KitWindows);
+        // The bar's one text field is the folder path: any character a path may hold (cleanup 8b.2).
+        mOKitRows.TypesAnyText = true;
+        mOKitPages = new UWSetupPageDrawer(mOKitRows);
+        mOPassRows = mOKitRows;
+        mOPassPages = mOKitPages;
+        fBuildPages();
+    }
+
     private void OnDestroy()
     {
         if (msMainMenuInstance == this || mbFirstRun)
@@ -196,6 +201,9 @@ public partial class UWSetupMenu : MonoBehaviour
         }
 
         fClearFlaskPreview();
+
+        if (mOKitRows != null)
+            mOKitRows.Dispose();
     }
 
     /// <summary>The first-run screen: no game data found.</summary>
@@ -212,8 +220,10 @@ public partial class UWSetupMenu : MonoBehaviour
     {
         if (mbFirstRun)
         {
-            Cursor.visible = true;
-            Cursor.lockState = CursorLockMode.None;
+            // The pointer shows, out of any look mode (UWPointer writes the Cursor only on a change;
+            // no game runs, so the system pointer is free).
+            UWPointer.IsShown = true;
+            UWPointer.IsLookLocked = false;
 
             // The folder dialog is a panel too: Tab must not open the help over it (seen on
             // Linux, 2026-10-06).
@@ -253,18 +263,10 @@ public partial class UWSetupMenu : MonoBehaviour
         if (!UWMainMenu.AcceptsMenuBar && !lbInGameMenu)
         {
             mbBarShown = false;
-            meOpenMenu = MenuEnum.None;
-            mbFolderDialogOpen = false;
-            mbControlsDialogOpen = false;
-            mbDisplayDialogOpen = false;
-            mbColoursDialogOpen = false;
-            mbMotionDialogOpen = false;
-            mbPaletteEffectsDialogOpen = false;
-            mbSoundDialogOpen = false;
+            meOpenDialog = DialogEnum.None;
             IsCapturingInput = false;
             HasOpenPanel = false;
-            mOKeyNav.Reset();
-            KeyNavActive = false;
+            fLeaveKeyNav();
 
             return;
         }
@@ -273,59 +275,73 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame && !UWControls.IsShiftHeld)
         {
-            if (mOKeyNav.IsActive)
+            if (fKeyNavIsActive)
                 fLeaveKeyNav();
             else
             {
                 mbBarShown = true;
-                mOKeyNav.Activate();
+                mOKitRows.KeyNav.Activate();
             }
         }
-        else if (lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame && mOKeyNav.IsActive)
+        else if (lOKeyboard != null && fKeyNavIsActive && UWBack.Takes(UWBackOwner.SetupKeyNav))
             fLeaveKeyNav();
 
-        KeyNavActive = mOKeyNav.IsActive;
+        KeyNavActive = fKeyNavIsActive;
 
         // The pointer as the Input System reports it - right on Linux in a downscaled fullscreen
-        // too, where IMGUI's is not (UWImguiInput).
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-        float lfScale = Screen.height / ReferenceHeight;
-        float lfMouseY = lOMouse != null ? (Screen.height - UWImguiInput.PointerPosition.y) / lfScale : ReferenceHeight;
+        // too, where IMGUI's was not (per user, 2026-10-12).
+        float lfScale = UWGuiTheme.Scale;
+        float lfMouseY = UWPointer.HasMouse ? (Screen.height - UWPointer.Position.y) / lfScale : UWGuiTheme.ReferenceHeight;
 
-        bool lbSomethingOpen = meOpenMenu != MenuEnum.None || mbFolderDialogOpen || mbControlsDialogOpen
-            || mbColoursDialogOpen || mbSoundDialogOpen || mbDisplayDialogOpen || mbMotionDialogOpen
-            || mbPaletteEffectsDialogOpen;
+        bool lbSomethingOpen = meOpenDialog != DialogEnum.None;
 
         if (lfMouseY <= RevealZone || lbInGameMenu)
             mbBarShown = true;
         else if (!lbSomethingOpen && lfMouseY > BarHeight)
             mbBarShown = false;
 
-        if (mOKeyNav.IsActive)
+        if (fKeyNavIsActive)
             mbBarShown = true;
 
-        IsCapturingInput = lbSomethingOpen || mOKeyNav.IsActive || (mbBarShown && lfMouseY <= BarHeight);
+        IsCapturingInput = lbSomethingOpen || fKeyNavIsActive || (mbBarShown && lfMouseY <= BarHeight);
         HasOpenPanel = lbSomethingOpen;
     }
 
-    /// <summary>Leaves the keyboard navigation: the focus goes, an open menu closes, the bar hides
-    /// again unless the mouse holds it; an open dialog stays (Escape inside it is its own).</summary>
+    /// <summary>The bar's keyboard navigation is on.</summary>
+    private bool fKeyNavIsActive => mOKitRows.KeyNav.IsActive;
+
+    /// <summary>Leaves the keyboard navigation: the focus goes, the bar hides again unless the
+    /// mouse holds it; an open dialog stays (Escape inside it is its own).</summary>
     private void fLeaveKeyNav()
     {
-        mOKeyNav.Reset();
+        mOKitRows.KeyNav.Reset();
         KeyNavActive = false;
-        meOpenMenu = MenuEnum.None;
     }
 
+    /// <summary>
+    /// A detail level of the Graphics window. VERY HIGH opens its effects screen over everything,
+    /// so the window closes and the bar folds away, as the drop-down menu did for every level until
+    /// it became a window (2026-10-24); the other levels take effect at once and the window stays,
+    /// as a choice in any other dialog.
+    /// </summary>
     private void fChooseLevel(UWGraphicsDetail.LevelEnum peLevel)
     {
-        meOpenMenu = MenuEnum.None;
-        mbBarShown = false;
+        if (peLevel == UWGraphicsDetail.LevelEnum.VeryHigh)
+        {
+            meOpenDialog = DialogEnum.None;
+            mbBarShown = false;
+        }
 
-        UWGraphicsDetail.SetLevel(peLevel);
+        // The one path with the classic options' detail screen (cleanup step 8.8, 2026-10-24).
+        UWGraphicsDetail.Choose(peLevel, null, fEffectsScreen);
+    }
 
-        if (peLevel != UWGraphicsDetail.LevelEnum.VeryHigh || mOData == null)
-            return;
+    /// <summary>The effects screen of VERY HIGH (UWGraphicsDetail.Choose asks for it), made the
+    /// first time; none without the data.</summary>
+    private UWEffectsScreen fEffectsScreen()
+    {
+        if (mOData == null)
+            return null;
 
         // IN THE GAME the bar has no frame of its own (EnsureInGame), and the Very high entry did
         // nothing there (per user, 2026-10-07). The game's 320x200 frame is hidden in the modern
@@ -351,102 +367,73 @@ public partial class UWSetupMenu : MonoBehaviour
         }
 
         if (mOEffects == null)
-            mOEffects = new UWEffectsScreen(mOData, lOFrame);
+            mOEffects = new UWEffectsScreen(mOData, lOFrame, UWBackOwner.SetupEffects);
 
-        mOEffects.Open();
+        return mOEffects;
     }
 
     // ------------------------------------------------- Colours
 
     private void fOpenColoursDialog()
     {
-        fCloseDialogs();
-        mbColoursDialogOpen = true;
+        fOpenDialog(DialogEnum.Colours);
     }
 
-    /// <summary>Every dialog and menu of the bar shut, so that the one opened next is the only
-    /// one (until 2026-10-11 Controls and Colours could be open at once, and the Motion item
-    /// left the palette dialog standing).</summary>
+    /// <summary>Every dialog of the bar shut, so that the one opened next is the only one (until
+    /// 2026-10-11 Controls and Colours could be open at once, and the Motion item left the palette
+    /// dialog standing).</summary>
     private void fCloseDialogs()
     {
-        mbControlsDialogOpen = false;
-        mbColoursDialogOpen = false;
-        mbSoundDialogOpen = false;
-        mbDisplayDialogOpen = false;
-        mbMotionDialogOpen = false;
-        mbPaletteEffectsDialogOpen = false;
-        mbFolderDialogOpen = false;
-        meOpenMenu = MenuEnum.None;
+        meOpenDialog = DialogEnum.None;
     }
+
+    /// <summary>Opens the dialog as the only one.</summary>
+    private void fOpenDialog(DialogEnum peDialog)
+    {
+        fCloseDialogs();
+        meOpenDialog = peDialog;
+    }
+
+    /// <summary>A bar item's click: its dialog closes when it is open, else opens as the only one.
+    /// </summary>
+    private void fToggleDialog(DialogEnum peDialog)
+    {
+        if (meOpenDialog == peDialog)
+            meOpenDialog = DialogEnum.None;
+        else
+            fOpenDialog(peDialog);
+    }
+
+    /// <summary>The colour rows: the label 140 wide, the slider from 150 over the row less 230, the
+    /// value with two decimals in the last 70; no arrows. The limits are the dialog's own (0 to 1,
+    /// 0.5 to 2): the settings table keeps none for the colour entries.</summary>
+    private static readonly UWSliderColumns ColourColumns = new UWSliderColumns(0f, 140f, 150f, 230f, 0f, 70f, 70f);
 
     /// <summary>
     /// The colour help (phase 5, per user, 2026-09-17): which deficiency to correct for, how
     /// strongly, plus brightness and contrast, and the hatched flask while poisoned. Everything
     /// takes effect at once - the palette table is rebuilt, the render pipeline follows the same
-    /// matrix (see UWColourVision).
+    /// matrix (see UWColourVision). The modes' texts are the settings table's (ColourMode).
     /// </summary>
     private void fDrawColoursDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 150f, lfDialogWidth, 420f);
-
-        fFill(lODialog, PanelColour);
+        // On the kit (cleanup 8b.2) as wide as its rows need - the four modes' texts in the pseudo-
+        // language ran out of it - and as tall, the flask preview's 102 and a gap under the rows.
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOColoursPage)), 150f, fHeight(420f, 110f));
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Colours", mOLabel);
-        lfTop += 28f;
-
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Pulls apart the colours that are hard to tell apart, for the whole game. It is the usual daltonisation: what the eye loses is put back into the channels it can see.") + 8f;
-
-        string[] lsModes = { "Off", "Red (protanopia)", "Green (deuteranopia)", "Blue (tritanopia)" };
-        int liMode = (int)UWColourVision.Mode;
-
-        for (int liAt = 0; liAt < lsModes.Length; liAt++)
-        {
-            if (mOKeyNav.Button(new Rect(lfLeft + (liAt * 160f), lfTop, 155f, 28f), lsModes[liAt],
-                liAt == liMode ? mOCurrentItem : mOButton))
-                fSetColours(liAt, UWColourVision.Strength, UWColourVision.Brightness, UWColourVision.Contrast);
-        }
-
-        lfTop += 40f;
-
-        float lfStrength = fColourSlider(lfLeft, lfTop, lfInner, "Strength", UWColourVision.Strength, 0f, 1f);
-        lfTop += 34f;
-
-        float lfBrightness = fColourSlider(lfLeft, lfTop, lfInner, "Brightness", UWColourVision.Brightness, 0.5f, 2f);
-        lfTop += 34f;
-
-        float lfContrast = fColourSlider(lfLeft, lfTop, lfInner, "Contrast", UWColourVision.Contrast, 0.5f, 2f);
-        lfTop += 40f;
-
-        if (!Mathf.Approximately(lfStrength, UWColourVision.Strength)
-            || !Mathf.Approximately(lfBrightness, UWColourVision.Brightness)
-            || !Mathf.Approximately(lfContrast, UWColourVision.Contrast))
-            fSetColours(liMode, lfStrength, lfBrightness, lfContrast);
-
-        bool lbMark = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.MarkPoison,
-            "  Hatch the health flask while poisoned", mOToggle);
-
-        if (lbMark != UWUserSettings.MarkPoison)
-        {
-            UWUserSettings.MarkPoison = lbMark;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        fDrawHint(lfLeft, lfTop, lfInner,
-            "The flask is red normally and green while poisoned - the one pair a red-green deficiency cannot tell apart.");
+        // The modes, the strength, brightness and contrast, the hatch switch and its hint: the
+        // page (fBuildColoursPage); a change takes effect at once through UWColourVision.
+        fContentEnds(lODialog, mOPassPages.Draw(mOColoursPage, lfLeft, lfTop, lfInner));
 
         // Bottom edge level with the Done button (per user, 2026-09-17).
         fDrawFlaskPreview(lfLeft, lODialog.yMax - 16f - 20f - (33f * 2f));
 
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
-            mbColoursDialogOpen = false;
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
     }
 
     /// <summary>
@@ -480,7 +467,17 @@ public partial class UWSetupMenu : MonoBehaviour
             mbPreviewHatch = lbHatch;
         }
 
-        string[] lsNames = { "Health", "Poisoned", "Mana" };
+        string[] lsNames = msFlaskNameIds;
+
+        // On the kit the names as wide as the widest needs, the flasks as far apart (cleanup 8b.2: a
+        // longer name wrapped below its line); 76 wide every 80 as laid out.
+        float lfShift = 0f;
+
+        if (mOPassRows.SizesByText)
+        {
+            foreach (string lsName in lsNames)
+                lfShift = Mathf.Max(lfShift, UWRowSizing.LabelShift(mOPassRows.TextWidth(UWText.T(lsName), UWRowInfoEnum.Dim), 76f));
+        }
 
         for (int liAt = 0; liAt < mOFlaskPreview.Length; liAt++)
         {
@@ -489,12 +486,14 @@ public partial class UWSetupMenu : MonoBehaviour
             if (lOTexture == null)
                 continue;
 
-            float lfLeft = pfLeft + (liAt * 80f);
+            float lfLeft = pfLeft + (liAt * (80f + lfShift));
 
-            GUI.DrawTexture(new Rect(lfLeft, pfTop, lOTexture.width * 2f, lOTexture.height * 2f), lOTexture);
-            GUI.Label(new Rect(lfLeft, pfTop + (lOTexture.height * 2f) + 2f, 76f, 22f), lsNames[liAt], mODimLabel);
+            mOPassRows.Picture(new Rect(lfLeft, pfTop, lOTexture.width * 2f, lOTexture.height * 2f), lOTexture);
+            mOPassRows.Info(new Rect(lfLeft, pfTop + (lOTexture.height * 2f) + 2f, 76f + lfShift, 22f), UWText.T(lsNames[liAt]), UWRowInfoEnum.Dim);
         }
     }
+
+    private static readonly string[] msFlaskNameIds = { "setup.colours.flask.health", "setup.colours.flask.poisoned", "setup.colours.flask.mana" };
 
     private void fClearFlaskPreview()
     {
@@ -519,20 +518,6 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private bool mbPreviewHatch;
 
-    private float fColourSlider(float pfLeft, float pfTop, float pfWidth, string psLabel,
-        float pfValue, float pfMin, float pfMax)
-    {
-        GUI.Label(new Rect(pfLeft, pfTop, 140f, 26f), psLabel, mOListLabel);
-
-        float lfResult = GUI.HorizontalSlider(new Rect(pfLeft + 150f, pfTop + 8f, pfWidth - 230f, 20f),
-            pfValue, pfMin, pfMax);
-
-        GUI.Label(new Rect(pfLeft + pfWidth - 70f, pfTop, 70f, 26f),
-            lfResult.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), mOListLabel);
-
-        return lfResult;
-    }
-
     private void fSetColours(int piMode, float pfStrength, float pfBrightness, float pfContrast)
     {
         UWColourVision.Set((UWDataImport.UWData.UWColourFilter.ModeEnum)piMode, pfStrength, pfBrightness, pfContrast);
@@ -549,8 +534,7 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private void fOpenControlsDialog()
     {
-        fCloseDialogs();
-        mbControlsDialogOpen = true;
+        fOpenDialog(DialogEnum.Controls);
         mOListeningFor = null;
         msBindingNotice = string.Empty;
     }
@@ -574,49 +558,54 @@ public partial class UWSetupMenu : MonoBehaviour
             UWKeyBindings.Set(pOEntry, psPath);
 
             msBindingNotice = lOConflict != null
-                ? "This key is also used for \"" + lOConflict.Label + "\"."
+                ? UWText.F("setup.controls.conflict_key", lOConflict.Label)
                 : string.Empty;
         });
     }
 
+    /// <summary>The Controls dialog's slider rows (the easy movement, the mouse's and the stick's look
+    /// speed): the label 220 wide, the slider from 230 over the row less 400, the arrows 160 and the
+    /// value 95 from the right edge.</summary>
+    private static readonly UWSliderColumns ControlColumns = new UWSliderColumns(0f, 220f, 230f, 400f, 160f, 95f, 95f);
+
     /// <summary>
-    /// A dim explanatory text, as tall as its wrapped lines need; returns that height. In a fixed
-    /// rect the style centres the lines on it, so a text that wraps to more lines than the rect
-    /// holds runs up into the heading (per user, 2026-09-30: the hint of the key dialog).
+    /// The inner width the Controls window needs on the kit (cleanup 8b.2, 2026-10-24): both tabs'
+    /// pages and both lists of keys - each name beside its button, the button as wide as "Press a key
+    /// or button..." - so the window keeps one width when the tab changes or a key is awaited; 0 in the
+    /// IMGUI form. A list's names have its width less 20 (the scroll bar) less 180 (the button) on the
+    /// keyboard tab, less 220 (the glyph too) on the gamepad tab.
     /// </summary>
-    private float fDrawHint(float pfLeft, float pfTop, float pfWidth, string psText)
+    private float fControlsInnerNeeded()
     {
-        GUIContent lOContent = new GUIContent(psText);
-        float lfHeight = mODimLabel.CalcHeight(lOContent, pfWidth);
+        IUWRows lORows = mOPassRows;
 
-        GUI.Label(new Rect(pfLeft, pfTop, pfWidth, lfHeight), lOContent, mODimLabel);
+        if (!lORows.SizesByText)
+            return 0f;
 
-        return lfHeight;
+        float lfNeeded = Mathf.Max(mOPassPages.InnerNeeded(mOControlsTabsPage),
+            Mathf.Max(mOPassPages.InnerNeeded(mOKeyboardPage), mOPassPages.InnerNeeded(mOGamepadPage)));
+        float lfKey = lORows.FitWidth(UWText.T("setup.controls.press_key"), 160f) - 160f;
+        float lfButton = lORows.FitWidth(UWText.T("setup.gamepad.press_button"), 160f) - 160f;
+
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
+            lfNeeded = Mathf.Max(lfNeeded, lORows.LabelWidth(lOEntry.Label) + 200f + lfKey);
+
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
+            lfNeeded = Mathf.Max(lfNeeded, lORows.LabelWidth(lOEntry.Label) + 240f + lfButton);
+
+        return lfNeeded;
     }
 
     private void fDrawControlsDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 90f, lfDialogWidth, 540f);
-
-        fFill(lODialog, PanelColour);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, fControlsInnerNeeded()), 90f, 540f);
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        // TWO TABS (per user, 2026-10-07): the gamepad's buttons are bound on their own
-        // (UWSetupMenu.Gamepad.cs). Not switched while a key is awaited.
-        GUI.enabled = mOListeningFor == null;
-
-        if (mOKeyNav.Button(new Rect(lfLeft, lfTop, 200f, 28f), "Keyboard and mouse", mbControlsGamepadTab ? mOListItem : mOCurrentItem))
-            mbControlsGamepadTab = false;
-
-        if (mOKeyNav.Button(new Rect(lfLeft + 210f, lfTop, 140f, 28f), "Gamepad", mbControlsGamepadTab ? mOCurrentItem : mOListItem))
-            mbControlsGamepadTab = true;
-
-        GUI.enabled = true;
-        lfTop += 36f;
+        // The two tabs (fBuildControlsTabsPage), then the tab's rows down to its list of keys.
+        lfTop = mOPassPages.Draw(mOControlsTabsPage, lfLeft, lfTop, lfInner);
 
         if (mbControlsGamepadTab)
         {
@@ -624,138 +613,44 @@ public partial class UWSetupMenu : MonoBehaviour
             return;
         }
 
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Click an entry to change it, then press the new key or mouse button. Escape keeps the old one. The pointer movement itself is fixed, and the interface panels always use the physical mouse buttons. The gamepad has its own tab.") + 12f;
-
-        // The easy movement repeats while a key or one of the three arrows under the compass
-        // is held. The original's pace is too fast to aim with (per user, 2026-09-21: "one
-        // overshoots the target very easily"), and whether that is the game or the DOSBox
-        // cycles is open - so it is a setting here.
-        float lfStep = UWDataImport.UWData.UWEasyMovement.RepeatStepSeconds;
-        float lfBefore = UWUserSettings.EasyMovementInterval;
-
-        GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Easy movement interval", mOListLabel);
-
-        // The slider snaps to the same ten milliseconds as the two arrows beside it, so a round
-        // value can be hit at all (per user, 2026-09-21: dragging never landed on 250).
-        float lfInterval = GUI.HorizontalSlider(new Rect(lfLeft + 230f, lfTop + 8f, lfInner - 400f, 20f),
-            lfBefore,
-            UWDataImport.UWData.UWEasyMovement.MinRepeatSeconds,
-            UWDataImport.UWData.UWEasyMovement.MaxRepeatSeconds);
-
-        lfInterval = Mathf.Round(lfInterval / lfStep) * lfStep;
-
-        if (mOKeyNav.Button(new Rect(lfLeft + lfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
-            lfInterval = lfBefore - lfStep;
-
-        if (mOKeyNav.Button(new Rect(lfLeft + lfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
-            lfInterval = lfBefore + lfStep;
-
-        GUI.Label(new Rect(lfLeft + lfInner - 95f, lfTop, 95f, 26f),
-            Mathf.RoundToInt(lfInterval * 1000f) + " ms", mOListLabel);
-
-        if (Mathf.RoundToInt(lfInterval * 1000f) != Mathf.RoundToInt(lfBefore * 1000f))
-        {
-            UWUserSettings.EasyMovementInterval = lfInterval;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        // THE MOUSE LOOK'S SPEED of the modern scheme (per user, 2026-10-06: "sehr direkt"),
-        // a factor on the tuned default in steps of five per cent, the same row as above.
-        float lfSpeedStep = UWUserSettings.MouseLookSpeedStep;
-        float lfSpeedBefore = UWUserSettings.MouseLookSpeed;
-
-        GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Mouse look speed (modern)", mOListLabel);
-
-        float lfSpeed = GUI.HorizontalSlider(new Rect(lfLeft + 230f, lfTop + 8f, lfInner - 400f, 20f),
-            lfSpeedBefore, UWUserSettings.MinMouseLookSpeed, UWUserSettings.MaxMouseLookSpeed);
-
-        lfSpeed = Mathf.Round(lfSpeed / lfSpeedStep) * lfSpeedStep;
-
-        if (mOKeyNav.Button(new Rect(lfLeft + lfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
-            lfSpeed = lfSpeedBefore - lfSpeedStep;
-
-        if (mOKeyNav.Button(new Rect(lfLeft + lfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
-            lfSpeed = lfSpeedBefore + lfSpeedStep;
-
-        GUI.Label(new Rect(lfLeft + lfInner - 95f, lfTop, 95f, 26f),
-            Mathf.RoundToInt(lfSpeed * 100f) + " %", mOListLabel);
-
-        if (Mathf.RoundToInt(lfSpeed * 100f) != Mathf.RoundToInt(lfSpeedBefore * 100f))
-        {
-            UWUserSettings.MouseLookSpeed = lfSpeed;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        // THE MOUSE LOOK REVERSED up and down, as the gamepad tab offers for the stick (pull
-        // request 3 by krispit-dev, 2026-10-13).
-        bool lbMouseInvert = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.MouseInvertY,
-            "  Invert looking up and down (modern)", mOToggle);
-
-        if (lbMouseInvert != UWUserSettings.MouseInvertY)
-        {
-            UWUserSettings.MouseInvertY = lbMouseInvert;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        // THE SLOW-WALK KEY held or switched (issue 4, 2026-10-21).
-        bool lbWalkToggle = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, lfInner, 26f), UWUserSettings.WalkSlowToggle,
-            "  Slow walk key switches on and off instead of being held (modern)", mOToggle);
-
-        if (lbWalkToggle != UWUserSettings.WalkSlowToggle)
-        {
-            UWUserSettings.WalkSlowToggle = lbWalkToggle;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
+        lfTop = mOPassPages.Draw(mOKeyboardPage, lfLeft, lfTop, lfInner);
 
         Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lODialog.yMax - 90f - lfTop);
         Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.Entries.Count * 28f);
 
-        mOControlsScroll = GUI.BeginScrollView(lOListRect, mOControlsScroll, lOContent);
-        UWImguiInput.Sync();
+        mOControlsScroll = mOPassRows.BeginScroll(lOListRect, mOControlsScroll, lOContent);
 
         for (int liAt = 0; liAt < UWKeyBindings.Entries.Count; liAt++)
         {
             UWKeyBindings.Entry lOEntry = UWKeyBindings.Entries[liAt];
-            float lfRowTop = liAt * 28f;
+            string lsKey = mOListeningFor == lOEntry ? UWText.T("setup.controls.press_key") : UWBindingInfo.Name(lOEntry);
 
-            GUI.Label(new Rect(6f, lfRowTop, lOContent.width - 180f, 26f), lOEntry.Label, mOListLabel);
-
-            string lsKey = mOListeningFor == lOEntry ? "Press a key or button..." : UWKeyBindings.GetKeyName(lOEntry);
-
-            if (mOKeyNav.Button(new Rect(lOContent.width - 170f, lfRowTop, 160f, 26f), lsKey, mOButton)
+            if (mOPassRows.Rebind(new Rect(0f, liAt * 28f, lOContent.width, 28f), lOEntry.Label, lsKey, null, false)
                 && mOListeningFor == null)
                 fListenFor(lOEntry);
         }
 
-        GUI.EndScrollView();
-        UWImguiInput.Sync();
+        mOPassRows.EndScroll();
 
-        GUI.Label(new Rect(lfLeft, lODialog.yMax - 82f, lfInner, 22f), msBindingNotice, mODimLabel);
+        mOPassRows.Info(new Rect(lfLeft, lODialog.yMax - 82f, lfInner, 22f), msBindingNotice, UWRowInfoEnum.Dim);
 
         float lfButtonTop = lODialog.yMax - 46f;
 
-        GUI.enabled = UWKeyBindings.HasChanges;
+        mOPassRows.Enabled = UWKeyBindings.HasChanges;
 
-        if (mOKeyNav.Button(new Rect(lfLeft, lfButtonTop, 180f, 30f), "Back to default", mOButton))
+        string lsDefault = UWText.T("setup.controls.back_to_default");
+
+        if (mOPassRows.Action(new Rect(lfLeft, lfButtonTop, mOPassRows.FitWidth(lsDefault, 180f), 30f), lsDefault))
         {
             UWKeyBindings.ResetAll();
             msBindingNotice = string.Empty;
         }
 
-        GUI.enabled = true;
+        mOPassRows.Enabled = true;
 
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lfButtonTop, 110f, 30f), "Done", mOButton))
+        if (mOPassRows.Done(lODialog))
         {
-            mbControlsDialogOpen = false;
+            meOpenDialog = DialogEnum.None;
             mOListeningFor = null;
         }
     }
@@ -764,8 +659,7 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private void fOpenFolderDialog()
     {
-        fCloseDialogs();
-        mbFolderDialogOpen = true;
+        fOpenDialog(DialogEnum.Folder);
 
         mODrives = mOBrowser.GetDrives();
         mOBrowser.Open(UWSettings.GetCandidateGogPaths(), UWUserSettings.GogInstallPath);
@@ -794,7 +688,7 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (lsData == null)
         {
-            mOBrowser.SetStatus(UWSettings.LastGogError ?? "The game data could not be read from this folder.", true);
+            mOBrowser.SetStatus(UWSettings.LastGogError ?? UWText.T("setup.folder.no_data"), true);
 
             return;
         }
@@ -804,154 +698,166 @@ public partial class UWSetupMenu : MonoBehaviour
 
     // ------------------------------------------------- Drawing
 
-    private void OnGUI()
+    /// <summary>The bar is on the screen: over the main menu only while it shows its buttons or the
+    /// save list, over the in-game menus, and only when folded out; the effects screen covers
+    /// everything by itself. Always on the first-run screen.</summary>
+    private bool fBarDrawn()
     {
-        // Before GUI.matrix: the event's pointer as the Input System sees it (UWImguiInput).
-        UWImguiInput.BeginOnGUI();
-        fEnsureStyles();
-
-        float lfScale = Screen.height / ReferenceHeight;
-        float lfWidth = Screen.width / lfScale;
-
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        UWImguiInput.AfterMatrix();
-
-        // Over the main menu only while it shows its buttons or the save list, and only when
-        // folded out; the effects screen covers everything by itself.
-        if (!mbFirstRun && (!mbBarShown || (!UWMainMenu.AcceptsMenuBar && !fInGameMenuOpen()) || (mOEffects != null && mOEffects.IsOpen)))
-            return;
-
-        // The arrow keys only after F10 (or in the first-run screen, which has nothing else).
-        mOKeyNav.Begin(mOKeyNav.IsActive || mbFirstRun, mbFirstRun);
-
-        if (mbFirstRun)
-        {
-            fFill(new Rect(0f, 0f, lfWidth, ReferenceHeight), BackgroundColour);
-
-            GUI.Label(new Rect(0f, 150f, lfWidth, 50f), "Underworld Revisited", mOTitle);
-        }
-
-        fDrawBar(lfWidth);
-
-        if (mbFolderDialogOpen)
-            fDrawFolderDialog(lfWidth);
-
-        if (mbControlsDialogOpen)
-            fDrawControlsDialog(lfWidth);
-
-        if (mbColoursDialogOpen)
-            fDrawColoursDialog(lfWidth);
-
-        if (mbSoundDialogOpen)
-            fDrawSoundDialog(lfWidth);
-
-        if (mbMotionDialogOpen)
-            fDrawMotionDialog(lfWidth);
-
-        if (mbDisplayDialogOpen)
-            fDrawDisplayDialog(lfWidth);
-
-        if (mbPaletteEffectsDialogOpen)
-            fDrawPaletteEffectsDialog(lfWidth);
-
-        if (meOpenMenu == MenuEnum.Game)
-            fDrawGameMenu();
-
-        if (meOpenMenu == MenuEnum.Graphics)
-            fDrawGraphicsMenu();
-
-        mOKeyNav.End();
+        return mbFirstRun || (mbBarShown && (UWMainMenu.AcceptsMenuBar || fInGameMenuOpen()) && !(mOEffects != null && mOEffects.IsOpen));
     }
 
-    private void fDrawBar(float pfWidth)
+    /// <summary>
+    /// THE KIT'S FRAME (cleanup 8b.1, 2026-10-24): after Update decided what shows, the bar - on the
+    /// first-run screen with its ground and title - and the open window on the kit, in the order IMGUI
+    /// drew them, the kit's navigation counting their entries in that order. The arrow keys leave the
+    /// debug tools' tab alone (UWDebugTools.IsTyping; its fields are on the debug panel's own kit drawer
+    /// since cleanup 8c - until 8b.4 any IMGUI field with the keyboard, GUIUtility.keyboardControl).
+    /// </summary>
+    private void LateUpdate()
     {
-        fFill(new Rect(0f, 0f, pfWidth, BarHeight), BarColour);
+        bool lbShown = fBarDrawn();
 
-        Rect lOGame = new Rect(8f, 0f, 70f, BarHeight);
+        // The arrow keys only after F10 (or in the first-run screen, which has nothing else).
+        mOKitRows.Begin(lbShown, mOKitRows.KeyNav.IsActive || mbFirstRun, mbFirstRun, UWDebugTools.IsTyping);
 
-        if (fBarItem(lOGame, "Game", meOpenMenu == MenuEnum.Game))
-            meOpenMenu = meOpenMenu == MenuEnum.Game ? MenuEnum.None : MenuEnum.Game;
+        if (!lbShown)
+            return;
+
+        float lfWidth = mOKitRows.Width;
+
+        if (mbFirstRun)
+            fDrawFirstRunGround(mOKitRows, lfWidth);
+
+        fDrawBar(mOKitRows, lfWidth);
+        fDrawOpenDialog(lfWidth);
+
+        mOKitRows.End();
+    }
+
+    /// <summary>The open window, through the windows' drawer.</summary>
+    private void fDrawOpenDialog(float pfWidth)
+    {
+        switch (meOpenDialog)
+        {
+            case DialogEnum.Folder: fDrawFolderDialog(pfWidth); break;
+            case DialogEnum.Controls: fDrawControlsDialog(pfWidth); break;
+            case DialogEnum.Colours: fDrawColoursDialog(pfWidth); break;
+            case DialogEnum.Sound: fDrawSoundDialog(pfWidth); break;
+            case DialogEnum.Motion: fDrawMotionDialog(pfWidth); break;
+            case DialogEnum.Display: fDrawDisplayDialog(pfWidth); break;
+            case DialogEnum.PaletteEffects: fDrawPaletteEffectsDialog(pfWidth); break;
+            case DialogEnum.Game: fDrawGameDialog(pfWidth); break;
+            case DialogEnum.Graphics: fDrawGraphicsDialog(pfWidth); break;
+        }
+    }
+
+    // ------------------------------------------------- A window sized by its rows on the kit
+
+    /// <summary>The window whose rows ended at mfContentHeight below its top in its last pass.</summary>
+    private DialogEnum meContentOf = DialogEnum.None;
+
+    private float mfContentHeight;
+
+    /// <summary>
+    /// THE WINDOWS GROW WITH THEIR TEXT ON THE KIT (cleanup 8b.2, 2026-10-24; the rule of phase 8b that
+    /// the pseudo-language must not clip): a window is as wide as laid out (pfMaxWidth), or wider by what
+    /// its rows need (pfInnerNeeded, UWSetupPageDrawer.InnerNeeded; the 20 margins on both sides added)
+    /// where the screen allows. The IMGUI form and English need nothing more.
+    /// </summary>
+    private static float fMaxWidth(float pfMaxWidth, float pfInnerNeeded)
+    {
+        return Mathf.Max(pfMaxWidth, pfInnerNeeded + 40f);
+    }
+
+    /// <summary>A window's height: as laid out, or on the kit down to where its rows ended in its last
+    /// pass and pfBelow under them (what hangs from its bottom edge: Done, the flask preview) - the
+    /// pseudo-language's longer hints pushed Sound's MT-32 line onto Done. One pass late, as the rows
+    /// are measured while they are drawn.</summary>
+    private float fHeight(float pfHeight, float pfBelow)
+    {
+        if (!mOPassRows.SizesByText || meContentOf != meOpenDialog)
+            return pfHeight;
+
+        return Mathf.Max(pfHeight, mfContentHeight + pfBelow);
+    }
+
+    /// <summary>Where the open window's rows ended (pfBottom), for fHeight in its next pass.</summary>
+    private void fContentEnds(Rect pODialog, float pfBottom)
+    {
+        meContentOf = meOpenDialog;
+        mfContentHeight = pfBottom - pODialog.y;
+    }
+
+    /// <summary>The first-run screen's ground and title, under the bar.</summary>
+    private static void fDrawFirstRunGround(IUWRows pORows, float pfWidth)
+    {
+        pORows.Backdrop(new Rect(0f, 0f, pfWidth, UWGuiTheme.ReferenceHeight));
+
+        pORows.BigTitle(new Rect(0f, 150f, pfWidth, 50f), "Underworld Revisited");
+    }
+
+    /// <summary>
+    /// The bar's items left to right from 8: Game 70 wide, the others 90 each - on the kit as wide
+    /// as their text needs where that is more (IUWRows.FitWidth, 2026-10-24: the pseudo-language ran
+    /// them into each other), each following the one before.
+    /// </summary>
+    private void fDrawBar(IUWRows pORows, float pfWidth)
+    {
+        pORows.Bar(new Rect(0f, 0f, pfWidth, BarHeight));
+
+        string lsGame = UWText.T("setup.bar.game");
+        Rect lOGame = new Rect(8f, 0f, pORows.FitWidth(lsGame, 70f), BarHeight);
+
+        if (pORows.BarItem(lOGame, lsGame, meOpenDialog == DialogEnum.Game))
+            fToggleDialog(DialogEnum.Game);
 
         // Graphics needs the game data - not on the first-run screen. Controls do not, but there
         // is nothing to play yet either.
         if (mbFirstRun)
             return;
 
+        float lfLeft = lOGame.xMax;
+
         // THE MOTION SECOND, right after Game (per user, 2026-10-06: "eine sehr wichtige
         // Einstellung"): the player's motion and the picture of it, with the explanations.
-        if (fBarItem(new Rect(lOGame.xMax, 0f, 90f, BarHeight), "Motion", mbMotionDialogOpen))
-        {
-            bool lbOpen = !mbMotionDialogOpen;
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.motion", meOpenDialog == DialogEnum.Motion))
+            fToggleDialog(DialogEnum.Motion);
 
-            if (lbOpen)
-                fCloseDialogs();
-
-            mbMotionDialogOpen = lbOpen;
-        }
-
-        if (fBarItem(new Rect(lOGame.xMax + 90f, 0f, 90f, BarHeight), "Graphics", meOpenMenu == MenuEnum.Graphics))
-            meOpenMenu = meOpenMenu == MenuEnum.Graphics ? MenuEnum.None : MenuEnum.Graphics;
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
+            fToggleDialog(DialogEnum.Graphics);
 
         // Beside Graphics: window or fullscreen and the resolution (per user, 2026-09-26).
-        if (fBarItem(new Rect(lOGame.xMax + 180f, 0f, 90f, BarHeight), "Display", mbDisplayDialogOpen))
-        {
-            mbDisplayDialogOpen = !mbDisplayDialogOpen;
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.display", meOpenDialog == DialogEnum.Display))
+            fToggleDialog(DialogEnum.Display);
 
-            if (mbDisplayDialogOpen)
-            {
-                meOpenMenu = MenuEnum.None;
-                mbControlsDialogOpen = false;
-                mbColoursDialogOpen = false;
-                mbSoundDialogOpen = false;
-                mbMotionDialogOpen = false;
-                mbPaletteEffectsDialogOpen = false;
-            }
-        }
-
-        if (fBarItem(new Rect(lOGame.xMax + 270f, 0f, 90f, BarHeight), "Controls", mbControlsDialogOpen))
+        // Closed from the bar, a key being waited for stays awaited (as before; Done drops it).
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.controls", meOpenDialog == DialogEnum.Controls))
         {
-            if (mbControlsDialogOpen)
-                mbControlsDialogOpen = false;
+            if (meOpenDialog == DialogEnum.Controls)
+                meOpenDialog = DialogEnum.None;
             else
                 fOpenControlsDialog();
         }
 
-        if (fBarItem(new Rect(lOGame.xMax + 360f, 0f, 90f, BarHeight), "Sound", mbSoundDialogOpen))
-        {
-            mbSoundDialogOpen = !mbSoundDialogOpen;
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.sound", meOpenDialog == DialogEnum.Sound))
+            fToggleDialog(DialogEnum.Sound);
 
-            if (mbSoundDialogOpen)
-            {
-                meOpenMenu = MenuEnum.None;
-                mbControlsDialogOpen = false;
-                mbColoursDialogOpen = false;
-                mbDisplayDialogOpen = false;
-                mbMotionDialogOpen = false;
-                mbPaletteEffectsDialogOpen = false;
-            }
-        }
-
-        if (fBarItem(new Rect(lOGame.xMax + 450f, 0f, 90f, BarHeight), "Colours", mbColoursDialogOpen))
-        {
-            if (mbColoursDialogOpen)
-                mbColoursDialogOpen = false;
-            else
-                fOpenColoursDialog();
-        }
+        if (fBarItem(pORows, ref lfLeft, "setup.bar.colours", meOpenDialog == DialogEnum.Colours))
+            fToggleDialog(DialogEnum.Colours);
     }
 
-    // ------------------------------------------------- Sound
+    /// <summary>One of the bar's items after Game, at pfLeft, 90 wide (more for a longer text on
+    /// the kit); pfLeft moves to its right edge.</summary>
+    private static bool fBarItem(IUWRows pORows, ref float pfLeft, string psTextId, bool pbOpen)
+    {
+        string lsText = UWText.T(psTextId);
+        Rect lORect = new Rect(pfLeft, 0f, pORows.FitWidth(lsText, 90f), BarHeight);
 
-    /// <summary>
-    /// Music and sound (per user, 2026-09-21). THE ORIGINAL HAS ONLY ON AND OFF, in the
-    /// options panel of the button bar - an AdLib card was set up outside the game, so there
-    /// was nothing else to offer. THE VOLUMES ARE OURS. The two switches are the same ones as
-    /// in the game, both go through UWSoundOptions, so the panel in the game and this dialog
-    /// always show the same thing and it survives a restart.
-    ///
-    /// THE DETAIL LEVELS of the original's panel are deliberately not repeated here: ours mean
-    /// something else and sit under Graphics (per user, same day).
-    /// </summary>
+        pfLeft = lORect.xMax;
+
+        return pORows.BarItem(lORect, lsText, pbOpen);
+    }
+
     // ------------------------------------------------- Motion
 
     /// <summary>
@@ -969,12 +875,19 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>The motion dialog's content height of the last frame, for its scroll view.</summary>
     private float mfMotionContentHeight;
 
+    /// <summary>The motion rows, measured from 8 left of the text and 16 wider (the panel the row
+    /// helpers measured from until cleanup 8.4): the label at 8, 100 wide, the choices from 108 over
+    /// the panel less 116 (fMotionChoice: the two-way rows, the modes, the ramp and fps rows).</summary>
+    private static readonly UWChoiceColumns MotionChoiceColumns = new UWChoiceColumns(8f, 100f, 108f, 116f);
+
+    /// <summary>The strength row under a Smooth mode: the label at 8, 100 wide, the slider from 108
+    /// over the panel less 170, the value in the last 56; no arrows.</summary>
+    private static readonly UWSliderColumns StrengthColumns = new UWSliderColumns(8f, 100f, 108f, 170f, 0f, 56f, 56f);
+
     private void fDrawMotionDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 30f, lfDialogWidth, 680f);
-
-        fFill(lODialog, PanelColour);
+        // On the kit as wide as its rows need (cleanup 8b.2); they stand 56 short of its width.
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOMotionPage) + 16f), 30f, 680f);
 
         // THE CONTENT SCROLLS above the Done button (2026-10-15, when the swimming row came in
         // under the head bob and the weapon): with all three on Smooth and their sliders it no
@@ -982,189 +895,19 @@ public partial class UWSetupMenu : MonoBehaviour
         // only when it is needed.
         Rect lOView = new Rect(lODialog.x, lODialog.y, lODialog.width, lODialog.height - 56f);
 
-        mOMotionScroll = GUI.BeginScrollView(lOView, mOMotionScroll,
+        mOMotionScroll = mOPassRows.BeginScroll(lOView, mOMotionScroll,
             new Rect(0f, 0f, lOView.width - 20f, Mathf.Max(lOView.height, mfMotionContentHeight)));
-        UWImguiInput.Sync();
 
-        float lfLeft = 20f;
-        float lfInner = lODialog.width - 56f;
-        float lfTop = 16f;
-
-        // The row helpers measure from a panel's left edge plus 8 and its width less 116.
-        Rect lORows = new Rect(lfLeft - 8f, 0f, lfInner + 16f, 0f);
-
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Motion", mOLabel);
-        lfTop += 28f;
-
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "How you move. The game uses the movement code of the original. Here you choose how often it calculates and how the picture follows.") + 10f;
-
-        bool lbSmooth = fTwoWayRow(lORows, lfTop, "Motion", UWUserSettings.MotionSmooth, "Original", "Smooth");
-
-        if (lbSmooth != UWUserSettings.MotionSmooth)
-        {
-            UWUserSettings.MotionSmooth = lbSmooth;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Original: calculates like the original, including its rounding. Smooth: the same rules without the rounding. Smooth moves the same at every frame rate and may be easier on the stomach.") + 10f;
-
-        // THE SMOOTH RAMP (per user, 2026-10-06: "die Verzoegerung beim Anlaufen und Abbremsen
-        // wirken dagegen"): how long starting and stopping take in Smooth. Greyed under Original
-        // (per user: a setting without effect is greyed), as the fps row is under Smooth.
-        GUI.enabled = UWUserSettings.MotionSmooth;
-        GUI.Label(new Rect(lfLeft, lfTop, 100f, 26f), "Response", mOListLabel);
-
-        int[] liRamps = UWUserSettings.SmoothRampChoices;
-        float lfRampWidth = (lORows.width - 116f) / liRamps.Length;
-
-        for (int liAt = 0; liAt < liRamps.Length; liAt++)
-        {
-            bool lbCurrent = UWUserSettings.SmoothRampTicks == liRamps[liAt];
-
-            if (mOKeyNav.Button(new Rect(lORows.x + 108f + (liAt * lfRampWidth), lfTop, lfRampWidth, 26f), UWUserSettings.SmoothRampLabels[liAt],
-                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
-            {
-                UWUserSettings.SmoothRampTicks = liRamps[liAt];
-                UWUserSettings.Save();
-            }
-        }
-
-        lfTop += 30f;
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "How long it takes to get going and to stop in Smooth. 0.6 s is the original on a slow PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for. Shorter feels more direct. Original uses its own frame rate for this.") + 10f;
-        GUI.enabled = true;
-
-        // The picture belongs to Original: Smooth is always even (greyed otherwise).
-        GUI.enabled = !UWUserSettings.MotionSmooth;
-
-        bool lbStepped = fTwoWayRow(lORows, lfTop, "Picture", UWUserSettings.MotionViewStepped, "Even", "Stepped");
-
-        if (lbStepped != UWUserSettings.MotionViewStepped)
-        {
-            UWUserSettings.MotionViewStepped = lbStepped;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Only for Original. Even: the picture moves a little with every screen refresh. Stepped: the picture only moves when the game has calculated, like on an old PC. Smooth is always even.") + 10f;
-        GUI.enabled = true;
-
-        GUI.enabled = !UWUserSettings.MotionSmooth;
-        GUI.Label(new Rect(lfLeft, lfTop, 100f, 26f), "Original fps", mOListLabel);
-
-        int[] liChoices = UWUserSettings.OriginalFrameChoices;
-        float lfChoiceWidth = (lORows.width - 116f) / liChoices.Length;
-
-        for (int liAt = 0; liAt < liChoices.Length; liAt++)
-        {
-            bool lbCurrent = UWUserSettings.OriginalFrameTicks == liChoices[liAt];
-            string lsLabel = (256 / liChoices[liAt]).ToString();
-
-            if (mOKeyNav.Button(new Rect(lORows.x + 108f + (liAt * lfChoiceWidth), lfTop, lfChoiceWidth, 26f), lsLabel,
-                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
-            {
-                UWUserSettings.OriginalFrameTicks = liChoices[liAt];
-                UWUserSettings.Save();
-            }
-        }
-
-        lfTop += 30f;
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "How often per second the Original mode calculates. More is not faster. The original rounds down after every calculation, so with 64 you move a bit slower when swimming or walking backwards, and you reach full speed sooner. With 16 it is the other way round. 32 is like the original in DOSBox at 30000 cycles. Smooth does not use this setting.") + 12f;
-        GUI.enabled = true;
-
-        fFill(new Rect(lfLeft, lfTop, lfInner, 1f), SeparatorColour);
-        lfTop += 8f;
-
-        // THE HEAD BOB AND THE WEAPON'S JITTER (UWHeadBobRules), three ways each (per user,
-        // 2026-09-23): Off for everyone who cannot take it, Original, Smooth - ours - with a
-        // strength slider under it.
-        UWHeadBobRules.ModeEnum leBob = fMotionModeRow(lORows, lfTop, "Head bob", UWUserSettings.HeadBobMode);
-
-        if (leBob != UWUserSettings.HeadBobMode)
-        {
-            UWUserSettings.HeadBobMode = leBob;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        if (UWUserSettings.HeadBobMode == UWHeadBobRules.ModeEnum.Smooth)
-        {
-            float lfBobStrength = fMotionStrengthRow(lORows, lfTop, UWUserSettings.HeadBobStrength);
-
-            if (lfBobStrength != UWUserSettings.HeadBobStrength)
-            {
-                UWUserSettings.HeadBobStrength = lfBobStrength;
-                UWUserSettings.Save();
-            }
-
-            lfTop += 30f;
-        }
-
-        UWHeadBobRules.ModeEnum leJitter = fMotionModeRow(lORows, lfTop, "Weapon", UWUserSettings.WeaponJitterMode);
-
-        if (leJitter != UWUserSettings.WeaponJitterMode)
-        {
-            UWUserSettings.WeaponJitterMode = leJitter;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        if (UWUserSettings.WeaponJitterMode == UWHeadBobRules.ModeEnum.Smooth)
-        {
-            float lfJitterStrength = fMotionStrengthRow(lORows, lfTop, UWUserSettings.WeaponJitterStrength);
-
-            if (lfJitterStrength != UWUserSettings.WeaponJitterStrength)
-            {
-                UWUserSettings.WeaponJitterStrength = lfJitterStrength;
-                UWUserSettings.Save();
-            }
-
-            lfTop += 30f;
-        }
-
-        // THE SWIMMER'S VIEW (UWSwimViewRules), the same three ways (per user, 2026-10-15).
-        UWHeadBobRules.ModeEnum leSwim = fMotionModeRow(lORows, lfTop, "Swimming", UWUserSettings.SwimViewMode);
-
-        if (leSwim != UWUserSettings.SwimViewMode)
-        {
-            UWUserSettings.SwimViewMode = leSwim;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 30f;
-
-        if (UWUserSettings.SwimViewMode == UWHeadBobRules.ModeEnum.Smooth)
-        {
-            float lfSwimStrength = fMotionStrengthRow(lORows, lfTop, UWUserSettings.SwimViewStrength);
-
-            if (lfSwimStrength != UWUserSettings.SwimViewStrength)
-            {
-                UWUserSettings.SwimViewStrength = lfSwimStrength;
-                UWUserSettings.Save();
-            }
-
-            lfTop += 30f;
-        }
-
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "The bobbing of the view and the weapon while walking, and the rocking of the view while swimming: like the original, smoothed with your own strength, or off if it makes you uneasy.");
+        // The rows (fBuildMotionPage) in the view's own coordinates, 20 from its left edge.
+        float lfTop = mOPassPages.Draw(mOMotionPage, 20f, 16f, lODialog.width - 56f);
 
         mfMotionContentHeight = lfTop + 10f;
 
-        GUI.EndScrollView();
-        UWImguiInput.Sync();
+        mOPassRows.EndScroll();
 
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
+        if (mOPassRows.Done(lODialog))
         {
-            mbMotionDialogOpen = false;
-            mbPaletteEffectsDialogOpen = false;
+            meOpenDialog = DialogEnum.None;
         }
     }
 
@@ -1172,74 +915,58 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private Vector2 mODisplayScroll;
 
+    /// <summary>The mode row: the label 110 wide, the two modes over the rest.</summary>
+    private static readonly UWChoiceColumns DisplayModeColumns = new UWChoiceColumns(0f, 110f, 110f, 110f);
+
     /// <summary>
     /// Window or borderless fullscreen and the resolution (per user, 2026-09-26) - see
     /// UWDisplayMode. A click switches at once; the choice is kept for the next start.
+    /// On the kit (cleanup 8b.2) as wide as its rows need, "Resolution" in the label column of "Mode"
+    /// (UWSetupPage.ColumnLabels), the list beside it.
     /// </summary>
     private void fDrawDisplayDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(560f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 110f, lfDialogWidth, 470f);
-
-        fFill(lODialog, PanelColour);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(560f, mOPassPages.InnerNeeded(mODisplayPage)), 110f, 470f);
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Display", mOLabel);
-        lfTop += 28f;
+        // In the editor the saved choice, in the game what is on screen (Alt+Enter changes it too);
+        // read once, before the rows (fBuildDisplayPage), as the list below shows the same.
+        meShownMode = Application.isEditor ? UWDisplayMode.SavedMode : UWDisplayMode.CurrentMode;
+        mOShownSize = Application.isEditor ? UWDisplayMode.SavedResolution : UWDisplayMode.CurrentResolution;
 
-        lfTop += Mathf.Max(40f, fDrawHint(lfLeft, lfTop, lfInner, Application.isEditor
-                ? "In the editor the Game view decides the size - the choice is kept and takes effect in the built game."
-                : "Takes effect at once and is kept for the next start.")) + 4f;
+        UWDisplayMode.ModeEnum leMode = meShownMode;
+        Vector2Int lOSize = mOShownSize;
 
-        // In the editor the saved choice, in the game what is on screen (Alt+Enter changes it too).
-        UWDisplayMode.ModeEnum leMode = Application.isEditor ? UWDisplayMode.SavedMode : UWDisplayMode.CurrentMode;
-        Vector2Int lOSize = Application.isEditor ? UWDisplayMode.SavedResolution : UWDisplayMode.CurrentResolution;
+        lfTop = mOPassPages.Draw(mODisplayPage, lfLeft, lfTop, lfInner);
 
-        GUI.Label(new Rect(lfLeft, lfTop, 110f, 28f), "Mode", mOListLabel);
+        float lfShift = mOPassPages.LabelShift(mODisplayPage);
 
-        string[] lsModes = { "Window", "Borderless fullscreen" };
-        float lfModeWidth = (lfInner - 110f) / lsModes.Length;
-
-        for (int liMode = 0; liMode < lsModes.Length; liMode++)
-        {
-            Rect lOButton = new Rect(lfLeft + 110f + (liMode * lfModeWidth), lfTop, lfModeWidth, 28f);
-
-            if (mOKeyNav.Button(lOButton, lsModes[liMode], liMode == (int)leMode ? mOCurrentItem : mOListItem)
-                && liMode != (int)leMode)
-                UWDisplayMode.Apply((UWDisplayMode.ModeEnum)liMode, fSizeForMode((UWDisplayMode.ModeEnum)liMode, lOSize));
-        }
-
-        lfTop += 40f;
-
-        GUI.Label(new Rect(lfLeft, lfTop, 110f, 28f), "Resolution", mOListLabel);
+        mOPassRows.Label(new Rect(lfLeft, lfTop, 110f + lfShift, 28f), UWText.T("setup.display.resolution"));
 
         List<Vector2Int> lOSizes = UWDisplayMode.GetResolutions(leMode);
         Vector2Int lODesktop = UWDisplayMode.Desktop;
-        Rect lOList = new Rect(lfLeft + 110f, lfTop, lfInner - 110f, lODialog.yMax - 62f - lfTop);
+        Rect lOList = new Rect(lfLeft + 110f + lfShift, lfTop, lfInner - 110f - lfShift, lODialog.yMax - 62f - lfTop);
 
-        mODisplayScroll = GUI.BeginScrollView(lOList, mODisplayScroll,
+        mODisplayScroll = mOPassRows.BeginScroll(lOList, mODisplayScroll,
             new Rect(0f, 0f, lOList.width - 20f, lOSizes.Count * 28f));
-        UWImguiInput.Sync();
 
         for (int liAt = 0; liAt < lOSizes.Count; liAt++)
         {
             Vector2Int lOEntry = lOSizes[liAt];
-            string lsText = lOEntry.x + " x " + lOEntry.y + (lOEntry == lODesktop ? "   (desktop)" : string.Empty);
+            string lsText = lOEntry.x + " x " + lOEntry.y + (lOEntry == lODesktop ? "   " + UWText.T("setup.display.desktop") : string.Empty);
 
-            if (mOKeyNav.Button(new Rect(0f, liAt * 28f, lOList.width - 20f, 28f), lsText,
-                    lOEntry == lOSize ? mOCurrentItem : mOListItem)
+            if (mOPassRows.Item(new Rect(0f, liAt * 28f, lOList.width - 20f, 28f), lsText, lOEntry == lOSize)
                 && lOEntry != lOSize)
                 UWDisplayMode.Apply(leMode, lOEntry);
         }
 
-        GUI.EndScrollView();
-        UWImguiInput.Sync();
+        mOPassRows.EndScroll();
 
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
-            mbDisplayDialogOpen = false;
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
     }
 
     /// <summary>The size to keep when the mode changes. A window as large as the desktop would
@@ -1261,169 +988,59 @@ public partial class UWSetupMenu : MonoBehaviour
         return pOSize;
     }
 
+    // ------------------------------------------------- Sound
+
+    /// <summary>A volume row right of its switch: no label of its own, the slider over the row less
+    /// 170, the arrows 160 and the value 95 from its right edge.</summary>
+    private static readonly UWSliderColumns VolumeColumns = new UWSliderColumns(0f, 0f, 0f, 170f, 160f, 95f, 95f);
+
+    /// <summary>
+    /// Music and sound (per user, 2026-09-21). THE ORIGINAL HAS ONLY ON AND OFF, in the
+    /// options panel of the button bar - an AdLib card was set up outside the game, so there
+    /// was nothing else to offer. THE VOLUMES ARE OURS. The two switches are the same ones as
+    /// in the game, both go through UWSoundOptions, so the panel in the game and this dialog
+    /// always show the same thing and it survives a restart.
+    ///
+    /// THE DETAIL LEVELS of the original's panel are deliberately not repeated here: ours mean
+    /// something else and sit under Graphics (per user, same day).
+    ///
+    /// ON THE KIT since cleanup 8b.1 (2026-10-24): drawn by the windows' drawer (until 8b.4 also the
+    /// IMGUI one in the side-by-side form) - the same page. On the kit as wide and as tall as
+    /// its rows need (cleanup 8b.2: the pseudo-language's hints pushed the MT-32 line onto Done).
+    /// </summary>
     private void fDrawSoundDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(680f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 150f, lfDialogWidth, 450f);
-
-        fFill(lODialog, PanelColour);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOSoundPage)), 150f, fHeight(450f, 54f));
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Sound", mOLabel);
-        lfTop += 28f;
+        // The switches with their volumes, the music device, its hint and the MT-32 line
+        // (fBuildSoundPage); the line is 26 high.
+        fContentEnds(lODialog, mOPassPages.Draw(mOSoundPage, lfLeft, lfTop, lfInner) + 26f);
 
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "Sound comes from the emulated AdLib card, as in 1992; the music can also play its MT-32 version on General MIDI. The original only knew on and off, and the same two switches sit in the options panel in the game; the volumes are ours. The two switches belong to the save game, as in the original - a save loaded here brings the state it was saved with, the volumes stay.") + 8f;
-
-        bool lbMusic = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, 220f, 26f), UWSoundOptions.MusicEnabled,
-            "  Music", mOToggle);
-
-        if (lbMusic != UWSoundOptions.MusicEnabled)
-            UWSoundOptions.MusicEnabled = lbMusic;
-
-        GUI.enabled = lbMusic;
-        UWSoundOptions.MusicVolume = fVolumeSlider(lfLeft + 230f, lfTop, lfInner - 230f, UWSoundOptions.MusicVolume);
-        GUI.enabled = true;
-
-        lfTop += 38f;
-
-        bool lbSound = mOKeyNav.Toggle(new Rect(lfLeft, lfTop, 220f, 26f), UWSoundOptions.SoundEnabled,
-            "  Sound effects", mOToggle);
-
-        if (lbSound != UWSoundOptions.SoundEnabled)
-            UWSoundOptions.SoundEnabled = lbSound;
-
-        GUI.enabled = lbSound;
-        UWSoundOptions.SoundVolume = fVolumeSlider(lfLeft + 230f, lfTop, lfInner - 230f, UWSoundOptions.SoundVolume);
-        GUI.enabled = true;
-
-        lfTop += 44f;
-
-        // THE MUSIC DEVICE (UWAudioEngine.MusicDeviceEnum). General MIDI plays the MT-32 version on
-        // the soundfont that ships with the game, the MT-32 on Munt's emulation with the player's
-        // own ROMs.
-        string[] lsDevices = { "AdLib", "General MIDI", "MT-32" };
-        UWDataImport.UWData.UWMt32MusicDriver.RomSet lORoms = UWAudioEngine.Mt32Roms;
-        bool[] lbAvailable = { true, UWAudioEngine.IsGeneralMidiAvailable, lORoms != null };
-        float lfDeviceWidth = (lfInner - 230f) / lsDevices.Length;
-
-        GUI.Label(new Rect(lfLeft, lfTop, 220f, 26f), "Music played by", mOLabel);
-
-        for (int liDevice = 0; liDevice < lsDevices.Length; liDevice++)
-        {
-            bool lbCurrent = UWUserSettings.MusicDevice == liDevice;
-
-            GUI.enabled = lbAvailable[liDevice];
-
-            if (mOKeyNav.Button(new Rect(lfLeft + 230f + (liDevice * lfDeviceWidth), lfTop, lfDeviceWidth - 4f, 26f), lsDevices[liDevice],
-                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
-            {
-                UWUserSettings.MusicDevice = liDevice;
-                UWUserSettings.Save();
-            }
-
-            GUI.enabled = true;
-        }
-
-        lfTop += 36f;
-
-        lfTop += fDrawHint(lfLeft, lfTop, lfInner,
-            "General MIDI: the game's MT-32 music on a soundfont cut from FluidR3 GM (Frank Wen, MIT), its instruments matched to the MT-32's by name - close, not the original's sound. MT-32: the same music on Munt's emulation of the Roland MT-32, as the game was written for it. Its ROMs belong to Roland and do not come with the game; put your own control and PCM ROM into the folder below.") + 6f;
-
-        string lsFolder = UWAudioEngine.Mt32RomFolder;
-        string lsRomState = lORoms != null ? "MT-32 ROMs: " + lORoms.Description : "MT-32: " + UWAudioEngine.Mt32Problem;
-
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner - 150f, 26f), lsRomState, mOLabel);
-
-        if (mOKeyNav.Button(new Rect(lfLeft + lfInner - 140f, lfTop, 140f, 26f), "Open folder", mOButton))
-        {
-            try
-            {
-                System.IO.Directory.CreateDirectory(lsFolder);
-                Application.OpenURL((lsFolder.StartsWith("/") ? "file://" : "file:///") + lsFolder.Replace('\\', '/'));
-            }
-            catch (System.Exception lOError)
-            {
-                Debug.LogWarning("MT-32 ROM folder not opened: " + lOError.Message);
-            }
-        }
-
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 130f, lODialog.yMax - 46f, 110f, 30f), "Done", mOButton))
-            mbSoundDialogOpen = false;
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
     }
 
-    /// <summary>One volume: a slider that snaps to the same five percent its two arrows move
-    /// by, and the value in percent beside it. Returns what it now stands at.</summary>
-    private float fVolumeSlider(float pfLeft, float pfTop, float pfWidth, float pfValue)
-    {
-        float lfStep = UWSoundOptions.VolumeStep;
+    /// <summary>The factor row under the resolution switch: no label, the slider from 32 over the
+    /// panel less 94, the value in the last 56.</summary>
+    private static readonly UWSliderColumns FactorColumns = new UWSliderColumns(0f, 0f, 32f, 94f, 0f, 56f, 56f);
 
-        float lfResult = GUI.HorizontalSlider(new Rect(pfLeft, pfTop + 8f, pfWidth - 170f, 20f),
-            pfValue, 0f, 1f);
+    private static readonly System.Func<float, string> msFactor = pfValue => Mathf.RoundToInt(pfValue) + "x";
 
-        lfResult = Mathf.Round(lfResult / lfStep) * lfStep;
+    /// <summary>The view angle's row: the label at 8, 50 wide, the slider from 58 over the panel less
+    /// 186, the value 122 from the right edge, 66 wide - "Orig." takes the last 56.</summary>
+    private static readonly UWSliderColumns ViewAngleColumns = new UWSliderColumns(8f, 50f, 58f, 186f, 0f, 122f, 66f);
 
-        if (mOKeyNav.Button(new Rect(pfLeft + pfWidth - 160f, pfTop, 26f, 26f), "<", mOButton))
-            lfResult = pfValue - lfStep;
+    private static readonly System.Func<float, string> msDegrees = pfValue => Mathf.RoundToInt(pfValue) + "°";
 
-        if (mOKeyNav.Button(new Rect(pfLeft + pfWidth - 130f, pfTop, 26f, 26f), ">", mOButton))
-            lfResult = pfValue + lfStep;
-
-        lfResult = Mathf.Clamp01(lfResult);
-
-        GUI.Label(new Rect(pfLeft + pfWidth - 95f, pfTop, 95f, 26f),
-            Mathf.RoundToInt(lfResult * 100f) + " %", mOListLabel);
-
-        return Mathf.RoundToInt(lfResult * 100f) == Mathf.RoundToInt(pfValue * 100f) ? pfValue : lfResult;
-    }
-
-    /// <summary>A row of the Graphics menu with a label and the three buttons Off, Original
-    /// and Smooth, the current one in the accent colour. Returns the mode it now stands at.
-    /// </summary>
-    private UWHeadBobRules.ModeEnum fMotionModeRow(Rect pOPanel, float pfTop, string psLabel, UWHeadBobRules.ModeEnum peMode)
-    {
-        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 100f, 26f), psLabel, mOListLabel);
-
-        string[] lsModes = { "Off", "Original", "Smooth" };
-        float lfButtonWidth = (pOPanel.width - 116f) / lsModes.Length;
-        UWHeadBobRules.ModeEnum leResult = peMode;
-
-        for (int liMode = 0; liMode < lsModes.Length; liMode++)
-        {
-            Rect lOButton = new Rect(pOPanel.x + 108f + (liMode * lfButtonWidth), pfTop, lfButtonWidth, 26f);
-
-            if (mOKeyNav.Button(lOButton, lsModes[liMode], liMode == (int)peMode ? mOCurrentItem : mOListItem))
-                leResult = (UWHeadBobRules.ModeEnum)liMode;
-        }
-
-        return leResult;
-    }
-
-    /// <summary>The strength row under a Smooth setting: ten to a hundred per cent in steps of
-    /// five like the volumes, so the file is written only when a step changes and not on every
-    /// frame of the drag. Returns the value it now stands at, the one given when unchanged.
-    /// </summary>
-    private float fMotionStrengthRow(Rect pOPanel, float pfTop, float pfStrength)
-    {
-        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 100f, 26f), "  Strength", mOListLabel);
-
-        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 108f, pfTop + 8f, pOPanel.width - 170f, 20f),
-            pfStrength, UWUserSettings.MinHeadBobStrength, 1f);
-
-        lfWanted = Mathf.Clamp(Mathf.Round(lfWanted / HeadBobStrengthStep) * HeadBobStrengthStep,
-            UWUserSettings.MinHeadBobStrength, 1f);
-
-        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 56f, 26f),
-            Mathf.RoundToInt(lfWanted * 100f) + " %", mOListLabel);
-
-        return Mathf.RoundToInt(lfWanted * 100f) != Mathf.RoundToInt(pfStrength * 100f) ? lfWanted : pfStrength;
-    }
+    private static readonly System.Func<float, string> msOriginalAngle = pfValue => UWText.T("setup.graphics.view_original");
 
     /// <summary>The multiple of the original's resolution, 1x to 4x (UWWorldResolution.Factor), on
-    /// a slider in whole steps. While 4x is locked the slider ends at 3x and a line says why.
+    /// a slider in whole steps. While 4x is locked the slider ends at 3x and a line says why. The
+    /// limits are UWWorldResolution's: the settings table keeps none for the factor.
     /// </summary>
     private void fWorldResolutionFactorRow(Rect pOPanel, float pfTop, bool pbMaxLocked)
     {
@@ -1431,299 +1048,235 @@ public partial class UWSetupMenu : MonoBehaviour
         int liShown = Mathf.Min(UWWorldResolution.Factor, liMax);
 
         // No label of its own (per user, 2026-10-07): under the switch it is clear what it sets.
-        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 32f, pfTop + 8f, pOPanel.width - 94f, 20f),
-            liShown, 1f, liMax);
+        float lfWanted = mOPassRows.Slider(new Rect(pOPanel.x, pfTop, pOPanel.width, 26f), FactorColumns, null,
+            liShown, 1f, liMax, 1f, true, msFactor);
 
-        int liWanted = Mathf.Clamp(Mathf.RoundToInt(lfWanted), 1, liMax);
-
-        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 56f, 26f), liWanted + "x", mOListLabel);
+        int liWanted = Mathf.RoundToInt(lfWanted);
 
         if (liWanted != liShown)
             UWWorldResolution.Factor = liWanted;
 
         if (pbMaxLocked)
-            GUI.Label(new Rect(pOPanel.x + 8f, pfTop + 30f, pOPanel.width - 16f, 26f),
-                "  4x needs a window 1600 pixels tall", mOListLabel);
+            mOPassRows.Label(new Rect(pOPanel.x + 8f, pfTop + 30f, pOPanel.width - 16f, 26f), "  " + UWText.T("setup.graphics.factor_locked"));
     }
 
     /// <summary>
     /// THE VIEW ANGLE (UWViewAngle; per user, 2026-10-10: a slider, one for both schemes): the
     /// horizontal angle of the 3D view in whole degrees, and "Orig." back to each scheme's own. At
     /// the original's the slider stands at the angle shown now and the value reads "Original".
+    /// The limits are UWViewAngle's (the settings table keeps none for the angle).
+    ///
+    /// SIZED BY ITS TEXT ON THE KIT (cleanup 8b.2, 2026-10-24; the pseudo-language ran the label over
+    /// the slider and "Original" under "Orig."): the label column, the value column (wide enough for
+    /// "Original" and the widest angle) and "Orig." take what their texts need, the slider gives it up.
     /// </summary>
     private void fViewAngleRow(Rect pOPanel, float pfTop)
     {
-        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 50f, 26f), "View", mOListLabel);
-
+        IUWRows lORows = mOPassRows;
         bool lbOriginal = UWViewAngle.IsOriginal;
-        float lfShown = lbOriginal ? UWViewAngle.HorizontalOf(Camera.main) : UWViewAngle.Horizontal;
-        float lfWanted = GUI.HorizontalSlider(new Rect(pOPanel.x + 58f, pfTop + 8f, pOPanel.width - 186f, 20f),
-            Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max), UWViewAngle.Min, UWViewAngle.Max);
+        float lfShown = Mathf.Clamp(lbOriginal ? UWViewAngle.HorizontalOf(Camera.main) : UWViewAngle.Horizontal, UWViewAngle.Min, UWViewAngle.Max);
+        string lsLabel = UWText.T("setting.ViewAngle");
+        string lsOrig = UWText.T("setup.graphics.view_orig");
+        // "Orig." is a list row, its text from the padding at its left: in English it fits its 48 with
+        // a little room on the right, which FitWidth's padding on both sides would not leave.
+        float lfOrigExtra = lORows.SizesByText ? Mathf.Max(0f, lORows.LabelWidth(lsOrig) + UWRowSizing.Padding + 2f - 48f) : 0f;
+        UWSliderColumns lOColumns = ViewAngleColumns;
+
+        if (lORows.SizesByText)
+        {
+            lOColumns = UWSetupPageDrawer.WithValueWidth(UWSetupPageDrawer.WithLabel(lORows, lOColumns, lsLabel),
+                Mathf.Max(lORows.LabelWidth(msOriginalAngle(0f)), lORows.LabelWidth(msDegrees(UWViewAngle.Max))));
+
+            // "Orig." grows to the left: the value and the slider's right end move along.
+            lOColumns = new UWSliderColumns(lOColumns.LabelLeft, lOColumns.LabelWidth, lOColumns.SliderLeft, lOColumns.SliderLess + lfOrigExtra,
+                0f, lOColumns.ValueAt + lfOrigExtra, lOColumns.ValueWidth);
+        }
+
+        float lfWanted = lORows.Slider(new Rect(pOPanel.x, pfTop, pOPanel.width, 26f), lOColumns, lsLabel,
+            lfShown, UWViewAngle.Min, UWViewAngle.Max, 1f, false, lbOriginal ? msOriginalAngle : msDegrees);
         int liWanted = Mathf.RoundToInt(lfWanted);
 
-        GUI.Label(new Rect(pOPanel.x + pOPanel.width - 122f, pfTop, 66f, 26f), lbOriginal ? "Original" : liWanted + "°", mOListLabel);
-
-        if (liWanted != Mathf.RoundToInt(Mathf.Clamp(lfShown, UWViewAngle.Min, UWViewAngle.Max)))
+        if (liWanted != Mathf.RoundToInt(lfShown))
             UWViewAngle.Horizontal = liWanted;
 
-        GUI.enabled = !lbOriginal;
+        lORows.Enabled = !lbOriginal;
 
-        if (mOKeyNav.Button(new Rect(pOPanel.x + pOPanel.width - 56f, pfTop, 48f, 26f), "Orig.", mOListItem))
+        if (lORows.Item(new Rect(pOPanel.x + pOPanel.width - 56f - lfOrigExtra, pfTop, 48f + lfOrigExtra, 26f), lsOrig))
             UWViewAngle.Horizontal = 0f;
 
-        GUI.enabled = true;
+        lORows.Enabled = true;
+    }
+    // ------------------------------------------------- Graphics
+
+    /// <summary>
+    /// THE GRAPHICS WINDOW (per user, 2026-10-24; until then a drop-down menu of the bar): the four
+    /// detail levels (see UWGraphicsDetail) as a row of choices, the palette renderer's own effects
+    /// (a dialog of their own), and set apart the classic screen's widescreen, the view angle and
+    /// the world at the original's resolution - the rows of fBuildGraphicsPage. The motion rows that
+    /// followed in the menu (head bob, weapon jitter, the motion modes) moved to the Motion dialog
+    /// of the bar on 2026-10-06 (per user: they need an explanation, "ein eigener Menuepunkt").
+    /// On the kit since cleanup 8b.2 (2026-10-24), as wide and as tall as its rows need.
+    /// </summary>
+    private void fDrawGraphicsDialog(float pfWidth)
+    {
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(560f, mOPassPages.InnerNeeded(mOGraphicsPage)), 110f, fHeight(400f, 54f));
+
+        fContentEnds(lODialog, mOPassPages.Draw(mOGraphicsPage, lODialog.x + 20f, lODialog.y + 16f, lODialog.width - 40f));
+
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
     }
 
-    /// <summary>The step of the Smooth head bob's strength slider.</summary>
-    private const float HeadBobStrengthStep = 0.05f;
+    // ------------------------------------------------- Game
 
-    /// <summary>The four detail levels of the options panel, the current one in the accent
-    /// colour (see UWGraphicsDetail).</summary>
-    private void fDrawGraphicsMenu()
+    /// <summary>
+    /// THE GAME WINDOW (per user, 2026-10-24; until then a drop-down menu of the bar): the game
+    /// folder, the scheme, the three switches of the program (fBuildGamePage), and Quit in the
+    /// bottom left corner where the other dialogs keep Back to default - at once, as the menu's
+    /// item quit. On the kit since cleanup 8b.2 (2026-10-24), as wide and as tall as its rows need,
+    /// Quit as wide as its text.
+    /// </summary>
+    private void fDrawGameDialog(float pfWidth)
     {
-        string[] lsItems =
-        {
-            "Low - original palette",
-            "Medium - Remastered, no effects",
-            "High - Remastered, all effects",
-            "Very high - own effects..."
-        };
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(560f, mOPassPages.InnerNeeded(mOGamePage)), 150f, fHeight(280f, 54f));
+        float lfLeft = lODialog.x + 20f;
 
-        // The detail levels, and below them, set apart, the 4:3 switch. The motion rows that
-        // followed (head bob, weapon jitter, the motion modes) moved to the Motion dialog of the
-        // bar on 2026-10-06 (per user: they need an explanation, "ein eigener Menuepunkt").
-        const float AspectRowHeight = 36f;
-        const float WorldResolutionRowHeight = 30f;
+        fContentEnds(lODialog, mOPassPages.Draw(mOGamePage, lfLeft, lODialog.y + 16f, lODialog.width - 40f));
 
-        // The multiple's slider under the switch while it is on, and a line on the locked 4x
-        // while the window is too small for it.
-        bool lbResolutionOn = UWWorldResolution.Enabled;
-        bool lbMaxLocked = !UWWorldResolution.IsMaxFactorAllowed;
-        float lfFactorRows = lbResolutionOn ? WorldResolutionRowHeight * (lbMaxLocked ? 2f : 1f) : 0f;
+        string lsQuit = UWText.T("setup.game.quit");
 
-        // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog.
-        const float PaletteEffectsRowHeight = 30f;
-
-        // The view angle's row under the widescreen switch (UWViewAngle).
-        const float ViewAngleRowHeight = 30f;
-
-        Rect lOPanel = new Rect(168f, BarHeight, 300f,
-            8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight + AspectRowHeight + ViewAngleRowHeight + WorldResolutionRowHeight + lfFactorRows);
-
-        fFill(lOPanel, PanelColour);
-
-        int liCurrent = (int)UWGraphicsDetail.CurrentLevel;
-
-        for (int liAt = 0; liAt < lsItems.Length; liAt++)
-        {
-            Rect lOItem = new Rect(lOPanel.x, lOPanel.y + 4f + (liAt * 30f), lOPanel.width, 30f);
-
-            if (mOKeyNav.Button(lOItem, lsItems[liAt], liAt == liCurrent ? mOCurrentItem : mOListItem))
-            {
-                fChooseLevel((UWGraphicsDetail.LevelEnum)liAt);
-
-                return;
-            }
-        }
-
-        if (mOKeyNav.Button(new Rect(lOPanel.x, lOPanel.y + 4f + (lsItems.Length * 30f), lOPanel.width, 30f),
-            "Palette effects...", mOListItem))
-        {
-            fOpenPaletteEffectsDialog();
-
-            return;
-        }
-
-        // THE 4:3 SWITCH lives here and not under Game (per user, 2026-09-22): it changes how
-        // the picture looks, like the detail levels above it, and takes effect at once - the
-        // game camera is set up anew every frame and every 320x200 frame follows it in
-        // LateUpdate (UWPixelAspectFrame). The Game menu keeps what concerns the program.
-        float lfAspectTop = lOPanel.y + 8f + (lsItems.Length * 30f) + PaletteEffectsRowHeight;
-
-        fFill(new Rect(lOPanel.x + 8f, lfAspectTop, lOPanel.width - 16f, 1f), SeparatorColour);
-
-        // The classic screen is always at 4:3 since 2026-10-10 (per user); the place is the classic
-        // frame's widescreen now (UWClassicWide).
-        bool lbWide = mOKeyNav.Toggle(new Rect(lOPanel.x + 8f, lfAspectTop + 6f, lOPanel.width - 16f, 26f),
-            UWUserSettings.ClassicWidescreen, "  Classic screen widescreen", mOToggle);
-
-        if (lbWide != UWUserSettings.ClassicWidescreen)
-        {
-            UWUserSettings.ClassicWidescreen = lbWide;
-            UWUserSettings.Save();
-        }
-
-        // The world at the original's resolution (UWWorldResolution), asked for on Reddit
-        // (2026-10-07): it takes effect at once as well, the interface stays sharp.
-        fViewAngleRow(lOPanel, lfAspectTop + 6f + ViewAngleRowHeight);
-
-        float lfResolutionTop = lfAspectTop + 6f + ViewAngleRowHeight + WorldResolutionRowHeight;
-
-        bool lbOriginalResolution = mOKeyNav.Toggle(
-            new Rect(lOPanel.x + 8f, lfResolutionTop, lOPanel.width - 16f, 26f),
-            UWWorldResolution.Enabled, "  World at the original's resolution", mOToggle);
-
-        if (lbOriginalResolution != UWWorldResolution.Enabled)
-            UWWorldResolution.Enabled = lbOriginalResolution;
-
-        if (lbResolutionOn)
-            fWorldResolutionFactorRow(lOPanel, lfResolutionTop + WorldResolutionRowHeight, lbMaxLocked);
-
-        fCloseMenuOnOutsideClick(lOPanel);
-    }
-
-    /// <summary>A row with two choices in the style of fMotionModeRow; returns true for the
-    /// second one.</summary>
-    private bool fTwoWayRow(Rect pOPanel, float pfTop, string psLabel, bool pbSecond, string psFirst, string psSecond)
-    {
-        GUI.Label(new Rect(pOPanel.x + 8f, pfTop, 100f, 26f), psLabel, mOListLabel);
-
-        float lfButtonWidth = (pOPanel.width - 116f) / 2f;
-        bool lbResult = pbSecond;
-
-        if (mOKeyNav.Button(new Rect(pOPanel.x + 108f, pfTop, lfButtonWidth, 26f), psFirst, !pbSecond ? mOCurrentItem : mOListItem))
-            lbResult = false;
-
-        if (mOKeyNav.Button(new Rect(pOPanel.x + 108f + lfButtonWidth, pfTop, lfButtonWidth, 26f), psSecond, pbSecond ? mOCurrentItem : mOListItem))
-            lbResult = true;
-
-        return lbResult;
-    }
-
-    private void fCloseMenuOnOutsideClick(Rect pOPanel)
-    {
-        if (Event.current.type == EventType.MouseDown && !pOPanel.Contains(Event.current.mousePosition)
-            && Event.current.mousePosition.y > BarHeight)
-        {
-            meOpenMenu = MenuEnum.None;
-            Event.current.Use();
-        }
-    }
-
-    private void fDrawGameMenu()
-    {
-        Rect lOPanel = new Rect(8f, BarHeight, 260f, 196f);
-
-        fFill(lOPanel, PanelColour);
-
-        // The game folder only from the main menu: in the game (the bar over the in-game menus
-        // since 2026-10-06) a new folder would mean a new game.
-        GUI.enabled = UWMainMenu.AcceptsMenuBar;
-
-        if (mOKeyNav.Button(new Rect(lOPanel.x, lOPanel.y + 4f, lOPanel.width, 30f), "Game folder...", mOListItem))
-            fOpenFolderDialog();
-
-        GUI.enabled = true;
-
-        // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard whose top row
-        // gives media keys unless Fn is held could not reach Shift+F2; under Game because the
-        // scheme changes the whole interface, not only the controls) - the same as Shift+F2,
-        // kept for the next start.
-        fDrawSchemeChoice(new Rect(lOPanel.x + 8f, lOPanel.y + 38f, lOPanel.width - 16f, 26f));
-
-        // THE WHOLE OPENING AT STARTUP: the two company logos, the animated title and the
-        // intro. Off it goes straight to the main menu, which is what one wants while testing
-        // (per user, 2026-09-22). It takes effect at the next start.
-        bool lbOpening = mOKeyNav.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 72f, lOPanel.width - 16f, 26f),
-            UWUserSettings.ShowOpeningSequence, "  Logos and intro at startup", mOToggle);
-
-        if (lbOpening != UWUserSettings.ShowOpeningSequence)
-        {
-            UWUserSettings.ShowOpeningSequence = lbOpening;
-            UWUserSettings.Save();
-        }
-
-        // KEEP RUNNING WITHOUT THE FOCUS (per user, 2026-09-28: for idle tests beside the
-        // original, but everyone should decide for themselves). Takes effect at once.
-        bool lbBackground = mOKeyNav.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 102f, lOPanel.width - 16f, 26f),
-            UWUserSettings.RunInBackground, "  Keep running in the background", mOToggle);
-
-        if (lbBackground != UWUserSettings.RunInBackground)
-        {
-            UWUserSettings.RunInBackground = lbBackground;
-            UWUserSettings.Save();
-        }
-
-        // DEAL THE ATTRIBUTE POINTS AT CHARACTER CREATION ONESELF (per user, 2026-10-01: for
-        // those who do not like their values to depend on luck; off by default). Takes effect at
-        // the next character creation.
-        bool lbManual = mOKeyNav.Toggle(new Rect(lOPanel.x + 8f, lOPanel.y + 132f, lOPanel.width - 16f, 26f),
-            UWUserSettings.ManualAttributes, "  Choose attributes at creation", mOToggle);
-
-        if (lbManual != UWUserSettings.ManualAttributes)
-        {
-            UWUserSettings.ManualAttributes = lbManual;
-            UWUserSettings.Save();
-        }
-
-        if (mOKeyNav.Button(new Rect(lOPanel.x, lOPanel.y + 162f, lOPanel.width, 30f), "Quit", mOListItem))
+        if (mOPassRows.Action(new Rect(lfLeft, lODialog.yMax - 46f, mOPassRows.FitWidth(lsQuit, 180f), 30f), lsQuit))
             fQuit();
 
-        // A click anywhere else closes the menu.
-        if (Event.current.type == EventType.MouseDown && !lOPanel.Contains(Event.current.mousePosition)
-            && Event.current.mousePosition.y > BarHeight)
-        {
-            meOpenMenu = MenuEnum.None;
-            Event.current.Use();
-        }
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
     }
 
-    /// <summary>The scheme's two buttons in one row of the Game menu: Original and Modern, the one in
-    /// force marked.</summary>
-    private void fDrawSchemeChoice(Rect pORow)
+    /// <summary>The scheme in force: the scene's in the game, else the one kept (-1: not chosen
+    /// yet, none marked).</summary>
+    private static int fSchemeIndex()
     {
         UWControlScheme lOScheme = UWScene.ControlScheme;
-        string[] lsSchemes = { "Original", "Modern" };
-        int liScheme = lOScheme != null ? (int)lOScheme.Current : UWUserSettings.ControlScheme;
-        float lfWidth = pORow.width / lsSchemes.Length;
 
-        for (int liAt = 0; liAt < lsSchemes.Length; liAt++)
+        return lOScheme != null ? (int)lOScheme.Current : UWUserSettings.ControlScheme;
+    }
+
+    /// <summary>The same as Shift+F2 in the game (UWControlScheme.Choose), else kept for the next
+    /// start.</summary>
+    private static void fChooseScheme(int piScheme)
+    {
+        UWControlScheme lOScheme = UWScene.ControlScheme;
+
+        if (lOScheme != null)
+            lOScheme.Choose((UWControlScheme.SchemeEnum)piScheme);
+        else
         {
-            bool lbCurrent = liScheme == liAt;
-
-            if (mOKeyNav.Button(new Rect(pORow.x + (liAt * lfWidth), pORow.y, lfWidth - 4f, pORow.height), lsSchemes[liAt],
-                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
-            {
-                if (lOScheme != null)
-                    lOScheme.Choose((UWControlScheme.SchemeEnum)liAt);
-                else
-                {
-                    UWUserSettings.ControlScheme = liAt;
-                    UWUserSettings.Save();
-                }
-            }
+            UWUserSettings.ControlScheme = piScheme;
+            UWUserSettings.Save();
         }
     }
 
+    /// <summary>
+    /// The game folder dialog, also the first-run screen's. On the kit since cleanup 8b.2 (2026-10-24):
+    /// the path is typed into the kit's text field (UWTextEntry and UWTypedKeys, so typing works on
+    /// Linux too; Enter goes there, the game's keys stay silent meanwhile), the status in its colours;
+    /// Up, the drives' label and the two buttons as wide as their texts, the buttons' right edges kept.
+    /// </summary>
     private void fDrawFolderDialog(float pfWidth)
     {
-        float lfDialogWidth = Mathf.Min(760f, pfWidth - 40f);
-        Rect lODialog = new Rect((pfWidth - lfDialogWidth) / 2f, 210f, lfDialogWidth, 480f);
-
-        fFill(lODialog, PanelColour);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(760f, mOPassPages.InnerNeeded(mOFolderPage)), 210f, 480f);
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        GUI.Label(new Rect(lfLeft, lfTop, lfInner, 26f), "Game folder", mOLabel);
-        lfTop += 28f;
+        // The title, the hint, the folders found, the drives and the path (fBuildFolderPage).
+        lfTop = mOPassPages.Draw(mOFolderPage, lfLeft, lfTop, lfInner);
 
-        lfTop += Mathf.Max(22f, fDrawHint(lfLeft, lfTop, lfInner,
-            "Choose the folder of your GOG installation of Ultima Underworld - the one that contains game.gog.")) + 8f;
+        float lfListBottom = lODialog.yMax - 90f;
+        Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lfListBottom - lfTop);
+
+        mOPassRows.Backdrop(lOListRect);
+
+        Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, Mathf.Max(lOListRect.height, mOBrowser.Entries.Count * 24f));
+
+        mOScroll = mOPassRows.BeginScroll(lOListRect, mOScroll, lOContent);
+
+        string lsGoTo = null;
+
+        for (int liAt = 0; liAt < mOBrowser.Entries.Count; liAt++)
+        {
+            string lsEntry = mOBrowser.Entries[liAt];
+
+            if (mOPassRows.Item(new Rect(0f, liAt * 24f, lOContent.width, 24f), mOBrowser.GetDisplayName(lsEntry)))
+                lsGoTo = lsEntry;
+        }
+
+        mOPassRows.EndScroll();
+
+        if (lsGoTo != null)
+            fBrowse(lsGoTo);
+
+        UWRowInfoEnum leStatus = mOBrowser.StatusIsError ? UWRowInfoEnum.Error
+            : (mOBrowser.CanUseCurrent ? UWRowInfoEnum.Accent : UWRowInfoEnum.Dim);
+
+        mOPassRows.Info(new Rect(lfLeft, lODialog.yMax - 82f, lfInner, 22f),
+            mbApplyPending ? UWText.T("setup.folder.preparing") : mOBrowser.Status, leStatus);
+
+        float lfButtonTop = lODialog.yMax - 46f;
+        string lsUse = UWText.T("setup.folder.use");
+        float lfUseExtra = mOPassRows.FitWidth(lsUse, 180f) - 180f;
+
+        mOPassRows.Enabled = mOBrowser.CanUseCurrent && !mbApplyPending;
+
+        if (mOPassRows.Action(new Rect(lODialog.xMax - 200f - lfUseExtra, lfButtonTop, 180f + lfUseExtra, 30f), lsUse))
+            mbApplyPending = true;
+
+        mOPassRows.Enabled = true;
+
+        string lsCancel = mbFirstRun ? UWText.T("setup.game.quit") : UWText.T("setup.folder.cancel");
+        float lfCancelExtra = mOPassRows.FitWidth(lsCancel, 110f) - 110f;
+
+        if (mOPassRows.Action(new Rect(lODialog.xMax - 320f - lfUseExtra - lfCancelExtra, lfButtonTop, 110f + lfCancelExtra, 30f), lsCancel))
+        {
+            if (mbFirstRun)
+                fQuit();
+            else
+                meOpenDialog = DialogEnum.None;
+        }
+    }
+
+    /// <summary>The folder dialog's path field, by name for Enter (IUWRows.EnterIn).</summary>
+    private const string PathField = "PathField";
+
+    /// <summary>The folders a search found, one list item each; a click browses there.</summary>
+    private float fDrawFoundFolders(float pfLeft, float pfTop, float pfInner)
+    {
+        float lfTop = pfTop;
 
         foreach (string lsFound in mOBrowser.Found)
         {
-            if (mOKeyNav.Button(new Rect(lfLeft, lfTop, lfInner, 26f), "Found:  " + lsFound, mOListItem))
+            if (mOPassRows.Item(new Rect(pfLeft, lfTop, pfInner, 26f), UWText.F("setup.folder.found", lsFound)))
                 fBrowse(lsFound);
 
             lfTop += 28f;
         }
 
-        // A button per drive, so another drive is one click away (per user, 2026-09-17).
-        GUI.Label(new Rect(lfLeft, lfTop, 60f, 26f), "Drives:", mODimLabel);
+        return lfTop;
+    }
 
-        float lfDriveLeft = lfLeft + 64f;
+    /// <summary>A button per drive, so another drive is one click away (per user, 2026-09-17). On the
+    /// kit "Drives:" as wide as its text and the buttons after it (cleanup 8b.2: the pseudo-language
+    /// wrapped it onto the found folder above); the buttons are sized by their labels as before.</summary>
+    private float fDrawDrives(float pfLeft, float pfTop, float pfInner)
+    {
+        float lfTop = pfTop;
+        string lsDrives = UWText.T("setup.folder.drives");
+        float lfShift = mOPassRows.SizesByText ? UWRowSizing.LabelShift(mOPassRows.TextWidth(lsDrives, UWRowInfoEnum.Dim), 64f) : 0f;
+
+        mOPassRows.Info(new Rect(pfLeft, lfTop, 60f + lfShift, 26f), lsDrives, UWRowInfoEnum.Dim);
+
+        float lfDriveLeft = pfLeft + 64f + lfShift;
 
         foreach (string lsDrive in mODrives)
         {
@@ -1732,10 +1285,10 @@ public partial class UWSetupMenu : MonoBehaviour
             string lsLabel = UWGameFolderBrowser.GetDriveLabel(lsDrive);
             float lfButtonWidth = Mathf.Max(44f, 16f + (lsLabel.Length * 9f));
 
-            if (lfDriveLeft + lfButtonWidth > lfLeft + lfInner)
+            if (lfDriveLeft + lfButtonWidth > pfLeft + pfInner)
                 break;
 
-            if (mOKeyNav.Button(new Rect(lfDriveLeft, lfTop, lfButtonWidth, 26f), lsLabel, mOButton))
+            if (mOPassRows.Action(new Rect(lfDriveLeft, lfTop, lfButtonWidth, 26f), lsLabel))
                 fBrowse(lsDrive);
 
             lfDriveLeft += lfButtonWidth + 6f;
@@ -1743,155 +1296,31 @@ public partial class UWSetupMenu : MonoBehaviour
 
         lfTop += 32f;
 
-        // The path: typed or pasted, Enter goes there.
-        if (mOKeyNav.Button(new Rect(lfLeft, lfTop, 50f, 26f), "Up", mOButton))
+        return lfTop;
+    }
+
+    /// <summary>The path: typed or pasted, Enter goes there; Up beside it.</summary>
+    private float fDrawPathRow(float pfLeft, float pfTop, float pfInner)
+    {
+        float lfTop = pfTop;
+        string lsUp = UWText.T("setup.folder.up");
+        float lfUpExtra = mOPassRows.FitWidth(lsUp, 50f) - 50f;
+
+        // Up as wide as its text on the kit, the field after it (cleanup 8b.2).
+        if (mOPassRows.Action(new Rect(pfLeft, lfTop, 50f + lfUpExtra, 26f), lsUp))
         {
             mOBrowser.Up();
             fAfterBrowse();
         }
 
-        GUI.SetNextControlName("PathField");
-        msTypedPath = GUI.TextField(new Rect(lfLeft + 56f, lfTop, lfInner - 56f, 26f), msTypedPath ?? string.Empty, mOTextField);
+        msTypedPath = mOPassRows.TextField(new Rect(pfLeft + 56f + lfUpExtra, lfTop, pfInner - 56f - lfUpExtra, 26f), PathField, msTypedPath ?? string.Empty);
 
-        if (Event.current.type == EventType.KeyDown && GUI.GetNameOfFocusedControl() == "PathField"
-            && (Event.current.keyCode == KeyCode.Return || Event.current.keyCode == KeyCode.KeypadEnter))
-        {
+        if (mOPassRows.EnterIn(PathField))
             fBrowse(msTypedPath);
-            Event.current.Use();
-        }
 
         lfTop += 32f;
 
-        float lfListBottom = lODialog.yMax - 90f;
-        Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lfListBottom - lfTop);
-
-        fFill(lOListRect, BackgroundColour);
-
-        Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, Mathf.Max(lOListRect.height, mOBrowser.Entries.Count * 24f));
-
-        mOScroll = GUI.BeginScrollView(lOListRect, mOScroll, lOContent);
-        UWImguiInput.Sync();
-
-        string lsGoTo = null;
-
-        for (int liAt = 0; liAt < mOBrowser.Entries.Count; liAt++)
-        {
-            string lsEntry = mOBrowser.Entries[liAt];
-
-            if (mOKeyNav.Button(new Rect(0f, liAt * 24f, lOContent.width, 24f), mOBrowser.GetDisplayName(lsEntry), mOListItem))
-                lsGoTo = lsEntry;
-        }
-
-        GUI.EndScrollView();
-        UWImguiInput.Sync();
-
-        if (lsGoTo != null)
-            fBrowse(lsGoTo);
-
-        GUIStyle lOStatusStyle = new GUIStyle(mODimLabel);
-        lOStatusStyle.normal.textColor = mOBrowser.StatusIsError ? new Color(0.9f, 0.4f, 0.35f) : (mOBrowser.CanUseCurrent ? AccentColour : DimTextColour);
-
-        GUI.Label(new Rect(lfLeft, lODialog.yMax - 82f, lfInner, 22f),
-            mbApplyPending ? "Preparing the game data..." : mOBrowser.Status, lOStatusStyle);
-
-        float lfButtonTop = lODialog.yMax - 46f;
-
-        GUI.enabled = mOBrowser.CanUseCurrent && !mbApplyPending;
-
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 200f, lfButtonTop, 180f, 30f), "Use this folder", mOButton))
-            mbApplyPending = true;
-
-        GUI.enabled = true;
-
-        string lsCancel = mbFirstRun ? "Quit" : "Cancel";
-
-        if (mOKeyNav.Button(new Rect(lODialog.xMax - 320f, lfButtonTop, 110f, 30f), lsCancel, mOButton))
-        {
-            if (mbFirstRun)
-                fQuit();
-            else
-                mbFolderDialogOpen = false;
-        }
-    }
-
-    private bool fBarItem(Rect pORect, string psText, bool pbOpen)
-    {
-        if (pbOpen)
-            fFill(pORect, HoverColour);
-
-        return mOKeyNav.Button(pORect, psText, mOBarItem);
-    }
-
-    private void fFill(Rect pORect, Color pOColour)
-    {
-        GUI.DrawTexture(pORect, fTexture(pOColour));
-    }
-
-    private Texture2D fTexture(Color pOColour)
-    {
-        Texture2D lOTexture;
-
-        if (mOTextures.TryGetValue(pOColour, out lOTexture) && lOTexture != null)
-            return lOTexture;
-
-        lOTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-        lOTexture.name = "UWSetupMenu";
-        lOTexture.SetPixel(0, 0, pOColour);
-        lOTexture.Apply();
-
-        mOTextures[pOColour] = lOTexture;
-
-        return lOTexture;
-    }
-
-    private void fEnsureStyles()
-    {
-        if (mOLabel != null)
-            return;
-
-        mOFont = UWInterfaceFont.Font;
-
-        mOLabel = new GUIStyle { font = mOFont, fontSize = 20, alignment = TextAnchor.MiddleLeft };
-        mOLabel.normal.textColor = TextColour;
-
-        mODimLabel = new GUIStyle(mOLabel) { fontSize = 15, wordWrap = true };
-        mODimLabel.normal.textColor = DimTextColour;
-
-        mOTitle = new GUIStyle(mOLabel) { fontSize = 40, alignment = TextAnchor.MiddleCenter };
-        mOTitle.normal.textColor = AccentColour;
-
-        mOBarItem = new GUIStyle(mOLabel) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
-        mOBarItem.hover.background = fTexture(HoverColour);
-        mOBarItem.hover.textColor = TextColour;
-
-        mOListItem = new GUIStyle(mOLabel) { fontSize = 16, padding = new RectOffset(10, 10, 0, 0) };
-        mOListItem.hover.background = fTexture(HoverColour);
-        mOListItem.hover.textColor = TextColour;
-
-        mOListLabel = new GUIStyle(mOLabel) { fontSize = 16 };
-
-        mOToggle = new GUIStyle(GUI.skin.toggle) { font = mOFont, fontSize = 16 };
-        mOToggle.normal.textColor = TextColour;
-        mOToggle.onNormal.textColor = TextColour;
-        mOToggle.hover.textColor = TextColour;
-        mOToggle.onHover.textColor = TextColour;
-
-        mOCurrentItem = new GUIStyle(mOListItem);
-        mOCurrentItem.normal.textColor = AccentColour;
-        mOCurrentItem.hover.textColor = AccentColour;
-
-        mOButton = new GUIStyle(mOLabel) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
-        mOButton.normal.background = fTexture(HoverColour);
-        mOButton.hover.background = fTexture(new Color(0.30f, 0.30f, 0.35f, 1f));
-        mOButton.hover.textColor = TextColour;
-        mOButton.active.background = fTexture(AccentColour);
-        mOButton.active.textColor = BackgroundColour;
-
-        mOTextField = new GUIStyle(mOLabel) { fontSize = 16, padding = new RectOffset(8, 8, 0, 0), clipping = TextClipping.Clip };
-        mOTextField.normal.background = fTexture(BackgroundColour);
-        mOTextField.focused.background = fTexture(BackgroundColour);
-        mOTextField.focused.textColor = TextColour;
-        mOTextField.hover.textColor = TextColour;
+        return lfTop;
     }
 
     private static void fQuit()

@@ -171,18 +171,18 @@ public class UWModernQuestion : MonoBehaviour
                 return;
             }
 
-            if (lOKeyboard.escapeKey.wasPressedThisFrame || lOKeyboard.nKey.wasPressedThisFrame)
+            if (UWBack.Takes(UWBackOwner.ModernQuestion) || lOKeyboard.nKey.wasPressedThisFrame)
             {
                 fAnswer(false);
                 return;
             }
         }
 
-        if (Mouse.current == null)
+        if (!UWPointer.HasMouse)
             return;
 
         UWControls lOControls = mOScheme.Controls;
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         if (lOControls.Player.Interact.WasPressedThisFrame())
             fAnswer(false);
@@ -303,7 +303,7 @@ public class UWModernQuestion : MonoBehaviour
         }
 
         // OK and Cancel side by side at the bottom.
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         float lfButtonsWidth = ((2 * ButtonWidth) + ButtonGap) * liScale;
         float lfButtonX = lfX + ((lfWidth - lfButtonsWidth) * 0.5f);
         float lfButtonY = lfY + (Pad * liScale);
@@ -343,13 +343,14 @@ public class UWModernQuestion : MonoBehaviour
         mOButtonTexts = new Text[2];
 
         string[] lsButtons = { "OK", "Cancel" };
+        string[] lsButtonTextIds = { "hud.question.ok", "hud.question.cancel" };
 
         for (int liButton = 0; liButton < 2; liButton++)
         {
             mOButtons[liButton] = UWUiKit.CreateRawImage(lORootRect, lsButtons[liButton], true);
             UWPixelArtUI.Apply(mOButtons[liButton]);
             mOButtonTexts[liButton] = UWUiKit.CreateText(lORootRect, lsButtons[liButton] + " text", TextAnchor.MiddleCenter, UWModernPalette.Gold, mOUi);
-            mOButtonTexts[liButton].text = lsButtons[liButton];
+            mOButtonTexts[liButton].text = UWText.T(lsButtonTextIds[liButton]);
         }
     }
 }

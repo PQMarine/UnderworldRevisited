@@ -265,22 +265,22 @@ public static class UWRemasterParticles
 
         mOSparkMaterial = new Material(lOShader) { name = "Remastered Sparks" };
         // Not too bright, otherwise the spark turns white instead of orange after tonemapping.
-        mOSparkMaterial.SetFloat("_Intensity", 1.8f);
-        mOSparkMaterial.SetFloat("_Additive", 1f);
-        mOSparkMaterial.SetFloat("_Lit", 0f);
-        mOSparkMaterial.SetFloat("_Softness", 0.6f);
+        mOSparkMaterial.SetFloat(UWShaderIds.Intensity, 1.8f);
+        mOSparkMaterial.SetFloat(UWShaderIds.Additive, 1f);
+        mOSparkMaterial.SetFloat(UWShaderIds.Lit, 0f);
+        mOSparkMaterial.SetFloat(UWShaderIds.Softness, 0.6f);
 
         mOSmokeMaterial = new Material(lOShader) { name = "Remastered Smoke" };
-        mOSmokeMaterial.SetFloat("_Intensity", 1f);
-        mOSmokeMaterial.SetFloat("_Additive", 0f);
-        mOSmokeMaterial.SetFloat("_Lit", 1f);
-        mOSmokeMaterial.SetFloat("_Softness", 1f);
+        mOSmokeMaterial.SetFloat(UWShaderIds.Intensity, 1f);
+        mOSmokeMaterial.SetFloat(UWShaderIds.Additive, 0f);
+        mOSmokeMaterial.SetFloat(UWShaderIds.Lit, 1f);
+        mOSmokeMaterial.SetFloat(UWShaderIds.Softness, 1f);
 
         mODustMaterial = new Material(lOShader) { name = "Remastered Dust" };
-        mODustMaterial.SetFloat("_Intensity", 0.8f);
-        mODustMaterial.SetFloat("_Additive", 1f);
-        mODustMaterial.SetFloat("_Lit", 1f);
-        mODustMaterial.SetFloat("_Softness", 0.8f);
+        mODustMaterial.SetFloat(UWShaderIds.Intensity, 0.8f);
+        mODustMaterial.SetFloat(UWShaderIds.Additive, 1f);
+        mODustMaterial.SetFloat(UWShaderIds.Lit, 1f);
+        mODustMaterial.SetFloat(UWShaderIds.Softness, 0.8f);
 
         return true;
     }

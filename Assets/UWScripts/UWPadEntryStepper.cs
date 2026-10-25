@@ -47,9 +47,8 @@ public sealed class UWPadEntryStepper
         msiLastFrame = Time.frameCount;
 
         Gamepad lOPad = Gamepad.current;
-        Mouse lOMouse = Mouse.current;
 
-        if (lOPad == null || lOMouse == null || pOEntries == null || pOEntries.Count == 0)
+        if (lOPad == null || !UWPointer.HasMouse || pOEntries == null || pOEntries.Count == 0)
             return;
 
         if (SnapPending)
@@ -60,7 +59,7 @@ public sealed class UWPadEntryStepper
         }
 
         int liStep = lOPad.dpad.down.wasPressedThisFrame ? 1 : lOPad.dpad.up.wasPressedThisFrame ? -1 : 0;
-        Vector2 lOPointer = UWGamepadPointer.OwnsPosition ? UWGamepadPointer.Position : lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         bool lbWheel = pOWheelArea.width > 0f && pOWheelArea.Contains(lOPointer);
 
         // On the wheel's area the stick counts as held, so that leaving it with the stick still
@@ -103,10 +102,10 @@ public sealed class UWPadEntryStepper
         fPut(pOEntries[liAt].center);
     }
 
+    /// <summary>The pointer onto an entry (UWPointer.MoveTo: ours in the game, the system's by a warp in
+    /// the menus; a warp and UWGamepadPointer.PlaceAt until cleanup step 7.7B).</summary>
     private static void fPut(Vector2 pOAt)
     {
-        Mouse.current.WarpCursorPosition(pOAt);
-        UWGamepadPointer.PlaceAt(pOAt);
-        UWGamepad.NoteSyntheticMouse();
+        UWPointer.MoveTo(pOAt, UWPointer.SourceEnum.Pad);
     }
 }

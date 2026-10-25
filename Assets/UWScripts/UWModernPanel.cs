@@ -177,6 +177,10 @@ public class UWModernPanel : UWModernDockedPanel
 
     private static readonly string[] msFootNames = { "Sleep", "Track" };
 
+    /// <summary>The names shown over the two, by their ids in the text table (UWText, cleanup step
+    /// 8.5, 2026-10-24); msFootNames stays the objects' names.</summary>
+    private static readonly string[] msFootTipIds = { "hud.panel.sleep", "hud.panel.track" };
+
     /// <summary>The bedroll and the leather boots (OBJECTS.GR).</summary>
     private static readonly int[] miFootObjects = { 289, 41 };
 
@@ -387,6 +391,47 @@ public class UWModernPanel : UWModernDockedPanel
 
     // ------------------------------------------------- Input
 
+    private PanelKeys mOKeys;
+
+    /// <summary>The panel's hotkey (UWHotkeys): Tab opens and closes its Help tab.</summary>
+    private sealed class PanelKeys : UWHotkeyHost
+    {
+        private readonly UWModernPanel mOPanel;
+
+        public PanelKeys(UWModernPanel pOPanel)
+        {
+            mOPanel = pOPanel;
+        }
+
+        protected override UWControls Controls => mOPanel.mOScheme != null ? mOPanel.mOScheme.Controls : null;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
+        {
+            switch (peGate)
+            {
+                case UWHotkeyGate.MenuOpen: return UWModernUi.IsMenuOpen;
+                case UWHotkeyGate.KeysLocked: return UWControls.IsTextEntryActive;
+                case UWHotkeyGate.HelpKeys: return UWHelpWindow.BlocksGameKeys;
+                case UWHotkeyGate.MapVisible: return mOPanel.mOUi.Map.IsMapVisible;
+                case UWHotkeyGate.SetupPanel: return UWSetupMenu.HasOpenPanel;
+                default: return false;
+            }
+        }
+
+        public override bool Run(UWHotkeyHandler peHandler)
+        {
+            if (peHandler != UWHotkeyHandler.TogglePanelHelp)
+                return false;
+
+            if (mOPanel.mbOpen && mOPanel.meTab == TabEnum.Help)
+                mOPanel.Close();
+            else
+                mOPanel.Open(TabEnum.Help);
+
+            return true;
+        }
+    }
+
     private void Update()
     {
         if (!fIsShown())
@@ -416,33 +461,28 @@ public class UWModernPanel : UWModernDockedPanel
 
         // TAB: the Help tab, not with Alt (switching programs) or Shift - as the help window,
         // and not under a setup-menu panel (the Game-folder dialog, UWSetupMenu).
-        // Performed, not pressed: the pad's View opens the help when HELD (UWControls).
-        if (lOControls.Player.ToggleHelp.WasPerformedThisFrame() && !UWControls.IsShiftHeld && !UWControls.IsAltHeld
-            && !UWSetupMenu.HasOpenPanel)
-        {
-            if (mbOpen && meTab == TabEnum.Help)
-                Close();
-            else
-                Open(TabEnum.Help);
-        }
+        // Performed, not pressed: the pad's View opens the help when HELD (UWControls). The row is
+        // UWHotkeys' since cleanup step 7.5 (its gates repeat the return above).
+        if (mOKeys == null)
+            mOKeys = new PanelKeys(this);
+
+        UWHotkeys.Route(UWHotkeySite.ModernPanel, mOKeys);
 
         // The help opened elsewhere (restored with a save game): the panel shows it.
         if (UWHelpLayout.IsOpen && !(mbOpen && meTab == TabEnum.Help))
             Open(TabEnum.Help);
 
-        Mouse lOMouse = Mouse.current;
-
         mbPeek = false;
 
-        if (lOMouse == null || !mOScheme.IsPointerFree)
+        if (!UWPointer.HasMouse || !mOScheme.IsPointerFree)
             return;
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         fUpdatePeek(lOPointer);
 
         // The wheel scrolls the Character tab where it does not fit.
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (mbOpen && meTab == TabEnum.Character && Mathf.Abs(lfWheel) > 0.01f && mOViewRect.Contains(lOPointer))
             mfScroll -= Mathf.Sign(lfWheel) * ScrollStep;
@@ -888,7 +928,7 @@ public class UWModernPanel : UWModernDockedPanel
         float liScale = miScale;
         float lfSlot = UWModernHudArt.SlotSize * liScale;
         float lfTop = mOPageRect.yMax - ((FootButtonTop + UWModernHudArt.SlotSize) * liScale);
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         int liHovered = -1;
 
         for (int liFoot = 0; liFoot < 2; liFoot++)
@@ -931,7 +971,7 @@ public class UWModernPanel : UWModernDockedPanel
         {
             Rect lORect = mOFootRects[liHovered];
 
-            mOFootTip.text = msFootNames[liHovered];
+            mOFootTip.text = UWText.T(msFootTipIds[liHovered]);
             mOFootTip.fontSize = Mathf.Max(9, Mathf.RoundToInt(3.8f * liScale));
             UWUiKit.SetRect(mOFootTip.rectTransform, lORect.x - (10 * liScale), lORect.yMax, lORect.width + (20 * liScale), 7 * liScale);
         }
@@ -1110,7 +1150,7 @@ public class UWModernPanel : UWModernDockedPanel
         mORoot = (RectTransform)mOCanvas.transform;
 
         // The tab headers, the pin, the leather and the handle (UWModernDockedPanel).
-        fBuildChrome(mORoot, new[] { "Character", "Help" }, "Character");
+        fBuildChrome(mORoot, new[] { UWText.T("hud.panel.tab.character"), UWText.T("hud.panel.tab.help") }, UWText.T("hud.panel.handle"));
         mOHandle.enabled = true;
 
         mOViewport = UWUiKit.CreateClipArea(mORoot, "Character view");
@@ -1178,12 +1218,13 @@ public class UWModernPanel : UWModernDockedPanel
         for (int liStat = 0; liStat < lsStats.Length; liStat++)
         {
             mOStatLabels[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat], TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
-            mOStatLabels[liStat].text = lsStats[liStat];
+            mOStatLabels[liStat].text = UWCharacterSheet.ValueLabel(liStat);
+
             mOStatValues[liStat] = UWUiKit.CreateText(mOContent, lsStats[liStat] + " value", TextAnchor.UpperLeft, UWModernPalette.Text, mOUi);
         }
 
         mOSkillsHeading = UWUiKit.CreateText(mOContent, "Skills", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-        mOSkillsHeading.text = "Skills";
+        mOSkillsHeading.text = UWText.T("hud.panel.skills");
         mOSkillPoints = UWUiKit.CreateText(mOContent, "Skill points", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);
 
         int liSkills = UWCharacterSheet.SkillEntries;

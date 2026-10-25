@@ -6,7 +6,7 @@ namespace UnderworldRevisited.Build
 {
     /// <summary>
     /// GROUNDWORK FOR THE PALETTE RENDERER. Builds the lookup textures such a
-    /// renderer needs. They are used by UWPaletteRenderToggle, which is the default render
+    /// renderer needs. They are used by UWRenderPathHost and the palette path, the default render
     /// path (UWSettings.RenderMode Palette); the detail level of the Graphics menu
     /// (UWGraphicsDetail.SetLevel, every level above Low) switches to the URP lighting.
     ///
@@ -42,6 +42,11 @@ namespace UnderworldRevisited.Build
     /// is not in the palette and would be impossible in the original, an intermediate step is not.
     ///
     /// WHAT IS BUILT HERE
+    ///
+    /// Since cleanup step 6.2 (2026-10-24) the tables are no longer built in this class: their
+    /// bytes come engine-free from UWLookupTables, the textures from UWTextureFactory (which knows
+    /// each table's colour space, see COLOUR SPACE below), and UWPaletteCommon owns them. What
+    /// stays here is how the shaders get them (ApplyGlobals, ApplyXferGlobals) and the sizes.
     ///
     /// Three textures, all built once at load time and unchanged afterwards:
     ///
@@ -99,179 +104,32 @@ namespace UnderworldRevisited.Build
     public static class UWShadePalette
     {
         /// <summary>Width of the colour and rotation tables - one pixel per palette index.</summary>
-        public const int PaletteSize = 256;
+        public const int PaletteSize = UWLookupTables.PaletteSize;
 
         /// <summary>Brightness steps, i.e. rows of the colour table. Corresponds to the blocks in
         /// LIGHT.DAT.</summary>
-        public const int ShadeLevelCount = UWLightLevels.LevelCount;
+        public const int ShadeLevelCount = UWLookupTables.ShadeLevelCount;
 
         /// <summary>Tile distances, i.e. columns of the shade table.</summary>
-        public const int DistanceCount = UWShades.ShadeTableLength;
+        public const int DistanceCount = UWLookupTables.DistanceCount;
 
         /// <summary>Player light levels, i.e. rows of the shade table.</summary>
-        public const int LightLevelCount = UWShades.EntryCount;
+        public const int LightLevelCount = UWLookupTables.LightLevelCount;
 
         /// <summary>Height of the rotation table - least common multiple of both
         /// rotation cycles.</summary>
         public static int RotationStepCount
         {
-            get { return UWPaletteRotation.GetCycleLength(true, true); }
+            get { return UWLookupTables.RotationStepCount; }
         }
 
-        /// <summary>Name of the colour table in the shader.</summary>
-        public const string ColourTableProperty = "_UWColourTable";
-
-        /// <summary>The colour table the 3D view shades through (UWPaletteLookup.hlsl) - the same as
-        /// _UWColourTable except at Night Vision, where MONO.DAT replaces LIGHT.DAT for the world
-        /// only: the interface draws without the light table in the original and stays in colour.</summary>
-        public const string WorldColourTableProperty = "_UWWorldColourTable";
+        // The names of the tables in the shader live in UWShaderIds since 2026-10-24 (ColourTable,
+        // WorldColourTable, ShadeTable, RotationTable, the XFER lookups).
 
         /// <summary>The light level at which the original loads MONO.DAT as its light table
         /// (OpenAndApplyShadesDat_ovr142_0, read 2026-10-01): 5, the level of Night Vision - light
         /// sources reach 4 at most.</summary>
         public const int MonochromeLightLevel = 5;
-
-        /// <summary>Name of the shade table in the shader.</summary>
-        public const string ShadeTableProperty = "_UWShadeTable";
-
-        /// <summary>Name of the rotation table in the shader.</summary>
-        public const string RotationTableProperty = "_UWRotationTable";
-
-        /// <summary>
-        /// The colour table: for each palette index the colour it takes on at a given
-        /// brightness step. Row 0 is the original colours, row 15 is black.
-        /// </summary>
-        public static Texture2D BuildColourTable(DataImport pOData, int piPalette = 0, bool pbMonochrome = false)
-        {
-            if (pOData == null || pOData.Palettes == null || pOData.LightLevels == null)
-                return null;
-
-            // Another palette only for the hallucination's colours (UWHallucinationState).
-            UWPalette lOPalette;
-
-            try
-            {
-                lOPalette = pOData.Palettes.GetPalette(piPalette);
-            }
-            catch (System.Exception)
-            {
-                lOPalette = pOData.Palettes.GetPalette(0);
-            }
-
-            if (lOPalette == null)
-                return null;
-
-            bool lbMono = pbMonochrome && pOData.MiscDataFiles != null && pOData.MiscDataFiles.Monochrome != null
-                && pOData.MiscDataFiles.Monochrome.IsLoaded;
-
-            // linear = false: real colours, see class comment.
-            Texture2D lOTable = new Texture2D(PaletteSize, ShadeLevelCount,
-                TextureFormat.RGBA32, false, false);
-
-            lOTable.name = lbMono ? "UWColourTable (mono)" : "UWColourTable";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSize * ShadeLevelCount];
-
-            for (int liLevel = 0; liLevel < ShadeLevelCount; liLevel++)
-            {
-                for (int liIndex = 0; liIndex < PaletteSize; liIndex++)
-                {
-                    // MONO.DAT instead of LIGHT.DAT at light level 5, Night Vision
-                    // (OpenAndApplyShadesDat_ovr142_0) - see MonochromeLightLevel.
-                    byte lyShaded = lbMono
-                        ? pOData.MiscDataFiles.Monochrome.Remap(liLevel, liIndex)
-                        : pOData.LightLevels.Remap(liLevel, liIndex);
-
-                    UWColor32 lOColour = lOPalette.GetUWColor(lyShaded);
-
-                    // Colour help for colour vision deficiencies - the interface and the palette
-                    // renderer both read their colours from this table (see UWColourVision).
-                    lOPixels[(liLevel * PaletteSize) + liIndex] =
-                        UWColourVision.Apply(new Color32(lOColour.R, lOColour.G, lOColour.B, 255));
-                }
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>
-        /// The shade table: for each player light level and each whole tile distance
-        /// the brightness step. That is SHADES.DAT, computed out - see
-        /// UWShades.GetShadeTable.
-        ///
-        /// The shader interpolates between two columns, which is why the step is stored here
-        /// raw and not already as a colour.
-        /// </summary>
-        public static Texture2D BuildShadeTable(DataImport pOData, bool pbDiagonalStretch = false)
-        {
-            if (pOData == null || pOData.Shades == null || !pOData.Shades.IsLoaded)
-                return null;
-
-            Texture2D lOTable = new Texture2D(DistanceCount, LightLevelCount,
-                TextureFormat.R8, false, true);
-
-            lOTable.name = "UWShadeTable";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            byte[] lyPixels = new byte[DistanceCount * LightLevelCount];
-
-            for (int liLight = 0; liLight < LightLevelCount; liLight++)
-            {
-                byte[] lyShades = pOData.Shades.GetShadeTable(liLight, pbDiagonalStretch);
-
-                for (int liDistance = 0; liDistance < DistanceCount; liDistance++)
-                    lyPixels[(liLight * DistanceCount) + liDistance] =
-                        lyShades != null ? lyShades[liDistance] : (byte)0;
-            }
-
-            lOTable.SetPixelData(lyPixels, 0);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>
-        /// The rotation table: for each palette index and each step of the palette rotation the
-        /// index currently visible there. Indices outside the lava and
-        /// water ranges stand still, their row is the same in every step.
-        ///
-        /// The value is stored in the red channel as index divided by 255. The shader multiplies it
-        /// back by 255 and rounds.
-        /// </summary>
-        public static Texture2D BuildRotationTable()
-        {
-            int liSteps = RotationStepCount;
-
-            Texture2D lOTable = new Texture2D(PaletteSize, liSteps, TextureFormat.RGBA32,
-                false, true);
-
-            lOTable.name = "UWRotationTable";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSize * liSteps];
-
-            for (int liStep = 0; liStep < liSteps; liStep++)
-            {
-                for (int liIndex = 0; liIndex < PaletteSize; liIndex++)
-                {
-                    byte lySource = (byte)UWPaletteRotation.GetSourceIndex(liIndex, liStep);
-
-                    lOPixels[(liStep * PaletteSize) + liIndex] = new Color32(lySource, 0, 0, 255);
-                }
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
 
         /// <summary>
         /// Sets everything the palette shaders need per frame as global shader values -
@@ -279,236 +137,55 @@ namespace UnderworldRevisited.Build
         ///
         /// Meant as the ONLY hookup of the palette renderer: whoever switches over calls this
         /// once per frame and is done. The three tables never change and are built once;
-        /// the per-frame values are light level, rotation step, cutoff distance and the switches.
+        /// the per-frame values are light level, rotation step and the switches.
         ///
         /// In the original the rotation step advances at a fixed speed, independent
         /// of the frame rate - the caller calculates it from UWSettings.PaletteRotationStepsPerSecond
-        /// (see UWPaletteRenderToggle.Update), the same way UWAnimatedTextures does.
+        /// (see UWRenderPathHost.Update), the same way UWAnimatedTextures does.
+        ///
+        /// Through UWShaderGlobals since 2026-10-24 (cleanup step 6.1): called every frame as
+        /// before, but only what changed is written - in a standing scene the rotation step and,
+        /// with a flickering light, the light level.
         /// </summary>
         public static void ApplyGlobals(Texture2D pOColourTable, Texture2D pOShadeTable,
             Texture2D pORotationTable, int piLightLevel, int piRotationStep,
-            float pfCutoffDistance, bool pbInterpolateLevels, bool pbDither,
+            bool pbInterpolateLevels, bool pbDither,
             bool pbOrderedMatrix, float pfDitherScale, bool pbFullBright = false)
         {
             if (pOColourTable != null)
-                Shader.SetGlobalTexture(ColourTableProperty, pOColourTable);
+                UWShaderGlobals.SetTexture(UWShaderIds.ColourTable, pOColourTable);
 
             if (pOShadeTable != null)
-                Shader.SetGlobalTexture(ShadeTableProperty, pOShadeTable);
+                UWShaderGlobals.SetTexture(UWShaderIds.ShadeTable, pOShadeTable);
 
             if (pORotationTable != null)
-                Shader.SetGlobalTexture(RotationTableProperty, pORotationTable);
+                UWShaderGlobals.SetTexture(UWShaderIds.RotationTable, pORotationTable);
 
             int liSteps = RotationStepCount;
 
-            Shader.SetGlobalFloat("_UWLightLevel",
+            UWShaderGlobals.SetFloat(UWShaderIds.LightLevel,
                 Mathf.Clamp(piLightLevel, 0, LightLevelCount - 1));
-            Shader.SetGlobalFloat("_UWRotationStep", ((piRotationStep % liSteps) + liSteps) % liSteps);
-            Shader.SetGlobalFloat("_UWRotationStepCount", liSteps);
-            Shader.SetGlobalFloat("_UWTileSpacing", UWWorldScale.TileSize);
-            Shader.SetGlobalFloat("_UWCutoffDistance", pfCutoffDistance);
-            Shader.SetGlobalFloat("_UWInterpolateLevels", pbInterpolateLevels ? 1f : 0f);
-            Shader.SetGlobalFloat("_UWDither", pbDither ? 1f : 0f);
-            Shader.SetGlobalFloat("_UWDitherPattern", pbOrderedMatrix ? 1f : 0f);
-            Shader.SetGlobalFloat("_UWDitherScale", Mathf.Max(1f, pfDitherScale));
-            Shader.SetGlobalFloat("_UWFullBright", pbFullBright ? 1f : 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.RotationStep, ((piRotationStep % liSteps) + liSteps) % liSteps);
+            UWShaderGlobals.SetFloat(UWShaderIds.RotationStepCount, liSteps);
+            UWShaderGlobals.SetFloat(UWShaderIds.TileSpacing, UWWorldScale.TileSize);
+            UWShaderGlobals.SetFloat(UWShaderIds.InterpolateLevels, pbInterpolateLevels ? 1f : 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.Dither, pbDither ? 1f : 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.DitherPattern, pbOrderedMatrix ? 1f : 0f);
+            UWShaderGlobals.SetFloat(UWShaderIds.DitherScale, Mathf.Max(1f, pfDitherScale));
+            UWShaderGlobals.SetFloat(UWShaderIds.FullBright, pbFullBright ? 1f : 0f);
         }
-
-        /// <summary>Names of the XFER.DAT lookups in the shader (UWPaletteLookup.hlsl).</summary>
-        public const string InverseLookupProperty = "_UWInverseLookup";
-
-        public const string XferColourProperty = "_UWXferColours";
-
-        public const string XferReadyProperty = "_UWXferReady";
-
-        /// <summary>
-        /// THE TRANSLUCENT COLOURS AS THE ORIGINAL MIXES THEM (audit row 12, 2026-09-27): the
-        /// cube that turns a colour of the picture back into its palette index
-        /// (UWTransparencyTables.BuildInverseLookup), built from the colours exactly as the
-        /// colour table shows them - colour help included, so the picture's own colours are
-        /// found again.
-        /// </summary>
-        public static Texture3D BuildInverseLookup(DataImport pOData, bool pbColourHelp = true)
-        {
-            if (pOData == null || pOData.Palettes == null)
-                return null;
-
-            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
-            UWColor32[] lOColours = new UWColor32[PaletteSize];
-
-            for (int i = 0; i < PaletteSize; i++)
-                lOColours[i] = fShown(lOPalette, i, pbColourHelp);
-
-            byte[] lyCube = UWTransparencyTables.BuildInverseLookup(lOColours);
-            int liSize = UWTransparencyTables.InverseLookupSize;
-
-            // linear = true: it holds indices, not colours.
-            Texture3D lOCube = new Texture3D(liSize, liSize, liSize, TextureFormat.R8, false);
-
-            lOCube.name = pbColourHelp ? "UWInverseLookup" : "UWInverseLookup (raw)";
-            lOCube.filterMode = FilterMode.Point;
-            lOCube.wrapMode = TextureWrapMode.Clamp;
-            lOCube.SetPixelData(lyCube, 0);
-            lOCube.Apply(false, true);
-
-            return lOCube;
-        }
-
-        /// <summary>
-        /// For every table of XFER.DAT (rows) and every background index (columns) the colour the
-        /// table turns it into - the table and the palette in one step, so the shader needs one
-        /// lookup after the inverse one.
-        /// </summary>
-        public static Texture2D BuildXferColours(DataImport pOData, bool pbColourHelp = true)
-        {
-            if (pOData == null || pOData.Palettes == null || pOData.TransparencyTables == null
-                || !pOData.TransparencyTables.IsLoaded)
-                return null;
-
-            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
-            int liTables = UWTransparencyTables.Count;
-
-            Texture2D lOTable = new Texture2D(PaletteSize, liTables, TextureFormat.RGBA32, false, false);
-
-            lOTable.name = pbColourHelp ? "UWXferColours" : "UWXferColours (raw)";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSize * liTables];
-
-            for (int liTable = 0; liTable < liTables; liTable++)
-            {
-                for (int liIndex = 0; liIndex < PaletteSize; liIndex++)
-                {
-                    byte lyResult = pOData.TransparencyTables.Apply((UWTransparencyTables.FadeTable)liTable, liIndex);
-                    UWColor32 lOColour = fShown(lOPalette, lyResult, pbColourHelp);
-
-                    lOPixels[(liTable * PaletteSize) + liIndex] = new Color32(lOColour.R, lOColour.G, lOColour.B, 255);
-                }
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>
-        /// The hallucination's light table effect (UWHallucinationState.LightTableEffect) as a
-        /// colour table like BuildColourTable, but three times as tall: sixteen levels each for
-        /// everything else, floors and walls (UWPaletteLookup's UWSurfacePart picks the part). For
-        /// every index and level the colour of the index UWHallucinationState.BuildLightTableEffect
-        /// maps it to - bands of green, grey and purple by distance (an approximation after the
-        /// user's screenshots of the original).
-        /// </summary>
-        public static Texture2D BuildLightTableEffect(DataImport pOData, bool pbColourHelp = true)
-        {
-            if (pOData == null || pOData.Palettes == null)
-                return null;
-
-            byte[] lyTable = UWHallucinationState.BuildLightTableEffect();
-            int liRows = lyTable.Length / PaletteSize;
-
-            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
-            Texture2D lOTable = new Texture2D(PaletteSize, liRows, TextureFormat.RGBA32, false, false);
-
-            lOTable.name = pbColourHelp ? "UWLightTableEffect" : "UWLightTableEffect (raw)";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSize * liRows];
-
-            for (int liLevel = 0; liLevel < liRows; liLevel++)
-            {
-                for (int liIndex = 0; liIndex < PaletteSize; liIndex++)
-                {
-                    UWColor32 lOColour = fShown(lOPalette, lyTable[(liLevel * PaletteSize) + liIndex], pbColourHelp);
-
-                    lOPixels[(liLevel * PaletteSize) + liIndex] = new Color32(lOColour.R, lOColour.G, lOColour.B, 255);
-                }
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>A palette colour as the colour table shows it (colour help applied), or raw -
-        /// Remastered draws the world in raw colours and puts the colour help on afterwards, in its
-        /// post-processing (UWRemasterRenderer).</summary>
-        private static UWColor32 fShown(UWPalette pOPalette, int piIndex, bool pbColourHelp = true)
-        {
-            UWColor32 lOColour = pOPalette.GetUWColor(piIndex);
-
-            if (!pbColourHelp)
-                return new UWColor32 { R = lOColour.R, G = lOColour.G, B = lOColour.B, A = 255 };
-            Color32 lOShown = UWColourVision.Apply(new Color32(lOColour.R, lOColour.G, lOColour.B, 255));
-
-            return new UWColor32 { R = lOShown.r, G = lOShown.g, B = lOShown.b, A = 255 };
-        }
-
-        /// <summary>
-        /// The eight palettes as they are, one row each (256 by 8), for Remastered while the
-        /// hallucination swaps the palette (UWHallucinationState.PaletteEffect): its surfaces know
-        /// their palette index (the index array, the index atlases, the model faces' vertex) and
-        /// take the colour of that index from the row of the hallucination's palette, then light it
-        /// as usual. Raw colours - Remastered puts the colour help on in its post-processing.
-        /// </summary>
-        public static Texture2D BuildRawPalettes(DataImport pOData)
-        {
-            if (pOData == null || pOData.Palettes == null)
-                return null;
-
-            Texture2D lOTable = new Texture2D(PaletteSize, RawPaletteCount, TextureFormat.RGBA32, false, false);
-
-            lOTable.name = "UWRawPalettes";
-            lOTable.filterMode = FilterMode.Point;
-            lOTable.wrapMode = TextureWrapMode.Clamp;
-
-            Color32[] lOPixels = new Color32[PaletteSize * RawPaletteCount];
-
-            for (int liPalette = 0; liPalette < RawPaletteCount; liPalette++)
-            {
-                UWPalette lOPalette;
-
-                try
-                {
-                    lOPalette = pOData.Palettes.GetPalette(liPalette);
-                }
-                catch (System.Exception)
-                {
-                    lOPalette = pOData.Palettes.GetPalette(0);
-                }
-
-                for (int liIndex = 0; liIndex < PaletteSize; liIndex++)
-                {
-                    UWColor32 lOColour = lOPalette.GetUWColor(liIndex);
-
-                    lOPixels[(liPalette * PaletteSize) + liIndex] = new Color32(lOColour.R, lOColour.G, lOColour.B, 255);
-                }
-            }
-
-            lOTable.SetPixels32(lOPixels);
-            lOTable.Apply(false, false);
-
-            return lOTable;
-        }
-
-        /// <summary>The palettes of PALS.DAT, the hallucination's choice (RNG &amp; 7).</summary>
-        public const int RawPaletteCount = 8;
 
         /// <summary>Hands the shader the XFER.DAT lookups; pbReady off falls back to the fixed
         /// blend of the index atlas (what the colour path always uses).</summary>
         public static void ApplyXferGlobals(Texture3D pOInverseLookup, Texture2D pOXferColours, bool pbReady)
         {
             if (pOInverseLookup != null)
-                Shader.SetGlobalTexture(InverseLookupProperty, pOInverseLookup);
+                UWShaderGlobals.SetTexture(UWShaderIds.InverseLookup, pOInverseLookup);
 
             if (pOXferColours != null)
-                Shader.SetGlobalTexture(XferColourProperty, pOXferColours);
+                UWShaderGlobals.SetTexture(UWShaderIds.XferColours, pOXferColours);
 
-            Shader.SetGlobalFloat(XferReadyProperty,
+            UWShaderGlobals.SetFloat(UWShaderIds.XferReady,
                 pbReady && pOInverseLookup != null && pOXferColours != null ? 1f : 0f);
         }
 
@@ -533,19 +210,5 @@ namespace UnderworldRevisited.Build
             return Mathf.Max(1f, Screen.height / 200f);
         }
 
-        /// <summary>
-        /// How far you can see at this light level, in world units. Beyond that everything is
-        /// black; the original does not draw there at all.
-        /// </summary>
-        public static float GetCutoffDistance(DataImport pOData, int piLightLevel)
-        {
-            UWShades.Entry lOEntry;
-
-            if (pOData == null || pOData.Shades == null
-                || !pOData.Shades.TryGet(piLightLevel, out lOEntry))
-                return UWWorldScale.TileSize * 4f;
-
-            return lOEntry.ViewingDistance * UWWorldScale.TileSize;
-        }
     }
 }

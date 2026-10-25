@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// Soft ground shadows under creatures and items, only in the Remastered render mode
@@ -11,12 +12,15 @@ using UnityEngine;
 /// soft blob underneath, on the other hand, anchors them immediately.
 ///
 /// WHICH OBJECTS: everything standing in the world as a sprite (shader UW/Billboard), except the
-/// light sources from UWRemasterLights - a campfire casting a dark blob would be
+/// light sources (UWLightSourceTable) - a campfire casting a dark blob would be
 /// wrong - and what flies (UWProjectileFlight). Wall decorations (UW/Decal), doors and 3D models get none.
 ///
 /// HOW BIG: as wide as the collider in plan view. For items that is the
 /// image width, for creatures the radius from COMOBJ.DAT (UWObjectSpawner.
 /// fApplyCritterFootprint) - the image width of a goblin would be more than a tile.
+///
+/// Both are the one ground-shadow rule since cleanup step 6.4 (2026-10-24): UWGroundShadowRule,
+/// asked through UWGroundShadowCasters, shared with the palette path's ground shadows.
 ///
 /// The world changes during play: creatures appear, items are
 /// dropped. So there is a regular check for who does not have a blob yet. The blob is attached
@@ -25,11 +29,13 @@ using UnityEngine;
 /// TOGETHER WITH THE AO: the sprites write depth, so the screen-space AO already darkens the ground
 /// around their feet a little (per user, 2026-09-13). The blob complements that and is
 /// therefore set up to be subtle.
+///
+/// A child of the Remastered path since cleanup step 6.5 (IUWRemasterFeature, 2026-10-24): ticked
+/// while it is in force, cleared when it goes; until then a component of its own that asked the
+/// render mode every frame.
 /// </summary>
-public class UWRemasterGroundShadows : MonoBehaviour
+public sealed class UWRemasterGroundShadows : IUWRemasterFeature
 {
-    private const string BillboardShaderName = "UW/Billboard";
-
     private const string ShadowShaderName = "UW/GroundShadow";
 
     private const string ShadowName = "Remastered Ground Shadow";
@@ -40,11 +46,13 @@ public class UWRemasterGroundShadows : MonoBehaviour
     /// <summary>Above the ground, so the blob does not disappear into it.</summary>
     private const float Lift = 0.3f;
 
-    /// <summary>Smallest diameter - a key or a coin would otherwise get a
-    /// barely visible dot.</summary>
-    private const float MinDiameter = 10f;
+    private readonly UWRenderPathHost mOHost;
 
     private UWLevelLoader mOLevelLoader;
+
+    /// <summary>The shader is missing: no ground shadows for this scene (the component switched
+    /// itself off until 2026-10-24).</summary>
+    private bool mbMissingShader;
 
     private readonly List<UWGroundShadowMarker> mOShadows = new List<UWGroundShadowMarker>();
 
@@ -56,18 +64,21 @@ public class UWRemasterGroundShadows : MonoBehaviour
 
     private float mfAppliedSize = -1f;
 
-    private void Update()
+    public UWRemasterGroundShadows(UWRenderPathHost pOHost)
     {
-        if (mOLevelLoader == null)
-            mOLevelLoader = GetComponent<UWLevelLoader>();
+        mOHost = pOHost;
+    }
 
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+    public void Tick(UnderworldRevisited.UWSettings pOSettings)
+    {
+        mOLevelLoader = mOHost.LevelLoader;
 
-        if (mOLevelLoader == null || lOSettings == null)
+        UnderworldRevisited.UWSettings lOSettings = pOSettings;
+
+        if (mbMissingShader || mOLevelLoader == null || lOSettings == null)
             return;
 
-        bool lbWanted = lOSettings.IsRemasteredActive
-            && lOSettings.RemasterGroundShadow > 0f;
+        bool lbWanted = lOSettings.RemasterGroundShadow > 0f;
 
         if (!lbWanted)
         {
@@ -80,7 +91,7 @@ public class UWRemasterGroundShadows : MonoBehaviour
         if (!fEnsureResources())
             return;
 
-        mOMaterial.SetFloat("_Strength", lOSettings.RemasterGroundShadow);
+        mOMaterial.SetFloat(UWShaderIds.Strength, lOSettings.RemasterGroundShadow);
 
         if (!Mathf.Approximately(mfAppliedSize, lOSettings.RemasterGroundShadowSize))
         {
@@ -126,23 +137,12 @@ public class UWRemasterGroundShadows : MonoBehaviour
         if (pOEntity.GetComponentInChildren<UWGroundShadowMarker>(true) != null)
             return null;
 
-        if (UWRemasterLights.IsLightSource(pOEntity.ObjectData.ID))
+        // Not the light sources, nothing in flight - spell missiles, thrown things, arrows (per
+        // user, 2026-10-04: the blob flew along under them; UWGroundShadowRule), only sprites.
+        float lfWidth;
+
+        if (!UWGroundShadowCasters.TryGetWidth(pOEntity, false, out lfWidth))
             return null;
-
-        // Nothing in flight - spell missiles, thrown things, arrows (per user, 2026-10-04: the
-        // blob flew along under them). A thrown thing that lands is a new object and gets its blob.
-        if (pOEntity.GetComponent<UWProjectileFlight>() != null)
-            return null;
-
-        MeshRenderer lORenderer = pOEntity.GetComponent<MeshRenderer>();
-
-        if (lORenderer == null || lORenderer.sharedMaterial == null
-            || lORenderer.sharedMaterial.shader == null
-            || lORenderer.sharedMaterial.shader.name != BillboardShaderName)
-            return null;
-
-        BoxCollider lOCollider = pOEntity.GetComponent<BoxCollider>();
-        float lfWidth = lOCollider != null ? Mathf.Max(lOCollider.size.x, lOCollider.size.z) : 16f;
 
         return fAddShadow(pOEntity.transform, lfWidth, pOMaterial, pOQuad);
     }
@@ -179,7 +179,7 @@ public class UWRemasterGroundShadows : MonoBehaviour
         Transform lOTransform = pOMarker.transform;
         Vector3 lOParentScale = lOTransform.parent != null ? lOTransform.parent.lossyScale : Vector3.one;
         float lfSize = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.RemasterGroundShadowSize : 1f;
-        float lfDiameter = Mathf.Max(MinDiameter, pOMarker.Width * lfSize);
+        float lfDiameter = UWGroundShadowRule.RemasterDiameter(pOMarker.Width, lfSize);
 
         lOTransform.localScale = new Vector3(
             lfDiameter / Mathf.Max(0.0001f, Mathf.Abs(lOParentScale.x)),
@@ -202,7 +202,7 @@ public class UWRemasterGroundShadows : MonoBehaviour
         foreach (UWGroundShadowMarker lOMarker in mOShadows)
         {
             if (lOMarker != null)
-                Destroy(lOMarker.gameObject);
+                Object.Destroy(lOMarker.gameObject);
         }
 
         mOShadows.Clear();
@@ -218,7 +218,7 @@ public class UWRemasterGroundShadows : MonoBehaviour
             if (lOShader == null)
             {
                 Debug.LogError("Shader " + ShadowShaderName + " not found - no ground shadows.");
-                enabled = false;
+                mbMissingShader = true;
                 return false;
             }
 
@@ -229,6 +229,18 @@ public class UWRemasterGroundShadows : MonoBehaviour
             mOQuad = CreateQuad();
 
         return true;
+    }
+
+    /// <summary>Remastered goes: every blob goes.</summary>
+    public void Clear()
+    {
+        if (mOShadows.Count > 0)
+            fClear();
+    }
+
+    /// <summary>The scene goes: the blobs go with their objects.</summary>
+    public void Dispose()
+    {
     }
 
     public static Material CreateMaterial(Shader pOShader)

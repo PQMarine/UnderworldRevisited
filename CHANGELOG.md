@@ -8,6 +8,53 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.9.1] - 2026-10-25
+
+### Closer to the original
+
+- Cutscenes take a click as the original does: it jumps to the scene's next mark, with the pictures
+  in between run unseen, or ends a pause. In the dreams the picture now moves on with the subtitle.
+  The intro skips three frames the original skips too.
+
+### Fixed
+- Clicking on through the intro no longer lays the spoken lines over each other.
+- Night Vision turns the world grey in the Remastered mode too.
+- Changing the colour help during a hallucination takes effect at once.
+- The open Sound dialog no longer writes the settings file over and over.
+- The modern scheme's right Ctrl+R no longer draws or sheathes the weapon besides opening Restore:
+  while Ctrl holds a shortcut, its letter does nothing else (both schemes, rebound keys too).
+- One press of Escape, Start or the pad's B closes only the topmost thing; Escape that cancels a
+  key rebind no longer closes the game menu, and no hotkey fires while a key is being rebound.
+- Shift+F11 no longer changes the brightness as well.
+- In the classic count prompt the pad's RT takes one and LT all, as the mouse buttons do.
+
+### Changed
+- The menu bar's Game and Graphics items open windows like the other items instead of drop-down
+  menus. Graphics: the detail level, Palette effects..., widescreen, view angle and the world at the
+  original's resolution. Game: the game folder, the control scheme, the three switches and Quit.
+- In the Remastered mode the Light spell shines yellowish like a torch; Daylight stays white.
+- A click during a cutscene's spoken line still moves on, and it also ends the final death's
+  blinking skulls - the original takes neither (Docs/DEVIATIONS.md).
+- The menu bar's windows, the help window, the layout editor, the game menu and the gamepad's
+  letter grid are drawn by the game's own interface instead of Unity's immediate-mode GUI. They look
+  as before; labels and buttons size themselves by their text, and the notes, the folder path and
+  the save name are typed in fields of their own (paste works, selecting and copying does not yet).
+- THE GAME'S OWN MOUSE POINTER: in the running game the pointer is the game's, moved by the mouse
+  as under DOS, with the system pointer captured and hidden; the menus and setup windows free the
+  system pointer. New setting Controls - Pointer speed (25 to 400 %; 100 % is one mouse step per
+  screen pixel, without acceleration). Alt+Tab lets the mouse go; the click that comes back does
+  nothing in the game.
+- The easy movement (Shift or Alt with the walk keys) follows the walk and turn keys when they are
+  rebound; X stays its own key.
+- The pad's A, X and B in the count prompt, the split box, the yes/no question, the main menu and
+  character creation follow a rebind of the pad's click, right button and back.
+- The debug display (Shift+F1) is clearer: sections that fold, values that light up when they
+  change, and the Shift+F7/Shift+F10 tools as its second tab.
+- Internal: rendering, audio, input, menus, settings, the help window and the cutscene player are
+  restructured (code cleanup phases 6, 7, 8, 8b and 8c, see Docs/CLEANUP-PLAN.md). Underworld
+  Revisited's own texts are in one table and can be translated with a language file beside the
+  game (Languages/<code>.tsv).
+
 ## [0.9.0] - 2026-10-24
 
 ### Closer to the original

@@ -38,7 +38,7 @@ namespace UnderworldRevisited.Build
 
             Material lOMaterial = new Material(lOShader);
             lOMaterial.name = psName;
-            lOMaterial.SetTexture(lbPalette ? "_IndexArray" : "_TexArray", pOTextures);
+            lOMaterial.SetTexture(lbPalette ? UWShaderIds.IndexArray : UWShaderIds.TexArray, pOTextures);
 
             return lOMaterial;
         }

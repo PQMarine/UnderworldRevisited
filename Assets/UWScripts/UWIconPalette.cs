@@ -63,7 +63,7 @@ public static class UWIconPalette
 
             mOSmoothMaterial = new Material(lOBase);
             mOSmoothMaterial.name = "UW Icons (Palette, smooth)";
-            mOSmoothMaterial.EnableKeyword("UW_PIXEL_SMOOTH");
+            mOSmoothMaterial.EnableKeyword(UWShaderIds.PixelSmoothKeyword);
         }
 
         if (pOGraphic.material != mOSmoothMaterial)

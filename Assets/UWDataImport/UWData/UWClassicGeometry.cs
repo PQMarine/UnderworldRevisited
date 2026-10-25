@@ -163,7 +163,7 @@ namespace UWDataImport.UWData
 		/// <summary>Screen rectangle (pixels, origin bottom left) of a picture of the given size in
 		/// original pixels, placed in the viewport like the window pictures
 		/// (ViewportPictureCorner), moved with the widened hole's middle (half the extra
-		/// columns, UWClassicWide.Left). Used by UWIntroPlayer for the viewport cutscenes.</summary>
+		/// columns, UWClassicWide.Left). Used by UWCutsceneView for the viewport cutscenes.</summary>
 		public (float X, float Y, float Width, float Height) ViewportPictureScreenRect(float pfWidth, float pfHeight)
 		{
 			(float X, float Y) lOCorner = ViewportPictureCorner(pfWidth, pfHeight);

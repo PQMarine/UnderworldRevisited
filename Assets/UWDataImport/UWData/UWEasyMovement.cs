@@ -116,6 +116,43 @@ namespace UWDataImport.UWData
 		/// itself snaps to - ten milliseconds, so a round value can actually be hit.</summary>
 		public const float RepeatStepSeconds = 0.01f;
 
+		/// <summary>One easy step whose key follows a walk or turn key: its action in UWControls'
+		/// Player map and the binding it takes the key of, per scheme (map, action and binding as
+		/// settings.json stores a rebind).</summary>
+		public sealed class FollowedKey
+		{
+			public string EasyAction;
+
+			public string ClassicAction;
+
+			public int ClassicBinding;
+
+			public string ModernAction;
+
+			public int ModernBinding;
+		}
+
+		/// <summary>
+		/// THE EASY STEPS FOLLOW THE WALK AND TURN KEYS (decision 18 of the cleanup plan, per user
+		/// 2026-10-25; built in step 7.2): each step takes the key of the walk or turn it belongs to,
+		/// held with Shift in the classic scheme or with EasyModifier in the modern one - forward and
+		/// back the walk's (Move's up and down) in both, the turns the classic scheme's turn keys
+		/// (Turn) and in the modern scheme the keys beside the walk (Move's left and right, its
+		/// strafe, which the help names for the easy movement there). With the built-in keys nothing
+		/// moves: W, S, A, D. The step that does not go off a ledge (EasyWalkForward, X) keeps its own
+		/// key - it has no walk of its own. The steps get no rows of their own in the Controls window.
+		/// </summary>
+		public static readonly FollowedKey[] FollowedKeys =
+		{
+			new FollowedKey { EasyAction = "EasyForward", ClassicAction = "Move", ClassicBinding = 1, ModernAction = "Move", ModernBinding = 1 },
+			new FollowedKey { EasyAction = "EasyBack", ClassicAction = "Move", ClassicBinding = 2, ModernAction = "Move", ModernBinding = 2 },
+			new FollowedKey { EasyAction = "EasyTurnLeft", ClassicAction = "Turn", ClassicBinding = 1, ModernAction = "Move", ModernBinding = 3 },
+			new FollowedKey { EasyAction = "EasyTurnRight", ClassicAction = "Turn", ClassicBinding = 2, ModernAction = "Move", ModernBinding = 4 },
+		};
+
+		/// <summary>The easy step with a key of its own (X).</summary>
+		public const string OwnKeyAction = "EasyWalkForward";
+
 		public static bool IsTurn(int piCommand)
 		{
 			return piCommand == CommandTurnLeft || piCommand == CommandTurnRight;

@@ -70,14 +70,14 @@ public class UWLevelLoader : MonoBehaviour
 
     /// <summary>The material of the solid-colour model faces. The palette renderer recognises
     /// them by it - they carry their index at the vertex and need their own shader
-    /// (see UWPaletteRenderToggle).</summary>
+    /// (see UWPaletteRenderPath).</summary>
     public Material ModelSolidMaterial
     {
         get { return mOModelSolidMaterial; }
     }
 
     /// <summary>The object atlas, so that the palette renderer can get at its index
-    /// version (see UWPaletteRenderToggle).</summary>
+    /// version (see UWPaletteRenderPath).</summary>
     public UWObjectAtlas ObjectAtlas
     {
         get { return mOObjectAtlas; }
@@ -91,7 +91,7 @@ public class UWLevelLoader : MonoBehaviour
     [Tooltip("Material for the dungeon geometry. Leave empty and it is created at start.")]
     private Material mODungeonMaterial;
 
-    /// <summary>The material of floor, ceiling and walls - for UWRemasterRenderer, which
+    /// <summary>The material of floor, ceiling and walls - for UWRemasterRenderPath, which
     /// uses it to switch the relief on and off.</summary>
     public Material DungeonMaterial
     {
@@ -174,6 +174,14 @@ public class UWLevelLoader : MonoBehaviour
     {
         get { return UWDataImporter != null ? UWDataImporter.Levels[miLevelIndex] : null; }
     }
+
+    /// <summary>
+    /// Counts every build and rebuild of the level's geometry (fBuildLevel, RebuildGeometry), the
+    /// one exit after the tiles changed (a terrain trap, a lever). The palette path's sweep mask
+    /// reads the tile types, so it is built again when this moves (UWSweepMaskDriver; cleanup step
+    /// 6.3, 2026-10-24 - until then a standing eye rebuilt it twice a second just in case).
+    /// </summary>
+    public int GeometryRevision { get; private set; }
 
     public int LevelCount
     {
@@ -287,9 +295,7 @@ public class UWLevelLoader : MonoBehaviour
 
             fInitialiseUi();
 
-            UWAudioEngine.Ensure(UWDataImporter);
-            UWMusic.Init(UWDataImporter);
-            UWSoundEffects.Init(UWDataImporter);
+            UWAudioService.Init(UWDataImporter);
 
             return;
         }
@@ -352,12 +358,10 @@ public class UWLevelLoader : MonoBehaviour
         // starts right away - unless the main menu comes (it brings its own) or
         // a piece from the previous scene is still playing: that plays to the end, like the
         // intro music after loading in the original (per user, 2026-09-11).
-        UWAudioEngine.Ensure(UWDataImporter);
-        UWMusic.Init(UWDataImporter);
-        UWSoundEffects.Init(UWDataImporter);
+        UWAudioService.Init(UWDataImporter);
 
-        if (!UWMainMenu.WillAutoShow && !UWMusic.IsPlaying)
-            UWMusic.PickLevelTheme();
+        if (!UWMainMenu.WillAutoShow && !UWAudioService.IsMusicPlaying)
+            UWAudioService.PickLevelTheme();
 
         // Physics.IgnoreLayerCollision(9, 8) used to be here - the sprite layer was
         // excluded wholesale from player collision, so that one would not get stuck on items
@@ -427,11 +431,11 @@ public class UWLevelLoader : MonoBehaviour
         // The palette renderer's material swap remembers the level number. If it stays
         // the same - a jump within the same level - it would otherwise miss the rebuild
         // and the fresh geometry would stay on URP.
-        if (mOPaletteToggle == null)
-            mOPaletteToggle = GetComponent<UWPaletteRenderToggle>();
+        if (mORenderPaths == null)
+            mORenderPaths = GetComponent<UWRenderPathHost>();
 
-        if (mOPaletteToggle != null)
-            mOPaletteToggle.Reapply();
+        if (mORenderPaths != null)
+            mORenderPaths.OnLevelBuilt();
 
         // WHERE HE ARRIVES (new_player_pos, UWArrivalRules): the nearest tile with room, then the
         // same search clearing what stands in the way, then - nowhere at all - death.
@@ -708,8 +712,8 @@ public class UWLevelLoader : MonoBehaviour
 
             if (mODungeonMaterial != null)
             {
-                mODungeonMaterial.SetFloat("_AmbientFloor", fGetAmbientFloor());
-                mODungeonMaterial.SetFloat("_PointLightCap", fGetPointLightCap());
+                mODungeonMaterial.SetFloat(UWShaderIds.AmbientFloor, fGetAmbientFloor());
+                mODungeonMaterial.SetFloat(UWShaderIds.PointLightCap, fGetPointLightCap());
             }
 
             fStartTextureAnimation();
@@ -717,11 +721,12 @@ public class UWLevelLoader : MonoBehaviour
 
         fCreateObjectMaterials();
 
-        // The palette renderer attaches itself as soon as everything is in place - see
-        // UWPaletteRenderToggle.fAutoStart. Only provide the component here; otherwise
-        // UWGraphicsDetail.fSetPaletteRenderer would add it on the first switch of the detail level.
-        if (GetComponent<UWPaletteRenderToggle>() == null)
-            gameObject.AddComponent<UWPaletteRenderToggle>();
+        // The render paths (UWRenderPathHost): the palette path starts by itself as soon as
+        // everything is in place (UWPaletteRenderPath.TryStart), Remastered as soon as the
+        // dungeon material is there. Only provide the component here; otherwise
+        // UWGraphicsDetail.SetLevel would add it on the first switch of the detail level.
+        if (GetComponent<UWRenderPathHost>() == null)
+            gameObject.AddComponent<UWRenderPathHost>();
 
         // And for the frame tick of the creatures: the 16-slot clock and the walk over every
         // creature that is due (see UWCritterDriver).
@@ -733,14 +738,8 @@ public class UWLevelLoader : MonoBehaviour
         if (UWDataImporter != null)
             UWSetupMenu.EnsureInGame(UWDataImporter);
 
-        // And for the Remastered render mode, which only builds its normal array when it
-        // is needed.
-        if (GetComponent<UWRemasterRenderer>() == null)
-            gameObject.AddComponent<UWRemasterRenderer>();
-
-        // The additional light sources of the same mode.
-        if (GetComponent<UWRemasterLights>() == null)
-            gameObject.AddComponent<UWRemasterLights>();
+        // The Remastered render mode, its light sources and ground shadows are UWRenderPathHost's
+        // (UWRemasterRenderPath) since cleanup step 6.5 (2026-10-24).
 
         // Death and resurrection at the silver tree, see UWDeath.
         if (GetComponent<UWDeath>() == null)
@@ -753,10 +752,6 @@ public class UWLevelLoader : MonoBehaviour
         // Monitoring of graphics resources, see UWResourceWatch.
         if (GetComponent<UWResourceWatch>() == null)
             gameObject.AddComponent<UWResourceWatch>();
-
-        // And the ground shadows under creatures and items.
-        if (GetComponent<UWRemasterGroundShadows>() == null)
-            gameObject.AddComponent<UWRemasterGroundShadows>();
 
         if (mO3DModels == null)
         {
@@ -908,6 +903,8 @@ public class UWLevelLoader : MonoBehaviour
 
     private void fBuildLevel()
     {
+        GeometryRevision++;
+
         UWCritter.ResetAlarm();
 
         // The carried objects take their numbers from this level (UWCarriedSlots).
@@ -1002,6 +999,8 @@ public class UWLevelLoader : MonoBehaviour
             Destroy(lOExisting.gameObject);
         }
 
+        GeometryRevision++;
+
         UWChunkGeometry[] lOChunks = UWLevelMeshBuilder.Build(CurrentLevel, UWTextureArrayBuilder.GetFloorSliceOffset(UWDataImporter));
         GameObject lORebuilt = UWLevelAssembler.CreateLevelRoot("Geometry", lOChunks, mODungeonMaterial, miLevelIndex, true);
         lORebuilt.transform.SetParent(mOLevelRoot.transform, false);
@@ -1077,14 +1076,14 @@ public class UWLevelLoader : MonoBehaviour
         mOWorldView.RebuildRegistry();
     }
 
-    private UWPaletteRenderToggle mOPaletteToggle;
+    private UWRenderPathHost mORenderPaths;
 
     /// <summary>
     /// Applies the currently active render path to a freshly built node - the geometry after a
     /// rebuild, and every object picture through UWWorldView, the one exit for those.
     ///
     /// The palette renderer's material swap runs once per level over everything that
-    /// exists then (see UWPaletteRenderToggle.ApplyToNewObject). Without this follow-up
+    /// exists then (see UWPaletteRenderPath.OnObjectSpawned). Without this follow-up
     /// every object created at runtime stays on the old path - visible because
     /// it is the only thing the player light falls on.
     /// </summary>
@@ -1093,11 +1092,11 @@ public class UWLevelLoader : MonoBehaviour
         if (pOBuilt == null)
             return;
 
-        if (mOPaletteToggle == null)
-            mOPaletteToggle = GetComponent<UWPaletteRenderToggle>();
+        if (mORenderPaths == null)
+            mORenderPaths = GetComponent<UWRenderPathHost>();
 
-        if (mOPaletteToggle != null)
-            mOPaletteToggle.ApplyToNewObject(pOBuilt);
+        if (mORenderPaths != null)
+            mORenderPaths.OnObjectSpawned(pOBuilt);
     }
 
     /// <summary>For UWTriggerSystem (door trap: find the door GameObject for a UWObject found
@@ -1681,7 +1680,7 @@ public class UWLevelLoader : MonoBehaviour
     /// the tile's object list; it is not an item one could pick up or look
     /// at.
     /// </summary>
-    private static readonly int DepthBiasId = Shader.PropertyToID("_DepthBias");
+    private static readonly int DepthBiasId = UWShaderIds.DepthBias;
 
     /// <summary>
     /// An effect picture at a world position for some seconds. pfDepthBias, when above 0,
@@ -2418,8 +2417,8 @@ public class UWLevelLoader : MonoBehaviour
         UWOwnTile.SetGlobals();
         mOBillboardMaterial.name = "UW Objects";
         mOBillboardMaterial.mainTexture = mOObjectAtlas.Atlas;
-        mOBillboardMaterial.SetFloat("_AmbientFloor", lfAmbient);
-        mOBillboardMaterial.SetFloat("_PointLightCap", lfPointLightCap);
+        mOBillboardMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        mOBillboardMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);
 
         // Translucent sprites (mist, ghosts - see UWTransparencyTables) use
         // the same shader, only with a different blend state: alpha blending instead of a hard
@@ -2429,12 +2428,12 @@ public class UWLevelLoader : MonoBehaviour
         mOTranslucentBillboardMaterial = new Material(lOBillboardShader);
         mOTranslucentBillboardMaterial.name = "UW Objects (translucent)";
         mOTranslucentBillboardMaterial.mainTexture = mOObjectAtlas.Atlas;
-        mOTranslucentBillboardMaterial.SetFloat("_AmbientFloor", lfAmbient);
-        mOTranslucentBillboardMaterial.SetFloat("_PointLightCap", lfPointLightCap);
-        mOTranslucentBillboardMaterial.SetFloat("_Cutoff", 0.01f);
-        mOTranslucentBillboardMaterial.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        mOTranslucentBillboardMaterial.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        mOTranslucentBillboardMaterial.SetFloat("_ZWrite", 0f);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.Cutoff, 0.01f);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.SrcBlend, (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.DstBlend, (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mOTranslucentBillboardMaterial.SetFloat(UWShaderIds.ZWrite, 0f);
         mOTranslucentBillboardMaterial.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
 
         // THE OWN TILE DOES NOT COVER THEM EITHER (2026-09-28): the solid sprites and every
@@ -2457,8 +2456,8 @@ public class UWLevelLoader : MonoBehaviour
         mOModelSolidMaterial = new Material(lODecalShader);
         mOModelSolidMaterial.name = "UW Model Faces";
         mOModelSolidMaterial.mainTexture = mOObjectAtlas.Atlas;
-        mOModelSolidMaterial.SetFloat("_AmbientFloor", lfAmbient);
-        mOModelSolidMaterial.SetFloat("_PointLightCap", lfPointLightCap);
+        mOModelSolidMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        mOModelSolidMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);
 
         // A model's own tile does not hide it (UWOwnTile, per user 2026-09-22, the shrine) - only
         // on this material, not on the portcullis or any decal.
@@ -2481,25 +2480,25 @@ public class UWLevelLoader : MonoBehaviour
         mOPortcullisMaterial = new Material(lODecalShader);
         mOPortcullisMaterial.name = "UW Portcullis";
         mOPortcullisMaterial.mainTexture = mOObjectAtlas.Atlas;
-        mOPortcullisMaterial.SetFloat("_AmbientFloor", lfAmbient);
-        mOPortcullisMaterial.SetFloat("_PointLightCap", lfPointLightCap);
-        mOPortcullisMaterial.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Back);
+        mOPortcullisMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        mOPortcullisMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);
+        mOPortcullisMaterial.SetFloat(UWShaderIds.Cull, (float)UnityEngine.Rendering.CullMode.Back);
 
         mODecalMaterial = new Material(lODecalShader);
         mODecalMaterial.name = "UW Decal";
         mODecalMaterial.mainTexture = mOObjectAtlas.Atlas;
-        mODecalMaterial.SetFloat("_AmbientFloor", lfAmbient);
-        mODecalMaterial.SetFloat("_PointLightCap", lfPointLightCap);
+        mODecalMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        mODecalMaterial.SetFloat(UWShaderIds.PointLightCap, lfPointLightCap);
 
         // THE PALETTE INDEX FOR REMASTERED (UWHallucination.hlsl): the hallucination's pictures and
         // the ghosts' tables need it there too - from the index atlas for sprites and decals, from
         // the vertex for the model faces and the portcullis. The palette path swaps these
         // materials and sets its own.
         foreach (Material lOMaterial in new[] { mOBillboardMaterial, mOTranslucentBillboardMaterial, mODecalMaterial })
-            lOMaterial.SetTexture("_IndexTex", mOObjectAtlas.IndexAtlas != null ? mOObjectAtlas.IndexAtlas : Texture2D.blackTexture);
+            lOMaterial.SetTexture(UWShaderIds.IndexTex, mOObjectAtlas.IndexAtlas != null ? mOObjectAtlas.IndexAtlas : Texture2D.blackTexture);
 
-        mOModelSolidMaterial.SetFloat("_UWVertexIndex", 1f);
-        mOPortcullisMaterial.SetFloat("_UWVertexIndex", 1f);
+        mOModelSolidMaterial.SetFloat(UWShaderIds.VertexIndex, 1f);
+        mOPortcullisMaterial.SetFloat(UWShaderIds.VertexIndex, 1f);
     }
 
     private static FilterMode fGetFilterMode()

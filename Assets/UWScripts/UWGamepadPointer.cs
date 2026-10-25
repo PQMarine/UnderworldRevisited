@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE GAMEPAD'S POINTER (stage 2 of the gamepad, per user 2026-10-07 - "as Assassin's Creed does in
@@ -7,18 +8,23 @@ using UnityEngine.InputSystem;
 /// index finger to hold while the thumb steers - per user, the same day; LT likewise for X), X is the right
 /// button, the WALK STICK turns the wheel while the pointer is over a window or a window holds
 /// the world (per user, 2026-10-08: the d-pad keeps its work in both modes - it scrolled until
-/// then; StickScrolls, UWPlayerInput.fMoveInput stops the walk meanwhile). The pad drives the REAL pointer and presses
-/// the real buttons (UWOsMouse), so every window works as with the mouse, IMGUI ones included.
+/// then; StickScrolls, UWPlayerInput.fMoveInput stops the walk meanwhile). The pad drives THE POINTER
+/// (UWPointer.MoveTo: in the game our own, in the menus the system's by a warp) and presses its own
+/// mouse's buttons and wheel (UWPointer.PadButton, PadWheel - since cleanup step 7.7B; the system's
+/// real ones through UWOsMouse until then, for the IMGUI windows, which are gone), so every window
+/// works as with the mouse.
 ///
 /// WHEN: R3 switches it on and off (the modern scheme frees or locks its pointer with it,
 /// UWModernPointer); on its own while a window holds the world - the game menu, the options, the
 /// map, a conversation, the character creation, the manual (UWControlScheme.IsUIModalOpen,
 /// IsConversationOpen) - and with no scheme at all. While it drives, the stick does not turn the
 /// view (UWPlayerLook, UWPlayerInput.fClassicTurn), and the gamepad buttons it uses do not do
-/// their other work (Takes: A's use, X's look, the d-pad's slot and map).
+/// their other work: the PadPointer context (UWInput.PadPointerTakes; Takes here until cleanup step
+/// 7.8) - A's use, X's look, RT's strike, LT's cast, as the pointer's buttons are bound.
 /// </summary>
-// LATE IN THE FRAME: what waits for any key takes a pad press first (UWGamepad.ConsumePress), so
-// the pointer does not click with it as well.
+// LATE IN THE FRAME: what waits for a pad press owns it before the pointer (UWPadOwners, the owners of
+// UWPressOwners; UWGamepad.ConsumePress until cleanup step 7.8), so the pointer does not click with it
+// as well.
 [DefaultExecutionOrder(UWUpdateOrder.GamepadPointer)]
 public class UWGamepadPointer : MonoBehaviour
 {
@@ -38,42 +44,16 @@ public class UWGamepadPointer : MonoBehaviour
 
     private const float WheelRepeatSeconds = 0.08f;
 
-    private Vector2 mOAt;
-
-    private static bool msbPlaced;
-
-    private static Vector2 msOPosition;
-
-    /// <summary>The pad placed the pointer and was used last: its position is the pointer's. The
-    /// Input System's own is not to be trusted after a warp (UWPointerZones.Update asks this
-    /// during the classic walk by the pointer).</summary>
-    public static bool OwnsPosition => msbPlaced && UWGamepad.IsActive;
-
-    public static Vector2 Position => msOPosition;
-
-    /// <summary>The pad has put the pointer somewhere (Position is meaningful).</summary>
-    public static bool HasPlaced => msbPlaced;
-
-    private static bool msbPlacePending;
-
-    /// <summary>Someone put the system pointer there (UWModernPointer.Free): the pad goes on from
-    /// it - the Input System may still report the place before.</summary>
-    public static void PlaceAt(Vector2 pOAt)
-    {
-        msOPosition = pOAt;
-        msbPlacePending = true;
-        msbPlaced = true;
-    }
-
-    private Vector2 mOLastWarp = new Vector2(-1000f, -1000f);
+    // Where the pad put the pointer and whether its position counts (OwnsPosition, Position, HasPlaced,
+    // PlaceAt) went to UWPointer with cleanup step 7.7B: PadOwnsPosition, PadPosition, PadPlaced, MoveTo.
 
     private bool mbLeftDown;
 
     private bool mbRightDown;
 
-    private float mfWheelHeld;
-
-    private float mfWheelNext;
+    /// <summary>The wheel's repeat (UWRepeat since cleanup step 7.3, 2026-10-25; the time held and the
+    /// next due time here until then): each repeat Every after the last one's due time.</summary>
+    private readonly UWRepeat mOWheelRepeat = new UWRepeat(WheelDelaySeconds, WheelRepeatSeconds, UWRepeat.RuleEnum.Accumulate);
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void fCreate()
@@ -124,6 +104,17 @@ public class UWGamepadPointer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// THE FRAME'S DECISION, before anyone asks (cleanup step 7.8; UWPointerDriver, the first script of
+    /// the frame): whether the pointer drives, has its buttons (the PadPointer context) and scrolls -
+    /// once a frame, the same for every reader. Until then the first reader decided, wherever it ran
+    /// (UWPlayerLook in the game). The pointer's own Update decides again after R3, as before.
+    /// </summary>
+    public static void DecideFrame()
+    {
+        fRefresh();
+    }
+
     private static void fRefresh()
     {
         if (msiDrivingFrame == Time.frameCount)
@@ -134,7 +125,8 @@ public class UWGamepadPointer : MonoBehaviour
 
         UWControlScheme lOScheme = UWScene.ControlScheme;
 
-        msbClicks = msbDriving || (lbFree && lOScheme != null && !UWControlScheme.IsModern);
+        msbClicks = UWPressOwners.PadPointerContext(msbDriving, lbFree, lOScheme != null, UWControlScheme.IsModern)
+            == UWInputContext.PadPointer;
         msbStickScrolls = msbDriving && fIsOverWindow(lOScheme);
     }
 
@@ -144,7 +136,7 @@ public class UWGamepadPointer : MonoBehaviour
         if (fIsHeldByWindow(pOScheme) || UWModernBags.IsMenuOpen || UWModernBags.IsSplitting || UWPadEntryStepper.IsActive)
             return true;
 
-        Vector2 lOAt = msbPlaced ? msOPosition : (Mouse.current != null ? Mouse.current.position.ReadValue() : Vector2.zero);
+        Vector2 lOAt = UWPointer.Position;
 
         // A window of the modern UI, or outside the classic view window (IUWUiScheme).
         return UWControlScheme.Ui.IsPointerOverInterface(lOAt);
@@ -156,54 +148,43 @@ public class UWGamepadPointer : MonoBehaviour
     }
 
     /// <summary>pbFree: nothing else has the pad's buttons (the grid, a classic prompt), the
-    /// pointer is not locked.</summary>
+    /// pointer is not locked. The rule is UWPressOwners.PadPointerDrives since cleanup step 7.8; the
+    /// states are read here.</summary>
     private static bool fComputeDriving(out bool pbFree)
     {
-        pbFree = false;
-
-        // NOT BY Cursor.visible: the classic drag hides the system pointer behind the thing's
+        // NOT BY THE POINTER'S VISIBILITY: the classic drag hides the pointer behind the thing's
         // icon (UWDragIcon.Hold, from UWItemDrag.fBeginActualDrag), and taking that for "off" let the button go at once
         // - the thing fell back, and in a container the neighbour seemed to be taken (per user,
         // 2026-10-07). The letter grid has the pad while it is up (UWLetterGrid), the classic
-        // count and yes/no prompts read it themselves (UWItemDrag, Interaction).
-        if (Cursor.lockState == CursorLockMode.Locked || UWLetterGrid.IsShown)
-            return false;
-
-        if (UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount)
-            return false;
-
+        // count and yes/no prompts read it themselves (UWItemDrag, Interaction). The modern look mode
+        // (the system pointer locked until cleanup step 7.7B; in the game it is captured always since).
         Interaction lOInteraction = UWScene.Interaction;
         UWControlScheme lOScheme = UWScene.ControlScheme;
-
-        if (lOInteraction != null && lOInteraction.IsAskingYesNo
-            && (lOScheme == null || UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo))
-            return false;
-
-        pbFree = true;
+        bool lbYesNoOnPad = lOInteraction != null && lOInteraction.IsAskingYesNo
+            && (lOScheme == null || UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo);
 
         // THE MODERN SCHEME'S FREE POINTER IS THE PAD'S as well, however it was freed (per user,
         // 2026-10-07: with the pointer freed, RT, RB, LT and LB did their game work instead).
         bool lbModernFree = UWControlScheme.Ui.IsPointerUnlocked;
 
-        return IsOn || lbModernFree || fIsHeldByWindow(lOScheme);
+        return UWPressOwners.PadPointerDrives(UWPointer.IsLookLocked, UWLetterGrid.IsShown,
+            UWScene.ItemDrag != null && UWScene.ItemDrag.IsAskingCount, lbYesNoOnPad, IsOn, lbModernFree,
+            fIsHeldByWindow(lOScheme), out pbFree);
     }
 
-    /// <summary>Whether a gamepad press of this action is the pointer's - a click or the right button
-    /// while they work (ClicksActive), the wheel while it drives -, so the action leaves it alone.</summary>
-    public static bool Takes(InputAction pOAction)
+    /// <summary>Whether a control is one of the pointer's buttons - bound to its click or its right
+    /// button (PadClick, PadContext). In the PadPointer context such a pad press is the pointer's
+    /// (UWInput.PadPointerTakes; Takes here until cleanup step 7.8).</summary>
+    public static bool IsPointerButton(InputControl pOControl)
     {
-        if (!ClicksActive || !UWGamepad.IsFromGamepad(pOAction))
-            return false;
-
         UWControls lOControls = fControls();
 
-        if (lOControls == null)
+        if (lOControls == null || pOControl == null)
             return false;
 
-        InputControl lOControl = pOAction.activeControl;
         UWControls.PlayerActions lOPlayer = lOControls.Player;
 
-        return fBoundTo(lOPlayer.PadClick, lOControl) || fBoundTo(lOPlayer.PadContext, lOControl);
+        return fBoundTo(lOPlayer.PadClick, pOControl) || fBoundTo(lOPlayer.PadContext, pOControl);
     }
 
     private static bool fBoundTo(InputAction pOAction, InputControl pOControl)
@@ -258,11 +239,11 @@ public class UWGamepadPointer : MonoBehaviour
         }
         else
         {
-            mfWheelHeld = -1f;
+            mOWheelRepeat.Reset();
         }
 
-        fButton(lOPlayer.PadClick, UWOsMouse.ButtonEnum.Left, ref mbLeftDown);
-        fButton(lOPlayer.PadContext, UWOsMouse.ButtonEnum.Right, ref mbRightDown);
+        fButton(lOPlayer.PadClick, false, ref mbLeftDown);
+        fButton(lOPlayer.PadContext, true, ref mbRightDown);
     }
 
     /// <summary>R3: in the modern scheme its pointer frees or locks with it, whoever freed it
@@ -300,79 +281,62 @@ public class UWGamepadPointer : MonoBehaviour
 
     private void fMove(Vector2 pOStick)
     {
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse == null || pOStick.sqrMagnitude < 0.0001f)
+        if (!UWPointer.HasMouse || pOStick.sqrMagnitude < 0.0001f)
             return;
 
-        // THE CLASSIC WALK BY THE POINTER (a left button held in the view): UWGameUI holds the
-        // pointer inside the view with a warp of its own, and the Input System keeps reporting
-        // pushed-out positions after a warp - taken for the real mouse, they reset the pad's
-        // pointer to the edge every frame, and it stuck to the view's top and left edges until
-        // the button was let go (per user, 2026-10-07). There the pad's own position counts,
-        // kept inside the view.
-        UWGameUI lOUi = UWScene.GameUi;
-        bool lbHeldInView = lOUi != null && UWScene.PlayerMovement != null && UWScene.PlayerMovement.Input.IsCursorMovementInProgress;
-
-        // The real mouse moved it since: go on from there.
-        Vector2 lOMousePosition = lOMouse.position.ReadValue();
-
-        if (msbPlacePending)
-        {
-            msbPlacePending = false;
-            mOAt = msOPosition;
-        }
-        else if (!lbHeldInView && (lOMousePosition - mOLastWarp).sqrMagnitude > 4f)
-        {
-            mOAt = lOMousePosition;
-        }
+        // From where the pointer is (UWPointer.Position: ours in the game, where the mouse moves it too;
+        // in the menus the pad's own place while it was used last, else the system pointer's).
+        Vector2 lOAt = UWPointer.Position;
 
         // Faster the further out, so small moves stay fine (the deflection once more).
         float lfSpeed = ScreensPerSecond * Screen.height * UWUserSettings.StickLookSpeed * pOStick.magnitude;
 
-        mOAt += pOStick * (lfSpeed * Time.unscaledDeltaTime);
-        mOAt.x = Mathf.Clamp(mOAt.x, 0f, Screen.width - 1f);
-        mOAt.y = Mathf.Clamp(mOAt.y, 0f, Screen.height - 1f);
+        lOAt += pOStick * (lfSpeed * Time.unscaledDeltaTime);
+        lOAt.x = Mathf.Clamp(lOAt.x, 0f, Screen.width - 1f);
+        lOAt.y = Mathf.Clamp(lOAt.y, 0f, Screen.height - 1f);
 
-        if (lbHeldInView)
+        // THE CLASSIC WALK BY THE POINTER (a left button held in the view): the pointer stays inside the
+        // original's view window (2026-10-23, with UWPointerZones). Until cleanup step 7.7B the pad kept
+        // its own position for it, since the Input System kept reporting the pushed-out positions of
+        // UWGameUI's warps and the pointer stuck to the view's top and left edges (per user, 2026-10-07);
+        // our own pointer has one position, which UWPointer.MoveTo holds in the window as well.
+        UWGameUI lOUi = UWScene.GameUi;
+
+        if (lOUi != null && UWScene.PlayerMovement != null && UWScene.PlayerMovement.Input.IsCursorMovementInProgress)
         {
-            // The original's view window, not the whole hole (2026-10-23, with UWPointerZones).
             Rect lOView = lOUi.ClassicScreen.MovementAreaRect;
 
-            mOAt.x = Mathf.Clamp(mOAt.x, lOView.xMin, lOView.xMax);
-            mOAt.y = Mathf.Clamp(mOAt.y, lOView.yMin, lOView.yMax);
+            lOAt.x = Mathf.Clamp(lOAt.x, lOView.xMin, lOView.xMax);
+            lOAt.y = Mathf.Clamp(lOAt.y, lOView.yMin, lOView.yMax);
         }
 
-        lOMouse.WarpCursorPosition(mOAt);
-        mOLastWarp = mOAt;
-        msOPosition = mOAt;
-        msbPlaced = true;
-        UWGamepad.NoteSyntheticMouse();
+        UWPointer.MoveTo(lOAt, UWPointer.SourceEnum.Pad);
     }
 
-    private static void fButton(InputAction pOAction, UWOsMouse.ButtonEnum peButton, ref bool pbDown)
+    /// <summary>A pad button that clicks (pbRight: the right mouse button) - on the pad's own mouse
+    /// (UWPointer.PadButton; the system's real button through UWOsMouse until cleanup step 7.7B).</summary>
+    private static void fButton(InputAction pOAction, bool pbRight, ref bool pbDown)
     {
-        // A press something waiting for any key took (UWGamepad.ConsumePress) clicks nothing.
-        if (!pbDown && pOAction.WasPressedThisFrame() && UWGamepad.IsFromGamepad(pOAction) && !UWGamepad.IsPressConsumed)
+        // A press a place waiting for a pad press owns clicks nothing (UWPadOwners, the owners of
+        // UWPressOwners; UWGamepad.ConsumePress until cleanup step 7.8).
+        if (!pbDown && pOAction.WasPressedThisFrame() && UWGamepad.IsFromGamepad(pOAction) && UWPadOwners.PointerClicks)
         {
-            UWOsMouse.Button(peButton, true);
-            UWGamepad.NoteSyntheticMouse();
+            UWPointer.PadButton(pbRight, true);
             pbDown = true;
 
-            if (peButton == UWOsMouse.ButtonEnum.Right)
+            if (pbRight)
                 msfRightSentAt = Time.unscaledTime;
         }
         else if (pbDown && !pOAction.IsPressed())
         {
-            UWOsMouse.Button(peButton, false);
-            UWGamepad.NoteSyntheticMouse();
+            UWPointer.PadButton(pbRight, false);
             pbDown = false;
 
-            if (peButton == UWOsMouse.ButtonEnum.Right)
+            if (pbRight)
                 msfRightSentAt = Time.unscaledTime;
         }
 
-        if (peButton == UWOsMouse.ButtonEnum.Right)
+        if (pbRight)
             msbRightHeld = pbDown;
     }
 
@@ -388,47 +352,39 @@ public class UWGamepadPointer : MonoBehaviour
 
         if (Mathf.Abs(lfStick) < 0.35f)
         {
-            mfWheelHeld = -1f;
+            mOWheelRepeat.Reset();
             return;
         }
 
         int liDirection = lfStick > 0f ? 1 : -1;
 
-        if (mfWheelHeld < 0f)
-        {
-            mfWheelHeld = 0f;
-            mfWheelNext = WheelDelaySeconds;
-            UWOsMouse.Wheel(liDirection);
-            UWGamepad.NoteSyntheticMouse();
-            return;
-        }
+        // A notch on the push, the first repeat WheelDelaySeconds later, then the faster the further
+        // out (the stick as it is at the repeat). One key for both directions: a flip without the
+        // dead zone between goes on with the repeat, as it did.
+        mOWheelRepeat.Every = Mathf.Lerp(0.22f, WheelRepeatSeconds, Mathf.InverseLerp(0.35f, 1f, Mathf.Abs(lfStick)));
 
-        mfWheelHeld += Time.unscaledDeltaTime;
-
-        if (mfWheelHeld < mfWheelNext)
+        if (!mOWheelRepeat.Tick(1, mOWheelRepeat.Held == 0, true, Time.unscaledTime))
             return;
 
-        mfWheelNext += Mathf.Lerp(0.22f, WheelRepeatSeconds, Mathf.InverseLerp(0.35f, 1f, Mathf.Abs(lfStick)));
-        UWOsMouse.Wheel(liDirection);
-        UWGamepad.NoteSyntheticMouse();
+        UWPointer.PadWheel(liDirection);
     }
 
     /// <summary>A button still down when the pointer stops driving goes up.</summary>
     private void fLetGo()
     {
         if (mbLeftDown)
-            UWOsMouse.Button(UWOsMouse.ButtonEnum.Left, false);
+            UWPointer.PadButton(false, false);
 
         if (mbRightDown)
         {
-            UWOsMouse.Button(UWOsMouse.ButtonEnum.Right, false);
+            UWPointer.PadButton(true, false);
             msfRightSentAt = Time.unscaledTime;
         }
 
         mbLeftDown = false;
         mbRightDown = false;
         msbRightHeld = false;
-        mfWheelHeld = -1f;
+        mOWheelRepeat.Reset();
     }
 
     private void OnDisable()

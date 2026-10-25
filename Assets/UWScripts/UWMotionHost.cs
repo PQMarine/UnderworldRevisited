@@ -898,7 +898,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         // The volume argument is the original's offset on the effect's loudness (a landing is
         // louder for a heavier thing, see UWMobileObjectMotion); dropped until 2026-10-11.
-        UWSoundEffects.PlayAt(piSound, lOAt, piVolume);
+        UWAudioService.PlayEffectAt(piSound, lOAt, piVolume);
     }
 
     // ------------------------------------------------- IUWMobileObjectHost
@@ -933,7 +933,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
     public void PlaySoundAtObject(int piSound, UWMobileRecord pORecord, int piVolume)
     {
-        UWSoundEffects.PlayAt(piSound, WorldPosition(pORecord), piVolume);
+        UWAudioService.PlayEffectAt(piSound, WorldPosition(pORecord), piVolume);
     }
 
     public void Splash(UWMobileRecord pORecord)

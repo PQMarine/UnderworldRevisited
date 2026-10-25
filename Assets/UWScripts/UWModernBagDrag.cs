@@ -506,7 +506,7 @@ internal sealed class UWModernBagDrag
         UWObject lOItem = mOBags.IsActive ? pOInventory.CursorItem ?? mOUseItem : null;
         UWTexture lOSource = lOItem != null ? lOItem.Icon ?? lOItem.Texture : null;
 
-        if (lOSource == null || Mouse.current == null)
+        if (lOSource == null || !UWPointer.HasMouse)
         {
             mOCursorIcon.enabled = false;
             mOCursorCount.enabled = false;
@@ -515,7 +515,7 @@ internal sealed class UWModernBagDrag
         }
 
         Texture2D lOIcon = UWIconCache.Texture(lOSource, mOBags.Ui.TextureFilterMode);
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         float liScale = mOBags.View.Scale;
 
         mOCursorIcon.texture = lOIcon;

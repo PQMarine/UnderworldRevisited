@@ -94,7 +94,7 @@ public sealed class UWHudMap
         fSetMapModal(true);
 
         // With the map "Maps & Legends" plays (reference: map.cs).
-        UWMusic.ChangeTheme(UWMusic.MapsAndLegendsTheme);
+        UWAudioService.ChangeTheme(UWMusicSelector.MapsAndLegendsTheme);
 
         // NO LEVEL LINE IN THE SCROLL (per user on the original, 2026-09-29; read the same day:
         // UseReadable_seg040_352B_19A8 -> ShowMapAndOtherFullScreenUIs_ovr109_2FF ->
@@ -117,7 +117,7 @@ public sealed class UWHudMap
 
         // Back to the level - or to Armed if the weapon is drawn (reference:
         // uimanager_map).
-        UWMusic.ResumeAfterInterruption(mOUi.mOInteraction != null && mOUi.mOInteraction.IsCombatModeActive);
+        UWAudioService.ResumeAfterInterruption(mOUi.mOInteraction != null && mOUi.mOInteraction.IsCombatModeActive);
 
         // The note being written is kept, the eraser put down.
         if (mONotes.Close())
@@ -453,7 +453,7 @@ public sealed class UWHudMap
     {
         // While writing, the quill sticks to the text and no longer follows the mouse.
         // The system pointer therefore goes away, the quill is drawn by us.
-        Cursor.visible = false;
+        UWPointer.IsShown = false;
 
         mOTextEntry.Begin();
 
@@ -471,7 +471,7 @@ public sealed class UWHudMap
     /// <summary>The note being written has ended - kept, or dropped when empty.</summary>
     private void fAfterNoteEnded()
     {
-        Cursor.visible = true;
+        UWPointer.IsShown = true;
 
         if (mMapWriteQuillImage != null)
             mMapWriteQuillImage.enabled = false;
@@ -499,7 +499,7 @@ public sealed class UWHudMap
 
         // Escape takes over the text AND closes the map immediately (per user on the
         // original, 2026-09-03) - so it does not discard.
-        if (UWTextEntry.EscapePressed)
+        if (UWBack.Takes(UWBackOwner.MapNote))
         {
             fEndMapNote(true);
             HideMap();
@@ -534,7 +534,7 @@ public sealed class UWHudMap
         // While writing, the keyboard belongs to the line.
         bool lbWriting = fUpdateMapWriting();
 
-        if (UnityEngine.InputSystem.Mouse.current == null)
+        if (!UWPointer.HasMouse)
             return;
 
         bool lbLeft = UWMouseButtons.LeftPressed;
@@ -547,7 +547,7 @@ public sealed class UWHudMap
 
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
             (RectTransform)mMapBackgroundImage.transform,
-            UnityEngine.InputSystem.Mouse.current.position.ReadValue(), null, out lOLocal))
+            UWPointer.Position, null, out lOLocal))
             return;
 
         // While writing at the start of the frame, any click only ends the note - also when Enter

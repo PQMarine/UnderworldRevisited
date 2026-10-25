@@ -244,7 +244,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
             fPresentation.FlashWindow(pORequest.FlashColour, pORequest.FlashSeconds);
 
         if (pORequest.TellsMusic)
-            UWMusic.OnPlayerDamaged(fVitals.CurrentHP, fVitals.MaxHP, pORequest.Music == UWDamageMusic.Player);
+            UWAudioService.OnPlayerDamaged(fVitals.CurrentHP, fVitals.MaxHP, pORequest.Music == UWDamageMusic.Player);
     }
 
     /// <summary>What the vitals show and say (cleanup step 3.1, 2026-10-17): the lines go to this
@@ -529,7 +529,7 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         UWHudDragons.Request(UWHudDragons.NodAnimation);
 
         if (pbRewarded)
-            UWMusic.ChangeTheme(UWMusic.FanfareTheme);
+            UWAudioService.ChangeTheme(UWMusicSelector.FanfareTheme);
     }
 
     // ------------------------------------------------- Active spells

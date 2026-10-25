@@ -115,8 +115,8 @@ public class UWModernCrosshair : UWModernPart
             RectTransform lORect = (RectTransform)mOHoldBar.transform;
             Vector2 lOAt = lOOffset;
 
-            if (UWModernPointer.IsFree && UnityEngine.InputSystem.Mouse.current != null)
-                lOAt = UnityEngine.InputSystem.Mouse.current.position.ReadValue() - new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            if (UWModernPointer.IsFree && UWPointer.HasMouse)
+                lOAt = UWPointer.Position - new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
             lORect.anchoredPosition = lOAt;
             lORect.sizeDelta = new Vector2(lfRing, lfRing);
@@ -176,8 +176,9 @@ public class UWModernCrosshair : UWModernPart
 
         mOPadUseText.fontSize = liFontSize;
         mOPadLookText.fontSize = liFontSize;
-        mOPadUseText.text = lOUse != null ? lsVerb : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernUse", 1)) + " " + lsVerb;
-        mOPadLookText.text = lOLook != null ? "Look" : UWGamepad.ButtonName(UWGlyphs.PadPath("ModernLook", 1)) + " Look";
+        mOPadUseText.text = lOUse != null ? lsVerb : UWBindingInfo.ButtonName(UWBindingInfo.PadPath("ModernUse", 1)) + " " + lsVerb;
+        mOPadLookText.text = lOLook != null ? UWText.T("hud.crosshair.look")
+            : UWBindingInfo.ButtonName(UWBindingInfo.PadPath("ModernLook", 1)) + " " + UWText.T("hud.crosshair.look");
 
         float lfUseWidth = mOPadUseText.preferredWidth;
         float lfLookWidth = mOPadLookText.preferredWidth;

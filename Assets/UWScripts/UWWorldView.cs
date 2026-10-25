@@ -9,8 +9,8 @@ using UnderworldRevisited.Build;
 /// engine-free UWWorldEdit changes the tile lists and raises events, this builds and destroys the
 /// GameObjects for them - ObjectPlaced spawns the object through the spawner of the level build
 /// (UWObjectSpawner), ObjectRemoved destroys its picture, LevelCleared all of them. Every object
-/// it builds gets the active render path here, at the one exit (UWPaletteRenderToggle.
-/// ApplyToNewObject): without that, everything created at runtime stayed on the old path -
+/// it builds gets the active render path here, at the one exit (UWRenderPathHost.
+/// OnObjectSpawned): without that, everything created at runtime stayed on the old path -
 /// visible because it was the only thing the player light fell on.
 ///
 /// It owns the registry from a data object to its picture (TryGetEntity), which UWLevelLoader

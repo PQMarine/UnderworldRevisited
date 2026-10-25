@@ -220,21 +220,5 @@ namespace UWDataImport.UWData
 
 			return lOXmi;
 		}
-
-		/// <summary>All available speech recordings, without extension.</summary>
-		public List<string> ListSpeechClips()
-		{
-			List<string> lOResult = new List<string>();
-
-			if (!IsAvailable)
-				return lOResult;
-
-			foreach (string lsFile in Directory.GetFiles(msSoundPath, "*.VOC", new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive }))
-				lOResult.Add(Path.GetFileNameWithoutExtension(lsFile));
-
-			lOResult.Sort();
-
-			return lOResult;
-		}
 	}
 }

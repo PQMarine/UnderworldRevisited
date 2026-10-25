@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UWDataImport.UWData;
@@ -9,6 +10,13 @@ using UnderworldRevisited.Build;
 /// geometry the tile with its texture number, for objects the id and texture source.
 ///
 /// This makes it possible to find a conspicuous spot again later.
+///
+/// ON THE KIT (cleanup 8c, 2026-10-25): this component fills a plain snapshot of the scene once a
+/// frame (UWDebugSnapshot - the camera, the character, the tile, the creature, the game variables,
+/// the trap log), the engine-free report turns it into sections of rows (UWDebugReport) and the debug
+/// panel draws them on the kit (UWDebugPanel), with the debug tools as its second tab (UWDebugTools).
+/// Until then one IMGUI text block formatted straight from the scene in OnGUI. Shift+F1 toggles the
+/// panel as it toggled the overlay; the game's buttons stay off the panel while the pointer is on it.
 /// </summary>
 public class UWDebugOverlay : MonoBehaviour
 {
@@ -23,11 +31,15 @@ public class UWDebugOverlay : MonoBehaviour
     private float mfLookRange = 4000f;
 
     private UWLevelLoader mOLoader;
-    private GUIStyle mOStyle;
-    private string msLookInfo = string.Empty;
-    private int miLastFrame = -1;
     private UWControls mControls;
     private UWInventory mOInventory;
+    private UWCharacter mOCharacter;
+    private UWDebugPanel mOPanel;
+
+    /// <summary>A button went down on the panel: the game stays shut out of the buttons until every
+    /// one is up again, so the release does not use, drop or walk anything (as the help's reading
+    /// mode does, UWHelpWindow).</summary>
+    private bool mbSwallowUntilReleased;
 
     public void Init(UWLevelLoader pOLoader)
     {
@@ -43,72 +55,139 @@ public class UWDebugOverlay : MonoBehaviour
     private void OnDestroy()
     {
         mControls.Dispose();
+
+        if (mOPanel != null)
+            mOPanel.Dispose();
+
+        UWMouseButtons.IsBlockedByDebug = false;
+    }
+
+    private void OnDisable()
+    {
+        mbSwallowUntilReleased = false;
+        UWMouseButtons.IsBlockedByDebug = false;
+
+        // The panel's canvas goes dark with the component.
+        if (mOPanel != null)
+            mOPanel.Draw(false, null, null);
     }
 
     private void Update()
     {
-        if (mControls.Debug.ToggleOverlay.WasPressedThisFrame())
-            mbVisible = !mbVisible;
+        // Shift+F1 (UWHotkeys since cleanup step 7.5).
+        if (mOKeys == null)
+            mOKeys = new OverlayKeys(this);
+
+        UWHotkeys.Route(UWHotkeySite.DebugOverlay, mOKeys);
+
+        fUpdateButtonBlock();
     }
 
-    private void OnGUI()
+    private OverlayKeys mOKeys;
+
+    /// <summary>The overlay's hotkey (UWHotkeys), on this component's own controls.</summary>
+    private sealed class OverlayKeys : UWHotkeyHost
     {
-        if (!mbVisible || mOLoader == null || mOLoader.UWDataImporter == null)
-            return;
+        private readonly UWDebugOverlay mOOverlay;
 
-        // Draw in front of all other overlays.
-        GUI.depth = -1000;
-
-        if (mOStyle == null)
+        public OverlayKeys(UWDebugOverlay pOOverlay)
         {
-            mOStyle = new GUIStyle(GUI.skin.label);
-            mOStyle.fontSize = 14;
-            mOStyle.normal.textColor = Color.white;
-            mOStyle.richText = false;
+            mOOverlay = pOOverlay;
         }
 
-        // Recompute only once per frame, OnGUI runs several times.
-        if (miLastFrame != Time.frameCount)
+        protected override UWControls Controls => mOOverlay.mControls;
+
+        public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
         {
-            miLastFrame = Time.frameCount;
-            msLookInfo = fDescribeLookTarget();
+            return false;
         }
 
-        string lsText = fBuildText();
+        public override bool Run(UWHotkeyHandler peHandler)
+        {
+            if (peHandler != UWHotkeyHandler.ToggleOverlay)
+                return false;
 
-        Vector2 lOSize = mOStyle.CalcSize(new GUIContent(lsText));
-        Rect lORect = new Rect(8f, 8f, lOSize.x + 16f, lOSize.y + 12f);
-
-        Color lOPrevious = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, 0.65f);
-        GUI.DrawTexture(lORect, Texture2D.whiteTexture);
-        GUI.color = lOPrevious;
-
-        GUI.Label(new Rect(lORect.x + 8f, lORect.y + 6f, lORect.width, lORect.height), lsText, mOStyle);
+            mOOverlay.mbVisible = !mOOverlay.mbVisible;
+            return true;
+        }
     }
 
-    private string fBuildText()
+    /// <summary>The game's buttons stay off the panel: while the pointer is on it (as last drawn), and
+    /// from a press on it until every button is up (UWMouseButtons.IsBlockedByDebug).</summary>
+    private void fUpdateButtonBlock()
     {
-        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+        bool lbOver = mOPanel != null && mOPanel.IsShown && UWModernUi.WindowTakesPointer(out Vector2 lOAt) && mOPanel.ScreenRect.Contains(lOAt);
+        bool lbPressed = UWPointer.HasMouse && (UWPointer.LeftPressed || UWPointer.RightPressed
+            || UWPointer.MiddlePressed);
+        bool lbHeld = UWPointer.HasMouse && (UWPointer.LeftHeld || UWPointer.RightHeld || UWPointer.MiddleHeld);
+
+        if (lbOver && lbPressed)
+            mbSwallowUntilReleased = true;
+        else if (!lbHeld)
+            mbSwallowUntilReleased = false;
+
+        UWMouseButtons.IsBlockedByDebug = lbOver || mbSwallowUntilReleased;
+    }
+
+    private void LateUpdate()
+    {
+        bool lbReady = mOLoader != null && mOLoader.UWDataImporter != null;
+        UWDebugTools lOTools = UWDebugTools.IsOpen ? UWDebugTools.Instance : null;
+        bool lbShown = lbReady && (mbVisible || lOTools != null);
+
+        if (mOPanel == null)
+        {
+            if (!lbShown)
+                return;
+
+            mOPanel = new UWDebugPanel(transform);
+        }
+
+        UWDebugReport lOReport = lbShown && lOTools == null ? UWDebugReport.Build(fSnapshot()) : null;
+
+        switch (mOPanel.Draw(lbShown, lOReport, lOTools))
+        {
+            case UWDebugPanel.ActionEnum.ShowReport:
+                mbVisible = true;
+
+                if (UWDebugTools.Instance != null)
+                    UWDebugTools.Instance.Close();
+
+                break;
+
+            case UWDebugPanel.ActionEnum.ShowTools:
+                if (UWDebugTools.Instance != null)
+                    UWDebugTools.Instance.Open();
+
+                break;
+        }
+    }
+
+    // ------------------------------------------------- The snapshot
+
+    /// <summary>What the report shows this frame, read from the scene as the IMGUI overlay read it
+    /// (fBuildText and the methods below it until cleanup 8c).</summary>
+    private UWDebugSnapshot fSnapshot()
+    {
+        UWDebugSnapshot lOSnapshot = new UWDebugSnapshot
+        {
+            Level = mOLoader.CurrentLevelIndex + 1,
+            HideKey = mControls.Debug.ToggleOverlay.GetBindingDisplayString(),
+            Now = Time.time
+        };
 
         // CREATURES ONLY: while a creature's behaviour is being hunted down, everything else
-        // is in the way - position, backpack, game variables, trap log (per user,
-        // 2026-09-16: "and clearer, maybe just the creature data on F1 for a while"). The
-        // switch sits next to the trace it belongs to, UWSettings.CritterTrace.
+        // is in the way (per user, 2026-09-16). The switch sits next to the trace it belongs to,
+        // UWSettings.CritterTrace.
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
         if (lOSettings != null && lOSettings.CritterTrace)
         {
-            lOText.AppendFormat("Level {0}", mOLoader.CurrentLevelIndex + 1);
-            fAppendNearestCritter(lOText);
-            lOText.AppendFormat("\n[{0}] hides", mControls.Debug.ToggleOverlay.GetBindingDisplayString());
+            lOSnapshot.CritterTrace = true;
+            fFillCritter(lOSnapshot);
 
-            return lOText.ToString();
+            return lOSnapshot;
         }
-
-        Transform lOPlayer = fGetPlayerTransform();
-
-        lOText.AppendFormat("Level {0}", mOLoader.CurrentLevelIndex + 1);
 
         // Backpack fill level, originally added for testing the inventory setup (step 1/2 of the
         // inventory plan).
@@ -119,56 +198,61 @@ public class UWDebugOverlay : MonoBehaviour
         {
             int liCount = 0;
 
-            foreach (UWDataImport.UWData.UWObject lOItem in mOInventory.Backpack)
+            foreach (UWObject lOItem in mOInventory.Backpack)
                 if (lOItem != null)
                     liCount++;
 
-            lOText.AppendFormat("   Backpack {0}/{1}", liCount, UWInventory.BackpackSize);
+            lOSnapshot.HasBackpack = true;
+            lOSnapshot.BackpackCount = liCount;
+            lOSnapshot.BackpackSize = UWInventory.BackpackSize;
         }
 
-        if (lOPlayer != null)
+        // The camera is attached to the player or to the noclip camera; its position is enough
+        // for the tile.
+        Camera lOCamera = fGetActiveCamera();
+
+        if (lOCamera != null)
         {
-            Vector3 lOPosition = lOPlayer.position;
+            Vector3 lOPosition = lOCamera.transform.position;
 
-            int liTileX = UWUnits.WorldAxisToTile(lOPosition.x);
-            int liTileZ = UWUnits.WorldAxisToTile(lOPosition.z);
+            lOSnapshot.HasPlace = true;
+            lOSnapshot.X = lOPosition.x;
+            lOSnapshot.Y = lOPosition.y;
+            lOSnapshot.Z = lOPosition.z;
+            lOSnapshot.TileX = UWUnits.WorldAxisToTile(lOPosition.x);
+            lOSnapshot.TileZ = UWUnits.WorldAxisToTile(lOPosition.z);
 
-            lOText.AppendFormat("   Tile ({0},{1})", liTileX, liTileZ);
-            lOText.AppendFormat("\nPosition {0:F0} / {1:F0} / {2:F0}", lOPosition.x, lOPosition.y, lOPosition.z);
-
-            UWTile lOTile = fGetTile(liTileX, liTileZ);
+            UWTile lOTile = fGetTile(lOSnapshot.TileX, lOSnapshot.TileZ);
 
             if (lOTile != null)
-                lOText.AppendFormat("   {0}, floor {1}", lOTile.TileType, lOTile.FloorHeight);
-
-            fAppendCharacter(lOText);
-            fAppendTileTraps(lOText, lOTile);
-
-            Camera lOCamera = fGetActiveCamera();
-
-            if (lOCamera != null)
             {
-                float lfYaw = lOCamera.transform.eulerAngles.y;
-                lOText.AppendFormat("\nHeading {0:F0} degrees ({1})", lfYaw, fGetCompass(lfYaw));
-
-                fAppendOriginalUnits(lOText, lOPosition, lfYaw);
+                lOSnapshot.HasTile = true;
+                lOSnapshot.TileType = lOTile.TileType.ToString();
+                lOSnapshot.FloorHeight = lOTile.FloorHeight;
             }
+
+            fFillCharacter(lOSnapshot);
+            fFillTileTraps(lOSnapshot, lOTile);
+
+            lOSnapshot.Yaw = lOCamera.transform.eulerAngles.y;
+            fFillOriginalUnits(lOSnapshot, lOPosition, lOSnapshot.Yaw);
         }
 
-        lOText.Append("\n");
-        lOText.Append(msLookInfo);
+        fFillLookTarget(lOSnapshot.Look, lOCamera);
+        fFillCritter(lOSnapshot);
 
-        fAppendNearestCritter(lOText);
-        fAppendGameVariables(lOText);
-        fAppendTrapLog(lOText);
+        // The game variables (the report shows the set ones) and the most recently triggered traps.
+        foreach (KeyValuePair<int, int> lOPair in UWGameVariables.All)
+            lOSnapshot.Variables.Add(lOPair);
 
-        lOText.AppendFormat("\n[{0}] hides", mControls.Debug.ToggleOverlay.GetBindingDisplayString());
+        foreach (UWTrapLog.Entry lOEntry in UWTrapLog.Entries)
+            lOSnapshot.Traps.Add(lOEntry);
 
-        return lOText.ToString();
+        return lOSnapshot;
     }
 
-    /// <summary>The creatures of fAppendNearestCritter, kept between frames.</summary>
-    private readonly System.Collections.Generic.List<UWCritter> mOCritters = new System.Collections.Generic.List<UWCritter>();
+    /// <summary>The creatures of fFillCritter, kept between frames.</summary>
+    private readonly List<UWCritter> mOCritters = new List<UWCritter>();
 
     /// <summary>
     /// What the nearest creature is currently up to.
@@ -179,23 +263,25 @@ public class UWDebugOverlay : MonoBehaviour
     /// by looking at it - and when in doubt you guess (2026-09-10, exactly this case).
     ///
     /// Shown are the numbers from the creature table that determine its behaviour,
-    /// and what it is currently doing with them.
+    /// and what it is currently doing with them (UWCritter.FillDebug).
     /// </summary>
-    private void fAppendNearestCritter(System.Text.StringBuilder pOText)
+    private void fFillCritter(UWDebugSnapshot pOSnapshot)
     {
         // THE LOOKED-AT CREATURE FIRST. The nearest enemy is not necessarily the one
         // that matters right now - with the fire elemental the line showed a spider instead,
         // which happened to be closer (per user, 2026-09-10).
         // The creatures from the world's search (cleanup step 3.2, 2026-10-17; before, a scene search).
-        System.Collections.Generic.List<UWCritter> lOCritters = mOCritters;
+        List<UWCritter> lOCritters = mOCritters;
         UWWorld lOWorld = UWScene.World;
 
         if (lOWorld == null || lOWorld.FindCritters(UWTileArea.WholeLevel, UWCreatureFilter.Any, lOCritters) == 0)
         {
-            pOText.Append("\nEnemy: none on this level");
+            pOSnapshot.CreatureCount = 0;
 
             return;
         }
+
+        pOSnapshot.CreatureCount = lOCritters.Count;
 
         UWCritter lOShown = fGetLookedAtCritter();
         bool lbLookedAt = lOShown != null;
@@ -239,13 +325,17 @@ public class UWDebugOverlay : MonoBehaviour
         if (lOShown == null)
             return;
 
-        pOText.AppendFormat("\nEnemy {0} ({1} of {2})  {3:F0} away ({4:F1} tiles)  {5}  attack {6}",
-            lOShown.name, lbLookedAt ? "looked at" : "nearest", lOCritters.Count,
-            lfDistanceToShown, lfDistanceToShown / UWWorldScale.TileSize,
-            lOShown.State, lOShown.AttackKind);
+        UWDebugCreature lOView = new UWDebugCreature
+        {
+            Name = lOShown.name,
+            LookedAt = lbLookedAt,
+            Distance = lfDistanceToShown,
+            State = lOShown.State.ToString(),
+            AttackKind = lOShown.AttackKind.ToString()
+        };
 
-        pOText.Append(lOShown.DescribeCombatStats());
-        pOText.Append(lOShown.GetTrace());
+        lOShown.FillDebug(lOView);
+        pOSnapshot.Creature = lOView;
     }
 
     /// <summary>The creature under the crosshair, if there is one.</summary>
@@ -268,7 +358,7 @@ public class UWDebugOverlay : MonoBehaviour
 
     /// <summary>Hit points, mana and poison - so a hit can be attributed.
     /// Without this you see the flask twitch while testing, but no number.</summary>
-    private void fAppendCharacter(System.Text.StringBuilder pOText)
+    private void fFillCharacter(UWDebugSnapshot pOSnapshot)
     {
         if (mOCharacter == null)
             mOCharacter = UWScene.Character;
@@ -276,34 +366,29 @@ public class UWDebugOverlay : MonoBehaviour
         if (mOCharacter == null)
             return;
 
-        pOText.AppendFormat("\nHealth {0}/{1}   Mana {2:F0}/{3:F0}",
-            mOCharacter.Vitals.CurrentHP, mOCharacter.Vitals.MaxHP,
-            mOCharacter.Vitals.CurrentMana, mOCharacter.Vitals.MaxMana);
+        UWDebugPlayer lOPlayer = new UWDebugPlayer
+        {
+            HitPoints = mOCharacter.Vitals.CurrentHP,
+            MaxHitPoints = mOCharacter.Vitals.MaxHP,
+            Mana = mOCharacter.Vitals.CurrentMana,
+            MaxMana = mOCharacter.Vitals.MaxMana,
+            Poison = mOCharacter.Vitals.Poison
+        };
 
-        if (mOCharacter.Vitals.Poison > 0)
-            pOText.AppendFormat("   POISONED {0}", mOCharacter.Vitals.Poison);
+        pOSnapshot.Player = lOPlayer;
 
-        // WHERE THE LAST HIT CAME FROM. The damage type reveals the source: physical is
-        // melee, fire a fireball or lava, missile an arrow, "-" something
-        // untyped like starvation or a trap.
+        // WHERE THE LAST HIT CAME FROM, and the combat shake of that hit, if it shook at all.
         if (mOCharacter.LastDamageTime >= 0f)
         {
-            string lsType = mOCharacter.Vitals.LastDamageType == UWDamageTypes.None
-                ? "untyped"
-                : fDescribeDamageTypes(mOCharacter.Vitals.LastDamageType);
-
-            pOText.AppendFormat("\nLast hit {0} ({1}) {2:F1}s ago",
-                mOCharacter.Vitals.LastDamage, lsType, Time.time - mOCharacter.LastDamageTime);
-
-            // The combat shake of that hit, if it shook at all (level 0 sets a zero duration and
-            // shows nothing, as set_effect(0x20, 0) in the original; 2026-10-19).
-            if (mOCharacter.LastShakeTime >= 0f && Mathf.Abs(mOCharacter.LastShakeTime - mOCharacter.LastDamageTime) < 0.1f)
-                pOText.AppendFormat(", shake level {0}", mOCharacter.LastShakeLevel);
-            else
-                pOText.Append(", no shake");
+            lOPlayer.HasLastHit = true;
+            lOPlayer.LastDamage = mOCharacter.Vitals.LastDamage;
+            lOPlayer.LastDamageType = mOCharacter.Vitals.LastDamageType;
+            lOPlayer.LastHitAge = Time.time - mOCharacter.LastDamageTime;
+            lOPlayer.Shook = mOCharacter.LastShakeTime >= 0f && Mathf.Abs(mOCharacter.LastShakeTime - mOCharacter.LastDamageTime) < 0.1f;
+            lOPlayer.ShakeLevel = mOCharacter.LastShakeLevel;
         }
 
-        fAppendArmour(pOText);
+        fFillArmour(lOPlayer);
     }
 
     /// <summary>
@@ -315,55 +400,31 @@ public class UWDebugOverlay : MonoBehaviour
     /// the enchantment (see UWLoreCheck). When rebuilding, those are the decisive numbers,
     /// and without a display you cannot tell whether a hit failed because of the armour
     /// or for another reason.
-    ///
-    /// THE TWO COLUMNS ARE DIFFERENT THINGS (see UWArmourProtection): armour
-    /// subtracts DAMAGE, protection lowers the CHANCE TO HIT - and it only counts on head and
-    /// body.
     /// </summary>
-    private void fAppendArmour(System.Text.StringBuilder pOText)
+    private void fFillArmour(UWDebugPlayer pOPlayer)
     {
         mOCharacter.RefreshStatus();
 
-        pOText.AppendFormat("\nArmour  body {0}/{1}  hands {2}/{3}  legs {4}/{5}  head {6}/{7}   (armour/protection)",
-            mOCharacter.GetArmourAt(UWArmourProtection.PartBody),
-            mOCharacter.GetProtectionAt(UWArmourProtection.PartBody),
-            mOCharacter.GetArmourAt(UWArmourProtection.PartHands),
-            mOCharacter.GetProtectionAt(UWArmourProtection.PartHands),
-            mOCharacter.GetArmourAt(UWArmourProtection.PartLegs),
-            mOCharacter.GetProtectionAt(UWArmourProtection.PartLegs),
-            mOCharacter.GetArmourAt(UWArmourProtection.PartHead),
-            mOCharacter.GetProtectionAt(UWArmourProtection.PartHead));
+        for (int liPart = 0; liPart < msArmourParts.Length; liPart++)
+        {
+            pOPlayer.Armour[liPart] = mOCharacter.GetArmourAt(msArmourParts[liPart]);
+            pOPlayer.Protection[liPart] = mOCharacter.GetProtectionAt(msArmourParts[liPart]);
+        }
 
-        // Both values, because they differ: the skill is what the status page shows, the check
-        // value is what a creature rolls against (skill + half the weapon skill, see
-        // UWPlayerCritterRow).
-        pOText.AppendFormat("   Defence {0} (skill {1} + half of {2})", mOCharacter.DefenceCheck,
-            mOCharacter.Vitals.Defence, mOCharacter.DefenceWeaponSkill);
-
-        // The resistance of spell class 2 is already included in the four armour values above.
-        // It is still shown separately here, because otherwise you cannot see whether a high
-        // number comes from the armour or from the spell.
-        if (mOCharacter.DamageResistance > 0)
-            pOText.AppendFormat("   Resistance +{0}", mOCharacter.DamageResistance);
-
-        // What the character is currently immune to. Since 2026-09-10 this also takes effect:
-        // the damage is deflected entirely, see UWDamagePipeline.
-        if (mOCharacter.DamageTypeProof != 0)
-            pOText.AppendFormat("   Immune to {0}",
-                fDescribeDamageTypes(mOCharacter.DamageTypeProof));
-
-        if (mOCharacter.StealthBonus != 0)
-            pOText.AppendFormat("   Stealth 0x{0:X}", mOCharacter.StealthBonus);
-
-        if (mOCharacter.HasDragonSkinBoots)
-            pOText.Append("   Dragon skin boots (lava-proof)");
+        pOPlayer.DefenceCheck = mOCharacter.DefenceCheck;
+        pOPlayer.Defence = mOCharacter.Vitals.Defence;
+        pOPlayer.DefenceSkill = mOCharacter.DefenceWeaponSkill.ToString();
+        pOPlayer.Resistance = mOCharacter.DamageResistance;
+        pOPlayer.Proof = mOCharacter.DamageTypeProof;
+        pOPlayer.Stealth = mOCharacter.StealthBonus;
+        pOPlayer.DragonSkinBoots = mOCharacter.HasDragonSkinBoots;
 
         if (mOInventory == null)
             return;
 
         foreach (UWArmorItemMap.BodySlot leSlot in msArmourSlots)
         {
-            UWDataImport.UWData.UWObject lOItem = mOInventory.GetEquipped(leSlot);
+            UWObject lOItem = mOInventory.GetEquipped(leSlot);
 
             if (lOItem == null)
                 continue;
@@ -374,50 +435,25 @@ public class UWDebugOverlay : MonoBehaviour
             if (!UWArmourProtection.TryGetWearableEnchantment(lOItem, out liMajor, out liMinor))
                 continue;
 
-            pOText.AppendFormat("\n  {0}: object {1}, spell {2}-{3:X}", leSlot, lOItem.ID, liMajor, liMinor);
-
-            int liProtection = UWArmourProtection.GetProtectionEnchantment(lOItem);
-
-            if (liProtection > 0)
-                pOText.AppendFormat("  Protection +{0}", liProtection);
+            pOPlayer.Enchantments.Add(new UWDebugEnchantment
+            {
+                Slot = leSlot.ToString(),
+                ObjectId = lOItem.ID,
+                Major = liMajor,
+                Minor = liMinor,
+                Protection = UWArmourProtection.GetProtectionEnchantment(lOItem)
+            });
         }
     }
 
-    /// <summary>
-    /// A resistance byte in words - the magic level as a number, the rest as names.
-    ///
-    /// The bit layout is in UWDamageTypes; the names are those of the spells that
-    /// set them (Flameproof, Poison Resistance, Missile Protection).
-    /// </summary>
-    private static string fDescribeDamageTypes(int piBits)
+    /// <summary>The armour parts in the snapshot's order: body, hands, legs, head.</summary>
+    private static readonly int[] msArmourParts =
     {
-        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
-
-        int liMagicLevel = piBits & 0x3;
-
-        if (liMagicLevel > 0)
-            lOText.AppendFormat("Magic {0}/3", liMagicLevel);
-
-        fAppendDamageTypeName(lOText, piBits, UWDamageTypes.Physical, "Physical");
-        fAppendDamageTypeName(lOText, piBits, UWDamageTypes.PlainFire, "Fire");
-        fAppendDamageTypeName(lOText, piBits, UWDamageTypes.Poison, "Poison");
-        fAppendDamageTypeName(lOText, piBits, 0x20, "Cold");
-        fAppendDamageTypeName(lOText, piBits, UWDamageTypes.Missile, "Missile");
-
-        return lOText.ToString();
-    }
-
-    private static void fAppendDamageTypeName(System.Text.StringBuilder pOText, int piBits,
-        int piMask, string psName)
-    {
-        if ((piBits & piMask) == 0)
-            return;
-
-        if (pOText.Length > 0)
-            pOText.Append(", ");
-
-        pOText.Append(psName);
-    }
+        UWArmourProtection.PartBody,
+        UWArmourProtection.PartHands,
+        UWArmourProtection.PartLegs,
+        UWArmourProtection.PartHead
+    };
 
     /// <summary>The slots from which an enchantment takes effect: the five armour pieces and
     /// the two rings. The hands are left out on purpose - nothing takes effect from there as long
@@ -439,50 +475,27 @@ public class UWDebugOverlay : MonoBehaviour
     /// Major class 6 is objects 384 to 447 - traps and triggers. They have no
     /// representation in the world, so you cannot tell that you are standing on them.
     /// </summary>
-    private void fAppendTileTraps(System.Text.StringBuilder pOText, UWTile pOTile)
+    private void fFillTileTraps(UWDebugSnapshot pOSnapshot, UWTile pOTile)
     {
         if (pOTile == null || pOTile.ObjectsInTile == null || mOLoader == null)
             return;
 
-        foreach (UWDataImport.UWData.UWObject lOObject in pOTile.ObjectsInTile)
+        foreach (UWObject lOObject in pOTile.ObjectsInTile)
         {
             if (lOObject == null || lOObject.ID < 384 || lOObject.ID > 447)
                 continue;
 
-            pOText.AppendFormat("\n  on this tile: {0} (q {1}, own {2})",
-                UWTrapLog.GetName(mOLoader != null ? mOLoader.UWDataImporter : null, lOObject.ID), lOObject.Quality, lOObject.Owner);
+            UWObject lOLinked = UWObjectMechanics.GetLinkedObject(lOObject, mOLoader.CurrentLevel.Masterlist);
 
-            UWDataImport.UWData.UWObject lOLinked = UWDataImport.UWData.UWObjectMechanics.GetLinkedObject(
-                lOObject, mOLoader.CurrentLevel.Masterlist);
-
-            if (lOLinked != null && lOLinked.ID >= 384 && lOLinked.ID <= 447)
-                pOText.AppendFormat(" -> {0}", UWTrapLog.GetName(mOLoader != null ? mOLoader.UWDataImporter : null, lOLinked.ID));
-        }
-    }
-
-    /// <summary>
-    /// The game variables that are not zero - the state of the puzzles.
-    ///
-    /// Without them the variable traps reveal nothing: they have no representation in the
-    /// world, and yet whether a counter is already at seven decides whether the next
-    /// check passes. Only the set ones, so the line stays short.
-    /// </summary>
-    private void fAppendGameVariables(System.Text.StringBuilder pOText)
-    {
-        bool lbAny = false;
-
-        foreach (System.Collections.Generic.KeyValuePair<int, int> lOPair in UWGameVariables.All)
-        {
-            if (lOPair.Value == 0)
-                continue;
-
-            if (!lbAny)
+            pOSnapshot.TileTraps.Add(new UWDebugTileTrap
             {
-                pOText.Append("\nVariables:");
-                lbAny = true;
-            }
-
-            pOText.AppendFormat(" {0}={1}", lOPair.Key, lOPair.Value);
+                Name = UWTrapLog.GetName(mOLoader.UWDataImporter, lOObject.ID),
+                Quality = lOObject.Quality,
+                Owner = lOObject.Owner,
+                LinkedName = lOLinked != null && lOLinked.ID >= 384 && lOLinked.ID <= 447
+                    ? UWTrapLog.GetName(mOLoader.UWDataImporter, lOLinked.ID)
+                    : null
+            });
         }
     }
 
@@ -496,93 +509,21 @@ public class UWDebugOverlay : MonoBehaviour
     ///
     /// THIS IS EXACTLY HOW IT IS STORED IN THE SAVE GAME: the fields at 0x54 and 0x56 hold the fine
     /// position X and Y, whose upper byte is the tile, the field at 0x58 holds zpos times eight, and
-    /// the one at 0x5A the heading as a full circle in 16 bits. All four can be read here.
+    /// the one at 0x5A the heading as a full circle in 16 bits (see UWPlayerData.WritePosition).
     /// </summary>
-    private static void fAppendOriginalUnits(System.Text.StringBuilder pOText, Vector3 pOPosition,
-        float pfYaw)
+    private static void fFillOriginalUnits(UWDebugSnapshot pOSnapshot, Vector3 pOPosition, float pfYaw)
     {
-        // These are already EXACTLY the values of the four position fields in the save game: the
-        // fine position holds the tile in its upper byte, the height field eighths of a
-        // zpos step, the heading field the full circle in 16 bits (see
-        // UWPlayerData.WritePosition). That is why the field number is shown right next to it.
-        int liX = UWViewpoint.WorldToOriginalX(pOPosition.x);
-        int liY = UWViewpoint.WorldToOriginalY(pOPosition.z);
-        int liZ = UWViewpoint.WorldToOriginalZ(pOPosition.y);
-
-        int liHeading = (ushort)UWViewpoint.DegreesToAngle(pfYaw);
-
-        pOText.AppendFormat("\nOriginal  x {0} (0x54={0:X4})  y {1} (0x56={1:X4})",
-            liX, liY);
-
-        pOText.AppendFormat("\n          zpos {0} (0x58={1:X4})  heading {2} (0x5A={2:X4})",
-            liZ >> 3, liZ, liHeading);
+        pOSnapshot.OriginalX = UWViewpoint.WorldToOriginalX(pOPosition.x);
+        pOSnapshot.OriginalY = UWViewpoint.WorldToOriginalY(pOPosition.z);
+        pOSnapshot.OriginalZ = UWViewpoint.WorldToOriginalZ(pOPosition.y);
+        pOSnapshot.OriginalHeading = (ushort)UWViewpoint.DegreesToAngle(pfYaw);
 
         // THE MOTION CORE'S OWN VIEW (stage 3, 2026-10-06): the params block, the contact state
-        // and what the last step found under and around the player - the floor samples and the
-        // collision records (item ids with bottom and top). For a player standing where he
-        // should not (per user: on the edge of a water slope a level too high).
+        // and what the last step found under and around the player (UWDebugMotion.From).
         UWPlayerMovement lOMovement = UWScene.PlayerMovement;
 
         if (lOMovement != null && lOMovement.UsesMotionCore)
-        {
-            UWDataImport.UWData.UWPlayerMotion lOMotion = lOMovement.Motion;
-            UWDataImport.UWData.UWMotionCore lOCore = lOMotion.Core;
-
-            pOText.AppendFormat("\nCore      x {0} y {1} z {2} (fine)  speed {3} vz {4} gravity {5}  contact 0x{6:X}  state {7}{8}",
-                lOMotion.Params.X, lOMotion.Params.Y, lOMotion.Params.Z, lOMotion.Params.Speed, lOMotion.Params.Vz,
-                lOMotion.Params.Gravity, lOMotion.Params.Contact, lOMotion.CurrentState,
-                lOMotion.Precise ? (lOMotion.FineTicks ? "  precise, fine ticks" : "  precise") : string.Empty);
-            pOText.AppendFormat("\n          flags 0x{0:X} all 0x{1:X}  centre floor {2}  max floor {3}  records {4} (overlap {5} from {6})",
-                lOCore.Flags, lOCore.AllFlags, lOCore.CentreFloor, lOCore.MaxFloor, lOCore.Count & 0xFF, lOCore.Overlap & 0xFF, (sbyte)lOCore.First);
-
-            for (int liAt = 0; liAt < (lOCore.Count & 0xFF) && liAt < lOCore.Records.Length; liAt++)
-            {
-                UWDataImport.UWData.UWMotionCore.Record lORecord = lOCore.Records[liAt];
-
-                pOText.AppendFormat("\n          record {0}: item 0x{1:X3} index {2} at {3}/{4} z {5}..{6} flags 0x{7:X}",
-                    liAt, lORecord.Body.ItemId & 0x1FF, lORecord.Body.Index, lORecord.Dx, lORecord.Dy, lORecord.Bottom, lORecord.Top, lORecord.Flags);
-            }
-        }
-    }
-
-    /// <summary>The most recently triggered traps, with their age in seconds.</summary>
-    private void fAppendTrapLog(System.Text.StringBuilder pOText)
-    {
-        if (UWTrapLog.Entries.Count == 0)
-            return;
-
-        pOText.Append("\nTraps:");
-
-        for (int liAt = UWTrapLog.Entries.Count - 1; liAt >= 0; liAt--)
-        {
-            UWTrapLog.Entry lOEntry = UWTrapLog.Entries[liAt];
-
-            pOText.AppendFormat("\n  {0:F0}s ago  {1}", Time.time - lOEntry.Time, lOEntry.Text);
-        }
-    }
-
-    private UWCharacter mOCharacter;
-
-    /// <summary>Compass direction in the level's coordinate system: north is +Z.</summary>
-    private static string fGetCompass(float pfYaw)
-    {
-        string[] lsNames = new string[] { "North", "Northeast", "East", "Southeast", "South", "Southwest", "West", "Northwest" };
-
-        int liIndex = UWHeadings.DegreesToEighth(pfYaw);
-
-        return lsNames[liIndex];
-    }
-
-    private Transform fGetPlayerTransform()
-    {
-        Camera lOCamera = fGetActiveCamera();
-
-        if (lOCamera == null)
-            return null;
-
-        // The camera is attached to the player or to the noclip camera; its position is enough
-        // for the tile.
-        return lOCamera.transform;
+            pOSnapshot.Motion = UWDebugMotion.From(lOMovement.Motion);
     }
 
     /// <summary>
@@ -610,18 +551,24 @@ public class UWDebugOverlay : MonoBehaviour
     /// distinguishes floor, ceiling and wall. For objects the id and texture source are
     /// given - exactly the details needed for debugging.
     /// </summary>
-    private string fDescribeLookTarget()
+    private void fFillLookTarget(UWDebugLook pOLook, Camera pOCamera)
     {
-        Camera lOCamera = fGetActiveCamera();
+        if (pOCamera == null)
+        {
+            pOLook.Kind = UWDebugLookKind.NoCamera;
 
-        if (lOCamera == null)
-            return "Look target: no camera";
+            return;
+        }
 
-        Ray lORay = UWWorldPicker.CrosshairRay(lOCamera);
+        Ray lORay = UWWorldPicker.CrosshairRay(pOCamera);
         RaycastHit lOHit;
 
         if (!Physics.Raycast(lORay, out lOHit, mfLookRange))
-            return "Look target: nothing";
+        {
+            pOLook.Kind = UWDebugLookKind.Nothing;
+
+            return;
+        }
 
         UWEntityInfo lOEntity = lOHit.collider.GetComponentInParent<UWEntityInfo>();
 
@@ -629,15 +576,19 @@ public class UWDebugOverlay : MonoBehaviour
         {
             UWObject lOObject = lOEntity.ObjectData;
 
-            string lsTexture = "?";
+            pOLook.Kind = UWDebugLookKind.Object;
+            pOLook.ObjectId = lOObject.ID;
+            pOLook.Category = lOObject.GetCategory().ToString();
+            pOLook.Texture = lOObject.Texture != null
+                ? string.Format("{0} {1}", lOObject.Texture.TextureType, lOObject.Texture.Index)
+                : "?";
+            pOLook.TileX = lOObject.TileX;
+            pOLook.TileY = lOObject.TileY;
+            pOLook.Height = lOObject.ZPos;
+            pOLook.Heading = lOObject.Heading;
+            pOLook.Description = string.IsNullOrEmpty(lOEntity.Description) ? "-" : lOEntity.Description;
 
-            if (lOObject.Texture != null)
-                lsTexture = string.Format("{0} {1}", lOObject.Texture.TextureType, lOObject.Texture.Index);
-
-            return string.Format("Look target: object 0x{0:X4} ({1}), texture {2}\n   tile ({3},{4}), height {5}, heading {6}, {7}",
-                lOObject.ID, lOObject.GetCategory(), lsTexture,
-                lOObject.TileX, lOObject.TileY, lOObject.ZPos, lOObject.Heading,
-                string.IsNullOrEmpty(lOEntity.Description) ? "-" : lOEntity.Description);
+            return;
         }
 
         UWLevelChunk lOChunk = lOHit.collider.GetComponent<UWLevelChunk>();
@@ -655,34 +606,36 @@ public class UWDebugOverlay : MonoBehaviour
 
                 float lfUp = Vector3.Dot(lOHit.normal, Vector3.up);
 
-                string lsSurface;
-                int liTexture;
+                pOLook.Kind = UWDebugLookKind.Surface;
+                pOLook.TileX = liTileX;
+                pOLook.TileY = liTileZ;
+                pOLook.TileType = lOTile != null ? lOTile.TileType.ToString() : "?";
 
                 if (lfUp > 0.5f)
                 {
-                    lsSurface = "floor";
-                    liTexture = lOTile != null ? lOTile.TextureFloor : -1;
+                    pOLook.Surface = "floor";
+                    pOLook.TextureIndex = lOTile != null ? lOTile.TextureFloor : -1;
                 }
                 else if (lfUp < -0.5f)
                 {
-                    lsSurface = "ceiling";
-                    liTexture = lOTile != null ? lOTile.TextureCeiling : -1;
+                    pOLook.Surface = "ceiling";
+                    pOLook.TextureIndex = lOTile != null ? lOTile.TextureCeiling : -1;
                 }
                 else
                 {
-                    lsSurface = "wall";
-                    liTexture = lOTile != null ? lOTile.TextureWall : -1;
+                    pOLook.Surface = "wall";
+                    pOLook.TextureIndex = lOTile != null ? lOTile.TextureWall : -1;
                 }
 
-                return string.Format("Look target: {0} on tile ({1},{2}), texture {3}, {4}",
-                    lsSurface, liTileX, liTileZ, liTexture,
-                    lOTile != null ? lOTile.TileType.ToString() : "?");
+                return;
             }
         }
 
-        if (lOEntity != null)
-            return string.Format("Look target: {0} ({1})", lOHit.collider.name, string.IsNullOrEmpty(lOEntity.Description) ? "-" : lOEntity.Description);
+        pOLook.Kind = UWDebugLookKind.Collider;
+        pOLook.ColliderName = lOHit.collider.name;
+        pOLook.HasEntity = lOEntity != null;
 
-        return "Look target: " + lOHit.collider.name;
+        if (lOEntity != null)
+            pOLook.Description = string.IsNullOrEmpty(lOEntity.Description) ? "-" : lOEntity.Description;
     }
 }

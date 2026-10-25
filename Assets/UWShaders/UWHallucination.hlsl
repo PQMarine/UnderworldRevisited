@@ -6,7 +6,7 @@
 // colour table is built from the hallucination's palette, the light table is swapped. REMASTERED
 // draws colours and lights them with URP, so there the three were missing (per user,
 // 2026-09-27). Every Remastered surface knows its palette index, though - the walls from the
-// index array UWRemasterRenderer sets, the sprites and decals from the index atlas of their
+// index array UWRemasterRenderPath sets, the sprites and decals from the index atlas of their
 // atlas (_IndexTex), the model faces from their vertex - and with it:
 //
 //   0  the scrambled mapper: the same texel scrambling as UW/DungeonPalette, on the colour, the
@@ -17,7 +17,7 @@
 //      the effect table at the shade level of its distance, unlit. The effect blackens nearly
 //      everything; torchlight on top would only light the black.
 //
-// RAW COLOURS: Remastered puts the colour help on in its post-processing (UWRemasterRenderer),
+// RAW COLOURS: Remastered puts the colour help on in its post-processing (UWRemasterRenderPath),
 // so its tables are built without it (UWShadePalette, pbColourHelp false).
 //
 // THE GHOSTS (XFER.DAT, audit row 12) are applied here as well: in Remastered they were drawn with
@@ -82,7 +82,7 @@ float UWDungeonSurfacePart(float pfSlice, float pfHeightWS)
 
 // ------------------------------------------------------------------ Remastered
 //
-// Set per frame by UWPaletteRenderToggle. _UWHallucinationPalette is the row of the palette
+// Set per frame by UWRenderPathHost. _UWHallucinationPalette is the row of the palette
 // effect, 0 while it is off (palette 0 is the ordinary one); _UWRemasterXfer is on while the
 // raw XFER lookups are ready and no other palette is on screen (the cube knows palette 0 only).
 // Sampled with URP's shared point sampler, to spare these shaders sampler slots.

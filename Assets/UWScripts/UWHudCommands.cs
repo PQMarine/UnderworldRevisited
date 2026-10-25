@@ -97,16 +97,14 @@ public sealed class UWHudCommands
         if (UWConversationController.IsAnyOpen || !UWMouseButtons.LeftPressed || UWRoamingSight.IsAnyRunning)
             return false;
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return false;
 
         // THE ORIGINAL'S AREA, not the pictures (2026-09-26): the whole column is one area and
         // the icon follows from the height inside it (UWClickRules.CommandIconAt) - the pictures
         // are of different sizes and left gaps and overlaps of two or three rows. The options
         // button, the sixth step, keeps its own handling in UWHudOptions.
-        Vector2 lOPosition = lOMouse.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         if (!mOUi.ClassicScreen.IsPointerInOriginalArea(lOPosition, UWClickRules.CommandIcons, out int _, out int liY))
             return false;

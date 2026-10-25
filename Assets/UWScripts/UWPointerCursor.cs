@@ -7,7 +7,9 @@ using UWDataImport.UWData;
 /// <summary>
 /// THE POINTER'S PICTURE (cleanup 5.17, 2026-10-23: out of UWGameUI, as it was; D32 of the
 /// cleanup reviews - the choice was written out in three places): which of the original's
-/// pointers (CURSORS.GR) the system pointer shows and where its hotspot lies.
+/// pointers (CURSORS.GR) the pointer shows and where its hotspot lies - handed to UWPointer, which
+/// draws it as our own pointer in the running game and gives it to the free system pointer in the
+/// menus (cleanup step 7.7B, 2026-10-25; the system pointer showed it everywhere until then).
 ///
 ///   - THE CLASSIC SCHEME (ApplyClassic, at the end of UWGameUI.Update): the movement arrows of
 ///     the pointer zones (UWPointerZones.CursorMovement), the
@@ -19,16 +21,16 @@ using UWDataImport.UWData;
 ///   - the pictures at the size the frame is drawn at (the scaled copies, kept per scale);
 ///   - THE MODERN BAGS' THING ON THE FREE POINTER hides the system pointer behind it
 ///     (ShowSystemPointerForBags) - this class is that hiding's one owner since cleanup 5.17;
-///   - THE HELD POINTER of the classic walk by the mouse (fApplyHeldPointer, 2026-10-23): while
-///     the left button holds in the view, the system pointer is hidden and its picture drawn
-///     here at the position UWPointerZones clamped it to, like the thing on the pointer
-///     (UWDragIcon). The system pointer is drawn by the operating system between our frames, so
-///     with a fast hand it ran past the window's edge and sprang back on the next warp (per
-///     user); the original drew its pointer itself and held it in the window.
+///   - THE HELD POINTER of the classic walk by the mouse was drawn here from 2026-10-23 at the
+///     position UWPointerZones clamped it to (the system pointer ran past the window's edge with a
+///     fast hand and sprang back on the next warp, per user); since cleanup step 7.7B the pointer is
+///     ours in the game and the clamp holds our position (UWPointer.ClampTo), so the held walk's
+///     pointer is just the pointer.
 ///
-/// A picture is set only while the system pointer shows (Cursor.visible): whoever hides it - the
-/// classic drag (UWDragIcon), the bags' thing, a prompt, UWControlScheme's holds - leaves the
-/// picture alone. Nothing here writes Cursor.visible each frame.
+/// A picture is set only while the pointer is to be seen (UWPointer.IsShown, Cursor.visible until
+/// 7.7B): whoever hides it - the classic drag (UWDragIcon), the bags' thing, a prompt,
+/// UWControlScheme's holds - leaves the picture alone. Nothing here writes the pointer's visibility
+/// each frame.
 /// </summary>
 public sealed class UWPointerCursor
 {
@@ -75,25 +77,25 @@ public sealed class UWPointerCursor
 
         // The layout editor's arrows (UWModernLayoutEditor.PointerTile, per user 2026-10-10),
         // as large as the game's own pointers; the middle is where they point.
-        if (Cursor.visible && UWModernLayout.IsEditing && UWModernLayoutEditor.PointerTile >= 0)
+        if (UWPointer.IsShown && UWModernLayout.IsEditing && UWModernLayoutEditor.PointerTile >= 0)
         {
             Texture2D lOArrow = UWGlyphs.Pointer(UWModernLayoutEditor.PointerTile, fModernPointerScale());
 
             if (lOArrow != null)
             {
-                Cursor.SetCursor(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f), PointerCursorMode);
+                UWPointer.SetPicture(lOArrow, new Vector2(lOArrow.width * 0.5f, lOArrow.height * 0.5f));
                 return;
             }
         }
 
-        if (Cursor.visible && Pictures != null && liModernCursor < Pictures.Count)
+        if (UWPointer.IsShown && Pictures != null && liModernCursor < Pictures.Count)
         {
             // As large as the crosshair's picture with the pointer locked (UWModernCrosshair:
             // the modern pixel scale, the columns 5/6 of the rows), so locking and freeing keep
             // the size.
             Texture2D lOCross = fGetScaledCursor(liModernCursor, fModernPointerScale(), UWModernHudArt.PixelAspectX);
 
-            Cursor.SetCursor(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f), PointerCursorMode);
+            UWPointer.SetPicture(lOCross, new Vector2(lOCross.width * 0.5f, lOCross.height * 0.5f));
         }
     }
 
@@ -132,18 +134,18 @@ public sealed class UWPointerCursor
     /// <summary>Whether this class hid the system pointer for the bags' thing on it.</summary>
     private bool mbHidSystemPointer;
 
-    /// <summary>Hides the system pointer behind the thing on the free pointer, and shows it
+    /// <summary>Hides the pointer behind the thing on the free pointer, and shows it
     /// again when the hand is empty - only if this class hid it, and only while the pointer is
-    /// free (locked, UWControlScheme keeps it hidden anyway). Called by the bags' layout every
+    /// free (locked, UWControlScheme keeps it hidden anyway; UWPointer.IsShown since 7.7B). Called by the bags' layout every
     /// frame (UWModernBagDrag.LayoutPointerItem); it writes only when the pointer's visibility is
     /// to change. Until cleanup 5.17 UWModernBags.fShowSystemPointer.</summary>
     internal void ShowSystemPointerForBags(bool pbShow)
     {
         if (!pbShow)
         {
-            if (UWModernPointer.IsFree && Cursor.visible)
+            if (UWModernPointer.IsFree && UWPointer.IsShown)
             {
-                Cursor.visible = false;
+                UWPointer.IsShown = false;
                 mbHidSystemPointer = true;
             }
 
@@ -155,7 +157,7 @@ public sealed class UWPointerCursor
             mbHidSystemPointer = false;
 
             if (UWModernPointer.IsFree)
-                Cursor.visible = true;
+                UWPointer.IsShown = true;
         }
     }
 
@@ -167,9 +169,7 @@ public sealed class UWPointerCursor
     {
         int liCursor = fClassicCursor(pOInteraction);
 
-        fApplyHeldPointer(liCursor);
-
-        if (!Cursor.visible)
+        if (!UWPointer.IsShown)
             return;
 
         if (liCursor >= 0 && liCursor < Pictures.Count)
@@ -198,7 +198,7 @@ public sealed class UWPointerCursor
                 ? (mOUi.Map.IsErasing ? new Vector2(0f, lOCursor.height * 0.5f) : new Vector2(0f, lOCursor.height))
                 : new Vector2(lOCursor.width * 0.5f, lOCursor.height * 0.5f);
 
-            Cursor.SetCursor(lOCursor, lOHotspot, PointerCursorMode);
+            UWPointer.SetPicture(lOCursor, lOHotspot);
         }
     }
 
@@ -238,124 +238,9 @@ public sealed class UWPointerCursor
                         : (int)mOUi.PointerZones.CursorMovement)));
     }
 
-    // ------------------------------------------------- The held pointer of the classic walk
-
-    /// <summary>Whether this class hid the system pointer for the held walk by the mouse.</summary>
-    private bool mbHidForHeldPointer;
-
-    /// <summary>The held pointer's own canvas and picture, made on the first hold; the sprites of
-    /// the original's pictures, one per index, made as needed.</summary>
-    private GameObject mOHeldCanvas;
-
-    private Image mOHeldImage;
-
-    private Sprite[] mOHeldSprites;
-
-    /// <summary>
-    /// THE POINTER DURING THE WALK BY THE MOUSE (2026-10-23, per user: with a fast hand the
-    /// pointer ran past the view window's edge and sprang back; in the original it stays in the
-    /// window). The operating system draws the system pointer between our frames, wherever the
-    /// hand takes it; UWPointerZones warps it back only once a frame. So while the left button
-    /// holds in the view the system pointer is hidden and its picture is drawn here, at the
-    /// clamped position, like the thing on the pointer (UWDragIcon), which never overshot.
-    ///
-    /// Only when the system pointer is the pointer: with a thing on it (UWDragIcon hid the
-    /// system pointer) that thing is the pointer, as in the original. The pad's pointer is its own
-    /// and is not drawn here (UWPointerZones.IsMouseHeld). Writes Cursor.visible only when the
-    /// hold begins and ends.
-    /// </summary>
-    private void fApplyHeldPointer(int piCursor)
-    {
-        if (mOUi.PointerZones.IsMouseHeld)
-        {
-            if (!mbHidForHeldPointer)
-            {
-                if (!Cursor.visible)
-                    return;
-
-                Cursor.visible = false;
-                mbHidForHeldPointer = true;
-            }
-
-            fShowHeldPointer(piCursor, mOUi.PointerZones.PointerPosition);
-            return;
-        }
-
-        if (!mbHidForHeldPointer)
-            return;
-
-        mbHidForHeldPointer = false;
-
-        if (mOHeldImage != null)
-            mOHeldImage.enabled = false;
-
-        Cursor.visible = true;
-    }
-
-    /// <summary>The picture at the position, as large as the system pointer is drawn (the
-    /// frame's whole-number scale, fGetScaledCursor), its middle at the position like the system
-    /// pointer's hotspot.</summary>
-    private void fShowHeldPointer(int piCursor, Vector2 pOPosition)
-    {
-        if (Pictures == null || piCursor < 0 || piCursor >= Pictures.Count)
-            return;
-
-        if (mOHeldCanvas == null)
-        {
-            // At the root like the drag's canvas (UWDragIcon: a canvas under the camera is turned
-            // with the player before Unity drives it back), with the frame's fitting (UWUiFit).
-            mOHeldCanvas = UWUiKit.CreateClassicCanvas(null, "Held Pointer Canvas", UWUiSorting.ItemDrag).gameObject;
-            mOHeldImage = UWUiKit.CreateImage(mOHeldCanvas.transform, "HeldPointer", UWUiKit.Centre, UWUiKit.Centre, Color.white);
-            mOHeldSprites = new Sprite[Pictures.Count];
-        }
-
-        if (mOHeldSprites[piCursor] == null)
-            mOHeldSprites[piCursor] = UWGameUI.fToSprite(Pictures[piCursor]);
-
-        Texture2D lOPicture = Pictures[piCursor];
-        float lfScale = UWUiFit.Scale;
-        float lfUnits = lfScale > 0f ? Mathf.Max(1, Mathf.FloorToInt(lfScale)) / lfScale : 1f;
-
-        mOHeldImage.sprite = mOHeldSprites[piCursor];
-        mOHeldImage.rectTransform.sizeDelta = new Vector2(lOPicture.width * lfUnits, lOPicture.height * lfUnits);
-        mOHeldImage.rectTransform.position = pOPosition;
-        mOHeldImage.enabled = true;
-    }
-
-    /// <summary>The held pointer's canvas and sprites go (UWGameUI.OnDestroy).</summary>
-    internal void ReleaseHeldPointer()
-    {
-        if (mOHeldSprites != null)
-        {
-            foreach (Sprite lOSprite in mOHeldSprites)
-            {
-                if (lOSprite != null)
-                    UnityEngine.Object.Destroy(lOSprite);
-            }
-
-            mOHeldSprites = null;
-        }
-
-        if (mOHeldCanvas != null)
-            UnityEngine.Object.Destroy(mOHeldCanvas);
-
-        mOHeldCanvas = null;
-        mOHeldImage = null;
-        mbHidForHeldPointer = false;
-    }
-
-    /// <summary>
-    /// How the pointer's picture is drawn: BY UNITY ITSELF, in both schemes (per user,
-    /// 2026-10-23). The system limits the size of a hardware pointer, so the system pointer came
-    /// smaller than the frame's scale asks for - the quill on the map (2026-09-03) and, next to
-    /// the held pointer drawn by us (fApplyHeldPointer), every pointer; the original drew its
-    /// pointer itself too. The price is a frame's delay behind the hand, which the pad on Linux
-    /// paid already: the pad moves the pointer by a warp (UWGamepadPointer), which XWayland -
-    /// Kubuntu's default session - only emulates, keeping the system pointer invisible (per user,
-    /// 2026-10-09; first seen in the VM and put down to it). Until 2026-10-23 the system drew
-    /// the pointer (Auto) everywhere else.
-    /// </summary>
-    private static CursorMode PointerCursorMode => CursorMode.ForceSoftware;
+    // The held pointer of the classic walk (fApplyHeldPointer, its canvas and sprites) and the
+    // pointer's draw mode (PointerCursorMode, now UWPointer's) went with cleanup step 7.7B: in the
+    // game the pointer is ours and the clamp holds it (UWPointer.ClampTo).
 
     /// <summary>Has the freshly built scene been drawn at least once? See fIsFirstImageShown.
     /// </summary>

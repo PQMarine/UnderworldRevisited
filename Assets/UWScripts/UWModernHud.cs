@@ -30,7 +30,8 @@ using UnityEngine;
 ///
 /// THE GAME MENU (Escape, F1, the Ctrl shortcuts) is UWModernGameMenu since cleanup 5.16
 /// (2026-10-22): the HUD owns it and drives it - its pad stepping first in Update, its pages in
-/// OnGUI - as the HUD drew it before.
+/// OnGUI - as the HUD drew it before; since cleanup 8b.4 (2026-10-24) its pages on the kit in
+/// LateUpdate, and the HUD has no OnGUI any more.
 ///
 /// SPLIT IN CLEANUP 5.16 (2026-10-22; 2,440 lines until then): each piece is a part
 /// (IUWModernPart, UWModernPart) this component builds onto its canvas in the order the images lie
@@ -140,6 +141,7 @@ public class UWModernHud : MonoBehaviour
             Instance = null;
 
         Menu.ReleaseHolds();
+        Menu.Dispose();
 
         if (mOVitals != null)
             mOVitals.Release();
@@ -179,12 +181,6 @@ public class UWModernHud : MonoBehaviour
             mOInput.Update();
     }
 
-    /// <summary>The game menu's pages (UWModernGameMenu.OnGUI), drawn by this component as before.</summary>
-    private void OnGUI()
-    {
-        Menu.OnGUI();
-    }
-
     /// <summary>
     /// THE PARTS' ORDER, fixed here (cleanup 5.16, 2026-10-22; until then a list of calls in one
     /// method of the same order): what a part reads of another is that part's rect of THIS frame
@@ -204,6 +200,9 @@ public class UWModernHud : MonoBehaviour
         // Leaving the modern scheme (Shift+F2) or a screen menu taking over closes the menu.
         if (IsOpen && (!lbModern || fIsCovered()))
             Menu.CloseMenu();
+
+        // The menu's pages on the kit (cleanup 8b.4), whenever a page is open, as OnGUI drew them.
+        Menu.LateUpdate();
 
         bool lbShow = lbModern && !fIsCovered() && !UWConversationController.IsAnyOpen;
 

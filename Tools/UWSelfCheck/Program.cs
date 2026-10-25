@@ -163,6 +163,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Textures", pOContext => fCheckTextures(pOContext.Data), true, "env");
             lOCatalog.Add("Models", pOContext => fCheckModels(pOContext.DataPath), true, "env");
             lOCatalog.Add("Cutscenes", pOContext => fCheckCutscenes(pOContext.DataPath), true, "env");
+            lOCatalog.Add("CutsceneRunner", pOContext => fCheckCutsceneRunner(), false, "cutscene", "original");
+            lOCatalog.Add("CutsceneRunnerData", pOContext => fCheckCutsceneRunnerData(pOContext), true, "cutscene", "env");
             lOCatalog.Add("Sound", pOContext => fCheckSound(pOContext.Data), true, "env");
             lOCatalog.Add("PlayerStatus", pOContext => fCheckPlayerStatus(pOContext.Data), true, "player", "original");
             lOCatalog.Add("Stealth", pOContext => fCheckStealth(pOContext.Data), true, "player", "original");
@@ -193,6 +195,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("MapRewrite", pOContext => fCheckMapRewrite(pOContext.Data), true, "level", "original").MutatesData = true;
             lOCatalog.Add("PaletteLightMap", pOContext => fCheckPaletteLightMap(pOContext.Data), true, "render");
             lOCatalog.Add("GrimeTint", pOContext => fCheckGrimeTint(pOContext.Data), true, "render");
+            lOCatalog.Add("LookupTables", pOContext => fCheckLookupTables(pOContext.Data), true, "render", "pin");
             lOCatalog.Add("TalkRefusal", pOContext => fCheckTalkRefusal(), false, "conversation", "original");
             lOCatalog.Add("ConversationPatches", pOContext => fCheckConversationPatches(pOContext.Data), true, "conversation");
             lOCatalog.Add("ContainsWord", pOContext => fCheckContainsWord(), false, "conversation", "original");
@@ -317,12 +320,30 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("ConversationView", pOContext => fCheckConversationView(pOContext.Data), true, "hud", "conversation", "original");
             lOCatalog.Add("MessageLogModel", pOContext => fCheckMessageLogModel(), false, "hud", "original");
             lOCatalog.Add("CountInput", pOContext => fCheckCountInput(), false, "hud", "input", "inventory");
+            lOCatalog.Add("EasyStepKeys", pOContext => fCheckEasyStepKeys(), false, "input", "settings");
+            lOCatalog.Add("InputRepeat", pOContext => fCheckInputRepeat(), false, "input", "hud");
+            lOCatalog.Add("PointerMotion", pOContext => fCheckPointerMotion(), false, "input", "settings");
+            lOCatalog.Add("ActionTable", pOContext => fCheckActionTable(), false, "input", "settings");
+            lOCatalog.Add("InputContexts", pOContext => fCheckInputContexts(), false, "input", "hud");
+            lOCatalog.Add("Hotkeys", pOContext => fCheckHotkeys(pOContext), false, "input", "hud");
+            lOCatalog.Add("BackChain", pOContext => fCheckBackChain(pOContext), false, "input", "hud");
+            lOCatalog.Add("PressOwners", pOContext => fCheckPressOwners(), false, "input", "hud");
             lOCatalog.Add("CursorReturn", pOContext => fCheckCursorReturn(pOContext.Data), true, "hud", "inventory");
             lOCatalog.Add("DragSource", pOContext => fCheckDragSource(pOContext), true, "hud", "inventory", "conversation");
             lOCatalog.Add("YesNoQuestion", pOContext => fCheckYesNoQuestion(), false, "hud", "input");
             lOCatalog.Add("PendingSpell", pOContext => fCheckPendingSpell(), false, "spell", "input", "original");
             lOCatalog.Add("AttackState", pOContext => fCheckAttackState(), false, "combat", "input", "original");
             lOCatalog.Add("UiSchemePolicy", pOContext => fCheckUiSchemePolicy(), false, "hud", "input");
+            lOCatalog.Add("AudioMix", pOContext => fCheckAudioMix(pOContext.Data), true, "music", "sound");
+            lOCatalog.Add("LightSources", pOContext => fCheckLightSources(), false, "render", "pin");
+            lOCatalog.Add("SettingsTable", pOContext => fCheckSettingsTable(), false, "settings", "pin");
+            lOCatalog.Add("SettingsRows", pOContext => fCheckSettingsRows(), false, "settings");
+            lOCatalog.Add("LayoutPresets", pOContext => fCheckLayoutPresets(), false, "settings", "hud", "pin");
+            lOCatalog.Add("HelpTabIds", pOContext => fCheckHelpTabIds(), false, "settings", "pin");
+            lOCatalog.Add("TextTable", pOContext => fCheckTextTable(), false, "settings", "text");
+            lOCatalog.Add("KitRows", pOContext => fCheckKitRows(), false, "settings", "text");
+            lOCatalog.Add("KitTextArea", pOContext => fCheckTextArea(), false, "settings", "text");
+            lOCatalog.Add("DebugReport", pOContext => fCheckDebugReport(), false, "hud", "settings");
 
             return lOCatalog;
         }

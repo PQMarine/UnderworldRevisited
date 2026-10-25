@@ -36,9 +36,6 @@ public sealed class UWClassicUiScheme : IUWUiScheme
         }
     }
 
-    /// <summary>The classic scheme has no closable chain for the pad's B; it jumps.</summary>
-    public bool PadBackCloses => false;
-
     /// <summary>Never locked, so never freed.</summary>
     public bool IsPointerUnlocked => false;
 
@@ -65,7 +62,7 @@ public sealed class UWClassicUiScheme : IUWUiScheme
     {
         UWGameUI lOUi = fUi();
 
-        return lOUi == null || lOUi.ClassicScreen.IsScreenPositionInGameArea(Mouse.current.position.ReadValue());
+        return lOUi == null || lOUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
     }
 
     /// <summary>The pointer's third of the view window, and its column (UWPlayerAttackInput.fChooseAttackKind).</summary>
@@ -86,7 +83,7 @@ public sealed class UWClassicUiScheme : IUWUiScheme
     /// </summary>
     public bool TryGetSpellTargetPoint(bool pbRightPressed, bool pbLeftPressed, out Vector2 pOAt)
     {
-        pOAt = Mouse.current.position.ReadValue();
+        pOAt = UWPointer.Position;
 
         UWGameUI lOUi = fUi();
 

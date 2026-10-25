@@ -180,7 +180,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Water (palette 48 to 63) and lava (16 to 23), the same ranges as
-		/// in UWTextureArrayBuilder.BuildMaterialLookup.</summary>
+		/// in UWLookupTables.MaterialLookup.</summary>
 		private static float fGetLiquidShare(byte[] pyIndices)
 		{
 			if (pyIndices == null || pyIndices.Length == 0)

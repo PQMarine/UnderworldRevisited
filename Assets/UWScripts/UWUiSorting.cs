@@ -10,12 +10,21 @@
 /// depends on that order; they are listed under their own names, all on the shared value, so a
 /// later step can part them without hunting for the literal.
 ///
-/// The IMGUI windows (GUI.depth) and the debug overlay are not canvases and stay outside.
+/// No IMGUI is left in the player since cleanup 8c (2026-10-25): the debug panel and the debug
+/// tools' labels in the world are canvases here too.
 /// </summary>
 public static class UWUiSorting
 {
     /// <summary>The classic frame and HUD (UWGameUI): Unity's default order, under everything.</summary>
     public const int Classic = 0;
+
+    /// <summary>
+    /// THE DEBUG TOOLS' LABELS IN THE WORLD (cleanup 8c, 2026-10-25; UWDebugLabels): the names of the
+    /// invisible traps and triggers in full-bright mode and the lines to their target tiles, where the
+    /// world is - over the view and the classic frame, under the Classic Wide frame, the modern HUD and
+    /// every window. IMGUI drew them over everything, so a label could cover a window.
+    /// </summary>
+    public const int DebugLabels = 37;
 
     /// <summary>The Classic Wide frame of the modern classic look (UWModernClassicFrame): under the
     /// HUD's parts and the conversation.</summary>
@@ -90,13 +99,75 @@ public static class UWUiSorting
     /// <summary>The intro and the cutscenes (UWIntroPlayer).</summary>
     public const int Intro = 100;
 
+    /// <summary>
+    /// THE HELP WINDOW ON THE KIT (cleanup 8b.3, 2026-10-24; UWHelpWindow): where its IMGUI form stood -
+    /// over the game, the classic frame (the help lies behind it while it slides, by its clip, not by
+    /// this order), the modern parts, the conversation and the intro - with the setup bar and its windows
+    /// over it (their clicks are theirs: the help takes no pointer while the bar captures it). IMGUI drew
+    /// it over every canvas; the thing on the classic pointer, the effects screen and the loading cover
+    /// now lie over it.
+    /// </summary>
+    public const int HelpWindow = 300;
+
+    /// <summary>
+    /// THE LAYOUT EDITOR'S WINDOW ON THE KIT (cleanup 8b.4, 2026-10-24; UWModernLayoutEditor): its window
+    /// and save question, which IMGUI drew over every canvas - over the editor's frames (LayoutEditor),
+    /// the HUD, the panels, the bags and the help (which takes no pointer while the game menu, the
+    /// editor's page included, is open); under the setup bar's windows, which are not offered while
+    /// the editor is open.
+    /// </summary>
+    public const int LayoutEditorWindow = 350;
+
+    /// <summary>
+    /// THE MODERN GAME MENU ON THE KIT (cleanup 8b.4, 2026-10-24; UWModernGameMenu): where its IMGUI form
+    /// stood - over the game, the HUD, the panels and the help (which takes no pointer while the menu is
+    /// open); under the setup bar and its windows (the menu is not drawn while one of them is open) and
+    /// the letter grid. It shares the order with the editor's window: the editor is a page of the menu
+    /// on which no page is drawn.
+    /// </summary>
+    public const int ModernGameMenu = 350;
+
+    /// <summary>
+    /// THE WINDOWS ON THE KIT (cleanup 8b.1, 2026-10-24): the setup bar and the windows moved off IMGUI
+    /// (UWKitRows). Where the IMGUI windows stood: over the game, the HUD, the conversation, the main
+    /// menu, the character creation and the intro; under the effects screen (the bar is not drawn
+    /// while it is open, as before), the thing on the classic pointer and the loading cover. IMGUI
+    /// drew over every canvas, the cover included; the cover stands while a scene starts or a
+    /// conversation fades out, when the bar is not offered (UWMainMenu.AcceptsMenuBar, the in-game
+    /// menus), so nothing it covered shows differently.
+    /// </summary>
+    public const int KitWindows = 400;
+
+    /// <summary>
+    /// THE GAMEPAD'S LETTER GRID ON THE KIT (cleanup 8b.4, 2026-10-24; UWLetterGrid): IMGUI drew it over
+    /// every other IMGUI window (GUI.depth -1000) and every canvas - here over the game menu with its
+    /// save name, the conversation, the character creation and the setup bar's windows; under the
+    /// effects screen, the thing on the classic pointer and the loading cover, which do not stand while
+    /// text is typed.
+    /// </summary>
+    public const int LetterGrid = 450;
+
     /// <summary>The effects screen's own frame in the game (UWSetupMenu): above the game's
     /// interfaces.</summary>
     public const int EffectsScreen = 500;
+
+    /// <summary>
+    /// THE DEBUG PANEL ON THE KIT (cleanup 8c, 2026-10-25; UWDebugPanel: the F1 report and the debug
+    /// tools' tab): IMGUI drew the overlay over everything (GUI.depth -1000), so its numbers stay readable
+    /// over every window - the HUD, the help, the game menu, the setup bar and its windows, the letter
+    /// grid and the effects screen; under the thing on the classic pointer, which must stay visible where
+    /// it is dragged, and the loading cover, which stands only while a scene starts.
+    /// </summary>
+    public const int DebugPanel = 900;
 
     /// <summary>The thing on the classic pointer (UWItemDrag).</summary>
     public const int ItemDrag = 1000;
 
     /// <summary>The loading cover (UWScreenUi): above everything, including the intro.</summary>
     public const int LoadingCover = 1000;
+
+    /// <summary>OUR POINTER while the game captures the mouse (UWPointerDriver, cleanup step 7.7B,
+    /// 2026-10-25): over everything, the loading cover and the thing on the classic pointer included,
+    /// as the system pointer was drawn.</summary>
+    public const int Pointer = 2000;
 }

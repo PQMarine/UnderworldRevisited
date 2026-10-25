@@ -17,12 +17,7 @@ MonoBehaviour:
   SavegameFolder: 
   DiagnosticSavegamePath: 
   ForceFirstRunSetup: 0
-  MusicEnabled: 1
-  MusicVolume: 0.25
-  SoundEnabled: 1
-  SoundVolume: 0.90000004
   TextureFilterMode: 0
-  DisplayAs4By3: 1
   RenderMode: 1
   AmbientFloor: 0
   PointLightCap: 1

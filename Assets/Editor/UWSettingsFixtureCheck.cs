@@ -11,7 +11,8 @@ using UnityEngine;
 /// <summary>
 /// Loads every settings.json fixture under Tools/Fixtures/settings, reads every public property
 /// of UWUserSettings from it and compares the values with the recorded file next to the fixture
-/// (the .expected.txt). The oracle of the settings steps of the cleanup (Docs/CLEANUP-PLAN.md,
+/// (the .expected.txt), and what JsonUtility writes back with the .written file (since cleanup
+/// step 8.3, 2026-10-24). The oracle of the settings steps of the cleanup (Docs/CLEANUP-PLAN.md,
 /// phase 0 and 8): a fixture written by an old version must read the same values after the
 /// settings table replaces the hand-written properties, legacy quirks included (a mouse speed
 /// of 0 reads as 1, an invalid frame count as 8).
@@ -50,12 +51,14 @@ public static class UWSettingsFixtureCheck
             return 1;
         }
 
-        Type lODataType = typeof(UWUserSettings).GetNestedType("Data", BindingFlags.NonPublic | BindingFlags.Public);
+        // The data class is UWUserData since cleanup step 8.3 (2026-10-24), the facade's private
+        // UWUserSettings.Data until then.
+        Type lODataType = typeof(UWDataImport.UWData.UWUserData);
         FieldInfo lODataField = typeof(UWUserSettings).GetField("msData", BindingFlags.NonPublic | BindingFlags.Static);
 
-        if (lODataType == null || lODataField == null)
+        if (lODataField == null || lODataField.FieldType != lODataType)
         {
-            Debug.LogError("Settings fixtures: UWUserSettings.Data or msData not found - the check needs updating");
+            Debug.LogError("Settings fixtures: UWUserSettings.msData (a UWUserData) not found - the check needs updating");
 
             return 1;
         }
@@ -87,13 +90,40 @@ public static class UWSettingsFixtureCheck
                 lODataField.SetValue(null, lOData);
 
                 string lsValues = fDumpProperties();
+                string lsWrittenPath = Path.ChangeExtension(lsFixture, null) + ".written";
+                string lsWritten = JsonUtility.ToJson(lOData, true);
 
                 liChecked++;
 
                 if (pbRecord)
                 {
                     File.WriteAllText(lsExpected, lsValues);
-                    Debug.Log("Settings fixture " + lsName + ": recorded " + Path.GetFileName(lsExpected));
+                    File.WriteAllText(lsWrittenPath, lsWritten);
+                    Debug.Log("Settings fixture " + lsName + ": recorded " + Path.GetFileName(lsExpected) + " and " + Path.GetFileName(lsWrittenPath));
+
+                    continue;
+                }
+
+                // What the game writes back after reading the fixture (cleanup step 8.3, 2026-10-24):
+                // JsonUtility's own bytes, the file the engine-free self-check's settings codec has
+                // to reproduce (SettingsTableChecks) - so the settings.json the game saves stays the
+                // same byte for byte when the data class moves. Line ends aside: git may check the
+                // recorded file out with CRLF, JsonUtility writes LF.
+                if (!File.Exists(lsWrittenPath))
+                {
+                    Debug.LogError("Settings fixture " + lsName + ": no " + Path.GetFileName(lsWrittenPath) + " - record once with UW_RECORD=1");
+                    liFailures++;
+
+                    continue;
+                }
+
+                string lsRecordedWritten = File.ReadAllText(lsWrittenPath).Replace("\r\n", "\n");
+
+                if (lsRecordedWritten != lsWritten)
+                {
+                    liFailures++;
+                    Debug.LogError("Settings fixture " + lsName + ": JsonUtility writes other bytes than " + Path.GetFileName(lsWrittenPath)
+                        + "\n" + fDiff(lsRecordedWritten, lsWritten));
 
                     continue;
                 }

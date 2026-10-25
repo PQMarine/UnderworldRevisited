@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// Roaming Sight (spell class 11, minor class 7 when cast, effect slot 1): the view
@@ -235,7 +236,7 @@ public sealed class UWRoamingSight : MonoBehaviour
         // tick (UWCharacter.fApplyActiveSpells) began the view again (2026-10-13, reference
         // audit, finding of the fix agents).
         if (UWControlScheme.Ui.Policy.RoamingSightEndsOnEscape
-            && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            && Keyboard.current != null && UWBack.Takes(UWBackOwner.RoamingSight))
         {
             bool lbWithSpell = !mbWithoutSpell;
 
@@ -307,10 +308,10 @@ public sealed class UWRoamingSight : MonoBehaviour
 
         UWGameUI lOGameUi = UWScene.GameUi;
 
-        if (lOGameUi == null || Mouse.current == null || !Mouse.current.leftButton.isPressed)
+        if (lOGameUi == null || !UWPointer.HasMouse || !UWPointer.LeftHeld)
             return;
 
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         if (!lOGameUi.ClassicScreen.IsScreenPositionInGameArea(lOPointer))
             return;

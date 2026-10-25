@@ -671,7 +671,7 @@ namespace UnderworldRevisited.Build
             MaterialPropertyBlock lOBlock = new MaterialPropertyBlock();
 
             pORenderer.GetPropertyBlock(lOBlock);
-            lOBlock.SetFloat(UWOwnTile.ModelFloorId, pfFloorY);
+            lOBlock.SetFloat(UWShaderIds.ModelFloorY, pfFloorY);
             pORenderer.SetPropertyBlock(lOBlock);
         }
 
@@ -700,11 +700,11 @@ namespace UnderworldRevisited.Build
             MaterialPropertyBlock lOBlock = new MaterialPropertyBlock();
 
             pORenderer.GetPropertyBlock(lOBlock);
-            lOBlock.SetFloat(UWOwnTile.BigRadiusProperty, liRadius);
-            lOBlock.SetFloat(UWOwnTile.KeyBonusProperty, lfKeyBonus);
+            lOBlock.SetFloat(UWShaderIds.BigRadius, liRadius);
+            lOBlock.SetFloat(UWShaderIds.KeyBonus, lfKeyBonus);
 
             if (lbChain)
-                lOBlock.SetFloat(UWOwnTile.ChainIndexProperty, Mathf.Min(miSpawnChainIndex, UWOwnTile.MaxChainIndex));
+                lOBlock.SetFloat(UWShaderIds.ChainIndex, Mathf.Min(miSpawnChainIndex, UWOwnTile.MaxChainIndex));
 
             pORenderer.SetPropertyBlock(lOBlock);
         }
@@ -723,21 +723,19 @@ namespace UnderworldRevisited.Build
         /// </summary>
         private Material fGetSingleSided(Material pOMaterial)
         {
-            if (pOMaterial == null || !pOMaterial.HasFloat(CullProperty))
+            if (pOMaterial == null || !pOMaterial.HasFloat(UWShaderIds.Cull))
                 return pOMaterial;
 
             if (!mOSingleSided.TryGetValue(pOMaterial, out Material lOCopy))
             {
                 lOCopy = new Material(pOMaterial);
                 lOCopy.name = pOMaterial.name + " (front only)";
-                lOCopy.SetFloat(CullProperty, (float)UnityEngine.Rendering.CullMode.Back);
+                lOCopy.SetFloat(UWShaderIds.Cull, (float)UnityEngine.Rendering.CullMode.Back);
                 mOSingleSided[pOMaterial] = lOCopy;
             }
 
             return lOCopy;
         }
-
-        private const string CullProperty = "_Cull";
 
         private readonly Dictionary<Material, Material> mOSingleSided = new Dictionary<Material, Material>();
 
@@ -1204,7 +1202,7 @@ namespace UnderworldRevisited.Build
             {
                 lOVariant = new Material(pOSource);
                 lOVariant.name = pOSource.name + " (animated)";
-                lOVariant.SetFloat("_DepthBias", AnimatedBillboardDepthBias);
+                lOVariant.SetFloat(UWShaderIds.DepthBias, AnimatedBillboardDepthBias);
 
                 mOAnimatedBillboardMaterials[pOSource] = lOVariant;
             }

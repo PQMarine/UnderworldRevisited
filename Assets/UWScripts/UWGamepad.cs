@@ -1,12 +1,13 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE GAMEPAD (per user, 2026-10-07; tested with an Xbox controller). Stage 1 plays in the world
 /// in the modern scheme, the bindings in UWControls (Xbox names):
 ///
 ///   left stick walk and strafe (analog), right stick look, A use (held: use directly), X look,
-///   B close what is open (bags, panels, the menu, a waiting spell, UWGameUI.PadBackCloses), Y jump
+///   B close what is open (bags, panels, the menu, a waiting spell; the back chain, UWBackChain), Y jump
 ///   (since 2026-10-07, per user; B jumped too before), d-pad down tapped the character panel with
 ///   the bags (the bags alone while the panel is pinned), held every carried bag, View tapped the
 ///   map, held the help, RT draws the weapon and strikes (held charges), L3 draws
@@ -31,44 +32,8 @@ public static class UWGamepad
 
     public static ButtonStyleEnum ButtonStyle => (ButtonStyleEnum)Mathf.Clamp(UWUserSettings.GamepadButtonStyle, 0, 2);
 
-    /// <summary>The controls by their place on the pad (the Input System's names), and their names
-    /// per style - as TEXT, not pictures (the PlayStation symbols are Sony's mark). Nintendo's face
-    /// buttons are swapped against the place: its south button is B.</summary>
-    private static readonly string[] msControls =
-    {
-        "buttonSouth", "buttonEast", "buttonWest", "buttonNorth", "leftShoulder", "rightShoulder",
-        "leftTrigger", "rightTrigger", "leftStickPress", "rightStickPress", "start", "select",
-        "dpad/up", "dpad/down", "dpad/left", "dpad/right"
-    };
-
-    private static readonly string[][] msNames =
-    {
-        new[] { "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "LS", "RS", "Menu", "View",
-            "D-pad up", "D-pad down", "D-pad left", "D-pad right" },
-        new[] { "Cross", "Circle", "Square", "Triangle", "L1", "R1", "L2", "R2", "L3", "R3", "Options", "Share",
-            "D-pad up", "D-pad down", "D-pad left", "D-pad right" },
-        new[] { "B", "A", "Y", "X", "L", "R", "ZL", "ZR", "L stick", "R stick", "+", "-",
-            "D-pad up", "D-pad down", "D-pad left", "D-pad right" }
-    };
-
-    /// <summary>A binding path's button name in the chosen style ("&lt;Gamepad&gt;/buttonSouth" is A,
-    /// Cross or B).</summary>
-    public static string ButtonName(string psPath)
-    {
-        if (string.IsNullOrEmpty(psPath))
-            return "-";
-
-        const string Prefix = "<Gamepad>/";
-        string lsControl = psPath.StartsWith(Prefix) ? psPath.Substring(Prefix.Length) : psPath;
-        int liAt = System.Array.IndexOf(msControls, lsControl);
-
-        if (liAt >= 0)
-            return msNames[(int)ButtonStyle][liAt];
-
-        string lsName = InputControlPath.ToHumanReadableString(psPath, InputControlPath.HumanReadableStringOptions.OmitDevice);
-
-        return string.IsNullOrEmpty(lsName) ? psPath : lsName;
-    }
+    // The buttons' names per style and the controls by place: UWBindingInfo.ButtonName since cleanup
+    // step 7.2 (2026-10-25; ButtonName here until then).
 
     /// <summary>The last action came from a gamepad - the action bar shows its chosen slot only
     /// then. Any mouse or keyboard action turns it off again.</summary>
@@ -110,16 +75,19 @@ public static class UWGamepad
         if (lOControl.device is Keyboard && IsSystemShortcut)
             return;
 
-        // The pad's own pointer moves and clicks the real mouse (UWGamepadPointer): that is not
-        // the player taking up the mouse.
+        // The pad's own pointer clicks its own mouse (UWPointer.PadButton, cleanup step 7.7B) and moves
+        // the system pointer in the menus (UWGamepadPointer): that is not the player taking up the mouse.
+        if (UWPointer.IsPadMouse(lOControl.device))
+            return;
+
         if (lOControl.device is Mouse && Time.unscaledTime < msfMouseIgnoredUntil)
             return;
 
         // NOR WHERE THE PAD PUT THE POINTER, however late Windows reports the warp (per user,
         // 2026-10-08: the bar's pale ring flickered in the game menu) - the real mouse has to move
         // away from there to count.
-        if (lOControl.device is Mouse lOMouse && UWGamepadPointer.HasPlaced
-            && (lOMouse.position.ReadValue() - UWGamepadPointer.Position).sqrMagnitude < 9f)
+        if (lOControl.device is Mouse lOMouse && UWPointer.PadPlaced
+            && (lOMouse.position.ReadValue() - UWPointer.PadPosition).sqrMagnitude < 9f)
             return;
 
         IsActive = lOControl.device is Gamepad;
@@ -141,19 +109,19 @@ public static class UWGamepad
         }
     }
 
-    /// <summary>The gamepad's pointer moved or pressed the real mouse just now.</summary>
+    /// <summary>The gamepad's pointer moved the system pointer just now (a warp in the menus,
+    /// UWPointer.MoveTo; its presses are its own mouse's since cleanup step 7.7B).</summary>
     public static void NoteSyntheticMouse()
     {
         msfMouseIgnoredUntil = Time.unscaledTime + 0.3f;
     }
 
-    private static int msiConsumedFrame = -1;
-
     /// <summary>
     /// A gamepad button pressed this frame - for what waits for "any key" (a window picture, the
     /// next page of a long text, a conversation's text, the intro; per user, 2026-10-07: the pad
     /// did not close them with the pointer locked). With pbSticks a stick pushed out counts too.
-    /// Who takes it calls ConsumePress, so the pad's pointer does not click with it as well.
+    /// Whether one of them owns the press, so that the pad's pointer does not click with it as well,
+    /// UWPadOwners decides (cleanup step 7.8; who took it called ConsumePress until then).
     /// </summary>
     public static bool AnyPressed(bool pbSticks)
     {
@@ -180,14 +148,6 @@ public static class UWGamepad
         return pOStick.up.wasPressedThisFrame || pOStick.down.wasPressedThisFrame
             || pOStick.left.wasPressedThisFrame || pOStick.right.wasPressedThisFrame;
     }
-
-    /// <summary>This frame's pad press is used up (UWGamepadPointer sends no click for it).</summary>
-    public static void ConsumePress()
-    {
-        msiConsumedFrame = Time.frameCount;
-    }
-
-    public static bool IsPressConsumed => msiConsumedFrame == Time.frameCount;
 
     /// <summary>Whether an action's current press comes from a gamepad.</summary>
     public static bool IsFromGamepad(InputAction pOAction)

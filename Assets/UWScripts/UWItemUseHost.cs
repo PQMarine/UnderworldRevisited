@@ -214,7 +214,7 @@ public sealed class UWItemUseHost : IUWItemUseHost
 
     public void PlayMagicItemRefused()
     {
-        mOServices.Presentation.PlaySoundAtPlayer(UWSoundEffects.MagicItemRefused);
+        mOServices.Presentation.PlaySoundAtPlayer(UWSoundEffectId.MagicItemRefused);
     }
 
     /// <summary>IUWItemUseHost: the bedroll used - a night in it.</summary>

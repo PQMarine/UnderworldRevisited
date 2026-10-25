@@ -40,8 +40,21 @@ namespace UWDataImport.UWData
 		public const int ValueCount = 6;
 
 		/// <summary>The values' names where a page writes them itself (the modern panel, the help
-		/// window) - English, as before.</summary>
+		/// window) - English, as before; the modern panel names its pieces by them. What a page
+		/// shows is ValueLabel (cleanup step 8.5, 2026-10-24).</summary>
 		public static readonly string[] ValueLabels = { "Strength", "Dexterity", "Intelligence", "Vitality", "Mana", "Experience" };
+
+		/// <summary>The values' names' ids in the text table, in the order of ValueLabels.</summary>
+		public static readonly string[] ValueLabelIds =
+		{
+			"hud.sheet.strength", "hud.sheet.dexterity", "hud.sheet.intelligence", "hud.sheet.vitality", "hud.sheet.mana", "hud.sheet.experience"
+		};
+
+		/// <summary>A value's name in the language in force.</summary>
+		public static string ValueLabel(int piRow)
+		{
+			return UWText.T(ValueLabelIds[piRow]);
+		}
 
 		/// <summary>The name in the original's stats header: at most fifteen characters,
 		/// upper-cased (UnderworldExhumed STATS.C sp_hdr copies 0xF of the name). It matters since
@@ -131,13 +144,13 @@ namespace UWDataImport.UWData
 		/// <summary>The modern panel's class line: "Fighter, level 3".</summary>
 		public string ClassWithLevel
 		{
-			get { return ClassName + ", level " + LevelText; }
+			get { return UWText.F("hud.sheet.class_level", ClassName, LevelText); }
 		}
 
 		/// <summary>The help window's line under the name: "Level 3 Fighter".</summary>
 		public string LevelWithClass
 		{
-			get { return "Level " + LevelText + " " + ClassName; }
+			get { return UWText.F("hud.sheet.level_class", LevelText, ClassName); }
 		}
 
 		// ------------------------------------------------- Values
@@ -175,7 +188,8 @@ namespace UWDataImport.UWData
 
 		public string SkillPointsText
 		{
-			get { return SkillPoints == 1 ? "1 point to spend" : SkillPoints + " points to spend"; }
+			get { return SkillPoints == 1 ? UWText.T("hud.sheet.point_to_spend") : UWText.F("hud.sheet.points_to_spend", SkillPoints); }
+
 		}
 
 		// ------------------------------------------------- Skills

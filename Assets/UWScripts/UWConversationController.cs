@@ -121,6 +121,7 @@ public class UWConversationController : MonoBehaviour
 
         IsAnyOpen = true;
         mbClosing = false;
+        mbEndHoldWaits = false;
         miOpenedFrame = Time.frameCount;
 
         // THE WORLD STANDS STILL: in the original the conversation is a modal loop and the game
@@ -144,7 +145,7 @@ public class UWConversationController : MonoBehaviour
         mORenderer.Open(pOData, mOView);
 
         // "Maps & Legends" plays during conversations (reference: conversationinitialisation).
-        UWMusic.ChangeTheme(UWMusic.MapsAndLegendsTheme);
+        UWAudioService.ChangeTheme(UWMusicSelector.MapsAndLegendsTheme);
 
         lOSession.Advance();
         fRedraw();
@@ -153,6 +154,9 @@ public class UWConversationController : MonoBehaviour
     }
 
     private bool mbClosing;
+
+    /// <summary>The last line's hold before the fade waits for a key or a click (fCloseWithFade).</summary>
+    private bool mbEndHoldWaits;
 
     /// <summary>Converse's scroll_wait(0x1F4) when the player spoke last (CONVERSE.C): ticks of the
     /// game clock TICKS.ASM keeps at 256 a second (SCROLLIO.C scroll_wait, GAME_TIME), so 500 / 256,
@@ -174,6 +178,8 @@ public class UWConversationController : MonoBehaviour
         // every conversation that had offered an answer.
         bool lbTimed = Session != null && Session.EndsWithTimedPause;
 
+        mbEndHoldWaits = true;
+
         for (float lfAt = 0f; !lbTimed || lfAt < EndHoldSeconds; lfAt += Time.unscaledDeltaTime)
         {
             yield return null;
@@ -181,6 +187,8 @@ public class UWConversationController : MonoBehaviour
             if (fAnyInput())
                 break;
         }
+
+        mbEndHoldWaits = false;
 
         UWScreenUi.ShowLoadingCover();
 
@@ -238,7 +246,7 @@ public class UWConversationController : MonoBehaviour
         UWGameClock.Release(UWGameClock.ConversationHold);
 
         // Afterwards a level theme again (reference: conversationvm, end of conversation).
-        UWMusic.PickLevelTheme();
+        UWAudioService.PickLevelTheme();
 
         if (mOControlScheme != null)
             mOControlScheme.IsConversationOpen = false;
@@ -481,7 +489,7 @@ public class UWConversationController : MonoBehaviour
             return;
         }
 
-        if (UWTextEntry.EscapePressed)
+        if (UWBack.Takes(UWBackOwner.ConversationAnswer))
         {
             fEndTyping();
             Session.SupplyText(string.Empty);
@@ -548,16 +556,14 @@ public class UWConversationController : MonoBehaviour
             }
         }
 
-        Mouse lOMouse = Mouse.current;
-
         // ON THE RELEASE of either button, like everything during a conversation (per user on
         // the original, 2026-09-18: the right button chooses an answer too) - and not in the
         // frame the conversation opened in, that release belongs to the drag that started it.
-        if (lOMouse == null || !(UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased)
+        if (!UWPointer.HasMouse || !(UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased)
             || miOpenedFrame == Time.frameCount)
             return 0;
 
-        Vector2 lOPosition = lOMouse.position.ReadValue();
+        Vector2 lOPosition = UWPointer.Position;
 
         // The modern scheme's rows (UWModernConversation): the left button only - the right one
         // is the bags' there (look, the containers).
@@ -573,6 +579,31 @@ public class UWConversationController : MonoBehaviour
     /// must not count as input here.</summary>
     private int miOpenedFrame = -1;
 
+    /// <summary>A pad button counts as "any input" now (fAnyInput): the keyboard is not taken, the
+    /// letter grid is not up, the conversation did not open in this frame.</summary>
+    private bool fPadAnyInputOpen => !IsKeyboardTaken && !UWLetterGrid.IsShown && miOpenedFrame != Time.frameCount;
+
+    /// <summary>
+    /// "[MORE]" WAITS FOR ANY PRESS and Update gets to it (cleanup step 7.8): a session, no input line
+    /// in the scroll, no typed answer asked, more text pending - a pad button fetches it (fAnyInput).
+    /// UWPadOwners asks when the frame begins, so that the pad's pointer does not click with that press.
+    /// </summary>
+    internal bool MoreTakesPad
+    {
+        get
+        {
+            UWConversationSession lOSession = Session;
+
+            return lOSession != null && fPadAnyInputOpen && mOView.MorePending && !lOSession.IsAskingText
+                && !(mOInteraction != null && mOInteraction.IsPromptActive);
+        }
+    }
+
+    /// <summary>THE END'S HOLD WAITS FOR ANY PRESS (cleanup step 7.8): the last line before the fade
+    /// (fCloseWithFade) - a pad button ends the wait. Its coroutine read the press after every Update,
+    /// so the pad's pointer had clicked with it already; UWPadOwners keeps it from the pointer now.</summary>
+    internal bool EndTakesPad => mbEndHoldWaits && mbClosing && IsAnyOpen && fPadAnyInputOpen;
+
     private bool fAnyInput()
     {
         Keyboard lOKeyboard = Keyboard.current;
@@ -583,17 +614,14 @@ public class UWConversationController : MonoBehaviour
             && !lOKeyboard.fKey.wasPressedThisFrame && !lOKeyboard.tabKey.wasPressedThisFrame)
             return true;
 
-        // Any gamepad button as well, but not while the letter grid types (UWGamepad).
-        if (!IsKeyboardTaken && !UWLetterGrid.IsShown && miOpenedFrame != Time.frameCount && UWGamepad.AnyPressed(false))
-        {
-            UWGamepad.ConsumePress();
+        // Any gamepad button as well, but not while the letter grid types (UWGamepad). The press is
+        // ours: the pad's pointer does not click with it (UWPadOwners asks MoreTakesPad, EndTakesPad;
+        // UWGamepad.ConsumePress here until cleanup step 7.8).
+        if (fPadAnyInputOpen && UWGamepad.AnyPressed(false))
             return true;
-        }
-
-        Mouse lOMouse = Mouse.current;
 
         // The mouse acts on the release during a conversation (per user on the original, 2026-09-18).
-        return lOMouse != null && miOpenedFrame != Time.frameCount
+        return UWPointer.HasMouse && miOpenedFrame != Time.frameCount
             && (UWMouseButtons.LeftReleased || UWMouseButtons.RightReleased);
     }
 

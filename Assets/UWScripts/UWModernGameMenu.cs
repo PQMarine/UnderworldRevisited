@@ -15,6 +15,10 @@ using UWDataImport.UWData;
 /// HUD's OnGUI - so it keeps the HUD component's place among the IMGUI windows (the setup bar,
 /// UWSetupMenu, lies over it) and its holds' timing. It reads the scene's UI, interaction and
 /// control scheme through the HUD, which finds them in its Start, as the menu's own fields did.
+///
+/// ON THE KIT since cleanup 8b.4 (2026-10-24): the pages are drawn by UWKitRows in the HUD's
+/// LateUpdate (see "The menu on the kit" below), on a canvas of their own under the setup bar's
+/// (UWUiSorting); the IMGUI form in the HUD's OnGUI went at the end of phase 8b.
 /// </summary>
 public class UWModernGameMenu
 {
@@ -114,9 +118,18 @@ public class UWModernGameMenu
 
     public void CloseMenu()
     {
-        mOKeyNav.Reset();
+        if (mOKit != null)
+            mOKit.KeyNav.Reset();
+
         mePage = PageEnum.Closed;
         ReleaseHolds();
+    }
+
+    /// <summary>The kit's name field lets go with the HUD (its OnDestroy).</summary>
+    public void Dispose()
+    {
+        if (mOKit != null)
+            mOKit.Dispose();
     }
 
     public void ReleaseHolds()
@@ -158,206 +171,14 @@ public class UWModernGameMenu
         UWSaveFlow.QuitToMainMenu();
     }
 
-    // ------------------------------------------------- Drawing the menu (IMGUI, as the help window)
-
-    private static readonly Color msBackground = new Color(0.08f, 0.08f, 0.09f, 0.96f);
-
-    private static readonly Color msButton = new Color(0.14f, 0.14f, 0.16f, 1f);
-
-    private static readonly Color msButtonHover = new Color(0.22f, 0.22f, 0.26f, 1f);
-
-    /// <summary>The reference height the menu is laid out for; it scales with the screen.</summary>
-    private const float MenuReferenceHeight = 720f;
-
-    private GUIStyle mOTitleStyle;
-
-    private GUIStyle mOButtonStyle;
-    private GUIStyle mOCurrentPresetStyle;
-    private GUIStyle mOSectionStyle;
-
-    private GUIStyle mOLabelStyle;
-
-    private GUIStyle mOFieldStyle;
-
-    private Texture2D mOBackgroundTexture;
-
-    private Texture2D mOButtonTexture;
-
-    private Texture2D mOButtonHoverTexture;
-
-    private Texture2D mOFieldTexture;
-
-    private static Texture2D fTexture(Color pOColour)
-    {
-        Texture2D lOTexture = new Texture2D(1, 1);
-        lOTexture.SetPixel(0, 0, pOColour);
-        lOTexture.Apply();
-
-        return lOTexture;
-    }
-
-    private void fEnsureStyles()
-    {
-        if (mOTitleStyle != null)
-            return;
-
-        mOBackgroundTexture = fTexture(msBackground);
-        mOButtonTexture = fTexture(msButton);
-        mOButtonHoverTexture = fTexture(msButtonHover);
-        mOFieldTexture = fTexture(new Color(0.05f, 0.05f, 0.06f, 1f));
-
-        Font lOFont = UWInterfaceFont.ModernOrInterface;
-
-        mOTitleStyle = new GUIStyle { font = lOFont, fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-        mOTitleStyle.normal.textColor = UWModernPalette.Accent;
-
-        mOLabelStyle = new GUIStyle { font = lOFont, fontSize = 15, alignment = TextAnchor.MiddleLeft, wordWrap = true };
-        mOLabelStyle.normal.textColor = UWModernPalette.HudText;
-
-
-        mOButtonStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleCenter };
-        mOButtonStyle.normal.background = mOButtonTexture;
-        mOButtonStyle.normal.textColor = UWModernPalette.HudText;
-        mOButtonStyle.hover.background = mOButtonHoverTexture;
-        mOButtonStyle.hover.textColor = UWModernPalette.Accent;
-        mOButtonStyle.active.background = mOButtonHoverTexture;
-        mOButtonStyle.active.textColor = UWModernPalette.Accent;
-
-        mOCurrentPresetStyle = new GUIStyle(mOButtonStyle);
-        mOCurrentPresetStyle.normal.textColor = UWModernPalette.Accent;
-
-        mOSectionStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft };
-        mOSectionStyle.normal.textColor = UWModernPalette.Accent;
-
-        mOFieldStyle = new GUIStyle { font = lOFont, fontSize = 16, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(8, 8, 0, 0) };
-        mOFieldStyle.normal.background = mOFieldTexture;
-        mOFieldStyle.normal.textColor = UWModernPalette.HudText;
-        mOFieldStyle.focused.background = mOFieldTexture;
-        mOFieldStyle.focused.textColor = UWModernPalette.HudText;
-    }
-
-    public void OnGUI()
-    {
-        UWImguiInput.BeginOnGUI();
-
-        if (mePage == PageEnum.Closed || mePage == PageEnum.Layout)
-            return;
-
-        // The setup bar's menus and dialogs lie over this menu while it is open (per user,
-        // 2026-10-06: the bar in the in-game menu, so nobody has to go to the main menu); while
-        // one of them is open this menu neither draws nor takes clicks.
-        if (UWSetupMenu.HasOpenPanel)
-            return;
-
-        fEnsureStyles();
-
-        float lfScale = Screen.height / MenuReferenceHeight;
-        Matrix4x4 lOMatrix = GUI.matrix;
-
-        GUI.matrix = Matrix4x4.Scale(new Vector3(lfScale, lfScale, 1f));
-        UWImguiInput.AfterMatrix();
-
-        float lfWidth = Screen.width / lfScale;
-        Rect lOPanel = new Rect((lfWidth - 380f) * 0.5f, 90f, 380f, 560f);
-
-        GUI.DrawTexture(lOPanel, mOBackgroundTexture);
-        GUILayout.BeginArea(new Rect(lOPanel.x + 24f, lOPanel.y + 18f, lOPanel.width - 48f, lOPanel.height - 36f));
-        UWImguiInput.Sync();
-
-        // The buttons' places for the gamepad (fRecordEntry), gathered in the repaint.
-        mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
-        mfMenuScale = lfScale;
-
-        if (Event.current.type == EventType.Repaint)
-            mOEntryRectsDrawing.Clear();
-
-        // THE ARROW KEYS (UWImguiKeyNav, per user 2026-10-12, a fallback for a mouse that cannot
-        // click): the first arrow puts the focus on a button, Enter or Space presses it; the bar's
-        // own navigation (F10) has the keys while it is on. A new page starts at its first button.
-        if (mePage != meKeyNavPage)
-        {
-            meKeyNavPage = mePage;
-
-            if (mOKeyNav.IsActive)
-                mOKeyNav.Activate();
-        }
-
-        mOKeyNav.Begin(!UWSetupMenu.KeyNavActive, true);
-
-        switch (mePage)
-        {
-            case PageEnum.Main: fDrawMain(); break;
-            case PageEnum.Save: fDrawSlots(true); break;
-            case PageEnum.SaveName: fDrawSaveName(); break;
-            case PageEnum.Load: fDrawSlots(false); break;
-            case PageEnum.Detail: fDrawDetail(); break;
-        }
-
-        mOKeyNav.End();
-
-        GUILayout.EndArea();
-        UWImguiInput.Sync();
-        GUI.matrix = lOMatrix;
-        UWImguiInput.AfterMatrix();
-
-        if (Event.current.type == EventType.Repaint)
-        {
-            mOEntryRects.Clear();
-            mOEntryRects.AddRange(mOEntryRectsDrawing);
-        }
-    }
-
-    private bool fButton(string psText)
-    {
-        return fButton(new GUIContent(psText));
-    }
-
-    /// <summary>One preset under "Edit layout": indented and lower than the other buttons, the one
-    /// in force in gold. A press chooses it; true for the press (Customize then opens the editor
-    /// even when it is already in force).</summary>
-    private bool fPresetButton(string psText, UWModernLayout.PresetEnum pePreset, UWModernLayout.PresetEnum peCurrent, bool pbBuilt)
-    {
-        GUILayout.Space(4f);
-        GUILayout.BeginHorizontal();
-        GUILayout.Space(28f);
-
-        bool lbEnabled = GUI.enabled;
-
-        GUI.enabled = lbEnabled && pbBuilt;
-
-        bool lbPressed = mOKeyNav.LayoutButton(psText, pePreset == peCurrent ? mOCurrentPresetStyle : mOButtonStyle, GUILayout.Height(30f));
-
-        fRecordEntry();
-        GUI.enabled = lbEnabled;
-        GUILayout.EndHorizontal();
-
-        if (lbPressed && pePreset != peCurrent)
-            UWModernLayout.ChoosePreset(pePreset);
-
-        return lbPressed;
-    }
-
-    private bool fButton(GUIContent pOContent)
-    {
-        GUILayout.Space(6f);
-
-        bool lbPressed = mOKeyNav.LayoutButton(pOContent, mOButtonStyle, GUILayout.Height(38f));
-
-        fRecordEntry();
-
-        return lbPressed;
-    }
-
     // ------------------------------------------------- The gamepad in the menu
 
     /// <summary>The gamepad steps through the buttons (UWPadEntryStepper, per user 2026-10-08:
     /// as in the context menu).</summary>
     private readonly UWPadEntryStepper mOMenuStepper = new UWPadEntryStepper();
 
-    /// <summary>The arrow keys over the menu's buttons (UWImguiKeyNav) and the page they were
-    /// counted on.</summary>
-    private readonly UWImguiKeyNav mOKeyNav = new UWImguiKeyNav();
-
+    /// <summary>The page the arrow keys' entries were counted on (the kit's UWKitKeyNav since cleanup
+    /// 8b.4, UWImguiKeyNav until then).</summary>
     private PageEnum meKeyNavPage = PageEnum.Closed;
 
     /// <summary>The buttons' screen rectangles of the last drawn frame, and those being drawn.</summary>
@@ -371,21 +192,6 @@ public class UWModernGameMenu
     private float mfMenuScale = 1f;
 
     private PageEnum meSteppedPage = PageEnum.Closed;
-
-    /// <summary>The button just laid out, as a screen rectangle (pixels, bottom-left origin) - in
-    /// the repaint only, where GUILayout knows its place.</summary>
-    private void fRecordEntry()
-    {
-        if (Event.current.type != EventType.Repaint)
-            return;
-
-        Rect lORect = GUILayoutUtility.GetLastRect();
-        float lfX = (mOAreaAt.x + lORect.x) * mfMenuScale;
-        float lfTop = (mOAreaAt.y + lORect.y) * mfMenuScale;
-
-        mOEntryRectsDrawing.Add(new Rect(lfX, Screen.height - lfTop - (lORect.height * mfMenuScale),
-            lORect.width * mfMenuScale, lORect.height * mfMenuScale));
-    }
 
     /// <summary>Once a frame while the menu is up: a new page (or the menu opened) snaps the pointer
     /// onto its first button when the pad was used last.</summary>
@@ -407,19 +213,185 @@ public class UWModernGameMenu
         mOMenuStepper.Update(mOEntryRects);
     }
 
-    private void fDrawMain()
-    {
-        GUILayout.Label("Game menu", mOTitleStyle, GUILayout.Height(40f));
+    /// <summary>The detail levels' names, by LevelEnum (cleanup step 8.5, 2026-10-24: until then
+    /// the enum's own names).</summary>
+    private static readonly string[] msDetailIds = { "menu.detail.low", "menu.detail.medium", "menu.detail.high", "menu.detail.very_high" };
 
-        if (fButton("Resume"))
+    // ================================================= The menu on the kit (cleanup 8b.4, 2026-10-24)
+    //
+    // THE MENU ON THE KIT (phase 8b, decision 26): every page drawn by UWKitRows in the game menu's
+    // look (UWRowLookEnum.GameMenu, the modern font) on a canvas of its own (UWUiSorting.ModernGameMenu)
+    // in the HUD's LateUpdate - the panel, its area and the pages laid out as GUILayout laid out the
+    // IMGUI form: a title 40 high, a button 6 below the last and 38 high over the area's width, the
+    // presets 4 below and 30 high set in by 28, Quit at the area's foot, the save name's line as tall as
+    // its wrapped text and the field 36 high. The buttons are the arrow keys' entries as before
+    // (UWKitKeyNav), their screen rectangles the pad's steps (UWPadEntryStepper); the save name types
+    // into the kit's field (UWTextEntry, UWTypedKeys: on Linux too), 30 characters, Enter saves and
+    // Escape goes back wherever the keyboard is, as before.
+
+    /// <summary>The menu's drawer on the kit, made on its first frame.</summary>
+    private UWKitRows mOKit;
+
+    /// <summary>The save name's field on the kit.</summary>
+    private const string NameField = "UWModernSaveName";
+
+    /// <summary>The menu's area: the panel (380 by 560, 90 from the top) less 24 left and right and 18
+    /// above and below.</summary>
+    private const float AreaWidth = 380f - 48f;
+
+    private const float AreaHeight = 560f - 36f;
+
+    /// <summary>Where the next piece of the page stands below the area's top.</summary>
+    private float mfKitY;
+
+    private static UWKitRows.HelpLook KitLook(int piSize, Color pOColour, TextAnchor peAnchor, bool pbBold = false, bool pbWraps = false)
+    {
+        return new UWKitRows.HelpLook { Size = piSize, Colour = pOColour, Anchor = peAnchor, Bold = pbBold, Wraps = pbWraps };
+    }
+
+    /// <summary>
+    /// Once a frame after the HUD's parts: the open page on the kit, or the kit's canvas dark - while
+    /// the menu is closed, on the layout editor's page, and while a window of the setup bar is open
+    /// over it (per user, 2026-10-06: the bar in the in-game menu, so nobody has to go to the main
+    /// menu; while one of its windows is open this menu neither draws nor takes clicks).
+    /// </summary>
+    public void LateUpdate()
+    {
+        bool lbShown = mePage != PageEnum.Closed && mePage != PageEnum.Layout && !UWSetupMenu.HasOpenPanel;
+
+        if (mOKit == null)
+        {
+            if (!lbShown)
+                return;
+
+            mOKit = new UWKitRows(mOHud.transform, UWUiSorting.ModernGameMenu, UWRowLookEnum.GameMenu);
+        }
+
+        if (!lbShown)
+        {
+            // A name being typed has the keyboard again once the menu shows again (IMGUI's field kept
+            // its focus while it was not drawn).
+            if (mePage == PageEnum.SaveName && mOKit.FieldHasKeys(NameField))
+                mbFocusName = true;
+
+            mOKit.Begin(false, false, false, false);
+            return;
+        }
+
+        // THE ARROW KEYS (per user 2026-10-12, a fallback for a mouse that cannot click): the first
+        // arrow puts the focus on a button, Enter or Space presses it; the bar's own navigation (F10)
+        // has the keys while it is on, the name field while it has the keyboard, the debug tools' tab as
+        // well (any IMGUI field with the keyboard held them until cleanup 8b.4). A new page
+        // starts at its first button.
+        mOKit.Begin(true, !UWSetupMenu.KeyNavActive, true, UWDebugTools.IsTyping);
+
+        if (mePage != meKeyNavPage)
+        {
+            meKeyNavPage = mePage;
+
+            if (mOKit.KeyNav.IsActive)
+                mOKit.KeyNav.Activate();
+        }
+
+        float lfScale = UWGuiTheme.Scale;
+        Rect lOPanel = new Rect((mOKit.Width - 380f) * 0.5f, 90f, 380f, 560f);
+
+        mOKit.Fill(lOPanel, UWGuiTheme.Overlay);
+
+        mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
+        mfMenuScale = lfScale;
+        mfKitY = 0f;
+        mOEntryRectsDrawing.Clear();
+
+        switch (mePage)
+        {
+            case PageEnum.Main: fKitMain(); break;
+            case PageEnum.Save: fKitSlots(true); break;
+            case PageEnum.SaveName: fKitSaveName(); break;
+            case PageEnum.Load: fKitSlots(false); break;
+            case PageEnum.Detail: fKitDetail(); break;
+        }
+
+        mOKit.End();
+
+        mOEntryRects.Clear();
+        mOEntryRects.AddRange(mOEntryRectsDrawing);
+    }
+
+    /// <summary>The next piece of the page: pfSpace below the last, pfHeight high, over the area's width
+    /// less pfIndent on its left (GUILayout's Space, the piece's Height, a Space before it in a row).</summary>
+    private Rect fKitNext(float pfSpace, float pfHeight, float pfIndent = 0f)
+    {
+        mfKitY += pfSpace;
+
+        Rect lORect = new Rect(mOAreaAt.x + pfIndent, mOAreaAt.y + mfKitY, AreaWidth - pfIndent, pfHeight);
+
+        mfKitY += pfHeight;
+
+        return lORect;
+    }
+
+    private void fKitTitle(string psText)
+    {
+        mOKit.HelpText(fKitNext(0f, 40f), psText, KitLook(UWGuiTheme.GameMenuTitleSize, UWGuiTheme.Accent, TextAnchor.MiddleCenter, true));
+    }
+
+    /// <summary>A button at pORect, an entry of the arrow keys and the pad's steps (fKitRecord).</summary>
+    private bool fKitButton(Rect pORect, string psText, Texture2D pOPicture = null, bool pbCurrent = false)
+    {
+        bool lbPressed = mOKit.MenuButton(pORect, psText, pOPicture,
+            KitLook(UWGuiTheme.GameMenuButtonSize, pbCurrent ? UWGuiTheme.Accent : UWGuiTheme.Text, TextAnchor.MiddleCenter),
+            UWGuiTheme.Panel, UWGuiTheme.Hover, UWGuiTheme.Accent);
+
+        fKitRecord(pORect);
+
+        return lbPressed;
+    }
+
+    /// <summary>A button 6 below the last, 38 high (fButton).</summary>
+    private bool fKitButton(string psText, Texture2D pOPicture = null)
+    {
+        return fKitButton(fKitNext(6f, 38f), psText, pOPicture);
+    }
+
+    /// <summary>The button just drawn as a screen rectangle (pixels, bottom-left origin), for the pad.</summary>
+    private void fKitRecord(Rect pORect)
+    {
+        mOEntryRectsDrawing.Add(new Rect(pORect.x * mfMenuScale, Screen.height - (pORect.yMax * mfMenuScale),
+            pORect.width * mfMenuScale, pORect.height * mfMenuScale));
+    }
+
+    /// <summary>One preset under "Edit layout" (fPresetButton): 4 below the last, set in by 28, 30 high,
+    /// the one in force in gold. A press chooses it; true for the press.</summary>
+    private bool fKitPreset(string psText, UWModernLayout.PresetEnum pePreset, UWModernLayout.PresetEnum peCurrent, bool pbBuilt)
+    {
+        bool lbEnabled = mOKit.Enabled;
+
+        mOKit.Enabled = lbEnabled && pbBuilt;
+
+        bool lbPressed = fKitButton(fKitNext(4f, 30f, 28f), psText, null, pePreset == peCurrent);
+
+        mOKit.Enabled = lbEnabled;
+
+        if (lbPressed && pePreset != peCurrent)
+            UWModernLayout.ChoosePreset(pePreset);
+
+        return lbPressed;
+    }
+
+    private void fKitMain()
+    {
+        fKitTitle(UWText.T("menu.title"));
+
+        if (fKitButton(UWText.T("menu.resume")))
             CloseMenu();
 
         // Refused in the Void (the original's check_save, UWHudOptions.RefusesToSave); restoring
         // is always allowed there (check_rest).
-        if (fButton("Save game") && (mOUi == null || mOUi.Options == null || !mOUi.Options.RefusesToSave()))
+        if (fKitButton(UWText.T("menu.save_game")) && (mOUi == null || mOUi.Options == null || !mOUi.Options.RefusesToSave()))
             mePage = PageEnum.Save;
 
-        if (fButton("Restore game"))
+        if (fKitButton(UWText.T("menu.restore_game")))
             mePage = PageEnum.Load;
 
         // Music, sound and the detail level left this menu on 2026-10-06 (per user): the setup
@@ -427,9 +399,9 @@ public class UWModernGameMenu
         // THE MOUSE'S RIGHT BUTTON AS A GLYPH (per user, 2026-10-08: not the pad's - "Right button"
         // said nothing of which; Kenney's pixel prompts, UWGlyphs), "RMB" if it is missing.
         Texture2D lOMouseRight = UWGlyphs.MouseRight;
-        string lsPointerOption = UWUserSettings.ModernPointerHold ? "hold to look around" : "toggles the pointer";
+        string lsPointerOption = UWUserSettings.ModernPointerHold ? UWText.T("menu.pointer.hold") : UWText.T("menu.pointer.toggle");
 
-        if (fButton(lOMouseRight != null ? new GUIContent("  " + lsPointerOption, lOMouseRight) : new GUIContent("RMB: " + lsPointerOption)))
+        if (lOMouseRight != null ? fKitButton("  " + lsPointerOption, lOMouseRight) : fKitButton(UWText.F("menu.pointer.rmb", lsPointerOption)))
         {
             UWUserSettings.ModernPointerHold = !UWUserSettings.ModernPointerHold;
             UWUserSettings.Save();
@@ -442,16 +414,16 @@ public class UWModernGameMenu
         // Classic+, Modern and Customize, the last opening the layout editor (UWModernLayoutEditor,
         // per user 2026-10-04; the UI size lives in its strip) on the own layout, which the other
         // presets leave alone. Classic and Classic+ are planned - greyed until they are built.
-        GUILayout.Space(10f);
-        GUILayout.Label("Edit layout", mOSectionStyle, GUILayout.Height(24f));
+        mOKit.HelpText(fKitNext(10f, 24f), UWText.T("menu.edit_layout"),
+            KitLook(UWGuiTheme.GameMenuButtonSize, UWGuiTheme.Accent, TextAnchor.MiddleLeft));
 
         UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
 
-        fPresetButton("Classic Wide", UWModernLayout.PresetEnum.Classic, lePreset, true);
-        fPresetButton("Classic Modular", UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
-        fPresetButton("Modern", UWModernLayout.PresetEnum.Modern, lePreset, true);
+        fKitPreset(UWText.T("menu.preset.classic_wide"), UWModernLayout.PresetEnum.Classic, lePreset, true);
+        fKitPreset(UWText.T("menu.preset.classic_modular"), UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
+        fKitPreset(UWText.T("menu.preset.modern"), UWModernLayout.PresetEnum.Modern, lePreset, true);
 
-        if (fPresetButton("Customize", UWModernLayout.PresetEnum.Custom, lePreset, true))
+        if (fKitPreset(UWText.T("menu.preset.customize"), UWModernLayout.PresetEnum.Custom, lePreset, true))
             mePage = PageEnum.Layout;
 
         // The minimap's north up / turning left this menu on 2026-10-09 (per user): the layout
@@ -459,22 +431,20 @@ public class UWModernGameMenu
 
         // Quit at the very bottom of the panel, set apart from the settings (per user,
         // 2026-10-06: "das Quit nach unten schieben") - since music, sound and detail left the
-        // menu it had moved up with the rest.
-        GUILayout.FlexibleSpace();
-
-        if (fButton("Quit to the main menu"))
+        // menu it had moved up with the rest (GUILayout's FlexibleSpace in the IMGUI form).
+        if (fKitButton(new Rect(mOAreaAt.x, mOAreaAt.y + AreaHeight - 38f, AreaWidth, 38f), UWText.T("menu.quit")))
             fQuitToMainMenu();
     }
 
-    private void fDrawSlots(bool pbSave)
+    private void fKitSlots(bool pbSave)
     {
-        GUILayout.Label(pbSave ? "Save game" : "Restore game", mOTitleStyle, GUILayout.Height(40f));
+        fKitTitle(pbSave ? UWText.T("menu.save_game") : UWText.T("menu.restore_game"));
 
         for (int liSlot = 1; liSlot <= UWSavegameSlots.SlotCount; liSlot++)
         {
             string lsName = UWSaveFlow.SlotName(liSlot);
 
-            if (!fButton(liSlot + ": " + lsName))
+            if (!fKitButton(liSlot + ": " + lsName))
                 continue;
 
             if (pbSave)
@@ -490,55 +460,55 @@ public class UWModernGameMenu
             }
         }
 
-        GUILayout.Space(12f);
+        mfKitY += 12f;
 
-        if (fButton("Back"))
+        if (fKitButton(UWText.T("menu.back")))
             mePage = PageEnum.Main;
     }
 
-    private void fDrawSaveName()
+    /// <summary>The save name: its title and line, the field (30 characters, the keyboard at once),
+    /// Save and Cancel. Enter saves and Escape goes back to the slots wherever the keyboard is, as the
+    /// IMGUI form read them from every key event of the page; the letter grid's Done and Cancel press
+    /// those keys (UWOsKeys).</summary>
+    private void fKitSaveName()
     {
-        GUILayout.Label("Save game " + miSaveSlot, mOTitleStyle, GUILayout.Height(40f));
-        GUILayout.Label("Name of the save game:", mOLabelStyle);
+        fKitTitle(UWText.F("menu.save_slot_title", miSaveSlot));
 
-        Event lOEvent = Event.current;
-        bool lbEnter = lOEvent.type == EventType.KeyDown
-            && (lOEvent.keyCode == KeyCode.Return || lOEvent.keyCode == KeyCode.KeypadEnter);
-        bool lbEscape = lOEvent.type == EventType.KeyDown && lOEvent.keyCode == KeyCode.Escape;
+        string lsLine = UWText.T("menu.save_name");
+        UWKitRows.HelpLook lOLine = KitLook(UWGuiTheme.GameMenuTextSize, UWGuiTheme.Text, TextAnchor.MiddleLeft, false, true);
 
-        GUI.SetNextControlName("UWModernSaveName");
-        msSaveName = GUILayout.TextField(msSaveName ?? string.Empty, 30, mOFieldStyle, GUILayout.Height(36f));
+        mOKit.HelpText(fKitNext(0f, mOKit.HelpTextHeight(lsLine, lOLine, AreaWidth)), lsLine, lOLine);
 
         if (mbFocusName)
         {
-            GUI.FocusControl("UWModernSaveName");
+            mOKit.FocusField(NameField, msSaveName ?? string.Empty, 30);
             mbFocusName = false;
         }
 
-        if (lbEnter)
+        msSaveName = mOKit.TextField(fKitNext(0f, 36f), NameField, msSaveName ?? string.Empty, 30);
+
+        if (UWTextEntry.EnterPressed)
         {
-            lOEvent.Use();
             fSave();
             return;
         }
 
-        if (lbEscape)
+        if (UWBack.Takes(UWBackOwner.ModernSaveName))
         {
-            lOEvent.Use();
             mePage = PageEnum.Save;
             return;
         }
 
-        if (fButton("Save"))
+        if (fKitButton(UWText.T("menu.save")))
             fSave();
 
-        if (fButton("Cancel"))
+        if (fKitButton(UWText.T("menu.cancel")))
             mePage = PageEnum.Save;
     }
 
-    private void fDrawDetail()
+    private void fKitDetail()
     {
-        GUILayout.Label("Detail", mOTitleStyle, GUILayout.Height(40f));
+        fKitTitle(UWText.T("menu.detail.title"));
 
         foreach (UWGraphicsDetail.LevelEnum leLevel in new[]
         {
@@ -548,13 +518,13 @@ public class UWModernGameMenu
         {
             string lsMark = leLevel == UWGraphicsDetail.CurrentLevel ? "> " : string.Empty;
 
-            if (fButton(lsMark + leLevel))
+            if (fKitButton(lsMark + UWText.T(msDetailIds[(int)leLevel])))
                 UWGraphicsDetail.SetLevel(leLevel);
         }
 
-        GUILayout.Space(12f);
+        mfKitY += 12f;
 
-        if (fButton("Back"))
+        if (fKitButton(UWText.T("menu.back")))
             mePage = PageEnum.Main;
     }
 }

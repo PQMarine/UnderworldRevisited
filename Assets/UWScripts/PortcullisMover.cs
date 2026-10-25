@@ -191,7 +191,7 @@ public class PortcullisMover : MonoBehaviour, IUsableDoor
 
     public void StartUsingDoor()
     {
-        UWSoundEffects.PlayAt(UWSoundEffects.Portcullis, transform.position);
+        UWAudioService.PlayEffectAt(UWDataImport.UWData.UWSoundEffectId.Portcullis, transform.position);
 
         mfMotionStartLift = mfLiftNow;
 

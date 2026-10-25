@@ -361,10 +361,10 @@ public static class UWWorldPicker
         if (lsShader != "UW/Billboard" && lsShader != "UW/BillboardPalette")
             return false;
 
-        Texture2D lOTexture = lOMaterial.HasProperty("_MainTex") ? lOMaterial.mainTexture as Texture2D : null;
+        Texture2D lOTexture = lOMaterial.HasProperty(UWShaderIds.MainTex) ? lOMaterial.mainTexture as Texture2D : null;
 
-        if (lOTexture == null && lOMaterial.HasProperty("_IndexTex"))
-            lOTexture = lOMaterial.GetTexture("_IndexTex") as Texture2D;
+        if (lOTexture == null && lOMaterial.HasProperty(UWShaderIds.IndexTex))
+            lOTexture = lOMaterial.GetTexture(UWShaderIds.IndexTex) as Texture2D;
 
         Mesh lOMesh = lOFilter.sharedMesh;
         Camera lOCamera = Camera.main;
@@ -415,7 +415,7 @@ public static class UWWorldPicker
         float lfV = Mathf.Lerp(laUvs[0].y, laUvs[3].y, lfT);
         int liPixelX = Mathf.Clamp(Mathf.FloorToInt(lfU * lOTexture.width), 0, lOTexture.width - 1);
         int liPixelY = Mathf.Clamp(Mathf.FloorToInt(lfV * lOTexture.height), 0, lOTexture.height - 1);
-        float lfCutoff = lOMaterial.HasProperty("_Cutoff") ? lOMaterial.GetFloat("_Cutoff") : 0.5f;
+        float lfCutoff = lOMaterial.HasProperty(UWShaderIds.Cutoff) ? lOMaterial.GetFloat(UWShaderIds.Cutoff) : 0.5f;
 
         return lOTexture.GetPixel(liPixelX, liPixelY).a < lfCutoff;
     }

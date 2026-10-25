@@ -166,12 +166,22 @@ public static class UWModernLayout
 
     public const int ElementCount = 20;
 
-    public static readonly string[] Names =
+    /// <summary>The parts' names in the text table, by ElementEnum (cleanup step 8.5, 2026-10-24:
+    /// until then the English names themselves). Shown only - no name is stored or looked up.</summary>
+    public static readonly string[] NameIds =
     {
-        "Action bar", "Minimap", "Heading", "Active spells", "Messages", "Vitality and mana", "Bags", "Character panel", "Rune panel",
-        "Conversation", "Compass", "Power gem", "Stone shelf", "Movement arrows", "Vitality flask", "Mana flask", "Rune hollow",
-        "Rune tablet", "Stats panel", "Character page"
+        "editor.part.action_bar", "editor.part.minimap", "editor.part.heading", "editor.part.active_spells", "editor.part.messages",
+        "editor.part.vitals", "editor.part.bags", "editor.part.character_panel", "editor.part.rune_panel", "editor.part.conversation",
+        "editor.part.compass", "editor.part.power_gem", "editor.part.stone_shelf", "editor.part.movement_arrows",
+        "editor.part.vitality_flask", "editor.part.mana_flask", "editor.part.rune_hollow", "editor.part.rune_tablet",
+        "editor.part.stats_panel", "editor.part.character_page"
     };
+
+    /// <summary>A part's name in the language in force.</summary>
+    public static string Name(int piElement)
+    {
+        return UWText.T(NameIds[piElement]);
+    }
 
     /// <summary>A panel left at its edge: it slides out and in on its handle.</summary>
     public static bool IsDocked(ElementEnum peElement)

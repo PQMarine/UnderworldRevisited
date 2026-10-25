@@ -2,722 +2,197 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UWDataImport.UWData;
+using Defs = UWDataImport.UWData.UWUserSettingsTable;
 
 /// <summary>
 /// What the player sets up outside the game data (2026-09-17): for now the folder of the GOG
 /// installation chosen in the setup screen. Kept in persistentDataPath/settings.json, because a
 /// build never writes the settings asset back - the same reason as UWGraphicsDetail. Further
 /// entries of the menu bar (controls, text, colours) are to land here too.
+///
+/// THE FACADE (cleanup step 8.3, 2026-10-24): the data is UWUserData, engine-free and the file
+/// format itself; how a stored value reads - the clamps, the legacy quirks of older files, "not
+/// chosen yet" - is an entry of UWUserSettingsTable each. This class loads and saves the file
+/// with JsonUtility, holds the one instance and keeps every property the callers use, one line
+/// each, plus the few with an effect of their own: GogInstallPath saves at once, RunInBackground
+/// applies at once, ShowsPadHints asks the pad, and the layout editor's snapshot.
 /// </summary>
 public static class UWUserSettings
 {
-    [Serializable]
-    private class Data
-    {
-        public string GogInstallPath = string.Empty;
-
-        /// <summary>Changed keys, one line per binding: "map|action|index|path" (see
-        /// UWKeyBindings).</summary>
-        public List<string> KeyBindings = new List<string>();
-
-        /// <summary>Colour help (see UWColourVision): mode, strength, brightness, contrast.</summary>
-        public int ColourMode;
-
-        public float ColourStrength = 1f;
-
-        public float ColourBrightness = 1f;
-
-        public float ColourContrast = 1f;
-
-        /// <summary>Hatch the health flask while poisoned, so it is not only the colour that
-        /// tells (see UWFlasks).</summary>
-        public bool MarkPoison;
-
-        /// <summary>The player deals the class's bonus points at character creation himself
-        /// instead of the dice (UWCharacterGeneration.ManualAttributes). Off by default.</summary>
-        public bool ManualAttributes;
-
-        /// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
-        /// the tab (UWHelpWindow.TabEnum as a number, 3 = Spells) and how many tiles the map
-        /// tab shows across.</summary>
-        public bool HelpOpen;
-
-        public int HelpTab = 3;
-
-        public int HelpMapSpan = 20;
-
-        /// <summary>The modern scheme's minimap (UWModernMinimap, per user 2026-10-03): its zoom
-        /// as screen pixels per map pixel at the default HUD scale (0 = not chosen yet), and
-        /// whether it turns with the view - north up by default.</summary>
-        public int MinimapZoom;
-
-        public bool MinimapTurns;
-
-        /// <summary>The modern UI's size chosen in the game menu, in percent of the automatic
-        /// one, 0 = 100 (UWModernUi.PixelScale).</summary>
-        public int ModernUiPercent;
-
-        /// <summary>The modern conversation's text size in percent, 0 = 100 (UWModernConversation,
-        /// its + and - in the history's corner).</summary>
-        public int ConversationTextPercent;
-
-        /// <summary>The modern HUD's own layout (UWModernLayout): the moved and sized parts - the
-        /// Custom preset's, kept while another preset is chosen.</summary>
-        public string ModernLayout;
-
-        /// <summary>The modern scheme's interface preset (UWModernLayout.PresetEnum); -1 = not
-        /// chosen yet: Custom when an own layout exists, else Modern.</summary>
-        public int InterfacePreset = -1;
-
-        /// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
-        public bool MinimapHidden;
-
-        /// <summary>The action bar switched off, its keys with it (the layout editor; per user,
-        /// 2026-10-10).</summary>
-        public bool ActionBarHidden;
-
-        /// <summary>The original's compass in the own layout (the layout editor's Compass button,
-        /// UWModernCompass).</summary>
-        public bool ModernCompass;
-
-        /// <summary>The compass on its stone disc (UWModernLayout.IsCompassDisc), and its black outline.</summary>
-        public bool ModernCompassDisc;
-
-        public bool ModernCompassOutline;
-
-        /// <summary>The original's message scroll in the own layout (the layout editor's Scroll
-        /// button, UWModernScroll), and its lines (0 = the original's four; Shift+wheel).</summary>
-        public bool ModernScroll;
-
-        /// <summary>The parts' generated backs (UWModernBacks).</summary>
-        public string ModernBacks;
-
-        public int ModernScrollLines;
-
-        /// <summary>The modern message box's lines (0 = five; Interaction.ModernMessageCount).</summary>
-        public int ModernMessageLines;
-
-        /// <summary>The modern interface's font: 0 modern, 1 the original's (UWUiFonts).</summary>
-        public int InterfaceFont;
-
-        /// <summary>The power gem on a stand of its own (UWModernLayout.IsGemApart).</summary>
-        public bool ModernGemApart;
-
-        /// <summary>The stone shelf deco panel shown, and its width in its own pixels (0 = default).</summary>
-        public bool ModernStoneShelf;
-
-        public int ModernStoneShelfWidth;
-
-        /// <summary>The flasks freed, each on its own (UWModernLayout.IsFlasksApart).</summary>
-        public bool ModernFlasksApart;
-
-        /// <summary>The rune hollow as an element (UWModernLayout.IsRuneHollowShown), and its black outline.</summary>
-        public bool ModernRuneHollow;
-
-        public bool ModernRuneHollowOutline;
-
-        /// <summary>The original's rune tablet in the rune panel's place (UWModernLayout.IsRuneTabletShown).</summary>
-        public bool ModernRuneTablet;
-
-        /// <summary>The original's stats panel as an element (UWModernLayout.IsStatsPanelShown).</summary>
-        public bool ModernStatsPanel;
-
-        /// <summary>The original's character panel as an element (UWModernLayout.IsCharacterPageShown).</summary>
-        public bool ModernCharacterPage;
-
-        /// <summary>The conversation in the original's look (UWModernLayout.IsConversationOriginal).</summary>
-        public bool ModernConversationOriginal;
-
-        /// <summary>The original look's pieces WITHOUT their black outline (on by default, per user
-        /// 2026-10-10: "with the outline it looks better").</summary>
-        public bool ModernConversationNoOutline;
-
-        /// <summary>The modern pointer is free and the view turns only while the right button is
-        /// held, instead of the button toggling (UWModernPointer; toggling by default, per user
-        /// 2026-10-03).</summary>
-        public bool ModernPointerHold;
-
-        /// <summary>The mouse look's speed in the modern scheme as a factor on the tuned
-        /// default, 0.05 to 2 (per user, 2026-10-06: "Die Maussteuerung ist schon sehr
-        /// direkt", so adjustable). The stick keeps its own rate.</summary>
-        public float MouseLookSpeed = 0.5f;
-
-        /// <summary>The mouse look's up and down reversed in the modern scheme, as StickInvertY
-        /// for the stick (UWPlayerLook.ReadLookMouse; pull request 3 by krispit-dev, 2026-10-13).</summary>
-        public bool MouseInvertY;
-
-        /// <summary>The slow-walk key switches the slow walk on and off instead of being held
-        /// (UWPlayerInput.fIsWalkingSlow; issue 4, 2026-10-21).</summary>
-        public bool WalkSlowToggle;
-
-        /// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
-        /// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
-        /// often reports as an Xbox one).</summary>
-        public int GamepadButtonStyle;
-
-        /// <summary>The right stick's look speed as a factor on its 180 degrees per second, 0.25 to
-        /// 2 (the gamepad tab of the Controls dialog, per user 2026-10-07).</summary>
-        public float StickLookSpeed = 1f;
-
-        /// <summary>The sticks swapped - the left one looks, the right one walks (per user,
-        /// 2026-10-07: wanted above all by left-handed players; UWKeyBindings.ApplyTo).</summary>
-        public bool GamepadSwapSticks;
-
-        /// <summary>The look stick's up and down reversed (UWPlayerLook.ReadLookStick).</summary>
-        public bool StickInvertY;
-
-        /// <summary>The deadzone of the physical left and right stick, 0 to 0.5 of the deflection
-        /// (per user, 2026-10-08: "sooner or later every controller drifts"; the Input System's own
-        /// 0.125 as the default - UWKeyBindings.fApplyStickSwap).</summary>
-        public float LeftStickDeadzone = 0.125f;
-
-        /// <summary>The gamepad's button hints in the modern interface - at the crosshair and the
-        /// action bar - while the pad is in use (per user, 2026-10-08).</summary>
-        public bool GamepadButtonHints = true;
-
-        public float RightStickDeadzone = 0.125f;
-
-        /// <summary>The modern character panel stays out on its Character tab without freeing the
-        /// pointer, the minimap in its head (UWModernPanel, per user 2026-10-03).</summary>
-        public bool ModernPanelPinned;
-
-        /// <summary>The modern rune panel stays out (UWModernRunePanel, per user 2026-10-04).</summary>
-        public bool ModernRunesPinned;
-
-        /// <summary>The control scheme last chosen (Shift+F2), as UWControlScheme.SchemeEnum; -1 =
-        /// not chosen yet, the scene's default (per user, 2026-10-04: kept over loading and noclip).</summary>
-        public int ControlScheme = -1;
-
-        /// <summary>Seconds between two steps while an easy movement key or arrow is held
-        /// down - see UWEasyMovement.DefaultRepeatSeconds.</summary>
-        public float EasyMovementInterval = UWDataImport.UWData.UWEasyMovement.DefaultRepeatSeconds;
-
-        /// <summary>The two company logos, the animated title and the intro at startup. Off
-        /// goes straight to the main menu, which is what one wants while testing
-        /// (per user, 2026-09-22).</summary>
-        public bool ShowOpeningSequence = true;
-
-        /// <summary>The game keeps running while another window has the focus (per user,
-        /// 2026-09-28: wanted for idle tests beside the original, "everyone should decide for
-        /// themselves"). Off by default, as Unity has it.</summary>
-        public bool RunInBackground;
-
-        /// <summary>The classic screen at 4:3 - always on since 2026-10-10 (UWDisplayAspect).
-        /// KEPT FOR THE FILE ONLY: settings.json fields are never removed, so a file written by an
-        /// older version still reads; nothing reads the value any more.</summary>
-        public bool DisplayAs4By3 = true;
-
-        /// <summary>The classic scheme's frame widened to the window (UWClassicWide; per user,
-        /// 2026-10-10: the former 4:3 checkbox, the classic screen always at 4:3 now).</summary>
-        public bool ClassicWidescreen;
-
-        /// <summary>The 3D view's horizontal angle in degrees, 0 for each scheme's own (UWViewAngle).</summary>
-        public float ViewAngle;
-
-        /// <summary>The world drawn at the original's resolution - see UWWorldResolution. Off by
-        /// default: the full screen resolution, as before.</summary>
-        public bool OriginalWorldResolution;
-
-        /// <summary>Its multiple of the original's resolution, 1 to 4 (UWWorldResolution.Factor).</summary>
-        public int OriginalWorldResolutionFactor = 1;
-
-        /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off
-        /// (UWPaletteEffects).</summary>
-        public float PaletteAmbientOcclusion;
-
-        /// <summary>The palette renderer's light sources (UWPaletteEffects); off by default.</summary>
-        public bool PaletteLightSources;
-
-        /// <summary>The palette renderer's glow (lava, the light sources' flames); off by default.</summary>
-        public bool PaletteGlow;
-
-        /// <summary>The palette renderer's grime along the walls in shade steps, 0 = off.</summary>
-        public float PaletteGrime;
-
-        /// <summary>The grime's colour (UWGrimeTint.ToneEnum): 0 none, 1 dirt, 2 moss, 3 soot.</summary>
-        public int PaletteGrimeTone = 1;
-
-        /// <summary>The palette renderer's ground shadows in shade steps, 0 = off.</summary>
-        public float PaletteGroundShadows;
-
-        /// <summary>The palette renderer's hollows (joints darker) in shade steps, 0 = off.</summary>
-        public float PaletteCavity;
-
-        /// <summary>The palette renderer's depth (parallax and self shadow), 0 = off.</summary>
-        public float PaletteDepth;
-
-
-        /// <summary>Window or borderless fullscreen (UWDisplayMode.ModeEnum): 0 window, 1 borderless
-        /// fullscreen; -1 not chosen yet, then a build starts borderless at the desktop's size.</summary>
-        public int DisplayMode = -1;
-
-        /// <summary>The resolution the game renders at; 0 = the desktop's.</summary>
-        public int ResolutionWidth;
-
-        public int ResolutionHeight;
-
-        /// <summary>The head bob while walking and the weapon's jitter with it - see UWHeadBobRules:
-        /// 0 off, 1 the original's steps, 2 smoothed (per user, 2026-09-23, first a plain on/off
-        /// switch). Original by default; off for players who get sick from it.</summary>
-        public int HeadBobMode = 1;
-
-        /// <summary>How strong the Smooth head bob is, 0.1 to 1 of the original's amplitude (per
-        /// user, 2026-09-23: a slider beside Smooth, none for Off and Original).</summary>
-        public float HeadBobStrength = 1f;
-
-        /// <summary>The weapon's jitter, its own three-way switch since 2026-09-23 (per user: "Original
-        /// is too tiring for me, but without it something is missing"): 0 off, 1 the original's
-        /// jumps, 2 smoothed. Until then the head bob switch turned it off with the bob.</summary>
-        public int WeaponJitterMode = 1;
-
-        /// <summary>How strong the Smooth weapon jitter is, 0.1 to 1 of the original's range.</summary>
-        public float WeaponJitterStrength = 1f;
-
-        /// <summary>The swimmer's view, a three-way switch like the head bob's (per user,
-        /// 2026-10-15: "like the original, but with a switch like the head bob, off as well"):
-        /// 0 calm, 1 the original's jitter (UWSwimViewRules), 2 our gentle sway. Original by
-        /// default.</summary>
-        public int SwimViewMode = 1;
-
-        /// <summary>How strong the Smooth swimming sway is, 0.1 to 1.</summary>
-        public float SwimViewStrength = 1f;
-
-        /// <summary>The player's motion on the core (2026-10-06, per user: "per Schalter
-        /// einstellbar, wer es nah am Original haben moechte kann das waehlen"): 0 Original - one
-        /// motion frame per rendered frame with the ticks that passed, whole units, as UW.EXE
-        /// runs it; 1 Smooth - fixed steps of the original's frame length with the view drawn
-        /// between them (UWPlayerMovement). Smooth by default.</summary>
-        public int MotionSmoothing = 1;
-
-        /// <summary>The picture of the motion (2026-10-06, per user: "soll jeder selbst einstellen"):
-        /// 0 even - the view drawn between the simulation steps at the monitor's rate; 1 stepped
-        /// - the view set once per step, the 15-20 pictures a second of the original on DOSBox at
-        /// fixed cycles. Even by default.</summary>
-        public int MotionViewStepped;
-
-        /// <summary>The frame length of the Original motion in PIT ticks - how often UW.EXE ran
-        /// its motion frame on the machine one measures against (2026-10-06, per user: DOSBox at
-        /// 30000 cycles looks smoother than our 16): 4, 8, 12 or 16 ticks = 64, 32, 21 or 16
-        /// frames a second. 8 by default - the user matched 32 fps against his DOSBox by eye.</summary>
-        public int OriginalFrameTicks = 8;
-
-        /// <summary>The Smooth motion's ramp (2026-10-06, per user: a long start and stop work
-        /// against a sensitive stomach): the speed changes by the original's step per this many
-        /// ticks - 16 = 0.56 s to the run (the original at 16 fps), 8 = 0.31 s (at 32 fps, the
-        /// user's DOSBox), 4 = 0.16 s, 0 = at once. 8 by default.</summary>
-        public int SmoothRampTicks = 8;
-
-        /// <summary>Music and sound, on or off and how loud - see UWSoundOptions. The values
-        /// here are the ones the settings asset starts with, so a file written before this
-        /// entry existed reads as the old behaviour.</summary>
-        public bool MusicEnabled = true;
-
-        public float MusicVolume = 0.6f;
-
-        public bool SoundEnabled = true;
-
-        public float SoundVolume = 0.8f;
-
-        /// <summary>What plays the music (UWAudioEngine.MusicDeviceEnum): 0 the AdLib, 1 General
-        /// MIDI, 2 the MT-32. 0 by default, the sound of the original as most heard it.</summary>
-        public int MusicDevice;
-
-        /// <summary>The folder with the player's own MT-32 ROMs; empty = the MT32 folder beside
-        /// settings.json.</summary>
-        public string Mt32RomPath = "";
-    }
-
     private const string FileName = "settings.json";
 
-    private static Data msData;
+    /// <summary>The settings read from the file (or the defaults); named as UWSettingsFixtureCheck
+    /// expects it.</summary>
+    private static UWUserData msData;
+
+    /// <summary>The settings themselves, for the rows that read and write them through the table
+    /// (UWSetupPageDrawer, the layout editor's inspector; cleanup step 8.4, 2026-10-24).</summary>
+    internal static UWUserData Data => fGet();
+
+    /// <summary>
+    /// THE TABLE'S OnChange ENTRIES THAT NEED THE ENGINE (cleanup step 8.4, 2026-10-24): a change of
+    /// the sticks' swap or a deadzone through a row puts the bindings anew (UWControls), as the
+    /// gamepad tab did after each of them; hung on here, where the engine meets the table.
+    /// </summary>
+    static UWUserSettings()
+    {
+        Defs.GamepadSwapSticks.OnChange = fApplyKeyBindings;
+        Defs.LeftStickDeadzone.OnChange = fApplyKeyBindings;
+        Defs.RightStickDeadzone.OnChange = fApplyKeyBindings;
+    }
+
+    private static void fApplyKeyBindings(UWUserData pOData)
+    {
+        UWControls.ApplyKeyBindings();
+    }
 
     public static string GogInstallPath
     {
-        get { return fGet().GogInstallPath; }
+        get { return Defs.GogInstallPath.Read(fGet()); }
         set
         {
-            fGet().GogInstallPath = value ?? string.Empty;
+            Defs.GogInstallPath.Write(fGet(), value);
             Save();
         }
     }
 
-    public static List<string> KeyBindings
-    {
-        get
-        {
-            Data lOData = fGet();
+    public static List<string> KeyBindings => Defs.KeyBindings.Read(fGet());
 
-            if (lOData.KeyBindings == null)
-                lOData.KeyBindings = new List<string>();
+    public static int ColourMode { get => Defs.ColourMode.Read(fGet()); set => Defs.ColourMode.Write(fGet(), value); }
 
-            return lOData.KeyBindings;
-        }
-    }
+    public static float ColourStrength { get => Defs.ColourStrength.Read(fGet()); set => Defs.ColourStrength.Write(fGet(), value); }
 
-    public static int ColourMode
-    {
-        get { return fGet().ColourMode; }
-        set { fGet().ColourMode = value; }
-    }
+    public static float ColourBrightness { get => Defs.ColourBrightness.Read(fGet()); set => Defs.ColourBrightness.Write(fGet(), value); }
 
-    public static float ColourStrength
-    {
-        get { return fGet().ColourStrength; }
-        set { fGet().ColourStrength = value; }
-    }
+    public static float ColourContrast { get => Defs.ColourContrast.Read(fGet()); set => Defs.ColourContrast.Write(fGet(), value); }
 
-    public static float ColourBrightness
-    {
-        get { return fGet().ColourBrightness; }
-        set { fGet().ColourBrightness = value; }
-    }
+    public static bool MarkPoison { get => Defs.MarkPoison.Read(fGet()); set => Defs.MarkPoison.Write(fGet(), value); }
 
-    public static float ColourContrast
-    {
-        get { return fGet().ColourContrast; }
-        set { fGet().ColourContrast = value; }
-    }
+    public static bool ManualAttributes { get => Defs.ManualAttributes.Read(fGet()); set => Defs.ManualAttributes.Write(fGet(), value); }
 
-    public static bool MarkPoison
-    {
-        get { return fGet().MarkPoison; }
-        set { fGet().MarkPoison = value; }
-    }
+    public static bool HelpOpen { get => Defs.HelpOpen.Read(fGet()); set => Defs.HelpOpen.Write(fGet(), value); }
 
-    public static bool ManualAttributes
-    {
-        get { return fGet().ManualAttributes; }
-        set { fGet().ManualAttributes = value; }
-    }
+    public static int HelpTab { get => Defs.HelpTab.Read(fGet()); set => Defs.HelpTab.Write(fGet(), value); }
 
-    public static bool HelpOpen
-    {
-        get { return fGet().HelpOpen; }
-        set { fGet().HelpOpen = value; }
-    }
+    public static int HelpMapSpan { get => Defs.HelpMapSpan.Read(fGet()); set => Defs.HelpMapSpan.Write(fGet(), value); }
 
-    public static int HelpTab
-    {
-        get { return fGet().HelpTab; }
-        set { fGet().HelpTab = value; }
-    }
+    public static int MinimapZoom { get => Defs.MinimapZoom.Read(fGet()); set => Defs.MinimapZoom.Write(fGet(), value); }
 
-    public static int HelpMapSpan
-    {
-        get { return fGet().HelpMapSpan; }
-        set { fGet().HelpMapSpan = value; }
-    }
+    public static bool MinimapTurns { get => Defs.MinimapTurns.Read(fGet()); set => Defs.MinimapTurns.Write(fGet(), value); }
 
-    public static int MinimapZoom
-    {
-        get { return fGet().MinimapZoom; }
-        set { fGet().MinimapZoom = value; }
-    }
+    public static int ModernUiPercent { get => Defs.ModernUiPercent.Read(fGet()); set => Defs.ModernUiPercent.Write(fGet(), value); }
 
-    public static bool MinimapTurns
-    {
-        get { return fGet().MinimapTurns; }
-        set { fGet().MinimapTurns = value; }
-    }
+    public static bool MinimapHidden { get => Defs.MinimapHidden.Read(fGet()); set => Defs.MinimapHidden.Write(fGet(), value); }
 
-    public static int ModernUiPercent
-    {
-        get { return fGet().ModernUiPercent; }
-        set { fGet().ModernUiPercent = value; }
-    }
+    public static bool ActionBarHidden { get => Defs.ActionBarHidden.Read(fGet()); set => Defs.ActionBarHidden.Write(fGet(), value); }
 
-    public static bool MinimapHidden
-    {
-        get { return fGet().MinimapHidden; }
-        set { fGet().MinimapHidden = value; }
-    }
+    public static bool ModernCompass { get => Defs.ModernCompass.Read(fGet()); set => Defs.ModernCompass.Write(fGet(), value); }
 
-    public static bool ActionBarHidden
-    {
-        get { return fGet().ActionBarHidden; }
-        set { fGet().ActionBarHidden = value; }
-    }
+    public static bool ModernCompassDisc { get => Defs.ModernCompassDisc.Read(fGet()); set => Defs.ModernCompassDisc.Write(fGet(), value); }
 
-    public static bool ModernCompass
-    {
-        get { return fGet().ModernCompass; }
-        set { fGet().ModernCompass = value; }
-    }
+    public static bool ModernCompassOutline { get => Defs.ModernCompassOutline.Read(fGet()); set => Defs.ModernCompassOutline.Write(fGet(), value); }
 
-    public static bool ModernCompassDisc
-    {
-        get { return fGet().ModernCompassDisc; }
-        set { fGet().ModernCompassDisc = value; }
-    }
+    public static string ModernBacks { get => Defs.ModernBacks.Read(fGet()); set => Defs.ModernBacks.Write(fGet(), value); }
 
-    public static bool ModernCompassOutline
-    {
-        get { return fGet().ModernCompassOutline; }
-        set { fGet().ModernCompassOutline = value; }
-    }
+    public static bool ModernScroll { get => Defs.ModernScroll.Read(fGet()); set => Defs.ModernScroll.Write(fGet(), value); }
 
-    public static string ModernBacks
-    {
-        get { return fGet().ModernBacks; }
-        set { fGet().ModernBacks = value; }
-    }
+    public static int ModernScrollLines { get => Defs.ModernScrollLines.Read(fGet()); set => Defs.ModernScrollLines.Write(fGet(), value); }
 
-    public static bool ModernScroll
-    {
-        get { return fGet().ModernScroll; }
-        set { fGet().ModernScroll = value; }
-    }
+    public static int ModernMessageLines { get => Defs.ModernMessageLines.Read(fGet()); set => Defs.ModernMessageLines.Write(fGet(), value); }
 
-    public static int ModernScrollLines
-    {
-        get { return fGet().ModernScrollLines; }
-        set { fGet().ModernScrollLines = value; }
-    }
+    public static int InterfaceFont { get => Defs.InterfaceFont.Read(fGet()); set => Defs.InterfaceFont.Write(fGet(), value); }
 
-    public static int ModernMessageLines
-    {
-        get { return fGet().ModernMessageLines; }
-        set { fGet().ModernMessageLines = value; }
-    }
+    public static bool ModernGemApart { get => Defs.ModernGemApart.Read(fGet()); set => Defs.ModernGemApart.Write(fGet(), value); }
 
-    public static int InterfaceFont
-    {
-        get { return fGet().InterfaceFont; }
-        set { fGet().InterfaceFont = value; }
-    }
+    public static bool ModernStoneShelf { get => Defs.ModernStoneShelf.Read(fGet()); set => Defs.ModernStoneShelf.Write(fGet(), value); }
 
-    public static bool ModernGemApart
-    {
-        get { return fGet().ModernGemApart; }
-        set { fGet().ModernGemApart = value; }
-    }
+    public static int ModernStoneShelfWidth { get => Defs.ModernStoneShelfWidth.Read(fGet()); set => Defs.ModernStoneShelfWidth.Write(fGet(), value); }
 
-    public static bool ModernStoneShelf
-    {
-        get { return fGet().ModernStoneShelf; }
-        set { fGet().ModernStoneShelf = value; }
-    }
+    public static bool ModernFlasksApart { get => Defs.ModernFlasksApart.Read(fGet()); set => Defs.ModernFlasksApart.Write(fGet(), value); }
 
-    public static int ModernStoneShelfWidth
-    {
-        get { return fGet().ModernStoneShelfWidth; }
-        set { fGet().ModernStoneShelfWidth = value; }
-    }
+    public static bool ModernRuneHollow { get => Defs.ModernRuneHollow.Read(fGet()); set => Defs.ModernRuneHollow.Write(fGet(), value); }
 
-    public static bool ModernFlasksApart
-    {
-        get { return fGet().ModernFlasksApart; }
-        set { fGet().ModernFlasksApart = value; }
-    }
+    public static bool ModernRuneHollowOutline { get => Defs.ModernRuneHollowOutline.Read(fGet()); set => Defs.ModernRuneHollowOutline.Write(fGet(), value); }
 
-    public static bool ModernRuneHollow
-    {
-        get { return fGet().ModernRuneHollow; }
-        set { fGet().ModernRuneHollow = value; }
-    }
+    public static bool ModernRuneTablet { get => Defs.ModernRuneTablet.Read(fGet()); set => Defs.ModernRuneTablet.Write(fGet(), value); }
 
-    public static bool ModernRuneHollowOutline
-    {
-        get { return fGet().ModernRuneHollowOutline; }
-        set { fGet().ModernRuneHollowOutline = value; }
-    }
+    public static bool ModernStatsPanel { get => Defs.ModernStatsPanel.Read(fGet()); set => Defs.ModernStatsPanel.Write(fGet(), value); }
 
-    public static bool ModernRuneTablet
-    {
-        get { return fGet().ModernRuneTablet; }
-        set { fGet().ModernRuneTablet = value; }
-    }
+    public static bool ModernCharacterPage { get => Defs.ModernCharacterPage.Read(fGet()); set => Defs.ModernCharacterPage.Write(fGet(), value); }
 
-    public static bool ModernStatsPanel
-    {
-        get { return fGet().ModernStatsPanel; }
-        set { fGet().ModernStatsPanel = value; }
-    }
+    public static bool ModernConversationOriginal { get => Defs.ModernConversationOriginal.Read(fGet()); set => Defs.ModernConversationOriginal.Write(fGet(), value); }
 
-    public static bool ModernCharacterPage
-    {
-        get { return fGet().ModernCharacterPage; }
-        set { fGet().ModernCharacterPage = value; }
-    }
+    public static bool ModernConversationNoOutline { get => Defs.ModernConversationNoOutline.Read(fGet()); set => Defs.ModernConversationNoOutline.Write(fGet(), value); }
 
-    public static bool ModernConversationOriginal
-    {
-        get { return fGet().ModernConversationOriginal; }
-        set { fGet().ModernConversationOriginal = value; }
-    }
+    public static string ModernLayout { get => Defs.ModernLayout.Read(fGet()); set => Defs.ModernLayout.Write(fGet(), value); }
 
-    public static bool ModernConversationNoOutline
-    {
-        get { return fGet().ModernConversationNoOutline; }
-        set { fGet().ModernConversationNoOutline = value; }
-    }
+    /// <summary>The interface preset; -1 in the file reads as Custom or Modern (the table's entry).</summary>
+    public static int InterfacePreset { get => Defs.InterfacePreset.Read(fGet()); set => Defs.InterfacePreset.Write(fGet(), value); }
 
-    public static string ModernLayout
-    {
-        get { return fGet().ModernLayout; }
-        set { fGet().ModernLayout = value; }
-    }
+    public static int ConversationTextPercent { get => Defs.ConversationTextPercent.Read(fGet()); set => Defs.ConversationTextPercent.Write(fGet(), value); }
 
-    public static int InterfacePreset
-    {
-        get
-        {
-            int liPreset = fGet().InterfacePreset;
-
-            if (liPreset < 0)
-                return string.IsNullOrEmpty(fGet().ModernLayout) && !fGet().MinimapHidden ? 0 : 1;
-
-            return liPreset;
-        }
-        set { fGet().InterfacePreset = value; }
-    }
-
-    public static int ConversationTextPercent
-    {
-        get { return fGet().ConversationTextPercent; }
-        set { fGet().ConversationTextPercent = value; }
-    }
-
-    public static bool ModernPointerHold
-    {
-        get { return fGet().ModernPointerHold; }
-        set { fGet().ModernPointerHold = value; }
-    }
+    public static bool ModernPointerHold { get => Defs.ModernPointerHold.Read(fGet()); set => Defs.ModernPointerHold.Write(fGet(), value); }
 
     /// <summary>The mouse look's speed factor, clamped; UWPlayerLook reads it every frame.</summary>
-    public static float MouseLookSpeed
-    {
-        get { return Mathf.Clamp(fGet().MouseLookSpeed <= 0f ? 1f : fGet().MouseLookSpeed, MinMouseLookSpeed, MaxMouseLookSpeed); }
-        set { fGet().MouseLookSpeed = Mathf.Clamp(value, MinMouseLookSpeed, MaxMouseLookSpeed); }
-    }
+    public static float MouseLookSpeed { get => Defs.MouseLookSpeed.Read(fGet()); set => Defs.MouseLookSpeed.Write(fGet(), value); }
 
-    public static bool MouseInvertY
-    {
-        get { return fGet().MouseInvertY; }
-        set { fGet().MouseInvertY = value; }
-    }
+    public static bool MouseInvertY { get => Defs.MouseInvertY.Read(fGet()); set => Defs.MouseInvertY.Write(fGet(), value); }
 
-    public static bool WalkSlowToggle
-    {
-        get { return fGet().WalkSlowToggle; }
-        set { fGet().WalkSlowToggle = value; }
-    }
+    public static bool WalkSlowToggle { get => Defs.WalkSlowToggle.Read(fGet()); set => Defs.WalkSlowToggle.Write(fGet(), value); }
 
-    public const float MinMouseLookSpeed = 0.05f;
+    public const float MinMouseLookSpeed = Defs.MinMouseLookSpeed;
 
-    public const float MaxMouseLookSpeed = 2f;
+    public const float MaxMouseLookSpeed = Defs.MaxMouseLookSpeed;
 
     /// <summary>The slider's and the arrows' step: five per cent.</summary>
-    public const float MouseLookSpeedStep = 0.05f;
+    public const float MouseLookSpeedStep = Defs.MouseLookSpeedStep;
 
-    public static int GamepadButtonStyle
-    {
-        get { return fGet().GamepadButtonStyle; }
-        set { fGet().GamepadButtonStyle = value; }
-    }
+    public static int GamepadButtonStyle { get => Defs.GamepadButtonStyle.Read(fGet()); set => Defs.GamepadButtonStyle.Write(fGet(), value); }
 
     /// <summary>The stick's look speed factor, clamped; UWPlayerLook reads it every frame.</summary>
-    public static float StickLookSpeed
-    {
-        get { return Mathf.Clamp(fGet().StickLookSpeed <= 0f ? 1f : fGet().StickLookSpeed, MinStickLookSpeed, MaxStickLookSpeed); }
-        set { fGet().StickLookSpeed = Mathf.Clamp(value, MinStickLookSpeed, MaxStickLookSpeed); }
-    }
+    public static float StickLookSpeed { get => Defs.StickLookSpeed.Read(fGet()); set => Defs.StickLookSpeed.Write(fGet(), value); }
 
-    public static bool GamepadSwapSticks
-    {
-        get { return fGet().GamepadSwapSticks; }
-        set { fGet().GamepadSwapSticks = value; }
-    }
+    public static bool GamepadSwapSticks { get => Defs.GamepadSwapSticks.Read(fGet()); set => Defs.GamepadSwapSticks.Write(fGet(), value); }
 
-    public static bool StickInvertY
-    {
-        get { return fGet().StickInvertY; }
-        set { fGet().StickInvertY = value; }
-    }
+    public static bool StickInvertY { get => Defs.StickInvertY.Read(fGet()); set => Defs.StickInvertY.Write(fGet(), value); }
 
-    public const float MaxStickDeadzone = 0.5f;
+    public const float MaxStickDeadzone = Defs.MaxStickDeadzone;
 
-    public static bool GamepadButtonHints
-    {
-        get { return fGet().GamepadButtonHints; }
-        set { fGet().GamepadButtonHints = value; }
-    }
+    public static bool GamepadButtonHints { get => Defs.GamepadButtonHints.Read(fGet()); set => Defs.GamepadButtonHints.Write(fGet(), value); }
 
     /// <summary>The hints show now: the pad was used last and they are switched on.</summary>
     public static bool ShowsPadHints => UWGamepad.IsActive && GamepadButtonHints;
 
-    public static float LeftStickDeadzone
-    {
-        get { return Mathf.Clamp(fGet().LeftStickDeadzone, 0f, MaxStickDeadzone); }
-        set { fGet().LeftStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
-    }
+    public static float LeftStickDeadzone { get => Defs.LeftStickDeadzone.Read(fGet()); set => Defs.LeftStickDeadzone.Write(fGet(), value); }
 
-    public static float RightStickDeadzone
-    {
-        get { return Mathf.Clamp(fGet().RightStickDeadzone, 0f, MaxStickDeadzone); }
-        set { fGet().RightStickDeadzone = Mathf.Clamp(value, 0f, MaxStickDeadzone); }
-    }
+    public static float RightStickDeadzone { get => Defs.RightStickDeadzone.Read(fGet()); set => Defs.RightStickDeadzone.Write(fGet(), value); }
 
-    public const float MinStickLookSpeed = 0.25f;
+    public const float MinStickLookSpeed = Defs.MinStickLookSpeed;
 
-    public const float MaxStickLookSpeed = 2f;
+    public const float MaxStickLookSpeed = Defs.MaxStickLookSpeed;
 
-    public static bool ModernPanelPinned
-    {
-        get { return fGet().ModernPanelPinned; }
-        set { fGet().ModernPanelPinned = value; }
-    }
+    public static bool ModernPanelPinned { get => Defs.ModernPanelPinned.Read(fGet()); set => Defs.ModernPanelPinned.Write(fGet(), value); }
 
-    public static bool ModernRunesPinned
-    {
-        get { return fGet().ModernRunesPinned; }
-        set { fGet().ModernRunesPinned = value; }
-    }
+    public static bool ModernRunesPinned { get => Defs.ModernRunesPinned.Read(fGet()); set => Defs.ModernRunesPinned.Write(fGet(), value); }
 
-    public static int ControlScheme
-    {
-        get { return fGet().ControlScheme; }
-        set { fGet().ControlScheme = value; }
-    }
+    public static int ControlScheme { get => Defs.ControlScheme.Read(fGet()); set => Defs.ControlScheme.Write(fGet(), value); }
 
     /// <summary>Seconds between two steps of the easy movement while the key or arrow stays
     /// down (UWEasyMovement). Settings written by an older build have a zero here, which is
     /// read as the default.</summary>
-    public static float EasyMovementInterval
-    {
-        get
-        {
-            float lfValue = fGet().EasyMovementInterval;
-
-            if (lfValue <= 0f)
-                return UWDataImport.UWData.UWEasyMovement.DefaultRepeatSeconds;
-
-            return Mathf.Clamp(lfValue, UWDataImport.UWData.UWEasyMovement.MinRepeatSeconds,
-                UWDataImport.UWData.UWEasyMovement.MaxRepeatSeconds);
-        }
-
-        set
-        {
-            fGet().EasyMovementInterval = Mathf.Clamp(value,
-                UWDataImport.UWData.UWEasyMovement.MinRepeatSeconds,
-                UWDataImport.UWData.UWEasyMovement.MaxRepeatSeconds);
-        }
-    }
+    public static float EasyMovementInterval { get => Defs.EasyMovementInterval.Read(fGet()); set => Defs.EasyMovementInterval.Write(fGet(), value); }
 
     /// <summary>The logos, the title and the intro at startup - see the field.</summary>
-    public static bool ShowOpeningSequence
-    {
-        get { return fGet().ShowOpeningSequence; }
-        set { fGet().ShowOpeningSequence = value; }
-    }
+    public static bool ShowOpeningSequence { get => Defs.ShowOpeningSequence.Read(fGet()); set => Defs.ShowOpeningSequence.Write(fGet(), value); }
 
     /// <summary>Keep running without the focus - see the field. Setting it applies at once.</summary>
     public static bool RunInBackground
     {
-        get { return fGet().RunInBackground; }
+        get { return Defs.RunInBackground.Read(fGet()); }
         set
         {
-            fGet().RunInBackground = value;
+            Defs.RunInBackground.Write(fGet(), value);
             Application.runInBackground = value;
         }
     }
@@ -726,285 +201,129 @@ public static class UWUserSettings
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
     private static void fApplyRunInBackground()
     {
-        Application.runInBackground = fGet().RunInBackground;
+        Application.runInBackground = RunInBackground;
     }
 
     /// <summary>Window or borderless fullscreen, -1 not chosen yet - see UWDisplayMode.</summary>
-    public static int DisplayMode
-    {
-        get { return fGet().DisplayMode; }
-        set { fGet().DisplayMode = value; }
-    }
+    public static int DisplayMode { get => Defs.DisplayMode.Read(fGet()); set => Defs.DisplayMode.Write(fGet(), value); }
 
-    public static int ResolutionWidth
-    {
-        get { return fGet().ResolutionWidth; }
-        set { fGet().ResolutionWidth = value; }
-    }
+    public static int ResolutionWidth { get => Defs.ResolutionWidth.Read(fGet()); set => Defs.ResolutionWidth.Write(fGet(), value); }
 
-    public static int ResolutionHeight
-    {
-        get { return fGet().ResolutionHeight; }
-        set { fGet().ResolutionHeight = value; }
-    }
+    public static int ResolutionHeight { get => Defs.ResolutionHeight.Read(fGet()); set => Defs.ResolutionHeight.Write(fGet(), value); }
 
     /// <summary>The 4:3 switch - kept for the settings.json field only (always on since
     /// 2026-10-10, see UWDisplayAspect); nothing reads or changes it.</summary>
-    public static bool DisplayAs4By3
-    {
-        get { return fGet().DisplayAs4By3; }
-        set { fGet().DisplayAs4By3 = value; }
-    }
+    public static bool DisplayAs4By3 { get => Defs.DisplayAs4By3.Read(fGet()); set => Defs.DisplayAs4By3.Write(fGet(), value); }
 
-    public static bool ClassicWidescreen
-    {
-        get { return fGet().ClassicWidescreen; }
-        set { fGet().ClassicWidescreen = value; }
-    }
+    public static bool ClassicWidescreen { get => Defs.ClassicWidescreen.Read(fGet()); set => Defs.ClassicWidescreen.Write(fGet(), value); }
 
-    public static float ViewAngle
-    {
-        get { return fGet().ViewAngle; }
-        set { fGet().ViewAngle = value; }
-    }
+    public static float ViewAngle { get => Defs.ViewAngle.Read(fGet()); set => Defs.ViewAngle.Write(fGet(), value); }
 
     /// <summary>The world at the original's resolution. Everything that reads or changes it goes
     /// through UWWorldResolution.</summary>
-    public static bool OriginalWorldResolution
-    {
-        get { return fGet().OriginalWorldResolution; }
-        set { fGet().OriginalWorldResolution = value; }
-    }
+    public static bool OriginalWorldResolution { get => Defs.OriginalWorldResolution.Read(fGet()); set => Defs.OriginalWorldResolution.Write(fGet(), value); }
 
     /// <summary>The palette renderer's ambient occlusion in shade steps, 0 = off - see UWPaletteEffects.</summary>
-    public static float PaletteAmbientOcclusion
-    {
-        get { return fGet().PaletteAmbientOcclusion; }
-        set { fGet().PaletteAmbientOcclusion = value; }
-    }
+    public static float PaletteAmbientOcclusion { get => Defs.PaletteAmbientOcclusion.Read(fGet()); set => Defs.PaletteAmbientOcclusion.Write(fGet(), value); }
 
     /// <summary>The palette renderer's grime along the walls in shade steps, 0 = off - see UWPaletteEffects.</summary>
-    public static float PaletteGrime
-    {
-        get { return fGet().PaletteGrime; }
-        set { fGet().PaletteGrime = value; }
-    }
+    public static float PaletteGrime { get => Defs.PaletteGrime.Read(fGet()); set => Defs.PaletteGrime.Write(fGet(), value); }
 
     /// <summary>The grime's colour - see UWGrimeTint.ToneEnum.</summary>
-    public static int PaletteGrimeTone
-    {
-        get { return fGet().PaletteGrimeTone; }
-        set { fGet().PaletteGrimeTone = value; }
-    }
+    public static int PaletteGrimeTone { get => Defs.PaletteGrimeTone.Read(fGet()); set => Defs.PaletteGrimeTone.Write(fGet(), value); }
 
     /// <summary>The palette renderer's ground shadows in shade steps, 0 = off - see UWPaletteEffects.</summary>
-    public static float PaletteGroundShadows
-    {
-        get { return fGet().PaletteGroundShadows; }
-        set { fGet().PaletteGroundShadows = value; }
-    }
+    public static float PaletteGroundShadows { get => Defs.PaletteGroundShadows.Read(fGet()); set => Defs.PaletteGroundShadows.Write(fGet(), value); }
 
     /// <summary>The palette renderer's hollows in shade steps, 0 = off - see UWPaletteEffects.</summary>
-    public static float PaletteCavity
-    {
-        get { return fGet().PaletteCavity; }
-        set { fGet().PaletteCavity = value; }
-    }
+    public static float PaletteCavity { get => Defs.PaletteCavity.Read(fGet()); set => Defs.PaletteCavity.Write(fGet(), value); }
 
     /// <summary>The palette renderer's depth (parallax and self shadow), 0 = off - see UWPaletteEffects.</summary>
-    public static float PaletteDepth
-    {
-        get { return fGet().PaletteDepth; }
-        set { fGet().PaletteDepth = value; }
-    }
+    public static float PaletteDepth { get => Defs.PaletteDepth.Read(fGet()); set => Defs.PaletteDepth.Write(fGet(), value); }
 
     /// <summary>The palette renderer's glow - see UWPaletteEffects.</summary>
-    public static bool PaletteGlow
-    {
-        get { return fGet().PaletteGlow; }
-        set { fGet().PaletteGlow = value; }
-    }
+    public static bool PaletteGlow { get => Defs.PaletteGlow.Read(fGet()); set => Defs.PaletteGlow.Write(fGet(), value); }
 
     /// <summary>The palette renderer's light sources - see UWPaletteEffects.</summary>
-    public static bool PaletteLightSources
-    {
-        get { return fGet().PaletteLightSources; }
-        set { fGet().PaletteLightSources = value; }
-    }
+    public static bool PaletteLightSources { get => Defs.PaletteLightSources.Read(fGet()); set => Defs.PaletteLightSources.Write(fGet(), value); }
 
     /// <summary>The multiple of the original's resolution - see UWWorldResolution.Factor.</summary>
-    public static int OriginalWorldResolutionFactor
-    {
-        get { return fGet().OriginalWorldResolutionFactor; }
-        set { fGet().OriginalWorldResolutionFactor = value; }
-    }
+    public static int OriginalWorldResolutionFactor { get => Defs.OriginalWorldResolutionFactor.Read(fGet()); set => Defs.OriginalWorldResolutionFactor.Write(fGet(), value); }
 
     /// <summary>The head bob setting (UWHeadBobRules.ModeEnum); read every frame. An unknown
     /// number from the file reads as Original.</summary>
-    public static UWDataImport.UWData.UWHeadBobRules.ModeEnum HeadBobMode
+    public static UWHeadBobRules.ModeEnum HeadBobMode
     {
-        get
-        {
-            int liMode = fGet().HeadBobMode;
-
-            return liMode >= 0 && liMode <= (int)UWDataImport.UWData.UWHeadBobRules.ModeEnum.Smooth
-                ? (UWDataImport.UWData.UWHeadBobRules.ModeEnum)liMode : UWDataImport.UWData.UWHeadBobRules.ModeEnum.Original;
-        }
-
-        set { fGet().HeadBobMode = (int)value; }
+        get => (UWHeadBobRules.ModeEnum)Defs.HeadBobMode.Read(fGet());
+        set => Defs.HeadBobMode.Write(fGet(), (int)value);
     }
 
     /// <summary>The Smooth head bob's strength, clamped to 0.1 - 1; Original always has the full one.</summary>
-    public static float HeadBobStrength
-    {
-        get { return Mathf.Clamp(fGet().HeadBobStrength, MinHeadBobStrength, 1f); }
-        set { fGet().HeadBobStrength = Mathf.Clamp(value, MinHeadBobStrength, 1f); }
-    }
+    public static float HeadBobStrength { get => Defs.HeadBobStrength.Read(fGet()); set => Defs.HeadBobStrength.Write(fGet(), value); }
 
     /// <summary>Below this the Smooth bob is not worth having - Off is the switch for none.</summary>
-    public const float MinHeadBobStrength = 0.1f;
+    public const float MinHeadBobStrength = Defs.MinHeadBobStrength;
 
     /// <summary>The weapon jitter setting, like HeadBobMode.</summary>
-    public static UWDataImport.UWData.UWHeadBobRules.ModeEnum WeaponJitterMode
+    public static UWHeadBobRules.ModeEnum WeaponJitterMode
     {
-        get
-        {
-            int liMode = fGet().WeaponJitterMode;
-
-            return liMode >= 0 && liMode <= (int)UWDataImport.UWData.UWHeadBobRules.ModeEnum.Smooth
-                ? (UWDataImport.UWData.UWHeadBobRules.ModeEnum)liMode : UWDataImport.UWData.UWHeadBobRules.ModeEnum.Original;
-        }
-
-        set { fGet().WeaponJitterMode = (int)value; }
+        get => (UWHeadBobRules.ModeEnum)Defs.WeaponJitterMode.Read(fGet());
+        set => Defs.WeaponJitterMode.Write(fGet(), (int)value);
     }
 
     /// <summary>Whether the player's motion runs in the precision mode (true, Smooth) or as the
     /// original's arithmetic call by call at its frame length (false, Original).</summary>
-    public static bool MotionSmooth
-    {
-        get { return fGet().MotionSmoothing != 0; }
-        set { fGet().MotionSmoothing = value ? 1 : 0; }
-    }
+    public static bool MotionSmooth { get => Defs.MotionSmoothing.ReadOn(fGet()); set => Defs.MotionSmoothing.WriteOn(fGet(), value); }
 
     /// <summary>Whether the view is set once per simulation step (true, the original's picture
     /// rate) or drawn between the steps (false, even).</summary>
-    public static bool MotionViewStepped
-    {
-        get { return fGet().MotionViewStepped != 0; }
-        set { fGet().MotionViewStepped = value ? 1 : 0; }
-    }
+    public static bool MotionViewStepped { get => Defs.MotionViewStepped.ReadOn(fGet()); set => Defs.MotionViewStepped.WriteOn(fGet(), value); }
 
     /// <summary>The Original motion's frame length in ticks, one of OriginalFrameChoices.</summary>
-    public static int OriginalFrameTicks
-    {
-        get
-        {
-            int liTicks = fGet().OriginalFrameTicks;
-
-            foreach (int liChoice in OriginalFrameChoices)
-            {
-                if (liChoice == liTicks)
-                    return liTicks;
-            }
-
-            return 8;
-        }
-
-        set { fGet().OriginalFrameTicks = value; }
-    }
+    public static int OriginalFrameTicks { get => Defs.OriginalFrameTicks.Read(fGet()); set => Defs.OriginalFrameTicks.Write(fGet(), value); }
 
     /// <summary>4, 8, 12, 16 ticks: 64, 32, 21, 16 frames a second.</summary>
-    public static readonly int[] OriginalFrameChoices = { 4, 8, 12, 16 };
+    public static readonly int[] OriginalFrameChoices = Defs.OriginalFrameChoices;
 
     /// <summary>The Smooth ramp's frame in ticks, one of SmoothRampChoices.</summary>
-    public static int SmoothRampTicks
-    {
-        get
-        {
-            int liTicks = fGet().SmoothRampTicks;
-
-            foreach (int liChoice in SmoothRampChoices)
-            {
-                if (liChoice == liTicks)
-                    return liTicks;
-            }
-
-            return 8;
-        }
-
-        set { fGet().SmoothRampTicks = value; }
-    }
+    public static int SmoothRampTicks { get => Defs.SmoothRampTicks.Read(fGet()); set => Defs.SmoothRampTicks.Write(fGet(), value); }
 
     /// <summary>16, 8, 4, 0 ticks: 0.6 s, 0.3 s, 0.15 s, at once.</summary>
-    public static readonly int[] SmoothRampChoices = { 16, 8, 4, 0 };
-
-    public static readonly string[] SmoothRampLabels = { "0.6 s", "0.3 s", "0.15 s", "At once" };
+    public static readonly int[] SmoothRampChoices = Defs.SmoothRampChoices;
 
     /// <summary>The Smooth weapon jitter's strength, clamped like HeadBobStrength.</summary>
-    public static float WeaponJitterStrength
-    {
-        get { return Mathf.Clamp(fGet().WeaponJitterStrength, MinHeadBobStrength, 1f); }
-        set { fGet().WeaponJitterStrength = Mathf.Clamp(value, MinHeadBobStrength, 1f); }
-    }
+    public static float WeaponJitterStrength { get => Defs.WeaponJitterStrength.Read(fGet()); set => Defs.WeaponJitterStrength.Write(fGet(), value); }
 
     /// <summary>The swimmer's view (UWSwimViewRules), like HeadBobMode.</summary>
-    public static UWDataImport.UWData.UWHeadBobRules.ModeEnum SwimViewMode
+    public static UWHeadBobRules.ModeEnum SwimViewMode
     {
-        get
-        {
-            int liMode = fGet().SwimViewMode;
-
-            return liMode >= 0 && liMode <= (int)UWDataImport.UWData.UWHeadBobRules.ModeEnum.Smooth
-                ? (UWDataImport.UWData.UWHeadBobRules.ModeEnum)liMode : UWDataImport.UWData.UWHeadBobRules.ModeEnum.Original;
-        }
-
-        set { fGet().SwimViewMode = (int)value; }
+        get => (UWHeadBobRules.ModeEnum)Defs.SwimViewMode.Read(fGet());
+        set => Defs.SwimViewMode.Write(fGet(), (int)value);
     }
 
     /// <summary>The Smooth swimming view's strength, clamped like HeadBobStrength.</summary>
-    public static float SwimViewStrength
-    {
-        get { return Mathf.Clamp(fGet().SwimViewStrength, MinHeadBobStrength, 1f); }
-        set { fGet().SwimViewStrength = Mathf.Clamp(value, MinHeadBobStrength, 1f); }
-    }
+    public static float SwimViewStrength { get => Defs.SwimViewStrength.Read(fGet()); set => Defs.SwimViewStrength.Write(fGet(), value); }
 
     /// <summary>Music and sound. Everything that changes them goes through UWSoundOptions,
     /// which also puts them into the live settings.</summary>
-    public static bool MusicEnabled
-    {
-        get { return fGet().MusicEnabled; }
-        set { fGet().MusicEnabled = value; }
-    }
+    public static bool MusicEnabled { get => Defs.MusicEnabled.Read(fGet()); set => Defs.MusicEnabled.Write(fGet(), value); }
 
-    public static bool SoundEnabled
-    {
-        get { return fGet().SoundEnabled; }
-        set { fGet().SoundEnabled = value; }
-    }
+    public static bool SoundEnabled { get => Defs.SoundEnabled.Read(fGet()); set => Defs.SoundEnabled.Write(fGet(), value); }
 
-    public static float MusicVolume
-    {
-        get { return Mathf.Clamp01(fGet().MusicVolume); }
-        set { fGet().MusicVolume = Mathf.Clamp01(value); }
-    }
+    public static float MusicVolume { get => Defs.MusicVolume.Read(fGet()); set => Defs.MusicVolume.Write(fGet(), value); }
 
-    public static float SoundVolume
-    {
-        get { return Mathf.Clamp01(fGet().SoundVolume); }
-        set { fGet().SoundVolume = Mathf.Clamp01(value); }
-    }
+    public static float SoundVolume { get => Defs.SoundVolume.Read(fGet()); set => Defs.SoundVolume.Write(fGet(), value); }
 
-    public static int MusicDevice
-    {
-        get { return Mathf.Clamp(fGet().MusicDevice, 0, 2); }
-        set { fGet().MusicDevice = Mathf.Clamp(value, 0, 2); }
-    }
+    public static int MusicDevice { get => Defs.MusicDevice.Read(fGet()); set => Defs.MusicDevice.Write(fGet(), value); }
 
-    public static string Mt32RomPath
-    {
-        get { return fGet().Mt32RomPath ?? string.Empty; }
-        set { fGet().Mt32RomPath = value ?? string.Empty; }
-    }
+    public static string Mt32RomPath { get => Defs.Mt32RomPath.Read(fGet()); set => Defs.Mt32RomPath.Write(fGet(), value); }
+
+    /// <summary>The debug panel's folded sections (UWDebugFolds' text; cleanup 8c).</summary>
+    public static string DebugFolded { get => Defs.DebugFolded.Read(fGet()); set => Defs.DebugFolded.Write(fGet(), value); }
+
+    /// <summary>The game's own pointer: screen pixels per mouse count, clamped (UWPointer reads it every
+    /// frame it is captured; cleanup step 7.7B).</summary>
+    public static float PointerSpeed { get => Defs.PointerSpeed.Read(fGet()); set => Defs.PointerSpeed.Write(fGet(), value); }
 
     /// <summary>
     /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves
@@ -1014,54 +333,32 @@ public static class UWUserSettings
     /// </summary>
     public static bool SaveSuspended { get; set; }
 
-    /// <summary>Everything the layout editor sets: the parts' places and sizes, their backs, the
-    /// UI size, every part's switches and looks, the font.</summary>
-    private static readonly string[] msLayoutFields =
-    {
-        "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
-        "ModernScroll", "ModernScrollLines", "ModernMessageLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
-        "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
-        "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
-        "ActionBarHidden", "InterfaceFont"
-    };
-
     /// <summary>The layout's settings at one moment (TakeLayoutSnapshot).</summary>
     public sealed class LayoutSnapshot
     {
         internal object[] Values;
     }
 
-    private static System.Reflection.FieldInfo[] msLayoutFieldInfos;
+    /// <summary>Everything the layout editor sets: the parts' places and sizes, their backs, the
+    /// UI size, every part's switches and looks, the font - the table's Layout entries (until
+    /// cleanup step 8.3 a list of field names here, read by reflection).</summary>
+    private static UWSettingDef[] msLayoutDefs;
 
-    private static System.Reflection.FieldInfo[] fLayoutFieldInfos()
+    private static UWSettingDef[] fLayoutDefs()
     {
-        if (msLayoutFieldInfos != null)
-            return msLayoutFieldInfos;
+        if (msLayoutDefs == null)
+            msLayoutDefs = Defs.InStore(UWSettingStore.Layout);
 
-        List<System.Reflection.FieldInfo> lOFound = new List<System.Reflection.FieldInfo>();
-
-        foreach (string lsName in msLayoutFields)
-        {
-            System.Reflection.FieldInfo lOField = typeof(Data).GetField(lsName);
-
-            if (lOField != null)
-                lOFound.Add(lOField);
-            else
-                Debug.LogWarning("Layout setting not found: " + lsName);
-        }
-
-        msLayoutFieldInfos = lOFound.ToArray();
-
-        return msLayoutFieldInfos;
+        return msLayoutDefs;
     }
 
     public static LayoutSnapshot TakeLayoutSnapshot()
     {
-        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
-        object[] lOValues = new object[lOFields.Length];
+        UWSettingDef[] lODefs = fLayoutDefs();
+        object[] lOValues = new object[lODefs.Length];
 
-        for (int liAt = 0; liAt < lOFields.Length; liAt++)
-            lOValues[liAt] = lOFields[liAt].GetValue(fGet());
+        for (int liAt = 0; liAt < lODefs.Length; liAt++)
+            lOValues[liAt] = lODefs[liAt].RawOf(fGet());
 
         return new LayoutSnapshot { Values = lOValues };
     }
@@ -1071,10 +368,10 @@ public static class UWUserSettings
         if (pOSnapshot == null)
             return;
 
-        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+        UWSettingDef[] lODefs = fLayoutDefs();
 
-        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
-            lOFields[liAt].SetValue(fGet(), pOSnapshot.Values[liAt]);
+        for (int liAt = 0; liAt < lODefs.Length && liAt < pOSnapshot.Values.Length; liAt++)
+            lODefs[liAt].SetRaw(fGet(), pOSnapshot.Values[liAt]);
     }
 
     /// <summary>Whether the layout's settings are what the snapshot holds.</summary>
@@ -1083,11 +380,11 @@ public static class UWUserSettings
         if (pOSnapshot == null)
             return true;
 
-        System.Reflection.FieldInfo[] lOFields = fLayoutFieldInfos();
+        UWSettingDef[] lODefs = fLayoutDefs();
 
-        for (int liAt = 0; liAt < lOFields.Length && liAt < pOSnapshot.Values.Length; liAt++)
+        for (int liAt = 0; liAt < lODefs.Length && liAt < pOSnapshot.Values.Length; liAt++)
         {
-            if (!Equals(lOFields[liAt].GetValue(fGet()), pOSnapshot.Values[liAt]))
+            if (!Equals(lODefs[liAt].RawOf(fGet()), pOSnapshot.Values[liAt]))
                 return false;
         }
 
@@ -1109,7 +406,7 @@ public static class UWUserSettings
         }
     }
 
-    private static Data fGet()
+    private static UWUserData fGet()
     {
         if (msData != null)
             return msData;
@@ -1119,7 +416,7 @@ public static class UWUserSettings
             string lsPath = fGetPath();
 
             if (File.Exists(lsPath))
-                msData = JsonUtility.FromJson<Data>(File.ReadAllText(lsPath));
+                msData = JsonUtility.FromJson<UWUserData>(File.ReadAllText(lsPath));
         }
         catch (Exception lOError)
         {
@@ -1127,7 +424,7 @@ public static class UWUserSettings
         }
 
         if (msData == null)
-            msData = new Data();
+            msData = new UWUserData();
 
         return msData;
     }

@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE CONTROLS DIALOG'S GAMEPAD TAB (per user, 2026-10-07: "a controller menu with the functions
 /// bound by the player"): the button names (Xbox, PlayStation, Nintendo - chosen, never detected,
-/// UWGamepad.ButtonName), the right stick's look speed and the gamepad's functions, each on a
+/// UWBindingInfo.ButtonName), the right stick's look speed and the gamepad's functions, each on a
 /// button of the player's choice (UWKeyBindings.PadEntries). The sticks are no buttons: they can
 /// be swapped, and the look reversed up and down (per user, the same day: "wanted above all by
 /// left-handed players").
@@ -16,195 +17,84 @@ public partial class UWSetupMenu
 
     private Vector2 mOGamepadScroll;
 
+    /// <summary>A choice row of the wide dialogs (the button names here, the palette presets): the
+    /// label 220 wide, the choices from 230 over the row less 230.</summary>
+    private static readonly UWChoiceColumns WideChoiceColumns = new UWChoiceColumns(0f, 220f, 230f, 230f);
+
+    /// <summary>A deadzone row: the label 220 wide, the slider from 230 over the row less 470, the
+    /// arrows 230 and the value with the stick's deflection 165 from the right edge.</summary>
+    private static readonly UWSliderColumns DeadzoneColumns = new UWSliderColumns(0f, 220f, 230f, 470f, 230f, 165f, 165f);
+
     private void fDrawGamepadTab(Rect pODialog, float pfLeft, float pfInner, float pfTop)
     {
-        float lfTop = pfTop;
-
-        lfTop += fDrawHint(pfLeft, lfTop, pfInner,
-            "Click an entry to change it, then press the new button on the gamepad. Escape on the keyboard keeps the old one. One stick walks, the other looks (in the classic scheme it turns and tilts) - swap them below.") + 12f;
-
-        // THE BUTTON NAMES: chosen here, never detected (per user: a PlayStation controller often
-        // reports as an Xbox one through Steam or DS4Windows).
-        string[] lsStyles = { "Xbox", "PlayStation", "Nintendo" };
-        float lfStyleWidth = (pfInner - 230f) / lsStyles.Length;
-
-        GUI.Label(new Rect(pfLeft, lfTop, 220f, 26f), "Button names", mOListLabel);
-
-        for (int liStyle = 0; liStyle < lsStyles.Length; liStyle++)
-        {
-            bool lbCurrent = (int)UWGamepad.ButtonStyle == liStyle;
-
-            if (mOKeyNav.Button(new Rect(pfLeft + 230f + (liStyle * lfStyleWidth), lfTop, lfStyleWidth, 26f), lsStyles[liStyle],
-                lbCurrent ? mOCurrentItem : mOListItem) && !lbCurrent)
-            {
-                UWUserSettings.GamepadButtonStyle = liStyle;
-                UWUserSettings.Save();
-            }
-        }
-
-        lfTop += 32f;
-
-        // THE STICK'S LOOK SPEED, the same row as the mouse's on the other tab.
-        float lfStep = UWUserSettings.MouseLookSpeedStep;
-        float lfBefore = UWUserSettings.StickLookSpeed;
-
-        GUI.Label(new Rect(pfLeft, lfTop, 220f, 26f), "Stick look speed", mOListLabel);
-
-        float lfSpeed = GUI.HorizontalSlider(new Rect(pfLeft + 230f, lfTop + 8f, pfInner - 400f, 20f),
-            lfBefore, UWUserSettings.MinStickLookSpeed, UWUserSettings.MaxStickLookSpeed);
-
-        lfSpeed = Mathf.Round(lfSpeed / lfStep) * lfStep;
-
-        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 160f, lfTop, 26f, 26f), "<", mOButton))
-            lfSpeed = lfBefore - lfStep;
-
-        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 130f, lfTop, 26f, 26f), ">", mOButton))
-            lfSpeed = lfBefore + lfStep;
-
-        GUI.Label(new Rect(pfLeft + pfInner - 95f, lfTop, 95f, 26f), Mathf.RoundToInt(lfSpeed * 100f) + " %", mOListLabel);
-
-        if (Mathf.RoundToInt(lfSpeed * 100f) != Mathf.RoundToInt(lfBefore * 100f))
-        {
-            UWUserSettings.StickLookSpeed = lfSpeed;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 32f;
-
-        // THE STICKS: swapped for left-handed players, the look reversed up and down.
-        // The sticks' presses go with them where the player has not changed them (UWKeyBindings).
-        bool lbSwap = mOKeyNav.Toggle(new Rect(pfLeft, lfTop, 300f, 26f), UWUserSettings.GamepadSwapSticks,
-            "  Swap the sticks (left-handed)", mOToggle);
-
-        if (lbSwap != UWUserSettings.GamepadSwapSticks)
-        {
-            UWUserSettings.GamepadSwapSticks = lbSwap;
-            UWUserSettings.Save();
-            UWControls.ApplyKeyBindings();
-        }
-
-        bool lbInvert = mOKeyNav.Toggle(new Rect(pfLeft + 310f, lfTop, pfInner - 310f, 26f), UWUserSettings.StickInvertY,
-            "  Invert looking up and down", mOToggle);
-
-        if (lbInvert != UWUserSettings.StickInvertY)
-        {
-            UWUserSettings.StickInvertY = lbInvert;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 32f;
-
-        // THE BUTTON HINTS in the modern interface (per user, 2026-10-08).
-        bool lbHints = mOKeyNav.Toggle(new Rect(pfLeft, lfTop, pfInner, 26f), UWUserSettings.GamepadButtonHints,
-            "  Button hints in the game (crosshair, action bar)", mOToggle);
-
-        if (lbHints != UWUserSettings.GamepadButtonHints)
-        {
-            UWUserSettings.GamepadButtonHints = lbHints;
-            UWUserSettings.Save();
-        }
-
-        lfTop += 32f;
-
-        // THE DEADZONES, one per physical stick (per user, 2026-10-08: sooner or later every
-        // controller drifts), with the stick's deflection right now beside them - at rest that is
-        // the drift, and the deadzone goes a little above it.
-        Gamepad lOPad = Gamepad.current;
-
-        lfTop = fDeadzoneRow(pfLeft, pfInner, lfTop, "Left stick deadzone", UWUserSettings.LeftStickDeadzone,
-            lOPad != null ? lOPad.leftStick.ReadValue().magnitude : -1f, true);
-        lfTop = fDeadzoneRow(pfLeft, pfInner, lfTop, "Right stick deadzone", UWUserSettings.RightStickDeadzone,
-            lOPad != null ? lOPad.rightStick.ReadValue().magnitude : -1f, false);
-
-        lfTop += 4f;
+        // The hint, the button names, the stick's speed, the sticks, the hints and the deadzones
+        // (fBuildGamepadPage), then the gamepad's functions down to the dialog's bottom.
+        float lfTop = mOPassPages.Draw(mOGamepadPage, pfLeft, pfTop, pfInner);
 
         Rect lOListRect = new Rect(pfLeft, lfTop, pfInner, pODialog.yMax - 90f - lfTop);
         const float RowHeight = 36f;
         Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.PadEntries.Count * RowHeight);
 
-        mOGamepadScroll = GUI.BeginScrollView(lOListRect, mOGamepadScroll, lOContent);
-        UWImguiInput.Sync();
+        mOGamepadScroll = mOPassRows.BeginScroll(lOListRect, mOGamepadScroll, lOContent);
 
         for (int liAt = 0; liAt < UWKeyBindings.PadEntries.Count; liAt++)
         {
             UWKeyBindings.Entry lOEntry = UWKeyBindings.PadEntries[liAt];
-            float lfRowTop = liAt * RowHeight;
-
-            GUI.Label(new Rect(6f, lfRowTop + 4f, lOContent.width - 220f, 26f), lOEntry.Label, mOListLabel);
 
             // The button's glyph in the chosen style left of its name (UWGlyphs).
-            Texture2D lOGlyph = UWGlyphs.ForPath(UWKeyBindings.GetPath(lOEntry));
+            Texture2D lOGlyph = UWGlyphs.ForPath(UWBindingInfo.Path(lOEntry));
+            string lsButton = mOListeningFor == lOEntry ? UWText.T("setup.gamepad.press_button") : UWBindingInfo.Name(lOEntry);
 
-            if (lOGlyph != null)
-                GUI.DrawTexture(new Rect(lOContent.width - 206f, lfRowTop, 32f, 32f), lOGlyph);
-
-            string lsButton = mOListeningFor == lOEntry ? "Press a button..." : UWKeyBindings.GetKeyName(lOEntry);
-
-            if (mOKeyNav.Button(new Rect(lOContent.width - 170f, lfRowTop + 3f, 160f, 26f), lsButton, mOButton)
+            if (mOPassRows.Rebind(new Rect(0f, liAt * RowHeight, lOContent.width, RowHeight), lOEntry.Label, lsButton, lOGlyph, true)
                 && mOListeningFor == null)
                 fListenForPad(lOEntry);
         }
 
-        GUI.EndScrollView();
-        UWImguiInput.Sync();
+        mOPassRows.EndScroll();
 
-        GUI.Label(new Rect(pfLeft, pODialog.yMax - 82f, pfInner, 22f), msBindingNotice, mODimLabel);
+        mOPassRows.Info(new Rect(pfLeft, pODialog.yMax - 82f, pfInner, 22f), msBindingNotice, UWRowInfoEnum.Dim);
 
         float lfButtonTop = pODialog.yMax - 46f;
 
-        GUI.enabled = UWKeyBindings.HasGamepadChanges && mOListeningFor == null;
+        mOPassRows.Enabled = UWKeyBindings.HasGamepadChanges && mOListeningFor == null;
 
-        if (mOKeyNav.Button(new Rect(pfLeft, lfButtonTop, 180f, 30f), "Back to default", mOButton))
+        // As wide as its text on the kit (cleanup 8b.2).
+        string lsDefault = UWText.T("setup.controls.back_to_default");
+
+        if (mOPassRows.Action(new Rect(pfLeft, lfButtonTop, mOPassRows.FitWidth(lsDefault, 180f), 30f), lsDefault))
         {
             UWKeyBindings.ResetGamepad();
             msBindingNotice = string.Empty;
         }
 
-        GUI.enabled = true;
+        mOPassRows.Enabled = true;
 
-        if (mOKeyNav.Button(new Rect(pODialog.xMax - 130f, lfButtonTop, 110f, 30f), "Done", mOButton))
+        if (mOPassRows.Done(pODialog))
         {
-            mbControlsDialogOpen = false;
+            meOpenDialog = DialogEnum.None;
             mOListeningFor = null;
         }
     }
 
-    /// <summary>A deadzone row: the slider in steps of one per cent, the arrows, the value and the
-    /// stick's deflection now. Returns the next row's top.</summary>
-    private float fDeadzoneRow(float pfLeft, float pfInner, float pfTop, string psLabel, float pfBefore, float pfNow, bool pbLeft)
+    /// <summary>A deadzone row: the slider in steps of one per cent (the setting's step), the
+    /// arrows, the value and the stick's deflection now ("no pad" without one). A change is stored,
+    /// saved and the bindings put anew (the entry's OnChange).</summary>
+    private static UWSetupRow fDeadzoneRow(UWFloatSettingDef pODef, bool pbLeft)
     {
-        const float Step = 0.01f;
-
-        GUI.Label(new Rect(pfLeft, pfTop, 220f, 26f), psLabel, mOListLabel);
-
-        float lfValue = GUI.HorizontalSlider(new Rect(pfLeft + 230f, pfTop + 8f, pfInner - 470f, 20f),
-            pfBefore, 0f, UWUserSettings.MaxStickDeadzone);
-
-        lfValue = Mathf.Round(lfValue / Step) * Step;
-
-        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 230f, pfTop, 26f, 26f), "<", mOButton))
-            lfValue = pfBefore - Step;
-
-        if (mOKeyNav.Button(new Rect(pfLeft + pfInner - 200f, pfTop, 26f, 26f), ">", mOButton))
-            lfValue = pfBefore + Step;
-
-        string lsNow = pfNow < 0f ? "no pad" : "now " + Mathf.RoundToInt(pfNow * 100f) + " %";
-
-        GUI.Label(new Rect(pfLeft + pfInner - 165f, pfTop, 165f, 26f),
-            Mathf.RoundToInt(lfValue * 100f) + " %  (" + lsNow + ")", mOListLabel);
-
-        if (Mathf.RoundToInt(lfValue * 100f) != Mathf.RoundToInt(pfBefore * 100f))
+        return new UWSetupRow
         {
-            if (pbLeft)
-                UWUserSettings.LeftStickDeadzone = lfValue;
-            else
-                UWUserSettings.RightStickDeadzone = lfValue;
+            Kind = UWSetupRow.KindEnum.Slider, Id = pODef.LabelId, Def = pODef, SliderColumns = DeadzoneColumns, Advance = 30f,
+            FormatWith = pfValue => Mathf.RoundToInt(pfValue * 100f) + " %  (" + fStickNow(pbLeft) + ")"
+        };
+    }
 
-            UWUserSettings.Save();
-            UWControls.ApplyKeyBindings();
-        }
+    /// <summary>The stick's deflection right now, or "no pad".</summary>
+    private static string fStickNow(bool pbLeft)
+    {
+        Gamepad lOPad = Gamepad.current;
+        float lfNow = lOPad != null ? (pbLeft ? lOPad.leftStick.ReadValue() : lOPad.rightStick.ReadValue()).magnitude : -1f;
 
-        return pfTop + 30f;
+        return lfNow < 0f ? UWText.T("setup.gamepad.no_pad") : UWText.F("setup.gamepad.stick_now", Mathf.RoundToInt(lfNow * 100f));
     }
 
     /// <summary>Waits for the next gamepad button; Escape keeps the old one. A button already used
@@ -226,7 +116,8 @@ public partial class UWSetupMenu
             UWKeyBindings.Set(pOEntry, psPath);
 
             msBindingNotice = lOConflict != null
-                ? "This button is also used for \"" + lOConflict.Label + "\"."
+                ? UWText.F("setup.gamepad.conflict_button", lOConflict.Label)
+
                 : string.Empty;
         });
     }

@@ -11,7 +11,7 @@
 // texture, which does not work with an index - half an index is not half a colour. The
 // single-coloured surfaces of the 3D models and the portcullis (whose bar shading comes about
 // this way) have therefore moved out and run through UW/ModelPalette, where the darkening
-// hangs on the vertex as a separate number (see UWPaletteRenderToggle).
+// hangs on the vertex as a separate number (see UWPaletteRenderPath).
 Shader "UW/DecalPalette"
 {
     Properties

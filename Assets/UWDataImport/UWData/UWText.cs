@@ -15,8 +15,11 @@ namespace UWDataImport.UWData
 	/// is block 4 at its id plus one. ObjectName and RawObjectName add that one; the message
 	/// indices of block 1 and 9 are passed as the project numbers them (the index of the string
 	/// export, already parsed).
+	///
+	/// THE PORT'S OWN TEXTS (T, F, the language file) are the other half of this class, in
+	/// UWText.Ui.cs (cleanup step 8.5, 2026-10-24).
 	/// </summary>
-	public static class UWText
+	public static partial class UWText
 	{
 		/// <summary>General game messages, the feedback not tied to a level.</summary>
 		public const int GeneralBlock = 1;

@@ -13,7 +13,8 @@ namespace UWDataImport.UWData
 	/// ship: the player puts them into a folder (FindRoms).
 	///
 	/// The pieces are written for this device (see UWGmMusicDriver), so the events pass as they
-	/// are, apart from the Miles driver's own XMIDI controllers 110-120.
+	/// are, apart from the Miles driver's own XMIDI controllers 110-120, which UWXmiSequencer
+	/// drops before they get here (since cleanup step 6.6, 2026-10-24).
 	///
 	/// THE INSTRUMENT CHANNEL: the game plays the mandolin and the flute on a channel the
 	/// MT-32 does not receive (only 2-10 by default). UW.EXE gets a channel from the Miles
@@ -252,9 +253,6 @@ namespace UWDataImport.UWData
 		{
 			int liChannel = piStatus & 0x0F;
 			int liCommand = piStatus & 0xF0;
-
-			if (liCommand == 0xB0 && piData1 >= 110 && piData1 <= 120)
-				return;
 
 			// Channels 1 and 11-16 reach no part: an instrument, which borrows part 8.
 			if (liChannel == 0 || liChannel > 9)

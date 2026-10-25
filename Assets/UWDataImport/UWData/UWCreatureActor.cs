@@ -1328,7 +1328,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>LoadSoundAtCoordinate at the creature: the numbers are the original's, which
-		/// UWSoundEffects plays directly (footsteps 1, 2, 5, 0x0D, 0x0E, 0x17; death 6).</summary>
+		/// UWAudioService plays directly (footsteps 1, 2, 5, 0x0D, 0x0E, 0x17; death 6).</summary>
 		void ICritterHost.PlaySound(int piSound)
 		{
 			mIView.PlaySound(piSound);

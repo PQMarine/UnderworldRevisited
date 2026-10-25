@@ -14,13 +14,13 @@ namespace UnderworldRevisited.Tools
     ///
     /// It runs the same chain as the game: UWSound gives patch, note, velocity and duration
     /// per effect number, UWTvfxVoice turns that into OPL registers at sixty ticks a second,
-    /// and UWOpl2 makes the samples at 49716 Hz - see UWAudioEngine, which does exactly this
-    /// in Unity's audio thread.
+    /// and UWOpl2 makes the samples at 49716 Hz - see UWEffectSynth, which does exactly this
+    /// in Unity's audio thread (UWAudioMixCore under UWAudioMixer).
     ///
     ///   uwsounddump &lt;data path&gt; &lt;output folder&gt; [number ...]
     ///
     /// MUSIC (2026-10-08): the MT-32 versions of the pieces (UW*.XMI) on General MIDI, through
-    /// UWXmiSequencer and UWGmMusicDriver as in UWAudioEngine, stereo at 44.1 kHz - to hear what
+    /// UWXmiSequencer and UWGmMusicDriver as in UWGmMusicDevice, stereo at 44.1 kHz - to hear what
     /// the instrument table does without starting the game:
     ///
     ///   uwsounddump &lt;data path&gt; &lt;output folder&gt; music &lt;soundfont.sf2&gt; [piece number ...]
@@ -32,8 +32,8 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     internal static class Program
     {
-        /// <summary>The tick rate of the voice service, as in UWAudioEngine.</summary>
-        private const double TicksPerSecond = 60.0;
+        /// <summary>The tick rate of the voice service, as in UWEffectSynth.</summary>
+        private const double TicksPerSecond = UWEffectSynth.TicksPerSecond;
 
         /// <summary>How long a rendered file may get at most.</summary>
         private const double MaxSeconds = 6.0;

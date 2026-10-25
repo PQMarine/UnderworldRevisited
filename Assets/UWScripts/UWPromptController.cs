@@ -94,7 +94,7 @@ public sealed class UWPromptController
         // The modern scheme's box shows the pointer (UWModernQuestion) - hidden here it stayed
         // invisible under it (as with the yes/no questions).
         if (UWControlScheme.Ui.Policy.PromptHidesPointer)
-            Cursor.visible = !pbHold;
+            UWPointer.IsShown = !pbHold;
     }
 
     /// <summary>For the modern scheme's mantra box (UWModernQuestion): the typed text so far.</summary>
@@ -114,10 +114,8 @@ public sealed class UWPromptController
         if (!mbTypedInputSwallow)
             return;
 
-        Mouse lOMouse = Mouse.current;
-
-        if (lOMouse != null && (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed
-            || lOMouse.middleButton.isPressed))
+        if (UWPointer.HasMouse && (UWPointer.LeftHeld || UWPointer.RightHeld
+            || UWPointer.MiddleHeld))
             return;
 
         mbTypedInputSwallow = false;
@@ -169,15 +167,13 @@ public sealed class UWPromptController
         fMantraEntry().ReadKeys();
 
         // Read straight from the mouse: UWMouseButtons is blocked for the game meanwhile.
-        Mouse lOMouse = Mouse.current;
-
         // The modern scheme's box takes the mouse: OK and Cancel (UWModernQuestion).
-        bool lbByMouse = UWControlScheme.Ui.Policy.MouseButtonEndsMantra && lOMouse != null && (lOMouse.leftButton.wasPressedThisFrame
-            || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame);
+        bool lbByMouse = UWControlScheme.Ui.Policy.MouseButtonEndsMantra && UWPointer.HasMouse && (UWPointer.LeftPressed
+            || UWPointer.RightPressed || UWPointer.MiddlePressed);
 
         bool lbDone = UWTextEntry.EnterPressed || lbByMouse;
 
-        bool lbCancel = UWTextEntry.EscapePressed && !lbDone;
+        bool lbCancel = !lbDone && UWBack.Takes(UWBackOwner.Mantra);
 
         if (!lbDone && !lbCancel)
             return true;
@@ -261,8 +257,8 @@ public sealed class UWPromptController
 
         if (mbYesNoHidCursor)
         {
-            mbYesNoCursorWasVisible = Cursor.visible;
-            Cursor.visible = false;
+            mbYesNoCursorWasVisible = UWPointer.IsShown;
+            UWPointer.IsShown = false;
         }
 
         mOQuestion.Ask(psQuestion, pOAnswered);
@@ -287,7 +283,7 @@ public sealed class UWPromptController
             fShowYesNoAnswer(false);
 
         bool lbYes = false;
-        bool lbNo = lOKeyboard.escapeKey.wasPressedThisFrame;
+        bool lbNo = UWBack.Takes(UWBackOwner.YesNo, UWBackKey.Escape);
 
         // THE GAMEPAD in the classic scheme (per user, 2026-10-07): A yes, B no - the pad's pointer
         // stands aside meanwhile (UWGamepadPointer). The modern box is clicked with the pointer.
@@ -295,14 +291,17 @@ public sealed class UWPromptController
 
         if (lOPad != null && Time.frameCount != miYesNoAskedFrame && UWControlScheme.Ui.Policy.PadButtonsAnswerYesNo)
         {
-            lbYes |= lOPad.buttonSouth.wasPressedThisFrame;
-            lbNo |= lOPad.buttonEast.wasPressedThisFrame;
+            // A and B as they are bound (PadClick, PadBack: their first binding, cleanup step 7.6 -
+            // by their place until then).
+            bool lbPadYes = UWInput.PadPressed(UWAct.PadClick, 0, "<Gamepad>/buttonSouth");
+            bool lbPadNo = UWBack.Takes(UWBackOwner.YesNo, UWBackKey.PadButton);
 
             // The answering press clicks nothing more: A is the classic scheme's left button too,
             // and the pad's pointer runs after the question has closed (as the count prompt,
-            // 2026-10-22).
-            if (lOPad.buttonSouth.wasPressedThisFrame || lOPad.buttonEast.wasPressedThisFrame)
-                UWGamepad.ConsumePress();
+            // 2026-10-22) - it leaves A and the question's B alone while the question was open when
+            // the frame began (UWPadOwners; UWGamepad.ConsumePress here until cleanup step 7.8).
+            lbYes |= lbPadYes;
+            lbNo |= lbPadNo;
         }
 
         if (lOKeyboard.enterKey.wasPressedThisFrame || lOKeyboard.numpadEnterKey.wasPressedThisFrame)
@@ -314,7 +313,7 @@ public sealed class UWPromptController
         // THE MODERN SCHEME answers with the mouse in its own box (UWModernQuestion, per user
         // 2026-10-04: OK and Cancel, every question there alike; a right click both answered and
         // switched the pointer).
-        if (Mouse.current != null && Time.frameCount != miYesNoAskedFrame && UWControlScheme.Ui.Policy.MouseButtonsAnswerYesNo)
+        if (UWPointer.HasMouse && Time.frameCount != miYesNoAskedFrame && UWControlScheme.Ui.Policy.MouseButtonsAnswerYesNo)
         {
             lbYes |= UWMouseButtons.RightPressed;
             lbNo |= UWMouseButtons.LeftPressed;
@@ -346,7 +345,7 @@ public sealed class UWPromptController
     private void fFinishYesNo(bool lbYes)
     {
         if (mbYesNoHidCursor)
-            Cursor.visible = mbYesNoCursorWasVisible;
+            UWPointer.IsShown = mbYesNoCursorWasVisible;
 
         // The answer stays in the log: a cancel shows "No".
         mOInteraction.SetPromptMessage(mOQuestion.PromptTextFor(lbYes));

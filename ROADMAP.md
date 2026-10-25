@@ -73,7 +73,7 @@ of what is built was also read out of the original's executable.
 ## Open: controls
 
 - **Gamepad, further.** Vibration, and a Steam Deck layout; the gamepad itself is in place
-  (see above). On Linux its pointer clicks through X11 (XTest), not in a native Wayland session.
+  (see above).
 
 ## Open: platforms
 

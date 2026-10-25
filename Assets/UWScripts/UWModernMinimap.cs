@@ -201,20 +201,20 @@ public class UWModernMinimap : MonoBehaviour
 
     private void Update()
     {
-        if (!mbShown || mOScheme == null || !mOScheme.IsPointerFree || Mouse.current == null)
+        if (!mbShown || mOScheme == null || !mOScheme.IsPointerFree || !UWPointer.HasMouse)
             return;
 
         if (UWModernUi.IsMenuOpen || UWControls.IsTextEntryActive)
             return;
 
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         // A bag window lying over the map takes the click (UWModernBags may cover it).
         if (!mORect.Contains(lOPointer)
             || (UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(lOPointer)))
             return;
 
-        float lfWheel = Mouse.current.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (Mathf.Abs(lfWheel) > 0.01f)
             fSetZoom(fZoom() + (lfWheel > 0f ? 1 : -1));
@@ -342,7 +342,7 @@ public class UWModernMinimap : MonoBehaviour
         mONorth.rectTransform.anchoredPosition = lONorthAt;
         mONorth.rectTransform.sizeDelta = new Vector2(8f * liScale, 8f * liScale);
 
-        mOLevel.text = lOLoader != null ? "Level " + (lOLoader.CurrentLevelIndex + 1) : string.Empty;
+        mOLevel.text = lOLoader != null ? UWText.F("hud.minimap.level", lOLoader.CurrentLevelIndex + 1) : string.Empty;
         mOLevel.fontSize = Mathf.Max(9, Mathf.RoundToInt(3.6f * liScale));
         UWUiKit.SetRect(mOLevel.rectTransform, 0f, liScale, lfWidth - (2f * liScale), 6f * liScale);
 
@@ -569,7 +569,7 @@ public class UWModernMinimap : MonoBehaviour
         mOLevel = UWUiKit.CreateText(mOViewport, "Level", TextAnchor.LowerRight, UWModernPalette.Text, mOUi);
 
         mONoMap = UWUiKit.CreateText(mOViewport, "No map", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
-        mONoMap.text = "No map";
+        mONoMap.text = UWText.T("hud.minimap.no_map");
 
         mOButtons = new RawImage[2];
         mOButtonTexts = new Text[2];

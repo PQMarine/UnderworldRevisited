@@ -190,34 +190,21 @@ public static class UWScreenUi
         return Rect.MinMaxRect(lyCorners[0].x, lyCorners[0].y, lyCorners[2].x, lyCorners[2].y);
     }
 
-    /// <summary>The gamepad's B, read on the pad itself - the back of the main menu and the
-    /// character creation, as Escape there (per user, 2026-10-08).</summary>
-    public static bool WasPadBackPressed()
-    {
-        UnityEngine.InputSystem.Gamepad lOPad = UnityEngine.InputSystem.Gamepad.current;
-
-        return lOPad != null && lOPad.buttonEast.wasPressedThisFrame;
-    }
-
     public static bool IsMouseOver(RawImage pOImage)
     {
         if (pOImage == null || !pOImage.gameObject.activeInHierarchy)
             return false;
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        if (lOMouse == null)
+        if (!UWPointer.HasMouse)
             return false;
 
         return RectTransformUtility.RectangleContainsScreenPoint((RectTransform)pOImage.transform,
-            lOMouse.position.ReadValue(), null);
+            UWPointer.Position, null);
     }
 
     public static bool WasLeftClicked()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-
-        return lOMouse != null && UWMouseButtons.LeftPressed;
+        return UWPointer.HasMouse && UWMouseButtons.LeftPressed;
     }
 
     /// <summary>

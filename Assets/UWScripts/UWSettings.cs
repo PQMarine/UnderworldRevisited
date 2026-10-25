@@ -16,6 +16,10 @@ namespace UnderworldRevisited
         /// <summary>File by which a valid data directory is recognised.</summary>
         public const string MarkerFile = "LEV.ARK";
 
+        /// <summary>The DEVELOPER'S override of the game folder (cleanup step 8.8, 2026-10-24: one of
+        /// the values the asset and settings.json both hold). The player's choice from the setup
+        /// screen is UWUserSettings.GogInstallPath; this one wins when set (fResolveGogDataPath),
+        /// so it stays empty in the shipped asset.</summary>
         [Tooltip("The GOG installation of Ultima Underworld (the folder with game.gog) or game.gog itself. The game data is extracted from the image once into a local cache. Used when DataPath is empty or invalid. Empty: common GOG installation folders are searched.")]
         public string GogInstallPath = string.Empty;
 
@@ -55,18 +59,10 @@ namespace UnderworldRevisited
         [Tooltip("Pretends no game was found, so the first-run setup screen appears even though the GOG installation would be detected. Only until a folder is chosen there; delete settings.json in the persistent data folder to see it again.")]
         public bool ForceFirstRunSetup;
 
-        [Header("Sound")]
-        [Tooltip("Music from the AdLib pieces (AW*.XMI) through the OPL2 emulation, see UWAudioEngine and UWMusic.")]
-        public bool MusicEnabled = true;
-
-        [Range(0f, 1f)]
-        public float MusicVolume = 0.6f;
-
-        [Tooltip("Sound effects from SOUNDS.DAT and UW.AD through the OPL2 emulation, see UWSoundEffects.")]
-        public bool SoundEnabled = true;
-
-        [Range(0f, 1f)]
-        public float SoundVolume = 0.8f;
+        // Music and sound - on or off and the two volumes - were held here too until cleanup step
+        // 8.8 (2026-10-24): a live copy that UWSoundOptions filled from settings.json and that
+        // UWAudioMixer read. The mixer asks UWSoundOptions now; settings.json (UWUserSettings) is
+        // the one home of the four values, and the asset no longer carries them.
 
         [Tooltip("Point keeps the hard pixel edges of the original.")]
         public FilterMode TextureFilterMode = FilterMode.Point;
@@ -102,7 +98,7 @@ namespace UnderworldRevisited
 
             /// <summary>Lit by URP, with relief, specular highlights, glow and the rest -
             /// every one of them adjustable on its own below, so turning them all off gives
-            /// the plain URP look. See UWRemasterRenderer and
+            /// the plain URP look. See UWRemasterRenderPath and
             /// UWTextureArrayBuilder.BuildNormals.</summary>
             Remastered = 2
         }
@@ -121,17 +117,29 @@ namespace UnderworldRevisited
         [Tooltip("Palette computes like the original via palette indices, light level and distance. Remastered lights with URP; every one of its effects can be turned off on its own below.")]
         public RenderModeEnum RenderMode = RenderModeEnum.Palette;
 
-        /// <summary>Are the Remastered effects running right now? Not the setting alone: the
-        /// detail level (UWGraphicsDetail.SetLevel) switches the palette path on through
-        /// UWPaletteRenderToggle, and the toggle can be on without the setting having changed yet -
-        /// otherwise ground shadows, lights, relief and torch shadows would stay on (per user,
-        /// 2026-09-13).</summary>
-        public bool IsRemasteredActive
+        // Which path draws right now is not this setting but UWRenderPathHost.Mode (cleanup step
+        // 6.5, 2026-10-24; IsRemasteredActive here until then): the detail level switches the path
+        // at once, and the host follows this value - otherwise ground shadows, lights, relief and
+        // torch shadows would stay on (per user, 2026-09-13).
+
+        /// <summary>
+        /// Counts the changes of these values (cleanup step 6.5, 2026-10-24): what is pushed into a
+        /// material from them (UWRemasterRenderPath) is pushed again only when it moved, not every
+        /// frame. The detail level writes the values in one place (UWGraphicsDetail.EffectValues
+        /// .WriteTo, which marks it), an Inspector edit in the editor marks it through OnValidate;
+        /// nothing else writes them.
+        /// </summary>
+        public int Revision { get; private set; }
+
+        /// <summary>Marks the values as changed (see Revision).</summary>
+        public void MarkChanged()
         {
-            // Anything that is not the palette path is the URP path. Written this way on
-            // purpose: a settings asset saved before 2026-09-16 may still hold the value of the
-            // removed "Modern" mode, and it should land here rather than nowhere.
-            get { return RenderMode != RenderModeEnum.Palette && !UWPaletteRenderToggle.IsPaletteActive; }
+            Revision++;
+        }
+
+        private void OnValidate()
+        {
+            Revision++;
         }
 
         [Tooltip("Ambient floor, so that unlit corners are not completely black.")]

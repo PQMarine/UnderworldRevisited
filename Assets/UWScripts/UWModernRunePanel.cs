@@ -402,8 +402,10 @@ public class UWModernRunePanel : UWModernDockedPanel
     /// <summary>How long the gamepad's left trigger is held to open the panel instead of casting.</summary>
     private const float PadCastHoldSeconds = 0.35f;
 
-    /// <summary>Seconds the left trigger is held, -1 when it is not.</summary>
-    private float mfPadCastHeld = -1f;
+    /// <summary>The left trigger's tap and hold (UWHoldTap since cleanup step 7.3, 2026-10-25; the
+    /// seconds held, added up frame by frame, here until then): the hold due PadCastHoldSeconds after
+    /// the press by the unscaled clock ends the press; the trigger up before that taps.</summary>
+    private readonly UWHoldTap mOPadCast = new UWHoldTap(PadCastHoldSeconds, UWHoldTap.PadButton);
 
     /// <summary>
     /// THE GAMEPAD'S LEFT TRIGGER (UWGamepad): TAPPED it casts what lies in the hollow, as F8 does in
@@ -414,24 +416,21 @@ public class UWModernRunePanel : UWModernDockedPanel
     {
         UnityEngine.InputSystem.InputAction lOTrigger = pOControls.Player.PadCast;
 
-        // While the gamepad's pointer drives, LT is its right button (UWGamepadPointer.Takes).
+        // While the gamepad's pointer drives, LT is its right button (the PadPointer context,
+        // UWInput.PadPointerTakes).
         if (lOTrigger.WasPressedThisFrame())
         {
-            mfPadCastHeld = UWGamepadPointer.Takes(lOTrigger) ? -1f : 0f;
+            if (UWInput.PadPointerTakes(lOTrigger))
+                mOPadCast.Cancel();
+            else
+                mOPadCast.Press(Time.unscaledTime);
+
             return;
         }
 
-        if (mfPadCastHeld < 0f)
-            return;
-
-        if (lOTrigger.IsPressed())
+        switch (mOPadCast.Update(lOTrigger.IsPressed(), lOTrigger.WasReleasedThisFrame(), Time.unscaledTime))
         {
-            mfPadCastHeld += Time.unscaledDeltaTime;
-
-            if (mfPadCastHeld >= PadCastHoldSeconds)
-            {
-                mfPadCastHeld = -1f;
-
+            case UWHoldTap.ResultEnum.Hold:
                 if (Pinned)
                     return;
 
@@ -439,15 +438,14 @@ public class UWModernRunePanel : UWModernDockedPanel
                     Close();
                 else
                     Open(meTab);
-            }
 
-            return;
+                break;
+            case UWHoldTap.ResultEnum.Tap:
+                if (mOUi.Runes != null)
+                    mOUi.Actions.CastShelf();
+
+                break;
         }
-
-        mfPadCastHeld = -1f;
-
-        if (mOUi.Runes != null)
-            mOUi.Actions.CastShelf();
     }
 
     private void Update()
@@ -494,30 +492,28 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         fUpdatePadCast(lOControls);
 
-        Mouse lOMouse = Mouse.current;
-
         mbPeek = false;
 
-        if (lOMouse == null || !UWModernPointer.IsFree)
+        if (!UWPointer.HasMouse || !UWModernPointer.IsFree)
         {
             mbDragging = false;
             miPressSequence = -1;
             return;
         }
 
-        Vector2 lOPointer = lOMouse.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
 
         fUpdatePeek(lOPointer);
 
         fUpdateDrag(lOControls, lOPointer);
 
-        float lfWheel = lOMouse.scroll.ReadValue().y;
+        float lfWheel = UWPointer.Scroll.y;
 
         if (mbOpen && meTab == TabEnum.Spells && Mathf.Abs(lfWheel) > 0.01f && mOListRect.Contains(lOPointer))
             mfScroll -= Mathf.Sign(lfWheel) * RowRows * 2;
 
         bool lbLeft = lOControls.Player.CursorDrag.WasPressedThisFrame();
-        bool lbRight = lOControls.Player.Interact.WasPressedThisFrame() && UWModernPointer.SwitchedFrame != Time.frameCount;
+        bool lbRight = UWInput.PressedUnheld(lOControls, UWAct.Interact);
 
         if (!lbLeft && !lbRight)
             return;
@@ -918,7 +914,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         float liScale = miScale;
         UWHudRunes lORunes = mOUi.Runes;
 
-        mOTitle.text = "Rune bag";
+        mOTitle.text = UWText.T("hud.runes.title");
         fShowHollow(true);
 
         // The shelf with the runes of the bag.
@@ -926,7 +922,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         int liOwned = fPlaceTablet(new Rect(pfLeft + ((TabletLeft + (UWTextures.PanelWidth * (1f - UWModernHudArt.PixelAspectX) * 0.5f)) * liScale),
             pfTop - ((TabletTop + UWTextures.PanelHeight) * liScale), UWTextures.PanelWidth * liScale * UWModernHudArt.PixelAspectX, UWTextures.PanelHeight * liScale));
 
-        mOTitleRight.text = liOwned + " of " + UWPlayerData.RuneCount;
+        mOTitleRight.text = UWText.F("hud.runes.owned", liOwned, UWPlayerData.RuneCount);
 
         // The hollow with the chosen runes.
         float lfHollowTop = pfTop - ((TabletTop + UWTextures.PanelHeight + HollowGap) * liScale);
@@ -938,7 +934,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         IReadOnlyList<int> lOShelf = lORunes != null ? lORunes.Shelf.Selected : null;
         int liSequence = UWRuneShelfModel.SequenceOf(lOShelf);
         bool lbSpell = UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
-        bool lbHover = Mouse.current != null && UWModernPointer.IsFree && mOHollowRect.Contains(Mouse.current.position.ReadValue());
+        bool lbHover = UWPointer.HasMouse && UWModernPointer.IsFree && mOHollowRect.Contains(UWPointer.Position);
 
         for (int liAt = 0; liAt < mOHollowRunes.Length; liAt++)
         {
@@ -976,15 +972,15 @@ public class UWModernRunePanel : UWModernDockedPanel
 
             mOSpellName.text = SpellName(liSequence);
             mOSpellName.color = lbCastable ? UWModernPalette.Text : UWModernPalette.Grey;
-            mOSpellCircle.text = "Circle " + lOSpell.Level + "  -  " + lOSpell.ManaCost + " mana";
-            mOHint.text = lOSpell.Level > liCircle ? "above your circle" : "drag onto the bar, click to cast";
+            mOSpellCircle.text = UWText.F("hud.runes.circle", lOSpell.Level, lOSpell.ManaCost);
+            mOHint.text = lOSpell.Level > liCircle ? UWText.T("hud.runes.above_circle") : UWText.T("hud.runes.drag_or_cast");
         }
         else
         {
-            mOSpellName.text = lOShelf != null && lOShelf.Count > 0 ? "Not a spell" : "No runes chosen";
+            mOSpellName.text = lOShelf != null && lOShelf.Count > 0 ? UWText.T("hud.runes.not_a_spell") : UWText.T("hud.runes.none_chosen");
             mOSpellName.color = UWModernPalette.Grey;
             mOSpellCircle.text = string.Empty;
-            mOHint.text = "click runes on the shelf";
+            mOHint.text = UWText.T("hud.runes.click_runes");
         }
 
         UWUiKit.SetRect(mOSpellName.rectTransform, pfLeft, lfInfoTop - (9 * liScale), lfWidth, 9 * liScale);
@@ -997,8 +993,8 @@ public class UWModernRunePanel : UWModernDockedPanel
         float liScale = miScale;
         int liCircle = CharacterCircle;
 
-        mOTitle.text = "Spells";
-        mOTitleRight.text = liCircle > 0 ? "up to circle " + liCircle : string.Empty;
+        mOTitle.text = UWText.T("hud.spells.title");
+        mOTitleRight.text = liCircle > 0 ? UWText.F("hud.spells.up_to_circle", liCircle) : string.Empty;
 
         if (mOEntries.Count == 0)
             fBuildEntries();
@@ -1014,7 +1010,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         float lfContentTop = mOListRect.height;
         float lfInner = mOListRect.width;
-        Vector2 lOPointer = Mouse.current != null ? Mouse.current.position.ReadValue() : new Vector2(-1f, -1f);
+        Vector2 lOPointer = UWPointer.HasMouse ? UWPointer.Position : new Vector2(-1f, -1f);
         ListEntry lOHovered = UWModernPointer.IsFree ? fEntryAt(lOPointer) : null;
         UWPlayerData lOPlayer = fData().InitialPlayer;
 
@@ -1097,7 +1093,7 @@ public class UWModernRunePanel : UWModernDockedPanel
                 ListEntry lOHeader = new ListEntry { Circle = liCircle, Top = liTop, Rows = HeaderRows };
 
                 lOHeader.Name = UWUiKit.CreateText(mOListContent, "Circle", TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
-                lOHeader.Name.text = "Circle " + liCircle + "  -  " + lOSpell.ManaCost + " mana";
+                lOHeader.Name.text = UWText.F("hud.runes.circle", liCircle, lOSpell.ManaCost);
                 lOHeader.Rule = UWUiKit.CreateImage(mOListContent, "Rule", UWModernPalette.Rule);
                 mOEntries.Add(lOHeader);
                 liTop += HeaderRows;
@@ -1137,7 +1133,7 @@ public class UWModernRunePanel : UWModernDockedPanel
     /// <summary>The spell being dragged follows the pointer: its picture, else its runes.</summary>
     private void fLayoutGhost()
     {
-        bool lbShow = mbDragging && miPressSequence >= 0 && Mouse.current != null;
+        bool lbShow = mbDragging && miPressSequence >= 0 && UWPointer.HasMouse;
 
         mOGhostCanvas.enabled = lbShow;
 
@@ -1146,7 +1142,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         float liScale = miScale;
         float lfSlot = UWModernHudArt.SlotSize * liScale;
-        Vector2 lOPointer = Mouse.current.position.ReadValue();
+        Vector2 lOPointer = UWPointer.Position;
         UWTexture lOIcon = SpellIcon(miPressSequence);
 
         UWUiKit.SetRect(mOGhostBack.rectTransform, lOPointer.x - (lfSlot * 0.5f), lOPointer.y - (lfSlot * 0.5f), lfSlot, lfSlot);
@@ -1247,7 +1243,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         mORoot.sizeDelta = Vector2.zero;
 
         // The tab headers, the pin, the leather and the handle, mirrored (UWModernDockedPanel).
-        fBuildChrome(mORoot, new[] { "Runes", "Spells" }, "Runes");
+        fBuildChrome(mORoot, new[] { UWText.T("hud.runes.tab.runes"), UWText.T("hud.runes.tab.spells") }, UWText.T("hud.runes.handle"));
 
         mOTitle = UWUiKit.CreateText(mORoot, "Title", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
         mOTitleRight = UWUiKit.CreateText(mORoot, "Title right", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);

@@ -43,7 +43,8 @@ public class UWAnimatedTextures : MonoBehaviour
         if (mOArray == null || mOSlices == null || mOSlices.Count == 0 || mfStepsPerSecond <= 0f)
             return;
 
-        int liStep = Mathf.FloorToInt(Time.time * mfStepsPerSecond);
+        // The palette rotation's clock, shared with the palette path (UWFlicker.RotationStep).
+        int liStep = UWDataImport.UWData.UWFlicker.RotationStep(Time.time, mfStepsPerSecond);
 
         if (liStep == miStep)
             return;
