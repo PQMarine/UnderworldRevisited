@@ -40,6 +40,15 @@ public static class UWUserSettings
         Defs.GamepadSwapSticks.OnChange = fApplyKeyBindings;
         Defs.LeftStickDeadzone.OnChange = fApplyKeyBindings;
         Defs.RightStickDeadzone.OnChange = fApplyKeyBindings;
+        // The windows' theme and ground take effect at once, an open window included (the Colours
+        // window itself; cleanup phase 8d): the kit's drawers read the theme anew on their next pass.
+        Defs.WindowTheme.OnChange = fThemeChanged;
+        Defs.WindowBackground.OnChange = fThemeChanged;
+    }
+
+    private static void fThemeChanged(UWUserData pOData)
+    {
+        UWGuiTheme.Changed();
     }
 
     private static void fApplyKeyBindings(UWUserData pOData)
@@ -324,6 +333,29 @@ public static class UWUserSettings
     /// <summary>The game's own pointer: screen pixels per mouse count, clamped (UWPointer reads it every
     /// frame it is captured; cleanup step 7.7B).</summary>
     public static float PointerSpeed { get => Defs.PointerSpeed.Read(fGet()); set => Defs.PointerSpeed.Write(fGet(), value); }
+
+    /// <summary>The look of the game's own windows (UWGuiTheme reads it and is told of a change, here
+    /// as through the Colours window's row; cleanup phase 8d).</summary>
+    public static UWWindowThemeEnum WindowTheme
+    {
+        get => (UWWindowThemeEnum)Defs.WindowTheme.Read(fGet());
+        set
+        {
+            Defs.WindowTheme.Write(fGet(), (int)value);
+            UWGuiTheme.Changed();
+        }
+    }
+
+    /// <summary>The Stone theme's ground behind the windows (as WindowTheme; cleanup phase 8d).</summary>
+    public static UWWindowBackgroundEnum WindowBackground
+    {
+        get => (UWWindowBackgroundEnum)Defs.WindowBackground.Read(fGet());
+        set
+        {
+            Defs.WindowBackground.Write(fGet(), (int)value);
+            UWGuiTheme.Changed();
+        }
+    }
 
     /// <summary>
     /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves

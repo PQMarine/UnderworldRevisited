@@ -299,8 +299,9 @@ public sealed class UWSetupPageDrawer
         string[] lsChoices = pORow.Choices ?? pORow.Def.ChoiceLabels;
         int liCurrent = pORow.GetIndex != null ? pORow.GetIndex() : fIndexOf(pORow.Def, pOData);
         int liPressed = pORow.Kind == UWSetupRow.KindEnum.ChoiceRow
-            ? mORows.ChoiceRow(pORect, pOColumns, fLabel(pORow), lsChoices, liCurrent)
-            : mORows.Choices(pORect, lsChoices, liCurrent, pORow.Gap, pORow.Faced, pORow.EnabledChoices != null ? pORow.EnabledChoices() : -1);
+            ? mORows.ChoiceRow(pORect, pOColumns, fLabel(pORow), lsChoices, liCurrent, pORow.TextOnlyChoices)
+            : mORows.Choices(pORect, lsChoices, liCurrent, pORow.Gap, pORow.Faced, pORow.EnabledChoices != null ? pORow.EnabledChoices() : -1,
+                pORow.TextOnlyChoices);
 
         if (liPressed < 0 || (liPressed == liCurrent && !pORow.PressCurrent))
             return;

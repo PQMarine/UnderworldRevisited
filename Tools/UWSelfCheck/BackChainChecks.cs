@@ -101,7 +101,8 @@ namespace UnderworldRevisited.Tools
             fBackCase("main menu, the save list under the setup bar's keys",
                 UWBackState.ScreenMenu | UWBackState.SetupCapturing | UWBackState.SetupKeyNav,
                 fOwners(UWBackOwner.MainMenuSaves, UWBackOwner.SetupKeyNav), "SetupKeyNav", "-", "-");
-            fBackCase("main menu, the setup bar's effects screen", UWBackState.ScreenMenu | UWBackState.SetupEffects | UWBackState.SetupCapturing,
+            // The effects window is a window of the bar since cleanup 8d.3: SetupPanel holds with it.
+            fBackCase("main menu, the setup bar's effects screen", UWBackState.ScreenMenu | UWBackState.SetupEffects | UWBackState.SetupPanel | UWBackState.SetupCapturing,
                 fOwners(UWBackOwner.SetupEffects, UWBackOwner.MainMenuSaves), "SetupEffects", "SetupEffects", "SetupEffects");
             fBackCase("first run, the folder path typed", UWBackState.ScreenMenu | UWBackState.KitText | UWBackState.SetupCapturing,
                 fOwners(UWBackOwner.KitText), "KitText", "-", "-");
@@ -136,7 +137,7 @@ namespace UnderworldRevisited.Tools
             fBackCase("modern, a setup dialog over the game menu", UWBackState.MenuOpen | UWBackState.SetupPanel | UWBackState.SetupCapturing,
                 fModern(), "ModernMenu", "ModernMenu", "ModernMenu");
             fBackCase("modern, the setup bar's effects screen over the game menu (was double; B and Start closed the menu under it)",
-                UWBackState.MenuOpen | UWBackState.SetupEffects | UWBackState.SetupCapturing,
+                UWBackState.MenuOpen | UWBackState.SetupEffects | UWBackState.SetupPanel | UWBackState.SetupCapturing,
                 fModern(UWBackOwner.SetupEffects, UWBackOwner.SetupKeyNav), "SetupEffects", "SetupEffects", "SetupEffects");
             fBackCase("modern, the layout editor's question (was double: the menu's leave waited for it by the update order)",
                 UWBackState.MenuOpen | UWBackState.LayoutAsk, fModern(UWBackOwner.LayoutAsk), "LayoutAsk", "ModernMenu", "ModernMenu");
@@ -204,9 +205,13 @@ namespace UnderworldRevisited.Tools
                 fOwners(UWBackOwner.ClassicOptions), "-", "-", "-");
             fBackCase("classic, the options, a save name typed with the letter grid", UWBackState.ClassicSaveName | UWBackState.LetterGrid,
                 fOwners(UWBackOwner.ClassicSaveName, UWBackOwner.ClassicOptions, UWBackOwner.LetterGrid), "ClassicSaveName", "-", "LetterGrid");
-            fBackCase("classic, the options' effects screen", UWBackState.OptionsEffects,
-                fOwners(UWBackOwner.OptionsEffects, UWBackOwner.ClassicOptions), "OptionsEffects", "-", "-");
-            fBackCase("classic, the setup bar's effects screen over the options (was double)", UWBackState.SetupEffects | UWBackState.SetupCapturing,
+            // The options' Very High opens the setup bar's effects window since cleanup 8d.3 (their own
+            // screen and its row OptionsEffects went; it took Escape alone, "OptionsEffects", "-", "-").
+            fBackCase("classic, the options' Very High: the setup bar's effects window (cleanup 8d.3)",
+                UWBackState.SetupEffects | UWBackState.SetupPanel | UWBackState.SetupCapturing,
+                fOwners(UWBackOwner.SetupEffects, UWBackOwner.SetupKeyNav, UWBackOwner.ClassicOptions), "SetupEffects", "SetupEffects", "SetupEffects");
+            fBackCase("classic, the setup bar's effects screen over the options with the bar's keys (cleanup 8d.3)",
+                UWBackState.SetupEffects | UWBackState.SetupPanel | UWBackState.SetupCapturing | UWBackState.SetupKeyNav,
                 fOwners(UWBackOwner.SetupEffects, UWBackOwner.SetupKeyNav, UWBackOwner.ClassicOptions), "SetupEffects", "SetupEffects", "SetupEffects");
             fBackCase("classic, the help's notes typed with the options open (was double)", UWBackState.KitText | UWBackState.HelpKeys,
                 fOwners(UWBackOwner.KitText, UWBackOwner.ClassicOptions), "KitText", "-", "-");

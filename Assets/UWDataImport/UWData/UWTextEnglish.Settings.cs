@@ -29,6 +29,15 @@ namespace UWDataImport.UWData
 			fAdd("setting.MarkPoison", "Hatch the health flask while poisoned");
 			fAdd("setting.MarkPoison.hint", "The flask is red normally and green while poisoned - the one pair a red-green deficiency cannot tell apart.");
 
+			// The windows' theme (cleanup phase 8d, 2026-10-25).
+			fAdd("setting.WindowTheme", "Window theme");
+			fAdd("setting.WindowTheme.hint", "The look of these windows: Plain as before, or Stone in the colours of the game's icon.");
+			fAdd("setting.WindowTheme.choice.plain", "Plain");
+			fAdd("setting.WindowTheme.choice.stone", "Stone");
+			fAdd("setting.WindowBackground", "Background");
+			fAdd("setting.WindowBackground.choice.gradient", "Gradient");
+			fAdd("setting.WindowBackground.choice.clouds", "Clouds");
+
 			// The controls, keyboard and mouse.
 			fAdd("setting.EasyMovementInterval", "Easy movement interval");
 			fAdd("setting.MouseLookSpeed", "Mouse look speed (modern)");

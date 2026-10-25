@@ -497,7 +497,8 @@ public class UWHelpWindow : MonoBehaviour
         mOKit.Enabled = !IsReading;
 
         mOKit.BeginClipArea(new Rect(lfClipX, lfAreaTop, lfAreaX + lfAreaWidth - lfClipX, lfAreaHeight));
-        mOKit.Fill(new Rect(lfAreaX, lfAreaTop, lfAreaWidth, lfAreaHeight), UWGuiTheme.Overlay);
+        // The window's ground in the theme in force (cleanup phase 8d; Plain: the overlay's fill).
+        mOKit.Ground(new Rect(lfAreaX, lfAreaTop, lfAreaWidth, lfAreaHeight), UWWindowGroundEnum.Overlay);
 
         Rect lOInner = new Rect(lfAreaX + 12f, lfAreaTop + 12f, lfAreaWidth - 24f, lfAreaHeight - 24f);
 

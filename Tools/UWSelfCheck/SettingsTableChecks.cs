@@ -413,6 +413,14 @@ namespace UnderworldRevisited.Tools
                 case UWIntSettingDef lOInt when lOInt.Normalize == UWSettingNormalize.NonZeroIsOn:
                     return lOInt.ReadOn(pOData) ? "True" : "False";
 
+                // The windows' theme and its ground read as their enums (the facade's properties, cleanup
+                // phase 8d); the other InRangeOrFallback entries are the Off/Original/Smooth modes.
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.WindowTheme:
+                    return ((UWWindowThemeEnum)lOInt.Read(pOData)).ToString();
+
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.WindowBackground:
+                    return ((UWWindowBackgroundEnum)lOInt.Read(pOData)).ToString();
+
                 case UWIntSettingDef lOInt when lOInt.Normalize == UWSettingNormalize.InRangeOrFallback:
                     return ((UWHeadBobRules.ModeEnum)lOInt.Read(pOData)).ToString();
 

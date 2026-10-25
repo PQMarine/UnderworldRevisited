@@ -90,7 +90,6 @@ public static class UWBack
         fSet(ref leStates, UWBackState.CharacterName, UWCharacterCreationScreen.IsTypingName);
         fSet(ref leStates, UWBackState.MapNote, lOUi != null && lOUi.Map.IsWritingNote);
         fSet(ref leStates, UWBackState.ClassicSaveName, lOUi != null && lOUi.Options.miSaveSlotTyping > 0);
-        fSet(ref leStates, UWBackState.OptionsEffects, lOUi != null && lOUi.Options.IsEffectsScreenOpen);
         fSet(ref leStates, UWBackState.Instrument, UWInstrumentPlayer.IsPlaying);
         fSet(ref leStates, UWBackState.ConversationAnswer, UWConversationController.IsTypingAnswer);
         fSet(ref leStates, UWBackState.PromptLine, lOInteraction != null && lOInteraction.IsPromptActive);

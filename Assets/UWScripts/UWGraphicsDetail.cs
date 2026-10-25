@@ -10,7 +10,9 @@ using UnderworldRevisited;
 ///   LOW        the palette renderer, as close to the original as we get
 ///   MEDIUM     Remastered without any of its effects - the plain URP look
 ///   HIGH       Remastered with every effect, at the shipped values
-///   VERY HIGH  Remastered with the viewer's own values, set in UWGraphicsOptionsWindow
+///   VERY HIGH  Remastered with the viewer's own values, set in the Remastered effects window
+///              (UWEffectsScreen); "Custom" in the setup bar and the modern game menu since cleanup
+///              8d.3, where it is no choice of its own (the classic options keep Very High)
 ///
 /// WHERE IT IS KEPT: UWSettings is a ScriptableObject in Resources, and a build never writes it
 /// back - so the choice lives in its own file under Application.persistentDataPath, read once
@@ -267,25 +269,21 @@ public static class UWGraphicsDetail
     /// menu (UWSetupMenu) and the classic options' detail screen (UWHudOptions) each set the level
     /// and opened the effects screen for VERY HIGH on their own until then. Sets the level, lets the
     /// caller show its own state anew (the options panel draws its detail screen again; the bar
-    /// has nothing to draw), and for VERY HIGH opens the effects screen the caller hands over -
-    /// each keeps its own frame for it: the options panel the game's frame, the bar the main menu's
-    /// frame or, in the game, a canvas of its own; null offers none. The modern game menu's Detail
-    /// page has no effects screen and sets the level alone (SetLevel).
+    /// has nothing to draw), and for VERY HIGH opens the effects window as the caller hands it over -
+    /// since cleanup 8d.3 the setup bar's one window for both (UWSetupMenu.OpenEffectsWindow; the
+    /// Graphics window's "Remastered effects...", the classic options' Very High); null opens none
+    /// (the Graphics window's Low, Medium and High). The modern game menu's Detail page has no effects
+    /// window and sets the level alone (SetLevel).
     /// </summary>
-    public static void Choose(LevelEnum peLevel, Action pFShowLevel, Func<UWEffectsScreen> pFEffectsScreen)
+    public static void Choose(LevelEnum peLevel, Action pFShowLevel, Action pFOpenEffects)
     {
         SetLevel(peLevel);
 
         if (pFShowLevel != null)
             pFShowLevel();
 
-        if (peLevel != LevelEnum.VeryHigh || pFEffectsScreen == null)
-            return;
-
-        UWEffectsScreen lOScreen = pFEffectsScreen();
-
-        if (lOScreen != null)
-            lOScreen.Open();
+        if (peLevel == LevelEnum.VeryHigh && pFOpenEffects != null)
+            pFOpenEffects();
     }
 
     /// <summary>The viewer's own values, for the options window. Changing them does nothing

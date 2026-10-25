@@ -104,8 +104,19 @@ public partial class UWSetupMenu
             .Add(fColourSlider(Defs.ColourContrast, 0.5f, 2f, 40f,
                 pfValue => fSetColours((int)UWColourVision.Mode, UWColourVision.Strength, UWColourVision.Brightness, pfValue), () => UWColourVision.Contrast))
             .Add(fToggle(Defs.MarkPoison, 30f))
-            .Add(fHint(Defs.MarkPoison, 0f));
+            .Add(fHint(Defs.MarkPoison, 10f))
+            // THE WINDOWS' THEME (cleanup phase 8d, per user 2026-10-25): Plain, the look of before, or
+            // Stone in the application icon's colours, and the Stone theme's ground - greyed under
+            // Plain (the entry's EnabledWhen). A choice is saved at once and shows at once, this
+            // window included (the entries' OnChange, UWGuiTheme.Changed).
+            .Add(new UWSetupRow { Kind = Kind.Separator, Id = "colours.separator", Height = 1f, Advance = 8f })
+            .Add(new UWSetupRow { Kind = Kind.ChoiceRow, Id = Defs.WindowTheme.LabelId, Def = Defs.WindowTheme, ChoiceColumns = ThemeChoiceColumns, Advance = 30f })
+            .Add(new UWSetupRow { Kind = Kind.ChoiceRow, Id = Defs.WindowBackground.LabelId, Def = Defs.WindowBackground, ChoiceColumns = ThemeChoiceColumns, Advance = 30f })
+            .Add(fHint(Defs.WindowTheme, 0f));
     }
+
+    /// <summary>The theme rows: the label in the sliders' column (140 wide), the choices from 150.</summary>
+    private static readonly UWChoiceColumns ThemeChoiceColumns = new UWChoiceColumns(0f, 140f, 150f, 150f);
 
     /// <summary>A colour row: the live value of UWColourVision, set through it with the other two
     /// as they stand. The limits are the dialog's own (0 to 1, 0.5 to 2): the settings table keeps
@@ -423,33 +434,46 @@ public partial class UWSetupMenu
 
     // ------------------------------------------------- Graphics
 
-    /// <summary>The four detail levels, short; the hint under them says what each is (the drop-down
-    /// menu's items said it in one line each: "Low - original palette" and so on).</summary>
-    private static readonly string[] msDetailLevelIds = { "setup.graphics.detail.low", "setup.graphics.detail.medium", "setup.graphics.detail.high", "setup.graphics.detail.very_high" };
+    /// <summary>The four detail levels, short, by LevelEnum; the hint under them says what each is (the
+    /// drop-down menu's items said it in one line each: "Low - original palette" and so on). The last,
+    /// VeryHigh, reads Custom since cleanup 8d.3 (per user, 2026-10-25): the viewer's own values.</summary>
+    private static readonly string[] msDetailLevelIds = { "setup.graphics.detail.low", "setup.graphics.detail.medium", "setup.graphics.detail.high", "setup.graphics.detail.custom" };
 
     /// <summary>The Graphics window's detail row and the Game window's scheme row: the label 80
-    /// wide, the choices over the rest (four of 110 for the levels, so "Very high..." fits).</summary>
+    /// wide, the choices over the rest (four of 110 for the levels).</summary>
     private static readonly UWChoiceColumns WindowChoiceColumns = new UWChoiceColumns(0f, 80f, 80f, 80f);
+
+    /// <summary>The detail row's Custom (VeryHigh), bit 3: a text, no choice (UWSetupRow.TextOnlyChoices).</summary>
+    private const int CustomLevelTextOnly = 1 << (int)UWGraphicsDetail.LevelEnum.VeryHigh;
 
     private UWSetupPage fBuildGraphicsPage()
     {
         return new UWSetupPage("graphics")
             .Add(fTitle("graphics.title", UWText.T("setup.graphics.title")))
-            // THE DETAIL LEVELS of the options panel, the current one in the accent colour; a click
-            // on Very high opens its effects screen again even while it is chosen (fChooseLevel).
+            // THE DETAIL LEVELS of the options panel, the current one in the accent colour; a click on
+            // the current one sets it again. CUSTOM (VeryHigh) is only a text since cleanup 8d.3 (per
+            // user, 2026-10-25): lit while the viewer's own values are in force, dim otherwise, no
+            // click - "Remastered effects..." below sets it and opens their window.
             .Add(new UWSetupRow
             {
                 Kind = Kind.ChoiceRow, Id = "graphics.detail", Text = UWText.T("setup.graphics.detail"), Choices = System.Array.ConvertAll(msDetailLevelIds, UWText.T),
-                ChoiceColumns = WindowChoiceColumns,
+                ChoiceColumns = WindowChoiceColumns, TextOnlyChoices = CustomLevelTextOnly,
                 PressCurrent = true, Advance = 34f,
                 GetIndex = () => (int)UWGraphicsDetail.CurrentLevel, Choose = piLevel => fChooseLevel((UWGraphicsDetail.LevelEnum)piLevel)
             })
             .Add(fHint("graphics.detail.hint", UWText.T("setup.graphics.detail.hint"), 10f))
-            // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog.
+            // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog, and
+            // beside it the Remastered ones (UWEffectsScreen, cleanup 8d.3): both as wide as their text,
+            // the second moving along with the first.
             .Add(new UWSetupRow
             {
-                Kind = Kind.Action, Id = "graphics.palette", Text = UWText.T("setup.graphics.palette"), Width = 200f, Height = 30f, Advance = 40f,
+                Kind = Kind.Action, Id = "graphics.palette", Text = UWText.T("setup.graphics.palette"), Width = 200f, Height = 30f,
                 Press = fOpenPaletteEffectsDialog
+            })
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Action, Id = "graphics.remastered", Text = UWText.T("setup.graphics.remastered"), X = 210f, Width = 200f, Height = 30f,
+                Advance = 40f, Press = fOpenRemasteredEffects
             })
             .Add(new UWSetupRow { Kind = Kind.Separator, Id = "graphics.separator", Height = 1f, Advance = 8f })
             // THE 4:3 SWITCH lives here and not under Game (per user, 2026-09-22): it changes how

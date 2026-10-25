@@ -59,7 +59,8 @@ namespace UWDataImport.UWData
 			/// sets it and shows the screen anew with ShowDetail.</summary>
 			SetDetail,
 
-			/// <summary>VERY HIGH: the level set, then the effects screen opens.</summary>
+			/// <summary>VERY HIGH: the level set, then the effects window opens (the setup bar's, with
+			/// the bar, since cleanup 8d.3).</summary>
 			SetDetailAndOpenEffects,
 
 			/// <summary>YES on the quit question: back to the main menu (the panel closes).</summary>

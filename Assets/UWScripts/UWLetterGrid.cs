@@ -85,11 +85,9 @@ public class UWLetterGrid : MonoBehaviour
 
     private float mfOwnKeysUntil;
 
-    private static readonly Color msPanel = new Color(0.11f, 0.08f, 0.05f, 0.94f);
-
-    private static readonly Color msKey = new Color(0.25f, 0.19f, 0.12f, 1f);
-
-    private static readonly Color msFocus = UWModernPalette.Gold;
+    // The panel's, the keys' and the focused key's colours are the theme's since cleanup phase 8d
+    // (UWGuiTheme.Palette.LetterGridPanel, LetterGridKey, LetterGridFocus; Plain's are the values kept
+    // here until then: a dark brown at 0.94, a lighter brown, UWModernPalette.Gold).
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void fCreate()
@@ -303,7 +301,9 @@ public class UWLetterGrid : MonoBehaviour
             Size = UWGuiTheme.LetterGridKeySize, Colour = Color.white, Anchor = TextAnchor.MiddleCenter, Bold = true
         };
 
-        mOKit.Fill(new Rect(lfLeft, lfTop, lfWidth, lfHeight), msPanel);
+        UWGuiTheme.Palette lOPalette = UWGuiTheme.Current;
+
+        mOKit.Ground(new Rect(lfLeft, lfTop, lfWidth, lfHeight), UWWindowGroundEnum.LetterGrid);
 
         for (int liRow = 0; liRow <= BottomRow; liRow++)
         {
@@ -320,7 +320,7 @@ public class UWLetterGrid : MonoBehaviour
                 Rect lORect = new Rect(lfX, lfY, lfW, KeyHeight);
 
                 lOKey.Colour = lbFocus ? Color.black : Color.white;
-                mOKit.Fill(lORect, lbFocus ? msFocus : msKey);
+                mOKit.Fill(lORect, lbFocus ? lOPalette.LetterGridFocus : lOPalette.LetterGridKey);
                 mOKit.HelpText(lORect, lsLabel, lOKey);
             }
         }

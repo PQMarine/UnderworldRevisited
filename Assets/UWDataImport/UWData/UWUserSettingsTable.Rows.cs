@@ -88,6 +88,14 @@ namespace UWDataImport.UWData
 			// The colours.
 			fText(ColourMode);
 			fChoices(ColourMode, new[] { "off", "red", "green", "blue" });
+
+			// The windows' theme and the Stone theme's ground (cleanup phase 8d, 2026-10-25), in the
+			// Colours window; the ground is greyed while the theme is Plain, which has none.
+			fText(WindowTheme, true);
+			fChoices(WindowTheme, new[] { "plain", "stone" });
+			fText(WindowBackground);
+			fChoices(WindowBackground, new[] { "gradient", "clouds" });
+			WindowBackground.EnabledWhen = d => WindowTheme.Read(d) != (int)UWWindowThemeEnum.Plain;
 			fText(ColourStrength);
 			ColourStrength.Format = UWSettingFormat.TwoDecimals;
 			fText(ColourBrightness);

@@ -23,7 +23,9 @@ using UWDataImport.UWData;
 ///
 /// THE LOOK is the kit windows' (UWGuiTheme's palette, the interface font) on a dark ground the world
 /// shows through; the layout is on UWGuiTheme's 720 lines and scales with the window as the other kit
-/// windows do. The texts are English literals - a developer tool, not translated.
+/// windows do. The texts are English literals - a developer tool, not translated. It keeps the Plain
+/// palette whatever window theme is chosen (cleanup phase 8d, decided per user 2026-10-25: the debug
+/// panel stays plain): its own colours read UWGuiTheme.Plain, its drawer has it fixed.
 /// </summary>
 public sealed class UWDebugPanel
 {
@@ -134,7 +136,7 @@ public sealed class UWDebugPanel
 
     public UWDebugPanel(Transform pOOwner)
     {
-        mOKit = new UWKitRows(pOOwner, UWUiSorting.DebugPanel);
+        mOKit = new UWKitRows(pOOwner, UWUiSorting.DebugPanel) { FixedPalette = UWGuiTheme.Plain };
     }
 
     /// <summary>The text field's typing ends with the panel (the owner's OnDestroy).</summary>
@@ -152,10 +154,10 @@ public sealed class UWDebugPanel
     {
         switch (peEmphasis)
         {
-            case UWDebugEmphasis.Dim: return UWGuiTheme.DimText;
-            case UWDebugEmphasis.Warning: return UWGuiTheme.Error;
-            case UWDebugEmphasis.Accent: return UWGuiTheme.Accent;
-            default: return UWGuiTheme.Text;
+            case UWDebugEmphasis.Dim: return UWGuiTheme.Plain.DimText;
+            case UWDebugEmphasis.Warning: return UWGuiTheme.Plain.Error;
+            case UWDebugEmphasis.Accent: return UWGuiTheme.Plain.Accent;
+            default: return UWGuiTheme.Plain.Text;
         }
     }
 
@@ -229,7 +231,7 @@ public sealed class UWDebugPanel
     /// <summary>The tab row along the panel's top, and the hint on its right.</summary>
     private ActionEnum fTabs(Rect pOPanel, bool pbTools, string psHint)
     {
-        UWKitRows.HelpLook lOLook = fLook(TabSize, UWGuiTheme.Text, TextAnchor.MiddleCenter);
+        UWKitRows.HelpLook lOLook = fLook(TabSize, UWGuiTheme.Plain.Text, TextAnchor.MiddleCenter);
         float lfX = pOPanel.x + Pad;
         float lfY = pOPanel.y + Pad;
         ActionEnum leAction = ActionEnum.None;
@@ -242,7 +244,7 @@ public sealed class UWDebugPanel
         if (fTab(ref lfX, lfY, "Tools", pbTools, lOLook) && !pbTools)
             leAction = ActionEnum.ShowTools;
 
-        UWKitRows.HelpLook lOHint = fLook(SubSize, UWGuiTheme.DimText, TextAnchor.MiddleRight);
+        UWKitRows.HelpLook lOHint = fLook(SubSize, UWGuiTheme.Plain.DimText, TextAnchor.MiddleRight);
         float lfRight = pOPanel.xMax - Pad;
 
         mOKit.HelpText(new Rect(lfX + 8f, lfY, Mathf.Max(0f, lfRight - lfX - 8f), TabHeight), psHint, lOHint);
@@ -255,10 +257,10 @@ public sealed class UWDebugPanel
         float lfWidth = mOKit.HelpTextWidth(psText, pOLook) + (2f * TabPadding);
         UWKitRows.HelpLook lOLook = pOLook;
 
-        lOLook.Colour = pbActive ? UWGuiTheme.Accent : UWGuiTheme.DimText;
+        lOLook.Colour = pbActive ? UWGuiTheme.Plain.Accent : UWGuiTheme.Plain.DimText;
 
         bool lbClicked = mOKit.HelpButton(new Rect(pfX, pfY, lfWidth, TabHeight), psText, lOLook,
-            pbActive ? HeadingGround : TabGround, HeadingHover, UWGuiTheme.Text);
+            pbActive ? HeadingGround : TabGround, HeadingHover, UWGuiTheme.Plain.Text);
 
         pfX += lfWidth;
 
@@ -279,7 +281,7 @@ public sealed class UWDebugPanel
         public int CellsPerRow;
     }
 
-    private float LineHeight => mOKit.HelpTextHeight("Ay", fLook(TextSize, UWGuiTheme.Text), 1000f) + 2f;
+    private float LineHeight => mOKit.HelpTextHeight("Ay", fLook(TextSize, UWGuiTheme.Plain.Text), 1000f) + 2f;
 
     private Rect fReport(UWDebugReport pOReport, float pfAvailableWidth, float pfAvailableHeight, float pfTop, out ActionEnum peAction)
     {
@@ -341,7 +343,7 @@ public sealed class UWDebugPanel
         if (fIsFolded(pOSection))
             return lOLayout;
 
-        UWKitRows.HelpLook lOText = fLook(TextSize, UWGuiTheme.Text);
+        UWKitRows.HelpLook lOText = fLook(TextSize, UWGuiTheme.Plain.Text);
         float lfInner = pfWidth - (2f * Inset);
         float lfLabel = 0f;
         float lfCell = 0f;
@@ -393,7 +395,7 @@ public sealed class UWDebugPanel
         if (pORow.Is(UWDebugRowFlags.Sub))
             return LineHeight + 2f;
 
-        float lfValue = mOKit.HelpTextHeight(pORow.Value, fLook(TextSize, UWGuiTheme.Text, TextAnchor.UpperLeft, true), fValueWidth(pORow, pOLayout, pfInner));
+        float lfValue = mOKit.HelpTextHeight(pORow.Value, fLook(TextSize, UWGuiTheme.Plain.Text, TextAnchor.UpperLeft, true), fValueWidth(pORow, pOLayout, pfInner));
 
         return Mathf.Max(LineHeight, lfValue + 2f);
     }
@@ -403,19 +405,19 @@ public sealed class UWDebugPanel
     private void fDrawSection(UWDebugSection pOSection, SectionLayout pOLayout, float pfX, float pfY, float pfWidth)
     {
         bool lbFolded = fIsFolded(pOSection);
-        UWKitRows.HelpLook lOHeading = fLook(HeadingSize, UWGuiTheme.Accent, TextAnchor.MiddleLeft, false, true);
+        UWKitRows.HelpLook lOHeading = fLook(HeadingSize, UWGuiTheme.Plain.Accent, TextAnchor.MiddleLeft, false, true);
 
         // "+" and "-" rather than arrows: the interface font has them for certain.
         if (mOKit.HelpButton(new Rect(pfX, pfY, pfWidth, HeadingHeight), (lbFolded ? "  +  " : "  -  ") + pOSection.Title, lOHeading,
-            HeadingGround, HeadingHover, UWGuiTheme.Text))
+            HeadingGround, HeadingHover, UWGuiTheme.Plain.Text))
             fToggleFold(pOSection.Id);
 
         if (lbFolded)
             return;
 
         UWKitRows.HelpLook lOLabel = fLook(TextSize, LabelColour);
-        UWKitRows.HelpLook lOValue = fLook(TextSize, UWGuiTheme.Text, TextAnchor.UpperLeft, true);
-        UWKitRows.HelpLook lOSub = fLook(SubSize, UWGuiTheme.DimText, TextAnchor.LowerLeft, false, true);
+        UWKitRows.HelpLook lOValue = fLook(TextSize, UWGuiTheme.Plain.Text, TextAnchor.UpperLeft, true);
+        UWKitRows.HelpLook lOSub = fLook(SubSize, UWGuiTheme.Plain.DimText, TextAnchor.LowerLeft, false, true);
         float lfInner = pfWidth - (2f * Inset);
         float lfLeft = pfX + Inset;
         float lfY = pfY + HeadingHeight + 2f;
@@ -487,7 +489,7 @@ public sealed class UWDebugPanel
         if (pfStrength <= 0.01f)
             return;
 
-        Color lOAccent = UWGuiTheme.Accent;
+        Color lOAccent = UWGuiTheme.Plain.Accent;
 
         mOKit.Fill(new Rect(pORect.x - 2f, pORect.y, Mathf.Max(6f, pfTextWidth + 4f), pORect.height),
             new Color(lOAccent.r, lOAccent.g, lOAccent.b, FlashAlpha * pfStrength));

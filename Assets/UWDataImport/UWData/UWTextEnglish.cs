@@ -16,7 +16,7 @@ namespace UWDataImport.UWData
 	///   editor.*   the layout editor and its inspector, the names of the interface's parts
 	///   menu.*     the modern game menu
 	///   hud.*      the modern interface's own words, and the few prompts the port adds itself
-	///   effects.*  the effects screen (graphics detail Very high)
+	///   effects.*  the Remastered effects window (graphics detail Custom, Very high in the classic options)
 	///   grid.*     the gamepad's letter grid
 	///
 	/// The words are the ones the code showed until this step, unchanged; a text with {0} is used

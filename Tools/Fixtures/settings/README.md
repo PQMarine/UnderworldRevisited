@@ -27,6 +27,9 @@ format stay tied to what Unity writes.
   since; every other property at its default.
 - `pointer-speed-2026-10-25.json`: the pointer's speed of the game's own pointer (cleanup 7.7B), the
   one number added since; every other property at its default.
+- `window-theme-2026-10-25.json`: the windows' theme Stone and its ground Clouds (cleanup phase 8d),
+  the two numbers added since; every other property at its default. Every older fixture reads
+  Plain and the gradient.
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

@@ -214,8 +214,8 @@ public class UWModernGameMenu
     }
 
     /// <summary>The detail levels' names, by LevelEnum (cleanup step 8.5, 2026-10-24: until then
-    /// the enum's own names).</summary>
-    private static readonly string[] msDetailIds = { "menu.detail.low", "menu.detail.medium", "menu.detail.high", "menu.detail.very_high" };
+    /// the enum's own names). VeryHigh reads Custom since cleanup 8d.3, as in the Graphics window.</summary>
+    private static readonly string[] msDetailIds = { "menu.detail.low", "menu.detail.medium", "menu.detail.high", "menu.detail.custom" };
 
     // ================================================= The menu on the kit (cleanup 8b.4, 2026-10-24)
     //
@@ -296,7 +296,8 @@ public class UWModernGameMenu
         float lfScale = UWGuiTheme.Scale;
         Rect lOPanel = new Rect((mOKit.Width - 380f) * 0.5f, 90f, 380f, 560f);
 
-        mOKit.Fill(lOPanel, UWGuiTheme.Overlay);
+        // The menu's ground in the theme in force (cleanup phase 8d; Plain: the overlay's fill).
+        mOKit.Ground(lOPanel, UWWindowGroundEnum.Overlay);
 
         mOAreaAt = new Vector2(lOPanel.x + 24f, lOPanel.y + 18f);
         mfMenuScale = lfScale;
@@ -506,6 +507,13 @@ public class UWModernGameMenu
             mePage = PageEnum.Save;
     }
 
+    /// <summary>
+    /// The Detail page: Low, Medium and High as buttons, the one in force marked. CUSTOM (VeryHigh, the
+    /// viewer's own values) as in the Graphics window since cleanup 8d.3 (per user, 2026-10-25): a line
+    /// in a button's place, no button - lit and marked while it is in force, dim otherwise; no entry of
+    /// the arrow keys or the pad's steps. It is set where its values are, under "Remastered effects..."
+    /// in the setup bar's Graphics window (until then this page's fourth button set it alone).
+    /// </summary>
     private void fKitDetail()
     {
         fKitTitle(UWText.T("menu.detail.title"));
@@ -513,7 +521,7 @@ public class UWModernGameMenu
         foreach (UWGraphicsDetail.LevelEnum leLevel in new[]
         {
             UWGraphicsDetail.LevelEnum.Low, UWGraphicsDetail.LevelEnum.Medium,
-            UWGraphicsDetail.LevelEnum.High, UWGraphicsDetail.LevelEnum.VeryHigh
+            UWGraphicsDetail.LevelEnum.High
         })
         {
             string lsMark = leLevel == UWGraphicsDetail.CurrentLevel ? "> " : string.Empty;
@@ -521,6 +529,11 @@ public class UWModernGameMenu
             if (fKitButton(lsMark + UWText.T(msDetailIds[(int)leLevel])))
                 UWGraphicsDetail.SetLevel(leLevel);
         }
+
+        bool lbCustom = UWGraphicsDetail.CurrentLevel == UWGraphicsDetail.LevelEnum.VeryHigh;
+
+        mOKit.HelpText(fKitNext(6f, 38f), (lbCustom ? "> " : string.Empty) + UWText.T(msDetailIds[(int)UWGraphicsDetail.LevelEnum.VeryHigh]),
+            KitLook(UWGuiTheme.GameMenuButtonSize, lbCustom ? UWGuiTheme.Accent : UWGuiTheme.DimText, TextAnchor.MiddleCenter));
 
         mfKitY += 12f;
 

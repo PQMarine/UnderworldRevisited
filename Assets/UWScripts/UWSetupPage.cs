@@ -210,6 +210,10 @@ public sealed class UWSetupRow
     /// <summary>A Choices row's choices that take input, a bit each (null: all).</summary>
     public Func<int> EnabledChoices;
 
+    /// <summary>A choice row's choices drawn as a plain text, a bit each (0: none): lit while current,
+    /// dim otherwise, never pressed (cleanup 8d.3: the Graphics window's Custom level).</summary>
+    public int TextOnlyChoices;
+
     // ------------------------------------------------- Reading and writing where it is no plain setting
 
     public Func<float> Get;

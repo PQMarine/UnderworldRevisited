@@ -1026,6 +1026,44 @@ precondition for `UWPointer` part B and the pointer of our own (section 8.5).
 | Row, slider, choice, toggle, tab and frame pieces on the kit, fed by phase 8's row and page tables; label columns and bar items sized by their text (the pseudo-language of 8.5 showed fixed widths clipping, 2026-10-24) | 5-8 | one dialog side by side with its IMGUI form; the pseudo-language (`-language pseudo`) without clipping |
 | Port window by window: modern game menu, setup bar and dialogs, help window, layout editor window, letter grid | 10-17 | each window: every row, scaling, pad stepping, typing; screenshots for the user's approval |
 
+### Phase 8c: the debug display on the kit (added and done 2026-10-25)
+
+Per user (2026-10-25: "for UW2 the debug display will be needed more often again"): the F1 report
+(Shift+F1) and the debug tools (Shift+F7, Shift+F10) on the kit, in folding sections built by an
+engine-free report model (`UWDebugReport`); afterwards IMGUI remains only in the editor tool
+`UWLevelWindow`. Done and user-tested the same day.
+
+### Phase 8d: window themes (about 10-15 h, added 2026-10-25)
+
+Per user (2026-10-25): the game's own windows get a second look. Today's look stays as an option;
+a new theme takes the colours of the application icon (`Art/Icon/ur-icon.svg`): the stone's
+grey-brown (radial #8a7f70 - #5e564c - #2f2a25), the warm torchlight from the top left (#ffb347,
+faint), the ember of the runes for accents (#ffe29a - #ffa53a - #d9531e) and the light edge
+(#b3a68f); the background as a colour gradient or a cloud pattern. Placed after phase 7 and before
+phase 9 because it works on the kit drawers and `UWGuiTheme` that phases 8, 8b and 8c just built,
+and needs nothing of phase 9.
+
+- `UWGuiTheme`'s fixed palette becomes a theme table (engine-free: colours per role - background,
+  bar, panel, hover, button hover, separator, text, dim text, accent, overlay, reading shade, error -
+  plus the background fill: flat, gradient with its stops and light, or clouds); the kit drawers
+  read the current theme, so a switch takes effect at once.
+- The cloud pattern is generated, not painted: seeded fractal noise in the theme's colours, made
+  engine-free as pixels (like the HUD art builders) and uploaded once per size and theme; a faint
+  grain as on the icon's stone. No new art files.
+- A setting for the theme and one for the background (gradient or clouds), saved on change; the
+  settings fixtures gain the keys.
+- Applies to every window on the kit: the setup bar and its windows, the modern game menu, the help
+  window, the layout editor's window, the letter grid. DECIDED 2026-10-25 (per user): the modern
+  HUD's panels and bags keep their layout-editor colours, the debug panel stays plain, the two
+  settings sit in the Colours window, and today's look is the default.
+- Text stays readable over the pattern (contrast checked per role, in the pseudo-language too).
+
+| Step | Hours | User test |
+|---|---|---|
+| Theme table, `UWGuiTheme` reading it, today's look as the first theme (pixel-identical) | 3-4 | every window unchanged in the old theme |
+| The icon theme with gradient and clouds, the generator, the settings | 6-9 | every window in both backgrounds, both schemes, small and large window, the pseudo-language; screenshots for the user's approval |
+| Switching live, contrast fixes, the decided extras (HUD panels, debug panel) | 1-2 | switch while a window is open; restart keeps the choice |
+
 ### Phase 9: self-check split, tools, art builders (about 60-75 h)
 
 | Step | Hours | User test |
@@ -1060,9 +1098,11 @@ precondition for `UWPointer` part B and the pointer of our own (section 8.5).
 | 7 input | 45 |
 | 8 menus, settings, help, intro | 55-70 |
 | 8b the IMGUI windows onto the kit | 15-25 |
+| 8c the debug display on the kit (done) | - |
+| 8d window themes | 10-15 |
 | 9 self-check, tools, art builders | 60-75 |
 | 10 rule set, mirror hygiene, namespaces | 40-55 |
-| Total | about 625-780 |
+| Total | about 635-795 |
 
 Phases 0 to 3 (about 155-195 h) give the safety nets, every bug fix, all dead code, the session,
 the codecs and the world interface: that is the minimum before mod support (`Docs/MOD-SUPPORT-PLAN.md`

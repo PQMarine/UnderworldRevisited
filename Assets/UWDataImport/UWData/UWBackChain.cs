@@ -51,8 +51,10 @@ namespace UWDataImport.UWData
 		/// <summary>The modern scheme's roaming view: Escape ends it and its spell (UWRoamingSight).</summary>
 		RoamingSight,
 
-		/// <summary>The setup bar's effects screen (VERY HIGH): Escape closes it (UWSetupMenu), the pad's B and
-		/// Start too since wave 2b (they closed the game menu under it).</summary>
+		/// <summary>The setup bar's Remastered effects window: Escape closes it (UWSetupMenu), the pad's B and
+		/// Start too since wave 2b (they closed the game menu under it). Since cleanup 8d.3 the one effects
+		/// window - the classic options' Very High opens it too (their own screen and its row,
+		/// OptionsEffects, went).</summary>
 		SetupEffects,
 
 		/// <summary>The setup bar's keyboard navigation: Escape leaves it (UWSetupMenu).</summary>
@@ -83,9 +85,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>A save game's name in the classic options: Escape gives up the save (UWHudOptions).</summary>
 		ClassicSaveName,
-
-		/// <summary>The classic options' effects screen: Escape closes it (UWHudOptions, UWEffectsScreen).</summary>
-		OptionsEffects,
 
 		/// <summary>The classic options panel: Escape closes it (UWHudOptions).</summary>
 		ClassicOptions,
@@ -165,7 +164,8 @@ namespace UWDataImport.UWData
 		CharacterName = 1L << 9,
 		MapNote = 1L << 10,
 		ClassicSaveName = 1L << 11,
-		OptionsEffects = 1L << 12,
+
+		// 1L << 12 was OptionsEffects, the classic options' own effects screen, until cleanup 8d.3.
 		Instrument = 1L << 13,
 		ConversationAnswer = 1L << 14,
 
@@ -289,8 +289,9 @@ namespace UWDataImport.UWData
 			fRow(UWBackOwner.RoamingSight, UWBackKey.Escape),
 			fCover(UWBackOwner.SetupEffects, UWBackKey.Escape | UWBackKey.Menu | UWBackKey.PadBack | UWBackKey.PadButton, UWBackState.SetupEffects),
 
-			// The setup bar reads its keys only with its effects screen shut; a kit field that types has
-			// the keys, the arrows too (UWKitRows.Begin).
+			// The setup bar's Escape is its effects window's while that is open (cleanup 8d.3: a window of the
+			// bar, which its keyboard navigation steps through; until then the bar read no keys under it); a
+			// kit field that types has the keys, the arrows too (UWKitRows.Begin).
 			fCover(UWBackOwner.SetupKeyNav, UWBackKey.Escape, UWBackState.SetupKeyNav, UWBackState.SetupEffects | UWBackState.KitText),
 			fRow(UWBackOwner.KitText, UWBackKey.Escape),
 			fRow(UWBackOwner.HelpReading, UWBackKey.Escape),
@@ -302,12 +303,12 @@ namespace UWDataImport.UWData
 			fRow(UWBackOwner.MainMenuSaves, UWBackKey.Escape | UWBackKey.PadButton, UWBackState.None, UWBackState.SetupCapturing),
 			fRow(UWBackOwner.MapNote, UWBackKey.Escape),
 			fRow(UWBackOwner.ClassicSaveName, UWBackKey.Escape),
-			fRow(UWBackOwner.OptionsEffects, UWBackKey.Escape, UWBackState.None, UWBackState.ClassicSaveName),
 
-			// The classic options: after the save name and their effects screen, not under a setup dialog,
-			// nor under the help that has the keyboard - its notes typed or its manual read (wave 2b).
+			// The classic options: after the save name, not under a setup dialog - the effects window of their
+			// Very High included, the setup bar's since cleanup 8d.3 -, nor under the help that has the
+			// keyboard - its notes typed or its manual read (wave 2b).
 			fRow(UWBackOwner.ClassicOptions, UWBackKey.Escape, UWBackState.None,
-				UWBackState.ClassicSaveName | UWBackState.OptionsEffects | UWBackState.SetupPanel | UWBackState.KitText | UWBackState.HelpKeys),
+				UWBackState.ClassicSaveName | UWBackState.SetupPanel | UWBackState.KitText | UWBackState.HelpKeys),
 			fRow(UWBackOwner.Instrument, UWBackKey.Escape),
 
 			// The typed answer hears no key while the help has the keyboard, a running line is up or

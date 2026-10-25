@@ -1,100 +1,41 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
-using UnityEngine.UI;
-using UWDataImport;
 using UWDataImport.UWData;
 using UnderworldRevisited;
 
 /// <summary>
-/// The screen behind VERY HIGH in the detail menu: every Remastered effect on its own (per user,
-/// 2026-09-17), drawn in the style of the original's options panel rather than as a Unity
-/// window - the colours of the marbled stone of OPTBTNS.GR, lettering in the built-in font of the menu bar, in the colour of
-/// the original's button lettering (0x62, OPTBTNS 38) with a black shadow, and the
-/// original ON, OFF and DONE buttons.
-///
-/// It is one 320x200 picture over the whole frame, in palette indices like every other
-/// interface picture (UWIconPalette). Changes apply at once: the values go to
-/// UWGraphicsDetail.CustomValues and from there into the settings, which the Remastered
-/// renderer reads every frame. DONE or Escape closes it and saves.
+/// THE REMASTERED EFFECTS WINDOW (per user, 2026-09-17): every Remastered effect on its own, the
+/// viewer's own values of the detail level Custom (UWGraphicsDetail.LevelEnum.VeryHigh). Changes
+/// apply at once: the values go to UWGraphicsDetail.CustomValues and from there into the settings,
+/// which the Remastered renderer reads every frame; the grime along the walls and its colour are the
+/// setting both render modes share (UWUserSettings). Closing it saves both.
 ///
 /// REWORKED 2026-10-07 (per user: "Bau es in den Remastered Dialog ein. Dann mit Scrolling. Den
-/// Remastered Dialog auch verschiebbar machen. On Off und Done nach oben."): the grime along the
-/// walls and its tone are rows here too (the setting both render modes share, UWUserSettings);
-/// the ALL ON / OFF and DONE buttons stand in the title row; the rows scroll with the mouse wheel
-/// when there are more than fit, a thin bar at the right edge showing where; and the screen can be
-/// dragged by its title row.
+/// Remastered Dialog auch verschiebbar machen. On Off und Done nach oben."): the grime and its tone are
+/// rows here too; ALL ON / OFF and DONE stand in the title row; the rows scroll when there are more
+/// than fit; and the window can be dragged by its title row.
+///
+/// ON THE KIT, A WINDOW OF THE SETUP BAR (cleanup 8d.3, 2026-10-25, per user): until then one marbled
+/// 320x200 picture in the original's colours (the stone of OPTBTNS.GR, its ON, OFF and DONE buttons, a
+/// built-in-font lettering over it) in a frame of its own - over the main menu's, the game's, or a canvas
+/// of its own at order 500 - that no longer fitted beside the themed windows. Now it is drawn by the
+/// setup bar's kit drawer (UWSetupMenu, DialogEnum.RemasteredEffects) in the theme in force like the
+/// bar's other windows: the title row with "All:", On, Off and Done, the rows below in a scrolled area,
+/// the label and value columns sized by their text, F10 and the arrows stepping through it with the bar,
+/// the pad's pointer pressing and dragging as the mouse. The bar opens it from the Graphics window's
+/// "Remastered effects..." and from the classic options' Very High (UWSetupMenu.OpenEffectsWindow); the
+/// classic options keep no screen of their own any more. Escape, the pad's B and Start close it first
+/// (the back chain's SetupEffects row).
+///
+/// THE ROWS: the Row list below is the table, as before - label, kind, range, reading and writing,
+/// ALL ON / OFF - and the window draws it as a setup page (UWSetupPage, built once from it) through the
+/// bar's page drawer, the tables' shape unchanged: a Slider row a slider with its value in two decimals
+/// (three below 0.5), a Steps row a slider in whole steps, a Toggle row a switch, the tonemapping and the
+/// grime's colour a row of choices. UWEffectsRowsCheck holds it against the picture's record (Describe).
 /// </summary>
-public class UWEffectsScreen
+public sealed class UWEffectsScreen
 {
-    private const int ScreenWidth = 320;
-
-    private const int ScreenHeight = 200;
-
-    // Colours of the button lettering (OPTBTNS 38).
-    private const byte TextColour = 0x62;
-
-    private const byte ShadowColour = 0x01;
-
-    private const int TitleTop = 6;
-
-    private const int FirstRowTop = 22;
-
-    /// <summary>The lowest line a row may stand on.</summary>
-    private const int LastRowBottom = ScreenHeight - 4;
-
-    /// <summary>How many rows fit between the title row and the bottom edge.</summary>
-    private const int VisibleRows = (LastRowBottom - FirstRowTop) / 8;
-
-    private const int RowPitch = 8;
-
-    private const int LabelLeft = 12;
-
-    private const int ControlLeft = 176;
-
-    private const int BarWidth = 90;
-
-    private const int BarHeight = 5;
-
-    private const int ValueLeft = ControlLeft + BarWidth + 6;
-
-    /// <summary>The buttons in the title row (until 2026-10-07 at the bottom, 181).</summary>
-    private const int ButtonTop = 3;
-
-    private const int AllLabelLeft = 8;
-
-    private const int OnButtonLeft = 26;
-
-    private const int OffButtonLeft = 59;
-
-    private const int DoneButtonLeft = 284;
-
-    /// <summary>The screen's size against the frame it opens in.</summary>
-    private const float PanelScale = 0.8f;
-
-    /// <summary>The scroll bar's column at the right edge.</summary>
-    private const int ScrollBarLeft = ScreenWidth - 6;
-
-    // OPTBTNS.GR
-    private const int OnButtonImage = 20;
-
-    private const int OffButtonImage = 22;
-
-    private const int DoneButtonImage = 26;
-
-    private const int QuitBackgroundImage = 3;
-
-    /// <summary>The empty marble below the NO button of the quit panel - the colours the
-    /// background noise is drawn from (see fDrawBackground).</summary>
-    private const int MarbleLeft = 3;
-
-    private const int MarbleTop = 64;
-
-    private const int MarbleWidth = 29;
-
-    private const int MarbleHeight = 38;
-
     private enum KindEnum
     {
         Toggle,
@@ -121,45 +62,16 @@ public class UWEffectsScreen
 
     private readonly List<Row> mORows = new List<Row>();
 
-    private readonly DataImport mOData;
+    /// <summary>The page the window draws, a row for each of mORows in the same order.</summary>
+    private readonly UWSetupPage mOPage;
 
-    private readonly RectTransform mOFrame;
-
-    private RawImage mOImage;
-
-    private Texture2D mOTexture;
-
-    private readonly byte[] myPixels = new byte[ScreenWidth * ScreenHeight];
-
-    private bool mbDirty = true;
-
-    private int miDragRow = -1;
-
-    private int miHoveredButton = -1;
-
-    /// <summary>The first row shown (the mouse wheel moves it).</summary>
-    private int miScroll;
-
-    /// <summary>Dragging the screen by its title row: where the pointer took it, in the frame's
-    /// units, and the screen's place then.</summary>
-    private bool mbMoving;
-
-    private Vector2 mOMoveFrom;
-
-    private Vector2 mOMoveStart;
+    /// <summary>The values the rows read and write: the viewer's own (Describe swaps in its probe).</summary>
+    private Func<UWGraphicsDetail.EffectValues> mFValues = () => UWGraphicsDetail.CustomValues;
 
     public bool IsOpen { get; private set; }
 
-    /// <summary>Whose screen it is in the Escape chain (UWBack): the setup bar's or the classic
-    /// options'.</summary>
-    private readonly UWBackOwner meBackOwner;
-
-    public UWEffectsScreen(DataImport pOData, RectTransform pOFrame, UWBackOwner peBackOwner = UWBackOwner.OptionsEffects)
+    public UWEffectsScreen()
     {
-        mOData = pOData;
-        mOFrame = pOFrame;
-        meBackOwner = peBackOwner;
-
         fAddToggle(UWText.T("effects.torch_and_fire_lights"), v => v.TorchLights, (v, b) => v.TorchLights = b);
         fAddToggle(UWText.T("effects.torch_shadows"), v => v.TorchShadows, (v, b) => v.TorchShadows = b);
         fAddRow(UWText.T("effects.shadows_at_once"), KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
@@ -183,13 +95,15 @@ public class UWEffectsScreen
         fAddRow(UWText.T("effects.ground_shadows"), KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
 
         // THE GRIME, shared with the palette path (UWGrime.hlsl): its setting lives in the user's
-        // settings, not in the effect values; saved when the screen closes.
+        // settings, not in the effect values; saved when the window closes.
         fAddRow(UWText.T("effects.grime_along_the_walls"), KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
             v => UWUserSettings.PaletteGrime, (v, f) => UWUserSettings.PaletteGrime = Mathf.Round(f * 2f) / 2f);
         mORows[mORows.Count - 1].AllOn = 3f;
         mORows[mORows.Count - 1].AllOff = 0f;
         fAddRow(UWText.T("effects.grime_colour"), KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
             v => UWUserSettings.PaletteGrimeTone, (v, f) => UWUserSettings.PaletteGrimeTone = Mathf.RoundToInt(f));
+
+        mOPage = fBuildPage();
     }
 
     private void fAddRow(string psLabel, KindEnum peKind, float pfMin, float pfMax,
@@ -204,390 +118,111 @@ public class UWEffectsScreen
         fAddRow(psLabel, KindEnum.Toggle, 0f, 1f, v => pOGet(v) ? 1f : 0f, (v, f) => pOSet(v, f >= 0.5f));
     }
 
-    public void Open()
-    {
-        if (mOFrame == null || mOData == null)
-            return;
+    // ------------------------------------------------- The rows as a page
 
-        if (mOImage == null)
+    /// <summary>A row's height and the step down to the next: 22 rows fit under the title row on the 720
+    /// lines with the window under the bar.</summary>
+    private const float RowHeight = 26f;
+
+    private const float RowAdvance = 27f;
+
+    /// <summary>A slider row: the label 200 wide, the slider from 210 over the row less 300, the value in
+    /// the last 80; no arrows (as the palette effects' rows). The label and value columns grow by their
+    /// text (UWSetupPageDrawer).</summary>
+    private static readonly UWSliderColumns SliderColumns = new UWSliderColumns(0f, 200f, 210f, 300f, 0f, 80f, 80f);
+
+    /// <summary>A choice row: the label 200 wide, the choices from 210 to the row's right edge.</summary>
+    private static readonly UWChoiceColumns ChoiceColumns = new UWChoiceColumns(0f, 200f, 210f, 210f);
+
+    private static readonly Func<float, string> msWhole = pfValue => Mathf.RoundToInt(pfValue).ToString();
+
+    private static readonly Func<float, string> msTwoDecimals =
+        pfValue => pfValue.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static readonly Func<float, string> msThreeDecimals =
+        pfValue => pfValue.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The table as a setup page, one row each in the same order. What a row of the picture did, the
+    /// page's row does: a slider row sets the value along its bar - unsnapped, the whole steps rounded
+    /// (the bar's Steps), the grime in half steps (its writing rounds so, the slider snaps alike) - and
+    /// writes only a value that moved; a switch flips; a choice sets its value (the picture stepped
+    /// round them by clicks). Each change goes through the row's own writing and then
+    /// UWGraphicsDetail.ApplyCustom, as the picture's fChanged did.
+    /// </summary>
+    private UWSetupPage fBuildPage()
+    {
+        UWSetupPage lOPage = new UWSetupPage("effects");
+
+        foreach (Row lORow in mORows)
         {
-            GameObject lOObject = new GameObject("EffectsScreen", typeof(RectTransform), typeof(RawImage));
-            lOObject.transform.SetParent(mOFrame, false);
-
-            RectTransform lORect = (RectTransform)lOObject.transform;
-            lORect.anchorMin = new Vector2(0f, 1f);
-            lORect.anchorMax = new Vector2(0f, 1f);
-            lORect.pivot = new Vector2(0f, 1f);
-            lORect.sizeDelta = new Vector2(ScreenWidth, ScreenHeight);
-
-            // SMALLER THAN THE FRAME (per user, 2026-10-07: the lettering a little smaller, so the
-            // window is not so big): the whole screen, picture and lettering, at PanelScale of the
-            // frame, centred in it to begin with. Clicks are measured against the screen itself,
-            // so they follow the scale.
-            lORect.localScale = new Vector3(PanelScale, PanelScale, 1f);
-            lORect.anchoredPosition = new Vector2(ScreenWidth * (1f - PanelScale) * 0.5f, -ScreenHeight * (1f - PanelScale) * 0.5f);
-
-            mOImage = lOObject.GetComponent<RawImage>();
-            mOImage.raycastTarget = false;
-
-            mOTexture = new Texture2D(ScreenWidth, ScreenHeight, TextureFormat.RGBA32, false, true);
-            mOTexture.name = "UWEffectsScreen";
-            mOTexture.filterMode = FilterMode.Point;
-
-            mOImage.texture = mOTexture;
-            UWIconPalette.Apply(mOImage);
-        }
-
-        mOImage.transform.SetAsLastSibling();
-        mOImage.gameObject.SetActive(true);
-
-        IsOpen = true;
-        miDragRow = -1;
-        mbDirty = true;
-
-        fRedraw();
-    }
-
-    public void Close()
-    {
-        if (!IsOpen)
-            return;
-
-        IsOpen = false;
-        miDragRow = -1;
-        mbMoving = false;
-
-        if (mOImage != null)
-            mOImage.gameObject.SetActive(false);
-
-        UWGraphicsDetail.Save();
-        UWUserSettings.Save();
-    }
-
-    /// <summary>Mouse and keys. Call every frame while open.</summary>
-    public void Update()
-    {
-        if (!IsOpen)
-            return;
-
-        // Escape closes it; the setup bar's screen takes the pad's B and Start as well (cleanup 7, wave
-        // 2b: one back press closes only the topmost - they closed the game menu under it). Whose keys
-        // they are, the back chain says (UWBackChain, the owner's row).
-        if (UWBack.Takes(meBackOwner))
-        {
-            Close();
-
-            return;
-        }
-
-        if (!UWPointer.HasMouse)
-            return;
-
-        int liX;
-        int liY;
-
-        if (!fToScreenPixel(UWPointer.Position, out liX, out liY))
-        {
-            liX = -1;
-            liY = -1;
-        }
-
-        UWGraphicsDetail.EffectValues lOValues = UWGraphicsDetail.CustomValues;
-
-        if (lOValues == null)
-            return;
-
-        int liButton = fButtonAt(liX, liY);
-
-        if (liButton != miHoveredButton)
-        {
-            miHoveredButton = liButton;
-            mbDirty = true;
-        }
-
-        if (!UWPointer.LeftHeld)
-        {
-            miDragRow = -1;
-            mbMoving = false;
-        }
-
-        // The mouse wheel scrolls the rows while the pointer is over the screen.
-        float lfWheel = UWPointer.Scroll.y;
-
-        if (liY >= 0 && Mathf.Abs(lfWheel) > 0.01f)
-            fScrollBy(lfWheel > 0f ? -1 : 1);
-
-        if (mbMoving)
-        {
-            fMove(UWPointer.Position);
-        }
-        else if (miDragRow >= 0)
-        {
-            fSetFromBar(mORows[miDragRow], lOValues, liX);
-        }
-        else if (UWPointer.LeftPressed)
-        {
-            // The title row outside its buttons takes the screen along.
-            if (liY >= 0 && liY < FirstRowTop - 2 && liButton < 0)
-            {
-                fBeginMove(UWPointer.Position);
-                fRedraw();
-
-                return;
-            }
-
-            if (liButton == DoneButtonImage)
-            {
-                Close();
-
-                return;
-            }
-
-            if (liButton == OnButtonImage || liButton == OffButtonImage)
-            {
-                UWGraphicsDetail.EffectValues lOPreset = liButton == OnButtonImage
-                    ? UWGraphicsDetail.ShippedValues
-                    : UWGraphicsDetail.ShippedValues.AllOff();
-
-                foreach (Row lORow in mORows)
-                {
-                    float lfOwn = liButton == OnButtonImage ? lORow.AllOn : lORow.AllOff;
-
-                    if (!float.IsNaN(lfOwn))
-                        lORow.Set(lOValues, lfOwn);
-                    else if (lORow.Kind != KindEnum.GrimeTone)
-                        lORow.Set(lOValues, lORow.Get(lOPreset));
-                }
-
-                fChanged();
-            }
-            else
-            {
-                fClickRow(lOValues, liX, liY);
-            }
-        }
-
-        fRedraw();
-    }
-
-    private void fClickRow(UWGraphicsDetail.EffectValues pOValues, int piX, int piY)
-    {
-        int liRow = fRowAt(piY);
-
-        if (liRow < 0 || piX < ControlLeft - 2 || piX > ValueLeft + 30)
-            return;
-
-        Row lORow = mORows[liRow];
-
-        switch (lORow.Kind)
-        {
-            case KindEnum.Toggle:
-                lORow.Set(pOValues, lORow.Get(pOValues) >= 0.5f ? 0f : 1f);
-                fChanged();
-                break;
-
-            case KindEnum.Tonemapping:
-                lORow.Set(pOValues, (lORow.Get(pOValues) + 1f) % 3f);
-                fChanged();
-                break;
-
-            case KindEnum.GrimeTone:
-                lORow.Set(pOValues, (lORow.Get(pOValues) + 1f) % UWGrimeTint.ToneCount);
-                fChanged();
-                break;
-
-            default:
-                miDragRow = liRow;
-                fSetFromBar(lORow, pOValues, piX);
-                break;
-        }
-    }
-
-    private void fSetFromBar(Row pORow, UWGraphicsDetail.EffectValues pOValues, int piX)
-    {
-        if (piX < 0)
-            return;
-
-        float lfFraction = Mathf.Clamp01((piX - ControlLeft) / (float)(BarWidth - 1));
-        float lfValue = Mathf.Lerp(pORow.Min, pORow.Max, lfFraction);
-
-        if (pORow.Kind == KindEnum.Steps)
-            lfValue = Mathf.Round(lfValue);
-
-        if (Mathf.Approximately(lfValue, pORow.Get(pOValues)))
-            return;
-
-        pORow.Set(pOValues, lfValue);
-        fChanged();
-    }
-
-    private void fChanged()
-    {
-        UWGraphicsDetail.ApplyCustom();
-        mbDirty = true;
-    }
-
-    private int fRowAt(int piY)
-    {
-        if (piY < FirstRowTop - 2)
-            return -1;
-
-        int liShown = (piY - (FirstRowTop - 2)) / RowPitch;
-
-        if (liShown >= VisibleRows)
-            return -1;
-
-        int liRow = miScroll + liShown;
-
-        return liRow < mORows.Count ? liRow : -1;
-    }
-
-    private int MaxScroll => Mathf.Max(0, mORows.Count - VisibleRows);
-
-    private void fScrollBy(int piRows)
-    {
-        int liScroll = Mathf.Clamp(miScroll + piRows, 0, MaxScroll);
-
-        if (liScroll == miScroll)
-            return;
-
-        miScroll = liScroll;
-        mbDirty = true;
-    }
-
-    /// <summary>The pointer in the frame's own units.</summary>
-    private bool fToFrameLocal(Vector2 pOScreen, out Vector2 pOLocal)
-    {
-        return RectTransformUtility.ScreenPointToLocalPointInRectangle(mOFrame, pOScreen, null, out pOLocal);
-    }
-
-    private void fBeginMove(Vector2 pOScreen)
-    {
-        if (mOImage == null || !fToFrameLocal(pOScreen, out Vector2 lOLocal))
-            return;
-
-        mbMoving = true;
-        mOMoveFrom = lOLocal;
-        mOMoveStart = ((RectTransform)mOImage.transform).anchoredPosition;
-    }
-
-    /// <summary>Follows the pointer; the screen keeps at least its title row within reach of the
-    /// frame (a frame's width and height around it).</summary>
-    private void fMove(Vector2 pOScreen)
-    {
-        if (mOImage == null || !fToFrameLocal(pOScreen, out Vector2 lOLocal))
-            return;
-
-        Vector2 lOWanted = mOMoveStart + (lOLocal - mOMoveFrom);
-
-        lOWanted.x = Mathf.Clamp(lOWanted.x, -(ScreenWidth - 40), ScreenWidth - 40);
-        lOWanted.y = Mathf.Clamp(lOWanted.y, -(ScreenHeight - 20), ScreenHeight - 20);
-
-        ((RectTransform)mOImage.transform).anchoredPosition = lOWanted;
-    }
-
-    private int fButtonAt(int piX, int piY)
-    {
-        if (piY < ButtonTop || piY >= ButtonTop + 14)
-            return -1;
-
-        if (piX >= OnButtonLeft && piX < OnButtonLeft + 31)
-            return OnButtonImage;
-
-        if (piX >= OffButtonLeft && piX < OffButtonLeft + 31)
-            return OffButtonImage;
-
-        if (piX >= DoneButtonLeft && piX < DoneButtonLeft + 31)
-            return DoneButtonImage;
-
-        return -1;
-    }
-
-    /// <summary>The mouse in pixels of the 320x200 screen, from its top left - wherever it was
-    /// moved to.</summary>
-    private bool fToScreenPixel(Vector2 pOScreen, out int piX, out int piY)
-    {
-        piX = -1;
-        piY = -1;
-
-        Vector2 lOLocal;
-        RectTransform lOScreenRect = mOImage != null ? (RectTransform)mOImage.transform : mOFrame;
-
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(lOScreenRect, pOScreen, null, out lOLocal))
-            return false;
-
-        Rect lORect = lOScreenRect.rect;
-
-        piX = Mathf.FloorToInt(lOLocal.x - lORect.xMin);
-        piY = Mathf.FloorToInt(lORect.yMax - lOLocal.y);
-
-        return piX >= 0 && piX < ScreenWidth && piY >= 0 && piY < ScreenHeight;
-    }
-
-    // ------------------------------------------------- Drawing
-
-    private void fRedraw()
-    {
-        if (!mbDirty || mOTexture == null)
-            return;
-
-        mbDirty = false;
-
-        UWGraphicsDetail.EffectValues lOValues = UWGraphicsDetail.CustomValues;
-
-        fDrawBackground();
-        fDrawTextCentred(TitleTop, UWText.T("effects.title"));
-
-        // The rows shown, from miScroll on; the text slots are per shown line, so a slot below the
-        // last row is emptied.
-        for (int liShown = 0; liShown < VisibleRows; liShown++)
-        {
-            int liRow = miScroll + liShown;
-            int liTop = FirstRowTop + (liShown * RowPitch);
-
-            if (liRow >= mORows.Count || lOValues == null)
-            {
-                fDrawText("label" + liShown, LabelLeft, liTop, string.Empty);
-                fDrawText("value" + liShown, ControlLeft, liTop, string.Empty);
-                continue;
-            }
-
-            Row lORow = mORows[liRow];
-            float lfValue = lORow.Get(lOValues);
-
-            fDrawText("label" + liShown, LabelLeft, liTop, lORow.Label);
+            Row lOThis = lORow;
+            UWSetupRow lOPageRow = new UWSetupRow { Id = "effects.row", Text = lORow.Label, Height = RowHeight, Advance = RowAdvance, OnChange = fChanged };
 
             switch (lORow.Kind)
             {
                 case KindEnum.Toggle:
-                    fDrawText("value" + liShown, ControlLeft, liTop, lfValue >= 0.5f ? UWText.T("effects.on") : UWText.T("effects.off"));
+                    lOPageRow.Kind = UWSetupRow.KindEnum.Toggle;
+                    lOPageRow.GetOn = () => lOThis.Get(mFValues()) >= 0.5f;
+                    lOPageRow.SetOn = pbOn => lOThis.Set(mFValues(), pbOn ? 1f : 0f);
                     break;
 
                 case KindEnum.Tonemapping:
-                    fDrawText("value" + liShown, ControlLeft, liTop, fTonemappingName(Mathf.RoundToInt(lfValue)));
-                    break;
-
                 case KindEnum.GrimeTone:
-                    fDrawText("value" + liShown, ControlLeft, liTop, fToneName(Mathf.RoundToInt(lfValue)));
+                    lOPageRow.Kind = UWSetupRow.KindEnum.ChoiceRow;
+                    lOPageRow.ChoiceColumns = ChoiceColumns;
+                    lOPageRow.Choices = new string[(int)lORow.Max + 1];
+
+                    for (int liAt = 0; liAt < lOPageRow.Choices.Length; liAt++)
+                        lOPageRow.Choices[liAt] = fValueText(lORow, liAt);
+
+                    lOPageRow.GetIndex = () => Mathf.RoundToInt(lOThis.Get(mFValues()));
+                    lOPageRow.Choose = piValue => lOThis.Set(mFValues(), piValue);
                     break;
 
                 default:
-                    fDrawBar(liTop, Mathf.InverseLerp(lORow.Min, lORow.Max, lfValue));
-                    fDrawText("value" + liShown, ValueLeft, liTop, lORow.Kind == KindEnum.Steps
-                        ? Mathf.RoundToInt(lfValue).ToString()
-                        : lfValue.ToString(lORow.Max < 0.5f ? "0.000" : "0.00", System.Globalization.CultureInfo.InvariantCulture));
+                    lOPageRow.Kind = UWSetupRow.KindEnum.Slider;
+                    lOPageRow.SliderColumns = SliderColumns;
+                    lOPageRow.Min = lORow.Min;
+                    lOPageRow.Max = lORow.Max;
+                    lOPageRow.Step = lORow.Kind == KindEnum.Steps ? 1f : (float.IsNaN(lORow.AllOn) ? 0f : 0.5f);
+                    lOPageRow.FormatWith = lORow.Kind == KindEnum.Steps ? msWhole : (lORow.Max < 0.5f ? msThreeDecimals : msTwoDecimals);
+                    lOPageRow.Get = () => lOThis.Get(mFValues());
+                    lOPageRow.Set = pfValue => lOThis.Set(mFValues(), pfValue);
                     break;
             }
+
+            lOPage.Add(lOPageRow);
         }
 
-        fDrawScrollBar();
+        return lOPage;
+    }
 
-        fDrawText("all", AllLabelLeft, ButtonTop + 5, UWText.T("effects.all"));
-        fDrawButton(OnButtonLeft, OnButtonImage);
-        fDrawButton(OffButtonLeft, OffButtonImage);
-        fDrawButton(DoneButtonLeft, DoneButtonImage);
+    private static void fChanged()
+    {
+        UWGraphicsDetail.ApplyCustom();
+    }
 
-        fUpload();
+    /// <summary>A row's value as the picture wrote it: the switch's On and Off, the choices' names.</summary>
+    private static string fValueText(Row pORow, float pfValue)
+    {
+        switch (pORow.Kind)
+        {
+            case KindEnum.Toggle:
+                return pfValue >= 0.5f ? UWText.T("effects.on") : UWText.T("effects.off");
+
+            case KindEnum.Tonemapping:
+                return fTonemappingName(Mathf.RoundToInt(pfValue));
+
+            case KindEnum.GrimeTone:
+                return fToneName(Mathf.RoundToInt(pfValue));
+
+            case KindEnum.Steps:
+                return msWhole(pfValue);
+
+            default:
+                return pORow.Max < 0.5f ? msThreeDecimals(pfValue) : msTwoDecimals(pfValue);
+        }
     }
 
     private static string fToneName(int piValue)
@@ -601,27 +236,6 @@ public class UWEffectsScreen
         }
     }
 
-    /// <summary>A thin bar at the right edge while the rows do not all fit: the track in the
-    /// shadow colour, the part shown in the lettering's.</summary>
-    private void fDrawScrollBar()
-    {
-        if (MaxScroll <= 0)
-            return;
-
-        int liTrackTop = FirstRowTop - 2;
-        int liTrackHeight = (VisibleRows * RowPitch) - 2;
-        int liThumbHeight = Mathf.Max(6, (liTrackHeight * VisibleRows) / mORows.Count);
-        int liThumbTop = liTrackTop + (((liTrackHeight - liThumbHeight) * miScroll) / MaxScroll);
-
-        for (int liY = 0; liY < liTrackHeight; liY++)
-        {
-            bool lbThumb = liTrackTop + liY >= liThumbTop && liTrackTop + liY < liThumbTop + liThumbHeight;
-
-            for (int liX = 0; liX < 3; liX++)
-                fPut(ScrollBarLeft + liX, liTrackTop + liY, lbThumb ? TextColour : ShadowColour);
-        }
-    }
-
     private static string fTonemappingName(int piValue)
     {
         switch (piValue)
@@ -632,273 +246,343 @@ public class UWEffectsScreen
         }
     }
 
-    /// <summary>
-    /// A marble without tiles: soft value noise in three octaves, turned into colours of the
-    /// quit panel's marble. Its pixels are sorted by brightness, and the noise picks from that
-    /// list - so the grain has the marble's colours and roughly its mix, but no seams. Tiling the
-    /// marble piece itself showed every edge (per user, 2026-09-17: "not made for repeat").
-    /// </summary>
-    private void fDrawBackground()
+    /// <summary>ALL ON (the shipped values) or ALL OFF (MEDIUM's): every row from the preset, the grime
+    /// to its own values, its colour left as it is.</summary>
+    private void fAll(bool pbOn, UWGraphicsDetail.EffectValues pOValues, UWGraphicsDetail.EffectValues pOShipped)
     {
-        byte[] lyRamp = fGetMarbleRamp();
+        UWGraphicsDetail.EffectValues lOPreset = pbOn ? pOShipped : pOShipped.AllOff();
 
-        for (int liY = 0; liY < ScreenHeight; liY++)
+        foreach (Row lORow in mORows)
         {
-            for (int liX = 0; liX < ScreenWidth; liX++)
-            {
-                byte lyColour = 0x24;
+            float lfOwn = pbOn ? lORow.AllOn : lORow.AllOff;
 
-                if (lyRamp != null)
-                {
-                    float lfNoise = (fValueNoise(liX, liY, 23f, 11) * 0.45f)
-                        + (fValueNoise(liX, liY, 7f, 23) * 0.35f)
-                        + (fValueNoise(liX, liY, 2f, 37) * 0.2f);
-
-                    // The sum crowds around the middle; stretch it back out. Only the darker
-                    // two thirds of the ramp: the light lettering needs the contrast, and the full
-                    // range looked cloudy (checked on an offline render, 2026-09-17).
-                    float lfSpread = Mathf.Clamp01(((lfNoise - 0.5f) * 1.8f) + 0.5f);
-                    float lfQuantile = RampFrom + (lfSpread * RampSpan);
-
-                    lyColour = lyRamp[Mathf.Min(lyRamp.Length - 1, (int)(lfQuantile * lyRamp.Length))];
-                }
-
-                bool lbEdge = liX == 0 || liY == 0 || liX == ScreenWidth - 1 || liY == ScreenHeight - 1;
-
-                myPixels[(liY * ScreenWidth) + liX] = lbEdge ? ShadowColour : lyColour;
-            }
+            if (!float.IsNaN(lfOwn))
+                lORow.Set(pOValues, lfOwn);
+            else if (lORow.Kind != KindEnum.GrimeTone)
+                lORow.Set(pOValues, lORow.Get(lOPreset));
         }
     }
 
-    private const float RampFrom = 0.05f;
+    // ------------------------------------------------- Open and close
 
-    private const float RampSpan = 0.6f;
+    /// <summary>The press that opened the window (the classic options act on the press) is not one of
+    /// its own: its pieces take no pointer until the button is up again.</summary>
+    private bool mbWaitRelease;
 
-    private byte[] mbyMarbleRamp;
-
-    /// <summary>The marble pixels of the quit panel, darkest first.</summary>
-    private byte[] fGetMarbleRamp()
+    public void Open()
     {
-        if (mbyMarbleRamp != null)
-            return mbyMarbleRamp;
+        if (!IsOpen)
+            mOScroll = Vector2.zero;
 
-        byte[] lyMarble = fGetIndices(QuitBackgroundImage, out int liWidth, out int liHeight);
-
-        if (lyMarble == null || mOData.Palettes == null)
-            return null;
-
-        UWPalette lOPalette = mOData.Palettes.GetPalette(0);
-        List<byte> lyPixels = new List<byte>();
-
-        for (int liY = MarbleTop; liY < MarbleTop + MarbleHeight && liY < liHeight; liY++)
-            for (int liX = MarbleLeft; liX < MarbleLeft + MarbleWidth && liX < liWidth; liX++)
-            {
-                byte lyIndex = lyMarble[(liY * liWidth) + liX];
-
-                // Without the green moss spots - as dark blobs they stood out.
-                if (lOPalette != null && lOPalette.Green[lyIndex] <= lOPalette.Red[lyIndex])
-                    lyPixels.Add(lyIndex);
-            }
-
-        if (lyPixels.Count == 0 || lOPalette == null)
-            return null;
-
-        lyPixels.Sort((a, b) => fLuminance(lOPalette, a).CompareTo(fLuminance(lOPalette, b)));
-
-        mbyMarbleRamp = lyPixels.ToArray();
-
-        return mbyMarbleRamp;
+        IsOpen = true;
+        mbWaitRelease = true;
     }
 
-    private static int fLuminance(UWPalette pOPalette, byte pyIndex)
+    /// <summary>Saves the values and the grime's setting (the values took effect on every change).</summary>
+    public void Close()
     {
-        return (pOPalette.Red[pyIndex] * 3) + (pOPalette.Green[pyIndex] * 6) + pOPalette.Blue[pyIndex];
-    }
-
-    /// <summary>Smooth value noise between 0 and 1: random values on a grid of the given cell
-    /// size, blended with a smoothstep. The seed keeps the picture the same on every open.</summary>
-    private static float fValueNoise(int piX, int piY, float pfCell, int piSeed)
-    {
-        float lfX = piX / pfCell;
-        float lfY = piY / pfCell;
-
-        int liX = Mathf.FloorToInt(lfX);
-        int liY = Mathf.FloorToInt(lfY);
-
-        float lfFractionX = lfX - liX;
-        float lfFractionY = lfY - liY;
-
-        lfFractionX = lfFractionX * lfFractionX * (3f - (2f * lfFractionX));
-        lfFractionY = lfFractionY * lfFractionY * (3f - (2f * lfFractionY));
-
-        float lfTop = Mathf.Lerp(fHash(liX, liY, piSeed), fHash(liX + 1, liY, piSeed), lfFractionX);
-        float lfBottom = Mathf.Lerp(fHash(liX, liY + 1, piSeed), fHash(liX + 1, liY + 1, piSeed), lfFractionX);
-
-        return Mathf.Lerp(lfTop, lfBottom, lfFractionY);
-    }
-
-    private static float fHash(int piX, int piY, int piSeed)
-    {
-        unchecked
-        {
-            uint luHash = (uint)((piX * 374761393) + (piY * 668265263) + (piSeed * 982451653));
-
-            luHash = (luHash ^ (luHash >> 13)) * 1274126177u;
-            luHash ^= luHash >> 16;
-
-            return (luHash & 0xFFFF) / 65535f;
-        }
-    }
-
-    private void fDrawBar(int piTop, float pfFraction)
-    {
-        int liFilled = Mathf.RoundToInt(Mathf.Clamp01(pfFraction) * (BarWidth - 2));
-
-        for (int liY = 0; liY < BarHeight; liY++)
-        {
-            for (int liX = 0; liX < BarWidth; liX++)
-            {
-                bool lbEdge = liX == 0 || liY == 0 || liX == BarWidth - 1 || liY == BarHeight - 1;
-                bool lbFilled = !lbEdge && (liX - 1) < liFilled;
-
-                if (lbEdge)
-                    fPut(ControlLeft + liX, piTop - 1 + liY, ShadowColour);
-                else if (lbFilled)
-                    fPut(ControlLeft + liX, piTop - 1 + liY, TextColour);
-            }
-        }
-    }
-
-    private void fDrawButton(int piLeft, int piImage)
-    {
-        int liImage = piImage + (miHoveredButton == piImage ? 1 : 0);
-        byte[] lyIndices = fGetIndices(liImage, out int liWidth, out int liHeight);
-
-        if (lyIndices == null)
+        if (!IsOpen)
             return;
 
-        for (int liY = 0; liY < liHeight; liY++)
-            for (int liX = 0; liX < liWidth; liX++)
-                fPut(piLeft + liX, ButtonTop + liY, lyIndices[(liY * liWidth) + liX]);
+        IsOpen = false;
+
+        UWGraphicsDetail.Save();
+        UWUserSettings.Save();
     }
 
-    private void fDrawTextCentred(int piTop, string psText)
-    {
-        fSetText("title", 0, piTop, ScreenWidth, psText, TextAnchor.MiddleCenter);
-    }
+    // ------------------------------------------------- The window
 
-    private void fDrawText(string psKey, int piLeft, int piTop, string psText)
-    {
-        fSetText(psKey, piLeft, piTop, ScreenWidth - piLeft, psText, TextAnchor.MiddleLeft);
-    }
+    /// <summary>The window's width as laid out; more where its texts need it.</summary>
+    private const float WindowWidth = 600f;
+
+    /// <summary>The title row's height: the drag handle, and where the rows start below the top.</summary>
+    private const float TitleRow = 44f;
+
+    private const float RowsTop = 50f;
+
+    private const float BottomMargin = 16f;
+
+    /// <summary>The window keeps at least the title row and two rows when it is dragged down.</summary>
+    private const float MinHeight = RowsTop + (2f * RowAdvance) + BottomMargin;
+
+    /// <summary>On and Off as wide as laid out, more for a longer text.</summary>
+    private const float ButtonWidth = 70f;
+
+    /// <summary>The window's top-left corner in the bar's layout units; NaN until first drawn (then centred
+    /// under the bar). Kept while the program runs, as the palette dialog's.</summary>
+    private static Vector2 msOAt = new Vector2(float.NaN, float.NaN);
+
+    private Vector2 mOScroll;
 
     /// <summary>
-    /// The lettering is not in the picture but a Unity Text over it, in the same built-in font as
-    /// the menu bar - the button font of the original did not go with the rest of the new menu
-    /// (per user, 2026-09-17). Rendered at screen resolution, so it stays sharp; the light colour
-    /// of the original's button lettering and a black shadow are kept.
+    /// The window on the bar's kit drawer, after the bar (UWSetupMenu.fDrawOpenDialog): the title row -
+    /// the title, then "All:" with On and Off, Done at the right edge -, the rows below it in a scrolled
+    /// area. Dragged by its title row left of "All:", kept on the screen under the bar (pfTop); as tall
+    /// as its rows need, shorter where the screen ends below it - then the rows scroll (the wheel, the
+    /// bar at the right). Returns true when Done was pressed.
     /// </summary>
-    private void fSetText(string psKey, int piLeft, int piTop, int piWidth, string psText, TextAnchor peAlignment)
+    public bool Draw(UWKitRows pORows, UWSetupPageDrawer pOPages, float pfScreenWidth, float pfTop)
     {
-        if (mOImage == null)
+        // The opening press: withheld until the button is up (it may lie over a row of the window).
+        if (mbWaitRelease && !UWPointer.LeftHeld && !UWPointer.LeftReleased)
+            mbWaitRelease = false;
+
+        pORows.PointerWithheld = mbWaitRelease;
+
+        UWGraphicsDetail.EffectValues lOValues = mFValues();
+        string lsTitle = UWText.T("effects.title");
+        string lsAll = UWText.T("effects.all");
+        string lsOn = UWText.T("effects.on");
+        string lsOff = UWText.T("effects.off");
+        string lsDone = UWText.T("setup.done");
+        float lfTitle = pORows.TextWidth(lsTitle, UWRowInfoEnum.Heading);
+        float lfAll = pORows.LabelWidth(lsAll);
+        float lfOn = pORows.FitWidth(lsOn, ButtonWidth);
+        float lfOff = pORows.FitWidth(lsOff, ButtonWidth);
+        float lfDone = pORows.FitWidth(lsDone, 110f);
+
+        // As wide as laid out, or as the rows (20 left, 36 right: the scroll bar) or the title row need.
+        float lfHeader = 20f + lfTitle + 30f + lfAll + 8f + lfOn + 6f + lfOff + 20f + lfDone + 20f;
+        float lfWidth = Mathf.Min(Mathf.Max(WindowWidth, Mathf.Max(pOPages.InnerNeeded(mOPage) + 56f, lfHeader)), pfScreenWidth - 40f);
+        float lfContent = fContentHeight();
+        float lfWanted = RowsTop + lfContent + BottomMargin;
+
+        if (float.IsNaN(msOAt.x))
+            msOAt = new Vector2((pfScreenWidth - lfWidth) / 2f, pfTop + 8f);
+
+        Vector2 lOMax = new Vector2(Mathf.Max(0f, pfScreenWidth - lfWidth), Mathf.Max(pfTop, UWGuiTheme.ReferenceHeight - 8f - MinHeight));
+
+        msOAt = new Vector2(Mathf.Clamp(msOAt.x, 0f, lOMax.x), Mathf.Clamp(msOAt.y, pfTop, lOMax.y));
+
+        // The title row's pieces from the window's left edge: Done 20 from the right, Off 20 before it,
+        // On 6 before that, "All:" 8 before On.
+        float lfDoneAt = lfWidth - 20f - lfDone;
+        float lfOffAt = lfDoneAt - 20f - lfOff;
+        float lfOnAt = lfOffAt - 6f - lfOn;
+        float lfAllAt = lfOnAt - 8f - lfAll;
+
+        // Moved while the left button holds the title row left of "All:", kept on the screen.
+        msOAt = pORows.Drag(new Rect(msOAt.x, msOAt.y, Mathf.Max(0f, lfAllAt - 10f), TitleRow), msOAt, new Vector2(0f, pfTop), lOMax);
+
+        float lfHeight = Mathf.Clamp(lfWanted, MinHeight, UWGuiTheme.ReferenceHeight - 8f - msOAt.y);
+        Rect lODialog = new Rect(msOAt.x, msOAt.y, lfWidth, lfHeight);
+        float lfTop = lODialog.y + 14f;
+        bool lbDone = false;
+
+        pORows.Frame(lODialog);
+        pORows.Title(new Rect(lODialog.x + 20f, lfTop, lfTitle + 10f, 26f), lsTitle);
+
+        if (lOValues != null)
+        {
+            pORows.Label(new Rect(lODialog.x + lfAllAt, lfTop, lfAll + 4f, 26f), lsAll);
+
+            if (pORows.Action(new Rect(lODialog.x + lfOnAt, lfTop - 2f, lfOn, 30f), lsOn))
+                fPressAll(true, lOValues);
+
+            if (pORows.Action(new Rect(lODialog.x + lfOffAt, lfTop - 2f, lfOff, 30f), lsOff))
+                fPressAll(false, lOValues);
+        }
+
+        if (pORows.Action(new Rect(lODialog.x + lfDoneAt, lfTop - 2f, lfDone, 30f), lsDone))
+            lbDone = true;
+
+        if (lOValues != null)
+        {
+            Rect lOView = new Rect(lODialog.x, lODialog.y + RowsTop, lODialog.width, lODialog.height - RowsTop - BottomMargin);
+
+            mOScroll = pORows.BeginScroll(lOView, mOScroll, new Rect(0f, 0f, lOView.width - 20f, Mathf.Max(lOView.height, lfContent)));
+
+            // The rows in the view's own coordinates, 20 from its left edge, clear of the scroll bar.
+            pOPages.Draw(mOPage, 20f, 0f, lODialog.width - 56f);
+
+            pORows.EndScroll();
+        }
+
+        pORows.PointerWithheld = false;
+
+        return lbDone;
+    }
+
+    /// <summary>The rows' height: each its step down (none is a hint or drawn by itself).</summary>
+    private float fContentHeight()
+    {
+        float lfHeight = 0f;
+
+        foreach (UWSetupRow lORow in mOPage.Rows)
+            lfHeight += lORow.Advance;
+
+        return lfHeight;
+    }
+
+    private void fPressAll(bool pbOn, UWGraphicsDetail.EffectValues pOValues)
+    {
+        UWGraphicsDetail.EffectValues lOShipped = UWGraphicsDetail.ShippedValues;
+
+        if (lOShipped == null)
             return;
 
-        Text lOText;
-
-        if (!mOTexts.TryGetValue(psKey, out lOText) || lOText == null)
-        {
-            GameObject lOObject = new GameObject("Text " + psKey, typeof(RectTransform), typeof(Text));
-            lOObject.transform.SetParent(mOImage.transform, false);
-
-            RectTransform lORect = (RectTransform)lOObject.transform;
-            lORect.anchorMin = new Vector2(0f, 1f);
-            lORect.anchorMax = new Vector2(0f, 1f);
-            lORect.pivot = new Vector2(0f, 1f);
-
-            lOText = lOObject.GetComponent<Text>();
-            lOText.font = UWInterfaceFont.Font;
-            lOText.fontSize = TextSize;
-            lOText.horizontalOverflow = HorizontalWrapMode.Overflow;
-            lOText.verticalOverflow = VerticalWrapMode.Overflow;
-            lOText.raycastTarget = false;
-            lOText.color = fGetTextColour();
-
-            Shadow lOShadow = lOObject.AddComponent<Shadow>();
-            lOShadow.effectColor = Color.black;
-            lOShadow.effectDistance = new Vector2(0.5f, -0.5f);
-
-            mOTexts[psKey] = lOText;
-        }
-
-        RectTransform lOTextRect = (RectTransform)lOText.transform;
-
-        // Centred on where the four pixel high lettering used to stand.
-        lOTextRect.anchoredPosition = new Vector2(piLeft, -(piTop - 2));
-        lOTextRect.sizeDelta = new Vector2(piWidth, RowPitch);
-
-        lOText.alignment = peAlignment;
-        lOText.text = psText;
+        fAll(pbOn, pOValues, lOShipped);
+        fChanged();
     }
 
-    private const int TextSize = 7;
+    // ------------------------------------------------- The record (cleanup 8d.3, 2026-10-25)
 
-    private readonly Dictionary<string, Text> mOTexts = new Dictionary<string, Text>();
-
-    private Color32 fGetTextColour()
+    /// <summary>
+    /// THE ROWS AS A RECORD (cleanup 8d.3, 2026-10-25), the oracle of the window's move onto the kit
+    /// (UWEffectsRowsCheck): per row its label, kind and range, the text shown and the value and field a
+    /// change leaves - a slider set at the fractions 0, 1, 33, 44 and 89 of 89 (the picture's bar
+    /// pixels) as the kit's slider sets it (snapped by the row's step, written when it moved), a switch
+    /// pressed twice, a choice row stepped round to the next choice - and ALL ON and ALL OFF, on
+    /// pOShipped and the user settings in force (the check swaps in its own; nothing is saved). Recorded
+    /// from the 320x200 picture's own bar and click code before the move (Tools/Fixtures/effects).
+    /// </summary>
+    public static string Describe(UWGraphicsDetail.EffectValues pOShipped)
     {
-        UWPalette lOPalette = mOData != null && mOData.Palettes != null ? mOData.Palettes.GetPalette(0) : null;
+        UWEffectsScreen lOScreen = new UWEffectsScreen();
+        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+        UWGraphicsDetail.EffectValues lOValues = null;
 
-        return lOPalette != null
-            ? new Color32(lOPalette.Red[TextColour], lOPalette.Green[TextColour], lOPalette.Blue[TextColour], 255)
-            : new Color32(230, 200, 180, 255);
+        lOScreen.mFValues = () => lOValues;
+
+        for (int liRow = 0; liRow < lOScreen.mORows.Count; liRow++)
+        {
+            Row lORow = lOScreen.mORows[liRow];
+            UWSetupRow lOPageRow = lOScreen.mOPage.Rows[liRow];
+
+            lOValues = pOShipped.Copy();
+
+            lOText.Append(lOPageRow.Text).Append(" | ").Append(fKindName(lOPageRow)).Append(" | ")
+                .Append(fNumber(lOPageRow.Kind == UWSetupRow.KindEnum.Slider ? lOPageRow.Min : 0f)).Append(" to ")
+                .Append(fNumber(lOPageRow.Kind == UWSetupRow.KindEnum.Slider ? lOPageRow.Max
+                    : (lOPageRow.Kind == UWSetupRow.KindEnum.Toggle ? 1f : lOPageRow.Choices.Length - 1)))
+                .Append('\n');
+
+            switch (lOPageRow.Kind)
+            {
+                case UWSetupRow.KindEnum.Slider:
+                    foreach (int liPixel in DescribePixels)
+                    {
+                        string lsBefore = DescribeValues(lOValues);
+                        float lfBefore = lOPageRow.Get();
+                        float lfAfter = lOPageRow.Min + (liPixel / 89f * (lOPageRow.Max - lOPageRow.Min));
+
+                        if (lOPageRow.Step > 0f)
+                            lfAfter = Mathf.Round(lfAfter / lOPageRow.Step) * lOPageRow.Step;
+
+                        if (UWSetupPageDrawer.IsChanged(lOPageRow.Format, lfBefore, lfAfter))
+                        {
+                            lOPageRow.Set(lfAfter);
+                            lOPageRow.OnChange();
+                        }
+
+                        fDescribeChange(lOText, "  bar " + liPixel + "/89", lsBefore, lOValues, lOPageRow.FormatWith(lOPageRow.Get()));
+                    }
+
+                    break;
+
+                case UWSetupRow.KindEnum.Toggle:
+                    for (int liPress = 0; liPress < 2; liPress++)
+                    {
+                        string lsBefore = DescribeValues(lOValues);
+
+                        lOPageRow.SetOn(!lOPageRow.GetOn());
+                        lOPageRow.OnChange();
+                        fDescribeChange(lOText, "  press", lsBefore, lOValues, fValueText(lORow, lOPageRow.GetOn() ? 1f : 0f));
+                    }
+
+                    break;
+
+                default:
+                    for (int liPress = 0; liPress < lOPageRow.Choices.Length; liPress++)
+                    {
+                        string lsBefore = DescribeValues(lOValues);
+
+                        lOPageRow.Choose((lOPageRow.GetIndex() + 1) % lOPageRow.Choices.Length);
+                        lOPageRow.OnChange();
+                        fDescribeChange(lOText, "  press", lsBefore, lOValues, lOPageRow.Choices[lOPageRow.GetIndex()]);
+                    }
+
+                    break;
+            }
+        }
+
+        // ALL ON from everything off (and the two rows ALL OFF leaves moved), ALL OFF from the shipped.
+        foreach (bool lbOn in new[] { true, false })
+        {
+            lOValues = lbOn ? pOShipped.AllOff() : pOShipped.Copy();
+
+            if (lbOn)
+            {
+                lOValues.MaxShadowLights = 1;
+                lOValues.LightBrightness = 2.5f;
+            }
+
+            string lsBefore = DescribeValues(lOValues);
+
+            lOScreen.fAll(lbOn, lOValues, pOShipped);
+            fDescribeChange(lOText, lbOn ? "All on" : "All off", lsBefore, lOValues, null);
+        }
+
+        return lOText.ToString();
     }
 
-    private void fPut(int piX, int piY, byte pyColour)
+    /// <summary>The fractions of 89 the record sets the sliders at (the picture's bar pixels).</summary>
+    private static readonly int[] DescribePixels = { 0, 1, 33, 44, 89 };
+
+    /// <summary>The kind as the record names it (the picture's kinds: whole steps by the row's step 1).</summary>
+    private static string fKindName(UWSetupRow pORow)
     {
-        if (piX < 0 || piY < 0 || piX >= ScreenWidth || piY >= ScreenHeight)
-            return;
-
-        myPixels[(piY * ScreenWidth) + piX] = pyColour;
-    }
-
-    private byte[] fGetIndices(int piImage, out int piWidth, out int piHeight)
-    {
-        piWidth = 0;
-        piHeight = 0;
-
-        try
+        switch (pORow.Kind)
         {
-            UWTexture lOTexture = mOData.Textures.GetTextureByType(UWTexture.TextureTypes.OPTBTNS, piImage);
-
-            if (lOTexture == null)
-                return null;
-
-            piWidth = lOTexture.Width;
-            piHeight = lOTexture.Height;
-
-            return lOTexture.GetMainPaletteIndices();
-        }
-        catch
-        {
-            return null;
+            case UWSetupRow.KindEnum.Toggle: return "switch";
+            case UWSetupRow.KindEnum.Slider: return pORow.Step == 1f ? "whole steps" : "slider";
+            default: return "choices";
         }
     }
 
-    /// <summary>Indices into red, rows flipped - the same form as UWIconTextureBuilder.</summary>
-    private void fUpload()
+    private static string fNumber(float pfValue)
     {
-        Color32[] lyColours = new Color32[ScreenWidth * ScreenHeight];
+        return pfValue.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture);
+    }
 
-        for (int liY = 0; liY < ScreenHeight; liY++)
+    /// <summary>The values a row can change, as "name=value" in field order, the grime's two settings
+    /// last.</summary>
+    private static string DescribeValues(UWGraphicsDetail.EffectValues pOValues)
+    {
+        System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+
+        foreach (System.Reflection.FieldInfo lOField in typeof(UWGraphicsDetail.EffectValues).GetFields())
         {
-            int liSourceRow = (ScreenHeight - 1 - liY) * ScreenWidth;
-            int liTargetRow = liY * ScreenWidth;
+            object lOValue = lOField.GetValue(pOValues);
 
-            for (int liX = 0; liX < ScreenWidth; liX++)
-                lyColours[liTargetRow + liX] = new Color32(myPixels[liSourceRow + liX], 0, 0, 255);
+            lOText.Append(lOField.Name).Append('=').Append(lOValue is float lfValue ? fNumber(lfValue) : lOValue.ToString()).Append(';');
         }
 
-        mOTexture.SetPixels32(lyColours);
-        mOTexture.Apply();
+        lOText.Append("PaletteGrime=").Append(fNumber(UWUserSettings.PaletteGrime)).Append(';');
+        lOText.Append("PaletteGrimeTone=").Append(UWUserSettings.PaletteGrimeTone).Append(';');
+
+        return lOText.ToString();
+    }
+
+    /// <summary>One line of the record: what changed against psBefore, and the text shown.</summary>
+    private static void fDescribeChange(System.Text.StringBuilder pOText, string psWhat, string psBefore,
+        UWGraphicsDetail.EffectValues pOValues, string psShown)
+    {
+        string[] lsBefore = psBefore.Split(';');
+        string[] lsAfter = DescribeValues(pOValues).Split(';');
+        List<string> lsChanged = new List<string>();
+
+        for (int liAt = 0; liAt < lsAfter.Length && liAt < lsBefore.Length; liAt++)
+        {
+            if (lsAfter[liAt] != lsBefore[liAt])
+                lsChanged.Add(lsAfter[liAt]);
+        }
+
+        pOText.Append(psWhat).Append(" -> ").Append(lsChanged.Count == 0 ? "no change" : string.Join(", ", lsChanged));
+
+        if (psShown != null)
+            pOText.Append(" | shows \"").Append(psShown).Append('"');
+
+        pOText.Append('\n');
     }
 }

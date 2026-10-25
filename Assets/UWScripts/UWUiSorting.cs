@@ -104,8 +104,8 @@ public static class UWUiSorting
     /// over the game, the classic frame (the help lies behind it while it slides, by its clip, not by
     /// this order), the modern parts, the conversation and the intro - with the setup bar and its windows
     /// over it (their clicks are theirs: the help takes no pointer while the bar captures it). IMGUI drew
-    /// it over every canvas; the thing on the classic pointer, the effects screen and the loading cover
-    /// now lie over it.
+    /// it over every canvas; the thing on the classic pointer, the bar's windows (the Remastered effects
+    /// among them since cleanup 8d.3) and the loading cover now lie over it.
     /// </summary>
     public const int HelpWindow = 300;
 
@@ -130,32 +130,32 @@ public static class UWUiSorting
     /// <summary>
     /// THE WINDOWS ON THE KIT (cleanup 8b.1, 2026-10-24): the setup bar and the windows moved off IMGUI
     /// (UWKitRows). Where the IMGUI windows stood: over the game, the HUD, the conversation, the main
-    /// menu, the character creation and the intro; under the effects screen (the bar is not drawn
-    /// while it is open, as before), the thing on the classic pointer and the loading cover. IMGUI
-    /// drew over every canvas, the cover included; the cover stands while a scene starts or a
-    /// conversation fades out, when the bar is not offered (UWMainMenu.AcceptsMenuBar, the in-game
-    /// menus), so nothing it covered shows differently.
+    /// menu, the character creation and the intro; under the thing on the classic pointer and the
+    /// loading cover. IMGUI drew over every canvas, the cover included; the cover stands while a scene
+    /// starts or a conversation fades out, when the bar is not offered (UWMainMenu.AcceptsMenuBar, the
+    /// in-game menus), so nothing it covered shows differently.
+    ///
+    /// THE REMASTERED EFFECTS WINDOW TOO since cleanup 8d.3 (2026-10-25): a window of the bar, drawn by
+    /// its kit drawer on this canvas after the bar. Until then a 320x200 picture in the main menu's
+    /// frame, the classic options' in the game's frame (order 0, under the bar), or in the game a canvas
+    /// of its own at order 500 (EffectsScreen, gone with it) over the letter grid.
     /// </summary>
     public const int KitWindows = 400;
 
     /// <summary>
     /// THE GAMEPAD'S LETTER GRID ON THE KIT (cleanup 8b.4, 2026-10-24; UWLetterGrid): IMGUI drew it over
     /// every other IMGUI window (GUI.depth -1000) and every canvas - here over the game menu with its
-    /// save name, the conversation, the character creation and the setup bar's windows; under the
-    /// effects screen, the thing on the classic pointer and the loading cover, which do not stand while
-    /// text is typed.
+    /// save name, the conversation, the character creation and the setup bar's windows (the effects
+    /// window among them since cleanup 8d.3); under the thing on the classic pointer and the loading
+    /// cover, which do not stand while text is typed.
     /// </summary>
     public const int LetterGrid = 450;
-
-    /// <summary>The effects screen's own frame in the game (UWSetupMenu): above the game's
-    /// interfaces.</summary>
-    public const int EffectsScreen = 500;
 
     /// <summary>
     /// THE DEBUG PANEL ON THE KIT (cleanup 8c, 2026-10-25; UWDebugPanel: the F1 report and the debug
     /// tools' tab): IMGUI drew the overlay over everything (GUI.depth -1000), so its numbers stay readable
-    /// over every window - the HUD, the help, the game menu, the setup bar and its windows, the letter
-    /// grid and the effects screen; under the thing on the classic pointer, which must stay visible where
+    /// over every window - the HUD, the help, the game menu, the setup bar and its windows (the effects
+    /// window among them), the letter grid; under the thing on the classic pointer, which must stay visible where
     /// it is dragged, and the loading cover, which stands only while a scene starts.
     /// </summary>
     public const int DebugPanel = 900;

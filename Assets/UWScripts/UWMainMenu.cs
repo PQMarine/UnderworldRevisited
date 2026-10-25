@@ -288,7 +288,7 @@ public class UWMainMenu : MonoBehaviour
     {
         fEnsureCanvas();
 
-        UWSetupMenu.EnsureForMainMenu(mOData, mOFrame);
+        UWSetupMenu.EnsureForMainMenu(mOData);
 
         meMode = Mode.Buttons;
         IsOpen = true;

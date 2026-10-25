@@ -45,10 +45,16 @@ public partial class UWSetupMenu
         if (float.IsNaN(mOPaletteDialogAt.x))
             mOPaletteDialogAt = new Vector2((pfWidth - lfDialogWidth) / 2f, BarHeight + 8f);
 
+        Vector2 lOMin = new Vector2(100f - lfDialogWidth, BarHeight);
+        Vector2 lOMax = new Vector2(pfWidth - 100f, UWGuiTheme.ReferenceHeight - 44f);
+
         // Moved while the left button holds its title row, kept on the screen with its title row
         // reachable.
         mOPaletteDialogAt = mOPassRows.Drag(new Rect(mOPaletteDialogAt.x, mOPaletteDialogAt.y, lfDialogWidth - 140f, 44f), mOPaletteDialogAt,
-            new Vector2(100f - lfDialogWidth, BarHeight), new Vector2(pfWidth - 100f, UWGuiTheme.ReferenceHeight - 44f));
+            lOMin, lOMax);
+
+        // What the bar's items offered to show is not this window's to follow.
+        mOKitRows.FocusToReveal(out Rect _);
 
         Rect lODialog = new Rect(mOPaletteDialogAt.x, mOPaletteDialogAt.y, lfDialogWidth, lfDialogHeight);
 
@@ -74,5 +80,18 @@ public partial class UWSetupMenu
         // The hint, the presets, the effects, the grime's tones, Glow and Light sources
         // (fBuildPaletteEffectsPage).
         fContentEnds(lODialog, mOPassPages.Draw(mOPaletteEffectsPage, lfLeft, lfTop, lfInner));
+
+        // THE VIEW FOLLOWS THE FOCUS (cleanup 8d.4, per user 2026-10-25): the window does not scroll,
+        // but it can be dragged partly off the screen - an entry the arrow keys put the focus on there
+        // moves the window by the least that shows it (below the bar, on the screen), within the drag's
+        // limits; the place is kept as a drag's.
+        if (mOKitRows.FocusToReveal(out Rect lOFocus))
+        {
+            Vector2 lOShift = new Vector2(UWKeyNavRules.RevealShift(lOFocus.xMin, lOFocus.xMax, 0f, pfWidth),
+                UWKeyNavRules.RevealShift(lOFocus.yMin, lOFocus.yMax, BarHeight, UWGuiTheme.ReferenceHeight));
+
+            mOPaletteDialogAt = new Vector2(Mathf.Clamp(mOPaletteDialogAt.x + lOShift.x, lOMin.x, lOMax.x),
+                Mathf.Clamp(mOPaletteDialogAt.y + lOShift.y, lOMin.y, lOMax.y));
+        }
     }
 }

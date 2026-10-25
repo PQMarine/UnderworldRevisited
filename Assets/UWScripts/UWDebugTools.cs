@@ -264,10 +264,10 @@ public class UWDebugTools : MonoBehaviour
         if (mOLoader == null || mOLoader.UWDataImporter == null)
             return;
 
-        UWKitRows.HelpLook lOText = new UWKitRows.HelpLook { Size = UWDebugPanel.TextSize, Colour = UWGuiTheme.Text, Anchor = TextAnchor.MiddleLeft };
+        UWKitRows.HelpLook lOText = new UWKitRows.HelpLook { Size = UWDebugPanel.TextSize, Colour = UWGuiTheme.Plain.Text, Anchor = TextAnchor.MiddleLeft };
         UWKitRows.HelpLook lODim = lOText;
 
-        lODim.Colour = UWGuiTheme.DimText;
+        lODim.Colour = UWGuiTheme.Plain.DimText;
 
         float lfX = pOArea.x;
         float lfY = pOArea.y;
@@ -375,7 +375,7 @@ public class UWDebugTools : MonoBehaviour
     private bool fDrawSpellRow(UWKitRows pOKit, Rect pORect, int piSpell, UWKitRows.HelpLook pOText, UWKitRows.HelpLook pODim)
     {
         UWRunicMagic.Spell lOSpell = UWRunicMagic.AllSpells[piSpell];
-        bool lbClicked = pOKit.HelpButton(pORect, string.Empty, pOText, new Color(0f, 0f, 0f, 0f), UWGuiTheme.Hover, UWGuiTheme.Text);
+        bool lbClicked = pOKit.HelpButton(pORect, string.Empty, pOText, new Color(0f, 0f, 0f, 0f), UWGuiTheme.Plain.Hover, UWGuiTheme.Plain.Text);
         float lfX = pORect.x + 6f;
 
         pOKit.HelpText(new Rect(lfX, pORect.y, 28f, pORect.height), piSpell.ToString(), pODim);

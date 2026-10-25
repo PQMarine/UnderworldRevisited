@@ -40,10 +40,12 @@ namespace UWDataImport.UWData
 			fAdd("setup.graphics.detail.low", "Low");
 			fAdd("setup.graphics.detail.medium", "Medium");
 			fAdd("setup.graphics.detail.high", "High");
-			fAdd("setup.graphics.detail.very_high", "Very high...");
+			// VeryHigh, the viewer's own values: a text, no choice (cleanup 8d.3, per user 2026-10-25).
+			fAdd("setup.graphics.detail.custom", "Custom");
 			fAdd("setup.graphics.detail.hint",
-				"Low: the original palette. Medium: Remastered, no effects. High: Remastered, all effects. Very high: your own effects, set on the screen it opens.");
+				"Low: the original palette. Medium: Remastered, no effects. High: Remastered, all effects. Custom: your own effects, set under Remastered effects.");
 			fAdd("setup.graphics.palette", "Palette effects...");
+			fAdd("setup.graphics.remastered", "Remastered effects...");
 			fAdd("setup.graphics.view_original", "Original");
 			fAdd("setup.graphics.view_orig", "Orig.");
 			fAdd("setup.graphics.factor_locked", "4x needs a window 1600 pixels tall");

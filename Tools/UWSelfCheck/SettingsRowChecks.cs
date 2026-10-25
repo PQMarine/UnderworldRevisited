@@ -90,8 +90,9 @@ namespace UnderworldRevisited.Tools
             }
 
             Check.Str("rows: texts, ids and choices consistent", lOProblems.ToString(), string.Empty);
-            // 73 since cleanup step 7.7B: the Pointer speed (UWPointer).
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 73);
+            // 73 since cleanup step 7.7B: the Pointer speed (UWPointer); 75 since cleanup phase 8d: the
+            // windows' theme and its ground.
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 75);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");
@@ -166,13 +167,20 @@ namespace UnderworldRevisited.Tools
             lOData.OriginalWorldResolution = true;
             Check.Bool("rows: the factor at the original's", UWUserSettingsTable.OriginalWorldResolutionFactor.IsVisible(lOData), true);
 
+            // The windows' ground only for a carved theme (cleanup phase 8d).
+            lOData.WindowTheme = (int)UWWindowThemeEnum.Plain;
+            Check.Bool("rows: Plain greys the windows' ground", UWUserSettingsTable.WindowBackground.IsEnabled(lOData), false);
+            lOData.WindowTheme = (int)UWWindowThemeEnum.Stone;
+            Check.Bool("rows: Stone leaves the windows' ground", UWUserSettingsTable.WindowBackground.IsEnabled(lOData), true);
+
             // Everything else is always there and takes input.
             StringBuilder lOOther = new StringBuilder();
             HashSet<UWSettingDef> lOConditional = new HashSet<UWSettingDef>
             {
                 UWUserSettingsTable.SmoothRampTicks, UWUserSettingsTable.MotionViewStepped, UWUserSettingsTable.OriginalFrameTicks,
                 UWUserSettingsTable.HeadBobStrength, UWUserSettingsTable.WeaponJitterStrength, UWUserSettingsTable.SwimViewStrength,
-                UWUserSettingsTable.MusicVolume, UWUserSettingsTable.SoundVolume, UWUserSettingsTable.OriginalWorldResolutionFactor
+                UWUserSettingsTable.MusicVolume, UWUserSettingsTable.SoundVolume, UWUserSettingsTable.OriginalWorldResolutionFactor,
+                UWUserSettingsTable.WindowBackground
             };
 
             foreach (UWSettingDef lODef in UWUserSettingsTable.All)

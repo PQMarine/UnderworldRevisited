@@ -1,0 +1,8 @@
+stone: clouds = 512x512 5748593A
+stone: clouds small = 64x64 64946DD8
+stone: gradient = 256x256 6B42DE27
+stone: gradient small = 32x32 45B73754
+stone: grain = 128x128 501870DF
+stone: grain small = 32x32 4AE2BC4E
+stone: light = 128x128 6E3C3A34
+stone: light small = 32x32 27678718

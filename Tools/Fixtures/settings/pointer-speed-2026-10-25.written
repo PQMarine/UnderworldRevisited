@@ -87,5 +87,7 @@
     "MusicDevice": 0,
     "Mt32RomPath": "",
     "DebugFolded": "",
-    "PointerSpeed": 2.5
+    "PointerSpeed": 2.5,
+    "WindowTheme": 0,
+    "WindowBackground": 0
 }

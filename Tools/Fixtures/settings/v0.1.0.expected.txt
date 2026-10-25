@@ -89,3 +89,5 @@ ViewAngle = 0
 WalkSlowToggle = False
 WeaponJitterMode = Off
 WeaponJitterStrength = 0.3
+WindowBackground = Gradient
+WindowTheme = Plain

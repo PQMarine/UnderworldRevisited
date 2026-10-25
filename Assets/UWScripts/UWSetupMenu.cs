@@ -19,9 +19,9 @@ using UWDataImport.UWData;
 /// along; on the uGUI kit (UWKitRows) since cleanup 8b.1-8b.2, which brings its own.
 ///
 /// OVER THE MAIN MENU (phase 2): the same bar folds out when the mouse reaches the top edge, with
-/// the game folder and the four detail levels; VERY HIGH opens UWEffectsScreen in the main menu's
-/// frame. Meanwhile UWMainMenu ignores the mouse (IsCapturingInput). Controls, text and colour
-/// settings follow (Todo.md).
+/// the game folder and the detail levels; the Remastered effects (UWEffectsScreen) are a window of the
+/// bar since cleanup 8d.3. Meanwhile UWMainMenu ignores the mouse (IsCapturingInput). Controls, text
+/// and colour settings follow (Todo.md).
 /// </summary>
 public partial class UWSetupMenu : MonoBehaviour
 {
@@ -48,7 +48,11 @@ public partial class UWSetupMenu : MonoBehaviour
         Display,
         PaletteEffects,
         Game,
-        Graphics
+        Graphics,
+
+        /// <summary>The Remastered effects (UWEffectsScreen): a window of the bar since cleanup 8d.3
+        /// (2026-10-25), until then a 320x200 picture of its own over everything.</summary>
+        RemasteredEffects
     }
 
     /// <summary>From this height at the top of the screen (reference units) the bar folds out
@@ -61,9 +65,10 @@ public partial class UWSetupMenu : MonoBehaviour
     /// clicks meanwhile (UWMainMenu).</summary>
     public static bool IsCapturingInput { get; private set; }
 
-    /// <summary>The bar's effects screen (VERY HIGH) is up - UWBack: the bar's keys wait for it.</summary>
-    public static bool IsEffectsScreenOpen => msMainMenuInstance != null && msMainMenuInstance.mOEffects != null
-        && msMainMenuInstance.mOEffects.IsOpen;
+    /// <summary>The bar's Remastered effects window is up - UWBack: Escape, the pad's B and Start close
+    /// it first (the chain's SetupEffects row), the bar's keyboard navigation's Escape waits for it.</summary>
+    public static bool IsEffectsScreenOpen => msMainMenuInstance != null
+        && msMainMenuInstance.meOpenDialog == DialogEnum.RemasteredEffects;
 
     /// <summary>
     /// THE BAR AND ITS WINDOWS ON THE KIT (cleanup 8b.1, 2026-10-24; phase 8b): the bar - with the
@@ -127,13 +132,8 @@ public partial class UWSetupMenu : MonoBehaviour
 
     private DataImport mOData;
 
-    private RectTransform mOFrame;
-
-    private UWEffectsScreen mOEffects;
-
-    /// <summary>The effects screen's own frame in the game (fChooseLevel), on a canvas above the
-    /// game's interfaces.</summary>
-    private RectTransform mOEffectsFrame;
+    /// <summary>The Remastered effects window (cleanup 8d.3: the one, the bar's, whoever opens it).</summary>
+    private readonly UWEffectsScreen mOEffects = new UWEffectsScreen();
 
     private bool mbBarShown;
 
@@ -153,8 +153,9 @@ public partial class UWSetupMenu : MonoBehaviour
 
     /// <summary>The bar over the real main menu (phase 2): hidden until the mouse reaches the top
     /// edge, with the game folder and the graphics detail. Called by UWMainMenu whenever its
-    /// buttons show; creates the bar once per scene.</summary>
-    public static void EnsureForMainMenu(DataImport pOData, RectTransform pOFrame)
+    /// buttons show; creates the bar once per scene. (The main menu's frame it took until cleanup 8d.3
+    /// was the effects screen's.)</summary>
+    public static void EnsureForMainMenu(DataImport pOData)
     {
         if (msMainMenuInstance != null)
             return;
@@ -163,19 +164,17 @@ public partial class UWSetupMenu : MonoBehaviour
 
         msMainMenuInstance = lOObject.AddComponent<UWSetupMenu>();
         msMainMenuInstance.mOData = pOData;
-        msMainMenuInstance.mOFrame = pOFrame;
     }
 
     /// <summary>
     /// THE BAR EXISTS IN THE GAME TOO (2026-10-06, per user: it was not visible in either scheme).
     /// Loading a save or starting a character reloads the scene, which destroyed the "Menu Bar"
     /// object made for the main menu, and nothing made it again - the bar only ever came back
-    /// with the main menu. The level loader asks for it when a level is up; without the main
-    /// menu's frame the effects screen of the Very high detail is not offered (fChooseLevel).
+    /// with the main menu. The level loader asks for it when a level is up.
     /// </summary>
     public static void EnsureInGame(DataImport pOData)
     {
-        EnsureForMainMenu(pOData, null);
+        EnsureForMainMenu(pOData);
     }
 
     private void Awake()
@@ -199,6 +198,9 @@ public partial class UWSetupMenu : MonoBehaviour
             IsCapturingInput = false;
             HasOpenPanel = false;
         }
+
+        // The effects window's values are saved when it closes - with the scene too.
+        mOEffects.Close();
 
         fClearFlaskPreview();
 
@@ -246,18 +248,10 @@ public partial class UWSetupMenu : MonoBehaviour
 
     // ------------------------------------------------- Over the main menu
 
-    /// <summary>Shows or hides the bar by the mouse, drives the effects screen, and tells the
-    /// main menu whether it may use the mouse.</summary>
+    /// <summary>Shows or hides the bar by the mouse, closes the effects window by the back keys, and
+    /// tells the main menu whether it may use the mouse.</summary>
     private void fUpdateOverMainMenu()
     {
-        if (mOEffects != null && mOEffects.IsOpen)
-        {
-            mOEffects.Update();
-            IsCapturingInput = true;
-
-            return;
-        }
-
         bool lbInGameMenu = fInGameMenuOpen();
 
         if (!UWMainMenu.AcceptsMenuBar && !lbInGameMenu)
@@ -270,6 +264,12 @@ public partial class UWSetupMenu : MonoBehaviour
 
             return;
         }
+
+        // THE EFFECTS WINDOW TAKES THE BACK KEYS FIRST (the chain's SetupEffects row): Escape, the pad's
+        // B and Start close it, also over the game menu or the classic options, and its Escape is not the
+        // keyboard navigation's (cleanup 7, wave 2b; since cleanup 8d.3 the one effects window, the bar's).
+        if (meOpenDialog == DialogEnum.RemasteredEffects && UWBack.Takes(UWBackOwner.SetupEffects))
+            meOpenDialog = DialogEnum.None;
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
 
@@ -319,57 +319,57 @@ public partial class UWSetupMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// A detail level of the Graphics window. VERY HIGH opens its effects screen over everything,
-    /// so the window closes and the bar folds away, as the drop-down menu did for every level until
-    /// it became a window (2026-10-24); the other levels take effect at once and the window stays,
-    /// as a choice in any other dialog.
+    /// A detail level of the Graphics window: Low, Medium or High, at once; the window stays, as a
+    /// choice in any other dialog. CUSTOM (VeryHigh, the viewer's own values) is no choice there since
+    /// cleanup 8d.3 (per user, 2026-10-25), only a text lit while it is in force: "Remastered
+    /// effects..." beside "Palette effects..." sets it and opens the effects window.
     /// </summary>
     private void fChooseLevel(UWGraphicsDetail.LevelEnum peLevel)
     {
-        if (peLevel == UWGraphicsDetail.LevelEnum.VeryHigh)
-        {
-            meOpenDialog = DialogEnum.None;
-            mbBarShown = false;
-        }
-
         // The one path with the classic options' detail screen (cleanup step 8.8, 2026-10-24).
-        UWGraphicsDetail.Choose(peLevel, null, fEffectsScreen);
+        UWGraphicsDetail.Choose(peLevel, null, null);
     }
 
-    /// <summary>The effects screen of VERY HIGH (UWGraphicsDetail.Choose asks for it), made the
-    /// first time; none without the data.</summary>
-    private UWEffectsScreen fEffectsScreen()
+    /// <summary>The Graphics window's "Remastered effects...": the level Custom (VeryHigh; the shipped
+    /// values become the viewer's own the first time, UWGraphicsDetail.SetLevel) and the effects window
+    /// in place of the Graphics window - what Very high did until cleanup 8d.3.</summary>
+    private void fOpenRemasteredEffects()
     {
-        if (mOData == null)
-            return null;
+        UWGraphicsDetail.Choose(UWGraphicsDetail.LevelEnum.VeryHigh, null, fOpenEffectsWindow);
+    }
 
-        // IN THE GAME the bar has no frame of its own (EnsureInGame), and the Very high entry did
-        // nothing there (per user, 2026-10-07). The game's 320x200 frame is hidden in the modern
-        // scheme (per user the same day: the panel stayed invisible), so the effects screen gets a
-        // canvas of its own, the 320x200 frame in the middle and no backdrop - the game stays
-        // visible around it.
-        RectTransform lOFrame = mOFrame;
+    /// <summary>
+    /// THE CLASSIC OPTIONS' VERY HIGH (cleanup 8d.3, per user 2026-10-25): the options set the level
+    /// and open the bar's effects window, the bar with it - they keep no effects screen of their own any
+    /// more. Nothing without the bar (it exists in the game, EnsureInGame).
+    /// </summary>
+    public static void OpenEffectsWindow()
+    {
+        if (msMainMenuInstance != null)
+            msMainMenuInstance.fOpenEffectsWindow();
+    }
 
-        if (lOFrame == null)
-        {
-            if (mOEffectsFrame == null)
-            {
-                Canvas lOCanvas = UWScreenUi.CreateCanvas(transform, "Effects Screen Canvas", UWUiSorting.EffectsScreen, out mOEffectsFrame);
-                Transform lOBackdrop = lOCanvas.transform.Find("Backdrop");
+    /// <summary>The effects window as the bar's one open window, the bar shown over it.</summary>
+    private void fOpenEffectsWindow()
+    {
+        fOpenDialog(DialogEnum.RemasteredEffects);
+        mOEffects.Open();
+        mbBarShown = true;
+    }
 
-                if (lOBackdrop != null)
-                    lOBackdrop.gameObject.SetActive(false);
+    /// <summary>The effects window saves when it is no longer the open window, whatever closed it: Done,
+    /// the back keys, another window of the bar, the bar going with the in-game menus.</summary>
+    private void fCloseEffectsWhenGone()
+    {
+        if (mOEffects.IsOpen && meOpenDialog != DialogEnum.RemasteredEffects)
+            mOEffects.Close();
+    }
 
-                mOEffects = null;
-            }
-
-            lOFrame = mOEffectsFrame;
-        }
-
-        if (mOEffects == null)
-            mOEffects = new UWEffectsScreen(mOData, lOFrame, UWBackOwner.SetupEffects);
-
-        return mOEffects;
+    /// <summary>The effects window (UWEffectsScreen.Draw) under the bar; Done closes it.</summary>
+    private void fDrawRemasteredEffects(float pfWidth)
+    {
+        if (mOEffects.Draw(mOKitRows, mOKitPages, pfWidth, BarHeight))
+            meOpenDialog = DialogEnum.None;
     }
 
     // ------------------------------------------------- Colours
@@ -596,9 +596,20 @@ public partial class UWSetupMenu : MonoBehaviour
         return lfNeeded;
     }
 
+    /// <summary>
+    /// THE CONTROLS WINDOW AS TALL AS THE SCREEN ALLOWS (cleanup 8d.4, per user 2026-10-25: more of the
+    /// keys to bind at once): from 8 under the bar to 8 above the screen's bottom edge, as the palette
+    /// and the Remastered effects windows stand (90 to 630 until then). The layout is always 720 lines
+    /// high (UWGuiTheme.ReferenceHeight), so a small window shows the same rows smaller; the lists of
+    /// keys take what the window gained and scroll inside as before.
+    /// </summary>
+    private const float ControlsTop = BarHeight + 8f;
+
+    private const float ControlsHeight = UWGuiTheme.ReferenceHeight - 8f - ControlsTop;
+
     private void fDrawControlsDialog(float pfWidth)
     {
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, fControlsInnerNeeded()), 90f, 540f);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, fControlsInnerNeeded()), ControlsTop, ControlsHeight);
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
@@ -699,11 +710,12 @@ public partial class UWSetupMenu : MonoBehaviour
     // ------------------------------------------------- Drawing
 
     /// <summary>The bar is on the screen: over the main menu only while it shows its buttons or the
-    /// save list, over the in-game menus, and only when folded out; the effects screen covers
-    /// everything by itself. Always on the first-run screen.</summary>
+    /// save list, over the in-game menus, and only when folded out - over the effects window too since
+    /// cleanup 8d.3 (until then a picture of its own over everything, the bar hidden). Always on the
+    /// first-run screen.</summary>
     private bool fBarDrawn()
     {
-        return mbFirstRun || (mbBarShown && (UWMainMenu.AcceptsMenuBar || fInGameMenuOpen()) && !(mOEffects != null && mOEffects.IsOpen));
+        return mbFirstRun || (mbBarShown && (UWMainMenu.AcceptsMenuBar || fInGameMenuOpen()));
     }
 
     /// <summary>
@@ -715,6 +727,8 @@ public partial class UWSetupMenu : MonoBehaviour
     /// </summary>
     private void LateUpdate()
     {
+        fCloseEffectsWhenGone();
+
         bool lbShown = fBarDrawn();
 
         // The arrow keys only after F10 (or in the first-run screen, which has nothing else).
@@ -748,6 +762,7 @@ public partial class UWSetupMenu : MonoBehaviour
             case DialogEnum.PaletteEffects: fDrawPaletteEffectsDialog(pfWidth); break;
             case DialogEnum.Game: fDrawGameDialog(pfWidth); break;
             case DialogEnum.Graphics: fDrawGraphicsDialog(pfWidth); break;
+            case DialogEnum.RemasteredEffects: fDrawRemasteredEffects(pfWidth); break;
         }
     }
 
@@ -791,7 +806,7 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>The first-run screen's ground and title, under the bar.</summary>
     private static void fDrawFirstRunGround(IUWRows pORows, float pfWidth)
     {
-        pORows.Backdrop(new Rect(0f, 0f, pfWidth, UWGuiTheme.ReferenceHeight));
+        pORows.ScreenGround(new Rect(0f, 0f, pfWidth, UWGuiTheme.ReferenceHeight));
 
         pORows.BigTitle(new Rect(0f, 150f, pfWidth, 50f), "Underworld Revisited");
     }

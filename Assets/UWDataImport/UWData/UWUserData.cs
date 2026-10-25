@@ -343,5 +343,14 @@ namespace UWDataImport.UWData
 		/// count, 0.25 to 4, no acceleration. 1, one count per pixel, is what Windows gives at its
 		/// default speed without "enhance pointer precision" - and what every older file reads.</summary>
 		public float PointerSpeed = 1f;
+
+		/// <summary>The look of the game's own windows (UWWindowThemes, cleanup phase 8d, 2026-10-25): 0
+		/// Plain, the look they always had - and what every older file reads -, or 1 Stone, the
+		/// application icon's (UWWindowThemeEnum).</summary>
+		public int WindowTheme;
+
+		/// <summary>What the Stone theme lays under a window (UWWindowBackgroundEnum, cleanup phase 8d):
+		/// 0 the stone's gradient, the default, or 1 its clouds (UWThemeGround). Plain ignores it.</summary>
+		public int WindowBackground;
 	}
 }

@@ -125,9 +125,12 @@ public interface IUWRows
 
     bool Toggle(Rect pORect, bool pbValue, string psText);
 
-    int Choices(Rect pOArea, string[] psChoices, int piCurrent, float pfGap = 0f, bool pbFaced = false, int piEnabled = -1);
+    /// <summary>Choices side by side; bit n of piEnabled off greys choice n, bit n of piTextOnly on draws
+    /// it as a plain text (cleanup 8d.3: the Graphics window's Custom) - lit in the accent colour while
+    /// current, dim otherwise, no press and no step of the arrow keys.</summary>
+    int Choices(Rect pOArea, string[] psChoices, int piCurrent, float pfGap = 0f, bool pbFaced = false, int piEnabled = -1, int piTextOnly = 0);
 
-    int ChoiceRow(Rect pORow, in UWChoiceColumns pOColumns, string psLabel, string[] psChoices, int piCurrent);
+    int ChoiceRow(Rect pORow, in UWChoiceColumns pOColumns, string psLabel, string[] psChoices, int piCurrent, int piTextOnly = 0);
 
     float Slider(Rect pORow, in UWSliderColumns pOColumns, string psLabel, float pfValue, float pfMin, float pfMax,
         float pfStep, bool pbClamp, Func<float, string> pFFormat);
@@ -156,7 +159,12 @@ public interface IUWRows
 
     bool BarItem(Rect pORect, string psText, bool pbOpen);
 
+    /// <summary>The darkest ground (the folder list's), flat in every theme.</summary>
     void Backdrop(Rect pORect);
+
+    /// <summary>The first-run screen's ground over the whole screen: the darkest ground's colour, or
+    /// a carved theme's stone (cleanup phase 8d).</summary>
+    void ScreenGround(Rect pORect);
 
     void BigTitle(Rect pORect, string psText);
 

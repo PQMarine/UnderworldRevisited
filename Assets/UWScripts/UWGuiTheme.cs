@@ -1,4 +1,5 @@
 using UnityEngine;
+using UWDataImport.UWData;
 
 /// <summary>
 /// THE LOOK OF THE PORT'S IMGUI WINDOWS IN ONE PLACE (cleanup 8.1, 2026-10-24): the setup bar and
@@ -18,53 +19,291 @@ using UnityEngine;
 /// window gone (cleanup 8b.4) the GUIStyle families, the shared 1x1 textures and the GUI.matrix
 /// set-up went too. The debug overlays (UWDebugOverlay, UWDebugTools) followed in cleanup 8c: their
 /// panel (UWDebugPanel) draws in this palette on a see-through ground of its own.
+///
+/// THEMES (cleanup phase 8d, 2026-10-25, per user): the fixed palette became a theme table, engine-free
+/// (UWWindowThemes): Plain - this look, value for value, and the default - and Stone, the application
+/// icon's carved stone with its torchlight and the runes' ember. The palette's names below read the
+/// theme in force (Current); a carved theme's window grounds are pictures (PicturesOf, made by
+/// UWThemeGround) that the kit lays under the windows (UWKitRows.Ground). The debug panel keeps Plain.
 /// </summary>
 public static class UWGuiTheme
 {
     /// <summary>The height the windows are laid out on; they scale with the screen's height.</summary>
     public const float ReferenceHeight = 720f;
 
-    // ------------------------------------------------- The palette
+    // ------------------------------------------------- The theme (cleanup phase 8d, 2026-10-25)
 
-    /// <summary>The darkest ground: the first-run screen, text fields, the folder list, the help's
-    /// notes and map, the game menu's name field.</summary>
-    public static readonly Color Background = new Color(0.05f, 0.05f, 0.06f, 1f);
+    /// <summary>
+    /// ONE THEME'S COLOURS AS UNITY COLOURS (cleanup phase 8d, 2026-10-25): an entry of the engine-free
+    /// theme table (UWWindowThemes) turned into Color once, so the drawers read plain fields each pass
+    /// and allocate nothing. The roles are the palette this class held as fixed values until 8d.
+    /// </summary>
+    public sealed class Palette
+    {
+        public readonly UWWindowTheme Theme;
 
-    /// <summary>The setup bar and the layout editor's title row.</summary>
-    public static readonly Color Bar = new Color(0.11f, 0.11f, 0.13f, 1f);
+        /// <summary>The darkest ground: the first-run screen, text fields, the folder list, the help's
+        /// notes and map, the game menu's name field.</summary>
+        public readonly Color Background;
 
-    /// <summary>The dialogs and menus of the bar, the editor's window, the help's tabs, the game
-    /// menu's buttons.</summary>
-    public static readonly Color Panel = new Color(0.14f, 0.14f, 0.16f, 1f);
+        /// <summary>The setup bar and the layout editor's title row.</summary>
+        public readonly Color Bar;
 
-    /// <summary>A row or tab under the pointer, an open bar item, a button's face.</summary>
-    public static readonly Color Hover = new Color(0.22f, 0.22f, 0.26f, 1f);
+        /// <summary>The dialogs and menus of the bar, the editor's window, the help's tabs, the game
+        /// menu's buttons.</summary>
+        public readonly Color Panel;
 
-    /// <summary>A button's face under the pointer.</summary>
-    public static readonly Color ButtonHover = new Color(0.30f, 0.30f, 0.35f, 1f);
+        /// <summary>A row or tab under the pointer, an open bar item, a button's face.</summary>
+        public readonly Color Hover;
 
-    /// <summary>A thin line between groups inside a menu.</summary>
-    public static readonly Color Separator = new Color(0.30f, 0.30f, 0.34f, 1f);
+        /// <summary>A button's face under the pointer.</summary>
+        public readonly Color ButtonHover;
 
-    /// <summary>The text colour, the modern interface's own (the same value the windows wrote out).</summary>
-    public static readonly Color Text = UWModernPalette.HudText;
+        /// <summary>A thin line between groups inside a menu.</summary>
+        public readonly Color Separator;
 
-    public static readonly Color DimText = new Color(0.55f, 0.55f, 0.55f, 1f);
+        /// <summary>The text colour (Plain: the modern interface's own, UWModernPalette.HudText).</summary>
+        public readonly Color Text;
 
-    /// <summary>The accent, the modern interface's own (the same value the windows wrote out).</summary>
-    public static readonly Color Accent = UWModernPalette.Accent;
+        public readonly Color DimText;
 
-    /// <summary>Accent for rich text.</summary>
-    public const string AccentHex = "CCA357";
+        /// <summary>The accent (Plain: the modern interface's own, UWModernPalette.Accent).</summary>
+        public readonly Color Accent;
 
-    /// <summary>The help window's and the modern game menu's ground, a little see-through.</summary>
-    public static readonly Color Overlay = new Color(0.08f, 0.08f, 0.09f, 0.96f);
+        /// <summary>Accent for rich text.</summary>
+        public readonly string AccentHex;
 
-    /// <summary>The shade over the picture while the manual is read.</summary>
-    public static readonly Color ReadingShade = new Color(0.03f, 0.03f, 0.04f, 0.94f);
+        /// <summary>The help window's and the modern game menu's ground, a little see-through.</summary>
+        public readonly Color Overlay;
 
-    /// <summary>A status line that reports a failure (the folder dialog).</summary>
-    public static readonly Color Error = new Color(0.9f, 0.4f, 0.35f);
+        /// <summary>The shade over the picture while the manual is read.</summary>
+        public readonly Color ReadingShade;
+
+        /// <summary>A status line that reports a failure (the folder dialog).</summary>
+        public readonly Color Error;
+
+        /// <summary>A slider's thumb at rest (UWKitRows' ThumbColour until 8d).</summary>
+        public readonly Color Thumb;
+
+        /// <summary>The arrow keys' frame (UWKitKeyNav.FocusColour until 8d) and the glow outside it.</summary>
+        public readonly Color Focus;
+
+        public readonly Color FocusGlow;
+
+        /// <summary>The letter grid's panel, keys and focused key (UWLetterGrid's own until 8d) and hints.</summary>
+        public readonly Color LetterGridPanel;
+
+        public readonly Color LetterGridKey;
+
+        public readonly Color LetterGridFocus;
+
+        public readonly Color LetterGridHint;
+
+        /// <summary>A carved ground's lit and shaded edges.</summary>
+        public readonly Color EdgeLight;
+
+        public readonly Color EdgeShadow;
+
+        public Palette(UWWindowTheme pOTheme)
+        {
+            Theme = pOTheme;
+            Background = fColour(pOTheme.Background);
+            Bar = fColour(pOTheme.Bar);
+            Panel = fColour(pOTheme.Panel);
+            Hover = fColour(pOTheme.Hover);
+            ButtonHover = fColour(pOTheme.ButtonHover);
+            Separator = fColour(pOTheme.Separator);
+            Text = fColour(pOTheme.Text);
+            DimText = fColour(pOTheme.DimText);
+            Accent = fColour(pOTheme.Accent);
+            AccentHex = pOTheme.AccentHex;
+            Overlay = fColour(pOTheme.Overlay);
+            ReadingShade = fColour(pOTheme.ReadingShade);
+            Error = fColour(pOTheme.Error);
+            Thumb = fColour(pOTheme.Thumb);
+            Focus = fColour(pOTheme.Focus);
+            FocusGlow = fColour(pOTheme.FocusGlow);
+            LetterGridPanel = fColour(pOTheme.LetterGridPanel);
+            LetterGridKey = fColour(pOTheme.LetterGridKey);
+            LetterGridFocus = fColour(pOTheme.LetterGridFocus);
+            LetterGridHint = fColour(pOTheme.LetterGridHint);
+            EdgeLight = fColour(pOTheme.EdgeLight);
+            EdgeShadow = fColour(pOTheme.EdgeShadow);
+        }
+
+        /// <summary>The ground is the stone's picture with its edges, not a flat colour.</summary>
+        public bool IsCarved => Theme.IsCarved;
+
+        /// <summary>A ground's colour: a flat theme's fill, a carved theme's opacity (its alpha).</summary>
+        public Color GroundColour(UWWindowGroundEnum peGround)
+        {
+            switch (peGround)
+            {
+                case UWWindowGroundEnum.Bar: return Bar;
+                case UWWindowGroundEnum.Overlay: return Overlay;
+                case UWWindowGroundEnum.Screen: return Background;
+                case UWWindowGroundEnum.LetterGrid: return LetterGridPanel;
+                default: return Panel;
+            }
+        }
+
+        private static Color fColour(UWThemeColour pOColour)
+        {
+            return new Color(pOColour.R, pOColour.G, pOColour.B, pOColour.A);
+        }
+    }
+
+    /// <summary>
+    /// TODAY'S LOOK, whatever is chosen: the default theme, and the debug panel's always (UWDebugPanel,
+    /// UWDebugTools: it stays plain, decided per user 2026-10-25).
+    /// </summary>
+    public static readonly Palette Plain = new Palette(UWWindowThemes.Plain);
+
+    /// <summary>Every theme's palette, in the table's order.</summary>
+    private static readonly Palette[] msPalettes = fPalettes();
+
+    private static Palette msCurrent;
+
+    private static bool mbGroundKnown;
+
+    private static UWWindowBackgroundEnum meGround;
+
+    private static Palette[] fPalettes()
+    {
+        Palette[] lOPalettes = new Palette[UWWindowThemes.All.Length];
+
+        for (int liAt = 0; liAt < lOPalettes.Length; liAt++)
+            lOPalettes[liAt] = UWWindowThemes.All[liAt] == UWWindowThemes.Plain ? Plain : new Palette(UWWindowThemes.All[liAt]);
+
+        return lOPalettes;
+    }
+
+    /// <summary>
+    /// THE THEME IN FORCE (UWUserSettings.WindowTheme), read once and kept until the setting changes
+    /// (Changed, the setting's OnChange) - the windows ask for it many times a pass. The kit's drawers
+    /// take it at the start of each pass (UWKitRows.Begin), so a switch shows at once, in the window
+    /// that is open too.
+    /// </summary>
+    public static Palette Current
+    {
+        get
+        {
+            if (msCurrent == null)
+                msCurrent = msPalettes[System.Array.IndexOf(UWWindowThemes.All, UWWindowThemes.Get(UWUserSettings.WindowTheme))];
+
+            return msCurrent;
+        }
+    }
+
+    /// <summary>What a carved theme lays under the windows (UWUserSettings.WindowBackground), kept as
+    /// Current is.</summary>
+    public static UWWindowBackgroundEnum Ground
+    {
+        get
+        {
+            if (!mbGroundKnown)
+            {
+                meGround = UWUserSettings.WindowBackground;
+                mbGroundKnown = true;
+            }
+
+            return meGround;
+        }
+    }
+
+    /// <summary>The theme or its ground changed: both are read again at their next use.</summary>
+    public static void Changed()
+    {
+        msCurrent = null;
+        mbGroundKnown = false;
+    }
+
+    // ------------------------------------------------- The palette of the theme in force
+
+    // The names the windows have always read (cleanup 8.1); since 8d each is the current theme's.
+
+    public static Color Background => Current.Background;
+
+    public static Color Bar => Current.Bar;
+
+    public static Color Panel => Current.Panel;
+
+    public static Color Hover => Current.Hover;
+
+    public static Color ButtonHover => Current.ButtonHover;
+
+    public static Color Separator => Current.Separator;
+
+    public static Color Text => Current.Text;
+
+    public static Color DimText => Current.DimText;
+
+    public static Color Accent => Current.Accent;
+
+    public static string AccentHex => Current.AccentHex;
+
+    public static Color Overlay => Current.Overlay;
+
+    public static Color ReadingShade => Current.ReadingShade;
+
+    public static Color Error => Current.Error;
+
+    // ------------------------------------------------- The carved grounds' pictures
+
+    /// <summary>
+    /// THE PICTURES OF A CARVED GROUND (cleanup phase 8d): made by the engine-free generator
+    /// (UWThemeGround) and uploaded once per theme on first use - their sizes do not follow the
+    /// window: the gradient and the light are stretched over it, the clouds repeat at one texel per
+    /// layout unit and the grain at one texel per screen pixel. Kept for the session, nothing per frame.
+    /// </summary>
+    public sealed class GroundPictures
+    {
+        public Texture2D Gradient;
+
+        public Texture2D Clouds;
+
+        public Texture2D Light;
+
+        public Texture2D Grain;
+    }
+
+    private static readonly GroundPictures[] msPictures = new GroundPictures[UWWindowThemes.All.Length];
+
+    /// <summary>The carved ground's pictures of a palette's theme, made on the first call (null for a
+    /// flat theme).</summary>
+    public static GroundPictures PicturesOf(Palette pOPalette)
+    {
+        UWStoneLook lOLook = pOPalette.Theme.Stone;
+
+        if (lOLook == null)
+            return null;
+
+        int liAt = System.Array.IndexOf(UWWindowThemes.All, pOPalette.Theme);
+        GroundPictures lOPictures = msPictures[liAt];
+
+        if (lOPictures != null && lOPictures.Gradient != null && lOPictures.Clouds != null && lOPictures.Light != null && lOPictures.Grain != null)
+            return lOPictures;
+
+        string lsName = "UWGuiTheme " + pOPalette.Theme.Id + " ";
+
+        lOPictures = new GroundPictures
+        {
+            Gradient = fUpload(UWThemeGround.Gradient(lOLook, UWThemeGround.GradientSize), FilterMode.Bilinear, TextureWrapMode.Clamp, lsName + "gradient"),
+            Clouds = fUpload(UWThemeGround.Clouds(lOLook, UWThemeGround.CloudTileSize), FilterMode.Bilinear, TextureWrapMode.Repeat, lsName + "clouds"),
+            Light = fUpload(UWThemeGround.Light(lOLook, UWThemeGround.LightSize), FilterMode.Bilinear, TextureWrapMode.Clamp, lsName + "light"),
+            Grain = fUpload(UWThemeGround.Grain(lOLook, UWThemeGround.GrainSize), FilterMode.Point, TextureWrapMode.Repeat, lsName + "grain")
+        };
+        msPictures[liAt] = lOPictures;
+
+        return lOPictures;
+    }
+
+    private static Texture2D fUpload(UWPicture pOPicture, FilterMode peFilter, TextureWrapMode peWrap, string psName)
+    {
+        // No colour help: the windows' colours never followed it (they are not the game's pictures).
+        return UWTextureFactory.Upload(UWUploadPixels.FromColours(pOPicture.Pixels, pOPicture.Width, pOPicture.Height, null,
+            UWUploadPixels.TransparentEnum.Keep), pOPicture.Width, pOPicture.Height, peFilter, peWrap, psName);
+    }
 
     // ------------------------------------------------- Scale
 
@@ -174,5 +413,6 @@ public static class UWGuiTheme
     /// <summary>The hint line under the keys.</summary>
     public const int LetterGridHintSize = 14;
 
-    public static readonly Color LetterGridHint = new Color(0.85f, 0.8f, 0.7f);
+    /// <summary>The hint's colour, the current theme's (a fixed value until cleanup phase 8d).</summary>
+    public static Color LetterGridHint => Current.LetterGridHint;
 }

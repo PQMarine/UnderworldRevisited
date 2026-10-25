@@ -62,6 +62,11 @@ namespace UWDataImport.UWData
 		/// <summary>The music devices, UWMusicDeviceId: AdLib, General MIDI, MT-32.</summary>
 		public const int MaxMusicDevice = (int)UWMusicDeviceId.Mt32;
 
+		/// <summary>The windows' themes and the Stone theme's grounds (UWWindowThemes, cleanup phase 8d).</summary>
+		public const int MaxWindowTheme = (int)UWWindowThemeEnum.Stone;
+
+		public const int MaxWindowBackground = (int)UWWindowBackgroundEnum.Clouds;
+
 		/// <summary>4, 8, 12, 16 ticks: 64, 32, 21, 16 frames a second.</summary>
 		public static readonly int[] OriginalFrameChoices = { 4, 8, 12, 16 };
 
@@ -326,6 +331,25 @@ namespace UWDataImport.UWData
 			Step = MouseLookSpeedStep
 		};
 
+		/// <summary>The windows' theme (cleanup phase 8d, 2026-10-25): Plain or Stone; one the table does
+		/// not know (a later build's) reads Plain, as does a file without the key.</summary>
+		public static readonly UWIntSettingDef WindowTheme = new UWIntSettingDef(nameof(UWUserData.WindowTheme), UWSettingKind.Choice, d => d.WindowTheme, (d, v) => d.WindowTheme = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = MaxWindowTheme,
+			Fallback = (int)UWWindowThemeEnum.Plain
+		};
+
+		/// <summary>The Stone theme's ground: Gradient or Clouds; an unknown one reads Gradient.</summary>
+		public static readonly UWIntSettingDef WindowBackground = new UWIntSettingDef(nameof(UWUserData.WindowBackground), UWSettingKind.Choice, d => d.WindowBackground, (d, v) => d.WindowBackground = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = MaxWindowBackground,
+			Fallback = (int)UWWindowBackgroundEnum.Gradient
+		};
+
 		/// <summary>Every setting, in the order of UWUserData's fields - the order of the file.</summary>
 		public static readonly UWSettingDef[] All =
 		{
@@ -342,7 +366,7 @@ namespace UWDataImport.UWData
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath,
-			DebugFolded, PointerSpeed
+			DebugFolded, PointerSpeed, WindowTheme, WindowBackground
 		};
 
 		/// <summary>The settings of one store, in the file's order (the layout editor's snapshot

@@ -6,7 +6,8 @@ namespace UnderworldRevisited.Tools
     /// Cleanup step 8b.1 (2026-10-24): the two engine-free pieces under the kit's rows - the sizing by
     /// text (UWRowSizing: a piece keeps the width it was laid out with and grows only by what its text
     /// lacks, so English stays as it was and a longer language does not clip) and the text field's line
-    /// (UWTextLine: the one filter, the limit, the cursor, Backspace and Delete). Data-free.
+    /// (UWTextLine: the one filter, the limit, the cursor, Backspace and Delete); since cleanup 8d.4 the
+    /// arrow keys' rules (UWKeyNavRules). Data-free.
     /// </summary>
     public static partial class Program
     {
@@ -16,6 +17,53 @@ namespace UnderworldRevisited.Tools
 
             fCheckRowSizing();
             fCheckTextLine();
+            fCheckKeyNavRules();
+        }
+
+        /// <summary>Cleanup 8d.4 (2026-10-25): the arrow keys on a slider with the focus (its row's step,
+        /// or a round share of the range for a row without one; the grid the bar snaps to; the ends) and
+        /// the view following the focus (the least scroll or move that shows the focused row whole).</summary>
+        private static void fCheckKeyNavRules()
+        {
+            Check.Group("Kit arrow keys (UWKeyNavRules - cleanup 8d.4)");
+
+            Check.Near("key step: a row's own step is the step", UWKeyNavRules.SliderKeyStep(0.05f, 0f, 1f), 0.05, 0.000001);
+            Check.Near("key step: whole steps stay whole", UWKeyNavRules.SliderKeyStep(1f, 0f, 8f), 1.0, 0.000001);
+            Check.Near("key step: no step over 0 to 1 is 0.05", UWKeyNavRules.SliderKeyStep(0f, 0f, 1f), 0.05, 0.000001);
+            Check.Near("key step: no step over 0.5 to 2 is 0.05", UWKeyNavRules.SliderKeyStep(0f, 0.5f, 2f), 0.05, 0.000001);
+            Check.Near("key step: no step over 0 to 3 is 0.1", UWKeyNavRules.SliderKeyStep(0f, 0f, 3f), 0.1, 0.000001);
+            Check.Near("key step: no step over 0 to 4 is 0.2", UWKeyNavRules.SliderKeyStep(0f, 0f, 4f), 0.2, 0.000001);
+            Check.Near("key step: no step over 0 to 0.2 is 0.01", UWKeyNavRules.SliderKeyStep(0f, 0f, 0.2f), 0.01, 0.000001);
+            Check.Near("key step: no step over 0 to 0.8 is 0.02", UWKeyNavRules.SliderKeyStep(0f, 0f, 0.8f), 0.02, 0.000001);
+            Check.Near("key step: an empty range has none", UWKeyNavRules.SliderKeyStep(0f, 1f, 1f), 0.0, 0.000001);
+
+            Check.Near("key value: a volume one step up", UWKeyNavRules.SliderKeyValue(0.5f, 1, 0.05f, 0f, 1f), 0.55, 0.00001);
+            Check.Near("key value: off the grid up to the next step", UWKeyNavRules.SliderKeyValue(0.53f, 1, 0.05f, 0f, 1f), 0.6, 0.00001);
+            Check.Near("key value: off the grid down to the step below", UWKeyNavRules.SliderKeyValue(0.53f, -1, 0.05f, 0f, 1f), 0.5, 0.00001);
+            Check.Near("key value: the top end holds", UWKeyNavRules.SliderKeyValue(1f, 1, 0.05f, 0f, 1f), 1.0, 0.00001);
+            Check.Near("key value: the grime's half step", UWKeyNavRules.SliderKeyValue(1.5f, 1, 0.5f, 0f, 3f), 2.0, 0.00001);
+            Check.Near("key value: the bottom end holds", UWKeyNavRules.SliderKeyValue(0f, -1, 0.5f, 0f, 3f), 0.0, 0.00001);
+            Check.Near("key value: whole steps down", UWKeyNavRules.SliderKeyValue(3f, -1, 1f, 0f, 8f), 2.0, 0.00001);
+            Check.Near("key value: a colour without a step", UWKeyNavRules.SliderKeyValue(1f, 1, 0f, 0.5f, 2f), 1.05, 0.00001);
+            Check.Near("key value: a dragged effect up onto the grid", UWKeyNavRules.SliderKeyValue(1.2345f, 1, 0f, 0f, 3f), 1.3, 0.00001);
+            Check.Near("key value: and down onto it", UWKeyNavRules.SliderKeyValue(1.2345f, -1, 0f, 0f, 3f), 1.1, 0.00001);
+            Check.Near("key value: no direction, no change", UWKeyNavRules.SliderKeyValue(0.53f, 0, 0.05f, 0f, 1f), 0.53, 0.00001);
+
+            float lfValue = 0.1f;
+
+            for (int liStep = 0; liStep < 18; liStep++)
+                lfValue = UWKeyNavRules.SliderKeyValue(lfValue, 1, 0.05f, 0.1f, 1f);
+
+            Check.Near("key value: eighteen steps from 0.1 land on 1 without drift", lfValue, 1.0, 0.000001);
+
+            Check.Near("reveal: a row in view keeps the scroll", UWKeyNavRules.RevealScroll(0f, 100f, 20f, 46f, 300f), 0.0, 0.0001);
+            Check.Near("reveal: a row below scrolls down to its bottom", UWKeyNavRules.RevealScroll(0f, 100f, 120f, 146f, 300f), 46.0, 0.0001);
+            Check.Near("reveal: a row above scrolls up to its top", UWKeyNavRules.RevealScroll(80f, 100f, 20f, 46f, 300f), 20.0, 0.0001);
+            Check.Near("reveal: a row taller than the view shows its top", UWKeyNavRules.RevealScroll(0f, 100f, 150f, 300f, 500f), 150.0, 0.0001);
+            Check.Near("reveal: never beyond the room", UWKeyNavRules.RevealScroll(0f, 100f, 380f, 420f, 300f), 300.0, 0.0001);
+            Check.Near("shift: a row in the room stays", UWKeyNavRules.RevealShift(100f, 126f, 30f, 720f), 0.0, 0.0001);
+            Check.Near("shift: a row below the edge moves up", UWKeyNavRules.RevealShift(700f, 726f, 30f, 720f), -6.0, 0.0001);
+            Check.Near("shift: a row above the edge moves down", UWKeyNavRules.RevealShift(10f, 36f, 30f, 720f), 20.0, 0.0001);
         }
 
         private static void fCheckRowSizing()

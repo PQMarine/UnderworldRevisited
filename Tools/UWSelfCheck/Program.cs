@@ -344,6 +344,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("KitRows", pOContext => fCheckKitRows(), false, "settings", "text");
             lOCatalog.Add("KitTextArea", pOContext => fCheckTextArea(), false, "settings", "text");
             lOCatalog.Add("DebugReport", pOContext => fCheckDebugReport(), false, "hud", "settings");
+            lOCatalog.Add("WindowThemes", pOContext => fCheckWindowThemes(pOContext), false, "settings", "pin");
 
             return lOCatalog;
         }

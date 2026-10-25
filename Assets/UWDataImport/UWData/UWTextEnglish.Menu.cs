@@ -30,7 +30,8 @@ namespace UWDataImport.UWData
 			fAdd("menu.detail.low", "Low");
 			fAdd("menu.detail.medium", "Medium");
 			fAdd("menu.detail.high", "High");
-			fAdd("menu.detail.very_high", "VeryHigh");
+			// VeryHigh, the viewer's own values: a line, no button (cleanup 8d.3).
+			fAdd("menu.detail.custom", "Custom");
 		}
 	}
 }

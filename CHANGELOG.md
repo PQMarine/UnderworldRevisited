@@ -8,6 +8,23 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [Unreleased]
+
+### Added
+- A second look for the game's windows: Colours - Window theme Stone, in the colours of the game's
+  icon - the rune stone's grey-brown with a faint torchlight, ember-coloured highlights, lit edges -
+  with the background as a gradient or a cloud pattern. Plain, the look so far, stays the default.
+  The HUD's panels and bags keep their own colours.
+
+### Changed
+- The Remastered effects window is a window like the others (and follows the window theme) instead
+  of the marbled options picture. Graphics shows Custom, the own values, as the current level; the
+  new button Remastered effects... beside Palette effects... opens the window and switches to
+  Custom. In the classic options Very High opens the menu bar with the window.
+- The Controls window is taller and shows more of the keys at once.
+- With F10 and the arrow keys, Left and Right now change a selected slider (by its step, held to
+  repeat), and a list scrolls along with the selection.
+
 ## [0.9.1] - 2026-10-25
 
 ### Closer to the original

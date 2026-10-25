@@ -375,11 +375,6 @@ public sealed class UWHudOptions
             optionsEntryLeft + pfDeltaX, -(optionsEntryTop + (piEntry * optionsEntryPitch) + pfDeltaY));
     }
 
-    private UWEffectsScreen mOEffectsScreen;
-
-    /// <summary>The options' own effects screen is up (UWBack: the options' Escape waits for it).</summary>
-    internal bool IsEffectsScreenOpen => mOEffectsScreen != null && mOEffectsScreen.IsOpen;
-
     /// <summary>The music and sound switches and the detail level the model draws its screens
     /// from.</summary>
     private static UWOptionsMenuModel.Settings fSettings()
@@ -430,9 +425,8 @@ public sealed class UWHudOptions
     {
         mOModel.Close();
 
-        if (mOEffectsScreen != null)
-            mOEffectsScreen.Close();
-
+        // The effects window of Very High is the setup bar's since cleanup 8d.3: it closes (and saves)
+        // with the bar when the options go.
         fApplyPage();
 
         if (mOUi.mControlSchemeRef != null)
@@ -605,19 +599,13 @@ public sealed class UWHudOptions
         if (fUpdateSaveNameKeys())
             return true;
 
-        // The effects screen lies over the whole frame and has the mouse to itself.
-        if (mOEffectsScreen != null && mOEffectsScreen.IsOpen)
-        {
-            mOEffectsScreen.Update();
-
-            return true;
-        }
-
         if (mOptionsButtonImage == null || mOUi.mGameFrame == null)
             return false;
 
         // The setup bar's menus and dialogs over the open panel (per user, 2026-10-06: the bar
-        // shows itself in the options too): their clicks are theirs.
+        // shows itself in the options too): their clicks are theirs - the effects window of Very High
+        // too, a window of the bar since cleanup 8d.3 (until then the options' own screen over the
+        // frame, which had the mouse to itself here).
         if (UWSetupMenu.HasOpenPanel)
             return mOModel.IsOpen;
 
@@ -773,8 +761,9 @@ public sealed class UWHudOptions
             case UWOptionsMenuModel.ActionEnum.SetDetailAndOpenEffects:
                 // The one path with the bar's Graphics menu (UWGraphicsDetail.Choose, cleanup step
                 // 8.8): the level, this detail screen drawn anew, and for VERY HIGH (only that
-                // entry gives SetDetailAndOpenEffects) the effects screen in the game's frame.
-                UWGraphicsDetail.Choose((UWGraphicsDetail.LevelEnum)lOOutcome.Value, fShowDetailAnew, fEffectsScreen);
+                // entry gives SetDetailAndOpenEffects) the effects window - the setup bar's, the bar
+                // with it, since cleanup 8d.3 (per user, 2026-10-25; the game's frame until then).
+                UWGraphicsDetail.Choose((UWGraphicsDetail.LevelEnum)lOOutcome.Value, fShowDetailAnew, UWSetupMenu.OpenEffectsWindow);
                 return;
 
             case UWOptionsMenuModel.ActionEnum.QuitToMainMenu:
@@ -796,15 +785,6 @@ public sealed class UWHudOptions
     {
         mOModel.ShowDetail((int)UWGraphicsDetail.CurrentLevel);
         fApplyPage();
-    }
-
-    /// <summary>The effects screen of VERY HIGH in the game's frame, made the first time.</summary>
-    private UWEffectsScreen fEffectsScreen()
-    {
-        if (mOEffectsScreen == null)
-            mOEffectsScreen = new UWEffectsScreen(mOUi.mOUWData, mOUi.mGameFrame);
-
-        return mOEffectsScreen;
     }
 
     /// <summary>A slot of the restore screen: the game loads, or nothing is there - message, and

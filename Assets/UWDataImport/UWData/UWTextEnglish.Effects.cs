@@ -2,10 +2,11 @@ namespace UWDataImport.UWData
 {
 	public static partial class UWTextEnglish
 	{
-		/// <summary>The effects screen behind graphics detail Very high (UWEffectsScreen, cleanup step
-		/// 8.5, 2026-10-24): its title, the rows in the screen's order, the switch and choice values.
-		/// The ON, OFF and DONE buttons are the original's pictures and stay as they are; "ACES" is a
-		/// name and stays in the code.</summary>
+		/// <summary>The Remastered effects window of the detail level Custom (UWEffectsScreen, cleanup
+		/// step 8.5, 2026-10-24): its title, the rows in the window's order, the switch and choice
+		/// values. On and Off are its title row's buttons beside "All:" since cleanup 8d.3 (the
+		/// original's ON and OFF pictures until then), Done the setup windows' own; "ACES" is a name and
+		/// stays in the code.</summary>
 		private static void fEffects()
 		{
 			fAdd("effects.title", "Remastered effects");

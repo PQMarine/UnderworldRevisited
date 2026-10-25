@@ -32,7 +32,8 @@ using UWDataImport.UWData;
 /// EventSystem, as the modern parts take theirs. The gamepad's pointer presses its own mouse's button
 /// (UWPointer.PadButton since cleanup step 7.7B; the real one through UWOsMouse until then), and the
 /// left button here is UWPointer's, so its clicks arrive the same way. KEYS: UWKitKeyNav (F10 and the
-/// arrows as before);
+/// arrows as before; since cleanup 8d.4 Left and Right move a slider with the focus, and a scrolled
+/// area scrolls to show the entry the keys put the focus on);
 /// TYPING: TextField on UWTextEntry and UWTypedKeys, locking the game's keys meanwhile (IsTyping,
 /// UWTextEntryState).
 /// </summary>
@@ -82,8 +83,6 @@ public sealed class UWKitRows : IUWRows
 
     /// <summary>A greyed row's colours lose half their strength, as IMGUI draws a disabled control.</summary>
     private const float DisabledAlpha = 0.5f;
-
-    private static readonly Color ThumbColour = new Color(0.62f, 0.62f, 0.66f, 1f);
 
     /// <summary>How a text is drawn.</summary>
     private struct Look
@@ -144,12 +143,12 @@ public sealed class UWKitRows : IUWRows
     private int TextSize => IsEditor ? UWGuiTheme.LayoutEditorTextSize : UWGuiTheme.SetupTextSize;
 
     private Look HeadingLook => IsEditor
-        ? fLook(UWGuiTheme.LayoutEditorTitleSize, UWGuiTheme.Accent, TextAnchor.MiddleLeft)
-        : fLook(UWGuiTheme.SetupHeadingSize, UWGuiTheme.Text, TextAnchor.MiddleLeft);
+        ? fLook(UWGuiTheme.LayoutEditorTitleSize, mOPalette.Accent, TextAnchor.MiddleLeft)
+        : fLook(UWGuiTheme.SetupHeadingSize, mOPalette.Text, TextAnchor.MiddleLeft);
 
-    private Look RowLook => fLook(TextSize, UWGuiTheme.Text, TextAnchor.MiddleLeft);
+    private Look RowLook => fLook(TextSize, mOPalette.Text, TextAnchor.MiddleLeft);
 
-    private Look ValueLook => fLook(TextSize, UWGuiTheme.Text, TextAnchor.MiddleCenter);
+    private Look ValueLook => fLook(TextSize, mOPalette.Text, TextAnchor.MiddleCenter);
 
     private Look fDimLook(Color pOColour) => IsEditor
         ? fLook(UWGuiTheme.LayoutEditorHintSize, pOColour, TextAnchor.UpperLeft, 0f, true)
@@ -158,6 +157,16 @@ public sealed class UWKitRows : IUWRows
     /// <summary>The setup family's dim look whatever the window (the accent and error lines, which
     /// UWGuiRows drew in the setup styles in either look).</summary>
     private static Look fSetupDimLook(Color pOColour) => fLook(UWGuiTheme.SetupHintSize, pOColour, TextAnchor.MiddleLeft, 0f, true);
+
+    // ------------------------------------------------- The theme (cleanup phase 8d, 2026-10-25)
+
+    /// <summary>The palette this pass draws in: the theme in force, taken at each Begin (so a switch in
+    /// the Colours window shows at once), or FixedPalette.</summary>
+    private UWGuiTheme.Palette mOPalette = UWGuiTheme.Plain;
+
+    /// <summary>A palette this drawer keeps whatever theme is chosen (the debug panel's: Plain), null
+    /// for the theme in force.</summary>
+    public UWGuiTheme.Palette FixedPalette { get; set; }
 
     // ------------------------------------------------- The pieces
 
@@ -198,6 +207,12 @@ public sealed class UWKitRows : IUWRows
         public Rect Clip;
 
         public int NextSibling;
+
+        /// <summary>The scrolled area the pieces drawn now lie in (cleanup 8d.4): its layer's index
+        /// and its count in drawing order (BeginScroll), -1 for none.</summary>
+        public int ScrollLayer = -1;
+
+        public int ScrollOrdinal = -1;
     }
 
     private readonly Transform mOOwner;
@@ -274,6 +289,8 @@ public sealed class UWKitRows : IUWRows
         if (!mOCanvas.enabled)
             mOCanvas.enabled = true;
 
+        mOPalette = FixedPalette ?? UWGuiTheme.Current;
+
         float lfScale = UWGuiTheme.Scale;
 
         if (lfScale != mfScale)
@@ -302,6 +319,7 @@ public sealed class UWKitRows : IUWRows
         fReadTyping();
 
         KeyNav.Begin(pbTakesKeys && !IsTyping && !pbKeysElsewhere, pbArrowActivates);
+        fBeginReveal();
 
         miSlot = 0;
         miLayer = 0;
@@ -319,6 +337,8 @@ public sealed class UWKitRows : IUWRows
         lORoot.ToRoot = Vector2.zero;
         lORoot.Clip = new Rect(float.MinValue / 4f, float.MinValue / 4f, float.MaxValue / 2f, float.MaxValue / 2f);
         lORoot.NextSibling = 0;
+        lORoot.ScrollLayer = -1;
+        lORoot.ScrollOrdinal = -1;
     }
 
     /// <summary>Ends the frame: what it left unused hides, a press ends with the button's release,
@@ -537,7 +557,18 @@ public sealed class UWKitRows : IUWRows
             pOSlot.Fill.color = pOColour;
     }
 
+    /// <summary>The whole picture, stretched (a RawImage's own uvRect).</summary>
+    private static readonly Rect FullPicture = new Rect(0f, 0f, 1f, 1f);
+
     private static void fSetPicture(Slot pOSlot, Texture pOTexture, Color pOColour)
+    {
+        fSetPicture(pOSlot, pOTexture, pOColour, FullPicture);
+    }
+
+    /// <summary>A picture over the piece; pOUv the part of it shown, beyond 0 to 1 repeated where the
+    /// texture wraps (the carved grounds' clouds and grain, cleanup phase 8d) - set back to the whole
+    /// picture for any other, since the pool hands a piece to whatever is drawn next.</summary>
+    private static void fSetPicture(Slot pOSlot, Texture pOTexture, Color pOColour, Rect pOUv)
     {
         bool lbOn = pOTexture != null;
 
@@ -561,6 +592,9 @@ public sealed class UWKitRows : IUWRows
 
         if (pOSlot.Picture.color != pOColour)
             pOSlot.Picture.color = pOColour;
+
+        if (pOSlot.Picture.uvRect != pOUv)
+            pOSlot.Picture.uvRect = pOUv;
     }
 
     private void fSetLabel(Slot pOSlot, string psText, in Look pOLook)
@@ -636,14 +670,27 @@ public sealed class UWKitRows : IUWRows
         fSetLabel(lOSlot, psText, pOLook);
     }
 
-    /// <summary>The navigation's gold frame round a piece with the focus.</summary>
+    /// <summary>The navigation's gold frame round a piece with the focus; in a theme with a glow (Stone:
+    /// the runes' ember, cleanup phase 8d) a soft frame of it outside the gold one first.</summary>
     private void fFocusFrame(Rect pORect)
     {
         const float Frame = UWKitKeyNav.FocusFrame;
-        Color lOColour = UWKitKeyNav.FocusColour;
+        Color lOColour = mOPalette.Focus;
+        Color lOGlow = mOPalette.FocusGlow;
         bool lbEnabled = mbEnabled;
 
         mbEnabled = true;
+
+        if (lOGlow.a > 0f)
+        {
+            Rect lOOuter = new Rect(pORect.x - Frame, pORect.y - Frame, pORect.width + (2f * Frame), pORect.height + (2f * Frame));
+
+            fFill(new Rect(lOOuter.x, lOOuter.y, lOOuter.width, Frame), lOGlow);
+            fFill(new Rect(lOOuter.x, lOOuter.yMax - Frame, lOOuter.width, Frame), lOGlow);
+            fFill(new Rect(lOOuter.x, pORect.y, Frame, pORect.height), lOGlow);
+            fFill(new Rect(lOOuter.xMax - Frame, pORect.y, Frame, pORect.height), lOGlow);
+        }
+
         fFill(new Rect(pORect.x, pORect.y, pORect.width, Frame), lOColour);
         fFill(new Rect(pORect.x, pORect.yMax - Frame, pORect.width, Frame), lOColour);
         fFill(new Rect(pORect.x, pORect.y, Frame, pORect.height), lOColour);
@@ -651,13 +698,109 @@ public sealed class UWKitRows : IUWRows
         mbEnabled = lbEnabled;
     }
 
-    /// <summary>A navigation entry: true when a key pressed it (a greyed piece is counted, as in IMGUI,
-    /// but not pressed); its frame is drawn by fEntryFrame after the piece.</summary>
-    private bool fEntry(out bool pbFocused)
+    /// <summary>A navigation entry at pORect: true when a key pressed it (a greyed piece is counted, as
+    /// in IMGUI, but not pressed); its frame is drawn by fFocusFrame after the piece.</summary>
+    private bool fEntry(Rect pORect, out bool pbFocused)
     {
         bool lbPressed = KeyNav.Entry(out pbFocused);
 
+        if (pbFocused)
+            fFocusDrawn(pORect);
+
         return lbPressed && mbEnabled;
+    }
+
+    // ------------------------------------------------- The view follows the focus (cleanup 8d.4)
+
+    // THE VIEW FOLLOWS THE FOCUS (cleanup 8d.4, per user 2026-10-25): when the arrow keys put the focus
+    // on an entry (or move the slider with it) that a scrolled area holds out of view, the area scrolls
+    // by the least that shows it whole (UWKeyNavRules.RevealScroll) - the Remastered effects, the
+    // Controls lists, Motion, the resolutions and the folder list. The entry's place is known only once
+    // it is drawn, after its area's BeginScroll, so the area scrolls in the next frame's BeginScroll -
+    // the same area by its count in drawing order. An entry outside any scrolled area is offered to the
+    // host instead (FocusToReveal: the palette effects' window moves itself on the screen). The wheel and
+    // the bar scroll as before; the view follows only a change the keys made.
+
+    /// <summary>The focus the last frame was drawn with.</summary>
+    private int miSeenFocus = -1;
+
+    /// <summary>The entry with the focus is to be shown whole when it is drawn this frame.</summary>
+    private bool mbRevealFocus;
+
+    /// <summary>The scrolled areas of this frame so far, counted in drawing order.</summary>
+    private int miScrollCount;
+
+    /// <summary>The scrolled area (its count) that scrolls in the next frame to show mfRevealTop to
+    /// mfRevealBottom of its inside; -1 for none. Taken over by miApplyScroll at Begin.</summary>
+    private int miRevealScroll = -1;
+
+    private int miApplyScroll = -1;
+
+    private float mfRevealTop;
+
+    private float mfRevealBottom;
+
+    /// <summary>The focused entry drawn outside any scrolled area this frame, in the root's coordinates,
+    /// for FocusToReveal.</summary>
+    private bool mbRevealOutside;
+
+    private Rect mORevealOutside;
+
+    /// <summary>At Begin, after the keys: the request of the last frame is this frame's to apply; a
+    /// focus moved by the keys (or a slider moved) is to be shown.</summary>
+    private void fBeginReveal()
+    {
+        int liFocus = KeyNav.Focus;
+
+        miApplyScroll = miRevealScroll;
+        miRevealScroll = -1;
+        miScrollCount = 0;
+        mbRevealOutside = false;
+        mbRevealFocus = liFocus >= 0 && (liFocus != miSeenFocus || KeyNav.Slides);
+        miSeenFocus = liFocus;
+    }
+
+    /// <summary>The entry with the focus is drawn at pORect (the callers' coordinates of the current
+    /// layer): where it is to be shown, its place inside its scrolled area is kept for that area's next
+    /// BeginScroll, the focus frame's glow included - or, outside any, for FocusToReveal.</summary>
+    private void fFocusDrawn(Rect pORect)
+    {
+        if (!mbRevealFocus)
+            return;
+
+        mbRevealFocus = false;
+
+        Layer lOLayer = mOLayers[miLayer];
+        Rect lORoot = new Rect(pORect.position + lOLayer.ToRoot, pORect.size);
+
+        if (lOLayer.ScrollLayer < 0)
+        {
+            mbRevealOutside = true;
+            mORevealOutside = lORoot;
+
+            return;
+        }
+
+        // The inside's coordinates of the area: the root's less where the inside's corner lies.
+        float lfInside = mOLayers[lOLayer.ScrollLayer].ToRoot.y;
+
+        miRevealScroll = lOLayer.ScrollOrdinal;
+        mfRevealTop = lORoot.yMin - lfInside - UWKitKeyNav.FocusFrame;
+        mfRevealBottom = lORoot.yMax - lfInside + UWKitKeyNav.FocusFrame;
+    }
+
+    /// <summary>The entry the keys put the focus on this frame was drawn outside any scrolled area, at
+    /// pORect (layout units from the screen's top-left corner): true once, then taken. A host whose
+    /// window can stand partly off the screen moves it so the entry shows (the palette effects').</summary>
+    public bool FocusToReveal(out Rect pORect)
+    {
+        pORect = mORevealOutside;
+
+        bool lbReveal = mbRevealOutside;
+
+        mbRevealOutside = false;
+
+        return lbReveal;
     }
 
     /// <summary>Starts a clip: what is drawn until fEndClip lies inside pOView and is cut at its
@@ -687,6 +830,9 @@ public sealed class UWKitRows : IUWRows
         lOInner.ToRoot = lOViewRoot.position - pOOrigin - pOScroll;
         lOInner.Clip = fIntersect(lOOuter.Clip, lOViewRoot);
         lOInner.NextSibling = 0;
+        // Inside a scrolled area still (a clip of its own does not scroll); BeginScroll sets its own.
+        lOInner.ScrollLayer = lOOuter.ScrollLayer;
+        lOInner.ScrollOrdinal = lOOuter.ScrollOrdinal;
     }
 
     private void fEndClip()
@@ -822,9 +968,86 @@ public sealed class UWKitRows : IUWRows
         return lODialog;
     }
 
+    /// <summary>A dialog's ground (Ground: in Plain the panel's colour, as always).</summary>
     public void Frame(Rect pORect)
     {
-        fFill(pORect, UWGuiTheme.Panel);
+        Ground(pORect, UWWindowGroundEnum.Dialog);
+    }
+
+    // ------------------------------------------------- The grounds (cleanup phase 8d, 2026-10-25)
+
+    /// <summary>
+    /// A WINDOW'S GROUND in the theme of this pass (cleanup phase 8d, 2026-10-25). A flat theme fills
+    /// it in the ground's colour - in Plain the one fill each window always drew, nothing more. A
+    /// carved theme (Stone) lays the stone there: the gradient stretched over the window, or the
+    /// clouds repeated at one texel per layout unit (anchored at its top-left corner, so they move with
+    /// the window and stand still while it grows downward) with their light stretched over them; the
+    /// grain over either at one texel per screen pixel; all at the ground colour's opacity (the help
+    /// and the game menu stay a little see-through); then the edges, lit on the top and left and in
+    /// shadow on the bottom and right - not round the first-run screen, which is the whole screen.
+    /// </summary>
+    public void Ground(Rect pORect, UWWindowGroundEnum peGround)
+    {
+        Color lOColour = mOPalette.GroundColour(peGround);
+
+        if (!mOPalette.IsCarved)
+        {
+            fFill(pORect, lOColour);
+            return;
+        }
+
+        UWGuiTheme.GroundPictures lOPictures = UWGuiTheme.PicturesOf(mOPalette);
+        Color lOTint = new Color(1f, 1f, 1f, lOColour.a);
+
+        if (UWGuiTheme.Ground == UWWindowBackgroundEnum.Clouds)
+        {
+            float lfTile = UWThemeGround.CloudTileUnits;
+            float lfAcross = pORect.width / lfTile;
+            float lfDown = pORect.height / lfTile;
+
+            fPicture(pORect, lOPictures.Clouds, lOTint, new Rect(0f, -lfDown, lfAcross, lfDown));
+            fPicture(pORect, lOPictures.Light, lOTint, FullPicture);
+        }
+        else
+            fPicture(pORect, lOPictures.Gradient, lOTint, FullPicture);
+
+        float lfGrain = UWThemeGround.GrainSize / mfScale;
+
+        fPicture(pORect, lOPictures.Grain, lOTint, new Rect(0f, 0f, pORect.width / lfGrain, pORect.height / lfGrain));
+
+        if (peGround != UWWindowGroundEnum.Screen)
+            fEdges(pORect, mOPalette.Theme.EdgeWidth, false);
+    }
+
+    /// <summary>A picture over the rectangle, the part pOUv of it (greyed with the row).</summary>
+    private void fPicture(Rect pORect, Texture pOTexture, Color pOColour, Rect pOUv)
+    {
+        Slot lOSlot = fSlot(pORect);
+
+        fSetFill(lOSlot, false, Color.clear);
+        fSetPicture(lOSlot, pOTexture, fTint(pOColour), pOUv);
+        fSetLabel(lOSlot, null, default);
+    }
+
+    /// <summary>A carved theme's edges round the rectangle, pfWidth wide: the light edge on the top and
+    /// left, the shadow on the bottom and right - the other way round when pbSunk (a held button).</summary>
+    private void fEdges(Rect pORect, float pfWidth, bool pbSunk)
+    {
+        Color lOLight = pbSunk ? mOPalette.EdgeShadow : mOPalette.EdgeLight;
+        Color lOShadow = pbSunk ? mOPalette.EdgeLight : mOPalette.EdgeShadow;
+        float lfEdge = Mathf.Min(pfWidth, Mathf.Min(pORect.width, pORect.height) / 2f);
+
+        fFill(new Rect(pORect.x, pORect.y, pORect.width, lfEdge), lOLight);
+        fFill(new Rect(pORect.x, pORect.y + lfEdge, lfEdge, pORect.height - lfEdge), lOLight);
+        fFill(new Rect(pORect.x + lfEdge, pORect.yMax - lfEdge, pORect.width - lfEdge, lfEdge), lOShadow);
+        fFill(new Rect(pORect.xMax - lfEdge, pORect.y + lfEdge, lfEdge, pORect.height - (2f * lfEdge)), lOShadow);
+    }
+
+    /// <summary>The first-run screen's ground: the whole screen in the theme's ground (Plain: the
+    /// darkest ground's colour, as the backdrop always was).</summary>
+    public void ScreenGround(Rect pORect)
+    {
+        Ground(pORect, UWWindowGroundEnum.Screen);
     }
 
     /// <summary>A dialog's title; in the layout editor's look its title row: the accent colour on the
@@ -833,8 +1056,8 @@ public sealed class UWKitRows : IUWRows
     {
         if (IsEditor)
         {
-            fText(pORect, psText, fLook(UWGuiTheme.LayoutEditorTitleSize, UWGuiTheme.Accent, TextAnchor.MiddleLeft, UWModernLayoutEditor.WindowPad),
-                true, UWGuiTheme.Bar);
+            fText(pORect, psText, fLook(UWGuiTheme.LayoutEditorTitleSize, mOPalette.Accent, TextAnchor.MiddleLeft, UWModernLayoutEditor.WindowPad),
+                true, mOPalette.Bar);
             return;
         }
 
@@ -853,7 +1076,7 @@ public sealed class UWKitRows : IUWRows
 
     public float Hint(float pfLeft, float pfTop, float pfWidth, string psText)
     {
-        Look lOLook = fDimLook(UWGuiTheme.DimText);
+        Look lOLook = fDimLook(mOPalette.DimText);
         float lfHeight = fTextHeight(psText, lOLook.Size, pfWidth);
 
         fText(new Rect(pfLeft, pfTop, pfWidth, lfHeight), psText, lOLook);
@@ -861,9 +1084,18 @@ public sealed class UWKitRows : IUWRows
         return lfHeight;
     }
 
+    /// <summary>A thin line between groups; in a carved theme a groove (cleanup phase 8d): the shadow in
+    /// the line, the separator's light edge just below it.</summary>
     public void Separator(Rect pORect)
     {
-        fFill(pORect, UWGuiTheme.Separator);
+        if (!mOPalette.IsCarved)
+        {
+            fFill(pORect, mOPalette.Separator);
+            return;
+        }
+
+        fFill(pORect, mOPalette.EdgeShadow);
+        fFill(new Rect(pORect.x, pORect.yMax, pORect.width, pORect.height), mOPalette.Separator);
     }
 
     public void Picture(Rect pORect, Texture pOTexture)
@@ -878,13 +1110,22 @@ public sealed class UWKitRows : IUWRows
     /// <summary>
     /// A scrolled area as IMGUI's scroll view: the wheel over it and the bar on its right (there while
     /// the inside is taller) move it; what is drawn until EndScroll is in pOContent's coordinates and
-    /// cut at the view's edges. Returns the new scroll position.
+    /// cut at the view's edges. Returns the new scroll position. Since cleanup 8d.4 it also scrolls to
+    /// show the entry the arrow keys put the focus on in it in the last frame (fFocusDrawn).
     /// </summary>
     public Vector2 BeginScroll(Rect pOView, Vector2 pOScroll, Rect pOContent)
     {
         float lfRoom = Mathf.Max(0f, pOContent.height - pOView.height);
         Vector2 lOScroll = new Vector2(0f, Mathf.Clamp(pOScroll.y, 0f, lfRoom));
         Layer lOLayer = mOLayers[miLayer];
+        int liOrdinal = miScrollCount++;
+
+        if (liOrdinal == miApplyScroll)
+        {
+            miApplyScroll = -1;
+            lOScroll.y = UWKeyNavRules.RevealScroll(lOScroll.y, pOView.height, mfRevealTop, mfRevealBottom, lfRoom);
+        }
+
         bool lbOverView = PointerOn && lOLayer.Clip.Contains(mOPointer)
             && new Rect(pOView.position + lOLayer.ToRoot, pOView.size).Contains(mOPointer);
 
@@ -912,11 +1153,16 @@ public sealed class UWKitRows : IUWRows
                 lOThumb.y = lOTrack.y + (lOScroll.y / lfRoom * lfTravel);
             }
 
-            fFill(lOTrack, UWGuiTheme.Background);
-            fFill(lOThumb, lbHolding || fHover(liId, lbOver) ? UWGuiTheme.ButtonHover : UWGuiTheme.Separator);
+            fFill(lOTrack, mOPalette.Background);
+            fFill(lOThumb, lbHolding || fHover(liId, lbOver) ? mOPalette.ButtonHover : mOPalette.Separator);
         }
 
         fBeginClip(pOView, Vector2.zero, lOScroll);
+
+        Layer lOInside = mOLayers[miLayer];
+
+        lOInside.ScrollLayer = miLayer;
+        lOInside.ScrollOrdinal = liOrdinal;
 
         return lOScroll;
     }
@@ -980,9 +1226,9 @@ public sealed class UWKitRows : IUWRows
         switch (peLook)
         {
             case UWRowInfoEnum.Heading: return HeadingLook;
-            case UWRowInfoEnum.Dim: return fDimLook(UWGuiTheme.DimText);
-            case UWRowInfoEnum.Accent: return fSetupDimLook(UWGuiTheme.Accent);
-            case UWRowInfoEnum.Error: return fSetupDimLook(UWGuiTheme.Error);
+            case UWRowInfoEnum.Dim: return fDimLook(mOPalette.DimText);
+            case UWRowInfoEnum.Accent: return fSetupDimLook(mOPalette.Accent);
+            case UWRowInfoEnum.Error: return fSetupDimLook(mOPalette.Error);
             default: return RowLook;
         }
     }
@@ -993,18 +1239,22 @@ public sealed class UWKitRows : IUWRows
     /// while held (UWGuiTheme's faced button).</summary>
     public bool Action(Rect pORect, string psText)
     {
-        return fFaced(pORect, psText, UWGuiTheme.Text);
+        return fFaced(pORect, psText, mOPalette.Text);
     }
 
     private bool fFaced(Rect pORect, string psText, Color pOText)
     {
         int liId = fControl(pORect, out bool lbOver, out bool lbClicked, out bool lbHolding);
-        bool lbKey = fEntry(out bool lbFocused);
+        bool lbKey = fEntry(pORect, out bool lbFocused);
         bool lbPressing = lbHolding && lbOver;
-        Color lOGround = lbPressing ? UWGuiTheme.Accent : (fHover(liId, lbOver) ? UWGuiTheme.ButtonHover : UWGuiTheme.Hover);
-        Look lOLook = fLook(TextSize, lbPressing ? UWGuiTheme.Background : pOText, TextAnchor.MiddleCenter);
+        Color lOGround = lbPressing ? mOPalette.Accent : (fHover(liId, lbOver) ? mOPalette.ButtonHover : mOPalette.Hover);
+        Look lOLook = fLook(TextSize, lbPressing ? mOPalette.Background : pOText, TextAnchor.MiddleCenter);
 
         fText(pORect, psText, lOLook, true, lOGround);
+
+        // A carved theme's face is cut from the stone: lit on the top and left, sunk while held.
+        if (mOPalette.IsCarved)
+            fEdges(pORect, 1f, lbPressing);
 
         if (lbFocused)
             fFocusFrame(pORect);
@@ -1015,16 +1265,16 @@ public sealed class UWKitRows : IUWRows
     /// <summary>A list row: lit under the pointer, its text in the accent colour when current.</summary>
     public bool Item(Rect pORect, string psText, bool pbCurrent = false)
     {
-        return fListRow(pORect, psText, pbCurrent ? UWGuiTheme.Accent : UWGuiTheme.Text, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
+        return fListRow(pORect, psText, pbCurrent ? mOPalette.Accent : mOPalette.Text, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
     }
 
     private bool fListRow(Rect pORect, string psText, Color pOText, TextAnchor peAnchor, float pfPadding)
     {
         int liId = fControl(pORect, out bool lbOver, out bool lbClicked, out bool _);
-        bool lbKey = fEntry(out bool lbFocused);
+        bool lbKey = fEntry(pORect, out bool lbFocused);
         bool lbHover = fHover(liId, lbOver);
 
-        fText(pORect, psText, fLook(TextSize, pOText, peAnchor, pfPadding), lbHover, UWGuiTheme.Hover);
+        fText(pORect, psText, fLook(TextSize, pOText, peAnchor, pfPadding), lbHover, mOPalette.Hover);
 
         if (lbFocused)
             fFocusFrame(pORect);
@@ -1037,20 +1287,20 @@ public sealed class UWKitRows : IUWRows
     public bool Toggle(Rect pORect, bool pbValue, string psText)
     {
         int liId = fControl(pORect, out bool lbOver, out bool lbClicked, out bool _);
-        bool lbKey = fEntry(out bool lbFocused);
+        bool lbKey = fEntry(pORect, out bool lbFocused);
         bool lbHover = fHover(liId, lbOver);
         float lfBoxTop = pORect.y + ((pORect.height - ToggleBox) / 2f);
         Rect lOBox = new Rect(pORect.x, lfBoxTop, ToggleBox, ToggleBox);
 
-        fFill(lOBox, lbHover ? UWGuiTheme.ButtonHover : UWGuiTheme.Separator);
-        fFill(new Rect(lOBox.x + 1f, lOBox.y + 1f, ToggleBox - 2f, ToggleBox - 2f), UWGuiTheme.Background);
+        fFill(lOBox, lbHover ? mOPalette.ButtonHover : mOPalette.Separator);
+        fFill(new Rect(lOBox.x + 1f, lOBox.y + 1f, ToggleBox - 2f, ToggleBox - 2f), mOPalette.Background);
 
         if (pbValue)
         {
             Slot lOCheck = fSlot(new Rect(lOBox.x + 1f, lOBox.y + 1f, ToggleBox - 2f, ToggleBox - 2f));
 
             fSetFill(lOCheck, false, Color.clear);
-            fSetPicture(lOCheck, CheckTexture, fTint(UWGuiTheme.Text));
+            fSetPicture(lOCheck, CheckTexture, fTint(mOPalette.Text));
             fSetLabel(lOCheck, null, default);
         }
 
@@ -1066,9 +1316,13 @@ public sealed class UWKitRows : IUWRows
     /// Choices side by side over pOArea as UWGuiRows.Choices - the current one in the accent colour,
     /// the others as list rows or buttons with a face, bit n of piEnabled off greys choice n - but
     /// SIZED BY THEIR TEXT (UWRowSizing.SegmentWidths): the even shares while every text fits its
-    /// share, else each choice its text and padding and the spare shared out.
+    /// share, else each choice its text and padding and the spare shared out. Bit n of piTextOnly draws
+    /// choice n as a plain text in its share (cleanup 8d.3, 2026-10-25: the Graphics window's Custom,
+    /// per user): the accent colour while current, the dim text's otherwise; it takes no press and is
+    /// no entry of the arrow keys.
     /// </summary>
-    public int Choices(Rect pOArea, string[] psChoices, int piCurrent, float pfGap = 0f, bool pbFaced = false, int piEnabled = -1)
+    public int Choices(Rect pOArea, string[] psChoices, int piCurrent, float pfGap = 0f, bool pbFaced = false, int piEnabled = -1,
+        int piTextOnly = 0)
     {
         int liCount = psChoices.Length;
         float[] laTexts = new float[liCount];
@@ -1089,11 +1343,21 @@ public sealed class UWKitRows : IUWRows
                 mbEnabled = lbEnabled && (piEnabled & (1 << liAt)) != 0;
 
             Rect lORect = new Rect(lfX, pOArea.y, laWidths[liAt] - pfGap, pOArea.height);
+
+            if ((piTextOnly & (1 << liAt)) != 0)
+            {
+                fText(lORect, psChoices[liAt], fLook(TextSize, liAt == piCurrent ? mOPalette.Accent : mOPalette.DimText, TextAnchor.MiddleLeft,
+                    UWGuiTheme.SetupListPadding));
+                mbEnabled = lbEnabled;
+                lfX += laWidths[liAt];
+                continue;
+            }
+
             bool lbPressed = liAt == piCurrent
-                ? fListRow(lORect, psChoices[liAt], UWGuiTheme.Accent, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding)
+                ? fListRow(lORect, psChoices[liAt], mOPalette.Accent, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding)
                 : pbFaced
-                    ? fFaced(lORect, psChoices[liAt], UWGuiTheme.Text)
-                    : fListRow(lORect, psChoices[liAt], UWGuiTheme.Text, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
+                    ? fFaced(lORect, psChoices[liAt], mOPalette.Text)
+                    : fListRow(lORect, psChoices[liAt], mOPalette.Text, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
 
             if (lbPressed)
                 liPressed = liAt;
@@ -1105,15 +1369,18 @@ public sealed class UWKitRows : IUWRows
         return liPressed;
     }
 
-    public int ChoiceRow(Rect pORow, in UWChoiceColumns pOColumns, string psLabel, string[] psChoices, int piCurrent)
+    public int ChoiceRow(Rect pORow, in UWChoiceColumns pOColumns, string psLabel, string[] psChoices, int piCurrent, int piTextOnly = 0)
     {
         fText(new Rect(pORow.x + pOColumns.LabelLeft, pORow.y, pOColumns.LabelWidth, pORow.height), psLabel, RowLook);
 
         return Choices(new Rect(pORow.x + pOColumns.ChoicesLeft, pORow.y, pORow.width - pOColumns.ChoicesLess, pORow.height),
-            psChoices, piCurrent);
+            psChoices, piCurrent, 0f, false, -1, piTextOnly);
     }
 
-    /// <summary>A slider row as UWGuiRows.Slider, the same columns, snapping, arrows, clamp and value.</summary>
+    /// <summary>A slider row as UWGuiRows.Slider, the same columns, snapping, arrows, clamp and value.
+    /// The slider is an entry of the arrow keys (cleanup 8d.4): with the focus on it Left and Right move
+    /// the value by the row's step (UWKeyNavRules.SliderKeyValue), returned as a drag or the arrows
+    /// return theirs, so the caller writes it, saves it and runs its OnChange the same way.</summary>
     public float Slider(Rect pORow, in UWSliderColumns pOColumns, string psLabel, float pfValue, float pfMin, float pfMax,
         float pfStep, bool pbClamp, Func<float, string> pFFormat)
     {
@@ -1121,7 +1388,7 @@ public sealed class UWKitRows : IUWRows
             fText(new Rect(pORow.x + pOColumns.LabelLeft, pORow.y, pOColumns.LabelWidth, pORow.height), psLabel, RowLook);
 
         float lfResult = fSliderBar(new Rect(pORow.x + pOColumns.SliderLeft, pORow.y + SliderDrop, pORow.width - pOColumns.SliderLess, SliderHeight),
-            pfValue, pfMin, pfMax);
+            pfValue, pfMin, pfMax, pORow, out int liSlide);
 
         if (pfStep > 0f)
             lfResult = Mathf.Round(lfResult / pfStep) * pfStep;
@@ -1140,6 +1407,11 @@ public sealed class UWKitRows : IUWRows
                 lfResult = liStep < 0 ? pfValue - pfStep : pfValue + pfStep;
         }
 
+        // Left or Right on the focused slider: one step from the value it had, on the step's grid,
+        // within its ends (a greyed slider takes no key).
+        if (liSlide != 0 && mbEnabled)
+            lfResult = UWKeyNavRules.SliderKeyValue(pfValue, liSlide, pfStep, pfMin, pfMax);
+
         if (pbClamp)
             lfResult = Mathf.Clamp(lfResult, pfMin, pfMax);
 
@@ -1149,10 +1421,18 @@ public sealed class UWKitRows : IUWRows
     }
 
     /// <summary>The slider itself: the groove and the thumb; held, the thumb follows the pointer
-    /// (a press on the groove takes the thumb there, as IMGUI's). Returns the value it stands at.</summary>
-    private float fSliderBar(Rect pORect, float pfValue, float pfMin, float pfMax)
+    /// (a press on the groove takes the thumb there, as IMGUI's). Returns the value it stands at;
+    /// piSlide: -1 or 1 when Left or Right moves it this frame (an entry of the arrow keys since
+    /// cleanup 8d.4, framed while it has the focus; pORow is what a scrolled area shows of it).</summary>
+    private float fSliderBar(Rect pORect, float pfValue, float pfMin, float pfMax, Rect pORow, out int piSlide)
     {
         int liId = fControl(pORect, out bool lbOver, out bool _, out bool lbHolding);
+
+        piSlide = KeyNav.SliderEntry(out bool lbFocused);
+
+        if (lbFocused)
+            fFocusDrawn(pORow);
+
         float lfRange = pfMax - pfMin;
         float lfTravel = Mathf.Max(1f, pORect.width - ThumbWidth);
         float lfValue = pfValue;
@@ -1167,9 +1447,12 @@ public sealed class UWKitRows : IUWRows
         float lfShown = Mathf.Abs(lfRange) > 0f ? Mathf.Clamp01((lfValue - pfMin) / lfRange) : 0f;
         float lfCentre = pORect.y + GrooveCentre;
 
-        fFill(new Rect(pORect.x, lfCentre - (GrooveHeight / 2f), pORect.width, GrooveHeight), UWGuiTheme.Separator);
+        fFill(new Rect(pORect.x, lfCentre - (GrooveHeight / 2f), pORect.width, GrooveHeight), mOPalette.Separator);
         fFill(new Rect(pORect.x + (lfShown * lfTravel), lfCentre - (ThumbHeight / 2f), ThumbWidth, ThumbHeight),
-            lbHolding || fHover(liId, lbOver) ? UWGuiTheme.Text : ThumbColour);
+            lbHolding || fHover(liId, lbOver) ? mOPalette.Text : mOPalette.Thumb);
+
+        if (lbFocused)
+            fFocusFrame(pORect);
 
         return lfValue;
     }
@@ -1229,10 +1512,10 @@ public sealed class UWKitRows : IUWRows
     private bool fSegment(Rect pORect, string psText, bool pbOn)
     {
         if (!pbOn)
-            return fFaced(pORect, psText, UWGuiTheme.Text);
+            return fFaced(pORect, psText, mOPalette.Text);
 
         fControl(pORect, out bool _, out bool lbClicked, out bool _);
-        fText(pORect, psText, fLook(TextSize, UWGuiTheme.Background, TextAnchor.MiddleCenter), true, UWGuiTheme.Accent);
+        fText(pORect, psText, fLook(TextSize, mOPalette.Background, TextAnchor.MiddleCenter), true, mOPalette.Accent);
 
         return lbClicked;
     }
@@ -1316,7 +1599,7 @@ public sealed class UWKitRows : IUWRows
             float lfFrame = lbChosen ? 2f : 1f;
             Slot lOFrame = fSlot(lOCell);
 
-            fSetFill(lOFrame, true, (lbChosen && pbEnabled ? UWGuiTheme.Accent : UWGuiTheme.Separator) * lOShade);
+            fSetFill(lOFrame, true, (lbChosen && pbEnabled ? mOPalette.Accent : mOPalette.Separator) * lOShade);
             fSetPicture(lOFrame, null, Color.white);
             fSetLabel(lOFrame, null, default);
 
@@ -1353,28 +1636,29 @@ public sealed class UWKitRows : IUWRows
 
     // ------------------------------------------------- IUWRows: the bar and the first-run screen
 
+    /// <summary>The setup bar's ground (Ground: in Plain the bar's colour, as always).</summary>
     public void Bar(Rect pORect)
     {
-        fFill(pORect, UWGuiTheme.Bar);
+        Ground(pORect, UWWindowGroundEnum.Bar);
     }
 
     /// <summary>An item of the bar, lit while its window is open and under the pointer.</summary>
     public bool BarItem(Rect pORect, string psText, bool pbOpen)
     {
         if (pbOpen)
-            fFill(pORect, UWGuiTheme.Hover);
+            fFill(pORect, mOPalette.Hover);
 
-        return fListRow(pORect, psText, UWGuiTheme.Text, TextAnchor.MiddleCenter, 0f);
+        return fListRow(pORect, psText, mOPalette.Text, TextAnchor.MiddleCenter, 0f);
     }
 
     public void Backdrop(Rect pORect)
     {
-        fFill(pORect, UWGuiTheme.Background);
+        fFill(pORect, mOPalette.Background);
     }
 
     public void BigTitle(Rect pORect, string psText)
     {
-        fText(pORect, psText, fLook(UWGuiTheme.SetupBigTitleSize, UWGuiTheme.Accent, TextAnchor.MiddleCenter));
+        fText(pORect, psText, fLook(UWGuiTheme.SetupBigTitleSize, mOPalette.Accent, TextAnchor.MiddleCenter));
     }
 
     // ------------------------------------------------- IUWRows: typing
@@ -1521,7 +1805,7 @@ public sealed class UWKitRows : IUWRows
         float lfTextWidth = fTextWidth(lsText, TextSize);
         float lfScroll = lbFocused ? Mathf.Max(0f, lfCaretX + 2f - lfInner) : 0f;
 
-        fFill(pORect, UWGuiTheme.Background);
+        fFill(pORect, mOPalette.Background);
         Rect lOView = new Rect(pORect.x + lfPadding, pORect.y, lfInner, pORect.height);
 
         fBeginClip(lOView, lOView.position, new Vector2(lfScroll, 0f));
@@ -1530,7 +1814,7 @@ public sealed class UWKitRows : IUWRows
         bool lbBlinkOn = ((Time.unscaledTime - mfFocusedAt) % (2f * UWMessageLogModel.CursorBlinkSeconds)) < UWMessageLogModel.CursorBlinkSeconds;
 
         if (lbFocused && lbBlinkOn)
-            fFill(new Rect(pORect.x + lfPadding + lfCaretX, pORect.y + 4f, 1.5f, pORect.height - 8f), UWGuiTheme.Text);
+            fFill(new Rect(pORect.x + lfPadding + lfCaretX, pORect.y + 4f, 1.5f, pORect.height - 8f), mOPalette.Text);
 
         fEndClip();
 
@@ -1872,7 +2156,7 @@ public sealed class UWKitRows : IUWRows
         Color pOHoverText)
     {
         int liId = fControl(pORect, out bool lbOver, out bool lbClicked, out bool lbHolding);
-        bool lbKey = fEntry(out bool lbFocused);
+        bool lbKey = fEntry(pORect, out bool lbFocused);
         bool lbLit = fHover(liId, lbOver) || (lbHolding && lbOver);
         HelpLook lOLook = pOLook;
         Slot lOSlot = fSlot(pORect);
@@ -1900,6 +2184,10 @@ public sealed class UWKitRows : IUWRows
             lOLook.Anchor = TextAnchor.MiddleLeft;
             HelpText(new Rect(lfLeft + lfPictureWidth, pORect.y, lfTextWidth + 2f, pORect.height), psText, lOLook);
         }
+
+        // A carved theme's button is cut from the stone, as the setup windows' (fFaced).
+        if (mOPalette.IsCarved)
+            fEdges(pORect, 1f, lbHolding && lbOver);
 
         if (lbFocused)
             fFocusFrame(pORect);
@@ -2291,7 +2579,7 @@ public sealed class UWKitRows : IUWRows
                 mOArea.MoveTo(liLast);
         }
 
-        fFill(pOView, UWGuiTheme.Background);
+        fFill(pOView, mOPalette.Background);
 
         // The cursor's line in the content, to keep it in view after it moved.
         if (lbFocused && mbAreaCaretMoved)
@@ -2366,7 +2654,7 @@ public sealed class UWKitRows : IUWRows
         if (lbFocused && lbBlinkOn)
         {
             fAreaLineBox(fAreaLineOf(mOArea.Caret), out float lfTop, out float lfHeight);
-            fFill(new Rect(pfPadding + fAreaX(mOArea.Caret), pfPadding + lfTop, 1.5f, lfHeight), UWGuiTheme.Text);
+            fFill(new Rect(pfPadding + fAreaX(mOArea.Caret), pfPadding + lfTop, 1.5f, lfHeight), mOPalette.Text);
         }
 
         EndScroll();
