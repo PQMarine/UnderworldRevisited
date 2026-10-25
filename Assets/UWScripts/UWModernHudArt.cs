@@ -99,7 +99,7 @@ public static class UWModernHudArt
 
     public static Texture2D BuildShelf(UWTextures pOTextures, FilterMode peFilter, out ShelfLayout pOLayout, bool pbGemApart = false)
     {
-        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWHudArt.ShelfLayout lOLayout, pbGemApart);
+        UWPicture lOShelf = UWHudArt.BuildShelf(pOTextures, out UWShelfBuilder.ShelfLayout lOLayout, pbGemApart);
 
         pOLayout = new ShelfLayout
         {
@@ -121,7 +121,7 @@ public static class UWModernHudArt
 
     /// <summary>The classic frame widened by piExtra columns (UWHudArt.BuildClassicWideFrame), and
     /// what was built (its picture and cuts) for the parts laid on it.</summary>
-    public static Texture2D BuildClassicWideFrame(UWTextures pOTextures, int piExtra, FilterMode peFilter, out UWHudArt.ClassicWideFrame pOFrame)
+    public static Texture2D BuildClassicWideFrame(UWTextures pOTextures, int piExtra, FilterMode peFilter, out UWClassicWideBuilder.ClassicWideFrame pOFrame)
     {
         pOFrame = UWHudArt.BuildClassicWideFrame(pOTextures, piExtra);
 

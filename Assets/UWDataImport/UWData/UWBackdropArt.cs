@@ -12,7 +12,7 @@ namespace UWDataImport.UWData
 	///
 	///   - The COLOURS are shade ramps of the game's own colours, darkest first, so the back stays
 	///     pixel art in the original's palette: leather the cloud leather's shades (INV.GR 6,
-	///     UWHudArt.fCloudColours), marble the frame's blue-grey slate beside the classic compass
+	///     UWLeatherBuilder.CloudColours), marble the frame's blue-grey slate beside the classic compass
 	///     (MAIN.BYT 82/135, 22 x 22, without the rust's warm colours), stone the plain grey of the
 	///     classic compass's pedestal (MAIN.BYT 104/136, 68 x 18, its top without the light rim:
 	///     more even than the shelves, per user), bronze the character panel's copper (MAIN.BYT
@@ -30,7 +30,7 @@ namespace UWDataImport.UWData
 	///     the top and the left, the second darkest at the bottom and the right - so the back sits in
 	///     the interface instead of on it.
 	///
-	/// Every value comes from the pixel's coordinates (UWHudArt.fHash), so a back that grows shows
+	/// Every value comes from the pixel's coordinates (UWNoise.Hash), so a back that grows shows
 	/// more of the same pattern; piVariant picks another part of it. First used for the compass
 	/// (UWModernCompass); meant for every part later, per user.
 	/// </summary>
@@ -79,10 +79,6 @@ namespace UWDataImport.UWData
 		/// <summary>How many shades a ramp keeps at most.</summary>
 		private const int RampShades = 6;
 
-		private static readonly float[] mfCloudCells = { 24f, 10f, 4f };
-
-		private static readonly float[] mfCloudWeights = { 0.55f, 0.3f, 0.15f };
-
 		/// <summary>A back of the given size; transparent outside the shape, empty for None.</summary>
 		public static UWPicture Build(UWTextures pOTextures, int piWidth, int piHeight, ShapeEnum peShape, ColourEnum peColour,
 			PatternEnum pePattern, bool pbBorder, int piVariant = 0)
@@ -97,9 +93,9 @@ namespace UWDataImport.UWData
 			if (lORamp.Count == 0)
 				return lOOut;
 
-			bool[] lbShape = fShape(peShape, piWidth, piHeight);
-			bool[] lbInner = fErode(lbShape, piWidth, piHeight);
-			bool[] lbCore = fErode(lbInner, piWidth, piHeight);
+			UWMask lOShape = fShape(peShape, piWidth, piHeight);
+			UWMask lOInner = lOShape.Eroded();
+			UWMask lOCore = lOInner.Eroded();
 			int liOffsetX = piVariant * 977;
 			int liOffsetY = piVariant * 613;
 			PatternTexture lOTexture = fPatternTexture(pOTextures, pePattern);
@@ -110,16 +106,16 @@ namespace UWDataImport.UWData
 				{
 					int liAt = (y * piWidth) + x;
 
-					if (!lbShape[liAt])
+					if (!lOShape.Bits[liAt])
 						continue;
 
-					if (pbBorder && !lbInner[liAt])
+					if (pbBorder && !lOInner.Bits[liAt])
 					{
 						lOOut.Set(x, y, lORamp[0]);
 						continue;
 					}
 
-					if (pbBorder && !lbCore[liAt])
+					if (pbBorder && !lOCore.Bits[liAt])
 					{
 						// The bevel: light from the top left, shade to the bottom right.
 						bool lbLit = (x * piHeight) + (y * piWidth) < piWidth * piHeight;
@@ -173,19 +169,17 @@ namespace UWDataImport.UWData
 				{
 					case ColourEnum.Leather:
 					{
-						UWPicture lOPanel = UWPicture.From(pOTextures.GetTextureByType(UWTexture.TextureTypes.INV, UWHudArt.LeatherImage));
-						UWPicture lOSource = lOPanel.Crop(new UWRectInt(0, 0, lOPanel.Width - UWHudArt.LeatherTransparentRight, lOPanel.Height));
-
-						return UWHudArt.fCloudColours(lOSource);
+						return UWLeatherBuilder.CloudColours(UWLeatherBuilder.Source(pOTextures));
 					}
 
 					case ColourEnum.Marble:
 					{
-						UWPicture lOMain = UWHudArt.fMain(pOTextures);
+						UWPicture lOMain = UWMainFrame.Picture(pOTextures);
+						UWRectInt lOSource = UWMainFrame.MarbleSource;
 
-						for (int y = 135; y < 157; y++)
+						for (int y = lOSource.Y; y < lOSource.Y + lOSource.Height; y++)
 						{
-							for (int x = 82; x < 104; x++)
+							for (int x = lOSource.X; x < lOSource.X + lOSource.Width; x++)
 							{
 								UWColor32 lOColour = lOMain.Get(x, y);
 
@@ -200,11 +194,12 @@ namespace UWDataImport.UWData
 
 					case ColourEnum.Stone:
 					{
-						UWPicture lOMain = UWHudArt.fMain(pOTextures);
+						UWPicture lOMain = UWMainFrame.Picture(pOTextures);
+						UWRectInt lOSource = UWMainFrame.StoneSource;
 
-						for (int y = 136; y < 154; y++)
+						for (int y = lOSource.Y; y < lOSource.Y + lOSource.Height; y++)
 						{
-							for (int x = 104; x < 172; x++)
+							for (int x = lOSource.X; x < lOSource.X + lOSource.Width; x++)
 							{
 								UWColor32 lOColour = lOMain.Get(x, y);
 
@@ -221,11 +216,12 @@ namespace UWDataImport.UWData
 
 					case ColourEnum.Bronze:
 					{
-						UWPicture lOMain = UWHudArt.fMain(pOTextures);
+						UWPicture lOMain = UWMainFrame.Picture(pOTextures);
+						UWRectInt lOSource = UWMainFrame.BronzeSource;
 
-						for (int y = 12; y < 112; y++)
+						for (int y = lOSource.Y; y < lOSource.Y + lOSource.Height; y++)
 						{
-							for (int x = 240; x < 314; x++)
+							for (int x = lOSource.X; x < lOSource.X + lOSource.Width; x++)
 							{
 								UWColor32 lOColour = lOMain.Get(x, y);
 
@@ -255,11 +251,11 @@ namespace UWDataImport.UWData
 
 			foreach (UWColor32 lOColour in pOColours)
 			{
-				if (!lODistinct.Exists(lOOther => UWHudArt.fSame(lOOther, lOColour)))
+				if (!lODistinct.Exists(lOOther => UWPixelRules.Same(lOOther, lOColour)))
 					lODistinct.Add(lOColour);
 			}
 
-			lODistinct.Sort((lOA, lOB) => UWHudArt.fLuma(lOA).CompareTo(UWHudArt.fLuma(lOB)));
+			lODistinct.Sort((lOA, lOB) => UWPixelRules.Luma(lOA).CompareTo(UWPixelRules.Luma(lOB)));
 
 			if (lODistinct.Count <= RampShades)
 				return lODistinct;
@@ -272,20 +268,10 @@ namespace UWDataImport.UWData
 			return lORamp;
 		}
 
-		private static float fClouds(int piX, int piY, int piLayer)
-		{
-			float lfValue = 0f;
-
-			for (int liOctave = 0; liOctave < mfCloudCells.Length; liOctave++)
-				lfValue += mfCloudWeights[liOctave] * UWHudArt.fSmoothNoise(piLayer + liOctave, piX / mfCloudCells[liOctave], piY / mfCloudCells[liOctave]);
-
-			return lfValue;
-		}
-
-		/// <summary>The cloud leather's clouds, with a little grain.</summary>
+		/// <summary>The cloud leather's clouds (UWNoise), with a little grain.</summary>
 		private static float fCloudsPattern(int piX, int piY)
 		{
-			float lfValue = fClouds(piX, piY, 0) + ((UWHudArt.fHash(piX, piY, 99) - 0.5f) * 0.08f);
+			float lfValue = UWNoise.Clouds(piX, piY, 0) + ((UWNoise.Hash(piX, piY, UWNoise.GrainLayer) - 0.5f) * 0.08f);
 
 			return (lfValue - 0.2f) / 0.6f;
 		}
@@ -318,7 +304,7 @@ namespace UWDataImport.UWData
 				for (int y = 0; y < lOWall.Height; y++)
 				{
 					for (int x = 0; x < lOWall.Width; x++)
-						lfLuma[(y * lOWall.Width) + x] = UWHudArt.fLuma(lOWall.Get(x, y));
+						lfLuma[(y * lOWall.Width) + x] = UWPixelRules.Luma(lOWall.Get(x, y));
 				}
 
 				float[] lfSorted = (float[])lfLuma.Clone();
@@ -347,9 +333,9 @@ namespace UWDataImport.UWData
 			return lOTexture;
 		}
 
-		private static bool[] fShape(ShapeEnum peShape, int piWidth, int piHeight)
+		private static UWMask fShape(ShapeEnum peShape, int piWidth, int piHeight)
 		{
-			bool[] lbShape = new bool[piWidth * piHeight];
+			UWMask lOShape = new UWMask(piWidth, piHeight);
 
 			for (int y = 0; y < piHeight; y++)
 			{
@@ -358,29 +344,11 @@ namespace UWDataImport.UWData
 					float lfX = ((x + 0.5f) / piWidth) - 0.5f;
 					float lfY = ((y + 0.5f) / piHeight) - 0.5f;
 
-					lbShape[(y * piWidth) + x] = peShape == ShapeEnum.Rect || ((lfX * lfX) + (lfY * lfY)) <= 0.25f;
+					lOShape[x, y] = peShape == ShapeEnum.Rect || ((lfX * lfX) + (lfY * lfY)) <= 0.25f;
 				}
 			}
 
-			return lbShape;
-		}
-
-		/// <summary>One pixel smaller all round: a pixel stays when its four neighbours are in.</summary>
-		private static bool[] fErode(bool[] pbShape, int piWidth, int piHeight)
-		{
-			bool[] lbOut = new bool[pbShape.Length];
-
-			for (int y = 1; y < piHeight - 1; y++)
-			{
-				for (int x = 1; x < piWidth - 1; x++)
-				{
-					int liAt = (y * piWidth) + x;
-
-					lbOut[liAt] = pbShape[liAt] && pbShape[liAt - 1] && pbShape[liAt + 1] && pbShape[liAt - piWidth] && pbShape[liAt + piWidth];
-				}
-			}
-
-			return lbOut;
+			return lOShape;
 		}
 	}
 }

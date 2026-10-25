@@ -112,14 +112,33 @@ Data folder: C:\Users\...\Temp\UnderworldRevisited\UW1\DATA
   OK   sound      24 effects, 12 music pieces with 6690 notes
 ```
 
-`Tools/UWDump` prints single pieces of the data:
+The checks themselves live in `Tools/UWCheckLib` (`Checks/` one file per domain, `Fakes/` the
+hosts they run on, `Harness/` the runner). `--help` lists the options: `--only`, `--skip` and
+`--tag` select groups, `--list` shows them, `--quiet` prints only the failures, `--no-data` runs
+what needs no game, `--root` names the project root and `--junit <file>` also writes a JUnit XML
+report.
+
+`Tools/UWDump` prints single pieces of the data (`dotnet run --project Tools/UWDump` alone
+lists every command):
 
 ```
 dotnet run --project Tools/UWDump -- info   "C:\GOG Games\Ultima Underworld 1"
-dotnet run --project Tools/UWDump -- level  <path> 1 3 50 6
+dotnet run --project Tools/UWDump -- level  <path> 1 3 50 6 --detail
+dotnet run --project Tools/UWDump -- tile   <path> 1 13 26 2
 dotnet run --project Tools/UWDump -- object <path> 349
 dotnet run --project Tools/UWDump -- find   <path> lockpick
+dotnet run --project Tools/UWDump -- where  <path> 191 320-335 --level 1
+dotnet run --project Tools/UWDump -- npcs   <path> 1 --save "C:\GOG Games\Ultima Underworld 1\UNDEROM1\SAVE1"
+dotnet run --project Tools/UWDump -- conv   <path> 19
+dotnet run --project Tools/UWDump -- conv   <path> --run all
+dotnet run --project Tools/UWDump -- maprender <path> --out <folder> --highlight 1
+dotnet run --project Tools/UWDump -- strings-export <path> --out <file>
 ```
+
+The path may be left out when the environment variable `UW_DATA` names the DATA folder, the
+GOG installation folder or game.gog, or when the game is in one of the common installation
+folders the game itself searches. What these commands write is the original game's content:
+keep it out of the repository.
 
 `Tools/UWSoundDump` renders sound to WAV files, so it can be listened to outside the game: the
 sound effects on the emulated AdLib, and the music's MT-32 version on General MIDI or on the

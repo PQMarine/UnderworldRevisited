@@ -30,7 +30,8 @@ namespace UnderworldRevisited
 
         /// <summary>
         /// The DATA folder the game loads from: DataPath from the settings if it is valid,
-        /// otherwise the DATA folder extracted from the GOG image (see UWDataImport.UWGogInstall).
+        /// otherwise the DATA folder extracted from the GOG image (see UWDataImport.UWGogInstall),
+        /// or the DATA folder the environment variable UW_DATA names when nothing is configured.
         /// </summary>
         public string DataPath
         {
@@ -52,10 +53,9 @@ namespace UnderworldRevisited
         [Tooltip("Folder that holds the save game folders SAVE1 to SAVE4, e.g. the UNDEROM1 folder of the GOG installation. Empty: that UNDEROM1 folder when the data comes from game.gog, otherwise the folder above the data folder, as in the original installation. The game no longer loads a save game at launch - loading happens from the main menu only.")]
         public string SavegameFolder = string.Empty;
 
+        // DiagnosticSavegamePath went with the editor's automap dump (cleanup 9.2, 2026-10-25):
+        // `uwdump automap --save <folder>` reads any save game's map.
         [Header("Diagnostics only")]
-        [Tooltip("Save game folder read by the editor diagnostic tools (Underworld Revisited/Diagnostics menu). Has no effect on the game.")]
-        public string DiagnosticSavegamePath = string.Empty;
-
         [Tooltip("Pretends no game was found, so the first-run setup screen appears even though the GOG installation would be detected. Only until a folder is chosen there; delete settings.json in the persistent data folder to see it again.")]
         public bool ForceFirstRunSetup;
 
@@ -607,47 +607,15 @@ namespace UnderworldRevisited
         }
 
         /// <summary>
-        /// Common GOG installation folders of Ultima Underworld (the folder holding game.gog),
-        /// searched when GogInstallPath is empty. ON LINUX (since the Linux build, 2026-10-05)
-        /// the usual homes of a GOG game: the GOG installer's and Heroic's "GOG Games" folders,
-        /// Lutris' "Games", and the Wine, Steam Proton and Lutris prefixes that hold the Windows
-        /// installer's folder - game.gog is the CD image every GOG release of the game carries,
-        /// however it was installed (innoextract included).
+        /// Where the game is looked for when GogInstallPath is empty: the optional UW_DATA
+        /// environment variable, then the common GOG installation folders (the folder holding
+        /// game.gog), the Linux homes of a GOG game on Linux. One list for the game and the
+        /// command line tools since cleanup 9.2 (2026-10-25), see UWGogInstall.GetCandidateFolders.
         /// </summary>
         public static string[] GetCandidateGogPaths()
         {
-            if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
-            {
-                string lsHome = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
-
-                if (string.IsNullOrEmpty(lsHome))
-                    lsHome = "/root";
-
-                return new string[]
-                {
-                    Path.Combine(lsHome, "GOG Games/Ultima Underworld"),
-                    Path.Combine(lsHome, "GOG Games/Ultima Underworld 1+2"),
-                    Path.Combine(lsHome, "Games/Ultima Underworld"),
-                    Path.Combine(lsHome, "Games/Heroic/Ultima Underworld 1+2"),
-                    Path.Combine(lsHome, "Games/gog/ultima-underworld-1-2"),
-                    Path.Combine(lsHome, ".wine/drive_c/GOG Games/Ultima Underworld"),
-                    Path.Combine(lsHome, ".wine/drive_c/Program Files (x86)/GOG Galaxy/Games/Ultima Underworld"),
-                    Path.Combine(lsHome, ".steam/steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"),
-                    Path.Combine(lsHome, ".local/share/Steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"),
-                    "/opt/GOG Games/Ultima Underworld",
-                    "/usr/local/games/Ultima Underworld"
-                };
-            }
-
-            return new string[]
-            {
-                @"C:\GOG Games\Ultima Underworld",
-                @"D:\GOG Games\Ultima Underworld",
-                @"C:\Program Files (x86)\GOG Galaxy\Games\Ultima Underworld",
-                @"C:\Program Files (x86)\GOG.com\Ultima Underworld",
-                @"C:\Ultima Underworld",
-                @"D:\Ultima Underworld"
-            };
+            return UWDataImport.UWGogInstall.GetCandidateFolders(
+                Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor);
         }
 
         /// <summary>The data folder the game would use (see DataPath), or null if there is
@@ -699,6 +667,17 @@ namespace UnderworldRevisited
 
             if (lsImage == null && string.IsNullOrEmpty(lsInstall))
             {
+                // UW_DATA naming an extracted DATA folder: used as it is, with the save games
+                // above it as in an installed game (cleanup 9.2, 2026-10-25).
+                string lsEnvironment = UWDataImport.UWGogInstall.GetEnvironmentPath();
+
+                if (IsValidDataPath(lsEnvironment))
+                {
+                    msGogDataPath = lsEnvironment;
+
+                    return msGogDataPath;
+                }
+
                 foreach (string lsCandidate in GetCandidateGogPaths())
                 {
                     lsImage = UWDataImport.UWGogInstall.FindImage(lsCandidate);

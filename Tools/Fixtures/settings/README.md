@@ -7,7 +7,7 @@ property of `UWUserSettings` reads from it, and the `.written` file what the gam
 after reading it (JsonUtility's bytes, line ends aside). The check fails when a value reads
 differently or a byte is written differently.
 
-The engine-free self-check (group SettingsTable, `Tools/UWSelfCheck/SettingsTableChecks.cs`)
+The engine-free self-check (group SettingsTable, `Tools/UWCheckLib/Checks/SettingsTableChecks.cs`)
 reads the same `.json` files through the settings table (`UWUserSettingsTable`) and has to
 write every `.written` file again byte for byte - so the table, its key order and its number
 format stay tied to what Unity writes.

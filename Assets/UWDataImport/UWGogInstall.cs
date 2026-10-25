@@ -71,6 +71,78 @@ namespace UWDataImport
             }
         }
 
+        /// <summary>
+        /// The optional environment variable UW_DATA (cleanup 9.2, 2026-10-25): a DATA folder, a
+        /// GOG installation folder or game.gog itself, for machines where the game is somewhere
+        /// else than the common folders. Null when it is not set.
+        /// </summary>
+        public static string GetEnvironmentPath()
+        {
+            string lsValue;
+
+            try
+            {
+                lsValue = Environment.GetEnvironmentVariable("UW_DATA");
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            return string.IsNullOrWhiteSpace(lsValue) ? null : lsValue.Trim().Trim('"');
+        }
+
+        /// <summary>
+        /// Where the game is looked for when no path is given - the ONE list of the game and the
+        /// tools (cleanup 9.2, 2026-10-25; it lived in UWSettings before): UW_DATA first when it is
+        /// set, then the common GOG installation folders (the folder holding game.gog).
+        ///
+        /// ON LINUX (since the Linux build, 2026-10-05) the usual homes of a GOG game: the GOG
+        /// installer's and Heroic's "GOG Games" folders, Lutris' "Games", and the Wine, Steam
+        /// Proton and Lutris prefixes that hold the Windows installer's folder - game.gog is the
+        /// CD image every GOG release of the game carries, however it was installed (innoextract
+        /// included).
+        /// </summary>
+        public static string[] GetCandidateFolders(bool pbLinux)
+        {
+            List<string> lOFolders = new List<string>();
+            string lsEnvironment = GetEnvironmentPath();
+
+            if (lsEnvironment != null)
+                lOFolders.Add(lsEnvironment);
+
+            if (pbLinux)
+            {
+                string lsHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                if (string.IsNullOrEmpty(lsHome))
+                    lsHome = "/root";
+
+                lOFolders.Add(Path.Combine(lsHome, "GOG Games/Ultima Underworld"));
+                lOFolders.Add(Path.Combine(lsHome, "GOG Games/Ultima Underworld 1+2"));
+                lOFolders.Add(Path.Combine(lsHome, "Games/Ultima Underworld"));
+                lOFolders.Add(Path.Combine(lsHome, "Games/Heroic/Ultima Underworld 1+2"));
+                lOFolders.Add(Path.Combine(lsHome, "Games/gog/ultima-underworld-1-2"));
+                lOFolders.Add(Path.Combine(lsHome, ".wine/drive_c/GOG Games/Ultima Underworld"));
+                lOFolders.Add(Path.Combine(lsHome, ".wine/drive_c/Program Files (x86)/GOG Galaxy/Games/Ultima Underworld"));
+                lOFolders.Add(Path.Combine(lsHome, ".steam/steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"));
+                lOFolders.Add(Path.Combine(lsHome, ".local/share/Steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"));
+                lOFolders.Add("/opt/GOG Games/Ultima Underworld");
+                lOFolders.Add("/usr/local/games/Ultima Underworld");
+
+                return lOFolders.ToArray();
+            }
+
+            lOFolders.Add(@"C:\GOG Games\Ultima Underworld");
+            lOFolders.Add(@"D:\GOG Games\Ultima Underworld");
+            lOFolders.Add(@"C:\Program Files (x86)\GOG Galaxy\Games\Ultima Underworld");
+            lOFolders.Add(@"C:\Program Files (x86)\GOG.com\Ultima Underworld");
+            lOFolders.Add(@"C:\Ultima Underworld");
+            lOFolders.Add(@"D:\Ultima Underworld");
+
+            return lOFolders.ToArray();
+        }
+
         /// <summary>The folder holding SAVE1 to SAVE4 next to an image: the installation's
         /// UNDEROM1 folder. Null if it does not exist.</summary>
         public static string GetSavegameFolder(string psImagePath)
@@ -97,6 +169,8 @@ namespace UWDataImport
         {
             psError = null;
 
+            FileStream lOLock = null;
+
             try
             {
                 FileInfo lOImage = new FileInfo(psImagePath);
@@ -111,11 +185,22 @@ namespace UWDataImport
                 string lsMarker = Path.Combine(lsTarget, MarkerFileName);
                 string lsExpected = fMarkerText(lOImage);
 
-                if (File.Exists(lsMarker) && File.ReadAllText(lsMarker) == lsExpected
-                    && File.Exists(Path.Combine(Path.Combine(lsTarget, "DATA"), "LEV.ARK")))
-                {
+                if (fIsExtracted(lsTarget, lsMarker, lsExpected))
                     return Path.Combine(lsTarget, "DATA");
-                }
+
+                // Two cold starts at once (two tools, or a tool run twice in parallel) would both
+                // delete and refill the same .partial folder. The lock file beside it makes the
+                // second one wait for the first and then take its result (cleanup 9.2,
+                // 2026-10-25).
+                Directory.CreateDirectory(psCacheRoot);
+                lOLock = fTakeLock(lsTarget + ".lock", out psError);
+
+                if (lOLock == null)
+                    return null;
+
+                // The one we waited for has finished it.
+                if (fIsExtracted(lsTarget, lsMarker, lsExpected))
+                    return Path.Combine(lsTarget, "DATA");
 
                 string lsTemporary = lsTarget + ".partial";
 
@@ -179,6 +264,76 @@ namespace UWDataImport
             {
                 psError = "Extracting " + psImagePath + " failed: " + lOException.Message;
                 return null;
+            }
+            finally
+            {
+                if (lOLock != null)
+                    lOLock.Dispose();
+            }
+        }
+
+        private static bool fIsExtracted(string psTarget, string psMarker, string psExpected)
+        {
+            return File.Exists(psMarker) && File.ReadAllText(psMarker) == psExpected
+                && File.Exists(Path.Combine(Path.Combine(psTarget, "DATA"), "LEV.ARK"));
+        }
+
+        /// <summary>
+        /// Creates the lock file, waiting while another process holds it. The file is created
+        /// new (it fails while it exists) and deleted when it is closed; a lock left behind by a
+        /// process that died is taken over once it is older than an extraction ever takes.
+        /// Null with psError set when the other process does not finish in time.
+        /// </summary>
+        private static FileStream fTakeLock(string psLockPath, out string psError)
+        {
+            const int liWaitMilliseconds = 120000;
+            const int liPollMilliseconds = 250;
+            const int liStaleMinutes = 10;
+
+            psError = null;
+
+            DateTime lODeadline = DateTime.UtcNow.AddMilliseconds(liWaitMilliseconds);
+
+            while (true)
+            {
+                try
+                {
+                    return new FileStream(psLockPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                        1, FileOptions.DeleteOnClose);
+                }
+                catch (IOException)
+                {
+                    // Held by another process - or left behind by one that died.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // Windows: the holder's file is being deleted right now.
+                }
+
+                try
+                {
+                    if (File.Exists(psLockPath)
+                        && DateTime.UtcNow - File.GetLastWriteTimeUtc(psLockPath) > TimeSpan.FromMinutes(liStaleMinutes))
+                    {
+                        File.Delete(psLockPath);
+
+                        continue;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Still held after all; wait as for any other holder.
+                }
+
+                if (DateTime.UtcNow > lODeadline)
+                {
+                    psError = "Another program is extracting the game data right now (" + psLockPath
+                        + "). Try again when it has finished.";
+
+                    return null;
+                }
+
+                System.Threading.Thread.Sleep(liPollMilliseconds);
             }
         }
 

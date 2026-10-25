@@ -186,7 +186,7 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>The frame, built for the width and the colours (UWVersionedTexture).</summary>
     private readonly UWVersionedTexture mOTexture = new UWVersionedTexture();
 
-    private UWHudArt.ClassicWideFrame mOFrame;
+    private UWClassicWideBuilder.ClassicWideFrame mOFrame;
 
     private int miExtra = -1;
 

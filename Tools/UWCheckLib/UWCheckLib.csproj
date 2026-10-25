@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The checks of the engine-free layer as a library (cleanup 9.4): Harness/ (the expectations,
+    the catalog, the context, the runner, the state guard), Fakes/ (the hosts and worlds the
+    checks run on) and Checks/ (one file per domain, SelfChecks.BuildCatalog lists them all).
+    Tools/UWSelfCheck runs it over an installation; a mod validator can reuse it and skip the
+    groups tagged "original". Runs on Core/UWDataImport.csproj, so it needs no Unity.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <AssemblyName>UWCheckLib</AssemblyName>
+    <RootNamespace>UnderworldRevisited.Tools</RootNamespace>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+    <ProjectReference Include="..\..\Core\UWDataImport.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The runners use the shared tool code (DataPath, UWRuleIndexScan), which is internal. -->
+    <InternalsVisibleTo Include="uwselfcheck" />
+  </ItemGroup>
+
+</Project>

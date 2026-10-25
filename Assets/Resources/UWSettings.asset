@@ -15,7 +15,6 @@ MonoBehaviour:
   GogInstallPath: 
   mDataPath: 
   SavegameFolder: 
-  DiagnosticSavegamePath: 
   ForceFirstRunSetup: 0
   TextureFilterMode: 0
   RenderMode: 1

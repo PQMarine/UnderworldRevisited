@@ -6,7 +6,13 @@ namespace UnderworldRevisited.Tools
     /// <summary>
     /// Finds the game data for the command line tools, exactly as the game does it
     /// (see UWSettings.DataPath): a DATA folder as it is, a GOG installation folder or
-    /// game.gog itself is extracted into a cache once and reused afterwards.
+    /// game.gog itself is extracted into a cache once and reused afterwards. Without a path
+    /// the tools search the same list as the game (UWGogInstall.GetCandidateFolders: the
+    /// environment variable UW_DATA, then the common installation folders).
+    ///
+    /// The cache is the tools' own (the temp folder), not the game's (persistentDataPath): the
+    /// tools do not know the player's company and product names, and a tool run never touches
+    /// the game's folders. UWGogInstall locks each cache while it is being filled.
     /// </summary>
     public static class DataPath
     {
@@ -37,6 +43,26 @@ namespace UnderworldRevisited.Tools
                 psError = lsExtractError ?? "Could not extract the image.";
 
             return lsData;
+        }
+
+        /// <summary>The data of the first candidate that holds the game (UW_DATA, then the
+        /// common installation folders), or null with psError set.</summary>
+        public static string Find(out string psError)
+        {
+            string[] lsCandidates = UWGogInstall.GetCandidateFolders(System.OperatingSystem.IsLinux());
+
+            foreach (string lsCandidate in lsCandidates)
+            {
+                if (!File.Exists(Path.Combine(lsCandidate, MarkerFile)) && UWGogInstall.FindImage(lsCandidate) == null)
+                    continue;
+
+                return Resolve(lsCandidate, out psError);
+            }
+
+            psError = "No game data found. Pass the path, or set UW_DATA to the DATA folder, the GOG"
+                + " installation folder or game.gog. Searched: " + string.Join("; ", lsCandidates);
+
+            return null;
         }
 
         /// <summary>

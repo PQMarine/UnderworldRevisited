@@ -22,11 +22,11 @@ namespace UWDataImport.UWData
 	///
 	/// CONSTANTS ONLY, the Inspector values of UWGameUI included since decision 12 (2026-10-22, per
 	/// user: the stats page's rows and colours, the weight's centre and colours, the panel's step,
-	/// the view angle - nothing is tuned in the Inspector any more). Pieces of MAIN.BYT that only an
-	/// art builder crops (UWHudArt's shelf, ledge and roller sources, its synthesis ranges) stay
-	/// with the builder; here are the places other code needs too. The paperdoll's body and armour
-	/// places and the equipment icon slots are UWPaperdollLayout's (cleanup 5.1); the Paperdoll
-	/// area points at it.
+	/// the view angle - nothing is tuned in the Inspector any more). Pieces of MAIN.BYT that only the
+	/// art builders crop (the shelf, the ledge and the rollers, the synthesis ranges) are
+	/// UWMainFrame's (cleanup 9.10); here are the places other code needs too. The paperdoll's body
+	/// and armour places and the equipment icon slots are UWPaperdollLayout's (cleanup 5.1); the
+	/// Paperdoll area points at it.
 	/// </summary>
 	public static class UWClassicLayout
 	{

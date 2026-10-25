@@ -289,7 +289,7 @@ bool UWOwnTileBehindRock(float3 pPositionWS, float3 pPivotWS)
 // opening shows him. So where the pixel's line of sight crosses a door's plane in a tile BEFORE
 // the sprite's own, the sprite is put just behind that plane: the leaf and the frame, in front of
 // it, cover the pixel, the opening does not. The walk is UWOwnTileBehindRock's; a door in the
-// sprite's own tile (the original's partition of that tile) is still not modelled. Returns the
+// sprite's own tile counts when the eye and the pivot lie on its two sides (2026-10-25). Returns the
 // fraction of the way from the eye to the pixel at the crossing, or -1 without one.
 float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
 {
@@ -312,9 +312,6 @@ float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
     [loop]
     for (int liAt = 0; liAt < 32; liAt++)
     {
-        if (all(lCell == lOwn) || all(lCell == lEnd))
-            return -1.0;
-
         float lfLeave = saturate(min(lNext.x, lNext.y));
         int2 lTexel = int2(lCell);
 
@@ -322,6 +319,31 @@ float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
             return -1.0;
 
         float4 lDoor = LOAD_TEXTURE2D(_UWDoorPlanes, lTexel);
+
+        // THE DOOR IN THE SPRITE'S OWN TILE (per user, 2026-10-25, Remastered, level 3 at 26/22
+        // looking east: the prisoner in his cell on 27/22 stood in front of the cell's portcullis,
+        // which sits in the same tile; the goblin behind a portcullis one tile further was right).
+        // The original partitions that tile at the door: what stands beyond the plane is painted
+        // before the door, what stands on the viewer's side after it. So the plane counts here when
+        // the eye and the sprite's pivot lie on its two sides.
+        if (all(lCell == lOwn))
+        {
+            if (lDoor.r > 0.5 && lDoor.g < 1.5)
+            {
+                float lfAxisEye = lDoor.g > 0.5 ? lFrom.x : lFrom.y;
+                float lfAxisPivot = lDoor.g > 0.5 ? pPivotWS.x : pPivotWS.z;
+                float lfAxisDir = lDoor.g > 0.5 ? lSafe.x : lSafe.y;
+                float lfT = (lDoor.b - lfAxisEye) / lfAxisDir;
+
+                if ((lfAxisEye - lDoor.b) * (lfAxisPivot - lDoor.b) < 0.0 && lfT > 0.0 && lfT < 1.0)
+                    return lfT;
+            }
+
+            return -1.0;
+        }
+
+        if (all(lCell == lEnd))
+            return -1.0;
 
         // The eye's own tile counts too: standing in the doorway, the plane may lie ahead.
         if (lDoor.r > 0.5 && lDoor.g < 1.5)
@@ -351,8 +373,12 @@ float UWOwnTileDoorCrossing(float3 pPositionWS, float3 pPivotWS)
     return -1.0;
 }
 
-// How far behind a door's plane a sprite beyond it is put, in world units.
-#define UW_BEHIND_DOOR 0.5
+// How far behind a door's plane a sprite beyond it is put, in world units. MORE THAN HALF THE
+// DEPTH OF ANY DOOR ASSEMBLY (2026-10-25: 0.5 until then, and Urgo still stood in front of his
+// portcullis): the portcullis shows the far faces of its bars, as the original does - 1 unit
+// behind the plane for the horizontal bars (2 deep), 0.5 for the vertical ones; a door's frame
+// is 1.5 deep on each side (UWObjectSpawner.DoorAssemblyHalfDepth).
+#define UW_BEHIND_DOOR 2.0
 
 float UWOwnTileSpriteDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float pfDepth, float pfBigRadius)
 {

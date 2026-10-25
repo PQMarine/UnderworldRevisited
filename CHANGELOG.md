@@ -25,6 +25,10 @@ against its code and, where noted, by playing the original. The deliberate excep
 - With F10 and the arrow keys, Left and Right now change a selected slider (by its step, held to
   repeat), and a list scrolls along with the selection.
 
+### Fixed
+- Remastered: a creature behind a door or portcullis in the same tile - Urgo in his cell on level 3 -
+  no longer stands in front of the bars.
+
 ## [0.9.1] - 2026-10-25
 
 ### Closer to the original

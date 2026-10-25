@@ -2,6 +2,7 @@
 
   <!--
     Reads a complete installation once and reports what came through - see Program.cs.
+    The checks themselves are Tools/UWCheckLib; this is their runner over the game's data.
     Runs on the engine-free layer (Core/UWDataImport.csproj), so it needs no Unity.
   -->
 
@@ -16,8 +17,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\*.cs" />
-    <ProjectReference Include="..\..\Core\UWDataImport.csproj" />
+    <ProjectReference Include="..\UWCheckLib\UWCheckLib.csproj" />
   </ItemGroup>
 
 </Project>
