@@ -115,7 +115,10 @@ of what is built was also read out of the original's executable.
 
 ## Open: translations
 
-- **Other languages.** Support for translations is planned, before Ultima Underworld II.
+- **Languages** are supported since 0.10.0: the port's own texts in German, the game's texts by
+  language files that translators publish on their own ([Docs/TRANSLATING.md](Docs/TRANSLATING.md)).
+- **Other scripts** (Cyrillic, Chinese, Japanese) are prepared in the modern look; the classic
+  look would need pixel fonts of their own, and names in save games keep the original's bytes.
 
 ## Later
 

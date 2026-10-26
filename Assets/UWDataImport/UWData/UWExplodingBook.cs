@@ -27,7 +27,8 @@ namespace UWDataImport.UWData
 		/// <summary>a_book, Bronus' book (string block 4, "a_book" at 0x114).</summary>
 		public const int BookObjectId = 0x114;
 
-		public const string Message = "The book explodes in your face!";
+		/// <summary>"The book explodes in your face!" - UW.EXE's line (msg.book.explodes).</summary>
+		public static string Message => UWText.T("msg.book.explodes");
 
 		public const int QuestFlag = 8;
 

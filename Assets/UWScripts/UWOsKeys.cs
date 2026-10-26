@@ -40,7 +40,9 @@ public static class UWOsKeys
                 fKey(0, pcChar, Unicode | KeyUp)
             });
 #elif UNITY_STANDALONE_LINUX || UNITY_EDITOR_LINUX
-            fXType((ulong)pcChar, char.IsUpper(pcChar));
+            // Latin-1 is its own keysym, beyond it X's Unicode keysyms (0x01000000 + the code,
+            // translation 5.1: another alphabet); a letter the keyboard layout lacks types nothing.
+            fXType(pcChar <= 0xFF ? pcChar : 0x01000000UL | pcChar, char.IsUpper(pcChar));
 #endif
         }
         catch (Exception lOError)

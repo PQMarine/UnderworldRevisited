@@ -189,6 +189,17 @@ namespace UWDataImport.UWData
 			return ThingTalkAnswer.CannotTalk;
 		}
 
+		/// <summary>
+		/// WHETHER A THING ANSWERS when talked to - the modern scheme's E and the pad's A talk to it
+		/// then instead of using it (UWModernWorldInput). A thing that stays silent does not answer
+		/// (2026-10-26, per user: the double-door decoration, 0x16E, showed "Talk" and nothing
+		/// happened; it is used). Only the shrine's mantra and the chained princess answer.
+		/// </summary>
+		public static bool ThingAnswers(ThingTalkAnswer peAnswer)
+		{
+			return peAnswer != ThingTalkAnswer.CannotTalk && peAnswer != ThingTalkAnswer.Silent;
+		}
+
 		/// <summary>The wall decoration the talk takes aside (0x16E) - drains, stairs, banners, Arial.</summary>
 		public const int SpecialDecorationObjectId = 366;
 

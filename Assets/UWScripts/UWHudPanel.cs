@@ -725,6 +725,9 @@ public sealed class UWHudPanel
     /// <summary>Signature of the values shown on the stats page when it was last drawn.</summary>
     private int miStatsSignature;
 
+    /// <summary>The language the stats page was last drawn in (UWText.LanguageVersion).</summary>
+    private int miStatsLanguage = -1;
+
     /// <summary>
     /// Redraws the open stats page as soon as a shown value changes. In the original it
     /// updates while open - experience from exploring, hit points, mana (per user, 2026-09-14);
@@ -736,13 +739,15 @@ public sealed class UWHudPanel
         if (mOTurn.Side != UWPanelTurn.SideEnum.Stats || mOUi.mCharacter == null)
             return;
 
-        // Every number the page shows (UWCharacterSheet.Signature).
+        // Every number the page shows (UWCharacterSheet.Signature); and its words, the class and skill
+        // names of the game's strings, when the language changed (translation step 3R).
         int liSignature = fBindSheet().Signature;
 
-        if (liSignature == miStatsSignature)
+        if (liSignature == miStatsSignature && miStatsLanguage == UWText.LanguageVersion)
             return;
 
         miStatsSignature = liSignature;
+        miStatsLanguage = UWText.LanguageVersion;
 
         fRefreshStats();
     }

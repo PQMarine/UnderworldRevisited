@@ -85,6 +85,9 @@ namespace UWDataImport.UWData
 			fText(ShowOpeningSequence);
 			fText(RunInBackground);
 			fText(ManualAttributes);
+			// The language: its choices are the files found beside the game, listed by the Game window
+			// (UWLanguage.Available), not a fixed set.
+			fText(Language, true);
 
 			// The colours.
 			fText(ColourMode);

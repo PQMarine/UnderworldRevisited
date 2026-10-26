@@ -312,7 +312,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `LookAt` (ovr122_0) | UWItemDescriptions.cs |
 | `MagicItemDescription` (ovr122_3AC) | UWEnchantment.cs |
-| `Read` (ovr122_586) | UWLookService.cs |
+| `Read` (ovr122_586) | UWItemMessages.cs, UWLookService.cs |
 | `LookAtTalisman` (ovr122_CC3) | UWItemDescriptions.cs |
 
 ### ovr130
@@ -890,7 +890,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `Class_4_2_ObjectUsage` (seg040_352B_16C4) | UWGlowingRockRules.cs |
 | `Fountain` (seg040_352B_1816) | UWObjectMechanics.cs, UWWorldUse.cs |
 | `GlowingRock` (seg040_352B_186E) | UWGlowingRockRules.cs |
-| `UseReadable` (seg040_352B_19A8) | UWItemUse.cs, UWHudMap.cs, UWLookService.cs |
+| `UseReadable` (seg040_352B_19A8) | UWItemMessages.cs, UWItemUse.cs, UWHudMap.cs, UWLookService.cs |
 | `seg040_352B_1B35` | UWSwitchVisual.cs |
 | `UnlockDoor` (seg040_352B_1D3B) | ICritterHost.cs, UWCreatureActor.cs, UWLockRules.cs |
 | `seg040_352B_1F54` | UWSoundEffectId.cs |

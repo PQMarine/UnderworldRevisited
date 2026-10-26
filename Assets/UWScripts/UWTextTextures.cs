@@ -259,8 +259,10 @@ public static class UWTextTextures
     {
         StringBuilder lOKey = new StringBuilder();
 
+        // The language's font (UWFont.FallbackVersion, translation wave 6): a text drawn with another
+        // language's font is another picture.
         lOKey.Append(piWidth).Append('|').Append((int)peColours).Append(pbCentred ? 'C' : 'L').Append((int)peFilter)
-            .Append(pbCursor ? 'I' : '-').Append('|');
+            .Append(pbCursor ? 'I' : '-').Append('|').Append(UWFont.FallbackVersion).Append('|');
 
         foreach (Color32 lOColour in pyColours)
             lOKey.Append(((lOColour.r << 24) | (lOColour.g << 16) | (lOColour.b << 8) | lOColour.a).ToString("X8")).Append(',');

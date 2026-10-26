@@ -106,7 +106,15 @@ namespace UnderworldRevisited.Tools
 
             string lsDescFile = Path.Combine(psSave, "DESC");
             byte[] lyDesc = File.Exists(lsDescFile) ? File.ReadAllBytes(lsDescFile) : new byte[0];
-            string lsDescription = System.Text.Encoding.ASCII.GetString(lyDesc);
+            // Read as the game reads it (UWSavegameSlots.GetName): a byte per character, so a name
+            // saved with umlauts (their Latin-1 bytes, translation wave 2) is written back as it was;
+            // ASCII would have made them question marks.
+            System.Text.StringBuilder lODescription = new System.Text.StringBuilder();
+
+            foreach (byte lyByte in lyDesc)
+                lODescription.Append((char)lyByte);
+
+            string lsDescription = lODescription.ToString();
 
             // The position as the file holds it: the snapshot's z is the raw word at 0x58 (the
             // host writes the motion core's z there), while UWPlayerData.ZPosition is that word

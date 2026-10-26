@@ -378,7 +378,7 @@ public sealed class UWModernWorldInput
         UWClickRules.ThingTalkAnswer leThing = UWClickRules.TalkToThing(liObjectId,
             lOFrontmost != null && lOFrontmost.IsChainedPrincess);
 
-        if (!Interaction.IsCreatureEntity(lOFrontmost) && leThing != UWClickRules.ThingTalkAnswer.CannotTalk)
+        if (!Interaction.IsCreatureEntity(lOFrontmost) && UWClickRules.ThingAnswers(leThing))
         {
             mOInteraction.TalkToThing(lOFrontmost);
             return;
@@ -416,7 +416,7 @@ public sealed class UWModernWorldInput
 
         int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
 
-        return UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess) != UWClickRules.ThingTalkAnswer.CannotTalk
+        return UWClickRules.ThingAnswers(UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess))
             ? UWText.T("hud.crosshair.talk") : UWText.T("hud.crosshair.use");
     }
 

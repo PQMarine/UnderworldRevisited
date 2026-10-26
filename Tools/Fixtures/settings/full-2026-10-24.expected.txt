@@ -22,6 +22,7 @@ HelpTab = 5
 InterfaceFont = 1
 InterfacePreset = 2
 KeyBindings = ["Player|ModernLook|0|<Keyboard>/q", "Player|Jump|0|<Gamepad>/buttonSouth"]
+Language = ""
 LeftStickDeadzone = 0.15
 ManualAttributes = True
 MarkPoison = True

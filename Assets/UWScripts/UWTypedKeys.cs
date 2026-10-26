@@ -65,7 +65,10 @@ public static class UWTypedKeys
 
             char lcChar = lsName[0];
 
-            if (lcChar < 0x20 || lcChar > 0x7E)
+            // Printable ASCII, and the language's letters where the layout labels a key with one (the
+            // German umlauts, translation wave 2; UWTextLine.LanguageLetters).
+            if ((lcChar < 0x20 || lcChar > 0x7E) && !UWDataImport.UWData.UWTextLine.IsLanguageLetter(char.ToLowerInvariant(lcChar))
+                && !UWDataImport.UWData.UWTextLine.IsLanguageLetter(lcChar))
                 continue;
 
             if (char.IsLetter(lcChar))

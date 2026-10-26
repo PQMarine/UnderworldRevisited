@@ -1,0 +1,19 @@
+# A game-text pack of MADE-UP strings for the self-check (Tools/UWCheckLib/Checks/GameTextChecks.cs):
+# the keys are the English STRINGS.PAK's, every text is invented - no text of the game is in here.
+# block	index	text
+7	1	Testzeile: Ölfass, Übergröße, äöüß ÄÖÜ\n
+10	1	eine Testwand mit Ümlaut
+4	146	ein_Testlicht&Testlichter
+3586	45	Grüße an @SS1 - eine Testzeile!
+3586	44	Probe: @SI3C2 @SS2 und @GI3C2 Minuten.
+3586	2
+1	164	\4Testfehler beim Laden.\n\0
+3586	34	Hier fehlt der Platzhalter.
+3586	88	Vertauscht: @SS5 @SS6 kostet @SI4.
+3586	113	Geschluckt: @SS15SIE
+3	3	 Ein Testbrief.\nZweite Zeile.
+this line has no tabs
+x	1	no number
+99999	1	a block the game does not have
+7	0	the empty slot zero
+7	1	Zweite Zeile für 7:1, die spätere zählt\n

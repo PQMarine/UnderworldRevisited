@@ -556,8 +556,8 @@ public sealed class UWHudRunes
     private const int ManaMessage = 91;
 
     /// <summary>Between number and maximum there is simply mOUi word. No string entry
-    /// exists for it - the reference hard-codes it the same way.</summary>
-    private const string OutOfText = " out of ";
+    /// exists for it - the reference hard-codes it the same way (msg.flask.out_of).</summary>
+    private static string OutOfText => UWText.T("msg.flask.out_of");
 
     internal void fUpdateFlaskClicks()
     {

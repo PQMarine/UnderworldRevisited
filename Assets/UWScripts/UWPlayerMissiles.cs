@@ -52,21 +52,6 @@ public sealed class UWPlayerMissiles
     private const int AmmunitionWeaponType = 0xC0;
 
     /// <summary>
-    /// The message when out of ammunition.
-    ///
-    /// IT IS NOT IN STRINGS.PAK, BUT IN UW.EXE. The reference names
-    /// string block 1, number 207 for it - for us that holds "You flip the switch.", and the whole
-    /// block has no such sentence. I therefore searched the game binary itself
-    /// and found the wording there (2026-09-10): "Sorry, you have no " is stored as raw
-    /// text in the executable, the item name is appended at runtime.
-    ///
-    /// The user checked both in the original: "Sorry, you have no arrows." with the
-    /// bow, "Sorry, you have no sling stones." with the sling. The full stop at the end
-    /// comes from there.
-    /// </summary>
-    private const string NoAmmunitionMessage = "Sorry, you have no ";
-
-    /// <summary>
     /// The shot with bow, crossbow or sling.
     ///
     /// WHICH AMMUNITION belongs to it is told by the weapon itself: its weapon type in the
@@ -107,7 +92,7 @@ public sealed class UWPlayerMissiles
         {
             // No shot, but no strike either: nobody strikes with a bow
             // in hand.
-            mOInteraction.AddMessage(NoAmmunitionMessage + fGetPluralName(liAmmunitionId) + ".");
+            mOInteraction.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
 
             return true;
         }
@@ -145,7 +130,7 @@ public sealed class UWPlayerMissiles
         if (fFindAmmunition(liAmmunitionId) != null)
             return true;
 
-        mOInteraction.AddMessage(NoAmmunitionMessage + fGetPluralName(liAmmunitionId) + ".");
+        mOInteraction.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
 
         return false;
     }
@@ -192,18 +177,6 @@ public sealed class UWPlayerMissiles
         piAmmunitionId = FirstAmmunitionObjectId + liType;
 
         return true;
-    }
-
-    /// <summary>
-    /// The name of the ammunition in plural, without article - "arrows", "sling stones".
-    ///
-    /// The original simply appends an s to the bare name instead of taking the plural form from
-    /// the string block (reference: GetSimpleObjectNameUW plus "s"). For the three
-    /// ammunition types the result is the same.
-    /// </summary>
-    private string fGetPluralName(int piObjectId)
-    {
-        return UWText.ObjectName(fData(), piObjectId) + "s";
     }
 
     /// <summary>Matching ammunition anywhere on the player, bags included, in the original's

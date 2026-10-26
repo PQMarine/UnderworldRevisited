@@ -23,7 +23,7 @@ Revisited is a free, non-commercial fan project: it is not sold, and no donation
 [How this was made](#how-this-was-made) - [License](#license)
 
 More: [Controls](Docs/CONTROLS.md) - [All screenshots](Docs/SCREENSHOTS.md) -
-[Building](Docs/BUILDING.md) - [Roadmap](ROADMAP.md) - [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Building](Docs/BUILDING.md) - [Translating](Docs/TRANSLATING.md) - [Roadmap](ROADMAP.md) - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Screenshots
 
@@ -108,6 +108,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   save game, spells, mantras and the game's manual
 - A modern readable font, and dealing the attribute points at character creation yourself
   instead of rolling them - each of these additions optional
+- Languages: the port's texts in English or German, chosen in the Game window and switched at
+  once; the game's own texts can be translated by language files ([Translating](Docs/TRANSLATING.md))
 - Two looks for the game's own windows: Stone, in the colours of the game's icon (the default),
   and the plain one
 - The rule set: an optional `rules.json` beside the settings changes the game's numbers -

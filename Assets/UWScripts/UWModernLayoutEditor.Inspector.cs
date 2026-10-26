@@ -38,6 +38,9 @@ public partial class UWModernLayoutEditor
     /// parts switched off, to be switched on again.</summary>
     private InspectorRow[] mOOverviewRows;
 
+    /// <summary>The language the inspector's rows were built in (UWText.LanguageVersion).</summary>
+    private int miInspectorLanguage = -1;
+
     /// <summary>Each part's own rows, between its Size and its back.</summary>
     private Dictionary<Element, InspectorRow[]> mOPartRows;
 
@@ -381,8 +384,13 @@ public partial class UWModernLayoutEditor
     /// selected, else the part's size, its own rows, its back where it has one, and Reset part.</summary>
     private void fGatherItems()
     {
-        if (mOOverviewRows == null)
+        // Built anew when the language changed: some rows take their texts when they are built
+        // (translation step 3R, a language switched while the game runs).
+        if (mOOverviewRows == null || miInspectorLanguage != UWText.LanguageVersion)
+        {
+            miInspectorLanguage = UWText.LanguageVersion;
             fBuildInspectorRows();
+        }
 
         mOItems.Clear();
 

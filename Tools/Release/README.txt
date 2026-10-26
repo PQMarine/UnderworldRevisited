@@ -106,6 +106,16 @@ out of range is reported in the debug display (Shift+F1) and skipped. Without th
 plays as the original.
 
 
+LANGUAGES
+---------
+
+The Language row in the Game window chooses the language of the port's own texts (English or
+German); the change takes effect at once. The files are in the folder Languages beside the game.
+A translation of the game's own texts is a file <code>.strings.tsv that a translator publishes on
+their own; put it into Languages too. How to make one: Docs/TRANSLATING.md in the repository and
+the Translation Kit beside each release.
+
+
 MUSIC
 -----
 

@@ -117,12 +117,23 @@ namespace UWDataImport.UWData
 			if (!lbDestroyed && liQuality == liBefore)
 				return Outcome.None;
 
-			string lsName = UWText.ObjectName(pOData, pOItem.ID);
-
-			psMessage = "Your " + lsName + (lsName.EndsWith("s") ? " were" : " was")
-				+ (lbDestroyed ? " destroyed." : " damaged.");
+			psMessage = Message(pOData, pOItem.ID, lbDestroyed);
 
 			return lbDestroyed ? Outcome.Destroyed : Outcome.Damaged;
+		}
+
+		/// <summary>"Your dagger was damaged.", "Your leggings were destroyed." - a name ending in
+		/// "s" takes "were" (since translation step 3A, 2026-10-26, the frames msg.wear.* with the
+		/// player's thing as the grammar names it: IUWGrammar.YourName and TakesPluralVerb).</summary>
+		public static string Message(DataImport pOData, int piObjectId, bool pbDestroyed)
+		{
+			string lsRaw = UWText.RawObjectName(pOData, piObjectId, null);
+			bool lbPlural = lsRaw != null && UWGrammar.Of(pOData).TakesPluralVerb(lsRaw);
+
+			return UWText.Sentence(pOData,
+				pbDestroyed ? (lbPlural ? "msg.wear.destroyed_plural" : "msg.wear.destroyed")
+					: (lbPlural ? "msg.wear.damaged_plural" : "msg.wear.damaged"),
+				UWText.YourObject(pOData, piObjectId, UWGrammarCase.Nominative));
 		}
 	}
 }

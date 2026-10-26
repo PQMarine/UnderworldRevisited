@@ -22,6 +22,7 @@ HelpTab = 3
 InterfaceFont = 0
 InterfacePreset = 1
 KeyBindings = []
+Language = ""
 LeftStickDeadzone = 0.5
 ManualAttributes = False
 MarkPoison = False

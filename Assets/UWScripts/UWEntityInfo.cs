@@ -15,7 +15,32 @@ public class UWEntityInfo : MonoBehaviour
     [System.NonSerialized]
     public UWObject ObjectData;
 
-    public string Description;
+    /// <summary>The raw text the look names it by (a name of block 4, a texture's of block 10, a wall
+    /// writing's finished wording). Read from the strings each time when the spawner gave it so
+    /// (DescribeBy), so a language switched while the game runs names it anew (translation step 3R);
+    /// a text set here stays as it is.</summary>
+    public string Description
+    {
+        get { return mFDescription != null ? mFDescription() : msDescription; }
+        set
+        {
+            msDescription = value;
+            mFDescription = null;
+        }
+    }
+
+    /// <summary>The description read anew each time it is asked for (UWObjectSpawner's fDescribeBy*).</summary>
+    public void DescribeBy(System.Func<string> pFDescription)
+    {
+        mFDescription = pFDescription;
+        msDescription = null;
+    }
+
+    [System.NonSerialized]
+    private string msDescription;
+
+    [System.NonSerialized]
+    private System.Func<string> mFDescription;
 
     public bool IsDoor { get; set; }
 

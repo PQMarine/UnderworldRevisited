@@ -1,0 +1,14 @@
+# A MADE-UP Slavic-like test language "xs" for the self-check (Tools/UWCheckLib/Checks/GenericGrammarChecks.cs):
+# no articles, six cases, Russian plural categories (one few many), past tenses agreeing with the
+# name's gender. Every word invented.
+grammar.rule.genders	m f n
+grammar.rule.cases	nom gen dat acc ins loc
+grammar.rule.case.object	acc
+grammar.rule.case.place	loc
+grammar.rule.case.look	acc
+grammar.rule.plural	ru
+grammar.rule.capital	yes
+grammar.look.you_see	Vizish {0}.
+grammar.look.charges.many	 s {0,plural,one{# blikom}few{# blikami}many{# blikov}other{# blika}}
+msg.trap.disarmed	{0} na {1} {0,select,f{zatknuta}other{zatknut}}.
+msg.wear.damaged	{0} {0,select,f{pognuta}n{pognuto}other{pognut}}.

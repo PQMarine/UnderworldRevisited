@@ -24,8 +24,10 @@ namespace UWDataImport.UWData
 	///   - UTF-8 (a byte order mark is allowed), one text per line: the id, one TAB, the text.
 	///   - Empty lines and lines starting with # are skipped.
 	///   - In the text \n stands for a line break, \t for a TAB, \\ for a backslash.
-	///   - An id the table does not know, a line without a TAB, and a text whose {0} {1} placeholders
-	///     differ from the English one are reported and skipped - that id stays English.
+	///   - An id the table does not know, a line without a TAB, a text that names a {n} the English
+	///     does not have, and a select or plural that does not read (UWMessageFormat) are reported
+	///     and skipped - that id stays English. A frame with game fragments among its arguments
+	///     (UWTextFragments, translation wave 4) may leave one out: a fragment names it in a slot.
 	///   - An id the file does not hold stays English. Nothing in a file can make the game fail.
 	/// The Unity side (UWLanguage) decides which file is read and when: once at startup, before any
 	/// window is built, so texts taken when a window is built are the language's as well.
@@ -67,15 +69,17 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The text of an id with its placeholders filled in (string.Format, as the code
-		/// wrote it before). A language's text that does not format falls back to the English one;
-		/// never throws.</summary>
+		/// wrote it before; since translation wave 4 also select, plural and the slots of a game
+		/// fragment - UWMessageFormat, which hands a text that needs none of them to string.Format as
+		/// it was). A language's text that does not format falls back to the English one; never
+		/// throws.</summary>
 		public static string F(string psId, params object[] paArgs)
 		{
 			string lsFormat = T(psId);
 
 			try
 			{
-				return string.Format(lsFormat, paArgs);
+				return UWMessageFormat.Format(lsFormat, paArgs, PluralCode);
 			}
 			catch (FormatException)
 			{
@@ -85,7 +89,7 @@ namespace UWDataImport.UWData
 			{
 				try
 				{
-					return string.Format(lsEnglish, paArgs);
+					return UWMessageFormat.Format(lsEnglish, paArgs, PluralCode);
 				}
 				catch (FormatException)
 				{
@@ -94,6 +98,33 @@ namespace UWDataImport.UWData
 
 			return lsFormat;
 		}
+
+		/// <summary>A string of the game used as a piece of a frame (block 1's fragments): its slots
+		/// are filled with the frame's arguments (UWTextFragment, translation wave 4).</summary>
+		public static UWTextFragment Fragment(string psText)
+		{
+			return new UWTextFragment(psText);
+		}
+
+		/// <summary>The code of the language in force: "en" for English, the code a language file was
+		/// put in force under otherwise ("de", "pseudo").</summary>
+		public static string LanguageCode => msLanguage == null ? "en" : LanguageName;
+
+		/// <summary>The language whose CLDR plural rule the frames' plural takes (UWPluralRules): the
+		/// header grammar.rule.plural where the language file names a code, else ("auto") the
+		/// language's own code.</summary>
+		public static string PluralCode
+		{
+			get
+			{
+				string lsRule = UWText.T("grammar.rule.plural").Trim();
+
+				return lsRule.Length == 0 || lsRule == AutoRule ? LanguageCode : lsRule;
+			}
+		}
+
+		/// <summary>A header rule's value for "the language's own" (grammar.rule.plural).</summary>
+		public const string AutoRule = "auto";
 
 		/// <summary>Whether the table knows the id.</summary>
 		public static bool HasText(string psId)
@@ -114,6 +145,14 @@ namespace UWDataImport.UWData
 		public static IReadOnlyList<string> TextIdsGivenTwice => UWTextEnglish.Twice;
 
 		// ------------------------------------------------- Choosing the language
+
+		/// <summary>The game's strings changed language while the game runs (UWGameData.UseGameText,
+		/// translation step 3R): counted as a change of language too, so whoever keeps a text it took
+		/// takes it anew.</summary>
+		public static void MarkGameTextChanged()
+		{
+			LanguageVersion++;
+		}
 
 		/// <summary>English again.</summary>
 		public static void UseEnglish()
@@ -268,13 +307,21 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- Placeholders
 
 		/// <summary>How many arguments a format text takes: its highest {n} plus one (0 for none).
-		/// Doubled braces ({{ }}) are no placeholder.</summary>
+		/// Doubled braces ({{ }}) are no placeholder; a text with select or plural is read by
+		/// UWMessageFormat (the {n} of its branches count).</summary>
 		public static int PlaceholderCount(string psFormat)
 		{
 			int liCount = 0;
 
 			if (psFormat == null)
 				return 0;
+
+			if (UWMessageFormat.IsExtended(psFormat))
+			{
+				SortedSet<int> lOUsed = UWMessageFormat.Arguments(psFormat);
+
+				return lOUsed.Count == 0 ? 0 : lOUsed.Max + 1;
+			}
 
 			for (int liAt = 0; liAt < psFormat.Length; liAt++)
 			{
@@ -309,6 +356,9 @@ namespace UWDataImport.UWData
 		public static string PlaceholderSet(string psFormat)
 		{
 			SortedSet<int> lOFound = new SortedSet<int>();
+
+			if (UWMessageFormat.IsExtended(psFormat))
+				return string.Join(",", UWMessageFormat.Arguments(psFormat));
 
 			if (psFormat != null)
 			{
@@ -390,9 +440,29 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
-				if (UWText.PlaceholderSet(lsText) != UWText.PlaceholderSet(lsEnglish))
+				// Translation wave 4: a frame with game fragments among its arguments (UWTextFragments) may
+				// leave out an argument of the English - a fragment names it in a slot ("{0}." with "Halb
+				// geflickt hast du {1}"); a word a grammar puts beside a name (UWTextFragments.WordIds) may
+				// name {0}, the name; every other text has the English's; select and plural must read.
+				string lsGiven = UWText.PlaceholderSet(lsText);
+				string lsWanted = UWText.PlaceholderSet(lsEnglish);
+
+				bool lbFits = UWTextFragments.TakesFragments(lsId) ? fSubset(lsGiven, lsWanted)
+					: UWTextFragments.IsWord(lsId) ? fSubset(lsGiven, "0")
+					: lsGiven == lsWanted;
+
+				if (!lbFits)
 				{
 					lOFile.Problems.Add("line " + (liLine + 1) + ": " + lsId + " has other placeholders than the English");
+
+					continue;
+				}
+
+				string lsSyntax = fSyntaxError(lsText);
+
+				if (lsSyntax != null)
+				{
+					lOFile.Problems.Add("line " + (liLine + 1) + ": " + lsId + " " + lsSyntax);
 
 					continue;
 				}
@@ -404,6 +474,60 @@ namespace UWDataImport.UWData
 			}
 
 			return lOFile;
+		}
+
+		/// <summary>Whether every number of the set "0,2" is in the other set.</summary>
+		private static bool fSubset(string psSet, string psOf)
+		{
+			if (psSet.Length == 0)
+				return true;
+
+			HashSet<string> lOOf = new HashSet<string>(psOf.Split(','));
+
+			foreach (string lsNumber in psSet.Split(','))
+			{
+				if (!lOOf.Contains(lsNumber))
+					return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>The first error of a text's select or plural (UWMessageFormat.Check), or null.</summary>
+		private static string fSyntaxError(string psText)
+		{
+			if (!UWMessageFormat.IsExtended(psText))
+				return null;
+
+			foreach (UWMessageFormat.Problem lOProblem in UWMessageFormat.Check(psText))
+			{
+				if (lOProblem.IsError)
+					return lOProblem.Message;
+			}
+
+			return null;
+		}
+
+		/// <summary>The arguments of the English an id's text leaves out ("1" for "{0}." where the
+		/// English is "{0}{1}."), "" when it names them all - a frame that leaves an argument to the
+		/// game fragments among its arguments (translation wave 4).</summary>
+		public static string LeftOut(string psId, string psText)
+		{
+			string lsEnglish = UWText.English(psId);
+
+			if (lsEnglish == null || psText == null)
+				return string.Empty;
+
+			HashSet<string> lOGiven = new HashSet<string>(UWText.PlaceholderSet(psText).Split(','));
+			List<string> lsLeft = new List<string>();
+
+			foreach (string lsNumber in UWText.PlaceholderSet(lsEnglish).Split(','))
+			{
+				if (lsNumber.Length > 0 && !lOGiven.Contains(lsNumber))
+					lsLeft.Add(lsNumber);
+			}
+
+			return string.Join(",", lsLeft);
 		}
 
 		/// <summary>Texts as file lines, in the given order of ids (ids without a text left out).</summary>

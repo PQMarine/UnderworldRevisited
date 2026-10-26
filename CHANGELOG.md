@@ -8,6 +8,36 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.10.0] - 2026-10-26
+
+### Added
+- Languages: the Language row in the Game window chooses the language, and the change takes effect
+  at once - menus, windows, the HUD and the game's messages switch without a restart (lines already
+  in the message scroll stay as they were written).
+- German for the port's own texts: menus, settings, help, the modern interface and the sentence
+  frames (`Languages/de.tsv`).
+- The game's own texts can be translated too: a language file `Languages/<code>.strings.tsv` beside
+  the game is laid over the texts of your own copy of the game. The project ships no such file -
+  the game's texts belong to their rights holders, and a translator publishes a translation of
+  them on their own.
+- Grammar for translations: articles, cases, genders and plurals per language, names placed inside
+  a sentence where the language needs it, and plural rules for many languages.
+- The classic fonts draw ä ö ü Ä Ö Ü ß in the original's style, and they can be typed in names,
+  map notes, save names, mantras and conversation answers; the gamepad's letter grid gets a row
+  of them when the language uses them.
+- For translators: `Docs/TRANSLATING.md` and a Translation Kit beside every release
+  (`uwdump` without installing .NET, templates and the German file as an example), with
+  `uwdump text-template`, `strings-template`, `validate-tsv`, `fit` (labels that would be clipped
+  in the classic look), `looks` and `typed-words`.
+- Prepared for other scripts: a language can name a fallback font (a system font, e.g. for
+  Cyrillic or Chinese) and turn on the system's input method; such a language still needs a font of
+  its own for the classic look.
+
+### Fixed
+- Looking at the ceiling says so instead of "a stone floor".
+- The modern E and the pad's A use a decoration that cannot talk (the double door on level 1)
+  instead of offering to talk to it.
+
 ## [0.9.2] - 2026-10-26
 
 ### Closer to the original

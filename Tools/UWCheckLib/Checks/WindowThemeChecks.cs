@@ -138,8 +138,13 @@ namespace UnderworldRevisited.Tools
             Check.Str("settings: the choices", string.Join(",", lOTheme.ChoiceLabels) + " / " + string.Join(",", lOGround.ChoiceLabels),
                 "Plain,Stone / Gradient,Clouds");
             Check.Int("settings: a choice per theme", lOTheme.ChoiceIds.Length, UWWindowThemes.All.Length);
-            Check.Str("settings: the last two of the file", UWUserSettingsTable.All[UWUserSettingsTable.All.Length - 2].Key + ","
-                + UWUserSettingsTable.All[UWUserSettingsTable.All.Length - 1].Key, "WindowTheme,WindowBackground");
+            // The last two of the file until the Language came after them (translation wave 1, 2026-10-26).
+            int liTheme = Array.IndexOf(UWUserSettingsTable.All, lOTheme);
+
+            Check.Str("settings: the two after the pointer speed in the file", liTheme < 1 || liTheme + 1 >= UWUserSettingsTable.All.Length
+                ? "not found"
+                : UWUserSettingsTable.All[liTheme - 1].Key + "," + lOTheme.Key + "," + UWUserSettingsTable.All[liTheme + 1].Key,
+                "PointerSpeed,WindowTheme,WindowBackground");
         }
 
         // ------------------------------------------------- The generator

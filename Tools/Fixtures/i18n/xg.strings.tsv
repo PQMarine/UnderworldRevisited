@@ -1,0 +1,14 @@
+# A MADE-UP game-text pack of the test language "xg" (see xg.tsv): names in the name format
+# (UWNameFormat), an attitude word agreeing with its creature, the anvil's fragments holding the name.
+# The keys are the English STRINGS.PAK's; every text is invented - nothing of the game is in here.
+# block	index	text
+4	1	m:wumpo&wumpos
+4	2	f:zirba&zirbas
+4	3	fd:Kopa da Lumo
+4	66	m:grumblo&grumblos
+5	97	{0,select,f{grumma}other{grummo}}
+1	141	Tu destrukkasti {1}
+1	142	Tu domagasti {1}
+1	144	Tu laborasti {1} vanamente
+1	145	Tu fikkasti {1} a medi
+1	146	Tu fikkasti {1} tota

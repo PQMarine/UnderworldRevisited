@@ -99,9 +99,13 @@ namespace UWDataImport.UWData
 		// String block 2
 		private const int StringBlock = 2;
 
-		private const int SexStringBase = 10;
+		/// <summary>Male and Female (block 2), public for the fit check (UWClassicFit, translation 5.2).</summary>
+		public const int SexStringBase = 10;
 
-		private const int AttributeStringBase = 18;
+		/// <summary>Str: Dex: Int: Vit: (block 2), the labels the creation screen shows.</summary>
+		public const int AttributeStringBase = 18;
+
+		public const int AttributeLabelCount = 4;
 
 		/// <summary>The numbers in CHRGEN.DAT count like the original; our string block is
 		/// one higher (see DataImport.GetGeneralMessage). The fixed numbers above are
@@ -234,6 +238,27 @@ namespace UWDataImport.UWData
 		public string GetSkillName(int piSkillNumber)
 		{
 			return UWCharacterText.SkillName(mOStrings, piSkillNumber);
+		}
+
+		/// <summary>The block 2 index of a question's text (CHRGEN.DAT, 0 to 7, converted to our numbering);
+		/// -1 before the data is loaded. For the fit check (UWClassicFit, translation 5.2).</summary>
+		public int QuestionStringIndex(int piQuestion)
+		{
+			return IsLoaded && piQuestion >= 0 && piQuestion < QuestionCount ? mOQuestions[piQuestion].StringId + ChrgenStringOffset : -1;
+		}
+
+		/// <summary>The block 2 indices of a question's answers (CHRGEN.DAT; the skill question's are a placeholder).</summary>
+		public List<int> ChoiceStringIndices(int piQuestion)
+		{
+			List<int> lOIndices = new List<int>();
+
+			if (IsLoaded && piQuestion >= 0 && piQuestion < QuestionCount)
+			{
+				foreach (int liString in mOQuestions[piQuestion].ChoiceStrings)
+					lOIndices.Add(liString + ChrgenStringOffset);
+			}
+
+			return lOIndices;
 		}
 
 		public string GetAttributeLabel(int piIndex)
@@ -507,9 +532,14 @@ namespace UWDataImport.UWData
 		/// dexterity and intelligence, then done.</summary>
 		private const int AttributeDoneChoice = 6;
 
-		private const string PointsLeftText = "Points left: ";
+		/// <summary>The port's own words of the manual dealing (msg.creation.*).</summary>
+		private static string PointsLeftText => UWText.T(PointsLeftTextId);
 
-		private const string DoneText = "Done";
+		private static string DoneText => UWText.T(DoneTextId);
+
+		public const string PointsLeftTextId = "msg.creation.points_left";
+
+		public const string DoneTextId = "msg.creation.done";
 
 		private void fPresentAttributeChoice()
 		{

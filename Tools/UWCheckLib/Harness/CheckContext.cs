@@ -20,6 +20,10 @@ namespace UnderworldRevisited.Tools
         /// <summary>--record: the pin checks write their files instead of comparing.</summary>
         public bool Record;
 
+        /// <summary>The game.gog the data folder was extracted from, or null (a DATA folder given
+        /// directly) - for a check that needs a file the extraction lacks.</summary>
+        public string ImagePath;
+
         private DataImport mOData;
         private bool mbLoadTried;
         private string msLoadError;

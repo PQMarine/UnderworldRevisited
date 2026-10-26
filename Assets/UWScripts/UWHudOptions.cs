@@ -411,7 +411,8 @@ public sealed class UWHudOptions
                 + UWSaveFlow.SlotName(liAt));
     }
 
-    private const string SaveListHeading = "\\6     Save Game Descriptions";
+    /// <summary>The heading over the save names, with the scroll's colour code (msg.save.list_heading).</summary>
+    private static string SaveListHeading => UWText.T("msg.save.list_heading");
 
     /// <summary>Block 1: "\\6     Please enter a save file description:" - green, and the
     /// typed line below stays green (per user, 2026-09-12).</summary>

@@ -30,6 +30,8 @@ format stay tied to what Unity writes.
 - `window-theme-2026-10-25.json`: the windows' theme Stone and its ground Clouds (cleanup phase 8d),
   the two numbers added since; every other property at its default. Every older fixture reads
   Plain and the gradient.
+- `language-2026-10-26.json`: the language chosen in the Game window (translation wave 1), the one
+  text added since; every other property at its default. Every older fixture reads it empty (English).
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

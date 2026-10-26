@@ -1,0 +1,15 @@
+# A MADE-UP test language "xz" for the font fallback and the input method (translation wave 6):
+# Tools/UWCheckLib/Checks/LanguageFontChecks.cs and the editor's UW / Check font fallback
+# (Assets/Editor/UWFontFallbackCheck.cs). Its texts are strings of common CJK characters and
+# Cyrillic words put together at random - no language's words and no text of the game.
+# The font: a file beside the game first (not in the repository - no font is), then fonts a
+# system may have installed - Microsoft JhengHei (Windows 11) has the ideographs but no Cyrillic,
+# Arial (Windows) the Cyrillic; Noto Sans CJK TC and DejaVu Sans are their like on many Linux systems.
+grammar.rule.font	xz.otf, os:Microsoft JhengHei, os:Arial, os:Noto Sans CJK TC, os:DejaVu Sans
+grammar.rule.ime	yes
+grammar.look.you_see	山川 {0} 火木。
+grammar.word.magical	Блимка
+grammar.word.cursed	雨石
+menu.resume	Зорби клумпа
+setting.GogInstallPath	水木風山
+setting.ControlScheme	日月山川水火木金土石田雨風雲花草竹林森日月山川水火木金土石田雨風雲花草竹林森、日月山川。

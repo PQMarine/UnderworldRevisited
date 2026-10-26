@@ -87,71 +87,30 @@ namespace UWDataImport.UWData
 			// Otherwise the talisman is described like any other object.
 			string lsTalisman = liLore == UWLoreCheck.ResultNamed ? UWTalismans.GetName(pOItem.ID, pOData.Strings) : null;
 
+			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
+
 			if (!string.IsNullOrEmpty(lsTalisman))
-				return "You see " + lsTalisman + ".";
+				return lIGrammar.LookSentence(lIGrammar.LiteralPhrase(lsTalisman));
 
 			int liCount = UWStackRules.CountAtLeastOne(pOItem);
 
-			string lsRaw = UWText.RawObjectName(pOData, pOItem.ID);
-
-			string lsCondition = GetItemConditionWord(pOItem, pOData);
-
 			UWEnchantment.Result lOEnchantment = UWEnchantment.Get(pOItem, pOObjectList, pOData.Strings);
 
-			// In the original the words before the name come in this order: condition,
-			// cursed, magical. They must be inserted BEFORE the article so that the
-			// "a" can become "an" - hence here and not on the finished name.
-			if (liLore == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier)
-				lsRaw = InsertCondition(lsRaw, "magical");
+			// The name with its article, or the count and the plural; the condition word, "cursed"
+			// and "magical" before it in the original's order (IUWGrammar.ItemPhrase - the English
+			// rules were here until 2026-10-26, UWGrammarEnglish).
+			string lsName = lIGrammar.ItemPhrase(UWText.RawObjectName(pOData, pOItem.ID), liCount, GetItemConditionWord(pOItem, pOData),
+				liLore == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed,
+				liLore == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier);
 
-			if (liLore == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed)
-				lsRaw = InsertCondition(lsRaw, "cursed");
-
-			if (!string.IsNullOrEmpty(lsCondition))
-				lsRaw = InsertCondition(lsRaw, lsCondition);
-
-			string lsName = UWObjectDescriptionFormatter.FormatItemName(lsRaw, liCount > 1);
-
-			// For a stack the number replaces the article: "a loaf of
-			// bread" becomes "11 loaves of bread". The plural form after the "&" carries
-			// no article, so nothing may be cut off.
-			if (liCount > 1)
-			{
-				// The words before the name went into the SINGULAR part above (after the article),
-				// so the plural is built from the bare name and the words go between the count and
-				// it, in the same order: LookAt (UnderworldExhumed obj/LOOK.C) writes the count, the
-				// quality word, then the modifiers, then the plural - "5 day old ears of corn" (per
-				// user on the original 2026-10-17; ours dropped the word for every stack).
-				string lsBare = UWText.RawObjectName(pOData, pOItem.ID);
-
-				// If the plural form is missing entirely, the article is still on the left - it must go then,
-				// otherwise "2 a dagger" would come out.
-				string lsPlural = lsBare != null && lsBare.Contains("&")
-					? UWObjectDescriptionFormatter.FormatItemName(lsBare, true)
-					: UWObjectDescriptionFormatter.FormatBareItemName(lsBare, false);
-
-				System.Text.StringBuilder lOWords = new System.Text.StringBuilder();
-
-				if (!string.IsNullOrEmpty(lsCondition))
-					lOWords.Append(lsCondition).Append(' ');
-
-				if (liLore == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed)
-					lOWords.Append("cursed ");
-
-				if (liLore == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier)
-					lOWords.Append("magical ");
-
-				lsName = liCount + " " + lOWords + lsPlural;
-			}
-
-			lsName += EnchantmentSuffix(lOEnchantment, liLore);
+			lsName += EnchantmentSuffix(lOEnchantment, liLore, lIGrammar);
 
 			// WHO OWNS IT is included: "a sword belonging to a knight". The field is
 			// the same one theft depends on (see UWWorldPickup.ReportTheft) - whoever takes it
 			// upsets those named, and afterwards the addition is no longer shown.
 			lsName += DescribeOwner(pOItem, pOData);
 
-			return "You see " + lsName + ".";
+			return lIGrammar.LookSentence(lsName);
 		}
 
 		/// <summary>
@@ -161,25 +120,15 @@ namespace UWDataImport.UWData
 		/// Damage". The original ends with "with N full charges" - without "remaining", and for a
 		/// single charge in the singular: "with 1 full charge" (both per user, 2026-09-05). The
 		/// charges stay hidden as long as the spell does. Shared by the look and identify_inv
-		/// since 2026-10-15.
+		/// since 2026-10-15; the words are the grammar's since 2026-10-26 (IUWGrammar.EnchantmentPart).
 		/// </summary>
-		public static string EnchantmentSuffix(UWEnchantment.Result pOEnchantment, int piDetail)
+		public static string EnchantmentSuffix(UWEnchantment.Result pOEnchantment, int piDetail, IUWGrammar pIGrammar)
 		{
 			if (piDetail != UWLoreCheck.ResultNamed)
 				return string.Empty;
 
-			string lsSuffix = !pOEnchantment.IsCursed && !string.IsNullOrEmpty(pOEnchantment.Name)
-				? " of " + pOEnchantment.Name
-				: string.Empty;
-
-			if (pOEnchantment.Charges >= 0)
-				lsSuffix += pOEnchantment.Charges == 0
-					? " with no full charges"
-					: pOEnchantment.Charges == 1
-						? " with 1 full charge"
-						: " with " + pOEnchantment.Charges + " full charges";
-
-			return lsSuffix;
+			return (pIGrammar ?? UWGrammar.English).EnchantmentPart(pOEnchantment.IsCursed ? null : pOEnchantment.Name,
+				pOEnchantment.Charges);
 		}
 
 		/// <summary>
@@ -203,36 +152,15 @@ namespace UWDataImport.UWData
 
 			int liCount = UWStackRules.Count(pOItem);
 			UWEnchantment.Result lOEnchantment = UWEnchantment.Get(pOItem, pOObjectList, pOData.Strings);
-			bool lbMagical = piDetail == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier;
-			bool lbArticle = pbArticle;
-			string lsName = string.Empty;
+			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
 
-			// do_mods' "magical " decides the article: its 'm' takes "a ".
-			if (lbMagical && lbArticle && liCount == 1)
-			{
-				lsName = "a ";
-				lbArticle = false;
-			}
-			else if (liCount > 1)
-			{
-				lsName = liCount + " ";
-				lbArticle = false;
-			}
+			// The count or the article, "magical" or "cursed", the name (IUWGrammar.IdentifyName - the
+			// English rules were here until 2026-10-26, UWGrammarEnglish).
+			string lsName = lIGrammar.IdentifyName(UWText.RawObjectName(pOData, pOItem.ID, null), liCount,
+				piDetail == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier,
+				piDetail == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed, pbArticle);
 
-			if (lbMagical)
-				lsName += "magical ";
-			else if (piDetail == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed)
-				lsName += "cursed ";
-
-			// get_name with fix_name_string: the plural after the "&", or the singular with an "s".
-			string lsRaw = UWText.RawObjectName(pOData, pOItem.ID, null);
-
-			if (!string.IsNullOrEmpty(lsRaw))
-				lsName += liCount > 1 && lsRaw.IndexOf('&') < 0
-					? UWText.ObjectName(pOData, pOItem.ID) + "s"
-					: UWText.ObjectName(pOData, pOItem.ID, liCount > 1, lbArticle);
-
-			return lsName + EnchantmentSuffix(lOEnchantment, piDetail);
+			return lsName + EnchantmentSuffix(lOEnchantment, piDetail, lIGrammar);
 		}
 
 		/// <summary>The list that holds a carried item's linked objects (the spell of a wand): the
@@ -268,27 +196,32 @@ namespace UWDataImport.UWData
 			if ((pOItem.Owner & OwnerFieldMask) == 0 || liRace > LastOwnerValue)
 				return string.Empty;
 
-			return " belonging to" + UWText.General(pOData, FirstOwnerNameMessage + liRace);
+			return UWGrammar.Of(pOData).OwnerPart(UWText.General(pOData, FirstOwnerNameMessage + liRace));
 		}
 
 		/// <summary>
-		/// The look message of fixed scenery, with the owner: the original says "You see a
-		/// sturdy chest belonging to a green goblin." for barrels and chests (per user with a
-		/// screenshot, 2026-09-16). Items on the floor get it through DescribeItem.
+		/// THE LOOK AT A THING THAT IS NO ITEM: fixed scenery, a door with its condition word before
+		/// the name ("You see a badly damaged door."), the moving door - each with its owner (the
+		/// original says "You see a sturdy chest belonging to a green goblin." for barrels and chests,
+		/// per user with a screenshot, 2026-09-16; items on the floor get it through DescribeItem). The
+		/// condition word may be null, the item too (then no owner). Out of UWLookService (translation
+		/// wave 2, 2026-10-26), so the look catalog of the self-check and uwdump sees the sentence the
+		/// game shows; the words are the grammar's (IUWGrammar.ScenePhrase).
 		/// </summary>
-		public static string FormatLookMessageWithOwner(string psRaw, UWObject pOItem, DataImport pOData)
+		public static string DescribeScenery(string psRaw, string psCondition, UWObject pOItem, DataImport pOData)
 		{
-			string lsLook = UWObjectDescriptionFormatter.FormatLookMessage(psRaw);
+			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
 
-			if (pOItem != null && lsLook.EndsWith("."))
-			{
-				string lsOwner = DescribeOwner(pOItem, pOData);
+			return lIGrammar.LookSentence(lIGrammar.ScenePhrase(psRaw, psCondition) + DescribeOwner(pOItem, pOData));
+		}
 
-				if (!string.IsNullOrEmpty(lsOwner))
-					lsLook = lsLook.Substring(0, lsLook.Length - 1) + lsOwner + ".";
-			}
+		/// <summary>The look at a wall or floor: block 10's texture name in the look sentence (the names
+		/// carry their article, "a stone wall").</summary>
+		public static string DescribeChunk(string psText, DataImport pOData)
+		{
+			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
 
-			return lsLook;
+			return lIGrammar.LookSentence(lIGrammar.ChunkPhrase(psText));
 		}
 
 		/// <summary>
@@ -322,27 +255,9 @@ namespace UWDataImport.UWData
 				lsName = fNonEmpty(UWText.Block(pOData, UWConversations.PartnerNameStringBlock,
 					UWConversations.GetPartnerNameIndex(liWho), null));
 
-			if (lsKind == null && lsName == null)
-				return null;
-
-			bool lbUpperName = lsName != null && lsName[0] >= 'A' && lsName[0] <= 'Z';
-			string lsText = "You see ";
-
-			if (lsKind != null && lsAttitude != null)
-				lsText += (UWObjectDescriptionFormatter.StartsWithVowel(lsAttitude) ? "an " : "a ") + lsAttitude + " ";
-
-			if (lsKind != null && (lsName == null || lbUpperName))
-				lsText += fFixName(lsKind, lsAttitude == null);
-
-			if (lsName != null)
-			{
-				if (lsKind != null && lbUpperName)
-					lsText += " named ";
-
-				lsText += fFixName(lsName, lsKind == null);
-			}
-
-			return lsText + ".";
+			// The sentence is the grammar's (IUWGrammar.CreatureLook; the English rules were here until
+			// 2026-10-26, UWGrammarEnglish).
+			return UWGrammar.Of(pOData).CreatureLook(lsAttitude, lsKind, lsName);
 		}
 
 		/// <summary>The text trimmed, or null when nothing is left (CritterLook's "*s == 0").</summary>
@@ -351,27 +266,6 @@ namespace UWDataImport.UWData
 			string lsText = psText != null ? psText.Trim() : null;
 
 			return string.IsNullOrEmpty(lsText) ? null : lsText;
-		}
-
-		/// <summary>fix_name_string (ui/GAMESTRN.C) for the singular: the plural after "&amp;" is
-		/// cut, and the "_" after the article becomes a space (pbArticle) or takes the article
-		/// with it.</summary>
-		private static string fFixName(string psRaw, bool pbArticle)
-		{
-			string lsName = psRaw;
-			int liPlural = lsName.IndexOf('&');
-
-			if (liPlural >= 0)
-				lsName = lsName.Substring(0, liPlural);
-
-			int liSeparator = lsName.IndexOf('_');
-
-			if (liSeparator < 0)
-				return lsName;
-
-			return pbArticle
-				? lsName.Substring(0, liSeparator) + " " + lsName.Substring(liSeparator + 1)
-				: lsName.Substring(liSeparator + 1);
 		}
 
 		/// <summary>
@@ -407,9 +301,10 @@ namespace UWDataImport.UWData
 
 			bool lbMany = liId == PileOfBonesId || pOItem.Quantity > 1;
 			string lsLead = UWText.General(pOData, (lbMany ? BonesManyMessage : BonesOneMessage) + 1, null);
+			// "that of" a creature, in the dative where the language has cases ("von einem Goblin").
 			string lsWhose = liOwner == AdventurerBonesOwner
-				? AdventurerBonesName
-				: UWText.ObjectName(pOData, FirstCreatureId + liOwner, false, true, null);
+				? UWText.T("grammar.bones.adventurer")
+				: UWText.ObjectName(pOData, FirstCreatureId + liOwner, false, true, null, UWGrammarCase.Dative);
 
 			if (lsLead == null || string.IsNullOrEmpty(lsWhose))
 				return null;
@@ -432,9 +327,6 @@ namespace UWDataImport.UWData
 		/// <summary>game_sprint 0x16 and 0x17 (block 1, the project's numbering adds one).</summary>
 		private const int BonesOneMessage = 0x16;
 		private const int BonesManyMessage = 0x17;
-
-		/// <summary>BonesLook's own literal for owner 0x3F.</summary>
-		private const string AdventurerBonesName = "an adventurer";
 
 		/// <summary>Condition word from string block 5 - broken, badly damaged, damaged, sturdy,
 		/// massive - for a condition string index as UWHealth computes it (see
@@ -473,7 +365,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Inserts the condition word before the item name. The raw descriptions
 		/// separate article and name with "_" (see UWObjectDescriptionFormatter), so "a_door"
-		/// becomes "a_sturdy door".</summary>
+		/// becomes "a_sturdy door". The English grammar's (UWGrammarEnglish).</summary>
 		public static string InsertCondition(string psRawDescription, string psCondition)
 		{
 			if (string.IsNullOrEmpty(psRawDescription))

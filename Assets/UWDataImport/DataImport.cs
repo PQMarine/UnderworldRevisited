@@ -32,6 +32,12 @@ namespace UWDataImport
 
 		public UWStrings Strings => GameData.Strings;
 
+		/// <summary>The game-text pack laid over the strings, or null - see UWGameData.GameText.</summary>
+		public UWGameTextPack GameText => GameData.GameText;
+
+		/// <summary>The grammar of the strings' language - see UWGameData.Grammar and IUWGrammar.</summary>
+		public IUWGrammar Grammar => GameData.Grammar;
+
 		public UWWeaponAnimations WeaponAnimations => GameData.WeaponAnimations;
 
 		public UWWearables Wearables => GameData.Wearables;
@@ -155,11 +161,12 @@ namespace UWDataImport
 		/// only the changeable part comes (LEV.ARK, PLAYER.DAT, BGLOBALS.DAT, see LoadGame);
 		/// everything else (textures, strings, tables) stays with the data folder. Diagnostic
 		/// tools use this; the game itself keeps one instance per data folder and calls LoadGame
-		/// for every start (see UWLevelLoader).
+		/// for every start (see UWLevelLoader). psGameTextFile: a game-text pack laid over the English
+		/// strings (see UWGameData), null for none.
 		/// </summary>
-		public DataImport(string psPath, string psSavegamePath = null)
+		public DataImport(string psPath, string psSavegamePath = null, string psGameTextFile = null)
 		{
-			GameData = new UWGameData(psPath);
+			GameData = new UWGameData(psPath, psGameTextFile);
 			LoadGame(psSavegamePath);
 		}
 

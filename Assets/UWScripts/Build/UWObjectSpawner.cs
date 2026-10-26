@@ -1049,7 +1049,7 @@ namespace UnderworldRevisited.Build
             // (24,10) really is "leather leggings", exactly the text at GetDescription(35+1) -
             // so Strings.Blocks[4] is indexed shifted by one relative to the object ID.
             // See UWArmorItemMap for the resulting correction of the table keys.
-            lOInfo.Description = fGetDescription(pOObject.ID + 1);
+            fDescribeByName(lOInfo, pOObject.ID + 1);
 
             fAddLightIfSource(lOObject, pOObject, lOResolved.Size.y);
 
@@ -1541,12 +1541,12 @@ namespace UnderworldRevisited.Build
                 // Wall inscription: in the original it shows its wording directly, with a matching
                 // lead-in before it - no "You see some writing." (CONFIRMED by user,
                 // 2026-08-28). That is why the finished display text is built here already.
-                lOInfo.Description = fBuildWritingText(pOObject);
+                fDescribeByWriting(lOInfo, pOObject);
                 lOInfo.ShowDescriptionVerbatim = true;
             }
             else if ((pOObject.ID == ForceFieldObjectId || pOObject.ID == 366 || pOObject.ID == 367) && pOObject.Texture != null)
             {
-                lOInfo.Description = fGetTextureDescription(pOObject.Texture.Index + 1);
+                fDescribeByTexture(lOInfo, pOObject.Texture.Index + 1);
 
                 // When looked at, a window additionally shows an image in the view window. The
                 // distinction goes via the texture, not the object id: 366 is
@@ -1564,7 +1564,7 @@ namespace UnderworldRevisited.Build
                     && mOData.Terrain.GetWallTerrain(pOObject.Texture.Index) == UWTerrain.TerrainType.ChainedPrincess;
             }
             else
-                lOInfo.Description = fGetDescription(pOObject.ID + 1);
+                fDescribeByName(lOInfo, pOObject.ID + 1);
 
             // Switches (368-383): the second image of the same switch sits in TMFLAT.GR offset
             // by 8, so the partner is index XOR 8. XOR instead of "+ 8", because both halves occur as
@@ -2122,9 +2122,9 @@ namespace UnderworldRevisited.Build
             // block 10 counted down from 511, as for the level's own floors (see Interaction).
             if (pOObject.ID == BridgeObjectId && pOObject.Flags > 1 && pOObject.Texture != null
                 && pOObject.Texture.TextureType == UWTexture.TextureTypes.FLOOR)
-                lOInfo.Description = fGetTextureDescription(511 - pOObject.Texture.Index);
+                fDescribeByTexture(lOInfo, 511 - pOObject.Texture.Index);
             else
-                lOInfo.Description = fGetDescription(pOObject.ID + 1);
+                fDescribeByName(lOInfo, pOObject.ID + 1);
 
             // PICKABLE, BUT ONLY WHAT LIES ON THE FLOOR. The model path never set this
             // flag, and that was right as long as there was only scenery here - nobody takes
@@ -2620,7 +2620,7 @@ namespace UnderworldRevisited.Build
             UWEntityInfo lOInfo = lODoor.AddComponent<UWEntityInfo>();
             lOInfo.ObjectData = pOObject;
             lOInfo.IsDoor = true;
-            lOInfo.Description = fGetDoorDescription(pOObject);
+            fDescribeByName(lOInfo, fGetDoorStringIndex(pOObject));
 
             fSpawnDoorFrames(xPos, zPos, pOTile, pOObject, lfBottom, lfHeight, pOParent, lOMover);
 
@@ -2886,7 +2886,7 @@ namespace UnderworldRevisited.Build
             UWEntityInfo lOInfo = lOPortcullis.AddComponent<UWEntityInfo>();
             lOInfo.ObjectData = pOObject;
             lOInfo.IsDoor = true;
-            lOInfo.Description = fGetDoorDescription(pOObject);
+            fDescribeByName(lOInfo, fGetDoorStringIndex(pOObject));
 
             fSpawnDoorFrames(xPos, zPos, pOTile, pOObject, lfBottom, lfHeight, pOParent, lOMover);
 
@@ -3139,7 +3139,7 @@ namespace UnderworldRevisited.Build
             UWEntityInfo lOInfo = lODoor.AddComponent<UWEntityInfo>();
             lOInfo.ObjectData = pOObject;
             lOInfo.IsDoor = true;
-            lOInfo.Description = fGetDoorDescription(pOObject);
+            fDescribeByName(lOInfo, fGetDoorStringIndex(pOObject));
 
             fSpawnDoorFrames(xPos, zPos, pOTile, pOObject, lfBottom, lfHeight, pOParent, lOMover);
 
@@ -3179,7 +3179,7 @@ namespace UnderworldRevisited.Build
 
 
         /// <summary>
-        /// The raw description of a door, with the "_" between article and name.
+        /// Where the raw description of a door lies (block 4), with the "_" between article and name.
         ///
         /// Until 2026-09-04 the condition word was additionally inserted here: the "_" was replaced by the
         /// door's quality. That was redundant ever since Interaction does the same when
@@ -3190,9 +3190,46 @@ namespace UnderworldRevisited.Build
         /// found no separator any more and prepended its word. The user read in the game
         /// "You see massive an sturdy open door."
         /// </summary>
-        private string fGetDoorDescription(UWObject pOObject)
+        private static int fGetDoorStringIndex(UWObject pOObject)
         {
-            return fGetDescription(pOObject.ID + 1);
+            return pOObject.ID + 1;
+        }
+
+        // ------------------------------------------------- Descriptions read live (translation step 3R)
+        //
+        // An entity's description is read from the strings each time it is asked for, not frozen at
+        // spawn time, so a language switched while the game runs names it anew
+        // (UWEntityInfo.DescribeBy). What is read is what was frozen until then: the same string of
+        // block 4 or 10 at the index of spawn time, the same wall writing.
+
+        private void fDescribeByName(UWEntityInfo pOInfo, int piStringIndex)
+        {
+            pOInfo.DescribeBy(() => fGetDescription(piStringIndex));
+        }
+
+        private void fDescribeByTexture(UWEntityInfo pOInfo, int piIndex)
+        {
+            pOInfo.DescribeBy(() => fGetTextureDescription(piIndex));
+        }
+
+        private void fDescribeByWriting(UWEntityInfo pOInfo, UWObject pOObject)
+        {
+            int liPrefix;
+            int liText;
+
+            try
+            {
+                liPrefix = UWObjectMechanics.GetWritingPrefixIndex(pOObject);
+                liText = UWObjectMechanics.GetWritingTextIndex(pOObject);
+            }
+            catch
+            {
+                pOInfo.Description = string.Empty;
+
+                return;
+            }
+
+            pOInfo.DescribeBy(() => fBuildWritingText(liPrefix, liText));
         }
 
         /// <summary>
@@ -3353,7 +3390,7 @@ namespace UnderworldRevisited.Build
 
             UWEntityInfo lOInfo = lOFrame.AddComponent<UWEntityInfo>();
             lOInfo.TileData = pOTile;
-            lOInfo.Description = fGetTextureDescription(pOTile.TextureWall + 1);
+            fDescribeByTexture(lOInfo, pOTile.TextureWall + 1);
 
             return lOCollider;
         }
@@ -3382,12 +3419,12 @@ namespace UnderworldRevisited.Build
         /// reads: ") plus the actual text, both from string block 8 - see
         /// UWObjectMechanics.GetWritingPrefixIndex/GetWritingTextIndex. Trailing
         /// line breaks are dropped, inner ones stay (some texts are multi-line).</summary>
-        private string fBuildWritingText(UWObject pOObject)
+        private string fBuildWritingText(int piPrefixIndex, int piTextIndex)
         {
             try
             {
-                string lsPrefix = mOData.GetReadableText(UWObjectMechanics.GetWritingPrefixIndex(pOObject)) ?? string.Empty;
-                string lsText = mOData.GetReadableText(UWObjectMechanics.GetWritingTextIndex(pOObject)) ?? string.Empty;
+                string lsPrefix = mOData.GetReadableText(piPrefixIndex) ?? string.Empty;
+                string lsText = mOData.GetReadableText(piTextIndex) ?? string.Empty;
 
                 return (lsPrefix.TrimEnd('\r', '\n') + lsText).TrimEnd('\r', '\n');
             }

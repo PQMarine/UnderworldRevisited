@@ -92,8 +92,8 @@ namespace UnderworldRevisited.Tools
 
             Check.Str("rows: texts, ids and choices consistent", lOProblems.ToString(), string.Empty);
             // 73 since cleanup step 7.7B: the Pointer speed (UWPointer); 75 since cleanup phase 8d: the
-            // windows' theme and its ground.
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 75);
+            // windows' theme and its ground; 76 since translation wave 1 (2026-10-26): the Language.
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 76);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");

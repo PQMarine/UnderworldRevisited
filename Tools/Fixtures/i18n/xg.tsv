@@ -1,0 +1,22 @@
+# A MADE-UP gendered test language "xg" for the self-check (Tools/UWCheckLib/Checks/GenericGrammarChecks.cs):
+# the port's own texts of a language without a grammar class of its own (UWGrammarGeneric) - articles
+# by gender, the words after the noun and agreeing with it, French plural categories. Every word invented.
+grammar.rule.genders	m f
+grammar.rule.cases	nom
+grammar.rule.case.object	nom
+grammar.rule.case.place	nom
+grammar.rule.case.look	nom
+grammar.rule.plural	fr
+grammar.rule.capital	yes
+grammar.rule.letters	äöü€
+grammar.article.indefinite	{0,select,f{ka {0}}other{ko {0}}}
+grammar.article.definite	{0,select,f{la {0}}other{lo {0}}}
+grammar.article.your	{0,select,f{tua {0}}other{tuo {0}}}
+grammar.phrase.words	{1} {0}
+grammar.word.magical	{0,select,f{glima}other{glimo}}
+grammar.word.cursed	{0,plural,one{{0,select,f{brakka}other{brakko}}}other{{0,select,f{brakkas}other{brakkos}}}}
+grammar.look.you_see	Vu zei {0}.
+grammar.look.named	{0} nomo {1}
+msg.item.locked	{0} es {0,select,f{klausa}other{klauso}}.
+msg.repair.result	{0}.
+msg.wear.damaged	{0} es {0,select,f{rumpa}other{rumpo}}.

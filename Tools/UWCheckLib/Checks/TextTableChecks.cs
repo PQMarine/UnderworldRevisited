@@ -25,7 +25,7 @@ namespace UnderworldRevisited.Tools
         /// <summary>The areas of the table (UWTextEnglish); a literal in the code that starts with
         /// one of these and a dot is taken for an id.</summary>
         private static readonly string[] msTextAreas =
-            { "setting", "setup", "keys", "pad", "help", "editor", "layout", "menu", "hud", "prompt", "effects", "grid" };
+            { "setting", "setup", "keys", "pad", "help", "editor", "layout", "menu", "hud", "prompt", "effects", "grid", "grammar", "msg" };
 
         private static void fCheckTextTable()
         {
@@ -179,6 +179,25 @@ namespace UnderworldRevisited.Tools
                     if (liGiven != liWanted)
                         lOArguments.Append(lsName).Append(": ").Append(lsId).Append(" given ").Append(liGiven)
                             .Append(", wants ").Append(liWanted).Append("; ");
+                }
+
+                // UWText.Sentence(data, id, ...): a message line's frame (translation step 3A), the
+                // data before the id.
+                foreach (Match lOMatch in Regex.Matches(lsSource, "UWText\\.Sentence\\(\\s*[^,\"()]+(\\(\\))?\\s*,\\s*\"([^\"]+)\""))
+                {
+                    liCalls++;
+
+                    string lsId = lOMatch.Groups[2].Value;
+                    string lsEnglish = UWText.English(lsId);
+
+                    if (lsEnglish == null)
+                        continue;
+
+                    int liGiven = fCountCallArguments(lsSource, lOMatch.Index + lOMatch.Value.IndexOf('(')) - 2;
+
+                    if (liGiven != UWText.PlaceholderCount(lsEnglish))
+                        lOArguments.Append(lsName).Append(": ").Append(lsId).Append(" given ").Append(liGiven)
+                            .Append(", wants ").Append(UWText.PlaceholderCount(lsEnglish)).Append("; ");
                 }
             }
 

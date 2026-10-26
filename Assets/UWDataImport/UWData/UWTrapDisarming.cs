@@ -12,19 +12,11 @@ namespace UWDataImport.UWData
 		/// <summary>String block 1: "You found a trap!  Do you wish to try to disarm it?"</summary>
 		public const int TrapFoundMessage = 99;
 
-		/// <summary>
-		/// The three disarm messages are NOT in STRINGS.PAK, but in
-		/// UW.EXE - just like the missing ammunition. The reference
-		/// names numbers in string block 1 for them, where our entries are empty.
-		///
-		/// Found in the game binary (2026-09-10), including the original's typo:
-		/// "dearmed" instead of "disarmed".
-		/// </summary>
-		private const string TrapDisarmedSuffix = " was successfully dearmed.";
-
-		private const string TrapSetOffMessage = "Your bumbling attempts have set off the ";
-
-		private const string TrapDisarmFailedMessage = "Unable to defuse trap.";
+		// The three disarm messages are NOT in STRINGS.PAK, but in UW.EXE - just like the missing
+		// ammunition. The reference names numbers in string block 1 for them, where our entries are
+		// empty. Found in the game binary (2026-09-10), including the original's typo: "dearmed"
+		// instead of "disarmed". Since translation step 3A (2026-10-26) the UWText ids
+		// msg.trap.disarmed, .set_off and .failed (DisarmedMessage, SetOffMessage, FailedMessage).
 
 		/// <summary>Target value of both checks - the reference uses a fixed eight in uw1.</summary>
 		private const int TrapCheckDifficulty = 8;
@@ -110,31 +102,46 @@ namespace UWDataImport.UWData
 
 			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(piTrapsSkill, TrapCheckDifficulty);
 
-			string lsTrapName = GetTrapName(lOTrap, pOData);
-
 			if (UWSkillCheck.IsSuccess(leResult))
 			{
 				fClearChain(pOTarget, pOLevel);
 
-				lOResult.Message = "The " + lsTrapName + " on the "
-					+ UWText.ObjectName(pOData, pOTarget.ID) + TrapDisarmedSuffix;
+				lOResult.Message = DisarmedMessage(pOData, lOTrap.ID, pOTarget.ID);
 
 				return lOResult;
 			}
 
 			if (leResult == UWSkillCheck.ResultEnum.CriticalFailure)
 			{
-				lOResult.Message = TrapSetOffMessage + lsTrapName;
+				lOResult.Message = SetOffMessage(pOData, lOTrap.ID);
 				lOResult.TrapToFire = lOTrap;
 				lOResult.TriggerToFire = lOTrigger;
 
 				return lOResult;
 			}
 
-			lOResult.Message = TrapDisarmFailedMessage;
+			lOResult.Message = FailedMessage;
 
 			return lOResult;
 		}
+
+		/// <summary>"The arrow trap on the chest was successfully dearmed." - the trap's name
+		/// (GetTrapName; nominative) and the target's (dative), the frame msg.trap.disarmed.</summary>
+		public static string DisarmedMessage(DataImport pOData, int piTrapId, int piTargetId)
+		{
+			return UWText.Sentence(pOData, "msg.trap.disarmed", UWText.TheObject(pOData, piTrapId, UWGrammarCase.Nominative),
+				UWText.TheObject(pOData, piTargetId, UWGrammarCase.Dative));
+		}
+
+		/// <summary>"Your bumbling attempts have set off the arrow trap" - without a full stop, as
+		/// UW.EXE has it; the trap in the accusative.</summary>
+		public static string SetOffMessage(DataImport pOData, int piTrapId)
+		{
+			return UWText.Sentence(pOData, "msg.trap.set_off", UWText.TheObject(pOData, piTrapId, UWGrammarCase.Accusative));
+		}
+
+		/// <summary>"Unable to defuse trap."</summary>
+		public static string FailedMessage => UWText.T("msg.trap.failed");
 
 		/// <summary>
 		/// See ClearObjectChain_seg027_772 on the item's special link (UWTrapChainRemoval): the trap and

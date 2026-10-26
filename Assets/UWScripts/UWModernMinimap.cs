@@ -315,6 +315,7 @@ public class UWModernMinimap : MonoBehaviour
         mOContent.gameObject.SetActive(lbMap);
         mOArrow.enabled = lbMap;
         mONoMap.enabled = !lbMap;
+        mONoMap.text = UWText.T("hud.minimap.no_map");
         mONoMap.fontSize = Mathf.Max(10, Mathf.RoundToInt(4f * liScale));
         UWUiKit.SetRect(mONoMap.rectTransform, 0f, 0f, lfWidth, lfHeight);
 

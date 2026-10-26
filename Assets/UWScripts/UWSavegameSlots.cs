@@ -34,8 +34,8 @@ public static class UWSavegameSlots
     /// <summary>How a used slot is recognised.</summary>
     private const string LevelFile = "LEV.ARK";
 
-    /// <summary>What the original shows for an empty slot.</summary>
-    public const string UnusedSlotName = "<not used yet>";
+    /// <summary>What the original shows for an empty slot (msg.save.unused_slot).</summary>
+    public static string UnusedSlotName => UWDataImport.UWData.UWText.T("msg.save.unused_slot");
 
     /// <summary>The original cuts off anything longer.</summary>
     private const int MaxNameLength = 30;
@@ -93,8 +93,9 @@ public static class UWSavegameSlots
             for (int liAt = 0; liAt < lyRaw.Length && liAt < MaxNameLength; liAt++)
             {
                 // Printable ASCII only - that is how the original writes it, and anything
-                // else could not be displayed in our font anyway.
-                if (lyRaw[liAt] >= 0x20 && lyRaw[liAt] <= 0x7E)
+                // else could not be displayed in our font anyway. Since translation wave 2 also the
+                // Latin-1 letters ours writes for a name typed with umlauts (UWSavegameStore.EncodeDescription).
+                if ((lyRaw[liAt] >= 0x20 && lyRaw[liAt] <= 0x7E) || UWDataImport.UWData.UWLevel.IsLatin1Letter(lyRaw[liAt]))
                     lOText.Append((char)lyRaw[liAt]);
             }
 

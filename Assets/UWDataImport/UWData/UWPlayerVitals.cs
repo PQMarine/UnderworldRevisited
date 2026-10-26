@@ -431,21 +431,31 @@ namespace UWDataImport.UWData
 
 		private string fGetLevelUpMessage()
 		{
+			return LevelUpMessage(mOData, mOExperience.Level);
+		}
+
+		/// <summary>
+		/// String block 1, number 148 - the text ends with a space and without the number, the game
+		/// appends it from a two-character buffer: a space and the digit below level 10, two digits
+		/// from 10 on - so "level  2" with two spaces, and NO FULL STOP (read 2026-09-26 in the
+		/// level-up routine of overlay 143 and its buffer " 0\n" in UW.EXE; ours wrote "level 2."
+		/// until then). Since translation step 3A (2026-10-26) the frame msg.level_up around the line
+		/// and the number, so a language can put words after the number.
+		/// </summary>
+		public static string LevelUpMessage(DataImport pOData, int piLevel)
+		{
+			string lsText;
+
 			try
 			{
-				// String block 1, number 148 - the text ends with a space and without the number,
-				// the game appends it from a two-character buffer: a space and the digit below
-				// level 10, two digits from 10 on - so "level  2" with two spaces, and NO FULL
-				// STOP (read 2026-09-26 in the level-up routine of overlay 143 and its buffer
-				// " 0\n" in UW.EXE; ours wrote "level 2." until then).
-				string lsText = mOData.Strings.Blocks[1].Strings[148].TrimEnd('\r', '\n');
-
-				return lsText + fLevelDigits(mOExperience.Level);
+				lsText = pOData.Strings.Blocks[1].Strings[148].TrimEnd('\r', '\n');
 			}
 			catch
 			{
-				return "You have attained experience level " + fLevelDigits(mOExperience.Level);
+				lsText = UWText.T("msg.level_up.fallback");
 			}
+
+			return UWText.Sentence(pOData, "msg.level_up", UWText.Fragment(lsText), fLevelDigits(piLevel));
 		}
 
 		private static string fLevelDigits(int piLevel)

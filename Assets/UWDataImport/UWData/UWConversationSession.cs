@@ -438,10 +438,10 @@ namespace UWDataImport.UWData
 					pOCall.Argument(pOSession.mOData != null && pOSession.mOData.InitialPlayer != null
 						&& pOSession.mOData.InitialPlayer.IsFemale ? 1 : 0))
 
-				// compare(a, b): same text, ignoring case (reference).
+				// compare(a, b): same text, ignoring case (reference) - UWConversationTextRules.SameText,
+				// which folds a translation's umlauts too.
 				.Register("compare", leSession, (pOSession, pOCall) =>
-					string.Equals(pOSession.fStringOf(pOCall.Argument(0)), pOSession.fStringOf(pOCall.Argument(1)),
-						StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+					UWConversationTextRules.SameText(pOSession.fStringOf(pOCall.Argument(0)), pOSession.fStringOf(pOCall.Argument(1))) ? 1 : 0)
 
 				// contains(keyword, text): the keyword as a whole word in the text
 				// (see Contains_ovr093_ED4, read 2026-10-01; until then ours took either text
@@ -821,8 +821,9 @@ namespace UWDataImport.UWData
 		{
 			try
 			{
-				return mOData.Strings.Blocks[UWConversations.PartnerNameStringBlock]
-					.Strings[UWConversations.GetPartnerNameIndex(piSlot)].TrimEnd('\r', '\n');
+				// As the language shows it: a German name's prefix comes off (IUWGrammar.PersonName).
+				return UWGrammar.Of(mOData).PersonName(mOData.Strings.Blocks[UWConversations.PartnerNameStringBlock]
+					.Strings[UWConversations.GetPartnerNameIndex(piSlot)].TrimEnd('\r', '\n'));
 			}
 			catch
 			{

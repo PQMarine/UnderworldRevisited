@@ -1,0 +1,6 @@
+# A MADE-UP test language "xc" with a non-Latin alphabet for the self-check (Tools/UWCheckLib/Checks/LetterGridChecks.cs):
+# the gamepad letter grid's keys from the header's alphabet (grammar.rule.alphabet, translation 5.1) - the 33 letters of
+# the Cyrillic alphabet, blanks between them allowed, their lower case derived. Every word invented.
+grammar.rule.alphabet	А Б В Г Д Е Ё Ж З И Й К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я
+grammar.rule.alphabet.lower	auto
+grammar.look.you_see	Vizhu {0}.

@@ -393,11 +393,13 @@ internal sealed class UWModernBagView
         }
 
         int liCount = UWStackRules.CountAtLeastOne(lOItem);
-        string lsName = UWText.Capitalised(UWText.ObjectName(pOData, lOItem.ID, liCount > 1));
+        string lsEffect = fKnownEffect(lOItem, pOData, out string lsTalisman, out bool lbCursed);
 
-        string lsEffect = fKnownEffect(lOItem, pOData, ref lsName);
+        // The name as the language's grammar puts it on a label (translation step 3A): the count, the
+        // plural, "Cursed" (IUWGrammar.ItemLabel); a talisman takes its own name.
+        string lsName = lsTalisman != null ? UWGrammar.Of(pOData).LiteralLabel(lsTalisman) : UWText.ObjectLabel(pOData, lOItem.ID, liCount, lbCursed);
 
-        if (liCount > 1)
+        if (lsTalisman != null && liCount > 1)
             lsName = liCount + " " + lsName;
 
         string lsWeight = UWText.F("hud.bag.weight", UWInventoryWeight.Format(UWInventoryWeight.GetItemTenthStones(lOItem, pOData.CommonObjectProperties)));
@@ -427,9 +429,13 @@ internal sealed class UWModernBagView
     /// tooltip rolls nothing. A talisman takes its own name, a cursed thing the word before its
     /// name; the enchantment ("of Very Great Damage") and a wand's charges are the second line,
     /// as the look words them (UWItemDescriptions.DescribeItem). Empty when nothing more is known.
+    /// The talisman's name (psTalisman, else null) and the curse (pbCursed) go to the name's label.
     /// </summary>
-    private string fKnownEffect(UWObject pOItem, DataImport pOData, ref string psName)
+    private string fKnownEffect(UWObject pOItem, DataImport pOData, out string psTalisman, out bool pbCursed)
     {
+        psTalisman = null;
+        pbCursed = false;
+
         if (!UWLoreCheck.CanBeIdentified(pOItem, pOData.CommonObjectProperties)
             || (pOItem.Heading & 0x3) != UWLoreCheck.ResultNamed)
             return string.Empty;
@@ -438,7 +444,7 @@ internal sealed class UWModernBagView
 
         if (!string.IsNullOrEmpty(lsTalisman))
         {
-            psName = char.ToUpperInvariant(lsTalisman[0]) + lsTalisman.Substring(1);
+            psTalisman = lsTalisman;
             return string.Empty;
         }
 
@@ -448,8 +454,8 @@ internal sealed class UWModernBagView
         UWEnchantment.Result lOEnchantment = UWEnchantment.Get(pOItem, lOObjects, pOData.Strings);
         string lsEffect = string.Empty;
 
-        if (lOEnchantment.IsCursed && psName.Length > 0)
-            psName = UWText.F("hud.item.cursed", char.ToLowerInvariant(psName[0]) + psName.Substring(1));
+        if (lOEnchantment.IsCursed && !string.IsNullOrEmpty(UWText.ObjectName(pOData, pOItem.ID, UWStackRules.CountAtLeastOne(pOItem) > 1)))
+            pbCursed = true;
         else if (!string.IsNullOrEmpty(lOEnchantment.Name))
             lsEffect = UWText.F("hud.item.of", lOEnchantment.Name);
 

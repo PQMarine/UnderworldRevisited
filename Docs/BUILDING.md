@@ -71,6 +71,13 @@ the launcher with its executable bit (GNU tar of Git for Windows; without it a z
 player has to `chmod +x`). It refuses a build that holds anything looking like original game
 data.
 
+Beside the game it writes the translation kit for the same platform,
+`UnderworldRevisited-<version>-TranslationKit-win64.zip` (`...-linux64.tar.gz`): uwdump published
+as one self-contained file (about 36 MB, the .NET runtime inside, compressed, not trimmed),
+`Docs/TRANSLATING.md`, `Languages/en.tsv` written by `uwdump text-template` and
+`Languages/de.tsv`, the kit's README and the licences (the .NET 8 SDK is needed for it). `-KitOnly`
+makes the kit alone, without a built player; `-NoKit` leaves it out.
+
 ## The engine-free layer
 
 Everything that reads and interprets the original data lives in `Assets/UWDataImport` and

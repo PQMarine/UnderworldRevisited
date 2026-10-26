@@ -46,25 +46,45 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		/// <summary>Only A-Z, as the table marks them; everything else stays.</summary>
+		/// <summary>
+		/// compare(a, b): the same text, ignoring case (the reference; UWConversationSession until
+		/// 2026-10-26 with StringComparison.OrdinalIgnoreCase). Folded as contains folds, so a typed
+		/// "GRÜN" is the conversation's "grün" in either function, on every runtime (translation wave 2).
+		/// </summary>
+		public static bool SameText(string psLeft, string psRight)
+		{
+			return string.Equals(fLower(psLeft ?? string.Empty), fLower(psRight ?? string.Empty), System.StringComparison.Ordinal);
+		}
+
+		/// <summary>A-Z, as the table marks them - and since translation wave 2 (2026-10-26) the Latin-1
+		/// capitals of a translation (the German umlauts: A-umlaut 0xC4 to 0xE4), 0xC0 to 0xDE without the
+		/// sign for times; the English data has none, so English compares as before. Everything else
+		/// stays (the sharp s has no capital).</summary>
 		private static string fLower(string psText)
 		{
 			char[] laChars = psText.ToCharArray();
 
 			for (int liAt = 0; liAt < laChars.Length; liAt++)
 			{
-				if (laChars[liAt] >= 'A' && laChars[liAt] <= 'Z')
-					laChars[liAt] = (char)(laChars[liAt] + 0x20);
+				char lcChar = laChars[liAt];
+
+				if ((lcChar >= 'A' && lcChar <= 'Z') || (lcChar >= 'À' && lcChar <= 'Þ' && lcChar != '×'))
+					laChars[liAt] = (char)(lcChar + 0x20);
 			}
 
 			return new string(laChars);
 		}
 
-		/// <summary>Class 1 (blanks) or 0x40 (punctuation) of the table at dseg 1E01.</summary>
+		/// <summary>Class 1 (blanks) or 0x40 (punctuation) of the table at dseg 1E01; beyond ASCII (a
+		/// translation's text) every character that is neither letter nor digit - the German quotation
+		/// marks, the dashes - as the punctuation it is.</summary>
 		private static bool fIsBoundary(char pcChar)
 		{
 			if (pcChar == ' ' || (pcChar >= '\t' && pcChar <= '\r'))
 				return true;
+
+			if (pcChar >= '\u0080')
+				return !char.IsLetterOrDigit(pcChar);
 
 			return (pcChar >= '!' && pcChar <= '/') || (pcChar >= ':' && pcChar <= '@')
 				|| (pcChar >= '[' && pcChar <= '`') || (pcChar >= '{' && pcChar <= '~');

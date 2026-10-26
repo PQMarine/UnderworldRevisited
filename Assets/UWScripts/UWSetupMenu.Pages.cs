@@ -561,7 +561,46 @@ public partial class UWSetupMenu
             // DEAL THE ATTRIBUTE POINTS AT CHARACTER CREATION ONESELF (per user, 2026-10-01: for
             // those who do not like their values to depend on luck; off by default). Takes effect at
             // the next character creation.
-            .Add(fToggle(Defs.ManualAttributes, 30f));
+            .Add(fToggle(Defs.ManualAttributes, 30f))
+            // THE LANGUAGE (translation wave 1, 2026-10-26; decided by the user that day): English and
+            // every language found in the Languages folder beside the game (UWLanguage.Available,
+            // listed when the page is built), kept for the next start - and since translation step 3R
+            // (per user, the same day) put in force AT ONCE (UWLanguage.Switch): the port's texts, the
+            // game's texts laid over the data, every window and HUD part taking its texts anew. At the
+            // next start the command line and UR_LANGUAGE still come first.
+            .Add(fLanguageRow())
+            .Add(fHint(Defs.Language, 0f));
+    }
+
+    /// <summary>The Language row: English first, then the codes found; the stored code marked, or
+    /// English when it is empty or no longer found.</summary>
+    private static UWSetupRow fLanguageRow()
+    {
+        System.Collections.Generic.List<string> lsCodes = UWLanguage.Available();
+        string[] lsChoices = new string[lsCodes.Count + 1];
+
+        lsChoices[0] = UWText.T("setting.Language.choice.english");
+
+        for (int liAt = 0; liAt < lsCodes.Count; liAt++)
+            lsChoices[liAt + 1] = lsCodes[liAt];
+
+        return new UWSetupRow
+        {
+            Kind = Kind.ChoiceRow, Id = Defs.Language.LabelId, Def = Defs.Language, Choices = lsChoices, ChoiceColumns = WindowChoiceColumns,
+            Advance = 36f,
+            GetIndex = () => lsCodes.FindIndex(psCode => string.Equals(psCode, UWUserSettings.Language, System.StringComparison.OrdinalIgnoreCase)) + 1,
+            Choose = piChoice =>
+            {
+                string lsCode = piChoice <= 0 || piChoice > lsCodes.Count ? string.Empty : lsCodes[piChoice - 1];
+
+                UWUserSettings.Language = lsCode;
+                UWUserSettings.Save();
+
+                // At once (translation step 3R): this page is built anew in the new language.
+                if (!string.Equals(lsCode, UWLanguage.Current, System.StringComparison.OrdinalIgnoreCase))
+                    UWLanguage.Switch(lsCode);
+            }
+        };
     }
 
     /// <summary>The game folder can be chosen: over the main menu, or on the first-run screen.</summary>

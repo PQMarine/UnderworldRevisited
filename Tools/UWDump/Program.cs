@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UWDataImport;
+using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
 {
@@ -46,6 +47,10 @@ namespace UnderworldRevisited.Tools
             /// <summary>The save game folder given with --save, or null for the pristine world.</summary>
             public string SavePath;
 
+            /// <summary>The game-text pack given with --strings, laid over the English strings; null
+            /// for none.</summary>
+            public string StringsPath;
+
             public DataImport Data;
         }
 
@@ -65,7 +70,12 @@ namespace UnderworldRevisited.Tools
             fRegister("info", "", "what was found and loaded", true, fPrintInfo);
             fRegister("strings", "<block> [from] [n]", "strings of a block", true, fPrintStrings);
             fRegister("find", "<text>", "search all string blocks", true, fFindString);
-            fRegister("strings-export", "[--out file]", "every string, lossless, one line each (translation template)", true, fExportStrings);
+            fRegister("strings-export", "[--out file]", "every string, lossless, one line each", true, fExportStrings);
+            fRegister("strings-template", "<code> [--out file] [--empty]", "a game-text pack of the player's STRINGS.PAK to translate", true, fStringsTemplate);
+            fRegister("validate-tsv", "<file.strings.tsv> [--language code]", "check a game-text pack against the English strings", true, fValidateTsv);
+            fRegister("fit", "[--over]", "game strings in the classic look's fixed boxes: width, box, OVER where clipped (with --strings)", true, fFit);
+            fRegister("typed-words", "", "the mantras and the words conversations compare typed answers with, and their hints", true, fTypedWords);
+            fRegister("looks","[family ...] [--hashes]", "every look sentence the data gives (with --strings, in that language)", true, fLooks);
             fRegister("level", "<1-9> [x y radius] [--detail]", "tile map and what stands in it", true, fPrintLevel);
             fRegister("tile", "<1-9> <x> <y> [radius]", "tile type, heights, textures and objects", true, fPrintTile);
             fRegister("object", "<id>", "properties of an object type", true, fPrintObject);
@@ -75,6 +85,7 @@ namespace UnderworldRevisited.Tools
             fRegister("conv", "[slot|all] [--out dir] | --run <slot|all>", "conversations as bytecode, or run (answer 1 each time)", true, fConversation);
             fRegister("automap", "[1-9] [--png file]", "automap values (use --save for a save game's map)", true, fPrintAutomap);
             fRegister("maprender", "--out dir [--highlight id ...]", "a top view of every level as PNG", true, fRenderMaps);
+            fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
             fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
         }
@@ -104,7 +115,7 @@ namespace UnderworldRevisited.Tools
 
             lOArgs.RemoveAt(0);
 
-            DumpContext lOContext = new DumpContext { SavePath = fTakeOption(lOArgs, "--save") };
+            DumpContext lOContext = new DumpContext { SavePath = fTakeOption(lOArgs, "--save"), StringsPath = fTakeOption(lOArgs, "--strings") };
 
             if (!lOCommand.NeedsData)
                 return lOCommand.Run(lOContext, lOArgs);
@@ -128,6 +139,22 @@ namespace UnderworldRevisited.Tools
                 return 2;
             }
 
+            if (lOContext.StringsPath != null && !File.Exists(lOContext.StringsPath))
+            {
+                Console.Error.WriteLine("No game-text pack " + lOContext.StringsPath + ".");
+
+                return 2;
+            }
+
+            // A pack's texts go beyond ASCII: printed as UTF-8, not in the console's code page. The
+            // English is ASCII, so without a pack the output stays as it was.
+            if (lOContext.StringsPath != null)
+                Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+
+            // One code, two files, as the game reads them (UWLanguage): beside de.strings.tsv the port's
+            // own texts of de.tsv - the grammar's sentence frames among them ("Du siehst {0}.").
+            fLoadOwnTexts(lOContext.StringsPath);
+
             if (lOContext.SavePath != null && !File.Exists(Path.Combine(lOContext.SavePath, "LEV.ARK")))
             {
                 // DataImport would quietly fall back to the pristine world.
@@ -138,7 +165,7 @@ namespace UnderworldRevisited.Tools
 
             try
             {
-                lOContext.Data = new DataImport(lOContext.DataPath, lOContext.SavePath);
+                lOContext.Data = new DataImport(lOContext.DataPath, lOContext.SavePath, lOContext.StringsPath);
             }
             catch (Exception lOException)
             {
@@ -148,6 +175,27 @@ namespace UnderworldRevisited.Tools
             }
 
             return lOCommand.Run(lOContext, lOArgs);
+        }
+
+        /// <summary>The port's own texts beside a game-text pack (Languages/de.tsv beside
+        /// Languages/de.strings.tsv) put in force, when there are; a note on stderr.</summary>
+        private static void fLoadOwnTexts(string psStringsPath)
+        {
+            string lsCode = UWGrammar.CodeOfPackFile(psStringsPath);
+
+            if (string.IsNullOrEmpty(lsCode))
+                return;
+
+            string lsTexts = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(psStringsPath)), lsCode + ".tsv");
+
+            if (!File.Exists(lsTexts))
+                return;
+
+            UWTextLanguageFile lOFile = UWText.LoadLanguage(lsCode, lsTexts);
+
+            if (lOFile != null)
+                Console.Error.WriteLine("The port's own texts of " + lsCode + " from " + lsTexts + ": " + lOFile.Texts.Count + " texts, "
+                    + lOFile.Problems.Count + " lines skipped.");
         }
 
         private static void fPrintUsage()
@@ -167,15 +215,20 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("game.gog itself - the image is then extracted into a cache once. Without it the");
             Console.WriteLine("environment variable UW_DATA is used, then the common installation folders.");
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
+            Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
+            Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");
+            Console.WriteLine("its <code>.tsv beside it gives the port's own texts (the look sentence's frames).");
             Console.WriteLine("Levels count from 1, object ids may be written as 0x...; nothing is ever written");
             Console.WriteLine("to the game's folders.");
         }
 
         /// <summary>The first argument is the data path when it names something on disk or is
-        /// written like a path; anything else (a level, a slot, a search word) is the command's.</summary>
+        /// written like a path; anything else (a level, a slot, a search word) is the command's. A
+        /// .tsv file is a game-text pack, never the data.</summary>
         private static bool fLooksLikePath(string psArg)
         {
-            if (string.IsNullOrEmpty(psArg) || psArg.StartsWith("--", StringComparison.Ordinal))
+            if (string.IsNullOrEmpty(psArg) || psArg.StartsWith("--", StringComparison.Ordinal)
+                || psArg.EndsWith(".tsv", StringComparison.OrdinalIgnoreCase))
                 return false;
 
             return Directory.Exists(psArg) || File.Exists(psArg)

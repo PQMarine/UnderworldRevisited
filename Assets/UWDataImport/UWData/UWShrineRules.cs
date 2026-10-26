@@ -79,12 +79,13 @@ namespace UWDataImport.UWData
 		/// <summary>String block 1: the empty line the mantra NO writes.</summary>
 		private const int EmptyLineMessage = 32;
 
-		/// <summary>Sentences that are not in STRINGS.PAK but in UW.EXE, like the prompt.</summary>
-		public const string AndText = " and ";
+		/// <summary>Words that are not in STRINGS.PAK but in UW.EXE, like the prompt - UWText ids since
+		/// translation step 3A (2026-10-26): INSAHN's joints between the pieces of block 1.</summary>
+		public static string AndText => UWText.T("msg.shrine.cup_and");
 
-		public const string VeryNearText = "very near";
+		public static string VeryNearText => UWText.T("msg.shrine.cup_very_near");
 
-		public const string EndText = ".";
+		public static string EndText => UWText.T("msg.shrine.cup_end");
 
 		// Numbers in string block 1, in OUR numbering.
 		private const int NotReadyMessage = 25;
@@ -101,9 +102,9 @@ namespace UWDataImport.UWData
 
 		private const int NoSkillImprovedMessage = 31;
 
-		/// <summary>What is entered at the shrine - the wording comes from UW.EXE.
+		/// <summary>What is entered at the shrine - the wording comes from UW.EXE (msg.shrine.prompt).
 		/// </summary>
-		public const string Prompt = "Chant the mantra: ";
+		public static string Prompt => UWText.T("msg.shrine.prompt");
 
 		/// <summary>
 		/// What the two QUEST MANTRAS need beyond the skills: where the player stands and on which
@@ -234,7 +235,6 @@ namespace UWDataImport.UWData
 
 			UWTilePos lOTile = fPlayerTile(pOWorld);
 			int liDungeonLevel = UWWorldLevels.NumberOr(pOWorld, 0);
-			System.Text.StringBuilder lOText = new System.Text.StringBuilder();
 
 			// The cup's place is the rule set's (levels.cupOfWonder, story.cup.*, cleanup phase 10);
 			// CupTileX, CupTileY and CupLevel are its defaults.
@@ -243,29 +243,39 @@ namespace UWDataImport.UWData
 			int liCupTileY = lORules.Story.Cup.TileY;
 			int liCupLevel = UWLevelIds.Number(lORules.Levels.CupOfWonder);
 
-			lOText.Append(fGetGeneralMessage(pOData, CupPrefixMessage));
-
 			int liDistance = Math.Abs(lOTile.X - liCupTileX) + Math.Abs(lOTile.Y - liCupTileY);
 			bool lbDirection = liDistance > CupNearDistance;
+			bool lbOtherLevel = liDungeonLevel != liCupLevel && liDungeonLevel != 0;
 
-			if (lbDirection)
-				lOText.Append(fGetGeneralMessage(pOData,
-					FirstDirectionMessage + GetCardinalDirection(lOTile.X, lOTile.Y, liCupTileX, liCupTileY)));
+			pOMessage(GetCupLine(pOData, lbDirection ? GetCardinalDirection(lOTile.X, lOTile.Y, liCupTileX, liCupTileY) : -1,
+				lbOtherLevel, liDungeonLevel - liCupLevel, !lbOtherLevel && !lbDirection && liDungeonLevel != 0));
+		}
 
-			if (liDungeonLevel != liCupLevel && liDungeonLevel != 0)
+		/// <summary>INSAHN's sentence from its parts: the prefix, the direction (piCardinal, -1 for
+		/// none), "and" and the level phrase of the difference (pbOtherLevel), or "very near"
+		/// (pbVeryNear), the full stop.</summary>
+		public static string GetCupLine(DataImport pOData, int piCardinal, bool pbOtherLevel, int piLevelDifference, bool pbVeryNear)
+		{
+			System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+
+			lOText.Append(fGetGeneralMessage(pOData, CupPrefixMessage));
+
+			if (piCardinal >= 0)
+				lOText.Append(fGetGeneralMessage(pOData, FirstDirectionMessage + piCardinal));
+
+			if (pbOtherLevel)
 			{
-				if (lbDirection)
+				if (piCardinal >= 0)
 					lOText.Append(AndText);
 
-				lOText.Append(fGetGeneralMessage(pOData,
-					LevelPhraseMessage + liDungeonLevel - liCupLevel));
+				lOText.Append(fGetGeneralMessage(pOData, LevelPhraseMessage + piLevelDifference));
 			}
-			else if (!lbDirection && liDungeonLevel != 0)
+			else if (pbVeryNear)
 				lOText.Append(VeryNearText);
 
 			lOText.Append(EndText);
 
-			pOMessage(lOText.ToString());
+			return UWGrammar.Of(pOData).Sentence(lOText.ToString());
 		}
 
 		/// <summary>
@@ -302,6 +312,9 @@ namespace UWDataImport.UWData
 			if (string.IsNullOrEmpty(psMantra) || pOData.Strings == null)
 				return -1;
 
+			// Ignoring case, the umlauts of a translation too (ToUpperInvariant; the sharp s stays itself,
+			// so "SS" is not it). A translation names its mantras in block 2 and must say the same words in
+			// the books and conversations that teach them (`uwdump typed-words`, translation wave 2).
 			string lsWanted = psMantra.Trim().ToUpperInvariant();
 
 			for (int liAt = 0; liAt < MantraCount; liAt++)
@@ -343,7 +356,8 @@ namespace UWDataImport.UWData
 		/// (great_advance, game/SKILLS.C:230; missing until 2026-10-15, audit A32).</summary>
 		public static string GetAdvancedGreatlyLine(DataImport pOData, int piSkillNumber)
 		{
-			return fGetGeneralMessage(pOData, AdvancedGreatlyMessage) + fGetSkillName(piSkillNumber, pOData) + EndText;
+			return UWText.Sentence(pOData, "msg.shrine.advanced_greatly", UWText.Fragment(fGetGeneralMessage(pOData, AdvancedGreatlyMessage)),
+				fGetSkillName(piSkillNumber, pOData));
 		}
 
 		/// <summary>
@@ -409,19 +423,22 @@ namespace UWDataImport.UWData
 		/// list (report_advance, game/SKILLS.C:255; missing until 2026-10-15, audit A32).</summary>
 		public static string GetAdvancedLine(DataImport pOData, List<string> pONames)
 		{
-			return fGetGeneralMessage(pOData, AdvancedMessage) + fJoinNames(pONames) + EndText;
+			return UWText.Sentence(pOData, "msg.shrine.advanced", UWText.Fragment(fGetGeneralMessage(pOData, AdvancedMessage)), fJoinNames(pONames));
 		}
 
-		/// <summary>"Sword, Axe and Mace" - the last one with "and", the ones before with a comma.
+		/// <summary>"Sword, Axe and Mace" - the last one with "and", the ones before with a comma
+		/// (msg.shrine.list_and, msg.shrine.list_comma).
 		/// </summary>
 		private static string fJoinNames(List<string> pONames)
 		{
 			System.Text.StringBuilder lOText = new System.Text.StringBuilder();
+			string lsAnd = UWText.T("msg.shrine.list_and");
+			string lsComma = UWText.T("msg.shrine.list_comma");
 
 			for (int liAt = 0; liAt < pONames.Count; liAt++)
 			{
 				if (liAt > 0)
-					lOText.Append(liAt == pONames.Count - 1 ? " and " : ", ");
+					lOText.Append(liAt == pONames.Count - 1 ? lsAnd : lsComma);
 
 				lOText.Append(pONames[liAt]);
 			}

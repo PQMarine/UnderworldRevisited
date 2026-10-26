@@ -35,8 +35,9 @@ namespace UWDataImport.UWData
 	{
 		/// <summary>The hint that more of a text is pending. Not in the game data - in the original it
 		/// comes from the program (per user on the original, 2026-09-03: white, in square brackets).
+		/// A text id since translation step 3A (msg.scroll.more).
 		/// </summary>
-		public const string MoreMarkerText = "[MORE]";
+		public static string MoreMarkerText => UWText.T("msg.scroll.more");
 
 		/// <summary>How long the input box is on, and then off (decision 17, see the class comment).
 		/// </summary>

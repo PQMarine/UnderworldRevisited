@@ -13,10 +13,12 @@ using UWDataImport.UWData;
 ///     capitals (5 rows) as high as the modern font's at the text's fontSize (about 0.7 of it) -
 ///     at the size of the original's other pictures it was far too big for the parts (per user's
 ///     screenshots, 2026-10-09) -, 1/1.2 as wide like them (UWModernHudArt.PixelAspectX). A text
-///     with a character the original lacks keeps the modern font (the original's fonts are ASCII).
+///     with a character the original lacks keeps the modern font (the original's fonts are ASCII, plus
+///     the German letters UWFontGlyphBuilder draws in their style, translations wave 1, 2026-10-26).
 /// The menu bar, the layout editor and the help window are the port's tools and keep the modern
-/// font (per user). Later the translations add a language's own font here (Noto Sans TC, say),
-/// chosen the same way - the parts ask nothing but this class.
+/// font (per user). A language's own font (grammar.rule.font, translation wave 6) is not chosen here:
+/// the modern fonts fall back to its installed fonts themselves (UWFallbackFont.Follow), and a text
+/// with a character the original lacks keeps the modern font in the original face too.
 ///
 /// A font built at run time has no line height (Unity keeps it in the asset only), so each is a
 /// copy of an empty template with the right one (Resources/UWFontTemplates, Editor/UWFontTemplates),
@@ -75,6 +77,10 @@ public static class UWUiFonts
     private static int miCellWidth;
 
     private static int miCellHeight;
+
+    /// <summary>The atlas cell of each character: the font's own at their code, the added ones
+    /// (UWFontGlyphBuilder's German letters) behind them in the order of their codes.</summary>
+    private static readonly List<int> msCellCodes = new List<int>();
 
     private static bool mbHooked;
 
@@ -196,7 +202,10 @@ public static class UWUiFonts
 
             char lcDrawn = msAliases.TryGetValue(lcChar, out char lcAlias) ? lcAlias : lcChar;
 
-            if (!msGlyphs.TryGetGlyph(lcDrawn, out UWFont.Glyph lOGlyph) || lOGlyph.Width <= 0)
+            // The font's own and added glyphs only: the atlas holds those, not the language's font's
+            // (UWFont.Fallback, translation wave 6) - a text with such a character keeps the modern font,
+            // which falls back to the language's installed fonts (UWFallbackFont).
+            if (!msGlyphs.TryGetOwnGlyph(lcDrawn, out UWFont.Glyph lOGlyph) || lOGlyph.Width <= 0)
                 return false;
         }
 
@@ -219,7 +228,14 @@ public static class UWUiFonts
 
         int liMaxWidth = 1;
 
+        msCellCodes.Clear();
+
         for (int liCode = 0; liCode < lOFont.GlyphCount; liCode++)
+            msCellCodes.Add(liCode);
+
+        msCellCodes.AddRange(lOFont.AddedCodes);
+
+        foreach (int liCode in msCellCodes)
         {
             if (lOFont.TryGetGlyph(liCode, out UWFont.Glyph lOGlyph))
                 liMaxWidth = Mathf.Max(liMaxWidth, lOGlyph.Width);
@@ -229,18 +245,18 @@ public static class UWUiFonts
         miCellHeight = lOFont.Height + 1;
         miAtlasColumns = 16;
 
-        int liRows = (lOFont.GlyphCount + miAtlasColumns - 1) / miAtlasColumns;
+        int liRows = (msCellCodes.Count + miAtlasColumns - 1) / miAtlasColumns;
         Color32[] lyPixels = new Color32[miAtlasColumns * miCellWidth * liRows * miCellHeight];
         int liAtlasWidth = miAtlasColumns * miCellWidth;
         int liAtlasHeight = liRows * miCellHeight;
 
-        for (int liCode = 0; liCode < lOFont.GlyphCount; liCode++)
+        for (int liCell = 0; liCell < msCellCodes.Count; liCell++)
         {
-            if (!lOFont.TryGetGlyph(liCode, out UWFont.Glyph lOGlyph))
+            if (!lOFont.TryGetGlyph(msCellCodes[liCell], out UWFont.Glyph lOGlyph))
                 continue;
 
-            int liCellX = (liCode % miAtlasColumns) * miCellWidth;
-            int liCellY = (liCode / miAtlasColumns) * miCellHeight;
+            int liCellX = (liCell % miAtlasColumns) * miCellWidth;
+            int liCellY = (liCell / miAtlasColumns) * miCellHeight;
 
             for (int y = 0; y < lOFont.Height; y++)
             {
@@ -298,8 +314,10 @@ public static class UWUiFonts
         float lfAcross = liScale * UWModernHudArt.PixelAspectX;
         List<CharacterInfo> lOInfos = new List<CharacterInfo>();
 
-        for (int liCode = 0; liCode < msGlyphs.GlyphCount; liCode++)
+        for (int liCell = 0; liCell < msCellCodes.Count; liCell++)
         {
+            int liCode = msCellCodes[liCell];
+
             if (liCode == ' ')
             {
                 lOInfos.Add(new CharacterInfo { index = ' ', advance = Mathf.Max(1, Mathf.RoundToInt(msGlyphs.SpaceWidth * lfAcross)) });
@@ -340,8 +358,8 @@ public static class UWUiFonts
                 continue;
             }
 
-            int liCellX = (liCode % miAtlasColumns) * miCellWidth;
-            int liCellY = (liCode / miAtlasColumns) * miCellHeight;
+            int liCellX = (liCell % miAtlasColumns) * miCellWidth;
+            int liCellY = (liCell / miAtlasColumns) * miCellHeight;
             // The atlas's rows run bottom-up: glyph row y is texture row cell + Height - 1 - y.
             float lfU0 = (liCellX + liLeft) / (float)msAtlas.width;
             float lfU1 = (liCellX + liRight + 1) / (float)msAtlas.width;

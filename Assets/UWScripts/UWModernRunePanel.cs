@@ -175,6 +175,9 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         public UWRunicMagic.Spell Spell;
 
+        /// <summary>A heading's mana cost, for its text.</summary>
+        public int ManaCost;
+
         public Text Name;
 
         public Text Runes;
@@ -1000,6 +1003,8 @@ public class UWModernRunePanel : UWModernDockedPanel
         if (mOEntries.Count == 0)
             fBuildEntries();
 
+        fRelabelEntries();
+
         mOListRect = new Rect(pfLeft + (UWModernHudArt.LeatherLeft * liScale), pfBottom + (UWModernHudArt.LeatherBottom * liScale),
             (PanelWidth - UWModernHudArt.LeatherLeft - UWModernHudArt.LeatherRight) * liScale,
             pfTop - (ListTop * liScale) - (pfBottom + (UWModernHudArt.LeatherBottom * liScale)));
@@ -1076,11 +1081,38 @@ public class UWModernRunePanel : UWModernDockedPanel
         }
     }
 
+    /// <summary>The language the list's headings and spell names were written in (UWText.LanguageVersion).</summary>
+    private int miEntriesLanguage = -1;
+
+    /// <summary>The circles' headings and the spells' names (block 6) written anew when the language
+    /// changed - at the first layout after the list was built, and after a language switched while
+    /// the game runs (translation step 3R).</summary>
+    private void fRelabelEntries()
+    {
+        DataImport lOData = fData();
+
+        if (miEntriesLanguage == UWText.LanguageVersion || lOData == null)
+            return;
+
+        miEntriesLanguage = UWText.LanguageVersion;
+
+        foreach (ListEntry lOEntry in mOEntries)
+        {
+            if (lOEntry.Name == null)
+                continue;
+
+            lOEntry.Name.text = lOEntry.Sequence < 0 ? UWText.F("hud.runes.circle", lOEntry.Circle, lOEntry.ManaCost)
+                : UWRunicMagic.GetName(lOEntry.Spell, lOData.Strings);
+        }
+    }
+
     private void fBuildEntries()
     {
         int liCircle = 0;
         int liTop = 0;
-        DataImport lOData = fData();
+
+        // The texts follow at once (fRelabelEntries).
+        miEntriesLanguage = -1;
 
         foreach (UWRunicMagic.Spell lOSpell in UWRunicMagic.AllSpells)
         {
@@ -1091,10 +1123,9 @@ public class UWModernRunePanel : UWModernDockedPanel
             {
                 liCircle = lOSpell.Level;
 
-                ListEntry lOHeader = new ListEntry { Circle = liCircle, Top = liTop, Rows = HeaderRows };
+                ListEntry lOHeader = new ListEntry { Circle = liCircle, ManaCost = lOSpell.ManaCost, Top = liTop, Rows = HeaderRows };
 
                 lOHeader.Name = UWUiKit.CreateText(mOListContent, "Circle", TextAnchor.LowerLeft, UWModernPalette.Dim, mOUi);
-                lOHeader.Name.text = UWText.F("hud.runes.circle", liCircle, lOSpell.ManaCost);
                 lOHeader.Rule = UWUiKit.CreateImage(mOListContent, "Rule", UWModernPalette.Rule);
                 mOEntries.Add(lOHeader);
                 liTop += HeaderRows;
@@ -1110,7 +1141,6 @@ public class UWModernRunePanel : UWModernDockedPanel
             };
 
             lOEntry.Name = UWUiKit.CreateText(mOListContent, "Spell", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
-            lOEntry.Name.text = UWRunicMagic.GetName(lOSpell, lOData.Strings);
             lOEntry.Runes = UWUiKit.CreateText(mOListContent, "Runes", TextAnchor.MiddleLeft, UWModernPalette.RunesText, mOUi);
             lOEntry.Runes.text = UWRunicMagic.DescribeRunes(lOSpell.RuneSequence);
 
@@ -1244,7 +1274,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         mORoot.sizeDelta = Vector2.zero;
 
         // The tab headers, the pin, the leather and the handle, mirrored (UWModernDockedPanel).
-        fBuildChrome(mORoot, new[] { UWText.T("hud.runes.tab.runes"), UWText.T("hud.runes.tab.spells") }, UWText.T("hud.runes.handle"));
+        fBuildChrome(mORoot, new[] { "hud.runes.tab.runes", "hud.runes.tab.spells" }, "hud.runes.handle");
 
         mOTitle = UWUiKit.CreateText(mORoot, "Title", TextAnchor.MiddleLeft, UWModernPalette.Text, mOUi);
         mOTitleRight = UWUiKit.CreateText(mORoot, "Title right", TextAnchor.MiddleRight, UWModernPalette.Dim, mOUi);

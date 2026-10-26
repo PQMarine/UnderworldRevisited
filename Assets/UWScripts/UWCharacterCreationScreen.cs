@@ -62,7 +62,9 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
     private const int FemaleBodyImage = 22;
 
-    private const int ButtonWidth = 67;
+    /// <summary>The boxes of the texts are UWClassicFit.Creation's (translation 5.2), so the fit check
+    /// (uwdump fit) measures against the very widths drawn here.</summary>
+    private const int ButtonWidth = UWClassicFit.Creation.ButtonWidth;
 
     private const int ButtonHeight = 16;
 
@@ -122,11 +124,9 @@ public class UWCharacterCreationScreen : MonoBehaviour
     /// <summary>The question is centred above the column, as wide as the right page.</summary>
     private const int QuestionLeft = 176;
 
-    private const int QuestionWidth = 140;
+    private const int QuestionWidth = UWClassicFit.Creation.QuestionWidth;
 
-    private const int LabelWidth = 120;
-
-    private const int ValueWidth = 30;
+    private const int LabelWidth = UWClassicFit.Creation.LabelWidth;
 
     /// <summary>Up to this many answers one column, above that two (reference).</summary>
     private const int SingleColumnLimit = 8;
@@ -451,7 +451,10 @@ public class UWCharacterCreationScreen : MonoBehaviour
     private UWTextEntry fNameEntry()
     {
         if (mONameEntry == null)
-            mONameEntry = new UWTextEntry(fOnTextInput);
+            // Printable ASCII and, since translation 5.1, the language's letters a save keeps (the
+            // German umlauts and sharp s as their Latin-1 byte in PLAYER.DAT, as the save name and the
+            // map notes keep them; the letter grid offers them). In English printable ASCII as before.
+            mONameEntry = new UWTextEntry(fOnTextInput, UWTextEntry.IsTypeableAndStorable);
 
         return mONameEntry;
     }
@@ -502,8 +505,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
         // Left page
         UWScreenUi.SetText(mOName, mOFont, mOGeneration.Name, mOTextColour, LabelWidth, false);
         UWScreenUi.SetText(mOSex, mOFont, leStage > UWCharacterGeneration.Stage.Sex ? mOGeneration.SexName : null,
-            mOTextColour, ValueWidth * 2, false);
-        UWScreenUi.SetText(mOClass, mOFont, mOGeneration.ClassName, mOTextColour, ValueWidth * 2, false);
+            mOTextColour, UWClassicFit.Creation.SexClassWidth, false);
+        UWScreenUi.SetText(mOClass, mOFont, mOGeneration.ClassName, mOTextColour, UWClassicFit.Creation.SexClassWidth, false);
 
         if (leStage > UWCharacterGeneration.Stage.Portrait)
         {
@@ -528,8 +531,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
             lOValues.Add(mOGeneration.Intelligence.ToString());
             lOValues.Add(mOGeneration.MaxVitality.ToString());
 
-            UWScreenUi.SetText(mOStatLabels, mOFont, lOLabels, mOTextColour, ValueWidth + 10, false);
-            UWScreenUi.SetText(mOStatValues, mOFont, lOValues, mOTextColour, ValueWidth, false);
+            UWScreenUi.SetText(mOStatLabels, mOFont, lOLabels, mOTextColour, UWClassicFit.Creation.StatLabelWidth, false);
+            UWScreenUi.SetText(mOStatValues, mOFont, lOValues, mOTextColour, UWClassicFit.Creation.ValueWidth, false);
 
             List<string> lOSkillLabels = new List<string>();
             List<string> lOSkillValues = new List<string>();
@@ -545,8 +548,8 @@ public class UWCharacterCreationScreen : MonoBehaviour
                 lOSkillValues.Add(liValue.ToString());
             }
 
-            UWScreenUi.SetText(mOSkillLabels, mOFont, lOSkillLabels, mOTextColour, LabelWidth - 20, false);
-            UWScreenUi.SetText(mOSkillValues, mOFont, lOSkillValues, mOTextColour, ValueWidth, false);
+            UWScreenUi.SetText(mOSkillLabels, mOFont, lOSkillLabels, mOTextColour, UWClassicFit.Creation.SkillLabelWidth, false);
+            UWScreenUi.SetText(mOSkillValues, mOFont, lOSkillValues, mOTextColour, UWClassicFit.Creation.ValueWidth, false);
         }
         else
         {
@@ -571,7 +574,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
             case UWCharacterGeneration.Stage.Name:
                 UWTextLabel.Hide(mOQuestion);
                 UWScreenUi.SetTexture(mONameBox, fGetImage(NameBoxImage, false));
-                UWScreenUi.SetText(mONamePrompt, mOFont, mOGeneration.QuestionText, mOTextColour, ValueWidth + 10, false);
+                UWScreenUi.SetText(mONamePrompt, mOFont, mOGeneration.QuestionText, mOTextColour, UWClassicFit.Creation.NamePromptWidth, false);
 
                 // THE TYPED NAME STARTS WHERE THE PROMPT ENDS (2026-10-06, per user: "der Text ist
                 // zu nah am Doppelpunkt"): the prompt string of the game is "Name: " with its own

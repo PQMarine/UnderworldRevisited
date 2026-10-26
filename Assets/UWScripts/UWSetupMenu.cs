@@ -187,7 +187,11 @@ public partial class UWSetupMenu : MonoBehaviour
         mOPassRows = mOKitRows;
         mOPassPages = mOKitPages;
         fBuildPages();
+        miPagesLanguage = UWText.LanguageVersion;
     }
+
+    /// <summary>The language the pages were built in (UWText.LanguageVersion).</summary>
+    private int miPagesLanguage;
 
     private void OnDestroy()
     {
@@ -728,6 +732,14 @@ public partial class UWSetupMenu : MonoBehaviour
     /// </summary>
     private void LateUpdate()
     {
+        // A language switched while the game runs (translation step 3R; the Language row): the pages
+        // take their row texts and choices when they are built, so they are built anew.
+        if (miPagesLanguage != UWText.LanguageVersion)
+        {
+            miPagesLanguage = UWText.LanguageVersion;
+            fBuildPages();
+        }
+
         fCloseEffectsWhenGone();
 
         bool lbShown = fBarDrawn();

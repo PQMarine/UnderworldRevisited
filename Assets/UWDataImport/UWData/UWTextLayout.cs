@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace UWDataImport.UWData
@@ -55,13 +56,17 @@ namespace UWDataImport.UWData
 				.TrimEnd('\r', '\n');
 		}
 
-		/// <summary>Wraps text at word boundaries to a maximum width.</summary>
+		/// <summary>Wraps text at word boundaries to a maximum width - and, in a text with Chinese or
+		/// Japanese characters, between them too (WrapTextBetweenCharacters).</summary>
 		public static List<string> WrapText(UWFont pOFont, string psText, int piMaxWidth)
 		{
 			List<string> lOLines = new List<string>();
 
 			if (pOFont == null || !pOFont.IsLoaded || string.IsNullOrEmpty(psText))
 				return lOLines;
+
+			if (fHasBreakAnywhere(psText))
+				return WrapTextBetweenCharacters(pOFont, psText, piMaxWidth);
 
 			string[] lsWords = psText.Split(' ');
 			string lsCurrent = string.Empty;
@@ -88,6 +93,95 @@ namespace UWDataImport.UWData
 				else
 				{
 					lsCurrent = lsCandidate;
+				}
+			}
+
+			if (lsCurrent.Length > 0)
+				lOLines.Add(lsCurrent);
+
+			return lOLines;
+		}
+
+		// ------------------------------------------------- Chinese and Japanese (translation wave 6)
+
+		/// <summary>
+		/// A character a line may break before or after without a blank: the CJK ideographs, kana and
+		/// their signs and punctuation, the full-width forms (U+2E80 to U+9FFF, U+F900 to U+FAFF, U+FF00 to
+		/// U+FFEF). Chinese and Japanese write no blanks between words; Korean does, and its syllables
+		/// (U+AC00 ...) wrap at the blanks as English does.
+		/// </summary>
+		public static bool IsBreakAnywhere(char pcChar)
+		{
+			return (pcChar >= '⺀' && pcChar <= '鿿') || (pcChar >= '豈' && pcChar <= '﫿')
+				|| (pcChar >= '＀' && pcChar <= '￯');
+		}
+
+		/// <summary>Signs a line must not start with (closing marks, the comma and full stop, the long
+		/// vowel mark) and signs it must not end with (opening marks) - the simplest rules of the two
+		/// languages' line breaking.</summary>
+		private const string NoBreakBefore = "、。，．！？：；」』）】〕〉》ー・…";
+
+		private const string NoBreakAfter = "「『（【〔〈《";
+
+		private static bool fHasBreakAnywhere(string psText)
+		{
+			foreach (char lcChar in psText)
+			{
+				if (IsBreakAnywhere(lcChar))
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// WrapText for a text with Chinese or Japanese characters: the same greedy rule as WrapText - a
+		/// piece goes onto the line while the line stays within the width, else it starts the next one -
+		/// with the pieces being the words between blanks and, inside them, every character next to a
+		/// CJK one (IsBreakAnywhere), never before a closing or after an opening mark. A blank between two
+		/// lines goes, as in WrapText; a break between characters loses nothing.
+		/// </summary>
+		public static List<string> WrapTextBetweenCharacters(UWFont pOFont, string psText, int piMaxWidth)
+		{
+			List<string> lOLines = new List<string>();
+
+			if (pOFont == null || !pOFont.IsLoaded || string.IsNullOrEmpty(psText))
+				return lOLines;
+
+			string lsCurrent = string.Empty;
+			bool lbFirst = true;
+
+			foreach (string lsWord in psText.Split(' '))
+			{
+				// The word's pieces; an empty word (a blank at the start, two blanks) is one empty piece,
+				// as in WrapText.
+				int liStart = 0;
+
+				for (int liAt = 1; liAt <= Math.Max(1, lsWord.Length); liAt++)
+				{
+					bool lbBreak = liAt >= lsWord.Length
+						|| ((IsBreakAnywhere(lsWord[liAt - 1]) || IsBreakAnywhere(lsWord[liAt]))
+							&& NoBreakBefore.IndexOf(lsWord[liAt]) < 0 && NoBreakAfter.IndexOf(lsWord[liAt - 1]) < 0);
+
+					if (!lbBreak)
+						continue;
+
+					string lsPiece = lsWord.Substring(liStart, Math.Min(liAt, lsWord.Length) - liStart);
+					string lsCandidate = lbFirst ? lsPiece : lsCurrent + (liStart == 0 ? " " : string.Empty) + lsPiece;
+
+					lbFirst = false;
+
+					if (pOFont.MeasureText(lsCandidate, 0, CharacterSpacing) > piMaxWidth && lsCurrent.Length > 0)
+					{
+						lOLines.Add(lsCurrent);
+						lsCurrent = lsPiece;
+					}
+					else
+					{
+						lsCurrent = lsCandidate;
+					}
+
+					liStart = liAt;
 				}
 			}
 

@@ -881,6 +881,9 @@ public class UWModernPanel : UWModernDockedPanel
             float lfStatX = lfX + ((liStat % 3) * lfColumn);
             float lfStatY = lfY - ((liStat / 3) * 12 * liScale);
 
+            // The label read on every pass as the values are (a language switched in the game shows at
+            // once, translation step 3R; Text keeps an unchanged string as it is).
+            mOStatLabels[liStat].text = UWCharacterSheet.ValueLabel(liStat);
             mOStatLabels[liStat].fontSize = liSmall;
             UWUiKit.SetRect(mOStatLabels[liStat].rectTransform, lfStatX, lfStatY - (5 * liScale), lfColumn, 5 * liScale);
 
@@ -893,6 +896,7 @@ public class UWModernPanel : UWModernDockedPanel
         fSetRule(mORules[1], lfX, lfY, lfInner);
         lfY -= 3 * liScale;
 
+        mOSkillsHeading.text = UWText.T("hud.panel.skills");
         mOSkillsHeading.fontSize = liFont;
         UWUiKit.SetRect(mOSkillsHeading.rectTransform, lfX, lfY - (7 * liScale), lfInner, 7 * liScale);
 
@@ -1151,7 +1155,7 @@ public class UWModernPanel : UWModernDockedPanel
         mORoot = (RectTransform)mOCanvas.transform;
 
         // The tab headers, the pin, the leather and the handle (UWModernDockedPanel).
-        fBuildChrome(mORoot, new[] { UWText.T("hud.panel.tab.character"), UWText.T("hud.panel.tab.help") }, UWText.T("hud.panel.handle"));
+        fBuildChrome(mORoot, new[] { "hud.panel.tab.character", "hud.panel.tab.help" }, "hud.panel.handle");
         mOHandle.enabled = true;
 
         mOViewport = UWUiKit.CreateClipArea(mORoot, "Character view");

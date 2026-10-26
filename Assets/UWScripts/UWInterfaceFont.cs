@@ -9,6 +9,9 @@ using UnityEngine;
 /// noticeably wider - on the user's Kubuntu laptop text ran over the buttons. Liberation Sans
 /// (SIL OFL, ThirdParty/Liberation) has Arial's metrics by design and ships with the game, so
 /// every layout made against Arial stays as it is, on every system.
+///
+/// A language that names installed fonts of its own (grammar.rule.font, translation wave 6) gets them
+/// behind both fonts as Unity's fallback for the characters they lack (UWFallbackFont.Follow).
 /// </summary>
 public static class UWInterfaceFont
 {
@@ -31,6 +34,9 @@ public static class UWInterfaceFont
 
                 if (msOInterface == null)
                     msOInterface = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+                // The language's installed fonts behind it (translation wave 6).
+                UWFallbackFont.Follow(msOInterface);
             }
 
             return msOInterface;
@@ -49,7 +55,12 @@ public static class UWInterfaceFont
         get
         {
             if (msOModern == null)
+            {
                 msOModern = Resources.Load<Font>(ModernResource);
+
+                // The language's installed fonts behind Lexend Exa (translation wave 6).
+                UWFallbackFont.Follow(msOModern);
+            }
 
             return msOModern;
         }

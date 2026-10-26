@@ -58,10 +58,19 @@ namespace UWDataImport.UWData
 		{
 			psNew = psText ?? string.Empty;
 
-			if (pcTyped < FirstTypeable || pcTyped > LastTypeable || pfWidth == null)
+			// A letter the save cannot keep (beyond Latin-1, translation 5.1: UWTextLine.IsStorable) is refused.
+			bool lbLanguage = UWTextLine.IsLanguageLetter(pcTyped)
+				&& (pcTyped == UWFontGlyphBuilder.SharpS || UWTextLine.IsStorable(char.ToUpperInvariant(pcTyped)));
+
+			if ((!lbLanguage && (pcTyped < FirstTypeable || pcTyped > LastTypeable)) || pfWidth == null)
 				return false;
 
-			string lsCandidate = psNew + char.ToUpperInvariant(pcTyped);
+			// THE LANGUAGE'S LETTERS (translation wave 2, 2026-10-26; UWTextLine.LanguageLetters) are
+			// upper-cased as the rest: a-umlaut becomes its capital. The sharp s has none in the notes'
+			// small font (FONT4X5P has no lowercase, so no sharp s was drawn for it), so it is written
+			// SS, as German writes it in capitals.
+			string lsTyped = pcTyped == UWFontGlyphBuilder.SharpS ? "SS" : char.ToUpperInvariant(pcTyped).ToString();
+			string lsCandidate = psNew + lsTyped;
 
 			if (piX + pfWidth(lsCandidate) > RightEdge)
 				return false;

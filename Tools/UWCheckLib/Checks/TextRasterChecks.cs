@@ -133,7 +133,8 @@ namespace UnderworldRevisited.Tools
                 new List<string> { "\\4Save Game Failed." },
                 new List<string> { "\\6     Please enter a save file description:", "typed name", "\\0back to normal" },
                 new List<string> { "codes \\1one \\2two \\9beyond the table \\3three" },
-                new List<string> { "a character the font lacks: äöüß end" },
+                new List<string> { "a character the font lacks: \u00E9\u00E7\u20AC end" },
+                new List<string> { "the added German letters: \u00E4\u00F6\u00FC \u00C4\u00D6\u00DC \u00DF end" },
                 new List<string> { "[MORE]" },
                 new List<string> { "a line much too long for the narrow picture it is drawn into" }
             };

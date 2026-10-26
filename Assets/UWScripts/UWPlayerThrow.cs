@@ -63,8 +63,10 @@ public static class UWPlayerThrow
     private const int RuntimePlayerObjectId = UWObjectMechanics.AdventurerObjectId;
 
     /// <summary>The original message when nothing fits in front of the player - string 0xFD
-    /// of block 1 (seg025_711).</summary>
-    public const string NoSpaceMessage = "There is no space to drop that.";
+    /// of block 1 (seg025_711), "There is no space to drop that."; our numbering one higher. Taken
+    /// from the strings since translation step 3A (2026-10-26; a literal until then), so a game-text
+    /// pack gives it.</summary>
+    public const int NoSpaceMessage = 0xFD + 1;
 
     /// <summary>
     /// Drops or throws the item at the pointer. Returns false if it stays at the pointer.
@@ -257,7 +259,7 @@ public static class UWPlayerThrow
 
         if (!lbFits)
         {
-            pOInteraction?.AddMessage(NoSpaceMessage);
+            pOInteraction?.AddGeneralMessage(NoSpaceMessage);
 
             UWAudioService.PlayEffect(UWSoundEffectId.Landing);
 

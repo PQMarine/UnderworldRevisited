@@ -255,23 +255,15 @@ public static class UWTriggerSystem
 
             liAngered++;
 
-            pOInteraction.AddMessage(fGetCritterName(pOLevelLoader, lOInfo.ObjectData.ID)
-                + pOInteraction.GetGeneralMessage(UWCritterRules.TheftMessageBase + liAttitude));
+            // The creature's name as the message scroll prints it: "a goblin", not the raw
+            // "a_goblin" of the string block. The reference prints the same a_name, but its
+            // strings already come resolved (thief.AngerNPCByIllegalAction). Noticed on the
+            // theft message, which in the original reads "a goblin is angered by your action."
+            // (per user, 2026-09-16). The sentence is UWItemMessages.Angered's.
+            pOInteraction.AddMessage(UWItemMessages.Angered(pOInteraction.GameData, lOInfo.ObjectData.ID, liAttitude));
         }
 
         return liAngered;
-    }
-
-    /// <summary>
-    /// The creature's name as the message scroll prints it: "a goblin", not the raw
-    /// "a_goblin" of the string block. The reference prints the same a_name, but its
-    /// strings already come resolved (thief.AngerNPCByIllegalAction). Noticed on the
-    /// theft message, which in the original reads "a goblin is angered by your action."
-    /// (per user, 2026-09-16).
-    /// </summary>
-    private static string fGetCritterName(UWLevelLoader pOLevelLoader, int piObjectId)
-    {
-        return UWText.ObjectName(pOLevelLoader != null ? pOLevelLoader.UWDataImporter : null, piObjectId, false, true);
     }
 
     /// <summary>Does the creature belong to this race? The race is the shared name from

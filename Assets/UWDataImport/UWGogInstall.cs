@@ -161,6 +161,31 @@ namespace UWDataImport.Install
         }
 
         /// <summary>
+        /// One file of the image's UW\DATA folder read straight from the image, or null when there
+        /// is no such file or the image cannot be read. For the self-check, whose extracted cache
+        /// may lack a file the image has (the FONT*.SYS, found 2026-10-26).
+        /// </summary>
+        public static byte[] ReadDataFile(string psImagePath, string psFileName)
+        {
+            try
+            {
+                using (FileStream lOStream = new FileStream(psImagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    IsoReader lOReader = new IsoReader(lOStream);
+                    IsoEntry lOUw = lOReader.Find(lOReader.Root, "UW");
+                    IsoEntry lOData = lOUw != null && lOUw.IsDirectory ? lOReader.Find(lOUw, "DATA") : null;
+                    IsoEntry lOFile = lOData != null && lOData.IsDirectory ? lOReader.Find(lOData, psFileName) : null;
+
+                    return lOFile != null && !lOFile.IsDirectory ? lOReader.Read(lOFile) : null;
+                }
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Makes sure the UW1 data of the image is extracted below psCacheRoot and returns the
         /// path of its DATA folder, or null with psError set. An existing extraction of the
         /// same image (size and time stamp) is reused.

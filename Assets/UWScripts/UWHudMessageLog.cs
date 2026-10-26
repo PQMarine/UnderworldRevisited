@@ -167,14 +167,17 @@ public sealed class UWHudMessageLog
 
             mMoreMarkerImage = lOObject.GetComponent<RawImage>();
             mMoreMarkerImage.raycastTarget = false;
-
-            UWTextLabel.Get(mMoreMarkerImage).SetLine(pOFont, UWMessageLogModel.MoreMarkerText,
-                UWTextRaster.TightWidth(pOFont, UWMessageLogModel.MoreMarkerText),
-                Color.white, false, mOUi.TextureFilterMode, FontStyle.Normal, UWTextLabel.MoreMarkerRaise);
-
-            if (UWTextLabel.Get(mMoreMarkerImage).Picture == null)
-                return;
         }
+
+        // Set on every pass (the label keeps an unchanged line): a text id since translation step 3A,
+        // so a language switched while the game runs shows at once.
+        string lsMore = UWMessageLogModel.MoreMarkerText;
+
+        UWTextLabel.Get(mMoreMarkerImage).SetLine(pOFont, lsMore, UWTextRaster.TightWidth(pOFont, lsMore),
+            Color.white, false, mOUi.TextureFilterMode, FontStyle.Normal, UWTextLabel.MoreMarkerRaise);
+
+        if (UWTextLabel.Get(mMoreMarkerImage).Picture == null)
+            return;
 
         int liLineHeight = pOFont.Height + UWFontRenderer.LineSpacing;
 

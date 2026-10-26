@@ -82,22 +82,115 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// The name of an object as a word: "torch", or "torches" with pbPlural, or "a torch"
-		/// with pbArticle - the "&amp;" and "_" conventions resolved by UWObjectDescriptionFormatter.
-		/// The fallback when the name is missing or empty.
+		/// with pbArticle - the name format resolved by the language's grammar (IUWGrammar.Name; in
+		/// English the "&amp;" and "_" of UWObjectDescriptionFormatter), in a case where the language
+		/// has them. The fallback when the name is missing or empty.
 		/// </summary>
 		public static string ObjectName(DataImport pOData, int piObjectId, bool pbPlural = false,
-			bool pbArticle = false, string psFallback = "")
+			bool pbArticle = false, string psFallback = "", UWGrammarCase peCase = UWGrammarCase.Nominative)
 		{
 			string lsRaw = RawObjectName(pOData, piObjectId, null);
 
 			if (lsRaw == null)
 				return psFallback;
 
-			string lsName = pbArticle
-				? UWObjectDescriptionFormatter.FormatItemName(lsRaw, pbPlural)
-				: UWObjectDescriptionFormatter.FormatBareItemName(lsRaw, pbPlural);
+			string lsName = UWGrammar.Of(pOData).Name(lsRaw, pbPlural, pbArticle, peCase);
 
 			return string.IsNullOrEmpty(lsName) ? psFallback : lsName;
+		}
+
+		/// <summary>The plural where the original adds an "s" to the bare name - "arrows" (the reference's
+		/// GetSimpleObjectNameUW plus "s"); the language's plural in a language with a grammar of its own
+		/// (IUWGrammar.AddedPlural).</summary>
+		public static string ObjectNameAddedPlural(DataImport pOData, int piObjectId)
+		{
+			return UWGrammar.Of(pOData).AddedPlural(RawObjectName(pOData, piObjectId, null));
+		}
+
+		/// <summary>An object's name as a message's frame takes it (IUWGrammar.TheName: English the bare
+		/// singular for "The {0} is locked.", German with the definite article in the case); the
+		/// fallback when the name is missing or empty (translation step 3A).</summary>
+		public static string TheObjectName(DataImport pOData, int piObjectId, UWGrammarCase peCase, string psFallback = "")
+		{
+			string lsRaw = RawObjectName(pOData, piObjectId, null);
+
+			if (lsRaw == null)
+				return psFallback;
+
+			string lsName = UWGrammar.Of(pOData).TheName(lsRaw, peCase);
+
+			return string.IsNullOrEmpty(lsName) ? psFallback : lsName;
+		}
+
+		/// <summary>The player's own object as a frame takes it (IUWGrammar.YourName: English the bare
+		/// singular for "Your {0} was damaged.", German "dein Dolch"); the fallback as TheObjectName.</summary>
+		public static string YourObjectName(DataImport pOData, int piObjectId, UWGrammarCase peCase, string psFallback = "")
+		{
+			string lsRaw = RawObjectName(pOData, piObjectId, null);
+
+			if (lsRaw == null)
+				return psFallback;
+
+			string lsName = UWGrammar.Of(pOData).YourName(lsRaw, peCase);
+
+			return string.IsNullOrEmpty(lsName) ? psFallback : lsName;
+		}
+
+		/// <summary>TheObjectName as a frame's argument that a select can choose by: the name with its
+		/// gender and case (UWNamePhrase, translation wave 4) - shown, the same text.</summary>
+		public static UWNamePhrase TheObject(DataImport pOData, int piObjectId, UWGrammarCase peCase, string psFallback = "")
+		{
+			return fPhrase(pOData, piObjectId, TheObjectName(pOData, piObjectId, peCase, psFallback), peCase, 1);
+		}
+
+		/// <summary>YourObjectName as a frame's argument with gender and case (UWNamePhrase).</summary>
+		public static UWNamePhrase YourObject(DataImport pOData, int piObjectId, UWGrammarCase peCase, string psFallback = "")
+		{
+			return fPhrase(pOData, piObjectId, YourObjectName(pOData, piObjectId, peCase, psFallback), peCase, 1);
+		}
+
+		/// <summary>ObjectName as a frame's argument with gender and case (UWNamePhrase); a plural
+		/// without a count has none (piCount -1: a plural takes "other").</summary>
+		public static UWNamePhrase ObjectPhrase(DataImport pOData, int piObjectId, bool pbPlural, bool pbArticle,
+			UWGrammarCase peCase = UWGrammarCase.Nominative)
+		{
+			return fPhrase(pOData, piObjectId, ObjectName(pOData, piObjectId, pbPlural, pbArticle, string.Empty, peCase), peCase, pbPlural ? -1 : 1);
+		}
+
+		/// <summary>ObjectNameAddedPlural as a frame's argument (UWNamePhrase, no count).</summary>
+		public static UWNamePhrase ObjectAddedPlural(DataImport pOData, int piObjectId)
+		{
+			return fPhrase(pOData, piObjectId, ObjectNameAddedPlural(pOData, piObjectId), UWGrammarCase.Nominative, -1);
+		}
+
+		private static UWNamePhrase fPhrase(DataImport pOData, int piObjectId, string psText, UWGrammarCase peCase, int piCount)
+		{
+			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
+
+			return new UWNamePhrase(psText, lIGrammar.GenderOf(RawObjectName(pOData, piObjectId, null)), lIGrammar.CaseKey(peCase), piCount);
+		}
+
+		/// <summary>An object's name on the modern interface's label (the bags' tooltip):
+		/// IUWGrammar.ItemLabel - "Torch", "3 Torches", "Cursed sword".</summary>
+		public static string ObjectLabel(DataImport pOData, int piObjectId, int piCount, bool pbCursed)
+		{
+			return UWGrammar.Of(pOData).ItemLabel(RawObjectName(pOData, piObjectId, null), piCount, pbCursed);
+		}
+
+		/// <summary>A message line from its frame (F) as the language of the data's names writes a
+		/// sentence (IUWGrammar.Sentence: German starts it with a capital, English leaves it).</summary>
+		public static string Sentence(DataImport pOData, string psId, params object[] paArgs)
+		{
+			return UWGrammar.Of(pOData).Sentence(F(psId, paArgs));
+		}
+
+		/// <summary>A conversation partner's name (block 7) as shown - IUWGrammar.PersonName; the
+		/// fallback when it is missing or empty.</summary>
+		public static string PartnerName(DataImport pOData, int piIndex, string psFallback = "")
+		{
+			string lsRaw = Block(pOData, UWConversations.PartnerNameStringBlock, piIndex, null);
+
+			return lsRaw == null ? psFallback : UWGrammar.Of(pOData).PersonName(lsRaw);
 		}
 
 		/// <summary>The first letter upper-case, the rest as it is - a name as a title or a

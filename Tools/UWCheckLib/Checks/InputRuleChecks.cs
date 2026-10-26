@@ -66,6 +66,13 @@ namespace UnderworldRevisited.Tools
             fExpectBool("talk to the plain decoration (367) refuses",
                 UWClickRules.TalkToThing(UWClickRules.SpecialDecorationObjectId + 1, true) == UWClickRules.ThingTalkAnswer.CannotTalk, true);
 
+            // The modern E and the pad's A talk only to a thing that answers; a silent one is used
+            // (2026-10-26, per user: the double-door decoration showed "Talk" and nothing happened).
+            fExpectBool("modern E: the shrine answers, so it is talked to", UWClickRules.ThingAnswers(UWClickRules.ThingTalkAnswer.ChantMantra), true);
+            fExpectBool("modern E: Arial answers", UWClickRules.ThingAnswers(UWClickRules.ThingTalkAnswer.NoReactionFromPrincess), true);
+            fExpectBool("modern E: a silent decoration is used, not talked to", UWClickRules.ThingAnswers(UWClickRules.ThingTalkAnswer.Silent), false);
+            fExpectBool("modern E: a thing that cannot talk is used", UWClickRules.ThingAnswers(UWClickRules.ThingTalkAnswer.CannotTalk), false);
+
             // Get: the press decides at once.
             fExpectClick("get press on a pickable takes it to the pointer", UWClickRules.OnPress(UWCommandMode.Get, UWClickRules.TargetKind.Pickable, Inside),
                 UWClickRules.ActionKind.TakeToPointer, UWClickRules.GestureKind.None);

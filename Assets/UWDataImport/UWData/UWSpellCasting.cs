@@ -63,13 +63,13 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>What the original shows when the runes are no spell - not in the string
-		/// block, UWGameUI printed the same literal.</summary>
-		private const string NotASpellText = "Not a spell";
+		/// block, UWGameUI printed the same literal (msg.spell.not_a_spell).</summary>
+		public static string NotASpellText => UWText.T("msg.spell.not_a_spell");
 
 		/// <summary>The modern action bar's refusal of a spell whose rune is not in the bag
 		/// (CastCheckEnum.RuneMissing). Ours: the original's hollow cannot even hold such a rune, so
-		/// it has no message for it.</summary>
-		public const string RuneMissingText = "A rune of that spell is not in your bag.";
+		/// it has no message for it (msg.spell.rune_missing).</summary>
+		public static string RuneMissingText => UWText.T("msg.spell.rune_missing");
 
 		/// <summary>Messages from string block 1. The reference numbers each one lower - the
 		/// usual offset in this project.</summary>

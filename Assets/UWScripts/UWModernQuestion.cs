@@ -317,6 +317,7 @@ public class UWModernQuestion : MonoBehaviour
             mOButtonRects[liButton] = lOButton;
             UWUiKit.SetRect(mOButtons[liButton].rectTransform, lOButton.x, lOButton.y, lOButton.width, lOButton.height);
             UWUiKit.SetRect(mOButtonTexts[liButton].rectTransform, lOButton.x, lOButton.y + (0.5f * liScale), lOButton.width, lOButton.height);
+            mOButtonTexts[liButton].text = UWText.T(liButton == 0 ? "hud.question.ok" : "hud.question.cancel");
             mOButtonTexts[liButton].fontSize = Mathf.Max(10, Mathf.RoundToInt(4.4f * liScale));
             mOButtonTexts[liButton].color = lOButton.Contains(lOPointer) ? UWModernPalette.LightText : UWModernPalette.Gold;
         }

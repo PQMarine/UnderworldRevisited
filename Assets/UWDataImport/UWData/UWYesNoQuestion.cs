@@ -18,10 +18,10 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWYesNoQuestion
 	{
-		/// <summary>The words behind the question - the original's.</summary>
-		public const string YesWord = "Yes";
+		/// <summary>The words behind the question - the original's (msg.question.yes, .no).</summary>
+		public static string YesWord => UWText.T("msg.question.yes");
 
-		public const string NoWord = "No";
+		public static string NoWord => UWText.T("msg.question.no");
 
 		private Action<bool> mFAnswered;
 

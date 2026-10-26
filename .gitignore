@@ -58,6 +58,10 @@ crashlytics-build.properties
 /Assets/UWExportedTextures/
 /Assets/UWExportedTextures.meta
 
+# Game-text packs (Languages/<code>.strings.tsv): the game's own texts, translated or not, are
+# the rights holders' and never go into the repository - only the port's own texts (<code>.tsv) do.
+/Languages/*.strings.tsv
+
 # Batch compile log
 /compile.log
 

@@ -46,12 +46,22 @@ namespace UWDataImport.UWData
 			msDataPath = psDataPath;
 		}
 
+		/// <summary>The file name of a font (FONT5X6P.SYS, ...).</summary>
+		public static string FileName(FontType peType)
+		{
+			return mOFileNames[peType];
+		}
+
 		public UWFont Get(FontType peType)
 		{
 			if (mOFonts.TryGetValue(peType, out UWFont lOCached))
 				return lOCached;
 
 			UWFont lOFont = new UWFont(Path.Combine(msDataPath, mOFileNames[peType]));
+
+			// The German letters the fonts lack, drawn in their style (translations wave 1).
+			UWFontGlyphBuilder.AddGerman(lOFont, peType);
+
 			mOFonts[peType] = lOFont;
 
 			return lOFont;

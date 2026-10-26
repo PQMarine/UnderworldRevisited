@@ -538,7 +538,7 @@ public sealed class UWWorldUse
         switch (UWDoorRules.Use(lODoor.IsClosed, lODoor.IsSpiked, lODoor.IsLocked, true, lbKeyAtHand))
         {
             case UWDoorRules.UseOutcome.Locked:
-                mOInteraction.AddMessage("The door is locked");
+                mOInteraction.AddMessage(UWText.T("msg.door.locked"));
                 return;
 
             case UWDoorRules.UseOutcome.Spiked:

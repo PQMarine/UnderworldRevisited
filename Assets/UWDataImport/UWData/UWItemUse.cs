@@ -618,8 +618,7 @@ namespace UWDataImport.UWData
 				{
 					int liTaste = System.Math.Min(LastTasteStep, (UWRandom.Next(TasteRollRange) + (pOItem.Quality & 0x3F)) >> 4);
 
-					pIHost.AddMessage(TastePrefix + UWText.ObjectName(pOData, liId)
-						+ UWText.General(pOData, FirstTasteMessage + liTaste));
+					pIHost.AddMessage(UWItemMessages.Taste(pOData, liId, liTaste));
 				}
 
 				if (lbHasRow && lORow.Effect == UWFoodTable.Effect.Toadstool)
@@ -669,13 +668,8 @@ namespace UWDataImport.UWData
 				pIHost.StartWandCooldown();
 		}
 
-		/// <summary>The start of the taste line - a string of UW.EXE, not of the string file.</summary>
-		private const string TastePrefix = "That ";
-
-		/// <summary>" tasted putrid." (block 1); the next four up to " tasted great.".</summary>
-		private const int FirstTasteMessage = 173;
-
-		private const int LastTasteStep = 4;
+		/// <summary>The last of the five taste steps (UWItemMessages.Taste).</summary>
+		public const int LastTasteStep = 4;
 
 		/// <summary>The roll is RNG * 20 / 0x8000, so 0 to 19.</summary>
 		private const int TasteRollRange = 20;

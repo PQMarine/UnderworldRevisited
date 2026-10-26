@@ -204,12 +204,16 @@ public class UWModernScroll
             mOMore.enabled = false;
     }
 
-    private static readonly string[] msMoreLines = { UWMessageLogModel.MoreMarkerText };
+    /// <summary>The marker as one line, its text taken anew when the language changed (a text id since
+    /// translation step 3A).</summary>
+    private static readonly string[] msMoreLines = { string.Empty };
 
     private static readonly Color32[] myMoreColours = { new Color32(255, 255, 255, 255) };
 
     private bool fEnsureMore(UWFont pOFont)
     {
+        msMoreLines[0] = UWMessageLogModel.MoreMarkerText;
+
         return mOMoreSlot.Set(pOFont, msMoreLines, UWTextRaster.TightWidth(pOFont, UWMessageLogModel.MoreMarkerText), myMoreColours,
             UWTextRaster.ColoursEnum.Codes, false, mOUi.TextureFilterMode, false, out _)?.Texture != null;
     }

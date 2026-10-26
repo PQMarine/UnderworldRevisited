@@ -11,7 +11,8 @@ using UWDataImport.UWData;
 ///     EditorPrefs until switched off; the command line and UR_LANGUAGE still come first.
 ///   - Underworld Revisited / Text / Write the English texts: the whole table as a language file
 ///     (id, TAB, text), the template a translator starts from. Written where one chooses, never
-///     into the project.
+///     into the project. Since translation wave 6 the same bytes as `uwdump text-template`
+///     (UWTextTemplate), which needs no Unity and also updates an older translation (--from).
 /// </summary>
 public static class UWLanguageMenu
 {
@@ -41,8 +42,8 @@ public static class UWLanguageMenu
         if (string.IsNullOrEmpty(lsPath))
             return;
 
-        File.WriteAllText(lsPath, "# Underworld Revisited, the port's own texts: id TAB text (\\n a line break)\n"
-            + UWTextLanguageFile.Write(UWText.TextIds, UWText.English), new System.Text.UTF8Encoding(false));
+        // The same bytes as uwdump text-template (UWTextTemplate, translation wave 6).
+        File.WriteAllText(lsPath, UWTextTemplate.English(), new System.Text.UTF8Encoding(false));
         EditorUtility.RevealInFinder(lsPath);
     }
 }

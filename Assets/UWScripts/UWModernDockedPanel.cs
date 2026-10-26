@@ -241,6 +241,8 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
     {
         float liScale = miScale;
 
+        fRelabelChrome();
+
         mOHandleRect = pbPinned || pbFree ? Rect.zero : pOHandle;
         mOHandle.enabled = !pbPinned && !pbFree;
         mOHandleText.enabled = !pbPinned && !pbFree;
@@ -305,17 +307,18 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
     /// <summary>The panel's own controls under pORoot, in this order: the tab headers, the pin and
     /// its icon, the leather, the handle (mirrored at the left edge: its open side joins the
     /// panel) and its label.</summary>
-    protected void fBuildChrome(Transform pORoot, string[] psTabs, string psHandleLabel)
+    protected void fBuildChrome(Transform pORoot, string[] psTabIds, string psHandleId)
     {
         mOTabBacks = new RawImage[2];
         mOTabTexts = new Text[2];
+        msTabIds = psTabIds;
+        msHandleId = psHandleId;
 
         for (int liTab = 0; liTab < 2; liTab++)
         {
-            mOTabBacks[liTab] = UWUiKit.CreateRawImage(pORoot, "Tab " + psTabs[liTab]);
+            mOTabBacks[liTab] = UWUiKit.CreateRawImage(pORoot, "Tab " + psTabIds[liTab]);
             UWPixelArtUI.Apply(mOTabBacks[liTab]);
-            mOTabTexts[liTab] = UWUiKit.CreateText(pORoot, psTabs[liTab], TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
-            mOTabTexts[liTab].text = psTabs[liTab];
+            mOTabTexts[liTab] = UWUiKit.CreateText(pORoot, psTabIds[liTab], TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
         }
 
         mOPin = UWUiKit.CreateRawImage(pORoot, "Pin");
@@ -333,7 +336,32 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
             mOHandle.uvRect = new Rect(1f, 0f, -1f, 1f);
 
         mOHandleText = UWUiKit.CreateText(pORoot, "Handle label", TextAnchor.MiddleCenter, UWModernPalette.Text, mOUi);
-        mOHandleText.text = psHandleLabel;
+        miChromeLanguage = -1;
+        fRelabelChrome();
+    }
+
+    /// <summary>The text ids of the tab headers and the handle (fBuildChrome).</summary>
+    private string[] msTabIds;
+
+    private string msHandleId;
+
+    /// <summary>The language the chrome's texts were set in (UWText.LanguageVersion).</summary>
+    private int miChromeLanguage = -1;
+
+    /// <summary>The tab headers' and the handle's texts set anew when the language changed (translation
+    /// step 3R: a language switched while the game runs shows at once); called on every layout.</summary>
+    protected void fRelabelChrome()
+    {
+        if (miChromeLanguage == UWText.LanguageVersion || mOTabTexts == null || msTabIds == null)
+            return;
+
+        miChromeLanguage = UWText.LanguageVersion;
+
+        for (int liTab = 0; liTab < mOTabTexts.Length && liTab < msTabIds.Length; liTab++)
+            mOTabTexts[liTab].text = UWText.T(msTabIds[liTab]);
+
+        if (mOHandleText != null)
+            mOHandleText.text = UWText.T(msHandleId);
     }
 
     /// <summary>The tab headers' and the pin's leather in the panel's back and the pin's icon -

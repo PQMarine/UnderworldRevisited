@@ -14,8 +14,9 @@ public static class UWShrine
     /// <summary>Object number of the shrine.</summary>
     public const int ShrineObjectId = UWShrineRules.ShrineObjectId;
 
-    /// <summary>What is entered at the shrine - the wording comes from UW.EXE.</summary>
-    public const string Prompt = UWShrineRules.Prompt;
+    /// <summary>What is entered at the shrine - the wording comes from UW.EXE (a text id since
+    /// translation step 3A, read each time, so a language switched in the game shows at once).</summary>
+    public static string Prompt => UWShrineRules.Prompt;
 
     /// <summary>Accepts a chanted mantra - see UWShrineRules.Chant. The world is the scene's (null
     /// without a level loader; then the quest mantras say nothing).</summary>

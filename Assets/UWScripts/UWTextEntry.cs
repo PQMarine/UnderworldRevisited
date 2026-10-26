@@ -12,7 +12,7 @@ using UnityEngine.InputSystem;
 ///
 /// Here: the text events while the entry is open, plus the keys themselves where no text event
 /// comes (UWTypedKeys, ReadKeys once a frame), both through ONE filter (printable ASCII, 0x20 to
-/// 0x7E) to the owner's handler. Backspace and Enter are read in one place as well, Escape in the
+/// 0x7E, and the language's letters since translation wave 2 - IsTypeableInLanguage) to the owner's handler. Backspace and Enter are read in one place as well, Escape in the
 /// Escape chain since cleanup step 7.5 (UWBack.Takes with the place's owner); the
 /// order in which a place looks at them and what it does with them stays its own (a save name
 /// confirms by mouse too, the map closes on Escape, the conversation answers empty), as do its
@@ -35,8 +35,10 @@ public sealed class UWTextEntry
 {
     private readonly Action<char> mFOnCharacter;
 
-    /// <summary>The filter of this entry: the one filter (IsTypeable), or the help notes' own wider one
-    /// (UWTextArea.IsTypeable, cleanup 8b.3, 2026-10-24: IMGUI's TextArea took umlauts and accents).</summary>
+    /// <summary>The filter of this entry: the one filter with the language's letters
+    /// (IsTypeableInLanguage, translation wave 2), the character name's (IsTypeableAndStorable - the
+    /// name goes into PLAYER.DAT, translation 5.1), or the help notes' own wider one (UWTextArea.IsTypeable,
+    /// cleanup 8b.3, 2026-10-24: IMGUI's TextArea took umlauts and accents).</summary>
     private readonly Func<char, bool> mFFilter;
 
     private Keyboard mOHooked;
@@ -48,7 +50,7 @@ public sealed class UWTextEntry
 
     /// <summary>pFOnCharacter receives every typed character that passes the filter.</summary>
     public UWTextEntry(Action<char> pFOnCharacter)
-        : this(pFOnCharacter, IsTypeable)
+        : this(pFOnCharacter, IsTypeableInLanguage)
     {
     }
 
@@ -61,7 +63,7 @@ public sealed class UWTextEntry
     private UWTextEntry(Action<char> pFOnCharacter, Func<char, bool> pFFilter, bool pbByKeyPlace)
     {
         mFOnCharacter = pFOnCharacter;
-        mFFilter = pFFilter ?? IsTypeable;
+        mFFilter = pFFilter ?? IsTypeableInLanguage;
         mbByKeyPlace = pbByKeyPlace;
     }
 
@@ -105,7 +107,21 @@ public sealed class UWTextEntry
 
         lOKeyboard.onTextInput += fOnTextInput;
         mOHooked = lOKeyboard;
+
+        // THE SYSTEM'S INPUT METHOD (translation wave 6, 2026-10-26): a language that wants it
+        // (grammar.rule.ime yes, UWTextLine.ImeOn) gets it while the entry is open - the Input System's
+        // Keyboard.SetIMEEnabled, its form of Input.imeCompositionMode. What the input method commits
+        // arrives through onTextInput like any typed character; the filter takes it (IsImeCharacter).
+        // The composition itself is shown by the system's own window.
+        if (UWDataImport.UWData.UWTextLine.ImeOn)
+        {
+            lOKeyboard.SetIMEEnabled(true);
+            mbImeOn = true;
+        }
     }
+
+    /// <summary>Whether Begin turned the input method on (End turns it off again).</summary>
+    private bool mbImeOn;
 
     /// <summary>Stops listening.</summary>
     public void End()
@@ -116,6 +132,13 @@ public sealed class UWTextEntry
             return;
 
         mOHooked.onTextInput -= fOnTextInput;
+
+        if (mbImeOn)
+        {
+            mOHooked.SetIMEEnabled(false);
+            mbImeOn = false;
+        }
+
         mOHooked = null;
     }
 
@@ -165,6 +188,21 @@ public sealed class UWTextEntry
     public static bool IsTypeable(char pcChar)
     {
         return UWDataImport.UWData.UWTextLine.IsTypeable(pcChar);
+    }
+
+    /// <summary>The one filter and the language's letters beyond ASCII (UWTextLine.LanguageLetters,
+    /// translation wave 2, 2026-10-26: the German umlauts and sharp s) - the default: the answer, the
+    /// mantra, the map note, the save name. In English the same as IsTypeable.</summary>
+    public static bool IsTypeableInLanguage(char pcChar)
+    {
+        return UWDataImport.UWData.UWTextLine.IsTypeableInLanguage(pcChar);
+    }
+
+    /// <summary>The language's filter as far as a save keeps it (UWTextLine.IsTypeableAndStorable,
+    /// translation 5.1): the character's name, which goes into PLAYER.DAT. In English the same as IsTypeable.</summary>
+    public static bool IsTypeableAndStorable(char pcChar)
+    {
+        return UWDataImport.UWData.UWTextLine.IsTypeableAndStorable(pcChar);
     }
 
     /// <summary>Backspace went down this frame.</summary>

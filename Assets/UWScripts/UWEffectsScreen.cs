@@ -48,7 +48,8 @@ public sealed class UWEffectsScreen
 
     private class Row
     {
-        public string Label;
+        /// <summary>The text id of its label (read when the page is built).</summary>
+        public string LabelId;
         public KindEnum Kind;
         public float Min;
         public float Max;
@@ -63,8 +64,12 @@ public sealed class UWEffectsScreen
 
     private readonly List<Row> mORows = new List<Row>();
 
-    /// <summary>The page the window draws, a row for each of mORows in the same order.</summary>
-    private readonly UWSetupPage mOPage;
+    /// <summary>The page the window draws, a row for each of mORows in the same order; built anew when
+    /// the language changes (its labels and choices are taken when it is built).</summary>
+    private UWSetupPage mOPage;
+
+    /// <summary>The language mOPage was built in (UWText.LanguageVersion).</summary>
+    private int miPageLanguage;
 
     /// <summary>The values the rows read and write: the viewer's own (Describe swaps in its probe).</summary>
     private Func<UWGraphicsDetail.EffectValues> mFValues = () => UWGraphicsDetail.CustomValues;
@@ -73,50 +78,51 @@ public sealed class UWEffectsScreen
 
     public UWEffectsScreen()
     {
-        fAddToggle(UWText.T("effects.torch_and_fire_lights"), v => v.TorchLights, (v, b) => v.TorchLights = b);
-        fAddToggle(UWText.T("effects.torch_shadows"), v => v.TorchShadows, (v, b) => v.TorchShadows = b);
-        fAddRow(UWText.T("effects.shadows_at_once"), KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
-        fAddToggle(UWText.T("effects.lava_lights"), v => v.LavaLights, (v, b) => v.LavaLights = b);
-        fAddRow(UWText.T("effects.light_brightness"), KindEnum.Slider, 0f, 3f, v => v.LightBrightness, (v, f) => v.LightBrightness = f);
-        fAddRow(UWText.T("effects.relief"), KindEnum.Slider, 0f, 4f, v => v.NormalStrength, (v, f) => v.NormalStrength = f);
-        fAddRow(UWText.T("effects.shine"), KindEnum.Slider, 0f, 2f, v => v.SpecularStrength, (v, f) => v.SpecularStrength = f);
-        fAddRow(UWText.T("effects.wall_depth"), KindEnum.Slider, 0f, 0.2f, v => v.ParallaxDepth, (v, f) => v.ParallaxDepth = f);
-        fAddRow(UWText.T("effects.relief_shadows"), KindEnum.Slider, 0f, 1f, v => v.SelfShadow, (v, f) => v.SelfShadow = f);
-        fAddRow(UWText.T("effects.dark_joints"), KindEnum.Slider, 0f, 1f, v => v.Cavity, (v, f) => v.Cavity = f);
-        fAddRow(UWText.T("effects.lava_glow"), KindEnum.Slider, 0f, 4f, v => v.EmissiveStrength, (v, f) => v.EmissiveStrength = f);
-        fAddRow(UWText.T("effects.bloom"), KindEnum.Slider, 0f, 3f, v => v.BloomIntensity, (v, f) => v.BloomIntensity = f);
-        fAddToggle(UWText.T("effects.ambient_occlusion"), v => v.AmbientOcclusion, (v, b) => v.AmbientOcclusion = b);
-        fAddRow(UWText.T("effects.tonemapping"), KindEnum.Tonemapping, 0f, 2f, v => (float)v.Tonemapping,
+        fAddToggle("effects.torch_and_fire_lights", v => v.TorchLights, (v, b) => v.TorchLights = b);
+        fAddToggle("effects.torch_shadows", v => v.TorchShadows, (v, b) => v.TorchShadows = b);
+        fAddRow("effects.shadows_at_once", KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
+        fAddToggle("effects.lava_lights", v => v.LavaLights, (v, b) => v.LavaLights = b);
+        fAddRow("effects.light_brightness", KindEnum.Slider, 0f, 3f, v => v.LightBrightness, (v, f) => v.LightBrightness = f);
+        fAddRow("effects.relief", KindEnum.Slider, 0f, 4f, v => v.NormalStrength, (v, f) => v.NormalStrength = f);
+        fAddRow("effects.shine", KindEnum.Slider, 0f, 2f, v => v.SpecularStrength, (v, f) => v.SpecularStrength = f);
+        fAddRow("effects.wall_depth", KindEnum.Slider, 0f, 0.2f, v => v.ParallaxDepth, (v, f) => v.ParallaxDepth = f);
+        fAddRow("effects.relief_shadows", KindEnum.Slider, 0f, 1f, v => v.SelfShadow, (v, f) => v.SelfShadow = f);
+        fAddRow("effects.dark_joints", KindEnum.Slider, 0f, 1f, v => v.Cavity, (v, f) => v.Cavity = f);
+        fAddRow("effects.lava_glow", KindEnum.Slider, 0f, 4f, v => v.EmissiveStrength, (v, f) => v.EmissiveStrength = f);
+        fAddRow("effects.bloom", KindEnum.Slider, 0f, 3f, v => v.BloomIntensity, (v, f) => v.BloomIntensity = f);
+        fAddToggle("effects.ambient_occlusion", v => v.AmbientOcclusion, (v, b) => v.AmbientOcclusion = b);
+        fAddRow("effects.tonemapping", KindEnum.Tonemapping, 0f, 2f, v => (float)v.Tonemapping,
             (v, f) => v.Tonemapping = (UWSettings.RemasterTonemappingEnum)Mathf.RoundToInt(f));
-        fAddRow(UWText.T("effects.sprite_glow"), KindEnum.Slider, 0f, 3f, v => v.SpriteGlow, (v, f) => v.SpriteGlow = f);
-        fAddRow(UWText.T("effects.fire_flicker"), KindEnum.Slider, 0f, 0.8f, v => v.FireFlicker, (v, f) => v.FireFlicker = f);
-        fAddRow(UWText.T("effects.sparks"), KindEnum.Slider, 0f, 3f, v => v.FireSparks, (v, f) => v.FireSparks = f);
-        fAddRow(UWText.T("effects.smoke"), KindEnum.Slider, 0f, 1f, v => v.FireSmoke, (v, f) => v.FireSmoke = f);
-        fAddRow(UWText.T("effects.dust"), KindEnum.Slider, 0f, 3f, v => v.Dust, (v, f) => v.Dust = f);
-        fAddRow(UWText.T("effects.ground_shadows"), KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
+        fAddRow("effects.sprite_glow", KindEnum.Slider, 0f, 3f, v => v.SpriteGlow, (v, f) => v.SpriteGlow = f);
+        fAddRow("effects.fire_flicker", KindEnum.Slider, 0f, 0.8f, v => v.FireFlicker, (v, f) => v.FireFlicker = f);
+        fAddRow("effects.sparks", KindEnum.Slider, 0f, 3f, v => v.FireSparks, (v, f) => v.FireSparks = f);
+        fAddRow("effects.smoke", KindEnum.Slider, 0f, 1f, v => v.FireSmoke, (v, f) => v.FireSmoke = f);
+        fAddRow("effects.dust", KindEnum.Slider, 0f, 3f, v => v.Dust, (v, f) => v.Dust = f);
+        fAddRow("effects.ground_shadows", KindEnum.Slider, 0f, 1f, v => v.GroundShadow, (v, f) => v.GroundShadow = f);
 
         // THE GRIME, shared with the palette path (UWGrime.hlsl): its setting lives in the user's
         // settings, not in the effect values; saved when the window closes.
-        fAddRow(UWText.T("effects.grime_along_the_walls"), KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
+        fAddRow("effects.grime_along_the_walls", KindEnum.Slider, 0f, UWPaletteEffects.MaxGrime,
             v => UWUserSettings.PaletteGrime, (v, f) => UWUserSettings.PaletteGrime = Mathf.Round(f * 2f) / 2f);
         mORows[mORows.Count - 1].AllOn = 3f;
         mORows[mORows.Count - 1].AllOff = 0f;
-        fAddRow(UWText.T("effects.grime_colour"), KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
+        fAddRow("effects.grime_colour", KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
             v => UWUserSettings.PaletteGrimeTone, (v, f) => UWUserSettings.PaletteGrimeTone = Mathf.RoundToInt(f));
 
         mOPage = fBuildPage();
+        miPageLanguage = UWText.LanguageVersion;
     }
 
-    private void fAddRow(string psLabel, KindEnum peKind, float pfMin, float pfMax,
+    private void fAddRow(string psLabelId, KindEnum peKind, float pfMin, float pfMax,
         Func<UWGraphicsDetail.EffectValues, float> pOGet, Action<UWGraphicsDetail.EffectValues, float> pOSet)
     {
-        mORows.Add(new Row { Label = psLabel, Kind = peKind, Min = pfMin, Max = pfMax, Get = pOGet, Set = pOSet });
+        mORows.Add(new Row { LabelId = psLabelId, Kind = peKind, Min = pfMin, Max = pfMax, Get = pOGet, Set = pOSet });
     }
 
-    private void fAddToggle(string psLabel, Func<UWGraphicsDetail.EffectValues, bool> pOGet,
+    private void fAddToggle(string psLabelId, Func<UWGraphicsDetail.EffectValues, bool> pOGet,
         Action<UWGraphicsDetail.EffectValues, bool> pOSet)
     {
-        fAddRow(psLabel, KindEnum.Toggle, 0f, 1f, v => pOGet(v) ? 1f : 0f, (v, f) => pOSet(v, f >= 0.5f));
+        fAddRow(psLabelId, KindEnum.Toggle, 0f, 1f, v => pOGet(v) ? 1f : 0f, (v, f) => pOSet(v, f >= 0.5f));
     }
 
     // ------------------------------------------------- The rows as a page
@@ -158,7 +164,7 @@ public sealed class UWEffectsScreen
         foreach (Row lORow in mORows)
         {
             Row lOThis = lORow;
-            UWSetupRow lOPageRow = new UWSetupRow { Id = "effects.row", Text = lORow.Label, Height = RowHeight, Advance = RowAdvance, OnChange = fChanged };
+            UWSetupRow lOPageRow = new UWSetupRow { Id = "effects.row", Text = UWText.T(lORow.LabelId), Height = RowHeight, Advance = RowAdvance, OnChange = fChanged };
 
             switch (lORow.Kind)
             {
@@ -329,6 +335,13 @@ public sealed class UWEffectsScreen
             mbWaitRelease = false;
 
         pORows.PointerWithheld = mbWaitRelease;
+
+        // A language switched while the game runs (translation step 3R): the rows' texts anew.
+        if (miPageLanguage != UWText.LanguageVersion)
+        {
+            miPageLanguage = UWText.LanguageVersion;
+            mOPage = fBuildPage();
+        }
 
         UWGraphicsDetail.EffectValues lOValues = mFValues();
         string lsTitle = UWText.T("effects.title");

@@ -322,8 +322,9 @@ namespace UnderworldRevisited.Tools
         {
             try
             {
-                return pOData.Strings.Blocks[UWConversations.PartnerNameStringBlock]
-                    .Strings[UWConversations.GetPartnerNameIndex(piSlot)].TrimEnd('\r', '\n');
+                // As the game shows it: a German name's prefix comes off (IUWGrammar.PersonName).
+                return UWGrammar.Of(pOData).PersonName(pOData.Strings.Blocks[UWConversations.PartnerNameStringBlock]
+                    .Strings[UWConversations.GetPartnerNameIndex(piSlot)].TrimEnd('\r', '\n'));
             }
             catch
             {

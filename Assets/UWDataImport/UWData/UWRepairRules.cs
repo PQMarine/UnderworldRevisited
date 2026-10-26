@@ -139,13 +139,34 @@ namespace UWDataImport.UWData
 
 			int liWord = liScore < 0 ? 0 : (liScore > 30 ? 4 : 1 + (liScore / 10));
 
-			psQuestion = fMessage(pOData, RepairEstimatePrefix)
-				+ fMessage(pOData, FirstRepairDifficultyWord + liWord)
-				+ fMessage(pOData, RepairEstimateInfix)
-				+ UWText.ObjectName(pOData, pOItem.ID)
-				+ fMessage(pOData, RepairEstimateSuffix);
+			psQuestion = EstimateQuestion(pOData, pOItem.ID, liWord);
 
 			return true;
+		}
+
+		/// <summary>The estimate's question: "You think it will be ", the word (piWord 0 "trivial" to
+		/// 4 "very difficult"), " to repair the ", the name and the question - pieces of block 1, in
+		/// the frame msg.repair.estimate (translation step 3A), the name in the accusative.</summary>
+		public static string EstimateQuestion(DataImport pOData, int piObjectId, int piWord)
+		{
+			return UWText.Sentence(pOData, "msg.repair.estimate", fFragment(pOData, RepairEstimatePrefix),
+				fFragment(pOData, FirstRepairDifficultyWord + piWord), fFragment(pOData, RepairEstimateInfix),
+				UWText.TheObject(pOData, piObjectId, UWGrammarCase.Accusative), fFragment(pOData, RepairEstimateSuffix));
+		}
+
+		/// <summary>The number of difficulty words of the estimate.</summary>
+		public const int DifficultyWordCount = 5;
+
+		/// <summary>The line of an attempt's outcome: the outcome's string of block 1 and, but for
+		/// NotRepairable, the item's name (accusative) and a full stop - the frame msg.repair.result.</summary>
+		public static string ResultMessage(DataImport pOData, OutcomeEnum peOutcome, int piObjectId)
+		{
+			string lsMessage = fMessage(pOData, CannotRepairMessage + (int)peOutcome);
+
+			if (peOutcome == OutcomeEnum.NotRepairable)
+				return lsMessage;
+
+			return UWText.Sentence(pOData, "msg.repair.result", UWText.Fragment(lsMessage), UWText.TheObject(pOData, piObjectId, UWGrammarCase.Accusative));
 		}
 
 		/// <summary>
@@ -192,7 +213,6 @@ namespace UWDataImport.UWData
 			if (pOItem == null || pOData == null)
 				return lOResult;
 
-			string lsName = UWText.ObjectName(pOData, pOItem.ID);
 			int liDurability = GetDurability(pOItem, pOData);
 
 			// do_repair refuses before it takes any time.
@@ -215,10 +235,7 @@ namespace UWDataImport.UWData
 
 			lOResult.Outcome = leOutcome;
 			lOResult.Destroyed = leOutcome == OutcomeEnum.Destroyed;
-			lOResult.Message = fMessage(pOData, CannotRepairMessage + (int)leOutcome);
-
-			if (leOutcome != OutcomeEnum.NotRepairable)
-				lOResult.Message += lsName + ".";
+			lOResult.Message = ResultMessage(pOData, leOutcome, pOItem.ID);
 
 			return lOResult;
 		}
@@ -282,6 +299,13 @@ namespace UWDataImport.UWData
 		private static string fMessage(DataImport pOData, int piIndex)
 		{
 			return UWText.General(pOData, piIndex);
+		}
+
+		/// <summary>A piece of block 1 in a frame: a language may name the frame's arguments in it
+		/// (UWTextFragment, translation wave 4: "Halb geflickt hast du {1}").</summary>
+		private static UWTextFragment fFragment(DataImport pOData, int piIndex)
+		{
+			return UWText.Fragment(fMessage(pOData, piIndex));
 		}
 	}
 }

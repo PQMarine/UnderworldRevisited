@@ -1482,10 +1482,13 @@ public class Interaction : MonoBehaviour, IUWMessageSink
 
         int liTextureIndex;
 
+        // look_nothing (INTERACT.C): a wall its texture, a floor 0x1FE - its floor id, the ceiling
+        // 0x1FF ("the ceiling") - each one higher in our parsed block (the project's usual +1).
+        // The ceiling read 511 until 2026-10-26, one too low: "a stone floor" (per user).
         if (lfUp > 0.5f)
             liTextureIndex = 511 - lOTile.TextureFloor;
         else if (lfUp < -0.5f)
-            liTextureIndex = 511;
+            liTextureIndex = 0x1FF + 1;
         else
             liTextureIndex = lOTile.TextureWall + 1;
 

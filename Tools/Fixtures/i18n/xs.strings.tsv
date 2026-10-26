@@ -1,0 +1,7 @@
+# A MADE-UP game-text pack of the test language "xs" (see xs.tsv): names with named cases and
+# per-category plurals (UWNameFormat). The keys are the English STRINGS.PAK's; every text is invented.
+# block	index	text
+4	1	m:wumpel|acc=wumpel|loc=wumple&wumpli&few=wumpla&many=wumplov
+4	2	f:zirba|acc=zirbu|loc=zirbe&zirby&few=zirby&many=zirb
+4	3	n:glimo|loc=glime&glima&few=glima&many=glim
+4	385	f:snapka|acc=snapku|loc=snapke&snapki

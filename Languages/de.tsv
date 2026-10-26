@@ -1,0 +1,880 @@
+# Underworld Revisited, the port's own texts in German (Deutsch): id TAB text, \n a line break.
+# The game's own texts (STRINGS.PAK) are not here: a German game-text pack would be de.strings.tsv
+# beside this file. Characters: ASCII and ä ö ü Ä Ö Ü ß only (what the classic fonts draw).
+# The system voice says "du". The grammar.* and msg.* frames join pieces of the game's strings:
+# their German depends on the German pack's fragments of block 1 (see UWTextEnglish.Messages).
+setting.GogInstallPath	Spielordner
+setting.ControlScheme	Schema
+setting.ControlScheme.choice.original	Original
+setting.ControlScheme.choice.modern	Modern
+setting.ShowOpeningSequence	Logos und Intro beim Start
+setting.RunInBackground	Im Hintergrund weiterlaufen
+setting.ManualAttributes	Attribute bei der Erschaffung wählen
+setting.Language	Sprache
+setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
+setting.Language.choice.english	Englisch
+setting.ColourMode	Farbhilfe
+setting.ColourMode.choice.off	Aus
+setting.ColourMode.choice.red	Rot (Protanopie)
+setting.ColourMode.choice.green	Grün (Deuteranopie)
+setting.ColourMode.choice.blue	Blau (Tritanopie)
+setting.ColourStrength	Stärke
+setting.ColourBrightness	Helligkeit
+setting.ColourContrast	Kontrast
+setting.MarkPoison	Lebensflasche bei Vergiftung schraffieren
+setting.MarkPoison.hint	Die Flasche ist normal rot und bei Vergiftung grün - genau das Paar, das eine Rot-Grün-Schwäche nicht unterscheiden kann.
+setting.WindowTheme	Fensterstil
+setting.WindowTheme.hint	Das Aussehen dieser Fenster: Schlicht wie bisher oder Stein in den Farben des Spielsymbols.
+setting.WindowTheme.choice.plain	Schlicht
+setting.WindowTheme.choice.stone	Stein
+setting.WindowBackground	Hintergrund
+setting.WindowBackground.choice.gradient	Verlauf
+setting.WindowBackground.choice.clouds	Wolken
+setting.EasyMovementInterval	Takt der Schrittbewegung
+setting.MouseLookSpeed	Mausblick-Tempo (modern)
+setting.MouseInvertY	Blick hoch/runter umkehren (modern)
+setting.PointerSpeed	Zeigertempo
+setting.PointerSpeed.hint	Im Spiel bewegt die Maus den eigenen Zeiger des Spiels: bei 100 % ist ein Schritt der Maus ein Pixel auf dem Bildschirm, ohne Beschleunigung. Die Menüs nutzen den Zeiger des Systems.
+setting.WalkSlowToggle	Langsam-Taste schaltet um, statt gehalten zu werden (modern)
+setting.GamepadButtonStyle	Tastennamen
+setting.GamepadButtonStyle.choice.xbox	Xbox
+setting.GamepadButtonStyle.choice.playstation	PlayStation
+setting.GamepadButtonStyle.choice.nintendo	Nintendo
+setting.StickLookSpeed	Stick-Blicktempo
+setting.GamepadSwapSticks	Sticks tauschen (Linkshänder)
+setting.StickInvertY	Blick hoch/runter umkehren
+setting.GamepadButtonHints	Tastenhinweise im Spiel (Fadenkreuz, Aktionsleiste)
+setting.LeftStickDeadzone	Totzone linker Stick
+setting.RightStickDeadzone	Totzone rechter Stick
+setting.DisplayMode	Modus
+setting.DisplayMode.choice.window	Fenster
+setting.DisplayMode.choice.borderless	Randloses Vollbild
+setting.MusicEnabled	Musik
+setting.MusicVolume	Musiklautstärke
+setting.SoundEnabled	Soundeffekte
+setting.SoundVolume	Effektlautstärke
+setting.MusicDevice	Musik über
+setting.MusicDevice.hint	General MIDI: die MT-32-Musik des Spiels auf einem aus FluidR3 GM (Frank Wen, MIT) geschnittenen Soundfont, die Instrumente denen des MT-32 nach Namen zugeordnet - nah dran, aber nicht der Klang des Originals. MT-32: dieselbe Musik auf Munts Emulation des Roland MT-32, für den das Spiel geschrieben wurde. Seine ROMs gehören Roland und liegen dem Spiel nicht bei; lege dein eigenes Control- und PCM-ROM in den Ordner unten.
+setting.MusicDevice.choice.adlib	AdLib
+setting.MusicDevice.choice.gm	General MIDI
+setting.MusicDevice.choice.mt32	MT-32
+setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
+setting.ViewAngle	Blickwinkel
+setting.OriginalWorldResolution	Welt in der Auflösung des Originals
+setting.OriginalWorldResolutionFactor	Auflösungsfaktor
+setting.PaletteAmbientOcclusion	Umgebungsverdeckung
+setting.PaletteAmbientOcclusion.hint	Ecken, Fugen und der Boden entlang der Wände werden dunkler.
+setting.PaletteGrime	Schmutz an den Wänden
+setting.PaletteGrime.hint	Schmutz, wo eine Wand oder Stufe auf den Boden trifft, verbirgt die harte Kante, in der Palettenfarbe, die dem Farbton am nächsten liegt. Der Schmutz wirkt auch im Remastered-Modus.
+setting.PaletteGrimeTone	Schmutzfarbe
+setting.PaletteGrimeTone.choice.none	Keine Farbe
+setting.PaletteGrimeTone.choice.dirt	Erde
+setting.PaletteGrimeTone.choice.moss	Moos
+setting.PaletteGrimeTone.choice.soot	Ruß
+setting.PaletteDepth	Tiefe
+setting.PaletteDepth.hint	Steine heben sich von ihren Fugen ab und verschieben sich mit ihrem Schatten gegen sie, wenn du dich bewegst.
+setting.PaletteCavity	Vertiefungen
+setting.PaletteCavity.hint	Fugen und Nischen werden dunkler.
+setting.PaletteGroundShadows	Bodenschatten
+setting.PaletteGroundShadows.hint	Ein dunkler Fleck unter Kreaturen und Dingen, damit sie auf dem Boden stehen.
+setting.PaletteGlow	Leuchten - Lava und Flammen behalten ihre volle Farbe, auch im Dunkeln
+setting.PaletteLightSources	Lichtquellen
+setting.PaletteLightSources.hint	Fackeln, Kerzen, Laternen, Feuer, Lava, leuchtende Steine, Pilze und Kugeln erhellen ihre Umgebung nach der Lichttabelle des Originals, Wände werfen Schatten, Feuer flackert. Das Original leuchtet nur von dir aus, also zeigen sich hier auch helle Orte jenseits deines Lichts, bis zu seiner größten Sichtweite.
+setting.MotionSmoothing	Bewegung
+setting.MotionSmoothing.hint	Original: rechnet wie das Original, samt seiner Rundungen. Fließend: dieselben Regeln ohne die Rundungen. Fließend bewegt sich bei jeder Bildrate gleich und schont vielleicht den Magen.
+setting.MotionSmoothing.choice.original	Original
+setting.MotionSmoothing.choice.smooth	Fließend
+setting.SmoothRampTicks	Ansprechen
+setting.SmoothRampTicks.hint	Wie lange es in Fließend dauert, in Gang zu kommen und anzuhalten. 0,6 s ist das Original auf einem langsamen PC, 0,3 s auf dem PC, für den DOSBox mit 30000 Zyklen steht. Kürzer fühlt sich direkter an. Original nutzt dafür seine eigene Bildrate.
+setting.SmoothRampTicks.choice.16	0,6 s
+setting.SmoothRampTicks.choice.8	0,3 s
+setting.SmoothRampTicks.choice.4	0,15 s
+setting.SmoothRampTicks.choice.0	Sofort
+setting.MotionViewStepped	Bild
+setting.MotionViewStepped.hint	Nur für Original. Gleichmäßig: das Bild bewegt sich mit jedem Bildaufbau ein wenig. Gestuft: das Bild bewegt sich nur, wenn das Spiel gerechnet hat, wie auf einem alten PC. Fließend ist immer gleichmäßig.
+setting.MotionViewStepped.choice.even	Gleichmäßig
+setting.MotionViewStepped.choice.stepped	Gestuft
+setting.OriginalFrameTicks	Original-fps
+setting.OriginalFrameTicks.hint	Wie oft pro Sekunde der Modus Original rechnet. Mehr ist nicht schneller. Das Original rundet nach jeder Rechnung ab, daher bist du mit 64 beim Schwimmen oder Rückwärtsgehen etwas langsamer und erreichst die volle Geschwindigkeit früher. Mit 16 ist es umgekehrt. 32 entspricht dem Original in DOSBox mit 30000 Zyklen. Fließend nutzt diese Einstellung nicht.
+setting.OriginalFrameTicks.choice.64	64
+setting.OriginalFrameTicks.choice.32	32
+setting.OriginalFrameTicks.choice.21	21
+setting.OriginalFrameTicks.choice.16	16
+setting.HeadBobMode	Kopfwippen
+setting.HeadBobMode.choice.off	Aus
+setting.HeadBobMode.choice.original	Original
+setting.HeadBobMode.choice.smooth	Fließend
+setting.HeadBobStrength	Stärke
+setting.WeaponJitterMode	Waffe
+setting.WeaponJitterMode.choice.off	Aus
+setting.WeaponJitterMode.choice.original	Original
+setting.WeaponJitterMode.choice.smooth	Fließend
+setting.WeaponJitterStrength	Stärke
+setting.SwimViewMode	Schwimmen
+setting.SwimViewMode.choice.off	Aus
+setting.SwimViewMode.choice.original	Original
+setting.SwimViewMode.choice.smooth	Fließend
+setting.SwimViewStrength	Stärke
+setting.ModernUiPercent	UI-Größe
+setting.InterfaceFont	Schrift
+setting.InterfaceFont.choice.modern	Modern
+setting.InterfaceFont.choice.original	Original
+setting.MinimapHidden	Sichtbar
+setting.MinimapHidden.choice.on	An
+setting.MinimapHidden.choice.off	Aus
+setting.ActionBarHidden	Sichtbar
+setting.ActionBarHidden.choice.on	An
+setting.ActionBarHidden.choice.off	Aus
+setting.MinimapTurns	Norden
+setting.MinimapTurns.choice.up	Oben
+setting.MinimapTurns.choice.turns	Dreht mit
+setting.ModernCompass	Sichtbar
+setting.ModernCompass.choice.on	An
+setting.ModernCompass.choice.off	Aus
+setting.ModernCompassDisc	Aussehen
+setting.ModernCompassDisc.choice.cross	Kreuz
+setting.ModernCompassDisc.choice.disc	Scheibe
+setting.ModernCompassOutline	Umriss
+setting.ModernCompassOutline.choice.off	Aus
+setting.ModernCompassOutline.choice.on	An
+setting.ModernGemApart	Kraftstein
+setting.ModernGemApart.choice.shelf	Ablage
+setting.ModernGemApart.choice.apart	Einzeln
+setting.ModernFlasksApart	Flaschen
+setting.ModernFlasksApart.choice.shelf	Ablage
+setting.ModernFlasksApart.choice.apart	Einzeln
+setting.ModernConversationOriginal	Aussehen
+setting.ModernConversationOriginal.choice.modern	Modern
+setting.ModernConversationOriginal.choice.original	Original
+setting.ModernConversationNoOutline	Umriss
+setting.ModernConversationNoOutline.choice.on	An
+setting.ModernConversationNoOutline.choice.off	Aus
+setting.ConversationTextPercent	Text
+setting.ModernCharacterPage	Sichtbar
+setting.ModernCharacterPage.choice.on	An
+setting.ModernCharacterPage.choice.off	Aus
+setting.ModernStatsPanel	Sichtbar
+setting.ModernStatsPanel.choice.on	An
+setting.ModernStatsPanel.choice.off	Aus
+setting.ModernRuneTablet	Sichtbar
+setting.ModernRuneTablet.choice.on	An
+setting.ModernRuneTablet.choice.off	Aus
+setting.ModernRuneHollow	Sichtbar
+setting.ModernRuneHollow.choice.on	An
+setting.ModernRuneHollow.choice.off	Aus
+setting.ModernRuneHollowOutline	Umriss
+setting.ModernRuneHollowOutline.choice.off	Aus
+setting.ModernRuneHollowOutline.choice.on	An
+setting.ModernStoneShelf	Sichtbar
+setting.ModernStoneShelf.choice.on	An
+setting.ModernStoneShelf.choice.off	Aus
+setting.ModernStoneShelfWidth	Breite
+setting.ModernScroll	Stil
+setting.ModernScroll.choice.modern	Modern
+setting.ModernScroll.choice.scroll	Rolle
+setting.ModernScrollLines	Zeilen
+setting.ModernMessageLines	Zeilen
+layout.preset.custom	Eigenes
+layout.preset.modern	Modern
+layout.preset.classicmodular	Klassisch modular
+setup.bar.game	Spiel
+setup.bar.motion	Bewegung
+setup.bar.graphics	Grafik
+setup.bar.display	Anzeige
+setup.bar.controls	Steuerung
+setup.bar.sound	Ton
+setup.bar.colours	Farben
+setup.done	Fertig
+setup.format.steps_off	Aus
+setup.format.steps	{0} Schritte
+setup.game.title	Spiel
+setup.game.folder	Spielordner...
+setup.game.quit	Beenden
+setup.motion.title	Bewegung
+setup.motion.hint	Wie du dich bewegst. Das Spiel nutzt den Bewegungscode des Originals. Hier wählst du, wie oft er rechnet und wie das Bild folgt.
+setup.motion.bob.hint	Das Wippen von Blick und Waffe beim Gehen und das Schaukeln des Blicks beim Schwimmen: wie im Original, geglättet mit deiner eigenen Stärke oder aus, wenn dir davon unwohl wird.
+setup.graphics.title	Grafik
+setup.graphics.detail	Detail
+setup.graphics.detail.low	Niedrig
+setup.graphics.detail.medium	Mittel
+setup.graphics.detail.high	Hoch
+setup.graphics.detail.custom	Eigene
+setup.graphics.detail.hint	Niedrig: die Originalpalette. Mittel: Remastered, ohne Effekte. Hoch: Remastered, alle Effekte. Eigene: deine eigenen Effekte, eingestellt unter Remastered-Effekte.
+setup.graphics.palette	Paletteneffekte...
+setup.graphics.remastered	Remastered-Effekte...
+setup.graphics.view_original	Original
+setup.graphics.view_orig	Orig.
+setup.graphics.factor_locked	4x braucht ein 1600 Pixel hohes Fenster
+setup.display.title	Anzeige
+setup.display.hint.editor	Im Editor bestimmt die Game-Ansicht die Größe - die Wahl bleibt erhalten und wirkt im gebauten Spiel.
+setup.display.hint	Wirkt sofort und bleibt für den nächsten Start erhalten.
+setup.display.resolution	Auflösung
+setup.display.desktop	(Desktop)
+setup.controls.tab.keyboard	Tastatur und Maus
+setup.controls.tab.gamepad	Gamepad
+setup.controls.keyboard.hint	Klicke auf einen Eintrag, um ihn zu ändern, und drücke dann die neue Taste oder Maustaste. Escape behält die alte. Die Zeigerbewegung selbst ist fest, und die Leisten der Oberfläche nutzen immer die echten Maustasten. Das Gamepad hat einen eigenen Reiter.
+setup.controls.press_key	Drücke eine Taste oder Maustaste...
+setup.controls.conflict_key	Diese Taste ist auch für "{0}" belegt.
+setup.controls.back_to_default	Zurück zum Standard
+setup.controls.gamepad.hint	Klicke auf einen Eintrag, um ihn zu ändern, und drücke dann die neue Taste am Gamepad. Escape auf der Tastatur behält die alte. Ein Stick geht, der andere schaut (im klassischen Schema dreht und neigt er) - unten lassen sie sich tauschen.
+setup.gamepad.press_button	Drücke eine Taste...
+setup.gamepad.conflict_button	Diese Taste ist auch für "{0}" belegt.
+setup.gamepad.no_pad	kein Pad
+setup.gamepad.stick_now	jetzt {0} %
+setup.sound.title	Ton
+setup.sound.hint	Der Ton kommt von der emulierten AdLib-Karte, wie 1992; die Musik kann auch ihre MT-32-Fassung über General MIDI spielen. Das Original kannte nur an und aus, und dieselben zwei Schalter sitzen im Spiel im Optionsfeld; die Lautstärken sind unsere. Die zwei Schalter gehören zum Spielstand, wie im Original - ein hier geladener Spielstand bringt den Zustand mit, mit dem er gespeichert wurde, die Lautstärken bleiben.
+setup.sound.mt32_roms	MT-32-ROMs: {0}
+setup.sound.mt32_problem	MT-32: {0}
+setup.sound.mt32_no_roms	keine MT-32- oder CM-32L-ROMs in diesem Ordner
+setup.sound.mt32_missing	die MT-32-Emulation fehlt auf diesem System ({0})
+setup.sound.open_folder	Ordner öffnen
+setup.colours.title	Farben
+setup.colours.hint	Zieht die Farben auseinander, die schwer zu unterscheiden sind, im ganzen Spiel. Es ist die übliche Daltonisierung: was das Auge verliert, kommt zurück in die Kanäle, die es sehen kann.
+setup.colours.flask.health	Leben
+setup.colours.flask.poisoned	Vergiftet
+setup.colours.flask.mana	Mana
+setup.palette.title	Paletteneffekte
+setup.palette.drag	zum Verschieben hier ziehen
+setup.palette.hint	Unsere eigenen Effekte für die Palette des Originals (Detailstufe Niedrig). Sie machen eine Fläche nur um die Schattierungsstufen des Originals heller oder dunkler, so behält jeder Pixel eine Palettenfarbe - aber hochgedreht nehmen sie schnell den Look des Originals. 0 ist aus.
+setup.palette.hint.not_low	Unsere eigenen Effekte für die Palette des Originals - sie wirken nur in der Detailstufe Niedrig, die gerade nicht gewählt ist. 0 ist aus.
+setup.palette.preset	Vorgabe
+setup.palette.preset.off	Aus
+setup.palette.preset.subtle	Dezent
+setup.palette.preset.full	Voll
+setup.palette.preset.own	Eigene
+setup.folder.title	Spielordner
+setup.folder.hint	Wähle den Ordner deiner GOG-Installation von Ultima Underworld - den, der game.gog enthält.
+setup.folder.found	Gefunden:  {0}
+setup.folder.drives	Laufwerke:
+setup.folder.home	Benutzer
+setup.folder.up	Hoch
+setup.folder.none_found	In den üblichen Ordnern wurde keine GOG-Installation gefunden. Bitte wähle sie aus.
+setup.folder.unreadable	Dieser Ordner kann nicht gelesen werden: {0}
+setup.folder.usable	{0} gefunden - dieser Ordner ist verwendbar.
+setup.folder.no_image	Kein {0} in diesem Ordner.
+setup.folder.choose	Wähle das Laufwerk und den Ordner deiner GOG-Installation.
+setup.folder.preparing	Die Spieldaten werden vorbereitet...
+setup.folder.no_data	Die Spieldaten konnten aus diesem Ordner nicht gelesen werden.
+setup.folder.use	Diesen Ordner nehmen
+setup.folder.cancel	Abbrechen
+keys.scheme.classic	{0} (klassisch)
+keys.scheme.modern	{0} (modern)
+keys.walk_forward	Vorwärts gehen
+keys.walk_backward	Rückwärts gehen
+keys.left	Links (modern: seitwärts)
+keys.right	Rechts (modern: seitwärts)
+keys.turn_left	Links drehen
+keys.turn_right	Rechts drehen
+keys.strafe_left	Seitwärts links
+keys.strafe_right	Seitwärts rechts
+keys.jump	Springen
+keys.jump_second	Springen (zweite Taste)
+keys.walk_slowly	Langsam gehen
+keys.easy_movement	Schrittbewegung mit {0} X
+keys.sink	Sinken im Flug
+keys.rise	Steigen im Flug
+keys.look_down	Nach unten sehen
+keys.look_straight	Geradeaus sehen
+keys.look_up	Nach oben sehen
+keys.character_panel	Charakterleiste
+keys.bags	Taschen
+keys.look	Ansehen
+keys.runes	Runen und Zauber
+keys.use	Benutzen, reden, aufheben
+keys.ready	Waffe ziehen oder wegstecken
+keys.slot	Aktionsleiste Platz {0}
+keys.switch_scheme	Steuerung wechseln (mit Umschalt)
+keys.cursor_drag	Gehen, ziehen, angreifen
+keys.interact	Ansehen und benutzen
+keys.map	Karte öffnen
+keys.font	Schrift wechseln
+keys.help	Hilfe öffnen (nicht mit Alt)
+keys.options	Optionen
+keys.talk	Modus Reden
+keys.get	Modus Nehmen
+keys.look_mode	Modus Ansehen
+keys.fight	Kampf (Waffe ziehen)
+keys.use_mode	Modus Benutzen
+keys.panel	Leiste umdrehen
+keys.cast	Runen auf der Ablage wirken
+keys.track	Spurenlesen (Kreaturen in der Nähe suchen)
+keys.camp	Lager aufschlagen
+pad.binding.use	Benutzen (gehalten: direkt benutzen)
+pad.binding.look	Ansehen
+pad.binding.back	Offenes schließen
+pad.binding.jump	Springen
+pad.binding.character_panel	Charakterleiste (gehalten: alle Taschen)
+pad.binding.attack	Waffe ziehen und zuschlagen
+pad.binding.ready	Waffe ziehen oder wegstecken
+pad.binding.cast	Runen wirken (gehalten: Runenleiste)
+pad.binding.slot_previous	Aktionsleiste: voriger Platz
+pad.binding.slot_next	Aktionsleiste: nächster Platz
+pad.binding.slot_use	Aktionsleiste: Platz benutzen
+pad.binding.map	Karte öffnen (getippt)
+pad.binding.sink	Sinken im Flug
+pad.binding.rise	Steigen im Flug
+pad.binding.menu	Menü
+pad.binding.help	Hilfe (gehalten)
+pad.binding.pointer	Zeiger am Stick, an oder aus
+pad.binding.click	Zeiger: klicken (gehalten: ziehen)
+pad.binding.click_second	Zeiger: klicken, zweite Taste
+pad.binding.context	Zeiger: rechte Taste
+pad.binding.context_second	Zeiger: rechte Taste, zweite Taste
+pad.button.menu	Menü
+pad.button.view	Ansicht
+pad.button.cross	Kreuz
+pad.button.circle	Kreis
+pad.button.square	Quadrat
+pad.button.triangle	Dreieck
+pad.button.options	Options
+pad.button.share	Share
+pad.button.left_stick	L-Stick
+pad.button.right_stick	R-Stick
+pad.button.dpad_up	D-Pad hoch
+pad.button.dpad_down	D-Pad runter
+pad.button.dpad_left	D-Pad links
+pad.button.dpad_right	D-Pad rechts
+pad.hint.count	Anzahl
+pad.hint.take	nehmen
+pad.hint.cancel	abbrechen
+pad.hint.step	Schritt
+pad.hint.choose	wählen
+pad.hint.pointer	Zeiger
+pad.hint.cast	wirken
+pad.hint.look	ansehen
+pad.hint.close	schließen
+pad.hint.take_put	nehmen / ablegen
+pad.hint.menu	Menü
+help.tab.stats	Werte
+help.tab.map	Karte
+help.tab.notes	Notizen
+help.tab.spells	Zauber
+help.tab.mantras	Mantras
+help.tab.manual	Handbuch
+help.tab.controls	Steuerung
+help.stats.title	Werte
+help.stats.no_character	Kein Charakter geladen.
+help.stats.attributes	Attribute
+help.stats.can_carry	Kann noch tragen
+help.stats.stones	{0} Steine
+help.stats.skills	Fertigkeiten
+help.stats.hide_hidden	Verborgene Werte ausblenden
+help.stats.show_hidden	Verborgene Werte zeigen
+help.stats.hidden_intro	Das Spiel führt diese Werte, zeigt sie aber nur als Worte oder gar nicht.
+help.stats.food	Nahrung
+help.stats.food_note	255 ist satt; die Statuszeile ändert sich alle 30.
+help.stats.fatigue	Müdigkeit
+help.stats.fatigue_note	0 ist ausgeruht; die Statuszeile ändert sich alle 23.
+help.stats.poison	Gift
+help.stats.hallucination	Halluzination
+help.stats.hallucination.scrambled	verwürfelte Texturen
+help.stats.hallucination.palette	Palette {0}
+help.stats.hallucination.light_table	dunkle Lichttabelle
+help.stats.hallucination_note	Ein Pilz zählt eins hinzu, der Trank setzt drei; alle 21 Sekunden lässt eins nach.
+help.stats.skill_points	Freie Fertigkeitspunkte
+help.stats.skill_points_note	Ein Mantra an einem Schrein gibt sie aus. Einer mehr alle 3000 Erfahrungspunkte und mit jeder Stufe.
+help.stats.experience	Genaue Erfahrung
+help.stats.next_level	Nächste Stufe
+help.stats.next_level_none	keine, dies ist die höchste
+help.stats.next_level_at	Nächste Stufe bei
+help.stats.next_level_value	{0} (noch {1})
+help.stats.load	Last
+help.stats.load_value	{0} von {1} Steinen
+help.stats.worn_magic	Getragene Magie
+help.stats.no_inventory	Kein Inventar.
+help.stats.curse	Fluch
+help.stats.when_striking	{0} (beim Zuschlagen)
+help.stats.not_in_effect	{0} (hier ohne Wirkung)
+help.stats.nothing_enchanted	Nichts Getragenes ist verzaubert.
+help.stats.together	Zusammen, ohne gewirkte Zauber:
+help.stats.protection	Schutz
+help.stats.protection_value	Kopf {0}, Körper {1}, Hände {2}, Beine {3}
+help.stats.resistance	Widerstand
+help.stats.light	Licht
+help.stats.movement	Bewegung
+help.stats.stealth	Heimlichkeit
+help.stats.immunity	Immunität
+help.stats.regeneration	Regeneration
+help.stats.curse_value	{0} Achterwürfel, ab und zu
+help.stats.maze	Labyrinthkunde
+help.stats.maze_value	zeigt den Weg in Tyballs Labyrinth
+help.stats.dragon_boots	Drachenlederstiefel
+help.stats.dragon_boots_value	kein Schaden durch Lava
+help.stats.slot.weapon_hand	Waffenhand
+help.stats.slot.shield_hand	Schildhand
+help.stats.slot.left_ring	Linker Ring
+help.stats.slot.right_ring	Rechter Ring
+help.stats.slot.helmet	Helm
+help.stats.slot.chest	Brust
+help.stats.slot.gloves	Handschuhe
+help.stats.slot.legs	Beine
+help.stats.slot.boots	Stiefel
+help.map.title	Karte
+help.map.no_level	Keine Ebene geladen.
+help.map.no_map	Du trägst keine Karte. Heb sie wieder auf, um sie hier zu sehen.
+help.map.level	Ebene {0}. Das Mausrad zoomt; Notizen schreibst du direkt auf die Karte.
+help.notes.intro	Deine eigenen Notizen, gespeichert mit dem Spielstand.
+help.spells.title	Zauber
+help.spells.intro	Lege die Runen aus dem Runenbeutel auf die Ablage und klicke dann auf die Ablage, um zu zaubern. Ein Zauber kostet drei Mana je Kreis, und deine halbe Stufe (aufgerundet) muss seinen Kreis erreichen. Klicke hier auf einen Zauber, um seine Runen in die Mulde zu legen; graue Runen sind noch nicht in deinem Beutel.
+help.spells.hide_more	Zauber ausblenden, die das Handbuch nicht nennt
+help.spells.show_more	Zauber zeigen, die das Handbuch nicht nennt
+help.spells.circle	Kreis {0}  -  {1} Mana
+help.spells.in_hollow	(in der Mulde)
+help.spells.note.0	Erhellt eine Weile die Umgebung.
+help.spells.note.1	Schützt eine Weile gegen Hiebe wie eine volle Rüstung.
+help.spells.note.2	Schießt ein magisches Geschoss auf ein Ziel.
+help.spells.note.3	Zaubert eine Mahlzeit herbei.
+help.spells.note.4	Dämpft kurz deine Schritte, so dass Kreaturen dich weniger bemerken.
+help.spells.note.7	Lässt dich kurz sanft nach unten schweben.
+help.spells.note.8	Heilt leichte Wunden.
+help.spells.note.9	Verrät dir Kreaturen in der Nähe, die du nicht siehst.
+help.spells.note.10	Kann einen Gegner den Mut verlieren und fliehen lassen.
+help.spells.note.11	Legt eine Schutzrune, die dir meldet, wenn etwas sie stört.
+help.spells.note.12	Du bewegst dich eine Weile schneller als deine Gegner.
+help.spells.note.13	Macht dich kurz schwerer zu sehen.
+help.spells.note.14	Lässt dich eine Weile im Dunkeln sehen.
+help.spells.note.15	Schleudert einen Blitz auf ein Ziel.
+help.spells.note.16	Verkeilt eine Tür.
+help.spells.note.19	Heilt schwere Wunden.
+help.spells.note.20	Hebt dich kurz senkrecht in die Luft.
+help.spells.note.21	Vergiftet einen Gegner.
+help.spells.note.22	Gibt kurz etwas Schutz vor Feuer.
+help.spells.note.23	Entschärft eine Falle, auf die du zielst.
+help.spells.note.24	Schleudert einen Feuerball auf ein Ziel.
+help.spells.note.26	Verrät dir, welche Magie ein Gegenstand trägt.
+help.spells.note.27	Macht dich eine Weile gefeit gegen Geschosse.
+help.spells.note.28	Öffnet eine verschlossene Tür oder Truhe.
+help.spells.note.29	Heilt eine Vergiftung.
+help.spells.note.30	Heilt dich vollständig.
+help.spells.note.32	Bringt dich sofort zu deinem Mondstein.
+help.spells.note.33	Hält einen Gegner an Ort und Stelle fest.
+help.spells.note.34	Helles Licht für lange Zeit.
+help.spells.note.35	Lässt dich eine Weile einen einzelnen Gegenstand aus der Ferne nehmen und benutzen.
+help.spells.note.36	Lässt dich eine Weile fliegen, dann zu Boden gleiten.
+help.spells.note.37	Bringt eine Kreatur dazu, an deiner Seite zu kämpfen.
+help.spells.note.39	Macht dich eine Weile fast unsichtbar.
+help.spells.note.40	Lässt die Gegner um dich herum wie betrunken taumeln.
+help.spells.note.41	Enthüllt verborgene Gegenstände und geheime Wege um dich herum.
+help.spells.note.42	Härtet dich eine Weile stark gegen Schaden ab.
+help.spells.note.43	Lässt den Boden beben und die Felsen bersten.
+help.spells.note.44	Lässt dich eine Weile die Welt von oben sehen.
+help.spells.note.45	Lässt flammende Geschosse auf die Gegend regnen.
+help.spells.note.46	Hält eine Weile die Zeit für alle außer dir an.
+help.mantras.title	Mantras
+help.mantras.intro	Sprich einen Ankh-Schrein an und tippe ein Mantra. Es verbessert deine Fertigkeiten nur, wenn du dir einen Fertigkeitspunkt verdient hast.
+help.mantras.group	{0} ({1})
+help.mantras.note.combat	Verbessert einige deiner Kampffertigkeiten.
+help.mantras.note.magic	Verbessert einige deiner Magiefertigkeiten.
+help.mantras.note.other	Verbessert einige deiner übrigen Fertigkeiten.
+help.mantras.note.cup_of_wonder	Sagt dir, wo der Kelch der Wunder liegt.
+help.mantras.note.key_of_truth	Gibt dir den Schlüssel der Wahrheit.
+help.mantras.hide_more	Mantras ausblenden, die das Handbuch nicht nennt
+help.mantras.show_more	Mantras zeigen, die das Handbuch nicht nennt
+help.mantras.single	Je eine Fertigkeit, stark verbessert
+help.mantras.quests	Questen
+help.manual.title	Handbuch
+help.manual.cannot_show	Das Handbuch kann nicht angezeigt werden.
+help.manual.not_found	Das Handbuch wurde nicht gefunden. Die GOG-Version bringt es als {0} im Ordner von game.gog mit.
+help.manual.not_opened	Das Handbuch konnte nicht geöffnet werden: {0}
+help.manual.unavailable	Das Handbuch lässt sich auf diesem System noch nicht anzeigen.
+help.manual.page	Seite {0} von {1}
+help.manual.pages	Seiten {0} und {1} von {2}
+help.manual.click_to_read	Klicke auf die Seite, um sie groß zu lesen.
+help.manual.reading_keys	Pfeiltasten oder Mausrad blättern, Esc oder ein Klick auf die Seite schließt
+help.controls.key.left_stick	Linker Stick
+help.controls.key.right_stick	Rechter Stick
+help.controls.key.dpad	D-Pad
+help.controls.key.left_button	Linke Taste
+help.controls.key.right_button	Rechte Taste
+help.controls.key.left_shift	Umschalt links
+help.controls.key.left_alt	Alt links
+help.controls.key.left_ctrl	Strg links
+help.controls.key.space	Leertaste
+help.controls.key.mouse	Maus
+help.controls.key.escape	Esc
+help.controls.key.shift_plus	Umschalt + {0}
+help.controls.pad.title	Gamepad
+help.controls.pad.intro	Änderbar im Fenster Steuerung der Menüleiste, Reiter Gamepad - die Tastennamen auch.
+help.controls.pad.walk	Gehen und seitwärts treten.
+help.controls.pad.look_around	Umsehen.
+help.controls.pad.use	Benutzen, worauf du zielst; gehalten: direkt benutzen.
+help.controls.pad.look	Ansehen.
+help.controls.pad.jump	Springen.
+help.controls.pad.back	Schließt, was offen ist.
+help.controls.pad.attack	Waffe ziehen; gehalten: aufladen, loslassen zum Zuschlagen.
+help.controls.pad.ready	Waffe wegstecken.
+help.controls.pad.cast	Die Runen in der Mulde wirken; gehalten: die Runenleiste.
+help.controls.pad.slot_pick	Einen Platz der Aktionsleiste wählen.
+help.controls.pad.slot_use	Den Platz benutzen.
+help.controls.pad.character_panel	Die Charakterleiste; gehalten: alle Taschen.
+help.controls.pad.sink_rise	Sinken und steigen im Flug.
+help.controls.pad.map	Die Karte; gehalten: diese Hilfe.
+help.controls.pad.menu	Das Spielmenü.
+help.controls.pad.pointer	Den Zeiger freigeben (auf den Rucksack) oder wieder sperren.
+help.controls.pad.right_button	Die rechte Maustaste.
+help.controls.pad_pointer.title	Gamepad: der freie Zeiger
+help.controls.pad_pointer.intro	Mit freiem Zeiger ist das Pad die Maus. Unter einem Fenster, das das Spiel anhält - das Menü, ein Gespräch, die Karte -, ist der Zeiger von selbst frei.
+help.controls.pad_pointer.move	Den Zeiger bewegen.
+help.controls.pad_pointer.click	Die linke Maustaste; gehalten: ziehen.
+help.controls.pad_pointer.scroll	Über einem Fenster: scrollen. In einem Menü: der nächste Eintrag.
+help.controls.pad_pointer.dpad	In einem Menü: der nächste Eintrag.
+help.controls.classic_pad.intro	Die Tasten des Pads sind die Tasten der Maus, dort, wo der Zeiger ist. Änderbar im Fenster Steuerung der Menüleiste, Reiter Gamepad.
+help.controls.classic_pad.walk	Gehen; weit zur Seite gedrückt: seitwärts treten.
+help.controls.classic_pad.turn	Drehen; hoch und runter neigen den Blick um eine Stufe.
+help.controls.classic_pad.left_button	Die linke Maustaste.
+help.controls.classic_pad.pointer	Der Stick bewegt stattdessen den Zeiger, oder er dreht wieder.
+help.controls.classic_pad.scroll	Mit dem Zeiger am Stick, über dem Rahmen: scrollen.
+help.controls.modern.title	Moderne Steuerung
+help.controls.modern.pointer.title	Der Zeiger
+help.controls.modern.pointer.intro	Die Maus dreht entweder den Blick (Zeiger gesperrt, ein Fadenkreuz in der Mitte) oder bewegt einen freien Zeiger über die Fenster und die Welt. Nur die rechte Taste wechselt zwischen beiden.
+help.controls.modern.pointer.right	Den Zeiger freigeben, oder ihn wieder sperren, um dich umzusehen. Das Spielmenü bietet es auch umgekehrt an: der Zeiger bleibt frei, und der Blick dreht sich, solange die Taste gehalten wird.
+help.controls.modern.pointer.locked	Gesperrt
+help.controls.modern.pointer.locked_text	Das Fadenkreuz zielt: {0}, {1} und die linke Taste wirken auf das, worauf es zeigt.
+help.controls.modern.pointer.free	Frei
+help.controls.modern.pointer.free_text	Die Fenster nehmen die Klicks; {0} und {1} wirken auf das, was unter dem Zeiger ist, in der Welt wie in den Taschen, der Charakterleiste und der Aktionsleiste ({0} halten bewirkt über einem Fenster nichts).
+help.controls.modern.moving.title	Bewegen
+help.controls.modern.moving.walk	Vor- und zurückgehen, seitwärts treten.
+help.controls.modern.moving.walk_slow	Gehalten: langsam gehen statt laufen. Im Fenster Steuerung lässt es sich auf Umschalten stellen.
+help.controls.modern.moving.easy	Schrittbewegung: ein Schritt vor oder zurück, oder eine Drehung um 45 Grad; gehalten wiederholt sie sich. X tritt vor, ohne von einer Kante zu treten.
+help.controls.modern.moving.mouse	Drehen und nach oben und unten sehen (Zeiger gesperrt).
+help.controls.modern.moving.jump	Springen.
+help.controls.modern.moving.hover	Beim Fliegen oder Schweben: steigen und sinken.
+help.controls.modern.acting.title	Handeln
+help.controls.modern.acting.tap	{0} (tippen)
+help.controls.modern.acting.tap_text	Das Übliche für das, worauf du zielst: aufheben, reden, eine Tür öffnen, einen Hebel ziehen, benutzen.
+help.controls.modern.acting.hold	{0} (halten)
+help.controls.modern.acting.hold_text	Direkt benutzen, auch was sich aufheben ließe - ein Sack wird geleert statt genommen.
+help.controls.modern.acting.look	Ansehen.
+help.controls.modern.acting.free_pointer	{0} (freier Zeiger)
+help.controls.modern.acting.free_pointer_text	Auf einem Ding in der Welt: sein Menü - Reden, Benutzen, Ansehen, Aufheben. Gehalten und gezogen: auf den Zeiger nehmen.
+help.controls.modern.combat.title	Kampf
+help.controls.modern.combat.ready	Die Waffe in deiner Hand ziehen oder wegstecken.
+help.controls.modern.combat.held	{0} (gehalten)
+help.controls.modern.combat.held_text	Die Waffe aufladen; loslassen zum Zuschlagen. Der Kraftstein zeigt die Ladung.
+help.controls.modern.combat.strike	Der Schlag
+help.controls.modern.combat.strike_text	Zeiger gesperrt: nach oben sehen für einen Hieb von oben, nach unten für einen Stoß, geradeaus für einen Schnitt. Zeiger frei: das obere Drittel des Bildschirms haut, das untere stößt, die Mitte schneidet.
+help.controls.modern.combat.bow	Bogen, Schleuder
+help.controls.modern.combat.bow_text	Aufladen wie oben; der rote Zielkreis zeigt, wann die Ladung reicht. Der Schuss fliegt zum freien Zeiger, sonst zum Fadenkreuz.
+help.controls.modern.magic.title	Magie
+help.controls.modern.magic.runes	Die Runenleiste. Ihr Griff am linken Rand öffnet sie auch, und ihre Nadel hält sie draußen.
+help.controls.modern.magic.runes_tab	Reiter Runen
+help.controls.modern.magic.runes_tab_text	Klicke eine Rune, um sie in die Mulde zu legen (die vierte schiebt die erste hinaus), Rechtsklick sieht sie an, der Streifen unter der Mulde leert sie. Klicke auf die Mulde, um zu wirken, oder ziehe sie auf die Aktionsleiste.
+help.controls.modern.magic.spells_tab	Reiter Zauber
+help.controls.modern.magic.spells_tab_text	Jeder Zauber nach Kreis, grau, was du jetzt nicht wirken kannst. Klicke einen an, um seine Runen zu legen, ziehe ihn auf die Aktionsleiste.
+help.controls.modern.magic.targets	Ziele
+help.controls.modern.magic.targets_text	Ein Zauber, der ein Ziel braucht, fliegt bei gesperrtem Zeiger sofort zum Fadenkreuz. Bei freiem Zeiger wartet der Zielzeiger auf einen Linksklick; Escape lässt den Zauber fallen.
+help.controls.modern.magic.active	Aktive Zauber
+help.controls.modern.magic.active_text	Oben rechts. Linksklick: was er bewirkt; Rechtsklick: beenden.
+help.controls.modern.bags.title	Die Taschen und der Charakter
+help.controls.modern.bags.bags	Die Taschen öffnen oder schließen. Der Rucksack zeigt sich immer unten rechts.
+help.controls.modern.bags.panel	Die Charakterleiste: die Figur, deine Attribute und Fertigkeiten. Ihre Nadel hält sie draußen.
+help.controls.modern.bags.left	Ein Ding nehmen und ablegen - ziehen oder klicken und klicken. Auf einem Behälter kommt es hinein; außerhalb der Fenster wird es fallen gelassen (tief auf dem Bildschirm) oder geworfen (höher).
+help.controls.modern.bags.split	Einen Stapel teilen.
+help.controls.modern.bags.right	Das Menü eines Dings: Benutzen, Anlegen, Ansehen, Aufheben, Teilen. Ein Behälter öffnet oder schließt sich sofort (Umschalt für sein Menü). Was auf etwas anderem benutzt wird - ein Schlüssel, die Ölflasche -, wartet dann auf einen Linksklick auf sein Ziel.
+help.controls.modern.bags.head	Der Kopf
+help.controls.modern.bags.head_text	Essen und Trinken, auf den Kopf der Figur gelegt, wird verzehrt.
+help.controls.modern.bags.action_bar	Die Aktionsleiste. Lege ein Ding oder ziehe einen Zauber auf einen Platz; die Taste oder ein Klick benutzt ihn, eine Waffe kommt in deine Hand. Ziehe einen Platz von der Leiste, um ihn zu leeren.
+help.controls.modern.bags.sleep_track	Schlafen, Spurenlesen
+help.controls.modern.bags.sleep_track_text	Die Schlafrolle und die Stiefel neben den Füßen der Figur - oder {0} und {1}.
+help.controls.modern.conversation.title	Gespräch
+help.controls.modern.conversation.answer	Eine Antwort wählen - oder anklicken. Das Mausrad scrollt das Gespräch.
+help.controls.modern.conversation.trading	Handel
+help.controls.modern.conversation.trading_text	Ziehe deine Dinge aus den Taschen auf "Dein Angebot". Ein Linksklick auf einen Handelsplatz markiert ihn für das Geschäft (ein goldener Ring), ein Rechtsklick sieht ihn an; zieh dein Angebot wieder heraus, wenn du es dir anders überlegst.
+help.controls.modern.rest.title	Karte, Menü und der Rest
+help.controls.modern.rest.map	Die große Karte, mit der Karte in deinem Gepäck. Die Minikarte oben rechts: + und - oder das Mausrad zoomen sie, ein Klick öffnet die große Karte.
+help.controls.modern.rest.help	Diese Hilfe, in der Charakterleiste.
+help.controls.modern.rest.escape	Schließt, was offen ist - einen wartenden Zauber, die Taschen, die Leisten -, dann das Spielmenü ({0} ebenso).
+help.controls.modern.rest.save_keys	Strg rechts + S / R
+help.controls.modern.rest.save	Speichern, laden.
+help.controls.modern.rest.scheme	Zur klassischen Steuerung wechseln.
+help.controls.classic.title	Klassische Steuerung
+help.controls.classic.mouse.title	Die Maus
+help.controls.classic.mouse.intro	Die Steuerung des Originals: der Zeiger bleibt frei, der Blick liegt im Rahmen.
+help.controls.classic.mouse.left	Im Blickfeld: gehalten zum Zeiger hin gehen. Auf dem Rahmen: die Symbole, die Runen, der Kompass, und Dinge nehmen und ablegen.
+help.controls.classic.mouse.right	Tun, was das leuchtende Symbol sagt - standardmäßig ansehen; nach seinem Symbol reden, nehmen, benutzen. Mit gezogener Waffe: gehalten aufladen, loslassen zum Zuschlagen; das Drittel des Blickfelds, in dem der Zeiger ist, wählt den Schlag.
+help.controls.classic.mouse.scheme	Zur modernen Steuerung wechseln.
+help.controls.classic.keys.title	Tasten
+help.controls.classic.keys.intro	Änderbar unter Steuerung in der Menüleiste am oberen Rand.
+editor.title	Layout bearbeiten
+editor.hint	Klicke auf ein Teil für seine Einstellungen. Ziehen verschiebt, das Mausrad ändert die Größe, Rechtsklick setzt zurück. Zieh diesen Titel, um das Fenster zu verschieben.
+editor.preset	Vorlage
+editor.panels_out	Leisten offen
+editor.dialog	Dialog
+editor.snap	Einrasten
+editor.reset_all	Alles zurück
+editor.done	Fertig
+editor.no_selection	Kein Teil gewählt
+editor.ask.title	Layout speichern?
+editor.ask.text	Das Layout wurde geändert. Als eigenes Layout speichern oder die Änderungen verwerfen?
+editor.ask.save	Speichern
+editor.ask.discard	Verwerfen
+editor.ask.back	Zurück
+editor.overview_hint	Klicke auf ein Teil, um seine Einstellungen zu sehen.
+editor.show	Zeigen
+editor.size	Größe
+editor.stands	Steht
+editor.stands.apart	Einzeln
+editor.stands.on_shelf	Auf Ablage
+editor.direction	Richtung
+editor.direction.text	Text
+editor.direction.compass	Kompass
+editor.window	Fenster
+editor.window.dock	Andocken
+editor.window.docked	Angedockt
+editor.back	Hintergrund
+editor.back.default	Standard
+editor.back.custom	Eigener
+editor.back.none	Keiner
+editor.back.oval	Oval
+editor.back.rect	Rechteck
+editor.back.colour	Farbe
+editor.back.pattern	Muster
+editor.back.border	Rahmen
+editor.back.border.on	An
+editor.back.border.off	Aus
+editor.reset_part	Teil zurücksetzen
+editor.part.docked	{0} (angedockt)
+editor.part.action_bar	Aktionsleiste
+editor.part.minimap	Minikarte
+editor.part.heading	Richtung
+editor.part.active_spells	Aktive Zauber
+editor.part.messages	Meldungen
+editor.part.vitals	Leben und Mana
+editor.part.bags	Taschen
+editor.part.character_panel	Charakterleiste
+editor.part.rune_panel	Runenleiste
+editor.part.conversation	Gespräch
+editor.part.compass	Kompass
+editor.part.power_gem	Kraftstein
+editor.part.stone_shelf	Steinablage
+editor.part.movement_arrows	Bewegungspfeile
+editor.part.vitality_flask	Lebensflasche
+editor.part.mana_flask	Manaflasche
+editor.part.rune_hollow	Runenmulde
+editor.part.rune_tablet	Runentafel
+editor.part.stats_panel	Werteleiste
+editor.part.character_page	Charakterseite
+menu.title	Spielmenü
+menu.resume	Weiterspielen
+menu.save_game	Spiel speichern
+menu.restore_game	Spiel laden
+menu.pointer.hold	halten zum Umsehen
+menu.pointer.toggle	schaltet den Zeiger um
+menu.pointer.rmb	RMT: {0}
+menu.edit_layout	Layout bearbeiten
+menu.preset.classic_wide	Klassisch breit
+menu.preset.classic_modular	Klassisch modular
+menu.preset.modern	Modern
+menu.preset.customize	Anpassen
+menu.quit	Zum Hauptmenü
+menu.back	Zurück
+menu.save_slot_title	Spielstand {0}
+menu.save_name	Name des Spielstands:
+menu.save	Speichern
+menu.cancel	Abbrechen
+menu.detail.title	Detail
+menu.detail.low	Niedrig
+menu.detail.medium	Mittel
+menu.detail.high	Hoch
+menu.detail.custom	Eigene
+hud.menu.use	Benutzen
+hud.menu.open	Öffnen
+hud.menu.close	Schließen
+hud.menu.open_runes	Öffnen
+hud.menu.equip	Anlegen
+hud.menu.take_off	Ablegen
+hud.menu.look	Ansehen
+hud.menu.pick_up	Aufheben
+hud.menu.split	Teilen
+hud.menu.cancel	Abbrechen
+hud.menu.talk	Reden
+hud.menu.world_use	Benutzen
+hud.menu.world_look	Ansehen
+hud.menu.world_pick_up	Aufheben
+hud.runes.tab.runes	Runen
+hud.runes.tab.spells	Zauber
+hud.runes.handle	Runen
+hud.runes.title	Runenbeutel
+hud.runes.owned	{0} von {1}
+hud.runes.circle	Kreis {0}  -  {1} Mana
+hud.runes.above_circle	über deinem Kreis
+hud.runes.drag_or_cast	zur Leiste ziehen, Klick wirkt
+hud.runes.not_a_spell	Kein Zauber
+hud.runes.none_chosen	Keine Runen gewählt
+hud.runes.click_runes	Runen auf der Ablage anklicken
+hud.spells.title	Zauber
+hud.spells.up_to_circle	bis Kreis {0}
+hud.panel.tab.character	Charakter
+hud.panel.tab.help	Hilfe
+hud.panel.handle	Charakter
+hud.panel.skills	Fertigkeiten
+hud.panel.sleep	Schlafen
+hud.panel.track	Spuren
+hud.trade.partner_goods	Waren von {0}
+hud.trade.goods	Waren
+hud.trade.your_offer	Dein Angebot
+hud.minimap.level	Ebene {0}
+hud.minimap.no_map	Keine Karte
+hud.crosshair.pick_up	Aufheben
+hud.crosshair.talk	Reden
+hud.crosshair.use	Benutzen
+hud.crosshair.look	Ansehen
+hud.foe.healthy	Gesund
+hud.foe.wounded	Verwundet
+hud.foe.critical	Kritisch
+hud.heading.n	N
+hud.heading.nne	NNO
+hud.heading.ne	NO
+hud.heading.ene	ONO
+hud.heading.e	O
+hud.heading.ese	OSO
+hud.heading.se	SO
+hud.heading.sse	SSO
+hud.heading.s	S
+hud.heading.ssw	SSW
+hud.heading.sw	SW
+hud.heading.wsw	WSW
+hud.heading.w	W
+hud.heading.wnw	WNW
+hud.heading.nw	NW
+hud.heading.nnw	NNW
+hud.question.ok	OK
+hud.question.cancel	Abbrechen
+hud.split.ok	OK
+hud.bag.backpack	Rucksack
+hud.bag.weight	{0} St
+hud.bag.weight_of	{0} / {1} St
+hud.item.cursed	{0} (verflucht)
+hud.item.of	Zauber: {0}
+hud.item.no_charges	ohne volle Ladungen
+hud.item.one_charge	mit 1 vollen Ladung
+hud.item.charges	mit {0} vollen Ladungen
+prompt.use_on_what	Worauf {0} anwenden?
+prompt.not_on_action_bar	Das gehört nicht auf die Aktionsleiste.
+prompt.choose_target	Wähle das Ziel mit der linken Taste.
+hud.sheet.strength	Stärke
+hud.sheet.dexterity	Geschick
+hud.sheet.intelligence	Intelligenz
+hud.sheet.vitality	Vitalität
+hud.sheet.mana	Mana
+hud.sheet.experience	Erfahrung
+hud.sheet.class_level	{0}, Stufe {1}
+hud.sheet.level_class	{1}, Stufe {0}
+hud.sheet.point_to_spend	1 Punkt zu vergeben
+hud.sheet.points_to_spend	{0} Punkte zu vergeben
+effects.title	Remastered-Effekte
+effects.all	Alle:
+effects.torch_and_fire_lights	Fackel- und Feuerlicht
+effects.torch_shadows	Fackelschatten
+effects.shadows_at_once	Schatten sofort
+effects.lava_lights	Lavalicht
+effects.light_brightness	Lichthelligkeit
+effects.relief	Relief
+effects.shine	Glanz
+effects.wall_depth	Wandtiefe
+effects.relief_shadows	Reliefschatten
+effects.dark_joints	Dunkle Fugen
+effects.lava_glow	Lavaglühen
+effects.bloom	Bloom
+effects.ambient_occlusion	Umgebungsverdeckung
+effects.tonemapping	Tonemapping
+effects.sprite_glow	Sprite-Leuchten
+effects.fire_flicker	Feuerflackern
+effects.sparks	Funken
+effects.smoke	Rauch
+effects.dust	Staub
+effects.ground_shadows	Bodenschatten
+effects.grime_along_the_walls	Schmutz an den Wänden
+effects.grime_colour	Schmutzfarbe
+effects.on	An
+effects.off	Aus
+effects.tonemapping.off	Aus
+effects.tonemapping.neutral	Neutral
+effects.tone.none	Keine Farbe
+effects.tone.dirt	Erde
+effects.tone.moss	Moos
+effects.tone.soot	Ruß
+grid.key.case	Aa
+grid.key.space	Leer
+grid.key.delete	Löschen
+grid.key.cancel	Abbruch
+grid.key.done	Fertig
+grid.hint.type	tippen
+grid.hint.delete	löschen
+grid.hint.space	Leerzeichen
+grid.hint.case	Aa
+grid.hint.done	fertig
+grammar.look.you_see	Du siehst {0}.
+grammar.look.named	{0} namens {1}
+grammar.look.owner	, Eigentum{0}
+grammar.look.of	 (Zauber: {0})
+grammar.look.charges.none	 ohne volle Ladungen
+grammar.look.charges.one	 mit 1 vollen Ladung
+grammar.look.charges.many	 mit {0} vollen Ladungen
+grammar.word.magical	magisch
+grammar.word.cursed	verflucht
+grammar.bones.adventurer	einem Abenteurer
+grammar.rule.plural	auto
+# The header of a language without a grammar class of its own (UWGrammarGeneric); German has one
+# (UWGrammarGerman) and does not read these - the values only keep the file complete.
+grammar.rule.genders	m f n p
+grammar.rule.cases	nom acc dat
+grammar.rule.case.subject	nom
+grammar.rule.case.object	acc
+grammar.rule.case.place	dat
+grammar.rule.case.look	acc
+grammar.rule.capital	yes
+grammar.rule.letters	äöüÄÖÜß
+grammar.rule.alphabet	ABCDEFGHIJKLMNOPQRSTUVWXYZ
+grammar.rule.alphabet.lower	auto
+# The language's font and input method (UWLanguageFont), read for every language: the classic fonts
+# draw the German letters themselves, so none is needed.
+grammar.rule.font	none
+grammar.rule.ime	no
+grammar.article.indefinite	{0}
+grammar.article.definite	{0}
+grammar.article.your	{0}
+grammar.phrase.words	{0} {1}
+grammar.phrase.count	{0} {1}
+msg.item.cannot_use_on	{0} lässt sich darauf nicht anwenden.
+msg.item.too_full	{0} ist zu voll.
+msg.item.locked	{0} ist verschlossen.
+msg.item.empty	{0} ist leer.
+msg.item.unnamed	das Ding
+msg.item.read	Du liest {0}...
+msg.item.read_unnamed	UNBENANNT
+msg.item.taste	{0}{1}
+msg.item.no_ammunition	Leider hast du keine {0}.
+msg.item.angered	{0}{1}
+msg.wear.damaged	{0} wurde beschädigt.
+msg.wear.damaged_plural	{0} wurden beschädigt.
+msg.wear.destroyed	{0} wurde zerstört.
+msg.wear.destroyed_plural	{0} wurden zerstört.
+msg.trap.disarmed	{0} an {1} wurde erfolgreich entschärft.
+msg.trap.set_off	Deine stümperhaften Versuche haben {0} ausgelöst
+msg.trap.failed	Du kannst die Falle nicht entschärfen.
+msg.repair.estimate	{3}{0}{2}{1}.{4}
+msg.repair.result	{0}.
+msg.level_up	{0}{1} erreicht.
+msg.level_up.fallback	Du hast Erfahrungsstufe 
+msg.shrine.prompt	Sprich das Mantra: 
+msg.shrine.advanced_greatly	{0}.
+msg.shrine.advanced	{0}.
+msg.shrine.list_comma	, 
+msg.shrine.list_and	 und 
+msg.shrine.cup_and	 und 
+msg.shrine.cup_very_near	ganz in der Nähe
+msg.shrine.cup_end	.
+msg.book.explodes	Das Buch explodiert dir ins Gesicht!
+msg.spell.not_a_spell	Kein Zauber
+msg.spell.rune_missing	Eine Rune dieses Zaubers fehlt in deinem Beutel.
+msg.door.locked	Die Tür ist verschlossen
+msg.flask.out_of	 von 
+msg.save.list_heading	\\6     Gespeicherte Spiele
+msg.save.unused_slot	<noch frei>
+msg.count.question	Wie viele bewegen? 
+msg.question.yes	Ja
+msg.question.no	Nein
+msg.creation.points_left	Übrige Punkte: 
+msg.creation.done	Fertig
+msg.scroll.more	[MEHR]

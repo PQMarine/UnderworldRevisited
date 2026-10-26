@@ -128,7 +128,12 @@ public sealed class UWKitRows : IUWRows
 
                 case UWRowLookEnum.LetterGrid:
                     if (msOSkinFont == null)
+                    {
                         msOSkinFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+                        // The language's installed fonts behind it (translation wave 6).
+                        UWFallbackFont.Follow(msOSkinFont);
+                    }
 
                     return msOSkinFont;
 

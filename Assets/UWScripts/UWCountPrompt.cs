@@ -18,8 +18,8 @@ using UWDataImport.UWData;
 /// </summary>
 public sealed class UWCountPrompt
 {
-    /// <summary>The question in the scroll; the typed number follows it.</summary>
-    public const string Question = "Move how many? ";
+    /// <summary>The question in the scroll; the typed number follows it (msg.count.question).</summary>
+    public static string Question => UWText.T("msg.count.question");
 
     /// <summary>How an Update ended: the prompt still runs, a count was taken, or nothing.</summary>
     public enum Outcome

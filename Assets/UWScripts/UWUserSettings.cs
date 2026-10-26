@@ -358,6 +358,10 @@ public static class UWUserSettings
         }
     }
 
+    /// <summary>The language code chosen in the Game window, empty for English; UWLanguage reads it
+    /// at startup, so a change takes effect at the next start.</summary>
+    public static string Language { get => Defs.Language.Read(fGet()); set => Defs.Language.Write(fGet(), value); }
+
     /// <summary>
     /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves
     /// the editor and confirms the save" - so a preset can be a starting point and one can still go

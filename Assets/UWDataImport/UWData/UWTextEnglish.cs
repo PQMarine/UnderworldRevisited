@@ -18,6 +18,9 @@ namespace UWDataImport.UWData
 	///   hud.*      the modern interface's own words, and the few prompts the port adds itself
 	///   effects.*  the Remastered effects window (graphics detail Custom, Very high in the classic options)
 	///   grid.*     the gamepad's letter grid
+	///   grammar.*  the look sentence's frames and the words of UW.EXE (IUWGrammar, translation wave 2)
+	///   msg.*      the message lines UW.EXE assembles around a name or from pieces of the strings,
+	///              and its fixed lines (translation step 3A)
 	///
 	/// The words are the ones the code showed until this step, unchanged; a text with {0} is used
 	/// through UWText.F with as many arguments (the self-check counts them in the code).
@@ -45,6 +48,8 @@ namespace UWDataImport.UWData
 			fHud();
 			fEffects();
 			fGrid();
+			fGrammar();
+			fMessages();
 		}
 
 		private static void fAdd(string psId, string psText)

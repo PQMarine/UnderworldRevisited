@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 
 namespace UWDataImport.UWData
@@ -18,6 +19,12 @@ namespace UWDataImport.UWData
 	///   fontbig.sys   large font, cutscenes
 	///   fontbutn.sys  buttons
 	///   fontchar.sys  character creation
+	///
+	/// The files hold ASCII only. Characters beyond them can be added at run time (AddGlyph):
+	/// UWFonts adds the German letters UWFontGlyphBuilder draws in each font's style (translations
+	/// wave 1, 2026-10-26); TryGetGlyph, MeasureText and everything drawing through them count
+	/// those like the font's own. What is still missing beyond ASCII comes from the language's font
+	/// where it names one (Fallback, translation wave 6).
 	/// </summary>
 	public class UWFont
 	{
@@ -45,17 +52,22 @@ namespace UWDataImport.UWData
 
 		public bool IsLoaded { get; private set; }
 
+		/// <summary>The characters added at run time beyond the font's own (AddGlyph), by their
+		/// Unicode code; null while there are none.</summary>
+		private SortedDictionary<int, Glyph> mOAddedGlyphs;
+
 		public UWFont(string psFileName)
+			: this(File.Exists(psFileName) ? File.ReadAllBytes(psFileName) : null)
 		{
-			if (!File.Exists(psFileName))
-			{
-				mOGlyphs = new Glyph[0];
-				return;
-			}
+		}
 
-			byte[] lyData = File.ReadAllBytes(psFileName);
+		/// <summary>The font from the bytes of a font*.sys (null or too short: an empty font that is
+		/// not loaded).</summary>
+		public UWFont(byte[] pyData)
+		{
+			byte[] lyData = pyData;
 
-			if (lyData.Length < HeaderSize)
+			if (lyData == null || lyData.Length < HeaderSize)
 			{
 				mOGlyphs = new Glyph[0];
 				return;
@@ -114,16 +126,123 @@ namespace UWDataImport.UWData
 			IsLoaded = true;
 		}
 
+		/// <summary>The glyph of a character: the font's own below GlyphCount, an added one (AddGlyph)
+		/// beyond it, and beyond ASCII one of the language's font (Fallback, translation wave 6) where the
+		/// language names one.</summary>
 		public bool TryGetGlyph(int piIndex, out Glyph pOGlyph)
+		{
+			if (TryGetOwnGlyph(piIndex, out pOGlyph))
+				return true;
+
+			return fTryFallback(piIndex, out pOGlyph);
+		}
+
+		/// <summary>The font's own glyph or an added one (AddGlyph), never the language's font - for whoever
+		/// copies the font's glyphs elsewhere (UWUiFonts' atlas) or builds on them (UWFontGlyphBuilder).</summary>
+		public bool TryGetOwnGlyph(int piIndex, out Glyph pOGlyph)
 		{
 			if (mOGlyphs == null || piIndex < 0 || piIndex >= mOGlyphs.Length)
 			{
+				if (mOAddedGlyphs != null && mOAddedGlyphs.TryGetValue(piIndex, out pOGlyph))
+					return true;
+
 				pOGlyph = default;
 				return false;
 			}
 
 			pOGlyph = mOGlyphs[piIndex];
 			return true;
+		}
+
+		// ------------------------------------------------- The language's font (translation wave 6)
+
+		private static IUWGlyphSource msFallback;
+
+		/// <summary>
+		/// THE LANGUAGE'S FONT for the characters the original fonts lack (IUWGlyphSource; the Unity layer
+		/// sets it with the language - UWFallbackFont, from grammar.rule.font). Asked only beyond ASCII,
+		/// for a character neither the font's own nor added: ASCII and the German letters draw exactly as
+		/// before, with or without it. Null: none (English, German).
+		/// </summary>
+		public static IUWGlyphSource Fallback
+		{
+			get { return msFallback; }
+			set
+			{
+				if (ReferenceEquals(msFallback, value))
+					return;
+
+				msFallback = value;
+				FallbackVersion++;
+			}
+		}
+
+		/// <summary>Counts the changes of Fallback - every font forgets the glyphs it had from the one
+		/// before, and whoever keeps pictures of text (UWTextTextures) draws them anew.</summary>
+		public static int FallbackVersion { get; private set; }
+
+		/// <summary>The glyphs this font had from Fallback (null: the source has no such character), as of
+		/// miFallbackVersion.</summary>
+		private Dictionary<int, Glyph?> mOFallbackGlyphs;
+
+		private int miFallbackVersion = -1;
+
+		private bool fTryFallback(int piCode, out Glyph pOGlyph)
+		{
+			pOGlyph = default;
+
+			IUWGlyphSource lISource = msFallback;
+
+			if (lISource == null || piCode <= 0x7E || !IsLoaded)
+				return false;
+
+			if (mOFallbackGlyphs == null || miFallbackVersion != FallbackVersion)
+			{
+				mOFallbackGlyphs = new Dictionary<int, Glyph?>();
+				miFallbackVersion = FallbackVersion;
+			}
+
+			if (!mOFallbackGlyphs.TryGetValue(piCode, out Glyph? lOKnown))
+			{
+				lOKnown = null;
+
+				if (lISource.TryGetGlyph(this, piCode, out Glyph lOMade) && lOMade.Width > 0 && lOMade.Pixels != null
+					&& lOMade.Pixels.Length == lOMade.Width * Height)
+					lOKnown = lOMade;
+
+				mOFallbackGlyphs[piCode] = lOKnown;
+			}
+
+			if (lOKnown == null)
+				return false;
+
+			pOGlyph = lOKnown.Value;
+			return true;
+		}
+
+		/// <summary>
+		/// A character added at run time (UWFontGlyphBuilder: the German letters, translations wave
+		/// 1, 2026-10-26), under its Unicode code. Only beyond the font's own glyphs - a character the
+		/// font has keeps its own, so the English texts draw exactly as before - and only a glyph of
+		/// the font's height; false otherwise.
+		/// </summary>
+		public bool AddGlyph(int piCode, Glyph pOGlyph)
+		{
+			if (!IsLoaded || piCode < GlyphCount || pOGlyph.Width <= 0 || pOGlyph.Pixels == null
+				|| pOGlyph.Pixels.Length != pOGlyph.Width * Height)
+				return false;
+
+			if (mOAddedGlyphs == null)
+				mOAddedGlyphs = new SortedDictionary<int, Glyph>();
+
+			mOAddedGlyphs[piCode] = pOGlyph;
+			return true;
+		}
+
+		/// <summary>The codes of the added characters, in ascending order.</summary>
+		public IEnumerable<int> AddedCodes
+		{
+			get { return mOAddedGlyphs != null ? mOAddedGlyphs.Keys : (IEnumerable<int>)new int[0]; }
 		}
 
 		/// <summary>Width of a string in pixels, with piSpacing pixels added after every

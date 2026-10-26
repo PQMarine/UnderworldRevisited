@@ -355,5 +355,10 @@ namespace UWDataImport.UWData
 		/// <summary>What the Stone theme lays under a window (UWWindowBackgroundEnum, cleanup phase 8d):
 		/// 0 the stone's gradient, the default, or 1 its clouds (UWThemeGround). Plain ignores it.</summary>
 		public int WindowBackground;
+
+		/// <summary>The language chosen in the Game window (translation wave 1, 2026-10-26): a code with
+		/// files in Languages beside the game (UWLanguage), empty for English - also what a file without
+		/// the key reads. Takes effect at the next start; the command line and UR_LANGUAGE come first.</summary>
+		public string Language = string.Empty;
 	}
 }

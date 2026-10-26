@@ -72,8 +72,9 @@ namespace UnderworldRevisited.Tools
         /// <summary>
         /// EVERY STRING of STRINGS.PAK, one line each, LOSSLESS: "BBBB:NNN = text" with the block
         /// in hex and the index as our parsed lists count it (the project's usual +1 against the
-        /// game's numbering), UTF-8 - the line format of the mod plan's translation overlay
-        /// (Docs/MOD-SUPPORT-PLAN.md 3.2). Line breaks, backslashes, other control characters and
+        /// game's numbering), UTF-8 - planned once as the translation overlay's format (Docs/MOD-SUPPORT-PLAN.md
+        /// 3.2); the overlay became the fork-compatible TSV of strings-template (UWGameTextPack,
+        /// 2026-10-26), this stays the lossless dump. Line breaks, backslashes, other control characters and
         /// a space at either end are escaped, so every line stands alone, survives an editor that
         /// trims lines, and reads back to exactly the original text; the command reads its own
         /// output back and says so. Replaces the editor's string exporter, which dropped the
@@ -194,8 +195,7 @@ namespace UnderworldRevisited.Tools
             return lOOut.ToString();
         }
 
-        /// <summary>Reads an export back into key and text - the reader a language overlay will
-        /// use; here it proves the export lossless.</summary>
+        /// <summary>Reads an export back into key and text; it proves the export lossless.</summary>
         private static Dictionary<string, string> fReadExport(string psText)
         {
             Dictionary<string, string> lORead = new Dictionary<string, string>(StringComparer.Ordinal);

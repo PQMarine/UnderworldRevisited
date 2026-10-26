@@ -10,18 +10,14 @@ namespace UWDataImport.UWData
 	///
 	/// According to the user there are still exceptions to this scheme - deliberately not
 	/// handled until a concrete case turns up.
+	///
+	/// THE ENGLISH NAME FORMAT only (translation wave 2, 2026-10-26): the names go through the
+	/// language's grammar (IUWGrammar; UWText.ObjectName), whose English rules call these; the "You
+	/// see" frame (FormatLookMessage until then) is the grammar's, IUWGrammar.LookSentence.
 	/// </summary>
 	public static class UWObjectDescriptionFormatter
 	{
-		/// <summary>Builds from a raw description the finished "You see ..." message, as it
-		/// appears in the original when looking at an item.</summary>
-		public static string FormatLookMessage(string psRawDescription, bool pbPlural = false)
-		{
-			return "You see " + FormatItemName(psRawDescription, pbPlural) + ".";
-		}
-
-		/// <summary>Only the resolution of "&amp;" and "_" without the "You see" sentence frame -
-		/// for places that need the plain item name.</summary>
+		/// <summary>The resolution of "&amp;" and "_" - the name with its article.</summary>
 		public static string FormatItemName(string psRawDescription, bool pbPlural = false)
 		{
 			if (string.IsNullOrEmpty(psRawDescription))

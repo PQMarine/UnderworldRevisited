@@ -92,6 +92,9 @@ namespace UnderworldRevisited.Tools
             Stopwatch lOTotal = Stopwatch.StartNew();
             CheckContext lOContext = new CheckContext(lsDataPath) { SavesPath = lOOptions.Saves, Record = lOOptions.Record };
 
+            if (lOOptions.DataArgument != null)
+                lOContext.ImagePath = UWDataImport.Install.UWGogInstall.FindImage(lOOptions.DataArgument);
+
             lORunner.Run(lOCatalog, lOContext);
             lOTotal.Stop();
             lORunner.PrintSummary(lOTotal.ElapsedMilliseconds);

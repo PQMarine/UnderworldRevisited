@@ -801,7 +801,10 @@ namespace UWDataImport.UWData
 			{
 				char lcChar = lsName[liAt];
 
-				lyPlain[NameOffset + liAt] = (byte)(lcChar >= 0x20 && lcChar <= 0x7E ? lcChar : '_');
+				// The language's Latin-1 letters as their byte since translation 5.1 (the name's entry takes
+				// them, UWTextLine.IsTypeableAndStorable; read back as the same character), as the save name
+				// and the map notes keep them; the original's fonts have no glyph for them.
+				lyPlain[NameOffset + liAt] = (byte)(UWTextLine.IsStorable(lcChar) ? lcChar : '_');
 			}
 
 			int[] liFlags = new int[QuestFlagCount];

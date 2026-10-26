@@ -63,7 +63,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>As in the original: printable ASCII only, at most thirty characters, no
-		/// terminator.</summary>
+		/// terminator - and since translation wave 2 (2026-10-26) the Latin-1 letters a language's save
+		/// name may hold (UWLevel.IsLatin1Letter; the German umlauts and sharp s), as their byte. The
+		/// original has no glyph for them (its fonts end at 0x7E) and shows such a name differently;
+		/// an English name is written as before.</summary>
 		public static byte[] EncodeDescription(string psDescription)
 		{
 			List<byte> lyResult = new List<byte>();
@@ -75,7 +78,7 @@ namespace UWDataImport.UWData
 					if (lyResult.Count >= MaxDescriptionLength)
 						break;
 
-					if (lcChar >= 0x20 && lcChar <= 0x7E)
+					if ((lcChar >= 0x20 && lcChar <= 0x7E) || UWLevel.IsLatin1Letter(lcChar))
 						lyResult.Add((byte)lcChar);
 				}
 			}

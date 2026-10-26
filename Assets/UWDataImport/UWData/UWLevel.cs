@@ -82,6 +82,14 @@ namespace UWDataImport.UWData
 			MapNotes = ParseMapNotes(pyRawLevelData, piOffset, pyRawLevelData.Length);
 		}
 
+		/// <summary>A Latin-1 letter, 0xC0 to 0xFF without the signs for times and division - the bytes a
+		/// note or a save name typed in a language with letters beyond ASCII may hold (translation wave
+		/// 2, 2026-10-26: written as their Latin-1 byte, read back as the same character).</summary>
+		public static bool IsLatin1Letter(int piByte)
+		{
+			return piByte >= 0xC0 && piByte <= 0xFF && piByte != 0xD7 && piByte != 0xF7;
+		}
+
 		/// <summary>Reads the labels of one block. Static because there are notes for
 		/// ninety-nine levels, but only nine UWLevel objects.</summary>
 		public static System.Collections.Generic.List<MapNote> ParseMapNotes(byte[] pyRawLevelData, uint piOffset, int piBlockEnd)
@@ -109,7 +117,9 @@ namespace UWDataImport.UWData
 
 				byte lyFirst = pyRawLevelData[liAt];
 
-				if (lyFirst < 32 || lyFirst > 126)
+				// A note starts with printable ASCII - or, since translation wave 2, a Latin-1 letter (a
+				// German note typed in ours starting with an umlaut keeps its byte, 0xC4 for A-umlaut).
+				if ((lyFirst < 32 || lyFirst > 126) && !IsLatin1Letter(lyFirst))
 					return lONotes;
 
 				System.Text.StringBuilder lOText = new System.Text.StringBuilder();

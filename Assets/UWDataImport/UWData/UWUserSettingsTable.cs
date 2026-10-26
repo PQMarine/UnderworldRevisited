@@ -353,6 +353,10 @@ namespace UWDataImport.UWData
 			Fallback = (int)UWWindowBackgroundEnum.Gradient
 		};
 
+		/// <summary>The language code chosen in the Game window, empty for English (translation wave 1,
+		/// 2026-10-26); whether its files exist is UWLanguage's question, at startup.</summary>
+		public static readonly UWTextSettingDef Language = fText(nameof(UWUserData.Language), d => d.Language, (d, v) => d.Language = v, UWSettingNormalize.NullIsEmpty);
+
 		/// <summary>Every setting, in the order of UWUserData's fields - the order of the file.</summary>
 		public static readonly UWSettingDef[] All =
 		{
@@ -369,7 +373,7 @@ namespace UWDataImport.UWData
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath,
-			DebugFolded, PointerSpeed, WindowTheme, WindowBackground
+			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language
 		};
 
 		/// <summary>The settings of one store, in the file's order (the layout editor's snapshot

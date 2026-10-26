@@ -105,7 +105,7 @@ public sealed class UWLookService
             // WITH "You see": walls and floors report like this in the original too (per user,
             // 2026-09-14: "You see" was missing for the floor). The texture names in block 10
             // already carry their article ("a stone wall", "nothing").
-            mOLog.AddLine(UWObjectDescriptionFormatter.FormatLookMessage(psChunkDescription));
+            mOLog.AddLine(UWItemDescriptions.DescribeChunk(psChunkDescription, fData()));
         }
         else
         {
@@ -198,6 +198,8 @@ public sealed class UWLookService
         if (lsCreature != null)
             return lsCreature;
 
+        string lsCondition = null;
+
         if (pOTarget.IsDoor)
         {
             // A SPIKED DOOR is described like any door; "The door is spiked." follows as a line of
@@ -220,7 +222,7 @@ public sealed class UWLookService
                 string lsMoving = fGetObjectName(MovingDoorObjectId);
 
                 if (!string.IsNullOrEmpty(lsMoving))
-                    return UWItemDescriptions.FormatLookMessageWithOwner(lsMoving, null, fData());
+                    return UWItemDescriptions.DescribeScenery(lsMoving, null, null, fData());
             }
 
             string lsStateName = lOMover != null && pOTarget.ObjectData != null
@@ -230,16 +232,15 @@ public sealed class UWLookService
                 lsRaw = lsStateName;
 
             UWDamageable lODamageable = pOTarget.GetComponentInParent<UWDamageable>();
-            string lsCondition = lODamageable == null ? null : fGetConditionWord(lODamageable);
 
-            if (!string.IsNullOrEmpty(lsCondition))
-                lsRaw = UWItemDescriptions.InsertCondition(lsRaw, lsCondition);
+            lsCondition = lODamageable == null ? null : fGetConditionWord(lODamageable);
         }
 
         // WHO OWNS IT belongs on fixed scenery too: the original says "You see a sturdy chest
         // belonging to a green goblin." for barrels and chests (per user with a screenshot,
-        // 2026-09-16). Items on the floor get it through DescribeInventoryItem above.
-        return UWItemDescriptions.FormatLookMessageWithOwner(lsRaw, pOTarget.ObjectData, fData());
+        // 2026-09-16). Items on the floor get it through DescribeInventoryItem above. The door's
+        // condition word goes before its name (UWItemDescriptions.DescribeScenery).
+        return UWItemDescriptions.DescribeScenery(lsRaw, lsCondition, pOTarget.ObjectData, fData());
     }
 
     /// <summary>
@@ -383,20 +384,13 @@ public sealed class UWLookService
     /// between two strings of UW.EXE; "UNNAMED" when it has none). CONFIRMED per user on the
     /// original 2026-09-25: a right click gives "You see a ragged scroll.", "You read the
     /// scroll...", then the text; a left click the last two only. Until then ours said "The
-    /// scroll reads:" and "The book reads:" - lines that exist nowhere in UW1.
+    /// scroll reads:" and "The book reads:" - lines that exist nowhere in UW1. The sentence is
+    /// UWItemMessages.ReadHeader's.
     /// </summary>
     private string fReadHeader(UWObject pOItem)
     {
-        string lsName = UWText.ObjectName(fData(), pOItem.ID);
-
-        return ReadPrefix + (string.IsNullOrEmpty(lsName) ? UnnamedItem : lsName) + ReadSuffix;
+        return UWItemMessages.ReadHeader(fData(), pOItem.ID);
     }
-
-    private const string ReadPrefix = "You read the ";
-
-    private const string ReadSuffix = "...";
-
-    private const string UnnamedItem = "UNNAMED";
 
     /// <summary>
     /// Reads a book or scroll. Returns false if the object is neither or

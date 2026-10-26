@@ -409,6 +409,7 @@ internal sealed class UWModernBagSplit
         UWUiKit.SetRect(mOSplitNumber.rectTransform, lfX + (SplitBoxX * liScale), lfRowY + (0.5f * liScale), SplitBoxWidth * liScale, lfButton);
 
         mOSplitOk.color = mOSplitOkRect.Contains(lOPointer) ? UWModernPalette.LightText : UWModernPalette.Gold;
+        mOSplitOk.text = UWText.T("hud.split.ok");
         mOSplitOk.fontSize = Mathf.Max(9, Mathf.RoundToInt(4.4f * liScale));
         UWUiKit.SetRect(mOSplitOk.rectTransform, mOSplitOkRect.x, mOSplitOkRect.y + (0.5f * liScale), mOSplitOkRect.width, mOSplitOkRect.height);
     }

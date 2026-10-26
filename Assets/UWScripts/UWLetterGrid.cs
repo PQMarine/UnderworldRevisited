@@ -6,7 +6,12 @@ using UWDataImport.UWData;
 /// <summary>
 /// THE GAMEPAD'S LETTER GRID (per user, 2026-10-07: no on-screen keyboard, but a letter grid as the
 /// streaming services have it): A to Z, the digits and a few signs in rows of ten, below them
-/// case, space, delete, cancel and done. It comes up by itself while the game asks for text -
+/// case, space, delete, cancel and done. Since translation 5.1 (2026-10-26) the language's alphabet
+/// stands for A to Z and its other letters (the German umlauts and sharp s) get a row of their own
+/// above the digits - the keys and the moves are UWLetterGridLayout's (engine-free, checked); English
+/// keeps exactly the old grid. A switch of language reaches the grid at once, open or not.
+///
+/// It comes up by itself while the game asks for text -
 /// the character's name, a save game's name, a mantra, a conversation's typed answer, the
 /// "how many" prompt, a map note (UWTextEntryState.IsTypingText) - and the gamepad was used last; a key
 /// on the real keyboard puts it away until that input ends.
@@ -21,15 +26,10 @@ public class UWLetterGrid : MonoBehaviour
     /// <summary>The grid is up and has the gamepad (UWGamepadPointer stands aside, UWGameUI's B).</summary>
     public static bool IsShown { get; private set; }
 
-    private static readonly string[] msRows = { "ABCDEFGHIJ", "KLMNOPQRST", "UVWXYZ'-.,", "1234567890" };
-
     /// <summary>The bottom row's keys, ids in the text table (cleanup step 8.5, 2026-10-24).</summary>
     private static readonly string[] msBottomIds = { "grid.key.case", "grid.key.space", "grid.key.delete", "grid.key.cancel", "grid.key.done" };
 
-    private const int Columns = 10;
-
-    /// <summary>The bottom row's keys are two columns wide.</summary>
-    private const int BottomRow = 4;
+    private const int Columns = UWLetterGridLayout.Columns;
 
     // The layout, on 720 lines (LateUpdate; OnGUI until cleanup 8b.4).
     private const float KeyWidth = 50f;
@@ -44,7 +44,9 @@ public class UWLetterGrid : MonoBehaviour
 
     private const float BottomMargin = 16f;
 
-    private const float GridHeight = ((BottomRow + 1) * (KeyHeight + Gap)) - Gap + (2f * Pad) + HintHeight;
+    /// <summary>The grid's height on 720 lines: its rows (five in English, one more per row of the
+    /// language's other letters or of a longer alphabet) and the hint line.</summary>
+    private static float GridHeight => (UWLetterGridLayout.Current.Rows * (KeyHeight + Gap)) - Gap + (2f * Pad) + HintHeight;
 
     /// <summary>Screen pixels at the bottom the grid takes while it is up, with a little room above
     /// it - the modern conversation lifts its answers above them (per user, 2026-10-07: the grid
@@ -73,6 +75,12 @@ public class UWLetterGrid : MonoBehaviour
     private int miRow;
 
     private int miColumn;
+
+    /// <summary>The column the cursor keeps through a short row (UWLetterGridLayout.Move).</summary>
+    private int miWanted;
+
+    /// <summary>The layout the cursor stands in; another one (a switch of language) puts it back inside.</summary>
+    private UWLetterGridLayout mOLayout;
 
     private bool mbUpper = true;
 
@@ -127,6 +135,8 @@ public class UWLetterGrid : MonoBehaviour
             mbTyping = true;
             miRow = 0;
             miColumn = 0;
+            miWanted = 0;
+            mOLayout = UWLetterGridLayout.Current;
             mbUpper = true;
             mbCaseByHand = false;
             mORepeat.Reset();
@@ -155,6 +165,7 @@ public class UWLetterGrid : MonoBehaviour
         if (!IsShown || lOPad == null)
             return;
 
+        fFollowLanguage();
         fNavigate(lOPad);
 
         if (lOPad.buttonSouth.wasPressedThisFrame)
@@ -188,21 +199,30 @@ public class UWLetterGrid : MonoBehaviour
         if (!mORepeat.Hold(liHeld, Time.unscaledTime))
             return;
 
-        // The bottom row's keys span two columns: sideways there by two.
-        int liStep = miRow == BottomRow ? 2 : 1;
+        // Sideways within the row's keys (two columns on the bottom row), up and down over the rows.
+        mOLayout.Move(ref miRow, ref miColumn, ref miWanted, lODirection.x, lODirection.y);
+    }
 
-        miColumn = (miColumn + (lODirection.x * liStep) + Columns) % Columns;
-        miRow = (miRow + lODirection.y + BottomRow + 1) % (BottomRow + 1);
+    /// <summary>The language's layout (UWLetterGridLayout.Current); when it changed while the grid is
+    /// up - a switch of language - the cursor stays where it was as far as the new rows allow.</summary>
+    private void fFollowLanguage()
+    {
+        UWLetterGridLayout lOLayout = UWLetterGridLayout.Current;
 
-        if (miRow == BottomRow)
-            miColumn -= miColumn % 2;
+        if (ReferenceEquals(lOLayout, mOLayout))
+            return;
+
+        mOLayout = lOLayout;
+        miRow = Mathf.Clamp(miRow, 0, lOLayout.BottomRow);
+        miColumn = lOLayout.ClampColumn(miRow, miColumn);
+        miWanted = miColumn;
     }
 
     private void fActivate()
     {
-        if (miRow < BottomRow)
+        if (miRow < mOLayout.BottomRow)
         {
-            fType(msRows[miRow][miColumn]);
+            fType(mOLayout.KeyAt(miRow, mOLayout.KeyOfColumn(miRow, miColumn)).Shown(mbUpper));
             return;
         }
 
@@ -226,11 +246,10 @@ public class UWLetterGrid : MonoBehaviour
         }
     }
 
+    /// <summary>Types a character - a key's in the grid's case (UWLetterGridLayout.Key.Shown), or the
+    /// space - as a real key, the same path for every letter (UWOsKeys).</summary>
     private void fType(char pcChar)
     {
-        if (char.IsLetter(pcChar))
-            pcChar = mbUpper ? char.ToUpperInvariant(pcChar) : char.ToLowerInvariant(pcChar);
-
         mfOwnKeysUntil = Time.unscaledTime + 0.3f;
         UWOsKeys.Type(pcChar);
 
@@ -291,6 +310,10 @@ public class UWLetterGrid : MonoBehaviour
             return;
 
         mOKit.DropPointer();
+        fFollowLanguage();
+
+        UWLetterGridLayout lOLayout = mOLayout;
+        int liBottomRow = lOLayout.BottomRow;
 
         float lfScale = UWGuiTheme.Scale;
         float lfWidth = (Columns * KeyWidth) + ((Columns - 1) * Gap) + (2f * Pad);
@@ -306,18 +329,19 @@ public class UWLetterGrid : MonoBehaviour
 
         mOKit.Ground(new Rect(lfLeft, lfTop, lfWidth, lfHeight), UWWindowGroundEnum.LetterGrid);
 
-        for (int liRow = 0; liRow <= BottomRow; liRow++)
+        // A short row's keys from the left, the cells after its last key empty (UWLetterGridLayout).
+        for (int liRow = 0; liRow <= liBottomRow; liRow++)
         {
             float lfY = lfTop + Pad + (liRow * (KeyHeight + Gap));
-            int liKeys = liRow < BottomRow ? Columns : msBottomIds.Length;
+            int liKeys = lOLayout.KeysIn(liRow);
+            int liSpan = lOLayout.SpanOf(liRow);
 
             for (int liKey = 0; liKey < liKeys; liKey++)
             {
-                int liSpan = liRow < BottomRow ? 1 : 2;
                 float lfX = lfLeft + Pad + (liKey * liSpan * (KeyWidth + Gap));
                 float lfW = (liSpan * KeyWidth) + ((liSpan - 1) * Gap);
-                bool lbFocus = liRow == miRow && (liRow < BottomRow ? liKey == miColumn : liKey == miColumn / 2);
-                string lsLabel = liRow < BottomRow ? fShown(msRows[liRow][liKey]) : UWText.T(msBottomIds[liKey]);
+                bool lbFocus = liRow == miRow && liKey == lOLayout.KeyOfColumn(liRow, miColumn);
+                string lsLabel = liRow < liBottomRow ? lOLayout.KeyAt(liRow, liKey).Shown(mbUpper).ToString() : UWText.T(msBottomIds[liKey]);
                 Rect lORect = new Rect(lfX, lfY, lfW, KeyHeight);
 
                 lOKey.Colour = lbFocus ? Color.black : Color.white;
@@ -416,9 +440,4 @@ public class UWLetterGrid : MonoBehaviour
 
     /// <summary>What each button does, ids in the text table (cleanup step 8.5, 2026-10-24).</summary>
     private static readonly string[] msHintIds = { "grid.hint.type", "grid.hint.delete", "grid.hint.space", "grid.hint.case", "grid.hint.done" };
-
-    private string fShown(char pcChar)
-    {
-        return (char.IsLetter(pcChar) && !mbUpper ? char.ToLowerInvariant(pcChar) : pcChar).ToString();
-    }
 }

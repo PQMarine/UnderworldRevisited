@@ -610,6 +610,11 @@ public class UWLevelLoader : MonoBehaviour
     /// </summary>
     private static DataImport msOSharedData;
 
+    /// <summary>The data loaded so far (null before the first load) - for the language switched
+    /// while the game runs (UWLanguage.Switch, translation step 3R), which lays the game's texts over
+    /// it in place.</summary>
+    public static DataImport SharedData => msOSharedData;
+
     private static UWObjectAtlas msOSharedAtlas;
 
     private static Texture2DArray msOSharedTextureArray;
@@ -673,9 +678,14 @@ public class UWLevelLoader : MonoBehaviour
         // data loaded for the main menu at launch (no world is built then, see Start).
         string lsSavegame = myNewCharacter != null ? null : UWSavegameSlots.PendingPath;
 
-        if (msOSharedData == null || msOSharedData.DataPath != lsPath)
+        // The game's texts of the language in force (UWLanguage, chosen at startup) are laid over the
+        // English strings as the data is read; the shared data is read anew if they differ.
+        string lsGameText = UWLanguage.GameTextFile;
+
+        if (msOSharedData == null || msOSharedData.DataPath != lsPath || msOSharedData.GameData.GameTextFile != lsGameText)
         {
-            msOSharedData = new DataImport(lsPath, lsSavegame);
+            msOSharedData = new DataImport(lsPath, lsSavegame, lsGameText);
+            UWLanguage.LogGameText(msOSharedData.GameText, lsGameText);
             msOSharedAtlas = null;
             msOSharedTextureArray = null;
         }

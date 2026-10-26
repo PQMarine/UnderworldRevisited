@@ -22,6 +22,7 @@ HelpTab = 1
 InterfaceFont = 0
 InterfacePreset = 0
 KeyBindings = ["Player|Move|1|<Keyboard>/upArrow", "Player|Jump|0|<Keyboard>/rightShift"]
+Language = ""
 LeftStickDeadzone = 0.125
 ManualAttributes = True
 MarkPoison = True
