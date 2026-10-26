@@ -27,7 +27,7 @@ namespace UnderworldRevisited.Tools
 
             public bool HasPlayer => true;
 
-            public int PlayerLevel => 16;
+            public int PlayerLevel { get; set; } = 16;
 
             public int PlayerMana => 30;
 
@@ -35,7 +35,7 @@ namespace UnderworldRevisited.Tools
 
             public void SpendMana(int piAmount) { Fake.Log.Add("spend " + piAmount); }
 
-            public double RealSeconds => 1000d;
+            public long GameTicks { get; set; } = 256000L;
 
             public void RestoreManaFromSpell(int piMinorClass) { }
 

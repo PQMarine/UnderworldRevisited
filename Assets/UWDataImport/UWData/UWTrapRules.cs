@@ -1187,7 +1187,7 @@ namespace UWDataImport.UWData
 						UWTrapLog.Detail = "-> talking door";
 
 						return pIHost.World.Presentation.ShowsMessages
-							&& pIHost.BeginConversation(UWObjectMechanics.TalkingDoorConversationSlot);
+							&& pIHost.BeginConversation(pIHost.World.Session.Rules.Story.TalkingDoorConversation);
 					})
 				.Register(UWObjectMechanics.DoTrapStartConversationAction, "start conversation",
 					(pOTrap, pOTrigger, pOSwitch, pIHost) => fFireConversationTrap(pIHost))
@@ -1292,10 +1292,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The crowding check around a creature template: four tiles back and five
-		/// forward - see fFireCreateObjectTrap.</summary>
-		private const int CrowdTilesBack = 4;
+		/// forward - see fFireCreateObjectTrap; the defaults of respawn.crowdTiles* (cleanup phase 10).</summary>
+		internal const int CrowdTilesBack = 4;
 
-		private const int CrowdTilesForward = 5;
+		internal const int CrowdTilesForward = 5;
 
 		/// <summary>
 		/// THE CREATE ROLL (TRAP_CREATE_OBJECT, UnderworldExhumed TRIGGER.C): nothing when
@@ -1333,7 +1333,8 @@ namespace UWDataImport.UWData
 			// Until 2026-09-23 the respawn held its whole pass back instead, looking around the
 			// player (UWRespawnRules).
 			if (UWObjectIds.IsCreature(lOTemplate.ID)
-				&& fIsSpawnedCreatureNear(pIHost, lOTemplate.TileX, lOTemplate.TileY, CrowdTilesBack, CrowdTilesForward))
+				&& fIsSpawnedCreatureNear(pIHost, lOTemplate.TileX, lOTemplate.TileY,
+					pIHost.World.Session.Rules.Respawn.CrowdTilesBack, pIHost.World.Session.Rules.Respawn.CrowdTilesForward))
 				return true;
 
 			// The record copied, and of what the template holds only the first item, copied too
@@ -1821,7 +1822,12 @@ namespace UWDataImport.UWData
 			if (!pIHost.World.Presentation.ShowsMessages)
 				return true;
 
-			if (LevelIndexOf(pIHost) != UWObjectMechanics.BullfrogLevelIndex)
+			// The puzzle's level, field and game variables are the rule set's (levels.bullfrog,
+			// story.bullfrog.*, cleanup phase 10); UWObjectMechanics' consts are their defaults.
+			UWRules lORuleSet = pIHost.World.Session.Rules;
+			UWRulesStory.BullfrogRules lORules = lORuleSet.Story.Bullfrog;
+
+			if (LevelIndexOf(pIHost) != lORuleSet.Levels.Bullfrog)
 			{
 				pIHost.World.Presentation.AddGeneralMessage(BullfrogWrongLevelMessage);
 
@@ -1833,13 +1839,13 @@ namespace UWDataImport.UWData
 			// The two counting actions do not cost a try.
 			if (piMode == 2 || piMode == 3)
 			{
-				int liVariable = piMode == 2 ? UWObjectMechanics.BullfrogVarY : UWObjectMechanics.BullfrogVarX;
+				int liVariable = piMode == 2 ? lORules.VarY : lORules.VarX;
 
 				UWGameVariables.Set(liVariable, (UWGameVariables.Get(liVariable) + 1) & 7);
 
 				UWTrapLog.Detail = string.Format("-> selection {0}/{1}",
-					UWGameVariables.Get(UWObjectMechanics.BullfrogVarX),
-					UWGameVariables.Get(UWObjectMechanics.BullfrogVarY));
+					UWGameVariables.Get(lORules.VarX),
+					UWGameVariables.Get(lORules.VarY));
 
 				return true;
 			}
@@ -1848,7 +1854,7 @@ namespace UWDataImport.UWData
 			{
 				pIHost.World.Presentation.AddGeneralMessage(BullfrogResetMessage);
 
-				UWGameVariables.Set(UWObjectMechanics.BullfrogVarRetries, UWObjectMechanics.BullfrogRetriesOnReset);
+				UWGameVariables.Set(lORules.VarRetries, lORules.RetriesOnReset);
 
 				fFlattenBullfrogGrid(pIHost);
 
@@ -1860,26 +1866,26 @@ namespace UWDataImport.UWData
 			if (piMode != 0 && piMode != 1)
 				return true;
 
-			int liRetries = UWGameVariables.Get(UWObjectMechanics.BullfrogVarRetries);
+			int liRetries = UWGameVariables.Get(lORules.VarRetries);
 
 			if (liRetries <= 1)
 			{
 				pIHost.World.Presentation.AddGeneralMessage(BullfrogOutOfTriesMessage);
 
-				UWGameVariables.Set(UWObjectMechanics.BullfrogVarRetries, 1);
+				UWGameVariables.Set(lORules.VarRetries, 1);
 
 				UWTrapLog.Detail = "-> no tries left";
 
 				return true;
 			}
 
-			UWGameVariables.Set(UWObjectMechanics.BullfrogVarRetries, liRetries - 1);
+			UWGameVariables.Set(lORules.VarRetries, liRetries - 1);
 
-			int liChoiceX = UWGameVariables.Get(UWObjectMechanics.BullfrogVarX);
-			int liChoiceY = UWGameVariables.Get(UWObjectMechanics.BullfrogVarY);
+			int liChoiceX = UWGameVariables.Get(lORules.VarX);
+			int liChoiceY = UWGameVariables.Get(lORules.VarY);
 
-			int liCentreX = UWObjectMechanics.BullfrogGridOrigin + liChoiceX;
-			int liCentreY = UWObjectMechanics.BullfrogGridOrigin + liChoiceY;
+			int liCentreX = lORules.GridOrigin + liChoiceX;
+			int liCentreY = lORules.GridOrigin + liChoiceY;
 
 			int liDelta = piMode == 0 ? 1 : -1;
 
@@ -1941,11 +1947,13 @@ namespace UWDataImport.UWData
 			if (lOLevel == null || lOLevel.TileData == null)
 				return;
 
+			int liOrigin = pIHost.World.Session.Rules.Story.Bullfrog.GridOrigin;
+
 			for (int liX = 0; liX < UWObjectMechanics.BullfrogGridSize; liX++)
 			{
 				for (int liY = 0; liY < UWObjectMechanics.BullfrogGridSize; liY++)
 				{
-					UWTile lOTile = lOLevel?.GetTile(UWObjectMechanics.BullfrogGridOrigin + liX, UWObjectMechanics.BullfrogGridOrigin + liY);
+					UWTile lOTile = lOLevel?.GetTile(liOrigin + liX, liOrigin + liY);
 
 					if (lOTile != null)
 						SetTileHeight(lOTile, BullfrogResetHeight, pIHost);
@@ -1978,7 +1986,8 @@ namespace UWDataImport.UWData
 
 			List<UWObject> lOFound = new List<UWObject>();
 
-			int liOffset = UWObjectMechanics.EmeraldPuzzleOffset;
+			UWRulesStory.EmeraldRules lORules = pIHost.World.Session.Rules.Story.Emerald;
+			int liOffset = lORules.Offset;
 
 			for (int liX = -liOffset; liX <= liOffset; liX += liOffset * 2)
 			{
@@ -1991,7 +2000,7 @@ namespace UWDataImport.UWData
 
 					foreach (UWObject lOAt in lOTile.ObjectsInTile)
 					{
-						if (lOAt == null || lOAt.ID != UWObjectMechanics.EmeraldObjectId)
+						if (lOAt == null || lOAt.ID != lORules.ObjectId)
 							continue;
 
 						lOFound.Add(lOAt);
@@ -2049,7 +2058,7 @@ namespace UWDataImport.UWData
 			if (!pIHost.World.Presentation.ShowsMessages || fLevel(pIHost) == null)
 				return true;
 
-			UWNpc lONpc = FindActiveByWhoAmI(fLevel(pIHost), ConversationTrapWhoAmI);
+			UWNpc lONpc = FindActiveByWhoAmI(fLevel(pIHost), pIHost.World.Session.Rules.Story.ConversationTrapWhoAmI);
 
 			if (lONpc == null)
 			{

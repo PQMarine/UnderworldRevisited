@@ -44,7 +44,7 @@ namespace UnderworldRevisited.Tools
                 FakeWorld lOWorld = new FakeWorld { Data = pOData, Level = lOLevel, LevelIndex = 0 };
                 FakeDoor lODoor = new FakeDoor(lOWorld.Log, lODoorData, true);
                 UWConversationSession lOSession = new UWConversationSession(pOData, lONpc, 1,
-                    ConversationHostStub.Create(lOWorld));
+                    ConversationHostStub.Create(lOWorld), UWGameSession.Current);
 
                 lOWorld.DoorList.Add(lODoor);
 

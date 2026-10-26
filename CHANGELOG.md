@@ -8,12 +8,28 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
-## [Unreleased]
+## [0.9.2] - 2026-10-26
+
+### Closer to the original
+- Hit points and mana are whole numbers, as the original keeps them.
+- What a conversation sets for hit points, mana, hunger and poison is kept as it is, even above the
+  maximum, as the original stores it; until now it was cut to the maximum.
+- Creatures measure distances with the original's square root and aim casters and archers by its
+  angle table: a follower catching up and a shot from close by may land a little differently.
+- The pause between two spells runs on the game's clock: time in a conversation or a menu no
+  longer counts.
+- The player's noise dies down at a fixed rate in game time, a quarter of a second per step - after
+  stopping, a sneaking player is quiet again after about four seconds (Docs/DEVIATIONS.md).
 
 ### Added
+- The rule set: an optional rules.json beside settings.json changes the game's numbers - combat,
+  magic, experience, vitals, sleep, creatures, respawn, motion, trade, inventory, lights, the
+  original's quirks and our deviations as switches (`uwdump rules-template` lists every key with
+  its default). Without the file the game plays as before; a bad entry is reported and skipped.
 - A second look for the game's windows: Colours - Window theme Stone, in the colours of the game's
   icon - the rune stone's grey-brown with a faint torchlight, ember-coloured highlights, lit edges -
-  with the background as a gradient or a cloud pattern. Plain, the look so far, stays the default.
+  with the background as a gradient or a cloud pattern. Stone is the default; Plain, the look so
+  far, is one click away.
   The HUD's panels and bags keep their own colours.
 
 ### Changed

@@ -121,7 +121,7 @@ namespace UWDataImport.UWData
 
 		private int fRunSmooth(UWPlayerMotion.Command peHeld, IUWMotionStepTarget pOTarget)
 		{
-			int liFine = (int)System.Math.Floor(Remainder * UWMotionParams.FineTicksPerTick);
+			int liFine = UWRounding.Floor(Remainder * UWMotionParams.FineTicksPerTick);
 			int liMostFine = UWPlayerMotion.MaxFrameTicks * UWMotionParams.FineTicksPerTick;
 
 			if (liFine > liMostFine)

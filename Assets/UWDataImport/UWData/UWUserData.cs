@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.Presentation;
 
 namespace UWDataImport.UWData
 {
@@ -345,9 +346,11 @@ namespace UWDataImport.UWData
 		public float PointerSpeed = 1f;
 
 		/// <summary>The look of the game's own windows (UWWindowThemes, cleanup phase 8d, 2026-10-25): 0
-		/// Plain, the look they always had - and what every older file reads -, or 1 Stone, the
-		/// application icon's (UWWindowThemeEnum).</summary>
-		public int WindowTheme;
+		/// Plain, the look they always had, or 1 Stone, the application icon's (UWWindowThemeEnum).
+		/// STONE BY DEFAULT since 2026-10-26 (per user: a pity if nobody sees it for not knowing it
+		/// can be switched) - also what a file without the key reads; a file that holds 0 keeps
+		/// Plain.</summary>
+		public int WindowTheme = (int)UWWindowThemeEnum.Stone;
 
 		/// <summary>What the Stone theme lays under a window (UWWindowBackgroundEnum, cleanup phase 8d):
 		/// 0 the stone's gradient, the default, or 1 its clouds (UWThemeGround). Plain ignores it.</summary>

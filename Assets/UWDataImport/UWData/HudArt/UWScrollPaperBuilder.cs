@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE MODERN MESSAGE SCROLL'S PAPER (MAIN.BYT, SCRLEDGE.GR; cleanup 9.16, 2026-10-25: moved

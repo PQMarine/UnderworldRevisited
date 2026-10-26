@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -54,8 +55,8 @@ public sealed class UWFlaskView
         if (mfFlaskFillStart >= 0f)
             fUpdateFlasks();
 
-        if (mOGauge.Advance(pfDeltaSeconds, (int)mOVitals.CurrentHP, (int)mOVitals.MaxHP,
-            (int)mOVitals.CurrentMana, (int)mOVitals.MaxMana, mfFlaskFillStart >= 0f))
+        if (mOGauge.Advance(pfDeltaSeconds, mOVitals.CurrentHP, mOVitals.MaxHP,
+            mOVitals.CurrentMana, mOVitals.MaxMana, mfFlaskFillStart >= 0f))
             fUpdateFlasks();
     }
 

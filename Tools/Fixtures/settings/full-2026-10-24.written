@@ -91,6 +91,6 @@
     "Mt32RomPath": "E:/MT32 ROMs",
     "DebugFolded": "",
     "PointerSpeed": 1.0,
-    "WindowTheme": 0,
+    "WindowTheme": 1,
     "WindowBackground": 0
 }

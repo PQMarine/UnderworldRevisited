@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// What the sound plays at: the music and effect gains (0 with the switch off) and the music

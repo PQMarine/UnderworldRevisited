@@ -310,7 +310,7 @@ namespace UWDataImport.UWData
 				lbKeep = false;
 
 			// Nothing comes to rest in the Void (the host's level is one-based).
-			if (mOHost.DungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
+			if (mOHost.DungeonLevel == UWLevelIds.Number(mOWorld.Session.Rules.Levels.Void))
 				lbKeep = false;
 
 			if (lbKeep)

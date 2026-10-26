@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The music on General MIDI: the MT-32 version of the pieces through UWGmMusicDriver

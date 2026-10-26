@@ -3,8 +3,8 @@ namespace UWDataImport.UWData
 	/// <summary>
 	/// Small arithmetic the rules and the art builders share (cleanup phase 1, 2026-10-11).
 	/// Until then five classes each kept a private clamp with the same body. Rounding is NOT
-	/// here on purpose: the rounding helpers (halves to even in UWUnits, the original's own in
-	/// the motion core) are named for their rule and stay where they are.
+	/// here: UWRounding names the three ways a fraction becomes a whole number (cleanup phase
+	/// 10), and UWUnits.RoundToInt is its halves-to-even for the world conversions.
 	/// </summary>
 	public static class UWMath
 	{

@@ -12,12 +12,13 @@ using UWDataImport.UWData;
 /// on an effect.
 ///
 /// THE TICKS come from the game's own clock (UWWorldScheduler.Now, PIT ticks; Time.deltaTime until
-/// cleanup step 4.5) at UWSettings.VoidEffectTicksPerSecond, so no frame rate changes them.
+/// cleanup step 4.5) at the rule set's vitals.void.ticksPerSecond (UWSettings.VoidEffectTicksPerSecond
+/// until cleanup phase 10, 2026-10-26), so no frame rate changes them.
 /// </summary>
 public class UWVoidEffects : MonoBehaviour
 {
-    /// <summary>Level 9, zero-based.</summary>
-    private const int VoidLevelIndex = UWEndgame.VoidLevelIndex;
+    /// <summary>Level 9, zero-based (the rule set's levels.void).</summary>
+    private static int VoidLevelIndex => UWEndgame.VoidLevelIndex;
 
     private UWLevelLoader mOLevelLoader;
 
@@ -62,17 +63,14 @@ public class UWVoidEffects : MonoBehaviour
             return;
         }
 
-        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-        float lfTicksPerSecond = lOSettings != null ? lOSettings.VoidEffectTicksPerSecond : 32f;
-
-        int liTicks = mORules.Advance(liPitTicks, lfTicksPerSecond);
+        int liTicks = mORules.Advance(liPitTicks, UWRules.Current.Vitals.Void.TicksPerSecond);
 
         if (mOCharacter == null)
             mOCharacter = UWScene.Character;
 
         for (int liTick = 0; liTick < liTicks; liTick++)
         {
-            int liHp = mOCharacter != null ? Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) : 0;
+            int liHp = mOCharacter != null ? mOCharacter.Vitals.CurrentHP : 0;
 
             if (UWVoidRules.Tick(liHp, out UWVoidRules.Effect lOEffect))
                 fApplyEffects(lOEffect);

@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>The look of the game's own windows (UWWindowThemes); the number is settings.json's
 	/// (UWUserData.WindowTheme).</summary>

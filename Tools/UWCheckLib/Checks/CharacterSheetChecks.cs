@@ -27,13 +27,13 @@ namespace UnderworldRevisited.Tools
             lOStart.Intelligence = 14;
             lOStart.Attack = 5;
             lOStart.Level = 3;
-            lOStart.FallbackMaxHP = 30f;
-            lOStart.FallbackCurrentHP = 12.5f;
+            lOStart.FallbackMaxHP = 30;
+            lOStart.FallbackCurrentHP = 12;
 
             UWPlayerVitals lOVitals = new UWPlayerVitals(null);
 
             lOVitals.Initialise(null, lOStart);
-            lOVitals.SetMana(19.5f, 7.5f);
+            lOVitals.SetMana(20, 8);
 
             UWCharacterSheet lOOriginal = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Original, 6).Bind(null, lOPlayer, lOVitals);
             UWCharacterSheet lOReadable = new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Readable).Bind(null, lOPlayer, lOVitals);
@@ -47,7 +47,9 @@ namespace UnderworldRevisited.Tools
             Check.Str("level: the modern panel's and the help window's lines", lOReadable.ClassWithLevel + "|" + lOReadable.LevelWithClass,
                 ", level 3|Level 3 ");
 
-            // Vitality 12.5 and mana 7.5 of 19.5 round half to even as Mathf.RoundToInt did.
+            // Vitality 12 and mana 8 of 20: until the vitals became whole numbers (cleanup phase 10,
+            // 2026-10-26) the check set 12.5, 7.5 and 19.5 and the page rounded them half to even to
+            // these same numbers.
             string lsValues = string.Empty;
 
             for (int liRow = 0; liRow < UWCharacterSheet.ValueCount; liRow++)
@@ -81,7 +83,7 @@ namespace UnderworldRevisited.Tools
             // The signature follows every number shown.
             int liBefore = lOOriginal.Signature;
 
-            lOVitals.SetMana(19.5f, 9f);
+            lOVitals.SetMana(20, 9);
             fExpectBool("signature: mana changes it", lOOriginal.Signature != liBefore, true);
             fExpectInt("signature: without vitals 0", new UWCharacterSheet(UWCharacterSheet.SpellingEnum.Original).Signature, 0);
         }

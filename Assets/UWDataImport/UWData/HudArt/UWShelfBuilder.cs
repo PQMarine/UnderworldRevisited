@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE FLASKS' SHELF with the gem's pedestal, and the keep masks of the flasks and the gem

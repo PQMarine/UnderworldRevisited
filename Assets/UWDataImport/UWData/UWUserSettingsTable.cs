@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.Audio;
+using UWDataImport.Presentation;
 
 namespace UWDataImport.UWData
 {
@@ -332,13 +334,14 @@ namespace UWDataImport.UWData
 		};
 
 		/// <summary>The windows' theme (cleanup phase 8d, 2026-10-25): Plain or Stone; one the table does
-		/// not know (a later build's) reads Plain, as does a file without the key.</summary>
+		/// not know (a later build's) reads Stone, the default since 2026-10-26, as does a file
+		/// without the key.</summary>
 		public static readonly UWIntSettingDef WindowTheme = new UWIntSettingDef(nameof(UWUserData.WindowTheme), UWSettingKind.Choice, d => d.WindowTheme, (d, v) => d.WindowTheme = v)
 		{
 			Normalize = UWSettingNormalize.InRangeOrFallback,
 			Min = 0,
 			Max = MaxWindowTheme,
-			Fallback = (int)UWWindowThemeEnum.Plain
+			Fallback = (int)UWWindowThemeEnum.Stone
 		};
 
 		/// <summary>The Stone theme's ground: Gradient or Clouds; an unknown one reads Gradient.</summary>

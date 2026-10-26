@@ -85,7 +85,7 @@ namespace UWDataImport.UWData
 		{
 		}
 
-		public double RealSeconds => 0d;
+		public long GameTicks => 0L;
 
 		public void RestoreManaFromSpell(int piMinorClass)
 		{

@@ -62,6 +62,11 @@ namespace UWDataImport.UWData
 		/// <summary>RNG_seg005_DE7: 0..0x7FFF.</summary>
 		int Random();
 
+		/// <summary>The running game: the rule set the motion reads its speeds and quirks from
+		/// (cleanup phase 10 wave 4, 2026-10-26: UWRules.Current and UWGameSession.Current until
+		/// then).</summary>
+		UWGameSession Session { get; }
+
 		// ------------------------------------------------- CollideObjects_seg029_29EE_173
 
 		/// <summary>The struck object USES ITSELF on the mover (COMOBJ byte 6 bit 1 of the struck

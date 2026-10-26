@@ -1,5 +1,6 @@
 using System.IO;
 using UWDataImport;
+using UWDataImport.Install;
 
 namespace UnderworldRevisited.Tools
 {

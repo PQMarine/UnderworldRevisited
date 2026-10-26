@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UWDataImport;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -75,7 +76,7 @@ public class UWModernPartBacks : UWModernPart
             RawImage lOImage = mOPartBacks[liAt];
             UWModernBacks.Back lOBack = UWModernBacks.Get(leElement);
             Rect lORect = Rect.zero;
-            bool lbShown = lOBack.Shape != UWDataImport.UWData.UWBackdropArt.ShapeEnum.None
+            bool lbShown = lOBack.Shape != UWDataImport.Presentation.UWBackdropArt.ShapeEnum.None
                 && UWModernLayout.TryGetRect(leElement, out lORect);
 
             if (leElement == UWModernLayout.ElementEnum.Messages && lbShown)

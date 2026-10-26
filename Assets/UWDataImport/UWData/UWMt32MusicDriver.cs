@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The game's MT-32 music (UW*.XMI) on the MT-32 itself, emulated by Munt's libmt32emu

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using UWDataImport;
+using UWDataImport.Audio;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools

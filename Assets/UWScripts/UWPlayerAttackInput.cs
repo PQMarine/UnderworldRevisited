@@ -230,8 +230,8 @@ public sealed class UWPlayerAttackInput
 
     /// <summary>
     /// player_attack's charge while the button is held: nothing during the wind-up; on the
-    /// first frame after it the clock starts (elapsed -1 to 0), then every
-    /// AttackChargeStepSeconds the weapon's speed is added, capped at 100. A launcher never
+    /// first frame after it the clock starts (elapsed -1 to 0), then every charge step
+    /// (combat.player.chargeStepMilliseconds) the weapon's speed is added, capped at 100. A launcher never
     /// charges (fire mode returns before this). The steps are UWPlayerAttackState.StepCharge.
     /// </summary>
     private void fUpdateCharge(float pfDeltaSeconds)
@@ -241,9 +241,9 @@ public sealed class UWPlayerAttackInput
         if (!mOState.IsAttacking || (lOCharacter != null && (!lOCharacter.Weapon.IsWindupComplete || lOCharacter.Weapon.HasRangedWeapon)))
             return;
 
-        float lfStep = UnderworldRevisited.UWSettings.Instance != null
-            ? UnderworldRevisited.UWSettings.Instance.AttackChargeStepSeconds
-            : UWPlayerAttackState.DefaultChargeStepSeconds;
+        // The step is the rule set's (combat.player.chargeStepMilliseconds; UWSettings'
+        // AttackChargeStepSeconds until cleanup phase 10): 72 / 1000f is the asset's 0.072f to the bit.
+        float lfStep = UWRules.Current.Combat.Player.ChargeStepMilliseconds / 1000f;
 
         mOState.StepCharge(pfDeltaSeconds, lfStep);
     }
@@ -310,7 +310,8 @@ public sealed class UWPlayerAttackInput
     ///
     /// THE TIMING FOLLOWS THE ORIGINAL BY THE USER'S DECISION OF 2026-10-12 (combat C1, C2): the
     /// charge starts at 0 after the wind-up (four frames of 0.125 s) and gains the speed every
-    /// UWSettings.AttackChargeStepSeconds; a launcher does not charge at all. Until then a fixed
+    /// charge step (combat.player.chargeStepMilliseconds since cleanup phase 10, UWSettings'
+    /// AttackChargeStepSeconds before); a launcher does not charge at all. Until then a fixed
     /// base of 0.73 s plus the steps was counted from the press, fitted to the user's stopwatch
     /// (2026-08-30, press to green: dagger 0.9, fist 1.2, Sword of Justice 1.4, broadsword 1.4 -
     /// 1.5, battle axe 2.05 s). The step of 0.072 s from that fit stays: wind-up 0.5 s plus the

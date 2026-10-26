@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE FINISHED PIXELS OF A PICTURE, ready for an engine to upload (cleanup step 5.4,

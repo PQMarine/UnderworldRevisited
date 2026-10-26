@@ -25,8 +25,14 @@ namespace UWDataImport.UWData
 
 		public const float LowerThirdFraction = 1f / 3f;
 
-		/// <summary>One charge step without a settings asset - see UWSettings.AttackChargeStepSeconds.</summary>
+		/// <summary>One charge step when the caller hands none - see ChargeStepMilliseconds.</summary>
 		public const float DefaultChargeStepSeconds = 0.072f;
+
+		/// <summary>One charge step after the wind-up, in milliseconds: the default of the rule set's
+		/// combat.player.chargeStepMilliseconds (cleanup phase 10; UWSettings.AttackChargeStepSeconds
+		/// until then). Fitted to the user's stopwatch in 2026-08 - see
+		/// UWPlayerAttackInput.fGetChargeSpeed; the original's own step is not settled.</summary>
+		public const int ChargeStepMilliseconds = 72;
 
 		/// <summary>The fist's speed, for a weapon table that cannot be read.</summary>
 		public const int FallbackChargeSpeed = 15;
@@ -102,7 +108,7 @@ namespace UWDataImport.UWData
 		/// <summary>
 		/// player_attack's charge while the button is held, once the wind-up is through (the caller
 		/// asks the weapon): on the first frame after it the clock starts (elapsed -1 to 0), then
-		/// every pfStepSeconds (UWSettings.AttackChargeStepSeconds; 0 or less takes the default) the
+		/// every pfStepSeconds (combat.player.chargeStepMilliseconds; 0 or less takes the default) the
 		/// weapon's speed is added, capped at 100. A launcher never charges.
 		/// </summary>
 		public void StepCharge(float pfDeltaSeconds, float pfStepSeconds)

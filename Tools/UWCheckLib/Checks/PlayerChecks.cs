@@ -245,7 +245,7 @@ namespace UnderworldRevisited.Tools
             lOVitals.Initialise(null, lOStart);
             UWGameFlags.OrbDestroyed = false;
             UWGameFlags.OrbManaBackup = 18;
-            lOVitals.SetMana(0f, 0f);
+            lOVitals.SetMana(0, 0);
 
             fExpectBool("orb mana: a Mana gain in the lair", lOVitals.TryIncreaseSkill(liManaSkill), true);
             lOVitals.RecomputeMaxima();
@@ -261,7 +261,7 @@ namespace UnderworldRevisited.Tools
 
             // Leaving the lair: the maximum from the backup, a quarter of it as current mana.
             lOHost.DungeonLevelIndex = UWTybalOrbRules.LairLevelIndex;
-            lOVitals.SetMana(0f, 0f);
+            lOVitals.SetMana(0, 0);
             UWGameFlags.OrbManaBackup = 17;
             UWTybalOrbRules.OnLevelChange(lOVitals, UWTybalOrbRules.LairLevelIndex, UWTybalOrbRules.LairLevelIndex - 1);
             fExpectInt("orb mana: leaving the lair, the maximum back", (int)lOVitals.MaxMana, 17);

@@ -82,24 +82,49 @@ namespace UWDataImport.UWData
 			new Row { Id = 274, Tiles = 2.5f, Brightness = 0.6f,  Flicker = 0f,    Shadows = false, OpenFire = false, Glow = 1f,                 PaletteLightLevel = 2f }, // orb stone
 		};
 
+		/// <summary>
+		/// THE TABLE AS A RULE (lights.sources.*, cleanup phase 10, wave 2, 2026-10-26): which
+		/// object a row is, its palette light level and whether it is open fire come from the rule
+		/// set, row by row in this order; these three columns of msRows are their defaults. The
+		/// Remastered columns stay the row's own.
+		/// </summary>
+		internal static readonly int[] OriginalIds = fColumn(lORow => lORow.Id);
+
+		internal static readonly int[] OriginalPaletteLightLevels = fColumn(lORow => (int)lORow.PaletteLightLevel);
+
+		internal static readonly int[] OriginalOpenFire = fColumn(lORow => lORow.OpenFire ? 1 : 0);
+
+		private static int[] fColumn(System.Func<Row, int> pFValue)
+		{
+			int[] liColumn = new int[msRows.Length];
+
+			for (int liAt = 0; liAt < msRows.Length; liAt++)
+				liColumn[liAt] = pFValue(msRows[liAt]);
+
+			return liColumn;
+		}
+
 		public static int Count
 		{
 			get { return msRows.Length; }
 		}
 
-		/// <summary>The rows in table order (for the self-check and a dump).</summary>
+		/// <summary>The rows in table order (for the self-check and a dump), with the rule set's
+		/// columns.</summary>
 		public static Row GetRow(int piIndex)
 		{
-			return msRows[piIndex];
+			return fWithRules(piIndex, UWRules.Current.Lights.Sources);
 		}
 
 		public static bool TryGet(int piId, out Row pORow)
 		{
+			UWRulesLights.SourceRules lORules = UWRules.Current.Lights.Sources;
+
 			for (int liAt = 0; liAt < msRows.Length; liAt++)
 			{
-				if (msRows[liAt].Id == piId)
+				if (lORules.Ids[liAt] == piId)
 				{
-					pORow = msRows[liAt];
+					pORow = fWithRules(liAt, lORules);
 					return true;
 				}
 			}
@@ -107,6 +132,17 @@ namespace UWDataImport.UWData
 			pORow = default(Row);
 
 			return false;
+		}
+
+		private static Row fWithRules(int piIndex, UWRulesLights.SourceRules pORules)
+		{
+			Row lORow = msRows[piIndex];
+
+			lORow.Id = pORules.Ids[piIndex];
+			lORow.PaletteLightLevel = pORules.PaletteLightLevel[piIndex];
+			lORow.OpenFire = pORules.OpenFire[piIndex] != 0;
+
+			return lORow;
 		}
 
 		/// <summary>Whether a world object is one of the glowing things: it lights in Remastered,

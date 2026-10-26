@@ -102,6 +102,8 @@ namespace UWDataImport.UWData
 		private readonly DataImport mOData;
 		private readonly UWNpc mONpc;
 		private readonly IUWConversationHost mIHost;
+		/// <summary>The game the barter runs in: its rule set (trade.*) and random source.</summary>
+		private readonly UWGameSession mOGame;
 		private readonly Action<int> mOSay;
 		private readonly Action<string> mOPlayerSay;
 		private readonly Func<string, int> mORegisterString;
@@ -137,11 +139,12 @@ namespace UWDataImport.UWData
 		private UWConversationVM mOVm;
 
 		public UWConversationTrade(DataImport pOData, UWNpc pONpc, IUWConversationHost pIHost,
-			Action<int> pOSay, Action<string> pOPlayerSay, Func<string, int> pORegisterString)
+			Action<int> pOSay, Action<string> pOPlayerSay, Func<string, int> pORegisterString, UWGameSession pOGame)
 		{
 			mOData = pOData;
 			mONpc = pONpc;
 			mIHost = pIHost;
+			mOGame = pOGame;
 			mOSay = pOSay;
 			mOPlayerSay = pOPlayerSay;
 			mORegisterString = pORegisterString;
@@ -163,10 +166,45 @@ namespace UWDataImport.UWData
 
 			int liCharm = mIHost != null && mIHost.HasPlayer ? mIHost.GetPlayerSkill(UWPlayerData.Skill.Charm) : 0;
 
-			miThreshold = fRandomOffset((mbHasStats ? mOStats.TradeThreshold : 0) * 6, -25, 25) - 2 * liCharm;
-			miPatience = fRandomOffset(mbHasStats ? mOStats.TradePatience : 0, -20, 100) + liCharm / 2;
-			miAccuracy = fRandomOffset((15 - (mbHasStats ? mOStats.TradeAppraisal : 0)) * 6, -25, 50);
+			// The barter's numbers are the rule set's (trade.*, cleanup phase 10); the consts below
+			// are their defaults.
+			UWRulesTrade lORules = mOGame.Rules.Trade;
+
+			miThreshold = fRandomOffset((mbHasStats ? mOStats.TradeThreshold : 0) * lORules.Threshold.PerPoint,
+				lORules.Threshold.NoiseLow, lORules.Threshold.NoiseHigh) - lORules.Threshold.CharmFactor * liCharm;
+			miPatience = fRandomOffset(mbHasStats ? mOStats.TradePatience : 0, lORules.Patience.NoiseLow, lORules.Patience.NoiseHigh)
+				+ liCharm / lORules.Patience.CharmDivisor;
+			miAccuracy = fRandomOffset((lORules.Appraisal.Base - (mbHasStats ? mOStats.TradeAppraisal : 0)) * lORules.Appraisal.PerPoint,
+				lORules.Appraisal.NoiseLow, lORules.Appraisal.NoiseHigh);
 		}
+
+		/// <summary>The partner's rolls at the barter's start (SetupToBarter_ovr095_0, read
+		/// 2026-09-25): the threshold is his row's value times six, moved by -25 to +25 percent,
+		/// less twice the player's Charm.</summary>
+		internal const int ThresholdPerPoint = 6;
+
+		internal const int ThresholdNoiseLow = -25;
+
+		internal const int ThresholdNoiseHigh = 25;
+
+		internal const int ThresholdCharmFactor = 2;
+
+		/// <summary>... the patience his row's value moved by -20 to +100 percent, plus Charm / 2 ...</summary>
+		internal const int PatienceNoiseLow = -20;
+
+		internal const int PatienceNoiseHigh = 100;
+
+		internal const int PatienceCharmDivisor = 2;
+
+		/// <summary>... and the appraisal's error (15 - his row's value) times six percent, moved by
+		/// -25 to +50 percent.</summary>
+		internal const int AppraisalBase = 15;
+
+		internal const int AppraisalPerPoint = 6;
+
+		internal const int AppraisalNoiseLow = -25;
+
+		internal const int AppraisalNoiseHigh = 50;
 
 		/// <summary>Reference Rng.RandomOffset: the base value shifted by a percentage from the
 		/// range.</summary>
@@ -610,7 +648,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>setup_to_barter looks at this many items of the partner's chain at most (BARTER.C,
 		/// count++ &lt; 0x28).</summary>
-		private const int BarterLookLimit = 0x28;
+		internal const int BarterLookLimit = 0x28;
 
 		/// <summary>
 		/// setup_to_barter (UnderworldExhumed BARTER.C, read again 2026-10-15): the partner lays out
@@ -642,6 +680,7 @@ namespace UWDataImport.UWData
 			if (lOInventory == null)
 				return;
 
+			UWRulesTrade.LayoutRules lORules = mOGame.Rules.Trade.Layout;
 			bool lbSkippedMinorZero = false;
 			bool lbAllFilled = false;
 			int liSlot = 0;
@@ -649,7 +688,7 @@ namespace UWDataImport.UWData
 			UWObject lOFirstGivenBack = null;
 			UWObject lOItem = lOInventory.Count > 0 ? lOInventory[0] : null;
 
-			while (lOItem != null && lOItem != lOFirstGivenBack && liCount++ < BarterLookLimit)
+			while (lOItem != null && lOItem != lOFirstGivenBack && liCount++ < lORules.LookLimit)
 			{
 				int liAt = lOInventory.IndexOf(lOItem);
 				UWObject lONext = liAt >= 0 && liAt + 1 < lOInventory.Count ? lOInventory[liAt + 1] : null;
@@ -658,7 +697,7 @@ namespace UWDataImport.UWData
 				// The session's generator: barter_init has reseeded the original's rand from the
 				// clock before this.
 				if ((lbMinorZero && !lbSkippedMinorZero) || fGetBaseValue(lOItem.ID) == 0
-					|| (lbAllFilled && UWGameSession.Current.Random.Next(BarterOverflowRoll) < BarterOverflowSkipBelow))
+					|| (lbAllFilled && mOGame.Random.Next(lORules.OverflowRoll) < lORules.OverflowSkipBelow))
 				{
 					if (lbMinorZero)
 						lbSkippedMinorZero = true;
@@ -829,12 +868,12 @@ namespace UWDataImport.UWData
 			{
 				case 2:
 					mOSay(liInsulting);
-					miPatience -= 2;
+					miPatience -= mOGame.Rules.Trade.Patience.InsultCost;
 					break;
 
 				case 1:
 					mOSay(liTooLittle);
-					miPatience--;
+					miPatience -= mOGame.Rules.Trade.Patience.TooLittleCost;
 					break;
 			}
 
@@ -842,6 +881,20 @@ namespace UWDataImport.UWData
 
 			return 0;
 		}
+
+		/// <summary>What a bad offer costs of the partner's patience (do_offer_ovr095_110F): two
+		/// for an insulting one, one for a better one that is still too little.</summary>
+		internal const int InsultPatienceCost = 2;
+
+		internal const int TooLittlePatienceCost = 1;
+
+		/// <summary>The scores of a demand (do_demand_ovr095_12BA): the player's Charm / 6 and one
+		/// with the weapon drawn, the partner's goods' value / 10.</summary>
+		internal const int DemandCharmDivisor = 6;
+
+		internal const int DemandWeaponBonus = 1;
+
+		internal const int DemandGoodsDivisor = 10;
 
 		/// <summary>
 		/// do_demand(ifYouInsist, no): the player demands the marked goods.
@@ -872,6 +925,7 @@ namespace UWDataImport.UWData
 
 			int liAttitude = mOVm != null ? mOVm.GetImportedGlobal("npc_attitude") : (mONpc != null ? mONpc.NPCAttitude : 0);
 
+			UWRulesTrade.DemandRules lORules = mOGame.Rules.Trade.Demand;
 			int liPlayerScore = 1;
 
 			if (mIHost != null && mIHost.HasPlayer)
@@ -881,8 +935,8 @@ namespace UWDataImport.UWData
 				if (liMax > 0)
 					liPlayerScore = 2 - (((liMax - mIHost.PlayerHitPoints) << 1) / liMax);
 
-				liPlayerScore += mIHost.PlayerLevel + (mIHost.GetPlayerSkill(UWPlayerData.Skill.Charm) / 6)
-					+ (mIHost.PlayerWeaponDrawn ? 1 : 0);
+				liPlayerScore += mIHost.PlayerLevel + (mIHost.GetPlayerSkill(UWPlayerData.Skill.Charm) / lORules.CharmDivisor)
+					+ (mIHost.PlayerWeaponDrawn ? lORules.WeaponBonus : 0);
 			}
 
 			int liNpcScore = 1;
@@ -893,7 +947,7 @@ namespace UWDataImport.UWData
 			bool lbAlly = mONpc != null && mONpc.NPCIsAlly;
 			int liMood = lbAlly ? -1 : (liAttitude < 2 ? 1 : 0);
 
-			liNpcScore += (fGetSideValue(NpcItems, NpcSelected, false, miAccuracy) / 10)
+			liNpcScore += (fGetSideValue(NpcItems, NpcSelected, false, miAccuracy) / lORules.GoodsDivisor)
 				+ (mbHasStats ? mOStats.ConversationLevel : 0) + liMood;
 
 			if (liPlayerScore > liNpcScore || lbAlly)
@@ -928,7 +982,14 @@ namespace UWDataImport.UWData
 		/// <summary>The verdict thresholds of do_judgement, best first: verdict n when the evaluation
 		/// lies above entry n, the ninth below them all. Until 2026-10-14 an if-chain in fDoJudgement.
 		/// </summary>
-		private static readonly int[] miJudgementVerdictAbove = { 50, 35, 25, 10, -10, -25, -35, -50 };
+		internal static readonly int[] miJudgementVerdictAbove = { 50, 35, 25, 10, -10, -25, -35, -50 };
+
+		/// <summary>The player's appraisal's error (do_judgement): 50 - Appraise * 45 / 30 percent.</summary>
+		internal const int JudgementAccuracyBase = 50;
+
+		internal const int JudgementAppraiseNumerator = 45;
+
+		internal const int JudgementAppraiseDenominator = 30;
 
 		/// <summary>
 		/// do_judgement: the player appraises the deal according to his appraisal skill - "...I
@@ -937,7 +998,9 @@ namespace UWDataImport.UWData
 		private void fDoJudgement()
 		{
 			int liAppraise = mIHost != null && mIHost.HasPlayer ? mIHost.GetPlayerSkill(UWPlayerData.Skill.Appraise) : 0;
-			int liAccuracy = 50 - ((liAppraise * 45) / 30);
+			UWRulesTrade.JudgementRules lORules = mOGame.Rules.Trade.Judgement;
+			int[] liVerdictAbove = lORules.VerdictAbove;
+			int liAccuracy = lORules.AccuracyBase - ((liAppraise * lORules.AppraiseNumerator) / lORules.AppraiseDenominator);
 
 			int liPlayerValue = fGetSideValue(PlayerItems, PlayerSelected, false, liAccuracy);
 			int liNpcValue = fGetSideValue(NpcItems, NpcSelected, false, liAccuracy);
@@ -948,11 +1011,11 @@ namespace UWDataImport.UWData
 
 			// The first threshold the evaluation lies above names the verdict; below them all it is
 			// the last one.
-			int liVerdict = miJudgementVerdictAbove.Length;
+			int liVerdict = liVerdictAbove.Length;
 
-			for (int liAt = 0; liAt < miJudgementVerdictAbove.Length; liAt++)
+			for (int liAt = 0; liAt < liVerdictAbove.Length; liAt++)
 			{
-				if (liEvaluation > miJudgementVerdictAbove[liAt])
+				if (liEvaluation > liVerdictAbove[liAt])
 				{
 					liVerdict = liAt;
 					break;
@@ -1721,9 +1784,11 @@ namespace UWDataImport.UWData
 
 						// Each piece takes a static slot (DropNPCLoot_ovr150_516 through
 						// GetFreeObject), so what the player splits off afterwards gets the
-						// next one - see UWCarriedSlots.
-						if (UWCarriedSlots.Level != null)
-							lOItem.SlotIndex = UWCarriedSlots.Level.TakeStaticSlot();
+						// next one - see UWCarriedSlots (the level is the game's, World.CurrentLevel).
+						UWLevel lOCarriedLevel = mOGame.World.CurrentLevel;
+
+						if (lOCarriedLevel != null)
+							lOItem.SlotIndex = lOCarriedLevel.TakeStaticSlot();
 
 						lOLoot.Add(lOItem);
 					}

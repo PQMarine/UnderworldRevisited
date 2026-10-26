@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE HUD ART'S BY-EYE THRESHOLDS (cleanup 9.10, 2026-10-25, CLEANUP-PLAN 8.4): the limits

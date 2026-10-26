@@ -64,5 +64,13 @@ namespace UWDataImport.UWData
 		public const int VoidTileX = 0x1B;
 
 		public const int VoidTileY = 0x17;
+
+		// ------------------------------------------------- Level 1: the start
+
+		/// <summary>Where a new character starts - the middle of the starting room on level 1
+		/// (UWPlayerData.NewCharacter).</summary>
+		public const int StartTileX = 32;
+
+		public const int StartTileY = 2;
 	}
 }

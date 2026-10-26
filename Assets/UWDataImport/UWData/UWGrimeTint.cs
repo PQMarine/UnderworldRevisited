@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE COLOUR OF THE PALETTE RENDERER'S GRIME (per user, 2026-10-07: "Ja, bau Farben fuer Grime

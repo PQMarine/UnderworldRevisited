@@ -85,8 +85,25 @@ detail levels, the classic screen at 4:3 or widened to the screen ("Classic scre
 widescreen"), the view angle ("View"), and the world at the original's resolution or a
 multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
 effects of the port's own to the original's palette look (presets Subtle and Full) - use
-them with care, turned up they quickly take away the look of the original; "Very
-high - own effects..." sets every effect of the Remastered mode.
+them with care, turned up they quickly take away the look of the original; "Remastered
+effects..." beside it sets every effect of the Remastered mode (the level then shows Custom).
+Colours has the colour help and the look of these windows: Stone, in the colours of the
+game's icon, with a gradient or clouds, or Plain.
+
+RULES
+-----
+
+The game's numbers can be changed without touching the program: put a file rules.json beside
+settings.json (Windows: %USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld
+Revisited, Linux: ~/.config/unity3d/Underworld Revisited/Underworld Revisited) with only the
+lines you want to change, for example
+
+    { "magic.manaPerCircle": 2, "quirks.litTaperStaysLit": false }
+
+Docs/rules-template.jsonc lists every key with the original's value and a line on what it
+does. The file is read when a game starts or is loaded; a key the game does not know or a value
+out of range is reported in the debug display (Shift+F1) and skipped. Without the file the game
+plays as the original.
 
 
 MUSIC

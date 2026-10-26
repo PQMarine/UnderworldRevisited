@@ -33,10 +33,11 @@ public static class UWEndgame
     public const int GaramonBuriedGrave = UWEndgameRules.GaramonBuriedGrave;
 
     /// <summary>The tile whose first object fires as a trigger after the burial - on
-    /// level 5 an a_move trigger (UW.EXE: GetTile(0x36, 0x34)).</summary>
-    private const int BurialTriggerTileX = UWEndgameRules.BurialTriggerTileX;
+    /// level 5 an a_move trigger (UW.EXE: GetTile(0x36, 0x34)); the rule set's
+    /// story.burialTrigger (cleanup phase 10), UWQuestPlaces' consts by default.</summary>
+    private static int BurialTriggerTileX => UWRules.Current.Story.BurialTrigger.TileX;
 
-    private const int BurialTriggerTileY = UWEndgameRules.BurialTriggerTileY;
+    private static int BurialTriggerTileY => UWRules.Current.Story.BurialTrigger.TileY;
 
     /// <summary>Conversation with Garamon's ghost.</summary>
     private const int GaramonConversation = UWEndgameRules.GaramonConversation;
@@ -56,8 +57,9 @@ public static class UWEndgame
 
     /// <summary>Destination in the void: level 9 (zero-based), tile 27/23 (UWEndgameRules.VoidTileX
     /// and VoidTileY). The volcano centre where the moongate appears, the gate's link and the
-    /// flight's steps live in UWEndgameSequence and UWMoongateFlight since 2026-10-17.</summary>
-    public const int VoidLevelIndex = UWEndgameRules.VoidLevelIndex;
+    /// flight's steps live in UWEndgameSequence and UWMoongateFlight since 2026-10-17. The rule
+    /// set's levels.void since cleanup phase 10 (UWLevelIds.Void by default).</summary>
+    public static int VoidLevelIndex => UWRules.Current.Levels.Void;
 
     /// <summary>
     /// Does no spell work here? UW.EXE CastSpells_seg038_3307_78 aborts when the tile carries
@@ -242,7 +244,7 @@ public static class UWEndgame
             return false;
 
         UWCharacter lOCharacter = UWScene.Character;
-        bool lbAlive = lOCharacter == null || lOCharacter.Vitals.CurrentHP > 0f;
+        bool lbAlive = lOCharacter == null || lOCharacter.Vitals.CurrentHP > 0;
         int liRemaining;
 
         UWEndgameRules.TalismanOutcome leOutcome = UWEndgameRules.DropTalismanInLava(pOObject.ID,

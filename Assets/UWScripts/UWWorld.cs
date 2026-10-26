@@ -63,6 +63,10 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
 
     public DataImport Data => Loader != null ? Loader.UWDataImporter : null;
 
+    /// <summary>The game's session - the one UWLevelLoader made current when it loaded the data;
+    /// the one read of UWGameSession.Current for every rule that holds the world.</summary>
+    public UWGameSession Session => UWGameSession.Current;
+
     public UWLevel Level => Loader != null ? Loader.CurrentLevel : null;
 
     public int LevelIndex => Loader != null ? Loader.CurrentLevelIndex : 0;

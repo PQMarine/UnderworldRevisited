@@ -103,7 +103,8 @@ public class UWConversationController : MonoBehaviour
         mOData = pOData;
         // The session is engine-free; UWConversationHost hands it the player, the world and
         // the inventory from the scene (P3 of the engine separation, 2026-09-18).
-        UWConversationSession lOSession = new UWConversationSession(pOData, pONpc, piSlot, new UWConversationHost());
+        UWConversationSession lOSession = new UWConversationSession(pOData, pONpc, piSlot, new UWConversationHost(),
+            UWGameSession.Current);
 
         if (lOSession.IsFinished && lOSession.Lines.Count == 0)
         {

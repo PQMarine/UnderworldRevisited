@@ -108,6 +108,12 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   save game, spells, mantras and the game's manual
 - A modern readable font, and dealing the attribute points at character creation yourself
   instead of rolling them - each of these additions optional
+- Two looks for the game's own windows: Stone, in the colours of the game's icon (the default),
+  and the plain one
+- The rule set: an optional `rules.json` beside the settings changes the game's numbers -
+  combat, magic, creatures, motion, trade and more, and the original's quirks as switches.
+  `Docs/rules-template.jsonc` in the release package (or `uwdump rules-template`) lists every
+  key with its default and meaning; without the file the game plays as the original
 
 ## Requirements
 

@@ -45,7 +45,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Tybal's lair, level 7 - zero-based, as the port counts levels.</summary>
-		public const int LairLevelIndex = 6;
+		public const int LairLevelIndex = UWLevelIds.Lair;
 
 		/// <summary>
 		/// WHERE A NEW MAXIMUM MANA GOES (ovr143_95, read 2026-10-01; per user: on level 7 a
@@ -58,17 +58,25 @@ namespace UWDataImport.UWData
 		/// UW.EXE tests the level only, not the orb's bit: with the orb broken a gain on level 7
 		/// would vanish into the backup until the next recomputation elsewhere. Ours keeps it
 		/// aside only while the orb stands - a deliberate deviation (per user, 2026-10-02:
-		/// "looks like a bug"; Todo.md section 8).
+		/// "looks like a bug"; Todo.md section 8). A DEVIATION SWITCH
+		/// (deviations.orbManaAsideOnlyWhileOrbStands, ManaAsideOnlyWhileOrbStands): off, the level
+		/// alone decides, as UW.EXE does.
 		/// </summary>
 		public static bool KeepsMaxManaAside(int piLevelIndex)
 		{
-			return OrbStands(piLevelIndex);
+			return UWRules.Current.Deviations.OrbManaAsideOnlyWhileOrbStands
+				? OrbStands(piLevelIndex)
+				: piLevelIndex == UWRules.Current.Levels.Lair;
 		}
+
+		/// <summary>Our deviation is on by default (the rule set's
+		/// deviations.orbManaAsideOnlyWhileOrbStands).</summary>
+		public const bool ManaAsideOnlyWhileOrbStands = true;
 
 		/// <summary>Does the orb still stand, and is this its level? For Tybal's rule.</summary>
 		public static bool OrbStands(int piLevelIndex)
 		{
-			return piLevelIndex == LairLevelIndex && !UWGameFlags.OrbDestroyed;
+			return piLevelIndex == UWRules.Current.Levels.Lair && !UWGameFlags.OrbDestroyed;
 		}
 
 		/// <summary>
@@ -80,13 +88,15 @@ namespace UWDataImport.UWData
 			if (pOVitals == null || UWGameFlags.OrbDestroyed || piFromIndex == piToIndex)
 				return;
 
-			if (piFromIndex == LairLevelIndex)
+			int liLair = UWRules.Current.Levels.Lair;
+
+			if (piFromIndex == liLair)
 				pOVitals.SetMana(UWGameFlags.OrbManaBackup, ManaOnLeavingLair(UWGameFlags.OrbManaBackup));
 
-			if (piToIndex == LairLevelIndex)
+			if (piToIndex == liLair)
 			{
-				UWGameFlags.OrbManaBackup = (int)pOVitals.MaxMana;
-				pOVitals.SetMana(0f, 0f);
+				UWGameFlags.OrbManaBackup = pOVitals.MaxMana;
+				pOVitals.SetMana(0, 0);
 			}
 		}
 

@@ -1267,14 +1267,19 @@ namespace UWDataImport.UWData
 		/// only the lit classes 4 to 6, the lantern, the torch and the candle (UnderworldExhumed
 		/// MISSILE.C and OBJPHYS.C, read 2026-10-11; the Exhumed audit's row 10), so a lit taper
 		/// stays lit on the ground. Until 2026-10-11 ours put it out as well. The inventory's rule
-		/// (lit only in a hand) stays Extinguish's.
+		/// (lit only in a hand) stays Extinguish's. A QUIRK SWITCH (quirks.litTaperStaysLit,
+		/// LitTaperStaysLit): off, the taper goes out like the others.
 		/// </summary>
 		public static bool ExtinguishInWorld(UWObject pOItem, UWTextures pOTextures)
 		{
-			if (pOItem == null || pOItem.ID == LitTaperObjectId)
+			if (pOItem == null || (pOItem.ID == LitTaperObjectId && UWRules.Current.Quirks.LitTaperStaysLit))
 				return false;
 
 			return Extinguish(pOItem, pOTextures);
 		}
+
+		/// <summary>The original's lit taper on the ground, kept by default (the rule set's
+		/// quirks.litTaperStaysLit).</summary>
+		public const bool LitTaperStaysLit = true;
 	}
 }

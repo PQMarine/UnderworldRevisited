@@ -193,9 +193,9 @@ public static class UWAudioService
     /// <summary>The player was hit: if still doing well, the undecided combat theme,
     /// otherwise the losing one (reference: damage.cs), the winning one when his own missile hit
     /// him (pbByPlayer, UWMusicSelector.PlayerHurtTheme).</summary>
-    public static void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth, bool pbByPlayer)
+    public static void OnPlayerDamaged(int piCurrentHealth, int piMaxHealth, bool pbByPlayer)
     {
-        msOSelector.OnPlayerDamaged(pfCurrentHealth, pfMaxHealth, Time.time, pbByPlayer);
+        msOSelector.OnPlayerDamaged(piCurrentHealth, piMaxHealth, Time.time, pbByPlayer);
     }
 
     /// <summary>Every frame, from UWAudioMixer.Update: reconcile the request with what is

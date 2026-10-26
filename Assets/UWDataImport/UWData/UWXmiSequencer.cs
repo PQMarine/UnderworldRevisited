@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// Plays an XMI sequence: sends the events to the sound driver

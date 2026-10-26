@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE HUD ART'S HAND-MADE MASKS with the places they lie on (cleanup 9.9, 2026-10-25,

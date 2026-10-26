@@ -69,7 +69,7 @@ namespace UWDataImport.UWData
 		/// UseDistance with the same 0x90).</summary>
 		public static int GetPickupDistanceSquared(bool pbHasTelekinesis)
 		{
-			return pbHasTelekinesis ? UnlimitedDistance : UseDistanceSquared;
+			return pbHasTelekinesis ? UnlimitedDistance : UWRules.Current.Inventory.Reach.UseDistanceSquared;
 		}
 
 		/// <summary>A position in eighths of a tile, the unit this check counts in.</summary>
@@ -82,10 +82,14 @@ namespace UWDataImport.UWData
 		/// the original, which asks for the pole first.</summary>
 		public static int GetDistanceSquared(bool pbUsingPole, bool pbHasTelekinesis)
 		{
-			if (pbUsingPole)
-				return PoleDistanceSquared;
+			// The reach is the rule set's (inventory.reach.*, cleanup phase 10); the consts above are
+			// its defaults.
+			UWRulesInventory.ReachRules lORules = UWRules.Current.Inventory.Reach;
 
-			return pbHasTelekinesis ? UnlimitedDistance : UseDistanceSquared;
+			if (pbUsingPole)
+				return lORules.PoleDistanceSquared;
+
+			return pbHasTelekinesis ? UnlimitedDistance : lORules.UseDistanceSquared;
 		}
 
 		/// <summary>
@@ -113,8 +117,9 @@ namespace UWDataImport.UWData
 
 			// The pole doubles the window, as it doubles the distance.
 			int liFactor = pbUsingPole ? 2 : 1;
+			UWRulesInventory.ReachRules lORules = UWRules.Current.Inventory.Reach;
 
-			return liHeight <= liFactor * ReachBelow && liHeight >= -(liFactor * ReachAbove);
+			return liHeight <= liFactor * lORules.Below && liHeight >= -(liFactor * lORules.Above);
 		}
 
 		/// <summary>
@@ -143,6 +148,7 @@ namespace UWDataImport.UWData
 				return false;
 
 			int liPlayerTerrain = pFTerrain(piPlayerTileX, piPlayerTileY);
+			int liUseDistanceSquared = UWRules.Current.Inventory.Reach.UseDistanceSquared;
 			int liStepX = System.Math.Sign(piTargetTileX - piPlayerTileX);
 			int liStepY = System.Math.Sign(piTargetTileY - piPlayerTileY);
 			int liFactor = pbUsingPole ? 2 : 1;
@@ -171,7 +177,7 @@ namespace UWDataImport.UWData
 				int liBridge = pFBridgeZ(liX, liY);
 				bool lbCarried = liBridge >= 0 && liBridge <= piTargetZ && liBridge >= liPz;
 
-				if (!lbCarried && (liPz >> 3) > pFFloorHeight(liX, liY) && piDistanceSquared == UseDistanceSquared)
+				if (!lbCarried && (liPz >> 3) > pFFloorHeight(liX, liY) && piDistanceSquared == liUseDistanceSquared)
 					return true;
 
 				if (liX == piTargetTileX && liY == piTargetTileY)
@@ -179,7 +185,7 @@ namespace UWDataImport.UWData
 
 				int liTerrain = pFTerrain(liX, liY);
 
-				if (piDistanceSquared <= UseDistanceSquared && !lbCarried && liTerrain != 0 && liTerrain != liPlayerTerrain)
+				if (piDistanceSquared <= liUseDistanceSquared && !lbCarried && liTerrain != 0 && liTerrain != liPlayerTerrain)
 					return true;
 			}
 		}

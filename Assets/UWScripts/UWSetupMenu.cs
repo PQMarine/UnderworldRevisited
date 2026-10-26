@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnderworldRevisited;
 using UWDataImport;
+using UWDataImport.Install;
 using UWDataImport.UWData;
 
 /// <summary>

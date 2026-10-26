@@ -106,11 +106,16 @@ namespace UWDataImport.UWData
 
 		public const int FlySpeed = 0x8D;
 
+		/// <summary>The jump's gravity per tick: -4, -2 under Leap (fJump).</summary>
+		public const int JumpGravity = -4;
+
+		public const int LeapGravity = -2;
+
 		/// <summary>MotionWeightRelated_C8 when carrying no more than half the capacity.</summary>
 		public const int FullMotionWeight = 0x60;
 
 		/// <summary>dseg_D4: the speed ratio in tenths per state.</summary>
-		private static readonly int[] SpeedRatio = { 10, 3, 5, 10, 1, 7, 2 };
+		internal static readonly int[] SpeedRatio = { 10, 3, 5, 10, 1, 7, 2 };
 
 		/// <summary>dseg_DB: the low bits of PD[0xB8] per state (swim 1, lava 2, levitate and fly
 		/// 8, slow fall and normal 0).</summary>
@@ -165,15 +170,15 @@ namespace UWDataImport.UWData
 		public int MaxWeight;
 
 		/// <summary>PlayerActualForwardSpeed_2496, SlideSpeed_2498, BackwardsSpeed_249A: the base
-		/// speeds scaled by the state.</summary>
-		public int ForwardSpeed = BaseForwardSpeed;
+		/// speeds scaled by the state; at first the rule set's (set in the constructor).</summary>
+		public int ForwardSpeed;
 
-		public int SlideSpeed = BaseSlideSpeed;
+		public int SlideSpeed;
 
-		public int BackSpeed = BaseBackSpeed;
+		public int BackSpeed;
 
 		/// <summary>MotionWeightRelated_C8: the speed change one frame may make.</summary>
-		public int MotionWeight = FullMotionWeight;
+		public int MotionWeight;
 
 		/// <summary>PD[0xB6] bits 0-2.</summary>
 		public State CurrentState { get; private set; }
@@ -282,7 +287,7 @@ namespace UWDataImport.UWData
 			if (Params.FineTicks)
 			{
 				double ldExact = (MotionWeight * fFrameTicks() / RampFrameTicks) + mdRampCarry;
-				int liWhole = (int)System.Math.Floor(ldExact);
+				int liWhole = UWRounding.Floor(ldExact);
 
 				mdRampCarry = ldExact - liWhole;
 
@@ -300,7 +305,7 @@ namespace UWDataImport.UWData
 			if (!Params.Precise)
 				return piPerOriginalFrame;
 
-			int liScaled = (int)(piPerOriginalFrame * fFrameTicks() / OriginalFrameTicks);
+			int liScaled = UWRounding.Truncate(piPerOriginalFrame * fFrameTicks() / OriginalFrameTicks);
 
 			return liScaled < 1 ? 1 : liScaled;
 		}
@@ -310,11 +315,11 @@ namespace UWDataImport.UWData
 		private int fDecay(int piValue, double pdFactorPerOriginalFrame)
 		{
 			if (!Params.Precise)
-				return (int)(piValue * pdFactorPerOriginalFrame);
+				return UWRounding.Truncate(piValue * pdFactorPerOriginalFrame);
 
 			double ldFactor = System.Math.Pow(pdFactorPerOriginalFrame, fFrameTicks() / OriginalFrameTicks);
 
-			return (int)System.Math.Round(piValue * ldFactor);
+			return UWRounding.HalfToEven(piValue * ldFactor);
 		}
 
 		// ------------------------------------------------- The input of the frame
@@ -381,6 +386,15 @@ namespace UWDataImport.UWData
 
 		public UWPlayerMotion(IUWMotionWorld pOWorld, UWCommonObjectProperties pOProperties)
 		{
+			// The speeds start at the rule set's of the world's session (motion.*, cleanup phase 10;
+			// field initialisers reading UWRules.Current until wave 4).
+			UWRulesMotion lORules = pOWorld.Session.Rules.Motion;
+
+			ForwardSpeed = lORules.Speed.Forward;
+			SlideSpeed = lORules.Speed.Slide;
+			BackSpeed = lORules.Speed.Back;
+			MotionWeight = lORules.MotionWeight;
+
 			mOWorld = pOWorld;
 			Core = new UWMotionCore(pOWorld, pOProperties);
 			Params = new UWMotionParams { Index = 1, Step = 8, Elasticity = 5, Style = UWMotionParams.SlideStyle };
@@ -551,10 +565,12 @@ namespace UWDataImport.UWData
 		/// and shifted back.</summary>
 		private int fTurn(int piDt)
 		{
-			if (Params.FineTicks)
-				return (int)((((long)piDt * TurnStep * (TurnInput / 4)) / 4) >> 8);
+			int liTurnStep = mOWorld.Session.Rules.Motion.TurnStep;
 
-			return I16(I16(I16(piDt * TurnStep) * (TurnInput / 4)) / 4);
+			if (Params.FineTicks)
+				return (int)((((long)piDt * liTurnStep * (TurnInput / 4)) / 4) >> 8);
+
+			return I16(I16(I16(piDt * liTurnStep) * (TurnInput / 4)) / 4);
 		}
 
 		/// <summary>
@@ -639,13 +655,13 @@ namespace UWDataImport.UWData
 
 				case Command.FlyUp:
 					Side = 0;
-					p.Vz = FlySpeed;
+					p.Vz = mOWorld.Session.Rules.Motion.Speed.Fly;
 					p.Gravity = 0;
 					break;
 
 				case Command.FlyDown:
 					Side = 0;
-					p.Vz = -FlySpeed;
+					p.Vz = -mOWorld.Session.Rules.Motion.Speed.Fly;
 					p.Gravity = 0;
 					break;
 			}
@@ -685,8 +701,9 @@ namespace UWDataImport.UWData
 		private void fJump()
 		{
 			UWMotionParams p = Params;
+			UWRulesMotion.JumpRules lORules = mOWorld.Session.Rules.Motion.Jump;
 
-			p.Vz = JumpSpeed;
+			p.Vz = lORules.Speed;
 
 			if (p.Z > 0x280)
 			{
@@ -696,7 +713,7 @@ namespace UWDataImport.UWData
 					p.Vz = I16(p.Vz << 1) / 3;
 			}
 
-			p.Gravity = (Abilities & AbilityLeap) != 0 ? -2 : -4;
+			p.Gravity = (Abilities & AbilityLeap) != 0 ? lORules.LeapGravity : lORules.Gravity;
 
 			// The precision mode integrates the arc continuously; without the half frame of
 			// gravity the original never adds at the take-off, the apex stays the original's.
@@ -782,17 +799,18 @@ namespace UWDataImport.UWData
 
 			if (p.Impact != 0 && p.Elasticity > 0)
 			{
+				UWRulesMotion.ImpactRules lORules = mOWorld.Session.Rules.Motion.Impact;
 				int liValue = (p.Impact & 0xFFFF) >> 8;
 
 				if (p.Vz != 0)
 					liValue <<= 1;
 
-				if (UWSkillCheck.IsSuccess(UWSkillCheck.Check(AcrobatSkill, liValue * 2)))
-					liValue = I16(liValue * (30 - AcrobatSkill)) / 30;
+				if (UWSkillCheck.IsSuccess(UWSkillCheck.Check(AcrobatSkill, liValue * lORules.AcrobatCheckFactor)))
+					liValue = I16(liValue * (lORules.AcrobatFull - AcrobatSkill)) / lORules.AcrobatFull;
 
 				Last.ImpactValue = liValue;
 
-				if (liValue > 3)
+				if (liValue > lORules.DamageThreshold)
 					Last.FallDamage = liValue;
 
 				if (liValue > 1 || (p.Contact & UWMotionTables.ContactAirborne) != 0)
@@ -907,14 +925,18 @@ namespace UWDataImport.UWData
 			SurfaceBits = SurfaceBitsByState[liState];
 			CurrentState = peState;
 
-			ForwardSpeed = BaseForwardSpeed * SpeedRatio[liState] / 10;
-			SlideSpeed = BaseSlideSpeed * SpeedRatio[liState] / 10;
-			BackSpeed = BaseBackSpeed * SpeedRatio[liState] / 10;
+			// The speeds and the ramp are the rule set's (motion.*, cleanup phase 10).
+			UWRulesMotion lORules = mOWorld.Session.Rules.Motion;
+			int liRatio = lORules.Speed.TenthsByState[liState];
+
+			ForwardSpeed = lORules.Speed.Forward * liRatio / 10;
+			SlideSpeed = lORules.Speed.Slide * liRatio / 10;
+			BackSpeed = lORules.Speed.Back * liRatio / 10;
 
 			if (MaxWeight != 0 && CarriedWeight * 2 > MaxWeight)
-				MotionWeight = FullMotionWeight - ((CarriedWeight * FullMotionWeight) / (MaxWeight * 2));
+				MotionWeight = lORules.MotionWeight - ((CarriedWeight * lORules.MotionWeight) / (MaxWeight * 2));
 			else
-				MotionWeight = FullMotionWeight;
+				MotionWeight = lORules.MotionWeight;
 		}
 
 		/// <summary>seg008_1B2A_D85: the state re-applied (an ability spell ended or began) and the

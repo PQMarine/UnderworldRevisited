@@ -98,23 +98,27 @@ namespace UWDataImport.UWData
 		/// (label 1679).</summary>
 		public static int GetStrongScoreBonus(int piRoll6)
 		{
-			return UWCritterRules.StrongToHitBase + fClampRoll(piRoll6, UWCritterRules.StrongToHitRoll);
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
+			return lORules.Strong.ToHitBase + fClampRoll(piRoll6, lORules.Strong.ToHitRoll);
 		}
 
 		public static int GetStrongScoreBonus()
 		{
-			return GetStrongScoreBonus(UWRandom.Next(UWCritterRules.StrongToHitRoll));
+			return GetStrongScoreBonus(UWRandom.Next(UWRules.Current.Critter.Strong.ToHitRoll));
 		}
 
 		/// <summary>... and 4 + RNG(12) to the damage (label 1679).</summary>
 		public static int GetStrongDamageBonus(int piRoll12)
 		{
-			return UWCritterRules.StrongDamageBase + fClampRoll(piRoll12, UWCritterRules.StrongDamageRoll);
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
+			return lORules.Strong.DamageBase + fClampRoll(piRoll12, lORules.Strong.DamageRoll);
 		}
 
 		public static int GetStrongDamageBonus()
 		{
-			return GetStrongDamageBonus(UWRandom.Next(UWCritterRules.StrongDamageRoll));
+			return GetStrongDamageBonus(UWRandom.Next(UWRules.Current.Critter.Strong.DamageRoll));
 		}
 
 		// ------------------------------------------------- CalculateAttackResults (80688)
@@ -128,13 +132,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int GetHitScore(int piAttackScore, int piFlank, int piProtection, int piDefence, int piRoll31)
 		{
-			return piAttackScore - piProtection + piFlank - piDefence + fClampRoll(piRoll31, UWCritterRules.SkillCheckRoll);
+			return piAttackScore - piProtection + piFlank - piDefence
+				+ fClampRoll(piRoll31, UWRules.Current.Combat.SkillCheck.RollRange);
 		}
 
+		/// <summary>The roll's range is the rule set's (combat.skillCheck.rollRange; UWCritterRules.
+		/// SkillCheckRoll is its default).</summary>
 		public static UWSkillCheck.ResultEnum ResolveHit(int piAttackScore, int piFlank, int piProtection, int piDefence)
 		{
 			return UWSkillCheck.GetResult(GetHitScore(piAttackScore, piFlank, piProtection, piDefence,
-				UWRandom.Next(UWCritterRules.SkillCheckRoll)));
+				UWRandom.Next(UWRules.Current.Combat.SkillCheck.RollRange)));
 		}
 
 		/// <summary>A critical hit multiplies the base damage BEFORE the dice by
@@ -182,7 +189,8 @@ namespace UWDataImport.UWData
 		/// Bounds: D / 6 + (D % 6 &gt; 0 ? 1 : 0) .. D.</summary>
 		public static int RollDamage(int piAttackDamage)
 		{
-			int liBase = piAttackDamage < UWCombat.MinimumBaseDamage ? UWCombat.MinimumBaseDamage : piAttackDamage;
+			int liMinimum = UWRules.Current.Combat.Damage.MinimumBase;
+			int liBase = piAttackDamage < liMinimum ? liMinimum : piAttackDamage;
 
 			return UWCombat.RollDamage(liBase);
 		}
@@ -191,7 +199,8 @@ namespace UWDataImport.UWData
 		/// the self-check and the F1 overlay.</summary>
 		public static void GetDamageBounds(int piAttackDamage, out int piMinimum, out int piMaximum)
 		{
-			int liBase = piAttackDamage < UWCombat.MinimumBaseDamage ? UWCombat.MinimumBaseDamage : piAttackDamage;
+			int liMinimumBase = UWRules.Current.Combat.Damage.MinimumBase;
+			int liBase = piAttackDamage < liMinimumBase ? liMinimumBase : piAttackDamage;
 
 			piMinimum = (liBase / 6) + (liBase % 6 != 0 ? 1 : 0);
 			piMaximum = liBase;
@@ -212,10 +221,12 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int GetCreatureArmour(UWObjectClassProperties.Critter pORow, int piPart, bool pbStrongDefender)
 		{
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
 			int liArmour = pORow.ArmourOfPart(piPart);
 
 			return pbStrongDefender
-				? liArmour * UWCritterRules.StrongArmourNumerator / UWCritterRules.StrongArmourDenominator
+				? liArmour * lORules.Strong.ArmourNumerator / lORules.Strong.ArmourDenominator
 				: liArmour;
 		}
 
@@ -227,11 +238,15 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The easy difficulty (PLAYER.DAT 0xB4 != 0) halves the damage to the player
-		/// (label A28, sar 1) - after the armour, before DamageObject.</summary>
+		/// (label A28, sar 1) - after the armour, before DamageObject. The halving can be switched
+		/// off in the rule set (critter.easyHalvesDamage, cleanup phase 10); the shift stays.</summary>
 		public static int HalveOnEasy(int piDamage, bool pbEasy)
 		{
-			return pbEasy ? piDamage >> 1 : piDamage;
+			return pbEasy && UWRules.Current.Critter.EasyHalvesDamage ? piDamage >> 1 : piDamage;
 		}
+
+		/// <summary>The original halves on easy - the rule's default.</summary>
+		public const bool EasyHalvesDamage = true;
 
 		/// <summary>di = min(3, damage / 4) (labels A15-A25): the screen shake level for the
 		/// player and the start frame of the blood or flash animation.</summary>
@@ -317,7 +332,7 @@ namespace UWDataImport.UWData
 		/// UWAttackResolution.RollMissile).</summary>
 		public static int RollMissileDamage(int piAmmoDamage)
 		{
-			return ScaleByCharge(RollDamage(piAmmoDamage), UWCritterRules.MissileCharge, 0);
+			return ScaleByCharge(RollDamage(piAmmoDamage), UWRules.Current.Critter.Missile.Charge, 0);
 		}
 
 		// ------------------------------------------------- Poison (NPCExecuteAttack 16A4-16EC)
@@ -351,14 +366,16 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int GetKillExperience(int piBase, int piTwoDice, int piStrongRoll)
 		{
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
 			if (piBase <= 0)
 				return 0;
 
-			int liExperience = (UWCritterRules.ExperienceFactor * piBase) + piTwoDice;
+			int liExperience = (UWRules.Current.Experience.Kill.Factor * piBase) + piTwoDice;
 
 			if (piStrongRoll >= 0)
-				liExperience = liExperience * (UWCritterRules.StrongExperienceBase + fClampRoll(piStrongRoll, UWCritterRules.StrongExperienceRoll))
-					/ UWCritterRules.StrongExperienceDivisor;
+				liExperience = liExperience * (lORules.Strong.ExperienceBase + fClampRoll(piStrongRoll, lORules.Strong.ExperienceRoll))
+					/ lORules.Strong.ExperienceDivisor;
 
 			return liExperience;
 		}
@@ -369,7 +386,7 @@ namespace UWDataImport.UWData
 				return 0;
 
 			return GetKillExperience(piBase, UWRandom.RollDice(2, piBase),
-				pbStrong ? UWRandom.Next(UWCritterRules.StrongExperienceRoll) : -1);
+				pbStrong ? UWRandom.Next(UWRules.Current.Critter.Strong.ExperienceRoll) : -1);
 		}
 
 		// ------------------------------------------------- DropNPCRemains (40801)
@@ -385,7 +402,9 @@ namespace UWDataImport.UWData
 		/// RNG(16) &lt; 7 (41019-41024).</summary>
 		public static bool ShouldDropCorpse(int piCorpseIndex, int piRoll16)
 		{
-			return piCorpseIndex > 0 && fClampRoll(piRoll16, UWCritterRules.CorpseRoll) < UWCritterRules.CorpseChance;
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
+			return piCorpseIndex > 0 && fClampRoll(piRoll16, lORules.Corpse.Roll) < lORules.Corpse.Chance;
 		}
 
 		public static int GetCorpseObjectId(int piCorpseIndex)

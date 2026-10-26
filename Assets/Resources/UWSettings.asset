@@ -63,13 +63,11 @@ MonoBehaviour:
   DoorSubTileReference: 3.5
   UseDoorSubTilePosition: 1
   LogAttacks: 1
-  ResistBlowsAddsArmour: 0
   EyesPosition: {x: -22, y: -4}
   EyesSeconds: 4
   EyesFadeSeconds: 0.3
   EyesFramesPerSecond: 8
   HitEffectHeightOffset: 0
-  AttackChargeStepSeconds: 0.072
   AttackConnectFramesFromEnd: 2
   HitEffectHeightVariation: 8
   HitEffectDelaySeconds: 0
@@ -87,14 +85,10 @@ MonoBehaviour:
   ClassicLookSteps: 3
   SwimViewFollowSpeed: 60
   SwimSkillForFullEffect: 15
-  LavaDamageInterval: 0.03125
-  LavaDamageChance: 0.2
-  LavaDamage: 1
   LogExperience: 1
   CritterDiagonalClearance: 22
   CritterRadiusScale: 4
   CritterWallClearance: 16
-  VoidEffectTicksPerSecond: 32
   FlaskFillStepSeconds: 0.25
   MoongateStepSeconds: 0.06666667
   VoidCreatureDriftSpeed: 8

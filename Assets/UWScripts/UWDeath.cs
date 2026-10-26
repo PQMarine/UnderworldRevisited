@@ -87,7 +87,7 @@ public class UWDeath : MonoBehaviour
         mbDeathPending = false;
 
         // Healed in the meantime (the world or a victory held it): no death, as the poll had none.
-        if (mOCharacter.Vitals.CurrentHP > 0f)
+        if (mOCharacter.Vitals.CurrentHP > 0)
             return;
 
         UWDeathRules.Outcome leOutcome = UWDeathRules.Decide(UWQuestFlags.Get(TalismanQuestFlag), UWSilverTree.TreeLevel,
@@ -96,7 +96,7 @@ public class UWDeath : MonoBehaviour
         if (leOutcome == UWDeathRules.Outcome.Spared)
         {
             mOCharacter.Vitals.ApplyConversationValues(mOCharacter.Vitals.Hunger, UWDeathRules.SparedVitality,
-                Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana), mOCharacter.Vitals.Poison);
+                mOCharacter.Vitals.CurrentMana, mOCharacter.Vitals.Poison);
             return;
         }
 
@@ -113,7 +113,7 @@ public class UWDeath : MonoBehaviour
         mOVitals = mOCharacter.Vitals;
         mOVitals.Died += fOnDied;
 
-        if (mOVitals.CurrentHP <= 0f)
+        if (mOVitals.CurrentHP <= 0)
             mbDeathPending = true;
     }
 
@@ -211,8 +211,8 @@ public class UWDeath : MonoBehaviour
     private void fRestore()
     {
         // RNG * 3 / 0x8000: 0 to 2 (UWDeathRules, do_resurrect).
-        int liHp = UWDeathRules.ResurrectionHitPoints(Mathf.RoundToInt(mOCharacter.Vitals.MaxHP));
-        int liMana = UWDeathRules.ResurrectionMana(Mathf.RoundToInt(mOCharacter.Vitals.MaxMana));
+        int liHp = UWDeathRules.ResurrectionHitPoints(mOCharacter.Vitals.MaxHP);
+        int liMana = UWDeathRules.ResurrectionMana(mOCharacter.Vitals.MaxMana);
 
         mOCharacter.Vitals.ApplyConversationValues(mOCharacter.Vitals.Hunger, liHp, liMana, 0);
         mOCharacter.Vitals.EndAllSpells();

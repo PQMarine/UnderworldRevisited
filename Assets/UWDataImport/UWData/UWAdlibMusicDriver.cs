@@ -1,6 +1,6 @@
 using System;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// Plays MIDI events on the OPL2 - what the AdLib driver of the

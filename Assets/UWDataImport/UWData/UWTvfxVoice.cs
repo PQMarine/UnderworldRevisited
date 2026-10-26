@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// One voice of the TVFX effect engine ("time-varying effects") of the Miles AdLib driver.

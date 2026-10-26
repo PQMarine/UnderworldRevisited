@@ -1,6 +1,6 @@
 using System;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>Which version of a piece a device plays: the AdLib one (AW*.XMI) or the MT-32 one
 	/// (UW*.XMI), which General MIDI plays as well.</summary>

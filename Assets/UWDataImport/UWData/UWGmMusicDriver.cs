@@ -1,7 +1,7 @@
 using System;
 using MeltySynth;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The game's MT-32 music (UW*.XMI) on a General MIDI synthesizer: MeltySynth (MIT) with a

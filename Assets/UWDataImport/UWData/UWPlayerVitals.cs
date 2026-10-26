@@ -36,14 +36,14 @@ namespace UWDataImport.UWData
 
 			public int CastingSkill;
 
-			public float FallbackMaxHP;
+			public int FallbackMaxHP;
 
-			public float FallbackMaxMana;
+			public int FallbackMaxMana;
 
 			/// <summary>Hit points at start without a save game, minus one for full.</summary>
-			public float FallbackCurrentHP;
+			public int FallbackCurrentHP;
 
-			public float FallbackCurrentMana;
+			public int FallbackCurrentMana;
 
 			/// <summary>Plays on the easy difficulty whatever the player data says - for the self-check of
 			/// the damage pipeline's halving (cleanup step 4.2, 2026-10-17); false keeps the data's.</summary>
@@ -53,7 +53,7 @@ namespace UWDataImport.UWData
 			{
 				Strength = -1, Dexterity = -1, Intelligence = -1, Attack = -1, Level = -1,
 				ManaSkill = -1, CastingSkill = -1,
-				FallbackMaxHP = 30f, FallbackMaxMana = 20f, FallbackCurrentHP = -1f, FallbackCurrentMana = -1f
+				FallbackMaxHP = 30, FallbackMaxMana = 20, FallbackCurrentHP = -1, FallbackCurrentMana = -1
 			};
 		}
 
@@ -155,13 +155,19 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- Health and mana
 
-		public float MaxHP { get; private set; }
+		// WHOLE NUMBERS, as the original keeps them (cleanup phase 10, wave 3, 2026-10-26): the
+		// current and maximum vitality and mana are bytes in PLAYER.DAT (0x35 to 0x38) and in the
+		// original's player record, and every rule that moves them adds or takes whole points. They
+		// were floats until then, written back through a rounding (half to even) on saving - the
+		// same numbers, as nothing ever made a fraction, but a C++ mirror had to guess why.
 
-		public float CurrentHP { get; private set; }
+		public int MaxHP { get; private set; }
 
-		public float MaxMana { get; private set; }
+		public int CurrentHP { get; private set; }
 
-		public float CurrentMana { get; private set; }
+		public int MaxMana { get; private set; }
+
+		public int CurrentMana { get; private set; }
 
 		// ------------------------------------------------- Attributes
 
@@ -272,8 +278,8 @@ namespace UWDataImport.UWData
 
 			MaxHP = pOStart.FallbackMaxHP;
 			MaxMana = pOStart.FallbackMaxMana;
-			CurrentHP = pOStart.FallbackCurrentHP < 0f ? MaxHP : Math.Min(pOStart.FallbackCurrentHP, MaxHP);
-			CurrentMana = pOStart.FallbackCurrentMana < 0f ? MaxMana : Math.Min(pOStart.FallbackCurrentMana, MaxMana);
+			CurrentHP = pOStart.FallbackCurrentHP < 0 ? MaxHP : Math.Min(pOStart.FallbackCurrentHP, MaxHP);
+			CurrentMana = pOStart.FallbackCurrentMana < 0 ? MaxMana : Math.Min(pOStart.FallbackCurrentMana, MaxMana);
 
 			if (lbLoaded && lOPlayer.MaxVitality > 0)
 			{
@@ -358,28 +364,36 @@ namespace UWDataImport.UWData
 
 		/// <summary>Sets hunger, hit points, mana and poison as a conversation returns them at
 		/// the end (play_hunger, play_hp, play_mana, play_poison - UW.EXE
-		/// RetrieveImportedVariablesAfterConversation). Only changed values are
-		/// written, so that fractional parts are not lost.</summary>
+		/// RetrieveImportedVariablesAfterConversation). Only changed values are written: the
+		/// original writes them back as they are, so an unchanged value above the maximum stays
+		/// (the guard kept a fraction until the vitals became whole numbers in cleanup phase 10;
+		/// with whole numbers it is that plain write-back).
+		///
+		/// NOT CUT TO THE MAXIMUM (2026-10-26, per user, found by cleanup phase 10 wave 3): the
+		/// original stores what the conversation returns into its fields as they are - hunger,
+		/// play_mana and the hit points bytes, poison a 4-bit field (CONVVARS.C, player.h) - so a
+		/// conversation may lift them above the maximum; until then ours clamped each to its
+		/// maximum. Only the field widths remain.</summary>
 		public void ApplyConversationValues(int piHunger, int piHp, int piMana, int piPoison)
 		{
 			if (piHunger != Hunger)
-				Hunger = Math.Clamp(piHunger & 0xFF, 0, FullHunger);
+				Hunger = piHunger & 0xFF;
 
-			bool lbWasAlive = CurrentHP > 0f;
+			bool lbWasAlive = CurrentHP > 0;
 
-			if (piHp != UWUnits.RoundToInt(CurrentHP))
-				CurrentHP = Math.Clamp(piHp & 0xFF, 0f, MaxHP);
+			if (piHp != CurrentHP)
+				CurrentHP = piHp & 0xFF;
 
-			if (piMana != UWUnits.RoundToInt(CurrentMana))
-				CurrentMana = Math.Clamp(piMana & 0xFF, 0f, MaxMana);
+			if (piMana != CurrentMana)
+				CurrentMana = piMana & 0xFF;
 
 			if (piPoison != Poison)
-				Poison = Math.Clamp(piPoison & 0xF, 0, MaxPoison);
+				Poison = piPoison & 0xF;
 
 			fVitalsChanged();
 
 			// A conversation can set the hit points to zero (play_hp): that is a death as well.
-			if (lbWasAlive && CurrentHP <= 0f)
+			if (lbWasAlive && CurrentHP <= 0)
 				Died?.Invoke();
 		}
 
@@ -535,7 +549,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Range of the bonus roll, per attribute - taken from the reference.
 		/// </summary>
-		private static readonly int[] msSkillRollRange = { 0x19, 0x28, 0x0A };
+		internal static readonly int[] msSkillRollRange = { 0x19, 0x28, 0x0A };
 
 		/// <summary>
 		/// Raises a skill by one point, often by more (reference:
@@ -578,7 +592,9 @@ namespace UWDataImport.UWData
 			if (liAttribute != 0 && liAttributeValue / 2 > liValue)
 				liValue++;
 
-			if (liValue < liAttributeValue && UWRandom.Next(msSkillRollRange[liAttribute]) < liAttributeValue - liValue)
+			// The roll's range is the rule set's (experience.skillRaise.chanceRange, cleanup phase 10).
+			if (liValue < liAttributeValue
+				&& UWRandom.Next(UWRules.Current.Experience.SkillRaise.ChanceRange[liAttribute]) < liAttributeValue - liValue)
 				liValue++;
 
 			if (liValue > MaxSkillValue)
@@ -642,10 +658,10 @@ namespace UWDataImport.UWData
 		/// <summary>Sets the maximum and the current mana directly - for Tybal's orb, which
 		/// drains both in its lair and gives them back (UWTybalOrbRules). The current value is
 		/// kept at or below the maximum.</summary>
-		public void SetMana(float pfMaximum, float pfCurrent)
+		public void SetMana(int piMaximum, int piCurrent)
 		{
-			MaxMana = Math.Max(0f, pfMaximum);
-			CurrentMana = Math.Clamp(pfCurrent, 0f, MaxMana);
+			MaxMana = Math.Max(0, piMaximum);
+			CurrentMana = Math.Clamp(piCurrent, 0, MaxMana);
 
 			fVitalsChanged();
 		}
@@ -699,10 +715,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>On a critical success the sip even does some good.</summary>
-		private const int DrinkHealAmount = 2;
+		internal const int DrinkHealAmount = 2;
 
 		/// <summary>Base duration of the shaking after a failed sip.</summary>
-		private const int DrinkShakeBase = 0xA;
+		internal const int DrinkShakeBase = 0xA;
 
 		/// <summary>
 		/// Drinks something intoxicating and reports what came of it.
@@ -729,7 +745,7 @@ namespace UWDataImport.UWData
 
 			if (liCheck >= (int)UWSkillCheck.ResultEnum.CriticalSuccess)
 			{
-				CurrentHP = Math.Min(MaxHP, CurrentHP + DrinkHealAmount);
+				CurrentHP = Math.Min(MaxHP, CurrentHP + UWRules.Current.Vitals.Drink.HealAmount);
 
 				fVitalsChanged();
 
@@ -812,9 +828,12 @@ namespace UWDataImport.UWData
 		/// four, one below thirteen rises by two, a stronger one stays.</summary>
 		public void PoisonFromToadstool()
 		{
-			if (Poison < ToadstoolPoison)
-				Poison = ToadstoolPoison;
-			else if (Poison < ToadstoolPoisonLimit)
+			// The two values are the rule set's (vitals.toadstool.*, cleanup phase 10).
+			UWRulesVitals.ToadstoolRules lORules = UWRules.Current.Vitals.Toadstool;
+
+			if (Poison < lORules.Poison)
+				Poison = lORules.Poison;
+			else if (Poison < lORules.PoisonLimit)
 				Poison += 2;
 			else
 				return;
@@ -822,14 +841,14 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
-		private const int ToadstoolPoison = 4;
+		internal const int ToadstoolPoison = 4;
 
-		private const int ToadstoolPoisonLimit = 0xD;
+		internal const int ToadstoolPoisonLimit = 0xD;
 
 		/// <summary>The shaking after waking from a drink: 10 plus intoxication / 6.</summary>
 		public void ShakeAfterPassingOut()
 		{
-			UnsteadyShakeDue?.Invoke(DrinkShakeBase + (Intoxication / 6));
+			UnsteadyShakeDue?.Invoke(UWRules.Current.Vitals.Drink.ShakeBase + (Intoxication / 6));
 		}
 
 		/// <summary>How much intoxication a night removes: 32 after a full night, 16 after an
@@ -932,20 +951,20 @@ namespace UWDataImport.UWData
 		/// </summary>
 		internal bool TakeDrain(int piAmount)
 		{
-			return fLowerHitPoints(Math.Max(0f, CurrentHP - piAmount));
+			return fLowerHitPoints(Math.Max(0, CurrentHP - piAmount));
 		}
 
 		/// <summary>The one place the damage sets the hit points: never below zero, the flasks told,
 		/// and Died raised when they cross to zero. Returns whether they did.</summary>
-		private bool fLowerHitPoints(float pfHitPoints)
+		private bool fLowerHitPoints(int piHitPoints)
 		{
-			bool lbWasAlive = CurrentHP > 0f;
+			bool lbWasAlive = CurrentHP > 0;
 
-			CurrentHP = pfHitPoints < 0f ? 0f : pfHitPoints;
+			CurrentHP = piHitPoints < 0 ? 0 : piHitPoints;
 
 			fVitalsChanged();
 
-			if (!lbWasAlive || CurrentHP > 0f)
+			if (!lbWasAlive || CurrentHP > 0)
 				return false;
 
 			Died?.Invoke();
@@ -970,8 +989,8 @@ namespace UWDataImport.UWData
 		{
 			CurrentMana -= piAmount;
 
-			if (CurrentMana < 0f)
-				CurrentMana = 0f;
+			if (CurrentMana < 0)
+				CurrentMana = 0;
 
 			fVitalsChanged();
 		}
@@ -1432,15 +1451,18 @@ namespace UWDataImport.UWData
 
 			bool lbChanged = false;
 
-			if ((piBits & UWWornRegeneration.HealthBit) != 0 && CurrentHP < MaxHP && CurrentHP > 0f)
+			// The point is the rule set's (vitals.wornRegeneration.amount, cleanup phase 10).
+			int liAmount = UWRules.Current.Vitals.WornRegeneration.Amount;
+
+			if ((piBits & UWWornRegeneration.HealthBit) != 0 && CurrentHP < MaxHP && CurrentHP > 0)
 			{
-				CurrentHP = Math.Min(MaxHP, CurrentHP + UWWornRegeneration.Amount);
+				CurrentHP = Math.Min(MaxHP, CurrentHP + liAmount);
 				lbChanged = true;
 			}
 
 			if ((piBits & UWWornRegeneration.ManaBit) != 0 && CurrentMana < MaxMana)
 			{
-				CurrentMana = Math.Min(MaxMana, CurrentMana + UWWornRegeneration.Amount);
+				CurrentMana = Math.Min(MaxMana, CurrentMana + liAmount);
 				lbChanged = true;
 			}
 
@@ -1461,7 +1483,11 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private void fTickFiveMinutes()
 		{
-			Hunger = Math.Max(0, Hunger - 3 - UWRandom.Next(4));
+			// The numbers of this block are the rule set's (vitals.*, cleanup phase 10); the consts
+			// are their defaults.
+			UWRulesVitals lORules = UWRules.Current.Vitals;
+
+			Hunger = Math.Max(0, Hunger - lORules.Hunger.PerBlockBase - UWRandom.Next(lORules.Hunger.PerBlockRoll));
 
 			// THREE BYTES COUNT UP TOGETHER, each up to 255 (label 363): fatigue 0x3A, the meal
 			// heal counter 0x3B and 0x3C.
@@ -1482,7 +1508,7 @@ namespace UWDataImport.UWData
 
 			// On STRENGTH, which is an attribute and not a skill (the player's creature row
 			// byte 5, see UWPlayerCritterRow).
-			int liCheck = fGetCheckMagnitude(Strength, NaturalHealingDifficulty);
+			int liCheck = fGetCheckMagnitude(Strength, lORules.Healing.Difficulty);
 
 			if (liCheck <= 0 || CurrentHP >= MaxHP || CurrentHP <= 0)
 				return;
@@ -1492,13 +1518,18 @@ namespace UWDataImport.UWData
 			fVitalsChanged();
 		}
 
+		/// <summary>What the five minutes take off the hunger: three plus 0 to 3.</summary>
+		public const int HungerPerBlockBase = 3;
+
+		public const int HungerPerBlockRoll = 4;
+
 		/// <summary>Every minute some mana back if the check of the Mana skill against 10
 		/// succeeds: as many points as the check's result, one or two (label 26E, the
 		/// negative branch of the change routine adds the amount as it is).
 		/// </summary>
 		private void fRegenerateMana()
 		{
-			int liCheck = fGetCheckMagnitude(GetSkill(UWPlayerData.Skill.Mana), ManaRegenerationDifficulty);
+			int liCheck = fGetCheckMagnitude(GetSkill(UWPlayerData.Skill.Mana), UWRules.Current.Vitals.ManaRegeneration.Difficulty);
 
 			if (liCheck <= 0 || CurrentMana >= MaxMana)
 				return;
@@ -1509,10 +1540,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The difficulty of the minute's mana check (push 0x0A before the call).</summary>
-		private const int ManaRegenerationDifficulty = 10;
+		internal const int ManaRegenerationDifficulty = 10;
 
 		/// <summary>The difficulty of the five minutes' healing check (push 0x0F).</summary>
-		private const int NaturalHealingDifficulty = 15;
+		internal const int NaturalHealingDifficulty = 15;
 
 		/// <summary>
 		/// How WELL a check went, as a number: 0 on failure, otherwise 1 or 2.
@@ -1596,7 +1627,9 @@ namespace UWDataImport.UWData
 
 			if (piAmount > 0)
 			{
-				int liHeal = Math.Min(MaxMealHeal, MealHealCounter / 8);
+				// The two numbers are the rule set's (vitals.meal.*, cleanup phase 10).
+				UWRulesVitals.MealRules lORules = UWRules.Current.Vitals.Meal;
+				int liHeal = Math.Min(lORules.MaxHeal, MealHealCounter / lORules.BlocksPerPoint);
 
 				MealHealCounter = 0;
 
@@ -1612,7 +1645,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The most a meal heals.</summary>
-		private const int MaxMealHeal = 8;
+		internal const int MaxMealHeal = 8;
+
+		/// <summary>A meal heals one point per this many five-minute blocks since the last.</summary>
+		public const int MealHealBlocksPerPoint = 8;
 
 		/// <summary>
 		/// Recovery after a night of sleep (player_sleep, UnderworldExhumed SKILLS.C, with SPELLS.C's
@@ -1629,30 +1665,30 @@ namespace UWDataImport.UWData
 			if (CurrentHP > 0)
 				CurrentHP = Math.Min(MaxHP, CurrentHP + fRestoreShare(MaxHP, piHitPointAmount));
 
-			CurrentMana = Math.Min(MaxMana, CurrentMana + SleepFlatMana);
+			CurrentMana = Math.Min(MaxMana, CurrentMana + UWRules.Current.Sleep.Recovery.FlatMana);
 			CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreShare(MaxMana, piManaAmount));
 
 			fVitalsChanged();
 		}
 
 		/// <summary>What restore_mana(-6) adds before the share.</summary>
-		private const int SleepFlatMana = 6;
+		internal const int SleepFlatMana = 6;
 
 		/// <summary>restore_hp / restore_mana with a positive amount: (max * (amount + RNG & 3)) >> 4,
 		/// plus one.</summary>
-		private static float fRestoreShare(float pfMax, int piAmount)
+		private static int fRestoreShare(int piMax, int piAmount)
 		{
 			if (piAmount <= 0)
 				return -piAmount;
 
-			return fRestoreAmount(pfMax, piAmount);
+			return fRestoreAmount(piMax, piAmount);
 		}
 
 		/// <summary>(max * (amount + RNG & 3)) >> 4, plus one: the share of the maximum that
 		/// restore_hp, restore_mana and the mana spell of class 10 add. One draw of 0 to 3.</summary>
-		private static int fRestoreAmount(float pfMax, int piAmount)
+		private static int fRestoreAmount(int piMax, int piAmount)
 		{
-			return (((int)pfMax * (piAmount + UWRandom.Next(4))) >> 4) + 1;
+			return ((piMax * (piAmount + UWRandom.Next(4))) >> 4) + 1;
 		}
 
 		/// <summary>Sets hit points to the maximum - Greater Heal.</summary>
@@ -1711,9 +1747,10 @@ namespace UWDataImport.UWData
 		{
 			get
 			{
+				UWRulesCritter.NoiseRules lORules = UWRules.Current.Critter.Noise;
+
 				return UWArmourProtection.ApplyToNoise(
-					UWCritterRules.PlayerNoiseBase
-						- (GetSkill(UWPlayerData.Skill.Sneak) / UWCritterRules.PlayerNoiseSneakDivisor),
+					lORules.Base - (GetSkill(UWPlayerData.Skill.Sneak) / lORules.SneakDivisor),
 					StealthBonus);
 			}
 		}
@@ -1724,9 +1761,9 @@ namespace UWDataImport.UWData
 		{
 			get
 			{
+				UWRulesCritter.NoiseRules lORules = UWRules.Current.Critter.Noise;
 				int liBase = UWArmourProtection.ApplyToVisibility(
-					UWCritterRules.PlayerVisibilityBase
-						- (GetSkill(UWPlayerData.Skill.Sneak) / UWCritterRules.PlayerVisibilitySneakDivisor),
+					lORules.VisibilityBase - (GetSkill(UWPlayerData.Skill.Sneak) / lORules.VisibilitySneakDivisor),
 					StealthBonus);
 
 				return Math.Clamp(liBase, 0, MaxQuietness);
@@ -1734,20 +1771,29 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// Calls per second of the noise rule. THE ORIGINAL CALLS IT ONCE PER FRAME:
+		/// PIT ticks of game time per call of the noise rule. THE ORIGINAL CALLS IT ONCE PER FRAME:
 		/// ApplyPlayerSneakScore_seg034_2F89_898 sits in GameObjectLoop_seg034_2F89_518, the loop
 		/// that also moves the creatures' slot clock (read 2026-09-23). Up at once to the target,
 		/// down by one only when the counter dseg_5c99_783 is zero, the counter counting every call
 		/// mod 8 - which is exactly TickQuietness. So the decay is one step per eight FRAMES, and
 		/// the frame rate of the original depends on the machine (the loop waits at least four PIT
 		/// ticks and a retrace, up to 64 frames a second, fewer when the drawing takes longer; in
-		/// DOSBox the cycles decide). There is no fixed rate to take over; twelve stands in for
-		/// it, the same assumption as for the void effects (UWSettings.VoidEffectTicksPerSecond).
-		/// Until 2026-09-23 the comments said "once per 8 player ticks" - that was wrong.
+		/// DOSBox the cycles decide). Until 2026-09-23 the comments said "once per 8 player ticks" -
+		/// that was wrong.
+		///
+		/// ON THE GAME'S CLOCK AT THE ORIGINAL'S NOMINAL FRAME RATE since cleanup phase 10
+		/// (2026-10-26): 32 calls a second, one per 8 PIT ticks of running game time - the rate
+		/// every per-frame rule of the original runs at here (the lava's roll,
+		/// UWPlayerTerrainRules.LavaRollTicks; the Void, UWVoidRules.TicksPerSecond), about what
+		/// the original reaches in DOSBox (the lava measured 2026-09-14; Docs/DEVIATIONS.md). Until
+		/// then twelve calls a second from the frame's elapsed seconds, a guess, so a stopped walk
+		/// took 2.7 times as long to die down (one step per two thirds of a second, now one per
+		/// quarter), and the decay ran on through a conversation or a menu.
 		/// </summary>
-		private const float QuietnessTicksPerSecond = 12f;
+		internal const int QuietnessCallTicks = UWPlayerTick.PitTicksPerSecond / 32;
 
-		private float mfQuietnessTicks;
+		/// <summary>PIT ticks handed in and not yet used for a call.</summary>
+		private int miQuietnessTicks;
 
 		private int miQuietnessCooldown;
 
@@ -1770,7 +1816,9 @@ namespace UWDataImport.UWData
 			if (pfMovementFraction > 1f)
 				pfMovementFraction = 1f;
 
-			return (int)(UWCritterRules.PlayerNoiseSpeedFactor * pfMovementFraction);
+			// The original divides (an integer division, towards zero); ours has the quotient as a
+			// float and truncates it the same way.
+			return UWRounding.Truncate(UWRules.Current.Critter.Noise.SpeedFactor * pfMovementFraction);
 		}
 
 		/// <summary>
@@ -1783,10 +1831,12 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void ReportEasyMovementStep()
 		{
-			int liNow = NoiseBase + UWCritterRules.PlayerNoiseEasyMove;
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
+			int liNow = NoiseBase + lORules.Noise.EasyMove;
 
 			if (mIHost != null && mIHost.IsInMotionState)
-				liNow += UWCritterRules.PlayerNoiseWater;
+				liNow += lORules.Noise.MotionState;
 
 			liNow = Math.Clamp(liNow, 0, MaxQuietness);
 
@@ -1796,26 +1846,30 @@ namespace UWDataImport.UWData
 			ClockValue += UWEasyMovement.ClockAdvance;
 		}
 
-		/// <summary>The noise decay, driven with the elapsed time of the frame.</summary>
-		public void TickQuietness(float pfElapsedSeconds)
+		/// <summary>The noise rule, driven with the PIT ticks of game time since the last call (the
+		/// host's share of UWWorldScheduler.Now): one call per QuietnessCallTicks.</summary>
+		public void TickQuietness(int piPitTicks)
 		{
-			mfQuietnessTicks += pfElapsedSeconds * QuietnessTicksPerSecond;
+			UWRulesCritter lORules = UWRules.Current.Critter;
+
+			if (piPitTicks > 0)
+				miQuietnessTicks += piPitTicks;
 
 			bool lbMoving = mIHost != null && mIHost.IsMoving;
 			bool lbInMotionState = mIHost != null && mIHost.IsInMotionState;
 			float lfFraction = mIHost != null ? mIHost.MovementFraction : 0f;
 
-			while (mfQuietnessTicks >= 1f)
+			while (miQuietnessTicks >= QuietnessCallTicks)
 			{
-				mfQuietnessTicks -= 1f;
+				miQuietnessTicks -= QuietnessCallTicks;
 
 				int liNow = 0;
 
 				if (lbMoving)
-					liNow = NoiseBase + GetMovingNoise(lfFraction) - UWCritterRules.PlayerNoiseMovingOffset;
+					liNow = NoiseBase + GetMovingNoise(lfFraction) - lORules.Noise.MovingOffset;
 
 				if (lbInMotionState)
-					liNow += UWCritterRules.PlayerNoiseWater;
+					liNow += lORules.Noise.MotionState;
 
 				liNow = Math.Clamp(liNow, 0, MaxQuietness);
 

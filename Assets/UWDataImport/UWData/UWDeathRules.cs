@@ -45,7 +45,7 @@ namespace UWDataImport.UWData
 			if (piTalismans == 0)
 				return Outcome.Spared;
 
-			if (piTreeLevel > 0 && piTreeLevel <= piLevelCount && piLevelIndex != UWLevelIds.Void)
+			if (piTreeLevel > 0 && piTreeLevel <= piLevelCount && piLevelIndex != UWRules.Current.Levels.Void)
 				return Outcome.Resurrect;
 
 			return Outcome.Final;

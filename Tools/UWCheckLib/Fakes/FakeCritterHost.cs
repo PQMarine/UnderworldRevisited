@@ -113,6 +113,9 @@ namespace UnderworldRevisited.Tools
 
             public UWCritterPathSlots PathSlots => Slots;
 
+            /// <summary>The fake level's rule set: the original's (a check may put another).</summary>
+            public UWRules Rules { get; set; } = UWRules.CreateOriginal();
+
             public bool TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight,
                 int piRangeBudget, List<UWTilePos> pOSquares, List<bool> pOJumps)
             {

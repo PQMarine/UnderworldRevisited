@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// NAMED COLOUR RULES of the HUD art builders (cleanup 9.9, 2026-10-25, CLEANUP-PLAN 8.4): what

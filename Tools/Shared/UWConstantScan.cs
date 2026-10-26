@@ -12,12 +12,12 @@ namespace UnderworldRevisited.Tools
     /// EVERY CONSTANT of the engine-free layer by name and value: the const fields and the static
     /// readonly scalars and primitive arrays (the tables), and all of UWClassicLayout. The same
     /// scan as the self-check's constant pin (Pins/rule-constants.txt, PinChecks.fCheckConstants),
-    /// shared here so `uwdump rules-template` prints exactly that list (cleanup 9.2,
-    /// 2026-10-25); the pin check uses it too since cleanup 9.6 (the same day), so the two lists
-    /// cannot drift apart.
+    /// shared here so `uwdump constants` prints exactly that list (cleanup 9.2, 2026-10-25, as
+    /// rules-template until cleanup phase 10); the pin check uses it too since cleanup 9.6 (the
+    /// same day), so the two lists cannot drift apart.
     ///
-    /// It is the inventory the rule set of the mod plan will be cut from (Docs/CLEANUP-PLAN.md
-    /// section 6): until UWRules exists, the template is this list.
+    /// It is the inventory the rule set (UWRules, Docs/CLEANUP-PLAN.md section 6) is cut from
+    /// domain by domain; `uwdump rules-template` prints the rule set itself.
     /// </summary>
     internal static class UWConstantScan
     {

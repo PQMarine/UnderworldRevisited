@@ -90,4 +90,4 @@ WalkSlowToggle = True
 WeaponJitterMode = Off
 WeaponJitterStrength = 0.4
 WindowBackground = Gradient
-WindowTheme = Plain
+WindowTheme = Stone

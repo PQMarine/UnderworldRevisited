@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE HUD ART'S TEXTURE SYNTHESIS BY NEIGHBOURHOOD (cleanup 9.13, 2026-10-25, CLEANUP-PLAN 8.4):

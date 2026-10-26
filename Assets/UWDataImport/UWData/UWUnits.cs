@@ -36,7 +36,7 @@ namespace UWDataImport.UWData
 		/// 2026-10-12 the one world-to-tile conversion (decision 20 of Docs/CLEANUP-PLAN.md).</summary>
 		public static int WorldAxisToTile(float pfWorld)
 		{
-			return (int)Math.Floor((pfWorld + UWWorldScale.TileHalfSize) / UWWorldScale.TileSize);
+			return UWRounding.Floor((pfWorld + UWWorldScale.TileHalfSize) / UWWorldScale.TileSize);
 		}
 
 		/// <summary>Where an object with this tile and sub-tile position (0 to 7) stands on one
@@ -108,7 +108,7 @@ namespace UWDataImport.UWData
 
 		public static short DegreesToAngle(float pfDegrees)
 		{
-			return (short)(int)(Repeat(pfDegrees, 360f) * UWWorldScale.FullCircleUnits / 360f);
+			return (short)UWRounding.Truncate(Repeat(pfDegrees, 360f) * UWWorldScale.FullCircleUnits / 360f);
 		}
 
 		/// <summary>A pitch value of the original in degrees, sign inverted: the original looks up
@@ -118,10 +118,11 @@ namespace UWDataImport.UWData
 			return -piPitch * 360f / UWWorldScale.FullCircleUnits;
 		}
 
-		/// <summary>Round to the nearest integer, halves to even - see class comment.</summary>
+		/// <summary>Round to the nearest integer, halves to even - see class comment and
+		/// UWRounding.HalfToEven.</summary>
 		public static int RoundToInt(float pfValue)
 		{
-			return (int)Math.Round(pfValue);
+			return UWRounding.HalfToEven(pfValue);
 		}
 
 		/// <summary>Wraps a value into 0 to length, also for negative values.</summary>

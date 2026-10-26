@@ -25,7 +25,7 @@ namespace UWDataImport.UWData
 		public static int Momentum(float pfSpeed, float pfFullSpeed)
 		{
 			float lfMomentum = FullMomentum * pfSpeed / pfFullSpeed;
-			int liMomentum = (int)System.Math.Round(lfMomentum);
+			int liMomentum = UWRounding.HalfToEven(lfMomentum);
 
 			if (liMomentum < 0)
 				return 0;

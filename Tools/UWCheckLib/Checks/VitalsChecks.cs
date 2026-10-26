@@ -176,7 +176,7 @@ namespace UnderworldRevisited.Tools
             UWPlayerVitals lOVitals = lOHost.Watch(new UWPlayerVitals(lOHost));
 
             lOVitals.Initialise(null, UWPlayerVitals.StartValues.Default);
-            lOVitals.TickQuietness(1f);
+            lOVitals.TickQuietness(UWPlayerTick.PitTicksPerSecond);
             fExpectInt("noise: standing in a motion state (floating, lava, shaking) is 4", lOVitals.Quietness,
                 UWCritterRules.PlayerNoiseWater);
 
@@ -184,7 +184,7 @@ namespace UnderworldRevisited.Tools
             UWPlayerVitals lOStill = new UWPlayerVitals(lOQuiet);
 
             lOStill.Initialise(null, UWPlayerVitals.StartValues.Default);
-            lOStill.TickQuietness(1f);
+            lOStill.TickQuietness(UWPlayerTick.PitTicksPerSecond);
             fExpectInt("noise: standing without one is 0", lOStill.Quietness, 0);
         }
 
@@ -302,7 +302,7 @@ namespace UnderworldRevisited.Tools
             UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost { DungeonLevelIndex = 0 });
 
             lOVitals.Initialise(null, lOStart);
-            lOVitals.SetMana(20f, 5f);
+            lOVitals.SetMana(20, 5);
 
             fExpectBool("trainer: a Mana raise succeeds", lOVitals.TryIncreaseSkill(UWPlayerVitals.ManaSkillNumber), true);
             fExpectInt("trainer: the maximum mana stays until the shrine or the next level", (int)lOVitals.MaxMana, 20);
@@ -321,7 +321,7 @@ namespace UnderworldRevisited.Tools
 
             lOStart.Strength = 20;
             lOStart.Level = 5;
-            lOStart.FallbackMaxHP = 90f;
+            lOStart.FallbackMaxHP = 90;
 
             UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost { DungeonLevelIndex = 0 });
 

@@ -94,7 +94,7 @@ namespace UWDataImport.UWData
 		/// each named for its purpose. Pairs with UWUnits.WorldAxisToTile for the tile.</summary>
 		public static int WorldToEighthFloor(float pfWorldCoordinate)
 		{
-			return (int)Math.Floor((pfWorldCoordinate + UWWorldScale.TileHalfSize) / UWWorldScale.SubTileStep) & 7;
+			return UWRounding.Floor((pfWorldCoordinate + UWWorldScale.TileHalfSize) / UWWorldScale.SubTileStep) & 7;
 		}
 
 		/// <summary>Whether the culling test (the liquids' range 0x0A, rolled anew) takes this

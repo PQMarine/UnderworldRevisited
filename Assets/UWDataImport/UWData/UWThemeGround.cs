@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE CARVED THEMES' WINDOW GROUNDS AS PIXELS (cleanup phase 8d, 2026-10-25), engine-free like the

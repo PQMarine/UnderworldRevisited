@@ -75,7 +75,8 @@ namespace UnderworldRevisited.Tools
             fRegister("conv", "[slot|all] [--out dir] | --run <slot|all>", "conversations as bytecode, or run (answer 1 each time)", true, fConversation);
             fRegister("automap", "[1-9] [--png file]", "automap values (use --save for a save game's map)", true, fPrintAutomap);
             fRegister("maprender", "--out dir [--highlight id ...]", "a top view of every level as PNG", true, fRenderMaps);
-            fRegister("rules-template", "[filter]", "every constant of the engine-free layer, as the rule set's template", false, fPrintRulesTemplate);
+            fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
+            fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
         }
 
         public static int Main(string[] psArgs)

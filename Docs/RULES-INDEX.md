@@ -605,10 +605,12 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg019_710` | UWCharacter.cs |
 | `seg019_A38` | UWMotionTables.cs, UWRenderSweep.cs |
 | `seg019_A69` | UWMotionTables.cs |
+| `SquareRoot` (seg019_A78) | UWVanillaMath.cs |
+| `MaybeTangent` (seg019_BD4) | UWVanillaMath.cs |
 | `seg019_E63` | UWMotionTables.cs |
 | `seg019_EAE` | UWMotionTables.cs |
-| `seg019_EFB` | UWCritterBrain.cs |
-| `GetSquareRoot` (seg019_F3F) | UWCritterBrain.cs |
+| `MaybeGetTangent` (seg019_EFB) | UWVanillaMath.cs |
+| `GetSquareRoot` (seg019_F3F) | UWVanillaMath.cs |
 
 ### seg022
 
@@ -811,15 +813,15 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg034_2F89_406` | UWCritterClock.cs, UWCritterRules.cs, UWCritterDriver.cs |
 | `seg034_2F89_4C0` | UWCritterClock.cs |
 | `seg034_2F89_4E` | UWClassicGeometry.cs, UWClassicLayout.cs, UWGameClock.cs, UWPlayerMotion.cs, UWPlayerInput.cs, UWPlayerMovement.cs, UWPointerZones.cs, LevelChecks.cs, PointerSchemeChecks.cs |
-| `GameObjectLoop` (seg034_2F89_518) | UWPlayerVitals.cs, UWSettings.cs |
+| `GameObjectLoop` (seg034_2F89_518) | UWPlayerVitals.cs |
 | `PlayerMotion` (seg034_2F89_604) | UWHeadBobRules.cs, UWPlayerMotion.cs, UWPlayerMovement.cs, LevelChecks.cs |
 | `SurfaceFootsteps` (seg034_2F89_713) | UWSoundEffectId.cs, UWTvfxVoice.cs, UWAudioService.cs |
-| `ApplyPlayerSneakScore` (seg034_2F89_898) | UWArmourProtection.cs, UWCritterRules.cs, UWPlayerVitals.cs, PlayerChecks.cs |
+| `ApplyPlayerSneakScore` (seg034_2F89_898) | UWArmourProtection.cs, UWCritterRules.cs, UWPlayerVitals.cs, MirrorChecks.cs, PlayerChecks.cs |
 | `seg034_2F89_971` | UWPlayerTerrainRules.cs |
 | `SetScreenShake` (seg034_2F89_B6A) | UWScreenShake.cs |
 | `PositionCameraAtObject` (seg034_2F89_B99) | UWEndgameSequence.cs, UWHeadBobRules.cs, UWPlayerTerrain.cs |
 | `seg034_2F89_BCD` | UWSettings.cs |
-| `WalkOnSurfaceTypes` (seg034_93D) | UWPlayerMotion.cs, UWPlayerTerrain.cs, UWSettings.cs |
+| `WalkOnSurfaceTypes` (seg034_93D) | UWPlayerMotion.cs, UWPlayerTerrain.cs |
 
 ### seg035
 

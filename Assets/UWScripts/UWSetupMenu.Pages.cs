@@ -337,7 +337,7 @@ public partial class UWSetupMenu
     private float fDrawRomLine(float pfLeft, float pfTop, float pfInner)
     {
         IUWRows lORows = mOPassRows;
-        UWDataImport.UWData.UWMt32MusicDriver.RomSet lORoms = UWAudioMixer.Mt32Roms;
+        UWDataImport.Audio.UWMt32MusicDriver.RomSet lORoms = UWAudioMixer.Mt32Roms;
         string lsFolder = UWAudioMixer.Mt32RomFolder;
         string lsRomState = lORoms != null ? UWText.F("setup.sound.mt32_roms", lORoms.Description) : UWText.F("setup.sound.mt32_problem", UWAudioMixer.Mt32Problem);
         string lsOpen = UWText.T("setup.sound.open_folder");

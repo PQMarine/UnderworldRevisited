@@ -30,7 +30,7 @@ namespace UnderworldRevisited
 
         /// <summary>
         /// The DATA folder the game loads from: DataPath from the settings if it is valid,
-        /// otherwise the DATA folder extracted from the GOG image (see UWDataImport.UWGogInstall),
+        /// otherwise the DATA folder extracted from the GOG image (see UWDataImport.Install.UWGogInstall),
         /// or the DATA folder the environment variable UW_DATA names when nothing is configured.
         /// </summary>
         public string DataPath
@@ -317,9 +317,6 @@ namespace UnderworldRevisited
         [Tooltip("On every swing, logs what the ray hit and how far away it was. Debugging only.")]
         public bool LogAttacks;
 
-        [Tooltip("Lets the Resist Blows spell add its value to the armour of all four body parts. The original writes that value into one nibble and reads it from another, so the spell protects against nothing there. Off is faithful to the original.")]
-        public bool ResistBlowsAddsArmour;
-
         [Tooltip("Position of the eyes at the top edge, measured from the centre of the top screen edge in original pixels. Y is negative downwards.")]
         public Vector2 EyesPosition = new Vector2(0f, -8f);
 
@@ -334,9 +331,6 @@ namespace UnderworldRevisited
 
         [Tooltip("Fine offset of the hit effect relative to the enemy's body centre (world units, negative downwards). The centre is the starting point, the variation comes on top.")]
         public float HitEffectHeightOffset;
-
-        [Tooltip("Duration of one charge step. After the wind-up the original adds the weapon's speed value per step to a counter up to 100.")]
-        public float AttackChargeStepSeconds = 0.072f;
 
         [Tooltip("How many frames before the end of the swing animation the blow lands. 2 means second-to-last frame, 3 third-to-last. Counted from the end because the animation length differs by attack type - an axe chop has four frames, a thrust six.")]
         [Range(1, 4)]
@@ -394,15 +388,13 @@ namespace UnderworldRevisited
         [Tooltip("Swimming skill value at which speed and view steadiness are fully maxed out.")]
         public float SwimSkillForFullEffect = 15f;
 
-        [Tooltip("Seconds between two lava damage rolls. UW.EXE rolls once per game frame (GameObjectLoop_seg034_2F89_518 -> WalkOnSurfaceTypes_seg034_93D); 1/32 s uses the same game loop rate as the void effects (VoidEffectTicksPerSecond, per user, 2026-09-14). The earlier 0.5 s did far too little damage.")]
-        public float LavaDamageInterval = 1f / 32f;
-
-        [Tooltip("How often a roll hits. One in five in the original.")]
-        [Range(0f, 1f)]
-        public float LavaDamageChance = 0.2f;
-
-        [Tooltip("Damage per hit. 1 in the original.")]
-        public int LavaDamage = 1;
+        // The lava's interval, chance and damage (LavaDamageInterval, LavaDamageChance, LavaDamage),
+        // the Void's VoidEffectTicksPerSecond, the swing's AttackChargeStepSeconds and the
+        // ResistBlowsAddsArmour switch were rules, not rendering: since cleanup phase 10 (2026-10-26)
+        // they are the rule set's vitals.lava.*, vitals.void.ticksPerSecond,
+        // combat.player.chargeStepMilliseconds and combat.resistBlowsAddsArmour, set by a rules.json
+        // beside settings.json (UWRules). An old asset that still holds the fields loads as before;
+        // Unity skips the unknown values.
 
         [Header("Creatures")]
         [Tooltip("Writes every experience gain to the console. Levelling up is otherwise hard to observe, because it happens rarely.")]
@@ -422,10 +414,6 @@ namespace UnderworldRevisited
 
         [Tooltip("Distance a creature keeps from solid tiles (world units, 64 = one tile). Its image turns to face the camera and would otherwise partly stick into the wall. 0 switches the distance off.")]
         public float CritterWallClearance = 16f;
-
-        [Tooltip("Ethereal void (level 9): game loop passes per second that roll for the effects, each with a chance of 1 in 32 (flash, vitality drain, shake, compass). The original rate depends on the machine speed. Under DOSBox (30000 cycles) effects come several times per second, faster than a machine of the time; set to about one effect per second (per user, 2026-09-14): 32.")]
-        [Range(0f, 200f)]
-        public float VoidEffectTicksPerSecond = 32f;
 
         [Tooltip("Health and mana flask fill animation after the resurrection: seconds per flask level (12 levels). 0.25 s as observed in the original (per user, 2026-09-14).")]
         [Range(0f, 0.5f)]
@@ -614,7 +602,7 @@ namespace UnderworldRevisited
         /// </summary>
         public static string[] GetCandidateGogPaths()
         {
-            return UWDataImport.UWGogInstall.GetCandidateFolders(
+            return UWDataImport.Install.UWGogInstall.GetCandidateFolders(
                 Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor);
         }
 
@@ -663,13 +651,13 @@ namespace UnderworldRevisited
             if (ForceFirstRunSetup && string.IsNullOrEmpty(UWUserSettings.GogInstallPath))
                 return null;
 
-            string lsImage = UWDataImport.UWGogInstall.FindImage(lsInstall);
+            string lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsInstall);
 
             if (lsImage == null && string.IsNullOrEmpty(lsInstall))
             {
                 // UW_DATA naming an extracted DATA folder: used as it is, with the save games
                 // above it as in an installed game (cleanup 9.2, 2026-10-25).
-                string lsEnvironment = UWDataImport.UWGogInstall.GetEnvironmentPath();
+                string lsEnvironment = UWDataImport.Install.UWGogInstall.GetEnvironmentPath();
 
                 if (IsValidDataPath(lsEnvironment))
                 {
@@ -680,7 +668,7 @@ namespace UnderworldRevisited
 
                 foreach (string lsCandidate in GetCandidateGogPaths())
                 {
-                    lsImage = UWDataImport.UWGogInstall.FindImage(lsCandidate);
+                    lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsCandidate);
 
                     if (lsImage != null)
                         break;
@@ -692,7 +680,7 @@ namespace UnderworldRevisited
 
             string lsCache = Path.Combine(Application.persistentDataPath, "GameData");
             string lsError;
-            string lsData = UWDataImport.UWGogInstall.EnsureExtracted(lsImage, lsCache, out lsError);
+            string lsData = UWDataImport.Install.UWGogInstall.EnsureExtracted(lsImage, lsCache, out lsError);
 
             if (lsData == null)
             {
@@ -702,7 +690,7 @@ namespace UnderworldRevisited
             }
 
             msGogDataPath = lsData;
-            msGogSavegameFolder = UWDataImport.UWGogInstall.GetSavegameFolder(lsImage);
+            msGogSavegameFolder = UWDataImport.Install.UWGogInstall.GetSavegameFolder(lsImage);
             GogImagePath = lsImage;
 
             return msGogDataPath;

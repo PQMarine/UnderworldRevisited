@@ -314,5 +314,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The level's sixteen stored path slots (UWGameSession.CritterPaths).</summary>
 		UWCritterPathSlots PathSlots { get; }
+
+		/// <summary>The rule set the minds decide by (UWGameSession.Rules; cleanup phase 10 wave 4,
+		/// 2026-10-26: UWRules.Current until then).</summary>
+		UWRules Rules { get; }
 	}
 }

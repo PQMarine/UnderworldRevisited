@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// PIECES CUT OUT OF THE FRAME AS THEY ARE: the power gem's stand and the rune hollow (MAIN.BYT;

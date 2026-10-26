@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UWDataImport.UWData;
 
-namespace UWDataImport
+namespace UWDataImport.Install
 {
     /// <summary>
     /// The logic of the game folder dialog, engine-free (2026-09-17): the installations found in

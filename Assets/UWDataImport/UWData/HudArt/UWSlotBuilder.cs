@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE SLOT CIRCLE and the freed slot ring (MAIN.BYT; cleanup 9.11, 2026-10-25: a builder of its

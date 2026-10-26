@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The music on the AdLib: its own emulated chip (UWOpl2) with UWAdlibMusicDriver on it, the

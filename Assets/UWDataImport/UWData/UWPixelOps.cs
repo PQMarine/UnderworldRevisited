@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE PIXEL CANVAS' TOOLS beside UWPicture's Crop, Paste and Overlay (cleanup 9.9, 2026-10-25,

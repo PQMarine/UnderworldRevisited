@@ -205,7 +205,9 @@ namespace UWDataImport.UWData
 		public UWConversationVM(UWConversations.Conversation pOConversation, IHost pOHost, Func<int, string> pOGetString)
 		{
 			mOConversation = pOConversation;
-			myCode = UWConversationPatches.GetCode(pOConversation);
+			myCode = UWRules.Current.Deviations.ConversationPatches || pOConversation == null
+				? UWConversationPatches.GetCode(pOConversation)
+				: pOConversation.Code;
 			mOHost = pOHost;
 			mOGetString = pOGetString;
 

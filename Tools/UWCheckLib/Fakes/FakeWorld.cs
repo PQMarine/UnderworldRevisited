@@ -228,6 +228,9 @@ namespace UnderworldRevisited.Tools
 
             public DataImport Data { get; set; }
 
+            /// <summary>The session the check made current, as the game's world answers.</summary>
+            public UWGameSession Session => UWGameSession.Current;
+
             public UWLevel Level { get; set; }
 
             public int LevelIndex { get; set; }

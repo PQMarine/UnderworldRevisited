@@ -57,7 +57,7 @@ namespace UWDataImport.UWData
 		private const int MakeCampMessage = 0x10;
 
 		/// <summary>The chance in ten that an open door shuts in the night (DoClosingDoors).</summary>
-		private const int DoorClosesInTen = 3;
+		internal const int DoorClosesInTen = 3;
 
 		/// <summary>The night's Obj_GarbageCollect(1, 0x14): range 1, twenty objects at most.</summary>
 		public const int NightCullRange = 1;
@@ -71,13 +71,13 @@ namespace UWDataImport.UWData
 		private const int StarvingMessage = 0x12;
 
 		/// <summary>A night on an empty stomach costs two untyped points (damage_item(..., 2, 0)).</summary>
-		private const int StarvingDamage = 2;
+		internal const int StarvingDamage = 2;
 		private const int RestedMessage = 0x14;
 		private const int CannotSleepHereMessage = 0x15;
 		private const int InterruptedMessage = 0x16;
 
 		/// <summary>Above this hunger value the player counts as fed enough for a comfortable night.</summary>
-		private const int WellFedHunger = 0x40;
+		internal const int WellFedHunger = 0x40;
 
 		/// <summary>The dreams of Garamon exist as cutscenes 24 to 31 - octal in
 		/// the file names, i.e. CS030 to CS037. The roll in fDream can also pick stages 8 and 9
@@ -116,6 +116,11 @@ namespace UWDataImport.UWData
 
 			IUWPresentation lOShown = pOWorld.Presentation;
 
+			// The night's numbers are the rule set's (sleep.*, cleanup phase 10); the consts of this
+			// class are their defaults. The set is the world's session's (since wave 4).
+			UWRules lORuleSet = pOWorld.Session.Rules;
+			UWRulesSleep lORules = lORuleSet.Sleep;
+
 			// WHOEVER PASSES OUT IS NOT ASKED. The original's Sleep takes a method, and a
 			// negative one - the alcohol - jumps past every refusal (Sleep_ovr143_D1F, label
 			// D30: "jump when method < 0"). Only a chosen sleep is refused on water, lava, off the
@@ -125,7 +130,7 @@ namespace UWDataImport.UWData
 			if (!pbPassedOut)
 			{
 				if (!CanSleepHere(pOWorld.Player) || !pOWorld.Player.IsOnGround
-					|| piDungeonLevel == UWLevelIds.Number(UWLevelIds.Void))
+					|| piDungeonLevel == UWLevelIds.Number(lORuleSet.Levels.Void))
 				{
 					lOShown.AddGeneralMessage(CannotSleepHereMessage);
 
@@ -150,7 +155,7 @@ namespace UWDataImport.UWData
 			if (!pbPassedOut)
 				lOShown.AddGeneralMessage(GoToSleepMessage);
 
-			CloseDoorsAtNight(pOWorld, DoorClosesInTen);
+			CloseDoorsAtNight(pOWorld, lORules.DoorClosesInTen);
 
 			// FAR JUNK GOES IN THE NIGHT: player_sleep (UnderworldExhumed SKILLS.C) runs
 			// Obj_GarbageCollect(1, 0x14) right after the doors - up to twenty objects on tiles
@@ -159,7 +164,7 @@ namespace UWDataImport.UWData
 			// (audit round 2, A2 / GI D13).
 			pOWorld.CollectGarbage(NightCullRange, NightCullLimit);
 
-			int liHours = 2 + UWRandom.Next(5);
+			int liHours = lORules.Hours.FirstBase + UWRandom.Next(lORules.Hours.FirstRoll);
 
 			// THE PROOF BEFORE THE NIGHT, for the poison below: player_sleep clears the active
 			// spells, but the player's resist byte keeps them until its FixPlayerEquips at the end
@@ -177,7 +182,7 @@ namespace UWDataImport.UWData
 			// THE LIGHTS BURN while asleep, right after each advance of the clock: 180 player
 			// ticks an hour, counter zero, so 1 + hours * 180 / rate points (UpdateInventoryLightSources
 			// called twice from the sleep routine, 2026-09-24). Ours burned nothing until then.
-			fBurnCarriedLights(pOWorld, liHours * SleepTicksPerHour);
+			fBurnCarriedLights(pOWorld, liHours * lORuleSet.Lights.SleepTicksPerHour);
 
 			// Poison takes the whole series at once: at strength three that is 3+2+1. POISON
 			// RESISTANCE WARDS IT OFF, as on the awake tick: damage_item(..., DMG_POISON) runs
@@ -199,7 +204,7 @@ namespace UWDataImport.UWData
 
 			if (TryAmbush(pOWorld))
 			{
-				fInterrupt(pOVitals, lOShown);
+				fInterrupt(pOVitals, lOShown, lORules);
 
 				return true;
 			}
@@ -215,23 +220,23 @@ namespace UWDataImport.UWData
 			pOWorld.RunRespawn(true);
 
 			// Seven to ten hours in total. Whoever is wounded sleeps longer.
-			int liRest = 7 + UWRandom.Next(4) - liHours;
+			int liRest = lORules.Hours.TotalBase + UWRandom.Next(lORules.Hours.TotalRoll) - liHours;
 
-			if (pOVitals.CurrentHP < 10)
-				liRest += 1 + UWRandom.Next(2);
+			if (pOVitals.CurrentHP < lORules.Hours.WoundedBelow)
+				liRest += lORules.Hours.WoundedExtraBase + UWRandom.Next(lORules.Hours.WoundedExtraRoll);
 
 			if (liRest > 0)
 				pOVitals.AdvanceClockHours(liRest);
 
 			// The second burn comes whatever the rest is - at zero or below still the one point
 			// the counter zero brings.
-			fBurnCarriedLights(pOWorld, liRest * SleepTicksPerHour);
+			fBurnCarriedLights(pOWorld, liRest * lORuleSet.Lights.SleepTicksPerHour);
 
 			// The comfort applies to both: recovery AND the probability that a later dream is
 			// rolled. Whoever passed out has none and does not dream.
-			int liComfort = !pbPassedOut && pbBedroll && pOVitals.Hunger > WellFedHunger ? 1 : 0;
+			int liComfort = !pbPassedOut && pbBedroll && pOVitals.Hunger > lORules.Recovery.WellFedHunger ? 1 : 0;
 
-			fRecover(pOVitals, lOShown, liComfort);
+			fRecover(pOVitals, lOShown, liComfort, lORules);
 
 			// WHOEVER PASSED OUT DOES NOT WAIT: player_sleep calls dream only for a chosen sleep,
 			// and dream's moment of black is its own wait - passing out only fades out and in
@@ -315,16 +320,16 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Recovery and hunger after a full night's sleep.</summary>
-		private static void fRecover(UWPlayerVitals pOVitals, IUWPresentation pOShown, int piComfort)
+		private static void fRecover(UWPlayerVitals pOVitals, IUWPresentation pOShown, int piComfort, UWRulesSleep pORules)
 		{
-			int liRegen = System.Math.Min(5, 2 + (pOVitals.Fatigue / 2));
+			int liRegen = System.Math.Min(pORules.Recovery.Most, pORules.Recovery.Base + (pOVitals.Fatigue / 2));
 
 			pOVitals.ClearFatigue();
 
 			if (pOVitals.Hunger == 0)
 			{
 				pOShown.AddGeneralMessage(StarvingMessage);
-				UWDamagePipeline.Apply(pOVitals, UWDamageRequest.Starvation(StarvingDamage));
+				UWDamagePipeline.Apply(pOVitals, UWDamageRequest.Starvation(pORules.StarvingDamage));
 			}
 			else
 			{
@@ -335,8 +340,8 @@ namespace UWDataImport.UWData
 			// A night costs 24 plus RNG & 0x1F of hunger and takes 32 off the intoxication
 			// (Sleep_ovr143_D1F, labels 1016 and 102F, read 2026-09-27). Ours took 2 plus 0 to 30
 			// and 16, after the reference, until then.
-			pOVitals.ChangeHunger(-24 - UWRandom.Next(0x20));
-			pOVitals.ReduceIntoxication(UWPlayerVitals.SleepIntoxicationRelief);
+			pOVitals.ChangeHunger(-pORules.Hunger.NightBase - UWRandom.Next(pORules.Hunger.NightRoll));
+			pOVitals.ReduceIntoxication(pORules.Relief.Intoxication);
 
 			pOShown.AddGeneralMessage(RestedMessage - piComfort);
 		}
@@ -361,6 +366,37 @@ namespace UWDataImport.UWData
 
 		/// <summary>An ambush needs a path of at least this many steps.</summary>
 		public const int AmbushMinSteps = 2;
+
+		/// <summary>The hours of a night (Sleep): two plus 0 to 4 before the ambush test, seven
+		/// plus 0 to 3 in all, and one plus 0 to 1 more below ten hit points.</summary>
+		public const int FirstHoursBase = 2;
+
+		public const int FirstHoursRoll = 5;
+
+		public const int TotalHoursBase = 7;
+
+		public const int TotalHoursRoll = 4;
+
+		public const int WoundedBelowHitPoints = 10;
+
+		public const int WoundedExtraHoursBase = 1;
+
+		public const int WoundedExtraHoursRoll = 2;
+
+		/// <summary>The recovery (fRecover): regen = 2 + fatigue / 2, at most 5.</summary>
+		public const int RecoveryBase = 2;
+
+		public const int RecoveryMost = 5;
+
+		/// <summary>The hunger a night costs: 24 plus RNG &amp; 0x1F (fRecover); an interrupted one
+		/// 12 plus 0 to 15 (fInterrupt).</summary>
+		public const int NightHungerBase = 24;
+
+		public const int NightHungerRoll = 0x20;
+
+		public const int InterruptedHungerBase = 12;
+
+		public const int InterruptedHungerRoll = 16;
 
 		/// <summary>
 		/// WHO KEEPS THE PLAYER FROM LYING DOWN (hostile_creatures_near with its callback
@@ -423,7 +459,7 @@ namespace UWDataImport.UWData
 		public static bool IsHostileNear(IUWWorld pOWorld)
 		{
 			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
-			int liCount = CollectCreaturesAround(pOWorld, HostileCheckTileRadius, lOCreatures);
+			int liCount = CollectCreaturesAround(pOWorld, pOWorld.Session.Rules.Sleep.HostileCheckTileRadius, lOCreatures);
 
 			for (int liAt = 0; liAt < liCount; liAt++)
 			{
@@ -466,7 +502,8 @@ namespace UWDataImport.UWData
 		public static bool TryAmbush(IUWWorld pOWorld)
 		{
 			List<UWCreatureRef> lOCreatures = new List<UWCreatureRef>();
-			int liCount = CollectCreaturesAround(pOWorld, AmbushTileRadius, lOCreatures);
+			UWRulesSleep lORules = pOWorld.Session.Rules.Sleep;
+			int liCount = CollectCreaturesAround(pOWorld, lORules.Ambush.TileRadius, lOCreatures);
 			UWTilePos lOPlayer = pOWorld.Player.FloorSpot.Tile;
 			List<UWTilePos> lOPath = new List<UWTilePos>();
 
@@ -486,7 +523,7 @@ namespace UWDataImport.UWData
 					continue;
 
 				if (!pOWorld.TryGetCreaturePath(lOCreature, lOPlayer, fSleeperHeight(pOWorld), lOPath)
-					|| lOPath.Count - 1 < AmbushMinSteps)
+					|| lOPath.Count - 1 < lORules.Ambush.MinSteps)
 					continue;
 
 				// A RUNE OF WARDING ON THE WAY DOES NOTHING: wander_that_monster (UnderworldExhumed
@@ -635,18 +672,18 @@ namespace UWDataImport.UWData
 
 		/// <summary>What an interrupted sleep takes off the fatigue (Sleep_ovr143_D1F after the
 		/// ambush: 0x20 off PLAYER.DAT 0x3A, down to 0). Ours took 0x18 until 2026-09-24.</summary>
-		private const int InterruptedFatigueRelief = 0x20;
+		internal const int InterruptedFatigueRelief = 0x20;
 
 		/// <summary>An interrupted sleep brings little: a bit of fatigue gone, but
 		/// a lot of hunger.</summary>
-		private static void fInterrupt(UWPlayerVitals pOVitals, IUWPresentation pOShown)
+		private static void fInterrupt(UWPlayerVitals pOVitals, IUWPresentation pOShown, UWRulesSleep pORules)
 		{
-			pOVitals.ReduceFatigue(InterruptedFatigueRelief);
+			pOVitals.ReduceFatigue(pORules.Relief.InterruptedFatigue);
 			pOShown.AddGeneralMessage(InterruptedMessage);
-			pOVitals.ChangeHunger(-12 - UWRandom.Next(16));
+			pOVitals.ChangeHunger(-pORules.Hunger.InterruptedBase - UWRandom.Next(pORules.Hunger.InterruptedRoll));
 
 			// Half a night's intoxication (label EB3); ours left it until 2026-09-27.
-			pOVitals.ReduceIntoxication(UWPlayerVitals.InterruptedSleepIntoxicationRelief);
+			pOVitals.ReduceIntoxication(pORules.Relief.InterruptedIntoxication);
 		}
 		/// <summary>
 		/// What the ground does to whoever passes out on it (drop_drunk_player, UnderworldExhumed

@@ -472,7 +472,7 @@ namespace UWDataImport.UWData
 		public const int BackfireFloor = 3;
 
 		/// <summary>The backfire rolls eight-sided dice (rollem(sub, 8)).</summary>
-		private const int BackfireDieSides = 8;
+		internal const int BackfireDieSides = 8;
 
 		public static UWDamageOutcome Apply(UWPlayerVitals pOVitals, in UWDamageRequest pORequest)
 		{
@@ -571,12 +571,14 @@ namespace UWDataImport.UWData
 			if (pORequest.Source == UWDamageSource.Curse && pORequest.Amount <= 0)
 				return new UWDamageOutcome(pORequest.Amount, 0, 0, 0, false, false, false, -1);
 
-			int liDamage = Math.Max(0, UWRandom.RollDice(pORequest.Amount, BackfireDieSides));
+			// The die and the floor are the rule set's (magic.backfire.*, cleanup phase 10).
+			UWRulesMagic.BackfireRules lORules = UWRules.Current.Magic.Backfire;
+			int liDamage = Math.Max(0, UWRandom.RollDice(pORequest.Amount, lORules.DieSides));
 
-			if (pOVitals.CurrentHP <= BackfireFloor)
+			if (pOVitals.CurrentHP <= lORules.Floor)
 				return new UWDamageOutcome(pORequest.Amount, liDamage, liDamage, 0, false, false, false, -1);
 
-			pOVitals.TakeBackfire(liDamage, BackfireFloor);
+			pOVitals.TakeBackfire(liDamage, lORules.Floor);
 
 			return new UWDamageOutcome(pORequest.Amount, liDamage, liDamage, liDamage, true, false, false, -1);
 		}

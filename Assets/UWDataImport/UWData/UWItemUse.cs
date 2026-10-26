@@ -732,7 +732,7 @@ namespace UWDataImport.UWData
 			pIHost.AddGeneralMessage(PassOutMessage);
 			pIHost.SleepPassedOut();
 
-			if (pOVitals.CurrentHP > 0f)
+			if (pOVitals.CurrentHP > 0)
 			{
 				pIHost.AddGeneralMessage(WakeUnsteadyMessage);
 				pOVitals.ShakeAfterPassingOut();

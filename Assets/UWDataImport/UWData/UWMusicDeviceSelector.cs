@@ -1,7 +1,8 @@
 using System;
 using System.IO;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>The values of UWUserSettings.MusicDevice (settings.json): 0 the AdLib, 1 General
 	/// MIDI, 2 the MT-32.</summary>

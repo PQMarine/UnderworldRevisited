@@ -28,6 +28,10 @@ namespace UWDataImport.UWData
 		/// rune spells.</summary>
 		public const int EmptySequence = (EmptyRune << 10) + (EmptyRune << 5) + EmptyRune;
 
+		/// <summary>The mana a spell costs per circle: In Lor, circle 1, costs 3 (per user, compared
+		/// with the original 2026-09-03).</summary>
+		public const int ManaPerCircle = 3;
+
 		public struct Spell
 		{
 			public readonly int Index;
@@ -57,9 +61,11 @@ namespace UWDataImport.UWData
 				}
 			}
 
+			/// <summary>The circle times the rule set's magic.manaPerCircle (ManaPerCircle by
+			/// default; cleanup phase 10).</summary>
 			public int ManaCost
 			{
-				get { return Level * 3; }
+				get { return Level * UWRules.Current.Magic.ManaPerCircle; }
 			}
 		}
 

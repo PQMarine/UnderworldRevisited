@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UWDataImport;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -144,10 +145,10 @@ public class UWModernVitals : UWModernPart
         if (lbFlasksApart)
         {
             fUpdateFlaskApart(UWModernLayout.ElementEnum.HealthFlask, mOHealthFlask, mOCharacter.Flasks.HealthFlaskTeture, mOHealthText,
-                Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxHP),
+                mOCharacter.Vitals.CurrentHP + "/" + mOCharacter.Vitals.MaxHP,
                 new Vector2(lOOrigin.x + (lOLayout.HealthFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
             fUpdateFlaskApart(UWModernLayout.ElementEnum.ManaFlask, mOManaFlask, mOCharacter.Flasks.ManaFlaskTeture, mOManaText,
-                Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxMana),
+                mOCharacter.Vitals.CurrentMana + "/" + mOCharacter.Vitals.MaxMana,
                 new Vector2(lOOrigin.x + (lOLayout.ManaFlask.x * liScale * UWModernHudArt.PixelAspectX), lOOrigin.y));
         }
         else
@@ -176,8 +177,8 @@ public class UWModernVitals : UWModernPart
         float lfHealthCentre = lOOrigin.x + ((lOLayout.HealthFlask.x + (fWidth(mOCharacter.Flasks.HealthFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
         float lfManaCentre = lOOrigin.x + ((lOLayout.ManaFlask.x + (fWidth(mOCharacter.Flasks.ManaFlaskTeture) * 0.5f)) * liScale * UWModernHudArt.PixelAspectX);
 
-        mOHealthText.text = Mathf.RoundToInt(mOCharacter.Vitals.CurrentHP) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxHP);
-        mOManaText.text = Mathf.RoundToInt(mOCharacter.Vitals.CurrentMana) + "/" + Mathf.RoundToInt(mOCharacter.Vitals.MaxMana);
+        mOHealthText.text = mOCharacter.Vitals.CurrentHP + "/" + mOCharacter.Vitals.MaxHP;
+        mOManaText.text = mOCharacter.Vitals.CurrentMana + "/" + mOCharacter.Vitals.MaxMana;
 
         ((RectTransform)mOHealthText.transform).anchoredPosition = new Vector2(lfHealthCentre, lfTextY);
         ((RectTransform)mOHealthText.transform).sizeDelta = new Vector2(120f, mOHealthText.fontSize * 1.5f);

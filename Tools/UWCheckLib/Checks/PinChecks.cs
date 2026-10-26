@@ -40,8 +40,8 @@ namespace UnderworldRevisited.Tools
         {
             Check.Group("Constant snapshot (every const and table of the engine-free layer)");
 
-            // The scan is shared with uwdump rules-template (Tools/Shared/UWConstantScan, cleanup 9.2),
-            // so the template lists exactly what is pinned here.
+            // The scan is shared with uwdump constants (Tools/Shared/UWConstantScan, cleanup 9.2), so
+            // that command lists exactly what is pinned here.
             SortedDictionary<string, string> lONow = UWConstantScan.Scan(out int liTypesSkipped);
 
             fComparePins(pOContext, "rule-constants.txt", "constants", lONow, lsLine => lsLine);

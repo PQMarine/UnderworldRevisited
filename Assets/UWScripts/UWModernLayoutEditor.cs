@@ -505,7 +505,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
         float lfPixels = miWidening > 0 ? lfEdge - mODragRect.xMin : mODragRect.xMax - lfEdge;
         int liWidth = Mathf.Clamp(Mathf.RoundToInt(lfPixels / Mathf.Max(0.01f, mfShelfPixel)),
-            UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth);
+            UWDataImport.Presentation.UWHudArt.StoneShelfMinWidth, UWModernStoneShelf.StoneShelfMaxWidth);
         float lfWidth = liWidth * mfShelfPixel;
 
         UWUserSettings.ModernStoneShelfWidth = liWidth;
@@ -976,7 +976,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
     private Texture2D fBackPreview(int piColour, int piPattern)
     {
         int liKey = (piColour * 10) + piPattern;
-        UWDataImport.UWData.UWArtStamp lOStamp = UWVersionedTexture.Colours();
+        UWDataImport.Presentation.UWArtStamp lOStamp = UWVersionedTexture.Colours();
 
         if (mOPreviews.TryGet(liKey, lOStamp, out Texture2D lOTexture))
             return lOTexture;
@@ -986,9 +986,9 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
         UWModernBacks.Back lOBack = new UWModernBacks.Back
         {
-            Shape = UWDataImport.UWData.UWBackdropArt.ShapeEnum.Rect,
-            Colour = (UWDataImport.UWData.UWBackdropArt.ColourEnum)piColour,
-            Pattern = (UWDataImport.UWData.UWBackdropArt.PatternEnum)piPattern,
+            Shape = UWDataImport.Presentation.UWBackdropArt.ShapeEnum.Rect,
+            Colour = (UWDataImport.Presentation.UWBackdropArt.ColourEnum)piColour,
+            Pattern = (UWDataImport.Presentation.UWBackdropArt.PatternEnum)piPattern,
             Border = false
         };
 
@@ -1327,7 +1327,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         // The shelf as wide as the screen leaves beside the stats panel (its size read from the
         // layout just set).
         if (peStart == UWDataImport.UWData.UWLayoutStart.ClassicModular)
-            UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
+            UWUserSettings.ModernStoneShelfWidth = Mathf.Max(UWDataImport.Presentation.UWHudArt.StoneShelfMinWidth,
                 UWModernStoneShelf.StoneShelfMaxWidth - UWDataImport.UWData.UWTextures.PanelWidth);
 
         miSelected = -1;

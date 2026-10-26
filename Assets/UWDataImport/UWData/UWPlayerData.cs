@@ -661,10 +661,11 @@ namespace UWDataImport.UWData
 
 			public int MaxMana;
 
-			/// <summary>Where the character starts - the middle of the starting room on level 1.</summary>
-			public int StartTileX = 32;
+			/// <summary>Where the character starts - the middle of the starting room on level 1 (the
+			/// rule set's story.start, UWQuestPlaces.StartTileX/Y by default).</summary>
+			public int StartTileX = UWRules.Current.Story.Start.TileX;
 
-			public int StartTileY = 2;
+			public int StartTileY = UWRules.Current.Story.Start.TileY;
 
 			/// <summary>Height in eighths of a zpos step: the tile floor there is 12, so
 			/// zpos 96 - that is what the original's fresh save contains.</summary>
@@ -721,7 +722,7 @@ namespace UWDataImport.UWData
 		/// user's saves - strength 15 carries 300, 21 carries 420, the fresh save with strength 25
 		/// carries 500 (2026-09-11).
 		/// </summary>
-		private const int WeightPerStrength = 20;
+		internal const int WeightPerStrength = 20;
 
 		/// <summary>How the original equips a fresh character, read from the user's fresh save;
 		/// clock and talismans follow the reference (InitEmptyPlayer).</summary>
@@ -807,15 +808,18 @@ namespace UWDataImport.UWData
 			liFlags[TalismanQuestFlag] = TalismanCount;
 
 			int[] liVariables = new int[GameVariableCount];
+			UWRulesStory.BullfrogRules lOBullfrog = UWRules.Current.Story.Bullfrog;
+
 			// The attempts at the bullfrog puzzle - the one game variable that starts non-zero.
-			liVariables[UWQuestPlaces.BullfrogVarRetries] = UWQuestPlaces.BullfrogRetriesAtStart;
+			if (lOBullfrog.VarRetries < liVariables.Length)
+				liVariables[lOBullfrog.VarRetries] = lOBullfrog.RetriesAtStart;
 
 			SavedState lOState = new SavedState
 			{
 				Hunger = NewHunger,
 				Fatigue = NewFatigue,
 				ClockValue = NewClockValue,
-				MoonstoneLevel = NewMoonstoneLevel,
+				MoonstoneLevel = UWRules.Current.Levels.NewMoonstone + 1,
 				CurrentVitality = pOCharacter.MaxVitality,
 				MaxVitality = pOCharacter.MaxVitality,
 				CurrentMana = pOCharacter.MaxMana,
@@ -846,7 +850,7 @@ namespace UWDataImport.UWData
 			lyPlain[Counter3COffset] = 0;
 
 			UWBinary.Write16(lyPlain, 0x4A, 0);
-			UWBinary.Write16(lyPlain, 0x4C, pOCharacter.Strength * WeightPerStrength);
+			UWBinary.Write16(lyPlain, 0x4C, pOCharacter.Strength * UWRules.Current.Inventory.CarryPerStrength);
 
 			// Class in the upper three bits, body shape in 2 to 4, gender in bit 1,
 			// bit 0 set means right-handed (the reference: playerdat.isLefty).

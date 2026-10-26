@@ -40,8 +40,9 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWRespawnRules
 	{
-		/// <summary>One out of this many opportunities is taken.</summary>
-		private const int Chance = 4;
+		/// <summary>One out of this many opportunities is taken - the default of the rule set's
+		/// respawn.chanceInN (cleanup phase 10).</summary>
+		internal const int Chance = 4;
 
 		/// <summary>A trap fires only this far from the player on at least one axis - fewer
 		/// tiles on both is "near" (CheckIfWithin8TilesFromObject_ovr153_14C4).</summary>
@@ -57,7 +58,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool RollOpportunity()
 		{
-			return UWRandom.Next(Chance) == 0;
+			return UWRandom.Next(UWRules.Current.Respawn.ChanceInN) == 0;
 		}
 
 		/// <summary>
@@ -111,11 +112,13 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>CheckIfWithin8TilesFromObject_ovr153_14C4: near is fewer than
-		/// PlayerNearTiles on BOTH axes.</summary>
+		/// PlayerNearTiles on BOTH axes - the rule set's (respawn.playerNearTiles, cleanup phase 10).</summary>
 		public static bool IsNearPlayer(UWTilePos pOPlayerTile, int piTileX, int piTileY)
 		{
-			return Math.Abs(pOPlayerTile.X - piTileX) < PlayerNearTiles
-				&& Math.Abs(pOPlayerTile.Y - piTileY) < PlayerNearTiles;
+			int liNear = UWRules.Current.Respawn.PlayerNearTiles;
+
+			return Math.Abs(pOPlayerTile.X - piTileX) < liNear
+				&& Math.Abs(pOPlayerTile.Y - piTileY) < liNear;
 		}
 
 	}

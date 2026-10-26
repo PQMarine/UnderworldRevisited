@@ -374,9 +374,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The maximum number of boulders that fall: eight three-sided dice, so eight to
 		/// twenty-four.</summary>
-		private const int TremorDiceCount = 8;
+		internal const int TremorDiceCount = 8;
 
-		private const int TremorDieSides = 3;
+		internal const int TremorDieSides = 3;
 
 		/// <summary>
 		/// Tremor: boulders fall from the ceiling.
@@ -407,8 +407,11 @@ namespace UWDataImport.UWData
 			if (lOLevel == null || lOLevel.TileData == null)
 				return false;
 
+			// The dice are the rule set's (magic.tremor.*, cleanup phase 10).
+			UWRulesMagic.TremorRules lODice = pIHost.World.Session.Rules.Magic.Tremor;
+
 			UWAreaWalk.Square(lOLevel, UWAreaSpellRules.GetCentreTile(pIHost, TremorDistance), TremorRadius,
-				UWRandom.RollDice(TremorDiceCount, TremorDieSides), pIHost.Cast.AttackerIndex, UWAreaWalk.RandomSquares,
+				UWRandom.RollDice(lODice.Dice, lODice.Sides), pIHost.Cast.AttackerIndex, UWAreaWalk.RandomSquares,
 				(pOTile, pOTarget) =>
 				{
 					pIHost.World.DropBoulder(UWObjectIds.LargeBoulderB + UWRandom.Next(BoulderKinds), pOTile.X,

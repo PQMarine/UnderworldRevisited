@@ -1,6 +1,7 @@
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE MODERN HUD'S FRAMES AND PIECES, cut from the original graphics (look decided per user on

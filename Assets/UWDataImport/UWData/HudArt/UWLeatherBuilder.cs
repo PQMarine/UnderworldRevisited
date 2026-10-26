@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE LEATHER of the bags and the action bar (INV.GR 6) with its cloud inside, its tab, and the

@@ -200,11 +200,6 @@ namespace UWDataImport.UWData
 			return string.Format(CultureInfo.InvariantCulture, psFormat, pOArguments);
 		}
 
-		private static string fN(float pfValue)
-		{
-			return pfValue.ToString(CultureInfo.InvariantCulture);
-		}
-
 		private static string fBit(bool pbValue)
 		{
 			return pbValue ? "1" : "0";
@@ -265,6 +260,10 @@ namespace UWDataImport.UWData
 			UWDebugSection lOSection = new UWDebugSection(PlaceId, "Place");
 
 			lOSection.Add("Level", fF("{0}", pOSnapshot.Level));
+
+			// The player's rules.json, only when there is one (cleanup phase 10).
+			if (!string.IsNullOrEmpty(pOSnapshot.Rules))
+				lOSection.Add("Rules", pOSnapshot.Rules, pOSnapshot.RulesProblem ? UWDebugEmphasis.Warning : UWDebugEmphasis.Accent);
 
 			if (!pOSnapshot.HasPlace)
 				return lOSection;
@@ -358,8 +357,8 @@ namespace UWDataImport.UWData
 
 			// Hit points, mana and poison - so a hit can be attributed. Without this you see the
 			// flask twitch while testing, but no number.
-			lOSection.Add("Health", fN(lOPlayer.HitPoints) + "/" + fN(lOPlayer.MaxHitPoints));
-			lOSection.Add("Mana", fF("{0:F0}/{1:F0}", lOPlayer.Mana, lOPlayer.MaxMana));
+			lOSection.Add("Health", fF("{0}/{1}", lOPlayer.HitPoints, lOPlayer.MaxHitPoints));
+			lOSection.Add("Mana", fF("{0}/{1}", lOPlayer.Mana, lOPlayer.MaxMana));
 
 			if (lOPlayer.Poison > 0)
 				lOSection.Add("Poisoned", fF("{0}", lOPlayer.Poison), UWDebugEmphasis.Warning);

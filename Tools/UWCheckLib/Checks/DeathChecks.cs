@@ -44,6 +44,14 @@ namespace UnderworldRevisited.Tools
             lOVitals.ApplyConversationValues(lOVitals.Hunger, 0, 0, 0);
             fExpectInt("death: a conversation setting zero hit points is a death", liDeaths, 3);
 
+            // A conversation's values are stored as they are, as bytes and the 4-bit poison - not
+            // cut to the maximum (CONVVARS.C; per user 2026-10-26).
+            lOVitals.ApplyConversationValues(0x1FE, lOVitals.MaxHP + 20, lOVitals.MaxMana + 7, 0x1F);
+            fExpectInt("conversation: hit points above the maximum stay", (int)lOVitals.CurrentHP, lOVitals.MaxHP + 20);
+            fExpectInt("conversation: mana above the maximum stays", (int)lOVitals.CurrentMana, lOVitals.MaxMana + 7);
+            fExpectInt("conversation: hunger is a byte", lOVitals.Hunger, 0xFE);
+            fExpectInt("conversation: poison is a 4-bit field", lOVitals.Poison, 0xF);
+
             fExpectInt("rules: no talisman left, spared (player_is_dead)",
                 (int)UWDeathRules.Decide(0, 3, 4, 9), (int)UWDeathRules.Outcome.Spared);
             fExpectInt("rules: a tree planted, back at it",

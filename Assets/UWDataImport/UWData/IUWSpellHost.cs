@@ -56,8 +56,10 @@ namespace UWDataImport.UWData
 
 		void SpendMana(int piAmount);
 
-		/// <summary>Real seconds since some start, for the pause between two casts.</summary>
-		double RealSeconds { get; }
+		/// <summary>The game's running time in PIT ticks, 256 a second (UWWorldScheduler.Now), for
+		/// the pause between two casts: the original's game clock, which stands while the game
+		/// holds (a conversation, a menu). Real seconds until cleanup phase 10 (2026-10-26).</summary>
+		long GameTicks { get; }
 
 		void RestoreManaFromSpell(int piMinorClass);
 

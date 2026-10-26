@@ -69,9 +69,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The hit count: DiceRoll(3, 4) = 3 to 12 (Class6Spells_seg038_3307_DBA). The
 		/// reference had a flat 2.</summary>
-		private const int HitDiceCount = 3;
+		internal const int HitDiceCount = 3;
 
-		private const int HitDiceRange = 4;
+		internal const int HitDiceRange = 4;
 
 		/// <summary>First animated object (ANIMO.GR). The effects below count from here,
 		/// exactly as in the reference.</summary>
@@ -145,7 +145,9 @@ namespace UWDataImport.UWData
 				&& piMinorClass != ConfusionMinor && piMinorClass != FlameWindMinor)
 				return false;
 
-			int liCount = UWRandom.RollDice(HitDiceCount, HitDiceRange);
+			// The dice are the rule set's (magic.areaHits.*, cleanup phase 10).
+			UWRulesMagic.AreaHitsRules lOHits = pIHost.World.Session.Rules.Magic.AreaHits;
+			int liCount = UWRandom.RollDice(lOHits.Dice, lOHits.Sides);
 
 			UWAreaWalk.Square(UWSpellCasting.LevelOf(pIHost), pOCentre, TileRadius, liCount, pIHost.Cast.AttackerIndex,
 				piTargetType, (pOTile, pOTarget) => fApply(piMinorClass, pOTile, pOTarget, pIHost));
@@ -312,7 +314,10 @@ namespace UWDataImport.UWData
 					// DiceRoll(6, 5), so 6 to 30, of type 3, pure magic (DamageObjectsInTile with
 					// kind 2: tables 9D3/9D5/9D7). The flash at a random height (sp_sheet_light).
 					fSpawnStrikePicture(pOTile, LightningEffectObjectId, pIHost);
-					fStrikeTile(pOTile.X, pOTile.Z, LightningDiceCount, LightningDiceRange, UWDamageTypes.Magic, pIHost);
+					// The dice are the rule set's (magic.sheetLightning.*, cleanup phase 10).
+					UWRulesMagic.SheetLightningRules lOLightning = pIHost.World.Session.Rules.Magic.SheetLightning;
+
+					fStrikeTile(pOTile.X, pOTile.Z, lOLightning.Dice, lOLightning.Sides, UWDamageTypes.Magic, pIHost);
 
 					return true;
 
@@ -370,8 +375,11 @@ namespace UWDataImport.UWData
 				return;
 
 			// DiceRoll(10, 6), so 10 to 60, of type 0x0B, fire - it bounces off a fire elemental
-			// (DamageObjectsInTile with kind 1).
-			fStrikeTile(piX, piZ, FlameDiceCount, FlameDiceRange, UWDamageTypes.Fire, pIHost);
+			// (DamageObjectsInTile with kind 1). The dice are the rule set's (magic.flameWind.*,
+			// cleanup phase 10).
+			UWRulesMagic.FlameWindRules lOFlame = pIHost.World.Session.Rules.Magic.FlameWind;
+
+			fStrikeTile(piX, piZ, lOFlame.Dice, lOFlame.Sides, UWDamageTypes.Fire, pIHost);
 		}
 
 		/// <summary>
@@ -444,13 +452,13 @@ namespace UWDataImport.UWData
 					UWExplosionRules.LengthToSeconds(lOFlame.LengthTicks), lOFlame.StartFrame);
 		}
 
-		private const int FlameDiceCount = 10;
+		internal const int FlameDiceCount = 10;
 
-		private const int FlameDiceRange = 6;
+		internal const int FlameDiceRange = 6;
 
-		private const int LightningDiceCount = 6;
+		internal const int LightningDiceCount = 6;
 
-		private const int LightningDiceRange = 5;
+		internal const int LightningDiceRange = 5;
 
 		/// <summary>Confuses the creature the walk hands over (sp_confusion). Counts per creature,
 		/// not per tile - the reference does the same. A creature without a body to take it

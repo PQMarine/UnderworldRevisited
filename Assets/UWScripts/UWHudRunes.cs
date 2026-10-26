@@ -645,7 +645,7 @@ public sealed class UWHudRunes
 
     /// <summary>Assembles the message from the string start and the two numbers. The
     /// entry already ends with a space.</summary>
-    private void fDescribeFlask(int piMessage, float pfCurrent, float pfMaximum)
+    private void fDescribeFlask(int piMessage, int piCurrent, int piMaximum)
     {
         if (mOUi.mOInteraction == null)
             mOUi.mOInteraction = mOUi.GetComponent<Interaction>();
@@ -662,7 +662,7 @@ public sealed class UWHudRunes
 
             mOUi.mOInteraction.AddMessage(string.Format("{0}{1}{2}{3}",
                 lsStart.TrimEnd('\r', '\n'),
-                Mathf.RoundToInt(pfCurrent), OutOfText, Mathf.RoundToInt(pfMaximum)));
+                piCurrent, OutOfText, piMaximum));
         }
         catch
         {

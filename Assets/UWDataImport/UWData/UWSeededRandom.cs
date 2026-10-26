@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// A SMALL FIXED RANDOM SEQUENCE (xorshift32: 13, 17, 5), the same on every run and engine, for

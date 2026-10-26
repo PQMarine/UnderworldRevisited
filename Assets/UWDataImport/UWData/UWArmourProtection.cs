@@ -58,8 +58,9 @@ namespace UWDataImport.UWData
 	{
 		/// <summary>
 		/// Whether a resistance spell of class 2 - Resist Blows - adds its value to the armour
-		/// of all four body parts. The switch is UWSettings.ResistBlowsAddsArmour, and it is
-		/// OFF by default because the original does not do it.
+		/// of all four body parts. The switch is the rule set's combat.resistBlowsAddsArmour (cleanup
+		/// phase 10; UWSettings.ResistBlowsAddsArmour until then), and it is OFF by default because
+		/// the original does not do it.
 		///
 		/// IN THE ORIGINAL THAT LINE IS DEAD: class 2 writes the resistance into bits 4-7 of
 		/// the accumulator (PlayerStatusUpdate_ovr133_784, label 379) and clears everything
@@ -72,15 +73,19 @@ namespace UWDataImport.UWData
 		/// Docs/AI/creature-ai.md). DamageResistance is filled either way, so the value is
 		/// visible even while it does nothing.
 		///
-		/// Kept with the session since 2026-10-14 (UWGameSession.Quirks, cleanup step 2.7); the
-		/// host pushes it once per game, when the character is set up (cleanup step 4.6,
-		/// 2026-10-18; before every status refresh until then).
+		/// Kept with the session since 2026-10-14 (UWGameSession.Quirks, cleanup step 2.7), in the
+		/// session's rule set since cleanup phase 10 (2026-10-26) - set by a rules.json at the
+		/// session's start; until then the host pushed UWSettings' value once per game. The setter
+		/// is for the self-check.
 		/// </summary>
 		public static bool ResistBlowsAddsArmour
 		{
-			get { return UWGameSession.Current.Quirks.ResistBlowsAddsArmour; }
-			set { UWGameSession.Current.Quirks.ResistBlowsAddsArmour = value; }
+			get { return UWRules.Current.Combat.ResistBlowsAddsArmour; }
+			set { UWRules.Current.Combat.ResistBlowsAddsArmour = value; }
 		}
+
+		/// <summary>The original: the spell protects against nothing - the rule's default.</summary>
+		public const bool ResistBlowsAddsArmourOriginal = false;
 
 		/// <summary>The original keeps this many body parts.</summary>
 		public const int PartCount = 4;
@@ -606,7 +611,8 @@ namespace UWDataImport.UWData
 		/// the two parts adds the armour to armour[slots[0]] both times, so the body gets it twice
 		/// and the hands nothing - a slip of the original, kept as it plays. Protection there goes
 		/// once to each of the two parts, as it should. Until 2026-10-11 ours gave the toughness
-		/// once to each.
+		/// once to each. A QUIRK SWITCH (quirks.toughnessTwiceOnBody, ToughnessTwiceOnBody): off,
+		/// toughness takes protection's branch, once to each part.
 		/// </summary>
 		private static void fApplyProtection(int piMinor, int piDollSlot, Status pOStatus)
 		{
@@ -624,7 +630,7 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			if (lbToughness)
+			if (lbToughness && UWRules.Current.Quirks.ToughnessTwiceOnBody)
 			{
 				lOTarget[PartBody] += 2 * liValue;
 
@@ -634,6 +640,10 @@ namespace UWDataImport.UWData
 			lOTarget[PartBody] += liValue;
 			lOTarget[PartHands] += liValue;
 		}
+
+		/// <summary>The original's slip of fApplyProtection, kept by default (the rule set's
+		/// quirks.toughnessTwiceOnBody).</summary>
+		public const bool ToughnessTwiceOnBody = true;
 
 		/// <summary>
 		/// How much the enchantment of an armour piece gives, or zero. Only for the display -

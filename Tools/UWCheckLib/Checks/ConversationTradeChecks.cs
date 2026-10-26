@@ -24,7 +24,8 @@ namespace UnderworldRevisited.Tools
             foreach (int liId in piIds)
                 pONpc.Contents.Add(new UWObject((ushort)liId) { Quality = 40 });
 
-            pOSession = new UWConversationSession(pOContext.Data, pONpc, 1, ConversationHostStub.Create(pOContext.Level(0)));
+            pOSession = new UWConversationSession(pOContext.Data, pONpc, 1, ConversationHostStub.Create(pOContext.Level(0)),
+                UWGameSession.Current);
 
             return pOSession.Trade;
         }
@@ -218,7 +219,8 @@ namespace UnderworldRevisited.Tools
 
             // The conversation's start rolls the loot (CONVERSE.C:329-330), before any trade function.
             UWRandom.Use(new UWSessionRandom(Seed));
-            UWConversationSession lOSession = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel));
+            UWConversationSession lOSession = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel),
+                UWGameSession.Current);
             UWRandom.Use(null);
 
             List<int> liExpected = Enumerable.Reverse(liRolled).ToList();
@@ -233,7 +235,8 @@ namespace UnderworldRevisited.Tools
             lOSession.Trade.Resolve(1);
             Check.Int("trade roll: once - the first trade lookup rolls nothing", lONpc.Contents.Count, liExpected.Count);
 
-            UWConversationSession lOAgain = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel));
+            UWConversationSession lOAgain = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel),
+                UWGameSession.Current);
 
             Check.Int("trade roll: once - the next conversation rolls nothing", lONpc.Contents.Count, liExpected.Count);
         }
@@ -424,7 +427,8 @@ namespace UnderworldRevisited.Tools
                 List<UWNpc> lOKin = lOCritters.Where(pONpc => pONpc.ID == lOKinTalker.ID).ToList();
                 UWCritterRecord lOTalkerRecord = new UWCritterRecord(lOKinTalker);
                 lOData.ObjectClassProperties.TryGetCritter(lOKinTalker.ID, out UWObjectClassProperties.Critter lOStats);
-                UWConversationSession lOKinSession = new UWConversationSession(lOData, lOKinTalker, 1, ConversationHostStub.Create(lOLevel));
+                UWConversationSession lOKinSession = new UWConversationSession(lOData, lOKinTalker, 1, ConversationHostStub.Create(lOLevel),
+                    UWGameSession.Current);
 
                 foreach (UWNpc lONpc in lOKin)
                     new UWCritterRecord(lONpc).Attitude = 2;
@@ -514,10 +518,11 @@ namespace UnderworldRevisited.Tools
             UWNpc lOGeneric = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCwhoami = 0, NPCAttitude = UWNpc.AttitudeFriendly };
 
             Check.Str("name: whoami 115, empty in block 7 - no name",
-                new UWConversationSession(pOContext.Data, lONameless, 115, null).PartnerName, string.Empty);
+                new UWConversationSession(pOContext.Data, lONameless, 115, null, UWGameSession.Current).PartnerName, string.Empty);
             Check.Bool("name: whoami 0 - the object's name",
                 !string.IsNullOrEmpty(new UWConversationSession(pOContext.Data, lOGeneric,
-                    256 + (UWObjectIds.FirstCreature - UWObjectClassProperties.CritterFirstId), null).PartnerName), true);
+                    256 + (UWObjectIds.FirstCreature - UWObjectClassProperties.CritterFirstId), null, UWGameSession.Current).PartnerName),
+                true);
         }
 
         /// <summary>A60: the write-back's goal goes through critter_set_goal (update_converse_data).</summary>
@@ -526,7 +531,8 @@ namespace UnderworldRevisited.Tools
             Check.Group("Goal write-back (change_critter_goal: a guard's goal saved)");
 
             UWNpc lONpc = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCAttitude = UWNpc.AttitudeFriendly, NPCGoal = 4, NPCGTarg = 1 };
-            UWConversationSession lOSession = new UWConversationSession(pOContext.Data, lONpc, 1, ConversationHostStub.Create(pOContext.Level(0)));
+            UWConversationSession lOSession = new UWConversationSession(pOContext.Data, lONpc, 1, ConversationHostStub.Create(pOContext.Level(0)),
+                UWGameSession.Current);
 
             lOSession.Abort();
 

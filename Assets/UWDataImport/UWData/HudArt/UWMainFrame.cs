@@ -1,4 +1,6 @@
-namespace UWDataImport.UWData
+using UWDataImport.UWData;
+
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE FRAME PICTURE'S PIECES THE HUD ART CROPS (cleanup 9.10, 2026-10-25, CLEANUP-PLAN 8.4):

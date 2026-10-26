@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// A sound effect in Creative Voice format (*.VOC) from the "sound" folder. The format

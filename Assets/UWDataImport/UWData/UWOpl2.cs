@@ -1,3 +1,5 @@
+using UWDataImport.UWData;
+
 // This file is a C# port of the YM3812 (OPL2) parts of ymfm by Aaron Giles
 // (https://github.com/aaronsgiles/ymfm: ymfm.h, ymfm_fm.h, ymfm_fm.ipp,
 // ymfm_opl.h, ymfm_opl.cpp). It is distributed under the original license:
@@ -32,7 +34,7 @@
 // OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// Emulation of the YM3812 (OPL2), the AdLib sound chip - the sound the original

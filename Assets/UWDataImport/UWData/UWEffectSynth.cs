@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The sound effects: a second emulated AdLib chip (UWOpl2) with nine UWTvfxVoice, one per

@@ -157,9 +157,9 @@ namespace UWDataImport.UWData
 		/// <summary>The player was hit: if still doing well, the undecided combat theme,
 		/// otherwise the losing one (reference: damage.cs) - or, when his own missile hit him, the
 		/// winning one (PlayerHurtTheme).</summary>
-		public void OnPlayerDamaged(float pfCurrentHealth, float pfMaxHealth, float pfNow, bool pbByPlayer)
+		public void OnPlayerDamaged(int piCurrentHealth, int piMaxHealth, float pfNow, bool pbByPlayer)
 		{
-			ChangeTheme(PlayerHurtTheme((int)pfCurrentHealth, (int)pfMaxHealth, pbByPlayer));
+			ChangeTheme(PlayerHurtTheme(piCurrentHealth, piMaxHealth, pbByPlayer));
 			MarkCombat(pfNow);
 		}
 

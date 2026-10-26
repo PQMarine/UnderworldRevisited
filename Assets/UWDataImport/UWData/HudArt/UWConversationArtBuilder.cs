@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE ORIGINAL'S CONVERSATION PIECES freed (CONV.BYT) and their outline, the answers'

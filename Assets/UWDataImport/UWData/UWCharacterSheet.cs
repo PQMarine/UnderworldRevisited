@@ -173,8 +173,8 @@ namespace UWDataImport.UWData
 				case 0: return mOVitals.Strength.ToString();
 				case 1: return mOVitals.Dexterity.ToString();
 				case 2: return mOVitals.Intelligence.ToString();
-				case 3: return UWUnits.RoundToInt(mOVitals.CurrentHP) + lsOver + UWUnits.RoundToInt(mOVitals.MaxHP);
-				case 4: return UWUnits.RoundToInt(mOVitals.CurrentMana) + lsOver + UWUnits.RoundToInt(mOVitals.MaxMana);
+				case 3: return mOVitals.CurrentHP + lsOver + mOVitals.MaxHP;
+				case 4: return mOVitals.CurrentMana + lsOver + mOVitals.MaxMana;
 				case 5: return (mOVitals.Experience / 10).ToString();
 				default: return string.Empty;
 			}
@@ -306,10 +306,10 @@ namespace UWDataImport.UWData
 					liSignature = (liSignature * 31) + mOVitals.Strength;
 					liSignature = (liSignature * 31) + mOVitals.Dexterity;
 					liSignature = (liSignature * 31) + mOVitals.Intelligence;
-					liSignature = (liSignature * 31) + UWUnits.RoundToInt(mOVitals.CurrentHP);
-					liSignature = (liSignature * 31) + UWUnits.RoundToInt(mOVitals.MaxHP);
-					liSignature = (liSignature * 31) + UWUnits.RoundToInt(mOVitals.CurrentMana);
-					liSignature = (liSignature * 31) + UWUnits.RoundToInt(mOVitals.MaxMana);
+					liSignature = (liSignature * 31) + mOVitals.CurrentHP;
+					liSignature = (liSignature * 31) + mOVitals.MaxHP;
+					liSignature = (liSignature * 31) + mOVitals.CurrentMana;
+					liSignature = (liSignature * 31) + mOVitals.MaxMana;
 					liSignature = (liSignature * 31) + (mOVitals.Experience / 10);
 					liSignature = (liSignature * 31) + mOVitals.Level;
 					liSignature = (liSignature * 31) + mOVitals.SkillPoints;

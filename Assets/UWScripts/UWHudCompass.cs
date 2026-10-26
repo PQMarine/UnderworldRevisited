@@ -182,13 +182,13 @@ public sealed class UWHudCompass
                 UWDataImport.UWData.UWColor32[] lORaw = lOSource.GetUWColor32();
 
                 if (liPicture < CompassBackgroundCount)
-                    lbKeep = UWDataImport.UWData.UWHudArt.CompassCrossMask(lORaw, lOSource.Width, lOSource.Height);
+                    lbKeep = UWDataImport.Presentation.UWHudArt.CompassCrossMask(lORaw, lOSource.Width, lOSource.Height);
                 else
                 {
                     lbKeep = new bool[lORaw.Length];
 
                     for (int liAt = 0; liAt < lORaw.Length; liAt++)
-                        lbKeep[liAt] = UWDataImport.UWData.UWHudArt.CompassTipKeeps(lORaw[liAt]);
+                        lbKeep[liAt] = UWDataImport.Presentation.UWHudArt.CompassTipKeeps(lORaw[liAt]);
                 }
             }
 

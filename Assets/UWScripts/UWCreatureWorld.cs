@@ -171,7 +171,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
         lOTarget.FacingEighth = UWPlayerThrow.GetPlayerHeading(lOPlayerTransform) >> 5;
         lOTarget.Loudness = lOPlayer.Vitals.Quietness;
         lOTarget.Visibility = lOPlayer.Vitals.Visibility;
-        lOTarget.HitPoints = lOPlayer.Vitals.CurrentHP > 0f ? Mathf.Max(1, (int)lOPlayer.Vitals.CurrentHP) : 0;
+        lOTarget.HitPoints = lOPlayer.Vitals.CurrentHP;
         lOTarget.Goal = 0;
         lOTarget.IsAlly = false;
         lOTarget.Kind = 0;

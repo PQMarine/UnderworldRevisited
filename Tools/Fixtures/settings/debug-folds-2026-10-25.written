@@ -88,6 +88,6 @@
     "Mt32RomPath": "",
     "DebugFolded": "creature,traps",
     "PointerSpeed": 1.0,
-    "WindowTheme": 0,
+    "WindowTheme": 1,
     "WindowBackground": 0
 }

@@ -11,6 +11,24 @@
 
     The language level matches what Unity 6 compiles, so nothing can creep in here that
     the editor would then refuse.
+
+    NAMESPACES (cleanup phase 10, 2026-10-26): one assembly, the parts told apart by namespace,
+    so that the rules core a port must mirror stands apart from what only feeds an engine.
+    The files stay where they were (their paths are cited throughout the docs).
+      UWDataImport           the DataImport facade and the 3D models from UW.EXE
+      UWDataImport.UWData    the rules core: data, codecs, the session, the rules, view models
+      UWDataImport.Audio     the sound chain: the sound folder and its formats (UWSound, UWVoc,
+                             UWXmi, UWAdlibBank), the emulated AdLib (UWOpl2, UWTvfxVoice,
+                             UWEffectSynth), the music drivers and devices (AdLib, General MIDI,
+                             MT-32), the mixer; which theme or sound plays when stays a rule
+                             (UWMusicSelector, UWSoundEffectId, UWSoundAttenuation)
+      UWDataImport.Presentation  art and presentation, no rule: the HUD art builders
+                             (UWHudArt and UWData/HudArt), the modern backs, the window themes
+                             and their ground, the texture synthesis and its pixel tools (UWMask,
+                             UWPixelOps, UWNoise, ...), the grime colours, the upload format and
+                             art stamps, the cutscene runner
+      UWDataImport.Install   the GOG installation: finding game.gog, extracting it, the folder
+                             dialog's logic (UWGogInstall, UWGameFolderBrowser)
   -->
 
   <PropertyGroup>

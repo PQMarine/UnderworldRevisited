@@ -75,7 +75,7 @@ namespace UWDataImport.UWData
 		/// original takes those headings from its arctangent table, not from the player's yaw.</summary>
 		public static int DegreesToHeadingByte(float pfDegrees)
 		{
-			return (int)(UWUnits.Repeat(pfDegrees, 360f) * HeadingBytesPerTurn / 360f) & 0xFF;
+			return UWRounding.Truncate(UWUnits.Repeat(pfDegrees, 360f) * HeadingBytesPerTurn / 360f) & 0xFF;
 		}
 
 		/// <summary>The compass needle's step, 0 to 15, from a 256-step heading: the original's

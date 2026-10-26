@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using UWDataImport.Audio;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools

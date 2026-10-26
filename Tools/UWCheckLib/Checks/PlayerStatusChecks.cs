@@ -281,10 +281,10 @@ namespace UnderworldRevisited.Tools
         {
             UWPlayerVitals.StartValues lOStart = UWPlayerVitals.StartValues.Default;
 
-            lOStart.FallbackMaxHP = 30f;
-            lOStart.FallbackMaxMana = 20f;
-            lOStart.FallbackCurrentHP = 10f;
-            lOStart.FallbackCurrentMana = 5f;
+            lOStart.FallbackMaxHP = 30;
+            lOStart.FallbackMaxMana = 20;
+            lOStart.FallbackCurrentHP = 10;
+            lOStart.FallbackCurrentMana = 5;
 
             UWPlayerVitals lOVitals = new UWPlayerVitals(pIHost);
 

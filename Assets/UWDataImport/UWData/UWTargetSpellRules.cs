@@ -46,7 +46,7 @@ namespace UWDataImport.UWData
 		/// <summary>The damage before the resistances, 5 to 20.</summary>
 		public static int RollPoisonDamage()
 		{
-			return UWRandom.RollDice(PoisonDiceCount, PoisonDieRange);
+			return UWRandom.RollDice(UWRules.Current.Magic.Poison.Dice, UWRules.Current.Magic.Poison.Sides);
 		}
 	}
 }

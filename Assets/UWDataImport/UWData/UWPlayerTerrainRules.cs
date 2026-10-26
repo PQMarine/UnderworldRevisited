@@ -52,6 +52,18 @@ namespace UWDataImport.UWData
 		/// is dropped (a quarter second, as UWPlayerTerrain had it on Time.time).</summary>
 		public const int LavaBacklogTicks = UWPlayerTick.PitTicksPerSecond / 4;
 
+		/// <summary>THE LAVA'S NUMBERS (see TickLava), the defaults of the rule set's vitals.lava.*
+		/// (cleanup phase 10, 2026-10-26; UWSettings.LavaDamageInterval, LavaDamageChance and
+		/// LavaDamage until then): a roll every 1/32 s, 8 PIT ticks - UW.EXE rolls once per game frame
+		/// (see TickLava), and 1/32 s is the game loop rate the Void's effects assume too (per user,
+		/// 2026-09-14; the earlier 0.5 s did far too little damage); one in five hits; a hit does one
+		/// point of fire.</summary>
+		public const int LavaRollTicks = UWPlayerTick.PitTicksPerSecond / 32;
+
+		public const int LavaHitOneIn = 5;
+
+		public const int LavaHitDamage = 1;
+
 		/// <summary>PLAYER.DAT 0xB9 - the view's dip, the missiles' launch height, the save game.</summary>
 		public int SwimCounter { get; private set; }
 
@@ -99,12 +111,15 @@ namespace UWDataImport.UWData
 			if (SwimCounter <= SwimCounterCheckThreshold)
 				return 0;
 
+			// The rise limit and the drowning threshold are the rule set's (vitals.swim.*, cleanup
+			// phase 10); the consts above are their defaults.
+			UWRulesVitals.SwimRules lORules = UWRules.Current.Vitals.Swim;
 			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(piSkill, piLoad);
 
-			if (!UWSkillCheck.IsSuccess(leResult) && SwimCounter < SwimCounterRiseLimit)
+			if (!UWSkillCheck.IsSuccess(leResult) && SwimCounter < lORules.RiseBelow)
 				SwimCounter = (SwimCounter + UWRandom.RollDice(3 - (int)leResult, 4)) & 0xFF;
 
-			if (SwimCounter <= SwimCounterDrownThreshold)
+			if (SwimCounter <= lORules.DrownAbove)
 				return 0;
 
 			int liSeverity = 2 - (int)UWSkillCheck.Check(piSkill, piLoad);
@@ -119,7 +134,7 @@ namespace UWDataImport.UWData
 		/// THE LAVA, piPitTicks of game time later: how many of its rolls hit. In the original a roll
 		/// is made per game frame (PLAYMOVE.C parse_effect: rand() % 5 == 0, unless the dragon skin
 		/// boots are worn) - faster on a faster machine. Ours rolls at a fixed rate, every
-		/// piIntervalTicks (UWSettings.LavaDamageInterval, 1/32 s = 8 ticks, about what the original
+		/// piIntervalTicks (vitals.lava.rollTicks, LavaRollTicks: 1/32 s = 8 ticks, about what the original
 		/// reaches in DOSBox: the user measured 69 of 78 hit points in 10 s in both, 2026-10-17), with
 		/// the chance pdChance (one in five). The first roll comes on the step onto the lava, a
 		/// backlog of more than a quarter second is dropped, and off the lava (or in the boots)
@@ -161,10 +176,11 @@ namespace UWDataImport.UWData
 			return liHits;
 		}
 
-		/// <summary>UWSettings.LavaDamageInterval in seconds as PIT ticks (at least one).</summary>
+		/// <summary>An interval in seconds as PIT ticks (at least one) - what UWSettings.LavaDamageInterval
+		/// was converted with until cleanup phase 10.</summary>
 		public static int SecondsToTicks(float pfSeconds)
 		{
-			return System.Math.Max(1, (int)System.Math.Round(pfSeconds * UWPlayerTick.PitTicksPerSecond));
+			return System.Math.Max(1, UWRounding.HalfToEven(pfSeconds * UWPlayerTick.PitTicksPerSecond));
 		}
 	}
 }

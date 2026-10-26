@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// A piece of music in XMI format (Extended MIDI of the Miles Sound library) from the

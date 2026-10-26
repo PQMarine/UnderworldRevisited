@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
@@ -114,9 +115,14 @@ namespace UnderworldRevisited.Tools
             UWIntSettingDef lOGround = UWUserSettingsTable.WindowBackground;
             UWUserData lOData = new UWUserData();
 
-            Check.Int("settings: a file without the keys reads Plain", lOTheme.Read(lOData), (int)UWWindowThemeEnum.Plain);
+            // Stone by default since 2026-10-26 (per user).
+            Check.Int("settings: a file without the keys reads Stone", lOTheme.Read(lOData), (int)UWWindowThemeEnum.Stone);
             Check.Int("settings: ... and the gradient", lOGround.Read(lOData), (int)UWWindowBackgroundEnum.Gradient);
-            Check.Bool("settings: the ground greyed under Plain", lOGround.IsEnabled(lOData), false);
+            Check.Bool("settings: the ground not greyed under Stone", lOGround.IsEnabled(lOData), true);
+
+            lOData.WindowTheme = (int)UWWindowThemeEnum.Plain;
+            Check.Bool("settings: Plain stored reads Plain, the ground greyed",
+                lOTheme.Read(lOData) == (int)UWWindowThemeEnum.Plain && !lOGround.IsEnabled(lOData), true);
 
             lOData.WindowTheme = (int)UWWindowThemeEnum.Stone;
             lOData.WindowBackground = (int)UWWindowBackgroundEnum.Clouds;
@@ -126,8 +132,8 @@ namespace UnderworldRevisited.Tools
 
             lOData.WindowTheme = 9;
             lOData.WindowBackground = -3;
-            Check.Bool("settings: a theme or ground the table does not know reads Plain and the gradient",
-                lOTheme.Read(lOData) == (int)UWWindowThemeEnum.Plain && lOGround.Read(lOData) == (int)UWWindowBackgroundEnum.Gradient, true);
+            Check.Bool("settings: a theme or ground the table does not know reads Stone and the gradient",
+                lOTheme.Read(lOData) == (int)UWWindowThemeEnum.Stone && lOGround.Read(lOData) == (int)UWWindowBackgroundEnum.Gradient, true);
 
             Check.Str("settings: the choices", string.Join(",", lOTheme.ChoiceLabels) + " / " + string.Join(",", lOGround.ChoiceLabels),
                 "Plain,Stone / Gradient,Clouds");

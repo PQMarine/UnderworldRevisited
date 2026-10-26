@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UWDataImport;
+using UWDataImport.Audio;
+using UWDataImport.Install;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools

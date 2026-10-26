@@ -31,6 +31,13 @@ namespace UWDataImport.UWData
 		/// <summary>The game clock (Time.time) the ages of the trap log and the last hit count from.</summary>
 		public float Now;
 
+		/// <summary>What the player's rules.json did to this game (UWRulesReport.Summary; cleanup phase
+		/// 10, 2026-10-25); empty without the file, and then the row is left out.</summary>
+		public string Rules = string.Empty;
+
+		/// <summary>The file had problems (a malformed file, an unknown key, a wrong value).</summary>
+		public bool RulesProblem;
+
 		// ------------------------------------------------- Place
 
 		/// <summary>A camera to stand at: without one the place and the player's lines were left out.</summary>
@@ -121,13 +128,13 @@ namespace UWDataImport.UWData
 	/// <summary>Hit points, mana, poison, the last hit, armour and enchantments of the character.</summary>
 	public sealed class UWDebugPlayer
 	{
-		public float HitPoints;
+		public int HitPoints;
 
-		public float MaxHitPoints;
+		public int MaxHitPoints;
 
-		public float Mana;
+		public int Mana;
 
-		public float MaxMana;
+		public int MaxMana;
 
 		public int Poison;
 

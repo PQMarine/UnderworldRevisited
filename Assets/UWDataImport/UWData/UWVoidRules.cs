@@ -17,8 +17,9 @@ namespace UWDataImport.UWData
 	/// when the roll fails - there it deviates from the disassembly; UW.EXE is followed.
 	///
 	/// THE TICK RATE is not established: how often the game tick ran in the original depends on the
-	/// machine, and the reference itself notes it as unresolved. It is therefore kept in UWSettings
-	/// (VoidEffectTicksPerSecond, 32).
+	/// machine, and the reference itself notes it as unresolved. It was therefore kept in UWSettings
+	/// (VoidEffectTicksPerSecond, 32); since cleanup phase 10 (2026-10-26) it is the rule set's
+	/// vitals.void.ticksPerSecond, TicksPerSecond its default.
 	/// </summary>
 	public sealed class UWVoidRules
 	{
@@ -42,12 +43,16 @@ namespace UWDataImport.UWData
 
 		public const int CompassSteps = 16;
 
+		/// <summary>The Void's game ticks per second - about one effect a second (per user,
+		/// 2026-09-14); see the class.</summary>
+		public const int TicksPerSecond = 32;
+
 		/// <summary>The game ticks not yet run, in fractions.</summary>
 		private double mdTicks;
 
 		/// <summary>
 		/// How many of the Void's game ticks piPitTicks of game time bring at pfTicksPerSecond
-		/// (UWSettings.VoidEffectTicksPerSecond); the fraction carries over. Nothing at a rate of
+		/// (vitals.void.ticksPerSecond); the fraction carries over. Nothing at a rate of
 		/// zero or below.
 		/// </summary>
 		public int Advance(int piPitTicks, float pfTicksPerSecond)
@@ -57,7 +62,7 @@ namespace UWDataImport.UWData
 
 			mdTicks += piPitTicks * (double)pfTicksPerSecond / UWPlayerTick.PitTicksPerSecond;
 
-			int liTicks = (int)mdTicks;
+			int liTicks = UWRounding.Floor(mdTicks);
 
 			mdTicks -= liTicks;
 

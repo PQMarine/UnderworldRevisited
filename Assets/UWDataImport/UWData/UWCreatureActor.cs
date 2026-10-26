@@ -69,6 +69,10 @@ namespace UWDataImport.UWData
 
 		private readonly ICreatureView mIView;
 
+		/// <summary>The session's services its brain draws on, the rule set among them (cleanup
+		/// phase 10 wave 4, 2026-10-26: UWGameSession.Current until then).</summary>
+		private readonly ICritterServices mIServices;
+
 		/// <summary>The hit points' rules of its body (the UWDamageable's UWHealth), reading and
 		/// writing the record's byte 8 (KeepHitPointsIn).</summary>
 		private readonly UWHealth mOHealth;
@@ -126,14 +130,17 @@ namespace UWDataImport.UWData
 		/// <param name="pIView">Its picture.</param>
 		/// <param name="pOHealth">Its body's hit points (they read the record from now on); null for
 		/// none.</param>
+		/// <param name="pIServices">The session's random source, clock, alarm, path slots and rule set
+		/// (the game's UWGameSession).</param>
 		public UWCreatureActor(UWNpc pONpc, UWObjectClassProperties.Critter pOStats, bool pbHasStats, ICreatureWorld pIWorld,
-			ICreatureView pIView, UWHealth pOHealth)
+			ICreatureView pIView, UWHealth pOHealth, ICritterServices pIServices)
 		{
 			mOStats = pOStats;
 			mbHasStats = pbHasStats;
 			mIWorld = pIWorld;
 			mIView = pIView;
 			mOHealth = pOHealth;
+			mIServices = pIServices;
 
 			// Flier and swimmer come from table byte 0x0A bits 7 and 6 (spec 2, deviation 42),
 			// not from the category byte any more.
@@ -160,7 +167,7 @@ namespace UWDataImport.UWData
 			// the values are the same - the kind and the data do not change while the creature lives.
 			GetOwnSize(out int liOwnRadius, out int liOwnHeight);
 
-			mOBrain = new UWCritterBrain(mORecord, pOStats, miIndex, UWGameSession.Current, liOwnHeight, fMissileVelocities());
+			mOBrain = new UWCritterBrain(mORecord, pOStats, miIndex, pIServices, liOwnHeight, fMissileVelocities());
 			mOBrain.GoalChanged += fOnGoalChanged;
 
 			miSpawnTileX = mORecord.TileX;
@@ -700,7 +707,9 @@ namespace UWDataImport.UWData
 		/// Goal 3's relocation: the record onto the tile centre at floor height, relinked, the body
 		/// there at once. UW.EXE checks nothing; here a solid tile or one outside the map refuses
 		/// (deviation 37, kept for safety) - a creature inside a wall would be worse than a skipped
-		/// jump.
+		/// jump - and so does the wrong medium for a walker or a swimmer. A DEVIATION SWITCH
+		/// (deviations.followerLandsWhereItCanStand, FollowerLandsWhereItCanStand): off, only a tile
+		/// outside the map refuses.
 		///
 		/// ONE WRITE, HERE (cleanup step 4.8, 2026-10-18): seg007_1798_3E4 (UnderworldExhumed AI.C)
 		/// moves the follower to the middle of the tile at the tile's height times eight, a flier too.
@@ -712,17 +721,27 @@ namespace UWDataImport.UWData
 		{
 			UWTile lOTile = fGetTileAt(piTileX, piTileY);
 
-			if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
+			if (lOTile == null)
 				return false;
 
-			if (!mbFlying && mbSwimming != fIsWater(lOTile))
-				return false;
+			if (mIServices.Rules.Deviations.FollowerLandsWhereItCanStand)
+			{
+				if (lOTile.TileType == UWTile.TileTypeEnum.solid)
+					return false;
+
+				if (!mbFlying && mbSwimming != fIsWater(lOTile))
+					return false;
+			}
 
 			fRelocate(piTileX, piTileY, 4, 4, (lOTile.FloorHeight >> 4) << 3);
 			fTrace("teleported to {0}/{1}", piTileX, piTileY);
 
 			return true;
 		}
+
+		/// <summary>Our deviation 37 is on by default (the rule set's
+		/// deviations.followerLandsWhereItCanStand).</summary>
+		public const bool FollowerLandsWhereItCanStand = true;
 
 		/// <summary>The record onto a tile, eighth and height, the tile list relinked, the body
 		/// there at once.</summary>

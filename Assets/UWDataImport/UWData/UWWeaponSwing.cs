@@ -530,7 +530,7 @@ namespace UWDataImport.UWData
 		{
 			float lfClamped = pfCharge < 0f ? 0f : (pfCharge > 1f ? 1f : pfCharge);
 
-			return (int)Math.Round(lfClamped * UWCombat.FullCharge);
+			return UWRounding.HalfToEven(lfClamped * UWCombat.FullCharge);
 		}
 
 		private void fUpdateWeapon()

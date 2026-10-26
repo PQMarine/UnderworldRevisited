@@ -448,7 +448,7 @@ namespace UWDataImport.UWData
 		{
 			fGetDistancesToGTarg();
 
-			int liCharge = UWCritterRules.ChargeTable[mORecord.ChargeIndex & 0xF];
+			int liCharge = mIServices.Rules.Critter.ChargeTable[mORecord.ChargeIndex & 0xF];
 			int liSwing = fRandom(UWCritterRules.SwingTypeRoll);
 			int liFlank = mbTargetFound
 				? UWCritterRules.GetFlankingBonus(mORecord.FacingEighth, mOTarget.FacingEighth)
@@ -586,7 +586,7 @@ namespace UWDataImport.UWData
 			int liGoal;
 
 			// Label seg007_1798_2F8C, 53775-53830.
-			if (miTileDist2 > UWCritterRules.FollowNearTilesSquared
+			if (miTileDist2 > mIServices.Rules.Critter.Follow.NearTilesSquared
 				&& (!mORow.IsCaster || mIHost.IsMagicBlockedAt(mORecord.TileX, mORecord.TileY)))
 			{
 				mORecord.Relentless = true;
@@ -617,7 +617,7 @@ namespace UWDataImport.UWData
 			if (UWCritterRules.MoraleCheckDecided(liVitality, liHp, liDamage, out lbResult))
 				return lbResult;
 
-			return UWCritterRules.MoraleCheck(liVitality, liHp, liMorale, liDamage, fRandom(UWCritterRules.MoraleRoll));
+			return UWCritterRules.MoraleCheck(liVitality, liHp, liMorale, liDamage, fRandom(mIServices.Rules.Critter.Sense.MoraleRoll));
 		}
 
 		/// <summary>The goal switch (SwitchGoals_seg007_1798_3247, 54066) with the target
@@ -761,13 +761,15 @@ namespace UWDataImport.UWData
 		/// under the compass (UWPlayerVitals.ReportEasyMovementStep). The decay runs as in the
 		/// original, one step per eight calls; only the call rate is ours - the original calls it
 		/// once per frame of its game loop, whose rate depends on the machine (deviation 24, see
-		/// UWPlayerVitals.QuietnessTicksPerSecond).
+		/// UWPlayerVitals.QuietnessCallTicks: 32 a second on the game's clock).
 		///
 		/// THE LIGHT LEVEL does not belong here: it goes from PLAYER.DAT byte 0x63 to the
 		/// renderer's shading table and nowhere near this check (read 2026-09-21).
 		/// </summary>
 		private int fSearchForTarget(out int piTx, out int piTy)
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			piTx = mOTarget.TileX;
 			piTy = mOTarget.TileY;
 
@@ -778,7 +780,7 @@ namespace UWDataImport.UWData
 			int liHear = mOTarget.Loudness * mORow.NoiseRange / 16;
 			int liHear2 = liHear * liHear;
 
-			if (liHear2 / UWCritterRules.HearingDivisor > liD2)
+			if (liHear2 / lORules.Sense.HearingDivisor > liD2)
 				return SearchFound;
 
 			int liSee = mOTarget.Visibility * mORow.SightRange / 16;
@@ -795,7 +797,7 @@ namespace UWDataImport.UWData
 				}
 			}
 
-			if (liHear2 * UWCritterRules.LostMultiplier > liD2)
+			if (liHear2 * lORules.Sense.LostMultiplier > liD2)
 				return SearchUnchanged;
 
 			mORecord.TargetConfirmed = false;
@@ -821,9 +823,9 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		/// <summary>seg007_1798_2123 (52174-52376): the full facing snaps to the exact heading
-		/// of the vector when within 0x20 of it (and reports facing), else turns 0x20 the
-		/// shorter way. A zero vector counts as facing.</summary>
+		/// <summary>seg007_1798_2123 (52174-52376): the full facing snaps to the heading of the
+		/// vector (FineHeadingOf, the original's table arctangent) when within 0x20 of it (and
+		/// reports facing), else turns 0x20 the shorter way. A zero vector counts as facing.</summary>
 		private bool fFineTurnTowards(int piDx, int piDy)
 		{
 			if (piDx == 0 && piDy == 0)
@@ -845,11 +847,49 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		/// <summary>The fine heading of a vector, 0..255 with 0 = +Y and 64 = +X - the
-		/// original's table arctangent (seg019_EFB) replaced by Math.Atan2, rounded.</summary>
+		/// <summary>
+		/// The fine heading of a vector, 0..255 with 0 = +Y and 64 = +X, as seg007_1798_2123
+		/// (turn_real_fine, UnderworldExhumed AI.C) computes it: the length by the original's
+		/// five-round root (cSqRt, UWVanillaMath.Sqrt), the vector over it as sine (dy) and cosine
+		/// (dx) in 1.15 - a component equal to the length, either way, is 0x7FFF or -0x8000 -,
+		/// the table arctangent of the two (cAtan2, UWVanillaMath.Atan2), and 0x40 minus its high
+		/// byte. Zero for the zero vector, which the turn takes as faced before asking.
+		///
+		/// SINCE CLEANUP PHASE 10 (2026-10-26); Math.Atan2 rounded to the nearest until then. The
+		/// high byte is taken before the subtraction, so the heading rounds towards +X from +Y
+		/// instead of to the nearest: about half of all vectors turn one step further (of those
+		/// within the casting range, 7608 of 16128 by one), a few up to six where the root is off,
+		/// and the shortest diagonals (1, 1) by a whole eighth - their length comes out as 1, both
+		/// components as 1.0, and the arccosine of 1.0 is the x axis.
+		///
+		/// The original hands the turn its vector as signed chars but measures the length from the
+		/// whole differences; the turn is asked only within eight tiles (crit_magik_attack,
+		/// crit_missile_attack), where the two are the same.
+		/// </summary>
 		public static int FineHeadingOf(int piDx, int piDy)
 		{
-			return (int)Math.Round(Math.Atan2(piDx, piDy) * 128.0 / Math.PI) & 0xFF;
+			int liDist = UWVanillaMath.Sqrt((piDx * piDx) + (piDy * piDy));
+
+			if (liDist == 0)
+				return 0;
+
+			int liAngle = UWVanillaMath.Atan2(fUnitComponent(piDy, liDist), fUnitComponent(piDx, liDist));
+
+			return (0x40 - (liAngle >> 8)) & 0xFF;
+		}
+
+		/// <summary>One component of the vector over its length in 1.15, as turn_real_fine forms
+		/// it: 0x7FFF and -0x8000 when it equals the length, else (value &lt;&lt; 15) / length,
+		/// divided towards zero and kept as a 16-bit word.</summary>
+		private static int fUnitComponent(int piValue, int piDist)
+		{
+			if (piValue == piDist)
+				return 0x7FFF;
+
+			if (-piValue == piDist)
+				return -0x8000;
+
+			return (short)(((long)piValue << 15) / piDist);
 		}
 
 		/// <summary>ReactToPlayerPresence_seg007_1AF6 (51383-51507) at the end of a wander
@@ -866,7 +906,7 @@ namespace UWDataImport.UWData
 			if (!fGetDistancesToGTarg())
 				return;
 
-			if (miEighthDist2 >= UWCritterRules.ReactToPlayerDistanceSquared)
+			if (miEighthDist2 >= mIServices.Rules.Critter.Sense.ReactToPlayerDistanceSquared)
 				return;
 
 			int liHeading = UWCritterRules.GetVectorHeading(miDx, miDy);
@@ -911,6 +951,8 @@ namespace UWDataImport.UWData
 		/// noises and searches with its initiative; then the pose of its goal.</summary>
 		private void fStandStillGoal()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (!mbActive)
 				return;
 
@@ -930,13 +972,13 @@ namespace UWDataImport.UWData
 					if (mORecord.HeardSomething)
 					{
 						// Note the two rolls differ: <= for the turn, < for the search (48696, 48713).
-						if (fRandom(UWCritterRules.InitiativeRoll) <= mORow.Initiative)
+						if (fRandom(lORules.Sense.InitiativeRoll) <= mORow.Initiative)
 							fTurnTowardsTarget(false);
 						else
 							mORecord.HeardSomething = false;
 					}
 
-					if (fRandom(UWCritterRules.InitiativeRoll) < mORow.Initiative)
+					if (fRandom(lORules.Sense.InitiativeRoll) < mORow.Initiative)
 					{
 						int liTx, liTy;
 						int liResult = fSearchForTarget(out liTx, out liTy);
@@ -955,7 +997,7 @@ namespace UWDataImport.UWData
 							mORecord.HeardSomething = true;
 
 							// Walk over and look (48760-48790).
-							if (fRandom(UWCritterRules.UnchangedCoin) == 0)
+							if (fRandom(lORules.Sense.UnchangedCoin) == 0)
 							{
 								fGoto(liTx, liTy, mOTarget.FloorLevel);
 
@@ -1028,7 +1070,7 @@ namespace UWDataImport.UWData
 			int liDy = mORecord.HomeY - mORecord.TileY;
 			int liRange = mORow.TravelRange;
 
-			if ((liDx * liDx) + (liDy * liDy) > UWCritterRules.HomeRangeFactor * liRange * liRange)
+			if ((liDx * liDx) + (liDy * liDy) > mIServices.Rules.Critter.Leash.HomeRangeFactor * liRange * liRange)
 				fGoto(mORecord.HomeX, mORecord.HomeY, mIHost.FloorLevelAt(mORecord.HomeX, mORecord.HomeY));
 			else
 				fWanderUpdate();
@@ -1040,6 +1082,8 @@ namespace UWDataImport.UWData
 		/// switched only at frame 3; a hostile one runs StandStillGoal on half its updates.</summary>
 		private void fWanderUpdate()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (mORecord.HasPath)
 				fReleasePath();
 
@@ -1053,7 +1097,7 @@ namespace UWDataImport.UWData
 			// [47781] The mutual recursion with StandStillGoal is the original's; the depth
 			// guard only stops a scripted RNG that never answers 0.
 			if (mORecord.Attitude == UWNpc.AttitudeHostile && miWanderDepth < 8
-				&& fRandom(UWCritterRules.HostileStandChance) == 1)
+				&& fRandom(lORules.Wander.HostileStandChance) == 1)
 			{
 				miWanderDepth++;
 				fStandStillGoal();
@@ -1081,7 +1125,7 @@ namespace UWDataImport.UWData
 
 			if (mORecord.Animation == AnimStanding)
 			{
-				if (fRandom(UWCritterRules.RestlessnessRoll) < liRestlessness && mORecord.Frame == 3)
+				if (fRandom(lORules.Wander.RestlessnessRoll) < liRestlessness && mORecord.Frame == 3)
 					mORecord.Animation = AnimWalking;
 			}
 			else
@@ -1091,7 +1135,7 @@ namespace UWDataImport.UWData
 				// combat stance (0) or backing off (7) walks off in the walking picture. Until
 				// 2026-10-15 ours kept that picture until a frame-3 roll made it stand, so it glided
 				// across the floor in its combat pose (audit round 2, A9 / KR D9).
-				if (!(liRestlessness >= fRandom(UWCritterRules.RestlessnessRoll)) && mORecord.Frame == 3)
+				if (!(liRestlessness >= fRandom(lORules.Wander.RestlessnessRoll)) && mORecord.Frame == 3)
 					mORecord.Animation = AnimStanding;
 				else
 					mORecord.Animation = AnimWalking;
@@ -1113,16 +1157,16 @@ namespace UWDataImport.UWData
 					return;
 				}
 
-				if (fRandom(UWCritterRules.WanderDeflectRoll) < liRestlessness + UWCritterRules.WanderDeflectBonus)
+				if (fRandom(lORules.Wander.DeflectRoll) < liRestlessness + lORules.Wander.DeflectBonus)
 					mORecord.FineHeading = (mORecord.FineHeading + fRandom(2 * UWCritterRules.DeflectionHalfRange)
 						- UWCritterRules.DeflectionHalfRange) & 0xFF;
 
 				if (!mOStep.HeadingDeflected)
-					mORecord.FineHeading = fMaybeVectorsToPlayer(mORecord.FineHeading, UWCritterRules.WanderAvoidPlayerEighths);
+					mORecord.FineHeading = fMaybeVectorsToPlayer(mORecord.FineHeading, lORules.Wander.AvoidPlayerEighths);
 			}
 			else
 			{
-				if (fRandom(UWCritterRules.IdleTurnRoll) < liRestlessness)
+				if (fRandom(lORules.Wander.IdleTurnRoll) < liRestlessness)
 					mORecord.FineHeading = (mORecord.FineHeading + fRandom(2 * UWCritterRules.DeflectionHalfRange)
 						- UWCritterRules.DeflectionHalfRange) & 0xFF;
 			}
@@ -1153,7 +1197,9 @@ namespace UWDataImport.UWData
 		/// tiles^2, teleports beyond 64 to four tiles short of the target, walks between.</summary>
 		private void fGoal3()
 		{
-			if (miTileDist2 <= UWCritterRules.FollowNearTilesSquared)
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
+			if (miTileDist2 <= lORules.Follow.NearTilesSquared)
 			{
 				if (!mbActive)
 					return;
@@ -1167,15 +1213,17 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			if (miTileDist2 > UWCritterRules.FollowTeleportTilesSquared)
+			if (miTileDist2 > lORules.Follow.TeleportTilesSquared)
 			{
 				// [48458-48471] four tiles short of the target on the line towards the follower. The
 				// host puts the record there - tile, eighth 4/4, the tile's height times eight
 				// (seg007_1798_3E4, UnderworldExhumed AI.C) - and relinks it; the brain wrote the same
-				// fields again after the call until cleanup step 4.8 (2026-10-18).
-				int liRoot = IntSqrt(miTileDist2);
-				int liX = mOTarget.TileX + ((mORecord.TileX - mOTarget.TileX) * UWCritterRules.FollowTeleportShortTiles / liRoot);
-				int liY = mOTarget.TileY + ((mORecord.TileY - mOTarget.TileY) * UWCritterRules.FollowTeleportShortTiles / liRoot);
+				// fields again after the call until cleanup step 4.8 (2026-10-18). The root is the
+				// original's cSqRt (AI.C), five Newton rounds (UWVanillaMath.Sqrt; a root rounded down
+				// until cleanup phase 10, 2026-10-26).
+				int liRoot = UWVanillaMath.Sqrt(miTileDist2);
+				int liX = mOTarget.TileX + ((mORecord.TileX - mOTarget.TileX) * lORules.Follow.TeleportShortTiles / liRoot);
+				int liY = mOTarget.TileY + ((mORecord.TileY - mOTarget.TileY) * lORules.Follow.TeleportShortTiles / liRoot);
 
 				mIHost.Teleport(liX, liY);
 
@@ -1192,13 +1240,15 @@ namespace UWDataImport.UWData
 		/// the leash, then AttackGoalSearchForTarget.</summary>
 		private void fGoal5()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (!mbActive)
 				return;
 
-			int liStandoff = UWCritterRules.CasterStandTiles;
+			int liStandoff = lORules.Spell.StandTiles;
 
 			if (mIHost.TybalOrbStands && mORow.GeneralType == UWCritterRules.OrbMageKind)
-				liStandoff = UWCritterRules.OrbMageStandTiles;
+				liStandoff = lORules.Spell.OrbMageStandTiles;
 
 			int liD2 = miEighthDist2;
 			int liHomeDx = mORecord.HomeX - mORecord.TileX;
@@ -1210,8 +1260,8 @@ namespace UWDataImport.UWData
 
 			bool lbStarted = false;
 
-			if ((liD2 < UWCritterRules.MeleeDistanceSquared || fOnTargetTile)
-				&& (fFloorDifference < UWCritterRules.MeleeHeightLevels || fIsFlier))
+			if ((liD2 < lORules.Melee.DistanceSquared || fOnTargetTile)
+				&& (fFloorDifference < lORules.Melee.HeightLevels || fIsFlier))
 			{
 				fChooseMeleeAttack(liD2);
 			}
@@ -1243,8 +1293,8 @@ namespace UWDataImport.UWData
 			// The leash (49129-49172).
 			int liRange = mORow.TravelRange;
 
-			if (liD2 > UWCritterRules.LeashTargetDistanceSquared && mORecord.BackupGoal == 4 && !mORecord.Relentless
-				&& liD2Home > UWCritterRules.LeashRangeFactor * liRange * liRange)
+			if (liD2 > lORules.Leash.TargetDistanceSquared && mORecord.BackupGoal == 4 && !mORecord.Relentless
+				&& liD2Home > lORules.Leash.RangeFactor * liRange * liRange)
 			{
 				mORecord.TargetConfirmed = false;
 				mORecord.HeardSomething = false;
@@ -1261,9 +1311,11 @@ namespace UWDataImport.UWData
 		/// reset when the walk went blocked.</summary>
 		private void fAttackGoalSearchForTarget(int piTx, int piTy, int piRange)
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (mORecord.DestinationX != piTx || mORecord.DestinationY != piTy)
 			{
-				if (fRandom(UWCritterRules.ReSearchChance) == 0)
+				if (fRandom(lORules.Sense.ReSearchChance) == 0)
 				{
 					int liResult = fSearchForTarget(out piTx, out piTy);
 
@@ -1276,7 +1328,7 @@ namespace UWDataImport.UWData
 						return;
 					}
 
-					if (liResult == SearchUnchanged && fRandom(UWCritterRules.UnchangedCoin) == 0)
+					if (liResult == SearchUnchanged && fRandom(lORules.Sense.UnchangedCoin) == 0)
 					{
 						mORecord.TargetConfirmed = false;
 						mORecord.HeardSomething = true;
@@ -1290,7 +1342,7 @@ namespace UWDataImport.UWData
 			}
 
 			// [49715-49735]
-			if (mORecord.TileX == piTx && mORecord.TileY == piTy && fFloorDifference < UWCritterRules.MeleeHeightLevels)
+			if (mORecord.TileX == piTx && mORecord.TileY == piTy && fFloorDifference < lORules.Melee.HeightLevels)
 				return;
 
 			bool lbMove = false;
@@ -1302,7 +1354,7 @@ namespace UWDataImport.UWData
 				lbMove = true;
 			else if (piRange > 1)
 				return;
-			else if (fFloorDifference < UWCritterRules.MeleeHeightLevels)
+			else if (fFloorDifference < lORules.Melee.HeightLevels)
 				return;
 			else
 				lbMove = true;
@@ -1327,6 +1379,8 @@ namespace UWDataImport.UWData
 		/// as a routine from goal 9, where the goal stays 9.</summary>
 		private void fGoal6()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (!mbActive)
 				return;
 
@@ -1336,10 +1390,10 @@ namespace UWDataImport.UWData
 			if (fIsFlier)
 				mORecord.Pitch = (mORecord.ZPos > 0x6E ? 13 : 15) + fRandom(5);
 
-			if (miTileDist2 <= UWCritterRules.WithdrawNearTilesSquared && Math.Abs(liDz) < UWCritterRules.WithdrawNearHeight)
+			if (miTileDist2 <= lORules.Withdraw.NearTilesSquared && Math.Abs(liDz) < lORules.Withdraw.NearHeight)
 			{
 				// [50569-50606] the roll comes first, then the bump.
-				bool lbStand = fRandom(UWCritterRules.StandRoll) < (mORow.Morale >> 3);
+				bool lbStand = fRandom(lORules.Withdraw.StandRoll) < (mORow.Morale >> 3);
 
 				if (lbStand || (mbCollided && !mOStep.HeadingDeflected))
 				{
@@ -1362,7 +1416,7 @@ namespace UWDataImport.UWData
 			if (mbCollided && !mOStep.HeadingDeflected)
 			{
 				// Far and cornered (50661-50700).
-				if (miTileDist2 < UWCritterRules.CorneredTilesSquared)
+				if (miTileDist2 < lORules.Withdraw.CorneredTilesSquared)
 				{
 					if (mORecord.Goal == 9)
 					{
@@ -1394,12 +1448,12 @@ namespace UWDataImport.UWData
 				if (fTryMagicAttack())
 					return;
 
-				if (fRandom(UWCritterRules.WanderDeflectRoll) < mORow.Restlessness + UWCritterRules.WanderDeflectBonus)
+				if (fRandom(lORules.Wander.DeflectRoll) < mORow.Restlessness + lORules.Wander.DeflectBonus)
 					mORecord.FineHeading = (mORecord.FineHeading + fRandom(2 * UWCritterRules.DeflectionHalfRange)
 						- UWCritterRules.DeflectionHalfRange) & 0xFF;
 
 				if (!mOStep.HeadingDeflected)
-					mORecord.FineHeading = fMaybeVectorsToPlayer(mORecord.FineHeading, UWCritterRules.WithdrawAvoidPlayerEighths);
+					mORecord.FineHeading = fMaybeVectorsToPlayer(mORecord.FineHeading, lORules.Withdraw.AvoidPlayerEighths);
 			}
 
 			// Both branches meet at label seg007_1798_1758 (50905-50918): the full facing follows
@@ -1407,7 +1461,7 @@ namespace UWDataImport.UWData
 			mORecord.SetFullFacing(mORecord.FineHeading);
 
 			// [50936-50973]
-			mORecord.Speed = miTileDist2 < UWCritterRules.FleeFastTilesSquared ? fPursuitSpeed : fWanderSpeed;
+			mORecord.Speed = miTileDist2 < lORules.Withdraw.FleeFastTilesSquared ? fPursuitSpeed : fWanderSpeed;
 			mORecord.Animation = AnimWalking;
 			mORecord.AdvancePhase();
 			mORecord.Interval = UWCritterRules.IntervalWalking;
@@ -1419,17 +1473,19 @@ namespace UWDataImport.UWData
 		/// test, holds within 2 tiles, else shoots, casts or runs the withdraw routine.</summary>
 		private void fGoal9()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (!mbActive)
 				return;
 
-			if (miEighthDist2 < UWCritterRules.StandMeleeReachSquared || fOnTargetTile)
+			if (miEighthDist2 < lORules.Melee.StandReachSquared || fOnTargetTile)
 			{
 				fChooseMeleeAttack(miEighthDist2);
 
 				return;
 			}
 
-			if (miTileDist2 > UWCritterRules.HoldGroundTilesSquared)
+			if (miTileDist2 > lORules.Melee.HoldGroundTilesSquared)
 			{
 				if (fTryMagicAttack())
 					return;
@@ -1458,6 +1514,8 @@ namespace UWDataImport.UWData
 		/// squared eighths and talks within 0x90 when he looks back. No attitude check.</summary>
 		private void fGoal10()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (!mbActive)
 				return;
 
@@ -1473,7 +1531,7 @@ namespace UWDataImport.UWData
 			int liTx, liTy;
 			int liResult = fSearchForTarget(out liTx, out liTy);
 
-			if (liResult == SearchLost || miEighthDist2 >= UWCritterRules.TurnToTargetDistanceSquared)
+			if (liResult == SearchLost || miEighthDist2 >= lORules.Talk.TurnDistanceSquared)
 			{
 				fStandPose(false);
 
@@ -1488,7 +1546,7 @@ namespace UWDataImport.UWData
 			mORecord.Animation = AnimStanding;
 			mORecord.Interval = UWCritterRules.IntervalStanding;
 
-			if (miEighthDist2 < UWCritterRules.TalkDistanceSquared
+			if (miEighthDist2 < lORules.Talk.DistanceSquared
 				&& UWCritterRules.IsFacedBy(mOTarget.FacingEighth, miDx, miDy))
 				mIHost.OnTalk();
 		}
@@ -1539,6 +1597,8 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private void fGoto(int piX, int piY, int piZ)
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			mORecord.SetDestination(piX, piY, piZ);
 
 			if (mORecord.NewDestination)
@@ -1592,7 +1652,7 @@ namespace UWDataImport.UWData
 						mORecord.Animation = AnimStanding;
 
 						// The roll comes before the attitude test (46870).
-						bool lbGiveUp = fRandom(UWCritterRules.DoorTryChance) == 0;
+						bool lbGiveUp = fRandom(lORules.Door.TryChance) == 0;
 
 						if (lbGiveUp || mORecord.Attitude != UWNpc.AttitudeHostile)
 							mORecord.Blocked = true;
@@ -1639,7 +1699,7 @@ namespace UWDataImport.UWData
 			else if (mORecord.Blocked && !mORecord.NewDestination)
 			{
 				// [47000-47020] one in eight clears the bit; the wander step runs either way.
-				if (fRandom(UWCritterRules.BlockedClearChance) == 0)
+				if (fRandom(lORules.Wander.BlockedClearChance) == 0)
 					mORecord.Blocked = false;
 
 				fWanderUpdate();
@@ -1891,6 +1951,8 @@ namespace UWDataImport.UWData
 		/// (RNG(4) == 0 with RNG(table byte 0x14) damage).</summary>
 		private void fTryOpenDoor(int piDoorIndex, int piItemId)
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if ((piItemId & 7) == 7)
 				return;
 
@@ -1903,9 +1965,9 @@ namespace UWDataImport.UWData
 			if (lbOpen)
 				return;
 
-			if (liSkill != 0 && fRandom(UWCritterRules.LockpickChance) != 0)
+			if (liSkill != 0 && fRandom(lORules.Door.LockpickChance) != 0)
 				mIHost.PickDoor(piDoorIndex, liSkill);
-			else if (fRandom(UWCritterRules.BashChance) == 0)
+			else if (fRandom(lORules.Door.BashChance) == 0)
 				mIHost.BashDoor(piDoorIndex, fRandom(mORow.DoorBashDie));
 		}
 
@@ -1919,16 +1981,18 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private void fChooseMeleeAttack(int piD2)
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			int liFacing = UWCritterRules.GetVectorHeading(miDx, miDy);
 
 			mORecord.SetFacing(liFacing);
 			mORecord.FineHeading = liFacing << 5;
 			mORecord.IsStanding = false;
 
-			if (piD2 < UWCritterRules.MeleeBackOffDistanceSquared)
+			if (piD2 < lORules.Melee.BackOffDistanceSquared)
 			{
 				// [49256-49318]
-				if (fRandom(UWCritterRules.SideStepChance) == 0)
+				if (fRandom(lORules.Melee.SideStepChance) == 0)
 				{
 					int liSide = fRandom(2) != 0 ? 2 : -2;
 
@@ -1943,7 +2007,7 @@ namespace UWDataImport.UWData
 					mORecord.Speed = UWCritterRules.BackOffSpeed;
 				}
 			}
-			else if (piD2 <= UWCritterRules.MeleeCircleDistanceSquared)
+			else if (piD2 <= lORules.Melee.CircleDistanceSquared)
 			{
 				// [49349-49363]
 				if (fRandom(64) < mORow.Dexterity)
@@ -1977,10 +2041,10 @@ namespace UWDataImport.UWData
 					mORecord.Pitch = 15 + fRandom(3);
 			}
 
-			if (piD2 <= UWCritterRules.MeleeDistanceSquared)
+			if (piD2 <= lORules.Melee.DistanceSquared)
 			{
 				// [label seg007_1798_D51, 49462]
-				if (fRandom(UWCritterRules.MeleeStartChance) == 0)
+				if (fRandom(lORules.Melee.StartChance) == 0)
 				{
 					int liRoll = fRandom(100);
 					int liAttack = 0;
@@ -2018,7 +2082,7 @@ namespace UWDataImport.UWData
 			if (mORow.Spell3 == -1)
 				return false;
 
-			if (fRandom(UWCritterRules.Spell3Roll) >= mORow.SpellPower)
+			if (fRandom(mIServices.Rules.Critter.Spell.ThirdRoll) >= mORow.SpellPower)
 				return false;
 
 			if (mIHost.IsMagicBlockedAt(mORecord.TileX, mORecord.TileY))
@@ -2065,13 +2129,15 @@ namespace UWDataImport.UWData
 		/// tiles with sight and facing; returns true whenever sight and facing were given.</summary>
 		private bool fStartMagicAttack()
 		{
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
 			if (mIHost.IsMagicBlockedAt(mORecord.TileX, mORecord.TileY))
 				return false;
 
 			if (mORow.GeneralType == UWCritterRules.OrbMageKind && mIHost.TybalOrbStands)
 				return false;
 
-			if (miTileDist2 >= UWCritterRules.CasterSpellTilesSquared)
+			if (miTileDist2 >= lORules.Spell.NearTilesSquared)
 				return false;
 
 			if (!fHasSightOfTarget())
@@ -2080,10 +2146,10 @@ namespace UWDataImport.UWData
 			if (!fTurnTowardsTarget(true))
 				return false;
 
-			if (fRandom(UWCritterRules.Spell12Roll) < mORow.SpellPower)
+			if (fRandom(lORules.Spell.FirstSecondRoll) < mORow.SpellPower)
 			{
 				mORecord.Animation = AnimSpell;
-				mORecord.SpellSlot = fRandom(UWCritterRules.PrimarySpellRoll) < UWCritterRules.PrimarySpellChance ? 1 : 2;
+				mORecord.SpellSlot = fRandom(lORules.Spell.PrimaryRoll) < lORules.Spell.PrimaryChance ? 1 : 2;
 				mORecord.Speed = 0;
 				mORecord.Frame = 0;
 			}
@@ -2095,7 +2161,9 @@ namespace UWDataImport.UWData
 		/// facing, started by RNG(0xC0) &lt;= dexterity; true whenever sight and facing were given.</summary>
 		private bool fTryMissile()
 		{
-			if (miTileDist2 >= UWCritterRules.MissileTilesSquared)
+			UWRulesCritter lORules = mIServices.Rules.Critter;
+
+			if (miTileDist2 >= lORules.Missile.TilesSquared)
 				return false;
 
 			if (!fHasSightOfTarget())
@@ -2104,7 +2172,7 @@ namespace UWDataImport.UWData
 			if (!fTurnTowardsTarget(true))
 				return false;
 
-			if (fRandom(UWCritterRules.MissileRoll) <= mORow.Dexterity)
+			if (fRandom(lORules.Missile.DexterityRoll) <= mORow.Dexterity)
 			{
 				mORecord.Animation = AnimMissile;
 				mORecord.Speed = 0;
@@ -2121,14 +2189,16 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>GetPitchToGTarg_seg007_1798_22C1 (52382): dz * 4 / dist clamped to +-15
-		/// (+-15 at distance 0), plus dist * 3 / velocity for a missile's drop.</summary>
+		/// (+-15 at distance 0), plus dist * 3 / velocity for a missile's drop. The distance is the
+		/// original's cSqRt of the squared one in eighths (UWVanillaMath.Sqrt; a root rounded down
+		/// until cleanup phase 10, 2026-10-26).</summary>
 		private int fPitchToTarget(int piVelocity, bool pbGravity)
 		{
 			if (!mbTargetFound)
 				return 0;
 
 			int liDz = mOTarget.ZPos - mORecord.ZPos;
-			int liDist = IntSqrt(miEighthDist2);
+			int liDist = UWVanillaMath.Sqrt(miEighthDist2);
 
 			if (liDist == 0)
 				return liDz > 0 ? 15 : -15;
@@ -2259,25 +2329,6 @@ namespace UWDataImport.UWData
 				mIHost.PlaySound(UWCritterRules.DeathSound);
 
 			return true;
-		}
-
-		// ------------------------------------------------- helpers
-
-		/// <summary>The original's GetSquareRoot_seg019_F3F: the integer root, rounded down.</summary>
-		public static int IntSqrt(int piValue)
-		{
-			if (piValue <= 0)
-				return 0;
-
-			int liRoot = (int)Math.Sqrt(piValue);
-
-			while (liRoot * liRoot > piValue)
-				liRoot--;
-
-			while ((liRoot + 1) * (liRoot + 1) <= piValue)
-				liRoot++;
-
-			return liRoot;
 		}
 	}
 }

@@ -36,9 +36,20 @@ namespace UWDataImport.UWData
 		/// <summary>Range of the random component. The roll goes from 0 to 30.</summary>
 		public const int RollRange = 31;
 
+		/// <summary>The upper edges of the bands: a score up to 2 is a critical failure, up to 15
+		/// a failure, up to 28 a success, above it a critical success.</summary>
+		public const int CriticalFailureAtMost = 2;
+
+		public const int FailureAtMost = 0xF;
+
+		public const int SuccessAtMost = 0x1C;
+
+		/// <summary>The roll's range and the bands are the rule set's (UWRulesCombat.SkillCheck,
+		/// combat.skillCheck.*; cleanup phase 10, 2026-10-25) - the consts above are their
+		/// defaults.</summary>
 		public static ResultEnum Check(int piSkillValue, int piTargetValue)
 		{
-			int liScore = piSkillValue - piTargetValue + UWRandom.Next(0, RollRange);
+			int liScore = piSkillValue - piTargetValue + UWRandom.Next(0, UWRules.Current.Combat.SkillCheck.RollRange);
 
 			return GetResult(liScore);
 		}
@@ -46,13 +57,15 @@ namespace UWDataImport.UWData
 		/// <summary>The band classification kept separate, so that it can be tested without randomness.</summary>
 		public static ResultEnum GetResult(int piScore)
 		{
-			if (piScore <= 2)
+			UWRulesCombat.SkillCheckRules lORules = UWRules.Current.Combat.SkillCheck;
+
+			if (piScore <= lORules.CriticalFailureAtMost)
 				return ResultEnum.CriticalFailure;
 
-			if (piScore <= 0xF)
+			if (piScore <= lORules.FailureAtMost)
 				return ResultEnum.Failure;
 
-			if (piScore <= 0x1C)
+			if (piScore <= lORules.SuccessAtMost)
 				return ResultEnum.Success;
 
 			return ResultEnum.CriticalSuccess;

@@ -137,8 +137,8 @@ public sealed class UWVictoryScreens
             lOCharacter.Vitals.Strength,
             lOCharacter.Vitals.Dexterity,
             lOCharacter.Vitals.Intelligence,
-            Mathf.RoundToInt(lOCharacter.Vitals.MaxHP),
-            Mathf.RoundToInt(lOCharacter.Vitals.MaxMana),
+            lOCharacter.Vitals.MaxHP,
+            lOCharacter.Vitals.MaxMana,
             lOCharacter.Vitals.Experience / 10
         };
 

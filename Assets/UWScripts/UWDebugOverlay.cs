@@ -176,6 +176,15 @@ public class UWDebugOverlay : MonoBehaviour
             Now = Time.time
         };
 
+        // The player's rules.json, when this game has one (UWLevelLoader applies it at the start).
+        UWRulesReport lORules = UWGameSession.Current.RulesReport;
+
+        if (lORules != null && lORules.Found)
+        {
+            lOSnapshot.Rules = lORules.Summary;
+            lOSnapshot.RulesProblem = lORules.HasProblems;
+        }
+
         // CREATURES ONLY: while a creature's behaviour is being hunted down, everything else
         // is in the way (per user, 2026-09-16). The switch sits next to the trace it belongs to,
         // UWSettings.CritterTrace.

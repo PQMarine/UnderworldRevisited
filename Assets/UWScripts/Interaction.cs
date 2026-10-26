@@ -843,7 +843,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     /// UWLookService, which shows a window's picture only then.</summary>
     public bool IsWithinLookDetail(UWEntityInfo pOTarget)
     {
-        return fReach(pOTarget, UWReachRules.LookDetailDistanceSquared, false, false) == ReachEnum.Reached;
+        return fReach(pOTarget, UWRules.Current.Inventory.Reach.LookDetailDistanceSquared, false, false) == ReachEnum.Reached;
     }
 
     /// <summary>For UWItemDrag (Original: use mode, right click in the view window) -

@@ -292,8 +292,10 @@ public class UWCritter : MonoBehaviour, ICreatureView, IUWAttackDefender
         // to UWScene.World then until cleanup step 4.11, 2026-10-18).
         UWWorld lOWorld = pOLevelLoader != null ? UWWorld.Of(pOLevelLoader) : UWScene.World;
 
+        // The game's session is the creatures' services (random source, clock, alarm, path slots,
+        // rule set) - read here, at the host, since cleanup phase 10 wave 4 (2026-10-26).
         mOActor = new UWCreatureActor(pONpc, pOStats, pbHasStats, lOWorld != null ? lOWorld.Creatures : null, this,
-            mODamageable != null ? mODamageable.Health : null);
+            mODamageable != null ? mODamageable.Health : null, UWGameSession.Current);
 
         fRegisterIndex();
 

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -26,7 +27,7 @@ public class UWModernStoneShelf : UWModernPart
 
     /// <summary>The widest stone shelf: the whole screen at its size (per user, 2026-10-10: "one
     /// should be able to pull the shelf across the whole screen"; before, 320).</summary>
-    public static int StoneShelfMaxWidth => Mathf.Max(UWDataImport.UWData.UWHudArt.StoneShelfMinWidth,
+    public static int StoneShelfMaxWidth => Mathf.Max(UWDataImport.Presentation.UWHudArt.StoneShelfMinWidth,
         Mathf.CeilToInt(Screen.width / Mathf.Max(0.01f, UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.StoneShelf) * UWModernHudArt.PixelAspectX)));
 
     public UWModernStoneShelf(UWModernHud pOHud) : base(pOHud)
@@ -48,7 +49,7 @@ public class UWModernStoneShelf : UWModernPart
             return;
         }
 
-        int liWidth = Mathf.Clamp(StoneShelfWidth, UWDataImport.UWData.UWHudArt.StoneShelfMinWidth, StoneShelfMaxWidth);
+        int liWidth = Mathf.Clamp(StoneShelfWidth, UWDataImport.Presentation.UWHudArt.StoneShelfMinWidth, StoneShelfMaxWidth);
         UWArtStamp lOStamp = UWVersionedTexture.Colours(liWidth);
 
         if (!mOStoneShelfTexture.IsCurrent(lOStamp))

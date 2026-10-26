@@ -10,7 +10,7 @@ namespace UWDataImport.UWData
 	{
 		/// <summary>Target value of the Missile check when shooting - the reference checks against ten.
 		/// </summary>
-		private const int MissileSkillTarget = 0xA;
+		internal const int MissileSkillTarget = 0xA;
 
 		/// <summary>The outcome of a melee strike against one target.</summary>
 		public struct MeleeResult
@@ -69,6 +69,11 @@ namespace UWDataImport.UWData
 		/// damage (UWCritterCombat.HalveOnEasy).
 		/// </summary>
 		public const int EasyDifficultyAttackBonus = 7;
+
+		/// <summary>The player's attack score: weapon skill + Attack / 2 + Dexterity / 7.</summary>
+		public const int AttackScoreDivisor = 2;
+
+		public const int DexterityScoreDivisor = 7;
 
 		/// <summary>The major class of the weapon enchantments, Accuracy and Damage (DoPlayerWeapon).</summary>
 		public const int WeaponEnchantmentMajorClass = 0xC;
@@ -142,10 +147,13 @@ namespace UWDataImport.UWData
 
 			int liWeaponSkill = pFGetSkill != null ? pFGetSkill(UWCombat.GetSkillForWeapon(lOMelee)) : 0;
 
-			lOResult.Accuracy = liWeaponSkill + (piAttack / 2) + (piDexterity / 7);
+			// The coefficients are the rule set's (combat.player.*, cleanup phase 10).
+			UWRulesCombat.PlayerRules lORules = UWRules.Current.Combat.Player;
+
+			lOResult.Accuracy = liWeaponSkill + (piAttack / lORules.AttackDivisor) + (piDexterity / lORules.DexterityDivisor);
 
 			if (pbEasyDifficulty)
-				lOResult.Accuracy += EasyDifficultyAttackBonus;
+				lOResult.Accuracy += lORules.EasyAttackBonus;
 
 			lOResult.Accuracy += piEnchantAccuracy;
 
@@ -279,7 +287,7 @@ namespace UWDataImport.UWData
 
 			int liFactor = (piMissileSkill << 3) + 0xC0;
 
-			switch (UWSkillCheck.Check(piMissileSkill, MissileSkillTarget))
+			switch (UWSkillCheck.Check(piMissileSkill, UWRules.Current.Combat.Player.MissileTarget))
 			{
 				case UWSkillCheck.ResultEnum.CriticalFailure:
 					liFactor -= 0x80;

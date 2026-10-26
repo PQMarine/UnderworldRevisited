@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// WHAT A BUILT PICTURE DEPENDS ON (cleanup step 5.4, 2026-10-19): the version of the colours

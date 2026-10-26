@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 using Defs = UWDataImport.UWData.UWUserSettingsTable;
 
@@ -463,6 +464,13 @@ public static class UWUserSettings
 
     private static string fGetPath()
     {
-        return Path.Combine(Application.persistentDataPath, FileName);
+        return PathBeside(FileName);
+    }
+
+    /// <summary>A file in the folder of settings.json - the player's rules.json (cleanup phase 10,
+    /// UWLevelLoader), the MT32 folder's parent.</summary>
+    public static string PathBeside(string psFileName)
+    {
+        return Path.Combine(Application.persistentDataPath, psFileName);
     }
 }

@@ -24,7 +24,9 @@ damage at 1 in 5 every frame. Ours rolls at a fixed rate, 32 times a second, abo
 original reaches in DOSBox (10 seconds on lava took about 70 of 78 hit points in both). The same
 rate holds for a missile the player presses against, which the original strikes him with on
 every frame (one held by Freeze Time kills fast), and the screen shake counts its rounds 20
-times a second. The text cursor in the message scroll, which the original blinks by counting
+times a second. The player's noise, which the original lets die down one step every eight
+frames, steps down every eight of those 32 a second, a quarter of a second per step, counted in
+game time, so it rests while a conversation or a menu is open. The text cursor in the message scroll, which the original blinks by counting
 passes of its input loop, blinks at 0.4 seconds on and 0.4 off in both interface schemes.
 
 **Attribute points can be dealt by hand at character creation.** An option in the Game menu,

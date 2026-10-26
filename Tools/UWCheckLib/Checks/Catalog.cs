@@ -19,6 +19,7 @@ namespace UnderworldRevisited.Tools
             CheckCatalog lOCatalog = new CheckCatalog();
 
             lOCatalog.Add("Constants", pOContext => fCheckConstants(pOContext), false, "meta", "pin");
+            lOCatalog.Add("Rules", pOContext => fCheckRules(pOContext), false, "meta", "pin", "rules");
             lOCatalog.Add("ClickRules", pOContext => fCheckClickRules(), false, "input", "original");
             lOCatalog.Add("CritterBrain", pOContext => fCheckCritterBrain(), false, "brain", "combat", "original");
             lOCatalog.Add("RuleIndex", pOContext => fCheckRuleIndex(), false, "meta");
@@ -212,6 +213,11 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("KitTextArea", pOContext => fCheckTextArea(), false, "settings", "text");
             lOCatalog.Add("DebugReport", pOContext => fCheckDebugReport(), false, "hud", "settings");
             lOCatalog.Add("WindowThemes", pOContext => fCheckWindowThemes(pOContext), false, "settings", "pin");
+            lOCatalog.Add("IntegerVitals", pOContext => fCheckIntegerVitals(pOContext.Data), true, "player", "mirror", "original").MutatesData = true;
+            lOCatalog.Add("VanillaSqrt", pOContext => fCheckVanillaSqrt(pOContext), false, "brain", "mirror", "original", "pin");
+            lOCatalog.Add("FineHeadings", pOContext => fCheckFineHeadings(pOContext), false, "brain", "mirror", "original", "pin");
+            lOCatalog.Add("Rounding", pOContext => fCheckRounding(), false, "mirror");
+            lOCatalog.Add("TickRates", pOContext => fCheckTickRates(), false, "player", "spell", "time", "mirror", "original");
 
             return lOCatalog;
         }

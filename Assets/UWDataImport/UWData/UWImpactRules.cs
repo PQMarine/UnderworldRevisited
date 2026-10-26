@@ -81,10 +81,11 @@ namespace UWDataImport.UWData
 			return pbFalling ? liValue * 2 : liValue;
 		}
 
-		/// <summary>What the Acrobat check is rolled against - see AcrobatCheckFactor.</summary>
+		/// <summary>What the Acrobat check is rolled against - see AcrobatCheckFactor (the rule set's
+		/// motion.impact.*, cleanup phase 10, as for the rest of this block).</summary>
 		public static int GetAcrobatTarget(int piValue)
 		{
-			return piValue * AcrobatCheckFactor;
+			return piValue * UWRules.Current.Motion.Impact.AcrobatCheckFactor;
 		}
 
 		/// <summary>What is left of the impact after a PASSED Acrobat check. A failed one leaves
@@ -94,13 +95,15 @@ namespace UWDataImport.UWData
 			if (!pbCheckPassed || piValue <= 0)
 				return piValue;
 
-			if (piAcrobatSkill >= AcrobatFull)
+			int liFull = UWRules.Current.Motion.Impact.AcrobatFull;
+
+			if (piAcrobatSkill >= liFull)
 				return 0;
 
 			if (piAcrobatSkill < 0)
 				piAcrobatSkill = 0;
 
-			return (piValue * (AcrobatFull - piAcrobatSkill)) / AcrobatFull;
+			return (piValue * (liFull - piAcrobatSkill)) / liFull;
 		}
 
 		/// <summary>
@@ -116,7 +119,7 @@ namespace UWDataImport.UWData
 
 		public static bool CausesDamage(int piValue)
 		{
-			return piValue > DamageThreshold;
+			return piValue > UWRules.Current.Motion.Impact.DamageThreshold;
 		}
 
 		public static int GetVolume(int piValue)

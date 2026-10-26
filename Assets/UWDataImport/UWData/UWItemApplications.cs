@@ -116,7 +116,7 @@ namespace UWDataImport.UWData
 				return lOResult;
 			}
 
-			int liFilled = pOTarget.Quality + UWObjectMechanics.OilFlaskFill;
+			int liFilled = pOTarget.Quality + UWRules.Current.Lights.OilFlaskFill;
 
 			pOTarget.Quality = (ushort)(liFilled > UWObjectMechanics.FullLightQuality
 				? UWObjectMechanics.FullLightQuality

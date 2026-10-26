@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// BACKS FOR THE MODERN INTERFACE'S PARTS (per user, 2026-10-09). Cut from the frame they looked

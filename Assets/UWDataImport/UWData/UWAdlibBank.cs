@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The AdLib timbre library UW.AD in the format of the Miles Sound library (AIL 2.0).

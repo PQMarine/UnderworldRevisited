@@ -39,7 +39,7 @@ namespace UWDataImport.UWData
 
 			mdAccumulated += pfElapsedSeconds;
 
-			int liTicks = (int)(mdAccumulated / IntervalSeconds);
+			int liTicks = UWRounding.Floor(mdAccumulated / IntervalSeconds);
 
 			mdAccumulated -= liTicks * (double)IntervalSeconds;
 

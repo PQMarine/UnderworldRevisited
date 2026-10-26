@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport;
+using UWDataImport.Install;
 using UWDataImport.UWData;
 using UnderworldRevisited;
 using UnderworldRevisited.Build;
@@ -270,6 +271,12 @@ public class UWLevelLoader : MonoBehaviour
         // pause, the light colours and the trap log of the previous game cannot leak into this one.
         // fLoadData just loaded it (DataImport.LoadGame -> UWSaveCodec.Load, since step 2.9).
         UWGameSession.MakeCurrent(UWDataImporter.Session);
+
+        // THE PLAYER'S RULE SET (cleanup phase 10, 2026-10-25): an optional rules.json beside
+        // settings.json, applied to every new session before anything reads a rule - so a key taken
+        // out of the file is the original's again with the next start or load. No file is the
+        // original's rules; the game never writes one.
+        fApplyRules();
 
         // Character creation leaves a black cover up during the rebuild. Until 2026-09-14 the
         // intro that followed removed it; without the intro the screen stayed black (per user).
@@ -618,6 +625,28 @@ public class UWLevelLoader : MonoBehaviour
     /// only (per user, 2026-09-14).
     /// </summary>
     public bool HasWorld { get; private set; }
+
+    /// <summary>The player's rules.json onto the current session (UWGameSession.ApplyRulesFile): what
+    /// it changed goes to the log, every problem as a warning - a malformed file leaves the
+    /// original's rules. The debug panel's Place section shows the summary (UWDebugOverlay).</summary>
+    private static void fApplyRules()
+    {
+        UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(UWUserSettings.PathBeside(UWRulesJson.FileName));
+
+        if (!lOReport.Found)
+            return;
+
+        if (lOReport.HasProblems)
+            Debug.LogWarning("[Rules] " + lOReport.Summary);
+        else
+            Debug.Log("[Rules] " + lOReport.Summary);
+
+        if (lOReport.Applied.Count > 0)
+            Debug.Log("[Rules] taken from " + lOReport.Source + ": " + string.Join(", ", lOReport.Applied));
+
+        foreach (string lsProblem in lOReport.Problems)
+            Debug.LogWarning("[Rules] " + lsProblem);
+    }
 
     private bool fLoadData()
     {

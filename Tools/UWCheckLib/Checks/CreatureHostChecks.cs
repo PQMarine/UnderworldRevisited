@@ -154,7 +154,8 @@ namespace UnderworldRevisited.Tools
             fExpectBool("constants: the brain's own height and entry n of its table, n's low four bits",
                 lOBrain.OwnObjectHeight == 12 && lOBrain.MissileVelocity(3) == 33 && lOBrain.MissileVelocity(0x13) == 33, true);
 
-            UWCreatureActor lONoWorld = new UWCreatureActor(null, fMakeRow(), true, null, new FakeCreatureView(), null);
+            UWCreatureActor lONoWorld = new UWCreatureActor(null, fMakeRow(), true, null, new FakeCreatureView(), null,
+                UWGameSession.Current);
             bool lbFallback = lONoWorld.Brain.OwnObjectHeight == 0x20;
 
             for (int liAt = 0; liAt < UWObjectProperties.RangedObjectCount; liAt++)
@@ -188,7 +189,8 @@ namespace UnderworldRevisited.Tools
                 return;
             }
 
-            UWCreatureActor lOActor = new UWCreatureActor(lONpc, lORow, true, fActorWorld(pOData, lOLevel), new FakeCreatureView(), null);
+            UWCreatureActor lOActor = new UWCreatureActor(lONpc, lORow, true, fActorWorld(pOData, lOLevel), new FakeCreatureView(), null,
+                UWGameSession.Current);
             bool lbData = pOData.CommonObjectProperties.TryGet(lONpc.ID, out UWCommonObjectProperties.Entry lOOwn)
                 && lOActor.Brain.OwnObjectHeight == lOOwn.Height;
 

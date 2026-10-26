@@ -44,6 +44,18 @@ namespace UWDataImport.UWData
 		/// <summary>Below this base value it is rounded up before rolling.</summary>
 		public const int MinimumBaseDamage = 2;
 
+		/// <summary>The unarmed base (GetRawBaseDamage): 4 + strength / 6 + skill * 2 / 5.</summary>
+		public const int UnarmedBaseDamage = 4;
+
+		public const int UnarmedStrengthDivisor = 6;
+
+		public const int UnarmedSkillNumerator = 2;
+
+		public const int UnarmedSkillDenominator = 5;
+
+		/// <summary>The armed base: strength / 9 plus the weapon's value.</summary>
+		public const int ArmedStrengthDivisor = 9;
+
 		/// <summary>Damage value of a weapon for an attack kind, directly from the
 		/// melee table.</summary>
 		public static int GetWeaponDamage(UWObjectClassProperties.MeleeWeapon pOWeapon, AttackKind peKind)
@@ -156,9 +168,10 @@ namespace UWDataImport.UWData
 			int piUnarmedSkill, int piCharge, int piTargetArmour, out int piBeforeArmour)
 		{
 			int liBase = GetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, 0);
+			int liMinimum = UWRules.Current.Combat.Damage.MinimumBase;
 
-			if (liBase < MinimumBaseDamage)
-				liBase = MinimumBaseDamage;
+			if (liBase < liMinimum)
+				liBase = liMinimum;
 
 			int liRolled = RollDamage(liBase);
 
@@ -183,18 +196,23 @@ namespace UWDataImport.UWData
 		public static int GetBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus = 0)
 		{
 			int liBase = GetRawBaseDamage(piWeaponDamage, pbUnarmed, piStrength, piUnarmedSkill, piBonus);
+			int liMinimum = UWRules.Current.Combat.Damage.MinimumBase;
 
-			return liBase < MinimumBaseDamage ? MinimumBaseDamage : liBase;
+			return liBase < liMinimum ? liMinimum : liBase;
 		}
 
 		/// <summary>The base value before the minimum - see GetBaseDamage. The player's blow hands
 		/// it to UWAttackResolution, whose critical multiplies it BEFORE the minimum (cleanup step
-		/// 4.9, 2026-10-18; private until then).</summary>
+		/// 4.9, 2026-10-18; private until then). Its coefficients are the rule set's
+		/// (combat.damage.*, cleanup phase 10).</summary>
 		public static int GetRawBaseDamage(int piWeaponDamage, bool pbUnarmed, int piStrength, int piUnarmedSkill, int piBonus)
 		{
+			UWRulesCombat.DamageRules lORules = UWRules.Current.Combat.Damage;
+
 			return (pbUnarmed
-				? 4 + (piStrength / 6) + ((piUnarmedSkill * 2) / 5)
-				: (piStrength / 9) + piWeaponDamage) + piBonus;
+				? lORules.UnarmedBase + (piStrength / lORules.UnarmedStrengthDivisor)
+					+ ((piUnarmedSkill * lORules.UnarmedSkillNumerator) / lORules.UnarmedSkillDenominator)
+				: (piStrength / lORules.ArmedStrengthDivisor) + piWeaponDamage) + piBonus;
 		}
 
 		/// <summary>
@@ -321,7 +339,7 @@ namespace UWDataImport.UWData
 		{
 			float lfClamped = pfFraction < 0f ? 0f : (pfFraction > 1f ? 1f : pfFraction);
 
-			return (int)(lfClamped * 63f);
+			return UWRounding.Truncate(lfClamped * 63f);
 		}
 	}
 }

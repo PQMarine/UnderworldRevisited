@@ -49,13 +49,14 @@ public class UWInstrumentPlayer : MonoBehaviour
 
     private static readonly int[] msCupMelody = { 64, 67, 65, 62, 64, 71, 72, 71, 67 };
 
-    /// <summary>Where the cup lies, zero-based level and tile (UWLevelIds, UWQuestPlaces - the
-    /// same place UWShrineRules names one-based).</summary>
-    private const int CupLevelIndex = UWLevelIds.CupOfWonder;
+    /// <summary>Where the cup lies, zero-based level and tile (the rule set's levels.cupOfWonder and
+    /// story.cup, UWLevelIds and UWQuestPlaces by default - the same place UWShrineRules names
+    /// one-based).</summary>
+    private static int CupLevelIndex => UWRules.Current.Levels.CupOfWonder;
 
-    private const int CupTileX = UWQuestPlaces.CupTileX;
+    private static int CupTileX => UWRules.Current.Story.Cup.TileX;
 
-    private const int CupTileY = UWQuestPlaces.CupTileY;
+    private static int CupTileY => UWRules.Current.Story.Cup.TileY;
 
     private const int CupRange = 2;
 

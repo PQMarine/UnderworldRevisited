@@ -11,6 +11,11 @@ namespace UWDataImport.UWData
 	/// (noticing him), and does the player look at the creature (being addressed by it). The
 	/// brain that uses them is UWCritterBrain, the record they act on UWCritterRecord.
 	///
+	/// THE ODDS, DISTANCES AND COEFFICIENTS among them are the defaults of the rule set's critter.*
+	/// since cleanup phase 10 (UWRulesCritter, 2026-10-26): the brain and the combat read those, the
+	/// consts here keep the original's value and its routine. The clock, the turn limits, the path
+	/// search and the motion encoding stay consts.
+	///
 	/// Units: "eighths" are eighths of a tile (a tile is 8 x 8 of them), "eighths^2" a squared
 	/// distance in them, "tiles^2" a squared distance in whole tiles, "heading units" the 256
 	/// steps of the fine heading, "slots" the 16 slots of the shared clock (UWCritterClock),
@@ -78,8 +83,11 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool IsFarFromBoth(int piDxPlayer, int piDyPlayer, int piDxView, int piDyView)
 		{
-			return (piDxPlayer * piDxPlayer) + (piDyPlayer * piDyPlayer) > FarTileDistanceSquared
-				&& (piDxView * piDxView) + (piDyView * piDyView) > FarTileDistanceSquared;
+			// The distance is the rule set's (critter.sense.farTilesSquared, cleanup phase 10).
+			int liFar = UWRules.Current.Critter.Sense.FarTilesSquared;
+
+			return (piDxPlayer * piDxPlayer) + (piDyPlayer * piDyPlayer) > liFar
+				&& (piDxView * piDxView) + (piDyView * piDyView) > liFar;
 		}
 
 		// ------------------------------------------------- Perception and temper (sections 3, 4)

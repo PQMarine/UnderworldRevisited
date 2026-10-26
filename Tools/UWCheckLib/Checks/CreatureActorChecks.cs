@@ -26,7 +26,7 @@ namespace UnderworldRevisited.Tools
                 System.Math.Max(1, (int)pONpc.HitPoints));
 
             FakeCreatureView lOView = new FakeCreatureView { Health = lOHealth };
-            UWCreatureActor lOActor = new UWCreatureActor(pONpc, pORow, true, pOWorld, lOView, lOHealth);
+            UWCreatureActor lOActor = new UWCreatureActor(pONpc, pORow, true, pOWorld, lOView, lOHealth, UWGameSession.Current);
 
             lOView.Actor = lOActor;
             pOWorld.Actors[pONpc] = lOActor;
@@ -122,12 +122,14 @@ namespace UnderworldRevisited.Tools
             lODyingRecord.HitPoints = 0;
             lODyingRecord.Animation = UWCritterBrain.AnimDying;
 
-            UWCreatureActor lOLoaded = new UWCreatureActor(lODying, pORow, true, lOWorld, new FakeCreatureView(), null);
+            UWCreatureActor lOLoaded = new UWCreatureActor(lODying, pORow, true, lOWorld, new FakeCreatureView(), null,
+                UWGameSession.Current);
 
             fExpectBool("setup: saved while dying loads dying (B11)", lOLoaded.IsLoadedDying, true);
             fExpectInt("setup: an object not in the list has index 0", lOLoaded.Index, 0);
 
-            UWCreatureActor lOScratch = new UWCreatureActor(null, pORow, true, lOWorld, new FakeCreatureView(), null);
+            UWCreatureActor lOScratch = new UWCreatureActor(null, pORow, true, lOWorld, new FakeCreatureView(), null,
+                UWGameSession.Current);
 
             fExpectBool("setup: without data a scratch record, index 0",
                 lOScratch.Record != null && lOScratch.Index == 0 && lOScratch.Npc.ID == UWObjectClassProperties.CritterFirstId, true);

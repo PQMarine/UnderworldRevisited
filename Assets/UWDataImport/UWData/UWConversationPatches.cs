@@ -5,10 +5,14 @@ namespace UWDataImport.UWData
 	/// section 8), each one decided by the user. The VM runs a patched copy of the code
 	/// (UWConversationVM); the loaded conversation, and with it every export and tool, keeps the
 	/// original words. A patch only applies where the word it replaces is what is expected, so a
-	/// different cnv.ark is left alone.
+	/// different cnv.ark is left alone. A DEVIATION SWITCH (deviations.conversationPatches,
+	/// PatchesApplied): off, the VM runs the loaded words.
 	/// </summary>
 	public static class UWConversationPatches
 	{
+		/// <summary>Our fixes are applied by default (the rule set's deviations.conversationPatches).</summary>
+		public const bool PatchesApplied = true;
+
 		private struct Patch
 		{
 			public int Slot;

@@ -77,7 +77,7 @@ public sealed class UWSpellHost : IUWSpellHost
     /// <summary>Mana ROUNDED DOWN for the spell rules (the cost check), where the conversation host
     /// rounds to the nearest (IUWConversationHost.PlayerMana) - two conventions on purpose, kept
     /// apart by cleanup step 3.1 (2026-10-17).</summary>
-    public int PlayerMana => mOCharacter != null ? Mathf.FloorToInt(mOCharacter.Vitals.CurrentMana) : 0;
+    public int PlayerMana => mOCharacter != null ? mOCharacter.Vitals.CurrentMana : 0;
 
     public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.Vitals.GetSkill(UWPlayerData.Skill.Casting) : 0;
 
@@ -87,7 +87,7 @@ public sealed class UWSpellHost : IUWSpellHost
             mOCharacter.Vitals.SpendMana(piAmount);
     }
 
-    public double RealSeconds => Time.timeAsDouble;
+    public long GameTicks => UWGameSession.Current.Schedule.Now;
 
     public void RestoreManaFromSpell(int piMinorClass)
     {

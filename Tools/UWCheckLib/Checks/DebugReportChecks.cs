@@ -75,7 +75,7 @@ namespace UnderworldRevisited.Tools
                 BackpackSize = 8,
                 Player = new UWDebugPlayer
                 {
-                    HitPoints = 27.5f, MaxHitPoints = 30f, Mana = 11.6f, MaxMana = 20f, Poison = 4,
+                    HitPoints = 27, MaxHitPoints = 30, Mana = 12, MaxMana = 20, Poison = 4,
                     HasLastHit = true, LastDamage = 3, LastDamageType = UWDamageTypes.PlainFire, LastHitAge = 1.25f, Shook = true, ShakeLevel = 2,
                     DefenceCheck = 17, Defence = 12, DefenceSkill = "Sword", Resistance = 2, Proof = 0x03 | UWDamageTypes.Poison, Stealth = 0x6,
                     DragonSkinBoots = true
@@ -530,8 +530,9 @@ namespace UnderworldRevisited.Tools
             Check.Str("place: a core record", fDebugRow(lOFull, "place", "record 0"), "record 0: item 0x141 index 412 at 3/-2 z 0..24 flags 0x5");
             Check.Str("place: a trap on the tile", fDebugRow(lOFull, "place", "tiletrap0"), "On this tile: move trigger (q 1, own 2) -> damage trap");
 
-            // "Health 27.5/30   Mana 12/20   POISONED 4", "Last hit 3 (Fire) 1.2s ago, shake level 2"
-            Check.Str("player: health", fDebugRow(lOFull, "player", "Health"), "Health: 27.5/30");
+            // "Health 27/30   Mana 12/20   POISONED 4", "Last hit 3 (Fire) 1.2s ago, shake level 2" - whole
+            // numbers since cleanup phase 10 (27.5 and 11.6 until then, the health shown with its fraction).
+            Check.Str("player: health", fDebugRow(lOFull, "player", "Health"), "Health: 27/30");
             Check.Str("player: mana", fDebugRow(lOFull, "player", "Mana"), "Mana: 12/20");
             Check.Str("player: poisoned", fDebugRow(lOFull, "player", "Poisoned"), "Poisoned: 4");
             Check.Str("player: last hit", fDebugRow(lOFull, "player", "Last hit"), "Last hit: 3 (Fire), shake level 2");

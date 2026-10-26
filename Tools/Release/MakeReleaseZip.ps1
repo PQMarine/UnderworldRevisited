@@ -93,6 +93,16 @@ if (-not (Test-Path $Controls)) { throw "Missing Docs\CONTROLS.md in the project
 New-Item -ItemType Directory -Force -Path (Join-Path $Stage "Docs") | Out-Null
 Copy-Item $Controls -Destination (Join-Path $Stage "Docs")
 
+# The rule set's keys with their defaults and meanings (since 0.9.2), generated from the code by
+# uwdump rules-template (no game data needed), so it cannot drift from the build.
+$RulesTemplate = Join-Path $Stage "Docs\rules-template.jsonc"
+$UWDump = Join-Path $ProjectRoot "Tools\UWDump"
+$RulesText = & dotnet run --project $UWDump -c Release -- rules-template 2>$null
+
+if ($LASTEXITCODE -ne 0 -or -not $RulesText) { throw "uwdump rules-template failed." }
+
+[System.IO.File]::WriteAllLines($RulesTemplate, [string[]]$RulesText, (New-Object System.Text.UTF8Encoding($false)))
+
 # The full licence texts THIRD_PARTY_NOTICES.md names, under the same path as in the project.
 $ThirdParty = Join-Path $ProjectRoot "ThirdParty"
 

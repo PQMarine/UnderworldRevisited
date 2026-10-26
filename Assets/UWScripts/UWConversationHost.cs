@@ -67,14 +67,14 @@ public sealed class UWConversationHost : IUWConversationHost
 
     public int PlayerHunger => fCharacter != null ? fCharacter.Vitals.Hunger : 0;
 
-    public int PlayerHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.CurrentHP) : 0;
+    public int PlayerHitPoints => fCharacter != null ? fCharacter.Vitals.CurrentHP : 0;
 
-    public int PlayerMaxHitPoints => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.MaxHP) : 0;
+    public int PlayerMaxHitPoints => fCharacter != null ? fCharacter.Vitals.MaxHP : 0;
 
     /// <summary>Mana ROUNDED TO THE NEAREST, as the flasks show it - the spell host rounds down
     /// (IUWSpellHost.PlayerMana); two conventions on purpose, kept apart by cleanup step 3.1
     /// (2026-10-17).</summary>
-    public int PlayerMana => fCharacter != null ? Mathf.RoundToInt(fCharacter.Vitals.CurrentMana) : 0;
+    public int PlayerMana => fCharacter != null ? fCharacter.Vitals.CurrentMana : 0;
 
     public int PlayerAttack => fCharacter != null ? fCharacter.Vitals.Attack : 0;
 

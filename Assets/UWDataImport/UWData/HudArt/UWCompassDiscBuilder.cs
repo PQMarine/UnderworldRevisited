@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE COMPASS ON ITS STONE DISC and the compass's cross freed (MAIN.BYT, COMPASS.GR; cleanup

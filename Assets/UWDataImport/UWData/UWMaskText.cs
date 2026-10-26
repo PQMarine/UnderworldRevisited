@@ -1,6 +1,7 @@
 using System;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// A MASK WRITTEN AS TEXT (cleanup 9.9, 2026-10-25, CLEANUP-PLAN 8.4): rows of characters, top

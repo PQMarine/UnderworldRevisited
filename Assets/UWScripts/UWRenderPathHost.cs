@@ -402,7 +402,7 @@ public sealed class UWRenderPathHost : MonoBehaviour
     {
         UWLevelLoader lOLoader = LevelLoader;
 
-        return lOLoader != null && lOLoader.CurrentLevelIndex == UWLevelIds.Void;
+        return lOLoader != null && lOLoader.CurrentLevelIndex == UWRules.Current.Levels.Void;
     }
 
     /// <summary>

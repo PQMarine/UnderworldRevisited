@@ -121,6 +121,9 @@ namespace UnderworldRevisited.Tools
                 return Rng.Next();
             }
 
+            /// <summary>The session the check made current, as the game's motion host answers.</summary>
+            public UWGameSession Session => UWGameSession.Current;
+
             public void UseOnMover(int piOtherIndex, int piMoverIndex, int piHitTileX, int piHitTileY)
             {
                 Log.Add("use " + piOtherIndex + " on " + piMoverIndex);

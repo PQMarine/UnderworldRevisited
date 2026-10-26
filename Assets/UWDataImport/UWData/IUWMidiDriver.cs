@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// What UWXmiSequencer plays its events on: the AdLib driver (UWAdlibMusicDriver), the

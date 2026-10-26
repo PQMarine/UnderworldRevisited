@@ -1,6 +1,6 @@
 using System;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The sound of the game, engine-free: the music devices (UWMusicDeviceSelector), the effects

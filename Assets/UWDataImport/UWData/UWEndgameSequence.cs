@@ -98,12 +98,14 @@ namespace UWDataImport.UWData
 			mbStarted = false;
 			miFrames = 0;
 
+			// The gate stands at the volcano's centre (story.volcano.centre, the world's session's rules).
+			int liCentre = mOWorld.Session.Rules.Story.Volcano.Centre;
+
 			// Link 0x2C0 as in UW.EXE (EndGameFunctions: word 3 = ... | 0xB000, quantity bit set) -
 			// for the moongate that is the colour, see UWObjectSpawner.fGetModelFaceColor. Without it
 			// the gate stayed pink (per user, 2026-09-14).
 			// Obj_AddEnd (SKILLS.C): at the tail of the tile's list (2026-10-18).
-			mOWorld.SpawnNewObject(UWObjectMechanics.MoongateObjectId,
-				new UWTilePos(UWEndgameRules.VolcanoCentre, UWEndgameRules.VolcanoCentre), MoongateLink,
+			mOWorld.SpawnNewObject(UWObjectMechanics.MoongateObjectId, new UWTilePos(liCentre, liCentre), MoongateLink,
 				UWWorldEdit.Arrival.PutDown);
 
 			// The scroll is looked up at every message (the world's presentation): the journey
@@ -115,7 +117,7 @@ namespace UWDataImport.UWData
 
 			mbHasCamera = mIHost.TryGetCamera(out lOCamera, out lfYaw);
 			mOFlight = UWMoongateFlight.From(mbHasCamera ? lOCamera : new UWVector3(0f, 0f, 0f), lfYaw,
-				UWEndgameRules.VolcanoCentre, UWEndgameRules.VolcanoCentre);
+				liCentre, liCentre);
 
 			if (mbHasCamera)
 			{
@@ -172,7 +174,9 @@ namespace UWDataImport.UWData
 			// check_victory: the teleport, then the counter to 0xFF, then the journey - a save
 			// during the flight keeps the 0 and starts it again on loading.
 			UWQuestFlags.Set(UWEndgameRules.TalismanQuestFlag, UWEndgameRules.TalismansAfterVictory);
-			mOWorld.TravelTo(UWEndgameRules.VoidLevelIndex, UWEndgameRules.VoidTileX, UWEndgameRules.VoidTileY);
+			UWRules lORules = mOWorld.Session.Rules;
+
+			mOWorld.TravelTo(lORules.Levels.Void, lORules.Story.VoidLanding.TileX, lORules.Story.VoidLanding.TileY);
 			mOWorld.Presentation.AddGeneralMessage(SuckedThroughMessage);
 			mIHost = null;
 			mOWorld = null;

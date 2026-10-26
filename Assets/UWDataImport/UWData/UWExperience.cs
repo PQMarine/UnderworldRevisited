@@ -52,7 +52,7 @@ namespace UWDataImport.UWData
 		public const int MaximumLevel = 16;
 
 		/// <summary>How many 500-experience points each level requires.</summary>
-		private static readonly int[] myLevelUpAt =
+		internal static readonly int[] myLevelUpAt =
 			{ 0, 1, 2, 3, 4, 6, 8, 0xC, 0x10, 0x18, 0x20, 0x30, 0x40, 0x60, 0x80, 0xC0 };
 
 		/// <summary>The mutable part - everything a gain can touch.</summary>
@@ -79,6 +79,10 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int Change(ref State pOState, int piAmount, int piDungeonLevel)
 		{
+			// The numbers are the rule set's (experience.*, cleanup phase 10); the consts above are
+			// their defaults.
+			UWRulesExperience lORules = UWRules.Current.Experience;
+
 			if (piAmount < 0)
 			{
 				pOState.Experience = System.Math.Max(0, pOState.Experience + piAmount);
@@ -87,7 +91,7 @@ namespace UWDataImport.UWData
 
 			// The gate above: only a LOSS still works up here (the original tests the amount
 			// first and subtracts before this comparison).
-			if (pOState.Experience > AwardCap)
+			if (pOState.Experience > lORules.AwardCap)
 				return 0;
 
 			if (piAmount == 0)
@@ -99,7 +103,7 @@ namespace UWDataImport.UWData
 			if ((piDungeonLevel << 1) + 2 < pOState.Level)
 				liGain = 1 + (liGain / 2);
 
-			int liNewTotalSkillPoints = (pOState.Experience + liGain) / ExperiencePerSkillPoint;
+			int liNewTotalSkillPoints = (pOState.Experience + liGain) / lORules.PerSkillPoint;
 
 			if (pOState.SkillPointsTotal < liNewTotalSkillPoints)
 			{
@@ -112,11 +116,12 @@ namespace UWDataImport.UWData
 			pOState.Experience += liGain;
 
 			int liLevelsGained = 0;
-			int liPoints = pOState.Experience / PointsPerLevelUnit;
+			int liPoints = pOState.Experience / lORules.PointsPerLevelUnit;
+			int[] liLevelUpAt = lORules.LevelUpAt;
 
 			while (pOState.Level + liLevelsGained < MaximumLevel
-				&& pOState.Level + liLevelsGained < myLevelUpAt.Length
-				&& myLevelUpAt[pOState.Level + liLevelsGained] <= liPoints)
+				&& pOState.Level + liLevelsGained < liLevelUpAt.Length
+				&& liLevelUpAt[pOState.Level + liLevelsGained] <= liPoints)
 			{
 				liLevelsGained++;
 			}
@@ -135,17 +140,26 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int GetNextLevelExperience(int piLevel)
 		{
-			if (piLevel < 1 || piLevel >= MaximumLevel || piLevel >= myLevelUpAt.Length)
+			UWRulesExperience lORules = UWRules.Current.Experience;
+
+			if (piLevel < 1 || piLevel >= MaximumLevel || piLevel >= lORules.LevelUpAt.Length)
 				return -1;
 
-			return myLevelUpAt[piLevel] * PointsPerLevelUnit;
+			return lORules.LevelUpAt[piLevel] * lORules.PointsPerLevelUnit;
 		}
 
 		/// <summary>Maximum vitality after levelling up: thirty plus one fifth of
 		/// strength times level.</summary>
+		public const int MaximumHealthBase = 0x1E;
+
+		public const int MaximumHealthDivisor = 5;
+
+		/// <summary>See MaximumHealthBase; the two are the rule set's (experience.maxHealth.*).</summary>
 		public static int GetMaximumHealth(int piStrength, int piLevel)
 		{
-			return 0x1E + ((piStrength * piLevel) / 5);
+			UWRulesExperience.MaxHealthRules lORules = UWRules.Current.Experience.MaxHealth;
+
+			return lORules.Base + ((piStrength * piLevel) / lORules.StrengthLevelDivisor);
 		}
 
 		/// <summary>Maximum mana from mana skill and intelligence.</summary>

@@ -119,7 +119,7 @@ public class UWPlayerTerrain : MonoBehaviour
 
         fUpdateSwimCounter();
         fUpdateCamera(lOSettings, lfTileFloor);
-        fUpdateDamage(lOSettings);
+        fUpdateDamage();
         fUpdateAutomap();
     }
 
@@ -638,12 +638,14 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>
     /// THE LAVA on the game's own clock (cleanup step 4.4, 2026-10-17; Time.time until then):
     /// the PIT ticks the world ran since the last frame (UWWorldScheduler.Now - it stands still
-    /// wherever the game clock holds), handed to UWPlayerTerrainRules.TickLava, which rolls at
-    /// UWSettings.LavaDamageInterval with LavaDamageChance; each hit is UWSettings.LavaDamage of
-    /// plain fire (UWDamageRequest.Lava) - Flameproof wards it off, the dragon skin boots keep
-    /// the roll from coming at all. Original and Smooth, 60 or 144 frames: the same rate.
+    /// wherever the game clock holds), handed to UWPlayerTerrainRules.TickLava, which rolls every
+    /// vitals.lava.rollTicks with one chance in vitals.lava.chanceInN; each hit is vitals.lava.damage
+    /// of plain fire (UWDamageRequest.Lava) - Flameproof wards it off, the dragon skin boots keep
+    /// the roll from coming at all. Original and Smooth, 60 or 144 frames: the same rate. The three
+    /// numbers were UWSettings' (LavaDamageInterval, LavaDamageChance, LavaDamage) until cleanup
+    /// phase 10 moved them into the rule set (2026-10-26).
     /// </summary>
-    private void fUpdateDamage(UWSettings pOSettings)
+    private void fUpdateDamage()
     {
         long llNow = UWGameSession.Current.Schedule.Now;
 
@@ -655,17 +657,17 @@ public class UWPlayerTerrain : MonoBehaviour
         if (mOPlayer == null)
             return;
 
-        float lfInterval = pOSettings != null ? pOSettings.LavaDamageInterval : 0.5f;
-        int liDamage = pOSettings != null ? pOSettings.LavaDamage : 4;
-        float lfChance = pOSettings != null ? pOSettings.LavaDamageChance : 0.2f;
+        UWRulesVitals.LavaRules lORules = UWRules.Current.Vitals.Lava;
 
-        int liHits = mORules.TickLava(liTicks, IsOnLava, mOPlayer.HasDragonSkinBoots,
-            UWPlayerTerrainRules.SecondsToTicks(lfInterval), lfChance);
+        // The chance as a float first: 1f / 5 is the 0.2f the settings asset held, to the bit.
+        float lfChance = 1f / lORules.ChanceInN;
+
+        int liHits = mORules.TickLava(liTicks, IsOnLava, mOPlayer.HasDragonSkinBoots, lORules.RollTicks, lfChance);
 
         // Lava burns without being magical - the reference gives damage type 0x08 here
         // (motion_player). Whoever has Flameproof active stands in it unharmed.
         for (int liHit = 0; liHit < liHits; liHit++)
-            mOPlayer.Damage(UWDamageRequest.Lava(liDamage));
+            mOPlayer.Damage(UWDamageRequest.Lava(lORules.Damage));
     }
 
     /// <summary>The world's game time at the last frame, in PIT ticks (UWWorldScheduler.Now).</summary>

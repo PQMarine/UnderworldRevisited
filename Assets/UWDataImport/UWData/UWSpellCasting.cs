@@ -116,9 +116,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>The skill check's bonus on the casting skill and its target per circle
 		/// (player_cast: skill_check(Casting + 5, 2 * circle)).</summary>
-		private const int CastingCheckBonus = 5;
+		internal const int CastingCheckBonus = 5;
 
-		private const int CastingCheckPerCircle = 2;
+		internal const int CastingCheckPerCircle = 2;
 
 		/// <summary>
 		/// THE PAUSE BETWEEN TWO CASTS (try_cast and player_cast, UnderworldExhumed RUNES.C, read
@@ -126,12 +126,18 @@ namespace UWDataImport.UWData
 		/// spell_delay = (2 * circle - level) * 4 + 0x40 clock units (a byte, 256 a second), and a
 		/// rune cast before the clock passed the last cast's time plus it is refused with sound 0x15
 		/// - a quarter of a second, a little more for a circle above one's level, down to a thirtieth
-		/// for a high level's first circle. Kept in real seconds from the host (IUWSpellHost.
-		/// RealSeconds): our game clock advances in whole player ticks.
+		/// for a high level's first circle.
+		///
+		/// ON THE GAME'S CLOCK since cleanup phase 10 (2026-10-26): the original compares its game
+		/// clock (PLAYER.DAT 0xCE, the frames' PIT ticks), which stands during a conversation or a
+		/// menu and is not halved by Speed - ours is the scheduler's running time in PIT ticks
+		/// (IUWSpellHost.GameTicks, UWWorldScheduler.Now), the same clock and unit. Until then it was
+		/// the host's real seconds (Time.timeAsDouble), which ran on through those pauses; the
+		/// pause itself was the same in running time.
 		/// </summary>
-		private const int CastDelayBase = 0x40;
+		internal const int CastDelayBase = 0x40;
 
-		private const int CastDelayPerStep = 4;
+		internal const int CastDelayPerStep = 4;
 
 		/// <summary>Forgets the last cast: a new game or a loaded one starts without a pause
 		/// (the pause leaked across them until 2026-10-11). Since 2026-10-14 the pause is the
@@ -141,8 +147,8 @@ namespace UWDataImport.UWData
 		{
 			UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
 
-			lOQuirks.LastCastSeconds = double.NegativeInfinity;
-			lOQuirks.CastDelaySeconds = 0;
+			lOQuirks.LastCastTicks = 0;
+			lOQuirks.CastDelayTicks = 0;
 		}
 
 		/// <summary>
@@ -229,10 +235,10 @@ namespace UWDataImport.UWData
 			if (pIHost == null || !pIHost.HasPlayer)
 				return OutcomeEnum.NotASpell;
 
-			double ldNow = pIHost.RealSeconds;
+			long llNow = pIHost.GameTicks;
 			UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
 
-			if (ldNow < lOQuirks.LastCastSeconds + lOQuirks.CastDelaySeconds)
+			if (llNow < lOQuirks.LastCastTicks + lOQuirks.CastDelayTicks)
 			{
 				pIHost.World.Presentation.PlaySoundAtPlayer(TooSoonSound);
 
@@ -278,8 +284,9 @@ namespace UWDataImport.UWData
 			// Casting against three times the circle, the reference's - 6 to 13 points harder, the
 			// Exhumed audit's row 1). A failure costs nothing at all (tested per user in the
 			// original, 2026-09-03; the mana is paid only after the check).
-			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(pIHost.PlayerCastingSkill + CastingCheckBonus,
-				lOSpell.Level * CastingCheckPerCircle);
+			UWRulesMagic lORules = UWRules.Current.Magic;
+			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(pIHost.PlayerCastingSkill + lORules.CastingCheck.Bonus,
+				lOSpell.Level * lORules.CastingCheck.PerCircle);
 
 			if (leResult == UWSkillCheck.ResultEnum.Failure)
 			{
@@ -295,9 +302,9 @@ namespace UWDataImport.UWData
 				pIHost.World.Presentation.AddGeneralMessage(SpellBackfiresMessage);
 
 			// The pause before the next cast, from now - a backfire sets it too.
-			lOQuirks.LastCastSeconds = ldNow;
-			lOQuirks.CastDelaySeconds = (byte)((((lOSpell.Level * 2) - pIHost.PlayerLevel) * CastDelayPerStep) + CastDelayBase)
-				/ (double)UWPlayerTick.PitTicksPerSecond;
+			lOQuirks.LastCastTicks = llNow;
+			lOQuirks.CastDelayTicks = (byte)((((lOSpell.Level * 2) - pIHost.PlayerLevel) * lORules.CastDelay.PerStep)
+				+ lORules.CastDelay.Base);
 
 			// THE MANA IS PAID BEFORE THE SPELL (player_cast; the Exhumed audit's row 2) - so a
 			// cast where no magic works costs it; until 2026-10-11 ours let it off. A PROJECTILE
@@ -584,16 +591,20 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int RollStability(int piStabilityClass)
 		{
+			// The dice are the rule set's (magic.duration.*, cleanup phase 10); the consts below are
+			// their defaults.
+			UWRulesMagic.DurationRules lORules = UWRules.Current.Magic.Duration;
+
 			switch (piStabilityClass)
 			{
 				case 0x80:
-					return UWRandom.RollDice(LongStabilityDice, LongStabilitySides) + LongStabilityBonus;
+					return UWRandom.RollDice(lORules.LongDice, lORules.LongSides) + lORules.LongBonus;
 
 				case 0x40:
-					return UWRandom.RollDice(MediumStabilityDice, MediumStabilitySides) + MediumStabilityBonus;
+					return UWRandom.RollDice(lORules.MediumDice, lORules.MediumSides) + lORules.MediumBonus;
 
 				case 0x00:
-					return UWRandom.RollDice(ShortStabilityDice, ShortStabilitySides);
+					return UWRandom.RollDice(lORules.ShortDice, lORules.ShortSides);
 
 				default:
 					return 1;

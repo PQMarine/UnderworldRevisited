@@ -124,7 +124,7 @@ public class UWCritterRemains : MonoBehaviour
             mOLevelLoader.SpawnObjectById(miRemainsObjectId, lOTile.X, lOTile.Y, 0, -1, lOAt,
                 UWWorldEdit.Arrival.Created);
 
-        if (!mbHasStats || !UWCritterCombat.ShouldDropCorpse(mOStats.CorpseIndex, UWRandom.Next(UWCritterRules.CorpseRoll)))
+        if (!mbHasStats || !UWCritterCombat.ShouldDropCorpse(mOStats.CorpseIndex, UWRandom.Next(UWRules.Current.Critter.Corpse.Roll)))
             return;
 
         UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();

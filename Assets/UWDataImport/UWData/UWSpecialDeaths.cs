@@ -225,7 +225,10 @@ namespace UWDataImport.UWData
 				UWQuestFlags.Get(UWPlayerData.DreamQuestFlag) | TyballDreamBit);
 
 			RemoveCreaturesByWhoami(pOWorld, TyballAllies);
-			RemoveObjectsInTile(pOWorld, TyballPrisonTileX, TyballPrisonTileY, MoveTriggerObjectId);
+			UWRules lORules = pOWorld.Session.Rules;
+
+			RemoveObjectsInTile(pOWorld, lORules.Story.TyballPrison.TileX, lORules.Story.TyballPrison.TileY,
+				MoveTriggerObjectId);
 		}
 
 		/// <summary>

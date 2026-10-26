@@ -609,8 +609,11 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// 2026-10-14).</summary>
     public int Random()
     {
-        return UWGameSession.Current.Random.Next(UWOriginalRandom.Range);
+        return Session.Random.Next(UWOriginalRandom.Range);
     }
+
+    /// <summary>The game's session - the one UWLevelLoader made current with the data.</summary>
+    public UWGameSession Session => UWGameSession.Current;
 
     public void UseOnMover(int piOtherIndex, int piMoverIndex, int piHitTileX, int piHitTileY)
     {

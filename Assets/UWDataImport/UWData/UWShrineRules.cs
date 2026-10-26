@@ -236,22 +236,29 @@ namespace UWDataImport.UWData
 			int liDungeonLevel = UWWorldLevels.NumberOr(pOWorld, 0);
 			System.Text.StringBuilder lOText = new System.Text.StringBuilder();
 
+			// The cup's place is the rule set's (levels.cupOfWonder, story.cup.*, cleanup phase 10);
+			// CupTileX, CupTileY and CupLevel are its defaults.
+			UWRules lORules = pOWorld.Session.Rules;
+			int liCupTileX = lORules.Story.Cup.TileX;
+			int liCupTileY = lORules.Story.Cup.TileY;
+			int liCupLevel = UWLevelIds.Number(lORules.Levels.CupOfWonder);
+
 			lOText.Append(fGetGeneralMessage(pOData, CupPrefixMessage));
 
-			int liDistance = Math.Abs(lOTile.X - CupTileX) + Math.Abs(lOTile.Y - CupTileY);
+			int liDistance = Math.Abs(lOTile.X - liCupTileX) + Math.Abs(lOTile.Y - liCupTileY);
 			bool lbDirection = liDistance > CupNearDistance;
 
 			if (lbDirection)
 				lOText.Append(fGetGeneralMessage(pOData,
-					FirstDirectionMessage + GetCardinalDirection(lOTile.X, lOTile.Y, CupTileX, CupTileY)));
+					FirstDirectionMessage + GetCardinalDirection(lOTile.X, lOTile.Y, liCupTileX, liCupTileY)));
 
-			if (liDungeonLevel != CupLevel && liDungeonLevel != 0)
+			if (liDungeonLevel != liCupLevel && liDungeonLevel != 0)
 			{
 				if (lbDirection)
 					lOText.Append(AndText);
 
 				lOText.Append(fGetGeneralMessage(pOData,
-					LevelPhraseMessage + liDungeonLevel - CupLevel));
+					LevelPhraseMessage + liDungeonLevel - liCupLevel));
 			}
 			else if (!lbDirection && liDungeonLevel != 0)
 				lOText.Append(VeryNearText);
@@ -351,7 +358,9 @@ namespace UWDataImport.UWData
 		///
 		/// THE POINT IS SPENT EVEN WHEN NOTHING ROSE: then "None of your skills improved." (until
 		/// 2026-10-11 ours said "You are not ready to advance." and kept the point; UnderworldExhumed
-		/// SKILLS.C mantra_advance, the same day).
+		/// SKILLS.C mantra_advance, the same day). A QUIRK SWITCH
+		/// (quirks.groupMantraSpendsPointRegardless, GroupMantraSpendsPointRegardless): off, the point
+		/// is spent only when a skill rose; the message stays.
 		///
 		/// THE REMAINING THREE SPECIAL MANTRAS are built since 2026-09-22 and sit in Chant:
 		/// INSAHN says where the Cup of Wonder is, FANLO hands over the Key of Truth, and NO
@@ -379,7 +388,8 @@ namespace UWDataImport.UWData
 					lONames.Add(fGetSkillName(liSkill, pOData));
 			}
 
-			pOVitals.SpendSkillPoint();
+			if (lONames.Count > 0 || UWRules.Current.Quirks.GroupMantraSpendsPointRegardless)
+				pOVitals.SpendSkillPoint();
 
 			if (lONames.Count == 0)
 			{
@@ -390,6 +400,10 @@ namespace UWDataImport.UWData
 
 			pOMessage(GetAdvancedLine(pOData, lONames));
 		}
+
+		/// <summary>The original's group mantra, kept by default (the rule set's
+		/// quirks.groupMantraSpendsPointRegardless).</summary>
+		public const bool GroupMantraSpendsPointRegardless = true;
 
 		/// <summary>"You have advanced in Sword, Axe and Mace." - with the full stop after the
 		/// list (report_advance, game/SKILLS.C:255; missing until 2026-10-15, audit A32).</summary>

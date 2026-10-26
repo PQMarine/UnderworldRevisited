@@ -99,7 +99,7 @@ namespace UWDataImport.UWData
 			if (pOLevel == null)
 				return false;
 
-			if (piLevelIndex == VoidLevelIndex)
+			if (piLevelIndex == UWRules.Current.Levels.Void)
 				return true;
 
 			return IsAntiMagicTile(pOLevel, pOTile);
@@ -277,8 +277,12 @@ namespace UWDataImport.UWData
 		{
 			piRemaining = 0;
 
-			if (!UWTalismans.IsTalisman(piObjectId) || piLevelIndex != VolcanoLevelIndex
-				|| System.Math.Abs(piTileX - VolcanoCentre) + System.Math.Abs(piTileY - VolcanoCentre) >= VolcanoRadius)
+			// The volcano is the rule set's (levels.volcano, story.volcano.*, cleanup phase 10); the
+			// consts above are its defaults.
+			UWRulesStory.VolcanoRules lOVolcano = UWRules.Current.Story.Volcano;
+
+			if (!UWTalismans.IsTalisman(piObjectId) || piLevelIndex != UWRules.Current.Levels.Volcano
+				|| System.Math.Abs(piTileX - lOVolcano.Centre) + System.Math.Abs(piTileY - lOVolcano.Centre) >= lOVolcano.Radius)
 				return TalismanOutcome.NotApplicable;
 
 			if (!pbPlayerAlive)

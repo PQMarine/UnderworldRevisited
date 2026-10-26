@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// THE PAPERDOLL PAGE, its freed circles and the whole figure without the page (MAIN.BYT,

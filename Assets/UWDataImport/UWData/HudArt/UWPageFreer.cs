@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Presentation
 {
 	/// <summary>
 	/// A PICTURE LYING ON MAIN.BYT FREED FROM THE PAGE AROUND IT - the paperdoll's body when the

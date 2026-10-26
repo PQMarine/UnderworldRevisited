@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UWDataImport;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -281,7 +282,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         UWCharacter lOCharacter = lOUi.mCharacter;
 
         return UWSpellCasting.CanCast(piSequence, lOCharacter != null ? lOCharacter.Vitals.Level : 0,
-            lOCharacter != null ? Mathf.FloorToInt(lOCharacter.Vitals.CurrentMana) : 0, lOBag);
+            lOCharacter != null ? lOCharacter.Vitals.CurrentMana : 0, lOBag);
     }
 
     /// <summary>The panel's grey: a spell whose runes are in the bag and whose circle the

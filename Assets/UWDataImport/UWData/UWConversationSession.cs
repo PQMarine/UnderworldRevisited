@@ -37,6 +37,10 @@ namespace UWDataImport.UWData
 
 		private readonly IUWConversationHost mIHost;
 
+		/// <summary>The game the conversation runs in: its rule set and random source (cleanup
+		/// phase 10 wave 4, 2026-10-26: UWGameSession.Current until then).</summary>
+		private readonly UWGameSession mOGame;
+
 		private readonly UWConversations.Conversation mOConversation;
 
 		private readonly UWConversationVM mOVm;
@@ -92,11 +96,14 @@ namespace UWDataImport.UWData
 
 		/// <param name="pIHost">The game around the conversation. May be null for a bare test
 		/// run: the conversation then has no player, no world and no inventory.</param>
-		public UWConversationSession(DataImport pOData, UWNpc pONpc, int piSlot, IUWConversationHost pIHost)
+		/// <param name="pOGame">The running game: the barter's rules and the script's random.</param>
+		public UWConversationSession(DataImport pOData, UWNpc pONpc, int piSlot, IUWConversationHost pIHost,
+			UWGameSession pOGame)
 		{
 			mOData = pOData;
 			mONpc = pONpc;
 			mIHost = pIHost;
+			mOGame = pOGame;
 
 			mOConversation = pOData != null && pOData.Conversations != null
 				? pOData.Conversations.GetConversation(piSlot)
@@ -134,7 +141,7 @@ namespace UWDataImport.UWData
 			// partner for null themselves.
 			Trade = new UWConversationTrade(pOData, pONpc, pIHost,
 				piString => Say(fGetConversationString(mOConversation.StringBlock, piString)),
-				PlayerSay, RegisterString);
+				PlayerSay, RegisterString, pOGame);
 
 			// The partner's inventory, rolled once before the script runs (Converse,
 			// UnderworldExhumed conv/CONVERSE.C:329-330; since 2026-10-19, on the first trade lookup
@@ -167,7 +174,7 @@ namespace UWDataImport.UWData
 		{
 			int liLore = mIHost != null ? mIHost.GetPlayerSkill(UWPlayerData.Skill.Lore) : 0;
 
-			LookAt(pOItem, 1 + (int)UWSkillCheck.Check(liLore, UWLoreCheck.OwnTradeTarget));
+			LookAt(pOItem, 1 + (int)UWSkillCheck.Check(liLore, mOGame.Rules.Trade.Lore.OwnTarget));
 		}
 
 		/// <summary>An item on the partner's side: 2 on a success of Lore against 20, else 1.</summary>
@@ -175,7 +182,7 @@ namespace UWDataImport.UWData
 		{
 			int liLore = mIHost != null ? mIHost.GetPlayerSkill(UWPlayerData.Skill.Lore) : 0;
 
-			LookAt(pOItem, UWSkillCheck.IsSuccess(UWSkillCheck.Check(liLore, UWLoreCheck.PartnerTradeTarget)) ? 2 : 1);
+			LookAt(pOItem, UWSkillCheck.IsSuccess(UWSkillCheck.Check(liLore, mOGame.Rules.Trade.Lore.PartnerTarget)) ? 2 : 1);
 		}
 
 		/// <summary>Describes an item of the trade area in the history - the right click there.
@@ -359,19 +366,19 @@ namespace UWDataImport.UWData
 			if (piFlag < 0)
 				return 0;
 
-			return UWQuestFlags.Get(piFlag > LastQuestFlag ? LastQuestFlag : piFlag);
+			return mOGame.Quests.Get(piFlag > LastQuestFlag ? LastQuestFlag : piFlag);
 		}
 
 		public void SetQuest(int piFlag, int piValue)
 		{
-			UWQuestFlags.Set(piFlag, piValue);
+			mOGame.Quests.Set(piFlag, piValue);
 		}
 
 		/// <summary>The script's random (BabRand in the decompilation's BABL.C): 1 to piMaximum,
 		/// from the session's generator (cleanup step 2.8, 2026-10-14).</summary>
 		public int Random(int piMaximum)
 		{
-			return piMaximum <= 0 ? 0 : UWGameSession.Current.Random.Next(1, piMaximum + 1);
+			return piMaximum <= 0 ? 0 : mOGame.Random.Next(1, piMaximum + 1);
 		}
 
 		/// <summary>The functions this session knows by name (UWConversationFunctionTable, since
@@ -572,9 +579,9 @@ namespace UWDataImport.UWData
 				return 0;
 
 			if (piValue >= 0 && piValue < SkillIncrease)
-				UWGameVariables.Set(piVariable, piValue);
+				mOGame.Variables.Set(piVariable, piValue);
 
-			return UWGameVariables.Get(piVariable);
+			return mOGame.Variables.Get(piVariable);
 		}
 
 		/// <summary>Clock of the original: this many units are one game minute here (UW.EXE divides

@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport.UWData;
 
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// Access to the "sound" folder, which lies NEXT TO "data" - just like "cuts" and "crit".

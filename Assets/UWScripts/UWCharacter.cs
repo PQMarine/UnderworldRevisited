@@ -56,23 +56,29 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     // only without one. They do NOT come from the template in PLAYER.DAT ("GRONKEY"),
     // because it is incomplete - it has maximum health 0 and maximum mana 188, both
     // obviously unset (see UWPlayerData).
+    // Whole numbers since cleanup phase 10 (2026-10-26), as the vitals are (UWPlayerVitals); the
+    // scene's values were whole already and are read under the old names.
     [Header("Character values")]
     [SerializeField]
-    private float mfStartMaxHP = 30f;
+    [UnityEngine.Serialization.FormerlySerializedAs("mfStartMaxHP")]
+    private int miStartMaxHP = 30;
 
     [SerializeField]
-    private float mfStartMaxMana = 20f;
+    [UnityEngine.Serialization.FormerlySerializedAs("mfStartMaxMana")]
+    private int miStartMaxMana = 20;
 
     // Separate from the maximum values so that you can start wounded - otherwise the
     // flask is always full and healing (fountains, potions) shows no effect. -1 means
     // "full", which is the normal game start.
     [SerializeField]
     [Tooltip("Hit points at start. -1 means full.")]
-    private float mfStartCurrentHP = -1f;
+    [UnityEngine.Serialization.FormerlySerializedAs("mfStartCurrentHP")]
+    private int miStartCurrentHP = -1;
 
     [SerializeField]
     [Tooltip("Mana at start. -1 means full.")]
-    private float mfStartCurrentMana = -1f;
+    [UnityEngine.Serialization.FormerlySerializedAs("mfStartCurrentMana")]
+    private int miStartCurrentMana = -1;
 
     /// <summary>
     /// The vitals - health, mana, attributes, skills, experience, hunger, poison, the active
@@ -309,17 +315,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// </summary>
     private bool mbStatusStale = true;
 
-    /// <summary>
-    /// The switch for the original's dead resistance nibble - see
-    /// UWArmourProtection.ResistBlowsAddsArmour. ONCE PER GAME since cleanup step 4.6
-    /// (2026-10-18): the session that keeps it is new with every start (UWLevelLoader), and Init
-    /// follows; until then every status refresh, i.e. every frame, wrote it again.
-    /// </summary>
-    private static void fApplyRuleSwitches()
-    {
-        UWArmourProtection.ResistBlowsAddsArmour = UnderworldRevisited.UWSettings.Instance != null
-            && UnderworldRevisited.UWSettings.Instance.ResistBlowsAddsArmour;
-    }
+    // The switch for the original's dead resistance nibble (UWArmourProtection.ResistBlowsAddsArmour)
+    // was pushed here from UWSettings once per game until cleanup phase 10 (2026-10-26); it is the
+    // rule set's combat.resistBlowsAddsArmour now, which the session's rules.json sets at its start.
 
     /// <summary>A status pass of the original is due - see fRunStatusPass.</summary>
     private bool mbStatusPassDue;
@@ -425,10 +423,10 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         lOStart.Level = miStartLevel;
         lOStart.ManaSkill = miStartManaSkill;
         lOStart.CastingSkill = miStartCastingSkill;
-        lOStart.FallbackMaxHP = mfStartMaxHP;
-        lOStart.FallbackMaxMana = mfStartMaxMana;
-        lOStart.FallbackCurrentHP = mfStartCurrentHP;
-        lOStart.FallbackCurrentMana = mfStartCurrentMana;
+        lOStart.FallbackMaxHP = miStartMaxHP;
+        lOStart.FallbackMaxMana = miStartMaxMana;
+        lOStart.FallbackCurrentHP = miStartCurrentHP;
+        lOStart.FallbackCurrentMana = miStartCurrentMana;
 
         fVitals.Initialise(mOUWData, lOStart);
     }
@@ -436,9 +434,6 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     public void Init(DataImport pOUWData)
     {
         mOUWData = pOUWData;
-
-        // Before the first status refresh (seeding the spells below runs one).
-        fApplyRuleSwitches();
 
         // The time since the last tick counts on - see msLastGameTickRealtime.
         mOGameTick.Preload(Time.realtimeSinceStartup - msLastGameTickRealtime);
@@ -698,13 +693,26 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
 
     private UWPlayerMovement mOMovementForNoise;
 
+    /// <summary>The noise on the game's clock (cleanup phase 10, 2026-10-26; the frame's elapsed
+    /// seconds until then): the PIT ticks the world ran since the last frame (UWWorldScheduler.Now,
+    /// which stands wherever the game clock holds), handed to UWPlayerVitals.TickQuietness.</summary>
     private void fTickQuietness()
     {
         if (mOMovementForNoise == null)
             mOMovementForNoise = GetComponentInParent<UWPlayerMovement>();
 
-        fVitals.TickQuietness(Time.deltaTime);
+        long llNow = UWGameSession.Current.Schedule.Now;
+
+        // A new game or a loaded one starts its clock again: no time has passed.
+        int liTicks = llNow >= mlLastNoiseTicks ? (int)System.Math.Min(int.MaxValue, llNow - mlLastNoiseTicks) : 0;
+
+        mlLastNoiseTicks = llNow;
+
+        fVitals.TickQuietness(liTicks);
     }
+
+    /// <summary>The world's game time at the last frame, in PIT ticks (UWWorldScheduler.Now).</summary>
+    private long mlLastNoiseTicks;
 
     /// <summary>IUWVitalsHost: the player walks.</summary>
     public bool IsMoving => mOMovementForNoise != null && mOMovementForNoise.IsMoving;

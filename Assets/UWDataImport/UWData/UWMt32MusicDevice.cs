@@ -1,4 +1,4 @@
-namespace UWDataImport.UWData
+namespace UWDataImport.Audio
 {
 	/// <summary>
 	/// The music on the MT-32: the MT-32 version of the pieces through UWMt32MusicDriver (Munt's

@@ -164,8 +164,8 @@ namespace UnderworldRevisited.Tools
             for (int liKind = 0; liKind < lOQuirks.LavaFlagDropped.Length; liKind++)
                 lOQuirks.LavaFlagDropped[liKind] = true;
 
-            lOQuirks.LastCastSeconds = 12.5;
-            lOQuirks.CastDelaySeconds = 0.25;
+            lOQuirks.LastCastTicks = 3200;
+            lOQuirks.CastDelayTicks = 64;
 
             UWObjectLightColour.TryGet(lOData, UWObjectIds.FirstCreature - 1, out _, out _, out _);
 
@@ -195,7 +195,7 @@ namespace UnderworldRevisited.Tools
             lOText.Append("; lava ").Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Land))
                 .Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Flier))
                 .Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Swimmer));
-            lOText.Append("; cast pause ").Append(lOSession.Quirks.LastCastSeconds).Append('+').Append(lOSession.Quirks.CastDelaySeconds);
+            lOText.Append("; cast pause ").Append(lOSession.Quirks.LastCastTicks).Append('+').Append(lOSession.Quirks.CastDelayTicks);
             lOText.Append("; light colours ").Append(lOSession.LightColours.Count);
             lOText.Append("; trap log ").Append(UWTrapLog.Entries.Count).Append(' ').Append(UWTrapLog.Detail ?? "-");
             lOText.Append("; writer warnings ").Append(UWLevelWriter.Warnings.Count);
@@ -330,7 +330,8 @@ namespace UnderworldRevisited.Tools
                 lONpc.Contents.Add(new UWObject((ushort)liId));
 
             // Any conversation will do: the function is called the way the machine calls it, by name.
-            UWConversationSession lOConversation = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel));
+            UWConversationSession lOConversation = new UWConversationSession(lOData, lONpc, 1, ConversationHostStub.Create(lOLevel),
+                UWGameSession.Current);
             UWConversationTrade lOTrade = lOConversation.Trade;
             RecordingRandom lOScript = new RecordingRandom(4, 5, 7);
 

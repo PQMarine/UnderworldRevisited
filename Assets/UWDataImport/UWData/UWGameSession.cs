@@ -8,7 +8,8 @@ namespace UWDataImport.UWData
 	/// PLAYER.DAT, the level the carried objects live in, the creatures' clock and kin alarm, the
 	/// quirks the original keeps for a whole run (the lava flag, the cast pause), the light colours
 	/// worked out so far and the diagnostics (trap log, writer warnings); since step 2.8 also the
-	/// one random generator every rule draws from (UWSessionRandom).
+	/// one random generator every rule draws from (UWSessionRandom), since phase 10 the rule set
+	/// (UWRules, with the player's rules.json applied at the start).
 	///
 	/// WHY: until then each of these was a static on its own class. Starting a new game or loading
 	/// one had to clear every one of them by hand, and three were forgotten for a while (B21 of the
@@ -67,6 +68,37 @@ namespace UWDataImport.UWData
 
 		/// <summary>The one generator of this game (cleanup step 2.8; UWRandom forwards here).</summary>
 		public UWSessionRandom Random { get; }
+
+		/// <summary>The rule set of this game (cleanup phase 10, 2026-10-25): the original's numbers
+		/// unless the host applied a rules.json at the session's start (ApplyRulesFile). UWRules.Current
+		/// forwards here.</summary>
+		public UWRules Rules { get; private set; } = UWRules.CreateOriginal();
+
+		/// <summary>What the last ApplyRulesFile found; null before one (the original's rules).</summary>
+		public UWRulesReport RulesReport { get; private set; }
+
+		/// <summary>Puts a rule set in place of this session's (null: the original's) - for a test or a
+		/// host that builds the set itself.</summary>
+		public void UseRules(UWRules pORules)
+		{
+			Rules = pORules ?? UWRules.CreateOriginal();
+		}
+
+		/// <summary>
+		/// The player's rule set for this game: the original's, with the keys of the file at psPath
+		/// applied (UWRulesJson.ApplyFile). No file leaves the original's; a malformed one leaves them
+		/// too and says why in the report. Starts from the original's every time, so a key taken out of
+		/// the file goes back to its default with the next session.
+		/// </summary>
+		public UWRulesReport ApplyRulesFile(string psPath)
+		{
+			UWRules lORules = UWRules.CreateOriginal();
+
+			RulesReport = UWRulesJson.ApplyFile(lORules, psPath);
+			Rules = lORules;
+
+			return RulesReport;
+		}
 
 		/// <summary>The world of this game: levels, LEV.ARK, map notes, the level the player is on.</summary>
 		public UWSessionWorld World { get; } = new UWSessionWorld();
@@ -147,7 +179,8 @@ namespace UWDataImport.UWData
 
 		// The creature minds' services (ICritterServices, cleanup step 4.13, 2026-10-19): the brain
 		// draws, reads the clock, writes the alarm and stores its path through these, read anew at
-		// every call, so a level build's fresh clock and alarm (ResetCritterServices) reach it.
+		// every call, so a level build's fresh clock and alarm (ResetCritterServices) reach it. Their
+		// rule set is the public Rules (since cleanup phase 10 wave 4, 2026-10-26).
 
 		IUWRandom ICritterServices.Random => Random;
 
@@ -202,17 +235,16 @@ namespace UWDataImport.UWData
 		/// UWCreatureMotion.LavaFlagDropped.</summary>
 		public readonly bool[] LavaFlagDropped = new bool[UWCreatureMotion.KindCount];
 
-		/// <summary>The real-time second of the last cast that set the pause, and the pause it set
-		/// (UWSpellCasting, try_cast's spell_delay).</summary>
-		public double LastCastSeconds = double.NegativeInfinity;
+		/// <summary>The game time of the last cast that set the pause, in PIT ticks, and the pause it
+		/// set (UWSpellCasting; try_cast's lstime and spell_delay, both zero at the start as in the
+		/// original). Real seconds until cleanup phase 10 (2026-10-26).</summary>
+		public long LastCastTicks;
 
-		public double CastDelaySeconds;
+		public int CastDelayTicks;
 
-		/// <summary>The switch for the original's dead resistance nibble (UWSettings), pushed by the
-		/// host once per game (UWCharacter.Init; before every status refresh until cleanup step 4.6,
-		/// 2026-10-18) - see UWArmourProtection.ResistBlowsAddsArmour. A rule
-		/// switch rather than a quirk; it moves to the rule set (plan section 6) when that lands.</summary>
-		public bool ResistBlowsAddsArmour;
+		// The switch for the original's dead resistance nibble lived here until cleanup phase 10
+		// (2026-10-26); it is the rule set's combat.resistBlowsAddsArmour now - see
+		// UWArmourProtection.ResistBlowsAddsArmour.
 	}
 
 	/// <summary>

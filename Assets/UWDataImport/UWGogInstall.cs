@@ -4,7 +4,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace UWDataImport
+namespace UWDataImport.Install
 {
     /// <summary>
     /// The game data of the supported version: Ultima Underworld 1 from GOG.com.

@@ -20,6 +20,11 @@ namespace UWDataImport.UWData
 		/// <summary>The loaded installation; null before it is loaded.</summary>
 		DataImport Data { get; }
 
+		/// <summary>The running game: its rule set, random source, flags and clocks (cleanup phase 10
+		/// wave 4, 2026-10-26) - the rules that hold a world read it here instead of
+		/// UWGameSession.Current.</summary>
+		UWGameSession Session { get; }
+
 		/// <summary>The level the player is on; null without data.</summary>
 		UWLevel Level { get; }
 
@@ -226,6 +231,8 @@ namespace UWDataImport.UWData
 		}
 
 		public DataImport Data => mOInner.Data;
+
+		public UWGameSession Session => mOInner.Session;
 
 		public UWLevel Level => mOInner.Level;
 
