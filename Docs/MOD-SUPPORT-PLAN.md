@@ -8,6 +8,12 @@ and the languages with 0.10.0. What is built is summed up in section 0; sections
 point what the code does today and what is still the plan. Line numbers were right on the day
 they were written and will drift; the file names will not.
 
+**Contributions welcome** (decided 2026-10-27): the open parts are not planned to be built here
+for now - the next work is the small points under Next in [ROADMAP.md](../ROADMAP.md), then
+Ultima Underworld II. A pull request for any phase below is welcome; open an issue first
+([CONTRIBUTING.md](../CONTRIBUTING.md)). Section 4 says where each piece attaches and what it
+can start from.
+
 The plan covers four things that turn out to be one piece of infrastructure:
 
 1. A **mod folder** with manifests, a load order and an in-game switch. *Open.*

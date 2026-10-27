@@ -1,7 +1,8 @@
 # Roadmap
 
-What is finished, what is still open, and what comes later. The README's "State" section
-lists what is in; this file lists what is not, or not yet confirmed against the original.
+What is finished, what comes next, what is still open, what comes later, and the ideas that are
+not planned. The README's "State" section lists what is in; this file lists what is not, or not
+yet confirmed against the original.
 
 "Confirmed" means a behaviour was compared with the original game running in DOSBox. Much
 of what is built was also read out of the original's executable.
@@ -70,6 +71,19 @@ of what is built was also read out of the original's executable.
   MT-32 itself through Munt's emulation with the player's own ROMs - compared with a recording
   of the original on a real MT-32
 
+## Next
+
+The small things first, in this order; then Ultima Underworld II.
+
+- **Music from recordings** (suggested on Reddit): recordings the player supplies, one file per
+  track, played in place of the synthesizer when present.
+- **The own-tile rule** of the Remastered mode (an object is never covered by the tile it stands
+  in) does not yet cover diagonal walls of that tile. The Palette mode now places items and
+  creatures in the original's draw order instead (tile by tile, doors split the objects of their
+  tile, a bridge's deck covers what lies under it); the order of items among themselves at a door
+  still follows the simpler rule.
+- **A Steam Deck layout** for the gamepad scheme; the Linux build runs there already.
+
 ## Open: gameplay parity
 
 - Nothing known at the moment beyond what the play-through compared. Reports of
@@ -77,26 +91,15 @@ of what is built was also read out of the original's executable.
 
 ## Open: controls
 
-- **Gamepad, further.** Vibration, and a Steam Deck layout; the gamepad itself is in place
-  (see above).
+- **Gamepad, further.** Vibration; the gamepad itself is in place (see above), the Steam Deck
+  layout is under Next.
 
 ## Open: platforms
 
-- **macOS.** No build yet, untested.
-- **Linux on 64-bit ARM (a Raspberry Pi 5, say).** No build yet, untested. Unity can build for
-  ARM64 Linux (with IL2CPP instead of Mono, and the PDFium library for the manual as an ARM64
-  build). A rough guess: the CPU is plenty for the game logic, the GPU is the limit - the
-  Palette mode at around 720p, the Remastered mode's effects likely too heavy; the world at the
-  original's resolution (in the Graphics menu) would help most. Asked on Reddit.
-  An outlook further on, also asked there: PortMaster, the port collection for Linux handhelds.
-  Most of its devices offer only OpenGL ES 2 without Vulkan, which Unity 6 no longer serves, so
-  only the stronger handhelds with Vulkan come into question, and only with the gamepad scheme.
+- **macOS.** No build yet, untested: it needs someone with a Mac to test it.
 
 ## Open: presentation
 
-- **Music, further.** The sound effects on the MT-32 too, as the original may have played them (its file `UW.MT` holds 64
-  timbres of their own - unchecked). Suggested on Reddit: recordings the player supplies, one
-  file per track, played in place of the synthesizer when present.
 - **Hallucination.** All three pictures the original rolls from are built and confirmed, two
   of them as approximations: the "light table" the original copies from its own engine
   variables is modelled on screenshots (those variables' run-time values are not in the
@@ -106,17 +109,6 @@ of what is built was also read out of the original's executable.
   established range for it); more effects are planned. Planned: items and creatures get a
   depth estimated from their outline, so they meet floors and walls more softly and the
   lights shade them.
-- **More for the Palette mode.** A shore line along water, a few levels lighter and moving
-  with the palette rotation, is an idea that may look odd - not planned yet.
-- **The original font traced into outlines** (an idea from Reddit), so it stays
-  sharp at any size - either pixel-exact or smoothed, keeping the letter shapes without the
-  pixel steps. Generated from the player's own game files at run time, as the font belongs to
-  the game.
-- **The own-tile rule** of the Remastered mode (an object is never covered by the tile it stands
-  in) does not yet cover diagonal walls of that tile. The Palette mode now places items and
-  creatures in the original's draw order instead (tile by tile, doors split the objects of their
-  tile, a bridge's deck covers what lies under it); the order of items among themselves at a door
-  still follows the simpler rule.
 
 ## Open: translations
 
@@ -124,19 +116,41 @@ of what is built was also read out of the original's executable.
   language files that translators publish on their own ([Docs/TRANSLATING.md](Docs/TRANSLATING.md)).
 - **Other scripts** (Cyrillic, Chinese, Japanese) are prepared in the modern look; the classic
   look would need pixel fonts of their own, and names in save games keep the original's bytes.
+  Built when a translator for such a language comes forward.
 
 ## Later
 
-- Mod support: a mod folder, rule files and translations shipped as mods, table and picture
-  overlays, difficulty settings, a randomizer, later scripting
-  ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md) says what is built and what is open).
+- Ultima Underworld II, after the points under Next.
 - The game logic without Unity: since the code cleanup (0.8.0 to 0.9.2) the rules live in the
   engine-free layer; what is left is handing each rule its game session instead of the
   transitional `UWGameSession.Current`.
-- Ultima Underworld II.
 - A second front end in Unreal Engine beside the Unity one, to go all out on the effects
   (ray tracing among them). Likely after Ultima Underworld II.
-- Maybe: Detect Monster as a heatmap on the help window's map tab (an idea, not planned).
-- Maybe: cut content brought back as an option, should more of it turn up. Found so far: Thorlson,
+- **Mod support - contributions welcome.** Not planned to be built here for now, but a pull
+  request for it is welcome. What exists already: the rule set (`rules.json`, 248 numbers and
+  switches) and the language files for every text. What is missing - a mod folder with a load
+  order, table and picture overlays, difficulty settings in the game, a randomizer, scripting -
+  is laid out in [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md), with where each piece
+  would attach; see [CONTRIBUTING.md](CONTRIBUTING.md) and open an issue first.
+
+## Ideas, not planned
+
+- **Linux on 64-bit ARM (a Raspberry Pi 5, say).** Unity can build for ARM64 Linux (with IL2CPP
+  instead of Mono, and the PDFium library for the manual as an ARM64 build). A rough guess: the
+  CPU is plenty for the game logic, the GPU is the limit - the Palette mode at around 720p, the
+  Remastered mode's effects likely too heavy; the world at the original's resolution (in the
+  Graphics menu) would help most. Asked on Reddit. Further on, also asked there: PortMaster, the
+  port collection for Linux handhelds. Most of its devices offer only OpenGL ES 2 without
+  Vulkan, which Unity 6 no longer serves, so only the stronger handhelds with Vulkan come into
+  question, and only with the gamepad scheme.
+- **The sound effects on the MT-32**, as the original may have played them (its file `UW.MT`
+  holds 64 timbres of their own - unchecked).
+- **A shore line along water** in the Palette mode, a few levels lighter and moving with the
+  palette rotation - it may look odd.
+- **The original font traced into outlines** (an idea from Reddit), so it stays sharp at any
+  size - either pixel-exact or smoothed, keeping the letter shapes without the pixel steps.
+  Generated from the player's own game files at run time, as the font belongs to the game.
+- **Detect Monster as a heatmap** on the help window's map tab.
+- **Cut content brought back as an option**, should more of it turn up. Found so far: Thorlson,
   an old warrior with a complete conversation who asks for an honourable death in battle and can
-  join the player as an ally, but stands in no level (an idea, not planned).
+  join the player as an ally, but stands in no level.
