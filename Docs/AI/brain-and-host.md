@@ -212,6 +212,12 @@ writes it back any more (`UWConversationTrade` reads its bit 6 as the ally bit).
 
 ## 7. What in UWCritter.cs becomes obsolete, and what stays
 
+HISTORICAL: this section was the work list of 2026-09-20 for moving the decisions out of the
+Unity component. It is done: since cleanup step 4.11 (2026-10-18) the host is the engine-free
+`UWCreatureActor`, and `UWCritter` is only the creature's view (`ICreatureView`). The names below
+are those of the old `UWCritter.cs` and most no longer exist; the list is kept as the record of
+what moved where.
+
 Obsolete (the brain does it; remove with the fields and timers they use):
 
 - The decision clock and its gates: `fIsDecisionStep`, `fIsAttackAttemptStep`,
@@ -298,9 +304,10 @@ scale, the trace switches.
   a physics feature; the constants are in `UWCritterRules` for when the host wants them.
   Whether a closed door counts as passable on a path is approximated by "door skill nonzero"
   where the original asks `CharacterDoorLockAndKeyInteraction`.
-- The fine turn for shots and spells (`seg007_1798_2123`) uses `Math.Atan2` in place of the
-  original's table arctangent; the tolerance (snap within 0x20, else 0x20 per update) is the
-  original's.
+- The fine turn for shots and spells (`seg007_1798_2123`) used `Math.Atan2` in place of the
+  original's table arctangent until cleanup phase 10 (2026-10-26); since then it takes the
+  original's table (`UWVanillaMath.Atan2`). The tolerance (snap within 0x20, else 0x20 per
+  update) is the original's.
 - The mutual recursion of `NPCWanderUpdate` and `StandStillGoal` (a hostile wanderer runs the
   stand routine on RNG(2) == 1, whose pose for goal 2 is the wander routine) is the
   original's and is kept, with a depth guard of 8 that only a scripted RNG can reach.
@@ -314,10 +321,11 @@ scale, the trace switches.
 - The distance cull compares against the player object's tile only; the original also reads
   the `PlayerTileX/Y` globals, which are the same tile.
 - The player's loudness writer stays in `UWPlayerVitals` (deviation 24); the brain reads the
-  nibble from the snapshot. What it lacks is listed in the TODO at
-  `UWCritterBrain.fSearchForTarget`: the speed term, the easy-move base + 4, the equipment
-  reductions of both nibbles, the visibility nibble 15 - Sneak / 5, and the decay clock (once
-  per 8 player ticks, not a 12 Hz tick).
+  nibble from the snapshot. What was once listed as missing there is complete (see the comment
+  on `UWCritterBrain.fSearchForTarget`): the speed term, the easy-move base + 4, the stealth
+  bonuses on both nibbles, the visibility nibble 15 - Sneak / 5, and the decay of one step per
+  eight calls, called at a fixed rate on the game's clock since 0.9.2
+  (`UWPlayerVitals.QuietnessCallTicks`; the original's rate depends on the machine).
 - `Random(n)` is called exactly where the original calls RNG; the physics' own RNG calls
   (the nudge of RNG(32), RNG(32), RNG(8) in `InitMotionParams`) are the host's and do not
   pass through the brain.

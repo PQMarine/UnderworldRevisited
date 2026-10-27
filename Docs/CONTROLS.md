@@ -13,7 +13,14 @@ in force is kept for the next start. The help window's **Controls** tab lists th
 scheme in force, as you have bound them; keys and mouse buttons can be changed under
 *Controls* in the menu bar at the top edge, which also inverts the modern scheme's mouse look
 up and down. In the main menu and the game menu, **F10** shows the menu bar for the keyboard:
-the arrow keys move, Enter or Space chooses, Escape or F10 leaves.
+the arrow keys move, Enter or Space chooses, Escape or F10 leaves; on a selected slider, Left and
+Right change it by its step, held to repeat.
+
+In the running game the pointer is the game's own, in both schemes: the mouse moves it as under
+DOS, and the system pointer is captured and hidden. **Pointer speed** under *Controls* sets how
+fast it moves (25 to 400 %; at 100 % one step of the mouse is one pixel on the screen, without
+acceleration). The menus and the setup windows use the system pointer. **Alt+Tab** lets the
+mouse go; the click that brings it back does nothing in the game.
 
 ## The original scheme
 

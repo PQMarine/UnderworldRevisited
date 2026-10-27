@@ -1,6 +1,12 @@
 # Cleanup plan
 
-Status: plan, 2026-10-11. Nothing in this document has been implemented yet.
+Status: COMPLETE (2026-10-26). Written as a plan on 2026-10-11; every phase has been carried out
+and released: phases 0 to 2 with 0.8.0, phase 3 with 0.8.2, phase 4 with 0.8.3, phase 5 with
+0.9.0, phases 6, 7, 8, 8b and 8c with 0.9.1, phases 8d, 9 and 10 with 0.9.2 (see
+[CHANGELOG.md](../CHANGELOG.md)). The document is kept as the record of what was planned and
+why; it is no longer updated. Where the build chose other names than the plan (some classes
+named here do not exist under that name), the code and its class comments are the reference.
+What the mod support builds on this is in [MOD-SUPPORT-PLAN.md](MOD-SUPPORT-PLAN.md).
 
 Line numbers refer to the sources at commit 1a35adc (2026-10-11) and will drift; the method and
 class names are the stable reference.
