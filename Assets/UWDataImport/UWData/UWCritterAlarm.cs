@@ -100,10 +100,12 @@ namespace UWDataImport.UWData
 				piFloorLevel, piCritterClock - liAge);
 		}
 
-		/// <summary>Still within the 0x200 PIT tick window at this clock (53553).</summary>
+		/// <summary>Still within the 0x200 PIT tick window at this clock (53553; Exhumed AI.C:
+		/// crithittime + 0x200 > game_clock, so the last tick no longer counts - `<=` until
+		/// 2026-10-27, Exhumed audit row 27).</summary>
 		public bool IsFresh(long piClock)
 		{
-			return Index != 0 && piClock <= Clock + UWCritterRules.KinAlarmPitTicks;
+			return Index != 0 && piClock < Clock + UWCritterRules.KinAlarmPitTicks;
 		}
 	}
 }

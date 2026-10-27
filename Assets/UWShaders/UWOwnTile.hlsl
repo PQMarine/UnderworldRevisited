@@ -26,8 +26,14 @@
 // (per user, 2026-09-22). So a model only pulls the side that faces the viewer; the back keeps
 // its own depth, lies behind the plane and stays hidden. A sprite has a single side.
 //
-// NOT HANDLED BY THE BOX: a diagonal wall of the own tile lies inside it and still covers a
-// model; sprites use the plane rule below, which leaves it behind them.
+// A DIAGONAL TILE (2026-10-27, ROADMAP "Next"): its diagonal wall lies inside the box and covered
+// a model standing in it - eleven pillars and a chest in UW1 stand on diagonal tiles (level 2 at
+// 40/60 and 41/60, level 4 at 19/20 among them), some reaching into the closed half. The original
+// paints the diagonal with its tile, before the tile's objects. So in a diagonal tile the box is
+// cut by the diagonal: the region is the box AND the open half, drawn in by the inset as well,
+// and a pixel outside it - in the closed half or beyond the box - takes the depth where its line
+// of sight leaves that region. Sprites use the plane rule below, which leaves the diagonal behind
+// them anyway.
 #ifndef UW_OWN_TILE_INCLUDED
 #define UW_OWN_TILE_INCLUDED
 
@@ -52,6 +58,41 @@ float _UWDoorPlanesReady;
 // The box is drawn in by this much on every side, so its faces do not fight with the surfaces
 // they stand for - the lift the lurker always had above its water plane.
 #define UW_OWN_TILE_INSET 0.25
+
+// The open half of a diagonal tile as n . (u, v) <= d, u east and v north from the tile's
+// south-west corner in tile units (UWTile.TileTypeEnum 2 open to the south-east, 3 south-west, 4
+// north-east, 5 north-west - the halves UWOwnTileInOpenHalf below tests). False for any other type.
+bool UWOwnTileOpenHalfPlane(float pfType, out float2 pNormal, out float pfLimit)
+{
+    pNormal = float2(0.0, 0.0);
+    pfLimit = 0.0;
+
+    if (pfType < 1.5 || pfType > 5.5)
+        return false;
+
+    if (pfType < 2.5)
+    {
+        pNormal = float2(-1.0, 1.0);
+        pfLimit = 0.0;
+    }
+    else if (pfType < 3.5)
+    {
+        pNormal = float2(1.0, 1.0);
+        pfLimit = 1.0;
+    }
+    else if (pfType < 4.5)
+    {
+        pNormal = float2(-1.0, -1.0);
+        pfLimit = -1.0;
+    }
+    else
+    {
+        pNormal = float2(1.0, -1.0);
+        pfLimit = 0.0;
+    }
+
+    return true;
+}
 
 float UWOwnTileDeviceDepth(float3 pPositionWS)
 {
@@ -90,7 +131,27 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
         lMax = float3(1.0e6, 1.0e6, 1.0e6);
     }
 
-    if (all(pPositionWS >= lMin) && all(pPositionWS <= lMax))
+    // The diagonal's half-plane in a diagonal tile (see the head of this file): n . (u, v) <= d,
+    // the limit drawn in by the inset along the normal (its length is the square root of two).
+    bool lbDiagonal = false;
+    float2 lHalfNormal = float2(0.0, 0.0);
+    float lfHalfLimit = 0.0;
+    float2 lTileCorner = float2(0.0, 0.0);
+
+    if (_UWOwnTileSize > 0.0 && _UWFloorHeightsReady > 0.5)
+    {
+        float lfHalfSize = _UWOwnTileSize * 0.5;
+        float2 lTileCell = floor((pPivotWS.xz + lfHalfSize) / _UWOwnTileSize);
+        int2 lTileTexel = clamp(int2(lTileCell), int2(0, 0), int2(63, 63));
+
+        lTileCorner = (lTileCell * _UWOwnTileSize) - lfHalfSize;
+        lbDiagonal = UWOwnTileOpenHalfPlane(round(LOAD_TEXTURE2D(_UWFloorHeights, lTileTexel).g), lHalfNormal, lfHalfLimit);
+        lfHalfLimit -= UW_OWN_TILE_INSET * 1.41421356 / _UWOwnTileSize;
+    }
+
+    bool lbInHalf = !lbDiagonal || dot(lHalfNormal, (pPositionWS.xz - lTileCorner) / _UWOwnTileSize) <= lfHalfLimit;
+
+    if (all(pPositionWS >= lMin) && all(pPositionWS <= lMax) && lbInHalf)
         return pfDepth;
 
     // The line of sight from the eye (t = 0) to the fragment (t = 1): where does it leave the box?
@@ -106,6 +167,27 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
     float3 lFar = max(lT1, lT2);
     float lfEnter = max(max(lNear.x, lNear.y), lNear.z);
     float lfLeave = min(min(lFar.x, lFar.y), lFar.z);
+
+    // ... and where does it cross the diagonal? The region is the box AND the open half: the
+    // crossing raises the entry when the line comes in through the diagonal, lowers the exit when
+    // it goes out through it. A line running along the diagonal in the closed half misses.
+    if (lbDiagonal)
+    {
+        float lfStart = dot(lHalfNormal, (lEye.xz - lTileCorner) / _UWOwnTileSize) - lfHalfLimit;
+        float lfSlope = dot(lHalfNormal, lRay.xz / _UWOwnTileSize);
+        // The compiler evaluates both branches; a slope of zero never reaches the division.
+        float lfCross = -lfStart / (abs(lfSlope) > 1.0e-6 ? lfSlope : 1.0e-6);
+
+        if (abs(lfSlope) < 1.0e-6)
+        {
+            if (lfStart > 0.0)
+                return pfDepth;
+        }
+        else if (lfSlope > 0.0)
+            lfLeave = min(lfLeave, lfCross);
+        else
+            lfEnter = max(lfEnter, lfCross);
+    }
 
     // The line misses the box, or the fragment lies before it: nothing of the tile's own is in
     // front of it.

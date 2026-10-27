@@ -33,6 +33,49 @@ namespace UnderworldRevisited.Tools
         /// <summary>A key: lowerCamel parts joined by dots, at least two of them.</summary>
         private static readonly Regex mORuleKey = new Regex(@"^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$");
 
+        /// <summary>The game's folder (UWGameFolder, 2026-10-27): rules.json lives in UW1; one left
+        /// beside settings.json by an earlier version moves there, but never over one already there.</summary>
+        private static void fCheckRulesFileFolder()
+        {
+            string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckGameFolder_" + Guid.NewGuid().ToString("N"));
+            List<string> lOLog = new List<string>();
+            List<string> lOWarn = new List<string>();
+
+            try
+            {
+                Directory.CreateDirectory(lsRoot);
+
+                string lsTarget = Path.Combine(lsRoot, UWGameFolder.Uw1, UWRulesJson.FileName);
+
+                Check.Str("game folder: rules.json lies in UW1",
+                    UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
+                Check.Int("game folder: ... nothing to move, nothing said", lOLog.Count + lOWarn.Count, 0);
+
+                File.WriteAllText(Path.Combine(lsRoot, UWRulesJson.FileName), "{ \"magic.manaPerCircle\": 2 }");
+                UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add);
+                Check.Bool("game folder: an old rules.json beside settings.json moves into UW1, its text kept",
+                    !File.Exists(Path.Combine(lsRoot, UWRulesJson.FileName)) && File.Exists(lsTarget)
+                    && File.ReadAllText(lsTarget).Contains("manaPerCircle") && lOLog.Count == 1 && lOWarn.Count == 0, true);
+
+                File.WriteAllText(Path.Combine(lsRoot, UWRulesJson.FileName), "{ }");
+                Check.Str("game folder: with both, UW1's counts",
+                    UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
+                Check.Bool("game folder: ... neither is overwritten, and a warning names both",
+                    File.ReadAllText(lsTarget).Contains("manaPerCircle") && File.ReadAllText(Path.Combine(lsRoot, UWRulesJson.FileName)) == "{ }"
+                    && lOWarn.Count == 1, true);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(lsRoot, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
         private static void fCheckRules(CheckContext pOContext)
         {
             Check.Group("Rule set (UWRules at the original's values, rules.json)");
@@ -45,6 +88,7 @@ namespace UnderworldRevisited.Tools
                 fCheckRuleAnchors();
                 fCheckRulesAllKeys();
                 fCheckRulesFile();
+                fCheckRulesFileFolder();
                 fCheckRulesSession();
                 fCheckRulesReachTheGame();
                 fCheckRulesReachTheCreatures(pOContext);

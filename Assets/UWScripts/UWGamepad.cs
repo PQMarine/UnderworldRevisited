@@ -27,10 +27,14 @@ public static class UWGamepad
     {
         Xbox,
         PlayStation,
-        Nintendo
+        Nintendo,
+
+        /// <summary>The Steam Deck (2026-10-27, ROADMAP "Next"): Xbox's places, the Deck's printed
+        /// marks - A B X Y in one colour, L1 R1 L2 R2, L3 R3. Steam Input hands the game an Xbox pad.</summary>
+        SteamDeck
     }
 
-    public static ButtonStyleEnum ButtonStyle => (ButtonStyleEnum)Mathf.Clamp(UWUserSettings.GamepadButtonStyle, 0, 2);
+    public static ButtonStyleEnum ButtonStyle => (ButtonStyleEnum)Mathf.Clamp(UWUserSettings.GamepadButtonStyle, 0, (int)ButtonStyleEnum.SteamDeck);
 
     // The buttons' names per style and the controls by place: UWBindingInfo.ButtonName since cleanup
     // step 7.2 (2026-10-25; ButtonName here until then).

@@ -290,7 +290,7 @@ namespace UnderworldRevisited.Tools
                 fExpectInt("0xC0: the tile x", lOLoaded.AlarmTileX, 12);
                 fExpectInt("0xC1: the tile y", lOLoaded.AlarmTileY, 50);
 
-                // Loaded on a fresh critter clock: the same age, so fresh for 0x180 more ticks.
+                // Loaded on a fresh critter clock: the same age, so fresh while under 0x180 more ticks.
                 UWCritterAlarm lORestored = new UWCritterAlarm();
 
                 lORestored.RestoreFrom(lOLoaded, 0, 3);
@@ -298,8 +298,8 @@ namespace UnderworldRevisited.Tools
                 fExpectInt("restored: the victim", lORestored.Index, 37);
                 fExpectInt("restored: the floor level from the caller", lORestored.FloorLevel, 3);
                 fExpectBool("restored: fresh right after loading", lORestored.IsFresh(0), true);
-                fExpectBool("restored: fresh up to the window's end", lORestored.IsFresh(0x180), true);
-                fExpectBool("restored: stale after it", lORestored.IsFresh(0x181), false);
+                fExpectBool("restored: fresh up to the window's end", lORestored.IsFresh(0x17F), true);
+                fExpectBool("restored: stale after it", lORestored.IsFresh(0x180), false);
 
                 // A level change before saving: victim and kind cleared, time and tile left.
                 UWPlayerData.SavedState lOCleared = new UWPlayerData.SavedState { ClockValue = 95000 };

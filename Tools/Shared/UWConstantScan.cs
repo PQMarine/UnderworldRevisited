@@ -26,7 +26,6 @@ namespace UnderworldRevisited.Tools
         private static readonly HashSet<string> msState = new HashSet<string>(StringComparer.Ordinal)
         {
             "UWTilePath.miStamp", "UWTilePath.miDistance", "UWTilePath.miQueue", "UWTilePath.miWaveCount",
-            "UWCreatureMotion.msLavaFlagDropped",
         };
 
         /// <summary>Name to value, sorted ordinally; piTypesSkipped counts the types that could

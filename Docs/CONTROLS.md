@@ -116,7 +116,7 @@ cutscenes in the view play in a frame in the middle.
 
 In both schemes, tested with an Xbox controller on Windows and on Linux. The buttons
 as an Xbox pad names them; under *Controls* in the menu bar, its Gamepad tab, the names and glyphs
-can be switched to PlayStation or Nintendo, every button bound anew, the sticks swapped (for the
+can be switched to PlayStation, Nintendo or the Steam Deck, every button bound anew, the sticks swapped (for the
 left-handed), the look inverted, and each stick given a deadzone of its own against drift.
 The help's Controls tab shows the buttons in force as glyphs.
 

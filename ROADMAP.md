@@ -64,25 +64,30 @@ of what is built was also read out of the original's executable.
 - A Linux build (x86_64), tested in a Kubuntu VM
 - A gamepad in both control schemes: the sticks to walk and look, the buttons to act, a pointer
   on the stick for every window, a letter grid for typing, glyphs in the help (Xbox,
-  PlayStation, Nintendo - chosen, not guessed), every button rebindable, swapped sticks, a
+  PlayStation, Nintendo, Steam Deck - chosen, not guessed), every button rebindable, swapped sticks, a
   deadzone per stick; tested with an Xbox controller
 - The music's MT-32 version: on General MIDI with a soundfont that comes with the game
   (cut from FluidR3 GM, the instruments matched to the MT-32's by name), and on the Roland
   MT-32 itself through Munt's emulation with the player's own ROMs - compared with a recording
   of the original on a real MT-32
+- Music from recordings (suggested on Reddit): recordings the player supplies, one file per
+  piece, played in place of the synthesizer; a piece without one plays on the device
 
 ## Next
 
-The small things first, in this order; then Ultima Underworld II.
+In this order; then Ultima Underworld II.
 
-- **Music from recordings** (suggested on Reddit): recordings the player supplies, one file per
-  track, played in place of the synthesizer when present.
-- **The own-tile rule** of the Remastered mode (an object is never covered by the tile it stands
-  in) does not yet cover diagonal walls of that tile. The Palette mode now places items and
-  creatures in the original's draw order instead (tile by tile, doors split the objects of their
-  tile, a bridge's deck covers what lies under it); the order of items among themselves at a door
-  still follows the simpler rule.
-- **A Steam Deck layout** for the gamepad scheme; the Linux build runs there already.
+- **Modern movement**, a third choice under *Motion* beside Original and Smooth. The motion is the
+  original's own code, and some of its rules feel dated today: the view turns when the player runs
+  into a wall, the player gets stuck at corners, diagonal walls and doors, and walking backwards
+  or sideways is slow. Modern changes how it feels - the view stays where it is, the player slides
+  along walls, all directions move at a usual speed - and keeps the original's jump height and
+  reach, so no puzzle changes. Original stays as it is.
+- **Items at a door in the Palette mode.** The Palette mode places items and creatures in the
+  original's draw order (tile by tile, doors split the objects of their tile, a bridge's deck
+  covers what lies under it); the order of items among themselves at a door still follows the
+  simpler rule. The Remastered mode's own-tile rule (an object is never covered by the tile it
+  stands in) covers diagonal walls since 2026-10-27.
 
 ## Open: gameplay parity
 
@@ -91,8 +96,12 @@ The small things first, in this order; then Ultima Underworld II.
 
 ## Open: controls
 
-- **Gamepad, further.** Vibration; the gamepad itself is in place (see above), the Steam Deck
-  layout is under Next.
+- **Gamepad, further.** Vibration.
+- **Steam Deck - contributions welcome.** The Linux build runs there, and the gamepad shows the
+  Deck's button names. What would make sense beyond that - a layout of the modern interface for
+  its small screen, a Steam Input template (trackpads, back buttons), settings that suit it - is
+  best found out on the device, and there is none here to test on. A pull request from someone
+  with a Steam Deck is welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Open: platforms
 

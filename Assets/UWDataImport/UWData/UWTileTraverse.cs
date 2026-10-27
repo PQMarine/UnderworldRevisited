@@ -85,14 +85,15 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The context of one creature: the masks of its kind - the lava-proof quirk of
-		/// UWCreatureMotion drops the lava bit from the kind's cost mask for the session - its
-		/// height and its jump bit.</summary>
+		/// UWCreatureMotion adds the lava bit to the kind's cost mask for the session (the path is
+		/// planned after the step, when the original has set it back into the block) - its height
+		/// and its jump bit.</summary>
 		public void SetCreature(UWCreatureMotion.Kind peKind, int piCreatureHeight, bool pbCanJump)
 		{
 			int liKind = (int)peKind;
 
 			ImpassableMask = ImpassableByKind[liKind];
-			CostMask = CostByKind[liKind] & (UWCreatureMotion.LavaFlagDropped(peKind) ? ~0x20 : ~0);
+			CostMask = CostByKind[liKind] | (UWCreatureMotion.LavaFlagKept(peKind) ? 0x20 : 0);
 			CreatureHeight = piCreatureHeight;
 			CanJump = pbCanJump;
 		}

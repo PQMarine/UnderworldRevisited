@@ -187,7 +187,7 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef WalkSlowToggle = fBool(nameof(UWUserData.WalkSlowToggle), d => d.WalkSlowToggle, (d, v) => d.WalkSlowToggle = v);
 
-		/// <summary>UWGamepad.ButtonStyleEnum as a number: Xbox, PlayStation, Nintendo.</summary>
+		/// <summary>UWGamepad.ButtonStyleEnum as a number: Xbox, PlayStation, Nintendo, Steam Deck.</summary>
 		public static readonly UWIntSettingDef GamepadButtonStyle = fInt(nameof(UWUserData.GamepadButtonStyle), UWSettingKind.Choice, d => d.GamepadButtonStyle, (d, v) => d.GamepadButtonStyle = v);
 
 		/// <summary>0.25 to 2; 0 or below reads as 1.</summary>
@@ -319,6 +319,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWTextSettingDef Mt32RomPath = fText(nameof(UWUserData.Mt32RomPath), d => d.Mt32RomPath, (d, v) => d.Mt32RomPath = v, UWSettingNormalize.NullIsEmpty);
 
+		public static readonly UWBoolSettingDef MusicRecordings = fBool(nameof(UWUserData.MusicRecordings), d => d.MusicRecordings, (d, v) => d.MusicRecordings = v);
+
 		/// <summary>The debug panel's folded sections, UWDebugFolds' text (cleanup 8c, 2026-10-25).</summary>
 		public static readonly UWTextSettingDef DebugFolded = fText(nameof(UWUserData.DebugFolded), d => d.DebugFolded, (d, v) => d.DebugFolded = v, UWSettingNormalize.NullIsEmpty);
 
@@ -372,7 +374,7 @@ namespace UWDataImport.UWData
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
-			OriginalFrameTicks, SmoothRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath,
+			OriginalFrameTicks, SmoothRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
 			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language
 		};
 

@@ -77,6 +77,15 @@ original also lands or removes the moving objects of the level; ours lets them f
 arrival and even clearing the tiles does not help, the original leaves the player at his old
 place with no hit points left; ours puts him on the arrival tile first.
 
+**A creature's death cry comes from the creature that dies.** The original reads the sound and
+the place from whichever creature its creature loop handled last, so a death cry can be missing
+or sound somewhere else. Taken as a bug.
+
+**Tybal's lair takes the mana after Armageddon too.** As long as the orb stands, entering level
+7 takes the mana away and leaving gives the maximum back from a stored value. After Armageddon
+the original skips the taking on arrival but still gives back the stored value on leaving, which
+may be an old one. Ours does both as without Armageddon.
+
 ## Interface and controls
 
 **Roaming Sight can be steered with the keys in the classic scheme too.** The original steers it

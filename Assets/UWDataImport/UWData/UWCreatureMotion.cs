@@ -43,29 +43,36 @@ namespace UWDataImport.UWData
 
 		private static readonly int[] TerrainMaskByKind = { 0x1010, 0x80, 0x10A8 };
 
-		/// <summary>COMOBJ byte 8 bit 3: the kind is lava-proof (the stone golem 0x78, the wisp
-		/// 0x7B and 0x7C in UW1).</summary>
+		/// <summary>COMOBJ byte 8 bit 3: the kind is lava-proof - in UW1 the fire elemental 0x78
+		/// (levels 6 to 8), 0x7B, the kind of Tyball alone (level 7, 54/10, a flier), and the
+		/// unnamed 0x7C (levels 8 and 9). Until 2026-10-27 the comments called 0x78 a stone golem
+		/// and 0x7B a wisp (the wisp is 0x7A).</summary>
 		public const int LavaProofResistanceBit = 8;
 
 		/// <summary>The lava flag of the result.</summary>
 		private const int LavaFlag = 0x20;
 
 		/// <summary>
-		/// THE LAVA-PROOF QUIRK (NPCInitialProcessing 52618-52636): for a lava-proof creature the
-		/// SELECTED handler block loses the lava flag from its callback mask and gains it in its
-		/// ignore mask - on the static block, and nothing ever restores it (the blocks are
-		/// initialised once at program start). So from the first update of a lava-proof land
-		/// creature within reach of the player on, every land creature walks over a lava edge
-		/// without stopping (the burn stays: the contact state is taken before the mask). Kept
-		/// for the session as in the original (UWGameSession.Quirks since 2026-10-14, cleanup step
-		/// 2.7: a new game or a loaded one starts with a new session and so with the blocks as at
-		/// program start); the self-check resets it. A QUIRK SWITCH (quirks.lavaProofSpreadsToKind,
-		/// LavaProofSpreadsToKind): off, the flag is dropped for the lava-proof creature's own
-		/// update only and the block keeps nothing.
+		/// THE LAVA-PROOF QUIRK (NPCInitialProcessing 52618-52636; Exhumed critter_ai, AI.C): for
+		/// a lava-proof creature the SELECTED static handler block loses the lava flag from its
+		/// callback mask and its path cost mask and gains it in its ignore mask for the creature's
+		/// own step; after the step the original SETS the flag in both masks and clears it from
+		/// the ignore mask, rather than restoring the old values. The land block held the flag in
+		/// both masks from the start, so it ends as it began: land creatures keep stopping at lava
+		/// edges. The flier block (callback 0x700, cost 0) and the swimmer block (cost 0) did not:
+		/// once a lava-proof flier (Tyball, 0x7B) has been updated, its block keeps the flag for
+		/// the rest of the session - every flier's path then counts lava as costly terrain (the
+		/// flier callback ignores the flag). No lava-proof swimmer stands in UW1. Until 2026-10-27
+		/// the port read the quirk as the drop never being undone, so one fire elemental let every
+		/// land creature walk over lava edges (Exhumed audit row 8). Kept for the session as in
+		/// the original (UWGameSession.Quirks since 2026-10-14, cleanup step 2.7: a new game or a
+		/// loaded one starts with a new session and so with the blocks as at program start); the
+		/// self-check resets it. A QUIRK SWITCH (quirks.lavaProofSpreadsToKind,
+		/// LavaProofSpreadsToKind): off, the blocks keep nothing.
 		/// </summary>
-		public static bool LavaFlagDropped(Kind peKind)
+		public static bool LavaFlagKept(Kind peKind)
 		{
-			return UWGameSession.Current.Quirks.LavaFlagDropped[(int)peKind];
+			return UWGameSession.Current.Quirks.LavaFlagKept[(int)peKind];
 		}
 
 		/// <summary>The original's lava-proof quirk, kept by default (the rule set's
@@ -78,10 +85,10 @@ namespace UWDataImport.UWData
 		/// <summary>The handler blocks as at program start.</summary>
 		public static void ResetHandlers()
 		{
-			bool[] lbDropped = UWGameSession.Current.Quirks.LavaFlagDropped;
+			bool[] lbKept = UWGameSession.Current.Quirks.LavaFlagKept;
 
-			for (int liAt = 0; liAt < lbDropped.Length; liAt++)
-				lbDropped[liAt] = false;
+			for (int liAt = 0; liAt < lbKept.Length; liAt++)
+				lbKept[liAt] = false;
 		}
 
 		/// <summary>The momentum a push hands the struck creature (seg029_29EE_3, loc.speed =
@@ -181,24 +188,27 @@ namespace UWDataImport.UWData
 			mOResult = default(StepResult);
 			mbActive = true;
 
-			if (pORecord.IsStanding && pORecord.Speed == 0 && pORecord.Pitch == UWCritterRules.FlierPitchLevel)
-				return mOResult;
-
 			UWCommonObjectProperties.Entry lOEntry = fEntry(pORecord.ItemId);
 			int liKind = (int)peKind;
 
 			UWGameSession lOSession = mOWorld.Session;
-			bool[] lbLavaFlagDropped = lOSession.Quirks.LavaFlagDropped;
+			bool[] lbLavaFlagKept = lOSession.Quirks.LavaFlagKept;
 			bool lbLavaProof = (lOEntry.Resistances & LavaProofResistanceBit) != 0;
+			bool lbKept = lbLavaFlagKept[liKind];
 
+			// The original sets the flag in the block after the step whether the creature moved
+			// or not (critter_ai sets it outside the physics branch); the creature's own step
+			// below drops it all the same, so it is marked here, before the early return.
 			if (lbLavaProof && lOSession.Rules.Quirks.LavaProofSpreadsToKind)
-				lbLavaFlagDropped[liKind] = true;
+				lbLavaFlagKept[liKind] = true;
 
-			bool lbDropped = lbLavaFlagDropped[liKind] || lbLavaProof;
+			if (pORecord.IsStanding && pORecord.Speed == 0 && pORecord.Pitch == UWCritterRules.FlierPitchLevel)
+				return mOResult;
+
 			UWMotionHandler lOHandler = mOHandlersByKind[liKind];
 
-			lOHandler.IgnoreMask = IgnoreMaskByKind[liKind] | (lbDropped ? LavaFlag : 0);
-			lOHandler.CallbackMask = CallbackMaskByKind[liKind] & (lbDropped ? ~LavaFlag : ~0);
+			lOHandler.IgnoreMask = IgnoreMaskByKind[liKind] | (lbLavaProof ? LavaFlag : 0);
+			lOHandler.CallbackMask = (CallbackMaskByKind[liKind] | (lbKept ? LavaFlag : 0)) & (lbLavaProof ? ~LavaFlag : ~0);
 			lOHandler.TerrainMask = TerrainMaskByKind[liKind];
 
 			mOParams = mOParamsByKind[liKind];

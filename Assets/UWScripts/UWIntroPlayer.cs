@@ -238,7 +238,7 @@ public class UWIntroPlayer : MonoBehaviour
     /// The two company logos before the game.
     ///
     /// Order and pictures come from the original: first PRES1.BYT ("origin
-    /// presents"), then PRES2.BYT ("a blue sky prod. game"), both with palette 5,
+    /// presents") with palette 5, then PRES2.BYT ("a blue sky prod. game") with palette 6,
     /// then the animated title. The DISPLAY TIME, however, is stored nowhere - in the
     /// original a busy-wait loop counts there, which depends on CPU speed.
     /// In DOSBox with high cycles the pictures are therefore gone before you recognise them
@@ -331,9 +331,18 @@ public class UWIntroPlayer : MonoBehaviour
 
         // ESC CANCELS IMMEDIATELY, as in the original (reference: uimanager_mainmenu calls
         // cutsplayer.StopCutscene on Escape, whether in the menu or in the game). What is meant
-        // to come afterwards - the victory screens for the end sequence -, still comes.
+        // to come afterwards - the victory screens for the end sequence -, still comes. Unless
+        // the script forbade it (opcode 0x0C, the title CS011): then Escape is a key like any
+        // other, a click (show_anm, Exhumed audit row 32, 2026-10-27).
         if (IsPlaying && UWBack.Takes(UWBackOwner.Cutscene))
         {
+            if (mORunner != null && !mORunner.EscapeEnds)
+            {
+                mORunner.RequestAdvance();
+
+                return;
+            }
+
             fFinish();
 
             return;
@@ -467,6 +476,11 @@ public class UWIntroPlayer : MonoBehaviour
         public void PlayChime()
         {
             UWAudioService.PlayEffect(UWSoundEffectId.Chime);
+        }
+
+        public void EraseLine()
+        {
+            mOPlayer.mOView.ShowLine(null, 0, Time.unscaledTime);
         }
     }
 

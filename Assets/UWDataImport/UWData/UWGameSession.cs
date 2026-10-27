@@ -230,10 +230,10 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWSessionQuirks
 	{
-		/// <summary>The lava-proof quirk per handler block (UWCreatureMotion.Kind): once dropped,
-		/// every creature of that kind walks over a lava edge for the rest of the session - see
-		/// UWCreatureMotion.LavaFlagDropped.</summary>
-		public readonly bool[] LavaFlagDropped = new bool[UWCreatureMotion.KindCount];
+		/// <summary>The lava-proof quirk per handler block (UWCreatureMotion.Kind): once set, the
+		/// block keeps the lava flag in its callback and path cost masks for the rest of the
+		/// session - see UWCreatureMotion.LavaFlagKept.</summary>
+		public readonly bool[] LavaFlagKept = new bool[UWCreatureMotion.KindCount];
 
 		/// <summary>The game time of the last cast that set the pause, in PIT ticks, and the pause it
 		/// set (UWSpellCasting; try_cast's lstime and spell_delay, both zero at the start as in the

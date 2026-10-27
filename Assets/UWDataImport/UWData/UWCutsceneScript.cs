@@ -21,6 +21,7 @@ namespace UWDataImport.UWData
 		public enum Command
 		{
 			ShowText = 0x00,
+			/// <summary>cutsop_erase: the subtitle goes (flag39 = 0); the recording plays on.</summary>
 			SetFlag = 0x01,
 			NoOp = 0x02,
 			Pause = 0x03,
@@ -32,6 +33,7 @@ namespace UWDataImport.UWData
 			FadeOut = 0x09,
 			FadeIn = 0x0A,
 			Unknown0B = 0x0B,
+			/// <summary>cutsop_punt(flag): whether Escape may end the cutscene (b4, 1 at the start).</summary>
 			Unknown0C = 0x0C,
 			TextAndPlay = 0x0D,
 			Unknown0E = 0x0E,

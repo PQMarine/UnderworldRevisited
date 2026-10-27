@@ -161,8 +161,8 @@ namespace UnderworldRevisited.Tools
 
             UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
 
-            for (int liKind = 0; liKind < lOQuirks.LavaFlagDropped.Length; liKind++)
-                lOQuirks.LavaFlagDropped[liKind] = true;
+            for (int liKind = 0; liKind < lOQuirks.LavaFlagKept.Length; liKind++)
+                lOQuirks.LavaFlagKept[liKind] = true;
 
             lOQuirks.LastCastTicks = 3200;
             lOQuirks.CastDelayTicks = 64;
@@ -192,9 +192,9 @@ namespace UnderworldRevisited.Tools
                 .Append(' ').Append(UWGameFlags.MoonstoneLevel).Append(' ').Append(UWSilverTreeRules.TreeLevel);
             lOText.Append("; carried level ").Append(UWCarriedSlots.Level != null);
             lOText.Append("; resist blows ").Append(UWArmourProtection.ResistBlowsAddsArmour);
-            lOText.Append("; lava ").Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Land))
-                .Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Flier))
-                .Append(UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Swimmer));
+            lOText.Append("; lava ").Append(UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Land))
+                .Append(UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Flier))
+                .Append(UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Swimmer));
             lOText.Append("; cast pause ").Append(lOSession.Quirks.LastCastTicks).Append('+').Append(lOSession.Quirks.CastDelayTicks);
             lOText.Append("; light colours ").Append(lOSession.LightColours.Count);
             lOText.Append("; trap log ").Append(UWTrapLog.Entries.Count).Append(' ').Append(UWTrapLog.Detail ?? "-");

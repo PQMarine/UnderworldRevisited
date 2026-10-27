@@ -44,6 +44,9 @@ top of `main`. So:
   not bound to the original. Improvements and new ideas there are welcome, even when they
   depart from how the original plays; for a larger one, open an issue first. They should only
   leave the rules of the game alone, so both schemes play the same game.
+- **Steam Deck.** There is no Deck here to test on. If you have one, adjustments that make the
+  game play well on it - a layout of the modern interface for its screen, a Steam Input
+  template, fitting defaults - are welcome as a pull request; say what you tested on the device.
 
 ## Bug reports
 

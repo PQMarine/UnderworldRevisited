@@ -135,7 +135,10 @@ art, the music and the language's game texts follow. What this needs:
   `UWMainFrame`'s picture, `UWSettings`' paths) are keyed by game or rebuilt on the switch;
   registries (`UWTrapRules.Traps`, the conversation function table) are built per profile;
 - settings split into the player's (controls, graphics, sound, language - shared) and the
-  game's (last save, rules file, game folder state - per game);
+  game's (last save, game folder state - per game). The files of a game already have a folder
+  of their own beside `settings.json` (`UWGameFolder`, since 2026-10-27): `UW1/rules.json` and
+  `UW1/Music` (the player's recordings), so UW2's go into `UW2/`; `settings.json`,
+  `graphics.json` and the MT-32 ROMs stay shared;
 - the switch as one path in code, `UWLevelLoader` building a game from a profile, which the
   first start takes as well, so it is tested every time the game starts.
 
@@ -219,7 +222,7 @@ conversation built-ins as rows of `UWConversationFunctionTable`, the world and l
 (mantras, talismans, the orb, Garamon) stay and are registered by UW1's profile only.
 
 The story anchors (`UWLevelIds`, `UWQuestPlaces`, `story.*`, `levels.*`) get a UW2 set in UW2's
-profile; `rules.json` stays per game (`rules.json` for UW1, `rules-uw2.json` for UW2).
+profile; `rules.json` is per game in the game's folder (`UW1/rules.json`, `UW2/rules.json`).
 
 ### 4.4 Presentation
 
@@ -320,7 +323,7 @@ compared with the original (DOSBox, or UE's `uw2port`), as UW1's was.
 ### Phase 6: the port's own things for UW2 (M)
 
 Remastered details (ice, the new texture set), the help window (stats, map, notes, spells),
-`rules-uw2.json` and its template, the translation kit for UW2's texts, the gamepad and the modern
+`UW2/rules.json` and its template, the translation kit for UW2's texts, the gamepad and the modern
 presets checked on UW2, the documentation (README, CONTROLS, DEVIATIONS) for two games.
 
 ## 6. Checking against the original

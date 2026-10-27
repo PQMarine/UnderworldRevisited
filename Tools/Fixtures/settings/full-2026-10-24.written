@@ -89,6 +89,7 @@
     "SoundVolume": 0.8999999761581421,
     "MusicDevice": 1,
     "Mt32RomPath": "E:/MT32 ROMs",
+    "MusicRecordings": true,
     "DebugFolded": "",
     "PointerSpeed": 1.0,
     "WindowTheme": 1,

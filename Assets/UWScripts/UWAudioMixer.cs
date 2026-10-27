@@ -47,11 +47,48 @@ public class UWAudioMixer : MonoBehaviour
 
     public static string Mt32Problem => UWMusicDeviceSelector.GetMt32Problem(Mt32RomFolder);
 
+    /// <summary>Where the player's recordings of the music are looked for: "Music" in the game's
+    /// folder beside settings.json, UW1/Music (UWGameFolder, UWMusicRecordings).</summary>
+    public static string RecordingFolder =>
+        System.IO.Path.Combine(UWGameFolder.Under(Application.persistentDataPath), UWMusicRecordings.FolderName);
+
+    private static string msRecordingsCountedFor;
+
+    private static int miRecordingCount;
+
+    /// <summary>How many pieces have a recording in RecordingFolder, counted again when the folder
+    /// or its contents changed (its last write time is the key, as for the MT-32 ROMs).</summary>
+    public static int RecordingCount
+    {
+        get
+        {
+            string lsFolder = RecordingFolder;
+            string lsKey = lsFolder + "|" + (System.IO.Directory.Exists(lsFolder)
+                ? System.IO.Directory.GetLastWriteTimeUtc(lsFolder).Ticks.ToString() : "-");
+
+            if (lsKey != msRecordingsCountedFor)
+            {
+                msRecordingsCountedFor = lsKey;
+                miRecordingCount = UWMusicRecordings.Count(lsFolder);
+            }
+
+            return miRecordingCount;
+        }
+    }
+
     private readonly object mOLock = new object();
 
     private UWAudioMixCore mOCore;
 
+    /// <summary>The player's recordings (UWMusicRecordings), played in place of the device.</summary>
+    private UWMusicRecordingPlayer mORecordings;
+
+    /// <summary>The recordings that could not be played this run: their pieces go to the device.</summary>
+    private readonly System.Collections.Generic.HashSet<string> mOFailedRecordings = new System.Collections.Generic.HashSet<string>();
+
     private int miRequestedDevice = -1;
+
+    private bool mbRequestedRecordings;
 
     private volatile bool mbReady;
 
@@ -62,13 +99,17 @@ public class UWAudioMixer : MonoBehaviour
     /// <summary>The settings now (see UWAudioSettings).</summary>
     public UWAudioSettings Settings => mOSettings;
 
-    /// <summary>Is a piece playing? One that has played to the end no longer counts.</summary>
+    /// <summary>Is a piece playing? One that has played to the end no longer counts. A recording
+    /// counts while it loads.</summary>
     public bool IsMusicPlaying
     {
         get
         {
             if (mOCore == null)
                 return false;
+
+            if (mORecordings != null && mORecordings.IsBusy)
+                return true;
 
             lock (mOLock)
             {
@@ -133,6 +174,9 @@ public class UWAudioMixer : MonoBehaviour
 
         UWAudioListenerGuard.Ensure(null);
 
+        mORecordings = gameObject.AddComponent<UWMusicRecordingPlayer>();
+        mbRequestedRecordings = UWUserSettings.MusicRecordings;
+
         // The device from the settings before the first piece can start, so the intro does not
         // begin on the AdLib for a moment and start again on it (per user, 2026-10-08).
         miRequestedDevice = (int)mOSettings.MusicDevice;
@@ -151,7 +195,11 @@ public class UWAudioMixer : MonoBehaviour
         if (mOInteraction == null)
             mOInteraction = UWScene.Interaction;
 
-        // A device chosen in the menu takes over at once: the piece playing starts again on it.
+        if (mORecordings != null)
+            mORecordings.Volume = mOSettings.MusicGain;
+
+        // A device chosen in the menu takes over at once: the piece playing starts again on it -
+        // unless a recording plays it, which the device does not touch.
         int liWanted = (int)mOSettings.MusicDevice;
 
         if (mbReady && liWanted != miRequestedDevice)
@@ -159,8 +207,21 @@ public class UWAudioMixer : MonoBehaviour
             miRequestedDevice = liWanted;
 
             bool lbWasPlaying = IsMusicPlaying;
+            bool lbRecording = mORecordings != null && mORecordings.IsBusy;
 
-            if (fSelectDevice((UWMusicDeviceId)liWanted) && lbWasPlaying)
+            if (fSelectDevice((UWMusicDeviceId)liWanted) && lbWasPlaying && !lbRecording)
+                UWAudioService.ReplayMusic();
+        }
+
+        // The recordings switched on or off in the menu: the piece playing starts again, now from
+        // its recording or from the device.
+        bool lbRecordings = UWUserSettings.MusicRecordings;
+
+        if (mbReady && lbRecordings != mbRequestedRecordings)
+        {
+            mbRequestedRecordings = lbRecordings;
+
+            if (IsMusicPlaying)
                 UWAudioService.ReplayMusic();
         }
 
@@ -193,12 +254,43 @@ public class UWAudioMixer : MonoBehaviour
     // Game thread
     // ------------------------------------------------------------------
 
-    /// <summary>Plays a theme's piece from the start (UWAudioMixCore.SelectPiece chooses the file
-    /// for the device, outside the lock); without one the music stops.</summary>
+    /// <summary>Plays a theme's piece from the start: the player's recording of it when the
+    /// recordings are on and it has one (UWMusicRecordings), else the device's version
+    /// (UWAudioMixCore.SelectPiece chooses the file, outside the lock); without one the music
+    /// stops.</summary>
     public void PlayPiece(UWSound pOSound, string psNumber)
     {
         if (!mbReady)
             return;
+
+        string lsRecording = UWUserSettings.MusicRecordings ? UWMusicRecordings.Find(RecordingFolder, psNumber) : null;
+
+        if (lsRecording != null && !mOFailedRecordings.Contains(lsRecording))
+        {
+            lock (mOLock)
+            {
+                mOCore.StopMusic();
+            }
+
+            // A file that cannot be played is left out for the rest of the run, and its piece
+            // plays on the device - the theme logic would otherwise ask for it again and again.
+            mORecordings.Play(lsRecording, () =>
+            {
+                mOFailedRecordings.Add(lsRecording);
+                fPlayOnDevice(pOSound, psNumber);
+            });
+
+            return;
+        }
+
+        fPlayOnDevice(pOSound, psNumber);
+    }
+
+    /// <summary>The piece on the music device; a recording playing stops.</summary>
+    private void fPlayOnDevice(UWSound pOSound, string psNumber)
+    {
+        if (mORecordings != null)
+            mORecordings.Stop();
 
         UWXmiVersion leVersion;
         UWXmi.Sequence lOSequence = mOCore.SelectPiece(pOSound, psNumber, out leVersion);
@@ -219,6 +311,9 @@ public class UWAudioMixer : MonoBehaviour
     {
         if (!mbReady)
             return;
+
+        if (mORecordings != null)
+            mORecordings.Stop();
 
         lock (mOLock)
         {

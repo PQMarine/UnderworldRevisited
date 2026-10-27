@@ -40,6 +40,7 @@ setting.GamepadButtonStyle	Tastennamen
 setting.GamepadButtonStyle.choice.xbox	Xbox
 setting.GamepadButtonStyle.choice.playstation	PlayStation
 setting.GamepadButtonStyle.choice.nintendo	Nintendo
+setting.GamepadButtonStyle.choice.steamdeck	Steam Deck
 setting.StickLookSpeed	Stick-Blicktempo
 setting.GamepadSwapSticks	Sticks tauschen (Linkshänder)
 setting.StickInvertY	Blick hoch/runter umkehren
@@ -58,6 +59,8 @@ setting.MusicDevice.hint	General MIDI: die MT-32-Musik des Spiels auf einem aus 
 setting.MusicDevice.choice.adlib	AdLib
 setting.MusicDevice.choice.gm	General MIDI
 setting.MusicDevice.choice.mt32	MT-32
+setting.MusicRecordings	Musik aus Aufnahmen
+setting.MusicRecordings.hint	Eigene Aufnahmen der Musik, eine Datei je Stück im Ordner unten (UW1/Music), spielen statt des Geräts oben. Jede heißt nach der Nummer des Stücks im Spiel: 01.ogg die Einleitung, 02 bis 04 die Ebenen, 05 bis 07 der Kampf, 10 Bewaffnet, 11 Sieg, 12 Tod, 13 Flucht, 15 Karten und Legenden (Ogg Vorbis oder WAV). Ein Stück ohne Aufnahme spielt auf dem Gerät.
 setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
 setting.ViewAngle	Blickwinkel
 setting.OriginalWorldResolution	Welt in der Auflösung des Originals
@@ -228,6 +231,8 @@ setup.sound.mt32_problem	MT-32: {0}
 setup.sound.mt32_no_roms	keine MT-32- oder CM-32L-ROMs in diesem Ordner
 setup.sound.mt32_missing	die MT-32-Emulation fehlt auf diesem System ({0})
 setup.sound.open_folder	Ordner öffnen
+setup.sound.recordings	Aufnahmen: {0} Stücke
+setup.sound.recordings_none	Aufnahmen: keine in diesem Ordner
 setup.colours.title	Farben
 setup.colours.hint	Zieht die Farben auseinander, die schwer zu unterscheiden sind, im ganzen Spiel. Es ist die übliche Daltonisierung: was das Auge verliert, kommt zurück in die Kanäle, die es sehen kann.
 setup.colours.flask.health	Leben

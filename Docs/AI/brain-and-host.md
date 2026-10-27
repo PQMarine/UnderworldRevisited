@@ -156,8 +156,9 @@ Filled by `UWCreatureMotion.Step` from the callbacks of the original (`seg006_14
 A drop (0x800) or lava (0x20) edge stops a creature that holds no path and that was not
 already on such an edge before the step (the pre-state); with a path it walks on, over the
 ledge and falls, or onto the lava and burns. The lava-proof quirk: a lava-proof kind (COMOBJ
-byte 8 bit 3) modifies its kind's static handler for good (`UWCreatureMotion.LavaFlagDropped`),
-as the original does.
+byte 8 bit 3) ignores lava for its own step, and the original then sets the lava flag back into
+its kind's static handler, where the flier and swimmer blocks never had it
+(`UWCreatureMotion.LavaFlagKept`): after Tyball (0x7B, the one lava-proof flier) has moved, every flier charges lava on its paths.
 
 ## 5. Events (brain to host)
 

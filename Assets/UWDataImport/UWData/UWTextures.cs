@@ -263,8 +263,10 @@ namespace UWDataImport.UWData
 					piMainPaletteIndex = 5;
 					textureTypes = UWTexture.TextureTypes.PRES1;
 					break;
+				// Palette 6, as the original loads it (UWEDIT.C, LoadBitMap(6, pres2.byt)); 5 and 6
+				// of PALS.DAT are byte-identical (Exhumed audit row 33).
 				case "PRES2.BYT":
-					piMainPaletteIndex = 5;
+					piMainPaletteIndex = 6;
 					textureTypes = UWTexture.TextureTypes.PRES2;
 					break;
 				case "WIN1.BYT":

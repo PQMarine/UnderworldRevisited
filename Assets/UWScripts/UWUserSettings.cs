@@ -328,6 +328,9 @@ public static class UWUserSettings
 
     public static string Mt32RomPath { get => Defs.Mt32RomPath.Read(fGet()); set => Defs.Mt32RomPath.Write(fGet(), value); }
 
+    /// <summary>The player's recordings of the music in place of the device (UWMusicRecordings).</summary>
+    public static bool MusicRecordings { get => Defs.MusicRecordings.Read(fGet()); set => Defs.MusicRecordings.Write(fGet(), value); }
+
     /// <summary>The debug panel's folded sections (UWDebugFolds' text; cleanup 8c).</summary>
     public static string DebugFolded { get => Defs.DebugFolded.Read(fGet()); set => Defs.DebugFolded.Write(fGet(), value); }
 
@@ -471,8 +474,8 @@ public static class UWUserSettings
         return PathBeside(FileName);
     }
 
-    /// <summary>A file in the folder of settings.json - the player's rules.json (cleanup phase 10,
-    /// UWLevelLoader), the MT32 folder's parent.</summary>
+    /// <summary>A file in the folder of settings.json - the MT32 folder's parent, and the parent of
+    /// the game's folder (UWGameFolder: UW1/rules.json, UW1/Music).</summary>
     public static string PathBeside(string psFileName)
     {
         return Path.Combine(Application.persistentDataPath, psFileName);

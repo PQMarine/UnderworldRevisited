@@ -75,6 +75,10 @@ namespace UWDataImport.Presentation
 
 			/// <summary>The "Chime" sound of the intro.</summary>
 			void PlayChime();
+
+			/// <summary>Opcode 1 (cutsop_erase): the running line's subtitle goes; a recording
+			/// plays on.</summary>
+			void EraseLine();
 		}
 
 		/// <summary>The tuning of lines and pictures - the player's Inspector values.</summary>
@@ -308,6 +312,11 @@ namespace UWDataImport.Presentation
 		/// <summary>Has the script run to its end?</summary>
 		public bool IsFinished { get; private set; }
 
+		/// <summary>May Escape end the cutscene? The original's flag b4: set at the start, opcode
+		/// 0x0C (cutsop_punt) sets it to its argument - the title CS011 clears it. With it clear
+		/// show_anm takes Escape as any other key, a click (Exhumed audit row 32, 2026-10-27).</summary>
+		public bool EscapeEnds { get; private set; } = true;
+
 		/// <summary>The host's time since Start, in seconds.</summary>
 		public double Now => mdNow;
 
@@ -509,6 +518,11 @@ namespace UWDataImport.Presentation
 					// A jump ends the repeats for good (show_anm: repeat41 = 0).
 					bool lbNoMoreRepeats = false;
 
+					// The last frame a repeat has gone back from: on the passes after it the
+					// commands up to that frame do not run again (show_anm runs no opcode while
+					// repeat41 is set, and its script pointer is past them by then).
+					int liReplayedUpTo = -1;
+
 					// UP TO AND INCLUDING the length: on this number sits the open-file
 					// that fetches the file for the next segment. In the script it is placed
 					// directly before the frame-set and carries the same frame number.
@@ -529,13 +543,17 @@ namespace UWDataImport.Presentation
 							if (lOSegment[liEntry].Frame != liFrame)
 								continue;
 
-							// REPEAT-SEGMENT (0x07): plays the segment from its start up to this
-							// frame again, argument times in total. The final death cutscene
-							// (CS403) repeats its end - the skulls' eyes flash several times in the
-							// original, once with us (per user, 2026-09-14). The reference leaves
-							// the command unimplemented; the exact semantics are ASSUMED.
-							// (UW.EXE's loop, cutsop_loop in UnderworldExhumed's show_anm, replays the
-							// FILE from the frame after it; ours replays the segment from its start.)
+							// REPEAT-SEGMENT (0x07, cutsop_loop): plays the segment from its start up
+							// to this frame argument + 1 times in all - show_anm sets repeat41 to the
+							// argument and goes back to frame 1 while it is above 0, counting it down.
+							// The final death's skulls (CS403, argument 10) flash 11 times in the
+							// original (counted in DOSBox by the user, 2026-10-27; until then ours
+							// played the argument's number of times). The passes after the first run
+							// none of the commands again (liReplayedUpTo).
+							if (lOSegment[liEntry].Command != UWCutsceneScript.Command.RepeatSegment
+								&& lOSegment[liEntry].Frame <= liReplayedUpTo)
+								continue;
+
 							if (lOSegment[liEntry].Command == UWCutsceneScript.Command.RepeatSegment)
 							{
 								// cutsop_loop also makes the frame after it the skip target, ends a
@@ -543,7 +561,7 @@ namespace UWDataImport.Presentation
 								// original replays the file unseen; ours does not replay.
 								if (!lORepeats.ContainsKey(liEntry))
 								{
-									lORepeats[liEntry] = Math.Max(0, lOSegment[liEntry].Arguments[0] - 1);
+									lORepeats[liEntry] = Math.Max(0, lOSegment[liEntry].Arguments[0]);
 									miSkipTarget = liFrame + 1;
 									miHoldFrame = NoFrame;
 									mbAdvanceRequested = false;
@@ -553,6 +571,7 @@ namespace UWDataImport.Presentation
 								{
 									lORepeats[liEntry]--;
 									lbRepeat = true;
+									liReplayedUpTo = Math.Max(liReplayedUpTo, liFrame);
 									break;
 								}
 
@@ -735,6 +754,19 @@ namespace UWDataImport.Presentation
 
 				case UWCutsceneScript.Command.TextAndPlay:
 					fStartLine(pOEntry.Arguments[0], pOEntry.Arguments[1], pOEntry.Arguments[2]);
+					break;
+
+				// ERASE (0x01), cutsop_erase: the subtitle goes, the recording plays on. Only the
+				// intro has it (CS000, frames 24 and 100); it shows only when a recording is missing,
+				// as no subtitle is drawn while one speaks. Not interpreted until 2026-10-27.
+				case UWCutsceneScript.Command.SetFlag:
+					mOHost.EraseLine();
+					break;
+
+				// PUNT (0x0C), cutsop_punt: whether Escape may end the cutscene. Only the title
+				// CS011 has it, with 0. Not interpreted until 2026-10-27.
+				case UWCutsceneScript.Command.Unknown0C:
+					EscapeEnds = pOEntry.Arguments[0] != 0;
 					break;
 
 				case UWCutsceneScript.Command.ShowText:

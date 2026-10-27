@@ -303,12 +303,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// THE ONE CULLING TEST (ObjectCulling_seg027_2861_226, Obj_Elem_Fate of OBJECTS.C): true
-		/// when the object is to be removed. The range is the argument plus a roll of 0 to 2
-		/// (RNG * 3 / 0x8000); the object stays when it is tenacious against that range
-		/// (IsTenacious) or holds something that is - ONE level down, as the routine runs the test
-		/// over the object's own chain (RunCodeOnObjectChain_seg027_117; read 2026-09-25) - and
-		/// otherwise goes when the second roll, 0 to 9 (RNG * 10 / 0x8000), is below the range,
-		/// which at the liquids' ten is always.
+		/// when the object is to be removed. A range argument above 0 gains a roll of 0 to 2
+		/// (RNG * 3 / 0x8000); an argument of 0 draws nothing and never culls. The object stays
+		/// when it is tenacious against that range (IsTenacious) or holds something that is, at
+		/// any depth: Obj_Check walks the object's chain and, depth first, the contents of every
+		/// object in it (Exhumed audit row 16, 2026-10-27; until then one level down, read from
+		/// RunCodeOnObjectChain_seg027_117 on 2026-09-25 without its recursion). Otherwise it goes
+		/// when the second roll, 0 to 9 (RNG * 10 / 0x8000), is below the range, which at the
+		/// liquids' ten is always.
 		///
 		/// Shared since 2026-10-12 (cleanup 2.6) by GetFreeObject's culling (Culls), the motion
 		/// core's landing in water and lava (UWMobileObjectMotion, which hands in its own world's
@@ -324,18 +326,39 @@ namespace UWDataImport.UWData
 			if (pOObject == null || pfRandom == null)
 				return false;
 
-			int liRange = piRangeArgument + (int)(((long)pfRandom() * UWLiquidCulling.RangeDice) / UWOriginalRandom.Range);
+			int liRange = piRangeArgument;
+
+			if (liRange != 0)
+				liRange += (int)(((long)pfRandom() * UWLiquidCulling.RangeDice) / UWOriginalRandom.Range);
 
 			if (IsTenacious(pOObject, liRange, pOProperties))
 				return false;
 
-			foreach (UWObject lOChild in fChildren(pOObject, pOMaster))
-			{
-				if (lOChild != null && IsTenacious(lOChild, liRange, pOProperties))
-					return false;
-			}
+			if (fHoldsTenacious(pOObject, liRange, pOProperties, pOMaster, 0))
+				return false;
 
 			return ((long)pfRandom() * UWLiquidCulling.SecondChanceDice) / UWOriginalRandom.Range < liRange;
+		}
+
+		/// <summary>Obj_Check with chkTenacious over what hangs below the object: each child, then
+		/// depth first its own contents, before the next child.</summary>
+		private static bool fHoldsTenacious(UWObject pOObject, int piRange, UWCommonObjectProperties pOProperties,
+			List<UWObject> pOMaster, int piDepth)
+		{
+			if (piDepth > MaxDepth)
+				return false;
+
+			foreach (UWObject lOChild in fChildren(pOObject, pOMaster))
+			{
+				if (lOChild == null)
+					continue;
+
+				if (IsTenacious(lOChild, piRange, pOProperties)
+					|| fHoldsTenacious(lOChild, piRange, pOProperties, pOMaster, piDepth + 1))
+					return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>chkTenacious: word 0 bit 13 protects outright; otherwise the culling priority

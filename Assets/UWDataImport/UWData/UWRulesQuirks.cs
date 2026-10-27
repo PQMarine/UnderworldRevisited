@@ -23,7 +23,7 @@ namespace UWDataImport.UWData
 		public bool LitTaperStaysLit = UWObjectMechanics.LitTaperStaysLit;
 
 		[UWRule(typeof(UWCreatureMotion), nameof(UWCreatureMotion.LavaProofSpreadsToKind),
-			"One lava-proof creature lets every creature of its kind walk over lava edges for the rest of the game (false: only itself).")]
+			"Once a lava-proof flier has moved, every flier counts lava as costly terrain on its paths for the rest of the game (false: the handlers stay as at the start).")]
 		public bool LavaProofSpreadsToKind = UWCreatureMotion.LavaProofSpreadsToKind;
 
 		[UWRule(typeof(UWShrineRules), nameof(UWShrineRules.GroupMantraSpendsPointRegardless),

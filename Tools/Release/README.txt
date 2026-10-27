@@ -72,7 +72,7 @@ uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the
 the windows, with A and RT as the left mouse button and X and LT as the right one. Names and
 mantras are typed on a letter grid. Hold View for the help: its Controls tab shows the buttons
 as glyphs. Under Controls in the menu bar, its Gamepad tab: the button names (Xbox, PlayStation,
-Nintendo), every button, swapped sticks, inverted look and a deadzone per stick.
+Nintendo, Steam Deck), every button, swapped sticks, inverted look and a deadzone per stick.
 
 The menu bar at the top of the main menu (and of the game menu) holds the settings. Under
 Motion you choose how the original's motion code is run: Original computes it step by step
@@ -93,10 +93,11 @@ game's icon, with a gradient or clouds, or Plain.
 RULES
 -----
 
-The game's numbers can be changed without touching the program: put a file rules.json beside
-settings.json (Windows: %USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld
-Revisited, Linux: ~/.config/unity3d/Underworld Revisited/Underworld Revisited) with only the
-lines you want to change, for example
+The game's numbers can be changed without touching the program: put a file rules.json into the
+folder UW1 beside settings.json (Windows: %USERPROFILE%\AppData\LocalLow\Underworld Revisited\
+Underworld Revisited\UW1, Linux: ~/.config/unity3d/Underworld Revisited/Underworld Revisited/UW1)
+with only the lines you want to change - a rules.json an earlier version read beside settings.json
+moves there by itself -, for example
 
     { "magic.manaPerCircle": 2, "quirks.litTaperStaysLit": false }
 
@@ -124,6 +125,12 @@ The Sound menu in the menu bar chooses what plays the music: the AdLib, as most 
 Roland MT-32 itself, emulated by Munt. The MT-32 needs the control and PCM ROM of a real MT-32
 or CM-32L, which belong to Roland and do not come with the game: put your own into the folder
 the "Open folder" button there opens. The menu shows which ROMs were recognised.
+
+Music from recordings: your own recordings of the music, one file per piece, play in place of
+the device. Put them into the folder the second "Open folder" button opens (UW1\Music beside
+settings.json), each named by the number of the game's piece (UW01.XMI in its SOUND folder is
+01): 01 the introduction, 02 to 04 the levels, 05 to 07 combat, 10 Armed, 11 Victory, 12 Death,
+13 Fleeing, 15 Maps and Legends, as .ogg or .wav. A piece without a recording plays on the device.
 
 
 LICENCES

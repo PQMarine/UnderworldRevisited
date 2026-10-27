@@ -315,7 +315,12 @@ public partial class UWSetupMenu
                 EnabledChoices = () => 1 | (UWAudioMixer.IsGeneralMidiAvailable ? 2 : 0) | (UWAudioMixer.Mt32Roms != null ? 4 : 0)
             })
             .Add(fHint(Defs.MusicDevice, 6f))
-            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "sound.mt32roms", Draw = fDrawRomLine });
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "sound.mt32roms", Draw = fDrawRomLine })
+            // MUSIC FROM RECORDINGS (UWMusicRecordings, 2026-10-27): the player's own files in
+            // place of the device, piece by piece.
+            .Add(fToggle(Defs.MusicRecordings, 32f))
+            .Add(fHint(Defs.MusicRecordings, 6f))
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "sound.recordings", Draw = fDrawRecordingLine });
     }
 
     /// <summary>One volume right of its switch, greyed while the switch is off (the entry's
@@ -336,30 +341,51 @@ public partial class UWSetupMenu
     /// through the drawer the Sound window is drawn with (the pass's, cleanup 8b.2).</summary>
     private float fDrawRomLine(float pfLeft, float pfTop, float pfInner)
     {
-        IUWRows lORows = mOPassRows;
         UWDataImport.Audio.UWMt32MusicDriver.RomSet lORoms = UWAudioMixer.Mt32Roms;
-        string lsFolder = UWAudioMixer.Mt32RomFolder;
         string lsRomState = lORoms != null ? UWText.F("setup.sound.mt32_roms", lORoms.Description) : UWText.F("setup.sound.mt32_problem", UWAudioMixer.Mt32Problem);
+
+        return fDrawFolderLine(pfLeft, pfTop, pfInner, lsRomState, UWAudioMixer.Mt32RomFolder);
+    }
+
+    /// <summary>How many pieces have a recording, and the button that opens their folder - laid
+    /// out as the ROM line.</summary>
+    private float fDrawRecordingLine(float pfLeft, float pfTop, float pfInner)
+    {
+        int liCount = UWAudioMixer.RecordingCount;
+        string lsState = liCount > 0 ? UWText.F("setup.sound.recordings", liCount) : UWText.T("setup.sound.recordings_none");
+
+        return fDrawFolderLine(pfLeft, pfTop, pfInner, lsState, UWAudioMixer.RecordingFolder);
+    }
+
+    /// <summary>A state line and the button that opens psFolder (made if it is missing); the next
+    /// row starts 36 lower (the line is 26 high). Until 2026-10-27 the ROM line was the window's
+    /// last and returned its own top, which put the recordings' switch onto it (per user).</summary>
+    private float fDrawFolderLine(float pfLeft, float pfTop, float pfInner, string psState, string psFolder)
+    {
+        IUWRows lORows = mOPassRows;
         string lsOpen = UWText.T("setup.sound.open_folder");
         float lfButton = lORows.FitWidth(lsOpen, 140f);
 
-        lORows.Info(new Rect(pfLeft, pfTop, pfInner - (lfButton + 10f), 26f), lsRomState, UWRowInfoEnum.Heading);
+        lORows.Info(new Rect(pfLeft, pfTop, pfInner - (lfButton + 10f), 26f), psState, UWRowInfoEnum.Heading);
 
         if (lORows.Action(new Rect(pfLeft + pfInner - lfButton, pfTop, lfButton, 26f), lsOpen))
         {
             try
             {
-                System.IO.Directory.CreateDirectory(lsFolder);
-                Application.OpenURL((lsFolder.StartsWith("/") ? "file://" : "file:///") + lsFolder.Replace('\\', '/'));
+                System.IO.Directory.CreateDirectory(psFolder);
+                Application.OpenURL((psFolder.StartsWith("/") ? "file://" : "file:///") + psFolder.Replace('\\', '/'));
             }
             catch (System.Exception lOError)
             {
-                Debug.LogWarning("MT-32 ROM folder not opened: " + lOError.Message);
+                Debug.LogWarning("Folder not opened (" + psFolder + "): " + lOError.Message);
             }
         }
 
-        return pfTop;
+        return pfTop + FolderLineAdvance;
     }
+
+    /// <summary>A folder line's height, 26, and the gap under it.</summary>
+    private const float FolderLineAdvance = 36f;
 
     // ------------------------------------------------- Palette effects
 

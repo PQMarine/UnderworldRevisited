@@ -45,7 +45,9 @@ namespace UWDataImport.UWData
 		/// clamped to 1..0x40 (12BB, lines 43551-43678).</summary>
 		public const int SearchMargin = 5;
 
-		/// <summary>Two alternating wave lists of 64 entries (seg058, seg059).</summary>
+		/// <summary>Two alternating wave lists of 64 entries (seg058, seg059): a wave stops
+		/// expanding once the next list holds 64 tiles (flood_path's nnext &lt; 0x40), the tile
+		/// that reached it still adding all its neighbours.</summary>
 		public const int MaxWaveWidth = 64;
 
 		/// <summary>The depth limit of the search (line 44239: depth 0x20).</summary>
@@ -259,8 +261,10 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- PathFindBetweenTiles_seg006_1477_12BB (line 43491)
 
 		/// <summary>
-		/// The breadth-first search from the start to the goal within the box, at most 64 tiles
-		/// per wave and 32 waves. The first wave tests the start as the middle towards each
+		/// The breadth-first search from the start to the goal within the box, at most 32 waves;
+		/// a wave's tiles are expanded only while the next wave holds fewer than 64 (the tiles
+		/// after that are not expanded at all - Exhumed audit row 28, 2026-10-27; until then the
+		/// whole wave was expanded and only the additions capped). The first wave tests the start as the middle towards each
 		/// neighbour and returns at once when a neighbour IS the goal - untested. Later waves
 		/// test each wave tile as the middle towards its neighbours (never back to its own
 		/// previous tile); a neighbour already visited is taken over only from a shallower
@@ -329,7 +333,7 @@ namespace UWDataImport.UWData
 				mOWave.AddRange(mONext);
 				mONext.Clear();
 
-				for (int liAt = 0; liAt < mOWave.Count; liAt++)
+				for (int liAt = 0; liAt < mOWave.Count && mONext.Count < MaxWaveWidth; liAt++)
 				{
 					UWTilePos lOCur = mOWave[liAt];
 					Cell lOCurCell = mOCells[lOCur.X, lOCur.Y];
@@ -365,7 +369,7 @@ namespace UWDataImport.UWData
 						lOCurCell.Climb = lbClimb;
 						mOCells[lOCur.X, lOCur.Y] = lOCurCell;
 
-						if (lbFresh && mONext.Count < MaxWaveWidth)
+						if (lbFresh)
 							mONext.Add(new UWTilePos(liNx, liNy));
 
 						if (liNx == piX1 && liNy == piY1)

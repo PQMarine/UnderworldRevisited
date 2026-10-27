@@ -82,6 +82,8 @@ namespace UWDataImport.UWData
 			fAdd("setup.sound.mt32_no_roms", "no MT-32 or CM-32L ROMs in that folder");
 			fAdd("setup.sound.mt32_missing", "the MT-32 emulation is missing on this system ({0})");
 			fAdd("setup.sound.open_folder", "Open folder");
+			fAdd("setup.sound.recordings", "Recordings: {0} pieces");
+			fAdd("setup.sound.recordings_none", "Recordings: none in this folder");
 
 			// Colours.
 			fAdd("setup.colours.title", "Colours");

@@ -160,7 +160,7 @@ namespace UWDataImport.UWData
 		public bool WalkSlowToggle;
 
 		/// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
-		/// 2 Nintendo - chosen, never detected (per user, 2026-10-07: a PlayStation controller
+		/// 2 Nintendo, 3 Steam Deck (since 2026-10-27) - chosen, never detected (per user, 2026-10-07: a PlayStation controller
 		/// often reports as an Xbox one).</summary>
 		public int GamepadButtonStyle;
 
@@ -334,6 +334,11 @@ namespace UWDataImport.UWData
 		/// <summary>The folder with the player's own MT-32 ROMs; empty = the MT32 folder beside
 		/// settings.json.</summary>
 		public string Mt32RomPath = "";
+
+		/// <summary>The player's recordings of the music, from UW1/Music beside settings.json,
+		/// in place of the device for the pieces that have one (UWMusicRecordings, 2026-10-27). On by
+		/// default: without files it changes nothing.</summary>
+		public bool MusicRecordings = true;
 
 		/// <summary>The debug panel's folded sections (UWDebugPanel, cleanup 8c, 2026-10-25): their ids,
 		/// comma-separated (UWDebugFolds); empty folds nothing, as every older file reads.</summary>

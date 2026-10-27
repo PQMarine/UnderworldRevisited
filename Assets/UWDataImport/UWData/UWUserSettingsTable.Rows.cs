@@ -120,7 +120,7 @@ namespace UWDataImport.UWData
 
 			// The gamepad.
 			fText(GamepadButtonStyle);
-			fChoices(GamepadButtonStyle, new[] { "xbox", "playstation", "nintendo" });
+			fChoices(GamepadButtonStyle, new[] { "xbox", "playstation", "nintendo", "steamdeck" });
 			fText(StickLookSpeed);
 			StickLookSpeed.Format = UWSettingFormat.Percent;
 			fText(GamepadSwapSticks);
@@ -146,6 +146,7 @@ namespace UWDataImport.UWData
 			SoundVolume.EnabledWhen = d => SoundEnabled.Read(d);
 			fText(MusicDevice, true);
 			fChoices(MusicDevice, new[] { "adlib", "gm", "mt32" });
+			fText(MusicRecordings, true);
 
 			// The graphics: the factor's slider only while the world is at the original's resolution.
 			fText(ClassicWidescreen);

@@ -54,6 +54,7 @@ namespace UWDataImport.UWData
 			fAdd("setting.GamepadButtonStyle.choice.xbox", "Xbox");
 			fAdd("setting.GamepadButtonStyle.choice.playstation", "PlayStation");
 			fAdd("setting.GamepadButtonStyle.choice.nintendo", "Nintendo");
+			fAdd("setting.GamepadButtonStyle.choice.steamdeck", "Steam Deck");
 			fAdd("setting.StickLookSpeed", "Stick look speed");
 			fAdd("setting.GamepadSwapSticks", "Swap the sticks (left-handed)");
 			fAdd("setting.StickInvertY", "Invert looking up and down");
@@ -76,6 +77,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.MusicDevice.choice.adlib", "AdLib");
 			fAdd("setting.MusicDevice.choice.gm", "General MIDI");
 			fAdd("setting.MusicDevice.choice.mt32", "MT-32");
+			fAdd("setting.MusicRecordings", "Music from recordings");
+			fAdd("setting.MusicRecordings.hint", "Your own recordings of the music, one file per piece in the folder below (UW1/Music), play in place of the device above. Name each by the number of the game's piece: 01.ogg for the introduction, 02 to 04 the levels, 05 to 07 combat, 10 Armed, 11 Victory, 12 Death, 13 Fleeing, 15 Maps and Legends (Ogg Vorbis or WAV). A piece without a recording plays on the device.");
 
 			// The graphics.
 			fAdd("setting.ClassicWidescreen", "Classic screen widescreen");

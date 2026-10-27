@@ -255,10 +255,16 @@ namespace UnderworldRevisited.Tools
             fPlayCutscene(lORecorder, 0x20, fCutsceneScript(2, CsSetFrame, 0, 999, CsChime, 0, CsEnd), null, 1000);
             Check.Str("999: the chime after both frames", lORecorder.CueLine, "miss CS040.N01@0 | chime@333 | miss CS040.N02@333");
 
-            // Repeat-segment: from the segment's start up to its frame, argument times in total.
+            // Repeat-segment: from the segment's start up to its frame, argument + 1 times in total
+            // (show_anm; the skulls of CS403 counted 11 for 10 in DOSBox, 2026-10-27).
             lORecorder = new CutsceneRecorder();
             fPlayCutscene(lORecorder, 0x20, fCutsceneScript(2, CsRepeat, 3, 4, CsSetFrame, 0, 0, CsEnd), null, 1000);
-            Check.Seq("repeat: three times 0 to 2, then on", lORecorder.Frames.ToArray(), new[] { 0, 1, 2, 0, 1, 2, 0, 1, 2, 3 });
+            Check.Seq("repeat: four times 0 to 2, then on", lORecorder.Frames.ToArray(), new[] { 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 3 });
+
+            // ... and the commands before it run once: the chime on frame 1 sounds on the first pass only.
+            lORecorder = new CutsceneRecorder();
+            fPlayCutscene(lORecorder, 0x20, fCutsceneScript(1, CsChime, 2, CsRepeat, 1, 4, CsSetFrame, 0, 0, CsEnd), null, 1000);
+            Check.Int("repeat: a command before the repeat runs once", lORecorder.Cues.FindAll(psCue => psCue.StartsWith("chime")).Count, 1);
 
             // A fade-in: rate * 8 steps of at least 8 PIT ticks (1/32 s), so two ticks each here.
             lORecorder = new CutsceneRecorder();
@@ -327,10 +333,18 @@ namespace UnderworldRevisited.Tools
             // The intro without a click changed once, on 2026-10-24, and only by its 0x0B jump
             // (CS000.N13 runs from frame 1 to 4 hidden; until then 13992, e9549cbb4742bcc4,
             // 7c90d2a2154f3ccf - with 0x0B switched off the runner still gave exactly those).
+            // On 2026-10-27 the erase (0x01, CS000 frames 24 and 100) added its two cues; with them
+            // muted in the recorder the old pins (120 cues 291f1d3db51b8b25, de4458aaf1c001fa and
+            // clicked 120 cues 455795c2d7003c74, 47287fd978a9164a) still held.
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "intro", 0, null, 13947,
-                "120 cues 291f1d3db51b8b25", "de4458aaf1c001fa");
-            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "end sequence", 1, null, 6307,
-                "39 cues e923cc03d080163e", "f330aa83dcd28175");
+                "122 cues 0490cb2f52f3889e", "c01b260e49572be7");
+            // The loop's count (argument + 1 passes, no command run again on the passes after the
+            // first) changed the pins of the end sequence, the title and the final death on
+            // 2026-10-27: the end sequence's line 12 now starts once (was 6307, 39 cues
+            // e923cc03d080163e, f330aa83dcd28175), the title's fade-in no longer runs on every pass
+            // (was 1092, 94d8dc60988eedad), the skulls flash 11 times (was 780, 972b1cec47a20ed1).
+            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "end sequence", 1, null, 6375,
+                "38 cues e567addb2067c017", "0fcf5e1e736ee146");
 
             // Clicked through with the original's rules (2026-10-24): to the skip targets, the
             // frames between hidden. The intro's clicks fall in line 11 (to frame 67 of CS000.N10)
@@ -338,15 +352,15 @@ namespace UnderworldRevisited.Tools
             // segment's end) and line 2 (to frame 13); the end sequence's in line 0 and line 12 (the
             // click ends its repeat, so line 12 starts once instead of twice: 38 cues).
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "intro clicked", 0, new[] { 2970, 11936 }, 13307,
-                "120 cues 455795c2d7003c74", "47287fd978a9164a");
+                "122 cues 0ae939e4e713d18b", "851f8ae74111b7dd");
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "first dream clicked", 24, new[] { 396, 760 }, 904,
                 "miss CS030.N01@0 | open CS000.N02@0 | open CS000.N05@2733 | line 0 c32 5.4s text@2900 | open CS000.N05@6733"
                 + " | line 1 c32 4.8s text@6900 | open CS000.N04@11567 | line 2 c32 3.18s text@11733 | open CS000.N06@14067",
                 "bce47eb23fb0bb39");
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "end sequence clicked", 1, new[] { 145, 4178 }, 5975,
                 "38 cues 5ce5763794a13f48", "a374cf2fae3b30b3");
-            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "title", 9, null, 1092,
-                "open CS011.N01@0", "94d8dc60988eedad");
+            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "title", 9, null, 912,
+                "open CS011.N01@0", "1fb2a977a2b8b800");
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "title clicked away", 9, new[] { 30 }, 60,
                 "open CS011.N01@0", "3c224f09ae162504");
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "first dream", 24, null, 1014,
@@ -355,8 +369,8 @@ namespace UnderworldRevisited.Tools
                 "da86da135cc44495");
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "death", 0x102, null, 576,
                 "open CS402.N01@0", "27692539083ea79c");
-            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "final death", 0x103, null, 780,
-                "open CS403.N01@0 | open CS403.N02@3600", "972b1cec47a20ed1");
+            fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "final death", 0x103, null, 816,
+                "open CS403.N01@0 | open CS403.N02@3600", "79744ade70816ed9");
             // A click during the skulls' repeat ends the final death (per user, 2026-10-24: a
             // deviation - the original drops it, the viewport cutscenes are never faded in).
             fCheckCutscenePin(lsAnimations, lsScripts, lOStrings, "final death clicked in the skulls", 0x103, new[] { 300 }, 300,

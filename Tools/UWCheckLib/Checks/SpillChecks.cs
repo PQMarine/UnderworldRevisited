@@ -358,6 +358,20 @@ namespace UnderworldRevisited.Tools
                 UWObjectLimitRules.IsTenacious(new UWObject((ushort)liMiddleId), UWLiquidCulling.RangeBase + 2, pOProperties), false);
             fExpectBool("bag: ... but 11 does at the range 10",
                 UWObjectLimitRules.IsTenacious(new UWObject((ushort)liMiddleId), UWLiquidCulling.RangeBase, pOProperties), true);
+
+            // Obj_Check is recursive (Exhumed audit row 16): a valuable two bags deep saves the
+            // outer bag as well.
+            UWObject lODeep = fBag(liSack, fBag(liSack, new UWObject((ushort)liHighId)));
+
+            fExpectInt("bag: a valuable inside an inner bag spares the outer bag too",
+                fCountSpared(lODeep, pOProperties, liRuns), liRuns);
+
+            // Obj_Elem_Fate rolls the range only when the argument is above 0: 0 draws nothing for
+            // the range, and never culls (any priority above 0 is tenacious against it).
+            liDraws = 0;
+            fExpectBool("bag: the range argument 0 never culls",
+                UWObjectLimitRules.CullingTest(new UWObject((ushort)liCheapId), 0, pOProperties, null, lfCounting), false);
+            fExpectInt("bag: ... and draws nothing", liDraws, 0);
         }
 
         private static UWObject fBag(int piId, params UWObject[] pOContents)

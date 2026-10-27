@@ -123,7 +123,7 @@ namespace UnderworldRevisited.Tools
                 lOHost.MissileVelocities);
 
             lOKinBrain.GoalChanged += (piOld, piNew, piTarget) => lOHeard.Add(piOld + ">" + piNew + " at " + piTarget);
-            lOHost.ClockValue = 1000 + 0x200;
+            lOHost.ClockValue = 1000 + 0x1FF;
             lOHost.DefaultRoll = 1;
             lOKinBrain.Update(lOHost);
 

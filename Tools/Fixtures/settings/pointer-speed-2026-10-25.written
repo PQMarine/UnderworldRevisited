@@ -86,6 +86,7 @@
     "SoundVolume": 0.800000011920929,
     "MusicDevice": 0,
     "Mt32RomPath": "",
+    "MusicRecordings": true,
     "DebugFolded": "",
     "PointerSpeed": 2.5,
     "WindowTheme": 1,

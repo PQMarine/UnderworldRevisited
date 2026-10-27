@@ -36,6 +36,7 @@ namespace UnderworldRevisited.Tools
 
             fCheckXmidiFilter();
             fCheckAudioSettings();
+            fCheckRecordings();
 
             UWSound lOSound = pOData != null ? pOData.Sound : null;
 
@@ -105,6 +106,44 @@ namespace UnderworldRevisited.Tools
             Check.Int("audio settings: the device counts too", lOSecond.Revision, lOFirst.Revision + 1);
             Check.Bool("audio settings: the gains are clamped to 0..1",
                 lOSecond.With(-0.5f, 1.5f, UWMusicDeviceId.Mt32).MusicGain == 0f && lOSecond.With(-0.5f, 1.5f, UWMusicDeviceId.Mt32).EffectGain == 1f, true);
+        }
+
+        /// <summary>The player's recordings (UWMusicRecordings): named by the game's piece numbers
+        /// without a prefix, the extension in any case, Ogg before WAV, other names and formats left
+        /// out, each piece counted once.</summary>
+        private static void fCheckRecordings()
+        {
+            string lsFolder = Path.Combine(Path.GetTempPath(), "UWCheckRecordings_" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                Directory.CreateDirectory(lsFolder);
+
+                foreach (string lsName in new[] { "01.ogg", "01.wav", "15.WAV", "10.mp3", "08.ogg", "1.ogg", "UW02.ogg", "Intro.ogg" })
+                    File.WriteAllBytes(Path.Combine(lsFolder, lsName), new byte[0]);
+
+                Check.Str("recordings: the introduction is 01, Ogg before WAV",
+                    Path.GetFileName(UWMusicRecordings.Find(lsFolder, UWMusicSelector.GetFileNumber(UWMusicSelector.IntroTheme))), "01.ogg");
+                Check.Str("recordings: Maps and Legends is 15, the extension in any case",
+                    Path.GetFileName(UWMusicRecordings.Find(lsFolder, UWMusicSelector.GetFileNumber(UWMusicSelector.MapsAndLegendsTheme))), "15.WAV");
+                Check.Bool("recordings: an MP3 is not taken (Armed, 10)",
+                    UWMusicRecordings.Find(lsFolder, UWMusicSelector.GetFileNumber(UWMusicSelector.ArmedTheme)) == null, true);
+                Check.Bool("recordings: a name with the game file's prefix is not taken (UW02)",
+                    UWMusicRecordings.Find(lsFolder, UWMusicSelector.GetFileNumber(UWMusicSelector.FirstLevelTheme)) == null, true);
+                Check.Int("recordings: counted once per piece, two octal digits only (01, 15)", UWMusicRecordings.Count(lsFolder), 2);
+                Check.Bool("recordings: no folder, none", UWMusicRecordings.Find(Path.Combine(lsFolder, "missing"), "01") == null
+                    && UWMusicRecordings.Count(Path.Combine(lsFolder, "missing")) == 0, true);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(lsFolder, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
         }
 
         /// <summary>The fallback to the AdLib: no soundfont, no ROMs. General MIDI is tried once,

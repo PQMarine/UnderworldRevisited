@@ -1044,9 +1044,10 @@ public partial class UWSetupMenu : MonoBehaviour
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        // The switches with their volumes, the music device, its hint and the MT-32 line
-        // (fBuildSoundPage); the line is 26 high.
-        fContentEnds(lODialog, mOPassPages.Draw(mOSoundPage, lfLeft, lfTop, lfInner) + 26f);
+        // The switches with their volumes, the music device, its hint and the MT-32 line, the
+        // recordings' switch, its hint and their line (fBuildSoundPage); each line advances past
+        // itself (fDrawFolderLine), so the window grows with the rows.
+        fContentEnds(lODialog, mOPassPages.Draw(mOSoundPage, lfLeft, lfTop, lfInner));
 
         if (mOPassRows.Done(lODialog))
             meOpenDialog = DialogEnum.None;

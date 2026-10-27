@@ -200,7 +200,7 @@ namespace UWDataImport.UWData
 			if (pbMeanings)
 			{
 				lOText.Append("// The rule set of Underworld Revisited at the original's values (uwdump rules-template).\n");
-				lOText.Append("// To change a rule, put its line into rules.json beside settings.json; a key left out\n");
+				lOText.Append("// To change a rule, put its line into rules.json in the UW1 folder beside settings.json; a key left out\n");
 				lOText.Append("// keeps the original's value. The file is read when a game starts or is loaded.\n");
 			}
 

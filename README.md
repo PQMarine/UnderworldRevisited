@@ -92,6 +92,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - The music's MT-32 version on **General MIDI**, with a soundfont that comes with the game
 - The same music on the **Roland MT-32** itself, emulated by [Munt](https://github.com/munt/munt) -
   with the ROMs of a real unit, which you supply (see [Installation](#installation))
+- **Recordings** of the music you supply, one file per piece, in place of the synthesizer
 
 **Controls and interface**
 
@@ -103,7 +104,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   the original inventory) as parts of their own; Classic Wide, the original's frame widened to
   the screen; or a layout of one's own, which can start from any preset
 - A gamepad in both schemes, with a pointer on the stick for every window, a letter grid for
-  typing, glyphs for Xbox, PlayStation or Nintendo, and every button rebindable
+  typing, glyphs for Xbox, PlayStation, Nintendo or the Steam Deck, and every button rebindable
 - A help window beside the view: stats with the hidden values, a live map, notes kept with the
   save game, spells, mantras and the game's manual
 - A modern readable font, and dealing the attribute points at character creation yourself
@@ -112,7 +113,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   once; the game's own texts can be translated by language files ([Translating](Docs/TRANSLATING.md))
 - Two looks for the game's own windows: Stone, in the colours of the game's icon (the default),
   and the plain one
-- The rule set: an optional `rules.json` beside the settings changes the game's numbers -
+- The rule set: an optional `rules.json` in the `UW1` folder beside the settings changes the game's numbers -
   combat, magic, creatures, motion, trade and more, and the original's quirks as switches.
   `Docs/rules-template.jsonc` in the release package (or `uwdump rules-template`) lists every
   key with its default and meaning; without the file the game plays as the original
@@ -155,6 +156,17 @@ installation. Save games are read from and written to the installation's `UNDERO
 1992), General MIDI, or the MT-32. For the MT-32, put the control and PCM ROM of your own
 Roland MT-32 or CM-32L into the folder the *Open folder* button there opens; they belong to
 Roland and do not come with the game. The menu shows which ROMs were recognised.
+
+**Music from recordings.** Under *Music from recordings* in the same window, your own recordings
+of the music play in place of the device, one file per piece in the folder its *Open folder*
+button opens (`UW1/Music` beside the settings). Name each file by the number of the game's piece
+(`UW01.XMI` in its `SOUND` folder is `01`): `01` the introduction, `02` to `04` the levels, `05` to
+`07` combat, `10` Armed, `11` Victory, `12` Death, `13` Fleeing, `15` Maps and Legends, as `.ogg`
+(Ogg Vorbis) or `.wav`. A piece without a
+recording plays on the device. The high-quality remake by Pieces of 8-bit
+([on Nexus Mods](https://www.nexusmods.com/ultimaunderworldunity/mods/1), made for Hank Morgan's
+UnderworldExporter) uses these names: the files of its `UW1music` folder can be copied in as they
+are.
 
 ## Controls
 

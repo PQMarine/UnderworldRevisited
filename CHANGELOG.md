@@ -8,6 +8,38 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.11.0] - 2026-10-27
+
+### Added
+- Music from recordings: your own recordings of the music, one file per piece in the folder
+  UW1/Music the Sound window opens, play in place of the AdLib, General MIDI or the MT-32. Each file
+  is named by the number of the game's piece (01.ogg the introduction, 15.ogg Maps and Legends;
+  Ogg Vorbis or WAV); a piece without a recording plays on the device as before. The remake by
+  Pieces of 8-bit on Nexus Mods uses these names and can be copied in as it is. Suggested on Reddit.
+- Steam Deck button names and glyphs for the gamepad (Controls, Gamepad tab): A B X Y, L1 R1,
+  L2 R2, as the Deck prints them.
+
+### Changed
+- A folder per game beside settings.json, for Ultima Underworld II later: what belongs to the
+  game lies in UW1 - the rules.json and the music recordings. A rules.json from an earlier version
+  moves there by itself on the next start (if UW1 holds none yet). settings.json, graphics.json
+  and the MT-32 ROMs stay where they are, for both games.
+
+### Closer to the original
+- Remastered: a pillar or chest standing in a tile with a diagonal wall is no longer covered by
+  that wall; the original paints the wall with its tile, before what stands in it.
+- Land creatures keep stopping at lava edges after a fire elemental or another lava-proof
+  creature has moved; only fliers keep the original's quirk (they count lava as costly on their
+  paths once Tyball has moved).
+- A container that holds something valuable at any depth, not only one level down, is spared
+  when it lands in water or lava, burns, or is cleared away for room.
+- Creatures searching for a path give up where the original does (a search wave stops at 64
+  tiles).
+- Cutscenes: Escape on the title counts as a key, as in the original's script; a repeat plays once more, as in the original (the
+  final death's skulls flash 11 times), and the lines and fades before it are not run again on
+  each pass; the intro's erase command takes the subtitle away.
+- A creature's alarm after the player's blow ends one tick earlier, as in the original.
+
 ## [0.10.0] - 2026-10-26
 
 ### Added

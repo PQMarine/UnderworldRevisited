@@ -69,6 +69,14 @@ public static class UWGlyphs
             new[] { 14 }, new[] { 13 }, new[] { 16 }, new[] { 15 }, new[] { 627 }, new[] { 628 },
             new[] { 625 }, new[] { 626 }, new[] { 220 }, new[] { 288 }, new[] { 685 }, new[] { 684 },
             new[] { 35 }, new[] { 37 }, new[] { 38 }, new[] { 36 }
+        },
+        // Steam Deck: the one-coloured A B X Y at Xbox's places; the rounded L1 R1 and L2 R2 of the
+        // second set (the first is PlayStation's); Menu and View as Xbox's, the Deck prints the same.
+        new[]
+        {
+            new[] { 13 }, new[] { 14 }, new[] { 15 }, new[] { 16 }, new[] { 635 }, new[] { 636 },
+            new[] { 633 }, new[] { 634 }, new[] { 220 }, new[] { 288 }, new[] { 617 }, new[] { 616 },
+            new[] { 35 }, new[] { 37 }, new[] { 38 }, new[] { 36 }
         }
     };
 

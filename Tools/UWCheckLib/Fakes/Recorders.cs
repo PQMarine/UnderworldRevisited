@@ -109,6 +109,12 @@ namespace UnderworldRevisited.Tools
                 fCue("chime");
             }
 
+            public void EraseLine()
+            {
+                Subtitles.Add(null);
+                fCue("erase");
+            }
+
             /// <summary>The cues in one line, for the pins.</summary>
             public string CueLine
             {

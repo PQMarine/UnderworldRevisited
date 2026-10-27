@@ -272,8 +272,9 @@ public class UWLevelLoader : MonoBehaviour
         // fLoadData just loaded it (DataImport.LoadGame -> UWSaveCodec.Load, since step 2.9).
         UWGameSession.MakeCurrent(UWDataImporter.Session);
 
-        // THE PLAYER'S RULE SET (cleanup phase 10, 2026-10-25): an optional rules.json beside
-        // settings.json, applied to every new session before anything reads a rule - so a key taken
+        // THE PLAYER'S RULE SET (cleanup phase 10, 2026-10-25): an optional rules.json in the game's
+        // folder beside settings.json (UW1/rules.json since 2026-10-27, UWGameFolder; one left beside
+        // settings.json by 0.9.2 to 0.10.0 moves there), applied to every new session before anything reads a rule - so a key taken
         // out of the file is the original's again with the next start or load. No file is the
         // original's rules; the game never writes one.
         fApplyRules();
@@ -636,7 +637,9 @@ public class UWLevelLoader : MonoBehaviour
     /// original's rules. The debug panel's Place section shows the summary (UWDebugOverlay).</summary>
     private static void fApplyRules()
     {
-        UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(UWUserSettings.PathBeside(UWRulesJson.FileName));
+        string lsRules = UWGameFolder.AdoptLegacyFile(UWUserSettings.PathBeside(string.Empty), UWRulesJson.FileName,
+            psMessage => Debug.Log("[Rules] " + psMessage), psMessage => Debug.LogWarning("[Rules] " + psMessage));
+        UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(lsRules);
 
         if (!lOReport.Found)
             return;

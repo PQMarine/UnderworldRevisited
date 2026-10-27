@@ -17,7 +17,10 @@ namespace UnderworldRevisited.Tools
 
         private const int BatKind = 0x41;
 
-        private const int StoneGolemKind = 0x78;
+        private const int FireElementalKind = 0x78;
+
+        /// <summary>Tyball's kind: a lava-proof flier (COMOBJ byte 8 bit 3, byte 0x0A 0xA0).</summary>
+        private const int TyballKind = 0x7B;
 
         private const int ClosedDoorId = UWObjectIds.FirstClosedDoor;
 
@@ -255,9 +258,10 @@ namespace UnderworldRevisited.Tools
             fExpectInt("creature motion: ... and lands on the lower floor", lORecord.ZPos, 0);
         }
 
-        /// <summary>Lava ahead stops a goblin without a path; a stone golem walks on - and from
-        /// then on the land handler lets every land creature over a lava edge (the original's
-        /// static block, modified in place and never restored), until the handlers are reset.</summary>
+        /// <summary>Lava ahead stops a goblin without a path; a fire elemental walks on, and after it
+        /// the goblin still stops: the original sets the lava flag back into the land block after
+        /// the elemental's step, where it was from the start (Exhumed audit row 8). Tyball's step
+        /// leaves the flag in the flier block for the session, until the handlers are reset.</summary>
         private static void fCheckCreatureLava(DataImport pOData)
         {
             FakeMotionWorld lOWorld;
@@ -269,35 +273,35 @@ namespace UnderworldRevisited.Tools
             StepResult lOStep = lOMotion.Step(lORecord, 5, UWCreatureMotion.Kind.Land);
 
             fExpectBool("creature motion: lava ahead stops a goblin without a path", lOStep.Collided && lORecord.TileY == 9, true);
-            fExpectBool("creature motion: the land handler still holds the lava flag", UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Land), false);
+            fExpectBool("creature motion: no block keeps the lava flag yet", UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Land), false);
 
             UWCommonObjectProperties.Entry lOGolem;
 
-            pOData.CommonObjectProperties.TryGet(StoneGolemKind, out lOGolem);
-            fExpectBool("creature motion: the stone golem is lava-proof (COMOBJ byte 8 bit 3)",
+            pOData.CommonObjectProperties.TryGet(FireElementalKind, out lOGolem);
+            fExpectBool("creature motion: the fire elemental is lava-proof (COMOBJ byte 8 bit 3)",
                 (lOGolem.Resistances & UWCreatureMotion.LavaProofResistanceBit) != 0, true);
 
-            lORecord = fMakeCreature(StoneGolemKind, 8, 9, 4, 4, 16, 0, 8);
+            lORecord = fMakeCreature(FireElementalKind, 8, 9, 4, 4, 16, 0, 8);
 
             for (int liAt = 0; liAt < 3 && lORecord.TileY == 9; liAt++)
                 lOStep = lOMotion.Step(lORecord, 5, UWCreatureMotion.Kind.Land);
 
-            fExpectBool("creature motion: the stone golem walks onto the lava", lORecord.TileY >= 10, true);
-            fExpectBool("creature motion: ... and the land handler lost the lava flag for the session",
-                UWCreatureMotion.LavaFlagDropped(UWCreatureMotion.Kind.Land), true);
+            fExpectBool("creature motion: the fire elemental walks onto the lava", lORecord.TileY >= 10, true);
+            fExpectBool("creature motion: ... and the land block is marked (it held the flag from the start)",
+                UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Land), true);
 
-            lORecord = fMakeCreature(GoblinKind, 8, 9, 4, 4, 16, 0, 8);
-
-            for (int liAt = 0; liAt < 3 && lORecord.TileY == 9; liAt++)
-                lOStep = lOMotion.Step(lORecord, 5, UWCreatureMotion.Kind.Land);
-
-            fExpectBool("creature motion: now a goblin walks onto the lava too", lORecord.TileY >= 10, true);
-            fExpectInt("creature motion: ... with the lava contact state", lORecord.TileState, 2);
-
-            UWCreatureMotion.ResetHandlers();
             lORecord = fMakeCreature(GoblinKind, 8, 9, 4, 4, 16, 0, 8);
             lOStep = lOMotion.Step(lORecord, 5, UWCreatureMotion.Kind.Land);
-            fExpectBool("creature motion: after the reset the goblin stops again", lOStep.Collided && lORecord.TileY == 9, true);
+            fExpectBool("creature motion: after the golem a goblin still stops at the lava", lOStep.Collided && lORecord.TileY == 9, true);
+            fExpectBool("creature motion: ... and the flier block is untouched", UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Flier), false);
+
+            lORecord = fMakeCreature(TyballKind, 8, 4, 4, 4, 32, 0, 4);
+            lOMotion.Step(lORecord, 5, UWCreatureMotion.Kind.Flier);
+            fExpectBool("creature motion: Tyball's update leaves the lava flag in the flier block",
+                UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Flier), true);
+
+            UWCreatureMotion.ResetHandlers();
+            fExpectBool("creature motion: ... until the handlers are reset", UWCreatureMotion.LavaFlagKept(UWCreatureMotion.Kind.Flier), false);
 
             // On lava the burn comes on one update in five: over many updates some, not all.
             lOMotion = fNewCreatureMotion(pOData, out lOWorld);
@@ -603,6 +607,12 @@ namespace UnderworldRevisited.Tools
             lOTraverse.SetCreature(UWCreatureMotion.Kind.Swimmer, 9, false);
             fExpectBool("traverse: ... a swimmer passes water", lOTraverse.Triple(8, 8, 9, 8, 10, 8, 2, ref liHeight, ref liCost, out lbClimb), true);
             fExpectBool("traverse: ... but not plain floor", lOTraverse.Triple(9, 8, 10, 8, 11, 8, 2, ref liHeight, ref liCost, out lbClimb), false);
+            lOTraverse.SetCreature(UWCreatureMotion.Kind.Flier, 9, false);
+            fExpectInt("traverse: a flier's paths charge nothing for lava", lOTraverse.CostMask, 0);
+            UWGameSession.Current.Quirks.LavaFlagKept[(int)UWCreatureMotion.Kind.Flier] = true;
+            lOTraverse.SetCreature(UWCreatureMotion.Kind.Flier, 9, false);
+            fExpectInt("traverse: ... until a lava-proof flier has moved (the lava-proof quirk)", lOTraverse.CostMask, 0x20);
+            UWCreatureMotion.ResetHandlers();
             lOTraverse.SetCreature(UWCreatureMotion.Kind.Flier, 9, false);
             fExpectBool("traverse: a flier passes water and floor alike", lOTraverse.Triple(8, 8, 9, 8, 10, 8, 2, ref liHeight, ref liCost, out lbClimb)
                 && lOTraverse.Triple(9, 8, 10, 8, 11, 8, 2, ref liHeight, ref liCost, out lbClimb), true);

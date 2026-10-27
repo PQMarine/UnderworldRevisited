@@ -221,7 +221,7 @@ namespace UnderworldRevisited.Tools
             // The alarm's destination is the victim's tile, not the player's, so the goal 5
             // routine that follows in the same update would re-search with 1 in 8 (and reset
             // on "unchanged" with the coin): a default roll of 1 keeps that path shut.
-            lOHost.ClockValue = 1000 + 0x200;
+            lOHost.ClockValue = 1000 + 0x1FF;
             lOHost.DefaultRoll = 1;
             lOKinBrain.Update(lOHost);
             fExpectInt("alarm: kin at Manhattan 3 with hearing 4 attacks", lOKin.Goal, 5);
@@ -263,9 +263,9 @@ namespace UnderworldRevisited.Tools
 
             lOKin = fMakeRecord(8, 5, 0, 2);
             lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 9, lOHost);
-            lOHost.ClockValue = 1000 + 0x201;
+            lOHost.ClockValue = 1000 + 0x200;
             lOKinBrain.Update(lOHost);
-            fExpectInt("alarm: after 0x200 PIT ticks the alarm is over", lOKin.Goal, 0);
+            fExpectInt("alarm: at 0x200 PIT ticks the alarm is over", lOKin.Goal, 0);
 
             lOKin = fMakeRecord(8, 5, 0, 2);
             lOKinBrain = fMakeBrain(lOKin, fMakeRow(3, 20, 5, 4), 5, lOHost);

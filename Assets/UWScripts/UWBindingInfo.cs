@@ -45,6 +45,8 @@ public static class UWBindingInfo
             "pad.button.options", "pad.button.share",
             "pad.button.dpad_up", "pad.button.dpad_down", "pad.button.dpad_left", "pad.button.dpad_right" },
         new[] { "B", "A", "Y", "X", "L", "R", "ZL", "ZR", "pad.button.left_stick", "pad.button.right_stick", "+", "-",
+            "pad.button.dpad_up", "pad.button.dpad_down", "pad.button.dpad_left", "pad.button.dpad_right" },
+        new[] { "A", "B", "X", "Y", "L1", "R1", "L2", "R2", "L3", "R3", "pad.button.menu", "pad.button.view",
             "pad.button.dpad_up", "pad.button.dpad_down", "pad.button.dpad_left", "pad.button.dpad_right" }
     };
 

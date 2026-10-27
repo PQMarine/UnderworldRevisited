@@ -151,7 +151,7 @@ on UWSettings is presentation (the swim view's sway and roll, for example).
 
 Twenty quirks of the original kept "as it plays" were listed as natural on/off switches. Four
 became switches (`quirks.*`): toughness twice onto the body, the lit taper staying lit, one
-lava-proof creature letting its kind cross lava edges, the group mantra spending its point
+lava-proof flier making lava costly on every flier's path, the group mantra spending its point
 regardless. The XP gate is a number (`experience.awardCap`). The rest - Strengthen Door doing
 nothing, the NW ambush spot, the repair loss, the shared burn counter, the drifting weight
 total, 6-bit game variables, the Lore reset, the free skill point, the quality-0 damage trap,
@@ -260,8 +260,8 @@ in four places.
     scripts/            later: Lua
 ```
 
-What exists today and has to fit in: the player's own `rules.json` beside `settings.json`
-(`persistentDataPath`, `UWUserSettings.PathBeside`), and the folder `Languages` beside the
+What exists today and has to fit in: the player's own `rules.json` in the game's folder beside
+`settings.json` (`persistentDataPath/UW1`, `UWGameFolder`), and the folder `Languages` beside the
 executable with `<code>.tsv`, `<code>.strings.tsv` and font files. Proposed: both stay as they
 are - the player's rules.json applies last, over every mod; the `Languages` folder is the
 "installed languages" source beside the mods. A mod of `"kind": "language"` adds its
@@ -328,7 +328,7 @@ What is built ([CLEANUP-PLAN.md](CLEANUP-PLAN.md) section 6, phase 10):
   meaning and, where a formula needs it, a minimum and maximum.
 - The set hangs on the session (`UWGameSession.Rules`); `UWRules.Current` is the transitional
   facade. `CreateOriginal()` builds the defaults; `UWGameSession.ApplyRulesFile` applies the
-  player's `rules.json` (beside `settings.json`) at each session's start, from the defaults
+  player's `rules.json` (`UW1/rules.json` beside `settings.json`) at each session's start, from the defaults
   every time.
 - Keys are flat and dotted, built by reflection from the classes
   (`combat.skillCheck.rollRange`); values are whole numbers, switches or tables of whole
@@ -565,8 +565,8 @@ scripts.
 
 ## 6. Open decisions for the user
 
-1. Mod folder location: `persistentDataPath/Mods` (default, beside `settings.json` and
-   `rules.json`) or beside the executable too (where `Languages` is).
+1. Mod folder location: `persistentDataPath/Mods` (default, beside `settings.json`; or per game,
+   `UW1/Mods` beside `UW1/rules.json`) or beside the executable too (where `Languages` is).
 2. ~~Whether the language packs for GAME texts are mods in the same folder.~~ Decided by the
    build (0.10.0): languages live in `Languages` beside the game, two files per code. Open
    instead: whether a mod may also bring a language (proposed: yes, `lang/` in the mod, listed

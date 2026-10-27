@@ -59,6 +59,7 @@ MouseLookSpeed = 0.5
 Mt32RomPath = ""
 MusicDevice = 0
 MusicEnabled = False
+MusicRecordings = True
 MusicVolume = 0.33
 OriginalFrameTicks = 8
 OriginalWorldResolution = False
