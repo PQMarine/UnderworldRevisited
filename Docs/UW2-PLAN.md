@@ -110,14 +110,37 @@ Bound to UW1:
 
 ## 4. Architecture
 
-### 4.1 A game id
+### 4.1 The game object, and switching at run time
 
-`UWGame { Uw1, Uw2 }` on `UWGameData` (set when the installation is read: `UW.EXE` or
-`UW2.EXE`), so every rule reaches it through its session. One running game at a time; the main
-menu (or the command line) chooses which, when both are installed. Everything per game hangs off
-it: the install folder and cache (`GameData/UW1`, `GameData/UW2`), the save folder, the settings
-that belong to a game (last save, rules file), the self-check's data path (`UW_DATA` and a second
-variable for UW2).
+`UWGame { Uw1, Uw2 }` names the game. Everything that differs between the two games hangs off
+one object per game, `IUWGameProfile`, with `UWGameProfileUw1` and `UWGameProfileUw2`: the
+formats (4.2), the rule variants and the registrations (4.3), the classic layout table and the
+screens (4.4), the story anchors, the rule set's defaults, the cutscene and music numbers.
+`UWGameData` is built for one profile, and the session reaches it as `session.Game`. Nothing that
+belongs to one game lives in a static.
+
+**One installation holds both games.** GOG's "Ultima Underworld 1+2" carries both in one
+`game.gog`, UW1 in the image's `UW` folder and UW2 in `UW2`. So the game folder the player
+chooses today serves both: `UWGogInstall` finds both programs in it, extracts each into a cache
+of its own (`GameData/UW1`, `GameData/UW2`), and keeps each game's save folder. A game whose
+folder is missing is simply not offered.
+
+**The game is switched at run time** (decided 2026-10-27), in the main menu and from the game
+menu, without a restart. A switch is the same as quitting to the main menu and starting a game:
+the running session ends (with the usual question whether to save), the world is torn down, and
+a new `UWGameData` and session are built for the other profile; textures, atlases, fonts, the HUD
+art, the music and the language's game texts follow. What this needs:
+
+- no per-game state in statics: today's shared caches (`UWLevelLoader`'s data, models and atlas,
+  `UWMainFrame`'s picture, `UWSettings`' paths) are keyed by game or rebuilt on the switch;
+  registries (`UWTrapRules.Traps`, the conversation function table) are built per profile;
+- settings split into the player's (controls, graphics, sound, language - shared) and the
+  game's (last save, rules file, game folder state - per game);
+- the switch as one path in code, `UWLevelLoader` building a game from a profile, which the
+  first start takes as well, so it is tested every time the game starts.
+
+The self-check gets a data path per game (`UW_DATA` for UW1 and a second variable for UW2, or the
+`game.gog` both come from).
 
 ### 4.2 Formats behind the id
 
@@ -136,27 +159,67 @@ variable for UW2).
 - **3D models**: `UW3DModelImport` with the offsets as data per supported `UW2.EXE` build (the
   GOG one), found by the same method as for UW1; size and hash checked.
 
-### 4.3 Rules: one code path where the games agree, branches where they differ
+### 4.3 Rules: one code path where the games agree, a variant object where they differ
 
-The rule classes stay shared. For each difference in UE's list there are three cases:
+No `if (game == ...)` in rule code. UE counts 688 routines that differ between the games; even if
+only a third of them change a rule, switches would put some 200 game tests across the rules, with
+no place that says what UW2 does differently, and each one a risk for UW1. Two complete copies of
+each rule class (`UWCombatUw1`, `UWCombatUw2`) are no better: most rules are mostly the same
+(`player_cast` differs in four of its steps), a fix would reach one copy only, and the rule index
+would see every routine in two places - the duplication the cleanup removed.
 
-1. **A number** (skill point every 3000 or 1500, the slow cycle 24 or 30 steps, the cast pause
-   base 0x40 or 0x80): the rule set already holds most of these. `UWRules.CreateOriginal(game)`
-   gives each game its defaults; the code stays one path. New coefficients where UW2 changes a
-   formula's terms within the same shape (carrying capacity `str * 20` against
-   `str * 13 + 300` is a factor and a base).
-2. **A different shape** (casting check, experience halving, area spells by table, the poisonous
-   blow): a branch on the game in the rule, citing both games' routines, as UE does.
-3. **One game only**: its own class. UW2's: `UWScheduleRules` (`SCD.ARK`), `UWXClocks`,
-   `UWJailRules`, `UWPitsRules`, `UWSpecialWeapons`, the new trap kinds as rows of
-   `UWTrapTable`, the new conversation built-ins as rows of `UWConversationFunctionTable`, the
-   world and level hacks. UW1's (mantras, talismans, the orb, Garamon) stay and are simply not
-   registered for UW2.
+Four tools instead, by the size of the difference:
 
-The registration tables built once as statics (`UWTrapRules.Traps`, the function table) become
-per game, built when the session's data is known. The story anchors (`UWLevelIds`,
-`UWQuestPlaces`, `story.*`, `levels.*`) get a UW2 set; `rules.json` stays per game
-(`rules.json` for UW1, `rules-uw2.json` for UW2).
+| The difference | The tool | Example |
+|---|---|---|
+| a number | **data**: the rule set, with each game's defaults (`UWRules.CreateOriginal(game)`) | a skill point every 3000 or 1500; the slow cycle 24 or 30 steps; the cast pause base 0x40 or 0x80 |
+| a format | **an interface, one implementation per game**, chosen once with the profile | `PLAYER.DAT`, the level layout, the archives (4.2) |
+| a rule that differs in some of its steps | **the shared rule, asking a small variant object of its domain** for those steps | the casting check, the experience halving, the poisonous blow |
+| a system of one game only | **its own class, registered by that game's profile** | UW2's schedules, jail, pits; UW1's mantras, talismans |
+
+The third row in code: the rule keeps its one flow and asks the game's variant where the games
+part.
+
+```csharp
+// UWSpellCasting: the flow, written once
+int liTarget = pOGame.Magic.CastingTarget(piCircle);      // UW1: 2 * circle, UW2: 3 * circle
+if (!pOGame.Magic.MayCastHere(pOPlayer, piCircle)) ...    // UW2: the Britannia limit
+
+// one small variant per game and domain
+public interface IUWMagicVariant { int CastingTarget(int piCircle); bool MayCastHere(...); ... }
+public sealed class UWMagicVariantUw1 : IUWMagicVariant { ... }   // today's code, moved
+public sealed class UWMagicVariantUw2 : IUWMagicVariant { ... }   // read from UE, cited
+```
+
+A variant per domain (`IUWCombatVariant`, `IUWMagicVariant`, `IUWPlayerVariant`,
+`IUWCritterVariant`, `IUWObjectVariant`, `IUWTrapVariant`, `IUWMotionVariant`,
+`IUWConversationVariant`), named "variant" so it is not taken for the rule set's number classes
+(`UWRulesMagic` and the rest). So:
+
+- every UW2 difference of a domain stands in one file, in the order of UE's difference list, each
+  method citing both games' routines;
+- UW1's variant is today's code moved, not changed, and the self-check runs both variants side by
+  side;
+- every rule of the original still has one home, the shared flow; the rule index learns that a
+  variant method is part of its rule.
+
+Number differences go into the rule set, never into a variant; a variant method that only returns
+a constant is a rule set entry in disguise.
+
+**The price:** many rule classes are static today (`UWCombat`, `UWSpellCasting`,
+`UWExperience`, ...). To ask a variant they need the game, through the session they mostly have
+already (`UWGameSession`, `IUWWorld`) or as a parameter. That move comes first (phase 0), domain by
+domain, mechanical and pinned by the self-check, as the rule set's was in cleanup phase 10; the
+variant objects are introduced with UW1's variant only, so UW1 is proved unchanged before a line
+of UW2 is written.
+
+One-game systems: UW2's `UWScheduleRules` (`SCD.ARK`), `UWXClocks`, `UWJailRules`,
+`UWPitsRules`, `UWSpecialWeapons`, the new trap kinds as rows of `UWTrapTable`, the new
+conversation built-ins as rows of `UWConversationFunctionTable`, the world and level hacks. UW1's
+(mantras, talismans, the orb, Garamon) stay and are registered by UW1's profile only.
+
+The story anchors (`UWLevelIds`, `UWQuestPlaces`, `story.*`, `levels.*`) get a UW2 set in UW2's
+profile; `rules.json` stays per game (`rules.json` for UW1, `rules-uw2.json` for UW2).
 
 ### 4.4 Presentation
 
@@ -185,15 +248,21 @@ Each phase ends buildable and releasable, and **UW1 does not move**: every UW1 s
 fixture stays byte-identical, and UW1 releases can go on in between. Sizes are relative (S, M, L,
 XL); hours are estimated once phase 1 shows the pace.
 
-### Phase 0: two games in one installation (M)
+### Phase 0: the game object, both games found, the switch (L)
 
-1. `UWGame` and its detection; `UWGogInstall` reads the image's `UW2` folder and `UW2.EXE`
-   (size and hash of the GOG build), a cache per game, the save folder per game.
-2. `UWSettings` and the setup screen with a path per game; the main menu chooses the game when
-   both are installed.
-3. Tools: `uwdump info` and the self-check on a UW2 installation (strings, palettes, pictures,
-   critters - what is generic already); a second data-path variable.
-4. Statics that assume one game listed and either moved onto the session or keyed by game.
+1. `UWGame`, `IUWGameProfile` with UW1's profile only; `UWGameData` and the session carry it.
+2. The static rule classes take the game (section 4.3), domain by domain, and the variant
+   interfaces come in with UW1's variant - today's code moved. UW1 byte-identical throughout; this
+   is the step that carries the risk, so it goes first and alone.
+3. The statics that assume one game (the survey's list) keyed by game or moved onto the profile;
+   settings split into the player's and the game's.
+4. `UWGogInstall` finds both programs in the one `game.gog` (the image's `UW` and `UW2` folders,
+   `UW2.EXE` size and hash of the GOG build), a cache and a save folder per game.
+5. The switch: the main menu and the game menu offer the other game when it is installed; one
+   path builds a game from a profile, the first start included. In this phase UW2's profile is a
+   stub that shows its main menu screen and nothing more.
+6. Tools: `uwdump info` and the self-check on UW2 (strings, palettes, pictures, critters - what is
+   generic already); a data path per game.
 
 ### Phase 1: the formats (M)
 
@@ -269,21 +338,24 @@ presets checked on UW2, the documentation (README, CONTROLS, DEVIATIONS) for two
 ## 7. Risks
 
 - **UW1 regressions through shared code.** The main risk. Mitigation: phase 0 and 1 change
-  structure only, behind pins; every branch defaults to today's path for UW1; the UW1 self-check
-  runs on every change.
+  structure only, behind pins; UW1's variants and profile are today's code moved, not rewritten;
+  the UW1 self-check runs on every change.
 - **Size.** 42 levels in several worlds, with schedules and per-world hacks; UW2 is a larger game than
   UW1 and its play-through takes longer.
 - **What UE does not know.** A few constants are marked unknown (the text trap's player flag, a
   path reach whose intent is unclear); they are kept as the code has them.
 - **Single-game statics** surface late if they are missed in phase 0; the survey's list is the
-  start.
+  start, and the switch at run time finds the rest (a static left over shows as the other game's
+  data after a switch). A self-check that switches back and forth and compares makes that a test.
+- **Moving the static rule classes onto the game** touches most of the rules before UW2 adds
+  anything. It is mechanical and pinned, and it goes first, alone, with UW1's variant only.
 - **The legal line** holds only if UE's C is never pasted, not even "just this table"; tables the
   game reads from its data come from the player's own files at run time, as for UW1.
 
 ## 8. Decisions for the user
 
-1. **One application for both games**, the game chosen at start (proposed), or a separate build
-   per game.
+1. ~~One application for both games, or a build per game.~~ Decided 2026-10-27: one application,
+   the game switched at run time (section 4.1); GOG's `game.gog` holds both.
 2. **UE's decompiled C as the reference for UW2**, read and cited, never copied (proposed; the
    same rule as for the UW1 disassembly).
 3. **UE's vectors as self-check fixtures** (proposed): they are numbers computed by the original's
