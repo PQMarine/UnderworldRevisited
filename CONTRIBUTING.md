@@ -27,9 +27,13 @@ top of `main`. So:
 
 ## Before you start
 
-- **Larger changes: open an issue first.** The code changes a lot at the moment (see
+- **Larger changes: open an issue first.** The code still moves quickly between releases (see
   [ROADMAP.md](ROADMAP.md)), and a short talk beforehand saves work on both sides. Small
   fixes can come as a pull request straight away.
+- **Translations** of the port's own texts (`Languages/<code>.tsv`) are welcome as a pull
+  request; [Docs/TRANSLATING.md](Docs/TRANSLATING.md) explains the files and the tools. A
+  translation of the game's own texts (`<code>.strings.tsv`) never comes into this repository -
+  see the section on publishing there.
 - **For the game itself, the original decides.** The rules of the game - combat, magic,
   creatures, traps, objects - and the classic control scheme are meant to behave exactly like
   Ultima Underworld 1. A change there should say how the original behaves - observed in the
@@ -47,8 +51,9 @@ A good report says:
 
 - what you did, what happened and what you expected;
 - whether the original game does it differently (if you can check);
-- the release you use (for example 0.7.0), the operating system and the control scheme
-  (classic or modern);
+- the release you use (for example 0.10.0), the operating system and the control scheme
+  (classic or modern), and the language if it is not English;
+- whether a `rules.json` is in use (it changes the game's numbers);
 - for a crash or a hang, the file `Player.log` (Windows:
   `%USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited\`, Linux:
   `~/.config/unity3d/Underworld Revisited/Underworld Revisited/`).

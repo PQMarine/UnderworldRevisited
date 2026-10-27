@@ -55,6 +55,11 @@ of what is built was also read out of the original's executable.
   water edge, the deflection off walls, jumping, swimming, levitation and slow fall behave as
   in the original. Under *Motion* in the menu bar the arithmetic can run call by call as
   the original did, or as a precise, frame-rate independent computation of the same rules
+- The game's own mouse pointer in the running game, moved as under DOS, with a pointer speed
+  setting; every window drawn by the game's own interface, in two looks (Stone, in the colours
+  of the game's icon, and Plain)
+- The rule set: an optional `rules.json` changes the game's numbers and switches the original's
+  quirks and our deviations, every key listed with its default by `uwdump rules-template`
 - A Linux build (x86_64), tested in a Kubuntu VM
 - A gamepad in both control schemes: the sticks to walk and look, the buttons to act, a pointer
   on the stick for every window, a letter grid for typing, glyphs in the help (Xbox,
@@ -122,8 +127,12 @@ of what is built was also read out of the original's executable.
 
 ## Later
 
-- Move more rules from the Unity side into the engine-free layer, so the game logic can be
-  used without Unity.
+- Mod support: a mod folder, rule files and translations shipped as mods, table and picture
+  overlays, difficulty settings, a randomizer, later scripting
+  ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md) says what is built and what is open).
+- The game logic without Unity: since the code cleanup (0.8.0 to 0.9.2) the rules live in the
+  engine-free layer; what is left is handing each rule its game session instead of the
+  transitional `UWGameSession.Current`.
 - Ultima Underworld II.
 - A second front end in Unreal Engine beside the Unity one, to go all out on the effects
   (ray tracing among them). Likely after Ultima Underworld II.

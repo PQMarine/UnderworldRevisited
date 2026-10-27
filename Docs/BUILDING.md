@@ -83,7 +83,9 @@ makes the kit alone, without a built player; `-NoKit` leaves it out.
 Everything that reads and interprets the original data lives in `Assets/UWDataImport` and
 knows nothing about any game engine: file formats, strings and conversations, object and
 critter tables, the OPL2 emulation and the music drivers, the cutscene decoder, the 3D models
-from `UW.EXE`, and a growing part of the game rules. Unity enforces this - the assembly
+from `UW.EXE`, and the game rules - since the code cleanup ([CLEANUP-PLAN.md](CLEANUP-PLAN.md),
+complete with 0.9.2) the player, the creatures, combat, magic, traps, the world and the rule set
+live here, and the interface is described here for both schemes. Unity enforces this - the assembly
 definition sets `noEngineReferences`, so a single `using UnityEngine` in there fails to
 compile.
 
@@ -91,8 +93,9 @@ compile.
 Unity, as a .NET Standard 2.1 library. The tools below run on top of it, and they keep the
 claim honest: if the layer ever grew an engine dependency, their build would break.
 
-Input, camera, collision, rendering and audio output stay on the Unity side. The long-term plan
-is to move more rules across the line, so the game logic can be reused without Unity.
+Input, camera, collision, rendering and audio output stay on the Unity side. What
+is left before the game logic can run without Unity is handing each rule its game session
+instead of the transitional `UWGameSession.Current`.
 
 ## Tools
 
