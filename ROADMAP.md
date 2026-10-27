@@ -120,7 +120,8 @@ The small things first, in this order; then Ultima Underworld II.
 
 ## Later
 
-- Ultima Underworld II, after the points under Next.
+- Ultima Underworld II, after the points under Next. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the
+  plan, derived from Underworld Exhumed's decompilation of `UW2.EXE`.
 - The game logic without Unity: since the code cleanup (0.8.0 to 0.9.2) the rules live in the
   engine-free layer; what is left is handing each rule its game session instead of the
   transitional `UWGameSession.Current`.
