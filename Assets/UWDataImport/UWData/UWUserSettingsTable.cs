@@ -291,8 +291,23 @@ namespace UWDataImport.UWData
 
 		public static readonly UWFloatSettingDef SwimViewStrength = fStrength(nameof(UWUserData.SwimViewStrength), d => d.SwimViewStrength, (d, v) => d.SwimViewStrength = v);
 
-		/// <summary>Smooth (1, anything but 0) or Original (0).</summary>
-		public static readonly UWIntSettingDef MotionSmoothing = fSwitch(nameof(UWUserData.MotionSmoothing), d => d.MotionSmoothing, (d, v) => d.MotionSmoothing = v);
+		/// <summary>The motion modes: Original, Smooth, Modern.</summary>
+		public const int MotionOriginal = 0;
+
+		public const int MotionSmooth = 1;
+
+		public const int MotionModern = 2;
+
+		/// <summary>Original (0), Smooth (1) or Modern (2); another number reads as Smooth, as any
+		/// non-zero did while it was a switch.</summary>
+		public static readonly UWIntSettingDef MotionSmoothing = new UWIntSettingDef(nameof(UWUserData.MotionSmoothing), UWSettingKind.Choice,
+			d => d.MotionSmoothing, (d, v) => d.MotionSmoothing = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = MotionOriginal,
+			Max = MotionModern,
+			Fallback = MotionSmooth
+		};
 
 		/// <summary>Stepped (1, anything but 0) or even (0).</summary>
 		public static readonly UWIntSettingDef MotionViewStepped = fSwitch(nameof(UWUserData.MotionViewStepped), d => d.MotionViewStepped, (d, v) => d.MotionViewStepped = v);
@@ -300,6 +315,8 @@ namespace UWDataImport.UWData
 		public static readonly UWIntSettingDef OriginalFrameTicks = fTicks(nameof(UWUserData.OriginalFrameTicks), d => d.OriginalFrameTicks, (d, v) => d.OriginalFrameTicks = v, OriginalFrameChoices);
 
 		public static readonly UWIntSettingDef SmoothRampTicks = fTicks(nameof(UWUserData.SmoothRampTicks), d => d.SmoothRampTicks, (d, v) => d.SmoothRampTicks = v, SmoothRampChoices);
+
+		public static readonly UWIntSettingDef ModernRampTicks = fTicks(nameof(UWUserData.ModernRampTicks), d => d.ModernRampTicks, (d, v) => d.ModernRampTicks = v, SmoothRampChoices);
 
 		public static readonly UWBoolSettingDef MusicEnabled = fBool(nameof(UWUserData.MusicEnabled), d => d.MusicEnabled, (d, v) => d.MusicEnabled = v);
 
@@ -374,7 +391,7 @@ namespace UWDataImport.UWData
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
-			OriginalFrameTicks, SmoothRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
+			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
 			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language
 		};
 

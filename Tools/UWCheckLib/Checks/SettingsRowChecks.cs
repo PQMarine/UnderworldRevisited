@@ -93,8 +93,8 @@ namespace UnderworldRevisited.Tools
             Check.Str("rows: texts, ids and choices consistent", lOProblems.ToString(), string.Empty);
             // 73 since cleanup step 7.7B: the Pointer speed (UWPointer); 75 since cleanup phase 8d: the
             // windows' theme and its ground; 76 since translation wave 1 (2026-10-26): the Language; 77 since
-            // 2026-10-27: Music from recordings.
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 77);
+            // 2026-10-27: Music from recordings; 78 since 2026-10-28: Modern's ramp.
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 78);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");
@@ -139,6 +139,21 @@ namespace UnderworldRevisited.Tools
             Check.Bool("rows: Original - the frame rate takes input", UWUserSettingsTable.OriginalFrameTicks.IsEnabled(lOData), true);
             Check.Bool("rows: the motion switch itself always takes input", UWUserSettingsTable.MotionSmoothing.IsEnabled(lOData), true);
 
+            // Modern (the character motor, 2026-10-28): its own ramp row in place of Smooth's, the
+            // picture and the frame rate greyed; a number out of range reads Smooth.
+            Check.Bool("rows: Original - no Modern ramp", UWUserSettingsTable.ModernRampTicks.IsVisible(lOData), false);
+            Check.Bool("rows: Original - the Smooth ramp row shown", UWUserSettingsTable.SmoothRampTicks.IsVisible(lOData), true);
+            lOData.MotionSmoothing = 2;
+            Check.Bool("rows: Modern - its own ramp shown", UWUserSettingsTable.ModernRampTicks.IsVisible(lOData), true);
+            Check.Bool("rows: Modern - the Smooth ramp row left out", UWUserSettingsTable.SmoothRampTicks.IsVisible(lOData), false);
+            Check.Bool("rows: Modern - the picture is greyed", UWUserSettingsTable.MotionViewStepped.IsEnabled(lOData), false);
+            Check.Bool("rows: Modern - the frame rate is greyed", UWUserSettingsTable.OriginalFrameTicks.IsEnabled(lOData), false);
+            Check.Int("rows: Modern's ramp is at once by default", UWUserSettingsTable.ModernRampTicks.Read(new UWUserData()), 0);
+            lOData.MotionSmoothing = 9;
+            Check.Int("rows: motion 9 reads Smooth", UWUserSettingsTable.MotionSmoothing.Read(lOData), UWUserSettingsTable.MotionSmooth);
+            Check.Bool("rows: ... with Smooth's ramp", UWUserSettingsTable.SmoothRampTicks.IsVisible(lOData) && UWUserSettingsTable.SmoothRampTicks.IsEnabled(lOData), true);
+            lOData.MotionSmoothing = 0;
+
             // The strengths only under Smooth; a mode out of range reads Original.
             foreach (int liMode in new[] { 0, 1, 2, 9 })
             {
@@ -179,7 +194,7 @@ namespace UnderworldRevisited.Tools
             StringBuilder lOOther = new StringBuilder();
             HashSet<UWSettingDef> lOConditional = new HashSet<UWSettingDef>
             {
-                UWUserSettingsTable.SmoothRampTicks, UWUserSettingsTable.MotionViewStepped, UWUserSettingsTable.OriginalFrameTicks,
+                UWUserSettingsTable.SmoothRampTicks, UWUserSettingsTable.ModernRampTicks, UWUserSettingsTable.MotionViewStepped, UWUserSettingsTable.OriginalFrameTicks,
                 UWUserSettingsTable.HeadBobStrength, UWUserSettingsTable.WeaponJitterStrength, UWUserSettingsTable.SwimViewStrength,
                 UWUserSettingsTable.MusicVolume, UWUserSettingsTable.SoundVolume, UWUserSettingsTable.OriginalWorldResolutionFactor,
                 UWUserSettingsTable.WindowBackground

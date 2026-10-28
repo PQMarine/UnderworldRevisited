@@ -75,10 +75,12 @@ as glyphs. Under Controls in the menu bar, its Gamepad tab: the button names (Xb
 Nintendo, Steam Deck), every button, swapped sticks, inverted look and a deadzone per stick.
 
 The menu bar at the top of the main menu (and of the game menu) holds the settings. Under
-Motion you choose how the original's motion code is run: Original computes it step by step
+Motion you choose how you move: Original computes the original's motion code step by step
 as the game did in 1992 - how many steps a second is the "Original fps" setting there -,
-Smooth computes the same rules once per frame for an even picture; each setting carries a
-short explanation. Controls has the mouse look speed of the modern scheme, its inverted look
+Smooth computes the same rules once per frame for an even picture, and Modern moves you by a
+motion of its own - you slide along walls, the view stays where you look, backwards and
+sideways are almost as fast as forwards - with the original's jumps, ledges and falls; each
+setting carries a short explanation. Controls has the mouse look speed of the modern scheme, its inverted look
 up and down, and the gamepad's settings. F10 shows the menu bar for the keyboard: the arrow
 keys move, Enter or Space chooses, Escape or F10 leaves. Graphics has the
 detail levels, the classic screen at 4:3 or widened to the screen ("Classic screen

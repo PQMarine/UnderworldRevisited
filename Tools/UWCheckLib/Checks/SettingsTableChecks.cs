@@ -359,8 +359,8 @@ namespace UnderworldRevisited.Tools
         /// Compares every table entry's read value with the line UWSettingsFixtureCheck recorded for
         /// the UWUserSettings property of the same name (formatted as it formats them: bools as
         /// True/False, floats in their shortest form, the three modes by name, texts quoted, null as
-        /// null). MotionSmoothing is the property MotionSmooth; ShowsPadHints and SaveSuspended are
-        /// no settings. Returns the differences, empty when none.
+        /// null). MotionSmoothing is the property MotionMode (the number; MotionSmooth until it became
+        /// a choice of three, 2026-10-28); ShowsPadHints and SaveSuspended are no settings. Returns the differences, empty when none.
         /// </summary>
         private static string fSettingsAgainstOracle(UWUserData pOData, string psExpectedPath)
         {
@@ -379,7 +379,7 @@ namespace UnderworldRevisited.Tools
 
             foreach (UWSettingDef lODef in UWUserSettingsTable.All)
             {
-                string lsProperty = lODef.Key == "MotionSmoothing" ? "MotionSmooth" : lODef.Key;
+                string lsProperty = lODef.Key == "MotionSmoothing" ? "MotionMode" : lODef.Key;
                 string lsRead = fSettingsOracleFormat(lODef, pOData);
                 string lsRecorded;
 
@@ -417,6 +417,10 @@ namespace UnderworldRevisited.Tools
 
                 // The windows' theme and its ground read as their enums (the facade's properties, cleanup
                 // phase 8d); the other InRangeOrFallback entries are the Off/Original/Smooth modes.
+                // The motion mode reads as its number (Original, Smooth, Modern; the facade's MotionMode).
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.MotionSmoothing:
+                    return lOInt.Read(pOData).ToString(CultureInfo.InvariantCulture);
+
                 case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.WindowTheme:
                     return ((UWWindowThemeEnum)lOInt.Read(pOData)).ToString();
 

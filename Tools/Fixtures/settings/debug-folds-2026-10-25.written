@@ -80,6 +80,7 @@
     "MotionViewStepped": 0,
     "OriginalFrameTicks": 8,
     "SmoothRampTicks": 8,
+    "ModernRampTicks": 0,
     "MusicEnabled": true,
     "MusicVolume": 0.6000000238418579,
     "SoundEnabled": true,

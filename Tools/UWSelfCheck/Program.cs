@@ -90,7 +90,7 @@ namespace UnderworldRevisited.Tools
             }
 
             Stopwatch lOTotal = Stopwatch.StartNew();
-            CheckContext lOContext = new CheckContext(lsDataPath) { SavesPath = lOOptions.Saves, Record = lOOptions.Record };
+            CheckContext lOContext = new CheckContext(lsDataPath) { SavesPath = lOOptions.Saves, Record = lOOptions.Record, SweepRuns = lOOptions.SweepRuns };
 
             if (lOOptions.DataArgument != null)
                 lOContext.ImagePath = UWDataImport.Install.UWGogInstall.FindImage(lOOptions.DataArgument);

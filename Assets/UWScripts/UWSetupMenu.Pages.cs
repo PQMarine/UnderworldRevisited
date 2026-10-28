@@ -221,6 +221,10 @@ public partial class UWSetupMenu
             // (per user: a setting without effect is greyed), as the fps row is under Smooth.
             .Add(fMotionChoice(Defs.SmoothRampTicks))
             .Add(fHint(Defs.SmoothRampTicks, 10f))
+            // MODERN'S RAMP (decision 4 of the motor plan): its own value, at once by default; the
+            // row stands in place of Smooth's while Modern is chosen.
+            .Add(fMotionChoice(Defs.ModernRampTicks))
+            .Add(fHint(Defs.ModernRampTicks, 10f))
             // The picture belongs to Original: Smooth is always even (greyed otherwise).
             .Add(fMotionChoice(Defs.MotionViewStepped))
             .Add(fHint(Defs.MotionViewStepped, 10f))

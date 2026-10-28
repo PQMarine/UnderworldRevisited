@@ -69,7 +69,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - Intro, dreams and the end sequence from the original's cutscene files, with speech
 - The motion of the player, the creatures and thrown things as the original's own code, run
   call by call as the original did or as a precise, frame-rate independent computation of the
-  same rules ([Motion](Docs/CONTROLS.md#motion))
+  same rules; or, for the player, Modern: sliding along walls, the view staying where it looks,
+  with the original's jumps, ledges and falls ([Motion](Docs/CONTROLS.md#motion))
 
 **Graphics**
 

@@ -27,6 +27,9 @@ namespace UnderworldRevisited.Tools
 
         public bool Record;
 
+        /// <summary>--sweep n: the motion sweep's runs a level (MotionSweepChecks).</summary>
+        public int SweepRuns;
+
         public bool Help;
 
         /// <summary>What was wrong with the command line, or null.</summary>
@@ -60,6 +63,13 @@ namespace UnderworldRevisited.Tools
                     case "--no-data": pORunner.NoData = true; break;
                     case "--times": pORunner.Times = true; break;
                     case "--record": lOOptions.Record = true; break;
+                    case "--sweep":
+                        string lsRuns = fValue(psArgs, ref liAt, lOOptions);
+
+                        if (lsRuns != null && (!int.TryParse(lsRuns, NumberStyles.Integer, CultureInfo.InvariantCulture, out lOOptions.SweepRuns) || lOOptions.SweepRuns < 1))
+                            lOOptions.Error = "--sweep needs a positive whole number, not " + lsRuns;
+
+                        break;
                     case "--help":
                     case "-h":
                         lOOptions.Help = true;
@@ -94,6 +104,7 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("  --no-data       run only the groups that need no game data");
             Console.WriteLine("  --times         print the time every group took");
             Console.WriteLine("  --seed n        add n to every group's random seed");
+            Console.WriteLine("  --sweep n       the motion sweep runs n starts a level and prints its report");
             Console.WriteLine("  --saves <dir>   a folder of save games for the round-trip check");
             Console.WriteLine("  --root <dir>    the project root for the source and pin checks (default: the");
             Console.WriteLine("                  folder with Assets above the working directory)");

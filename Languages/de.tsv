@@ -87,12 +87,19 @@ setting.MotionSmoothing	Bewegung
 setting.MotionSmoothing.hint	Original: rechnet wie das Original, samt seiner Rundungen. Fließend: dieselben Regeln ohne die Rundungen. Fließend bewegt sich bei jeder Bildrate gleich und schont vielleicht den Magen.
 setting.MotionSmoothing.choice.original	Original
 setting.MotionSmoothing.choice.smooth	Fließend
+setting.MotionSmoothing.choice.modern	Modern
 setting.SmoothRampTicks	Ansprechen
 setting.SmoothRampTicks.hint	Wie lange es in Fließend dauert, in Gang zu kommen und anzuhalten. 0,6 s ist das Original auf einem langsamen PC, 0,3 s auf dem PC, für den DOSBox mit 30000 Zyklen steht. Kürzer fühlt sich direkter an. Original nutzt dafür seine eigene Bildrate.
 setting.SmoothRampTicks.choice.16	0,6 s
 setting.SmoothRampTicks.choice.8	0,3 s
 setting.SmoothRampTicks.choice.4	0,15 s
 setting.SmoothRampTicks.choice.0	Sofort
+setting.ModernRampTicks	Ansprechen
+setting.ModernRampTicks.hint	Wie lange es in Modern dauert, in Gang zu kommen und anzuhalten, ein eigener Wert neben dem von Fließend.
+setting.ModernRampTicks.choice.16	0,6 s
+setting.ModernRampTicks.choice.8	0,3 s
+setting.ModernRampTicks.choice.4	0,15 s
+setting.ModernRampTicks.choice.0	Sofort
 setting.MotionViewStepped	Bild
 setting.MotionViewStepped.hint	Nur für Original. Gleichmäßig: das Bild bewegt sich mit jedem Bildaufbau ein wenig. Gestuft: das Bild bewegt sich nur, wenn das Spiel gerechnet hat, wie auf einem alten PC. Fließend ist immer gleichmäßig.
 setting.MotionViewStepped.choice.even	Gleichmäßig

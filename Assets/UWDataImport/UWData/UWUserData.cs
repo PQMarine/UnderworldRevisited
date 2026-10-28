@@ -291,11 +291,12 @@ namespace UWDataImport.UWData
 		/// <summary>How strong the Smooth swimming sway is, 0.1 to 1.</summary>
 		public float SwimViewStrength = 1f;
 
-		/// <summary>The player's motion on the core (2026-10-06, per user: "per Schalter
-		/// einstellbar, wer es nah am Original haben moechte kann das waehlen"): 0 Original - one
-		/// motion frame per rendered frame with the ticks that passed, whole units, as UW.EXE
-		/// runs it; 1 Smooth - fixed steps of the original's frame length with the view drawn
-		/// between them (UWPlayerMovement). Smooth by default.</summary>
+		/// <summary>The player's motion (2026-10-06, per user: "per Schalter einstellbar, wer es nah
+		/// am Original haben moechte kann das waehlen"): 0 Original - the core at the original's
+		/// frame length, whole units, as UW.EXE runs it; 1 Smooth - the core's precision mode, one
+		/// frame per rendered frame; 2 Modern - the character motor (Docs/MOTOR-PLAN.md, 2026-10-28).
+		/// Another number reads as Smooth, as any non-zero did when this was a switch. Smooth by
+		/// default.</summary>
 		public int MotionSmoothing = 1;
 
 		/// <summary>The picture of the motion (2026-10-06, per user: "soll jeder selbst einstellen"):
@@ -315,6 +316,10 @@ namespace UWDataImport.UWData
 		/// ticks - 16 = 0.56 s to the run (the original at 16 fps), 8 = 0.31 s (at 32 fps, the
 		/// user's DOSBox), 4 = 0.16 s, 0 = at once. 8 by default.</summary>
 		public int SmoothRampTicks = 8;
+
+		/// <summary>Modern's ramp, the same choices as SmoothRampTicks with a value of its own
+		/// (decision 4 of the motor plan, per user 2026-10-27): at once (0) by default.</summary>
+		public int ModernRampTicks;
 
 		/// <summary>Music and sound, on or off and how loud - see UWSoundOptions. The values
 		/// here are the ones the settings asset starts with, so a file written before this

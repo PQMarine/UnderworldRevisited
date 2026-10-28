@@ -457,9 +457,14 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // 4, 8, 12 or 16 ticks; the user matched 8 = 32 fps against DOSBox at 30000 cycles).
         int liStep = UWMotionStepper.StepTicks(lbSmooth, miCoreStepTicks, UWUserSettings.OriginalFrameTicks);
 
+        // MODERN (the character motor, Docs/MOTOR-PLAN.md): the precision mode's one frame per
+        // rendered frame, the motion by the motor, its own ramp.
+        bool lbModern = lbSmooth && UWUserSettings.MotionModern;
+
         lOMotion.Precise = lbSmooth;
         lOMotion.FineTicks = lbSmooth;
-        lOMotion.RampFrameTicks = UWUserSettings.SmoothRampTicks;
+        lOMotion.Modern = lbModern;
+        lOMotion.RampFrameTicks = lbModern ? UWUserSettings.ModernRampTicks : UWUserSettings.SmoothRampTicks;
 
         // A long frame does not become a long step: as the original caps its frame at 0x40
         // ticks, at most that many are simulated here and the rest is dropped (UWMotionStepper).

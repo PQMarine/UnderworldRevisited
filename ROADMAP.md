@@ -72,17 +72,16 @@ of what is built was also read out of the original's executable.
   of the original on a real MT-32
 - Music from recordings (suggested on Reddit): recordings the player supplies, one file per
   piece, played in place of the synthesizer; a piece without one plays on the device
+- Modern movement, a third choice under *Motion*: a motion of its own in place of the
+  original's code for the player - sliding along walls and round corners, the view staying where
+  it looks, backwards and sideways at three quarters of the forward speed - with the original's
+  jumps, steps, ledges, falls, water, lava, triggers and doors; compared with the original's
+  motion on all nine levels before it was played
 
 ## Next
 
 In this order; then Ultima Underworld II.
 
-- **Modern movement**, a third choice under *Motion* beside Original and Smooth. The motion is the
-  original's own code, and some of its rules feel dated today: the view turns when the player runs
-  into a wall, the player gets stuck at corners, diagonal walls and doors, and walking backwards
-  or sideways is slow. Modern changes how it feels - the view stays where it is, the player slides
-  along walls, all directions move at a usual speed - and keeps the original's jump height and
-  reach, so no puzzle changes. Original stays as it is.
 - **Items at a door in the Palette mode.** The Palette mode places items and creatures in the
   original's draw order (tile by tile, doors split the objects of their tile, a bridge's deck
   covers what lies under it); the order of items among themselves at a door still follows the

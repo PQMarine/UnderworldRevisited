@@ -163,14 +163,20 @@ ledges, doors and water. How that code is run is a choice, under *Motion* in the
 which folds out over the main menu and, since the player is on this code, over the game menu
 of the modern scheme and the options panel of the classic one.
 
-- **Motion: Original or Smooth.** Original runs the original's arithmetic call by call,
+- **Motion: Original, Smooth or Modern.** Original runs the original's arithmetic call by call,
   including its rounding, at the frame rate chosen below. Smooth runs the same rules without
   the rounding: the fraction below one unit is kept, the ramps run per second, and the game
   computes the motion once per rendered frame with the time that frame took, so the picture is
   even and the speeds are the same at every frame rate. Smooth is the default; players who get
-  motion sick are the reason it exists.
-- **Response** (Smooth): how long starting and stopping take - 0.6 s is the original on a slow
-  PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for.
+  motion sick are the reason it exists. Modern moves the player by a motion of its own: you slide
+  along walls, round corners, posts and doors, the view stays where you look, and backwards and
+  sideways run at three quarters of the forward speed. The original's rules stay: the jump's
+  height and reach, the step height, ledges (walking slowly you stop at the edge), falls and
+  their damage, water, lava, the spells of motion, move triggers and doors. Modern works in both
+  control schemes.
+- **Response** (Smooth and Modern, a value for each): how long starting and stopping take - 0.6 s
+  is the original on a slow PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for. Modern
+  starts at once by default.
 - **Picture** (Original): Even draws the view between two calls; Stepped shows it only when a
   call has run, the picture of an old PC.
 - **Original fps** (Original): how often per second the original's code runs - 64, 32, 21 or

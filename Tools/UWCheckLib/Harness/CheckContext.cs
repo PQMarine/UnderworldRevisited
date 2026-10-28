@@ -20,6 +20,10 @@ namespace UnderworldRevisited.Tools
         /// <summary>--record: the pin checks write their files instead of comparing.</summary>
         public bool Record;
 
+        /// <summary>--sweep n: the motion sweep runs n starts a level and prints its report (0: the
+        /// short regular sweep, no report).</summary>
+        public int SweepRuns;
+
         /// <summary>The game.gog the data folder was extracted from, or null (a DATA folder given
         /// directly) - for a check that needs a file the extraction lacks.</summary>
         public string ImagePath;

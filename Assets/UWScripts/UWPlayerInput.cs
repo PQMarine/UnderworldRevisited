@@ -398,6 +398,9 @@ public sealed class UWPlayerInput
         if (lbSide && !lbAlong)
         {
             pOMotion.MotionCommand = lODirection.x > 0f ? UWPlayerMotion.Command.SlideRight : UWPlayerMotion.Command.SlideLeft;
+            // The walk for the slide too: Modern runs it at three quarters of the walk, so the slow
+            // walk slows it (per user, 2026-10-28); the core's slides keep their own speed.
+            pOMotion.Walk = fStickWalk(lODirection);
 
             return;
         }

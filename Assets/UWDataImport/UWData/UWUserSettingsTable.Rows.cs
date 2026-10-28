@@ -174,18 +174,24 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// THE MOTION DIALOG'S SETTINGS, with the explanations the user asked for (2026-10-06: they
-		/// "need an explanation in any case"). The ramp belongs to Smooth, the picture and the frame
-		/// rate to Original: each is greyed under the other mode (per user: a setting without effect
-		/// is greyed). A strength row is there only while its mode is Smooth.
+		/// "need an explanation in any case"). The ramp belongs to Smooth and Modern - each its own
+		/// value, the row of the mode in force shown (Smooth's greyed under Original) -, the picture
+		/// and the frame rate to Original: each is greyed under the other modes (per user: a setting
+		/// without effect is greyed). A strength row is there only while its mode is Smooth.
 		/// </summary>
 		private static void fDescribeMotion()
 		{
 			fText(MotionSmoothing, true);
-			fChoices(MotionSmoothing, new[] { "original", "smooth" });
+			fChoices(MotionSmoothing, new[] { "original", "smooth", "modern" });
 
 			fText(SmoothRampTicks, true);
 			fChoices(SmoothRampTicks, new[] { "16", "8", "4", "0" });
-			SmoothRampTicks.EnabledWhen = d => MotionSmoothing.ReadOn(d);
+			SmoothRampTicks.EnabledWhen = d => MotionSmoothing.Read(d) == MotionSmooth;
+			SmoothRampTicks.VisibleWhen = d => MotionSmoothing.Read(d) != MotionModern;
+
+			fText(ModernRampTicks, true);
+			fChoices(ModernRampTicks, new[] { "16", "8", "4", "0" });
+			ModernRampTicks.VisibleWhen = d => MotionSmoothing.Read(d) == MotionModern;
 
 			fText(MotionViewStepped, true);
 			fChoices(MotionViewStepped, new[] { "even", "stepped" });

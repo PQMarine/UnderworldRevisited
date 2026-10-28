@@ -20,6 +20,15 @@ namespace UWDataImport.UWData
 	/// pointer scheme, see seg034_2F89_4E in UWGameClock), WalkOnSurfaceTypes_seg034_93D (the head bob, the lava
 	/// damage of one point on one frame in five, the shakes), the swim checks of the periodic
 	/// update, and the easy step (see seg008_1B2A_216 in UWEasyMovement). Reading aid: the private notes motion-player.md.
+	///
+	/// MODERN (the character motor, Docs/MOTOR-PLAN.md M4, 2026-10-28): with Modern set, a frame
+	/// keeps everything shared - the commands and their speeds by state, the ramp, the jump's and
+	/// the fly commands' vertical speeds, the tile state machine, the fall's damage from the impact,
+	/// the triggers and pushes through the world - and hands only the motion to UWCharacterMotor:
+	/// the body slides along walls and objects, the view never follows a deflection, back and the
+	/// sides run at three quarters of the forward speed (decision 1). The params stay the one state
+	/// the host and the save read; a change from outside (a placement, the easy step, a bounce)
+	/// is taken over at the next frame.
 	/// </summary>
 	public sealed class UWPlayerMotion
 	{
@@ -142,6 +151,40 @@ namespace UWDataImport.UWData
 
 		/// <summary>The handler 0x284E: callback mask 0x1100, the ignore mask set per frame.</summary>
 		private readonly UWMotionHandler mOHandler;
+
+		/// <summary>The COMOBJ table, for the motor's objects.</summary>
+		private readonly UWCommonObjectProperties mOProperties;
+
+		/// <summary>The character motor of Modern, made at its first frame.</summary>
+		private UWCharacterMotor mOMotor;
+
+		/// <summary>The params as Modern's last frame wrote them: a difference at the next frame is a
+		/// change from outside, which the motor takes over.</summary>
+		private int miModernX = -1;
+
+		private int miModernY;
+
+		private int miModernZ;
+
+		private int miModernXFrac;
+
+		private int miModernYFrac;
+
+		private int miModernZFrac;
+
+		private int miModernVz;
+
+		private int miModernGravity;
+
+		/// <summary>The motion of the character motor in place of the core (Modern; the host sets it
+		/// with the precision mode and fine ticks).</summary>
+		public bool Modern;
+
+		/// <summary>The motor of Modern (null before its first frame), for the host and the checks.</summary>
+		public UWCharacterMotor Motor
+		{
+			get { return mOMotor; }
+		}
 
 		/// <summary>The player's COMOBJ size (0x7F): radius byte 1 &amp; 7, height byte 0.</summary>
 		private readonly int miRadius;
@@ -396,6 +439,7 @@ namespace UWDataImport.UWData
 			MotionWeight = lORules.MotionWeight;
 
 			mOWorld = pOWorld;
+			mOProperties = pOProperties;
 			Core = new UWMotionCore(pOWorld, pOProperties);
 			Params = new UWMotionParams { Index = 1, Step = 8, Elasticity = 5, Style = UWMotionParams.SlideStyle };
 			mOHandler = new UWMotionHandler { CallbackMask = 0x1100, Callback = fCallback };
@@ -492,6 +536,13 @@ namespace UWDataImport.UWData
 			p.Radius = miRadius;
 			p.Height = miHeight;
 			miFrameDt = piDt;
+
+			if (Modern)
+			{
+				fModernFrame(piDt);
+
+				return true;
+			}
 
 			fInitialCalc(piDt);
 
@@ -634,21 +685,21 @@ namespace UWDataImport.UWData
 
 				case Command.Back:
 					liYaw = (CameraYaw - 0x8000) & 0xFFFF;
-					liTarget = BackSpeed;
+					liTarget = Modern ? fModernAside(fModernWalk()) : BackSpeed;
 					Side = -2;
 					miCommandOffset = -0x8000;
 					break;
 
 				case Command.SlideLeft:
 					liYaw = (CameraYaw - 0x4000) & 0xFFFF;
-					liTarget = SlideSpeed;
+					liTarget = Modern ? fModernAside(fModernWalk()) : SlideSpeed;
 					Side = -1;
 					miCommandOffset = -0x4000;
 					break;
 
 				case Command.SlideRight:
 					liYaw = (CameraYaw + 0x4000) & 0xFFFF;
-					liTarget = SlideSpeed;
+					liTarget = Modern ? fModernAside(fModernWalk()) : SlideSpeed;
 					Side = 1;
 					miCommandOffset = 0x4000;
 					break;
@@ -687,14 +738,30 @@ namespace UWDataImport.UWData
 		private int fFreeTarget()
 		{
 			int liForward = I16(I16((Walk >> 2) * ForwardSpeed) / 32);
-			int liSide = (int)((long)SlideSpeed * Walk / WalkRun);
-			int liBack = (int)((long)BackSpeed * Walk / WalkRun);
+			int liSide = Modern ? fModernAside(Walk) : (int)((long)SlideSpeed * Walk / WalkRun);
+			int liBack = Modern ? fModernAside(Walk) : (int)((long)BackSpeed * Walk / WalkRun);
 			int liAngle = System.Math.Abs((int)(short)(FreeOffset & 0xFFFF));
 
 			if (liAngle <= 0x4000)
 				return liForward + (int)((long)(liSide - liForward) * liAngle / 0x4000);
 
 			return liSide + (int)((long)(liBack - liSide) * (liAngle - 0x4000) / 0x4000);
+		}
+
+		/// <summary>The walk value Modern's back and slides scale by: the input's (the modern scheme's
+		/// keys and stick, the slow walk lowering it - per user, 2026-10-28: "Shift should count for
+		/// sideways and backwards too"), else the run's (the classic scheme's keys and the pointer's
+		/// bottom zone send no walk with them, as the original's fixed speeds need none).</summary>
+		private int fModernWalk()
+		{
+			return Walk > 0 ? Walk : WalkRun;
+		}
+
+		/// <summary>Modern's speed to the side and back (decision 1, per user 2026-10-27): three
+		/// quarters of the walk's forward speed at the walk value piWalk.</summary>
+		private int fModernAside(int piWalk)
+		{
+			return (I16(I16((piWalk >> 2) * ForwardSpeed) / 32) * 3) / 4;
 		}
 
 		/// <summary>Case 7 of the command: the take-off.</summary>
@@ -755,17 +822,8 @@ namespace UWDataImport.UWData
 		private void fApplyMotion()
 		{
 			UWMotionParams p = Params;
-			int liTileX = (p.X >> 8) & 0x3F;
-			int liTileY = (p.Y >> 8) & 0x3F;
 
-			if (liTileX != CurrentTileX || liTileY != CurrentTileY)
-			{
-				Last.TileChanged = true;
-				Last.OldTileX = CurrentTileX;
-				Last.OldTileY = CurrentTileY;
-				CurrentTileX = liTileX;
-				CurrentTileY = liTileY;
-			}
+			fApplyTile();
 
 			int liHeading = p.Heading & 0xFFFF;
 
@@ -797,12 +855,40 @@ namespace UWDataImport.UWData
 				}
 			}
 
+			fApplyImpact(p.Vz != 0);
+			fProcessTileState(p.Contact, false);
+			UpdateNeeded = false;
+		}
+
+		/// <summary>The tile relink of ApplyPlayerMotion: the host's, when the tile changed.</summary>
+		private void fApplyTile()
+		{
+			UWMotionParams p = Params;
+			int liTileX = (p.X >> 8) & 0x3F;
+			int liTileY = (p.Y >> 8) & 0x3F;
+
+			if (liTileX != CurrentTileX || liTileY != CurrentTileY)
+			{
+				Last.TileChanged = true;
+				Last.OldTileX = CurrentTileX;
+				Last.OldTileY = CurrentTileY;
+				CurrentTileX = liTileX;
+				CurrentTileY = liTileY;
+			}
+		}
+
+		/// <summary>The impact block of ApplyPlayerMotion: the value doubled while the vertical speed
+		/// stands (pbDoubled), the Acrobat check, the damage and the landing sound.</summary>
+		private void fApplyImpact(bool pbDoubled)
+		{
+			UWMotionParams p = Params;
+
 			if (p.Impact != 0 && p.Elasticity > 0)
 			{
 				UWRulesMotion.ImpactRules lORules = mOWorld.Session.Rules.Motion.Impact;
 				int liValue = (p.Impact & 0xFFFF) >> 8;
 
-				if (p.Vz != 0)
+				if (pbDoubled)
 					liValue <<= 1;
 
 				if (UWSkillCheck.IsSuccess(UWSkillCheck.Check(AcrobatSkill, liValue * lORules.AcrobatCheckFactor)))
@@ -821,9 +907,181 @@ namespace UWDataImport.UWData
 
 				p.Impact = 0;
 			}
+		}
 
+		// ------------------------------------------------- Modern: the character motor
+
+		/// <summary>
+		/// One frame of Modern. The shared part as the core's frame has it (fInitialCalc: the command,
+		/// the ramp, the jump, the fly commands, the ignore mask), then the motor: the velocity along
+		/// the motion yaw at the params' speed - the original reads no command in the air, so in the
+		/// air the speed stands as it took off -, the vertical speed and gravity, the ledge rule of
+		/// the player's callback (below three tenths of the forward speed, not falling), no fall under
+		/// levitation or flight. Back into the params: the position with its fractions, the vertical
+		/// speed and gravity, the contact state; a landing makes the impact the core's bounce would
+		/// (the vertical speed over 15, times 15 less the elasticity), doubled where the core bounces
+		/// on (its vertical speed after the bounce at 0x8D or more). Then the tile, the impact, the
+		/// tile state - the shared rest of ApplyPlayerMotion; no head-on stop, no deflection.
+		/// </summary>
+		private void fModernFrame(int piDt)
+		{
+			UWMotionParams p = Params;
+
+			if (mOMotor == null)
+				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight };
+
+			fInitialCalc(piDt);
+			fModernTakeOver();
+
+			UWCharacterMotor m = mOMotor;
+			double lfYaw = (p.Heading & 0xFFFF) * (System.Math.PI * 2.0 / 65536.0);
+			double lfTicks = p.FineTicks ? piDt / (double)UWMotionParams.FineTicksPerTick : piDt;
+			bool lbFloats = (Abilities & (AbilityLevitate | AbilityFly)) != 0;
+
+			m.Vx = System.Math.Sin(lfYaw) * p.Speed / 65536.0;
+			m.Vy = System.Math.Cos(lfYaw) * p.Speed / 65536.0;
+			m.NoFall = lbFloats;
+			m.HoldAtLedges = !lbFloats && p.Vz == 0 && I16(p.Speed * 10) < I16(ForwardSpeed * 3);
+
+			if (m.Grounded && (p.Vz > 0 || p.Gravity != 0))
+				m.Jump(p.Vz, p.Gravity);
+
+			m.Advance(lfTicks);
+
+			// A wall met in the air took the motion into it: the speed and the motion yaw the
+			// next frames keep in the air are what is left (the original reads no command there).
+			if (System.Math.Abs(m.Vx - (System.Math.Sin(lfYaw) * p.Speed / 65536.0)) > 1.0e-12
+				|| System.Math.Abs(m.Vy - (System.Math.Cos(lfYaw) * p.Speed / 65536.0)) > 1.0e-12)
+			{
+				double lfSpeed = System.Math.Sqrt((m.Vx * m.Vx) + (m.Vy * m.Vy)) * 65536.0;
+
+				p.Speed = UWRounding.Floor(lfSpeed + 0.5);
+
+				if (p.Speed > 0)
+					MotionYaw = UWRounding.Floor((System.Math.Atan2(m.Vx, m.Vy) * 65536.0 / (System.Math.PI * 2.0)) + 0.5) & 0xFFFF;
+			}
+
+			fModernWriteBack();
+			fApplyTile();
+
+			// THE IMPACTS as the core's: a wall met in the air adds the speed it took times
+			// (15 - elasticity) / 15 (fTurnAlongWall's bounce; per user 2026-10-28, a jump that
+			// bounced off a ledge's face did no damage), doubled while the body is still in the air;
+			// a landing the core's bounce (the vertical speed over 15, times 15 less the elasticity),
+			// doubled where the core bounces on (its vertical speed after the bounce at 0x8D or more).
+			bool lbDoubled = !m.Grounded;
+
+			if (m.WallImpact > 0.0)
+				p.Impact = I16(p.Impact + (I16(UWRounding.Floor(m.WallImpact) * (15 - p.Elasticity)) / 15));
+
+			if (m.LandedVz < 0.0)
+			{
+				int liVz = (int)m.LandedVz;
+				int liBounce = -(liVz / 15);
+
+				p.Impact = I16(p.Impact + System.Math.Abs(I16(liBounce * (15 - p.Elasticity))));
+				lbDoubled = I16(liBounce * p.Elasticity) >= FlySpeed;
+			}
+
+			if (p.Impact != 0)
+				fApplyImpact(lbDoubled);
+
+			// The snapshot before the state machine: what it does to the vertical speed and gravity
+			// (the levitation's decay, the slow fall's cap, the fall's gravity) is taken over next frame.
+			fModernSnapshot();
 			fProcessTileState(p.Contact, false);
 			UpdateNeeded = false;
+		}
+
+		/// <summary>The params' state into the motor where it changed from outside since Modern's
+		/// last frame (the first frame, a placement, the easy step, a bounce, the state machine's
+		/// gravity and vertical speed).</summary>
+		private void fModernTakeOver()
+		{
+			UWMotionParams p = Params;
+			UWCharacterMotor m = mOMotor;
+
+			if (p.X != miModernX || p.Y != miModernY || p.Z != miModernZ
+				|| p.XFrac != miModernXFrac || p.YFrac != miModernYFrac || p.ZFrac != miModernZFrac)
+			{
+				m.Place((p.X + (p.XFrac / 256.0)) / 256.0, (p.Y + (p.YFrac / 256.0)) / 256.0, p.Z + (p.ZFrac / 256.0));
+
+				if ((p.Contact & UWMotionTables.ContactAirborne) != 0 || p.Gravity != 0 || p.Vz != 0)
+					m.Jump(p.Vz, p.Gravity);
+			}
+
+			if (p.Vz != miModernVz || p.Gravity != miModernGravity)
+			{
+				if (m.Grounded && (p.Vz > 0 || p.Gravity != 0))
+					m.Jump(p.Vz, p.Gravity);
+				else
+				{
+					m.Vz = p.Vz;
+					m.Gravity = p.Gravity;
+				}
+			}
+		}
+
+		/// <summary>The motor's state into the params: the position in fine units and their
+		/// fractions, the vertical speed and gravity (none on the ground), the contact state - in the
+		/// air 0x10, on an object the ground, on a floor the core's own sample at the spot
+		/// (ProcessMotionTileHeights, as PlacePlayerInTile takes it: the water edge too), unless that
+		/// sample finds no support, then the terrain of the floor the motor stands on.</summary>
+		private void fModernWriteBack()
+		{
+			UWMotionParams p = Params;
+			UWCharacterMotor m = mOMotor;
+			double lfX = m.X * 256.0;
+			double lfY = m.Y * 256.0;
+			double lfZ = m.Zf;
+
+			p.X = UWRounding.Floor(lfX) & 0xFFFF;
+			p.Y = UWRounding.Floor(lfY) & 0xFFFF;
+			p.Z = UWRounding.Floor(lfZ) & 0xFFFF;
+			p.XFrac = UWRounding.Floor((lfX - System.Math.Floor(lfX)) * 256.0) & 0xFF;
+			p.YFrac = UWRounding.Floor((lfY - System.Math.Floor(lfY)) * 256.0) & 0xFF;
+			p.ZFrac = UWRounding.Floor((lfZ - System.Math.Floor(lfZ)) * 256.0) & 0xFF;
+			p.Heading = MotionYaw & 0xFFFF;
+
+			if (m.Grounded)
+			{
+				p.Vz = 0;
+				p.VzFrac = 0;
+				p.Gravity = 0;
+
+				if (m.OnObject)
+					p.Contact = UWMotionTables.ContactGround;
+				else
+				{
+					Core.SetCalc(p.X >> 5, p.Y >> 5, (p.Z >> 3) & 0x7F, miRadius, miHeight, 1);
+					Core.ProcessMotionTileHeights(p.Step);
+
+					int liContact = Core.ContactStateOf(Core.Flags | Core.AllFlags);
+
+					p.Contact = (liContact & UWMotionTables.ContactAirborne) != 0 ? 1 << m.GroundTerrain : liContact;
+				}
+			}
+			else
+			{
+				p.Vz = I16((int)m.Vz);
+				p.Gravity = (int)m.Gravity;
+				p.Contact = UWMotionTables.ContactAirborne;
+			}
+		}
+
+		/// <summary>The params as this frame leaves them, to tell an outside change at the next.</summary>
+		private void fModernSnapshot()
+		{
+			UWMotionParams p = Params;
+
+			miModernX = p.X;
+			miModernY = p.Y;
+			miModernZ = p.Z;
+			miModernXFrac = p.XFrac;
+			miModernYFrac = p.YFrac;
+			miModernZFrac = p.ZFrac;
+			miModernVz = p.Vz;
+			miModernGravity = p.Gravity;
 		}
 
 		// ------------------------------------------------- The state machine
@@ -1191,7 +1449,14 @@ namespace UWDataImport.UWData
 
 			Core.Mover = Body;
 
-			if (!Core.CheckIfItemFitsInTile(UWObjectMechanics.AdventurerObjectId, 1, I16(liX) / 0x20, I16(liY) / 0x20,
+			if (Modern)
+			{
+				// Decision 3 of the motor plan: the easy step asks the motor whether the body can
+				// stand at the target; the state there is the motor's ground, or the core's sample.
+				if (!fModernFits(liX, liY, lbRun || lbFloat, out liStandZ, out liState))
+					return false;
+			}
+			else if (!Core.CheckIfItemFitsInTile(UWObjectMechanics.AdventurerObjectId, 1, I16(liX) / 0x20, I16(liY) / 0x20,
 				(p.Z >> 3) & 0x7F, lbRun || lbFloat, UWEasyMovement.DropAllowanceZPos, out liStandZ, out liState))
 				return false;
 
@@ -1237,6 +1502,44 @@ namespace UWDataImport.UWData
 				if (lORecord.Body.ItemId == UWObjectMechanics.MoveTriggerId)
 					mOWorld.TriggerMove(1, lORecord.Body.Index, (CurrentTileX + lORecord.Dx) & 0x3F, (CurrentTileY + lORecord.Dy) & 0x3F);
 			}
+
+			return true;
+		}
+
+		/// <summary>Modern's answer to the easy step: the motor at the player's spot and height asked
+		/// whether it can stand at the target (fine piX, piY); the stand height in coarse z and the
+		/// contact state there (an object carries as ground; a floor by the core's sample, or its
+		/// terrain where the sample finds no support).</summary>
+		private bool fModernFits(int piX, int piY, bool pbMayDrop, out int piStandZ, out int piState)
+		{
+			UWMotionParams p = Params;
+
+			piStandZ = 0;
+			piState = UWMotionTables.ContactGround;
+
+			if (mOMotor == null)
+				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight };
+
+			mOMotor.Place((p.X + (p.XFrac / 256.0)) / 256.0, (p.Y + (p.YFrac / 256.0)) / 256.0, p.Z + (p.ZFrac / 256.0));
+
+			double lfGround;
+			bool lbOnObject;
+			int liTerrain;
+
+			if (!mOMotor.TryStand((piX & 0xFFFF) / 256.0, (piY & 0xFFFF) / 256.0, pbMayDrop, out lfGround, out lbOnObject, out liTerrain))
+				return false;
+
+			piStandZ = UWRounding.Floor(lfGround) >> 3;
+
+			if (lbOnObject)
+				return true;
+
+			Core.SetCalc(I16(piX) / 0x20, I16(piY) / 0x20, piStandZ & 0x7F, miRadius, miHeight, 1);
+			Core.ProcessMotionTileHeights(p.Step);
+
+			int liContact = Core.ContactStateOf(Core.Flags | Core.AllFlags);
+
+			piState = (liContact & UWMotionTables.ContactAirborne) != 0 ? 1 << liTerrain : liContact;
 
 			return true;
 		}

@@ -285,6 +285,17 @@ public static class UWUserSettings
     /// original's arithmetic call by call at its frame length (false, Original).</summary>
     public static bool MotionSmooth { get => Defs.MotionSmoothing.ReadOn(fGet()); set => Defs.MotionSmoothing.WriteOn(fGet(), value); }
 
+    /// <summary>The motion mode as its number: 0 Original, 1 Smooth, 2 Modern (another stored number
+    /// reads as Smooth).</summary>
+    public static int MotionMode { get => Defs.MotionSmoothing.Read(fGet()); set => Defs.MotionSmoothing.Write(fGet(), value); }
+
+    /// <summary>Whether the player's motion is Modern, the character motor (the precision mode's
+    /// frame on the motor; MotionSmooth is true for it as well).</summary>
+    public static bool MotionModern => Defs.MotionSmoothing.Read(fGet()) == Defs.MotionModern;
+
+    /// <summary>Modern's ramp in ticks, one of SmoothRampChoices (0 at once by default).</summary>
+    public static int ModernRampTicks { get => Defs.ModernRampTicks.Read(fGet()); set => Defs.ModernRampTicks.Write(fGet(), value); }
+
     /// <summary>Whether the view is set once per simulation step (true, the original's picture
     /// rate) or drawn between the steps (false, even).</summary>
     public static bool MotionViewStepped { get => Defs.MotionViewStepped.ReadOn(fGet()); set => Defs.MotionViewStepped.WriteOn(fGet(), value); }

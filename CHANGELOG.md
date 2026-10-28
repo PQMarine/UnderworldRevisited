@@ -8,6 +8,18 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.12.0] - 2026-10-28
+
+### Added
+- Modern motion, a third choice under *Motion* beside Original and Smooth: you slide along walls
+  and round corners, posts and doors instead of sticking, the view no longer turns when you run
+  into a wall, and backwards and sideways run at three quarters of the forward speed (the slow
+  walk slows them too). Jumps, steps, ledges, falls and their damage, bouncing off a wall in a
+  jump, water, lava, the spells of motion, move triggers and doors work as in the original - a
+  hard jump stays as hard as it was. It has its own *Response*, at once by default, and works in
+  both control schemes. It is a motion of its own, checked against the original's on all nine
+  levels before it was played.
+
 ## [0.11.0] - 2026-10-27
 
 ### Added

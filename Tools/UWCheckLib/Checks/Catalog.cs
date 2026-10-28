@@ -92,6 +92,11 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Flights", pOContext => fCheckFlights(pOContext), true, "motion", "data", "original");
             lOCatalog.Add("CreatureMotion", pOContext => fCheckCreatureMotion(pOContext.Data), true, "motion", "original");
             lOCatalog.Add("PlayerMotion", pOContext => fCheckPlayerMotion(pOContext.Data), true, "motion", "original");
+            lOCatalog.Add("MotionSweep", pOContext => fCheckMotionSweep(pOContext), true, "motion", "level");
+            lOCatalog.Add("CharacterMotor", pOContext => fCheckCharacterMotor(), false, "motion");
+            lOCatalog.Add("CharacterMotorHeights", pOContext => fCheckCharacterMotorHeights(pOContext.Data), true, "motion");
+            lOCatalog.Add("CharacterMotorObjects", pOContext => fCheckCharacterMotorObjects(pOContext.Data), true, "motion");
+            lOCatalog.Add("ModernMotion", pOContext => fCheckModernMotion(pOContext.Data), true, "motion");
             lOCatalog.Add("MissileWalkIn", pOContext => fCheckMissileWalkIn(pOContext.Data), true, "motion", "combat", "original");
             lOCatalog.Add("EasyStep", pOContext => fCheckEasyStep(pOContext.Data), true, "motion", "original");
             lOCatalog.Add("PointerScheme", pOContext => fCheckPointerScheme(pOContext.Data), true, "input", "motion", "original");

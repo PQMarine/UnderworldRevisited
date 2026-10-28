@@ -108,15 +108,22 @@ namespace UWDataImport.UWData
 
 			// The Motion dialog (the explanations the user asked for, 2026-10-06).
 			fAdd("setting.MotionSmoothing", "Motion");
-			fAdd("setting.MotionSmoothing.hint", "Original: calculates like the original, including its rounding. Smooth: the same rules without the rounding. Smooth moves the same at every frame rate and may be easier on the stomach.");
+			fAdd("setting.MotionSmoothing.hint", "Original: calculates like the original, including its rounding. Smooth: the same rules without the rounding. Smooth moves the same at every frame rate and may be easier on the stomach. Modern: you slide along walls and round corners, the view stays where you look, sideways and backwards are almost as fast as forwards. Jumps, steps and ledges stay as in the original.");
 			fAdd("setting.MotionSmoothing.choice.original", "Original");
 			fAdd("setting.MotionSmoothing.choice.smooth", "Smooth");
+			fAdd("setting.MotionSmoothing.choice.modern", "Modern");
 			fAdd("setting.SmoothRampTicks", "Response");
 			fAdd("setting.SmoothRampTicks.hint", "How long it takes to get going and to stop in Smooth. 0.6 s is the original on a slow PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for. Shorter feels more direct. Original uses its own frame rate for this.");
 			fAdd("setting.SmoothRampTicks.choice.16", "0.6 s");
 			fAdd("setting.SmoothRampTicks.choice.8", "0.3 s");
 			fAdd("setting.SmoothRampTicks.choice.4", "0.15 s");
 			fAdd("setting.SmoothRampTicks.choice.0", "At once");
+			fAdd("setting.ModernRampTicks", "Response");
+			fAdd("setting.ModernRampTicks.hint", "How long it takes to get going and to stop in Modern, a value of its own beside Smooth's.");
+			fAdd("setting.ModernRampTicks.choice.16", "0.6 s");
+			fAdd("setting.ModernRampTicks.choice.8", "0.3 s");
+			fAdd("setting.ModernRampTicks.choice.4", "0.15 s");
+			fAdd("setting.ModernRampTicks.choice.0", "At once");
 			fAdd("setting.MotionViewStepped", "Picture");
 			fAdd("setting.MotionViewStepped.hint", "Only for Original. Even: the picture moves a little with every screen refresh. Stepped: the picture only moves when the game has calculated, like on an old PC. Smooth is always even.");
 			fAdd("setting.MotionViewStepped.choice.even", "Even");
