@@ -163,7 +163,8 @@ button opens (`UW1/Music` beside the settings). Name each file by the number of 
 (`UW01.XMI` in its `SOUND` folder is `01`): `01` the introduction, `02` to `04` the levels, `05` to
 `07` combat, `10` Armed, `11` Victory, `12` Death, `13` Fleeing, `15` Maps and Legends, as `.ogg`
 (Ogg Vorbis) or `.wav`. A piece without a
-recording plays on the device. The high-quality remake by Pieces of 8-bit
+recording plays on the device. The high-quality remake by
+[Pieces of 8-bit](https://www.youtube.com/c/Piecesof8bit)
 ([on Nexus Mods](https://www.nexusmods.com/ultimaunderworldunity/mods/1), made for Hank Morgan's
 UnderworldExporter) uses these names: the files of its `UW1music` folder can be copied in as they
 are.
@@ -217,6 +218,13 @@ Thanks to **abedegno** for [Underworld Exhumed](https://github.com/abedegno/unde
 a decompilation that rebuilds `UW.EXE` byte for byte from readable source. The rules here
 are checked against it, and many of them were corrected that way. Nothing of its code is
 taken into this project.
+
+Thanks to **Pieces of 8-bit** for the high-quality remake of the game's music that plays here
+from recordings (see *Music from recordings* above). Their
+[YouTube channel](https://www.youtube.com/c/Piecesof8bit) has high-quality remakes of many
+classic game soundtracks, from the Ultima series to System Shock, Doom and other classics, and their
+[mods on Nexus Mods](https://www.nexusmods.com/profile/OfficialPo8Mods/mods) bring several of
+them into the games.
 
 Thanks also to the authors of uw-formats.txt, where this project started.
 
