@@ -13,6 +13,15 @@ setting.ManualAttributes	Attribute bei der Erschaffung wählen
 setting.Language	Sprache
 setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
 setting.Language.choice.english	Englisch
+setting.Game	Spiel
+setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II bietet bisher einen Rundgang durch seine Welt: Create Character startet ihn.
+setting.SaveFolder	Spielstände
+setting.SaveFolder.hint	Wo die Spielstände der GOG-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner mit dem neuesten Spielstand - wohin DOSBox zuletzt geschrieben hat -, und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
+setting.SaveFolder.choice.automatic	Automatisch
+setting.SaveFolder.choice.cloudsaves	cloud_saves
+setting.SaveFolder.choice.installation	Installationsordner
+setting.Game.choice.uw1	Ultima Underworld
+setting.Game.choice.uw2	Ultima Underworld II
 setting.ColourMode	Farbhilfe
 setting.ColourMode.choice.off	Aus
 setting.ColourMode.choice.red	Rot (Protanopie)
@@ -774,6 +783,18 @@ hud.sheet.class_level	{0}, Stufe {1}
 hud.sheet.level_class	{1}, Stufe {0}
 hud.sheet.point_to_spend	1 Punkt zu vergeben
 hud.sheet.points_to_spend	{0} Punkte zu vergeben
+hud.walk.not_yet	Im Spaziergang durch Ultima Underworld II noch nicht möglich.
+hud.walk.door_locked	Die Tür ist verschlossen.
+hud.walk.nothing	Dort ist nichts.
+hud.uw2.level_1	{0}.
+hud.uw2.level_2	{0}.
+hud.uw2.level_3	{0}.
+hud.uw2.level_n	{0}.
+hud.uw2.flask_value	{0} {1} von {2}
+hud.uw2.save_slot_1	I- {0}
+hud.uw2.save_slot_2	II- {0}
+hud.uw2.save_slot_3	III- {0}
+hud.uw2.save_slot_4	IV- {0}
 effects.title	Remastered-Effekte
 effects.all	Alle:
 effects.torch_and_fire_lights	Fackel- und Feuerlicht

@@ -215,7 +215,7 @@ public static class UWScreenUi
     /// </summary>
     public static bool IsScreenMenuOpen
     {
-        get { return UWMainMenu.IsOpen || UWCharacterCreationScreen.IsAnyOpen; }
+        get { return UWMainMenu.IsOpen || UWCharacterCreationScreen.IsAnyOpen || UWCharacterCreationScreenUw2.IsAnyOpen; }
     }
 
     // ------------------------------------------------------------------

@@ -70,8 +70,13 @@ namespace UWDataImport.UWData
 			return UWGameSession.Current.Random.NextDouble();
 		}
 
-		/// <summary>The game's usual dice: count plus count rolls of 0 to range - 1. A range of
-		/// zero or less adds nothing.</summary>
+		/// <summary>
+		/// The game's usual dice (rollem, Underworld Exhumed sys/UTIL.C:72 in both games): count plus
+		/// count rolls of 0 to range - 1, each one draw SCALED, rand() * range / 0x8000. A range of zero
+		/// or less adds nothing. Until 2026-10-29 each roll was rand() % range - the same draws and
+		/// spread, but another value for the same generator state; UE's UW2.EXE vectors (rollem.csv,
+		/// group Uw2Vectors) found it, and the user had it changed.
+		/// </summary>
 		public static int RollDice(int piCount, int piRange)
 		{
 			int liTotal = piCount;
@@ -80,7 +85,7 @@ namespace UWDataImport.UWData
 				return liTotal;
 
 			for (int liAt = 0; liAt < piCount; liAt++)
-				liTotal += Next(piRange);
+				liTotal += (int)(((long)Next(UWOriginalRandom.Range) * piRange) / UWOriginalRandom.Range);
 
 			return liTotal;
 		}
@@ -105,6 +110,17 @@ namespace UWDataImport.UWData
 		{
 			muSeed = (ushort)piSeed;
 		}
+
+		/// <summary>A generator at a whole 32-bit state - for replaying a recorded call of the
+		/// original (UE's UW2.EXE vectors give the state before and after each, UW2 plan phase 1
+		/// step 6).</summary>
+		public static UWOriginalRandom FromState(uint puState)
+		{
+			return new UWOriginalRandom(0) { muSeed = puState };
+		}
+
+		/// <summary>The whole 32-bit state.</summary>
+		public uint State => muSeed;
 
 		/// <summary>RNG: 0 to 0x7FFF.</summary>
 		public int Next()

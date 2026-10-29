@@ -10,40 +10,38 @@ namespace UWDataImport.UWData
 	/// graphics.json, the MT-32 ROMs). The extracted game data has its own cache per game
 	/// (GameData/UW1), the saves lie in the game's own folder (UNDEROM1).
 	///
-	/// UW1 is the only game until the game object of Docs/UW2-PLAN.md (phase 0) names the running
-	/// one; then Name comes from it.
+	/// The folder is the game's profile's (IUWGameProfile.GameFolder): the caller names the game
+	/// (UW2 plan phase 0 step 3, 2026-10-28; until then a Name that was always the first game's).
 	///
 	/// A file that an earlier version kept beside settings.json moves into the game's folder on
-	/// the first start (AdoptLegacyFile): rules.json, there since 0.9.2.
+	/// the first start (AdoptLegacyFile): rules.json, there since 0.9.2. Those versions knew the
+	/// first game only, so only its folder adopts them.
 	/// </summary>
 	public static class UWGameFolder
 	{
-		/// <summary>The folder of Ultima Underworld 1.</summary>
-		public const string Uw1 = "UW1";
+		/// <summary>The folder of Ultima Underworld 1 (its profile's).</summary>
+		public const string Uw1 = UWGameProfileUw1.GameFolderName;
 
-		/// <summary>The running game's folder name.</summary>
-		public static string Name => Uw1;
-
-		/// <summary>The running game's folder under psRoot (the folder of settings.json).</summary>
-		public static string Under(string psRoot)
+		/// <summary>The game's folder under psRoot (the folder of settings.json).</summary>
+		public static string Under(string psRoot, IUWGameProfile pOGame)
 		{
-			return Path.Combine(psRoot ?? string.Empty, Name);
+			return Path.Combine(psRoot ?? string.Empty, pOGame.GameFolder);
 		}
 
 		/// <summary>
 		/// The path of psFileName in the game's folder under psRoot. When an earlier version left the
-		/// file beside settings.json and the game's folder has none yet, it is moved there first
+		/// file beside settings.json and the first game's folder has none yet, it is moved there first
 		/// (pFLog says so); when both exist, nothing is overwritten - the game's file counts and
 		/// pFWarn names the old one. A move that fails leaves the old file where it is, used from
-		/// there, and warns.
+		/// there, and warns. Another game's folder never takes the old file: it was the first game's.
 		/// </summary>
-		public static string AdoptLegacyFile(string psRoot, string psFileName, Action<string> pFLog, Action<string> pFWarn)
+		public static string AdoptLegacyFile(string psRoot, IUWGameProfile pOGame, string psFileName, Action<string> pFLog, Action<string> pFWarn)
 		{
-			string lsFolder = Under(psRoot);
+			string lsFolder = Under(psRoot, pOGame);
 			string lsTarget = Path.Combine(lsFolder, psFileName);
 			string lsLegacy = Path.Combine(psRoot ?? string.Empty, psFileName);
 
-			if (!File.Exists(lsLegacy))
+			if (pOGame.Game != UWGame.Uw1 || !File.Exists(lsLegacy))
 				return lsTarget;
 
 			if (File.Exists(lsTarget))

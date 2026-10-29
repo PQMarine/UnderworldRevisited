@@ -414,7 +414,9 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
 
-        if (lOLoader == null || lOLoader.UWDataImporter == null || !lOLoader.HasWorld)
+        // The second game's walk moves the player without the first game's world around it (UW2 plan
+        // phase 2 step 4): HasWorld stays false there for the systems that are the first game's play.
+        if (lOLoader == null || lOLoader.UWDataImporter == null || (!lOLoader.HasWorld && !UWWalkUw2.IsWalking))
             return Motion;
 
         UWMotionHost lOWorld = UWMotionHost.Ensure(lOLoader);
@@ -426,6 +428,20 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         {
             mOMotionWorld = lOWorld;
             Motion = new UWPlayerMotion(lOWorld, lOLoader.UWDataImporter.CommonObjectProperties);
+
+            // The second game's floor terrain words, for its ice and currents (UWPlayerMotion.TerrainWordAt).
+            UWTerrainUw2 lOUw2 = lOLoader.UWDataImporter.Terrain != null ? lOLoader.UWDataImporter.Terrain.Uw2 : null;
+
+            if (lOUw2 != null)
+            {
+                Motion.TerrainWordAt = (piX, piY) =>
+                {
+                    UWTile lOTile = lOLoader.CurrentLevel != null ? lOLoader.CurrentLevel.GetTile(piX, piY) : null;
+
+                    return lOTile != null ? lOUw2.Word(lOTile.TextureFloor) : 0;
+                };
+            }
+
             fPlaceMotionFromTransform();
         }
 
@@ -566,7 +582,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         bool lbOnFoot = !(mController == null || IsInLiquid || fIsHovering() || !fIsOnGround()
-            || (lOLoader != null && !lOLoader.HasWorld));
+            || (lOLoader != null && !lOLoader.HasWorld && !UWWalkUw2.IsWalking));
 
         mOFootsteps.Step(transform.position, Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed), lbOnFoot);
     }
@@ -588,9 +604,22 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         UWCharacter lOCharacter = UWScene.Character;
 
         if (lOCharacter != null)
+        {
             pOMotion.AcrobatSkill = lOCharacter.Vitals.GetSkill(UWPlayerData.Skill.Acrobat);
+            pOMotion.SwimmingSkill = lOCharacter.Vitals.GetSkill(UWPlayerData.Skill.Swimming);
+        }
 
         UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        // The level for the second game's falls (IUWMotionVariant.FallHurts).
+        if (lOLoader != null)
+            pOMotion.LevelNumber = lOLoader.CurrentLevelIndex + 1;
+
+        // The second game's walk: the Swimming skill of the save it came from (UW2 plan phase 2 step 6).
+        UWPlayerFile lOWalker = UWWalkUw2.IsWalking ? UWGameSession.Current.PlayerFileUw2 : null;
+
+        if (lOWalker != null)
+            pOMotion.SwimmingSkill = UWPlayerRecordUw2.Skill(lOWalker, UWPlayerRecordUw2.SwimmingSkill);
         UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
         UWInventory lOInventory = UWScene.Inventory;
 
@@ -631,7 +660,12 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWPlayerMotion.FrameResult lOResult = pOMotion.Last;
 
-        if (lOResult.FallDamage > 0)
+        // The second game's walk has no character of its own to take the fall (step 6 brings it; the
+        // first game's damage pipeline asks its combat rules, phase 4): the fall is only written down
+        // (the ice test of 2026-10-29 threw here).
+        if (lOResult.FallDamage > 0 && UWWalkUw2.IsWalking)
+            Debug.Log("[Walk] A fall of " + lOResult.FallDamage + " damage (no character to take it yet).");
+        else if (lOResult.FallDamage > 0)
         {
             UWCharacter lOCharacter = UWScene.Character;
 

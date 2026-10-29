@@ -148,7 +148,7 @@ namespace UWDataImport.UWData
 			// their flag right before the lava damage (motion_player) and nowhere else;
 			// a fireball still hits. Consistent with that, the boots themselves carry the
 			// fire resistance in comobj.dat.
-			if (!pbOnLava || pbDragonSkinBoots)
+			if (!pbOnLava || UWGameSession.Current.Game.Motion.LavaSpares(pbDragonSkinBoots))
 			{
 				mbLavaRunning = false;
 

@@ -3,34 +3,31 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using UWDataImport.UWData;
 
 namespace UWDataImport.Install
 {
     /// <summary>
-    /// The game data of the supported version: Ultima Underworld 1 from GOG.com.
+    /// The game data of the supported version: Ultima Underworld 1 and 2 from GOG.com.
     ///
     /// In the GOG installation the data is not on disk: `UNDEROM1\DATA` holds only UW.CFG.
     /// Everything lives in `game.gog`, an ISO 9660 CD image (2048-byte sectors) that the
     /// bundled DOSBox mounts as drive D:. UW1 is in its folder `UW` (CRIT, CUTS, DATA, SOUND,
-    /// UW.EXE), UW2 in `UW2`. The save games are on disk in `UNDEROM1\SAVE1` to `SAVE4`.
+    /// UW.EXE), UW2 in `UW2` (the same folders and UW2.EXE). The save games are on disk in
+    /// `UNDEROM1\SAVE1` to `SAVE4`, UW2's in `UNDEROM2` (the image's UW2.BAT looks for it).
     ///
-    /// This class finds the image, extracts the UW1 folders once into a cache folder with the
-    /// same layout as an installed game (CRIT, CUTS, DATA, SOUND and UW.EXE side by side), and
-    /// checks that UW.EXE is the supported build - the model import reads it at fixed offsets.
-    /// No Unity references, see UWDataImport.asmdef.
+    /// This class finds the image, extracts one game's folders once into a cache folder of its
+    /// own with the same layout as an installed game (CRIT, CUTS, DATA, SOUND and the program
+    /// side by side), and checks that the program is the supported build - the model import reads
+    /// it at fixed offsets. WHICH GAME is the profile's (IUWGameProfile: the image folder, the
+    /// program with its size and hash, the cache and save folders; UW2 plan phase 0 step 4,
+    /// 2026-10-28 - the first game's only until then). No Unity references, see UWDataImport.asmdef.
     /// </summary>
     public static class UWGogInstall
     {
         /// <summary>File name of the CD image in a GOG installation.</summary>
         public const string ImageFileName = "game.gog";
 
-        /// <summary>Size of the supported UW.EXE (GOG build).</summary>
-        public const long SupportedExeSize = 547248;
-
-        /// <summary>SHA-1 of the supported UW.EXE (GOG build).</summary>
-        public const string SupportedExeSha1 = "226fed4dba9718a7c972de5451b520fcd16546c0";
-
-        private const string CacheFolderName = "UW1";
         private const string MarkerFileName = "extracted.txt";
         private const int MarkerVersion = 1;
 
@@ -143,16 +140,76 @@ namespace UWDataImport.Install
             return lOFolders.ToArray();
         }
 
-        /// <summary>The folder holding SAVE1 to SAVE4 next to an image: the installation's
-        /// UNDEROM1 folder. Null if it does not exist.</summary>
-        public static string GetSavegameFolder(string psImagePath)
+        /// <summary>The folder GOG's current installers lay over drive C: in DOSBox (2026-10-29):
+        /// dosboxULTIMAn_single.conf mounts the installation as C: and then this folder over it
+        /// (`mount C "..\cloud_saves" -t overlay`), so the DOS game writes its saves to
+        /// cloud_saves/UNDEROMn and reads them there first.</summary>
+        public const string CloudSavesFolderName = "cloud_saves";
+
+        /// <summary>The installation folders of the second game's own GOG product, beside the first's.</summary>
+        private static readonly string[] msSecondGameFolders = { "Ultima Underworld 2", "Ultima Underworld II" };
+
+        /// <summary>
+        /// The folder holding the game's SAVE1 to SAVE4: in the image's installation when it is the
+        /// game's (it has the game's UNDEROM1 or UNDEROM2), and for the second game also in its own
+        /// GOG product's installation beside the first's ("Ultima Underworld 2"; GOG sells one product
+        /// per game, each with the whole 1+2 CD as game.gog, but each starts only its own game). Null
+        /// when there is none.
+        ///
+        /// WHERE IN AN INSTALLATION (2026-10-29, the user's fresh installs of GOG's current installers):
+        /// cloud_saves/UNDEROMn when the installation has a cloud_saves folder - that is where DOSBox
+        /// writes and reads first, the installer's UNDEROMn holds no saves then; UNDEROMn itself in an
+        /// older installation without it, as until then.
+        /// </summary>
+        public static string GetSavegameFolder(string psImagePath, IUWGameProfile pOGame)
+        {
+            return GetSavegameFolder(psImagePath, pOGame, SaveFolderModeEnum.Automatic);
+        }
+
+        /// <summary>
+        /// WHERE THE SAVES GO (per user, 2026-10-29: "Automatisch + Schalter"). The user's second install
+        /// started UW2 through a DOSBox Staging of his own whose configuration comments the overlay out, so
+        /// DOS wrote to UNDEROM2 although cloud_saves existed - and GOG's own configuration of the same
+        /// install mounts it. Which DOSBox starts the game cannot be read from the files, so AUTOMATIC
+        /// follows the saves: the folder holding the newest SAVE1 to SAVE4 (its PLAYER.DAT) wins; without
+        /// any save, cloud_saves when the installation has it and GOG's configuration (dosbox*_single.conf)
+        /// mounts it as an overlay, else UNDEROMn. The other two modes take one folder whatever is there.
+        /// </summary>
+        public enum SaveFolderModeEnum
+        {
+            Automatic,
+            CloudSaves,
+            Installation
+        }
+
+        /// <summary>The stored mode (settings.json's SaveFolder: empty, "CloudSaves", "Installation").</summary>
+        public static SaveFolderModeEnum ParseSaveFolderMode(string psValue)
+        {
+            return !string.IsNullOrEmpty(psValue) && Enum.TryParse(psValue, true, out SaveFolderModeEnum leMode) ? leMode : SaveFolderModeEnum.Automatic;
+        }
+
+        /// <summary>The save games' folder by the mode (see SaveFolderModeEnum); the rest as above.</summary>
+        public static string GetSavegameFolder(string psImagePath, IUWGameProfile pOGame, SaveFolderModeEnum peMode)
         {
             try
             {
                 string lsInstall = Path.GetDirectoryName(psImagePath);
-                string lsUnderom = lsInstall == null ? null : Path.Combine(lsInstall, "UNDEROM1");
+                string lsFound = fSavegameFolderIn(lsInstall, pOGame, peMode);
 
-                return lsUnderom != null && Directory.Exists(lsUnderom) ? lsUnderom : null;
+                if (lsFound != null || pOGame.Game == UWGame.Uw1)
+                    return lsFound;
+
+                DirectoryInfo lOParent = lsInstall == null ? null : Directory.GetParent(lsInstall);
+
+                foreach (string lsName in msSecondGameFolders)
+                {
+                    lsFound = lOParent == null ? null : fSavegameFolderIn(Path.Combine(lOParent.FullName, lsName), pOGame, peMode);
+
+                    if (lsFound != null)
+                        return lsFound;
+                }
+
+                return null;
             }
             catch (Exception)
             {
@@ -160,19 +217,92 @@ namespace UWDataImport.Install
             }
         }
 
+        /// <summary>The game's save folder in one installation, or null when the installation is not
+        /// the game's (no UNDEROM1 or UNDEROM2 of its own).</summary>
+        private static string fSavegameFolderIn(string psInstall, IUWGameProfile pOGame, SaveFolderModeEnum peMode)
+        {
+            if (string.IsNullOrEmpty(psInstall) || !Directory.Exists(Path.Combine(psInstall, pOGame.SaveFolder)))
+                return null;
+
+            string lsOwn = Path.Combine(psInstall, pOGame.SaveFolder);
+            string lsCloud = Path.Combine(psInstall, CloudSavesFolderName, pOGame.SaveFolder);
+
+            if (peMode == SaveFolderModeEnum.Installation)
+                return lsOwn;
+
+            if (peMode == SaveFolderModeEnum.CloudSaves)
+                return lsCloud;
+
+            DateTime ldOwn = fNewestSave(lsOwn);
+            DateTime ldCloud = fNewestSave(lsCloud);
+
+            if (ldOwn != DateTime.MinValue || ldCloud != DateTime.MinValue)
+                return ldCloud > ldOwn ? lsCloud : lsOwn;
+
+            return Directory.Exists(Path.Combine(psInstall, CloudSavesFolderName)) && MountsCloudSaves(psInstall) ? lsCloud : lsOwn;
+        }
+
+        /// <summary>The newest PLAYER.DAT of SAVE1 to SAVE4 in a save folder (SAVE0 is the running game's
+        /// working copy); MinValue for none.</summary>
+        private static DateTime fNewestSave(string psFolder)
+        {
+            DateTime ldNewest = DateTime.MinValue;
+
+            for (int liSlot = 1; liSlot <= 4; liSlot++)
+            {
+                string lsFile = Path.Combine(psFolder, "SAVE" + liSlot, "PLAYER.DAT");
+
+                if (File.Exists(lsFile) && File.GetLastWriteTimeUtc(lsFile) > ldNewest)
+                    ldNewest = File.GetLastWriteTimeUtc(lsFile);
+            }
+
+            return ldNewest;
+        }
+
+        /// <summary>Whether GOG's configuration in the installation (dosbox*_single.conf) mounts the
+        /// cloud_saves overlay: a line, not a comment, that mounts cloud_saves with -t overlay.</summary>
+        public static bool MountsCloudSaves(string psInstall)
+        {
+            try
+            {
+                foreach (string lsConf in Directory.GetFiles(psInstall, "dosbox*_single.conf"))
+                {
+                    foreach (string lsLine in File.ReadAllLines(lsConf))
+                    {
+                        string lsTrim = lsLine.Trim();
+
+                        if (lsTrim.StartsWith("#", StringComparison.Ordinal))
+                            continue;
+
+                        string lsLower = lsTrim.ToLowerInvariant();
+
+                        if (lsLower.StartsWith("mount ", StringComparison.Ordinal) && lsLower.Contains(CloudSavesFolderName) && lsLower.Contains("-t overlay"))
+                            return true;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+
+            return false;
+        }
+
         /// <summary>
-        /// One file of the image's UW\DATA folder read straight from the image, or null when there
-        /// is no such file or the image cannot be read. For the self-check, whose extracted cache
-        /// may lack a file the image has (the FONT*.SYS, found 2026-10-26).
+        /// One file of the game's DATA folder in the image (UW\DATA, UW2\DATA) read straight from
+        /// the image, or null when there is no such file or the image cannot be read. For the
+        /// self-check, whose extracted cache may lack a file the image has (the FONT*.SYS, found
+        /// 2026-10-26).
         /// </summary>
-        public static byte[] ReadDataFile(string psImagePath, string psFileName)
+        public static byte[] ReadDataFile(string psImagePath, IUWGameProfile pOGame, string psFileName)
         {
             try
             {
                 using (FileStream lOStream = new FileStream(psImagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     IsoReader lOReader = new IsoReader(lOStream);
-                    IsoEntry lOUw = lOReader.Find(lOReader.Root, "UW");
+                    IsoEntry lOUw = lOReader.Find(lOReader.Root, pOGame.ImageFolder);
                     IsoEntry lOData = lOUw != null && lOUw.IsDirectory ? lOReader.Find(lOUw, "DATA") : null;
                     IsoEntry lOFile = lOData != null && lOData.IsDirectory ? lOReader.Find(lOData, psFileName) : null;
 
@@ -186,11 +316,36 @@ namespace UWDataImport.Install
         }
 
         /// <summary>
-        /// Makes sure the UW1 data of the image is extracted below psCacheRoot and returns the
-        /// path of its DATA folder, or null with psError set. An existing extraction of the
-        /// same image (size and time stamp) is reused.
+        /// Whether the image holds the game: its folder with the supported build of its program. A
+        /// game the image does not hold is not offered (UW2 plan section 4.1). False when the image
+        /// cannot be read.
         /// </summary>
-        public static string EnsureExtracted(string psImagePath, string psCacheRoot, out string psError)
+        public static bool HasGame(string psImagePath, IUWGameProfile pOGame)
+        {
+            try
+            {
+                using (FileStream lOStream = new FileStream(psImagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    IsoReader lOReader = new IsoReader(lOStream);
+                    IsoEntry lOFolder = lOReader.Find(lOReader.Root, pOGame.ImageFolder);
+                    IsoEntry lOExe = lOFolder != null && lOFolder.IsDirectory ? lOReader.Find(lOFolder, pOGame.Executable) : null;
+
+                    return lOExe != null && !lOExe.IsDirectory && lOExe.Size == pOGame.ExecutableSize
+                        && fIsSupportedExe(lOReader.Read(lOExe), pOGame);
+                }
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Makes sure the game's data of the image is extracted below psCacheRoot, into the game's
+        /// own cache folder (UW1, UW2), and returns the path of its DATA folder, or null with
+        /// psError set. An existing extraction of the same image (size and time stamp) is reused.
+        /// </summary>
+        public static string EnsureExtracted(string psImagePath, string psCacheRoot, IUWGameProfile pOGame, out string psError)
         {
             psError = null;
 
@@ -206,7 +361,7 @@ namespace UWDataImport.Install
                     return null;
                 }
 
-                string lsTarget = Path.Combine(psCacheRoot, CacheFolderName);
+                string lsTarget = Path.Combine(psCacheRoot, pOGame.CacheFolder);
                 string lsMarker = Path.Combine(lsTarget, MarkerFileName);
                 string lsExpected = fMarkerText(lOImage);
 
@@ -237,31 +392,31 @@ namespace UWDataImport.Install
                 using (FileStream lOStream = new FileStream(psImagePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     IsoReader lOReader = new IsoReader(lOStream);
-                    IsoEntry lOUw = lOReader.Find(lOReader.Root, "UW");
+                    IsoEntry lOUw = lOReader.Find(lOReader.Root, pOGame.ImageFolder);
 
                     if (lOUw == null || !lOUw.IsDirectory)
                     {
-                        psError = "The image has no UW folder - is this the GOG version of Ultima Underworld?";
+                        psError = "The image has no " + pOGame.ImageFolder + " folder - is this the GOG version of " + pOGame.Title + "?";
                         return null;
                     }
 
-                    IsoEntry lOExe = lOReader.Find(lOUw, "UW.EXE");
+                    IsoEntry lOExe = lOReader.Find(lOUw, pOGame.Executable);
 
                     if (lOExe == null || lOExe.IsDirectory)
                     {
-                        psError = "UW.EXE is missing in the image.";
+                        psError = pOGame.Executable + " is missing in the image.";
                         return null;
                     }
 
                     byte[] lyExe = lOReader.Read(lOExe);
 
-                    if (!fIsSupportedExe(lyExe))
+                    if (!fIsSupportedExe(lyExe, pOGame))
                     {
-                        psError = "Unsupported UW.EXE (" + lyExe.Length + " bytes). Only the GOG version of Ultima Underworld is supported.";
+                        psError = "Unsupported " + pOGame.Executable + " (" + lyExe.Length + " bytes). Only the GOG version of " + pOGame.Title + " is supported.";
                         return null;
                     }
 
-                    File.WriteAllBytes(Path.Combine(lsTemporary, "UW.EXE"), lyExe);
+                    File.WriteAllBytes(Path.Combine(lsTemporary, pOGame.Executable), lyExe);
 
                     foreach (string lsFolder in msFoldersToExtract)
                     {
@@ -269,7 +424,7 @@ namespace UWDataImport.Install
 
                         if (lODirectory == null || !lODirectory.IsDirectory)
                         {
-                            psError = "Folder UW\\" + lsFolder + " is missing in the image.";
+                            psError = "Folder " + pOGame.ImageFolder + "\\" + lsFolder + " is missing in the image.";
                             return null;
                         }
 
@@ -362,12 +517,12 @@ namespace UWDataImport.Install
             }
         }
 
-        /// <summary>Is this the supported UW.EXE (size and SHA-1)?</summary>
-        public static bool IsSupportedExe(string psExePath)
+        /// <summary>Is this the supported build of the game's program (size and SHA-1)?</summary>
+        public static bool IsSupportedExe(string psExePath, IUWGameProfile pOGame)
         {
             try
             {
-                return File.Exists(psExePath) && fIsSupportedExe(File.ReadAllBytes(psExePath));
+                return File.Exists(psExePath) && fIsSupportedExe(File.ReadAllBytes(psExePath), pOGame);
             }
             catch (Exception)
             {
@@ -375,9 +530,9 @@ namespace UWDataImport.Install
             }
         }
 
-        private static bool fIsSupportedExe(byte[] pyExe)
+        private static bool fIsSupportedExe(byte[] pyExe, IUWGameProfile pOGame)
         {
-            if (pyExe == null || pyExe.Length != SupportedExeSize)
+            if (pyExe == null || pyExe.Length != pOGame.ExecutableSize)
                 return false;
 
             using (SHA1 lOSha = SHA1.Create())
@@ -388,7 +543,7 @@ namespace UWDataImport.Install
                 foreach (byte lyByte in lyHash)
                     lOHex.Append(lyByte.ToString("x2"));
 
-                return lOHex.ToString() == SupportedExeSha1;
+                return lOHex.ToString() == pOGame.ExecutableSha1;
             }
         }
 

@@ -98,14 +98,14 @@ namespace UnderworldRevisited.Tools
                 uint luOffset = BitConverter.ToUInt32(lyArk, 2 + (liLevel * 4));
                 string lsName = string.Format("round trip: {0} level {1} block through BuildBlock", psLabel, liLevel + 1);
 
-                if (luOffset == 0 || luOffset + UWLevArkLayout.BlockSize > lyArk.Length || pOData.Levels == null || pOData.Levels.Count <= liLevel)
+                if (luOffset == 0 || luOffset + UWLevArkFile.Uw1.BlockSize > lyArk.Length || pOData.Levels == null || pOData.Levels.Count <= liLevel)
                 {
                     Check.Fail(lsName, "no block or no level");
 
                     continue;
                 }
 
-                byte[] lyOriginal = new byte[UWLevArkLayout.BlockSize];
+                byte[] lyOriginal = new byte[UWLevArkFile.Uw1.BlockSize];
 
                 Array.Copy(lyArk, (int)luOffset, lyOriginal, 0, lyOriginal.Length);
 
@@ -150,7 +150,7 @@ namespace UnderworldRevisited.Tools
                     {
                         uint luOffset = BitConverter.ToUInt32(lyExpected, 2 + (liLevel * 4));
 
-                        if (luOffset != 0 && luOffset + UWLevArkLayout.BlockSize <= lyExpected.Length)
+                        if (luOffset != 0 && luOffset + UWLevArkFile.Uw1.BlockSize <= lyExpected.Length)
                             fRepairActiveList(lyExpected, (int)luOffset);
                     }
 

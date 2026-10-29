@@ -34,7 +34,8 @@ namespace UnderworldRevisited.Tools
         private static readonly Regex mORuleKey = new Regex(@"^[a-z][A-Za-z0-9]*(\.[a-z][A-Za-z0-9]*)+$");
 
         /// <summary>The game's folder (UWGameFolder, 2026-10-27): rules.json lives in UW1; one left
-        /// beside settings.json by an earlier version moves there, but never over one already there.</summary>
+        /// beside settings.json by an earlier version moves there, but never over one already there,
+        /// and never into another game's folder (UW2 plan phase 0 step 3).</summary>
         private static void fCheckRulesFileFolder()
         {
             string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckGameFolder_" + Guid.NewGuid().ToString("N"));
@@ -47,19 +48,29 @@ namespace UnderworldRevisited.Tools
 
                 string lsTarget = Path.Combine(lsRoot, UWGameFolder.Uw1, UWRulesJson.FileName);
 
+                IUWGameProfile lOUw1 = UWGameProfiles.Uw1;
+
                 Check.Str("game folder: rules.json lies in UW1",
-                    UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
+                    UWGameFolder.AdoptLegacyFile(lsRoot, lOUw1, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
                 Check.Int("game folder: ... nothing to move, nothing said", lOLog.Count + lOWarn.Count, 0);
 
                 File.WriteAllText(Path.Combine(lsRoot, UWRulesJson.FileName), "{ \"magic.manaPerCircle\": 2 }");
-                UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add);
+
+                IUWGameProfile lOSecond = new TestProfile(UWGame.Uw2);
+
+                Check.Str("game folder: another game's rules.json lies in its own folder",
+                    UWGameFolder.AdoptLegacyFile(lsRoot, lOSecond, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), Path.Combine(lsRoot, lOSecond.GameFolder, UWRulesJson.FileName));
+                Check.Bool("game folder: ... and leaves the first game's old one where it is, saying nothing",
+                    File.Exists(Path.Combine(lsRoot, UWRulesJson.FileName)) && lOLog.Count + lOWarn.Count == 0, true);
+
+                UWGameFolder.AdoptLegacyFile(lsRoot, lOUw1, UWRulesJson.FileName, lOLog.Add, lOWarn.Add);
                 Check.Bool("game folder: an old rules.json beside settings.json moves into UW1, its text kept",
                     !File.Exists(Path.Combine(lsRoot, UWRulesJson.FileName)) && File.Exists(lsTarget)
                     && File.ReadAllText(lsTarget).Contains("manaPerCircle") && lOLog.Count == 1 && lOWarn.Count == 0, true);
 
                 File.WriteAllText(Path.Combine(lsRoot, UWRulesJson.FileName), "{ }");
                 Check.Str("game folder: with both, UW1's counts",
-                    UWGameFolder.AdoptLegacyFile(lsRoot, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
+                    UWGameFolder.AdoptLegacyFile(lsRoot, lOUw1, UWRulesJson.FileName, lOLog.Add, lOWarn.Add), lsTarget);
                 Check.Bool("game folder: ... neither is overwritten, and a warning names both",
                     File.ReadAllText(lsTarget).Contains("manaPerCircle") && File.ReadAllText(Path.Combine(lsRoot, UWRulesJson.FileName)) == "{ }"
                     && lOWarn.Count == 1, true);

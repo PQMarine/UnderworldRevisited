@@ -376,6 +376,13 @@ public static class UWUserSettings
     /// at startup, so a change takes effect at the next start.</summary>
     public static string Language { get => Defs.Language.Read(fGet()); set => Defs.Language.Write(fGet(), value); }
 
+    /// <summary>The game chosen in the Game window, empty for the first (UW2 plan phase 0 step 5);
+    /// UWGameSwitch reads and writes it.</summary>
+    public static string Game { get => Defs.Game.Read(fGet()); set => Defs.Game.Write(fGet(), value); }
+
+    /// <summary>Where a GOG installation's save games are (UWGogInstall.SaveFolderModeEnum by name; empty automatic).</summary>
+    public static string SaveFolder { get => Defs.SaveFolder.Read(fGet()); set => Defs.SaveFolder.Write(fGet(), value); }
+
     /// <summary>
     /// THE LAYOUT EDITOR'S SESSION (per user, 2026-10-11: "the layout is saved only when one leaves
     /// the editor and confirms the save" - so a preset can be a starting point and one can still go

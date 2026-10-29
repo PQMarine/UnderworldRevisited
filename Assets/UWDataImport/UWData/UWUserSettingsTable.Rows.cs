@@ -88,6 +88,13 @@ namespace UWDataImport.UWData
 			// The language: its choices are the files found beside the game, listed by the Game window
 			// (UWLanguage.Available), not a fixed set.
 			fText(Language, true);
+			// The game: its choices are the games the installation holds, listed by the Game window
+			// (UWGameSwitch.Offered), named by their short ids.
+			fText(Game, true);
+			fChoices(Game, new[] { "uw1", "uw2" });
+			// Where the GOG installation's saves are (per user, 2026-10-29; UWGogInstall.SaveFolderModeEnum).
+			fText(SaveFolder, true);
+			fChoices(SaveFolder, new[] { "automatic", "cloudsaves", "installation" });
 
 			// The colours.
 			fText(ColourMode);

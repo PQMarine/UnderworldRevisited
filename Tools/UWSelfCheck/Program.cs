@@ -90,10 +90,22 @@ namespace UnderworldRevisited.Tools
             }
 
             Stopwatch lOTotal = Stopwatch.StartNew();
-            CheckContext lOContext = new CheckContext(lsDataPath) { SavesPath = lOOptions.Saves, Record = lOOptions.Record, SweepRuns = lOOptions.SweepRuns };
+            CheckContext lOContext = new CheckContext(lsDataPath)
+            {
+                SavesPath = lOOptions.Saves, Uw2SavesPath = lOOptions.Uw2Saves, Record = lOOptions.Record, SweepRuns = lOOptions.SweepRuns
+            };
 
             if (lOOptions.DataArgument != null)
                 lOContext.ImagePath = UWDataImport.Install.UWGogInstall.FindImage(lOOptions.DataArgument);
+
+            // The second game comes from the same image (UW2 plan phase 0 step 6): its own cache folder.
+            if (lOContext.ImagePath != null && UWDataImport.Install.UWGogInstall.HasGame(lOContext.ImagePath, UWDataImport.UWData.UWGameProfiles.Uw2))
+            {
+                lOContext.Uw2DataPath = DataPath.Resolve(lOContext.ImagePath, UWDataImport.UWData.UWGameProfiles.Uw2, out string lsUw2Error);
+
+                if (lOContext.Uw2DataPath == null)
+                    Console.Error.WriteLine("The second game's data: " + lsUw2Error);
+            }
 
             lORunner.Run(lOCatalog, lOContext);
             lOTotal.Stop();

@@ -35,6 +35,9 @@ format stay tied to what Unity writes.
 - `modern-motion-2026-10-28.json`: the motion Modern (the character motor) and its own ramp of 4 ticks,
   the mode's new value and the one number added since; every other property at its default. Every older
   fixture reads its motion as before (a non-zero switch as Smooth) and Modern's ramp at once (0).
+- `game-2026-10-28.json`: the game chosen in the Game window (UW2 plan phase 0 step 5), the second's
+  id, the one text added since; every other property at its default. Every older fixture reads it
+  empty (the first game).
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

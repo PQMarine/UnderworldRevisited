@@ -389,7 +389,9 @@ namespace UnderworldRevisited.Tools
 
             foreach ((string lsName, object lOA, object lOB) in lOMembers)
             {
-                if (lOA == null || lOB == null || lOA is string || lOA.GetType().IsValueType || lOA is UWGameData)
+                // The installation's data and the game's profile are shared by design: read once,
+                // never changed (the profile one instance per game, UW2 plan phase 0).
+                if (lOA == null || lOB == null || lOA is string || lOA.GetType().IsValueType || lOA is UWGameData || lOA is IUWGameProfile)
                     continue;
 
                 if (ReferenceEquals(lOA, lOB))

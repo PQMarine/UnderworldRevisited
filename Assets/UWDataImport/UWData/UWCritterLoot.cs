@@ -137,16 +137,8 @@ namespace UWDataImport.UWData
 			if (UWRandom.Next(0, ProbabilityRange) >= pOCritter.ValuableProbability)
 				return;
 
-			int liSpan = 40 - (piDungeonLevel * 3);
-			int liShift = 33 - (piDungeonLevel * 3);
-
-			if (liSpan < 1)
-				liSpan = 1;
-
-			int liType = UWRandom.Next(0, liSpan) - liShift;
-
-			if (liType < 0)
-				liType = 0;
+			// Which valuable is the game's roll (IUWObjectVariant; the first game's by the level).
+			int liType = UWGameSession.Current.Game.Objects.RollValuableType(piDungeonLevel);
 
 			int liValue = 1;
 

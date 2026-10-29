@@ -322,7 +322,43 @@ public class UWLighting : MonoBehaviour
         if (mbRoamingSightLight || miCrystalBallViews > 0)
             return UWDataImport.UWData.UWMiscSpellRules.RemoteViewLightLevel;
 
-        return Mathf.Max(CarriedBrightness, miMagicBrightness);
+        return Mathf.Max(Mathf.Max(CarriedBrightness, miMagicBrightness), LevelMinimum);
+    }
+
+    /// <summary>The second game's minimum light where the view is (UWDarknessUw2.TileMinimum, DL.DAT;
+    /// UW2 plan phase 2 step 3) - set by its walk (UWWalkUw2View); -1, none, in the first game, which
+    /// has no such light. A change sets the light up anew.</summary>
+    public int LevelMinimum
+    {
+        get => miLevelMinimum;
+        set
+        {
+            if (miLevelMinimum == value)
+                return;
+
+            miLevelMinimum = value;
+            fApplyPlayerLight();
+        }
+    }
+
+    private int miLevelMinimum = UWDataImport.UWData.UWDarknessUw2.NoMinimum;
+
+    /// <summary>
+    /// Hangs the player's light on another object - the second game's walk, whose view is the noclip
+    /// camera while the player is off (UW2 plan phase 2 step 3, the second test: Remastered stayed
+    /// dark, its light hung on the switched-off player).
+    /// </summary>
+    public void AttachPlayerLightTo(Transform pOParent)
+    {
+        if (mOPlayerLight == null)
+            mOPlayerLight = fFindPlayerLight();
+
+        if (mOPlayerLight == null || pOParent == null)
+            return;
+
+        mOPlayerLight.transform.SetParent(pOParent, false);
+        mOPlayerLight.transform.localPosition = Vector3.zero;
+        fApplyPlayerLight();
     }
 
     /// <summary>Whether Roaming Sight is among the active spells (the original's WizEye, set by

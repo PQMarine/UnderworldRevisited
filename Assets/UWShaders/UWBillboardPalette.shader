@@ -121,7 +121,32 @@ Shader "UW/BillboardPalette"
 
                 float3 positionWS = pivotWS + right * IN.positionOS.x + float3(0, 1, 0) * IN.positionOS.y;
 
-                OUT.positionCS = TransformWorldToHClip(positionWS);
+                // THE PICTURE PARALLEL TO THE SCREEN IN BOTH AXES (2026-10-29, found by the Reddit user
+                // Realistic_Koala5531 and confirmed against the original by the user): the original scales a
+                // sprite as a flat picture by its pivot's distance; the upright quad was foreshortened by the
+                // perspective and squashed when the view looked down. The picture now stands on the
+                // camera's right and up (up = right x towards-camera), anchored at the pivot. Only the
+                // picture moves: the world position handed on (lighting, fog, the own-tile rules) and the
+                // depth below stay the upright quad's, so a tilted top cannot lean into the wall behind.
+                //
+                // ITS HEIGHT TIMES THE VIEW'S YY, cos(pitch) (by cos(roll) too), as in_scalebm scales a sprite's
+                // height and hotspot by MAT_YY (Underworld Exhumed uw1 port/3d/tmapops.c at 6879 and 6898;
+                // UltimaHacks' full-sprites turns it off): 92 percent at the original's bound of 22.5 degrees.
+                // Past that bound, which the original never passes (the modern scheme's free look), the factor
+                // stays at the bound's (per user 2026-10-29: as the original).
+                //
+                // AND ITS LEAN HELD AT THAT BOUND (per user 2026-10-29: looking up at a goblin in the modern
+                // scheme, his head came at the face): the picture leans with the view only up to sin 22.5
+                // degrees of horizontal lean; past it, it keeps that lean and the perspective does the rest.
+                float3 screenUp = normalize(cross(right, normalize(UNITY_MATRIX_V[2].xyz)));
+                float3 screenLean = float3(screenUp.x, 0, screenUp.z);
+                float screenLeanLength = length(screenLean);
+
+                if (screenLeanLength > 0.3826834)
+                    screenUp = float3(0, 0.9238795, 0) + screenLean * (0.3826834 / screenLeanLength);
+
+                float screenUpScale = max(UNITY_MATRIX_V[1].y, 0.9238795);
+                OUT.positionCS = TransformWorldToHClip(pivotWS + right * IN.positionOS.x + screenUp * (IN.positionOS.y * screenUpScale));
 
                 // THE DEPTH BIAS MOVES ONLY THE DEPTH towards the camera, not the picture: the
                 // sprite keeps its place and size on the screen and is merely sorted as if it

@@ -76,6 +76,69 @@ public class UWCritterAnimator : MonoBehaviour
         return lOEntry.Radius;
     }
 
+    // ------------------------------------------------- The second game (UW2 plan phase 2 step 3)
+
+    /// <summary>The second game's creature record, whose stored sequence and frame it shows; null for
+    /// the first game's.</summary>
+    private UWNpc mONpcUw2;
+
+    /// <summary>The atlas key's mark for the second game's maps (their numbers would meet the first
+    /// game's animations).</summary>
+    private const int Uw2AtlasKey = 1 << 24;
+
+    /// <summary>
+    /// A CREATURE OF THE SECOND GAME, STANDING (UW2 plan phase 2 step 3, 2026-10-29): the atlas of its
+    /// critter map in its palette (UWCritterAtlasBuilder.BuildUw2; AS.AN's, palette 3 at the stone
+    /// goal), and the picture its record holds - the stored sequence and frame in the view of the
+    /// camera, as do_uwcrit draws it (UWCritterArtUw2.PictureFor). No brain moves it yet; a sequence
+    /// without a picture in a view is not drawn, as the original skips a 0xFF.
+    /// </summary>
+    public void InitialiseUw2(DataImport pOData, UWNpc pONpc, Material pOTemplate, Material pOTranslucentTemplate)
+    {
+        UWCritterArtUw2 lOArt = pOData != null && pOData.GameData != null ? pOData.GameData.CritterArtUw2 : null;
+
+        if (lOArt == null || !lOArt.IsLoaded || pONpc == null)
+            return;
+
+        int liType = pONpc.ID - UWCritterAnimations.NpcFirstObjectId;
+        int liMap = lOArt.MapOf(liType);
+
+        if (liMap == UWCritterArtUw2.NoMap)
+            return;
+
+        int liPalette = lOArt.DrawPaletteOf(liType, pONpc.NPCGoal);
+
+        mONpcUw2 = pONpc;
+
+        fInitialiseWith(pOData, pONpc.ID, (liMap << 8) | liPalette | Uw2AtlasKey,
+            () => UWCritterAtlasBuilder.BuildUw2(pOData, liMap, liPalette, fGetFilterMode()), pOTemplate, pOTranslucentTemplate);
+
+        if (mOAtlas != null && mOFilter != null)
+            fApplyUw2();
+    }
+
+    /// <summary>The stored picture in the camera's view (see InitialiseUw2).</summary>
+    private void fApplyUw2()
+    {
+        int liView = fGetViewDirection();
+        int liSlot = UWCritterAtlasBuilder.Uw2Slot(UWCritterArtUw2.SequenceOf(mONpcUw2), liView);
+        int[] lOFrames = mOAtlas.GetFramesForSlot(liSlot);
+        int liStep = UWCritterArtUw2.FrameOf(mONpcUw2);
+
+        if (lOFrames == null || liStep >= lOFrames.Length)
+        {
+            mORenderer.enabled = false;
+
+            return;
+        }
+
+        mORenderer.enabled = true;
+        miCurrentSlot = liSlot;
+        mOCurrentFrames = lOFrames;
+        miFrameInSegment = liStep;
+        fShowFrame(lOFrames[liStep]);
+    }
+
     public void Initialise(DataImport pOData, int piObjectId, Material pOTemplate, Material pOTranslucentTemplate)
     {
         if (pOData == null || pOData.CritterAnimations == null || !pOData.CritterAnimations.IsLoaded)
@@ -87,18 +150,36 @@ public class UWCritterAnimator : MonoBehaviour
             return;
 
         int liAuxPalette = pOData.CritterAnimations.GetAuxPaletteForObject(piObjectId);
+
+        if (!fInitialiseWith(pOData, piObjectId, (liAnimation << 8) | liAuxPalette,
+                () => UWCritterAtlasBuilder.Build(pOData, liAnimation, liAuxPalette, fGetFilterMode()), pOTemplate, pOTranslucentTemplate))
+            return;
+
+        // The first game's creature: its stored animation, else standing (below).
+        fShowStoredOrStanding();
+    }
+
+    /// <summary>The atlas and material of a creature, both games: the atlas from the cache or built,
+    /// the material from the cache or made from the template; false when there is nothing to show.</summary>
+    private bool fInitialiseWith(DataImport pOData, int piObjectId, int piKey, System.Func<UWCritterAtlas> pFBuild,
+        Material pOTemplate, Material pOTranslucentTemplate)
+    {
         int liBigRadius = fGetBigRadius(pOData, piObjectId);
-        int liKey = (liAnimation << 8) | liAuxPalette;
-        int liMaterialKey = liKey | (liBigRadius << 16);
+        int liKey = piKey;
+        string lsName = (piKey & Uw2AtlasKey) != 0 ? "UW2 map " + ((piKey >> 8) & 0xFF) + "/" + (piKey & 0xFF) : (piKey >> 8) + "/" + (piKey & 0xFF);
+
+        // The material key carries the big radius above the atlas key (16 and up) - the second game's
+        // mark sits above both.
+        int liMaterialKey = (liKey & ~Uw2AtlasKey) | (liBigRadius << 16) | (liKey & Uw2AtlasKey);
 
         if (!mOAtlasCache.TryGetValue(liKey, out mOAtlas))
         {
-            mOAtlas = UWCritterAtlasBuilder.Build(pOData, liAnimation, liAuxPalette, fGetFilterMode());
+            mOAtlas = pFBuild();
             mOAtlasCache[liKey] = mOAtlas;
         }
 
         if (mOAtlas == null || mOAtlas.Texture == null)
-            return;
+            return false;
 
         Material lOMaterial;
 
@@ -107,10 +188,10 @@ public class UWCritterAnimator : MonoBehaviour
             Material lOSource = mOAtlas.IsTranslucent && pOTranslucentTemplate != null ? pOTranslucentTemplate : pOTemplate;
 
             if (lOSource == null)
-                return;
+                return false;
 
             lOMaterial = new Material(lOSource);
-            lOMaterial.name = "UW Creature " + liAnimation + "/" + liAuxPalette;
+            lOMaterial.name = "UW Creature " + lsName;
             lOMaterial.mainTexture = mOAtlas.Texture;
 
             // Its own index atlas for Remastered's hallucination and ghosts (UWHallucination.hlsl) -
@@ -136,7 +217,7 @@ public class UWCritterAnimator : MonoBehaviour
         mORenderer = GetComponent<MeshRenderer>();
 
         if (mOFilter == null || mORenderer == null)
-            return;
+            return false;
 
         mORenderer.sharedMaterial = lOMaterial;
 
@@ -152,6 +233,13 @@ public class UWCritterAnimator : MonoBehaviour
             lOCollider.center = new Vector3(0f, mOAtlas.MaxSize.y * 0.5f, 0f);
         }
 
+        return true;
+    }
+
+    /// <summary>The first game's creature after its atlas is in place: the animation its record
+    /// holds, else its standing picture.</summary>
+    private void fShowStoredOrStanding()
+    {
         // THE CREATURE'S OWN ANIMATION WINS over a standing picture: the record carries the
         // animation and frame a save was written in, and the original shows exactly that from
         // the first frame. This component is added AFTER UWCritter (UWObjectSpawner), so the
@@ -237,6 +325,13 @@ public class UWCritterAnimator : MonoBehaviour
     {
         if (mOAtlas == null || mOFilter == null)
             return;
+
+        if (mONpcUw2 != null)
+        {
+            fApplyUw2();
+
+            return;
+        }
 
         // A creature without a brain (the void creatures) loops the pictures of its slot on
         // the standing cadence; everything else shows exactly what the brain said.
@@ -339,6 +434,9 @@ public class UWCritterAnimator : MonoBehaviour
         // THE VIEWPOINT, not the player: during a detached camera the
         // creature must show the side that matches THAT view (see UWViewpoint.Current).
         Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera != null && mONpcUw2 != null)
+            return UWCritterAnimations.GetViewDirection(mONpcUw2.Heading, UWHeadings.DegreesToAngleUnits(lOCamera.transform.eulerAngles.y));
 
         if (lOCamera == null || mOCritter == null)
             return FrontViewDirection;
@@ -443,11 +541,21 @@ public class UWCritterAnimator : MonoBehaviour
         Vector2Int lOHotspot = mOAtlas.Hotspots[piFrame];
         Rect lOUv = mOAtlas.UvRects[piFrame];
 
-        float lfLeft = -lOHotspot.x;
-        float lfRight = lOSize.x - lOHotspot.x;
-
         UWSettings lOSettings = UWSettings.Instance;
         float lfHeightScale = lOSettings != null ? lOSettings.CritterSpriteHeightScale : 1f;
+
+        // The second game draws its creatures smaller and square: three quarters of an object's pixel
+        // both ways (UWCritterArtUw2.CreaturePixelScale), not the first game's 4:5.
+        float lfWidthScale = 1f;
+
+        if (mONpcUw2 != null)
+        {
+            lfWidthScale = UWCritterArtUw2.CreaturePixelScale;
+            lfHeightScale = UWCritterArtUw2.CreaturePixelScale;
+        }
+
+        float lfLeft = -lOHotspot.x * lfWidthScale;
+        float lfRight = (lOSize.x - lOHotspot.x) * lfWidthScale;
 
         float lfBottom = -(lOSize.y - lOHotspot.y) * lfHeightScale;
         float lfTop = lOHotspot.y * lfHeightScale;

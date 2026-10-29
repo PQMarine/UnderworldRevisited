@@ -93,8 +93,9 @@ namespace UnderworldRevisited.Tools
             Check.Str("rows: texts, ids and choices consistent", lOProblems.ToString(), string.Empty);
             // 73 since cleanup step 7.7B: the Pointer speed (UWPointer); 75 since cleanup phase 8d: the
             // windows' theme and its ground; 76 since translation wave 1 (2026-10-26): the Language; 77 since
-            // 2026-10-27: Music from recordings; 78 since 2026-10-28: Modern's ramp.
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 78);
+            // 2026-10-27: Music from recordings; 78 since 2026-10-28: Modern's ramp; 79 since UW2 phase 0 step 5
+            // (2026-10-28): the Game; 80 since 2026-10-29: where the saves are (SaveFolder).
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 80);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");

@@ -504,9 +504,9 @@ namespace UnderworldRevisited.Tools
 
             UWConversationFunctionTable.Entry lOEntry;
 
-            Check.Bool("built-ins: no give_all_stuff", UWConversationSession.Functions.TryGet("give_all_stuff", out lOEntry), false);
-            Check.Bool("built-ins: no do_input_wait", UWConversationSession.Functions.TryGet("do_input_wait", out lOEntry), false);
-            Check.Bool("built-ins: setup_to_barter is bound", UWConversationSession.Functions.TryGet("setup_to_barter", out lOEntry), true);
+            Check.Bool("built-ins: no give_all_stuff", UWGameProfiles.Uw1.ConversationFunctions.TryGet("give_all_stuff", out lOEntry), false);
+            Check.Bool("built-ins: no do_input_wait", UWGameProfiles.Uw1.ConversationFunctions.TryGet("do_input_wait", out lOEntry), false);
+            Check.Bool("built-ins: setup_to_barter is bound", UWGameProfiles.Uw1.ConversationFunctions.TryGet("setup_to_barter", out lOEntry), true);
         }
 
         /// <summary>A67: the partner's name under the portrait (get_name).</summary>

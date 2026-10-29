@@ -78,6 +78,9 @@ public sealed class UWViewportCamera
         if (mOCamera == null || Screen.width <= 0 || Screen.height <= 0)
             return;
 
+        // The projection follows the field of view again; the classic view shifts it below.
+        mOCamera.ResetProjectionMatrix();
+
         if (!pbOriginalScheme)
         {
             // CLASSIC WIDE (UWModernClassicFrame): the classic scheme's area, widened. The hole is
@@ -127,6 +130,22 @@ public sealed class UWViewportCamera
         // The vertical field of view is the original's over the hole's rows: a hole widened by
         // UWClassicWide shows more to the sides, the same up and down.
         mOCamera.fieldOfView = UWViewAngle.Vertical(lfCorrectedAspect, fOriginalVerticalFov(UWClassicLayout.Frame.WindowHoleHeight));
+
+        // THE ORIGINAL'S PROJECTION CENTRE (UWClassicLayout.Frame.ProjectionCentreColumn/Row) instead of
+        // the hole's middle: an off-centre projection, the content moved by the difference in the
+        // hole's columns and rows (OpenGL convention: ndc = p * pos / -z - p[i, 2]).
+        int liColumns = UWClassicLayout.Frame.WindowHoleWidth + UWClassicWide.Extra;
+        int liRows = UWClassicLayout.Frame.WindowHoleHeight;
+        float lfHoleColumn = UWClassicLayout.Frame.WindowHoleLeft + (liColumns * 0.5f);
+        float lfHoleRow = UWClassicLayout.Frame.WindowHoleTop + (liRows * 0.5f);
+        float lfRight = UWClassicLayout.Frame.ProjectionCentreColumn + (UWClassicWide.Extra * 0.5f) - lfHoleColumn;
+        float lfDown = UWClassicLayout.Frame.ProjectionCentreRow - lfHoleRow;
+
+        Matrix4x4 lOProjection = mOCamera.projectionMatrix;
+
+        lOProjection[0, 2] -= 2f * lfRight / liColumns;
+        lOProjection[1, 2] += 2f * lfDown / liRows;
+        mOCamera.projectionMatrix = lOProjection;
     }
 
     /// <summary>The original's vertical angle for a camera area of this many original rows: its

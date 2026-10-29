@@ -82,6 +82,7 @@ namespace UWDataImport.UWData
 			// The numbers are the rule set's (experience.*, cleanup phase 10); the consts above are
 			// their defaults.
 			UWRulesExperience lORules = UWRules.Current.Experience;
+			IUWPlayerVariant lIGame = UWGameSession.Current.Game.Player;
 
 			if (piAmount < 0)
 			{
@@ -89,19 +90,18 @@ namespace UWDataImport.UWData
 				return 0;
 			}
 
-			// The gate above: only a LOSS still works up here (the original tests the amount
-			// first and subtracts before this comparison).
-			if (pOState.Experience > lORules.AwardCap)
+			// The gate at the present total and the gain that counts are the game's
+			// (IUWPlayerVariant; the first game ignores a gain above the cap and halves it on a
+			// level too shallow for one's own).
+			UWExperienceGateEnum leGate = lIGame.ExperienceGate(lORules, pOState.Experience, piAmount);
+
+			if (leGate == UWExperienceGateEnum.Ignore)
 				return 0;
 
 			if (piAmount == 0)
 				return 0;
 
-			int liGain = piAmount;
-
-			// On a dungeon level too shallow for one's own level there is less.
-			if ((piDungeonLevel << 1) + 2 < pOState.Level)
-				liGain = 1 + (liGain / 2);
+			int liGain = lIGame.ExperienceGain(piAmount, piDungeonLevel, pOState.Level);
 
 			int liNewTotalSkillPoints = (pOState.Experience + liGain) / lORules.PerSkillPoint;
 
@@ -114,6 +114,9 @@ namespace UWDataImport.UWData
 			// No ceiling here: the gate above is the only limit, so the last award may carry
 			// the value past it (which is how a character ends up above 9600 points).
 			pOState.Experience += liGain;
+
+			if (leGate == UWExperienceGateEnum.CountWithoutLevels)
+				return 0;
 
 			int liLevelsGained = 0;
 			int liPoints = pOState.Experience / lORules.PointsPerLevelUnit;

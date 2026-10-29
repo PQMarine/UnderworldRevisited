@@ -68,6 +68,10 @@ namespace UWDataImport.UWData
 
 			Lava = 2,
 
+			/// <summary>The second game's ice (contact 8, the floor's terrain class 3; UW2 plan phase 2
+			/// step 4 part C). The first game's floors never give it.</summary>
+			Ice = 3,
+
 			Levitating = 4,
 
 			Flying = 5,
@@ -206,6 +210,31 @@ namespace UWDataImport.UWData
 
 		/// <summary>PD[0x32], for the fall's check.</summary>
 		public int AcrobatSkill;
+
+		/// <summary>The Swimming skill, for the second game's swimming speed (IUWMotionVariant.ScaleSpeed;
+		/// UW2 plan phase 2 step 4). The first game's share does not read it.</summary>
+		public int SwimmingSkill;
+
+		/// <summary>The 1-based level the player is on, for the second game's falls without damage
+		/// (IUWMotionVariant.FallHurts). Set by the host.</summary>
+		public int LevelNumber = 1;
+
+		/// <summary>The second game's floor terrain word at a tile (UWTerrainUw2.Word of the floor
+		/// texture), for the ice's grip and the current's direction; null reads 0. Set by the host.</summary>
+		public System.Func<int, int, int> TerrainWordAt;
+
+		/// <summary>The second game's ice under the feet with grip (frictionless; PHYSICS.C:56).</summary>
+		public bool Frictionless { get; private set; }
+
+		/// <summary>The second game's 'slide': the current's or the slope's direction, -1 none. Kept
+		/// between frames - a water tile without a current lets the last one go on (PHYSICS.C:440).</summary>
+		private int miSlide = -1;
+
+		/// <summary>The heading and speed of the player's own motion before a current was added
+		/// (lasth, lasts; -1 none), given back after the step (phys_affect_player, PHYSICS.C:561).</summary>
+		private int miOwnHeading;
+
+		private int miOwnSpeed = -1;
 
 		/// <summary>PD[0x4A] and PD[0x4C], for the motion weight.</summary>
 		public int CarriedWeight;
@@ -568,6 +597,10 @@ namespace UWDataImport.UWData
 			UWMotionParams p = Params;
 			int liTarget = 0;
 
+			// The second game's ice blends from the motion before the input (oldh, olds).
+			int liOldHeading = p.Heading & 0xFFFF;
+			int liOldSpeed = p.Speed;
+
 			if (p.Gravity == 0)
 			{
 				liTarget = fCommand(piDt);
@@ -593,9 +626,24 @@ namespace UWDataImport.UWData
 			if (p.Gravity != 0)
 				CameraYaw = (CameraYaw + fTurn(piDt)) & 0xFFFF;
 
+			int liIceElasticity = -1;
+
+			if (mOWorld.Session.Game.Motion.IceAndCurrents)
+				liIceElasticity = fIceAndCurrents(liOldHeading, liOldSpeed);
+
 			p.Dt = piDt;
 			p.Elasticity = 5;
 			p.Style = (p.Ax | p.Ay | p.Gravity) == 0 ? UWMotionParams.SlideStyle : UWMotionParams.BounceStyle;
+
+			// The second game: on ice no slide along walls, and the ice's own bounce unless falling
+			// (PN.flags 0x80 only without motion_state 0x84; PN.bounce 5 when falling there).
+			if (CurrentState == State.Ice)
+			{
+				p.Style = UWMotionParams.BounceStyle;
+
+				if (p.Gravity == 0 && liIceElasticity >= 0)
+					p.Elasticity = liIceElasticity;
+			}
 
 			if (p.Speed == 0)
 				MotionYaw = CameraYaw;
@@ -612,11 +660,133 @@ namespace UWDataImport.UWData
 			p.Impact = 0;
 		}
 
+		/// <summary>
+		/// THE SECOND GAME'S GROUND (UW2 plan phase 2 step 4 part C; Underworld Exhumed uw2
+		/// motion/PHYSICS.C:399-470, set_player_phys_params): ON ICE whose floor terrain bits 3-5 are not 7
+		/// (7 has none of ice's effects) the motion after the input is blended from the one before by
+		/// munge_vectors, the strength (bits &lt;&lt; 3) + 8 - (old speed / 0x2F &lt;&lt; 2), 0x10 more under the
+		/// speed 0x2F, else 8 more when speeding up on the flat and 4 less on a slope; the bounce
+		/// becomes 0xF - bits; an ice slope (tile types 6-9) pushes downhill with speed 0x2F. SWIMMING the
+		/// same bits less one are a current's direction (a tile without one lets the last go on), added
+		/// with speed 0x8D, the sum capped at the run, the player's own motion kept to be given back after
+		/// the step. The directions 0..3 are south, north, west and east (0x8000, 0, 0xC000, 0x4000).
+		/// Returns the ice's bounce, -1 for none.
+		///
+		/// THE PRECISION MODE blends per call as well, so the ice's strength is a rate per original frame
+		/// (fPerFrame). DEVIATIONS: the original's skid sound and effect on a sharp change (set_effect 0x80,
+		/// 4) is not made yet; on flat ice the original's push angle is an uninitialised local - a slope's
+		/// direction left from an earlier tile pushes there with what the stack holds; ours pushes with 0.
+		/// </summary>
+		private int fIceAndCurrents(int piOldHeading, int piOldSpeed)
+		{
+			UWMotionParams p = Params;
+			int liTileX = (p.X >> 8) & 0x3F;
+			int liTileY = (p.Y >> 8) & 0x3F;
+			int liBits = ((TerrainWordAt != null ? TerrainWordAt(liTileX, liTileY) : 0) & 0x38) >> 3;
+			int liAngle = 0;
+			int liElasticity = -1;
+
+			mOWorld.TryGetTile(liTileX, liTileY, out int liType, out int liFloorNibble, out int liTerrain);
+
+			if (CurrentState == State.Ice)
+			{
+				if (liBits != 7)
+				{
+					Frictionless = true;
+
+					if (liType >= SlopeFirstType && liType <= SlopeLastType)
+					{
+						miSlide = liType - SlopeFirstType;
+						liAngle = IceSlopePush;
+					}
+
+					liElasticity = 0xF - liBits;
+
+					int liStrength = (liBits << 3) + 8 - ((piOldSpeed / IceSlopePush) << 2);
+
+					if (piOldSpeed < IceSlopePush)
+						liStrength += 0x10;
+					else if (p.Speed > piOldSpeed)
+						liStrength += miSlide == -1 ? 8 : -4;
+
+					UWMotionVariantUw2.MungeVectors(UWMotionVariantUw2.MungeIce, piOldHeading, piOldSpeed, MotionYaw & 0xFFFF, p.Speed,
+						fPerFrame(liStrength), out int liHeading, out int liSpeed);
+
+					MotionYaw = liHeading;
+					p.Speed = liSpeed;
+				}
+				else
+				{
+					miSlide = -1;
+					Frictionless = false;
+				}
+			}
+			else if (CurrentState == State.Swimming)
+			{
+				int liPrevious = miSlide;
+
+				miSlide = liBits - 1;
+
+				if (miSlide == -1)
+					miSlide = liPrevious;
+
+				liAngle = CurrentPush;
+			}
+			else
+			{
+				miSlide = -1;
+			}
+
+			miOwnSpeed = -1;
+
+			if (miSlide != -1)
+			{
+				int liDirection = 0;
+
+				if (miSlide <= 3)
+				{
+					if (miSlide > 1)
+						liDirection = 0x4000;
+
+					if ((miSlide & 1) == 0)
+						liDirection += 0x8000;
+				}
+
+				UWMotionVariantUw2.MungeVectors(UWMotionVariantUw2.MungeAdd, MotionYaw & 0xFFFF, p.Speed, liDirection & 0xFFFF, liAngle, 0x20,
+					out int liHeading, out int liSpeed);
+
+				if (liAngle != IceSlopePush)
+				{
+					miOwnHeading = MotionYaw & 0xFFFF;
+					miOwnSpeed = p.Speed;
+				}
+
+				if (liSpeed > ForwardSpeed)
+					liSpeed = ForwardSpeed;
+
+				MotionYaw = liHeading;
+				p.Speed = liSpeed;
+			}
+
+			return liElasticity;
+		}
+
+		/// <summary>The slopes' tile types (rising north, south, east, west).</summary>
+		private const int SlopeFirstType = 6;
+
+		private const int SlopeLastType = 9;
+
+		/// <summary>An ice slope pushes with this speed (and it marks the ice's speed steps).</summary>
+		public const int IceSlopePush = 0x2F;
+
+		/// <summary>A current pushes with this speed.</summary>
+		public const int CurrentPush = 0x8D;
+
 		/// <summary>(dt * TurnStep) * (TurnInput / 4) / 4, in 16 bits - with FineTicks in 32 bits
 		/// and shifted back.</summary>
 		private int fTurn(int piDt)
 		{
-			int liTurnStep = mOWorld.Session.Rules.Motion.TurnStep;
+			int liTurnStep = mOWorld.Session.Game.Motion.ScaleTurn(mOWorld.Session.Rules.Motion.TurnStep, (int)CurrentState);
 
 			if (Params.FineTicks)
 				return (int)((((long)piDt * liTurnStep * (TurnInput / 4)) / 4) >> 8);
@@ -826,8 +996,19 @@ namespace UWDataImport.UWData
 			fApplyTile();
 
 			int liHeading = p.Heading & 0xFFFF;
+			bool lbSecondGame = mOWorld.Session.Game.Motion.IceAndCurrents;
 
-			if (p.Impact != 0 && liHeading == (MotionYaw & 0xFFFF))
+			// The second game gives the player's own motion back after a current (lasth, lasts).
+			if (lbSecondGame && miOwnSpeed != -1)
+			{
+				MotionYaw = miOwnHeading;
+				p.Speed = miOwnSpeed;
+			}
+
+			// The head-on stop; the second game's only on the ground, off the ice, without a current.
+			bool lbStops = !lbSecondGame || (p.Gravity == 0 && CurrentState != State.Ice && miOwnSpeed == -1);
+
+			if (p.Impact != 0 && liHeading == (MotionYaw & 0xFFFF) && lbStops)
 			{
 				p.Speed = 0;
 				Last.HeadOnStop = true;
@@ -840,11 +1021,12 @@ namespace UWDataImport.UWData
 
 				int liTarget = (liHeading - miCommandOffset) & 0xFFFF;
 
-				if ((p.Style & UWMotionParams.SlideStyle) != 0)
+				// The second game's view follows only while no current or slope pushes (slide == -1).
+				if ((p.Style & UWMotionParams.SlideStyle) != 0 && (!lbSecondGame || miSlide == -1))
 				{
 					int liDiff = I16(CameraYaw - liTarget);
 					int liAbs = liDiff < 0 ? -liDiff : liDiff;
-					int liFollow = fPerFrame(0x400);
+					int liFollow = fPerFrame(mOWorld.Session.Game.Motion.FacingFollow);
 
 					if (liAbs < liFollow)
 						CameraYaw = liTarget;
@@ -887,6 +1069,11 @@ namespace UWDataImport.UWData
 			{
 				UWRulesMotion.ImpactRules lORules = mOWorld.Session.Rules.Motion.Impact;
 				int liValue = (p.Impact & 0xFFFF) >> 8;
+
+				// The second game's world of levels 65 to 72 hurts nobody falling (the value goes to 0
+				// before the doubling, as there).
+				if (!mOWorld.Session.Game.Motion.FallHurts(LevelNumber))
+					liValue = 0;
 
 				if (pbDoubled)
 					liValue <<= 1;
@@ -1155,6 +1342,8 @@ namespace UWDataImport.UWData
 			}
 			else if ((piState & UWMotionTables.ContactLava) != 0)
 				leState = State.Lava;
+			else if ((piState & UWMotionTables.ContactIce) != 0)
+				leState = State.Ice;
 			else if ((piState & UWMotionTables.ContactAirborne) != 0)
 			{
 				if ((Abilities & AbilityLevitate) != 0)
@@ -1183,13 +1372,14 @@ namespace UWDataImport.UWData
 			SurfaceBits = SurfaceBitsByState[liState];
 			CurrentState = peState;
 
-			// The speeds and the ramp are the rule set's (motion.*, cleanup phase 10).
+			// The speeds and the ramp are the rule set's (motion.*, cleanup phase 10); the state's
+			// share of them is the game's (IUWMotionVariant; the first game: tenths).
 			UWRulesMotion lORules = mOWorld.Session.Rules.Motion;
-			int liRatio = lORules.Speed.TenthsByState[liState];
+			IUWMotionVariant lIMotion = mOWorld.Session.Game.Motion;
 
-			ForwardSpeed = lORules.Speed.Forward * liRatio / 10;
-			SlideSpeed = lORules.Speed.Slide * liRatio / 10;
-			BackSpeed = lORules.Speed.Back * liRatio / 10;
+			ForwardSpeed = lIMotion.ScaleSpeed(lORules.Speed, lORules.Speed.Forward, liState, SwimmingSkill);
+			SlideSpeed = lIMotion.ScaleSpeed(lORules.Speed, lORules.Speed.Slide, liState, SwimmingSkill);
+			BackSpeed = lIMotion.ScaleSpeed(lORules.Speed, lORules.Speed.Back, liState, SwimmingSkill);
 
 			if (MaxWeight != 0 && CarriedWeight * 2 > MaxWeight)
 				MotionWeight = lORules.MotionWeight - ((CarriedWeight * lORules.MotionWeight) / (MaxWeight * 2));

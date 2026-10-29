@@ -74,7 +74,8 @@ namespace UnderworldRevisited.Build
 
                     Texture2D lOIndexPiece;
 
-                    Texture2D lOPiece = fCreatePiece(pOData, lOFrame, lyAuxPalette, lOPalette, out lbTranslucent, out lOIndexPiece);
+                    Texture2D lOPiece = fCreatePiece(pOData, lOFrame.Width, lOFrame.Height, lOFrame.Pixels, lyAuxPalette, lOPalette,
+                        out lbTranslucent, out lOIndexPiece);
 
                     lOAtlas.IsTranslucent |= lbTranslucent;
                     lOAtlas.MaxSize = new Vector2Int(Mathf.Max(lOAtlas.MaxSize.x, lOFrame.Width),
@@ -88,11 +89,99 @@ namespace UnderworldRevisited.Build
                 fAddSlots(lOAtlas, lOPage, liFrameOffset);
             }
 
+            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, lOSizes, lOHotspots,
+                string.Format("UWCritter {0} Palette {1}", piAnimation, piAuxPalette), peFilterMode);
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S CREATURE ART (UW2 plan phase 2 step 3, 2026-10-29): every frame of a critter
+        /// map from its pages (UWCritterArtUw2), in one atlas whose image numbers ARE the map's frame
+        /// numbers (0 to 255, the numbers CR.AN's sequences name); its slots are sequence x 8 + view, each
+        /// the sequence's frames in that view up to its count (byte 7). The pixels go through the page's
+        /// palette piPalette, as the first game's through its auxiliary palette.
+        /// </summary>
+        public static UWCritterAtlas BuildUw2(DataImport pOData, int piMap, int piPalette, FilterMode peFilterMode)
+        {
+            UWCritterArtUw2 lOArt = pOData != null && pOData.GameData != null ? pOData.GameData.CritterArtUw2 : null;
+
+            if (lOArt == null || !lOArt.IsLoaded)
+                return null;
+
+            UWPalette lOPalette = pOData.Palettes.GetPalette(0);
+            UWCritterAtlas lOAtlas = new UWCritterAtlas();
+            List<Texture2D> lOPieces = new List<Texture2D>();
+            List<Texture2D> lOIndexPieces = new List<Texture2D>();
+            List<int> lOFrameOfPiece = new List<int>();
+            Vector2Int[] lOSizes = new Vector2Int[UWCritterArtUw2.FrameNumbers];
+            Vector2Int[] lOHotspots = new Vector2Int[UWCritterArtUw2.FrameNumbers];
+
+            for (int liPage = 0; liPage < UWCritterArtUw2.PagesPerMap; liPage++)
+            {
+                UWCritterArtUw2.Page lOPage = lOArt.GetPage(piMap, liPage);
+
+                if (lOPage == null)
+                    continue;
+
+                byte[] lyPalette = piPalette >= 0 && piPalette < lOPage.Palettes.Length ? lOPage.Palettes[piPalette] : lOPage.Palettes[0];
+
+                foreach (KeyValuePair<int, UWCritterArtUw2.Frame> lOPair in lOPage.Frames)
+                {
+                    UWCritterArtUw2.Frame lOFrame = lOPair.Value;
+
+                    // The frame from the page the renderer takes it from (PageOfFrame), once.
+                    if (lOArt.PageOfFrame(piMap, lOPair.Key) != liPage || lOFrame.Pixels == null || lOFrame.Width <= 0 || lOFrame.Height <= 0)
+                        continue;
+
+                    lOSizes[lOPair.Key] = new Vector2Int(lOFrame.Width, lOFrame.Height);
+                    lOHotspots[lOPair.Key] = new Vector2Int(lOFrame.HotspotX, lOFrame.HotspotY);
+
+                    Texture2D lOPiece = fCreatePiece(pOData, lOFrame.Width, lOFrame.Height, lOFrame.Pixels, lyPalette, lOPalette,
+                        out bool lbTranslucent, out Texture2D lOIndexPiece);
+
+                    lOAtlas.IsTranslucent |= lbTranslucent;
+                    lOAtlas.MaxSize = new Vector2Int(Mathf.Max(lOAtlas.MaxSize.x, lOFrame.Width), Mathf.Max(lOAtlas.MaxSize.y, lOFrame.Height));
+
+                    lOPieces.Add(lOPiece);
+                    lOIndexPieces.Add(lOIndexPiece);
+                    lOFrameOfPiece.Add(lOPair.Key);
+                }
+            }
+
+            for (int liSequence = 0; liSequence < UWCritterArtUw2.SequenceCount; liSequence++)
+            {
+                for (int liView = 0; liView < UWCritterArtUw2.AngleCount; liView++)
+                {
+                    byte[] lySteps = lOArt.SequenceBytes(piMap, liSequence, liView);
+                    int liLength = Mathf.Min(lySteps[UWCritterArtUw2.SequenceLengthByte], UWCritterArtUw2.SequenceLengthByte);
+                    List<int> lOFrames = new List<int>(liLength);
+
+                    for (int liStep = 0; liStep < liLength && lySteps[liStep] != UWCritterArtUw2.NoPicture; liStep++)
+                        lOFrames.Add(lySteps[liStep]);
+
+                    if (lOFrames.Count > 0)
+                        lOAtlas.SlotFrames[Uw2Slot(liSequence, liView)] = lOFrames.ToArray();
+                }
+            }
+
+            return fPack(lOAtlas, lOPieces, lOIndexPieces, lOFrameOfPiece, new List<Vector2Int>(lOSizes), new List<Vector2Int>(lOHotspots),
+                string.Format("UWCritter UW2 map {0} Palette {1}", piMap, piPalette), peFilterMode);
+        }
+
+        /// <summary>The atlas slot of a second-game sequence in a view.</summary>
+        public static int Uw2Slot(int piSequence, int piView)
+        {
+            return (piSequence * UWCritterArtUw2.AngleCount) + piView;
+        }
+
+        /// <summary>Packs the pieces into the atlas's texture and index texture (both games).</summary>
+        private static UWCritterAtlas fPack(UWCritterAtlas lOAtlas, List<Texture2D> lOPieces, List<Texture2D> lOIndexPieces,
+            List<int> lOFrameOfPiece, List<Vector2Int> lOSizes, List<Vector2Int> lOHotspots, string psName, FilterMode peFilterMode)
+        {
             if (lOPieces.Count == 0)
                 return null;
 
             Texture2D lOTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            lOTexture.name = string.Format("UWCritter {0} Palette {1}", piAnimation, piAuxPalette);
+            lOTexture.name = psName;
 
             Rect[] lORects = lOTexture.PackTextures(lOPieces.ToArray(), Padding, MaxAtlasSize, false);
 
@@ -174,31 +263,31 @@ namespace UnderworldRevisited.Build
             return pOPage.AuxPalettes[0];
         }
 
-        private static Texture2D fCreatePiece(DataImport pOData, UWCritterAnimations.Frame pOFrame, byte[] pyAuxPalette, UWPalette pOPalette, out bool pbTranslucent, out Texture2D pOIndexPiece)
+        private static Texture2D fCreatePiece(DataImport pOData, int piWidth, int piHeight, byte[] pyFramePixels, byte[] pyAuxPalette, UWPalette pOPalette, out bool pbTranslucent, out Texture2D pOIndexPiece)
         {
             pbTranslucent = false;
 
-            Texture2D lOPiece = new Texture2D(pOFrame.Width, pOFrame.Height, TextureFormat.RGBA32, false);
-            Color32[] lOPixels = new Color32[pOFrame.Width * pOFrame.Height];
+            Texture2D lOPiece = new Texture2D(piWidth, piHeight, TextureFormat.RGBA32, false);
+            Color32[] lOPixels = new Color32[piWidth * piHeight];
 
             // The same image with the palette index in the red channel and the opacity in the
             // alpha channel - for the palette renderer, in the same pass.
-            Color32[] lOIndexPixels = new Color32[pOFrame.Width * pOFrame.Height];
+            Color32[] lOIndexPixels = new Color32[piWidth * piHeight];
 
-            for (int y = 0; y < pOFrame.Height; y++)
+            for (int y = 0; y < piHeight; y++)
             {
                 // Row 0 of the source is at the top, Unity starts at the bottom.
-                int liSourceRow = (pOFrame.Height - 1 - y) * pOFrame.Width;
-                int liTargetRow = y * pOFrame.Width;
+                int liSourceRow = (piHeight - 1 - y) * piWidth;
+                int liTargetRow = y * piWidth;
 
-                for (int x = 0; x < pOFrame.Width; x++)
+                for (int x = 0; x < piWidth; x++)
                 {
                     int liSource = liSourceRow + x;
 
-                    if (liSource >= pOFrame.Pixels.Length)
+                    if (liSource >= pyFramePixels.Length)
                         continue;
 
-                    byte lyIndex = pOFrame.Pixels[liSource];
+                    byte lyIndex = pyFramePixels[liSource];
 
                     // Transparent is NOT image index 0, but the pixel whose
                     // auxiliary palette entry points to main palette index 0. For creatures that
@@ -256,7 +345,7 @@ namespace UnderworldRevisited.Build
             lOPiece.Apply(false, false);
 
             // linear = true: this holds an index, not a colour.
-            pOIndexPiece = new Texture2D(pOFrame.Width, pOFrame.Height, TextureFormat.RGBA32, false, true);
+            pOIndexPiece = new Texture2D(piWidth, piHeight, TextureFormat.RGBA32, false, true);
             pOIndexPiece.SetPixels32(lOIndexPixels);
             pOIndexPiece.Apply(false, false);
 

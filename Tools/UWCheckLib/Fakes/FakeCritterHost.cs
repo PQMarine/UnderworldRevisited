@@ -116,6 +116,8 @@ namespace UnderworldRevisited.Tools
             /// <summary>The fake level's rule set: the original's (a check may put another).</summary>
             public UWRules Rules { get; set; } = UWRules.CreateOriginal();
 
+            public IUWGameProfile Game { get; set; } = UWGameProfiles.Uw1;
+
             public bool TryFindPath(int piFromX, int piFromY, int piFromHeight, int piToTileX, int piToTileY, int piToHeight,
                 int piRangeBudget, List<UWTilePos> pOSquares, List<bool> pOJumps)
             {

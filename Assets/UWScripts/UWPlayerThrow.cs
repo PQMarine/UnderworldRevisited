@@ -230,6 +230,42 @@ public static class UWPlayerThrow
         if (lOData == null)
             return false;
 
+        if (!TryFindDropSpot(pOItem, pOCamera, pOLevelLoader, out Vector3 lOSpot))
+        {
+            pOInteraction?.AddGeneralMessage(NoSpaceMessage);
+
+            UWAudioService.PlayEffect(UWSoundEffectId.Landing);
+
+            return false;
+        }
+
+        // A burning light goes out when it is put down - only after it is sure to fit, otherwise
+        // it would stay at the pointer doused.
+        // A lit taper keeps burning on the ground (ExtinguishInWorld) - its light leaves the
+        // pointer with it once it is down.
+        bool lbWasLit = UWObjectMechanics.IsLitLight(pOItem.ID);
+
+        if (UWObjectMechanics.ExtinguishInWorld(pOItem, lOData.Textures))
+            pOInventory.ApplyCarriedLight();
+
+        // Arrows and bolts lie in the facing (per user, 2026-09-07) - see SpawnDroppedObject.
+        bool lbDropped = pOInventory.DropCursorItemInWorld(lOSpot, true, UWLevelLoader.HeadingFromDirection(pOCamera.forward));
+
+        if (lbWasLit)
+            pOInventory.ApplyCarriedLight();
+
+        return lbDropped;
+    }
+
+    /// <summary>
+    /// The drop's spot (ReturnObject, the same in both games): (player radius + item radius + 1)
+    /// eighth tiles ahead in the player's facing, and if the item fits there three eighths further,
+    /// where it must fit again. False when it does not - the spot is then where it was tried. The
+    /// second game's walk drops through it too (UWGameScreenUw2, UW2 plan phase 3 step 3).
+    /// </summary>
+    public static bool TryFindDropSpot(UWObject pOItem, Transform pOCamera, UWLevelLoader pOLevelLoader, out Vector3 pOSpot)
+    {
+        DataImport lOData = pOLevelLoader.UWDataImporter;
         Vector3 lOFeet = GetFeet(pOCamera);
         int liHeading = GetPlayerHeading(pOCamera);
 
@@ -257,32 +293,9 @@ public static class UWPlayerThrow
             lbFits = fFitsAt(liEighthX, liEighthY, liItemRadius, liDistance, lOFeet, pOCamera, pOLevelLoader);
         }
 
-        if (!lbFits)
-        {
-            pOInteraction?.AddGeneralMessage(NoSpaceMessage);
+        pOSpot = fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y);
 
-            UWAudioService.PlayEffect(UWSoundEffectId.Landing);
-
-            return false;
-        }
-
-        // A burning light goes out when it is put down - only after it is sure to fit, otherwise
-        // it would stay at the pointer doused.
-        // A lit taper keeps burning on the ground (ExtinguishInWorld) - its light leaves the
-        // pointer with it once it is down.
-        bool lbWasLit = UWObjectMechanics.IsLitLight(pOItem.ID);
-
-        if (UWObjectMechanics.ExtinguishInWorld(pOItem, lOData.Textures))
-            pOInventory.ApplyCarriedLight();
-
-        // Arrows and bolts lie in the facing (per user, 2026-09-07) - see SpawnDroppedObject.
-        bool lbDropped = pOInventory.DropCursorItemInWorld(fEighthToWorld(liEighthX, liEighthY, pOCamera.position.y),
-            true, UWLevelLoader.HeadingFromDirection(pOCamera.forward));
-
-        if (lbWasLit)
-            pOInventory.ApplyCarriedLight();
-
-        return lbDropped;
+        return lbFits;
     }
 
     /// <summary>

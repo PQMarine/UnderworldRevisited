@@ -28,12 +28,14 @@ namespace UWDataImport
     /// The model offset table (64 words) is at file 0x4CCD0 (seg051:28A0); offsets are relative
     /// to seg051:2938 (file 0x4CD68). Like the colour records these offsets are verified
     /// against the GOG build only.
+    ///
+    /// BOTH GAMES (UW2 plan phase 1 step 5, 2026-10-29): the offsets are the game's
+    /// (UW3DModelLayout, IUWGameProfile.Models); the second game's program runs the same bytecode,
+    /// read by the same interpreter here.
     /// </summary>
     public class UW3DModelImport
     {
-        private const int TableStart = 0x0004ccd0;
-        private const int CodeBase = 0x0004cd68;
-        private const int ModelCount = 64;
+        private const int ModelCount = UW3DModelLayout.ModelCount;
         private const int MaxCallDepth = 32;
         private const int MaxSteps = 200000;
 
@@ -48,9 +50,14 @@ namespace UWDataImport
         /// running a model's bytecode (seg032_2DCA_597, called for 3D models from
         /// RenderingObjects_seg032_2DCA_5): it emits "store word" opcodes that write the model's
         /// colours into register n at DS:[237C] - 18h + 2n, i.e. 0x2920 + 2n. So
-        /// "(address - 0x2920) / 2" is the register number.
+        /// "(address - 0x2920) / 2" is the register number (UW3DModelLayout.ColorRegisterBase; the
+        /// second game's 0x2680).
         /// </summary>
-        private const int ColorRegisterBase = 0x2920;
+        private readonly int miColorRegisterBase;
+
+        private readonly int miTableStart;
+
+        private readonly int miCodeBase;
 
         /// <summary>
         /// The per-model colour records in UW.EXE: DS:060A, 4 bytes per model (flags, then up
@@ -60,10 +67,9 @@ namespace UWDataImport
         /// no game data lives in the source.
         /// Flag bits beyond the count are not evaluated here: 0x08 ceiling vector, 0x10 object
         /// texture, 0x20 register 0 taken from a resource, 0x40 pitch in register 5,
-        /// 0x80 animated colours (moongate).
+        /// 0x80 animated colours (moongate). The second game's records are 5 bytes (the first
+        /// texture and the texture count after the colours; UW3DModelLayout).
         /// </summary>
-        private const int ColorRecordsStart = 0x0005e2ca;
-        private const int ColorRecordCount = 30;
 
         /// <summary>Palette indices per model index, filled from UW.EXE by the constructor
         /// (see ColorRecordsStart). Empty for models without a colour record.</summary>
@@ -71,21 +77,31 @@ namespace UWDataImport
 
         private readonly byte[] mData;
 
+        /// <summary>The first game's models from UW.EXE.</summary>
         public UW3DModelImport(string psExePath)
+            : this(psExePath, UW3DModelLayout.Uw1)
+        {
+        }
+
+        /// <summary>A game's models from its program, at its layout's offsets.</summary>
+        public UW3DModelImport(string psExePath, UW3DModelLayout pOLayout)
         {
             mData = File.ReadAllBytes(psExePath);
+            miTableStart = pOLayout.TableStart;
+            miCodeBase = pOLayout.CodeBase;
+            miColorRegisterBase = pOLayout.ColorRegisterBase;
 
             for (int liModel = 0; liModel < ModelCount; liModel++)
             {
-                int liRecord = ColorRecordsStart + (liModel * 4);
+                int liRecord = pOLayout.ColorRecordsStart + (liModel * pOLayout.ColorRecordSize);
 
-                if (liModel >= ColorRecordCount || liRecord + 4 > mData.Length)
+                if (liModel >= pOLayout.ColorRecordCount || liRecord + pOLayout.ColorRecordSize > mData.Length)
                 {
                     mModelColors[liModel] = new byte[0];
                     continue;
                 }
 
-                int liCount = Math.Min(mData[liRecord] & 7, 3);
+                int liCount = Math.Min(mData[liRecord] & 7, pOLayout.ColorRecordSize - 1);
                 byte[] laColors = new byte[liCount];
                 Array.Copy(mData, liRecord + 1, laColors, 0, liCount);
                 mModelColors[liModel] = laColors;
@@ -197,12 +213,12 @@ namespace UWDataImport
             if (piModelIndex < 0 || piModelIndex >= ModelCount)
                 return null;
 
-            ushort liRelOffset = fReadUInt16(TableStart + (piModelIndex * 2));
+            ushort liRelOffset = fReadUInt16(miTableStart + (piModelIndex * 2));
 
             if (liRelOffset == 0)
                 return null;
 
-            int liStart = CodeBase + liRelOffset;
+            int liStart = miCodeBase + liRelOffset;
 
             if (liStart < 0 || liStart + 2 > mData.Length)
                 return null;
@@ -486,7 +502,7 @@ namespace UWDataImport
                         break;
 
                     case 0xBC: // 7D9D flat colour from a register (address, shade level, add)
-                        pOMachine.ColorRegister = (fReadUInt16(p) - ColorRegisterBase) / 2;
+                        pOMachine.ColorRegister = (fReadUInt16(p) - miColorRegisterBase) / 2;
                         pOMachine.FlatShade = mData[p + 2];
                         pOMachine.Gouraud = false;
                         piPos = p + 4;
@@ -507,7 +523,7 @@ namespace UWDataImport
                     case 0xD4: // 2BC7 Gouraud base register and per-vertex shade bytes, padded to even
                     {
                         int liCount = fReadUInt16(p);
-                        pOMachine.GouraudRegister = (fReadUInt16(p + 2) - ColorRegisterBase) / 2;
+                        pOMachine.GouraudRegister = (fReadUInt16(p + 2) - miColorRegisterBase) / 2;
 
                         for (int liAt = 0; liAt < liCount; liAt++)
                         {
@@ -517,7 +533,7 @@ namespace UWDataImport
 
                         piPos = p + 4 + (3 * liCount);
 
-                        if (((piPos - CodeBase) & 1) != 0)
+                        if (((piPos - miCodeBase) & 1) != 0)
                             piPos++;
 
                         break;
@@ -559,6 +575,26 @@ namespace UWDataImport
                     case 0xCE:
                         piPos = fReadTexturedVertices(pOMachine, fNewFace(pOMachine), p);
                         break;
+
+                    // The second game's do_compact_map (UW2.EXE seg004:3DA2; Underworld Exhumed
+                    // 3d/TMAPOPS.ASM): the textured quad of A0 without its texture word - the
+                    // renderer's current texture, which do_rect sets from the object for a model
+                    // with a textured face (model 0x0A). UW.EXE's models do not use it.
+                    case 0xD2:
+                    {
+                        RawFace lOFace = fNewFace(pOMachine);
+                        lOFace.Uvs = new List<UWVector2>(4);
+
+                        for (int liAt = 0; liAt < 4; liAt++)
+                        {
+                            lOFace.Keys.Add(fSnapshot(pOMachine, mData[p + liAt]));
+                            lOFace.Uvs.Add(new UWVector2((liAt == 1 || liAt == 2) ? 1f : 0f, (liAt >= 2) ? 1f : 0f));
+                        }
+
+                        pOMachine.Faces.Add(lOFace);
+                        piPos = p + 4;
+                        break;
+                    }
 
                     case 0xB2: // select the current texture slot
                         piPos = p + 2;

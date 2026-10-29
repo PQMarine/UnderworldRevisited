@@ -840,11 +840,22 @@ public partial class UWSetupMenu : MonoBehaviour
             fToggleDialog(DialogEnum.Game);
 
         // Graphics needs the game data - not on the first-run screen. Controls do not, but there
-        // is nothing to play yet either.
-        if (mbFirstRun)
+        // is nothing to play yet either. The same over the main menu screen of a game the port cannot
+        // play yet (UW2 plan phase 0 step 5): Game only, to switch back.
+        if (mbFirstRun || UWMainMenu.IsScreenOnly || UWMainMenu.IsWalkMenu)
             return;
 
         float lfLeft = lOGame.xMax;
+
+        // The walk through the second game's world (UW2 plan phase 2 step 3): Game and Graphics only -
+        // the rest is the first game's play.
+        if (UWWalkUw2.IsWalking)
+        {
+            if (fBarItem(pORows, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
+                fToggleDialog(DialogEnum.Graphics);
+
+            return;
+        }
 
         // THE MOTION SECOND, right after Game (per user, 2026-10-06: "eine sehr wichtige
         // Einstellung"): the player's motion and the picture of it, with the explanations.

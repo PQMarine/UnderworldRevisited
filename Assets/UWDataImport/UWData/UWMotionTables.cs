@@ -99,6 +99,10 @@ namespace UWDataImport.UWData
 
 		public const int ContactLava = 4;
 
+		/// <summary>The second game's ice: the floor's terrain class 3 (set_resterr's 1 &lt;&lt; class; UW2 plan
+		/// phase 2 step 4 part C). The first game's floors never give it.</summary>
+		public const int ContactIce = 8;
+
 		public const int ContactTerrain3 = 8;
 
 		public const int ContactAirborne = 0x10;

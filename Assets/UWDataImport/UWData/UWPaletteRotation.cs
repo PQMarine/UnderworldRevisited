@@ -43,13 +43,22 @@ namespace UWDataImport.UWData
 
 		public static bool IsLavaIndex(int piPaletteIndex)
 		{
-			return piPaletteIndex >= LavaFirstIndex && piPaletteIndex <= LavaLastIndex;
+			return fFirstGame && piPaletteIndex >= LavaFirstIndex && piPaletteIndex <= LavaLastIndex;
 		}
 
 		public static bool IsWaterIndex(int piPaletteIndex)
 		{
-			return piPaletteIndex >= WaterFirstIndex && piPaletteIndex <= WaterLastIndex;
+			return fFirstGame && piPaletteIndex >= WaterFirstIndex && piPaletteIndex <= WaterLastIndex;
 		}
+
+		/// <summary>
+		/// THESE RANGES ARE THE FIRST GAME'S (UW2 plan phase 2 step 3, the second test of the walk,
+		/// 2026-10-29: UW2's walls glittered orange in Remastered - its colours 16 to 23 are no lava).
+		/// The second game rotates other banks: four of four at 0xE0 to 0xEF one place down, 3 to 7 and
+		/// 8 to 10 one place up, every 64 ticks (Underworld Exhumed uw2 gfx/COLCYCLE.C:49, cycle_colors).
+		/// Until those are built, nothing rotates, glows or reflects as lava or water in its session.
+		/// </summary>
+		private static bool fFirstGame => UWGameSession.Current.Game.Game == UWGame.Uw1;
 
 		public static bool IsRotatingIndex(int piPaletteIndex)
 		{

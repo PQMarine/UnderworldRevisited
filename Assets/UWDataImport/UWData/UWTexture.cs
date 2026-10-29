@@ -50,7 +50,14 @@ namespace UWDataImport.UWData
 			PRES1,
 			PRES2,
 			WIN1,
-			WIN2
+			WIN2,
+			/// <summary>The second game's GEMPT.GR (UW2 plan phase 2 step 1): loaded at start-up after
+			/// the cursors (Underworld Exhumed uw2 gfx/LOADGR.C:439); appended so the first game's values
+			/// stay.</summary>
+			GEMPT,
+			/// <summary>The second game's GHED.GR: the generic conversation heads, by creature class
+			/// (uw2 conv/CONVERSE.C:198).</summary>
+			GHED
 		}
 
 		public enum UWImageFileFormatEnum

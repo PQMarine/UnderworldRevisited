@@ -73,8 +73,15 @@ namespace UWDataImport.UWData
 			public bool IsLoaded { get; private set; }
 
 			public WeaponPalettes(string psDataPath)
+				: this(psDataPath, UWGame.Uw1)
 			{
-				string lsFile = Path.Combine(psDataPath, "WEAPONS.CM");
+			}
+
+			/// <summary>The second game's file is WEAP.CM, 64 bytes of which the game reads the first 32
+			/// (Underworld Exhumed, docs/FORMATS.md "Smaller files"; UW2 plan phase 2 step 1).</summary>
+			public WeaponPalettes(string psDataPath, UWGame peGame)
+			{
+				string lsFile = Path.Combine(psDataPath, peGame == UWGame.Uw2 ? "WEAP.CM" : "WEAPONS.CM");
 
 				if (!File.Exists(lsFile))
 					return;
@@ -212,9 +219,14 @@ namespace UWDataImport.UWData
 		public byte[] RawCharacterGeneration { get; private set; }
 
 		public UWMiscDataFiles(string psDataPath)
+			: this(psDataPath, UWGame.Uw1)
+		{
+		}
+
+		public UWMiscDataFiles(string psDataPath, UWGame peGame)
 		{
 			Monochrome = new MonochromeMapping(psDataPath);
-			WeaponAttackPalettes = new WeaponPalettes(psDataPath);
+			WeaponAttackPalettes = new WeaponPalettes(psDataPath, peGame);
 			SkillChoices = new CharacterSkills(psDataPath);
 
 			RawLights = fReadRaw(Path.Combine(psDataPath, "LIGHTS.DAT"));

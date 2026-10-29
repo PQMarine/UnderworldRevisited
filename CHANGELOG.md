@@ -8,6 +8,41 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.13.0] - 2026-10-29
+
+### Added
+- Ultima Underworld II, an early preview. With the second game in the same GOG installation, the
+  Game window (menu bar on the main menu) switches to it. What there is: its main menu, its
+  character creation, Journey Onward with the saves of the DOS game, and a walk through
+  Britannia on its own motion (doors, stairs and teleports between levels, ice and currents)
+  with its game screen - the scroll, the compass, the command bar, the flasks, the inventory with
+  its containers and runes, the statistics page, and the options with saving and restoring; the
+  saves load in the DOS game and back. What there is not yet: its rules (creatures stand, no
+  fighting, no spells), conversations, the map, sound and music, the cutscenes, and the modern
+  interface (the modern scheme walks without one). Ultima Underworld I is unchanged by it.
+- Save folder, a row in the Game window: Automatic, GOG's cloud_saves, or the installation's own.
+  GOG's current installers have DOSBox write the saves to a cloud_saves folder beside the game;
+  Automatic takes the folder with the newest save and finds those, as the DOS game does.
+
+### Closer to the original
+- Items and creatures keep their height when the view looks down; they were squashed. The
+  original draws a sprite as a flat picture facing the screen. Found by Reddit user
+  Realistic_Koala5531 - thank you.
+- Looking up and down in the classic scheme: four steps of 5.6 degrees each way, up to 22.5 (was
+  three of 15), and sprites a little smaller the further the view tilts, as in the original.
+- Items and creatures in the original's proportions: a sprite's pixel is a quarter taller than it is
+  wide (4 to 5), as the original scales them; items stood too wide, creatures a little too tall.
+- The view from where the original sees: the eye at the original's height, and the camera a little
+  left of and above it, as the original's camera offsets it; the picture centred where the
+  original centres it. Close up, creatures and walls had stood too high and too far left - Drog on
+  level 1 by a tenth of the view.
+- Sound effects last as long as in the original: the length was read the wrong way round, so
+  some sounds held until the program ended and others were cut to a twelfth of a second.
+- Dice roll as the original rolls them (the random number scaled to the sides, not the
+  remainder); the spread is the same, the single throws are the original's.
+- A save's PLAYER.DAT is enciphered with the key DOS takes from the character's name; older saves
+  of ours carry a fixed key until saved again (both load either way).
+
 ## [0.12.0] - 2026-10-28
 
 ### Added

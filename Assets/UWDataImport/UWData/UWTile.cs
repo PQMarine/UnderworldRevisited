@@ -73,8 +73,27 @@ namespace UWDataImport.UWData
 
 		public int Z { get; set; }
 
+		/// <summary>Whether the tile's texture indices name entries of the second game's texture map
+		/// (UW2 plan phase 2 step 2): the wall's 6 bits and the floor's 4 bits index its 64 entries
+		/// directly, the ceiling is entry 15 (Underworld Exhumed uw2 map/TEXTMAPS.C:9, TxmID; 3d/GRIDDB.C:585,
+		/// the ceiling drawn with index 0xF). The first game's: walls 0 to 47, floors from 48, the
+		/// ceiling 57.</summary>
+		public bool Uw2TextureMap { get; }
+
+		/// <summary>Where the floors start in the level's texture map: 48 in the first game's, 0 in the second's.</summary>
+		public int FloorSlotBase => Uw2TextureMap ? 0 : 48;
+
+		/// <summary>The second game's ceiling entry.</summary>
+		public const int Uw2CeilingSlot = 15;
+
 		public UWTile(int piTileIndex, uint piData, ushort[] piTextureInfos)
+			: this(piTileIndex, piData, piTextureInfos, false)
 		{
+		}
+
+		public UWTile(int piTileIndex, uint piData, ushort[] piTextureInfos, bool pbUw2TextureMap)
+		{
+			Uw2TextureMap = pbUw2TextureMap;
 			ObjectsInTile = new List<UWObject>();
 			AdjacentTileIndices = new int[4];
 			NorthTile = (AdjacentTileIndices[0] = piTileIndex + 64);
@@ -98,6 +117,17 @@ namespace UWDataImport.UWData
 			byte b = (byte)((piData & 0x3F0000) >> 16);
 			byte b2 = (byte)((piData & 0x3C00) >> 10);
 			bool flag = false;
+			if (pbUw2TextureMap)
+			{
+				NoMagicAllowed = (byte)((piData & 0x4000) >> 14) == 1;
+				HasDoor = (byte)((piData & 0x8000) >> 15) == 1;
+				TextureWall = piTextureInfos[b];
+				TextureFloor = piTextureInfos[b2];
+				TextureCeiling = piTextureInfos[Uw2CeilingSlot];
+				FirstObjectIndex = (ushort)((piData & 0xFFC00000u) >> 22);
+
+				return;
+			}
 			if (!flag)
 			{
 				if (b >= 48)
@@ -131,7 +161,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void SetFloorTexture(int piSlot, ushort[] piTextureInfos)
 		{
-			TextureFloor = piTextureInfos[piSlot + 48];
+			TextureFloor = piTextureInfos[piSlot + FloorSlotBase];
 			RawTileData = (RawTileData & ~0x3C00u) | ((uint)(piSlot & 0xF) << 10);
 		}
 

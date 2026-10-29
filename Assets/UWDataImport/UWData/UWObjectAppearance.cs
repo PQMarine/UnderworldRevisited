@@ -24,6 +24,18 @@ namespace UWDataImport.UWData
 		/// on (the reference's bridge.cs: texture_map[flags - 2 + 48]).</summary>
 		public const int BridgeFloorTableStart = 48;
 
+		/// <summary>
+		/// THE SECOND GAME'S TABLE (UW2 plan phase 2 step 3): UWLevel.Uw2TextureInfoCount entries - its 64
+		/// textures for walls and floors alike, its six doors after them (UWLevel). So its doors start at
+		/// 64 and a bridge's floor at 0 (the floor index straight into the map, as the tiles'). Told apart
+		/// by the table's length.
+		/// </summary>
+		public const int Uw2DoorTextureTableStart = UWTextureMapUw2.TextureCount;
+
+		public const int Uw2BridgeFloorTableStart = 0;
+
+		private static bool fIsUw2Table(ushort[] pOTextureInfos) => pOTextureInfos != null && pOTextureInfos.Length == UWLevel.Uw2TextureInfoCount;
+
 		/// <summary>TMOBJ.GR has 38 images in the shipped installation (checked by dumping them);
 		/// a documented index beyond them is clamped to the last.</summary>
 		public const int DocumentedChairTexture = 38;
@@ -76,7 +88,7 @@ namespace UWDataImport.UWData
 				if (pOObject.Flags > 1 && pOTextureInfos != null)
 				{
 					pOObject.Texture = fGet(pOTextures, UWTexture.TextureTypes.FLOOR,
-						pOTextureInfos[pOObject.Flags - 2 + BridgeFloorTableStart]);
+						pOTextureInfos[pOObject.Flags - 2 + (fIsUw2Table(pOTextureInfos) ? Uw2BridgeFloorTableStart : BridgeFloorTableStart)]);
 				}
 			}
 			if (liId == 358)
@@ -153,15 +165,17 @@ namespace UWDataImport.UWData
 				// the same six; the portcullis and the secret door have none.
 				if (pOTextureInfos != null)
 				{
+					int liDoors = fIsUw2Table(pOTextureInfos) ? Uw2DoorTextureTableStart : DoorTextureTableStart;
+
 					if (liId < UWObjectIds.Portcullis)
 					{
 						pOObject.Texture = fGet(pOTextures, UWTexture.TextureTypes.DOORS,
-							pOTextureInfos[liId - UWObjectIds.FirstClosedDoor + DoorTextureTableStart]);
+							pOTextureInfos[liId - UWObjectIds.FirstClosedDoor + liDoors]);
 					}
 					else if (liId >= UWObjectIds.FirstOpenDoor && liId < UWObjectIds.OpenPortcullis)
 					{
 						pOObject.Texture = fGet(pOTextures, UWTexture.TextureTypes.DOORS,
-							pOTextureInfos[liId - UWObjectIds.FirstOpenDoor + DoorTextureTableStart]);
+							pOTextureInfos[liId - UWObjectIds.FirstOpenDoor + liDoors]);
 					}
 				}
 

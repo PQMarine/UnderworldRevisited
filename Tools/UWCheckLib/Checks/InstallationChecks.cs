@@ -200,7 +200,7 @@ namespace UnderworldRevisited.Tools
         /// <summary>
         /// The 3D models are not in a data file but in the game's executable, which is why
         /// only the GOG build is supported: the offsets are build-specific (see
-        /// UWGogInstall.SupportedExeSha1).
+        /// the first game's profile, ExecutableSha1).
         /// </summary>
         private static void fCheckModels(string psDataPath)
         {
@@ -215,7 +215,7 @@ namespace UnderworldRevisited.Tools
                     return;
                 }
 
-                bool lbSupported = UWGogInstall.IsSupportedExe(lsExe);
+                bool lbSupported = UWGogInstall.IsSupportedExe(lsExe, UWGameProfiles.Uw1);
 
                 UW3DModelImport lOModels = new UW3DModelImport(lsExe);
 

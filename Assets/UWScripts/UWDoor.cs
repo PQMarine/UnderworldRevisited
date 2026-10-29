@@ -223,6 +223,10 @@ public class UWDoor : MonoBehaviour, IUWDoor
         // The owner field is the level data itself: nothing to write through.
         UWDoorRules.ClearSpike(lOData);
 
+        // The second game's walk fires no triggers: its traps are its rules' (UW2 plan phase 4).
+        if (UWWalkUw2.IsWalking)
+            return;
+
         UWTriggerSystem.TryFireOpenTrigger(lOData, UWScene.LevelLoader, UWScene.Interaction, peOpener);
     }
 

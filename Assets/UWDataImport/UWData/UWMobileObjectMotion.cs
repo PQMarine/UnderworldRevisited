@@ -195,10 +195,11 @@ namespace UWDataImport.UWData
 
 			// The impact of this call hurts the object itself - the hp DamageObject sets is then
 			// overwritten with the params' again, so only its other effects remain.
-			if ((p.Impact & 0xFFFF) > 0x100)
-			{
-				int liDamage = (p.Impact & 0xFFFF) >> 8;
+			// How much an impact hurts is the game's (IUWMotionVariant; the first game: above 0x100).
+			int liDamage = mOWorld.Session.Game.Motion.ImpactDamage(p.Impact, pORecord.IsCreature, p.Hp);
 
+			if (liDamage > 0)
+			{
 				if (!pORecord.IsCreature)
 					mOHost.PlaySoundAtObject(0x0F, pORecord, I16(p.Mass - 600) / 50);
 

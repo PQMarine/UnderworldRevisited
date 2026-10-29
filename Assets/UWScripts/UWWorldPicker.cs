@@ -37,6 +37,14 @@ public static class UWWorldPicker
     /// on the tile grid (UWReachRules).</summary>
     public const float Range = 4000f;
 
+    /// <summary>The least a sprite's height is scaled by the view's pitch: cos 22.5 degrees, the original's
+    /// bound (UW/Billboard's screenUpScale, in_scalebm's MAT_YY).</summary>
+    public const float SpriteHeightFloor = 0.9238795f;
+
+    /// <summary>The most a sprite leans with the view: sin 22.5 degrees of horizontal lean, the original's
+    /// bound (UW/Billboard's screenLean).</summary>
+    public const float SpriteLeanLimit = 0.3826834f;
+
     public enum HitKind
     {
         /// <summary>Wall, floor or ceiling: a chunk without an entity.</summary>
@@ -372,25 +380,37 @@ public static class UWWorldPicker
         if (lOTexture == null || !lOTexture.isReadable || !lOMesh.isReadable || lOMesh.vertexCount < 4 || lOCamera == null)
             return false;
 
-        // The shader's frame: forward is the view matrix's third row, flattened.
+        // The shader's frame: forward is the view matrix's third row, flattened, right across it;
+        // the picture stands on right and the screen's up (right x towards-camera) since 2026-10-29,
+        // parallel to the screen in both axes as the original draws a sprite, its height times the
+        // view's yy (the camera's up's y, at least SpriteHeightFloor; UW/Billboard's screenUpScale).
         Vector3 lOToCamera = lOCamera.worldToCameraMatrix.GetRow(2);
+        Vector3 lOBack = lOToCamera.normalized;
+
         lOToCamera.y = 0f;
 
         Vector3 lOForward = (lOToCamera + new Vector3(0f, 0f, 1e-4f)).normalized;
         Vector3 lORight = Vector3.Cross(lOForward, Vector3.up).normalized;
+        Vector3 lOUp = Vector3.Cross(lORight, lOBack).normalized;
+
+        // Its lean held at the original's bound, as the shader holds it (sin and cos 22.5 degrees).
+        Vector3 lOLean = new Vector3(lOUp.x, 0f, lOUp.z);
+
+        if (lOLean.magnitude > SpriteLeanLimit)
+            lOUp = new Vector3(0f, SpriteHeightFloor, 0f) + (lOLean * (SpriteLeanLimit / lOLean.magnitude));
 
         // The shader's _DepthBias moves only the depth since 2026-10-12, not the picture, so
         // the quad stands at the pivot.
         Vector3 lOPlane = lOCollider.transform.position;
 
-        float lfFacing = Vector3.Dot(pORay.direction, lOForward);
+        float lfFacing = Vector3.Dot(pORay.direction, lOBack);
 
         if (Mathf.Abs(lfFacing) < 1e-5f)
             return false;
 
-        Vector3 lOPoint = pORay.origin + (pORay.direction * (Vector3.Dot(lOPlane - pORay.origin, lOForward) / lfFacing));
+        Vector3 lOPoint = pORay.origin + (pORay.direction * (Vector3.Dot(lOPlane - pORay.origin, lOBack) / lfFacing));
         float lfX = Vector3.Dot(lOPoint - lOPlane, lORight);
-        float lfY = lOPoint.y - lOPlane.y;
+        float lfY = Vector3.Dot(lOPoint - lOPlane, lOUp) / Mathf.Max(lOCamera.transform.up.y, SpriteHeightFloor);
 
         // The quad of UWObjectSpawner.fGetQuad: 0 bottom left, 1 bottom right, 3 top left.
         Vector3[] laVertices = lOMesh.vertices;

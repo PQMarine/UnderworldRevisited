@@ -19,7 +19,9 @@ namespace UWDataImport.UWData
 	///
 	/// Trap kinds without an implementation are recorded in the trap log (see fRunTrap)
 	/// (NOT BUILT); the chain goes on past them as the original's does (see fRunTrapChain). The
-	/// kinds that are handled are the tables Traps and DoActions (UWTrapTable, since 2026-10-14).
+	/// kinds that are handled are the game's tables (UWTrapTable, since 2026-10-14; the profile's
+	/// TrapKinds and DoActions since UW2 phase 0 step 3, built here by CreateTrapTable and
+	/// CreateDoActionTable for the first game).
 	/// </summary>
 	public static class UWTrapRules
 	{
@@ -1066,18 +1068,17 @@ namespace UWDataImport.UWData
 		/// The trap kinds by id (UseTrap's switch, TRIGGER.C) and the a_do actions by quality
 		/// (do_trap_hack). Since 2026-10-14 (cleanup step 2.10) two tables instead of an if-chain
 		/// with a nested switch; the handlers are the ones the chain called, in the same cases.
-		/// Read-only for the dispatch-coverage check of the self-check.
+		/// THE GAME'S TABLES (UW2 phase 0 step 3, 2026-10-28): statics built once until then, now the
+		/// profile's (IUWGameProfile.TrapKinds, DoActions), reached through the firing's world; the
+		/// first game's profile builds its own with CreateTrapTable and CreateDoActionTable.
 		/// </summary>
-		public static UWTrapTable Traps { get; } = fBuildTrapTable();
-
-		public static UWDoActionTable DoActions { get; } = fBuildDoActionTable();
-
 		private static bool fRunTrapInner(UWObject pOTrap, UWObject pOTrigger, UWObject pOSwitchObject, IUWTrapHost pIHost)
 		{
-			return Traps.Run(pOTrap, pOTrigger, pOSwitchObject, pIHost);
+			return pIHost.World.Session.Game.TrapKinds.Run(pOTrap, pOTrigger, pOSwitchObject, pIHost);
 		}
 
-		private static UWTrapTable fBuildTrapTable()
+		/// <summary>The first game's trap kinds, sealed - a new table each call, for its profile.</summary>
+		public static UWTrapTable CreateTrapTable()
 		{
 			UWTrapTable lOTable = new UWTrapTable()
 				.Register(UWObjectMechanics.DamageTrapId, "damage",
@@ -1091,7 +1092,7 @@ namespace UWDataImport.UWData
 						return pIHost.FireArrowTrap(pOTrap, liArrowX, liArrowY);
 					})
 				.Register(UWObjectMechanics.DoTrapId, "do",
-					(pOTrap, pOTrigger, pOSwitch, pIHost) => DoActions.Run(pOTrap, pOTrigger, pOSwitch, pIHost))
+					(pOTrap, pOTrigger, pOSwitch, pIHost) => pIHost.World.Session.Game.DoActions.Run(pOTrap, pOTrigger, pOSwitch, pIHost))
 
 				// THE PIT TRAP DOES NOTHING IN UW1: UseTrap (UnderworldExhumed TRIGGER.C) has no case
 				// for TRAP_PIT, so the chain simply goes on through its link. Until 2026-10-12 ours ran
@@ -1158,7 +1159,8 @@ namespace UWDataImport.UWData
 			return lOTable;
 		}
 
-		private static UWDoActionTable fBuildDoActionTable()
+		/// <summary>The first game's a_do actions, sealed - a new table each call, for its profile.</summary>
+		public static UWDoActionTable CreateDoActionTable()
 		{
 			UWDoActionTable lOTable = new UWDoActionTable()
 				.Register(UWObjectMechanics.DoTrapCameraAction, "crystal ball",
@@ -2454,7 +2456,8 @@ namespace UWDataImport.UWData
 			UWDoorRules.TrapOutcome lOOutcome = UWDoorRules.DoorTrap(pOTrap.Quality, lODoor.IsHeadingClosed,
 				lODoor.IsMoving);
 
-			if (lOOutcome.ReplaceLock)
+			// Whether the lock is swapped at all is the game's (IUWTrapVariant; the first game: always).
+			if (lOOutcome.ReplaceLock && pIHost.World.Session.Game.Traps.SwapsLock(pOTrap.Owner))
 				lODoor.ReplaceLock(lOLockTemplate);
 
 			// OpenDoor(CharacterThatTriggeredTrap, door): whoever set the chain off opens it.

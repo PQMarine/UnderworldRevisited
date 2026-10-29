@@ -17,6 +17,10 @@ namespace UnderworldRevisited.Tools
         /// <summary>--saves: a folder of save games for the round-trip check.</summary>
         public string Saves;
 
+        /// <summary>--uw2-saves: a folder of the second game's save games (UNDEROM2) the DOS game wrote,
+        /// for the PLAYER.DAT round trip (UW2 plan phase 1 step 3).</summary>
+        public string Uw2Saves;
+
         /// <summary>--root: the project root for the checks of the source tree and the pins.</summary>
         public string Root;
 
@@ -56,6 +60,7 @@ namespace UnderworldRevisited.Tools
 
                         break;
                     case "--saves": lOOptions.Saves = fValue(psArgs, ref liAt, lOOptions); break;
+                    case "--uw2-saves": lOOptions.Uw2Saves = fValue(psArgs, ref liAt, lOOptions); break;
                     case "--root": lOOptions.Root = fValue(psArgs, ref liAt, lOOptions); break;
                     case "--junit": lOOptions.JUnitPath = fValue(psArgs, ref liAt, lOOptions); break;
                     case "--list": lOOptions.List = true; break;

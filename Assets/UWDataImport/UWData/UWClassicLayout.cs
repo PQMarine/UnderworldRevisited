@@ -162,6 +162,21 @@ namespace UWDataImport.UWData
 			[Exe("UWEDIT.C place_3d_view(0x34, 0xB4, 0xAC, 0x71)")]
 			public const int ViewWindowHeight = 113;
 
+			/// <summary>
+			/// THE PROJECTION'S CENTRE (2026-10-29, per user beside the original: our view stood too low).
+			/// render_3d centres the projection on the clip window send_db sets, set_the_window(0, height - 1,
+			/// width - 1, 0) with y counted up: CENTRE_X = (right + left + 1) / 2 = 86, CENTRE_Y = (top +
+			/// bottom) / 2 = 56 (Underworld Exhumed uw1 3d/INSTANCE.ASM render_3d, 3d/VIEW3D.C send_db). On
+			/// the screen that is column 138 and row 75.5 - the vanishing point measured in the user's
+			/// screenshots of the original (138.0, 75.5). Our camera covers the frame's whole hole, whose
+			/// middle is row 77.5; the view is shifted to this centre (UWViewportCamera).
+			/// </summary>
+			[Derived("ViewWindowLeft + (ViewWindowWidth - 1 + 1) / 2, render_3d's CENTRE_X")]
+			public const float ProjectionCentreColumn = ViewWindowLeft + ((ViewWindowWidth - 1 + 1) / 2);
+
+			[Derived("ViewWindowTop + (ViewWindowHeight - 1) - (ViewWindowHeight - 1) / 2 + 0.5, render_3d's CENTRE_Y counted up")]
+			public const float ProjectionCentreRow = ViewWindowTop + (ViewWindowHeight - 1) - ((ViewWindowHeight - 1) / 2) + 0.5f;
+
 			/// <summary>The renderer's zoom in the game, 1.15 fixed point: 0x61A8 = 0.7629 (0x7ED2
 			/// outside the game mode, 0x6062 with the unused mode bit 3).</summary>
 			[Exe("VIEW3D.C place_3d_view: curZoom = 0x61A8 under MODE_GAME")]

@@ -47,10 +47,10 @@ public class UWAudioMixer : MonoBehaviour
 
     public static string Mt32Problem => UWMusicDeviceSelector.GetMt32Problem(Mt32RomFolder);
 
-    /// <summary>Where the player's recordings of the music are looked for: "Music" in the game's
-    /// folder beside settings.json, UW1/Music (UWGameFolder, UWMusicRecordings).</summary>
+    /// <summary>Where the player's recordings of the music are looked for: "Music" in the running
+    /// game's folder beside settings.json, UW1/Music (UWGameFolder, UWMusicRecordings).</summary>
     public static string RecordingFolder =>
-        System.IO.Path.Combine(UWGameFolder.Under(Application.persistentDataPath), UWMusicRecordings.FolderName);
+        System.IO.Path.Combine(UWGameFolder.Under(Application.persistentDataPath, UnderworldRevisited.UWSettings.Game), UWMusicRecordings.FolderName);
 
     private static string msRecordingsCountedFor;
 

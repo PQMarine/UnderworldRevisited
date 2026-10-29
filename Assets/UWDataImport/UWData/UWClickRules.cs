@@ -120,11 +120,6 @@ namespace UWDataImport.UWData
 			Silent
 		}
 
-		private const int AlwaysTalksWhoami = 0x16;
-
-		private const int RodrickWhoami = 0x8E;
-
-		private const int TyballWhoami = 0xE7;
 
 		private const int SilentWhoami = 0xFF;
 
@@ -144,7 +139,8 @@ namespace UWDataImport.UWData
 		/// own conversation, cannot be talked to
 		/// in the original; in ours he could):
 		///
-		///   - whoami 0x16, Rodrick (0x8E) and Tyball (0xE7) always answer;
+		///   - whoami 0x16, Rodrick (0x8E) and Tyball (0xE7) always answer (the game's list,
+		///     IUWConversationVariant.AlwaysAnswers);
 		///   - a creature whose goal is 5, 6 or 9 (attack, withdraw, making a stand) against the player
 		///     (gtarg 1), or whose attitude is hostile, does not - unless it is an ally (byte 0x19 bit 6)
 		///     or its goal is 10;
@@ -154,7 +150,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool CreatureAnswers(int piWhoami, int piGoal, int piGTarg, int piAttitude, bool pbAlly)
 		{
-			if (piWhoami == AlwaysTalksWhoami || piWhoami == RodrickWhoami || piWhoami == TyballWhoami)
+			if (UWGameSession.Current.Game.Conversation.AlwaysAnswers(piWhoami))
 				return true;
 
 			bool lbAgainstPlayer = (piGoal == GoalAttack || piGoal == GoalWithdraw || piGoal == GoalStand)

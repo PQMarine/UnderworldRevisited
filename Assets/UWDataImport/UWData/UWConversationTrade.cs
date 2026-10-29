@@ -950,11 +950,14 @@ namespace UWDataImport.UWData
 			liNpcScore += (fGetSideValue(NpcItems, NpcSelected, false, miAccuracy) / lORules.GoodsDivisor)
 				+ (mbHasStats ? mOStats.ConversationLevel : 0) + liMood;
 
-			if (liPlayerScore > liNpcScore || lbAlly)
+			// Who gives in, and how far the attitude falls, is the game's (IUWConversationVariant).
+			IUWConversationVariant lIConversation = mOGame.Game.Conversation;
+
+			if (lIConversation.DemandGivesIn(liPlayerScore, liNpcScore, lbAlly))
 			{
 				mOSay(liGiveIn);
 
-				if (liAttitude > 0)
+				if (lIConversation.GivingInLowersAttitude(liAttitude))
 					fSetAttitude(liAttitude - 1);
 
 				PendingSwap = true;

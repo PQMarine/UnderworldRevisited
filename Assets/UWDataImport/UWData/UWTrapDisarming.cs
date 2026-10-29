@@ -19,8 +19,6 @@ namespace UWDataImport.UWData
 		// msg.trap.disarmed, .set_off and .failed (DisarmedMessage, SetOffMessage, FailedMessage).
 
 		/// <summary>Target value of both checks - the reference uses a fixed eight in uw1.</summary>
-		private const int TrapCheckDifficulty = 8;
-
 		/// <summary>The spell Remove Trap searches and disarms with this skill.</summary>
 		public const int SpellTrapSkill = 45;
 
@@ -57,7 +55,7 @@ namespace UWDataImport.UWData
 				|| !UWObjectMechanics.TryFindDisarmableTrap(pOTarget, pOMasterlist, out lOTrap, out lOTrigger))
 				return false;
 
-			return UWSkillCheck.IsSuccess(UWSkillCheck.Check(piSearchSkill, TrapCheckDifficulty));
+			return UWSkillCheck.IsSuccess(UWSkillCheck.Check(piSearchSkill, UWGameSession.Current.Game.Player.TrapDetectTarget()));
 		}
 
 		/// <summary>
@@ -100,7 +98,7 @@ namespace UWDataImport.UWData
 				|| !UWObjectMechanics.TryFindDisarmableTrap(pOTarget, lOMasterlist, out lOTrap, out lOTrigger))
 				return lOResult;
 
-			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(piTrapsSkill, TrapCheckDifficulty);
+			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(piTrapsSkill, UWGameSession.Current.Game.Player.TrapDisarmTarget());
 
 			if (UWSkillCheck.IsSuccess(leResult))
 			{

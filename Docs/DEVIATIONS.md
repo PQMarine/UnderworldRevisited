@@ -120,6 +120,13 @@ a short cutscene in the view window in the original; ours shows its first pictur
 **Far objects are drawn fine, not coarse.** In the original a far sprite looks blocky; a flying
 fireball grows from a single pixel to a block to its picture.
 
+**Objects and creatures shrink no further than at the original's steepest look.** The original
+looks up and down 22.5 degrees at most and draws a sprite's height times the cosine of the view's
+pitch, 92 percent there; so do we in the classic scheme. The modern scheme looks further, up to
+60 degrees, and there a sprite keeps the 92 percent instead of shrinking to half its height, and
+leans no further than it does at 22.5 degrees - leaning with the view all the way, a creature
+looked up at came at the face.
+
 ## Bugs of the original that are kept
 
 **The Garamon of the burial conversation.** The conversation at the grave runs with a stand-in

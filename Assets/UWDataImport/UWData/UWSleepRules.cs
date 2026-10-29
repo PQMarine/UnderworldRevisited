@@ -130,7 +130,7 @@ namespace UWDataImport.UWData
 			if (!pbPassedOut)
 			{
 				if (!CanSleepHere(pOWorld.Player) || !pOWorld.Player.IsOnGround
-					|| piDungeonLevel == UWLevelIds.Number(lORuleSet.Levels.Void))
+					|| !pOWorld.Session.Game.Player.MaySleepAt(lORuleSet, piDungeonLevel))
 				{
 					lOShown.AddGeneralMessage(CannotSleepHereMessage);
 

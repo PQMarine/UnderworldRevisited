@@ -65,6 +65,12 @@ namespace UWDataImport.UWData
 			return new UWRules();
 		}
 
+		/// <summary>The original numbers of a game (its profile's; null reads as the first game).</summary>
+		public static UWRules CreateOriginal(IUWGameProfile pOGame)
+		{
+			return pOGame != null ? pOGame.CreateOriginalRules() : CreateOriginal();
+		}
+
 		/// <summary>TRANSITIONAL: the current session's rules (UWGameSession.Current.Rules), for the
 		/// rule classes that do not take the session as a parameter yet. Goes with
 		/// UWGameSession.Current.</summary>

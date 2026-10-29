@@ -81,8 +81,8 @@ MonoBehaviour:
   SwimRollUnskilled: 1.5
   SwimRollSkilled: 0.3
   SwimRollFrequency: 2.5
-  ClassicLookStepDegrees: 15
-  ClassicLookSteps: 3
+  ClassicLookStepDegrees: 5.625
+  ClassicLookSteps: 4
   SwimViewFollowSpeed: 60
   SwimSkillForFullEffect: 15
   LogExperience: 1
@@ -100,7 +100,7 @@ MonoBehaviour:
   SwimmerHeightOffset: 0
   SwimmerHighEdgeClearance: 24
   SwimmerMinimumColliderHeight: 64
-  CritterSpriteHeightScale: 1.3
+  CritterSpriteHeightScale: 1.25
   DoorFrameTextureShift: 0.5
   CritterTrace: 0
   CritterLogBlockedSteps: 0

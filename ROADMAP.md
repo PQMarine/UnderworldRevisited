@@ -80,13 +80,10 @@ of what is built was also read out of the original's executable.
 
 ## Next
 
-In this order; then Ultima Underworld II.
-
-- **Items at a door in the Palette mode.** The Palette mode places items and creatures in the
-  original's draw order (tile by tile, doors split the objects of their tile, a bridge's deck
-  covers what lies under it); the order of items among themselves at a door still follows the
-  simpler rule. The Remastered mode's own-tile rule (an object is never covered by the tile it
-  stands in) covers diagonal walls since 2026-10-27.
+- **Ultima Underworld II**, after the preview of 0.13.0 (the game beside the first, its data,
+  a walk through Britannia, its game screen, the inventory, the options and saves, the main menu
+  and the character creation): the map, the conversations and the modern interface, then its
+  rules. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the plan.
 
 ## Open: gameplay parity
 
@@ -117,6 +114,12 @@ In this order; then Ultima Underworld II.
   established range for it); more effects are planned. Planned: items and creatures get a
   depth estimated from their outline, so they meet floors and walls more softly and the
   lights shade them.
+- **Items at a door in the Palette mode.** The Palette mode places items and creatures in the
+  original's draw order (tile by tile, doors split the objects of their tile, a bridge's deck
+  covers what lies under it); the order of several items among themselves in a door's tile still
+  follows a simpler rule. It would only show where such items overlap on screen; none has been
+  seen, so it waits for a case. The Remastered mode's own-tile rule (an object is never covered
+  by the tile it stands in) covers diagonal walls since 2026-10-27.
 
 ## Open: translations
 
@@ -128,8 +131,9 @@ In this order; then Ultima Underworld II.
 
 ## Later
 
-- Ultima Underworld II, after the points under Next. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the
-  plan, derived from Underworld Exhumed's decompilation of `UW2.EXE`.
+- Ultima Underworld II beyond its rules (see Next): sound and music, the cutscenes, the whole
+  game played through. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the plan, derived from
+  Underworld Exhumed's decompilation of `UW2.EXE`.
 - The game logic without Unity: since the code cleanup (0.8.0 to 0.9.2) the rules live in the
   engine-free layer; what is left is handing each rule its game session instead of the
   transitional `UWGameSession.Current`.

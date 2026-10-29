@@ -92,5 +92,7 @@
     "PointerSpeed": 1.0,
     "WindowTheme": 1,
     "WindowBackground": 0,
-    "Language": "de"
+    "Language": "de",
+    "Game": "",
+    "SaveFolder": ""
 }

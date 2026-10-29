@@ -112,7 +112,7 @@ namespace UWDataImport.UWData
 		private const int FullHealMinorClass = 0xF;
 
 		/// <summary>The sound of a cast refused for being too soon (try_cast: effect 0x15).</summary>
-		private const int TooSoonSound = 0x15;
+		internal const int TooSoonSound = 0x15;
 
 		/// <summary>The skill check's bonus on the casting skill and its target per circle
 		/// (player_cast: skill_check(Casting + 5, 2 * circle)).</summary>
@@ -235,12 +235,25 @@ namespace UWDataImport.UWData
 			if (pIHost == null || !pIHost.HasPlayer)
 				return OutcomeEnum.NotASpell;
 
+			// The game through the world's session (UW2 plan phase 0 step 2): its rule set and the
+			// steps of magic where the games part (IUWMagicVariant).
 			long llNow = pIHost.GameTicks;
-			UWSessionQuirks lOQuirks = UWGameSession.Current.Quirks;
+			UWGameSession lOSession = pIHost.World.Session;
+			IUWMagicVariant lIMagic = lOSession.Game.Magic;
+			UWSessionQuirks lOQuirks = lOSession.Quirks;
+
+			// A game may refuse the cast outright (UW2: paralysed, RUNES.C:174 - its message comes
+			// with UW2's variant in phase 4; the first game never refuses here).
+			if (!lIMagic.MayCast(pIHost))
+			{
+				pIHost.PlaySpellFailureSound();
+
+				return OutcomeEnum.Blocked;
+			}
 
 			if (llNow < lOQuirks.LastCastTicks + lOQuirks.CastDelayTicks)
 			{
-				pIHost.World.Presentation.PlaySoundAtPlayer(TooSoonSound);
+				lIMagic.TooSoon(pIHost);
 
 				return OutcomeEnum.TooSoon;
 			}
@@ -284,7 +297,7 @@ namespace UWDataImport.UWData
 			// Casting against three times the circle, the reference's - 6 to 13 points harder, the
 			// Exhumed audit's row 1). A failure costs nothing at all (tested per user in the
 			// original, 2026-09-03; the mana is paid only after the check).
-			UWRulesMagic lORules = UWRules.Current.Magic;
+			UWRulesMagic lORules = lOSession.Rules.Magic;
 			UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(pIHost.PlayerCastingSkill + lORules.CastingCheck.Bonus,
 				lOSpell.Level * lORules.CastingCheck.PerCircle);
 
@@ -311,15 +324,15 @@ namespace UWDataImport.UWData
 			// PAYS WHEN IT IS RELEASED (release_missile; Class5ProjectileSpells_seg038_4EE keeps the
 			// cost and subtracts it only once the missile found room): the cost travels with the
 			// waiting spell, and a refused one is not paid.
-			int liDeferredCost = !lbBackfire && lOSpell.MajorClass == ProjectileMajorClass ? lOSpell.ManaCost : 0;
+			int liDeferredCost = !lbBackfire && lIMagic.PaysOnRelease(lOSpell) ? lOSpell.ManaCost : 0;
 
 			if (liDeferredCost == 0)
 				pIHost.SpendMana(lOSpell.ManaCost);
 
 			// NO MAGIC HERE (void or tile with no-magic bit): do_spell refuses, error 3, "Casting
 			// was not successful.", with the failure sound - a backfire as well (do_spell tests it
-			// before the class).
-			if (pIHost.IsMagicBlocked)
+			// before the class). A game may limit the circles by place as well (the variant).
+			if (pIHost.IsMagicBlocked || !lIMagic.MayCastHere(pIHost, lOSpell.Level))
 			{
 				pIHost.PlaySpellFailureSound();
 				pIHost.World.Presentation.AddGeneralMessage(CastingNotSuccessfulMessage);

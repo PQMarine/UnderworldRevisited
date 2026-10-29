@@ -672,12 +672,19 @@ namespace UWDataImport.UWData
 		/// <summary>The finished character as an unencrypted PLAYER.DAT.</summary>
 		public byte[] BuildPlayerData()
 		{
+			return UWPlayerData.BuildNewCharacter(Result());
+		}
+
+		/// <summary>The finished character's choices and values - the first game's PLAYER.DAT is built from
+		/// them (BuildPlayerData), the second game's too (UWPlayerRecordUw2.NewCharacter).</summary>
+		public UWPlayerData.NewCharacter Result()
+		{
 			int[] liNamed = new int[UWPlayerData.SkillCount];
 
 			for (int liAt = 0; liAt < liNamed.Length; liAt++)
 				liNamed[liAt] = miSkills[liAt + 2];
 
-			return UWPlayerData.BuildNewCharacter(new UWPlayerData.NewCharacter
+			return new UWPlayerData.NewCharacter
 			{
 				Name = Name,
 				CharacterClass = CharacterClass < 0 ? 0 : CharacterClass,
@@ -693,7 +700,7 @@ namespace UWDataImport.UWData
 				Skills = liNamed,
 				MaxVitality = MaxVitality,
 				MaxMana = MaxMana
-			});
+			};
 		}
 	}
 }

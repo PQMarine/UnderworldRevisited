@@ -79,9 +79,13 @@ namespace UWDataImport.UWData
 
 		private readonly int[] miOffsets;
 
+		/// <summary>The second game's CNV.ARK (null for the first game's): its blocks compressed, each
+		/// decoded when its conversation is first asked for.</summary>
+		private readonly UWArk mOArk;
+
 		private readonly Dictionary<int, Conversation> mOCache = new Dictionary<int, Conversation>();
 
-		public int SlotCount => miOffsets == null ? 0 : miOffsets.Length;
+		public int SlotCount => mOArk != null ? mOArk.BlockCount : miOffsets == null ? 0 : miOffsets.Length;
 
 		public bool IsLoaded { get; private set; }
 
@@ -119,6 +123,14 @@ namespace UWDataImport.UWData
 		}
 
 		public UWConversations(string psDataPath)
+			: this(psDataPath, UWGame.Uw1)
+		{
+		}
+
+		/// <summary>The conversations of either game (UW2 plan phase 2 step 1, 2026-10-29): the second
+		/// game's CNV.ARK through UWArk (its layout, the blocks compressed), each block one conversation
+		/// in the first game's format (Parse).</summary>
+		public UWConversations(string psDataPath, UWGame peGame)
 		{
 			fLoadPrivateGlobalSizes(psDataPath);
 
@@ -126,6 +138,14 @@ namespace UWDataImport.UWData
 
 			if (!File.Exists(lsFile))
 				return;
+
+			if (peGame == UWGame.Uw2)
+			{
+				mOArk = UWArk.Read(lsFile, UWArk.LayoutEnum.Uw2);
+				IsLoaded = true;
+
+				return;
+			}
 
 			myData = File.ReadAllBytes(lsFile);
 
@@ -145,6 +165,9 @@ namespace UWDataImport.UWData
 		/// conversation".</summary>
 		public bool HasConversation(int piSlot)
 		{
+			if (mOArk != null)
+				return piSlot >= 0 && piSlot < mOArk.BlockCount && mOArk.IsPresent(piSlot) && mOArk.StoredLength(piSlot) > 0;
+
 			return IsLoaded && piSlot >= 0 && piSlot < miOffsets.Length && miOffsets[piSlot] != 0;
 		}
 
@@ -170,7 +193,20 @@ namespace UWDataImport.UWData
 
 		private Conversation fLoad(int piSlot)
 		{
-			int liCursor = miOffsets[piSlot];
+			if (mOArk != null)
+				return Parse(mOArk.ReadBlock(piSlot), 0, piSlot);
+
+			return Parse(myData, miOffsets[piSlot], piSlot);
+		}
+
+		/// <summary>
+		/// A conversation from its block at piStart in pyData: the first game's CNV.ARK read in place,
+		/// or the second game's block decoded by UWArk (start 0; UW2 plan phase 1 step 6). Both games
+		/// share the header and the code (Underworld Exhumed, docs/FORMATS.md "CNV.ARK").
+		/// </summary>
+		public static Conversation Parse(byte[] pyData, int piStart, int piSlot)
+		{
+			int liCursor = piStart;
 
 			Conversation lOResult = new Conversation
 			{
@@ -178,23 +214,23 @@ namespace UWDataImport.UWData
 			};
 
 			// 0x0000 and 0x0002 are unknown and constant according to the docs (0x0828 / 0x0000).
-			int liCodeSize = UWBinary.Read16OrZero(myData, liCursor + 4);
-			lOResult.StringBlock = UWBinary.Read16OrZero(myData, liCursor + 10);
-			lOResult.MemorySlots = UWBinary.Read16OrZero(myData, liCursor + 12);
-			int liImportCount = UWBinary.Read16OrZero(myData, liCursor + 14);
+			int liCodeSize = UWBinary.Read16OrZero(pyData, liCursor + 4);
+			lOResult.StringBlock = UWBinary.Read16OrZero(pyData, liCursor + 10);
+			lOResult.MemorySlots = UWBinary.Read16OrZero(pyData, liCursor + 12);
+			int liImportCount = UWBinary.Read16OrZero(pyData, liCursor + 14);
 
 			liCursor += 16;
 
 			for (int liIndex = 0; liIndex < liImportCount; liIndex++)
 			{
-				int liNameLength = UWBinary.Read16OrZero(myData, liCursor);
+				int liNameLength = UWBinary.Read16OrZero(pyData, liCursor);
 				liCursor += 2;
 
 				StringBuilder lOName = new StringBuilder();
 
 				for (int liChar = 0; liChar < liNameLength; liChar++)
 				{
-					byte lyChar = myData[liCursor + liChar];
+					byte lyChar = pyData[liCursor + liChar];
 
 					if (lyChar != 0)
 						lOName.Append((char)lyChar);
@@ -205,10 +241,10 @@ namespace UWDataImport.UWData
 				lOResult.Imports.Add(new Import
 				{
 					Name = lOName.ToString(),
-					IdOrAddress = UWBinary.Read16OrZero(myData, liCursor),
+					IdOrAddress = UWBinary.Read16OrZero(pyData, liCursor),
 					// liCursor + 2 is always 1 according to the docs.
-					ImportType = UWBinary.Read16OrZero(myData, liCursor + 4),
-					ReturnType = UWBinary.Read16OrZero(myData, liCursor + 6)
+					ImportType = UWBinary.Read16OrZero(pyData, liCursor + 4),
+					ReturnType = UWBinary.Read16OrZero(pyData, liCursor + 6)
 				});
 
 				liCursor += 8;
@@ -217,7 +253,7 @@ namespace UWDataImport.UWData
 			lOResult.Code = new ushort[liCodeSize];
 
 			for (int liIndex = 0; liIndex < liCodeSize; liIndex++)
-				lOResult.Code[liIndex] = (ushort)UWBinary.Read16OrZero(myData, liCursor + (liIndex * 2));
+				lOResult.Code[liIndex] = (ushort)UWBinary.Read16OrZero(pyData, liCursor + (liIndex * 2));
 
 			return lOResult;
 		}

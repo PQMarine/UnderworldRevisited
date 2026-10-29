@@ -553,6 +553,13 @@ public partial class UWSetupMenu
     {
         return new UWSetupPage("game")
             .Add(fTitle("game.title", UWText.T("setup.game.title")))
+            // THE GAME (UW2 plan phase 0 step 5, 2026-10-28): the games the installation holds; a
+            // choice starts the scene again with it (UWGameSwitch). From the main menu only, as the
+            // folder: in a running game it would end the game unasked.
+            .Add(fGameRow())
+            .Add(fHint(Defs.Game, 8f))
+            .Add(fSaveFolderRow())
+            .Add(fHint(Defs.SaveFolder, 8f))
             // The game folder only from the main menu (and on the first-run screen, where it is the
             // one way on): in the game (the bar over the in-game menus since 2026-10-06) a new folder
             // would mean a new game.
@@ -600,6 +607,66 @@ public partial class UWSetupMenu
             // next start the command line and UR_LANGUAGE still come first.
             .Add(fLanguageRow())
             .Add(fHint(Defs.Language, 0f));
+    }
+
+    /// <summary>The save folder row (per user, 2026-10-29): automatic, cloud_saves, the installation's
+    /// folder - stored by name (UWGogInstall.SaveFolderModeEnum), asked anew at every save and load.</summary>
+    private UWSetupRow fSaveFolderRow()
+    {
+        string[] lsNames = { string.Empty, nameof(UWDataImport.Install.UWGogInstall.SaveFolderModeEnum.CloudSaves),
+            nameof(UWDataImport.Install.UWGogInstall.SaveFolderModeEnum.Installation) };
+        string[] lsChoices =
+        {
+            UWText.T("setting.SaveFolder.choice.automatic"), UWText.T("setting.SaveFolder.choice.cloudsaves"),
+            UWText.T("setting.SaveFolder.choice.installation")
+        };
+
+        return new UWSetupRow
+        {
+            Kind = Kind.ChoiceRow, Id = Defs.SaveFolder.LabelId, Def = Defs.SaveFolder, Choices = lsChoices, ChoiceColumns = WindowChoiceColumns,
+            Advance = 36f,
+            GetIndex = () => (int)UWDataImport.Install.UWGogInstall.ParseSaveFolderMode(UWUserSettings.SaveFolder),
+            Choose = piChoice =>
+            {
+                if (piChoice < 0 || piChoice >= lsNames.Length)
+                    return;
+
+                UWUserSettings.SaveFolder = lsNames[piChoice];
+                UWUserSettings.Save();
+            }
+        };
+    }
+
+    /// <summary>The Game row: the games the installation holds (listed when the page is built), the
+    /// running one marked.</summary>
+    private UWSetupRow fGameRow()
+    {
+        System.Collections.Generic.IReadOnlyList<IUWGameProfile> lOGames = UWGameSwitch.Offered();
+        string[] lsChoices = new string[lOGames.Count];
+
+        for (int liAt = 0; liAt < lOGames.Count; liAt++)
+            lsChoices[liAt] = UWText.T("setting.Game.choice." + lOGames[liAt].GameFolder.ToLowerInvariant());
+
+        return new UWSetupRow
+        {
+            Kind = Kind.ChoiceRow, Id = Defs.Game.LabelId, Def = Defs.Game, Choices = lsChoices, ChoiceColumns = WindowChoiceColumns,
+            Advance = 36f, EnabledWhen = fFolderReachable,
+            GetIndex = () =>
+            {
+                for (int liAt = 0; liAt < lOGames.Count; liAt++)
+                {
+                    if (lOGames[liAt] == UnderworldRevisited.UWSettings.Game)
+                        return liAt;
+                }
+
+                return -1;
+            },
+            Choose = piChoice =>
+            {
+                if (piChoice >= 0 && piChoice < lOGames.Count)
+                    UWGameSwitch.Switch(lOGames[piChoice]);
+            }
+        };
     }
 
     /// <summary>The Language row: English first, then the codes found; the stored code marked, or

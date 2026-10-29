@@ -112,7 +112,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool ShrugsOff(bool pbProtected, int piQualityClass)
 		{
-			return pbProtected || piQualityClass >= ImmuneQualityClass;
+			return UWGameSession.Current.Game.Combat.ShrugsOff(pbProtected, piQualityClass);
 		}
 
 		/// <summary>
@@ -191,10 +191,11 @@ namespace UWDataImport.UWData
 			return (UWRandom.Next(0x8000) & 3) == 0 ? Remains.DebrisWithSmoke : Remains.Debris;
 		}
 
-		/// <summary>0xD5 or 0xD6 (the game computes RNG * 2 / 0x8000).</summary>
+		/// <summary>The debris a destroyed object becomes - the game's (IUWCombatVariant.RollDebris;
+		/// the first game's 0xD5 or 0xD6).</summary>
 		public static int RollDebrisObjectId()
 		{
-			return FirstDebrisObjectId + ((UWRandom.Next(0x8000) * DebrisVariants) / 0x8000);
+			return UWGameSession.Current.Game.Combat.RollDebris();
 		}
 
 		/// <summary>The quality of a fresh pile of debris: the destroyed object keeps its

@@ -112,7 +112,8 @@ namespace UWDataImport.UWData
 		///    if the magic was caught.
 		/// 3. If a resistance bit is still affected after that, the blow bounces off.
 		///
-		/// UW1 has NO doubling for vulnerability; that only exists in uw2.
+		/// UW1 has NO doubling for vulnerability; that only exists in uw2 - the step of an unresisted
+		/// type asks the game (IUWCombatVariant.Unresisted, UW2 plan phase 0 step 2).
 		/// </summary>
 		/// <param name="piResistances">Byte 8 from comobj.dat, see
 		/// UWCommonObjectProperties.Entry.Resistances.</param>
@@ -121,8 +122,10 @@ namespace UWDataImport.UWData
 			if (piDamageType == None)
 				return piBaseDamage;
 
+			// Resisted not at all: the game's step (IUWCombatVariant.Unresisted; the first game passes
+			// the damage as it is, the second doubles fire and cold on the opposite resistance).
 			if ((piResistances & piDamageType) == 0)
-				return piBaseDamage;
+				return UWGameSession.Current.Game.Combat.Unresisted(piResistances, piBaseDamage, piDamageType);
 
 			if ((piDamageType & MagicBits) != 0)
 			{

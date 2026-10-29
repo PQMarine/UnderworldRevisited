@@ -198,7 +198,18 @@ public class UWLevelLoader : MonoBehaviour
         if (UWDataImporter == null)
             return;
 
-        piLevelIndex = ((piLevelIndex % UWDataImporter.Levels.Count) + UWDataImporter.Levels.Count) % UWDataImporter.Levels.Count;
+        int liCount = UWDataImporter.Levels.Count;
+        int liStep = piLevelIndex < miLevelIndex ? -1 : 1;
+
+        piLevelIndex = ((piLevelIndex % liCount) + liCount) % liCount;
+
+        // The second game's world has places without a level (UWSessionWorld.Levels, null): on in the
+        // same direction to the next that has one.
+        for (int liTried = 0; liTried < liCount && UWDataImporter.Levels[piLevelIndex] == null; liTried++)
+            piLevelIndex = (((piLevelIndex + liStep) % liCount) + liCount) % liCount;
+
+        if (UWDataImporter.Levels[piLevelIndex] == null)
+            return;
 
         UWWorldSync.Capture(this);
 
@@ -255,6 +266,23 @@ public class UWLevelLoader : MonoBehaviour
         UWGraphicsDetail.EnsureApplied();
 
         myNewCharacter = UWCharacterCreationScreen.TakePendingPlayerData();
+
+        // THE GAME THIS START BUILDS (UW2 plan phase 0 step 5, 2026-10-28): the one chosen last when
+        // the installation holds it - the first start and every switch (UWGameSwitch) come through
+        // here. A game the port cannot play yet shows its main menu screen and nothing more.
+        UWSettings.Game = UWGameSwitch.Chosen();
+
+        // The second game (UW2 plan phase 2 step 3): its main menu with its buttons, or the walk its
+        // Create Character asked for (UWWalkUw2) - the screen alone where its data cannot be read.
+        bool lbWalk = UWWalkUw2.Take();
+
+        UWWalkUw2.IsWalking = false;
+
+        if (UWSettings.Game.Game == UWGame.Uw2 && fStartUw2(lbWalk))
+            return;
+
+        if (!UWSettings.Game.IsPlayable && fShowScreenOnly())
+            return;
 
         if (!fLoadData())
         {
@@ -385,6 +413,65 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     /// <summary>
+    /// THE SECOND GAME'S TELEPORT IN ITS WALK (UW2 plan phase 2 step 5; new_player_pos, see
+    /// UWTeleportUw2): the level the target names (0 the one the player is on), the first free tile near
+    /// the target by the strict pass of find_good_x_and_y (the loose pass clears objects, the first
+    /// game's rule - not run; without a free tile the target itself), the player set up there - near the
+    /// ceiling and falling when the trap says so - and turned to its heading. A level that is not in the
+    /// world leaves the player where he is.
+    /// </summary>
+    public void WalkTeleport(UWTeleportUw2.Target pOTarget)
+    {
+        int liLevel = UWTeleportUw2.LevelOf(pOTarget, miLevelIndex + 1) - 1;
+
+        if (liLevel < 0 || liLevel >= UWDataImporter.Levels.Count || UWDataImporter.Levels[liLevel] == null)
+        {
+            Debug.LogWarning("[Walk] A teleport to level " + (liLevel + 1) + ", which is not in this world.");
+
+            return;
+        }
+
+        if (liLevel != miLevelIndex)
+        {
+            // The doors as they stand into the level's data, as a level change does (UWWorldSync).
+            UWWorldSync.Capture(this);
+            miLevelIndex = liLevel;
+            fBuildLevel();
+        }
+
+        int liX = pOTarget.TileX;
+        int liY = pOTarget.TileY;
+
+        if (fFindArrivalTile(pOTarget.TileX, pOTarget.TileY, false, out int liFoundX, out int liFoundY))
+        {
+            liX = liFoundX;
+            liY = liFoundY;
+        }
+
+        if (pOTarget.HasHeading)
+            fSetPlayerHeading(UWUnits.AngleToDegrees(pOTarget.Heading));
+
+        fPlacePlayerAtTile(liX, liY);
+
+        // player_setup with how 0: near the ceiling, 1000 less the player's height in fine z (zpos * 8),
+        // when that is above where he stands.
+        if (pOTarget.Falls && UWDataImporter.CommonObjectProperties != null
+            && UWDataImporter.CommonObjectProperties.TryGet(UWObjectIds.LastCreature, out UWCommonObjectProperties.Entry lOPlayerProperties))
+        {
+            float lfHigh = UWUnits.ZPosToWorld(TeleportCeilingZPos - lOPlayerProperties.Height);
+            Vector3 lOAt = new Vector3(UWUnits.TileCentreToWorldAxis(liX), 0f, UWUnits.TileCentreToWorldAxis(liY));
+
+            if (lfHigh > GetFloorHeightAt(lOAt))
+                fPlacePlayerOnFloor(lOAt, lfHigh);
+        }
+
+        Debug.Log(string.Format("[Walk] Teleport to level {0}, tile {1}/{2}{3}.", miLevelIndex + 1, liX, liY, pOTarget.Falls ? ", falling" : string.Empty));
+    }
+
+    /// <summary>player_setup's ceiling for a falling arrival: 1000 in fine z, 125 in zpos.</summary>
+    private const int TeleportCeilingZPos = 1000 >> 3;
+
+    /// <summary>
     /// Switches to another level and puts the player on the given tile.
     /// </summary>
     public void TravelTo(int piLevelIndex, int piTileX, int piTileZ)
@@ -399,6 +486,30 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         mfTransitionBlockedUntil = Time.time + TransitionCooldown;
+
+        // THE SECOND GAME'S WALK (UW2 plan phase 2 step 4, for the debug jump to its ice and water):
+        // the level built and the player on the tile, nothing of the first game's level change
+        // (creatures, carried objects, arrival rules) - the second game's is step 5.
+        if (UWWalkUw2.IsWalking)
+        {
+            if (UWDataImporter.Levels[piLevelIndex] == null)
+            {
+                Debug.LogWarning("[Walk] Level " + (piLevelIndex + 1) + " is not in this world.");
+                return;
+            }
+
+            if (piLevelIndex != miLevelIndex)
+            {
+                UWWorldSync.Capture(this);
+                miLevelIndex = piLevelIndex;
+                fBuildLevel();
+            }
+
+            fPlacePlayerAtTile(piTileX, piTileZ);
+            Debug.Log(string.Format("[Walk] Level {0}, tile {1}/{2}.", piLevelIndex + 1, piTileX, piTileZ));
+
+            return;
+        }
 
         // Write what happened here into the level's data before its objects disappear - otherwise
         // everything would be as before on coming back (see UWWorldSync).
@@ -608,6 +719,10 @@ public class UWLevelLoader : MonoBehaviour
     /// and rebuild the object atlas and texture array again. They are prepared while the main
     /// menu is up and reused by the game that is started from it (per user, 2026-09-14).
     /// Objects referenced from static fields survive Resources.UnloadUnusedAssets.
+    ///
+    /// ONE GAME'S (UW2 plan phase 0 step 3, 2026-10-28): the data is read for the running game
+    /// (UWSettings.Game) and read anew when another game runs; the atlas, the texture array and the
+    /// 3D models built from it go with it (fLoadData).
     /// </summary>
     private static DataImport msOSharedData;
 
@@ -637,7 +752,7 @@ public class UWLevelLoader : MonoBehaviour
     /// original's rules. The debug panel's Place section shows the summary (UWDebugOverlay).</summary>
     private static void fApplyRules()
     {
-        string lsRules = UWGameFolder.AdoptLegacyFile(UWUserSettings.PathBeside(string.Empty), UWRulesJson.FileName,
+        string lsRules = UWGameFolder.AdoptLegacyFile(UWUserSettings.PathBeside(string.Empty), UWGameSession.Current.Game, UWRulesJson.FileName,
             psMessage => Debug.Log("[Rules] " + psMessage), psMessage => Debug.LogWarning("[Rules] " + psMessage));
         UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(lsRules);
 
@@ -685,9 +800,16 @@ public class UWLevelLoader : MonoBehaviour
         // English strings as the data is read; the shared data is read anew if they differ.
         string lsGameText = UWLanguage.GameTextFile;
 
-        if (msOSharedData == null || msOSharedData.DataPath != lsPath || msOSharedData.GameData.GameTextFile != lsGameText)
+        IUWGameProfile lOGame = UWSettings.Game;
+
+        if (msOSharedData == null || msOSharedData.DataPath != lsPath || msOSharedData.GameData.GameTextFile != lsGameText
+            || msOSharedData.GameData.Profile != lOGame)
         {
-            msOSharedData = new DataImport(lsPath, lsSavegame, lsGameText);
+            // Another game's 3D models are another program's: they go with the data they came with.
+            if (msOSharedData != null && msOSharedData.GameData.Profile != lOGame)
+                msOShared3DModels = null;
+
+            msOSharedData = new DataImport(lsPath, lsSavegame, lsGameText, lOGame);
             UWLanguage.LogGameText(msOSharedData.GameText, lsGameText);
             msOSharedAtlas = null;
             msOSharedTextureArray = null;
@@ -719,6 +841,186 @@ public class UWLevelLoader : MonoBehaviour
                 UWDataImporter.SavegamePath, UWDataImporter.InitialPlayer.Name,
                 UWDataImporter.InitialPlayer.DungeonLevel,
                 UWDataImporter.InitialPlayer.TileX, UWDataImporter.InitialPlayer.TileY));
+
+        return true;
+    }
+
+    /// <summary>
+    /// THE SECOND GAME'S START (UW2 plan phase 2 step 3, 2026-10-29): its data read (DataImport with its
+    /// profile) and its session current; then either its main menu (UWMainMenu.InitWalkMenu) or the
+    /// walk - the level a new game starts on, built as the first game's are, seen through the noclip
+    /// camera at the start tile (UWGameProfileUw2.NewGame...). Nothing of the first game's play runs:
+    /// no rules file (the session has no rule set), no player (it stays off), no HUD, no creature
+    /// driver, death or Void (UW1 components that read the rules). HasWorld stays false for them.
+    /// False when the data cannot be read: the screen alone then (fShowScreenOnly).
+    /// </summary>
+    private bool fStartUw2(bool pbWalk)
+    {
+        // A first-game character waiting from its creation does not belong to this game.
+        myNewCharacter = null;
+
+        try
+        {
+            if (!fLoadData())
+                return false;
+
+            // A save chosen in the walk menu's Journey Onward (step 6): its world and its PLAYER.DAT.
+            string lsSave = pbWalk ? UWWalkUw2.TakeSavePath() : null;
+
+            if (lsSave != null)
+                UWDataImporter.LoadGame(lsSave);
+
+            // A character just created (step 5 part B): the new walk is its game.
+            UWPlayerData.NewCharacter lONewCharacter = UWCharacterCreationScreenUw2.TakePendingCharacter();
+
+            if (pbWalk && lsSave == null && lONewCharacter != null)
+                UWSaveCodec.StartNewCharacterUw2(UWDataImporter.Session, lONewCharacter);
+        }
+        catch (System.Exception lOError)
+        {
+            Debug.LogWarning("[Game] " + UWSettings.Game.Title + ": its data could not be read - " + lOError.Message);
+
+            return false;
+        }
+
+        UWGameSession.MakeCurrent(UWDataImporter.Session);
+        HasWorld = false;
+        UWAudioService.StopMusic();
+
+        if (!pbWalk)
+        {
+            UWGameClock.Hold(UWGameClock.NoWorldHold);
+
+            Camera lOCamera = Camera.main;
+            UWMainMenu lOMenu = lOCamera != null ? lOCamera.GetComponent<UWMainMenu>() : null;
+
+            if (lOCamera != null && lOMenu == null)
+                lOMenu = lOCamera.gameObject.AddComponent<UWMainMenu>();
+
+            if (lOMenu == null)
+                return false;
+
+            lOMenu.InitWalkMenu(UWDataImporter);
+            Debug.Log("[Game] " + UWSettings.Game.Title + ": its main menu (Create Character starts a walk through its world).");
+
+            return true;
+        }
+
+        UWWalkUw2.IsWalking = true;
+
+        fPrepareShared();
+        fInitialiseLighting();
+
+        // From a save: where it was made (UWPlayerRecordUw2); else where a new game starts.
+        UWPlayerFile lOPlayer = UWDataImporter.Session.PlayerFileUw2;
+        int liSavedLevel = lOPlayer != null ? UWPlayerRecordUw2.Level(lOPlayer) - 1 : -1;
+
+        miLevelIndex = liSavedLevel >= 0 && liSavedLevel < UWDataImporter.Levels.Count && UWDataImporter.Levels[liSavedLevel] != null
+            ? liSavedLevel : UWGameProfileUw2.NewGameLevel - 1;
+
+        if (CurrentLevel == null)
+        {
+            Debug.LogWarning("[Walk] Level " + UWGameProfileUw2.NewGameLevel + " is missing from LEV.ARK.");
+
+            return false;
+        }
+
+        fBuildLevel();
+
+        if (lOPlayer != null && liSavedLevel == miLevelIndex)
+        {
+            fSetPlayerHeading(UWUnits.AngleToDegrees(UWPlayerRecordUw2.Heading(lOPlayer)));
+            fPlacePlayerAtSavedPosition(UWPlayerRecordUw2.PositionX(lOPlayer), UWPlayerRecordUw2.PositionY(lOPlayer), UWPlayerRecordUw2.ZPosition(lOPlayer));
+
+            if (GetComponent<UWWalkUw2View>() == null)
+                gameObject.AddComponent<UWWalkUw2View>();
+
+            Debug.Log(string.Format("[Walk] From {0}: {1}, level {2}, tile {3}/{4}.", UWDataImporter.SavegamePath, lOPlayer.Name,
+                miLevelIndex + 1, UWPlayerRecordUw2.PositionX(lOPlayer) >> 8, UWPlayerRecordUw2.PositionY(lOPlayer) >> 8));
+        }
+        else
+        {
+            fEnterWalkView(UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY, UWGameProfileUw2.NewGameHeading);
+        }
+
+        // The debug jump (Shift+F7, "level,X,Y") for the walk's tests, on the debug panel; the panel's
+        // report (F1) reads the first game's character and is not for the walk.
+        fInitialiseDebugOverlay();
+
+        UWSetupMenu.EnsureInGame(UWDataImporter);
+        UWScreenUi.HideLoadingCover();
+
+        if (lOPlayer == null || liSavedLevel != miLevelIndex)
+            Debug.Log(string.Format("[Walk] {0}: level {1}, tile {2}/{3} - walking with its motion (N for noclip, Page Up/Down there change the level).",
+                UWSettings.Game.Title, miLevelIndex + 1, UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY));
+
+        return true;
+    }
+
+    /// <summary>
+    /// The walk's start: the player in the tile's centre on its floor, facing piHeading (the original's
+    /// 16-bit heading, 0 north), as player_setup puts a new game's (step 4: the player walks with the
+    /// second game's motion; step 3 had the noclip camera here). The second game's light of the level
+    /// follows the view (UWWalkUw2View).
+    /// </summary>
+    private void fEnterWalkView(int piTileX, int piTileY, int piHeading)
+    {
+        fSetPlayerHeading(UWUnits.AngleToDegrees(piHeading));
+        fPlacePlayerAtTile(piTileX, piTileY);
+
+        if (GetComponent<UWWalkUw2View>() == null)
+            gameObject.AddComponent<UWWalkUw2View>();
+    }
+
+    /// <summary>
+    /// The main menu screen of a game the port cannot play yet (UW2 plan phase 0 step 5): no world, no
+    /// data read beyond the screen, the menu bar over it to switch back. False when the screen cannot
+    /// be read - the first game starts instead.
+    /// </summary>
+    private bool fShowScreenOnly()
+    {
+        UWSettings lOSettings = UWSettings.Instance;
+        string lsData = lOSettings != null ? lOSettings.DataPath : null;
+        UWPicture lOScreen = null;
+
+        try
+        {
+            if (UWSettings.IsValidDataPath(lsData))
+                lOScreen = UWScreensUw2.MainMenu(lsData);
+        }
+        catch (System.Exception lOError)
+        {
+            Debug.LogWarning("[Game] " + UWSettings.Game.Title + ": " + lOError.Message);
+        }
+
+        Camera lOCamera = Camera.main;
+
+        if (lOScreen == null || lOCamera == null)
+        {
+            Debug.LogWarning("[Game] No main menu screen of " + UWSettings.Game.Title + " in " + (lsData ?? "(no data)")
+                + " - starting " + UWGameProfiles.Uw1.Title + ".");
+            UWSettings.Game = UWGameProfiles.Uw1;
+
+            return false;
+        }
+
+        HasWorld = false;
+        UWGameClock.Hold(UWGameClock.NoWorldHold);
+
+        // The first game's music may still play from the menu the switch came from; the second's is
+        // not read yet.
+        UWAudioService.StopMusic();
+
+        UWMainMenu lOMenu = lOCamera.GetComponent<UWMainMenu>();
+
+        if (lOMenu == null)
+            lOMenu = lOCamera.gameObject.AddComponent<UWMainMenu>();
+
+        FilterMode leFilter = lOSettings != null ? lOSettings.TextureFilterMode : FilterMode.Point;
+
+        lOMenu.ShowScreenOnly(UWTextureFactory.FromPicture(lOScreen, leFilter, "UW2 main menu"));
+
+        Debug.Log("[Game] " + UWSettings.Game.Title + ": its main menu screen (the port cannot play it yet).");
 
         return true;
     }
@@ -771,8 +1073,12 @@ public class UWLevelLoader : MonoBehaviour
             gameObject.AddComponent<UWRenderPathHost>();
 
         // And for the frame tick of the creatures: the 16-slot clock and the walk over every
-        // creature that is due (see UWCritterDriver).
-        if (GetComponent<UWCritterDriver>() == null)
+        // creature that is due (see UWCritterDriver). Not on the second game's walk, whose creatures
+        // stand and whose session has no rules (UW2 plan phase 2 step 3) - nor death and the Void
+        // below.
+        bool lbFirstGamePlay = !UWWalkUw2.IsWalking;
+
+        if (lbFirstGamePlay && GetComponent<UWCritterDriver>() == null)
             gameObject.AddComponent<UWCritterDriver>();
 
         // The setup menu's bar, which folds out over the in-game menus (UWSetupMenu.EnsureInGame):
@@ -784,11 +1090,11 @@ public class UWLevelLoader : MonoBehaviour
         // (UWRemasterRenderPath) since cleanup step 6.5 (2026-10-24).
 
         // Death and resurrection at the silver tree, see UWDeath.
-        if (GetComponent<UWDeath>() == null)
+        if (lbFirstGamePlay && GetComponent<UWDeath>() == null)
             gameObject.AddComponent<UWDeath>();
 
         // The effects of the Ethereal Void on level 9, see UWVoidEffects.
-        if (GetComponent<UWVoidEffects>() == null)
+        if (lbFirstGamePlay && GetComponent<UWVoidEffects>() == null)
             gameObject.AddComponent<UWVoidEffects>();
 
         // Monitoring of graphics resources, see UWResourceWatch.
@@ -802,8 +1108,8 @@ public class UWLevelLoader : MonoBehaviour
             if (msOShared3DModels == null && lOSettings != null && lOSettings.IsExePathValid)
             {
                 // The model import reads UW.EXE at offsets of the GOG build only.
-                if (UWGogInstall.IsSupportedExe(lOSettings.ExePath))
-                    msOShared3DModels = new UW3DModelImport(lOSettings.ExePath);
+                if (UWGogInstall.IsSupportedExe(lOSettings.ExePath, UWSettings.Game))
+                    msOShared3DModels = new UW3DModelImport(lOSettings.ExePath, UWSettings.Game.Models);
                 else
                     Debug.LogWarning("UWLevelLoader: " + lOSettings.ExePath + " is not the supported UW.EXE (GOG version) - 3D models fall back to sprites.");
             }
@@ -978,7 +1284,10 @@ public class UWLevelLoader : MonoBehaviour
 
         fBuildGeometry(mOLevelRoot.transform);
         fSpawnObjects(mOLevelRoot.transform);
-        fSpawnTransitions(mOLevelRoot.transform);
+
+        // The second game's stairs and teleports come with step 5 of its plan.
+        if (!UWWalkUw2.IsWalking)
+            fSpawnTransitions(mOLevelRoot.transform);
 
         // After Armageddon every level is empty, even one never entered - see
         // ArmageddonActive. Clearing happens after the build instead of before: only then are the tile lists

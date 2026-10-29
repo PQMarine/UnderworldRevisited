@@ -53,6 +53,16 @@ Save games are kept in the SAVE folders of your Ultima Underworld installation, 
 original, and are compatible with it.
 
 
+ULTIMA UNDERWORLD II (AN EARLY PREVIEW)
+---------------------------------------
+
+With the second game in the same GOG installation ("Ultima Underworld 1+2"), the Game window
+in the menu bar on the main menu switches to it. It has its main menu, its character creation,
+Journey Onward with the DOS game's saves, and a walk through Britannia with its game screen,
+inventory, options and saves (they load in the DOS game). Not yet: its rules, conversations,
+map, sound and music, cutscenes, and the modern interface. The switch back is in the same window.
+
+
 CONTROLS
 --------
 

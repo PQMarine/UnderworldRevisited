@@ -381,16 +381,6 @@ namespace UWDataImport.UWData
 			return piMaximum <= 0 ? 0 : mOGame.Random.Next(1, piMaximum + 1);
 		}
 
-		/// <summary>The functions this session knows by name (UWConversationFunctionTable, since
-		/// 2026-10-14). Shared by every session: the table is sealed data.</summary>
-		private static readonly UWConversationFunctionTable mODefaultFunctions = UWConversationFunctionTable.CreateDefault();
-
-		/// <summary>The functions of the game, read-only - for the dispatch-coverage check.</summary>
-		public static UWConversationFunctionTable Functions
-		{
-			get { return mODefaultFunctions; }
-		}
-
 		public int CallUnknown(string psName, int piFunctionId, IReadOnlyList<int> pOArguments,
 			IReadOnlyList<int> pOAddresses, UWConversationVM pOVm)
 		{
@@ -398,7 +388,10 @@ namespace UWDataImport.UWData
 
 			// A trade function needs the trade. The session has one whenever the machine runs;
 			// the test is the one CallUnknown always made before it asked the trade.
-			if (mODefaultFunctions.TryGet(psName, out lOEntry)
+			// The functions this session knows by name (UWConversationFunctionTable, since 2026-10-14):
+			// the game's, sealed data shared by its sessions (a static of this class until UW2 phase 0
+			// step 3, 2026-10-28; the profile's ConversationFunctions since).
+			if (mOGame.Game.ConversationFunctions.TryGet(psName, out lOEntry)
 				&& (lOEntry.Provider != UWConversationFunctionTable.Provider.Trade || Trade != null))
 			{
 				int liResult = lOEntry.Function(this,

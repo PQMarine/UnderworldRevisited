@@ -6,8 +6,8 @@ namespace UnderworldRevisited.Tools
 {
     /// <summary>
     /// Cleanup step 2.10 (2026-10-14): the dispatch tables that replaced the if-chains - the trap
-    /// kinds and a_do actions (UWTrapRules.Traps, DoActions), the variable-trap operations, the
-    /// conversation functions (UWConversationSession.Functions), the item-use rows
+    /// kinds and a_do actions (the first game's TrapKinds and DoActions), the variable-trap operations, the
+    /// conversation functions (the first game's ConversationFunctions), the item-use rows
     /// (UWItemUse.UseTable) and the food rows (UWFoodTable) - walked over every id, quality and
     /// name the game can hand them. Each one is either handled or listed here as deliberately
     /// unhandled with the reason; anything else fails. Where the game data says which ids occur
@@ -40,7 +40,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckTrapKindCoverage(DataImport pOData)
         {
-            UWTrapTable lOTraps = UWTrapRules.Traps;
+            UWTrapTable lOTraps = UWGameProfiles.Uw1.TrapKinds;
             List<string> lOGaps = new List<string>();
             int liHandled = 0;
 
@@ -97,7 +97,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckDoActionCoverage(DataImport pOData)
         {
-            UWDoActionTable lOActions = UWTrapRules.DoActions;
+            UWDoActionTable lOActions = UWGameProfiles.Uw1.DoActions;
             HashSet<int> lOOriginal = new HashSet<int>(miOriginalDoActions);
             List<string> lOGaps = new List<string>();
 
@@ -229,7 +229,7 @@ namespace UnderworldRevisited.Tools
                 return;
             }
 
-            UWConversationFunctionTable lOTable = UWConversationSession.Functions;
+            UWConversationFunctionTable lOTable = UWGameProfiles.Uw1.ConversationFunctions;
             SortedDictionary<string, HashSet<int>> lOIdsByName = new SortedDictionary<string, HashSet<int>>(System.StringComparer.Ordinal);
             HashSet<string> lOCalled = new HashSet<string>(System.StringComparer.Ordinal);
             List<string> lOUnimportedCalls = new List<string>();

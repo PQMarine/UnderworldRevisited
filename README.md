@@ -2,7 +2,9 @@
 
 An open-source reimplementation of **Ultima Underworld: The Stygian Abyss** (1992) in Unity,
 built on the original game data. The goal is full gameplay parity with the original, plus an
-optional modern render mode. Support for Ultima Underworld II is planned for later.
+optional modern render mode. Ultima Underworld II can be tried as an early preview since 0.13.0:
+its menus, its character creation, its saves and a walk through Britannia with its game screen -
+not yet its rules, conversations or map ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
 
 **You need your own copy of Ultima Underworld - the GOG.com version** ("Ultima Underworld
 1+2"); other releases are not supported (see [Requirements](#requirements)). This repository

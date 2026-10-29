@@ -449,9 +449,21 @@ public static class UWPointer
         msOPicture = pOPicture;
         msOHotspot = pOHotspot;
 
-        if (!msOMotion.IsCaptured && pOPicture != null)
+        if (!msOMotion.IsCaptured && pOPicture != null && !fSystemArrow)
             Cursor.SetCursor(pOPicture, pOHotspot, PointerCursorMode);
     }
+
+    /// <summary>
+    /// PROVISIONAL (per user, 2026-10-29, testing the second game's walk: "show the system mouse pointer
+    /// for now so I see where I click"): while the second game runs without its own pointer - its main
+    /// menu so far (UW2 plan phase 3 step 5) - the plain system arrow shows, free and always visible.
+    /// The walk's classic screen has the game's pointers since phase 3 step 1 (UWGameScreenUw2).
+    /// </summary>
+    private static bool fSystemArrow => UnderworldRevisited.UWSettings.Game != null && UnderworldRevisited.UWSettings.Game.Game == UWGame.Uw2
+        && !UWGameScreenUw2.IsClassicActive;
+
+    /// <summary>Whether the plain arrow has been put in place of a picture (fSystemArrow).</summary>
+    private static bool msbArrowWritten;
 
     /// <summary>
     /// How the free system pointer's picture is drawn: BY UNITY ITSELF, in both schemes (per user,
@@ -492,6 +504,13 @@ public static class UWPointer
 
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         UWGameUI lOUi = UWScene.GameUi;
+
+        // The second game's walk (UW2 plan phase 2 step 4): the modern scheme's mouse look captures as
+        // in the game; the classic scheme captures for the game's own pointer once its screen is up
+        // (phase 3 step 1, UWGameScreenUw2), the system arrow before.
+        if (UWWalkUw2.IsWalking)
+            return (UWControlScheme.Shared.Current == UWControlScheme.SchemeEnum.Modern || UWGameScreenUw2.IsClassicActive)
+                && !UWSetupMenu.HasOpenPanel && !UWSetupMenu.IsEffectsScreenOpen;
 
         if (lOLoader == null || !lOLoader.HasWorld || lOUi == null)
             return false;
@@ -558,7 +577,7 @@ public static class UWPointer
         if (msbPadPlaced)
             msOPadPosition = lOAt;
 
-        if (msOPicture != null)
+        if (msOPicture != null && !fSystemArrow)
             Cursor.SetCursor(msOPicture, msOHotspot, PointerCursorMode);
     }
 
@@ -567,7 +586,18 @@ public static class UWPointer
     {
         bool lbCaptured = msOMotion.IsCaptured;
         CursorLockMode leLock = lbCaptured ? CursorLockMode.Locked : CursorLockMode.None;
-        bool lbVisible = !lbCaptured && msbShown;
+        bool lbVisible = !lbCaptured && (msbShown || fSystemArrow);
+
+        if (fSystemArrow && !msbArrowWritten)
+        {
+            Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+            msbArrowWritten = true;
+        }
+        else if (!fSystemArrow)
+        {
+            // Written again when the arrow comes back (the walk's screen gone, the main menu up).
+            msbArrowWritten = false;
+        }
 
         if (!msbWritten || meWrittenLock != leLock)
             Cursor.lockState = leLock;

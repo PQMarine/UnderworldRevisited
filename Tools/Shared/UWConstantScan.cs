@@ -87,7 +87,7 @@ namespace UnderworldRevisited.Tools
         /// of it is listed, its rectangles, colours and point tables too.</summary>
         private static bool fIsLayoutTable(Type pOType)
         {
-            return pOType.DeclaringType == typeof(UWClassicLayout);
+            return pOType.DeclaringType == typeof(UWClassicLayout) || pOType.DeclaringType == typeof(UWClassicLayoutUw2);
         }
 
         private static bool fIsPinnable(Type pOType)

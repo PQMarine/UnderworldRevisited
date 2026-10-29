@@ -13,14 +13,20 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWSessionWorld
 	{
-		/// <summary>The game keeps map notes for this many levels (UWLevArkLayout).</summary>
-		public const int MapNoteLevelCount = UWLevArkLayout.MapNoteLevelCount;
+		/// <summary>The game keeps map notes for this many levels (UWLevArkLayout) - the first game's 99,
+		/// which hold the second game's 80 too.</summary>
+		public const int MapNoteLevelCount = UWLevArkFile.Uw1MapNoteLevelCount;
 
 		/// <summary>The level the player is on - set by the level loader whenever it builds one.</summary>
 		public UWLevel CurrentLevel { get; set; }
 
-		/// <summary>The nine levels, tiles and objects, as the game changes them.</summary>
+		/// <summary>The levels, tiles and objects, as the game changes them: the first game's nine; the
+		/// second game's 80, null where LEV.ARK has no map block (UW2 plan phase 2 step 2).</summary>
 		public List<UWLevel> Levels { get; internal set; }
+
+		/// <summary>The second game's LEV.ARK as read (null for the first game's, whose blocks are found
+		/// through BlockOffsets).</summary>
+		public UWArk Ark { get; internal set; }
 
 		/// <summary>LEV.ARK as it was last read or written - the base every save rebuilds from
 		/// (UWSaveCodec.SaveWorld copies every block the model does not know byte for byte).</summary>

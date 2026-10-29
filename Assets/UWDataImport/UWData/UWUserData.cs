@@ -370,5 +370,18 @@ namespace UWDataImport.UWData
 		/// files in Languages beside the game (UWLanguage), empty for English - also what a file without
 		/// the key reads. Takes effect at the next start; the command line and UR_LANGUAGE come first.</summary>
 		public string Language = string.Empty;
+
+		/// <summary>The game chosen last in the Game window (UW2 plan phase 0 step 5, 2026-10-28): the
+		/// game's id (UWGame, "Uw1", "Uw2"), empty for the first - also what a file without the key
+		/// reads. The player's, like the rest of this file: which game runs is not a game's setting.
+		/// Read at every start (UWGameSwitch.Chosen); a game the installation does not hold reads as
+		/// the first.</summary>
+		public string Game = string.Empty;
+
+		/// <summary>Where the save games of a GOG installation are (per user, 2026-10-29): empty for
+		/// automatic - the folder of the newest save, else GOG's cloud_saves when its DOSBox configuration
+		/// mounts the overlay -, "CloudSaves" or "Installation" (UWGogInstall.SaveFolderModeEnum). Both
+		/// games; a DATA folder given by hand keeps its own.</summary>
+		public string SaveFolder = string.Empty;
 	}
 }

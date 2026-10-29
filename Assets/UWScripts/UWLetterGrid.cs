@@ -108,7 +108,7 @@ public class UWLetterGrid : MonoBehaviour
 
     private static bool fIsTyping()
     {
-        if (UWCharacterCreationScreen.IsTypingName)
+        if (UWCharacterCreationScreen.IsTypingName || UWCharacterCreationScreenUw2.IsTypingName)
             return true;
 
         UWGameUI lOUi = UWScene.GameUi;

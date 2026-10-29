@@ -402,7 +402,16 @@ public sealed class UWRenderPathHost : MonoBehaviour
     {
         UWLevelLoader lOLoader = LevelLoader;
 
-        return lOLoader != null && lOLoader.CurrentLevelIndex == UWRules.Current.Levels.Void;
+        if (lOLoader == null)
+            return false;
+
+        // THE SECOND GAME (UW2 plan phase 2 step 3): process_grid turns lighting off on levels 65 to
+        // 72 other than 68, (PlayerLevel - 1) / 8 == 8 (Underworld Exhumed uw2 3d/GRIDDB.C:202-210). Its
+        // session has no rule set yet, so the first game's Void from the rules cannot be asked.
+        if (UWSettings.Game.Game == UWDataImport.UWData.UWGame.Uw2)
+            return UWDataImport.UWData.UWDarknessUw2.IsUnlitLevel(lOLoader.CurrentLevelIndex + 1);
+
+        return lOLoader.CurrentLevelIndex == UWRules.Current.Levels.Void;
     }
 
     /// <summary>

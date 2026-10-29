@@ -82,23 +82,44 @@ namespace UWDataImport.UWData
 
 		private const int TableCount = 6;
 
+		/// <summary>The second game's file holds five tables (0x500 bytes, all it reads; Underworld
+		/// Exhumed uw2 map/LIGHTING.C:94); the sixth row stays the identity.</summary>
+		public const int Uw2TableCount = 5;
+
+		/// <summary>The first colour that names a table: the first game's 0xFB, the second's 0xF9 - its
+		/// translucent writer takes colour - 0xF9 as the table (uw2 gfx/SCALEBM.ASM:22, :595; uw1's
+		/// 0xFB, uw1 gfx/SCALEBM.ASM:22). Its shadows are 0xFD, table 4, the first game's table 0
+		/// (uw1 SCALEBM.ASM:540: "table 0 and 1 (UW2 tables 4 and 3)").</summary>
+		public const int Uw1FirstFadeIndex = 0xFB;
+
+		public const int Uw2FirstFadeIndex = 0xF9;
+
 		private readonly byte[][] myTables = new byte[TableCount][];
 
 		public bool IsLoaded { get; private set; }
 
 		public UWTransparencyTables(string psDataPath)
+			: this(psDataPath, UWGame.Uw1)
+		{
+		}
+
+		/// <summary>The tables of either game (UW2 plan phase 2 step 3, the walk's third test: the
+		/// second game's creatures had pink shadows - its file of five tables was refused for not
+		/// holding six, and its shadow colour 0xFD was drawn as itself).</summary>
+		public UWTransparencyTables(string psDataPath, UWGame peGame)
 		{
 			string lsFile = Path.Combine(psDataPath, "XFER.DAT");
+			int liCount = peGame == UWGame.Uw2 ? Uw2TableCount : TableCount;
 
 			if (!File.Exists(lsFile))
 				return;
 
 			byte[] lyData = File.ReadAllBytes(lsFile);
 
-			if (lyData.Length < FirstTableOffset + (TableCount * TableSize))
+			if (lyData.Length < FirstTableOffset + (liCount * TableSize))
 				return;
 
-			for (int liTable = 0; liTable < TableCount; liTable++)
+			for (int liTable = 0; liTable < liCount; liTable++)
 			{
 				myTables[liTable] = new byte[TableSize];
 
@@ -120,6 +141,15 @@ namespace UWDataImport.UWData
 
 		public static bool TryGetFadeTable(int piColourIndex, out FadeTable peTable)
 		{
+			// The second game: every colour from 0xF9 names its table (the names of FadeTable are the
+			// first game's tables'; its shadow is table 4).
+			if (UWGameSession.Current.Game.Game == UWGame.Uw2)
+			{
+				peTable = (FadeTable)(piColourIndex - Uw2FirstFadeIndex);
+
+				return piColourIndex >= Uw2FirstFadeIndex && piColourIndex < Uw2FirstFadeIndex + Uw2TableCount;
+			}
+
 			switch (piColourIndex)
 			{
 				case FadeToShadowIndex:
@@ -142,7 +172,7 @@ namespace UWDataImport.UWData
 		{
 			int liTable = (int)peTable;
 
-			if (!IsLoaded || liTable < 0 || liTable >= TableCount
+			if (!IsLoaded || liTable < 0 || liTable >= TableCount || myTables[liTable] == null
 				|| piBackgroundColourIndex < 0 || piBackgroundColourIndex >= TableSize)
 				return (byte)piBackgroundColourIndex;
 

@@ -21,6 +21,9 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWGameData
 	{
+		/// <summary>The game this data belongs to (Docs/UW2-PLAN.md section 4.1).</summary>
+		public IUWGameProfile Profile { get; }
+
 		/// <summary>Folder with the game data (DATA), needed for files outside of it - see
 		/// GetCutscene.</summary>
 		public string DataPath { get; }
@@ -58,8 +61,12 @@ namespace UWDataImport.UWData
 		/// UWObjectClassProperties.</summary>
 		public UWObjectClassProperties ObjectClassProperties { get; }
 
-		/// <summary>Creature animations from the "crit" folder - see UWCritterAnimations.</summary>
+		/// <summary>Creature animations from the "crit" folder - see UWCritterAnimations (the first
+		/// game's; not loaded for the second).</summary>
 		public UWCritterAnimations CritterAnimations { get; }
+
+		/// <summary>The second game's creature art - see UWCritterArtUw2; null for the first game.</summary>
+		public UWCritterArtUw2 CritterArtUw2 { get; }
 
 		/// <summary>Conversation programs from CNV.ARK - see UWConversations.</summary>
 		public UWConversations Conversations { get; }
@@ -107,30 +114,50 @@ namespace UWDataImport.UWData
 		/// game-text pack (psGameTextFile, Languages/&lt;code&gt;.strings.tsv) its texts are laid over the
 		/// English strings at once, before anything reads them.</summary>
 		public UWGameData(string psPath, string psGameTextFile = null)
+			: this(psPath, psGameTextFile, UWGameProfiles.Uw1)
 		{
+		}
+
+		/// <summary>
+		/// The data of a data folder for the game of pOProfile (null reads as the first game's).
+		///
+		/// THE SECOND GAME'S (UW2 plan phase 2 step 1, 2026-10-29): the readers whose files differ take
+		/// the game - the textures (T64.TR, its .GR names, the BYT.ARK screens), the weapon pictures
+		/// (WEAP.DAT, WEAP.GR), the conversations (CNV.ARK through UWArk), the terrain (a word per
+		/// texture), the sound (SOUNDS.DAT's eight-byte entries, the VOC effects, UWR/UWA music), the
+		/// weapon palettes (WEAP.CM) - and its creature art is CritterArtUw2. The rest reads the same
+		/// layouts in both games; what their contents mean for the second game's rules is held to them
+		/// in the later phases.
+		/// </summary>
+		public UWGameData(string psPath, string psGameTextFile, IUWGameProfile pOProfile)
+		{
+			Profile = pOProfile ?? UWGameProfiles.Uw1;
 			DataPath = psPath;
 			GameTextFile = psGameTextFile;
 
+			UWGame leGame = Profile.Game;
+
 			Palettes = new UWPalettes(psPath);
 			LightLevels = new UWLightLevels(psPath);
-			Textures = new UWTextures(psPath, Palettes);
+			Textures = new UWTextures(psPath, Palettes, leGame);
 			PowerGem = new UWPowerGem(Textures);
 			Flasks = new UWFlasks(Textures);
-			WeaponAnimations = new UWWeaponAnimations(psPath, Textures.GetTexturesByType(UWTexture.TextureTypes.WEAPONS));
+			WeaponAnimations = new UWWeaponAnimations(psPath, Textures.GetTexturesByType(UWTexture.TextureTypes.WEAPONS), leGame);
 			Wearables = new UWWearables(Textures, WeaponAnimations.Black);
 			Cursors = new UWCursors(Textures.GetTexturesByType(UWTexture.TextureTypes.CURSORS));
 			ObjectProperties = new UWObjectProperties(psPath);
 			CommonObjectProperties = new UWCommonObjectProperties(psPath);
 			ObjectClassProperties = new UWObjectClassProperties(psPath);
 			CritterAnimations = new UWCritterAnimations(psPath);
-			Conversations = new UWConversations(psPath);
-			Terrain = new UWTerrain(psPath);
+			CritterArtUw2 = leGame == UWGame.Uw2 ? new UWCritterArtUw2(psPath) : null;
+			Conversations = new UWConversations(psPath, leGame);
+			Terrain = new UWTerrain(psPath, leGame);
 			Fonts = new UWFonts(psPath);
 			ObjectCombining = new UWObjectCombining(psPath);
-			TransparencyTables = new UWTransparencyTables(psPath);
+			TransparencyTables = new UWTransparencyTables(psPath, leGame);
 			Shades = new UWShades(psPath);
-			MiscDataFiles = new UWMiscDataFiles(psPath);
-			Sound = new UWSound(psPath);
+			MiscDataFiles = new UWMiscDataFiles(psPath, leGame);
+			Sound = new UWSound(psPath, leGame);
 			Strings = new UWStrings(File.ReadAllBytes(Path.Combine(psPath, "STRINGS.PAK")));
 
 			if (!string.IsNullOrEmpty(psGameTextFile))

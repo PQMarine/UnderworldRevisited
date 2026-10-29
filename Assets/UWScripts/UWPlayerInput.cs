@@ -454,10 +454,18 @@ public sealed class UWPlayerInput
         // 2026-09-14). Once started, the drag may leave the viewport as before.
         // The left button is read through UWMouseButtons: a click under a held right button is
         // ignored there, everywhere (per user on the original, 2026-09-19).
-        if (!lbHeldDrag && mGameUi != null && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
-            mbCursorDragStartedInViewport = mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
+        //
+        // THE SECOND GAME'S WALK (UW2 plan phase 3 step 1) drives in its own screen's window, 208 by 128
+        // (UWGameScreenUw2); the first game's interface stays uninitialised there.
+        UWGameScreenUw2 lOWalkScreen = UWWalkUw2.IsWalking ? UWGameScreenUw2.Current : null;
 
-        IsCursorMovementInProgress = !lbHeldDrag && mGameUi != null && UWMouseButtons.LeftHeld && mbCursorDragStartedInViewport;
+        if (!lbHeldDrag && (mGameUi != null || lOWalkScreen != null) && UWMouseButtons.LeftPressed && UWPointer.HasMouse)
+            mbCursorDragStartedInViewport = lOWalkScreen != null
+                ? lOWalkScreen.IsInViewWindow(UWPointer.Position)
+                : mGameUi.ClassicScreen.IsScreenPositionInGameArea(UWPointer.Position);
+
+        IsCursorMovementInProgress = !lbHeldDrag && (mGameUi != null || lOWalkScreen != null) && UWMouseButtons.LeftHeld
+            && mbCursorDragStartedInViewport;
 
         if (IsCursorMovementInProgress)
         {
@@ -467,9 +475,14 @@ public sealed class UWPlayerInput
             {
                 UWPlayerMotion.Command leCommand;
 
-                UWPlayerMotion.PointerCommand(mGameUi.PointerZones.CursorAreaX, mGameUi.PointerZones.CursorAreaY,
-                    UWPlayerMotion.PointerAreaWidth, UWPlayerMotion.PointerAreaHeight,
-                    out leCommand, out miPointerWalk, out miPointerTurn);
+                if (lOWalkScreen != null)
+                    UWPlayerMotion.PointerCommand(lOWalkScreen.CursorAreaX, lOWalkScreen.CursorAreaY,
+                        UWGameScreenUw2.CursorAreaWidth, UWGameScreenUw2.CursorAreaHeight,
+                        out leCommand, out miPointerWalk, out miPointerTurn);
+                else
+                    UWPlayerMotion.PointerCommand(mGameUi.PointerZones.CursorAreaX, mGameUi.PointerZones.CursorAreaY,
+                        UWPlayerMotion.PointerAreaWidth, UWPlayerMotion.PointerAreaHeight,
+                        out leCommand, out miPointerWalk, out miPointerTurn);
 
                 pOMotion.MotionCommand = leCommand;
                 pOMotion.Walk = miPointerWalk;

@@ -1654,7 +1654,9 @@ namespace UWDataImport.UWData
 						// The roll comes before the attitude test (46870).
 						bool lbGiveUp = fRandom(lORules.Door.TryChance) == 0;
 
-						if (lbGiveUp || mORecord.Attitude != UWNpc.AttitudeHostile)
+						// Whether it tries the door at all is the game's (IUWCritterVariant; the first
+						// game: only a hostile creature).
+						if (lbGiveUp || !mIServices.Game.Critter.TriesDoor(mORecord.Attitude))
 							mORecord.Blocked = true;
 						else
 							fTryOpenDoor(mOStep.HitObjectIndex, liItemId);
@@ -2325,8 +2327,10 @@ namespace UWDataImport.UWData
 			mORecord.Interval = UWCritterRules.IntervalWalking;
 			mORecord.HitPoints = 0;
 
-			if ((mORow.RowByte(8) & 7) == 1)
-				mIHost.PlaySound(UWCritterRules.DeathSound);
+			int liCry = mIServices.Game.Critter.DeathCry(mORow);
+
+			if (liCry >= 0)
+				mIHost.PlaySound(liCry);
 
 			return true;
 		}

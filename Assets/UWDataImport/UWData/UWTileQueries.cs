@@ -152,6 +152,18 @@ namespace UWDataImport.UWData
 					|| lOObject.ID < FirstWallPictureId || lOObject.ID > LastWallPictureId)
 					continue;
 
+				// The second game: the texture's terrain word, bits 0-2, 3 or 4 (Underworld Exhumed uw2
+				// 3d/DRAWOBJ.C:251, TxmTerr[owner] & 7; UW2 plan phase 2 step 4).
+				if (mOData.Terrain.Uw2 != null)
+				{
+					int liMark = mOData.Terrain.Uw2.Mark(lOObject.Texture.Index);
+
+					if (liMark == UWAutomapCode.Uw2StairsMarkUp || liMark == UWAutomapCode.Uw2StairsMarkDown)
+						return true;
+
+					continue;
+				}
+
 				UWTerrain.TerrainType leTerrain = mOData.Terrain.GetWallTerrain(lOObject.Texture.Index);
 
 				if (leTerrain == UWTerrain.TerrainType.StairsUp || leTerrain == UWTerrain.TerrainType.StairsDown)

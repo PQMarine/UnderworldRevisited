@@ -345,6 +345,13 @@ public class Interaction : MonoBehaviour, IUWMessageSink
 
     private void Update()
     {
+        // THE SECOND GAME'S WALK uses nothing through the first game's interaction (UW2 plan phase 2
+        // step 4, the door test of 2026-10-29: the modern use key's tap toggled the door a second time
+        // on release, after the walk's own use had, and the leaf turned back mid-swing). Its doors are
+        // UWWalkUw2View's; using anything else is its rules' (phase 4).
+        if (UWWalkUw2.IsWalking)
+            return;
+
         // Jumping into water with the weapon drawn ends combat mode and puts the weapon away:
         // UW.EXE SetPlayerDataOxB9_seg008_B calls PutAwayWeapon_seg024_15C0 when swimming starts
         // (per user on the original, 2026-09-14).

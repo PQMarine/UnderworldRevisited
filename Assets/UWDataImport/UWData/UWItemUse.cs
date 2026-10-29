@@ -767,7 +767,8 @@ namespace UWDataImport.UWData
 
 			// A BURNED-OUT ONE (quality zero, as burning down leaves it) does not light again:
 			// "That light is already used up." (LightUsage_seg040_C86, before any slot is looked at).
-			if (pOItem.Quality == 0)
+			// The quality that counts as used up is the game's (IUWObjectVariant).
+			if (UWGameSession.Current.Game.Objects.LightUsedUp(pOItem.Quality))
 			{
 				pIHost.AddGeneralMessage(LightUsedUpMessage);
 

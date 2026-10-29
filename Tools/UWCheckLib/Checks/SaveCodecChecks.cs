@@ -75,7 +75,7 @@ namespace UnderworldRevisited.Tools
             string lsScratch = Path.Combine(psScratchRoot, "DATA");
 
             Check.Bool("save codec: DATA loads a fresh world", !lOSession.World.IsSavegame && lOSession.World.Levels != null
-                && lOSession.World.Levels.Count == UWLevArkLayout.LevelBlockCount, true);
+                && lOSession.World.Levels.Count == UWLevArkFile.Uw1.LevelCount, true);
             Check.Bool("save codec: a fresh world is not saved without a folder", UWSaveCodec.SaveWorld(lOSession), false);
 
             Directory.CreateDirectory(lsScratch);
@@ -195,6 +195,12 @@ namespace UnderworldRevisited.Tools
                 fExpectSameFile("save codec: a new character's " + lsFile + " after save, load, save",
                     File.ReadAllBytes(Path.Combine(lsSecond, lsFile)), File.ReadAllBytes(Path.Combine(lsFirst, lsFile)));
 
+            // The key DOS writes, the name's first letter xor 0xAA (UWPlayerData.KeyFor, since 2026-10-29):
+            // "Codec" gives 0x43 ^ 0xAA, both for the new game's first save and for a save of a loaded one.
+            Check.Str("save codec: PLAYER.DAT keyed by the name as DOS does (first save, later save)",
+                File.ReadAllBytes(Path.Combine(lsFirst, "PLAYER.DAT"))[0].ToString("X2") + " " + File.ReadAllBytes(Path.Combine(lsSecond, "PLAYER.DAT"))[0].ToString("X2"),
+                "E9 E9");
+
             fExpectSameFile("save codec: a new character's PLAYER.DAT after save, load, save",
                 UWPlayerData.Decrypt(File.ReadAllBytes(Path.Combine(lsSecond, "PLAYER.DAT"))),
                 UWPlayerData.Decrypt(File.ReadAllBytes(Path.Combine(lsFirst, "PLAYER.DAT"))));
@@ -213,7 +219,7 @@ namespace UnderworldRevisited.Tools
             {
                 uint luOffset = BitConverter.ToUInt32(lyExpected, 2 + (liLevel * 4));
 
-                if (luOffset != 0 && luOffset + UWLevArkLayout.BlockSize <= lyExpected.Length)
+                if (luOffset != 0 && luOffset + UWLevArkFile.Uw1.BlockSize <= lyExpected.Length)
                 {
                     fRepairActiveList(lyExpected, (int)luOffset);
 

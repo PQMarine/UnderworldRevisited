@@ -325,8 +325,11 @@ namespace UWDataImport.UWData
 			pORecord.FineX = (p.X >> 5) & 7;
 			pORecord.FineY = (p.Y >> 5) & 7;
 
-			if ((p.Impact & 0xFFFF) > 0x100)
-				mOResult.ImpactDamage = (p.Impact & 0xFFFF) >> 8;
+			// How much an impact hurts is the game's (IUWMotionVariant; the first game: above 0x100).
+			int liImpactDamage = mOWorld.Session.Game.Motion.ImpactDamage(p.Impact, true, p.Hp);
+
+			if (liImpactDamage > 0)
+				mOResult.ImpactDamage = liImpactDamage;
 
 			if ((p.Contact & UWMotionTables.ContactLava) != 0 && mOWorld.Random() % 5 == 0)
 				mOResult.LavaBurn = true;

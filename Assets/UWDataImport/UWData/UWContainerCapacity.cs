@@ -58,7 +58,13 @@ namespace UWDataImport.UWData
 				pOData.CommonObjectProperties))
 				return ResultEnum.TooHeavy;
 
-			if (!fMatchesMask(lOEntry.ObjectMask, pOItem.ID))
+			// The mask by the running game's rules (IUWInventoryVariant; the first game's below without one).
+			IUWInventoryVariant lOVariant = pOData.GameData != null && pOData.GameData.Profile != null ? pOData.GameData.Profile.Inventory : null;
+			bool lbMatches = lOVariant != null
+				? lOVariant.MatchesContainerMask(lOEntry.ObjectMask, pOItem, pOData.ObjectClassProperties)
+				: MatchesMaskUw1(lOEntry.ObjectMask, pOItem.ID);
+
+			if (!lbMatches)
 			{
 				return pOContainer.ID == UWObjectIds.RuneBag ? ResultEnum.RunesOnly : ResultEnum.WrongType;
 			}
@@ -106,7 +112,7 @@ namespace UWDataImport.UWData
 		///   anything higher     fits nothing (ours had a key class 0x204, which no uw1
 		///                       container carries)
 		/// </summary>
-		private static bool fMatchesMask(int piMask, int piObjectId)
+		public static bool MatchesMaskUw1(int piMask, int piObjectId)
 		{
 			if (piMask == UWObjectClassProperties.ContainerMaskAll)
 				return true;
@@ -138,7 +144,7 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		/// <summary>What else goes into a bowl besides the food class - see fMatchesMask.</summary>
+		/// <summary>What else goes into a bowl besides the food class - see MatchesMaskUw1.</summary>
 		private static readonly int[] msBowlExtras = { 0xCE, 0xCF, 0x92, 0x125, 0x11B, 0xD9 };
 
 		/// <summary>

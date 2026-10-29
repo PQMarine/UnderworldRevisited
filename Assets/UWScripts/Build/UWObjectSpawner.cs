@@ -355,9 +355,53 @@ namespace UnderworldRevisited.Build
                         continue;
 
                     for (int i = 0; i < lOTile.ObjectsInTile.Count; i++)
-                        fSpawnObject(x, z, lOTile, lOTile.ObjectsInTile[i], pOParent);
+                    {
+                        if (!fIsUw2)
+                        {
+                            fSpawnObject(x, z, lOTile, lOTile.ObjectsInTile[i], pOParent);
+
+                            continue;
+                        }
+
+                        // THE SECOND GAME'S WALK (UW2 plan phase 2 step 3): an object whose spawning
+                        // reaches a rule of the first game's play - which the second game's profile
+                        // refuses until phase 4 - is left out and reported, once per kind of failure,
+                        // instead of ending the whole build (the first test, 2026-10-29: a secret door's
+                        // hit points asked for the combat rules and the screen stayed black).
+                        try
+                        {
+                            fSpawnObject(x, z, lOTile, lOTile.ObjectsInTile[i], pOParent);
+                        }
+                        catch (System.Exception lOError)
+                        {
+                            fReportUw2Failure(lOTile.ObjectsInTile[i], x, z, lOError);
+                        }
+                    }
                 }
             }
+
+            if (fIsUw2 && mOUw2Failures.Count > 0)
+                Debug.LogWarning("[Walk] " + mOUw2Failures.Count + " kind(s) of objects could not be spawned on level " + pOLevel.LevelNumber + ".");
+        }
+
+        /// <summary>Whether the data is the second game's.</summary>
+        private bool fIsUw2 => mOData != null && mOData.GameData != null && mOData.GameData.Profile.Game == UWGame.Uw2;
+
+        /// <summary>The failures reported so far, by exception and the place it came from.</summary>
+        private readonly HashSet<string> mOUw2Failures = new HashSet<string>();
+
+        private void fReportUw2Failure(UWObject pOObject, int piX, int piZ, System.Exception pOError)
+        {
+            // The first three frames: the second game's profile refusing, and who asked it.
+            string[] lsFrames = pOError.StackTrace != null ? pOError.StackTrace.Split('\n') : new string[0];
+            string lsWhere = string.Join(" < ", System.Array.ConvertAll(lsFrames, psLine => psLine.Trim()), 0, System.Math.Min(3, lsFrames.Length));
+            string lsKey = pOError.GetType().Name + " " + lsWhere;
+
+            if (!mOUw2Failures.Add(lsKey))
+                return;
+
+            Debug.LogWarning(string.Format("[Walk] Object 0x{0:X3} at {1}/{2} not spawned: {3}: {4} ({5})",
+                pOObject.ID, piX, piZ, pOError.GetType().Name, pOError.Message, lsWhere));
         }
 
         /// <summary>For UWLevelLoader.SpawnDroppedObject (original: dropping/throwing a single item
@@ -474,6 +518,17 @@ namespace UnderworldRevisited.Build
             if (mOData == null || mOData.ObjectClassProperties == null)
                 return;
 
+            // THE SECOND GAME'S CREATURES STAND (UW2 plan phase 2 step 3): their pictures, nothing of
+            // the first game's body, mind or remains - those read the first game's rules, which a
+            // second-game session does not have (UWGameSession.Rules).
+            if (mOData.GameData != null && mOData.GameData.Profile.Game == UWGame.Uw2)
+            {
+                if (pOObject is UWNpc lONpcUw2 && UWObjectIds.IsCreature(pOObject.ID))
+                    pOGameObject.AddComponent<UWCritterAnimator>().InitialiseUw2(mOData, lONpcUw2, mOBillboardMaterial, mOTranslucentBillboardMaterial);
+
+                return;
+            }
+
             if (!mOData.ObjectClassProperties.TryGetCritter(pOObject.ID,
                 out UWObjectClassProperties.Critter lOCritter))
             {
@@ -550,6 +605,11 @@ namespace UnderworldRevisited.Build
         /// that only matters when something breaks.</returns>
         private bool fAttachHealth(GameObject pOGameObject, UWObject pOObject)
         {
+            // The second game's walk breaks nothing: hit points and what breaking does are its combat
+            // rules (UW2 plan phase 4); without them the object is whole and unharmed.
+            if (fIsUw2)
+                return false;
+
             int liQualityType = 0;
             int liQualityClass = 0;
 
@@ -888,12 +948,15 @@ namespace UnderworldRevisited.Build
         }
 
         /// <summary>
-        /// Quad at original size with its pivot at bottom centre, one pixel equals one
-        /// world unit. Built only once per texture source and index.
+        /// Quad at original size with its pivot at bottom centre, a pixel one world unit across. A sprite
+        /// (pbSprite) stands five quarters of a unit per pixel high, as in_scalebm draws it (UWSpriteScale,
+        /// since 2026-10-29); the things on walls stay square - the original draws them as models 0x10 to
+        /// 0x16, whose quads are as tall as wide (per user, 2026-10-29: a button turned too tall with the
+        /// sprites). Built only once per texture source, index and kind.
         /// </summary>
-        private Mesh fGetQuad(UWTexture pOTexture, UWTextureRef pOResolved)
+        private Mesh fGetQuad(UWTexture pOTexture, UWTextureRef pOResolved, bool pbSprite)
         {
-            long liKey = ((long)pOTexture.TextureType << 32) | (uint)pOTexture.Index;
+            long liKey = ((long)pOTexture.TextureType << 32) | (uint)pOTexture.Index | (pbSprite ? 1L << 62 : 0L);
 
             Mesh lOCached;
 
@@ -901,7 +964,7 @@ namespace UnderworldRevisited.Build
                 return lOCached;
 
             float lfHalfWidth = pOResolved.Size.x * 0.5f;
-            float lfHeight = pOResolved.Size.y;
+            float lfHeight = pOResolved.Size.y * (pbSprite ? UWSpriteScale.PixelHeight : 1f);
 
             Mesh lOMesh = new Mesh();
             lOMesh.name = string.Format("UWQuad {0}_{1}", pOTexture.TextureType, pOTexture.Index);
@@ -995,7 +1058,7 @@ namespace UnderworldRevisited.Build
                 lOObject.transform.position += new Vector3(0f, fGetAnimatedHeightOffset(), 0f);
 
             MeshFilter lOFilter = lOObject.AddComponent<MeshFilter>();
-            lOFilter.sharedMesh = fGetQuad(lOTexture, lOResolved);
+            lOFilter.sharedMesh = fGetQuad(lOTexture, lOResolved, true);
             lOObject.AddComponent<MeshRenderer>().sharedMaterial = lOAnimation != null
                 ? fGetAnimatedBillboardMaterial(lOResolved.Material)
                 : lOResolved.Material;
@@ -1014,8 +1077,11 @@ namespace UnderworldRevisited.Build
             // shader, but the collider does not - with a depth of 1 it stood
             // rigidly in the world XY plane and was hard to hit from the side.
             // That is exactly where the clicks that sometimes missed came from (per user, 2026-08-30).
-            lOCollider.size = new Vector3(lOResolved.Size.x, lOResolved.Size.y, lOResolved.Size.x);
-            lOCollider.center = new Vector3(0f, lOResolved.Size.y * 0.5f, 0f);
+            // As tall as the picture (UWSpriteScale).
+            float lfSpriteHeight = lOResolved.Size.y * UWSpriteScale.PixelHeight;
+
+            lOCollider.size = new Vector3(lOResolved.Size.x, lfSpriteHeight, lOResolved.Size.x);
+            lOCollider.center = new Vector3(0f, lfSpriteHeight * 0.5f, 0f);
 
             // COMOBJ.DAT gives every object a height, and 0 there means "no collision".
             // Exactly the things you walk over in the original are at 0: bones,
@@ -1051,7 +1117,7 @@ namespace UnderworldRevisited.Build
             // See UWArmorItemMap for the resulting correction of the table keys.
             fDescribeByName(lOInfo, pOObject.ID + 1);
 
-            fAddLightIfSource(lOObject, pOObject, lOResolved.Size.y);
+            fAddLightIfSource(lOObject, pOObject, lfSpriteHeight);
 
             SpawnedCount++;
         }
@@ -1289,7 +1355,7 @@ namespace UnderworldRevisited.Build
                 UWTextureRef lOResolved;
 
                 if (fResolve(pOTextures[liFrame], true, out lOResolved))
-                    lOFrames.Add(fGetQuad(pOTextures[liFrame], lOResolved));
+                    lOFrames.Add(fGetQuad(pOTextures[liFrame], lOResolved, true));
             }
 
             if (lOFrames.Count < 2)
@@ -1494,7 +1560,7 @@ namespace UnderworldRevisited.Build
             lOObject.transform.position = lOPosition;
             lOObject.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
-            Mesh lOMesh = fGetQuad(pOObject.Texture, lOResolved);
+            Mesh lOMesh = fGetQuad(pOObject.Texture, lOResolved, false);
 
             lOObject.AddComponent<MeshFilter>().sharedMesh = lOMesh;
             lOObject.AddComponent<MeshRenderer>().sharedMaterial =
@@ -1594,14 +1660,14 @@ namespace UnderworldRevisited.Build
 
                 if (lOOwnTexture != null && fResolve(lOOwnTexture, false, out UWTextureRef lOOwnResolved))
                 {
-                    lOMesh = fGetQuad(lOOwnTexture, lOOwnResolved);
+                    lOMesh = fGetQuad(lOOwnTexture, lOOwnResolved, false);
                     pOObject.Texture = lOOwnTexture;
                     lOObject.GetComponent<MeshFilter>().sharedMesh = lOMesh;
                 }
 
                 if (lOPartnerTexture != null && fResolve(lOPartnerTexture, false, out UWTextureRef lOPartnerResolved))
                 {
-                    Mesh lOPartnerMesh = fGetQuad(lOPartnerTexture, lOPartnerResolved);
+                    Mesh lOPartnerMesh = fGetQuad(lOPartnerTexture, lOPartnerResolved, false);
                     bool lbOwnImageIsPressed = liIndex >= 8;
 
                     lOObject.AddComponent<UWSwitchVisual>().Initialise(
@@ -1624,7 +1690,7 @@ namespace UnderworldRevisited.Build
                     UWTexture lOPositionTexture = fGetTexture(UWTexture.TextureTypes.TMOBJ, i + 4);
 
                     if (lOPositionTexture != null && fResolve(lOPositionTexture, false, out UWTextureRef lOPositionResolved))
-                        lyPositionMeshes[i] = fGetQuad(lOPositionTexture, lOPositionResolved);
+                        lyPositionMeshes[i] = fGetQuad(lOPositionTexture, lOPositionResolved, false);
                 }
 
                 // The lever keeps its position in the object's flags field, so it is

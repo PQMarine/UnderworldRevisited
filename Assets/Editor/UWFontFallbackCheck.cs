@@ -251,7 +251,7 @@ public static class UWFontFallbackCheck
 
         foreach (UWFonts.FontType leType in new[] { UWFonts.FontType.Normal, UWFonts.FontType.Big })
         {
-            byte[] lyBytes = UWGogInstall.ReadDataFile(lsImage, UWFonts.FileName(leType));
+            byte[] lyBytes = UWGogInstall.ReadDataFile(lsImage, UWGameProfiles.Uw1, UWFonts.FileName(leType));
 
             if (lyBytes == null)
             {

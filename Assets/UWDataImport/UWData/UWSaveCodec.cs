@@ -18,8 +18,6 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public static class UWSaveCodec
 	{
-		/// <summary>Any key byte - the encryption is an XOR, any value works.</summary>
-		private const byte NewGameKey = 0x2A;
 
 		private static readonly string[] msBaseFiles = { "PLAYER.DAT", "LEV.ARK", "BGLOBALS.DAT" };
 
@@ -44,16 +42,34 @@ namespace UWDataImport.UWData
 			string lsFolder = lOWorld.IsSavegame ? lOWorld.SavegamePath : pOData.DataPath;
 
 			lOSession.ConversationMemory = new UWConversationGlobals(pOData.DataPath, lOWorld.IsSavegame ? lOWorld.SavegamePath : null);
+
+			// The second game's world (UW2 plan phase 2 step 2); its character, PLAYER.DAT's record of
+			// 0x37D bytes, is not UWPlayerData's layout and comes with phase 2 step 6 - until then the
+			// session has none.
+			if (pOData.Profile.Game == UWGame.Uw2)
+			{
+				fLoadLevelsUw2(lOWorld, Path.Combine(lsFolder, "LEV.ARK"), pOData.Textures, pOData.Profile.LevArk);
+
+				// A save's PLAYER.DAT (step 6); DATA's fits neither game's layout (Underworld Exhumed
+				// docs/FORMATS.md "PLAYER.DAT").
+				string lsPlayer = Path.Combine(lsFolder, PlayerFileName);
+
+				if (lOWorld.IsSavegame && File.Exists(lsPlayer))
+					lOSession.PlayerFileUw2 = UWPlayerFile.Read(File.ReadAllBytes(lsPlayer), UWGame.Uw2);
+
+				return lOSession;
+			}
+
 			lOSession.Player = new UWPlayerData(lsFolder);
 			lOSession.Player.AssignTextures(pOData.Textures);
-			fLoadLevels(lOWorld, Path.Combine(lsFolder, "LEV.ARK"), pOData.Textures);
+			fLoadLevels(lOWorld, Path.Combine(lsFolder, "LEV.ARK"), pOData.Textures, pOData.Profile.LevArk);
 
 			return lOSession;
 		}
 
-		/// <summary>The five kinds of blocks by UWLevArkLayout's numbers (the reasons for 27 and
-		/// for ninety-nine note blocks stand there); the header through UWLevArkCodec.</summary>
-		private static void fLoadLevels(UWSessionWorld pOWorld, string psLevelFullPath, UWTextures pOTextures)
+		/// <summary>The five kinds of blocks by the game's numbers (UWLevArkFile; the reasons for 27
+		/// and for ninety-nine note blocks stand there); the header through UWLevArkCodec.</summary>
+		private static void fLoadLevels(UWSessionWorld pOWorld, string psLevelFullPath, UWTextures pOTextures, UWLevArkFile pOFile)
 		{
 			byte[] lyRaw = File.ReadAllBytes(psLevelFullPath);
 			List<uint> lOOffsets = UWLevArkCodec.ReadBlockOffsets(lyRaw);
@@ -62,31 +78,214 @@ namespace UWDataImport.UWData
 			pOWorld.RawLevelData = lyRaw;
 			pOWorld.BlockOffsets = lOOffsets;
 
-			for (int j = 0; j < UWLevArkLayout.LevelBlockCount; j++)
+			for (int j = 0; j < pOFile.LevelCount; j++)
 			{
-				UWLevel item = new UWLevel(j + 1, lyRaw, lOOffsets[UWLevArkLayout.MapBlock(j)],
-					lOOffsets[UWLevArkLayout.TextureMapBlock(j)], pOTextures);
+				UWLevel item = new UWLevel(j + 1, lyRaw, lOOffsets[pOFile.MapBlock(j)],
+					lOOffsets[pOFile.TextureMapBlock(j)], pOTextures);
 
-				if (lOOffsets.Count > UWLevArkLayout.AutomapBlock(j))
-					item.LoadAutomap(lyRaw, lOOffsets[UWLevArkLayout.AutomapBlock(j)]);
+				if (lOOffsets.Count > pOFile.AutomapBlock(j))
+					item.LoadAutomap(lyRaw, lOOffsets[pOFile.AutomapBlock(j)]);
 
 				// The animation list (UWAnimationOverlay).
-				if (lOOffsets.Count > UWLevArkLayout.AnimationBlock(j))
-					item.LoadAnimations(lyRaw, lOOffsets[UWLevArkLayout.AnimationBlock(j)]);
+				if (pOFile.AnimationBlock(j) >= 0 && lOOffsets.Count > pOFile.AnimationBlock(j))
+					item.LoadAnimations(lyRaw, lOOffsets[pOFile.AnimationBlock(j)]);
 
 				lOLevels.Add(item);
 			}
 
 			pOWorld.Levels = lOLevels;
 
-			for (int liLevel = 0; liLevel < UWLevArkLayout.MapNoteLevelCount; liLevel++)
+			for (int liLevel = 0; liLevel < pOFile.MapNoteLevelCount; liLevel++)
 			{
-				int liBlock = UWLevArkLayout.MapNoteBlock(liLevel);
+				int liBlock = pOFile.MapNoteBlock(liLevel);
 
 				pOWorld.SetMapNotes(liLevel, liBlock < lOOffsets.Count
 					? UWLevel.ParseMapNotes(lyRaw, lOOffsets[liBlock], fGetBlockEnd(pOWorld, lOOffsets[liBlock]))
 					: new List<UWLevel.MapNote>());
 			}
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S LEV.ARK (UW2 plan phase 2 step 2, 2026-10-29): read through UWArk, its
+		/// blocks decoded as they are asked for. Each of the 80 levels with a map block becomes a
+		/// UWLevel (with its texture block, its overlays and timers inside the map block); a level
+		/// without one stays null - the shipped file has 42 (Underworld Exhumed docs/FORMATS.md
+		/// "LEV.ARK"). Automaps and notes by the same numbers; the notes are the first game's records,
+		/// kept for every page. The shipped file's automaps of levels 74 and 79, which have no map block,
+		/// stay in the archive only.
+		/// RawLevelData keeps the file as read, BlockOffsets stays empty: the blocks are UWArk's.
+		/// </summary>
+		private static void fLoadLevelsUw2(UWSessionWorld pOWorld, string psLevelFullPath, UWTextures pOTextures, UWLevArkFile pOFile)
+		{
+			byte[] lyRaw = File.ReadAllBytes(psLevelFullPath);
+			UWArk lOArk = UWArk.Read(lyRaw, UWArk.LayoutEnum.Uw2);
+			List<UWLevel> lOLevels = new List<UWLevel>();
+
+			pOWorld.RawLevelData = lyRaw;
+			pOWorld.BlockOffsets = new List<uint>();
+			pOWorld.Ark = lOArk;
+
+			for (int liLevel = 0; liLevel < pOFile.LevelCount; liLevel++)
+			{
+				byte[] lyBlock = fArkBlock(lOArk, pOFile.MapBlock(liLevel));
+
+				if (lyBlock.Length < pOFile.BlockSize)
+				{
+					lOLevels.Add(null);
+
+					continue;
+				}
+
+				UWLevel lOLevel = new UWLevel(liLevel + 1, lyBlock, fArkBlock(lOArk, pOFile.TextureMapBlock(liLevel)), pOTextures, pOFile);
+
+				lOLevel.LoadAutomap(fArkBlock(lOArk, pOFile.AutomapBlock(liLevel)));
+				lOLevels.Add(lOLevel);
+			}
+
+			pOWorld.Levels = lOLevels;
+
+			for (int liLevel = 0; liLevel < pOFile.MapNoteLevelCount; liLevel++)
+			{
+				byte[] lyNotes = fArkBlock(lOArk, pOFile.MapNoteBlock(liLevel));
+
+				pOWorld.SetMapNotes(liLevel, UWLevel.ParseMapNoteBlock(lyNotes));
+			}
+		}
+
+		public const string PlayerFileName = "PLAYER.DAT";
+
+		/// <summary>The second game's schedules, copied with a save (its rules come in phase 4).</summary>
+		public const string ScheduleFileName = "SCD.ARK";
+
+		/// <summary>
+		/// A NEW SECOND-GAME CHARACTER IN THE SESSION (UW2 plan phase 3 step 5): its PLAYER.DAT built from
+		/// the creation's choices (UWPlayerRecordUw2.NewCharacter). The session must hold a world begun
+		/// without a save.
+		/// </summary>
+		public static void StartNewCharacterUw2(UWGameSession pOSession, UWPlayerData.NewCharacter pOCharacter)
+		{
+			pOSession.PlayerFileUw2 = UWPlayerRecordUw2.NewCharacter(pOCharacter);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME'S WALK SAVED (UW2 plan phase 2 step 6, 2026-10-29) into psSlotPath as the
+		/// original's save holds a game (Underworld Exhumed docs/FORMATS.md): LEV.ARK through UWArk - every
+		/// level's block written back from the session by UWLevelWriter (the shared 0x7C08 bytes) with its
+		/// animation overlays and timers inside it (Anim_Save zeroes what follows the count, MAP.C:169),
+		/// each automap and each page's notes, kept or appended by put_arc's rules and compressed where that
+		/// is shorter (decision 4); PLAYER.DAT - the loaded save's, else a walker's (UWPlayerRecordUw2.NewWalker)
+		/// - with the position, facing and level written in; BGLOBALS.DAT from the conversation memory;
+		/// SCD.ARK copied from where the world came from; DESC. The world then counts as loaded from there.
+		/// Returns null, or what failed.
+		/// </summary>
+		public static string SaveUw2(UWGameSession pOSession, string psSlotPath, string psDescription, int piLevelIndex,
+			int piPositionX, int piPositionY, int piZPosition, int piHeading)
+		{
+			UWSessionWorld lOWorld = pOSession.World;
+			UWLevArkFile lOFile = UWLevArkFile.Uw2;
+
+			if (lOWorld.Ark == null || lOWorld.Levels == null)
+				return "no world to save";
+
+			try
+			{
+				Directory.CreateDirectory(psSlotPath);
+
+				string lsFrom = lOWorld.IsSavegame ? lOWorld.SavegamePath : pOSession.Data.DataPath;
+				int liAutomapFlags = fTemplateFlags(lOWorld.Ark, lOFile.AutomapBlock(0), lOFile.LevelCount);
+				int liNoteFlags = fTemplateFlags(lOWorld.Ark, lOFile.MapNoteBlock(0), lOFile.MapNoteLevelCount);
+
+				for (int liLevel = 0; liLevel < lOFile.LevelCount; liLevel++)
+				{
+					UWLevel lOLevel = lOWorld.Levels[liLevel];
+
+					if (lOLevel == null)
+						continue;
+
+					byte[] lyBlock = UWLevelWriter.BuildBlock(lOLevel, lOWorld.Ark.ReadBlock(lOFile.MapBlock(liLevel)));
+					Dictionary<UWObject, int> lOIndices = UWLevelWriter.LastIndices;
+
+					fWriteOverlaysAndTimers(lyBlock, lOLevel, lOIndices, lOFile);
+					lOWorld.Ark.WriteBlock(lOFile.MapBlock(liLevel), lyBlock);
+
+					if (lOLevel.AutomapTiles != null)
+						lOWorld.Ark.WriteBlock(lOFile.AutomapBlock(liLevel), (byte[])lOLevel.AutomapTiles.Clone(), liAutomapFlags);
+				}
+
+				for (int liPage = 0; liPage < lOFile.MapNoteLevelCount; liPage++)
+				{
+					List<UWLevel.MapNote> lONotes = lOWorld.GetMapNotes(liPage);
+					int liBlock = lOFile.MapNoteBlock(liPage);
+
+					if ((lONotes != null && lONotes.Count > 0) || lOWorld.Ark.StoredLength(liBlock) > 0)
+						lOWorld.Ark.WriteBlock(liBlock, BuildMapNoteBlock(lONotes ?? new List<UWLevel.MapNote>()), liNoteFlags);
+				}
+
+				byte[] lyLevArk = lOWorld.Ark.ToBytes();
+
+				File.WriteAllBytes(Path.Combine(psSlotPath, "LEV.ARK"), lyLevArk);
+
+				UWPlayerFile lOPlayer = pOSession.PlayerFileUw2 ?? UWPlayerRecordUw2.NewWalker();
+
+				UWPlayerRecordUw2.WritePosition(lOPlayer, piPositionX, piPositionY, piZPosition, piHeading, piLevelIndex + 1);
+				File.WriteAllBytes(Path.Combine(psSlotPath, PlayerFileName), lOPlayer.ToBytes());
+				pOSession.PlayerFileUw2 = lOPlayer;
+
+				if (pOSession.ConversationMemory != null)
+					File.WriteAllBytes(Path.Combine(psSlotPath, "BGLOBALS.DAT"), pOSession.ConversationMemory.Serialize());
+
+				string lsSchedule = Path.Combine(lsFrom, ScheduleFileName);
+
+				if (File.Exists(lsSchedule) && !string.Equals(Path.GetFullPath(lsFrom), Path.GetFullPath(psSlotPath), System.StringComparison.OrdinalIgnoreCase))
+					File.Copy(lsSchedule, Path.Combine(psSlotPath, ScheduleFileName), true);
+
+				File.WriteAllBytes(Path.Combine(psSlotPath, "DESC"), UWSavegameStore.EncodeDescription(psDescription));
+
+				lOWorld.RawLevelData = lyLevArk;
+				lOWorld.SavegamePath = psSlotPath;
+
+				return null;
+			}
+			catch (System.Exception lOError)
+			{
+				return lOError.Message;
+			}
+		}
+
+		/// <summary>The flags a block of a kind is written with when it is new: those of the first present
+		/// block of the kind (the shipped file has automaps and notes of three levels), else compressed with
+		/// room (UWArk's flags 1 and 4).</summary>
+		private static int fTemplateFlags(UWArk pOArk, int piFirstBlock, int piCount)
+		{
+			for (int liBlock = piFirstBlock; liBlock < piFirstBlock + piCount && liBlock < pOArk.BlockCount; liBlock++)
+			{
+				if (pOArk.IsPresent(liBlock))
+					return pOArk.FlagsOf(liBlock) & (UWArk.CompressFlag | UWArk.RoomFlag);
+			}
+
+			return UWArk.CompressFlag | UWArk.RoomFlag;
+		}
+
+		/// <summary>The overlays and the timers into the second game's level block (after the shared part):
+		/// the overlays as UWAnimationOverlay serialises them with the writer's object numbers, the timers
+		/// up to the count and zero after it (Anim_Save, Underworld Exhumed uw2 map/MAP.C:169).</summary>
+		private static void fWriteOverlaysAndTimers(byte[] pyBlock, UWLevel pOLevel, Dictionary<UWObject, int> pOIndices, UWLevArkFile pOFile)
+		{
+			if (pOLevel.Animations != null && pOLevel.Animations.IsLoaded)
+			{
+				byte[] lyOverlays = pOLevel.Animations.Serialize(pOObject => pOIndices != null && pOIndices.TryGetValue(pOObject, out int liIndex) ? liIndex : -1);
+
+				System.Array.Copy(lyOverlays, 0, pyBlock, pOFile.OverlayOffset, System.Math.Min(lyOverlays.Length, UWAnimationOverlay.BlockLength));
+			}
+
+			for (int liAt = 0; liAt < pOFile.TimerCount; liAt++)
+				UWBinary.Write16(pyBlock, pOFile.TimerOffset + (2 * liAt), liAt < pOLevel.Timers.Count ? pOLevel.Timers[liAt] : 0);
+		}
+
+		/// <summary>A block of the archive, empty when it is beyond its blocks or absent.</summary>
+		private static byte[] fArkBlock(UWArk pOArk, int piBlock)
+		{
+			return piBlock >= 0 && piBlock < pOArk.BlockCount ? pOArk.ReadBlock(piBlock) : new byte[0];
 		}
 
 		/// <summary>Where does the block that starts at this position end? The file only lists
@@ -154,26 +353,28 @@ namespace UWDataImport.UWData
 				File.Copy(lsPath, lsBackup);
 
 			int liCount = lOOffsets.Count;
+			UWLevArkFile lOFile = pOSession.Game.LevArk;
 
 			byte[][] lyBlocks = new byte[liCount][];
-			Dictionary<UWObject, int>[] lOIndices = new Dictionary<UWObject, int>[UWLevArkLayout.LevelBlockCount];
+			Dictionary<UWObject, int>[] lOIndices = new Dictionary<UWObject, int>[lOFile.LevelCount];
 
 			UWLevelWriter.Warnings.Clear();
 
-			// The block numbers of the five kinds are UWLevArkLayout's (2026-10-12).
+			// The block numbers of the five kinds are the game's (UWLevArkLayout's from 2026-10-12,
+			// UWLevArkFile's since UW2 plan phase 1 step 2).
 			for (int liBlock = 0; liBlock < liCount; liBlock++)
 			{
 				// THE LEVELS THEMSELVES - tiles and objects, i.e. the state of the world (since
 				// 2026-09-10, see UWLevelWriter). The basis is the block as it last stood in
 				// the file; only what the model knows is overwritten.
-				int liMapLevel = liBlock - UWLevArkLayout.MapFirstBlock;
+				int liMapLevel = lOFile.MapLevelOf(liBlock);
 
-				if (lOLevels != null && liMapLevel < lOLevels.Count && liMapLevel < UWLevArkLayout.LevelBlockCount
+				if (lOLevels != null && liMapLevel >= 0 && liMapLevel < lOLevels.Count
 					&& lOOffsets[liBlock] != 0
-					&& lOOffsets[liBlock] + UWLevArkLayout.BlockSize <= lyRaw.Length)
+					&& lOOffsets[liBlock] + lOFile.BlockSize <= lyRaw.Length)
 				{
-					byte[] lyOriginal = new byte[UWLevArkLayout.BlockSize];
-					Array.Copy(lyRaw, (int)lOOffsets[liBlock], lyOriginal, 0, UWLevArkLayout.BlockSize);
+					byte[] lyOriginal = new byte[lOFile.BlockSize];
+					Array.Copy(lyRaw, (int)lOOffsets[liBlock], lyOriginal, 0, lOFile.BlockSize);
 
 					lyBlocks[liBlock] = UWLevelWriter.BuildBlock(lOLevels[liMapLevel], lyOriginal);
 					lOIndices[liMapLevel] = UWLevelWriter.LastIndices;
@@ -188,9 +389,9 @@ namespace UWDataImport.UWData
 				// THE ANIMATION LIST follows its level: the entries with the numbers the writer just
 				// gave the objects (until 2026-10-11 the block was copied unchanged, so a silver tree
 				// planted here stood still in the original).
-				int liAnimationLevel = liBlock - UWLevArkLayout.AnimationFirstBlock;
+				int liAnimationLevel = lOFile.AnimationLevelOf(liBlock);
 
-				if (liAnimationLevel >= 0 && liAnimationLevel < UWLevArkLayout.LevelBlockCount && lOLevels != null
+				if (liAnimationLevel >= 0 && lOLevels != null
 					&& liAnimationLevel < lOLevels.Count && lOLevels[liAnimationLevel].Animations != null
 					&& lOLevels[liAnimationLevel].Animations.IsLoaded)
 				{
@@ -201,9 +402,9 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
-				int liNoteLevel = liBlock - UWLevArkLayout.MapNoteFirstBlock;
+				int liNoteLevel = lOFile.MapNoteLevelOf(liBlock);
 
-				if (liNoteLevel >= 0 && liNoteLevel < UWLevArkLayout.MapNoteLevelCount)
+				if (liNoteLevel >= 0)
 				{
 					lyBlocks[liBlock] = BuildMapNoteBlock(lOWorld.GetMapNotes(liNoteLevel));
 					continue;
@@ -211,7 +412,7 @@ namespace UWDataImport.UWData
 
 				// The automap comes from the level itself - that is where walking records which
 				// tiles were entered.
-				int liAutomapLevel = liBlock - UWLevArkLayout.AutomapFirstBlock;
+				int liAutomapLevel = lOFile.AutomapLevelOf(liBlock);
 
 				if (liAutomapLevel >= 0 && lOLevels != null && liAutomapLevel < lOLevels.Count
 					&& lOLevels[liAutomapLevel].AutomapTiles != null)
@@ -488,7 +689,7 @@ namespace UWDataImport.UWData
 			File.Copy(Path.Combine(pOSession.Data.DataPath, "LEV.ARK"), Path.Combine(psTarget, "LEV.ARK"), true);
 
 			File.WriteAllBytes(Path.Combine(psTarget, "PLAYER.DAT"),
-				UWPlayerData.Encrypt(pOSession.Player.PlainBytes, NewGameKey));
+				UWPlayerData.Encrypt(pOSession.Player.PlainBytes, UWPlayerData.KeyFor(pOSession.Player.PlainBytes)));
 		}
 
 		/// <summary>Brings the base into the target slot if it is not itself the loaded one. An

@@ -19,7 +19,7 @@ namespace UnderworldRevisited.Tools
                 return 1;
             }
 
-            if (!pOContext.Data.Strings.Blocks.TryGetValue(liBlock, out UWStringBlock lOBlock) || lOBlock.Strings == null)
+            if (!pOContext.Strings.Blocks.TryGetValue(liBlock, out UWStringBlock lOBlock) || lOBlock.Strings == null)
             {
                 Console.Error.WriteLine("Block " + liBlock + " does not exist.");
 
@@ -47,7 +47,7 @@ namespace UnderworldRevisited.Tools
             string lsNeedle = string.Join(" ", pOArgs);
             int liHits = 0;
 
-            foreach (KeyValuePair<int, UWStringBlock> lOPair in pOContext.Data.Strings.Blocks)
+            foreach (KeyValuePair<int, UWStringBlock> lOPair in pOContext.Strings.Blocks)
             {
                 List<string> lOStrings = lOPair.Value == null ? null : lOPair.Value.Strings;
 

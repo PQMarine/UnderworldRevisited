@@ -127,7 +127,7 @@ namespace UWDataImport.UWData
 					|| liDifficulty == UnpickableLockDifficulty)
 					return Outcome.Failed;
 
-				if (!UWSkillCheck.IsSuccess(UWSkillCheck.Check(liSkill, liDifficulty * 3)))
+				if (!UWSkillCheck.IsSuccess(UWGameSession.Current.Game.Objects.PickRoll(liSkill, liDifficulty)))
 					return Outcome.Failed;
 			}
 			else if (piKeyOrMinusSkill == 0 || liLockId == 0 || liLockId != piKeyOrMinusSkill)

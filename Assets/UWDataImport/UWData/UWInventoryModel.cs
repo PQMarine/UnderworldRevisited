@@ -336,26 +336,36 @@ namespace UWDataImport.UWData
 			if (pOPlayer == null || !pOPlayer.IsLoaded)
 				return;
 
+			LoadFromSlots(pOPlayer.IsLeftHanded, pOPlayer.Equipment, pOPlayer.Backpack, pOPlayer.CarriedWeight);
+		}
+
+		/// <summary>
+		/// Takes over equipment (in the save's order of the eleven places) and backpack, the hand and
+		/// the carried weight (the running total at 0x4A) - from the first game's UWPlayerData or the
+		/// second game's workspace (UWInventoryWorkspace, UW2 plan phase 3 step 3).
+		/// </summary>
+		public void LoadFromSlots(bool pbLeftHanded, UWObject[] pOEquipment, UWObject[] pOBackpack, int piCarriedWeight)
+		{
 			LoadCount++;
 
-			IsLeftHanded = pOPlayer.IsLeftHanded;
+			IsLeftHanded = pbLeftHanded;
 
-			for (int liSlot = 0; liSlot < msSavegameSlotMap.Length && liSlot < pOPlayer.Equipment.Length; liSlot++)
+			for (int liSlot = 0; liSlot < msSavegameSlotMap.Length && liSlot < pOEquipment.Length; liSlot++)
 			{
-				UWObject lOItem = pOPlayer.Equipment[liSlot];
+				UWObject lOItem = pOEquipment[liSlot];
 
 				if (lOItem != null)
 					EquipSlots[(int)msSavegameSlotMap[liSlot]] = lOItem;
 			}
 
-			for (int liSlot = 0; liSlot < Backpack.Length && liSlot < pOPlayer.Backpack.Length; liSlot++)
-				Backpack[liSlot] = pOPlayer.Backpack[liSlot];
+			for (int liSlot = 0; liSlot < Backpack.Length && liSlot < pOBackpack.Length; liSlot++)
+				Backpack[liSlot] = pOBackpack[liSlot];
 
 			// Capture the reconciliation once, while nothing has been moved yet.
-			if (fData != null && pOPlayer.CarriedWeight > 0)
+			if (fData != null && piCarriedWeight > 0)
 			{
 				WeightOffsetTenthStones = 0;
-				WeightOffsetTenthStones = pOPlayer.CarriedWeight
+				WeightOffsetTenthStones = piCarriedWeight
 					- GetCarriedTenthStones(fData.CommonObjectProperties);
 			}
 
@@ -364,6 +374,35 @@ namespace UWDataImport.UWData
 			InventoryChanged?.Invoke();
 
 			ApplyCarriedLight();
+		}
+
+		/// <summary>The running game's inventory steps (IUWInventoryVariant): the first game's
+		/// UWArmorItemMap without data.</summary>
+		private IUWInventoryVariant fVariant => fData != null && fData.GameData != null && fData.GameData.Profile != null
+			? fData.GameData.Profile.Inventory : null;
+
+		/// <summary>Whether the item fits the place (ItemFitsSlot's paperdoll part).</summary>
+		public bool Fits(UWObject pOItem, UWArmorItemMap.BodySlot peSlot)
+		{
+			return fFits(pOItem, peSlot);
+		}
+
+		private bool fFits(UWObject pOItem, UWArmorItemMap.BodySlot peSlot)
+		{
+			IUWInventoryVariant lOVariant = fVariant;
+
+			return lOVariant != null
+				? lOVariant.FitsBodySlot(pOItem, peSlot, MainHandSlot, fData.ObjectClassProperties)
+				: UWArmorItemMap.Fits(pOItem, peSlot);
+		}
+
+		private bool fPreferredSlot(UWObject pOItem, out UWArmorItemMap.BodySlot peSlot)
+		{
+			IUWInventoryVariant lOVariant = fVariant;
+
+			return lOVariant != null
+				? lOVariant.TryGetPreferredBodySlot(pOItem, fData.ObjectClassProperties, out peSlot)
+				: UWArmorItemMap.TryGetPreferredSlot(pOItem, out peSlot);
 		}
 
 		/// <summary>Is the item in one of the four hand places?</summary>
@@ -1299,7 +1338,7 @@ namespace UWDataImport.UWData
 			if (pbIntoContainerThere && lOThere != null && TryCombineInto(lOThere))
 				return true;
 
-			if (CursorItem == null || !UWArmorItemMap.Fits(CursorItem, peSlot))
+			if (CursorItem == null || !fFits(CursorItem, peSlot))
 				return false;
 
 			UWObject lODisplaced = EquipSlots[(int)peSlot];
@@ -1447,7 +1486,7 @@ namespace UWDataImport.UWData
 		{
 			pODisplaced = null;
 
-			if (pOItem == null || !UWArmorItemMap.Fits(pOItem, peSlot))
+			if (pOItem == null || !fFits(pOItem, peSlot))
 				return false;
 
 			pODisplaced = EquipSlots[(int)peSlot];
@@ -1464,7 +1503,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool TryAutoEquip(UWObject pOItem)
 		{
-			if (pOItem == null || !UWArmorItemMap.TryGetPreferredSlot(pOItem, out UWArmorItemMap.BodySlot leSlot))
+			if (pOItem == null || !fPreferredSlot(pOItem, out UWArmorItemMap.BodySlot leSlot))
 				return false;
 
 			int liBackpackIndex = Array.IndexOf(Backpack, pOItem);
@@ -1825,11 +1864,19 @@ namespace UWDataImport.UWData
 		/// container alike (per user on the original, 2026-09-26) -, so all three drops lead
 		/// here: DropCursorItemIntoContainerItem, DropCursorItemInEquip, DropCursorItemInContainer.
 		/// </summary>
+		/// <summary>Learns a runestone put into the rune bag, true when it was one (the second game's
+		/// walk sets it: its rune bag is the PLAYER.DAT record's, UW2 plan phase 3 step 3); without it
+		/// the first game's UWPlayerData learns it.</summary>
+		public Func<int, bool> LearnRuneStone { get; set; }
+
 		private bool fPutIntoRuneBag(UWObject pOBag)
 		{
 			UWPlayerData lOPlayer = fData != null ? fData.InitialPlayer : null;
+			bool lbLearnt = LearnRuneStone != null
+				? LearnRuneStone(CursorItem.ID)
+				: lOPlayer != null && lOPlayer.TryLearnRuneStone(CursorItem.ID);
 
-			if (lOPlayer == null || !lOPlayer.TryLearnRuneStone(CursorItem.ID))
+			if (!lbLearnt)
 			{
 				LastContainerRejection = UWContainerCapacity.ResultEnum.RunesOnly;
 				LastContainerRejectionContainer = pOBag;

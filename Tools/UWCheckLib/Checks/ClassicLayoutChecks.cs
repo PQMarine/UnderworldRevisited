@@ -29,10 +29,20 @@ namespace UnderworldRevisited.Tools
         /// a user-tuned one starts with its date.</summary>
         private static void fCheckClassicLayoutTags()
         {
+            int liFields = fCheckTags(typeof(UWClassicLayout), "layout: every entry tagged");
+
+            Check.Bool("layout: the table has entries", liFields > 100, true);
+
+            // The second game's table beside it (UW2 plan phase 3), with the same tags.
+            fCheckTags(typeof(UWClassicLayoutUw2), "layout: every entry of the second game's table tagged");
+        }
+
+        private static int fCheckTags(Type pOTable, string psCheck)
+        {
             int liFields = 0;
             List<string> lOProblems = new List<string>();
 
-            foreach (Type lOArea in typeof(UWClassicLayout).GetNestedTypes(BindingFlags.Public))
+            foreach (Type lOArea in pOTable.GetNestedTypes(BindingFlags.Public))
             {
                 if (typeof(Attribute).IsAssignableFrom(lOArea))
                     continue;
@@ -62,11 +72,11 @@ namespace UnderworldRevisited.Tools
             }
 
             if (lOProblems.Count == 0)
-                Check.Pass("layout: every entry tagged", liFields + " entries, each with one source and a note");
+                Check.Pass(psCheck, liFields + " entries, each with one source and a note");
             else
-                Check.Fail("layout: every entry tagged", string.Join("; ", lOProblems));
+                Check.Fail(psCheck, string.Join("; ", lOProblems));
 
-            Check.Bool("layout: the table has entries", liFields > 100, true);
+            return liFields;
         }
 
         private static bool fOnScreen(UWRectInt pORect)

@@ -91,7 +91,7 @@ namespace UnderworldRevisited.Tools
 
             psFrom = "game.gog (the extracted data folder lacks them)";
 
-            return UWGogInstall.ReadDataFile(pOContext.ImagePath, lsName);
+            return UWGogInstall.ReadDataFile(pOContext.ImagePath, UWGameProfiles.Uw1, lsName);
         }
 
         /// <summary>The added letters as pins: size and hash, or "none".</summary>

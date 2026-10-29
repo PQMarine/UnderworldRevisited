@@ -116,6 +116,26 @@ namespace UWDataImport.UWData
 			fAdd("hud.sheet.level_class", "Level {0} {1}");
 			fAdd("hud.sheet.point_to_spend", "1 point to spend");
 			fAdd("hud.sheet.points_to_spend", "{0} points to spend");
+
+			// The walk through the second game (UW2 plan phase 3 step 1): its message scroll's own lines
+			// until the game's rules say them.
+			fAdd("hud.walk.not_yet", "Not yet in the walk through Ultima Underworld II.");
+			fAdd("hud.walk.door_locked", "The door is locked.");
+			fAdd("hud.walk.nothing", "There is nothing there.");
+
+			// The second game's statistics page: the level with its ordinal (STATS.C sp_hdr: ST, ND, RD,
+			// TH), and a flask's value after the game's "Your current vitality is" (flask_info).
+			fAdd("hud.uw2.level_1", "{0}ST");
+			fAdd("hud.uw2.level_2", "{0}ND");
+			fAdd("hud.uw2.level_3", "{0}RD");
+			fAdd("hud.uw2.level_n", "{0}TH");
+			fAdd("hud.uw2.flask_value", "{0} {1} out of {2}");
+
+			// The second game's save slots in the scroll (GAMEWRAP.C ShowSaveRest's labels "I- " to "IV- ").
+			fAdd("hud.uw2.save_slot_1", "I- {0}");
+			fAdd("hud.uw2.save_slot_2", "II- {0}");
+			fAdd("hud.uw2.save_slot_3", "III- {0}");
+			fAdd("hud.uw2.save_slot_4", "IV- {0}");
 		}
 
 	}

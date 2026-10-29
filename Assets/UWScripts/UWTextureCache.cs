@@ -1,5 +1,6 @@
 using UnityEngine;
 using UWDataImport;
+using UWDataImport.UWData;
 using UnderworldRevisited.Build;
 
 /// <summary>
@@ -33,6 +34,9 @@ public static class UWTextureCache
     private static float msfNormalStrength;
 
     private static Texture2D msOMaterialLookup;
+
+    /// <summary>The game msOMaterialLookup was built for.</summary>
+    private static UWGame meMaterialLookupGame;
 
     /// <summary>A new play session starts with an empty cache (the editor may keep statics with
     /// domain reload off; the textures of the last session are gone then).</summary>
@@ -99,8 +103,18 @@ public static class UWTextureCache
     /// depends on no data.</summary>
     public static Texture2D GetMaterialLookup()
     {
-        if (msOMaterialLookup == null)
+        // Built for the game that runs: the lava and water ranges are the first game's (UWPaletteRotation),
+        // and the cache outlives the scene restart a game switch makes.
+        UWGame leGame = UWGameSession.Current.Game.Game;
+
+        if (msOMaterialLookup == null || meMaterialLookupGame != leGame)
+        {
+            if (msOMaterialLookup != null)
+                Object.Destroy(msOMaterialLookup);
+
             msOMaterialLookup = UWTextureFactory.MaterialLookup();
+            meMaterialLookupGame = leGame;
+        }
 
         return msOMaterialLookup;
     }

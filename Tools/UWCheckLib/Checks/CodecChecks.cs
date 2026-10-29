@@ -64,7 +64,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fCheckLevArkLayout()
         {
-            Check.Int("layout: a level block is 0x7C08 bytes (LEVEL_SIZE)", UWLevArkLayout.BlockSize, 0x7C08);
+            Check.Int("layout: a level block is 0x7C08 bytes (LEVEL_SIZE)", UWLevArkFile.Uw1.BlockSize, 0x7C08);
             Check.Int("layout: the tile map fills 0x4000 bytes, the mobile objects start there",
                 UWLevArkLayout.TileMapSize, UWLevArkLayout.MobileBase);
             Check.Int("layout: 256 mobile records of 27 bytes end at the static ones, 0x5B00",
@@ -80,15 +80,28 @@ namespace UnderworldRevisited.Tools
             Check.Seq("layout: nactive, nmobfree, nstaticfree, magic at 0x7C00, 02, 04, 06",
                 new[] { UWLevArkLayout.ActiveMobileCountOffset, UWLevArkLayout.MobileFreeTopOffset, UWLevArkLayout.StaticFreeTopOffset, UWLevArkLayout.MagicOffset },
                 new[] { 0x7C00, 0x7C02, 0x7C04, 0x7C06 });
-            Check.Int("layout: the magic word ends the block", UWLevArkLayout.MagicOffset + 2, UWLevArkLayout.BlockSize);
+            Check.Int("layout: the magic word ends the block", UWLevArkLayout.MagicOffset + 2, UWLevArkFile.Uw1.BlockSize);
             Check.Int("layout: the player's record is object 1 at 0x401B", UWLevArkLayout.PlayerSlotOffset, 0x401B);
             Check.Int("layout: object 256 is the first static record", UWLevArkLayout.ObjectOffset(UWLevArkLayout.MobileCount), UWLevArkLayout.StaticBase);
             Check.Int("layout: object 1023 is the last one before the free lists",
                 UWLevArkLayout.ObjectOffset(UWLevArkLayout.ObjectCount - 1) + UWLevArkLayout.StaticRecordSize, UWLevArkLayout.MobileFreeListOffset);
             Check.Seq("layout: the five kinds of blocks start at 0, 9, 18, 27, 36 (LEVARK_*)",
-                new[] { UWLevArkLayout.MapBlock(0), UWLevArkLayout.AnimationBlock(0), UWLevArkLayout.TextureMapBlock(0), UWLevArkLayout.AutomapBlock(0), UWLevArkLayout.MapNoteBlock(0) },
+                new[] { UWLevArkFile.Uw1.MapBlock(0), UWLevArkFile.Uw1.AnimationBlock(0), UWLevArkFile.Uw1.TextureMapBlock(0), UWLevArkFile.Uw1.AutomapBlock(0), UWLevArkFile.Uw1.MapNoteBlock(0) },
                 new[] { 0, 9, 18, 27, 36 });
-            Check.Int("layout: 36 + 99 note blocks are the file's 135", UWLevArkLayout.DeclaredBlockCount, 135);
+            Check.Int("layout: 36 + 99 note blocks are the file's 135", UWLevArkFile.Uw1.DeclaredBlockCount, 135);
+
+            // The second game's file (UW2 plan phase 1 step 2; UE FORMATS.md "LEV.ARK").
+            UWLevArkFile lOUw2 = UWLevArkFile.Uw2;
+
+            Check.Seq("layout: the second game's maps, overlays (inside), texture maps, automaps, notes at 0, -1, 0x50, 0xA0, 0xF0; 320 blocks",
+                new[] { lOUw2.MapBlock(0), lOUw2.AnimationBlock(0), lOUw2.TextureMapBlock(0), lOUw2.AutomapBlock(0), lOUw2.MapNoteBlock(0), lOUw2.DeclaredBlockCount },
+                new[] { 0, -1, 0x50, 0xA0, 0xF0, 320 });
+            Check.Seq("layout: the second game's block - overlays right after the magic word, 64 of 6 bytes, then 64 timer words to its end",
+                new[] { lOUw2.OverlayOffset, lOUw2.TimerOffset, lOUw2.TimerOffset + (lOUw2.TimerCount * 2) },
+                new[] { UWLevArkLayout.CommonBlockSize, UWLevArkLayout.CommonBlockSize + (UWAnimationOverlay.MaxEntries * UWAnimationOverlay.EntryLength), 0x7E08 });
+            Check.Str("layout: the level block of each game knows its levels (the first's 1-9 at 0-8, its overlay block 9 of level 0, note 134 of level 98)",
+                UWLevArkFile.Uw1.MapLevelOf(8) + " " + UWLevArkFile.Uw1.MapLevelOf(9) + " " + UWLevArkFile.Uw1.AnimationLevelOf(9) + " "
+                + UWLevArkFile.Uw1.MapNoteLevelOf(134) + " " + lOUw2.MapLevelOf(79) + " " + lOUw2.AnimationLevelOf(9), "8 -1 0 98 79 -1");
 
             // The active list's two operations, active_critter and free_critter.
             List<int> lOActive = new List<int> { 5, 9, 12, 20 };
@@ -103,7 +116,7 @@ namespace UnderworldRevisited.Tools
             Check.Seq("layout: active_critter appends, once", lOActive.ToArray(), new[] { 5, 20, 9 });
 
             // A free list written and read: the pointer is the top entry's index, -1 when empty.
-            byte[] lyBlock = new byte[UWLevArkLayout.BlockSize];
+            byte[] lyBlock = new byte[UWLevArkFile.Uw1.BlockSize];
 
             UWLevArkCodec.WriteMobileFreeList(lyBlock, 0, new List<int> { 250, 7, 3 });
             Check.Int("layout: nmobfree is the index of the top entry", (short)UWBinary.Read16(lyBlock, UWLevArkLayout.MobileFreeTopOffset), 2);
@@ -223,7 +236,7 @@ namespace UnderworldRevisited.Tools
             byte[] lyArk = File.ReadAllBytes(Path.Combine(psFolder, "LEV.ARK"));
             List<uint> lOOffsets = UWLevArkCodec.ReadBlockOffsets(lyArk);
 
-            Check.Int("codecs: " + psLabel + " LEV.ARK declares 135 blocks", lOOffsets.Count, UWLevArkLayout.DeclaredBlockCount);
+            Check.Int("codecs: " + psLabel + " LEV.ARK declares 135 blocks", lOOffsets.Count, UWLevArkFile.Uw1.DeclaredBlockCount);
 
             int liMagic = 0;
             int liRecordMismatch = 0;
@@ -233,12 +246,12 @@ namespace UnderworldRevisited.Tools
             int liOrderMismatch = 0;
             byte[] lyBuffer = new byte[UWLevArkLayout.MobileRecordSize];
 
-            for (int liLevel = 0; liLevel < UWLevArkLayout.LevelBlockCount; liLevel++)
+            for (int liLevel = 0; liLevel < UWLevArkFile.Uw1.LevelCount; liLevel++)
             {
-                int liStart = (int)lOOffsets[UWLevArkLayout.MapBlock(liLevel)];
+                int liStart = (int)lOOffsets[UWLevArkFile.Uw1.MapBlock(liLevel)];
                 UWLevel lOLevel = pOData.Levels != null && liLevel < pOData.Levels.Count ? pOData.Levels[liLevel] : null;
 
-                if (liStart == 0 || liStart + UWLevArkLayout.BlockSize > lyArk.Length || lOLevel == null || lOLevel.Masterlist == null)
+                if (liStart == 0 || liStart + UWLevArkFile.Uw1.BlockSize > lyArk.Length || lOLevel == null || lOLevel.Masterlist == null)
                 {
                     Check.Fail("codecs: " + psLabel + " level " + (liLevel + 1) + " has a block and a loaded level", "missing");
 
@@ -291,7 +304,7 @@ namespace UnderworldRevisited.Tools
                 }
 
                 // The three lists through the codec: read, written onto a copy, identical.
-                byte[] lyCopy = new byte[UWLevArkLayout.BlockSize];
+                byte[] lyCopy = new byte[UWLevArkFile.Uw1.BlockSize];
 
                 Array.Copy(lyArk, liStart, lyCopy, 0, lyCopy.Length);
 
@@ -303,7 +316,7 @@ namespace UnderworldRevisited.Tools
                 UWLevArkCodec.WriteStaticFreeList(lyCopy, 0, lOStaticFree);
                 UWLevArkCodec.WriteActiveMobiles(lyCopy, 0, lOActive);
 
-                if (!fSameSpan(lyCopy, 0, lyArk, liStart, UWLevArkLayout.BlockSize))
+                if (!fSameSpan(lyCopy, 0, lyArk, liStart, UWLevArkFile.Uw1.BlockSize))
                     liListMismatch++;
 
                 // The loaded level's own lists agree with the codec's reading.
@@ -320,7 +333,7 @@ namespace UnderworldRevisited.Tools
                 }
             }
 
-            Check.Int("codecs: " + psLabel + ": every level block ends with the magic word", liMagic, UWLevArkLayout.LevelBlockCount);
+            Check.Int("codecs: " + psLabel + ": every level block ends with the magic word", liMagic, UWLevArkFile.Uw1.LevelCount);
             Check.Int("codecs: " + psLabel + ": 9 x 1024 object records decode and encode identically", liRecordMismatch, 0);
             Check.Int("codecs: " + psLabel + ": 9 x 256 creature records decode and encode identically", liNpcMismatch, 0);
             Check.Int("codecs: " + psLabel + ": the loaded objects write back the file's bytes", liModelMismatch, 0);

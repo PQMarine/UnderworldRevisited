@@ -79,7 +79,7 @@ namespace UWDataImport.UWData
 		public const int WeaponEnchantmentMajorClass = 0xC;
 
 		/// <summary>The minor's bit that makes it a damage enchantment; without it it is accuracy.</summary>
-		private const int DamageEnchantmentBit = 8;
+		internal const int DamageEnchantmentBit = 8;
 
 		/// <summary>
 		/// THE WIELDED WEAPON'S ENCHANTMENT (DoPlayerWeapon, UnderworldExhumed COMBAT.C, read
@@ -94,16 +94,11 @@ namespace UWDataImport.UWData
 			piAccuracy = 0;
 			piDamage = 0;
 
-			if (pOWeapon == null || !UWObjectMechanics.TryGetEnchantmentClass(pOWeapon, pORecords, out int liMajor, out int liMinor)
-				|| liMajor != WeaponEnchantmentMajorClass)
+			if (pOWeapon == null || !UWObjectMechanics.TryGetEnchantmentClass(pOWeapon, pORecords, out int liMajor, out int liMinor))
 				return;
 
-			int liAmount = (liMinor & 7) + 1;
-
-			if ((liMinor & DamageEnchantmentBit) != 0)
-				piDamage = liAmount;
-			else
-				piAccuracy = liAmount;
+			// What the class adds is the game's (IUWCombatVariant; UW2 plan phase 0 step 2).
+			UWGameSession.Current.Game.Combat.WeaponEnchantment(liMajor, liMinor, out piAccuracy, out piDamage);
 		}
 
 		/// <param name="piEnchantAccuracy">The weapon's accuracy enchantment (GetWeaponEnchantment).</param>

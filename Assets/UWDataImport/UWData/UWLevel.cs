@@ -42,12 +42,85 @@ namespace UWDataImport.UWData
 			LevelNumber = piLevelNumber;
 		}
 
+		/// <summary>The second game's TextureInfos: its 64 texture numbers, then its six door pictures
+		/// (UW2 plan phase 2 step 3) - the length tells the two games' tables apart (UWObjectAppearance).</summary>
+		public const int Uw2TextureInfoCount = UWTextureMapUw2.TextureCount + UWTextureMapUw2.DoorCount;
+
+		/// <summary>The second game's texture map as stored (null for the first game's levels, and for a
+		/// second-game level without a texture block, whose map is the default 0 to 63).</summary>
+		public UWTextureMapUw2 TextureMapUw2 { get; private set; }
+
+		/// <summary>Whether this level is the second game's (its tiles name the 64-entry texture map).</summary>
+		public bool IsUw2 { get; private set; }
+
+		/// <summary>The second game's timers inside the level block, up to the first 0 (empty for the
+		/// first game).</summary>
+		public List<int> Timers { get; private set; } = new List<int>();
+
+		/// <summary>
+		/// A LEVEL OF THE SECOND GAME (UW2 plan phase 2 step 2, 2026-10-29), from its decoded LEV.ARK
+		/// block (UWArk) and its texture block. The block's first 0x7C08 bytes are the first game's
+		/// layout (tiles, objects, free and active lists, the magic word; Underworld Exhumed
+		/// docs/FORMATS.md "The level block"), read by the same codecs; the animation overlays and the
+		/// timers follow inside it (UWLevArkFile.Uw2OverlayOffset, Uw2TimerOffset). The texture map is
+		/// 64 numbers in T64.TR for walls and floors alike (UWTextureMapUw2; TextureInfos holds them),
+		/// the six door textures beside it; without a texture block the original's default, entry i
+		/// naming texture i (init_txtlib, uw2 map/TEXTMAPS.C:38).
+		/// </summary>
+		public UWLevel(int piLevelNumber, byte[] pyBlock, byte[] pyTextureMap, UWTextures pOTextures, UWLevArkFile pOFile)
+			: this(piLevelNumber)
+		{
+			IsUw2 = true;
+			mOTextures = pOTextures;
+			miBlockOffset = 0;
+			TextureMapUw2 = UWTextureMapUw2.Read(pyTextureMap);
+			miTextureInfos = new ushort[Uw2TextureInfoCount];
+
+			for (int liAt = 0; liAt < UWTextureMapUw2.TextureCount; liAt++)
+				miTextureInfos[liAt] = (ushort)(TextureMapUw2 != null ? TextureMapUw2.Textures[liAt] : liAt);
+
+			// The six door pictures (DOORS.GR) after the 64 textures, as the first game's table keeps its
+			// six after its floors (UWObjectAppearance); without a texture block ActDoors[i] = i
+			// (init_txtlib, uw2 map/TEXTMAPS.C:44).
+			for (int liAt = 0; liAt < UWTextureMapUw2.DoorCount; liAt++)
+				miTextureInfos[UWTextureMapUw2.TextureCount + liAt] = (ushort)(TextureMapUw2 != null ? TextureMapUw2.Doors[liAt] : liAt);
+
+			byte[] array = new byte[UWLevArkLayout.TileMapSize];
+			Array.Copy(pyBlock, 0, array, 0L, UWLevArkLayout.TileMapSize);
+			fLoadTileMap(array);
+			array = new byte[UWLevArkLayout.ObjectListSize];
+			Array.Copy(pyBlock, UWLevArkLayout.MobileBase, array, 0L, UWLevArkLayout.ObjectListSize);
+			fLoadObjectLists(array);
+			mOFreeMobileSlots = UWLevArkCodec.ReadMobileFreeList(pyBlock, 0);
+			mOFreeStaticSlots = UWLevArkCodec.ReadStaticFreeList(pyBlock, 0);
+			mOActiveMobiles = UWLevArkCodec.ReadActiveMobiles(pyBlock, 0);
+
+			fTakeFlightsOutOfTiles();
+
+			Animations = UWAnimationOverlay.Load(pyBlock, pOFile.OverlayOffset, mOMasterlist);
+
+			UWLevelBlock lOBlock = UWLevelBlock.Read(pyBlock, pOFile);
+
+			if (lOBlock != null)
+				Timers = lOBlock.Timers;
+		}
+
+		/// <summary>The second game's automap block as stored (0x1000 bytes; its own field order, see
+		/// UWAutomapCode); a block of another length is left out, as GetAutoMapLevel refuses it.</summary>
+		public void LoadAutomap(byte[] pyBlock)
+		{
+			if (pyBlock == null || pyBlock.Length != 0x1000)
+				return;
+
+			AutomapTiles = (byte[])pyBlock.Clone();
+		}
+
 		/// <summary>The automap: one byte per tile, in the same order as the tile map.
 		/// The lower nibble holds the tile type as in the map itself, the upper one a
 		/// display kind (see MapDisplayClear and the constants after it).
 		/// A type from FirstUndiscoveredType on means: not yet discovered.
 		///
-		/// Stored in LEV.ARK from block 27 on (UWLevArkLayout.AutomapFirstBlock), 0x1000 bytes per
+		/// Stored in LEV.ARK from block 27 on (UWLevArkFile.Uw1AutomapFirstBlock), 0x1000 bytes per
 		/// level. Null if the file does not have that many blocks or the block is missing
 		/// (see EnsureAutomap).</summary>
 		public byte[] AutomapTiles { get; private set; }
@@ -100,17 +173,33 @@ namespace UWDataImport.UWData
 			if (piOffset == 0)
 				return lONotes;
 
+			return fParseMapNotes(pyRawLevelData, (int)piOffset, piBlockEnd);
+		}
+
+		/// <summary>The labels of a block on its own - the second game's, decoded by UWArk, start at 0
+		/// (UW2 plan phase 2 step 2; the records are the first game's, Underworld Exhumed
+		/// docs/FORMATS.md "The automap and map notes").</summary>
+		public static System.Collections.Generic.List<MapNote> ParseMapNoteBlock(byte[] pyBlock)
+		{
+			return fParseMapNotes(pyBlock, 0, pyBlock.Length);
+		}
+
+		private static System.Collections.Generic.List<MapNote> fParseMapNotes(byte[] pyRawLevelData, int piOffset, int piBlockEnd)
+		{
+			System.Collections.Generic.List<MapNote> lONotes =
+				new System.Collections.Generic.List<MapNote>();
+
 			const int liRecordSize = 54;
 
 			// Only read up to the end of THIS block. The note blocks lie directly one after
 			// another and are often just one record long - without the limit the reader
 			// wandered from level 1 straight into the blocks of levels 10, 46 and 99 (per
 			// user, 2026-09-03).
-			int liMaxNotes = (piBlockEnd - (int)piOffset) / liRecordSize;
+			int liMaxNotes = (piBlockEnd - piOffset) / liRecordSize;
 
 			for (int liNote = 0; liNote < liMaxNotes; liNote++)
 			{
-				int liAt = (int)piOffset + (liNote * liRecordSize);
+				int liAt = piOffset + (liNote * liRecordSize);
 
 				if (liAt + liRecordSize > pyRawLevelData.Length || liAt + liRecordSize > piBlockEnd)
 					return lONotes;
@@ -310,12 +399,17 @@ namespace UWDataImport.UWData
 			bool lbDiscovered = lyOld != 0 && (lyOld & 0xF) < FirstUndiscoveredType;
 			int liDisplay = piDisplayType & 0xF;
 
-			int liOldMarker = (lyOld >> 4) & MapDisplayMarkerMask;
+			UWGame leGame = IsUw2 ? UWGame.Uw2 : UWGame.Uw1;
+			int liOldMarker = UWAutomapCode.Kind(lyOld, leGame) << 2;
 
 			if (lbDiscovered && (liDisplay & MapDisplayMarkerMask) == 0 && liOldMarker != MapDisplayStair)
 				liDisplay |= liOldMarker;
 
-			byte lyNew = (byte)((liDisplay << 4) | ((int)lOTile.TileType & 0xF));
+			// The display value carries the first game's order (terrain in its low two bits, the marker
+			// in the high two, MapDisplay...); the second game's byte holds them the other way round, and
+			// its terrain is the floor's class with ice as 3 (UW2 plan phase 2 step 4).
+			byte lyNew = UWAutomapCode.Compose((int)lOTile.TileType, (liDisplay & MapDisplayMarkerMask) >> 2,
+				liDisplay & MapDisplayTerrainMask, leGame);
 
 			if (AutomapTiles[liAt] == lyNew)
 				return false;
@@ -330,8 +424,9 @@ namespace UWDataImport.UWData
 		{
 			mOTextures = pOTextures;
 			miBlockOffset = piBlockOffset;
-			byte[] array = new byte[UWLevArkLayout.TextureMapSize];
-			Array.Copy(pyRawLevelData, piTextureUsageOffset, array, 0L, UWLevArkLayout.TextureMapSize);
+			// The first game's texture map (the second's is UWTextureMapUw2).
+			byte[] array = new byte[UWLevArkFile.Uw1TextureMapSize];
+			Array.Copy(pyRawLevelData, piTextureUsageOffset, array, 0L, UWLevArkFile.Uw1TextureMapSize);
 			fLoadTextureInfo(array);
 			array = new byte[UWLevArkLayout.TileMapSize];
 			Array.Copy(pyRawLevelData, miBlockOffset, array, 0L, UWLevArkLayout.TileMapSize);
@@ -592,7 +687,7 @@ namespace UWDataImport.UWData
 		{
 			TileData = new UWTile[UWLevArkLayout.TileCount];
 			for (int i = 0; i < UWLevArkLayout.TileCount; i++)
-				TileData[i] = new UWTile(i, UWBinary.Read32(pyTileMapData, i * UWLevArkLayout.TileRecordSize), miTextureInfos);
+				TileData[i] = new UWTile(i, UWBinary.Read32(pyTileMapData, i * UWLevArkLayout.TileRecordSize), miTextureInfos, IsUw2);
 		}
 
 		private void fLoadObjectLists(byte[] pyObjectListData)

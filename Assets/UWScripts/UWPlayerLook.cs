@@ -204,9 +204,10 @@ public class UWPlayerLook : MonoBehaviour
 
     /// <summary>
     /// Classic scheme: tilt the view in fixed steps, as in the original - 1 one step
-    /// down, 3 one step up, 2 straight again (per user, 2026-09-13: "3 fixed
-    /// steps. For now 15 degrees per step", "Only for the classic scheme"). Free
-    /// mouse look is reserved for the modern scheme.
+    /// down, 3 one step up, 2 straight again; the original's four steps of 5.625 degrees each way,
+    /// up to 22.5 (Underworld Exhumed uw1 game/PLAYER.C chg_plyp: steps of 0x400 up to 0x1000 of
+    /// 0x10000; per user 2026-10-29, after three of 15 since 2026-09-13). Free mouse look is
+    /// reserved for the modern scheme.
     ///
     /// Not while typing - there the digits belong to the text entry, e.g. at "Move
     /// how many?".
@@ -220,8 +221,8 @@ public class UWPlayerLook : MonoBehaviour
             return;
 
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
-        float lfStep = lOSettings != null ? lOSettings.ClassicLookStepDegrees : 15f;
-        int liMaxSteps = lOSettings != null ? lOSettings.ClassicLookSteps : 3;
+        float lfStep = lOSettings != null ? lOSettings.ClassicLookStepDegrees : 5.625f;
+        int liMaxSteps = lOSettings != null ? lOSettings.ClassicLookSteps : 4;
 
         int liSteps = miClassicSteps;
 

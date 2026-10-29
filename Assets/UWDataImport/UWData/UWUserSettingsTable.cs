@@ -376,6 +376,14 @@ namespace UWDataImport.UWData
 		/// 2026-10-26); whether its files exist is UWLanguage's question, at startup.</summary>
 		public static readonly UWTextSettingDef Language = fText(nameof(UWUserData.Language), d => d.Language, (d, v) => d.Language = v, UWSettingNormalize.NullIsEmpty);
 
+		/// <summary>The game chosen in the Game window, empty for the first (UW2 plan phase 0 step 5,
+		/// 2026-10-28); whether the installation holds it is UWGameSwitch's question, at startup.</summary>
+		public static readonly UWTextSettingDef Game = fText(nameof(UWUserData.Game), d => d.Game, (d, v) => d.Game = v, UWSettingNormalize.NullIsEmpty);
+
+		/// <summary>The save games' folder in a GOG installation: empty automatic, "CloudSaves" or
+		/// "Installation" (per user, 2026-10-29; UWGogInstall.SaveFolderModeEnum).</summary>
+		public static readonly UWTextSettingDef SaveFolder = fText(nameof(UWUserData.SaveFolder), d => d.SaveFolder, (d, v) => d.SaveFolder = v, UWSettingNormalize.NullIsEmpty);
+
 		/// <summary>Every setting, in the order of UWUserData's fields - the order of the file.</summary>
 		public static readonly UWSettingDef[] All =
 		{
@@ -392,7 +400,7 @@ namespace UWDataImport.UWData
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
-			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language
+			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language, Game, SaveFolder
 		};
 
 		/// <summary>The settings of one store, in the file's order (the layout editor's snapshot

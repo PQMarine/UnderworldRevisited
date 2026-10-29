@@ -21,8 +21,9 @@ namespace UWDataImport.UWData
 	/// imports it under the id 0x25 the old test used, and that no CALLI reaches an id without
 	/// an import, so the two keys select the same calls.
 	///
-	/// The table is data, built once and sealed; it holds no game state, so a later UWGameSession
-	/// can own one and a mod can register into an unsealed copy.
+	/// The table is data, built once and sealed; it holds no game state, so each game's profile owns
+	/// one (IUWGameProfile.ConversationFunctions, UW2 plan phase 0 step 3) and a mod can register into
+	/// an unsealed copy.
 	/// </summary>
 	public sealed class UWConversationFunctionTable
 	{
@@ -143,7 +144,8 @@ namespace UWDataImport.UWData
 			}
 		}
 
-		/// <summary>The game's functions: the session's and the trade's, sealed.</summary>
+		/// <summary>The first game's functions: the session's and the trade's, sealed - a new table each
+		/// call, for its profile (IUWGameProfile.ConversationFunctions).</summary>
 		public static UWConversationFunctionTable CreateDefault()
 		{
 			UWConversationFunctionTable lOTable = new UWConversationFunctionTable();

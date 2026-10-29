@@ -64,7 +64,7 @@ namespace UWDataImport.UWData
 			byte[] lyOut = (byte[])pyOriginal.Clone();
 
 			if (pOLevel == null || pOLevel.TileData == null || pOLevel.Masterlist == null
-				|| pyOriginal.Length < UWLevArkLayout.BlockSize)
+				|| pyOriginal.Length < UWLevArkLayout.CommonBlockSize)
 				return lyOut;
 
 			List<UWObject> lOMaster = pOLevel.Masterlist;

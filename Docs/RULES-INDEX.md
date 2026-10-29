@@ -880,6 +880,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
+| `seg039_3452_814` | UWGameScreenUw2.cs |
 | `seg039_3495_85A` | UWConversationTextRules.cs |
 
 ### seg040

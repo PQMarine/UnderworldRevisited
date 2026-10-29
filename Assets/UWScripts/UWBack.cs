@@ -87,7 +87,7 @@ public static class UWBack
         fSet(ref leStates, UWBackState.KitText, UWKitRows.IsTyping);
         fSet(ref leStates, UWBackState.HelpKeys, UWHelpWindow.BlocksGameKeys);
         fSet(ref leStates, UWBackState.LetterGrid, UWLetterGrid.IsShown);
-        fSet(ref leStates, UWBackState.CharacterName, UWCharacterCreationScreen.IsTypingName);
+        fSet(ref leStates, UWBackState.CharacterName, UWCharacterCreationScreen.IsTypingName || UWCharacterCreationScreenUw2.IsTypingName);
         fSet(ref leStates, UWBackState.MapNote, lOUi != null && lOUi.Map.IsWritingNote);
         fSet(ref leStates, UWBackState.ClassicSaveName, lOUi != null && lOUi.Options.miSaveSlotTyping > 0);
         fSet(ref leStates, UWBackState.Instrument, UWInstrumentPlayer.IsPlaying);

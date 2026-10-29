@@ -28,6 +28,13 @@ namespace UnderworldRevisited.Tools
         /// directly) - for a check that needs a file the extraction lacks.</summary>
         public string ImagePath;
 
+        /// <summary>The second game's DATA folder, extracted from the same image into the tools' cache
+        /// (UW2 plan phase 0 step 6), or null: no image, or one without the second game.</summary>
+        public string Uw2DataPath;
+
+        /// <summary>--uw2-saves: a folder of the second game's save games, or null.</summary>
+        public string Uw2SavesPath;
+
         private DataImport mOData;
         private bool mbLoadTried;
         private string msLoadError;

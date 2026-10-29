@@ -61,10 +61,22 @@ namespace UWDataImport.UWData
 		{
 			Data = pOData;
 			Random = new UWSessionRandom(piSeed);
+
+			// The second game's rule set since phase 2 step 4 (per user, 2026-10-29): the first game's
+			// numbers with the second game's motion; Docs/UW2-PLAN.md lists the domains phase 4 holds to
+			// the second game's (UWGameProfileUw2.CreateOriginalRules). Null until then (step 2).
+			Rules = UWRules.CreateOriginal(Game);
 		}
 
 		/// <summary>The installation this game runs on; null in a session without data.</summary>
 		public UWGameData Data { get; }
+
+		/// <summary>The game being played (Docs/UW2-PLAN.md section 4.1): its data's profile, the first
+		/// game's in a session without data.</summary>
+		public IUWGameProfile Game
+		{
+			get { return Data != null ? Data.Profile : UWGameProfiles.Uw1; }
+		}
 
 		/// <summary>The one generator of this game (cleanup step 2.8; UWRandom forwards here).</summary>
 		public UWSessionRandom Random { get; }
@@ -72,7 +84,7 @@ namespace UWDataImport.UWData
 		/// <summary>The rule set of this game (cleanup phase 10, 2026-10-25): the original's numbers
 		/// unless the host applied a rules.json at the session's start (ApplyRulesFile). UWRules.Current
 		/// forwards here.</summary>
-		public UWRules Rules { get; private set; } = UWRules.CreateOriginal();
+		public UWRules Rules { get; private set; }
 
 		/// <summary>What the last ApplyRulesFile found; null before one (the original's rules).</summary>
 		public UWRulesReport RulesReport { get; private set; }
@@ -81,7 +93,7 @@ namespace UWDataImport.UWData
 		/// host that builds the set itself.</summary>
 		public void UseRules(UWRules pORules)
 		{
-			Rules = pORules ?? UWRules.CreateOriginal();
+			Rules = pORules ?? UWRules.CreateOriginal(Game);
 		}
 
 		/// <summary>
@@ -92,7 +104,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public UWRulesReport ApplyRulesFile(string psPath)
 		{
-			UWRules lORules = UWRules.CreateOriginal();
+			UWRules lORules = UWRules.CreateOriginal(Game);
 
 			RulesReport = UWRulesJson.ApplyFile(lORules, psPath);
 			Rules = lORules;
@@ -108,6 +120,11 @@ namespace UWDataImport.UWData
 		/// live state by a few hosts (the rune bag, the incense counter); the player's running
 		/// numbers live on the Unity side until phase 4 moves them here.</summary>
 		public UWPlayerData Player { get; internal set; }
+
+		/// <summary>The second game's PLAYER.DAT as a loaded save holds it (UW2 plan phase 2 step 6), null
+		/// without one: its record's position is where the walk comes back to, and saving writes it back
+		/// with the new one (UWPlayerRecordUw2).</summary>
+		public UWPlayerFile PlayerFileUw2 { get; internal set; }
 
 		/// <summary>The memory of the conversations (BGLOBALS.DAT) - the former
 		/// DataImport.ConversationGlobals.</summary>

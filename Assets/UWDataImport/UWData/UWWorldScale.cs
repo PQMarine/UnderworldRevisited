@@ -58,5 +58,26 @@ namespace UWDataImport.UWData
 
 		/// <summary>A full circle in the original's angle measure.</summary>
 		public const float FullCircleUnits = 65536f;
+
+		/// <summary>The eye above the feet: 0xA4 of the original's units, 41 of ours (Underworld
+		/// Exhumed uw1 motion/PLAYMOVE.C get_eye, cPlayer->z = PN.z + 0xA4; the same in uw2). Until
+		/// 2026-10-29 the camera stood where the scene put it, 40.05 above the feet (per user beside the
+		/// original in front of Drog: our view too low).</summary>
+		public const float EyeHeight = 0xA4 * UnitsPerOriginalUnit;
+
+		/// <summary>
+		/// THE VIEW'S OWN OFFSET FROM THE EYE (2026-10-29, per user beside the original: our view stood
+		/// too low and too far right, the same to the screen's side whichever way the player looked).
+		/// The player's camera is head_view (Underworld Exhumed uw1 3d/CAMERA.ASM; the only camera the
+		/// game uses, docs/FINDINGS.md "One camera"): it turns its view record's offset vector by the eye's
+		/// matrix (mm3x9t) and adds it to the eye. That record is UW.EXE's seg051:0006 (the view
+		/// description at seg051:0000, which 104h selects): -8 across and 11 up, 0 along the view, in
+		/// the original's units; its distance word at +1Eh is 0, so the vector stays as stored. So the
+		/// picture is seen from 2 of our units left of the eye and 2.75 above it, turned with the
+		/// view's pitch.
+		/// </summary>
+		public const float ViewOffsetAcross = -8 * UnitsPerOriginalUnit;
+
+		public const float ViewOffsetUp = 11 * UnitsPerOriginalUnit;
 	}
 }

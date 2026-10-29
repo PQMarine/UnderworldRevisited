@@ -7,7 +7,8 @@ using UWDataImport.UWData;
 namespace UnderworldRevisited.Tools
 {
     /// <summary>
-    /// Reads the original Ultima Underworld 1 data without a game engine.
+    /// Reads the original Ultima Underworld data without a game engine - the first game's whole, the
+    /// second's through the generic readers (--game uw2, info; UW2 plan phase 0 step 6).
     ///
     /// Everything it prints comes from the same layer the game itself loads from
     /// (Assets/UWDataImport), compiled here with the plain .NET SDK. The tool is useful in
@@ -51,6 +52,14 @@ namespace UnderworldRevisited.Tools
             /// for none.</summary>
             public string StringsPath;
 
+            /// <summary>The game given with --game (uw1, uw2), the first without it (UW2 plan phase 0
+            /// step 6).</summary>
+            public IUWGameProfile Game = UWGameProfiles.Uw1;
+
+            /// <summary>The strings of either game: the first game's from its data, the second's from
+            /// STRINGS.PAK (phase 1 step 6).</summary>
+            public UWStrings Strings;
+
             public DataImport Data;
         }
 
@@ -85,6 +94,7 @@ namespace UnderworldRevisited.Tools
             fRegister("conv", "[slot|all] [--out dir] | --run <slot|all>", "conversations as bytecode, or run (answer 1 each time)", true, fConversation);
             fRegister("automap", "[1-9] [--png file]", "automap values (use --save for a save game's map)", true, fPrintAutomap);
             fRegister("maprender", "--out dir [--highlight id ...]", "a top view of every level as PNG", true, fRenderMaps);
+            fRegister("pictures", "<NAME.GR|BYT> --out dir [--palette n]", "a picture file (or the second game's BYT.ARK screens) as PNGs", true, fDumpPictures);
             fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
             fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
@@ -116,20 +126,43 @@ namespace UnderworldRevisited.Tools
             lOArgs.RemoveAt(0);
 
             DumpContext lOContext = new DumpContext { SavePath = fTakeOption(lOArgs, "--save"), StringsPath = fTakeOption(lOArgs, "--strings") };
+            string lsGame = fTakeOption(lOArgs, "--game");
+
+            if (lsGame != null)
+            {
+                lOContext.Game = Enum.TryParse(lsGame, true, out UWGame leGame) ? UWGameProfiles.Of(leGame) : null;
+
+                if (lOContext.Game == null)
+                {
+                    Console.Error.WriteLine("No game " + lsGame + " - uw1 or uw2.");
+
+                    return 1;
+                }
+            }
 
             if (!lOCommand.NeedsData)
                 return lOCommand.Run(lOContext, lOArgs);
+
+            // The second game's data is not DataImport's yet (phase 2): its own commands, from the format
+            // readers (phase 1 step 6).
+            if (lOContext.Game != UWGameProfiles.Uw1 && !msUw2Commands.Contains(lOCommand.Name))
+            {
+                Console.Error.WriteLine(lOCommand.Name + " reads the first game's data only so far; for " + lOContext.Game.Title
+                    + " there are " + string.Join(", ", msUw2Commands) + ".");
+
+                return 1;
+            }
 
             string lsError;
 
             if (lOArgs.Count > 0 && fLooksLikePath(lOArgs[0]))
             {
-                lOContext.DataPath = DataPath.Resolve(lOArgs[0], out lsError);
+                lOContext.DataPath = DataPath.Resolve(lOArgs[0], lOContext.Game, out lsError);
                 lOArgs.RemoveAt(0);
             }
             else
             {
-                lOContext.DataPath = DataPath.Find(out lsError);
+                lOContext.DataPath = DataPath.Find(lOContext.Game, out lsError);
             }
 
             if (lOContext.DataPath == null)
@@ -138,6 +171,9 @@ namespace UnderworldRevisited.Tools
 
                 return 2;
             }
+
+            if (lOContext.Game != UWGameProfiles.Uw1)
+                return fRunUw2(lOCommand.Name, lOContext, lOArgs);
 
             if (lOContext.StringsPath != null && !File.Exists(lOContext.StringsPath))
             {
@@ -174,6 +210,8 @@ namespace UnderworldRevisited.Tools
                 return 3;
             }
 
+            lOContext.Strings = lOContext.Data.Strings;
+
             return lOCommand.Run(lOContext, lOArgs);
         }
 
@@ -200,7 +238,7 @@ namespace UnderworldRevisited.Tools
 
         private static void fPrintUsage()
         {
-            Console.WriteLine("uwdump - reads Ultima Underworld 1 data without a game engine.");
+            Console.WriteLine("uwdump - reads Ultima Underworld data without a game engine.");
             Console.WriteLine();
 
             foreach (Command lOCommand in msCommands)
@@ -214,6 +252,8 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("[path] is the DATA folder of an installation, or the GOG installation folder or");
             Console.WriteLine("game.gog itself - the image is then extracted into a cache once. Without it the");
             Console.WriteLine("environment variable UW_DATA is used, then the common installation folders.");
+            Console.WriteLine("--game uw2 reads the second game from the same game.gog (its own cache): info, strings, find, level,");
+            Console.WriteLine("maprender and conv so far.");
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
             Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
             Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");

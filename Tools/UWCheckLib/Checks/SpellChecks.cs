@@ -118,7 +118,7 @@ namespace UnderworldRevisited.Tools
 
             byte[] lyArk = File.ReadAllBytes(lsArk);
             uint luOffset = BitConverter.ToUInt32(lyArk, 2 + (8 * 4));
-            byte[] lyOriginal = new byte[UWLevArkLayout.BlockSize];
+            byte[] lyOriginal = new byte[UWLevArkFile.Uw1.BlockSize];
 
             Array.Copy(lyArk, (int)luOffset, lyOriginal, 0, lyOriginal.Length);
 

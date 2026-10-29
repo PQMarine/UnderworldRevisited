@@ -33,14 +33,117 @@ namespace UWDataImport.UWData
 
 		public Dictionary<UWTexture.TextureTypes, UWTexture> BitmapFiles => mOBitmapFiles;
 
+		/// <summary>The game whose data this is (UW2 plan phase 2 step 1).</summary>
+		public UWGame Game { get; }
+
 		public UWTextures(string psUWDataPath, UWPalettes pOPalettes)
+			: this(psUWDataPath, pOPalettes, UWGame.Uw1)
+		{
+		}
+
+		/// <summary>
+		/// THE PICTURES OF EITHER GAME (UW2 plan phase 2 step 1, 2026-10-29). The first game's as until
+		/// then: F16, F32, W16 and W64.TR, its .GR files, its .BYT screens. The second game's: one
+		/// T64.TR for walls and floors alike (Underworld Exhumed, docs/FORMATS.md "TERRAIN.DAT": a word
+		/// per T64.TR texture, the level's texture map naming both from it), served under Wall64 and
+		/// Floor32 so the lookups by type stay; its .GR files with three names the first game has not
+		/// (WEAP.GR for the weapon pictures, GEMPT.GR, GHED.GR); its screens from BYT.ARK under the
+		/// first game's screen types, each in its palette (UWScreensUw2).
+		/// </summary>
+		public UWTextures(string psUWDataPath, UWPalettes pOPalettes, UWGame peGame)
 		{
 			mOPalettes = pOPalettes;
 			msUWDataPath = psUWDataPath;
-			fImportTextures();
+			Game = peGame;
+
+			if (peGame == UWGame.Uw2)
+				fImportTexturesUw2();
+			else
+				fImportTextures();
+
 			fImportImages();
-			fImportBitmaps();
+
+			if (peGame == UWGame.Uw2)
+				fImportScreensUw2();
+			else
+				fImportBitmaps();
 		}
+
+		/// <summary>The second game's wall and floor textures, T64.TR.</summary>
+		public const string Uw2TextureFile = "T64.TR";
+
+		/// <summary>
+		/// T64.TR: the .TR header (type 2, the edge, the count) and an offset per texture, as the first
+		/// game's files. Its 264 offsets name 256 textures; the last eight point to the file's end
+		/// (measured 2026-10-29), so a texture whose pixels would run past the end is absent and left
+		/// out - they are the last, so every texture keeps its number.
+		/// </summary>
+		private void fImportTexturesUw2()
+		{
+			string lsFile = Path.Combine(msUWDataPath, Uw2TextureFile);
+
+			myRawData = File.ReadAllBytes(lsFile);
+
+			int liEdge = myRawData[1];
+			int liCount = BitConverter.ToUInt16(myRawData, 2);
+			List<UWTexture> lOList = new List<UWTexture>();
+
+			for (int liIndex = 0; liIndex < liCount; liIndex++)
+			{
+				long llOffset = BitConverter.ToUInt32(myRawData, 4 + (liIndex * 4));
+
+				if (llOffset + (liEdge * liEdge) > myRawData.Length)
+					continue;
+
+				byte[] lyPixels = new byte[liEdge * liEdge];
+				Array.Copy(myRawData, llOffset, lyPixels, 0L, lyPixels.Length);
+				lOList.Add(new UWTexture(Uw2TextureFile, liIndex, liEdge, lyPixels, mOPalettes, UWTexture.TextureTypes.WALL));
+			}
+
+			mOTextures.Add(TextureFile.Wall64, lOList);
+			mOTextures.Add(TextureFile.Floor32, lOList);
+		}
+
+		/// <summary>The second game's screens from BYT.ARK under the first game's screen types: the
+		/// automap BLNKMAP, character creation CHARGEN, the conversation CONV, the game screen MAIN, the
+		/// main menu OPSCR, the two logos PRES1 and PRES2, the two end screens WIN1 and WIN2.</summary>
+		private void fImportScreensUw2()
+		{
+			mOBitmapFiles = new Dictionary<UWTexture.TextureTypes, UWTexture>();
+
+			string lsArchive = Path.Combine(msUWDataPath, UWScreensUw2.ArchiveName);
+
+			if (!File.Exists(lsArchive))
+				return;
+
+			UWArk lOArk = UWArk.Read(lsArchive, UWArk.LayoutEnum.Uw2);
+
+			foreach (KeyValuePair<UWScreensUw2.ScreenEnum, UWTexture.TextureTypes> lOPair in Uw2ScreenTypes)
+			{
+				byte[] lyIndices = lOArk.ReadBlock((int)lOPair.Key);
+
+				if (lyIndices.Length < UWScreensUw2.ScreenWidth * UWScreensUw2.ScreenHeight)
+					continue;
+
+				mOBitmapFiles.Add(lOPair.Value, new UWTexture(UWScreensUw2.ArchiveName, lyIndices, lOPair.Value, mOPalettes,
+					UWScreensUw2.PaletteOf(lOPair.Key)));
+			}
+		}
+
+		/// <summary>Which first-game screen type each BYT.ARK screen is served as.</summary>
+		public static readonly Dictionary<UWScreensUw2.ScreenEnum, UWTexture.TextureTypes> Uw2ScreenTypes =
+			new Dictionary<UWScreensUw2.ScreenEnum, UWTexture.TextureTypes>
+		{
+			{ UWScreensUw2.ScreenEnum.Automap, UWTexture.TextureTypes.BLNKMAP },
+			{ UWScreensUw2.ScreenEnum.CharacterCreation, UWTexture.TextureTypes.CHARGEN },
+			{ UWScreensUw2.ScreenEnum.Conversation, UWTexture.TextureTypes.CONV },
+			{ UWScreensUw2.ScreenEnum.GameScreen, UWTexture.TextureTypes.MAIN },
+			{ UWScreensUw2.ScreenEnum.MainMenu, UWTexture.TextureTypes.OPSCR },
+			{ UWScreensUw2.ScreenEnum.OriginLogo, UWTexture.TextureTypes.PRES1 },
+			{ UWScreensUw2.ScreenEnum.LookingGlassLogo, UWTexture.TextureTypes.PRES2 },
+			{ UWScreensUw2.ScreenEnum.EndOfGame, UWTexture.TextureTypes.WIN1 },
+			{ UWScreensUw2.ScreenEnum.EndOfGameSecond, UWTexture.TextureTypes.WIN2 }
+		};
 
 		/// <summary>The data files carry the image's upper-case names; on a case-sensitive file
 		/// system (Linux) a lower-case pattern found nothing and the screen stayed black (patch
@@ -98,9 +201,6 @@ namespace UWDataImport.UWData
 
 				{
 					byte[] pyImagefileData = File.ReadAllBytes(files[num].FullName);
-					UWTexture.UWImageFileFormatEnum peImageFileFormat = (UWTexture.UWImageFileFormatEnum)pyImagefileData[0];
-					short num2 = BitConverter.ToInt16(pyImagefileData, 1);
-					List<UWTexture> list = new List<UWTexture>();
 					int piMainPaletteIndex = 0;
 					UWTexture.TextureTypes textureTypes;
 					switch (files[num].Name.ToUpper())
@@ -206,15 +306,21 @@ namespace UWDataImport.UWData
 					case "WEAPONS.GR":
 						textureTypes = UWTexture.TextureTypes.WEAPONS;
 						break;
+					// The second game's (UW2 plan phase 2 step 1): its weapon pictures under the first
+					// game's type, and two files of its own.
+					case "WEAP.GR":
+						textureTypes = UWTexture.TextureTypes.WEAPONS;
+						break;
+					case "GEMPT.GR":
+						textureTypes = UWTexture.TextureTypes.GEMPT;
+						break;
+					case "GHED.GR":
+						textureTypes = UWTexture.TextureTypes.GHED;
+						break;
 					default:
 						throw new Exception($"Unknown image file. {files[num].Name}");
 					}
-					int num3 = 3;
-					for (int num4 = 0; num4 < num2; num4++)
-					{
-						list.Add(new UWTexture(peImageFileFormat, ref pyImagefileData, BitConverter.ToInt32(pyImagefileData, num3), mOPalettes, piMainPaletteIndex, textureTypes, num4, files[num].Name));
-						num3 += 4;
-					}
+					List<UWTexture> list = ReadImageFile(pyImagefileData, files[num].Name, mOPalettes, piMainPaletteIndex, textureTypes);
 					if (mOImageFiles.ContainsKey(textureTypes))
 					{
 						mOImageFiles[textureTypes].AddRange(list);
@@ -225,6 +331,27 @@ namespace UWDataImport.UWData
 					}
 				}
 			}
+		}
+
+		/// <summary>
+		/// THE PICTURES OF ONE .GR FILE (UW2 plan phase 0 step 6, 2026-10-28): the format byte, the
+		/// count at 1 and the offsets from 3, as fImportImages read them inline for the first game's
+		/// files until then - here for any file, the second game's .GR files sharing the format
+		/// (Underworld Exhumed, docs/FORMATS.md "Pictures") but not the names this class knows.
+		/// </summary>
+		public static List<UWTexture> ReadImageFile(byte[] pyData, string psName, UWPalettes pOPalettes, int piMainPaletteIndex,
+			UWTexture.TextureTypes peType)
+		{
+			UWTexture.UWImageFileFormatEnum peImageFileFormat = (UWTexture.UWImageFileFormatEnum)pyData[0];
+			short num2 = BitConverter.ToInt16(pyData, 1);
+			List<UWTexture> list = new List<UWTexture>();
+			int num3 = 3;
+			for (int num4 = 0; num4 < num2; num4++)
+			{
+				list.Add(new UWTexture(peImageFileFormat, ref pyData, BitConverter.ToInt32(pyData, num3), pOPalettes, piMainPaletteIndex, peType, num4, psName));
+				num3 += 4;
+			}
+			return list;
 		}
 
 		private void fImportBitmaps()
@@ -300,7 +427,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// PANELS.GR: four images of 83x114 each, without an image header. The size is stored nowhere in
+		/// PANELS.GR: four images of 83x114 each, without an image header (the second game's 79x112 and
+		/// a narrow side of 3x112, from the distances between its offsets: 8848 bytes, 336 for the last;
+		/// UW2 plan phase 2 step 1).
+		/// The size is stored nowhere in
 		/// the file - that it is correct is shown by the distance between image starts: 9462 bytes, exactly
 		/// 83 times 114. The last image is shorter: it is read as the narrow side of the panel,
 		/// PanelEdgeWidth by PanelEdgeHeight (see below). Offsets outside the file are skipped.
@@ -326,10 +456,12 @@ namespace UWDataImport.UWData
 				// 120 high, i.e. six more than the front: the piece of chain hangs
 				// from the bottom. It is visible in the middle step of the rotation, when the
 				// panel is seen from the side (per user screenshot, 2026-09-02).
-				bool lbIsEdge = liOffset + (PanelWidth * PanelHeight) > lyData.Length;
+				int liPanelWidth = Game == UWGame.Uw2 ? Uw2PanelWidth : PanelWidth;
+				int liPanelHeight = Game == UWGame.Uw2 ? Uw2PanelHeight : PanelHeight;
+				bool lbIsEdge = liOffset + (liPanelWidth * liPanelHeight) > lyData.Length;
 
-				int liWidth = lbIsEdge ? PanelEdgeWidth : PanelWidth;
-				int liHeight = lbIsEdge ? PanelEdgeHeight : PanelHeight;
+				int liWidth = lbIsEdge ? PanelEdgeWidth : liPanelWidth;
+				int liHeight = lbIsEdge ? (Game == UWGame.Uw2 ? Uw2PanelEdgeHeight : PanelEdgeHeight) : liPanelHeight;
 
 				if (liOffset + (liWidth * liHeight) > lyData.Length)
 					continue;
@@ -351,6 +483,12 @@ namespace UWDataImport.UWData
 		public const int PanelEdgeWidth = 3;
 
 		public const int PanelEdgeHeight = 120;
+
+		public const int Uw2PanelWidth = 79;
+
+		public const int Uw2PanelHeight = 112;
+
+		public const int Uw2PanelEdgeHeight = 112;
 
 		public UWTexture GetTextureByType(UWTexture.TextureTypes peTextureType, int piIndex)
 		{

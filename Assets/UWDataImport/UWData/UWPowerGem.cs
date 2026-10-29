@@ -65,7 +65,10 @@ namespace UWDataImport.UWData
 			Inactive = texturesByType[0];
 			Unpowered = texturesByType[1];
 			Powering = texturesByType.GetRange(2, 7);
-			FullyPowered = texturesByType.GetRange(9, 5);
+			// The rest is the green pulse: five pictures in the first game's POWER.GR (14), two in the
+			// second's (11; its adjust_power shows frames 0 to 10, 9 pulsing, Underworld Exhumed uw2
+			// ui/PANELS.C:430; UW2 plan phase 2 step 1).
+			FullyPowered = texturesByType.GetRange(9, texturesByType.Count - 9);
 		}
 	}
 }

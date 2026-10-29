@@ -21,14 +21,18 @@ namespace UnderworldRevisited.Tools
     /// 91bf6a6a) on the same data, so they pin "no audible change" sample for sample. The script
     /// plays AdLib files only (also as the MT-32 version on General MIDI), so it needs only what
     /// every installation has; General MIDI uses the soundfont in StreamingAssets.
+    ///
+    /// RE-RECORDED 2026-10-29, on purpose: the effects' durations are read high byte first since then
+    /// (UWSound.Effect), so the session's door and hits end when the original ends them; everything
+    /// else in the session is as before.
     /// </summary>
     public static partial class SelfChecks
     {
         /// <summary>The AdLib session, 48 kHz stereo, 300 buffers of 1024 frames.</summary>
-        private const string AdlibMixHash = "0A4FB8F0EA68DD9C66CD4D4372FCABCACBDF25DEE18F0780AB3F88C56AE32403";
+        private const string AdlibMixHash = "5BC0AED45B5F682C70AA176F3E053B66BE37D3C194C54A21D0630D5EFB1C3ECC";
 
         /// <summary>The same session on General MIDI, the switch going to the AdLib and back.</summary>
-        private const string GeneralMidiMixHash = "FE315E2D221CA82FFB43540548293ED0456BBB172D9E22F0BA05CB709D262D9B";
+        private const string GeneralMidiMixHash = "4E02572435692D2E3B423E355CB4E3385841F99D3779239A31719F1F3B4B1BDF";
 
         private static void fCheckAudioMix(DataImport pOData)
         {
@@ -191,6 +195,21 @@ namespace UnderworldRevisited.Tools
                 lOSynth.Render(lfOut, lfOut.Length);
 
             Check.Bool("effects: after eight seconds the doors have ended", lOSynth.IsSounding(0), false);
+
+            // The durations as UW1 reads them, high byte first (fixed 2026-10-29): a quarter, half, one and a half
+            // seconds and 25 seconds in sixtieths, none held.
+            SortedDictionary<int, int> lOLifetimes = new SortedDictionary<int, int>();
+
+            foreach (UWSound.Effect lOEffect in pOSound.Effects)
+                lOLifetimes[lOEffect.LifetimeTicks] = lOLifetimes.TryGetValue(lOEffect.LifetimeTicks, out int liCount) ? liCount + 1 : 1;
+
+            List<string> lsLifetimes = new List<string>();
+
+            foreach (KeyValuePair<int, int> lOPair in lOLifetimes)
+                lsLifetimes.Add(lOPair.Key + "x" + lOPair.Value);
+
+            Check.Str("effects: the 24 lifetimes in sixtieths (lifetime x effects), the duration high byte first",
+                string.Join(" ", lsLifetimes), "15x9 30x10 90x4 1500x1");
         }
 
         /// <summary>

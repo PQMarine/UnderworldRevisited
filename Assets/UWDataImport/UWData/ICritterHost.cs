@@ -318,5 +318,8 @@ namespace UWDataImport.UWData
 		/// <summary>The rule set the minds decide by (UWGameSession.Rules; cleanup phase 10 wave 4,
 		/// 2026-10-26: UWRules.Current until then).</summary>
 		UWRules Rules { get; }
+
+		/// <summary>The game being played: its creature steps (IUWCritterVariant, UW2 plan phase 0 step 2).</summary>
+		IUWGameProfile Game { get; }
 	}
 }

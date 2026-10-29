@@ -251,6 +251,7 @@ public sealed class UWItemUseHost : IUWItemUseHost
 
     public bool TryFish()
     {
-        return UWFishing.TryFish(UWScene.LevelLoader, mOServices.Owner.transform, fInventory, fInteraction);
+        return UWFishing.TryFish(UWScene.LevelLoader, mOServices.Owner.transform, fInventory, fInteraction,
+            UWScene.Character != null ? UWScene.Character.Vitals.GetSkill(UWPlayerData.Skill.Track) : 0);
     }
 }

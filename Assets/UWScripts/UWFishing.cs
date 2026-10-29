@@ -42,12 +42,9 @@ public static class UWFishing
     /// <summary>One floor height step in our height units (eight zpos steps).</summary>
     private const float HeightStep = 8f * UWWorldScale.ZPosStep;
 
-    /// <summary>uw1: a bite when a roll of 0 to 4 gives 0.</summary>
-    private const int BiteOneIn = 5;
-
     /// <summary>Always true - the pole is used even when there is nothing to fish.</summary>
     public static bool TryFish(UWLevelLoader pOLoader, Transform pOViewer, UWInventory pOInventory,
-        Interaction pOInteraction)
+        Interaction pOInteraction, int piTrackSkill)
     {
         if (pOLoader == null || pOLoader.CurrentLevel == null || pOViewer == null)
             return true;
@@ -67,7 +64,8 @@ public static class UWFishing
             return true;
         }
 
-        if (UWRandom.Next(BiteOneIn) != 0)
+        // The bite is the game's (IUWTrapVariant; the first game: one in five).
+        if (!UWGameSession.Current.Game.Traps.Bites(piTrackSkill))
         {
             fMessage(pOInteraction, NoLuckMessage);
             return true;

@@ -999,9 +999,9 @@ namespace UWDataImport.UWData
 		/// <returns>An error message, or null on success.</returns>
 		/// <param name="pOWorldObjects">Object list of the level the character is on - for
 		/// items that were picked up from the world and whose attachments are
-		/// listed there. See fResolveChildren.</param>
+		/// listed there. See UWInventoryWorkspace.WriteRecords.</param>
 		/// <param name="pOLoadedRecords">The inventory records of the save game that was loaded -
-		/// items still carried from it keep their links into that list. See fResolveChildren.</param>
+		/// items still carried from it keep their links into that list. See UWInventoryWorkspace.WriteRecords.</param>
 		public static string WritePosition(string psSaveFolder, int piLevel, int piPositionX,
 			int piPositionY, int piZPosition, int piHeading, SavedState pOState = null,
 			List<UWObject> pOWorldObjects = null, List<UWObject> pOLoadedRecords = null)
@@ -1016,7 +1016,6 @@ namespace UWDataImport.UWData
 			if (IsPlainTemplate(lyRaw))
 				return "This is the unencrypted template, not a save game.";
 
-			byte lyKey = lyRaw[0];
 			byte[] lyPlain = Decrypt(lyRaw);
 
 			if (lyPlain == null || lyPlain.Length <= 0x5C)
@@ -1051,9 +1050,20 @@ namespace UWDataImport.UWData
 			fWritePlayerObject(lyPlain, piPositionX, piPositionY, piZPosition, piHeading,
 				pOState != null ? pOState.CurrentVitality : lyPlain[PlayerObjectOffset + 8]);
 
-			File.WriteAllBytes(lsFile, Encrypt(lyPlain, lyKey));
+			File.WriteAllBytes(lsFile, Encrypt(lyPlain, KeyFor(lyPlain)));
 
 			return null;
+		}
+
+		/// <summary>
+		/// The key byte the game writes: the name's first letter xor 0xAA, worked out anew at every save
+		/// (PLAYDATA.C:107, Underworld Exhumed; both games). Until 2026-10-29 this port wrote a new game
+		/// with the fixed key 0x2A and kept a file's key on later saves - harmless, the key travels in the
+		/// file and any key deciphers, but not the bytes DOS writes (found by the PlayerFiles group).
+		/// </summary>
+		public static byte KeyFor(byte[] pyPlain)
+		{
+			return (byte)((pyPlain != null && pyPlain.Length > 0 ? pyPlain[0] : 0) ^ UWPlayerFile.KeyXor);
 		}
 
 		/// <summary>
@@ -1119,195 +1129,10 @@ namespace UWDataImport.UWData
 		private static string fWriteInventory(ref byte[] pyPlain, SavedState pOState,
 			List<UWObject> pOWorldObjects, List<UWObject> pOLoadedRecords)
 		{
-			if (pyPlain.Length < InventoryRecordOffset)
-				return "PLAYER.DAT is too short for an inventory.";
-
-			List<UWObject> lOOrder = new List<UWObject>();
-			Dictionary<UWObject, int> lOIndex = new Dictionary<UWObject, int>();
-			Dictionary<UWObject, List<UWObject>> lOChildren = new Dictionary<UWObject, List<UWObject>>();
-
-			UWObject[] lOTop = new UWObject[EquipmentSlotCount + BackpackSlotCount];
-
-			for (int liSlot = 0; liSlot < EquipmentSlotCount; liSlot++)
-				lOTop[liSlot] = liSlot < pOState.Equipment.Length ? pOState.Equipment[liSlot] : null;
-
-			for (int liSlot = 0; liSlot < BackpackSlotCount; liSlot++)
-				lOTop[EquipmentSlotCount + liSlot] = liSlot < pOState.Backpack.Length ? pOState.Backpack[liSlot] : null;
-
-			// THE ORDER: first the eight backpack slots, then the eleven equipment slots, each
-			// depth first with its contents - the reference's "DOS-canonical order"
-			// (PlayerDatWriter.SerializeUw1Canonical). It is NOT the original's rule (corrected
-			// 2026-10-12): UW.EXE writes the player's object chain depth first in chain order
-			// and loads any order, by link and by saved index (UnderworldExhumed INVSAVE.C
-			// InvSaveNexts, putInInv). So this order is ours and harmless.
-			List<UWObject> lOTopEmitted = new List<UWObject>();
-
-			for (int liSlot = EquipmentSlotCount; liSlot < lOTop.Length; liSlot++)
-				fCollectTop(lOTop[liSlot], lOTopEmitted, lOOrder, lOIndex, lOChildren, pOWorldObjects, pOLoadedRecords);
-
-			for (int liSlot = 0; liSlot < EquipmentSlotCount; liSlot++)
-				fCollectTop(lOTop[liSlot], lOTopEmitted, lOOrder, lOIndex, lOChildren, pOWorldObjects, pOLoadedRecords);
-
-			// Ten bits for the index - the format holds no more.
-			if (lOOrder.Count > 1023)
-				return "Too many items for the format (" + lOOrder.Count + ").";
-
-			byte[] lyNew = new byte[InventoryRecordOffset + (lOOrder.Count * InventoryRecordSize)];
-			System.Array.Copy(pyPlain, lyNew, InventoryRecordOffset);
-
-			for (int liSlot = 0; liSlot < lOTop.Length; liSlot++)
-			{
-				int liRecord = lOTop[liSlot] != null && lOIndex.ContainsKey(lOTop[liSlot])
-					? lOIndex[lOTop[liSlot]] : 0;
-
-				UWBinary.Write16(lyNew, SlotTableOffset + (liSlot * 2), liRecord << 6);
-			}
-
-			// Who follows whom: siblings in a chain point to each other via link.
-			Dictionary<UWObject, int> lONext = new Dictionary<UWObject, int>();
-
-			foreach (KeyValuePair<UWObject, List<UWObject>> lOPair in lOChildren)
-			{
-				for (int liAt = 0; liAt < lOPair.Value.Count; liAt++)
-					lONext[lOPair.Value[liAt]] = liAt + 1 < lOPair.Value.Count ? lOIndex[lOPair.Value[liAt + 1]] : 0;
-			}
-
-			// THE TOP LEVEL IS ITSELF A CHAIN. That was the bug in the first
-			// attempt (per user, 2026-09-10): we set zero everywhere there, and the
-			// original walked the chain from record one and stopped right away. All that remained
-			// was what sat in record one - the crown in the helmet slot. The slot table alone
-			// is not enough for the original; our own loader only reads that, which is why everything
-			// looked right for us. Checked on Henrietta's SAVE3 written by the original:
-			// there every top-level item points to the next one.
-			for (int liAt = 0; liAt < lOTopEmitted.Count; liAt++)
-				lONext[lOTopEmitted[liAt]] = liAt + 1 < lOTopEmitted.Count ? lOIndex[lOTopEmitted[liAt + 1]] : 0;
-
-			HashSet<UWObject> lOTopSet = new HashSet<UWObject>(lOTopEmitted);
-
-			// THE NUMBER OF RECORDS PLUS ONE is at 0xD2, sixteen bits, in plain text.
-			// The original reads from it how many records to load. Checked on all four of the
-			// user's save games (15, 29, 63 and 67 records - each stores
-			// one more).
-			UWBinary.Write16(lyNew, InventoryCountOffset, lOOrder.Count + 1);
-
-			for (int liAt = 0; liAt < lOOrder.Count; liAt++)
-			{
-				UWObject lOObject = lOOrder[liAt];
-				int liOffset = InventoryRecordOffset + (liAt * InventoryRecordSize);
-
-				int liWrittenId = lOObject.ID & 0x1FF;
-
-				// AN OPEN SACK AT THE TOP OF THE INVENTORY IS WRITTEN CLOSED. A container of
-				// classes 128 to 139 knows its open state via bit 0 of the object number. The
-				// original closes every bag it has open before it saves - the open one and those
-				// it was opened from, nested ones included (UnderworldExhumed INVSAVE.C
-				// makePlayerInvCopy -> BAGS.C FixBagArea, CloseAllBags, MakeBagClose: an odd
-				// inclass below 12 loses its bit). The earlier wording here, "the original
-				// considers an open sack at top level invalid", was the reference's (corrected
-				// 2026-10-12). Ours never sets the bit when a bag is opened (only the picture
-				// changes, UWObjectIds.OpenPicture), so no bag the player opened can reach this
-				// file open, nested or not; an odd number only comes from the data, and only at
-				// the top is it closed here. 143, the rune bag, is outside 128 to 139.
-				if (lOTopSet.Contains(lOObject) && UWObjectIds.HasOpenPicture(liWrittenId)
-					&& (liWrittenId & 0x1) != 0)
-					liWrittenId &= ~0x1;
-
-				int liNext = lONext.ContainsKey(lOObject) ? lONext[lOObject] : 0;
-
-				// Quantity field: a real quantity stays, a special link now points to the
-				// new number of the first child - or to nothing if none was found.
-				int liSpecial = lOObject.Quantity;
-
-				if (!lOObject.HasQuantity)
-				{
-					List<UWObject> lOKids;
-
-					liSpecial = lOChildren.TryGetValue(lOObject, out lOKids) && lOKids.Count > 0
-						? lOIndex[lOKids[0]] : 0;
-				}
-
-				// The record itself is UWObjectRecordCodec's (2026-10-12; the same eight bytes
-				// as in the level's object list).
-				UWObjectRecordCodec.Write(lyNew, liOffset, lOObject, liWrittenId, liNext, liSpecial);
-			}
-
-			pyPlain = lyNew;
-
-			return null;
-		}
-
-		/// <summary>A top-level slot: records it for the top-level chain
-		/// and adds it together with its contents.</summary>
-		private static void fCollectTop(UWObject pOObject, List<UWObject> pOTop, List<UWObject> pOOrder,
-			Dictionary<UWObject, int> pOIndex, Dictionary<UWObject, List<UWObject>> pOChildren,
-			List<UWObject> pOWorldObjects, List<UWObject> pOLoadedRecords)
-		{
-			if (pOObject == null || pOIndex.ContainsKey(pOObject))
-				return;
-
-			pOTop.Add(pOObject);
-			fCollectInventory(pOObject, pOOrder, pOIndex, pOChildren, pOWorldObjects, pOLoadedRecords);
-		}
-
-		/// <summary>Adds a thing and everything hanging off it to the order.
-		/// Numbers start at one; the format has no record zero.</summary>
-		private static void fCollectInventory(UWObject pOObject, List<UWObject> pOOrder,
-			Dictionary<UWObject, int> pOIndex, Dictionary<UWObject, List<UWObject>> pOChildren,
-			List<UWObject> pOWorldObjects, List<UWObject> pOLoadedRecords)
-		{
-			if (pOObject == null || pOIndex.ContainsKey(pOObject))
-				return;
-
-			pOOrder.Add(pOObject);
-			pOIndex[pOObject] = pOOrder.Count;
-
-			List<UWObject> lOKids = fResolveChildren(pOObject, pOWorldObjects, pOLoadedRecords);
-
-			if (lOKids.Count == 0)
-				return;
-
-			pOChildren[pOObject] = lOKids;
-
-			foreach (UWObject lOKid in lOKids)
-				fCollectInventory(lOKid, pOOrder, pOIndex, pOChildren, pOWorldObjects, pOLoadedRecords);
-		}
-
-		/// <summary>The chain behind a thing's special link, as a list.</summary>
-		private static List<UWObject> fResolveChildren(UWObject pOObject, List<UWObject> pOWorldObjects, List<UWObject> pOLoadedRecords)
-		{
-			List<UWObject> lOResult = new List<UWObject>();
-
-			if (pOObject.HasQuantity)
-				return lOResult;
-
-			if (pOObject.Contents != null)
-			{
-				foreach (UWObject lOItem in pOObject.Contents)
-				{
-					if (lOItem != null)
-						lOResult.Add(lOItem);
-				}
-
-				return lOResult;
-			}
-
-			if (pOObject.Quantity == 0)
-				return lOResult;
-
-			// If it comes from the loaded inventory, that list applies; otherwise the level's.
-			List<UWObject> lOList = pOLoadedRecords != null && pOLoadedRecords.Contains(pOObject)
-				? pOLoadedRecords
-				: pOWorldObjects;
-
-			if (lOList == null || pOObject.Quantity >= lOList.Count)
-				return lOResult;
-
-			// At most 1024 objects, a circle collected up to that limit as the loop here did
-			// before UWObjectChain (2026-10-11) - hence no stop on a revisit.
-			foreach (UWObject lOItem in UWObjectChain.Walk(pOObject, lOList, 1024, false))
-				lOResult.Add(lOItem);
-
-			return lOResult;
+			// The writer is shared with the second game's workspace since UW2 plan phase 3 step 3
+			// (UWInventoryWorkspace.WriteRecords), the same code over this file's offsets.
+			return UWInventoryWorkspace.WriteRecords(ref pyPlain, InventoryCountOffset, SlotTableOffset, InventoryRecordOffset,
+				pOState.Equipment, pOState.Backpack, pOWorldObjects, pOLoadedRecords);
 		}
 
 		/// <summary>

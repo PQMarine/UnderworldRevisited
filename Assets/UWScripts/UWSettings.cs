@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UWDataImport.UWData;
@@ -16,6 +17,20 @@ namespace UnderworldRevisited
         /// <summary>File by which a valid data directory is recognised.</summary>
         public const string MarkerFile = "LEV.ARK";
 
+        /// <summary>
+        /// THE GAME THE PLAYER RUNS (UW2 plan phase 0 step 3, 2026-10-28): the profile the paths below
+        /// are resolved for, each game's kept apart, and the one the level loader builds its data
+        /// for. The first game's until the switch (step 5) sets it from the menus.
+        /// </summary>
+        public static IUWGameProfile Game { get; set; } = UWGameProfiles.Uw1;
+
+        /// <summary>Whether the running game is the first: the developer's overrides below (DataPath,
+        /// SavegameFolder) name the first game's folders, as they did before there was a second.</summary>
+        private static bool fIsFirstGame()
+        {
+            return Game.Game == UWGame.Uw1;
+        }
+
         /// <summary>The DEVELOPER'S override of the game folder (cleanup step 8.8, 2026-10-24: one of
         /// the values the asset and settings.json both hold). The player's choice from the setup
         /// screen is UWUserSettings.GogInstallPath; this one wins when set (fResolveGogDataPath),
@@ -23,7 +38,7 @@ namespace UnderworldRevisited
         [Tooltip("The GOG installation of Ultima Underworld (the folder with game.gog) or game.gog itself. The game data is extracted from the image once into a local cache. Used when DataPath is empty or invalid. Empty: common GOG installation folders are searched.")]
         public string GogInstallPath = string.Empty;
 
-        [Tooltip("Optional: a directory with already extracted game files (LEV.ARK, STRINGS.PAK, ...), with CRIT, CUTS, SOUND and UW.EXE next to it. Takes precedence over GogInstallPath when valid.")]
+        [Tooltip("Optional: a directory with the first game's already extracted files (LEV.ARK, STRINGS.PAK, ...), with CRIT, CUTS, SOUND and UW.EXE next to it. Takes precedence over GogInstallPath when valid.")]
         [SerializeField]
         [UnityEngine.Serialization.FormerlySerializedAs("DataPath")]
         private string mDataPath = string.Empty;
@@ -37,12 +52,12 @@ namespace UnderworldRevisited
         {
             get
             {
-                if (IsValidDataPath(mDataPath))
+                if (fIsFirstGame() && IsValidDataPath(mDataPath))
                     return mDataPath;
 
                 string lsExtracted = fResolveGogDataPath();
 
-                return lsExtracted ?? mDataPath;
+                return lsExtracted ?? (fIsFirstGame() ? mDataPath : null);
             }
             set
             {
@@ -50,7 +65,7 @@ namespace UnderworldRevisited
             }
         }
 
-        [Tooltip("Folder that holds the save game folders SAVE1 to SAVE4, e.g. the UNDEROM1 folder of the GOG installation. Empty: that UNDEROM1 folder when the data comes from game.gog, otherwise the folder above the data folder, as in the original installation. The game no longer loads a save game at launch - loading happens from the main menu only.")]
+        [Tooltip("The first game's folder that holds the save game folders SAVE1 to SAVE4, e.g. the UNDEROM1 folder of the GOG installation. Empty: that UNDEROM1 folder when the data comes from game.gog, otherwise the folder above the data folder, as in the original installation. The game no longer loads a save game at launch - loading happens from the main menu only.")]
         public string SavegameFolder = string.Empty;
 
         // DiagnosticSavegamePath went with the editor's automap dump (cleanup 9.2, 2026-10-25):
@@ -373,13 +388,13 @@ namespace UnderworldRevisited
         [Tooltip("Tilts per second. Considerably faster than the up and down.")]
         public float SwimRollFrequency = 2.5f;
 
-        [Tooltip("Classic scheme: keys 1 (down) and 3 (up) tilt the view by this many degrees per step. 2 levels it again (per user, 2026-09-13: 15 for now).")]
+        [Tooltip("Classic scheme: keys 1 (down) and 3 (up) tilt the view by this many degrees per step, 2 levels it again. The original's 0x400 of 0x10000, 5.625 degrees (Underworld Exhumed uw1 game/PLAYER.C chg_plys, mvcheck's step; per user 2026-10-29, after 15 since 2026-09-13).")]
         [Range(1f, 30f)]
-        public float ClassicLookStepDegrees = 15f;
+        public float ClassicLookStepDegrees = 5.625f;
 
-        [Tooltip("Classic scheme: this many steps per direction (per user, 2026-09-13: three fixed steps).")]
+        [Tooltip("Classic scheme: this many steps per direction. The original's four, up to its bound 0x1000, 22.5 degrees (chg_plyp; per user 2026-10-29, after three since 2026-09-13).")]
         [Range(1, 6)]
-        public int ClassicLookSteps = 3;
+        public int ClassicLookSteps = 4;
 
 
         [Tooltip("How fast the view follows the target height, in units per second. Mainly affects the transition when entering and leaving.")]
@@ -453,8 +468,8 @@ namespace UnderworldRevisited
         [Tooltip("The same for a WATER creature, and it has to be considerably larger. You fight a lurker from the SHORE, which lies one floor level (16 units) above the water. Standing there the player climbs another 16, so anything whose top is at or below the water floor plus 32 can be walked onto. A whole tile of 64 leaves a clear margin - in the original you cannot stand on a lurker from the shore either (per user, 2026-09-16).")]
         public float SwimmerMinimumColliderHeight = 64f;
 
-        [Tooltip("Vertical scale of creature images around their ground point; the width stays one unit per pixel. 1.3 since 2026-09-17: Drog on level 1 (SAVE4) stood at the same spot as in the original but looked squashed (per user with screenshots: he has to get bigger in any case). Measured about 1.35 from the screenshots, which was too much by eye; 1.25 still a little, 1.2 per user - all judged with square pixels. With DisplayAs4By3 on both screenshots side by side (Drog seen from behind in a corridor, same frame) he was as wide as in the original but about 8 percent shorter and looked bulkier (per user), so 1.3. Takes effect for frames built after the change, so reload the level.")]
-        public float CritterSpriteHeightScale = 1.3f;
+        [Tooltip("Vertical scale of creature images around their ground point; the width stays one unit per pixel. 1.3 since 2026-09-17: Drog on level 1 (SAVE4) stood at the same spot as in the original but looked squashed (per user with screenshots: he has to get bigger in any case). Measured about 1.35 from the screenshots, which was too much by eye; 1.25 still a little, 1.2 per user - all judged with square pixels. With DisplayAs4By3 on both screenshots side by side (Drog seen from behind in a corridor, same frame) he was as wide as in the original but about 8 percent shorter and looked bulkier (per user), so 1.3. Since 2026-10-29 the original's 1.25, its 4:5 (UWSpriteScale, in_scalebm; per user: keep to the original). Takes effect for frames built after the change, so reload the level.")]
+        public float CritterSpriteHeightScale = UWDataImport.UWData.UWSpriteScale.PixelHeight;
 
         [Tooltip("Horizontal shift of the wall texture on door frames and lintels, in tiles. 0.5 since 2026-09-17: the lintel above the portcullis behind Drog on level 1 needed its texture shifted (per user against the original, first estimate a quarter tile, confirmed at 0.5). Half a tile is exactly the difference between our frame UVs (-0.5 to 0.5 around the door centre) and the wall mesh (0 to 1 per tile), so the texture now lines up with the walls. Applied to every door frame since 2026-09-17 (per user); the setting was called PortcullisFrameTextureShift before. Takes effect on reload.")]
         [UnityEngine.Serialization.FormerlySerializedAs("PortcullisFrameTextureShift")]
@@ -519,7 +534,7 @@ namespace UnderworldRevisited
                 if (string.IsNullOrEmpty(DataPath))
                     return null;
 
-                string lsInData = Path.Combine(DataPath, "UW.EXE");
+                string lsInData = Path.Combine(DataPath, Game.Executable);
 
                 if (File.Exists(lsInData))
                     return lsInData;
@@ -527,7 +542,7 @@ namespace UnderworldRevisited
                 try
                 {
                     DirectoryInfo lOParent = Directory.GetParent(DataPath.TrimEnd('\\', '/'));
-                    string lsAbove = lOParent == null ? null : Path.Combine(lOParent.FullName, "UW.EXE");
+                    string lsAbove = lOParent == null ? null : Path.Combine(lOParent.FullName, Game.Executable);
 
                     if (lsAbove != null && File.Exists(lsAbove))
                         return lsAbove;
@@ -563,13 +578,22 @@ namespace UnderworldRevisited
             {
                 // An explicit folder wins; the data folder and the save games may live in
                 // different places (e.g. extracted data elsewhere, saves in the GOG installation).
-                if (!string.IsNullOrEmpty(SavegameFolder))
+                if (fIsFirstGame() && !string.IsNullOrEmpty(SavegameFolder))
                     return SavegameFolder.TrimEnd('\\', '/');
 
-                // Data from the GOG image: the save games are in the installation's UNDEROM1
-                // folder, where the original (DOSBox) writes them too.
-                if (!IsValidDataPath(mDataPath) && fResolveGogDataPath() != null && msGogSavegameFolder != null)
-                    return msGogSavegameFolder;
+                // Data from the GOG image: the save games are where the original (DOSBox) writes them -
+                // the installation's UNDEROM1 folder, or cloud_saves/UNDEROM1 in GOG's current
+                // installers (UWGogInstall.GetSavegameFolder).
+                // Worked out at every ask (per user, 2026-10-29): the Game window's save folder switch, and
+                // in automatic the folder of the newest save, which a save of either side can change.
+                if (!(fIsFirstGame() && IsValidDataPath(mDataPath)) && fResolveGogDataPath() != null && fResolved().ImagePath != null)
+                {
+                    string lsFolder = UWDataImport.Install.UWGogInstall.GetSavegameFolder(fResolved().ImagePath, Game,
+                        UWDataImport.Install.UWGogInstall.ParseSaveFolderMode(UWUserSettings.SaveFolder));
+
+                    if (lsFolder != null)
+                        return lsFolder;
+                }
 
                 string lsFrom = DataPath;
 
@@ -616,36 +640,96 @@ namespace UnderworldRevisited
             return IsValidDataPath(lsPath) ? lsPath : null;
         }
 
-        /// <summary>The DATA folder extracted from the GOG image, resolved once per session.</summary>
-        private static string msGogDataPath;
+        /// <summary>
+        /// WHAT WAS RESOLVED FOR ONE GAME, once per session and installation folder: the extracted DATA
+        /// folder, the installation's save folder, why the image could not be used. One record per
+        /// game since UW2 plan phase 0 step 3 (2026-10-28; one set of statics until then), so one
+        /// game's paths never serve the other.
+        /// </summary>
+        private sealed class Resolved
+        {
+            /// <summary>The installation folder (and the setup flag) these were resolved for.</summary>
+            public string For;
 
-        private static string msGogSavegameFolder;
+            public string DataPath;
+
+            /// <summary>The GOG image the data came from; the save folder is worked out from it at every ask.</summary>
+            public string ImagePath;
+
+            public string Error;
+        }
+
+        private static readonly Dictionary<UWGame, Resolved> msResolved = new Dictionary<UWGame, Resolved>();
+
+        /// <summary>The running game's record.</summary>
+        private static Resolved fResolved()
+        {
+            if (!msResolved.TryGetValue(Game.Game, out Resolved lOResolved))
+            {
+                lOResolved = new Resolved();
+                msResolved[Game.Game] = lOResolved;
+            }
+
+            return lOResolved;
+        }
 
         /// <summary>The game.gog the data was extracted from this session, or null - the manual
-        /// lies next to it (UWManual).</summary>
+        /// lies next to it (UWManual). The installation's, one image for both games.</summary>
         public static string GogImagePath { get; private set; }
 
-        private static string msGogResolvedFor;
+        /// <summary>
+        /// The game.gog the installation folder leads to - the asset's, the player's choice from the
+        /// setup screen, else the common folders - without extracting anything; null when there is
+        /// none (UW2 plan phase 0 step 5: which games it holds is UWGameSwitch's question before the
+        /// running game is known).
+        /// </summary>
+        public string FindGogImage()
+        {
+            string lsInstall = !string.IsNullOrEmpty(GogInstallPath) ? GogInstallPath : UWUserSettings.GogInstallPath;
 
-        /// <summary>Why the last GOG image could not be used, or null - for the setup screen.</summary>
-        public static string LastGogError { get; private set; }
+            if (ForceFirstRunSetup && string.IsNullOrEmpty(UWUserSettings.GogInstallPath))
+                return null;
 
-        /// <summary>Finds game.gog (GogInstallPath or the common folders), extracts the UW1
-        /// data into the cache on first use and returns its DATA folder, or null.</summary>
+            string lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsInstall);
+
+            return lsImage != null || !string.IsNullOrEmpty(lsInstall) ? lsImage : fFindImageInCandidates();
+        }
+
+        /// <summary>The first game.gog of the common folders (GetCandidateGogPaths), or null.</summary>
+        private static string fFindImageInCandidates()
+        {
+            foreach (string lsCandidate in GetCandidateGogPaths())
+            {
+                string lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsCandidate);
+
+                if (lsImage != null)
+                    return lsImage;
+            }
+
+            return null;
+        }
+
+        /// <summary>Why the running game's GOG image could not be used, or null - for the setup screen.</summary>
+        public static string LastGogError => fResolved().Error;
+
+        /// <summary>Finds game.gog (GogInstallPath or the common folders), extracts the running
+        /// game's data into its own cache (GameData/UW1, GameData/UW2) on first use and returns its
+        /// DATA folder, or null.</summary>
         private string fResolveGogDataPath()
         {
             // The asset's path first (set by a developer), then the folder the player chose in the
             // setup screen (UWUserSettings, kept outside the asset), then the common folders.
             string lsInstall = !string.IsNullOrEmpty(GogInstallPath) ? GogInstallPath : UWUserSettings.GogInstallPath;
             string lsKey = (lsInstall ?? string.Empty) + (ForceFirstRunSetup ? "|setup" : string.Empty);
+            Resolved lOResolved = fResolved();
 
-            if (msGogResolvedFor == lsKey)
-                return msGogDataPath;
+            if (lOResolved.For == lsKey)
+                return lOResolved.DataPath;
 
-            msGogResolvedFor = lsKey;
-            msGogDataPath = null;
-            msGogSavegameFolder = null;
-            LastGogError = null;
+            lOResolved.For = lsKey;
+            lOResolved.DataPath = null;
+            lOResolved.ImagePath = null;
+            lOResolved.Error = null;
 
             // For testing the setup screen on a machine where the game would be found anyway.
             if (ForceFirstRunSetup && string.IsNullOrEmpty(UWUserSettings.GogInstallPath))
@@ -656,23 +740,19 @@ namespace UnderworldRevisited
             if (lsImage == null && string.IsNullOrEmpty(lsInstall))
             {
                 // UW_DATA naming an extracted DATA folder: used as it is, with the save games
-                // above it as in an installed game (cleanup 9.2, 2026-10-25).
+                // above it as in an installed game (cleanup 9.2, 2026-10-25). The first game's: a
+                // DATA folder is one game's, and the variable named the first game's before there
+                // was a second.
                 string lsEnvironment = UWDataImport.Install.UWGogInstall.GetEnvironmentPath();
 
-                if (IsValidDataPath(lsEnvironment))
+                if (fIsFirstGame() && IsValidDataPath(lsEnvironment))
                 {
-                    msGogDataPath = lsEnvironment;
+                    lOResolved.DataPath = lsEnvironment;
 
-                    return msGogDataPath;
+                    return lOResolved.DataPath;
                 }
 
-                foreach (string lsCandidate in GetCandidateGogPaths())
-                {
-                    lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsCandidate);
-
-                    if (lsImage != null)
-                        break;
-                }
+                lsImage = fFindImageInCandidates();
             }
 
             if (lsImage == null)
@@ -680,20 +760,20 @@ namespace UnderworldRevisited
 
             string lsCache = Path.Combine(Application.persistentDataPath, "GameData");
             string lsError;
-            string lsData = UWDataImport.Install.UWGogInstall.EnsureExtracted(lsImage, lsCache, out lsError);
+            string lsData = UWDataImport.Install.UWGogInstall.EnsureExtracted(lsImage, lsCache, Game, out lsError);
 
             if (lsData == null)
             {
                 Debug.LogError("UWSettings: " + lsError);
-                LastGogError = lsError;
+                lOResolved.Error = lsError;
                 return null;
             }
 
-            msGogDataPath = lsData;
-            msGogSavegameFolder = UWDataImport.Install.UWGogInstall.GetSavegameFolder(lsImage);
+            lOResolved.DataPath = lsData;
+            lOResolved.ImagePath = lsImage;
             GogImagePath = lsImage;
 
-            return msGogDataPath;
+            return lOResolved.DataPath;
         }
     }
 }

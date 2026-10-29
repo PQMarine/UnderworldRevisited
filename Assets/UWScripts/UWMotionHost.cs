@@ -513,7 +513,11 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         UWTerrain lOTerrain = mOLoader.UWDataImporter != null ? mOLoader.UWDataImporter.Terrain : null;
 
-        if (lOTerrain != null)
+        // The second game's floor class itself, ice as 3 (UW2 plan phase 2 step 4 part C): the core
+        // makes it the contact 1 << class as set_resterr does; the first game's 1 water, 2 lava.
+        if (lOTerrain != null && lOTerrain.Uw2 != null)
+            piTerrain = lOTerrain.Uw2.Class(lOTile.TextureFloor);
+        else if (lOTerrain != null)
             piTerrain = ((int)lOTerrain.GetFloorTerrain(lOTile.TextureFloor) & 0xFF) >> 4;
 
         return true;
@@ -760,10 +764,63 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// <summary>The move triggers the player's motion met since the last call (TriggerMove),
     /// each fired once - unless it fired in the same clock unit (UWTriggerPacer). A level change
     /// by one of them drops the rest.</summary>
+    /// <summary>The trap kinds the walk has reported as not run yet.</summary>
+    private static readonly HashSet<int> msWalkSkippedTraps = new HashSet<int>();
+
+    /// <summary>The walk's move triggers: the teleports (UWTeleportUw2), as the pacer allows.</summary>
+    private void fFireWalkTriggers()
+    {
+        UWObject[] lOTriggers = mOPendingPlayerTriggers.ToArray();
+        UWLevel lOLevel = mOLoader.CurrentLevel;
+        long llNow = UWGameSession.Current.Schedule.Now;
+
+        mOPendingPlayerTriggers.Clear();
+        mOPlayerTriggerPacer.BeginBatch();
+
+        foreach (UWObject lOTrigger in lOTriggers)
+        {
+            if (mOLoader.CurrentLevel != lOLevel)
+                break;
+
+            if (!UWTrapRules.MaySetOff(lOTrigger, UWTrapRules.Setter.Player) || !mOPlayerTriggerPacer.IsReady(lOTrigger, PlayerMover, llNow)
+                || !fStillListed(lOTrigger))
+                continue;
+
+            mOPlayerTriggerPacer.MarkFired(lOTrigger, PlayerMover, llNow);
+
+            int liLink = lOTrigger.Quantity;
+            UWObject lOTrap = liLink > 0 && liLink < lOLevel.Masterlist.Count ? lOLevel.Masterlist[liLink] : null;
+
+            if (lOTrap == null)
+                continue;
+
+            if (lOTrap.ID == UWTeleportUw2.TrapId)
+            {
+                mOLoader.WalkTeleport(UWTeleportUw2.Decode(lOTrap));
+
+                break;
+            }
+
+            if (msWalkSkippedTraps.Add(lOTrap.ID))
+                Debug.Log(string.Format("[Walk] A trap 0x{0:X3} behind the move trigger at {1}/{2} is not run yet (its rules come in phase 4).",
+                    lOTrap.ID, lOTrigger.TileX, lOTrigger.TileY));
+        }
+    }
+
     public void FirePendingPlayerTriggers()
     {
         if (mOPendingPlayerTriggers.Count == 0 || mOLoader == null)
             return;
+
+        // The second game's walk runs its teleports (UW2 plan phase 2 step 5): a move trigger the
+        // player may set off whose trap is a teleport takes him there; any other trap is its rules'
+        // (phase 4) and is only written down, once per trap kind.
+        if (UWWalkUw2.IsWalking)
+        {
+            fFireWalkTriggers();
+
+            return;
+        }
 
         UWObject[] lOTriggers = mOPendingPlayerTriggers.ToArray();
         UWLevel lOLevel = mOLoader.CurrentLevel;

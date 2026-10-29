@@ -113,12 +113,26 @@ namespace UWDataImport.UWData
 		/// columns.</summary>
 		public static Row GetRow(int piIndex)
 		{
-			return fWithRules(piIndex, UWRules.Current.Lights.Sources);
+			UWRules lORuleSet = UWRules.Current;
+
+			return lORuleSet != null ? fWithRules(piIndex, lORuleSet.Lights.Sources) : msRows[piIndex];
 		}
 
+		/// <summary>The light source of an id. A session without a rule set - the second game's walk
+		/// (UW2 plan phase 2 step 3; its sources come with its rules) - has none: until then this asked
+		/// the missing rules every frame and threw (the second test, 2026-10-29).</summary>
 		public static bool TryGet(int piId, out Row pORow)
 		{
-			UWRulesLights.SourceRules lORules = UWRules.Current.Lights.Sources;
+			UWRules lORuleSet = UWRules.Current;
+
+			if (lORuleSet == null)
+			{
+				pORow = default(Row);
+
+				return false;
+			}
+
+			UWRulesLights.SourceRules lORules = lORuleSet.Lights.Sources;
 
 			for (int liAt = 0; liAt < msRows.Length; liAt++)
 			{

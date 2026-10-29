@@ -41,9 +41,45 @@ namespace UWDataImport.UWData
 
 		public bool IsLoaded { get; private set; }
 
+		/// <summary>The second game's words, its own layout (null for the first game's data).</summary>
+		public UWTerrainUw2 Uw2 { get; private set; }
+
 		public UWTerrain(string psDataPath)
+			: this(psDataPath, UWGame.Uw1)
+		{
+		}
+
+		/// <summary>
+		/// The terrain of either game (UW2 plan phase 2 step 1, 2026-10-29). The second game's file is a
+		/// word per T64.TR texture, walls and floors alike, read by UWTerrainUw2; this class serves its
+		/// water and lava classes as Water and Lava for both lookups, everything else (ice, currents,
+		/// stairs) as Normal - those are read from Uw2 by the second game's own rules.
+		/// </summary>
+		public UWTerrain(string psDataPath, UWGame peGame)
 		{
 			string lsFile = Path.Combine(psDataPath, "TERRAIN.DAT");
+
+			if (peGame == UWGame.Uw2)
+			{
+				if (!File.Exists(lsFile))
+					return;
+
+				Uw2 = new UWTerrainUw2(File.ReadAllBytes(lsFile));
+
+				for (int liIndex = 0; liIndex < TextureCount; liIndex++)
+				{
+					int liClass = Uw2.Class(liIndex);
+					TerrainType leType = liClass == UWTerrainUw2.ClassWater ? TerrainType.Water
+						: liClass == UWTerrainUw2.ClassLava ? TerrainType.Lava : TerrainType.Normal;
+
+					myWall[liIndex] = (ushort)leType;
+					myFloor[liIndex] = (ushort)leType;
+				}
+
+				IsLoaded = true;
+
+				return;
+			}
 
 			if (!File.Exists(lsFile))
 				return;

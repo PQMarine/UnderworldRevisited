@@ -571,6 +571,10 @@ namespace UWDataImport.UWData
 			if (!pOOutcome.Hit || pOOutcome.IsMissile || pOOutcome.DefenderKind != UWDefenderKind.Player)
 				return -1;
 
+			// Past the armour, as the game has it (IUWCombatVariant; the first game asks no armour).
+			if (!UWGameSession.Current.Game.Combat.PoisonGetsThrough(pOAttacker, pOOutcome))
+				return -1;
+
 			if (!UWCritterCombat.ShouldPoison(piCurrentNibble, pOAttacker.PoisonByte, piDamageTypeProof))
 				return -1;
 

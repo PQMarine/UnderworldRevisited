@@ -142,7 +142,7 @@ namespace UnderworldRevisited.Tools
 
             byte[] lyArk = File.ReadAllBytes(lsArk);
             List<uint> lOOffsets = UWLevArkCodec.ReadBlockOffsets(lyArk);
-            int liStart = (int)lOOffsets[UWLevArkLayout.MapBlock(0)];
+            int liStart = (int)lOOffsets[UWLevArkFile.Uw1.MapBlock(0)];
             int liTileAt = liStart + (((58 * UWWorldScale.TilesPerAxis) + 43) * UWLevArkLayout.TileRecordSize);
             uint luTile = UWBinary.Read32(lyArk, liTileAt);
             int liOldHead = (int)(luTile >> UWLevArkLayout.TileFirstObjectShift);
@@ -164,11 +164,11 @@ namespace UnderworldRevisited.Tools
             UWBinary.Write32(lyArk, liTileAt, (int)((luTile & ((1u << UWLevArkLayout.TileFirstObjectShift) - 1))
                 | ((uint)liSlot << UWLevArkLayout.TileFirstObjectShift)));
 
-            byte[] lyBlock = new byte[UWLevArkLayout.BlockSize];
+            byte[] lyBlock = new byte[UWLevArkFile.Uw1.BlockSize];
 
             Array.Copy(lyArk, liStart, lyBlock, 0, lyBlock.Length);
 
-            UWLevel lOLevel = new UWLevel(1, lyArk, (uint)liStart, lOOffsets[UWLevArkLayout.TextureMapBlock(0)], pOContext.Data.Textures);
+            UWLevel lOLevel = new UWLevel(1, lyArk, (uint)liStart, lOOffsets[UWLevArkFile.Uw1.TextureMapBlock(0)], pOContext.Data.Textures);
             UWTile lOTile = lOLevel.GetTile(43, 58);
             UWMobileRecord lORecord = lOLevel.InFlight.Count == 1 ? lOLevel.InFlight[0] : null;
 
@@ -233,7 +233,7 @@ namespace UnderworldRevisited.Tools
 
             Array.Copy(lyOurs, 0, lyWholeArk, liStart, lyOurs.Length);
 
-            UWLevel lOReread = new UWLevel(1, lyWholeArk, (uint)liStart, lOOffsets[UWLevArkLayout.TextureMapBlock(0)],
+            UWLevel lOReread = new UWLevel(1, lyWholeArk, (uint)liStart, lOOffsets[UWLevArkFile.Uw1.TextureMapBlock(0)],
                 pOContext.Data.Textures);
             UWMobileRecord lOReadBack = null;
 

@@ -25,6 +25,29 @@ using UWDataImport.UWData;
 ///   Journey Onward    the four savegame slots, a click loads
 ///
 /// Escape does not close the menu - as in the original there is no world to return to.
+///
+/// SCREEN ONLY (UW2 plan phase 0 step 5, 2026-10-28): for a game the port cannot play yet
+/// (IUWGameProfile.IsPlayable), the level loader hands over its main menu screen and nothing else -
+/// no buttons, no music, no data behind it; the menu bar over it offers the Game window only, to
+/// switch back (UWGameSwitch).
+///
+/// THE WALK MENU (UW2 plan phase 2 step 3, 2026-10-29): the second game's main menu with its own
+/// screen and OPBTN.GR's buttons at the first game's places (Underworld Exhumed uw2 ui/MAINMENU.C:131,
+/// the same four as uw1's) - three of them, as the original shows without a saved game. Create
+/// Character opens the second game's creation (UWCharacterCreationScreenUw2, phase 3 step 5); the
+/// introduction and the acknowledgements are the second game's cutscenes, which come later, so they do
+/// not answer yet. No music (the second game's themes come with its sound), the menu bar offers the
+/// Game window only.
+///
+/// ITS RULES (phase 3 step 5 part C, MAINMENU.C real_start, parse_start_input, parse_start_mouse,
+/// do_journey; UWClassicLayoutUw2.MainMenu): one button is always lit - Create Character without a
+/// save, Journey Onward with one; the cursor keys (and Ctrl+F, N, B, P) move the light, Home and Page Up
+/// to the first, End and Page Down to the last, Enter presses; a mouse press lights what is under the
+/// pointer while it is held and letting go on a button presses it - no light on a pointer only passing.
+/// Journey Onward lists the saves found, only those, centred in FONT_BIG (lit colour 7, the rest 0xCD),
+/// with the same keys, Escape and Alt+X back; the one chosen shows "You reenter the Underworld . . ." a
+/// moment and starts the walk from it. Escape on the buttons does nothing, as there; Alt+X there would
+/// end the program and is left out.
 /// </summary>
 public class UWMainMenu : MonoBehaviour
 {
@@ -65,7 +88,10 @@ public class UWMainMenu : MonoBehaviour
         Buttons,
         SaveList,
         Cutscene,
-        CharacterCreation
+        CharacterCreation,
+
+        /// <summary>A screen without buttons (ShowScreenOnly).</summary>
+        ScreenOnly
     }
 
     /// <summary>Is the menu up - or something it has called?</summary>
@@ -74,6 +100,34 @@ public class UWMainMenu : MonoBehaviour
     /// <summary>Whether the menu bar may fold out now: only over the buttons and the save list,
     /// not during a cutscene or character creation (see UWSetupMenu).</summary>
     public static bool AcceptsMenuBar { get; private set; }
+
+    /// <summary>Whether the menu shows a screen only - the main menu of a game the port cannot play
+    /// yet (ShowScreenOnly); the menu bar offers the Game window only then.</summary>
+    public static bool IsScreenOnly { get; private set; }
+
+    /// <summary>Whether the menu is the second game's walk menu (InitWalkMenu).</summary>
+    public static bool IsWalkMenu { get; private set; }
+
+    /// <summary>The buttons the walk menu shows: Journey Onward is left out, as the original does
+    /// without a saved game.</summary>
+    private const int WalkButtonCount = 3;
+
+    private int ShownButtons => IsWalkMenu && !fAnyWalkSave() ? WalkButtonCount : ButtonCount;
+
+    /// <summary>Whether the save folder holds a save of the running game (the walk menu offers Journey
+    /// Onward then, as the original with a saved game; UW2 plan phase 2 step 6).</summary>
+    private static bool fAnyWalkSave()
+    {
+        string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
+
+        for (int liSlot = 1; liSlot <= UWSavegameSlots.SlotCount; liSlot++)
+        {
+            if (UWSavegameSlots.Exists(lsRoot, liSlot))
+                return true;
+        }
+
+        return false;
+    }
 
     /// <summary>Does the menu come up by itself on this launch? The same rule as in
     /// fAutoShow - for the music while loading (see UWLevelLoader.Start).</summary>
@@ -97,6 +151,32 @@ public class UWMainMenu : MonoBehaviour
     private int miStartFrame;
     private UWIntroPlayer mOIntro;
     private UWCharacterCreationScreen mOCharacterCreation;
+
+    /// <summary>The second game's creation (UW2 plan phase 3 step 5), made by the walk menu when first asked.</summary>
+    private UWCharacterCreationScreenUw2 mOCharacterCreationUw2;
+
+    /// <summary>The second game's lit button or description (parse_start_input's cur), the press it
+    /// follows, the slots its list shows, the description drawn lit, and the save being re-entered.</summary>
+    private int miWalkLit;
+
+    /// <summary>The buttons shown, counted once when they show (ShownButtons looks for saves on disk).</summary>
+    private int miWalkShown;
+
+    private bool mbWalkPress;
+
+    private readonly List<int> mOWalkSlots = new List<int>();
+
+    private int miWalkDrawnLit = -1;
+
+    private RawImage mOReenter;
+
+    private float mfReenterTime = -1f;
+
+    private int miReenterSlot;
+
+    /// <summary>How long "You reenter the Underworld . . ." stands before the walk loads - the original
+    /// shows it while it restores.</summary>
+    public const float ReenterSeconds = 1.5f;
     private UWControlScheme mOControls;
     private Color32 mOSelectedColour;
     private Color32 mOUnselectedColour;
@@ -106,12 +186,25 @@ public class UWMainMenu : MonoBehaviour
         // Static, so it survives the scene restart: after "Journey Onward" it would otherwise
         // still be open, and the game would keep the cross pointer and locked keys.
         IsOpen = false;
+        IsScreenOnly = false;
+        IsWalkMenu = false;
 
         mOData = pOData;
         miStartFrame = Time.frameCount;
         mbAutoShowDone = false;
 
         fReadColours();
+    }
+
+    /// <summary>The second game's main menu over its data (see the class comment): shown at once.</summary>
+    public void InitWalkMenu(DataImport pOData)
+    {
+        Init(pOData);
+
+        IsWalkMenu = true;
+        mbAutoShowDone = true;
+
+        Show();
     }
 
     /// <summary>The two text colours of the save list, through the colour help (see
@@ -133,7 +226,8 @@ public class UWMainMenu : MonoBehaviour
 
     private void fRefreshColours()
     {
-        if (mOCanvas == null || miColourVersion == UWColourVision.Version)
+        // The screen-only picture came with the colour help of its start (no data to build it anew).
+        if (mOCanvas == null || miColourVersion == UWColourVision.Version || meMode == Mode.ScreenOnly)
             return;
 
         fReadColours();
@@ -171,7 +265,7 @@ public class UWMainMenu : MonoBehaviour
     {
         fRefreshColours();
 
-        AcceptsMenuBar = IsOpen && (meMode == Mode.Buttons || meMode == Mode.SaveList);
+        AcceptsMenuBar = IsOpen && (meMode == Mode.Buttons || meMode == Mode.SaveList || meMode == Mode.ScreenOnly);
 
         // The menu bar, one of its menus or dialogs has the mouse.
         if (AcceptsMenuBar && UWSetupMenu.IsCapturingInput)
@@ -192,25 +286,57 @@ public class UWMainMenu : MonoBehaviour
                 // If character creation has started the game, the scene is already being rebuilt.
                 // Opening again would mean timeScale 0 - and that survives the scene change:
                 // black intro, no movement (per user, 2026-09-11).
-                if (UWCharacterCreationScreen.IsStartingNewGame)
+                if (UWCharacterCreationScreen.IsStartingNewGame || UWCharacterCreationScreenUw2.IsStartingWalk)
                 {
                     meMode = Mode.Hidden;
                     IsOpen = false;
                     return;
                 }
 
-                if (mOCharacterCreation == null || !mOCharacterCreation.IsOpen)
+                if (IsWalkMenu ? mOCharacterCreationUw2 == null || !mOCharacterCreationUw2.IsOpen
+                    : mOCharacterCreation == null || !mOCharacterCreation.IsOpen)
                     fShowButtons();
                 return;
 
             case Mode.Buttons:
-                fUpdateButtons();
+                if (IsWalkMenu)
+                    fUpdateWalkButtons();
+                else
+                    fUpdateButtons();
                 return;
 
             case Mode.SaveList:
-                fUpdateSaveList();
+                if (IsWalkMenu)
+                    fUpdateWalkSaveList();
+                else
+                    fUpdateSaveList();
+                return;
+
+            case Mode.ScreenOnly:
                 return;
         }
+    }
+
+    /// <summary>
+    /// Shows pOScreen (320 x 200, the main menu screen of a game the port cannot play yet) as the
+    /// menu's background and nothing else; the bar over it can switch the game (UW2 plan phase 0
+    /// step 5). Stays until the scene starts again.
+    /// </summary>
+    public void ShowScreenOnly(Texture2D pOScreen)
+    {
+        IsOpen = true;
+        IsScreenOnly = true;
+        mbAutoShowDone = true;
+        meMode = Mode.ScreenOnly;
+
+        mOCanvas = UWScreenUi.CreateCanvas(transform, "UW Main Menu", UWUiSorting.MainMenu, out mOFrame);
+        mOBackground = UWUiKit.CreateRawImageAt(mOFrame, "Title Screen", 0, 0);
+        UWScreenUi.SetTexture(mOBackground, pOScreen);
+        mOCanvas.gameObject.SetActive(true);
+
+        UWSetupMenu.EnsureForMainMenu(null);
+        fSetModal(true);
+        UWScreenUi.HideLoadingCover();
     }
 
     /// <summary>
@@ -257,8 +383,10 @@ public class UWMainMenu : MonoBehaviour
         // menu. Now the menu stands.
         UWScreenUi.HideLoadingCover();
 
-        // The menu plays "Introduction" (the reference: main.cs, LoadXMI(IntroTheme)).
-        UWAudioService.ChangeTheme(UWMusicSelector.IntroTheme);
+        // The menu plays "Introduction" (the reference: main.cs, LoadXMI(IntroTheme)); the second
+        // game's music is not read yet.
+        if (!IsWalkMenu)
+            UWAudioService.ChangeTheme(UWMusicSelector.IntroTheme);
     }
 
     /// <summary>After the victory screens (UWEndgame.PlayVictory). The world behind it is
@@ -288,7 +416,7 @@ public class UWMainMenu : MonoBehaviour
     {
         fEnsureCanvas();
 
-        UWSetupMenu.EnsureForMainMenu(mOData);
+        UWSetupMenu.EnsureForMainMenu(IsWalkMenu ? null : mOData);
 
         meMode = Mode.Buttons;
         IsOpen = true;
@@ -299,7 +427,7 @@ public class UWMainMenu : MonoBehaviour
         for (int liAt = 0; liAt < ButtonCount; liAt++)
         {
             UWScreenUi.SetTexture(mOButtons[liAt], mOButtonOff[liAt]);
-            mOButtons[liAt].gameObject.SetActive(true);
+            mOButtons[liAt].gameObject.SetActive(liAt < ShownButtons);
         }
 
         foreach (RawImage lOLabel in mOSaveLabels)
@@ -307,6 +435,17 @@ public class UWMainMenu : MonoBehaviour
 
         fSetModal(true);
         UWGameClock.Hold(UWGameClock.MainMenuHold);
+
+        // The second game's menu lights a button from the start (real_start's sel).
+        if (IsWalkMenu)
+        {
+            mOReenter.gameObject.SetActive(false);
+            mfReenterTime = -1f;
+            mbWalkPress = false;
+            miWalkShown = ShownButtons;
+            miWalkLit = miWalkShown == ButtonCount ? UWClassicLayoutUw2.MainMenu.LitWithSaves : UWClassicLayoutUw2.MainMenu.LitWithoutSaves;
+            fLightWalkButtons();
+        }
     }
 
     /// <summary>The gamepad steps through the buttons and the save games (UWPadEntryStepper, per
@@ -341,11 +480,11 @@ public class UWMainMenu : MonoBehaviour
 
     private void fUpdateButtons()
     {
-        fStepByPad(mOButtons, ButtonCount);
+        fStepByPad(mOButtons, ShownButtons);
 
         int liHover = -1;
 
-        for (int liAt = 0; liAt < ButtonCount; liAt++)
+        for (int liAt = 0; liAt < ShownButtons; liAt++)
         {
             if (UWScreenUi.IsMouseOver(mOButtons[liAt]))
             {
@@ -420,6 +559,249 @@ public class UWMainMenu : MonoBehaviour
 
         if (!mOCharacterCreation.IsOpen)
             fShowButtons();
+    }
+
+    /// <summary>The second game's Create Character (UW2 plan phase 3 step 5): its own creation screen,
+    /// whose "Yes" starts the walk.</summary>
+    private void fOpenCharacterCreationUw2()
+    {
+        if (mOCharacterCreationUw2 == null)
+        {
+            mOCharacterCreationUw2 = GetComponent<UWCharacterCreationScreenUw2>();
+
+            if (mOCharacterCreationUw2 == null)
+                mOCharacterCreationUw2 = gameObject.AddComponent<UWCharacterCreationScreenUw2>();
+
+            mOCharacterCreationUw2.Init(mOData);
+        }
+
+        meMode = Mode.CharacterCreation;
+        mOCharacterCreationUw2.Show();
+
+        if (!mOCharacterCreationUw2.IsOpen)
+            fShowButtons();
+    }
+
+    // ------------------------------------------------------------------
+    // The second game's menu (UW2 plan phase 3 step 5 part C)
+    // ------------------------------------------------------------------
+
+    private void fUpdateWalkButtons()
+    {
+        fStepByPad(mOButtons, miWalkShown);
+
+        int liChosen = fWalkInput(miWalkShown, fWalkButtonAt, false, out bool _);
+
+        fLightWalkButtons();
+
+        if (liChosen == CreateCharacterButton)
+            fOpenCharacterCreationUw2();
+        else if (liChosen == JourneyOnwardButton)
+            fShowWalkSaveList();
+    }
+
+    private void fLightWalkButtons()
+    {
+        for (int liAt = 0; liAt < ButtonCount; liAt++)
+            UWScreenUi.SetTexture(mOButtons[liAt], liAt == miWalkLit ? mOButtonOn[liAt] : mOButtonOff[liAt]);
+    }
+
+    private int fWalkButtonAt()
+    {
+        for (int liAt = 0; liAt < miWalkShown; liAt++)
+        {
+            if (UWScreenUi.IsMouseOver(mOButtons[liAt]))
+                return liAt;
+        }
+
+        return -1;
+    }
+
+    private int fWalkSaveAt()
+    {
+        for (int liAt = 0; liAt < mOWalkSlots.Count; liAt++)
+        {
+            if (UWScreenUi.IsMouseOver(mOSaveLabels[liAt]))
+                return liAt;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// parse_start_input and parse_start_mouse over piCount entries: the light moved by the keys and kept
+    /// inside them, a press followed (the entry under the pointer lit while held), and what was chosen -
+    /// the entry let go on, or the lit one on Enter; -1 for none. pbBack: Escape or Alt+X in the list.
+    /// </summary>
+    private int fWalkInput(int piCount, System.Func<int> pFUnderPointer, bool pbList, out bool pbBack)
+    {
+        pbBack = false;
+
+        Mouse lOMouse = Mouse.current;
+
+        if (lOMouse != null && UWPointer.HasMouse)
+        {
+            if (!mbWalkPress && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame))
+                mbWalkPress = true;
+
+            if (mbWalkPress)
+            {
+                int liUnder = pFUnderPointer();
+
+                if (liUnder >= 0)
+                    miWalkLit = liUnder;
+
+                if (lOMouse.leftButton.isPressed || lOMouse.rightButton.isPressed || lOMouse.middleButton.isPressed)
+                    return -1;
+
+                mbWalkPress = false;
+
+                return liUnder;
+            }
+        }
+
+        Keyboard lOKeys = Keyboard.current;
+
+        if (lOKeys == null || piCount <= 0)
+            return -1;
+
+        bool lbCtrl = lOKeys.ctrlKey.isPressed;
+
+        if (lOKeys.rightArrowKey.wasPressedThisFrame || lOKeys.downArrowKey.wasPressedThisFrame
+            || (lbCtrl && (lOKeys.fKey.wasPressedThisFrame || lOKeys.nKey.wasPressedThisFrame)))
+            miWalkLit++;
+        else if (lOKeys.leftArrowKey.wasPressedThisFrame || lOKeys.upArrowKey.wasPressedThisFrame
+            || (lbCtrl && (lOKeys.bKey.wasPressedThisFrame || lOKeys.pKey.wasPressedThisFrame)))
+            miWalkLit--;
+        else if (lOKeys.homeKey.wasPressedThisFrame || lOKeys.pageUpKey.wasPressedThisFrame)
+            miWalkLit = 0;
+        else if (lOKeys.endKey.wasPressedThisFrame || lOKeys.pageDownKey.wasPressedThisFrame)
+            miWalkLit = piCount - 1;
+        else if (UWTextEntry.EnterPressed)
+            return Mathf.Clamp(miWalkLit, 0, piCount - 1);
+        else if (pbList && (UWBack.Takes(UWBackOwner.MainMenuSaves) || (lOKeys.altKey.isPressed && lOKeys.xKey.wasPressedThisFrame)))
+            pbBack = true;
+
+        miWalkLit = Mathf.Clamp(miWalkLit, 0, piCount - 1);
+
+        return -1;
+    }
+
+    /// <summary>do_journey: the saves found, their descriptions in order, the first lit.</summary>
+    private void fShowWalkSaveList()
+    {
+        meMode = Mode.SaveList;
+        mbWalkPress = false;
+        miWalkLit = 0;
+        miWalkDrawnLit = -1;
+
+        for (int liAt = 0; liAt < ButtonCount; liAt++)
+            mOButtons[liAt].gameObject.SetActive(false);
+
+        string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
+
+        mOWalkSlots.Clear();
+
+        for (int liSlot = 1; liSlot <= UWSavegameSlots.SlotCount; liSlot++)
+        {
+            if (UWSavegameSlots.Exists(lsRoot, liSlot))
+            {
+                msSaveNames[mOWalkSlots.Count] = UWSavegameSlots.GetName(lsRoot, liSlot);
+                mOWalkSlots.Add(liSlot);
+            }
+        }
+
+        for (int liAt = 0; liAt < mOSaveLabels.Length; liAt++)
+            mOSaveLabels[liAt].gameObject.SetActive(liAt < mOWalkSlots.Count);
+
+        fDrawWalkSaveLabels();
+    }
+
+    /// <summary>draw_start_buttons with text: each description cut to 0x13E columns, centred on x 0xA0 at
+    /// y 100 - i * 0x16, the lit one in colour 7, the others in 0xCD.</summary>
+    private void fDrawWalkSaveLabels()
+    {
+        if (miWalkDrawnLit == miWalkLit)
+            return;
+
+        miWalkDrawnLit = miWalkLit;
+
+        UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
+        Color32 lOLit = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette, UWClassicLayoutUw2.MainMenu.ListLitColour));
+        Color32 lOPlain = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette, UWClassicLayoutUw2.MainMenu.ListColour));
+
+        for (int liAt = 0; liAt < mOWalkSlots.Count; liAt++)
+        {
+            string lsName = msSaveNames[liAt] ?? string.Empty;
+
+            while (lsName.Length > 0 && fBigWidth(lOFont, lsName) > UWClassicLayoutUw2.MainMenu.ListWidth)
+                lsName = lsName.Substring(0, lsName.Length - 1);
+
+            int liWidth = fBigWidth(lOFont, lsName);
+
+            UWScreenUi.Place(mOSaveLabels[liAt], UWClassicLayoutUw2.MainMenu.ListCentre - (liWidth / 2),
+                UWScreenUi.ScreenHeight - 1 - (UWClassicLayoutUw2.MainMenu.ListTop - (liAt * UWClassicLayoutUw2.MainMenu.ListStep)));
+            UWScreenUi.SetText(mOSaveLabels[liAt], lOFont, lsName, liAt == miWalkLit ? lOLit : lOPlain, liWidth + 1, false);
+        }
+    }
+
+    private static int fBigWidth(UWFont pOFont, string psText)
+    {
+        return pOFont != null && !string.IsNullOrEmpty(psText) ? pOFont.MeasureText(psText, 0, UWFontRenderer.CharacterSpacing) : 0;
+    }
+
+    private void fUpdateWalkSaveList()
+    {
+        if (mfReenterTime >= 0f)
+        {
+            if (Time.unscaledTime - mfReenterTime < ReenterSeconds)
+                return;
+
+            string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
+
+            mfReenterTime = -1f;
+            meMode = Mode.Hidden;
+            IsOpen = false;
+            fSetModal(false);
+            UWWalkUw2.Request(UWSavegameSlots.GetSlotPath(lsRoot, miReenterSlot));
+
+            return;
+        }
+
+        fStepByPad(mOSaveLabels, mOWalkSlots.Count);
+
+        int liChosen = fWalkInput(mOWalkSlots.Count, fWalkSaveAt, true, out bool lbBack);
+
+        if (lbBack)
+        {
+            fShowButtons();
+
+            return;
+        }
+
+        fDrawWalkSaveLabels();
+
+        if (liChosen < 0)
+            return;
+
+        // do_journey: the screen alone again and the message, then the restore.
+        miReenterSlot = mOWalkSlots[liChosen];
+
+        foreach (RawImage lOLabel in mOSaveLabels)
+            lOLabel.gameObject.SetActive(false);
+
+        UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
+        string lsReenter = UWText.Block(mOData, 1, UWClassicLayoutUw2.MainMenu.ReenterString + 1, string.Empty);
+        int liWidth = fBigWidth(lOFont, lsReenter);
+
+        mOReenter.gameObject.SetActive(true);
+        UWScreenUi.Place(mOReenter, ((UWScreenUi.ScreenWidth - liWidth) / 2) + UWClassicLayoutUw2.MainMenu.ReenterShift,
+            UWScreenUi.ScreenHeight - 1 - UWClassicLayoutUw2.MainMenu.ReenterY);
+        UWScreenUi.SetText(mOReenter, lOFont, lsReenter,
+            UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette, UWClassicLayoutUw2.MainMenu.ListLitColour)),
+            liWidth + 1, false);
+
+        mfReenterTime = Time.unscaledTime;
     }
 
     // ------------------------------------------------------------------
@@ -545,6 +927,9 @@ public class UWMainMenu : MonoBehaviour
                 0, SaveListTop + (liSlot * SaveListPitch));
             mOSaveLabels[liSlot].gameObject.SetActive(false);
         }
+
+        mOReenter = UWUiKit.CreateRawImageAt(mOFrame, "Reenter", 0, 0);
+        mOReenter.gameObject.SetActive(false);
 
         mOCanvas.gameObject.SetActive(false);
     }

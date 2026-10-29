@@ -37,41 +37,19 @@ namespace UWDataImport.UWData
 	/// it (UWLevel.GetActiveMobileOrder).
 	///
 	/// File-format constants stay const in code (plan, ground rule 5).
+	///
+	/// BOTH GAMES (UW2 plan phase 1 step 2, 2026-10-28): the level block's first 0x7C08 bytes have this
+	/// layout in both (Underworld Exhumed, docs/FORMATS.md "The level block"); what differs - the
+	/// blocks of the file, the level count, the second game's overlays and timers after the magic
+	/// word - is UWLevArkFile's, one instance per game.
 	/// </summary>
 	public static class UWLevArkLayout
 	{
 		// ------------------------------------------------- Blocks of the file
-
-		/// <summary>Levels 1 to 9 are blocks 0 to 8 (LEVARK_MAP).</summary>
-		public const int LevelBlockCount = 9;
-
-		public const int MapFirstBlock = 0;
-
-		/// <summary>The animation overlays, block 9 + level (LEVARK_ANIM; UWAnimationOverlay).</summary>
-		public const int AnimationFirstBlock = 9;
-
-		/// <summary>The texture maps, block 18 + level (LEVARK_TXM; UWLevel.TextureInfos).</summary>
-		public const int TextureMapFirstBlock = 18;
-
-		/// <summary>The automaps, block 27 + level (LEVARK_AUTOMAP), 0x1000 bytes each. In UW1
-		/// the automap starts at block 27: the 135 blocks are nine levels times fifteen. The 160
-		/// from uw-formats.txt 4.7 applies to Underworld 2, which has 320 blocks.</summary>
-		public const int AutomapFirstBlock = 27;
-
-		/// <summary>The map notes, block 36 + level (LEVARK_NOTES). Ninety-nine of them, not only
-		/// nine: uw-formats.txt calls the later ones "unused", but the user wrote on levels 10,
-		/// 46 and 99, saved and reloaded, and the texts were in exactly these blocks
-		/// (2026-09-03). 36 plus 99 gives the 135 blocks of the file.</summary>
-		public const int MapNoteFirstBlock = 36;
-
-		public const int MapNoteLevelCount = 99;
-
-		/// <summary>The block count the file declares: 36 + 99.</summary>
-		public const int DeclaredBlockCount = MapNoteFirstBlock + MapNoteLevelCount;
-
-		/// <summary>The texture map of a level: 48 wall and 10 floor entries of 16 bits, then
-		/// six door bytes (UWLevel.fLoadTextureInfo).</summary>
-		public const int TextureMapSize = 122;
+		//
+		// Which block holds which kind, the level count, the level block's and the texture map's
+		// length are each game's (UWLevArkFile, UW2 plan phase 1 step 2, 2026-10-28; constants of this
+		// class until then). What follows here both games share.
 
 		/// <summary>One automap byte per tile.</summary>
 		public const int AutomapSize = TileCount;
@@ -85,35 +63,12 @@ namespace UWDataImport.UWData
 
 		public const int MapNoteYOffset = 0x34;
 
-		/// <summary>The block of a kind for a 0-based level index.</summary>
-		public static int MapBlock(int piLevelIndex)
-		{
-			return MapFirstBlock + piLevelIndex;
-		}
-
-		public static int AnimationBlock(int piLevelIndex)
-		{
-			return AnimationFirstBlock + piLevelIndex;
-		}
-
-		public static int TextureMapBlock(int piLevelIndex)
-		{
-			return TextureMapFirstBlock + piLevelIndex;
-		}
-
-		public static int AutomapBlock(int piLevelIndex)
-		{
-			return AutomapFirstBlock + piLevelIndex;
-		}
-
-		public static int MapNoteBlock(int piLevelIndex)
-		{
-			return MapNoteFirstBlock + piLevelIndex;
-		}
-
 		// ------------------------------------------------- A level block
 
-		public const int BlockSize = 0x7C08;
+		/// <summary>The part of a level block both games share, ending with the magic word: the
+		/// first game's whole block; the second's carries its overlays and timers after it
+		/// (UWLevArkFile.BlockSize).</summary>
+		public const int CommonBlockSize = 0x7C08;
 
 		public const int TileCount = UWWorldScale.TilesPerAxis * UWWorldScale.TilesPerAxis;
 

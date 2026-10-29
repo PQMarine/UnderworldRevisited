@@ -101,7 +101,7 @@ namespace UWDataImport
 
 		/// <summary>The game keeps map notes for this many levels (UWLevArkLayout, where the
 		/// file's block numbers live since 2026-10-12; UWMapNotesModel reads the count here).</summary>
-		public const int MapNoteLevelCount = UWLevArkLayout.MapNoteLevelCount;
+		public const int MapNoteLevelCount = UWLevArkFile.Uw1MapNoteLevelCount;
 
 		/// <summary>Writes map notes, automaps and the levels back into LEV.ARK - see
 		/// UWSaveCodec.SaveWorld.</summary>
@@ -165,8 +165,15 @@ namespace UWDataImport
 		/// strings (see UWGameData), null for none.
 		/// </summary>
 		public DataImport(string psPath, string psSavegamePath = null, string psGameTextFile = null)
+			: this(psPath, psSavegamePath, psGameTextFile, UWGameProfiles.Uw1)
 		{
-			GameData = new UWGameData(psPath, psGameTextFile);
+		}
+
+		/// <summary>The data of a data folder for the game of pOProfile (UW2 plan phase 0 step 3: the
+		/// level loader names the running game; null reads as the first).</summary>
+		public DataImport(string psPath, string psSavegamePath, string psGameTextFile, IUWGameProfile pOProfile)
+		{
+			GameData = new UWGameData(psPath, psGameTextFile, pOProfile);
 			LoadGame(psSavegamePath);
 		}
 

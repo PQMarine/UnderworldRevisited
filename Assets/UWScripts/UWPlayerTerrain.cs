@@ -65,8 +65,10 @@ public class UWPlayerTerrain : MonoBehaviour
         mOLevelLoader = pOLevelLoader;
         mOCamera = pOCamera;
 
+        // The eye 0xA4 above the feet, as the original's get_eye puts it (UWWorldScale.EyeHeight); the
+        // transform's origin sits FootOffset above them.
         if (mOCamera != null)
-            mfBaseCameraLocalY = mOCamera.localPosition.y;
+            mfBaseCameraLocalY = mOMovement != null ? UWWorldScale.EyeHeight - mOMovement.FootOffset : mOCamera.localPosition.y;
 
         mOPlayer = mOCamera != null ? mOCamera.GetComponent<UWCharacter>() : null;
     }
@@ -142,8 +144,9 @@ public class UWPlayerTerrain : MonoBehaviour
             return;
 
         // In the Void the map stays empty (per user in the original, 2026-09-14). UW.EXE counts
-        // no exploration experience there either (seg017_1FDD_C5 checks DungeonLevel 9).
-        if (mOLevelLoader.CurrentLevelIndex == UWEndgame.VoidLevelIndex)
+        // no exploration experience there either (seg017_1FDD_C5 checks DungeonLevel 9). The first
+        // game's: the second game's ninth level is no void.
+        if (UWSettings.Game.Game == UWGame.Uw1 && mOLevelLoader.CurrentLevelIndex == UWEndgame.VoidLevelIndex)
             return;
 
         UWTilePos lOTileIndex = mOLevelLoader.WorldPositionToTile(transform.position);
@@ -199,7 +202,7 @@ public class UWPlayerTerrain : MonoBehaviour
     /// </summary>
     private void fUpdateRenderBand()
     {
-        if (mOLevelLoader.UWDataImporter == null || !mOLevelLoader.HasWorld)
+        if (mOLevelLoader.UWDataImporter == null || (!mOLevelLoader.HasWorld && !UWWalkUw2.IsWalking))
             return;
 
         // The position is the player's (PositionCameraAtObject_seg034_2F89_B99 takes the player
@@ -322,6 +325,14 @@ public class UWPlayerTerrain : MonoBehaviour
             : mOLevelLoader.IsLavaTile(pOTile) ? UWLevel.MapDisplayLava
             : UWLevel.MapDisplayClear;
 
+        // The second game: the floor texture's terrain class itself, ice (3) among them
+        // (TxmTerr & 0xC0, uw2 3d/GRIDDB.C:542; UW2 plan phase 2 step 4).
+        UWTerrainUw2 lOUw2 = mOLevelLoader.UWDataImporter != null && mOLevelLoader.UWDataImporter.Terrain != null
+            ? mOLevelLoader.UWDataImporter.Terrain.Uw2 : null;
+
+        if (lOUw2 != null)
+            liTerrain = lOUw2.Class(pOTile.TextureFloor);
+
         int liMarker = fHasBridge(pOTile) ? UWLevel.MapDisplayBridgeMarker
             : pOTile.HasDoor ? UWLevel.MapDisplayDoor
             : mOLevelLoader.TileQueries.HasStairMarker(pOTile) ? UWLevel.MapDisplayStair
@@ -440,9 +451,15 @@ public class UWPlayerTerrain : MonoBehaviour
 
         fUpdateOriginalSwimView();
 
+        // The view's offset from the eye (UWWorldScale.ViewOffsetAcross/Up, head_view's record): across
+        // as it is, up turned with the camera's pitch (its up leans forward by the pitch).
+        float lfPitch = mOCamera.localEulerAngles.x * Mathf.Deg2Rad;
+
         Vector3 lOLocal = mOCamera.localPosition;
+        lOLocal.x = UWWorldScale.ViewOffsetAcross;
         lOLocal.y = mfBaseCameraLocalY + mfAppliedCameraOffset + lfHeadBob + fGetLevitationBob()
-            + (mOSwimView.HeightEighths * SwimCounterWorldUnit);
+            + (mOSwimView.HeightEighths * SwimCounterWorldUnit) + (UWWorldScale.ViewOffsetUp * Mathf.Cos(lfPitch));
+        lOLocal.z = UWWorldScale.ViewOffsetUp * Mathf.Sin(lfPitch);
 
         mOCamera.localPosition = lOLocal;
     }
