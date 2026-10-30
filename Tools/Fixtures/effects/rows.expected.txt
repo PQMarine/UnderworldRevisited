@@ -4,6 +4,12 @@ Torch and fire lights | switch | 0 to 1
 Torch shadows | switch | 0 to 1
   press -> TorchShadows=False | shows "Off"
   press -> TorchShadows=True | shows "On"
+Shadow brightness | slider | 0 to 1
+  bar 0/89 -> no change | shows "0.00"
+  bar 1/89 -> ShadowBrightness=0.011236 | shows "0.01"
+  bar 33/89 -> ShadowBrightness=0.370787 | shows "0.37"
+  bar 44/89 -> ShadowBrightness=0.494382 | shows "0.49"
+  bar 89/89 -> ShadowBrightness=1 | shows "1.00"
 Shadows at once | whole steps | 0 to 8
   bar 0/89 -> MaxShadowLights=0 | shows "0"
   bar 1/89 -> no change | shows "0"

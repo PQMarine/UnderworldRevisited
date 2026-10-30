@@ -270,6 +270,9 @@ namespace UWDataImport.UWData
 
 		public static readonly UWFloatSettingDef PaletteDepth = fFloat(nameof(UWUserData.PaletteDepth), d => d.PaletteDepth, (d, v) => d.PaletteDepth = v);
 
+		/// <summary>Pixels of the picture, 0 = the original's pixel; UWPaletteEffects keeps the maximum.</summary>
+		public static readonly UWFloatSettingDef PaletteDitherCell = fFloat(nameof(UWUserData.PaletteDitherCell), d => d.PaletteDitherCell, (d, v) => d.PaletteDitherCell = v);
+
 		/// <summary>UWDisplayMode.ModeEnum as a number; -1 = not chosen yet (a build then starts
 		/// borderless at the desktop's size - UWDisplayMode decides), read as it is.</summary>
 		public static readonly UWIntSettingDef DisplayMode = new UWIntSettingDef(nameof(UWUserData.DisplayMode), UWSettingKind.Choice, d => d.DisplayMode, (d, v) => d.DisplayMode = v)
@@ -400,7 +403,7 @@ namespace UWDataImport.UWData
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
 			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, PaletteGroundShadows,
-			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
+			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
 			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language, Game, SaveFolder

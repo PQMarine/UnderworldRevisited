@@ -23,7 +23,8 @@ of what is built was also read out of the original's executable.
   animations, the 4:3 display of the original
 - A full play-through, compared step by step with the original: from character creation
   through the eight talismans and the Key of Infinity to the end of the game
-- The Palette and Remastered render modes
+- The Palette, Palette colours and Remastered render modes, set by a mode and its effects in the
+  Graphics window
 - Effects of the port's own for the Palette mode, every pixel still a palette colour: ambient
   occlusion, grime along the walls with a colour, wall depth with its shadow, darker joints,
   ground shadows, glowing lava and flames, and light sources by the original's light table with

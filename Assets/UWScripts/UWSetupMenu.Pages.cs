@@ -402,7 +402,7 @@ public partial class UWSetupMenu
             .Add(new UWSetupRow
             {
                 Kind = Kind.Hint, Id = "palette.hint", Advance = 10f,
-                TextOf = () => UWGraphicsDetail.CurrentLevel == UWGraphicsDetail.LevelEnum.Low
+                TextOf = () => UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Palette
                     ? UWText.T("setup.palette.hint")
                     : UWText.T("setup.palette.hint.not_low")
             })
@@ -467,43 +467,42 @@ public partial class UWSetupMenu
     /// <summary>The four detail levels, short, by LevelEnum; the hint under them says what each is (the
     /// drop-down menu's items said it in one line each: "Low - original palette" and so on). The last,
     /// VeryHigh, reads Custom since cleanup 8d.3 (per user, 2026-10-25): the viewer's own values.</summary>
-    private static readonly string[] msDetailLevelIds = { "setup.graphics.detail.low", "setup.graphics.detail.medium", "setup.graphics.detail.high", "setup.graphics.detail.custom" };
+    private static readonly string[] msModeIds = { "setup.graphics.mode.palette", "setup.graphics.mode.colours", "setup.graphics.mode.remastered" };
 
     /// <summary>The Graphics window's detail row and the Game window's scheme row: the label 80
     /// wide, the choices over the rest (four of 110 for the levels).</summary>
     private static readonly UWChoiceColumns WindowChoiceColumns = new UWChoiceColumns(0f, 80f, 80f, 80f);
 
     /// <summary>The detail row's Custom (VeryHigh), bit 3: a text, no choice (UWSetupRow.TextOnlyChoices).</summary>
-    private const int CustomLevelTextOnly = 1 << (int)UWGraphicsDetail.LevelEnum.VeryHigh;
+    private const int OwnEffectsTextOnly = 1 << (int)UWGraphicsDetail.EffectsEnum.Own;
 
     private UWSetupPage fBuildGraphicsPage()
     {
         return new UWSetupPage("graphics")
             .Add(fTitle("graphics.title", UWText.T("setup.graphics.title")))
-            // THE DETAIL LEVELS of the options panel, the current one in the accent colour; a click on
-            // the current one sets it again. CUSTOM (VeryHigh) is only a text since cleanup 8d.3 (per
-            // user, 2026-10-25): lit while the viewer's own values are in force, dim otherwise, no
-            // click - "Remastered effects..." below sets it and opens their window.
+            // THE TWO AXES (per user, 2026-10-30, UWGraphicsDetail): the mode, and the effects, set the same
+            // way in every mode. OWN is only a text, as Custom was since cleanup 8d.3: lit while the
+            // viewer's own values are in force, no click - "Effects..." below sets it and opens their
+            // window. The current choice in the accent colour; a click on it sets it again.
             .Add(new UWSetupRow
             {
-                Kind = Kind.ChoiceRow, Id = "graphics.detail", Text = UWText.T("setup.graphics.detail"), Choices = System.Array.ConvertAll(msDetailLevelIds, UWText.T),
-                ChoiceColumns = WindowChoiceColumns, TextOnlyChoices = CustomLevelTextOnly,
-                PressCurrent = true, Advance = 34f,
-                GetIndex = () => (int)UWGraphicsDetail.CurrentLevel, Choose = piLevel => fChooseLevel((UWGraphicsDetail.LevelEnum)piLevel)
-            })
-            .Add(fHint("graphics.detail.hint", UWText.T("setup.graphics.detail.hint"), 10f))
-            // Under the levels the palette renderer's own effects (UWPaletteEffects), a dialog, and
-            // beside it the Remastered ones (UWEffectsScreen, cleanup 8d.3): both as wide as their text,
-            // the second moving along with the first.
-            .Add(new UWSetupRow
-            {
-                Kind = Kind.Action, Id = "graphics.palette", Text = UWText.T("setup.graphics.palette"), Width = 200f, Height = 30f,
-                Press = fOpenPaletteEffectsDialog
+                Kind = Kind.ChoiceRow, Id = "graphics.mode", Text = UWText.T("setup.graphics.mode"), Choices = System.Array.ConvertAll(msModeIds, UWText.T),
+                ChoiceColumns = WindowChoiceColumns, PressCurrent = true, Advance = 34f,
+                GetIndex = () => (int)UWGraphicsDetail.Mode, Choose = piMode => UWGraphicsDetail.SetMode((UWGraphicsDetail.ModeEnum)piMode)
             })
             .Add(new UWSetupRow
             {
-                Kind = Kind.Action, Id = "graphics.remastered", Text = UWText.T("setup.graphics.remastered"), X = 210f, Width = 200f, Height = 30f,
-                Advance = 40f, Press = fOpenRemasteredEffects
+                Kind = Kind.ChoiceRow, Id = "graphics.effects", Text = UWText.T("setup.graphics.effects"), Choices = System.Array.ConvertAll(msPresetIds, UWText.T),
+                ChoiceColumns = WindowChoiceColumns, TextOnlyChoices = OwnEffectsTextOnly, PressCurrent = true, Advance = 34f,
+                GetIndex = () => (int)UWGraphicsDetail.Effects, Choose = piEffects => UWGraphicsDetail.SetEffects((UWGraphicsDetail.EffectsEnum)piEffects)
+            })
+            .Add(fHint("graphics.mode.hint", UWText.T("setup.graphics.mode.hint"), 10f))
+            // The one window of the mode's effects, the palette renderer's dialog (UWPaletteEffects) or the
+            // effects window (UWEffectsScreen).
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Action, Id = "graphics.effects.open", Text = UWText.T("setup.graphics.effects.open"), Width = 200f, Height = 30f,
+                Advance = 40f, Press = fOpenModeEffects
             })
             .Add(new UWSetupRow { Kind = Kind.Separator, Id = "graphics.separator", Height = 1f, Advance = 8f })
             // THE 4:3 SWITCH lives here and not under Game (per user, 2026-09-22): it changes how
@@ -520,6 +519,10 @@ public partial class UWSetupMenu
             // a line on what it does.
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = Defs.ViewGamma.LabelId, Draw = fDrawViewGamma })
             .Add(fHint(Defs.ViewGamma, 10f))
+            // The dither pattern's grain (UWShadePalette.GetDitherCell) in the same columns: here since
+            // 2026-10-30 per user, it works in the palette mode and in demastering alike.
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = Defs.PaletteDitherCell.LabelId, Draw = fDrawDitherCell })
+            .Add(fHint(Defs.PaletteDitherCell, 10f))
             // The world at the original's resolution (UWWorldResolution), asked for on Reddit
             // (2026-10-07): it takes effect at once as well, the interface stays sharp.
             .Add(new UWSetupRow
@@ -542,6 +545,13 @@ public partial class UWSetupMenu
     private float fDrawViewGamma(float pfLeft, float pfTop, float pfInner)
     {
         fViewGammaRow(new Rect(pfLeft - 8f, 0f, pfInner + 16f, 0f), pfTop);
+
+        return pfTop + 30f;
+    }
+
+    private float fDrawDitherCell(float pfLeft, float pfTop, float pfInner)
+    {
+        fDitherCellRow(new Rect(pfLeft - 8f, 0f, pfInner + 16f, 0f), pfTop);
 
         return pfTop + 30f;
     }

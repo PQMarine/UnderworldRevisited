@@ -323,24 +323,19 @@ public partial class UWSetupMenu : MonoBehaviour
         KeyNavActive = false;
     }
 
-    /// <summary>
-    /// A detail level of the Graphics window: Low, Medium or High, at once; the window stays, as a
-    /// choice in any other dialog. CUSTOM (VeryHigh, the viewer's own values) is no choice there since
-    /// cleanup 8d.3 (per user, 2026-10-25), only a text lit while it is in force: "Remastered
-    /// effects..." beside "Palette effects..." sets it and opens the effects window.
-    /// </summary>
-    private void fChooseLevel(UWGraphicsDetail.LevelEnum peLevel)
+    /// <summary>The Graphics window's "Effects...", the one button for every mode: the palette mode's
+    /// dialog, or the effects window on the mode's Own, which it switches to (the shipped values become
+    /// the viewer's own the first time, UWGraphicsDetail).</summary>
+    private void fOpenModeEffects()
     {
-        // The one path with the classic options' detail screen (cleanup step 8.8, 2026-10-24).
-        UWGraphicsDetail.Choose(peLevel, null, null);
-    }
+        if (UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.Palette)
+        {
+            fOpenPaletteEffectsDialog();
+            return;
+        }
 
-    /// <summary>The Graphics window's "Remastered effects...": the level Custom (VeryHigh; the shipped
-    /// values become the viewer's own the first time, UWGraphicsDetail.SetLevel) and the effects window
-    /// in place of the Graphics window - what Very high did until cleanup 8d.3.</summary>
-    private void fOpenRemasteredEffects()
-    {
-        UWGraphicsDetail.Choose(UWGraphicsDetail.LevelEnum.VeryHigh, null, fOpenEffectsWindow);
+        UWGraphicsDetail.SetEffects(UWGraphicsDetail.EffectsEnum.Own);
+        fOpenEffectsWindow();
     }
 
     /// <summary>
@@ -1155,11 +1150,46 @@ public partial class UWSetupMenu : MonoBehaviour
 
         lOColumns = UWSetupPageDrawer.WithLabel(pORows, lOColumns, UWText.T("setting.ViewAngle"));
         lOColumns = UWSetupPageDrawer.WithLabel(pORows, lOColumns, UWText.T("setting.ViewGamma"));
+        lOColumns = UWSetupPageDrawer.WithLabel(pORows, lOColumns, UWText.T("setting.PaletteDitherCell"));
         lOColumns = UWSetupPageDrawer.WithValueWidth(lOColumns,
             Mathf.Max(pORows.LabelWidth(msOriginalAngle(0f)), pORows.LabelWidth(msDegrees(UWViewAngle.Max))));
 
         return new UWSliderColumns(lOColumns.LabelLeft, lOColumns.LabelWidth, lOColumns.SliderLeft, lOColumns.SliderLess + pfOrigExtra,
             0f, lOColumns.ValueAt + pfOrigExtra, lOColumns.ValueWidth);
+    }
+
+    private static readonly System.Func<float, string> msDitherCell =
+        pfValue => pfValue < 1f ? UWText.T("setting.PaletteDitherCell.original") : Mathf.RoundToInt(pfValue) + " px";
+
+    /// <summary>The dither pattern's grain (UWShadePalette.GetDitherCell) in whole pixels of the picture,
+    /// and "Orig." back to one pixel of the original's screen; the view angle's columns.</summary>
+    private void fDitherCellRow(Rect pOPanel, float pfTop)
+    {
+        IUWRows lORows = mOPassRows;
+        float lfShown = Mathf.Clamp(UWUserSettings.PaletteDitherCell, 0f, UWPaletteEffects.MaxDitherCell);
+        string lsLabel = UWText.T("setting.PaletteDitherCell");
+        string lsOrig = UWText.T("setup.graphics.view_orig");
+        float lfOrigExtra = fOrigExtra(lORows, lsOrig);
+
+        float lfWanted = lORows.Slider(new Rect(pOPanel.x, pfTop, pOPanel.width, 26f), fViewColumns(lORows, lfOrigExtra), lsLabel,
+            lfShown, 0f, UWPaletteEffects.MaxDitherCell, 1f, true, msDitherCell);
+        float lfRounded = Mathf.Round(lfWanted);
+
+        if (!Mathf.Approximately(lfRounded, lfShown))
+        {
+            UWUserSettings.PaletteDitherCell = lfRounded;
+            UWUserSettings.Save();
+        }
+
+        lORows.Enabled = lfShown >= 1f;
+
+        if (lORows.Item(new Rect(pOPanel.x + pOPanel.width - 56f - lfOrigExtra, pfTop, 48f + lfOrigExtra, 26f), lsOrig))
+        {
+            UWUserSettings.PaletteDitherCell = 0f;
+            UWUserSettings.Save();
+        }
+
+        lORows.Enabled = true;
     }
 
     private static readonly System.Func<float, string> msGamma =
@@ -1205,13 +1235,48 @@ public partial class UWSetupMenu : MonoBehaviour
     /// </summary>
     private void fDrawGraphicsDialog(float pfWidth)
     {
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(560f, mOPassPages.InnerNeeded(mOGraphicsPage)), 110f, fHeight(400f, 54f));
+        float lfDialogWidth = Mathf.Min(fMaxWidth(560f, mOPassPages.InnerNeeded(mOGraphicsPage)), pfWidth - 40f);
+
+        // MOVABLE by its title row (per user, 2026-10-30): on the classic screen it lay over the view,
+        // and a change shows at once only where the view can be seen. The place is kept while the
+        // program runs, as the palette effects dialog's.
+        if (float.IsNaN(mOGraphicsDialogAt.x))
+            mOGraphicsDialogAt = new Vector2((pfWidth - lfDialogWidth) / 2f, 110f);
+
+        Vector2 lOMin = new Vector2(100f - lfDialogWidth, BarHeight);
+        Vector2 lOMax = new Vector2(pfWidth - 100f, UWGuiTheme.ReferenceHeight - 44f);
+
+        mOGraphicsDialogAt = mOPassRows.Drag(new Rect(mOGraphicsDialogAt.x, mOGraphicsDialogAt.y, lfDialogWidth, 44f), mOGraphicsDialogAt, lOMin, lOMax);
+
+        // What the bar's items offered to show is not this window's to follow.
+        mOKitRows.FocusToReveal(out Rect _);
+
+        Rect lODialog = new Rect(mOGraphicsDialogAt.x, mOGraphicsDialogAt.y, lfDialogWidth, fHeight(400f, 54f));
+        float lfTitleWidth = mOPassRows.TextWidth(UWText.T("setup.graphics.title"), UWRowInfoEnum.Heading);
+
+        mOPassRows.Frame(lODialog);
+        mOPassRows.Info(new Rect(lODialog.x + 40f + lfTitleWidth, lODialog.y + 18f, lODialog.width - 60f - lfTitleWidth, 22f), UWText.T("setup.palette.drag"),
+            UWRowInfoEnum.Dim);
 
         fContentEnds(lODialog, mOPassPages.Draw(mOGraphicsPage, lODialog.x + 20f, lODialog.y + 16f, lODialog.width - 40f));
 
         if (mOPassRows.Done(lODialog))
             meOpenDialog = DialogEnum.None;
+
+        // The view follows the focus, as in the palette effects dialog (cleanup 8d.4): an entry the arrow
+        // keys put the focus on off the screen moves the window by the least that shows it.
+        if (mOKitRows.FocusToReveal(out Rect lOFocus))
+        {
+            Vector2 lOShift = new Vector2(UWKeyNavRules.RevealShift(lOFocus.xMin, lOFocus.xMax, 0f, pfWidth),
+                UWKeyNavRules.RevealShift(lOFocus.yMin, lOFocus.yMax, BarHeight, UWGuiTheme.ReferenceHeight));
+
+            mOGraphicsDialogAt = new Vector2(Mathf.Clamp(mOGraphicsDialogAt.x + lOShift.x, lOMin.x, lOMax.x),
+                Mathf.Clamp(mOGraphicsDialogAt.y + lOShift.y, lOMin.y, lOMax.y));
+        }
     }
+
+    /// <summary>The Graphics window's top left corner in the menu's units; NaN until first drawn.</summary>
+    private Vector2 mOGraphicsDialogAt = new Vector2(float.NaN, float.NaN);
 
     // ------------------------------------------------- Game
 

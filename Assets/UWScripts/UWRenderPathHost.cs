@@ -369,8 +369,17 @@ public sealed class UWRenderPathHost : MonoBehaviour
             mOCommon.ShadeTable, mOCommon.RotationTable, liLightLevel,
             UWFlicker.RotationStep(Time.time, lfSteps),
             mbInterpolateLevels, mbDither, mbOrderedMatrix,
-            mfDitherScale > 0f ? mfDitherScale : UWShadePalette.GetOriginalPixelSize(),
+            mfDitherScale > 0f ? mfDitherScale : UWShadePalette.GetDitherCell(),
             (FullBright || fIsUnlitLevel()) && lbPaletteOn);
+
+        // The polygon corners' shade (UWCornerLevel, UWPaletteLookup.hlsl) of this light level.
+        if (lOData != null && lOData.Shades != null && lOData.Shades.TryGet(liLightLevel, out UWShades.Entry lOShade))
+        {
+            UWShaderGlobals.SetVector(UWShaderIds.ShadeFormula, new Vector4(lOShade.Shading, lOShade.DistanceBeforeShading,
+                lOShade.StartingLightLevel, lOShade.ViewingDistance));
+            UWShaderGlobals.SetVector(UWShaderIds.ViewScale, new Vector4(UWClassicLayout.Frame.ViewXScale / 32768f,
+                UWClassicLayout.Frame.ViewZoom / 32768f, 0f, 0f));
+        }
 
         // NIGHT VISION: at light level 5 the original loads MONO.DAT as its light table
         // (OpenAndApplyShadesDat_ovr142_0, per user 2026-10-01: the view turns grey in the

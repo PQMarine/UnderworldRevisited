@@ -127,6 +127,14 @@ pitch, 92 percent there; so do we in the classic scheme. The modern scheme looks
 leans no further than it does at 22.5 degrees - leaning with the view all the way, a creature
 looked up at came at the face.
 
+**The dither pattern on walls, floors and ceilings.** Their shade is the original's: taken at the
+corners of each polygon in its own view space, by its own arithmetic, and stepped across on the
+screen. Three things differ. The corners are pulled to the edges of the view instead of being
+clipped along the polygon's edges, so a band can lie elsewhere when a corner comes out one level
+off. A four-cornered face is two triangles here. And the checker lies on a grid over the screen,
+where the original starts it anew at the left end of every span, which turns it into stripes on a
+slanted polygon. Sprites, models and doors keep a shade by distance per pixel.
+
 ## Bugs of the original that are kept
 
 **The Garamon of the burial conversation.** The conversation at the grave runs with a stand-in

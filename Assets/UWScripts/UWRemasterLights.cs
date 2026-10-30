@@ -110,9 +110,13 @@ public sealed class UWRemasterLights : IUWRemasterFeature
     /// Only the nearest shadow casters cast shadows (RemasterMaxShadowLights, per user
     /// 2026-09-13). Before, every torch with recipe shadows cast soft point light shadows -
     /// six shadow maps per light; the log reported 60 times that URP had to lower the
-    /// resolution, and Remastered ran increasingly choppy. Lights out of range do not
-    /// count: their shadow would not be visible anyway.
+    /// resolution, and Remastered ran increasingly choppy. A light whose reach ends further than
+    /// ShadowViewTiles from the eye does not count: nothing it lights can be seen. Until 2026-10-30 this
+    /// asked whether the EYE stood in the light's reach, and a campfire's shadows went out as soon as
+    /// the viewer stepped out of it, with the lit wall in full view (per user, with screenshots).
     /// </summary>
+    private const float ShadowViewTiles = 8f;
+
     private void fUpdateShadowLights(UnderworldRevisited.UWSettings pOSettings)
     {
         if (mOShadowLights.Count == 0 || Time.unscaledTime < mfNextShadowUpdate)
@@ -142,8 +146,9 @@ public sealed class UWRemasterLights : IUWRemasterFeature
 
         foreach (Light lOLight in mOShadowLights)
         {
+            float lfReach = lOLight.range + (ShadowViewTiles * UWWorldScale.TileSize);
             bool lbInRange = lOLight.isActiveAndEnabled
-                && (lOLight.transform.position - lOEye).sqrMagnitude <= lOLight.range * lOLight.range;
+                && (lOLight.transform.position - lOEye).sqrMagnitude <= lfReach * lfReach;
 
             bool lbShadow = lbInRange && liGiven < liMax;
 

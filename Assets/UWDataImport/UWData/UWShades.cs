@@ -149,6 +149,12 @@ namespace UWDataImport.UWData
 		/// pbDiagonalStretch selects between the two: false is the state after the observation,
 		/// true the reference's wording.
 		///
+		/// SETTLED 2026-10-30 (Underworld Exhumed): the doubling is preset_grid's (uw1 3d/VIEW3D.C), the
+		/// shade of a grid cell, used for flat faces and objects. Textured walls and floors take theirs
+		/// from smooth_over (3d/SMOOTH.ASM), per polygon corner and without it - UWCornerLevel in
+		/// UWPaletteLookup.hlsl, which the dungeon shader uses. This table still shades what is not
+		/// built of corners here: sprites, models and doors.
+		///
 		/// What this yields with the real UW1 data with pbDiagonalStretch true (the tables without
 		/// the doubling reach correspondingly further, see the level 4 example above):
 		///

@@ -60,6 +60,10 @@ public sealed class UWEffectsScreen
         /// (NaN: they leave it).</summary>
         public float AllOn = float.NaN;
         public float AllOff = float.NaN;
+
+        /// <summary>Does nothing in Palette colours (no highlights, nothing mixes colours afterwards):
+        /// greyed there.</summary>
+        public bool RemasteredOnly;
     }
 
     private readonly List<Row> mORows = new List<Row>();
@@ -80,19 +84,23 @@ public sealed class UWEffectsScreen
     {
         fAddToggle("effects.torch_and_fire_lights", v => v.TorchLights, (v, b) => v.TorchLights = b);
         fAddToggle("effects.torch_shadows", v => v.TorchShadows, (v, b) => v.TorchShadows = b);
+        fAddRow("effects.shadow_brightness", KindEnum.Slider, 0f, 1f, v => v.ShadowBrightness, (v, f) => v.ShadowBrightness = f);
         fAddRow("effects.shadows_at_once", KindEnum.Steps, 0f, 8f, v => v.MaxShadowLights, (v, f) => v.MaxShadowLights = Mathf.RoundToInt(f));
         fAddToggle("effects.lava_lights", v => v.LavaLights, (v, b) => v.LavaLights = b);
         fAddRow("effects.light_brightness", KindEnum.Slider, 0f, 3f, v => v.LightBrightness, (v, f) => v.LightBrightness = f);
         fAddRow("effects.relief", KindEnum.Slider, 0f, 4f, v => v.NormalStrength, (v, f) => v.NormalStrength = f);
         fAddRow("effects.shine", KindEnum.Slider, 0f, 2f, v => v.SpecularStrength, (v, f) => v.SpecularStrength = f);
+        mORows[mORows.Count - 1].RemasteredOnly = true;
         fAddRow("effects.wall_depth", KindEnum.Slider, 0f, 0.2f, v => v.ParallaxDepth, (v, f) => v.ParallaxDepth = f);
         fAddRow("effects.relief_shadows", KindEnum.Slider, 0f, 1f, v => v.SelfShadow, (v, f) => v.SelfShadow = f);
         fAddRow("effects.dark_joints", KindEnum.Slider, 0f, 1f, v => v.Cavity, (v, f) => v.Cavity = f);
         fAddRow("effects.lava_glow", KindEnum.Slider, 0f, 4f, v => v.EmissiveStrength, (v, f) => v.EmissiveStrength = f);
         fAddRow("effects.bloom", KindEnum.Slider, 0f, 3f, v => v.BloomIntensity, (v, f) => v.BloomIntensity = f);
+        mORows[mORows.Count - 1].RemasteredOnly = true;
         fAddToggle("effects.ambient_occlusion", v => v.AmbientOcclusion, (v, b) => v.AmbientOcclusion = b);
         fAddRow("effects.tonemapping", KindEnum.Tonemapping, 0f, 2f, v => (float)v.Tonemapping,
             (v, f) => v.Tonemapping = (UWSettings.RemasterTonemappingEnum)Mathf.RoundToInt(f));
+        mORows[mORows.Count - 1].RemasteredOnly = true;
         fAddRow("effects.sprite_glow", KindEnum.Slider, 0f, 3f, v => v.SpriteGlow, (v, f) => v.SpriteGlow = f);
         fAddRow("effects.fire_flicker", KindEnum.Slider, 0f, 0.8f, v => v.FireFlicker, (v, f) => v.FireFlicker = f);
         fAddRow("effects.sparks", KindEnum.Slider, 0f, 3f, v => v.FireSparks, (v, f) => v.FireSparks = f);
@@ -165,6 +173,9 @@ public sealed class UWEffectsScreen
         {
             Row lOThis = lORow;
             UWSetupRow lOPageRow = new UWSetupRow { Id = "effects.row", Text = UWText.T(lORow.LabelId), Height = RowHeight, Advance = RowAdvance, OnChange = fChanged };
+
+            if (lORow.RemasteredOnly)
+                lOPageRow.EnabledWhen = () => UWGraphicsDetail.Mode != UWGraphicsDetail.ModeEnum.PaletteColours;
 
             switch (lORow.Kind)
             {
@@ -344,7 +355,7 @@ public sealed class UWEffectsScreen
         }
 
         UWGraphicsDetail.EffectValues lOValues = mFValues();
-        string lsTitle = UWText.T("effects.title");
+        string lsTitle = UWText.T(UWGraphicsDetail.Mode == UWGraphicsDetail.ModeEnum.PaletteColours ? "effects.title.colours" : "effects.title");
         string lsAll = UWText.T("effects.all");
         string lsOn = UWText.T("effects.on");
         string lsOff = UWText.T("effects.off");

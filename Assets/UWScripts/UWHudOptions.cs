@@ -362,7 +362,9 @@ public sealed class UWHudOptions
                 continue;
             }
 
-            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS, liArt);
+            // The picture with its highlight: a chosen save slot is drawn anew here, and while its name is
+            // typed nothing else draws it (per user, 2026-10-30: it stayed dark).
+            fSetUiSprite(mOptionsEntryImages[liAt], UWTexture.TextureTypes.OPTBTNS, mOModel.PictureOf(liAt));
             mOptionsEntryImages[liAt].enabled = true;
         }
     }

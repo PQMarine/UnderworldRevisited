@@ -64,6 +64,9 @@ public sealed class UWPaletteEffects
     /// user the same day: "bei Own alles bis 6 einstellbar").</summary>
     public const float MaxDepth = 6f;
 
+    /// <summary>The largest cell of the dither pattern, in pixels of the picture.</summary>
+    public const float MaxDitherCell = 12f;
+
     /// <summary>
     /// THE PRESETS (per user, 2026-10-07: not to overwhelm with options - values proposed, the user
     /// unsure which would fit): Off as the original, Subtle near it without new light, Full with

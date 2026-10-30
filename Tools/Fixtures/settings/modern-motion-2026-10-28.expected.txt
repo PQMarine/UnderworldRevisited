@@ -71,6 +71,7 @@ OriginalWorldResolutionFactor = 1
 PaletteAmbientOcclusion = 0
 PaletteCavity = 0
 PaletteDepth = 0
+PaletteDitherCell = 0
 PaletteGlow = False
 PaletteGrime = 0
 PaletteGrimeTone = 1

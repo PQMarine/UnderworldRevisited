@@ -258,6 +258,10 @@ namespace UWDataImport.UWData
 		/// <summary>The palette renderer's depth (parallax and self shadow), 0 = off.</summary>
 		public float PaletteDepth;
 
+		/// <summary>One cell of the dither pattern in pixels of the picture, 0 = one pixel of the original's
+		/// screen (UWShadePalette.GetDitherCell; asked for on Reddit, 2026-10-29).</summary>
+		public float PaletteDitherCell;
+
 
 		/// <summary>Window or borderless fullscreen (UWDisplayMode.ModeEnum): 0 window, 1 borderless
 		/// fullscreen; -1 not chosen yet, then a build starts borderless at the desktop's size.</summary>

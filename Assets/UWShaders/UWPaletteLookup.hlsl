@@ -139,6 +139,41 @@ float UWShadeLevel(float pfTileDistance)
     return clamp(lfLevel, 0.0, UW_SHADE_LEVELS - 1.0);
 }
 
+// THE SHADE OF A POLYGON'S CORNER (per user, 2026-10-30: the original looks less regular, ours has
+// round circles around the player). The original shades walls, floors and ceilings by their corners:
+// smooth_over (Underworld Exhumed uw1 3d/SMOOTH.ASM) takes each corner's distance to the eye in eighths
+// of a tile, in its own view space (the dungeon shader's UWDungeonCornerDistance), as (distance *
+// Shading >> 6) + DistanceBeforeShading, at least 0, +
+// StartingLightLevel, at most 15, and the fill steps that linearly across the polygon on the screen
+// (GRENTRY.ASM _seg003_F77). So its bands run straight on each polygon and kink at the tile edges. The
+// dungeon shader computes this in the vertex stage and hands it on with noperspective.
+//
+// x Shading, y DistanceBeforeShading, z StartingLightLevel, w ViewingDistance of the light level
+// (UWShades, set by UWRenderPathHost). Beyond the view distance a tile is not drawn at all
+// (preset_grid); one tile on the corners go to 15, so that the last tile fades instead of ending hard.
+//
+// THE CORNER AS CLIPPED (measured the same day on a pair of screenshots: the floor right, the walls
+// 20 to 30 percent too dark): smooth_over reads the records after the polygon was clipped to the view.
+// A wall reaches the ceiling, far above the screen, and its true top corner is far away; the
+// original's is where the screen cuts the wall. So pfCornerDistance is the distance to the corner
+// pulled into the view (the shader's UWDungeonCornerDistance), in eighths of a tile.
+float4 _UWShadeFormula;
+
+// x the view's X scale, y the zoom on the depth (UWRenderPathHost, from UWClassicLayout.Frame).
+float4 _UWViewScale;
+
+float UWCornerLevel(float pfCornerDistance, float3 pOPositionWS, float3 pOCameraWS)
+{
+    // Whole numbers, as the original's: the length from its root, the product shifted down.
+    float lfEighths = pfCornerDistance;
+    float lfLevel = max(floor(lfEighths * _UWShadeFormula.x / 64.0) + _UWShadeFormula.y, 0.0) + _UWShadeFormula.z;
+
+    if (distance(pOPositionWS.xz, pOCameraWS.xz) / max(_UWTileSpacing, 0.0001) > _UWShadeFormula.w + 1.0)
+        lfLevel = UW_SHADE_LEVELS - 1.0;
+
+    return min(lfLevel, UW_SHADE_LEVELS - 1.0);
+}
+
 // The dither threshold for a pixel. The value lies between 0 and 1 and depends only
 // on the position of the pixel on the SCREEN.
 //
@@ -293,14 +328,16 @@ half4 UWShadeLookup(float pfIndex, float pfLevel)
     return lOColour;
 }
 
-half4 UWShadeIndex(float pfIndex, float pfTileDistance, float pfExtraLevel, float2 pOScreenPosition)
+// The index at a shade level not yet rounded: the light sources' cap, the extra darkening, the
+// dither.
+half4 UWShadeAtLevel(float pfIndex, float pfDistanceLevel, float pfExtraLevel, float2 pOScreenPosition)
 {
     // FULL BRIGHT: level zero, i.e. the pure palette colours. Distance, vertex darkness
     // and dithering all drop out together - dithering only happens between two levels anyway.
     if (_UWFullBright > 0.5)
         return UWShadeLookup(pfIndex, 0.0);
 
-    float lfLevel = min(UWShadeLevel(pfTileDistance), UWLightCap) + pfExtraLevel;
+    float lfLevel = min(pfDistanceLevel, UWLightCap) + pfExtraLevel;
 
     if (_UWDither > 0.5)
     {
@@ -314,6 +351,11 @@ half4 UWShadeIndex(float pfIndex, float pfTileDistance, float pfExtraLevel, floa
     lfLevel = clamp(lfLevel, 0.0, UW_SHADE_LEVELS - 1.0);
 
     return UWShadeLookup(pfIndex, lfLevel);
+}
+
+half4 UWShadeIndex(float pfIndex, float pfTileDistance, float pfExtraLevel, float2 pOScreenPosition)
+{
+    return UWShadeAtLevel(pfIndex, UWShadeLevel(pfTileDistance), pfExtraLevel, pOScreenPosition);
 }
 
 // The distance used for shading: straight-line distance in the PLANE, ignoring height difference.
@@ -342,8 +384,7 @@ float UWTileDistance(float3 pOPositionWS, float3 pOCameraWS)
 //
 // Whoever builds the index texture therefore puts the opacity into the alpha channel by
 // their own rule, and here the same applies to all.
-half4 UWPaletteColourExtra(float4 pORawTexel, float pfExtraLevel, float3 pOPositionWS,
-    float3 pOCameraWS, float2 pOScreenPosition)
+float UWPaletteTexelIndex(float4 pORawTexel, float2 pOScreenPosition)
 {
     float lfIndex = UWRotateIndex(UWToIndex(pORawTexel.r));
 
@@ -354,7 +395,22 @@ half4 UWPaletteColourExtra(float4 pORawTexel, float pfExtraLevel, float3 pOPosit
             UWTableUV(lfIndex, _UWGrimeTint, UW_PALETTE_SIZE, 4.0)).r);
     }
 
-    half4 lOColour = UWShadeIndex(lfIndex, UWTileDistance(pOPositionWS, pOCameraWS),
+    return lfIndex;
+}
+
+half4 UWPaletteColourExtra(float4 pORawTexel, float pfExtraLevel, float3 pOPositionWS,
+    float3 pOCameraWS, float2 pOScreenPosition)
+{
+    half4 lOColour = UWShadeIndex(UWPaletteTexelIndex(pORawTexel, pOScreenPosition),
+        UWTileDistance(pOPositionWS, pOCameraWS), pfExtraLevel, pOScreenPosition);
+
+    return half4(lOColour.rgb, pORawTexel.a);
+}
+
+// The same with the level from the polygon's corners (UWCornerLevel).
+half4 UWPaletteColourAtLevel(float4 pORawTexel, float pfCornerLevel, float pfExtraLevel, float2 pOScreenPosition)
+{
+    half4 lOColour = UWShadeAtLevel(UWPaletteTexelIndex(pORawTexel, pOScreenPosition), pfCornerLevel,
         pfExtraLevel, pOScreenPosition);
 
     return half4(lOColour.rgb, pORawTexel.a);

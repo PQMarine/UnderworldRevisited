@@ -71,6 +71,7 @@
     "PaletteGroundShadows": 1.0,
     "PaletteCavity": 3.0,
     "PaletteDepth": 0.000009999999747378752,
+    "PaletteDitherCell": 0.0,
     "DisplayMode": 1,
     "ResolutionWidth": 1920,
     "ResolutionHeight": 1080,

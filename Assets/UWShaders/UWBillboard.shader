@@ -210,6 +210,7 @@ Shader "UW/Billboard"
                 // THE HALLUCINATION AND THE GHOSTS (UWHallucination.hlsl), where the atlas has an
                 // index version. Shaded by the PIVOT's distance, as the palette path shades a sprite.
                 half4 lOIndexTexel = SAMPLE_TEXTURE2D(_IndexTex, sampler_PointClamp, IN.uv);
+                float lfDemasterIndex = -1.0;
 
                 if (lOIndexTexel.a > 0.0h)
                 {
@@ -233,6 +234,8 @@ Shader "UW/Billboard"
                     else
                     {
                         float lfIndex = UWToIndex(lOIndexTexel.r);
+
+                        lfDemasterIndex = lfIndex;
 
                         if (UWRemasterLightEffect())
                             return half4(UWRemasterLightEffectColour(lfIndex, 0.0, IN.pivotWS, 0.0, IN.positionCS.xy), albedo.a);
@@ -301,6 +304,15 @@ Shader "UW/Billboard"
                 // the own colour cut that off).
                 if (_Glow > 0.5)
                     color += albedo.rgb * 0.8h;
+
+                // DEMASTERED (UWHallucination.hlsl): the glows add to the light instead. A picture
+                // without an index version keeps its lit colours.
+                if (UWDemasterActive() && lfDemasterIndex >= 0.0)
+                {
+                    half3 lODemasterLight = lighting + (lfGlowMask * _SpriteGlow) + (_Glow > 0.5 ? 0.8h : 0.0h);
+
+                    return half4(UWDemasterColour(lfDemasterIndex, lODemasterLight, 0.0, IN.positionCS.xy), albedo.a);
+                }
 
                 color = MixFog(color, IN.fogFactor);
 

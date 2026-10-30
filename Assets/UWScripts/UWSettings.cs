@@ -255,6 +255,10 @@ namespace UnderworldRevisited
         [Tooltip("Point lights cast shadows: the player light and the larger fires (torch, lantern, campfire). Costs computation.")]
         public bool RemasterTorchShadows = true;
 
+        [Tooltip("How bright the player light's shadows are: 0 black, 1 no shadow. The light's shadow strength is one less this.")]
+        [Range(0f, 1f)]
+        public float RemasterShadowBrightness = 0.1f;
+
         [Tooltip("This many torches and fires in the world cast shadows at the same time - the ones nearest the player. Each shadowed point light needs six shadow maps; previously all of them cast shadows, and URP had to squeeze up to 18 maps into the atlas (stutter). The player light does not count.")]
         [Range(0, 8)]
         public int RemasterMaxShadowLights = 2;
@@ -317,6 +321,9 @@ namespace UnderworldRevisited
 
         [Tooltip("How bright and dark values reach the screen. Neutral keeps the colours, ACES gives a filmic contrast.")]
         public RemasterTonemappingEnum RemasterTonemapping = RemasterTonemappingEnum.Neutral;
+
+        [Tooltip("Demastering: the Remastered lighting decides only how bright a pixel is, its colour comes from the original's light table for its palette index (UWHallucination.hlsl). Bloom and tonemapping stay out of it.")]
+        public bool RemasterDemaster;
 
         [Tooltip("Which sub-tile number the tile centre means. 3.5 is the centre of the eight sub-tiles and measured against the original: the secret door on 35/58 with sub-tile 0 stands exactly four wall texture pixels from the tile edge, and (0 - 3.5) times eight gives exactly minus 28, i.e. four units in front of the edge at 32.")]
         [Range(3f, 4f)]

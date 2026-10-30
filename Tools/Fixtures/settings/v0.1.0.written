@@ -71,6 +71,7 @@
     "PaletteGroundShadows": 0.0,
     "PaletteCavity": 0.0,
     "PaletteDepth": 0.0,
+    "PaletteDitherCell": 0.0,
     "DisplayMode": 0,
     "ResolutionWidth": 1280,
     "ResolutionHeight": 720,

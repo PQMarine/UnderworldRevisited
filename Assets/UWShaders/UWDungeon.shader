@@ -529,6 +529,18 @@ Shader "UW/Dungeon"
                 half3 color = (albedo.rgb * lighting) + specular;
 
                 #if defined(_UW_REMASTER)
+                // DEMASTERED (UWHallucination.hlsl): only the light counts - the grime's tone darkens it,
+                // the lava's glow adds to it. The soft cap above lets a light come near 1.5, not 1; on the
+                // light as it is the whole near range stood flat at level 0, and with one level there is
+                // nothing to dither between (per user, 2026-10-30).
+                if (UWDemasterActive())
+                {
+                    half3 lODemasterLight = (lighting * lerp(half3(1.0h, 1.0h, 1.0h), _UWGrimeToneColour.rgb, lfGrime)
+                        / (_PointLightCap * 1.5h)) + (lfGlow * _EmissiveStrength);
+
+                    return half4(UWDemasterColour(UWToIndex(lfIndex), lODemasterLight, 0.0, IN.positionCS.xy), 1.0h);
+                }
+
                 // Lava glows by itself - so it is visible even in a dark
                 // corridor, and bloom picks it up.
                 color += albedo.rgb * (lfGlow * _EmissiveStrength);

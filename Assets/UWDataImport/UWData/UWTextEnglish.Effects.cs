@@ -10,9 +10,11 @@ namespace UWDataImport.UWData
 		private static void fEffects()
 		{
 			fAdd("effects.title", "Remastered effects");
+			fAdd("effects.title.colours", "Palette colours effects");
 			fAdd("effects.all", "All:");
 			fAdd("effects.torch_and_fire_lights", "Torch and fire lights");
 			fAdd("effects.torch_shadows", "Torch shadows");
+			fAdd("effects.shadow_brightness", "Shadow brightness");
 			fAdd("effects.shadows_at_once", "Shadows at once");
 			fAdd("effects.lava_lights", "Lava lights");
 			fAdd("effects.light_brightness", "Light brightness");

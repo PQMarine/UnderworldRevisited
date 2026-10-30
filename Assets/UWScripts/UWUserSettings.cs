@@ -250,6 +250,8 @@ public static class UWUserSettings
     /// <summary>The palette renderer's hollows in shade steps, 0 = off - see UWPaletteEffects.</summary>
     public static float PaletteCavity { get => Defs.PaletteCavity.Read(fGet()); set => Defs.PaletteCavity.Write(fGet(), value); }
 
+    public static float PaletteDitherCell { get => Defs.PaletteDitherCell.Read(fGet()); set => Defs.PaletteDitherCell.Write(fGet(), value); }
+
     /// <summary>The palette renderer's depth (parallax and self shadow), 0 = off - see UWPaletteEffects.</summary>
     public static float PaletteDepth { get => Defs.PaletteDepth.Read(fGet()); set => Defs.PaletteDepth.Write(fGet(), value); }
 

@@ -92,14 +92,15 @@ motion of its own - you slide along walls, the view stays where you look, backwa
 sideways are almost as fast as forwards - with the original's jumps, ledges and falls; each
 setting carries a short explanation. Controls has the mouse look speed of the modern scheme, its inverted look
 up and down, and the gamepad's settings. F10 shows the menu bar for the keyboard: the arrow
-keys move, Enter or Space chooses, Escape or F10 leaves. Graphics has the
-detail levels, the classic screen at 4:3 or widened to the screen ("Classic screen
-widescreen"), the view angle ("View"), the gamma of the 3D view ("Gamma", for a darker
-level - 1.00 is the picture as drawn), and the world at the original's resolution or a
-multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
-effects of the port's own to the original's palette look (presets Subtle and Full) - use
-them with care, turned up they quickly take away the look of the original; "Remastered
-effects..." beside it sets every effect of the Remastered mode (the level then shows Custom).
+keys move, Enter or Space chooses, Escape or F10 leaves. Graphics has the Mode - Palette, the
+original's look; Palette colours, real light and shadows in the original's colours; Remastered,
+the modern look - and its Effects, Off, Subtle, Full or your own, set with "Effects..." In the
+Palette mode those are the port's own effects on the original's look: use them with care, turned
+up they quickly take it away. The window also has the classic screen at 4:3 or widened to the
+screen ("Classic screen widescreen"), the view angle ("View"), the gamma of the 3D view ("Gamma",
+for a darker level - 1.00 is the picture as drawn), the size of the dither ("Dither grain"), and
+the world at the original's resolution or a multiple of it up to 4x, with the interface staying
+sharp. It can be moved by its title row, to see the view while choosing.
 Colours has the colour help and the look of these windows: Stone, in the colours of the
 game's icon, with a gradient or clouds, or Plain.
 

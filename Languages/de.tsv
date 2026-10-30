@@ -89,6 +89,9 @@ setting.PaletteDepth	Tiefe
 setting.PaletteDepth.hint	Steine heben sich von ihren Fugen ab und verschieben sich mit ihrem Schatten gegen sie, wenn du dich bewegst.
 setting.PaletteCavity	Vertiefungen
 setting.PaletteCavity.hint	Fugen und Nischen werden dunkler.
+setting.PaletteDitherCell	Dither-Körnung
+setting.PaletteDitherCell.hint	Die Größe des Schachbretts zwischen zwei Schattierungen, in Pixeln des Bildes. Original ist ein Pixel des 320x200-Bildschirms.
+setting.PaletteDitherCell.original	Original
 setting.PaletteGroundShadows	Bodenschatten
 setting.PaletteGroundShadows.hint	Ein dunkler Fleck unter Kreaturen und Dingen, damit sie auf dem Boden stehen.
 setting.PaletteGlow	Leuchten - Lava und Flammen behalten ihre volle Farbe, auch im Dunkeln
@@ -215,14 +218,13 @@ setup.motion.title	Bewegung
 setup.motion.hint	Wie du dich bewegst. Das Spiel nutzt den Bewegungscode des Originals. Hier wählst du, wie oft er rechnet und wie das Bild folgt.
 setup.motion.bob.hint	Das Wippen von Blick und Waffe beim Gehen und das Schaukeln des Blicks beim Schwimmen: wie im Original, geglättet mit deiner eigenen Stärke oder aus, wenn dir davon unwohl wird.
 setup.graphics.title	Grafik
-setup.graphics.detail	Detail
-setup.graphics.detail.low	Niedrig
-setup.graphics.detail.medium	Mittel
-setup.graphics.detail.high	Hoch
-setup.graphics.detail.custom	Eigene
-setup.graphics.detail.hint	Niedrig: die Originalpalette. Mittel: Remastered, ohne Effekte. Hoch: Remastered, alle Effekte. Eigene: deine eigenen Effekte, eingestellt unter Remastered-Effekte.
-setup.graphics.palette	Paletteneffekte...
-setup.graphics.remastered	Remastered-Effekte...
+setup.graphics.mode	Modus
+setup.graphics.mode.palette	Palette
+setup.graphics.mode.colours	Palettenfarben
+setup.graphics.mode.remastered	Remastered
+setup.graphics.mode.hint	Palette: das Bild des Originals. Palettenfarben: echtes Licht und echte Schatten in den Farben des Originals. Remastered: der moderne Look.
+setup.graphics.effects	Effekte
+setup.graphics.effects.open	Effekte...
 setup.graphics.view_original	Original
 setup.graphics.view_orig	Orig.
 setup.graphics.factor_locked	4x braucht ein 1600 Pixel hohes Fenster
@@ -258,8 +260,8 @@ setup.colours.flask.poisoned	Vergiftet
 setup.colours.flask.mana	Mana
 setup.palette.title	Paletteneffekte
 setup.palette.drag	zum Verschieben hier ziehen
-setup.palette.hint	Unsere eigenen Effekte für die Palette des Originals (Detailstufe Niedrig). Sie machen eine Fläche nur um die Schattierungsstufen des Originals heller oder dunkler, so behält jeder Pixel eine Palettenfarbe - aber hochgedreht nehmen sie schnell den Look des Originals. 0 ist aus.
-setup.palette.hint.not_low	Unsere eigenen Effekte für die Palette des Originals - sie wirken nur in der Detailstufe Niedrig, die gerade nicht gewählt ist. 0 ist aus.
+setup.palette.hint	Unsere eigenen Effekte für die Palette des Originals (Modus Palette). Sie machen eine Fläche nur um die Schattierungsstufen des Originals heller oder dunkler, so behält jeder Pixel eine Palettenfarbe - aber hochgedreht nehmen sie schnell den Look des Originals. 0 ist aus.
+setup.palette.hint.not_low	Unsere eigenen Effekte für die Palette des Originals - sie wirken nur im Modus Palette, der gerade nicht gewählt ist. 0 ist aus.
 setup.palette.preset	Vorgabe
 setup.palette.preset.off	Aus
 setup.palette.preset.subtle	Dezent
@@ -798,9 +800,11 @@ hud.uw2.save_slot_2	II- {0}
 hud.uw2.save_slot_3	III- {0}
 hud.uw2.save_slot_4	IV- {0}
 effects.title	Remastered-Effekte
+effects.title.colours	Effekte der Palettenfarben
 effects.all	Alle:
 effects.torch_and_fire_lights	Fackel- und Feuerlicht
 effects.torch_shadows	Fackelschatten
+effects.shadow_brightness	Schattenhelligkeit
 effects.shadows_at_once	Schatten sofort
 effects.lava_lights	Lavalicht
 effects.light_brightness	Lichthelligkeit

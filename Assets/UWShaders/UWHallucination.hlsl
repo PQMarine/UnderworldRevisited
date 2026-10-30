@@ -114,6 +114,67 @@ half3 UWRemasterPaletteColour(float pfIndex)
     return SAMPLE_TEXTURE2D(_UWRemasterPalettes, sampler_PointClamp, lOUV).rgb;
 }
 
+// DEMASTERING (per user, 2026-10-30, after a Reddit comment of 2026-10-29: "all the remastering
+// environmental effects but then force the render back to the original palette"): the Remastered
+// lighting - relief, shadows, torches, occlusion - decides only HOW BRIGHT a pixel is; its colour is
+// the palette index's own at the matching level of the original's light table, dithered between two
+// levels as the palette path does. Every pixel stays a colour of the index's own ramp, which a nearest
+// colour search over the finished picture would not (it jumps hues). What this gives up: the
+// highlights and the colour of the light - the table only darkens.
+//
+// THE LEVELS: measured on LIGHT.DAT through the palette (2026-10-30), a level takes off about 5.9 percent
+// of the brightness of level 0, from 1.0 down to 0.117 at level 15 - close to a straight line, so
+// 17 levels per unit of light. Lava and fire stay bright by themselves: the table keeps them.
+//
+// THE ORIGINAL'S CHECKER (per user, 2026-10-30: it is what gives the look), by UWDitherThreshold as in the
+// palette path. For a while this was a 4 by 4 matrix against "dither circles", which more likely were
+// water's cliff in the light table, below.
+#define UW_DEMASTER_LEVELS 17.0
+
+float _UWDemaster;
+
+bool UWDemasterActive()
+{
+    return _UWDemaster > 0.5;
+}
+
+// An index (0 to 255, as stored) under this light; pfExtraLevel is the model faces' own darkening.
+// The brightest channel counts: warm torchlight is no dimmer than white of the same strength.
+half3 UWDemasterColour(float pfIndex, half3 pOLight, float pfExtraLevel, float2 pOScreenPosition)
+{
+    float lfLight = max(pOLight.r, max(pOLight.g, pOLight.b));
+    float lfLevel = ((1.0 - saturate(lfLight)) * UW_DEMASTER_LEVELS) + pfExtraLevel;
+
+    lfLevel = min(lfLevel, UW_SHADE_LEVELS - 1.0);
+
+    if (_UWDither > 0.5)
+        lfLevel = floor(lfLevel) + step(UWDitherThreshold(pOScreenPosition), frac(lfLevel));
+    else
+        lfLevel = floor(lfLevel + 0.5);
+
+    lfLevel = clamp(lfLevel, 0.0, UW_SHADE_LEVELS - 1.0);
+
+    float lfRotated = UWRotateIndex(pfIndex);
+
+    // WATER HAS NO WAY INTO THE DARK (per user, 2026-10-30: the way to black "looks bad in motion"):
+    // LIGHT.DAT keeps 48 to 63 at about the same brightness from level 1 to 14 and sends them to black at
+    // 15. The original's light goes by tiles and steps over that; this light dithers full blue
+    // against black in a band that swims. So here the colour is darkened by the level's own share and
+    // takes the nearest palette colour, which the palette has for it (a ramp of dark blues down to
+    // 4/8/24, measured the same day): still a palette colour every pixel, the other colours keep
+    // their ramp. Without the lookups (the hallucination's palette) the table as it is.
+    if (pfIndex > 47.5 && pfIndex < 63.5 && _UWRemasterXfer > 0.5)
+    {
+        float3 lOWanted = UWShadeLookup(lfRotated, 0.0).rgb * (1.0 - (lfLevel / UW_DEMASTER_LEVELS));
+        float3 lOCell = floor((saturate(lOWanted) * (UW_INVERSE_SIZE - 1.0)) + 0.5);
+
+        return UWShadeLookup(UWToIndex(SAMPLE_TEXTURE3D(_UWRemasterInverseLookup, sampler_PointClamp,
+            (lOCell + 0.5) / UW_INVERSE_SIZE).r), 0.0).rgb;
+    }
+
+    return UWShadeLookup(lfRotated, lfLevel).rgb;
+}
+
 // Lava and fire (16 to 23) and water (48 to 63) travel through the palette (UWPaletteRotation).
 bool UWIsRotatingIndex(float pfIndex)
 {

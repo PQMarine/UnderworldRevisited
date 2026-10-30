@@ -8,6 +8,33 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.14.0] - 2026-10-30
+
+### Added
+- Palette colours, a third way of drawing the world beside Palette and Remastered: the real light
+  and shadows of the Remastered mode, drawn only in the original's colours and with its dither. The
+  light decides how bright a pixel is, the original's light table its colour. Fires and torches
+  throw their shadows here, which the Palette mode's own effects cannot. Asked for on Reddit.
+- Dither grain, a slider in the Graphics window: the size of the dither in pixels of the picture, or
+  the original's 320x200 pixel. At 1 px it follows the world's resolution. Asked for on Reddit.
+- Shadow brightness, a slider in the effects window: how dark the player light's shadows get.
+
+### Changed
+- The Graphics window has two rows instead of the four detail levels, which mixed what is drawn with
+  how many effects: Mode (Palette, Palette colours, Remastered) and Effects (Off, Subtle, Full,
+  Own), set alike in every mode, with one Effects... button. It can be moved by its title row, to see
+  the view while choosing. Low, Medium, High and Very High stay in the classic options: Palette,
+  Palette colours, Remastered, Remastered with your own values. A file of settings is taken over.
+
+### Closer to the original
+- Walls, floors and ceilings in the Palette mode are shaded as the original shades them: by the
+  corners of each polygon, in its own view space, stepped across on the screen. The round circles
+  around the player are gone. The dither itself lies a little differently, see Docs/DEVIATIONS.md.
+
+### Fixed
+- A light's shadows went out as soon as you stepped out of its reach, with the lit wall in full view.
+- The chosen save slot in the classic options stayed dark while its name was typed.
+
 ## [0.13.1] - 2026-10-30
 
 ### Added

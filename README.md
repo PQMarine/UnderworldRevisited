@@ -78,7 +78,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 
 - **Palette** mode computes light like the original through SHADES.DAT and LIGHT.DAT;
   **Remastered** lights with URP and adds relief, specular highlights, glow, shadows and torch
-  lights - each switchable on its own
+  lights - each switchable on its own; **Palette colours** draws that real light and its shadows
+  only in the original's colours and with its dither
 - Effects of the port's own for the Palette mode that keep every pixel a colour of the
   original's palette: ambient occlusion, grime along the walls, wall depth with its shadow,
   darker joints, ground shadows, glowing lava and flames, and light sources lighting their
@@ -87,7 +88,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   the interface stays sharp
 - The classic interface at the original's 4:3, or widened to a wide screen with the frame's
   stone grown anew instead of stretched; a slider for the view angle, and one for the 3D view's
-  gamma, which lifts its dark tones in both render modes
+  gamma, which lifts its dark tones in every render mode, and one for the size of the dither
 
 **Sound and music**
 

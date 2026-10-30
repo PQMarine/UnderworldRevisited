@@ -40,6 +40,8 @@ format stay tied to what Unity writes.
   empty (the first game).
 - `view-gamma-2026-10-30.json`: the 3D view's gamma (issue 9), the one number added since; every other
   property at its default. Every older fixture reads it 1 (the picture as drawn).
+- `dither-cell-2026-10-30.json`: a dither grain of its own (the Dither grain row), the one number added
+  since; every other property at its default. Every older fixture reads 0, the original's pixel.
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

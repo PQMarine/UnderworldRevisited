@@ -68,6 +68,7 @@
     "PaletteGroundShadows": 0.0,
     "PaletteCavity": 0.0,
     "PaletteDepth": 0.0,
+    "PaletteDitherCell": 0.0,
     "DisplayMode": -1,
     "ResolutionWidth": 0,
     "ResolutionHeight": 0,

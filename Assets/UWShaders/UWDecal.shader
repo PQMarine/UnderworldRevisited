@@ -220,6 +220,10 @@ Shader "UW/Decal"
 
                 lighting += SampleSH(normalWS) + _AmbientFloor.xxx;
 
+                // DEMASTERED (UWHallucination.hlsl), where the palette index is known.
+                if (UWDemasterActive() && lfIndex >= 0.0)
+                    return half4(UWDemasterColour(lfIndex, lighting, lfExtraLevel, IN.positionCS.xy), 1.0h);
+
                 half3 color = albedo.rgb * lighting * lOTint;
                 color = MixFog(color, IN.fogFactor);
 

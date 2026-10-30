@@ -78,6 +78,9 @@ public static class UWShaderIds
     public static readonly int DitherPattern = fGlobal("_UWDitherPattern");
 
     public static readonly int DitherScale = fGlobal("_UWDitherScale");
+    public static readonly int ShadeFormula = fGlobal("_UWShadeFormula");
+    public static readonly int ViewScale = fGlobal("_UWViewScale");
+    public static readonly int Demaster = fGlobal("_UWDemaster");
 
     public static readonly int FullBright = fGlobal("_UWFullBright");
 

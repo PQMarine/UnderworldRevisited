@@ -176,6 +176,7 @@ namespace UWDataImport.UWData
 			fText(PaletteGroundShadows, true);
 			fText(PaletteGlow);
 			fText(PaletteLightSources, true);
+			fText(PaletteDitherCell, true);
 
 			foreach (UWFloatSettingDef lODef in new[] { PaletteAmbientOcclusion, PaletteGrime, PaletteDepth, PaletteCavity, PaletteGroundShadows })
 				lODef.Format = UWSettingFormat.ShadeSteps;

@@ -210,5 +210,16 @@ namespace UnderworldRevisited.Build
             return Mathf.Max(1f, Screen.height / 200f);
         }
 
+        /// <summary>One cell of the dither pattern as it is drawn: the viewer's own size if one is set
+        /// (the Dither grain row, asked for on Reddit, 2026-10-29: the dithering "gives this engine its
+        /// charm", at a grain of one's own), else one original pixel. In the pixels of the picture, so
+        /// with the world at the original's resolution one rendered pixel.</summary>
+        public static float GetDitherCell()
+        {
+            float lfCell = UWUserSettings.PaletteDitherCell;
+
+            return lfCell >= 1f ? Mathf.Min(lfCell, UWPaletteEffects.MaxDitherCell) : GetOriginalPixelSize();
+        }
+
     }
 }

@@ -111,6 +111,9 @@ namespace UWDataImport.UWData
 			fAdd("setting.PaletteDepth.hint", "Stones stand out from their joints and shift against them as you move, with their shadow.");
 			fAdd("setting.PaletteCavity", "Hollows");
 			fAdd("setting.PaletteCavity.hint", "Joints and recesses get darker.");
+			fAdd("setting.PaletteDitherCell", "Dither grain");
+			fAdd("setting.PaletteDitherCell.hint", "The size of the checker between two shades, in pixels of the picture. Original is one pixel of the 320x200 screen.");
+			fAdd("setting.PaletteDitherCell.original", "Original");
 			fAdd("setting.PaletteGroundShadows", "Ground shadows");
 			fAdd("setting.PaletteGroundShadows.hint", "A dark patch under creatures and things, so they stand on the ground.");
 			fAdd("setting.PaletteGlow", "Glow - lava and flames keep their full colour, in the dark too");

@@ -63,7 +63,43 @@ Shader "UW/DungeonPalette"
                 float4 positionCS : SV_POSITION;
                 float3 uv         : TEXCOORD0;
                 float3 positionWS : TEXCOORD1;
+                // Linear on the screen, as the original's fill steps it (UWCornerLevel).
+                noperspective float cornerLevel : TEXCOORD2;
             };
+
+            // smooth_over's length to the letter (Underworld Exhumed uw1 3d/SMOOTH.ASM): each axis in the
+            // original's units (four to our one) shifted down by 5, squared and summed, and the root by FOUR
+            // Newton steps from 64, in whole numbers. Four steps are not enough for a small number: a
+            // length of 2 comes out 4 and 4 comes out 5, so on a near wall the corners differ where
+            // the true root would give them all one level, and that difference is what the original
+            // dithers. In eighths of a tile, as UWCornerLevel takes it.
+            float UWNewtonLength(float3 pOView)
+            {
+                float3 lOAxis = floor(pOView * 4.0 / 32.0);
+                float lfSquare = dot(lOAxis, lOAxis);
+                float lfRoot = 64.0;
+
+                for (int liStep = 0; liStep < 4; liStep++)
+                    lfRoot = floor((lfRoot + floor(lfSquare / max(lfRoot, 1.0))) * 0.5);
+
+                return lfRoot;
+            }
+
+            // The corner's distance in the ORIGINAL'S VIEW SPACE, as smooth_over takes it: scale_matrix has
+            // folded the view into the matrix, X times 0.7887, Y as it is, depth times the zoom 0.7629
+            // (UWClassicLayout.Frame), so that the frustum's planes stand at |x| = z and |y| = z (code_pnt).
+            // A corner outside is pulled to those planes, about where the polygon's clipped corner lies:
+            // the top of a wall is the edge of the screen, not the ceiling. Measured 2026-10-30 on a wall 1.68
+            // tiles ahead: 4 at the foot, 6 at the clipped top, the rows of LIGHT.DAT read from the picture
+            // 4 to 5. In world units this came out two levels too dark.
+            float UWDungeonCornerDistance(float3 pOPositionWS)
+            {
+                float3 lOView = TransformWorldToView(pOPositionWS);
+                float lfDepth = max(-lOView.z * _UWViewScale.y, 0.0);
+                float2 lOSide = float2(lOView.x * _UWViewScale.x, lOView.y);
+
+                return UWNewtonLength(float3(clamp(lOSide, -lfDepth, lfDepth), lfDepth));
+            }
 
             Varyings UWVertex(Attributes IN)
             {
@@ -74,6 +110,8 @@ Shader "UW/DungeonPalette"
                 OUT.positionCS = positions.positionCS;
                 OUT.positionWS = positions.positionWS;
                 OUT.uv = IN.uv;
+                OUT.cornerLevel = UWCornerLevel(UWDungeonCornerDistance(positions.positionWS), positions.positionWS,
+                    _WorldSpaceCameraPos);
 
                 return OUT;
             }
@@ -97,12 +135,12 @@ Shader "UW/DungeonPalette"
                 UWLightCap = min(UWPaletteLightCap(IN.positionWS, lNormal), UWLavaGlowCap(raw, IN.positionWS));
                 UWGrimeTintMix = lfGrime;
 
-                half4 colour = UWPaletteColourExtra(raw,
+                half4 colour = UWPaletteColourAtLevel(raw, IN.cornerLevel,
                     UWPaletteEffectLevel(IN.positionCS) + (_UWPaletteGrime * lfGrime)
                         + UWGroundShadowLevel(IN.positionWS, lNormal)
                         + UWReliefLevel(IN.positionWS, lNormal, lUv, IN.uv.z)
                         + UWPaletteSelfShadowLevel(lUv, IN.uv.z, IN.positionWS, lNormal),
-                    IN.positionWS, _WorldSpaceCameraPos, IN.positionCS.xy);
+                    IN.positionCS.xy);
 
                 return half4(colour.rgb, 1.0h);
             }

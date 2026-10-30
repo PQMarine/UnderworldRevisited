@@ -161,6 +161,7 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
             && mOHost.Common.HallucinationTable == null;
 
         UWShaderGlobals.SetFloat(UWShaderIds.RemasterXfer, mbXfer ? 1f : 0f);
+        UWShaderGlobals.SetFloat(UWShaderIds.Demaster, lOSettings.RemasterDemaster ? 1f : 0f);
 
         Material lOMaterial = lOLoader.DungeonMaterial;
 
@@ -284,7 +285,9 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
 
         if (mOBloom != null)
         {
-            mOBloom.active = pOSettings.RemasterBloomIntensity > 0f;
+            // DEMASTERING leaves every pixel a colour of the palette (UWHallucination.hlsl), so nothing
+            // that mixes colours afterwards stays on: no bloom, no tonemapping.
+            mOBloom.active = pOSettings.RemasterBloomIntensity > 0f && !pOSettings.RemasterDemaster;
             mOBloom.intensity.value = pOSettings.RemasterBloomIntensity;
             mOBloom.threshold.value = pOSettings.RemasterBloomThreshold;
             mOBloom.scatter.value = pOSettings.RemasterBloomScatter;
@@ -293,14 +296,14 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
         if (mOTonemapping != null)
         {
             mOTonemapping.active = pOSettings.RemasterTonemapping
-                != UWSettings.RemasterTonemappingEnum.Off;
+                != UWSettings.RemasterTonemappingEnum.Off && !pOSettings.RemasterDemaster;
 
             mOTonemapping.mode.value = pOSettings.RemasterTonemapping
                 == UWSettings.RemasterTonemappingEnum.Aces
                     ? TonemappingMode.ACES : TonemappingMode.Neutral;
         }
 
-        fUpdateColourVision();
+        fUpdateColourVision(pOSettings.RemasterDemaster);
     }
 
     private ChannelMixer mOChannelMixer;
@@ -308,14 +311,16 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
     private ColorAdjustments mOColourAdjustments;
 
     /// <summary>The colour matrix, brightness and contrast of the colour help, in the units of
-    /// the pipeline: the mixer counts in percent, the exposure in stops.</summary>
-    private void fUpdateColourVision()
+    /// the pipeline: the mixer counts in percent, the exposure in stops. DEMASTERED the world comes
+    /// out of the colour table, which holds the colour help (and Night Vision's grey) already:
+    /// here it would apply twice.</summary>
+    private void fUpdateColourVision(bool pbDemaster)
     {
         float[] lyMatrix = UWColourVision.Filter.Matrix;
 
         if (mOChannelMixer != null)
         {
-            mOChannelMixer.active = UWColourVision.Filter.HasMatrix;
+            mOChannelMixer.active = UWColourVision.Filter.HasMatrix && !pbDemaster;
 
             mOChannelMixer.redOutRedIn.value = lyMatrix[0] * 100f;
             mOChannelMixer.redOutGreenIn.value = lyMatrix[1] * 100f;
@@ -333,7 +338,7 @@ public sealed class UWRemasterRenderPath : IUWRenderPath
             float lfBrightness = Mathf.Max(0.05f, UWColourVision.Brightness);
             bool lbNightVision = fIsNightVision();
 
-            mOColourAdjustments.active = UWColourVision.IsActive || lbNightVision;
+            mOColourAdjustments.active = (UWColourVision.IsActive || lbNightVision) && !pbDemaster;
             mOColourAdjustments.postExposure.value = Mathf.Log(lfBrightness, 2f);
             mOColourAdjustments.contrast.value = Mathf.Clamp((UWColourVision.Contrast - 1f) * 100f, -100f, 100f);
             mOColourAdjustments.saturation.value = lbNightVision ? -100f : 0f;

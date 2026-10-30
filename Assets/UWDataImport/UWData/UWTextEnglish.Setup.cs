@@ -36,16 +36,14 @@ namespace UWDataImport.UWData
 
 			// Graphics.
 			fAdd("setup.graphics.title", "Graphics");
-			fAdd("setup.graphics.detail", "Detail");
-			fAdd("setup.graphics.detail.low", "Low");
-			fAdd("setup.graphics.detail.medium", "Medium");
-			fAdd("setup.graphics.detail.high", "High");
-			// VeryHigh, the viewer's own values: a text, no choice (cleanup 8d.3, per user 2026-10-25).
-			fAdd("setup.graphics.detail.custom", "Custom");
-			fAdd("setup.graphics.detail.hint",
-				"Low: the original palette. Medium: Remastered, no effects. High: Remastered, all effects. Custom: your own effects, set under Remastered effects.");
-			fAdd("setup.graphics.palette", "Palette effects...");
-			fAdd("setup.graphics.remastered", "Remastered effects...");
+			fAdd("setup.graphics.mode", "Mode");
+			fAdd("setup.graphics.mode.palette", "Palette");
+			fAdd("setup.graphics.mode.colours", "Palette colours");
+			fAdd("setup.graphics.mode.remastered", "Remastered");
+			fAdd("setup.graphics.mode.hint",
+				"Palette: the original's picture. Palette colours: real light and shadows, drawn in the original's colours. Remastered: the modern look.");
+			fAdd("setup.graphics.effects", "Effects");
+			fAdd("setup.graphics.effects.open", "Effects...");
 			fAdd("setup.graphics.view_original", "Original");
 			fAdd("setup.graphics.view_orig", "Orig.");
 			fAdd("setup.graphics.factor_locked", "4x needs a window 1600 pixels tall");
@@ -97,9 +95,9 @@ namespace UWDataImport.UWData
 			fAdd("setup.palette.title", "Palette effects");
 			fAdd("setup.palette.drag", "drag here to move");
 			fAdd("setup.palette.hint",
-				"Our own effects for the original's palette (detail level Low). They only make a surface lighter or darker by the original's shade steps, so every pixel keeps a palette colour - but turned up they quickly take away the look of the original. 0 is off.");
+				"Our own effects for the original's palette (mode Palette). They only make a surface lighter or darker by the original's shade steps, so every pixel keeps a palette colour - but turned up they quickly take away the look of the original. 0 is off.");
 			fAdd("setup.palette.hint.not_low",
-				"Our own effects for the original's palette - they show in the detail level Low only, which is not chosen at the moment. 0 is off.");
+				"Our own effects for the original's palette - they show in the mode Palette only, which is not chosen at the moment. 0 is off.");
 			fAdd("setup.palette.preset", "Preset");
 			fAdd("setup.palette.preset.off", "Off");
 			fAdd("setup.palette.preset.subtle", "Subtle");

@@ -579,6 +579,10 @@ public class UWLighting : MonoBehaviour
             && lORenderSettings.RemasterTorchShadows
                 ? LightShadows.Soft : LightShadows.None;
 
+        // THE SHADOW'S BRIGHTNESS (per user, 2026-10-30, with demastering): it need not be black.
+        if (lORenderSettings != null)
+            mOPlayerLight.shadowStrength = 1f - Mathf.Clamp01(lORenderSettings.RemasterShadowBrightness);
+
         // URP uses the physical one-over-distance-squared falloff. One tile is 64
         // units wide, so the intensity has to scale with the square of that size
         // - otherwise practically nothing is left at a tile's distance.
