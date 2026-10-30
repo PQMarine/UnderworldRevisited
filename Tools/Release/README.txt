@@ -94,7 +94,8 @@ setting carries a short explanation. Controls has the mouse look speed of the mo
 up and down, and the gamepad's settings. F10 shows the menu bar for the keyboard: the arrow
 keys move, Enter or Space chooses, Escape or F10 leaves. Graphics has the
 detail levels, the classic screen at 4:3 or widened to the screen ("Classic screen
-widescreen"), the view angle ("View"), and the world at the original's resolution or a
+widescreen"), the view angle ("View"), the gamma of the 3D view ("Gamma", for a darker
+level - 1.00 is the picture as drawn), and the world at the original's resolution or a
 multiple of it up to 4x, with the interface staying sharp. Its "Palette effects..." adds
 effects of the port's own to the original's palette look (presets Subtle and Full) - use
 them with care, turned up they quickly take away the look of the original; "Remastered

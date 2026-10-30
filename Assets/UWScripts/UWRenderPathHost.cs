@@ -129,8 +129,8 @@ public sealed class UWRenderPathHost : MonoBehaviour
 
     private bool mbCameraKnown;
 
-    /// <summary>The world resolution forced the post-processing last frame.</summary>
-    private bool mbWorldResolutionForced;
+    /// <summary>The world resolution or the gamma forced the post-processing last frame.</summary>
+    private bool mbPostProcessingForced;
 
     /// <summary>The palette's tables and the hallucination feed, needed in both render paths
     /// (cleanup step 6.2, 2026-10-24 - until then fields and methods of the toggle). The XFER.DAT
@@ -182,6 +182,7 @@ public sealed class UWRenderPathHost : MonoBehaviour
     {
         mOPalette.Dispose();
         mORemaster.Dispose();
+        UWViewGamma.Dispose();
 
         // As UWRemasterRenderer did when it went with its scene.
         fSetOcclusion(false);
@@ -290,6 +291,7 @@ public sealed class UWRenderPathHost : MonoBehaviour
 
         lOPath.LateTick();
 
+        UWViewGamma.Tick(transform);
         fApplyCameraFlags(lOPath);
         fSetOcclusion(lOPath.WantsOcclusion);
     }
@@ -432,13 +434,15 @@ public sealed class UWRenderPathHost : MonoBehaviour
     /// nearest-neighbour filter only in its post-processing passes); otherwise the camera keeps
     /// its own value, remembered before anyone set it (the world resolution's forcing is not the
     /// camera's own). The remote view gets it from the world resolution only, and when that goes
-    /// off, what the render mode wants - as UWWorldResolution did until this step.
+    /// off, what the render mode wants - as UWWorldResolution did until this step. The 3D view's
+    /// gamma (UWViewGamma.ForcesPostProcessing, issue 9, 2026-10-30) forces it the same way, in
+    /// both paths.
     /// </summary>
     private void fApplyCameraFlags(IUWRenderPath pOPath)
     {
         bool lbColour = pOPath.WantsSceneColour;
         bool lbDepth = pOPath.WantsSceneDepth;
-        bool lbWorldResolution = UWWorldResolution.ForcesPostProcessing;
+        bool lbForced = UWWorldResolution.ForcesPostProcessing || UWViewGamma.ForcesPostProcessing;
 
         UniversalAdditionalCameraData lOMain = mOMainCameraData.Get(Camera.main);
 
@@ -448,11 +452,11 @@ public sealed class UWRenderPathHost : MonoBehaviour
 
             if (!mbCameraKnown)
             {
-                mbCameraPostProcessing = lOMain.renderPostProcessing && !lbWorldResolution;
+                mbCameraPostProcessing = lOMain.renderPostProcessing && !lbForced;
                 mbCameraKnown = true;
             }
 
-            fSetPostProcessing(lOMain, mbCameraPostProcessing || pOPath.WantsPostProcessing || lbWorldResolution);
+            fSetPostProcessing(lOMain, mbCameraPostProcessing || pOPath.WantsPostProcessing || lbForced);
         }
 
         if (UWRemoteCamera.Current != null)
@@ -461,13 +465,13 @@ public sealed class UWRenderPathHost : MonoBehaviour
 
             fRequireSceneColour(lORemote, lbColour, lbDepth);
 
-            if (lbWorldResolution)
+            if (lbForced)
                 fSetPostProcessing(lORemote, true);
-            else if (mbWorldResolutionForced)
+            else if (mbPostProcessingForced)
                 fSetPostProcessing(lORemote, meMode == UWSettings.RenderModeEnum.Remastered);
         }
 
-        mbWorldResolutionForced = lbWorldResolution;
+        mbPostProcessingForced = lbForced;
     }
 
     private static void fSetPostProcessing(UniversalAdditionalCameraData pOData, bool pbOn)

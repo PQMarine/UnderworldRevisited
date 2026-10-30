@@ -159,6 +159,8 @@ namespace UWDataImport.UWData
 			fText(ClassicWidescreen);
 			fText(ViewAngle);
 			ViewAngle.Format = UWSettingFormat.Degrees;
+			fText(ViewGamma, true);
+			ViewGamma.Format = UWSettingFormat.TwoDecimals;
 			fText(OriginalWorldResolution);
 			fText(OriginalWorldResolutionFactor);
 			OriginalWorldResolutionFactor.Format = UWSettingFormat.Factor;

@@ -38,6 +38,8 @@ format stay tied to what Unity writes.
 - `game-2026-10-28.json`: the game chosen in the Game window (UW2 plan phase 0 step 5), the second's
   id, the one text added since; every other property at its default. Every older fixture reads it
   empty (the first game).
+- `view-gamma-2026-10-30.json`: the 3D view's gamma (issue 9), the one number added since; every other
+  property at its default. Every older fixture reads it 1 (the picture as drawn).
 
 Record the expected and written files once with `UW_RECORD=1` in the environment after a
 deliberate change to how a value is read or written (a new field changes every `.written`

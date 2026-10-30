@@ -229,6 +229,8 @@ public static class UWUserSettings
 
     public static float ViewAngle { get => Defs.ViewAngle.Read(fGet()); set => Defs.ViewAngle.Write(fGet(), value); }
 
+    public static float ViewGamma { get => Defs.ViewGamma.Read(fGet()); set => Defs.ViewGamma.Write(fGet(), value); }
+
     /// <summary>The world at the original's resolution. Everything that reads or changes it goes
     /// through UWWorldResolution.</summary>
     public static bool OriginalWorldResolution { get => Defs.OriginalWorldResolution.Read(fGet()); set => Defs.OriginalWorldResolution.Write(fGet(), value); }

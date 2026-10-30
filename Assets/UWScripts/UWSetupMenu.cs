@@ -1117,20 +1117,8 @@ public partial class UWSetupMenu : MonoBehaviour
         float lfShown = Mathf.Clamp(lbOriginal ? UWViewAngle.HorizontalOf(Camera.main) : UWViewAngle.Horizontal, UWViewAngle.Min, UWViewAngle.Max);
         string lsLabel = UWText.T("setting.ViewAngle");
         string lsOrig = UWText.T("setup.graphics.view_orig");
-        // "Orig." is a list row, its text from the padding at its left: in English it fits its 48 with
-        // a little room on the right, which FitWidth's padding on both sides would not leave.
-        float lfOrigExtra = lORows.SizesByText ? Mathf.Max(0f, lORows.LabelWidth(lsOrig) + UWRowSizing.Padding + 2f - 48f) : 0f;
-        UWSliderColumns lOColumns = ViewAngleColumns;
-
-        if (lORows.SizesByText)
-        {
-            lOColumns = UWSetupPageDrawer.WithValueWidth(UWSetupPageDrawer.WithLabel(lORows, lOColumns, lsLabel),
-                Mathf.Max(lORows.LabelWidth(msOriginalAngle(0f)), lORows.LabelWidth(msDegrees(UWViewAngle.Max))));
-
-            // "Orig." grows to the left: the value and the slider's right end move along.
-            lOColumns = new UWSliderColumns(lOColumns.LabelLeft, lOColumns.LabelWidth, lOColumns.SliderLeft, lOColumns.SliderLess + lfOrigExtra,
-                0f, lOColumns.ValueAt + lfOrigExtra, lOColumns.ValueWidth);
-        }
+        float lfOrigExtra = fOrigExtra(lORows, lsOrig);
+        UWSliderColumns lOColumns = fViewColumns(lORows, lfOrigExtra);
 
         float lfWanted = lORows.Slider(new Rect(pOPanel.x, pfTop, pOPanel.width, 26f), lOColumns, lsLabel,
             lfShown, UWViewAngle.Min, UWViewAngle.Max, 1f, false, lbOriginal ? msOriginalAngle : msDegrees);
@@ -1143,6 +1131,64 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (lORows.Item(new Rect(pOPanel.x + pOPanel.width - 56f - lfOrigExtra, pfTop, 48f + lfOrigExtra, 26f), lsOrig))
             UWViewAngle.Horizontal = 0f;
+
+        lORows.Enabled = true;
+    }
+
+    /// <summary>"Orig." is a list row, its text from the padding at its left: in English it fits its 48
+    /// with a little room on the right, which FitWidth's padding on both sides would not leave.</summary>
+    private static float fOrigExtra(IUWRows pORows, string psOrig)
+    {
+        return pORows.SizesByText ? Mathf.Max(0f, pORows.LabelWidth(psOrig) + UWRowSizing.Padding + 2f - 48f) : 0f;
+    }
+
+    /// <summary>The columns of the view angle's and the gamma's rows, alike so the two sliders stand
+    /// one above the other: on the kit the label column as wide as the wider label, the value column
+    /// as wide as "Original" or the widest angle, and "Orig." growing to the left with the value and
+    /// the slider's right end moving along.</summary>
+    private static UWSliderColumns fViewColumns(IUWRows pORows, float pfOrigExtra)
+    {
+        UWSliderColumns lOColumns = ViewAngleColumns;
+
+        if (!pORows.SizesByText)
+            return lOColumns;
+
+        lOColumns = UWSetupPageDrawer.WithLabel(pORows, lOColumns, UWText.T("setting.ViewAngle"));
+        lOColumns = UWSetupPageDrawer.WithLabel(pORows, lOColumns, UWText.T("setting.ViewGamma"));
+        lOColumns = UWSetupPageDrawer.WithValueWidth(lOColumns,
+            Mathf.Max(pORows.LabelWidth(msOriginalAngle(0f)), pORows.LabelWidth(msDegrees(UWViewAngle.Max))));
+
+        return new UWSliderColumns(lOColumns.LabelLeft, lOColumns.LabelWidth, lOColumns.SliderLeft, lOColumns.SliderLess + pfOrigExtra,
+            0f, lOColumns.ValueAt + pfOrigExtra, lOColumns.ValueWidth);
+    }
+
+    private static readonly System.Func<float, string> msGamma =
+        pfValue => pfValue.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// THE 3D VIEW'S GAMMA (UWViewGamma; issue 9 on GitHub, 2026-10-30, per user: one slider for both
+    /// modes) in hundredths, and "Orig." back to 1, the picture as drawn. In the view angle's columns
+    /// and sized by its text the same way, so the two sliders stand one above the other.
+    /// </summary>
+    private void fViewGammaRow(Rect pOPanel, float pfTop)
+    {
+        IUWRows lORows = mOPassRows;
+        float lfShown = UWViewGamma.Value;
+        string lsLabel = UWText.T("setting.ViewGamma");
+        string lsOrig = UWText.T("setup.graphics.view_orig");
+        float lfOrigExtra = fOrigExtra(lORows, lsOrig);
+        UWSliderColumns lOColumns = fViewColumns(lORows, lfOrigExtra);
+
+        float lfWanted = lORows.Slider(new Rect(pOPanel.x, pfTop, pOPanel.width, 26f), lOColumns, lsLabel,
+            lfShown, UWViewGammaCurve.Min, UWViewGammaCurve.Max, 0.01f, true, msGamma);
+
+        if (Mathf.Abs(lfWanted - lfShown) > 0.001f)
+            UWViewGamma.Value = Mathf.Round(lfWanted * 100f) / 100f;
+
+        lORows.Enabled = !UWViewGamma.IsNeutral;
+
+        if (lORows.Item(new Rect(pOPanel.x + pOPanel.width - 56f - lfOrigExtra, pfTop, 48f + lfOrigExtra, 26f), lsOrig))
+            UWViewGamma.Value = UWViewGammaCurve.Neutral;
 
         lORows.Enabled = true;
     }

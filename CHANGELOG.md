@@ -8,6 +8,15 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.13.1] - 2026-10-30
+
+### Added
+- Gamma, a slider in the Graphics window under View: lifts the dark tones of the 3D view while
+  black and white stay where they are, so small objects in dark corners show. It works in both
+  render modes; above Low the Remastered lighting leaves much of a level dark, and there was no
+  way to brighten it. The interface keeps its colours; 1.00 is the picture as drawn, Orig. puts it
+  back there. Asked for in issue 9 by TinkerNightmare - thank you.
+
 ## [0.13.0] - 2026-10-29
 
 ### Added

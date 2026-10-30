@@ -516,6 +516,10 @@ public partial class UWSetupMenu
             // The view angle's row under the widescreen switch (UWViewAngle), measured from 8 left
             // of the text as in the menu.
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = Defs.ViewAngle.LabelId, Draw = fDrawViewAngle })
+            // The 3D view's gamma under it in the same columns (UWViewGamma; issue 9, 2026-10-30), and
+            // a line on what it does.
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = Defs.ViewGamma.LabelId, Draw = fDrawViewGamma })
+            .Add(fHint(Defs.ViewGamma, 10f))
             // The world at the original's resolution (UWWorldResolution), asked for on Reddit
             // (2026-10-07): it takes effect at once as well, the interface stays sharp.
             .Add(new UWSetupRow
@@ -531,6 +535,13 @@ public partial class UWSetupMenu
     private float fDrawViewAngle(float pfLeft, float pfTop, float pfInner)
     {
         fViewAngleRow(new Rect(pfLeft - 8f, 0f, pfInner + 16f, 0f), pfTop);
+
+        return pfTop + 30f;
+    }
+
+    private float fDrawViewGamma(float pfLeft, float pfTop, float pfInner)
+    {
+        fViewGammaRow(new Rect(pfLeft - 8f, 0f, pfInner + 16f, 0f), pfTop);
 
         return pfTop + 30f;
     }

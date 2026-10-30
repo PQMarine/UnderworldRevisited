@@ -244,6 +244,9 @@ namespace UWDataImport.UWData
 		/// <summary>Degrees, 0 = each scheme's own; UWViewAngle keeps the limits.</summary>
 		public static readonly UWFloatSettingDef ViewAngle = fFloat(nameof(UWUserData.ViewAngle), d => d.ViewAngle, (d, v) => d.ViewAngle = v);
 
+		/// <summary>The 3D view's gamma, 1 = as drawn; UWViewGammaCurve keeps the limits.</summary>
+		public static readonly UWFloatSettingDef ViewGamma = fFloat(nameof(UWUserData.ViewGamma), d => d.ViewGamma, (d, v) => d.ViewGamma = v);
+
 		public static readonly UWBoolSettingDef OriginalWorldResolution = fBool(nameof(UWUserData.OriginalWorldResolution), d => d.OriginalWorldResolution, (d, v) => d.OriginalWorldResolution = v);
 
 		/// <summary>1 to 4; UWWorldResolution.Factor keeps the limits.</summary>
@@ -395,7 +398,7 @@ namespace UWDataImport.UWData
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
-			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, OriginalWorldResolution, OriginalWorldResolutionFactor,
+			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,

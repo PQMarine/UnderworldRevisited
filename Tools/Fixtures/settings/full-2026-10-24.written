@@ -60,6 +60,7 @@
     "DisplayAs4By3": false,
     "ClassicWidescreen": true,
     "ViewAngle": 82.5,
+    "ViewGamma": 1.0,
     "OriginalWorldResolution": true,
     "OriginalWorldResolutionFactor": 3,
     "PaletteAmbientOcclusion": 3.0,

@@ -106,7 +106,9 @@ confirmed, so one can always go back to the layout as it was.
 
 In the original scheme the classic screen stays at the original's 4:3. *Classic screen
 widescreen* in the Graphics menu widens it to the screen as Classic Wide does (the conversation
-and the big map stay at 4:3), and *View* below it sets the view angle.
+and the big map stay at 4:3), *View* below it sets the view angle, and *Gamma* below that lifts
+the dark tones of the 3D view in both render modes (1.00 is the picture as drawn; the interface
+keeps its colours).
 
 The modern scheme uses the whole screen. What belongs to the original's picture keeps it:
 the big map shows the original's full-screen map at 4:3 with dark bars at the sides, and the

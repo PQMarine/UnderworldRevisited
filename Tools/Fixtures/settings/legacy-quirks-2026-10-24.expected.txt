@@ -93,6 +93,7 @@ StickLookSpeed = 1
 SwimViewMode = Original
 SwimViewStrength = 0.1
 ViewAngle = 0
+ViewGamma = 1
 WalkSlowToggle = False
 WeaponJitterMode = Original
 WeaponJitterStrength = 1

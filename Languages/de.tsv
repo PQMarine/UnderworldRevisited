@@ -72,6 +72,8 @@ setting.MusicRecordings	Musik aus Aufnahmen
 setting.MusicRecordings.hint	Eigene Aufnahmen der Musik, eine Datei je Stück im Ordner unten (UW1/Music), spielen statt des Geräts oben. Jede heißt nach der Nummer des Stücks im Spiel: 01.ogg die Einleitung, 02 bis 04 die Ebenen, 05 bis 07 der Kampf, 10 Bewaffnet, 11 Sieg, 12 Tod, 13 Flucht, 15 Karten und Legenden (Ogg Vorbis oder WAV). Ein Stück ohne Aufnahme spielt auf dem Gerät.
 setting.ClassicWidescreen	Klassischer Bildschirm in Breitbild
 setting.ViewAngle	Blickwinkel
+setting.ViewGamma	Gamma
+setting.ViewGamma.hint	Hellt die dunklen Töne der 3D-Ansicht auf, in beiden Modi; die Oberfläche behält ihre Farben. Bei 1.00 bleibt das Bild, wie es gezeichnet wird.
 setting.OriginalWorldResolution	Welt in der Auflösung des Originals
 setting.OriginalWorldResolutionFactor	Auflösungsfaktor
 setting.PaletteAmbientOcclusion	Umgebungsverdeckung

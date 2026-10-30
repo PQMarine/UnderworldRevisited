@@ -86,7 +86,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - The world at the original's resolution or a multiple of it up to 4x, with hard pixels while
   the interface stays sharp
 - The classic interface at the original's 4:3, or widened to a wide screen with the frame's
-  stone grown anew instead of stretched; a slider for the view angle
+  stone grown anew instead of stretched; a slider for the view angle, and one for the 3D view's
+  gamma, which lifts its dark tones in both render modes
 
 **Sound and music**
 

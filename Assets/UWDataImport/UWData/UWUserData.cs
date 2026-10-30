@@ -223,6 +223,9 @@ namespace UWDataImport.UWData
 		/// <summary>The 3D view's horizontal angle in degrees, 0 for each scheme's own (UWViewAngle).</summary>
 		public float ViewAngle;
 
+		/// <summary>The 3D view's gamma, 1 for the picture as drawn (UWViewGamma; issue 9, 2026-10-30).</summary>
+		public float ViewGamma = 1f;
+
 		/// <summary>The world drawn at the original's resolution - see UWWorldResolution. Off by
 		/// default: the full screen resolution, as before.</summary>
 		public bool OriginalWorldResolution;

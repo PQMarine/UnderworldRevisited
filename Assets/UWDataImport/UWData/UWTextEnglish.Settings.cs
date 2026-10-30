@@ -92,6 +92,8 @@ namespace UWDataImport.UWData
 			// The graphics.
 			fAdd("setting.ClassicWidescreen", "Classic screen widescreen");
 			fAdd("setting.ViewAngle", "View");
+			fAdd("setting.ViewGamma", "Gamma");
+			fAdd("setting.ViewGamma.hint", "Lifts the dark tones of the 3D view, in both modes; the interface keeps its colours. 1.00 is the picture as drawn.");
 			fAdd("setting.OriginalWorldResolution", "World at the original's resolution");
 			fAdd("setting.OriginalWorldResolutionFactor", "Resolution factor");
 
