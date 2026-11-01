@@ -8,6 +8,12 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.15.1] - 2026-11-01
+
+### Fixed
+- The modern conversation stopped showing new lines once its history passed about 2100 letters, for
+  the rest of that conversation, in both games. Reported on Reddit with Vernix.
+
 ## [0.15.0] - 2026-11-01
 
 ### Added

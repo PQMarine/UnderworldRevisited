@@ -292,7 +292,35 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private RectTransform mOViewport;
 
-    private Text mOHistory;
+    /// <summary>What scrolls: the history's parts one under the other, the heads over them.</summary>
+    private RectTransform mOHistoryBody;
+
+    /// <summary>The parts' texts; those from miHistoryParts on are off.</summary>
+    private readonly List<Text> mOHistoryTexts = new List<Text>();
+
+    /// <summary>How far each part's top stands under the body's (fMeasureHistory).</summary>
+    private readonly List<float> mOHistoryTops = new List<float>();
+
+    private int miHistoryParts;
+
+    /// <summary>The modern look's outline on the parts (fShowModernParts), also for a part made later.</summary>
+    private bool mbHistoryOutline = true;
+
+    /// <summary>
+    /// THE HISTORY IN PARTS (a player's report and screenshot, measured 2026-11-01): a text's mesh holds under 65000
+    /// vertices and the outline makes 30 of a letter, so one text ends at 2166 letters. Past them
+    /// VertexHelper.FillMesh throws at every rebuild and the last mesh stays: nothing new showed for the rest of the
+    /// conversation, and the scroll could not reach it (Vernix by his longest way: 1744 letters stood, 2449 did not).
+    /// So a new text begins between two entries before this many letters are passed. An entry has 395 at most, which
+    /// the pseudo language makes about 1100.
+    /// </summary>
+    private const int HistoryPartLetters = 1500;
+
+    /// <summary>The letters counted for a head: its text follows on the same part.</summary>
+    private const int HistoryHeadLetters = 500;
+
+    /// <summary>The room between two parts, in the height of the size the gap between two entries has.</summary>
+    private const float HistoryPartGap = 1.2f;
 
     private Image mOScrollTrack;
 
@@ -322,9 +350,12 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private float mfScroll;
 
-    /// <summary>A head in the history: the text before it, which gives its height, and what its top measured.</summary>
+    /// <summary>A head in the history: its part, the text before it there, which gives its height, and what its
+    /// top measured.</summary>
     private sealed class SpeakerMark
     {
+        public int Part;
+
         public string TextBefore;
 
         public Texture2D Head;
@@ -549,8 +580,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         float lfWheel = UWPointer.Scroll.y;
 
-        if (Mathf.Abs(lfWheel) > 0.01f && mOHistoryRect.Contains(lOPointer) && mOHistory != null)
-            mfScroll += Mathf.Sign(lfWheel) * 3f * mOHistory.fontSize * 1.2f;
+        if (Mathf.Abs(lfWheel) > 0.01f && mOHistoryRect.Contains(lOPointer) && miHistoryFontSize > 0)
+            mfScroll += Mathf.Sign(lfWheel) * 3f * miHistoryFontSize * 1.2f;
     }
 
     /// <summary>What stands beside it opens, the host keeps what to give back at the end.</summary>
@@ -882,17 +913,15 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         fFillHistory(pOView, liFontSize, false);
 
-        mOHistory.rectTransform.sizeDelta = new Vector2(lfViewWidth, 10f);
-
-        float lfContent = mOHistory.preferredHeight;
+        float lfContent = fMeasureHistory(lfViewWidth);
         float lfMaxScroll = Mathf.Max(0f, lfContent - lfViewHeight);
 
         mfScroll = Mathf.Clamp(mfScroll, 0f, lfMaxScroll);
 
         float lfY = lfContent <= lfViewHeight ? lfViewHeight - lfContent : -mfScroll;
 
-        mOHistory.rectTransform.anchoredPosition = new Vector2(0f, lfY);
-        mOHistory.rectTransform.sizeDelta = new Vector2(lfViewWidth, lfContent);
+        mOHistoryBody.anchoredPosition = new Vector2(0f, lfY);
+        mOHistoryBody.sizeDelta = new Vector2(lfViewWidth, lfContent);
         fPlaceSpeakerHeads(lfViewWidth, lfContent, liFontSize);
 
         // The scroll bar, only when there is more than fits.
@@ -914,6 +943,39 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         }
     }
 
+    /// <summary>Gives each part its height at this width and stacks them; returns the height of all.</summary>
+    private float fMeasureHistory(float pfWidth)
+    {
+        float lfGap = Mathf.Max(2, miHistoryFontSize / 3) * HistoryPartGap;
+        float lfTop = 0f;
+
+        mOHistoryTops.Clear();
+
+        for (int liPart = 0; liPart < miHistoryParts; liPart++)
+        {
+            Text lOPart = mOHistoryTexts[liPart];
+
+            lOPart.rectTransform.sizeDelta = new Vector2(pfWidth, 10f);
+
+            float lfHeight = lOPart.preferredHeight;
+
+            lOPart.rectTransform.sizeDelta = new Vector2(pfWidth, lfHeight);
+            mOHistoryTops.Add(lfTop);
+            lfTop += lfHeight + lfGap;
+        }
+
+        float lfContent = lfTop - lfGap;
+
+        for (int liPart = 0; liPart < miHistoryParts; liPart++)
+        {
+            RectTransform lORect = mOHistoryTexts[liPart].rectTransform;
+
+            lORect.anchoredPosition = new Vector2(0f, lfContent - mOHistoryTops[liPart] - lORect.sizeDelta.y);
+        }
+
+        return lfContent;
+    }
+
     /// <summary>The heads over their empty lines; measured anew when the text, its width or its size changed.</summary>
     private void fPlaceSpeakerHeads(float pfWidth, float pfContent, int piFontSize)
     {
@@ -922,19 +984,18 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             mfSpeakersWidth = pfWidth;
             miSpeakersFontSize = piFontSize;
 
-            TextGenerationSettings lOSettings = mOHistory.GetGenerationSettings(new Vector2(pfWidth, 0f));
-            float lfPerPixel = mOHistory.pixelsPerUnit;
-
             foreach (SpeakerMark lOMark in mOSpeakerMarks)
             {
+                Text lOPart = mOHistoryTexts[lOMark.Part];
+
                 lOMark.Top = string.IsNullOrEmpty(lOMark.TextBefore) ? 0f
-                    : mOHistory.cachedTextGeneratorForLayout.GetPreferredHeight(lOMark.TextBefore, lOSettings) / lfPerPixel;
+                    : lOPart.cachedTextGeneratorForLayout.GetPreferredHeight(lOMark.TextBefore, lOPart.GetGenerationSettings(new Vector2(pfWidth, 0f))) / lOPart.pixelsPerUnit;
             }
         }
 
         while (mOSpeakerHeads.Count < mOSpeakerMarks.Count)
         {
-            RawImage lOImage = UWUiKit.CreateRawImage(mOHistory.rectTransform, "Speaker " + mOSpeakerHeads.Count);
+            RawImage lOImage = UWUiKit.CreateRawImage(mOHistoryBody, "Speaker " + mOSpeakerHeads.Count);
 
             UWPixelArtUI.Apply(lOImage);
             mOSpeakerHeads.Add(lOImage);
@@ -954,7 +1015,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             float lfWidth = lfHeight * lOMark.Head.width * UWModernHudArt.PixelAspectX / lOMark.Head.height;
 
             mOSpeakerHeads[liAt].texture = lOMark.Head;
-            UWUiKit.SetRect(mOSpeakerHeads[liAt].rectTransform, 0f, pfContent - lOMark.Top - lfHeight, lfWidth, lfHeight);
+            UWUiKit.SetRect(mOSpeakerHeads[liAt].rectTransform, 0f, pfContent - mOHistoryTops[lOMark.Part] - lOMark.Top - lfHeight, lfWidth, lfHeight);
         }
     }
 
@@ -973,19 +1034,78 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         miLinesShown = liLines;
         miHistoryFontSize = piFontSize;
         mbHistoryOriginal = pbOriginal;
-        mOHistory.fontSize = piFontSize;
-        mOHistory.text = fHistoryText(pOView.Lines, liLines, piFontSize, pbOriginal);
+
+        List<string> lOParts = fHistoryParts(pOView.Lines, liLines, piFontSize, pbOriginal);
+
+        miHistoryParts = lOParts.Count;
+
+        while (mOHistoryTexts.Count < lOParts.Count)
+            mOHistoryTexts.Add(fNewHistoryText());
+
+        for (int liPart = 0; liPart < mOHistoryTexts.Count; liPart++)
+        {
+            Text lOPart = mOHistoryTexts[liPart];
+            bool lbUsed = liPart < lOParts.Count;
+
+            lOPart.enabled = lbUsed;
+            lOPart.fontSize = piFontSize;
+            lOPart.text = lbUsed ? lOParts[liPart] : string.Empty;
+        }
     }
 
-    /// <summary>The history as rich text: each speaker in its colour, the player's answers
-    /// indented, a little room between the entries; the original's page marks go
+    private Text fNewHistoryText()
+    {
+        Text lOText = UWUiKit.CreateText(mOHistoryBody, "History text", TextAnchor.UpperLeft, msNpc, mOHost.TextUi);
+
+        lOText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        lOText.supportRichText = true;
+        lOText.GetComponent<Outline>().enabled = mbHistoryOutline;
+
+        return lOText;
+    }
+
+    private static int fLetters(string psText)
+    {
+        int liLetters = 0;
+
+        foreach (char lcChar in psText)
+        {
+            if (!char.IsWhiteSpace(lcChar))
+                liLetters++;
+        }
+
+        return liLetters;
+    }
+
+    /// <summary>Before an entry: the gap to the last one, or a new part where it would pass HistoryPartLetters.</summary>
+    private static void fNextEntry(List<string> pOParts, StringBuilder pOText, ref int piLetters, int piEntry, string psGap)
+    {
+        if (pOText.Length == 0)
+            return;
+
+        if (piLetters + piEntry <= HistoryPartLetters)
+        {
+            pOText.Append(psGap);
+
+            return;
+        }
+
+        pOParts.Add(pOText.ToString());
+        pOText.Clear();
+        piLetters = 0;
+    }
+
+    /// <summary>The history as rich text in parts (HistoryPartLetters): each speaker in its colour, the player's
+    /// answers indented, a little room between the entries; the original's page marks go
     /// (UWConversationLayout.WithoutPageBreaks), and what rich text would read as a tag is escaped
     /// (UWRichText.Escape, B31).</summary>
-    private string fHistoryText(IReadOnlyList<UWConversationSession.Line> pOLines, int piLines, int piFontSize, bool pbOriginal = false)
+    private List<string> fHistoryParts(IReadOnlyList<UWConversationSession.Line> pOLines, int piLines, int piFontSize, bool pbOriginal = false)
     {
+        List<string> lOParts = new List<string>();
         StringBuilder lOText = new StringBuilder();
         string lsGap = "\n<size=" + Mathf.Max(2, piFontSize / 3) + "> </size>\n";
         bool lbUnderHead = false;
+        int liLetters = 0;
 
         mOSpeakerMarks.Clear();
         mfSpeakersWidth = -1f;
@@ -1001,10 +1121,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
                 if (lOHead != null)
                 {
-                    if (lOText.Length > 0)
-                        lOText.Append(lsGap);
-
-                    mOSpeakerMarks.Add(new SpeakerMark { TextBefore = lOText.ToString().TrimEnd('\n'), Head = lOHead });
+                    fNextEntry(lOParts, lOText, ref liLetters, HistoryHeadLetters, lsGap);
+                    mOSpeakerMarks.Add(new SpeakerMark { Part = lOParts.Count, TextBefore = lOText.ToString().TrimEnd('\n'), Head = lOHead });
                     // An unseen letter, not a space: a last line of spaces does not count for the text's height,
                     // and the newest head stood below the view until its text came.
                     lOText.Append("<size=").Append(piFontSize * SpeakerHeadFontSizes).Append("><color=#00000000>.</color></size>");
@@ -1022,11 +1140,14 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             if (lsText.Length == 0)
                 continue;
 
+            int liEntry = fLetters(lsText);
+
             if (lbUnderHead)
                 lOText.Append('\n');
-            else if (lOText.Length > 0)
-                lOText.Append(lsGap);
+            else
+                fNextEntry(lOParts, lOText, ref liLetters, liEntry, lsGap);
 
+            liLetters += liEntry;
             lbUnderHead = false;
 
             string lsHex = pbOriginal
@@ -1039,7 +1160,9 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             lOText.Append("<color=").Append(lsHex).Append('>').Append(lsText).Append("</color>");
         }
 
-        return lOText.ToString();
+        lOParts.Add(lOText.ToString());
+
+        return lOParts;
     }
 
     // --- The answers
@@ -1230,7 +1353,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         // The texts on the parchment flat, as in the original: the modern dark outline smeared the
         // dark letters on it (per user, 2026-10-10: "the normal text can hardly be read").
-        mOHistory.GetComponent<Outline>().enabled = pbShown;
+        mbHistoryOutline = pbShown;
+
+        foreach (Text lOText in mOHistoryTexts)
+            lOText.GetComponent<Outline>().enabled = pbShown;
 
         foreach (Text lOText in mORows)
             lOText.GetComponent<Outline>().enabled = pbShown;
@@ -1414,14 +1540,12 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             - (ScrollHintShift * lfAspect));
         fFillHistory(pOView, liFontSize, true);
 
-        mOHistory.rectTransform.sizeDelta = new Vector2(lOView.width, 10f);
-
-        float lfContent = mOHistory.preferredHeight;
+        float lfContent = fMeasureHistory(lOView.width);
         float lfMaxScroll = Mathf.Max(0f, lfContent - lOView.height);
 
         mfScroll = Mathf.Clamp(mfScroll, 0f, lfMaxScroll);
-        mOHistory.rectTransform.anchoredPosition = new Vector2(0f, lfContent <= lOView.height ? lOView.height - lfContent : -mfScroll);
-        mOHistory.rectTransform.sizeDelta = new Vector2(lOView.width, lfContent);
+        mOHistoryBody.anchoredPosition = new Vector2(0f, lfContent <= lOView.height ? lOView.height - lfContent : -mfScroll);
+        mOHistoryBody.sizeDelta = new Vector2(lOView.width, lfContent);
 
         // The answers on their own parchment, from its top down.
         mOAnswersBack.texture = mOOrigAnswers;
@@ -1540,9 +1664,13 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         mOViewport = UWUiKit.CreateClipArea(lORootRect, "History view");
 
-        mOHistory = UWUiKit.CreateText(mOViewport, "History text", TextAnchor.UpperLeft, msNpc, mOHost.TextUi);
-        mOHistory.horizontalOverflow = HorizontalWrapMode.Wrap;
-        mOHistory.supportRichText = true;
+        GameObject lOBody = new GameObject("History body", typeof(RectTransform));
+
+        lOBody.transform.SetParent(mOViewport, false);
+        mOHistoryBody = (RectTransform)lOBody.transform;
+        mOHistoryBody.anchorMin = UWUiKit.BottomLeft;
+        mOHistoryBody.anchorMax = UWUiKit.BottomLeft;
+        mOHistoryBody.pivot = UWUiKit.BottomLeft;
 
         mOScrollTrack = UWUiKit.CreateImage(lORootRect, "Scroll track", new Color(0.24f, 0.20f, 0.16f, 0.7f));
         mOScrollThumb = UWUiKit.CreateImage(lORootRect, "Scroll thumb", UWModernPalette.WithAlpha(UWModernPalette.Accent, 0.9f));
