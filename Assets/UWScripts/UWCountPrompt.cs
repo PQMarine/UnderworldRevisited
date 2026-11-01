@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UWDataImport.UWData;
@@ -31,15 +32,25 @@ public sealed class UWCountPrompt
 
     private readonly UWCountInput mOInput = new UWCountInput(UWCountInput.ClassicPrompt);
 
-    private readonly Interaction mOInteraction;
+    /// <summary>The running line and its end: the first game's message log, or what the second game's
+    /// screens make of it (UWCountAskUw2).</summary>
+    private readonly Action<string> mFShow;
+
+    private readonly Action mFEnd;
 
     /// <summary>The digits typed, by the key's place (UWTextEntry.Digits, cleanup step 7.1, 2026-10-25;
     /// the prompt read the digit row and the keypad itself until then, the same keys).</summary>
     private readonly UWTextEntry mODigits;
 
     public UWCountPrompt(Interaction pOInteraction)
+        : this(psLine => pOInteraction?.SetPromptMessage(psLine), () => pOInteraction?.EndPromptMessage())
     {
-        mOInteraction = pOInteraction;
+    }
+
+    public UWCountPrompt(Action<string> pFShow, Action pFEnd)
+    {
+        mFShow = pFShow;
+        mFEnd = pFEnd;
         mODigits = UWTextEntry.Digits(pcDigit => mOInput.TypeDigit(pcDigit - '0'));
     }
 
@@ -64,11 +75,8 @@ public sealed class UWCountPrompt
 
     private void fRefresh()
     {
-        if (mOInteraction == null)
-            return;
-
         // Without the cursor - UWGameUI appends it to the last line while the prompt is running.
-        mOInteraction.SetPromptMessage(Question + mOInput.Text);
+        mFShow(Question + mOInput.Text);
     }
 
     /// <summary>
@@ -87,11 +95,8 @@ public sealed class UWCountPrompt
     /// </summary>
     private Outcome fEnd(int piCount)
     {
-        if (mOInteraction != null)
-        {
-            mOInteraction.SetPromptMessage(Question + piCount);
-            mOInteraction.EndPromptMessage();
-        }
+        mFShow(Question + piCount);
+        mFEnd();
 
         mOInput.Commit(piCount);
         mODigits.End();
@@ -106,11 +111,8 @@ public sealed class UWCountPrompt
     /// </summary>
     private Outcome fCancel(bool pbShowDash)
     {
-        if (mOInteraction != null)
-        {
-            mOInteraction.SetPromptMessage(Question + (pbShowDash ? "-" : string.Empty));
-            mOInteraction.EndPromptMessage();
-        }
+        mFShow(Question + (pbShowDash ? "-" : string.Empty));
+        mFEnd();
 
         mOInput.Cancel();
         mODigits.End();

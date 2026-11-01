@@ -614,6 +614,67 @@ namespace UWDataImport.UWData
 		/// <summary>From character creation, not yet in any save game.</summary>
 		public bool IsNewCharacter { get; private set; }
 
+		/// <summary>
+		/// THE SECOND GAME'S CHARACTER AS THE RULES READ ONE (UW2 plan phase 4 step 0): the rule classes (UWPlayerVitals
+		/// and what hangs on it) start from this class and hold their numbers themselves, so the seam is here, at the
+		/// start, and not in every rule. The record stays the save's truth (UWPlayerRecordUw2); what the second
+		/// game has and the first has not, its quests, variables and X clocks, is read from there.
+		/// </summary>
+		public static UWPlayerData FromSecondGame(UWPlayerFile pOFile)
+		{
+			UWPlayerData lOPlayer = new UWPlayerData();
+
+			if (pOFile == null)
+				return lOPlayer;
+
+			lOPlayer.Name = UWPlayerRecordUw2.Name(pOFile);
+			lOPlayer.Strength = UWPlayerRecordUw2.Strength(pOFile);
+			lOPlayer.Dexterity = UWPlayerRecordUw2.Dexterity(pOFile);
+			lOPlayer.Intelligence = UWPlayerRecordUw2.Intelligence(pOFile);
+			lOPlayer.Attack = UWPlayerRecordUw2.Skill(pOFile, 0);
+			lOPlayer.Defense = UWPlayerRecordUw2.Skill(pOFile, 1);
+
+			for (int liAt = 0; liAt < SkillCount; liAt++)
+				lOPlayer.miSkills[liAt] = UWPlayerRecordUw2.Skill(pOFile, UWPlayerRecordUw2.NamedSkillsFrom + liAt);
+
+			for (int liAt = 0; liAt < RuneCount; liAt++)
+				lOPlayer.mbRunes[liAt] = UWPlayerRecordUw2.HasRune(pOFile, liAt);
+
+			for (int liAt = 0; liAt < lOPlayer.miSelectedRunes.Length; liAt++)
+				lOPlayer.miSelectedRunes[liAt] = UWPlayerRecordUw2.ShelfRune(pOFile, liAt) != UWPlayerRecordUw2.NoRune ? UWPlayerRecordUw2.ShelfRune(pOFile, liAt) : -1;
+
+			lOPlayer.CurrentVitality = UWPlayerRecordUw2.Vitality(pOFile);
+			lOPlayer.MaxVitality = UWPlayerRecordUw2.MaxVitality(pOFile);
+			lOPlayer.CurrentMana = UWPlayerRecordUw2.Mana(pOFile);
+			lOPlayer.MaxMana = UWPlayerRecordUw2.MaxMana(pOFile);
+			lOPlayer.Hunger = pOFile.Record[UWPlayerRecordUw2.HungerOffset];
+			lOPlayer.Fatigue = pOFile.Record[UWPlayerRecordUw2.FatigueOffset];
+			lOPlayer.MealHealCounter = pOFile.Record[UWPlayerRecordUw2.FoodHealOffset];
+			lOPlayer.Counter3C = pOFile.Record[UWPlayerRecordUw2.FoodHealOffset + 1];
+			lOPlayer.ClockValue = UWPlayerRecordUw2.GameClock(pOFile);
+			lOPlayer.Level = UWPlayerRecordUw2.CharacterLevel(pOFile);
+			lOPlayer.CurrentWeight = UWPlayerRecordUw2.Weight(pOFile);
+			lOPlayer.CarriedWeight = UWPlayerRecordUw2.Weight(pOFile);
+			lOPlayer.MaxWeight = UWPlayerRecordUw2.MaxWeight(pOFile);
+			lOPlayer.Experience = UWPlayerRecordUw2.Experience(pOFile);
+			lOPlayer.AvailableSkillPoints = UWPlayerRecordUw2.SkillPoints(pOFile);
+			lOPlayer.TotalSkillPoints = pOFile.Record[UWPlayerRecordUw2.SkillPointsEarnedOffset];
+			lOPlayer.CharacterClass = UWPlayerRecordUw2.CharacterClass(pOFile);
+			lOPlayer.IsFemale = UWPlayerRecordUw2.IsFemale(pOFile);
+			lOPlayer.Body = UWPlayerRecordUw2.Body(pOFile);
+			lOPlayer.IsLeftHanded = UWPlayerRecordUw2.IsLeftHanded(pOFile);
+			lOPlayer.IsEasyDifficulty = pOFile.Record[UWPlayerRecordUw2.EasyOffset] != 0;
+			lOPlayer.PositionX = UWPlayerRecordUw2.PositionX(pOFile);
+			lOPlayer.PositionY = UWPlayerRecordUw2.PositionY(pOFile);
+			lOPlayer.ZPosition = UWPlayerRecordUw2.ZPosition(pOFile);
+			lOPlayer.Heading = UWPlayerRecordUw2.Heading(pOFile);
+			lOPlayer.DungeonLevel = UWPlayerRecordUw2.Level(pOFile);
+			lOPlayer.Poison = UWPlayerRecordUw2.Poison(pOFile);
+			lOPlayer.IsLoaded = true;
+
+			return lOPlayer;
+		}
+
 		/// <summary>A character from an unencrypted block - see BuildNewCharacter.
 		/// </summary>
 		public static UWPlayerData FromPlain(byte[] pyPlain)

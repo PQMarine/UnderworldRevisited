@@ -25,13 +25,14 @@ public static class UWGameSwitch
 
     /// <summary>
     /// The games the installation holds, the first first: those of its game.gog whose folder and
-    /// program are there. Without an image (a developer's DATA folder, UW_DATA naming one) the first
-    /// only. Asked of the image once per image path.
+    /// program are there, each asked of its own image (the second game may have a folder of its own).
+    /// Without an image (a developer's DATA folder, UW_DATA naming one) the first only. Asked once per
+    /// image path.
     /// </summary>
     public static IReadOnlyList<IUWGameProfile> Offered()
     {
-        string lsImage = UWSettings.Instance != null ? UWSettings.Instance.FindGogImage() : null;
-        string lsKey = lsImage ?? string.Empty;
+        UWSettings lOSettings = UWSettings.Instance;
+        string lsKey = lOSettings != null ? lOSettings.FindGogImage() + "|" + lOSettings.FindGogImage(UWGameProfiles.Uw2) : string.Empty;
 
         if (mOOffered != null && msOfferedFor == lsKey)
             return mOOffered;
@@ -41,6 +42,8 @@ public static class UWGameSwitch
 
         foreach (IUWGameProfile lOGame in UWGameProfiles.All)
         {
+            string lsImage = lOSettings != null ? lOSettings.FindGogImage(lOGame) : null;
+
             if (lOGame == UWGameProfiles.Uw1 || (lsImage != null && UWGogInstall.HasGame(lsImage, lOGame)))
                 mOOffered.Add(lOGame);
         }
@@ -80,6 +83,10 @@ public static class UWGameSwitch
         UWUserSettings.Save();
 
         Debug.Log("[Game] Switching to " + pOGame.Title + ".");
+
+        // What this run was started from stays behind: the new start is the game's first.
+        UWSavegameSlots.ForgetPending();
+        UWCharacterCreationScreen.ForgetStart();
 
         // Time must run again before the restart - otherwise the scene starts frozen (as for a load).
         UWGameClock.ReleaseAll();

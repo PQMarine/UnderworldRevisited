@@ -27,8 +27,25 @@ public class UWWalkUw2View : MonoBehaviour
 
     private int miLastTile = -1;
 
+    /// <summary>The walk's view, for the modern HUD's target name.</summary>
+    public static UWWalkUw2View Current { get; private set; }
+
+    /// <summary>What the view's centre or the free pointer is on.</summary>
+    public UWEntityInfo PointedEntity()
+    {
+        return fFirstEntity();
+    }
+
     private void Start()
     {
+        Current = this;
+        gameObject.AddComponent<UWVitalsUw2>();
+        gameObject.AddComponent<UWAttackUw2>();
+
+        // The creatures' frame tick, the session's clock with them (UWCritterDriver).
+        if (GetComponent<UWCritterDriver>() == null)
+            gameObject.AddComponent<UWCritterDriver>();
+
         mOLoader = GetComponent<UWLevelLoader>();
         mOLighting = GetComponent<UWLighting>();
 
@@ -49,6 +66,7 @@ public class UWWalkUw2View : MonoBehaviour
 
     /// <summary>How far a door can be used from: two tiles (a tile is 64 units).</summary>
     public const float DoorReach = 128f;
+
 
     private void Update()
     {
@@ -76,6 +94,9 @@ public class UWWalkUw2View : MonoBehaviour
 
         UWWorldSync.Capture(lOLoader);
 
+        if (UWVitalsUw2.Current != null)
+            UWVitalsUw2.Current.WriteToRecord();
+
         // The inventory as it is now into the walk's PLAYER.DAT (phase 3 step 3 part D).
         UWGameScreenUw2 lOScreen = UWGameScreenUw2.Current;
         string lsInventoryError = lOScreen != null ? lOScreen.WriteInventoryInto(lOSession.PlayerFileUw2) : null;
@@ -86,6 +107,15 @@ public class UWWalkUw2View : MonoBehaviour
         UWDataImport.UWData.UWMotionParams lOParams = lOMovement.Motion.Params;
         string lsError = UWSaveCodec.SaveUw2(lOSession, lsSlot, psDescription, lOLoader.CurrentLevelIndex, lOParams.X, lOParams.Y, lOParams.Z,
             lOMovement.Motion.CameraYaw);
+
+        if (lsError == null)
+        {
+            // The bar's places beside the save, as the first game's (UWSavegameWriter).
+            if (lOScreen != null)
+                lOScreen.CaptureBar();
+
+            UWHelpNotes.SaveTo(lsSlot);
+        }
 
         if (lsError == null)
             Debug.Log(string.Format("[Walk] Saved into {0}: level {1}, tile {2}/{3}.", lsSlot, lOLoader.CurrentLevelIndex + 1, lOParams.X >> 8, lOParams.Y >> 8));
@@ -104,8 +134,9 @@ public class UWWalkUw2View : MonoBehaviour
     {
         UWControls lOControls = UWControlScheme.SharedControls;
 
-        // The options panel has the input while it is up (phase 3 step 4).
-        if (lOControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen)
+        // The options panel, the map and a conversation have the input while they are up.
+        if (lOControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
+            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || (mOScreen != null && mOScreen.IsBagsOpen))
             return;
 
         UnityEngine.InputSystem.Mouse lOClickMouse = UnityEngine.InputSystem.Mouse.current;
@@ -136,14 +167,45 @@ public class UWWalkUw2View : MonoBehaviour
                 fTake(fFirstEntity(), lOInventory, true);
             else if (leCommand == UWGameScreenUw2.CommandEnum.Use)
                 fToggleDoor(true);
-            else
+            else if (leCommand == UWGameScreenUw2.CommandEnum.Talk && mOScreen != null)
+                mOScreen.TalkTo(fFirstEntity());
+            else if (leCommand != UWGameScreenUw2.CommandEnum.Fight)
                 UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
 
             return;
         }
 
         if (lOControls[UWAct.ModernUse].WasPressedThisFrame())
-            fToggleDoor(false);
+            fModernUse();
+        else if (!lbClassic && lOControls[UWAct.ModernLook].WasPressedThisFrame())
+            fLook();
+    }
+
+    /// <summary>The thing on the pointer goes into the world, from the modern bags.</summary>
+    public void DropHeld(UWInventoryModel pOInventory)
+    {
+        fDrop(pOInventory);
+    }
+
+    /// <summary>The modern use key: a creature in front is talked to, what can be taken goes onto the pointer
+    /// with the bags open, a door opens or closes; the rest of using is the second game's rules (phase 4).</summary>
+    private void fModernUse()
+    {
+        UWEntityInfo lOThing = fFirstEntity();
+
+        UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
+
+        if (lOThing != null && (lOThing.ObjectData is UWNpc || UWTalkRulesUw2.IsWisp(lOThing.ObjectData)) && mOScreen != null)
+            mOScreen.TalkTo(lOThing);
+        else if (lOThing != null && lOThing.CanBePickedUp && lOInventory != null)
+        {
+            fTake(lOThing, lOInventory, true);
+
+            if (lOInventory.CursorItem != null)
+                mOScreen.OpenBags();
+        }
+        else
+            fToggleDoor(true);
     }
 
     /// <summary>A right press with no command or Look: the look comes when the button comes up, unless
@@ -202,8 +264,9 @@ public class UWWalkUw2View : MonoBehaviour
     /// TAKING A THING FROM THE WORLD (player_3dget, the same in both games but for its strings and the
     /// second game's pressure plates): something that can be taken and lies within the hand's reach
     /// (InPickRange, UWReachRules.CanReach; the terrain between is not tested yet) leaves its tile and
-    /// goes onto the pointer, a container with its contents. The theft, the moonstone and the pick-up
-    /// trigger are the second game's rules (phase 4). pbSay: Get says what it cannot take.
+    /// goes onto the pointer, a container with its contents; a stack asks how many first. The theft, the
+    /// moonstone and the pick-up trigger are the second game's rules (phase 4). pbSay: Get says what it cannot
+    /// take.
     /// </summary>
     private void fTake(UWEntityInfo pOEntity, UWInventoryModel pOInventory, bool pbSay)
     {
@@ -215,8 +278,9 @@ public class UWWalkUw2View : MonoBehaviour
 
         if (pOEntity == null || pOEntity.ObjectData == null || !pOEntity.CanBePickedUp)
         {
+            // look_nothing's "Nothing to get." and player_3dget's "You cannot pick that up."
             if (pbSay)
-                UWGameScreenUw2.Say(UWText.T("hud.walk.nothing"));
+                UWGameScreenUw2.Say(UWText.Block(lOData, 1, (pOEntity == null ? UWTalkRulesUw2.NothingFirstString + NothingGet : CannotPickUpString) + 1, string.Empty));
 
             return;
         }
@@ -236,6 +300,18 @@ public class UWWalkUw2View : MonoBehaviour
             return;
         }
 
+        if (mOScreen == null || !mOScreen.AskCount(lOItem, piCount => fTakeCount(pOEntity, pOInventory, piCount)))
+            fTakeCount(pOEntity, pOInventory, UWStackRules.CountAtLeastOne(lOItem));
+    }
+
+    /// <summary>Part of a stack is counted off, the stack stays where it lies; the whole leaves the world.</summary>
+    private void fTakeCount(UWEntityInfo pOEntity, UWInventoryModel pOInventory, int piCount)
+    {
+        UWObject lOItem = pOEntity.ObjectData;
+
+        if (piCount < UWStackRules.CountAtLeastOne(lOItem) && pOInventory.TakeFromStack(lOItem, piCount))
+            return;
+
         if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers && mOLoader.CurrentLevel.Masterlist != null)
             lOItem.EnsureContentsLoaded(mOLoader.CurrentLevel.Masterlist);
 
@@ -250,6 +326,10 @@ public class UWWalkUw2View : MonoBehaviour
     public const int TooFarToTakeString = 0x6A;
 
     public const int NoSpaceToDropString = 0x10D;
+
+    private const int NothingGet = 3;
+
+    private const int CannotPickUpString = 0x6D;
 
     /// <summary>
     /// PUTTING THE OBJECT ON THE POINTER DOWN (ReturnObject's drop, the same in both games): a little in

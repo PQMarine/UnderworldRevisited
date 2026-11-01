@@ -47,6 +47,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("RespawnDistance", pOContext => fCheckRespawnDistance(pOContext.Data), true, "level", "time", "original");
             lOCatalog.Add("MapReveal", pOContext => fCheckMapReveal(pOContext.Data), true, "level", "original").MutatesData = true;
             lOCatalog.Add("MapPainter", pOContext => fCheckMapPainter(), false, "level", "original");
+            lOCatalog.Add("MapScreenUw2", pOContext => fCheckMapScreenUw2(), false, "original");
+            lOCatalog.Add("MapStateUw2", pOContext => fCheckMapStateUw2(), false, "original");
             lOCatalog.Add("NewCreature", pOContext => fCheckNewCreature(), false, "level", "original");
             lOCatalog.Add("SummonRoll", pOContext => fCheckSummonRoll(pOContext.Data), true, "spell", "original").MutatesData = true;
             lOCatalog.Add("ObjectDamage", pOContext => fCheckObjectDamage(pOContext.DataPath), true, "damage", "original");
@@ -221,6 +223,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Uw2Vectors", pOContext => fCheckUw2Vectors(pOContext), false, "uw2", "original");
             lOCatalog.Add("Uw2GameData", pOContext => fCheckUw2GameData(pOContext), false, "uw2", "format");
             lOCatalog.Add("Uw2World", pOContext => fCheckUw2World(pOContext), false, "uw2", "format");
+            lOCatalog.Add("Uw2MapScraps", pOContext => fCheckUw2MapScraps(pOContext), false, "uw2", "format");
+            lOCatalog.Add("Uw2Conversations", pOContext => fCheckUw2Conversations(pOContext), false, "uw2", "format");
+            lOCatalog.Add("Uw2TalkRules", pOContext => fCheckUw2TalkRules(), false, "uw2", "original");
             lOCatalog.Add("Uw2OptionsPanel", pOContext => fCheckUw2OptionsPanel(), false, "uw2", "hud", "pin");
             lOCatalog.Add("Uw2ChargenLayout", pOContext => fCheckUw2ChargenLayout(), false, "uw2", "hud", "pin");
             lOCatalog.Add("SettingsTable", pOContext => fCheckSettingsTable(), false, "settings", "pin");

@@ -237,8 +237,64 @@ public class UWModernGameMenu
     private const string NameField = "UWModernSaveName";
 
     /// <summary>The menu's area: the panel (380 by 560, 90 from the top) less 24 left and right and 18
-    /// above and below.</summary>
-    private const float AreaWidth = 380f - 48f;
+    /// above and below; the least it is wide, see fFitArea.</summary>
+    private const float AreaWidth = 380f - PanelSides;
+
+    private const float PanelSides = 48f;
+
+    /// <summary>Left and right of a text inside the menu's buttons.</summary>
+    private const float ButtonPadding = 12f;
+
+    /// <summary>A preset button's indent (fKitPreset).</summary>
+    private const float PresetIndent = 28f;
+
+    /// <summary>The room of the mouse button's picture on the pointer button.</summary>
+    private const float GlyphRoom = 44f;
+
+    /// <summary>The area as wide as its longest text needs this frame.</summary>
+    private float mfAreaWidth = AreaWidth;
+
+    private static readonly string[] msTitleIds = { "menu.title", "menu.save_game", "menu.restore_game", "menu.detail.title" };
+
+    private static readonly string[] msButtonIds =
+    {
+        "menu.resume", "menu.save_game", "menu.restore_game", "menu.edit_layout", "menu.quit", "menu.back", "menu.save", "menu.cancel"
+    };
+
+    private static readonly string[] msPresetIds =
+    {
+        "menu.preset.classic_wide", "menu.preset.classic_modular", "menu.preset.modern", "menu.preset.customize"
+    };
+
+    private static readonly string[] msPointerIds = { "menu.pointer.hold", "menu.pointer.toggle" };
+
+    private float fWidest(string[] psIds, in UWKitRows.HelpLook pOLook, float pfRoom)
+    {
+        float lfWidest = 0f;
+
+        foreach (string lsId in psIds)
+            lfWidest = Mathf.Max(lfWidest, mOKit.HelpTextWidth(UWText.T(lsId), pOLook) + pfRoom);
+
+        return lfWidest;
+    }
+
+    /// <summary>
+    /// THE MENU GROWS WITH ITS TEXT (per user, 2026-11-01; a player reported a translation running out of
+    /// the box): its area as wide as the longest title or button needs, at the least AreaWidth, at the
+    /// most the screen's width. The texts are the language's and never wrap, so the panel only widens; the
+    /// save names keep what is left of it.
+    /// </summary>
+    private void fFitArea()
+    {
+        UWKitRows.HelpLook lOTitle = KitLook(UWGuiTheme.GameMenuTitleSize, UWGuiTheme.Accent, TextAnchor.MiddleCenter, true);
+        UWKitRows.HelpLook lOButton = KitLook(UWGuiTheme.GameMenuButtonSize, UWGuiTheme.Text, TextAnchor.MiddleCenter);
+        float lfRoom = 2f * ButtonPadding;
+        float lfNeeded = Mathf.Max(fWidest(msTitleIds, lOTitle, 0f), fWidest(msButtonIds, lOButton, lfRoom));
+
+        lfNeeded = Mathf.Max(lfNeeded, Mathf.Max(fWidest(msPresetIds, lOButton, lfRoom + PresetIndent), fWidest(msPointerIds, lOButton, lfRoom + GlyphRoom)));
+        lfNeeded = Mathf.Max(lfNeeded, fWidest(msDetailIds, lOButton, lfRoom));
+        mfAreaWidth = Mathf.Clamp(lfNeeded, AreaWidth, Mathf.Max(AreaWidth, mOKit.Width - PanelSides - 16f));
+    }
 
     private const float AreaHeight = 560f - 36f;
 
@@ -295,7 +351,10 @@ public class UWModernGameMenu
         }
 
         float lfScale = UWGuiTheme.Scale;
-        Rect lOPanel = new Rect((mOKit.Width - 380f) * 0.5f, 90f, 380f, 560f);
+        fFitArea();
+
+        float lfPanelWidth = mfAreaWidth + PanelSides;
+        Rect lOPanel = new Rect((mOKit.Width - lfPanelWidth) * 0.5f, 90f, lfPanelWidth, 560f);
 
         // The menu's ground in the theme in force (cleanup phase 8d; Plain: the overlay's fill).
         mOKit.Ground(lOPanel, UWWindowGroundEnum.Overlay);
@@ -326,7 +385,7 @@ public class UWModernGameMenu
     {
         mfKitY += pfSpace;
 
-        Rect lORect = new Rect(mOAreaAt.x + pfIndent, mOAreaAt.y + mfKitY, AreaWidth - pfIndent, pfHeight);
+        Rect lORect = new Rect(mOAreaAt.x + pfIndent, mOAreaAt.y + mfKitY, mfAreaWidth - pfIndent, pfHeight);
 
         mfKitY += pfHeight;
 
@@ -371,7 +430,7 @@ public class UWModernGameMenu
 
         mOKit.Enabled = lbEnabled && pbBuilt;
 
-        bool lbPressed = fKitButton(fKitNext(4f, 30f, 28f), psText, null, pePreset == peCurrent);
+        bool lbPressed = fKitButton(fKitNext(4f, 30f, PresetIndent), psText, null, pePreset == peCurrent);
 
         mOKit.Enabled = lbEnabled;
 
@@ -434,7 +493,7 @@ public class UWModernGameMenu
         // Quit at the very bottom of the panel, set apart from the settings (per user,
         // 2026-10-06: "das Quit nach unten schieben") - since music, sound and detail left the
         // menu it had moved up with the rest (GUILayout's FlexibleSpace in the IMGUI form).
-        if (fKitButton(new Rect(mOAreaAt.x, mOAreaAt.y + AreaHeight - 38f, AreaWidth, 38f), UWText.T("menu.quit")))
+        if (fKitButton(new Rect(mOAreaAt.x, mOAreaAt.y + AreaHeight - 38f, mfAreaWidth, 38f), UWText.T("menu.quit")))
             fQuitToMainMenu();
     }
 
@@ -479,7 +538,7 @@ public class UWModernGameMenu
         string lsLine = UWText.T("menu.save_name");
         UWKitRows.HelpLook lOLine = KitLook(UWGuiTheme.GameMenuTextSize, UWGuiTheme.Text, TextAnchor.MiddleLeft, false, true);
 
-        mOKit.HelpText(fKitNext(0f, mOKit.HelpTextHeight(lsLine, lOLine, AreaWidth)), lsLine, lOLine);
+        mOKit.HelpText(fKitNext(0f, mOKit.HelpTextHeight(lsLine, lOLine, mfAreaWidth)), lsLine, lOLine);
 
         if (mbFocusName)
         {

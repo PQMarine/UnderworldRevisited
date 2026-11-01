@@ -8,6 +8,40 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.15.0] - 2026-11-01
+
+### Added
+- The layout editor has a Save button: it keeps the layout as it stands and the editor stays open.
+  Leaving still asks about changes that were not saved. Asked for on Reddit.
+- Translations: a letter the classic fonts lack now shows as its plain letter instead of vanishing
+  (e for e-acute, oe for the ligature, ' for the curly apostrophe), and a text field that does not
+  take a typed letter takes its plain form. A language's own font still goes first. Asked for on
+  Reddit.
+- Ultima Underworld II, still a preview, now says so in its main menu, and has come a long way: its
+  map with notes and map scraps, its conversations and trading, the modern interface with the action
+  bar and one modern conversation for both games, its creatures with their rules, and first
+  fights with them. Not yet: magic, the player's death, the traps. See Docs/UW2-PLAN.md.
+
+### Changed
+- The setup windows stay on the screen with long texts. Game, Sound and Colours move up and then
+  scroll above their buttons, the Game window is wider, a row of choices, a switch and a label in the
+  key lists wrap, the menu bar takes a second row, and a tab of the Controls window scrolls as a whole.
+- The game menu of the modern interface grows with its longest text.
+- The test language `-language pseudo` is twice as long, the extreme case.
+
+### Closer to the original
+- A jump does nothing while swimming, by key or by mouse, as in the original. Issue 11.
+- Water walking stands on the water: no swimming, the view stays up and the fight mode can be
+  used. Cast in the water, it takes you up at once. Issue 11.
+- A conversation's trade: a side worth nothing counts as the original counts it.
+- At [MORE], Shift, Ctrl and Alt alone are no key any more, and a text ending at a [MORE] leaves its
+  line empty as in the original.
+
+### Fixed
+- The E key of the modern interface could fill a bag inside a bag past the outer bag's limit. Issue 13.
+- After a loaded game, switching to the other game showed an empty main menu, and switching back led
+  into the old game.
+
 ## [0.14.0] - 2026-10-30
 
 ### Added

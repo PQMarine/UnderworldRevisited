@@ -10,6 +10,8 @@ namespace UWDataImport.UWData
 		/// trapdisarming.DetectTrapTrigger and DoTrapSkillCheck).</summary>
 		public const int TrapCheckDifficulty = 8;
 
+		public int LongCycleTicks => UWPlayerTick.FiveMinuteTicks;
+
 		/// <summary>Only a loss still works above the cap (the original tests the amount first and
 		/// subtracts before this comparison); a gain then counts in full.</summary>
 		public UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain)

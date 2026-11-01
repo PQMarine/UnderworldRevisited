@@ -18,5 +18,23 @@ namespace UWDataImport.UWData
 		/// <summary>The sound a dying creature cries, or -1 for none (UW1: effect 6 when the row's byte
 		/// 8 says so, AI.C:1441; UW2: one of four by the death kind, AI.C:1437).</summary>
 		int DeathCry(UWObjectClassProperties.Critter pORow);
+
+		/// <summary>The brain's animation slot for what the record holds (UW1: the same number; UW2: a
+		/// sequence, AI.C).</summary>
+		int SlotOfRecord(int piRaw);
+
+		/// <summary>Whether a whoami's death has a case of its own (UWSpecialDeaths for the first game; the second
+		/// game's numbers are other people, its death_check is still to come).</summary>
+		bool HasSpecialDeath(int piWhoami);
+
+		/// <summary>The blood of a creature's table index, -1 for none (build_corpse: 0xD8 + n in the first game,
+		/// 0xD9 + n in the second).</summary>
+		int BloodObject(int piBloodIndex);
+
+		/// <summary>Whether a corpse stays whatever the roll said (the second game's eighth world).</summary>
+		bool CorpseAlways(int piDungeonLevel);
+
+		/// <summary>What the record holds for a slot of the brain.</summary>
+		int RecordOfSlot(int piSlot);
 	}
 }

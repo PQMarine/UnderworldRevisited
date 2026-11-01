@@ -30,7 +30,7 @@ public class UWCritterRemains : MonoBehaviour
 
     public void Initialise(UWObjectClassProperties.Critter pOStats, UWLevelLoader pOLevelLoader)
     {
-        miRemainsObjectId = UWCritterCombat.GetBloodObjectId(pOStats.BloodIndex);
+        miRemainsObjectId = UWGameSession.Current.Game.Critter.BloodObject(pOStats.BloodIndex);
         mOLevelLoader = pOLevelLoader;
         mOStats = pOStats;
         mbHasStats = true;
@@ -124,7 +124,7 @@ public class UWCritterRemains : MonoBehaviour
             mOLevelLoader.SpawnObjectById(miRemainsObjectId, lOTile.X, lOTile.Y, 0, -1, lOAt,
                 UWWorldEdit.Arrival.Created);
 
-        if (!mbHasStats || !UWCritterCombat.ShouldDropCorpse(mOStats.CorpseIndex, UWRandom.Next(UWRules.Current.Critter.Corpse.Roll)))
+        if (!mbHasStats || !fKeepsCorpse())
             return;
 
         UWEntityInfo lOEntity = GetComponent<UWEntityInfo>();
@@ -132,6 +132,13 @@ public class UWCritterRemains : MonoBehaviour
 
         mOLevelLoader.SpawnObjectByIdAround(UWCritterCombat.GetCorpseObjectId(mOStats.CorpseIndex), 0,
             -1, lOBody, UWScatterRules.RemainsRadius, lOTile, UWCritterCombat.GetCorpseOwner(liKind));
+    }
+
+    private bool fKeepsCorpse()
+    {
+        bool lbRolled = UWCritterCombat.ShouldDropCorpse(mOStats.CorpseIndex, UWRandom.Next(UWRules.Current.Critter.Corpse.Roll));
+
+        return lbRolled || (mOStats.CorpseIndex > 0 && UWGameSession.Current.Game.Critter.CorpseAlways(mOLevelLoader.CurrentLevel.LevelNumber));
     }
 
     /// <summary>

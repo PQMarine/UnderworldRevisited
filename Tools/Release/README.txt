@@ -58,9 +58,10 @@ ULTIMA UNDERWORLD II (AN EARLY PREVIEW)
 
 With the second game in the same GOG installation ("Ultima Underworld 1+2"), the Game window
 in the menu bar on the main menu switches to it. It has its main menu, its character creation,
-Journey Onward with the DOS game's saves, and a walk through Britannia with its game screen,
-inventory, options and saves (they load in the DOS game). Not yet: its rules, conversations,
-map, sound and music, cutscenes, and the modern interface. The switch back is in the same window.
+Journey Onward with the DOS game's saves, and Britannia with its game screen, inventory, options
+and saves (they load in the DOS game), its map, its conversations and trading, the modern interface,
+and its creatures with first fights. Not yet: magic, the player's death, traps and more of its
+rules, sound and music, and cutscenes. The switch back is in the same window.
 
 
 CONTROLS

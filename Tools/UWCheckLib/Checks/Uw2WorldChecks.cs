@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using UWDataImport;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
@@ -17,6 +18,214 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     public static partial class SelfChecks
     {
+        /// <summary>
+        /// EVERY CONVERSATION OF THE SECOND GAME RUNS (phase 3 step 7): each slot of CNV.ARK through
+        /// UWConversationSession without a partner, the first answer each time, a limit of 200 answers:
+        /// no machine error, and no built-in the game binds missing.
+        /// </summary>
+        private static void fCheckUw2Conversations(CheckContext pOContext)
+        {
+            Check.Group("The second game's conversations run");
+
+            string lsData = pOContext.Uw2DataPath;
+
+            if (lsData == null)
+            {
+                Check.Pass("uw2 conversations", "no second game here: skipped");
+
+                return;
+            }
+
+            DataImport lOData = new DataImport(lsData, null, null, UWGameProfiles.Uw2);
+            SortedSet<string> lOMissing = new SortedSet<string>();
+            SortedSet<string> lOErrors = new SortedSet<string>();
+            SortedSet<string> lOUnbuilt = new SortedSet<string>();
+            int liRun = 0;
+
+            for (int liSlot = 1; liSlot < lOData.Conversations.SlotCount; liSlot++)
+            {
+                UWConversations.Conversation lOConversation = lOData.Conversations.GetConversation(liSlot);
+
+                if (lOConversation == null || lOConversation.Code == null || lOConversation.Code.Length == 0)
+                    continue;
+
+                fCollectCalled(lOConversation, lOUnbuilt);
+
+                UWConversationSession lOSession = new UWConversationSession(lOData, null, liSlot, null, lOData.Session);
+
+                liRun++;
+                lOSession.Advance();
+
+                for (int liAnswers = 0; liAnswers < 200 && !lOSession.IsFinished; liAnswers++)
+                {
+                    if (lOSession.IsAskingText)
+                        lOSession.SupplyText("yes");
+                    else if (lOSession.Choices.Count > 0)
+                        lOSession.Choose(1);
+                    else
+                        break;
+                }
+
+                if (lOSession.Error != null)
+                    lOErrors.Add(liSlot + ": " + lOSession.Error);
+
+                foreach (string lsName in lOSession.MissingFunctions)
+                    lOMissing.Add(lsName);
+
+                lOSession.Abort();
+            }
+
+            Check.Int("conversations: the slots with code", liRun, 102);
+            Check.Str("conversations: built-ins missing on the first answers", string.Join(" ", lOMissing), string.Empty);
+            Check.Str("conversations: any built-in a CALLI reaches and nobody has", string.Join(" ", lOUnbuilt), string.Empty);
+            Check.Str("conversations: errors", string.Join(" | ", lOErrors), string.Empty);
+        }
+
+        /// <summary>The machine's own built-ins, and what Converse imports but never binds (an unbound import
+        /// does nothing, as CallUnknown answers it).</summary>
+        private static readonly HashSet<string> msMachineFunctions = new HashSet<string>
+        {
+            "babl_menu", "babl_fmenu", "print", "babl_ask", "random", "say", "get_quest", "set_quest",
+            "gronk_trigger", "add_event", "do_input_wait"
+        };
+
+        private static void fCollectCalled(UWConversations.Conversation pOConversation, SortedSet<string> pOUnbuilt)
+        {
+            Dictionary<int, string> lONames = new Dictionary<int, string>();
+
+            foreach (UWConversations.Import lOImport in pOConversation.Imports)
+            {
+                if (lOImport.IsFunction)
+                    lONames[lOImport.IdOrAddress] = lOImport.Name;
+            }
+
+            ushort[] liCode = pOConversation.Code;
+
+            for (int liAt = 0; liAt < liCode.Length; liAt++)
+            {
+                int liWord = liCode[liAt];
+
+                if (liWord > (int)UWConversationDisassembler.Opcode.OPNEG
+                    || !UWConversationDisassembler.HasImmediateOperand((UWConversationDisassembler.Opcode)liWord) || liAt + 1 >= liCode.Length)
+                    continue;
+
+                int liOperand = liCode[++liAt];
+
+                if (liWord == (int)UWConversationDisassembler.Opcode.CALLI && lONames.TryGetValue(liOperand, out string lsName)
+                    && !msMachineFunctions.Contains(lsName) && !UWGameProfiles.Uw2.ConversationFunctions.Contains(lsName))
+                    pOUnbuilt.Add(lsName);
+            }
+        }
+
+        /// <summary>TalkTo's refusals and the record's quests (uw2 conv/CONVERSE.C, conv/BABLHACK.C), worked by
+        /// hand.</summary>
+        private static void fCheckUw2TalkRules()
+        {
+            Check.Group("The second game's talk rules and quests");
+
+            IUWConversationVariant lIVariant = UWGameProfiles.Uw2.Conversation;
+
+            Check.Str("talk: a thing", fTalk(new UWObject(0x20), lIVariant), "NotACreature 0");
+            Check.Str("talk: friendly", fTalk(fTalker(5, 2, 0, 0, false), lIVariant), "Talks 5");
+            Check.Str("talk: whoami 0, the class's slot", fTalk(fTalker(0, 2, 0, 0, false), lIVariant), "Talks " + (0x100 + 5));
+            Check.Str("talk: hostile", fTalk(fTalker(5, 0, 0, 0, false), lIVariant), "NoResponse 0");
+            Check.Str("talk: hostile on goal 10", fTalk(fTalker(5, 0, 10, 0, false), lIVariant), "Talks 5");
+            Check.Str("talk: fighting the player", fTalk(fTalker(5, 2, 5, 1, false), lIVariant), "NoResponse 0");
+            Check.Str("talk: fighting another", fTalk(fTalker(5, 2, 5, 2, false), lIVariant), "Talks 5");
+            Check.Str("talk: an ally fighting the player", fTalk(fTalker(5, 2, 5, 1, true), lIVariant), "Talks 5");
+            Check.Str("talk: goal 15", fTalk(fTalker(5, 2, 15, 0, false), lIVariant), "NoResponse 0");
+            Check.Str("talk: whoami 0xFF", fTalk(fTalker(0xFF, 2, 0, 0, false), lIVariant), "NoResponse 0");
+            Check.Str("talk: whoami 0x8C hostile", fTalk(fTalker(0x8C, 0, 0, 0, false), lIVariant), "Talks 140");
+
+            Check.Str("demand: the scores alone decide, an ally too", lIVariant.DemandGivesIn(5, 5, true) + " " + lIVariant.DemandGivesIn(6, 5, false), "False True");
+            Check.Str("demand: giving in stops at attitude 1", lIVariant.GivingInLowersAttitude(2) + " " + lIVariant.GivingInLowersAttitude(1), "True False");
+
+            UWPlayerFile lOFile = UWPlayerRecordUw2.NewWalker();
+
+            UWPlayerRecordUw2.SetQuest(lOFile, 6, 1);
+            Check.Int("quest: a bit", UWPlayerRecordUw2.GetQuest(lOFile, 6), 1);
+            Check.Int("quest: in the second long, its bit 2", lOFile.Record[UWPlayerRecordUw2.QuestsOffset + 4], 4);
+            UWPlayerRecordUw2.SetQuest(lOFile, 6, 0);
+            Check.Int("quest: cleared", UWPlayerRecordUw2.GetQuest(lOFile, 6), 0);
+            UWPlayerRecordUw2.SetQuest(lOFile, 133, 40);
+            Check.Int("quest: a byte", UWPlayerRecordUw2.GetQuest(lOFile, 133), 40);
+            Check.Int("quest: the byte's place", lOFile.Record[UWPlayerRecordUw2.QuestBytesOffset + 5], 40);
+            lOFile.Record[UWPlayerRecordUw2.QuestBytesF6Offset] = 8;
+            Check.Int("quest: above 143 reads bF6", UWPlayerRecordUw2.GetQuest(lOFile, 500), 8);
+
+            UWPlayerRecordUw2.SetNumbered(lOFile, 3, 0x1FF);
+            Check.Int("variable: keeps a byte", UWPlayerRecordUw2.GetNumbered(lOFile, 3), 0xFF);
+            UWPlayerRecordUw2.SetNumbered(lOFile, 0x100 + 7, 5);
+            Check.Int("variable: a quest bit", UWPlayerRecordUw2.GetQuest(lOFile, 7), 1);
+            UWPlayerRecordUw2.SetNumbered(lOFile, 0x190, 6);
+            Check.Int("variable: an X clock", UWPlayerRecordUw2.XClock(lOFile, 0), 6);
+            Check.Int("variable: reads the X clock", UWPlayerRecordUw2.GetNumbered(lOFile, 0x190), 6);
+
+            UWPlayerRecordUw2.SetXClock(lOFile, 0, 8);
+            Check.Int("x_clock: clock 0 moves the game clock two steps", UWPlayerRecordUw2.GameClock(lOFile), 2 * UWPlayerRecordUw2.DayStepClock);
+
+            lOFile.Record[UWPlayerRecordUw2.BodyByteOffset] = (3 << 2) | 2;
+            Check.Int("head: female body 3", UWPlayerRecordUw2.BodyPortrait(lOFile), 8);
+            Check.Str("name", UWPlayerRecordUw2.Name(lOFile), UWPlayerRecordUw2.WalkerName);
+        }
+
+        private static UWNpc fTalker(int piWho, int piAttitude, int piGoal, int piTarget, bool pbAlly)
+        {
+            return new UWNpc(0x45) { NPCwhoami = (byte)piWho, NPCAttitude = (byte)piAttitude, NPCGoal = (byte)piGoal, NPCGTarg = (byte)piTarget, NPCIsAlly = pbAlly };
+        }
+
+        private static string fTalk(UWObject pOThing, IUWConversationVariant pIVariant)
+        {
+            UWTalkRulesUw2.AnswerEnum leAnswer = UWTalkRulesUw2.Answer(pOThing, null, false, pIVariant, out int liSlot);
+
+            return leAnswer + " " + liSlot;
+        }
+
+        private static void fCheckUw2MapScraps(CheckContext pOContext)
+        {
+            Check.Group("The second game's map scraps");
+
+            string lsData = pOContext.Uw2DataPath;
+
+            if (lsData == null)
+            {
+                Check.Pass("uw2 map scraps", "no second game here: skipped");
+
+                return;
+            }
+
+            UWGameData lOData = new UWGameData(lsData, null, UWGameProfiles.Uw2);
+            UWSessionWorld lOWorld = UWSaveCodec.Load(lOData, null).World;
+            UWLevArkFile lOFile = UWLevArkFile.Uw2;
+
+            string lsScraps = string.Empty;
+
+            foreach (UWLevel lOLevel in lOWorld.Levels.FindAll(l => l != null))
+            {
+                foreach (UWObject lOObject in lOLevel.Masterlist)
+                {
+                    if (lOObject != null && lOObject.ID == UWClassicLayoutUw2.Inventory.BitOfMapObject)
+                        lsScraps += lOLevel.LevelNumber + ":" + lOObject.Quality + ":" + lOObject.Owner + ":" + lOObject.Quantity + (lOObject.HasQuantity ? " " : "! ");
+                }
+            }
+
+            // Eight in the shipped file: the whole of level 25's, seven of level 51's, a section each.
+            Check.Str("scraps: level, quality, level covered, link", lsScraps.Trim(),
+                "25:8:25:767 49:3:51:520 49:3:51:528 49:3:51:516 49:3:51:513 49:3:51:576 49:3:51:514 49:3:51:544");
+
+            int[] liPages = { UWClassicLayoutUw2.Inventory.ScrapFirstLevel + 3, UWClassicLayoutUw2.Inventory.ScrapFirstLevel + 8 };
+            int[] liNotes = { 51, 30 };
+
+            for (int liAt = 0; liAt < liPages.Length; liAt++)
+            {
+                byte[] lyMap = lOWorld.Ark.ReadBlock(lOFile.AutomapBlock(liPages[liAt] - 1));
+                System.Collections.Generic.List<UWLevel.MapNote> lOInto = new System.Collections.Generic.List<UWLevel.MapNote>();
+
+                UWAutomapStateUw2.CopyScrap(lyMap, lOWorld.GetMapNotes(liPages[liAt] - 1), 0xFF, 1, new byte[lyMap.Length], lOInto);
+                Check.Str("scraps: page " + liPages[liAt] + ", every section brings its map and all its notes", lyMap.Length + " " + lOInto.Count, "4096 " + liNotes[liAt]);
+            }
+        }
+
         private static void fCheckUw2World(CheckContext pOContext)
         {
             Check.Group("The second game's world in a session (UW2 plan, phase 2 step 2)");
@@ -300,6 +509,27 @@ namespace UnderworldRevisited.Tools
 
             Check.Str("character: " + Path.GetFileName(psSave) + " - name, class, body, sex, hand | str dex int | vitality, mana, level, weight left | slots",
                 lsGot, fExpectedCharacter(Path.GetFileName(psSave)) ?? lsGot);
+
+            // Phase 4 step 0: the character as the rules read one says what the record says.
+            UWPlayerData lOBridge = UWPlayerData.FromSecondGame(lOFile);
+            string lsBridgeSkills = string.Empty;
+            string lsRecordSkills = string.Empty;
+
+            for (int liSkill = 0; liSkill < UWPlayerData.SkillCount; liSkill++)
+            {
+                lsBridgeSkills += lOBridge.GetSkill((UWPlayerData.Skill)liSkill) + " ";
+                lsRecordSkills += UWPlayerRecordUw2.Skill(lOFile, UWPlayerRecordUw2.NamedSkillsFrom + liSkill) + " ";
+            }
+
+            Check.Str("character: " + Path.GetFileName(psSave) + " - as the rules read it: name, sex, hand | str dex int | vitality, mana, level, poison | skills",
+                string.Format("{0} {1} {2} | {3} {4} {5} | {6}/{7} {8}/{9} L{10} {11} | {12}", lOBridge.Name, lOBridge.IsFemale ? "f" : "m",
+                    lOBridge.IsLeftHanded ? "left" : "right", lOBridge.Strength, lOBridge.Dexterity, lOBridge.Intelligence, lOBridge.CurrentVitality,
+                    lOBridge.MaxVitality, lOBridge.CurrentMana, lOBridge.MaxMana, lOBridge.Level, lOBridge.Poison, lsBridgeSkills),
+                string.Format("{0} {1} {2} | {3} {4} {5} | {6}/{7} {8}/{9} L{10} {11} | {12}", lOFile.Name, UWPlayerRecordUw2.IsFemale(lOFile) ? "f" : "m",
+                    UWPlayerRecordUw2.IsLeftHanded(lOFile) ? "left" : "right", UWPlayerRecordUw2.Strength(lOFile), UWPlayerRecordUw2.Dexterity(lOFile),
+                    UWPlayerRecordUw2.Intelligence(lOFile), UWPlayerRecordUw2.Vitality(lOFile), UWPlayerRecordUw2.MaxVitality(lOFile),
+                    UWPlayerRecordUw2.Mana(lOFile), UWPlayerRecordUw2.MaxMana(lOFile), UWPlayerRecordUw2.CharacterLevel(lOFile),
+                    UWPlayerRecordUw2.Poison(lOFile), lsRecordSkills));
 
             // Step 3 part A: the workspace as objects (UWInventoryWorkspace) gives the same ids in the
             // same places, and the second game's places take each worn piece only where it is worn

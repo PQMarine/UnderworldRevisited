@@ -91,9 +91,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>A line into the walk's message scroll.</summary>
     public static void Say(string psLine)
     {
+        // The game's scroll is covered during a conversation: what the panel says (a look at the inventory)
+        // stands in the answer scroll for its two seconds, as a look at a trade slot.
+        if (UWConversationScreenUw2.ShowLook(psLine))
+            return;
+
         if (string.IsNullOrEmpty(psLine))
             return;
 
+        msfLastSaid = Time.unscaledTime;
         msMessages.Add(psLine);
 
         while (msMessages.Count > KeptMessages)
@@ -214,6 +220,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// hangs off them, and the running weight (UWInventoryWorkspace.WriteInto). The runes and the shelf are
     /// in the record already. Null, or what failed.
     /// </summary>
+    /// <summary>The bar's places into the save's notes (UWHelpNotes), read before they are written.</summary>
+    public void CaptureBar()
+    {
+        if (mOModernHud != null && mOModernHud.Bar != null)
+            mOModernHud.Bar.Capture(mOInventory);
+    }
+
     public string WriteInventoryInto(UWPlayerFile pOFile)
     {
         if (mOInventory == null || pOFile == null || pOFile != mOShownPlayer)
@@ -292,12 +305,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     // Over the view (step 2 part C).
     private Image mOWeapon;
 
+    private Image mOPowerGem;
+
     private enum WeaponStateEnum
     {
         Hidden,
         Drawing,
         Ready,
-        Sheathing
+        Sheathing,
+
+        /// <summary>A blow: 0 to 2 in setting[8].</summary>
+        Swinging
     }
 
     private WeaponStateEnum meWeapon = WeaponStateEnum.Hidden;
@@ -438,6 +456,62 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>Whether the options panel is up: the walk's buttons and doors wait (UWWalkUw2View).</summary>
     public static bool IsOptionsOpen => Current != null && Current.mbOptionsOpen;
 
+    /// <summary>AskHowMany; the first game's prompt, its line in the scroll that is showing.</summary>
+    private UWCountAskUw2 mOCountAsk;
+
+    /// <summary>The prompt's line is the scroll's last.</summary>
+    private bool mbCountLine;
+
+    /// <summary>"Move how many?" is up, or was answered in this frame: the game has no input.</summary>
+    public static bool IsAskingCount => Current != null && Current.mOCountAsk != null && Current.mOCountAsk.IsBusy;
+
+    /// <summary>
+    /// Asks how many of a stack on the classic screen (AskHowMany) and gives the count taken to pFTaken. False,
+    /// with nothing asked, for a single thing and in the world on the modern scheme, where E takes the whole; the
+    /// modern bags ask too, the line standing beside the flasks.
+    /// </summary>
+    public bool AskCount(UWObject pOItem, System.Action<int> pFTaken)
+    {
+        if (!(IsClassicShown || mbBagsOpen) || !UWStackRules.IsStack(pOItem))
+            return false;
+
+        if (mOCountAsk == null)
+            mOCountAsk = new UWCountAskUw2(fShowCountLine, fEndCountLine);
+
+        mfTypingStart = Time.unscaledTime;
+        mOCountAsk.Begin(UWStackRules.Count(pOItem), pFTaken);
+
+        return true;
+    }
+
+    private void fShowCountLine(string psLine)
+    {
+        if (UWConversationScreenUw2.IsOpen)
+        {
+            mOConversation.ShowCountLine(psLine);
+
+            return;
+        }
+
+        msfLastSaid = Time.unscaledTime;
+
+        if (mbCountLine)
+            msMessages[msMessages.Count - 1] = psLine;
+        else
+        {
+            mbCountLine = true;
+            Say(psLine);
+        }
+    }
+
+    private void fEndCountLine()
+    {
+        mbCountLine = false;
+
+        if (UWConversationScreenUw2.IsOpen)
+            mOConversation.EndCountLine();
+    }
+
     /// <summary>Empties the scroll (scroll_clear).</summary>
     public static void ClearScroll()
     {
@@ -512,6 +586,142 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
     }
 
+    /// <summary>The weapon is up and ready for a blow.</summary>
+    public bool IsWeaponReady => meWeapon == WeaponStateEnum.Ready;
+
+    /// <summary>A swing is on the screen.</summary>
+    public bool IsSwinging => meWeapon == WeaponStateEnum.Swinging;
+
+    /// <summary>The kind in the hand has swings of its own; the missile weapons of none do not.</summary>
+    public bool CanSwing => miWeaponKind >= 0;
+
+    /// <summary>The savegame slot of the weapon's hand: Inventory[8 - lefty] (PLAYDATA.C:371).</summary>
+    public int WeaponHandSlot => UWClassicLayoutUw2.Weapon.RightHandSlot - (mOInventory != null && mOInventory.IsLeftHanded ? 1 : 0);
+
+    private int miSwingRow;
+
+    private bool mbSwingHeld;
+
+    private bool mbSwingBack;
+
+    /// <summary>The flag bits of the swing's step (wframe[n] &amp; 0xE0), what player_attack reads; 0 before the first.</summary>
+    public int SwingFlag
+    {
+        get
+        {
+            UWWeaponAnimations.Uw2Record lORecord = fSwingRecord();
+
+            return lORecord != null && miWeaponFrame >= 0 ? lORecord.Steps[fSwingStep] & UWClassicLayoutUw2.Weapon.SwingFlagMask : 0;
+        }
+    }
+
+    private int fSwingStep => (miSwingRow * UWClassicLayoutUw2.Weapon.StepsPerSwing) + miWeaponFrame;
+
+    private UWWeaponAnimations.Uw2Record fSwingRecord()
+    {
+        UWWeaponAnimations lOAnimations = mOData.WeaponAnimations;
+        int liRecord = ((mbWeaponLefty ? 0 : 1) * UWClassicLayoutUw2.Weapon.KindsPerHand) + miWeaponKind;
+
+        return lOAnimations == null || lOAnimations.Uw2Records == null || miWeaponKind < 0 || liRecord >= lOAnimations.Uw2Records.Count
+            ? null : lOAnimations.Uw2Records[liRecord];
+    }
+
+    /// <summary>A swing of this kind begins: the kind's row of steps, 0 slash, 1 bash, 2 stab (swing_kind, get_wfr).</summary>
+    public void BeginSwing(AttackTypes peKind)
+    {
+        miSwingRow = (int)peKind;
+        miWeaponFrame = -1;
+        mfWeaponTime = UWClassicLayoutUw2.Weapon.StepSeconds;
+        mbSwingHeld = false;
+        mbSwingBack = false;
+        meWeapon = WeaponStateEnum.Swinging;
+    }
+
+    /// <summary>The button came up on the hold: the swing goes on to its blow.</summary>
+    public void ResumeSwing()
+    {
+        mbSwingHeld = false;
+    }
+
+    /// <summary>Let go during the lead-in: the weapon goes on to the next step it can stop on, then ready (adjust_weapon).</summary>
+    public void CancelSwing()
+    {
+        mbSwingBack = true;
+        mbSwingHeld = false;
+    }
+
+    /// <summary>A step each eighth of a second, one at a time so that the strike's step is never skipped. The
+    /// hold's step stops the weapon until the button comes up (fast_adjust cleared at the 0x40 step).</summary>
+    private void fUpdateSwing()
+    {
+        UWWeaponAnimations.Uw2Record lORecord = fSwingRecord();
+
+        if (lORecord == null)
+        {
+            meWeapon = WeaponStateEnum.Ready;
+
+            return;
+        }
+
+        if (mbSwingHeld)
+            return;
+
+        mfWeaponTime += Time.unscaledDeltaTime;
+
+        if (mfWeaponTime < UWClassicLayoutUw2.Weapon.StepSeconds)
+            return;
+
+        mfWeaponTime -= UWClassicLayoutUw2.Weapon.StepSeconds;
+
+        if (mbSwingBack && SwingFlag == UWClassicLayoutUw2.Weapon.LeadInFlag)
+        {
+            meWeapon = WeaponStateEnum.Ready;
+
+            return;
+        }
+
+        miWeaponFrame++;
+
+        if (miWeaponFrame > 0 && miWeaponFrame >= lORecord.FrameTotals[miSwingRow])
+        {
+            meWeapon = WeaponStateEnum.Ready;
+
+            return;
+        }
+
+        if (SwingFlag == UWClassicLayoutUw2.Weapon.HoldFlag)
+        {
+            if (mbSwingBack)
+                meWeapon = WeaponStateEnum.Ready;
+            else
+                mbSwingHeld = true;
+        }
+    }
+
+    private int miPower;
+
+    private readonly Sprite[] maPowerSprites = new Sprite[UWClassicLayoutUw2.PowerGem.Frames];
+
+    /// <summary>The gem's picture: 0 dark, the charge in steps, the full one pulses (set_screen_frame(3, n)).</summary>
+    public void ShowPower(int piStep)
+    {
+        miPower = Mathf.Clamp(piStep, 0, UWClassicLayoutUw2.PowerGem.FullStep);
+    }
+
+    private void fUpdatePower()
+    {
+        if (mOPowerGem == null)
+            return;
+
+        int liFrame = miPower == UWClassicLayoutUw2.PowerGem.FullStep
+            ? miPower + ((int)(Time.unscaledTime / UWClassicLayoutUw2.PowerGem.PulseSeconds) & 1) : miPower;
+
+        if (maPowerSprites[liFrame] == null)
+            maPowerSprites[liFrame] = fWholeSprite(fPicture(UWTexture.TextureTypes.POWER, liFrame, true));
+
+        mOPowerGem.sprite = maPowerSprites[liFrame];
+    }
+
     /// <summary>
     /// THE WEAPON (adjust_weapon, a step each eighth of a second): the fight icon draws it - steps 2, 1
     /// and 0 from 0x1B, then ready at 0x1B -, leaving the icon sheathes it - 0, 1 and 2, then hidden. The
@@ -519,7 +729,18 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// </summary>
     private void fUpdateWeapon()
     {
-        bool lbFight = Command == CommandEnum.Fight;
+        fUpdatePower();
+
+        if (meWeapon == WeaponStateEnum.Swinging)
+        {
+            fUpdateSwing();
+            fShowWeapon();
+
+            return;
+        }
+
+        // The modern scheme has no fight icon: the weapon is out, as on the first game's modern screen.
+        bool lbFight = Command == CommandEnum.Fight || (IsModernScheme && !UWConversationScreenUw2.IsOpen);
 
         if (meWeapon == WeaponStateEnum.Hidden)
         {
@@ -598,7 +819,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
 
         UWWeaponAnimations.Uw2Record lORecord = lOAnimations.Uw2Records[liRecord];
-        int liStep = meWeapon == WeaponStateEnum.Ready ? UWClassicLayoutUw2.Weapon.ReadyStep
+        int liStep = meWeapon == WeaponStateEnum.Swinging ? fSwingStep
+            : meWeapon == WeaponStateEnum.Ready ? UWClassicLayoutUw2.Weapon.ReadyStep
             : UWClassicLayoutUw2.Weapon.ReadyStep + Mathf.Max(0, miWeaponFrame);
         int liPicture = lORecord.Steps[liStep] & UWClassicLayoutUw2.Weapon.PictureMask;
 
@@ -1146,9 +1368,21 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// </summary>
     private void fClickInventory(int piX, int piY, bool pbRight)
     {
-        int liHit = fInventoryHit(piX, piY);
+        fClickDisplay(fInventoryHit(piX, piY), pbRight);
+    }
 
-        if (liHit < 1 || liHit > UWClassicLayoutUw2.Inventory.DownArrowDisplay)
+    /// <summary>What the object of a display is, for the modern bags (UWModernHudUw2).</summary>
+    public UWObject DisplayItem(int piDisplay)
+    {
+        return fDisplayItem(piDisplay);
+    }
+
+    /// <summary>A press on a display, the classic page's or a cell of the modern bags.</summary>
+    private void fClickDisplay(int piHit, bool pbRight)
+    {
+        int liHit = piHit;
+
+        if (mOInventory == null || liHit < 1 || liHit > UWClassicLayoutUw2.Inventory.DownArrowDisplay)
             return;
 
         UWObject lOItem = fDisplayItem(liHit);
@@ -1235,24 +1469,418 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        // The use (DoSpecialActions' default, UseObj): a bag opens in the pack's rows, the rune bag (class
-        // 0xF) slides the panel to the runes (OpenTheBag).
-        if (lOItem.ID == UWObjectIds.RuneBag)
+        fUseCarried(lOItem);
+    }
+
+    /// <summary>The use (DoSpecialActions' default, UseObj): a bag opens in the pack's rows, the rune bag (class
+    /// 0xF) slides the panel to the runes (OpenTheBag).</summary>
+    private void fUseCarried(UWObject pOItem)
+    {
+        if (pOItem.ID == UWObjectIds.RuneBag)
         {
             if (miSlideFrame == 0 && miPage != UWClassicLayoutUw2.Runes.PanelPage)
                 fStartSlide(UWClassicLayoutUw2.Runes.PanelPage);
         }
-        else if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
-            mOInventory.TryOpenContainer(lOItem);
+        else if (pOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+            mOInventory.TryOpenContainer(pOItem);
+        else if (pOItem.ID == UWClassicLayoutUw2.Inventory.MapObject)
+        {
+            Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Inventory.UnrollString + 1, string.Empty));
+            fOpenMap();
+        }
+        else if (pOItem.ID == UWClassicLayoutUw2.Inventory.BitOfMapObject)
+            fUseMapScrap(pOItem);
         else
             Say(UWText.T("hud.walk.not_yet"));
     }
 
+    // ------------------------------------------------- The map
+
+    private UWMapScreenUw2 mOMap;
+
+    private bool mbMapHeld;
+
+    // ------------------------------------------------- The conversation
+
+    private UWConversationScreenUw2 mOConversation;
+
+    private bool mbConversationHeld;
+
+    private bool mbModal;
+
+    /// <summary>The options, the map and a conversation have the pointer: the modern scheme lets go the mouse
+    /// look while one is up, as for the first game's conversation (UWControlScheme.IsConversationOpen).</summary>
+    private void fFollowModal()
+    {
+        if (IsClassicScheme)
+            mbBagsOpen = false;
+
+        bool lbModal = mbOptionsOpen || mbBagsOpen || UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen;
+
+        if (lbModal == mbModal || UWControlScheme.Shared == null)
+            return;
+
+        mbModal = lbModal;
+        UWControlScheme.Shared.IsConversationOpen = lbModal;
+    }
+
+    /// <summary>The modern scheme's own screens are not on the second game yet: Escape opens the options
+    /// panel of this screen (save, restore, music, detail). The HUD is UWModernHudUw2.</summary>
+    private void fModernKeys()
+    {
+        UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
+        UWControls lOControls = UWControlScheme.SharedControls;
+        bool lbFree = !UWSetupMenu.IsCapturingInput && !UWSetupMenu.HasOpenPanel;
+        bool lbHolding = mOInventory != null && mOInventory.CursorItem != null;
+
+        fEnsureModernHud();
+
+        if (lOControls != null && lbFree && lOControls.Player.ModernBags.WasPressedThisFrame())
+        {
+            if (mbBagsOpen && lbHolding)
+                Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Options.NotNowString + 1, string.Empty));
+            else
+                mbBagsOpen = !mbBagsOpen;
+        }
+        else if (lOKeys != null && lbFree && lOKeys.escapeKey.wasPressedThisFrame && !lbHolding)
+        {
+            if (mbBagsOpen)
+                mbBagsOpen = false;
+            else
+                fBeginOptions();
+        }
+
+        fFollowInventoryPress();
+
+        if (mbBagsOpen)
+        {
+            fClickBags();
+            fUpdatePointer();
+        }
+
+        fTickModernHud();
+
+        if (lOControls != null && lbFree && !lbHolding && mOModernHud.Bar != null)
+        {
+            for (int liSlot = 0; liSlot < UWModernBarUw2.SlotCount; liSlot++)
+            {
+                if (lOControls.Player.ModernSlots[liSlot].WasPressedThisFrame())
+                    fUseBar(liSlot);
+            }
+        }
+    }
+
+    /// <summary>The HUD and the conversation it stands beside, made once.</summary>
+    private void fEnsureModernHud()
+    {
+        if (mOModernHud != null)
+            return;
+
+        mOModernHud = gameObject.AddComponent<UWModernHudUw2>();
+
+        UWModernConversation lOTalk = GetComponent<UWModernConversation>();
+
+        if (lOTalk == null)
+            lOTalk = gameObject.AddComponent<UWModernConversation>();
+
+        lOTalk.SetHost(new UWModernConversationHostUw2(this));
+    }
+
+    private void fTickModernHud()
+    {
+        mOModernHud.Tick(mOData, UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null, msMessages, Time.unscaledTime - msfLastSaid,
+            this, mbBagsOpen);
+    }
+
+    /// <summary>A place's key or click: its piece is used as from the inventory; nothing while it is not carried.</summary>
+    private void fUseBar(int piSlot)
+    {
+        UWObject lOItem = mOModernHud.Bar.Carried(piSlot, mOInventory);
+
+        if (lOItem != null)
+            fUseCarried(lOItem);
+    }
+
+    /// <summary>The bar's mouse with the bags open: the thing on the pointer goes on a place and back into the
+    /// pack, a free left click uses, a right click empties. False when the pointer is not on it.</summary>
+    private bool fClickBar(bool pbRight)
+    {
+        int liSlot = mOModernHud.Bar != null ? mOModernHud.Bar.SlotAt(UWPointer.Position) : -1;
+
+        if (liSlot < 0)
+            return false;
+
+        if (pbRight)
+            mOModernHud.Bar.Clear(liSlot);
+        else if (mOInventory.CursorItem == null)
+            fUseBar(liSlot);
+        else if (mOModernHud.Bar.Bind(liSlot, mOInventory.CursorItem))
+            mOInventory.ReturnCursorItem(default(UWCursorOrigin), UWInventoryModel.ReturnEnum.OrAnywhere);
+
+        return true;
+    }
+
+    private bool mbBagsOpen;
+
+    public bool IsBagsOpen => mbBagsOpen;
+
+    /// <summary>E took a thing, or a conversation began: the bags open, for the pointer to put it down.</summary>
+    public void OpenBags()
+    {
+        mbBagsOpen = true;
+    }
+
+    public void CloseBags()
+    {
+        mbBagsOpen = false;
+    }
+
+    /// <summary>Where the bags begin on the screen; the modern conversation keeps left of them.</summary>
+    public float BagsLeftEdge => mOModernHud != null ? mOModernHud.BagsLeftEdge : Screen.width;
+
+    /// <summary>The modern bags' mouse: a press on a cell is a press on its display; the left button beside them
+    /// puts the thing on the pointer into the world; the wheel moves an open bag's contents.</summary>
+    private void fClickBags()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        if (lOMouse == null)
+            return;
+
+        bool lbLeft = lOMouse.leftButton.wasPressedThisFrame;
+        bool lbRight = lOMouse.rightButton.wasPressedThisFrame;
+        float lfWheel = UWPointer.Scroll.y;
+
+        if (Mathf.Abs(lfWheel) > 0.01f && mOInventory != null && mOInventory.OpenContainer != null)
+            fClickDisplay(lfWheel > 0f ? UWClassicLayoutUw2.Inventory.UpArrowDisplay : UWClassicLayoutUw2.Inventory.DownArrowDisplay, false);
+
+        if (!lbLeft && !lbRight)
+            return;
+
+        if (mOInventory != null && fClickBar(lbRight))
+            return;
+
+        int liDisplay = mOModernHud.DisplayAt(UWPointer.Position);
+
+        if (liDisplay != 0)
+            fClickDisplay(liDisplay, lbRight);
+        else if (lbLeft && !UWConversationScreenUw2.IsOpen && mOInventory != null && mOInventory.CursorItem != null && UWWalkUw2View.Current != null)
+            UWWalkUw2View.Current.DropHeld(mOInventory);
+    }
+
+    private static float msfLastSaid = -100f;
+
+    private UWModernHudUw2 mOModernHud;
+
+    /// <summary>TalkTo (phase 3 step 7): the thing pointed at answers, or the scroll says why not.</summary>
+    public void TalkTo(UWEntityInfo pOEntity)
+    {
+        if (pOEntity == null || pOEntity.ObjectData == null)
+        {
+            Say(UWText.Block(mOData, 1, UWTalkRulesUw2.NothingFirstString + UWTalkRulesUw2.NothingTalk + 1, string.Empty));
+
+            return;
+        }
+
+        UWObject lOThing = pOEntity.ObjectData;
+
+        if (UWTalkRulesUw2.IsWisp(lOThing))
+            lOThing = UWTalkRulesUw2.WispSpeaker();
+
+        UWTalkRulesUw2.AnswerEnum leAnswer = UWTalkRulesUw2.Answer(lOThing, mOData.Conversations, false, UWGameProfiles.Uw2.Conversation, out int liSlot);
+
+        if (leAnswer == UWTalkRulesUw2.AnswerEnum.NotACreature || leAnswer == UWTalkRulesUw2.AnswerEnum.NoResponse)
+        {
+            Say(UWText.Block(mOData, UWTalkRulesUw2.RefusalBlock, (leAnswer == UWTalkRulesUw2.AnswerEnum.NotACreature
+                ? UWTalkRulesUw2.NotACreatureString : UWTalkRulesUw2.NoResponseString) + 1, string.Empty));
+
+            return;
+        }
+
+        if (mOConversation == null)
+            mOConversation = gameObject.AddComponent<UWConversationScreenUw2>();
+
+        if (mOConversation.Open(mOData, mOFrame, (UWNpc)lOThing, liSlot))
+            fHoldForConversation(true);
+    }
+
+    private void fHoldForConversation(bool pbHeld)
+    {
+        if (mbConversationHeld == pbHeld)
+            return;
+
+        mbConversationHeld = pbHeld;
+
+        if (pbHeld)
+        {
+            UWGameClock.Hold(UWGameClock.ConversationHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.HoldInput(OptionsInputHold);
+        }
+        else
+        {
+            UWGameClock.Release(UWGameClock.ConversationHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.ReleaseInput(OptionsInputHold);
+        }
+    }
+
+    /// <summary>True while a conversation runs: it has the input, and the pointer is the plain one.</summary>
+    private bool fConversationInput()
+    {
+        if (!UWConversationScreenUw2.IsOpen)
+        {
+            fHoldForConversation(false);
+
+            return false;
+        }
+
+        mOConversation.Tick();
+        fFollowInventoryPress();
+
+        if (IsClassicScheme)
+        {
+            fClickPanel();
+            fSlide();
+        }
+        else
+        {
+            fEnsureModernHud();
+            fClickBags();
+            fTickModernHud();
+        }
+
+        fUpdatePointer();
+
+        return true;
+    }
+
+    /// <summary>The map over everything (phase 3 step 6): the game and its input stand while it lies
+    /// open, as the screen changes in the original.</summary>
+    private void fOpenMap()
+    {
+        if (mOMap == null)
+            mOMap = gameObject.AddComponent<UWMapScreenUw2>();
+
+        mOMap.Open(mOData);
+
+        if (UWMapScreenUw2.IsOpen && !mbMapHeld)
+        {
+            mbMapHeld = true;
+            UWGameClock.Hold(UWGameClock.OptionsHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.HoldInput(OptionsInputHold);
+        }
+    }
+
+    /// <summary>UseBook's bit of a map, which needs the map itself: the sections it still holds go to the map,
+    /// after that it opens the map on the level it covers (UWAutomapStateUw2).</summary>
+    private void fUseMapScrap(UWObject pOScrap)
+    {
+        if (mOInventory.FindCarried(lOItem => lOItem.ID == UWClassicLayoutUw2.Inventory.MapObject) == null)
+        {
+            Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Inventory.NoMapString + 1, string.Empty));
+
+            return;
+        }
+
+        UWGameSession lOSession = UWGameSession.Current;
+        int liSections = pOScrap.Quantity & UWClassicLayoutUw2.Inventory.ScrapSectionsMask;
+
+        if (liSections == 0)
+        {
+            UWAutomapStateUw2.OpenOnScrap(lOSession.PlayerFileUw2, pOScrap.Owner);
+            fOpenMap();
+
+            return;
+        }
+
+        UWSessionWorld lOWorld = lOSession.World;
+        int liScrapIndex = pOScrap.Quality + UWClassicLayoutUw2.Inventory.ScrapFirstLevel - 1;
+        int liLevelIndex = pOScrap.Owner - 1;
+        UWLevel lOLevel = liLevelIndex >= 0 && liLevelIndex < lOWorld.Levels.Count ? lOWorld.Levels[liLevelIndex] : null;
+        byte[] lyScrapMap = lOWorld.Ark.ReadBlock(UWLevArkFile.Uw2.AutomapBlock(liScrapIndex));
+
+        pOScrap.Quantity = UWClassicLayoutUw2.Inventory.ScrapCopiedLink;
+        Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Inventory.ScrapCopiedString + 1, string.Empty));
+
+        // A level never entered has no automap block yet (DATA\LEV.ARK holds none): the scrap makes its map, as
+        // SaveAutoMapLevel's put_arc makes the block in the original.
+        if (lOLevel != null)
+            lOLevel.EnsureAutomap();
+
+        if (lOLevel == null || lOLevel.AutomapTiles == null || lyScrapMap.Length != lOLevel.AutomapTiles.Length)
+        {
+            Debug.LogWarning("[Map] A bit of a map for level " + pOScrap.Owner + " with page " + (liScrapIndex + 1) + ", which holds no map.");
+
+            return;
+        }
+
+        UWAutomapStateUw2.CopyScrap(lyScrapMap, lOWorld.GetMapNotes(liScrapIndex), liSections, pOScrap.Owner,
+            lOLevel.AutomapTiles, lOWorld.GetMapNotes(liLevelIndex));
+    }
+
+    /// <summary>True while the map lies open; the walk's M key opens it and closes it.</summary>
+    private bool fMapInput()
+    {
+        UWControls lOControls = UWControlScheme.SharedControls;
+        bool lbKey = lOControls != null && !UWSetupMenu.IsCapturingInput && !UWMapScreenUw2.IsWriting
+            && lOControls[UWAct.ToggleMap].WasPressedThisFrame();
+
+        if (UWMapScreenUw2.IsOpen)
+        {
+            if (lbKey)
+                mOMap.Close();
+        }
+        else if (lbKey)
+            fOpenMap();
+
+        if (UWMapScreenUw2.IsOpen)
+        {
+            fMapPointer();
+
+            return true;
+        }
+
+        if (mbMapHeld)
+        {
+            mbMapHeld = false;
+            UWGameClock.Release(UWGameClock.OptionsHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.ReleaseInput(OptionsInputHold);
+        }
+
+        return false;
+    }
+
+    /// <summary>The map's pointer: the pen by its tip, the bottom-left corner, the eraser by its middle.</summary>
+    private void fMapPointer()
+    {
+        Texture2D lOPicture = mOMap.PointerTexture(Mathf.Max(1, Mathf.FloorToInt(UWUiFit.Scale)));
+
+        if (lOPicture != null)
+            UWPointer.SetPicture(lOPicture, mOMap.IsErasing ? new Vector2(lOPicture.width * 0.5f, lOPicture.height * 0.5f) : new Vector2(0f, lOPicture.height));
+    }
+
     /// <summary>The object of a display onto the pointer (SetCursorObj): from the paperdoll, the pack or the
-    /// open bag. A bag that is open stays where it is.</summary>
+    /// open bag; a stack asks how many first. A bag that is open stays where it is.</summary>
     private void fTakeFrom(int piHit, UWObject pOItem)
     {
         if (mOInventory.IsContainerOpen(pOItem))
+            return;
+
+        if (!AskCount(pOItem, piCount => fTakeCountFrom(piHit, pOItem, piCount)))
+            fTakeCountFrom(piHit, pOItem, UWStackRules.CountAtLeastOne(pOItem));
+    }
+
+    /// <summary>Part of a stack is counted off, the stack stays where it is; the whole leaves its place.</summary>
+    private void fTakeCountFrom(int piHit, UWObject pOItem, int piCount)
+    {
+        if (piCount < UWStackRules.CountAtLeastOne(pOItem) && mOInventory.TakeFromStack(pOItem, piCount))
             return;
 
         int liSlot = UWClassicLayoutUw2.Inventory.DisplayToSlot[piHit];
@@ -1501,7 +2129,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         Sprite lOGem = fWholeSprite(fPicture(UWTexture.TextureTypes.POWER, 0, true));
 
-        fImage("PowerGem", UWClassicLayoutUw2.PowerGem.Left, UWClassicLayoutUw2.PowerGem.Top, fWidth(lOGem), fHeight(lOGem), lOGem);
+        mOPowerGem = fImage("PowerGem", UWClassicLayoutUw2.PowerGem.Left, UWClassicLayoutUw2.PowerGem.Top, fWidth(lOGem), fHeight(lOGem), lOGem);
 
         Sprite lOEyes = fWholeSprite(fPicture(UWTexture.TextureTypes.EYES, 0, false));
 
@@ -1696,17 +2324,49 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     // ------------------------------------------------- Each frame
 
     /// <summary>The modern scheme hides the classic screen (UWGameUI.Update's rule).</summary>
-    private static bool IsClassicShown => !UWControlScheme.Ui.Policy.ClassicScreenOnlyUnderMap;
+    private static bool IsClassicScheme => !UWControlScheme.Ui.Policy.ClassicScreenOnlyUnderMap;
+
+    /// <summary>The classic scheme, or what the modern one borrows from it: the options stand on this screen
+    /// until the modern ones run on the second game (UW2 plan phase 3 step 8), as the first game's big map does
+    /// in the modern scheme.</summary>
+    private bool IsClassicShown => IsClassicScheme || mbOptionsOpen;
+
+    /// <summary>The modern scheme is in force.</summary>
+    public static bool IsModernScheme => !IsClassicScheme;
 
     private void Update()
     {
-        if (mOCanvasRoot == null || !IsClassicShown)
+        // The key lock while typing (UWControls.IsTextEntryActive), which UWGameUI sets in the first game: the
+        // second game's interface does not run it.
+        UWControls.SetTextEntryActive(miTypingSlot != 0 || UWMapScreenUw2.IsWriting || UWConversationScreenUw2.IsTyping
+            || (mOCountAsk != null && mOCountAsk.IsAsking));
+
+        if (mOCountAsk != null)
+        {
+            bool lbAsked = mOCountAsk.IsAsking;
+
+            mOCountAsk.Update();
+
+            if (lbAsked)
+            {
+                fUpdatePointer();
+
+                if (mOModernHud != null && !IsClassicShown)
+                    fTickModernHud();
+
+                return;
+            }
+        }
+
+        if (mOCanvasRoot == null)
         {
             // The panel is the classic screen's: it goes with it.
             fCloseOptions();
 
             return;
         }
+
+        fFollowModal();
 
         if (mbOptionsOpen)
         {
@@ -1716,8 +2376,18 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
+        if (fConversationInput() || fMapInput())
+            return;
+
         if (fOptionShortcuts())
             return;
+
+        if (!IsClassicScheme)
+        {
+            fModernKeys();
+
+            return;
+        }
 
         fChooseCommand();
         fFollowInventoryPress();
@@ -1754,8 +2424,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 if (liRelY > UWClassicLayoutUw2.FlaskClicks.ChainAbove && miSlideFrame == 0)
                     fStartSlide(miPage == 0 ? 2 : 0);
             }
-            else if (liRelY <= UWClassicLayoutUw2.FlaskClicks.InfoUpTo && mOShownPlayer != null)
+            else if (liRelY <= UWClassicLayoutUw2.FlaskClicks.InfoUpTo && mOShownPlayer != null
+                && !UWConversationScreenUw2.IsOpen)
             {
+                // Not during a conversation (per user on the original, 2026-10-31).
                 fSayFlask(liRelX < UWClassicLayoutUw2.FlaskClicks.ManaFrom);
             }
 
@@ -1900,13 +2572,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         Rect lOWindow = mOCamera.pixelRect;
         UWPlayerMovement lOMovement = UWScene.Player != null ? UWScene.Player.GetComponent<UWPlayerMovement>() : null;
-        bool lbDriving = !mbOptionsOpen && lOMovement != null && lOMovement.Input != null && lOMovement.Input.IsCursorMovementInProgress;
+        bool lbDriving = !mbOptionsOpen && !mbBagsOpen && !UWConversationScreenUw2.IsOpen && lOMovement != null && lOMovement.Input != null && lOMovement.Input.IsCursorMovementInProgress;
         Vector2 lOAt = lbDriving ? UWPointer.ClampTo(lOWindow) : UWPointer.Position;
         UWCursors.CursorEnum leCursor = lbDriving ? meCursor : UWCursors.CursorEnum.Center;
 
         // The panel's pointer is the plain one everywhere (the view's regions are mous_player's, which the
         // options' loop does not call).
-        if (!mbOptionsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
+        if (!mbOptionsOpen && !mbBagsOpen && !UWConversationScreenUw2.IsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
             && lOAt.y >= lOWindow.yMin && lOAt.y <= lOWindow.yMax)
         {
             int liX = Mathf.Clamp(Mathf.FloorToInt((lOAt.x - lOWindow.xMin) / lOWindow.width * CursorAreaWidth), 0, CursorAreaWidth - 1);
@@ -1942,14 +2614,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (mOCursorObject != null)
             Destroy(mOCursorObject);
 
-        mOCursorObject = lOSprite != null ? fScaledCopy(lOSprite.texture, liScale, "UW2 pointer object " + piId) : null;
+        mOCursorObject = lOSprite != null ? ScaledCopy(lOSprite.texture, liScale, "UW2 pointer object " + piId) : null;
         miCursorObjectKey = liKey;
 
         return mOCursorObject;
     }
 
     /// <summary>A picture enlarged by a whole number, pixel for pixel.</summary>
-    private static Texture2D fScaledCopy(Texture2D pOSource, int piScale, string psName)
+    public static Texture2D ScaledCopy(Texture2D pOSource, int piScale, string psName)
     {
         int liWidth = pOSource.width * piScale;
         int liHeight = pOSource.height * piScale;
@@ -2034,6 +2706,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     /// <summary>Whether a screen point lies in the view's window on the classic screen - where a press
     /// of the left button starts the walk (UWPlayerInput).</summary>
+    /// <summary>How high in the view a point stands, 0 the bottom.</summary>
+    public float ViewHeightOf(Vector2 pOScreen)
+    {
+        return mOCamera != null ? Mathf.InverseLerp(mOCamera.pixelRect.yMin, mOCamera.pixelRect.yMax, pOScreen.y) : 0.5f;
+    }
+
     public bool IsInViewWindow(Vector2 pOScreen)
     {
         return mbShown && mOCamera != null && mOCamera.pixelRect.Contains(pOScreen);
@@ -2048,6 +2726,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         mOCanvasRoot.SetActive(lbShown);
 
+        if (mOModernHud != null)
+            mOModernHud.SetShown(!lbShown && !UWMapScreenUw2.IsOpen);
+
         if (!lbShown)
         {
             // The classic pointer goes with the screen (the modern walk looks with the mouse).
@@ -2058,6 +2739,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             mOCamera.ResetAspect();
             mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, mfModernFov);
             mbShown = false;
+
+            // The character is read from the record and the inventory made here, for the modern HUD too.
+            fUpdateCharacter();
 
             return;
         }
@@ -2118,7 +2802,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         int liCapacity = UWMessageLogModel.CapacityOf(lOFont, UWClassicLayoutUw2.MessageLog.Height);
 
         // The description's box blinks after the typed line (wdialog's cursor block).
-        bool lbCursor = miTypingSlot != 0 && UWMessageLogModel.IsCursorOn(Time.unscaledTime - mfTypingStart);
+        bool lbCursor = (miTypingSlot != 0 || mbCountLine) && UWMessageLogModel.IsCursorOn(Time.unscaledTime - mfTypingStart);
 
         if (!mOLog.Update(lOFont, msMessages, UWClassicLayoutUw2.MessageLog.Width, liCapacity, false, lbCursor))
             return;

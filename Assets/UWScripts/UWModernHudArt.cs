@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport.Presentation;
 using UWDataImport.UWData;
@@ -196,6 +197,14 @@ public static class UWModernHudArt
         int piVariant = 0)
     {
         return fToTexture(UWBackdropArt.Build(pOTextures, piWidth, piHeight, pOBack.Shape, pOBack.Colour, pOBack.Pattern, pOBack.Border,
+            piVariant), peFilter, "UWModernHudArt back");
+    }
+
+    /// <summary>A rectangular back in the shades given (UWBackdropArt.Build).</summary>
+    public static Texture2D BuildRampBack(UWTextures pOTextures, int piWidth, int piHeight, List<UWColor32> pORamp, UWModernBacks.Back pOBack,
+        FilterMode peFilter, int piVariant)
+    {
+        return fToTexture(UWBackdropArt.Build(pOTextures, piWidth, piHeight, UWBackdropArt.ShapeEnum.Rect, pORamp, pOBack.Pattern, pOBack.Border,
             piVariant), peFilter, "UWModernHudArt back");
     }
 

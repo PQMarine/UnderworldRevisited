@@ -125,6 +125,12 @@ public interface IUWRows
 
     bool Toggle(Rect pORect, bool pbValue, string psText);
 
+    /// <summary>The height a toggle of pfWidth needs: pfRow, or its text's lines where it does not fit one.</summary>
+    float ToggleHeight(float pfWidth, string psText, float pfRow);
+
+    /// <summary>The lines a row of choices over pfWidth takes (UWRowSizing.SegmentLines).</summary>
+    int ChoiceLines(float pfWidth, string[] psChoices, float pfGap);
+
     /// <summary>Choices side by side; bit n of piEnabled off greys choice n, bit n of piTextOnly on draws
     /// it as a plain text (cleanup 8d.3: the Graphics window's Custom) - lit in the accent colour while
     /// current, dim otherwise, no press and no step of the arrow keys.</summary>
@@ -138,6 +144,9 @@ public interface IUWRows
     int Stepper(Rect pORow, float pfLabelWidth, float pfButtonWidth, string psLabel, string psValue, bool pbCanDown, bool pbCanUp);
 
     bool Rebind(Rect pORow, string psLabel, string psKey, Texture2D pOGlyph, bool pbPad);
+
+    /// <summary>The height a Rebind row of pfWidth needs: pfRow, or its label's lines where it does not fit one.</summary>
+    float RebindHeight(float pfWidth, string psLabel, string psKey, bool pbPad, float pfRow);
 
     // ------------------------------------------------- The layout editor's rows (cleanup 8b.4)
 

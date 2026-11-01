@@ -25,6 +25,7 @@ namespace UWDataImport.UWData
 			// Game.
 			fAdd("setup.game.title", "Game");
 			fAdd("setup.game.folder", "Game folder...");
+			fAdd("setup.game.folder2", "Folder of Ultima Underworld II...");
 			fAdd("setup.game.quit", "Quit");
 
 			// Motion.
@@ -107,6 +108,7 @@ namespace UWDataImport.UWData
 			// The game folder.
 			fAdd("setup.folder.title", "Game folder");
 			fAdd("setup.folder.hint", "Choose the folder of your GOG installation of Ultima Underworld - the one that contains game.gog.");
+			fAdd("setup.folder.hint2", "Choose the folder of your GOG installation of Ultima Underworld II if it lies apart from the first game's - the one that contains game.gog. The save games of that installation are used.");
 			fAdd("setup.folder.found", "Found:  {0}");
 			fAdd("setup.folder.drives", "Drives:");
 			fAdd("setup.folder.home", "Home");

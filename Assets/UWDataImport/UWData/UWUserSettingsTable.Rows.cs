@@ -80,6 +80,7 @@ namespace UWDataImport.UWData
 		{
 			// The game.
 			fText(GogInstallPath);
+			fText(GogInstallPathUw2);
 			fText(ControlScheme);
 			fChoices(ControlScheme, new[] { "original", "modern" });
 			fText(ShowOpeningSequence);

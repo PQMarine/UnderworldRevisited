@@ -17,5 +17,30 @@ namespace UWDataImport.UWData
 		{
 			return (pORow.RowByte(8) & 7) == 1 ? UWCritterRules.DeathSound : -1;
 		}
+
+		public int BloodObject(int piBloodIndex)
+		{
+			return UWCritterCombat.GetBloodObjectId(piBloodIndex);
+		}
+
+		public bool CorpseAlways(int piDungeonLevel)
+		{
+			return false;
+		}
+
+		public bool HasSpecialDeath(int piWhoami)
+		{
+			return UWSpecialDeaths.HasSpecialDeath(piWhoami);
+		}
+
+		public int SlotOfRecord(int piRaw)
+		{
+			return piRaw;
+		}
+
+		public int RecordOfSlot(int piSlot)
+		{
+			return piSlot;
+		}
 	}
 }

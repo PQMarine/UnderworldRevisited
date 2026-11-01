@@ -256,7 +256,10 @@ character's name and a map note and left out of a save's name.
 
 The classic pixel fonts (FONT*.SYS) have glyphs for ASCII and the German umlauts and sharp s only; a
 language with other letters (Greek, Cyrillic, most accents) names a font of its own, and without one
-`uwdump validate-tsv` names the letters the classic fonts lack. Chinese, Japanese and Korean are
+`uwdump validate-tsv` names the letters the classic fonts lack. Without a font of its own a Latin letter
+still shows: its plain form stands in (`é` as `e`, `œ` as `oe`, `’` as `'`), while a letter with no plain
+form (Greek, Cyrillic and so on) stays out of the classic text. The same goes for typing: where a text
+field refuses `è` as it stands, the `e` arrives. Chinese, Japanese and Korean are
 typed through the system's input method, not through the letter grid (next section).
 
 ## Fonts and input methods
@@ -333,7 +336,8 @@ Put the files into `Languages` beside the game and choose the language in the **
 the *Game* window. The change takes effect at once: the port's texts and the game's strings switch,
 lines already in the message scroll stay as they were written. The command line `-language <code>`
 and the environment variable `UR_LANGUAGE` choose a language at startup. `-language pseudo` shows
-every text of the port in brackets and longer, to find texts that clip.
+every text of the port in brackets and nearly three times as long, the extreme case, to find texts
+that clip.
 
 ## Publishing
 

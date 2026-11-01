@@ -60,7 +60,7 @@ public class UWCritterDriver : MonoBehaviour
 
     private void Update()
     {
-        bool lbTalking = UWConversationController.IsAnyOpen;
+        bool lbTalking = UWConversationController.IsAnyOpen || UWConversationScreenUw2.IsOpen;
         int liTicks = 0;
 
         if (!lbTalking)
@@ -82,8 +82,8 @@ public class UWCritterDriver : MonoBehaviour
 
         UWGameSession.Current.Schedule.Advance(liTicks, lbWorldRuns);
 
-        // check_victory, every frame of the original's main loop (since 2026-10-18).
-        if (lbWorldRuns)
+        // check_victory, every frame of the original's main loop (since 2026-10-18); the first game's.
+        if (lbWorldRuns && !UWWalkUw2.IsWalking)
         {
             if (mOLoader == null)
                 mOLoader = GetComponent<UWLevelLoader>();

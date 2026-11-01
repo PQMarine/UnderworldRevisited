@@ -611,7 +611,7 @@ public class UWConversationController : MonoBehaviour
 
         // The F belongs to the font toggle (see UWGameUI) and should not click the
         // conversation away along with it; Tab opens and closes the help.
-        if (lOKeyboard != null && !IsKeyboardTaken && lOKeyboard.anyKey.wasPressedThisFrame
+        if (lOKeyboard != null && !IsKeyboardTaken && UWTextEntry.AnyKeyPressed
             && !lOKeyboard.fKey.wasPressedThisFrame && !lOKeyboard.tabKey.wasPressedThisFrame)
             return true;
 

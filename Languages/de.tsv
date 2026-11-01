@@ -4,6 +4,7 @@
 # The system voice says "du". The grammar.* and msg.* frames join pieces of the game's strings:
 # their German depends on the German pack's fragments of block 1 (see UWTextEnglish.Messages).
 setting.GogInstallPath	Spielordner
+setting.GogInstallPathUw2	Ordner von Ultima Underworld II
 setting.ControlScheme	Schema
 setting.ControlScheme.choice.original	Original
 setting.ControlScheme.choice.modern	Modern
@@ -213,6 +214,7 @@ setup.format.steps_off	Aus
 setup.format.steps	{0} Schritte
 setup.game.title	Spiel
 setup.game.folder	Spielordner...
+setup.game.folder2	Ordner von Ultima Underworld II...
 setup.game.quit	Beenden
 setup.motion.title	Bewegung
 setup.motion.hint	Wie du dich bewegst. Das Spiel nutzt den Bewegungscode des Originals. Hier wählst du, wie oft er rechnet und wie das Bild folgt.
@@ -269,6 +271,7 @@ setup.palette.preset.full	Voll
 setup.palette.preset.own	Eigene
 setup.folder.title	Spielordner
 setup.folder.hint	Wähle den Ordner deiner GOG-Installation von Ultima Underworld - den, der game.gog enthält.
+setup.folder.hint2	Wähle den Ordner deiner GOG-Installation von Ultima Underworld II, wenn sie getrennt vom ersten Spiel liegt - den, der game.gog enthält. Die Spielstände dieser Installation werden benutzt.
 setup.folder.found	Gefunden:  {0}
 setup.folder.drives	Laufwerke:
 setup.folder.home	Benutzer
@@ -680,6 +683,7 @@ editor.part.rune_tablet	Runentafel
 editor.part.stats_panel	Werteleiste
 editor.part.character_page	Charakterseite
 menu.title	Spielmenü
+menu.work_in_progress	In Arbeit
 menu.resume	Weiterspielen
 menu.save_game	Spiel speichern
 menu.restore_game	Spiel laden

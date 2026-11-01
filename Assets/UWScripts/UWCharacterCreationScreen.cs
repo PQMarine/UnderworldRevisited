@@ -138,6 +138,12 @@ public class UWCharacterCreationScreen : MonoBehaviour
     /// main menu does not come up again.</summary>
     public static bool IsStartingNewGame { get; private set; }
 
+    /// <summary>A switch of game: the start of the last new game is over (UWSavegameSlots.ForgetPending).</summary>
+    public static void ForgetStart()
+    {
+        IsStartingNewGame = false;
+    }
+
     private static bool mbIntroRequested;
 
     /// <summary>Is the player currently typing the name? Then the F belongs to the text (see

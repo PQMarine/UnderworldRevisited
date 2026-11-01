@@ -190,7 +190,11 @@ namespace UnderworldRevisited.Tools
                     {
                         string lsName = lOObject.Key + 1 < lsNames.Count ? fOneLine(lsNames[lOObject.Key + 1]) : "?";
 
-                        Console.WriteLine(string.Format("{0,2}/{1,2}  {2,4}  {3}  (object {4})", liX, liY, lOObject.Key, lsName, lOObject.Value));
+                        int liAt = UWLevArkLayout.ObjectOffset(lOObject.Value);
+
+                        Console.WriteLine(string.Format("{0,2}/{1,2}  {2,4}  {3}  (object {4}, words {5:X4} {6:X4} {7:X4} {8:X4}{9})", liX, liY, lOObject.Key, lsName, lOObject.Value,
+                            UWBinary.ReadU16(lyBlock, liAt), UWBinary.ReadU16(lyBlock, liAt + 2), UWBinary.ReadU16(lyBlock, liAt + 4), UWBinary.ReadU16(lyBlock, liAt + 6),
+                            lOObject.Value < 256 ? ", whoami " + lyBlock[liAt + 0x1A] : string.Empty));
                     }
                 }
             }

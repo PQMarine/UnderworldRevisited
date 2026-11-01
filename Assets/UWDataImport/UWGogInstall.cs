@@ -127,7 +127,7 @@ namespace UWDataImport.Install
                 lOFolders.Add("/opt/GOG Games/Ultima Underworld");
                 lOFolders.Add("/usr/local/games/Ultima Underworld");
 
-                return lOFolders.ToArray();
+                return fWithSecondGame(lOFolders);
             }
 
             lOFolders.Add(@"C:\GOG Games\Ultima Underworld");
@@ -137,7 +137,28 @@ namespace UWDataImport.Install
             lOFolders.Add(@"C:\Ultima Underworld");
             lOFolders.Add(@"D:\Ultima Underworld");
 
-            return lOFolders.ToArray();
+            return fWithSecondGame(lOFolders);
+        }
+
+        /// <summary>The list, then the same folders for the second game's own GOG product: every image
+        /// holds both games, so one who owns only the second is found too, and the first game's folders
+        /// still come first.</summary>
+        private static string[] fWithSecondGame(List<string> pOFolders)
+        {
+            List<string> lOAll = new List<string>(pOFolders);
+
+            foreach (string lsFolder in pOFolders)
+            {
+                if (!lsFolder.EndsWith(msGameFolders[0], StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string lsAbove = lsFolder.Substring(0, lsFolder.Length - msGameFolders[0].Length);
+
+                for (int liAt = 1; liAt < msGameFolders.Length; liAt++)
+                    lOAll.Add(lsAbove + msGameFolders[liAt]);
+            }
+
+            return lOAll.ToArray();
         }
 
         /// <summary>The folder GOG's current installers lay over drive C: in DOSBox (2026-10-29):
@@ -146,15 +167,14 @@ namespace UWDataImport.Install
         /// cloud_saves/UNDEROMn and reads them there first.</summary>
         public const string CloudSavesFolderName = "cloud_saves";
 
-        /// <summary>The installation folders of the second game's own GOG product, beside the first's.</summary>
-        private static readonly string[] msSecondGameFolders = { "Ultima Underworld 2", "Ultima Underworld II" };
+        /// <summary>The installation folders of the two games' own GOG products, the first's first.</summary>
+        private static readonly string[] msGameFolders = { "Ultima Underworld", "Ultima Underworld 2", "Ultima Underworld II" };
 
         /// <summary>
         /// The folder holding the game's SAVE1 to SAVE4: in the image's installation when it is the
-        /// game's (it has the game's UNDEROM1 or UNDEROM2), and for the second game also in its own
-        /// GOG product's installation beside the first's ("Ultima Underworld 2"; GOG sells one product
-        /// per game, each with the whole 1+2 CD as game.gog, but each starts only its own game). Null
-        /// when there is none.
+        /// game's (it has the game's UNDEROM1 or UNDEROM2), else in the game's own GOG product's
+        /// installation beside it ("Ultima Underworld 2"; GOG sells one product per game, each with the
+        /// whole 1+2 CD as game.gog, but each starts only its own game). Null when there is none.
         ///
         /// WHERE IN AN INSTALLATION (2026-10-29, the user's fresh installs of GOG's current installers):
         /// cloud_saves/UNDEROMn when the installation has a cloud_saves folder - that is where DOSBox
@@ -196,12 +216,12 @@ namespace UWDataImport.Install
                 string lsInstall = Path.GetDirectoryName(psImagePath);
                 string lsFound = fSavegameFolderIn(lsInstall, pOGame, peMode);
 
-                if (lsFound != null || pOGame.Game == UWGame.Uw1)
+                if (lsFound != null)
                     return lsFound;
 
                 DirectoryInfo lOParent = lsInstall == null ? null : Directory.GetParent(lsInstall);
 
-                foreach (string lsName in msSecondGameFolders)
+                foreach (string lsName in msGameFolders)
                 {
                     lsFound = lOParent == null ? null : fSavegameFolderIn(Path.Combine(lOParent.FullName, lsName), pOGame, peMode);
 
@@ -215,6 +235,34 @@ namespace UWDataImport.Install
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// THE GAMES IN TWO FOLDERS (per user, 2026-10-31): whoever changes between the original and this
+        /// port starts each game from its own installation, wherever that lies, though either image holds
+        /// both. So the saves are looked for in the folder chosen for the game first (psOwnFolder, may be
+        /// empty), then as above, then in the other folders given.
+        /// </summary>
+        public static string GetSavegameFolder(string psImagePath, IUWGameProfile pOGame, SaveFolderModeEnum peMode, string psOwnFolder, IEnumerable<string> pOOtherFolders)
+        {
+            string lsOwnImage = FindImage(psOwnFolder);
+            string lsFound = lsOwnImage == null ? null : fSavegameFolderIn(Path.GetDirectoryName(lsOwnImage), pOGame, peMode);
+
+            if (lsFound == null)
+                lsFound = GetSavegameFolder(psImagePath, pOGame, peMode);
+
+            if (lsFound != null || pOOtherFolders == null)
+                return lsFound;
+
+            foreach (string lsFolder in pOOtherFolders)
+            {
+                lsFound = fSavegameFolderIn(lsFolder, pOGame, peMode);
+
+                if (lsFound != null)
+                    return lsFound;
+            }
+
+            return null;
         }
 
         /// <summary>The game's save folder in one installation, or null when the installation is not

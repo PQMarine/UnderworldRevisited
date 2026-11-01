@@ -172,6 +172,135 @@ namespace UnderworldRevisited.Tools
             return lyScreen;
         }
 
+        /// <summary>
+        /// THE SECOND GAME'S MAP SCREEN (UWAutomapScreenUw2, uw2 ui/AUTOMAP.C): what a click means, the
+        /// gem's regions with the swap of 6 and 7, and that the arrows stay in the world. Points worked by
+        /// hand from ManageDungeonMap and true_gem_region; y from the bottom.
+        /// </summary>
+        private static void fCheckMapScreenUw2()
+        {
+            Check.Group("Map screen, second game");
+
+            fExpectMapClick("close", 0x100, 0x20, UWAutomapScreenUw2.ClickEnum.Close, -1);
+            fExpectMapClick("eraser", 0x100, 0x40, UWAutomapScreenUw2.ClickEnum.Erase, -1);
+            fExpectMapClick("upper corner", 0x120, 0xB0, UWAutomapScreenUw2.ClickEnum.PreviousLevel, -1);
+            fExpectMapClick("lower corner", 0x120, 0x10, UWAutomapScreenUw2.ClickEnum.NextLevel, -1);
+            fExpectMapClick("the map", 10, 10, UWAutomapScreenUw2.ClickEnum.Note, -1);
+            fExpectMapClick("left of the pen's reach", -1, 10, UWAutomapScreenUw2.ClickEnum.None, -1);
+            fExpectMapClick("over the top row", 10, 0xC8, UWAutomapScreenUw2.ClickEnum.None, -1);
+            fExpectMapClick("gem, middle", 0x116, 0x77, UWAutomapScreenUw2.ClickEnum.Gem, 0);
+            fExpectMapClick("gem, top", 0x113, 0x90, UWAutomapScreenUw2.ClickEnum.Gem, 1);
+            fExpectMapClick("gem, left: region 7 is world 6", 0x100, 0x77, UWAutomapScreenUw2.ClickEnum.Gem, 6);
+
+            fExpectInt("map screen: up stops at the world's first level", UWAutomapScreenUw2.Previous(9), 9);
+            fExpectInt("map screen: up one level", UWAutomapScreenUw2.Previous(10), 9);
+            fExpectInt("map screen: down one level", UWAutomapScreenUw2.Next(7), 8);
+            fExpectInt("map screen: down stops at the world's last level", UWAutomapScreenUw2.Next(8), 8);
+            fExpectInt("map screen: the same depth in another world", UWAutomapScreenUw2.InWorld(10, 3), 26);
+            fExpectInt("map screen: Britannia is the gem's middle", UWAutomapScreenUw2.FacetOf(1), UWClassicLayoutUw2.Map.MiddleFacet);
+            fExpectInt("map screen: the second world is facet 0", UWAutomapScreenUw2.FacetOf(9), 0);
+            fExpectInt("map screen: the number within the world", UWAutomapScreenUw2.NumberInWorld(16), 8);
+            fExpectBool("map screen: the first scrap slot has no map", UWAutomapScreenUw2.HasMap(UWAutomapScreenUw2.FirstScrapLevel), false);
+            fExpectBool("map screen: no level 80", UWAutomapScreenUw2.HasMap(UWAutomapScreenUw2.LevelCount), false);
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S AUTOMAP THAT CAN BE OFF AND ITS SCRAPS (UWAutomapStateUw2): the flag and map_scrap
+        /// through a trap, the Void and a known tile, map_section's sections and update_map_scraps. Values worked
+        /// by hand from uw2 ui/AUTOMAP.C.
+        /// </summary>
+        private static void fCheckMapStateUw2()
+        {
+            Check.Group("Map state, second game");
+
+            UWPlayerFile lOFile = UWPlayerRecordUw2.NewWalker();
+
+            fExpectBool("map state: on from the start", UWAutomapStateUw2.IsOn(lOFile), true);
+            fExpectInt("map state: on, the map opens on the player's level", UWAutomapStateUw2.OpeningLevel(lOFile, 5), 5);
+
+            UWAutomapStateUw2.StopByTrap(lOFile, 12);
+            fExpectBool("map state: a trap stops it", UWAutomapStateUw2.IsOn(lOFile), false);
+            fExpectInt("map state: off, the map opens on the level left", UWAutomapStateUw2.OpeningLevel(lOFile, 30), 12);
+
+            UWAutomapStateUw2.StopByTrap(lOFile, 13);
+            fExpectInt("map state: a second trap keeps the level", UWAutomapStateUw2.OpeningLevel(lOFile, 30), 12);
+
+            UWAutomapStateUw2.LeaveMap(lOFile, 15);
+            fExpectInt("map state: off, the level last shown", UWAutomapStateUw2.OpeningLevel(lOFile, 30), 15);
+
+            UWAutomapStateUw2.OpenOnScrap(lOFile, 51);
+            fExpectInt("map state: a scrap's level overrides", UWAutomapStateUw2.OpeningLevel(lOFile, 30), 51);
+            fExpectInt("map state: the switch is taken back", UWAutomapStateUw2.OpeningLevel(lOFile, 30), 51);
+
+            UWAutomapStateUw2.EnterTile(lOFile, 0x0B);
+            fExpectBool("map state: a tile only seen does nothing", UWAutomapStateUw2.IsOn(lOFile), false);
+            UWAutomapStateUw2.EnterTile(lOFile, 0x00);
+            fExpectBool("map state: an empty tile does nothing", UWAutomapStateUw2.IsOn(lOFile), false);
+            UWAutomapStateUw2.EnterTile(lOFile, 0x41);
+            fExpectBool("map state: a known tile starts it", UWAutomapStateUw2.IsOn(lOFile), true);
+
+            UWAutomapStateUw2.ChangeLevel(lOFile, 64, 65);
+            fExpectBool("map state: arriving in the Void stops it", UWAutomapStateUw2.IsOn(lOFile), false);
+            UWAutomapStateUw2.ChangeLevel(lOFile, 65, 66);
+            fExpectBool("map state: on inside the Void it stays off", UWAutomapStateUw2.IsOn(lOFile), false);
+            UWAutomapStateUw2.ChangeLevel(lOFile, 66, 3);
+            fExpectBool("map state: leaving the Void gives it back", UWAutomapStateUw2.IsOn(lOFile), true);
+
+            fExpectInt("map section: the middle", UWAutomapStateUw2.Section(0, 0), 0);
+            fExpectInt("map section: nine out is the middle", UWAutomapStateUw2.Section(9, 0), 0);
+            fExpectInt("map section: east", UWAutomapStateUw2.Section(10, 0), 1);
+            fExpectInt("map section: north", UWAutomapStateUw2.Section(0, 10), 2);
+            fExpectInt("map section: north-east", UWAutomapStateUw2.Section(10, 10), 1);
+            fExpectInt("map section: west", UWAutomapStateUw2.Section(-10, 0), 4);
+            fExpectInt("map section: south", UWAutomapStateUw2.Section(0, -10), 6);
+            fExpectInt("map section: south-east", UWAutomapStateUw2.Section(10, -10), 7);
+
+            byte[] lyScrap = new byte[0x1000];
+
+            lyScrap[(32 * 64) + 32] = 0x41;
+            lyScrap[(32 * 64) + 45] = 0x41;
+            lyScrap[(32 * 64) + 46] = 0x02;
+            lyScrap[(32 * 64) + 47] = 0x07;
+
+            byte[] lyShown = UWAutomapStateUw2.ScrapShown(lyScrap, 1);
+
+            fExpectInt("map scrap: in the section as it is", lyShown[(32 * 64) + 32], 0x41);
+            fExpectInt("map scrap: outside, type 1 turns unseen", lyShown[(32 * 64) + 45], 0x4B);
+            fExpectInt("map scrap: outside, the OR makes type 2 0xE", lyShown[(32 * 64) + 46], 0x0E);
+            fExpectInt("map scrap: outside, type 7 ORed with 0xB", lyShown[(32 * 64) + 47], 0x0F);
+            fExpectInt("map scrap: outside, an empty tile turns 0xA", lyShown[(10 * 64) + 10], 0x0A);
+
+            byte[] lyLevel = new byte[0x1000];
+
+            lyLevel[(32 * 64) + 33] = 0x11;
+            lyScrap[(32 * 64) + 33] = 0x12;
+            lyLevel[(32 * 64) + 34] = 0x0B;
+            lyScrap[(32 * 64) + 34] = 0x03;
+
+            System.Collections.Generic.List<UWLevel.MapNote> lONotes = new System.Collections.Generic.List<UWLevel.MapNote>
+            {
+                new UWLevel.MapNote { Text = "IN", X = (32 * 3) + 10, Y = (32 * 3) + 7 },
+                new UWLevel.MapNote { Text = "OUT", X = (45 * 3) + 10, Y = (32 * 3) + 7 }
+            };
+            System.Collections.Generic.List<UWLevel.MapNote> lOInto = new System.Collections.Generic.List<UWLevel.MapNote>();
+
+            // Level 51: 7 a tile. 63 rows of 62 tiles, less the one the level knows: 3905 tiles.
+            int liExperience = UWAutomapStateUw2.CopyScrap(lyScrap, lONotes, 1, 51, lyLevel, lOInto);
+
+            fExpectInt("map scrap: a twentieth of the tiles' worth", liExperience, 3905 * 7 / 20);
+            fExpectInt("map scrap: a new tile comes over", lyLevel[(32 * 64) + 32], 0x41);
+            fExpectInt("map scrap: a known tile stays", lyLevel[(32 * 64) + 33], 0x11);
+            fExpectInt("map scrap: a seen tile takes what the scrap knows", lyLevel[(32 * 64) + 34], 0x03);
+            fExpectInt("map scrap: only the note in the section", lOInto.Count, 1);
+            fExpectBool("map scrap: that note", lOInto[0].Text == "IN", true);
+        }
+
+        private static void fExpectMapClick(string psName, int piX, int piY, UWAutomapScreenUw2.ClickEnum peClick, int piGem)
+        {
+            fExpectInt("map screen click: " + psName, (int)UWAutomapScreenUw2.ClickAt(piX, piY, out int liGem), (int)peClick);
+            fExpectInt("map screen gem: " + psName, liGem, piGem);
+        }
+
         /// <summary>A pixel of the painted screen, y from the bottom as the painter counts.</summary>
         private static int fScreenAt(byte[] pyScreen, int piX, int piY)
         {

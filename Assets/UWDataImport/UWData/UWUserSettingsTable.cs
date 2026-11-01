@@ -84,6 +84,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWTextSettingDef GogInstallPath = fText(nameof(UWUserData.GogInstallPath), d => d.GogInstallPath, (d, v) => d.GogInstallPath = v, UWSettingNormalize.NullIsEmpty);
 
+		public static readonly UWTextSettingDef GogInstallPathUw2 = fText(nameof(UWUserData.GogInstallPathUw2), d => d.GogInstallPathUw2, (d, v) => d.GogInstallPathUw2 = v, UWSettingNormalize.NullIsEmpty);
+
 		public static readonly UWListSettingDef KeyBindings = new UWListSettingDef(nameof(UWUserData.KeyBindings), d => d.KeyBindings, (d, v) => d.KeyBindings = v)
 		{
 			Normalize = UWSettingNormalize.NullIsNewList
@@ -406,7 +408,7 @@ namespace UWDataImport.UWData
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,
-			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language, Game, SaveFolder
+			DebugFolded, PointerSpeed, WindowTheme, WindowBackground, Language, Game, SaveFolder, GogInstallPathUw2
 		};
 
 		/// <summary>The settings of one store, in the file's order (the layout editor's snapshot

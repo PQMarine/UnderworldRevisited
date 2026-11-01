@@ -86,6 +86,39 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// A ROW OF CHOICES THAT NO LONGER FITS WRAPS (per user, 2026-11-01: with long texts the last
+		/// choices of a row ran out of the window, out of reach): SegmentWidths while the row fits its
+		/// area, one line; else as many choices on a line as fit it, each its text and padding, a choice
+		/// wider than the area alone on its line. paLines gets each choice's line; returns the lines.
+		/// </summary>
+		public static int SegmentLines(float pfArea, float[] paTextWidths, float[] paWidths, int[] paLines)
+		{
+			float lfTotal = SegmentWidths(pfArea, paTextWidths, paWidths);
+
+			Array.Clear(paLines, 0, paTextWidths.Length);
+
+			if (lfTotal <= pfArea + 0.5f)
+				return 1;
+
+			int liLine = 0;
+			float lfX = 0f;
+
+			for (int liAt = 0; liAt < paTextWidths.Length; liAt++)
+			{
+				if (lfX > 0f && lfX + paWidths[liAt] > pfArea)
+				{
+					liLine++;
+					lfX = 0f;
+				}
+
+				paLines[liAt] = liLine;
+				lfX += paWidths[liAt];
+			}
+
+			return liLine + 1;
+		}
+
+		/// <summary>
 		/// NAMED SEGMENTS SIZED BY THEIR NAMES (cleanup 8b.4, 2026-10-24; the layout editor's Preset row,
 		/// per user 2026-10-11: "Classic Modular" did not fit a third): each its name and an even share of
 		/// what is left of pfArea, written into paWidths - the widths the IMGUI form gave them. Where the

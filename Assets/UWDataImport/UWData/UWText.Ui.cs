@@ -32,9 +32,11 @@ namespace UWDataImport.UWData
 	/// The Unity side (UWLanguage) decides which file is read and when: once at startup, before any
 	/// window is built, so texts taken when a window is built are the language's as well.
 	///
-	/// THE PSEUDO-LANGUAGE (UsePseudo) is a test language built from the English: every vowel doubled,
-	/// the text in brackets and padded with ~ to at least 40 % more length. It shows at a glance a
-	/// text that does not come through the table (no brackets) and where a longer language clips.
+	/// THE PSEUDO-LANGUAGE (UsePseudo) is a test language built from the English: every letter doubled,
+	/// vowels twice over, the text in brackets and padded with ~ to at least 2.8 times the length, the
+	/// extreme case (per user, 2026-11-01; 40 % more until then). Its words grow, not only its end, so
+	/// lines wrap as a long language's would. It shows at a glance a text that does not come through the
+	/// table (no brackets) and where a longer language clips.
 	/// </summary>
 	public static partial class UWText
 	{
@@ -214,15 +216,17 @@ namespace UWDataImport.UWData
 
 		// ------------------------------------------------- The pseudo-language
 
-		/// <summary>The pseudo form of a text: "[Saavee gaamee~~]". Placeholders ({0}), rich text tags
-		/// (&lt;b&gt;) and line breaks stay as they are; at least 40 % longer than the English.</summary>
+		/// <summary>The pseudo form of a text: "[SSaaaavveeee ggaaaammeeee~~~~]". Placeholders ({0}), rich text
+		/// tags (&lt;b&gt;), blanks, punctuation and line breaks stay as they are; at least 2.8 times the English.</summary>
 		public static string Pseudo(string psEnglish)
 		{
 			if (string.IsNullOrEmpty(psEnglish))
 				return "[]";
 
-			StringBuilder lOText = new StringBuilder(psEnglish.Length * 2 + 4);
+			StringBuilder lOText = new StringBuilder(psEnglish.Length * 4 + 8);
 			int liShown = 0;
+			int liVowels = 0;
+			int liVisible = 2;
 			int liAt = 0;
 
 			lOText.Append('[');
@@ -240,24 +244,24 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
-				lOText.Append(lcChar);
+				bool lbVowel = "aeiouAEIOU".IndexOf(lcChar) >= 0;
+				int liCopies = (char.IsLetterOrDigit(lcChar) ? 2 : 1) * (lbVowel ? 2 : 1);
+
+				lOText.Append(lcChar, liCopies);
+				liVisible += liCopies;
 				liShown++;
 
-				if ("aeiouAEIOU".IndexOf(lcChar) >= 0)
-					lOText.Append(lcChar);
+				if (lbVowel)
+					liVowels++;
 
 				liAt++;
 			}
 
-			// The brackets count; the doubled vowels too; pad the rest with ~.
-			int liWanted = (liShown * 14 + 9) / 10 + 2;
-			int liHave = lOText.Length + 1 - (psEnglish.Length - liShown);
+			// Twice what a 40 % language would come to, the brackets and the doubled vowels counted; ~ for the rest.
+			int liWanted = 2 * Math.Max((liShown * 14 + 9) / 10 + 2, liShown + liVowels + 2);
 
-			while (liHave < liWanted)
-			{
-				lOText.Append('~');
-				liHave++;
-			}
+			if (liVisible < liWanted)
+				lOText.Append('~', liWanted - liVisible);
 
 			lOText.Append(']');
 

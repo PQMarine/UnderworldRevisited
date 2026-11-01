@@ -25,31 +25,40 @@ public partial class UWSetupMenu
     /// arrows 230 and the value with the stick's deflection 165 from the right edge.</summary>
     private static readonly UWSliderColumns DeadzoneColumns = new UWSliderColumns(0f, 220f, 230f, 470f, 230f, 165f, 165f);
 
+    private string fPadButtonName(UWKeyBindings.Entry pOEntry)
+    {
+        return mOListeningFor == pOEntry ? UWText.T("setup.gamepad.press_button") : UWBindingInfo.Name(pOEntry);
+    }
+
+    private float mfGamepadContent;
+
     private void fDrawGamepadTab(Rect pODialog, float pfLeft, float pfInner, float pfTop)
     {
-        // The hint, the button names, the stick's speed, the sticks, the hints and the deadzones
-        // (fBuildGamepadPage), then the gamepad's functions down to the dialog's bottom.
-        float lfTop = mOPassPages.Draw(mOGamepadPage, pfLeft, pfTop, pfInner);
-
-        Rect lOListRect = new Rect(pfLeft, lfTop, pfInner, pODialog.yMax - 90f - lfTop);
+        Rect lOView = new Rect(pfLeft, pfTop, pfInner, pODialog.yMax - 90f - pfTop);
         const float RowHeight = 36f;
-        Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.PadEntries.Count * RowHeight);
+        float lfWidth = lOView.width - TabScrollBar;
 
-        mOGamepadScroll = mOPassRows.BeginScroll(lOListRect, mOGamepadScroll, lOContent);
+        mOGamepadScroll = mOPassRows.BeginScroll(lOView, mOGamepadScroll, new Rect(0f, 0f, lfWidth, Mathf.Max(lOView.height, mfGamepadContent)));
 
-        for (int liAt = 0; liAt < UWKeyBindings.PadEntries.Count; liAt++)
+        // The hint, the button names, the stick's speed, the sticks, the hints and the deadzones
+        // (fBuildGamepadPage), then the gamepad's functions, all in the tab's one view.
+        float lfRowTop = mOPassPages.Draw(mOGamepadPage, 0f, 0f, lfWidth);
+
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
         {
-            UWKeyBindings.Entry lOEntry = UWKeyBindings.PadEntries[liAt];
-
             // The button's glyph in the chosen style left of its name (UWGlyphs).
             Texture2D lOGlyph = UWGlyphs.ForPath(UWBindingInfo.Path(lOEntry));
-            string lsButton = mOListeningFor == lOEntry ? UWText.T("setup.gamepad.press_button") : UWBindingInfo.Name(lOEntry);
+            string lsButton = fPadButtonName(lOEntry);
+            float lfHeight = mOPassRows.RebindHeight(lfWidth, lOEntry.Label, lsButton, true, RowHeight);
 
-            if (mOPassRows.Rebind(new Rect(0f, liAt * RowHeight, lOContent.width, RowHeight), lOEntry.Label, lsButton, lOGlyph, true)
+            if (mOPassRows.Rebind(new Rect(0f, lfRowTop, lfWidth, lfHeight), lOEntry.Label, lsButton, lOGlyph, true)
                 && mOListeningFor == null)
                 fListenForPad(lOEntry);
+
+            lfRowTop += lfHeight;
         }
 
+        mfGamepadContent = lfRowTop;
         mOPassRows.EndScroll();
 
         mOPassRows.Info(new Rect(pfLeft, pODialog.yMax - 82f, pfInner, 22f), msBindingNotice, UWRowInfoEnum.Dim);

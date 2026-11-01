@@ -39,6 +39,13 @@ using UWDataImport.UWData;
 /// (UWUserSettings.ConversationTextPercent) - set in the layout editor's inspector only, no more in
 /// the game (per user, 2026-10-10).
 ///
+/// A CHANGE OF SPEAKER IN THE HISTORY (per user 2026-10-31, the second game's switch_pic): a small head of the one
+/// who speaks now, their text on the line under it. The head lies over an empty line of its height.
+///
+/// BOTH GAMES (per user 2026-10-31): what the class stands on is behind IUWModernConversationHost; on the second
+/// game six places a side, two across and three down as on its classic screen, a taller top for them and its
+/// larger heads, and no original's look.
+///
 /// RICH TEXT ESCAPED (B31 of the cleanup plan, fixed by cleanup step 5.12, 2026-10-20): every text
 /// shown here - the history, the answers, a typed answer, a look text, the names and the trade
 /// area's title - goes through UWRichText.Escape, so a typed answer or a name with "&lt;" cannot
@@ -235,7 +242,20 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// <summary>Whether the history text was last built in the original's colours.</summary>
     private bool mbHistoryOriginal;
 
-    private UWGameUI mOUi;
+    /// <summary>The game under it; the first game's is made at Start, the second's given (SetHost).</summary>
+    private IUWModernConversationHost mOHost;
+
+    /// <summary>The trade's places on a side, set by fBuild, two to a row.</summary>
+    private int miSlots = UWConversationTrade.SlotCount;
+
+    private const int SlotColumns = 2;
+
+    /// <summary>The rows more than the first game's two: the trade area and the top grow by them.</summary>
+    private int fExtraRows => (miSlots / SlotColumns) - (UWConversationTrade.SlotCount / SlotColumns);
+
+    private int fTopHeight => TopHeight + (fExtraRows * SlotPitch);
+
+    private int fTradeHeight => TradeHeight + (fExtraRows * SlotPitch);
 
     private UWControlScheme mOScheme;
 
@@ -256,16 +276,16 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private readonly Text[] mOTradeTitles = new Text[2];
 
-    /// <summary>The partner's four slots, then the player's four.</summary>
-    private readonly RawImage[] mOCircles = new RawImage[2 * UWConversationTrade.SlotCount];
+    /// <summary>The partner's slots, then the player's (fBuild, by the game's count).</summary>
+    private RawImage[] mOCircles = new RawImage[0];
 
-    private readonly RawImage[] mOIcons = new RawImage[2 * UWConversationTrade.SlotCount];
+    private RawImage[] mOIcons = new RawImage[0];
 
-    private readonly Text[] mOCounts = new Text[2 * UWConversationTrade.SlotCount];
+    private Text[] mOCounts = new Text[0];
 
-    private readonly RawImage[] mORings = new RawImage[2 * UWConversationTrade.SlotCount];
+    private RawImage[] mORings = new RawImage[0];
 
-    private readonly Rect[] mOSlotRects = new Rect[2 * UWConversationTrade.SlotCount];
+    private Rect[] mOSlotRects = new Rect[0];
 
     // --- The history
     private RawImage mOHistoryBack;
@@ -301,6 +321,28 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     public Rect HistoryScreenRect => mbActive ? mOHistoryRect : default;
 
     private float mfScroll;
+
+    /// <summary>A head in the history: the text before it, which gives its height, and what its top measured.</summary>
+    private sealed class SpeakerMark
+    {
+        public string TextBefore;
+
+        public Texture2D Head;
+
+        public float Top;
+    }
+
+    private readonly List<SpeakerMark> mOSpeakerMarks = new List<SpeakerMark>();
+
+    private readonly List<RawImage> mOSpeakerHeads = new List<RawImage>();
+
+    /// <summary>The text width and the font size the heads' tops were measured at.</summary>
+    private float mfSpeakersWidth = -1f;
+
+    private int miSpeakersFontSize = -1;
+
+    /// <summary>A head's height in font sizes.</summary>
+    private const int SpeakerHeadFontSizes = 3;
 
     private int miLinesShown = -1;
 
@@ -349,7 +391,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// <summary>The preview: Shak at his forge (CHARHEAD 1), the player's own portrait and name.</summary>
     private UWConversationView fPreviewView()
     {
-        UWPlayerData lOPlayer = mOUi.mOUWData.InitialPlayer;
+        UWPlayerData lOPlayer = mOHost.Data.InitialPlayer;
         string lsPlayer = lOPlayer != null && !string.IsNullOrEmpty(lOPlayer.Name) ? lOPlayer.Name : "Avatar";
         int liPlayerPortrait = UWConversationLayout.PlayerPortrait(lOPlayer);
 
@@ -405,13 +447,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     // --- What the conversation opened and freed, to give back
     private bool mbActive;
 
-    private bool mbFreedPointer;
-
-    private bool mbOpenedBags;
-
-    private bool mbPanelWasOpen;
-
-    private UWModernPanel.TabEnum mePanelTab;
+    /// <summary>The host's portrait version last drawn.</summary>
+    private int miPortraitVersion;
 
     private void Awake()
     {
@@ -428,8 +465,18 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private void Start()
     {
-        mOUi = GetComponent<UWGameUI>();
+        UWGameUI lOUi = GetComponent<UWGameUI>();
+
+        if (mOHost == null && lOUi != null)
+            mOHost = new UWModernConversationHostUw1(lOUi);
+
         mOScheme = GetComponentInParent<UWControlScheme>();
+    }
+
+    /// <summary>The second game's host (UWGameScreenUw2).</summary>
+    public void SetHost(IUWModernConversationHost pIHost)
+    {
+        mOHost = pIHost;
     }
 
     /// <summary>The answers' screen rectangles in their order, for the gamepad's stepping
@@ -475,26 +522,19 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             if (!mOSlotRects[liAt].Contains(pOPointer))
                 continue;
 
-            pbNpc = liAt < UWConversationTrade.SlotCount;
-            piSlot = liAt % UWConversationTrade.SlotCount;
+            pbNpc = liAt < miSlots;
+            piSlot = liAt % miSlots;
             return true;
         }
 
         return false;
     }
 
-    private static UWConversationController fScreen()
-    {
-        UWConversationController lOScreen = UWScene.ConversationController;
-
-        return lOScreen != null && lOScreen.IsOpen && lOScreen.Session != null ? lOScreen : null;
-    }
-
     // ------------------------------------------------- Opening and closing
 
     private void Update()
     {
-        bool lbTalking = UWModernUi.IsTalking && fScreen() != null;
+        bool lbTalking = mOHost != null && mOHost.IsTalking;
 
         if (lbTalking && !mbActive)
             fBegin();
@@ -513,35 +553,12 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             mfScroll += Mathf.Sign(lfWheel) * 3f * mOHistory.fontSize * 1.2f;
     }
 
-    /// <summary>The bags open, the panel on its Character tab, the pointer free - remembered, to
-    /// give back at the end.</summary>
+    /// <summary>What stands beside it opens, the host keeps what to give back at the end.</summary>
     private void fBegin()
     {
         mbActive = true;
         mOSessionShown = null;
-
-        mbFreedPointer = !UWModernPointer.IsFree;
-
-        if (mbFreedPointer)
-            UWModernPointer.Free();
-
-        UWModernBags lOBags = UWModernBags.Instance;
-
-        mbOpenedBags = lOBags != null && !lOBags.IsOpen;
-
-        if (mbOpenedBags)
-            lOBags.Open();
-
-        UWModernPanel lOPanel = UWModernPanel.Instance;
-
-        if (lOPanel != null)
-        {
-            mbPanelWasOpen = lOPanel.IsOpen;
-            mePanelTab = lOPanel.Tab;
-
-            if (!lOPanel.IsOpen || lOPanel.Tab != UWModernPanel.TabEnum.Character)
-                lOPanel.Open(UWModernPanel.TabEnum.Character);
-        }
+        mOHost.Begin();
     }
 
     private void fEnd()
@@ -553,28 +570,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         for (int liAt = 0; liAt < mOSlotRects.Length; liAt++)
             mOSlotRects[liAt] = Rect.zero;
 
-        UWModernBags lOBags = UWModernBags.Instance;
-
-        if (mbOpenedBags && lOBags != null && lOBags.IsOpen)
-            lOBags.Close();
-
-        UWModernPanel lOPanel = UWModernPanel.Instance;
-
-        if (lOPanel != null)
-        {
-            if (!mbPanelWasOpen && !UWModernPanel.Pinned)
-                lOPanel.Close();
-            else if (mePanelTab != UWModernPanel.TabEnum.Character)
-                lOPanel.Open(mePanelTab);
-        }
-
-        // Locked again only where the conversation freed it - the screen fades meanwhile and shows
-        // the pointer until it is back (UWControlScheme.IsConversationOpen).
-        if (mbFreedPointer)
-            UWModernPointer.Lock();
-
-        mbFreedPointer = false;
-        mbOpenedBags = false;
+        mOHost.End();
     }
 
     private void OnDisable()
@@ -587,9 +583,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private void LateUpdate()
     {
-        UWConversationController lOScreen = mbActive ? fScreen() : null;
-        UWConversationView lOView = mOUi == null || mOUi.mOUWData == null ? null
-            : lOScreen != null ? lOScreen.View : fIsPreviewing() ? fPreviewView() : null;
+        UWConversationView lOOpen = mbActive && mOHost != null ? mOHost.OpenView : null;
+        bool lbReal = lOOpen != null;
+        UWConversationView lOView = mOHost == null || mOHost.Data == null ? null
+            : lbReal ? lOOpen : fIsPreviewing() ? fPreviewView() : null;
 
         if (lOView == null)
         {
@@ -606,7 +603,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         // The editor's preview over every other part (per user, 2026-10-10), the real
         // conversation under the panel and the bags.
-        int liSorting = lOScreen == null ? UWUiSorting.ModernConversationPreview : UWUiSorting.ModernConversation;
+        int liSorting = !lbReal ? UWUiSorting.ModernConversationPreview : UWUiSorting.ModernConversation;
 
         if (mOCanvas.sortingOrder != liSorting)
             mOCanvas.sortingOrder = liSorting;
@@ -624,9 +621,11 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             mfScroll = 0f;
             fShowPortraits(lOView);
         }
+        else if (mOHost.PortraitVersion != miPortraitVersion)
+            fShowPortraits(lOView);
 
         // The world dims only for a real conversation, not under the editor's preview.
-        mODim.enabled = lOScreen != null;
+        mODim.enabled = lbReal;
 
         // Its own size (UWModernLayout) on top of the UI size; the margins stay the UI size's.
         float lfScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.Conversation);
@@ -634,20 +633,14 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         float lfScreenRows = (Screen.height - UWLetterGrid.ReservedPixels) / lfScale;
 
         // The room left of the character panel and the bag windows.
-        float lfRight = Screen.width;
-
-        if (UWModernPanel.Instance != null && UWModernPanel.Instance.IsOpen)
-            lfRight = Mathf.Min(lfRight, UWModernPanel.Instance.LeftEdge);
-
-        if (UWModernBags.Instance != null)
-            lfRight = Mathf.Min(lfRight, UWModernBags.Instance.LeftEdge);
+        float lfRight = mOHost.RightEdge;
 
         float lfLeft = Margin * UWModernUi.PixelScale;
 
-        if (UWModernLayout.IsConversationOriginal)
+        if (UWModernLayout.IsConversationOriginal && mOHost.HasOriginalLook)
         {
             fLayoutOriginal(lOView, lfLeft, lfRight - (Margin * UWModernUi.PixelScale), lfScale);
-            fPlaceScrollHint(lOScreen != null, lfScale);
+            fPlaceScrollHint(lbReal, lfScale);
             return;
         }
 
@@ -670,19 +663,19 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         float lfAnswersHeight = fLayoutAnswerTexts(lOView, liWidth, lfScale);
         int liAnswersRows = Mathf.CeilToInt(lfAnswersHeight / lfScale) + 10;
         int liHistoryRows = Mathf.Max(MinHistoryHeight,
-            Mathf.FloorToInt(lfScreenRows) - (2 * Margin) - TopHeight - (2 * BlockGap) - liAnswersRows);
+            Mathf.FloorToInt(lfScreenRows) - (2 * Margin) - fTopHeight - (2 * BlockGap) - liAnswersRows);
 
         // Screen pixels from the top.
         float lfTop = Margin * lfScale;
 
         fLayoutTop(lOView, lfX, lfTop, liWidth, lfScale);
-        lfTop += (TopHeight + BlockGap) * lfScale;
+        lfTop += (fTopHeight + BlockGap) * lfScale;
 
         fLayoutHistory(lOView, lfX, lfTop, liWidth, liHistoryRows, lfScale);
         lfTop += (liHistoryRows + BlockGap) * lfScale;
 
         fLayoutAnswers(lfX, lfTop, liWidth, liAnswersRows, lfScale);
-        fPlaceScrollHint(lOScreen != null, lfScale);
+        fPlaceScrollHint(lbReal, lfScale);
     }
 
     /// <summary>
@@ -717,10 +710,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private void fLayoutTop(UWConversationView pOView, float pfX, float pfTop, int piWidth, float pfScale)
     {
-        fSetLeather(mOTop, piWidth, TopHeight, 1);
-        fPlace(mOTop.rectTransform, pfX, pfTop, piWidth, TopHeight, pfScale);
+        fSetLeather(mOTop, piWidth, fTopHeight, 1);
+        fPlace(mOTop.rectTransform, pfX, pfTop, piWidth, fTopHeight, pfScale);
 
-        string[] lsNames = { pOView.PartnerName ?? string.Empty, pOView.PlayerName ?? string.Empty };
+        string[] lsNames = { mOHost.PartnerName(pOView) ?? string.Empty, mOHost.PlayerName(pOView) ?? string.Empty };
 
         for (int liSide = 0; liSide < 2; liSide++)
         {
@@ -729,8 +722,12 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             // frame as narrow around it.
             int liInner = lOPortrait != null ? lOPortrait.width : 34;
             int liInnerHigh = lOPortrait != null ? lOPortrait.height : 34;
-            int liFrame = Mathf.RoundToInt(liInner * UWModernHudArt.PixelAspectX) + (2 * FramePad);
-            int liFrameHigh = liInnerHigh + (2 * FramePad);
+
+            // The second game's heads are larger: they fit the room between the edge and the trade area.
+            float lfFit = fExtraRows > 0 ? Mathf.Min(1f, (fTradeLeft(piWidth) - 8f - (2 * FramePad)) / (liInner * UWModernHudArt.PixelAspectX),
+                (fTopHeight - 14f - (2 * FramePad)) / liInnerHigh) : 1f;
+            int liFrame = Mathf.RoundToInt(liInner * lfFit * UWModernHudArt.PixelAspectX) + (2 * FramePad);
+            int liFrameHigh = Mathf.RoundToInt(liInnerHigh * lfFit) + (2 * FramePad);
             int liFrameX = liSide == 0 ? 6 : piWidth - 6 - liFrame;
 
             fSetLeather(mOFrames[liSide], liFrame, liFrameHigh);
@@ -741,7 +738,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
             if (lOPortrait != null)
                 fPlace(mOPortraits[liSide].rectTransform, pfX + ((liFrameX + FramePad) * pfScale), pfTop + ((12 + FramePad) * pfScale),
-                    lOPortrait.width * UWModernHudArt.PixelAspectX, lOPortrait.height, pfScale);
+                    lOPortrait.width * lfFit * UWModernHudArt.PixelAspectX, lOPortrait.height * lfFit, pfScale);
 
             fLayoutName(mONames[liSide], lsNames[liSide], liSide, pfX, pfTop, piWidth, liFrameX + (liFrame * 0.5f), pfScale);
         }
@@ -749,7 +746,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         // The two trade areas between the portraits.
         UWConversationTrade lOTrade = pOView.Trade;
         int liTradeX = fTradeLeft(piWidth);
-        string lsPartner = pOView.PartnerName ?? string.Empty;
+        string lsPartner = mOHost.PartnerName(pOView) ?? string.Empty;
         string[] lsTitles =
         {
             lsPartner.Length > 0 && lsPartner.Length <= 9 ? UWText.F("hud.trade.partner_goods", UWRichText.Escape(lsPartner)) : UWText.T("hud.trade.goods"),
@@ -761,18 +758,18 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             float lfBoxX = pfX + ((liTradeX + (liSide * (TradeWidth + TradeGap))) * pfScale);
             float lfBoxTop = pfTop + (4 * pfScale);
 
-            fSetLeather(mOTradeBacks[liSide], TradeWidth, TradeHeight);
-            fPlace(mOTradeBacks[liSide].rectTransform, lfBoxX, lfBoxTop, TradeWidth, TradeHeight, pfScale);
+            fSetLeather(mOTradeBacks[liSide], TradeWidth, fTradeHeight);
+            fPlace(mOTradeBacks[liSide].rectTransform, lfBoxX, lfBoxTop, TradeWidth, fTradeHeight, pfScale);
 
             mOTradeTitles[liSide].text = lsTitles[liSide];
             mOTradeTitles[liSide].fontSize = Mathf.Max(9, Mathf.RoundToInt(4f * pfScale));
             fPlace(mOTradeTitles[liSide].rectTransform, lfBoxX - (6 * pfScale), lfBoxTop + (1.5f * pfScale), TradeWidth + 12, 8, pfScale);
 
-            for (int liSlot = 0; liSlot < UWConversationTrade.SlotCount; liSlot++)
+            for (int liSlot = 0; liSlot < miSlots; liSlot++)
             {
-                int liAt = (liSide * UWConversationTrade.SlotCount) + liSlot;
-                float lfSlotX = lfBoxX + ((6 + ((liSlot % 2) * SlotPitch)) * pfScale);
-                float lfSlotTop = lfBoxTop + ((11 + ((liSlot / 2) * SlotPitch)) * pfScale);
+                int liAt = (liSide * miSlots) + liSlot;
+                float lfSlotX = lfBoxX + ((6 + ((liSlot % SlotColumns) * SlotPitch)) * pfScale);
+                float lfSlotTop = lfBoxTop + ((11 + ((liSlot / SlotColumns) * SlotPitch)) * pfScale);
                 UWObject lOItem = lOTrade == null ? null : liSide == 0 ? lOTrade.NpcItems[liSlot] : lOTrade.PlayerItems[liSlot];
                 bool lbMarked = lOTrade != null && (liSide == 0 ? lOTrade.NpcSelected[liSlot] : lOTrade.PlayerSelected[liSlot]);
 
@@ -837,16 +834,14 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private void fShowItem(int piAt, UWObject pOItem, float pfScale)
     {
-        UWTexture lOSource = pOItem != null ? pOItem.Icon ?? pOItem.Texture : null;
+        Texture2D lOIcon = mOHost.ItemPicture(pOItem);
 
-        if (lOSource == null)
+        if (lOIcon == null)
         {
             mOIcons[piAt].enabled = false;
             mOCounts[piAt].enabled = false;
             return;
         }
-
-        Texture2D lOIcon = fIcon(lOSource);
 
         mOIcons[piAt].texture = lOIcon;
         mOIcons[piAt].enabled = true;
@@ -898,6 +893,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         mOHistory.rectTransform.anchoredPosition = new Vector2(0f, lfY);
         mOHistory.rectTransform.sizeDelta = new Vector2(lfViewWidth, lfContent);
+        fPlaceSpeakerHeads(lfViewWidth, lfContent, liFontSize);
 
         // The scroll bar, only when there is more than fits.
         bool lbBar = lfMaxScroll > 0f;
@@ -918,42 +914,120 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         }
     }
 
+    /// <summary>The heads over their empty lines; measured anew when the text, its width or its size changed.</summary>
+    private void fPlaceSpeakerHeads(float pfWidth, float pfContent, int piFontSize)
+    {
+        if (mOSpeakerMarks.Count > 0 && (!Mathf.Approximately(pfWidth, mfSpeakersWidth) || piFontSize != miSpeakersFontSize))
+        {
+            mfSpeakersWidth = pfWidth;
+            miSpeakersFontSize = piFontSize;
+
+            TextGenerationSettings lOSettings = mOHistory.GetGenerationSettings(new Vector2(pfWidth, 0f));
+            float lfPerPixel = mOHistory.pixelsPerUnit;
+
+            foreach (SpeakerMark lOMark in mOSpeakerMarks)
+            {
+                lOMark.Top = string.IsNullOrEmpty(lOMark.TextBefore) ? 0f
+                    : mOHistory.cachedTextGeneratorForLayout.GetPreferredHeight(lOMark.TextBefore, lOSettings) / lfPerPixel;
+            }
+        }
+
+        while (mOSpeakerHeads.Count < mOSpeakerMarks.Count)
+        {
+            RawImage lOImage = UWUiKit.CreateRawImage(mOHistory.rectTransform, "Speaker " + mOSpeakerHeads.Count);
+
+            UWPixelArtUI.Apply(lOImage);
+            mOSpeakerHeads.Add(lOImage);
+        }
+
+        for (int liAt = 0; liAt < mOSpeakerHeads.Count; liAt++)
+        {
+            bool lbShown = liAt < mOSpeakerMarks.Count;
+
+            mOSpeakerHeads[liAt].enabled = lbShown;
+
+            if (!lbShown)
+                continue;
+
+            SpeakerMark lOMark = mOSpeakerMarks[liAt];
+            float lfHeight = piFontSize * SpeakerHeadFontSizes;
+            float lfWidth = lfHeight * lOMark.Head.width * UWModernHudArt.PixelAspectX / lOMark.Head.height;
+
+            mOSpeakerHeads[liAt].texture = lOMark.Head;
+            UWUiKit.SetRect(mOSpeakerHeads[liAt].rectTransform, 0f, pfContent - lOMark.Top - lfHeight, lfWidth, lfHeight);
+        }
+    }
+
     /// <summary>The history's text anew when lines came, the size or the look changed.</summary>
     private void fFillHistory(UWConversationView pOView, int piFontSize, bool pbOriginal)
     {
-        if (pOView.Lines.Count == miLinesShown && piFontSize == miHistoryFontSize && pbOriginal == mbHistoryOriginal)
+        int liLines = mOHost.HistoryLines(pOView);
+
+        if (liLines == miLinesShown && piFontSize == miHistoryFontSize && pbOriginal == mbHistoryOriginal)
             return;
 
         // New lines: back to the newest.
-        if (pOView.Lines.Count != miLinesShown)
+        if (liLines != miLinesShown)
             mfScroll = 0f;
 
-        miLinesShown = pOView.Lines.Count;
+        miLinesShown = liLines;
         miHistoryFontSize = piFontSize;
         mbHistoryOriginal = pbOriginal;
         mOHistory.fontSize = piFontSize;
-        mOHistory.text = fHistoryText(pOView.Lines, piFontSize, pbOriginal);
+        mOHistory.text = fHistoryText(pOView.Lines, liLines, piFontSize, pbOriginal);
     }
 
     /// <summary>The history as rich text: each speaker in its colour, the player's answers
     /// indented, a little room between the entries; the original's page marks go
     /// (UWConversationLayout.WithoutPageBreaks), and what rich text would read as a tag is escaped
     /// (UWRichText.Escape, B31).</summary>
-    private static string fHistoryText(IReadOnlyList<UWConversationSession.Line> pOLines, int piFontSize, bool pbOriginal = false)
+    private string fHistoryText(IReadOnlyList<UWConversationSession.Line> pOLines, int piLines, int piFontSize, bool pbOriginal = false)
     {
         StringBuilder lOText = new StringBuilder();
         string lsGap = "\n<size=" + Mathf.Max(2, piFontSize / 3) + "> </size>\n";
+        bool lbUnderHead = false;
 
-        for (int liLine = 0; liLine < pOLines.Count; liLine++)
+        mOSpeakerMarks.Clear();
+        mfSpeakersWidth = -1f;
+
+        for (int liLine = 0; liLine < piLines && liLine < pOLines.Count; liLine++)
         {
             UWConversationSession.Line lOLine = pOLines[liLine];
+
+            // switch_pic's entry has no text: the new speaker's head instead, on a line of its height.
+            if (lOLine.Picture != 0)
+            {
+                Texture2D lOHead = mOHost.SpeakerPortrait(lOLine.Picture);
+
+                if (lOHead != null)
+                {
+                    if (lOText.Length > 0)
+                        lOText.Append(lsGap);
+
+                    mOSpeakerMarks.Add(new SpeakerMark { TextBefore = lOText.ToString().TrimEnd('\n'), Head = lOHead });
+                    // An unseen letter, not a space: a last line of spaces does not count for the text's height,
+                    // and the newest head stood below the view until its text came.
+                    lOText.Append("<size=").Append(piFontSize * SpeakerHeadFontSizes).Append("><color=#00000000>.</color></size>");
+                    lbUnderHead = true;
+                }
+
+                continue;
+            }
+
+            if (lOLine.Text == null)
+                continue;
+
             string lsText = UWRichText.Escape(UWConversationLayout.WithoutPageBreaks(lOLine.Text));
 
             if (lsText.Length == 0)
                 continue;
 
-            if (lOText.Length > 0)
+            if (lbUnderHead)
+                lOText.Append('\n');
+            else if (lOText.Length > 0)
                 lOText.Append(lsGap);
+
+            lbUnderHead = false;
 
             string lsHex = pbOriginal
                 ? (lOLine.IsNpc ? OrigNpcHex : lOLine.IsPlayer ? OrigPlayerHex : OrigNarratorHex)
@@ -980,7 +1054,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         string lsLookHex = pbOriginal ? OrigNpcHex : NpcHex;
         int liFontSize = piFontSize > 0 ? piFontSize : Mathf.Max(10, Mathf.RoundToInt(TextSize * pfScale));
         string lsLook = pOView.LookText;
-        IReadOnlyList<string> lOChoices = pOView.Choices;
+        IReadOnlyList<string> lOChoices = mOHost.ShownChoices(pOView);
         List<string> lOTexts = new List<string>();
 
         mOInputBack.enabled = false;
@@ -1079,12 +1153,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
     private void fShowPortraits(UWConversationView pOView)
     {
-        for (int liSide = 0; liSide < 2; liSide++)
-        {
-            UWTexture lOSource = pOView.PortraitTexture(mOUi.mOUWData.Textures, liSide == 1);
+        miPortraitVersion = mOHost.PortraitVersion;
 
-            mOPortraitTextures[liSide] = UWIconCache.Texture(lOSource, mOUi.TextureFilterMode);
-        }
+        for (int liSide = 0; liSide < 2; liSide++)
+            mOPortraitTextures[liSide] = mOHost.Portrait(pOView, liSide == 1);
     }
 
     /// <summary>A panel's leather; piVariant keeps the three large panels' clouds apart.</summary>
@@ -1095,22 +1167,16 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         if (!mOLeather.TryGet(lKey, lOStamp, out Texture2D lOTexture))
         {
-            lOTexture = mOLeather.Set(lKey, lOStamp, UWModernHudArt.BuildPartLeather(UWModernLayout.ElementEnum.Conversation, mOUi.mOUWData.Textures,
-                piWidth, piHeight, mOUi.TextureFilterMode, piVariant));
+            lOTexture = mOLeather.Set(lKey, lOStamp, mOHost.Leather(piWidth, piHeight, piVariant));
         }
 
         pOImage.texture = lOTexture;
     }
 
-    private Texture2D fIcon(UWTexture pOSource)
-    {
-        return UWIconCache.Texture(pOSource, mOUi.TextureFilterMode);
-    }
-
     private Texture2D fSlotTexture()
     {
         if (mOSlotTexture == null)
-            mOSlotTexture = UWModernHudArt.BuildPartSlot(UWModernLayout.ElementEnum.Conversation, mOUi.mOUWData.Textures, mOUi.TextureFilterMode);
+            mOSlotTexture = mOHost.SlotPicture();
 
         return mOSlotTexture;
     }
@@ -1207,7 +1273,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     {
         fShowModernParts(false);
 
-        UWDataImport.DataImport lOData = mOUi.mOUWData;
+        UWDataImport.DataImport lOData = mOHost.Data;
         bool lbOutline = UWModernClassicPlus.ConversationOutline;
 
         if (lbOutline != mbOrigOutline)
@@ -1226,10 +1292,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         }
 
         if (mOOrigHeader == null)
-            mOOrigHeader = UWModernHudArt.BuildConversationHeader(lOData.Textures, mOUi.TextureFilterMode, lbOutline);
+            mOOrigHeader = UWModernHudArt.BuildConversationHeader(lOData.Textures, mOHost.Filter, lbOutline);
 
         if (mOOrigParchment == null)
-            mOOrigParchment = UWModernHudArt.BuildConversationParchment(lOData.Textures, OrigParchmentRows, mOUi.TextureFilterMode, false, lbOutline);
+            mOOrigParchment = UWModernHudArt.BuildConversationParchment(lOData.Textures, OrigParchmentRows, mOHost.Filter, false, lbOutline);
 
         float lfAspect = pfScale * UWModernHudArt.PixelAspectX;
         float lfRowWidth = OrigTextWidth * lfAspect;
@@ -1270,7 +1336,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
                 Destroy(mOOrigAnswers);
 
             // The message scroll's knob rollers below, where the original's answers stand (per user).
-            mOOrigAnswers = UWModernHudArt.BuildConversationParchment(lOData.Textures, liAnswersRows, mOUi.TextureFilterMode, true, lbOutline);
+            mOOrigAnswers = UWModernHudArt.BuildConversationParchment(lOData.Textures, liAnswersRows, mOHost.Filter, true, lbOutline);
             miOrigAnswersRows = liAnswersRows;
         }
 
@@ -1320,8 +1386,8 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         for (int liAt = 0; liAt < miOrigSlots.Length; liAt++)
         {
-            int liSide = liAt / UWConversationTrade.SlotCount;
-            int liSlot = liAt % UWConversationTrade.SlotCount;
+            int liSide = liAt / miSlots;
+            int liSlot = liAt % miSlots;
             UWObject lOItem = lOTrade == null ? null : liSide == 0 ? lOTrade.NpcItems[liSlot] : lOTrade.PlayerItems[liSlot];
             bool lbMarked = lOTrade != null && (liSide == 0 ? lOTrade.NpcSelected[liSlot] : lOTrade.PlayerSelected[liSlot]);
 
@@ -1422,6 +1488,13 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
         // preview over all parts (LateUpdate).
         mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "Modern conversation", UWUiSorting.ModernConversation);
 
+        miSlots = mOHost.TradeSlots;
+        mOCircles = new RawImage[2 * miSlots];
+        mOIcons = new RawImage[2 * miSlots];
+        mOCounts = new Text[2 * miSlots];
+        mORings = new RawImage[2 * miSlots];
+        mOSlotRects = new Rect[2 * miSlots];
+
         RectTransform lORootRect = (RectTransform)mOCanvas.transform;
 
         mODim = UWUiKit.CreateImage(lORootRect, "Dim", new Color(0f, 0f, 0f, 0.55f));
@@ -1434,11 +1507,14 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
             mOFrames[liSide] = fCreateLeather(lORootRect, "Frame " + lsSide);
             mOPortraits[liSide] = UWUiKit.CreateRawImage(lORootRect, "Portrait " + lsSide);
-            UWIconPalette.ApplySmooth(mOPortraits[liSide]);
-            mONames[liSide] = UWUiKit.CreateText(lORootRect, "Name " + lsSide, TextAnchor.MiddleCenter, msNpc, mOUi);
+
+            if (mOHost.UsesIconPalette)
+                UWIconPalette.ApplySmooth(mOPortraits[liSide]);
+
+            mONames[liSide] = UWUiKit.CreateText(lORootRect, "Name " + lsSide, TextAnchor.MiddleCenter, msNpc, mOHost.TextUi);
 
             mOTradeBacks[liSide] = fCreateLeather(lORootRect, "Trade " + lsSide);
-            mOTradeTitles[liSide] = UWUiKit.CreateText(lORootRect, "Trade title " + lsSide, TextAnchor.MiddleCenter, msTitle, mOUi);
+            mOTradeTitles[liSide] = UWUiKit.CreateText(lORootRect, "Trade title " + lsSide, TextAnchor.MiddleCenter, msTitle, mOHost.TextUi);
         }
 
         for (int liAt = 0; liAt < mOCircles.Length; liAt++)
@@ -1449,9 +1525,14 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             RectTransform lOCircle = mOCircles[liAt].rectTransform;
 
             mOIcons[liAt] = UWUiKit.CreateRawImage(lOCircle, "Item " + liAt);
-            UWIconPalette.ApplySmooth(mOIcons[liAt]);
 
-            mOCounts[liAt] = UWUiKit.CreateText(lOCircle, "Count " + liAt, TextAnchor.LowerRight, Color.white, mOUi);
+            if (mOHost.UsesIconPalette)
+                UWIconPalette.ApplySmooth(mOIcons[liAt]);
+            else
+                UWPixelArtUI.Apply(mOIcons[liAt]);
+
+
+            mOCounts[liAt] = UWUiKit.CreateText(lOCircle, "Count " + liAt, TextAnchor.LowerRight, Color.white, mOHost.TextUi);
             mORings[liAt] = UWUiKit.CreateRawImage(lOCircle, "Mark " + liAt);
         }
 
@@ -1459,7 +1540,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         mOViewport = UWUiKit.CreateClipArea(lORootRect, "History view");
 
-        mOHistory = UWUiKit.CreateText(mOViewport, "History text", TextAnchor.UpperLeft, msNpc, mOUi);
+        mOHistory = UWUiKit.CreateText(mOViewport, "History text", TextAnchor.UpperLeft, msNpc, mOHost.TextUi);
         mOHistory.horizontalOverflow = HorizontalWrapMode.Wrap;
         mOHistory.supportRichText = true;
 
@@ -1482,7 +1563,7 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
 
         for (int liRow = 0; liRow < MaxRows; liRow++)
         {
-            mORows[liRow] = UWUiKit.CreateText(lORootRect, "Answer " + (liRow + 1), TextAnchor.UpperLeft, msNpc, mOUi);
+            mORows[liRow] = UWUiKit.CreateText(lORootRect, "Answer " + (liRow + 1), TextAnchor.UpperLeft, msNpc, mOHost.TextUi);
             mORows[liRow].horizontalOverflow = HorizontalWrapMode.Wrap;
             mORows[liRow].supportRichText = true;
         }

@@ -220,14 +220,29 @@ public sealed class UWSetupPageDrawer
             case UWSetupRow.KindEnum.Space:
                 break;
 
+            // Rows that no longer fit take more lines and push what follows down (per user, 2026-11-01).
             case UWSetupRow.KindEnum.Toggle:
+            {
+                float lfHeight = mORows.ToggleHeight(lORect.width, fToggleText(pORow), lORect.height);
+
+                lORect.height = lfHeight;
                 fToggle(pORow, pOData, lORect);
-                break;
+
+                return pfTop + pORow.Advance + (lfHeight - pORow.Height);
+            }
 
             case UWSetupRow.KindEnum.Choices:
             case UWSetupRow.KindEnum.ChoiceRow:
-                fChoices(pORow, pOData, lORect, pfShift > 0f ? fShifted(pORow.ChoiceColumns, pfShift) : pORow.ChoiceColumns);
-                break;
+            {
+                UWChoiceColumns lOColumns = pfShift > 0f ? fShifted(pORow.ChoiceColumns, pfShift) : pORow.ChoiceColumns;
+                bool lbRow = pORow.Kind == UWSetupRow.KindEnum.ChoiceRow;
+                int liLines = mORows.ChoiceLines(lbRow ? lORect.width - lOColumns.ChoicesLess : lORect.width,
+                    pORow.Choices ?? pORow.Def.ChoiceLabels, lbRow ? 0f : pORow.Gap);
+
+                fChoices(pORow, pOData, lORect, lOColumns);
+
+                return pfTop + pORow.Advance + ((liLines - 1) * pORow.Height);
+            }
 
             case UWSetupRow.KindEnum.Slider:
                 fSlider(pORow, pOData, lORect, pfShift > 0f ? fShifted(pORow.SliderColumns, pfShift) : pORow.SliderColumns);

@@ -84,12 +84,20 @@ namespace UWDataImport.Presentation
 		public static UWPicture Build(UWTextures pOTextures, int piWidth, int piHeight, ShapeEnum peShape, ColourEnum peColour,
 			PatternEnum pePattern, bool pbBorder, int piVariant = 0)
 		{
+			return Build(pOTextures, piWidth, piHeight, peShape, Ramp(pOTextures, peColour), pePattern, pbBorder, piVariant);
+		}
+
+		/// <summary>The same in the shades given, darkest first: the second game's frame has its colours
+		/// elsewhere than the first game's the ramps are measured on.</summary>
+		public static UWPicture Build(UWTextures pOTextures, int piWidth, int piHeight, ShapeEnum peShape, List<UWColor32> pORamp,
+			PatternEnum pePattern, bool pbBorder, int piVariant = 0)
+		{
 			UWPicture lOOut = new UWPicture(Math.Max(0, piWidth), Math.Max(0, piHeight));
 
 			if (peShape == ShapeEnum.None || piWidth <= 0 || piHeight <= 0)
 				return lOOut;
 
-			List<UWColor32> lORamp = Ramp(pOTextures, peColour);
+			List<UWColor32> lORamp = pORamp;
 
 			if (lORamp.Count == 0)
 				return lOOut;

@@ -1533,9 +1533,9 @@ namespace UWDataImport.UWData
 		/// be picked up or taken off any more - the bags are to be filled where possible). The thing
 		/// at the pointer goes onto a matching stack in the backpack or in a carried container, else
 		/// onto a free backpack place, else into the first carried container that takes it (weight
-		/// and type, see UWContainerCapacity), in carrying order. The rune bag is left out: it
-		/// learns a stone only when one is put in on purpose. False if nothing takes it - the thing
-		/// stays at the pointer.
+		/// and type, see UWContainerCapacity), in carrying order, the bags around it asked as well
+		/// (issue 13). The rune bag is left out: it learns a stone only when one is put in on purpose.
+		/// False if nothing takes it - the thing stays at the pointer.
 		/// </summary>
 		public bool DropCursorItemAnywhere()
 		{
@@ -1559,7 +1559,7 @@ namespace UWDataImport.UWData
 					if (!CanStack(CursorItem, lOInside, lOProperties))
 						continue;
 
-					if (DropCursorItemIntoContainerItem(lOContainer))
+					if (DropCursorItemIntoContainerItem(lOContainer, true))
 						return true;
 
 					break;
@@ -1571,7 +1571,7 @@ namespace UWDataImport.UWData
 
 			foreach (UWObject lOContainer in lOContainers)
 			{
-				if (fContainerAccepts(lOContainer, CursorItem) && DropCursorItemIntoContainerItem(lOContainer))
+				if (fContainerAccepts(lOContainer, CursorItem) && DropCursorItemIntoContainerItem(lOContainer, true))
 					return true;
 			}
 

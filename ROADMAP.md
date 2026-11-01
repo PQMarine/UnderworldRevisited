@@ -83,8 +83,9 @@ of what is built was also read out of the original's executable.
 
 - **Ultima Underworld II**, after the preview of 0.13.0 (the game beside the first, its data,
   a walk through Britannia, its game screen, the inventory, the options and saves, the main menu
-  and the character creation): the map, the conversations and the modern interface, then its
-  rules. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the plan.
+  and the character creation) and what came since (the map, the conversations, the modern
+  interface, its creatures and first fights): the rest of its rules, magic and the player's death
+  first. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the plan.
 
 ## Open: gameplay parity
 

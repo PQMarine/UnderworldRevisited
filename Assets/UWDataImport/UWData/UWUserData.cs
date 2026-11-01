@@ -390,5 +390,9 @@ namespace UWDataImport.UWData
 		/// mounts the overlay -, "CloudSaves" or "Installation" (UWGogInstall.SaveFolderModeEnum). Both
 		/// games; a DATA folder given by hand keeps its own.</summary>
 		public string SaveFolder = string.Empty;
+
+		/// <summary>The second game's own installation when it lies elsewhere (UWSettings); empty: found
+		/// from the first's.</summary>
+		public string GogInstallPathUw2 = string.Empty;
 	}
 }

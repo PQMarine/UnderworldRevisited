@@ -96,5 +96,6 @@
     "WindowBackground": 1,
     "Language": "",
     "Game": "",
-    "SaveFolder": ""
+    "SaveFolder": "",
+    "GogInstallPathUw2": ""
 }

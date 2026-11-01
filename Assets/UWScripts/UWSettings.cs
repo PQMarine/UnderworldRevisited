@@ -596,7 +596,7 @@ namespace UnderworldRevisited
                 if (!(fIsFirstGame() && IsValidDataPath(mDataPath)) && fResolveGogDataPath() != null && fResolved().ImagePath != null)
                 {
                     string lsFolder = UWDataImport.Install.UWGogInstall.GetSavegameFolder(fResolved().ImagePath, Game,
-                        UWDataImport.Install.UWGogInstall.ParseSaveFolderMode(UWUserSettings.SaveFolder));
+                        UWDataImport.Install.UWGogInstall.ParseSaveFolderMode(UWUserSettings.SaveFolder), fOwnFolder(Game), GetCandidateGogPaths());
 
                     if (lsFolder != null)
                         return lsFolder;
@@ -702,6 +702,20 @@ namespace UnderworldRevisited
             return lsImage != null || !string.IsNullOrEmpty(lsInstall) ? lsImage : fFindImageInCandidates();
         }
 
+        /// <summary>The game.gog pOGame comes from: the folder chosen for it, else FindGogImage's. Every
+        /// image holds both games, the folder matters for the saves.</summary>
+        public string FindGogImage(IUWGameProfile pOGame)
+        {
+            return UWDataImport.Install.UWGogInstall.FindImage(fOwnFolder(pOGame)) ?? FindGogImage();
+        }
+
+        /// <summary>The folder chosen for the second game alone (the Game window, per user, 2026-10-31),
+        /// empty when there is none; the first game has the installation folder itself.</summary>
+        private static string fOwnFolder(IUWGameProfile pOGame)
+        {
+            return pOGame.Game == UWGame.Uw1 ? string.Empty : UWUserSettings.GogInstallPathUw2;
+        }
+
         /// <summary>The first game.gog of the common folders (GetCandidateGogPaths), or null.</summary>
         private static string fFindImageInCandidates()
         {
@@ -727,7 +741,8 @@ namespace UnderworldRevisited
             // The asset's path first (set by a developer), then the folder the player chose in the
             // setup screen (UWUserSettings, kept outside the asset), then the common folders.
             string lsInstall = !string.IsNullOrEmpty(GogInstallPath) ? GogInstallPath : UWUserSettings.GogInstallPath;
-            string lsKey = (lsInstall ?? string.Empty) + (ForceFirstRunSetup ? "|setup" : string.Empty);
+            string lsOwn = fOwnFolder(Game);
+            string lsKey = (lsInstall ?? string.Empty) + "|" + lsOwn + (ForceFirstRunSetup ? "|setup" : string.Empty);
             Resolved lOResolved = fResolved();
 
             if (lOResolved.For == lsKey)
@@ -742,7 +757,7 @@ namespace UnderworldRevisited
             if (ForceFirstRunSetup && string.IsNullOrEmpty(UWUserSettings.GogInstallPath))
                 return null;
 
-            string lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsInstall);
+            string lsImage = UWDataImport.Install.UWGogInstall.FindImage(lsOwn) ?? UWDataImport.Install.UWGogInstall.FindImage(lsInstall);
 
             if (lsImage == null && string.IsNullOrEmpty(lsInstall))
             {

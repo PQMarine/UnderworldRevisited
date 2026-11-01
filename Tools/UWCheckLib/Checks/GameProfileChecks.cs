@@ -120,6 +120,91 @@ namespace UnderworldRevisited.Tools
                 Check.Pass("install: the " + lOGame.Game + " saves for this image", UWGogInstall.GetSavegameFolder(psImage, lOGame) ?? "none");
 
             fCheckSaveFolderRule();
+            fCheckValuableRoll();
+            fCheckPlayerUw2();
+            fCheckCritterUw2();
+            fCheckCombatUw2();
+        }
+
+        /// <summary>The second game's combat steps (uw2 COMBAT.C, DAMAGE.C).</summary>
+        private static void fCheckCombatUw2()
+        {
+            IUWCombatVariant lICombat = UWGameProfiles.Uw2.Combat;
+            string lsGot = string.Empty;
+
+            foreach (int liMinor in new[] { 0, 3, 4, 7, 8 })
+            {
+                lICombat.WeaponEnchantment(0xC, liMinor, out int liAccuracy, out int liDamage);
+                lsGot += liAccuracy + "/" + liDamage + " ";
+            }
+
+            Check.Str("uw2 combat: a weapon's enchantment, attack score / damage, effect 0 3 4 7 8", lsGot.Trim(), "0/1 0/7 1/0 7/0 0/0");
+            Check.Str("uw2 combat: fire on cold resistance doubled, cold on fire, not on both, 200 goes to 255",
+                lICombat.Unresisted(0x20, 10, 8) + " " + lICombat.Unresisted(8, 10, 0x20) + " " + lICombat.Unresisted(0x28, 10, 0x20) + " " + lICombat.Unresisted(0x20, 200, 8),
+                "20 20 10 255");
+            Check.Str("uw2 combat: a door takes damage, a protected class does not", lICombat.ShrugsOff(true, 0) + " " + lICombat.ShrugsOff(false, UWObjectDamageRules.ImmuneQualityClass),
+                "False True");
+        }
+
+        /// <summary>The second game's record holds sequences: the brain's slots go in and come back.</summary>
+        private static void fCheckCritterUw2()
+        {
+            IUWCritterVariant lICritter = UWGameProfiles.Uw2.Critter;
+            string lsGot = string.Empty;
+
+            foreach (int liSlot in new[] { UWCritterBrain.AnimStanding, UWCritterBrain.AnimWalking, UWCritterBrain.AnimCombatIdle, UWCritterBrain.AnimBash,
+                UWCritterBrain.AnimSpell, UWCritterBrain.AnimDying })
+                lsGot += lICritter.RecordOfSlot(liSlot) + ":" + (lICritter.SlotOfRecord(lICritter.RecordOfSlot(liSlot)) == liSlot) + " ";
+
+            Check.Str("uw2 critter: the brain's slots as the record's sequences, and back", lsGot.Trim(), "0:True 1:True 2:True 3:True 6:True 7:True");
+        }
+
+        /// <summary>The second game's player steps (uw2 SKILLCHK.C, PLAYTIME.C): the gate, the halving by world,
+        /// the long cycle and the skill point.</summary>
+        private static void fCheckPlayerUw2()
+        {
+            IUWPlayerVariant lIPlayer = UWGameProfiles.Uw2.Player;
+            UWRules lORules = UWGameProfiles.Uw2.CreateOriginalRules();
+
+            Check.Str("uw2 player: the long cycle, the skill point, the gate below the cap, above it and past the ceiling",
+                lIPlayer.LongCycleTicks + " " + lORules.Experience.PerSkillPoint + " " + lIPlayer.ExperienceGate(lORules.Experience, 1000, 10)
+                + " " + lIPlayer.ExperienceGate(lORules.Experience, lORules.Experience.AwardCap + 1, 10) + " " + lIPlayer.ExperienceGate(lORules.Experience, UWPlayerVariantUw2.ExperienceCeiling, 1),
+                "30 1500 Count CountWithoutLevels Ignore");
+
+            bool lbHalved = true;
+            bool lbTwice = true;
+
+            for (int liRoll = 0; liRoll < 200; liRoll++)
+            {
+                int liGain = lIPlayer.ExperienceGain(11, 1, 1);
+                int liEarly = lIPlayer.ExperienceGain(10, 1, 5);
+
+                lbHalved &= liGain == 5 || liGain == 6;
+                lbTwice &= liEarly == 3;
+            }
+
+            Check.Str("uw2 player: a gain halved at random, and again plus one in a world too early for the level",
+                lbHalved + " " + lbTwice, "True True");
+        }
+
+        /// <summary>The second game's valuable (TREASURE.C:103-107): the same range in every world, the last
+        /// six types at most, never type 1, and the first world mostly the coin.</summary>
+        private static void fCheckValuableRoll()
+        {
+            IUWObjectVariant lIObjects = UWGameProfiles.Uw2.Objects;
+            bool lbInRange = true;
+
+            foreach (int liLevel in new[] { 1, 8, 9, 57, 65, 80 })
+            {
+                for (int liRoll = 0; liRoll < 2000; liRoll++)
+                {
+                    int liType = lIObjects.RollValuableType(liLevel);
+
+                    lbInRange &= liType >= 0 && liType <= 6 && liType != 1;
+                }
+            }
+
+            Check.Bool("loot: the second game's valuable stays 0 or 2 to 6 on every level", lbInRange, true);
         }
 
         /// <summary>
@@ -190,6 +275,25 @@ namespace UnderworldRevisited.Tools
                 Check.Str("saves: the second game's are found in its own product beside the first's, from either image",
                     fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw2)) + " " + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsSecondImage, lOUw2)),
                     "Ultima Underworld 2/cloud_saves/UNDEROM2 Ultima Underworld 2/cloud_saves/UNDEROM2");
+
+                Directory.CreateDirectory(Path.Combine(lsRoot, "Elsewhere", lOUw2.SaveFolder));
+                File.WriteAllBytes(Path.Combine(lsRoot, "Elsewhere", UWGogInstall.ImageFileName), new byte[0]);
+
+                Check.Str("saves: the folder chosen for the second game comes first, then the image's, then the others given",
+                    fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw2, UWGogInstall.SaveFolderModeEnum.Automatic, Path.Combine(lsRoot, "Elsewhere"), null)) + " "
+                    + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsSecondImage, lOUw1, UWGogInstall.SaveFolderModeEnum.Automatic, string.Empty, null)),
+                    "Elsewhere/UNDEROM2 Ultima Underworld/cloud_saves/UNDEROM1");
+
+                Directory.Delete(lsSecond, true);
+                Check.Str("saves: ... the others given are asked last",
+                    fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw2, UWGogInstall.SaveFolderModeEnum.Automatic, string.Empty, new[] { Path.Combine(lsRoot, "Nowhere"), Path.Combine(lsRoot, "Elsewhere") })),
+                    "Elsewhere/UNDEROM2");
+
+                string[] lsCandidates = UWGogInstall.GetCandidateFolders(false);
+
+                Check.Bool("install: the second game's own folders are searched, after the first's",
+                    System.Array.IndexOf(lsCandidates, @"D:\Ultima Underworld 2") > System.Array.IndexOf(lsCandidates, @"D:\Ultima Underworld")
+                    && System.Array.IndexOf(lsCandidates, @"D:\Ultima Underworld") >= 0, true);
             }
             finally
             {
@@ -669,6 +773,16 @@ namespace UnderworldRevisited.Tools
             public bool TriesDoor(int piAttitude) => true;
 
             public int DeathCry(UWObjectClassProperties.Critter pORow) => 77;
+
+            public bool HasSpecialDeath(int piWhoami) => false;
+
+            public int BloodObject(int piBloodIndex) => -1;
+
+            public bool CorpseAlways(int piDungeonLevel) => false;
+
+            public int SlotOfRecord(int piRaw) => piRaw;
+
+            public int RecordOfSlot(int piSlot) => piSlot;
         }
 
         /// <summary>A player variant whose steps give themselves away.</summary>
@@ -679,6 +793,8 @@ namespace UnderworldRevisited.Tools
             public int ExperienceGain(int piGain, int piDungeonLevel, int piCharacterLevel) => piGain * 10;
 
             public bool MaySleepAt(UWRules pORules, int piDungeonLevel) => false;
+
+            public int LongCycleTicks => 24;
 
             public int TrapDetectTarget() => 99;
 

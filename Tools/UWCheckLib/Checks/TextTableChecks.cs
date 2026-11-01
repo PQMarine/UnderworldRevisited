@@ -15,7 +15,7 @@ namespace UnderworldRevisited.Tools
     /// F call passes as many arguments as its English text has placeholders, no T call names a
     /// text with placeholders, and every id of the table is named somewhere. The languages: the
     /// pseudo-language changes every text, keeps its placeholders and tags and makes it at least
-    /// 40 % longer; a language file in the pseudo-language for half the ids, with bad lines, loads,
+    /// 2.8 times as long; a language file in the pseudo-language for half the ids, with bad lines, loads,
     /// reports exactly the bad lines and falls back to English per id. Data-free.
     /// </summary>
     public static partial class SelfChecks
@@ -282,7 +282,7 @@ namespace UnderworldRevisited.Tools
                 if (Regex.Matches(lsPseudo, "<").Count != Regex.Matches(lsEnglish, "<").Count)
                     lOProblems.Append("tags ").Append(lsId).Append("; ");
 
-                if (fVisible(lsPseudo).Length < fVisible(lsEnglish).Length * 1.4)
+                if (fVisible(lsPseudo).Length < fVisible(lsEnglish).Length * 2.8)
                     liShort++;
 
                 object[] laArgs = Enumerable.Range(0, UWText.PlaceholderCount(lsEnglish)).Select(piAt => (object)piAt).ToArray();
@@ -292,10 +292,10 @@ namespace UnderworldRevisited.Tools
             }
 
             Check.Str("pseudo: every text changed, placeholders and tags kept, F fills", lOProblems.ToString(), string.Empty);
-            Check.Int("pseudo: texts less than 40 % longer", liShort, 0);
-            Check.Str("pseudo: a short one", UWText.T("setup.done"), "[Doonee]");
-            Check.Str("pseudo: placeholders untouched", UWText.F("keys.slot", 3), "[AActiioon baar sloot 3~~]");
-            Check.Str("pseudo: a setting row's choices follow", UWUserSettingsTable.SmoothRampTicks.ChoiceLabels[3], "[AAt ooncee]");
+            Check.Int("pseudo: texts shorter than 2.8 times the English", liShort, 0);
+            Check.Str("pseudo: a short one", UWText.T("setup.done"), "[DDoooonneeee~~]");
+            Check.Str("pseudo: placeholders untouched", UWText.F("keys.slot", 3), "[AAAAccttiiiioooonn bbaaaarr sslloooott 3~~~~~~~~~]");
+            Check.Str("pseudo: a setting row's choices follow", UWUserSettingsTable.SmoothRampTicks.ChoiceLabels[3], "[AAAAtt oooonncceeee~~~]");
             Check.Str("pseudo: the language's name", UWText.LanguageName, UWText.PseudoLanguage);
 
             UWText.UseEnglish();

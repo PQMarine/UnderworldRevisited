@@ -1080,12 +1080,13 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
         float lfPreset = pORows.LabelWidth(UWText.T("editor.preset")) + RowGap + UWRowSizing.SpreadNeeded(laNames);
 
-        // The three switches in thirds, Reset all and Done in halves.
+        // The three switches in thirds, Reset all, Save and Done too.
         float lfSwitch = Mathf.Max(pORows.ToggleWidth(" " + UWText.T("editor.panels_out")),
             Mathf.Max(pORows.ToggleWidth(" " + UWText.T("editor.dialog")), pORows.ToggleWidth(" " + UWText.T("editor.snap")))) + UWRowSizing.Margin;
-        float lfButton = Mathf.Max(pORows.FitWidth(UWText.T("editor.reset_all"), 0f), pORows.FitWidth(UWText.T("editor.done"), 0f));
+        float lfButton = Mathf.Max(pORows.FitWidth(UWText.T("editor.reset_all"), 0f),
+            Mathf.Max(pORows.FitWidth(UWText.T("editor.ask.save"), 0f), pORows.FitWidth(UWText.T("editor.done"), 0f)));
 
-        lfNeed = Mathf.Max(lfNeed, Mathf.Max(lfPreset, Mathf.Max(3f * lfSwitch, (2f * lfButton) + RowGap)));
+        lfNeed = Mathf.Max(lfNeed, Mathf.Max(lfPreset, Mathf.Max(3f * lfSwitch, (3f * lfButton) + (2f * RowGap))));
 
         return Mathf.Max(lfNeed, pORows.TextWidth(fHeading(), UWRowInfoEnum.Heading));
     }
@@ -1298,6 +1299,17 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         UWUserSettings.Save();
     }
 
+    /// <summary>Writes the layout as it stands and goes on: the new state is what leaving compares with and
+    /// what Discard goes back to, and it is the own layout now, so the preset row says so.</summary>
+    private void fSaveNow()
+    {
+        UWUserSettings.SaveSuspended = false;
+        UWUserSettings.Save();
+        UWUserSettings.SaveSuspended = true;
+        mOSaved = UWUserSettings.TakeLayoutSnapshot();
+        meStart = UWDataImport.UWData.UWLayoutStart.Custom;
+    }
+
     private static void fRestore(UWUserSettings.LayoutSnapshot pOSnapshot)
     {
         UWUserSettings.RestoreLayout(pOSnapshot);
@@ -1380,15 +1392,26 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         mbSnap = lbSnap;
         lfY += RowHeight + RowGap;
 
-        float lfHalf = (lfInner - RowGap) * 0.5f;
+        float lfButtonThird = (lfInner - (2f * RowGap)) / 3f;
 
-        if (pORows.Action(new Rect(lfX, lfY, lfHalf, RowHeight), UWText.T("editor.reset_all")))
+        if (pORows.Action(new Rect(lfX, lfY, lfButtonThird, RowHeight), UWText.T("editor.reset_all")))
             UWModernLayout.ResetAll();
+
+        // SAVE (per user, 2026-11-01: people look for a button that says so, though leaving asks): what
+        // stands is kept and the editor stays open. Grey while nothing has changed since the last save.
+        bool lbEnabled = pORows.Enabled;
+
+        pORows.Enabled = lbEnabled && !UWUserSettings.LayoutEquals(mOSaved);
+
+        if (pORows.Action(new Rect(lfX + lfButtonThird + RowGap, lfY, lfButtonThird, RowHeight), UWText.T("editor.ask.save")))
+            fSaveNow();
+
+        pORows.Enabled = lbEnabled;
 
         // Done fires on the release (IMGUI buttons do, the kit's as well), so the press reaches
         // nothing behind it once the menu is gone (per user, 2026-10-04: Done over the minimap
         // opened the big map).
-        if (pORows.Action(new Rect(lfX + lfHalf + RowGap, lfY, lfHalf, RowHeight), UWText.T("editor.done")) && UWModernHud.Instance != null)
+        if (pORows.Action(new Rect(lfX + (2f * (lfButtonThird + RowGap)), lfY, lfButtonThird, RowHeight), UWText.T("editor.done")) && UWModernHud.Instance != null)
             RequestLeave(UWModernHud.Instance.Menu.CloseMenu);
 
         lfY += RowHeight + RowGap;

@@ -427,7 +427,12 @@ namespace UnderworldRevisited.Build
         private void fSpawnObject(int xPos, int zPos, UWTile pOTile, UWObject pOObject, Transform pOParent,
             bool pbAsAppended = false)
         {
-            if (pOObject == null || pOObject.Texture == null)
+            if (pOObject == null)
+                return;
+
+            // OBJECTS.GR ends at 460: the second game's wisp (461) has no texture of its own, only its
+            // ANIMO.GR frames, and fSpawnBillboard takes those (per user, 2026-10-31: no wisp to be seen).
+            if (pOObject.Texture == null && !(fIsUw2 && fGetAnimationTextures(pOObject.ID) != null))
                 return;
 
             UWObject.ObjectCategoryEnum leCategory = pOObject.GetCategory();
@@ -507,6 +512,29 @@ namespace UnderworldRevisited.Build
             return 0;
         }
 
+        /// <summary>The second game's goal of a creature held as stone or paralysed (AI.C:1304): it has no mind
+        /// until the magic's domain brings it back.</summary>
+        private const int HeldGoalUw2 = 15;
+
+        /// <summary>
+        /// THE SECOND GAME'S CREATURES MOVE (UW2 plan phase 4): the first game's body and brain on its table. It has
+        /// no player to perceive yet (UWCreatureWorld.HasPlayer), so they go about their goals; a creature with
+        /// no row or no hit points stays a picture.
+        /// </summary>
+        private void fAttachCritterBrainUw2(GameObject pOGameObject, UWNpc pONpc)
+        {
+            if (pONpc.NPCGoal == HeldGoalUw2 || !mOData.ObjectClassProperties.TryGetCritter(pONpc.ID, out UWObjectClassProperties.Critter lOCritter)
+                || lOCritter.Vitality <= 0)
+                return;
+
+            int liHitPoints = pONpc.HitPoints > 0 ? pONpc.HitPoints : lOCritter.Vitality;
+
+            pOGameObject.AddComponent<UWDamageable>().Initialise(Mathf.Max(lOCritter.Vitality, liHitPoints), lOCritter.ArmourOfPart(UWArmourProtection.PartBody), 0,
+                lOCritter.DefensePower, 0, liHitPoints);
+            pOGameObject.AddComponent<UWCritter>().Initialise(pONpc, lOCritter, true, mOLevelLoader);
+            pOGameObject.AddComponent<UWCritterRemains>().Initialise(lOCritter, mOLevelLoader);
+        }
+
         /// <summary>
         /// Attaches hit points to a creature. Both come from the creature table
         /// in OBJECTS.DAT: vitality and armour. Objects outside the creature range
@@ -524,7 +552,14 @@ namespace UnderworldRevisited.Build
             if (mOData.GameData != null && mOData.GameData.Profile.Game == UWGame.Uw2)
             {
                 if (pOObject is UWNpc lONpcUw2 && UWObjectIds.IsCreature(pOObject.ID))
+                {
+                    fAttachCritterBrainUw2(pOGameObject, lONpcUw2);
                     pOGameObject.AddComponent<UWCritterAnimator>().InitialiseUw2(mOData, lONpcUw2, mOBillboardMaterial, mOTranslucentBillboardMaterial);
+
+                    // Its body as in the first game, or a ray hits the widest picture of the whole
+                    // set far beside it (per user 2026-10-31).
+                    fApplyCritterFootprint(pOGameObject, pOObject.ID);
+                }
 
                 return;
             }

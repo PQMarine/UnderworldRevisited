@@ -926,19 +926,81 @@ step by step: from step 2 on it has a character, from step 5 on a new game makes
 6. **The map**: `BYT.ARK` block 0, three pixels a tile in UW2's automap byte order (the painter is
    UW1's today), the gem choosing a world (Britannia and eight worlds, 6 and 7 swapped, only those
    visited lit), the level arrows within a world, the level number, the notes (100 a level, 46
-   characters, `FONT_4X5P`), the eraser; the automap that can be off and the map scraps.
+   characters, `FONT_4X5P`), the eraser; the automap that can be off and the map scraps. PART A BUILT 2026-10-30 (UWAutomapScreenUw2, UWMapScreenUw2): the screen, the tiles (UWAutomapPainter with UWGame.Uw2: ice, three colours), the gem, the corners, closing; opened with M and by using the map; user-confirmed. PART B BUILT 2026-10-30: the notes on UWMapNotesModel and UWMapNoteRules (the first game's, note->x/y = mx/my + 2 here), the eraser, the level number, the pen and eraser as the game screen's pointer, either button acting; check MapScreenUw2; user-confirmed with the cursors in the map's palette. FOUND 2026-10-31 by the user's test: UWPlayerTerrain, which writes the automap, was made only with the first game's interface, so the walk wrote nothing and the flag never came back; made in fStartUw2 now, its automap part only. PART C BUILT 2026-10-30 (UWAutomapStateUw2): the flag and map_scrap in the record, the map opening on the scrap's level with no arrow while off, drawn tiles not written then, the teleport trap's bit, the Void, player_newsq, the bit of a map (eight in the shipped file, pages 74 and 79). Left for the rules of phase 4: the scrap's experience, Locate, waking from the Void, the crystal ball.
 7. **Conversations**: `BYT.ARK` block 2, the portraits (`CHARHEAD.GR`, `GHED.GR`, `HEADS.GR`), the
    names, the two scrolls, six trade slots a side with UW2's regions, the VM with UW2's 51 built-ins
    (the nine new ones: `babl_hack`, `give_all_stuff`, `set_sequence`, `switch_pic`, `teleport_player`,
    `teleport_talker`, `transform_talker`, `x_clock`, `x_exp`), the quest store of 128 bits and 16 bytes,
-   the refusals; built-ins whose rules come in phase 4 log what they would do.
+   the refusals; built-ins whose rules come in phase 4 log what they would do. PART A BUILT 2026-10-30
+   (c4629e26): TalkTo's rules (UWTalkRulesUw2), the screen (UWConversationScreenUw2, BYT.ARK's screen 2 over
+   all but the right panel), the session and view of the first game on a host of the record
+   (UWConversationHostUw2), the machine's built-ins by name, the quests, numbered variables and X clocks in
+   the record, the new built-ins (UWConversationSessionUw2); checks Uw2Conversations (all 102 run) and
+   Uw2TalkRules. PART B BUILT 2026-10-30: six slots a side, the marks and counts, UseTradeSlot's clicks
+   with the panel staying usable, do_demand with its nothing-selected case and the levels 9 and 17,
+   do_offer's verdicts, coins at full quality, greed and fudge, give_all_stuff. TALKING AND TRADING
+   USER-CONFIRMED 2026-10-31 (test list sections 3 and 4; coins at full quality by reading BARTER.C:804, the
+   comparison in the game was not conclusive), with fixes that day: the wait before partner lines, typed
+   answers in the answer scroll, the wisp, the object pictures' black edge, a look from the panel in the
+   answer scroll, the partner's goods (35c136ff: UWObjectVariantUw2, the valuable's roll) and AskHowMany in the
+   pack, the slots and the world (fe28c123: UWCountAskUw2 on UWCountPrompt, classic scheme only). Left:
+   EncumCheck on taking from a slot, a container's refusal, pause's wait, splitting on the modern scheme
+   (step 8).
 8. **The modern scheme on UW2** (decision 5): the presets, Classic Wide, the bags, the minimap and the
-   modern conversation over UW2's art and numbers.
+   modern conversation over UW2's art and numbers. SURVEYED 2026-10-30: the UWModern* classes hang on
+   UWGameUI.Init's data (UWModernHud's gate), UWCharacter's Vitals, Interaction and UWInventory, which do not
+   run on the second game; only UWInventoryModel is shared. PART A BUILT 2026-10-30: the modern scheme no longer
+   dead-ends: the options (Escape), the map (M) and a conversation (E on a creature) stand on the classic
+   screen as the first game's big map does, Q looks. PART B BUILT 2026-10-31 (UWModernHudUw2, its own class as
+   UWModernHud stands on UWCharacter): the flasks with their values, the scroll's last lines beside them, the
+   game's pointer in the view's middle and the name of what it is on. PART C BUILT 2026-10-31: the bags in
+   UWModernHudUw2, a grid of the classic page's displays (B opens, E takes), the first game's windows left for
+   later. PART D BUILT 2026-10-31: the minimap in UWModernHudUw2, a window of the painted map round the character,
+   only with the map carried and the automap on, without the first game's notes, zoom and turning. PARTS A TO D
+   USER-CONFIRMED 2026-10-31 with the test list (the first game too, unchanged; poison and flasks changing wait
+   for phase 4), fixes: the flasks' places as wide as their values and only their own colour 0 clear, a
+   creature's hit area its body (607608bf). PART E BUILT 2026-10-31 (a46e9dbf), untested: the action bar
+   (UWModernBarUw2: ten places bound to carried pieces, kept in UWR.json as in the first game, using is the
+   inventory's own use, spells with phase 4) and Move how many? in the bags, its line beside the flasks;
+   USER-CONFIRMED 2026-10-31. PART F BUILT AND USER-CONFIRMED 2026-10-31 (22e7c6c1), UW1's unchanged by the user's
+   repeat of its test: one modern conversation for both games (per user): UWModernConversation
+   stands on IUWModernConversationHost, UWModernConversationHostUw1 keeps what the class did, the second game's
+   host runs on UWConversationScreenUw2 with the classic screen hidden, six places a side two across and three
+   down, the screen's own pictures, backs and slots in the frame's slate shades, no original's look; the history
+   keeps pace with the waits (no click, per user) and shows a small head at a change of speaker; Escape at a typed
+   answer leaves no "-" there (per user). The conversation is no longer on the classic screen in the modern
+   scheme. Left: Classic Wide, DEFERRED BY THE USER 2026-10-31 UNTIL AFTER PHASE 4 (the rules put more parts on the
+   frame): UWClassicWideBuilder's cuts are measured on UW1's MAIN.BYT and need UW2's frame measured and checked by
+   eye, the top bar either side of the gargoyle, the ledge either side of the compass, the panel at x 224 moved
+   whole; UWGameScreenUw2 stands on 320 columns (clicks, the camera's area, the scroll, the parts on the frame).
 
 ### Phase 4: the rules (XL, domain by domain)
 
 UE's difference list as the work list, each domain with its self-check cases, in the order the
-game needs them:
+game needs them. FIRST, BEFORE ANY DOMAIN (surveyed 2026-10-31): the second game has no player in play. UWCharacter
+and its vitals stand on UWPlayerData, Interaction and UWGameUI; UWGameSession.Player is null, `UWGameProfileUw2`'s
+Magic, Combat, Player, Critter, Traps, TrapKinds and DoActions still throw, and the walk keeps its numbers in
+UWPlayerFile's record. So step 0: decide how the rule systems reach the player (a seam over both records), then the
+pure variants with their checks, then the domains below. STEP 0 DONE 2026-10-31: the rule classes start from
+UWPlayerData and hold their numbers themselves, so the seam is UWPlayerData.FromSecondGame (1e278b52), held to the
+record on the DOS saves; no layer through the 58 scripts on UWCharacter. PLAYER ON THE CLOCK (fb6de248): UWVitalsUw2
+runs UWPlayerVitals on the same tick and writes through to the record after every tick, takes over what a
+conversation wrote, UWPlayerVariantUw2 (the gain's halving, a skill point at 1500, the long cycle of 30); mana
+user-confirmed, the rest of test list 10 waits until it shows better. Death is not built, trap targets throw.
+CREATURES BROUGHT FORWARD BY THE USER, USER-CONFIRMED 2026-10-31 (790663c3, 86119820): the first game's body and brain
+on the second game's table through UWCritterDriver, UWCritterVariantUw2 puts the brain's slots and the record's
+sequences into each other, walking, standing, talking, saving into DOSBox and level changes confirmed, UW1
+unchanged. THEY PERCEIVE AND STRIKE THE PLAYER, user-confirmed 2026-11-01 (808d61f8, 5e0cbde1, 080f9ee9): UWVitalsUw2
+is the player in UWCreatureWorld and UWPlayerAvatar, with the status pass's armour, a defender and the noise; note
+UWCharacter stands in the second game's scene too with vitals nothing runs, so its presence says nothing, ask
+UWWalkUw2.IsWalking first. UWCombatVariantUw2 (enchantments below 8, the poison blow's armour roll, fire and cold
+doubled, doors damaged, debris); poison confirmed on the flask. Resistances of creatures 0, no death, no remains, the
+rest of step 4 below. THE PLAYER'S BLOW BUILT 2026-11-01, untested: UWAttackUw2 over the first game's UWPlayerAttackState
+and ResolveMelee, player_attack's steps read from WEAP.DAT's flags (0x20 lead-in, 0x40 hold and charge, 0x80 strike; row
+0 slash, 1 bash, 2 stab), the power gem on the classic screen, UWCritterRemains for the second game (blood 0xD9 + n,
+corpse always in the eighth world), experience into the record. Target by ray and sphere before the eye; the classic box
+probe needs the first game's character. Open: weapon wear, Valor, special weapons, missiles, blood and shake, eyes,
+creature resistances, the second game's death_check (HasSpecialDeath false), the gem in the modern scheme.
 
 1. Player: experience (halving, 1500 per point, the 0x7FFF0 cap), carrying, the slow cycle and
    the X clocks, food, sleep, death (jail, the pits, the blackrock gem), traps on objects.

@@ -746,6 +746,11 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
                 continue;
 
             mOOtherTriggerPacer.MarkFired(lOAt.Trigger, lOAt.Mover, llNow);
+
+            // The second game's traps run for the player only until its trap kinds are built (phase 4).
+            if (UWWalkUw2.IsWalking)
+                continue;
+
             UWTriggerSystem.TryFireMoveTriggerBy(lOAt.Trigger, mOLoader, lOInteraction, lOCritter,
                 lOAt.IsCreature ? 0 : lOAt.Mover);
         }

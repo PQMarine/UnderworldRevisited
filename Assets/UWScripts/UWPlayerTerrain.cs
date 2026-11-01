@@ -81,6 +81,15 @@ public class UWPlayerTerrain : MonoBehaviour
 
     private void Update()
     {
+        // The second game's walk has the automap of this class only: water, lava, the swim counter and the view's
+        // sinking are its motion's and its rules' (phase 4).
+        if (UWWalkUw2.IsWalking)
+        {
+            fUpdateAutomap();
+
+            return;
+        }
+
         UWSettings lOSettings = UWSettings.Instance;
 
         UWTile lOTile;
@@ -156,6 +165,10 @@ public class UWPlayerTerrain : MonoBehaviour
             || lOTileIndex.Y >= UWWorldScale.TilesPerAxis)
             return;
 
+        // player_newsq comes before the tile is written, and with the automap off nothing is written
+        // (grdb_elem): a tile only known already starts it again.
+        fEnterTileUw2();
+
         if (lOTileIndex != mOLastAutomapTile)
         {
             mOLastAutomapTile = lOTileIndex;
@@ -166,7 +179,8 @@ public class UWPlayerTerrain : MonoBehaviour
             // the render band (UWExplorationRules.EvaluateSweep, per user with four runs
             // against the original). The band holds the own tile too; this stays for the
             // moment a level is entered, before the band has run.
-            fMarkVisited(lOTileIndex.X, lOTileIndex.Y);
+            if (UWAutomapStateUw2.IsOn(mOLevelLoader.UWDataImporter.Session.PlayerFileUw2))
+                fMarkVisited(lOTileIndex.X, lOTileIndex.Y);
         }
 
         fUpdateRenderBand();
@@ -233,9 +247,40 @@ public class UWPlayerTerrain : MonoBehaviour
 
         mOSweep.Run(lOLevel, liX, liY, liHeading, lyShadeTable);
 
-        int liCounter = UWExplorationRules.EvaluateSweep(lOLevel, mOSweep, fGetMapDisplayTypeAt);
+        int liCounter = UWExplorationRules.EvaluateSweep(lOLevel, mOSweep, fGetMapDisplayTypeAt,
+            UWAutomapStateUw2.IsOn(mOLevelLoader.UWDataImporter.Session.PlayerFileUw2));
 
         fAwardExplorationExperience(liCounter);
+    }
+
+    private UWLevel mOLastTileLevel;
+
+    private int miLastTile = -1;
+
+    /// <summary>player_newsq: the second game's automap looks at each new tile (UWAutomapStateUw2.EnterTile).</summary>
+    private void fEnterTileUw2()
+    {
+        UWPlayerFile lOFile = mOLevelLoader.UWDataImporter.Session.PlayerFileUw2;
+        UWLevel lOLevel = mOLevelLoader.CurrentLevel;
+
+        if (lOFile == null || lOLevel == null || lOLevel.AutomapTiles == null)
+            return;
+
+        UWTilePos lOAt = UWTileQueries.WorldToTile(transform.position.x, transform.position.z);
+
+        if (!lOAt.IsOnMap || (lOLevel == mOLastTileLevel && lOAt.Index == miLastTile))
+            return;
+
+        bool lbNewLevel = lOLevel != mOLastTileLevel;
+        bool lbWasOn = UWAutomapStateUw2.IsOn(lOFile);
+
+        mOLastTileLevel = lOLevel;
+        miLastTile = lOAt.Index;
+        UWAutomapStateUw2.EnterTile(lOFile, lOLevel.AutomapTiles[lOAt.Index]);
+
+        if (lbNewLevel || lbWasOn != UWAutomapStateUw2.IsOn(lOFile))
+            Debug.Log(string.Format("[Walk] Automap {0} on level {1}, tile {2}/{3}, its byte 0x{4:X2}.", UWAutomapStateUw2.IsOn(lOFile) ? "on" : "off",
+                lOLevel.LevelNumber, lOAt.X, lOAt.Y, lOLevel.AutomapTiles[lOAt.Index]));
     }
 
     /// <summary>The viewing distance of the current light level in tile rows: how deep the
@@ -275,7 +320,8 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>Awards the exploration experience of one evaluation - see UWExplorationRules.</summary>
     private void fAwardExplorationExperience(int piCounter)
     {
-        if (mOPlayer == null)
+        // The second game's experience is phase 4's.
+        if (mOPlayer == null || UWWalkUw2.IsWalking)
             return;
 
         int liDungeonLevel = mOLevelLoader.CurrentLevelIndex + 1;

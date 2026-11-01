@@ -267,12 +267,32 @@ namespace UnderworldRevisited.Tools
             fExpectInt("player: ... at three tenths", lOPlayer.ForwardSpeed, 0x3AC * 3 / 10);
             fExpectInt("player: ... the surface bit 1", lOPlayer.SurfaceBits, 1);
             fExpectInt("player: ... on the water", lOPlayer.Params.Contact, UWMotionTables.ContactWater);
+            fExpectBool("player: ... in the water", lOPlayer.IsInWater, true);
+
+            // parse_playin takes the jump keys only on the ground and out of the water, then they walk.
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.Jump, UWPlayerMotion.WalkRun, 1);
+            fExpectInt("player: ... the jump key does not lift a swimmer", lOPlayer.Params.Vz, 0);
+            fExpectBool("player: ... he swims on", lOPlayer.IsInWater, true);
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.StandingJump, UWPlayerMotion.WalkRun, 1);
+            fExpectInt("player: ... nor does the standing jump", lOPlayer.Params.Vz, 0);
+
+            lOPlayer = fMakePlayer(lOWorld, pOData, 10, 8);
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.Jump, 0, 1);
+            fExpectBool("player: the jump key jumps on the ground", lOPlayer.Params.Vz > 0, true);
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.None, 0, 4);
+
+            int liRising = lOPlayer.Params.Vz;
+
+            fRunFrames(lOPlayer, UWPlayerMotion.Command.Jump, 0, 1);
+            fExpectBool("player: ... and not again in the air", lOPlayer.Params.Vz < liRising, true);
 
             lOPlayer = fMakePlayer(lOWorld, pOData, 10, 8);
             lOPlayer.CameraYaw = 0x4000;
             lOPlayer.Abilities = UWPlayerMotion.AbilityWaterWalk;
             fRunFrames(lOPlayer, UWPlayerMotion.Command.Walk, UWPlayerMotion.WalkRun, 40);
             fExpectInt("player: water walking keeps the normal state over water", (int)lOPlayer.CurrentState, (int)UWPlayerMotion.State.Normal);
+            fExpectInt("player: ... standing on the water", lOPlayer.Params.Contact, UWMotionTables.ContactWater);
+            fExpectBool("player: ... not in it: no swimming, the weapon stays (issue 11)", lOPlayer.IsInWater, false);
 
             // ------------------------------------------------- lava
             lOWorld = new FakeMotionWorld();

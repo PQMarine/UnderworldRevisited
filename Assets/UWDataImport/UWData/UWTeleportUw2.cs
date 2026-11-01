@@ -6,8 +6,7 @@ namespace UWDataImport.UWData
 	/// target tile from quality and owner and the level from the height (1 to 80; 0 or the level the
 	/// player is on keeps him there), and from the fine x a setup word: bit 0 arrives near the ceiling
 	/// and falling, bit 1 sets a heading (the trap's eighth + 8, shifted by 2), bit 2 stops the automap
-	/// (player->automap 0, map_scrap the level - not built: the second game's map screen comes with its
-	/// interface). do_teleport (event/WORLDEV.C:180) records the target; new_player_pos (game/UWEDIT.C:466)
+	/// (UWAutomapStateUw2.StopByTrap). do_teleport (event/WORLDEV.C:180) records the target; new_player_pos (game/UWEDIT.C:466)
 	/// changes the level, finds a free tile near the target strictly then loosely (find_good_x_and_y) and
 	/// sets the player up there, turned to the heading when the word carries one.
 	/// </summary>
@@ -43,7 +42,7 @@ namespace UWDataImport.UWData
 
 			public int Heading;
 
-			/// <summary>Whether the trap stops the automap (not acted on yet).</summary>
+			/// <summary>Whether the trap stops the automap.</summary>
 			public bool AutomapOff;
 		}
 

@@ -109,6 +109,21 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:894 wframe[n] & 0x1F, the picture of a step")]
 			public const int PictureMask = 0x1F;
 
+			[UWClassicLayout.Exe("uw2 combat/COMBAT.C:722 frame & 0xE0, what a step means to the blow")]
+			public const int SwingFlagMask = 0xE0;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:629 a step the weapon may leave a swing on for ready")]
+			public const int LeadInFlag = 0x20;
+
+			[UWClassicLayout.Exe("uw2 combat/COMBAT.C:731 the step of the hold, the charge runs")]
+			public const int HoldFlag = 0x40;
+
+			[UWClassicLayout.Exe("uw2 combat/COMBAT.C:779 the step the blow lands")]
+			public const int StrikeFlag = 0x80;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:862-870 get_wfr: setting[8] * 9 + f")]
+			public const int StepsPerSwing = 9;
+
 			/// <summary>The fist's kind, and the melee skills that make kinds 0 to 2.</summary>
 			[UWClassicLayout.Exe("uw2 game/PLAYDATA.C:381-384 load_weapon(3)")]
 			public const int FistKind = 3;
@@ -222,6 +237,18 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Derived("199 - 0x30")]
 			public const int Top = 199 - 0x30;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:438 p <= 10")]
+			public const int Frames = 11;
+
+			[UWClassicLayout.Exe("uw2 combat/COMBAT.C:769 play_pow / 12 + 1, at 100 the pulsing 9")]
+			public const int ChargeDivisor = 12;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:445 p == 9 pulses between 9 and 10")]
+			public const int FullStep = 9;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:287 the slow elements, every 64 ticks")]
+			public const float PulseSeconds = 64f / 256f;
 		}
 
 		/// <summary>EYES.GR, the gargoyle's eyes above the view: picture 0 open.</summary>
@@ -353,6 +380,36 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static class Inventory
 		{
+			[UWClassicLayout.Exe("uw2 include/object.h ITEM_MAP 0x13A, obj/USEITEMS.C:465")]
+			public const int MapObject = 0x13A;
+
+			/// <summary>"You unroll your map."</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C:467 game_sprint(0x8E)")]
+			public const int UnrollString = 0x8E;
+
+			[UWClassicLayout.Exe("uw2 include/items.h ITEM_BIT_OF_A_MAP 0x139, obj/USEITEMS.C:470")]
+			public const int BitOfMapObject = 0x139;
+
+			/// <summary>The first of the pages a bit of a map's quality counts from.</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C UseBook scrap = OBJ_QUALITY(obj) + 0x47")]
+			public const int ScrapFirstLevel = 0x47;
+
+			/// <summary>The link's low byte: the sections a bit of a map still has to give.</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C UseBook link = OBJ_LINK(obj) & 0xFF")]
+			public const int ScrapSectionsMask = 0xFF;
+
+			/// <summary>A bit of a map once copied (LINK_SPECIAL).</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C UseBook obj->ol.f.link = LINK_SPECIAL")]
+			public const int ScrapCopiedLink = 0x200;
+
+			/// <summary>"You copy the map scrap to your map."</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C UseBook game_sprint(9)")]
+			public const int ScrapCopiedString = 9;
+
+			/// <summary>"You do not have your map."</summary>
+			[UWClassicLayout.Exe("uw2 obj/USEITEMS.C UseBook game_sprint(0xA)")]
+			public const int NoMapString = 0xA;
+
 			[UWClassicLayout.Exe("uw2 inv/INVPANEL.C:51-75 InvDisplay, x")]
 			public static readonly int[] PictureX =
 				{ 0x102, 0x10A, 0x109, 0x104, 0x103, 0x108, 0xF3, 0x124, 0xF1, 0x127, 0xFD, 0x11B,
@@ -995,6 +1052,291 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Exe("uw2 game/CHARGEN.C:668 string_to_screen(done, (0xA0 - string_width(done)) / 2 + 0xA0, 0x62)")]
 			public const int AwakensY = 0x62;
+		}
+
+		/// <summary>
+		/// THE CONVERSATION SCREEN (UW2 plan phase 3 step 7, Underworld Exhumed uw2 conv/CONVERSE.C, ui/SCROLL.C):
+		/// BYT.ARK's screen 2 in the game's palette. Columns from the left, rows from the BOTTOM unless named
+		/// otherwise, as string_to_screen and show take them.
+		/// </summary>
+		public static class Conversation
+		{
+			/// <summary>The right panel stays: the screen is laid over what lies left of it and under it. Rows
+			/// from the top.</summary>
+			[UWClassicLayout.Measured("BYT.ARK screens 2 and 4 compared")]
+			public const int PanelLeft = 235;
+
+			[UWClassicLayout.Measured("BYT.ARK screens 2 and 4 compared")]
+			public const int PanelBottom = 166;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse show(2, 0xc4, ...)")]
+			public const int NpcPortraitLeft = 2;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse show(0xa8, 0xc4, ...)")]
+			public const int PlayerPortraitLeft = 0xA8;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse show(.., 0xc4, ...)")]
+			public const int PortraitY = 0xC4;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse string_to_screen(name, 0x47, 0x81)")]
+			public const int NpcNameLeft = 0x47;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse string_to_screen(name, 0x47, 0x81)")]
+			public const int NpcNameY = 0x81;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse string_to_screen(name, 0xa4 - width, 0xc5)")]
+			public const int PlayerNameRight = 0xA4;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse string_to_screen(name, 0xa4 - width, 0xc5)")]
+			public const int PlayerNameY = 0xC5;
+
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse *foreground_color = 0xc7")]
+			public const int NameInk = 0xC7;
+
+			/// <summary>npc_scroll: its text from x 0x18, wrapped before x 0xDA, from row 0x76 down.</summary>
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C npc_scroll")]
+			public const int HistoryLeft = 0x18;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C npc_scroll: a line ends before x 0xDA")]
+			public const int HistoryWidth = 0xDA - 0x18 - 1;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C npc_scroll")]
+			public const int HistoryTopY = 0x76;
+
+			/// <summary>The rows from 0x76 to 0x2E, six apart: scroll_print3 goes on while y - 6 >= y0 - 1.</summary>
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C scroll_print3, npc_scroll y0 0x28")]
+			public const int HistoryLines = 13;
+
+			[UWClassicLayout.Exe("uw2 include/font FONT_5X6P")]
+			public const int LineHeight = 6;
+
+			/// <summary>menu_scroll: its text from x 8 to x 0x137, from row 0x1E.</summary>
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C menu_scroll")]
+			public const int AnswersLeft = 8;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C menu_scroll")]
+			public const int AnswersWidth = 0x137 - 8 - 1;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C menu_scroll")]
+			public const int AnswersTopRow = 0x1E;
+
+			/// <summary>conv_play_menu's region: a click on a row outside it chooses nothing.</summary>
+			[UWClassicLayout.Exe("uw2 game/PLAYER.C input_addmouse(0x10, 1, 0xDF, 0x1E, 0, 4, conv_play_menu)")]
+			public const int AnswerClickLeft = 0x10;
+
+			[UWClassicLayout.Exe("uw2 game/PLAYER.C input_addmouse(0x10, 1, 0xDF, 0x1E, 0, 4, conv_play_menu)")]
+			public const int AnswerClickRight = 0xDF;
+
+			[UWClassicLayout.Exe("uw2 game/PLAYER.C input_addmouse(0x10, 1, 0xDF, 0x1E, 0, 4, conv_play_menu)")]
+			public const int AnswerClickBottom = 1;
+
+			[UWClassicLayout.Exe("uw2 game/PLAYER.C _input_addkey('1'..'5', conv_play_menu)")]
+			public const int ChoiceKeys = 5;
+
+			/// <summary>spec_col: \0 and the scroll's ink, \1 the player's words, \2 narration.</summary>
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C spec_col[0]")]
+			public const int NpcInk = 0x75;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C spec_col[1]")]
+			public const int PlayerInk = 0x68;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C spec_col[2]")]
+			public const int NarratorInk = 1;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLLIO.C scroll_more *foreground_color = 0x12")]
+			public const int MoreInk = 0x12;
+
+			/// <summary>draw_conv_edges: three tiles a side, from row 0x78 down.</summary>
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C draw_conv_edges pic_to_screen(.., 0x11, 0x78 - i * 0x1B, 0x1B, 5)")]
+			public const int EdgeLeft = 0x11;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C draw_conv_edges pic_to_screen(.., 0xDB, ...)")]
+			public const int EdgeRight = 0xDB;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C draw_conv_edges")]
+			public const int EdgeFirstY = 0x78;
+
+			[UWClassicLayout.Exe("uw2 ui/SCROLL.C draw_conv_edges")]
+			public const int EdgeHeight = 0x1B;
+
+			/// <summary>The trade slots: two columns, three rows from the top, the partner's first. Rows from the
+			/// bottom; a click takes 16 pixels on from both edges.</summary>
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C (slot & 1) * 0x13 + 0x4B")]
+			public const int NpcSlotLeft = 0x4B;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C (slot & 1) * 0x13 + 0x7C")]
+			public const int PlayerSlotLeft = 0x7C;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C (slot & 1) * 0x13")]
+			public const int SlotColumnStep = 0x13;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C 0xBA - slot / 2 * 0x12")]
+			public const int SlotTopY = 0xBA;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C 0xBA - slot / 2 * 0x12")]
+			public const int SlotRowStep = 0x12;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C play_slot_hit_abs + 0x10")]
+			public const int SlotSize = 0x10;
+
+			/// <summary>A stack's count in FONT_4X5P, colour 2, three right of the slot and one under its top.</summary>
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C drawTradeSlot string_to_screen(.., x + 3, y - 1)")]
+			public const int CountRight = 3;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C drawTradeSlot string_to_screen(.., x + 3, y - 1)")]
+			public const int CountDown = 1;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C drawTradeSlot *foreground_color = 2")]
+			public const int CountInk = 2;
+
+			/// <summary>showSelection: the mark's middle, 0x31 further right on the player's side.</summary>
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection x = 0x47 or 0x71")]
+			public const int MarkLeftColumn = 0x47;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection x = 0x47 or 0x71")]
+			public const int MarkRightColumn = 0x71;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection x += 0x31")]
+			public const int MarkPlayerStep = 0x31;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection y = 0xBC - slot / 2 * 0x12 - 10")]
+			public const int MarkTopY = 0xBC - 10;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection")]
+			public const int MarkLit = 0x21;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection")]
+			public const int MarkLitSide = 0x23;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection")]
+			public const int MarkLitTop = 0x24;
+
+			[UWClassicLayout.Exe("uw2 conv/BARTER.C showSelection")]
+			public const int MarkOff = 1;
+
+			/// <summary>OBJ_INMAJOR: an object's number in its class, GHED.GR's index.</summary>
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C strt_converse OBJ_INMAJOR(talking_to)")]
+			public const int ClassMask = 0x3F;
+
+			/// <summary>scroll_wait(0x1F4): 0x1F4 ticks at 256 a second.</summary>
+			[UWClassicLayout.Exe("uw2 conv/CONVERSE.C Converse wait_time = 0x1f4")]
+			public const float EndHoldSeconds = 0x1F4 / 256f;
+
+			/// <summary>The first game's fade (UWConversationController).</summary>
+			[UWClassicLayout.Measured("the first game's, per user on the original 2026-09-12")]
+			public const float FadeSeconds = 1f;
+		}
+
+		/// <summary>
+		/// THE MAP SCREEN (UW2 plan phase 3 step 6, Underworld Exhumed uw2 ui/AUTOMAP.C): BYT.ARK's screen 0
+		/// in palette 1. Columns from the left, rows from the BOTTOM, as ManageDungeonMap's mx and my.
+		/// </summary>
+		public static class Map
+		{
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mx > 0xFC: close, the eraser, the gem")]
+			public const int RightColumnLeft = 0xFC;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mx > 0x10C: the two corners")]
+			public const int CornerLeft = 0x10C;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mx < 0x140")]
+			public const int Right = 0x140;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my > 0x1B: close, under it the next level's corner")]
+			public const int CloseBottom = 0x1B;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my < 0x3B: close, over it the eraser")]
+			public const int CloseTop = 0x3B;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my < 0x5A")]
+			public const int EraserTop = 0x5A;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my > 0xAC: the previous level's corner")]
+			public const int PreviousBottom = 0xAC;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my < 0xC7")]
+			public const int PreviousTop = 0xC7;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my > 0xC7 is off the map")]
+			public const int TopRow = 0xC7;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mx < 0x131: the gem")]
+			public const int GemRight = 0x131;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my > 0x5D: the gem")]
+			public const int GemBottom = 0x5D;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my < 0x92: the gem")]
+			public const int GemTop = 0x92;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C true_gem_region x -= 0x116")]
+			public const int GemCentreX = 0x116;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C true_gem_region y -= 0x77")]
+			public const int GemCentreY = 0x77;
+
+			/// <summary>show_a_part: part 8 is the middle, Britannia.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C show_gem_parts k = 8 for world 0")]
+			public const int MiddleFacet = 8;
+
+			/// <summary>GEMPT.GR: the facet lit, eight pictures on the world shown.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C show_a_part how == 2: pic += 8")]
+			public const int CurrentFacetStep = 8;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C show_a_part pos[part].x + 0x101")]
+			public const int FacetLeft = 0x101;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C show_a_part pos[9]")]
+			public static readonly int[] FacetX = { 0x0B, 0x1B, 0x23, 0x1B, 0x0B, 0x00, 0x01, 0x01, 0x07 };
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C show_a_part pos[9]")]
+			public static readonly int[] FacetY = { 0x8D, 0x8C, 0x83, 0x71, 0x69, 0x83, 0x71, 0x8D, 0x85 };
+
+			/// <summary>BUTTONS.GR's arrow, picture 0x103F of the group that starts at BUTTONS.GR.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ShowAutoMapLevel pic_to_screen(0x103F, px, py, 5, 8)")]
+			public const int PlayerPicture = 0x3F;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ShowAutoMapLevel px = (x - 1) * 3 + 10 - 1")]
+			public const int PlayerOffsetX = 9;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ShowAutoMapLevel py = (y - 1) * 3 + 12")]
+			public const int PlayerOffsetY = 12;
+
+			/// <summary>CURSORS.GR's pen: 0x1078 less 0x106C, where CURSORS.GR starts in the group.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C AutoMap force_mouse_cursor(0x1078)")]
+			public const int PenCursor = 12;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap force_mouse_cursor(0x1079)")]
+			public const int EraserCursor = 13;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap force_mouse_cursor(0x107A)")]
+			public const int QuillCursor = 14;
+
+			/// <summary>A note's text starts this far right of and above the pen's tip.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap note->x = mx + 2, note->y = my + 2")]
+			public const int NoteOffset = 2;
+
+			/// <summary>While writing the pointer, the quill's middle, stands this far from the
+			/// text's end and from the row of the click.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mouse_putxy(curx + 9, my + 0xF)")]
+			public const int QuillMiddleX = 9;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap mouse_putxy(curx + 9, my + 0xF)")]
+			public const int QuillMiddleY = 0xF;
+
+			/// <summary>The eraser takes the note this many rows below the middle of its picture.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap my -= 5")]
+			public const int EraserRowsBelow = 5;
+
+			/// <summary>The notes' and the level number's ink, in the map's palette.</summary>
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ManageDungeonMap *foreground_color = 0x4E")]
+			public const int InkColour = 0x4E;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ShowAutoMapLevel string_to_screen(num, 0x115, 0xBF)")]
+			public const int LevelNumberX = 0x115;
+
+			[UWClassicLayout.Exe("uw2 ui/AUTOMAP.C ShowAutoMapLevel string_to_screen(num, 0x115, 0xBF)")]
+			public const int LevelNumberY = 0xBF;
 		}
 	}
 }

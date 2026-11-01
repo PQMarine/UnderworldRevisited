@@ -24,7 +24,7 @@ namespace UWDataImport.UWData
 	/// UWFonts adds the German letters UWFontGlyphBuilder draws in each font's style (translations
 	/// wave 1, 2026-10-26); TryGetGlyph, MeasureText and everything drawing through them count
 	/// those like the font's own. What is still missing beyond ASCII comes from the language's font
-	/// where it names one (Fallback, translation wave 6).
+	/// where it names one (Fallback, translation wave 6), else from its plain letters (UWBaseLetters).
 	/// </summary>
 	public class UWFont
 	{
@@ -127,14 +127,14 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The glyph of a character: the font's own below GlyphCount, an added one (AddGlyph)
-		/// beyond it, and beyond ASCII one of the language's font (Fallback, translation wave 6) where the
-		/// language names one.</summary>
+		/// beyond it, beyond ASCII one of the language's font (Fallback, translation wave 6) where the
+		/// language names one, and last its plain letters (UWBaseLetters).</summary>
 		public bool TryGetGlyph(int piIndex, out Glyph pOGlyph)
 		{
 			if (TryGetOwnGlyph(piIndex, out pOGlyph))
 				return true;
 
-			return fTryFallback(piIndex, out pOGlyph);
+			return fTryFallback(piIndex, out pOGlyph) || fTryBaseLetters(piIndex, out pOGlyph);
 		}
 
 		/// <summary>The font's own glyph or an added one (AddGlyph), never the language's font - for whoever
@@ -218,6 +218,74 @@ namespace UWDataImport.UWData
 
 			pOGlyph = lOKnown.Value;
 			return true;
+		}
+
+		/// <summary>The glyphs made from plain letters (null: the character has none, or the font lacks them).</summary>
+		private Dictionary<int, Glyph?> mOBaseLetterGlyphs;
+
+		/// <summary>The character's plain letters side by side, each as this font draws it: an accent goes, a
+		/// ligature becomes its two letters. Added glyphs count, so a later AddGlyph is not hidden: the own
+		/// lookup comes first in TryGetGlyph.</summary>
+		private bool fTryBaseLetters(int piCode, out Glyph pOGlyph)
+		{
+			pOGlyph = default;
+
+			if (piCode <= 0x7E || !IsLoaded)
+				return false;
+
+			if (mOBaseLetterGlyphs == null)
+				mOBaseLetterGlyphs = new Dictionary<int, Glyph?>();
+
+			if (!mOBaseLetterGlyphs.TryGetValue(piCode, out Glyph? lOKnown))
+			{
+				lOKnown = fBuildBaseLetters(UWBaseLetters.Of(piCode));
+				mOBaseLetterGlyphs[piCode] = lOKnown;
+			}
+
+			if (lOKnown == null)
+				return false;
+
+			pOGlyph = lOKnown.Value;
+			return true;
+		}
+
+		private Glyph? fBuildBaseLetters(string psLetters)
+		{
+			if (string.IsNullOrEmpty(psLetters))
+				return null;
+
+			List<Glyph> lOParts = new List<Glyph>();
+			int liWidth = 0;
+
+			foreach (char lcLetter in psLetters)
+			{
+				Glyph lOPart;
+
+				// The space has no ink of its own here: MeasureText and the drawing take SpaceWidth for ' '.
+				if (lcLetter == ' ')
+					lOPart = new Glyph { Width = SpaceWidth, Pixels = new byte[SpaceWidth * Height] };
+				else if (!TryGetOwnGlyph(lcLetter, out lOPart) || lOPart.Width <= 0 || lOPart.Pixels == null)
+					return null;
+
+				lOParts.Add(lOPart);
+				liWidth += lOPart.Width;
+			}
+
+			if (lOParts.Count == 1)
+				return lOParts[0];
+
+			byte[] lyPixels = new byte[liWidth * Height];
+			int liLeft = 0;
+
+			foreach (Glyph lOPart in lOParts)
+			{
+				for (int liY = 0; liY < Height; liY++)
+					System.Array.Copy(lOPart.Pixels, liY * lOPart.Width, lyPixels, (liY * liWidth) + liLeft, lOPart.Width);
+
+				liLeft += lOPart.Width;
+			}
+
+			return new Glyph { Width = liWidth, Pixels = lyPixels };
 		}
 
 		/// <summary>

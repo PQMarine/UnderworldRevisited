@@ -208,6 +208,11 @@ namespace UWDataImport.UWData
 		/// <summary>MagicMotionAbilities_D2, set by the host from the active spells and rings.</summary>
 		public int Abilities;
 
+		/// <summary>In the water: the contact state says water (2), whatever the height on a water slope; the
+		/// water-edge state 0x20 is not, and water walking stands on top (no water_set, issue 11: the state
+		/// stayed normal, but the view, the sound and the weapon read the bare contact).</summary>
+		public bool IsInWater => Params.Contact == UWMotionTables.ContactWater && (Abilities & AbilityWaterWalk) == 0;
+
 		/// <summary>PD[0x32], for the fall's check.</summary>
 		public int AcrobatSkill;
 
@@ -813,7 +818,7 @@ namespace UWDataImport.UWData
 
 			miCommandOffset = 0;
 
-			switch (MotionCommand)
+			switch (fGatedCommand)
 			{
 				case Command.None:
 					liTarget = 0;
@@ -1434,6 +1439,15 @@ namespace UWDataImport.UWData
 			fPlace(piFineX, piFineY, piFineZ);
 		}
 
+		/// <summary>player_setup with how 0 (uw2 motion/PHYSICS.C): placed near the ceiling, the fall starts at
+		/// once with PN.acc[2] = -4. PlaceAt zeroes the gravity, and the frame's gate lets a player stand who
+		/// neither moves nor falls, so without this they hung there until the next jump.</summary>
+		public void StartFall()
+		{
+			Params.Gravity = JumpGravity;
+			UpdateNeeded = true;
+		}
+
 		private void fPlace(int piX, int piY, int piZ)
 		{
 			UWMotionParams p = Params;
@@ -1557,7 +1571,23 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public Command PointerJumpCommand
 		{
-			get { return IsAirborne || SurfaceBits == 1 ? Command.Walk : Command.Jump; }
+			get { return fMayJump ? Command.Jump : Command.Walk; }
+		}
+
+		/// <summary>parse_playin's test (motion/PLAYMOVE.C:172, 183): in the air or swimming a jump is the walk.</summary>
+		private bool fMayJump => !IsAirborne && SurfaceBits != 1;
+
+		/// <summary>The same test for a jump from any input, here where they all arrive: the jump key, the right
+		/// button with the pointer free and the pad reach the core as a pressed jump, past PointerJumpCommand
+		/// (per user, 2026-11-01: one could jump while swimming, by key and by mouse).</summary>
+		private Command fGatedCommand
+		{
+			get
+			{
+				bool lbJump = MotionCommand == Command.Jump || MotionCommand == Command.StandingJump;
+
+				return lbJump && !fMayJump ? Command.Walk : MotionCommand;
+			}
 		}
 
 		// ------------------------------------------------- The easy movement

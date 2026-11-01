@@ -1310,7 +1310,8 @@ public sealed class UWKitRows : IUWRows
             fSetLabel(lOCheck, null, default);
         }
 
-        fText(new Rect(pORect.x + ToggleTextLeft, pORect.y, Mathf.Max(0f, pORect.width - ToggleTextLeft), pORect.height), psText, RowLook);
+        fText(new Rect(pORect.x + ToggleTextLeft, pORect.y, Mathf.Max(0f, pORect.width - ToggleTextLeft), pORect.height), psText,
+            fLabelLook(psText, pORect.width - ToggleTextLeft, pORect.height));
 
         if (lbFocused)
             fFocusFrame(pORect);
@@ -1327,6 +1328,36 @@ public sealed class UWKitRows : IUWRows
     /// per user): the accent colour while current, the dim text's otherwise; it takes no press and is
     /// no entry of the arrow keys.
     /// </summary>
+    /// <summary>The row's look, or wrapping where a text wider than pfWidth was given the height of its lines.</summary>
+    private Look fLabelLook(string psText, float pfWidth, float pfHeight)
+    {
+        bool lbWraps = fTextWidth(psText, TextSize) > pfWidth && fTextHeight(psText, TextSize, pfWidth) <= pfHeight + 0.5f;
+
+        return lbWraps ? fLook(TextSize, mOPalette.Text, TextAnchor.MiddleLeft, 0f, true) : RowLook;
+    }
+
+    /// <summary>pfRow, or a text's lines over pfWidth where it does not fit one.</summary>
+    private float fLabelHeight(string psText, float pfWidth, float pfRow)
+    {
+        return fTextWidth(psText, TextSize) > pfWidth ? Mathf.Max(pfRow, Mathf.Ceil(fTextHeight(psText, TextSize, pfWidth))) : pfRow;
+    }
+
+    public float ToggleHeight(float pfWidth, string psText, float pfRow)
+    {
+        return fLabelHeight(psText, pfWidth - ToggleTextLeft, pfRow);
+    }
+
+    public int ChoiceLines(float pfWidth, string[] psChoices, float pfGap)
+    {
+        int liCount = psChoices.Length;
+        float[] laTexts = new float[liCount];
+
+        for (int liAt = 0; liAt < liCount; liAt++)
+            laTexts[liAt] = fTextWidth(psChoices[liAt], TextSize) + pfGap;
+
+        return UWRowSizing.SegmentLines(pfWidth, laTexts, new float[liCount], new int[liCount]);
+    }
+
     public int Choices(Rect pOArea, string[] psChoices, int piCurrent, float pfGap = 0f, bool pbFaced = false, int piEnabled = -1,
         int piTextOnly = 0)
     {
@@ -1337,7 +1368,9 @@ public sealed class UWKitRows : IUWRows
         for (int liAt = 0; liAt < liCount; liAt++)
             laTexts[liAt] = fTextWidth(psChoices[liAt], TextSize) + pfGap;
 
-        UWRowSizing.SegmentWidths(pOArea.width, laTexts, laWidths);
+        int[] laLines = new int[liCount];
+
+        UWRowSizing.SegmentLines(pOArea.width, laTexts, laWidths, laLines);
 
         bool lbEnabled = mbEnabled;
         float lfX = pOArea.x;
@@ -1348,7 +1381,10 @@ public sealed class UWKitRows : IUWRows
             if (piEnabled != -1)
                 mbEnabled = lbEnabled && (piEnabled & (1 << liAt)) != 0;
 
-            Rect lORect = new Rect(lfX, pOArea.y, laWidths[liAt] - pfGap, pOArea.height);
+            if (liAt > 0 && laLines[liAt] != laLines[liAt - 1])
+                lfX = pOArea.x;
+
+            Rect lORect = new Rect(lfX, pOArea.y + (laLines[liAt] * pOArea.height), laWidths[liAt] - pfGap, pOArea.height);
 
             if ((piTextOnly & (1 << liAt)) != 0)
             {
@@ -1491,18 +1527,36 @@ public sealed class UWKitRows : IUWRows
     /// <summary>A rebinding row as UWGuiRows.Rebind; the key's button as wide as its text needs
     /// (cleanup 8b.2, 2026-10-24: "Press a key or button..." in the pseudo-language), growing to the
     /// left with its right edge kept, the glyph and the label's room moving along.</summary>
+    /// <summary>The label's room in a Rebind row.</summary>
+    private float fRebindLabelWidth(float pfWidth, string psKey, bool pbPad)
+    {
+        return pfWidth - (pbPad ? 220f : 180f) - (FitWidth(psKey, 160f) - 160f);
+    }
+
+    public float RebindHeight(float pfWidth, string psLabel, string psKey, bool pbPad, float pfRow)
+    {
+        float lfGaps = pfRow - 26f;
+
+        return fLabelHeight(psLabel, fRebindLabelWidth(pfWidth, psKey, pbPad), 26f) + lfGaps;
+    }
+
     public bool Rebind(Rect pORow, string psLabel, string psKey, Texture2D pOGlyph, bool pbPad)
     {
         float lfExtra = FitWidth(psKey, 160f) - 160f;
+        float lfLabelWidth = fRebindLabelWidth(pORow.width, psKey, pbPad);
 
         if (!pbPad)
         {
-            fText(new Rect(pORow.x + 6f, pORow.y, pORow.width - 180f - lfExtra, 26f), psLabel, RowLook);
+            float lfLines = pORow.height - 2f;
+
+            fText(new Rect(pORow.x + 6f, pORow.y, lfLabelWidth, lfLines), psLabel, fLabelLook(psLabel, lfLabelWidth, lfLines));
 
             return Action(new Rect(pORow.x + pORow.width - 170f - lfExtra, pORow.y, 160f + lfExtra, 26f), psKey);
         }
 
-        fText(new Rect(pORow.x + 6f, pORow.y + 4f, pORow.width - 220f - lfExtra, 26f), psLabel, RowLook);
+        float lfPadLines = pORow.height - 6f;
+
+        fText(new Rect(pORow.x + 6f, pORow.y + 4f, lfLabelWidth, lfPadLines), psLabel, fLabelLook(psLabel, lfLabelWidth, lfPadLines));
 
         if (pOGlyph != null)
             Picture(new Rect(pORow.x + pORow.width - 206f - lfExtra, pORow.y, 32f, 32f), pOGlyph);

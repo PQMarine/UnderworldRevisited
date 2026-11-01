@@ -113,7 +113,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// read it). READ FROM THE CORE since cleanup step 4.7 (2026-10-18): until then UWPlayerTerrain
     /// copied the contact into IsInLiquid and IsOnLava here in its Update, before or after the
     /// frame's steps, so the landing's splash saw the contact of before the landing.</summary>
-    public bool IsInWater => Motion != null && Motion.Params.Contact == UWMotionTables.ContactWater;
+    public bool IsInWater => Motion != null && Motion.IsInWater;
 
     /// <summary>In liquid, water or lava: the head bob, the landing's splash and the footsteps
     /// read it.</summary>

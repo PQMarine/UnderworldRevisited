@@ -36,6 +36,10 @@ namespace UWDataImport.UWData
 			/// <summary>How many lines the parchment holds.</summary>
 			public int LinesCapacity;
 
+			/// <summary>The second game's screen: the text stops before each line of the partner (npc_say's \\P),
+			/// HoldPending, until the screen lets it go on.</summary>
+			public bool HoldBeforePartner;
+
 			/// <summary>The parchment's policy in this font; the modern scheme's is the same without
 			/// the pause.</summary>
 			public static Policy For(UWFont pOFont, bool pbModern)
@@ -64,6 +68,15 @@ namespace UWDataImport.UWData
 
 			/// <summary>After this line the text pauses - a "\m" in the original.</summary>
 			public bool BreakAfter;
+
+			/// <summary>No line: the portrait changes here (UWConversationSession.Line.Picture).</summary>
+			public int Picture;
+
+			/// <summary>No line: the text waits here (Policy.HoldBeforePartner).</summary>
+			public bool Hold;
+
+			/// <summary>How many of the session's lines stand once this is out (LinesRevealed).</summary>
+			public int LinesUpTo;
 		}
 
 		/// <summary>One slot of a trade area as it is shown.</summary>
@@ -186,6 +199,31 @@ namespace UWDataImport.UWData
 		/// <summary>"[MORE]" is shown at the bottom, the text is waiting for a click.</summary>
 		public bool MorePending { get; private set; }
 
+		/// <summary>The portrait to change to before the text goes on, 0 for none.</summary>
+		public int PendingPicture { get; private set; }
+
+		/// <summary>The text waits before a line of the partner.</summary>
+		public bool HoldPending { get; private set; }
+
+		/// <summary>How many of the session's Lines have come out of the waits: what a history that shows whole
+		/// lines may show (the modern one of the second game).</summary>
+		public int LinesRevealed { get; private set; }
+
+		/// <summary>Text still waits behind a pause: the answers do not stand yet.</summary>
+		public bool IsTextWaiting => MorePending || HoldPending || PendingPicture != 0 || mOPendingLines.Count > 0;
+
+		/// <summary>The wait is over: the text goes on at the next Refresh.</summary>
+		public void HoldOver()
+		{
+			HoldPending = false;
+		}
+
+		/// <summary>The portrait has changed: the text goes on at the next Refresh.</summary>
+		public void PictureShown()
+		{
+			PendingPicture = 0;
+		}
+
 		/// <summary>
 		/// Brings the history up to the session, like the original: the parchment holds thirteen
 		/// lines and pushes older ones out at the top. If ONE text needs more than twelve lines,
@@ -195,16 +233,29 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void Refresh(UWFont pOFont, Policy pyPolicy)
 		{
-			fQueueNewLines(pOFont, pyPolicy.WrapWidth);
+			fQueueNewLines(pOFont, pyPolicy.WrapWidth, pyPolicy.HoldBeforePartner);
 			fRevealLines(pyPolicy);
 		}
 
-		private void fQueueNewLines(UWFont pOFont, int piWidth)
+		private void fQueueNewLines(UWFont pOFont, int piWidth, bool pbHold)
 		{
 			for (; miLinesConsumed < Lines.Count; miLinesConsumed++)
 			{
 				UWConversationSession.Line lOLine = Lines[miLinesConsumed];
+
+				int liUpTo = miLinesConsumed + 1;
+
+				if (lOLine.Picture != 0)
+				{
+					mOPendingLines.Enqueue(new PendingLine { Picture = lOLine.Picture, LinesUpTo = liUpTo });
+
+					continue;
+				}
+
 				UWConversationLayout.RoleEnum leRole = UWConversationLayout.RoleOf(lOLine);
+
+				if (pbHold && (leRole == UWConversationLayout.RoleEnum.Npc || lOLine.IsReprint))
+					mOPendingLines.Enqueue(new PendingLine { Hold = true });
 
 				string[] lsSegments = (lOLine.Text ?? string.Empty).Split(UWConversationLayout.PageBreaks, System.StringSplitOptions.None);
 
@@ -218,22 +269,52 @@ namespace UWDataImport.UWData
 						{
 							Text = lOWrapped[liAt],
 							Role = leRole,
-							BreakAfter = liAt == lOWrapped.Count - 1 && liSegment < lsSegments.Length - 1
+							BreakAfter = liAt == lOWrapped.Count - 1 && liSegment < lsSegments.Length - 1,
+							LinesUpTo = liUpTo
 						});
 					}
 				}
 
+				// ESCAPE AT A TYPED ANSWER (per user with the original, 2026-10-31): wdialog copies the string at DS:0,
+				// the tail of an overlay stub, which the original then prints - "^?" on the user's screen, other bytes
+				// with the overlay elsewhere (Exhumed FINDINGS). Ours answers with nothing and keeps the line.
+				if (lOLine.IsReprint && string.IsNullOrEmpty(lOLine.Text))
+					mOPendingLines.Enqueue(new PendingLine { Text = string.Empty, Role = leRole });
+
+				// A TEXT ENDING IN \m LEAVES THE LINE OF [MORE] EMPTY (per user with the original, 2026-10-31): npc_say
+				// adds a newline behind it, so after the wait scroll_print3 writes that newline where [MORE] stood. The
+				// two games' scroll_more are the same.
+				if ((lOLine.Text ?? string.Empty).TrimEnd().EndsWith(UWConversationLayout.PageBreaks[0]))
+					mOPendingLines.Enqueue(new PendingLine { Text = string.Empty, Role = leRole });
+
 				// A new text counts its lines from the start; the limit applies per text.
-				mOPendingLines.Enqueue(new PendingLine { Text = null });
+				mOPendingLines.Enqueue(new PendingLine { Text = null, LinesUpTo = liUpTo });
 			}
 		}
 
 		/// <summary>Brings lines into the parchment until a pause is due.</summary>
 		private void fRevealLines(Policy pyPolicy)
 		{
-			while (!MorePending && mOPendingLines.Count > 0)
+			while (!MorePending && PendingPicture == 0 && !HoldPending && mOPendingLines.Count > 0)
 			{
 				PendingLine lOLine = mOPendingLines.Dequeue();
+
+				LinesRevealed = System.Math.Max(LinesRevealed, lOLine.LinesUpTo);
+
+				if (lOLine.Hold)
+				{
+					HoldPending = true;
+
+					break;
+				}
+
+				// The text stops here until the screen has changed the portrait.
+				if (lOLine.Picture != 0)
+				{
+					PendingPicture = lOLine.Picture;
+
+					break;
+				}
 
 				// End of text: the counter starts over.
 				if (lOLine.Text == null)
@@ -312,8 +393,11 @@ namespace UWDataImport.UWData
 			mOShownRoles.Clear();
 			mOPendingLines.Clear();
 			miLinesConsumed = 0;
+			LinesRevealed = 0;
 			miLinesSincePause = 0;
 			MorePending = false;
+			PendingPicture = 0;
+			HoldPending = false;
 
 			// Clearing the parchment is worth ONE step in the original as well: a conversation
 			// starts through seg043_37F0_8EB, and that ends in the same fork as a scroll.

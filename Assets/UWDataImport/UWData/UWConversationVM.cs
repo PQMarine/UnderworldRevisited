@@ -153,24 +153,24 @@ namespace UWDataImport.UWData
 
 		private const int StackStartAddress = 0x1000;
 
-		private const int BablMenuFunction = 0x0000;
+		private const string BablMenuFunction = "babl_menu";
 
-		private const int BablFMenuFunction = 0x0001;
+		private const string BablFMenuFunction = "babl_fmenu";
 
-		private const int PrintFunction = 0x0002;
+		private const string PrintFunction = "print";
 
 		/// <summary>babl_ask: the player types an answer; the result is the
 		/// string number of what was typed (the reference appends the text to the string block).
 		/// </summary>
-		private const int BablAskFunction = 0x0003;
+		private const string BablAskFunction = "babl_ask";
 
-		private const int RandomFunction = 0x0005;
+		private const string RandomFunction = "random";
 
-		private const int SayFunction = 0x000D;
+		private const string SayFunction = "say";
 
-		private const int GetQuestFunction = 0x000F;
+		private const string GetQuestFunction = "get_quest";
 
-		private const int SetQuestFunction = 0x0010;
+		private const string SetQuestFunction = "set_quest";
 
 		/// <summary>Guard against infinite loops in foreign code. A conversation does not need
 		/// a million steps; if the number is reached, something is wrong.</summary>
@@ -583,7 +583,9 @@ namespace UWDataImport.UWData
 		{
 			string lsName = fGetImportName(piFunctionId);
 
-			switch (piFunctionId)
+			// BY NAME, as bab_fun binds them: the numbers are the conversation's import table's, and the second
+			// game's run on from the first's (get_quest 0x12 there, 0xF here).
+			switch (lsName)
 			{
 				case BablMenuFunction:
 				case BablFMenuFunction:
@@ -595,7 +597,7 @@ namespace UWDataImport.UWData
 					// the STRING NUMBER, not the list position - the conversation code then compares
 					// against string numbers (the reference babl_fmenu.cs; per user 2026-09-13
 					// confirmed with Garamon: "Might Tyball's Orb..." does not appear in the original).
-					bool lbFiltered = piFunctionId == BablFMenuFunction;
+					bool lbFiltered = lsName == BablFMenuFunction;
 					int liPointer = fGetArgumentAddress(lbFiltered ? 2 : 1);
 					// The flag list lies directly below the string list. NOT
 					// fGetArgumentAddress(1): with a count of 0 that counts only one argument and

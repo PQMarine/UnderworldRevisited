@@ -185,7 +185,43 @@ namespace UnderworldRevisited.Tools
 
             Check.Bool("nested bags: with the sack emptied the box takes it", pOModel.DropCursorItemInContainerAt(lOInner, 0), true);
 
+            fCheckNestedPutAway(pOModel, lOProperties, liInner, liOuter, liOuterCapacity, liStone, liStoneMass);
             UWModelReset(pOModel);
+        }
+
+        /// <summary>Issue 13: the modern put-away (the E key) asks the bags around a bag too. A full sack in the
+        /// first place of a full backpack, a box inside it with room of its own.</summary>
+        private static void fCheckNestedPutAway(UWInventoryModel pOModel, UWCommonObjectProperties pOProperties, int piInner, int piOuter,
+            int piOuterCapacity, int piStone, int piStoneMass)
+        {
+            UWModelReset(pOModel);
+
+            UWObject lOInner = fBag(piInner);
+            UWObject lOOuter = fBag(piOuter);
+            int liFill = (piOuterCapacity - UWInventoryWeight.GetItemTenthStones(lOInner, pOProperties)) / piStoneMass;
+
+            lOOuter.Contents.Add(lOInner);
+            lOOuter.Contents.Add(fStack(piStone, liFill));
+            pOModel.Backpack[0] = lOOuter;
+
+            for (int liSlot = 1; liSlot < pOModel.Backpack.Length; liSlot++)
+                pOModel.Backpack[liSlot] = new UWObject(1);
+
+            Check.Bool("nested put-away: the box in the full sack takes no stone", pOModel.TryStoreAnywhere(fStack(piStone, 1)), false);
+            Check.Int("nested put-away: ... the box stays empty", lOInner.Contents.Count, 0);
+            Check.Bool("nested put-away: ... the pointer is empty again", pOModel.CursorItem == null, true);
+
+            // A stack waiting in the box takes the other road, the matching stacks first.
+            lOOuter.Contents.RemoveAt(1);
+            lOInner.Contents.Add(fStack(piStone, liFill));
+
+            Check.Bool("nested put-away: a stack in the box of a full sack takes no stone either", pOModel.TryStoreAnywhere(fStack(piStone, 1)), false);
+            Check.Int("nested put-away: ... the stack stays as it was", UWStackRules.Count(lOInner.Contents[0]), liFill);
+
+            // With room in both the box takes it: the check must not close the bags.
+            lOInner.Contents.Clear();
+
+            Check.Bool("nested put-away: with room in both the box or the sack takes it", pOModel.TryStoreAnywhere(fStack(piStone, 1)), true);
         }
 
         /// <summary>AddToOccupiedSlot (A36, 2026-10-15): a bag on a shoulder or in a hand takes

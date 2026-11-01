@@ -15,6 +15,7 @@ GamepadButtonHints = True
 GamepadButtonStyle = 0
 GamepadSwapSticks = False
 GogInstallPath = ""
+GogInstallPathUw2 = ""
 HeadBobMode = Original
 HeadBobStrength = 1
 HelpMapSpan = 0

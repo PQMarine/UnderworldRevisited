@@ -37,6 +37,10 @@ namespace UWDataImport.UWData
 		/// UW2: not in the pits, and in the Void it wakes the player, SKILLS.C:441).</summary>
 		bool MaySleepAt(UWRules pORules, int piDungeonLevel);
 
+		/// <summary>duration_check's long cycle, hunger and healing, in player ticks (UW1: 24, PLAYTIME.C:128;
+		/// UW2: 30, PLAYTIME.C:137).</summary>
+		int LongCycleTicks { get; }
+
 		/// <summary>The target the Search skill rolls against to find a trap on an object (UW1: 8,
 		/// SKILLS.C:898; UW2: 10 plus twice the world number, SKILLS.C:885).</summary>
 		int TrapDetectTarget();

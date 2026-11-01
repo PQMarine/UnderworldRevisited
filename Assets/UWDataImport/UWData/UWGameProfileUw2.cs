@@ -83,18 +83,25 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public UWRules CreateOriginalRules()
 		{
-			return new UWRules();
+			UWRules lORules = new UWRules();
+
+			// A skill point every 1500 (SKILLCHK.C:81), the first game's 3000.
+			lORules.Experience.PerSkillPoint = SkillPointExperience;
+
+			return lORules;
 		}
+
+		private const int SkillPointExperience = 1500;
 
 		public IUWMagicVariant Magic => throw fNotYet();
 
-		public IUWCombatVariant Combat => throw fNotYet();
+		public IUWCombatVariant Combat { get; } = new UWCombatVariantUw2();
 
-		public IUWPlayerVariant Player => throw fNotYet();
+		public IUWPlayerVariant Player { get; } = new UWPlayerVariantUw2();
 
-		public IUWCritterVariant Critter => throw fNotYet();
+		public IUWCritterVariant Critter { get; } = new UWCritterVariantUw2();
 
-		public IUWObjectVariant Objects => throw fNotYet();
+		public IUWObjectVariant Objects { get; } = new UWObjectVariantUw2();
 
 		public IUWTrapVariant Traps => throw fNotYet();
 
@@ -102,13 +109,18 @@ namespace UWDataImport.UWData
 
 		public IUWInventoryVariant Inventory { get; } = new UWInventoryVariantUw2();
 
-		public IUWConversationVariant Conversation => throw fNotYet();
+		public IUWConversationVariant Conversation { get; } = new UWConversationVariantUw2();
 
 		public UWTrapTable TrapKinds => throw fNotYet();
 
 		public UWDoActionTable DoActions => throw fNotYet();
 
-		public UWConversationFunctionTable ConversationFunctions => throw fNotYet();
+		private UWConversationFunctionTable mOConversationFunctions;
+
+		public UWConversationFunctionTable ConversationFunctions
+		{
+			get { return mOConversationFunctions ?? (mOConversationFunctions = UWConversationFunctionTable.CreateUw2()); }
+		}
 
 		private static NotSupportedException fNotYet()
 		{

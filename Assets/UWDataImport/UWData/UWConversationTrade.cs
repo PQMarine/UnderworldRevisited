@@ -49,6 +49,18 @@ namespace UWDataImport.UWData
 	{
 		public const int SlotCount = 4;
 
+		/// <summary>The second game's slots a side (uw2 conv/BARTER.C).</summary>
+		public const int SlotCountUw2 = 6;
+
+		/// <summary>This trade's slots a side.</summary>
+		public int Slots { get; }
+
+		/// <summary>The second game's barter, where it parts from the first's (uw2 conv/BARTER.C).</summary>
+		private readonly bool mbUw2;
+
+		/// <summary>babl_hack 9: added to the partner's side in do_judgement.</summary>
+		private int miFudge;
+
 		/// <summary>setup_to_barter's roll once the slots are full: rand() &amp; 7, one of eight.</summary>
 		public const int BarterOverflowRoll = 8;
 
@@ -71,10 +83,10 @@ namespace UWDataImport.UWData
 
 		private const int JudgementVerdictFirst = 9;
 
-		public readonly UWObject[] PlayerItems = new UWObject[SlotCount];
-		public readonly bool[] PlayerSelected = new bool[SlotCount];
-		public readonly UWObject[] NpcItems = new UWObject[SlotCount];
-		public readonly bool[] NpcSelected = new bool[SlotCount];
+		public readonly UWObject[] PlayerItems;
+		public readonly bool[] PlayerSelected;
+		public readonly UWObject[] NpcItems;
+		public readonly bool[] NpcSelected;
 
 		/// <summary>
 		/// BOUGHT GOODS STAY ON THE PARTNER'S SIDE (per user, 2026-09-29: in the original the goods
@@ -83,7 +95,7 @@ namespace UWDataImport.UWData
 		/// ones stay in their slots, out of the partner's possession, and flag_4872 lets the player
 		/// take them (ovr095_683). Ours put them straight into the backpack.
 		/// </summary>
-		public readonly bool[] NpcBought = new bool[SlotCount];
+		public readonly bool[] NpcBought;
 
 		/// <summary>flag_4872: the goods on the partner's side may be taken. Every do_offer clears
 		/// it first; an accepted offer or demand sets it.</summary>
@@ -145,6 +157,13 @@ namespace UWDataImport.UWData
 			mONpc = pONpc;
 			mIHost = pIHost;
 			mOGame = pOGame;
+			mbUw2 = pOGame.Game.Game == UWGame.Uw2;
+			Slots = mbUw2 ? SlotCountUw2 : SlotCount;
+			PlayerItems = new UWObject[Slots];
+			PlayerSelected = new bool[Slots];
+			NpcItems = new UWObject[Slots];
+			NpcSelected = new bool[Slots];
+			NpcBought = new bool[Slots];
 			mOSay = pOSay;
 			mOPlayerSay = pOPlayerSay;
 			mORegisterString = pORegisterString;
@@ -323,7 +342,9 @@ namespace UWDataImport.UWData
 
 			fRegister(pOTable, "do_offer", (pOTrade, pOCall) => pOTrade.fDoOffer(fLastArguments(pOCall.Arguments, OfferArgumentCount)));
 
-			fRegister(pOTable, "do_demand", (pOTrade, pOCall) => pOTrade.fDoDemand(fLastArguments(pOCall.Arguments, DemandArgumentCount)));
+			fRegister(pOTable, "do_demand", (pOTrade, pOCall) => pOTrade.mbUw2 && !fAnySelected(pOTrade.NpcItems, pOTrade.NpcSelected)
+				? pOTrade.fDemandNothing(pOCall.Argument(0))
+				: pOTrade.fDoDemand(fLastArguments(pOCall.Arguments, DemandArgumentCount)));
 
 			fRegister(pOTable, "do_judgement", (pOTrade, pOCall) =>
 			{
@@ -426,6 +447,122 @@ namespace UWDataImport.UWData
 				return 0;
 			});
 		}
+
+		/// <summary>What the second game binds on top (conv/BABLHACK.C).</summary>
+		internal static void RegisterFunctionsUw2(UWConversationFunctionTable pOTable)
+		{
+			fRegister(pOTable, "x_obj_pos", (pOTrade, pOCall) => pOTrade.fXObjPos(pOCall.Arguments, pOCall.Addresses));
+			fRegister(pOTable, "give_all_stuff", (pOTrade, pOCall) => pOTrade.fGiveAllStuff());
+		}
+
+		/// <summary>babl_hack 8: greed scaled; its value.</summary>
+		public int ScaleGreed(int piFactor)
+		{
+			miThreshold *= piFactor;
+
+			return miThreshold;
+		}
+
+		/// <summary>babl_hack 9.</summary>
+		public int SetFudge(int piFudge)
+		{
+			miFudge = (sbyte)piFudge;
+
+			return miFudge;
+		}
+
+		/// <summary>give_all_stuff: everything in the partner's slots is selected and given, as after an accepted
+		/// offer; 0 when there is nothing.</summary>
+		private int fGiveAllStuff()
+		{
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
+				NpcSelected[liSlot] = NpcItems[liSlot] != null;
+
+			if (!fAnySelected(NpcItems, NpcSelected))
+				return 0;
+
+			PendingSwap = true;
+			mbPlayerKeepsHisGoods = true;
+			Version++;
+
+			return 1;
+		}
+
+		/// <summary>do_demand with nothing selected (the second game): the partner a step less friendly, what_str
+		/// said, his goods back.</summary>
+		private int fDemandNothing(int piWhat)
+		{
+			int liAttitude = mOVm != null ? mOVm.GetImportedGlobal("npc_attitude") : (mONpc != null ? mONpc.NPCAttitude : 0);
+
+			if (mOGame.Game.Conversation.GivingInLowersAttitude(liAttitude))
+				fSetAttitude(liAttitude - 1);
+
+			mOSay(piWhat);
+			fReturnNpcGoods(false);
+
+			return 0;
+		}
+
+		/// <summary>do_demand's levels where the partner's score counts half again (uw2 conv/BARTER.C).</summary>
+		private const int DemandHardLevelOne = 9;
+
+		private const int DemandHardLevelTwo = 0x11;
+
+		/// <summary>ITEM_COIN, valued at full quality (assess_value) and the one kind npc_inv_add piles.</summary>
+		private const int CoinIdUw2 = 0xA0;
+
+		/// <summary>x_obj_pos(handle, mode, x, y, z): mode 1 sets the fine position and height (a z above 0x7F the
+		/// floor of the tile), 2 reads the tile and height, anything else the fine position and height; a variable
+		/// holding -1 is left alone.</summary>
+		private int fXObjPos(IReadOnlyList<int> pOArguments, IReadOnlyList<int> pOAddresses)
+		{
+			UWObject lOItem = Resolve(UWConversationVM.Argument(pOArguments, 0));
+
+			if (lOItem == null || mOVm == null || pOAddresses == null || pOAddresses.Count < 5)
+				return 0;
+
+			int liX = UWConversationVM.Argument(pOArguments, 2);
+			int liY = UWConversationVM.Argument(pOArguments, 3);
+			int liZ = UWConversationVM.Argument(pOArguments, 4);
+			int liMode = UWConversationVM.Argument(pOArguments, 1);
+
+			if (liMode == ObjectPositionSet)
+			{
+				if (liX != -1)
+					lOItem.XPos = (byte)liX;
+
+				if (liY != -1)
+					lOItem.YPos = (byte)liY;
+
+				if (liZ != -1)
+				{
+					UWTile lOTile = liZ > ObjectPositionHighestZ && fLevel != null ? fLevel.GetTile(liX, liY) : null;
+
+					lOItem.ZPos = lOTile != null ? (byte)(lOTile.FloorHeight >> 1) : (byte)liZ;
+				}
+
+				return 0;
+			}
+
+			bool lbTile = liMode == ObjectPositionReadTile;
+
+			if (liX != -1)
+				mOVm.WriteMemory(pOAddresses[2], lbTile ? lOItem.TileX : lOItem.XPos);
+
+			if (liY != -1)
+				mOVm.WriteMemory(pOAddresses[3], lbTile ? lOItem.TileY : lOItem.YPos);
+
+			if (liZ != -1)
+				mOVm.WriteMemory(pOAddresses[4], lOItem.ZPos);
+
+			return 0;
+		}
+
+		private const int ObjectPositionSet = 1;
+
+		private const int ObjectPositionReadTile = 2;
+
+		private const int ObjectPositionHighestZ = 0x7F;
 
 		/// <summary>Registers one trade function: the session's trade runs it with the call's machine.</summary>
 		private static void fRegister(UWConversationFunctionTable pOTable, string psName,
@@ -721,7 +858,7 @@ namespace UWDataImport.UWData
 				NpcBought[liSlot] = false;
 				liSlot++;
 
-				if (liSlot >= SlotCount)
+				if (liSlot >= Slots)
 				{
 					liSlot = 0;
 					lbAllFilled = true;
@@ -737,7 +874,7 @@ namespace UWDataImport.UWData
 		/// this class from 1000). Returns the slot's handle, otherwise 0.</summary>
 		private int fFindBarter(int piWanted)
 		{
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				UWObject lOItem = PlayerItems[liSlot];
 
@@ -787,7 +924,7 @@ namespace UWDataImport.UWData
 			int liMatches = 0;
 			int liQuantity = 0;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				UWObject lOItem = PlayerItems[liSlot];
 
@@ -857,8 +994,10 @@ namespace UWDataImport.UWData
 			// one is too little while it closes less than two thirds of the remaining gap.
 			int liVerdict;
 
-			if (miPreviousEvaluation == 0)
-				liVerdict = liEvaluation * 2 >= miThreshold ? 0 : 1;
+			if (miPreviousEvaluation == 0 && liEvaluation * 2 < miThreshold)
+				liVerdict = 1;
+			else if (miPreviousEvaluation == 0 && !mbUw2)
+				liVerdict = 0;
 			else if (liEvaluation < miPreviousEvaluation)
 				liVerdict = 2;
 			else
@@ -950,6 +1089,9 @@ namespace UWDataImport.UWData
 			liNpcScore += (fGetSideValue(NpcItems, NpcSelected, false, miAccuracy) / lORules.GoodsDivisor)
 				+ (mbHasStats ? mOStats.ConversationLevel : 0) + liMood;
 
+			if (mbUw2 && fLevel != null && (fLevel.LevelNumber == DemandHardLevelOne || fLevel.LevelNumber == DemandHardLevelTwo))
+				liNpcScore = liNpcScore * 3 / 2;
+
 			// Who gives in, and how far the attitude falls, is the game's (IUWConversationVariant).
 			IUWConversationVariant lIConversation = mOGame.Game.Conversation;
 
@@ -1006,9 +1148,9 @@ namespace UWDataImport.UWData
 			int liAccuracy = lORules.AccuracyBase - ((liAppraise * lORules.AppraiseNumerator) / lORules.AppraiseDenominator);
 
 			int liPlayerValue = fGetSideValue(PlayerItems, PlayerSelected, false, liAccuracy);
-			int liNpcValue = fGetSideValue(NpcItems, NpcSelected, false, liAccuracy);
+			int liNpcValue = fGetSideValue(NpcItems, NpcSelected, false, liAccuracy) + miFudge;
 
-			int liEvaluation = liNpcValue == 0 ? 100 : ((liPlayerValue - liNpcValue) * 100) / liNpcValue;
+			int liEvaluation = liNpcValue <= 0 ? 100 : ((liPlayerValue - liNpcValue) * 100) / liNpcValue;
 
 			int liCertainty = liAppraise < 6 ? 0 : liAppraise < 12 ? 1 : liAppraise < 18 ? 2 : liAppraise < 24 ? 3 : 4;
 
@@ -1053,7 +1195,7 @@ namespace UWDataImport.UWData
 
 			int liSelected = 0;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				if (PlayerItems[liSlot] != null && PlayerSelected[liSlot])
 					liSelected++;
@@ -1069,7 +1211,7 @@ namespace UWDataImport.UWData
 				int liWanted = mOVm.ReadMemory(piArrayAddress + liAt);
 				int liFound = -1;
 
-				for (int liSlot = 0; liSlot < SlotCount && liFound < 0; liSlot++)
+				for (int liSlot = 0; liSlot < Slots && liFound < 0; liSlot++)
 				{
 					if (PlayerItems[liSlot] != null && PlayerSelected[liSlot]
 						&& fHandle(liSlot) == liWanted && !lOSlots.Contains(liSlot))
@@ -1135,7 +1277,7 @@ namespace UWDataImport.UWData
 				if (fGiveToHand(lOItem))
 					return 1;
 
-				for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+				for (int liSlot = 0; liSlot < Slots; liSlot++)
 				{
 					if (PlayerItems[liSlot] != null)
 						continue;
@@ -1176,7 +1318,7 @@ namespace UWDataImport.UWData
 			int liHandles = pOAddresses[1];
 			int liCount = 0;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				UWObject lOItem = PlayerItems[liSlot];
 
@@ -1192,7 +1334,7 @@ namespace UWDataImport.UWData
 						liCount, lOItem.ID, fHandle(liSlot), fGetCount(lOItem), lOItem.HasQuantity, lOItem.Quantity));
 			}
 
-			for (int liAt = liCount; liAt < SlotCount; liAt++)
+			for (int liAt = liCount; liAt < Slots; liAt++)
 			{
 				mOVm.WriteMemory(liIds + liAt, 0);
 				mOVm.WriteMemory(liHandles + liAt, 0);
@@ -1204,7 +1346,7 @@ namespace UWDataImport.UWData
 
 				lOText.AppendFormat("[Trade] show_inv returns {0}, ids at {1}, handles at {2}:", liCount, liIds, liHandles);
 
-				for (int liAt = 0; liAt <= SlotCount + 1; liAt++)
+				for (int liAt = 0; liAt <= Slots + 1; liAt++)
 					lOText.AppendFormat(" [{0}] {1}/{2}", liAt, mOVm.ReadMemory(liIds + liAt), mOVm.ReadMemory(liHandles + liAt));
 
 				UWLog.Info(lOText.ToString());
@@ -1338,7 +1480,7 @@ namespace UWDataImport.UWData
 			if (lOItem == null)
 				return 0;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				if (PlayerItems[liSlot] != lOItem || !PlayerSelected[liSlot])
 					continue;
@@ -1400,7 +1542,7 @@ namespace UWDataImport.UWData
 			if (fGiveToHand(lOItem))
 				return 1;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				if (PlayerItems[liSlot] != null)
 					continue;
@@ -1567,7 +1709,7 @@ namespace UWDataImport.UWData
 
 		private static bool fAnySelected(UWObject[] pOItems, bool[] pbSelected)
 		{
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < pOItems.Length; liSlot++)
 			{
 				if (pOItems[liSlot] != null && pbSelected[liSlot])
 					return true;
@@ -1580,7 +1722,7 @@ namespace UWDataImport.UWData
 		{
 			int liTotal = 0;
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				if (pOItems[liSlot] != null && pbSelected[liSlot])
 					liTotal += fGetItemValue(pOItems[liSlot], pbLikes, piAccuracy);
@@ -1626,8 +1768,12 @@ namespace UWDataImport.UWData
 
 			int liQuality = pOItem.Quality & UWObjectMechanics.MaxQuality;
 
+			// The second game computes in 32 bits and takes coins at full quality (assess_value).
+			if (mbUw2 && pOItem.ID == CoinIdUw2)
+				liQuality = UWObjectMechanics.MaxQuality;
+
 			if (liValue > 0)
-				liValue = liQuality > 0 ? Math.Max(1, (ushort)(liValue * liQuality) >> 6) : 0;
+				liValue = liQuality > 0 ? Math.Max(1, mbUw2 ? (liValue * liQuality) >> 6 : (ushort)(liValue * liQuality) >> 6) : 0;
 
 			return new UWOriginalRandom(fObjectNumber(pOItem)).Noise(liValue, -piAccuracy, piAccuracy);
 		}
@@ -1845,7 +1991,7 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			if (pOItem.ID == GoldCoinId && fTryJoinNpcStack(lOInventory, pOItem))
+			if (pOItem.ID == (mbUw2 ? CoinIdUw2 : GoldCoinId) && fTryJoinNpcStack(lOInventory, pOItem))
 				return;
 
 			pOItem.Link = 0;
@@ -1881,7 +2027,7 @@ namespace UWDataImport.UWData
 		{
 			List<UWObject> lOInventory = fGetNpcInventory();
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				UWObject lOItem = NpcItems[liSlot];
 
@@ -1912,7 +2058,7 @@ namespace UWDataImport.UWData
 
 			fReturnNpcGoods(true);
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				if (NpcItems[liSlot] != null)
 					NpcBought[liSlot] = true;
@@ -1922,7 +2068,7 @@ namespace UWDataImport.UWData
 			// dislikes or COMOBJ.DAT values at 0 stays marked in the player's slot - and drops at the
 			// player's feet when the conversation ends. Until 2026-10-15 ours handed over every
 			// marked good.
-			for (int liSlot = 0; liSlot < SlotCount && !lbPlayerKeeps; liSlot++)
+			for (int liSlot = 0; liSlot < Slots && !lbPlayerKeeps; liSlot++)
 			{
 				if (PlayerItems[liSlot] == null || !PlayerSelected[liSlot] || fDoesNpcLike(PlayerItems[liSlot]) < 0)
 					continue;
@@ -1950,7 +2096,7 @@ namespace UWDataImport.UWData
 			if (PendingSwap)
 				Swap();
 
-			for (int liSlot = 0; liSlot < SlotCount; liSlot++)
+			for (int liSlot = 0; liSlot < Slots; liSlot++)
 			{
 				UWObject lOItem = PlayerItems[liSlot];
 
@@ -2009,7 +2155,7 @@ namespace UWDataImport.UWData
 		/// <summary>Takes the item out of one of the player's slots (onto the cursor).</summary>
 		public UWObject TakeFromPlayerSlot(int piSlot)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount)
+			if (piSlot < 0 || piSlot >= Slots)
 				return null;
 
 			UWObject lOItem = PlayerItems[piSlot];
@@ -2025,7 +2171,7 @@ namespace UWDataImport.UWData
 		/// there, that one is returned - for swapping on the cursor.</summary>
 		public UWObject PutInPlayerSlot(int piSlot, UWObject pOItem)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount || pOItem == null)
+			if (piSlot < 0 || piSlot >= Slots || pOItem == null)
 				return pOItem;
 
 			UWObject lOPrevious = PlayerItems[piSlot];
@@ -2058,7 +2204,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public UWObject DropOnPlayerSlot(int piSlot, UWObject pOHeld)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount || pOHeld == null)
+			if (piSlot < 0 || piSlot >= Slots || pOHeld == null)
 				return pOHeld;
 
 			UWObject lOThere = PlayerItems[piSlot];
@@ -2089,7 +2235,7 @@ namespace UWDataImport.UWData
 		/// unmarked, as UseTradeSlot_ovr097_6E8 clears the mark after any pick-up.</summary>
 		public void PlayerSlotPartTaken(int piSlot)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount)
+			if (piSlot < 0 || piSlot >= Slots)
 				return;
 
 			PlayerSelected[piSlot] = false;
@@ -2100,13 +2246,13 @@ namespace UWDataImport.UWData
 		/// taken; redraws the area.</summary>
 		public void NpcSlotChanged(int piSlot)
 		{
-			if (piSlot >= 0 && piSlot < SlotCount)
+			if (piSlot >= 0 && piSlot < Slots)
 				Version++;
 		}
 
 		public void TogglePlayerSelected(int piSlot)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount)
+			if (piSlot < 0 || piSlot >= Slots)
 				return;
 
 			PlayerSelected[piSlot] = PlayerItems[piSlot] != null && !PlayerSelected[piSlot];
@@ -2117,7 +2263,7 @@ namespace UWDataImport.UWData
 		/// allows it - see NpcBought.</summary>
 		public UWObject TakeFromNpcSlot(int piSlot)
 		{
-			if (!NpcGoodsBought || piSlot < 0 || piSlot >= SlotCount || !NpcBought[piSlot])
+			if (!NpcGoodsBought || piSlot < 0 || piSlot >= Slots || !NpcBought[piSlot])
 				return null;
 
 			UWObject lOItem = NpcItems[piSlot];
@@ -2134,7 +2280,7 @@ namespace UWDataImport.UWData
 		/// weight did not allow.</summary>
 		public void ReturnToNpcSlot(int piSlot, UWObject pOItem)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount || pOItem == null || NpcItems[piSlot] != null)
+			if (piSlot < 0 || piSlot >= Slots || pOItem == null || NpcItems[piSlot] != null)
 				return;
 
 			NpcItems[piSlot] = pOItem;
@@ -2145,7 +2291,7 @@ namespace UWDataImport.UWData
 
 		public void ToggleNpcSelected(int piSlot)
 		{
-			if (piSlot < 0 || piSlot >= SlotCount)
+			if (piSlot < 0 || piSlot >= Slots)
 				return;
 
 			NpcSelected[piSlot] = NpcItems[piSlot] != null && !NpcSelected[piSlot];

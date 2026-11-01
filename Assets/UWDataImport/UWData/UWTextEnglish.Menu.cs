@@ -7,6 +7,7 @@ namespace UWDataImport.UWData
 		private static void fMenu()
 		{
 			fAdd("menu.title", "Game menu");
+			fAdd("menu.work_in_progress", "Work in progress");
 			fAdd("menu.resume", "Resume");
 			fAdd("menu.save_game", "Save game");
 			fAdd("menu.restore_game", "Restore game");

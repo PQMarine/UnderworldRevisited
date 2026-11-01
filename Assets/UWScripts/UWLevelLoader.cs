@@ -213,8 +213,15 @@ public class UWLevelLoader : MonoBehaviour
 
         UWWorldSync.Capture(this);
 
+        fChangeAutomapLevel(piLevelIndex);
         miLevelIndex = piLevelIndex;
         fBuildLevel();
+    }
+
+    /// <summary>A level change as the second game's automap sees it (UWAutomapStateUw2.ChangeLevel).</summary>
+    private void fChangeAutomapLevel(int piLevelIndex)
+    {
+        UWAutomapStateUw2.ChangeLevel(UWDataImporter.Session.PlayerFileUw2, miLevelIndex + 1, piLevelIndex + 1);
     }
 
     /// <summary>All world objects of the current level with their data - for UWWorldSync. Also
@@ -424,6 +431,12 @@ public class UWLevelLoader : MonoBehaviour
     {
         int liLevel = UWTeleportUw2.LevelOf(pOTarget, miLevelIndex + 1) - 1;
 
+        if (pOTarget.AutomapOff)
+        {
+            UWAutomapStateUw2.StopByTrap(UWDataImporter.Session.PlayerFileUw2, miLevelIndex + 1);
+            Debug.Log("[Walk] The teleport trap stops the automap on level " + (miLevelIndex + 1) + ".");
+        }
+
         if (liLevel < 0 || liLevel >= UWDataImporter.Levels.Count || UWDataImporter.Levels[liLevel] == null)
         {
             Debug.LogWarning("[Walk] A teleport to level " + (liLevel + 1) + ", which is not in this world.");
@@ -435,6 +448,7 @@ public class UWLevelLoader : MonoBehaviour
         {
             // The doors as they stand into the level's data, as a level change does (UWWorldSync).
             UWWorldSync.Capture(this);
+            fChangeAutomapLevel(liLevel);
             miLevelIndex = liLevel;
             fBuildLevel();
         }
@@ -462,7 +476,14 @@ public class UWLevelLoader : MonoBehaviour
             Vector3 lOAt = new Vector3(UWUnits.TileCentreToWorldAxis(liX), 0f, UWUnits.TileCentreToWorldAxis(liY));
 
             if (lfHigh > GetFloorHeightAt(lOAt))
+            {
                 fPlacePlayerOnFloor(lOAt, lfHigh);
+
+                UWPlayerMovement lOMovement = UWScene.Player != null ? UWScene.Player.GetComponent<UWPlayerMovement>() : null;
+
+                if (lOMovement != null && lOMovement.Motion != null)
+                    lOMovement.Motion.StartFall();
+            }
         }
 
         Debug.Log(string.Format("[Walk] Teleport to level {0}, tile {1}/{2}{3}.", miLevelIndex + 1, liX, liY, pOTarget.Falls ? ", falling" : string.Empty));
@@ -501,6 +522,7 @@ public class UWLevelLoader : MonoBehaviour
             if (piLevelIndex != miLevelIndex)
             {
                 UWWorldSync.Capture(this);
+                fChangeAutomapLevel(piLevelIndex);
                 miLevelIndex = piLevelIndex;
                 fBuildLevel();
             }
@@ -911,6 +933,11 @@ public class UWLevelLoader : MonoBehaviour
         fPrepareShared();
         fInitialiseLighting();
 
+        // The automap: UWPlayerTerrain is made with the first game's interface (fInitialiseUi), which does
+        // not run here, so nothing was written while walking and the automap never came back on.
+        if (Camera.main != null)
+            fInitialisePlayerTerrain(Camera.main);
+
         // From a save: where it was made (UWPlayerRecordUw2); else where a new game starts.
         UWPlayerFile lOPlayer = UWDataImporter.Session.PlayerFileUw2;
         int liSavedLevel = lOPlayer != null ? UWPlayerRecordUw2.Level(lOPlayer) - 1 : -1;
@@ -935,11 +962,13 @@ public class UWLevelLoader : MonoBehaviour
             if (GetComponent<UWWalkUw2View>() == null)
                 gameObject.AddComponent<UWWalkUw2View>();
 
+            UWHelpNotes.LoadFrom(UWDataImporter.SavegamePath);
             Debug.Log(string.Format("[Walk] From {0}: {1}, level {2}, tile {3}/{4}.", UWDataImporter.SavegamePath, lOPlayer.Name,
                 miLevelIndex + 1, UWPlayerRecordUw2.PositionX(lOPlayer) >> 8, UWPlayerRecordUw2.PositionY(lOPlayer) >> 8));
         }
         else
         {
+            UWHelpNotes.Clear();
             fEnterWalkView(UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY, UWGameProfileUw2.NewGameHeading);
         }
 

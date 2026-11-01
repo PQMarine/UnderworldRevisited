@@ -93,6 +93,13 @@ namespace UnderworldRevisited.Tools
             Check.Near("segments: too long for the area, each its text and padding", laWidths[1], 160f, 0.0001);
             Check.Near("segments: and the row runs over", lfTotal, 400f, 0.0001);
 
+            int[] liLines = new int[3];
+
+            fExpectInt("segment lines: a row that fits stays one line", UWRowSizing.SegmentLines(408f, new[] { 60f, 140f, 70f }, laWidths, liLines), 1);
+            fExpectInt("segment lines: a row that runs over wraps", UWRowSizing.SegmentLines(300f, new[] { 100f, 140f, 100f }, laWidths, liLines), 2);
+            fExpectBool("segment lines: ... the first two together, the third below", liLines[0] == 0 && liLines[1] == 0 && liLines[2] == 1, true);
+            fExpectInt("segment lines: a choice wider than the area stands alone", UWRowSizing.SegmentLines(100f, new[] { 300f, 20f, 300f }, laWidths, liLines), 3);
+
             // The layout editor's named segments (cleanup 8b.4): each its name and the rest shared, as
             // the IMGUI form - 300 over names of 40, 90 and 110 leaves 20 each.
             lfTotal = UWRowSizing.SpreadWidths(300f, new[] { 40f, 90f, 110f }, laWidths);

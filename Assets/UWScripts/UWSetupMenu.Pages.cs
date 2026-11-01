@@ -455,7 +455,7 @@ public partial class UWSetupMenu
             .Add(new UWSetupRow
             {
                 Kind = Kind.Hint, Id = "folder.hint", MinHeight = 22f, Advance = 8f,
-                Text = UWText.T("setup.folder.hint")
+                TextOf = () => UWText.T(mbFolderOfSecondGame ? "setup.folder.hint2" : "setup.folder.hint")
             })
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = "folder.found", Draw = fDrawFoundFolders })
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = "folder.drives", Draw = fDrawDrives })
@@ -588,7 +588,15 @@ public partial class UWSetupMenu
             {
                 Kind = Kind.Action, Id = "game.folder", Text = UWText.T("setup.game.folder"), Width = 200f, Height = 30f, Advance = 40f,
 
-                EnabledWhen = fFolderReachable, Press = fOpenFolderDialog
+                EnabledWhen = fFolderReachable, Press = () => fOpenFolderDialog(false)
+            })
+            // The second game in a folder of its own (per user, 2026-10-31): its saves are that
+            // installation's, whatever folder the first has.
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Action, Id = "game.folder2", Text = UWText.T("setup.game.folder2"), Width = 260f, Height = 30f, Advance = 40f,
+
+                EnabledWhen = fFolderReachable, Press = () => fOpenFolderDialog(true)
             })
             // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard whose top row
             // gives media keys unless Fn is held could not reach Shift+F2; under Game because the

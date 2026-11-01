@@ -50,6 +50,16 @@ public static class UWSavegameSlots
     /// intro are skipped.</summary>
     public static bool IsRestoring { get; private set; }
 
+    /// <summary>A switch of game forgets the load this run came from: its restart must not load that save
+    /// again (per user, 2026-11-01: the second game's menu stood empty over the first game's save, and
+    /// switching back led into the old game). Both stay set while the game runs, as nothing else needs
+    /// them cleared: every other restart either sets them anew or wants them.</summary>
+    public static void ForgetPending()
+    {
+        PendingPath = null;
+        IsRestoring = false;
+    }
+
     /// <summary>The folder of a slot, whether it is used or not.</summary>
     public static string GetSlotPath(string psRoot, int piSlot)
     {

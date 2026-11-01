@@ -226,9 +226,15 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void Initialise(DataImport pOData, StartValues pOStart)
 		{
+			Initialise(pOData, pOStart, pOData != null ? pOData.InitialPlayer : null);
+		}
+
+		/// <summary>The same from the character given (the second game's, UWPlayerData.FromSecondGame).</summary>
+		public void Initialise(DataImport pOData, StartValues pOStart, UWPlayerData pOPlayer)
+		{
 			mOData = pOData;
 
-			UWPlayerData lOPlayer = pOData != null ? pOData.InitialPlayer : null;
+			UWPlayerData lOPlayer = pOPlayer;
 
 			Strength = pOStart.Strength >= 0 ? pOStart.Strength : (lOPlayer != null ? lOPlayer.Strength : 10);
 			Dexterity = pOStart.Dexterity >= 0 ? pOStart.Dexterity : (lOPlayer != null ? lOPlayer.Dexterity : 10);
@@ -1387,7 +1393,10 @@ namespace UWDataImport.UWData
 		/// but not for the light sources' rates of 10 or 12 (UWInventoryModel.BurnTick) - they
 		/// need the value as the original has it.
 		/// </summary>
-		public int TickInCycle => miTickCounter <= 0 ? 0 : ((miTickCounter - 1) % FiveMinuteTicks) + 1;
+		public int TickInCycle => miTickCounter <= 0 ? 0 : ((miTickCounter - 1) % fLongCycle) + 1;
+
+		/// <summary>The long cycle's ticks, the game's (IUWPlayerVariant.LongCycleTicks).</summary>
+		private static int fLongCycle => UWGameSession.Current != null ? UWGameSession.Current.Game.Player.LongCycleTicks : FiveMinuteTicks;
 
 		/// <summary>
 		/// One player tick - the tick on which everything time-related hangs in the original,
@@ -1434,7 +1443,7 @@ namespace UWDataImport.UWData
 				fRegenerateMana();
 			}
 
-			if (miTickCounter % FiveMinuteTicks == 0)
+			if (miTickCounter % fLongCycle == 0)
 				fTickFiveMinutes();
 		}
 

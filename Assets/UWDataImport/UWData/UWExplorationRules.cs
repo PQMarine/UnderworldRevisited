@@ -103,8 +103,12 @@ namespace UWDataImport.UWData
 		/// pFGetDisplayType tells what to draw in a discovered tile - water, lava, a door, a
 		/// stair, a bridge - which only the host can know, because it takes the objects on the
 		/// tile. Without it the band only outlines.
+		///
+		/// pbWritesDrawn false: the second game with its automap off (UWAutomapStateUw2) leaves the drawn
+		/// cells as they are; what is not drawn still gets its outline (grdb_elem).
 		/// </summary>
-		public static int EvaluateSweep(UWLevel pOLevel, UWRenderSweep pOSweep, Func<int, int, int> pFGetDisplayType = null)
+		public static int EvaluateSweep(UWLevel pOLevel, UWRenderSweep pOSweep, Func<int, int, int> pFGetDisplayType = null,
+			bool pbWritesDrawn = true)
 		{
 			if (pOLevel == null || pOSweep == null)
 				return 0;
@@ -125,6 +129,9 @@ namespace UWDataImport.UWData
 
 					if (liRow >= 0 && pOSweep.IsDrawn(liRow, liColumn))
 					{
+						if (!pbWritesDrawn)
+							continue;
+
 						if (pFGetDisplayType != null && IsBrightEnoughToDiscover(pOSweep.GetShade(liRow, liColumn)))
 							pOLevel.MarkTileVisited(liX, liY, pFGetDisplayType(liX, liY));
 						else

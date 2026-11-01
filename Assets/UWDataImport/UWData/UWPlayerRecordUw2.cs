@@ -16,6 +16,9 @@ namespace UWDataImport.UWData
 
 		public const int SwimmingSkill = 19;
 
+		/// <summary>The first game's named skills (UWPlayerData.Skill) count from the third.</summary>
+		public const int NamedSkillsFrom = 2;
+
 		public const int PositionXOffset = 0x54;
 
 		public const int PositionYOffset = 0x56;
@@ -232,6 +235,9 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < WalkerName.Length; liAt++)
 				lyRecord[liAt] = (byte)WalkerName[liAt];
 
+			lyRecord[AutomapByteOffset] = AutomapBit;
+			lyRecord[MapScrapOffset] = NewMapScrap;
+
 			return UWPlayerFile.Create(UWGame.Uw2, lyRecord, 1, new byte[UWPlayerFile.WorkspaceHeaderSize]);
 		}
 
@@ -256,7 +262,203 @@ namespace UWDataImport.UWData
 
 		public const int QuestBytesF6Offset = 0xF6;
 
+		/// <summary>quest_bytes (0xE6)[QB_WORLDS_VISITED = 13]: a bit per world visited, the map's gem.</summary>
+		public const int WorldsVisitedOffset = 0xE6 + 13;
+
 		public const int MapScrapOffset = 0xF8;
+
+		/// <summary>quests, 32 longs of four bits each, then the 16 quest bytes and bF6.</summary>
+		public const int QuestsOffset = 0x66;
+
+		public const int QuestBytesOffset = 0xE6;
+
+		/// <summary>The numbered variables, 256 words (get_numbered_variable).</summary>
+		public const int VariablesOffset = 0xF9;
+
+		/// <summary>The 16 X clocks.</summary>
+		public const int XClocksOffset = 0x36D;
+
+		/// <summary>Setting X clock 0 moves the game clock by this per step (x_clock).</summary>
+		public const int DayStepClock = 0x4B000;
+
+		/// <summary>The word holding in_pits at bit 2 of byte 0x63.</summary>
+		public const int PitsByteOffset = 0x63;
+
+		public const int PitsBit = 4;
+
+		private const int PoisonMask = 0xF;
+
+		private const int NameLength = 0x1E;
+
+		private const int QuestBitCount = 0x80;
+
+		private const int QuestByteCount = 0x10;
+
+		private const int VariableCount = 0x100;
+
+		private const int BodyShift = 2;
+
+		private const int BodyMask = 7;
+
+		/// <summary>Female heads lie five places on in HEADS.GR (strt_converse).</summary>
+		private const int FemaleHeads = 5;
+
+		public static string Name(UWPlayerFile pOFile)
+		{
+			System.Text.StringBuilder lOName = new System.Text.StringBuilder();
+
+			for (int liAt = 0; liAt < NameLength && pOFile.Record[liAt] != 0; liAt++)
+				lOName.Append((char)pOFile.Record[liAt]);
+
+			return lOName.ToString();
+		}
+
+		/// <summary>The player's head in HEADS.GR.</summary>
+		public static int BodyPortrait(UWPlayerFile pOFile) => (IsFemale(pOFile) ? FemaleHeads : 0) + ((pOFile.Record[BodyByteOffset] >> BodyShift) & BodyMask);
+
+		public static bool IsWeaponDrawn(UWPlayerFile pOFile) => (pOFile.Record[StateWordOffset] & 1) != 0;
+
+		public static int GameClock(UWPlayerFile pOFile) => (int)fReadU32(pOFile.Record, GameClockOffset);
+
+		public static bool IsInPits(UWPlayerFile pOFile) => pOFile != null && (pOFile.Record[PitsByteOffset] & PitsBit) != 0;
+
+		/// <summary>What a conversation hands back: hunger, hit points (the workspace's player too), mana and
+		/// poison (update_converse_data).</summary>
+		public static void SetConversationValues(UWPlayerFile pOFile, int piHunger, int piHitPoints, int piMana, int piPoison)
+		{
+			if (pOFile == null)
+				return;
+
+			pOFile.Record[HungerOffset] = (byte)piHunger;
+			pOFile.Record[VitalityOffset] = (byte)piHitPoints;
+
+			if (pOFile.Workspace.Length > WorkspaceHitPointsOffset)
+				pOFile.Workspace[WorkspaceHitPointsOffset] = (byte)piHitPoints;
+
+			pOFile.Record[ManaOffset] = (byte)piMana;
+			pOFile.Record[StateWordOffset] = (byte)((pOFile.Record[StateWordOffset] & ~(PoisonMask << 1)) | ((piPoison & PoisonMask) << 1));
+		}
+
+		/// <summary>What the player's clock moves, into the record (UWVitalsUw2).</summary>
+		public static void WriteVitals(UWPlayerFile pOFile, int piHunger, int piHitPoints, int piMana, int piPoison, int piFatigue, int piFoodHeal,
+			int piCounter3C, int piClock)
+		{
+			if (pOFile == null)
+				return;
+
+			SetConversationValues(pOFile, piHunger, piHitPoints, piMana, piPoison);
+			pOFile.Record[FatigueOffset] = (byte)piFatigue;
+			pOFile.Record[FoodHealOffset] = (byte)piFoodHeal;
+			pOFile.Record[FoodHealOffset + 1] = (byte)piCounter3C;
+			UWBinary.Write16(pOFile.Record, GameClockOffset, piClock & 0xFFFF);
+			UWBinary.Write16(pOFile.Record, GameClockOffset + 2, (piClock >> 16) & 0xFFFF);
+		}
+
+		/// <summary>What the player's blows earn, into the record.</summary>
+		public static void WriteExperience(UWPlayerFile pOFile, int piExperience, int piLevel, int piSkillPoints, int piSkillPointsEarned)
+		{
+			if (pOFile == null)
+				return;
+
+			UWBinary.Write16(pOFile.Record, ExperienceOffset, piExperience & 0xFFFF);
+			UWBinary.Write16(pOFile.Record, ExperienceOffset + 2, (piExperience >> 16) & 0xFFFF);
+			pOFile.Record[CharacterLevelOffset] = (byte)piLevel;
+			pOFile.Record[SkillPointsOffset] = (byte)piSkillPoints;
+			pOFile.Record[SkillPointsEarnedOffset] = (byte)piSkillPointsEarned;
+		}
+
+		/// <summary>get_quest: 0 to 127 bits, four to a long, 128 to 143 the bytes, above them bF6.</summary>
+		public static int GetQuest(UWPlayerFile pOFile, int piQuest)
+		{
+			if (pOFile == null || piQuest < 0)
+				return 0;
+
+			if (piQuest < QuestBitCount)
+				return (int)((fQuestLong(pOFile, piQuest) >> (piQuest & 3)) & 1);
+
+			return piQuest < QuestBitCount + QuestByteCount ? pOFile.Record[QuestBytesOffset + piQuest - QuestBitCount] : pOFile.Record[QuestBytesF6Offset];
+		}
+
+		/// <summary>set_quest: a value other than 0 or 1 is added in unmasked and spills into the next bits, as in
+		/// the original; above 143 nothing.</summary>
+		public static void SetQuest(UWPlayerFile pOFile, int piQuest, int piValue)
+		{
+			if (pOFile == null || piQuest < 0)
+				return;
+
+			if (piQuest < QuestBitCount)
+			{
+				uint luBit = 1u << (piQuest & 3);
+
+				UWBinary.Write32(pOFile.Record, fQuestAt(piQuest), (int)((fQuestLong(pOFile, piQuest) & ~luBit) + (uint)(piValue << (piQuest & 3))));
+			}
+			else if (piQuest < QuestBitCount + QuestByteCount)
+				pOFile.Record[QuestBytesOffset + piQuest - QuestBitCount] = (byte)piValue;
+		}
+
+		private static uint fReadU32(byte[] pyData, int piAt) => (uint)(UWBinary.ReadU16(pyData, piAt) | (UWBinary.ReadU16(pyData, piAt + 2) << 16));
+
+		private static int fQuestAt(int piQuest) => QuestsOffset + ((piQuest >> 2) * 4);
+
+		private static uint fQuestLong(UWPlayerFile pOFile, int piQuest) => fReadU32(pOFile.Record, fQuestAt(piQuest));
+
+		/// <summary>get_numbered_variable: 0 to 0xFF the variables, 0x100 up the quest bits, the bytes, the X
+		/// clocks; 0 beyond.</summary>
+		public static int GetNumbered(UWPlayerFile pOFile, int piIndex)
+		{
+			if (pOFile == null || piIndex < 0)
+				return 0;
+
+			if (piIndex < VariableCount)
+				return UWBinary.ReadU16(pOFile.Record, VariablesOffset + (piIndex * 2));
+
+			int liRest = piIndex - VariableCount;
+
+			if (liRest < QuestBitCount + QuestByteCount)
+				return GetQuest(pOFile, liRest);
+
+			liRest -= QuestBitCount + QuestByteCount;
+
+			return liRest < QuestByteCount ? pOFile.Record[XClocksOffset + liRest] : 0;
+		}
+
+		/// <summary>set_numbered_variable with its op 2, the plain store x_traps uses: a variable keeps a byte, a
+		/// quest bit whether the value is above 0.</summary>
+		public static void SetNumbered(UWPlayerFile pOFile, int piIndex, int piValue)
+		{
+			if (pOFile == null || piIndex < 0)
+				return;
+
+			if (piIndex < VariableCount)
+			{
+				UWBinary.Write16(pOFile.Record, VariablesOffset + (piIndex * 2), (byte)piValue);
+
+				return;
+			}
+
+			int liRest = piIndex - VariableCount;
+
+			if (liRest < QuestBitCount)
+				SetQuest(pOFile, liRest, piValue > 0 ? 1 : 0);
+			else if (liRest < QuestBitCount + QuestByteCount)
+				pOFile.Record[QuestBytesOffset + liRest - QuestBitCount] = (byte)piValue;
+			else if (liRest < QuestBitCount + QuestByteCount + QuestByteCount)
+				pOFile.Record[XClocksOffset + liRest - QuestBitCount - QuestByteCount] = (byte)piValue;
+		}
+
+		public static int XClock(UWPlayerFile pOFile, int piClock) => pOFile.Record[XClocksOffset + piClock];
+
+		/// <summary>x_clock's store: clock 0 moves the game clock with it.</summary>
+		public static void SetXClock(UWPlayerFile pOFile, int piClock, int piValue)
+		{
+			if (piClock == 0)
+				UWBinary.Write32(pOFile.Record, GameClockOffset, GameClock(pOFile) + ((piValue - XClock(pOFile, 0)) * DayStepClock));
+
+			pOFile.Record[XClocksOffset + piClock] = (byte)piValue;
+		}
+
+		/// <summary>The automap's state while in the Void (game/GAMEWRAP.C do_level_hacks).</summary>
+		public const int SavedAutomapOffset = 0x2F9;
 
 		public const int EasyOffset = 0x301;
 

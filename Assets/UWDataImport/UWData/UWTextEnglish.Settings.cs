@@ -10,6 +10,7 @@ namespace UWDataImport.UWData
 		{
 			// The game.
 			fAdd("setting.GogInstallPath", "Game folder");
+			fAdd("setting.GogInstallPathUw2", "Folder of Ultima Underworld II");
 			fAdd("setting.ControlScheme", "Scheme");
 			fAdd("setting.ControlScheme.choice.original", "Original");
 			fAdd("setting.ControlScheme.choice.modern", "Modern");

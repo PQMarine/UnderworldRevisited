@@ -144,13 +144,29 @@ namespace UWDataImport.UWData
 			}
 		}
 
+		/// <summary>The second game's: the first game's without what it does its own way (sex, x_skills,
+		/// x_traps), and its new built-ins (UWConversationSession.RegisterFunctionsUw2), sealed.</summary>
+		public static UWConversationFunctionTable CreateUw2()
+		{
+			UWConversationFunctionTable lOTable = new UWConversationFunctionTable();
+
+			UWConversationSession.RegisterFunctions(lOTable, false);
+			UWConversationSession.RegisterFunctionsUw2(lOTable);
+			UWConversationTrade.RegisterFunctions(lOTable);
+			UWConversationTrade.RegisterFunctionsUw2(lOTable);
+
+			lOTable.Seal();
+
+			return lOTable;
+		}
+
 		/// <summary>The first game's functions: the session's and the trade's, sealed - a new table each
 		/// call, for its profile (IUWGameProfile.ConversationFunctions).</summary>
 		public static UWConversationFunctionTable CreateDefault()
 		{
 			UWConversationFunctionTable lOTable = new UWConversationFunctionTable();
 
-			UWConversationSession.RegisterFunctions(lOTable);
+			UWConversationSession.RegisterFunctions(lOTable, true);
 			UWConversationTrade.RegisterFunctions(lOTable);
 
 			lOTable.Seal();

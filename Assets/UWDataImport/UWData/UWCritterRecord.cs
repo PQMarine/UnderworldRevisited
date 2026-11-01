@@ -290,6 +290,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>Word 0x0B bits 12-15: the animation frame; the goal routines cycle it 0..3
 		/// as a phase counter, the attack machine counts it to 4.</summary>
+		/// <summary>The game's way of holding the animation; none without a session.</summary>
+		private static IUWCritterVariant fGame => UWGameSession.Current != null ? UWGameSession.Current.Game.Critter : null;
+
 		public int Frame
 		{
 			get { return (fWord(UWNpcRecordCodec.GoalWord) >> 12) & 0xF; }
@@ -430,8 +433,8 @@ namespace UWDataImport.UWData
 		/// missile, 7 backing off, 0x0C dying, 0x0D spell, 0x20 standing, 0x2C walking).</summary>
 		public int Animation
 		{
-			get { return fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
-			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, value); }
+			get { return fGame != null ? fGame.SlotOfRecord(fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F) : fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
+			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, fGame != null ? fGame.RecordOfSlot(value) : value); }
 		}
 
 		/// <summary>Byte 0x15 bit 6: standing, no motion needed.</summary>

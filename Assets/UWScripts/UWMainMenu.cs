@@ -170,6 +170,12 @@ public class UWMainMenu : MonoBehaviour
 
     private RawImage mOReenter;
 
+    /// <summary>The second game's menu says that it is not done (per user, 2026-11-01).</summary>
+    private RawImage mOWorkInProgress;
+
+    /// <summary>Where that line stands, under the buttons at the screen's foot.</summary>
+    private const int WorkInProgressTop = 186;
+
     private float mfReenterTime = -1f;
 
     private int miReenterSlot;
@@ -412,6 +418,18 @@ public class UWMainMenu : MonoBehaviour
         UWGameClock.ReleaseAll();
     }
 
+    private void fShowWorkInProgress()
+    {
+        UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
+        string lsText = UWDataImport.UWData.UWText.T("menu.work_in_progress");
+        int liWidth = fBigWidth(lOFont, lsText);
+
+        mOWorkInProgress.gameObject.SetActive(true);
+        UWScreenUi.Place(mOWorkInProgress, (UWScreenUi.ScreenWidth - liWidth) / 2, WorkInProgressTop);
+        UWScreenUi.SetText(mOWorkInProgress, lOFont, lsText,
+            UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWClassicLayoutUw2.MainMenu.Palette, UWClassicLayoutUw2.MainMenu.ListLitColour)), liWidth + 1, false);
+    }
+
     private void fShowButtons()
     {
         fEnsureCanvas();
@@ -439,6 +457,7 @@ public class UWMainMenu : MonoBehaviour
         // The second game's menu lights a button from the start (real_start's sel).
         if (IsWalkMenu)
         {
+            fShowWorkInProgress();
             mOReenter.gameObject.SetActive(false);
             mfReenterTime = -1f;
             mbWalkPress = false;
@@ -930,6 +949,9 @@ public class UWMainMenu : MonoBehaviour
 
         mOReenter = UWUiKit.CreateRawImageAt(mOFrame, "Reenter", 0, 0);
         mOReenter.gameObject.SetActive(false);
+
+        mOWorkInProgress = UWUiKit.CreateRawImageAt(mOFrame, "Work in progress", 0, WorkInProgressTop);
+        mOWorkInProgress.gameObject.SetActive(false);
 
         mOCanvas.gameObject.SetActive(false);
     }

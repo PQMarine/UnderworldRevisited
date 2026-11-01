@@ -67,6 +67,16 @@ public static class UWUserSettings
         }
     }
 
+    public static string GogInstallPathUw2
+    {
+        get { return Defs.GogInstallPathUw2.Read(fGet()); }
+        set
+        {
+            Defs.GogInstallPathUw2.Write(fGet(), value);
+            Save();
+        }
+    }
+
     public static List<string> KeyBindings => Defs.KeyBindings.Read(fGet());
 
     public static int ColourMode { get => Defs.ColourMode.Read(fGet()); set => Defs.ColourMode.Write(fGet(), value); }

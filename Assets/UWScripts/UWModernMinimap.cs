@@ -457,6 +457,12 @@ public class UWModernMinimap : MonoBehaviour
     }
 
     /// <summary>The character's arrow, pointing up: a light head with a dark rim.</summary>
+    /// <summary>The character's arrow, for the second game's HUD too (UWModernHudUw2).</summary>
+    internal static Texture2D BuildArrow(int piSize)
+    {
+        return fBuildArrow(piSize);
+    }
+
     private static Texture2D fBuildArrow(int piSize)
     {
         Color32[] lyPixels = new Color32[piSize * piSize];

@@ -20,6 +20,48 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     public static partial class SelfChecks
     {
+        /// <summary>The accent keys (per user, 2026-11-01: a backtick and then e gave nothing): what the system
+        /// composes passes as its plain letters where the filter refuses it as it stands.</summary>
+        private static void fCheckTypedBaseLetters()
+        {
+            Func<char, bool> lfPlain = UWTextLine.IsTypeable;
+
+            Check.Str("typed: plain ASCII as it is", UWBaseLetters.Typed('e', lfPlain) ?? "(nothing)", "e");
+            Check.Str("typed: e-grave is its e", UWBaseLetters.Typed('\u00E8', lfPlain) ?? "(nothing)", "e");
+            Check.Str("typed: A-circumflex keeps its case", UWBaseLetters.Typed('\u00C2', lfPlain) ?? "(nothing)", "A");
+            Check.Str("typed: the ligature is two letters", UWBaseLetters.Typed('\u0153', lfPlain) ?? "(nothing)", "oe");
+            Check.Str("typed: a filter that takes the letter keeps it", UWBaseLetters.Typed('\u00E8', pcChar => true) ?? "(nothing)", "\u00E8");
+            Check.Str("typed: a sign without a plain letter stays out", UWBaseLetters.Typed('\u00D7', lfPlain) ?? "(nothing)", "(nothing)");
+            Check.Str("typed: plain letters the filter refuses stay out", UWBaseLetters.Typed('\u00E8', pcChar => false) ?? "(nothing)", "(nothing)");
+        }
+
+        /// <summary>A report from a player's French: a letter the font lacks vanished from the text. It is its plain
+        /// letter now, or two of them; what has none stays out, and a font without lowercase gains none.</summary>
+        private static void fCheckBaseLetters(UWFont pOFont, UWFonts.FontType peType)
+        {
+            string lsName = "base letters: " + peType;
+
+            if (pOFont.TryGetOwnGlyph('e', out UWFont.Glyph lOE) && lOE.Width > 0)
+            {
+                fExpectBool(lsName + ", e-acute is the e", pOFont.TryGetGlyph('\u00E9', out UWFont.Glyph lOAcute)
+                    && lOAcute.Width == lOE.Width && lOAcute.Pixels != null && System.Linq.Enumerable.SequenceEqual(lOAcute.Pixels, lOE.Pixels), true);
+                fExpectInt(lsName + ", ... measured as one", pOFont.MeasureText("\u00E9t\u00E9", 0, 0), pOFont.MeasureText("ete", 0, 0));
+            }
+
+            if (pOFont.TryGetOwnGlyph('o', out UWFont.Glyph lOO) && lOO.Width > 0 && lOE.Width > 0)
+                fExpectInt(lsName + ", the oe ligature is o and e", pOFont.MeasureText("\u0153", 0, 0), pOFont.MeasureText("oe", 0, 0));
+
+            if (pOFont.TryGetOwnGlyph('E', out UWFont.Glyph lOCapital) && lOCapital.Width > 0)
+                fExpectBool(lsName + ", E-circumflex is the E", pOFont.TryGetGlyph('\u00CA', out UWFont.Glyph lOHat) && lOHat.Width == lOCapital.Width, true);
+
+            if (pOFont.TryGetOwnGlyph('\'', out UWFont.Glyph lOQuote) && lOQuote.Width > 0)
+                fExpectBool(lsName + ", the typographic apostrophe is the plain one", pOFont.TryGetGlyph('\u2019', out UWFont.Glyph lOCurly) && lOCurly.Width == lOQuote.Width, true);
+
+            fExpectInt(lsName + ", the non-breaking space is a space", pOFont.MeasureText("\u00A0", 0, 0), pOFont.SpaceWidth);
+            fExpectBool(lsName + ", a sign without a plain letter stays out", pOFont.TryGetGlyph('\u00D7', out _), false);
+            fExpectBool(lsName + ", so does an ideograph", pOFont.TryGetGlyph('\u5C71', out _), false);
+        }
+
         private static void fCheckFontGlyphs(CheckContext pOContext)
         {
             Check.Group("Font glyphs (UWFontGlyphBuilder - the German letters, translations wave 1)");
@@ -27,6 +69,7 @@ namespace UnderworldRevisited.Tools
             SortedDictionary<string, string> lONow = new SortedDictionary<string, string>(StringComparer.Ordinal);
 
             fCheckFontGlyphsMadeUp(lONow);
+            fCheckTypedBaseLetters();
 
             int liFonts = 0;
             string lsSource = null;
@@ -51,6 +94,7 @@ namespace UnderworldRevisited.Tools
                     fExpectBool("font glyphs: " + leType + ", the data's font got them", fSameAdded(lOFont, pOContext.Data.Fonts.Get(leType)), true);
 
                 fRecordGlyphs("font glyphs: " + leType, lOFont, lONow);
+                fCheckBaseLetters(lOFont, leType);
             }
 
             if (liFonts == 0)
@@ -205,7 +249,7 @@ namespace UnderworldRevisited.Tools
             fExpectBool("made-up font: a code it has stays its own", lOFont.AddGlyph('a', new UWFont.Glyph { Width = 1, Pixels = new byte[6] }), false);
             fExpectBool("made-up font: a glyph of the wrong height is refused",
                 lOFont.AddGlyph(0x100, new UWFont.Glyph { Width = 2, Pixels = new byte[6] }), false);
-            fExpectBool("made-up font: without the builder no umlaut", lOPlain.TryGetGlyph('\u00E4', out _), false);
+            fExpectBool("made-up font: without the builder no umlaut of its own", lOPlain.TryGetOwnGlyph('\u00E4', out _), false);
             fExpectInt("a font without lowercase: only the capitals",
                 UWFontGlyphBuilder.AddGerman(fWithoutLowercase(lyBytes), UWFonts.FontType.Small), 3);
 
@@ -236,7 +280,8 @@ namespace UnderworldRevisited.Tools
                 liUmlaut > 0 && lOFont.TryGetGlyph('\u00E4', out UWFont.Glyph lOA) && liUmlaut == lOA.Width + UWTextLayout.CharacterSpacing, true);
             fExpectInt("measure: a word of them", lOFont.MeasureText("\u00E4\u00F6\u00FC\u00DF", 0, 0),
                 fWidth(lOFont, '\u00E4') + fWidth(lOFont, '\u00F6') + fWidth(lOFont, '\u00FC') + fWidth(lOFont, '\u00DF'));
-            fExpectInt("measure: without the builder they had no width", lOPlain.MeasureText("\u00E4\u00F6\u00FC\u00DF", 0, 0), 0);
+            fExpectInt("measure: without the builder they are their plain letters", lOPlain.MeasureText("\u00E4\u00F6\u00FC\u00DF", 0, 0),
+                lOPlain.MeasureText("aouss", 0, 0));
 
             string lsWord = "\u00C4\u00D6\u00DC\u00DF";
             List<string> lOLines = UWTextLayout.WrapText(lOFont, lsWord + " " + lsWord, lOFont.MeasureText(lsWord, 0, UWTextLayout.CharacterSpacing));

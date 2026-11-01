@@ -17,7 +17,7 @@ namespace UWDataImport.UWData
 	/// through IUWConversationHost. The Unity side implements that in UWConversationHost;
 	/// UWConversationView only shows what this class keeps.
 	/// </summary>
-	public class UWConversationSession : UWConversationVM.IHost
+	public partial class UWConversationSession : UWConversationVM.IHost
 	{
 		/// <summary>One line of the history.</summary>
 		public struct Line
@@ -29,6 +29,14 @@ namespace UWDataImport.UWData
 			public bool IsPlayer;
 
 			public string Text;
+
+			/// <summary>The typed answer said again by the script (fTryReprint) in the second game: it comes as a
+			/// say does, after the wait, and keeps its line even when it is empty.</summary>
+			public bool IsReprint;
+
+			/// <summary>No text but switch_pic's change of the portrait at this place of the history: its whoami, or
+			/// 0x100 + a generic head; 0 on a line of text.</summary>
+			public int Picture;
 		}
 
 		private readonly DataImport mOData;
@@ -116,7 +124,9 @@ namespace UWDataImport.UWData
 			// empty; the others (whoami 0, the generic conversations from 256, and 0xF0 on) show
 			// their object name, for the wisp "Wisp". Until then ours fell back to the object name
 			// for an empty personal name too (only slot 115 has one, probably never placed).
-			if (pONpc != null && (pONpc.NPCwhoami == 0 || pONpc.NPCwhoami >= FirstUnnamedWhoami))
+			// The second game's get_name falls through to the object's name when the personal one is empty.
+			if (pONpc != null && (pONpc.NPCwhoami == 0 || pONpc.NPCwhoami >= FirstUnnamedWhoami
+				|| (fFileUw2 != null && string.IsNullOrEmpty(PartnerName))))
 				PartnerName = fGetObjectName(pONpc.ID);
 
 			if (mOConversation == null)
@@ -249,7 +259,11 @@ namespace UWDataImport.UWData
 
 			string lsText = psText ?? string.Empty;
 
-			mOLines.Add(new Line { IsPlayer = true, Text = lsText });
+			// The second game's babl_ask writes nothing into the history (CONVERSE.C): the answer stays in the
+			// answer scroll, and the script says it again or not.
+			if (fFileUw2 == null)
+				mOLines.Add(new Line { IsPlayer = true, Text = lsText });
+
 			mOVm.SupplyTypedInput(RegisterString(lsText));
 
 			Advance();
@@ -347,6 +361,13 @@ namespace UWDataImport.UWData
 
 			string lsText = psText.Substring(2, psText.Length - 4);
 
+			if (fFileUw2 != null)
+			{
+				mOLines.Add(new Line { IsPlayer = true, IsReprint = true, Text = lsText.Trim() });
+
+				return true;
+			}
+
 			if (mOLines.Count > 0 && mOLines[mOLines.Count - 1].IsPlayer
 				&& string.Equals(mOLines[mOLines.Count - 1].Text.Trim(), lsText.Trim(), System.StringComparison.OrdinalIgnoreCase))
 				return true;
@@ -366,12 +387,18 @@ namespace UWDataImport.UWData
 			if (piFlag < 0)
 				return 0;
 
+			if (fFileUw2 != null)
+				return UWPlayerRecordUw2.GetQuest(fFileUw2, piFlag);
+
 			return mOGame.Quests.Get(piFlag > LastQuestFlag ? LastQuestFlag : piFlag);
 		}
 
 		public void SetQuest(int piFlag, int piValue)
 		{
-			mOGame.Quests.Set(piFlag, piValue);
+			if (fFileUw2 != null)
+				UWPlayerRecordUw2.SetQuest(fFileUw2, piFlag, piValue);
+			else
+				mOGame.Quests.Set(piFlag, piValue);
 		}
 
 		/// <summary>The script's random (BabRand in the decompilation's BABL.C): 1 to piMaximum,
@@ -416,20 +443,14 @@ namespace UWDataImport.UWData
 
 		/// <summary>The session's own functions (the trade registers its own,
 		/// UWConversationTrade.RegisterFunctions). Until 2026-10-14 the switch in CallUnknown, with
-		/// gronk_door tested by its function id 0x25 first.</summary>
-		internal static void RegisterFunctions(UWConversationFunctionTable pOTable)
+		/// gronk_door tested by its function id 0x25 first. pbCharacter: sex, x_skills and x_traps, which the
+		/// second game does its own way (RegisterFunctionsUw2).</summary>
+		internal static void RegisterFunctions(UWConversationFunctionTable pOTable, bool pbCharacter)
 		{
 			const UWConversationFunctionTable.Provider leSession = UWConversationFunctionTable.Provider.Session;
 
 			pOTable
 				.Register("gronk_door", leSession, (pOSession, pOCall) => pOSession.fGronkDoor(pOCall.Arguments))
-
-				// sex(male, female): the string number that matches the character. Confirmed by
-				// the pairs "lad"/"lass", "son"/"daughter", "He"/"She" in the data - the
-				// first is always the male one.
-				.Register("sex", leSession, (pOSession, pOCall) =>
-					pOCall.Argument(pOSession.mOData != null && pOSession.mOData.InitialPlayer != null
-						&& pOSession.mOData.InitialPlayer.IsFemale ? 1 : 0))
 
 				// compare(a, b): same text, ignoring case (reference) - UWConversationTextRules.SameText,
 				// which folds a translation's umlauts too.
@@ -447,9 +468,20 @@ namespace UWDataImport.UWData
 
 					return UWConversationTextRules.ContainsWord(lsText, lsKeyword) ? 1 : 0;
 				})
-				.Register("length", leSession, (pOSession, pOCall) => pOSession.fStringOf(pOCall.Argument(0)).Length)
-				.Register("x_skills", leSession, (pOSession, pOCall) => pOSession.fXSkills(pOCall.Argument(0), pOCall.Argument(1)))
-				.Register("x_traps", leSession, (pOSession, pOCall) => pOSession.fXTraps(pOCall.Argument(0), pOCall.Argument(1)));
+				.Register("length", leSession, (pOSession, pOCall) => pOSession.fStringOf(pOCall.Argument(0)).Length);
+
+			if (pbCharacter)
+			{
+				pOTable
+					// sex(male, female): the string number that matches the character. Confirmed by
+					// the pairs "lad"/"lass", "son"/"daughter", "He"/"She" in the data - the
+					// first is always the male one.
+					.Register("sex", leSession, (pOSession, pOCall) =>
+						pOCall.Argument(pOSession.mOData != null && pOSession.mOData.InitialPlayer != null
+							&& pOSession.mOData.InitialPlayer.IsFemale ? 1 : 0))
+					.Register("x_skills", leSession, (pOSession, pOCall) => pOSession.fXSkills(pOCall.Argument(0), pOCall.Argument(1)))
+					.Register("x_traps", leSession, (pOSession, pOCall) => pOSession.fXTraps(pOCall.Argument(0), pOCall.Argument(1)));
+			}
 
 			// UW1 BINDS NO give_all_stuff AND NO do_input_wait (Converse, CONVERSE.C: neither among
 			// its bab_fun calls; give_all_stuff is UW2's) - an unbound import answers 0, as
@@ -672,14 +704,16 @@ namespace UWDataImport.UWData
 				mOVm.SetImportedGlobal("play_drawn", mIHost.PlayerWeaponDrawn ? 1 : 0);
 			}
 
-			UWPlayerData lOPlayerData = mOData != null ? mOData.InitialPlayer : null;
-
-			mOVm.SetImportedGlobal("play_sex", lOPlayerData != null && lOPlayerData.IsFemale ? 1 : 0);
+			mOVm.SetImportedGlobal("play_sex", fIsFemale ? 1 : 0);
 
 			// The private globals outlive the conversation: they come from the memory loaded
 			// before this (UWConversationGlobals, zeros in a new game) and are written back in
 			// fWriteBackGlobals.
 		}
+
+		private bool fIsFemale => fFileUw2 != null
+			? UWPlayerRecordUw2.IsFemale(fFileUw2)
+			: mOData != null && mOData.InitialPlayer != null && mOData.InitialPlayer.IsFemale;
 
 		/// <summary>Health in signed 16-bit arithmetic like UW.EXE: (hp shl 8) as a
 		/// signed word, divided as integers. Hit points from 128 on become
@@ -831,6 +865,9 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private string fGetConversationString(int piBlock, int piIndex)
 		{
+			if (piIndex == PlayerNameString && fFileUw2 != null)
+				return UWPlayerRecordUw2.Name(fFileUw2);
+
 			if (piIndex == PlayerNameString)
 				return mOData != null && mOData.InitialPlayer != null && !string.IsNullOrEmpty(mOData.InitialPlayer.Name)
 					? mOData.InitialPlayer.Name

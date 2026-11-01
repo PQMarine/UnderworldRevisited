@@ -41,6 +41,7 @@ namespace UnderworldRevisited.Tools
             fExpectInt("layout: the parchment holds thirteen six-pixel lines", UWConversationLayout.HistoryCapacity(lOFont), 13);
 
             fCheckConversationMore(lOFont);
+            fCheckVernixArrivesWhole(pOData, lOFont);
             fCheckConversationAnswers(lOFont);
             fCheckConversationTyping(lOFont);
             fCheckConversationLookAndTrade();
@@ -147,6 +148,81 @@ namespace UnderworldRevisited.Tools
                 liWidest = System.Math.Max(liWidest, pOFont.MeasureText(lsLine, 0, UWTextLayout.CharacterSpacing));
 
             Check.Bool("Ketchaval: no line wider than the parchment's 159", liWidest <= UWConversationLayout.HistoryWidth, true);
+        }
+
+        /// <summary>A report from a player: Vernix's speeches stop after about six sentences. Every string of his
+        /// block, through every [MORE] of the classic parchment and in the modern view: no word may go missing.</summary>
+        private static void fCheckVernixArrivesWhole(DataImport pOData, UWFont pOFont)
+        {
+            UWStringBlock lOBlock = null;
+
+            if (pOData.Strings == null || pOData.Strings.Blocks == null || !pOData.Strings.Blocks.TryGetValue(VernixStringBlock, out lOBlock) || lOBlock == null)
+            {
+                Check.Fail("Vernix: his string block", "not found");
+
+                return;
+            }
+
+            int liLost = 0;
+            string lsFirstLost = string.Empty;
+
+            foreach (string lsString in lOBlock.Strings)
+            {
+                if (string.IsNullOrEmpty(lsString))
+                    continue;
+
+                foreach (bool lbModern in new[] { false, true })
+                {
+                    string lsMissing = fFirstLostWord(pOFont, lsString, lbModern);
+
+                    if (lsMissing == null)
+                        continue;
+
+                    liLost++;
+
+                    if (lsFirstLost.Length == 0)
+                        lsFirstLost = (lbModern ? "modern: " : "classic: ") + lsMissing + " in " + lsString;
+                }
+            }
+
+            fExpectInt("Vernix: no word of his speeches is lost " + lsFirstLost, liLost, 0);
+        }
+
+        private const int VernixStringBlock = 0x0E09;
+
+        /// <summary>Pages through a text as the player's clicks do; the first word that never came, or null.</summary>
+        private static string fFirstLostWord(UWFont pOFont, string psText, bool pbModern)
+        {
+            UWConversationView.Policy lyPolicy = UWConversationView.Policy.For(pOFont, pbModern);
+            UWConversationView lOView = fViewOf(new UWConversationSession.Line { IsNpc = true, Text = psText });
+            List<string> lOVisible = new List<string>();
+            List<UWConversationLayout.RoleEnum> lORoles = new List<UWConversationLayout.RoleEnum>();
+
+            lOView.Refresh(pOFont, lyPolicy);
+
+            for (int liClick = 0; liClick < 100 && lOView.MorePending; liClick++)
+            {
+                lOView.ContinueAfterMore();
+                lOView.Refresh(pOFont, lyPolicy);
+            }
+
+            lyPolicy.LinesCapacity = 100000;
+            lOView.VisibleHistory(lyPolicy, lOVisible, lORoles);
+
+            string lsShown = " " + string.Join(" ", lOVisible) + " ";
+            int liAt = 0;
+
+            foreach (string lsWord in psText.Replace("\\m", " ").Replace("\\p", " ").Replace("\n", " ").Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                int liFound = lsShown.IndexOf(lsWord, liAt, System.StringComparison.Ordinal);
+
+                if (liFound < 0)
+                    return lsWord;
+
+                liAt = liFound + lsWord.Length;
+            }
+
+            return null;
         }
 
         /// <summary>A text of so many words that it wraps to many lines.</summary>

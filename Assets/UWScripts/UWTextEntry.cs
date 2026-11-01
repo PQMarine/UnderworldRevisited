@@ -206,6 +206,43 @@ public sealed class UWTextEntry
     }
 
     /// <summary>Backspace went down this frame.</summary>
+    /// <summary>A key that counts as "any key" for [MORE] and the end of a conversation: the modifiers alone do
+    /// not, as in the originals, where they come as no key code (per user on the original, 2026-10-31: Alt or
+    /// Shift ended the conversation here).</summary>
+    public static bool AnyKeyPressed
+    {
+        get
+        {
+            Keyboard lOKeyboard = Keyboard.current;
+
+            if (lOKeyboard == null || !lOKeyboard.anyKey.wasPressedThisFrame)
+                return false;
+
+            foreach (UnityEngine.InputSystem.Controls.KeyControl lOKey in lOKeyboard.allKeys)
+            {
+                if (lOKey == null || !lOKey.wasPressedThisFrame)
+                    continue;
+
+                switch (lOKey.keyCode)
+                {
+                    case Key.LeftShift:
+                    case Key.RightShift:
+                    case Key.LeftCtrl:
+                    case Key.RightCtrl:
+                    case Key.LeftAlt:
+                    case Key.RightAlt:
+                    case Key.LeftMeta:
+                    case Key.RightMeta:
+                        continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+    }
+
     public static bool BackspacePressed => Keyboard.current != null && Keyboard.current.backspaceKey.wasPressedThisFrame;
 
     /// <summary>Enter or the keypad's Enter went down this frame.</summary>
@@ -217,7 +254,12 @@ public sealed class UWTextEntry
 
     private void fOnTextInput(char pcChar)
     {
-        if (mFFilter(pcChar))
-            mFOnCharacter(pcChar);
+        string lsTyped = UWDataImport.UWData.UWBaseLetters.Typed(pcChar, mFFilter);
+
+        if (lsTyped == null)
+            return;
+
+        foreach (char lcChar in lsTyped)
+            mFOnCharacter(lcChar);
     }
 }

@@ -187,6 +187,10 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     {
         get
         {
+            // The second game's lives on its game screen (UWGameScreenUw2).
+            if (UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+                return UWGameScreenUw2.Current.Inventory;
+
             UWInventory lOInventory = UWScene.Inventory;
 
             return lOInventory != null ? lOInventory.Model : null;
@@ -197,6 +201,10 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     {
         get
         {
+            // The first game's component stands in the second game's scene too, with vitals nothing runs.
+            if (UWWalkUw2.IsWalking)
+                return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
+
             UWCharacter lOCharacter = UWScene.Character;
 
             return lOCharacter != null ? lOCharacter.Vitals : null;
@@ -209,6 +217,9 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     {
         get
         {
+            if (UWWalkUw2.IsWalking)
+                return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.DamageTypeProof : 0;
+
             UWCharacter lOCharacter = UWScene.Character;
 
             return lOCharacter != null ? lOCharacter.DamageTypeProof : 0;

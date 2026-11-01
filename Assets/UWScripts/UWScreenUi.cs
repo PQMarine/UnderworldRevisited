@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UWDataImport.Presentation;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -133,6 +134,53 @@ public static class UWScreenUi
         return BuildTexture(lOSource, peFilter, pbZeroTransparent);
     }
 
+    /// <summary>
+    /// An object's picture as pic_to_screen draws it in the second game: only the picture's own colour 0 is
+    /// clear. Its black edge is another colour of the picture that the auxiliary palette maps to main colour
+    /// 0, so going by the main palette, as above, took the edge away (per user with the original, 2026-10-31).
+    /// </summary>
+    public static Texture2D BuildObjectPicture(UWTextures pOTextures, int piId)
+    {
+        return BuildPicture(pOTextures, UWTexture.TextureTypes.OBJECTS, piId);
+    }
+
+    /// <summary>A picture of the second game with only its own colour 0 clear, as BuildObjectPicture: a flask's
+    /// liquid lost its dark colours by the main palette (per user 2026-10-31).</summary>
+    public static Texture2D BuildPicture(UWTextures pOTextures, UWTexture.TextureTypes peType, int piId)
+    {
+        UWTexture lOSource;
+
+        try
+        {
+            lOSource = pOTextures != null ? pOTextures.GetTextureByType(peType, piId) : null;
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (lOSource == null || lOSource.PaletteIndices == null || lOSource.Width <= 0 || lOSource.Height <= 0)
+            return null;
+
+        byte[] lyRgba = UWUploadPixels.FromTexture(lOSource, UWColourVision.Filter);
+        byte[] lyIndices = lOSource.PaletteIndices;
+        int liWidth = lOSource.Width;
+        int liHeight = lOSource.Height;
+
+        for (int liRow = 0; liRow < liHeight; liRow++)
+        {
+            for (int liColumn = 0; liColumn < liWidth; liColumn++)
+            {
+                int liIndex = (liRow * liWidth) + liColumn;
+                bool lbClear = liIndex < lyIndices.Length && lyIndices[liIndex] == 0;
+
+                lyRgba[((((liHeight - 1 - liRow) * liWidth) + liColumn) * UWUploadPixels.BytesPerPixel) + 3] = lbClear ? (byte)0 : (byte)255;
+            }
+        }
+
+        return UWTextureFactory.Upload(lyRgba, liWidth, liHeight, FilterMode.Point, TextureWrapMode.Clamp, "UW2 picture " + piId);
+    }
+
     /// <summary>A palette colour as a Unity colour.</summary>
     public static Color32 GetColour(UWPalettes pOPalettes, int piPalette, int piIndex)
     {
@@ -215,7 +263,7 @@ public static class UWScreenUi
     /// </summary>
     public static bool IsScreenMenuOpen
     {
-        get { return UWMainMenu.IsOpen || UWCharacterCreationScreen.IsAnyOpen || UWCharacterCreationScreenUw2.IsAnyOpen; }
+        get { return UWMainMenu.IsOpen || UWCharacterCreationScreen.IsAnyOpen || UWCharacterCreationScreenUw2.IsAnyOpen || UWMapScreenUw2.IsOpen; }
     }
 
     // ------------------------------------------------------------------

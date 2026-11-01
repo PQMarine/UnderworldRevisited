@@ -81,7 +81,7 @@ public class DebugFunctions : MonoBehaviour
             switch (peGate)
             {
                 // N and B are silent in the main menu and character creation (see UWScreenUi.IsScreenMenuOpen).
-                case UWHotkeyGate.ScreenMenu: return UWScreenUi.IsScreenMenuOpen;
+                case UWHotkeyGate.ScreenMenu: return UWScreenUi.IsScreenMenuOpen || UWConversationScreenUw2.IsOpen;
 
                 // Switch level directly to get to a spot quickly - only in noclip mode, since the
                 // player does not move along with it.

@@ -125,6 +125,10 @@ public class UWCritterAnimator : MonoBehaviour
         int[] lOFrames = mOAtlas.GetFramesForSlot(liSlot);
         int liStep = UWCritterArtUw2.FrameOf(mONpcUw2);
 
+        // A sequence is as long as its map says, the brain's frames count on: it comes round.
+        if (lOFrames != null && lOFrames.Length > 0 && mOCritter != null)
+            liStep %= lOFrames.Length;
+
         if (lOFrames == null || liStep >= lOFrames.Length)
         {
             mORenderer.enabled = false;
@@ -229,8 +233,13 @@ public class UWCritterAnimator : MonoBehaviour
 
         if (lOCollider != null && mOAtlas.MaxSize.x > 0 && mOAtlas.MaxSize.y > 0)
         {
-            lOCollider.size = new Vector3(mOAtlas.MaxSize.x, mOAtlas.MaxSize.y, mOAtlas.MaxSize.x);
-            lOCollider.center = new Vector3(0f, mOAtlas.MaxSize.y * 0.5f, 0f);
+            // The second game's pictures are drawn smaller (fBuildMesh).
+            float lfScale = mONpcUw2 != null ? UWCritterArtUw2.CreaturePixelScale : 1f;
+            float lfWidth = mOAtlas.MaxSize.x * lfScale;
+            float lfHeight = mOAtlas.MaxSize.y * lfScale;
+
+            lOCollider.size = new Vector3(lfWidth, lfHeight, lfWidth);
+            lOCollider.center = new Vector3(0f, lfHeight * 0.5f, 0f);
         }
 
         return true;
@@ -315,6 +324,10 @@ public class UWCritterAnimator : MonoBehaviour
     /// (deviation 20). The direction pages are chosen in Update by the view.</summary>
     public void ShowMotion(int piAnimation, int piFrame)
     {
+        // The second game's picture follows the record (fApplyUw2).
+        if (mONpcUw2 != null)
+            return;
+
         miAnimation = piAnimation;
         miFrame = piFrame;
 

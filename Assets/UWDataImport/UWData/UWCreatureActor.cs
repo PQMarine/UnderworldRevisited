@@ -1489,7 +1489,7 @@ namespace UWDataImport.UWData
 		{
 			int liWhoami = mONpc.NPCwhoami;
 
-			if (!UWSpecialDeaths.HasSpecialDeath(liWhoami))
+			if (!fHasSpecialDeath(liWhoami))
 				return false;
 
 			// The world and the creature itself since cleanup step 3.6 (2026-10-17); a host of its own
@@ -1520,8 +1520,13 @@ namespace UWDataImport.UWData
 		{
 			int liWhoami = mONpc.NPCwhoami;
 
-			if (UWSpecialDeaths.HasSpecialDeath(liWhoami))
+			if (fHasSpecialDeath(liWhoami))
 				UWSpecialDeaths.Apply(liWhoami, UWSpecialDeaths.Stage.Dead, World, mIView.Ref);
+		}
+
+		private static bool fHasSpecialDeath(int piWhoami)
+		{
+			return UWGameSession.Current != null ? UWGameSession.Current.Game.Critter.HasSpecialDeath(piWhoami) : UWSpecialDeaths.HasSpecialDeath(piWhoami);
 		}
 
 		/// <summary>

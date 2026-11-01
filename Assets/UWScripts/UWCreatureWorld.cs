@@ -139,7 +139,18 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
     // ------------------------------------------------- The player
 
-    public bool HasPlayer => UWScene.Character != null;
+    public bool HasPlayer => fCharacter != null || fPlayerUw2 != null;
+
+    /// <summary>The first game's character. The component stands in the second game's scene too, on the camera,
+    /// with vitals of its own that nothing runs: a creature met those and heard nothing (per user's test, 2026-10-31).</summary>
+    private static UWCharacter fCharacter => UWWalkUw2.IsWalking ? null : UWScene.Character;
+
+    /// <summary>The second game's player, once his vitals run.</summary>
+    private static UWVitalsUw2 fPlayerUw2 => UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null ? UWVitalsUw2.Current : null;
+
+    /// <summary>The player's body in either game.</summary>
+    private static Transform fPlayerTransform => fCharacter != null ? fCharacter.transform
+        : fPlayerUw2 != null ? fPlayerUw2.EyeTransform : null;
 
     /// <summary>The player as the brain sees him: position in eighths from the camera's
     /// horizontal position, feet in zpos, the facing eighth from the yaw, loudness and
@@ -148,12 +159,13 @@ public sealed class UWCreatureWorld : ICreatureWorld
     public CritterTarget SnapshotPlayer()
     {
         CritterTarget lOTarget = new CritterTarget();
-        UWCharacter lOPlayer = UWScene.Character;
+        UWCharacter lOPlayer = fCharacter;
+        Transform lOPlayerTransform = fPlayerTransform;
 
-        if (lOPlayer == null)
+        if (lOPlayerTransform == null)
             return lOTarget;
 
-        Transform lOPlayerTransform = lOPlayer.transform;
+        UWPlayerVitals lOVitals = lOPlayer != null ? lOPlayer.Vitals : fPlayerUw2.Vitals;
         Vector3 lOAt = lOPlayerTransform.position;
         UWTilePos lOTile = UWTileQueries.WorldToTile(lOAt.x, lOAt.z);
 
@@ -164,14 +176,14 @@ public sealed class UWCreatureWorld : ICreatureWorld
         lOTarget.ItemId = UWCritterBrain.PlayerItemId;
         lOTarget.X = UWTileQueries.WorldToEighths(lOAt.x);
         lOTarget.Y = UWTileQueries.WorldToEighths(lOAt.z);
-        lOTarget.ZPos = Mathf.Clamp(lOPlayer.GetFeetZPos(), 0, 0x7F);
+        lOTarget.ZPos = Mathf.Clamp(lOPlayer != null ? lOPlayer.GetFeetZPos() : fPlayerUw2.FeetZPos, 0, 0x7F);
         lOTarget.TileX = lOTile.X;
         lOTarget.TileY = lOTile.Y;
-        lOTarget.ObjectHeight = lOPlayer.GetBodyHeightZ();
+        lOTarget.ObjectHeight = lOPlayer != null ? lOPlayer.GetBodyHeightZ() : fPlayerUw2.BodyHeightZ;
         lOTarget.FacingEighth = UWPlayerThrow.GetPlayerHeading(lOPlayerTransform) >> 5;
-        lOTarget.Loudness = lOPlayer.Vitals.Quietness;
-        lOTarget.Visibility = lOPlayer.Vitals.Visibility;
-        lOTarget.HitPoints = lOPlayer.Vitals.CurrentHP;
+        lOTarget.Loudness = lOVitals.Quietness;
+        lOTarget.Visibility = lOVitals.Visibility;
+        lOTarget.HitPoints = lOVitals.CurrentHP;
         lOTarget.Goal = 0;
         lOTarget.IsAlly = false;
         lOTarget.Kind = 0;
@@ -198,12 +210,12 @@ public sealed class UWCreatureWorld : ICreatureWorld
                 return UWTileQueries.WorldToTile(lOEye.x, lOEye.z);
             }
 
-            UWCharacter lOPlayer = UWScene.Character;
+            Transform lOPlayer = fPlayerTransform;
 
             if (lOPlayer == null)
                 return new UWTilePos(-100, -100);
 
-            Vector3 lOAt = lOPlayer.transform.position;
+            Vector3 lOAt = lOPlayer.position;
 
             return UWTileQueries.WorldToTile(lOAt.x, lOAt.z);
         }
@@ -214,14 +226,23 @@ public sealed class UWCreatureWorld : ICreatureWorld
     /// height in zpos - what the creature's blow on him reads.</summary>
     public bool TryGetPlayerAsDefender(out IUWAttackDefender pIDefender, out int piFeetZ, out int piBodyHeightZ)
     {
-        UWCharacter lOPlayer = UWScene.Character;
+        UWCharacter lOPlayer = fCharacter;
 
         pIDefender = null;
         piFeetZ = 0;
         piBodyHeightZ = 0;
 
         if (lOPlayer == null)
-            return false;
+        {
+            if (fPlayerUw2 == null)
+                return false;
+
+            pIDefender = fPlayerUw2.Combatant;
+            piFeetZ = fPlayerUw2.FeetZPos;
+            piBodyHeightZ = fPlayerUw2.BodyHeightZ;
+
+            return true;
+        }
 
         lOPlayer.RefreshStatus();
 
@@ -283,8 +304,8 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
         if (lbFound)
         {
-            UWCharacter lOPlayer = UWScene.Character;
-            Vector3 lODefenderAt = lbPlayer && lOPlayer != null ? lOPlayer.transform.position
+            Transform lOPlayer = fPlayerTransform;
+            Vector3 lODefenderAt = lbPlayer && lOPlayer != null ? lOPlayer.position
                 : (lODefender != null ? lODefender.BodyPosition : lOHit.point);
 
             lfDefenderDistance = fFlatDistance(lOBody, lODefenderAt);
@@ -568,10 +589,10 @@ public sealed class UWCreatureWorld : ICreatureWorld
             return;
         }
 
-        UWCharacter lOPlayer = UWScene.Character;
+        Transform lOPlayer = fPlayerTransform;
 
         if (lOPlayer != null)
-            UWAudioService.PlayEffectAt(pOOutcome.BlockedSound, lOPlayer.transform.position);
+            UWAudioService.PlayEffectAt(pOOutcome.BlockedSound, lOPlayer.position);
     }
 
     /// <summary>

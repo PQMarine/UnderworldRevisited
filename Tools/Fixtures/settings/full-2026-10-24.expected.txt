@@ -15,6 +15,7 @@ GamepadButtonHints = False
 GamepadButtonStyle = 1
 GamepadSwapSticks = True
 GogInstallPath = "C:\GOG Games\Ultima Underworld "Ä"/x"
+GogInstallPathUw2 = ""
 HeadBobMode = Smooth
 HeadBobStrength = 0.5
 HelpMapSpan = 32

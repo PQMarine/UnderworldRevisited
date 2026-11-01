@@ -28,6 +28,15 @@ public partial class UWSetupMenu : MonoBehaviour
 {
     private const float BarHeight = 30f;
 
+    /// <summary>The bar as it stands: one row of BarHeight, more where its items wrap (fDrawBar).</summary>
+    private float mfBarBottom = BarHeight;
+
+    /// <summary>Where this pass's items end, for mfBarBottom in the next.</summary>
+    private float mfBarEnd;
+
+    /// <summary>The row the next item stands on.</summary>
+    private float mfBarRowTop;
+
     /// <summary>
     /// THE BAR'S DIALOGS IN ONE STATE (cleanup 8.1, 2026-10-24): one dialog at a time, so one value
     /// instead of a flag per dialog. Until 2026-10-11 Controls and Colours could be open at once
@@ -220,7 +229,7 @@ public partial class UWSetupMenu : MonoBehaviour
         UWSetupMenu lOMenu = lOObject.AddComponent<UWSetupMenu>();
 
         lOMenu.mbFirstRun = true;
-        lOMenu.fOpenFolderDialog();
+        lOMenu.fOpenFolderDialog(false);
     }
 
     private void Update()
@@ -302,13 +311,13 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (lfMouseY <= RevealZone || lbInGameMenu)
             mbBarShown = true;
-        else if (!lbSomethingOpen && lfMouseY > BarHeight)
+        else if (!lbSomethingOpen && lfMouseY > mfBarBottom)
             mbBarShown = false;
 
         if (fKeyNavIsActive)
             mbBarShown = true;
 
-        IsCapturingInput = lbSomethingOpen || fKeyNavIsActive || (mbBarShown && lfMouseY <= BarHeight);
+        IsCapturingInput = lbSomethingOpen || fKeyNavIsActive || (mbBarShown && lfMouseY <= mfBarBottom);
         HasOpenPanel = lbSomethingOpen;
     }
 
@@ -368,7 +377,7 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>The effects window (UWEffectsScreen.Draw) under the bar; Done closes it.</summary>
     private void fDrawRemasteredEffects(float pfWidth)
     {
-        if (mOEffects.Draw(mOKitRows, mOKitPages, pfWidth, BarHeight))
+        if (mOEffects.Draw(mOKitRows, mOKitPages, pfWidth, mfBarBottom))
             meOpenDialog = DialogEnum.None;
     }
 
@@ -419,15 +428,13 @@ public partial class UWSetupMenu : MonoBehaviour
     {
         // On the kit (cleanup 8b.2) as wide as its rows need - the four modes' texts in the pseudo-
         // language ran out of it - and as tall, the flask preview's 102 and a gap under the rows.
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOColoursPage)), 150f, fHeight(420f, 110f));
+        Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOColoursPage) + ScrollBarRoom), 150f, 420f, 110f);
 
         float lfLeft = lODialog.x + 20f;
-        float lfInner = lODialog.width - 40f;
-        float lfTop = lODialog.y + 16f;
 
         // The modes, the strength, brightness and contrast, the hatch switch and its hint: the
         // page (fBuildColoursPage); a change takes effect at once through UWColourVision.
-        fContentEnds(lODialog, mOPassPages.Draw(mOColoursPage, lfLeft, lfTop, lfInner));
+        fDrawPageScrolled(lODialog, mOColoursPage, 110f);
 
         // Bottom edge level with the Done button (per user, 2026-09-17).
         fDrawFlaskPreview(lfLeft, lODialog.yMax - 16f - 20f - (33f * 2f));
@@ -600,22 +607,31 @@ public partial class UWSetupMenu : MonoBehaviour
     /// THE CONTROLS WINDOW AS TALL AS THE SCREEN ALLOWS (cleanup 8d.4, per user 2026-10-25: more of the
     /// keys to bind at once): from 8 under the bar to 8 above the screen's bottom edge, as the palette
     /// and the Remastered effects windows stand (90 to 630 until then). The layout is always 720 lines
-    /// high (UWGuiTheme.ReferenceHeight), so a small window shows the same rows smaller; the lists of
-    /// keys take what the window gained and scroll inside as before.
+    /// high (UWGuiTheme.ReferenceHeight), so a small window shows the same rows smaller.
+    ///
+    /// A TAB SCROLLS AS A WHOLE (per user, 2026-11-01): its rows and its list of keys in one view under
+    /// the two tabs, above the notice and the buttons. Until then only the list scrolled, in what the
+    /// rows above it left, so a long language's hint squeezed it to nothing. The height of what scrolls
+    /// is the last pass's.
     /// </summary>
-    private const float ControlsTop = BarHeight + 8f;
+    private float fControlsTop => mfBarBottom + 8f;
 
-    private const float ControlsHeight = UWGuiTheme.ReferenceHeight - 8f - ControlsTop;
+    private float fControlsHeight => UWGuiTheme.ReferenceHeight - 8f - fControlsTop;
+
+    private float mfKeyboardContent;
+
+    /// <summary>What a tab's view leaves on the right for the scroll bar.</summary>
+    private const float TabScrollBar = 20f;
 
     private void fDrawControlsDialog(float pfWidth)
     {
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, fControlsInnerNeeded()), ControlsTop, ControlsHeight);
+        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, fControlsInnerNeeded() + TabScrollBar), fControlsTop, fControlsHeight);
 
         float lfLeft = lODialog.x + 20f;
         float lfInner = lODialog.width - 40f;
         float lfTop = lODialog.y + 16f;
 
-        // The two tabs (fBuildControlsTabsPage), then the tab's rows down to its list of keys.
+        // The two tabs (fBuildControlsTabsPage), then the tab's rows and its list of keys.
         lfTop = mOPassPages.Draw(mOControlsTabsPage, lfLeft, lfTop, lfInner);
 
         if (mbControlsGamepadTab)
@@ -624,23 +640,27 @@ public partial class UWSetupMenu : MonoBehaviour
             return;
         }
 
-        lfTop = mOPassPages.Draw(mOKeyboardPage, lfLeft, lfTop, lfInner);
+        Rect lOView = new Rect(lfLeft, lfTop, lfInner, lODialog.yMax - 90f - lfTop);
+        float lfWidth = lOView.width - TabScrollBar;
 
-        Rect lOListRect = new Rect(lfLeft, lfTop, lfInner, lODialog.yMax - 90f - lfTop);
-        Rect lOContent = new Rect(0f, 0f, lOListRect.width - 20f, UWKeyBindings.Entries.Count * 28f);
+        mOControlsScroll = mOPassRows.BeginScroll(lOView, mOControlsScroll, new Rect(0f, 0f, lfWidth, Mathf.Max(lOView.height, mfKeyboardContent)));
 
-        mOControlsScroll = mOPassRows.BeginScroll(lOListRect, mOControlsScroll, lOContent);
+        float lfRowTop = mOPassPages.Draw(mOKeyboardPage, 0f, 0f, lfWidth);
 
-        for (int liAt = 0; liAt < UWKeyBindings.Entries.Count; liAt++)
+        // A label too long for its room takes more lines, the rows under it move down (per user, 2026-11-01).
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
         {
-            UWKeyBindings.Entry lOEntry = UWKeyBindings.Entries[liAt];
-            string lsKey = mOListeningFor == lOEntry ? UWText.T("setup.controls.press_key") : UWBindingInfo.Name(lOEntry);
+            string lsKey = fKeyName(lOEntry);
+            float lfHeight = mOPassRows.RebindHeight(lfWidth, lOEntry.Label, lsKey, false, 28f);
 
-            if (mOPassRows.Rebind(new Rect(0f, liAt * 28f, lOContent.width, 28f), lOEntry.Label, lsKey, null, false)
+            if (mOPassRows.Rebind(new Rect(0f, lfRowTop, lfWidth, lfHeight), lOEntry.Label, lsKey, null, false)
                 && mOListeningFor == null)
                 fListenFor(lOEntry);
+
+            lfRowTop += lfHeight;
         }
 
+        mfKeyboardContent = lfRowTop;
         mOPassRows.EndScroll();
 
         mOPassRows.Info(new Rect(lfLeft, lODialog.yMax - 82f, lfInner, 22f), msBindingNotice, UWRowInfoEnum.Dim);
@@ -666,14 +686,23 @@ public partial class UWSetupMenu : MonoBehaviour
         }
     }
 
+    private string fKeyName(UWKeyBindings.Entry pOEntry)
+    {
+        return mOListeningFor == pOEntry ? UWText.T("setup.controls.press_key") : UWBindingInfo.Name(pOEntry);
+    }
+
     // ------------------------------------------------- Folder dialog
 
-    private void fOpenFolderDialog()
+    /// <summary>The dialog chooses the second game's own folder, not the installation's.</summary>
+    private bool mbFolderOfSecondGame;
+
+    private void fOpenFolderDialog(bool pbSecondGame)
     {
         fOpenDialog(DialogEnum.Folder);
 
+        mbFolderOfSecondGame = pbSecondGame;
         mODrives = mOBrowser.GetDrives();
-        mOBrowser.Open(UWSettings.GetCandidateGogPaths(), UWUserSettings.GogInstallPath);
+        mOBrowser.Open(UWSettings.GetCandidateGogPaths(), pbSecondGame ? UWUserSettings.GogInstallPathUw2 : UWUserSettings.GogInstallPath);
         fAfterBrowse();
     }
 
@@ -693,6 +722,23 @@ public partial class UWSetupMenu : MonoBehaviour
     /// scene starts again with the real launch.</summary>
     private void fApplyFolder()
     {
+        if (mbFolderOfSecondGame)
+        {
+            string lsImage = UWDataImport.Install.UWGogInstall.FindImage(mOBrowser.CurrentPath);
+
+            if (lsImage == null || !UWDataImport.Install.UWGogInstall.HasGame(lsImage, UWGameProfiles.Uw2))
+            {
+                mOBrowser.SetStatus(UWText.T("setup.folder.no_data"), true);
+
+                return;
+            }
+
+            UWUserSettings.GogInstallPathUw2 = mOBrowser.CurrentPath;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+
+            return;
+        }
+
         UWUserSettings.GogInstallPath = mOBrowser.CurrentPath;
 
         string lsData = UWSettings.AutoDetectDataPath();
@@ -804,6 +850,48 @@ public partial class UWSetupMenu : MonoBehaviour
         return Mathf.Max(pfHeight, mfContentHeight + pfBelow);
     }
 
+    /// <summary>What a window keeps free above the screen's bottom edge and under the bar.</summary>
+    private const float ScreenMargin = 8f;
+
+    /// <summary>What a scrolled page's rows give up on the right for the scroll bar, as the Motion window's.</summary>
+    private const float ScrollBarRoom = 16f;
+
+    /// <summary>
+    /// A WINDOW STAYS ON THE SCREEN (per user, 2026-11-01, the Game window ran off the bottom; a player
+    /// reported the same of a translation, with its buttons gone): fHeight's height, the top moved up as
+    /// far as the bar so that it fits, and past that the window ends at the screen's bottom edge and its
+    /// rows scroll (fDrawPageScrolled). The layout's 720 lines are the same at any resolution.
+    /// </summary>
+    private Rect fDialogOnScreen(float pfWidth, float pfMaxWidth, float pfTop, float pfHeight, float pfBelow)
+    {
+        float lfBottom = UWGuiTheme.ReferenceHeight - ScreenMargin;
+        float lfWanted = fHeight(pfHeight, pfBelow);
+        float lfTop = Mathf.Max(mfBarBottom + ScreenMargin, Mathf.Min(pfTop, lfBottom - lfWanted));
+
+        return mOPassRows.Dialog(pfWidth, pfMaxWidth, lfTop, Mathf.Min(lfWanted, lfBottom - lfTop));
+    }
+
+    private Vector2 mOPageScroll;
+
+    /// <summary>A window's page in a scroll view over all but its last pfBelow, which stays for Done and what
+    /// hangs from the bottom edge; the bar shows only when the rows need it. Their end is kept for fHeight.</summary>
+    private void fDrawPageScrolled(Rect pODialog, UWSetupPage pOPage, float pfBelow)
+    {
+        if (meContentOf != meOpenDialog)
+            mOPageScroll = Vector2.zero;
+
+        Rect lOView = new Rect(pODialog.x, pODialog.y, pODialog.width, pODialog.height - pfBelow);
+        float lfContent = meContentOf == meOpenDialog ? mfContentHeight : 0f;
+
+        mOPageScroll = mOPassRows.BeginScroll(lOView, mOPageScroll, new Rect(0f, 0f, lOView.width - 20f, Mathf.Max(lOView.height, lfContent)));
+
+        float lfBottom = mOPassPages.Draw(pOPage, 20f, 16f, pODialog.width - 40f - ScrollBarRoom);
+
+        mOPassRows.EndScroll();
+        meContentOf = meOpenDialog;
+        mfContentHeight = lfBottom;
+    }
+
     /// <summary>Where the open window's rows ended (pfBottom), for fHeight in its next pass.</summary>
     private void fContentEnds(Rect pODialog, float pfBottom)
     {
@@ -822,12 +910,22 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>
     /// The bar's items left to right from 8: Game 70 wide, the others 90 each - on the kit as wide
     /// as their text needs where that is more (IUWRows.FitWidth, 2026-10-24: the pseudo-language ran
-    /// them into each other), each following the one before.
+    /// them into each other), each following the one before. WHAT NO LONGER FITS WRAPS to a row of
+    /// its own (per user, 2026-11-01: at 1024 x 768 the long pseudo-language pushed Controls and what
+    /// follows off the screen), so every item stays reachable; the bar and what stands under it follow
+    /// one pass late, as a window's height does (fHeight).
     /// </summary>
     private void fDrawBar(IUWRows pORows, float pfWidth)
     {
-        pORows.Bar(new Rect(0f, 0f, pfWidth, BarHeight));
+        pORows.Bar(new Rect(0f, 0f, pfWidth, mfBarBottom));
 
+        mfBarRowTop = 0f;
+        fDrawBarItems(pORows, pfWidth);
+        mfBarBottom = mfBarRowTop + BarHeight;
+    }
+
+    private void fDrawBarItems(IUWRows pORows, float pfWidth)
+    {
         string lsGame = UWText.T("setup.bar.game");
         Rect lOGame = new Rect(8f, 0f, pORows.FitWidth(lsGame, 70f), BarHeight);
 
@@ -846,7 +944,7 @@ public partial class UWSetupMenu : MonoBehaviour
         // the rest is the first game's play.
         if (UWWalkUw2.IsWalking)
         {
-            if (fBarItem(pORows, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
+            if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
                 fToggleDialog(DialogEnum.Graphics);
 
             return;
@@ -854,18 +952,18 @@ public partial class UWSetupMenu : MonoBehaviour
 
         // THE MOTION SECOND, right after Game (per user, 2026-10-06: "eine sehr wichtige
         // Einstellung"): the player's motion and the picture of it, with the explanations.
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.motion", meOpenDialog == DialogEnum.Motion))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.motion", meOpenDialog == DialogEnum.Motion))
             fToggleDialog(DialogEnum.Motion);
 
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
             fToggleDialog(DialogEnum.Graphics);
 
         // Beside Graphics: window or fullscreen and the resolution (per user, 2026-09-26).
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.display", meOpenDialog == DialogEnum.Display))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.display", meOpenDialog == DialogEnum.Display))
             fToggleDialog(DialogEnum.Display);
 
         // Closed from the bar, a key being waited for stays awaited (as before; Done drops it).
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.controls", meOpenDialog == DialogEnum.Controls))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.controls", meOpenDialog == DialogEnum.Controls))
         {
             if (meOpenDialog == DialogEnum.Controls)
                 meOpenDialog = DialogEnum.None;
@@ -873,19 +971,27 @@ public partial class UWSetupMenu : MonoBehaviour
                 fOpenControlsDialog();
         }
 
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.sound", meOpenDialog == DialogEnum.Sound))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.sound", meOpenDialog == DialogEnum.Sound))
             fToggleDialog(DialogEnum.Sound);
 
-        if (fBarItem(pORows, ref lfLeft, "setup.bar.colours", meOpenDialog == DialogEnum.Colours))
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.colours", meOpenDialog == DialogEnum.Colours))
             fToggleDialog(DialogEnum.Colours);
     }
 
     /// <summary>One of the bar's items after Game, at pfLeft, 90 wide (more for a longer text on
-    /// the kit); pfLeft moves to its right edge.</summary>
-    private static bool fBarItem(IUWRows pORows, ref float pfLeft, string psTextId, bool pbOpen)
+    /// the kit), on the next row where it would run past pfWidth; pfLeft moves to its right edge.</summary>
+    private bool fBarItem(IUWRows pORows, float pfWidth, ref float pfLeft, string psTextId, bool pbOpen)
     {
         string lsText = UWText.T(psTextId);
-        Rect lORect = new Rect(pfLeft, 0f, pORows.FitWidth(lsText, 90f), BarHeight);
+        float lfWidth = pORows.FitWidth(lsText, 90f);
+
+        if (pfLeft + lfWidth > pfWidth && pfLeft > 8f)
+        {
+            pfLeft = 8f;
+            mfBarRowTop += BarHeight;
+        }
+
+        Rect lORect = new Rect(pfLeft, mfBarRowTop, lfWidth, BarHeight);
 
         pfLeft = lORect.xMax;
 
@@ -1044,16 +1150,12 @@ public partial class UWSetupMenu : MonoBehaviour
     /// </summary>
     private void fDrawSoundDialog(float pfWidth)
     {
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOSoundPage)), 150f, fHeight(450f, 54f));
-
-        float lfLeft = lODialog.x + 20f;
-        float lfInner = lODialog.width - 40f;
-        float lfTop = lODialog.y + 16f;
+        Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(680f, mOPassPages.InnerNeeded(mOSoundPage) + ScrollBarRoom), 150f, 450f, 54f);
 
         // The switches with their volumes, the music device, its hint and the MT-32 line, the
         // recordings' switch, its hint and their line (fBuildSoundPage); each line advances past
         // itself (fDrawFolderLine), so the window grows with the rows.
-        fContentEnds(lODialog, mOPassPages.Draw(mOSoundPage, lfLeft, lfTop, lfInner));
+        fDrawPageScrolled(lODialog, mOSoundPage, 54f);
 
         if (mOPassRows.Done(lODialog))
             meOpenDialog = DialogEnum.None;
@@ -1285,14 +1387,15 @@ public partial class UWSetupMenu : MonoBehaviour
     /// folder, the scheme, the three switches of the program (fBuildGamePage), and Quit in the
     /// bottom left corner where the other dialogs keep Back to default - at once, as the menu's
     /// item quit. On the kit since cleanup 8b.2 (2026-10-24), as wide and as tall as its rows need,
-    /// Quit as wide as its text.
+    /// Quit as wide as its text. Wider since 2026-11-01, per user: the hints take fewer lines, and what
+    /// still does not fit scrolls.
     /// </summary>
     private void fDrawGameDialog(float pfWidth)
     {
-        Rect lODialog = mOPassRows.Dialog(pfWidth, fMaxWidth(560f, mOPassPages.InnerNeeded(mOGamePage)), 150f, fHeight(280f, 54f));
+        Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(800f, mOPassPages.InnerNeeded(mOGamePage) + ScrollBarRoom), 150f, 280f, 54f);
         float lfLeft = lODialog.x + 20f;
 
-        fContentEnds(lODialog, mOPassPages.Draw(mOGamePage, lfLeft, lODialog.y + 16f, lODialog.width - 40f));
+        fDrawPageScrolled(lODialog, mOGamePage, 54f);
 
         string lsQuit = UWText.T("setup.game.quit");
 

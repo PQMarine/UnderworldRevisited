@@ -89,12 +89,26 @@ namespace UWDataImport.UWData
 
 		private const int BridgeIndex = 0xE9;
 
+		/// <summary>The second game's ice (DoTile, shade 3).</summary>
+		private const int IceIndex = 0xB9;
+
 		/// <summary>
 		/// Paints pyAutomap (64x64 bytes, row 0 south) into pyScreen (320x200 palette indices,
 		/// row 0 at the TOP, as BLNKMAP.BYT is stored). pFRandom(x, y, use) returns 0..0x7FFF like
 		/// UW.EXE's random generator.
 		/// </summary>
 		public static void Paint(byte[] pyScreen, byte[] pyAutomap, Func<int, int, RandomUse, int> pFRandom)
+		{
+			Paint(pyScreen, pyAutomap, pFRandom, UWGame.Uw1);
+		}
+
+		/// <summary>
+		/// THE SECOND GAME (UW2 plan phase 3 step 6, Underworld Exhumed uw2 ui/AUTOMAP.C, DoTile): the same
+		/// drawing with the byte's other order (UWAutomapCode): the terrain in bits 6 and 7 with ice as a
+		/// third, water, lava and ice from three colours, not two, and no terrain under a bridge or the
+		/// dark kind.
+		/// </summary>
+		public static void Paint(byte[] pyScreen, byte[] pyAutomap, Func<int, int, RandomUse, int> pFRandom, UWGame peGame)
 		{
 			if (pyScreen == null || pyScreen.Length < ScreenWidth * ScreenHeight
 				|| pyAutomap == null || pyAutomap.Length < TilesPerAxis * TilesPerAxis || pFRandom == null)
@@ -111,7 +125,7 @@ namespace UWDataImport.UWData
 					if (liType <= 0 || liType >= 0xA)
 						continue;
 
-					fFillCell(pyScreen, pyAutomap, pFRandom, liType, liX, liY);
+					fFillCell(pyScreen, pyAutomap, pFRandom, liType, liX, liY, peGame);
 
 					Array.Clear(lbBordered, 0, lbBordered.Length);
 
@@ -147,11 +161,16 @@ namespace UWDataImport.UWData
 
 		/// <summary>ovr092_48B: the cell's pattern, then what the display adds.</summary>
 		private static void fFillCell(byte[] pyScreen, byte[] pyAutomap, Func<int, int, RandomUse, int> pFRandom,
-			int piType, int piX, int piY)
+			int piType, int piX, int piY, UWGame peGame)
 		{
-			int liDisplay = pyAutomap[(piY * TilesPerAxis) + piX] >> 4;
-			int liLiquid = liDisplay & 3;
-			int liKind = liDisplay & 0xC;
+			int liByte = pyAutomap[(piY * TilesPerAxis) + piX];
+			int liKind = UWAutomapCode.Kind(liByte, peGame) << 2;
+			int liLiquid = UWAutomapCode.Terrain(liByte, peGame);
+			int liColours = peGame == UWGame.Uw1 ? 2 : 3;
+
+			if (peGame != UWGame.Uw1 && liKind >= 8)
+				liLiquid = 0;
+
 			int liLeft = (piX * TileSize) + CellLeft;
 			int liBottom = (piY * TileSize) + CellBottom;
 			int liPattern = (piType >= 6 ? 1 : piType) - 1;
@@ -169,9 +188,11 @@ namespace UWDataImport.UWData
 							if (liLiquid == 0)
 								fStep(pyScreen, pFRandom, RandomUse.Floor, liX, liY, 2, 3);
 							else if (liLiquid == 1)
-								fSet(pyScreen, liX, liY, WaterIndex + (pFRandom(liX, liY, RandomUse.Water) % 2));
+								fSet(pyScreen, liX, liY, WaterIndex + (pFRandom(liX, liY, RandomUse.Water) % liColours));
 							else if (liLiquid == 2)
-								fSet(pyScreen, liX, liY, LavaIndex + (pFRandom(liX, liY, RandomUse.Lava) % 2));
+								fSet(pyScreen, liX, liY, LavaIndex + (pFRandom(liX, liY, RandomUse.Lava) % liColours));
+							else if (liLiquid == 3 && peGame != UWGame.Uw1)
+								fSet(pyScreen, liX, liY, IceIndex + (pFRandom(liX, liY, RandomUse.Water) % liColours));
 							break;
 
 						case 2:
