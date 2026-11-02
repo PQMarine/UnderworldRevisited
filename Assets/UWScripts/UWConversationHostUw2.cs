@@ -67,7 +67,8 @@ public sealed class UWConversationHostUw2 : IUWConversationHost
 
     public void ChangeExperience(int piAmount, int piDungeonLevel)
     {
-        Debug.Log("[Walk] A conversation would give " + piAmount + " experience (its rules come in phase 4).");
+        if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+            UWVitalsUw2.Current.Vitals.ChangeExperience(piAmount, piDungeonLevel);
     }
 
     /// <summary>The walk's look: the name in the first game's sentence (phase 4 has the second game's).</summary>

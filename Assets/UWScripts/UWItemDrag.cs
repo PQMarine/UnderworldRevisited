@@ -316,7 +316,7 @@ public class UWItemDrag : MonoBehaviour
 
         if (UWMouseButtons.LeftPressed)
             fTryStartPending(false);
-        else if (mOControls.Player.Interact.WasPressedThisFrame() && !UWPlayerInput.ConsumesRightClick())
+        else if (UWMouseButtons.PressedFree(mOControls.Player.Interact) && !UWPlayerInput.ConsumesRightClick())
             fTryStartPending(true);
     }
 
@@ -345,7 +345,7 @@ public class UWItemDrag : MonoBehaviour
             bool lbOverUi = !mOGameUi.ClassicScreen.IsScreenPositionInGameArea(lOMousePos)
                 || (mOControlScheme != null && mOControlScheme.IsConversationOpen);
 
-            if (mOControls.Player.Interact.WasPressedThisFrame()
+            if (UWMouseButtons.PressedFree(mOControls.Player.Interact)
                 || (lbOverUi && UWMouseButtons.LeftPressed))
             {
                 if (mODrop.TryPlaceAt(lOMousePos))

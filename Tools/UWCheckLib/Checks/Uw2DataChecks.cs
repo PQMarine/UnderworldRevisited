@@ -89,6 +89,12 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2: every .GR file's pictures read but PANELS.GR's (files, pictures, absent entries)", liFiles + " " + liPictures + " " + liAbsent, "34 1717 28");
             Check.Str("uw2: ... each with a size and its pixels", string.Join(" ", lOBad), string.Empty);
 
+            // Rogwump (whoami 147) has no head of his own: the load fails and the class's stands in.
+            List<UWTexture> lOHeads = UWTextures.ReadImageFile(File.ReadAllBytes(Path.Combine(lsData, "CHARHEAD.GR")), "CHARHEAD.GR", lOPalettes, 0,
+                UWTexture.TextureTypes.CHARHEAD);
+
+            Check.Str("uw2: CHARHEAD.GR, Feridwyn's head is there, Rogwump's entry empty", lOHeads[142].IsEmptyEntry + " " + lOHeads[146].IsEmptyEntry, "False True");
+
             // LEV.ARK: 80 levels of four blocks (map, textures, automap, notes); CNV.ARK: 102 conversations
             // of 320 slots; BYT.ARK: 11 screens, 3 and 10 empty; SCD.ARK never compressed (FORMATS.md).
             Dictionary<string, string> lOExpected = new Dictionary<string, string>

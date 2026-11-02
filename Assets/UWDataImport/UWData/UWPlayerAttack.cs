@@ -75,6 +75,9 @@ namespace UWDataImport.UWData
 
 		public const int DexterityScoreDivisor = 7;
 
+		/// <summary>frp_check's Poison Weapon: damage * (Casting + 30) / 40.</summary>
+		private const int PoisonShareDivisor = 40;
+
 		/// <summary>The major class of the weapon enchantments, Accuracy and Damage (DoPlayerWeapon).</summary>
 		public const int WeaponEnchantmentMajorClass = 0xC;
 
@@ -111,11 +114,14 @@ namespace UWDataImport.UWData
 		/// <param name="pbTargetWearsWeapon">The struck creature does not spare a weapon on a bad miss.</param>
 		/// <param name="pFWearWeapon">Rolls the dice (count, range) and wears the weapon in the hand;
 		/// called between the check and the dice (UWAttackResolution.PlayerBlow), none without it.</param>
+		/// <param name="piWeaponKind">IUWCombatVariant.PlayerWeaponKind; below 0 the player's row's kind.</param>
+		/// <param name="piPoisonShare">Poison Weapon's share of the base in fortieths (frp_check), 0 without it.</param>
 		public static MeleeResult ResolveMelee(DataImport pOData, int piWeaponId, UWCombat.AttackKind peKind,
 			float pfChargeFraction, int piStrength, int piAttack, int piDexterity, int piUnarmedSkill,
 			System.Func<UWPlayerData.Skill, int> pFGetSkill, IUWAttackDefender pIDefender, int piPart,
 			bool pbEasyDifficulty = false, int piFlank = 0, int piEnchantAccuracy = 0, int piEnchantDamage = 0,
-			int piTargetObjectId = -1, bool pbTargetWearsWeapon = false, System.Action<int, int> pFWearWeapon = null)
+			int piTargetObjectId = -1, bool pbTargetWearsWeapon = false, System.Action<int, int> pFWearWeapon = null,
+			int piWeaponKind = -1, int piPoisonShare = 0)
 		{
 			MeleeResult lOResult = new MeleeResult();
 
@@ -174,10 +180,12 @@ namespace UWDataImport.UWData
 
 			pOData.ObjectClassProperties.TryGetCritter(UWCritterCombat.PlayerCritterObjectId, out lOOwnRow);
 
-			UWAttackerStats lOAttacker = new UWAttackerStats(UWCritterBrain.PlayerIndex, lOResult.Accuracy,
-				UWCombat.GetRawBaseDamage(UWCombat.GetWeaponDamage(lOMelee, peKind), lbUnarmed, piStrength, piUnarmedSkill,
-					piEnchantDamage),
-				liCharge, piFlank, lOOwnRow.WeaponKind, lOOwnRow.ArmourKind == UWCritterCombat.MetalKind);
+			int liBase = UWCombat.GetRawBaseDamage(UWCombat.GetWeaponDamage(lOMelee, peKind), lbUnarmed, piStrength, piUnarmedSkill, piEnchantDamage);
+
+			liBase += (liBase * piPoisonShare) / PoisonShareDivisor;
+
+			UWAttackerStats lOAttacker = new UWAttackerStats(UWCritterBrain.PlayerIndex, lOResult.Accuracy, liBase,
+				liCharge, piFlank, piWeaponKind >= 0 ? piWeaponKind : lOOwnRow.WeaponKind, lOOwnRow.ArmourKind == UWCritterCombat.MetalKind);
 
 			// THE WEAPON WEARS IN frp_check, between the check and the dice (UWAttackResolution.
 			// PlayerBlow, cleanup step 4.9b, 2026-10-18, by the user's decision to follow the

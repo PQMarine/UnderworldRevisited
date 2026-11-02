@@ -675,7 +675,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 | `seg025_73C` | UWTriggerSystem.cs |
 | `PrepareProjectileObject` (seg025_791) | UWMobileObjectMotion.cs, UWLevelLoader.cs, UWPlayerThrow.cs |
 | `seg025_9B` | UWPlayerThrow.cs |
-| `MissileRelease` (seg025_9F) | UWLevelLoader.cs, UWPlayerAttackInput.cs, UWPlayerMissiles.cs |
+| `MissileRelease` (seg025_9F) | UWCombatVariantUw1.cs, UWLevelLoader.cs, UWPlayerAttackInput.cs, UWPlayerMissiles.cs |
 | `seg025_B51` | UWCreatureActor.cs, UWMobileObjectMotion.cs |
 | `InitPlayerProjectilesValues` (seg025_D) | UWUiSchemePolicy.cs, UWPendingSpell.cs, UWPlayerThrow.cs |
 

@@ -46,6 +46,8 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWCreatureSpellHost : IUWSpellHost
 	{
+		public bool CanAct => true;
+
 		private readonly Action<int> mOReleaseMissile;
 
 		/// <param name="pIWorld">The world the creature is in.</param>

@@ -26,16 +26,20 @@ public sealed class UWHelpStatsTab : UWHelpTab
     /// readable type and all twenty skills at once, live while the help is open. Below it,
     /// folded away, the values the game keeps but only hints at: food, fatigue, poison, the
     /// unspent skill points, the exact experience and the next level's threshold, the load.
+    ///
+    /// THE SECOND GAME (per user, 2026-11-02, to watch a meal): the player's numbers run in UWVitalsUw2 and the
+    /// things in its screen; the UWCharacter and the UWGameUI of that scene stand idle. Its worn magic lies elsewhere
+    /// in its strings and stays out until the magic is built.
     /// </summary>
     protected override void OnFlow(IUWHelpFlow pOFlow)
     {
         mOFlow = pOFlow;
 
-        UWCharacter lOCharacter = UWScene.Character;
-        UWGameUI lOUi = UWScene.GameUi;
+        bool lbSecondGame = UWWalkUw2.IsWalking;
+        UWPlayerVitals lOVitals = fVitals();
         DataImport lOData = fData();
 
-        if (lOCharacter == null || lOData == null)
+        if (lOVitals == null || lOData == null)
         {
             mOFlow.Line(UWText.T("help.stats.title"), UWHelpLookEnum.Heading);
             mOFlow.Line(UWText.T("help.stats.no_character"), UWHelpLookEnum.Dim);
@@ -43,16 +47,17 @@ public sealed class UWHelpStatsTab : UWHelpTab
             return;
         }
 
-        UWPlayerData lOPlayer = lOData.InitialPlayer;
+        UWPlayerData lOPlayer = fPlayer(lOData);
 
         // What the panel shows, readable (UWCharacterSheet: title case, "a / b"; cleanup 5.9,
         // 2026-10-20).
-        UWCharacterSheet lOSheet = mOSheet.Bind(lOData.Strings, lOPlayer, lOCharacter.Vitals);
+        UWCharacterSheet lOSheet = mOSheet.Bind(lOData.Strings, lOPlayer, lOVitals);
 
         mOFlow.Line(lOSheet.Name, UWHelpLookEnum.Heading);
         mOFlow.Line(lOSheet.LevelWithClass, UWHelpLookEnum.Text);
 
-        string lsCondition = UWStatusReport.GetConditionLine(lOData, lOCharacter.Vitals.Hunger, lOCharacter.Vitals.Fatigue);
+        string lsCondition = lbSecondGame ? UWStatusReportUw2.ConditionLine(lOData, mOSecondFile)
+            : UWStatusReport.GetConditionLine(lOData, lOVitals.Hunger, lOVitals.Fatigue);
 
         if (!string.IsNullOrEmpty(lsCondition))
             mOFlow.Line(lsCondition.Trim(), UWHelpLookEnum.Dim);
@@ -65,10 +70,11 @@ public sealed class UWHelpStatsTab : UWHelpTab
 
 
         int liCarried = -1;
+        UWInventoryModel lOInventory = fInventory();
 
-        if (lOUi != null && lOUi.mOInventory != null)
+        if (lOInventory != null)
         {
-            liCarried = lOUi.mOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
+            liCarried = lOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties);
 
             // What the circle below the paper doll shows: the capacity left, in whole stones.
             fStatRow(UWText.T("help.stats.can_carry"), UWText.F("help.stats.stones", UWInventoryWeight.RemainingStones(lOPlayer, liCarried)));
@@ -97,33 +103,77 @@ public sealed class UWHelpStatsTab : UWHelpTab
         mOFlow.Line(UWText.T("help.stats.hidden_intro"), UWHelpLookEnum.Dim);
         mOFlow.Space(4f);
 
-        fStatRow(UWText.T("help.stats.food"), lOCharacter.Vitals.Hunger + " / " + UWPlayerVitals.FullHunger);
+        fStatRow(UWText.T("help.stats.food"), lOVitals.Hunger + " / " + UWPlayerVitals.FullHunger);
         mOFlow.Line(UWText.T("help.stats.food_note"), UWHelpLookEnum.Dim);
-        fStatRow(UWText.T("help.stats.fatigue"), lOCharacter.Vitals.Fatigue + " / 255");
+        fStatRow(UWText.T("help.stats.fatigue"), lOVitals.Fatigue + " / 255");
         mOFlow.Line(UWText.T("help.stats.fatigue_note"), UWHelpLookEnum.Dim);
-        fStatRow(UWText.T("help.stats.poison"), lOCharacter.Vitals.Poison + " / 15");
-        fStatRow(UWText.T("help.stats.hallucination"), lOCharacter.Vitals.Hallucination + " / " + UWPlayerVitals.MaxHallucination
+        fStatRow(UWText.T("help.stats.poison"), lOVitals.Poison + " / 15");
+        fStatRow(UWText.T("help.stats.hallucination"), lOVitals.Hallucination + " / " + UWPlayerVitals.MaxHallucination
             + fHallucinationEffectText());
         mOFlow.Line(UWText.T("help.stats.hallucination_note"),
             UWHelpLookEnum.Dim);
-        fStatRow(UWText.T("help.stats.skill_points"), lOCharacter.Vitals.SkillPoints.ToString());
+        fStatRow(UWText.T("help.stats.skill_points"), lOVitals.SkillPoints.ToString());
         mOFlow.Line(UWText.T("help.stats.skill_points_note"),
             UWHelpLookEnum.Dim);
 
-        fStatRow(UWText.T("help.stats.experience"), fTenths(lOCharacter.Vitals.Experience));
+        fStatRow(UWText.T("help.stats.experience"), fTenths(lOVitals.Experience));
 
-        int liNext = UWExperience.GetNextLevelExperience(lOCharacter.Vitals.Level);
+        int liNext = UWExperience.GetNextLevelExperience(lOVitals.Level);
 
         if (liNext < 0)
             fStatRow(UWText.T("help.stats.next_level"), UWText.T("help.stats.next_level_none"));
         else
             fStatRow(UWText.T("help.stats.next_level_at"), UWText.F("help.stats.next_level_value", liNext / 10,
-                fTenths(Mathf.Max(0, liNext - lOCharacter.Vitals.Experience))));
+                fTenths(Mathf.Max(0, liNext - lOVitals.Experience))));
 
         if (liCarried >= 0 && lOPlayer != null)
             fStatRow(UWText.T("help.stats.load"), UWText.F("help.stats.load_value", fTenths(liCarried), fTenths(lOPlayer.MaxWeight)));
 
-        fDrawWornMagic(lOData, lOUi != null ? lOUi.mOInventory : null);
+        if (!lbSecondGame)
+            fDrawWornMagic(lOData, lOInventory);
+    }
+
+    /// <summary>The live numbers of the game in force, null before they run.</summary>
+    private static UWPlayerVitals fVitals()
+    {
+        if (UWWalkUw2.IsWalking)
+            return UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
+
+        UWCharacter lOCharacter = UWScene.Character;
+
+        return lOCharacter != null ? lOCharacter.Vitals : null;
+    }
+
+    private static UWInventoryModel fInventory()
+    {
+        if (UWWalkUw2.IsWalking)
+            return UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+
+        UWGameUI lOUi = UWScene.GameUi;
+
+        return lOUi != null && lOUi.mOInventory != null ? lOUi.mOInventory.Model : null;
+    }
+
+    /// <summary>The save the second game's character below was read from.</summary>
+    private UWPlayerFile mOSecondFile;
+
+    private UWPlayerData mOSecondPlayer;
+
+    /// <summary>The name, the class and the load's limit; the second game's come from its record, once for a save.</summary>
+    private UWPlayerData fPlayer(DataImport pOData)
+    {
+        if (!UWWalkUw2.IsWalking)
+            return pOData.InitialPlayer;
+
+        UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+
+        if (lOFile != mOSecondFile)
+        {
+            mOSecondFile = lOFile;
+            mOSecondPlayer = UWPlayerData.FromSecondGame(lOFile);
+        }
+
+        return mOSecondPlayer;
     }
 
     /// <summary>The worn equipment's own effects, without cast spells - see fDrawWornMagic.</summary>
@@ -136,7 +186,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
     /// counts it (UWArmourProtection.Compute without the active spells): only the five armour
     /// pieces, the two rings and a shield cast theirs; a weapon's acts only when it strikes.
     /// </summary>
-    private void fDrawWornMagic(DataImport pOData, UWInventory pOInventory)
+    private void fDrawWornMagic(DataImport pOData, UWInventoryModel pOInventory)
     {
         mOFlow.Space(10f);
         mOFlow.Line(UWText.T("help.stats.worn_magic"), UWHelpLookEnum.SubHeading);
@@ -182,7 +232,7 @@ public sealed class UWHelpStatsTab : UWHelpTab
             return;
         }
 
-        UWArmourProtection.Compute(pOInventory.Model, pOData, null, mOWornStatus);
+        UWArmourProtection.Compute(pOInventory, pOData, null, mOWornStatus);
 
         mOFlow.Space(6f);
         mOFlow.Line(UWText.T("help.stats.together"), UWHelpLookEnum.Dim);

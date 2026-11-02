@@ -682,9 +682,9 @@ namespace UnderworldRevisited.Tools
             switch (psSave.ToUpperInvariant())
             {
                 case "SAVE1":
-                    return "Henrietta c3 b3 f left | 25 21 14 | 99/105 12/36 L15 W19 well | 2D 20 27 24 2A 9B 99 D 3B 38 39 8C 82 8F 13A 80 9A B5 -";
+                    return "Henrietta c3 b3 f right | 25 21 14 | 99/105 12/36 L15 W19 well | 2D 20 27 24 2A 9B 99 D 3B 38 39 8C 82 8F 13A 80 9A B5 -";
                 case "SAVE2":
-                    return "Henrietta c3 b3 f left | 25 21 14 | 105/105 21/21 L15 W26 well | 2D 20 27 24 2A 9B 99 D 3B 38 39 8C 82 8F 13A 80 - - -";
+                    return "Henrietta c3 b3 f right | 25 21 14 | 105/105 21/21 L15 W26 well | 2D 20 27 24 2A 9B 99 D 3B 38 39 8C 82 8F 13A 80 - - -";
                 default:
                     return null;
             }

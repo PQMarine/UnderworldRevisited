@@ -22,7 +22,7 @@ public sealed class UWGameActions
 
     /// <summary>Whether camp can be made here at all: the item drag that makes it is in the scene
     /// (the triggers' own test before Camp, kept as each wrote it).</summary>
-    public static bool CanCamp => UWScene.ItemDrag != null;
+    public static bool CanCamp => UWScene.ItemDrag != null && !UWWalkUw2.IsWalking;
 
     /// <summary>
     /// MAKE CAMP: F10 in both schemes (UWGameUI's key routing) and the Sleep button beside the

@@ -126,6 +126,10 @@ internal sealed class UWModernBagDrag
     /// </summary>
     internal void Place(Vector2 pOPointer, UWInventory pOInventory)
     {
+        // Let go on the help: it stays on the pointer, nothing lands under the help.
+        if (UWModernUi.IsHelpUnderPointer)
+            return;
+
         bool lbPlaced;
         UWModernBagPages lOPages = mOBags.Pages;
 

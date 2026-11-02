@@ -112,6 +112,10 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Exe("uw2 combat/COMBAT.C:722 frame & 0xE0, what a step means to the blow")]
 			public const int SwingFlagMask = 0xE0;
 
+			/// <summary>The steps of a swing when the hand's kind has no pictures, a bow's, in every row.</summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:550 idle[9], load_weapon(-1)")]
+			public static readonly int[] IdleSteps = { 0x20, 0x21, 0x42, 0x63, 0x64, 0x65, 0x86, 0xA7, 0xE8 };
+
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:629 a step the weapon may leave a swing on for ready")]
 			public const int LeadInFlag = 0x20;
 
@@ -212,6 +216,18 @@ namespace UWDataImport.UWData
 			[UWClassicLayout.Derived("199 - 0x33")]
 			public const int Top = 199 - 0x33;
 
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:142 input_addmouse(0x5B, 0x22, 0x94, 0x34, 0, 1, print_info)")]
+			public const int ClickLeft = 0x5B;
+
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:142 input_addmouse(0x5B, 0x22, 0x94, 0x34, 0, 1, print_info)")]
+			public const int ClickBottomY = 0x22;
+
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:142 input_addmouse(0x5B, 0x22, 0x94, 0x34, 0, 1, print_info)")]
+			public const int ClickRight = 0x94;
+
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:142 input_addmouse(0x5B, 0x22, 0x94, 0x34, 0, 1, print_info)")]
+			public const int ClickTopY = 0x34;
+
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:130-139 set_compass, 0x2059 + (dir & 3) and 0x205D + dir")]
 			public const int FirstNeedle = 4;
 
@@ -230,6 +246,36 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>POWER.GR on the compass: picture 0 at rest, drawn transparent.</summary>
+		/// <summary>
+		/// THE POINTER AS A MISSILE'S AIM (player_settr): X and Y in the window the routine clamps to, Y from the
+		/// bottom. Its own numbers: the first game's window is another (UWPlayerThrow).
+		/// </summary>
+		public static class MissileAim
+		{
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:60 (x -= 0x10) > 0xD0")]
+			public const int MaxX = 0xD0;
+
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:64 (y -= 0x36) > 0x80")]
+			public const int MaxY = 0x80;
+
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:64 y -= 0x36")]
+			public const int BottomRow = 0x36;
+
+			/// <summary>The window's Y at the view's lowest row.</summary>
+			[UWClassicLayout.Derived("199 - (ViewWindowTop + ViewWindowHeight - 1) - BottomRow")]
+			public const int RowsUnderView = 199 - (Frame.ViewWindowTop + Frame.ViewWindowHeight - 1) - BottomRow;
+
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:68 (x - 0x68) * 5 / 0xD + 1")]
+			public const int CentreX = 0x68;
+
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:70 (y - 0x40) / 6")]
+			public const int CentreY = 0x40;
+
+			/// <summary>From this row up a thing on the pointer is thrown, below it is dropped.</summary>
+			[UWClassicLayout.Exe("uw2 combat/MISSILE.C:71 return y >= 0x2A")]
+			public const int ThrowRow = 0x2A;
+		}
+
 		public static class PowerGem
 		{
 			[UWClassicLayout.Exe("uw2 ui/PANELS.C:443 change_sprite(spr, 0x71, 0x30, 1, 1)")]
@@ -259,6 +305,24 @@ namespace UWDataImport.UWData
 
 			[UWClassicLayout.Derived("199 - 0xC3")]
 			public const int Top = 199 - 0xC3;
+
+			/// <summary>eyes_seq less the sprite base 0x207F: the blink of five frames; each condition 3 pictures on.</summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:96 eyes_seq[5] = { 0x2080, 0x2081, 0x2082, 0x2081, 0x2080 }")]
+			public static readonly int[] Blink = { 1, 2, 3, 2, 1 };
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:504 eyes_seq[eyes_frame++] + (setting[7] - 1) * 3")]
+			public const int PicturesPerCondition = 3;
+
+			/// <summary>adjust_eyes holds the wide frame for 16 calls.</summary>
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:500 eyes_frame == 3 && wait < 0x10")]
+			public const int HoldFrame = 3;
+
+			[UWClassicLayout.Exe("uw2 ui/PANELS.C:500 eyes_frame == 3 && wait < 0x10")]
+			public const int HoldSteps = 0x10;
+
+			/// <summary>One call of adjust_eyes: the original's runs per frame, ours at a fixed rate.</summary>
+			[UWClassicLayout.Derived("a sixteenth of a second, 16 frames a second")]
+			public const float StepSeconds = 1f / 16f;
 		}
 
 		// ------------------------------------------------- The command icons
@@ -652,6 +716,27 @@ namespace UWDataImport.UWData
 			public const int NoSpellPicture = 0x1E;
 
 			/// <summary>The cast area over the shelf (try_cast), x 0xA9 to 0xDF and y 0x22 to 0x34.</summary>
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:141 input_addmouse(0x11, 0x22, 0x42, 0x34, ..., try_clear)")]
+			public const int ActiveLeft = 0x11;
+
+			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:141 input_addmouse(0x11, 0x22, 0x42, 0x34, ..., try_clear)")]
+			public const int ActiveRight = 0x42;
+
+			[UWClassicLayout.Exe("uw2 combat/RUNES.C:148 active[idx] + 0x180 | STR_SPELLS")]
+			public const int ActiveSpellNames = 0x180;
+
+			[UWClassicLayout.Exe("uw2 combat/RUNES.C:148 STR_SPELLS, block 6")]
+			public const int SpellNamesBlock = 6;
+
+			[UWClassicLayout.Exe("uw2 combat/RUNES.C:156 game_sprint(stab + 0x97)")]
+			public const int StabilityWords = 0x97;
+
+			[UWClassicLayout.Exe("uw2 combat/RUNES.C:150 stab <= 2")]
+			public const int NearlyDoneUpTo = 2;
+
+			[UWClassicLayout.Exe("uw2 combat/RUNES.C:152 stab <= 10")]
+			public const int UnstableUpTo = 10;
+
 			[UWClassicLayout.Exe("uw2 ui/GAMESCR.C:140 input_addmouse(0xA9, 0x22, 0xDF, 0x34, ..., try_cast)")]
 			public const int CastLeft = 0xA9;
 

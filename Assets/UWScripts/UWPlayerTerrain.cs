@@ -320,15 +320,18 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>Awards the exploration experience of one evaluation - see UWExplorationRules.</summary>
     private void fAwardExplorationExperience(int piCounter)
     {
-        // The second game's experience is phase 4's.
-        if (mOPlayer == null || UWWalkUw2.IsWalking)
+        UWPlayerVitals lOVitals = UWWalkUw2.IsWalking ? (UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null)
+            : mOPlayer != null ? mOPlayer.Vitals : null;
+
+        if (lOVitals == null)
             return;
 
         int liDungeonLevel = mOLevelLoader.CurrentLevelIndex + 1;
-        int liExperience = UWExplorationRules.GetExperience(piCounter, liDungeonLevel, mOPlayer.Vitals.Level);
+        int liWeight = UWGameSession.Current.Game.Player.ExplorationWeight(liDungeonLevel);
+        int liExperience = UWExplorationRules.GetExperience(piCounter, liWeight, lOVitals.Level);
 
         if (liExperience > 0)
-            mOPlayer.Vitals.ChangeExperience(liExperience, liDungeonLevel);
+            lOVitals.ChangeExperience(liExperience, liDungeonLevel);
     }
 
     private bool fIsOpenTile(int piTileX, int piTileY)

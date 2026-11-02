@@ -124,7 +124,7 @@ public sealed class UWClassicUseMode
         // In the view window Interaction reads the right button (fUpdateUseModeInWorld) and calls
         // ApplyUseModeItemInWorld; here only the clicks on the inventory, with either button.
         bool lbTriggered = !lbInGameArea
-            && (pOControls.Player.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed);
+            && (UWMouseButtons.PressedFree(pOControls.Player.Interact) || UWMouseButtons.LeftPressed);
 
         // A CLICK ON THE RUNES IS SWALLOWED: try_cast and mous_in_rune return in another input
         // mode, so the original keeps the use mode and casts nothing (per user, 2026-10-13: with a

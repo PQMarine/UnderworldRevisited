@@ -99,6 +99,11 @@ namespace UWDataImport.UWData
 
 		public int MainPaletteIndex { get; set; }
 
+		/// <summary>A .GR entry without bytes: its offset equals the next one, the picture read is the next
+		/// entry's. The original's load of it fails (uw2 CONVERSE.C move_convpic gets size 0), so a head falls
+		/// back.</summary>
+		public bool IsEmptyEntry { get; set; }
+
 		public UWTexture(string psFileName, int piIndex, int piResolution, byte[] pyData, UWPalettes pOPalettes, TextureTypes peTextureType)
 		{
 			TextureFileName = psFileName;

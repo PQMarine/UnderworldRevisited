@@ -119,7 +119,7 @@ public static class UWModernUi
         UWModernHud lOHud = pOHud;
 
         if (lOHud == null || !lOHud.IsShowing || lOHud.IsOpen || UWControls.IsTextEntryActive || !UWModernPointer.IsFree
-            || !UWPointer.HasMouse || lOHud.Scheme == null || lOHud.Scheme.Controls == null)
+            || !UWPointer.HasMouse || lOHud.Scheme == null || lOHud.Scheme.Controls == null || IsHelpUnderPointer)
             return false;
 
         pOPointer = UWPointer.Position;
@@ -151,13 +151,23 @@ public static class UWModernUi
 
     // ------------------------------------------------- Over the UI
 
+    /// <summary>
+    /// THE HELP LIES ON THE POINTER (per user and a Reddit report, 2026-11-02: a click on the help took the
+    /// leather vest from the inventory page under it): its own area (UWHelpWindow, IsBlockedByHelp), and the
+    /// character panel around it with the tab row while the panel holds it. The modern windows read their
+    /// clicks from the actions, past UWMouseButtons, so they ask here.
+    /// </summary>
+    public static bool IsHelpUnderPointer => UWMouseButtons.IsBlockedByHelp
+        || (UWHelpLayout.IsOpen && UWModernPanel.HoldsHelp && UWPointer.HasMouse && UWModernPanel.Instance.Contains(UWPointer.Position));
+
     /// <summary>Whether a screen point lies on a window of the modern UI - there the right button
     /// uses instead of switching (UWModernPointer), the world takes no click (UWModernWorldInput,
     /// Interaction's aim), Shift does not toggle the slow walk (UWPlayerInput), the pad's stick
     /// scrolls (UWGamepadPointer).</summary>
     public static bool IsOverUi(Vector2 pOPointer)
     {
-        return (UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(pOPointer))
+        return UWMouseButtons.IsBlockedByHelp
+            || (UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(pOPointer))
             || (UWModernPanel.Instance != null && UWModernPanel.Instance.Contains(pOPointer))
             || (UWModernRunePanel.Instance != null && UWModernRunePanel.Instance.Contains(pOPointer))
             || (UWModernQuestion.Instance != null && UWModernQuestion.Instance.Contains(pOPointer))

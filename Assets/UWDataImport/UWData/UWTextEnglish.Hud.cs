@@ -121,7 +121,6 @@ namespace UWDataImport.UWData
 			// until the game's rules say them.
 			fAdd("hud.walk.not_yet", "Not yet in the walk through Ultima Underworld II.");
 			fAdd("hud.walk.door_locked", "The door is locked.");
-			fAdd("hud.walk.nothing", "There is nothing there.");
 
 			// The second game's statistics page: the level with its ordinal (STATS.C sp_hdr: ST, ND, RD,
 			// TH), and a flask's value after the game's "Your current vitality is" (flask_info).

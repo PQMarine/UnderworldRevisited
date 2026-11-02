@@ -573,7 +573,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return null;
         }
 
-        if (lOPicture == null || lOPicture.PaletteIndices == null || lOPicture.Width <= 0 || lOPicture.Height <= 0)
+        if (lOPicture == null || lOPicture.IsEmptyEntry || lOPicture.PaletteIndices == null || lOPicture.Width <= 0 || lOPicture.Height <= 0)
             return null;
 
         byte[] lyRgba = UWUploadPixels.FromTexture(lOPicture, UWColourVision.Filter);
@@ -673,7 +673,7 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             return;
         }
 
-        Mouse lOMouse = Mouse.current;
+        Mouse lOMouse = UWMouseButtons.GameMouse;
 
         if (lOMouse == null || miOpenedFrame == Time.frameCount || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame))
             return;
@@ -769,10 +769,21 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
             fTakeCountFromSlot(pOTrade, pOInventory, liSlot, lbPlayer, UWStackRules.CountAtLeastOne(lOItem));
     }
 
+    /// <summary>uw2 BARTER.C:328, "That is too heavy to take.": the first game's sentence has another number.</summary>
+    private const int TooHeavyToTakeString = 0x10C;
+
     /// <summary>Part of a stack is counted off, the stack stays in the slot; the whole leaves it.</summary>
     private static void fTakeCountFromSlot(UWConversationTrade pOTrade, UWInventoryModel pOInventory, int piSlot, bool pbPlayer, int piCount)
     {
         UWObject lOItem = pbPlayer ? pOTrade.PlayerItems[piSlot] : pOTrade.NpcItems[piSlot];
+
+        // UseTradeSlot's EncumCheck, on both sides and after the count; the good stays where it is.
+        if (!UWPickupRules.CheckFromTrade(lOItem, piCount, pOInventory).CanTake)
+        {
+            ShowLook(UWText.Block(msOCurrent.mOData, 1, TooHeavyToTakeString + 1, string.Empty));
+
+            return;
+        }
 
         if (piCount < UWStackRules.CountAtLeastOne(lOItem) && pOInventory.TakeFromStack(lOItem, piCount))
         {

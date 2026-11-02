@@ -30,7 +30,8 @@ public class UWProjectileFlight : MonoBehaviour
     /// <summary>What a hit or the detonation shows, or -1 (UWRunicMagic.GetProjectileImpactId).</summary>
     public int ImpactId { get; private set; }
 
-    public Interaction Interaction { get; private set; }
+    /// <summary>Who shot it, null for a creature's and a trap's.</summary>
+    public IUWMissileHost Shooter { get; private set; }
 
     /// <summary>The creature that launched it, or null for the player's and the traps'.</summary>
     public UWCritter Launcher { get; private set; }
@@ -74,14 +75,14 @@ public class UWProjectileFlight : MonoBehaviour
     private bool mbEnded;
 
     public void Begin(UWMissiles pOMissiles, UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
-        Interaction pOInteraction, UWCritter pOLauncher, bool pbFromLevelData)
+        IUWMissileHost pIShooter, UWCritter pOLauncher, bool pbFromLevelData)
     {
         mOMissiles = pOMissiles;
         Record = pORecord;
         BaseDamage = piBaseDamage;
         DamageType = piDamageType;
         ImpactId = piImpactId;
-        Interaction = pOInteraction;
+        Shooter = pIShooter;
         Launcher = pOLauncher;
         FromLevelData = pbFromLevelData;
 

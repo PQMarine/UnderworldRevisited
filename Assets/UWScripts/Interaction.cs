@@ -11,7 +11,7 @@ using UnderworldRevisited.Build;
 /// Movement and view direction live elsewhere (UWPlayerMovement, UWPlayerLook,
 /// UWControlScheme) - this class only handles interaction with the world.
 /// </summary>
-public class Interaction : MonoBehaviour, IUWMessageSink
+public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
 {
     public enum AttackEnum //TODO Relocate to weapon stats class
     {
@@ -115,7 +115,40 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     }
 
     /// <summary>The melee range set in the Inspector - for UWPlayerMelee's modern ray.</summary>
-    internal float AttackRange => mfAttackRange;
+    public float AttackRange => mfAttackRange;
+
+    // ------------------------------------------------- IUWMeleeHost
+
+    public CharacterController MeleeController => GetComponentInParent<CharacterController>();
+
+    public Transform MeleeFacing => mCharacter != null ? mCharacter.transform : transform;
+
+    public Camera MeleeCamera => Camera.main;
+
+    public bool MeleeByHitArea => UWControlScheme.Ui.Policy.MeleeByHitArea;
+
+    public UWPlayerVitals MeleeVitals => mCharacter != null ? mCharacter.Vitals : null;
+
+    public int MeleeFeetZPos => mCharacter != null ? mCharacter.GetFeetZPos() : 0;
+
+    public UWInventoryModel MeleeInventory => mInventory != null ? mInventory.Model : null;
+
+    public int MeleeAttackBonus => 0;
+
+    public int PoisonWeaponShare => 0;
+
+    public void EquipmentWorn()
+    {
+        if (mCharacter != null)
+            mCharacter.RefreshStatus();
+    }
+
+    public bool ShowsFoeCondition => mEyes != null;
+
+    public void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName)
+    {
+        mEyes.ShowCondition(mOUWDataImporter, piHitPoints, piTableHitPoints, psName);
+    }
 
     /// <summary>The eyes at the top edge - for UWHitFeedback.</summary>
     internal UWEyesDisplay Eyes => mEyes;
@@ -289,7 +322,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         mCharacter = GetComponent<UWCharacter>();
         mOLog = new UWMessageLog(this);
         mOPrompts = new UWPromptController(this);
-        mOLook = new UWLookService(this, mOLog);
+        mOLook = new UWLookService(this);
         mOSpell = new UWPendingSpell(this);
         mOGesture = new UWClassicWorldGesture(this);
         mOModernInput = new UWModernWorldInput(this);
@@ -449,13 +482,13 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         // disc and a miss there should not report the status. The arrows also take the HELD
         // button, because holding one repeats the step (UWPlayerInput.HoldEasyMovement).
         // (The compass belongs to the classic frame, which the modern scheme does not show.)
-        if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && (mInput.Interact.IsPressed() || UWMouseButtons.LeftHeld))
+        if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && ((mInput.Interact.IsPressed() && !UWMouseButtons.IsBlocked) || UWMouseButtons.LeftHeld))
         {
             if (mOGesture.TryEasyMovement(UWPointer.Position))
                 return;
         }
 
-        if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && (mInput.Interact.WasPressedThisFrame() || UWMouseButtons.LeftPressed))
+        if (UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && (UWMouseButtons.PressedFree(mInput.Interact) || UWMouseButtons.LeftPressed))
         {
             if (mOGesture.TryReportStatus(UWPointer.Position))
                 return;
@@ -469,7 +502,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         // UWPlayerInput.ConsumesRightClick).
         bool lbRightClickFree = !UWPlayerInput.ConsumesRightClick();
 
-        if (lbRightClickFree && UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && mInput.Interact.WasPressedThisFrame())
+        if (lbRightClickFree && UWControlScheme.Ui.Policy.WorldInput == UWWorldInputKind.RightButtonGesture && UWMouseButtons.PressedFree(mInput.Interact))
         {
             // IN COMBAT MODE THE RIGHT BUTTON IS THE WEAPON AND NOTHING ELSE (per user, 2026-09-18):
             // no look, no use - and no striking while sheathing or drawing either, in the original
@@ -614,17 +647,23 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         if (mOPlayerTerrain == null)
             return true;
 
-        int liQuadrant = Mathf.RoundToInt(Mathf.Repeat(transform.eulerAngles.y, 360f) / 90f) & 3;
+        return IsInSightBand(transform, pOSurface, mOPlayerTerrain.ViewingDistance);
+    }
+
+    /// <summary>The rows ahead of the eye in its quadrant against the viewing distance: either game's.</summary>
+    public static bool IsInSightBand(Transform pOEye, Vector3 pOSurface, int piViewingDistance)
+    {
+        int liQuadrant = Mathf.RoundToInt(Mathf.Repeat(pOEye.eulerAngles.y, 360f) / 90f) & 3;
         UWTilePos lOForward = UWExplorationRules.ForwardOfQuadrant(liQuadrant);
 
-        UWTilePos lOPlayerTile = UWTileQueries.WorldToTile(transform.position.x, transform.position.z);
+        UWTilePos lOPlayerTile = UWTileQueries.WorldToTile(pOEye.position.x, pOEye.position.z);
 
         UWTilePos lOTargetTile = UWTileQueries.WorldToTile(pOSurface.x, pOSurface.z);
 
         int liRow = ((lOTargetTile.X - lOPlayerTile.X) * lOForward.X)
             + ((lOTargetTile.Y - lOPlayerTile.Y) * lOForward.Y);
 
-        return liRow <= mOPlayerTerrain.ViewingDistance;
+        return liRow <= piViewingDistance;
     }
 
     // ------------------------------------------------- Actions
@@ -765,6 +804,11 @@ public class Interaction : MonoBehaviour, IUWMessageSink
         mOLog.AddGeneralMessage(piIndex);
     }
 
+    public void AddLookLine(string psLine)
+    {
+        mOLog.AddLine(psLine);
+    }
+
     // ------------------------------------------------- Combat
     //
     // The weapon button, the blow, the shot and the hit's pictures are UWPlayerAttackInput's,
@@ -794,6 +838,19 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     public void WearOnCriticalHit(int piPart)
     {
         mOMelee.WearOnCriticalHit(piPart);
+    }
+
+    /// <summary>The original's aim from the pointer in the view window; the modern scheme shoots where
+    /// the free pointer stands on the world, else along the crosshair (per user, 2026-10-04).</summary>
+    public void AimMissile(int piSpeedByte, out int piHeading, out int piPitch)
+    {
+        if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView && GameUi != null)
+        {
+            UWPlayerThrow.GetPointerInView(GameUi, UWPointer.Position, out int liX, out int liY);
+            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out piHeading, out piPitch);
+        }
+        else
+            UWMissiles.AimFromDirection(ModernAimRay().direction, piSpeedByte, out piHeading, out piPitch);
     }
 
     /// <summary>The player's missile has hit: an object's flash, a creature's eyes
@@ -1454,7 +1511,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     /// itself points at the target, with Modern - where the cursor is invisible and locked - the
     /// screen centre acts as crosshair.
     /// </summary>
-    internal Ray InteractionRay()
+    public Ray InteractionRay()
     {
         if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView)
             return Camera.main.ScreenPointToRay(UWPointer.Position);
@@ -1469,7 +1526,13 @@ public class Interaction : MonoBehaviour, IUWMessageSink
     /// </summary>
     internal string DescribeChunkHit(RaycastHit pOHit)
     {
-        if (mOUWDataImporter == null)
+        return ChunkDescriptionAt(mOUWDataImporter, pOHit);
+    }
+
+    /// <summary>The same for either game (the second game's walk asks here).</summary>
+    public static string ChunkDescriptionAt(UWDataImport.DataImport pOData, RaycastHit pOHit)
+    {
+        if (pOData == null)
             return null;
 
         UWLevelChunk lOChunk = pOHit.collider.GetComponent<UWLevelChunk>();
@@ -1479,10 +1542,10 @@ public class Interaction : MonoBehaviour, IUWMessageSink
 
         int liTileIndex = lOChunk.GetTileIndex(pOHit.triangleIndex);
 
-        if (liTileIndex < 0 || lOChunk.LevelIndex >= mOUWDataImporter.Levels.Count)
+        if (liTileIndex < 0 || lOChunk.LevelIndex >= pOData.Levels.Count)
             return null;
 
-        UWTile lOTile = mOUWDataImporter.Levels[lOChunk.LevelIndex].TileData[liTileIndex];
+        UWTile lOTile = pOData.Levels[lOChunk.LevelIndex].TileData[liTileIndex];
 
         // The surface normal tells whether floor, ceiling or wall was hit.
         float lfUp = Vector3.Dot(pOHit.normal, Vector3.up);
@@ -1501,7 +1564,7 @@ public class Interaction : MonoBehaviour, IUWMessageSink
 
         try
         {
-            return mOUWDataImporter.GetTextureDescription(liTextureIndex);
+            return pOData.GetTextureDescription(liTextureIndex);
         }
         catch
         {

@@ -207,7 +207,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static bool WearRecord(UWObject pODoor, int piDamage, int piQualityClass)
 		{
-			if (pODoor == null || UWObjectDamageRules.ShrugsOff(pODoor.DoorDirection, piQualityClass))
+			if (pODoor == null || UWObjectDamageRules.ShrugsOff(UWObjectDamageRules.IsProtected(pODoor), piQualityClass))
 				return false;
 
 			int liDamage = piDamage >> piQualityClass;

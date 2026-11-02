@@ -57,13 +57,21 @@ public static class UWMouseButtons
             // EXCEPT IN COMBAT MODE (per user on the original, 2026-09-19): there the right button
             // is the weapon, and a left click beside it still counts.
             if (fPressed(lOLeft))
-                msbLeftIgnored = fHeld(fGetRight())
-                    && !(UWScene.Interaction != null && UWScene.Interaction.IsCombatModeActive);
+                msbLeftIgnored = fHeld(fGetRight()) && !fInCombatMode();
             else if (!fHeld(lOLeft) && !fReleased(lOLeft))
                 msbLeftIgnored = false;
         }
 
         return msbLeftIgnored;
+    }
+
+    /// <summary>The second game's walk has it in its own command, its Interaction stands idle.</summary>
+    private static bool fInCombatMode()
+    {
+        if (UWWalkUw2.IsWalking)
+            return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
+
+        return UWScene.Interaction != null && UWScene.Interaction.IsCombatModeActive;
     }
 
     public static bool RightPressed => fPressed(fGetRight());
@@ -135,6 +143,19 @@ public static class UWMouseButtons
     public static bool IsBlockedByPrompt { get; set; }
 
     public static bool IsBlockedByDebug { get; set; }
+
+    /// <summary>A press of a button read through its action (the right button's Interact, which also takes a
+    /// key): it stops here as the buttons above do, or it reached what lies under the help (per user,
+    /// 2026-11-02).</summary>
+    public static bool PressedFree(InputAction pOAction)
+    {
+        return !IsBlocked && pOAction.WasPressedThisFrame();
+    }
+
+    /// <summary>The second game's screens read the mouse themselves: their clicks ask for this one, null while
+    /// the mouse is someone else's. A press under way goes on with Mouse.current: a null here means no button
+    /// held and would end it as a release.</summary>
+    public static Mouse GameMouse => IsBlocked ? null : Mouse.current;
 
     // THE PAD'S CLICKS COUNT AS THE MOUSE'S (cleanup step 7.7B, 2026-10-25): the pad presses a mouse of
     // its own (UWPointer.PadButton), and the binding's path finds the system mouse's control - so a mouse

@@ -88,12 +88,29 @@ namespace UWDataImport.UWData
 			// A skill point every 1500 (SKILLCHK.C:81), the first game's 3000.
 			lORules.Experience.PerSkillPoint = SkillPointExperience;
 
+			// Eating heals food_heal / 6 (SKILLS.C:592), an interrupted night takes 0x18 off the fatigue (:493).
+			lORules.Vitals.Meal.BlocksPerPoint = MealHealBlocksPerPoint;
+			lORules.Sleep.Relief.InterruptedFatigue = InterruptedFatigueRelief;
+
+			// Casting against three times the circle, no bonus (RUNES.C:238), and the pause's base (RUNES.C:246).
+			lORules.Magic.CastingCheck.Bonus = 0;
+			lORules.Magic.CastingCheck.PerCircle = CastingPerCircle;
+			lORules.Magic.CastDelay.Base = CastDelayBase;
+
 			return lORules;
 		}
 
 		private const int SkillPointExperience = 1500;
 
-		public IUWMagicVariant Magic => throw fNotYet();
+		private const int CastingPerCircle = 3;
+
+		private const int CastDelayBase = 0x80;
+
+		private const int MealHealBlocksPerPoint = 6;
+
+		private const int InterruptedFatigueRelief = 0x18;
+
+		public IUWMagicVariant Magic { get; } = new UWMagicVariantUw2();
 
 		public IUWCombatVariant Combat { get; } = new UWCombatVariantUw2();
 

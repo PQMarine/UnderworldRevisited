@@ -46,6 +46,14 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private readonly RawImage[] mOEmpty = new RawImage[2];
 
+    private RawImage mOGem;
+
+    private readonly Texture2D[] maGem = new Texture2D[UWClassicLayoutUw2.PowerGem.Frames];
+
+    private Texture2D mOPointerPlain;
+
+    private Texture2D mOPointerAim;
+
     private readonly RawImage[][] mOSlices = new RawImage[2][];
 
     private readonly RawImage[] mOValues = new RawImage[2];
@@ -145,6 +153,35 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private Color32 fInk => UWModernPalette.HudText;
 
+    /// <summary>How large the weapon is drawn: 1 maps the view's height onto the screen's (as UWModernWeaponView).</summary>
+    private const float WeaponShare = 0.8f;
+
+    /// <summary>The original's view on the screen, its bottom on the screen's and its middle on the screen's: the
+    /// weapon is cut to it as the view cuts it, or the hold's picture beside the view would show on a wide screen.</summary>
+    private RectTransform mOWeaponView;
+
+    private Image mOWeapon;
+
+    /// <summary>The weapon's picture at its place in the view (weap_x, weap_y from the view's bottom), null for none.</summary>
+    public void ShowWeapon(Sprite pOPicture, int piX, int piY)
+    {
+        if (mOWeapon == null)
+            return;
+
+        mOWeapon.enabled = pOPicture != null;
+
+        if (pOPicture == null)
+            return;
+
+        float lfDown = Screen.height / (float)UWClassicLayoutUw2.Frame.ViewWindowHeight * WeaponShare;
+        float lfAcross = lfDown * UWModernHudArt.PixelAspectX;
+        float lfWidth = UWClassicLayoutUw2.Frame.ViewWindowWidth * lfAcross;
+
+        UWUiKit.SetRect(mOWeaponView, (Screen.width - lfWidth) * 0.5f, 0f, lfWidth, UWClassicLayoutUw2.Frame.ViewWindowHeight * lfDown);
+        mOWeapon.sprite = pOPicture;
+        UWUiKit.SetRect(mOWeapon.rectTransform, piX * lfAcross, piY * lfDown, pOPicture.rect.width * lfAcross, pOPicture.rect.height * lfDown);
+    }
+
     public void SetShown(bool pbShown)
     {
         if (mOCanvas != null)
@@ -174,6 +211,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
         float lfRight = fShowFlask(0, pOFile, Margin * lfScale, lfScale);
 
+        lfRight = fShowGem(pOScreen, lfRight + (Margin * lfScale), lfScale);
         lfRight = fShowFlask(1, pOFile, lfRight + (Margin * lfScale), lfScale);
         fShowLines(pOLines, pfSaidAgo, lfRight + (Margin * lfScale), lfScale);
         fShowPointer(lfScale);
@@ -195,6 +233,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
                 lOSlice.enabled = false;
         }
 
+        mOGem.enabled = false;
         UWTextLabel.Hide(mOLines);
         UWTextLabel.Hide(mOTarget);
         mOPointer.enabled = false;
@@ -365,6 +404,28 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         return lOPicture;
     }
 
+    /// <summary>The power gem between the flasks; the answer is its right edge.</summary>
+    private float fShowGem(UWGameScreenUw2 pOScreen, float pfPlace, float pfScale)
+    {
+        int liFrame = pOScreen != null ? pOScreen.PowerFrame : 0;
+
+        if (maGem[liFrame] == null)
+            maGem[liFrame] = UWScreenUi.BuildPicture(mOData.Textures, UWTexture.TextureTypes.POWER, liFrame);
+
+        Texture2D lOGem = maGem[liFrame];
+
+        if (lOGem == null)
+        {
+            mOGem.enabled = false;
+
+            return pfPlace;
+        }
+
+        fPlace(mOGem, lOGem, pfPlace, Margin * pfScale, pfScale);
+
+        return pfPlace + (lOGem.width * UWModernHudArt.PixelAspectX * pfScale);
+    }
+
     private Texture2D fFlaskPicture(int piIndex)
     {
         if (!mOPictures.TryGetValue(piIndex, out Texture2D lOPicture))
@@ -471,6 +532,17 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private void fShowPointer(float pfScale)
     {
+        // A drawn bow aims, in the crosshair's place.
+        if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAiming)
+        {
+            if (mOPointerAim == null)
+                mOPointerAim = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CURSORS, (int)UWCursors.CursorEnum.Aim, FilterMode.Point, true);
+
+            mOPointer.texture = mOPointerAim;
+        }
+        else
+            mOPointer.texture = mOPointerPlain;
+
         if (mOPointer.texture != null)
             mOPointer.rectTransform.sizeDelta = new Vector2(mOPointer.texture.width * UWModernHudArt.PixelAspectX * pfScale, mOPointer.texture.height * pfScale);
 
@@ -515,6 +587,12 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
         mOCanvas = UWUiKit.CreateOverlayCanvas(transform, "UW2 Modern HUD", UWUiSorting.ModernHud);
 
+        // First, so that it lies under everything else.
+        mOWeaponView = UWUiKit.CreateClipArea(mOCanvas.transform, "Weapon view");
+        mOWeapon = UWUiKit.CreateImage(mOWeaponView, "Weapon", UWUiKit.BottomLeft, UWUiKit.TopLeft, Color.white);
+        mOWeapon.raycastTarget = false;
+        mOWeapon.enabled = false;
+
         for (int liFlask = 0; liFlask < 2; liFlask++)
         {
             mOEmpty[liFlask] = fImage("Flask " + liFlask, UWUiKit.BottomLeft, UWUiKit.BottomLeft);
@@ -529,6 +607,9 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
             mOValues[liFlask] = fImage("Value " + liFlask, UWUiKit.BottomLeft, UWUiKit.BottomLeft);
         }
+
+        mOGem = fImage("Power gem", UWUiKit.BottomLeft, UWUiKit.BottomLeft);
+        UWPixelArtUI.Apply(mOGem);
 
         mOLines = fImage("Lines", UWUiKit.BottomLeft, UWUiKit.BottomLeft);
 
@@ -572,7 +653,8 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         Vector2 lOMiddle = new Vector2(0.5f, 0.5f);
 
         mOPointer = fImage("Pointer", lOMiddle, lOMiddle);
-        mOPointer.texture = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CURSORS, (int)UWCursors.CursorEnum.Center, FilterMode.Point, true);
+        mOPointerPlain = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CURSORS, (int)UWCursors.CursorEnum.Center, FilterMode.Point, true);
+        mOPointer.texture = mOPointerPlain;
         mOPointer.enabled = false;
         UWPixelArtUI.Apply(mOPointer);
         mOTarget = fImage("Target", lOMiddle, new Vector2(0f, 1f));

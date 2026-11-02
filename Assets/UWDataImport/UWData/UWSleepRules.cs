@@ -54,7 +54,7 @@ namespace UWDataImport.UWData
 		// Messages from string block 1, in OUR numbering - i.e. one above each of the reference's
 		// numbers (see UWStatusReport).
 		private const int EnemiesNearbyMessage = 0x0F;
-		private const int MakeCampMessage = 0x10;
+		internal const int MakeCampMessage = 0x10;
 
 		/// <summary>The chance in ten that an open door shuts in the night (DoClosingDoors).</summary>
 		internal const int DoorClosesInTen = 3;
@@ -108,8 +108,9 @@ namespace UWDataImport.UWData
 		/// <param name="pbBedroll">In the bedroll - the only way to a comfortable night.</param>
 		/// <param name="pOWorld">The world around the sleeper; its presentation is the night's (the
 		/// scroll the sleep was asked from, see UWScopedWorld).</param>
+		/// <param name="pbBed">In a bed, the second game's, with pbBedroll for the comfort.</param>
 		public static bool Sleep(UWPlayerVitals pOVitals, int piDungeonLevel, IUWWorld pOWorld,
-			bool pbPassedOut = false, bool pbBedroll = false)
+			bool pbPassedOut = false, bool pbBedroll = false, bool pbBed = false)
 		{
 			if (pOVitals == null || pOWorld == null)
 				return false;
@@ -120,6 +121,7 @@ namespace UWDataImport.UWData
 			// class are their defaults. The set is the world's session's (since wave 4).
 			UWRules lORuleSet = pOWorld.Session.Rules;
 			UWRulesSleep lORules = lORuleSet.Sleep;
+			IUWPlayerVariant lIGame = pOWorld.Session.Game.Player;
 
 			// WHOEVER PASSES OUT IS NOT ASKED. The original's Sleep takes a method, and a
 			// negative one - the alcohol - jumps past every refusal (Sleep_ovr143_D1F, label
@@ -130,21 +132,21 @@ namespace UWDataImport.UWData
 			if (!pbPassedOut)
 			{
 				if (!CanSleepHere(pOWorld.Player) || !pOWorld.Player.IsOnGround
-					|| !pOWorld.Session.Game.Player.MaySleepAt(lORuleSet, piDungeonLevel))
+					|| !lIGame.MaySleepAt(lORuleSet, piDungeonLevel))
 				{
 					lOShown.AddGeneralMessage(CannotSleepHereMessage);
 
 					return false;
 				}
 
-				if (IsHostileNear(pOWorld))
+				if (IsHostileNear(pOWorld) || lIGame.IsHeldAwake)
 				{
 					lOShown.AddGeneralMessage(EnemiesNearbyMessage);
 
 					return false;
 				}
 
-				lOShown.AddGeneralMessage(MakeCampMessage);
+				lOShown.AddGeneralMessage(lIGame.CampLine(pbBed ? 2 : pbBedroll ? 1 : 0));
 			}
 
 			// The music after the refusals (player_sleep sets it only once the night is sure;
@@ -197,7 +199,12 @@ namespace UWDataImport.UWData
 
 			// The ground under whoever passed out, after the poison (drop_drunk_player).
 			if (pbPassedOut)
+			{
 				fApplyDamagingSurface(pOWorld);
+
+				if (lIGame.PassingOutKills)
+					pOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.SleepSurface(DrownDamage)));
+			}
 
 			if (pOVitals.CurrentHP <= 0)
 				return true;
@@ -242,8 +249,13 @@ namespace UWDataImport.UWData
 			// and dream's moment of black is its own wait - passing out only fades out and in
 			// (fadeout3d, fadein3d), with no hold. Ours held two seconds of black until 2026-10-15
 			// (audit round 2, A34 / SW D14).
-			if (!pbPassedOut)
+			if (pbPassedOut)
+				return true;
+
+			if (lIGame.HasGaramonDreams)
 				fDream(piDungeonLevel, liComfort, lOShown);
+			else
+				lOShown.ShowNightBlack(SleepFlashSeconds);
 
 			return true;
 		}

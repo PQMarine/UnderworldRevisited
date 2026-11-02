@@ -8,41 +8,36 @@ using UnderworldRevisited.Build;
 /// it is sorted, when it appears -, the second splat of a critical, the wall's impact picture and
 /// sound, and the eyes at the top edge for a creature the player hit, by blow (UWPlayerMelee) or
 /// by missile (UWMissiles through ReportSpellHit). The pictures wait for the swing on a
-/// coroutine of Interaction's.
+/// coroutine of the host's (IUWMeleeHost).
 /// </summary>
 public sealed class UWHitFeedback
 {
-    private readonly Interaction mOInteraction;
+    private readonly IUWMeleeHost mOHost;
 
-    public UWHitFeedback(Interaction pOInteraction)
+    public UWHitFeedback(IUWMeleeHost pOHost)
     {
-        mOInteraction = pOInteraction;
+        mOHost = pOHost;
     }
 
     private UWDataImport.DataImport fData()
     {
-        return mOInteraction.GameData;
+        return mOHost.GameData;
     }
 
     private UWLevelLoader fLoader()
     {
-        return mOInteraction.LevelLoader;
+        return mOHost.LevelLoader;
     }
 
-    private UWEyesDisplay fEyes()
-    {
-        return mOInteraction.Eyes;
-    }
-
-    /// <summary>The blow that met a wall (UWPlayerMelee.fTryWallImpact): effect 7 at the spot and,
+    /// <summary>The blow that met a wall (UWPlayerMelee.fTryWallImpact): the game's sound at the spot and,
     /// after the swing's delay, the impact picture 0x1CB there.</summary>
-    public void ShowWallImpact(Vector3 pOAt)
+    public void ShowWallImpact(Vector3 pOAt, int piSound)
     {
-        UWAudioService.PlayEffectAt(UWSoundEffectId.SpellImpact, pOAt);
+        UWAudioService.PlayEffectAt(piSound, pOAt);
 
         UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
 
-        mOInteraction.StartCoroutine(fShowHitEffectDelayed(UWObjectMechanics.FlashEffectObjectId, pOAt,
+        mOHost.StartCoroutine(fShowHitEffectDelayed(UWObjectMechanics.FlashEffectObjectId, pOAt,
             lOSettings != null ? lOSettings.HitEffectDelaySeconds : 0.2f,
             lOSettings != null ? lOSettings.HitEffectSeconds : 0.6f));
     }
@@ -118,7 +113,7 @@ public sealed class UWHitFeedback
 
         lOAt.y += pfExtraHeight;
 
-        mOInteraction.StartCoroutine(fShowHitEffectDelayed(liEffectId, lOAt, lfDelay, lfSeconds, lfDepthBias));
+        mOHost.StartCoroutine(fShowHitEffectDelayed(liEffectId, lOAt, lfDelay, lfSeconds, lfDepthBias));
     }
 
     /// <summary>
@@ -292,7 +287,7 @@ public sealed class UWHitFeedback
             ShowHitEffect(pOTarget, pOPoint);
 
         // Only for a creature - see UWPlayerMelee.fApplyMeleeHit.
-        if (fEyes() != null && pODamageable != null && Interaction.IsCreatureEntity(pOTarget))
+        if (mOHost.ShowsFoeCondition && pODamageable != null && Interaction.IsCreatureEntity(pOTarget))
             ShowEyes(pOTarget, pODamageable);
     }
 
@@ -302,7 +297,7 @@ public sealed class UWHitFeedback
     {
         UWCritter lOCritter = pOTarget != null ? pOTarget.GetComponentInParent<UWCritter>() : null;
 
-        fEyes().ShowCondition(fData(), pODamageable.CurrentHealth,
+        mOHost.ShowFoeCondition(pODamageable.CurrentHealth,
             lOCritter != null ? lOCritter.TableVitality : pODamageable.MaxHealth, fFoeName(pOTarget));
     }
 

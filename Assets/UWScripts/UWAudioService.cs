@@ -62,7 +62,33 @@ public static class UWAudioService
         if (piEffect < 0 || piEffect >= mOData.Sound.Effects.Count)
             return;
 
-        lOMixer.PlayEffect(mOData.Sound.Effects[piEffect], piVelocityOffset);
+        if (!fPlayDigital(lOMixer, piEffect, piVelocityOffset))
+            lOMixer.PlayEffect(mOData.Sound.Effects[piEffect], piVelocityOffset);
+    }
+
+    /// <summary>The volume at which the original's channel plays a recording to the full.</summary>
+    private const int FullVolume = 0x7F;
+
+    /// <summary>
+    /// play_effect tries the one digital channel first (uw2 sound/SOUND.C:1117): an effect whose SOUNDS.DAT entry
+    /// has the flag plays its SPnn.VOC there, when its priority (the entry's plus the volume) is at least the
+    /// playing one's. False falls back to the note on the AdLib, as the original does. The first game has no flag.
+    /// </summary>
+    private static bool fPlayDigital(UWAudioMixer pOMixer, int piEffect, int piVelocityOffset)
+    {
+        UWSoundsDat lOTable = mOData.Sound.SoundsDat;
+
+        if (lOTable == null || piEffect >= lOTable.Effects.Count || lOTable.Effects[piEffect].Digital == 0)
+            return false;
+
+        UWDataImport.Audio.UWVoc lOVoc = mOData.Sound.GetEffectVoc(piEffect);
+
+        if (lOVoc == null || !lOVoc.IsLoaded)
+            return false;
+
+        int liVolume = Mathf.Clamp(lOTable.Effects[piEffect].Volume + piVelocityOffset, 0, FullVolume);
+
+        return pOMixer.PlayDigitalEffect(lOVoc.Samples, lOVoc.SampleRate, liVolume / (float)FullVolume, lOTable.Effects[piEffect].Priority + liVolume);
     }
 
     /// <summary>At a position in the world, with distance attenuation relative to the player.</summary>

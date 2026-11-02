@@ -135,6 +135,12 @@ off. A four-cornered face is two triangles here. And the checker lies on a grid 
 where the original starts it anew at the left end of every span, which turns it into stripes on a
 slanted polygon. Sprites, models and doors keep a shade by distance per pixel.
 
+**The fades of a night have a fixed length.** The original dims the view in twelve steps as fast
+as the machine can copy the picture, with no timer and no wait for the screen, so the fade takes
+as long as the processor needs: under a fast DOSBox hardly any time. Ours takes 0.3 seconds each
+way, in the second game as a soft fade around the night's black. In the first game passing out
+shows 0.6 seconds of plain black, shorter than a night's 1.5, which is the original's timed wait.
+
 ## Bugs of the original that are kept
 
 **The Garamon of the burial conversation.** The conversation at the grave runs with a stand-in

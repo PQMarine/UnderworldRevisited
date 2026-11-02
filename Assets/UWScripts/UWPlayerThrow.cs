@@ -170,18 +170,29 @@ public static class UWPlayerThrow
         //     1 + ((X - 86) * 5) / 13
         // integer division truncating towards zero, like idiv. Clockwise is positive, the same
         // as the heading itself (GetCoordinateInDirection turns 0x40 - heading into a maths angle).
-        int liMissileHeading = 1 + (((piX - 0x56) * 5) / 0xD);
-
         // Pitch: camera pitch / 0x300 plus (Y - 56) / 6, positive is UP. The camera pitch is a
         // 16 bit angle there (UWViewpoint.PitchToDegrees has the sign).
-        piPitch = (fGetOriginalCameraPitch(pOCamera) / 0x300) + ((piY - 0x38) / 6);
+        fAim(1 + (((piX - 0x56) * 5) / 0xD), (piY - 0x38) / 6, pOCamera, out piHeading, out piPitch);
+    }
+
+    /// <summary>GetMissileAim from the pointer in the second game's window (player_settr, the same routine
+    /// over another window, UWClassicLayoutUw2.MissileAim).</summary>
+    public static void GetMissileAimUw2(int piX, int piY, Transform pOCamera, out int piHeading, out int piPitch)
+    {
+        fAim(1 + (((piX - UWClassicLayoutUw2.MissileAim.CentreX) * 5) / 0xD), (piY - UWClassicLayoutUw2.MissileAim.CentreY) / 6,
+            pOCamera, out piHeading, out piPitch);
+    }
+
+    private static void fAim(int piMissileHeading, int piPitchOffset, Transform pOCamera, out int piHeading, out int piPitch)
+    {
+        piPitch = (fGetOriginalCameraPitch(pOCamera) / 0x300) + piPitchOffset;
 
         // Projectile_Pitch is a five bit field with 16 as level. UW.EXE would wrap a value
         // outside it; our camera looks further up and down than the original's, so a wrap
         // would throw backwards through the floor - clamped instead.
         piPitch = Mathf.Clamp(piPitch, -16, 15);
 
-        piHeading = (GetPlayerHeading(pOCamera) + liMissileHeading + 0x100) & 0xFF;
+        piHeading = (GetPlayerHeading(pOCamera) + piMissileHeading + 0x100) & 0xFF;
     }
 
     /// <summary>
@@ -198,6 +209,23 @@ public static class UWPlayerThrow
 
         GetMissileAim(piX, piY, pOCamera, out int liHeading, out int liMissilePitch);
 
+        return fThrowAlong(pOItem, liHeading, liMissilePitch, pOLevelLoader, pOInteraction);
+    }
+
+    /// <summary>The second game's throw (ReturnObject): from the row of its window up the thing flies. False
+    /// when the pointer is lower or the start is blocked; then it is dropped.</summary>
+    public static bool TryThrowUw2(UWObject pOItem, int piX, int piY, Transform pOCamera, UWLevelLoader pOLevelLoader, IUWMissileHost pIShooter)
+    {
+        if (piY < UWClassicLayoutUw2.MissileAim.ThrowRow || pOLevelLoader.UWDataImporter == null)
+            return false;
+
+        GetMissileAimUw2(piX, piY, pOCamera, out int liHeading, out int liMissilePitch);
+
+        return fThrowAlong(pOItem, liHeading, liMissilePitch, pOLevelLoader, pIShooter);
+    }
+
+    private static bool fThrowAlong(UWObject pOItem, int piHeading, int piPitch, UWLevelLoader pOLevelLoader, IUWMissileHost pIShooter)
+    {
         // Missile objects - major class 0, minor class 1 - are the only ones that hurt what they
         // hit (UWMissileHitRules.HurtsWhatItHits, one rule with the hit since 2026-10-17).
         bool lbMissile = UWMissileHitRules.HurtsWhatItHits(pOItem.ID);
@@ -207,12 +235,12 @@ public static class UWPlayerThrow
         // UWPlayerAttack.GetThrownMissileBaseDamage). The flight carries the base, its dice are
         // rolled at the hit; a throw of what is no missile carries none (since cleanup step 4.9b,
         // 2026-10-18; 0 rolled damage until then).
-        bool lbTyped = lbMissile && pOInteraction != null;
+        bool lbTyped = lbMissile && pIShooter != null;
 
-        return UWMissiles.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, liHeading, liMissilePitch,
-            ThrownAmmoType, lbTyped ? pOInteraction.GetThrownMissileBaseDamage(pOItem.ID) : UWAttackResolution.NoMissileDamage,
-            lbTyped ? pOInteraction.GetThrownMissileDamageType(pOItem.ID) : UWDamageTypes.Missile, -1, pOInteraction,
-            pOItem.Quality) != null;
+        return UWMissiles.Ensure(pOLevelLoader).LaunchFromPlayer(pOItem, pOItem.ID, piHeading, piPitch,
+            ThrownAmmoType, lbTyped ? pIShooter.GetThrownMissileBaseDamage(pOItem.ID) : UWAttackResolution.NoMissileDamage,
+            lbTyped ? pIShooter.GetThrownMissileDamageType(pOItem.ID) : UWDamageTypes.Missile, -1, pIShooter,
+            pOItem.Quality, UWGameSession.Current.Game.Combat.ThrowSound) != null;
     }
 
     /// <summary>

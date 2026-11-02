@@ -54,6 +54,13 @@ namespace UWDataImport.UWData
 			return pOFile == null || (pOFile.Record[UWPlayerRecordUw2.AutomapByteOffset] & UWPlayerRecordUw2.AutomapBit) != 0;
 		}
 
+		/// <summary>do_gem's player->automap = 1.</summary>
+		public static void TurnOn(UWPlayerFile pOFile)
+		{
+			if (pOFile != null)
+				fSetOn(pOFile, true);
+		}
+
 		private static void fSetOn(UWPlayerFile pOFile, bool pbOn)
 		{
 			byte[] lyRecord = pOFile.Record;
@@ -200,8 +207,7 @@ namespace UWDataImport.UWData
 		/// <summary>update_map_scraps: what the scrap shows, into the level's map and notes. A tile takes the
 		/// scrap's byte where the level's map has nothing, or where it has only seen one the scrap knows; a note
 		/// comes along when its tile lies in the sections and the page has room. The answer is the experience,
-		/// a level's worth per tile, a twentieth in all (player_get_exp's rules come with the rules of phase 4,
-		/// so nothing adds it yet).</summary>
+		/// a level's worth per tile, a twentieth in all, for player_get_exp.</summary>
 		public static int CopyScrap(byte[] pyScrapMap, IList<UWLevel.MapNote> pOScrapNotes, int piSections, int piLevel,
 			byte[] pyLevelMap, IList<UWLevel.MapNote> pOLevelNotes)
 		{

@@ -41,6 +41,8 @@ public class UWWalkUw2View : MonoBehaviour
         Current = this;
         gameObject.AddComponent<UWVitalsUw2>();
         gameObject.AddComponent<UWAttackUw2>();
+        gameObject.AddComponent<UWDeathUw2>();
+        gameObject.AddComponent<UWSleepUw2>();
 
         // The creatures' frame tick, the session's clock with them (UWCritterDriver).
         if (GetComponent<UWCritterDriver>() == null)
@@ -48,6 +50,11 @@ public class UWWalkUw2View : MonoBehaviour
 
         mOLoader = GetComponent<UWLevelLoader>();
         mOLighting = GetComponent<UWLighting>();
+
+        // The walk leaves the level loader before its sound starts: without this the effects were the first
+        // game's after its menu, or none at all.
+        if (mOLoader != null && mOLoader.UWDataImporter != null)
+            UWAudioService.Init(mOLoader.UWDataImporter);
 
         string lsData = mOLoader != null && mOLoader.UWDataImporter != null ? mOLoader.UWDataImporter.DataPath : null;
         string lsFile = lsData != null ? Path.Combine(lsData, UWDarknessUw2.FileName) : null;
@@ -70,8 +77,24 @@ public class UWWalkUw2View : MonoBehaviour
 
     private void Update()
     {
+        fCampByKey();
         fUseDoor();
         fFollowLight();
+    }
+
+    /// <summary>The panels and the prompts that have the input while they are up.</summary>
+    private bool fIsInputTaken()
+    {
+        return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
+            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWControls.IsTextEntryActive
+            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight);
+    }
+
+    /// <summary>player_key_sleep.</summary>
+    private void fCampByKey()
+    {
+        if (!fIsInputTaken() && UWControlScheme.SharedControls[UWAct.KeyCamp].WasPressedThisFrame() && UWSleepUw2.Current != null)
+            UWSleepUw2.Current.Camp(mOScreen != null ? mOScreen.Inventory : null);
     }
 
     /// <summary>
@@ -135,14 +158,13 @@ public class UWWalkUw2View : MonoBehaviour
         UWControls lOControls = UWControlScheme.SharedControls;
 
         // The options panel, the map and a conversation have the input while they are up.
-        if (lOControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
-            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || (mOScreen != null && mOScreen.IsBagsOpen))
+        if (lOControls == null || fIsInputTaken() || (mOScreen != null && mOScreen.IsBagsOpen))
             return;
 
         UnityEngine.InputSystem.Mouse lOClickMouse = UnityEngine.InputSystem.Mouse.current;
         bool lbClassic = UWControlScheme.Shared != null && UWControlScheme.Shared.Current != UWControlScheme.SchemeEnum.Modern;
         bool lbInView = lOClickMouse != null && (mOScreen == null || mOScreen.IsInView(UWPointer.Position));
-        bool lbRight = lbClassic && lbInView && lOClickMouse.rightButton.wasPressedThisFrame;
+        bool lbRight = lbClassic && lbInView && !UWMouseButtons.IsBlocked && lOClickMouse.rightButton.wasPressedThisFrame;
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
 
@@ -309,6 +331,14 @@ public class UWWalkUw2View : MonoBehaviour
     {
         UWObject lOItem = pOEntity.ObjectData;
 
+        // EncumCheck, after the count: "That is too heavy for you to pick up."
+        if (!pOInventory.CanCarry(lOItem, piCount))
+        {
+            UWGameScreenUw2.Say(UWText.Block(mOLoader.UWDataImporter, 1, TooHeavyString + 1, string.Empty));
+
+            return;
+        }
+
         if (piCount < UWStackRules.CountAtLeastOne(lOItem) && pOInventory.TakeFromStack(lOItem, piCount))
             return;
 
@@ -327,6 +357,8 @@ public class UWWalkUw2View : MonoBehaviour
 
     public const int NoSpaceToDropString = 0x10D;
 
+    private const int TooHeavyString = 0x6C;
+
     private const int NothingGet = 3;
 
     private const int CannotPickUpString = 0x6D;
@@ -334,10 +366,25 @@ public class UWWalkUw2View : MonoBehaviour
     /// <summary>
     /// PUTTING THE OBJECT ON THE POINTER DOWN (ReturnObject's drop, the same in both games): a little in
     /// front of the player where it fits (UWPlayerThrow.TryFindDropSpot), at the tail of the tile's list;
-    /// else "There is no space to drop that.". The throw, with the pointer low in the view in the fight's
-    /// stance, is the second game's missile (phase 4); the lights going out, its rules.
+    /// else "There is no space to drop that.". With the pointer high enough in the view it is thrown first
+    /// (UWPlayerThrow.TryThrowUw2), and dropped when the start is blocked; a burning light goes out on the
+    /// ground, the first game's rule (UWObjectMechanics.ExtinguishInWorld), and one thrown when it lands.
     /// </summary>
     private void fDrop(UWInventoryModel pOInventory)
+    {
+        fDropHeld(pOInventory);
+    }
+
+    /// <summary>punt_mouse_obj: what is on the pointer goes down.</summary>
+    public void DropCursorItem()
+    {
+        UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+
+        if (lOInventory != null && lOInventory.CursorItem != null)
+            fDropHeld(lOInventory);
+    }
+
+    private void fDropHeld(UWInventoryModel pOInventory)
     {
         DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
         Camera lOCamera = UWViewpoint.Current;
@@ -346,16 +393,46 @@ public class UWWalkUw2View : MonoBehaviour
         if (lOData == null || lOCamera == null || lOItem == null)
             return;
 
-        if (!UWPlayerThrow.TryFindDropSpot(lOItem, lOCamera.transform, mOLoader, out Vector3 lOSpot)
-            || !mOLoader.SpawnDroppedObject(lOItem, lOSpot, true, UWWorldEdit.Arrival.PutDown,
-                UWLevelLoader.HeadingFromDirection(lOCamera.transform.forward), true, true))
+        if (fTryThrow(pOInventory, lOItem, lOCamera.transform))
+            return;
+
+        bool lbFits = UWPlayerThrow.TryFindDropSpot(lOItem, lOCamera.transform, mOLoader, out Vector3 lOSpot);
+
+        // Only once it is sure to fit: else it would stay on the pointer doused.
+        if (lbFits)
+            UWObjectMechanics.ExtinguishInWorld(lOItem, lOData.Textures);
+
+        if (!lbFits || !mOLoader.SpawnDroppedObject(lOItem, lOSpot, true, UWWorldEdit.Arrival.PutDown,
+            UWLevelLoader.HeadingFromDirection(lOCamera.transform.forward), true, true))
         {
+            UWAudioService.PlayEffect(UWGameSession.Current.Game.Combat.NoRoomSound);
             UWGameScreenUw2.Say(UWText.Block(lOData, 1, NoSpaceToDropString + 1, string.Empty));
 
             return;
         }
 
         pOInventory.ReleaseCursorItem();
+        pOInventory.ApplyCarriedLight();
+    }
+
+    private bool fTryThrow(UWInventoryModel pOInventory, UWObject pOItem, Transform pOCamera)
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        if (UWGameScreenUw2.Current == null || UWAttackUw2.Current == null)
+            return false;
+
+        Vector2 lOPointer = UWGameScreenUw2.IsClassicActive || lOMouse == null ? UWPointer.Position : lOMouse.position.ReadValue();
+
+        UWGameScreenUw2.Current.PointerInMissileWindow(lOPointer, out int liX, out int liY);
+
+        if (!UWPlayerThrow.TryThrowUw2(pOItem, liX, liY, pOCamera, mOLoader, UWAttackUw2.Current))
+            return false;
+
+        pOInventory.ReleaseCursorItem();
+        pOInventory.ApplyCarriedLight();
+
+        return true;
     }
 
     /// <summary>What the view's centre or the free pointer points at within DoorReach, nearest first.</summary>
@@ -366,19 +443,23 @@ public class UWWalkUw2View : MonoBehaviour
         if (lOCamera == null)
             return new RaycastHit[0];
 
-        // The classic screen captures the system mouse: our pointer says where it points
-        // (UWPointer.Position); the modern scheme's locked look aims through the middle.
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
-        Ray lORay = UWGameScreenUw2.IsClassicActive
-            ? lOCamera.ScreenPointToRay(UWPointer.Position)
-            : Cursor.lockState != CursorLockMode.Locked && lOMouse != null
-            ? lOCamera.ScreenPointToRay(lOMouse.position.ReadValue())
-            : lOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-
-        RaycastHit[] lOHits = Physics.RaycastAll(lORay, DoorReach, ~0, QueryTriggerInteraction.Collide);
+        RaycastHit[] lOHits = Physics.RaycastAll(fPointerRay(lOCamera), DoorReach, ~0, QueryTriggerInteraction.Collide);
         System.Array.Sort(lOHits, (pOA, pOB) => pOA.distance.CompareTo(pOB.distance));
 
         return lOHits;
+    }
+
+    /// <summary>The classic screen captures the system mouse: our pointer says where it points
+    /// (UWPointer.Position); the modern scheme's locked look aims through the middle.</summary>
+    private static Ray fPointerRay(Camera pOCamera)
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+
+        return UWGameScreenUw2.IsClassicActive
+            ? pOCamera.ScreenPointToRay(UWPointer.Position)
+            : Cursor.lockState != CursorLockMode.Locked && lOMouse != null
+            ? pOCamera.ScreenPointToRay(lOMouse.position.ReadValue())
+            : pOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
     }
 
     /// <summary>Opens or closes the door pointed at; a locked one says so in the scroll. pbSayOther: a
@@ -400,32 +481,46 @@ public class UWWalkUw2View : MonoBehaviour
             return;
         }
 
-        if (pbSayOther)
-            UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
-    }
+        UWEntityInfo lOThing = fFirstEntity();
 
-    /// <summary>The look of the walk: the nearest thing's name in the first game's sentence ("You see a
-    /// ...", UWItemDescriptions.DescribeScenery) - the second game's look with its conditions, owners and
-    /// creatures' moods is its rules' (phase 4).</summary>
-    private void fLook()
-    {
-        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
-
-        foreach (RaycastHit lOHit in fHits())
+        // UseRect: the bed puts the player to sleep.
+        if (lOThing != null && lOThing.ObjectData != null && lOThing.ObjectData.ID == UWSleepUw2.BedObjectId && UWSleepUw2.Current != null)
         {
-            UWEntityInfo lOInfo = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOInfo == null || string.IsNullOrEmpty(lOInfo.Description))
-                continue;
-
-            UWGameScreenUw2.Say(lOInfo.ShowDescriptionVerbatim
-                ? lOInfo.Description
-                : UWItemDescriptions.DescribeScenery(lOInfo.Description, null, lOInfo.ObjectData, lOData));
+            UWSleepUw2.Current.InBed();
 
             return;
         }
 
-        UWGameScreenUw2.Say(UWText.T("hud.walk.nothing"));
+        if (pbSayOther)
+            UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+    }
+
+    /// <summary>The look of the walk: the first game's picker and look (player_3dlook), the thing in front or the
+    /// texture behind nothing; what the light's band does not draw is not there (Interaction.IsWithinSight).</summary>
+    private void fLook()
+    {
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null || UWAttackUw2.Current == null)
+            return;
+
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+        bool lbSeen = lOMeasured.HasFrontmost && Interaction.IsInSightBand(lOCamera.transform,
+            lOMeasured.FrontmostHit.point + (lOMeasured.FrontmostHit.normal * 0.5f), fViewingDistance());
+        UWEntityInfo lOThing = lbSeen ? lOMeasured.Frontmost : null;
+        string lsChunk = lbSeen && lOThing == null
+            ? Interaction.ChunkDescriptionAt(mOLoader != null ? mOLoader.UWDataImporter : null, lOMeasured.FrontmostHit) : null;
+
+        UWAttackUw2.Current.Look.LookAtTarget(lOThing, lsChunk);
+    }
+
+    /// <summary>The rows the light reaches (SHADES.DAT), as UWPlayerTerrain.ViewingDistance.</summary>
+    private int fViewingDistance()
+    {
+        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+
+        return mOLighting != null && lOData != null && lOData.Shades != null && lOData.Shades.TryGet(mOLighting.LightLevel, out UWShades.Entry lOShade)
+            ? lOShade.ViewingDistance : UWExplorationRules.RenderBandMaxDepth;
     }
 
     private void fFollowLight()

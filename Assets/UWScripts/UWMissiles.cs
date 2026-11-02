@@ -76,7 +76,7 @@ public sealed class UWMissiles
     /// for a spell.
     /// </summary>
     public UWProjectileFlight LaunchFromPlayer(UWObject pOItem, int piItemId, int piHeading, int piPitch, int piSpeedByte,
-        int piBaseDamage, int piDamageType, int piImpactId, Interaction pOInteraction, int piHp)
+        int piBaseDamage, int piDamageType, int piImpactId, IUWMissileHost pIShooter, int piHp, int piLaunchSound = UWSoundEffectId.Miss)
     {
         Camera lOCamera = Camera.main;
 
@@ -107,7 +107,7 @@ public sealed class UWMissiles
         };
 
         return fLaunch(pOItem, piItemId, lOLauncher, 0, piPitch, piSpeedByte, piBaseDamage, piDamageType, piImpactId,
-            pOInteraction, null, piHp);
+            pIShooter, null, piHp, piLaunchSound);
     }
 
     /// <summary>A creature's missile or spell projectile along its facing, at the pitch of its
@@ -137,7 +137,7 @@ public sealed class UWMissiles
         };
 
         return fLaunch(null, piItemId, lOLauncher, 0, piPitch, piSpeedByte: fSpeedByte(piItemId), piBaseDamage: piBaseDamage,
-            piDamageType: piDamageType, piImpactId: piImpactId, pOInteraction: null, pOCritter: pOCritter, piHp: 0x3F);
+            piDamageType: piDamageType, piImpactId: piImpactId, pIShooter: null, pOCritter: pOCritter, piHp: 0x3F);
     }
 
     /// <summary>A missile from a spot without a body of its own - the arrow trap, the spell
@@ -202,8 +202,8 @@ public sealed class UWMissiles
     }
 
     private UWProjectileFlight fLaunch(UWObject pOItem, int piItemId, UWMobileObjectMotion.Launcher pOLauncher, int piMissileHeading,
-        int piPitch, int piSpeedByte, int piBaseDamage, int piDamageType, int piImpactId, Interaction pOInteraction,
-        UWCritter pOCritter, int piHp)
+        int piPitch, int piSpeedByte, int piBaseDamage, int piDamageType, int piImpactId, IUWMissileHost pIShooter,
+        UWCritter pOCritter, int piHp, int piLaunchSound = UWSoundEffectId.Miss)
     {
         UWMobileRecord lORecord = new UWMobileRecord
         {
@@ -220,7 +220,7 @@ public sealed class UWMissiles
         // arrows and bolts lie in the facing).
         lORecord.StaticHeading = lORecord.Octant;
 
-        return fSpawnFlight(lORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter);
+        return fSpawnFlight(lORecord, piBaseDamage, piDamageType, piImpactId, pIShooter, pOCritter, piLaunchSound: piLaunchSound);
     }
 
     /// <summary>The quake's boulder: a piece of debris with a random small speed and schedule
@@ -301,14 +301,18 @@ public sealed class UWMissiles
             lORecord.Index = mOHost.NewFlightIndex();
 
             fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, liType, UWRunicMagic.GetProjectileImpactId(liItemId),
-                lbPlayers ? UWScene.Interaction : null,
+                lbPlayers ? fPlayersHost : null,
                 lORecord.Owner > UWMissileHitRules.PlayerOwner ? UWCritter.AtIndex(lORecord.Owner) : null,
                 false, true);
         }
     }
 
+    /// <summary>Who the player is here: his flights report to it (Interaction stands idle in the second game).</summary>
+    private static IUWMissileHost fPlayersHost => UWWalkUw2.IsWalking ? UWAttackUw2.Current : (IUWMissileHost)UWScene.Interaction;
+
     private UWProjectileFlight fSpawnFlight(UWMobileRecord pORecord, int piBaseDamage, int piDamageType, int piImpactId,
-        Interaction pOInteraction, UWCritter pOCritter, bool pbLaunchSound = true, bool pbFromLevelData = false)
+        IUWMissileHost pIShooter, UWCritter pOCritter, bool pbLaunchSound = true, bool pbFromLevelData = false,
+        int piLaunchSound = UWSoundEffectId.Miss)
     {
         Vector3 lOAt = UWMotionHost.WorldPosition(pORecord);
         GameObject lOSpawned = fLoader.SpawnProjectile(pORecord.ItemId, lOAt, UWViewpoint.HeadingByteToDirection(pORecord.HeadingByte));
@@ -318,16 +322,16 @@ public sealed class UWMissiles
 
         UWProjectileFlight lOFlight = lOSpawned.AddComponent<UWProjectileFlight>();
 
-        lOFlight.Begin(this, pORecord, piBaseDamage, piDamageType, piImpactId, pOInteraction, pOCritter, pbFromLevelData);
+        lOFlight.Begin(this, pORecord, piBaseDamage, piDamageType, piImpactId, pIShooter, pOCritter, pbFromLevelData);
         mOHost.AddFlight(lOFlight);
 
         // A contact at the start does not strike (HitPlayerWalkingIn, 2026-10-19).
         lOFlight.TouchingPlayer = fInPlayerReach(lOFlight);
 
-        // The launch sound of every missile (PrepareProjectileObject, effect 0x0A); a thing
-        // knocked loose makes none.
+        // The launch sound of every missile (PrepareProjectileObject, effect 0x0A; the second game's
+        // throw has its own); a thing knocked loose makes none.
         if (pbLaunchSound)
-            UWAudioService.PlayEffectAt(UWSoundEffectId.Miss, lOAt);
+            UWAudioService.PlayEffectAt(piLaunchSound, lOAt);
 
         return lOFlight;
     }
@@ -408,7 +412,7 @@ public sealed class UWMissiles
                 UWObjectAppearance.Apply(lOObject, lOLoader.UWDataImporter.Textures, null);
         }
 
-        fSpawnFlight(lORecord, lOFlight.BaseDamage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Interaction,
+        fSpawnFlight(lORecord, lOFlight.BaseDamage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Shooter,
             lOFlight.Launcher, false, lOFlight.FromLevelData);
     }
 
@@ -433,10 +437,11 @@ public sealed class UWMissiles
             return pOFlight.BaseDamage;
 
         UWLevelLoader lOLoader = fLoader;
-        UWCharacter lOPlayer = UWScene.Character;
+        IUWMissileHost lIPlayer = fPlayersHost;
+        UWPlayerVitals lOVitals = lIPlayer != null ? lIPlayer.MeleeVitals : null;
 
         return UWPlayerAttack.GetMissileHitBaseDamage(lOLoader != null ? lOLoader.UWDataImporter : null, pOFlight.Record.ItemId,
-            pOFlight.Record.Owner, lOPlayer != null ? lOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
+            pOFlight.Record.Owner, lOVitals != null ? lOVitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
     }
 
     /// <summary>The missile's COMOBJ height, the top of its box over its z.</summary>
@@ -540,7 +545,9 @@ public sealed class UWMissiles
         // struck mobile, then do_damage plays it again louder by the damage before the armour
         // (UnderworldExhumed combat/COMBAT.C).
         UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOCritter.BodyPosition);
-        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOCritter.BodyPosition, lOOutcome.HitVolume);
+
+        if (UWGameSession.Current.Game.Combat.MissileDamageSounds)
+            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOCritter.BodyPosition, lOOutcome.HitVolume);
 
         fApplyMissileDamage(UWWorld.TargetOf(pOCritter, lODamageable), lOOutcome);
 
@@ -552,8 +559,8 @@ public sealed class UWMissiles
         if (lOOutcome.LeavesTrace)
             pOCritter.ShowMissileHitEffect(liPart, lOOutcome.Damage, (liBottom + liTop) / 2);
 
-        if (pOFlight.PlayersOwn && pOFlight.Interaction != null && lOOutcome.LeavesTrace)
-            pOFlight.Interaction.ReportSpellHit(pOCritter.GetComponentInParent<UWEntityInfo>(), lODamageable, pOCritter.BodyPosition);
+        if (pOFlight.PlayersOwn && pOFlight.Shooter != null && lOOutcome.LeavesTrace)
+            pOFlight.Shooter.ReportSpellHit(pOCritter.GetComponentInParent<UWEntityInfo>(), lODamageable, pOCritter.BodyPosition);
 
         return true;
     }
@@ -576,9 +583,11 @@ public sealed class UWMissiles
 
     private void fDamagePlayer(UWProjectileFlight pOFlight)
     {
-        UWCharacter lOPlayer = UWScene.Character;
+        // The second game's player is UWVitalsUw2: UWCharacter stands idle there, without armour.
+        UWVitalsUw2 lOSecond = UWWalkUw2.IsWalking ? UWVitalsUw2.Current : null;
+        UWCharacter lOPlayer = lOSecond == null ? UWScene.Character : null;
 
-        if (lOPlayer == null)
+        if ((lOSecond == null || lOSecond.Vitals == null) && lOPlayer == null)
             return;
 
         // EVERY MISSILE HIT ON THE PLAYER goes missile_newhit -> missile_thwack -> do_damage
@@ -587,14 +596,14 @@ public sealed class UWMissiles
         // left, whoever fired it and whatever its type. Until 2026-10-12 ours halved only a
         // creature's arrow, bolt or stone - a mage's fireball or lightning bolt hit an easy
         // player in full - and the player's own rebounding missile skipped armour and halving.
-        int liPart = UWMissileHitRules.PickPlayerBodyPart(lOPlayer.GetFeetZPos(), lOPlayer.GetBodyHeightZ(),
-            pOFlight.Record.ZPos, fHeight(pOFlight));
+        int liPart = UWMissileHitRules.PickPlayerBodyPart(lOSecond != null ? lOSecond.FeetZPos : lOPlayer.GetFeetZPos(),
+            lOSecond != null ? lOSecond.BodyHeightZ : lOPlayer.GetBodyHeightZ(), pOFlight.Record.ZPos, fHeight(pOFlight));
 
         // THE HIT AS A BLOW'S (missile_thwack -> do_damage): UWAttackResolution.Missile with the
         // player as the defender (cleanup step 4.9, 2026-10-18) - no check; the dice of the flight's
         // base rolled here, after the part (since cleanup step 4.9b, the same day; at the launch until
         // then); the volume from the damage before the armour, the request below.
-        UWAttackOutcome lOOutcome = fResolveHit(pOFlight, lOPlayer.Combatant, liPart);
+        UWAttackOutcome lOOutcome = fResolveHit(pOFlight, lOSecond != null ? lOSecond.Combatant : lOPlayer.Combatant, liPart);
 
         // Effect 3 twice: missile_thwack's, then do_damage's louder by the damage before the
         // armour (COMBAT.C; ours played the first alone until 2026-10-12).
@@ -634,9 +643,9 @@ public sealed class UWMissiles
 
         if (UWMissileHitRules.IsOrbRock(pOFlight.Record.ItemId))
         {
-            if (UWMissileHitRules.SmashesOrb(pOFlight.Record.ItemId, pOObject.ID) && lOEntity != null && pOFlight.Interaction != null)
+            if (UWMissileHitRules.SmashesOrb(pOFlight.Record.ItemId, pOObject.ID) && lOEntity != null && pOFlight.Shooter is Interaction lOInteraction)
             {
-                UWItemTargetUse.SmashOrb(pOFlight.Interaction, lOEntity);
+                UWItemTargetUse.SmashOrb(lOInteraction, lOEntity);
 
                 return true;
             }
@@ -661,12 +670,13 @@ public sealed class UWMissiles
         int liHitZ = UWMissileHitRules.ObjectFlashZ(pOFlight.Record.ZPos, fHeight(pOFlight), lOEntity != null && lOEntity.IsDoor,
             pOObject.ZPos);
 
-        if (pOFlight.Interaction != null && lOEntity != null)
-            pOFlight.Interaction.ReportSpellHit(lOEntity, null, new Vector3(lOPoint.x, UWUnits.ZPosToWorld(liHitZ), lOPoint.z));
+        if (pOFlight.Shooter != null && lOEntity != null)
+            pOFlight.Shooter.ReportSpellHit(lOEntity, null, new Vector3(lOPoint.x, UWUnits.ZPosToWorld(liHitZ), lOPoint.z));
 
         // Only do_damage's sound for a static object (missile_thwack plays its own for the player
         // and a mobile), louder by the damage before the armour (since 2026-10-12).
-        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOPoint, lOOutcome.HitVolume);
+        if (UWGameSession.Current.Game.Combat.MissileDamageSounds)
+            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOPoint, lOOutcome.HitVolume);
 
         if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
             fShowImpact(pOFlight, pOFlight.transform.position);

@@ -488,7 +488,7 @@ public class UWModernPanel : UWModernDockedPanel
         if (mbOpen && meTab == TabEnum.Character && Mathf.Abs(lfWheel) > 0.01f && mOViewRect.Contains(lOPointer))
             mfScroll -= Mathf.Sign(lfWheel) * ScrollStep;
 
-        if (!lOControls.Player.CursorDrag.WasPressedThisFrame() || UWModernPointer.PanelsHeld)
+        if (!lOControls.Player.CursorDrag.WasPressedThisFrame() || UWModernPointer.SpellHolds)
             return;
 
         // The pin, the handle, the closed panel's edge (UWModernDockedPanel).

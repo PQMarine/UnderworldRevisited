@@ -398,7 +398,7 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         }
         else if (lOControls.Player.ModernBags.WasPressedThisFrame())
             fToggle();
-        else if (!IsActive && UWModernPointer.IsFree && UWPointer.HasMouse
+        else if (!IsActive && UWModernPointer.IsFree && UWPointer.HasMouse && !UWModernUi.IsHelpUnderPointer
             && (lOControls.Player.CursorDrag.WasPressedThisFrame()
                 || UWInput.PressedUnheld(lOControls, UWAct.Interact)))
         {
@@ -434,15 +434,24 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
 
         float lfWheel = UWPointer.Scroll.y;
 
-        if (Mathf.Abs(lfWheel) > 0.01f)
+        // What lies under the help hears none of its clicks; a press that began here still ends (UWModernBagDrag.Place).
+        bool lbUnderHelp = UWModernUi.IsHelpUnderPointer;
+
+        if (Mathf.Abs(lfWheel) > 0.01f && !lbUnderHelp)
             Pages.Scroll(lOPointer, lfWheel > 0f ? -1 : 1);
 
         if (lOControls.Player.CursorDrag.WasPressedThisFrame())
-            Clicks.LeftPressed(lOPointer, lOInventory);
+        {
+            if (!lbUnderHelp)
+                Clicks.LeftPressed(lOPointer, lOInventory);
+        }
         else if (lOControls.Player.CursorDrag.WasReleasedThisFrame() && !Trade.IsPressing)
             Clicks.LeftReleased(lOPointer, lOInventory);
 
         Trade.UpdatePress(lOControls, lOPointer, lOInventory);
+
+        if (lbUnderHelp)
+            return;
 
         // Not the press that switched the pointer (UWInput.PressedUnheld).
         if (UWInput.PressedUnheld(lOControls, UWAct.Interact) && Drag.IsUsing)

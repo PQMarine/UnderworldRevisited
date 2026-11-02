@@ -265,6 +265,16 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         /// 2026-10-17).</summary>
         public void DamagePlayer(UWDamageRequest pORequest)
         {
+            // The first game's component stands in the second game's scene too, with vitals nothing runs: the blows
+            // landed there, the view shook and the flask stood still (per user, 2026-11-02).
+            if (UWWalkUw2.IsWalking)
+            {
+                if (UWVitalsUw2.Current != null)
+                    UWDamagePipeline.Apply(UWVitalsUw2.Current.Vitals, pORequest);
+
+                return;
+            }
+
             UWCharacter lOPlayer = UWScene.Character;
 
             if (lOPlayer != null)
@@ -633,6 +643,10 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// the level loader's object until 2026-10-17).</summary>
     public int RunRespawn(bool pbAnyDistance)
     {
+        // The second game's walk fires no traps yet: DoWanderingMonsters comes with its traps (UW2 plan phase 4).
+        if (UWWalkUw2.IsWalking)
+            return 0;
+
         return UWTriggerSystem.RespawnCreatures(Loader, pbAnyDistance);
     }
 

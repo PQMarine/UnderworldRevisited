@@ -793,7 +793,6 @@ hud.sheet.point_to_spend	1 Punkt zu vergeben
 hud.sheet.points_to_spend	{0} Punkte zu vergeben
 hud.walk.not_yet	Im Spaziergang durch Ultima Underworld II noch nicht möglich.
 hud.walk.door_locked	Die Tür ist verschlossen.
-hud.walk.nothing	Dort ist nichts.
 hud.uw2.level_1	{0}.
 hud.uw2.level_2	{0}.
 hud.uw2.level_3	{0}.

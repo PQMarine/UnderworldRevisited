@@ -8,8 +8,7 @@ using UWDataImport.UWData;
 /// the save's truth: after every tick the numbers go into it, so the flasks, the conversations and the save read
 /// them as before, and what a conversation wrote there comes back before the next tick. It is also the player as the
 /// creatures meet him (UWCreatureWorld): his body, his armour by the first game's status pass over the
-/// inventory, the defender of a blow, and his noise: creatures hear before they see. Death is not built: the second
-/// game's own (jail, the pits, the gem).
+/// inventory, the defender of a blow, and his noise: creatures hear before they see. Death is UWDeathUw2's.
 /// </summary>
 public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 {
@@ -45,6 +44,10 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         if (mOVitals != null)
             UWArmourProtection.Compute(lOInventory, mOData, mOVitals.ActiveSpells, mOStatus);
+
+        // The light of a spell or a worn thing (FixPlayerEquips), the larger counts in UWLighting.
+        if (UWScene.Lighting != null)
+            UWScene.Lighting.MagicBrightness = mOStatus.Brightness;
     }
 
     /// <summary>The eye: the camera, as UWCharacter sits on it in the first game.</summary>
@@ -105,11 +108,18 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
             return lOPiece != null && !UWCritterCombat.IsLeatherArmour(lOPiece.ID);
         }
 
-        /// <summary>The wear of the piece hit comes with the player's blows.</summary>
+        /// <summary>The piece of the part wears by 2d4 (UWPlayerMelee.WearOnCriticalHit).</summary>
         public void OnCriticalHit(int piPart)
         {
+            if (UWAttackUw2.Current != null)
+                UWAttackUw2.Current.WearOnCriticalHit(piPart);
         }
     }
+
+    private bool mbSpellsChanged;
+
+    /// <summary>Paralysed (the game's counter); a cast waits for it.</summary>
+    public bool IsParalysed => mOFile != null && UWPlayerRecordUw2.Paralysis(mOFile) != 0;
 
     /// <summary>The vitals, null before the first frame.</summary>
     public UWPlayerVitals Vitals => mOVitals;
@@ -140,8 +150,26 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         int liTicks = mOClock.Advance(Time.deltaTime);
 
+        UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+
         for (int liTick = 0; liTick < liTicks; liTick++)
+        {
             mOVitals.RunGameTick(UWDataImport.UWData.UWGameClock.UnitsPerTick, DamageTypeProof);
+
+            // The lights burn on the same tick and its counter (duration_check, PLAYTIME.C:88).
+            if (lOInventory != null)
+                lOInventory.BurnTick(1, mOVitals.TickInCycle);
+        }
+
+        // A spell began or ended, by its time or in the night: the record and the icons follow.
+        if (mbSpellsChanged)
+        {
+            mbSpellsChanged = false;
+            UWPlayerRecordUw2.WriteActiveSpells(mOFile, mOVitals.ActiveSpells);
+
+            if (UWGameScreenUw2.Current != null)
+                UWGameScreenUw2.Current.ShowRuneState();
+        }
 
         if (liTicks > 0)
         {
@@ -176,10 +204,39 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         // At once: a blow lands between the ticks, and the record is what the flasks read and what comes back
         // before the next tick (fTakeFromRecord).
         mOVitals.VitalsChanged += WriteToRecord;
-        mOVitals.KillRewarded += pbRewarded => WriteToRecord();
+        mOVitals.ExperienceChanged += fExperienceChanged;
+        mOVitals.CombatShakeDue += UWScreenShake.ShakeOnDamage;
+        mOVitals.UnsteadyShakeDue += fShakeUnsteady;
+        mOVitals.DayStepDue += fStepDay;
+        mOVitals.StatusPassDue += RefreshStatus;
+        mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) => mbSpellsChanged = true;
         UWCombatVariantUw2.PlayerArmour = GetArmourAt;
-        mOVitals.Died += () => Debug.Log("[Walk] The character's hit points are gone: the second game's death is not built yet.");
         mOVitals.Initialise(pOData, UWPlayerVitals.StartValues.Default, UWPlayerData.FromSecondGame(pOFile));
+    }
+
+    /// <summary>The hour; the schedules that run on it come with phase 4's list item 6.</summary>
+    private void fStepDay()
+    {
+        UWPlayerRecordUw2.StepDayClock(mOFile);
+    }
+
+    /// <summary>A failed sip, or waking from the drink.</summary>
+    private void fShakeUnsteady(int piDuration)
+    {
+        UWScreenShake lOShake = UWScreenShake.Ensure();
+
+        if (lOShake != null)
+            lOShake.Shake(UWScreenShake.LargeChannel, piDuration);
+    }
+
+    /// <summary>Written at once as well (per user, 2026-11-01: a kill gave nothing until the next tick, as the
+    /// sum comes after KillRewarded). A level's maxima only then: the record's may have moved in a conversation.</summary>
+    private void fExperienceChanged(bool pbLevel)
+    {
+        if (pbLevel)
+            UWPlayerRecordUw2.WriteMaxima(mOFile, mOVitals.MaxHP, mOVitals.MaxMana);
+
+        WriteToRecord();
     }
 
     /// <summary>A conversation wrote into the record (play_hp and its kin): the vitals take it over.</summary>
@@ -192,6 +249,9 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         if (liHunger != mOVitals.Hunger || liHp != mOVitals.CurrentHP || liMana != mOVitals.CurrentMana || liPoison != mOVitals.Poison)
             mOVitals.ApplyConversationValues(liHunger, liHp, liMana, liPoison);
+
+        if (UWPlayerRecordUw2.GameClock(mOFile) != mOVitals.ClockValue)
+            mOVitals.TakeClock(UWPlayerRecordUw2.GameClock(mOFile));
     }
 
     /// <summary>The numbers as they stand into the record (before a save too).</summary>
@@ -202,6 +262,8 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         UWPlayerRecordUw2.WriteVitals(mOFile, mOVitals.Hunger, mOVitals.CurrentHP, mOVitals.CurrentMana, mOVitals.Poison, mOVitals.Fatigue,
             mOVitals.MealHealCounter, mOVitals.Counter3C, mOVitals.ClockValue);
+        UWPlayerRecordUw2.WriteDrink(mOFile, mOVitals.Intoxication, mOVitals.Hallucination);
+        UWPlayerRecordUw2.WriteActiveSpells(mOFile, mOVitals.ActiveSpells);
         UWPlayerRecordUw2.WriteExperience(mOFile, mOVitals.Experience, mOVitals.Level, mOVitals.SkillPoints, mOVitals.SkillPointsTotal);
     }
 
@@ -225,4 +287,16 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
     }
 
     public int DamageTypeProof => mOStatus.DamageTypeProof;
+
+    /// <summary>The Valor spell's bonus to the attack score, 10 + Casting / 5 (uw2 PLAYDATA.C:222).</summary>
+    public int Valor => mOStatus.HasValor && mOVitals != null ? ValorBase + (mOVitals.GetSkill(UWPlayerData.Skill.Casting) / ValorCastingDivisor) : 0;
+
+    /// <summary>Poison Weapon's share of the damage in fortieths, Casting + 30 (COMBAT.C:325).</summary>
+    public int PoisonWeaponShare => mOStatus.HasPoisonWeapon && mOVitals != null ? mOVitals.GetSkill(UWPlayerData.Skill.Casting) + PoisonWeaponBase : 0;
+
+    private const int ValorBase = 10;
+
+    private const int ValorCastingDivisor = 5;
+
+    private const int PoisonWeaponBase = 30;
 }

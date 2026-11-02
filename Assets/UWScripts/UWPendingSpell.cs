@@ -231,7 +231,7 @@ public sealed class UWPendingSpell
         if (!IsTargeting)
             return false;
 
-        bool lbRightButton = mOInteraction.Input.Interact.WasPressedThisFrame();
+        bool lbRightButton = UWMouseButtons.PressedFree(mOInteraction.Input.Interact);
 
         if (!lbRightButton && !UWMouseButtons.LeftPressed)
             return true;

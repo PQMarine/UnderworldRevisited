@@ -81,6 +81,8 @@ public sealed class UWSpellHost : IUWSpellHost
 
     public int PlayerCastingSkill => mOCharacter != null ? mOCharacter.Vitals.GetSkill(UWPlayerData.Skill.Casting) : 0;
 
+    public bool CanAct => true;
+
     public void SpendMana(int piAmount)
     {
         if (mOCharacter != null)

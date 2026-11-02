@@ -115,6 +115,9 @@ namespace UWDataImport.UWData
 		/// plays. Raised before the experience changes.</summary>
 		public event Action<bool> KillRewarded;
 
+		/// <summary>Experience came or went; true when a level came with it. KillRewarded goes before the sum.</summary>
+		public event Action<bool> ExperienceChanged;
+
 		/// <summary>
 		/// The original would run its status pass now (UnderworldExhumed PLAYDATA.C
 		/// FixPlayerEquips): a spell began or ended, the mushroom began or wore off, the active
@@ -343,12 +346,7 @@ namespace UWDataImport.UWData
 					mOExperience.Experience - liBefore, mOExperience.Experience,
 					mOExperience.Level, mOExperience.SkillPoints));
 
-			if (liLevels <= 0)
-				return;
-
-			fApplyLevel();
-
-			MessageDue?.Invoke(fGetLevelUpMessage());
+			fExperienceChanged(liLevels);
 		}
 
 		/// <summary>Experience from a conversation (new_player_exp) - without the halving of
@@ -358,14 +356,18 @@ namespace UWDataImport.UWData
 			if (piAmount == 0)
 				return;
 
-			int liLevels = UWExperience.Change(ref mOExperience, piAmount, piDungeonLevel);
+			fExperienceChanged(UWExperience.Change(ref mOExperience, piAmount, piDungeonLevel));
+		}
 
-			if (liLevels <= 0)
-				return;
+		private void fExperienceChanged(int piLevels)
+		{
+			if (piLevels > 0)
+				fApplyLevel();
 
-			fApplyLevel();
+			ExperienceChanged?.Invoke(piLevels > 0);
 
-			MessageDue?.Invoke(fGetLevelUpMessage());
+			if (piLevels > 0)
+				MessageDue?.Invoke(fGetLevelUpMessage());
 		}
 
 		/// <summary>Sets hunger, hit points, mana and poison as a conversation returns them at
@@ -429,11 +431,18 @@ namespace UWDataImport.UWData
 		{
 			int liMaximum = UWExperience.GetMaximumMana(GetSkill(UWPlayerData.Skill.Mana), Intelligence);
 
-			if (mIHost != null && UWTybalOrbRules.KeepsMaxManaAside(mIHost.DungeonLevelIndex))
+			if (mIHost != null && fHasOrbLair && UWTybalOrbRules.KeepsMaxManaAside(mIHost.DungeonLevelIndex))
 				UWGameFlags.OrbManaBackup = liMaximum;
 			else
 				MaxMana = liMaximum;
 		}
+
+		/// <summary>The game's steps; a test run without a session counts as the first game.</summary>
+		private static IUWPlayerVariant fGame => UWGameSession.Current != null ? UWGameSession.Current.Game.Player : msFirstGame;
+
+		private static readonly IUWPlayerVariant msFirstGame = new UWPlayerVariantUw1();
+
+		private static bool fHasOrbLair => fGame.HasOrbLair;
 
 		private string fGetLevelUpMessage()
 		{
@@ -454,7 +463,7 @@ namespace UWDataImport.UWData
 
 			try
 			{
-				lsText = pOData.Strings.Blocks[1].Strings[148].TrimEnd('\r', '\n');
+				lsText = pOData.Strings.Blocks[1].Strings[fGame.LevelUpString].TrimEnd('\r', '\n');
 			}
 			catch
 			{
@@ -1445,6 +1454,20 @@ namespace UWDataImport.UWData
 
 			if (miTickCounter % fLongCycle == 0)
 				fTickFiveMinutes();
+
+			if (miTickCounter % DayStepTicks == 0)
+				DayStepDue?.Invoke();
+		}
+
+		/// <summary>duration_check's hour in the second game: every sixtieth tick the time of day moves on.</summary>
+		public const int DayStepTicks = 60;
+
+		public event Action DayStepDue;
+
+		/// <summary>A conversation set the clock in the record (x_clock 0): the vitals take it over.</summary>
+		public void TakeClock(int piClock)
+		{
+			ClockValue = piClock;
 		}
 
 		/// <summary>

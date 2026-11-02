@@ -12,6 +12,12 @@ namespace UWDataImport.UWData
 
 		public int LongCycleTicks => UWPlayerTick.FiveMinuteTicks;
 
+		public int LevelUpString => 148;
+
+		public int ExplorationWeight(int piDungeonLevel) => piDungeonLevel;
+
+		public bool HasOrbLair => true;
+
 		/// <summary>Only a loss still works above the cap (the original tests the amount first and
 		/// subtracts before this comparison); a gain then counts in full.</summary>
 		public UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain)
@@ -33,6 +39,17 @@ namespace UWDataImport.UWData
 		{
 			return piDungeonLevel != UWLevelIds.Number(pORules.Levels.Void);
 		}
+
+		public bool IsHeldAwake => false;
+
+		public int CampLine(int piHow)
+		{
+			return UWSleepRules.MakeCampMessage;
+		}
+
+		public bool PassingOutKills => false;
+
+		public bool HasGaramonDreams => true;
 
 		public int TrapDetectTarget()
 		{

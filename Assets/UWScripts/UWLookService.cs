@@ -9,47 +9,39 @@ using UWDataImport.UWData;
 /// inventory, UWItemDescriptions), SpecialLook's line, the doors' names and conditions, the
 /// gravestone, the books and scrolls, Name Enchantment's identification, the modern Q over the
 /// interface, and the trap found on a look with its yes/no question. Everything is written to
-/// the message log the way it was from Interaction.
+/// the message log the way it was from Interaction. Over IUWLookHost, so the second game looks with it too.
 /// </summary>
 public sealed class UWLookService
 {
-    private readonly Interaction mOInteraction;
+    private readonly IUWLookHost mIHost;
 
-    private readonly UWMessageLog mOLog;
-
-    public UWLookService(Interaction pOInteraction, UWMessageLog pOLog)
+    public UWLookService(IUWLookHost pIHost)
     {
-        mOInteraction = pOInteraction;
-        mOLog = pOLog;
+        mIHost = pIHost;
     }
+
+    /// <summary>The first game's own host: its screen's pictures, the look's triggers and the trap search.</summary>
+    private Interaction fFirstGame => mIHost as Interaction;
 
     private UWDataImport.DataImport fData()
     {
-        return mOInteraction.GameData;
+        return mIHost.GameData;
     }
 
     private UWLevelLoader fLoader()
     {
-        return mOInteraction.LevelLoader;
-    }
-
-    private UWCharacter fCharacter()
-    {
-        return mOInteraction.Character;
+        return mIHost.LevelLoader;
     }
 
     private UWGameUI fUi()
     {
-        return mOInteraction.GameUi;
+        return fFirstGame != null ? fFirstGame.GameUi : null;
     }
 
-    private UWInventory fInventory()
+    private int fSkill(UWPlayerData.Skill peSkill)
     {
-        return mOInteraction.Inventory;
+        return mIHost.MeleeVitals != null ? mIHost.MeleeVitals.GetSkill(peSkill) : 0;
     }
-
-    /// <summary>String block 1: "You see nothing." - the look at what is not there.</summary>
-    private const int NothingToSeeMessage = 155;
 
     // ------------------------------------------------- The look in the world
 
@@ -67,7 +59,7 @@ public sealed class UWLookService
             // picture instead of the description (reference look.cs -> gravestone.Use).
             if (!TryShowGravestone(pOTarget))
             {
-                mOLog.AddLine(fGetLookDescription(pOTarget));
+                mIHost.AddLookLine(fGetLookDescription(pOTarget));
 
                 // SpecialLook (LOOK.C) after the look line: a closed door with its spike bit adds
                 // "The door is spiked." (string 0x83) - per user on the original, 2026-10-13, the
@@ -75,7 +67,7 @@ public sealed class UWLookService
                 string lsSpecial = fGetSpecialLookLine(pOTarget);
 
                 if (lsSpecial != null)
-                    mOLog.AddLine(lsSpecial);
+                    mIHost.AddLookLine(lsSpecial);
             }
 
             // If an a_look trigger hangs on the look target, its trap text belongs directly
@@ -85,8 +77,8 @@ public sealed class UWLookService
             // mfUseRange: looking has no range limit in the original, and the text belongs to
             // looking. A HIDDEN trigger additionally requires a Search skill check - the
             // difficulty is stored in the trigger itself (see UWTriggerSystem).
-            UWTriggerSystem.TryFireLookTrigger(pOTarget.ObjectData, fLoader(), mOInteraction,
-                fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Search) : 0);
+            if (fFirstGame != null)
+                UWTriggerSystem.TryFireLookTrigger(pOTarget.ObjectData, fLoader(), fFirstGame, fSkill(UWPlayerData.Skill.Search));
 
             // And a trap is spotted in the process, if one notices it - see fTryDetectTrap.
             fTryDetectTrap(pOTarget);
@@ -97,7 +89,7 @@ public sealed class UWLookService
             // player_3dlook gives within 0x48 only (UWReachRules.LookDetailDistanceSquared,
             // 2026-10-15; until then from any distance).
             if (pOTarget.IsWindow && fUi() != null && fLoader() != null
-                && mOInteraction.IsWithinLookDetail(pOTarget))
+                && fFirstGame.IsWithinLookDetail(pOTarget))
                 fUi().Pictures.ShowWindowPicture(fLoader().CurrentLevelIndex);
         }
         else if (!string.IsNullOrEmpty(psChunkDescription))
@@ -105,13 +97,13 @@ public sealed class UWLookService
             // WITH "You see": walls and floors report like this in the original too (per user,
             // 2026-09-14: "You see" was missing for the floor). The texture names in block 10
             // already carry their article ("a stone wall", "nothing").
-            mOLog.AddLine(UWItemDescriptions.DescribeChunk(psChunkDescription, fData()));
+            mIHost.AddLookLine(UWItemDescriptions.DescribeChunk(psChunkDescription, fData()));
         }
         else
         {
             // NOTHING THERE: too dark to see that far, or the eye goes past everything. The
             // original has its own sentence for it (per user, 2026-09-18), it does not stay silent.
-            mOInteraction.AddGeneralMessage(NothingToSeeMessage);
+            mIHost.AddGeneralMessage(UWGameSession.Current.Game.Objects.NothingToSeeString);
         }
     }
 
@@ -146,7 +138,7 @@ public sealed class UWLookService
         string lsText = UWEndgame.GetGraveText(fData(), liGrave);
 
         if (!string.IsNullOrEmpty(lsText))
-            mOInteraction.AddMessage(lsText);
+            mIHost.AddMessage(lsText);
 
         if (fUi() != null)
             fUi().Pictures.ShowGravePicture(UWEndgame.GetGraveFrame(fData(), liGrave));
@@ -271,7 +263,9 @@ public sealed class UWLookService
         if (lOMover != null && (!lOMover.IsClosed || lOMover.IsMoving))
             return null;
 
-        return mOInteraction.GetGeneralMessage(UWItemApplications.DoorIsSpikedMessage);
+        string lsSpiked = mIHost.GetGeneralMessage(UWGameSession.Current.Game.Objects.DoorSpikedString);
+
+        return string.IsNullOrEmpty(lsSpiked) ? null : lsSpiked;
     }
 
     /// <summary>The block 4 name of a door in its current state: the closed doors are 320 to
@@ -314,9 +308,7 @@ public sealed class UWLookService
         if (pOItem == null || fData() == null)
             return null;
 
-        return UWItemDescriptions.DescribeItem(pOItem, fData(),
-            fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Lore) : 0,
-            fGetItemObjectList(), piDetail);
+        return UWItemDescriptions.DescribeItem(pOItem, fData(), fSkill(UWPlayerData.Skill.Lore), fGetItemObjectList(), piDetail);
     }
 
     /// <summary>The detail level of a look at an item in the world: always 1, no Lore roll
@@ -327,12 +319,12 @@ public sealed class UWLookService
     /// (UWItemDescriptions.SpecialLookLine) - both schemes.</summary>
     public void AddItemLookMessages(UWObject pOItem)
     {
-        mOInteraction.AddMessage(DescribeInventoryItem(pOItem));
+        mIHost.AddMessage(DescribeInventoryItem(pOItem));
 
         string lsSpecial = UWItemDescriptions.SpecialLookLine(pOItem, fData());
 
         if (lsSpecial != null)
-            mOInteraction.AddMessage(lsSpecial);
+            mIHost.AddMessage(lsSpecial);
     }
 
     /// <summary>
@@ -372,6 +364,9 @@ public sealed class UWLookService
     /// it is that file's record list, otherwise the level's.</summary>
     private System.Collections.Generic.List<UWObject> fGetItemObjectList()
     {
+        if (UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+            return UWGameScreenUw2.Current.WorkspaceRecords;
+
         return UWItemDescriptions.ItemObjectList(fData(),
             fLoader() != null ? fLoader().CurrentLevel : null);
     }
@@ -435,9 +430,9 @@ public sealed class UWLookService
         // reads its text as with every scroll (per user on the original, the same day).
         if (!pbLooking && UWStewRules.IsRecipe(pOItem))
         {
-            int liLine = UWStewRules.TryMix(fInventory() != null ? fInventory().Model : null, fData());
+            int liLine = UWStewRules.TryMix(mIHost.MeleeInventory, fData());
 
-            mOInteraction.AddGeneralMessage(liLine);
+            mIHost.AddGeneralMessage(liLine);
 
             return true;
         }
@@ -447,7 +442,7 @@ public sealed class UWLookService
         // Its entry in block 3 would be "The pages are blank." and thus wrong.
         if (pOItem.ID == UWObjectMechanics.MapObjectId)
         {
-            mOInteraction.ShowPagedText(fData().GetGeneralMessage(UWObjectMechanics.MapMessageIndex),
+            mIHost.ShowPagedText(fData().GetGeneralMessage(UWObjectMechanics.MapMessageIndex),
                 pbLooking ? lsLook : null);
 
             return true;
@@ -467,7 +462,7 @@ public sealed class UWLookService
                 return false;
 
             if (pbLooking && !string.IsNullOrEmpty(lsLook))
-                mOInteraction.AddMessage(lsLook);
+                mIHost.AddMessage(lsLook);
 
             return true;
         }
@@ -482,10 +477,10 @@ public sealed class UWLookService
         if (string.IsNullOrEmpty(lsText) || string.IsNullOrEmpty(lsText.Trim()))
         {
             if (pbLooking && !string.IsNullOrEmpty(lsLook))
-                mOInteraction.AddMessage(lsLook);
+                mIHost.AddMessage(lsLook);
 
             if (!string.IsNullOrEmpty(lsPrefix))
-                mOInteraction.AddMessage(lsPrefix);
+                mIHost.AddMessage(lsPrefix);
 
             return true;
         }
@@ -493,9 +488,9 @@ public sealed class UWLookService
         // The look message belongs only to the right click. The reading hint and the text
         // appear with both buttons (per user, 2026-09-03).
         if (pbLooking)
-            mOInteraction.ShowPagedText(lsText, lsLook, lsPrefix);
+            mIHost.ShowPagedText(lsText, lsLook, lsPrefix);
         else
-            mOInteraction.ShowPagedText(lsText, lsPrefix);
+            mIHost.ShowPagedText(lsText, lsPrefix);
 
         return true;
     }
@@ -523,20 +518,21 @@ public sealed class UWLookService
     /// </summary>
     private void fTryDetectTrap(UWEntityInfo pOTarget)
     {
-        if (pOTarget == null || pOTarget.ObjectData == null || mOInteraction.IsAskingYesNo
-            || (mOInteraction.CommandMode != UWCommandMode.Look && UWControlScheme.Ui.Policy.TrapSearchNeedsLookMode)
+        Interaction lOInteraction = fFirstGame;
+
+        if (lOInteraction == null || pOTarget == null || pOTarget.ObjectData == null || lOInteraction.IsAskingYesNo
+            || (lOInteraction.CommandMode != UWCommandMode.Look && UWControlScheme.Ui.Policy.TrapSearchNeedsLookMode)
             || fLoader() == null || fLoader().CurrentLevel == null)
             return;
 
-        if (!UWTrapDisarming.Detect(pOTarget.ObjectData, fLoader().CurrentLevel.Masterlist,
-            fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Search) : 0))
+        if (!UWTrapDisarming.Detect(pOTarget.ObjectData, fLoader().CurrentLevel.Masterlist, fSkill(UWPlayerData.Skill.Search)))
             return;
 
         // Asked like every yes/no question (per user, 2026-09-30) - see UWPromptController.AskYesNo.
-        mOInteraction.AskYesNo(mOInteraction.GetGeneralMessage(UWTrapDisarming.TrapFoundMessage) + " ", pbYes =>
+        lOInteraction.AskYesNo(lOInteraction.GetGeneralMessage(UWTrapDisarming.TrapFoundMessage) + " ", pbYes =>
         {
             if (pbYes)
-                mOInteraction.DisarmTrap(pOTarget);
+                lOInteraction.DisarmTrap(pOTarget);
         });
     }
 }

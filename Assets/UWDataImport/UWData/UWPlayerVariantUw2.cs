@@ -18,6 +18,12 @@ namespace UWDataImport.UWData
 
 		public int LongCycleTicks => CycleTicks;
 
+		public int LevelUpString => 162;
+
+		public int ExplorationWeight(int piDungeonLevel) => (piDungeonLevel / LevelsPerWorld) + 1;
+
+		public bool HasOrbLair => false;
+
 		/// <summary>Past the ceiling nothing counts; above the cap it counts and gives skill points but no levels.</summary>
 		public UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain)
 		{
@@ -39,12 +45,28 @@ namespace UWDataImport.UWData
 			return liGain;
 		}
 
-		/// <summary>Not in the pits (SKILLS.C:441); the Void's own rule, sleeping wakes the player from it, comes
-		/// with the Void.</summary>
+		/// <summary>Everywhere; the Void's own rule, sleeping wakes the player from it, comes with the Void.</summary>
 		public bool MaySleepAt(UWRules pORules, int piDungeonLevel)
 		{
-			return UWGameSession.Current == null || !UWPlayerRecordUw2.IsInPits(UWGameSession.Current.PlayerFileUw2);
+			return true;
 		}
+
+		private static bool fIsInPits => UWGameSession.Current != null && UWPlayerRecordUw2.IsInPits(UWGameSession.Current.PlayerFileUw2);
+
+		public bool IsHeldAwake => fIsInPits;
+
+		private const int BedrollLine = 0x17;
+
+		private const int BedLine = 0x18;
+
+		public int CampLine(int piHow)
+		{
+			return piHow == 1 ? BedrollLine : piHow == 2 ? BedLine : UWSleepRules.MakeCampMessage;
+		}
+
+		public bool PassingOutKills => fIsInPits;
+
+		public bool HasGaramonDreams => false;
 
 		public int TrapDetectTarget()
 		{

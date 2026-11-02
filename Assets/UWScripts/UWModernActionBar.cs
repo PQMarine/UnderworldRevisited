@@ -505,13 +505,13 @@ public class UWModernActionBar : MonoBehaviour
         if (lbPadFree && lOControls.Player.PadSlotUse.WasPressedThisFrame() && !UWInput.PadPointerTakes(lOControls.Player.PadSlotUse))
             fUse(miPadSlot);
 
-        if (!mOScheme.IsPointerFree || !UWPointer.HasMouse || UWModernPointer.PanelsHeld)
+        if (!mOScheme.IsPointerFree || !UWPointer.HasMouse || UWModernPointer.SpellHolds)
             return;
 
         Vector2 lOPointer = UWPointer.Position;
         bool lbEmptyPointer = mOUi.mOInventory.CursorItem == null;
 
-        if (lOControls.Player.CursorDrag.WasPressedThisFrame() && lbEmptyPointer && mOLink == null && miLinkSpell < 0
+        if (lOControls.Player.CursorDrag.WasPressedThisFrame() && !UWModernUi.IsHelpUnderPointer && lbEmptyPointer && mOLink == null && miLinkSpell < 0
             && miDropFrame != Time.frameCount && TryGetSlotAt(lOPointer, out int liPressed))
         {
             miPressSlot = liPressed;

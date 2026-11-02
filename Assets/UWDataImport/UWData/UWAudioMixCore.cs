@@ -32,7 +32,7 @@ namespace UWDataImport.Audio
 
 		private readonly UWAdlibMusicDevice mOAdlib;
 
-		private readonly UWEffectSynth mOEffects;
+		private UWEffectSynth mOEffects;
 
 		private readonly float[] mfMidiLeft = new float[MidiBlockFrames];
 
@@ -62,6 +62,13 @@ namespace UWDataImport.Audio
 			mOAdlib = new UWAdlibMusicDevice(pOBank);
 			mOEffects = new UWEffectSynth(pOBank);
 			mOSelector = new UWMusicDeviceSelector(mOAdlib, piOutputRate, psSoundFontPath, pFRomFolder, pFLog, pFWarn);
+		}
+
+		/// <summary>The effects' timbres of the game now running: each game's UW.AD has its own, the second's goes
+		/// on to 0x24. The music keeps playing.</summary>
+		public void UseEffectBank(UWAdlibBank pOBank)
+		{
+			mOEffects = new UWEffectSynth(pOBank);
 		}
 
 		public int OutputRate { get; }

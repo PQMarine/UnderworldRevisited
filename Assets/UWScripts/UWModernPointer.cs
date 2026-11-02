@@ -36,9 +36,13 @@ public static class UWModernPointer
     /// the classic frame of the modern presets. Only the bags let an item target spell take its
     /// target first (UWModernBagClicks.LeftPressed); Escape lets the spell go (UWGameUI); walking,
     /// the wheel and the aim into the world go on. The rune panel keeps the runes' own wider rule
-    /// (UWHudRunes.InAnotherInputMode).
+    /// (UWHudRunes.InAnotherInputMode). THEY ALSO HOLD UNDER THE HELP (UWModernUi.IsHelpUnderPointer).
     /// </summary>
-    public static bool PanelsHeld => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting;
+    public static bool PanelsHeld => SpellHolds || UWModernUi.IsHelpUnderPointer;
+
+    /// <summary>The spell's half alone: the panel that holds the help keeps its own tabs, and a link on
+    /// the action bar's pointer still has to come down.</summary>
+    public static bool SpellHolds => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting;
 
     // The frame the right button switched the pointer (SwitchedFrame, until cleanup step 7.8): the
     // switch holds its press for the frame now (UWInput.HoldPress), its readers ask

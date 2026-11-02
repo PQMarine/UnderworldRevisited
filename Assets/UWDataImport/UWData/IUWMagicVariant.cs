@@ -9,6 +9,25 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public interface IUWMagicVariant
 	{
+		/// <summary>The game's spell table (spells[]): the first game's 53, the second's 69.</summary>
+		System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells { get; }
+
+		/// <summary>The spells of a circle (UW1: 6, RUNES.C:242; UW2: 8, RUNES.C:227).</summary>
+		int SpellsPerCircle { get; }
+
+		/// <summary>fail_spell's first string in our block 1: not experienced, no mana, the incantation failed,
+		/// not successful, and the backfire's after them.</summary>
+		int FailStringBase { get; }
+
+		/// <summary>"You are healed." in our block 1, -1 for none (UW1).</summary>
+		int HealedString { get; }
+
+		/// <summary>Whether the spell's class runs in this game yet (UW2 plan phase 4, list item 3).</summary>
+		bool IsBuilt(UWRunicMagic.Spell pOSpell);
+
+		/// <summary>The sound of a cast that took (UW1: 0x10; UW2: by the class, RUNES.C:255).</summary>
+		void PlayCastSound(IUWSpellHost pIHost, UWRunicMagic.Spell pOSpell);
+
 		/// <summary>Whether the player may begin a rune cast at all (UW2: not while paralysed, RUNES.C:174).</summary>
 		bool MayCast(IUWSpellHost pIHost);
 

@@ -99,7 +99,7 @@ namespace UWDataImport.UWData
 			// The name with its article, or the count and the plural; the condition word, "cursed"
 			// and "magical" before it in the original's order (IUWGrammar.ItemPhrase - the English
 			// rules were here until 2026-10-26, UWGrammarEnglish).
-			string lsName = lIGrammar.ItemPhrase(UWText.RawObjectName(pOData, pOItem.ID), liCount, GetItemConditionWord(pOItem, pOData),
+			string lsName = lIGrammar.ItemPhrase(UWText.RawObjectName(pOData, pOItem.ID), liCount, fConditionWords(pOItem, pOData),
 				liLore == UWLoreCheck.ResultNamed && lOEnchantment.IsCursed,
 				liLore == UWLoreCheck.ResultMagical && lOEnchantment.HasCarrier);
 
@@ -193,7 +193,7 @@ namespace UWDataImport.UWData
 			// Until 2026-10-15 ours named races 1 to 28 (reference audit round 2, A40).
 			int liRace = pOItem.Owner & OwnerRaceMask;
 
-			if ((pOItem.Owner & OwnerFieldMask) == 0 || liRace > LastOwnerValue)
+			if ((pOItem.Owner & OwnerFieldMask) == 0 || liRace > UWGameSession.Current.Game.Objects.LastOwnerRace)
 				return string.Empty;
 
 			return UWGrammar.Of(pOData).OwnerPart(UWText.General(pOData, FirstOwnerNameMessage + liRace));
@@ -300,7 +300,7 @@ namespace UWDataImport.UWData
 				return null;
 
 			bool lbMany = liId == PileOfBonesId || pOItem.Quantity > 1;
-			string lsLead = UWText.General(pOData, (lbMany ? BonesManyMessage : BonesOneMessage) + 1, null);
+			string lsLead = UWText.General(pOData, UWGameSession.Current.Game.Objects.BonesLeadString + (lbMany ? 1 : 0), null);
 			// "that of" a creature, in the dative where the language has cases ("von einem Goblin").
 			string lsWhose = liOwner == AdventurerBonesOwner
 				? UWText.T("grammar.bones.adventurer")
@@ -323,10 +323,6 @@ namespace UWDataImport.UWData
 		private const int FirstSilentBonesOwner = 0x3C;
 		private const int AdventurerBonesOwner = 0x3F;
 		private const int FirstCreatureId = 0x40;
-
-		/// <summary>game_sprint 0x16 and 0x17 (block 1, the project's numbering adds one).</summary>
-		private const int BonesOneMessage = 0x16;
-		private const int BonesManyMessage = 0x17;
 
 		/// <summary>Condition word from string block 5 - broken, badly damaged, damaged, sturdy,
 		/// massive - for a condition string index as UWHealth computes it (see
@@ -359,8 +355,21 @@ namespace UWDataImport.UWData
 				|| !pOData.CommonObjectProperties.TryGet(pOItem.ID, out lOEntry))
 				return null;
 
-			return GetConditionWord(UWCombat.GetConditionStringIndex(lOEntry.QualityType, pOItem.Quality,
-				lOEntry.QualityClass), pOData);
+			return GetConditionWord(UWCombat.GetConditionStringIndex(lOEntry.QualityType,
+				UWGameSession.Current.Game.Objects.LookQuality(pOItem.ID, pOItem.Quality), lOEntry.QualityClass), pOData);
+		}
+
+		/// <summary>The condition word and the game's word before the name (do_mods; the second game's gems).</summary>
+		private static string fConditionWords(UWObject pOItem, DataImport pOData)
+		{
+			string lsCondition = GetItemConditionWord(pOItem, pOData);
+			int liWord = UWGameSession.Current.Game.Objects.NameWordString(pOItem);
+			string lsWord = liWord >= 0 ? UWText.General(pOData, liWord, null) : null;
+
+			if (string.IsNullOrWhiteSpace(lsWord))
+				return lsCondition;
+
+			return string.IsNullOrEmpty(lsCondition) ? lsWord.Trim() : lsCondition + " " + lsWord.Trim();
 		}
 
 		/// <summary>Inserts the condition word before the item name. The raw descriptions

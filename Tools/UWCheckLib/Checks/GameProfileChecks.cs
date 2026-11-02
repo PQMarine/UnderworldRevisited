@@ -30,7 +30,7 @@ namespace UnderworldRevisited.Tools
                 "Uw2|UW2|UW2.EXE|675184|41a23de0fa85c375920ae5d0dbd2ec5f4657c758|UW2|UNDEROM2|UW2");
             Check.Bool("profile: the second game's rule set exists (phase 2 step 4), its other variants not yet (asking throws)",
                 lOUw2.CreateOriginalRules() != null && lOUw2.Motion != null
-                && fThrowsNotSupported(() => lOUw2.Magic) && fThrowsNotSupported(() => lOUw2.TrapKinds), true);
+                && fThrowsNotSupported(() => lOUw2.TrapKinds), true);
             Check.Str("profile: the first game is playable, the second not yet (phase 0 step 5)", lOUw1.IsPlayable + " " + lOUw2.IsPlayable, "True False");
 
             // The second game's compression: three literals, then the ring's 4078 for three ("abcabc");
@@ -122,6 +122,10 @@ namespace UnderworldRevisited.Tools
             fCheckSaveFolderRule();
             fCheckValuableRoll();
             fCheckPlayerUw2();
+            fCheckDeathUw2();
+            fCheckFoodUw2();
+            fCheckSleepUw2();
+            fCheckStatusUw2();
             fCheckCritterUw2();
             fCheckCombatUw2();
         }
@@ -142,8 +146,50 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 combat: fire on cold resistance doubled, cold on fire, not on both, 200 goes to 255",
                 lICombat.Unresisted(0x20, 10, 8) + " " + lICombat.Unresisted(8, 10, 0x20) + " " + lICombat.Unresisted(0x28, 10, 0x20) + " " + lICombat.Unresisted(0x20, 200, 8),
                 "20 20 10 255");
-            Check.Str("uw2 combat: a door takes damage, a protected class does not", lICombat.ShrugsOff(true, 0) + " " + lICombat.ShrugsOff(false, UWObjectDamageRules.ImmuneQualityClass),
-                "False True");
+            Check.Str("uw2 combat: doors take damage, the bit and the protected class spare the rest",
+                lICombat.DoorsTakeDamage + " " + lICombat.ShrugsOff(true, 0) + " " + lICombat.ShrugsOff(false, UWObjectDamageRules.ImmuneQualityClass) + " " + lICombat.ShrugsOff(false, 0),
+                "True True True False");
+
+            lICombat.WeaponEnchantment(0xC, 15, out int liLastAccuracy, out int liLastDamage);
+            lICombat.WeaponEnchantment(0xC, 8, out int liFirstAccuracy, out int liFirstDamage);
+
+            Check.Str("uw2 combat: special weapons add nothing but effect 15's damage", liFirstAccuracy + "/" + liFirstDamage + " " + liLastAccuracy + "/" + liLastDamage, "0/0 0/5");
+            Check.Str("uw2 combat: the kind of a dagger, a cudgel, a jewelled dagger, a sword, the fist, a bow",
+                lICombat.PlayerWeaponKind(3) + " " + lICombat.PlayerWeaponKind(7) + " " + lICombat.PlayerWeaponKind(0xA) + " " + lICombat.PlayerWeaponKind(0) + " "
+                + lICombat.PlayerWeaponKind(UWCombat.FistObjectId) + " " + lICombat.PlayerWeaponKind(0x19), "2 1 2 2 0 0");
+            Check.Str("uw2 combat: the hit's sound of fist, blunt, sharp", lICombat.MeleeHitSound(0) + " " + lICombat.MeleeHitSound(1) + " " + lICombat.MeleeHitSound(2), "4 4 27");
+            Check.Str("uw2 combat: the wall's sound of fist, blunt, sharp", lICombat.WallSound(0) + " " + lICombat.WallSound(1) + " " + lICombat.WallSound(2), "8 7 7");
+            Check.Str("uw2 combat: blocked on metal: fist, blunt, sharp; sharp on leather",
+                lICombat.BlockedSound(0, true) + " " + lICombat.BlockedSound(1, true) + " " + lICombat.BlockedSound(2, true) + " " + lICombat.BlockedSound(2, false), "8 7 7 8");
+            Check.Str("uw2 combat: debris of a chair by class, a dagger, fire on a dagger, a stone", lICombat.DebrisOf(0x150, 4, null) + " " + lICombat.DebrisOf(3, 4, null) + " "
+                + lICombat.DebrisOf(3, 8, null) + " " + lICombat.DebrisOf(0xA0, 4, null), "220 199 214 214");
+            IUWObjectVariant lIObjects = UWGameProfiles.Uw2.Objects;
+
+            Check.Str("uw2 objects: a light is used up at 1, burns out at 1, and its two messages",
+                lIObjects.LightUsedUp(2) + " " + lIObjects.LightUsedUp(1) + " " + lIObjects.BurntOutQuality + " " + lIObjects.LightUsedUpString + " " + lIObjects.HandsFullString,
+                "False True 1 139 262");
+            IUWMagicVariant lIMagic = UWGameProfiles.Uw2.Magic;
+
+            Check.Str("uw2 magic: the table, eight to a circle, In Lor as spell 5, the strings",
+                lIMagic.Spells.Count + " " + lIMagic.SpellsPerCircle + " " + lIMagic.Spells[5].RuneSequence + "/" + lIMagic.Spells[5].MajorClass + "/" + lIMagic.Spells[5].MinorClass
+                + " " + lIMagic.FailStringBase + " " + lIMagic.HealedString, "69 8 8568/0/131 226 293");
+            Check.Str("uw2 magic: a missile and a target spell pay when released, others at once",
+                lIMagic.PaysOnRelease(lIMagic.Spells[33]) + " " + lIMagic.PaysOnRelease(lIMagic.Spells[6]), "True False");
+            Check.Str("uw2 objects: a burnt-out light has no condition, other things keep theirs",
+                lIObjects.LookQuality(0x91, 1) + " " + lIObjects.LookQuality(0x95, 1) + " " + lIObjects.LookQuality(0x91, 2) + " " + lIObjects.LookQuality(0x10, 1),
+                "0 0 2 1");
+            Check.Str("uw2 objects: the look's strings: owners, nothing, spike, bones",
+                lIObjects.LastOwnerRace + " " + lIObjects.NothingToSeeString + " " + lIObjects.DoorSpikedString + " " + lIObjects.BonesLeadString, "30 169 146 27");
+            Check.Str("uw2 objects: a blackrock gem is cool, warm with an owner, others have no word",
+                lIObjects.NameWordString(new UWObject(0x118)) + " " + lIObjects.NameWordString(new UWObject(0x11F) { Owner = 3 }) + " " + lIObjects.NameWordString(new UWObject(0x91)),
+                "357 358 -1");
+            Check.Str("uw2 combat: the launch sounds of a throw, a bow, a sling and the jeweled bow",
+                lICombat.ThrowSound + " " + lICombat.ShotSound(0x19) + " " + lICombat.ShotSound(0x18) + " " + lICombat.ShotSound(0x1F), "28 10 10 28");
+            Check.Str("uw2 combat: only a bow or crossbow that flew twangs",
+                lICombat.Twangs(0x19, true) + " " + lICombat.Twangs(0x1A, true) + " " + lICombat.Twangs(0x18, true) + " " + lICombat.Twangs(0x19, false) + " " + lICombat.Twangs(0x1F, true),
+                "True True False False False");
+            Check.Str("uw2 combat: no room to fire, and no second sound on a missile's hit",
+                lICombat.NoRoomSound + " " + lICombat.NoRoomToFireString + " " + lICombat.MissileDamageSounds, "45 271 False");
         }
 
         /// <summary>The second game's record holds sequences: the brain's slots go in and come back.</summary>
@@ -159,6 +205,71 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 critter: the brain's slots as the record's sequences, and back", lsGot.Trim(), "0:True 1:True 2:True 3:True 6:True 7:True");
         }
 
+        /// <summary>uw2 print_info and pass_time's step, their strings as our block counts them.</summary>
+        private static void fCheckStatusUw2()
+        {
+            Check.Str("uw2 status: hunger's words, starving and stuffed", UWStatusReportUw2.HungerWord(0) + " " + UWStatusReportUw2.HungerWord(255), "118 126");
+            Check.Str("uw2 status: fatigue's words, wide awake and fatigued", UWStatusReportUw2.FatigueWord(0) + " " + UWStatusReportUw2.FatigueWord(255), "132 127");
+            Check.Str("uw2 status: the new game's clock is in the third daypart", UWStatusReportUw2.DaypartWord(UWPlayerRecordUw2.NewGameClock).ToString(), "87");
+            Check.Str("uw2 status: no world known, Britannia, an unknown world, a known one",
+                UWStatusReportUw2.WorldWord(0, 1) + " " + UWStatusReportUw2.WorldWord(4, 1) + " " + UWStatusReportUw2.WorldWord(4, 9) + " " + UWStatusReportUw2.WorldWord(1, 9), "-1 76 75 77");
+        }
+
+        /// <summary>uw2 player_sleep: the lines of lying down (ours one above the game's), no dream of Garamon.</summary>
+        private static void fCheckSleepUw2()
+        {
+            IUWPlayerVariant lIFirst = UWGameProfiles.Uw1.Player;
+            IUWPlayerVariant lISecond = UWGameProfiles.Uw2.Player;
+
+            Check.Str("sleep: uw1 lies down with one line", lIFirst.CampLine(0) + " " + lIFirst.CampLine(1) + " " + lIFirst.CampLine(2), "16 16 16");
+            Check.Str("sleep: uw2 ground, bedroll, bed", lISecond.CampLine(0) + " " + lISecond.CampLine(1) + " " + lISecond.CampLine(2), "16 23 24");
+            Check.Str("sleep: Garamon dreams in uw1 only", lIFirst.HasGaramonDreams + " " + lISecond.HasGaramonDreams, "True False");
+            Check.Bool("sleep: uw2 may lie down on the Void's level", lISecond.MaySleepAt(UWGameProfiles.Uw2.CreateOriginalRules(), 65), true);
+        }
+
+        /// <summary>uw2 UseFood: what is eaten and what it leaves.</summary>
+        private static void fCheckFoodUw2()
+        {
+            Check.Str("uw2 food: eaten on use: meat, plant, dream plant, candle, sword",
+                UWFoodUw2.IsEatenOnUse(0xB0) + " " + UWFoodUw2.IsEatenOnUse(0xCE) + " " + UWFoodUw2.IsEatenOnUse(0x114) + " " + UWFoodUw2.IsEatenOnUse(0x92) + " " + UWFoodUw2.IsEatenOnUse(4),
+                "True True True False False");
+            Check.Bool("uw2 food: the candle only from the head", UWFoodUw2.IsEatenFromHead(0x92), true);
+            Check.Str("uw2 food: leftovers of a piece of meat, a stick's meat, a honeycomb, ale, an apple",
+                UWFoodUw2.LeftoverOf(0xB0) + " " + UWFoodUw2.LeftoverOf(0xBE) + " " + UWFoodUw2.LeftoverOf(0xBA) + " " + UWFoodUw2.LeftoverOf(0xBB) + " " + UWFoodUw2.LeftoverOf(0xB2),
+                "197 318 210 317 0");
+
+            UWRules lORules = UWGameProfiles.Uw2.CreateOriginalRules();
+
+            Check.Str("uw2 rules: a meal's sixths, an interrupted night's fatigue",
+                lORules.Vitals.Meal.BlocksPerPoint + " " + lORules.Sleep.Relief.InterruptedFatigue, "6 24");
+        }
+
+        /// <summary>uw2 player_is_dead: the ninth, Britannia against the worlds below, and do_gem's place.</summary>
+        private static void fCheckDeathUw2()
+        {
+            Check.Str("uw2 death: Britannia's last level, the next, a ninth of 1000",
+                UWDeathRulesUw2.Decide(8) + " " + UWDeathRulesUw2.Decide(9) + " " + UWDeathRulesUw2.ExperienceLoss(1000), "Final Gem 111");
+
+            int liX = UWDeathRulesUw2.GemTileX;
+            int liY = UWDeathRulesUw2.GemTileY;
+
+            UWDeathRulesUw2.MoveAlong(0x40, UWDeathRulesUw2.GemDistance, ref liX, ref liY);
+            Check.Str("uw2 death: move_along at heading 0x40, the cosine's whole way, a gain of one", liX + " " + liY, "36 40");
+
+            bool lbNear = true;
+
+            for (int liHeading = 0; liHeading < 256; liHeading++)
+            {
+                int liAtX = UWDeathRulesUw2.GemTileX;
+                int liAtY = UWDeathRulesUw2.GemTileY;
+
+                UWDeathRulesUw2.MoveAlong(liHeading, UWDeathRulesUw2.GemDistance, ref liAtX, ref liAtY);
+                lbNear &= System.Math.Abs(liAtX - UWDeathRulesUw2.GemTileX) <= 8 && System.Math.Abs(liAtY - UWDeathRulesUw2.GemTileY) <= 8;
+            }
+
+            Check.Bool("uw2 death: every heading stays within eight tiles", lbNear, true);
+        }
+
         /// <summary>The second game's player steps (uw2 SKILLCHK.C, PLAYTIME.C): the gate, the halving by world,
         /// the long cycle and the skill point.</summary>
         private static void fCheckPlayerUw2()
@@ -166,6 +277,9 @@ namespace UnderworldRevisited.Tools
             IUWPlayerVariant lIPlayer = UWGameProfiles.Uw2.Player;
             UWRules lORules = UWGameProfiles.Uw2.CreateOriginalRules();
 
+            Check.Str("uw2 player: the level's line, no orb's lair", lIPlayer.LevelUpString + " " + lIPlayer.HasOrbLair, "162 False");
+            Check.Str("uw2 player: a mapped tile counts by the world (first of the world, last, next)",
+                lIPlayer.ExplorationWeight(1) + " " + lIPlayer.ExplorationWeight(7) + " " + lIPlayer.ExplorationWeight(8), "1 1 2");
             Check.Str("uw2 player: the long cycle, the skill point, the gate below the cap, above it and past the ceiling",
                 lIPlayer.LongCycleTicks + " " + lORules.Experience.PerSkillPoint + " " + lIPlayer.ExperienceGate(lORules.Experience, 1000, 10)
                 + " " + lIPlayer.ExperienceGate(lORules.Experience, lORules.Experience.AwardCap + 1, 10) + " " + lIPlayer.ExperienceGate(lORules.Experience, UWPlayerVariantUw2.ExperienceCeiling, 1),
@@ -744,6 +858,24 @@ namespace UnderworldRevisited.Tools
 
             public bool LightUsedUp(int piQuality) => true;
 
+            public int LookQuality(int piItemId, int piQuality) => piQuality;
+
+            public int LastOwnerRace => 0;
+
+            public int NameWordString(UWObject pOItem) => -1;
+
+            public int NothingToSeeString => 0;
+
+            public int DoorSpikedString => 0;
+
+            public int BonesLeadString => 0;
+
+            public int BurntOutQuality => 0;
+
+            public int LightUsedUpString => 0;
+
+            public int HandsFullString => 0;
+
             public int RollValuableType(int piDungeonLevel)
             {
                 Asked++;
@@ -788,11 +920,25 @@ namespace UnderworldRevisited.Tools
         /// <summary>A player variant whose steps give themselves away.</summary>
         private sealed class SpyPlayer : IUWPlayerVariant
         {
+            public int LevelUpString => 148;
+
+            public int ExplorationWeight(int piDungeonLevel) => piDungeonLevel;
+
+            public bool HasOrbLair => true;
+
             public UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain) => UWExperienceGateEnum.CountWithoutLevels;
 
             public int ExperienceGain(int piGain, int piDungeonLevel, int piCharacterLevel) => piGain * 10;
 
             public bool MaySleepAt(UWRules pORules, int piDungeonLevel) => false;
+
+            public bool IsHeldAwake => false;
+
+            public int CampLine(int piHow) => 0;
+
+            public bool PassingOutKills => false;
+
+            public bool HasGaramonDreams => true;
 
             public int LongCycleTicks => 24;
 
@@ -816,7 +962,33 @@ namespace UnderworldRevisited.Tools
 
             public bool ShrugsOff(bool pbProtected, int piQualityClass) => true;
 
+            public bool DoorsTakeDamage => false;
+
             public int RollDebris() => 0x1FF;
+
+            public int DebrisOf(int piItem, int piDamageType, UWDataImport.DataImport pOData) => 0x1FF;
+
+            public int PlayerWeaponKind(int piWeaponId) => -1;
+
+            public int MeleeHitSound(int piWeaponKind) => 0;
+
+            public int WallSound(int piWeaponKind) => 0;
+
+            public bool MissSoundsAtWall => true;
+
+            public int BlockedSound(int piWeaponKind, bool pbArmourMetal) => 0;
+
+            public int ThrowSound => 0;
+
+            public int ShotSound(int piLauncherId) => 0;
+
+            public bool Twangs(int piLauncherId, bool pbFired) => false;
+
+            public int NoRoomSound => 0;
+
+            public int NoRoomToFireString => 0;
+
+            public bool MissileDamageSounds => false;
         }
 
         private sealed class SpyMagic : IUWMagicVariant
@@ -826,6 +998,18 @@ namespace UnderworldRevisited.Tools
             public int Asked;
 
             private readonly IUWMagicVariant mIUw1 = new UWMagicVariantUw1();
+
+            public System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells => mIUw1.Spells;
+
+            public int SpellsPerCircle => mIUw1.SpellsPerCircle;
+
+            public int FailStringBase => mIUw1.FailStringBase;
+
+            public int HealedString => mIUw1.HealedString;
+
+            public bool IsBuilt(UWRunicMagic.Spell pOSpell) => mIUw1.IsBuilt(pOSpell);
+
+            public void PlayCastSound(IUWSpellHost pIHost, UWRunicMagic.Spell pOSpell) => mIUw1.PlayCastSound(pIHost, pOSpell);
 
             public bool MayCast(IUWSpellHost pIHost) => mIUw1.MayCast(pIHost);
 

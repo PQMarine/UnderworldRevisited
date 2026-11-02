@@ -206,7 +206,7 @@ public sealed class UWClassicWorldGesture
     /// oil flask go the other way round). Outside the view window nothing happens here.</summary>
     public void UpdateUseModeInWorld()
     {
-        if (UWPlayerInput.ConsumesRightClick() || !mOInteraction.Input.Interact.WasPressedThisFrame() || UWScene.ItemDrag == null)
+        if (UWPlayerInput.ConsumesRightClick() || !UWMouseButtons.PressedFree(mOInteraction.Input.Interact) || UWScene.ItemDrag == null)
             return;
 
         Vector2 lOMousePos = UWPointer.Position;

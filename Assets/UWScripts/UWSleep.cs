@@ -31,7 +31,16 @@ public static class UWSleep
         IUWWorld lONight = UWScopedWorld.With(lOWorld, UWPresentation.For(lOWorld, pOInteraction));
 
         // 1-based (the dungeon level the dreams are chosen by); the loader is there, so is the world.
-        return UWSleepRules.Sleep(pOCharacter.Vitals, UWWorldLevels.NumberOr(lOWorld, 1), lONight, pbPassedOut,
+        bool lbSlept = UWSleepRules.Sleep(pOCharacter.Vitals, UWWorldLevels.NumberOr(lOWorld, 1), lONight, pbPassedOut,
             pbBedroll);
+
+        // Passing out waits for no dream but has its fades, shorter than the night's black (per user on the
+        // original, 2026-11-02; player_sleep's fadeout3d and fadein3d, UWSleepUw2.FadeSeconds each).
+        if (lbSlept && pbPassedOut && pOCharacter.Vitals.CurrentHP > 0)
+            lONight.Presentation.ShowNightBlack(PassOutBlackSeconds);
+
+        return lbSlept;
     }
+
+    private const float PassOutBlackSeconds = 2f * UWSleepUw2.FadeSeconds;
 }

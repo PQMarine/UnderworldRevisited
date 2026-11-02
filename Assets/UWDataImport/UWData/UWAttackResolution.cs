@@ -503,7 +503,7 @@ namespace UWDataImport.UWData
 
 			bool lbArmourMetal = leKind == UWDefenderKind.Player ? pIDefender.IsArmourMetalAt(piPart) : pOAttacker.RowArmourMetal;
 
-			return UWCritterCombat.GetBlockedSound(pOAttacker.WeaponKind, lbArmourMetal);
+			return UWGameSession.Current.Game.Combat.BlockedSound(pOAttacker.WeaponKind, lbArmourMetal);
 		}
 
 		/// <summary>A flight that carries no damage of its own - the quake's boulder, a thing knocked

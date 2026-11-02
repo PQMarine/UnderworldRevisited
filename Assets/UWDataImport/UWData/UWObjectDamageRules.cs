@@ -110,6 +110,11 @@ namespace UWDataImport.UWData
 		/// every one of them carries the bit). Wear, UWHealth.IsIndestructible and the spawner's
 		/// door and container health ask here.
 		/// </summary>
+		public static bool IsProtected(UWObject pOObject)
+		{
+			return pOObject.DoorDirection && !(UWGameSession.Current.Game.Combat.DoorsTakeDamage && UWObjectIds.IsDoor(pOObject.ID));
+		}
+
 		public static bool ShrugsOff(bool pbProtected, int piQualityClass)
 		{
 			return UWGameSession.Current.Game.Combat.ShrugsOff(pbProtected, piQualityClass);

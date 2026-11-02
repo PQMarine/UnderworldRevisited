@@ -519,7 +519,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         bool lbLeft = lOControls.Player.CursorDrag.WasPressedThisFrame();
         bool lbRight = UWInput.PressedUnheld(lOControls, UWAct.Interact);
 
-        if (!lbLeft && !lbRight)
+        if ((!lbLeft && !lbRight) || UWModernUi.IsHelpUnderPointer)
             return;
 
         // THE TABLET TAKES NO CLICKS WHILE THE CLASSIC WIDE PANEL TURNS (per user, 2026-10-20),

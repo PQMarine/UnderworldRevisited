@@ -289,8 +289,13 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool CanCarry(UWObject pOItem, int piCount = 0)
 		{
-			if (pOItem == null || fData == null
-				|| fData.InitialPlayer == null)
+			if (pOItem == null || fData == null)
+				return true;
+
+			IUWInventoryVariant lOVariant = fVariant;
+			int liLimit = lOVariant != null ? lOVariant.CarryLimit(fData) : fData.InitialPlayer != null ? fData.InitialPlayer.MaxWeight : -1;
+
+			if (liLimit < 0)
 				return true;
 
 			UWCommonObjectProperties lOProperties = fData.CommonObjectProperties;
@@ -315,9 +320,7 @@ namespace UWDataImport.UWData
 				liWeight = lOProperties.TryGet(pOItem.ID, out lOEntry) ? lOEntry.MassTenthStones * piCount : 0;
 			}
 
-			int liRemaining = UWInventoryWeight.RemainingTenthStones(fData.InitialPlayer, GetCarriedTenthStones(lOProperties));
-
-			return liWeight <= liRemaining;
+			return liWeight <= liLimit - GetCarriedTenthStones(lOProperties);
 		}
 
 		/// <summary>
@@ -471,14 +474,16 @@ namespace UWDataImport.UWData
 
 				lbChanged = true;
 
-				if (lOItem.Quality > liPoints)
+				int liLast = UWGameSession.Current.Game.Objects.BurntOutQuality;
+
+				if (lOItem.Quality - liLast > liPoints)
 				{
 					lOItem.Quality = (ushort)(lOItem.Quality - liPoints);
 
 					continue;
 				}
 
-				lOItem.Quality = 0;
+				lOItem.Quality = (ushort)liLast;
 				lbWentOut = true;
 
 				LightBurnedOut?.Invoke(lOItem);

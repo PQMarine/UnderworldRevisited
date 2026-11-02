@@ -348,7 +348,11 @@ namespace UWDataImport.UWData
 			int num3 = 3;
 			for (int num4 = 0; num4 < num2; num4++)
 			{
-				list.Add(new UWTexture(peImageFileFormat, ref pyData, BitConverter.ToInt32(pyData, num3), pOPalettes, piMainPaletteIndex, peType, num4, psName));
+				int liOffset = BitConverter.ToInt32(pyData, num3);
+				UWTexture lOPicture = new UWTexture(peImageFileFormat, ref pyData, liOffset, pOPalettes, piMainPaletteIndex, peType, num4, psName);
+
+				lOPicture.IsEmptyEntry = num3 + 8 <= pyData.Length && BitConverter.ToInt32(pyData, num3 + 4) == liOffset;
+				list.Add(lOPicture);
 				num3 += 4;
 			}
 			return list;

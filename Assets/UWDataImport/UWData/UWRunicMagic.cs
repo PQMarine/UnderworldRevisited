@@ -55,7 +55,7 @@ namespace UWDataImport.UWData
 			{
 				get
 				{
-					int liLevel = 1 + (Index / 6);
+					int liLevel = 1 + (Index / UWGameSession.Current.Game.Magic.SpellsPerCircle);
 
 					return liLevel > 8 ? 1 : liLevel;
 				}
@@ -68,6 +68,9 @@ namespace UWDataImport.UWData
 				get { return Level * UWRules.Current.Magic.ManaPerCircle; }
 			}
 		}
+
+		/// <summary>The first game's table; AllSpells is the running game's.</summary>
+		public static IReadOnlyList<Spell> FirstGameSpells => mOSpells;
 
 		private static readonly Spell[] mOSpells =
 		{
@@ -276,7 +279,7 @@ namespace UWDataImport.UWData
 		/// <summary>All entries of the table, in their order.</summary>
 		public static IReadOnlyList<Spell> AllSpells
 		{
-			get { return mOSpells; }
+			get { return UWGameSession.Current.Game.Magic.Spells; }
 		}
 
 		/// <summary>The 24 runes in rune number order (the alphabet of the rune bag).</summary>
@@ -321,7 +324,7 @@ namespace UWDataImport.UWData
 			if (piSequence == EmptySequence)
 				return false;
 
-			foreach (Spell lOSpell in mOSpells)
+			foreach (Spell lOSpell in AllSpells)
 			{
 				if (lOSpell.RuneSequence != piSequence || lOSpell.RuneSequence == EmptySequence)
 					continue;

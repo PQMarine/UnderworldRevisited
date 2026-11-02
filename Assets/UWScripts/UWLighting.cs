@@ -550,7 +550,7 @@ public class UWLighting : MonoBehaviour
 
         miDebugAppliedBrightness = liBrightness;
 
-        if (liBrightness <= 0)
+        if (liBrightness <= 0 && !fShowsDarkLevel)
         {
             mOPlayerLight.enabled = false;
             return;
@@ -569,7 +569,7 @@ public class UWLighting : MonoBehaviour
         mOPlayerLight.range = (mOData != null && mOData.Shades != null
             && mOData.Shades.TryGet(liBrightness, out lOShade) && lOShade.ViewingDistance > 0
             ? lOShade.ViewingDistance * UWWorldScale.TileSize
-            : liBrightness * mfRangePerBrightness) * mfSoftFalloffRangeFactor;
+            : Mathf.Max(liBrightness, 1) * mfRangePerBrightness) * mfSoftFalloffRangeFactor;
         // Shadows only in the Remastered render mode (per user, 2026-09-12: "shadows from the
         // torch light"). The original has none, and with the effect switched off nothing changes.
         UnderworldRevisited.UWSettings lORenderSettings = UnderworldRevisited.UWSettings.Instance;
@@ -601,6 +601,14 @@ public class UWLighting : MonoBehaviour
             * UWWorldScale.TileSize * UWWorldScale.TileSize
             * Mathf.Pow(Mathf.Max(lfRangeInTiles, 0.001f), mfIntensityRangeExponent);
 
+        // The strength stays a lamp's of this reach, the light itself ends sooner: a sprite is lit by so little
+        // that it stayed in sight far past the walls (per user with a screenshot, 2026-11-03).
+        if (liBrightness <= 0)
+        {
+            mfBaseIntensity *= DarkLevelShare;
+            mOPlayerLight.range *= DarkLevelReach;
+        }
+
         fApplyRemasterCarriedLight();
 
         mOPlayerLight.intensity = mfBaseIntensity;
@@ -608,6 +616,30 @@ public class UWLighting : MonoBehaviour
         mfDebugLightIntensity = mOPlayerLight.intensity;
         mfDebugLightRange = mOPlayerLight.range;
         mODebugLightColour = mOPlayerLight.color;
+    }
+
+    /// <summary>The strength of the unlit level against a lamp of its reach.</summary>
+    private const float DarkLevelShare = 0.5f;
+
+    /// <summary>The unlit level's reach against that of a lamp of its level, fitted by eye.</summary>
+    private const float DarkLevelReach = 0.45f;
+
+    /// <summary>
+    /// PALETTE COLOURS WITHOUT A LIGHT (per user 2026-11-02, reported on Reddit): this mode takes its brightness from
+    /// the world's light alone and the ambient light is under the table's last level, so the start of the game was
+    /// black and Gamma changed nothing. The original sees SHADES.DAT's level 0 without a light, three tiles; the
+    /// player's light stays on here at that level. The Remastered mode keeps its ambient light, the Palette mode
+    /// shades by the table itself.
+    /// </summary>
+    private static bool fShowsDarkLevel
+    {
+        get
+        {
+            UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+
+            return lOSettings != null && lOSettings.RemasterDemaster
+                && UWRenderPathHost.Mode == UnderworldRevisited.UWSettings.RenderModeEnum.Remastered;
+        }
     }
 
     private Light fFindPlayerLight()
@@ -644,6 +676,14 @@ public class UWLighting : MonoBehaviour
 
         if (mOPlayerLight == null || !mOPlayerLight.enabled || mfFlickerAmount <= 0f)
             return;
+
+        // The unlit level burns nothing, so nothing flickers (fShowsDarkLevel).
+        if (fBrightness() <= 0)
+        {
+            mOPlayerLight.intensity = mfBaseIntensity;
+
+            return;
+        }
 
         // Two superimposed noise values so that the flicker does not look periodic (UWFlicker).
         float lfNoise = UWFlicker.CarriedNoise(UWLightFlicker.Perlin, Time.time, mfFlickerSpeed);

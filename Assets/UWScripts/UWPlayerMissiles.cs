@@ -7,40 +7,36 @@ using UWDataImport.UWData;
 /// public surface and forwards): bow, crossbow and sling - which ammunition a launcher takes, the
 /// ammunition found in the pack and the bags, the shot on the release with its aim, room test,
 /// twang and spent piece - and the base damage of a missile thrown by hand.
-/// UWPlayerAttackInput asks HoldsLauncher on the release and TryShoot before a blow.
+/// UWPlayerAttackInput asks HoldsLauncher on the release and TryShoot before a blow, UWAttackUw2 likewise
+/// on the second game: all over IUWMissileHost.
 /// </summary>
 public sealed class UWPlayerMissiles
 {
-    private readonly Interaction mOInteraction;
+    private readonly IUWMissileHost mIHost;
 
-    public UWPlayerMissiles(Interaction pOInteraction)
+    public UWPlayerMissiles(IUWMissileHost pIHost)
     {
-        mOInteraction = pOInteraction;
+        mIHost = pIHost;
     }
 
     private UWDataImport.DataImport fData()
     {
-        return mOInteraction.GameData;
+        return mIHost.GameData;
     }
 
     private UWLevelLoader fLoader()
     {
-        return mOInteraction.LevelLoader;
+        return mIHost.LevelLoader;
     }
 
-    private UWCharacter fCharacter()
+    private UWInventoryModel fInventory()
     {
-        return mOInteraction.Character;
+        return mIHost.MeleeInventory;
     }
 
-    private UWInventory fInventory()
+    private int fMissileSkill()
     {
-        return mOInteraction.Inventory;
-    }
-
-    private UWGameUI fUi()
-    {
-        return mOInteraction.GameUi;
+        return mIHost.MeleeVitals != null ? mIHost.MeleeVitals.GetSkill(UWPlayerData.Skill.Missile) : 0;
     }
 
     /// <summary>First ammunition object - sling stone, bolt, arrow. The weapon names
@@ -92,19 +88,21 @@ public sealed class UWPlayerMissiles
         {
             // No shot, but no strike either: nobody strikes with a bow
             // in hand.
-            mOInteraction.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
+            mIHost.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
 
             return true;
         }
 
         // MissileRelease_seg025_9F: the ammunition is taken only when the missile could be
         // placed; blocked, it stays in the pack.
-        if (fLaunchPlayerMissile(liAmmunitionId))
+        bool lbFired = fLaunchPlayerMissile(liAmmunitionId, lOWeapon.ID);
+
+        if (lbFired)
             fInventory().TryConsumeOne(lOAmmunition);
 
-        // The twang: bow and crossbow only, never the sling - and also when the shot failed
-        // for lack of room (both paths of MissileRelease_seg025_9F end in it).
-        if (lOWeapon.ID == BowObjectId || lOWeapon.ID == CrossbowObjectId)
+        // The twang: bow and crossbow only, never the sling - and on the first game also when
+        // the shot failed for lack of room (both paths of MissileRelease_seg025_9F end in it).
+        if (UWGameSession.Current.Game.Combat.Twangs(lOWeapon.ID, lbFired))
             UWAudioService.PlayEffect(UWSoundEffectId.BowTwang);
 
         return true;
@@ -130,18 +128,10 @@ public sealed class UWPlayerMissiles
         if (fFindAmmunition(liAmmunitionId) != null)
             return true;
 
-        mOInteraction.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
+        mIHost.AddMessage(UWItemMessages.NoAmmunition(fData(), liAmmunitionId));
 
         return false;
     }
-
-    /// <summary>The two launchers that twang (MissileRelease_seg025_9F: weapon index 9 and 10
-    /// in the ranged table, which starts at 0x10).</summary>
-    private const int BowObjectId = 0x19;
-    private const int CrossbowObjectId = 0x1A;
-
-    /// <summary>"You need more space to fire that weapon." (block 1).</summary>
-    private const int NoRoomForWeaponMessage = 255;
 
     /// <summary>Whether a bow, crossbow or sling is in the main hand.</summary>
     public bool HoldsLauncher()
@@ -183,7 +173,7 @@ public sealed class UWPlayerMissiles
     /// order (CheckForAmmo_seg022_E78) - see UWInventoryModel.FindCarried.</summary>
     private UWObject fFindAmmunition(int piAmmunitionId)
     {
-        return fInventory().Model.FindCarried(lOItem => lOItem.ID == piAmmunitionId);
+        return fInventory().FindCarried(lOItem => lOItem.ID == piAmmunitionId);
     }
 
     /// <summary>
@@ -193,24 +183,15 @@ public sealed class UWPlayerMissiles
     /// arrow is a mobile record on the motion core since 2026-10-05 (UWMissiles): it
     /// starts radii + 4 eighths ahead, falls, bounces and lies where it comes to rest.
     /// </summary>
-    private bool fLaunchPlayerMissile(int piAmmunitionId)
+    private bool fLaunchPlayerMissile(int piAmmunitionId, int piLauncherId)
     {
         if (fLoader() == null || Camera.main == null)
             return false;
 
         int liSpeedByte = fData().ObjectProperties.GetRangedSpeed(piAmmunitionId);
-        int liHeading;
-        int liPitch;
+        IUWCombatVariant lICombat = UWGameSession.Current.Game.Combat;
 
-        // The original's aim from the pointer in the view window; the modern scheme shoots where
-        // the free pointer stands on the world, else along the crosshair (per user, 2026-10-04).
-        if (UWControlScheme.Ui.Policy.AimSource == UWAimSource.PointerInView && fUi() != null)
-        {
-            UWPlayerThrow.GetPointerInView(fUi(), UWPointer.Position, out int liX, out int liY);
-            UWPlayerThrow.GetMissileAim(liX, liY, Camera.main.transform, out liHeading, out liPitch);
-        }
-        else
-            UWMissiles.AimFromDirection(mOInteraction.ModernAimRay().direction, liSpeedByte, out liHeading, out liPitch);
+        mIHost.AimMissile(liSpeedByte, out int liHeading, out int liPitch);
 
         // A missile hit always counts with charge 0x80, however far the bow was drawn
         // (reference: combat.MissileAttackHit, "PlayerAttackCharge = 0x80"). The arrow's life
@@ -220,11 +201,14 @@ public sealed class UWPlayerMissiles
 
         UWProjectileFlight lOFlight = UWMissiles.Ensure(fLoader()).LaunchFromPlayer(null, piAmmunitionId,
             liHeading, liPitch, liSpeedByte, fGetMissileBaseDamage(piAmmunitionId),
-            UWDamageTypes.Missile, -1, mOInteraction, lOAmmunition != null ? lOAmmunition.Quality : 0x3F);
+            UWDamageTypes.Missile, -1, mIHost, lOAmmunition != null ? lOAmmunition.Quality : 0x3F, lICombat.ShotSound(piLauncherId));
 
         if (lOFlight == null)
         {
-            mOInteraction.AddGeneralMessage(NoRoomForWeaponMessage);
+            if (lICombat.NoRoomSound != UWAttackResolution.NoSound)
+                UWAudioService.PlayEffect(lICombat.NoRoomSound);
+
+            mIHost.AddGeneralMessage(lICombat.NoRoomToFireString);
 
             return false;
         }
@@ -237,8 +221,7 @@ public sealed class UWPlayerMissiles
     /// 2026-10-18).</summary>
     private int fGetMissileBaseDamage(int piAmmunitionId)
     {
-        return UWPlayerAttack.GetMissileBaseDamage(fData(), piAmmunitionId,
-            fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
+        return UWPlayerAttack.GetMissileBaseDamage(fData(), piAmmunitionId, fMissileSkill());
     }
 
     /// <summary>
@@ -253,8 +236,7 @@ public sealed class UWPlayerMissiles
         if (fData() == null || fData().ObjectProperties == null)
             return UWAttackResolution.NoMissileDamage;
 
-        return UWPlayerAttack.GetThrownMissileBaseDamage(fData(), piObjectId,
-            fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Missile) : 0);
+        return UWPlayerAttack.GetThrownMissileBaseDamage(fData(), piObjectId, fMissileSkill());
     }
 
     /// <summary>The damage type of a class 1 object the player throws: -ammo of its missile

@@ -99,6 +99,10 @@ public static class UWUiSorting
     /// <summary>The intro and the cutscenes (UWIntroPlayer).</summary>
     public const int Intro = 100;
 
+    /// <summary>The second game's black of the night over the view window (UWSleepUw2): over the modern parts, whose
+    /// view it is, under the help.</summary>
+    public const int NightUw2 = 290;
+
     /// <summary>
     /// THE HELP WINDOW ON THE KIT (cleanup 8b.3, 2026-10-24; UWHelpWindow): where its IMGUI form stood -
     /// over the game, the classic frame (the help lies behind it while it slides, by its clip, not by

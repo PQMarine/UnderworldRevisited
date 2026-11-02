@@ -623,7 +623,13 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
         UWInventory lOInventory = UWScene.Inventory;
 
-        if (lOData != null && lOData.InitialPlayer != null && lOInventory != null)
+        // The second game's load comes from its record and its screen's inventory: the first game's stand idle.
+        if (lOWalker != null && lOData != null && UWGameScreenUw2.Current != null && UWGameScreenUw2.Current.Inventory != null)
+        {
+            pOMotion.MaxWeight = UWPlayerRecordUw2.MaxWeight(lOWalker);
+            pOMotion.CarriedWeight = Mathf.Max(0, UWGameScreenUw2.Current.Inventory.GetCarriedTenthStones(lOData.CommonObjectProperties));
+        }
+        else if (lOData != null && lOData.InitialPlayer != null && lOInventory != null)
         {
             pOMotion.MaxWeight = lOData.InitialPlayer.MaxWeight;
             pOMotion.CarriedWeight = Mathf.Max(0, lOInventory.GetCarriedTenthStones(lOData.CommonObjectProperties));

@@ -40,7 +40,7 @@ public static class UWDebris
         if (pOLoader == null)
             return;
 
-        pOLoader.SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), pOTile.X, pOTile.Y, 0,
+        pOLoader.SpawnObjectById(UWGameSession.Current.Game.Combat.DebrisOf(pOObject.ID, UWDamageTypes.Physical, pOLoader.UWDataImporter), pOTile.X, pOTile.Y, 0,
             UWObjectDamageRules.DebrisQuality, new Vector3(pOPosition.x, 0f, pOPosition.z), UWWorldEdit.Arrival.InPlace,
             null, liListIndex);
     }

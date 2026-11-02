@@ -21,10 +21,50 @@ namespace UWDataImport.UWData
 		/// <summary>A roll of this type becomes the first: the coin, never the gold coin.</summary>
 		private const int RolledAway = 1;
 
+		/// <summary>Lit, a light sounds (UseLight, USEITEMS.C:664).</summary>
+		public const int LightSound = 0x20;
+
 		public bool LightUsedUp(int piQuality)
 		{
-			throw new NotSupportedException("The second game's lights come in phase 4 of Docs/UW2-PLAN.md.");
+			return piQuality <= 1;
 		}
+
+		private const int FirstLight = 0x90;
+
+		private const int FirstBlackrockGem = 0x118;
+
+		private const int ClassMask = 0x1F8;
+
+		/// <summary>Our number of game_sprint 0x164, "cool "; the next is "warm ".</summary>
+		private const int CoolWord = 0x164 + 1;
+
+		public int LookQuality(int piItemId, int piQuality)
+		{
+			return piQuality == 1 && (piItemId & ClassMask) == FirstLight ? 0 : piQuality;
+		}
+
+		public int LastOwnerRace => 0x1E;
+
+		/// <summary>do_mods: warm or cool by the owner field.</summary>
+		public int NameWordString(UWObject pOItem)
+		{
+			if ((pOItem.ID & ClassMask) != FirstBlackrockGem)
+				return -1;
+
+			return CoolWord + (pOItem.Owner > 0 ? 1 : 0);
+		}
+
+		public int NothingToSeeString => 0xA6 + 2 + 1;
+
+		public int DoorSpikedString => 0x91 + 1;
+
+		public int BonesLeadString => 0x1A + 1;
+
+		public int BurntOutQuality => 1;
+
+		public int LightUsedUpString => 0x8A + 1;
+
+		public int HandsFullString => 0x105 + 1;
 
 		/// <summary>rand() % (37 - world * 3) - (30 - world * 3), at least 0 and never 1; the world is the
 		/// level's (TREASURE.C:103-107).</summary>

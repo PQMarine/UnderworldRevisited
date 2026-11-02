@@ -1001,6 +1001,10 @@ and ResolveMelee, player_attack's steps read from WEAP.DAT's flags (0x20 lead-in
 corpse always in the eighth world), experience into the record. Target by ray and sphere before the eye; the classic box
 probe needs the first game's character. Open: weapon wear, Valor, special weapons, missiles, blood and shake, eyes,
 creature resistances, the second game's death_check (HasSpecialDeath false), the gem in the modern scheme.
+THE PLAYER'S BLOWS, EXPERIENCE AND DEATH CONFIRMED 2026-11-02: the blow, kills, exploring, map scraps and conversations
+pay; UWDeathRulesUw2 and UWDeathUw2 take a ninth of the experience and wake the player by the gem below Britannia, in it
+the game ends. Jail waits for triggers and schedules (it fires a scheduled trigger and needs Lord British's place), and
+until then a castle guard's kill ends the game too.
 
 1. Player: experience (halving, 1500 per point, the 0x7FFF0 cap), carrying, the slow cycle and
    the X clocks, food, sleep, death (jail, the pits, the blackrock gem), traps on objects.

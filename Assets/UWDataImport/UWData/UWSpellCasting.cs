@@ -71,23 +71,22 @@ namespace UWDataImport.UWData
 		/// it has no message for it (msg.spell.rune_missing).</summary>
 		public static string RuneMissingText => UWText.T("msg.spell.rune_missing");
 
-		/// <summary>Messages from string block 1. The reference numbers each one lower - the
-		/// usual offset in this project.</summary>
-		private const int NotExperiencedMessage = 211;
+		/// <summary>fail_spell's messages after IUWMagicVariant.FailStringBase, the backfire's last.</summary>
+		private const int NotEnoughManaOffset = 1;
 
-		private const int NotEnoughManaMessage = 212;
+		private const int IncantationFailedOffset = 2;
 
-		private const int IncantationFailedMessage = 213;
+		private const int CastingNotSuccessfulOffset = 3;
 
-		private const int CastingNotSuccessfulMessage = 214;
-
-		private const int SpellBackfiresMessage = 215;
+		private const int SpellBackfiresOffset = 4;
 
 		/// <summary>Up to here spells act lastingly on the character: light, movement,
 		/// resistance, bonuses.</summary>
 		private const int LastLastingMajorClass = 3;
 
 		private const int HealMajorClass = 4;
+
+		private const int BackfireMajorClass = 9;
 
 		/// <summary>The motion spells (class 1) and the two of them that hop when cast.</summary>
 		private const int MotionMajorClass = 1;
@@ -242,14 +241,10 @@ namespace UWDataImport.UWData
 			IUWMagicVariant lIMagic = lOSession.Game.Magic;
 			UWSessionQuirks lOQuirks = lOSession.Quirks;
 
-			// A game may refuse the cast outright (UW2: paralysed, RUNES.C:174 - its message comes
-			// with UW2's variant in phase 4; the first game never refuses here).
+			// A game may refuse the cast outright, in silence (UW2: paralysed, RUNES.C:174; the first
+			// game never refuses here).
 			if (!lIMagic.MayCast(pIHost))
-			{
-				pIHost.PlaySpellFailureSound();
-
 				return OutcomeEnum.Blocked;
-			}
 
 			if (llNow < lOQuirks.LastCastTicks + lOQuirks.CastDelayTicks)
 			{
@@ -271,6 +266,18 @@ namespace UWDataImport.UWData
 				return OutcomeEnum.NotASpell;
 			}
 
+			int liFail = lIMagic.FailStringBase;
+
+			// A game may limit the circles by place (the variant), before anything else (RUNES.C:232).
+			if (leCheck != CastCheckEnum.NotASpell && UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOPlaced)
+				&& !lIMagic.MayCastHere(pIHost, lOPlaced.Level))
+			{
+				pIHost.PlaySpellFailureSound();
+				pIHost.World.Presentation.AddGeneralMessage(liFail + CastingNotSuccessfulOffset);
+
+				return OutcomeEnum.Blocked;
+			}
+
 			// The circle the character can cast at all grows with its level. THE FAILURE SOUND for
 			// this and for too little mana as well (fail_spell plays effect 0x16 for all four of its
 			// reasons, UnderworldExhumed RUNES.C, read 2026-10-12); until 2026-10-12 ours only
@@ -278,7 +285,7 @@ namespace UWDataImport.UWData
 			if (leCheck == CastCheckEnum.NotExperienced)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.World.Presentation.AddGeneralMessage(NotExperiencedMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail);
 
 				return OutcomeEnum.NotExperienced;
 			}
@@ -286,12 +293,20 @@ namespace UWDataImport.UWData
 			if (leCheck == CastCheckEnum.NotEnoughMana)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.World.Presentation.AddGeneralMessage(NotEnoughManaMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail + NotEnoughManaOffset);
 
 				return OutcomeEnum.NotEnoughMana;
 			}
 
 			UWRunicMagic.TryGetSpell(liSequence, out UWRunicMagic.Spell lOSpell);
+
+			// What the game does not run yet costs nothing (UW2 plan phase 4, list item 3).
+			if (!lIMagic.IsBuilt(lOSpell))
+			{
+				pIHost.World.Presentation.AddMessage(UWText.T("hud.walk.not_yet"));
+
+				return OutcomeEnum.Blocked;
+			}
 
 			// THE CHECK: Casting + 5 against twice the circle (player_cast; until 2026-10-11 ours had
 			// Casting against three times the circle, the reference's - 6 to 13 points harder, the
@@ -304,7 +319,7 @@ namespace UWDataImport.UWData
 			if (leResult == UWSkillCheck.ResultEnum.Failure)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.World.Presentation.AddGeneralMessage(IncantationFailedMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail + IncantationFailedOffset);
 
 				return OutcomeEnum.Failed;
 			}
@@ -312,7 +327,7 @@ namespace UWDataImport.UWData
 			bool lbBackfire = leResult == UWSkillCheck.ResultEnum.CriticalFailure;
 
 			if (lbBackfire)
-				pIHost.World.Presentation.AddGeneralMessage(SpellBackfiresMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail + SpellBackfiresOffset);
 
 			// The pause before the next cast, from now - a backfire sets it too.
 			lOQuirks.LastCastTicks = llNow;
@@ -331,11 +346,11 @@ namespace UWDataImport.UWData
 
 			// NO MAGIC HERE (void or tile with no-magic bit): do_spell refuses, error 3, "Casting
 			// was not successful.", with the failure sound - a backfire as well (do_spell tests it
-			// before the class). A game may limit the circles by place as well (the variant).
-			if (pIHost.IsMagicBlocked || !lIMagic.MayCastHere(pIHost, lOSpell.Level))
+			// before the class).
+			if (pIHost.IsMagicBlocked)
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.World.Presentation.AddGeneralMessage(CastingNotSuccessfulMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail + CastingNotSuccessfulOffset);
 
 				return OutcomeEnum.Blocked;
 			}
@@ -346,7 +361,7 @@ namespace UWDataImport.UWData
 			if (lbBackfire)
 			{
 				fBackfire(pIHost, lOSpell.Level / 2);
-				pIHost.PlaySpellSound();
+				lIMagic.PlayCastSound(pIHost, new UWRunicMagic.Spell(lOSpell.Index, BackfireMajorClass, lOSpell.Level / 2, lOSpell.RuneSequence));
 
 				return OutcomeEnum.Backfired;
 			}
@@ -357,12 +372,12 @@ namespace UWDataImport.UWData
 			if (!ApplyEffect(lOSpell, false, pIHost, liDeferredCost))
 			{
 				pIHost.PlaySpellFailureSound();
-				pIHost.World.Presentation.AddGeneralMessage(CastingNotSuccessfulMessage);
+				pIHost.World.Presentation.AddGeneralMessage(liFail + CastingNotSuccessfulOffset);
 
 				return OutcomeEnum.Blocked;
 			}
 
-			pIHost.PlaySpellSound();
+			lIMagic.PlayCastSound(pIHost, lOSpell);
 
 			return OutcomeEnum.Cast;
 		}
@@ -422,6 +437,9 @@ namespace UWDataImport.UWData
 			if (pIHost == null || piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
 				return false;
 
+			if (!UWGameSession.Current.Game.Magic.IsBuilt(UWRunicMagic.AllSpells[piSpellIndex]))
+				return false;
+
 			return ApplyEffect(UWRunicMagic.AllSpells[piSpellIndex], false, pIHost);
 		}
 
@@ -446,6 +464,9 @@ namespace UWDataImport.UWData
 			if (pOSpell.MajorClass == HealMajorClass)
 			{
 				fHeal(liMinor, pIHost);
+
+				if (pIHost.HasPlayer && pIHost.World != null && pIHost.World.Session.Game.Magic.HealedString >= 0)
+					pIHost.World.Presentation.AddGeneralMessage(pIHost.World.Session.Game.Magic.HealedString);
 
 				return true;
 			}

@@ -643,6 +643,18 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < lOPlayer.miSelectedRunes.Length; liAt++)
 				lOPlayer.miSelectedRunes[liAt] = UWPlayerRecordUw2.ShelfRune(pOFile, liAt) != UWPlayerRecordUw2.NoRune ? UWPlayerRecordUw2.ShelfRune(pOFile, liAt) : -1;
 
+			for (int liAt = 0; liAt < UWPlayerRecordUw2.ActiveSpellCount(pOFile) && liAt < MaxActiveSpells; liAt++)
+			{
+				int liWord = UWPlayerRecordUw2.ActiveSpell(pOFile, liAt);
+
+				lOPlayer.mOActiveSpells.Add(new ActiveSpell
+				{
+					MajorClass = liWord & 0xF,
+					MinorClass = (liWord >> 4) & 0xF,
+					Stability = (liWord >> 8) & 0xFF
+				});
+			}
+
 			lOPlayer.CurrentVitality = UWPlayerRecordUw2.Vitality(pOFile);
 			lOPlayer.MaxVitality = UWPlayerRecordUw2.MaxVitality(pOFile);
 			lOPlayer.CurrentMana = UWPlayerRecordUw2.Mana(pOFile);
@@ -670,6 +682,8 @@ namespace UWDataImport.UWData
 			lOPlayer.Heading = UWPlayerRecordUw2.Heading(pOFile);
 			lOPlayer.DungeonLevel = UWPlayerRecordUw2.Level(pOFile);
 			lOPlayer.Poison = UWPlayerRecordUw2.Poison(pOFile);
+			lOPlayer.Intoxication = UWPlayerRecordUw2.Drunk(pOFile);
+			lOPlayer.Hallucination = UWPlayerRecordUw2.Shrooms(pOFile);
 			lOPlayer.IsLoaded = true;
 
 			return lOPlayer;

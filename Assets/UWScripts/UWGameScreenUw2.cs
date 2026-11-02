@@ -210,6 +210,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// the world, step 3 part B).</summary>
     public UWInventoryModel Inventory => mOInventory;
 
+    /// <summary>The saved objects the inventory's links point into (an enchanted thing's spell).</summary>
+    public List<UWObject> WorkspaceRecords => mOWorkspaceRecords;
+
     /// <summary>The workspace's records as read: what a link not yet resolved into contents points into.</summary>
     private List<UWObject> mOWorkspaceRecords;
 
@@ -306,6 +309,82 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private Image mOWeapon;
 
     private Image mOPowerGem;
+
+    private Image mOEyes;
+
+    private Sprite msEyesRest;
+
+    private readonly Sprite[] maEyeSprites = new Sprite[UWClassicLayoutUw2.Eyes.Blink.Length * UWClassicLayoutUw2.Eyes.PicturesPerCondition + 1];
+
+    /// <summary>The condition shown (setting[7]), 0 for none; the blink's frame, the hold and the step's time.</summary>
+    private int miEyesSet;
+
+    private int miEyesFrame;
+
+    private int miEyesHold;
+
+    private float mfEyesStep;
+
+    /// <summary>do_damage: the creature hit, hit points against its table's average: 1 well to 3 near death.
+    /// A blink running restarts at its middle, as adjust_eyes does.</summary>
+    public void ShowEyes(int piHitPoints, int piTableHitPoints)
+    {
+        int liShare = piTableHitPoints != 0 ? Mathf.Min((piHitPoints * 3) / piTableHitPoints, 2) : 0;
+
+        if (miEyesSet != 0)
+        {
+            miEyesFrame = 2;
+            miEyesHold = 0;
+        }
+        else
+            miEyesFrame = 0;
+
+        miEyesSet = 3 - liShare;
+    }
+
+    private void fUpdateEyes()
+    {
+        if (mOEyes == null || miEyesSet == 0)
+            return;
+
+        mfEyesStep += Time.deltaTime;
+
+        while (mfEyesStep >= UWClassicLayoutUw2.Eyes.StepSeconds && miEyesSet != 0)
+        {
+            mfEyesStep -= UWClassicLayoutUw2.Eyes.StepSeconds;
+            fStepEyes();
+        }
+    }
+
+    private void fStepEyes()
+    {
+        if (miEyesFrame == UWClassicLayoutUw2.Eyes.HoldFrame && miEyesHold < UWClassicLayoutUw2.Eyes.HoldSteps)
+        {
+            miEyesHold++;
+
+            return;
+        }
+
+        if (miEyesFrame >= UWClassicLayoutUw2.Eyes.Blink.Length)
+        {
+            miEyesSet = 0;
+            miEyesFrame = 0;
+            miEyesHold = 0;
+            mOEyes.sprite = msEyesRest;
+
+            return;
+        }
+
+        int liPicture = UWClassicLayoutUw2.Eyes.Blink[miEyesFrame] + ((miEyesSet - 1) * UWClassicLayoutUw2.Eyes.PicturesPerCondition);
+
+        miEyesFrame++;
+
+        if (maEyeSprites[liPicture] == null)
+            maEyeSprites[liPicture] = fWholeSprite(fPicture(UWTexture.TextureTypes.EYES, liPicture, false));
+
+        if (maEyeSprites[liPicture] != null)
+            mOEyes.sprite = maEyeSprites[liPicture];
+    }
 
     private enum WeaponStateEnum
     {
@@ -561,17 +640,23 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fBuildOptions();
 
         // CURSORS.GR, drawn transparent: 0 the pointer, 1 to 8 the arrows of the view's regions.
-        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.SlightRight + 1];
+        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.Aim + 1];
 
         for (int liAt = 0; liAt < mOCursors.Length; liAt++)
             mOCursors[liAt] = fPicture(UWTexture.TextureTypes.CURSORS, liAt, true);
     }
 
     /// <summary>The weapon's place, then the teeth over it (do_fbuf_bms' order): 3DWIN.GR 0 at its frame
-    /// buffer place, cut to the rows inside the view.</summary>
+    /// buffer place, cut to the rows inside the view. THE WEAPON IS CUT TO THE VIEW as fbshow cuts a picture
+    /// to the window (per user, 2026-11-01): the hold's step of a sword or axe has its picture at 240, 144, right
+    /// of the view and above it, which stood on the frame.</summary>
     private void fBuildViewOverlay()
     {
-        mOWeapon = fImage("Weapon", 0f, 0f, 1f, 1f, null);
+        RectTransform lOWindow = fCreateGroup(mOFrame, "WeaponWindow", UWClassicLayoutUw2.Frame.ViewWindowLeft, UWClassicLayoutUw2.Frame.ViewWindowTop,
+            UWClassicLayoutUw2.Frame.ViewWindowWidth, UWClassicLayoutUw2.Frame.ViewWindowHeight);
+
+        lOWindow.gameObject.AddComponent<RectMask2D>();
+        mOWeapon = fImageIn(lOWindow, "Weapon", 0f, 0f, 1f, 1f, null);
 
         Texture2D lOTeeth = fPicture(UWTexture.TextureTypes.THRREDWIN, 0, true);
         int liTop = UWClassicLayoutUw2.Frame.ViewWindowTop + UWClassicLayoutUw2.ViewOverlay.TopY - UWClassicLayoutUw2.ViewOverlay.TeethY;
@@ -592,11 +677,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>A swing is on the screen.</summary>
     public bool IsSwinging => meWeapon == WeaponStateEnum.Swinging;
 
-    /// <summary>The kind in the hand has swings of its own; the missile weapons of none do not.</summary>
-    public bool CanSwing => miWeaponKind >= 0;
-
     /// <summary>The savegame slot of the weapon's hand: Inventory[8 - lefty] (PLAYDATA.C:371).</summary>
-    public int WeaponHandSlot => UWClassicLayoutUw2.Weapon.RightHandSlot - (mOInventory != null && mOInventory.IsLeftHanded ? 1 : 0);
+    public int WeaponHandSlot => UWClassicLayoutUw2.Weapon.RightHandSlot - (mOInventory != null && !mOInventory.IsLeftHanded ? 1 : 0);
 
     private int miSwingRow;
 
@@ -609,10 +691,23 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         get
         {
+            if (miWeaponFrame < 0)
+                return 0;
+
+            if (miWeaponKind < 0)
+                return UWClassicLayoutUw2.Weapon.IdleSteps[Mathf.Min(miWeaponFrame, UWClassicLayoutUw2.Weapon.IdleSteps.Length - 1)]
+                    & UWClassicLayoutUw2.Weapon.SwingFlagMask;
+
             UWWeaponAnimations.Uw2Record lORecord = fSwingRecord();
 
-            return lORecord != null && miWeaponFrame >= 0 ? lORecord.Steps[fSwingStep] & UWClassicLayoutUw2.Weapon.SwingFlagMask : 0;
+            return lORecord != null ? lORecord.Steps[fSwingStep] & UWClassicLayoutUw2.Weapon.SwingFlagMask : 0;
         }
+    }
+
+    /// <summary>The steps of the swing; a kind of none has the idle ones (load_weapon(-1)).</summary>
+    private int fSwingTotal(UWWeaponAnimations.Uw2Record pORecord)
+    {
+        return miWeaponKind < 0 ? UWClassicLayoutUw2.Weapon.IdleSteps.Length : pORecord.FrameTotals[miSwingRow];
     }
 
     private int fSwingStep => (miSwingRow * UWClassicLayoutUw2.Weapon.StepsPerSwing) + miWeaponFrame;
@@ -637,6 +732,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         meWeapon = WeaponStateEnum.Swinging;
     }
 
+    /// <summary>The swing ends here and the weapon stands ready.</summary>
+    public void StopSwing()
+    {
+        if (meWeapon == WeaponStateEnum.Swinging)
+            meWeapon = WeaponStateEnum.Ready;
+    }
+
     /// <summary>The button came up on the hold: the swing goes on to its blow.</summary>
     public void ResumeSwing()
     {
@@ -656,7 +758,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         UWWeaponAnimations.Uw2Record lORecord = fSwingRecord();
 
-        if (lORecord == null)
+        if (lORecord == null && miWeaponKind >= 0)
         {
             meWeapon = WeaponStateEnum.Ready;
 
@@ -682,7 +784,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         miWeaponFrame++;
 
-        if (miWeaponFrame > 0 && miWeaponFrame >= lORecord.FrameTotals[miSwingRow])
+        if (miWeaponFrame > 0 && miWeaponFrame >= fSwingTotal(lORecord))
         {
             meWeapon = WeaponStateEnum.Ready;
 
@@ -708,13 +810,18 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         miPower = Mathf.Clamp(piStep, 0, UWClassicLayoutUw2.PowerGem.FullStep);
     }
 
+    /// <summary>The gem's picture now, the full one's pulse in it.</summary>
+    public int PowerFrame => miPower == UWClassicLayoutUw2.PowerGem.FullStep
+        ? miPower + ((int)(Time.unscaledTime / UWClassicLayoutUw2.PowerGem.PulseSeconds) & 1) : miPower;
+
     private void fUpdatePower()
     {
+        fUpdateEyes();
+
         if (mOPowerGem == null)
             return;
 
-        int liFrame = miPower == UWClassicLayoutUw2.PowerGem.FullStep
-            ? miPower + ((int)(Time.unscaledTime / UWClassicLayoutUw2.PowerGem.PulseSeconds) & 1) : miPower;
+        int liFrame = PowerFrame;
 
         if (maPowerSprites[liFrame] == null)
             maPowerSprites[liFrame] = fWholeSprite(fPicture(UWTexture.TextureTypes.POWER, liFrame, true));
@@ -725,7 +832,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>
     /// THE WEAPON (adjust_weapon, a step each eighth of a second): the fight icon draws it - steps 2, 1
     /// and 0 from 0x1B, then ready at 0x1B -, leaving the icon sheathes it - 0, 1 and 2, then hidden. The
-    /// kind is taken while it is sheathed. A kind of none draws nothing.
+    /// kind is taken while it is sheathed, and another kind in the hand sheathes the ready weapon and draws
+    /// the new one (adjust_weapon's setting 4 with weapid != last_weap). A kind of none draws nothing.
     /// </summary>
     private void fUpdateWeapon()
     {
@@ -752,7 +860,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 mfWeaponTime = UWClassicLayoutUw2.Weapon.StepSeconds;
             }
         }
-        else if (meWeapon == WeaponStateEnum.Ready && !lbFight)
+        else if (meWeapon == WeaponStateEnum.Ready && (!lbFight || fKindInHand() != miWeaponKind))
         {
             meWeapon = WeaponStateEnum.Sheathing;
             miWeaponFrame = -1;
@@ -782,26 +890,45 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// other missile weapons.</summary>
     private void fTakeWeaponKind()
     {
+        miWeaponKind = fKindInHand();
+    }
+
+    /// <summary>What the hand holds now: the inventory, which goes on from the record at every move (per user,
+    /// 2026-11-01: read from the record, the weapon of the last load stayed whatever was put in the hand).</summary>
+    private int fKindInHand()
+    {
         UWPlayerFile lOPlayer = mOShownPlayer;
 
-        mbWeaponLefty = lOPlayer != null && UWPlayerRecordUw2.IsLeftHanded(lOPlayer);
+        mbWeaponLefty = lOPlayer != null && UWPlayerRecordUw2.LeftyBit(lOPlayer);
 
-        int liId = lOPlayer != null ? UWPlayerRecordUw2.SlotItemId(lOPlayer, UWClassicLayoutUw2.Weapon.RightHandSlot - (mbWeaponLefty ? 1 : 0)) : -1;
+        int liSlot = UWClassicLayoutUw2.Weapon.RightHandSlot - (mbWeaponLefty ? 1 : 0);
+        int liId = -1;
 
-        miWeaponKind = UWClassicLayoutUw2.Weapon.FistKind;
+        if (mOInventory != null)
+        {
+            UWObject lOHeld = mOInventory.GetEquipped(UWInventoryModel.FromSavegameSlot(liSlot));
+
+            liId = lOHeld != null ? lOHeld.ID : -1;
+        }
+        else if (lOPlayer != null)
+        {
+            liId = UWPlayerRecordUw2.SlotItemId(lOPlayer, liSlot);
+        }
 
         if (liId >= 0 && liId < 0x10)
         {
             if (mOData.ObjectClassProperties != null && mOData.ObjectClassProperties.TryGetMeleeWeapon(liId, out UWObjectClassProperties.MeleeWeapon lOWeapon))
             {
-                miWeaponKind = Mathf.Clamp(lOWeapon.SkillType, UWClassicLayoutUw2.Weapon.FirstSkill, UWClassicLayoutUw2.Weapon.LastSkill)
+                return Mathf.Clamp(lOWeapon.SkillType, UWClassicLayoutUw2.Weapon.FirstSkill, UWClassicLayoutUw2.Weapon.LastSkill)
                     - UWClassicLayoutUw2.Weapon.FirstSkill;
             }
         }
         else if (liId >= 0x10 && liId < 0x20 && (liId & 0xF) > 7)
         {
-            miWeaponKind = -1;
+            return -1;
         }
+
+        return UWClassicLayoutUw2.Weapon.FistKind;
     }
 
     /// <summary>The step's picture at its place in the view (do_fbuf_bms: weap_x, and 127 - weap_y).</summary>
@@ -813,7 +940,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (meWeapon == WeaponStateEnum.Hidden || miWeaponKind < 0 || lOAnimations == null || lOAnimations.Uw2Records == null
             || liRecord >= lOAnimations.Uw2Records.Count)
         {
-            mOWeapon.enabled = false;
+            fHideWeapon();
 
             return;
         }
@@ -826,15 +953,26 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (liPicture >= lORecord.PictureCount)
         {
-            mOWeapon.enabled = false;
+            fHideWeapon();
 
             return;
         }
 
         int liIndex = ((mbWeaponLefty ? 0 : 1) * UWClassicLayoutUw2.Weapon.PicturesPerHand) + (miWeaponKind * UWClassicLayoutUw2.Weapon.PicturesPerKind) + liPicture;
+        Sprite lOPicture = fWeaponPicture(liIndex);
 
-        fPlace(mOWeapon, fWeaponPicture(liIndex), UWClassicLayoutUw2.Frame.ViewWindowLeft + lORecord.X[liPicture],
-            UWClassicLayoutUw2.Frame.ViewWindowTop + UWClassicLayoutUw2.ViewOverlay.TopY - lORecord.Y[liPicture]);
+        fPlace(mOWeapon, lOPicture, lORecord.X[liPicture], UWClassicLayoutUw2.ViewOverlay.TopY - lORecord.Y[liPicture]);
+
+        if (mOModernHud != null)
+            mOModernHud.ShowWeapon(lOPicture, lORecord.X[liPicture], lORecord.Y[liPicture]);
+    }
+
+    private void fHideWeapon()
+    {
+        mOWeapon.enabled = false;
+
+        if (mOModernHud != null)
+            mOModernHud.ShowWeapon(null, 0, 0);
     }
 
     /// <summary>A WEAP.GR picture in WEAP.CM's colours for the body (load_weapcm): its sixteen indices
@@ -1077,6 +1215,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
+        if (msbCastSinceRune)
+            fSetShelf(new[] { UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune }, 0);
+
+        msbCastSinceRune = false;
+
         int[] liShelf = (int[])miShelf.Clone();
         int liCount = miShelfCount;
 
@@ -1089,6 +1232,58 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         liShelf[liCount++] = liRune;
         fSetShelf(liShelf, liCount);
+    }
+
+    /// <summary>A rune after a cast starts a new shelf (try_cast's flag): set by every try, kept over a restore.</summary>
+    private static bool msbCastSinceRune;
+
+    /// <summary>try_cast: the shelf's runes, packed, through the game's rule (UWSpellCasting.CastRunes).</summary>
+    private void fCastShelf()
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+        UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || lOWorld == null || UWSleepUw2.Current == null || lOPlayer.IsParalysed)
+            return;
+
+        msbCastSinceRune = true;
+
+        UWSpellCasting.CastRunes(miShelf[0], miShelf[1], miShelf[2],
+            new UWSpellHostUw2(lOPlayer, UWScene.LevelLoader, UWSleepUw2.Current.ScrollPresentation(lOWorld)));
+        lOPlayer.WriteToRecord();
+        fShowRunes();
+    }
+
+    /// <summary>try_clear: the icon's spell, from the right.</summary>
+    private void fClickActiveSpell(int piIndex, bool pbRight)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || piIndex < 0 || piIndex >= lOPlayer.Vitals.ActiveSpells.Count)
+            return;
+
+        if (pbRight)
+        {
+            int liWord = UWPlayerRecordUw2.ActiveSpell(mOShownPlayer, piIndex);
+            int liIcon = (UWClassicLayoutUw2.Runes.SpellClassFirst[liWord & 0xF] + ((liWord & 0xF0) >> 4)) & 0xFF;
+            int liStability = lOPlayer.Vitals.ActiveSpells[piIndex].Stability;
+            int liWords = liStability <= UWClassicLayoutUw2.Runes.NearlyDoneUpTo ? 0 : liStability <= UWClassicLayoutUw2.Runes.UnstableUpTo ? 1 : 2;
+
+            Say(UWText.Block(mOData, UWClassicLayoutUw2.Runes.SpellNamesBlock, liIcon + UWClassicLayoutUw2.Runes.ActiveSpellNames + 1, string.Empty)
+                + UWText.Block(mOData, 1, UWClassicLayoutUw2.Runes.StabilityWords + liWords + 1, string.Empty));
+
+            return;
+        }
+
+        lOPlayer.Vitals.CancelActiveSpell(piIndex);
+        lOPlayer.WriteToRecord();
+        fShowRunes();
+    }
+
+    /// <summary>The bag, the shelf and the spells' icons anew.</summary>
+    public void ShowRuneState()
+    {
+        fShowRunes();
     }
 
     /// <summary>The shelf into the record (the save keeps it) and onto the screen.</summary>
@@ -1205,6 +1400,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             if (mbInventoryDirty)
                 fShowInventory();
 
+            fFollowFlasks();
+
             return;
         }
 
@@ -1225,6 +1422,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 UWPlayerRecordUw2.Weight(lOPlayer));
             mOInventory.InventoryChanged += () => mbInventoryDirty = true;
             mOInventory.LearnRuneStone = fLearnRune;
+            mOInventory.CarriedLightChanged += fSetCarriedLight;
+            mOInventory.LightBurnedOut += pOLight => UWObjectMechanics.Extinguish(pOLight, mOData.Textures);
+            mOInventory.ApplyCarriedLight();
 
             for (int liAt = 0; liAt < miShelf.Length; liAt++)
                 miShelf[liAt] = UWPlayerRecordUw2.ShelfRune(lOPlayer, liAt);
@@ -1234,10 +1434,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         fShowRunes();
 
-        fShowFlask(0, lOPlayer != null ? UWPlayerRecordUw2.Vitality(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxVitality(lOPlayer) : 0,
-            lOPlayer != null && UWPlayerRecordUw2.IsPoisoned(lOPlayer) ? UWClassicLayoutUw2.Flasks.PoisonFirst : UWClassicLayoutUw2.Flasks.HealthFirst);
-        fShowFlask(1, lOPlayer != null ? UWPlayerRecordUw2.Mana(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxMana(lOPlayer) : 0,
-            UWClassicLayoutUw2.Flasks.ManaFirst);
+        fShowFlasks();
 
         mOPanel.enabled = mOPanel.sprite != null;
 
@@ -1421,7 +1618,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (lOItem == null)
         {
-            if (UWClassicLayoutUw2.Inventory.DisplayToSlot[liHit] == UWClassicLayoutUw2.Weapon.RightHandSlot - (mOInventory.IsLeftHanded ? 1 : 0))
+            if (UWClassicLayoutUw2.Inventory.DisplayToSlot[liHit] == WeaponHandSlot)
                 fChoose(CommandEnum.Fight);
 
             return;
@@ -1464,7 +1661,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (mbInventoryPressRight || Command == CommandEnum.Look)
         {
-            Say(UWItemDescriptions.DescribeScenery(UWText.RawObjectName(mOData, lOItem.ID), null, lOItem, mOData));
+            if (UWAttackUw2.Current != null)
+                UWAttackUw2.Current.Look.AddItemLookMessages(lOItem);
 
             return;
         }
@@ -1490,8 +1688,104 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
         else if (pOItem.ID == UWClassicLayoutUw2.Inventory.BitOfMapObject)
             fUseMapScrap(pOItem);
+        else if (UWFoodUw2.IsEatenOnUse(pOItem.ID))
+            fEatCarried(pOItem);
+        else if (pOItem.ID == UWSleepRules.BedrollObjectId && UWSleepUw2.Current != null)
+            UWSleepUw2.Current.InBedroll();
+        else if (UWObjectMechanics.IsAnyLight(pOItem.ID))
+            UWItemUse.ToggleLight(pOItem, mOData, mOInventory, piString => Say(UWText.Block(mOData, 1, piString, string.Empty)),
+                () => UWAudioService.PlayEffect(UWObjectVariantUw2.LightSound));
         else
             Say(UWText.T("hud.walk.not_yet"));
+    }
+
+    /// <summary>The inventory's burning light reaches the view (as UWInventory's on the first game).</summary>
+    private static void fSetCarriedLight(int piObjectId)
+    {
+        if (UWScene.Lighting != null)
+            UWScene.Lighting.SetCarriedLight(piObjectId);
+    }
+
+    /// <summary>The head's slot among the eleven of the paperdoll.</summary>
+    private const int HeadSlot = 0;
+
+    /// <summary>The meal, into the record at once: the record is what comes back before the next tick.</summary>
+    private UWFoodUw2.OutcomeEnum fEat(UWObject pOFood)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null)
+            return UWFoodUw2.OutcomeEnum.NotFood;
+
+        UWFoodUw2.OutcomeEnum leOutcome = UWFoodUw2.Eat(pOFood, mOData, lOPlayer.Vitals, Say, fPassOut);
+
+        lOPlayer.WriteToRecord();
+
+        return leOutcome;
+    }
+
+    private static void fPassOut()
+    {
+        if (UWSleepUw2.Current != null)
+            UWSleepUw2.Current.PassOut();
+    }
+
+    /// <summary>UseFood from the pack: a single piece turns into what is left of it where it lies; one off a stack
+    /// leaves that on the pointer.</summary>
+    private void fEatCarried(UWObject pOFood)
+    {
+        int liLeft = UWFoodUw2.LeftoverOf(pOFood.ID);
+
+        if (fEat(pOFood) != UWFoodUw2.OutcomeEnum.Eaten)
+            return;
+
+        if (liLeft > 0 && !UWStackRules.IsStack(pOFood))
+        {
+            pOFood.ID = (ushort)liLeft;
+            UWObjectAppearance.Apply(pOFood, mOData.Textures, null);
+            mOInventory.NotifyChanged();
+
+            return;
+        }
+
+        if (UWStackRules.TryTakeOne(pOFood))
+            mOInventory.NotifyChanged();
+        else
+            mOInventory.RemoveItem(pOFood);
+
+        if (liLeft > 0 && mOInventory.CursorItem == null)
+            fPutOnPointer(liLeft);
+    }
+
+    private void fPutOnPointer(int piId)
+    {
+        UWObject lOItem = UWObjectFactory.Create(piId, mOData);
+
+        UWObjectAppearance.Apply(lOItem, mOData.Textures, null);
+        mOInventory.PickUpToCursor(lOItem);
+    }
+
+    /// <summary>Dropped on the head (ItemFitsSlot): a single thing that can be eaten is. True when the drop is over;
+    /// too full, it stays on the pointer.</summary>
+    private bool fEatFromPointer()
+    {
+        UWObject lOFood = mOInventory.CursorItem;
+
+        if (lOFood == null || !UWFoodUw2.IsEatenFromHead(lOFood.ID) || UWStackRules.IsStack(lOFood))
+            return false;
+
+        int liLeft = UWFoodUw2.LeftoverOf(lOFood.ID);
+        UWFoodUw2.OutcomeEnum leOutcome = fEat(lOFood);
+
+        if (leOutcome == UWFoodUw2.OutcomeEnum.Eaten)
+        {
+            mOInventory.ReleaseCursorItem();
+
+            if (liLeft > 0)
+                fPutOnPointer(liLeft);
+        }
+
+        return leOutcome != UWFoodUw2.OutcomeEnum.NotFood;
     }
 
     // ------------------------------------------------- The map
@@ -1642,7 +1936,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// puts the thing on the pointer into the world; the wheel moves an open bag's contents.</summary>
     private void fClickBags()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
         if (lOMouse == null)
             return;
@@ -1819,8 +2113,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        UWAutomapStateUw2.CopyScrap(lyScrapMap, lOWorld.GetMapNotes(liScrapIndex), liSections, pOScrap.Owner,
+        int liExperience = UWAutomapStateUw2.CopyScrap(lyScrapMap, lOWorld.GetMapNotes(liScrapIndex), liSections, pOScrap.Owner,
             lOLevel.AutomapTiles, lOWorld.GetMapNotes(liLevelIndex));
+
+        if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+            UWVitalsUw2.Current.Vitals.ChangeExperience(liExperience, liLevelIndex + 1);
     }
 
     /// <summary>True while the map lies open; the walk's M key opens it and closes it.</summary>
@@ -1920,6 +2217,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         int liPack = liSlot - UWInventoryWorkspace.EquipmentSlotCount;
         bool lbIntoBag = pOThere != null && pOThere.GetCategory() == UWObject.ObjectCategoryEnum.Containers && !mOInventory.IsContainerOpen(pOThere);
 
+        if (liSlot == HeadSlot && fEatFromPointer())
+            return;
+
         if (liSlot < UWInventoryWorkspace.EquipmentSlotCount)
             mOInventory.DropCursorItemInEquip(UWInventoryModel.FromSavegameSlot(liSlot));
         else if (lbIntoBag)
@@ -1928,6 +2228,21 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             mOInventory.DropCursorItemInContainer(liPack);
         else if (liPack < mOInventory.Backpack.Length)
             mOInventory.DropCursorItemInBackpack(liPack);
+    }
+
+    /// <summary>What the statistics page shows of the numbers that move: experience, vitality, mana.</summary>
+    private long mlStatsExperience = -1;
+
+    private int miStatsVitals = -1;
+
+    private int fStatsVitals => UWPlayerRecordUw2.Vitality(mOShownPlayer) | (UWPlayerRecordUw2.Mana(mOShownPlayer) << 8);
+
+    /// <summary>The open page follows them (player_get_exp's redraw, panel_check_hpmp).</summary>
+    private void fFollowExperience()
+    {
+        if (mOShownPlayer != null && mOStatisticsPage.gameObject.activeSelf
+            && (UWPlayerRecordUw2.Experience(mOShownPlayer) != mlStatsExperience || fStatsVitals != miStatsVitals))
+            fUpdateStatistics();
     }
 
     /// <summary>The statistics page's lines (RedispStat): FONT_5X6I, the header and numbers in 0xC4, the
@@ -1969,7 +2284,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fSetText(mOStatAttributes[2], leFont, UWPlayerRecordUw2.Intelligence(lOPlayer).ToString(), liHeader, AlignEnum.Right, lfRight);
         fSetText(mOStatVitality, leFont, UWPlayerRecordUw2.Vitality(lOPlayer) + "/" + UWPlayerRecordUw2.MaxVitality(lOPlayer), liHeader, AlignEnum.Right, lfRight);
         fSetText(mOStatMana, leFont, UWPlayerRecordUw2.Mana(lOPlayer) + "/" + UWPlayerRecordUw2.MaxMana(lOPlayer), liHeader, AlignEnum.Right, lfRight);
-        fSetText(mOStatExperience, leFont, (UWPlayerRecordUw2.Experience(lOPlayer) / 10).ToString(), liHeader, AlignEnum.Right, lfRight);
+        mlStatsExperience = UWPlayerRecordUw2.Experience(lOPlayer);
+        miStatsVitals = fStatsVitals;
+        fSetText(mOStatExperience, leFont, (mlStatsExperience / 10).ToString(), liHeader, AlignEnum.Right, lfRight);
 
         fUpdateSkillRows();
     }
@@ -1999,6 +2316,40 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private string fChargenString(int piOriginalIndex)
     {
         return UWText.Block(mOData, 2, piOriginalIndex + 1, string.Empty).ToUpperInvariant();
+    }
+
+    /// <summary>What the flasks show, to see when it moved.</summary>
+    private long mlFlasksShown = -1;
+
+    /// <summary>The flasks follow the record (per user, 2026-11-02: drawn when a character came on screen only, they
+    /// stayed full and red through blows and poison in the classic scheme; the modern HUD reads them every frame).</summary>
+    private void fFollowFlasks()
+    {
+        if (fFlaskState() != mlFlasksShown)
+            fShowFlasks();
+    }
+
+    private long fFlaskState()
+    {
+        UWPlayerFile lOPlayer = mOShownPlayer;
+
+        if (lOPlayer == null)
+            return 0;
+
+        return UWPlayerRecordUw2.Vitality(lOPlayer) | ((long)UWPlayerRecordUw2.MaxVitality(lOPlayer) << 8) | ((long)UWPlayerRecordUw2.Mana(lOPlayer) << 16)
+            | ((long)UWPlayerRecordUw2.MaxMana(lOPlayer) << 24) | ((UWPlayerRecordUw2.IsPoisoned(lOPlayer) ? 1L : 0L) << 32);
+    }
+
+    private void fShowFlasks()
+    {
+        UWPlayerFile lOPlayer = mOShownPlayer;
+
+        mlFlasksShown = fFlaskState();
+
+        fShowFlask(0, lOPlayer != null ? UWPlayerRecordUw2.Vitality(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxVitality(lOPlayer) : 0,
+            lOPlayer != null && UWPlayerRecordUw2.IsPoisoned(lOPlayer) ? UWClassicLayoutUw2.Flasks.PoisonFirst : UWClassicLayoutUw2.Flasks.HealthFirst);
+        fShowFlask(1, lOPlayer != null ? UWPlayerRecordUw2.Mana(lOPlayer) : 0, lOPlayer != null ? UWPlayerRecordUw2.MaxMana(lOPlayer) : 0,
+            UWClassicLayoutUw2.Flasks.ManaFirst);
     }
 
     /// <summary>A flask at its twelfths (set_flask): the empty flask, then a slice for each twelfth filled.</summary>
@@ -2133,7 +2484,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         Sprite lOEyes = fWholeSprite(fPicture(UWTexture.TextureTypes.EYES, 0, false));
 
-        fImage("Eyes", UWClassicLayoutUw2.Eyes.Left, UWClassicLayoutUw2.Eyes.Top, fWidth(lOEyes), fHeight(lOEyes), lOEyes);
+        mOEyes = fImage("Eyes", UWClassicLayoutUw2.Eyes.Left, UWClassicLayoutUw2.Eyes.Top, fWidth(lOEyes), fHeight(lOEyes), lOEyes);
+        msEyesRest = lOEyes;
     }
 
     /// <summary>The bar plain (OPTB.GR 0) and one icon's rectangle of the lit bar (OPTB.GR 1) over it
@@ -2404,7 +2756,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// </summary>
     private void fClickPanel()
     {
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
         if (lOMouse == null || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame)
             || !TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
@@ -2434,12 +2786,35 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        // The cast area over the shelf (try_cast): casting is the second game's magic (phase 4).
+        // The compass (print_info), not during a conversation, as the flasks' words.
+        if (liX >= UWClassicLayoutUw2.Compass.ClickLeft && liX <= UWClassicLayoutUw2.Compass.ClickRight
+            && liY >= UWClassicLayoutUw2.Compass.ClickBottomY && liY <= UWClassicLayoutUw2.Compass.ClickTopY)
+        {
+            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && UWScene.LevelLoader != null)
+            {
+                foreach (string lsLine in UWStatusReportUw2.Lines(mOData, mOShownPlayer, UWScene.LevelLoader.CurrentLevelIndex + 1))
+                    Say(lsLine);
+            }
+
+            return;
+        }
+
+        // The cast area over the shelf (try_cast): the right button does nothing there.
         if (liX >= UWClassicLayoutUw2.Runes.CastLeft && liX <= UWClassicLayoutUw2.Runes.CastRight
             && liY >= UWClassicLayoutUw2.Runes.CastBottomY && liY <= UWClassicLayoutUw2.Runes.CastTopY)
         {
-            if (mOShownPlayer != null && miShelfCount > 0)
-                Say(UWText.T("hud.walk.not_yet"));
+            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !lOMouse.rightButton.wasPressedThisFrame)
+                fCastShelf();
+
+            return;
+        }
+
+        // The active spells' icons (try_clear): the right button says how stable, the left dispels.
+        if (liX >= UWClassicLayoutUw2.Runes.ActiveLeft && liX <= UWClassicLayoutUw2.Runes.ActiveRight
+            && liY >= UWClassicLayoutUw2.Runes.CastBottomY && liY <= UWClassicLayoutUw2.Runes.CastTopY)
+        {
+            if (mOShownPlayer != null)
+                fClickActiveSpell(2 - ((liX - UWClassicLayoutUw2.Runes.ActiveLeft) >> 4), lOMouse.rightButton.wasPressedThisFrame);
 
             return;
         }
@@ -2591,6 +2966,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         meCursor = leCursor;
 
+        // A drawn bow aims (force_mouse_cursor(0x1075), the picture a waiting spell has).
+        if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAiming)
+            leCursor = UWCursors.CursorEnum.Aim;
+
         // An object on the pointer is the pointer (SetCursorObj).
         Texture2D lOPicture = mOInventory != null && mOInventory.CursorItem != null
             ? fCursorObjectPicture(mOInventory.CursorItem.ID)
@@ -2712,6 +3091,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         return mOCamera != null ? Mathf.InverseLerp(mOCamera.pixelRect.yMin, mOCamera.pixelRect.yMax, pOScreen.y) : 0.5f;
     }
 
+    /// <summary>How far across the view a point stands, 0 the left.</summary>
+    public float ViewAcrossOf(Vector2 pOScreen)
+    {
+        return mOCamera != null ? Mathf.InverseLerp(mOCamera.pixelRect.xMin, mOCamera.pixelRect.xMax, pOScreen.x) : 0.5f;
+    }
+
+    /// <summary>A point in player_settr's window (UWClassicLayoutUw2.MissileAim): Y from the bottom.</summary>
+    public void PointerInMissileWindow(Vector2 pOScreen, out int piX, out int piY)
+    {
+        piX = Mathf.Clamp(Mathf.FloorToInt(ViewAcrossOf(pOScreen) * UWClassicLayoutUw2.Frame.ViewWindowWidth), 0, UWClassicLayoutUw2.MissileAim.MaxX);
+        piY = Mathf.Clamp(Mathf.FloorToInt(ViewHeightOf(pOScreen) * UWClassicLayoutUw2.Frame.ViewWindowHeight)
+            + UWClassicLayoutUw2.MissileAim.RowsUnderView, 0, UWClassicLayoutUw2.MissileAim.MaxY);
+    }
+
     public bool IsInViewWindow(Vector2 pOScreen)
     {
         return mbShown && mOCamera != null && mOCamera.pixelRect.Contains(pOScreen);
@@ -2740,8 +3133,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect, mfModernFov);
             mbShown = false;
 
-            // The character is read from the record and the inventory made here, for the modern HUD too.
+            // The character is read from the record and the inventory made here, for the modern HUD too, and the
+            // weapon runs here as well: the modern blow waits for it, and the HUD draws it (ShowWeapon).
             fUpdateCharacter();
+            fUpdateWeapon();
 
             return;
         }
@@ -2778,6 +3173,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         mOCamera.fieldOfView = UWViewAngle.Vertical(lfAspect, OriginalVerticalAngle);
 
         fUpdateCharacter();
+        fFollowExperience();
         fUpdateWeapon();
         fUpdateScroll();
         fUpdateCompass();
@@ -2921,7 +3317,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 fChoose(CommandEnum.Options);
         }
 
-        UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
 
         if (lOMouse == null || !lOMouse.leftButton.wasPressedThisFrame)
             return;
@@ -3161,7 +3557,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 
-        if (lOMouse != null && !mbOptionsPress
+        if (lOMouse != null && !mbOptionsPress && !UWMouseButtons.IsBlocked
             && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame || lOMouse.middleButton.wasPressedThisFrame))
         {
             mbOptionsPress = true;
@@ -3490,6 +3886,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     /// <summary>Whether a screen point lies in the 3D view - everywhere in the modern scheme, inside
     /// the window on the classic screen (a click on the frame uses nothing).</summary>
+    /// <summary>The camera of the view window.</summary>
+    public Camera ViewCamera => mOCamera;
+
     public bool IsInView(Vector2 pOScreen)
     {
         return !mbShown || mOCamera == null || mOCamera.pixelRect.Contains(pOScreen);

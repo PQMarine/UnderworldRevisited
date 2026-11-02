@@ -124,7 +124,11 @@ public class UWAudioMixer : MonoBehaviour
     public static UWAudioMixer Ensure(DataImport pOData)
     {
         if (Instance != null)
+        {
+            Instance.fFollowEffectBank(pOData);
+
             return Instance;
+        }
 
         GameObject lOObject = new GameObject("UW Sound");
 
@@ -138,6 +142,24 @@ public class UWAudioMixer : MonoBehaviour
         Instance.fInitialise(pOData);
 
         return Instance;
+    }
+
+    /// <summary>The bank the effects play from: this object outlives a change of game.</summary>
+    private UWAdlibBank mOEffectBank;
+
+    private void fFollowEffectBank(DataImport pOData)
+    {
+        UWAdlibBank lOBank = pOData != null && pOData.Sound != null ? pOData.Sound.AdlibBank : null;
+
+        if (mOCore == null || lOBank == null || !lOBank.IsLoaded || lOBank == mOEffectBank)
+            return;
+
+        lock (mOLock)
+        {
+            mOCore.UseEffectBank(lOBank);
+        }
+
+        mOEffectBank = lOBank;
     }
 
     private void fInitialise(DataImport pOData)
@@ -155,6 +177,7 @@ public class UWAudioMixer : MonoBehaviour
         if (liOutputRate <= 0)
             liOutputRate = 48000;
 
+        mOEffectBank = lOBank;
         mOCore = new UWAudioMixCore(lOBank, liOutputRate, GeneralMidiSoundFontPath, () => Mt32RomFolder,
             psMessage => Debug.Log("UWAudioMixer: " + psMessage),
             psMessage => Debug.LogWarning("UWAudioMixer: " + psMessage));
@@ -321,6 +344,69 @@ public class UWAudioMixer : MonoBehaviour
         }
     }
 
+    // The second game's one digital channel, mixed in the audio thread after the core, under mOLock.
+    private float[] mfyDigital;
+
+    private double mdDigitalAt;
+
+    private double mdDigitalStep;
+
+    private float mfDigitalVolume;
+
+    private int miDigitalPriority;
+
+    /// <summary>digi_fx_play: the recording (mono) takes the channel when its priority is at least the playing
+    /// one's, else false. True with the sound off: there is nothing to fall back to.</summary>
+    public bool PlayDigitalEffect(float[] pfySamples, int piSampleRate, float pfVolume, int piPriority)
+    {
+        if (!mbReady || mOSettings.EffectGain <= 0f)
+            return true;
+
+        int liOutputRate = AudioSettings.outputSampleRate;
+
+        lock (mOLock)
+        {
+            if (mfyDigital != null && piPriority < miDigitalPriority)
+                return false;
+
+            mfyDigital = pfySamples;
+            mdDigitalAt = 0d;
+            mdDigitalStep = piSampleRate / (double)(liOutputRate > 0 ? liOutputRate : 48000);
+            mfDigitalVolume = pfVolume;
+            miDigitalPriority = piPriority;
+        }
+
+        return true;
+    }
+
+    /// <summary>The channel into the output: each sample held until the next, as the card plays it.</summary>
+    private void fMixDigital(float[] pfData, int piChannels, float pfGain)
+    {
+        if (mfyDigital == null)
+            return;
+
+        float lfGain = mfDigitalVolume * pfGain;
+
+        for (int liFrame = 0; liFrame + piChannels <= pfData.Length; liFrame += piChannels)
+        {
+            int liAt = (int)mdDigitalAt;
+
+            if (liAt >= mfyDigital.Length)
+            {
+                mfyDigital = null;
+
+                return;
+            }
+
+            float lfSample = mfyDigital[liAt] * lfGain;
+
+            for (int liChannel = 0; liChannel < piChannels; liChannel++)
+                pfData[liFrame + liChannel] += lfSample;
+
+            mdDigitalAt += mdDigitalStep;
+        }
+    }
+
     /// <summary>Starts a sound effect from SOUNDS.DAT (UWEffectSynth.Play); none while the
     /// sound is off.</summary>
     public void PlayEffect(UWSound.Effect pOEffect, int piVelocityOffset)
@@ -430,6 +516,7 @@ public class UWAudioMixer : MonoBehaviour
         lock (mOLock)
         {
             mOCore.Mix(pfData, piChannels, lOSettings.MusicGain, lOSettings.EffectGain);
+            fMixDigital(pfData, piChannels, lOSettings.EffectGain);
         }
     }
 

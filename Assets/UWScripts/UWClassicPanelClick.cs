@@ -118,7 +118,7 @@ public sealed class UWClassicPanelClick
             return false;
 
         if (!UWMouseButtons.LeftPressed
-            && !pOControls.Player.Interact.WasPressedThisFrame())
+            && !UWMouseButtons.PressedFree(pOControls.Player.Interact))
             return false;
 
         Vector2 lOMousePos = UWDragIcon.PointerPosition(mOGameUi);

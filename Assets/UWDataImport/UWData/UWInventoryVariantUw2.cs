@@ -10,6 +10,13 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWInventoryVariantUw2 : IUWInventoryVariant
 	{
+		public int CarryLimit(DataImport pOData)
+		{
+			UWPlayerFile lOFile = UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+
+			return lOFile != null ? UWPlayerRecordUw2.MaxWeight(lOFile) : -1;
+		}
+
 		public const int FirstArmourId = 0x20;
 
 		public const int LastArmourId = 0x3F;

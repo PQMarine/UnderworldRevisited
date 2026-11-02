@@ -21,5 +21,9 @@ namespace UWDataImport.UWData
 		/// <summary>Whether a container's OBJECTS.DAT mask takes the item: -1 anything, an item id below
 		/// 0x200, else 0x200 plus a kind (runes, missiles, scrolls, food, and the second game's keys).</summary>
 		bool MatchesContainerMask(int piMask, UWObject pOItem, UWObjectClassProperties pOClasses);
+
+		/// <summary>What the player can carry, in tenths of stones; -1 without a player (EncumCheck, the first game
+		/// reads the player data, the second its record).</summary>
+		int CarryLimit(DataImport pOData);
 	}
 }

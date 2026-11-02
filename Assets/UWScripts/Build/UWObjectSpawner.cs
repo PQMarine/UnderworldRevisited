@@ -640,11 +640,6 @@ namespace UnderworldRevisited.Build
         /// that only matters when something breaks.</returns>
         private bool fAttachHealth(GameObject pOGameObject, UWObject pOObject)
         {
-            // The second game's walk breaks nothing: hit points and what breaking does are its combat
-            // rules (UW2 plan phase 4); without them the object is whole and unharmed.
-            if (fIsUw2)
-                return false;
-
             int liQualityType = 0;
             int liQualityClass = 0;
 
@@ -664,11 +659,11 @@ namespace UnderworldRevisited.Build
 
             // WORD 0 BIT 13 shrugs every blow off as well (DamageObjectAndDoors returns at once) -
             // 48 of the doors in LEV.ARK, wooden ones included (see UWHealth.IsProtected).
-            lODamageable.IsProtected = pOObject.DoorDirection;
+            lODamageable.IsProtected = UWObjectDamageRules.IsProtected(pOObject);
 
             // Class 3 shrugs every blow off (reference: damage.DamageOtherObjectTypes returns
             // straight away for it) - the metal door, the portcullis, pillar and bridge.
-            return !UWObjectDamageRules.ShrugsOff(pOObject.DoorDirection, liQualityClass);
+            return !UWObjectDamageRules.ShrugsOff(lODamageable.IsProtected, liQualityClass);
         }
 
         /// <summary>Hit points for a door. What a broken door does is UWDoor's (BurstOpen, since

@@ -6,6 +6,24 @@ namespace UWDataImport.UWData
 	/// </summary>
 	public sealed class UWMagicVariantUw1 : IUWMagicVariant
 	{
+		public System.Collections.Generic.IReadOnlyList<UWRunicMagic.Spell> Spells => UWRunicMagic.FirstGameSpells;
+
+		public int SpellsPerCircle => 6;
+
+		public int FailStringBase => 211;
+
+		public int HealedString => -1;
+
+		public bool IsBuilt(UWRunicMagic.Spell pOSpell)
+		{
+			return true;
+		}
+
+		public void PlayCastSound(IUWSpellHost pIHost, UWRunicMagic.Spell pOSpell)
+		{
+			pIHost.PlaySpellSound();
+		}
+
 		/// <summary>The first game lets a paralysed player cast.</summary>
 		public bool MayCast(IUWSpellHost pIHost)
 		{

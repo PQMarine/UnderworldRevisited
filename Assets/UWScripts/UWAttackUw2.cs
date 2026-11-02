@@ -7,18 +7,165 @@ using UWDataImport.UWData;
 /// THE PLAYER'S BLOW ON THE SECOND GAME (UW2 plan phase 4): the first game's button, wind-up, charge and
 /// resolution (UWPlayerAttackState, UWPlayerAttack.ResolveMelee) over the second game's player, as UWPlayerMelee and
 /// UWPlayerAttackInput do over Interaction, which does not run here. Classic: Fight chosen, the right button in the
-/// view; the pointer's third picks the kind. Modern: the attack button, the view's pitch picks it. The blow finds
-/// what is before the eye (the classic scheme's box probe on the level data needs the first game's character).
-/// Missiles, the weapon's wear, the blood and the eyes are still to come.
+/// view; the pointer's ninth picks the kind and the height. Modern: the attack button, the view's pitch picks it. The
+/// blow itself is UWPlayerMelee's, this class its host: the target, the wall, the wear, the blood and the eyes. A bow
+/// or sling in the hand does not charge: the idle steps to the hold, the gem at once full and the aiming pointer, and
+/// a release in the view shoots (player_attack's fire_mode, UWPlayerMissiles). The special weapons' powers are still
+/// to come.
 /// </summary>
-public sealed class UWAttackUw2 : MonoBehaviour
+public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 {
-    /// <summary>How far a blow reaches, and the close range's sphere (Interaction, UWPlayerMelee).</summary>
+    public static UWAttackUw2 Current { get; private set; }
+
+    /// <summary>How far a blow reaches in the modern scheme (Interaction's mfAttackRange).</summary>
     private const float Reach = 48f;
 
-    private const float CloseRadius = 12f;
-
     private readonly UWPlayerAttackState mOState = new UWPlayerAttackState();
+
+    private UWPlayerMelee mOMelee;
+
+    private UWPlayerMissiles mOMissiles;
+
+    private UWHitFeedback mOFeedback;
+
+    /// <summary>The look, the first game's over this host.</summary>
+    public UWLookService Look { get; private set; }
+
+    private void Awake()
+    {
+        Current = this;
+        mOFeedback = new UWHitFeedback(this);
+        mOMelee = new UWPlayerMelee(this, mOState, mOFeedback);
+        mOMissiles = new UWPlayerMissiles(this);
+        Look = new UWLookService(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (Current == this)
+            Current = null;
+    }
+
+    // ------------------------------------------------- IUWMeleeHost
+
+    public DataImport GameData => UWScene.LevelLoader != null ? UWScene.LevelLoader.UWDataImporter : null;
+
+    public UWLevelLoader LevelLoader => UWScene.LevelLoader;
+
+    public CharacterController MeleeController => UWScene.PlayerMovement != null ? UWScene.PlayerMovement.GetComponentInParent<CharacterController>() : null;
+
+    public Transform MeleeFacing => UWViewpoint.Current != null ? UWViewpoint.Current.transform : transform;
+
+    public Camera MeleeCamera => UWViewpoint.Current;
+
+    public float AttackRange => Reach;
+
+    public Ray InteractionRay()
+    {
+        return new Ray(MeleeFacing.position, MeleeFacing.forward);
+    }
+
+    public bool MeleeByHitArea => !UWGameScreenUw2.IsModernScheme;
+
+    public UWPlayerVitals MeleeVitals => UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
+
+    public int MeleeFeetZPos => UWVitalsUw2.Current != null ? UWVitalsUw2.Current.FeetZPos : 0;
+
+    public UWInventoryModel MeleeInventory => UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+
+    public int MeleeAttackBonus => UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Valor : 0;
+
+    public int PoisonWeaponShare => UWVitalsUw2.Current != null ? UWVitalsUw2.Current.PoisonWeaponShare : 0;
+
+    public void AddMessage(string psMessage)
+    {
+        UWGameScreenUw2.Say(psMessage);
+    }
+
+    public void EquipmentWorn()
+    {
+        if (UWVitalsUw2.Current != null)
+            UWVitalsUw2.Current.RefreshStatus();
+    }
+
+    public bool ShowsFoeCondition => UWGameScreenUw2.Current != null;
+
+    public void ShowFoeCondition(int piHitPoints, int piTableHitPoints, string psName)
+    {
+        UWGameScreenUw2.Current.ShowEyes(piHitPoints, piTableHitPoints);
+    }
+
+    // ------------------------------------------------- IUWMissileHost
+
+    /// <summary>player_settr in the classic scheme; the modern one shoots where the free pointer points, else
+    /// along the crosshair, as on the first game.</summary>
+    public void AimMissile(int piSpeedByte, out int piHeading, out int piPitch)
+    {
+        UWGameScreenUw2 lOScreen = UWGameScreenUw2.Current;
+
+        if (!UWGameScreenUw2.IsModernScheme && lOScreen != null)
+        {
+            lOScreen.PointerInMissileWindow(UWPointer.Position, out int liX, out int liY);
+            UWPlayerThrow.GetMissileAimUw2(liX, liY, Camera.main.transform, out piHeading, out piPitch);
+
+            return;
+        }
+
+        Mouse lOMouse = Mouse.current;
+        Ray lORay = Cursor.lockState != CursorLockMode.Locked && lOMouse != null && MeleeCamera != null
+            ? MeleeCamera.ScreenPointToRay(lOMouse.position.ReadValue()) : InteractionRay();
+
+        UWMissiles.AimFromDirection(lORay.direction, piSpeedByte, out piHeading, out piPitch);
+    }
+
+    public void AddGeneralMessage(int piIndex)
+    {
+        AddMessage(UWText.Block(GameData, 1, piIndex, string.Empty));
+    }
+
+    public void ReportSpellHit(UWEntityInfo pOTarget, UWDamageable pODamageable, Vector3 pOPoint)
+    {
+        mOFeedback.ReportSpellHit(pOTarget, pODamageable, pOPoint);
+    }
+
+    public int GetThrownMissileBaseDamage(int piObjectId)
+    {
+        return mOMissiles.GetThrownMissileBaseDamage(piObjectId);
+    }
+
+    public int GetThrownMissileDamageType(int piObjectId)
+    {
+        return mOMissiles.GetThrownMissileDamageType(piObjectId);
+    }
+
+    // ------------------------------------------------- IUWLookHost
+
+    public void AddLookLine(string psLine)
+    {
+        AddMessage(psLine);
+    }
+
+    public string GetGeneralMessage(int piIndex)
+    {
+        return UWText.Block(GameData, 1, piIndex, string.Empty);
+    }
+
+    public void ShowPagedText(string psText, params string[] psLeading)
+    {
+        foreach (string lsLine in psLeading)
+        {
+            if (!string.IsNullOrEmpty(lsLine))
+                AddMessage(lsLine);
+        }
+
+        AddMessage(psText);
+    }
+
+    /// <summary>A critical hit on the player wears the piece of the part.</summary>
+    public void WearOnCriticalHit(int piPart)
+    {
+        mOMelee.WearOnCriticalHit(piPart);
+    }
 
     private enum PhaseEnum
     {
@@ -36,6 +183,19 @@ public sealed class UWAttackUw2 : MonoBehaviour
 
     private PhaseEnum mePhase = PhaseEnum.None;
 
+    /// <summary>The button went down where a blow is meant: in the view, with the game free. That decides for
+    /// as long as it stays down, as on the first game (UWPlayerAttackInput).</summary>
+    private bool mbAimed;
+
+    /// <summary>A launcher is in this swing (fire_mode).</summary>
+    private bool mbFireMode;
+
+    /// <summary>The bow is drawn: the aiming pointer, and a release shoots.</summary>
+    public bool IsAiming { get; private set; }
+
+    /// <summary>A launcher without ammunition refused the press; spent until the button is up (mouse_release).</summary>
+    private bool mbRefused;
+
     private static bool fBusy => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWGameScreenUw2.IsOptionsOpen || UWGameScreenUw2.IsAskingCount;
 
     /// <summary>player_attack, over the step flags of the weapon's animation: the lead-in gives way when the button
@@ -48,9 +208,17 @@ public sealed class UWAttackUw2 : MonoBehaviour
         if (lOScreen == null || lOVitals == null || lOVitals.Vitals == null)
             return;
 
+        if (fWentDown())
+            mbAimed = fCanAim(lOScreen) && fPressed(lOScreen);
+
+        if (mbRefused && !fHeld())
+            mbRefused = false;
+
+        // PRESSED AGAIN DURING A BLOW, the next starts when the weapon is ready and the button still down (as on
+        // the first game, per user 2026-08-30).
         if (mePhase == PhaseEnum.None)
         {
-            if (fCanBegin(lOScreen) && fPressed(lOScreen))
+            if (fCanBegin(lOScreen) && mbAimed && fHeld() && !mbRefused)
                 fBegin(lOScreen);
 
             return;
@@ -65,6 +233,13 @@ public sealed class UWAttackUw2 : MonoBehaviour
 
         int liFlag = lOScreen.SwingFlag;
         bool lbHeld = !fBusy && fHeld();
+
+        if (mbFireMode)
+        {
+            fUpdateShot(lOScreen, liFlag, lbHeld);
+
+            return;
+        }
 
         if (mePhase == PhaseEnum.Raising)
         {
@@ -108,31 +283,91 @@ public sealed class UWAttackUw2 : MonoBehaviour
             lOVitals.Vitals.MakeNoise(UWPlayerVitals.StrikeNoise);
 
             if (mOState.TakePendingBlow())
-                fStrike(lOScreen, lOVitals);
+                fStrike(lOVitals);
         }
+    }
+
+    /// <summary>player_attack's fire_mode: let go before the hold, nothing flies; at the hold the gem goes full
+    /// and the aiming pointer comes up; the release after it shoots, if the pointer stands in the view.</summary>
+    private void fUpdateShot(UWGameScreenUw2 pOScreen, int piFlag, bool pbHeld)
+    {
+        if (piFlag < UWClassicLayoutUw2.Weapon.HoldFlag)
+        {
+            if (!pbHeld)
+            {
+                pOScreen.CancelSwing();
+                fFinish(pOScreen);
+            }
+
+            return;
+        }
+
+        if (!IsAiming)
+        {
+            IsAiming = true;
+            pOScreen.ShowPower(UWClassicLayoutUw2.PowerGem.FullStep);
+
+            return;
+        }
+
+        if (pbHeld)
+            return;
+
+        if (!fBusy && (UWGameScreenUw2.IsModernScheme || pOScreen.IsInView(UWPointer.Position)))
+            mOMissiles.TryShoot();
+
+        pOScreen.StopSwing();
+        fFinish(pOScreen);
+    }
+
+    /// <summary>clear_fight_state: a blow under way ends here.</summary>
+    public void ClearFight()
+    {
+        mbAimed = false;
+
+        if (mePhase == PhaseEnum.None || UWGameScreenUw2.Current == null)
+            return;
+
+        UWGameScreenUw2.Current.StopSwing();
+        fFinish(UWGameScreenUw2.Current);
     }
 
     private void fFinish(UWGameScreenUw2 pOScreen)
     {
         mePhase = PhaseEnum.None;
+        mbFireMode = false;
+        IsAiming = false;
         mOState.IsAttacking = false;
         mOState.ClearCharge();
         pOScreen.ShowPower(0);
     }
 
+    private static bool fCanAim(UWGameScreenUw2 pOScreen)
+    {
+        return !fBusy && !pOScreen.IsBagsOpen && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null;
+    }
+
     private static bool fCanBegin(UWGameScreenUw2 pOScreen)
     {
-        return !fBusy && !pOScreen.IsBagsOpen && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null && pOScreen.IsWeaponReady && pOScreen.CanSwing;
+        return fCanAim(pOScreen) && pOScreen.IsWeaponReady;
     }
 
     private static InputAction fModernAttack => UWControlScheme.SharedControls != null ? UWControlScheme.SharedControls[UWAct.ModernAttack] : null;
 
+    private static bool fWentDown()
+    {
+        if (UWGameScreenUw2.IsModernScheme)
+            return fModernAttack != null && UWMouseButtons.PressedFree(fModernAttack);
+
+        return UWMouseButtons.GameMouse != null && UWMouseButtons.GameMouse.rightButton.wasPressedThisFrame;
+    }
+
     private static bool fPressed(UWGameScreenUw2 pOScreen)
     {
         if (UWGameScreenUw2.IsModernScheme)
-            return fModernAttack != null && fModernAttack.WasPressedThisFrame();
+            return fModernAttack != null && UWMouseButtons.PressedFree(fModernAttack);
 
-        Mouse lOMouse = Mouse.current;
+        Mouse lOMouse = UWMouseButtons.GameMouse;
 
         return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight && lOMouse != null && lOMouse.rightButton.wasPressedThisFrame
             && pOScreen.IsInView(UWPointer.Position);
@@ -148,12 +383,28 @@ public sealed class UWAttackUw2 : MonoBehaviour
 
     private void fBegin(UWGameScreenUw2 pOScreen)
     {
+        mbFireMode = mOMissiles.HoldsLauncher();
+
+        // A launcher without its ammunition says so and does not begin (GetPlayerWeapon).
+        if (mbFireMode && !mOMissiles.CheckAmmunitionToBegin())
+        {
+            mbFireMode = false;
+            mbRefused = true;
+
+            return;
+        }
+
         Camera lOCamera = UWViewpoint.Current;
         AttackTypes leKind = UWGameScreenUw2.IsModernScheme && lOCamera != null
             ? UWPlayerAttackState.KindOfPitch(-Mathf.DeltaAngle(0f, lOCamera.transform.eulerAngles.x))
             : UWPlayerAttackState.KindOfThird(pOScreen.ViewHeightOf(UWPointer.Position));
 
         mOState.SetKind(leKind);
+
+        // The clicked ninth, the right column a third higher (resolve_attack's towhere / 3); modern the middle's.
+        if (!UWGameScreenUw2.IsModernScheme)
+            mOState.SetColumn(UWPlayerAttackState.ColumnOfThird(pOScreen.ViewAcrossOf(UWPointer.Position)));
+
         mOState.Begin(fChargeSpeed(pOScreen));
         mePhase = PhaseEnum.Raising;
         pOScreen.BeginSwing(leKind);
@@ -185,89 +436,9 @@ public sealed class UWAttackUw2 : MonoBehaviour
         return lOWeapon == null || lOWeapon.ID > UWPlayerCritterRow.MeleeLastId ? UWCombat.FistObjectId : lOWeapon.ID;
     }
 
-    private void fStrike(UWGameScreenUw2 pOScreen, UWVitalsUw2 pOPlayer)
+    private void fStrike(UWVitalsUw2 pOPlayer)
     {
-        Camera lOCamera = UWViewpoint.Current;
-        UWLevelLoader lOLoader = UWScene.LevelLoader;
-
-        if (lOCamera == null || lOLoader == null)
-            return;
-
-        Ray lORay = new Ray(lOCamera.transform.position, lOCamera.transform.forward);
-        UWEntityInfo lOTarget = fFirstTarget(lORay, out Vector3 lOPoint);
-        UWDamageable lOBody = lOTarget != null ? lOTarget.GetComponentInParent<UWDamageable>() : null;
-
-        if (lOBody == null || !lOBody.TakesBlows)
-        {
-            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
-
-            return;
-        }
-
         pOPlayer.RefreshStatus();
-
-        UWPlayerVitals lOVitals = pOPlayer.Vitals;
-        UWCritter lOCritter = lOTarget.GetComponentInParent<UWCritter>();
-        IUWAttackDefender lIDefender = lOCritter != null ? lOCritter : UWAttackResolution.ObjectDefender;
-        int liPart = lOCritter != null ? lOCritter.PickPartHitBy(pOPlayer.FeetZPos, pOPlayer.FeetZPos + pOPlayer.BodyHeightZ) : UWAttackResolution.NoPart;
-        int liHeading = UWPlayerThrow.GetPlayerHeading(lOCamera.transform) >> 5;
-        int liFlank = lOCritter != null ? UWCritterRules.GetFlankingBonus(liHeading, lOCritter.FacingEighth) : 0;
-
-        UWPlayerAttack.GetWeaponEnchantment(fWeapon(pOScreen), null, out int liAccuracy, out int liDamage);
-
-        UWPlayerAttack.MeleeResult lOResult = UWPlayerAttack.ResolveMelee(lOLoader.UWDataImporter, fWeaponId(pOScreen), UWPlayerAttackState.CombatKindOf(mOState.PendingKind),
-            mOState.PendingCharge, lOVitals.Strength, lOVitals.Attack, lOVitals.Dexterity, lOVitals.GetSkill(UWPlayerData.Skill.Unarmed), lOVitals.GetSkill, lIDefender, liPart,
-            lOVitals.IsEasyDifficulty, liFlank, liAccuracy, liDamage, lOTarget.ObjectData != null ? lOTarget.ObjectData.ID : -1, false, null);
-
-        if (lOResult.NoWeapon)
-            return;
-
-        UWWorld lOWorld = UWWorld.Of(lOLoader);
-        var lOAim = lOCritter != null ? UWWorld.TargetOf(lOCritter, lOBody) : UWWorld.TargetOf(lOBody);
-
-        if (!lOResult.Hit)
-            UWAudioService.PlayEffectAt(lOResult.Outcome.BlockedSound, lOPoint);
-        else
-            UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, lOPoint, lOResult.Outcome.HitVolume);
-
-        // A miss lands too, with nothing: the creature notices the blow.
-        if (lOWorld != null && (lOResult.Hit || lOCritter != null))
-            lOWorld.Damage(lOAim, lOResult.Outcome.Blow);
-    }
-
-    /// <summary>The nearest thing with object data before the eye that takes blows; a wall in the way ends the
-    /// search. The close range's sphere when the ray finds nothing, for a blow a little beside its mark.</summary>
-    private static UWEntityInfo fFirstTarget(Ray pORay, out Vector3 pOPoint)
-    {
-        UWEntityInfo lOFound = fFirstIn(Physics.RaycastAll(pORay, Reach, ~0, QueryTriggerInteraction.Collide), out pOPoint);
-
-        return lOFound != null ? lOFound : fFirstIn(Physics.SphereCastAll(pORay, CloseRadius, Reach, ~0, QueryTriggerInteraction.Collide), out pOPoint);
-    }
-
-    private static UWEntityInfo fFirstIn(RaycastHit[] paHits, out Vector3 pOPoint)
-    {
-        System.Array.Sort(paHits, (pOA, pOB) => pOA.distance.CompareTo(pOB.distance));
-
-        foreach (RaycastHit lOHit in paHits)
-        {
-            UWEntityInfo lOInfo = lOHit.collider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOInfo != null && lOInfo.PartOf != null)
-                lOInfo = lOInfo.PartOf;
-
-            if (lOInfo != null && lOInfo.GetComponentInParent<UWDamageable>() != null)
-            {
-                pOPoint = lOHit.point;
-
-                return lOInfo;
-            }
-
-            if (lOInfo == null && lOHit.collider.GetComponent<CharacterController>() == null && !lOHit.collider.isTrigger)
-                break;
-        }
-
-        pOPoint = Vector3.zero;
-
-        return null;
+        mOMelee.Strike();
     }
 }

@@ -287,7 +287,11 @@ public partial class UWSetupMenu : MonoBehaviour
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
 
-        if (lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame && !UWControls.IsShiftHeld)
+        // In the second game's walk the bar stays reachable by the mouse, and F10 makes camp as in the first game's
+        // play (per user, 2026-11-02: it opened the bar and nobody slept); over its options panel it is the bar's.
+        bool lbCampKey = UWWalkUw2.IsWalking && !UWGameScreenUw2.IsOptionsOpen && !fKeyNavIsActive;
+
+        if (lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame && !UWControls.IsShiftHeld && !lbCampKey)
         {
             if (fKeyNavIsActive)
                 fLeaveKeyNav();

@@ -435,7 +435,7 @@ namespace UnderworldRevisited.Tools
                 + "vitality (workspace), maximum, mana, level, weight limit, skills 0-3, clock, easy, links",
                 System.BitConverter.ToString(lOBack.Workspace, 0, UWPlayerRecordUw2.PlayerObjectSize) + " | " + lOBack.Name + " "
                 + UWPlayerRecordUw2.CharacterClass(lOBack) + " " + UWPlayerRecordUw2.Body(lOBack) + " " + UWPlayerRecordUw2.IsFemale(lOBack) + " "
-                + UWPlayerRecordUw2.IsLeftHanded(lOBack) + " " + UWPlayerRecordUw2.Strength(lOBack) + "/" + UWPlayerRecordUw2.Dexterity(lOBack) + "/"
+                + UWPlayerRecordUw2.LeftyBit(lOBack) + " " + UWPlayerRecordUw2.Strength(lOBack) + "/" + UWPlayerRecordUw2.Dexterity(lOBack) + "/"
                 + UWPlayerRecordUw2.Intelligence(lOBack) + " " + UWPlayerRecordUw2.Vitality(lOBack) + " " + UWPlayerRecordUw2.MaxVitality(lOBack) + " "
                 + UWPlayerRecordUw2.Mana(lOBack) + " " + UWPlayerRecordUw2.CharacterLevel(lOBack) + " " + UWPlayerRecordUw2.MaxWeight(lOBack) + " "
                 + UWPlayerRecordUw2.Skill(lOBack, 0) + "," + UWPlayerRecordUw2.Skill(lOBack, 1) + "," + UWPlayerRecordUw2.Skill(lOBack, 2) + ","

@@ -85,6 +85,9 @@ public sealed class UWPlayerInput
     /// <summary>The fight mode of the original scheme (the drawn weapon, PD[0x5F] bit 1).</summary>
     private static bool fIsFightMode()
     {
+        if (UWWalkUw2.IsWalking)
+            return UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight;
+
         Interaction lOInteraction = UWScene.Interaction;
 
         return lOInteraction != null && lOInteraction.IsCombatModeActive;

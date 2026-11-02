@@ -159,13 +159,14 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The exploration experience of one evaluation - truncated like UW.EXE, no
-		/// remainder is carried. Zero for character levels outside 1 to 15.</summary>
-		public static int GetExperience(int piCounter, int piDungeonLevel, int piCharacterLevel)
+		/// remainder is carried. Zero for character levels outside 1 to 15. piWeight:
+		/// IUWPlayerVariant.ExplorationWeight.</summary>
+		public static int GetExperience(int piCounter, int piWeight, int piCharacterLevel)
 		{
 			if (piCounter <= 0 || piCharacterLevel < 1 || piCharacterLevel >= ExplorationMaxCharacterLevel)
 				return 0;
 
-			return (piCounter * piDungeonLevel) / 10;
+			return (piCounter * piWeight) / 10;
 		}
 	}
 }

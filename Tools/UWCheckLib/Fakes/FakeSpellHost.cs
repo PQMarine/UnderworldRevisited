@@ -33,6 +33,8 @@ namespace UnderworldRevisited.Tools
 
             public int PlayerCastingSkill => 30;
 
+            public bool CanAct => true;
+
             public void SpendMana(int piAmount) { Fake.Log.Add("spend " + piAmount); }
 
             public long GameTicks { get; set; } = 256000L;

@@ -229,6 +229,11 @@ namespace UWDataImport.UWData
 
 		private const int LastProofMinor = 9;
 
+		/// <summary>The second game's Valor and Poison Weapon (uw2 PLAYDATA.C:222).</summary>
+		private const int ValorMinor = 10;
+
+		private const int PoisonWeaponMinor = 11;
+
 		/// <summary>
 		/// Which bit the five immunities of class 3 set (minor class 5 to 9).
 		/// The sequence is the reference's and looks arbitrary because the bit field is ordered by
@@ -312,6 +317,11 @@ namespace UWDataImport.UWData
 			/// msProofBits.</summary>
 			public int DamageTypeProof;
 
+			/// <summary>The second game's Valor and Poison Weapon are in force (class 3, minor class 10, 11).</summary>
+			public bool HasValor;
+
+			public bool HasPoisonWeapon;
+
 			/// <summary>
 			/// The dragon skin boots are worn.
 			///
@@ -367,6 +377,8 @@ namespace UWDataImport.UWData
 				MotionAbilities = 0;
 				StealthBonus = 0;
 				DamageTypeProof = 0;
+				HasValor = false;
+				HasPoisonWeapon = false;
 				RegenerationBits = 0;
 				HasDragonSkinBoots = false;
 				HasMazeNavigation = false;
@@ -587,6 +599,10 @@ namespace UWDataImport.UWData
 
 			if (piMinor >= FirstProofMinor && piMinor <= LastProofMinor)
 				pOStatus.DamageTypeProof |= msProofBits[piMinor - FirstProofMinor];
+			else if (piMinor == ValorMinor)
+				pOStatus.HasValor = true;
+			else if (piMinor == PoisonWeaponMinor)
+				pOStatus.HasPoisonWeapon = true;
 		}
 
 		/// <summary>

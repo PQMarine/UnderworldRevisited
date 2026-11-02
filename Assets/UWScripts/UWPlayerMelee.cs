@@ -9,47 +9,45 @@ using UWDataImport.UWData;
 /// (UWPlayerAttack.ResolveMelee over UWAttackResolution, whose random draws keep the original's
 /// order), the door bash with its spike (UWDamageable.TakesBlowFirst), and the wear of the weapon
 /// and of the armour a critical hit on the player picks. The pictures and the eyes are
-/// UWHitFeedback's; what the release kept (charge, kind, ninth) is UWPlayerAttackState's.
+/// UWHitFeedback's; what the release kept (charge, kind, ninth) is UWPlayerAttackState's. Both games
+/// strike here (IUWMeleeHost), the second's sounds and debris asked of IUWCombatVariant.
 /// </summary>
 public sealed class UWPlayerMelee
 {
-    private readonly Interaction mOInteraction;
+    private readonly IUWMeleeHost mOHost;
 
     private readonly UWPlayerAttackState mOState;
 
     private readonly UWHitFeedback mOFeedback;
 
-    public UWPlayerMelee(Interaction pOInteraction, UWPlayerAttackState pOState, UWHitFeedback pOFeedback)
+    public UWPlayerMelee(IUWMeleeHost pOHost, UWPlayerAttackState pOState, UWHitFeedback pOFeedback)
     {
-        mOInteraction = pOInteraction;
+        mOHost = pOHost;
         mOState = pOState;
         mOFeedback = pOFeedback;
     }
 
     private UWDataImport.DataImport fData()
     {
-        return mOInteraction.GameData;
+        return mOHost.GameData;
     }
 
     private UWLevelLoader fLoader()
     {
-        return mOInteraction.LevelLoader;
+        return mOHost.LevelLoader;
     }
 
-    private UWCharacter fCharacter()
+    private UWPlayerVitals fVitals()
     {
-        return mOInteraction.Character;
+        return mOHost.MeleeVitals;
     }
 
-    private UWInventory fInventory()
+    private UWInventoryModel fInventory()
     {
-        return mOInteraction.Inventory;
+        return mOHost.MeleeInventory;
     }
 
-    private UWEyesDisplay fEyes()
-    {
-        return mOInteraction.Eyes;
-    }
+    private static IUWCombatVariant fCombat => UWGameSession.Current.Game.Combat;
 
     /// <summary>Radius of the fallback check for close range, see fFindModernMeleeTarget.</summary>
     private const float CloseCombatRadius = 12f;
@@ -75,7 +73,7 @@ public sealed class UWPlayerMelee
 
         // CLASSIC SCHEME: as in the original a hit area in front of the character, not the
         // ray to the mouse cursor - see fFindClassicMeleeTarget.
-        bool lbFound = UWControlScheme.Ui.Policy.MeleeByHitArea
+        bool lbFound = mOHost.MeleeByHitArea
             ? fFindClassicMeleeTarget(lbLog, out lOHitCollider, out lOHitPoint, out lfHitDistance)
             : fFindModernMeleeTarget(lbLog, out lOHitCollider, out lOHitPoint, out lfHitDistance);
 
@@ -85,10 +83,7 @@ public sealed class UWPlayerMelee
         // user, 2026-09-15.
         if (!lbFound)
         {
-            if (!mbBlowStruckNothing)
-                fTryWallImpact();
-
-            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
+            fMiss(!mbBlowStruckNothing);
             return;
         }
 
@@ -110,10 +105,7 @@ public sealed class UWPlayerMelee
 
         if (lODamageable == null || !lODamageable.TakesBlows)
         {
-            if (lOTarget == null)
-                fTryWallImpact();
-
-            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
+            fMiss(lOTarget == null);
             return;
         }
 
@@ -126,6 +118,23 @@ public sealed class UWPlayerMelee
         fApplyMeleeHit(lOTarget, lODamageable, lOHitPoint);
     }
 
+    /// <summary>A swing at nothing, or at the wall when pbWall asks for it (do_miss, find_wall_coll).</summary>
+    private void fMiss(bool pbWall)
+    {
+        bool lbWall = pbWall && fTryWallImpact();
+
+        if (!lbWall || fCombat.MissSoundsAtWall)
+            UWAudioService.PlayEffect(UWSoundEffectId.Miss);
+    }
+
+    /// <summary>The kind of the weapon in the hand, as the sounds of the second game ask for it.</summary>
+    private int fWeaponKind()
+    {
+        UWObject lOWeapon = fInventory() == null ? null : fInventory().GetEquipped(fInventory().MainHandSlot);
+
+        return fCombat.PlayerWeaponKind(lOWeapon != null ? lOWeapon.ID : UWCombat.FistObjectId);
+    }
+
     /// <summary>Modern scheme: the ray from the camera through the screen centre, as before.
     /// </summary>
     private bool fFindModernMeleeTarget(bool pbLog, out Collider pOCollider, out Vector3 pOPoint, out float pfDistance)
@@ -136,7 +145,7 @@ public sealed class UWPlayerMelee
 
         RaycastHit lOHit;
 
-        bool lbHit = Physics.Raycast(mOInteraction.InteractionRay(), out lOHit, mOInteraction.AttackRange);
+        bool lbHit = Physics.Raycast(mOHost.InteractionRay(), out lOHit, mOHost.AttackRange);
 
         // If the enemy stands very close, the camera point lies INSIDE its
         // collider - for a creature that is square in plan and therefore
@@ -144,7 +153,7 @@ public sealed class UWPlayerMelee
         // body reports no hit, and the strike went nowhere (per user,
         // 2026-08-30). So on a miss, check once more with a sphere.
         if (!lbHit)
-            lbHit = Physics.SphereCast(mOInteraction.InteractionRay(), CloseCombatRadius, out lOHit, mOInteraction.AttackRange);
+            lbHit = Physics.SphereCast(mOHost.InteractionRay(), CloseCombatRadius, out lOHit, mOHost.AttackRange);
 
         if (!lbHit)
         {
@@ -152,9 +161,9 @@ public sealed class UWPlayerMelee
             {
                 // Check again without a range limit: so the log shows what lies THERE and how
                 // far away it is. That distinguishes "nothing hit" from "just too far".
-                if (Physics.Raycast(mOInteraction.InteractionRay(), out RaycastHit lOFar, UWWorldPicker.Range))
+                if (Physics.Raycast(mOHost.InteractionRay(), out RaycastHit lOFar, UWWorldPicker.Range))
                     Debug.Log(string.Format("[Attack] nothing within range {0}. Nearest target: {1} at {2:0.0}.",
-                        mOInteraction.AttackRange, lOFar.collider.name, lOFar.distance));
+                        mOHost.AttackRange, lOFar.collider.name, lOFar.distance));
                 else
                     Debug.Log(string.Format("[Attack] nothing hit, not even in the distance."));
             }
@@ -213,8 +222,8 @@ public sealed class UWPlayerMelee
     private void fGetMeleeProbe(out Transform pOBody, out Vector3 pOForward, out Vector3 pOCentre,
         out Vector3 pOHalfExtents, out Quaternion pORotation, out int piRadius)
     {
-        CharacterController lOController = mOInteraction.GetComponentInParent<CharacterController>();
-        Transform lOBody = lOController != null ? lOController.transform : mOInteraction.transform;
+        CharacterController lOController = mOHost.MeleeController;
+        Transform lOBody = lOController != null ? lOController.transform : mOHost.MeleeFacing;
 
         pOBody = lOBody;
 
@@ -250,9 +259,9 @@ public sealed class UWPlayerMelee
         // value raises the area, hence the inverted sign.
         float lfPitchDegrees = 0f;
 
-        if (Camera.main != null)
+        if (mOHost.MeleeCamera != null)
         {
-            lfPitchDegrees = Camera.main.transform.localEulerAngles.x;
+            lfPitchDegrees = mOHost.MeleeCamera.transform.localEulerAngles.x;
 
             if (lfPitchDegrees > 180f)
                 lfPitchDegrees -= 360f;
@@ -334,13 +343,15 @@ public sealed class UWPlayerMelee
     /// 2026-10-11 ours played the miss alone; the first version that day looked along at eye
     /// height and missed the low walls (per user: "not at every wall").
     /// </summary>
-    private void fTryWallImpact()
+    private bool fTryWallImpact()
     {
         if (!fTryFindWallInReach(out Vector3 lOAt))
-            return;
+            return false;
 
         // The sound and the delayed picture (UWHitFeedback.ShowWallImpact).
-        mOFeedback.ShowWallImpact(lOAt);
+        mOFeedback.ShowWallImpact(lOAt, fCombat.WallSound(fWeaponKind()));
+
+        return true;
     }
 
     /// <summary>
@@ -423,7 +434,7 @@ public sealed class UWPlayerMelee
 
         UWMotionHost lOWorld = UWMotionHost.Ensure(fLoader());
 
-        if (lOWorld == null || fCharacter() == null)
+        if (lOWorld == null || fVitals() == null)
             return false;
 
         // THE TARGET FROM THE LEVEL DATA'S BOXES (UWPlayerAttack.PickBlowTarget): the probe of
@@ -431,7 +442,7 @@ public sealed class UWPlayerMelee
         // its height struck. Until 2026-10-14 ours asked the drawn colliders, which are narrower
         // than the original's boxes - a door's box is radius 3 around its position - and struck
         // the wall where the original strikes the door's frame (audit B5).
-        int liProbeBottom = fCharacter().GetFeetZPos() + miMeleeProbeOffsetZ;
+        int liProbeBottom = mOHost.MeleeFeetZPos + miMeleeProbeOffsetZ;
         int liFound = lOWorld.FindBlowTarget(mOMeleeAt.X, mOMeleeAt.Y, liProbeBottom, liRadius + 1, miMeleeProbeHeightZ,
             mOMeleeFrom.X, mOMeleeFrom.Y, out UWObject lOObject, out UWCritter lOCritter);
 
@@ -500,28 +511,28 @@ public sealed class UWPlayerMelee
 
         int liPart = UWAttackResolution.NoPart;
 
-        if (lOCritterTarget != null && fCharacter() != null)
+        if (lOCritterTarget != null && fVitals() != null)
         {
             // THE PART IS PICKED AGAINST THE BLOW'S PROBE, by the user's decision of 2026-10-12
             // to follow the original (combat C3): resolve_attack hands pickloc the probe -
             // the ninth's third of the body, the pitch, the weapon's reach in height - not the
             // attacker's body. A stab mostly meets the legs, an overhead bash often the head.
             // Until then ours took the player's whole body, so the kind of blow made no difference.
-            int liProbeBottom = fCharacter().GetFeetZPos() + miMeleeProbeOffsetZ;
+            int liProbeBottom = mOHost.MeleeFeetZPos + miMeleeProbeOffsetZ;
 
             liPart = lOCritterTarget.PickPartHitBy(liProbeBottom, liProbeBottom + miMeleeProbeHeightZ);
 
             // CalcFlankingBonus_seg022_230E_D48 from both headings in eighths, as a creature's
             // blow has it (UWCritterBrain): 0 face to face, 4 from behind.
             liFlank = UWCritterRules.GetFlankingBonus(
-                UWPlayerThrow.GetPlayerHeading(fCharacter().transform) >> 5, lOCritterTarget.FacingEighth);
+                UWPlayerThrow.GetPlayerHeading(mOHost.MeleeFacing) >> 5, lOCritterTarget.FacingEighth);
         }
-        else if (fCharacter() != null && lOTarget != null && lOTarget.ObjectData != null)
+        else if (fVitals() != null && lOTarget != null && lOTarget.ObjectData != null)
         {
             // compute_hitangle takes any target's heading - a door or a bench struck from its
             // back takes more (COMBAT.C, 2026-10-14).
             liFlank = UWCritterRules.GetFlankingBonus(
-                UWPlayerThrow.GetPlayerHeading(fCharacter().transform) >> 5, lOTarget.ObjectData.Heading);
+                UWPlayerThrow.GetPlayerHeading(mOHost.MeleeFacing) >> 5, lOTarget.ObjectData.Heading);
         }
 
         // The wielded weapon's Accuracy or Damage enchantment (DoPlayerWeapon).
@@ -536,20 +547,25 @@ public sealed class UWPlayerMelee
         // original; UWAttackResolution.PlayerBlow calls fWearWeapon). Worn here after the dice
         // until then.
         int liTargetId = lOTarget != null && lOTarget.ObjectData != null ? lOTarget.ObjectData.ID : -1;
+        int liWeaponKind = fWeaponKind();
+
+        // Poison Weapon: frp_check adds its share for a sharp weapon on a creature that bleeds.
+        int liPoisonShare = lOCritterTarget != null && liWeaponKind == UWCombatVariantUw2.SharpWeapon && mOFeedback.Bleeds(lOTarget)
+            ? mOHost.PoisonWeaponShare : 0;
 
         // The numbers - hit check and damage - are in UWPlayerAttack (P3 of the engine
         // separation, 2026-09-18). The linear charge fraction (0 to 1) kept on release, see
         // mOState.PendingCharge.
         UWPlayerAttack.MeleeResult lOResult = UWPlayerAttack.ResolveMelee(fData(), liWeaponId,
             UWPlayerAttackState.CombatKindOf(mOState.PendingKind), mOState.PendingCharge,
-            fCharacter() != null ? fCharacter().Vitals.Strength : 0,
-            fCharacter() != null ? fCharacter().Vitals.Attack : 0,
-            fCharacter() != null ? fCharacter().Vitals.Dexterity : 0,
-            fCharacter() != null ? fCharacter().Vitals.GetSkill(UWPlayerData.Skill.Unarmed) : 0,
-            fCharacter() != null ? (System.Func<UWPlayerData.Skill, int>)fCharacter().Vitals.GetSkill : null,
+            fVitals() != null ? fVitals().Strength : 0,
+            fVitals() != null ? fVitals().Attack : 0,
+            fVitals() != null ? fVitals().Dexterity : 0,
+            fVitals() != null ? fVitals().GetSkill(UWPlayerData.Skill.Unarmed) : 0,
+            fVitals() != null ? (System.Func<UWPlayerData.Skill, int>)fVitals().GetSkill : null,
             lIDefender, liPart,
-            fCharacter() != null && fCharacter().Vitals.IsEasyDifficulty, liFlank, liEnchantAccuracy, liEnchantDamage,
-            liTargetId, lOCritterTarget != null && lOCritterTarget.WearsWeaponOnCriticalFailure, fWearWeapon);
+            fVitals() != null && fVitals().IsEasyDifficulty, liFlank, liEnchantAccuracy + mOHost.MeleeAttackBonus, liEnchantDamage,
+            liTargetId, lOCritterTarget != null && lOCritterTarget.WearsWeaponOnCriticalFailure, fWearWeapon, liWeaponKind, liPoisonShare);
 
         if (lOResult.NoWeapon)
             return;
@@ -609,7 +625,7 @@ public sealed class UWPlayerMelee
         // the armour at labels A04-A10, so a blow the armour swallows is still heard at full
         // volume. We had the volume from the damage after armour until 2026-09-22. The
         // creature's own blows (UWCritter) had it right already.
-        UWAudioService.PlayEffectAt(UWSoundEffectId.HitCritter, pOHitPoint, lOResult.Outcome.HitVolume);
+        UWAudioService.PlayEffectAt(fCombat.MeleeHitSound(liWeaponKind), pOHitPoint, lOResult.Outcome.HitVolume);
 
         // Armour that swallows the whole blow leaves no visible trace: UW.EXE
         // (AttackerAppliesFinalDamage, seg022_230E_A6B) skips the blood or flash animation and
@@ -628,7 +644,7 @@ public sealed class UWPlayerMelee
 
             // The eyes at the top show the condition of the CREATURE just hit - not of a door, a
             // chest or a barrel (per user on the original, 2026-09-24).
-            if (fEyes() != null && Interaction.IsCreatureEntity(lOTarget))
+            if (mOHost.ShowsFoeCondition && Interaction.IsCreatureEntity(lOTarget))
                 mOFeedback.ShowEyes(lOTarget, lODamageable);
         }
 
@@ -678,29 +694,27 @@ public sealed class UWPlayerMelee
         if (leOutcome == UWEquipmentWear.Outcome.None)
             return;
 
-        mOInteraction.AddMessage(lsMessage);
+        mOHost.AddMessage(lsMessage);
 
         if (leOutcome == UWEquipmentWear.Outcome.Destroyed)
         {
             fInventory().RemoveItem(lOItem);
 
-            if (fLoader() != null && fCharacter() != null)
+            if (fLoader() != null && mOHost.MeleeFacing != null)
             {
-                Vector3 lOAt = fCharacter().transform.position;
+                Vector3 lOAt = mOHost.MeleeFacing.position;
                 UWTilePos lOTile = UWTileQueries.WorldToTile(lOAt.x, lOAt.z);
 
                 // A NEW pile from CreateObj (INVDATA.C: junk = CreateObj(debris), nothing set on
                 // it afterwards), so CreateObj's quality 40 - until 2026-10-12 this gave 0, as
                 // the smashed world object's debris rightly does (UWContainerDamage). Put down
                 // with near_mob_put_at, so at the tail of the tile's list (2026-10-18).
-                fLoader().SpawnObjectById(UWObjectDamageRules.RollDebrisObjectId(), lOTile.X, lOTile.Y, 0, -1,
+                fLoader().SpawnObjectById(fCombat.DebrisOf(lOItem.ID, UWDamageTypes.Physical, fData()), lOTile.X, lOTile.Y, 0, -1,
                     new Vector3(lOAt.x, 0f, lOAt.z), UWWorldEdit.Arrival.PutDown);
             }
         }
 
         fInventory().NotifyChanged();
-
-        if (fCharacter() != null)
-            fCharacter().RefreshStatus();
+        mOHost.EquipmentWorn();
     }
 }

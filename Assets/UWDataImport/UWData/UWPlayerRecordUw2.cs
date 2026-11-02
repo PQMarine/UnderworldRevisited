@@ -156,6 +156,23 @@ namespace UWDataImport.UWData
 
 		public static int ActiveSpellCount(UWPlayerFile pOFile) => (UWBinary.ReadU16(pOFile.Record, StateWordOffset) >> 5) & 0xF;
 
+		/// <summary>player->paralyzed (player.h, 0x305).</summary>
+		public const int ParalysisOffset = 0x305;
+
+		public static int Paralysis(UWPlayerFile pOFile) => pOFile.Record[ParalysisOffset];
+
+		/// <summary>The active spells into the record: class, minor << 4, stability << 8, and their count; the
+		/// game screen's icons and the save read them here.</summary>
+		public static void WriteActiveSpells(UWPlayerFile pOFile, System.Collections.Generic.IReadOnlyList<UWActiveSpellEffect> pOSpells)
+		{
+			for (int liAt = 0; liAt < pOSpells.Count; liAt++)
+				UWBinary.Write16(pOFile.Record, ActiveSpellsOffset + (liAt * 2), pOSpells[liAt].MajorClass + (pOSpells[liAt].MinorClass << 4) + (pOSpells[liAt].Stability << 8));
+
+			int liWord = UWBinary.ReadU16(pOFile.Record, StateWordOffset);
+
+			UWBinary.Write16(pOFile.Record, StateWordOffset, (liWord & ~(0xF << 5)) | (pOSpells.Count << 5));
+		}
+
 		public static int ActiveSpell(UWPlayerFile pOFile, int piIndex) => UWBinary.ReadU16(pOFile.Record, ActiveSpellsOffset + (2 * piIndex));
 
 		/// <summary>The poison, 0 to 15 (bits 1-4 of the word at 0x60).</summary>
@@ -163,7 +180,36 @@ namespace UWDataImport.UWData
 
 		public static bool IsPoisoned(UWPlayerFile pOFile) => Poison(pOFile) != 0;
 
-		public static bool IsLeftHanded(UWPlayerFile pOFile) => (pOFile.Record[BodyByteOffset] & 1) != 0;
+		/// <summary>The word holding shrooms (bits 4-5) and drunk (bits 6-11, player.h): not where the first game keeps them.</summary>
+		public const int DrinkWordOffset = 0x61;
+
+		private const int ShroomsShift = 4;
+
+		private const int ShroomsMask = 0x3;
+
+		private const int DrunkShift = 6;
+
+		private const int DrunkMask = 0x3F;
+
+		public static int Drunk(UWPlayerFile pOFile) => (UWBinary.ReadU16(pOFile.Record, DrinkWordOffset) >> DrunkShift) & DrunkMask;
+
+		public static int Shrooms(UWPlayerFile pOFile) => (UWBinary.ReadU16(pOFile.Record, DrinkWordOffset) >> ShroomsShift) & ShroomsMask;
+
+		public static void WriteDrink(UWPlayerFile pOFile, int piDrunk, int piShrooms)
+		{
+			if (pOFile == null)
+				return;
+
+			int liWord = UWBinary.ReadU16(pOFile.Record, DrinkWordOffset) & ~((DrunkMask << DrunkShift) | (ShroomsMask << ShroomsShift));
+
+			UWBinary.Write16(pOFile.Record, DrinkWordOffset, liWord | ((piDrunk & DrunkMask) << DrunkShift) | ((piShrooms & ShroomsMask) << ShroomsShift));
+		}
+
+		/// <summary>player->lefty as it stands: 1 for a right-hander, whose weapon is in slot 8 - lefty, the slot our
+		/// right hand maps (the first game's bit is the same, UWPlayerData.IsLeftHanded).</summary>
+		public static bool LeftyBit(UWPlayerFile pOFile) => (pOFile.Record[BodyByteOffset] & 1) != 0;
+
+		public static bool IsLeftHanded(UWPlayerFile pOFile) => !LeftyBit(pOFile);
 
 		public static bool IsFemale(UWPlayerFile pOFile) => (pOFile.Record[BodyByteOffset] & 2) != 0;
 
@@ -286,6 +332,8 @@ namespace UWDataImport.UWData
 
 		public const int PitsBit = 4;
 
+		public const int VoidBit = 2;
+
 		private const int PoisonMask = 0xF;
 
 		private const int NameLength = 0x1E;
@@ -320,7 +368,33 @@ namespace UWDataImport.UWData
 
 		public static int GameClock(UWPlayerFile pOFile) => (int)fReadU32(pOFile.Record, GameClockOffset);
 
+		public static bool IsInVoid(UWPlayerFile pOFile) => pOFile != null && (pOFile.Record[PitsByteOffset] & VoidBit) != 0;
+
 		public static bool IsInPits(UWPlayerFile pOFile) => pOFile != null && (pOFile.Record[PitsByteOffset] & PitsBit) != 0;
+
+		/// <summary>The fight in the pits lost: the bit, the fighters, the pit record and Jospur's debt (player_is_dead).</summary>
+		public static void ClearPits(UWPlayerFile pOFile)
+		{
+			if (!IsInPits(pOFile))
+				return;
+
+			pOFile.Record[PitsByteOffset] &= unchecked((byte)~PitsBit);
+
+			for (int liAt = 0; liAt < PitFighterCount; liAt++)
+				pOFile.Record[PitFightersOffset + liAt] = 0;
+
+			pOFile.Record[QuestBytesOffset + PitRecordByte] = 0;
+			pOFile.Record[QuestBytesOffset + JospurDebtByte] = 0;
+		}
+
+		private const int PitFightersOffset = 0x360;
+
+		private const int PitFighterCount = 5;
+
+		/// <summary>QB_PIT_RECORD and QB_JOSPUR_DEBT.</summary>
+		private const int PitRecordByte = 1;
+
+		private const int JospurDebtByte = 5;
 
 		/// <summary>What a conversation hands back: hunger, hit points (the workspace's player too), mana and
 		/// poison (update_converse_data).</summary>
@@ -352,6 +426,16 @@ namespace UWDataImport.UWData
 			pOFile.Record[FoodHealOffset + 1] = (byte)piCounter3C;
 			UWBinary.Write16(pOFile.Record, GameClockOffset, piClock & 0xFFFF);
 			UWBinary.Write16(pOFile.Record, GameClockOffset + 2, (piClock >> 16) & 0xFFFF);
+		}
+
+		/// <summary>The maxima a new level gives (player_compute).</summary>
+		public static void WriteMaxima(UWPlayerFile pOFile, int piVitality, int piMana)
+		{
+			if (pOFile == null)
+				return;
+
+			pOFile.Record[MaxVitalityOffset] = (byte)piVitality;
+			pOFile.Record[MaxManaOffset] = (byte)piMana;
 		}
 
 		/// <summary>What the player's blows earn, into the record.</summary>
@@ -444,6 +528,21 @@ namespace UWDataImport.UWData
 				pOFile.Record[QuestBytesOffset + liRest - QuestBitCount] = (byte)piValue;
 			else if (liRest < QuestBitCount + QuestByteCount + QuestByteCount)
 				pOFile.Record[XClocksOffset + liRest - QuestBitCount - QuestByteCount] = (byte)piValue;
+		}
+
+		/// <summary>The time of day's 72 steps.</summary>
+		public const int DaySteps = 72;
+
+		/// <summary>duration_check's hour: X clock 0 one step on (PLAYTIME.C).</summary>
+		public static void StepDayClock(UWPlayerFile pOFile)
+		{
+			pOFile.Record[XClocksOffset] = (byte)((pOFile.Record[XClocksOffset] + 1) % DaySteps);
+		}
+
+		/// <summary>pass_time: X clock 0 from the clock (WORLDEV.C:167).</summary>
+		public static void SetDayClockFromClock(UWPlayerFile pOFile)
+		{
+			pOFile.Record[XClocksOffset] = (byte)((uint)GameClock(pOFile) / DayStepClock % DaySteps);
 		}
 
 		public static int XClock(UWPlayerFile pOFile, int piClock) => pOFile.Record[XClocksOffset + piClock];

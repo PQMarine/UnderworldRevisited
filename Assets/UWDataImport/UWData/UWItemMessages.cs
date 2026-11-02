@@ -105,8 +105,14 @@ namespace UWDataImport.UWData
 		/// message of its own; piStep 0 to 4).</summary>
 		public static string Taste(DataImport pOData, int piObjectId, int piStep)
 		{
+			return Taste(pOData, piObjectId, piStep, FirstTasteMessage);
+		}
+
+		/// <summary>The same with the game's first taste line (the second game's lie elsewhere in its block).</summary>
+		public static string Taste(DataImport pOData, int piObjectId, int piStep, int piFirstTaste)
+		{
 			return UWText.Sentence(pOData, "msg.item.taste", UWText.TheObject(pOData, piObjectId, UWGrammarCase.Nominative),
-				UWText.Fragment(UWText.General(pOData, FirstTasteMessage + piStep)));
+				UWText.Fragment(UWText.General(pOData, piFirstTaste + piStep)));
 		}
 
 		/// <summary>" tasted putrid." (block 1); the next four up to " tasted great.".</summary>

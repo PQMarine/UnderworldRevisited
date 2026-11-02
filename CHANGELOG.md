@@ -8,6 +8,25 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.15.2] - 2026-11-03
+
+### Fixed
+- Palette colours is no longer black without a light of your own, which hid the start of the game
+  and left Gamma without effect. You now see about as far and as dimly as in the original.
+  Reported on Reddit.
+- A click on the help window no longer reaches the world behind it.
+
+### Closer to the original
+- Passing out shows a short black.
+
+### Added
+- Ultima Underworld II, still a preview, has come a long way again: the player's death, food,
+  sleep and drink, carrying, the day clock and the compass report; blows with sword, mace and fist
+  with their blood, wear and sounds; bows, slings and throwing; torches and lanterns that burn down;
+  the look with conditions, owners and walls; the original's sound effects; the rune shelf and the
+  first spells: light, motion, armour, protection and healing. Not yet: the other spells, potions
+  and scrolls, the traps. See Docs/UW2-PLAN.md.
+
 ## [0.15.1] - 2026-11-01
 
 ### Fixed

@@ -25,10 +25,8 @@ namespace UWDataImport.UWData
 		private const int WandCracksMessage = 126;
 
 		/// <summary>Message when all four hand slots are occupied.</summary>
-		private const int HandsFullMessage = 247;
 
 		/// <summary>"That light is already used up." (block 1).</summary>
-		private const int LightUsedUpMessage = 125;
 
 		/// <summary>"The leeches remove the poison as well as some of your skin and blood."</summary>
 		private const int LeechesRemovePoisonMessage = 225;
@@ -292,7 +290,7 @@ namespace UWDataImport.UWData
 				// the light table from OBJECTS.DAT. Burning down is handled by the inventory model.
 				.Add("light source",
 					pOUse => pOUse.Item.GetCategory() == UWObject.ObjectCategoryEnum.LightSources,
-					pOUse => fTryLightSource(pOUse.Item, pOUse.Data, pOUse.Inventory, pOUse.Host));
+					pOUse => ToggleLight(pOUse.Item, pOUse.Data, pOUse.Inventory, pOUse.Host.AddGeneralMessage));
 
 			lOTable.Seal();
 
@@ -590,7 +588,7 @@ namespace UWDataImport.UWData
 			if (lbHasRow)
 			{
 				if (lORow.Effect == UWFoodTable.Effect.Mushroom)
-					fMushroomEffects(pOVitals);
+					MushroomEffects(pOVitals);
 
 				liMessage = lORow.Message;
 
@@ -700,7 +698,7 @@ namespace UWDataImport.UWData
 		/// WHAT IS SEEN meanwhile is UWHallucinationState (one of three effects, rolled once; the
 		/// palette one is built). The counter runs along in the save.
 		/// </summary>
-		private static void fMushroomEffects(UWPlayerVitals pOVitals)
+		internal static void MushroomEffects(UWPlayerVitals pOVitals)
 		{
 			if ((int)UWSkillCheck.Check(pOVitals.Intelligence, MushroomDifficulty) != 0)
 				pOVitals.AddMana(UWRandom.Next(3));
@@ -745,7 +743,7 @@ namespace UWDataImport.UWData
 		/// An already burning source is put out and stays where it is - whether a click puts it
 		/// out in the original has not been checked.
 		/// </summary>
-		private static bool fTryLightSource(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, IUWItemUseHost pIHost)
+		public static bool ToggleLight(UWObject pOItem, DataImport pOData, UWInventoryModel pOInventory, System.Action<int> pOSay, System.Action pOLit = null)
 		{
 			if (pOInventory == null)
 				return true;
@@ -768,9 +766,11 @@ namespace UWDataImport.UWData
 			// A BURNED-OUT ONE (quality zero, as burning down leaves it) does not light again:
 			// "That light is already used up." (LightUsage_seg040_C86, before any slot is looked at).
 			// The quality that counts as used up is the game's (IUWObjectVariant).
-			if (UWGameSession.Current.Game.Objects.LightUsedUp(pOItem.Quality))
+			IUWObjectVariant lIObjects = UWGameSession.Current.Game.Objects;
+
+			if (lIObjects.LightUsedUp(pOItem.Quality))
 			{
-				pIHost.AddGeneralMessage(LightUsedUpMessage);
+				pOSay(lIObjects.LightUsedUpString);
 
 				return true;
 			}
@@ -784,6 +784,7 @@ namespace UWDataImport.UWData
 
 				pOInventory.ApplyCarriedLight();
 				pOInventory.NotifyChanged();
+				pOLit?.Invoke();
 
 				return true;
 			}
@@ -804,7 +805,7 @@ namespace UWDataImport.UWData
 
 			if (!pOInventory.TryPlaceInFreeHandSlot(lOLit))
 			{
-				pIHost.AddGeneralMessage(HandsFullMessage);
+				pOSay(lIObjects.HandsFullString);
 
 				return true;
 			}
@@ -815,6 +816,7 @@ namespace UWDataImport.UWData
 			// burning lantern must not dim the view (per user, 2026-09-18; the rule lives in
 			// UWInventoryModel.GetCarriedLightObjectId). Until then the host was told this id directly.
 			pOInventory.ApplyCarriedLight();
+			pOLit?.Invoke();
 
 			return true;
 		}
