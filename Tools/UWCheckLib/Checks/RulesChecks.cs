@@ -104,6 +104,7 @@ namespace UnderworldRevisited.Tools
                 fCheckRulesReachTheGame();
                 fCheckRulesReachTheCreatures(pOContext);
                 fCheckRulesReachTheGameWave2B();
+                fCheckOriginalBugFixes();
             }
             finally
             {

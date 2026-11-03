@@ -10,6 +10,7 @@ DebugFolded = "creature,traps"
 DisplayAs4By3 = True
 DisplayMode = -1
 EasyMovementInterval = 0.25
+FixOriginalBugs = True
 Game = ""
 GamepadButtonHints = True
 GamepadButtonStyle = 0

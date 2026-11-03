@@ -156,6 +156,9 @@ namespace UWDataImport.UWData
 					lOList.Add(liIndex);
 			}
 
+			// The leaked copies of a split stack (bug plan E2) go back onto the free list, after the removed.
+			fTidyLeakedCopies(pOLevel, pyOriginal, lOReachOriginal, lOUsed, lOMobileFree, lOStaticFree);
+
 			List<UWObject> lODropped = new List<UWObject>();
 
 			foreach (UWObject lOObject in lOOrder)
@@ -452,6 +455,88 @@ namespace UWDataImport.UWData
 				pONext[lOObject] = 0;
 				lOPrevious = lOObject;
 			}
+		}
+
+		/// <summary>
+		/// THE LEAKED COPY OF A SPLIT STACK (bug plan E2, UnderworldExhumed issue 9; a deviation, per
+		/// user 2026-11-03 on by default with the option "Fix bugs of the original"). The original cuts
+		/// a floor stack for "Move how many?" before it weighs the part: the part keeps the stack's
+		/// number, the rest becomes a new record. On "too heavy" the cut is undone, the stack is whole
+		/// again at its old number - and the new record stays allocated, in no tile list and on no free
+		/// list. Loading such a save the original says "Problems in object list" (made by the user in
+		/// DOSBox on SAVE4, level 2: slot 516, 50 sling stones of a stack of 150).
+		///
+		/// Freed here: a slot neither reachable nor free that holds a stack (the quantity bit, a count
+		/// below 512) of a kind that lies as a stack in the level as well - the copy no other record
+		/// can name. Any other slot neither reachable nor free stays as it is, with a warning (none in
+		/// the 641 UW1 saves of the user's archive, counted 2026-11-03, but the original may have
+		/// reasons we do not know). Off (deviations.tidyLeakedObjects false): the slot stays, as the
+		/// original writes it.
+		/// </summary>
+		public const bool TidyLeakedObjectsApplied = true;
+
+		private static void fTidyLeakedCopies(UWLevel pOLevel, byte[] pyOriginal, HashSet<int> pOReach, HashSet<int> pOUsed,
+			List<int> pOMobileFree, List<int> pOStaticFree)
+		{
+			List<int> lOUnknown;
+			List<int> lOLeaked = FindLeakedCopies(pyOriginal, pOReach, out lOUnknown);
+
+			if (lOUnknown.Count > 0)
+				Warnings.Add(string.Format("Level {0}: {1} slot(s) neither free nor reachable, left as they are ({2})",
+					pOLevel.LevelNumber, lOUnknown.Count, string.Join(", ", lOUnknown)));
+
+			if (UWRules.Current == null || !UWRules.Current.Deviations.TidyLeakedObjects)
+				return;
+
+			foreach (int liIndex in lOLeaked)
+			{
+				List<int> lOList = UWLevArkLayout.IsMobileSlot(liIndex) ? pOMobileFree : pOStaticFree;
+
+				if (!pOUsed.Contains(liIndex) && !lOList.Contains(liIndex))
+					lOList.Add(liIndex);
+			}
+		}
+
+		/// <summary>The leaked copies of split stacks in a block, ascending (see TidyLeakedObjectsApplied);
+		/// pOUnknown the other slots neither reachable nor free. pOReach null: walked here.</summary>
+		public static List<int> FindLeakedCopies(byte[] pyBlock, HashSet<int> pOReach, out List<int> pOUnknown)
+		{
+			HashSet<int> lOReach = pOReach ?? fReachFromBytes(pyBlock);
+			HashSet<int> lOFree = new HashSet<int>(UWLevArkCodec.ReadMobileFreeList(pyBlock, 0));
+			HashSet<int> lOStackKinds = new HashSet<int>();
+			List<int> lOLeaked = new List<int>();
+
+			lOFree.UnionWith(UWLevArkCodec.ReadStaticFreeList(pyBlock, 0));
+			pOUnknown = new List<int>();
+
+			foreach (int liIndex in lOReach)
+			{
+				if (fIsStackRecord(pyBlock, liIndex))
+					lOStackKinds.Add(UWObjectRecordCodec.ReadId(pyBlock, UWLevArkLayout.ObjectOffset(liIndex)));
+			}
+
+			for (int liIndex = UWLevArkLayout.FirstFreeMobileSlot; liIndex < UWLevArkLayout.ObjectCount; liIndex++)
+			{
+				if (lOReach.Contains(liIndex) || lOFree.Contains(liIndex))
+					continue;
+
+				if (fIsStackRecord(pyBlock, liIndex)
+					&& lOStackKinds.Contains(UWObjectRecordCodec.ReadId(pyBlock, UWLevArkLayout.ObjectOffset(liIndex))))
+					lOLeaked.Add(liIndex);
+				else
+					pOUnknown.Add(liIndex);
+			}
+
+			return lOLeaked;
+		}
+
+		/// <summary>A record that holds a stack: the quantity bit and a count, not a special property.</summary>
+		private static bool fIsStackRecord(byte[] pyBlock, int piIndex)
+		{
+			int liOffset = UWLevArkLayout.ObjectOffset(piIndex);
+
+			return UWObjectRecordCodec.ReadIsQuantity(pyBlock, liOffset)
+				&& UWObjectRecordCodec.ReadQuantityOrLink(pyBlock, liOffset) < UWStackRules.SpecialPropertyThreshold;
 		}
 
 		/// <summary>Reachable slots, directly from the original bytes - the same rules as

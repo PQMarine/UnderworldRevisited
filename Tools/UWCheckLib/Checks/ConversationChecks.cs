@@ -37,6 +37,38 @@ namespace UnderworldRevisited.Tools
 
             ushort[] lyRun = UWConversationPatches.GetCode(lOTrolls);
 
+            // Goldthirst (3): the gift answer that skipped the check calls it, and the first-gift loop jumps to the
+            // appended nugget test, which goes on at 3168 or back to 1410.
+            UWConversations.Conversation lOGold = pOData.Conversations.GetConversation(3);
+
+            if (lOGold != null && lOGold.Code != null && lOGold.Code.Length > 1410)
+            {
+                ushort[] lyGold = UWConversationPatches.GetCode(lOGold);
+                int liBlock = lOGold.Code.Length;
+
+                Check.Str("conversation patch: Goldthirst's gift answer at 1053 calls 1580, patched 1356",
+                    lOGold.Code[1054] + " " + lyGold[1054], "1580 1356");
+                Check.Str("conversation patch: Goldthirst's first-gift loop jumps to the nugget test, which goes on at 3168 or 1410",
+                    (lyGold[1408] == (ushort)UWConversationDisassembler.Opcode.JMP) + " " + (lyGold[1409] == liBlock) + " " + lyGold[liBlock + 13]
+                    + " " + lyGold[liBlock + 17] + " " + lyGold[liBlock + 8], "True True 3168 1410 175");
+            }
+            else
+                fFail("conversation patch: Goldthirst (3)", "not loaded");
+
+            // A patch takes only the words it expects: a copy with another word at 1054 is left alone.
+            if (lOGold != null && lOGold.Code != null && lOGold.Code.Length > 1410)
+            {
+                ushort[] lyOther = (ushort[])lOGold.Code.Clone();
+
+                lyOther[1054] = 1581;
+                lyOther[1409] = 11;
+
+                UWConversations.Conversation lOOther = new UWConversations.Conversation { Slot = 3, Code = lyOther };
+
+                fExpectBool("conversation patch: other words at Goldthirst's places are left alone",
+                    UWConversationPatches.GetCode(lOOther) == lyOther, true);
+            }
+
             fExpectInt("conversation patch: 869 is PUSHI 1 in the original", lOTrolls.Code[870], 1);
             fExpectInt("conversation patch: the counter starts at 0 in the VM", lyRun[870], 0);
             fExpectInt("conversation patch: 895 is PUSHI_EFF 1 in the original", lOTrolls.Code[896], 1);

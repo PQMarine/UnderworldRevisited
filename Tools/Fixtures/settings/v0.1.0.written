@@ -10,6 +10,7 @@
     "ColourContrast": 0.8999999761581421,
     "MarkPoison": true,
     "ManualAttributes": true,
+    "FixOriginalBugs": true,
     "HelpOpen": false,
     "HelpTab": 1,
     "HelpMapSpan": 12,

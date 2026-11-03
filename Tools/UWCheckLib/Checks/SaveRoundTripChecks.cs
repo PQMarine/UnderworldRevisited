@@ -114,10 +114,12 @@ namespace UnderworldRevisited.Tools
                 byte[] lyBuilt = UWLevelWriter.BuildBlock(pOData.Levels[liLevel], lyOriginal);
                 byte[] lyExpected = (byte[])lyOriginal.Clone();
                 int liRepaired = fRepairActiveList(lyExpected, 0);
+                int liTidied = fTidyLeakedCopies(lyExpected, 0);
                 int liFirst = -1;
 
                 if (lyBuilt != null && fSameBytes(lyBuilt, lyExpected, out liFirst))
                     Check.Pass(lsName, "identical" + (liRepaired > 0 ? ", active list repaired by " + liRepaired : "")
+                        + (liTidied > 0 ? ", " + liTidied + " leaked copy freed" : "")
                         + (UWLevelWriter.Warnings.Count > 0 ? ", " + UWLevelWriter.Warnings.Count + " warning(s)" : ""));
                 else
                     Check.Fail(lsName, lyBuilt == null ? "no block built" : fDescribeDifference(lyBuilt, lyExpected, liFirst));
@@ -151,7 +153,10 @@ namespace UnderworldRevisited.Tools
                         uint luOffset = BitConverter.ToUInt32(lyExpected, 2 + (liLevel * 4));
 
                         if (luOffset != 0 && luOffset + UWLevArkFile.Uw1.BlockSize <= lyExpected.Length)
+                        {
                             fRepairActiveList(lyExpected, (int)luOffset);
+                            fTidyLeakedCopies(lyExpected, (int)luOffset);
+                        }
                     }
 
                     if (fSameBytes(lyWritten, lyExpected, out liFirst))
@@ -171,6 +176,88 @@ namespace UnderworldRevisited.Tools
                 {
                 }
             }
+        }
+
+        /// <summary>
+        /// What the writer must make of the leaked copy of a split stack (bug plan E2,
+        /// UWLevelWriter.TidyLeakedObjectsApplied), worked out from the bytes alone: a slot neither
+        /// reachable from the tiles nor on a free list, holding a stack of a kind that lies as a stack
+        /// in the level too, goes onto the top of its free list, ascending. Returns how many.
+        /// </summary>
+        private static int fTidyLeakedCopies(byte[] pyData, int piBlock)
+        {
+            byte[] lyBlock = new byte[UWLevArkFile.Uw1.BlockSize];
+
+            Array.Copy(pyData, piBlock, lyBlock, 0, lyBlock.Length);
+
+            HashSet<int> lOReach = new HashSet<int>();
+            Stack<int> lOWalk = new Stack<int>();
+
+            for (int liTile = 0; liTile < UWLevArkLayout.TileCount; liTile++)
+            {
+                int liHead = (int)(BitConverter.ToUInt32(lyBlock, liTile * UWLevArkLayout.TileRecordSize)
+                    >> UWLevArkLayout.TileFirstObjectShift);
+
+                if (liHead != 0)
+                    lOWalk.Push(liHead);
+            }
+
+            while (lOWalk.Count > 0)
+            {
+                int liIndex = lOWalk.Pop();
+
+                if (liIndex <= 0 || liIndex >= UWLevArkLayout.ObjectCount || !lOReach.Add(liIndex))
+                    continue;
+
+                int liAt = UWLevArkLayout.ObjectOffset(liIndex);
+                int liWord0 = BitConverter.ToUInt16(lyBlock, liAt);
+                int liNext = BitConverter.ToUInt16(lyBlock, liAt + 4) >> 6;
+                int liSpecial = BitConverter.ToUInt16(lyBlock, liAt + 6) >> 6;
+
+                if (liNext != 0)
+                    lOWalk.Push(liNext);
+
+                if ((liWord0 & 0x8000) == 0 && liSpecial != 0)
+                    lOWalk.Push(liSpecial);
+            }
+
+            List<int> lOMobileFree = UWLevArkCodec.ReadMobileFreeList(lyBlock, 0);
+            List<int> lOStaticFree = UWLevArkCodec.ReadStaticFreeList(lyBlock, 0);
+            HashSet<int> lOStackKinds = new HashSet<int>();
+            int liFreed = 0;
+
+            foreach (int liIndex in lOReach)
+            {
+                if (fIsStackAt(lyBlock, liIndex))
+                    lOStackKinds.Add(BitConverter.ToUInt16(lyBlock, UWLevArkLayout.ObjectOffset(liIndex)) & 0x1FF);
+            }
+
+            for (int liIndex = UWLevArkLayout.FirstFreeMobileSlot; liIndex < UWLevArkLayout.ObjectCount; liIndex++)
+            {
+                if (lOReach.Contains(liIndex) || lOMobileFree.Contains(liIndex) || lOStaticFree.Contains(liIndex)
+                    || !fIsStackAt(lyBlock, liIndex)
+                    || !lOStackKinds.Contains(BitConverter.ToUInt16(lyBlock, UWLevArkLayout.ObjectOffset(liIndex)) & 0x1FF))
+                    continue;
+
+                (UWLevArkLayout.IsMobileSlot(liIndex) ? lOMobileFree : lOStaticFree).Add(liIndex);
+                liFreed++;
+            }
+
+            if (liFreed == 0)
+                return 0;
+
+            UWLevArkCodec.WriteMobileFreeList(pyData, piBlock, lOMobileFree);
+            UWLevArkCodec.WriteStaticFreeList(pyData, piBlock, lOStaticFree);
+
+            return liFreed;
+        }
+
+        /// <summary>The quantity bit and a count below 512 (a stack, not a special property).</summary>
+        private static bool fIsStackAt(byte[] pyBlock, int piIndex)
+        {
+            int liAt = UWLevArkLayout.ObjectOffset(piIndex);
+
+            return (BitConverter.ToUInt16(pyBlock, liAt) & 0x8000) != 0 && (BitConverter.ToUInt16(pyBlock, liAt + 6) >> 6) < 512;
         }
 
         /// <summary>

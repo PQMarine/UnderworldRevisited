@@ -268,6 +268,10 @@ public sealed class UWConversationScreenUw2 : MonoBehaviour
         if (mOSession.IsFinished && mOSession.Choices.Count == 0)
         {
             mbClosing = true;
+
+            if (!string.IsNullOrEmpty(mOSession.Error))
+                Debug.LogWarning("Conversation ended by an error: " + mOSession.Error);
+
             StartCoroutine(fCloseWithFade());
 
             return;

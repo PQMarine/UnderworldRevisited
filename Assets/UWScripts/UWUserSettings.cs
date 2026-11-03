@@ -91,6 +91,8 @@ public static class UWUserSettings
 
     public static bool ManualAttributes { get => Defs.ManualAttributes.Read(fGet()); set => Defs.ManualAttributes.Write(fGet(), value); }
 
+    public static bool FixOriginalBugs { get => Defs.FixOriginalBugs.Read(fGet()); set => Defs.FixOriginalBugs.Write(fGet(), value); }
+
     public static bool HelpOpen { get => Defs.HelpOpen.Read(fGet()); set => Defs.HelpOpen.Write(fGet(), value); }
 
     public static int HelpTab { get => Defs.HelpTab.Read(fGet()); set => Defs.HelpTab.Write(fGet(), value); }

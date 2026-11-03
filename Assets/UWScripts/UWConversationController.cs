@@ -378,6 +378,9 @@ public class UWConversationController : MonoBehaviour
             if (!mbClosing)
             {
                 mbClosing = true;
+
+                if (!string.IsNullOrEmpty(lOSession.Error))
+                    Debug.LogWarning("Conversation ended by an error: " + lOSession.Error);
                 StartCoroutine(fCloseWithFade());
             }
 

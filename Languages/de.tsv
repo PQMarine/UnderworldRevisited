@@ -11,6 +11,8 @@ setting.ControlScheme.choice.modern	Modern
 setting.ShowOpeningSequence	Logos und Intro beim Start
 setting.RunInBackground	Im Hintergrund weiterlaufen
 setting.ManualAttributes	Attribute bei der Erschaffung wählen
+setting.FixOriginalBugs	Fehler des Originals beheben
+setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.Language	Sprache
 setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
 setting.Language.choice.english	Englisch

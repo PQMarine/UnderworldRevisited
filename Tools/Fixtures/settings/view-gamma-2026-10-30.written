@@ -7,6 +7,7 @@
     "ColourContrast": 1.0,
     "MarkPoison": false,
     "ManualAttributes": false,
+    "FixOriginalBugs": true,
     "HelpOpen": false,
     "HelpTab": 3,
     "HelpMapSpan": 20,

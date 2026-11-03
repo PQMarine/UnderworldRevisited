@@ -37,6 +37,7 @@ namespace UnderworldRevisited.Tools
             fCheckConversationTrap(pOData);
             fCheckTerrainBounds(pOData);
             fCheckTrapInDoorRemoved(pOData);
+            fCheckOneShotOpenTrigger(pOData);
             fCheckChainGoesOn(pOData);
             fCheckEightPositionSwitch(pOData);
             fCheckTextTrapStrings(pOData);
@@ -288,6 +289,40 @@ namespace UnderworldRevisited.Tools
             fExpectBool("trap in a door: the trap is out of the door's chain", lODoor.Contents.Contains(lOTrap), false);
             fExpectBool("trap in a door: trap and lock template are on the free list",
                 lOLevel.IsStaticSlotFree(672) && (liLock == 0 || lOLevel.IsStaticSlotFree(liLock)), true);
+        }
+
+        /// <summary>The jailor's portcullis on level 7 (21/56): its open trigger is one-shot and
+        /// leaves the door's chain once it has run - opening the portcullis (the jailor's gronk_door)
+        /// fires it once and does not throw (Reddit report, 2026-11-03: the conversation hung).</summary>
+        private static void fCheckOneShotOpenTrigger(DataImport pOData)
+        {
+            UWLevel lOLevel = pOData.Levels[6];
+            UWObject lODoor = lOLevel.GetTile(21, 56)?.ObjectsInTile?.Find(pOAt => pOAt.ID == 326);
+
+            if (lODoor == null)
+            {
+                Check.Fail("one-shot open trigger", "level 7: no portcullis at 21/56");
+
+                return;
+            }
+
+            lODoor.EnsureContentsLoaded(lOLevel.Masterlist);
+
+            UWObject lOTrigger = lODoor.Contents.Find(pOAt => pOAt.ID == UWObjectMechanics.OpenTriggerId);
+            string lsResult;
+
+            try
+            {
+                lsResult = UWTrapRules.TryFireOpenTrigger(lODoor, new FakeTrapHost(pOData, 6), UWTrapRules.Setter.Thing)
+                    + " " + (lOTrigger != null && lODoor.Contents.Contains(lOTrigger));
+            }
+            catch (System.Exception lOException)
+            {
+                lsResult = lOException.GetType().Name;
+            }
+
+            Check.Str("one-shot open trigger: the jailor's portcullis fires it, it leaves the chain, nothing throws",
+                lsResult, "True False");
         }
 
         /// <summary>A54: UseTrap follows the link whatever the kind did - a combination trap (no case

@@ -8,6 +8,26 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.0] - 2026-11-04
+
+### Fixed
+- Bugs of the original that can cost you the game, behind a new option "Fix bugs of the
+  original" in the Game window, on by default: Goldthirst gives the jeweled axe for a gold nugget
+  as a first gift too, and no longer hands out the password to his treasure chamber without a
+  gift; Judy can no longer be pushed into the lava next to her, by you or a creature, which
+  ended the way to the Key of Love; and a save in which the original lost an object when you
+  tried to pick up part of a stack that was too heavy ("Problems in object list") is repaired the
+  next time it is saved. Reported on the RPG Codex.
+- The jailor on level 7 no longer leaves the game stuck in the conversation after you bribe him
+  to open the inner gate, and a conversation that runs into an error now ends instead of hanging.
+  Reported on Reddit.
+- Cutscene subtitles no longer run off the sides of a 3:2 screen with the 4:3 pixel shape on, and
+  in a tall window they stand under the picture instead of at the bottom edge. Reported on Reddit.
+
+### Changed
+- Built with Unity 6000.6.8f1, which fixes a security issue in the Brotli decoder
+  (CVE-2026-111497). The game never used that decoder.
+
 ## [0.15.2] - 2026-11-03
 
 ### Fixed

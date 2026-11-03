@@ -92,6 +92,9 @@ namespace UWDataImport.UWData
 			lORules.Vitals.Meal.BlocksPerPoint = MealHealBlocksPerPoint;
 			lORules.Sleep.Relief.InterruptedFatigue = InterruptedFatigueRelief;
 
+			// Judy is the first game's; nobody here yet.
+			lORules.Story.UnpushableNpcs = new int[0];
+
 			// Casting against three times the circle, no bonus (RUNES.C:238), and the pause's base (RUNES.C:246).
 			lORules.Magic.CastingCheck.Bonus = 0;
 			lORules.Magic.CastingCheck.PerCircle = CastingPerCircle;

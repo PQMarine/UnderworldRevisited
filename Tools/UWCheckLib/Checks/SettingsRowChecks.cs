@@ -96,8 +96,8 @@ namespace UnderworldRevisited.Tools
             // 2026-10-27: Music from recordings; 78 since 2026-10-28: Modern's ramp; 79 since UW2 phase 0 step 5
             // (2026-10-28): the Game; 80 since 2026-10-29: where the saves are (SaveFolder); 81 since 2026-10-30:
             // the 3D view's gamma (issue 9); 82 the same day: the dither grain; 83 since 2026-10-31: the second
-            // game's own folder.
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 83);
+            // game's own folder; 84 since 2026-11-03: Fix bugs of the original.
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 84);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");

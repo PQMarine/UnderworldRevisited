@@ -52,10 +52,47 @@ in hand needs a slot of its own, so in a completely full level nothing can be pi
 **The last map note of a level can be deleted on the note pages beyond level 9.** In the
 original it comes back when the map is reopened. Levels 1 to 9 behave as in the original.
 
-**A bug in one conversation script is fixed.** The trolls' news conversation (number 288) tests
+**Bugs in conversation scripts are fixed.** The trolls' news conversation (number 288) tests
 its counter of untold news against the wrong value, so its "no new news" answer and its reset
-never come. The game runs a corrected copy; the loaded data and every export keep the original
-words.
+never come. Goldthirst (number 3) takes a large gold nugget given as a first gift without
+handing over the jeweled axe, which only a later gift gives; and one way of offering a gift
+gives the password to his treasure chamber without looking at the trade area. The game runs a
+corrected copy; the loaded data and every export keep the original words.
+
+**Judy cannot be pushed into the lava.** She stands guard on level 5 at the edge of her ledge,
+lava right below. In the original one push, by the player walking into her or by a creature,
+carries her over the edge in a single step at a speed where her edge check no longer holds,
+and she burns; with her the way to the Key of Love is gone. Ours lets her take no push at all.
+The list of such characters is the rule set's (story.unpushableNpcs).
+
+**A save with a leaked object is healed.** Taking part of a stack from the floor, the original
+cuts the stack before it weighs the part; when the part is too heavy the cut is undone, but the
+record made for the rest stays allocated, in no tile and on no free list. Loading such a save the
+original reports "Problems in object list". Ours never makes such a copy (it weighs first), and
+saving frees a copy an original save carries: a slot neither reachable nor free that holds a
+stack of a kind lying in the level as well. Any other such slot stays as it is.
+
+These, and the other fixes of the original's bugs that can cost the game, follow the option
+"Fix bugs of the original" in the Game window (on by default, settings.json FixOriginalBugs).
+A rules.json key decides a single one against it: deviations.conversationPatches,
+deviations.unpushableNpcs, deviations.tidyLeakedObjects.
+
+**Something put down lies on the floor.** The original puts a dropped thing at the height of the
+player's feet, a little ahead of him, and then tests where it lies: a floor higher than the
+thing's radius above it counts as lying inside the floor, and the thing is deleted unless the
+culling test finds it valuable. Standing on a slope and dropping uphill, onto floor up to four
+units higher than the feet, so deletes almost anything: ale, food, weapons, now and then even a
+key (level 2, 54/60 facing east, measured in the GOG original and in ours with the original's
+rule; also at the very start, on the ramp out of the first hall facing back into it). Ours puts it on the floor of the spot and has no such test; this is not behind the
+option. A thrown thing still meets the original's test where it comes to rest.
+
+**Every open trigger of a door fires.** When a door opens, the first game looks only at the first
+trap or trigger in the door's chain and sets it off. Ours sets off every open trigger in the
+chain, one after the other, and passes over one that a trigger before it removed. In the first
+game this changes nothing: each of its six doors with an open trigger has exactly one. The second
+game needs it, since its doors carry several triggers in a row (two open triggers, open and close
+triggers, an unlock trigger) and its own code walks the chain the same way; and a mod can give a
+door more than one.
 
 **Gifts are never lost.** The Key of Truth from the shrine and the seed of the silver tree go
 onto the pointer, else into the pack, else to the floor. In the original they are only given

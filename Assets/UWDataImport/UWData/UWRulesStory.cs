@@ -19,6 +19,10 @@ namespace UWDataImport.UWData
 			Minimum = 0)]
 		public int ConversationTrapWhoAmI = UWTrapRules.ConversationTrapWhoAmI;
 
+		[UWRule(typeof(UWCreatureActor), nameof(UWCreatureActor.UnpushableNpcs),
+			"Conversations (whoami) of creatures that take no push while deviations.unpushableNpcs is on: Judy.", Minimum = 0)]
+		public int[] UnpushableNpcs = (int[])UWCreatureActor.UnpushableNpcs.Clone();
+
 		public readonly EmeraldRules Emerald = new EmeraldRules();
 
 		public readonly CupRules Cup = new CupRules();

@@ -134,6 +134,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("LookCatalog", pOContext => fCheckLookCatalog(pOContext), true, "inventory", "text", "original", "pin");
             lOCatalog.Add("WorldObjectSpell", pOContext => fCheckWorldObjectSpell(pOContext.Data), true, "inventory", "spell", "original");
             lOCatalog.Add("WorldEdit", pOContext => fCheckWorldEdit(pOContext), true, "level", "original").MutatesData = true;
+            lOCatalog.Add("OriginalBugGuards", pOContext => fCheckOriginalBugGuards(pOContext), true, "level", "inventory", "original").MutatesData = true;
             lOCatalog.Add("Traps", pOContext => fCheckTraps(pOContext.Data), true, "trap", "original").MutatesData = true;
             lOCatalog.Add("DispatchCoverage", pOContext => fCheckDispatchCoverage(pOContext.Data), true, "trap", "conversation", "inventory", "original");
             lOCatalog.Add("Session", pOContext => fCheckSession(pOContext), true, "data", "session");

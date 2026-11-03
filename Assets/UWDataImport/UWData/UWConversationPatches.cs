@@ -43,6 +43,12 @@ namespace UWDataImport.UWData
 
 		private const ushort Sto = (ushort)UWConversationDisassembler.Opcode.STO;
 
+		private const ushort Offset = (ushort)UWConversationDisassembler.Opcode.OFFSET;
+
+		private const ushort Tsteq = (ushort)UWConversationDisassembler.Opcode.TSTEQ;
+
+		private const ushort Beq = (ushort)UWConversationDisassembler.Opcode.BEQ;
+
 		private static readonly Patch[] maPatches =
 		{
 			// THE GENERIC TROLLS' NEWS (conversation 288, routine at code 857; per user,
@@ -66,6 +72,27 @@ namespace UWDataImport.UWData
 				Slot = 288, Address = 956, Opcode = UWConversationDisassembler.Opcode.BRA, Expected = 65518,
 				Appended = new ushort[] { PushiEff, 8, PushiEff, 8, Fetchm, Pushi, 1, Opadd, Sto, Jmp, 938 }
 			},
+
+			// GOLDTHIRST'S FIRST GIFT (conversation 3, routine at code 1356; reported on the RPG Codex, bug plan C,
+			// 2026-11-03): the first-gift check sums the values of what lies in the trade area and takes all of it,
+			// but never looks for the large gold nugget (175) the way the later-gift check at 3104 does (3156-3166),
+			// so a nugget given first went for "This is indeed a goodly gift" and the jeweled axe (3460,
+			// take_from_npc(11)) was lost, on every first-gift route. The loop body's first instruction (1408) now
+			// jumps to an appended test local1[local13] == 175; on a nugget it goes on in 3104's own nugget code at
+			// 3168 (that item alone, "Zounds!", the axe, attitude 3, end: 3460 -> 177 -> 18, EXIT_OP, so the other
+			// routine's frame does not matter; its locals 16 and 18 lie inside 1356's 39), else it runs the replaced
+			// PUSHI_EFF 12 and goes back to 1410. The BEQ's offset counts from its operand word, as the original's.
+			new Patch
+			{
+				Slot = 3, Address = 1409, Opcode = UWConversationDisassembler.Opcode.PUSHI_EFF, Expected = 12,
+				Appended = new ushort[] { PushiEff, 13, Fetchm, PushiEff, 1, Offset, Fetchm, Pushi, 175, Tsteq, Beq, 3, Jmp, 3168, PushiEff, 12, Jmp, 1410 }
+			},
+
+			// GOLDTHIRST'S PASSWORD FOR NOTHING (conversation 3; reported on the RPG Codex, bug plan C): "I bring thee
+			// this gift." after "It would be difficult to flatter..." calls 1580 (CALL at 1053), his thanks for a gift
+			// already checked - the trade area is never looked at, and "Deco Morono" follows for nothing. Every other
+			// gift answer calls the check at 1356 (1213, 1313); this one does now.
+			new Patch { Slot = 3, Address = 1054, Opcode = UWConversationDisassembler.Opcode.CALL, Expected = 1580, Replacement = 1356 },
 		};
 
 		/// <summary>The code the VM runs for this conversation: a patched copy, or the loaded

@@ -26,5 +26,25 @@ namespace UWDataImport.UWData
 		[UWRule(typeof(UWCreatureActor), nameof(UWCreatureActor.FollowerLandsWhereItCanStand),
 			"A follower that jumps to the player refuses a solid tile and the wrong medium (false: any tile of the map).")]
 		public bool FollowerLandsWhereItCanStand = UWCreatureActor.FollowerLandsWhereItCanStand;
+
+		[UWRule(typeof(UWCreatureActor), nameof(UWCreatureActor.UnpushableNpcsApplied),
+			"The creatures of story.unpushableNpcs (Judy) cannot be pushed over the edge of their ledge (false: as the original).")]
+		public bool UnpushableNpcs = UWCreatureActor.UnpushableNpcsApplied;
+
+		[UWRule(typeof(UWLevelWriter), nameof(UWLevelWriter.TidyLeakedObjectsApplied),
+			"Saving frees the leaked copy of a stack split on a too heavy pickup in the original (false: the slot stays taken).")]
+		public bool TidyLeakedObjects = UWLevelWriter.TidyLeakedObjectsApplied;
+
+		/// <summary>
+		/// THE GAME WINDOW'S "FIX BUGS OF THE ORIGINAL" (bug plan, per user 2026-11-03: one option for all of them, on by
+		/// default): the switches of the original's bugs that can cost the game, set together before a rules.json is
+		/// read, so the file's key still decides a single switch.
+		/// </summary>
+		public void SetOriginalBugFixes(bool pbOn)
+		{
+			ConversationPatches = pbOn;
+			UnpushableNpcs = pbOn;
+			TidyLeakedObjects = pbOn;
+		}
 	}
 }

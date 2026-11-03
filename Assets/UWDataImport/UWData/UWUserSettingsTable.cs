@@ -103,6 +103,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef ManualAttributes = fBool(nameof(UWUserData.ManualAttributes), d => d.ManualAttributes, (d, v) => d.ManualAttributes = v);
 
+		public static readonly UWBoolSettingDef FixOriginalBugs = fBool(nameof(UWUserData.FixOriginalBugs), d => d.FixOriginalBugs, (d, v) => d.FixOriginalBugs = v);
+
 		public static readonly UWBoolSettingDef HelpOpen = fBool(nameof(UWUserData.HelpOpen), d => d.HelpOpen, (d, v) => d.HelpOpen = v);
 
 		/// <summary>UWHelpTabId as a number: Stats 0 to Controls 6 - the numbers are the file's.</summary>
@@ -396,7 +398,7 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			HelpOpen, HelpTab, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, HelpOpen, HelpTab, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernMessageLines, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,

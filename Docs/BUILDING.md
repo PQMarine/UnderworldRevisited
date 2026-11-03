@@ -10,7 +10,7 @@ layer and its tools.
 
 ## Building the game
 
-1. Clone the repository and open the folder with Unity 6000.6.0f1.
+1. Clone the repository and open the folder with Unity 6000.6.8f1.
 2. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG
    installation folder (the folder containing `game.gog`), or to `game.gog` itself. Common
    installation folders are found automatically when the field is empty.

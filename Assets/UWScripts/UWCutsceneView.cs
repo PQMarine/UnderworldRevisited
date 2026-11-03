@@ -527,8 +527,17 @@ public sealed class UWCutsceneView
         UWUiKit.Stretch(mOPictureImage.rectTransform);
         mOPictureImage.texture = mOPictureTexture;
 
-        mOSubtitleImage = UWUiKit.CreateRawImage(mOCanvas.transform, "Subtitle", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f));
-        mOSubtitleImage.rectTransform.anchoredPosition = new Vector2(0f, mOPlayer.SubtitleBottomOffset);
+        // AT THE FRAME'S BOTTOM, not the window's: in a window narrower than the frame the canvas
+        // reaches into the bars, and the text stood at the window's edge far below the picture
+        // (per user, 2026-11-03). Placed in LateUpdate with the frame's shift.
+        mOSubtitleImage = UWUiKit.CreateRawImage(mOCanvas.transform, "Subtitle", UWUiKit.Centre, new Vector2(0.5f, 0f));
+        fPlaceSubtitle();
+
+        // THE SUBTITLE'S PIXELS AT THE PICTURE'S PROPORTION (Reddit report, 2026-11-03: the text ran
+        // off a 3:2 screen, about ten pixels each side): its 320 units sit on the canvas, not in the
+        // frame, so the 4:3 squeeze passed it by - and a canvas fitted by the height of a 3:2 window
+        // is only 300 units wide with 4:3 on.
+        mOSubtitleImage.gameObject.AddComponent<UWPixelAspectFrame>();
     }
 
     /// <summary>The black backdrop follows the picture: on behind every full-screen picture,
@@ -552,5 +561,21 @@ public sealed class UWCutsceneView
         // conversation's frame follows (UWClassicConversationRenderer.Tick).
         if (mOFullScreenFrame != null)
             mOFullScreenFrame.anchoredPosition = new Vector2(UWHelpLayout.FrameShift(UWUiFit.CanvasWidth), 0f);
+
+        fPlaceSubtitle();
+    }
+
+    /// <summary>The subtitle's bottom SubtitleBottomOffset above the frame's bottom, centred under
+    /// the frame and sliding with it.</summary>
+    private void fPlaceSubtitle()
+    {
+        if (mOSubtitleImage == null)
+            return;
+
+        Vector2 lOAt = new Vector2(UWHelpLayout.FrameShift(UWUiFit.CanvasWidth),
+            (-UWUiFit.FrameHeight * 0.5f) + mOPlayer.SubtitleBottomOffset);
+
+        if (mOSubtitleImage.rectTransform.anchoredPosition != lOAt)
+            mOSubtitleImage.rectTransform.anchoredPosition = lOAt;
     }
 }

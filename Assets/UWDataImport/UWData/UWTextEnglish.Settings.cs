@@ -17,6 +17,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.ShowOpeningSequence", "Logos and intro at startup");
 			fAdd("setting.RunInBackground", "Keep running in the background");
 			fAdd("setting.ManualAttributes", "Choose attributes at creation");
+			fAdd("setting.FixOriginalBugs", "Fix bugs of the original");
+			fAdd("setting.FixOriginalBugs.hint", "Fixes bugs of the original game that can cost you the game: Goldthirst's gifts, Judy pushed into the lava, the object a too heavy stack leaves behind in a save. Off plays them as the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
 			fAdd("setting.Language", "Language");
 			fAdd("setting.Language.hint", "Takes effect at once; lines already in the message scroll stay as they were. A language is what lies in the Languages folder beside the game: xx.tsv for the port's own texts, xx.strings.tsv for the game's texts; what a file does not hold stays English.");
 			fAdd("setting.Language.choice.english", "English");

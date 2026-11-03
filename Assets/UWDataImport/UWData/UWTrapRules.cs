@@ -349,10 +349,19 @@ namespace UWDataImport.UWData
 
 			bool lbFired = false;
 
-			foreach (UWObject lOLink in pODoorData.Contents)
+			// EVERY OPEN TRIGGER OF THE CHAIN (a deviation, per user 2026-11-03, Docs/DEVIATIONS.md): UW1's
+			// checkTrap takes only the first trap object, which changes nothing for its six doors with
+			// one open trigger each; UW2's walks the chain, fetching the next link before it fires
+			// (OBJUSE.C), and its doors hold several triggers - and a mod may give a door more.
+			//
+			// OVER A COPY: a one-shot trigger leaves the door's chain once it has run
+			// (UWTrapChainRemoval), and the jailor's portcullis on level 7 (21/56, flags 4) threw in
+			// the middle of the loop - the conversation that opened it hung for good (Reddit report,
+			// 2026-11-03). A link gone meanwhile is passed over, as checkTrap walks on from the next.
+			foreach (UWObject lOLink in pODoorData.Contents.ToArray())
 			{
 				if (lOLink == null || lOLink.ID != UWObjectMechanics.OpenTriggerId
-					|| !MaySetOff(lOLink, peOpener))
+					|| !pODoorData.Contents.Contains(lOLink) || !MaySetOff(lOLink, peOpener))
 					continue;
 
 				if (fFireTriggerTrap(lOLink, null, pIHost, 0))

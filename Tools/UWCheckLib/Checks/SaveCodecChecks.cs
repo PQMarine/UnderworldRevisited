@@ -222,6 +222,7 @@ namespace UnderworldRevisited.Tools
                 if (luOffset != 0 && luOffset + UWLevArkFile.Uw1.BlockSize <= lyExpected.Length)
                 {
                     fRepairActiveList(lyExpected, (int)luOffset);
+                    fTidyLeakedCopies(lyExpected, (int)luOffset);
 
                     if (liLevel == piPlayerLevel && pyPlayerSlot != null && pyPlayerSlot.Length == UWLevArkLayout.MobileRecordSize)
                         Array.Copy(pyPlayerSlot, 0, lyExpected, (int)luOffset + UWLevArkLayout.PlayerSlotOffset, pyPlayerSlot.Length);

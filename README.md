@@ -136,7 +136,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   supported: some data (3D models, their colours) is read directly from the game's executable
   at build-specific offsets, verified against the GOG `UW.EXE` (547,248 bytes). Other
   releases (original floppy, CD, other stores) may differ and are not supported.
-- Unity **6000.6.0f1** (Unity 6), Universal Render Pipeline - only to build it yourself.
+- Unity **6000.6.8f1** (Unity 6), Universal Render Pipeline - only to build it yourself.
 
 ## Installation
 

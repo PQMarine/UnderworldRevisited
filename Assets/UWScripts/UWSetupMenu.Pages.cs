@@ -628,6 +628,11 @@ public partial class UWSetupMenu
             // those who do not like their values to depend on luck; off by default). Takes effect at
             // the next character creation.
             .Add(fToggle(Defs.ManualAttributes, 30f))
+            // FIX THE ORIGINAL'S BUGS THAT CAN COST THE GAME (bug plan, per user 2026-11-03: one option, on by
+            // default): the deviation switches together, a rules.json key still decides one. Takes effect at the next
+            // start or load, when the session's rules are made.
+            .Add(fToggle(Defs.FixOriginalBugs, 30f))
+            .Add(fHint(Defs.FixOriginalBugs, 10f))
             // THE LANGUAGE (translation wave 1, 2026-10-26; decided by the user that day): English and
             // every language found in the Languages folder beside the game (UWLanguage.Available,
             // listed when the page is built), kept for the next start - and since translation step 3R

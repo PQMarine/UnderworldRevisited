@@ -743,6 +743,28 @@ namespace UWDataImport.UWData
 		/// deviations.followerLandsWhereItCanStand).</summary>
 		public const bool FollowerLandsWhereItCanStand = true;
 
+		/// <summary>
+		/// WHO CANNOT BE PUSHED (bug plan A, per user 2026-11-03; a deviation): Judy stands guard on level 5 at the
+		/// edge of her ledge, lava below. A push - the player's walk, a creature's bump - carries her over the edge in
+		/// one step, at a speed where the land callback no longer stops her: the step after it already sees the drop
+		/// and she falls (measured with the user, the GOG original does the same). With her goes the way to the Key of
+		/// Love. The creatures on story.unpushableNpcs take no push while deviations.unpushableNpcs is on; nothing
+		/// else of them changes, and nothing is written into the save.
+		/// </summary>
+		public const bool UnpushableNpcsApplied = true;
+
+		/// <summary>Judy's conversation (block 7 name at 23 + 17).</summary>
+		public static readonly int[] UnpushableNpcs = { 23 };
+
+		/// <summary>Whether a creature with this conversation takes a push under these rules.</summary>
+		public static bool TakesPush(UWRules pORules, int piWhoAmI)
+		{
+			if (pORules == null || !pORules.Deviations.UnpushableNpcs || piWhoAmI <= 0)
+				return true;
+
+			return System.Array.IndexOf(pORules.Story.UnpushableNpcs, piWhoAmI) < 0;
+		}
+
 		/// <summary>The record onto a tile, eighth and height, the tile list relinked, the body
 		/// there at once.</summary>
 		private void fRelocate(int piTileX, int piTileY, int piFineX, int piFineY, int piZPos)
@@ -1855,7 +1877,7 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void Push(int piHeading, int piSpeed, int piVz)
 		{
-			if (IsRemoved)
+			if (IsRemoved || !TakesPush(mIServices.Rules, mORecord.WhoAmI))
 				return;
 
 			UWCreatureMotion.Push(mORecord, piHeading, piSpeed, piVz);

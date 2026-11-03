@@ -219,7 +219,20 @@ namespace UWDataImport.UWData
 			if (IsFinished || mOVm == null)
 				return;
 
-			UWConversationVM.RunState leState = mOVm.Run();
+			UWConversationVM.RunState leState;
+
+			// A FAILING GAME FUNCTION ENDS THE CONVERSATION instead of leaving it stuck with no way
+			// out, Escape included (the jailor's gronk_door threw, Reddit report 2026-11-03); the
+			// error is the machine's, as for a fault in the script.
+			try
+			{
+				leState = mOVm.Run();
+			}
+			catch (Exception lOException)
+			{
+				Error = lOException.ToString();
+				leState = UWConversationVM.RunState.Failed;
+			}
 
 			if (leState == UWConversationVM.RunState.AwaitingChoice)
 				return;
@@ -230,7 +243,7 @@ namespace UWDataImport.UWData
 				return;
 			}
 
-			if (leState == UWConversationVM.RunState.Failed)
+			if (leState == UWConversationVM.RunState.Failed && Error == null)
 				Error = mOVm.Error;
 
 			IsFinished = true;

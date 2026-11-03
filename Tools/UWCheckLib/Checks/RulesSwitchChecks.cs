@@ -12,6 +12,38 @@ namespace UnderworldRevisited.Tools
     /// </summary>
     public static partial class SelfChecks
     {
+        /// <summary>The game window's "Fix bugs of the original" (bug plan A): Judy takes no push with it on, every
+        /// creature does with it off, a creature off the list always does, and a rules.json key decides one switch
+        /// against the option.</summary>
+        private static void fCheckOriginalBugFixes()
+        {
+            UWGameSession lOSession = new UWGameSession(null, 3);
+            string lsNoFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "uwr-no-rules-here.json");
+
+            UWGameSession.MakeCurrent(lOSession);
+
+            lOSession.ApplyRulesFile(lsNoFile, true);
+
+            string lsOn = UWCreatureActor.TakesPush(lOSession.Rules, 23) + " " + UWCreatureActor.TakesPush(lOSession.Rules, 6) + " "
+                + lOSession.Rules.Deviations.ConversationPatches + " " + lOSession.Rules.Deviations.TidyLeakedObjects;
+
+            lOSession.ApplyRulesFile(lsNoFile, false);
+
+            string lsOff = UWCreatureActor.TakesPush(lOSession.Rules, 23) + " " + UWCreatureActor.TakesPush(lOSession.Rules, 6) + " "
+                + lOSession.Rules.Deviations.ConversationPatches + " " + lOSession.Rules.Deviations.TidyLeakedObjects;
+
+            Check.Str("bug fixes: Judy is not pushed, others are, the patches run, leaked copies are freed (option on / off)",
+                lsOn + " / " + lsOff, "False True True True / True True False False");
+
+            lOSession.ApplyRulesFile(lsNoFile, true);
+            UWRulesJson.Apply(lOSession.Rules, "{ \"deviations.unpushableNpcs\": false }");
+
+            Check.Str("bug fixes: a rules.json key takes back one switch, the other stays",
+                UWCreatureActor.TakesPush(lOSession.Rules, 23) + " " + lOSession.Rules.Deviations.ConversationPatches, "True True");
+
+            UWGameSession.MakeCurrent(new UWGameSession(null, 3));
+        }
+
         private static void fCheckRulesReachTheGameWave2B()
         {
             UWGameSession lOSession = new UWGameSession(null, 3);

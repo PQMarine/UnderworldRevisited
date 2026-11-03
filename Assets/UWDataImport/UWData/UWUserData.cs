@@ -46,6 +46,10 @@ namespace UWDataImport.UWData
 		/// instead of the dice (UWCharacterGeneration.ManualAttributes). Off by default.</summary>
 		public bool ManualAttributes;
 
+		/// <summary>The fixes of the original's bugs that can cost the game (UWRulesDeviations.SetOriginalBugFixes):
+		/// Goldthirst's gifts, Judy at the lava. On by default, takes effect at the next start or load.</summary>
+		public bool FixOriginalBugs = true;
+
 		/// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
 		/// the tab (UWHelpTabId as a number, 3 = Spells) and how many tiles the map
 		/// tab shows across.</summary>

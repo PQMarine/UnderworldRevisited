@@ -249,6 +249,13 @@ public static class UWPlayerThrow
     /// UW.EXE first tries (player radius + item radius + 1) eighth tiles ahead. Only if the item
     /// FITS there does it move three eighths further and test again, and it is the second test
     /// that counts (seg025_5CC to seg025_636). The item has to fit at both spots.
+    ///
+    /// THE HEIGHT (a deviation, bug plan B, per user 2026-11-03, not behind the option): ReturnObject
+    /// puts the item at the player's z and settles it there with obj_deal, whose step height is the
+    /// item's radius - dropped uphill from a slope (up to the tolerance of four) it lies inside the
+    /// floor and is deleted unless the culling test spares it; level 2, 54/60 facing east, lost ale
+    /// every time and a key one time in six. Ours puts it on the floor of the spot
+    /// (DropCursorItemInWorld, UWLevelLoader.fSpawnObjectAt) without that test (Docs/DEVIATIONS.md).
     /// </summary>
     private static bool fTryDrop(UWObject pOItem, Transform pOCamera, UWInventory pOInventory,
         UWLevelLoader pOLevelLoader, Interaction pOInteraction)
