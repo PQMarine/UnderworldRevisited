@@ -17,7 +17,7 @@ against its code and, where noted, by playing the original. The deliberate excep
   gift; Judy can no longer be pushed into the lava next to her, by you or a creature, which
   ended the way to the Key of Love; and a save in which the original lost an object when you
   tried to pick up part of a stack that was too heavy ("Problems in object list") is repaired the
-  next time it is saved. Reported on the RPG Codex.
+  next time it is saved. All three are known bugs of the original, listed in a wiki.
 - The jailor on level 7 no longer leaves the game stuck in the conversation after you bribe him
   to open the inner gate, and a conversation that runs into an error now ends instead of hanging.
   Reported on Reddit.
