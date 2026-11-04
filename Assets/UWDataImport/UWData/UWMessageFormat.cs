@@ -42,6 +42,10 @@ namespace UWDataImport.UWData
 	/// its count (1 for a single thing, -1 for a plural without one). {0,select,f{...}other{...}} tries "gender.case", then
 	/// "gender", then "other"; {0,plural,...} takes the count. Shown, it is its text, so English
 	/// frames that only write {0} read as before.
+	/// THE SOUND TAGS (2026-11-04, UWGrammarGeneric.TagsOf): the tags of the phrase's start - "v" for
+	/// "homme" by a French rule - come before the gender: for each tag "gender.tag.case" and
+	/// "gender.tag", then for each "tag.case" and "tag", then "gender.case" and "gender". So
+	/// "{0,select,v{l'{0}}f{la {0}}other{le {0}}}" elides for both genders.
 	/// </summary>
 	public sealed class UWNamePhrase
 	{
@@ -53,12 +57,16 @@ namespace UWDataImport.UWData
 
 		public readonly int Count;
 
-		public UWNamePhrase(string psText, string psGender, string psCase = null, int piCount = 1)
+		/// <summary>The sound tags of the phrase's start, in the rule's order; empty for none.</summary>
+		public readonly string[] Tags;
+
+		public UWNamePhrase(string psText, string psGender, string psCase = null, int piCount = 1, string[] psTags = null)
 		{
 			Text = psText ?? string.Empty;
 			Gender = string.IsNullOrEmpty(psGender) ? null : psGender;
 			Case = string.IsNullOrEmpty(psCase) ? null : psCase;
 			Count = piCount;
+			Tags = psTags ?? new string[0];
 		}
 
 		/// <summary>The keys a select tries for it, the most special first ("other" is tried last by
@@ -67,6 +75,22 @@ namespace UWDataImport.UWData
 		{
 			if (Gender == null)
 				yield break;
+
+			foreach (string lsTag in Tags)
+			{
+				if (Case != null)
+					yield return Gender + "." + lsTag + "." + Case;
+
+				yield return Gender + "." + lsTag;
+			}
+
+			foreach (string lsTag in Tags)
+			{
+				if (Case != null)
+					yield return lsTag + "." + Case;
+
+				yield return lsTag;
+			}
 
 			if (Case != null)
 				yield return Gender + "." + Case;
@@ -86,8 +110,9 @@ namespace UWDataImport.UWData
 	/// Languages/&lt;code&gt;.tsv and the fragments of &lt;code&gt;.strings.tsv alike:
 	///
 	///   {n}                              argument n (a fragment's slots filled - UWTextFragment)
-	///   {n,select,KEY{...}...other{...}} by argument n: a name (UWNamePhrase) by "gender.case", then its
-	///                                    gender (m f n c p), then other; any other argument by its text
+	///   {n,select,KEY{...}...other{...}} by argument n: a name (UWNamePhrase) by its sound tags, then
+	///                                    "gender.case", then its gender (m f n c p), then other
+	///                                    (UWNamePhrase.SelectKeys); any other argument by its text
 	///   {n,plural,=N{...}CAT{...}...other{...}}
 	///                                    by the number of argument n (a whole number, a name's count, or
 	///                                    a text that reads as one): first an exact =N, then the CLDR

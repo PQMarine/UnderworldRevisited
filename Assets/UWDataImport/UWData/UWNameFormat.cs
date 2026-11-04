@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace UWDataImport.UWData
 {
@@ -9,11 +11,15 @@ namespace UWDataImport.UWData
 	/// 2026-10-26): how a game-text pack writes an object's name (block 4, and the names built from
 	/// in blocks 1, 7 and 10) so that a grammar can put it in a case, a number and after an article.
 	///
-	///   &lt;gender&gt;[&lt;article&gt;]:&lt;singular&gt;[|&lt;oblique&gt;][|&lt;case&gt;=&lt;form&gt;]...[&amp;&lt;plural&gt;][&amp;&lt;key&gt;=&lt;form&gt;]...
+	///   &lt;gender&gt;[&lt;article&gt;][+&lt;tag&gt;|-&lt;tag&gt;]...:&lt;singular&gt;[|&lt;oblique&gt;][|&lt;case&gt;=&lt;form&gt;]...[&amp;&lt;plural&gt;][&amp;&lt;key&gt;=&lt;form&gt;]...
 	///
 	///   gender   m, f, n, c (common: the Dutch and Scandinavian "de/en" words) or p (a plural only);
 	///            capitals allowed. German knows m f n p.
 	///   article  none: the indefinite one; d the definite one; o none at all (as in wave 2).
+	///   tag      (2026-11-04, a French translator's elision) a sound tag a frame's select may choose by
+	///            ("l'homme", Italian "lo zaino"): +v gives the name the tag v, -v takes away the tag
+	///            v the language's rule grammar.rule.tags gives it by its first letters ("m-v:héros",
+	///            the h aspiré). Letters only; the generic grammar reads them (UWGrammarGeneric.TagsOf).
 	///   oblique  a segment after "|" WITHOUT "=": the singular in every case but the nominative where
 	///            no named form is given (wave 2's German weak masculine: "m:Drache|Drachen").
 	///   case     a segment after "|" WITH a case key and "=": the singular in that case
@@ -76,7 +82,18 @@ namespace UWDataImport.UWData
 		/// findings; the name still reads.</summary>
 		public readonly List<string> Problems = new List<string>();
 
+		/// <summary>The tags the prefix gives the name (+v), lower case, in the order written.</summary>
+		public readonly List<string> TagsAdded = new List<string>();
+
+		/// <summary>The tags the prefix takes away from what the language's rule gives (-v).</summary>
+		public readonly List<string> TagsRemoved = new List<string>();
+
 		public bool IsPluralOnly => Gender == "p";
+
+		/// <summary>The prefix: a gender letter, an article letter or none, the tags, the colon.</summary>
+		private static readonly Regex msPrefix = new Regex(@"^([A-Za-z])([A-Za-z])?((?:[+-][A-Za-z]+)*):", RegexOptions.CultureInvariant);
+
+		private static readonly Regex msTag = new Regex(@"([+-])([A-Za-z]+)", RegexOptions.CultureInvariant);
 
 		/// <summary>A name in the format, or null for a text without the prefix (or with a gender not in
 		/// psGenders, the letters a language knows).</summary>
@@ -85,19 +102,32 @@ namespace UWDataImport.UWData
 			if (string.IsNullOrEmpty(psRaw))
 				return null;
 
-			int liColon = psRaw.IndexOf(':');
+			Match lOPrefix = msPrefix.Match(psRaw);
 
-			if (liColon < 1 || liColon > 2)
+			if (!lOPrefix.Success)
 				return null;
 
 			char lcGender = char.ToLowerInvariant(psRaw[0]);
-			char lcArticle = liColon == 2 ? char.ToLowerInvariant(psRaw[1]) : Indefinite;
+			bool lbArticle = lOPrefix.Groups[2].Success;
+			char lcArticle = lbArticle ? char.ToLowerInvariant(lOPrefix.Groups[2].Value[0]) : Indefinite;
 
-			if ((psGenders ?? GenderLetters).IndexOf(lcGender) < 0 || (liColon == 2 && lcArticle != Definite && lcArticle != NoArticle))
+			if ((psGenders ?? GenderLetters).IndexOf(lcGender) < 0 || (lbArticle && lcArticle != Definite && lcArticle != NoArticle))
 				return null;
 
 			UWNameFormat lOName = new UWNameFormat { Gender = lcGender.ToString(), Article = lcArticle };
-			string[] lsPlurals = psRaw.Substring(liColon + 1).Replace('_', ' ').Split('&');
+
+			foreach (Match lOTag in msTag.Matches(lOPrefix.Groups[3].Value))
+			{
+				string lsTag = lOTag.Groups[2].Value.ToLowerInvariant();
+				List<string> lOList = lOTag.Groups[1].Value == "+" ? lOName.TagsAdded : lOName.TagsRemoved;
+
+				if (lOName.TagsAdded.Contains(lsTag) || lOName.TagsRemoved.Contains(lsTag))
+					lOName.Problems.Add("the tag " + lsTag + " given twice in the prefix");
+				else
+					lOList.Add(lsTag);
+			}
+
+			string[] lsPlurals = psRaw.Substring(lOPrefix.Length).Replace('_', ' ').Split('&');
 			string[] lsCases = lsPlurals[0].Split('|');
 
 			lOName.Singular = lsCases[0].Trim();
@@ -220,10 +250,17 @@ namespace UWDataImport.UWData
 
 		/// <summary>What is wrong with the name for a language: its problems, a gender it does not know
 		/// (psGenders), a case key it does not use (psCases, null for any), a plural category it never
-		/// takes (psPluralCode, null for any). Null when nothing.</summary>
-		public string Check(string psGenders, string[] psCases, string psPluralCode)
+		/// takes (psPluralCode, null for any), a tag its rule grammar.rule.tags does not name (psTags,
+		/// null for any). Null when nothing.</summary>
+		public string Check(string psGenders, string[] psCases, string psPluralCode, string[] psTags = null)
 		{
 			List<string> lsFound = new List<string>(Problems);
+
+			foreach (string lsTag in TagsAdded.Concat(TagsRemoved))
+			{
+				if (psTags != null && Array.IndexOf(psTags, lsTag) < 0)
+					lsFound.Add("the tag " + lsTag + " is none of grammar.rule.tags (" + (psTags.Length == 0 ? "none" : string.Join(" ", psTags)) + ")");
+			}
 
 			if (Singular.Length == 0)
 				lsFound.Add("no name after the prefix");

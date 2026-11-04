@@ -253,6 +253,14 @@ namespace UWDataImport.UWData
 		/// <summary>The grime's colour (UWGrimeTint.ToneEnum): 0 none, 1 dirt, 2 moss, 3 soot.</summary>
 		public int PaletteGrimeTone = 1;
 
+		/// <summary>The world's base brightness without a light in Remastered and Palette colours, a factor
+		/// on the shipped one (1 = as shipped, 0 = dark; per user 2026-11-04, a Reddit suggestion).</summary>
+		public float AmbientLight = 1f;
+
+		/// <summary>The lights' colour in Remastered: 0 warm (each light its item's own colour), 1 cooler,
+		/// 2 white (per user 2026-11-04). Palette colours takes its colours from the original's table.</summary>
+		public int LightTone;
+
 		/// <summary>The palette renderer's ground shadows in shade steps, 0 = off.</summary>
 		public float PaletteGroundShadows;
 

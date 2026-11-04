@@ -2888,7 +2888,21 @@ public class UWLevelLoader : MonoBehaviour
 
     private static float fGetAmbientFloor()
     {
-        return UWSettings.Instance != null ? UWSettings.Instance.AmbientFloor : 0.08f;
+        return (UWSettings.Instance != null ? UWSettings.Instance.AmbientFloor : 0.08f) * Mathf.Max(0f, UWUserSettings.AmbientLight);
+    }
+
+    /// <summary>The materials' base brightness anew, after the viewer's ambient light changed
+    /// (UWLighting).</summary>
+    public void RefreshAmbientFloor()
+    {
+        float lfAmbient = fGetAmbientFloor();
+
+        foreach (Material lOMaterial in new[] { mODungeonMaterial, mOBillboardMaterial, mOTranslucentBillboardMaterial,
+            mOModelSolidMaterial, mOPortcullisMaterial, mODecalMaterial })
+        {
+            if (lOMaterial != null)
+                lOMaterial.SetFloat(UWShaderIds.AmbientFloor, lfAmbient);
+        }
     }
 
     private static float fGetPointLightCap()

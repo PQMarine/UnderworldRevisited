@@ -266,6 +266,10 @@ namespace UWDataImport.UWData
 		public static readonly UWFloatSettingDef PaletteGrime = fFloat(nameof(UWUserData.PaletteGrime), d => d.PaletteGrime, (d, v) => d.PaletteGrime = v);
 
 		/// <summary>UWGrimeTint.ToneEnum as a number: none, dirt, moss, soot.</summary>
+		public static readonly UWFloatSettingDef AmbientLight = fFloat(nameof(UWUserData.AmbientLight), d => d.AmbientLight, (d, v) => d.AmbientLight = v);
+
+		public static readonly UWIntSettingDef LightTone = fInt(nameof(UWUserData.LightTone), UWSettingKind.Choice, d => d.LightTone, (d, v) => d.LightTone = v);
+
 		public static readonly UWIntSettingDef PaletteGrimeTone = fInt(nameof(UWUserData.PaletteGrimeTone), UWSettingKind.Choice, d => d.PaletteGrimeTone, (d, v) => d.PaletteGrimeTone = v);
 
 		public static readonly UWFloatSettingDef PaletteGroundShadows = fFloat(nameof(UWUserData.PaletteGroundShadows), d => d.PaletteGroundShadows, (d, v) => d.PaletteGroundShadows = v);
@@ -406,7 +410,7 @@ namespace UWDataImport.UWData
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
 			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
-			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, PaletteGroundShadows,
+			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, LightTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,
 			OriginalFrameTicks, SmoothRampTicks, ModernRampTicks, MusicEnabled, MusicVolume, SoundEnabled, SoundVolume, MusicDevice, Mt32RomPath, MusicRecordings,

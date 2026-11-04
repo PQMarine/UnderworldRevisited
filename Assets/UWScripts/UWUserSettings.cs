@@ -256,6 +256,10 @@ public static class UWUserSettings
     /// <summary>The grime's colour - see UWGrimeTint.ToneEnum.</summary>
     public static int PaletteGrimeTone { get => Defs.PaletteGrimeTone.Read(fGet()); set => Defs.PaletteGrimeTone.Write(fGet(), value); }
 
+    public static float AmbientLight { get => Defs.AmbientLight.Read(fGet()); set => Defs.AmbientLight.Write(fGet(), value); }
+
+    public static int LightTone { get => Defs.LightTone.Read(fGet()); set => Defs.LightTone.Write(fGet(), value); }
+
     /// <summary>The palette renderer's ground shadows in shade steps, 0 = off - see UWPaletteEffects.</summary>
     public static float PaletteGroundShadows { get => Defs.PaletteGroundShadows.Read(fGet()); set => Defs.PaletteGroundShadows.Write(fGet(), value); }
 

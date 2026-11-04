@@ -180,6 +180,12 @@ namespace UWDataImport.UWData
 			fText(PaletteLightSources, true);
 			fText(PaletteDitherCell, true);
 
+			// The light of the Remastered paths.
+			fText(AmbientLight, true);
+			AmbientLight.Format = UWSettingFormat.Percent;
+			fText(LightTone, true);
+			fChoices(LightTone, new[] { "warm", "cool", "white" });
+
 			foreach (UWFloatSettingDef lODef in new[] { PaletteAmbientOcclusion, PaletteGrime, PaletteDepth, PaletteCavity, PaletteGroundShadows })
 				lODef.Format = UWSettingFormat.ShadeSteps;
 		}

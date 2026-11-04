@@ -166,8 +166,19 @@ namespace UWDataImport.UWData
 		private static UWNamePhrase fPhrase(DataImport pOData, int piObjectId, string psText, UWGrammarCase peCase, int piCount)
 		{
 			IUWGrammar lIGrammar = UWGrammar.Of(pOData);
+			string lsRaw = RawObjectName(pOData, piObjectId, null);
 
-			return new UWNamePhrase(psText, lIGrammar.GenderOf(RawObjectName(pOData, piObjectId, null)), lIGrammar.CaseKey(peCase), piCount);
+			// The sound tags of the text's start (2026-11-04): a frame's "de {0}" may elide to "d'un ...".
+			string[] lsTags = null;
+
+			if (lIGrammar is UWGrammarGeneric)
+			{
+				UWNameFormat lOName = UWNameFormat.Parse(lsRaw);
+
+				lsTags = UWGrammarGeneric.TagsOf(psText, lOName, lOName?.Singular);
+			}
+
+			return new UWNamePhrase(psText, lIGrammar.GenderOf(lsRaw), lIGrammar.CaseKey(peCase), piCount, lsTags);
 		}
 
 		/// <summary>An object's name on the modern interface's label (the bags' tooltip):

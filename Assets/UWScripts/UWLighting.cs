@@ -231,7 +231,7 @@ public class UWLighting : MonoBehaviour
     private Color fMagicLightColour()
     {
         if (miMagicBrightness > WarmMagicBrightness)
-            return MagicLightColour;
+            return UWLightColour.Toned(MagicLightColour);
 
         return UWLightColour.FromObject(mOData,
             UWDataImport.UWData.UWObjectIds.Torch + UWDataImport.UWData.UWObjectIds.LitLightOffset, UWLightColour.Fallback);
@@ -468,7 +468,10 @@ public class UWLighting : MonoBehaviour
     private void fApplyEnvironment()
     {
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
-        RenderSettings.ambientLight = mOAmbientColor;
+        // The viewer's ambient light scales it (UWUserSettings.AmbientLight, with the materials' floor,
+        // UWLevelLoader.RefreshAmbientFloor).
+        mfAppliedAmbient = UWUserSettings.AmbientLight;
+        RenderSettings.ambientLight = mOAmbientColor * mfAppliedAmbient;
 
         RenderSettings.fog = mbFogEnabled;
         RenderSettings.fogMode = FogMode.ExponentialSquared;
@@ -605,7 +608,8 @@ public class UWLighting : MonoBehaviour
         // that it stayed in sight far past the walls (per user with a screenshot, 2026-11-03).
         if (liBrightness <= 0)
         {
-            mfBaseIntensity *= DarkLevelShare;
+            // The unlit level is Palette colours' ambient light, so the viewer's factor scales it too.
+            mfBaseIntensity *= DarkLevelShare * Mathf.Max(0f, UWUserSettings.AmbientLight);
             mOPlayerLight.range *= DarkLevelReach;
         }
 
@@ -667,12 +671,38 @@ public class UWLighting : MonoBehaviour
         return lOObject.AddComponent<Light>();
     }
 
+    /// <summary>The ambient light factor the environment was last set up with.</summary>
+    private float mfAppliedAmbient = 1f;
+
+    /// <summary>The light colour preset the player light was last set up with.</summary>
+    private int miAppliedTone;
+
     private void Update()
     {
         // Anyone who changes position or strength of the carried light in the Inspector in
         // Remastered mode should see it immediately - otherwise UWLighting only sets up the light
         // anew for a new light source.
         fRefreshOnRemasterChange();
+
+        // THE VIEWER'S AMBIENT LIGHT AND LIGHT COLOUR (effects window) take effect while it is moved.
+        if (!mbDebugBrightnessOverride && !Mathf.Approximately(mfAppliedAmbient, UWUserSettings.AmbientLight))
+        {
+            fApplyEnvironment();
+
+            if (UWScene.LevelLoader != null)
+                UWScene.LevelLoader.RefreshAmbientFloor();
+
+            if (mOPlayerLight != null)
+                fApplyPlayerLight();
+        }
+
+        if (miAppliedTone != UWUserSettings.LightTone)
+        {
+            miAppliedTone = UWUserSettings.LightTone;
+
+            if (mOPlayerLight != null)
+                fApplyPlayerLight();
+        }
 
         if (mOPlayerLight == null || !mOPlayerLight.enabled || mfFlickerAmount <= 0f)
             return;

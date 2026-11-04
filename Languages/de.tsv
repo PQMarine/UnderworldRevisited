@@ -88,6 +88,13 @@ setting.PaletteGrimeTone.choice.none	Keine Farbe
 setting.PaletteGrimeTone.choice.dirt	Erde
 setting.PaletteGrimeTone.choice.moss	Moos
 setting.PaletteGrimeTone.choice.soot	Ruß
+setting.AmbientLight	Umgebungslicht
+setting.AmbientLight.hint	Wie hell die Welt ohne eigenes Licht ist, in Remastered und Palette colours. 100 % wie ausgeliefert, 0 % dunkel wie im Original.
+setting.LightTone	Lichtfarbe
+setting.LightTone.hint	Die Farbe von Fackeln, Laternen, Feuern und Zaubern in Remastered. Palette colours behält die Farben des Originals.
+setting.LightTone.choice.warm	Warm
+setting.LightTone.choice.cool	Kühler
+setting.LightTone.choice.white	Weiß
 setting.PaletteDepth	Tiefe
 setting.PaletteDepth.hint	Steine heben sich von ihren Fugen ab und verschieben sich mit ihrem Schatten gegen sie, wenn du dich bewegst.
 setting.PaletteCavity	Vertiefungen
@@ -830,6 +837,11 @@ effects.dust	Staub
 effects.ground_shadows	Bodenschatten
 effects.grime_along_the_walls	Schmutz an den Wänden
 effects.grime_colour	Schmutzfarbe
+effects.ambient_light	Umgebungslicht
+effects.light_colour	Lichtfarbe
+effects.light.warm	Warm
+effects.light.cool	Kühler
+effects.light.white	Weiß
 effects.on	An
 effects.off	Aus
 effects.tonemapping.off	Aus
@@ -875,6 +887,7 @@ grammar.rule.alphabet.lower	auto
 # draw the German letters themselves, so none is needed.
 grammar.rule.font	none
 grammar.rule.ime	no
+grammar.rule.tags	none
 grammar.article.indefinite	{0}
 grammar.article.definite	{0}
 grammar.article.your	{0}

@@ -8,6 +8,18 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.1] - 2026-11-04
+
+### Added
+- The main menu shows the version in its bottom right corner, so you can name it in a report.
+- Two new rows in the Remastered effects window: Ambient light, how bright the world is without a
+  light of your own, in Remastered and Palette colours; and Light colour for Remastered, warm as
+  before, cooler or white.
+- Translations: sound tags for the articles that change with the next sound (French "l'homme",
+  Italian "lo zaino"), given by a word's first letters in the language file and corrected per name,
+  and "named" in a creature's look can agree with the kind ("nommée"). TRANSLATING.md now also
+  explains how the creature names of block 7 join the look. Asked for by the French translator.
+
 ## [0.16.0] - 2026-11-04
 
 ### Fixed

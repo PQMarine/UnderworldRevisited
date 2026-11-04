@@ -69,6 +69,9 @@ public sealed class UWRemasterLights : IUWRemasterFeature
     /// rebuilt.</summary>
     private int miBuiltParticleState;
 
+    /// <summary>The light colour preset the lights were built with (UWLightColour.Toned).</summary>
+    private int miBuiltTone;
+
     private bool mbBuilt;
 
     public UWRemasterLights(UWRenderPathHost pOHost)
@@ -96,7 +99,7 @@ public sealed class UWRemasterLights : IUWRemasterFeature
         }
 
         if (!mbBuilt || miBuiltLevel != mOLevelLoader.CurrentLevelIndex
-            || miBuiltParticleState != fGetParticleState(lOSettings))
+            || miBuiltParticleState != fGetParticleState(lOSettings) || miBuiltTone != UWUserSettings.LightTone)
         {
             fClear();
             fBuild(lOSettings);
@@ -183,6 +186,7 @@ public sealed class UWRemasterLights : IUWRemasterFeature
 
         miBuiltLevel = mOLevelLoader.CurrentLevelIndex;
         miBuiltParticleState = fGetParticleState(pOSettings);
+        miBuiltTone = UWUserSettings.LightTone;
         mbBuilt = true;
 
         fRefreshPlayerLight();

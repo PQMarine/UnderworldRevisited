@@ -55,6 +55,9 @@ namespace UWDataImport.UWData
 			fAdd("grammar.rule.font", UWGrammarGeneric.NoneValue);
 			fAdd("grammar.rule.ime", "no");
 
+			// THE SOUND TAGS (2026-11-04, UWGrammarGeneric.TagsOf): "tag=beginnings; ..." - none.
+			fAdd(UWGrammarGeneric.TagsRuleId, UWGrammarGeneric.NoneValue);
+
 			// {0} the noun phrase (its gender, case and count for select and plural).
 			fAdd("grammar.article.indefinite", "{0}");
 			fAdd("grammar.article.definite", "{0}");

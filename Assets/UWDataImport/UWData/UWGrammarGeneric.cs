@@ -27,6 +27,12 @@ namespace UWDataImport.UWData
 	///                              read for every language - UWLanguageFont); with one the letters beyond
 	///                              the classic fonts are typeable and drawn
 	///   grammar.rule.ime           yes: the text entries use the system's input method (no; UWLanguageFont)
+	///   grammar.rule.tags          the sound tags a phrase's start gives it, for the frames' select (none;
+	///                              2026-11-04, a French translator's elision): "v=a e i o u h; z=sb sc"
+	///                              - a phrase starting with one of a tag's beginnings has it, a name's
+	///                              prefix adds or takes one away when the phrase starts with its noun
+	///                              ("m-v:héros", UWNameFormat); select tries the tags before the gender
+	///                              (UWNamePhrase.SelectKeys): "{0,select,v{l'{0}}f{la {0}}other{le {0}}}"
 	///   grammar.article.indefinite the indefinite article around the noun phrase {0} ("{0}": none;
 	///                              "{0,select,f{une {0}}other{un {0}}}")
 	///   grammar.article.definite   the definite one, the same way ("{0,select,f{la {0}}other{le {0}}}")
@@ -155,7 +161,7 @@ namespace UWDataImport.UWData
 		{
 			"grammar.rule.genders", "grammar.rule.cases", "grammar.rule.case.subject", "grammar.rule.case.object", "grammar.rule.case.place",
 			"grammar.rule.case.look", "grammar.rule.plural", "grammar.rule.capital", "grammar.rule.letters", "grammar.rule.alphabet",
-			"grammar.rule.alphabet.lower", UWLanguageFont.FontRuleId, UWLanguageFont.ImeRuleId, "grammar.article.indefinite",
+			"grammar.rule.alphabet.lower", UWLanguageFont.FontRuleId, UWLanguageFont.ImeRuleId, TagsRuleId, "grammar.article.indefinite",
 			"grammar.article.definite", "grammar.article.your", "grammar.phrase.words", "grammar.phrase.count"
 		};
 
@@ -243,7 +249,179 @@ namespace UWDataImport.UWData
 				lsFound.Add("grammar.rule.alphabet: the classic fonts cannot draw " + lOUndrawn.Count + " of its letters (" + new string(lOUndrawn.ToArray())
 					+ ") - the language needs a font of its own");
 
+			foreach (string lsProblem in ParseTags(lOText(TagsRuleId)).Problems)
+				lsFound.Add(TagsRuleId + ": " + lsProblem);
+
 			return lsFound;
+		}
+
+		// ------------------------------------------------- The sound tags
+
+		public const string TagsRuleId = "grammar.rule.tags";
+
+		/// <summary>A language's sound tags: each tag with the beginnings that give it, in the rule's
+		/// order, and what is wrong with the rule.</summary>
+		public sealed class TagRule
+		{
+			public readonly List<KeyValuePair<string, string[]>> Tags = new List<KeyValuePair<string, string[]>>();
+
+			public readonly List<string> Problems = new List<string>();
+
+			public string[] Keys
+			{
+				get
+				{
+					string[] lsKeys = new string[Tags.Count];
+
+					for (int liAt = 0; liAt < Tags.Count; liAt++)
+						lsKeys[liAt] = Tags[liAt].Key;
+
+					return lsKeys;
+				}
+			}
+		}
+
+		/// <summary>grammar.rule.tags: "tag=beginning beginning ...; tag=..." ("none" or empty: no tags).
+		/// A tag is letters a-z, no gender letter, case key or plural category (a select could not tell
+		/// them apart); the beginnings are compared in lower case.</summary>
+		public static TagRule ParseTags(string psRule)
+		{
+			TagRule lORule = new TagRule();
+			string lsRule = (psRule ?? string.Empty).Trim();
+
+			if (lsRule.Length == 0 || lsRule == NoneValue)
+				return lORule;
+
+			foreach (string lsPart in lsRule.Split(';'))
+			{
+				string lsEntry = lsPart.Trim();
+
+				if (lsEntry.Length == 0)
+					continue;
+
+				int liEquals = lsEntry.IndexOf('=');
+
+				if (liEquals < 1)
+				{
+					lORule.Problems.Add(lsEntry + " is no tag=beginnings");
+
+					continue;
+				}
+
+				string lsKey = lsEntry.Substring(0, liEquals).Trim().ToLowerInvariant();
+				bool lbLetters = lsKey.Length > 0;
+
+				foreach (char lcChar in lsKey)
+					lbLetters &= lcChar >= 'a' && lcChar <= 'z';
+
+				if (!lbLetters)
+				{
+					lORule.Problems.Add("the tag " + lsKey + " is not letters a-z only");
+
+					continue;
+				}
+
+				if ((lsKey.Length == 1 && UWNameFormat.GenderLetters.IndexOf(lsKey[0]) >= 0) || Array.IndexOf(UWNameFormat.CaseKeys, lsKey) >= 0
+					|| UWPluralRules.IsCategory(lsKey))
+				{
+					lORule.Problems.Add("the tag " + lsKey + " is a gender letter, case key or plural category - a select could not tell them apart");
+
+					continue;
+				}
+
+				bool lbTwice = false;
+
+				foreach (KeyValuePair<string, string[]> lOTag in lORule.Tags)
+					lbTwice |= lOTag.Key == lsKey;
+
+				if (lbTwice)
+				{
+					lORule.Problems.Add("the tag " + lsKey + " given twice");
+
+					continue;
+				}
+
+				// A tag without beginnings is one only a name's +tag gives ("x=").
+				string[] lsBeginnings = lsEntry.Substring(liEquals + 1).ToLowerInvariant().Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+
+				lORule.Tags.Add(new KeyValuePair<string, string[]>(lsKey, lsBeginnings));
+			}
+
+			return lORule;
+		}
+
+		private static string msTagsRaw;
+
+		private static TagRule mOTags = new TagRule();
+
+		/// <summary>The language's tag rule, read anew when its text changed (a switch of language).</summary>
+		private static TagRule Tags
+		{
+			get
+			{
+				string lsRaw = fRule(TagsRuleId);
+
+				if (!string.Equals(lsRaw, msTagsRaw, StringComparison.Ordinal))
+				{
+					mOTags = ParseTags(lsRaw);
+					msTagsRaw = lsRaw;
+				}
+
+				return mOTags;
+			}
+		}
+
+		/// <summary>
+		/// The sound tags of a phrase (UWNamePhrase.Tags): every tag of the rule one of whose beginnings
+		/// the phrase starts with, in lower case; then, when the phrase starts with the name's noun
+		/// (psNoun - no word stands before it), the name's own: -tag takes one away, +tag adds one. A
+		/// word before the noun ("{0} {1}") makes the phrase's start that word's, so only the rule
+		/// counts. Null for none.
+		/// </summary>
+		public static string[] TagsOf(string psPhrase, UWNameFormat pOName, string psNoun)
+		{
+			TagRule lORule = Tags;
+			bool lbOwn = pOName != null && psNoun != null && psPhrase != null && psPhrase.StartsWith(psNoun, StringComparison.Ordinal)
+				&& (pOName.TagsAdded.Count > 0 || pOName.TagsRemoved.Count > 0);
+
+			if (lORule.Tags.Count == 0 && !lbOwn)
+				return null;
+
+			string lsStart = (psPhrase ?? string.Empty).TrimStart().ToLowerInvariant();
+			List<string> lsTags = new List<string>();
+
+			foreach (KeyValuePair<string, string[]> lOTag in lORule.Tags)
+			{
+				foreach (string lsBeginning in lOTag.Value)
+				{
+					if (lsStart.StartsWith(lsBeginning, StringComparison.Ordinal))
+					{
+						lsTags.Add(lOTag.Key);
+
+						break;
+					}
+				}
+			}
+
+			if (lbOwn)
+			{
+				foreach (string lsTag in pOName.TagsRemoved)
+					lsTags.Remove(lsTag);
+
+				foreach (string lsTag in pOName.TagsAdded)
+				{
+					if (!lsTags.Contains(lsTag))
+						lsTags.Add(lsTag);
+				}
+			}
+
+			return lsTags.Count == 0 ? null : lsTags.ToArray();
+		}
+
+		/// <summary>The phrase as a frame takes it: gender, case, count and its sound tags.</summary>
+		private static UWNamePhrase fNamePhrase(UWNameFormat pOName, string psPhrase, string psNoun, string psCase, int piCount)
+		{
+			return new UWNamePhrase(psPhrase, pOName.Gender, psCase, piCount, TagsOf(psPhrase, pOName, psNoun));
 		}
 
 		// ------------------------------------------------- The name format
@@ -260,7 +438,7 @@ namespace UWDataImport.UWData
 			if (lOName == null)
 				return NamesHaveGender ? "no gender prefix (" + string.Join(":, ", Genders.ToCharArray()) + ": as in m:name&names) - the name reads by the English rules" : null;
 
-			return lOName.Check(NamesHaveGender ? Genders : UWNameFormat.GenderLetters, Cases, PluralCode);
+			return lOName.Check(NamesHaveGender ? Genders : UWNameFormat.GenderLetters, Cases, PluralCode, Tags.Keys);
 		}
 
 		public override string GenderOf(string psRaw)
@@ -284,9 +462,10 @@ namespace UWDataImport.UWData
 
 			for (int liAt = psWords.Count - 1; liAt >= 0; liAt--)
 			{
-				string lsWord = fWord(psWords[liAt], new UWNamePhrase(lsPhrase, pOName.Gender, psCase, piCount));
+				UWNamePhrase lOSoFar = fNamePhrase(pOName, lsPhrase, psNoun, psCase, piCount);
+				string lsWord = fWord(psWords[liAt], lOSoFar);
 
-				lsPhrase = UWText.F("grammar.phrase.words", lsWord, new UWNamePhrase(lsPhrase, pOName.Gender, psCase, piCount));
+				lsPhrase = UWText.F("grammar.phrase.words", lsWord, lOSoFar);
 			}
 
 			return lsPhrase;
@@ -310,10 +489,10 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The phrase with the name's own article (i: the indefinite frame, d: the definite one,
-		/// o: none).</summary>
-		private static string fArticle(UWNameFormat pOName, string psPhrase, string psCase, int piCount)
+		/// o: none); psNoun the noun the phrase was built on (its tags).</summary>
+		private static string fArticle(UWNameFormat pOName, string psPhrase, string psNoun, string psCase, int piCount)
 		{
-			UWNamePhrase lOPhrase = new UWNamePhrase(psPhrase, pOName.Gender, psCase, piCount);
+			UWNamePhrase lOPhrase = fNamePhrase(pOName, psPhrase, psNoun, psCase, piCount);
 
 			if (pOName.Article == UWNameFormat.Definite)
 				return UWText.F("grammar.article.definite", lOPhrase);
@@ -330,7 +509,7 @@ namespace UWDataImport.UWData
 			string lsNoun = pOName.PluralFor(UWPluralRules.Category(PluralCode, piCount));
 			string lsPhrase = fWithWords(pOName, lsNoun, psWords, psCase, piCount);
 
-			return UWText.F("grammar.phrase.count", piCount, new UWNamePhrase(lsPhrase, pOName.Gender, psCase, piCount));
+			return UWText.F("grammar.phrase.count", piCount, fNamePhrase(pOName, lsPhrase, lsNoun, psCase, piCount));
 		}
 
 		/// <summary>One thing with its words and its article, or a count.</summary>
@@ -339,9 +518,10 @@ namespace UWDataImport.UWData
 			if (piCount > 1)
 				return fCounted(pOName, piCount, psWords, psCase);
 
-			string lsPhrase = fWithWords(pOName, fNounIn(pOName, psCase), psWords, psCase, 1);
+			string lsNoun = fNounIn(pOName, psCase);
+			string lsPhrase = fWithWords(pOName, lsNoun, psWords, psCase, 1);
 
-			return pbArticle ? fArticle(pOName, lsPhrase, psCase, 1) : lsPhrase;
+			return pbArticle ? fArticle(pOName, lsPhrase, lsNoun, psCase, 1) : lsPhrase;
 		}
 
 		private static List<string> fWords(params string[] psWords)
@@ -368,14 +548,16 @@ namespace UWDataImport.UWData
 
 			string lsCase = CaseKey(peCase);
 
+			string lsNoun = fNounIn(lOName, lsCase);
+
 			if (!pbPlural)
-				return pbArticle ? fArticle(lOName, fNounIn(lOName, lsCase), lsCase, 1) : fNounIn(lOName, lsCase);
+				return pbArticle ? fArticle(lOName, lsNoun, lsNoun, lsCase, 1) : lsNoun;
 
 			string lsPlural = lOName.PluralIn(lsCase);
 
 			// The indefinite plural has no article; the definite one has.
 			return pbArticle && lOName.Article == UWNameFormat.Definite
-				? UWText.F("grammar.article.definite", new UWNamePhrase(lsPlural, lOName.Gender, lsCase, -1))
+				? UWText.F("grammar.article.definite", fNamePhrase(lOName, lsPlural, lsPlural, lsCase, -1))
 				: lsPlural;
 		}
 
@@ -428,8 +610,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>As German: a kind or name left English reads by the English rules; a block 7 name with
-		/// the prefix replaces the kind, one without follows it (grammar.look.named); the attitude word
-		/// shows only with a kind.</summary>
+		/// the prefix replaces the kind, one without follows it (grammar.look.named, whose {0} is the
+		/// kind's phrase with the kind's gender since 2026-11-04 - "nommée"); the attitude word shows
+		/// only with a kind.</summary>
 		public override string CreatureLook(string psAttitude, string psKind, string psName)
 		{
 			if (psKind == null && psName == null)
@@ -448,7 +631,7 @@ namespace UWDataImport.UWData
 				lsPhrase = fPhrase(lOName, 1, lsWords, LookCase, true);
 			else if (psName != null)
 				lsPhrase = lOKind != null
-					? UWText.F("grammar.look.named", fPhrase(lOKind, 1, lsWords, LookCase, true), psName.Replace('_', ' '))
+					? UWText.F("grammar.look.named", new UWNamePhrase(fPhrase(lOKind, 1, lsWords, LookCase, true), lOKind.Gender, LookCase), psName.Replace('_', ' '))
 					: psName.Replace('_', ' ');
 			else
 				lsPhrase = fPhrase(lOKind, 1, lsWords, LookCase, true);
@@ -476,8 +659,9 @@ namespace UWDataImport.UWData
 				return base.TheName(psRaw, peCase);
 
 			string lsCase = CaseKey(peCase);
+			string lsNoun = fNounIn(lOName, lsCase);
 
-			return UWText.F("grammar.article.definite", new UWNamePhrase(fNounIn(lOName, lsCase), lOName.Gender, lsCase, lOName.IsPluralOnly ? -1 : 1));
+			return UWText.F("grammar.article.definite", fNamePhrase(lOName, lsNoun, lsNoun, lsCase, lOName.IsPluralOnly ? -1 : 1));
 		}
 
 		public override string YourName(string psRaw, UWGrammarCase peCase)
@@ -488,8 +672,9 @@ namespace UWDataImport.UWData
 				return base.YourName(psRaw, peCase);
 
 			string lsCase = CaseKey(peCase);
+			string lsNoun = fNounIn(lOName, lsCase);
 
-			return UWText.F("grammar.article.your", new UWNamePhrase(fNounIn(lOName, lsCase), lOName.Gender, lsCase, lOName.IsPluralOnly ? -1 : 1));
+			return UWText.F("grammar.article.your", fNamePhrase(lOName, lsNoun, lsNoun, lsCase, lOName.IsPluralOnly ? -1 : 1));
 		}
 
 		public override bool TakesPluralVerb(string psRaw)

@@ -35,6 +35,11 @@ namespace UWDataImport.UWData
 			fAdd("effects.ground_shadows", "Ground shadows");
 			fAdd("effects.grime_along_the_walls", "Grime along the walls");
 			fAdd("effects.grime_colour", "Grime colour");
+			fAdd("effects.ambient_light", "Ambient light");
+			fAdd("effects.light_colour", "Light colour");
+			fAdd("effects.light.warm", "Warm");
+			fAdd("effects.light.cool", "Cooler");
+			fAdd("effects.light.white", "White");
 			fAdd("effects.on", "On");
 			fAdd("effects.off", "Off");
 			fAdd("effects.tonemapping.off", "Off");

@@ -43,7 +43,8 @@ public sealed class UWEffectsScreen
         Slider,
         Steps,
         Tonemapping,
-        GrimeTone
+        GrimeTone,
+        LightTone
     }
 
     private class Row
@@ -117,6 +118,13 @@ public sealed class UWEffectsScreen
         fAddRow("effects.grime_colour", KindEnum.GrimeTone, 0f, UWGrimeTint.ToneCount - 1,
             v => UWUserSettings.PaletteGrimeTone, (v, f) => UWUserSettings.PaletteGrimeTone = Mathf.RoundToInt(f));
 
+        // THE LIGHT (per user, 2026-11-04): the viewer's own like the grime, kept apart from the presets.
+        fAddRow("effects.ambient_light", KindEnum.Slider, 0f, 3f,
+            v => UWUserSettings.AmbientLight, (v, f) => UWUserSettings.AmbientLight = f);
+        fAddRow("effects.light_colour", KindEnum.LightTone, 0f, UWLightColour.ToneWhite,
+            v => UWUserSettings.LightTone, (v, f) => UWUserSettings.LightTone = Mathf.RoundToInt(f));
+        mORows[mORows.Count - 1].RemasteredOnly = true;
+
         mOPage = fBuildPage();
         miPageLanguage = UWText.LanguageVersion;
     }
@@ -187,6 +195,7 @@ public sealed class UWEffectsScreen
 
                 case KindEnum.Tonemapping:
                 case KindEnum.GrimeTone:
+                case KindEnum.LightTone:
                     lOPageRow.Kind = UWSetupRow.KindEnum.ChoiceRow;
                     lOPageRow.ChoiceColumns = ChoiceColumns;
                     lOPageRow.Choices = new string[(int)lORow.Max + 1];
@@ -235,6 +244,9 @@ public sealed class UWEffectsScreen
             case KindEnum.GrimeTone:
                 return fToneName(Mathf.RoundToInt(pfValue));
 
+            case KindEnum.LightTone:
+                return fLightToneName(Mathf.RoundToInt(pfValue));
+
             case KindEnum.Steps:
                 return msWhole(pfValue);
 
@@ -251,6 +263,16 @@ public sealed class UWEffectsScreen
             case 2: return UWText.T("effects.tone.moss");
             case 3: return UWText.T("effects.tone.soot");
             default: return UWText.T("effects.tone.none");
+        }
+    }
+
+    private static string fLightToneName(int piValue)
+    {
+        switch (piValue)
+        {
+            case UWLightColour.ToneCool: return UWText.T("effects.light.cool");
+            case UWLightColour.ToneWhite: return UWText.T("effects.light.white");
+            default: return UWText.T("effects.light.warm");
         }
     }
 
@@ -276,7 +298,7 @@ public sealed class UWEffectsScreen
 
             if (!float.IsNaN(lfOwn))
                 lORow.Set(pOValues, lfOwn);
-            else if (lORow.Kind != KindEnum.GrimeTone)
+            else if (lORow.Kind != KindEnum.GrimeTone && lORow.Kind != KindEnum.LightTone)
                 lORow.Set(pOValues, lORow.Get(lOPreset));
         }
     }
@@ -585,6 +607,8 @@ public sealed class UWEffectsScreen
 
         lOText.Append("PaletteGrime=").Append(fNumber(UWUserSettings.PaletteGrime)).Append(';');
         lOText.Append("PaletteGrimeTone=").Append(UWUserSettings.PaletteGrimeTone).Append(';');
+        lOText.Append("AmbientLight=").Append(fNumber(UWUserSettings.AmbientLight)).Append(';');
+        lOText.Append("LightTone=").Append(UWUserSettings.LightTone).Append(';');
 
         return lOText.ToString();
     }

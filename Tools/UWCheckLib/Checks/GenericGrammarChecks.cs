@@ -61,7 +61,7 @@ namespace UnderworldRevisited.Tools
             UWTextLanguageFile lOXs = UWTextLanguageFile.Parse(File.ReadAllText(lsXs, Encoding.UTF8));
 
             Check.Str("generic: the fixtures' port texts read whole", lOXg.Texts.Count + " " + string.Join("; ", lOXg.Problems) + "|"
-                + lOXs.Texts.Count + " " + string.Join("; ", lOXs.Problems), "19 |11 ");
+                + lOXs.Texts.Count + " " + string.Join("; ", lOXs.Problems), "20 |11 ");
 
             IUWGrammar lIXg = UWGrammar.For("xg");
             IUWGrammar lIXs = UWGrammar.For("xs");
@@ -92,6 +92,28 @@ namespace UnderworldRevisited.Tools
                     + "the plural category few is none of fr's (one many other)|fine");
                 Check.Str("xg: a name left English reads by the English rules", lIXg.Name("a_wumpel&wumpels", false, true, UWGrammarCase.Nominative) + "|"
                     + lIXg.ItemPhrase("a_wumpel&wumpels", 2, null, false, false), "a wumpel|2 wumpels");
+
+                // THE SOUND TAGS (2026-11-04, a French translator's elision): the rule's beginnings (a e i o
+                // u h give v), a name's -v (the h aspiré) and +y (a tag only names give), the tag before
+                // the gender in the select; the words after the noun leave the noun's start in front.
+                Check.Str("xg: the sound tags elide the definite article, a name takes one away or adds one", lIXg.TheName("m:ulmo&ulmos", UWGrammarCase.Nominative)
+                    + "|" + lIXg.TheName("f:Hirka", UWGrammarCase.Nominative) + "|" + lIXg.TheName("m-v:hakko", UWGrammarCase.Nominative) + "|"
+                    + lIXg.ItemPhrase("fd:Ombra", 1, null, true, false) + "|" + lIXg.Name("pd:ulmi", true, true, UWGrammarCase.Nominative) + "|"
+                    + lIXg.Name("m:ulmo", false, true, UWGrammarCase.Nominative) + "|" + string.Join(",", UWGrammarGeneric.TagsOf("ulmo glimo", UWNameFormat.Parse("m+y:ulmo"), "ulmo")),
+                    "l'ulmo|l'Hirka|lo hakko|l'Ombra brakka|l'ulmi|ko ulmo|v,y");
+                Check.Str("xg: the select tries the tags, then the gender", string.Join(",", new UWNamePhrase("ulmo", "m", "acc", 1, new[] { "v", "y" }).SelectKeys())
+                    + "|" + string.Join(",", new UWNamePhrase("zirba", "f", null).SelectKeys()),
+                    "m.v.acc,m.v,m.y.acc,m.y,v.acc,v,y.acc,y,m.acc,m|f");
+                Check.Str("xg: \"named\" agrees with the kind", lIXg.CreatureLook("{0,select,f{grumma}other{grummo}}", "f:grumbla", "Bodo"),
+                    "Vu zei ka grumbla grumma noma Bodo.");
+                Check.Str("xg: the name check knows the tags", lIXg.CheckName("m+q-v:ulmo") + "|" + string.Join("; ", UWNameFormat.Parse("m+v-v:ulmo").Problems),
+                    "the tag q is none of grammar.rule.tags (v y)|the tag v given twice in the prefix");
+                Check.Str("generic: the header check reads the tags", string.Join("; ", UWGrammarGeneric.CheckHeader(psId => psId == UWGrammarGeneric.TagsRuleId
+                    ? "v=a e; m=x; acc=y; few=z; v=b; 2=c; w" : null)),
+                    "grammar.rule.tags: the tag m is a gender letter, case key or plural category - a select could not tell them apart; "
+                    + "grammar.rule.tags: the tag acc is a gender letter, case key or plural category - a select could not tell them apart; "
+                    + "grammar.rule.tags: the tag few is a gender letter, case key or plural category - a select could not tell them apart; "
+                    + "grammar.rule.tags: the tag v given twice; grammar.rule.tags: the tag 2 is not letters a-z only; grammar.rule.tags: w is no tag=beginnings");
 
                 UWText.UseLanguage("xs", lOXs);
 

@@ -110,6 +110,13 @@ namespace UWDataImport.UWData
 			fAdd("setting.PaletteGrimeTone.choice.dirt", "Dirt");
 			fAdd("setting.PaletteGrimeTone.choice.moss", "Moss");
 			fAdd("setting.PaletteGrimeTone.choice.soot", "Soot");
+			fAdd("setting.AmbientLight", "Ambient light");
+			fAdd("setting.AmbientLight.hint", "How bright the world is without a light of your own, in Remastered and Palette colours. 100 % is as shipped, 0 % dark as in the original.");
+			fAdd("setting.LightTone", "Light colour");
+			fAdd("setting.LightTone.hint", "The colour of torches, lanterns, fires and spells in Remastered. Palette colours keeps the original's colours.");
+			fAdd("setting.LightTone.choice.warm", "Warm");
+			fAdd("setting.LightTone.choice.cool", "Cooler");
+			fAdd("setting.LightTone.choice.white", "White");
 			fAdd("setting.PaletteDepth", "Depth");
 			fAdd("setting.PaletteDepth.hint", "Stones stand out from their joints and shift against them as you move, with their shadow.");
 			fAdd("setting.PaletteCavity", "Hollows");

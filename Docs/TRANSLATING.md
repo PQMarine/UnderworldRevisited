@@ -110,13 +110,14 @@ Object names (block 4) and the names built from blocks 1, 7 and 10 are written s
 can put them in a case, a number and after an article:
 
 ```
-<gender>[<article>]:<singular>[|<oblique>][|<case>=<form>]...[&<plural>][&<key>=<form>]...
+<gender>[<article>][+<tag>|-<tag>]...:<singular>[|<oblique>][|<case>=<form>]...[&<plural>][&<key>=<form>]...
 ```
 
 | Part | Meaning |
 |---|---|
 | gender | `m`, `f`, `n`, `c` (common, as Dutch or Swedish "de/en" words) or `p` (a plural only) |
 | article | nothing: the indefinite article; `d`: the definite one; `o`: none |
+| `+tag`, `-tag` | a sound tag the name has, or does not have although its first letters give it (see [Sound tags](#sound-tags)) |
 | `\|oblique` | the singular in every case but the nominative, where no case form is named |
 | `\|case=form` | the singular in one case: `nom gen dat acc ins loc voc abl par ess tra ine ela ill ade all abe com` |
 | `&plural` | the plural |
@@ -131,11 +132,29 @@ so a name left English still works. Examples:
 4	2	f:zirba|acc=zirbu|loc=zirbe&zirby&few=zirby&many=zirb
 4	3	nd:Kopa da Lumo
 4	4	p:klunker&dat=klunkern
+4	5	m-v:hakko&hakkos
 ```
 
 The grammar asks for a case and takes the named form, else (outside the nominative) the oblique
 form, else the singular. After a count it takes the form named for the count's category, else for
 `one` the singular (Russian 21, French 0), else the plural.
+
+### Creatures and their names (block 7)
+
+Looking at a creature shows its attitude word, its kind (block 4) and the name of its conversation
+(block 7). How block 7's name joins in depends on its first letter, as in the original:
+
+- **A name in lower case replaces the kind**: "You see a peaceful prisoner." (`7 41 prisoner`), the
+  golem, the bandits, the guards, the imp. Write it in the name format (`7	41	m:prisonnier`):
+  without the prefix the whole sentence falls back to the English rules, and you get the English
+  article and word order.
+- **A proper name in upper case follows the kind** through `grammar.look.named`: "You see a mellow
+  outcast named Bragit." Leave it without a prefix. With one it would replace the kind. The frame's
+  `{0}` is the kind with its article and words, and it selects on the kind's gender:
+  `{0,select,f{{0} nommée {1}}other{{0} nommé {1}}}`.
+- The kind needs the prefix too: a kind left English also makes the sentence English.
+- Block 7's names from 257 on (the creatures of the void) stand alone with their article, so write
+  them in the name format as well (`md:...` for "the Slasher of Veils").
 
 ## Slots, select and plural
 
@@ -159,9 +178,11 @@ shown as it stands, braces and all.
 
 ### Select
 
-`{n,select,KEY{text}...other{text}}` chooses a text by argument n. A name chooses by its gender and
-the case it stands in: first `gender.case` (`m.acc`), then the gender (`m`), then `other`. Any
-other argument chooses by its text.
+`{n,select,KEY{text}...other{text}}` chooses a text by argument n. A name chooses by its sound
+tags, its gender and the case it stands in: first, for each tag, `gender.tag.case` and
+`gender.tag` (`m.v.acc`, `m.v`); then, for each tag, `tag.case` and `tag` (`v`); then
+`gender.case` (`m.acc`), then the gender (`m`), then `other`. Any other argument chooses by its
+text.
 
 ```
 msg.wear.damaged	{0} {0,select,f{es rumpa}n{es rumpi}other{es rumpo}}.
@@ -210,6 +231,7 @@ in its `<code>.tsv`, tell the grammar what it needs. The English values are the 
 | `grammar.rule.alphabet.lower` | `auto` | their lower case, letter for letter (`auto`: each letter's lower case) |
 | `grammar.rule.font` | `none` | the fonts that draw what the port's fonts lack, in order - see [Fonts and input methods](#fonts-and-input-methods); read for every language |
 | `grammar.rule.ime` | `no` | `yes`: the text fields use the system's input method (Chinese, Japanese, Korean); read for every language |
+| `grammar.rule.tags` | `none` | the sound tags and the first letters that give them (`v=a e i o u h; z=sb sc`) - see [Sound tags](#sound-tags) |
 | `grammar.article.indefinite` | `{0}` | the indefinite article around the noun phrase `{0}` |
 | `grammar.article.definite` | `{0}` | the definite one |
 | `grammar.article.your` | `{0}` | the possessive of the player's own thing |
@@ -227,6 +249,43 @@ grammar.phrase.words	{1} {0}
 
 The words beside a name - the condition words of block 5, the attitude words, and the texts of
 `grammar.word.magical` and `grammar.word.cursed` - may agree with it: `{0}` in them is the name.
+
+### Sound tags
+
+Some articles change with the sound that follows: French "le homme" is "l'homme", Italian has "lo
+zaino" and "l'uomo", Spanish "el agua". `grammar.rule.tags` names tags and the first letters that
+give them, separated by `;`:
+
+```
+grammar.rule.tags	v=a e i o u h é è ê â î ô û œ
+```
+
+A phrase starting with one of the beginnings has the tag (compared in lower case), and the select
+tries the tags before the gender, so one branch serves both genders:
+
+```
+grammar.article.definite	{0,select,v{l'{0}}f{la {0}}other{le {0}}}
+grammar.article.indefinite	{0,select,f{une {0}}other{un {0}}}
+```
+
+The tag belongs to the start of the phrase the frame gets: with the words after the noun
+(`grammar.phrase.words	{1} {0}`) that is the noun, with a word before it that word. A name
+corrects the rule where its first letters mislead: `-v` takes the tag away (the h aspiré,
+`m-v:héros`), `+v` adds it. A tag with no beginnings (`x=`) is one only names give. A tag is
+letters a-z and may not be a gender letter, a case key or a plural category.
+
+A bare tag (`v`) wins over the gender, so where the genders differ before a tag, name the
+gender with it (`m.z`). Italian, with two tags:
+
+```
+grammar.rule.tags	v=a e i o u; z=z gn ps x y sb sc sd sf sg sl sm sn sp sq sr st sv
+grammar.article.definite	{0,select,v{l'{0}}m.z{lo {0}}f{la {0}}other{il {0}}}
+grammar.article.indefinite	{0,select,f.v{un'{0}}m.z{uno {0}}f{una {0}}other{un {0}}}
+```
+
+Every name passed to a message's frame carries the tags of its start too, so a frame may elide
+before it: `{0,select,v{d'{0}}other{de {0}}}`. An apostrophe in a frame is a plain character; only
+`'{'`, `'}'` and `'#'` are escapes.
 
 ```
 5	97	{0,select,f{grumma}other{grummo}}

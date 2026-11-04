@@ -176,6 +176,21 @@ public class UWMainMenu : MonoBehaviour
     /// <summary>Where that line stands, under the buttons at the screen's foot.</summary>
     private const int WorkInProgressTop = 186;
 
+    /// <summary>The port's version in the bottom right corner (Application.version, the player
+    /// settings' bundleVersion), so a player can name it in a report (per user, 2026-11-04, after
+    /// a Reddit report that could not say which release it came from).</summary>
+    private Text mOVersion;
+
+    /// <summary>Its distance from the screen's right and bottom edge, in screen pixels.</summary>
+    private const int VersionMargin = 2;
+
+    /// <summary>Its size in screen pixels: the modern font, readable over UW2's busy foot where the
+    /// small pixel font was not (per user, 2026-11-04).</summary>
+    private const int VersionFontSize = 7;
+
+    /// <summary>Its outline, in the frame's units (original pixels).</summary>
+    private const float VersionOutline = 0.3f;
+
     private float mfReenterTime = -1f;
 
     private int miReenterSlot;
@@ -418,6 +433,20 @@ public class UWMainMenu : MonoBehaviour
         UWGameClock.ReleaseAll();
     }
 
+    /// <summary>The version in the modern font with its outline, in the frame's bottom right corner;
+    /// unsqueezed against the frame's 4:3 pixel proportion, so the letters keep their shape.</summary>
+    private void fShowVersion()
+    {
+        if (mOVersion == null)
+            return;
+
+        float lfFactor = UWClassicScreen.HorizontalPixelFactor;
+
+        mOVersion.text = "v" + Application.version;
+        mOVersion.rectTransform.localScale = new Vector3(lfFactor > 0f ? 1f / lfFactor : 1f, 1f, 1f);
+        mOVersion.gameObject.SetActive(true);
+    }
+
     private void fShowWorkInProgress()
     {
         UWFont lOFont = mOData.Fonts.Get(UWFonts.FontType.Big);
@@ -453,6 +482,8 @@ public class UWMainMenu : MonoBehaviour
 
         fSetModal(true);
         UWGameClock.Hold(UWGameClock.MainMenuHold);
+
+        fShowVersion();
 
         // The second game's menu lights a button from the start (real_start's sel).
         if (IsWalkMenu)
@@ -952,6 +983,19 @@ public class UWMainMenu : MonoBehaviour
 
         mOWorkInProgress = UWUiKit.CreateRawImageAt(mOFrame, "Work in progress", 0, WorkInProgressTop);
         mOWorkInProgress.gameObject.SetActive(false);
+
+        mOVersion = UWUiKit.CreateText(mOFrame, "Version", new Vector2(1f, 0f), new Vector2(1f, 0f), TextAnchor.LowerRight,
+            new Color(0.85f, 0.85f, 0.85f), null,
+            new UWUiKit.TextStyle { KeepsItsFont = true, Effect = UWUiKit.TextEffectEnum.None });
+        mOVersion.fontSize = VersionFontSize;
+
+        // A thin outline: the parts' OutlineDistance is in screen pixels, but this frame's units are the
+        // original's pixels, several screen pixels each - at 1.5 the outline stood off like a shadow.
+        Outline lOOutline = mOVersion.gameObject.AddComponent<Outline>();
+        lOOutline.effectColor = UWModernPalette.Outline;
+        lOOutline.effectDistance = new Vector2(VersionOutline, -VersionOutline);
+        mOVersion.rectTransform.anchoredPosition = new Vector2(-VersionMargin, VersionMargin);
+        mOVersion.gameObject.SetActive(false);
 
         mOCanvas.gameObject.SetActive(false);
     }

@@ -121,5 +121,15 @@ Grime colour | choices | 0 to 3
   press -> PaletteGrimeTone=3 | shows "Soot"
   press -> PaletteGrimeTone=0 | shows "No colour"
   press -> PaletteGrimeTone=1 | shows "Dirt"
+Ambient light | slider | 0 to 3
+  bar 0/89 -> AmbientLight=0 | shows "0.00"
+  bar 1/89 -> AmbientLight=0.033708 | shows "0.03"
+  bar 33/89 -> AmbientLight=1.11236 | shows "1.11"
+  bar 44/89 -> AmbientLight=1.483146 | shows "1.48"
+  bar 89/89 -> AmbientLight=3 | shows "3.00"
+Light colour | choices | 0 to 2
+  press -> LightTone=1 | shows "Cooler"
+  press -> LightTone=2 | shows "White"
+  press -> LightTone=0 | shows "Warm"
 All on -> TorchLights=True, TorchShadows=True, MaxShadowLights=4, LavaLights=True, LightBrightness=1.25, NormalStrength=1.5, SpecularStrength=0.75, ParallaxDepth=0.05, SelfShadow=0.5, Cavity=0.4, EmissiveStrength=2, BloomIntensity=1, AmbientOcclusion=True, Tonemapping=Neutral, SpriteGlow=1, FireFlicker=0.3, FireSparks=1, FireSmoke=0.5, Dust=1, GroundShadow=0.6, PaletteGrime=3
 All off -> TorchLights=False, TorchShadows=False, LavaLights=False, NormalStrength=0, SpecularStrength=0, ParallaxDepth=0, SelfShadow=0, Cavity=0, EmissiveStrength=0, BloomIntensity=0, AmbientOcclusion=False, Tonemapping=Off, SpriteGlow=0, FireFlicker=0, FireSparks=0, FireSmoke=0, Dust=0, GroundShadow=0, PaletteGrime=0

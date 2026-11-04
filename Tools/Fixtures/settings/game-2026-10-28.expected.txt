@@ -1,4 +1,5 @@
 ActionBarHidden = False
+AmbientLight = 1
 ClassicWidescreen = False
 ColourBrightness = 1
 ColourContrast = 1
@@ -27,6 +28,7 @@ InterfacePreset = 0
 KeyBindings = []
 Language = ""
 LeftStickDeadzone = 0.125
+LightTone = 0
 ManualAttributes = False
 MarkPoison = False
 MinimapHidden = False

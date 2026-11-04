@@ -1,4 +1,5 @@
 ActionBarHidden = True
+AmbientLight = 1
 ClassicWidescreen = True
 ColourBrightness = 1.1
 ColourContrast = 0.95
@@ -27,6 +28,7 @@ InterfacePreset = 2
 KeyBindings = ["Player|ModernLook|0|<Keyboard>/q", "Player|Jump|0|<Gamepad>/buttonSouth"]
 Language = ""
 LeftStickDeadzone = 0.15
+LightTone = 0
 ManualAttributes = True
 MarkPoison = True
 MinimapHidden = True

@@ -66,6 +66,8 @@
     "PaletteGlow": false,
     "PaletteGrime": 0.0,
     "PaletteGrimeTone": 77,
+    "AmbientLight": 1.0,
+    "LightTone": 0,
     "PaletteGroundShadows": 0.0,
     "PaletteCavity": 0.0,
     "PaletteDepth": 0.0,
