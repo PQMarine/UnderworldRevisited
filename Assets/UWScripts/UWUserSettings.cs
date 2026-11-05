@@ -39,6 +39,8 @@ public static class UWUserSettings
     static UWUserSettings()
     {
         Defs.GamepadSwapSticks.OnChange = fApplyKeyBindings;
+        // Switched on, a debug key on a key the other entries use is emptied (per user, 2026-11-05).
+        Defs.DebugKeys.OnChange = fDebugKeysChanged;
         Defs.LeftStickDeadzone.OnChange = fApplyKeyBindings;
         Defs.RightStickDeadzone.OnChange = fApplyKeyBindings;
         // The windows' theme and ground take effect at once, an open window included (the Colours
@@ -55,6 +57,12 @@ public static class UWUserSettings
     private static void fApplyKeyBindings(UWUserData pOData)
     {
         UWControls.ApplyKeyBindings();
+    }
+
+    private static void fDebugKeysChanged(UWUserData pOData)
+    {
+        if (pOData != null && pOData.DebugKeys)
+            UWKeyBindings.ClearClashingDebugKeys();
     }
 
     public static string GogInstallPath
@@ -152,6 +160,8 @@ public static class UWUserSettings
     /// <summary>The interface preset; -1 in the file reads as Custom or Modern (the table's entry).</summary>
     public static int InterfacePreset { get => Defs.InterfacePreset.Read(fGet()); set => Defs.InterfacePreset.Write(fGet(), value); }
 
+    public static bool ClassicWide4By3 { get => Defs.ClassicWide4By3.Read(fGet()); set => Defs.ClassicWide4By3.Write(fGet(), value); }
+
     public static int ConversationTextPercent { get => Defs.ConversationTextPercent.Read(fGet()); set => Defs.ConversationTextPercent.Write(fGet(), value); }
 
     public static bool ModernPointerHold { get => Defs.ModernPointerHold.Read(fGet()); set => Defs.ModernPointerHold.Write(fGet(), value); }
@@ -162,6 +172,8 @@ public static class UWUserSettings
     public static bool MouseInvertY { get => Defs.MouseInvertY.Read(fGet()); set => Defs.MouseInvertY.Write(fGet(), value); }
 
     public static bool WalkSlowToggle { get => Defs.WalkSlowToggle.Read(fGet()); set => Defs.WalkSlowToggle.Write(fGet(), value); }
+
+    public static bool DebugKeys { get => Defs.DebugKeys.Read(fGet()); set => Defs.DebugKeys.Write(fGet(), value); }
 
     public const float MinMouseLookSpeed = Defs.MinMouseLookSpeed;
 

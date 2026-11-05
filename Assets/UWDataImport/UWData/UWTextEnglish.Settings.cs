@@ -60,6 +60,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.PointerSpeed", "Pointer speed");
 			fAdd("setting.PointerSpeed.hint", "In the game the mouse moves the game's own pointer: at 100 % one step of the mouse is one pixel on the screen, without acceleration. The menus use the system's pointer.");
 			fAdd("setting.WalkSlowToggle", "Slow walk key switches on and off instead of being held (modern)");
+			fAdd("setting.DebugKeys", "Debug keys on");
+			fAdd("setting.DebugKeys.hint", "Keys for testing: noclip, the level keys, the debug display and its tools. Switched on, a debug key whose key is already used above is left empty.");
 
 			// The gamepad.
 			fAdd("setting.GamepadButtonStyle", "Button names");

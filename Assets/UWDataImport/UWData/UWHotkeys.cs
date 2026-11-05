@@ -99,12 +99,10 @@ namespace UWDataImport.UWData
 		/// PadBack) when the Escape chain gives it to the row's BackOwner (UWBackChain).</summary>
 		Back,
 
-		/// <summary>The F7 key itself, pressed this frame (the debug tools read it off the keyboard: their
-		/// key must close their own tab while the typing lock silences every action).</summary>
-		RawF7,
-
-		/// <summary>The F10 key itself, likewise.</summary>
-		RawF10
+		/// <summary>The act's key itself, pressed this frame, read off the device (the debug tools: their
+		/// key must close their own tab while the typing lock silences every action). F7 and F10 until
+		/// 2026-11-05; since then the key in force of the act's binding, which the player may change.</summary>
+		RawKey
 	}
 
 	/// <summary>The states a hotkey's group or row asks about - each one a test the host makes live, at
@@ -182,7 +180,11 @@ namespace UWDataImport.UWData
 
 		/// <summary>The Controls window waits for a key or a button, or the wait ended in this frame
 		/// (UWKeyBindings.HoldsKeys): the press is the wait's. Every group refuses it (fGroup).</summary>
-		Rebinding = 1L << 21
+		Rebinding = 1L << 21,
+
+		/// <summary>The debug keys are switched off (UWUserSettings.DebugKeys, the Controls window; off
+		/// by default since 2026-11-05, per user). Every debug group refuses it.</summary>
+		DebugKeysOff = 1L << 22
 	}
 
 	/// <summary>What a row does - the host runs it.</summary>
@@ -220,7 +222,6 @@ namespace UWDataImport.UWData
 		SwitchScheme,
 		ToggleHelp,
 		TogglePanelHelp,
-		Teleport,
 		ToggleNoclip,
 		NextLevel,
 		PreviousLevel,
@@ -361,21 +362,22 @@ namespace UWDataImport.UWData
 				UWHotkeyGate.MenuOpen | UWHotkeyGate.KeysLocked | UWHotkeyGate.HelpKeys | UWHotkeyGate.MapVisible | UWHotkeyGate.SetupPanel,
 				false, false),
 
-			// 11 DebugFunctions: P, N.
-			fGroup(UWHotkeySite.DebugKeys, "debug", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.None, false, false),
+			// 11 DebugFunctions: N. Groups 11 to 15 are the debug keys, silent while they are switched off
+			// (DebugKeysOff, the Controls window, since 2026-11-05).
+			fGroup(UWHotkeySite.DebugKeys, "debug", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.DebugKeysOff, false, false),
 
 			// 12 The level keys, in noclip only (the player does not move along).
-			fGroup(UWHotkeySite.DebugKeys, "debug levels", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.Noclip, UWHotkeyGate.None, true, false),
+			fGroup(UWHotkeySite.DebugKeys, "debug levels", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.Noclip, UWHotkeyGate.DebugKeysOff, true, false),
 
 			// 13 F11, Shift+F12, Shift+F11.
-			fGroup(UWHotkeySite.DebugKeys, "debug more", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.None, false, false),
+			fGroup(UWHotkeySite.DebugKeys, "debug more", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.DebugKeysOff, false, false),
 
 			// 14 UWDebugOverlay: Shift+F1.
-			fGroup(UWHotkeySite.DebugOverlay, "overlay", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.None, false, false),
+			fGroup(UWHotkeySite.DebugOverlay, "overlay", UWHotkeyScheme.Both, UWHotkeyModRule.Any, UWHotkeyGate.None, UWHotkeyGate.DebugKeysOff, false, false),
 
 			// 15 UWDebugTools: Shift+F7, Shift+F10 - silent while typing elsewhere; they still close their own tab.
 			fGroup(UWHotkeySite.DebugTools, "debug tools", UWHotkeyScheme.Both, UWHotkeyModRule.Shift, UWHotkeyGate.None,
-				UWHotkeyGate.OtherTyping, false, false)
+				UWHotkeyGate.OtherTyping | UWHotkeyGate.DebugKeysOff, false, false)
 		};
 
 		/// <summary>The rows, by group, in each group's order.</summary>
@@ -435,12 +437,15 @@ namespace UWDataImport.UWData
 
 			fRow(10, "Tab, View held", UWAct.ToggleHelp, UWHotkeyTrigger.Performed, UWHotkeyModRule.Any, UWHotkeyHandler.TogglePanelHelp),
 
-			fRow(11, "P", UWAct.TeleportDebug, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.Teleport),
+			// P, the test teleport to a fixed spot, went on 2026-11-05 (per user): one key without a
+			// modifier moved the character away unasked.
 			fRow(11, "N", UWAct.ToggleSpectator, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleNoclip,
 				UWHotkeyGate.None, UWHotkeyGate.ScreenMenu),
 
-			fRow(12, "Page Up", UWAct.NextLevel, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.NextLevel),
-			fRow(12, "Page Down", UWAct.PrevLevel, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.PreviousLevel),
+			// Page Down goes a level deeper, 1 to 2, since 2026-11-05 (per user: the higher levels lie
+			// deeper in the Abyss); Page Up back up.
+			fRow(12, "Page Down", UWAct.NextLevel, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.NextLevel),
+			fRow(12, "Page Up", UWAct.PrevLevel, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.PreviousLevel),
 
 			// F11 without Shift: Shift+F11 is the forced cast alone (wave 2b).
 			fRow(13, "F11", UWAct.ToggleBrightness, UWHotkeyTrigger.Pressed, UWHotkeyModRule.NoShift, UWHotkeyHandler.ToggleBrightness,
@@ -452,8 +457,8 @@ namespace UWDataImport.UWData
 			fRow(14, "Shift+F1", UWAct.ToggleOverlay, UWHotkeyTrigger.Pressed, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleOverlay),
 
 			// The keys themselves, not an act (the act names the debug map they would lie in).
-			fRow(15, "Shift+F7", UWAct.ToggleOverlay, UWHotkeyTrigger.RawF7, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleDebugJump),
-			fRow(15, "Shift+F10", UWAct.ToggleOverlay, UWHotkeyTrigger.RawF10, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleDebugSearch)
+			fRow(15, "Shift+F7", UWAct.DebugJump, UWHotkeyTrigger.RawKey, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleDebugJump),
+			fRow(15, "Shift+F10", UWAct.DebugSearch, UWHotkeyTrigger.RawKey, UWHotkeyModRule.Any, UWHotkeyHandler.ToggleDebugSearch)
 		};
 
 		/// <summary>UWGameUI's routing is shut: typing, a screen menu, a sequence (the old early return).</summary>

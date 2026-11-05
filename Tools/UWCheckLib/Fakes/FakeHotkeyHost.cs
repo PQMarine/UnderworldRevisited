@@ -45,10 +45,9 @@ namespace UnderworldRevisited.Tools
                         return true;
                     case UWHotkeyTrigger.Back:
                         return BackTakers.Contains(pORow.BackOwner);
-                    case UWHotkeyTrigger.RawF7:
-                        return RawF7;
-                    case UWHotkeyTrigger.RawF10:
-                        return RawF10;
+                    // The tools' keys read off the device: F7 the jump's, F10 the search's.
+                    case UWHotkeyTrigger.RawKey:
+                        return pORow.Act == UWAct.DebugJump ? RawF7 : pORow.Act == UWAct.DebugSearch && RawF10;
                     default:
                         return false;
                 }

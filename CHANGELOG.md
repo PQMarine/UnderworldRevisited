@@ -8,6 +8,44 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.2] - 2026-11-05
+
+### Added
+- The Classic preset of the modern scheme comes at 4:3 too: in the game menu "Classic" has
+  "Wide" and "4:3" beside it. "Wide" is Classic Wide as before, "4:3" keeps the original's frame
+  in the middle of a wide screen with the modern controls - no need to set the desktop to 4:3
+  for it.
+
+### Fixed
+- A container inside a container taken from the floor kept its things only on that level: opened
+  or saved on another level, it held whatever lay there instead, such as a lever or a mist cloud
+  (reported on the forum: the ingredients of a stew in a bowl in a bag became a lever). Everything
+  in a container now comes along when it is picked up or given to you.
+- The widened classic frame (Classic Wide, and the classic screen with "Classic screen
+  widescreen") keeps the original's one-pixel black rim round the view and its outlines at the
+  vines and the ledge; the view showed through there. In the modern scheme's Classic preset the
+  view now has the original's centre, as the classic screen: it stood two rows lower. Its
+  message scroll keeps the chains behind the upper rollers.
+- Closer to the original: the backpack's and an open container's things are drawn at their full
+  16 by 16 pixels on the classic screen, as the original draws them; they were squeezed into 14.
+  The third of the second row sits a pixel further left, as in the original, in both schemes.
+- A change of the colour help in the Colours window now reaches the whole game picture at once:
+  the classic screen, the panels, compass, map, flasks and the mouse pointer kept their old
+  colours until a restart.
+
+### Changed
+- In the modern scheme's Classic preset F switches between the original and the modern font, as on
+  the classic screen: the message scroll and the texts of the pieces follow it. The interface font
+  of the layout editor stays for the other presets.
+- The rune hollow in Classic Wide has no outline any more; the black rim around it is gone.
+- The debug keys (noclip, the level keys, the debug display and its tools) are off by default
+  now, so a key of your own on N or Page Down no longer flies the camera as well. "Debug keys on"
+  at the end of the keyboard tab under Controls switches them on, and there they can be changed
+  like every other key; a debug key whose key you already use is left empty. They are listed at
+  the end of Docs/CONTROLS.md. P, which moved the character to a fixed test spot without asking,
+  is gone; in noclip Page Down now goes a level deeper and Page Up back up.
+- The Controls window no longer reports Shift+F2 as clashing with F2.
+
 ## [0.16.1] - 2026-11-04
 
 ### Added

@@ -1,5 +1,6 @@
 ActionBarHidden = True
 AmbientLight = 1
+ClassicWide4By3 = False
 ClassicWidescreen = True
 ColourBrightness = 1.1
 ColourContrast = 0.95
@@ -8,6 +9,7 @@ ColourStrength = 0.75
 ControlScheme = 1
 ConversationTextPercent = 120
 DebugFolded = ""
+DebugKeys = False
 DisplayAs4By3 = False
 DisplayMode = 1
 EasyMovementInterval = 0.1

@@ -38,8 +38,10 @@ public static class UWModernClassicPlus
     /// <summary>The compass disc's outline: on in Classic Modular, else the own layout's choice.</summary>
     public static bool CompassOutline => IsActive || UWUserSettings.ModernCompassOutline;
 
-    /// <summary>The rune hollow's outline: on in Classic Modular, else the own layout's choice.</summary>
-    public static bool RuneHollowOutline => IsActive || UWUserSettings.ModernRuneHollowOutline;
+    /// <summary>The rune hollow's outline: on in Classic Modular, off in Classic Wide (the frame is
+    /// round it there; per user's screenshot, 2026-11-05: a black rim the original has not), else
+    /// the own layout's choice.</summary>
+    public static bool RuneHollowOutline => IsActive || (!UWModernClassicFrame.IsActive && UWUserSettings.ModernRuneHollowOutline);
 
     /// <summary>The conversation's outline: on in Classic Modular, else the own layout's choice.</summary>
     public static bool ConversationOutline => IsActive || !UWUserSettings.ModernConversationNoOutline;

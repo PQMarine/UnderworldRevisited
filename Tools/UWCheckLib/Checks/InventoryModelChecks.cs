@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UWDataImport;
 using UWDataImport.UWData;
 
@@ -368,6 +369,78 @@ namespace UnderworldRevisited.Tools
             pOModel.Backpack[piSlot] = null;
 
             return true;
+        }
+
+        /// <summary>
+        /// A BAG IN A BAG TAKEN FROM THE WORLD (2026-11-05, a forum report reproduced by the user:
+        /// the stew's ingredients in a bowl in a sack became a mist cloud of level 2). The sack is
+        /// picked up on one level with the bowl inside unopened; on another level the bowl is
+        /// opened. Its things must be its own, not what lies at the same place of the other
+        /// level's list.
+        /// </summary>
+        private static void fCheckNestedPickUp(DataImport pOData)
+        {
+            Check.Group("Nested pick-up (a container in a picked-up container keeps its things across a level change)");
+
+            if (pOData.Levels == null || pOData.Levels.Count < 2 || pOData.Levels[0].Masterlist == null || pOData.Levels[1].Masterlist == null)
+            {
+                Check.Fail("nested pick-up", "two levels are needed");
+
+                return;
+            }
+
+            List<UWObject> lOFirst = pOData.Levels[0].Masterlist;
+            List<UWObject> lOSecond = pOData.Levels[1].Masterlist;
+
+            // Three new places at the end of both lists: sack, bowl and a dead rotworm on the first
+            // level, a lever where the rotworm lies on the second.
+            int liAt = System.Math.Max(lOFirst.Count, lOSecond.Count);
+
+            while (lOFirst.Count < liAt + 3)
+                lOFirst.Add(null);
+
+            while (lOSecond.Count < liAt + 3)
+                lOSecond.Add(null);
+
+            UWObject lOSack = new UWObject(0x80) { Quantity = (ushort)(liAt + 1) };
+            UWObject lOBowl = new UWObject(UWStewRules.BowlObjectId) { Quantity = (ushort)(liAt + 2) };
+            UWObject lOWorm = new UWObject(0xD9);
+
+            lOFirst[liAt] = lOSack;
+            lOFirst[liAt + 1] = lOBowl;
+            lOFirst[liAt + 2] = lOWorm;
+            lOSecond[liAt + 2] = new UWObject(0x175);
+
+            UWLevel lOCurrent = pOData.Levels[0];
+            UWInventoryModel lOModel = new UWInventoryModel(() => pOData, () => lOCurrent);
+
+            lOModel.PickUpToCursor(lOSack);
+
+            Check.Bool("the sack's things came along", lOSack.Contents != null && lOSack.Contents.Count == 1 && lOSack.Contents[0] == lOBowl, true);
+            Check.Bool("the bowl's things came along at once, not on opening", lOBowl.Contents != null, true);
+
+            // The level changes; the bowl is opened there (as UWInventoryModel resolves a container
+            // it opens, against the level of the moment).
+            lOCurrent = pOData.Levels[1];
+            lOBowl.EnsureContentsLoaded(lOCurrent.Masterlist);
+
+            Check.Bool("on the other level the bowl still holds the rotworm, not that level's lever",
+                lOBowl.Contents != null && lOBowl.Contents.Count == 1 && lOBowl.Contents[0] == lOWorm, true);
+
+            // The same through a gift (GiveToPlayer: a partner's trade, a conversation's gift).
+            UWObject lOGiftSack = new UWObject(0x80) { Quantity = (ushort)(liAt + 1) };
+            UWObject lOGiftBowl = new UWObject(UWStewRules.BowlObjectId) { Quantity = (ushort)(liAt + 2) };
+
+            lOFirst[liAt] = lOGiftSack;
+            lOFirst[liAt + 1] = lOGiftBowl;
+            lOCurrent = pOData.Levels[0];
+
+            UWInventoryModel lOGifted = new UWInventoryModel(() => pOData, () => lOCurrent);
+
+            lOGifted.GiveToPlayer(lOGiftSack, false);
+
+            Check.Bool("a gift's bag in the bag is resolved at once", lOGiftBowl.Contents != null && lOGiftBowl.Contents.Count == 1
+                && lOGiftBowl.Contents[0] == lOWorm, true);
         }
     }
 }

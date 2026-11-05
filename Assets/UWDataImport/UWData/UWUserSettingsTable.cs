@@ -132,6 +132,8 @@ namespace UWDataImport.UWData
 			WhenUnset = d => string.IsNullOrEmpty(d.ModernLayout) && !d.MinimapHidden ? 0 : 1
 		};
 
+		public static readonly UWBoolSettingDef ClassicWide4By3 = fBool(nameof(UWUserData.ClassicWide4By3), d => d.ClassicWide4By3, (d, v) => d.ClassicWide4By3 = v);
+
 		public static readonly UWBoolSettingDef MinimapHidden = fBool(nameof(UWUserData.MinimapHidden), d => d.MinimapHidden, (d, v) => d.MinimapHidden = v, UWSettingStore.Layout);
 
 		public static readonly UWBoolSettingDef ActionBarHidden = fBool(nameof(UWUserData.ActionBarHidden), d => d.ActionBarHidden, (d, v) => d.ActionBarHidden = v, UWSettingStore.Layout);
@@ -190,6 +192,8 @@ namespace UWDataImport.UWData
 		public static readonly UWBoolSettingDef MouseInvertY = fBool(nameof(UWUserData.MouseInvertY), d => d.MouseInvertY, (d, v) => d.MouseInvertY = v);
 
 		public static readonly UWBoolSettingDef WalkSlowToggle = fBool(nameof(UWUserData.WalkSlowToggle), d => d.WalkSlowToggle, (d, v) => d.WalkSlowToggle = v);
+
+		public static readonly UWBoolSettingDef DebugKeys = fBool(nameof(UWUserData.DebugKeys), d => d.DebugKeys, (d, v) => d.DebugKeys = v);
 
 		/// <summary>UWGamepad.ButtonStyleEnum as a number: Xbox, PlayStation, Nintendo, Steam Deck.</summary>
 		public static readonly UWIntSettingDef GamepadButtonStyle = fInt(nameof(UWUserData.GamepadButtonStyle), UWSettingKind.Choice, d => d.GamepadButtonStyle, (d, v) => d.GamepadButtonStyle = v);
@@ -403,10 +407,10 @@ namespace UWDataImport.UWData
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
 			FixOriginalBugs, HelpOpen, HelpTab, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
-			InterfacePreset, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
+			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernMessageLines, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
-			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle,
+			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
 			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,

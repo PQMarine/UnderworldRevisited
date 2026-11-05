@@ -306,10 +306,8 @@ namespace UWDataImport.UWData
 			// A CONTAINER FROM THE WORLD weighs with its contents - but those are only resolved on
 			// first use. Without this the first pick-up of a full bag counted only the bag, so it could
 			// be taken although it was too heavy, and only later tries were refused (per user, bag on
-			// level 3, 2026-09-17).
-			if (pOItem.Contents == null && pOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers
-				&& fLevel != null && fLevel.Masterlist != null)
-				pOItem.EnsureContentsLoaded(fLevel.Masterlist);
+			// level 3, 2026-09-17). The whole tree since 2026-11-05: a full bag in the bag weighs too.
+			fAdoptFromWorld(pOItem);
 
 			int liWeight = UWInventoryWeight.GetItemTenthStones(pOItem, lOProperties);
 
@@ -1436,6 +1434,8 @@ namespace UWDataImport.UWData
 			if (pOItem == null || CursorItem != null)
 				return;
 
+			fAdoptFromWorld(pOItem);
+
 			CursorItem = pOItem;
 			InventoryChanged?.Invoke();
 		}
@@ -1462,12 +1462,25 @@ namespace UWDataImport.UWData
 				return;
 
 			// ITS CHAIN COMES ALONG, resolved while the level's list is at hand - a wand's spell,
-			// a poisoned potion's trap (see UWObjectMechanics.fFindInResolvedChain).
-			if (!pOItem.HasQuantity && pOItem.Quantity != 0 && pOItem.Contents == null
-				&& fLevel != null && fLevel.Masterlist != null)
-				pOItem.EnsureContentsLoaded(fLevel.Masterlist);
+			// a poisoned potion's trap (see UWObjectMechanics.fFindInResolvedChain), and everything
+			// in a container, a bag in it too (fAdoptFromWorld).
+			fAdoptFromWorld(pOItem);
 
 			CursorItem = pOItem;
+		}
+
+		/// <summary>
+		/// A THING FROM THE WORLD (or a partner's inventory) BECOMES THE PLAYER'S: its whole tree
+		/// resolved from the current level's list while that is the list its links name
+		/// (UWObject.EnsureContentsLoadedDeep; 2026-11-05, the stew ingredients that became a lever
+		/// after a level change). The inventory then holds no link into a level any more.
+		/// </summary>
+		private void fAdoptFromWorld(UWObject pOItem)
+		{
+			UWLevel lOLevel = fLevel;
+
+			if (pOItem != null && lOLevel != null && lOLevel.Masterlist != null)
+				pOItem.EnsureContentsLoadedDeep(lOLevel.Masterlist);
 		}
 
 		/// <summary>The host has placed the pointer item in the world: it leaves the pointer.</summary>
@@ -1639,6 +1652,8 @@ namespace UWDataImport.UWData
 		{
 			if (pOItem == null)
 				return GiveOutcome.Floor;
+
+			fAdoptFromWorld(pOItem);
 
 			if (pbPreferBags && TryStoreAnywhere(pOItem))
 				return GiveOutcome.Stored;

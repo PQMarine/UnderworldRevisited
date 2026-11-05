@@ -48,6 +48,8 @@ setting.MouseInvertY	Blick hoch/runter umkehren (modern)
 setting.PointerSpeed	Zeigertempo
 setting.PointerSpeed.hint	Im Spiel bewegt die Maus den eigenen Zeiger des Spiels: bei 100 % ist ein Schritt der Maus ein Pixel auf dem Bildschirm, ohne Beschleunigung. Die Menüs nutzen den Zeiger des Systems.
 setting.WalkSlowToggle	Langsam-Taste schaltet um, statt gehalten zu werden (modern)
+setting.DebugKeys	Debug-Tasten an
+setting.DebugKeys.hint	Tasten zum Testen: Noclip, die Level-Tasten, die Debug-Anzeige und ihre Werkzeuge. Beim Einschalten bleibt eine Debug-Taste leer, deren Taste oben schon belegt ist.
 setting.GamepadButtonStyle	Tastennamen
 setting.GamepadButtonStyle.choice.xbox	Xbox
 setting.GamepadButtonStyle.choice.playstation	PlayStation
@@ -250,6 +252,7 @@ setup.controls.keyboard.hint	Klicke auf einen Eintrag, um ihn zu ändern, und dr
 setup.controls.press_key	Drücke eine Taste oder Maustaste...
 setup.controls.conflict_key	Diese Taste ist auch für "{0}" belegt.
 setup.controls.back_to_default	Zurück zum Standard
+setup.controls.debug_cleared	Leer gelassen, ihre Tasten sind oben belegt: {0}
 setup.controls.gamepad.hint	Klicke auf einen Eintrag, um ihn zu ändern, und drücke dann die neue Taste am Gamepad. Escape auf der Tastatur behält die alte. Ein Stick geht, der andere schaut (im klassischen Schema dreht und neigt er) - unten lassen sie sich tauschen.
 setup.gamepad.press_button	Drücke eine Taste...
 setup.gamepad.conflict_button	Diese Taste ist auch für "{0}" belegt.
@@ -336,6 +339,15 @@ keys.panel	Leiste umdrehen
 keys.cast	Runen auf der Ablage wirken
 keys.track	Spurenlesen (Kreaturen in der Nähe suchen)
 keys.camp	Lager aufschlagen
+keys.debug.display	Debug-Anzeige (mit Umschalt)
+keys.debug.jump	Sprung zu Level und Feld (mit Umschalt)
+keys.debug.spells	Zauberliste (mit Umschalt)
+keys.debug.noclip	Noclip
+keys.debug.deeper	Ein Level tiefer (in Noclip)
+keys.debug.up	Ein Level zurück nach oben (in Noclip)
+keys.debug.bright	Volle Helligkeit
+keys.debug.cast	Nächste Kreatur zaubert (mit Umschalt)
+keys.debug.renderer	Renderer-Werte in eine Datei (mit Umschalt)
 pad.binding.use	Benutzen (gehalten: direkt benutzen)
 pad.binding.look	Ansehen
 pad.binding.back	Offenes schließen
@@ -700,7 +712,9 @@ menu.pointer.hold	halten zum Umsehen
 menu.pointer.toggle	schaltet den Zeiger um
 menu.pointer.rmb	RMT: {0}
 menu.edit_layout	Layout bearbeiten
-menu.preset.classic_wide	Klassisch breit
+menu.preset.classic	Klassisch
+menu.preset.wide	Breit
+menu.preset.4by3	4:3
 menu.preset.classic_modular	Klassisch modular
 menu.preset.modern	Modern
 menu.preset.customize	Anpassen

@@ -1,5 +1,6 @@
 ActionBarHidden = False
 AmbientLight = 1
+ClassicWide4By3 = False
 ClassicWidescreen = False
 ColourBrightness = 1
 ColourContrast = 1
@@ -8,6 +9,7 @@ ColourStrength = 1
 ControlScheme = -1
 ConversationTextPercent = 0
 DebugFolded = "creature,traps"
+DebugKeys = False
 DisplayAs4By3 = True
 DisplayMode = -1
 EasyMovementInterval = 0.25

@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using UWDataImport.UWData;
 
 /// <summary>
-/// The debug keys of the scene: noclip (N) with the level keys (Page Up/Down), the debug brightness
-/// (F11), the test teleport (P), the shader globals dump (Shift+F12) and the forced creature cast
-/// (Shift+F11), and the noclip entry the debug tools' jump uses (EnterSpectator). It draws nothing:
+/// The debug keys of the scene: noclip (N) with the level keys (Page Down a level deeper, Page Up
+/// back), the debug brightness (F11), the shader globals dump (Shift+F12) and the forced creature
+/// cast (Shift+F11) - the test teleport (P) went on 2026-11-05 -, and the noclip entry the debug tools' jump uses (EnterSpectator). It draws nothing:
 /// its empty OnGUI, left from a position label long commented out, went in cleanup 8c (2026-10-25).
 /// </summary>
 public class DebugFunctions : MonoBehaviour
@@ -52,9 +52,14 @@ public class DebugFunctions : MonoBehaviour
         }
 
         // The keys are UWHotkeys' rows since cleanup step 7.5 (2026-10-25), in the order they were
-        // read here: P, N, the level keys, F11, Shift+F12, Shift+F11.
+        // read here: N, the level keys, F11, Shift+F12, Shift+F11 (P went on 2026-11-05).
         if (mOKeys == null)
             mOKeys = new DebugKeys(this);
+
+        // The debug keys switched off in the Controls window (2026-11-05): out of noclip at once,
+        // the keys are silent (UWHotkeyGate.DebugKeysOff).
+        if (mbToggle && !UWUserSettings.DebugKeys)
+            fToggleSpectator();
 
         UWHotkeys.Route(UWHotkeySite.DebugKeys, mOKeys);
 
@@ -95,10 +100,6 @@ public class DebugFunctions : MonoBehaviour
         {
             switch (peHandler)
             {
-                case UWHotkeyHandler.Teleport:
-                    mODebug.mOPlayer.transform.position = new Vector3(2020, 212, 128);
-                    return true;
-
                 case UWHotkeyHandler.ToggleNoclip:
                     mODebug.fToggleSpectator();
                     return true;

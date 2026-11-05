@@ -338,6 +338,19 @@ namespace UWDataImport.UWData
 			[Estimated("DOSBox screenshot, not pixel-exact")]
 			public const int SlotSize = 14;
 
+			/// <summary>THE PICTURES (per user's screenshots, 2026-11-05: the classic screen drew them
+			/// at the hit areas' 14 and so smaller than the modern original page): 16 x 16, unscaled,
+			/// as the original draws them - InvDisplay 12 to 19 (UnderworldExhumed inv/INVPANEL.C,
+			/// read 2026-11-05) puts them at x 241, 260, 279 and 298 and rows 82 and 100, a pixel round
+			/// the areas here, with the same middle.</summary>
+			[Measured("UnderworldExhumed inv/INVPANEL.C, InvDisplay 12 to 19")]
+			public const int PictureSize = 16;
+
+			/// <summary>The one picture a pixel left of its slot's middle: the second row's third
+			/// (InvDisplay 18 at x 0x116, where the first row's third has 0x117).</summary>
+			[Measured("UnderworldExhumed inv/INVPANEL.C, InvDisplay 18")]
+			public const int OddSlot = 6;
+
 			[Estimated("DOSBox screenshot, not pixel-exact")]
 			public const int SpacingX = 5;
 

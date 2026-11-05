@@ -68,6 +68,15 @@ public static class UWKeyBindings
         /// <summary>Map, action and binding as it is stored - the first three fields of a line
         /// in the settings.</summary>
         public string Key => Map + "|" + Action + "|" + Binding;
+
+        /// <summary>The key works only with Shift held (Shift+F2, the debug keys with Shift): it
+        /// clashes only with another Shift key on the same key (2026-11-05; until then Shift+F2 was
+        /// reported as the same key as F2's talk).</summary>
+        public bool WithShift;
+
+        /// <summary>One of the debug keys (DebugEntries): greyed and silent while UWUserSettings.DebugKeys
+        /// is off.</summary>
+        public bool Debug;
     }
 
     private static readonly Entry[] mOEntries =
@@ -107,7 +116,7 @@ public static class UWKeyBindings
         fEntry("Player", "ModernSlot8", 0, "keys.slot", SchemeEnum.Modern, 8),
         fEntry("Player", "ModernSlot9", 0, "keys.slot", SchemeEnum.Modern, 9),
         fEntry("Player", "ModernSlot10", 0, "keys.slot", SchemeEnum.Modern, 10),
-        fEntry("Player", "ToggleScheme", 0, "keys.switch_scheme"),
+        fShift(fEntry("Player", "ToggleScheme", 0, "keys.switch_scheme")),
         fEntry("Player", "CursorDrag", 0, "keys.cursor_drag"),
         fEntry("Player", "Interact", 0, "keys.interact"),
         fEntry("Player", "ToggleMap", 0, "keys.map"),
@@ -123,6 +132,26 @@ public static class UWKeyBindings
         fEntry("Player", "KeyCast", 0, "keys.cast"),
         fEntry("Player", "KeyTrack", 0, "keys.track"),
         fEntry("Player", "KeyCamp", 0, "keys.camp")
+    };
+
+    /// <summary>
+    /// THE DEBUG KEYS (per user, 2026-11-05: "bindable like every other key, a section below the keys,
+    /// off by default and greyed, a checkbox switches them on"): the Debug map's actions, the ones with
+    /// Shift by the binding part of their composite (index 2; Shift stays). Silent while
+    /// UWUserSettings.DebugKeys is off (UWHotkeyGate.DebugKeysOff); switched on, one whose key an entry
+    /// above uses is left empty (ClearClashingDebugKeys).
+    /// </summary>
+    private static readonly Entry[] mODebugEntries =
+    {
+        fDebug("ToggleOverlay", 2, "keys.debug.display", true),
+        fDebug("DebugJump", 2, "keys.debug.jump", true),
+        fDebug("DebugSearch", 2, "keys.debug.spells", true),
+        fDebug("ToggleSpectator", 0, "keys.debug.noclip", false),
+        fDebug("NextLevel", 0, "keys.debug.deeper", false),
+        fDebug("PrevLevel", 0, "keys.debug.up", false),
+        fDebug("ToggleBrightness", 0, "keys.debug.bright", false),
+        fDebug("ForceCast", 2, "keys.debug.cast", true),
+        fDebug("DumpShaderGlobals", 2, "keys.debug.renderer", true)
     };
 
     /// <summary>The gamepad's (UWGamepad): the index is that of the gamepad binding in UWControls -
@@ -158,6 +187,18 @@ public static class UWKeyBindings
         return new Entry { Map = psMap, Action = psAction, Binding = piBinding, LabelId = psLabelId, Scheme = peScheme, Number = piNumber };
     }
 
+    private static Entry fShift(Entry pOEntry)
+    {
+        pOEntry.WithShift = true;
+
+        return pOEntry;
+    }
+
+    private static Entry fDebug(string psAction, int piBinding, string psLabelId, bool pbShift)
+    {
+        return new Entry { Map = "Debug", Action = psAction, Binding = piBinding, LabelId = psLabelId, WithShift = pbShift, Debug = true };
+    }
+
     private static Entry fFilled(Entry pOEntry, System.Func<string> pFFillWith)
     {
         pOEntry.FillWith = pFFillWith;
@@ -175,6 +216,9 @@ public static class UWKeyBindings
 
     /// <summary>The gamepad's entries.</summary>
     public static IReadOnlyList<Entry> PadEntries => mOPadEntries;
+
+    /// <summary>The debug keys' entries (the Controls window's last section).</summary>
+    public static IReadOnlyList<Entry> DebugEntries => mODebugEntries;
 
     // Which key an entry has in force and what it is called: UWBindingInfo.Path and Name since cleanup
     // step 7.2 (2026-10-25; GetPath and GetKeyName here until then).
@@ -199,19 +243,88 @@ public static class UWKeyBindings
         return psPath;
     }
 
-    /// <summary>Which other entry already uses this key, or null.</summary>
+    /// <summary>Which other entry already uses this key, or null: on the gamepad the same button; on
+    /// the keyboard the same key with Shift alike (WithShift), the debug keys counted while they are
+    /// switched on.</summary>
     public static Entry FindConflict(Entry pOEntry, string psPath)
     {
-        foreach (Entry lOOther in pOEntry.Gamepad ? mOPadEntries : mOEntries)
+        foreach (Entry lOOther in pOEntry.Gamepad ? (IEnumerable<Entry>)mOPadEntries : fKeyboardEntries(UWUserSettings.DebugKeys))
         {
-            if (lOOther == pOEntry)
+            if (lOOther == pOEntry || (!pOEntry.Gamepad && lOOther.WithShift != pOEntry.WithShift))
                 continue;
 
-            if (string.Equals(UWBindingInfo.Path(lOOther), psPath, System.StringComparison.OrdinalIgnoreCase))
+            if (fSamePath(UWBindingInfo.Path(lOOther), psPath))
                 return lOOther;
         }
 
         return null;
+    }
+
+    private static bool fSamePath(string psOne, string psOther)
+    {
+        return !string.IsNullOrEmpty(psOne) && string.Equals(psOne, psOther, System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The keyboard's entries, the debug keys after them when pbDebug.</summary>
+    private static IEnumerable<Entry> fKeyboardEntries(bool pbDebug)
+    {
+        foreach (Entry lOEntry in mOEntries)
+            yield return lOEntry;
+
+        if (!pbDebug)
+            yield break;
+
+        foreach (Entry lOEntry in mODebugEntries)
+            yield return lOEntry;
+    }
+
+    /// <summary>
+    /// THE DEBUG KEYS SWITCHED ON (per user, 2026-11-05): a debug key whose key in force an entry above
+    /// uses, with Shift alike, is left empty - its line holds no path, so it has no binding and shows
+    /// "-" until the player gives it one. The names of those emptied wait for the Controls window's
+    /// notice (TakeClearedNotice). Called by the setting's change (UWUserSettings).
+    /// </summary>
+    public static void ClearClashingDebugKeys()
+    {
+        List<string> lsCleared = new List<string>();
+
+        foreach (Entry lODebug in mODebugEntries)
+        {
+            string lsPath = UWBindingInfo.Path(lODebug);
+
+            foreach (Entry lOEntry in mOEntries)
+            {
+                if (lOEntry.WithShift != lODebug.WithShift || !fSamePath(UWBindingInfo.Path(lOEntry), lsPath))
+                    continue;
+
+                string lsPrefix = lODebug.Key + "|";
+
+                UWUserSettings.KeyBindings.RemoveAll(lsLine => lsLine != null && lsLine.StartsWith(lsPrefix));
+                UWUserSettings.KeyBindings.Add(lsPrefix);
+                lsCleared.Add(lODebug.Label);
+                break;
+            }
+        }
+
+        if (lsCleared.Count == 0)
+            return;
+
+        msClearedNotice = string.Join(", ", lsCleared);
+
+        UWUserSettings.Save();
+        UWControls.ApplyKeyBindings();
+    }
+
+    private static string msClearedNotice;
+
+    /// <summary>The names of the debug keys the last switching on left empty, once; null for none.</summary>
+    public static string TakeClearedNotice()
+    {
+        string lsNotice = msClearedNotice;
+
+        msClearedNotice = null;
+
+        return lsNotice;
     }
 
     public static void Set(Entry pOEntry, string psPath)
@@ -228,10 +341,11 @@ public static class UWKeyBindings
         UWMouseButtons.Forget();
     }
 
-    /// <summary>The keyboard and mouse back to the built-in keys - the gamepad's stay.</summary>
+    /// <summary>The keyboard and mouse back to the built-in keys, the debug keys with them - the
+    /// gamepad's stay.</summary>
     public static void ResetAll()
     {
-        fReset(mOEntries);
+        fReset(fKeyboardEntries(true));
     }
 
     /// <summary>The gamepad back to the built-in buttons - the keys stay.</summary>
@@ -240,7 +354,7 @@ public static class UWKeyBindings
         fReset(mOPadEntries);
     }
 
-    private static void fReset(Entry[] pOEntries)
+    private static void fReset(IEnumerable<Entry> pOEntries)
     {
         foreach (Entry lOEntry in pOEntries)
         {
@@ -255,11 +369,11 @@ public static class UWKeyBindings
         UWMouseButtons.Forget();
     }
 
-    public static bool HasChanges => fHasChanges(mOEntries);
+    public static bool HasChanges => fHasChanges(fKeyboardEntries(true));
 
     public static bool HasGamepadChanges => fHasChanges(mOPadEntries);
 
-    private static bool fHasChanges(Entry[] pOEntries)
+    private static bool fHasChanges(IEnumerable<Entry> pOEntries)
     {
         foreach (Entry lOEntry in pOEntries)
         {
@@ -418,6 +532,9 @@ public static class UWKeyBindings
     private static IEnumerable<Entry> fAllEntries()
     {
         foreach (Entry lOEntry in mOEntries)
+            yield return lOEntry;
+
+        foreach (Entry lOEntry in mODebugEntries)
             yield return lOEntry;
 
         foreach (Entry lOEntry in mOPadEntries)

@@ -91,6 +91,26 @@ public class UWTextLabel : MonoBehaviour
     private bool mbShown;
     private bool mbAppliedModern;
 
+    /// <summary>
+    /// A FIELD ON A CANVAS OF SCREEN PIXELS (per user, 2026-11-05: the modern scheme's Classic
+    /// preset follows the font key F as the classic screen does; its message scroll lies on the
+    /// modern HUD's canvas): the original's pixels it is shown at, down (UnitScale) and across
+    /// (UnitScale times UnitAspect, the original's pixel proportion). The modern font is set at the
+    /// size it has on the classic screen times UnitScale, so it is drawn sharp at that size, and
+    /// squeezed across by UnitAspect as the classic frame squeezes it. 1 and 1 on the classic
+    /// screen, whose canvas counts the original's pixels.
+    /// </summary>
+    public float UnitScale = 1f;
+
+    public float UnitAspect = 1f;
+
+    /// <summary>The original font whatever the font key says: the modern scheme's original pieces
+    /// outside the Classic preset (UWModernScroll).</summary>
+    public bool OriginalOnly;
+
+    /// <summary>The modern font is shown now: the key's choice, unless the field keeps the original.</summary>
+    private bool UsesModernFont => UseModernFont && !OriginalOnly;
+
     /// <summary>The field for a RawImage - created the first time.</summary>
     public static UWTextLabel Get(RawImage pOImage)
     {
@@ -139,6 +159,10 @@ public class UWTextLabel : MonoBehaviour
 
     private float mfShiftSet;
 
+    private float mfScaleSet = 1f;
+
+    private float mfAspectSet = 1f;
+
     /// <summary>One line in one colour each per request, reused - SetLine allocates nothing.</summary>
     private readonly string[] mlsOneLine = new string[1];
 
@@ -166,7 +190,7 @@ public class UWTextLabel : MonoBehaviour
         }
 
         if (!lbChanged && mOImage != null && mOImage.texture == lOHandle.Texture && meStyleSet == peStyle
-            && mfRaiseSet == pfExtraRaise && mfShiftSet == pfShiftRight)
+            && mfRaiseSet == pfExtraRaise && mfShiftSet == pfShiftRight && mfScaleSet == UnitScale && mfAspectSet == UnitAspect)
         {
             Show();
             return;
@@ -219,6 +243,11 @@ public class UWTextLabel : MonoBehaviour
         meStyleSet = peStyle;
         mfRaiseSet = pfExtraRaise;
         mfShiftSet = pfShiftRight;
+        mfScaleSet = UnitScale;
+        mfAspectSet = UnitAspect;
+
+        float lfScale = UnitScale > 0f ? UnitScale : 1f;
+        float lfAspect = UnitAspect > 0f ? UnitAspect : 1f;
 
         if (mOImage == null)
             mOImage = GetComponent<RawImage>();
@@ -230,28 +259,32 @@ public class UWTextLabel : MonoBehaviour
         }
 
         mOImage.texture = pOTexture;
-        ((RectTransform)mOImage.transform).sizeDelta = new Vector2(pOTexture.width, pOTexture.height);
+        ((RectTransform)mOImage.transform).sizeDelta = new Vector2(pOTexture.width * lfScale * lfAspect, pOTexture.height * lfScale);
 
         fEnsureText();
 
         int liPitch = pOFont != null ? pOFont.Height + UWFontRenderer.LineSpacing : 6;
-
-        mOText.fontSize = Mathf.Max(1, Mathf.Min(Mathf.Min(Mathf.RoundToInt(liPitch * ModernSizePerPitch),
+        int liSize = Mathf.Max(1, Mathf.Min(Mathf.Min(Mathf.RoundToInt(liPitch * ModernSizePerPitch),
             Mathf.FloorToInt(liPitch / ModernInkPerSize)), fGetWidthLimitedSize(pOFont, mOText)));
+
+        mOText.fontSize = Mathf.Max(1, Mathf.RoundToInt(liSize * lfScale));
         mOText.fontStyle = peStyle;
         mOText.alignment = pbCentred ? TextAnchor.UpperCenter : TextAnchor.UpperLeft;
-        mOText.lineSpacing = fGetLineSpacing(mOText, liPitch);
+        mOText.lineSpacing = fGetLineSpacing(mOText, liPitch * lfScale);
         mOText.text = fBuildRichText(pOLines, pOColours);
 
         // THE CAPITALS START WHERE THE ORIGINAL'S DO (per user, 2026-09-28: Lexend sat a little
         // too low): Unity puts the first line under the font's full ascender, which in Lexend
         // leaves a third of the size empty above the capitals. The text moves up by that gap
         // minus the original's own blank rows above its capitals.
-        float lfShift = fGetCapitalTopGap(mOText) - fGetOriginalCapitalTop(pOFont) + pfExtraRaise;
+        float lfShift = fGetCapitalTopGap(mOText) - ((fGetOriginalCapitalTop(pOFont) - pfExtraRaise) * lfScale);
         RectTransform lOTextRect = (RectTransform)mOText.transform;
 
-        lOTextRect.offsetMin = new Vector2(pfShiftRight, lfShift);
-        lOTextRect.offsetMax = new Vector2(pfShiftRight, lfShift);
+        // Squeezed across from the field's left edge (UnitAspect); as wide as the field before it.
+        lOTextRect.pivot = lfAspect != 1f ? new Vector2(0f, 1f) : new Vector2(0.5f, 0.5f);
+        lOTextRect.localScale = new Vector3(lfAspect, 1f, 1f);
+        lOTextRect.offsetMin = new Vector2(pfShiftRight * lfScale * lfAspect, lfShift);
+        lOTextRect.offsetMax = new Vector2((pfShiftRight * lfScale * lfAspect) + ((1f / lfAspect) - 1f) * pOTexture.width * lfScale * lfAspect, lfShift);
 
         mbShown = true;
         fApply();
@@ -423,7 +456,7 @@ public class UWTextLabel : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (mbShown && mbAppliedModern != UseModernFont)
+        if (mbShown && mbAppliedModern != UsesModernFont)
             fApply();
     }
 
@@ -432,7 +465,7 @@ public class UWTextLabel : MonoBehaviour
         if (mOImage == null)
             mOImage = GetComponent<RawImage>();
 
-        bool lbModern = UseModernFont;
+        bool lbModern = UsesModernFont;
 
         mbAppliedModern = lbModern;
 
@@ -474,7 +507,7 @@ public class UWTextLabel : MonoBehaviour
     /// one of the original font. Measured rather than estimated: Unity itself says how tall
     /// one and how tall two lines are at spacing 1.
     /// </summary>
-    private static float fGetLineSpacing(Text pOText, int piPitch)
+    private static float fGetLineSpacing(Text pOText, float piPitch)
     {
         float lfNatural;
 

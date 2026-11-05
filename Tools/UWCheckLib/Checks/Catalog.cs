@@ -124,6 +124,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("LockRules", pOContext => fCheckLockRules(), false, "inventory", "trap", "original");
             lOCatalog.Add("DoorRules", pOContext => fCheckDoorRules(pOContext.Data), true, "trap", "level", "original");
             lOCatalog.Add("InventoryModel", pOContext => fCheckInventoryModel(pOContext.Data), true, "inventory").MutatesData = true;
+            lOCatalog.Add("NestedPickUp", pOContext => fCheckNestedPickUp(pOContext.Data), true, "inventory", "level").MutatesData = true;
             lOCatalog.Add("Eating", pOContext => fCheckEating(pOContext.Data), true, "inventory", "original");
             lOCatalog.Add("Spill", pOContext => fCheckSpill(pOContext.Data), true, "inventory", "damage", "original").MutatesData = true;
             lOCatalog.Add("Factory", pOContext => fCheckFactory(pOContext), true, "inventory", "level", "original").MutatesData = true;

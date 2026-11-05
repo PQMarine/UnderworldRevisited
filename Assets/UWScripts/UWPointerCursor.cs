@@ -43,17 +43,53 @@ public sealed class UWPointerCursor
 
     /// <summary>The original's fifteen pointer pictures (CURSORS.GR), as loaded - also the map's
     /// quill (UWHudMap) and the modern crosshair. Null until UWGameUI.Init.</summary>
-    internal List<Texture2D> Pictures { get; private set; }
+    internal List<Texture2D> Pictures
+    {
+        get
+        {
+            fFollowColourHelp();
+
+            return mOPictures;
+        }
+    }
+
+    private List<Texture2D> mOPictures;
+
+    /// <summary>The colour help the pictures were uploaded with (UWColourVision.Version).</summary>
+    private int miPictureColours;
 
     /// <summary>The pictures from the game data (UWGameUI.Init).</summary>
     internal void Load(DataImport pOData, FilterMode peFilter)
     {
-        Pictures = new List<Texture2D>();
+        mOPictures = new List<Texture2D>();
+
         for (int i = 0; i < 15; i++)
         {
             UWTexture lOCursorTex = pOData.Textures.GetTextureByType(UWTexture.TextureTypes.CURSORS, i);
-            Pictures.Add(UWTextureFactory.FromTexture(lOCursorTex, peFilter, "UWGameUI cursor"));
+            mOPictures.Add(UWTextureFactory.FromTexture(lOCursorTex, peFilter, "UWGameUI cursor"));
         }
+
+        // The stamp after the uploads: the first one loads the colour help (UWColourVision), which
+        // moves the version.
+        miPictureColours = UWColourVision.Version;
+    }
+
+    /// <summary>
+    /// THE COLOUR HELP CHANGED (per user, 2026-11-05: the pointer kept its colours until the game was
+    /// started again): the pictures themselves take their new pixels in place with every picture
+    /// UWTextureFactory made (UWTextureFactory.FollowColourHelp), so whoever holds one (the map's
+    /// quill, the crosshair) keeps a living texture; the scaled copies are this class's own and are
+    /// made again. The pointer's picture is handed to UWPointer every frame it shows, so the system
+    /// pointer (Cursor.SetCursor) and our own drawn one both get the new colours at once.
+    /// </summary>
+    private void fFollowColourHelp()
+    {
+        if (mOPictures == null || miPictureColours == UWColourVision.Version)
+            return;
+
+        miPictureColours = UWColourVision.Version;
+
+        ReleaseScaledCursors();
     }
 
     // ------------------------------------------------- The modern scheme

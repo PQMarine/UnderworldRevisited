@@ -15,7 +15,9 @@ namespace UWDataImport.UWData
 			fAdd("menu.pointer.toggle", "toggles the pointer");
 			fAdd("menu.pointer.rmb", "RMB: {0}");
 			fAdd("menu.edit_layout", "Edit layout");
-			fAdd("menu.preset.classic_wide", "Classic Wide");
+			fAdd("menu.preset.classic", "Classic");
+			fAdd("menu.preset.wide", "Wide");
+			fAdd("menu.preset.4by3", "4:3");
 			fAdd("menu.preset.classic_modular", "Classic Modular");
 			fAdd("menu.preset.modern", "Modern");
 			fAdd("menu.preset.customize", "Customize");

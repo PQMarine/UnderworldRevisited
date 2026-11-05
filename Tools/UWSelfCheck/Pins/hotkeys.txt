@@ -48,18 +48,17 @@
 09.01 = Tab, View held = Performed Player|ToggleHelp | mods Any | needs None | not None -> ToggleHelp
 10.00 = [10] ModernPanel / panel help | Modern | mods NoShiftAlt | needs None | not MapVisible, MenuOpen, KeysLocked, HelpKeys, SetupPanel, Rebinding | each
 10.01 = Tab, View held = Performed Player|ToggleHelp | mods Any | needs None | not None -> TogglePanelHelp
-11.00 = [11] DebugKeys / debug | Both | mods Any | needs None | not Rebinding | each
-11.01 = P = Pressed Debug|TeleportDebug | mods Any | needs None | not None | silent while typing -> Teleport
-11.02 = N = Pressed Debug|ToggleSpectator | mods Any | needs None | not ScreenMenu | silent while typing -> ToggleNoclip
-12.00 = [12] DebugKeys / debug levels | Both | mods Any | needs Noclip | not Rebinding | first match
-12.01 = Page Up = Pressed Debug|NextLevel | mods Any | needs None | not None | silent while typing -> NextLevel
-12.02 = Page Down = Pressed Debug|PrevLevel | mods Any | needs None | not None | silent while typing -> PreviousLevel
-13.00 = [13] DebugKeys / debug more | Both | mods Any | needs None | not Rebinding | each
+11.00 = [11] DebugKeys / debug | Both | mods Any | needs None | not Rebinding, DebugKeysOff | each
+11.01 = N = Pressed Debug|ToggleSpectator | mods Any | needs None | not ScreenMenu | silent while typing -> ToggleNoclip
+12.00 = [12] DebugKeys / debug levels | Both | mods Any | needs Noclip | not Rebinding, DebugKeysOff | first match
+12.01 = Page Down = Pressed Debug|NextLevel | mods Any | needs None | not None | silent while typing -> NextLevel
+12.02 = Page Up = Pressed Debug|PrevLevel | mods Any | needs None | not None | silent while typing -> PreviousLevel
+13.00 = [13] DebugKeys / debug more | Both | mods Any | needs None | not Rebinding, DebugKeysOff | each
 13.01 = F11 = Pressed Debug|ToggleBrightness | mods NoShift | needs Lighting | not ScreenMenu | silent while typing -> ToggleBrightness
 13.02 = Shift+F12 = Pressed Debug|DumpShaderGlobals | mods Any | needs None | not None | silent while typing -> DumpShaderGlobals
 13.03 = Shift+F11 = Pressed Debug|ForceCast | mods Any | needs None | not ScreenMenu | silent while typing -> ForceCast
-14.00 = [14] DebugOverlay / overlay | Both | mods Any | needs None | not Rebinding | each
+14.00 = [14] DebugOverlay / overlay | Both | mods Any | needs None | not Rebinding, DebugKeysOff | each
 14.01 = Shift+F1 = Pressed Debug|ToggleOverlay | mods Any | needs None | not None | silent while typing -> ToggleOverlay
-15.00 = [15] DebugTools / debug tools | Both | mods Shift | needs None | not OtherTyping, Rebinding | each
-15.01 = Shift+F7 = RawF7 | mods Any | needs None | not None -> ToggleDebugJump
-15.02 = Shift+F10 = RawF10 | mods Any | needs None | not None -> ToggleDebugSearch
+15.00 = [15] DebugTools / debug tools | Both | mods Shift | needs None | not OtherTyping, Rebinding, DebugKeysOff | each
+15.01 = Shift+F7 = RawKey | mods Any | needs None | not None -> ToggleDebugJump
+15.02 = Shift+F10 = RawKey | mods Any | needs None | not None -> ToggleDebugSearch

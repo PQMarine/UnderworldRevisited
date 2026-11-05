@@ -62,7 +62,7 @@ public class UWModernClassicFrame : MonoBehaviour
             return;
 
         float lfScale = IsActive && Instance != null && msOTurn.IsTurning ? Instance.mfSquash : 1f;
-        float lfCentre = (PanelX + Extra + (PanelWidth * 0.5f)) * ColumnScale;
+        float lfCentre = OffsetX + ((PanelX + Extra + (PanelWidth * 0.5f)) * ColumnScale);
 
         pOContent.localScale = new Vector3(lfScale, 1f, 1f);
         pOContent.anchoredPosition = new Vector2(lfCentre * (1f - lfScale), 0f);
@@ -103,12 +103,36 @@ public class UWModernClassicFrame : MonoBehaviour
     {
         get
         {
+            if (UWUserSettings.ClassicWide4By3)
+                return 0;
+
             int liFull = Mathf.Max(0, Mathf.RoundToInt(Screen.width / ColumnScale) - FrameWidth);
 
             if (!HelpBeside)
                 return liFull;
 
             return Mathf.Min(liFull, Mathf.Max(0, Mathf.FloorToInt((Screen.width - HelpWidth) / ColumnScale) - FrameWidth));
+        }
+    }
+
+    /// <summary>
+    /// THE FRAME AT 4:3 (per user, 2026-11-05, from a forum post: a player set the desktop to 4:3
+    /// for it): with the preset's "4:3" in the game menu (UWUserSettings.ClassicWide4By3) no
+    /// columns are put in and the frame stands in the screen's middle, black at both sides - the
+    /// screen pixels it lies right of the screen's left edge. With the help beside it the frame
+    /// slides to the left edge as the help opens (UWHelpLayout.Blend), so the help has the room at
+    /// the right.
+    /// </summary>
+    public static float OffsetX
+    {
+        get
+        {
+            if (!UWUserSettings.ClassicWide4By3)
+                return 0f;
+
+            float lfCentre = Mathf.Max(0f, (Screen.width - (FrameWidth * ColumnScale)) * 0.5f);
+
+            return HelpBeside ? lfCentre * (1f - UWHelpLayout.Blend) : lfCentre;
         }
     }
 
@@ -121,7 +145,7 @@ public class UWModernClassicFrame : MonoBehaviour
         && Screen.width - (FrameWidth * ColumnScale) >= UWHelpLayout.MinSideWidth * RowScale;
 
     /// <summary>The frame's right edge in screen pixels - the help lies from there on.</summary>
-    public static float RightEdge => (FrameWidth + Extra) * ColumnScale;
+    public static float RightEdge => OffsetX + ((FrameWidth + Extra) * ColumnScale);
 
     public static int Left => Extra / 2;
 
@@ -133,8 +157,12 @@ public class UWModernClassicFrame : MonoBehaviour
     public static Rect Hole => fSpan(UWHudArt.ClassicWideHole.X, UWHudArt.ClassicWideHole.Y,
         UWHudArt.ClassicWideHole.X + UWHudArt.ClassicWideHole.Width, UWHudArt.ClassicWideHole.Y + UWHudArt.ClassicWideHole.Height);
 
-    /// <summary>Where the locked pointer aims: the camera area's middle - the screen's without the frame.</summary>
-    public static Vector2 ViewCentre => IsActive ? CameraRect.center : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+    /// <summary>Where the locked pointer aims: the view's straight ahead - the screen's middle without
+    /// the frame. With it the original's projection centre (UWViewportCamera.fToProjectionCentre;
+    /// since 2026-11-05), two rows above the camera area's middle, in its middle across.</summary>
+    public static Vector2 ViewCentre => IsActive
+        ? new Vector2(CameraRect.center.x, Screen.height - (UWClassicLayout.Frame.ProjectionCentreRow * RowScale))
+        : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
     /// <summary>The panel (PANELS.GR 0 to 2, 83 x 114) and its edge picture (3), the chain's
     /// pictures (CHAINS.GR 0 to 7 between the flasks, 8 to 15 the short one above the panel) - as
@@ -177,8 +205,11 @@ public class UWModernClassicFrame : MonoBehaviour
 
     private RawImage mOImage;
 
-    /// <summary>The black right of the frame while it is narrowed for the help.</summary>
+    /// <summary>The black right of the frame while it is narrowed for the help or kept at 4:3.</summary>
     private Image mOGap;
+
+    /// <summary>The black left of the frame kept at 4:3 (OffsetX).</summary>
+    private Image mOLeftGap;
 
     private RectTransform mODragonSpace;
 
@@ -241,7 +272,7 @@ public class UWModernClassicFrame : MonoBehaviour
     /// <summary>An original column's left edge on the screen, shifted by its band's cuts.</summary>
     private static float fX(int piX, int piY)
     {
-        return (piX + UWHudArt.ClassicWideShiftX(piX, piY, Extra)) * ColumnScale;
+        return OffsetX + ((piX + UWHudArt.ClassicWideShiftX(piX, piY, Extra)) * ColumnScale);
     }
 
     /// <summary>The screen y (from the bottom) of an original row's top edge.</summary>
@@ -255,7 +286,7 @@ public class UWModernClassicFrame : MonoBehaviour
     private static Rect fSpan(int piX0, int piY0, int piX1, int piY1)
     {
         float lfLeft = fX(piX0, piY0);
-        float lfRight = (piX1 + UWHudArt.ClassicWideShiftX(piX1, piY0, Extra)) * ColumnScale;
+        float lfRight = OffsetX + ((piX1 + UWHudArt.ClassicWideShiftX(piX1, piY0, Extra)) * ColumnScale);
 
         return new Rect(lfLeft, fTop(piY1), lfRight - lfLeft, (piY1 - piY0) * RowScale);
     }
@@ -307,13 +338,12 @@ public class UWModernClassicFrame : MonoBehaviour
 
             case UWModernLayout.ElementEnum.RuneHollow:
             {
-                // The outline's pixel off the hollow's own place, not off its column: the cut at 173
-                // lies right before the hollow, and column 172 would move only half as far (per
-                // user's screenshot, 2026-10-10: the hollow stood left of the frame's).
-                int liPad = UWUserSettings.ModernRuneHollowOutline ? 1 : 0;
-                Rect lOAt = fAt(UWHudArt.RuneHollowX, UWHudArt.RuneHollowY - liPad, pODefault);
-
-                pOPlace = new Rect(lOAt.x - (liPad * ColumnScale), lOAt.y, lOAt.width, lOAt.height);
+                // At the hollow's own place, without an outline here (UWModernClassicPlus.
+                // RuneHollowOutline; until 2026-11-05 the own layout's outline showed as a black rim).
+                // Off the hollow's own column, not the outline's: the cut at 173 lies right before the
+                // hollow, and column 172 would move only half as far (per user's screenshot,
+                // 2026-10-10: the hollow stood left of the frame's).
+                pOPlace = fAt(UWHudArt.RuneHollowX, UWHudArt.RuneHollowY, pODefault);
                 return true;
             }
 
@@ -322,14 +352,14 @@ public class UWModernClassicFrame : MonoBehaviour
                 // Up to SpellsRight columns further right than the original's x 100 as the stone
                 // widens, so three icons clear the left dragon's head (x 36 to 72; per user's
                 // screenshot, 2026-10-10: "the active spells a little further right").
-                float lfRight = (100 + Mathf.Min(Left, SpellsRight)) * ColumnScale;
+                float lfRight = OffsetX + ((100 + Mathf.Min(Left, SpellsRight)) * ColumnScale);
 
                 pOPlace = new Rect(lfRight - pODefault.width, fTop(138) - pODefault.height, pODefault.width, pODefault.height);
                 return true;
             }
 
             case UWModernLayout.ElementEnum.Messages:
-                pOPlace = new Rect(0f, fTop(FrameHeight), pODefault.width, pODefault.height);
+                pOPlace = new Rect(OffsetX, fTop(FrameHeight), pODefault.width, pODefault.height);
                 return true;
 
             case UWModernLayout.ElementEnum.StatsPanel:
@@ -339,7 +369,7 @@ public class UWModernClassicFrame : MonoBehaviour
                 return true;
 
             case UWModernLayout.ElementEnum.Conversation:
-                pOPlace = new Rect((43 + Left) * ColumnScale, Screen.height - pODefault.height, pODefault.width, pODefault.height);
+                pOPlace = new Rect(OffsetX + ((43 + Left) * ColumnScale), Screen.height - pODefault.height, pODefault.width, pODefault.height);
                 return true;
 
             default:
@@ -394,11 +424,13 @@ public class UWModernClassicFrame : MonoBehaviour
         fSetShown(true);
 
         RectTransform lORect = mOImage.rectTransform;
+        float lfOffset = OffsetX;
 
-        lORect.anchoredPosition = Vector2.zero;
+        lORect.anchoredPosition = new Vector2(lfOffset, 0f);
         lORect.sizeDelta = new Vector2((FrameWidth + Extra) * ColumnScale, FrameHeight * RowScale);
 
-        // Black right of a frame narrowed for the help: the camera draws only into the hole.
+        // Black right of a frame narrowed for the help or kept at 4:3, and left of it at 4:3: the
+        // camera draws only into the hole.
         float lfGap = Screen.width - RightEdge;
 
         mOGap.enabled = lfGap > 0.5f;
@@ -406,9 +438,14 @@ public class UWModernClassicFrame : MonoBehaviour
         if (mOGap.enabled)
             UWUiKit.SetRect(mOGap.rectTransform, RightEdge, 0f, lfGap, Screen.height);
 
+        mOLeftGap.enabled = lfOffset > 0.5f;
+
+        if (mOLeftGap.enabled)
+            UWUiKit.SetRect(mOLeftGap.rectTransform, 0f, 0f, lfOffset, Screen.height);
+
         // The dragons in the frame's own pixels: their pictures sized in them, the space scaled.
         mODragonSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
-        mODragonSpace.anchoredPosition = Vector2.zero;
+        mODragonSpace.anchoredPosition = new Vector2(lfOffset, 0f);
 
         if (mODragons != null && !mOUi.Map.IsMapVisible && !UWConversationController.IsAnyOpen)
             mODragons.Tick();
@@ -460,6 +497,9 @@ public class UWModernClassicFrame : MonoBehaviour
 
         mOGap = UWUiKit.CreateImage(mOCanvas.transform, "Help gap", Color.black);
         mOGap.raycastTarget = false;
+
+        mOLeftGap = UWUiKit.CreateImage(mOCanvas.transform, "Left gap", Color.black);
+        mOLeftGap.raycastTarget = false;
 
         // The dragons over the parts (the rune hollow lies under the right one's head, per user,
         // 2026-10-10): a canvas of their own above the HUD's.
@@ -575,7 +615,7 @@ public class UWModernClassicFrame : MonoBehaviour
     private void fUpdateTurn()
     {
         mOTurnSpace.localScale = new Vector3(ColumnScale, RowScale, 1f);
-        mOTurnSpace.anchoredPosition = Vector2.zero;
+        mOTurnSpace.anchoredPosition = new Vector2(OffsetX, 0f);
 
         if (!msOTurn.IsTurning)
         {
@@ -698,7 +738,7 @@ public class UWModernClassicFrame : MonoBehaviour
 
         // The original's point: right of both cuts in these rows, so Extra columns off; rows from
         // the bottom, as the click table counts.
-        Vector2 lOPointer = UWPointer.Position;
+        Vector2 lOPointer = UWPointer.Position - new Vector2(OffsetX, 0f);
         int liX = Mathf.FloorToInt(lOPointer.x / ColumnScale) - Extra;
         int liY = Mathf.FloorToInt(lOPointer.y / RowScale);
 

@@ -155,14 +155,18 @@ namespace UWDataImport.Presentation
 					UWClassicLayout.Compass.Left + ClassicWideShiftX(UWClassicLayout.Compass.Left, UWClassicLayout.Compass.Top, liExtra),
 					UWClassicLayout.Compass.Top);
 
-			// The hole: the black reached from the view's middle through black, within the camera's
-			// area (the classic scheme's, x 50 to 226 and rows 17 to 138, widened) - not the frame's
-			// black outlines on the ledge, which a plain rect would take. All else opaque.
+			// The hole: MAIN.BYT's transparent pixels reached from the view's middle, within the
+			// camera's area (the classic scheme's, x 50 to 226 and rows 17 to 138, widened) - not the
+			// frame's black outlines on the ledge, which a plain rect would take. All else opaque.
+			// Until 2026-11-05 the flood ran through every black pixel: it took the view's one-pixel
+			// black rim (x 51 and 224, rows 18 and 131) and a few outline pixels at the vines and the
+			// ledge, so the view showed through there, unlike the original's frame at 4:3 (per user's
+			// screenshots, the modern Classic preset at 4:3 beside the classic screen).
 			UWRectInt lOHole = new UWRectInt(ClassicWideHole.X, ClassicWideHole.Y, ClassicWideHole.Width + liExtra, ClassicWideHole.Height);
 			int liStart = ((lOHole.Y + (lOHole.Height / 2)) * liWidth) + lOHole.X + (lOHole.Width / 2);
 			UWMask lOHoleMask = UWMask.Flood(liWidth, liHeight, new[] { liStart }, (piX, piY) =>
 				piX >= ClassicWideCameraLeft && piX < ClassicWideCameraRight + liExtra && piY >= ClassicWideCameraTop && piY < ClassicWideCameraBottom
-				&& UWPixelRules.IsEdgeBlack(lOOut.Get(piX, piY)));
+				&& lOOut.Get(piX, piY).A == 0);
 
 			UWPixelOps.Clear(lOOut, lOHoleMask);
 			UWPixelOps.MakeOpaque(lOOut, lOHoleMask);

@@ -263,8 +263,14 @@ public class UWModernGameMenu
 
     private static readonly string[] msPresetIds =
     {
-        "menu.preset.classic_wide", "menu.preset.classic_modular", "menu.preset.modern", "menu.preset.customize"
+        "menu.preset.classic_modular", "menu.preset.modern", "menu.preset.customize"
     };
+
+    /// <summary>The Classic row's two buttons (fKitClassic), as wide as the wider of their texts.</summary>
+    private static readonly string[] msClassicWidthIds = { "menu.preset.wide", "menu.preset.4by3" };
+
+    /// <summary>Between the Classic row's text and its buttons, and between the buttons.</summary>
+    private const float ClassicGap = 6f;
 
     private static readonly string[] msPointerIds = { "menu.pointer.hold", "menu.pointer.toggle" };
 
@@ -292,6 +298,8 @@ public class UWModernGameMenu
         float lfNeeded = Mathf.Max(fWidest(msTitleIds, lOTitle, 0f), fWidest(msButtonIds, lOButton, lfRoom));
 
         lfNeeded = Mathf.Max(lfNeeded, Mathf.Max(fWidest(msPresetIds, lOButton, lfRoom + PresetIndent), fWidest(msPointerIds, lOButton, lfRoom + GlyphRoom)));
+        lfNeeded = Mathf.Max(lfNeeded, PresetIndent + mOKit.HelpTextWidth(UWText.T("menu.preset.classic"), lOButton) + ButtonPadding
+            + (2f * (fWidest(msClassicWidthIds, lOButton, lfRoom) + ClassicGap)));
         lfNeeded = Mathf.Max(lfNeeded, fWidest(msDetailIds, lOButton, lfRoom));
         mfAreaWidth = Mathf.Clamp(lfNeeded, AreaWidth, Mathf.Max(AreaWidth, mOKit.Width - PanelSides - 16f));
     }
@@ -440,6 +448,47 @@ public class UWModernGameMenu
         return lbPressed;
     }
 
+    /// <summary>
+    /// THE CLASSIC PRESET'S ROW (per user, 2026-11-05: "Classic" as it stands, two buttons right of
+    /// it): the preset's name as a line, gold while it is in force, and "Wide" and "4:3" - each
+    /// chooses the preset with its frame widened to the screen or at 4:3 in the middle
+    /// (UWUserSettings.ClassicWide4By3); the one in force in gold. Until then one button "Classic
+    /// Wide", always widened.
+    /// </summary>
+    private void fKitClassic(UWModernLayout.PresetEnum peCurrent)
+    {
+        Rect lORow = fKitNext(4f, 30f, PresetIndent);
+        UWKitRows.HelpLook lOButton = KitLook(UWGuiTheme.GameMenuButtonSize, UWGuiTheme.Text, TextAnchor.MiddleCenter);
+        float lfButton = fWidest(msClassicWidthIds, lOButton, 2f * ButtonPadding);
+        bool lbClassic = peCurrent == UWModernLayout.PresetEnum.Classic;
+        bool lb4By3 = UWUserSettings.ClassicWide4By3;
+
+        mOKit.HelpText(new Rect(lORow.x + ButtonPadding, lORow.y, lORow.width - (2f * (lfButton + ClassicGap)), lORow.height),
+            UWText.T("menu.preset.classic"),
+            KitLook(UWGuiTheme.GameMenuButtonSize, lbClassic ? UWGuiTheme.Accent : UWGuiTheme.Text, TextAnchor.MiddleLeft));
+
+        Rect lOWide = new Rect(lORow.xMax - (2f * lfButton) - ClassicGap, lORow.y, lfButton, lORow.height);
+        Rect lO4By3 = new Rect(lORow.xMax - lfButton, lORow.y, lfButton, lORow.height);
+
+        if (fKitButton(lOWide, UWText.T("menu.preset.wide"), null, lbClassic && !lb4By3))
+            fChooseClassic(false);
+
+        if (fKitButton(lO4By3, UWText.T("menu.preset.4by3"), null, lbClassic && lb4By3))
+            fChooseClassic(true);
+    }
+
+    private static void fChooseClassic(bool pb4By3)
+    {
+        if (UWUserSettings.ClassicWide4By3 != pb4By3)
+        {
+            UWUserSettings.ClassicWide4By3 = pb4By3;
+            UWUserSettings.Save();
+        }
+
+        if (UWModernLayout.Preset != UWModernLayout.PresetEnum.Classic)
+            UWModernLayout.ChoosePreset(UWModernLayout.PresetEnum.Classic);
+    }
+
     private void fKitMain()
     {
         fKitTitle(UWText.T("menu.title"));
@@ -480,7 +529,7 @@ public class UWModernGameMenu
 
         UWModernLayout.PresetEnum lePreset = UWModernLayout.Preset;
 
-        fKitPreset(UWText.T("menu.preset.classic_wide"), UWModernLayout.PresetEnum.Classic, lePreset, true);
+        fKitClassic(lePreset);
         fKitPreset(UWText.T("menu.preset.classic_modular"), UWModernLayout.PresetEnum.ClassicPlus, lePreset, true);
         fKitPreset(UWText.T("menu.preset.modern"), UWModernLayout.PresetEnum.Modern, lePreset, true);
 

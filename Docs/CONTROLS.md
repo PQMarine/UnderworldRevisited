@@ -98,10 +98,12 @@ messages' lines are set in their inspector, with Shift and the mouse wheel on th
 dragging their top edge.
 
 Under Edit layout the game menu also offers the **presets**: *Modern*, the parts at their
-default places; *Classic Modular*, the original's pieces laid out over the whole view; *Classic
-Wide*, the original's frame widened to the screen with the pieces at its places; and
-*Customize*, the layout of one's own. In the editor, *Preset* takes Modern or Classic Modular as
-the starting point of one's own layout; it is saved only when the editor is left and the save
+default places; *Classic Modular*, the original's pieces laid out over the whole view; *Classic*,
+the original's frame with the pieces at its places, with *Wide* beside it for the frame widened
+to the screen (Classic Wide) and *4:3* for the original's frame in the middle of a wide screen
+(F switches its texts between the original and the modern font, as on the classic screen);
+and *Customize*, the layout of one's own. In the editor, *Preset* takes Modern or Classic
+Modular as the starting point of one's own layout; it is saved only when the editor is left and the save
 confirmed, so one can always go back to the layout as it was.
 
 In the original scheme the classic screen stays at the original's 4:3. *Classic screen
@@ -190,3 +192,22 @@ of the modern scheme and the options panel of the classic one.
 - **Head bob** and **Weapon**: the bobbing of the view and the weapon while walking - like the
   original, smoothed with a strength of your own, or off.
 
+## Debug keys
+
+Keys for testing and finding one's way, in both schemes. They are **off by default**: switch
+them on with "Debug keys on" at the end of the keyboard tab under *Controls* in the menu bar,
+where they can be changed like every other key (the ones with Shift keep it). Switched on, a
+debug key whose key is already used by a key above is left empty, so nothing fires twice.
+Noclip, the jump and the spell list take you where the game would not, or do what it would not
+allow; use them with care in a game you want to play on. The built-in keys:
+
+| | |
+|---|---|
+| Shift+F1 | The debug display: the tile you stand on, what lies under the crosshair (texture, object id), the nearest creature, the game variables and the trap log, with the tools of Shift+F7 and Shift+F10 as a second tab |
+| Shift+F7 | Jump: type `level,x,y` (`3,45,13` is level 3, tile 45/13) and Enter. A solid tile turns noclip on |
+| Shift+F10 | The spell list: search a spell and cast it, without circle, mana or check |
+| N | Noclip: a free camera through walls in full bright (WASD, the mouse, Space up, Ctrl down, Shift faster); N again puts the character where the camera is |
+| Page Down, Page Up | In noclip: a level deeper (1 to 2), a level back up |
+| F11 | Full bright, with traps and triggers shown as labels where they lie |
+| Shift+F11 | The nearest creature with a spell casts it at once |
+| Shift+F12 | Writes the renderer's values to a file, for a report of a drawing fault |

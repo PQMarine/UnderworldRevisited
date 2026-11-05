@@ -601,6 +601,11 @@ public partial class UWSetupMenu : MonoBehaviour
         foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.Entries)
             lfNeeded = Mathf.Max(lfNeeded, lORows.LabelWidth(lOEntry.Label) + 200f + lfKey);
 
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.DebugEntries)
+            lfNeeded = Mathf.Max(lfNeeded, lORows.LabelWidth(lOEntry.Label) + 200f + lfKey);
+
+        lfNeeded = Mathf.Max(lfNeeded, mOPassPages.InnerNeeded(mODebugKeysPage));
+
         foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.PadEntries)
             lfNeeded = Mathf.Max(lfNeeded, lORows.LabelWidth(lOEntry.Label) + 240f + lfButton);
 
@@ -663,6 +668,34 @@ public partial class UWSetupMenu : MonoBehaviour
 
             lfRowTop += lfHeight;
         }
+
+        // THE DEBUG KEYS (per user, 2026-11-05): their section under the keys - the switch, then their
+        // keys, greyed and not to be changed while it is off.
+        lfRowTop = mOPassPages.Draw(mODebugKeysPage, 0f, lfRowTop, lfWidth);
+
+        bool lbDebugKeys = UWUserSettings.DebugKeys;
+
+        mOPassRows.Enabled = lbDebugKeys;
+
+        foreach (UWKeyBindings.Entry lOEntry in UWKeyBindings.DebugEntries)
+        {
+            string lsKey = fKeyName(lOEntry);
+            float lfHeight = mOPassRows.RebindHeight(lfWidth, lOEntry.Label, lsKey, false, 28f);
+
+            if (mOPassRows.Rebind(new Rect(0f, lfRowTop, lfWidth, lfHeight), lOEntry.Label, lsKey, null, false)
+                && lbDebugKeys && mOListeningFor == null)
+                fListenFor(lOEntry);
+
+            lfRowTop += lfHeight;
+        }
+
+        mOPassRows.Enabled = true;
+
+        // Switched on, the debug keys on keys used above were left empty: the notice names them.
+        string lsCleared = UWKeyBindings.TakeClearedNotice();
+
+        if (lsCleared != null)
+            msBindingNotice = UWText.F("setup.controls.debug_cleared", lsCleared);
 
         mfKeyboardContent = lfRowTop;
         mOPassRows.EndScroll();

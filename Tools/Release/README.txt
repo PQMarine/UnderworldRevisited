@@ -73,10 +73,13 @@ Shift+F2 switches to the modern scheme - or Original and Modern under Game in th
 keyboards whose F keys need Fn: free mouse look, WASD, an action bar, bags, a character panel
 and a rune panel; its layout can be changed with "Edit layout" in its game menu (Escape),
 which also offers presets: Modern; Classic Modular, the original's own pieces as parts of their
-own; Classic Wide, the original's frame widened to the screen; and one's own layout, which can
+own; Classic, the original's frame, widened to the screen ("Wide") or at 4:3 in the middle
+("4:3"); and one's own layout, which can
 start from a preset in the editor and is saved only when the editor is left.
 The scheme in force is kept for the next start. Tab opens the help; its Controls tab lists the
-keys of the scheme in force. The full list of keys is in Docs/CONTROLS.md.
+keys of the scheme in force. The full list of keys is in Docs/CONTROLS.md, with the debug keys
+for testing (noclip, the jump to a level and tile, the debug display) at its end; they are off
+until switched on at the end of the keyboard tab under Controls.
 
 A gamepad works in both schemes (tested with an Xbox controller). The sticks walk and look, A
 uses, X looks, Y jumps, B closes, RT strikes, LT casts; R3 puts a pointer on the right stick for
@@ -118,7 +121,7 @@ moves there by itself -, for example
 
 Docs/rules-template.jsonc lists every key with the original's value and a line on what it
 does. The file is read when a game starts or is loaded; a key the game does not know or a value
-out of range is reported in the debug display (Shift+F1) and skipped. Without the file the game
+out of range is reported in the debug display (Shift+F1, with the debug keys on) and skipped. Without the file the game
 plays as the original.
 
 

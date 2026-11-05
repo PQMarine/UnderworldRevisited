@@ -89,13 +89,17 @@ namespace UWDataImport.UWData
 
 		// The Debug map.
 		ToggleOverlay,
-		TeleportDebug,
 		ToggleSpectator,
 		NextLevel,
 		PrevLevel,
 		ToggleBrightness,
 		DumpShaderGlobals,
-		ForceCast
+		ForceCast,
+
+		// The debug tools' keys (Shift+F7, Shift+F10), actions since 2026-11-05 so they can be
+		// changed in the Controls window; the tools read their key off the device (UWHotkeyTrigger.RawKey).
+		DebugJump,
+		DebugSearch
 	}
 
 	/// <summary>
@@ -112,7 +116,7 @@ namespace UWDataImport.UWData
 		public const string DebugMap = "Debug";
 
 		/// <summary>How many actions there are (the last UWAct plus one).</summary>
-		public const int Count = (int)UWAct.ForceCast + 1;
+		public const int Count = (int)UWAct.DebugSearch + 1;
 
 		/// <summary>The first act of the Noclip map; before it every act is the Player map's.</summary>
 		public const UWAct FirstNoclip = UWAct.NoclipMove;

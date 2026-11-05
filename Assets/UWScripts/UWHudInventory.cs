@@ -692,11 +692,16 @@ public sealed class UWHudInventory
             GameObject lOIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             lOIcon.transform.SetParent(lOSlotBackground.transform, false);
 
+            // The picture at the original's 16 x 16, a pixel round the hit area, one slot a pixel
+            // further left (UWClassicLayout.Backpack.PictureSize, OddSlot; until 2026-11-05 squeezed
+            // into the area's 14).
+            float lfInset = (UWClassicLayout.Backpack.PictureSize - backpackSlotSize) * 0.5f;
+            float lfOdd = i == UWClassicLayout.Backpack.OddSlot ? -1f : 0f;
             RectTransform lOIconRect = (RectTransform)lOIcon.transform;
             lOIconRect.anchorMin = Vector2.zero;
             lOIconRect.anchorMax = Vector2.one;
-            lOIconRect.offsetMin = Vector2.zero;
-            lOIconRect.offsetMax = Vector2.zero;
+            lOIconRect.offsetMin = new Vector2(-lfInset + lfOdd, -lfInset);
+            lOIconRect.offsetMax = new Vector2(lfInset + lfOdd, lfInset);
 
             Image lOIconImage = lOIcon.GetComponent<Image>();
             lOIconImage.enabled = false;

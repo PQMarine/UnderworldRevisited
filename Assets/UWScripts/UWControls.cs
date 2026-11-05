@@ -261,7 +261,6 @@ public class UWControls : System.IDisposable
     public readonly struct DebugActions
     {
         public readonly InputAction ToggleOverlay;
-        public readonly InputAction TeleportDebug;
         public readonly InputAction ToggleSpectator;
         public readonly InputAction NextLevel;
         public readonly InputAction PrevLevel;
@@ -274,7 +273,6 @@ public class UWControls : System.IDisposable
             DumpShaderGlobals = pMap["DumpShaderGlobals"];
             ForceCast = pMap["ForceCast"];
             ToggleOverlay = pMap["ToggleOverlay"];
-            TeleportDebug = pMap["TeleportDebug"];
             ToggleSpectator = pMap["ToggleSpectator"];
             NextLevel = pMap["NextLevel"];
             PrevLevel = pMap["PrevLevel"];
@@ -765,10 +763,12 @@ public class UWControls : System.IDisposable
         // Shift+F1 since 2026-09-25: plain F1 opens the help window (per user, 2026-09-24).
         lMap.AddAction("ToggleOverlay", InputActionType.Button).AddCompositeBinding("OneModifier")
             .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f1");
-        lMap.AddAction("TeleportDebug", InputActionType.Button).AddBinding("<Keyboard>/p");
+        // P, the test teleport, went on 2026-11-05 (per user).
         lMap.AddAction("ToggleSpectator", InputActionType.Button).AddBinding("<Keyboard>/n");
-        lMap.AddAction("NextLevel", InputActionType.Button).AddBinding("<Keyboard>/pageUp");
-        lMap.AddAction("PrevLevel", InputActionType.Button).AddBinding("<Keyboard>/pageDown");
+        // Page Down a level deeper (1 to 2), Page Up back, since 2026-11-05 (per user: the higher
+        // levels lie deeper).
+        lMap.AddAction("NextLevel", InputActionType.Button).AddBinding("<Keyboard>/pageDown");
+        lMap.AddAction("PrevLevel", InputActionType.Button).AddBinding("<Keyboard>/pageUp");
         // F11 since 2026-10-03: B opens the bags in the modern scheme (per user).
         lMap.AddAction("ToggleBrightness", InputActionType.Button).AddBinding("<Keyboard>/f11");
         // Shift+F12 since 2026-10-11: the shader globals and resource counts into a file
@@ -779,6 +779,13 @@ public class UWControls : System.IDisposable
         // (DebugFunctions, UWCritterBrain.ForceSpell) - the area spells are rolled rarely.
         lMap.AddAction("ForceCast", InputActionType.Button).AddCompositeBinding("OneModifier")
             .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f11");
+        // Shift+F7 and Shift+F10, the debug tools' jump and spell list: actions since 2026-11-05 so
+        // the Controls window can change them; the tools read the key off the device
+        // (UWHotkeyTrigger.RawKey), as their key must close their tab while typing locks the actions.
+        lMap.AddAction("DebugJump", InputActionType.Button).AddCompositeBinding("OneModifier")
+            .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f7");
+        lMap.AddAction("DebugSearch", InputActionType.Button).AddCompositeBinding("OneModifier")
+            .With("Modifier", "<Keyboard>/shift").With("Binding", "<Keyboard>/f10");
 
         return lMap;
     }

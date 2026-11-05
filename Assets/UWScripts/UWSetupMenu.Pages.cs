@@ -24,6 +24,8 @@ public partial class UWSetupMenu
 
     private UWSetupPage mOGamepadPage;
 
+    private UWSetupPage mODebugKeysPage;
+
     private UWSetupPage mOMotionPage;
 
     private UWSetupPage mODisplayPage;
@@ -50,6 +52,7 @@ public partial class UWSetupMenu
         mOControlsTabsPage = fBuildControlsTabsPage();
         mOKeyboardPage = fBuildKeyboardPage();
         mOGamepadPage = fBuildGamepadPage();
+        mODebugKeysPage = fBuildDebugKeysPage();
         mOMotionPage = fBuildMotionPage();
         mODisplayPage = fBuildDisplayPage();
         mOSoundPage = fBuildSoundPage();
@@ -174,6 +177,17 @@ public partial class UWSetupMenu
             .Add(fHint(Defs.PointerSpeed, 8f))
             // THE SLOW-WALK KEY held or switched (issue 4, 2026-10-21).
             .Add(fToggle(Defs.WalkSlowToggle, 30f));
+    }
+
+    /// <summary>THE DEBUG KEYS' SECTION under the keyboard's keys (per user, 2026-11-05): a line, the
+    /// switch and its hint; the keys follow, greyed while it is off (fDrawControlsDialog).</summary>
+    private UWSetupPage fBuildDebugKeysPage()
+    {
+        return new UWSetupPage("controls.debug")
+            .Add(new UWSetupRow { Kind = Kind.Space, Id = "controls.debug.space", Advance = 10f })
+            .Add(new UWSetupRow { Kind = Kind.Separator, Id = "controls.debug.separator", Height = 1f, Advance = 8f })
+            .Add(fToggle(Defs.DebugKeys, 30f))
+            .Add(fHint(Defs.DebugKeys, 8f));
     }
 
     private UWSetupPage fBuildGamepadPage()

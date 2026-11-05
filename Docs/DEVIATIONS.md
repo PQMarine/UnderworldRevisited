@@ -178,6 +178,18 @@ as long as the processor needs: under a fast DOSBox hardly any time. Ours takes 
 way, in the second game as a soft fade around the night's black. In the first game passing out
 shows 0.6 seconds of plain black, shorter than a night's 1.5, which is the original's timed wait.
 
+**The left half of the view lies one column further left.** The original projects every point
+with whole numbers, and its division rounds towards zero: right of the view's middle that is our
+projection, left of it everything lands a column nearer the middle. So the original shows one
+column more at the view's left edge, and the left half of its picture sits a column to the right
+of ours. A projection matrix has no such step in the middle; kept (measured 2026-11-05 in a
+straight corridor against the original).
+
+**Walls show their textures in perspective.** The original lays the textures of walls, floors and
+ceilings on without perspective correction, so on a near wall the joints between the stones bend.
+Ours stay straight. The edges of walls, floors and ceilings and the places of objects are the
+same.
+
 ## Bugs of the original that are kept
 
 **The Garamon of the burial conversation.** The conversation at the grave runs with a stand-in

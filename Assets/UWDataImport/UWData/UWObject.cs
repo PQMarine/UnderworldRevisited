@@ -216,6 +216,43 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
+		/// THE WHOLE TREE RESOLVED from one list (2026-11-05, a forum report: the ingredients of a
+		/// stew in a bowl in a bag became a lever "while I was away"): the object's chain and the
+		/// chain of everything in it, down to the last bag in a bag. Used when a thing leaves the
+		/// world for the inventory: EnsureContentsLoaded resolves one level only, and a container
+		/// inside a picked-up container kept its link into THIS level's list - opened or saved on
+		/// another level, the link was read in that level's list and brought whatever lay there
+		/// (reproduced by the user: a mist cloud from level 2 in the bowl). A thing seen twice and a
+		/// thing with a count are not walked.
+		/// </summary>
+		public void EnsureContentsLoadedDeep(List<UWObject> pOMasterObjectList)
+		{
+			if (pOMasterObjectList == null)
+				return;
+
+			HashSet<UWObject> lOSeen = new HashSet<UWObject>();
+			Stack<UWObject> lOOpen = new Stack<UWObject>();
+
+			lOOpen.Push(this);
+
+			while (lOOpen.Count > 0)
+			{
+				UWObject lOObject = lOOpen.Pop();
+
+				if (lOObject == null || lOObject.HasQuantity || !lOSeen.Add(lOObject))
+					continue;
+
+				if (lOObject.Contents == null && lOObject.Quantity == 0)
+					continue;
+
+				lOObject.EnsureContentsLoaded(pOMasterObjectList);
+
+				foreach (UWObject lOItem in lOObject.Contents)
+					lOOpen.Push(lOItem);
+			}
+		}
+
+		/// <summary>
 		/// A copy of the object as the create-object trap makes one (UnderworldExhumed TRIGGER.C
 		/// TRAP_CREATE_OBJECT, read 2026-10-12): the record copied field by field, and of what the
 		/// template holds (a container's contents, a creature's inventory, a wand's spell) only

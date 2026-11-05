@@ -50,6 +50,17 @@ namespace UWDataImport.UWData
 			fAdd("keys.cast", "Cast the runes on the shelf");
 			fAdd("keys.track", "Track (look for creatures nearby)");
 			fAdd("keys.camp", "Make camp");
+
+			// The debug keys (the Controls window's last section, 2026-11-05).
+			fAdd("keys.debug.display", "Debug display (with Shift)");
+			fAdd("keys.debug.jump", "Jump to a level and tile (with Shift)");
+			fAdd("keys.debug.spells", "Spell list (with Shift)");
+			fAdd("keys.debug.noclip", "Noclip");
+			fAdd("keys.debug.deeper", "A level deeper (in noclip)");
+			fAdd("keys.debug.up", "A level back up (in noclip)");
+			fAdd("keys.debug.bright", "Full bright");
+			fAdd("keys.debug.cast", "Nearest creature casts (with Shift)");
+			fAdd("keys.debug.renderer", "Renderer values to a file (with Shift)");
 		}
 	}
 }

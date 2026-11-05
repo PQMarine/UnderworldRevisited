@@ -980,7 +980,7 @@ public class UWLevelLoader : MonoBehaviour
         UWScreenUi.HideLoadingCover();
 
         if (lOPlayer == null || liSavedLevel != miLevelIndex)
-            Debug.Log(string.Format("[Walk] {0}: level {1}, tile {2}/{3} - walking with its motion (N for noclip, Page Up/Down there change the level).",
+            Debug.Log(string.Format("[Walk] {0}: level {1}, tile {2}/{3} - walking with its motion (N for noclip, Page Down/Up there go a level deeper/back).",
                 UWSettings.Game.Title, miLevelIndex + 1, UWGameProfileUw2.NewGameTileX, UWGameProfileUw2.NewGameTileY));
 
         return true;

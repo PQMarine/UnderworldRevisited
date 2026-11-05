@@ -277,14 +277,16 @@ namespace UnderworldRevisited.Tools
             fHotkeyCase("modern Tab over the map: nothing", UWHotkeySite.ModernPanel, fWith(fModernHost(leNone, UWAct.ToggleHelp), UWHotkeyGate.MapVisible), "-");
             fHotkeyCase("modern Alt+Tab: nothing", UWHotkeySite.ModernPanel, fModernHost(UWHotkeyMods.Alt, UWAct.ToggleHelp), "-");
 
-            fHotkeyCase("P: the test teleport", UWHotkeySite.DebugKeys, fClassicHost(leNone, UWAct.TeleportDebug), "Teleport");
             fHotkeyCase("N: noclip", UWHotkeySite.DebugKeys, fClassicHost(leNone, UWAct.ToggleSpectator), "ToggleNoclip");
             fHotkeyCase("N in a screen menu: nothing", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.ToggleSpectator), UWHotkeyGate.ScreenMenu), "-");
-            fHotkeyCase("Page Up outside noclip: nothing", UWHotkeySite.DebugKeys, fClassicHost(leNone, UWAct.NextLevel), "-");
-            fHotkeyCase("Page Up in noclip: the next level", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.NextLevel), UWHotkeyGate.Noclip), "NextLevel");
-            fHotkeyCase("Page Up and Down in noclip: the next only", UWHotkeySite.DebugKeys,
+            // The debug keys switched off (the Controls window, off by default since 2026-11-05): silent.
+            fHotkeyCase("N with the debug keys off: nothing", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.ToggleSpectator), UWHotkeyGate.DebugKeysOff), "-");
+            fHotkeyCase("Shift+F1 with the debug keys off: nothing", UWHotkeySite.DebugOverlay, fWith(fClassicHost(leNone, UWAct.ToggleOverlay), UWHotkeyGate.DebugKeysOff), "-");
+            fHotkeyCase("Page Down outside noclip: nothing", UWHotkeySite.DebugKeys, fClassicHost(leNone, UWAct.NextLevel), "-");
+            fHotkeyCase("Page Down in noclip: the next level", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.NextLevel), UWHotkeyGate.Noclip), "NextLevel");
+            fHotkeyCase("Page Down and Up in noclip: the next only", UWHotkeySite.DebugKeys,
                 fWith(fClassicHost(leNone, UWAct.NextLevel, UWAct.PrevLevel), UWHotkeyGate.Noclip), "NextLevel");
-            fHotkeyCase("Page Down in noclip", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.PrevLevel), UWHotkeyGate.Noclip), "PreviousLevel");
+            fHotkeyCase("Page Up in noclip: the previous level", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.PrevLevel), UWHotkeyGate.Noclip), "PreviousLevel");
             fHotkeyCase("F11 without the lighting: nothing", UWHotkeySite.DebugKeys, fClassicHost(leNone, UWAct.ToggleBrightness), "-");
             fHotkeyCase("F11: the brightness", UWHotkeySite.DebugKeys, fWith(fClassicHost(leNone, UWAct.ToggleBrightness), UWHotkeyGate.Lighting), "ToggleBrightness");
             fHotkeyCase("F11 in a screen menu: nothing", UWHotkeySite.DebugKeys,
@@ -298,9 +300,9 @@ namespace UnderworldRevisited.Tools
                 fWith(fClassicHost(UWHotkeyMods.Shift, UWAct.ToggleBrightness, UWAct.ForceCast), UWHotkeyGate.Lighting), "ForceCast");
             fHotkeyCase("F11 with Ctrl: the brightness", UWHotkeySite.DebugKeys,
                 fWith(fClassicHost(leCtrl, UWAct.ToggleBrightness), UWHotkeyGate.Lighting), "ToggleBrightness");
-            fHotkeyCase("P, N, F11, Shift+F12 at once: in the old order", UWHotkeySite.DebugKeys,
-                fWith(fClassicHost(leNone, UWAct.DumpShaderGlobals, UWAct.ToggleBrightness, UWAct.ToggleSpectator, UWAct.TeleportDebug), UWHotkeyGate.Lighting),
-                "Teleport, ToggleNoclip, ToggleBrightness, DumpShaderGlobals");
+            fHotkeyCase("N, F11, Shift+F12 at once: in the old order", UWHotkeySite.DebugKeys,
+                fWith(fClassicHost(leNone, UWAct.DumpShaderGlobals, UWAct.ToggleBrightness, UWAct.ToggleSpectator), UWHotkeyGate.Lighting),
+                "ToggleNoclip, ToggleBrightness, DumpShaderGlobals");
 
             fHotkeyCase("Shift+F1: the debug panel", UWHotkeySite.DebugOverlay, fClassicHost(leNone, UWAct.ToggleOverlay), "ToggleOverlay");
 
@@ -333,8 +335,8 @@ namespace UnderworldRevisited.Tools
             fHotkeyCase("the wait, F: nothing", UWHotkeySite.GameUi, fWith(fClassicHost(leNone, UWAct.ToggleFont), leWait), "-");
             fHotkeyCase("the wait, Shift+F2: nothing", UWHotkeySite.Scheme, fWith(fClassicHost(UWHotkeyMods.Shift, UWAct.ToggleScheme), leWait), "-");
             fHotkeyCase("the wait, Tab: nothing", UWHotkeySite.Help, fWith(fClassicHost(leNone, UWAct.ToggleHelp), leWait), "-");
-            fHotkeyCase("the wait, P and N: nothing", UWHotkeySite.DebugKeys,
-                fWith(fClassicHost(leNone, UWAct.TeleportDebug, UWAct.ToggleSpectator), leWait), "-");
+            fHotkeyCase("the wait, N: nothing", UWHotkeySite.DebugKeys,
+                fWith(fClassicHost(leNone, UWAct.ToggleSpectator), leWait), "-");
             fHotkeyCase("the wait, Shift+F1: nothing", UWHotkeySite.DebugOverlay, fWith(fClassicHost(leNone, UWAct.ToggleOverlay), leWait), "-");
             lOTools = fWith(fClassicHost(UWHotkeyMods.Shift), leWait);
             lOTools.RawF7 = true;

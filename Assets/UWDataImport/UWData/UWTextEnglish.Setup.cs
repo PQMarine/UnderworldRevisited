@@ -65,6 +65,7 @@ namespace UWDataImport.UWData
 			fAdd("setup.controls.press_key", "Press a key or button...");
 			fAdd("setup.controls.conflict_key", "This key is also used for \"{0}\".");
 			fAdd("setup.controls.back_to_default", "Back to default");
+			fAdd("setup.controls.debug_cleared", "Left empty, their keys are used above: {0}");
 			fAdd("setup.controls.gamepad.hint",
 				"Click an entry to change it, then press the new button on the gamepad. Escape on the keyboard keeps the old one. One stick walks, the other looks (in the classic scheme it turns and tilts) - swap them below.");
 			fAdd("setup.gamepad.press_button", "Press a button...");

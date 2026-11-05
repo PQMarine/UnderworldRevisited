@@ -263,7 +263,10 @@ public class UWModernInventoryPage : IUWModernPart
             UWInventoryView.Slot lOSlot = mOView.PageSlot(liSlot);
             UWClickRules.Area lOArea = UWClickRules.BackpackArea(liSlot);
 
-            fPlaceIcon(mOBackpack[liSlot], lOSlot.Picture, (lOArea.X0 + lOArea.X1 + 1) * 0.5f, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
+            // The original's odd one a pixel left (UWClassicLayout.Backpack.OddSlot).
+            float lfOdd = liSlot == UWClassicLayout.Backpack.OddSlot ? 1f : 0f;
+
+            fPlaceIcon(mOBackpack[liSlot], lOSlot.Picture, ((lOArea.X0 + lOArea.X1 + 1) * 0.5f) - lfOdd, 199.5f - ((lOArea.Y0 + lOArea.Y1) * 0.5f));
             fPlaceCount(mOCounts[liSlot], lOSlot, lOArea.X1 + 1, 200 - lOArea.Y0);
         }
 

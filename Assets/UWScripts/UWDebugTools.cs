@@ -102,9 +102,14 @@ public class UWDebugTools : MonoBehaviour
         // (UWControls.IsTextEntryActive); they still close their own tab.
         // Shift+F7 and Shift+F10 since 2026-09-26: plain F7 turns the panel and F10 makes camp,
         // as in the original. Read off the keys themselves - the debug map's actions fall silent
-        // while the tab is open. UWHotkeys' rows since cleanup step 7.5.
+        // while the tab is open. UWHotkeys' rows since cleanup step 7.5; the keys in force of the
+        // actions DebugJump and DebugSearch since 2026-11-05 (the Controls window may change them).
         if (mOKeys == null)
             mOKeys = new ToolKeys(this);
+
+        // The debug keys switched off (2026-11-05): the tab closes.
+        if (mbOpen && !UWUserSettings.DebugKeys)
+            Close();
 
         UWHotkeys.Route(UWHotkeySite.DebugTools, mOKeys);
 

@@ -126,6 +126,7 @@ namespace UWDataImport.UWData
 			fText(PointerSpeed, true);
 			PointerSpeed.Format = UWSettingFormat.Percent;
 			fText(WalkSlowToggle);
+			fText(DebugKeys, true);
 
 			// The gamepad.
 			fText(GamepadButtonStyle);

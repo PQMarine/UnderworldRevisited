@@ -62,6 +62,9 @@ public static class UWColourVision
         mOFilter.Set(peMode, pfStrength, pfBrightness, pfContrast);
 
         Version++;
+
+        // The game's pictures made once by their owners follow at once (UWTextureFactory, 2026-11-05).
+        UWTextureFactory.FollowColourHelp();
     }
 
     /// <summary>One colour through the filter - for everything built from the palette.</summary>

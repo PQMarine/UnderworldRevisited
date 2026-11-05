@@ -78,6 +78,10 @@ public class UWDebugOverlay : MonoBehaviour
         if (mOKeys == null)
             mOKeys = new OverlayKeys(this);
 
+        // The debug keys switched off (2026-11-05): the panel goes with them.
+        if (mbVisible && !UWUserSettings.DebugKeys)
+            mbVisible = false;
+
         UWHotkeys.Route(UWHotkeySite.DebugOverlay, mOKeys);
 
         fUpdateButtonBlock();

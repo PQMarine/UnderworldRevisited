@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport;
 using UWDataImport.Presentation;
@@ -70,8 +71,69 @@ public static class UWTextureFactory
     public static Texture2D FromTexture(UWTexture pOTexture, FilterMode peFilter, string psName,
         TextureWrapMode peWrap = TextureWrapMode.Repeat)
     {
-        return Upload(UWUploadPixels.FromTexture(pOTexture, UWColourVision.Filter), pOTexture.Width, pOTexture.Height, peFilter, peWrap,
-            psName);
+        return fFollow(Upload(UWUploadPixels.FromTexture(pOTexture, UWColourVision.Filter), pOTexture.Width, pOTexture.Height, peFilter,
+            peWrap, psName), pOTexture);
+    }
+
+    // ------------------------------------------------- Following the colour help
+
+    // EVERY GAME PICTURE FOLLOWS THE COLOUR HELP AT ONCE (per user, 2026-11-05: with a filter
+    // switched in the Colours window the classic frame, the flasks and the pointer kept their old
+    // colours until a restart - Classic Wide and the paper doll followed, because their owners
+    // rebuild on UWColourVision.Version; the frame, the panels, the compass, the map screen, the
+    // dragons and the chain were uploaded once by their owners and never again). One rule instead
+    // of a check in every owner: what FromTexture makes is remembered with its source, and a
+    // change of the colour help (UWColourVision.Set) uploads the pixels of every one still alive
+    // anew IN PLACE - the same texture object, so sprites and images that show it keep working.
+    // Owners that rebuild on the version themselves (caches stamped with UWArtStamp) lose nothing:
+    // their old texture is refreshed once more before it is replaced. Nobody writes into a texture
+    // made here afterwards (checked 2026-11-05), so nothing of a caller's own is overwritten.
+    // A copy made FROM such a texture (a scaled pointer, a keyed flask) is its owner's to rebuild.
+
+    private sealed class FollowEntry
+    {
+        public Texture2D Texture;
+
+        public UWTexture Source;
+    }
+
+    private static readonly List<FollowEntry> msFollowing = new List<FollowEntry>();
+
+    /// <summary>The list's size at which destroyed textures are dropped from it next.</summary>
+    private static int msiPruneAt = 256;
+
+    private static Texture2D fFollow(Texture2D pOTexture, UWTexture pOSource)
+    {
+        msFollowing.Add(new FollowEntry { Texture = pOTexture, Source = pOSource });
+
+        if (msFollowing.Count >= msiPruneAt)
+        {
+            msFollowing.RemoveAll(lOEntry => lOEntry.Texture == null);
+            msiPruneAt = Mathf.Max(256, msFollowing.Count * 2);
+        }
+
+        return pOTexture;
+    }
+
+    /// <summary>The colour help changed (UWColourVision.Set): every live picture made by
+    /// FromTexture takes its pixels anew.</summary>
+    public static void FollowColourHelp()
+    {
+        msFollowing.RemoveAll(lOEntry => lOEntry.Texture == null || lOEntry.Source == null);
+
+        foreach (FollowEntry lOEntry in msFollowing)
+        {
+            if (lOEntry.Texture.width == lOEntry.Source.Width && lOEntry.Texture.height == lOEntry.Source.Height)
+                Reupload(lOEntry.Texture, UWUploadPixels.FromTexture(lOEntry.Source, UWColourVision.Filter));
+        }
+    }
+
+    /// <summary>With the editor's domain reload off the statics survive a play session.</summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void fResetFollowing()
+    {
+        msFollowing.Clear();
+        msiPruneAt = 256;
     }
 
     /// <summary>The same pixels as FromTexture as Unity colours (rows bottom up), for the few

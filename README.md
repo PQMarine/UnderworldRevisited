@@ -16,7 +16,8 @@ which show the original's artwork.
 
 **To play, download the latest release** for Windows or Linux from the
 [Releases page](https://github.com/PQMarine/UnderworldRevisited/releases) - see
-[Installation](#installation).
+[Installation](#installation). The project's website, with the graphics modes side by side and
+the interfaces to compare, is at **[pqmarine.github.io](https://pqmarine.github.io/)**.
 
 This project is not affiliated with or endorsed by the owners of the Ultima Underworld
 rights. Ultima and Ultima Underworld are trademarks of their respective owners. Underworld
@@ -26,7 +27,7 @@ Revisited is a free, non-commercial fan project: it is not sold, and no donation
 [Installation](#installation) - [Controls](#controls) - [For developers](#for-developers) -
 [How this was made](#how-this-was-made) - [License](#license)
 
-More: [Controls](Docs/CONTROLS.md) - [All screenshots](Docs/SCREENSHOTS.md) -
+More: [Website](https://pqmarine.github.io/) - [Controls](Docs/CONTROLS.md) - [All screenshots](Docs/SCREENSHOTS.md) -
 [Building](Docs/BUILDING.md) - [Translating](Docs/TRANSLATING.md) - [Roadmap](ROADMAP.md) - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Screenshots

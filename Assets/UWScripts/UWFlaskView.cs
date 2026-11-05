@@ -55,6 +55,12 @@ public sealed class UWFlaskView
         if (mfFlaskFillStart >= 0f)
             fUpdateFlasks();
 
+        // THE COLOUR HELP AND THE POISON MARK changed in the Colours window (per user, 2026-11-05:
+        // the flasks kept their old colours in both schemes until health or mana moved): the cache
+        // makes the pictures anew by its stamp, but only a redraw asks it again.
+        if (mFlasks != null && (miShownColours != UWColourVision.Version || mbShownMarkPoison != UWUserSettings.MarkPoison))
+            fUpdateFlasks();
+
         if (mOGauge.Advance(pfDeltaSeconds, mOVitals.CurrentHP, mOVitals.MaxHP,
             mOVitals.CurrentMana, mOVitals.MaxMana, mfFlaskFillStart >= 0f))
             fUpdateFlasks();
@@ -111,6 +117,9 @@ public sealed class UWFlaskView
         // well - red and green is exactly what a red-green deficiency cannot tell apart.
         bool lbPoisoned = mOVitals.Poison > 0;
 
+        miShownColours = UWColourVision.Version;
+        mbShownMarkPoison = UWUserSettings.MarkPoison;
+
         HealthFlaskTeture = fGetFlaskTexture(
             lbPoisoned ? UWFlasks.FlaskTypeEnum.Green : UWFlasks.FlaskTypeEnum.Red, lfHealth,
             lbPoisoned && UWUserSettings.MarkPoison, mOGauge.HealthBubbleFrame);
@@ -145,4 +154,10 @@ public sealed class UWFlaskView
     }
 
     private readonly UWArtCache<int> mOFlaskCache = new UWArtCache<int>();
+
+    /// <summary>The colour help (UWColourVision.Version) and the poison mark the shown pictures were
+    /// drawn with.</summary>
+    private int miShownColours = -1;
+
+    private bool mbShownMarkPoison;
 }

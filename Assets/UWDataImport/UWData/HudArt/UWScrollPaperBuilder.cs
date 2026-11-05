@@ -107,7 +107,7 @@ namespace UWDataImport.Presentation
 			}
 
 			return Compose(lOFrame, fEdge(pOTextures, UWScrollEdgeRules.GetMainLeftImage(piEdgeFrame)),
-				fEdge(pOTextures, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame)), piExtra);
+				fEdge(pOTextures, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame)), piExtra, pOWideFrame != null);
 		}
 
 		/// <summary>An edge picture (SCRLEDGE.GR), null when it is missing or empty.</summary>
@@ -135,8 +135,13 @@ namespace UWDataImport.Presentation
 		/// and the left and right edge pictures (null: none laid on): the frame's rows 167-199 over the
 		/// full width with the middle row repeated, the ground transparent, everything else opaque,
 		/// the paper filled, the edge strips laid on, their middle row repeated as well.
+		/// pbKeepUpperKnobs: the upper knobs as the frame has them, with the chains hanging behind
+		/// them - in CLASSIC WIDE, where the scroll lies in its own frame and the shelves' shadow is
+		/// the frame's too (per user's screenshot, 2026-11-05: the chain at the upper roller was
+		/// missing there); elsewhere the lower knobs' clean shape.
 		/// </summary>
-		public static UWPicture Compose(UWPicture pOFrame, UWPicture pOLeftEdge, UWPicture pORightEdge, int piExtra)
+		public static UWPicture Compose(UWPicture pOFrame, UWPicture pOLeftEdge, UWPicture pORightEdge, int piExtra,
+			bool pbKeepUpperKnobs = false)
 		{
 			int liWidth = pOFrame.Width;
 			int liWide = liWidth - UWClassicLayout.Screen.Width;
@@ -151,7 +156,8 @@ namespace UWDataImport.Presentation
 				for (int liX = 0; liX < liWidth; liX++)
 				{
 					int liFrom = liSource == SourceTop && liX >= PedestalLeft + liShift && liX <= PedestalRight + liShift ? liX - PedestalPatch : liX;
-					int liFromRow = liSource <= UpperKnobLast && (liX <= KnobLeftEnd || liX >= KnobRightStart + liWide) ? liSource + LowerKnobOffset : liSource;
+					int liFromRow = !pbKeepUpperKnobs && liSource <= UpperKnobLast && (liX <= KnobLeftEnd || liX >= KnobRightStart + liWide)
+						? liSource + LowerKnobOffset : liSource;
 					UWColor32 lOColour = pOFrame.Get(liFrom, liFromRow);
 
 					if (fIsGround(lOColour))

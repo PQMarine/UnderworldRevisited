@@ -1,4 +1,5 @@
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -43,8 +44,6 @@ public abstract class UWHotkeyHost : IUWHotkeyHost
 
     public virtual bool Fired(UWHotkeyRow pORow)
     {
-        Keyboard lOKeyboard = Keyboard.current;
-
         switch (pORow.Trigger)
         {
             case UWHotkeyTrigger.Pressed:
@@ -56,16 +55,38 @@ public abstract class UWHotkeyHost : IUWHotkeyHost
             case UWHotkeyTrigger.Always:
                 return true;
 
-            case UWHotkeyTrigger.RawF7:
-                return lOKeyboard != null && lOKeyboard.f7Key.wasPressedThisFrame;
-
-            case UWHotkeyTrigger.RawF10:
-                return lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame;
+            case UWHotkeyTrigger.RawKey:
+                return fRawKeyPressed(pORow.Act);
 
             default:
                 // The back press is the site's own (UWGameUI).
                 return false;
         }
+    }
+
+    /// <summary>The key in force of an act's binding (the binding part of a composite; the player's own
+    /// key where there is one) pressed this frame, read off the device - also while the act is locked
+    /// (the debug tools' keys, UWHotkeyTrigger.RawKey; F7 and F10 themselves until 2026-11-05).</summary>
+    private bool fRawKeyPressed(UWAct peAct)
+    {
+        InputAction lOAction = UWInput.Action(Controls, peAct);
+
+        if (lOAction == null)
+            return false;
+
+        for (int liAt = 0; liAt < lOAction.bindings.Count; liAt++)
+        {
+            InputBinding lOBinding = lOAction.bindings[liAt];
+
+            if (lOBinding.isComposite || (lOBinding.isPartOfComposite && !string.Equals(lOBinding.name, "Binding", System.StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            if (!string.IsNullOrEmpty(lOBinding.effectivePath) && InputSystem.FindControl(lOBinding.effectivePath) is ButtonControl lOButton
+                && lOButton.wasPressedThisFrame)
+                return true;
+        }
+
+        return false;
     }
 
     public bool FromKeyboard(UWAct peAct)
@@ -81,6 +102,9 @@ public abstract class UWHotkeyHost : IUWHotkeyHost
     {
         if (peGate == UWHotkeyGate.Rebinding)
             return UWKeyBindings.HoldsKeys;
+
+        if (peGate == UWHotkeyGate.DebugKeysOff)
+            return !UWUserSettings.DebugKeys;
 
         return Gate(peGate, pORow);
     }

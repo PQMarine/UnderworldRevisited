@@ -32,7 +32,12 @@ public static class UWUiFonts
         Original = 1
     }
 
-    public static FaceEnum Face => UWUserSettings.InterfaceFont == 1 ? FaceEnum.Original : FaceEnum.Modern;
+    /// <summary>The face chosen: in the modern scheme's Classic preset the font key's (F,
+    /// UWTextLabel.UseModernFont), as on the classic screen (per user, 2026-11-05); else the
+    /// interface font of the layout editor.</summary>
+    public static FaceEnum Face => UWModernClassicFrame.IsActive
+        ? (UWTextLabel.UseModernFont ? FaceEnum.Modern : FaceEnum.Original)
+        : UWUserSettings.InterfaceFont == 1 ? FaceEnum.Original : FaceEnum.Modern;
 
     /// <summary>How many of the template's line heights exist (Editor/UWFontTemplates).</summary>
     private const int MaxLineHeight = 96;

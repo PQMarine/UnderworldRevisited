@@ -82,6 +82,12 @@ namespace UWDataImport.UWData
 		/// chosen yet: Custom when an own layout exists, else Modern.</summary>
 		public int InterfacePreset = -1;
 
+		/// <summary>The Classic preset's frame at 4:3 in the screen's middle instead of widened to it
+		/// (UWModernClassicFrame.OffsetX; per user, 2026-11-05, from a forum post: a player set the
+		/// desktop to 4:3 for it). Chosen with the preset's "Wide" and "4:3" in the game menu; off,
+		/// the frame wide as before.</summary>
+		public bool ClassicWide4By3;
+
 		/// <summary>The modern minimap switched off (the layout editor's Minimap button).</summary>
 		public bool MinimapHidden;
 
@@ -162,6 +168,11 @@ namespace UWDataImport.UWData
 		/// <summary>The slow-walk key switches the slow walk on and off instead of being held
 		/// (UWPlayerInput.fIsWalkingSlow; issue 4, 2026-10-21).</summary>
 		public bool WalkSlowToggle;
+
+		/// <summary>The debug keys work (noclip, the level keys, the debug display and tools; the
+		/// Controls window's last section, per user 2026-11-05): off by default, so a player's own key
+		/// on N or Page Down does not also fly the camera.</summary>
+		public bool DebugKeys;
 
 		/// <summary>The gamepad's button names, as UWGamepad.ButtonStyleEnum: 0 Xbox, 1 PlayStation,
 		/// 2 Nintendo, 3 Steam Deck (since 2026-10-27) - chosen, never detected (per user, 2026-10-07: a PlayStation controller

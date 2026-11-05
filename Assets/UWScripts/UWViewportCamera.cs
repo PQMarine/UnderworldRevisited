@@ -97,6 +97,10 @@ public sealed class UWViewportCamera
                 // The view angle set in the Graphics menu, if any (UWViewAngle).
                 mOCamera.fieldOfView = UWViewAngle.Vertical(mOCamera.aspect,
                     fOriginalVerticalFov(UWHudArt.ClassicWideCameraBottom - UWHudArt.ClassicWideCameraTop));
+
+                // The original's projection centre, as the classic screen has it (per user's
+                // screenshots, 2026-11-05: at 4:3 the picture stood two rows lower than there).
+                fToProjectionCentre(UWModernClassicFrame.Extra);
                 return;
             }
 
@@ -131,14 +135,23 @@ public sealed class UWViewportCamera
         // UWClassicWide shows more to the sides, the same up and down.
         mOCamera.fieldOfView = UWViewAngle.Vertical(lfCorrectedAspect, fOriginalVerticalFov(UWClassicLayout.Frame.WindowHoleHeight));
 
-        // THE ORIGINAL'S PROJECTION CENTRE (UWClassicLayout.Frame.ProjectionCentreColumn/Row) instead of
-        // the hole's middle: an off-centre projection, the content moved by the difference in the
-        // hole's columns and rows (OpenGL convention: ndc = p * pos / -z - p[i, 2]).
-        int liColumns = UWClassicLayout.Frame.WindowHoleWidth + UWClassicWide.Extra;
+        fToProjectionCentre(UWClassicWide.Extra);
+    }
+
+    /// <summary>
+    /// THE ORIGINAL'S PROJECTION CENTRE (UWClassicLayout.Frame.ProjectionCentreColumn/Row) instead of
+    /// the hole's middle: an off-centre projection, the content moved by the difference in the
+    /// hole's columns and rows (OpenGL convention: ndc = p * pos / -z - p[i, 2]). The camera's
+    /// area is the classic screen's, widened by piExtra columns (UWClassicWide, or the modern
+    /// scheme's Classic preset, UWModernClassicFrame, since 2026-11-05).
+    /// </summary>
+    private void fToProjectionCentre(int piExtra)
+    {
+        int liColumns = UWClassicLayout.Frame.WindowHoleWidth + piExtra;
         int liRows = UWClassicLayout.Frame.WindowHoleHeight;
         float lfHoleColumn = UWClassicLayout.Frame.WindowHoleLeft + (liColumns * 0.5f);
         float lfHoleRow = UWClassicLayout.Frame.WindowHoleTop + (liRows * 0.5f);
-        float lfRight = UWClassicLayout.Frame.ProjectionCentreColumn + (UWClassicWide.Extra * 0.5f) - lfHoleColumn;
+        float lfRight = UWClassicLayout.Frame.ProjectionCentreColumn + (piExtra * 0.5f) - lfHoleColumn;
         float lfDown = UWClassicLayout.Frame.ProjectionCentreRow - lfHoleRow;
 
         Matrix4x4 lOProjection = mOCamera.projectionMatrix;
