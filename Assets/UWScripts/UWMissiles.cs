@@ -17,9 +17,9 @@ public sealed class UWMissiles
 {
     /// <summary>The boulder of the quake: on sub-position 3/3 of its tile, just below the
     /// ceiling (QuakeSpell_seg038_3307_1211).</summary>
-    private const int BoulderSpawnZPos = 0x6E;
+    public const int BoulderSpawnZPos = 0x6E;
 
-    private const int BoulderSubTile = 3;
+    public const int BoulderSubTile = 3;
 
     /// <summary>How long a missile's impact picture stays: mts_doanim starts the explosion and the
     /// lightning's splash with the length 4, which lasts five ticks (UWExplosionRules.

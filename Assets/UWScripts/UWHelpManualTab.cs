@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UWDataImport.UWData;
 
@@ -77,30 +78,62 @@ public sealed class UWHelpManualTab : UWHelpTab
 
         UWKitRows lOKit = pOFlow.Kit;
         UWKitRows.HelpLook lOLook = UWHelpKitFlow.ButtonLook(UWGuiTheme.HelpFoldoutSize);
-        Rect lORow = pOFlow.Take(DocumentRowHeight);
-
-        // Each button as wide as its name needs, the room left shared out evenly (per user, 2026-11-05: "Memoirs
-        // of Cabirus" was cut at equal widths); when the names need more than the row, by their share.
+        // EACH BUTTON AS WIDE AS ITS NAME NEEDS, in as many rows as that takes (per user, 2026-11-05: "Memoirs of
+        // Cabirus" was cut at equal widths, and in the classic screen's narrow help every name was cut when the row
+        // was shared out): the buttons go into a row while they fit, the next starts a new row, and each row's
+        // room left is shared out evenly among its buttons.
+        float lfWidthAll = pOFlow.Width;
         float[] lfNeeded = new float[lODocuments.Count];
-        float lfAll = 0f;
+        List<int> lORowStarts = new List<int> { 0 };
+        float lfUsed = 0f;
 
         for (int liAt = 0; liAt < lODocuments.Count; liAt++)
         {
-            lfNeeded[liAt] = lOKit.HelpTextWidth(fDocumentName(lODocuments[liAt].Kind), lOLook) + (2f * DocumentPadding);
-            lfAll += lfNeeded[liAt];
+            lfNeeded[liAt] = Mathf.Min(lfWidthAll, lOKit.HelpTextWidth(fDocumentName(lODocuments[liAt].Kind), lOLook) + (2f * DocumentPadding));
+
+            float lfWith = lfUsed + (lfUsed > 0f ? DocumentGap : 0f) + lfNeeded[liAt];
+
+            if (lfUsed > 0f && lfWith > lfWidthAll)
+            {
+                lORowStarts.Add(liAt);
+                lfUsed = lfNeeded[liAt];
+            }
+            else
+                lfUsed = lfWith;
         }
 
-        float lfRoom = lORow.width - ((lODocuments.Count - 1) * DocumentGap);
-        float lfExtra = (lfRoom - lfAll) / lODocuments.Count;
-        float lfX = lORow.x;
+        Rect[] lOButtons = new Rect[lODocuments.Count];
+
+        for (int liRow = 0; liRow < lORowStarts.Count; liRow++)
+        {
+            int liFirst = lORowStarts[liRow];
+            int liEnd = liRow + 1 < lORowStarts.Count ? lORowStarts[liRow + 1] : lODocuments.Count;
+            Rect lORow = pOFlow.Take(DocumentRowHeight);
+            float lfNames = 0f;
+
+            if (liRow > 0)
+                lORow.y += liRow * DocumentGap;
+
+            for (int liAt = liFirst; liAt < liEnd; liAt++)
+                lfNames += lfNeeded[liAt];
+
+            float lfExtra = Mathf.Max(0f, (lORow.width - lfNames - ((liEnd - liFirst - 1) * DocumentGap)) / (liEnd - liFirst));
+            float lfX = lORow.x;
+
+            for (int liAt = liFirst; liAt < liEnd; liAt++)
+            {
+                lOButtons[liAt] = new Rect(lfX, lORow.y, lfNeeded[liAt] + lfExtra, DocumentRowHeight);
+                lfX += lOButtons[liAt].width + DocumentGap;
+            }
+        }
+
+        if (lORowStarts.Count > 1)
+            pOFlow.Space((lORowStarts.Count - 1) * DocumentGap);
 
         for (int liAt = 0; liAt < lODocuments.Count; liAt++)
         {
             bool lbShown = liAt == UWManual.Selected && miAsking < 0;
-            float lfWidth = lfExtra >= 0f ? lfNeeded[liAt] + lfExtra : lfNeeded[liAt] * lfRoom / lfAll;
-            Rect lOButton = new Rect(lfX, lORow.y, lfWidth, DocumentRowHeight);
-
-            lfX += lfWidth + DocumentGap;
+            Rect lOButton = lOButtons[liAt];
 
             if (!lOKit.HelpButton(lOButton, fDocumentName(lODocuments[liAt].Kind), lOLook, lbShown ? UWGuiTheme.Hover : UWGuiTheme.Panel,
                 UWGuiTheme.Hover, UWGuiTheme.Text))

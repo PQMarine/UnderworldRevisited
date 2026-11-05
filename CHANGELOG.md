@@ -8,6 +8,14 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.4] - 2026-11-05
+
+### Fixed
+- The help's document buttons wrap into a second row when the help is narrow, as beside the classic
+  screen; every name was cut there.
+- Closer to the original: Tremor tests the spot where a boulder is made, and where it does not fit (in a
+  diagonal wall) the boulder is usually not made; one could hang in the wall above the floor.
+
 ## [0.16.3] - 2026-11-05
 
 ### Added

@@ -442,10 +442,25 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return Loader != null && Loader.SpawnWardRune(piTileX, piTileY);
     }
 
-    /// <summary>Places a boulder below the ceiling and lets it fall - a piece of the quake's
-    /// debris on the motion core (UWMissiles.DropBoulder, since 2026-10-05).</summary>
+    /// <summary>
+    /// Places a boulder below the ceiling and lets it fall - a piece of the quake's debris on the motion core
+    /// (UWMissiles.DropBoulder, since 2026-10-05).
+    ///
+    /// PUT_AT WITH RANGE 0 FIRST (per user, 2026-11-05: at a diagonal wall a boulder hung in the air): tremor_area
+    /// puts it with put_at(x * 8 + 3, y * 8 + 3, 0x6E, boulder, 0, 0) (uw1 combat/SPELLS.C:654, uw2 SPELLS2.C) -
+    /// can_place at that very point (drop_around_place, range 0, as a flier); where it does not fit, the culling
+    /// test (Obj_Elem_Fate(10), UWTileQueries.Culls) decides, and a boulder it takes is never made. In a diagonal
+    /// tile the point 3/3 can lie in the solid half; ours started the flight there without a test, and the
+    /// boulder stuck in the wall. One the culling spares still goes on the point, as in the original.
+    /// </summary>
     public bool DropBoulder(int piObjectId, int piTileX, int piTileY)
     {
+        if (Loader != null && Loader.TileQueries != null
+            && !Loader.ObjectFitsAt(piObjectId, (piTileX << 3) + UWMissiles.BoulderSubTile, (piTileY << 3) + UWMissiles.BoulderSubTile,
+                UWMissiles.BoulderSpawnZPos)
+            && Loader.TileQueries.Culls(piObjectId, 1))
+            return false;
+
         return Loader != null && UWMissiles.Ensure(Loader).DropBoulder(piObjectId, piTileX, piTileY) != null;
     }
 
