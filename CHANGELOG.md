@@ -28,8 +28,8 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ### Fixed
 - A trap that creates a creature puts each new one beside the last when the spot is taken, as the
-  original does; pressed several times (the switch near the ankh on level 3, reported by the German
-  translator), the giant rats or skeletons all stood in one spot and could not move.
+  original does; pressed several times (the switch near the ankh on level 3), the giant rats or
+  skeletons all stood in one spot and could not move.
 - The debug keys Shift+F7 (jump) and Shift+F10 (spell list) work at once again; since 0.16.2 they
   did nothing until the debug panel's Tools tab had been opened.
 - Ultima Underworld II's modern scheme: the cross pointer over the rune page, and no blow while it

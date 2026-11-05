@@ -39,7 +39,7 @@ namespace UnderworldRevisited.Tools
             return -1;
         }
 
-        /// <summary>The creation trap's put_at (2026-11-05, the translator's rats): can_place refuses a creature where
+        /// <summary>The creation trap's put_at (2026-11-05, the stacked rats): can_place refuses a creature where
         /// another of its kind stands, and takes it a tile away.</summary>
         private static void fCheckCreatureOnCreature(DataImport pOData)
         {

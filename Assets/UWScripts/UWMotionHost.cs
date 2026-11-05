@@ -589,7 +589,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
             });
         }
 
-        // A CREATURE JUST PUT INTO THE TILE'S LIST WITHOUT A BODY YET (2026-11-05, the translator's rats and
+        // A CREATURE JUST PUT INTO THE TILE'S LIST WITHOUT A BODY YET (2026-11-05, the stacked rats and
         // the user's skeletons on level 3 at the button 5/7): a creation trap's copy is in the list at once, as
         // the original's Obj_AddEnd puts it, but its UWCritter comes alive only after the frame - so the next
         // trap of the same press found the spot free and put its copy inside the first. Such a record

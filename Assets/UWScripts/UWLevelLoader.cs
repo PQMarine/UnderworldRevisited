@@ -1867,7 +1867,7 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     /// <summary>
-    /// PUT_AT WITH STAY_CENTERED AT THE TEMPLATE'S SPOT (per the translator's report, 2026-11-05: on level 3 a
+    /// PUT_AT WITH STAY_CENTERED AT THE TEMPLATE'S SPOT (reported 2026-11-05: on level 3 a
     /// switch near an ankh makes giant rats; toggled several times, all of ours stood in one spot and could not
     /// move, the original's walk off): TRAP_CREATE_OBJECT puts the copy with put_at(x, y, z, obj, 4, 0) and
     /// stay_centered (uw1 event/TRIGGER.C:316, motion/COLLIDE.C drop_around_place) - the template's own fine spot
