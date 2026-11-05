@@ -158,7 +158,7 @@ public class UWWalkUw2View : MonoBehaviour
         UWControls lOControls = UWControlScheme.SharedControls;
 
         // The options panel, the map and a conversation have the input while they are up.
-        if (lOControls == null || fIsInputTaken() || (mOScreen != null && mOScreen.IsBagsOpen))
+        if (lOControls == null || fIsInputTaken() || (mOScreen != null && mOScreen.IsPanelOpen))
             return;
 
         UnityEngine.InputSystem.Mouse lOClickMouse = UnityEngine.InputSystem.Mouse.current;
@@ -314,7 +314,7 @@ public class UWWalkUw2View : MonoBehaviour
 
         if (!UWReachRules.CanReach(liPlayerX, liPlayerY, UWUnits.WorldToZPos(lOFeet.y),
             UWReachRules.ToEighths(lOItem.TileX, lOItem.XPos), UWReachRules.ToEighths(lOItem.TileY, lOItem.YPos), lOItem.ZPos,
-            UWReachRules.GetPickupDistanceSquared(false), false))
+            UWReachRules.GetPickupDistanceSquared(UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis), false))
         {
             // "That is too far away to take." (string 0x6A of the second game's block 1).
             UWGameScreenUw2.Say(UWText.Block(lOData, 1, TooFarToTakeString + 1, string.Empty));

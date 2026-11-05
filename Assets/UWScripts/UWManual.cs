@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UWDataImport.Install;
 using UWDataImport.UWData;
 
 /// <summary>
@@ -14,11 +15,63 @@ using UWDataImport.UWData;
 ///
 /// The PDF sets its text in fonts it does not embed (Palatino, Garamond and others), so
 /// PDFium substitutes similar ones; a probe render on 2026-09-26 read well.
+///
+/// SEVERAL DOCUMENTS (per user, 2026-11-05, with the Steam version's extras): the running game's PDFs that
+/// UWGameDocuments finds - manual, reference card, map, its own book, cluebook - one open at a time
+/// (Select); the help's Manual tab shows a button for each. Found anew when the game changes.
 /// </summary>
 public static class UWManual
 {
     /// <summary>The name the GOG version gives the manual.</summary>
-    public const string FileName = "Ultima_Underworld-Manual.pdf";
+    public const string FileName = UWGameDocuments.GogManualName;
+
+    /// <summary>The running game's documents (null until first asked), for which game, and the one open.</summary>
+    private static List<UWGameDocuments.Document> mODocuments;
+
+    private static IUWGameProfile mOFoundFor;
+
+    private static int miSelected;
+
+    /// <summary>The running game's documents, in the help's order; empty when there is none.</summary>
+    public static IReadOnlyList<UWGameDocuments.Document> Documents
+    {
+        get
+        {
+            fEnsureDocuments();
+
+            return mODocuments;
+        }
+    }
+
+    /// <summary>The document shown, an index into Documents.</summary>
+    public static int Selected => miSelected;
+
+    /// <summary>Shows another document: the open one is closed, the next opens with EnsureOpen.</summary>
+    public static void Select(int piIndex)
+    {
+        fEnsureDocuments();
+
+        if (piIndex == miSelected || piIndex < 0 || piIndex >= mODocuments.Count)
+            return;
+
+        fCloseDocument();
+        miSelected = piIndex;
+        mbTried = false;
+    }
+
+    private static void fEnsureDocuments()
+    {
+        IUWGameProfile lOGame = UnderworldRevisited.UWSettings.Game;
+
+        if (mODocuments != null && lOGame == mOFoundFor)
+            return;
+
+        fCloseDocument();
+        mbTried = false;
+        miSelected = 0;
+        mOFoundFor = lOGame;
+        mODocuments = UWGameDocuments.Find(fFolders(), lOGame == UWGameProfiles.Uw2 ? 2 : 1);
+    }
 
     /// <summary>How many rendered pages are kept - a spread in the reading mode and the side
     /// view, with room for turning back and forth.</summary>
@@ -59,7 +112,9 @@ public static class UWManual
 
         mbTried = true;
 
-        string lsPath = FindPath();
+        fEnsureDocuments();
+
+        string lsPath = miSelected < mODocuments.Count ? mODocuments[miSelected].Path : null;
 
         if (lsPath == null)
         {
@@ -70,9 +125,12 @@ public static class UWManual
 
         try
         {
-            UWPdfium.FPDF_InitLibrary();
-            mbLibraryUp = true;
-            Application.quitting += Close;
+            if (!mbLibraryUp)
+            {
+                UWPdfium.FPDF_InitLibrary();
+                mbLibraryUp = true;
+                Application.quitting += Close;
+            }
 
             mODocument = UWPdfium.FPDF_LoadDocument(System.Text.Encoding.UTF8.GetBytes(lsPath + "\0"), null);
 
@@ -210,17 +268,10 @@ public static class UWManual
     }
 
     /// <summary>
-    /// The manual next to game.gog: the image of this session first, then the installation
-    /// folder from the settings, then the usual GOG folders. The GOG name first, otherwise any
-    /// PDF there with "manual" in its name.
+    /// Where the documents are looked for: the image of this session first, then the installation folder
+    /// from the settings, then the usual GOG and Steam folders (UWGameDocuments adds each one's Extras).
     /// </summary>
-    private static readonly EnumerationOptions mOAnyCase = new EnumerationOptions
-    {
-        MatchCasing = MatchCasing.CaseInsensitive,
-        RecurseSubdirectories = false,
-    };
-
-    public static string FindPath()
+    private static List<string> fFolders()
     {
         List<string> lOFolders = new List<string>();
 
@@ -234,50 +285,16 @@ public static class UWManual
         if (!string.IsNullOrEmpty(lsInstall))
             lOFolders.Add(File.Exists(lsInstall) ? Path.GetDirectoryName(lsInstall) : lsInstall);
 
+        if (!string.IsNullOrEmpty(UWUserSettings.GogInstallPathUw2))
+            lOFolders.Add(File.Exists(UWUserSettings.GogInstallPathUw2) ? Path.GetDirectoryName(UWUserSettings.GogInstallPathUw2) : UWUserSettings.GogInstallPathUw2);
+
         lOFolders.AddRange(UnderworldRevisited.UWSettings.GetCandidateGogPaths());
 
-        foreach (string lsFolder in lOFolders)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(lsFolder) || !Directory.Exists(lsFolder))
-                    continue;
-
-                string lsPath = Path.Combine(lsFolder, FileName);
-
-                if (File.Exists(lsPath))
-                    return lsPath;
-
-                // Any case of the name and the extension: Linux file systems tell them apart
-                // (Linux build 2026-10-06), Windows does not.
-                string lsManual = null;
-
-                foreach (string lsCandidate in Directory.GetFiles(lsFolder, "*.pdf", mOAnyCase))
-                {
-                    string lsName = Path.GetFileName(lsCandidate);
-
-                    if (string.Equals(lsName, FileName, StringComparison.OrdinalIgnoreCase))
-                        return lsCandidate;
-
-                    if (lsManual == null && lsName.IndexOf("manual", StringComparison.OrdinalIgnoreCase) >= 0)
-                        lsManual = lsCandidate;
-                }
-
-                if (lsManual != null)
-                    return lsManual;
-            }
-            catch (Exception)
-            {
-                // A folder that cannot be read simply has no manual.
-            }
-        }
-
-        return null;
+        return lOFolders;
     }
 
-    /// <summary>Closes the document and the library - at the end of the game (and of play mode
-    /// in the editor, where the native library outlives the scripts).</summary>
-    public static void Close()
+    /// <summary>The open document and its pages go; the library stays up.</summary>
+    private static void fCloseDocument()
     {
         foreach (RenderedPage lOKept in mORendered)
         {
@@ -291,6 +308,15 @@ public static class UWManual
             UWPdfium.FPDF_CloseDocument(mODocument);
 
         mODocument = IntPtr.Zero;
+        mOPageSizes = new Vector2[0];
+        Problem = null;
+    }
+
+    /// <summary>Closes the document and the library - at the end of the game (and of play mode
+    /// in the editor, where the native library outlives the scripts).</summary>
+    public static void Close()
+    {
+        fCloseDocument();
 
         if (mbLibraryUp)
             UWPdfium.FPDF_DestroyLibrary();

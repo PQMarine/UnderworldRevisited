@@ -271,6 +271,10 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
     public int DungeonLevelIndex => UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevelIndex : -1;
 
+    /// <summary>The tile column of the walk's eye, -1 without a level.</summary>
+    public int PlayerTileX => UWScene.LevelLoader != null && UWScene.LevelLoader.CurrentLevel != null && UWViewpoint.Current != null
+        ? UWScene.LevelLoader.WorldPositionToTile(UWViewpoint.Current.transform.position).X : -1;
+
     public int WornRegeneration => mOStatus.RegenerationBits;
 
     public bool IsMoving => UWScene.PlayerMovement != null && UWScene.PlayerMovement.IsMoving;

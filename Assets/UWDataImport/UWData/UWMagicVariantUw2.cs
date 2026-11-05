@@ -23,8 +23,18 @@ namespace UWDataImport.UWData
 
 		private const int NoSound = 0xFF;
 
-		/// <summary>The classes that run: light, motion, armour, protection, healing.</summary>
-		private const int LastBuiltClass = 4;
+		/// <summary>Stage 1: light, motion, armour, protection, healing.</summary>
+		private const int LastLastingOrHealClass = 4;
+
+		/// <summary>Iron Flesh's glaze (do_spell, SPELLS.C:97): class 2 minor 5 while the djinn quest stands at 4,
+		/// "The baked mud hardens into a clear glaze."</summary>
+		private const int IronFleshMinor = 5;
+
+		private const int DjinnMudStage = 4;
+
+		private const int DjinnGlazedStage = 5;
+
+		private const int GlazeString = 0x14F + 1;
 
 		/// <summary>spells[] (uw2 combat/SPELLS.C:1033): index, class, minor and runes as the game's data has them.</summary>
 		private static readonly UWRunicMagic.Spell[] mOSpells =
@@ -108,9 +118,64 @@ namespace UWDataImport.UWData
 
 		public int HealedString => HealedMessage;
 
+		/// <summary>Stage 1 the classes up to 4; stage 2 part A the backfire, mana, class 11 (but Roaming Sight)
+		/// and class 13 (but Mind Blast and the two missiles).</summary>
 		public bool IsBuilt(UWRunicMagic.Spell pOSpell)
 		{
-			return pOSpell.MajorClass <= LastBuiltClass;
+			int liMinor = UWRunicMagic.GetEffectMinor(pOSpell.MinorClass);
+
+			switch (pOSpell.MajorClass)
+			{
+				case UWSpellCasting.BackfireMajorClass:
+				case UWSpellCasting.ManaMajorClass:
+					return true;
+
+				case UWExtraSpellRulesUw2.MajorClass:
+					return UWExtraSpellRulesUw2.IsBuilt(liMinor);
+
+				case UWSpecialSpellRulesUw2.MajorClass:
+					return UWSpecialSpellRulesUw2.IsBuilt(liMinor);
+
+				default:
+					return pOSpell.MajorClass <= LastLastingOrHealClass;
+			}
+		}
+
+		/// <summary>Classes 11 and 13 by the second game's own tables (do_spell's cases return 1: they always take);
+		/// Iron Flesh's glaze before the shared lasting spell.</summary>
+		public bool TryApplyOwn(UWRunicMagic.Spell pOSpell, int piMinor, IUWSpellHost pIHost, out bool pbTook)
+		{
+			pbTook = true;
+
+			switch (pOSpell.MajorClass)
+			{
+				case UWExtraSpellRulesUw2.MajorClass:
+					UWExtraSpellRulesUw2.Cast(piMinor, UWSpellCasting.RollStability(UWRunicMagic.GetStabilityClass(pOSpell.MinorClass)), pIHost);
+
+					if (pIHost.HasPlayer)
+						pIHost.RefreshSpellIcons();
+
+					return true;
+
+				case UWSpecialSpellRulesUw2.MajorClass:
+					UWSpecialSpellRulesUw2.Cast(piMinor, pIHost);
+
+					return true;
+
+				case UWSpellCasting.ArmourMajorClass:
+					if (piMinor == IronFleshMinor && pIHost is IUWSpellHostUw2 lIPlayer && pIHost.HasPlayer
+						&& UWPlayerRecordUw2.XClock(lIPlayer.Record, UWPlayerRecordUw2.DjinnClock) == DjinnMudStage)
+					{
+						pIHost.World.Presentation.AddGeneralMessage(GlazeString);
+						UWPlayerRecordUw2.SetXClock(lIPlayer.Record, UWPlayerRecordUw2.DjinnClock, DjinnGlazedStage);
+					}
+
+					break;
+			}
+
+			pbTook = false;
+
+			return false;
 		}
 
 		public bool MayCast(IUWSpellHost pIHost)

@@ -73,5 +73,11 @@ namespace UWDataImport.UWData
 		/// <summary>The target the Traps skill rolls against to disarm one (UW1: 8, SKILLS.C:928;
 		/// UW2: 8 plus the world number, SKILLS.C:923).</summary>
 		int TrapDisarmTarget();
+
+		/// <summary>Whether restore_mana gives anything here - every mana gain but the plain regeneration of
+		/// worn things goes through it: the mana spell, the minute's regeneration, a night, a mushroom (UW1:
+		/// always; UW2: not in the Scintillus Academy, world 5, but on its first level and on its eighth from
+		/// x 25 on, SPELLS.C:160). piDungeonLevel 1-based, piTileX -1 unknown.</summary>
+		bool MayRestoreMana(int piDungeonLevel, int piTileX);
 	}
 }

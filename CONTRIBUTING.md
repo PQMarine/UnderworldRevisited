@@ -67,9 +67,9 @@ to you.
 ## Code
 
 - How to build the game and the tools is in [Docs/BUILDING.md](Docs/BUILDING.md). You need
-  your own copy of Ultima Underworld from GOG.com.
+  your own copy of Ultima Underworld from GOG.com or Steam.
 - Run the self-check before you send a change; it must pass:
-  `dotnet run --project Tools/UWSelfCheck -- "<your GOG installation>"`. A rule that can be
+  `dotnet run --project Tools/UWSelfCheck -- "<your GOG or Steam installation>"`. A rule that can be
   tested without Unity should get a case there.
 - **Where things go:** the game rules live in the engine-free layer `Assets/UWDataImport`
   (no `UnityEngine`), the Unity side in `Assets/UWScripts`.

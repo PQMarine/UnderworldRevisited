@@ -25,7 +25,7 @@ namespace UWDataImport.UWData
 			fAdd("setting.Game", "Game");
 			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II offers a walk through its world so far: Create Character starts it.");
 			fAdd("setting.SaveFolder", "Save games");
-			fAdd("setting.SaveFolder.hint", "Where the save games of the GOG installation are, for both games. Automatic takes the folder holding the newest save - where DOSBox wrote last -, and without one cloud_saves when GOG's DOSBox configuration mounts it. A DOSBox of your own may write to the installation's folder instead.");
+			fAdd("setting.SaveFolder.hint", "Where the save games of the GOG or Steam installation are, for both games. Automatic takes the folder holding the newest save - where DOSBox wrote last -, and without one cloud_saves when GOG's DOSBox configuration mounts it. A DOSBox of your own may write to the installation's folder instead.");
 			fAdd("setting.SaveFolder.choice.automatic", "Automatic");
 			fAdd("setting.SaveFolder.choice.cloudsaves", "cloud_saves");
 			fAdd("setting.SaveFolder.choice.installation", "Installation folder");

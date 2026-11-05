@@ -60,5 +60,10 @@ namespace UWDataImport.UWData
 		{
 			return TrapCheckDifficulty;
 		}
+
+		public bool MayRestoreMana(int piDungeonLevel, int piTileX)
+		{
+			return true;
+		}
 	}
 }

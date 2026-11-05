@@ -11,8 +11,8 @@ layer and its tools.
 ## Building the game
 
 1. Clone the repository and open the folder with Unity 6000.6.8f1.
-2. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG
-   installation folder (the folder containing `game.gog`), or to `game.gog` itself. Common
+2. Select `Assets/Resources/UWSettings.asset` and set **GogInstallPath** to your GOG or Steam
+   installation folder (the folder containing `game.gog` or `game.bin`), or to the image itself. Common
    installation folders are found automatically when the field is empty.
 3. Open `Assets/UW.unity` and press Play, or build a player.
 
@@ -44,10 +44,18 @@ Lutris' `~/Games/gog/ultima-underworld-1-2`, and the same `GOG Games` folder ins
 `~/.wine/drive_c` and the Steam Proton `compatdata` prefixes. What is looked for is the folder
 with `game.gog`, the CD image every GOG release carries.
 
+THE STEAM VERSION (since November 2026) carries the same image as `game.bin`, each game in a folder
+of its own: `steamapps/common/Ultima Underworld I` and `.../Ultima Underworld II` in every Steam
+library. The libraries are those listed in Steam's `steamapps/libraryfolders.vdf`, Steam's own folder
+looked for in `Program Files (x86)\Steam`, `Program Files\Steam` and a `Steam` or `SteamLibrary`
+folder at the root of each drive (on Linux `~/.steam/steam`, `~/.local/share/Steam` and the
+Flatpak's). They come after GOG's folders of the first game; the second game's folders, GOG's then
+Steam's, come last.
+
 So a build made on one machine runs on another as long as the game is installed in one of
 them. To be sure your copy works, run the self-check (see Tools) before building.
 
-In the GOG release the game data is not installed as separate files but kept in `game.gog`, a
+In the GOG and Steam releases the game data is not installed as separate files but kept in `game.gog` (Steam: `game.bin`), a
 CD image. On the first start the Ultima Underworld 1 files (`CRIT`, `CUTS`, `DATA`, `SOUND`,
 `UW.EXE`) are extracted from it once into a local cache folder; nothing is written to the
 installation. Built from source, the settings asset's **SavegameFolder** overrides where the
@@ -99,7 +107,7 @@ instead of the transitional `UWGameSession.Current`.
 
 ## Tools
 
-The path the tools take is a `DATA` folder, a GOG installation folder or `game.gog` itself.
+The path the tools take is a `DATA` folder, a GOG or Steam installation folder or the image (`game.gog`, `game.bin`) itself.
 
 `Tools/UWSelfCheck` reads a complete installation once and reports what came through -
 levels, strings, textures, the 3D models from `UW.EXE`, cutscenes and sound - and runs the
@@ -146,7 +154,7 @@ dotnet run --project Tools/UWDump -- strings-export <path> --out <file>
 ```
 
 The path may be left out when the environment variable `UW_DATA` names the DATA folder, the
-GOG installation folder or game.gog, or when the game is in one of the common installation
+GOG or Steam installation folder or the image (game.gog, game.bin), or when the game is in one of the common installation
 folders the game itself searches. What these commands write is the original game's content:
 keep it out of the repository.
 

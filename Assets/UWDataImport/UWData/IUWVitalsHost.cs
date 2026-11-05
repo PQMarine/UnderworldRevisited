@@ -17,6 +17,10 @@ namespace UWDataImport.UWData
 		/// maximum mana goes depends on it (UWTybalOrbRules.KeepsMaxManaAside).</summary>
 		int DungeonLevelIndex { get; }
 
+		/// <summary>The tile column the player stands on (OBJ_HOMEX), -1 unknown - the second game's
+		/// Academy gives mana on its eighth level only from x 25 on (IUWPlayerVariant.MayRestoreMana).</summary>
+		int PlayerTileX { get; }
+
 		/// <summary>
 		/// The regeneration bits of the worn equipment on the tick - bit 0 health, bit 1 mana
 		/// (UWArmourProtection.Status.RegenerationBits). Comes from the host because the status

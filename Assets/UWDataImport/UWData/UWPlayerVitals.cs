@@ -444,6 +444,10 @@ namespace UWDataImport.UWData
 
 		private static bool fHasOrbLair => fGame.HasOrbLair;
 
+		/// <summary>Whether restore_mana gives anything where the player stands (IUWPlayerVariant.MayRestoreMana:
+		/// the second game's Academy); without a host it does.</summary>
+		private bool fMayRestoreMana => mIHost == null || fGame.MayRestoreMana(mIHost.DungeonLevelIndex + 1, mIHost.PlayerTileX);
+
 		private string fGetLevelUpMessage()
 		{
 			return LevelUpMessage(mOData, mOExperience.Level);
@@ -841,7 +845,7 @@ namespace UWDataImport.UWData
 		/// original's change routine (ManaChange_seg038_2B6), which the mushroom uses.</summary>
 		public void AddMana(int piAmount)
 		{
-			if (piAmount <= 0)
+			if (piAmount <= 0 || !fMayRestoreMana)
 				return;
 
 			CurrentMana = Math.Min(MaxMana, CurrentMana + piAmount);
@@ -1099,6 +1103,44 @@ namespace UWDataImport.UWData
 		public void CurePoison()
 		{
 			Poison = 0;
+			fVitalsChanged();
+		}
+
+		/// <summary>
+		/// The second game's Restoration (xt_spells minor 2, uw2 combat/SPELLS2.C:729): poison, the
+		/// mushrooms, the drink gone, the hit points full (get_hp_back with the maximum), hunger 0xFF, the
+		/// meal's count, fatigue and byte 0x3C at 0. The paralysis is the record's (the caller's).
+		/// </summary>
+		public void Restore()
+		{
+			Poison = 0;
+			Hallucination = 0;
+			Intoxication = 0;
+			CurrentHP = MaxHP;
+			Hunger = 0xFF;
+			MealHealCounter = 0;
+			Fatigue = 0;
+			Counter3C = 0;
+
+			fVitalsChanged();
+		}
+
+		/// <summary>Dispel Hunger (xt_spells minor 13, uw2 combat/SPELLS2.C:790): hunger to piHunger, the
+		/// meal's count to 0.</summary>
+		public void FeedTo(int piHunger)
+		{
+			Hunger = Math.Clamp(piHunger, 0, 0xFF);
+			MealHealCounter = 0;
+
+			fVitalsChanged();
+		}
+
+		/// <summary>The mushrooms' level as a spell sets it (uw2 special_spells 3 to 5, SPELLS.C:978): 0 to
+		/// MaxHallucination.</summary>
+		public void SetHallucination(int piLevel)
+		{
+			Hallucination = Math.Clamp(piLevel, 0, MaxHallucination);
+
 			fVitalsChanged();
 		}
 
@@ -1502,7 +1544,7 @@ namespace UWDataImport.UWData
 				lbChanged = true;
 			}
 
-			if ((piBits & UWWornRegeneration.ManaBit) != 0 && CurrentMana < MaxMana)
+			if ((piBits & UWWornRegeneration.ManaBit) != 0 && CurrentMana < MaxMana && fMayRestoreMana)
 			{
 				CurrentMana = Math.Min(MaxMana, CurrentMana + liAmount);
 				lbChanged = true;
@@ -1573,7 +1615,7 @@ namespace UWDataImport.UWData
 		{
 			int liCheck = fGetCheckMagnitude(GetSkill(UWPlayerData.Skill.Mana), UWRules.Current.Vitals.ManaRegeneration.Difficulty);
 
-			if (liCheck <= 0 || CurrentMana >= MaxMana)
+			if (liCheck <= 0 || CurrentMana >= MaxMana || !fMayRestoreMana)
 				return;
 
 			CurrentMana = Math.Min(MaxMana, CurrentMana + liCheck);
@@ -1630,6 +1672,9 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public void RestoreManaFromSpell(int piMinorClass)
 		{
+			if (!fMayRestoreMana)
+				return;
+
 			// The same share restore_mana adds (fRestoreAmount). Until 2026-10-11 this line divided
 			// in float (/ 16f); the maximum is always a whole number, so the results were identical.
 			CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreAmount(MaxMana, piMinorClass));
@@ -1707,8 +1752,11 @@ namespace UWDataImport.UWData
 			if (CurrentHP > 0)
 				CurrentHP = Math.Min(MaxHP, CurrentHP + fRestoreShare(MaxHP, piHitPointAmount));
 
-			CurrentMana = Math.Min(MaxMana, CurrentMana + UWRules.Current.Sleep.Recovery.FlatMana);
-			CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreShare(MaxMana, piManaAmount));
+			if (fMayRestoreMana)
+			{
+				CurrentMana = Math.Min(MaxMana, CurrentMana + UWRules.Current.Sleep.Recovery.FlatMana);
+				CurrentMana = Math.Min(MaxMana, CurrentMana + fRestoreShare(MaxMana, piManaAmount));
+			}
 
 			fVitalsChanged();
 		}

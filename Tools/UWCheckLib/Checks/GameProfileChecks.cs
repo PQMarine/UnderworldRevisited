@@ -120,11 +120,14 @@ namespace UnderworldRevisited.Tools
                 Check.Pass("install: the " + lOGame.Game + " saves for this image", UWGogInstall.GetSavegameFolder(psImage, lOGame) ?? "none");
 
             fCheckSaveFolderRule();
+            fCheckSteamInstall();
+            fCheckGameDocuments();
             fCheckValuableRoll();
             fCheckPlayerUw2();
             fCheckDeathUw2();
             fCheckFoodUw2();
             fCheckSleepUw2();
+            fCheckMagicPartAUw2();
             fCheckStatusUw2();
             fCheckCritterUw2();
             fCheckCombatUw2();
@@ -227,6 +230,69 @@ namespace UnderworldRevisited.Tools
             Check.Bool("sleep: uw2 may lie down on the Void's level", lISecond.MaySleepAt(UWGameProfiles.Uw2.CreateOriginalRules(), 65), true);
         }
 
+        /// <summary>UW2 phase 4 magic stage 2 part A: the Academy's mana, Map Area, Portal, the Void's tremor, what is built.</summary>
+        private static void fCheckMagicPartAUw2()
+        {
+            IUWPlayerVariant lIFirst = UWGameProfiles.Uw1.Player;
+            IUWPlayerVariant lISecond = UWGameProfiles.Uw2.Player;
+
+            Check.Str("uw2 mana: level 40, the Academy's 1st, 2nd, 8th at x 24 and 25, level 49; uw1 on 42",
+                lISecond.MayRestoreMana(40, 0) + " " + lISecond.MayRestoreMana(41, 0) + " " + lISecond.MayRestoreMana(42, 30) + " " + lISecond.MayRestoreMana(48, 24) + " "
+                + lISecond.MayRestoreMana(48, 25) + " " + lISecond.MayRestoreMana(49, 0) + " " + lIFirst.MayRestoreMana(42, 0), "True True False False True True True");
+            Check.Str("uw2 map area: the radius at Casting 0, 10, 15, 16, 30",
+                UWSpecialSpellRulesUw2.MapAreaRadius(0) + " " + UWSpecialSpellRulesUw2.MapAreaRadius(10) + " " + UWSpecialSpellRulesUw2.MapAreaRadius(15) + " "
+                + UWSpecialSpellRulesUw2.MapAreaRadius(16) + " " + UWSpecialSpellRulesUw2.MapAreaRadius(30), "2 4 5 5 11");
+            Check.Str("uw2 portal: height 15 at fine z 0, 2 at 0, 15 at 13, 15 at 12",
+                UWExtraSpellRulesUw2.PortalAllows(15, 0) + " " + UWExtraSpellRulesUw2.PortalAllows(2, 0) + " " + UWExtraSpellRulesUw2.PortalAllows(15, 13) + " " + UWExtraSpellRulesUw2.PortalAllows(15, 12), "False True True False");
+
+            string lsVoid = string.Empty;
+
+            for (int liSlot = 0; liSlot < 6; liSlot++)
+                lsVoid += UWExtraSpellRulesUw2.VoidThing(new UWTile(0, 1u | ((uint)liSlot << 10), new ushort[64])) + " ";
+
+            Check.Str("uw2 tremor: the Void's thing by floor slot 0 to 5", lsVoid.Trim(), "194 185 182 297 160 -1");
+
+            IUWMagicVariant lIMagic = UWGameProfiles.Uw2.Magic;
+            string lsBuilt = string.Empty;
+
+            foreach (int liSpell in new[] { 7, 15, 46, 58, 61, 63, 67, 0, 24, 33, 4, 65 })
+                lsBuilt += lIMagic.IsBuilt(lIMagic.Spells[liSpell]) ? "1" : "0";
+
+            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight, Armageddon, Mana Boost; Create Food, Frost, Fireball, Detect Trap, Acid",
+                lsBuilt, "111101100000");
+
+            UWTile[] lOTiles = new UWTile[0x1000];
+
+            for (int liAt = 0; liAt < lOTiles.Length; liAt++)
+                lOTiles[liAt] = new UWTile(liAt, 1u, new ushort[64]);
+
+            UWLevel lOLevel = new UWLevel(9) { TileData = lOTiles };
+
+            lOLevel.EnsureAutomap();
+            UWSpecialSpellRulesUw2.MapCircle(lOLevel, null, 10, 10, 2);
+            int liMiddle = fCountMapped(lOLevel);
+
+            lOLevel = new UWLevel(9) { TileData = lOTiles };
+            lOLevel.EnsureAutomap();
+            UWSpecialSpellRulesUw2.MapCircle(lOLevel, null, 1, 1, 2);
+
+            Check.Str("uw2 map area: radius 2 in the middle, and at the corner as automap_area clips it, the byte of an open tile",
+                liMiddle + " " + fCountMapped(lOLevel) + " " + lOLevel.AutomapTiles[new UWTilePos(2, 2).Index] + " " + lOLevel.AutomapTiles[new UWTilePos(3, 2).Index], "13 6 1 0");
+        }
+
+        private static int fCountMapped(UWLevel pOLevel)
+        {
+            int liCount = 0;
+
+            foreach (byte lyAt in pOLevel.AutomapTiles)
+            {
+                if (lyAt != 0)
+                    liCount++;
+            }
+
+            return liCount;
+        }
+
         /// <summary>uw2 UseFood: what is eaten and what it leaves.</summary>
         private static void fCheckFoodUw2()
         {
@@ -327,6 +393,144 @@ namespace UnderworldRevisited.Tools
         /// (it need not exist yet); an installation serves only the game whose UNDEROMn it has; the second
         /// game's saves are also found in its own product's installation beside the first's.
         /// </summary>
+        /// <summary>
+        /// THE STEAM RELEASE (2026-11-05) on a made-up library: the image as game.bin, found from the folder and its
+        /// UNDEROM1; each game in its own folder ("Ultima Underworld I", "II") with its own UNDEROMn and no
+        /// cloud_saves; the first game's saves found from the second's image beside it; libraryfolders.vdf read,
+        /// the old numbered form as well, an app's size not taken for a path.
+        /// </summary>
+        private static void fCheckSteamInstall()
+        {
+            string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckSteam_" + System.Guid.NewGuid().ToString("N"));
+            string lsFirst = UWGogInstall.SteamGameFolder(lsRoot, 0);
+            string lsSecond = UWGogInstall.SteamGameFolder(lsRoot, 1);
+            IUWGameProfile lOUw1 = UWGameProfiles.Uw1;
+            IUWGameProfile lOUw2 = UWGameProfiles.Uw2;
+
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(lsFirst, lOUw1.SaveFolder, "SAVE1"));
+                Directory.CreateDirectory(Path.Combine(lsSecond, lOUw2.SaveFolder));
+                File.WriteAllBytes(Path.Combine(lsFirst, UWGogInstall.SteamImageFileName), new byte[0]);
+                File.WriteAllBytes(Path.Combine(lsSecond, UWGogInstall.SteamImageFileName), new byte[0]);
+                File.WriteAllLines(Path.Combine(lsFirst, "dosboxULTIMA1_single.conf"), new[] { "[autoexec]", "mount C \"..\"", "#mount C \"..\\cloud_saves\" -t overlay" });
+
+                string lsImage = UWGogInstall.FindImage(lsFirst);
+                string lsSecondImage = UWGogInstall.FindImage(Path.Combine(lsSecond, lOUw2.SaveFolder));
+
+                Check.Str("steam: game.bin found from the folder and from its UNDEROM2; the dialog takes it",
+                    fRelative(lsRoot, lsImage) + " " + fRelative(lsRoot, lsSecondImage) + " " + UWGameFolderBrowser.HasImage(lsFirst),
+                    "steamapps/common/Ultima Underworld I/game.bin steamapps/common/Ultima Underworld II/game.bin True");
+                Check.Str("steam: each game's saves in its own UNDEROMn, without cloud_saves; the first's from the second's image",
+                    fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1)) + " " + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsSecondImage, lOUw2)) + " "
+                    + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsSecondImage, lOUw1)),
+                    "steamapps/common/Ultima Underworld I/UNDEROM1 steamapps/common/Ultima Underworld II/UNDEROM2 steamapps/common/Ultima Underworld I/UNDEROM1");
+
+                string lsVdf = "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"C:\\\\Program Files (x86)\\\\Steam\"\n\t\t\"apps\"\n\t\t{\n\t\t\t\"228980\"\t\t\"1234\"\n\t\t}\n\t}\n"
+                    + "\t\"1\"\n\t{\n\t\t\"path\"\t\t\"D:\\\\SteamLibrary\"\n\t}\n}\n";
+                string lsOld = "\"LibraryFolders\"\n{\n\t\"TimeNextStatsReport\"\t\t\"1\"\n\t\"1\"\t\t\"E:\\\\Games\\\\Steam\"\n}\n";
+
+                Check.Str("steam: libraryfolders.vdf's paths, escapes made single; the old numbered form",
+                    string.Join("|", UWGogInstall.ParseLibraryFolders(lsVdf)) + " " + string.Join("|", UWGogInstall.ParseLibraryFolders(lsOld)),
+                    @"C:\Program Files (x86)\Steam|D:\SteamLibrary E:\Games\Steam");
+
+                string[] lsCandidates = UWGogInstall.GetCandidateFolders(false);
+                int liGogFirst = System.Array.IndexOf(lsCandidates, @"D:\Ultima Underworld");
+                int liGogSecond = System.Array.IndexOf(lsCandidates, @"D:\Ultima Underworld 2");
+                int liSteamFirst = System.Array.FindIndex(lsCandidates, lsAt => lsAt.EndsWith(@"steamapps\common\Ultima Underworld I"));
+                int liSteamSecond = System.Array.FindIndex(lsCandidates, lsAt => lsAt.EndsWith(@"steamapps\common\Ultima Underworld II"));
+
+                Check.Bool("steam: the libraries' folders searched, GOG's first game, Steam's, GOG's second, Steam's",
+                    liGogFirst >= 0 && liSteamFirst > liGogFirst && liGogSecond > liSteamFirst && liSteamSecond > liGogSecond, true);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(lsRoot, true);
+                }
+                catch (System.Exception)
+                {
+                }
+            }
+        }
+
+        /// <summary>The help's documents (2026-11-05): kind and game by the file name, GOG's manual beside game.gog and
+        /// Steam's extras, one of each kind per game, in the help's order.</summary>
+        private static void fCheckGameDocuments()
+        {
+            string lsGot = string.Empty;
+
+            foreach (string lsName in new[] { "Ultima_Underworld-Manual.pdf", "Ultima_Underworld_II-Manual.pdf", "Ultima_Underworld_I_Map.pdf",
+                "Ultima_Underworld_II_A_Safe_Passage_Through_Britannia.pdf", "Ultima_Underworld_I_Memoirs_of_Cabirus.pdf", "Ultima_Underworld_II_Reference_Card.pdf",
+                "ultima underworld 2 cluebook.PDF", "Ultima_Underworld_I_Manual.txt", "Notes.pdf" })
+            {
+                lsGot += UWGameDocuments.Classify(lsName, out UWGameDocuments.KindEnum leKind, out int liGame) ? leKind + "/" + liGame + " " : "- ";
+            }
+
+            Check.Str("documents: kind and game by name; a text file and a stranger's PDF are none", lsGot.Trim(),
+                "Manual/1 Manual/2 Map/1 SafePassage/2 Memoirs/1 ReferenceCard/2 Cluebook/2 - -");
+
+            string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckDocs_" + System.Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                string lsGog = Path.Combine(lsRoot, "Ultima Underworld");
+                string lsSteam = Path.Combine(lsRoot, "Ultima Underworld I");
+
+                Directory.CreateDirectory(lsGog);
+                Directory.CreateDirectory(Path.Combine(lsSteam, UWGameDocuments.ExtrasFolder));
+
+                foreach (string lsName in new[] { "Ultima_Underworld-Manual.pdf", "Ultima_Underworld_II-Manual.pdf" })
+                    File.WriteAllBytes(Path.Combine(lsGog, lsName), new byte[0]);
+
+                foreach (string lsName in new[] { "Ultima_Underworld_I_Cluebook.pdf", "Ultima_Underworld_I_Manual.pdf", "Ultima_Underworld_I_Map.pdf",
+                    "Ultima_Underworld_I_Memoirs_of_Cabirus.pdf", "Ultima_Underworld_I_Reference_Card.pdf" })
+                    File.WriteAllBytes(Path.Combine(lsSteam, UWGameDocuments.ExtrasFolder, lsName), new byte[0]);
+
+                string fList(List<UWGameDocuments.Document> pODocuments)
+                {
+                    string lsList = string.Empty;
+
+                    foreach (UWGameDocuments.Document lODocument in pODocuments)
+                        lsList += lODocument.Kind + "=" + fRelative(lsRoot, lODocument.Path) + (lODocument.IsSpoiler ? "!" : string.Empty) + " ";
+
+                    return lsList.Trim();
+                }
+
+                Check.Str("documents: the first game's from GOG and Steam, one of each, GOG's manual first",
+                    fList(UWGameDocuments.Find(new[] { lsGog, lsSteam }, 1)),
+                    "Manual=Ultima Underworld/Ultima_Underworld-Manual.pdf ReferenceCard=Ultima Underworld I/Extras/Ultima_Underworld_I_Reference_Card.pdf "
+                    + "Map=Ultima Underworld I/Extras/Ultima_Underworld_I_Map.pdf Memoirs=Ultima Underworld I/Extras/Ultima_Underworld_I_Memoirs_of_Cabirus.pdf "
+                    + "Cluebook=Ultima Underworld I/Extras/Ultima_Underworld_I_Cluebook.pdf!");
+                string lsGoodies = Path.Combine(lsRoot, "Gog", "Ultima_Underworld_1_2_cluebook");
+
+                Directory.CreateDirectory(lsGoodies);
+                File.WriteAllBytes(Path.Combine(lsGoodies, "Ultima Underworld - Cluebook .pdf"), new byte[0]);
+                File.WriteAllBytes(Path.Combine(lsGoodies, "Ultima Underworld II - Cluebook .pdf"), new byte[0]);
+                File.WriteAllBytes(Path.Combine(lsRoot, "Gog", "Ultima Underworld 2 - Quick Reference Card.pdf"), new byte[0]);
+                File.WriteAllBytes(Path.Combine(lsRoot, "Gog", "Ultima Underworld - Map .pdf"), new byte[0]);
+
+                Check.Str("documents: GOG's goodies as unpacked, the PDFs beside the image or in their ZIP's folder",
+                    fList(UWGameDocuments.Find(new[] { Path.Combine(lsRoot, "Gog") }, 1)) + " | " + fList(UWGameDocuments.Find(new[] { Path.Combine(lsRoot, "Gog") }, 2)),
+                    "Map=Gog/Ultima Underworld - Map .pdf Cluebook=Gog/Ultima_Underworld_1_2_cluebook/Ultima Underworld - Cluebook .pdf! | "
+                    + "ReferenceCard=Gog/Ultima Underworld 2 - Quick Reference Card.pdf Cluebook=Gog/Ultima_Underworld_1_2_cluebook/Ultima Underworld II - Cluebook .pdf!");
+                Check.Str("documents: the second game's, and Steam's alone",
+                    fList(UWGameDocuments.Find(new[] { lsGog, lsSteam }, 2)) + " | " + fList(UWGameDocuments.Find(new[] { lsSteam }, 1).GetRange(0, 1)),
+                    "Manual=Ultima Underworld/Ultima_Underworld_II-Manual.pdf | Manual=Ultima Underworld I/Extras/Ultima_Underworld_I_Manual.pdf");
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(lsRoot, true);
+                }
+                catch (System.Exception)
+                {
+                }
+            }
+        }
+
         private static void fCheckSaveFolderRule()
         {
             string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckSaves_" + System.Guid.NewGuid().ToString("N"));
@@ -945,6 +1149,8 @@ namespace UnderworldRevisited.Tools
             public int TrapDetectTarget() => 99;
 
             public int TrapDisarmTarget() => 98;
+
+            public bool MayRestoreMana(int piDungeonLevel, int piTileX) => true;
         }
 
         /// <summary>A combat variant whose every step gives itself away.</summary>
@@ -1023,6 +1229,8 @@ namespace UnderworldRevisited.Tools
             public bool PaysOnRelease(UWRunicMagic.Spell pOSpell) => mIUw1.PaysOnRelease(pOSpell);
 
             public void TooSoon(IUWSpellHost pIHost) => mIUw1.TooSoon(pIHost);
+
+            public bool TryApplyOwn(UWRunicMagic.Spell pOSpell, int piMinor, IUWSpellHost pIHost, out bool pbTook) => mIUw1.TryApplyOwn(pOSpell, piMinor, pIHost, out pbTook);
         }
     }
 }

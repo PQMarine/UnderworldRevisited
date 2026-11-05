@@ -1280,6 +1280,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fShowRunes();
     }
 
+    /// <summary>clear_shelf (Armageddon): the shelf empty, in the record and on the screen.</summary>
+    public void ClearShelf()
+    {
+        fSetShelf(new[] { UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune }, 0);
+    }
+
     /// <summary>The bag, the shelf and the spells' icons anew.</summary>
     public void ShowRuneState()
     {
@@ -1807,9 +1813,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private void fFollowModal()
     {
         if (IsClassicScheme)
+        {
             mbBagsOpen = false;
+            mbRunesOpen = false;
+        }
 
-        bool lbModal = mbOptionsOpen || mbBagsOpen || UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen;
+        bool lbModal = mbOptionsOpen || mbBagsOpen || mbRunesOpen || UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen;
 
         if (lbModal == mbModal || UWControlScheme.Shared == null)
             return;
@@ -1836,17 +1845,25 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             else
                 mbBagsOpen = !mbBagsOpen;
         }
+        else if (lOControls != null && lbFree && lOControls.Player.ModernRunes.WasPressedThisFrame())
+            mbRunesOpen = !mbRunesOpen;
         else if (lOKeys != null && lbFree && lOKeys.escapeKey.wasPressedThisFrame && !lbHolding)
         {
-            if (mbBagsOpen)
+            if (mbRunesOpen)
+                mbRunesOpen = false;
+            else if (mbBagsOpen)
                 mbBagsOpen = false;
             else
                 fBeginOptions();
         }
 
+        // The cast key casts the shelf, as a click on the hollow does (magic stage 2 part A).
+        if (lOControls != null && lbFree && !UWConversationScreenUw2.IsOpen && UWControlScheme.SharedControls[UWAct.KeyCast].WasPressedThisFrame())
+            fCastShelf();
+
         fFollowInventoryPress();
 
-        if (mbBagsOpen)
+        if (mbBagsOpen || mbRunesOpen)
         {
             fClickBags();
             fUpdatePointer();
@@ -1883,7 +1900,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     private void fTickModernHud()
     {
         mOModernHud.Tick(mOData, UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null, msMessages, Time.unscaledTime - msfLastSaid,
-            this, mbBagsOpen);
+            this, mbBagsOpen, mbRunesOpen);
     }
 
     /// <summary>A place's key or click: its piece is used as from the inventory; nothing while it is not carried.</summary>
@@ -1916,7 +1933,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     private bool mbBagsOpen;
 
+    /// <summary>The modern scheme's rune page (Z), modal as the bags (UWModernHudUw2).</summary>
+    private bool mbRunesOpen;
+
     public bool IsBagsOpen => mbBagsOpen;
+
+    /// <summary>A modern panel has the pointer (the bags or the rune page): no blow, no use in the world.</summary>
+    public bool IsPanelOpen => mbBagsOpen || mbRunesOpen;
 
     /// <summary>E took a thing, or a conversation began: the bags open, for the pointer to put it down.</summary>
     public void OpenBags()
@@ -1950,6 +1973,24 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (!lbLeft && !lbRight)
             return;
+
+        // The rune page: its click is the classic page's (mous_in_rune); the hollow casts, its right button clears.
+        if (mbRunesOpen && mOModernHud.IsOnHollow(UWPointer.Position))
+        {
+            if (lbLeft)
+                fCastShelf();
+            else
+                fSetShelf(new[] { UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune }, 0);
+
+            return;
+        }
+
+        if (mbRunesOpen && mOModernHud.RunePagePixel(UWPointer.Position, out int liPageX, out int liPageY))
+        {
+            fClickRunes(liPageX, liPageY, lbRight);
+
+            return;
+        }
 
         if (mOInventory != null && fClickBar(lbRight))
             return;
@@ -2947,13 +2988,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         Rect lOWindow = mOCamera.pixelRect;
         UWPlayerMovement lOMovement = UWScene.Player != null ? UWScene.Player.GetComponent<UWPlayerMovement>() : null;
-        bool lbDriving = !mbOptionsOpen && !mbBagsOpen && !UWConversationScreenUw2.IsOpen && lOMovement != null && lOMovement.Input != null && lOMovement.Input.IsCursorMovementInProgress;
+        bool lbDriving = !mbOptionsOpen && !mbBagsOpen && !mbRunesOpen && !UWConversationScreenUw2.IsOpen && lOMovement != null && lOMovement.Input != null && lOMovement.Input.IsCursorMovementInProgress;
         Vector2 lOAt = lbDriving ? UWPointer.ClampTo(lOWindow) : UWPointer.Position;
         UWCursors.CursorEnum leCursor = lbDriving ? meCursor : UWCursors.CursorEnum.Center;
 
         // The panel's pointer is the plain one everywhere (the view's regions are mous_player's, which the
         // options' loop does not call).
-        if (!mbOptionsOpen && !mbBagsOpen && !UWConversationScreenUw2.IsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
+        if (!mbOptionsOpen && !mbBagsOpen && !mbRunesOpen && !UWConversationScreenUw2.IsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
             && lOAt.y >= lOWindow.yMin && lOAt.y <= lOWindow.yMax)
         {
             int liX = Mathf.Clamp(Mathf.FloorToInt((lOAt.x - lOWindow.xMin) / lOWindow.width * CursorAreaWidth), 0, CursorAreaWidth - 1);

@@ -13,6 +13,7 @@
     "FixOriginalBugs": true,
     "HelpOpen": false,
     "HelpTab": 1,
+    "CluebookConfirmed": false,
     "HelpMapSpan": 12,
     "MinimapZoom": 0,
     "MinimapTurns": false,

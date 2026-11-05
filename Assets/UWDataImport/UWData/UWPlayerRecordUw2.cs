@@ -161,6 +161,44 @@ namespace UWDataImport.UWData
 
 		public static int Paralysis(UWPlayerFile pOFile) => pOFile.Record[ParalysisOffset];
 
+		public static void SetParalysis(UWPlayerFile pOFile, int piValue)
+		{
+			pOFile.Record[ParalysisOffset] = (byte)piValue;
+		}
+
+		/// <summary>clear_runes: the bag empty (Armageddon, uw2 combat/SPELLS2.C:786).</summary>
+		public static void ClearRuneBag(UWPlayerFile pOFile)
+		{
+			for (int liAt = 0; liAt < 3; liAt++)
+				pOFile.Record[RuneBagOffset + liAt] = 0;
+		}
+
+		/// <summary>player->b60_11 (word 0x61 bit 3, player.h): Armageddon was cast, and every level entered
+		/// afterwards is emptied (GAMEWRAP.C:450).</summary>
+		private const int ArmageddonBit = 0x8;
+
+		public static bool IsArmageddon(UWPlayerFile pOFile) => pOFile != null && (UWBinary.ReadU16(pOFile.Record, StateWordOffset + 1) & ArmageddonBit) != 0;
+
+		public static void SetArmageddon(UWPlayerFile pOFile)
+		{
+			UWBinary.Write16(pOFile.Record, StateWordOffset + 1, UWBinary.ReadU16(pOFile.Record, StateWordOffset + 1) | ArmageddonBit);
+		}
+
+		/// <summary>player->moonstones[piIndex]: the level a moonstone was left on, 0 none (player.h, 0x5E).</summary>
+		public static int Moonstone(UWPlayerFile pOFile, int piIndex) => pOFile.Record[MoonstonesOffset + piIndex];
+
+		/// <summary>quest_bytes[QB_LINES_OF_POWER]: a bit per world whose line of power is cut (player.h:130).</summary>
+		public const int LinesOfPowerQuest = 128;
+
+		/// <summary>quests[3] bit 2: all eight lines cut (SPELLS2.C:840).</summary>
+		public const int AllLinesCutQuest = 14;
+
+		/// <summary>quests[13] bit 0: the line of the ice caverns cut (SPELLS2.C:842).</summary>
+		public const int IceLineCutQuest = 52;
+
+		/// <summary>XC_DJINN: the djinn capture's progress (player.h:149).</summary>
+		public const int DjinnClock = 3;
+
 		/// <summary>The active spells into the record: class, minor << 4, stability << 8, and their count; the
 		/// game screen's icons and the save read them here.</summary>
 		public static void WriteActiveSpells(UWPlayerFile pOFile, System.Collections.Generic.IReadOnlyList<UWActiveSpellEffect> pOSpells)

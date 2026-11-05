@@ -1308,6 +1308,9 @@ namespace UWDataImport.UWData
 
 		internal const int CrowdTilesForward = 5;
 
+		/// <summary>put_at's range for a creation trap's copy, in eighths (TRIGGER.C:316).</summary>
+		public const int CreateObjectPutAtRange = 4;
+
 		/// <summary>
 		/// THE CREATE ROLL (TRAP_CREATE_OBJECT, UnderworldExhumed TRIGGER.C): nothing when
 		/// rand() * 0x3F / 0x8000 - 0 to 62 - is below the quality, so quality 0 always creates and
@@ -1363,8 +1366,10 @@ namespace UWDataImport.UWData
 			// monster vanished when the player left the level (reference audit, TRIGGER.C
 			// DoWanderingMonsters and TRAP_CREATE_OBJECT).
 
-			// With position and height of the template, like UW.EXE - see SpawnObjectInTileAtTemplatePosition.
-			return pIHost.World.Spawn(lOCopy, new UWTilePos(piTileX, piTileY));
+			// put_at with stay_centered and range 4 (TRIGGER.C:316): the template's spot and height first, then a
+			// spot near it where the copy fits - a second creature no longer stands inside the first
+			// (UWLevelLoader.PutAtTemplatePosition, 2026-11-05).
+			return pIHost.World.PutAt(lOCopy, new UWTilePos(piTileX, piTileY), CreateObjectPutAtRange);
 		}
 
 		/// <summary>a_text string trap: outputs a level-specific message from string block 9

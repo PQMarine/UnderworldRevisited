@@ -535,7 +535,22 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// STATIC, because every critter of the level needs this in its own frame update and there
     /// is only one player character - the same pattern as UWConversationController.IsAnyOpen.
     /// </summary>
-    public static bool TimeIsFrozen { get; private set; }
+    /// <summary>Freeze Time among the player's active spells - on the second game its walk's vitals (UWVitalsUw2),
+    /// where this component stands idle.</summary>
+    public static bool TimeIsFrozen
+    {
+        get
+        {
+            if (UWWalkUw2.IsWalking)
+                return UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.TimeIsFrozen;
+
+            return msbTimeIsFrozen;
+        }
+
+        private set { msbTimeIsFrozen = value; }
+    }
+
+    private static bool msbTimeIsFrozen;
 
     /// <summary>
     /// Applies or withdraws the detached view of Roaming Sight.
@@ -682,6 +697,10 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
     /// <summary>IUWVitalsHost: the level the player is on, for the orb's mana rule - 0-based, -1
     /// without a world (the vitals' convention, UWWorldLevels).</summary>
     public int DungeonLevelIndex => UWWorldLevels.IndexOr(UWScene.World, -1);
+
+    /// <summary>IUWVitalsHost: the player's tile column, -1 without a level.</summary>
+    public int PlayerTileX => UWScene.LevelLoader != null && UWScene.LevelLoader.CurrentLevel != null
+        ? UWScene.LevelLoader.WorldPositionToTile(transform.position).X : -1;
 
     /// <summary>
     /// IUWVitalsHost: the regeneration bits of the worn equipment, for the tick - a Ring of

@@ -18,6 +18,11 @@ using UWDataImport.UWData;
 /// THE MINIMAP, top right: the map screen as the big map paints it (UWAutomapPainter in the map's palette), a
 /// window of it round the character, north up, repainted twice a second. Only with the map carried and the
 /// automap on: with it off the player does not know where they are (UWAutomapStateUw2).
+///
+/// THE RUNES, left (UW2 plan phase 4 magic stage 2 part A; Z as the first game's rune panel): the classic screen's
+/// rune page (PANELS.GR 1) with the bag's runes, and below it the shelf's three runes in a hollow. A click on the
+/// page is the classic page's own (UWGameScreenUw2.ClickRunePage: a rune onto the shelf, the right button looks,
+/// the bottom strip clears); a click on the hollow casts, as the first game's modern hollow does.
 /// </summary>
 public sealed class UWModernHudUw2 : MonoBehaviour
 {
@@ -130,6 +135,152 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private readonly Dictionary<int, Texture2D> mOItemPictures = new Dictionary<int, Texture2D>();
 
+    // ------------------------------------------------- The runes
+
+    /// <summary>The classic page's left and top on the classic screen (UWClassicLayoutUw2.Panel), and the screen's
+    /// last row: the page's pixels as mous_in_rune counts them.</summary>
+    private const int PageLeft = UWClassicLayoutUw2.Panel.Left;
+
+    private const int PageTop = UWClassicLayoutUw2.Panel.Top;
+
+    private const int ScreenLastRow = 199;
+
+    /// <summary>A hollow's place, in the original's pixels, and the gap between the page and the hollow.</summary>
+    private const float HollowCell = 18f;
+
+    private const float HollowGap = 2f;
+
+    private RawImage mORunePage;
+
+    private readonly RawImage[] mORunes = new RawImage[UWPlayerRecordUw2.RuneCount];
+
+    private readonly Image[] mOHollowCells = new Image[3];
+
+    private readonly RawImage[] mOHollow = new RawImage[3];
+
+    private Rect mORunePageRect;
+
+    private Rect mOHollowRect;
+
+    private float mfRuneAcross = 1f;
+
+    private float mfRuneDown = 1f;
+
+    /// <summary>The rune page's pixel under a screen point, as the classic page counts it (x on the classic screen,
+    /// y from the screen's bottom); false off the page or while it is not shown.</summary>
+    public bool RunePagePixel(Vector2 pOPointer, out int piX, out int piY)
+    {
+        piX = 0;
+        piY = 0;
+
+        if (mORunePage == null || !mORunePage.enabled || !mORunePageRect.Contains(pOPointer))
+            return false;
+
+        piX = PageLeft + (int)((pOPointer.x - mORunePageRect.x) / mfRuneAcross);
+        piY = ScreenLastRow - (PageTop + (int)((mORunePageRect.yMax - pOPointer.y) / mfRuneDown));
+
+        return true;
+    }
+
+    /// <summary>Whether a screen point is on the shown hollow.</summary>
+    public bool IsOnHollow(Vector2 pOPointer)
+    {
+        return mORunePage != null && mORunePage.enabled && mOHollowRect.Contains(pOPointer);
+    }
+
+    /// <summary>The rune page and the hollow at the left edge, the page's middle on the screen's; hidden while closed.</summary>
+    private void fShowRunes(UWPlayerFile pOFile, bool pbOpen, float pfScale)
+    {
+        if (mORunePage == null)
+        {
+            mORunePage = fImage("Rune page", UWUiKit.BottomLeft, UWUiKit.BottomLeft);
+            UWPixelArtUI.Apply(mORunePage);
+
+            for (int liRune = 0; liRune < mORunes.Length; liRune++)
+            {
+                mORunes[liRune] = fImage("Rune " + liRune, UWUiKit.BottomLeft, UWUiKit.BottomLeft);
+                UWPixelArtUI.Apply(mORunes[liRune]);
+            }
+
+            for (int liAt = 0; liAt < mOHollow.Length; liAt++)
+            {
+                mOHollowCells[liAt] = UWUiKit.CreateImage(mOCanvas.transform, "Hollow " + liAt, UWUiKit.BottomLeft, UWUiKit.BottomLeft, CellOpen);
+                mOHollowCells[liAt].raycastTarget = false;
+                mOHollow[liAt] = fImage("Hollow rune " + liAt, UWUiKit.BottomLeft, UWUiKit.BottomLeft);
+                UWPixelArtUI.Apply(mOHollow[liAt]);
+            }
+
+            mORunePage.texture = UWScreenUi.BuildPicture(mOData.Textures, UWTexture.TextureTypes.PANELS, UWClassicLayoutUw2.Runes.PanelPage);
+        }
+
+        bool lbShown = pbOpen && pOFile != null && mORunePage.texture != null;
+
+        mORunePage.enabled = lbShown;
+
+        for (int liAt = 0; liAt < mOHollow.Length; liAt++)
+        {
+            mOHollowCells[liAt].enabled = lbShown;
+            mOHollow[liAt].enabled = false;
+        }
+
+        for (int liRune = 0; liRune < mORunes.Length; liRune++)
+            mORunes[liRune].enabled = false;
+
+        if (!lbShown)
+            return;
+
+        mfRuneDown = pfScale;
+        mfRuneAcross = pfScale * UWModernHudArt.PixelAspectX;
+
+        Texture2D lOPage = (Texture2D)mORunePage.texture;
+        float lfWidth = lOPage.width * mfRuneAcross;
+        float lfHeight = lOPage.height * mfRuneDown;
+        float lfHollow = (HollowCell + HollowGap) * mfRuneDown;
+        float lfLeft = Margin * pfScale;
+        float lfBottom = Mathf.Max(Margin * pfScale, ((Screen.height - lfHeight - lfHollow) * 0.5f) + lfHollow);
+
+        mORunePageRect = new Rect(lfLeft, lfBottom, lfWidth, lfHeight);
+        fPlace(mORunePage, lOPage, lfLeft, lfBottom, pfScale);
+
+        // The classic page's places (fBuildRunes): column rune AND 3, row rune / 4 from the top.
+        for (int liRune = 0; liRune < mORunes.Length; liRune++)
+        {
+            if (!UWPlayerRecordUw2.HasRune(pOFile, liRune))
+                continue;
+
+            Texture2D lORune = fItemPicture(UWClassicLayoutUw2.Runes.FirstRunestone + liRune);
+
+            if (lORune == null)
+                continue;
+
+            float lfX = UWClassicLayoutUw2.Runes.Left - PageLeft + ((liRune & 3) * UWClassicLayoutUw2.Runes.StepX);
+            float lfTop = ScreenLastRow - (UWClassicLayoutUw2.Runes.TopY - ((liRune >> 2) * UWClassicLayoutUw2.Runes.StepY)) - PageTop;
+
+            fPlace(mORunes[liRune], lORune, lfLeft + (lfX * mfRuneAcross), mORunePageRect.yMax - ((lfTop + lORune.height) * mfRuneDown), pfScale);
+        }
+
+        float lfCellWidth = HollowCell * mfRuneAcross;
+        float lfCellHeight = HollowCell * mfRuneDown;
+        float lfCellBottom = lfBottom - lfHollow;
+
+        mOHollowRect = new Rect(lfLeft, lfCellBottom, (mOHollow.Length * lfCellWidth) + ((mOHollow.Length - 1) * HollowGap * mfRuneAcross), lfCellHeight);
+
+        for (int liAt = 0; liAt < mOHollow.Length; liAt++)
+        {
+            float lfCellLeft = lfLeft + (liAt * (lfCellWidth + (HollowGap * mfRuneAcross)));
+
+            mOHollowCells[liAt].rectTransform.sizeDelta = new Vector2(lfCellWidth, lfCellHeight);
+            mOHollowCells[liAt].rectTransform.anchoredPosition = new Vector2(lfCellLeft, lfCellBottom);
+
+            int liRune = liAt < UWPlayerRecordUw2.ShelfCount(pOFile) ? UWPlayerRecordUw2.ShelfRune(pOFile, liAt) : UWPlayerRecordUw2.NoRune;
+            Texture2D lORune = liRune < UWPlayerRecordUw2.RuneCount ? fItemPicture(UWClassicLayoutUw2.Runes.FirstRunestone + liRune) : null;
+
+            if (lORune != null)
+                fPlace(mOHollow[liAt], lORune, lfCellLeft + ((lfCellWidth - (lORune.width * mfRuneAcross)) * 0.5f),
+                    lfCellBottom + ((lfCellHeight - (lORune.height * mfRuneDown)) * 0.5f), pfScale);
+        }
+    }
+
     /// <summary>The action bar, made with the canvas.</summary>
     public UWModernBarUw2 Bar { get; private set; }
 
@@ -189,7 +340,8 @@ public sealed class UWModernHudUw2 : MonoBehaviour
     }
 
     /// <summary>The HUD for this frame. pfSaidAgo: the seconds since the last line of the scroll.</summary>
-    public void Tick(DataImport pOData, UWPlayerFile pOFile, List<string> pOLines, float pfSaidAgo, UWGameScreenUw2 pOScreen, bool pbBagsOpen)
+    public void Tick(DataImport pOData, UWPlayerFile pOFile, List<string> pOLines, float pfSaidAgo, UWGameScreenUw2 pOScreen, bool pbBagsOpen,
+        bool pbRunesOpen = false)
     {
         mOData = pOData;
 
@@ -204,6 +356,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         if (UWConversationScreenUw2.IsOpen)
         {
             fHideForTalk();
+            fShowRunes(pOFile, false, lfScale);
             fShowBags(pOScreen, pbBagsOpen, lfScale);
 
             return;
@@ -216,10 +369,11 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         fShowLines(pOLines, pfSaidAgo, lfRight + (Margin * lfScale), lfScale);
         fShowPointer(lfScale);
         fShowBags(pOScreen, pbBagsOpen, lfScale);
+        fShowRunes(pOFile, pbRunesOpen, lfScale);
         Bar.Tick(pOScreen != null ? pOScreen.Inventory : null, mOData, lfScale, fInk, fItemPicture);
         fShowMinimap(pOFile, pOScreen, lfScale);
 
-        mOPointer.enabled = mOPointer.texture != null && !pbBagsOpen;
+        mOPointer.enabled = mOPointer.texture != null && !pbBagsOpen && !pbRunesOpen;
     }
 
     private void fHideForTalk()
@@ -384,8 +538,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
             {
                 string lsCount = liCount.ToString();
 
-                UWTextLabel.Get(mOCellCounts[liAt]).SetLine(lOSmall, lsCount, UWTextRaster.TightWidth(lOSmall, lsCount), fInk, false, FilterMode.Point);
-                mOCellCounts[liAt].rectTransform.localScale = new Vector3(pfScale, pfScale, 1f);
+                Scaled(mOCellCounts[liAt], pfScale).SetLine(lOSmall, lsCount, UWTextRaster.TightWidth(lOSmall, lsCount), fInk, false, FilterMode.Point);
                 mOCellCounts[liAt].rectTransform.anchoredPosition = new Vector2(lORect.x + pfScale, lORect.y + pfScale);
             }
             else
@@ -484,13 +637,29 @@ public sealed class UWModernHudUw2 : MonoBehaviour
             string lsValue = liValue + "/" + liMaximum;
             int liWidth = UWTextRaster.TightWidth(lOFont, lsValue);
 
-            UWTextLabel.Get(mOValues[piFlask]).SetLine(lOFont, lsValue, liWidth, fInk, false, FilterMode.Point);
-            mOValues[piFlask].rectTransform.localScale = new Vector3(pfScale, pfScale, 1f);
+            Scaled(mOValues[piFlask], pfScale).SetLine(lOFont, lsValue, liWidth, fInk, false, FilterMode.Point);
             mOValues[piFlask].rectTransform.anchoredPosition = new Vector2(lfLeft + ((lfFlask - liWidth) * pfScale * 0.5f),
                 lfBottom + ((lOEmpty.height + 1) * pfScale));
         }
 
         return pfPlace + (lfPlace * pfScale);
+    }
+
+    /// <summary>
+    /// A text field at the HUD's scale (per user, 2026-11-05: the flasks' values, the lines and the bar were blurred
+    /// at a scale that is not a whole number): the field draws itself at the scale (UWTextLabel.UnitScale), so the
+    /// modern font of the font key is set at its size instead of a small one magnified; the original font's picture
+    /// is drawn at the same size as before. Until then the field was magnified by its transform.
+    /// </summary>
+    public static UWTextLabel Scaled(RawImage pOImage, float pfScale)
+    {
+        UWTextLabel lOLabel = UWTextLabel.Get(pOImage);
+
+        lOLabel.UnitScale = pfScale;
+        lOLabel.UnitAspect = 1f;
+        pOImage.rectTransform.localScale = Vector3.one;
+
+        return lOLabel;
     }
 
     private static void fPlace(RawImage pOImage, Texture2D pOPicture, float pfLeft, float pfBottom, float pfScale)
@@ -525,8 +694,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         for (int liAt = 0; liAt < lyColours.Length; liAt++)
             lyColours[liAt] = fInk;
 
-        UWTextLabel.Get(mOLines).SetText(lOFont, mOText, liWidth, lyColours, UWTextRaster.ColoursEnum.PerLine, false, FilterMode.Point);
-        mOLines.rectTransform.localScale = new Vector3(pfScale, pfScale, 1f);
+        Scaled(mOLines, pfScale).SetText(lOFont, mOText, liWidth, lyColours, UWTextRaster.ColoursEnum.PerLine, false, FilterMode.Point);
         mOLines.rectTransform.anchoredPosition = new Vector2(pfLeft, Margin * pfScale);
     }
 
@@ -566,8 +734,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
         int liWidth = UWTextRaster.TightWidth(lOFont, msTarget);
 
-        UWTextLabel.Get(mOTarget).SetLine(lOFont, msTarget, liWidth, fInk, false, FilterMode.Point);
-        mOTarget.rectTransform.localScale = new Vector3(pfScale, pfScale, 1f);
+        Scaled(mOTarget, pfScale).SetLine(lOFont, msTarget, liWidth, fInk, false, FilterMode.Point);
         mOTarget.rectTransform.anchoredPosition = new Vector2(-liWidth * pfScale * 0.5f, -TargetBelow * pfScale);
     }
 

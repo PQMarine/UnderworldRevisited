@@ -129,7 +129,18 @@ public class UWDebugTools : MonoBehaviour
             mOTools = pOTools;
         }
 
-        protected override UWControls Controls => mOTools.mOScheme != null ? mOTools.mOScheme.Controls : null;
+        // The scheme from the scene when the tab was never open yet (per user, 2026-11-05: Shift+F7 and
+        // Shift+F10 did nothing until the tab had been opened once - mOScheme is set only in fSetOpen).
+        protected override UWControls Controls
+        {
+            get
+            {
+                if (mOTools.mOScheme == null)
+                    mOTools.mOScheme = UWScene.ControlScheme;
+
+                return mOTools.mOScheme != null ? mOTools.mOScheme.Controls : null;
+            }
+        }
 
         public override bool Gate(UWHotkeyGate peGate, UWHotkeyRow pORow)
         {

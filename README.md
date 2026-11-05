@@ -9,7 +9,8 @@ its menus, its character creation, its saves, Britannia with its game screen, ma
 and its creatures - not yet the whole of its rules ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
 
 **You need your own copy of Ultima Underworld - the GOG.com version** ("Ultima Underworld
-1+2"); other releases are not supported (see [Requirements](#requirements)). This repository
+1+2") **or the Steam version**, which carries the same game files; other releases are not
+supported (see [Requirements](#requirements)). This repository
 contains no game data: no graphics, sounds, texts, maps or executables of the original.
 Everything is read at runtime from your installation. The only exception are the screenshots,
 which show the original's artwork.
@@ -133,15 +134,18 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): part of every release since 0.3.0, tested
   in a Kubuntu virtual machine and far less than the Windows version. macOS is untried.
   Reports from other systems are welcome.
-- **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2"). Only this version is
-  supported: some data (3D models, their colours) is read directly from the game's executable
-  at build-specific offsets, verified against the GOG `UW.EXE` (547,248 bytes). Other
-  releases (original floppy, CD, other stores) may differ and are not supported.
+- **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2") **or from Steam**
+  ("Ultima Underworld I", since November 2026: the same CD image as GOG's, there named
+  `game.bin`). Only this version is supported: some data (3D models, their colours) is read
+  directly from the game's executable at build-specific offsets, verified against the GOG
+  `UW.EXE` (547,248 bytes). Other releases (original floppy, CD, other stores) may differ and
+  are not supported.
 - Unity **6000.6.8f1** (Unity 6), Universal Render Pipeline - only to build it yourself.
 
 ## Installation
 
-First install Ultima Underworld from GOG.com ("Ultima Underworld 1+2"). Then:
+First install Ultima Underworld from GOG.com ("Ultima Underworld 1+2") or Steam ("Ultima
+Underworld I"). Then:
 
 1. Download the latest release from the
    [Releases page](https://github.com/PQMarine/UnderworldRevisited/releases):
@@ -150,15 +154,29 @@ First install Ultima Underworld from GOG.com ("Ultima Underworld 1+2"). Then:
 2. Unpack it into a folder of its own.
 3. Start `UR.exe` (Windows) or `UR.x86_64` (Linux). Should Linux refuse to run it, the
    executable bit got lost on the way: `chmod +x UR.x86_64` in that folder, once.
-4. The game looks for your GOG installation in the usual places (listed in
+4. The game looks for your GOG or Steam installation in the usual places (listed in
    [Building](Docs/BUILDING.md#building-the-game)). If it does not find it, it asks for the
-   folder: choose the one that contains `game.gog`. The choice is remembered and can be
-   changed later in the menu bar of the main menu (*Game > Game folder...*).
+   folder: choose the one that contains `game.gog` (GOG) or `game.bin` (Steam). The choice is
+   remembered and can be changed later in the menu bar of the main menu (*Game > Game
+   folder...*).
 
 Nothing else needs to be installed; the package brings its own runtime. On the first start the
-game files are extracted from `game.gog` once into a local cache; nothing is written to the
-installation. Save games are read from and written to the installation's `UNDEROM1\SAVE1` to
-`SAVE4`, so they can be exchanged with the original game.
+game files are extracted from `game.gog` (or `game.bin`) once into a local cache; nothing is
+written to the installation. Save games are read from and written to the installation's
+`UNDEROM1\SAVE1` to `SAVE4`, so they can be exchanged with the original game. The Steam version
+needs none of its bundled DOSBox and its settings.
+
+**Steam: start it from Steam, with Steam Cloud.** Steam keeps the save games in its cloud, but it
+synchronises them only when it starts a game itself. Enter this in the game's *Properties > General >
+Launch Options* (your path to `UR.exe`):
+
+```
+"C:\Games\Underworld Revisited\UR.exe" %command%
+```
+
+"Play" then starts Underworld Revisited instead of the original: Steam fetches the saves before and
+uploads them after, with the port's own notes file (`UWR.json`) - tried on Windows on 2026-11-05.
+Clear the line to start the original again.
 
 **Music.** The *Sound* menu chooses what plays the music: the AdLib (as most heard it in
 1992), General MIDI, or the MT-32. For the MT-32, put the control and PCM ROM of your own

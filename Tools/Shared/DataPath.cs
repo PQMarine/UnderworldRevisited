@@ -43,7 +43,7 @@ namespace UnderworldRevisited.Tools
 
             if (lsImage == null)
             {
-                psError = "Neither a DATA folder with " + MarkerFile + " nor a game.gog in: " + psPath;
+                psError = "Neither a DATA folder with " + MarkerFile + " nor a game.gog or game.bin in: " + psPath;
 
                 return null;
             }
@@ -83,8 +83,8 @@ namespace UnderworldRevisited.Tools
                 return Resolve(lsCandidate, pOGame, out psError);
             }
 
-            psError = "No game data found. Pass the path, or set UW_DATA to the DATA folder, the GOG"
-                + " installation folder or game.gog. Searched: " + string.Join("; ", lsCandidates);
+            psError = "No game data found. Pass the path, or set UW_DATA to the DATA folder, the GOG or Steam"
+                + " installation folder or the image (game.gog, game.bin). Searched: " + string.Join("; ", lsCandidates);
 
             return null;
         }

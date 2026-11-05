@@ -57,6 +57,10 @@ namespace UWDataImport.UWData
 
 		public int HelpTab = 3;
 
+		/// <summary>The cluebook was opened once in the help's Manual tab after its warning (per user,
+		/// 2026-11-05: warn once): it opens without asking since.</summary>
+		public bool CluebookConfirmed;
+
 		public int HelpMapSpan = 20;
 
 		/// <summary>The modern scheme's minimap (UWModernMinimap, per user 2026-10-03): its zoom

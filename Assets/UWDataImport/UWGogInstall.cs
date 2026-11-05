@@ -8,7 +8,15 @@ using UWDataImport.UWData;
 namespace UWDataImport.Install
 {
     /// <summary>
-    /// The game data of the supported version: Ultima Underworld 1 and 2 from GOG.com.
+    /// The game data of the supported version: Ultima Underworld 1 and 2 from GOG.com, or the same
+    /// from Steam.
+    ///
+    /// STEAM (per user, 2026-11-05: EA brought both games to Steam that day): each game in its own
+    /// folder under steamapps/common, "Ultima Underworld I" and "Ultima Underworld II", each with the
+    /// same CD image as GOG's under the name game.bin (byte for byte GOG's game.gog of the first game,
+    /// MD5 1be5d90a96c4b9d495152ee38ca572ff), the old DOSBox 0.74-2 and its own UNDEROM1 or UNDEROM2
+    /// for the saves, without cloud_saves (its configuration comments the overlay out). The libraries
+    /// are found by Steam's libraryfolders.vdf (GetSteamLibraries).
     ///
     /// In the GOG installation the data is not on disk: `UNDEROM1\DATA` holds only UW.CFG.
     /// Everything lives in `game.gog`, an ISO 9660 CD image (2048-byte sectors) that the
@@ -28,13 +36,43 @@ namespace UWDataImport.Install
         /// <summary>File name of the CD image in a GOG installation.</summary>
         public const string ImageFileName = "game.gog";
 
+        /// <summary>The same image's name in a Steam installation.</summary>
+        public const string SteamImageFileName = "game.bin";
+
+        /// <summary>The image's names, GOG's first.</summary>
+        public static readonly string[] ImageFileNames = { ImageFileName, SteamImageFileName };
+
+        /// <summary>The image in a folder by either name, GOG's first; null when there is none.</summary>
+        public static string ImageIn(string psFolder)
+        {
+            if (string.IsNullOrEmpty(psFolder))
+                return null;
+
+            try
+            {
+                foreach (string lsName in ImageFileNames)
+                {
+                    string lsPath = Path.Combine(psFolder, lsName);
+
+                    if (File.Exists(lsPath))
+                        return lsPath;
+                }
+            }
+            catch (Exception)
+            {
+                // A folder that cannot be read holds no image.
+            }
+
+            return null;
+        }
+
         private const string MarkerFileName = "extracted.txt";
         private const int MarkerVersion = 1;
 
         private static readonly string[] msFoldersToExtract = { "CRIT", "CUTS", "DATA", "SOUND" };
 
         /// <summary>
-        /// Finds game.gog for a path that is either the image itself or the GOG installation
+        /// Finds the image for a path that is either the image itself or the GOG or Steam installation
         /// folder (or its UNDEROM1 subfolder). Null if there is none.
         /// </summary>
         public static string FindImage(string psPath)
@@ -52,15 +90,14 @@ namespace UWDataImport.Install
                 if (!Directory.Exists(lsTrimmed))
                     return null;
 
-                string lsInFolder = Path.Combine(lsTrimmed, ImageFileName);
+                string lsInFolder = ImageIn(lsTrimmed);
 
-                if (File.Exists(lsInFolder))
+                if (lsInFolder != null)
                     return lsInFolder;
 
                 DirectoryInfo lOParent = Directory.GetParent(lsTrimmed);
-                string lsAbove = lOParent == null ? null : Path.Combine(lOParent.FullName, ImageFileName);
 
-                return lsAbove != null && File.Exists(lsAbove) ? lsAbove : null;
+                return lOParent == null ? null : ImageIn(lOParent.FullName);
             }
             catch (Exception)
             {
@@ -99,8 +136,203 @@ namespace UWDataImport.Install
         /// Proton and Lutris prefixes that hold the Windows installer's folder - game.gog is the
         /// CD image every GOG release of the game carries, however it was installed (innoextract
         /// included).
+        ///
+        /// STEAM (2026-11-05): after GOG's folders of the first game the Steam libraries' "Ultima Underworld
+        /// I", at the end their "Ultima Underworld II" - GOG's first, as before.
         /// </summary>
         public static string[] GetCandidateFolders(bool pbLinux)
+        {
+            string[] lsGog = fGogCandidateFolders(pbLinux, out int liFirstGame);
+            List<string> lOAll = new List<string>();
+            List<string> lOLibraries = GetSteamLibraries(pbLinux);
+
+            for (int liAt = 0; liAt < liFirstGame; liAt++)
+                lOAll.Add(lsGog[liAt]);
+
+            foreach (string lsLibrary in lOLibraries)
+                lOAll.Add(SteamGameFolder(lsLibrary, 0));
+
+            for (int liAt = liFirstGame; liAt < lsGog.Length; liAt++)
+                lOAll.Add(lsGog[liAt]);
+
+            foreach (string lsLibrary in lOLibraries)
+                lOAll.Add(SteamGameFolder(lsLibrary, 1));
+
+            return lOAll.ToArray();
+        }
+
+        /// <summary>The two games' folders under a Steam library's steamapps/common.</summary>
+        public static readonly string[] SteamGameFolders = { "Ultima Underworld I", "Ultima Underworld II" };
+
+        /// <summary>A game's folder in a Steam library (piGame 0 the first game, 1 the second).</summary>
+        public static string SteamGameFolder(string psLibrary, int piGame)
+        {
+            return Path.Combine(psLibrary, "steamapps", "common", SteamGameFolders[piGame]);
+        }
+
+        /// <summary>
+        /// The Steam libraries to look in: each Steam folder itself and every library its
+        /// steamapps/libraryfolders.vdf lists ("path" entries), without repeats. Steam's folder by its usual
+        /// places - on Windows Program Files (x86) and Program Files and, as Steam may live on any drive, a
+        /// Steam and a SteamLibrary folder at each fixed drive's root; on Linux ~/.steam/steam,
+        /// ~/.local/share/Steam and the Flatpak's.
+        /// </summary>
+        public static List<string> GetSteamLibraries(bool pbLinux)
+        {
+            List<string> lORoots = new List<string>();
+
+            try
+            {
+                if (pbLinux)
+                {
+                    string lsHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+                    if (string.IsNullOrEmpty(lsHome))
+                        lsHome = "/root";
+
+                    lORoots.Add(Path.Combine(lsHome, ".steam/steam"));
+                    lORoots.Add(Path.Combine(lsHome, ".local/share/Steam"));
+                    lORoots.Add(Path.Combine(lsHome, ".var/app/com.valvesoftware.Steam/.local/share/Steam"));
+                }
+                else
+                {
+                    string lsX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+                    string lsPlain = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+
+                    lORoots.Add(Path.Combine(string.IsNullOrEmpty(lsX86) ? @"C:\Program Files (x86)" : lsX86, "Steam"));
+
+                    if (!string.IsNullOrEmpty(lsPlain))
+                        lORoots.Add(Path.Combine(lsPlain, "Steam"));
+
+                    foreach (DriveInfo lODrive in DriveInfo.GetDrives())
+                    {
+                        if (lODrive.DriveType != DriveType.Fixed)
+                            continue;
+
+                        lORoots.Add(Path.Combine(lODrive.RootDirectory.FullName, "Steam"));
+                        lORoots.Add(Path.Combine(lODrive.RootDirectory.FullName, "SteamLibrary"));
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Whatever could be listed is looked in.
+            }
+
+            List<string> lOLibraries = new List<string>();
+
+            foreach (string lsRoot in lORoots)
+            {
+                fAddLibrary(lOLibraries, lsRoot, pbLinux);
+
+                try
+                {
+                    string lsVdf = Path.Combine(lsRoot, "steamapps", "libraryfolders.vdf");
+
+                    if (!File.Exists(lsVdf))
+                        continue;
+
+                    foreach (string lsLibrary in ParseLibraryFolders(File.ReadAllText(lsVdf)))
+                        fAddLibrary(lOLibraries, lsLibrary, pbLinux);
+                }
+                catch (Exception)
+                {
+                    // An unreadable list adds nothing.
+                }
+            }
+
+            return lOLibraries;
+        }
+
+        private static void fAddLibrary(List<string> pOLibraries, string psLibrary, bool pbLinux)
+        {
+            if (string.IsNullOrEmpty(psLibrary))
+                return;
+
+            string lsTrimmed = psLibrary.TrimEnd('\\', '/');
+            StringComparison leCompare = pbLinux ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+            foreach (string lsKnown in pOLibraries)
+            {
+                if (string.Equals(lsKnown, lsTrimmed, leCompare))
+                    return;
+            }
+
+            pOLibraries.Add(lsTrimmed);
+        }
+
+        /// <summary>
+        /// The libraries a libraryfolders.vdf names: every "path" key's value, its escaped backslashes
+        /// made single (Steam writes "D:\\SteamLibrary"). Older files listed them under number keys
+        /// ("1" "D:\\SteamLibrary"); those values are taken as well when they look like a folder.
+        /// </summary>
+        public static List<string> ParseLibraryFolders(string psVdf)
+        {
+            List<string> lOPaths = new List<string>();
+
+            if (string.IsNullOrEmpty(psVdf))
+                return lOPaths;
+
+            foreach (string lsRaw in psVdf.Split('\n'))
+            {
+                List<string> lOTokens = fQuotedTokens(lsRaw);
+
+                if (lOTokens.Count != 2)
+                    continue;
+
+                string lsKey = lOTokens[0];
+                string lsValue = lOTokens[1].Replace("\\\\", "\\");
+                bool lbNumbered = lsKey.Length > 0 && char.IsDigit(lsKey[0]) && (lsValue.Contains("\\") || lsValue.StartsWith("/", StringComparison.Ordinal));
+
+                if (string.Equals(lsKey, "path", StringComparison.OrdinalIgnoreCase) || lbNumbered)
+                    lOPaths.Add(lsValue);
+            }
+
+            return lOPaths;
+        }
+
+        /// <summary>The quoted strings of a line, an escaped quote kept inside.</summary>
+        private static List<string> fQuotedTokens(string psLine)
+        {
+            List<string> lOTokens = new List<string>();
+            StringBuilder lOToken = null;
+
+            for (int liAt = 0; liAt < psLine.Length; liAt++)
+            {
+                char lcAt = psLine[liAt];
+
+                if (lOToken == null)
+                {
+                    if (lcAt == '"')
+                        lOToken = new StringBuilder();
+
+                    continue;
+                }
+
+                if (lcAt == '\\' && liAt + 1 < psLine.Length)
+                {
+                    lOToken.Append(lcAt).Append(psLine[++liAt]);
+
+                    continue;
+                }
+
+                if (lcAt == '"')
+                {
+                    lOTokens.Add(lOToken.ToString());
+                    lOToken = null;
+
+                    continue;
+                }
+
+                lOToken.Append(lcAt);
+            }
+
+            return lOTokens;
+        }
+
+        /// <summary>GOG's folders as before; piFirstGame says how many of them are the first game's (the rest
+        /// are fWithSecondGame's).</summary>
+        private static string[] fGogCandidateFolders(bool pbLinux, out int piFirstGame)
         {
             List<string> lOFolders = new List<string>();
             string lsEnvironment = GetEnvironmentPath();
@@ -126,6 +358,7 @@ namespace UWDataImport.Install
                 lOFolders.Add(Path.Combine(lsHome, ".local/share/Steam/steamapps/compatdata/pfx/drive_c/GOG Games/Ultima Underworld"));
                 lOFolders.Add("/opt/GOG Games/Ultima Underworld");
                 lOFolders.Add("/usr/local/games/Ultima Underworld");
+                piFirstGame = lOFolders.Count;
 
                 return fWithSecondGame(lOFolders);
             }
@@ -136,6 +369,7 @@ namespace UWDataImport.Install
             lOFolders.Add(@"C:\Program Files (x86)\GOG.com\Ultima Underworld");
             lOFolders.Add(@"C:\Ultima Underworld");
             lOFolders.Add(@"D:\Ultima Underworld");
+            piFirstGame = lOFolders.Count;
 
             return fWithSecondGame(lOFolders);
         }
@@ -167,8 +401,10 @@ namespace UWDataImport.Install
         /// cloud_saves/UNDEROMn and reads them there first.</summary>
         public const string CloudSavesFolderName = "cloud_saves";
 
-        /// <summary>The installation folders of the two games' own GOG products, the first's first.</summary>
-        private static readonly string[] msGameFolders = { "Ultima Underworld", "Ultima Underworld 2", "Ultima Underworld II" };
+        /// <summary>The installation folders of the two games' own GOG products, the first's first, and
+        /// Steam's first game ("Ultima Underworld I", 2026-11-05; its second is "Ultima Underworld II" as
+        /// GOG's): the saves of one game are looked for beside the other's installation.</summary>
+        private static readonly string[] msGameFolders = { "Ultima Underworld", "Ultima Underworld 2", "Ultima Underworld II", "Ultima Underworld I" };
 
         /// <summary>
         /// The folder holding the game's SAVE1 to SAVE4: in the image's installation when it is the

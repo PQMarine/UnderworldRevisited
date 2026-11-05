@@ -43,5 +43,11 @@ namespace UWDataImport.UWData
 		/// <summary>A cast tried before the pause since the last one is over (UW1: a sound; UW2: a
 		/// sound and string 0xB, RUNES.C:183).</summary>
 		void TooSoon(IUWSpellHost pIHost);
+
+		/// <summary>The game's own rule for a spell's class, asked by UWSpellCasting.ApplyEffect before the shared
+		/// ones (UW1: none; UW2: classes 11 and 13, whose minors are its own, and Iron Flesh's glaze before the
+		/// lasting spell). True when the game handled the class; pbTook then says whether the spell took. piMinor
+		/// is the effect minor (the low six bits).</summary>
+		bool TryApplyOwn(UWRunicMagic.Spell pOSpell, int piMinor, IUWSpellHost pIHost, out bool pbTook);
 	}
 }

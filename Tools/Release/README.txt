@@ -19,9 +19,10 @@ WHAT YOU NEED
   a graphics driver for Vulkan or OpenGL 4 (the Linux package, UR.x86_64; it is new and far
   less tested than the Windows one, reports are welcome). Nothing else needs to be installed:
   the package brings its own runtime.
-- ULTIMA UNDERWORLD 1 FROM GOG.COM ("Ultima Underworld 1+2"), installed. Only the GOG version
-  is supported: some data is read directly from its UW.EXE, and other releases (original
-  floppy, CD, other stores) differ and will not work.
+- ULTIMA UNDERWORLD 1 FROM GOG.COM ("Ultima Underworld 1+2") OR FROM STEAM ("Ultima
+  Underworld I"), installed. Steam sells the same game files as GOG. Only this version is
+  supported: some data is read directly from its UW.EXE, and other releases (original floppy,
+  CD, other stores) differ and will not work.
 
 
 STARTING
@@ -31,7 +32,7 @@ STARTING
 2. Start UR.exe (Windows) or UR.x86_64 (Linux). If Linux refuses to run it, the archive lost
    the executable bit on the way: open a terminal in the folder and run
    chmod +x UR.x86_64 once.
-3. The game looks for your GOG installation in the usual places:
+3. The game looks for your GOG or Steam installation in the usual places:
 
      C:\GOG Games\Ultima Underworld
      D:\GOG Games\Ultima Underworld
@@ -40,28 +41,39 @@ STARTING
      C:\Ultima Underworld
      D:\Ultima Underworld
 
-   On Linux it looks in ~/GOG Games, ~/Games (Heroic, Lutris) and the Wine and Proton prefixes
-   under ~/.wine and the Steam compatdata folders for the same folder.
+   and every Steam library's steamapps\common\Ultima Underworld I (the libraries Steam lists
+   in its libraryfolders.vdf). On Linux it looks in ~/GOG Games, ~/Games (Heroic, Lutris), the
+   Wine and Proton prefixes under ~/.wine and the Steam compatdata folders, and the Steam
+   libraries under ~/.steam and ~/.local/share/Steam.
 
-   If it does not find it, it asks for the folder: choose the folder that contains game.gog -
-   the CD image that every GOG release of the game carries, however it was installed (the GOG
-   installer, Heroic, Lutris, a Wine prefix, or innoextract on the Windows installer).
+   If it does not find it, it asks for the folder: choose the folder that contains game.gog
+   (GOG) or game.bin (Steam) - the same CD image under two names, however it was installed (the
+   GOG installer, Steam, Heroic, Lutris, a Wine prefix, or innoextract on the Windows installer).
    The choice is remembered. Later it can be changed in the menu bar at the top of the main
    menu (Game > Game folder...).
 
 Save games are kept in the SAVE folders of your Ultima Underworld installation, as in the
 original, and are compatible with it.
 
+STEAM: Steam keeps the saves in its cloud, but synchronises them only when it starts the game
+itself. Put this into the game's Properties > General > Launch Options (your path to UR.exe):
+
+     "C:\Games\Underworld Revisited\UR.exe" %command%
+
+"Play" in Steam then starts Underworld Revisited, and Steam fetches and uploads the saves around
+it. Clear the line to start the original again.
+
 
 ULTIMA UNDERWORLD II (AN EARLY PREVIEW)
 ---------------------------------------
 
-With the second game in the same GOG installation ("Ultima Underworld 1+2"), the Game window
-in the menu bar on the main menu switches to it. It has its main menu, its character creation,
-Journey Onward with the DOS game's saves, and Britannia with its game screen, inventory, options
-and saves (they load in the DOS game), its map, its conversations and trading, the modern interface,
-and its creatures with first fights. Not yet: magic, the player's death, traps and more of its
-rules, sound and music, and cutscenes. The switch back is in the same window.
+With the second game in the same installation (GOG's "Ultima Underworld 1+2" holds both, on
+Steam "Ultima Underworld II" beside the first), the Game window in the menu bar on the main menu
+switches to it. It has its main menu, its character creation, Journey Onward with the DOS game's
+saves, and Britannia with its game screen, inventory, options and saves (they load in the DOS
+game), its map, its conversations and trading, the modern interface, its creatures and fights, the
+player's death, food and sleep, and a good part of its magic. Not yet: the rest of its spells,
+traps and more of its rules, music, and cutscenes. The switch back is in the same window.
 
 
 CONTROLS

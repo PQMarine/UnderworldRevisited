@@ -48,5 +48,13 @@ namespace UWDataImport.UWData
 		{
 			pIHost.World.Presentation.PlaySoundAtPlayer(UWSpellCasting.TooSoonSound);
 		}
+
+		/// <summary>Every class is the shared rule's.</summary>
+		public bool TryApplyOwn(UWRunicMagic.Spell pOSpell, int piMinor, IUWSpellHost pIHost, out bool pbTook)
+		{
+			pbTook = false;
+
+			return false;
+		}
 	}
 }

@@ -2,6 +2,7 @@ ActionBarHidden = True
 AmbientLight = 1
 ClassicWide4By3 = False
 ClassicWidescreen = True
+CluebookConfirmed = False
 ColourBrightness = 1.1
 ColourContrast = 0.95
 ColourMode = 3

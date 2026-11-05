@@ -19,7 +19,7 @@ setting.Language.choice.english	Englisch
 setting.Game	Spiel
 setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II bietet bisher einen Rundgang durch seine Welt: Create Character startet ihn.
 setting.SaveFolder	Spielstände
-setting.SaveFolder.hint	Wo die Spielstände der GOG-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner mit dem neuesten Spielstand - wohin DOSBox zuletzt geschrieben hat -, und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
+setting.SaveFolder.hint	Wo die Spielstände der GOG- oder Steam-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner mit dem neuesten Spielstand - wohin DOSBox zuletzt geschrieben hat -, und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
 setting.SaveFolder.choice.automatic	Automatisch
 setting.SaveFolder.choice.cloudsaves	cloud_saves
 setting.SaveFolder.choice.installation	Installationsordner
@@ -282,17 +282,17 @@ setup.palette.preset.subtle	Dezent
 setup.palette.preset.full	Voll
 setup.palette.preset.own	Eigene
 setup.folder.title	Spielordner
-setup.folder.hint	Wähle den Ordner deiner GOG-Installation von Ultima Underworld - den, der game.gog enthält.
-setup.folder.hint2	Wähle den Ordner deiner GOG-Installation von Ultima Underworld II, wenn sie getrennt vom ersten Spiel liegt - den, der game.gog enthält. Die Spielstände dieser Installation werden benutzt.
+setup.folder.hint	Wähle den Ordner deiner GOG- oder Steam-Installation von Ultima Underworld - den, der game.gog (GOG) oder game.bin (Steam) enthält.
+setup.folder.hint2	Wähle den Ordner deiner GOG- oder Steam-Installation von Ultima Underworld II, wenn sie getrennt vom ersten Spiel liegt - den, der game.gog oder game.bin enthält. Die Spielstände dieser Installation werden benutzt.
 setup.folder.found	Gefunden:  {0}
 setup.folder.drives	Laufwerke:
 setup.folder.home	Benutzer
 setup.folder.up	Hoch
-setup.folder.none_found	In den üblichen Ordnern wurde keine GOG-Installation gefunden. Bitte wähle sie aus.
+setup.folder.none_found	In den üblichen Ordnern wurde keine GOG- oder Steam-Installation gefunden. Bitte wähle sie aus.
 setup.folder.unreadable	Dieser Ordner kann nicht gelesen werden: {0}
 setup.folder.usable	{0} gefunden - dieser Ordner ist verwendbar.
 setup.folder.no_image	Kein {0} in diesem Ordner.
-setup.folder.choose	Wähle das Laufwerk und den Ordner deiner GOG-Installation.
+setup.folder.choose	Wähle das Laufwerk und den Ordner deiner GOG- oder Steam-Installation.
 setup.folder.preparing	Die Spieldaten werden vorbereitet...
 setup.folder.no_data	Die Spieldaten konnten aus diesem Ordner nicht gelesen werden.
 setup.folder.use	Diesen Ordner nehmen
@@ -523,13 +523,22 @@ help.mantras.single	Je eine Fertigkeit, stark verbessert
 help.mantras.quests	Questen
 help.manual.title	Handbuch
 help.manual.cannot_show	Das Handbuch kann nicht angezeigt werden.
-help.manual.not_found	Das Handbuch wurde nicht gefunden. Die GOG-Version bringt es als {0} im Ordner von game.gog mit.
+help.manual.not_found	Das Handbuch wurde nicht gefunden. Die GOG-Version bringt es als {0} im Ordner von game.gog mit, die Steam-Version in ihrem Ordner Extras.
 help.manual.not_opened	Das Handbuch konnte nicht geöffnet werden: {0}
 help.manual.unavailable	Das Handbuch lässt sich auf diesem System noch nicht anzeigen.
 help.manual.page	Seite {0} von {1}
 help.manual.pages	Seiten {0} und {1} von {2}
 help.manual.click_to_read	Klicke auf die Seite, um sie groß zu lesen.
 help.manual.reading_keys	Pfeiltasten oder Mausrad blättern, Esc oder ein Klick auf die Seite schließt
+help.manual.doc.manual	Handbuch
+help.manual.doc.reference	Referenzkarte
+help.manual.doc.map	Karte
+help.manual.doc.memoirs	Memoirs of Cabirus
+help.manual.doc.passage	Safe Passage
+help.manual.doc.cluebook	Lösungsbuch
+help.manual.spoiler	Das Lösungsbuch enthält die Lösungen der Rätsel und Aufgaben des Spiels. Öffnen?
+help.manual.spoiler_open	Lösungsbuch öffnen
+help.manual.spoiler_cancel	Jetzt nicht
 help.controls.key.left_stick	Linker Stick
 help.controls.key.right_stick	Rechter Stick
 help.controls.key.dpad	D-Pad

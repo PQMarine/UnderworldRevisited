@@ -5,9 +5,10 @@ using UWDataImport.UWData;
 /// <summary>
 /// THE PLAYER'S CAST ON THE SECOND GAME (UW2 plan phase 4, list item 3): what the spell rules ask of the caster,
 /// from UWVitalsUw2 and the walk, where UWCharacter and Interaction stand idle. Built per cast by the game screen.
-/// The spells that wait for a click, and those that move the world, come with their classes.
+/// The spells that wait for a click come with their classes; what the second game's own spells ask beyond the
+/// shared host is IUWSpellHostUw2 (stage 2 part A).
 /// </summary>
-public sealed class UWSpellHostUw2 : IUWSpellHost
+public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
 {
     private readonly UWVitalsUw2 mOPlayer;
 
@@ -119,9 +120,6 @@ public sealed class UWSpellHostUw2 : IUWSpellHost
     {
     }
 
-    public void Armageddon()
-    {
-    }
 
     public void FireBullfrog(int piMode)
     {
@@ -130,5 +128,48 @@ public sealed class UWSpellHostUw2 : IUWSpellHost
     public bool FireLookTrigger(UWObject pOObject, int piSearchSkill)
     {
         return false;
+    }
+
+    // ------------------------------------------------- IUWSpellHostUw2
+
+    public UWPlayerFile Record => UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+
+    public UWPlayerVitals Vitals => mOPlayer.Vitals;
+
+    public bool PlayerFitsAt(UWTilePos pOTile)
+    {
+        return mOLoader != null && mOLoader.AdventurerFitsAt(pOTile.X, pOTile.Y);
+    }
+
+    public void MovePlayer(int piLevel, UWTilePos pOTile)
+    {
+        if (mOLoader != null)
+            mOLoader.WalkTeleport(new UWTeleportUw2.Target { Level = piLevel, TileX = pOTile.X, TileY = pOTile.Y });
+    }
+
+    /// <summary>FreePlayerInv and the weight (the model's ClearAll sets the running load to 0), clearobj (the
+    /// level loader's wipe; ArmageddonActive reads the record's bit the rule sets), clear_shelf.</summary>
+    public void Armageddon()
+    {
+        UWGameScreenUw2 lOScreen = UWGameScreenUw2.Current;
+
+        if (lOScreen != null && lOScreen.Inventory != null)
+            lOScreen.Inventory.ClearAll();
+
+        if (lOScreen != null)
+            lOScreen.ClearShelf();
+
+        if (mOLoader != null)
+            mOLoader.ApplyArmageddon();
+
+        mOPlayer.RefreshStatus();
+    }
+
+    public void SwingView(int piSteps)
+    {
+        UWPlayerLook lOLook = UWScene.Player != null ? UWScene.Player.GetComponent<UWPlayerLook>() : null;
+
+        if (lOLook != null)
+            lOLook.Swing(piSteps);
     }
 }

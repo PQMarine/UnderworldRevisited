@@ -344,7 +344,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
     private static bool fCanAim(UWGameScreenUw2 pOScreen)
     {
-        return !fBusy && !pOScreen.IsBagsOpen && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null;
+        return !fBusy && !pOScreen.IsPanelOpen && pOScreen.Inventory != null && pOScreen.Inventory.CursorItem == null;
     }
 
     private static bool fCanBegin(UWGameScreenUw2 pOScreen)

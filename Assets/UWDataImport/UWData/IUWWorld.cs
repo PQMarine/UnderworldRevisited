@@ -102,6 +102,13 @@ namespace UWDataImport.UWData
 		/// when it could not be placed.</summary>
 		bool Spawn(UWObject pOObject, UWTilePos pOTile);
 
+		/// <summary>put_at with stay_centered (motion/COLLIDE.C, drop_around_place): the object at its own fine
+		/// position and height in the tile if it fits there (can_place against the terrain and every solid object,
+		/// creatures included), else at the first of up to 23 random spots within piRange eighths that fits, else
+		/// at the point itself unless the culling test takes it. A creation trap's copy (TRIGGER.C,
+		/// TRAP_CREATE_OBJECT, range 4). False when it is gone.</summary>
+		bool PutAt(UWObject pOObject, UWTilePos pOTile, int piRange);
+
 		/// <summary>A new object of this kind (CreateObj: quality 40) in the centre of a tile - the
 		/// Vas rune of the emerald puzzle, the moongate in the volcano. piQuantity 0 gives the stack
 		/// rule of its class; above 0 it is the count, or for the moongate its link field (0x2C0,
@@ -286,6 +293,11 @@ namespace UWDataImport.UWData
 		public bool Spawn(UWObject pOObject, UWTilePos pOTile)
 		{
 			return mOInner.Spawn(pOObject, pOTile);
+		}
+
+		public bool PutAt(UWObject pOObject, UWTilePos pOTile, int piRange)
+		{
+			return mOInner.PutAt(pOObject, pOTile, piRange);
 		}
 
 		public bool SpawnNewObject(int piObjectId, UWTilePos pOTile, int piQuantity, UWWorldEdit.Arrival peArrival)

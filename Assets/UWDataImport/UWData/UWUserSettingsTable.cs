@@ -110,6 +110,8 @@ namespace UWDataImport.UWData
 		/// <summary>UWHelpTabId as a number: Stats 0 to Controls 6 - the numbers are the file's.</summary>
 		public static readonly UWIntSettingDef HelpTab = fInt(nameof(UWUserData.HelpTab), UWSettingKind.Choice, d => d.HelpTab, (d, v) => d.HelpTab = v);
 
+		public static readonly UWBoolSettingDef CluebookConfirmed = fBool(nameof(UWUserData.CluebookConfirmed), d => d.CluebookConfirmed, (d, v) => d.CluebookConfirmed = v);
+
 		public static readonly UWIntSettingDef HelpMapSpan = fInt(nameof(UWUserData.HelpMapSpan), UWSettingKind.Int, d => d.HelpMapSpan, (d, v) => d.HelpMapSpan = v);
 
 		public static readonly UWIntSettingDef MinimapZoom = fInt(nameof(UWUserData.MinimapZoom), UWSettingKind.Int, d => d.MinimapZoom, (d, v) => d.MinimapZoom = v);
@@ -406,7 +408,7 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, HelpOpen, HelpTab, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernMessageLines, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,

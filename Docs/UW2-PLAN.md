@@ -1011,7 +1011,16 @@ until then a castle guard's kill ends the game too.
 2. Combat: the attack score with Valor, enchantments and special weapons, Poison Weapon, the
    poisonous blow, resistances, damaging doors and owned objects, combat sounds.
 3. Magic: the casting check, circles of 8 and the Britannia limit, the area spell table, class 7
-   with cursor aiming, healing the caster, the new spells, the Academy's mana.
+   with cursor aiming, healing the caster, the new spells, the Academy's mana. STAGE 1 (runes and casting,
+   classes 0 to 4) CONFIRMED 2026-11-02. STAGE 2 the classes from 5, in five parts (planned 2026-11-05):
+   A the spells without aiming - mana (class 10) with the Academy's rule on every restore_mana, class 11 by the
+   second game's minors (UWExtraSpellRulesUw2: Speed, Portal, Restoration, Locate, Cure Poison, Telekinesis,
+   Tremor with the Void's things, Gate Travel, Freeze Time, Armageddon, Dispel Hunger), class 13
+   (UWSpecialSpellRulesUw2: a line of power, the mushroom spells, Map Area, mana), Iron Flesh's glaze, the rune
+   page in the modern scheme (Z, the hollow casts, F8); B the area spells (class 6) by area_spells; C the
+   missiles (class 5) with the aiming pointer in both schemes; D the target spells (class 7) on creatures and
+   objects with the pointer, Roaming Sight's camera; E creating (class 8). PART A BUILT
+   2026-11-05, test list section 25.
 4. Creatures: goal 15, doors three in four, paths of 40, talkers that turn guard, death cries,
    owners up to race 0x1D, animation lengths.
 5. Objects and traps: treasure, combining, food leftovers, lights, beds, owned containers; trigger

@@ -251,8 +251,7 @@ public sealed class UWModernBarUw2
             return;
         }
 
-        UWTextLabel.Get(pOImage).SetLine(pOFont, psText, UWTextRaster.TightWidth(pOFont, psText), pOInk, false, FilterMode.Point);
-        pOImage.rectTransform.localScale = new Vector3(pfScale, pfScale, 1f);
+        UWModernHudUw2.Scaled(pOImage, pfScale).SetLine(pOFont, psText, UWTextRaster.TightWidth(pOFont, psText), pOInk, false, FilterMode.Point);
         pOImage.rectTransform.anchoredPosition = new Vector2(pfX, pfY);
     }
 }

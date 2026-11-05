@@ -140,12 +140,15 @@ public class UWCritterDriver : MonoBehaviour
     /// UWPlayerVitals.fApplyActiveSpells; the effect subclass is UWMiscSpellRules.SpeedEffectMinor).</summary>
     private static bool fPlayerHasSpeed()
     {
-        UWCharacter lOCharacter = UWScene.Character;
+        // The second game's player is its walk's vitals (UWVitalsUw2); UWCharacter stands idle there.
+        UWPlayerVitals lOVitals = UWWalkUw2.IsWalking
+            ? (UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null)
+            : (UWScene.Character != null ? UWScene.Character.Vitals : null);
 
-        if (lOCharacter == null || lOCharacter.Vitals.ActiveSpells == null)
+        if (lOVitals == null || lOVitals.ActiveSpells == null)
             return false;
 
-        foreach (UWActiveSpellEffect lOSpell in lOCharacter.Vitals.ActiveSpells)
+        foreach (UWActiveSpellEffect lOSpell in lOVitals.ActiveSpells)
         {
             if (lOSpell.MajorClass == UWMiscSpellRules.MajorClass && lOSpell.MinorClass == UWMiscSpellRules.SpeedEffectMinor)
                 return true;

@@ -693,6 +693,14 @@ public class UWLevelLoader : MonoBehaviour
     /// <summary>find_good_x_and_y over the current level (UWArrivalRules): pbClear is the second
     /// pass, which removes from every tile it tries what UWArrivalRules.IsClearedForArrival names.
     /// </summary>
+    /// <summary>can_place for the adventurer on a tile of the current level (UWArrivalRules.AdventurerFits):
+    /// the second game's Portal (UWSpellHostUw2).</summary>
+    public bool AdventurerFitsAt(int piTileX, int piTileY)
+    {
+        return CurrentLevel != null && fEnsureArrivalCore()
+            && UWArrivalRules.AdventurerFits(mOArrivalCore, CurrentLevel.GetTile(piTileX, piTileY), piTileX, piTileY);
+    }
+
     private bool fFindArrivalTile(int piTileX, int piTileY, bool pbClear, out int piFoundX, out int piFoundY)
     {
         piFoundX = piTileX;
@@ -1155,7 +1163,14 @@ public class UWLevelLoader : MonoBehaviour
     /// (the reference: teleportation.cs, branch "entering a level under the influence of
     /// armageddon"). So the Abyss stays empty forever.
     /// </summary>
-    public bool ArmageddonActive { get; private set; }
+    public bool ArmageddonActive
+    {
+        // The second game keeps it in the record (player->b60_11), so a save carries it.
+        get { return UWWalkUw2.IsWalking ? UWPlayerRecordUw2.IsArmageddon(UWDataImporter != null ? UWDataImporter.Session.PlayerFileUw2 : null) : mbArmageddon; }
+        private set { mbArmageddon = value; }
+    }
+
+    private bool mbArmageddon;
 
     /// <summary>
     /// Deletes all objects of the current level - items, creatures, doors,
@@ -1171,8 +1186,10 @@ public class UWLevelLoader : MonoBehaviour
     {
         ArmageddonActive = true;
 
-        // UW.EXE MajorSpellClassB clears the silver tree nibble along with the objects.
-        UWSilverTree.TreeLevel = 0;
+        // UW.EXE MajorSpellClassB clears the silver tree nibble along with the objects (the first game's;
+        // the second game's flag is the record's, set by UWExtraSpellRulesUw2).
+        if (!UWWalkUw2.IsWalking)
+            UWSilverTree.TreeLevel = 0;
 
         fWipeObjects();
     }
@@ -1847,6 +1864,49 @@ public class UWLevelLoader : MonoBehaviour
 
         return fSpawnObjectAt(pOObject, piTileX, piTileZ, lOPosition, UWWorldEdit.Arrival.PutDown, false, true,
             liTemplateZ);
+    }
+
+    /// <summary>
+    /// PUT_AT WITH STAY_CENTERED AT THE TEMPLATE'S SPOT (per the translator's report, 2026-11-05: on level 3 a
+    /// switch near an ankh makes giant rats; toggled several times, all of ours stood in one spot and could not
+    /// move, the original's walk off): TRAP_CREATE_OBJECT puts the copy with put_at(x, y, z, obj, 4, 0) and
+    /// stay_centered (uw1 event/TRIGGER.C:316, motion/COLLIDE.C drop_around_place) - the template's own fine spot
+    /// and height first, then up to 23 random spots within piRange eighths, each axis on its own; the first that
+    /// can_place accepts (ObjectFitsAt: the terrain and every solid object, the player and the creatures
+    /// included) takes it, at the tail of its tile's list. When none does, the culling test decides, and a copy
+    /// it spares goes on the point itself at the head of the list (put_at's Obj_Add). Until then every copy went
+    /// onto the template's spot (SpawnObjectInTileAtTemplatePosition), so a second creature stood inside the
+    /// first.
+    /// </summary>
+    public bool PutAtTemplatePosition(UWObject pOObject, int piTileX, int piTileZ, int piRange)
+    {
+        if (pOObject == null || CurrentLevel == null || mOObjectRoot == null)
+            return false;
+
+        int liZ = pOObject.ZPos;
+        int liCentreX = (piTileX << 3) + pOObject.XPos;
+        int liCentreY = (piTileZ << 3) + pOObject.YPos;
+        UWWorldEdit.Arrival leArrival = UWWorldEdit.Arrival.PutDown;
+
+        if (!UWScatterRules.TryPickSpot(liCentreX, liCentreY, piRange, (piX, piY) => ObjectFitsAt(pOObject.ID, piX, piY, liZ),
+            out int liX, out int liY, true))
+        {
+            if (TileQueries.Culls(pOObject.ID, UWStackRules.Count(pOObject)))
+                return false;
+
+            leArrival = UWWorldEdit.Arrival.PutAtPoint;
+        }
+
+        Vector3 lOPosition = new Vector3(UWUnits.EighthsToWorldAxis(liX), 0f, UWUnits.EighthsToWorldAxis(liY));
+
+        if (!fSpawnObjectAt(pOObject, liX >> 3, liY >> 3, lOPosition, leArrival, false, true, liZ))
+            return false;
+
+        // The next copy of the same press must see this one before its body comes alive (UWMotionHost).
+        if (UWMotionHost.Instance != null)
+            UWMotionHost.Instance.NoteJustPlaced(pOObject);
+
+        return true;
     }
 
     /// <summary>A thing come to rest on the motion core (UWMotionHost.PlaceAtRest): at the

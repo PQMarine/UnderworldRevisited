@@ -86,7 +86,10 @@ namespace UWDataImport.UWData
 
 		private const int HealMajorClass = 4;
 
-		private const int BackfireMajorClass = 9;
+		public const int BackfireMajorClass = 9;
+
+		/// <summary>The armour spells (Resist Blows, Thick Skin, Iron Flesh).</summary>
+		public const int ArmourMajorClass = 2;
 
 		/// <summary>The motion spells (class 1) and the two of them that hop when cast.</summary>
 		private const int MotionMajorClass = 1;
@@ -105,7 +108,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>Mana restoration - castable only via items, see
 		/// UWPlayerVitals.RestoreManaFromSpell.</summary>
-		private const int ManaMajorClass = 10;
+		public const int ManaMajorClass = 10;
 
 		/// <summary>This minor class heals fully - the Greater Heal.</summary>
 		private const int FullHealMinorClass = 0xF;
@@ -460,6 +463,10 @@ namespace UWDataImport.UWData
 			// player's cast asked here.
 			if (pIHost.IsMagicBlocked)
 				return false;
+
+			// The game's own classes first (IUWMagicVariant.TryApplyOwn: the second game's 11 and 13).
+			if (pIHost.World != null && pIHost.World.Session.Game.Magic.TryApplyOwn(pOSpell, liMinor, pIHost, out bool lbTook))
+				return lbTook;
 
 			if (pOSpell.MajorClass == HealMajorClass)
 			{

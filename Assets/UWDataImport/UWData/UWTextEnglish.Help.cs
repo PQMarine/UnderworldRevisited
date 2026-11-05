@@ -153,13 +153,22 @@ namespace UWDataImport.UWData
 			// The Manual tab and its reading mode (UWManual's problems too).
 			fAdd("help.manual.title", "Manual");
 			fAdd("help.manual.cannot_show", "The manual cannot be shown.");
-			fAdd("help.manual.not_found", "The manual was not found. The GOG version brings it as {0} in the folder of game.gog.");
+			fAdd("help.manual.not_found", "The manual was not found. The GOG version brings it as {0} in the folder of game.gog, the Steam version in its Extras folder.");
 			fAdd("help.manual.not_opened", "The manual could not be opened: {0}");
 			fAdd("help.manual.unavailable", "Showing the manual is not available on this system yet.");
 			fAdd("help.manual.page", "Page {0} of {1}");
 			fAdd("help.manual.pages", "Pages {0} and {1} of {2}");
 			fAdd("help.manual.click_to_read", "Click the page to read it large.");
 			fAdd("help.manual.reading_keys", "Arrow keys or the wheel turn the pages, Esc or a click on the page closes");
+			fAdd("help.manual.doc.manual", "Manual");
+			fAdd("help.manual.doc.reference", "Reference card");
+			fAdd("help.manual.doc.map", "Map");
+			fAdd("help.manual.doc.memoirs", "Memoirs of Cabirus");
+			fAdd("help.manual.doc.passage", "Safe Passage");
+			fAdd("help.manual.doc.cluebook", "Cluebook");
+			fAdd("help.manual.spoiler", "The cluebook holds the solutions of the game's puzzles and quests. Open it?");
+			fAdd("help.manual.spoiler_open", "Open the cluebook");
+			fAdd("help.manual.spoiler_cancel", "Not now");
 
 			// The Controls tab (UWHelpControls): key names written out.
 			fAdd("help.controls.key.left_stick", "Left stick");

@@ -12,9 +12,12 @@ namespace UWDataImport.Install
     /// </summary>
     public class UWGameFolderBrowser
     {
-        public const string ImageFileName = "game.gog";
+        public const string ImageFileName = UWGogInstall.ImageFileName;
 
-        /// <summary>Installations with a game.gog among the candidates, in their order.</summary>
+        /// <summary>The image's names as the texts show them: "game.gog or game.bin" (GOG, Steam).</summary>
+        public static string ImageNames => UWGogInstall.ImageFileName + " / " + UWGogInstall.SteamImageFileName;
+
+        /// <summary>Installations with an image (GOG's game.gog, Steam's game.bin) among the candidates, in their order.</summary>
         public List<string> Found { get; } = new List<string>();
 
         /// <summary>The folder being looked at; empty means the list of drives.</summary>
@@ -189,7 +192,9 @@ namespace UWDataImport.Install
         {
             string lsName = IsDriveList ? psEntry : Path.GetFileName(psEntry);
 
-            return HasImage(psEntry) ? lsName + "    (" + ImageFileName + ")" : lsName;
+            string lsImage = UWGogInstall.ImageIn(psEntry);
+
+            return lsImage != null ? lsName + "    (" + Path.GetFileName(lsImage) + ")" : lsName;
         }
 
         public void SetStatus(string psText, bool pbError)
@@ -202,7 +207,7 @@ namespace UWDataImport.Install
         {
             try
             {
-                return !string.IsNullOrEmpty(psFolder) && File.Exists(Path.Combine(psFolder, ImageFileName));
+                return UWGogInstall.ImageIn(psFolder) != null;
             }
             catch (Exception)
             {
@@ -213,9 +218,9 @@ namespace UWDataImport.Install
         private void fUpdateStatus()
         {
             if (CanUseCurrent)
-                SetStatus(UWText.F("setup.folder.usable", ImageFileName), false);
+                SetStatus(UWText.F("setup.folder.usable", Path.GetFileName(UWGogInstall.ImageIn(CurrentPath))), false);
             else if (!IsDriveList)
-                SetStatus(UWText.F("setup.folder.no_image", ImageFileName), false);
+                SetStatus(UWText.F("setup.folder.no_image", ImageNames), false);
             else
                 SetStatus(UWText.T("setup.folder.choose"), false);
         }

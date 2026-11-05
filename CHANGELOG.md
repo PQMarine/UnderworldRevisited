@@ -8,6 +8,33 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.3] - 2026-11-05
+
+### Added
+- The Steam version of Ultima Underworld, out since 5 November 2026, works as well: it carries the
+  same game files as GOG's, its CD image named `game.bin`. The game finds it in your Steam
+  libraries by itself, the game folder dialog takes a folder with `game.bin`, the manual is found
+  in its Extras folder, and the save games are those of its `UNDEROM1` and `UNDEROM2`. Started from Steam
+  through the game's launch options (see the README), Steam Cloud keeps the saves in step.
+- The help's Manual tab shows all of the running game's documents it finds: the manual, the reference
+  card, the map, the Memoirs of Cabirus (UW1) or A Safe Passage Through Britannia (UW2), and the
+  cluebook - the Steam version brings them in its Extras folder. A row of buttons picks one, each keeps
+  its page, and the cluebook asks once before it opens.
+- Ultima Underworld II, still a preview: more spells - Speed, Portal, Restoration, Locate, Cure Poison,
+  Telekinesis, Tremor, Freeze Time, Armageddon, Dispel Hunger and Map Area -, the Scintillus Academy
+  where mana does not come back, and Iron Flesh glazing the djinn's mud. In the modern scheme Z opens
+  the rune page; a click on the hollow below it, or F8, casts. Not yet: missiles, area and target
+  spells, creating, Roaming Sight. See Docs/UW2-PLAN.md.
+
+### Fixed
+- A trap that creates a creature puts each new one beside the last when the spot is taken, as the
+  original does; pressed several times (the switch near the ankh on level 3, reported by the German
+  translator), the giant rats or skeletons all stood in one spot and could not move.
+- The debug keys Shift+F7 (jump) and Shift+F10 (spell list) work at once again; since 0.16.2 they
+  did nothing until the debug panel's Tools tab had been opened.
+- Ultima Underworld II's modern scheme: the cross pointer over the rune page, and no blow while it
+  is open; the flasks' values, the lines and the action bar are sharp at any size.
+
 ## [0.16.2] - 2026-11-05
 
 ### Added

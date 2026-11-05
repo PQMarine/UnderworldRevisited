@@ -43,8 +43,8 @@ Every release has a **translation kit** beside the game:
 `UnderworldRevisited-<version>-TranslationKit-win64.zip` (or `...-linux64.tar.gz`). It holds the
 tool `uwdump` as one file that needs nothing installed, this guide, `Languages/en.tsv` (the port's
 texts in English) and `Languages/de.tsv` (a complete German example), and a README. It holds no
-text of the game. Open a terminal in its folder; `<game>` is your GOG installation (the folder
-with `game.gog`; without it uwdump looks in the usual places):
+text of the game. Open a terminal in its folder; `<game>` is your GOG or Steam installation (the
+folder with `game.gog` or `game.bin`; without it uwdump looks in the usual places):
 
 1. The port's texts: `uwdump text-template <code> --out Languages/<code>.tsv` (or copy
    `Languages/en.tsv`), then translate the texts and keep the ids.

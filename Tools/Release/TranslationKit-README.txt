@@ -7,7 +7,7 @@ and German. TRANSLATING.md explains everything; this file only says where to sta
 
 This kit contains NO text of the game - neither the English of Ultima Underworld nor a
 translation of it. The game's texts are made from YOUR OWN copy of the game (GOG's "Ultima
-Underworld 1+2"), by uwdump, on your computer.
+Underworld 1+2" or the same game from Steam), by uwdump, on your computer.
 
 
 WHAT IS IN IT
@@ -30,8 +30,8 @@ WHAT TO RUN
 -----------
 
 Open a terminal in this folder (Windows: in Explorer, type cmd in the address bar). <game> is
-the folder of your GOG installation (the one with game.gog) - without it uwdump looks in the
-usual places. "xx" stands for your language's code (fr, ru, zh-TW ...).
+the folder of your GOG or Steam installation (the one with game.gog or game.bin) - without it
+uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, zh-TW ...).
 
   1. The port's own texts:
        uwdump text-template xx --out Languages/xx.tsv

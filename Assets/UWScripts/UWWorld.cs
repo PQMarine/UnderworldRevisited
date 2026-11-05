@@ -355,6 +355,11 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return Loader != null && Loader.SpawnObjectInTileAtTemplatePosition(pOObject, pOTile.X, pOTile.Y);
     }
 
+    public bool PutAt(UWObject pOObject, UWTilePos pOTile, int piRange)
+    {
+        return Loader != null && Loader.PutAtTemplatePosition(pOObject, pOTile.X, pOTile.Y, piRange);
+    }
+
     /// <summary>UWLevelLoader.SpawnObjectById with CreateObj's own quality and the given count or
     /// link (the trap host's SpawnObjectById with 0, and the endgame host's SpawnObject with the
     /// moongate's link, until cleanup step 3.6, 2026-10-17).</summary>

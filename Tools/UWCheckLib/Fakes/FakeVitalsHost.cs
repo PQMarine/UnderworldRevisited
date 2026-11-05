@@ -27,6 +27,8 @@ namespace UnderworldRevisited.Tools
 
             public int DungeonLevelIndex { get; set; }
 
+            public int PlayerTileX { get; set; }
+
             public int WornRegeneration => Regeneration;
 
             public bool IsMoving => false;
@@ -109,6 +111,8 @@ namespace UnderworldRevisited.Tools
             }
 
             public int DungeonLevelIndex => 0;
+
+            public int PlayerTileX => -1;
 
             public int WornRegeneration => 0;
 

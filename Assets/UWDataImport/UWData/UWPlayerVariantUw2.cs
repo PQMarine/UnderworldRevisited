@@ -77,5 +77,24 @@ namespace UWDataImport.UWData
 		{
 			throw new NotSupportedException("The second game's trap targets come with its objects in phase 4 of Docs/UW2-PLAN.md.");
 		}
+
+		/// <summary>The world of the Scintillus Academy (levels 41 to 48).</summary>
+		public const int AcademyWorld = 5;
+
+		/// <summary>From this column on the Academy's eighth level gives mana again.</summary>
+		public const int AcademyManaColumn = 25;
+
+		/// <summary>restore_mana's test (uw2 combat/SPELLS.C:160): outside world 5, on its first level, or on its
+		/// eighth at x 25 or more. A level unknown (0 or less) gives mana.</summary>
+		public bool MayRestoreMana(int piDungeonLevel, int piTileX)
+		{
+			if (piDungeonLevel <= 0)
+				return true;
+
+			int liLevelInWorld = ((piDungeonLevel - 1) % LevelsPerWorld) + 1;
+
+			return (piDungeonLevel - 1) / LevelsPerWorld != AcademyWorld || liLevelInWorld <= 1
+				|| (liLevelInWorld >= LevelsPerWorld && piTileX >= AcademyManaColumn);
+		}
 	}
 }

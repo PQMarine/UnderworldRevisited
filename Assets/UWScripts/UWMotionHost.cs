@@ -523,6 +523,20 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         return true;
     }
 
+    /// <summary>The creatures of the tile's list not yet answered by a live body (GetBodiesInTile).</summary>
+    private readonly HashSet<UWNpc> mOListedCreatures = new HashSet<UWNpc>();
+
+    /// <summary>Creatures put into the level whose UWCritter has not come alive yet (NoteJustPlaced).</summary>
+    private readonly HashSet<UWNpc> mOJustPlaced = new HashSet<UWNpc>();
+
+    /// <summary>A creature put into a tile's list this frame (a creation trap's copy): it counts for the fit tests
+    /// from its record until its body is among UWCritter.Active.</summary>
+    public void NoteJustPlaced(UWObject pOObject)
+    {
+        if (pOObject is UWNpc lONpc)
+            mOJustPlaced.Add(lONpc);
+    }
+
     public void GetBodiesInTile(int piTileX, int piTileY, List<UWMotionBody> pOInto)
     {
         UWTile lOTile = mOLoader != null && mOLoader.CurrentLevel != null ? mOLoader.CurrentLevel.GetTile(piTileX, piTileY) : null;
@@ -531,8 +545,13 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
             return;
 
         // The lying things of the tile; the creatures come from their live records below.
+        mOListedCreatures.Clear();
+
         foreach (UWObject lOObject in lOTile.ObjectsInTile)
         {
+            if (lOObject is UWNpc lONpc && mOJustPlaced.Contains(lONpc))
+                mOListedCreatures.Add(lONpc);
+
             if (lOObject == null || lOObject is UWNpc)
                 continue;
 
@@ -551,6 +570,9 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         {
             UWCritterRecord lORecord = lOCritter != null ? lOCritter.Record : null;
 
+            if (lORecord != null && mOJustPlaced.Remove(lORecord.Npc))
+                mOListedCreatures.Remove(lORecord.Npc);
+
             if (lORecord == null || lORecord.TileX != piTileX || lORecord.TileY != piTileY)
                 continue;
 
@@ -564,6 +586,26 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
                 IsMobile = true,
                 IsCreature = true,
                 Direction = lORecord.FacingEighth
+            });
+        }
+
+        // A CREATURE JUST PUT INTO THE TILE'S LIST WITHOUT A BODY YET (2026-11-05, the translator's rats and
+        // the user's skeletons on level 3 at the button 5/7): a creation trap's copy is in the list at once, as
+        // the original's Obj_AddEnd puts it, but its UWCritter comes alive only after the frame - so the next
+        // trap of the same press found the spot free and put its copy inside the first. Such a record
+        // (NoteJustPlaced) counts from its own fields until its body takes over.
+        foreach (UWNpc lONpc in mOListedCreatures)
+        {
+            pOInto.Add(new UWMotionBody
+            {
+                Index = UWAreaWalk.MobileIndexOf(mOLoader.CurrentLevel, lONpc),
+                ItemId = lONpc.ID,
+                XPos = lONpc.XPos & 7,
+                YPos = lONpc.YPos & 7,
+                ZPos = lONpc.ZPos & 0x7F,
+                IsMobile = true,
+                IsCreature = true,
+                Direction = lONpc.Heading & 7
             });
         }
 

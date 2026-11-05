@@ -337,6 +337,11 @@ namespace UnderworldRevisited.Tools
             /// <summary>What Spawn put into the level, in order.</summary>
             public readonly List<UWObject> Spawned = new List<UWObject>();
 
+            public bool PutAt(UWObject pOObject, UWTilePos pOTile, int piRange)
+            {
+                return Spawn(pOObject, pOTile);
+            }
+
             public bool Spawn(UWObject pOObject, UWTilePos pOTile)
             {
                 Spawned.Add(pOObject);

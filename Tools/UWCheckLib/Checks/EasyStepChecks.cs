@@ -39,9 +39,35 @@ namespace UnderworldRevisited.Tools
             return -1;
         }
 
+        /// <summary>The creation trap's put_at (2026-11-05, the translator's rats): can_place refuses a creature where
+        /// another of its kind stands, and takes it a tile away.</summary>
+        private static void fCheckCreatureOnCreature(DataImport pOData)
+        {
+            int liId = fFindObject(pOData, 0x40, 0x7E, lOEntry => lOEntry.Radius > 0 && lOEntry.Height > 0);
+            FakeMotionWorld lOWorld = new FakeMotionWorld();
+            UWMotionCore lOCore = new UWMotionCore(lOWorld, pOData.CommonObjectProperties);
+            int liZ = 2 * 8;
+            int liX8 = (10 << 3) + 3;
+            int liY8 = (10 << 3) + 3;
+
+            lOWorld.AddBody(10, 10, new UWMotionBody { Index = 5, ItemId = liId, XPos = 3, YPos = 3, ZPos = liZ, IsMobile = true, IsCreature = true });
+
+            bool fFits(int piX8, int piY8)
+            {
+                lOCore.Mover = new UWMotionBody { Index = 0, ItemId = liId, XPos = piX8 & 7, YPos = piY8 & 7, ZPos = liZ };
+
+                return lOCore.CheckIfItemFitsInTile(liId, 0, piX8, piY8, liZ, true, 0, out int _, out int _);
+            }
+
+            Check.Str("put_at: a creature where one of its kind stands; a tile away",
+                fFits(liX8, liY8) + " " + fFits(liX8 + 8, liY8), "False True");
+        }
+
         private static void fCheckEasyStep(DataImport pOData)
         {
             Check.Group("Easy step (seg008_1B2A_216 with CheckIfItemFitsInTile on the core)");
+
+            fCheckCreatureOnCreature(pOData);
 
             if (pOData == null || pOData.CommonObjectProperties == null)
             {

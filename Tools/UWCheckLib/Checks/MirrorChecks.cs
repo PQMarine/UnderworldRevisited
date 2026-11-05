@@ -491,6 +491,8 @@ namespace UnderworldRevisited.Tools
 
             public int DungeonLevelIndex => 0;
 
+            public int PlayerTileX => -1;
+
             public int WornRegeneration => 0;
 
             public bool IsInMotionState => false;

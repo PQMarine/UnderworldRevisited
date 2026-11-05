@@ -272,6 +272,34 @@ public class UWPlayerLook : MonoBehaviour
         mCameraTransform.localEulerAngles = new Vector3(mfPitch, 0f, lOAngles.z);
     }
 
+    /// <summary>
+    /// THE VIEW SWINGS (the second game's special spells 3 and 4: chg_plyp(+-3), uw2 game/PLAYER.C:540): the
+    /// pitch moves by piSteps of the original's 0x400 (positive up) when one more step up would stay within the
+    /// bound - mvcheck tests a step of 0x400 the other way for anything but -1 (sys/UTIL.C:19), so the swing
+    /// may carry the view past the four steps; the next look key brings it back. In the modern scheme the
+    /// same degrees, within its own bounds.
+    /// </summary>
+    public void Swing(int piSteps)
+    {
+        UnderworldRevisited.UWSettings lOSettings = UnderworldRevisited.UWSettings.Instance;
+        float lfStep = lOSettings != null ? lOSettings.ClassicLookStepDegrees : 5.625f;
+        int liMaxSteps = lOSettings != null ? lOSettings.ClassicLookSteps : 4;
+
+        if (mScheme != null && mScheme.Current == UWControlScheme.SchemeEnum.Original)
+        {
+            // Ours counts down as positive: the original's pitch is -miClassicSteps.
+            if (-miClassicSteps + 1 > liMaxSteps)
+                return;
+
+            miClassicSteps -= piSteps;
+            mfPitch = miClassicSteps * lfStep;
+        }
+        else
+            mfPitch = Mathf.Clamp(mfPitch - (piSteps * lfStep), mfMinPitch, mfMaxPitch);
+
+        fApplyPitchKeepingRoll();
+    }
+
     private void fResetPitch()
     {
         mfPitch = 0f;

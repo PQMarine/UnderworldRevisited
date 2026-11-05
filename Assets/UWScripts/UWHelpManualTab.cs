@@ -7,11 +7,139 @@ using UWDataImport.UWData;
 /// UWHelpWindow (cleanup 8.6, 2026-10-24); the window keeps whether the reading mode is open
 /// (UWHelpWindow.IsReading), its modal hold and the swallowed closing click, and draws it over
 /// everything after the panel. On the kit since cleanup 8b.3; the IMGUI form went in 8b.4.
+///
+/// THE DOCUMENTS' ROW (per user, 2026-11-05, the Steam version's extras): with more than one of the running
+/// game's PDFs found (UWManual.Documents) a row of buttons above the arrows picks one - manual, reference card,
+/// map, the game's own book, cluebook; each keeps its own page. The cluebook asks once before it opens
+/// (UWUserSettings.CluebookConfirmed).
 /// </summary>
 public sealed class UWHelpManualTab : UWHelpTab
 {
-    /// <summary>The page shown, from zero - kept while the game runs.</summary>
+    /// <summary>The page shown, from zero - kept while the game runs, for the document shown; the others'
+    /// pages in msPages by their file.</summary>
     private static int msPage;
+
+    private static readonly System.Collections.Generic.Dictionary<string, int> msPages = new System.Collections.Generic.Dictionary<string, int>();
+
+    /// <summary>The cluebook asked for and its question showing, its index in the documents (-1 none).</summary>
+    private static int miAsking = -1;
+
+    /// <summary>The documents' buttons' row height.</summary>
+    private const float DocumentRowHeight = 26f;
+
+    private const float DocumentGap = 4f;
+
+    /// <summary>Room on either side of a document's name in its button.</summary>
+    private const float DocumentPadding = 6f;
+
+    private static string fDocumentName(UWDataImport.Install.UWGameDocuments.KindEnum peKind)
+    {
+        switch (peKind)
+        {
+            case UWDataImport.Install.UWGameDocuments.KindEnum.ReferenceCard:
+                return UWText.T("help.manual.doc.reference");
+            case UWDataImport.Install.UWGameDocuments.KindEnum.Map:
+                return UWText.T("help.manual.doc.map");
+            case UWDataImport.Install.UWGameDocuments.KindEnum.Memoirs:
+                return UWText.T("help.manual.doc.memoirs");
+            case UWDataImport.Install.UWGameDocuments.KindEnum.SafePassage:
+                return UWText.T("help.manual.doc.passage");
+            case UWDataImport.Install.UWGameDocuments.KindEnum.Cluebook:
+                return UWText.T("help.manual.doc.cluebook");
+            default:
+                return UWText.T("help.manual.doc.manual");
+        }
+    }
+
+    /// <summary>Another document: the page of the one shown kept, the chosen one's taken back.</summary>
+    private static void fShow(int piIndex)
+    {
+        System.Collections.Generic.IReadOnlyList<UWDataImport.Install.UWGameDocuments.Document> lODocuments = UWManual.Documents;
+
+        if (piIndex < 0 || piIndex >= lODocuments.Count || piIndex == UWManual.Selected)
+            return;
+
+        if (UWManual.Selected < lODocuments.Count)
+            msPages[lODocuments[UWManual.Selected].Path] = msPage;
+
+        UWManual.Select(piIndex);
+        msPage = msPages.TryGetValue(lODocuments[piIndex].Path, out int liPage) ? liPage : 0;
+    }
+
+    /// <summary>The row of the documents' buttons, the one shown lit; nothing with one document. True while the
+    /// cluebook's question stands in place of the page.</summary>
+    private bool fDrawDocuments(UWHelpKitFlow pOFlow)
+    {
+        System.Collections.Generic.IReadOnlyList<UWDataImport.Install.UWGameDocuments.Document> lODocuments = UWManual.Documents;
+
+        if (lODocuments.Count <= 1)
+            return false;
+
+        UWKitRows lOKit = pOFlow.Kit;
+        UWKitRows.HelpLook lOLook = UWHelpKitFlow.ButtonLook(UWGuiTheme.HelpFoldoutSize);
+        Rect lORow = pOFlow.Take(DocumentRowHeight);
+
+        // Each button as wide as its name needs, the room left shared out evenly (per user, 2026-11-05: "Memoirs
+        // of Cabirus" was cut at equal widths); when the names need more than the row, by their share.
+        float[] lfNeeded = new float[lODocuments.Count];
+        float lfAll = 0f;
+
+        for (int liAt = 0; liAt < lODocuments.Count; liAt++)
+        {
+            lfNeeded[liAt] = lOKit.HelpTextWidth(fDocumentName(lODocuments[liAt].Kind), lOLook) + (2f * DocumentPadding);
+            lfAll += lfNeeded[liAt];
+        }
+
+        float lfRoom = lORow.width - ((lODocuments.Count - 1) * DocumentGap);
+        float lfExtra = (lfRoom - lfAll) / lODocuments.Count;
+        float lfX = lORow.x;
+
+        for (int liAt = 0; liAt < lODocuments.Count; liAt++)
+        {
+            bool lbShown = liAt == UWManual.Selected && miAsking < 0;
+            float lfWidth = lfExtra >= 0f ? lfNeeded[liAt] + lfExtra : lfNeeded[liAt] * lfRoom / lfAll;
+            Rect lOButton = new Rect(lfX, lORow.y, lfWidth, DocumentRowHeight);
+
+            lfX += lfWidth + DocumentGap;
+
+            if (!lOKit.HelpButton(lOButton, fDocumentName(lODocuments[liAt].Kind), lOLook, lbShown ? UWGuiTheme.Hover : UWGuiTheme.Panel,
+                UWGuiTheme.Hover, UWGuiTheme.Text))
+                continue;
+
+            if (lODocuments[liAt].IsSpoiler && !UWUserSettings.CluebookConfirmed)
+                miAsking = liAt;
+            else
+            {
+                miAsking = -1;
+                fShow(liAt);
+            }
+        }
+
+        pOFlow.Space(6f);
+
+        if (miAsking < 0)
+            return false;
+
+        // The question in place of the page: open the cluebook (once, then never asked again), or not now.
+        pOFlow.Line(UWText.T("help.manual.spoiler"), UWHelpLookEnum.Text);
+        pOFlow.Space(6f);
+
+        Rect lOAnswers = pOFlow.Take(DocumentRowHeight);
+        float lfHalf = (lOAnswers.width - DocumentGap) / 2f;
+
+        if (lOKit.HelpButton(new Rect(lOAnswers.x, lOAnswers.y, lfHalf, DocumentRowHeight), UWText.T("help.manual.spoiler_open"), lOLook,
+            UWGuiTheme.Panel, UWGuiTheme.Hover, UWGuiTheme.Text))
+        {
+            UWUserSettings.CluebookConfirmed = true;
+            fShow(miAsking);
+            miAsking = -1;
+        }
+        else if (lOKit.HelpButton(new Rect(lOAnswers.x + lfHalf + DocumentGap, lOAnswers.y, lfHalf, DocumentRowHeight), UWText.T("help.manual.spoiler_cancel"),
+            lOLook, UWGuiTheme.Panel, UWGuiTheme.Hover, UWGuiTheme.Text))
+            miAsking = -1;
+
+        return miAsking >= 0;
+    }
 
     public override UWHelpTabId Id => UWHelpTabId.Manual;
 
@@ -57,6 +185,9 @@ public sealed class UWHelpManualTab : UWHelpTab
     /// </summary>
     protected override void OnDrawKit(UWHelpKitFlow pOFlow)
     {
+        if (fDrawDocuments(pOFlow))
+            return;
+
         if (!UWManual.EnsureOpen())
         {
             pOFlow.Line(UWText.T("help.manual.title"), UWHelpLookEnum.Heading);

@@ -105,6 +105,8 @@ public static class UWUserSettings
 
     public static int HelpTab { get => Defs.HelpTab.Read(fGet()); set => Defs.HelpTab.Write(fGet(), value); }
 
+    public static bool CluebookConfirmed { get => Defs.CluebookConfirmed.Read(fGet()); set => Defs.CluebookConfirmed.Write(fGet(), value); }
+
     public static int HelpMapSpan { get => Defs.HelpMapSpan.Read(fGet()); set => Defs.HelpMapSpan.Write(fGet(), value); }
 
     public static int MinimapZoom { get => Defs.MinimapZoom.Read(fGet()); set => Defs.MinimapZoom.Write(fGet(), value); }

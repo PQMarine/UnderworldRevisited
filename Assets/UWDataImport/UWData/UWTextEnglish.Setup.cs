@@ -108,17 +108,17 @@ namespace UWDataImport.UWData
 
 			// The game folder.
 			fAdd("setup.folder.title", "Game folder");
-			fAdd("setup.folder.hint", "Choose the folder of your GOG installation of Ultima Underworld - the one that contains game.gog.");
-			fAdd("setup.folder.hint2", "Choose the folder of your GOG installation of Ultima Underworld II if it lies apart from the first game's - the one that contains game.gog. The save games of that installation are used.");
+			fAdd("setup.folder.hint", "Choose the folder of your GOG or Steam installation of Ultima Underworld - the one that contains game.gog (GOG) or game.bin (Steam).");
+			fAdd("setup.folder.hint2", "Choose the folder of your GOG or Steam installation of Ultima Underworld II if it lies apart from the first game's - the one that contains game.gog or game.bin. The save games of that installation are used.");
 			fAdd("setup.folder.found", "Found:  {0}");
 			fAdd("setup.folder.drives", "Drives:");
 			fAdd("setup.folder.home", "Home");
 			fAdd("setup.folder.up", "Up");
-			fAdd("setup.folder.none_found", "No GOG installation was found in the usual folders. Please choose it.");
+			fAdd("setup.folder.none_found", "No GOG or Steam installation was found in the usual folders. Please choose it.");
 			fAdd("setup.folder.unreadable", "This folder cannot be read: {0}");
 			fAdd("setup.folder.usable", "{0} found - this folder can be used.");
 			fAdd("setup.folder.no_image", "No {0} in this folder.");
-			fAdd("setup.folder.choose", "Choose the drive and folder of your GOG installation.");
+			fAdd("setup.folder.choose", "Choose the drive and folder of your GOG or Steam installation.");
 			fAdd("setup.folder.preparing", "Preparing the game data...");
 			fAdd("setup.folder.no_data", "The game data could not be read from this folder.");
 			fAdd("setup.folder.use", "Use this folder");
