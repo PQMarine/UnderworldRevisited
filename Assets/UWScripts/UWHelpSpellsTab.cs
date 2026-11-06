@@ -25,6 +25,10 @@ public sealed class UWHelpSpellsTab : UWHelpTab
 
         fDrawSpellList(pOFlow, lOData, true);
 
+        // The second game has no notes from the first game's manual: every spell stands in the one list.
+        if (fSecondGame() != null)
+            return;
+
         pOFlow.Space(16f);
 
         if (pOFlow.Fold(mbShowMoreSpells ? UWText.T("help.spells.hide_more")
@@ -51,14 +55,25 @@ public sealed class UWHelpSpellsTab : UWHelpTab
         UWGameUI lOUi = UWScene.GameUi;
         IReadOnlyList<int> lOShelf = lOUi != null ? lOUi.Runes.Shelf.Selected : null;
 
+        // THE SECOND GAME (per user, 2026-11-06: "for testing it would be cool if the spells worked in the help"):
+        // its rune bag and hollow live in its record and on UWGameScreenUw2, not in UWPlayerData and UWGameUI; its
+        // spell table is AllSpells already, and the first game's manual notes (keyed by the first game's spell
+        // numbers) are not shown.
+        UWPlayerFile lOSecond = fSecondGame();
+        UWGameScreenUw2 lOScreenUw2 = lOSecond != null ? UWGameScreenUw2.Current : null;
+
+        if (lOSecond != null)
+            lOShelf = lOScreenUw2 != null ? lOScreenUw2.ShelfSelected : null;
+
         foreach (UWRunicMagic.Spell lOSpell in UWRunicMagic.AllSpells)
         {
             if (lOSpell.RuneSequence == UWRunicMagic.EmptySequence)
                 continue;
 
-            bool lbNamed = UWHelpContent.ManualSpellNotes.TryGetValue(lOSpell.Index, out string lsNote);
+            string lsNote = null;
+            bool lbNamed = lOSecond == null && UWHelpContent.ManualSpellNotes.TryGetValue(lOSpell.Index, out lsNote);
 
-            if (lbNamed != pbManual)
+            if (lOSecond == null && lbNamed != pbManual)
                 continue;
 
             if (lOSpell.Level != liCircle)
@@ -71,7 +86,7 @@ public sealed class UWHelpSpellsTab : UWHelpTab
 
             string lsName = pOData != null ? UWRunicMagic.GetName(lOSpell, pOData.Strings) : string.Empty;
             List<int> lORunes = UWRuneShelfModel.RunesOf(lOSpell.RuneSequence);
-            bool lbAllInBag = UWRuneShelfModel.HasRunes(lOSpell.RuneSequence, lOPlayer);
+            bool lbAllInBag = lOSecond != null ? fHasRunesUw2(lOSecond, lORunes) : UWRuneShelfModel.HasRunes(lOSpell.RuneSequence, lOPlayer);
 
             bool lbOnShelf = fIsOnShelf(lOShelf, lORunes);
 
@@ -79,7 +94,8 @@ public sealed class UWHelpSpellsTab : UWHelpTab
 
             foreach (int liRune in lORunes)
             {
-                bool lbInBag = lOPlayer != null && lOPlayer.HasRune((UWPlayerData.Rune)liRune);
+                bool lbInBag = lOSecond != null ? UWPlayerRecordUw2.HasRune(lOSecond, liRune)
+                    : lOPlayer != null && lOPlayer.HasRune((UWPlayerData.Rune)liRune);
 
                 mOIcons.Add(fRuneIcon(pOData, liRune, !lbInBag));
             }
@@ -92,7 +108,12 @@ public sealed class UWHelpSpellsTab : UWHelpTab
                 UWRunicMagic.DescribeRunes(lOSpell.RuneSequence),
                 lbOnShelf ? "   <i>" + UWText.T("help.spells.in_hollow") + "</i>" : string.Empty);
 
-            if (pOFlow.RuneRow(mOIcons, lsText, lbAllInBag && lOUi != null))
+            if (lOSecond != null)
+            {
+                if (pOFlow.RuneRow(mOIcons, lsText, lbAllInBag && lOScreenUw2 != null))
+                    lOScreenUw2.PutOnShelf(lORunes);
+            }
+            else if (pOFlow.RuneRow(mOIcons, lsText, lbAllInBag && lOUi != null))
                 lOUi.Runes.PutOnShelf(lORunes);
 
             if (lbNamed)
@@ -101,6 +122,23 @@ public sealed class UWHelpSpellsTab : UWHelpTab
             // Room between the spells, so each stands apart (per user, 2026-09-26).
             pOFlow.Space(EntrySpacing);
         }
+    }
+
+    /// <summary>The second game's record while it is played, else null.</summary>
+    private static UWPlayerFile fSecondGame()
+    {
+        return UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
+    }
+
+    private static bool fHasRunesUw2(UWPlayerFile pOFile, List<int> pORunes)
+    {
+        foreach (int liRune in pORunes)
+        {
+            if (!UWPlayerRecordUw2.HasRune(pOFile, liRune))
+                return false;
+        }
+
+        return true;
     }
 
     private static bool fIsOnShelf(IReadOnlyList<int> pOShelf, List<int> pORunes)

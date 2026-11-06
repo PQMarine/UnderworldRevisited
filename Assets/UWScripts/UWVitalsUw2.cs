@@ -45,6 +45,12 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         if (mOVitals != null)
             UWArmourProtection.Compute(lOInventory, mOData, mOVitals.ActiveSpells, mOStatus);
 
+        // THE MOTION SPELLS ON THE WALK (per user, 2026-11-06: Bouncing did nothing; magic stage 1 left "the motion
+        // spells' effect on the walk" open): Leap, Slow Fall, Levitate, Water Walk, Fly and Bouncing, as UWCharacter
+        // hands them on in the first game, which stands idle here.
+        if (UWScene.PlayerMovement != null)
+            UWScene.PlayerMovement.MagicalMotionAbilities = mOStatus.MotionAbilities;
+
         // The light of a spell or a worn thing (FixPlayerEquips), the larger counts in UWLighting.
         if (UWScene.Lighting != null)
             UWScene.Lighting.MagicBrightness = mOStatus.Brightness;

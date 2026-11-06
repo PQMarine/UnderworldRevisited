@@ -67,6 +67,13 @@ namespace UWDataImport.UWData
 
 		public bool IceAndCurrents => true;
 
+		/// <summary>Water only (per user, 2026-11-06: with Bouncing one hopped on snow in the original, ours
+		/// stopped dead there - the first game's bit test took the ice, terrain 3, for water).</summary>
+		public bool LandsInWater(int piFlags)
+		{
+			return (piFlags & 3) == 1;
+		}
+
 		/// <summary>munge_vectors' kinds: ice moves the first motion towards the second, a current or a
 		/// slope adds them.</summary>
 		public const int MungeIce = 2;

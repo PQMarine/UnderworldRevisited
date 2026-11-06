@@ -87,6 +87,9 @@ namespace UWDataImport.Presentation
 		/// <summary>The two cuts of each band (top bar, view, ledge, scroll): UWClassicLayout.ClassicWide.Cuts.</summary>
 		private static readonly int[,] msClassicWideCuts = UWClassicLayout.ClassicWide.Cuts;
 
+		/// <summary>The band of the view (rows TopRows to LedgeTop), the hole between its cuts.</summary>
+		private const int ViewBand = 1;
+
 		/// <summary>A band's first (0) or second (1) cut, by a row from the top.</summary>
 		public static int ClassicWideCut(int piRow, int piWhich)
 		{
@@ -128,9 +131,26 @@ namespace UWDataImport.Presentation
 
 				for (int y = liY0; y < liY1; y++)
 				{
+					// THE VIEW'S RIM STAYS WITH ITS SIDE (GitHub issue 15's follow-up, per user's screenshot 2026-11-06:
+					// black dots in the view of Classic Wide): in rows 118 to 122 the one-pixel black rim steps in to
+					// x 53 and 222, onto the view band's cuts, and moved with the middle into the view - unseen until
+					// 2026-11-05, when the hole's flood still took every black pixel. Here a cut lying on an opaque
+					// pixel moves past it, row by row; the table (ClassicWideShiftX) stays as it is.
+					int liRowCutLeft = liCutLeft;
+					int liRowCutRight = liCutRight;
+
+					if (liBand == ViewBand)
+					{
+						while (liRowCutLeft < liRowCutRight && lOMain.Get(liRowCutLeft, y).A != 0)
+							liRowCutLeft++;
+
+						while (liRowCutRight > liRowCutLeft && lOMain.Get(liRowCutRight - 1, y).A != 0)
+							liRowCutRight--;
+					}
+
 					for (int x = 0; x < lOMain.Width; x++)
 					{
-						int liTo = x + (x < liCutLeft ? 0 : x < liCutRight ? liLeft : liExtra);
+						int liTo = x + (x < liRowCutLeft ? 0 : x < liRowCutRight ? liLeft : liExtra);
 
 						lOOut.Set(liTo, y, lOMain.Get(x, y));
 						lOKnown[liTo, y] = true;

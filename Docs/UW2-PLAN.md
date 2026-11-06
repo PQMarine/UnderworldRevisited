@@ -1006,6 +1006,59 @@ pay; UWDeathRulesUw2 and UWDeathUw2 take a ninth of the experience and wake the 
 the game ends. Jail waits for triggers and schedules (it fires a scheduled trigger and needs Lord British's place), and
 until then a castle guard's kill ends the game too.
 
+THE SWEEP OF 2026-11-06 AND THE ORDER FROM IT (per user, 2026-11-06: "should we check the order again? Things often do
+not work because something else is missing"). The same day four placeholders had made built things fail in silence -
+the motion spells' bits handed on only by the idle UWCharacter, the fall damage only logged, UWPlayerTerrain returning
+at once (no view bob), the debug spell list casting through UWHudRunes. A read-only sweep (an Explore agent, its
+findings spot-checked: the drawn weapon, Acrobat, the hallucination, the typing lock and the throwing trap tables read
+as reported) found the rest. THE ROOT: in the second game UWScene.Character, Interaction and UWGameUI are not null -
+they stand there uninitialised, so a call to them succeeds and reads or writes dead state. The groups, in the order
+to build them:
+
+- G0 WIRING (small, each a few lines, makes built things work; first):
+  the player read from the idle first-game parts - Acrobat for falls (UWPlayerMovement takes it from UWCharacter,
+  Swimming is already the record's), the drawn weapon creatures see (UWCreatureWorld from Interaction; take
+  UWPlayerRecordUw2.IsWeaponDrawn), the hallucination palette (UWRenderPathHost from UWCharacter.Vitals), the help's
+  Map tab (UWGameUI.IsCarryingMap), UWPlayerAvatar.LeaveCombatMode, the easy movement's step (noise and clock to
+  UWCharacter); UWVitalsUw2 not subscribed to Damaged (no red/blue/curse flash), KillRewarded; IsInMotionState false
+  (too little noise); the status pass only on the vitals tick (armour, light and motion items up to 21 s late after an
+  inventory change); cursed worn items never strike (the dice worked out, not dealt). INPUT: the typing lock leaves
+  out UWDebugTools.IsTyping, UWHelpWindow.BlocksGameKeys, UWKitRows.IsTyping and the instrument (typing in the debug
+  search walks and fires keys); F1-F6 take any modifier (Shift+F1 opens Options too, Alt+F4 picks Look) and run under
+  the help; the option shortcuts take left Ctrl, the modern sink key; Ctrl+M opens the map before the shortcut; E and
+  Q, Escape, B, Z, R and the digits without a modifier or help gate; F7 (turn the panel), F8 (cast, classic) and F9
+  (track) missing, the gamepad's cast; the setup bar while walking shows only Game and Graphics (Motion, Display,
+  Controls, Sound, Colours unreachable). THROWS INSTEAD OF "NOT YET": UWGameProfileUw2 Traps, TrapKinds, DoActions
+  (a smashed container or a Tremor boulder over a use trigger, UWContainerDamage, UWTileBlast to UWTrapRules), the
+  fishing pole (UWFishing on Game.Traps), PickRoll; the debug spell list casts unbuilt spells into empty host stubs
+  without a word (no IsBuilt check in CastFromObject).
+- G1 MAGIC STAGE 2 PARTS B TO E as planned (area, missiles, target spells and Roaming Sight, creation), with the
+  creatures' attack spells (CastSpell returns false for the unbuilt classes) and the Clear Mind flash
+  (NightPresentation.FlashWindow empty). Contained, and potions and wands (G3) need it.
+- G2 TERRAIN: water and lava in the walk - UWPlayerTerrain's swim counter, sinking view, lava damage (returns at once
+  in UW2), the swim check on UWVitalsUw2 (SwimCheckDue not subscribed, RunSwimCheck hurts the idle UWCharacter), so
+  drowning; the weapon put away in water if the second game has the rule; the player's paralysis on the walk and its
+  countdown.
+- G3 TRAPS AND TRIGGERS: the second game's TrapKinds and DoActions tables (UE's nine new kinds, hack traps), move
+  triggers for the player beyond teleports (UWMotionHost.fFireWalkTriggers) and for creatures, door, look, pick-up
+  and use triggers, the trap search, the wandering monsters (RunRespawn 0, FiveMinuteBlockDue, YearlyCheckup), the
+  level exit's tidying (WalkTeleport skips UWLevelExit.LeaveLevel), the automap flag pieces.
+- G4 USING THINGS (needs G3 for levers and G1 for potions and wands): use on a target (keys, lockpicks - a locked
+  door only says so), levers, switches, buttons, chests opened in place, shrines, fountains; carried potions, wands,
+  keys, picks, instruments, the fishing pole; taking with its consequences (theft anger, pick-up triggers, pressure
+  plates, the moonstone).
+- G5 CONVERSATIONS' EFFECTS: x_exp, x_skills (trainers; TryIncreasePlayerSkill only logs), set_sequence,
+  transform_talker, teleport_talker, babl_hack (signet ring, pit modes, wand charges), the trade's carry check;
+  creature-started talk goes to the first game's Interaction and UWConversationController.
+- G6 THE WORLD: SCD.ARK schedules, plot deaths (HasSpecialDeath false), jail, the Void and the pits on death, goal 15
+  creatures (pictures only, no brain or hit points), objects left out by a refused spawn rule, the world and level
+  hacks (step 7 below).
+- PHASE 5 as it stands: music (none in UW2, the combat flag from the idle Interaction), death cries, cutscenes; the
+  world's presentation (UWPresentation over the idle Interaction and UWGameUI) for any rule that does not use the
+  NightPresentation wrapper.
+- SAVE: complete as far as built; creature alarms and missiles in flight are not written (UW1 writes them), unsure
+  whether the second game keeps them.
+
 1. Player: experience (halving, 1500 per point, the 0x7FFF0 cap), carrying, the slow cycle and
    the X clocks, food, sleep, death (jail, the pits, the blackrock gem), traps on objects.
 2. Combat: the attack score with Valor, enchantments and special weapons, Poison Weapon, the

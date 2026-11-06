@@ -847,8 +847,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        // The modern scheme has no fight icon: the weapon is out, as on the first game's modern screen.
-        bool lbFight = Command == CommandEnum.Fight || (IsModernScheme && !UWConversationScreenUw2.IsOpen);
+        // The modern scheme has no fight icon: R chooses the fight command there (fModernKeys); a modern
+        // conversation puts the weapon away while it is open.
+        bool lbFight = Command == CommandEnum.Fight && !(IsModernScheme && UWConversationScreenUw2.IsOpen);
 
         if (meWeapon == WeaponStateEnum.Hidden)
         {
@@ -1157,7 +1158,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             {
                 int liWord = UWPlayerRecordUw2.ActiveSpell(lOPlayer, liAt);
 
-                liPicture = UWClassicLayoutUw2.Runes.SpellClassFirst[liWord & 0xF] + ((liWord & 0xF0) >> 4);
+                // In a byte, as parse_aspells adds it: the motion class's 0xFF plus the subclass wraps to 0 to 5.
+                liPicture = (UWClassicLayoutUw2.Runes.SpellClassFirst[liWord & 0xF] + ((liWord & 0xF0) >> 4)) & 0xFF;
             }
 
             fPlace(mOSpellImages[liAt], liPicture < UWClassicLayoutUw2.Runes.NoSpellPicture
@@ -1254,6 +1256,26 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fShowRunes();
     }
 
+    /// <summary>The debug panel's spell list (Shift+F10) on the second game: the spell cast without circle, mana
+    /// and check through this game's spell host, as the shelf casts (per user, 2026-11-06: Fly cast from the list
+    /// went to the first game's idle character - it flew, but the record and the icons never had it).</summary>
+    public bool CastSpellFromObject(int piSpellIndex)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+        UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || lOWorld == null || UWSleepUw2.Current == null)
+            return false;
+
+        bool lbCast = UWSpellCasting.CastFromObject(piSpellIndex, false,
+            new UWSpellHostUw2(lOPlayer, UWScene.LevelLoader, UWSleepUw2.Current.ScrollPresentation(lOWorld)));
+
+        lOPlayer.WriteToRecord();
+        fShowRunes();
+
+        return lbCast;
+    }
+
     /// <summary>try_clear: the icon's spell, from the right.</summary>
     private void fClickActiveSpell(int piIndex, bool pbRight)
     {
@@ -1293,6 +1315,33 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     }
 
     /// <summary>The shelf into the record (the save keeps it) and onto the screen.</summary>
+    /// <summary>The runes in the hollow now, in order (the help's spell list marks the spell lying there).</summary>
+    public IReadOnlyList<int> ShelfSelected
+    {
+        get
+        {
+            List<int> lORunes = new List<int>(miShelfCount);
+
+            for (int liAt = 0; liAt < miShelfCount; liAt++)
+                lORunes.Add(miShelf[liAt]);
+
+            return lORunes;
+        }
+    }
+
+    /// <summary>The help's spell list lays a spell's runes into the hollow, replacing what lay there (as the
+    /// first game's UWHudRunes.PutOnShelf).</summary>
+    public void PutOnShelf(IReadOnlyList<int> pORunes)
+    {
+        int[] liShelf = { UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune, UWPlayerRecordUw2.NoRune };
+        int liCount = Mathf.Min(pORunes.Count, liShelf.Length);
+
+        for (int liAt = 0; liAt < liCount; liAt++)
+            liShelf[liAt] = pORunes[liAt];
+
+        fSetShelf(liShelf, liCount);
+    }
+
     private void fSetShelf(int[] piRunes, int piCount)
     {
         System.Array.Copy(piRunes, miShelf, miShelf.Length);
@@ -1861,6 +1910,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (lOControls != null && lbFree && !UWConversationScreenUw2.IsOpen && UWControlScheme.SharedControls[UWAct.KeyCast].WasPressedThisFrame())
             fCastShelf();
 
+        // THE WEAPON ON R (per user, 2026-11-06; found 2026-11-05 against CONTROLS.md): as on the first game's
+        // modern screen (UWModernWorldInput), R draws and puts away the weapon - the fight command, so
+        // fUpdateWeapon's draw and sheathe steps run as on the classic icon; the gamepad's attack trigger
+        // draws it too. Until then the weapon was always out in the modern scheme.
+        if (lOControls != null && lbFree && !UWConversationScreenUw2.IsOpen)
+        {
+            UnityEngine.InputSystem.InputAction lOAttack = lOControls[UWAct.ModernAttack];
+            bool lbPadDraws = Command != CommandEnum.Fight && lOAttack.WasPressedThisFrame()
+                && UWGamepad.IsFromGamepad(lOAttack) && !UWInput.PadPointerTakes(lOAttack);
+
+            if (lOControls[UWAct.ModernReady].WasPressedThisFrame() || lbPadDraws)
+                fChoose(CommandEnum.Fight);
+        }
+
         fFollowInventoryPress();
 
         if (mbBagsOpen || mbRunesOpen)
@@ -1973,6 +2036,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (!lbLeft && !lbRight)
             return;
+
+        // An active spell, the free pointer's as on the first game's modern HUD (UWModernHudInput): the left button
+        // names it with its state, the right button ends it - the classic page has the two the other way round.
+        int liSpell = mOModernHud.SpellAt(UWPointer.Position);
+
+        if (liSpell >= 0)
+        {
+            fClickActiveSpell(liSpell, lbLeft);
+
+            return;
+        }
 
         // The rune page: its click is the classic page's (mous_in_rune); the hollow casts, its right button clears.
         if (mbRunesOpen && mOModernHud.IsOnHollow(UWPointer.Position))

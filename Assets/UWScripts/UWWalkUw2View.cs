@@ -93,7 +93,10 @@ public class UWWalkUw2View : MonoBehaviour
     /// <summary>player_key_sleep.</summary>
     private void fCampByKey()
     {
-        if (!fIsInputTaken() && UWControlScheme.SharedControls[UWAct.KeyCamp].WasPressedThisFrame() && UWSleepUw2.Current != null)
+        // F10 alone, as the first game's hotkey rows want it: Shift+F10 is the debug panel's spell list (per user,
+        // 2026-11-06: it made camp as well).
+        if (!fIsInputTaken() && UWHotkeyHost.HeldMods == UWHotkeyMods.None && UWControlScheme.SharedControls[UWAct.KeyCamp].WasPressedThisFrame()
+            && UWSleepUw2.Current != null)
             UWSleepUw2.Current.Camp(mOScreen != null ? mOScreen.Inventory : null);
     }
 
@@ -197,7 +200,8 @@ public class UWWalkUw2View : MonoBehaviour
             return;
         }
 
-        if (lOControls[UWAct.ModernUse].WasPressedThisFrame())
+        // The use key is the modern scheme's only (per user, 2026-11-06: E took things in the classic scheme too).
+        if (!lbClassic && lOControls[UWAct.ModernUse].WasPressedThisFrame())
             fModernUse();
         else if (!lbClassic && lOControls[UWAct.ModernLook].WasPressedThisFrame())
             fLook();

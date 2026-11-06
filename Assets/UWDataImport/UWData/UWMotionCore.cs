@@ -952,8 +952,8 @@ namespace UWDataImport.UWData
 			CalcZ = miCollisionZ;
 			miZFrac = 0;
 
-			// Falling into water stops the mover dead.
-			if (miCollisionIndex == -1 && (Flags & 1) != 0
+			// Falling into water stops the mover dead (which terrain is water: the game's, IUWMotionVariant.LandsInWater).
+			if (miCollisionIndex == -1 && mOWorld.Session.Game.Motion.LandsInWater(Flags)
 				&& (CentreFloor & 0xFF) + (CalcRadius & 0xFF) >= CalcZ && p.Vz < 0)
 			{
 				fStop();
@@ -984,14 +984,20 @@ namespace UWDataImport.UWData
 				// BOUNCE: the vertical speed turns round at e / 15, the horizontal loses (15 - e) / 30.
 				bool lbFalling = p.Vz <= 0;
 
-				p.Vz = -(p.Vz / 15);
-				p.Impact = Abs16(I16(p.Vz * (15 - liE)));
-				p.Vz = I16(p.Vz * liE);
-
-				if (liE != 0)
-					p.Speed = I16(p.Speed - (I16((15 - liE) * p.Speed) / 30));
+				// The player under Bouncing turns round whole (UWMotionParams.Elastic).
+				if (p.Index == 1 && p.Elastic)
+					p.Vz = I16(-p.Vz);
 				else
-					p.Speed = 0;
+				{
+					p.Vz = -(p.Vz / 15);
+					p.Impact = Abs16(I16(p.Vz * (15 - liE)));
+					p.Vz = I16(p.Vz * liE);
+
+					if (liE != 0)
+						p.Speed = I16(p.Speed - (I16((15 - liE) * p.Speed) / 30));
+					else
+						p.Speed = 0;
+				}
 
 				if (lbFalling && p.Vz < 0x8D)
 				{

@@ -96,6 +96,14 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool Precise;
 
+		/// <summary>
+		/// THE BOUNCING SPELL (the second game's motion spell 6, motionbits 0x20; 2026-11-06): the player's
+		/// bounce off a floor or an object is fully elastic - the vertical speed only turns round, no impact, no
+		/// loss of speed (uw2 motion/MOTION.C:551, do_zbounce: CP->index == 1 and motionbits 0x20). The first
+		/// game has no such spell, so it is never set there.
+		/// </summary>
+		public bool Elastic;
+
 		/// <summary>The carried sub-fine fraction of X, Y (0..255 of one fine unit) and Z (0..255
 		/// of one fine z), only with Precise.</summary>
 		public int XFrac;

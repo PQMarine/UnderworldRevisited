@@ -123,6 +123,12 @@ of what is built was also read out of the original's executable.
   seen, so it waits for a case. The Remastered mode's own-tile rule (an object is never covered
   by the tile it stands in) covers diagonal walls since 2026-10-27.
 
+- **Widescreen weapon and hand sprites.** An artist offered hand-drawn extensions of the
+  first-person weapon and hand pictures for the modern scheme's wide view (issue 16). They are
+  based on the original's art, so they will come as a pack the player installs, never in this
+  repository or the release packages; the port then needs a loader for it, the first picture
+  overlay of [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md). Waiting for the first frames.
+
 ## Open: translations
 
 - **Languages** are supported since 0.10.0: the port's own texts in German, the game's texts by

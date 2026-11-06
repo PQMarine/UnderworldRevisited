@@ -666,11 +666,16 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     {
         UWPlayerMotion.FrameResult lOResult = pOMotion.Last;
 
-        // The second game's walk has no character of its own to take the fall (step 6 brings it; the
-        // first game's damage pipeline asks its combat rules, phase 4): the fall is only written down
-        // (the ice test of 2026-10-29 threw here).
+        // The second game's fall and wall hit through the world's player body (UWWorld.DamagePlayer to its vitals,
+        // UWVitalsUw2), per user 2026-11-06: a running jump head-on into a wall hurt in the original, ours not -
+        // since 2026-10-29 the value was only written to the log, from before the second game had vitals.
         if (lOResult.FallDamage > 0 && UWWalkUw2.IsWalking)
-            Debug.Log("[Walk] A fall of " + lOResult.FallDamage + " damage (no character to take it yet).");
+        {
+            UWWorld lOWorld = UWScene.World;
+
+            if (lOWorld != null)
+                lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Fall(lOResult.FallDamage)));
+        }
         else if (lOResult.FallDamage > 0)
         {
             UWCharacter lOCharacter = UWScene.Character;

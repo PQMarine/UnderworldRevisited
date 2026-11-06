@@ -114,6 +114,9 @@ namespace UWDataImport.UWData
 
 		public const int AbilityFly = 0x10;
 
+		/// <summary>The second game's Bouncing (motion minor 6): landings fully elastic (UWMotionParams.Elastic).</summary>
+		public const int AbilityBounce = 0x20;
+
 		/// <summary>The jump's vertical speed (0x263), the fly commands' (0x8D).</summary>
 		public const int JumpSpeed = 0x263;
 
@@ -638,6 +641,7 @@ namespace UWDataImport.UWData
 
 			p.Dt = piDt;
 			p.Elasticity = 5;
+			p.Elastic = (Abilities & AbilityBounce) != 0;
 			p.Style = (p.Ax | p.Ay | p.Gravity) == 0 ? UWMotionParams.SlideStyle : UWMotionParams.BounceStyle;
 
 			// The second game: on ice no slide along walls, and the ice's own bounce unless falling
@@ -1138,7 +1142,20 @@ namespace UWDataImport.UWData
 			if (m.Grounded && (p.Vz > 0 || p.Gravity != 0))
 				m.Jump(p.Vz, p.Gravity);
 
+			double lfFallGravity = m.Gravity != 0.0 ? m.Gravity : UWCharacterMotor.FallGravity;
+
 			m.Advance(lfTicks);
+
+			// BOUNCING as the core's (UWMotionParams.Elastic): a landing turns the vertical speed round whole
+			// and takes off again with the fall's gravity, without an impact, while it is at least the core's
+			// settling speed 0x8D (do_zbounce: below it the mover rests).
+			bool lbBounced = false;
+
+			if (p.Elastic && m.LandedVz < 0.0 && -m.LandedVz >= FlySpeed)
+			{
+				m.Jump(-m.LandedVz, lfFallGravity);
+				lbBounced = true;
+			}
 
 			// A wall met in the air took the motion into it: the speed and the motion yaw the
 			// next frames keep in the air are what is left (the original reads no command there).
@@ -1166,7 +1183,7 @@ namespace UWDataImport.UWData
 			if (m.WallImpact > 0.0)
 				p.Impact = I16(p.Impact + (I16(UWRounding.Floor(m.WallImpact) * (15 - p.Elasticity)) / 15));
 
-			if (m.LandedVz < 0.0)
+			if (m.LandedVz < 0.0 && !lbBounced && !p.Elastic)
 			{
 				int liVz = (int)m.LandedVz;
 				int liBounce = -(liVz / 15);

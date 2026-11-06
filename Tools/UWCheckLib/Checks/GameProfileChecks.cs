@@ -918,6 +918,14 @@ namespace UnderworldRevisited.Tools
                 lIMotion2.LavaSpares(true) + " " + lIMotion2.ImpactDamage(0x180, false, 40) + " " + lIMotion2.ImpactDamage(0x200, false, 40) + " "
                 + lIMotion2.ImpactDamage(0x400, true, 40) + " " + lIMotion2.ImpactDamage(0x200, false, 0x1F), "False 0 2 1 8");
 
+            // do_zbounce's stop in water (per user 2026-11-06, Bouncing on snow): the first game by bit 0, the second
+            // by the low two bits exactly 1 - its ice (3) and lava (2) bounce. Terrain bits 0, 1, 2, 3, 5 in each game.
+            Check.Str("profile: a fall stops as in water on terrain bits 0, 1, 2, 3, 5 (first game, second game)",
+                lIMotion.LandsInWater(0) + " " + lIMotion.LandsInWater(1) + " " + lIMotion.LandsInWater(2) + " " + lIMotion.LandsInWater(3) + " "
+                + lIMotion.LandsInWater(5) + " / " + lIMotion2.LandsInWater(0) + " " + lIMotion2.LandsInWater(1) + " " + lIMotion2.LandsInWater(2) + " "
+                + lIMotion2.LandsInWater(3) + " " + lIMotion2.LandsInWater(5),
+                "False True False True True / False True False False True");
+
             // The first game's conversation steps.
             IUWConversationVariant lIConversation = UWGameProfiles.Uw1.Conversation;
 
@@ -1052,6 +1060,8 @@ namespace UnderworldRevisited.Tools
             public bool LavaSpares(bool pbDragonSkinBoots) => false;
 
             public int ImpactDamage(int piImpact, bool pbCreature, int piHitPoints) => 0;
+
+            public bool LandsInWater(int piFlags) => (piFlags & 1) != 0;
         }
 
         /// <summary>An item variant whose steps give themselves away: every light is used up, the

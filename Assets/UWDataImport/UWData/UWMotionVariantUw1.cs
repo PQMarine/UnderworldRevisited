@@ -33,6 +33,11 @@ namespace UWDataImport.UWData
 
 		public bool IceAndCurrents => false;
 
+		public bool LandsInWater(int piFlags)
+		{
+			return (piFlags & 1) != 0;
+		}
+
 		/// <summary>The dragon skin boots keep out the lava, and only the lava.</summary>
 		public bool LavaSpares(bool pbDragonSkinBoots)
 		{

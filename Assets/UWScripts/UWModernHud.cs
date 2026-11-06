@@ -215,8 +215,10 @@ public class UWModernHud : MonoBehaviour
             // 2026-10-10: it was not to be seen there); its canvas is its own.
             if (mOInventoryPage != null)
             {
+                // The scale of now, not the one before the conversation (per user, 2026-11-06: a window made
+                // narrower in a conversation left the page at its old size; miPixelScale follows only outside).
                 if (IsTalking)
-                    mOInventoryPage.Update(miPixelScale);
+                    mOInventoryPage.Update(UWModernUi.PixelScale);
                 else
                     mOInventoryPage.Hide();
             }

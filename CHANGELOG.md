@@ -8,6 +8,32 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.5] - 2026-11-06
+
+### Changed
+- Ultima Underworld II preview, modern scheme: R draws and puts away the weapon, as in the first game;
+  it was always out.
+- Ultima Underworld II preview, modern scheme: the active spells show at the top right, as in the first
+  game; with the bags or the rune page open a left click names one, a right click ends it.
+- Ultima Underworld II preview: the help's spell list shows which runes are in the bag and lays a spell
+  into the hollow with a click, as in the first game.
+- Ultima Underworld II preview: the motion spells work on the walk (Leap, Slow Fall, Levitate, Water
+  Walk, Fly), and Bouncing makes every landing bounce back up as in the original; their icons show.
+- Ultima Underworld II preview: a fall onto ice or snow no longer stops dead as in water; one bounces
+  there as on any floor, as in the original.
+- Ultima Underworld II preview: falls and jumps into a wall hurt, as in the original; they were only
+  counted.
+- Ultima Underworld II preview: the view bobs while walking and while floating with Levitate or Fly, as
+  in the first game.
+
+### Fixed
+- The modern scheme's Classic preset in a window narrower than 4:3: the frame shrinks to fit, black above
+  and below, as the classic scheme does; it ran off at the right.
+- In the modern scheme's Classic preset at 4:3, the dragons covered the conversation's answers; they
+  now lie behind the conversation while it is open (GitHub issue 15).
+- Classic Wide and the classic screen in widescreen: a few black pixels of the view's rim stood in the
+  view near its bottom corners since 0.16.2.
+
 ## [0.16.4] - 2026-11-05
 
 ### Fixed

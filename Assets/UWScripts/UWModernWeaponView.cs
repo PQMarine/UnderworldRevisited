@@ -69,7 +69,7 @@ public class UWModernWeaponView : UWModernPart
         {
             lfScale = UWModernClassicFrame.RowScale;
             lfCentreX = UWModernClassicFrame.Hole.center.x;
-            lfBottom = Screen.height - (UWModernClassicFrame.WeaponRow * UWModernClassicFrame.RowScale);
+            lfBottom = UWModernClassicFrame.TopY - (UWModernClassicFrame.WeaponRow * UWModernClassicFrame.RowScale);
         }
 
         WeaponCoordinate lOOffset = mOCharacter.Weapon.GetWeaponOffset();

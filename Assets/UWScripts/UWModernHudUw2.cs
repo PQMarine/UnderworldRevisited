@@ -135,6 +135,102 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private readonly Dictionary<int, Texture2D> mOItemPictures = new Dictionary<int, Texture2D>();
 
+    // ------------------------------------------------- The active spells
+
+    /// <summary>The gap between two active spells, in the original's pixels.</summary>
+    private const float SpellGap = 3f;
+
+    private readonly RawImage[] mOSpells = new RawImage[3];
+
+    private readonly Rect[] mOSpellRects = new Rect[3];
+
+    private readonly Dictionary<int, Texture2D> mOSpellPictures = new Dictionary<int, Texture2D>();
+
+    /// <summary>The active spell under a screen point, -1 for none; only icons shown.</summary>
+    public int SpellAt(Vector2 pOPointer)
+    {
+        for (int liAt = 0; liAt < mOSpells.Length; liAt++)
+        {
+            if (mOSpells[liAt] != null && mOSpells[liAt].enabled && mOSpellRects[liAt].Contains(pOPointer))
+                return liAt;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// THE ACTIVE SPELLS (per user, 2026-11-06: two Lucks showed their clovers on the classic screen only): a row at
+    /// the top right as on the first game's modern HUD (UWModernActiveSpells), left of the minimap and of the open
+    /// bags, the first spell leftmost; the pictures are the classic page's (parse_aspells, UWGameScreenUw2.fShowRunes).
+    /// </summary>
+    private void fShowSpells(UWPlayerFile pOFile, bool pbBagsOpen, bool pbMapShown, float pfScale)
+    {
+        for (int liAt = 0; liAt < mOSpells.Length; liAt++)
+        {
+            if (mOSpells[liAt] == null)
+            {
+                mOSpells[liAt] = fImage("Active spell " + liAt, UWUiKit.BottomLeft, UWUiKit.BottomLeft);
+                UWPixelArtUI.Apply(mOSpells[liAt]);
+            }
+
+            mOSpells[liAt].enabled = false;
+            mOSpellRects[liAt] = Rect.zero;
+        }
+
+        if (pOFile == null)
+            return;
+
+        float lfMargin = Margin * pfScale;
+        float lfRight = Screen.width - lfMargin;
+
+        if (pbMapShown)
+            lfRight -= (MinimapSize * pfScale) + lfMargin;
+
+        if (pbBagsOpen)
+            lfRight = Mathf.Min(lfRight, BagsLeftEdge - lfMargin);
+
+        Texture2D[] lOPictures = new Texture2D[mOSpells.Length];
+        float lfWidth = 0f;
+        int liCount = Mathf.Min(UWPlayerRecordUw2.ActiveSpellCount(pOFile), mOSpells.Length);
+
+        for (int liAt = 0; liAt < liCount; liAt++)
+        {
+            int liWord = UWPlayerRecordUw2.ActiveSpell(pOFile, liAt);
+            int liPicture = (UWClassicLayoutUw2.Runes.SpellClassFirst[liWord & 0xF] + ((liWord & 0xF0) >> 4)) & 0xFF;
+
+            if (liPicture >= UWClassicLayoutUw2.Runes.NoSpellPicture)
+                continue;
+
+            if (!mOSpellPictures.TryGetValue(liPicture, out Texture2D lOPicture))
+            {
+                lOPicture = UWScreenUi.BuildPicture(mOData.Textures, UWTexture.TextureTypes.SPELLS, liPicture);
+                mOSpellPictures[liPicture] = lOPicture;
+            }
+
+            lOPictures[liAt] = lOPicture;
+
+            if (lOPicture != null)
+                lfWidth += (lOPicture.width + SpellGap) * UWModernHudArt.PixelAspectX * pfScale;
+        }
+
+        float lfX = lfRight - lfWidth + (SpellGap * UWModernHudArt.PixelAspectX * pfScale);
+        float lfTop = Screen.height - lfMargin;
+
+        for (int liAt = 0; liAt < liCount; liAt++)
+        {
+            Texture2D lOPicture = lOPictures[liAt];
+
+            if (lOPicture == null)
+                continue;
+
+            float lfBottom = lfTop - (lOPicture.height * pfScale);
+
+            fPlace(mOSpells[liAt], lOPicture, lfX, lfBottom, pfScale);
+            mOSpellRects[liAt] = new Rect(lfX, lfBottom, lOPicture.width * UWModernHudArt.PixelAspectX * pfScale, lOPicture.height * pfScale);
+            lfX += (lOPicture.width + SpellGap) * UWModernHudArt.PixelAspectX * pfScale;
+        }
+    }
+
     // ------------------------------------------------- The runes
 
     /// <summary>The classic page's left and top on the classic screen (UWClassicLayoutUw2.Panel), and the screen's
@@ -372,6 +468,7 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         fShowRunes(pOFile, pbRunesOpen, lfScale);
         Bar.Tick(pOScreen != null ? pOScreen.Inventory : null, mOData, lfScale, fInk, fItemPicture);
         fShowMinimap(pOFile, pOScreen, lfScale);
+        fShowSpells(pOFile, pbBagsOpen, mOMinimap.enabled, lfScale);
 
         mOPointer.enabled = mOPointer.texture != null && !pbBagsOpen && !pbRunesOpen;
     }
@@ -395,6 +492,14 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         mOMinimap.enabled = false;
         mOMinimapArrow.enabled = false;
         Bar.Hide();
+
+        for (int liAt = 0; liAt < mOSpells.Length; liAt++)
+        {
+            if (mOSpells[liAt] != null)
+                mOSpells[liAt].enabled = false;
+
+            mOSpellRects[liAt] = Rect.zero;
+        }
     }
 
     /// <summary>The bags' left edge on the screen.</summary>

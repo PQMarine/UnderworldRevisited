@@ -354,6 +354,15 @@ public class UWDebugTools : MonoBehaviour
 
         Close();
 
+        // The second game casts through its own screen and spell host (UWGameScreenUw2.CastSpellFromObject).
+        if (UWWalkUw2.IsWalking)
+        {
+            if (UWGameScreenUw2.Current != null)
+                UWGameScreenUw2.Current.CastSpellFromObject(liCast);
+
+            return;
+        }
+
         UWGameUI lOUi = mOLoader.GetComponent<UWGameUI>();
 
         if (lOUi == null)

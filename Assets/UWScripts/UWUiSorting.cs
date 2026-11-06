@@ -54,6 +54,11 @@ public static class UWUiSorting
     /// head, per user, 2026-10-10): a canvas of their own above the HUD's.</summary>
     public const int ClassicWideDragons = ModernParts;
 
+    /// <summary>The same dragons while a conversation is open (GitHub issue 15, 2026-11-06, per user: "the
+    /// conversation over the dragons"): on the frame's order, drawn after it as their canvas is made after it,
+    /// and under the modern conversation - at 4:3 their heads lay over its answers' parchment.</summary>
+    public const int ClassicWideDragonsTalking = ClassicWideFrame;
+
     /// <summary>The modern bags (UWModernBags).</summary>
     public const int ModernBags = 42;
 

@@ -86,6 +86,7 @@ public class UWPlayerTerrain : MonoBehaviour
         if (UWWalkUw2.IsWalking)
         {
             fUpdateAutomap();
+            fUpdateViewBobUw2();
 
             return;
         }
@@ -571,6 +572,29 @@ public class UWPlayerTerrain : MonoBehaviour
     }
 
     private float mfHeadBobPhase;
+
+    /// <summary>What fUpdateViewBobUw2 put on the camera's height last frame.</summary>
+    private float mfAppliedBobUw2;
+
+    /// <summary>
+    /// THE SECOND GAME'S VIEW BOB (per user, 2026-11-06: no bobbing in the air under Levitate and Fly): the same
+    /// two as the first game's (uw2 motion/PLAYMOVE.C move_player's bobEffect while walking, parse_effect's
+    /// |16 - tsteps / 8| * 3 under motion_state 8), the only part of this class's view the second game's walk runs
+    /// so far - its water, lava and swim view are phase 4 (Update). Added to the camera's height as a change from
+    /// the last frame, so the eye the walk set stays as it is.
+    /// </summary>
+    private void fUpdateViewBobUw2()
+    {
+        if (mOCamera == null)
+            return;
+
+        float lfBob = fGetHeadBob() + fGetLevitationBob();
+        Vector3 lOLocal = mOCamera.localPosition;
+
+        lOLocal.y += lfBob - mfAppliedBobUw2;
+        mOCamera.localPosition = lOLocal;
+        mfAppliedBobUw2 = lfBob;
+    }
 
     /// <summary>
     /// THE HEAD BOB, in world units (UWHeadBobRules): the phase runs on real time like the

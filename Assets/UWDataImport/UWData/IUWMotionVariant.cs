@@ -39,5 +39,10 @@ namespace UWDataImport.UWData
 		/// the impact's high byte, OBJPHYS.C:305; UW2: above 0x180, a creature a quarter, an object
 		/// of fewer than 0x20 hit points four times, OBJPHYS.C:299-305).</summary>
 		int ImpactDamage(int piImpact, bool pbCreature, int piHitPoints);
+
+		/// <summary>Whether a fall onto the floor with these terrain bits (the collision's low byte) stops the
+		/// mover dead as in water (do_zbounce; UW1: bit 0 set, MOTION.C:505; UW2: the low two bits exactly 1,
+		/// MOTION.C:514 - its ice, 3, bounces).</summary>
+		bool LandsInWater(int piFlags);
 	}
 }

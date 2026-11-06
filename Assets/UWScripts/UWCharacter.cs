@@ -297,7 +297,9 @@ public class UWCharacter : MonoBehaviour, IUWVitalsHost
         if (mOMovement == null)
             mOMovement = UWScene.PlayerMovement;
 
-        if (mOMovement != null)
+        // The second game's walk hands its own on (UWVitalsUw2.RefreshStatus); this idle component must not
+        // overwrite them.
+        if (mOMovement != null && !UWWalkUw2.IsWalking)
             mOMovement.MagicalMotionAbilities = mOStatus.MotionAbilities;
 
         if (mOLevelLoaderForStatus == null)
