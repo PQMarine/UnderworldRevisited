@@ -41,6 +41,20 @@ namespace UnderworldRevisited.Tools
             Check.Str("bug fixes: a rules.json key takes back one switch, the other stays",
                 UWCreatureActor.TakesPush(lOSession.Rules, 23) + " " + lOSession.Rules.Deviations.ConversationPatches, "True True");
 
+            // "Remove exploits of the original" (2026-11-07): off by default, apart from the bug option.
+            lOSession.ApplyRulesFile(lsNoFile);
+
+            string lsDefault = lOSession.Rules.Deviations.DebrisLosesSpell.ToString();
+
+            lOSession.ApplyRulesFile(lsNoFile, false, true);
+
+            string lsRemoved = lOSession.Rules.Deviations.DebrisLosesSpell + " " + lOSession.Rules.Deviations.UnpushableNpcs;
+
+            lOSession.ApplyRulesFile(lsNoFile, true, false);
+
+            Check.Str("exploits: the debris spell stays by default, goes with the option alone, the bug option leaves it",
+                lsDefault + " / " + lsRemoved + " / " + lOSession.Rules.Deviations.DebrisLosesSpell, "False / True False / False");
+
             UWGameSession.MakeCurrent(new UWGameSession(null, 3));
         }
 

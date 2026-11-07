@@ -41,7 +41,8 @@ public class UWPadHintStrip : MonoBehaviour
     {
         fGather();
 
-        if (mOItemTexts.Count == 0)
+        // Hidden with the interface (H, UWInterfaceHide) too.
+        if (mOItemTexts.Count == 0 || UWInterfaceHide.IsHidden)
         {
             if (mOCanvas != null)
                 mOCanvas.enabled = false;

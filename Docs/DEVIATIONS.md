@@ -77,6 +77,16 @@ These, and the other fixes of the original's bugs that can cost the game, follow
 A rules.json key decides a single one against it: deviations.conversationPatches,
 deviations.unpushableNpcs, deviations.tidyLeakedObjects.
 
+**The debris of a broken potion or scroll can be made to cast nothing.** A thing destroyed by a
+fireball, a trap or its own impact on a wall becomes a pile of debris that keeps the thing's fields.
+A potion or an enchanted scroll carries its spell in those fields, so its pile keeps the spell, and
+using the pile casts it without ever spending a charge: in the first game a potion a fireball
+breaks, in the second also one thrown at a wall until it breaks, heals for ever. A wand keeps its
+spell apart from itself, which is lost when it breaks. This harmless exploit stays as in the
+original unless the option "Remove exploits of the original" in the Game window is on (off by
+default, settings.json RemoveExploits); then such a pile has no spell. The rules.json key is
+deviations.debrisLosesSpell.
+
 **Something put down lies on the floor.** The original puts a dropped thing at the height of the
 player's feet, a little ahead of him, and then tests where it lies: a floor higher than the
 thing's radius above it counts as lying inside the floor, and the thing is deleted unless the

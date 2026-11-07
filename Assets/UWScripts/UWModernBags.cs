@@ -468,7 +468,9 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
     /// tooltip hidden under them.</summary>
     private void LateUpdate()
     {
-        if (!fIsShown())
+        // Hidden with the interface (H, UWInterfaceHide) too: the backpack window of the modern layout, and
+        // Classic Modular's stand-in for the original page, which goes with the HUD (per user, 2026-11-07).
+        if (!fIsShown() || UWInterfaceHide.IsHidden)
         {
             View.Hide();
             return;

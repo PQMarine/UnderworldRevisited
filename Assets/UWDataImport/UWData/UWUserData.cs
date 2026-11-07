@@ -50,6 +50,10 @@ namespace UWDataImport.UWData
 		/// Goldthirst's gifts, Judy at the lava. On by default, takes effect at the next start or load.</summary>
 		public bool FixOriginalBugs = true;
 
+		/// <summary>The removal of the original's harmless exploits (UWRulesDeviations.SetExploitFixes): the debris
+		/// that keeps a potion's spell. Off by default (per user, 2026-11-07), takes effect at the next start or load.</summary>
+		public bool RemoveExploits;
+
 		/// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
 		/// the tab (UWHelpTabId as a number, 3 = Spells) and how many tiles the map
 		/// tab shows across.</summary>
@@ -119,6 +123,10 @@ namespace UWDataImport.UWData
 
 		/// <summary>The modern message box's lines (0 = five; Interaction.ModernMessageCount).</summary>
 		public int ModernMessageLines;
+
+		/// <summary>Seconds after which a line of the modern message box fades out, 0 = never (GitHub issue 18,
+		/// 2026-11-07; UWMessageLogModel.LineAlpha). The second game's modern lines take it too.</summary>
+		public int ModernMessageFade;
 
 		/// <summary>The modern interface's font: 0 modern, 1 the original's (UWUiFonts).</summary>
 		public int InterfaceFont;

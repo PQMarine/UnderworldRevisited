@@ -1019,13 +1019,22 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         // A flight is in no tile list; the scans ask the flights themselves.
     }
 
+    /// <summary>
+    /// The impact or the lava hurts the thing in flight (damage_item, OBJPHYS.C:305-321): the
+    /// resistances, the protection of word 0 bit 13 (damage_object's OBJ_DOORDIR test; ignored here
+    /// until 2026-11-07), the quality class. Destroyed, it becomes debris that flies on, or is gone
+    /// (UWMissiles.BecomeDebrisInFlight; until 2026-11-07 it was always gone). The core writes the
+    /// hp of before the step back afterwards.
+    /// </summary>
     public bool DamageSelf(UWMobileRecord pORecord, int piDamage, int piType)
     {
         UWCommonObjectProperties.Entry lOEntry = Entry(pORecord.ItemId);
-        int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, piType == 8 ? UWDamageTypes.PlainFire : UWDamageTypes.None);
+        int liType = piType == 8 ? UWDamageTypes.PlainFire : UWDamageTypes.None;
+        int liScaled = UWDamageTypes.Scale(lOEntry.Resistances, piDamage, liType);
+        bool lbProtected = pORecord.Object != null && pORecord.Object.DoorDirection;
         int liNewHp;
 
-        if (!UWObjectDamageRules.Wear(pORecord.Hp, liScaled, lOEntry.QualityClass, false, out liNewHp))
+        if (!UWObjectDamageRules.Wear(pORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liNewHp))
         {
             pORecord.Hp = liNewHp;
 
@@ -1033,9 +1042,17 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         }
 
         pORecord.Hp = 0;
-        EndFlight(pORecord);
 
-        return true;
+        UWProjectileFlight lOFlight = FlightAt(pORecord.Index);
+
+        if (lOFlight == null)
+        {
+            EndFlight(pORecord);
+
+            return true;
+        }
+
+        return Missiles.BecomeDebrisInFlight(lOFlight, liType);
     }
 
     public void PlaySoundAtObject(int piSound, UWMobileRecord pORecord, int piVolume)

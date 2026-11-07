@@ -23,6 +23,7 @@ Player|ToggleInventory|0 | Character panel (modern) | "c"
 Player|ModernBags|0 | Bags (modern) | "b"
 Player|ModernLook|0 | Look (modern) | "q"
 Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernHideUi|0 | Hide the interface (modern) | "h"
 Player|ModernUse|0 | Use, talk, pick up (modern) | "e"
 Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
 Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
@@ -97,6 +98,7 @@ Tab | This help, in the character panel. |
 Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
 Right Ctrl + S / R | Save, restore. |
 Shift + F2 | Switch to the classic controls. |
+"h" | Hide the interface and the weapon for a clear view, and show them again. A window, the menu or a conversation brings them back. Not in Classic Wide. |
 -- help, classic
 # The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
 Left Button | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
@@ -164,7 +166,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Menu | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | RS | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
@@ -187,7 +190,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-Menu | The game menu. | UWGlyphs 617
+Menu | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 RS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -238,7 +241,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Menu | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
@@ -261,7 +265,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-Menu | The game menu. | UWGlyphs 617
+Menu | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -312,7 +316,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Options | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | R3 | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
@@ -335,7 +340,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Options | The game menu. | UWGlyphs 617
+Options | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 R3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -386,7 +391,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Options | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
@@ -409,7 +415,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Options | The game menu. | UWGlyphs 617
+Options | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -460,7 +466,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|Menu|1 | Menu (tapped) | + | UWGlyphs 685
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | R stick | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
@@ -483,7 +490,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-+ | The game menu. | UWGlyphs 685
++ | The game menu; held: hide the interface, again to show it. | UWGlyphs 685
 R stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -534,7 +541,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|Menu|1 | Menu (tapped) | + | UWGlyphs 685
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
@@ -557,7 +565,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-+ | The game menu. | UWGlyphs 685
++ | The game menu; held: hide the interface, again to show it. | UWGlyphs 685
 L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -617,6 +625,7 @@ Player|ToggleInventory|0 | Character panel (modern) | "c"
 Player|ModernBags|0 | Bags (modern) | "b"
 Player|ModernLook|0 | Look (modern) | "q"
 Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernHideUi|0 | Hide the interface (modern) | "h"
 Player|ModernUse|0 | Use, talk, pick up (modern) | "e"
 Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
 Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
@@ -691,6 +700,7 @@ Tab | This help, in the character panel. |
 Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
 Right Ctrl + S / R | Save, restore. |
 Shift + F2 | Switch to the classic controls. |
+"h" | Hide the interface and the weapon for a clear view, and show them again. A window, the menu or a conversation brings them back. Not in Classic Wide. |
 -- help, classic
 # The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
 Left Button | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
@@ -758,7 +768,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Menu | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | RS | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
@@ -781,7 +792,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-Menu | The game menu. | UWGlyphs 617
+Menu | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 RS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -832,7 +843,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Menu | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Menu | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | A | UWGlyphs 4
@@ -855,7 +867,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-Menu | The game menu. | UWGlyphs 617
+Menu | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -906,7 +918,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Options | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | R3 | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
@@ -929,7 +942,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Options | The game menu. | UWGlyphs 617
+Options | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 R3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -980,7 +993,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Options | UWGlyphs 617
+Player|Menu|1 | Menu (tapped) | Options | UWGlyphs 617
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Cross | UWGlyphs 567,568
@@ -1003,7 +1017,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Options | The game menu. | UWGlyphs 617
+Options | The game menu; held: hide the interface, again to show it. | UWGlyphs 617
 L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -1054,7 +1068,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|Menu|1 | Menu (tapped) | + | UWGlyphs 685
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | R stick | UWGlyphs 288
 Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
@@ -1077,7 +1092,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-+ | The game menu. | UWGlyphs 685
++ | The game menu; held: hide the interface, again to show it. | UWGlyphs 685
 R stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 288
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -1128,7 +1143,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | + | UWGlyphs 685
+Player|Menu|1 | Menu (tapped) | + | UWGlyphs 685
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | B | UWGlyphs 14
@@ -1151,7 +1167,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-+ | The game menu. | UWGlyphs 685
++ | The game menu; held: hide the interface, again to show it. | UWGlyphs 685
 L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -1211,6 +1227,7 @@ Player|ToggleInventory|0 | Character panel (modern) | "c"
 Player|ModernBags|0 | Bags (modern) | "b"
 Player|ModernLook|0 | Look (modern) | "q"
 Player|ModernRunes|0 | Runes and spells (modern) | Z
+Player|ModernHideUi|0 | Hide the interface (modern) | "h"
 Player|ModernUse|0 | Use, talk, pick up (modern) | F
 Player|ModernReady|0 | Draw or put away the weapon (modern) | "r"
 Player|ModernSlot1|0 | Action bar slot 1 (modern) | 1
@@ -1285,6 +1302,7 @@ Tab | This help, in the character panel. |
 Escape | Closes what is open - a waiting spell, the bags, the panels - then the game menu (F1 as well). |
 Right Ctrl + S / R | Save, restore. |
 Shift + F2 | Switch to the classic controls. |
+"h" | Hide the interface and the weapon for a clear view, and show them again. A window, the menu or a conversation brings them back. Not in Classic Wide. |
 -- help, classic
 # The mouse / The controls of the original: the pointer stays free, the view lies in the frame.
 G | In the view: walk towards the pointer, held. On the frame: the icons, the runes, the compass, and taking and putting down things. |
@@ -1352,7 +1370,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | View | UWGlyphs 616
+Player|Menu|1 | Menu (tapped) | View | UWGlyphs 616
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Y | UWGlyphs 7
@@ -1375,7 +1394,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-View | The game menu. | UWGlyphs 616
+View | The game menu; held: hide the interface, again to show it. | UWGlyphs 616
 LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -1426,7 +1445,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | View | UWGlyphs 616
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | View | UWGlyphs 616
+Player|Menu|1 | Menu (tapped) | View | UWGlyphs 616
+Player|ModernHideUi|1 | Hide the interface (held) | Menu | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | View | UWGlyphs 616
 Player|PadPointer|0 | Pointer on the stick, on or off | LS | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Y | UWGlyphs 7
@@ -1449,7 +1469,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 View | The map; held: this help. | UWGlyphs 616
-View | The game menu. | UWGlyphs 616
+View | The game menu; held: hide the interface, again to show it. | UWGlyphs 616
 LS | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -1500,7 +1520,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Share | UWGlyphs 618
+Player|Menu|1 | Menu (tapped) | Share | UWGlyphs 618
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Triangle | UWGlyphs 561,562
@@ -1523,7 +1544,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Share | The game menu. | UWGlyphs 618
+Share | The game menu; held: hide the interface, again to show it. | UWGlyphs 618
 L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -1574,7 +1595,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | Share | UWGlyphs 618
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | Share | UWGlyphs 618
+Player|Menu|1 | Menu (tapped) | Share | UWGlyphs 618
+Player|ModernHideUi|1 | Hide the interface (held) | Options | UWGlyphs 617
 Player|ToggleHelp|1 | Help (held) | Share | UWGlyphs 618
 Player|PadPointer|0 | Pointer on the stick, on or off | L3 | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | Triangle | UWGlyphs 561,562
@@ -1597,7 +1619,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 Share | The map; held: this help. | UWGlyphs 618
-Share | The game menu. | UWGlyphs 618
+Share | The game menu; held: hide the interface, again to show it. | UWGlyphs 618
 L3 | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219
@@ -1648,7 +1670,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | - | UWGlyphs 684
+Player|Menu|1 | Menu (tapped) | - | UWGlyphs 684
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | X | UWGlyphs 15
@@ -1671,7 +1694,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-- | The game menu. | UWGlyphs 684
+- | The game menu; held: hide the interface, again to show it. | UWGlyphs 684
 L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Right stick | Move the pointer. | UWGlyphs 287
@@ -1722,7 +1745,8 @@ Player|PadSlotUse|0 | Action bar: use the slot | D-pad up | UWGlyphs 35
 Player|ToggleMap|1 | Open the map (tapped) | - | UWGlyphs 684
 Player|ModernHover|4 | Sink while flying | D-pad left | UWGlyphs 38
 Player|ModernHover|5 | Rise while flying | D-pad right | UWGlyphs 36
-Player|Menu|1 | Menu | - | UWGlyphs 684
+Player|Menu|1 | Menu (tapped) | - | UWGlyphs 684
+Player|ModernHideUi|1 | Hide the interface (held) | + | UWGlyphs 685
 Player|ToggleHelp|1 | Help (held) | - | UWGlyphs 684
 Player|PadPointer|0 | Pointer on the stick, on or off | L stick | UWGlyphs 220
 Player|PadClick|0 | Pointer: click (held: drag) | X | UWGlyphs 15
@@ -1745,7 +1769,7 @@ D-pad up | Use the slot. | UWGlyphs 35
 D-pad down | The character panel; held: every bag. | UWGlyphs 37
 D-pad left D-pad right | Sink and rise while flying. | UWGlyphs 38 UWGlyphs 36
 - | The map; held: this help. | UWGlyphs 684
-- | The game menu. | UWGlyphs 684
+- | The game menu; held: hide the interface, again to show it. | UWGlyphs 684
 L stick | Free the pointer (onto the backpack) or lock it again. | UWGlyphs 220
 # Gamepad: the free pointer / With the pointer free the pad is the mouse. Under a window that holds the game - the menu, a conversation, the map - the pointer is free by itself.
 Left stick | Move the pointer. | UWGlyphs 219

@@ -51,5 +51,8 @@ namespace UWDataImport.UWData
 
 			return liImpact > ImpactThreshold ? liImpact >> 8 : 0;
 		}
+
+		/// <summary>OBJPHYS.C:316-319, "the hit points are stored again after the impact".</summary>
+		public bool ImpactWearUndone => true;
 	}
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnderworldRevisited.Build;
 using UWDataImport;
 using UWDataImport.UWData;
 
@@ -373,6 +374,44 @@ public sealed class UWMissiles
         if (!UWObjectDamageRules.Wear(lORecord.Hp, liScaled, lOEntry.QualityClass, lbProtected, out liUnused))
             return;
 
+        BecomeDebrisInFlight(lOFlight, piDamageType);
+    }
+
+    /// <summary>
+    /// A THING IN FLIGHT DESTROYED - by a damage trap (StrikeThing) or by its own impact on a wall or
+    /// the floor, or the lava under it (UWMotionHost.DamageSelf; OBJPHYS.C:305-321 hands both to
+    /// damage_item, and remove_object takes a mobile record like any other). Returns true when it
+    /// is gone, false when it flies on as debris.
+    ///
+    /// THE DEBRIS FLIES ON (per user on the original, 2026-10-06: "the debris flies on with the
+    /// same momentum"). DamageObject_Debris_seg023_D6 (READ the same evening), for a thing that is
+    /// no door, chest, barrel or container: unless word 0 bit 15 (a quantity) is set, the chain
+    /// behind its link - contents, enchantment - is cleared (ClearObjectChain); then the id bits
+    /// 0-8 become the debris, its flags and every other field stay; only a STATIC object goes
+    /// through PlacedObjectCollison, a flying one moves on as it was, and the routine answers "not
+    /// gone". So the same object gets the new id, the record keeps its place, heading, speed,
+    /// vertical speed and hp (its quality at rest), and the picture is made anew. FIRE (the lava)
+    /// takes a pile of debris away and puts up the smoke one time in four over anything else
+    /// (UWObjectDamageRules.DecideRemains). A potion or scroll keeps its spell in the pile - the
+    /// exploit of UWObjectDamageRules.DebrisLosesSpellApplied, dropped under that deviation.
+    ///
+    /// A bag, box or pouch is left alone, as StrikeThing has done since 2026-10-06 (the original
+    /// spills it or the culling test spares it, UWObjectDamageRules.DestroyedBagIsSpared; neither is
+    /// built for a thing in flight), and so is a chest or a barrel (spilled by UseCont in the
+    /// original). Until 2026-11-07 a thing its own impact destroyed was simply gone, contents and
+    /// all (DamageSelf ended its flight): a thrown potion vanished where the original leaves the
+    /// pile.
+    /// </summary>
+    public bool BecomeDebrisInFlight(UWProjectileFlight pOFlight, int piDamageType)
+    {
+        if (pOFlight == null || pOFlight.Record == null)
+            return false;
+
+        UWMobileRecord lORecord = pOFlight.Record;
+
+        if (UWObjectDamageRules.SpillsWhenDestroyed(lORecord.ItemId) || UWObjectDamageRules.IsUsedWhenDestroyed(lORecord.ItemId))
+            return false;
+
         UWObjectDamageRules.Remains lORemains = UWObjectDamageRules.DecideRemains(lORecord.ItemId, piDamageType);
 
         mOHost.EndFlight(lORecord);
@@ -380,18 +419,19 @@ public sealed class UWMissiles
         UWLevelLoader lOLoader = fLoader;
 
         if (lORemains == UWObjectDamageRules.Remains.Gone || lOLoader == null)
-            return;
+            return true;
 
-        // THE DEBRIS FLIES ON (per user on the original, 2026-10-06: "the debris flies on with the
-        // same momentum"). DamageObject_Debris_seg023_D6 (READ the same evening), for a thing that
-        // is no door, chest, barrel or container and not struck by fire: unless word 0 bit 15
-        // (a quantity) is set, the chain behind its link - contents, enchantment - is cleared
-        // (ClearObjectChain); then the id bits 0-8 become 0xD5 or 0xD6, its flags and every other
-        // field stay; only a STATIC object goes through PlacedObjectCollison, a flying one moves
-        // on as it was, and the routine answers "not gone". So the same object gets the new id,
-        // the record keeps its place, heading, speed, vertical speed and hp (its quality at rest),
-        // and the picture is made anew.
-        int liDebris = UWObjectDamageRules.RollDebrisObjectId();
+        // put_effect(obj, 8, ...): the smoke where the thing is, placed like the blast's
+        // (UWTileBlast.fDestroy).
+        if (lORemains == UWObjectDamageRules.Remains.DebrisWithSmoke)
+            lOLoader.SpawnEffectAt(UWObjectDamageRules.SmokeObjectId,
+                UWMotionHost.WorldPosition(lORecord) + new Vector3(0f, UWObjectSpawner.AnimatedHeightOffset, 0f),
+                UWObjectDamageRules.RollSmokeSeconds());
+
+        // The game's debris (UW1: 0xD5 or 0xD6; UW2: debris_type by the thing and the damage type).
+        // StrikeThing rolled UW1's two until 2026-11-07.
+        UWDataImport.DataImport lOData = lOLoader.UWDataImporter;
+        int liDebris = UWGameSession.Current.Game.Combat.DebrisOf(lORecord.ItemId, piDamageType, lOData);
         UWObject lOObject = lORecord.Object;
 
         if (lOObject == null)
@@ -408,12 +448,22 @@ public sealed class UWMissiles
 
             lOObject.ID = (ushort)liDebris;
 
-            if (lOLoader.UWDataImporter != null)
-                UWObjectAppearance.Apply(lOObject, lOLoader.UWDataImporter.Textures, null);
+            if (lOData != null)
+            {
+                UWObjectDamageRules.DropCarriedSpell(lOObject, lOData.CommonObjectProperties);
+                UWObjectAppearance.Apply(lOObject, lOData.Textures, null);
+            }
         }
 
-        fSpawnFlight(lORecord, lOFlight.BaseDamage, lOFlight.DamageType, lOFlight.ImpactId, lOFlight.Shooter,
-            lOFlight.Launcher, false, lOFlight.FromLevelData);
+        // The debris's hit points: the first game writes the hp of before the step back (the motion
+        // core does it after the impact), the second keeps remove_object's 0x28 (DAMAGE.C:178-180).
+        if (!UWGameSession.Current.Game.Motion.ImpactWearUndone)
+            lORecord.Hp = UWGameSession.Current.Game.Combat.DebrisQuality;
+
+        fSpawnFlight(lORecord, pOFlight.BaseDamage, pOFlight.DamageType, pOFlight.ImpactId, pOFlight.Shooter,
+            pOFlight.Launcher, false, pOFlight.FromLevelData);
+
+        return false;
     }
 
     // ------------------------------------------------- The hits (MissileAttackHit_seg022_14BF)

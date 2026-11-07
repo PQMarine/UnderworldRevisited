@@ -60,6 +60,8 @@ namespace UWDataImport.UWData
 			return RollDebris();
 		}
 
+		public int DebrisQuality => UWObjectDamageRules.DebrisQuality;
+
 		public int PlayerWeaponKind(int piWeaponId)
 		{
 			return -1;

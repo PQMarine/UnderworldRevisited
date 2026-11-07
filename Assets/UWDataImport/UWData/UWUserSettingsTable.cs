@@ -105,6 +105,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef FixOriginalBugs = fBool(nameof(UWUserData.FixOriginalBugs), d => d.FixOriginalBugs, (d, v) => d.FixOriginalBugs = v);
 
+		public static readonly UWBoolSettingDef RemoveExploits = fBool(nameof(UWUserData.RemoveExploits), d => d.RemoveExploits, (d, v) => d.RemoveExploits = v);
+
 		public static readonly UWBoolSettingDef HelpOpen = fBool(nameof(UWUserData.HelpOpen), d => d.HelpOpen, (d, v) => d.HelpOpen = v);
 
 		/// <summary>UWHelpTabId as a number: Stats 0 to Controls 6 - the numbers are the file's.</summary>
@@ -154,6 +156,8 @@ namespace UWDataImport.UWData
 		public static readonly UWIntSettingDef ModernScrollLines = fInt(nameof(UWUserData.ModernScrollLines), UWSettingKind.Int, d => d.ModernScrollLines, (d, v) => d.ModernScrollLines = v, UWSettingStore.Layout);
 
 		public static readonly UWIntSettingDef ModernMessageLines = fInt(nameof(UWUserData.ModernMessageLines), UWSettingKind.Int, d => d.ModernMessageLines, (d, v) => d.ModernMessageLines = v, UWSettingStore.Layout);
+
+		public static readonly UWIntSettingDef ModernMessageFade = fInt(nameof(UWUserData.ModernMessageFade), UWSettingKind.Int, d => d.ModernMessageFade, (d, v) => d.ModernMessageFade = v, UWSettingStore.Layout);
 
 		public static readonly UWIntSettingDef InterfaceFont = fInt(nameof(UWUserData.InterfaceFont), UWSettingKind.Choice, d => d.InterfaceFont, (d, v) => d.InterfaceFont = v, UWSettingStore.Layout);
 
@@ -408,9 +412,9 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, RemoveExploits, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
-			ModernBacks, ModernScrollLines, ModernMessageLines, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
+			ModernBacks, ModernScrollLines, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,

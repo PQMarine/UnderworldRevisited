@@ -686,7 +686,8 @@ public class UWModernRunePanel : UWModernDockedPanel
 
     private void LateUpdate()
     {
-        if (!fIsShown())
+        // Hidden with the interface (H, UWInterfaceHide) too - a pinned panel; an open one wants it back.
+        if (!fIsShown() || UWInterfaceHide.IsHidden)
         {
             if (mOCanvas != null)
             {

@@ -87,6 +87,7 @@ namespace UWDataImport.UWData
 			fText(RunInBackground);
 			fText(ManualAttributes);
 			fText(FixOriginalBugs, true);
+			fText(RemoveExploits, true);
 			// The language: its choices are the files found beside the game, listed by the Game window
 			// (UWLanguage.Available), not a fixed set.
 			fText(Language, true);
@@ -294,6 +295,8 @@ namespace UWDataImport.UWData
 			ModernScrollLines.Format = UWSettingFormat.Number;
 			fText(ModernMessageLines);
 			ModernMessageLines.Format = UWSettingFormat.Number;
+			// Its value is shown by the layout editor's own row ("Never", "10 s").
+			fText(ModernMessageFade);
 		}
 
 		/// <summary>A part shown or not, Shown On / Off - true is the first choice.</summary>

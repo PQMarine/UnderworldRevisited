@@ -31,6 +31,7 @@ namespace UWDataImport.UWData
 			fAdd("keys.bags", "Bags");
 			fAdd("keys.look", "Look");
 			fAdd("keys.runes", "Runes and spells");
+			fAdd("keys.hide_ui", "Hide the interface");
 			fAdd("keys.use", "Use, talk, pick up");
 			fAdd("keys.ready", "Draw or put away the weapon");
 			fAdd("keys.slot", "Action bar slot {0}");

@@ -102,12 +102,13 @@ namespace UWDataImport.UWData
 		/// too and says why in the report. Starts from the original's every time, so a key taken out of
 		/// the file goes back to its default with the next session.
 		/// </summary>
-		public UWRulesReport ApplyRulesFile(string psPath, bool pbFixOriginalBugs = true)
+		public UWRulesReport ApplyRulesFile(string psPath, bool pbFixOriginalBugs = true, bool pbRemoveExploits = false)
 		{
 			UWRules lORules = UWRules.CreateOriginal(Game);
 
-			// The game window's option, before the file, whose keys still decide a single switch.
+			// The game window's options, before the file, whose keys still decide a single switch.
 			lORules.Deviations.SetOriginalBugFixes(pbFixOriginalBugs);
+			lORules.Deviations.SetExploitFixes(pbRemoveExploits);
 
 			RulesReport = UWRulesJson.ApplyFile(lORules, psPath);
 			Rules = lORules;

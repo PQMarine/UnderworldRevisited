@@ -34,7 +34,7 @@ namespace UnderworldRevisited.Tools
         private static readonly string[] msSnapshotKeys =
         {
             "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
-            "ModernScroll", "ModernScrollLines", "ModernMessageLines", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
+            "ModernScroll", "ModernScrollLines", "ModernMessageLines", "ModernMessageFade", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
             "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
             "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
             "ActionBarHidden", "InterfaceFont"
@@ -143,7 +143,7 @@ namespace UnderworldRevisited.Tools
             lOLayout.Sort(StringComparer.Ordinal);
             lOExpected.Sort(StringComparer.Ordinal);
 
-            Check.Str("table: the layout snapshot takes the 25 layout settings",
+            Check.Str("table: the layout snapshot takes the 26 layout settings",
                 string.Join(",", lOLayout), string.Join(",", lOExpected));
             Check.Int("table: nothing in graphics.json or the asset yet",
                 UWUserSettingsTable.InStore(UWSettingStore.Graphics).Length + UWUserSettingsTable.InStore(UWSettingStore.Live).Length, 0);

@@ -209,6 +209,68 @@ namespace UWDataImport.UWData
 		/// (cleanup 2.6; until then 0 and "unchanged", which a fresh object makes 0 as well).</summary>
 		public const int DebrisQuality = 0;
 
+		/// <summary>
+		/// THE SPELL A DESTROYED POTION OR SCROLL CARRIES INTO ITS DEBRIS (a known exploit of both
+		/// games, asked about by the user 2026-11-07: throw an identified potion at a wall until it
+		/// breaks and use the pile for ever). remove_object turns the thing itself into the pile
+		/// (SET_ITEM: the id changes, every other field stays) and frees its chain only when it has no
+		/// quantity bit (UnderworldExhumed uw1 combat/DAMAGE.C:143-153, uw2 :167-180). A potion or an
+		/// enchanted scroll carries its spell in itself - the quantity bit, the enchanted bit, 512 plus
+		/// the spell in the quantity field (UWObjectMechanics.FindSpellObject, case 3) - so the pile
+		/// keeps it. UseObj ends every use in checkSpell, which casts it, and useNSpellCharges spends a
+		/// charge only from a chained spell object (uw1 obj/USEITEMS.C:172-175, :1050-1075, :1287-1304):
+		/// the pile casts the spell for ever, once per wand pause. A wand keeps its spell in its chain,
+		/// which is freed - no wand pile casts.
+		///
+		/// A DEVIATION, set by the Game option "Remove exploits of the original" (off by default, so the
+		/// game plays as the original; per user 2026-11-07, first under "Fix bugs of the original" the
+		/// same day): the pile drops a spell it carries in itself and is a plain pile, its quantity the
+		/// fresh pile's (DropCarriedSpell). Off (deviations.debrisLosesSpell false, the default, so the
+		/// rule set's default is the option's): as the original.
+		/// </summary>
+		public const bool DebrisLosesSpellApplied = false;
+
+		/// <summary>Whether the deviation of DebrisLosesSpellApplied holds now; without a rule set
+		/// the original's branch.</summary>
+		public static bool DebrisLosesSpell => UWRules.Current != null && UWRules.Current.Deviations.DebrisLosesSpell;
+
+		/// <summary>
+		/// A FRESH PILE in place of a destroyed thing (UWDebris: ours removes the thing and puts down
+		/// a new pile): what SET_ITEM would have kept of the thing's quantity word and flags. Only for
+		/// a thing with the quantity bit - without it remove_object frees the chain the word points
+		/// at, and the pile's own fields stand. Then DropCarriedSpell. Until 2026-11-07 the fresh pile
+		/// kept nothing, so a potion a fireball destroyed lost its spell (in the original it did not).
+		/// </summary>
+		public static void CarryIntoPile(UWObject pOFrom, UWObject pOPile, UWCommonObjectProperties pOCommon)
+		{
+			if (pOFrom == null || pOPile == null)
+				return;
+
+			if (pOFrom.HasQuantity)
+			{
+				pOPile.HasQuantity = true;
+				pOPile.Quantity = pOFrom.Quantity;
+				pOPile.Flags = pOFrom.Flags;
+			}
+
+			DropCarriedSpell(pOPile, pOCommon);
+		}
+
+		/// <summary>Under the deviation (DebrisLosesSpellApplied): a pile that carries a spell in
+		/// itself - the quantity bit and the enchanted bit - loses it and takes the fresh pile's
+		/// quantity. Anything else stays.</summary>
+		public static void DropCarriedSpell(UWObject pOPile, UWCommonObjectProperties pOCommon)
+		{
+			if (!DebrisLosesSpell || pOPile == null || !pOPile.HasQuantity || !pOPile.IsEnchanted)
+				return;
+
+			UWObject lOFresh = UWObjectFactory.Create(pOPile.ID, pOCommon);
+
+			pOPile.IsEnchanted = false;
+			pOPile.HasQuantity = lOFresh.HasQuantity;
+			pOPile.Quantity = lOFresh.Quantity;
+		}
+
 		/// <summary>The range remove_object hands the culling test for a destroyed bag -
 		/// Obj_Elem_Fate(10, obj), the liquids' ten.</summary>
 		public const int BagCullingRangeArgument = UWLiquidCulling.RangeBase;

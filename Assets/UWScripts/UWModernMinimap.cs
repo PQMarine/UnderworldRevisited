@@ -252,7 +252,8 @@ public class UWModernMinimap : MonoBehaviour
 
     private void LateUpdate()
     {
-        mbShown = fIsShown(out Rect lOHead);
+        // Hidden with the interface (H, UWInterfaceHide) too.
+        mbShown = fIsShown(out Rect lOHead) && !UWInterfaceHide.IsHidden;
 
         if (!mbShown)
         {

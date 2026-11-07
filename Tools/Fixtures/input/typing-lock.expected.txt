@@ -46,6 +46,7 @@ Player|Menu (2) free
 Player|ModernBags (1) free
 Player|ModernLook (2) free
 Player|ModernRunes (1) free
+Player|ModernHideUi (2) free
 Player|ModernAttack (2) free
 Player|PadBack (1) free
 Player|PadJump (1) free
@@ -128,6 +129,7 @@ Player|Menu (2) silent
 Player|ModernBags (1) silent
 Player|ModernLook (2) silent
 Player|ModernRunes (1) silent
+Player|ModernHideUi (2) silent
 Player|ModernAttack (2) free
 Player|PadBack (1) free
 Player|PadJump (1) free

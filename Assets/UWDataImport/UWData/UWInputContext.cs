@@ -151,7 +151,7 @@ namespace UWDataImport.UWData
 			UWAct.KeyCamp, UWAct.OptSave, UWAct.OptRestore, UWAct.OptMusic, UWAct.OptSound, UWAct.OptDetail, UWAct.OptQuit,
 			UWAct.EasyForward, UWAct.EasyWalkForward, UWAct.EasyBack, UWAct.EasyTurnLeft, UWAct.EasyTurnRight,
 			UWAct.ModernUse, UWAct.ModernReady, UWAct.WalkSlow, UWAct.EasyModifier, UWAct.ModernHover, UWAct.Menu,
-			UWAct.ModernBags, UWAct.ModernLook, UWAct.ModernRunes, UWAct.ModernSlot1, UWAct.ModernSlot2, UWAct.ModernSlot3,
+			UWAct.ModernBags, UWAct.ModernLook, UWAct.ModernRunes, UWAct.ModernHideUi, UWAct.ModernSlot1, UWAct.ModernSlot2, UWAct.ModernSlot3,
 			UWAct.ModernSlot4, UWAct.ModernSlot5, UWAct.ModernSlot6, UWAct.ModernSlot7, UWAct.ModernSlot8,
 			UWAct.ModernSlot9, UWAct.ModernSlot10,
 			UWAct.NoclipMove, UWAct.NoclipUp, UWAct.NoclipDown, UWAct.NoclipSprint

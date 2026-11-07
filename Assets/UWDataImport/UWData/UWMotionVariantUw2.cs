@@ -167,5 +167,9 @@ namespace UWDataImport.UWData
 
 			return piHitPoints < FragileHitPoints ? liDamage * 4 : liDamage;
 		}
+
+		/// <summary>No write-back after the impact (OBJPHYS.C:295-312): the wear stays. Until 2026-11-07
+		/// ours undid it as in the first game.</summary>
+		public bool ImpactWearUndone => false;
 	}
 }

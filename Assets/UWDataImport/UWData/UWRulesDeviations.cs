@@ -35,6 +35,10 @@ namespace UWDataImport.UWData
 			"Saving frees the leaked copy of a stack split on a too heavy pickup in the original (false: the slot stays taken).")]
 		public bool TidyLeakedObjects = UWLevelWriter.TidyLeakedObjectsApplied;
 
+		[UWRule(typeof(UWObjectDamageRules), nameof(UWObjectDamageRules.DebrisLosesSpellApplied),
+			"The debris of a destroyed potion or scroll drops the spell it carried (false: as the original, the pile casts it for ever). Set by the Game option Remove exploits of the original.")]
+		public bool DebrisLosesSpell = UWObjectDamageRules.DebrisLosesSpellApplied;
+
 		/// <summary>
 		/// THE GAME WINDOW'S "FIX BUGS OF THE ORIGINAL" (bug plan, per user 2026-11-03: one option for all of them, on by
 		/// default): the switches of the original's bugs that can cost the game, set together before a rules.json is
@@ -45,6 +49,17 @@ namespace UWDataImport.UWData
 			ConversationPatches = pbOn;
 			UnpushableNpcs = pbOn;
 			TidyLeakedObjects = pbOn;
+		}
+
+		/// <summary>
+		/// THE GAME WINDOW'S "REMOVE EXPLOITS OF THE ORIGINAL" (per user 2026-11-07: a harmless exploit is no bug that
+		/// costs the game, so an option of its own, OFF by default - the game plays as the original): the switches of the
+		/// original's exploits, set before a rules.json is read like SetOriginalBugFixes. Only the debris that keeps a
+		/// potion's spell so far.
+		/// </summary>
+		public void SetExploitFixes(bool pbOn)
+		{
+			DebrisLosesSpell = pbOn;
 		}
 	}
 }

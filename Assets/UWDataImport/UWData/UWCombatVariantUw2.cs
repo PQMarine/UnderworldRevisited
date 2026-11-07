@@ -168,6 +168,9 @@ namespace UWDataImport.UWData
 			return (piItem >> 4) == FurnitureClass ? WoodChips : DebrisPile;
 		}
 
+		/// <summary>remove_object sets hp and quality of the new debris to 0x28 (DAMAGE.C:178-180).</summary>
+		public int DebrisQuality => 0x28;
+
 		/// <summary>GetPlayerWeapon and is_sharp (COMBAT.C:275): the missile class is no melee weapon.</summary>
 		public int PlayerWeaponKind(int piWeaponId)
 		{

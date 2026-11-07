@@ -193,10 +193,13 @@ namespace UWDataImport.UWData
 			pORecord.YPos = (p.Y >> 5) & 7;
 			pORecord.Hp = p.Hp;
 
-			// The impact of this call hurts the object itself - the hp DamageObject sets is then
-			// overwritten with the params' again, so only its other effects remain.
-			// How much an impact hurts is the game's (IUWMotionVariant; the first game: above 0x100).
-			int liDamage = mOWorld.Session.Game.Motion.ImpactDamage(p.Impact, pORecord.IsCreature, p.Hp);
+			// The impact of this call hurts the object itself. In the first game the hp DamageObject
+			// sets is then overwritten with the params' again, so only its other effects remain
+			// (a destroyed thing stays debris); in the second the wear stays (IUWMotionVariant.
+			// ImpactWearUndone, 2026-11-07). How much an impact hurts is the game's too (the first
+			// game: above 0x100).
+			IUWMotionVariant lIMotion = mOWorld.Session.Game.Motion;
+			int liDamage = lIMotion.ImpactDamage(p.Impact, pORecord.IsCreature, p.Hp);
 
 			if (liDamage > 0)
 			{
@@ -206,7 +209,8 @@ namespace UWDataImport.UWData
 				if (mOHost.DamageSelf(pORecord, liDamage, 0))
 					return false;
 
-				pORecord.Hp = p.Hp;
+				if (lIMotion.ImpactWearUndone)
+					pORecord.Hp = p.Hp;
 			}
 
 			// On lava: 1 fire damage on one update in five.

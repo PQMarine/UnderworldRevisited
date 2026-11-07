@@ -43,6 +43,41 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public const float CursorBlinkSeconds = 0.4f;
 
+		/// <summary>The choices of the modern message box's fade (UWUserData.ModernMessageFade, GitHub issue 18,
+		/// 2026-11-07): never, then seconds after a line was written.</summary>
+		public static readonly int[] FadeChoices = { 0, 5, 10, 20, 30, 60 };
+
+		/// <summary>How long a line takes to fade out once its time is up.</summary>
+		public const float FadeOutSeconds = 1f;
+
+		/// <summary>How visible a line of the modern box is, piFadeAfter seconds (0 = never) after which it fades
+		/// and pfAge seconds after it was written: whole until then, nothing FadeOutSeconds later.</summary>
+		public static float LineAlpha(float pfAge, int piFadeAfter)
+		{
+			if (piFadeAfter <= 0 || pfAge <= piFadeAfter)
+				return 1f;
+
+			float lfLeft = 1f - ((pfAge - piFadeAfter) / FadeOutSeconds);
+
+			return lfLeft <= 0f ? 0f : lfLeft;
+		}
+
+		/// <summary>The fade choice one step from piCurrent (a value off the list goes to its nearest).</summary>
+		public static int StepFade(int piCurrent, int piStep)
+		{
+			int liAt = 0;
+
+			for (int liIndex = 0; liIndex < FadeChoices.Length; liIndex++)
+			{
+				if (Math.Abs(FadeChoices[liIndex] - piCurrent) < Math.Abs(FadeChoices[liAt] - piCurrent))
+					liAt = liIndex;
+			}
+
+			liAt = Math.Max(0, Math.Min(FadeChoices.Length - 1, liAt + piStep));
+
+			return FadeChoices[liAt];
+		}
+
 		/// <summary>The classic box's lines while no font is loaded: its 30 rows over font5x6p's six
 		/// (UWTextLayout.LineSpacing).</summary>
 		public const int FallbackCapacity = 5;

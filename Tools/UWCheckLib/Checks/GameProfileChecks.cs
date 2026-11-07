@@ -923,6 +923,12 @@ namespace UnderworldRevisited.Tools
                 lIMotion2.LavaSpares(true) + " " + lIMotion2.ImpactDamage(0x180, false, 40) + " " + lIMotion2.ImpactDamage(0x200, false, 40) + " "
                 + lIMotion2.ImpactDamage(0x400, true, 40) + " " + lIMotion2.ImpactDamage(0x200, false, 0x1F), "False 0 2 1 8");
 
+            // The impact's wear (2026-11-07): undone in the first game (OBJPHYS.C:316-319), kept in the second
+            // (OBJPHYS.C:295-312); the debris's quality, the worn 0 in the first, 0x28 in the second (DAMAGE.C:178-180).
+            Check.Str("profile: the impact's wear undone (first game, second game), the debris's quality",
+                UWGameProfiles.Uw1.Motion.ImpactWearUndone + " " + lIMotion2.ImpactWearUndone + " "
+                + UWGameProfiles.Uw1.Combat.DebrisQuality + " " + UWGameProfiles.Uw2.Combat.DebrisQuality, "True False 0 40");
+
             // do_zbounce's stop in water (per user 2026-11-06, Bouncing on snow): the first game by bit 0, the second
             // by the low two bits exactly 1 - its ice (3) and lava (2) bounce. Terrain bits 0, 1, 2, 3, 5 in each game.
             Check.Str("profile: a fall stops as in water on terrain bits 0, 1, 2, 3, 5 (first game, second game)",
@@ -1066,6 +1072,8 @@ namespace UnderworldRevisited.Tools
 
             public int ImpactDamage(int piImpact, bool pbCreature, int piHitPoints) => 0;
 
+            public bool ImpactWearUndone => true;
+
             public bool LandsInWater(int piFlags) => (piFlags & 1) != 0;
         }
 
@@ -1188,6 +1196,8 @@ namespace UnderworldRevisited.Tools
             public int RollDebris() => 0x1FF;
 
             public int DebrisOf(int piItem, int piDamageType, UWDataImport.DataImport pOData) => 0x1FF;
+
+            public int DebrisQuality => 0;
 
             public int PlayerWeaponKind(int piWeaponId) => -1;
 

@@ -39,6 +39,10 @@ namespace UWDataImport.UWData
 		/// weapon of its skill, wood chips or the pile, DAMAGE.C:190).</summary>
 		int DebrisOf(int piItem, int piDamageType, DataImport pOData);
 
+		/// <summary>The quality (and, in flight, the hit points) of the debris a thing becomes (UW1: the 0 the
+		/// wear left, UWObjectDamageRules.DebrisQuality, remove_object sets none; UW2: 0x28, DAMAGE.C:178-180).</summary>
+		int DebrisQuality { get; }
+
 		/// <summary>The kind of what the player swings for the sounds (UW2 player_weapon, 0 fist, 1 blunt, 2 sharp;
 		/// UW1: -1, its own row's kinds answer).</summary>
 		int PlayerWeaponKind(int piWeaponId);

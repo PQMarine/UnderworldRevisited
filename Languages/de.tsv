@@ -13,6 +13,8 @@ setting.RunInBackground	Im Hintergrund weiterlaufen
 setting.ManualAttributes	Attribute bei der Erschaffung wählen
 setting.FixOriginalBugs	Fehler des Originals beheben
 setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
+setting.RemoveExploits	Exploits des Originals entfernen
+setting.RemoveExploits.hint	Entfernt harmlose Exploits des Originals: den Schutt eines zerbrochenen Tranks oder einer Schriftrolle, der seinen Zauber ewig wirkt. Aus lässt sie wie im Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.Language	Sprache
 setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
 setting.Language.choice.english	Englisch
@@ -210,6 +212,7 @@ setting.ModernScroll.choice.modern	Modern
 setting.ModernScroll.choice.scroll	Rolle
 setting.ModernScrollLines	Zeilen
 setting.ModernMessageLines	Zeilen
+setting.ModernMessageFade	Ausblenden
 layout.preset.custom	Eigenes
 layout.preset.modern	Modern
 layout.preset.classicmodular	Klassisch modular
@@ -320,6 +323,7 @@ keys.character_panel	Charakterleiste
 keys.bags	Taschen
 keys.look	Ansehen
 keys.runes	Runen und Zauber
+keys.hide_ui	Oberfläche ausblenden
 keys.use	Benutzen, reden, aufheben
 keys.ready	Waffe ziehen oder wegstecken
 keys.slot	Aktionsleiste Platz {0}
@@ -362,7 +366,8 @@ pad.binding.slot_use	Aktionsleiste: Platz benutzen
 pad.binding.map	Karte öffnen (getippt)
 pad.binding.sink	Sinken im Flug
 pad.binding.rise	Steigen im Flug
-pad.binding.menu	Menü
+pad.binding.menu	Menü (getippt)
+pad.binding.hide_ui	Oberfläche ausblenden (gehalten)
 pad.binding.help	Hilfe (gehalten)
 pad.binding.pointer	Zeiger am Stick, an oder aus
 pad.binding.click	Zeiger: klicken (gehalten: ziehen)
@@ -570,7 +575,7 @@ help.controls.pad.slot_use	Den Platz benutzen.
 help.controls.pad.character_panel	Die Charakterleiste; gehalten: alle Taschen.
 help.controls.pad.sink_rise	Sinken und steigen im Flug.
 help.controls.pad.map	Die Karte; gehalten: diese Hilfe.
-help.controls.pad.menu	Das Spielmenü.
+help.controls.pad.menu	Das Spielmenü; gehalten: Oberfläche ausblenden, noch einmal zum Zeigen.
 help.controls.pad.pointer	Den Zeiger freigeben (auf den Rucksack) oder wieder sperren.
 help.controls.pad.right_button	Die rechte Maustaste.
 help.controls.pad_pointer.title	Gamepad: der freie Zeiger
@@ -648,6 +653,7 @@ help.controls.modern.rest.escape	Schließt, was offen ist - einen wartenden Zaub
 help.controls.modern.rest.save_keys	Strg rechts + S / R
 help.controls.modern.rest.save	Speichern, laden.
 help.controls.modern.rest.scheme	Zur klassischen Steuerung wechseln.
+help.controls.modern.rest.hide_ui	Oberfläche und Waffe für freie Sicht ausblenden und wieder zeigen. Ein Fenster, das Menü oder ein Gespräch bringt sie zurück. Nicht in Classic Wide.
 help.controls.classic.title	Klassische Steuerung
 help.controls.classic.mouse.title	Die Maus
 help.controls.classic.mouse.intro	Die Steuerung des Originals: der Zeiger bleibt frei, der Blick liegt im Rahmen.
@@ -682,6 +688,8 @@ editor.direction.compass	Kompass
 editor.window	Fenster
 editor.window.dock	Andocken
 editor.window.docked	Angedockt
+editor.fade.never	Nie
+editor.fade.seconds	{0} s
 editor.back	Hintergrund
 editor.back.default	Standard
 editor.back.custom	Eigener

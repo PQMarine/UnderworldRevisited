@@ -28,8 +28,10 @@ public static class UWDebris
     }
 
     /// <summary>Removes the object and puts one of the two piles (0xD5, 0xD6, one roll on
-    /// UWRandom) where it stood - same tile, same spot, quality
-    /// UWObjectDamageRules.DebrisQuality.</summary>
+    /// UWRandom) where it stood - same tile, same spot, the game's debris quality
+    /// (IUWCombatVariant.DebrisQuality). The pile takes the object's quantity word and flags
+    /// when it had the quantity bit, as SET_ITEM keeps them - a potion's spell with them
+    /// (UWObjectDamageRules.CarryIntoPile, 2026-11-07).</summary>
     public static void ReplaceWithDebris(UWLevelLoader pOLoader, UWEntityInfo pOEntity, UWObject pOObject,
         UWTilePos pOTile, Vector3 pOPosition)
     {
@@ -40,8 +42,10 @@ public static class UWDebris
         if (pOLoader == null)
             return;
 
+        UWCommonObjectProperties lOCommon = pOLoader.UWDataImporter != null ? pOLoader.UWDataImporter.CommonObjectProperties : null;
+
         pOLoader.SpawnObjectById(UWGameSession.Current.Game.Combat.DebrisOf(pOObject.ID, UWDamageTypes.Physical, pOLoader.UWDataImporter), pOTile.X, pOTile.Y, 0,
-            UWObjectDamageRules.DebrisQuality, new Vector3(pOPosition.x, 0f, pOPosition.z), UWWorldEdit.Arrival.InPlace,
-            null, liListIndex);
+            UWGameSession.Current.Game.Combat.DebrisQuality, new Vector3(pOPosition.x, 0f, pOPosition.z), UWWorldEdit.Arrival.InPlace,
+            pOPile => UWObjectDamageRules.CarryIntoPile(pOObject, pOPile, lOCommon), liListIndex);
     }
 }

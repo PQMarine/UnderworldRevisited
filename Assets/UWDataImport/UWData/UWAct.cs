@@ -59,6 +59,7 @@ namespace UWDataImport.UWData
 		ModernBags,
 		ModernLook,
 		ModernRunes,
+		ModernHideUi,
 		ModernAttack,
 		PadBack,
 		PadJump,

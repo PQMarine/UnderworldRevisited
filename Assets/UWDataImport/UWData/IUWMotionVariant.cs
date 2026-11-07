@@ -40,6 +40,12 @@ namespace UWDataImport.UWData
 		/// of fewer than 0x20 hit points four times, OBJPHYS.C:299-305).</summary>
 		int ImpactDamage(int piImpact, bool pbCreature, int piHitPoints);
 
+		/// <summary>Whether a thing's hit points are written back after its impact, so an impact that does
+		/// not destroy it leaves no wear (UW1: yes, OBJPHYS.C:316-319; UW2: no, the wear stays and adds up
+		/// from throw to throw, OBJPHYS.C:295-312 - how a potion thrown at a wall again and again breaks
+		/// in the second game, UWObjectDamageRules.DebrisLosesSpellApplied).</summary>
+		bool ImpactWearUndone { get; }
+
 		/// <summary>Whether a fall onto the floor with these terrain bits (the collision's low byte) stops the
 		/// mover dead as in water (do_zbounce; UW1: bit 0 set, MOTION.C:505; UW2: the low two bits exactly 1,
 		/// MOTION.C:514 - its ice, 3, bounces).</summary>

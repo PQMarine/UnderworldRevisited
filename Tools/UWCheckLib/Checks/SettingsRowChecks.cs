@@ -97,8 +97,9 @@ namespace UnderworldRevisited.Tools
             // (2026-10-28): the Game; 80 since 2026-10-29: where the saves are (SaveFolder); 81 since 2026-10-30:
             // the 3D view's gamma (issue 9); 82 the same day: the dither grain; 83 since 2026-10-31: the second
             // game's own folder; 84 since 2026-11-03: Fix bugs of the original; 86 since 2026-11-04: ambient
-            // light and light colour; 87 since 2026-11-05: the debug keys.
-            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 87);
+            // light and light colour; 87 since 2026-11-05: the debug keys; 88 since 2026-11-07: Remove exploits of the
+            // original; 89 the same day: the message box's Fade out (issue 18).
+            Check.Int("rows: settings described for the setup bar and the inspector", liDescribed, 89);
 
             // A few texts as the dialogs showed them (the words must not drift before step 8.5).
             Check.Str("rows: the frame rates' texts", string.Join(",", UWUserSettingsTable.OriginalFrameTicks.ChoiceLabels), "64,32,21,16");

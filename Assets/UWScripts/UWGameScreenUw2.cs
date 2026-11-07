@@ -1919,6 +1919,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         }
         else if (lOControls != null && lbFree && lOControls.Player.ModernRunes.WasPressedThisFrame())
             mbRunesOpen = !mbRunesOpen;
+        // H hides the modern HUD (UWInterfaceHide, per user 2026-11-07); LateUpdate brings it back when wanted.
+        else if (lOControls != null && lbFree && !mbBagsOpen && !mbRunesOpen && !mbOptionsOpen
+            && lOControls.Player.ModernHideUi.WasPerformedThisFrame())
+            UWInterfaceHide.Toggle();
         else if (lOKeys != null && lbFree && lOKeys.escapeKey.wasPressedThisFrame && !lbHolding)
         {
             if (mbRunesOpen)
@@ -3261,8 +3265,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         mOCanvasRoot.SetActive(lbShown);
 
+        // The hidden interface (H) comes back with the classic screen, a window, a conversation or the map.
+        UWInterfaceHide.Release(lbShown || mbOptionsOpen || mbBagsOpen || mbRunesOpen || UWConversationScreenUw2.IsOpen
+            || UWMapScreenUw2.IsOpen || UWControls.IsTextEntryActive);
+
         if (mOModernHud != null)
-            mOModernHud.SetShown(!lbShown && !UWMapScreenUw2.IsOpen);
+            mOModernHud.SetShown(!lbShown && !UWMapScreenUw2.IsOpen && !UWInterfaceHide.IsHidden);
 
         if (!lbShown)
         {

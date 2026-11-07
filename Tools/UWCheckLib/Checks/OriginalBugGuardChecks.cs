@@ -40,6 +40,7 @@ namespace UnderworldRevisited.Tools
 
             // E2 first: it builds blocks from the level as loaded, which D and E1 then change.
             fCheckLeakedCopyTidy(pOContext, lOLevel);
+            fCheckDebrisSpell(lOData.CommonObjectProperties);
             fCheckFullLevelInventoryGuard(lOData, lOLevel);
             fCheckStackSplitGuard(pOContext, lOData, lOLevel);
         }
@@ -149,6 +150,92 @@ namespace UnderworldRevisited.Tools
             finally
             {
                 lODeviations.TidyLeakedObjects = lbBefore;
+            }
+        }
+
+        /// <summary>
+        /// THE DEBRIS THAT KEEPS A POTION'S SPELL (UWObjectDamageRules.DebrisLosesSpellApplied,
+        /// 2026-11-07): a potion as the levels carry it (the quantity bit, flags 12 with the enchanted
+        /// bit, 512 plus rune spell 30 in the quantity field) becomes a fresh pile, as the blast and a
+        /// smashed thing leave one, and a pile in place, as a thing in flight becomes one. With
+        /// deviations.debrisLosesSpell no pile carries a spell; without it both carry the potion's
+        /// spell, uncharged, as the original's SET_ITEM keeps it. A pile of something without the
+        /// quantity bit (a wand) keeps nothing either way.
+        /// </summary>
+        private static void fCheckDebrisSpell(UWCommonObjectProperties pOCommon)
+        {
+            if (UWRules.Current == null)
+            {
+                Check.Fail("debris spell", "no rules");
+
+                return;
+            }
+
+            const int Potion = 0xBB;
+            const int Wand = 0x98;
+            const int SpellField = 512 + 30;
+            int liDebris = UWObjectDamageRules.FirstDebrisObjectId;
+
+            UWObject fPotion()
+            {
+                UWObject lOPotion = UWObjectFactory.Create(Potion, pOCommon);
+
+                lOPotion.HasQuantity = true;
+                lOPotion.Quantity = SpellField;
+                lOPotion.Flags = 12;
+
+                return lOPotion;
+            }
+
+            string fSpellOf(UWObject pOPile)
+            {
+                UWObject lOSpell = UWObjectMechanics.FindSpellObject(pOPile, null);
+
+                return lOSpell != null ? "spell " + (lOSpell.Quantity & 0x3F) : "none";
+            }
+
+            UWRulesDeviations lODeviations = UWRules.Current.Deviations;
+            bool lbBefore = lODeviations.DebrisLosesSpell;
+
+            try
+            {
+                Check.Str("debris spell: the potion itself carries rune spell 30", fSpellOf(fPotion()), "spell 30");
+
+                foreach (bool lbFix in new[] { false, true })
+                {
+                    lODeviations.DebrisLosesSpell = lbFix;
+
+                    string lsExpected = lbFix ? "none" : "spell 30";
+                    string lsWhich = lbFix ? "with the fix" : "as the original";
+                    UWObject lOFresh = UWObjectFactory.Create(liDebris, pOCommon);
+
+                    UWObjectDamageRules.CarryIntoPile(fPotion(), lOFresh, pOCommon);
+                    Check.Str("debris spell " + lsWhich + ": the fresh pile of a blast", fSpellOf(lOFresh), lsExpected);
+
+                    UWObject lOInPlace = fPotion();
+
+                    lOInPlace.ID = (ushort)liDebris;
+                    UWObjectDamageRules.DropCarriedSpell(lOInPlace, pOCommon);
+                    Check.Str("debris spell " + lsWhich + ": the pile a thing in flight becomes", fSpellOf(lOInPlace), lsExpected);
+
+                    UWObject lOFreshPile = UWObjectFactory.Create(liDebris, pOCommon);
+
+                    Check.Bool("debris spell " + lsWhich + ": ... the dropped spell leaves a plain pile's quantity",
+                        !lbFix || (lOInPlace.HasQuantity == lOFreshPile.HasQuantity && lOInPlace.Quantity == lOFreshPile.Quantity
+                            && !lOInPlace.IsEnchanted), true);
+
+                    UWObject lOWand = UWObjectFactory.Create(Wand, pOCommon);
+                    UWObject lOWandPile = UWObjectFactory.Create(liDebris, pOCommon);
+
+                    lOWand.HasQuantity = false;
+                    lOWand.Quantity = 5;
+                    UWObjectDamageRules.CarryIntoPile(lOWand, lOWandPile, pOCommon);
+                    Check.Str("debris spell " + lsWhich + ": a wand's pile keeps nothing", fSpellOf(lOWandPile), "none");
+                }
+            }
+            finally
+            {
+                lODeviations.DebrisLosesSpell = lbBefore;
             }
         }
 

@@ -87,6 +87,7 @@
   "critter.withdraw.nearTilesSquared": 3,
   "critter.withdraw.standRoll": 256,
   "deviations.conversationPatches": true,
+  "deviations.debrisLosesSpell": false,
   "deviations.followerLandsWhereItCanStand": true,
   "deviations.orbManaAsideOnlyWhileOrbStands": true,
   "deviations.tidyLeakedObjects": true,

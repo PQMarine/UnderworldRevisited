@@ -22,6 +22,9 @@ public class UWModernMessageBox : UWModernPart
     /// <summary>The least brightness a message colour keeps on the dark leather.</summary>
     private const float MessageColourLuma = 140f;
 
+    /// <summary>The dark back's own alpha, faded with the newest line (GitHub issue 18).</summary>
+    private const float BackAlpha = 0.55f;
+
     public UWModernMessageBox(UWModernHud pOHud, UWModernScroll pOScroll) : base(pOHud)
     {
         mOScroll = pOScroll;
@@ -45,7 +48,7 @@ public class UWModernMessageBox : UWModernPart
     public override void Build(Transform pORoot)
     {
         mOMessageBack = UWUiKit.CreateImage(pORoot, "Message back", new Vector2(0f, 0f), new Vector2(0f, 0f),
-            new Color(0.05f, 0.05f, 0.06f, 0.55f));
+            new Color(0.05f, 0.05f, 0.06f, BackAlpha));
         mOMessages = UWUiKit.CreateText(pORoot, "Messages", new Vector2(0f, 0f), new Vector2(0f, 0f), TextAnchor.LowerLeft, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
     }
 
@@ -126,7 +129,15 @@ public class UWModernMessageBox : UWModernPart
             mOMessageBack.enabled = true;
     }
 
-    /// <summary>The last messages, as many as the box has lines (Interaction.ModernMessageCount).</summary>
+    /// <summary>
+    /// The last messages, as many as the box has lines (Interaction.ModernMessageCount). THE FADE (GitHub
+    /// issue 18, 2026-11-07; the layout editor's "Fade out", UWUserSettings.ModernMessageFade): each line fades
+    /// out that many seconds after it was written (UWMessageLogModel.LineAlpha), a gone line leaves the box,
+    /// and the dark back fades with the newest. Nothing fades while the game waits for a page or while the
+    /// layout is edited; typed input (a mantra, "Move how many?") keeps its own line while it runs, the older
+    /// lines fade on (per user 2026-11-07: the modern mantra is typed in this box; until the same day a running
+    /// input held them all, so typing brought faded lines back). The original's scroll never fades.
+    /// </summary>
     private void fUpdateMessages()
     {
         // The original's scroll instead, when switched on: it draws and places itself.
@@ -144,18 +155,36 @@ public class UWModernMessageBox : UWModernPart
         mOMessages.enabled = true;
 
         System.Collections.Generic.IReadOnlyList<string> lOLines = mOInteraction.ActiveStrings;
+        System.Collections.Generic.IReadOnlyList<float> lOTimes = mOInteraction.ActiveStringTimes;
         System.Text.StringBuilder lOText = new System.Text.StringBuilder();
         int liColour = 0;
+        int liFade = mOInteraction.IsWaitingForPage || UWModernLayout.IsEditing ? 0 : UWUserSettings.ModernMessageFade;
+        int liPrompt = mOInteraction.PromptLineIndex;
+        float lfNow = Time.unscaledTime;
+        float lfNewest = 0f;
+        bool lbAny = false;
 
         // The list keeps more for the tall scroll; the box shows the newest of its lines.
         int liFirst = lOLines != null ? Mathf.Max(0, lOLines.Count - Interaction.ModernMessageCount) : 0;
 
         for (int liAt = liFirst; lOLines != null && liAt < lOLines.Count; liAt++)
         {
-            if (liAt > liFirst)
+            float lfAlpha = liAt != liPrompt && lOTimes != null && liAt < lOTimes.Count
+                ? UWMessageLogModel.LineAlpha(lfNow - lOTimes[liAt], liFade) : 1f;
+
+            // The colour codes run on through a faded line, as through a shown one.
+            if (lfAlpha <= 0f)
+            {
+                liColour = UWMessageLogModel.ColourCodeAfter(lOLines[liAt], liColour);
+                continue;
+            }
+
+            if (lbAny)
                 lOText.Append('\n');
 
-            fAppendColoured(lOText, UWFontRenderer.CleanText(lOLines[liAt]), ref liColour);
+            lbAny = true;
+            lfNewest = lfAlpha;
+            fAppendColoured(lOText, UWFontRenderer.CleanText(lOLines[liAt]), ref liColour, lfAlpha);
         }
 
         // The input box at the one rate of both schemes (decision 17, 2026-10-20; until then the
@@ -168,6 +197,11 @@ public class UWModernMessageBox : UWModernPart
 
         mOMessages.text = lOText.ToString();
         mOMessageBack.enabled = lOText.Length > 0;
+
+        Color lOBack = mOMessageBack.color;
+
+        lOBack.a = BackAlpha * (lbAny ? lfNewest : 1f);
+        mOMessageBack.color = lOBack;
     }
 
     /// <summary>
@@ -178,9 +212,20 @@ public class UWModernMessageBox : UWModernPart
     /// text colour - on the dark leather the darker ones are lightened towards white until they
     /// read (fReadable). Codes beyond the table leave the colour as it is.
     /// </summary>
-    private void fAppendColoured(System.Text.StringBuilder pOText, string psLine, ref int piColour)
+    private void fAppendColoured(System.Text.StringBuilder pOText, string psLine, ref int piColour, float pfAlpha)
     {
-        bool lbOpen = fOpenColour(pOText, piColour);
+        // A fading line: the plain text colour with the line's alpha around it, every code's colour too.
+        bool lbFaded = pfAlpha < 1f;
+
+        if (lbFaded)
+        {
+            Color lOPlain = UWModernPalette.HudText;
+
+            lOPlain.a *= pfAlpha;
+            pOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGBA(lOPlain)).Append('>');
+        }
+
+        bool lbOpen = fOpenColour(pOText, piColour, pfAlpha);
 
         for (int liAt = 0; liAt < psLine.Length; liAt++)
         {
@@ -201,21 +246,30 @@ public class UWModernMessageBox : UWModernPart
                 pOText.Append("</color>");
 
             piColour = liCode;
-            lbOpen = fOpenColour(pOText, piColour);
+            lbOpen = fOpenColour(pOText, piColour, pfAlpha);
         }
 
         if (lbOpen)
             pOText.Append("</color>");
+
+        if (lbFaded)
+            pOText.Append("</color>");
     }
 
-    private bool fOpenColour(System.Text.StringBuilder pOText, int piColour)
+    private bool fOpenColour(System.Text.StringBuilder pOText, int piColour, float pfAlpha)
     {
         if (piColour <= 0 || mOUi == null || mOUi.mOUWData == null || mOUi.mOUWData.Palettes == null)
             return false;
 
         Color32 lOColour = fReadable(UWScreenUi.GetColour(mOUi.mOUWData.Palettes, 0, UWMessageLogModel.ColourIndices[piColour]));
 
-        pOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(lOColour)).Append('>');
+        if (pfAlpha < 1f)
+        {
+            lOColour.a = (byte)Mathf.RoundToInt(lOColour.a * pfAlpha);
+            pOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGBA(lOColour)).Append('>');
+        }
+        else
+            pOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(lOColour)).Append('>');
 
         return true;
     }

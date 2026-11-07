@@ -54,7 +54,9 @@ public static class UWBack
         if (lOKeyboard != null && lOKeyboard.escapeKey.wasPressedThisFrame)
             leKeys |= UWBackKey.Escape;
 
-        if (UWInput.Pressed(UWAct.Menu))
+        // Performed, not pressed: the pad's menu button opens it when tapped, held it hides the interface
+        // (UWControls, 2026-11-07); Escape has no interaction and performs on its press as before.
+        if (UWInput.Performed(UWAct.Menu))
             leKeys |= UWBackKey.Menu;
 
         if (UWInput.Pressed(UWAct.PadBack))

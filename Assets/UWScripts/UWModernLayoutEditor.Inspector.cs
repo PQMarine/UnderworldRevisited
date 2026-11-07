@@ -155,7 +155,9 @@ public partial class UWModernLayoutEditor
                     // (UWModernScroll.Rows, 2026-10-20).
                     new InspectorRow { Id = Defs.ModernScrollLines.LabelId, VisibleWhen = () => UWUserSettings.ModernScroll, Make = fScrollLinesRow },
                     // The dark box's lines (issue 4, 2026-10-21: its height could not be changed).
-                    new InspectorRow { Id = Defs.ModernMessageLines.LabelId, VisibleWhen = () => !UWUserSettings.ModernScroll, Make = fBoxLinesRow }
+                    new InspectorRow { Id = Defs.ModernMessageLines.LabelId, VisibleWhen = () => !UWUserSettings.ModernScroll, Make = fBoxLinesRow },
+                    // The box's lines fade out after a time (GitHub issue 18, 2026-11-07); never by default.
+                    new InspectorRow { Id = Defs.ModernMessageFade.LabelId, VisibleWhen = () => !UWUserSettings.ModernScroll, Make = fBoxFadeRow }
                 }
             },
             { Element.CharacterPanel, new[] { new InspectorRow { Id = "layout.window", Make = fDockRow } } },
@@ -263,6 +265,20 @@ public partial class UWModernLayoutEditor
         return fStepper(Defs.ModernMessageLines, liLines, liLines > UWModernScroll.MinLines, liLines < Interaction.MessageHistoryCount, liAt =>
         {
             fStepModernMessageLines(liAt == 0 ? -1 : 1);
+            fSaveSettings();
+        });
+    }
+
+    /// <summary>The message box's fade: Never, then the seconds of UWMessageLogModel.FadeChoices.</summary>
+    private static InspectorItem fBoxFadeRow(Element peElement)
+    {
+        int liFade = UWMessageLogModel.StepFade(UWUserSettings.ModernMessageFade, 0);
+        int[] laChoices = UWMessageLogModel.FadeChoices;
+        string lsValue = liFade <= 0 ? UWText.T("editor.fade.never") : UWText.F("editor.fade.seconds", liFade);
+
+        return fStepper(Defs.ModernMessageFade.Label, lsValue, liFade > laChoices[0], liFade < laChoices[laChoices.Length - 1], liAt =>
+        {
+            UWUserSettings.ModernMessageFade = UWMessageLogModel.StepFade(liFade, liAt == 0 ? -1 : 1);
             fSaveSettings();
         });
     }

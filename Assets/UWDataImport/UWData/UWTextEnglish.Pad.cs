@@ -21,7 +21,8 @@ namespace UWDataImport.UWData
 			fAdd("pad.binding.map", "Open the map (tapped)");
 			fAdd("pad.binding.sink", "Sink while flying");
 			fAdd("pad.binding.rise", "Rise while flying");
-			fAdd("pad.binding.menu", "Menu");
+			fAdd("pad.binding.menu", "Menu (tapped)");
+			fAdd("pad.binding.hide_ui", "Hide the interface (held)");
 			fAdd("pad.binding.help", "Help (held)");
 			fAdd("pad.binding.pointer", "Pointer on the stick, on or off");
 			fAdd("pad.binding.click", "Pointer: click (held: drag)");

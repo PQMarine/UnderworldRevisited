@@ -29,10 +29,10 @@ public sealed class UWModernHudUw2 : MonoBehaviour
     /// <summary>The interface's pixels between the flasks and the screen's edges and between each other.</summary>
     private const float Margin = 4f;
 
-    /// <summary>The lines of the scroll shown, how long, and how wide they wrap.</summary>
+    /// <summary>The lines of the scroll shown and how wide they wrap. How long they stay is the layout editor's
+    /// Fade out (UWUserSettings.ModernMessageFade, GitHub issue 18, 2026-11-07; never by default): all of them go
+    /// that many seconds after the last was said. A fixed 6 seconds until then.</summary>
     private const int ShownLines = 3;
-
-    private const float LineSeconds = 6f;
 
     private const int LineWidth = 300;
 
@@ -779,7 +779,9 @@ public sealed class UWModernHudUw2 : MonoBehaviour
     {
         UWFont lOFont = mOData.Fonts != null ? mOData.Fonts.Get(UWFonts.FontType.Normal) : null;
 
-        if (lOFont == null || pOLines.Count == 0 || pfSaidAgo >= LineSeconds)
+        int liFade = UWUserSettings.ModernMessageFade;
+
+        if (lOFont == null || pOLines.Count == 0 || (liFade > 0 && pfSaidAgo >= liFade))
         {
             UWTextLabel.Hide(mOLines);
 

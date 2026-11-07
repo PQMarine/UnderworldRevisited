@@ -204,7 +204,7 @@ namespace UWDataImport.UWData
 			fAdd("help.controls.pad.character_panel", "The character panel; held: every bag.");
 			fAdd("help.controls.pad.sink_rise", "Sink and rise while flying.");
 			fAdd("help.controls.pad.map", "The map; held: this help.");
-			fAdd("help.controls.pad.menu", "The game menu.");
+			fAdd("help.controls.pad.menu", "The game menu; held: hide the interface, again to show it.");
 			fAdd("help.controls.pad.pointer", "Free the pointer (onto the backpack) or lock it again.");
 			fAdd("help.controls.pad.right_button", "The right mouse button.");
 			fAdd("help.controls.pad_pointer.title", "Gamepad: the free pointer");
@@ -307,6 +307,8 @@ namespace UWDataImport.UWData
 			fAdd("help.controls.modern.rest.save_keys", "Right Ctrl + S / R");
 			fAdd("help.controls.modern.rest.save", "Save, restore.");
 			fAdd("help.controls.modern.rest.scheme", "Switch to the classic controls.");
+			fAdd("help.controls.modern.rest.hide_ui", "Hide the interface and the weapon for a clear view, and show them again. "
+				+ "A window, the menu or a conversation brings them back. Not in Classic Wide.");
 
 			// The classic scheme.
 			fAdd("help.controls.classic.title", "Classic controls");

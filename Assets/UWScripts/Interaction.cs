@@ -195,6 +195,9 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
         get { return mOLog.Lines; }
     }
 
+    /// <summary>When each of ActiveStrings was written (Time.unscaledTime), for the modern box's fade.</summary>
+    public IReadOnlyList<float> ActiveStringTimes => mOLog.LineTimes;
+
     /// <summary>Messages the list keeps (UWMessageLog.HistoryCount).</summary>
     public const int MessageHistoryCount = UWMessageLog.HistoryCount;
 
@@ -1367,6 +1370,9 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
     }
 
     public bool IsPromptActive => mOLog.IsPromptActive;
+
+    /// <summary>The running input line's index in ActiveStrings, -1 for none.</summary>
+    public int PromptLineIndex => mOLog.PromptLine;
 
     /// <summary>The running line a prompt keeps replacing (UWMessageLog.SetPromptMessage).</summary>
     public void SetPromptMessage(string psMessage)

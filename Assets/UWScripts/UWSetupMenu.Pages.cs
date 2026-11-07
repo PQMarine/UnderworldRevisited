@@ -647,6 +647,10 @@ public partial class UWSetupMenu
             // start or load, when the session's rules are made.
             .Add(fToggle(Defs.FixOriginalBugs, 30f))
             .Add(fHint(Defs.FixOriginalBugs, 10f))
+            // REMOVE THE ORIGINAL'S HARMLESS EXPLOITS (per user 2026-11-07: an option of its own, off by default):
+            // the debris that keeps a potion's spell. Takes effect at the next start or load, as the bug option.
+            .Add(fToggle(Defs.RemoveExploits, 30f))
+            .Add(fHint(Defs.RemoveExploits, 10f))
             // THE LANGUAGE (translation wave 1, 2026-10-26; decided by the user that day): English and
             // every language found in the Languages folder beside the game (UWLanguage.Available,
             // listed when the page is built), kept for the next start - and since translation step 3R

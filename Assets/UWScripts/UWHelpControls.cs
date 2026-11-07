@@ -253,7 +253,8 @@ public static class UWHelpControls
             .Add(lsHelp, UWText.T("help.controls.modern.rest.help"))
             .Add(UWText.T("help.controls.key.escape"), UWText.F("help.controls.modern.rest.escape", lsOptions))
             .Add(UWText.T("help.controls.modern.rest.save_keys"), UWText.T("help.controls.modern.rest.save"))
-            .Add(UWText.F("help.controls.key.shift_plus", lsScheme), UWText.T("help.controls.modern.rest.scheme")));
+            .Add(UWText.F("help.controls.key.shift_plus", lsScheme), UWText.T("help.controls.modern.rest.scheme"))
+            .Add(fKey("ModernHideUi", 0, "H"), UWText.T("help.controls.modern.rest.hide_ui")));
 
         return lOSections;
     }

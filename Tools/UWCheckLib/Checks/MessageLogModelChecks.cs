@@ -31,6 +31,20 @@ namespace UnderworldRevisited.Tools
             fCheckLogShown(lOFont);
             fCheckLogWrapWidth(lOFont);
             fCheckLogColours(lOFont);
+            fCheckLogFade();
+        }
+
+        /// <summary>The modern box's fade (GitHub issue 18, 2026-11-07): never at 0, whole until the time is up,
+        /// gone a second later; the stepper walks the choices and puts a value off the list on its nearest.</summary>
+        private static void fCheckLogFade()
+        {
+            string fA(float pfAge, int piAfter) => UWMessageLogModel.LineAlpha(pfAge, piAfter).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+            Check.Str("fade: never, before, at, half way, after (10 s)",
+                fA(100f, 0) + " " + fA(9f, 10) + " " + fA(10f, 10) + " " + fA(10.5f, 10) + " " + fA(11.5f, 10), "1 1 1 0.5 0");
+            Check.Str("fade: the stepper from never up, from 60 up, from 10 down, 7 to its nearest, 0 down",
+                UWMessageLogModel.StepFade(0, 1) + " " + UWMessageLogModel.StepFade(60, 1) + " " + UWMessageLogModel.StepFade(10, -1) + " "
+                + UWMessageLogModel.StepFade(7, 0) + " " + UWMessageLogModel.StepFade(0, -1), "5 60 5 5 0");
         }
 
         private static void fCheckLogBlink()

@@ -62,19 +62,20 @@ PICTURES AND PALETTES
 ---------------------
 
 For painting new art (weapon frames, icons ...), from your own copy of the game as above:
+(the name after --out is the folder the files go to)
 
   A picture file of the game as PNGs, one per picture, named after the file and the picture's
   number in hex (WEAPONS.GR holds the weapon frames in the view):
-       uwdump pictures <game> WEAPONS.GR --out weapons
+       uwdump pictures <game> WEAPONS.GR --out my-weapons
 
   The game's palette as a GIMP palette (.gpl; Krita, Aseprite and others read it too) and an
   Adobe Color Table (.act) - palette 0 is the one of the pictures above, "all" writes every one:
-       uwdump palette <game> --out palette
-       uwdump palette <game> all --out palette
+       uwdump palette <game> --out my-palettes
+       uwdump palette <game> all --out my-palettes
   The colours are exactly the PNGs' ones; index 0 is the pictures' transparent colour.
 
   Every level seen from above as PNGs:
-       uwdump maprender <game> --out maps
+       uwdump maprender <game> --out my-maps
 
   For Ultima Underworld II add --game uw2 (pictures, palette and maprender work for it too; its
   weapon frames are WEAP.GR).

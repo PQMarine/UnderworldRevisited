@@ -8,6 +8,25 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.7] - 2026-11-07
+
+### Added
+- H hides the whole interface and the weapon in the modern scheme for a clear view, and shows it again; a
+  window, the menu or a conversation brings it back too. Not in Classic Wide, where the view is the frame's
+  hole. On a gamepad the menu button held does it, tapped it opens the menu as before. The key can be
+  changed in the Controls window.
+- The modern message box can fade its lines out a few seconds after they appear: "Fade out" for the
+  Messages part in the layout editor, never by default (GitHub issue 18). The second game's modern lines
+  follow it as well; they used to vanish after six seconds.
+- "Remove exploits of the original" in the Game window, off by default: with it on, the debris of a broken
+  potion or scroll no longer casts the potion's spell for ever, a known exploit of the original.
+
+### Changed
+- A thing that breaks on hitting a wall or the floor, or burns in lava, becomes a pile of debris that
+  flies on, as in the original; it simply vanished. A fireball's pile keeps what the original keeps.
+- Ultima Underworld II preview: a thrown thing keeps the wear of every hard impact, so it can break after
+  enough throws, as in the original; its debris starts at the original's quality.
+
 ## [0.16.6] - 2026-11-07
 
 ### Added

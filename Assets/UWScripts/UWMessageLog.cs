@@ -30,6 +30,11 @@ public sealed class UWMessageLog : IUWMessageSink
 
     private readonly List<string> mOLines = new List<string>();
 
+    /// <summary>When each line of mOLines was written (Time.unscaledTime), for the modern box's fade
+    /// (GitHub issue 18, 2026-11-07). Kept beside the list at every change; a page shown sets all anew,
+    /// and LineTimes mends a count that drifted.</summary>
+    private readonly List<float> mOTimes = new List<float>();
+
     /// <summary>Line in the message box that keeps changing - for the quantity question
     /// when dragging. -1 means: none at the moment.</summary>
     private int miPromptLine = -1;
@@ -42,6 +47,26 @@ public sealed class UWMessageLog : IUWMessageSink
     /// <summary>For UWGameUI (Original: message log in the lower frame box, see
     /// fBuildCanvas/MessageLog) - the same list that AddMessage fills.</summary>
     public IReadOnlyList<string> Lines => mOLines;
+
+    /// <summary>When each of Lines was written (Time.unscaledTime), index for index.</summary>
+    public IReadOnlyList<float> LineTimes
+    {
+        get
+        {
+            while (mOTimes.Count < mOLines.Count)
+                mOTimes.Add(Time.unscaledTime);
+
+            if (mOTimes.Count > mOLines.Count)
+                mOTimes.RemoveRange(0, mOTimes.Count - mOLines.Count);
+
+            return mOTimes;
+        }
+    }
+
+    private void fStamp()
+    {
+        mOTimes.Add(Time.unscaledTime);
+    }
 
     private UWDataImport.DataImport fData()
     {
@@ -70,13 +95,19 @@ public sealed class UWMessageLog : IUWMessageSink
         string lsMessage = UWText.General(fData(), piIndex);
 
         if (!string.IsNullOrWhiteSpace(lsMessage))
+        {
             mOLines.Add(lsMessage);
+            fStamp();
+        }
     }
 
     public void AddMessage(string psMessage)
     {
         if (!string.IsNullOrEmpty(psMessage))
+        {
             mOLines.Add(psMessage);
+            fStamp();
+        }
     }
 
     /// <summary>The line as it is, an empty one too - the look wrote its lines straight into the
@@ -84,6 +115,7 @@ public sealed class UWMessageLog : IUWMessageSink
     public void AddLine(string psLine)
     {
         mOLines.Add(psLine);
+        fStamp();
     }
 
     /// <summary>
@@ -99,7 +131,9 @@ public sealed class UWMessageLog : IUWMessageSink
     public void ClearMessages()
     {
         mOLines.Clear();
+        mOTimes.Clear();
         mOLines.Add(" ");
+        fStamp();
     }
 
     /// <summary>Wipes the box WITHOUT the blank line: the original's save game messages
@@ -108,6 +142,7 @@ public sealed class UWMessageLog : IUWMessageSink
     public void ResetMessages()
     {
         mOLines.Clear();
+        mOTimes.Clear();
         miPromptLine = -1;
     }
 
@@ -129,6 +164,9 @@ public sealed class UWMessageLog : IUWMessageSink
 
         mOLines.RemoveAt(0);
 
+        if (mOTimes.Count > 0)
+            mOTimes.RemoveAt(0);
+
         // A running input line moves up with the rest. Until 2026-09-26 its index stayed,
         // so with a full scroll it pointed past the end, the next refresh appended a new
         // line and the old one stayed behind - "Move how many? 1" repeated line after line
@@ -147,6 +185,9 @@ public sealed class UWMessageLog : IUWMessageSink
         get { return miPromptLine >= 0; }
     }
 
+    /// <summary>The running line's index in Lines, -1 for none (the modern box keeps it while it runs).</summary>
+    public int PromptLine => miPromptLine;
+
     /// <summary>Sets the running line, or creates it. Unlike AddMessage this does not stack
     /// but replaces - otherwise the box would be full after typing three times.</summary>
     public void SetPromptMessage(string psMessage)
@@ -154,10 +195,15 @@ public sealed class UWMessageLog : IUWMessageSink
         if (miPromptLine >= 0 && miPromptLine < mOLines.Count)
         {
             mOLines[miPromptLine] = psMessage;
+
+            if (miPromptLine < mOTimes.Count)
+                mOTimes[miPromptLine] = Time.unscaledTime;
+
             return;
         }
 
         mOLines.Add(psMessage);
+        fStamp();
         miPromptLine = mOLines.Count - 1;
     }
 
@@ -173,7 +219,12 @@ public sealed class UWMessageLog : IUWMessageSink
     public void DropPromptMessage()
     {
         if (miPromptLine >= 0 && miPromptLine < mOLines.Count)
+        {
             mOLines.RemoveAt(miPromptLine);
+
+            if (miPromptLine < mOTimes.Count)
+                mOTimes.RemoveAt(miPromptLine);
+        }
 
         miPromptLine = -1;
     }
@@ -261,6 +312,12 @@ public sealed class UWMessageLog : IUWMessageSink
         // Paging moves the message scroll too (UW.EXE seg043_37F0_8EB).
         if (UWMessageLogModel.ShowNextPage(mOPrintedPageLines, mOPendingPageLines, liCapacity, mOLines))
             UWHudDragons.Request(UWHudDragons.ScrollAnimation);
+
+        // The page's lines are all new now (the list was written anew).
+        mOTimes.Clear();
+
+        for (int liAt = 0; liAt < mOLines.Count; liAt++)
+            fStamp();
 
         fUpdatePagedTimeScale();
     }

@@ -36,6 +36,8 @@ namespace UWDataImport.UWData
 			fAdd("editor.window", "Window");
 			fAdd("editor.window.dock", "Dock");
 			fAdd("editor.window.docked", "Docked");
+			fAdd("editor.fade.never", "Never");
+			fAdd("editor.fade.seconds", "{0} s");
 			fAdd("editor.back", "Background");
 			fAdd("editor.back.default", "Default");
 			fAdd("editor.back.custom", "Custom");

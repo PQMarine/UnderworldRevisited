@@ -141,6 +141,10 @@ public class UWControls : System.IDisposable
         /// place, not its letter, per user 2026-10-04): the modern rune panel (UWModernRunePanel).</summary>
         public readonly InputAction ModernRunes;
 
+        /// <summary>H: hides the modern interface and the weapon, and shows it again (UWInterfaceHide, per user
+        /// 2026-11-07). Bound by its letter, as B and Q are.</summary>
+        public readonly InputAction ModernHideUi;
+
         /// <summary>1 to 9 and 0: the modern scheme's action bar (UWModernActionBar). In the
         /// original scheme 1 to 3 look down, straight and up - read only there.</summary>
         public readonly InputAction[] ModernSlots;
@@ -222,6 +226,7 @@ public class UWControls : System.IDisposable
             ModernBags = pMap["ModernBags"];
             ModernLook = pMap["ModernLook"];
             ModernRunes = pMap["ModernRunes"];
+            ModernHideUi = pMap["ModernHideUi"];
             ModernAttack = pMap["ModernAttack"];
             PadBack = pMap["PadBack"];
             PadJump = pMap["PadJump"];
@@ -689,9 +694,11 @@ public class UWControls : System.IDisposable
             .With("Negative", "<Gamepad>/dpad/left")
             .With("Positive", "<Gamepad>/dpad/right");
 
+        // THE PAD'S MENU BUTTON (per user, 2026-11-07): tapped the menu, held the interface hidden (ModernHideUi) -
+        // as the View button's map and help, so the menu's reader asks WasPerformedThisFrame (UWBack).
         InputAction lMenu = lMap.AddAction("Menu", InputActionType.Button);
         lMenu.AddBinding("<Keyboard>/escape");
-        lMenu.AddBinding("<Gamepad>/start");
+        lMenu.AddBinding("<Gamepad>/start").WithInteraction("tap(duration=0.5)");
 
         lMap.AddAction("ModernBags", InputActionType.Button).AddBinding("<Keyboard>/#(b)");
 
@@ -700,6 +707,11 @@ public class UWControls : System.IDisposable
         lModernLook.AddBinding("<Gamepad>/buttonWest");
 
         lMap.AddAction("ModernRunes", InputActionType.Button).AddBinding("<Keyboard>/z");
+
+        // H hides the modern interface (UWInterfaceHide, per user 2026-11-07); on the pad the menu button held.
+        InputAction lModernHideUi = lMap.AddAction("ModernHideUi", InputActionType.Button);
+        lModernHideUi.AddBinding("<Keyboard>/#(h)");
+        lModernHideUi.AddBinding("<Gamepad>/start").WithInteraction("hold(duration=0.5)");
 
         // THE GAMEPAD'S OWN (UWGamepad, per user 2026-10-07).
         InputAction lModernAttack = lMap.AddAction("ModernAttack", InputActionType.Button);

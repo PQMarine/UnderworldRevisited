@@ -625,7 +625,8 @@ public class UWModernActionBar : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!fIsShown())
+        // Hidden with the interface (H, UWInterfaceHide) too.
+        if (!fIsShown() || UWInterfaceHide.IsHidden)
         {
             if (mOCanvas != null)
                 mOCanvas.enabled = false;

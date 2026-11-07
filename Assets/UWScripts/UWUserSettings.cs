@@ -101,6 +101,8 @@ public static class UWUserSettings
 
     public static bool FixOriginalBugs { get => Defs.FixOriginalBugs.Read(fGet()); set => Defs.FixOriginalBugs.Write(fGet(), value); }
 
+    public static bool RemoveExploits { get => Defs.RemoveExploits.Read(fGet()); set => Defs.RemoveExploits.Write(fGet(), value); }
+
     public static bool HelpOpen { get => Defs.HelpOpen.Read(fGet()); set => Defs.HelpOpen.Write(fGet(), value); }
 
     public static int HelpTab { get => Defs.HelpTab.Read(fGet()); set => Defs.HelpTab.Write(fGet(), value); }
@@ -132,6 +134,8 @@ public static class UWUserSettings
     public static int ModernScrollLines { get => Defs.ModernScrollLines.Read(fGet()); set => Defs.ModernScrollLines.Write(fGet(), value); }
 
     public static int ModernMessageLines { get => Defs.ModernMessageLines.Read(fGet()); set => Defs.ModernMessageLines.Write(fGet(), value); }
+
+    public static int ModernMessageFade { get => Defs.ModernMessageFade.Read(fGet()); set => Defs.ModernMessageFade.Write(fGet(), value); }
 
     public static int InterfaceFont { get => Defs.InterfaceFont.Read(fGet()); set => Defs.InterfaceFont.Write(fGet(), value); }
 

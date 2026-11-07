@@ -784,7 +784,7 @@ public class UWLevelLoader : MonoBehaviour
     {
         string lsRules = UWGameFolder.AdoptLegacyFile(UWUserSettings.PathBeside(string.Empty), UWGameSession.Current.Game, UWRulesJson.FileName,
             psMessage => Debug.Log("[Rules] " + psMessage), psMessage => Debug.LogWarning("[Rules] " + psMessage));
-        UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(lsRules, UWUserSettings.FixOriginalBugs);
+        UWRulesReport lOReport = UWGameSession.Current.ApplyRulesFile(lsRules, UWUserSettings.FixOriginalBugs, UWUserSettings.RemoveExploits);
 
         if (!lOReport.Found)
             return;

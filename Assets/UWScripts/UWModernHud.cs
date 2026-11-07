@@ -173,6 +173,23 @@ public class UWModernHud : MonoBehaviour
     {
         Menu.StepByPad();
 
+        // H HIDES THE INTERFACE (UWInterfaceHide, per user 2026-11-07) where the world fills the screen - not
+        // in Classic Wide, whose view is the frame's hole; whatever wants the interface brings it back. The
+        // second game's walk has its own (UWGameScreenUw2), which this one must not answer as well.
+        if (!UWWalkUw2.IsWalking)
+        {
+            bool lbCanHide = UWModernUi.IsActive && !UWModernClassicFrame.IsActive;
+            bool lbWanted = !lbCanHide || IsOpen || fIsCovered() || UWConversationController.IsAnyOpen || UWModernPointer.IsFree
+                || UWModernLayout.IsEditing || UWControls.IsTextEntryActive || (UWInput.Contexts & UWInterfaceHide.WantingContexts) != 0
+                || (mOInteraction != null && mOInteraction.IsPromptActive);
+
+            UWInterfaceHide.Release(lbWanted);
+
+            // Performed: the pad's menu button held (H performs on its press).
+            if (!lbWanted && UWInput.Performed(UWDataImport.UWData.UWAct.ModernHideUi))
+                UWInterfaceHide.Toggle();
+        }
+
         // The right button switches the pointer (UWModernPointer) - not under the menu.
         UWModernPointer.Tick(IsShowing && !IsOpen && !UWControls.IsTextEntryActive);
 
@@ -204,7 +221,7 @@ public class UWModernHud : MonoBehaviour
         // The menu's pages on the kit (cleanup 8b.4), whenever a page is open, as OnGUI drew them.
         Menu.LateUpdate();
 
-        bool lbShow = lbModern && !fIsCovered() && !UWConversationController.IsAnyOpen;
+        bool lbShow = lbModern && !fIsCovered() && !UWConversationController.IsAnyOpen && !UWInterfaceHide.IsHidden;
 
         if (!lbShow)
         {
