@@ -3,10 +3,11 @@ UNDERWORLD REVISITED - TRANSLATION KIT
 
 What a translator needs to translate Underworld Revisited, without Unity, without the .NET SDK
 and without the project's source: the tool uwdump, the guide, and the port's own texts in English
-and German. TRANSLATING.md explains everything; this file only says where to start.
+and German. TRANSLATING.md explains everything; this file only says where to start. uwdump also
+writes the game's pictures and palettes for artists (see PICTURES AND PALETTES below).
 
-This kit contains NO text of the game - neither the English of Ultima Underworld nor a
-translation of it. The game's texts are made from YOUR OWN copy of the game (GOG's "Ultima
+This kit contains NO text or picture of the game - neither the English of Ultima Underworld nor a
+translation of it. The game's texts and pictures are made from YOUR OWN copy of the game (GOG's "Ultima
 Underworld 1+2" or the same game from Steam), by uwdump, on your computer.
 
 
@@ -55,6 +56,29 @@ uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, 
   remove the "# " and translate) and lists the ids that are gone.
 
   uwdump without arguments lists every command.
+
+
+PICTURES AND PALETTES
+---------------------
+
+For painting new art (weapon frames, icons ...), from your own copy of the game as above:
+
+  A picture file of the game as PNGs, one per picture, named after the file and the picture's
+  number in hex (WEAPONS.GR holds the weapon frames in the view):
+       uwdump pictures <game> WEAPONS.GR --out weapons
+
+  The game's palette as a GIMP palette (.gpl; Krita, Aseprite and others read it too) and an
+  Adobe Color Table (.act) - palette 0 is the one of the pictures above, "all" writes every one:
+       uwdump palette <game> --out palette
+       uwdump palette <game> all --out palette
+  The colours are exactly the PNGs' ones; index 0 is the pictures' transparent colour.
+
+  Every level seen from above as PNGs:
+       uwdump maprender <game> --out maps
+
+  For Ultima Underworld II add --game uw2 (pictures, palette and maprender work for it too; its
+  weapon frames are WEAP.GR).
+  The pictures stay Origin's art: use them for your own work, do not publish them as they are.
 
 
 PUBLISHING

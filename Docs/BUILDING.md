@@ -151,6 +151,8 @@ dotnet run --project Tools/UWDump -- conv   <path> 19
 dotnet run --project Tools/UWDump -- conv   <path> --run all
 dotnet run --project Tools/UWDump -- maprender <path> --out <folder> --highlight 1
 dotnet run --project Tools/UWDump -- strings-export <path> --out <file>
+dotnet run --project Tools/UWDump -- pictures <path> WEAPONS.GR --out <folder>
+dotnet run --project Tools/UWDump -- palette <path> all --out <folder>
 ```
 
 The path may be left out when the environment variable `UW_DATA` names the DATA folder, the
