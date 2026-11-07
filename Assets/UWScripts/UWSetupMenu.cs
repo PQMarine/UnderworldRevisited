@@ -135,6 +135,11 @@ public partial class UWSetupMenu : MonoBehaviour
         if (lOModern != null && lOModern.Menu.ShowsMenuPage)
             return true;
 
+        // The second game's options panel (G0 of the 2026-11-06 sweep, per user 2026-11-07: the bar never showed
+        // in its walk - only the first game's menus were asked, whose parts sit idle there).
+        if (UWWalkUw2.IsWalking)
+            return UWGameScreenUw2.IsOptionsOpen;
+
         UWGameUI lOGameUi = UWScene.GameUi;
 
         return lOGameUi != null && lOGameUi.Classic.IsOptionsOpen;
@@ -287,8 +292,9 @@ public partial class UWSetupMenu : MonoBehaviour
 
         UnityEngine.InputSystem.Keyboard lOKeyboard = UnityEngine.InputSystem.Keyboard.current;
 
-        // In the second game's walk the bar stays reachable by the mouse, and F10 makes camp as in the first game's
-        // play (per user, 2026-11-02: it opened the bar and nobody slept); over its options panel it is the bar's.
+        // In the second game's walk F10 makes camp as in the first game's play (per user, 2026-11-02: it opened the
+        // bar and nobody slept); over its options panel it is the bar's. The bar shows over that panel only, as in
+        // the first game (per user, 2026-11-07; until then a stale UWMainMenu.AcceptsMenuBar offered it everywhere).
         bool lbCampKey = UWWalkUw2.IsWalking && !UWGameScreenUw2.IsOptionsOpen && !fKeyNavIsActive;
 
         if (lOKeyboard != null && lOKeyboard.f10Key.wasPressedThisFrame && !UWControls.IsShiftHeld && !lbCampKey)
@@ -548,6 +554,7 @@ public partial class UWSetupMenu : MonoBehaviour
         fOpenDialog(DialogEnum.Controls);
         mOListeningFor = null;
         msBindingNotice = string.Empty;
+        mfControlsNeeded = -1f;
     }
 
     /// <summary>Waits for the next key; Escape keeps the old one. A key already used elsewhere is
@@ -593,6 +600,27 @@ public partial class UWSetupMenu : MonoBehaviour
         if (!lORows.SizesByText)
             return 0f;
 
+        // KEPT WHILE NOTHING IT HANGS ON CHANGES (GitHub issue 17, 2026-11-07: 0.9 ms a frame, every label measured
+        // anew): the texts' language and the screen's size (the layout's scale follows it); the window's opening starts anew.
+        int liKey = (UWText.LanguageVersion * 397) ^ (Screen.width * 31) ^ Screen.height;
+
+        if (mfControlsNeeded >= 0f && liKey == miControlsNeededKey)
+            return mfControlsNeeded;
+
+        miControlsNeededKey = liKey;
+        mfControlsNeeded = fMeasureControlsInner(lORows);
+
+        return mfControlsNeeded;
+    }
+
+    private float mfControlsNeeded = -1f;
+
+    private int miControlsNeededKey;
+
+    /// <summary>The measuring itself (fControlsInnerNeeded keeps it).</summary>
+    private float fMeasureControlsInner(IUWRows pORows)
+    {
+        IUWRows lORows = pORows;
         float lfNeeded = Mathf.Max(mOPassPages.InnerNeeded(mOControlsTabsPage),
             Mathf.Max(mOPassPages.InnerNeeded(mOKeyboardPage), mOPassPages.InnerNeeded(mOGamepadPage)));
         float lfKey = lORows.FitWidth(UWText.T("setup.controls.press_key"), 160f) - 160f;
@@ -972,20 +1000,16 @@ public partial class UWSetupMenu : MonoBehaviour
         // Graphics needs the game data - not on the first-run screen. Controls do not, but there
         // is nothing to play yet either. The same over the main menu screen of a game the port cannot
         // play yet (UW2 plan phase 0 step 5): Game only, to switch back.
-        if (mbFirstRun || UWMainMenu.IsScreenOnly || UWMainMenu.IsWalkMenu)
+        // The second game's walk menu has the whole bar too since 2026-11-07 (per user): it loads that game's data,
+        // and the Game-only rule came from the time the port could not play it (phase 0 step 5).
+        if (mbFirstRun || UWMainMenu.IsScreenOnly)
             return;
 
         float lfLeft = lOGame.xMax;
 
-        // The walk through the second game's world (UW2 plan phase 2 step 3): Game and Graphics only -
-        // the rest is the first game's play.
-        if (UWWalkUw2.IsWalking)
-        {
-            if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.graphics", meOpenDialog == DialogEnum.Graphics))
-                fToggleDialog(DialogEnum.Graphics);
-
-            return;
-        }
+        // The second game's walk has the whole bar since G0 of the 2026-11-06 sweep (until then Game and Graphics
+        // only, from UW2 plan phase 2 step 3): motion, display, the key bindings, sound and colours are settings of
+        // the port, not of the first game's play.
 
         // THE MOTION SECOND, right after Game (per user, 2026-10-06: "eine sehr wichtige
         // Einstellung"): the player's motion and the picture of it, with the explanations.

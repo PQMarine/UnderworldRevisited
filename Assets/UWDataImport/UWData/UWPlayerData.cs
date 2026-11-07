@@ -678,7 +678,8 @@ namespace UWDataImport.UWData
 			lOPlayer.IsEasyDifficulty = pOFile.Record[UWPlayerRecordUw2.EasyOffset] != 0;
 			lOPlayer.PositionX = UWPlayerRecordUw2.PositionX(pOFile);
 			lOPlayer.PositionY = UWPlayerRecordUw2.PositionY(pOFile);
-			lOPlayer.ZPosition = UWPlayerRecordUw2.ZPosition(pOFile);
+			// In zpos, as the first game's (0x58 >> 3 below): the record holds it times eight.
+			lOPlayer.ZPosition = UWPlayerRecordUw2.ZPosition(pOFile) >> 3;
 			lOPlayer.Heading = UWPlayerRecordUw2.Heading(pOFile);
 			lOPlayer.DungeonLevel = UWPlayerRecordUw2.Level(pOFile);
 			lOPlayer.Poison = UWPlayerRecordUw2.Poison(pOFile);

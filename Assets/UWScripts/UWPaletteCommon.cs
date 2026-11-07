@@ -232,7 +232,7 @@ public sealed class UWPaletteCommon
     /// set only when its effect changes - once at the start as well, or a scene loaded after one
     /// with an effect would keep showing it.
     /// </summary>
-    public void FollowHallucination(int piHallucination, DataImport pOData)
+    public void FollowHallucination(int piHallucination, DataImport pOData, bool pbFirstIsScramble = false)
     {
         // THE COLOUR HELP IS BAKED INTO BOTH OF THE HALLUCINATION'S TABLES - the other palette's
         // colour table and the light table effect. Changed during a hallucination, they kept
@@ -246,7 +246,7 @@ public sealed class UWPaletteCommon
             Shown.DropLightEffect();
         }
 
-        if (mOHallucination.Update(piHallucination) || lbVisionChanged)
+        if (mOHallucination.Update(piHallucination, pbFirstIsScramble) || lbVisionChanged)
         {
             if (HallucinationTable != null)
             {

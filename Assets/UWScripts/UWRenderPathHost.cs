@@ -363,7 +363,12 @@ public sealed class UWRenderPathHost : MonoBehaviour
 
         // The hallucination's globals are set only when its effect changes - once at the start as
         // well, or a scene loaded after one with an effect would keep showing it.
-        mOCommon.FollowHallucination(lOCharacter != null ? lOCharacter.Vitals.Hallucination : 0, lOData);
+        // The second game's from its own vitals (G0 of the 2026-11-06 sweep: the idle UWCharacter's is always 0).
+        int liHallucination = UWWalkUw2.IsWalking
+            ? (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null ? UWVitalsUw2.Current.Vitals.Hallucination : 0)
+            : lOCharacter != null ? lOCharacter.Vitals.Hallucination : 0;
+
+        mOCommon.FollowHallucination(liHallucination, lOData, UWWalkUw2.IsWalking);
 
         UWShadePalette.ApplyGlobals(mOCommon.ShownColours,
             mOCommon.ShadeTable, mOCommon.RotationTable, liLightLevel,

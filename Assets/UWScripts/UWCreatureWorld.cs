@@ -190,7 +190,10 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
         Interaction lOInteraction = UWScene.Interaction;
 
-        lOTarget.WeaponDrawn = lOInteraction != null && lOInteraction.IsCombatModeActive;
+        // The second game's fight command (G0 of the 2026-11-06 sweep: the idle Interaction always said no, so no
+        // creature turned to an armed player, UWCritterBrain).
+        lOTarget.WeaponDrawn = UWWalkUw2.IsWalking ? UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Fight
+            : lOInteraction != null && lOInteraction.IsCombatModeActive;
 
         return lOTarget;
     }

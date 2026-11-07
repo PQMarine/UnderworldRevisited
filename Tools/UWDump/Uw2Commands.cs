@@ -99,7 +99,7 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>The commands that read the second game so far (phase 1 step 6): the format readers'
         /// survey, the strings, a level's map and objects, the maps as pictures, the conversations.</summary>
-        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures" };
+        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures", "palette" };
 
         /// <summary>A command on the second game's data, without DataImport.</summary>
         private static int fRunUw2(string psName, DumpContext pOContext, List<string> pOArgs)
@@ -114,6 +114,7 @@ namespace UnderworldRevisited.Tools
                 case "maprender": return fRenderMapsUw2(pOContext, pOArgs);
                 case "conv": return fConversationUw2(pOContext, pOArgs);
                 case "pictures": return fDumpPictures(pOContext, pOArgs);
+                case "palette": return fDumpPalette(pOContext, pOArgs);
                 default: return fPrintInfoUw2(pOContext);
             }
         }

@@ -8,6 +8,36 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [0.16.6] - 2026-11-07
+
+### Added
+- uwdump palette writes the game's palettes from your own game folder as a GIMP palette (.gpl) and an
+  Adobe Color Table (.act), the same colours as its PNGs, for painting new pictures (GitHub issue 16).
+
+### Changed
+- Ultima Underworld II preview: worn armour, light and motion items act the moment they are put on, and
+  a cursed worn item strikes then, down to 3 hit points as in the original; they waited for the next tick.
+- Ultima Underworld II preview: Acrobat softens falls, creatures turn to a drawn weapon, mushrooms make
+  one hallucinate (the first after starting the program scrambles the walls, as in the original), and
+  swimming, lava and floating make the player louder; these read the first game's idle character.
+- Ultima Underworld II preview: F7 turns the panel and F8 casts in the classic scheme, as in the original;
+  F1 to F6 only act without Shift, Alt or Ctrl, and Ctrl+M opens the music page.
+- Ultima Underworld II preview: the menu bar offers every page over the options panel and the main menu,
+  and only there, as in the first game.
+- Ultima Underworld II preview: the help's Map tab shows the level's map with its notes, and the Stats
+  tab lists the unspent skill points with the skills, as the original's panel does.
+- Ultima Underworld II preview: past 9600 experience no level comes any more, as in the original (only
+  exactly 9600 reaches level 16); the help says so instead of "0.0 to go".
+
+### Fixed
+- The Controls window's keyboard tab ran slowly, the pointer lagging: it named every key anew each
+  frame; it now keeps the names and draws as fast as the other windows (GitHub issue 17).
+- A game saved high above the floor (on a bridge, in mid-air) loaded on the floor below; the player now
+  stands at the saved height, as in the original.
+- The help's note on skill points said one every 3000 experience; it is 300 (150 in the second game).
+- Ultima Underworld II preview: typing in the debug tools' search or the help's notes walked the player.
+- Ultima Underworld II preview: switching to the modern scheme over the options panel lost the pointer.
+
 ## [0.16.5] - 2026-11-06
 
 ### Changed

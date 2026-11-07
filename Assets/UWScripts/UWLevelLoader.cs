@@ -965,7 +965,10 @@ public class UWLevelLoader : MonoBehaviour
         if (lOPlayer != null && liSavedLevel == miLevelIndex)
         {
             fSetPlayerHeading(UWUnits.AngleToDegrees(UWPlayerRecordUw2.Heading(lOPlayer)));
-            fPlacePlayerAtSavedPosition(UWPlayerRecordUw2.PositionX(lOPlayer), UWPlayerRecordUw2.PositionY(lOPlayer), UWPlayerRecordUw2.ZPosition(lOPlayer));
+            // saved_z holds zpos times eight, as the first game's 0x58 (UWPlayerData reads it >> 3): until
+            // 2026-11-07 the raw word went in, far above any floor, and the player always stood on the floor (per
+            // user: saved on a bridge, loaded under it).
+            fPlacePlayerAtSavedPosition(UWPlayerRecordUw2.PositionX(lOPlayer), UWPlayerRecordUw2.PositionY(lOPlayer), UWPlayerRecordUw2.ZPosition(lOPlayer) >> 3);
 
             if (GetComponent<UWWalkUw2View>() == null)
                 gameObject.AddComponent<UWWalkUw2View>();
@@ -3018,8 +3021,13 @@ public class UWLevelLoader : MonoBehaviour
     /// HIGHEST floor under the four corners of the footprint (ProcessMotionTileHeights_seg026_379,
     /// see Todo "Standing height at a step"), so one saved an eighth of a tile before a step
     /// stands ON it, at height 13 over a floor of 12. Taking the floor under the centre put the
-    /// eye a whole step lower, and the capsule into the riser. Only within one floor step - more
-    /// than that is not a step but a mistake in the data, and then the floor wins.
+    /// eye a whole step lower, and the capsule into the riser.
+    ///
+    /// ANY HEIGHT ABOVE THE FLOOR SINCE 2026-11-07 (per user: saved on a bridge in the second game, loaded
+    /// under it, the original on it): the original sets PN.z from saved_z as it is (uw2 game/PLAYDATA.C
+    /// read_player_data), whatever is below - a bridge carries the player, nothing lets him fall. Until then
+    /// only one floor step above the floor counted and anything higher was taken for a mistake in the data,
+    /// so the floor won. Below the floor the floor still wins.
     /// </summary>
     private void fPlacePlayerAtSavedPosition(int piPositionX, int piPositionY, int piZPosition)
     {
@@ -3033,13 +3041,10 @@ public class UWLevelLoader : MonoBehaviour
 
         float lfFloor = GetFloorHeightAt(lOAt);
         float lfSaved = UWDataImport.UWData.UWUnits.ZPosToWorld(piZPosition);
-        float lfStand = lfSaved > lfFloor && lfSaved - lfFloor <= SavedHeightTolerance ? lfSaved : lfFloor;
+        float lfStand = Mathf.Max(lfSaved, lfFloor);
 
         fPlacePlayerOnFloor(lOAt, lfStand);
     }
-
-    /// <summary>One floor step, eight zpos units - see fPlacePlayerAtSavedPosition.</summary>
-    private const float SavedHeightTolerance = 8f * UWDataImport.UWData.UWWorldScale.ZPosStep;
 
     private void fPlacePlayerAtTile(int piTileX, int piTileZ)
     {

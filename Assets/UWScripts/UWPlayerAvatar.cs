@@ -241,6 +241,14 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
     /// 2026-10-17): the scene's Interaction leaves combat mode.</summary>
     public void LeaveCombatMode()
     {
+        // The second game's fight command (G0 of the 2026-11-06 sweep).
+        if (UWWalkUw2.IsWalking)
+        {
+            UWGameScreenUw2.LeaveFight();
+
+            return;
+        }
+
         Interaction lOInteraction = UWScene.Interaction;
 
         if (lOInteraction != null)

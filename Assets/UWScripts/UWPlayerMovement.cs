@@ -278,10 +278,14 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     /// objects four units, halved under Speed; UWCritterDriver.StepWorld, since 2026-10-05).</summary>
     private void fReportEasyMovementStep()
     {
-        UWCharacter lOCharacter = UWScene.Character;
-
-        if (lOCharacter != null)
-            lOCharacter.Vitals.ReportEasyMovementStep();
+        // The second game's step to its own vitals (G0 of the 2026-11-06 sweep: the idle UWCharacter took it).
+        if (UWWalkUw2.IsWalking)
+        {
+            if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+                UWVitalsUw2.Current.Vitals.ReportEasyMovementStep();
+        }
+        else if (UWScene.Character != null)
+            UWScene.Character.Vitals.ReportEasyMovementStep();
 
         if (UWCritterDriver.Instance != null)
             UWCritterDriver.Instance.StepWorld();
@@ -618,8 +622,12 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // The second game's walk: the Swimming skill of the save it came from (UW2 plan phase 2 step 6).
         UWPlayerFile lOWalker = UWWalkUw2.IsWalking ? UWGameSession.Current.PlayerFileUw2 : null;
 
+        // Acrobat too (G0 of the 2026-11-06 sweep: it came from the idle UWCharacter, whose skills are 0).
         if (lOWalker != null)
+        {
             pOMotion.SwimmingSkill = UWPlayerRecordUw2.Skill(lOWalker, UWPlayerRecordUw2.SwimmingSkill);
+            pOMotion.AcrobatSkill = UWPlayerRecordUw2.Skill(lOWalker, UWPlayerRecordUw2.NamedSkillsFrom + (int)UWPlayerData.Skill.Acrobat);
+        }
         UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
         UWInventory lOInventory = UWScene.Inventory;
 

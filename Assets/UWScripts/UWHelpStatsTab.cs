@@ -83,6 +83,11 @@ public sealed class UWHelpStatsTab : UWHelpTab
         mOFlow.Space(10f);
         mOFlow.Line(UWText.T("help.stats.skills"), UWHelpLookEnum.SubHeading);
 
+        // THE SECOND GAME'S PANEL SHOWS THE UNSPENT POINTS as the first row of its skill list (uw2 ui/STATS.C sp_skill:
+        // "Skill Pt" at the list's top; per user, 2026-11-07); the first game's keeps them hidden.
+        if (lbSecondGame)
+            fSkillPointRows(lOVitals);
+
         // Attack and Defense first, then the eighteen skills - the order of the panel's list
         // (UWCharacterSheet.TryGetSkill).
         for (int liEntry = 0; liEntry < UWCharacterSheet.SkillEntries; liEntry++)
@@ -112,15 +117,21 @@ public sealed class UWHelpStatsTab : UWHelpTab
             + fHallucinationEffectText());
         mOFlow.Line(UWText.T("help.stats.hallucination_note"),
             UWHelpLookEnum.Dim);
-        fStatRow(UWText.T("help.stats.skill_points"), lOVitals.SkillPoints.ToString());
-        mOFlow.Line(UWText.T("help.stats.skill_points_note"),
-            UWHelpLookEnum.Dim);
+        if (!lbSecondGame)
+            fSkillPointRows(lOVitals);
 
         fStatRow(UWText.T("help.stats.experience"), fTenths(lOVitals.Experience));
 
         int liNext = UWExperience.GetNextLevelExperience(lOVitals.Level);
 
-        if (liNext < 0)
+        // THE SECOND GAME'S LEVELS STOP WHEN THE EXPERIENCE PASSES THE CAP (uw2 game/SKILLCHK.C player_get_exp: it
+        // returns before the level count once exp > 0x17700, UWPlayerVariantUw2.ExperienceGate), while the experience
+        // goes on growing - a character past it below level 16 stays where he is (per user, 2026-11-07: level 15 at
+        // 12937.8 showed "9600 (0.0 to go)"). The first game stops the experience itself there.
+        if (lbSecondGame && liNext >= 0 && lOVitals.Experience > UWRules.Current.Experience.AwardCap)
+            fStatRow(UWText.T("help.stats.next_level"), UWText.F("help.stats.next_level_capped",
+                UWRules.Current.Experience.AwardCap / 10));
+        else if (liNext < 0)
             fStatRow(UWText.T("help.stats.next_level"), UWText.T("help.stats.next_level_none"));
         else
             fStatRow(UWText.T("help.stats.next_level_at"), UWText.F("help.stats.next_level_value", liNext / 10,
@@ -131,6 +142,16 @@ public sealed class UWHelpStatsTab : UWHelpTab
 
         if (!lbSecondGame)
             fDrawWornMagic(lOData, lOInventory);
+    }
+
+    /// <summary>The unspent skill points and where they come from: one every PerSkillPoint of the experience (in
+    /// tenths, as the experience is shown: 300 in the first game, 150 in the second) and one a level; spent at a
+    /// shrine in the first game, by a trainer in the second (grant_skill_advance, conv/BABLHACK.C).</summary>
+    private void fSkillPointRows(UWPlayerVitals pOVitals)
+    {
+        fStatRow(UWText.T("help.stats.skill_points"), pOVitals.SkillPoints.ToString());
+        mOFlow.Line(UWText.F(UWWalkUw2.IsWalking ? "help.stats.skill_points_note_uw2" : "help.stats.skill_points_note",
+            UWRules.Current.Experience.PerSkillPoint / 10), UWHelpLookEnum.Dim);
     }
 
     /// <summary>The live numbers of the game in force, null before they run.</summary>

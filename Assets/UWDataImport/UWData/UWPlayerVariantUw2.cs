@@ -24,13 +24,20 @@ namespace UWDataImport.UWData
 
 		public bool HasOrbLair => false;
 
-		/// <summary>Past the ceiling nothing counts; above the cap it counts and gives skill points but no levels.</summary>
+		/// <summary>
+		/// Past the ceiling nothing counts; with the total above the cap AFTER the gain it counts and gives skill
+		/// points but no levels (SKILLCHK.C:88-96: exp += n, then "if (exp > 0x17700) return" before the level
+		/// count). Until 2026-11-07 the total before the gain was tested (per user's question about the cap), so a
+		/// gain crossing 96000 still gave level 16; in the original only a total of exactly 96000 reaches it.
+		/// The original gives the skill points of a gain it then refuses at the ceiling; ours does not (52427.2
+		/// points, never reached in play).
+		/// </summary>
 		public UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain)
 		{
 			if (piExperience + piGain > ExperienceCeiling)
 				return UWExperienceGateEnum.Ignore;
 
-			return piExperience > pORules.AwardCap ? UWExperienceGateEnum.CountWithoutLevels : UWExperienceGateEnum.Count;
+			return piExperience + piGain > pORules.AwardCap ? UWExperienceGateEnum.CountWithoutLevels : UWExperienceGateEnum.Count;
 		}
 
 		/// <summary>Every gain halved, rounding at random, then halved again, plus one, in a world too early for

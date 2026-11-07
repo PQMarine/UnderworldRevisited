@@ -64,6 +64,13 @@ public sealed class UWHelpMapTab : UWHelpTab
     /// </summary>
     protected override void OnDrawKit(UWHelpKitFlow pOFlow)
     {
+        if (UWWalkUw2.IsWalking)
+        {
+            fDrawSecondGame(pOFlow);
+
+            return;
+        }
+
         UWGameUI lOUi = UWScene.GameUi;
         UWLevelLoader lOLoader = UWScene.LevelLoader;
 
@@ -140,6 +147,100 @@ public sealed class UWHelpMapTab : UWHelpTab
         lOKit.EndClipArea();
     }
 
+    /// <summary>The second game's map (UWHelpMapUw2).</summary>
+    private readonly UWHelpMapUw2 mOSecondMap = new UWHelpMapUw2();
+
+    private UWTilePos mOSecondBuiltAt;
+
+    /// <summary>
+    /// THE SECOND GAME'S MAP IN THE TAB (per user, 2026-11-07): its level's whole map screen as UWMapScreenUw2
+    /// composes it, the notes over it, placed and zoomed as the first game's cut-out (fPlace) at three pixels a
+    /// tile. No map to carry: a level without a map says so.
+    /// </summary>
+    private void fDrawSecondGame(UWHelpKitFlow pOFlow)
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
+
+        if (lOData == null || lOLoader.CurrentLevel == null)
+        {
+            pOFlow.Line(UWText.T("help.map.title"), UWHelpLookEnum.Heading);
+            pOFlow.Line(UWText.T("help.map.no_level"), UWHelpLookEnum.Dim);
+
+            return;
+        }
+
+        int liLevel = lOLoader.CurrentLevelIndex + 1;
+
+        if (!UWHelpMapUw2.HasMap(liLevel))
+        {
+            pOFlow.Line(UWText.T("help.map.title"), UWHelpLookEnum.Heading);
+            pOFlow.Line(UWText.T("help.map.no_map_uw2"), UWHelpLookEnum.Dim);
+
+            return;
+        }
+
+        pOFlow.Line(UWText.F("help.map.level", liLevel), UWHelpLookEnum.Dim);
+        pOFlow.Space(6f);
+
+        Rect lOSpace = pOFlow.Rest();
+
+        if (lOSpace.width < 4f || lOSpace.height < 4f)
+            return;
+
+        UWKitRows lOKit = pOFlow.Kit;
+        float lfWheel = lOKit.WheelIn(lOSpace);
+
+        if (lfWheel != 0f)
+            fZoom(lfWheel < 0f ? 1 : -1);
+
+        float lfScale = mOContext.Scale;
+        float lfLeft = Mathf.Round(lOSpace.x * lfScale);
+        float lfTop = Mathf.Round(lOSpace.y * lfScale);
+
+        mOPendingMapRect = new Rect(lfLeft, lfTop, Mathf.Round(lOSpace.xMax * lfScale) - lfLeft, Mathf.Round(lOSpace.yMax * lfScale) - lfTop);
+
+        // Anew on another level, another tile or after the refresh time (the map fills from what is seen).
+        Camera lOCamera = Camera.main;
+        UWTilePos lOAt = lOCamera != null ? UWTileQueries.WorldToTile(lOCamera.transform.position.x, lOCamera.transform.position.z) : mOSecondBuiltAt;
+
+        if (mOSecondMap.Picture == null || mOSecondMap.Level != liLevel || lOAt.X != mOSecondBuiltAt.X || lOAt.Y != mOSecondBuiltAt.Y
+            || Time.unscaledTime - mfMapBuiltTime >= MapRefreshSeconds)
+        {
+            if (!mOSecondMap.Build(lOData, liLevel))
+                return;
+
+            mOSecondBuiltAt = lOAt;
+            mfMapBuiltTime = Time.unscaledTime;
+        }
+
+        if (!fPlace(mOSecondMap.PlayerPixel, UWHelpMapUw2.TilePixels, out Rect lOClip, out int liScale, out float lfOriginX, out float lfOriginY))
+            return;
+
+        Rect lOClipUnits = fUnits(lOClip, lfScale);
+        Texture2D lOPicture = mOSecondMap.Picture;
+
+        lOKit.BeginClipArea(lOClipUnits);
+        lOKit.Fill(lOClipUnits, UWGuiTheme.Background);
+        lOKit.Picture(fUnits(new Rect(lOClip.x + lfOriginX, lOClip.y + lfOriginY, lOPicture.width * liScale,
+            lOPicture.height * liScale), lfScale), lOPicture);
+
+        foreach (UWAutomapPictures.Note lONote in mOSecondMap.Notes)
+        {
+            lOKit.Picture(fUnits(new Rect(lOClip.x + lfOriginX + (lONote.TopLeft.x * liScale), lOClip.y + lfOriginY + (lONote.TopLeft.y * liScale),
+                lONote.Texture.width * liScale, lONote.Texture.height * liScale), lfScale), lONote.Texture);
+        }
+
+        lOKit.EndClipArea();
+    }
+
+    /// <summary>The second game's picture and notes go with the tab.</summary>
+    public override void OnHidden()
+    {
+        base.OnHidden();
+        mOSecondMap.Release();
+    }
+
     /// <summary>A rectangle of screen pixels in the kit's units.</summary>
     private static Rect fUnits(Rect pOPixels, float pfScale)
     {
@@ -170,6 +271,20 @@ public sealed class UWHelpMapTab : UWHelpTab
             mfMapBuiltTime = Time.unscaledTime;
         }
 
+        return fPlace(lOPlayer, UWAutomapPictures.TilePixels, out pOClip, out piScale, out pfOriginX, out pfOriginY);
+    }
+
+    /// <summary>The room cut at the panel's left edge (pOClip), the whole pixels per map pixel for the span of
+    /// tiles piTilePixels wide each, and the 320x200 screen's corner inside the clip, centred on pOPlayer (both
+    /// games' maps).</summary>
+    private bool fPlace(Vector2 pOPlayer, int piTilePixels, out Rect pOClip, out int piScale, out float pfOriginX, out float pfOriginY)
+    {
+        pOClip = Rect.zero;
+        piScale = 1;
+        pfOriginX = 0f;
+        pfOriginY = 0f;
+
+        Vector2 lOPlayer = pOPlayer;
         float lfLeft = Mathf.Max(mOPendingMapRect.x, mOContext.ClipPixels);
 
         pOClip = new Rect(lfLeft, mOPendingMapRect.y, mOPendingMapRect.xMax - lfLeft, mOPendingMapRect.height);
@@ -177,7 +292,7 @@ public sealed class UWHelpMapTab : UWHelpTab
         if (pOClip.width <= 0f || pOClip.height <= 0f)
             return false;
 
-        piScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * UWAutomapPictures.TilePixels)));
+        piScale = Mathf.Max(1, Mathf.RoundToInt(mOPendingMapRect.width / (miMapSpan * piTilePixels)));
         pfOriginX = Mathf.Round(mOPendingMapRect.center.x - lfLeft - (lOPlayer.x * piScale));
         pfOriginY = Mathf.Round((mOPendingMapRect.height / 2f) - (lOPlayer.y * piScale));
 

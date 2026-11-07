@@ -38,10 +38,12 @@ namespace UWDataImport.UWData
 			fAdd("help.stats.hallucination.light_table", "dark light table");
 			fAdd("help.stats.hallucination_note", "A mushroom adds one, the potion sets three; one wears off every 21 seconds.");
 			fAdd("help.stats.skill_points", "Unspent skill points");
-			fAdd("help.stats.skill_points_note", "A mantra at a shrine spends them. One more every 3000 experience and every level.");
+			fAdd("help.stats.skill_points_note", "A mantra at a shrine spends them. One more every {0} experience and every level.");
+			fAdd("help.stats.skill_points_note_uw2", "A trainer spends them in conversation. One more every {0} experience and every level.");
 			fAdd("help.stats.experience", "Exact experience");
 			fAdd("help.stats.next_level", "Next level");
 			fAdd("help.stats.next_level_none", "none, this is the highest");
+			fAdd("help.stats.next_level_capped", "none, no levels past {0} experience");
 			fAdd("help.stats.next_level_at", "Next level at");
 			fAdd("help.stats.next_level_value", "{0} ({1} to go)");
 			fAdd("help.stats.load", "Load");
@@ -80,6 +82,7 @@ namespace UWDataImport.UWData
 			fAdd("help.map.title", "Map");
 			fAdd("help.map.no_level", "No level is loaded.");
 			fAdd("help.map.no_map", "You carry no map. Pick it up again to see it here.");
+			fAdd("help.map.no_map_uw2", "This level has no map.");
 			fAdd("help.map.level", "Level {0}. The wheel zooms; notes are written on the map itself.");
 
 			// The Notes tab.

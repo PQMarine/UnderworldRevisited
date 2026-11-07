@@ -103,13 +103,40 @@ public static class UWTriggerSystem
     /// <summary>Fires the trap of a trigger, chain included. See UWTrapRules.FireTraps.</summary>
     public static bool FireTraps(UWObject pOTrigger, UWObject pOSwitchObject, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
     {
+        if (fSecondGameWaits())
+            return false;
+
         return UWTrapRules.FireTraps(pOTrigger, pOSwitchObject, new UWTrapHost(pOLevelLoader, pOInteraction));
+    }
+
+    private static bool msbSecondGameSaid;
+
+    /// <summary>
+    /// THE SECOND GAME'S TRAPS ARE NOT BUILT (G3 of the 2026-11-06 sweep, Docs/UW2-PLAN.md phase 4): its trap kinds
+    /// and do-actions throw in UWGameProfileUw2, so a smashed container or a Tremor boulder over a use trigger threw
+    /// there. Until G3 a trigger the second game reaches here does nothing, written to the log once (G0).
+    /// </summary>
+    private static bool fSecondGameWaits()
+    {
+        if (!UWWalkUw2.IsWalking)
+            return false;
+
+        if (!msbSecondGameSaid)
+        {
+            msbSecondGameSaid = true;
+            Debug.Log("[Walk] A trigger of the second game: its traps are not built yet (phase 4 G3).");
+        }
+
+        return true;
     }
 
     /// <summary>A bumbled disarm sets the trap off - see UWTrapRules.SetOffDisarmableTrap.</summary>
     public static bool SetOffDisarmableTrap(UWObject pOTrap, UWObject pOTrigger, UWObject pOItem,
         int piTileX, int piTileY, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
     {
+        if (fSecondGameWaits())
+            return false;
+
         return UWTrapRules.SetOffDisarmableTrap(pOTrap, pOTrigger, pOItem, piTileX, piTileY,
             new UWTrapHost(pOLevelLoader, pOInteraction));
     }
@@ -118,6 +145,9 @@ public static class UWTriggerSystem
     /// periodic respawn (see RespawnCreatures).</summary>
     public static bool FireTrapInTile(UWObject pOTrap, int piTileX, int piTileY, UWLevelLoader pOLevelLoader)
     {
+        if (fSecondGameWaits())
+            return false;
+
         return UWTrapRules.FireTrapInTile(pOTrap, piTileX, piTileY, new UWTrapHost(pOLevelLoader, null));
     }
 

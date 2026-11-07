@@ -200,11 +200,43 @@ public static class UWBindingInfo
         if (string.IsNullOrEmpty(lsPath))
             return "-";
 
-        string lsName = InputControlPath.ToHumanReadableString(lsPath,
+        // THE NAME KEPT BY ITS PATH (GitHub issue 17, 2026-11-07): ToHumanReadableString cost the Controls
+        // window's keyboard tab 12 of its 15 ms a frame, 77 keys named anew every frame (measured with a probe,
+        // Todo). A new binding is a new path; any device change - a keyboard layout among them, which names the
+        // keys bound by character - empties the store.
+        fWatchDevices();
+
+        if (msKeyNames.TryGetValue(lsPath, out string lsKept))
+            return lsKept;
+
+        string lsName = fHumanName(lsPath);
+
+        msKeyNames[lsPath] = lsName;
+
+        return lsName;
+    }
+
+    private static readonly Dictionary<string, string> msKeyNames = new Dictionary<string, string>();
+
+    private static bool msbWatchingDevices;
+
+    private static void fWatchDevices()
+    {
+        if (msbWatchingDevices)
+            return;
+
+        msbWatchingDevices = true;
+        InputSystem.onDeviceChange += (pODevice, peChange) => msKeyNames.Clear();
+    }
+
+    /// <summary>A keyboard or mouse path's name as the Input System gives it, without the device.</summary>
+    private static string fHumanName(string psPath)
+    {
+        string lsName = InputControlPath.ToHumanReadableString(psPath,
             InputControlPath.HumanReadableStringOptions.OmitDevice);
 
         if (string.IsNullOrEmpty(lsName))
-            return lsPath;
+            return psPath;
 
         // A key bound by the character it types ("#(f)", the built-in letters, so they follow the
         // keyboard layout) reads 'F' with quotes - a key the player bound reads F (per user,

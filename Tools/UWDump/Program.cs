@@ -95,6 +95,7 @@ namespace UnderworldRevisited.Tools
             fRegister("automap", "[1-9] [--png file]", "automap values (use --save for a save game's map)", true, fPrintAutomap);
             fRegister("maprender", "--out dir [--highlight id ...]", "a top view of every level as PNG", true, fRenderMaps);
             fRegister("pictures", "<NAME.GR|BYT> --out dir [--palette n]", "a picture file (or the second game's BYT.ARK screens) as PNGs", true, fDumpPictures);
+            fRegister("palette", "[n|all] --out dir", "the game's palettes as .gpl and .act (palette 0 unless given), the PNGs' colours", true, fDumpPalette);
             fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
             fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
@@ -253,7 +254,7 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("game.gog itself - the image is then extracted into a cache once. Without it the");
             Console.WriteLine("environment variable UW_DATA is used, then the common installation folders.");
             Console.WriteLine("--game uw2 reads the second game from the same game.gog (its own cache): info, strings, find, level,");
-            Console.WriteLine("maprender and conv so far.");
+            Console.WriteLine("maprender, conv, pictures and palette so far.");
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
             Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
             Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");

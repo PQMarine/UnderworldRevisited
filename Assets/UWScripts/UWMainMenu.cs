@@ -282,6 +282,14 @@ public class UWMainMenu : MonoBehaviour
         }
     }
 
+    /// <summary>The menu gone, the bar is not offered for it: the static kept its last frame's yes (per user,
+    /// 2026-11-07: in the second game's walk, whose scene has no running menu, the bar opened under the mouse as
+    /// over the menu, and a switch to Modern there handed the pointer to the mouse look under the open page).</summary>
+    private void OnDisable()
+    {
+        AcceptsMenuBar = false;
+    }
+
     private void Update()
     {
         fRefreshColours();

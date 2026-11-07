@@ -82,6 +82,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>The command the bar has chosen; None is the default, a look (mous_in_3d).</summary>
     public static CommandEnum Command { get; private set; } = CommandEnum.None;
 
+    /// <summary>A rule puts the weapon away (UWPlayerAvatar.LeaveCombatMode: the golem's stand-down).</summary>
+    public static void LeaveFight()
+    {
+        if (Command == CommandEnum.Fight)
+            Command = CommandEnum.None;
+    }
+
     /// <summary>The lines the scroll holds, the newest last - as many as the first game's
     /// Interaction.ActiveStrings keeps.</summary>
     private static readonly List<string> msMessages = new List<string>();
@@ -531,6 +538,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     /// <summary>The input hold's name while the panel is up (the clock's is UWGameClock.OptionsHold).</summary>
     private const string OptionsInputHold = "uw2 options";
+
+    /// <summary>The options panel's modal hold, as the first game's panel holds "options" (UWHudOptions): the
+    /// pointer stays free over it in the modern scheme too (per user, 2026-11-07: switched from Classic to
+    /// Modern on the setup bar's Game page, the mouse look took the pointer and the page could not be closed).</summary>
+    private const string OptionsModalHold = "uw2 options panel";
 
     /// <summary>Whether the options panel is up: the walk's buttons and doors wait (UWWalkUw2View).</summary>
     public static bool IsOptionsOpen => Current != null && Current.mbOptionsOpen;
@@ -1256,6 +1268,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fShowRunes();
     }
 
+    /// <summary>An inventory change: the panel redraws, and every change but opening, closing and scrolling a
+    /// container is a status pass of the original (as UWCharacter.fOnInventoryChangedForStatusPass) - armour, light,
+    /// motion and stealth at once, a worn curse strikes (G0 of the 2026-11-06 sweep: up to a tick late, no curse).</summary>
+    private void fOnInventoryChanged()
+    {
+        mbInventoryDirty = true;
+
+        if (mOInventory != null && !mOInventory.IsQuietChange && UWVitalsUw2.Current != null)
+            UWVitalsUw2.Current.RequestStatusPass();
+    }
+
     /// <summary>The debug panel's spell list (Shift+F10) on the second game: the spell cast without circle, mana
     /// and check through this game's spell host, as the shelf casts (per user, 2026-11-06: Fly cast from the list
     /// went to the first game's idle character - it flew, but the record and the icons never had it).</summary>
@@ -1475,7 +1498,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
                 () => UWScene.LevelLoader != null ? UWScene.LevelLoader.CurrentLevel : null);
             mOInventory.LoadFromSlots(UWPlayerRecordUw2.IsLeftHanded(lOPlayer), lOWorkspace.Equipment, lOWorkspace.Backpack,
                 UWPlayerRecordUw2.Weight(lOPlayer));
-            mOInventory.InventoryChanged += () => mbInventoryDirty = true;
+            mOInventory.InventoryChanged += fOnInventoryChanged;
             mOInventory.LearnRuneStone = fLearnRune;
             mOInventory.CarriedLightChanged += fSetCarriedLight;
             mOInventory.LightBurnedOut += pOLight => UWObjectMechanics.Extinguish(pOLight, mOData.Textures);
@@ -2240,7 +2263,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         UWControls lOControls = UWControlScheme.SharedControls;
         bool lbKey = lOControls != null && !UWSetupMenu.IsCapturingInput && !UWMapScreenUw2.IsWriting
-            && lOControls[UWAct.ToggleMap].WasPressedThisFrame();
+            && !UWControls.IsShortcutModifierHeld && lOControls[UWAct.ToggleMap].WasPressedThisFrame();
 
         if (UWMapScreenUw2.IsOpen)
         {
@@ -2805,8 +2828,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         // The key lock while typing (UWControls.IsTextEntryActive), which UWGameUI sets in the first game: the
         // second game's interface does not run it.
+        // With the fields every game shares (G0 of the 2026-11-06 sweep, UWTextEntryState's list): a window's text
+        // field on the kit, the help's keys, the debug tools' jump line and spell search - typing in them walked and
+        // fired the game's keys.
         UWControls.SetTextEntryActive(miTypingSlot != 0 || UWMapScreenUw2.IsWriting || UWConversationScreenUw2.IsTyping
-            || (mOCountAsk != null && mOCountAsk.IsAsking));
+            || (mOCountAsk != null && mOCountAsk.IsAsking) || UWKitRows.IsTyping || UWHelpWindow.BlocksGameKeys
+            || UWDebugTools.IsTyping);
 
         if (mOCountAsk != null)
         {
@@ -3416,9 +3443,19 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     {
         UWControls lOControls = UWControlScheme.SharedControls;
 
-        if (lOControls != null && !UWSetupMenu.IsCapturingInput)
+        // The keys alone, as the first game's hotkey rows want them (G0 of the 2026-11-06 sweep: Shift+F1, the
+        // debug overlay, opened the options too, Alt+F4 chose Look). F7 pulls the chain and F8 casts, as UW2.EXE
+        // binds them (game/PLAYER.C: pull_chain, try_cast); the modern scheme's F8 is fModernKeys'.
+        if (lOControls != null && !UWSetupMenu.IsCapturingInput && UWHotkeyHost.HeldMods == UWHotkeyMods.None)
         {
-            if (lOControls[UWAct.KeyFight].WasPressedThisFrame())
+            if (lOControls[UWAct.KeyPanel].WasPressedThisFrame())
+            {
+                if (miSlideFrame == 0)
+                    fStartSlide(miPage == 0 ? 2 : 0);
+            }
+            else if (lOControls[UWAct.KeyCast].WasPressedThisFrame() && !UWConversationScreenUw2.IsOpen)
+                fCastShelf();
+            else if (lOControls[UWAct.KeyFight].WasPressedThisFrame())
                 fChoose(CommandEnum.Fight);
             else if (lOControls[UWAct.KeyUse].WasPressedThisFrame())
                 fChoose(CommandEnum.Use);
@@ -3568,7 +3605,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWGameClock.Hold(UWGameClock.OptionsHold);
 
         if (UWControlScheme.Shared != null)
+        {
             UWControlScheme.Shared.HoldInput(OptionsInputHold);
+            UWControlScheme.Shared.HoldUiModal(OptionsModalHold);
+        }
     }
 
     /// <summary>The panel closes: the bar plain again with the chosen command lit (new_IconSelect), the
@@ -3594,7 +3634,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWGameClock.Release(UWGameClock.OptionsHold);
 
         if (UWControlScheme.Shared != null)
+        {
             UWControlScheme.Shared.ReleaseInput(OptionsInputHold);
+            UWControlScheme.Shared.ReleaseUiModal(OptionsModalHold);
+        }
     }
 
     /// <summary>
@@ -3609,7 +3652,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWControls lOControls = UWControlScheme.SharedControls;
         UnityEngine.InputSystem.Keyboard lOKeys = UnityEngine.InputSystem.Keyboard.current;
 
-        if (lOControls == null || lOKeys == null || UWSetupMenu.IsCapturingInput || !(lOKeys.leftCtrlKey.isPressed || lOKeys.rightCtrlKey.isPressed))
+        // The scheme's shortcut modifier (UWControls.IsShortcutModifierHeld: the modern right Ctrl, the classic
+        // Ctrl) - G0 of the 2026-11-06 sweep: the modern scheme's left Ctrl sinks, and sinking with S, R, D, Q, F or
+        // M opened option pages.
+        if (lOControls == null || lOKeys == null || UWSetupMenu.IsCapturingInput || !UWControls.IsShortcutModifierHeld)
             return false;
 
         bool lbSave = lOControls[UWAct.OptSave].WasPressedThisFrame();

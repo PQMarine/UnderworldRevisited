@@ -58,15 +58,29 @@ namespace UWDataImport.UWData
 		public int[] ScrambleMasks { get; } =
 			{ NormalMask16, NormalMask16, NormalMask32, NormalMask32, NormalMask64, NormalMask64 };
 
-		/// <summary>Follows the counter; true when the effect changed.</summary>
-		public bool Update(int piCounter)
+		/// <summary>Whether the second game's first effect of the program run was shown (pbFirstIsScramble).</summary>
+		private static bool msbFirstShown;
+
+		/// <summary>
+		/// Follows the counter; true when the effect changed. pbFirstIsScramble: THE SECOND GAME'S
+		/// FIRST MUSHROOM SCRAMBLES (uw2 game/PLAYDATA.C set_drugged: the static ShroomsRelated starts
+		/// at 1, so the first effect of a program run is set_cyb, every later one rolled of three).
+		/// The first game rolls every time (ovr133_299).
+		/// </summary>
+		public bool Update(int piCounter, bool pbFirstIsScramble = false)
 		{
 			if (piCounter > 0)
 			{
 				if (Effect != NoEffect)
 					return false;
 
-				Effect = UWRandom.Next(EffectCount);
+				if (pbFirstIsScramble && !msbFirstShown)
+				{
+					msbFirstShown = true;
+					Effect = ScrambleEffect;
+				}
+				else
+					Effect = UWRandom.Next(EffectCount);
 				Palette = Effect == PaletteEffect ? UWRandom.Next(PaletteCount) : 0;
 
 				if (Effect == ScrambleEffect)

@@ -34,9 +34,11 @@ namespace UWDataImport.UWData
 		/// <summary>The maximum mana goes aside on one level (UW1's Tybal, player_compute; UW2 has no such case).</summary>
 		bool HasOrbLair { get; }
 
-		/// <summary>player_get_exp's gate at the present total (UW1: above the award cap a gain is
-		/// ignored entirely, SKILLCHK.C:85; UW2: it still counts and gives skill points but no more
-		/// levels, and a gain past 0x7FFF0 is refused, SKILLCHK.C:88-91).</summary>
+		/// <summary>player_get_exp's gate, asked with the present total and the gain as it counts (after
+		/// ExperienceGain). UW1: above the award cap a gain is ignored entirely, tested on the total BEFORE it
+		/// (SKILLCHK.C:85). UW2: a gain past 0x7FFF0 is refused, and no level is counted once the total AFTER the
+		/// gain is above the cap (SKILLCHK.C:88-91) - so level 16, at the cap itself, comes only to a total of
+		/// exactly 96000.</summary>
 		UWExperienceGateEnum ExperienceGate(UWRulesExperience pORules, int piExperience, int piGain);
 
 		/// <summary>The gain that counts (UW1: halved, plus one, on a dungeon level too shallow for

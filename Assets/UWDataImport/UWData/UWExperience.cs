@@ -90,18 +90,18 @@ namespace UWDataImport.UWData
 				return 0;
 			}
 
-			// The gate at the present total and the gain that counts are the game's
-			// (IUWPlayerVariant; the first game ignores a gain above the cap and halves it on a
-			// level too shallow for one's own).
-			UWExperienceGateEnum leGate = lIGame.ExperienceGate(lORules, pOState.Experience, piAmount);
-
-			if (leGate == UWExperienceGateEnum.Ignore)
-				return 0;
-
 			if (piAmount == 0)
 				return 0;
 
+			// The gain that counts and the gate are the game's (IUWPlayerVariant; the first game ignores a gain
+			// above the cap and halves it on a level too shallow for one's own, the second halves every gain and
+			// tests the cap on the total after it). The gain first, as player_get_exp halves before its tests
+			// (UW1's halving draws nothing, so its order does not show).
 			int liGain = lIGame.ExperienceGain(piAmount, piDungeonLevel, pOState.Level);
+			UWExperienceGateEnum leGate = lIGame.ExperienceGate(lORules, pOState.Experience, liGain);
+
+			if (leGate == UWExperienceGateEnum.Ignore)
+				return 0;
 
 			int liNewTotalSkillPoints = (pOState.Experience + liGain) / lORules.PerSkillPoint;
 

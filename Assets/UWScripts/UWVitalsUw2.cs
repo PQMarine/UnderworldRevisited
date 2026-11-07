@@ -158,6 +158,15 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
         UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
 
+        // THE STATUS AT ONCE AFTER A LOAD (per user, 2026-11-07: the debug overlay showed no armour until a piece was
+        // moved): as soon as the screen has the inventory, not at the first tick - worn light and motion from the
+        // start. RefreshStatus only, without the curse's strike.
+        if (!mbFirstStatusDone && lOInventory != null)
+        {
+            mbFirstStatusDone = true;
+            RefreshStatus();
+        }
+
         for (int liTick = 0; liTick < liTicks; liTick++)
         {
             mOVitals.RunGameTick(UWDataImport.UWData.UWGameClock.UnitsPerTick, DamageTypeProof);
@@ -166,6 +175,8 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
             if (lOInventory != null)
                 lOInventory.BurnTick(1, mOVitals.TickInCycle);
         }
+
+        fRunStatusPass();
 
         // A spell began or ended, by its time or in the night: the record and the icons follow.
         if (mbSpellsChanged)
@@ -205,6 +216,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOFile = pOFile;
         mOData = pOData;
         mOVitals = new UWPlayerVitals(this);
+        mbFirstStatusDone = false;
         mOVitals.MessageDue += UWGameScreenUw2.Say;
 
         // At once: a blow lands between the ticks, and the record is what the flasks read and what comes back
@@ -214,7 +226,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOVitals.CombatShakeDue += UWScreenShake.ShakeOnDamage;
         mOVitals.UnsteadyShakeDue += fShakeUnsteady;
         mOVitals.DayStepDue += fStepDay;
-        mOVitals.StatusPassDue += RefreshStatus;
+        mOVitals.StatusPassDue += RequestStatusPass;
         mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) => mbSpellsChanged = true;
         UWCombatVariantUw2.PlayerArmour = GetArmourAt;
         mOVitals.Initialise(pOData, UWPlayerVitals.StartValues.Default, UWPlayerData.FromSecondGame(pOFile));
@@ -287,7 +299,55 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
     public float MovementFraction => UWScene.PlayerMovement != null ? UWScene.PlayerMovement.MomentumFraction : 0f;
 
-    public bool IsInMotionState => false;
+    /// <summary>
+    /// The original's motion_state is not zero (PLAYMOVE.C set_sound adds four for it): swimming, on lava, floating
+    /// with Levitate or Fly, or the view shaking - as UWCharacter.IsInMotionState, from the movement's own contact
+    /// (G0 of the 2026-11-06 sweep: always false, the player too quiet).
+    /// </summary>
+    public bool IsInMotionState
+    {
+        get
+        {
+            UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+            if (lOMovement != null && (lOMovement.IsOnLava || lOMovement.IsHovering
+                || (lOMovement.IsInWater && (lOMovement.MagicalMotionAbilities & UWPlayerVitals.WaterWalkBit) == 0)))
+                return true;
+
+            UWScreenShake lOShake = UWScreenShake.Ensure();
+
+            return lOShake != null && lOShake.IsShaking;
+        }
+    }
+
+    /// <summary>The status computed once since the save was taken up (Update).</summary>
+    private bool mbFirstStatusDone;
+
+    /// <summary>A status pass of the original is due (the vitals' StatusPassDue, an inventory change).</summary>
+    private bool mbStatusPassDue;
+
+    /// <summary>The original runs FixPlayerEquips now: at the frame's end, once however often it was asked.</summary>
+    public void RequestStatusPass()
+    {
+        mbStatusPassDue = true;
+    }
+
+    /// <summary>
+    /// THE STATUS PASS AND THE WORN CURSE (G0 of the 2026-11-06 sweep): as UWCharacter.fRunStatusPass, the status
+    /// anew and the worn curses' summed dice through the damage pipeline (player_affected_by class 9 to backfire,
+    /// uw2 PLAYDATA.C); until then the curse dice were worked out and never dealt.
+    /// </summary>
+    private void fRunStatusPass()
+    {
+        if (!mbStatusPassDue)
+            return;
+
+        mbStatusPassDue = false;
+        RefreshStatus();
+
+        if (mOStatus.CurseDice > 0)
+            UWDamagePipeline.Apply(mOVitals, UWDamageRequest.Curse(mOStatus.CurseDice));
+    }
 
     public bool IsChargingAttack => false;
 
@@ -297,6 +357,13 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
     }
 
     public int DamageTypeProof => mOStatus.DamageTypeProof;
+
+    /// <summary>The status as the last status pass left it, for the debug overlay (UWDebugOverlay): read as it
+    /// is, not computed anew, so the overlay shows whether a pass ran.</summary>
+    public UWArmourProtection.Status WornStatus => mOStatus;
+
+    /// <summary>What a creature rolls against (UWPlayerCritterRow.GetDefence), as UWCharacter.DefenceCheck.</summary>
+    public int DefenceCheck => fDefence;
 
     /// <summary>The Valor spell's bonus to the attack score, 10 + Casting / 5 (uw2 PLAYDATA.C:222).</summary>
     public int Valor => mOStatus.HasValor && mOVitals != null ? ValorBase + (mOVitals.GetSkill(UWPlayerData.Skill.Casting) / ValorCastingDivisor) : 0;

@@ -401,6 +401,15 @@ namespace UWDataImport.UWData
 			if (pIHost == null || piSpellIndex < 0 || piSpellIndex >= UWRunicMagic.AllSpells.Count)
 				return false;
 
+			// What the game does not run yet says so, as a rune cast does (G0 of the 2026-11-06 sweep: the debug
+			// panel's list cast such spells into the second game's empty host stubs without a word).
+			if (pIHost.World != null && !pIHost.World.Session.Game.Magic.IsBuilt(UWRunicMagic.AllSpells[piSpellIndex]))
+			{
+				pIHost.World.Presentation.AddMessage(UWText.T("hud.walk.not_yet"));
+
+				return false;
+			}
+
 			ApplyEffect(UWRunicMagic.AllSpells[piSpellIndex], true, pIHost);
 
 			if (pbFireImmediately)

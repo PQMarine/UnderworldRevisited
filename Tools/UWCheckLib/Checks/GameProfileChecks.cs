@@ -350,6 +350,11 @@ namespace UnderworldRevisited.Tools
                 lIPlayer.LongCycleTicks + " " + lORules.Experience.PerSkillPoint + " " + lIPlayer.ExperienceGate(lORules.Experience, 1000, 10)
                 + " " + lIPlayer.ExperienceGate(lORules.Experience, lORules.Experience.AwardCap + 1, 10) + " " + lIPlayer.ExperienceGate(lORules.Experience, UWPlayerVariantUw2.ExperienceCeiling, 1),
                 "30 1500 Count CountWithoutLevels Ignore");
+            // The cap on the total after the gain (SKILLCHK.C:91): landing on 96000 counts levels, crossing it not.
+            Check.Str("uw2 player: the gate landing on the cap and crossing it",
+                lIPlayer.ExperienceGate(lORules.Experience, lORules.Experience.AwardCap - 10, 10) + " "
+                + lIPlayer.ExperienceGate(lORules.Experience, lORules.Experience.AwardCap - 10, 11),
+                "Count CountWithoutLevels");
 
             bool lbHalved = true;
             bool lbTwice = true;

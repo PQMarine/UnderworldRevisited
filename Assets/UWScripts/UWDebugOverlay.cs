@@ -207,11 +207,17 @@ public class UWDebugOverlay : MonoBehaviour
         if (mOInventory == null)
             mOInventory = UWScene.Inventory;
 
-        if (mOInventory != null)
+        // The second game's pack is its screen's model (per user, 2026-11-07: the overlay showed the idle first
+        // game's parts).
+        UWObject[] lOBackpack = UWWalkUw2.IsWalking
+            ? (UWGameScreenUw2.Current != null && UWGameScreenUw2.Current.Inventory != null ? UWGameScreenUw2.Current.Inventory.Backpack : null)
+            : mOInventory != null ? mOInventory.Backpack : null;
+
+        if (lOBackpack != null)
         {
             int liCount = 0;
 
-            foreach (UWObject lOItem in mOInventory.Backpack)
+            foreach (UWObject lOItem in lOBackpack)
                 if (lOItem != null)
                     liCount++;
 
@@ -373,6 +379,13 @@ public class UWDebugOverlay : MonoBehaviour
     /// Without this you see the flask twitch while testing, but no number.</summary>
     private void fFillCharacter(UWDebugSnapshot pOSnapshot)
     {
+        if (UWWalkUw2.IsWalking)
+        {
+            fFillCharacterUw2(pOSnapshot);
+
+            return;
+        }
+
         if (mOCharacter == null)
             mOCharacter = UWScene.Character;
 
@@ -402,6 +415,71 @@ public class UWDebugOverlay : MonoBehaviour
         }
 
         fFillArmour(lOPlayer);
+    }
+
+    /// <summary>
+    /// THE SECOND GAME'S PLAYER (per user, 2026-11-07: the armour values did not show, the overlay read the idle
+    /// UWCharacter): the numbers from UWVitalsUw2, the armour from its status AS THE LAST STATUS PASS LEFT IT - not
+    /// computed anew as the first game's branch does, so a piece put on shows at once only if the pass ran (G0).
+    /// The last hit is the first game's bookkeeping and stays out.
+    /// </summary>
+    private void fFillCharacterUw2(UWDebugSnapshot pOSnapshot)
+    {
+        UWVitalsUw2 lOHost = UWVitalsUw2.Current;
+        UWPlayerVitals lOVitals = lOHost != null ? lOHost.Vitals : null;
+
+        if (lOVitals == null)
+            return;
+
+        UWArmourProtection.Status lOStatus = lOHost.WornStatus;
+        UWDebugPlayer lOPlayer = new UWDebugPlayer
+        {
+            HitPoints = lOVitals.CurrentHP,
+            MaxHitPoints = lOVitals.MaxHP,
+            Mana = lOVitals.CurrentMana,
+            MaxMana = lOVitals.MaxMana,
+            Poison = lOVitals.Poison
+        };
+
+        pOSnapshot.Player = lOPlayer;
+
+        for (int liPart = 0; liPart < msArmourParts.Length; liPart++)
+        {
+            int liAt = msArmourParts[liPart];
+
+            lOPlayer.Armour[liPart] = liAt < lOStatus.Armour.Length ? lOStatus.Armour[liAt] : 0;
+            lOPlayer.Protection[liPart] = liAt < lOStatus.Protection.Length ? lOStatus.Protection[liAt] : 0;
+        }
+
+        lOPlayer.DefenceCheck = lOHost.DefenceCheck;
+        lOPlayer.Defence = lOVitals.Defence;
+        lOPlayer.DefenceSkill = lOStatus.WeaponSkill.ToString();
+        lOPlayer.Resistance = lOStatus.DamageResistance;
+        lOPlayer.Proof = lOStatus.DamageTypeProof;
+        lOPlayer.Stealth = lOStatus.StealthBonus;
+        lOPlayer.DragonSkinBoots = lOStatus.HasDragonSkinBoots;
+
+        UWInventoryModel lOInventory = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.Inventory : null;
+
+        if (lOInventory == null)
+            return;
+
+        foreach (UWArmorItemMap.BodySlot leSlot in msArmourSlots)
+        {
+            UWObject lOItem = lOInventory.GetEquipped(leSlot);
+
+            if (lOItem == null || !UWArmourProtection.TryGetWearableEnchantment(lOItem, out int liMajor, out int liMinor))
+                continue;
+
+            lOPlayer.Enchantments.Add(new UWDebugEnchantment
+            {
+                Slot = leSlot.ToString(),
+                ObjectId = lOItem.ID,
+                Major = liMajor,
+                Minor = liMinor,
+                Protection = UWArmourProtection.GetProtectionEnchantment(lOItem)
+            });
+        }
     }
 
     /// <summary>

@@ -421,10 +421,12 @@ help.stats.hallucination.palette	Palette {0}
 help.stats.hallucination.light_table	dunkle Lichttabelle
 help.stats.hallucination_note	Ein Pilz zählt eins hinzu, der Trank setzt drei; alle 21 Sekunden lässt eins nach.
 help.stats.skill_points	Freie Fertigkeitspunkte
-help.stats.skill_points_note	Ein Mantra an einem Schrein gibt sie aus. Einer mehr alle 3000 Erfahrungspunkte und mit jeder Stufe.
+help.stats.skill_points_note	Ein Mantra an einem Schrein gibt sie aus. Einer mehr alle {0} Erfahrungspunkte und mit jeder Stufe.
+help.stats.skill_points_note_uw2	Ein Lehrer gibt sie im Gespräch aus. Einer mehr alle {0} Erfahrungspunkte und mit jeder Stufe.
 help.stats.experience	Genaue Erfahrung
 help.stats.next_level	Nächste Stufe
 help.stats.next_level_none	keine, dies ist die höchste
+help.stats.next_level_capped	keine, über {0} Erfahrung gibt es keine Stufen mehr
 help.stats.next_level_at	Nächste Stufe bei
 help.stats.next_level_value	{0} (noch {1})
 help.stats.load	Last
@@ -461,6 +463,7 @@ help.stats.slot.boots	Stiefel
 help.map.title	Karte
 help.map.no_level	Keine Ebene geladen.
 help.map.no_map	Du trägst keine Karte. Heb sie wieder auf, um sie hier zu sehen.
+help.map.no_map_uw2	Diese Ebene hat keine Karte.
 help.map.level	Ebene {0}. Das Mausrad zoomt; Notizen schreibst du direkt auf die Karte.
 help.notes.intro	Deine eigenen Notizen, gespeichert mit dem Spielstand.
 help.spells.title	Zauber

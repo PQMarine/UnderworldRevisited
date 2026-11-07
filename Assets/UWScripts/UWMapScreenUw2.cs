@@ -289,10 +289,30 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         miLevel = piLevel;
         mONotes.Show(piLevel - 1);
 
-        UWTexture lOBlank = fPicture(UWTexture.TextureTypes.BLNKMAP, 0);
+        byte[] lyScreen = ComposeScreen(mOData, piLevel, out _);
+
+        if (lyScreen == null)
+            return;
+
+        fUpload(lyScreen);
+        fShowNotes();
+        fShowLevelNumber(piLevel);
+    }
+
+    /// <summary>
+    /// THE MAP'S PICTURE AS PALETTE INDICES, top row first: BYT.ARK's blank map, the seen tiles, the gem and, on the
+    /// player's own level with the automap on, his arrow (UWAutomapStateUw2). pOPlayer: the middle of the arrow's
+    /// place on the 320x200 screen from the top-left, also when the arrow is not drawn - the help's Map tab centres
+    /// on it (UWHelpMapUw2). Null without the blank map. Shared by this screen and the help (per user, 2026-11-07).
+    /// </summary>
+    public static byte[] ComposeScreen(DataImport pOData, int piLevel, out Vector2 pOPlayer)
+    {
+        pOPlayer = new Vector2(UWScreenUi.ScreenWidth / 2f, UWScreenUi.ScreenHeight / 2f);
+
+        UWTexture lOBlank = fPictureOf(pOData, UWTexture.TextureTypes.BLNKMAP, 0);
 
         if (lOBlank == null || lOBlank.PaletteIndices == null)
-            return;
+            return null;
 
         byte[] lyScreen = (byte[])lOBlank.PaletteIndices.Clone();
         UWLevelLoader lOLoader = UWScene.LevelLoader;
@@ -306,21 +326,62 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
                 (piX, piY, peUse) => UWAutomapView.Random(msSeed, liShown, piX, piY, peUse), UWGame.Uw2);
         }
 
-        fShowGem(lyScreen, piLevel);
+        fShowGem(pOData, lyScreen, piLevel);
 
         Camera lOCamera = Camera.main;
 
-        if (lOLoader != null && lOCamera != null && piLevel == lOLoader.CurrentLevelIndex + 1 && UWAutomapStateUw2.IsOn(fPlayerFile()))
+        if (lOLoader != null && lOCamera != null && piLevel == lOLoader.CurrentLevelIndex + 1)
         {
             UWTilePos lOAt = UWTileQueries.WorldToTile(lOCamera.transform.position.x, lOCamera.transform.position.z);
+            UWTexture lOArrow = fPictureOf(pOData, UWTexture.TextureTypes.BUTTONS, UWClassicLayoutUw2.Map.PlayerPicture);
+            int liLeft = ((lOAt.X - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetX;
+            int liTop = ((lOAt.Y - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetY;
 
-            fOverlay(lyScreen, fPicture(UWTexture.TextureTypes.BUTTONS, UWClassicLayoutUw2.Map.PlayerPicture),
-                ((lOAt.X - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetX, ((lOAt.Y - 1) * 3) + UWClassicLayoutUw2.Map.PlayerOffsetY);
+            // fOverlay's rows start at ScreenHeight - 1 - piTop, counted from the top.
+            if (lOArrow != null)
+                pOPlayer = new Vector2(liLeft + (lOArrow.Width / 2f), UWScreenUi.ScreenHeight - 1 - liTop + (lOArrow.Height / 2f));
+
+            if (UWAutomapStateUw2.IsOn(fPlayerFile()))
+                fOverlay(lyScreen, lOArrow, liLeft, liTop);
         }
 
-        fUpload(lyScreen);
-        fShowNotes();
-        fShowLevelNumber(piLevel);
+        return lyScreen;
+    }
+
+    /// <summary>The indices in the map's palette as a texture, top row first in pyScreen, opaque; pOOld is
+    /// destroyed.</summary>
+    public static Texture2D UploadScreen(DataImport pOData, byte[] pyScreen, Texture2D pOOld, string psName)
+    {
+        int liWidth = UWScreenUi.ScreenWidth;
+        int liHeight = UWScreenUi.ScreenHeight;
+        byte[] lyRgba = new byte[liWidth * liHeight * UWUploadPixels.BytesPerPixel];
+        int liPalette = UWScreensUw2.PaletteOf(UWScreensUw2.ScreenEnum.Automap);
+
+        for (int liRow = 0; liRow < liHeight; liRow++)
+        {
+            for (int liColumn = 0; liColumn < liWidth; liColumn++)
+            {
+                Color32 lOColour = UWColourVision.Apply(UWScreenUi.GetColour(pOData.Palettes, liPalette, pyScreen[(liRow * liWidth) + liColumn]));
+                int liAt = (((liHeight - 1 - liRow) * liWidth) + liColumn) * UWUploadPixels.BytesPerPixel;
+
+                lyRgba[liAt] = lOColour.r;
+                lyRgba[liAt + 1] = lOColour.g;
+                lyRgba[liAt + 2] = lOColour.b;
+                lyRgba[liAt + 3] = 255;
+            }
+        }
+
+        if (pOOld != null)
+            Destroy(pOOld);
+
+        return UWTextureFactory.Upload(lyRgba, liWidth, liHeight, FilterMode.Point, TextureWrapMode.Clamp, psName);
+    }
+
+    /// <summary>The notes' ink in the map's palette.</summary>
+    public static Color32 InkOf(DataImport pOData)
+    {
+        return UWColourVision.Apply(UWScreenUi.GetColour(pOData.Palettes, UWScreensUw2.PaletteOf(UWScreensUw2.ScreenEnum.Automap),
+            UWClassicLayoutUw2.Map.InkColour));
     }
 
     /// <summary>RedisplayStrings: the notes of the page in the small font, and the quill behind the one
@@ -384,8 +445,7 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
 
     private Color32 fInk()
     {
-        return UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, UWScreensUw2.PaletteOf(UWScreensUw2.ScreenEnum.Automap),
-            UWClassicLayoutUw2.Map.InkColour));
+        return InkOf(mOData);
     }
 
     private static UWPlayerFile fPlayerFile()
@@ -393,7 +453,7 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         return UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null;
     }
 
-    private UWLevel fLevel(int piLevel)
+    private static UWLevel fLevel(int piLevel)
     {
         UWGameSession lOSession = UWGameSession.Current;
 
@@ -405,7 +465,7 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
     }
 
     /// <summary>show_gem_parts: the facets of the worlds visited, the world shown over them.</summary>
-    private void fShowGem(byte[] pyScreen, int piLevel)
+    private static void fShowGem(DataImport pOData, byte[] pyScreen, int piLevel)
     {
         UWGameSession lOSession = UWGameSession.Current;
         byte[] lyRecord = lOSession != null && lOSession.PlayerFileUw2 != null ? lOSession.PlayerFileUw2.Record : null;
@@ -414,17 +474,17 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         for (int liFacet = 0; liFacet < UWClassicLayoutUw2.Map.MiddleFacet; liFacet++)
         {
             if ((liVisited & (1 << liFacet)) != 0)
-                fFacet(pyScreen, liFacet, liFacet);
+                fFacet(pOData, pyScreen, liFacet, liFacet);
         }
 
         int liShown = UWAutomapScreenUw2.FacetOf(piLevel);
 
-        fFacet(pyScreen, liShown, liShown + UWClassicLayoutUw2.Map.CurrentFacetStep);
+        fFacet(pOData, pyScreen, liShown, liShown + UWClassicLayoutUw2.Map.CurrentFacetStep);
     }
 
-    private void fFacet(byte[] pyScreen, int piFacet, int piPicture)
+    private static void fFacet(DataImport pOData, byte[] pyScreen, int piFacet, int piPicture)
     {
-        fOverlay(pyScreen, fPicture(UWTexture.TextureTypes.GEMPT, piPicture),
+        fOverlay(pyScreen, fPictureOf(pOData, UWTexture.TextureTypes.GEMPT, piPicture),
             UWClassicLayoutUw2.Map.FacetX[piFacet] + UWClassicLayoutUw2.Map.FacetLeft, UWClassicLayoutUw2.Map.FacetY[piFacet]);
     }
 
@@ -457,9 +517,14 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
 
     private UWTexture fPicture(UWTexture.TextureTypes peType, int piIndex)
     {
+        return fPictureOf(mOData, peType, piIndex);
+    }
+
+    private static UWTexture fPictureOf(DataImport pOData, UWTexture.TextureTypes peType, int piIndex)
+    {
         try
         {
-            return mOData.Textures != null ? mOData.Textures.GetTextureByType(peType, piIndex) : null;
+            return pOData != null && pOData.Textures != null ? pOData.Textures.GetTextureByType(peType, piIndex) : null;
         }
         catch (System.ArgumentOutOfRangeException)
         {
@@ -467,32 +532,10 @@ public sealed class UWMapScreenUw2 : MonoBehaviour
         }
     }
 
-    /// <summary>The indices in the map's palette, bottom row first, opaque.</summary>
+    /// <summary>The indices in the map's palette onto the screen's picture (UploadScreen).</summary>
     private void fUpload(byte[] pyScreen)
     {
-        int liWidth = UWScreenUi.ScreenWidth;
-        int liHeight = UWScreenUi.ScreenHeight;
-        byte[] lyRgba = new byte[liWidth * liHeight * UWUploadPixels.BytesPerPixel];
-        int liPalette = UWScreensUw2.PaletteOf(UWScreensUw2.ScreenEnum.Automap);
-
-        for (int liRow = 0; liRow < liHeight; liRow++)
-        {
-            for (int liColumn = 0; liColumn < liWidth; liColumn++)
-            {
-                Color32 lOColour = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, liPalette, pyScreen[(liRow * liWidth) + liColumn]));
-                int liAt = (((liHeight - 1 - liRow) * liWidth) + liColumn) * UWUploadPixels.BytesPerPixel;
-
-                lyRgba[liAt] = lOColour.r;
-                lyRgba[liAt + 1] = lOColour.g;
-                lyRgba[liAt + 2] = lOColour.b;
-                lyRgba[liAt + 3] = 255;
-            }
-        }
-
-        if (mOTexture != null)
-            Destroy(mOTexture);
-
-        mOTexture = UWTextureFactory.Upload(lyRgba, liWidth, liHeight, FilterMode.Point, TextureWrapMode.Clamp, "UW2 map");
+        mOTexture = UploadScreen(mOData, pyScreen, mOTexture, "UW2 map");
         UWScreenUi.SetTexture(mOPicture, mOTexture);
     }
 
