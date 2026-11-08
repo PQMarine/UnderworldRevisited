@@ -44,6 +44,10 @@ public static class UWLanguage
     /// <summary>English, the code that needs no file.</summary>
     public const string EnglishCode = "en";
 
+    /// <summary>English in the Language row: in its own words, whatever the language in force, as every
+    /// other language shows its setting.Language.name.</summary>
+    public const string EnglishName = "English";
+
     /// <summary>The code in force since startup: empty for English, else the code (the pseudo-language
     /// included).</summary>
     public static string Current { get; private set; } = string.Empty;
@@ -151,6 +155,44 @@ public static class UWLanguage
         return new List<string>(lOCodes);
     }
 
+    /// <summary>The id of a language's own name in its file (Languages/&lt;code&gt;.tsv).</summary>
+    public const string NameId = "setting.Language.name";
+
+    /// <summary>
+    /// A LANGUAGE'S OWN NAME for the Language row (2026-11-08): its setting.Language.name ("Deutsch", "日本語"),
+    /// read from the line in its Languages/&lt;code&gt;.tsv without loading the rest; the code where the
+    /// file is missing, unreadable or names none. The modern font draws a name in another script with
+    /// the system's fonts, as Unity's dynamic fonts fall back to them.
+    /// </summary>
+    public static string DisplayName(string psCode)
+    {
+        try
+        {
+            string lsPath = FileOf(psCode);
+
+            if (File.Exists(lsPath))
+            {
+                string lsPrefix = NameId + "\t";
+
+                foreach (string lsLine in File.ReadLines(lsPath))
+                {
+                    if (!lsLine.StartsWith(lsPrefix, StringComparison.Ordinal))
+                        continue;
+
+                    string lsName = lsLine.Substring(lsPrefix.Length).Trim();
+
+                    return lsName.Length > 0 ? lsName : psCode;
+                }
+            }
+        }
+        catch (Exception lOError)
+        {
+            Debug.LogWarning("UWLanguage: the name of " + psCode + " could not be read: " + lOError.Message);
+        }
+
+        return psCode;
+    }
+
     /// <summary>Puts a language in force; English for an empty, unknown or unreadable one. The
     /// port's own texts change at once; the game texts follow the next time the data is loaded
     /// (GameTextFile) - or at once through Switch, which calls this. The language's own fonts
@@ -159,6 +201,8 @@ public static class UWLanguage
     {
         fApplyTexts(psCode);
         UWFallbackFont.Apply();
+        UWTextLabel.FollowLanguage(Current, UWLanguageFont.ModernClassicFontWanted, UWLanguageFont.ClassicBoldWanted);
+        UWPictureFiles.Apply(Current);
     }
 
     private static void fApplyTexts(string psCode)

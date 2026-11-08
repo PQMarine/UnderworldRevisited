@@ -467,7 +467,11 @@ public sealed class UWLookService
             return true;
         }
 
-        string lsText = fData().GetBookText(UWObjectMechanics.GetBookStringIndex(pOItem));
+        int liBookString = UWObjectMechanics.GetBookStringIndex(pOItem);
+        string lsText = fData().GetBookText(liBookString);
+
+        // What a book teaches - a mantra, a spell, Curse's name (GitHub issue 19).
+        UWKnowledge.Current.SawString(UWKnowledgeSources.BookBlock, liBookString, null);
 
         // A TEXT NUMBER FROM 0x100 ON (the recipe, looked at) stands alone, without "You read
         // the ..." (BookLook, obj/LOOK.C, 2026-10-15; until then ours put the header before it).

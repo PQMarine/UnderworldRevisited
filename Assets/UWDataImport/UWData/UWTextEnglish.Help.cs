@@ -148,10 +148,28 @@ namespace UWDataImport.UWData
 			fAdd("help.mantras.note.other", "Improves some of your other skills.");
 			fAdd("help.mantras.note.cup_of_wonder", "Tells you where the Cup of Wonder lies.");
 			fAdd("help.mantras.note.key_of_truth", "Gives you the Key of Truth.");
+			fAdd("help.knowledge.insahn", "A word pieced together from dreams.");
+			fAdd("help.knowledge.fanlo", "Gurstang was searching for something.");
 			fAdd("help.mantras.hide_more", "Hide the mantras the manual does not name");
 			fAdd("help.mantras.show_more", "Show the mantras the manual does not name");
 			fAdd("help.mantras.single", "One skill each, raised greatly");
 			fAdd("help.mantras.quests", "Quests");
+			// What the character has learned (GitHub issue 19, UWKnowledge).
+			fAdd("help.knowledge.learned", "Learned in the game");
+			fAdd("help.knowledge.none_yet", "Nothing yet.");
+			fAdd("help.knowledge.to_find", "Still to find: {0}");
+			fAdd("help.knowledge.from_book", "From a book or scroll.");
+			fAdd("help.knowledge.from_writing", "From a writing.");
+			fAdd("help.knowledge.from_talk", "From a conversation.");
+			fAdd("help.knowledge.from_named", "Told by {0}.");
+			fAdd("help.knowledge.from_door", "Told by a brilliant mage who happens to be a door.");
+			fAdd("help.knowledge.from_chant", "Chanted at a shrine.");
+			fAdd("help.knowledge.from_cast", "Found by casting it.");
+			fAdd("help.mantras.pieces", "Seen in the incense visions.");
+			fAdd("help.lizard.title", "Lizard words");
+			fAdd("help.lizard.learned_from", "Mimed by Murgo.");
+			fAdd("help.lizard.none_yet", "None yet.");
+			fAdd("help.spells.half", "You know of this spell, but not yet all of its runes.");
 
 			// The Manual tab and its reading mode (UWManual's problems too).
 			fAdd("help.manual.title", "Manual");

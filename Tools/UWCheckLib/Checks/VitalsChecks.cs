@@ -1,3 +1,4 @@
+using System;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
@@ -20,6 +21,7 @@ namespace UnderworldRevisited.Tools
             fCheckCurseFloor();
             fCheckFlaskSteps();
             fCheckTrainerMana();
+            fCheckSkillRaiseModes();
             fCheckPlayerCompute();
             fCheckLoreReset();
             fCheckLeeches(pOData);
@@ -289,6 +291,135 @@ namespace UnderworldRevisited.Tools
 
             Check.Bool("name: the widest name the input takes fits the 120-pixel label ("
                 + lsTyped.Length + " x '" + lcWidest + "', " + liWidth + " px)", liWidth <= 120, true);
+        }
+
+        /// <summary>
+        /// THE SETTING SkillRaises (per user, 2026-11-08): Highest always gives the chance point where it can
+        /// come; Fixed rolls it from what loading cannot change, so the same raise ends the same way whatever
+        /// the random stands at, and keeps the original's odds; Off rolls as before.
+        /// </summary>
+        private static void fCheckSkillRaiseModes()
+        {
+            Func<UWSkillRaiseEnum> lFOld = UWSkillRaise.ModeSource;
+
+            try
+            {
+                // Mana from 10 under Intelligence 14: 11 (half the attribute is not above), and the chance
+                // point in 3 of Intelligence's range of 10 (14 - 11).
+                int fRaise(UWSkillRaiseEnum peMode, int piRandomBefore)
+                {
+                    UWSkillRaise.ModeSource = () => peMode;
+
+                    for (int i = 0; i < piRandomBefore; i++)
+                        UWRandom.Next(100);
+
+                    UWPlayerVitals.StartValues lOStart = UWPlayerVitals.StartValues.Default;
+
+                    lOStart.Intelligence = 14;
+
+                    UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost { DungeonLevelIndex = 0 });
+
+                    lOVitals.Initialise(null, lOStart);
+                    lOVitals.SetSkillByNumber(UWPlayerVitals.ManaSkillNumber, 10);
+                    lOVitals.TryIncreaseSkill(UWPlayerVitals.ManaSkillNumber);
+
+                    return lOVitals.GetSkillByNumber(UWPlayerVitals.ManaSkillNumber);
+                }
+
+                fExpectInt("skill raises: Highest takes the chance point (10 to 12)", fRaise(UWSkillRaiseEnum.Highest, 0), 12);
+                fExpectInt("skill raises: ... wherever the random stands", fRaise(UWSkillRaiseEnum.Highest, 7), 12);
+
+                System.Collections.Generic.HashSet<int> lOFixed = new System.Collections.Generic.HashSet<int>();
+
+                for (int liBefore = 0; liBefore < 12; liBefore++)
+                    lOFixed.Add(fRaise(UWSkillRaiseEnum.Fixed, liBefore));
+
+                fExpectInt("skill raises: Fixed ends the same raise the same way, whatever the random (12 tries)", lOFixed.Count, 1);
+
+                System.Collections.Generic.HashSet<int> lOOff = new System.Collections.Generic.HashSet<int>();
+
+                for (int liBefore = 0; liBefore < 40; liBefore++)
+                    lOOff.Add(fRaise(UWSkillRaiseEnum.Off, liBefore));
+
+                fExpectBool("skill raises: Off still rolls (11 and 12 both come in 40 tries)", lOOff.Contains(11) && lOOff.Contains(12), true);
+
+                // The fixed roll spreads evenly: over many characters and raises, the share below k is k / range.
+                int liRange = 30;
+                int liBelow = 0;
+                int liCount = 0;
+
+                foreach (string lsName in new[] { "", "PQMarine", "asd", "Avatar", "Murgo" })
+                {
+                    for (int liSkill = 0; liSkill < 20; liSkill++)
+                    {
+                        for (int liValue = 0; liValue < 30; liValue++)
+                        {
+                            if (UWSkillRaise.FixedRoll(liRange, lsName, 15 + liSkill % 5, 20, 12 + liValue % 7, liSkill, liValue) < 10)
+                                liBelow++;
+
+                            liCount++;
+                        }
+                    }
+                }
+
+                double ldShare = liBelow / (double)liCount;
+
+                fExpectBool("skill raises: the fixed roll below 10 of 30 about a third of the time (" + ldShare.ToString("0.000") + ")",
+                    ldShare > 0.30 && ldShare < 0.37, true);
+                // A group mantra's pick (Combat: three of the seven from attack) is fixed as well under Fixed,
+                // and still rolled under Off. fAdvanceGroup is private: called as Chant calls it.
+                System.Reflection.MethodInfo lOGroup = typeof(UWShrineRules).GetMethod("fAdvanceGroup",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+                string fChantCombat(UWSkillRaiseEnum peMode, int piRandomBefore)
+                {
+                    UWSkillRaise.ModeSource = () => peMode;
+
+                    for (int i = 0; i < piRandomBefore; i++)
+                        UWRandom.Next(100);
+
+                    UWPlayerVitals.StartValues lOStart = UWPlayerVitals.StartValues.Default;
+
+                    lOStart.Strength = 20;
+                    lOStart.Dexterity = 20;
+                    lOStart.Intelligence = 20;
+
+                    UWPlayerVitals lOVitals = new UWPlayerVitals(new FakeVitalsHost { DungeonLevelIndex = 0 });
+
+                    lOVitals.Initialise(null, lOStart);
+
+                    for (int liSkill = 0; liSkill < 7; liSkill++)
+                        lOVitals.SetSkillByNumber(liSkill, 5);
+
+                    lOGroup.Invoke(null, new object[] { 3, lOVitals, null, (Action<int>)(piIndex => { }), (Action<string>)(psLine => { }) });
+
+                    System.Text.StringBuilder lOValues = new System.Text.StringBuilder();
+
+                    for (int liSkill = 0; liSkill < 7; liSkill++)
+                        lOValues.Append(lOVitals.GetSkillByNumber(liSkill)).Append(' ');
+
+                    return lOValues.ToString();
+                }
+
+                System.Collections.Generic.HashSet<string> lOGroupFixed = new System.Collections.Generic.HashSet<string>();
+                System.Collections.Generic.HashSet<string> lOGroupOff = new System.Collections.Generic.HashSet<string>();
+
+                for (int liBefore = 0; liBefore < 20; liBefore++)
+                {
+                    lOGroupFixed.Add(fChantCombat(UWSkillRaiseEnum.Fixed, liBefore));
+                    lOGroupOff.Add(fChantCombat(UWSkillRaiseEnum.Off, liBefore));
+                }
+
+                fExpectInt("skill raises: Fixed, the Combat mantra picks and raises the same way whatever the random (20 tries)", lOGroupFixed.Count, 1);
+                fExpectBool("skill raises: Off, its pick still rolled (" + lOGroupOff.Count + " outcomes in 20 tries)", lOGroupOff.Count > 1, true);
+
+                fExpectBool("skill raises: the fixed roll differs with the name",
+                    UWSkillRaise.FixedRoll(1000, "PQMarine", 20, 20, 20, 3, 10) != UWSkillRaise.FixedRoll(1000, "asd", 20, 20, 20, 3, 10), true);
+            }
+            finally
+            {
+                UWSkillRaise.ModeSource = lFOld;
+            }
         }
 
         /// <summary>SKILLS.C get_skill does not call player_compute: a raise leaves the maximum

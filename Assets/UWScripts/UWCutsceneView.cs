@@ -433,7 +433,10 @@ public sealed class UWCutsceneView
 
         UWTexture lOSource;
 
-        if (!lOData.Textures.BitmapFiles.TryGetValue(peType, out lOSource) || lOSource == null)
+        // Through GetTextureByType: a language's own picture of the screen (UWPicturePack, WIN1.png).
+        lOSource = lOData.Textures.BitmapFiles.ContainsKey(peType) ? lOData.Textures.GetTextureByType(peType, 0) : null;
+
+        if (lOSource == null)
             return false;
 
         UWColor32[] lOColours = lOSource.GetUWColor32();

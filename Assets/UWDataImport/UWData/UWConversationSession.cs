@@ -88,7 +88,67 @@ namespace UWDataImport.UWData
 		/// choice is pending.</summary>
 		public IReadOnlyList<string> Choices
 		{
-			get { return mOVm.PendingChoices; }
+			get
+			{
+				if (!mbLizard || UWLizardWords.Mode == UWLizardWordsEnum.Off)
+					return mOVm.PendingChoices;
+
+				// Built anew only when the answers or the knowledge changed (the views ask every frame). The VM
+				// clears and refills ONE list for every menu, so the answers themselves are compared: a next menu
+				// with as many answers showed the last one's (Sseetharee, user test 2026-11-08: 4 chosen from a
+				// stale list gave "Why not?").
+				if (!fSameChoices() || miChoicesVersion != UWKnowledge.Current.Version || meChoicesMode != UWLizardWords.Mode)
+				{
+					mOChoicesSource.Clear();
+					mOChoicesSource.AddRange(mOVm.PendingChoices);
+					miChoicesVersion = UWKnowledge.Current.Version;
+					meChoicesMode = UWLizardWords.Mode;
+					mOChoicesShown.Clear();
+
+					foreach (string lsChoice in mOVm.PendingChoices)
+						mOChoicesShown.Add(fShown(lsChoice));
+				}
+
+				return mOChoicesShown;
+			}
+		}
+
+		/// <summary>The reply options as the script gives them, without the lizard words' meanings.</summary>
+		public IReadOnlyList<string> RawChoices => mOVm != null ? mOVm.PendingChoices : (IReadOnlyList<string>)Array.Empty<string>();
+
+		/// <summary>A lizardman's conversation (GitHub issue 20): its lines and answers show the lizard words'
+		/// meanings as the setting says (UWLizardWords) - on display only.</summary>
+		private readonly bool mbLizard;
+
+		/// <summary>The VM's answers the shown list was made from.</summary>
+		private readonly List<string> mOChoicesSource = new List<string>();
+
+		private bool fSameChoices()
+		{
+			List<string> lOPending = mOVm.PendingChoices;
+
+			if (lOPending.Count != mOChoicesSource.Count)
+				return false;
+
+			for (int i = 0; i < lOPending.Count; i++)
+			{
+				if (!string.Equals(lOPending[i], mOChoicesSource[i], StringComparison.Ordinal))
+					return false;
+			}
+
+			return true;
+		}
+
+		private int miChoicesVersion;
+
+		private UWLizardWordsEnum meChoicesMode;
+
+		private readonly List<string> mOChoicesShown = new List<string>();
+
+		/// <summary>A line as shown: in a lizardman's conversation with the words' meanings.</summary>
+		private string fShown(string psText)
+		{
+			return mbLizard ? UWLizardWords.Shown(psText, UWKnowledge.Current) : psText;
 		}
 
 		public string PartnerName { get; private set; }
@@ -118,6 +178,7 @@ namespace UWDataImport.UWData
 				: null;
 
 			PartnerName = fGetPartnerName(piSlot);
+			mbLizard = fFileUw2 == null && UWLizardWords.IsLizardConversation(piSlot);
 
 			// THE NAME UNDER THE PORTRAIT is get_name's (GAMESTRN.C, read 2026-10-15): a creature with
 			// a whoami of 1 to 0xEF shows its personal name from block 7 - and NOTHING when that is
@@ -139,6 +200,12 @@ namespace UWDataImport.UWData
 
 			mOVm = new UWConversationVM(mOConversation, this,
 				piIndex => fGetConversationString(mOConversation.StringBlock, piIndex));
+
+			// What the partner says can teach a mantra or a spell (GitHub issue 19) - the first game's
+			// conversations; their strings stand one higher in our numbering.
+			if (fFileUw2 == null)
+				mOVm.Said = piIndex => UWKnowledge.Current.SawString(mOConversation.StringBlock, piIndex + 1,
+					mOConversation.StringBlock == UWKnowledgeSources.DoorStringBlock ? UWKnowledgeSources.DoorWho : PartnerName);
 
 			// First the memory, then the globals on top - like the reference.
 			miMemoryWords = pOData.ConversationGlobals != null ? pOData.ConversationGlobals.GetWords(piSlot) : null;
@@ -291,7 +358,7 @@ namespace UWDataImport.UWData
 			if (piChoice < 1 || piChoice > mOVm.PendingChoices.Count)
 				return;
 
-			mOLines.Add(new Line { IsPlayer = true, Text = mOVm.PendingChoices[piChoice - 1] });
+			mOLines.Add(new Line { IsPlayer = true, Text = fShown(mOVm.PendingChoices[piChoice - 1]) });
 			mbPlayerSpokeLast = true;
 
 			mOVm.SupplyChoice(piChoice);
@@ -320,7 +387,7 @@ namespace UWDataImport.UWData
 			if (fTryReprint(psText))
 				return;
 
-			mOLines.Add(new Line { IsNpc = true, Text = psText });
+			mOLines.Add(new Line { IsNpc = true, Text = fShown(psText) });
 		}
 
 		/// <summary>A line the game speaks as the player's own (play_say, CONVERSE.C): the appraisal
@@ -328,7 +395,7 @@ namespace UWDataImport.UWData
 		public void PlayerSay(string psText)
 		{
 			mbPlayerSpokeLast = true;
-			mOLines.Add(new Line { IsPlayer = true, Text = psText });
+			mOLines.Add(new Line { IsPlayer = true, Text = fShown(psText) });
 		}
 
 		/// <summary>convo_say_flag (CONVERSE.C): the player's line came last - the echo of a chosen

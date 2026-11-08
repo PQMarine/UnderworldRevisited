@@ -302,7 +302,9 @@ public sealed class UWHudOptions
         if (pOImage == null || mOUi.mOUWData == null || mOUi.mOUWData.Textures == null)
             return;
 
-        long liKey = ((long)peType << 32) | (uint)piIndex;
+        // The language is part of the key: its words are written into the pictures (UWPictureWords), so a
+        // switch of language hands out other pictures.
+        long liKey = ((long)peType << 40) | ((long)(UWText.LanguageVersion & 0xFF) << 32) | (uint)piIndex;
         long liShown;
 
         if (pOImage.sprite != null && mOUiSpriteShown.TryGetValue(pOImage, out liShown) && liShown == liKey)

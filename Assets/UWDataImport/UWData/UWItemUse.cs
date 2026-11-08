@@ -527,6 +527,9 @@ namespace UWDataImport.UWData
 
 			pIHost.PlayCutscene(FirstIncenseCutscene + liVision);
 
+			// Each vision shows two letters of INSAHN (GitHub issue 19).
+			UWKnowledge.Current.SawCutscene(FirstIncenseCutscene + liVision);
+
 			return true;
 		}
 

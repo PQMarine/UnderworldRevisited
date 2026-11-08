@@ -2,11 +2,17 @@
 
 An open-source reimplementation of **Ultima Underworld: The Stygian Abyss** (1992) in Unity,
 built on the original game data. **The whole game can be played from character creation to the
-end**, compared step by step with the original, and save games work both ways. An optional modern
-render mode and control scheme come on top. Ultima Underworld II can be tried as an early preview
-since 0.13.0:
-its menus, its character creation, its saves, Britannia with its game screen, map and conversations
-and its creatures - not yet the whole of its rules ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
+end**, compared step by step with the original, and save games work both ways.
+
+On top of it, everything optional: a modern render mode, a modern control scheme and gameplay
+aids, each off by default - dealing the attribute points yourself, mantras and spells noted in the
+help window as your character learns them, the lizardmen's words with their meanings, skill raises
+without randomness, or with rolls that stay the same after loading, to prevent save scumming. Bugs
+of the original that can cost you the game are fixed, and can be switched back. **The game can be
+translated**: the port's own texts come in English and German, the game's texts by language files
+a translator publishes ([Translating](Docs/TRANSLATING.md)).
+
+Ultima Underworld II can be tried as an early preview ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
 
 **You need your own copy of Ultima Underworld - the GOG.com version** ("Ultima Underworld
 1+2") **or the Steam version**, which carries the same game files; other releases are not
@@ -72,7 +78,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - Character creation, inventory and paperdoll, automap, sleeping, hunger and fatigue, the
   endgame with talismans and the void
 - Save games compatible with the original's, in `UNDEROM1\SAVE1` to `SAVE4`
-- Intro, dreams and the end sequence from the original's cutscene files, with speech
+- Intro, dreams and the end sequence from the original's cutscene files, with speech; subtitles
+  for the speech when a translation is chosen (or always), giving what the recordings actually say
 - The motion of the player, the creatures and thrown things as the original's own code, run
   call by call as the original did or as a precise, frame-rate independent computation of the
   same rules; or, for the player, Modern: sliding along walls, the view staying where it looks,
@@ -115,11 +122,16 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - A gamepad in both schemes, with a pointer on the stick for every window, a letter grid for
   typing, glyphs for Xbox, PlayStation, Nintendo or the Steam Deck, and every button rebindable
 - A help window beside the view: stats with the hidden values, a live map, notes kept with the
-  save game, spells, mantras and the game's manual
-- A modern readable font, and dealing the attribute points at character creation yourself
-  instead of rolling them - each of these additions optional
+  save game, the game's manual, and the mantras and spells your character has learned in the
+  game - from books, writings and conversations, or all of them at once
+- A modern readable font, and a Gameplay window of optional aids: dealing the attribute points at
+  character creation yourself, the lizardmen's words with their meanings in brackets (those Murgo
+  has taught you, or all), skill raises at their highest, or fixed so that reloading before a shrine
+  changes nothing - each of them off by default
 - Languages: the port's texts in English or German, chosen in the Game window and switched at
-  once; the game's own texts can be translated by language files ([Translating](Docs/TRANSLATING.md))
+  once; the game's own texts can be translated by language files, the words painted into its
+  pictures included, and Chinese, Japanese or Korean in the modern font with the system's input
+  method ([Translating](Docs/TRANSLATING.md))
 - Two looks for the game's own windows: Stone, in the colours of the game's icon (the default),
   and the plain one
 - The rule set: an optional `rules.json` in the `UW1` folder beside the settings changes the game's numbers -

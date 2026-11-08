@@ -427,6 +427,15 @@ namespace UnderworldRevisited.Tools
                 case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.WindowBackground:
                     return ((UWWindowBackgroundEnum)lOInt.Read(pOData)).ToString();
 
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.CutsceneSubtitles:
+                    return ((UWCutsceneSubtitlesEnum)lOInt.Read(pOData)).ToString();
+
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.LizardWords:
+                    return ((UWLizardWordsEnum)lOInt.Read(pOData)).ToString();
+
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.SkillRaises:
+                    return ((UWSkillRaiseEnum)lOInt.Read(pOData)).ToString();
+
                 case UWIntSettingDef lOInt when lOInt.Normalize == UWSettingNormalize.InRangeOrFallback:
                     return ((UWHeadBobRules.ModeEnum)lOInt.Read(pOData)).ToString();
 

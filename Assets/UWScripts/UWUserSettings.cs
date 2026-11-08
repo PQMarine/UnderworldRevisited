@@ -47,6 +47,10 @@ public static class UWUserSettings
         // window itself; cleanup phase 8d): the kit's drawers read the theme anew on their next pass.
         Defs.WindowTheme.OnChange = fThemeChanged;
         Defs.WindowBackground.OnChange = fThemeChanged;
+        // The lizard words (GitHub issue 20): the conversations read the setting live.
+        UWLizardWords.ModeSource = () => LizardWords;
+        // A skill raise's chance point (per user, 2026-11-08): read at each raise.
+        UWSkillRaise.ModeSource = () => SkillRaises;
     }
 
     private static void fThemeChanged(UWUserData pOData)
@@ -102,6 +106,20 @@ public static class UWUserSettings
     public static bool FixOriginalBugs { get => Defs.FixOriginalBugs.Read(fGet()); set => Defs.FixOriginalBugs.Write(fGet(), value); }
 
     public static bool RemoveExploits { get => Defs.RemoveExploits.Read(fGet()); set => Defs.RemoveExploits.Write(fGet(), value); }
+
+    public static bool KnowledgeShowAll { get => Defs.KnowledgeShowAll.Read(fGet()); set => Defs.KnowledgeShowAll.Write(fGet(), value); }
+
+    public static UWLizardWordsEnum LizardWords
+    {
+        get => (UWLizardWordsEnum)Defs.LizardWords.Read(fGet());
+        set => Defs.LizardWords.Write(fGet(), (int)value);
+    }
+
+    public static UWSkillRaiseEnum SkillRaises
+    {
+        get => (UWSkillRaiseEnum)Defs.SkillRaises.Read(fGet());
+        set => Defs.SkillRaises.Write(fGet(), (int)value);
+    }
 
     public static bool HelpOpen { get => Defs.HelpOpen.Read(fGet()); set => Defs.HelpOpen.Write(fGet(), value); }
 
@@ -225,6 +243,12 @@ public static class UWUserSettings
 
     /// <summary>The logos, the title and the intro at startup - see the field.</summary>
     public static bool ShowOpeningSequence { get => Defs.ShowOpeningSequence.Read(fGet()); set => Defs.ShowOpeningSequence.Write(fGet(), value); }
+
+    public static UWCutsceneSubtitlesEnum CutsceneSubtitles
+    {
+        get => (UWCutsceneSubtitlesEnum)Defs.CutsceneSubtitles.Read(fGet());
+        set => Defs.CutsceneSubtitles.Write(fGet(), (int)value);
+    }
 
     /// <summary>Keep running without the focus - see the field. Setting it applies at once.</summary>
     public static bool RunInBackground

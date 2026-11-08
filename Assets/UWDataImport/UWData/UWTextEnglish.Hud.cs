@@ -34,6 +34,7 @@ namespace UWDataImport.UWData
 			fAdd("hud.runes.above_circle", "above your circle");
 			fAdd("hud.runes.drag_or_cast", "drag onto the bar, click to cast");
 			fAdd("hud.runes.not_a_spell", "Not a spell");
+			fAdd("hud.runes.try_cast", "click to try casting");
 			fAdd("hud.runes.none_chosen", "No runes chosen");
 			fAdd("hud.runes.click_runes", "click runes on the shelf");
 			fAdd("hud.spells.title", "Spells");

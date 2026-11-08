@@ -494,7 +494,26 @@ namespace UWDataImport.UWData
 
 		public const int Uw2PanelEdgeHeight = 112;
 
+		/// <summary>The words painted into the pictures, in the language (Docs/PICTURE-WORDS-PLAN.md): set by
+		/// UWGameData once the fonts are read; null hands every picture out as the files hold it.</summary>
+		public UWPictureWords Words { get; set; }
+
+		/// <summary>A picture as the language shows it (Words): the files' own, or a copy with its painted
+		/// words written in the language.</summary>
 		public UWTexture GetTextureByType(UWTexture.TextureTypes peTextureType, int piIndex)
+		{
+			UWTexture lOPicture = fGetTextureByType(peTextureType, piIndex);
+
+			return Words == null ? lOPicture : Words.Localize(lOPicture, peTextureType, piIndex);
+		}
+
+		/// <summary>A picture as the files hold it, whatever the language.</summary>
+		public UWTexture GetOriginalTextureByType(UWTexture.TextureTypes peTextureType, int piIndex)
+		{
+			return fGetTextureByType(peTextureType, piIndex);
+		}
+
+		private UWTexture fGetTextureByType(UWTexture.TextureTypes peTextureType, int piIndex)
 		{
 			switch (peTextureType)
 			{
@@ -517,7 +536,24 @@ namespace UWDataImport.UWData
 			}
 		}
 
+		/// <summary>The pictures of a kind as the language shows them (Words): the files' own list, or a new list
+		/// with the pictures that carry words written in the language.</summary>
 		public List<UWTexture> GetTexturesByType(UWTexture.TextureTypes peTextureType)
+		{
+			List<UWTexture> lOPictures = fGetTexturesByType(peTextureType);
+
+			if (Words == null || lOPictures == null || !Words.HasType(peTextureType))
+				return lOPictures;
+
+			List<UWTexture> lOShown = new List<UWTexture>(lOPictures.Count);
+
+			for (int liAt = 0; liAt < lOPictures.Count; liAt++)
+				lOShown.Add(Words.Localize(lOPictures[liAt], peTextureType, liAt));
+
+			return lOShown;
+		}
+
+		private List<UWTexture> fGetTexturesByType(UWTexture.TextureTypes peTextureType)
 		{
 			switch (peTextureType)
 			{

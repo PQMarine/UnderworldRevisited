@@ -463,11 +463,22 @@ public sealed class UWHudPanel
         mStatsRoot.anchoredPosition = new Vector2(PanelLeft, -PanelTop);
         mStatsRoot.sizeDelta = new Vector2(PanelWidth, PanelHeight);
 
-        Texture2D lOBackground = UWTextureFactory.FromTexture(lOPanels[2], mOUi.TextureFilterMode, "UWHudPanel stats page",
+        // THE LABELS AS TEXT (per user, 2026-11-08): STR to EXP are painted into the picture. In English with
+        // the original font the picture stays as it is; in a translation or with the modern font (key F) the
+        // labels are painted out (UWPictureWords.Erase) and written as lines of the page, as the values, so
+        // they follow the font key and the language (fRefreshStatsLabels).
+        UWTexture lOOriginal = mOUi.mOUWData.Textures.GetOriginalTextureByType(UWTexture.TextureTypes.PANELS, StatsPicture);
+        UWPictureWords lOWords = mOUi.mOUWData.Textures.Words;
+        UWTexture lOBlank = lOWords?.Erase(lOOriginal, lOWords.BoxesOf(UWTexture.TextureTypes.PANELS, StatsPicture));
+
+        mOStatsWithLabels = UWTextureFactory.FromTexture(lOOriginal ?? lOPanels[2], mOUi.TextureFilterMode, "UWHudPanel stats page",
             TextureWrapMode.Clamp);
+        mOStatsWithoutLabels = lOBlank != null
+            ? UWTextureFactory.FromTexture(lOBlank, mOUi.TextureFilterMode, "UWHudPanel stats page without labels", TextureWrapMode.Clamp)
+            : null;
 
         mStatsPanelImage = lORoot.GetComponent<RawImage>();
-        mStatsPanelImage.texture = lOBackground;
+        mStatsPanelImage.texture = mOStatsWithLabels;
         mStatsPanelImage.raycastTarget = false;
 
         mStatsRoot.gameObject.SetActive(false);
@@ -707,6 +718,7 @@ public sealed class UWHudPanel
         }
 
         fRefreshSkillList();
+        fRefreshStatsLabels();
     }
 
     /// <summary>The stats page's sheet: the original's spelling, six rows of the skill list and
@@ -721,6 +733,62 @@ public sealed class UWHudPanel
         return mOSheet.Bind(lOData != null ? lOData.Strings : null, lOData != null ? lOData.InitialPlayer : null,
             mOUi.mCharacter != null ? mOUi.mCharacter.Vitals : null);
     }
+
+    /// <summary>The stats page picture: PANELS.GR 2.</summary>
+    private const int StatsPicture = 2;
+
+    /// <summary>The stats page as the files hold it, and with STR to EXP painted out (fBuildStatsPanel).</summary>
+    private Texture2D mOStatsWithLabels;
+
+    private Texture2D mOStatsWithoutLabels;
+
+    /// <summary>The ids of the labels, from the top (UWPictureWords' boxes of PANELS.GR 2).</summary>
+    private static readonly string[] msStatsLabelIds =
+    {
+        "picture.stats.str", "picture.stats.dex", "picture.stats.int", "picture.stats.vit", "picture.stats.mana", "picture.stats.exp"
+    };
+
+    /// <summary>The first line of the labels among the page's lines.</summary>
+    private const int StatsLabelLine = 21;
+
+    /// <summary>The labels' left edge: the glyphs' origin in the picture (measured 2026-11-08).</summary>
+    private const int StatsLabelLeft = 7;
+
+    /// <summary>The labels as text: a translation, or the modern font; English in the original font keeps
+    /// the picture's own.</summary>
+    private static bool fStatsLabelsAsText()
+    {
+        if (UWTextLabel.UseModernFont)
+            return true;
+
+        foreach (string lsId in msStatsLabelIds)
+        {
+            if (UWText.T(lsId) != UWText.English(lsId))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The labels and the page's picture as fStatsLabelsAsText says.</summary>
+    private void fRefreshStatsLabels()
+    {
+        bool lbAsText = fStatsLabelsAsText() && mOStatsWithoutLabels != null;
+
+        if (mStatsPanelImage != null)
+            mStatsPanelImage.texture = lbAsText ? mOStatsWithoutLabels : mOStatsWithLabels;
+
+        for (int liRow = 0; liRow < msStatsLabelIds.Length; liRow++)
+        {
+            fSetStatsLine(StatsLabelLine + liRow, lbAsText ? UWText.T(msStatsLabelIds[liRow]).ToUpperInvariant() : null,
+                UWClassicLayout.Stats.FirstRow + (liRow * UWClassicLayout.Stats.RowHeight), StatsAlignEnum.LeftAt, StatsLabelLeft, Color.black);
+        }
+
+        mbStatsModernShown = UWTextLabel.UseModernFont;
+    }
+
+    /// <summary>The font key's state the labels were drawn for.</summary>
+    private bool mbStatsModernShown;
 
     /// <summary>Signature of the values shown on the stats page when it was last drawn.</summary>
     private int miStatsSignature;
@@ -743,7 +811,7 @@ public sealed class UWHudPanel
         // names of the game's strings, when the language changed (translation step 3R).
         int liSignature = fBindSheet().Signature;
 
-        if (liSignature == miStatsSignature && miStatsLanguage == UWText.LanguageVersion)
+        if (liSignature == miStatsSignature && miStatsLanguage == UWText.LanguageVersion && mbStatsModernShown == UWTextLabel.UseModernFont)
             return;
 
         miStatsSignature = liSignature;
@@ -854,7 +922,10 @@ public sealed class UWHudPanel
     {
         Left,
         Right,
-        Centred
+        Centred,
+
+        /// <summary>From the left at the column given as the right edge's argument (the labels).</summary>
+        LeftAt
     }
 
     /// <summary>One line on the stats page. The pictures are kept and only
@@ -914,7 +985,12 @@ public sealed class UWHudPanel
         // The label asks UWTextTextures for a new picture only when the text changed; until
         // 2026-10-19 every change (each HP or mana tick while the page was open) left the old
         // texture behind (B33, cleanup step 5.5).
-        UWTextLabel.Get(lOLine).SetLine(lOFont, psText, UWTextRaster.TightWidth(lOFont, psText), pOColour, true,
+        // The modern font is narrower than the pixel font and differs per letter: centred in the pixel width,
+        // a line from the left drifted by its letters (MANA stood left of STR, per user 2026-11-08), so the
+        // lines from the left keep their left edge in it.
+        bool lbCentred = peAlign != StatsAlignEnum.Left && peAlign != StatsAlignEnum.LeftAt;
+
+        UWTextLabel.Get(lOLine).SetLine(lOFont, psText, UWTextRaster.TightWidth(lOFont, psText), pOColour, lbCentred,
             mOUi.TextureFilterMode, FontStyle.Italic);
 
         RectTransform lOLineRect = (RectTransform)lOLine.transform;
@@ -931,6 +1007,11 @@ public sealed class UWHudPanel
                 lOLineRect.anchoredPosition = new Vector2(PanelWidth * 0.5f, -pfY);
                 break;
 
+            case StatsAlignEnum.LeftAt:
+                lOLineRect.pivot = new Vector2(0f, 1f);
+                lOLineRect.anchoredPosition = new Vector2(pfRight, -pfY);
+                break;
+
             default:
                 lOLineRect.pivot = new Vector2(0f, 1f);
                 lOLineRect.anchoredPosition = new Vector2(UWClassicLayout.Stats.LabelLeft, -pfY);
@@ -941,8 +1022,8 @@ public sealed class UWHudPanel
     }
 
     /// <summary>Three header lines, six values, plus six skill names and their six
-    /// values.</summary>
-    private const int StatsLineCount = 21;
+    /// values, and the six labels STR to EXP when they are text (StatsLabelLine).</summary>
+    private const int StatsLineCount = 27;
 
     private RawImage[] mStatsLines;
 

@@ -84,10 +84,17 @@ namespace UWDataImport.UWData
 			fText(ControlScheme);
 			fChoices(ControlScheme, new[] { "original", "modern" });
 			fText(ShowOpeningSequence);
+			fText(CutsceneSubtitles, true);
+			fChoices(CutsceneSubtitles, new[] { "auto", "off", "on" });
 			fText(RunInBackground);
 			fText(ManualAttributes);
 			fText(FixOriginalBugs, true);
 			fText(RemoveExploits, true);
+			fText(KnowledgeShowAll, true);
+			fText(LizardWords, true);
+			fChoices(LizardWords, new[] { "off", "learned", "all" });
+			fText(SkillRaises, true);
+			fChoices(SkillRaises, new[] { "off", "highest", "fixed" });
 			// The language: its choices are the files found beside the game, listed by the Game window
 			// (UWLanguage.Available), not a fixed set.
 			fText(Language, true);

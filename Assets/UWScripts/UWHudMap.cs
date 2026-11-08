@@ -152,6 +152,35 @@ public sealed class UWHudMap
 
     private int miMapLevelShown = -1;
 
+    /// <summary>
+    /// Where the number stands: on its column after the original's "Level" - and further right after a
+    /// language's word that is wider (UWPictureWords writes it into the map, from its box's left edge): the
+    /// number then keeps the English distance to the word's end (2026-11-08, "Ebene" is 35 pixels in
+    /// FONTCHAR, "Level" 29).
+    /// </summary>
+    private float fLevelNumberCentre()
+    {
+        UWPictureWords lOWords = mOUi.mOUWData?.Textures?.Words;
+        UWPictureWords.Box[] laBoxes = lOWords?.BoxesOf(UWTexture.TextureTypes.BLNKMAP, 0);
+
+        if (laBoxes == null || laBoxes.Length == 0 || laBoxes[0].TextId != LevelWordId)
+            return MapLevelNumberCentre;
+
+        string lsWord = UWText.T(LevelWordId);
+        UWFont lOFont = lOWords.FontOf(laBoxes[0]);
+
+        if (lsWord == UWText.English(LevelWordId) || lOFont == null)
+            return MapLevelNumberCentre;
+
+        int liEnglishEnd = laBoxes[0].X + UWPictureWords.LineWidth(lOFont, UWText.English(LevelWordId), laBoxes[0].Spacing);
+        int liEnd = laBoxes[0].X + UWPictureWords.LineWidth(lOFont, lsWord, laBoxes[0].Spacing);
+
+        return MapLevelNumberCentre + Mathf.Max(0, liEnd - liEnglishEnd);
+    }
+
+    /// <summary>The map's painted "Level" (UWPictureWords).</summary>
+    private const string LevelWordId = "picture.map.level";
+
     private void fRefreshMapLevelNumber(int piLevelIndex)
     {
         if (mMapBackgroundImage == null || mOUi.mOUWData == null || piLevelIndex == miMapLevelShown)
@@ -174,12 +203,17 @@ public sealed class UWHudMap
             RectTransform lORect = (RectTransform)lOObject.transform;
             lORect.anchorMin = new Vector2(0f, 1f);
             lORect.anchorMax = new Vector2(0f, 1f);
-            lORect.pivot = new Vector2(0.5f, 1f);
-            lORect.anchoredPosition = new Vector2(MapLevelNumberCentre, -MapLevelNumberTop);
-
+            lORect.pivot = new Vector2(0f, 1f);
             mMapLevelImage = lOObject.GetComponent<RawImage>();
             mMapLevelImage.raycastTarget = false;
         }
+
+        // As the original: from the left, centre minus half the width with the glyphs' spacing, in whole
+        // pixels (AUTOMAP.C: 0x121 - string_width(num) / 2) - centring the tight picture put "10" a pixel
+        // right of the original's (per user's screenshots 2026-11-08).
+        int liLeft = Mathf.RoundToInt(fLevelNumberCentre()) - (lOFont.MeasureText(lsText, 0, UWTextLayout.CharacterSpacing) / 2);
+
+        ((RectTransform)mMapLevelImage.transform).anchoredPosition = new Vector2(liLeft, -MapLevelNumberTop);
 
         // The previous level's number is given back to UWTextTextures; until 2026-10-19 its
         // texture stayed behind on every level change (B33, cleanup step 5.5).
@@ -268,10 +302,11 @@ public sealed class UWHudMap
         if (mMapBackgroundImage != null || mOUi.mGameFrame == null || mOUi.mOUWData == null)
             return;
 
-        UWTexture lOSource;
+        // Through GetTextureByType: the map's words in the language (UWPictureWords).
+        UWTexture lOSource = mOUi.mOUWData.Textures.BitmapFiles.ContainsKey(UWTexture.TextureTypes.BLNKMAP)
+            ? mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.BLNKMAP, 0) : null;
 
-        if (!mOUi.mOUWData.Textures.BitmapFiles.TryGetValue(UWTexture.TextureTypes.BLNKMAP, out lOSource)
-            || lOSource == null)
+        if (lOSource == null)
             return;
 
         GameObject lOObject = new GameObject("MapScreen", typeof(RectTransform), typeof(RawImage));

@@ -63,7 +63,18 @@ namespace UWDataImport.UWData
 
 			public int Box;
 
-			public bool IsOver => Width > Box;
+			/// <summary>More lines than the box holds (the pictures' words, MeasurePictures).</summary>
+			public bool OverRows;
+
+			public bool IsOver => Width > Box || OverRows;
+
+			/// <summary>The characters of the text the place's font cannot draw here, each once (2026-11-08):
+			/// a language's own font (grammar.rule.font) is rasterised by the game only, so outside it - uwdump,
+			/// the self-check - a Chinese or Japanese character has no glyph and no width, and the text's
+			/// Width says nothing. Empty when every character was measured.</summary>
+			public string Missing = string.Empty;
+
+			public bool IsUnmeasured => Missing.Length > 0;
 		}
 
 		/// <summary>The questions of CHRGEN.DAT that ask with buttons (sex, handedness, class, skill,
@@ -74,6 +85,42 @@ namespace UWDataImport.UWData
 
 		/// <summary>The skill question, whose answers in CHRGEN.DAT are a placeholder (the skills come from SKILLS.DAT).</summary>
 		private const int SkillQuestion = 3;
+
+		/// <summary>
+		/// THE WORDS OF THE PICTURES (UWPictureWords, 2026-11-08): every box whose text in the language in
+		/// force differs from the English, its widest line against the box's width and its lines against its
+		/// rows - the boxes are the buttons of the options panel, written in FONT4X5P. A text the language
+		/// leaves English is not measured: the picture stays as it is.
+		/// </summary>
+		public static List<Entry> MeasurePictures(UWPictureWords pOWords)
+		{
+			List<Entry> lOEntries = new List<Entry>();
+			HashSet<string> lOSeen = new HashSet<string>();
+
+			if (pOWords == null)
+				return lOEntries;
+
+			foreach ((UWTexture.TextureTypes Type, int Index) lPicture in pOWords.Pictures)
+			{
+				foreach (UWPictureWords.Box lOBox in pOWords.BoxesOf(lPicture.Type, lPicture.Index))
+				{
+					string lsText = UWText.T(lOBox.TextId);
+
+					if (lsText == UWText.English(lOBox.TextId) || !lOSeen.Add(lOBox.TextId + "|" + lOBox.Width + "x" + lOBox.Height))
+						continue;
+
+					bool lbFits = pOWords.Fits(lOBox, lsText, out int liWidest, out int liLines);
+
+					lOEntries.Add(new Entry
+					{
+						Place = "picture " + lPicture.Type + ".GR " + lPicture.Index.ToString("X2") + " (" + liLines + " lines in " + lOBox.Height + " rows)",
+						Key = lOBox.TextId, Text = lsText, Width = liWidest, Box = lOBox.Width, OverRows = !lbFits && liWidest <= lOBox.Width
+					});
+				}
+			}
+
+			return lOEntries;
+		}
 
 		/// <summary>Every string of the places covered, measured. Strings and fonts are the game's (a
 		/// game-text pack laid over them shows the language); a place without its font is left out.</summary>
@@ -101,8 +148,29 @@ namespace UWDataImport.UWData
 			// Blanks at the end ("Name: ") draw nothing: a box may cut them.
 			pOEntries.Add(new Entry
 			{
-				Place = psPlace, Key = psKey, Text = psText, Width = pOFont.MeasureText(psText.TrimEnd(), 0, UWTextLayout.CharacterSpacing), Box = piBox
+				Place = psPlace, Key = psKey, Text = psText, Width = pOFont.MeasureText(psText.TrimEnd(), 0, UWTextLayout.CharacterSpacing), Box = piBox,
+				Missing = fMissing(psText, pOFont)
 			});
+		}
+
+		/// <summary>The characters of a text a font has no glyph for (its own, its base letters, the
+		/// language's font where one is in force), each once.</summary>
+		private static string fMissing(string psText, UWFont pOFont)
+		{
+			System.Text.StringBuilder lOMissing = null;
+
+			foreach (char lcChar in psText)
+			{
+				if (lcChar <= ' ' || pOFont.TryGetGlyph(lcChar, out UWFont.Glyph _))
+					continue;
+
+				lOMissing = lOMissing ?? new System.Text.StringBuilder();
+
+				if (lOMissing.ToString().IndexOf(lcChar) < 0)
+					lOMissing.Append(lcChar);
+			}
+
+			return lOMissing == null ? string.Empty : lOMissing.ToString();
 		}
 
 		private static string fKey(int piIndex)

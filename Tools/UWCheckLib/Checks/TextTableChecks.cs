@@ -25,7 +25,7 @@ namespace UnderworldRevisited.Tools
         /// <summary>The areas of the table (UWTextEnglish); a literal in the code that starts with
         /// one of these and a dot is taken for an id.</summary>
         private static readonly string[] msTextAreas =
-            { "setting", "setup", "keys", "pad", "help", "editor", "layout", "menu", "hud", "prompt", "effects", "grid", "grammar", "msg" };
+            { "setting", "setup", "keys", "pad", "help", "editor", "layout", "menu", "hud", "prompt", "effects", "grid", "grammar", "msg", "picture", "lizard" };
 
         private static void fCheckTextTable()
         {

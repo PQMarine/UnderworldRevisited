@@ -5,6 +5,7 @@ How to translate [Underworld Revisited](../README.md) into another language.
 - [Two files per language](#two-files-per-language)
 - [Getting started](#getting-started)
 - [The port's own texts](#the-ports-own-texts)
+- [Words in the pictures](#words-in-the-pictures)
 - [The game's texts](#the-games-texts)
 - [Names: the name format](#names-the-name-format)
 - [Slots, select and plural](#slots-select-and-plural)
@@ -85,6 +86,43 @@ The ids starting with `grammar.` and `msg.` are the frames of sentences the orig
 from parts. A comment above each in `Assets/UWDataImport/UWData/UWTextEnglish.Messages.cs` and
 `UWTextEnglish.Grammar.cs` says what each `{n}` is and in which case it stands.
 
+## Words in the pictures
+
+Some English words of the original are not strings but pixels of its pictures: the options panel's
+buttons and headings (SAVE GAME, MUSIC IS ON., ARE YOU SURE?), the stats page's STR to EXP and the
+map's Level, ERASE and CLOSE. The ids `picture.options.*`, `picture.stats.*` and `picture.map.*` in your
+`<code>.tsv` replace them: where your text differs from the English, the game paints over the
+picture's lettering and writes your text in the original's small capitals, upper case, in the
+picture's own colours (the stats page and the map in the original's italic and character-creation
+fonts, without a shadow; "Level" keeps your case, and the level's number moves right after a longer
+word). A button holds two lines of 28 pixels each, about seven letters; the text is
+broken at blanks, or where you write `
+`. A word too wide or a third line is clipped, and `uwdump fit`
+and `validate-tsv` report it (`SPEICHERN` is 37 pixels: German says `SPIEL SICHERN`). Leave an id out
+and the picture stays English. The pixel letters know ASCII and the German umlauts.
+
+### Pictures of your own
+
+The main menu's four captions are painted in a decorative script and the congratulations at the
+end are a whole picture: these only a painter can translate truly. Without a picture of yours the
+captions come from `picture.menu.*` (`Charakter erschaffen`): the game hides the English picture and
+writes your text over the title screen in the save list's style, gold, lighter under the pointer. So can every other picture with words,
+where the written words do not do (Chinese and Japanese need more than four pixel rows):
+
+```
+uwdump picture-template <game> --out pictures-to-paint
+```
+
+writes them from your own game as PNGs, named as the game looks for them (`OPBTN_00.png` for a
+.GR picture and its index in hex, `WIN1.png` for a whole screen). Paint over the ones you
+translate, keep their size, and put them into `Languages/<code>/pictures`. The game takes the
+nearest colour of the picture's own palette for each pixel (a pixel with less than half alpha
+becomes transparent), and a picture of yours wins over the words written anew. `validate-tsv`
+checks the folder beside your pack: a name of no picture is warned, another size is an error (the
+game keeps the original). The exported pictures are the game's own art: publish only what you
+painted, like your translation of its texts. `uwdump pictures PANELS.GR` and `uwdump pictures
+WIN1.BYT` export the stats pages and the screens of the first game too.
+
 ## The game's texts
 
 One line per string: the block, a TAB, the index, a TAB, the text.
@@ -98,6 +136,17 @@ The format is the one of the higesho fork's `Localization/ja.tsv`, so a translat
 runs as it is. Keep the conversation placeholders (`@SS1`, `@GI3C2`), the game's backslash codes
 (`\m`, `\p`, `\0`) and a line break at the end where the English has one. An empty text keeps the
 English.
+
+**Cutscenes.** The texts of a cutscene (block 3072 plus its number, the intro 3072) are what its
+recordings say in English. The original shows them only where no recording speaks; with the Game
+window's *Subtitles in cutscenes* on Auto (the default) the game shows them with the recordings as
+soon as your pack translates a line of that block. The written lines do not always match the spoken
+ones word for word.
+
+**The lizardmen's words.** Their language (`Sseth`, `sor'click`, `Bica`) is the game's own puzzle:
+leave it as it is in the game's texts. The ids `lizard.*` in your `<code>.tsv` are what the words
+mean; with the Gameplay window's *Lizard words* on, the game shows the meaning in brackets behind a
+word in the lizardmen's conversations ("Bica [hallo, tschüss]"), so keep them short.
 
 **Typed words.** Some words are compared with what the player types: the shrine's mantras (block 2)
 and the answers some conversations ask for. Translate each such word the same way everywhere a
@@ -231,6 +280,8 @@ in its `<code>.tsv`, tell the grammar what it needs. The English values are the 
 | `grammar.rule.alphabet.lower` | `auto` | their lower case, letter for letter (`auto`: each letter's lower case) |
 | `grammar.rule.font` | `none` | the fonts that draw what the port's fonts lack, in order - see [Fonts and input methods](#fonts-and-input-methods); read for every language |
 | `grammar.rule.ime` | `no` | `yes`: the text fields use the system's input method (Chinese, Japanese, Korean); read for every language |
+| `grammar.rule.classic.font` | `original` | `modern`: choosing the language switches the classic texts to the modern font (see [Fonts and input methods](#fonts-and-input-methods)); read for every language |
+| `grammar.rule.classic.bold` | `no` | `yes`: in the modern font the classic texts draw their Chinese, Japanese and Korean characters bold; read for every language |
 | `grammar.rule.tags` | `none` | the sound tags and the first letters that give them (`v=a e i o u h; z=sb sc`) - see [Sound tags](#sound-tags) |
 | `grammar.article.indefinite` | `{0}` | the indefinite article around the noun phrase `{0}` |
 | `grammar.article.definite` | `{0}` | the definite one |
@@ -329,6 +380,8 @@ fonts lack, in its `<code>.tsv`:
 ```
 grammar.rule.font	xz.otf, os:Microsoft JhengHei, os:Noto Sans CJK TC
 grammar.rule.ime	yes
+grammar.rule.classic.font	modern
+grammar.rule.classic.bold	yes
 ```
 
 `grammar.rule.font` is a list separated by commas, in order. An entry is either a **font file** in
@@ -347,12 +400,21 @@ An entry that is not there is left out, the next one is tried.
   taller than the pixel font's rows is drawn smaller). Cyrillic and Greek read well that way; an
   ideograph in the six rows of the message scroll does not - FONTBIG (cutscenes, the main menu) and
   the modern font (the key that switches the classic texts to the modern font, F in the classic
-  scheme) are where Chinese and Japanese are readable. Lines break between Chinese and Japanese
+  scheme) are where Chinese and Japanese are readable. So a Chinese, Japanese or Korean translation
+  sets `grammar.rule.classic.font modern`: choosing the language switches the classic texts to the
+  modern font once (F still switches back, and the choice survives a restart), and the original
+  pieces of the modern scheme follow F too. Lines break between Chinese and Japanese
   characters too, never before `。` `、` or a closing mark.
 - **The modern interface** (Lexend Exa, Liberation Sans) draws a character its font lacks with the
   `os:` entries first, then with whatever Unity finds on the system. A font file cannot serve here:
   Unity's dynamic fonts fall back only to installed fonts. A character the modern font has drawn
   once keeps its look until the game restarts.
+
+In the modern font, a regular CJK face has thin strokes that fade on the original's stone and
+parchment, in the grey and brown the original gives its texts. `grammar.rule.classic.bold yes` draws
+the Chinese, Japanese and Korean characters of the classic texts bold (the Latin letters and digits
+stay as they are); look at character creation and a conversation. A family is only used where it is
+installed: Meiryo, for example, is missing on some Windows 11 systems, so name more than one.
 
 `grammar.rule.ime yes` turns the system's input method (IME) on while a text field is open - a
 conversation's answer, a mantra, a map note, a save name, the character's name - and the field takes
@@ -381,7 +443,9 @@ wrong in the game; warnings are worth a look.
 look draws into boxes of fixed width - character creation's questions, buttons, sex and class line,
 attribute labels, skill list and name prompt, and the stats page's class and skill names - in the
 pixel font of each place, and marks `OVER` what is wider than its box and would be clipped
-(`--over` lists only those). `validate-tsv` reports the same as warnings.
+(`--over` lists only those). `validate-tsv` reports the same as warnings. A string with characters
+the pixel fonts lack (Chinese, Japanese) is marked `?`: the language's font draws them in the game
+only, so uwdump cannot measure them; look at character creation and the stats page in the game.
 
 `uwdump looks <path> --strings Languages/<code>.strings.tsv` prints every look sentence and every
 message line built from names (families `message`, `repair`, `levelup`, `shrine`, `trap`) in your
@@ -392,7 +456,8 @@ file in `Languages`.
 ## Trying it in the game
 
 Put the files into `Languages` beside the game and choose the language in the **Language** row of
-the *Game* window. The change takes effect at once: the port's texts and the game's strings switch,
+the *Game* window. The row shows a language by its own name, `setting.Language.name` in its
+`<code>.tsv` (`Deutsch`, written in the language itself), else by its code. The change takes effect at once: the port's texts and the game's strings switch,
 lines already in the message scroll stay as they were written. The command line `-language <code>`
 and the environment variable `UR_LANGUAGE` choose a language at startup. `-language pseudo` shows
 every text of the port in brackets and nearly three times as long, the extreme case, to find texts
@@ -403,4 +468,5 @@ that clip.
 `Languages/<code>.tsv`, the port's own texts, may come into this repository by pull request. The
 game's texts are not ours: a translated `<code>.strings.tsv` is a translation of Origin's text. It
 never comes into this repository. A translator who publishes one does so on their own
-responsibility.
+responsibility. The same holds for pictures painted over the game's (`Languages/<code>/pictures`):
+they are Origin's art changed, published only by the translator, never here.

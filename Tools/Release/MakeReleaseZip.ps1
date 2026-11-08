@@ -176,7 +176,10 @@ if (-not $KitOnly) {
     # The build, without Unity's debug backup - and without the Linux build, which lives in
     # Build\Linux inside the Windows build folder (the first win64 zip after the Linux build
     # weighed 80 MB instead of 45 before this line, 2026-10-05).
-    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") } |
+    # Nor the build's Languages folder: it holds what was tried in the build (a translator's
+    # game-text pack, made-up test languages with pictures from the game - stopped by the check
+    # below on 2026-11-08); the package's languages come fresh from the project further down.
+    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") -and $_.Name -ne "Languages" } |
         ForEach-Object { Copy-Item $_.FullName -Destination $Stage -Recurse -Force }
 
     # The licence texts and the descriptions.

@@ -119,6 +119,11 @@ the world at the original's resolution or a multiple of it up to 4x, with the in
 sharp. It can be moved by its title row, to see the view while choosing.
 Colours has the colour help and the look of these windows: Stone, in the colours of the
 game's icon, with a gradient or clouds, or Plain.
+Gameplay has what changes how the game plays: "Fix bugs of the original" (on by default) and
+"Remove exploits of the original", and the aids, each off by default - "Choose attributes at
+creation", "Show every mantra and spell in the help" (else it shows those your character has
+learned in the game), "Lizard words" (the lizardmen's words with their meanings in brackets) and
+"Skill raises" (Highest, the most a chant can give; Fixed, the same result after loading).
 
 RULES
 -----
@@ -143,8 +148,10 @@ LANGUAGES
 The Language row in the Game window chooses the language of the port's own texts (English or
 German); the change takes effect at once. The files are in the folder Languages beside the game.
 A translation of the game's own texts is a file <code>.strings.tsv that a translator publishes on
-their own; put it into Languages too. How to make one: Docs/TRANSLATING.md in the repository and
-the Translation Kit beside each release.
+their own; put it into Languages too, with its folder of pictures if it brings one. With such a
+translation the cutscenes show subtitles for their speech ("Subtitles in cutscenes" in the Game
+window: Auto, Off or On). How to make one: Docs/TRANSLATING.md in the repository and the
+Translation Kit beside each release.
 
 
 MUSIC

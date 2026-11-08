@@ -194,6 +194,18 @@ namespace UnderworldRevisited.Tools
                 fCutsceneScript(0, CsFadeIn, 0, 1, CsTextAndPlay, 241, 1, 4, 1, CsSkip, 5, 0, 7, CsSetFrame, 0, 0, CsEnd), null, 1000, 25);
             Check.Seq("speech: a click while the recording plays jumps all the same", lORecorder.Frames.ToArray(), new[] { 0, 1, 2, 5, 6 });
 
+            // SUBTITLES WITH THE RECORDINGS (the setting CutsceneSubtitles, 2026-11-08): Auto where the
+            // language's game texts hold a row of the cutscene's block (0x0C00 + its number).
+            UWGameTextPack lOIntroPack = UWGameTextPack.Parse("3072\t1\tEndlich schläfst du.\n");
+            UWGameTextPack lOOtherPack = UWGameTextPack.Parse("3073\t1\tAnders.\n");
+
+            Check.Str("subtitles: Auto with the intro translated, with another cutscene's, without a pack; Off; On",
+                UWCutsceneSubtitles.WithSpeech(UWCutsceneSubtitlesEnum.Auto, 0, lOIntroPack) + " "
+                + UWCutsceneSubtitles.WithSpeech(UWCutsceneSubtitlesEnum.Auto, 0, lOOtherPack) + " "
+                + UWCutsceneSubtitles.WithSpeech(UWCutsceneSubtitlesEnum.Auto, 0, null) + " "
+                + UWCutsceneSubtitles.WithSpeech(UWCutsceneSubtitlesEnum.Off, 0, lOIntroPack) + " "
+                + UWCutsceneSubtitles.WithSpeech(UWCutsceneSubtitlesEnum.On, 0, null), "True False False False True");
+
             // A repeat makes the frame after it the target: a click ends the repeats and runs on.
             lORecorder = new CutsceneRecorder();
             fPlayCutscene(lORecorder, 0x20, fCutsceneScript(0, CsFadeIn, 0, 2, CsRepeat, 3, 4, CsSetFrame, 0, 0, CsEnd), null, 1000, 25);
@@ -324,6 +336,37 @@ namespace UnderworldRevisited.Tools
             }
 
             UWStrings lOStrings = pOContext.Data.Strings;
+
+            // What the recordings say (UWCutsceneSpoken): each change's check value is the game's string's,
+            // its words to change are found, and the subtitle differs; raw and cleaned alike, a translated
+            // line kept. No line of the game is written here - they come from the player's data.
+            System.Collections.Generic.List<string> lsSpokenWrong = new System.Collections.Generic.List<string>();
+            int liSpoken = 0;
+            string lsGhost = null;
+
+            foreach (UWCutsceneSpoken.Change lOChange in UWCutsceneSpoken.Changes)
+            {
+                liSpoken++;
+
+                string lsGame = UWText.Block(lOStrings, UWCutsceneRunner.GetSpeechBlock(lOChange.Cutscene), lOChange.Index + 1, string.Empty).Trim();
+                string lsRaw = UWCutsceneSpoken.Subtitle(lOChange.Cutscene, lOChange.Index, lsGame);
+                string lsClean = UWCutsceneSpoken.Subtitle(lOChange.Cutscene, lOChange.Index, UWTextLayout.CleanText(lsGame));
+
+                if (UWCutsceneSpoken.Check(lsGame) != lOChange.WrittenCheck)
+                    lsSpokenWrong.Add(lOChange.Cutscene + ":" + lOChange.Index + " check " + UWCutsceneSpoken.Check(lsGame).ToString("X8"));
+                else if (lsRaw == lsGame || lsClean == UWTextLayout.CleanText(lsGame) || UWTextLayout.CleanText(lsRaw) != lsClean)
+                    lsSpokenWrong.Add(lOChange.Cutscene + ":" + lOChange.Index + " not changed alike");
+
+                if (lOChange.Index == 5)
+                    lsGhost = lsGame;
+            }
+
+            Check.Str("spoken lines: each (" + liSpoken + ") matches the game's string and is changed raw and cleaned alike",
+                string.Join(", ", lsSpokenWrong), string.Empty);
+            Check.Str("spoken lines: the ghost's line loses its last words; a translation kept",
+                lsGhost == null ? "no line" : (UWCutsceneSpoken.Subtitle(0, 5, lsGhost) == lsGhost.Replace(" upon us", string.Empty)) + " | "
+                + UWCutsceneSpoken.Subtitle(0, 5, "Mein Bruder."),
+                "True | Mein Bruder.");
 
             Check.Bool("intro: the script fades in, so it starts dark",
                 UWCutsceneRunner.ScriptFadesIn(new UWCutsceneScript(Path.Combine(lsScripts, "CS000.N00"))), true);

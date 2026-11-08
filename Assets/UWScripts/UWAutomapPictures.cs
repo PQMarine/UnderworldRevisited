@@ -105,10 +105,11 @@ public sealed class UWAutomapPictures
         if (mOParchment != null || mOUi.mOUWData == null)
             return mOParchment;
 
-        UWTexture lOSource;
+        // Through GetTextureByType: the map's words in the language (UWPictureWords).
+        UWTexture lOSource = mOUi.mOUWData.Textures.BitmapFiles.ContainsKey(UWTexture.TextureTypes.BLNKMAP)
+            ? mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.BLNKMAP, 0) : null;
 
-        if (!mOUi.mOUWData.Textures.BitmapFiles.TryGetValue(UWTexture.TextureTypes.BLNKMAP, out lOSource)
-            || lOSource == null)
+        if (lOSource == null)
             return null;
 
         mOParchment = UWTextureFactory.FromTexture(lOSource, FilterMode.Point, "UWAutomapPictures parchment", TextureWrapMode.Clamp);

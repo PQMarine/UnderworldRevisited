@@ -46,9 +46,18 @@ namespace UnderworldRevisited.Tools
             Check.Str("header: the entries in order", string.Join(" | ", lOSources), "zh-TW.otf | os:Microsoft JhengHei | font.TTC");
             fExpectInt("header: a path, a picture, an empty family left out", lsProblems.Count, 3);
             fExpectInt("header: none is no font", UWLanguageFont.Parse("none", null).Count, 0);
-            fExpectBool("English: no font, no input method", !UWLanguageFont.HasFont && !UWLanguageFont.ImeWanted, true);
+            fExpectBool("English: no font, no input method, the original font", !UWLanguageFont.HasFont && !UWLanguageFont.ImeWanted
+                && !UWLanguageFont.ModernClassicFontWanted && !UWLanguageFont.ClassicBoldWanted, true);
             Check.Str("header: ime neither yes nor no", string.Join("; ", UWLanguageFont.CheckHeader(psId => psId == UWLanguageFont.ImeRuleId ? "ja" : null)),
                 "grammar.rule.ime: ja is neither yes nor no");
+            Check.Str("header: classic.font neither original nor modern", string.Join("; ",
+                UWLanguageFont.CheckHeader(psId => psId == UWLanguageFont.ClassicFontRuleId ? "yes" : null)),
+                "grammar.rule.classic.font: yes is neither original nor modern");
+            Check.Str("header: classic.bold neither yes nor no", string.Join("; ",
+                UWLanguageFont.CheckHeader(psId => psId == UWLanguageFont.ClassicBoldRuleId ? "bold" : null)),
+                "grammar.rule.classic.bold: bold is neither yes nor no");
+            Check.Str("CJK characters: ideograph, kana, full-width mark, Hangul - and not a Latin letter, a digit, an umlaut",
+                string.Concat(Array.ConvertAll("山カ。한Aä5".ToCharArray(), lcChar => UWLanguageFont.IsCjk(lcChar) ? '1' : '0')), "1111000");
 
             string lsRoot = CheckContext.ProjectRoot;
             string lsFixture = lsRoot == null ? null : Path.Combine(lsRoot, "Tools", "Fixtures", "i18n", "xz.tsv");

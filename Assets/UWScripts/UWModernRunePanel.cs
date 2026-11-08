@@ -971,7 +971,17 @@ public class UWModernRunePanel : UWModernDockedPanel
         mOSpellCircle.fontSize = piSmall;
         mOHint.fontSize = piSmall;
 
-        if (lbSpell)
+        // A spell the manual does not name and the character has not learned (GitHub issue 19, per user
+        // 2026-11-08): the hollow does not give it away - no name, no circle, as the classic scheme says
+        // nothing either; it can still be cast and so found.
+        if (lbSpell && !fKnowsSpell(lOSpell))
+        {
+            mOSpellName.text = "?";
+            mOSpellName.color = UWModernPalette.Grey;
+            mOSpellCircle.text = string.Empty;
+            mOHint.text = UWText.T("hud.runes.try_cast");
+        }
+        else if (lbSpell)
         {
             bool lbCastable = fIsCastableOnPanel(liSequence);
 
@@ -1001,8 +1011,18 @@ public class UWModernRunePanel : UWModernDockedPanel
         mOTitle.text = UWText.T("hud.spells.title");
         mOTitleRight.text = liCircle > 0 ? UWText.F("hud.spells.up_to_circle", liCircle) : string.Empty;
 
+        // The list follows what the character knows (GitHub issue 19): built anew when the hidden spells it
+        // shows changed - learned, a rune for Curse taken, the Gameplay option switched.
+        int liShown = fShownHiddenSpells();
+
+        if (mOEntries.Count > 0 && liShown != miEntriesShown)
+            fClearEntries();
+
         if (mOEntries.Count == 0)
+        {
+            miEntriesShown = liShown;
             fBuildEntries();
+        }
 
         fRelabelEntries();
 
@@ -1107,6 +1127,63 @@ public class UWModernRunePanel : UWModernDockedPanel
         }
     }
 
+    /// <summary>The hidden spells (UWKnowledgeSources.HiddenSpells) the list built last shows, as bits.</summary>
+    private int miEntriesShown = -1;
+
+    /// <summary>Which of the spells the manual does not name the list shows now, as bits: all of them with
+    /// the Gameplay window's "Show every mantra and spell" or in the second game, else those the character
+    /// knows (UWKnowledge, GitHub issue 19, 2026-11-08 - per user, the list showed them all).</summary>
+    private int fShownHiddenSpells()
+    {
+        int[] laHidden = UWKnowledgeSources.HiddenSpells;
+        int liAll = (1 << laHidden.Length) - 1;
+
+        if (UWUserSettings.KnowledgeShowAll || UWGameSession.Current == null || UWGameSession.Current.Game.Game != UWGame.Uw1)
+            return liAll;
+
+        DataImport lOData = fData();
+        UWPlayerData lOBag = lOData != null ? lOData.InitialPlayer : null;
+        int liShown = 0;
+
+        for (int liAt = 0; liAt < laHidden.Length; liAt++)
+        {
+            if (UWKnowledge.Current.SpellState(laHidden[liAt], lOBag, out UWKnowledge.Entry _) == UWKnowledge.SpellStateEnum.Known)
+                liShown |= 1 << liAt;
+        }
+
+        return liShown;
+    }
+
+    /// <summary>Whether the character knows this spell now (fShownHiddenSpells asked afresh, not the list's
+    /// last build): every spell the manual names, the others once learned or with "Show every".</summary>
+    private bool fKnowsSpell(UWRunicMagic.Spell pOSpell)
+    {
+        int liAt = System.Array.IndexOf(UWKnowledgeSources.HiddenSpells, pOSpell.Index);
+
+        return liAt < 0 || (fShownHiddenSpells() & (1 << liAt)) != 0;
+    }
+
+    private bool fShowsSpell(UWRunicMagic.Spell pOSpell)
+    {
+        int liAt = System.Array.IndexOf(UWKnowledgeSources.HiddenSpells, pOSpell.Index);
+
+        return liAt < 0 || (miEntriesShown & (1 << liAt)) != 0;
+    }
+
+    /// <summary>The list's entries away, to be built anew.</summary>
+    private void fClearEntries()
+    {
+        foreach (ListEntry lOEntry in mOEntries)
+        {
+            if (lOEntry.Name != null) Destroy(lOEntry.Name.gameObject);
+            if (lOEntry.Runes != null) Destroy(lOEntry.Runes.gameObject);
+            if (lOEntry.Icon != null) Destroy(lOEntry.Icon.gameObject);
+            if (lOEntry.Rule != null) Destroy(lOEntry.Rule.gameObject);
+        }
+
+        mOEntries.Clear();
+    }
+
     private void fBuildEntries()
     {
         int liCircle = 0;
@@ -1117,7 +1194,7 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         foreach (UWRunicMagic.Spell lOSpell in UWRunicMagic.AllSpells)
         {
-            if (lOSpell.RuneSequence == UWRunicMagic.EmptySequence)
+            if (lOSpell.RuneSequence == UWRunicMagic.EmptySequence || !fShowsSpell(lOSpell))
                 continue;
 
             if (lOSpell.Level != liCircle)

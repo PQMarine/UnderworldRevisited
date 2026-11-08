@@ -40,6 +40,8 @@ public partial class UWSetupMenu
 
     private UWSetupPage mOGamePage;
 
+    private UWSetupPage mOGameplayPage;
+
     /// <summary>The mode and the size the Display dialog shows in this pass, read once before its
     /// rows as the dialog always did (in the editor the saved choice, in the game what is on screen).</summary>
     private UWDisplayMode.ModeEnum meShownMode;
@@ -60,6 +62,7 @@ public partial class UWSetupMenu
         mOFolderPage = fBuildFolderPage();
         mOGraphicsPage = fBuildGraphicsPage();
         mOGamePage = fBuildGamePage();
+        mOGameplayPage = fBuildGameplayPage();
     }
 
     private static UWSetupRow fTitle(string psId, string psText)
@@ -625,6 +628,14 @@ public partial class UWSetupMenu
             // intro. Off it goes straight to the main menu, which is what one wants while testing
             // (per user, 2026-09-22). It takes effect at the next start.
             .Add(fToggle(Defs.ShowOpeningSequence, 30f))
+            // SUBTITLES WITH THE RECORDINGS (per user, 2026-11-08): Auto shows them where the language
+            // translates the cutscene's texts (UWCutsceneSubtitles).
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.ChoiceRow, Id = Defs.CutsceneSubtitles.LabelId, Def = Defs.CutsceneSubtitles, ChoiceColumns = WindowChoiceColumns,
+                Advance = 30f
+            })
+            .Add(fHint(Defs.CutsceneSubtitles, 0f))
             // KEEP RUNNING WITHOUT THE FOCUS (per user, 2026-09-28: for idle tests beside the
             // original, but everyone should decide for themselves). Takes effect at once (the
             // facade's setter applies it).
@@ -638,19 +649,8 @@ public partial class UWSetupMenu
                     UWUserSettings.Save();
                 }
             })
-            // DEAL THE ATTRIBUTE POINTS AT CHARACTER CREATION ONESELF (per user, 2026-10-01: for
-            // those who do not like their values to depend on luck; off by default). Takes effect at
-            // the next character creation.
-            .Add(fToggle(Defs.ManualAttributes, 30f))
-            // FIX THE ORIGINAL'S BUGS THAT CAN COST THE GAME (bug plan, per user 2026-11-03: one option, on by
-            // default): the deviation switches together, a rules.json key still decides one. Takes effect at the next
-            // start or load, when the session's rules are made.
-            .Add(fToggle(Defs.FixOriginalBugs, 30f))
-            .Add(fHint(Defs.FixOriginalBugs, 10f))
-            // REMOVE THE ORIGINAL'S HARMLESS EXPLOITS (per user 2026-11-07: an option of its own, off by default):
-            // the debris that keeps a potion's spell. Takes effect at the next start or load, as the bug option.
-            .Add(fToggle(Defs.RemoveExploits, 30f))
-            .Add(fHint(Defs.RemoveExploits, 10f))
+            // The bug fixes, the exploits and choosing the attributes moved to the Gameplay window on
+            // 2026-11-08 (fBuildGameplayPage, per user).
             // THE LANGUAGE (translation wave 1, 2026-10-26; decided by the user that day): English and
             // every language found in the Languages folder beside the game (UWLanguage.Available,
             // listed when the page is built), kept for the next start - and since translation step 3R
@@ -659,6 +659,52 @@ public partial class UWSetupMenu
             // next start the command line and UR_LANGUAGE still come first.
             .Add(fLanguageRow())
             .Add(fHint(Defs.Language, 0f));
+    }
+
+    /// <summary>
+    /// THE GAMEPLAY WINDOW (2026-11-08, per user): how the game plays, in two sections under one line that says
+    /// off is always the original - AS THE ORIGINAL (the bug fixes, the exploits; later more of the rule set's
+    /// switches) and AIDS (what the help shows of the mantras and spells, choosing the attributes; the lizard
+    /// words of issue 20 to come). Each row keeps its hint; the settings' keys did not move.
+    /// </summary>
+    private UWSetupPage fBuildGameplayPage()
+    {
+        return new UWSetupPage("gameplay")
+            .Add(fTitle("gameplay.title", UWText.T("setup.gameplay.title")))
+            .Add(fHint("gameplay.intro", UWText.T("setup.gameplay.intro"), 14f))
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "gameplay.original", Text = UWText.T("setup.gameplay.original"), Look = UWSetupRow.LookEnum.Heading, Advance = 26f })
+            // FIX THE ORIGINAL'S BUGS THAT CAN COST THE GAME (bug plan, per user 2026-11-03: one option, on by
+            // default): the deviation switches together, a rules.json key still decides one. Takes effect at the next
+            // start or load, when the session's rules are made.
+            .Add(fToggle(Defs.FixOriginalBugs, 30f))
+            .Add(fHint(Defs.FixOriginalBugs, 10f))
+            // REMOVE THE ORIGINAL'S HARMLESS EXPLOITS (per user 2026-11-07: an option of its own, off by default):
+            // the debris that keeps a potion's spell. Takes effect at the next start or load, as the bug option.
+            .Add(fToggle(Defs.RemoveExploits, 30f))
+            .Add(fHint(Defs.RemoveExploits, 14f))
+            .Add(new UWSetupRow { Kind = Kind.Info, Id = "gameplay.aids", Text = UWText.T("setup.gameplay.aids"), Look = UWSetupRow.LookEnum.Heading, Advance = 26f })
+            // EVERY MANTRA AND SPELL IN THE HELP (GitHub issue 19, 2026-11-08): off the help shows what the
+            // character has learned (UWKnowledge); at once.
+            .Add(fToggle(Defs.KnowledgeShowAll, 30f))
+            .Add(fHint(Defs.KnowledgeShowAll, 10f))
+            // THE LIZARD WORDS (GitHub issue 20, 2026-11-08): their meanings in brackets in the lizardmen's
+            // conversations - the words Murgo has mimed, or all; at once.
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.ChoiceRow, Id = Defs.LizardWords.LabelId, Def = Defs.LizardWords, ChoiceColumns = WindowChoiceColumns, Advance = 30f
+            })
+            .Add(fHint(Defs.LizardWords, 10f))
+            // DEAL THE ATTRIBUTE POINTS AT CHARACTER CREATION ONESELF (per user, 2026-10-01: for
+            // those who do not like their values to depend on luck; off by default). Takes effect at
+            // the next character creation.
+            .Add(fToggle(Defs.ManualAttributes, 30f))
+            // A SKILL RAISE'S CHANCE POINT always or never (per user, 2026-11-08: Highest saves the reloading
+            // before a shrine, like the attributes above; Fixed stops it). At once.
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.ChoiceRow, Id = Defs.SkillRaises.LabelId, Def = Defs.SkillRaises, ChoiceColumns = WindowChoiceColumns, Advance = 30f
+            })
+            .Add(fHint(Defs.SkillRaises, 10f));
     }
 
     /// <summary>The save folder row (per user, 2026-10-29): automatic, cloud_saves, the installation's
@@ -721,17 +767,19 @@ public partial class UWSetupMenu
         };
     }
 
-    /// <summary>The Language row: English first, then the codes found; the stored code marked, or
-    /// English when it is empty or no longer found.</summary>
+    /// <summary>The Language row: English first, then the languages found by their own names (their
+    /// setting.Language.name, else the code); the stored code marked, or English when it is empty or no longer
+    /// found.</summary>
     private static UWSetupRow fLanguageRow()
     {
         System.Collections.Generic.List<string> lsCodes = UWLanguage.Available();
         string[] lsChoices = new string[lsCodes.Count + 1];
 
-        lsChoices[0] = UWText.T("setting.Language.choice.english");
+        // Every language by its own name, English too (per user, 2026-11-08: in Japanese it read さをひて).
+        lsChoices[0] = UWLanguage.EnglishName;
 
         for (int liAt = 0; liAt < lsCodes.Count; liAt++)
-            lsChoices[liAt + 1] = lsCodes[liAt];
+            lsChoices[liAt + 1] = UWLanguage.DisplayName(lsCodes[liAt]);
 
         return new UWSetupRow
         {

@@ -32,7 +32,25 @@ namespace UnderworldRevisited.Tools
 
             Directory.CreateDirectory(lsOut);
 
-            if (lsName == "BYT")
+            // The first game's panels (PANELS.GR has no picture header) and its .BYT screens: as the game reads
+            // them, in their own palettes (2026-11-08, for a language's own pictures - see picture-template).
+            UWTexture.TextureTypes leGameType = default;
+            bool lbFromGame = pOContext.Game.Game == UWGame.Uw1 && lsPalette == null
+                && UWPicturePack.TryParse(Path.GetFileNameWithoutExtension(lsName) + (lsName.EndsWith(".BYT") ? ".png" : "_00.png"), out leGameType, out int _)
+                && (leGameType == UWTexture.TextureTypes.PANELS || UWPicturePack.IsScreen(leGameType));
+
+            if (lbFromGame)
+            {
+                List<UWTexture> lOList = pOContext.Data.Textures.GetTexturesByType(leGameType);
+
+                for (int liAt = 0; lOList != null && liAt < lOList.Count; liAt++)
+                {
+                    UWTexture lOPicture = pOContext.Data.Textures.GetOriginalTextureByType(leGameType, liAt);
+
+                    lOPictures.Add(new KeyValuePair<string, UWTexture>(Path.GetFileNameWithoutExtension(UWPicturePack.FileName(leGameType, liAt)), lOPicture));
+                }
+            }
+            else if (lsName == "BYT")
             {
                 UWTextures lOTextures = new UWTextures(pOContext.DataPath, lOPalettes, pOContext.Game.Game);
 
@@ -88,6 +106,124 @@ namespace UnderworldRevisited.Tools
             }
 
             return 0;
+        }
+
+        /// <summary>
+        /// uwdump picture-template [path] --out dir: the pictures with English painted into them, as a language's
+        /// own pictures are named (Languages/&lt;code&gt;/pictures, UWPicturePack): the options panel's buttons and
+        /// headings, the stats page, the map, the main menu's captions and the congratulations at the end - from
+        /// the player's own game, in the game's palettes. Paint over them, keep the size, and put those you
+        /// changed into the language's pictures folder; the game takes the nearest palette colour for each
+        /// pixel. The words the game writes anew from the texts (picture.*) need no picture.
+        /// </summary>
+        private static int fPictureTemplate(DumpContext pOContext, List<string> pOArgs)
+        {
+            string lsOut = fTakeOption(pOArgs, "--out");
+
+            if (lsOut == null)
+            {
+                Console.Error.WriteLine("picture-template --out dir");
+
+                return 1;
+            }
+
+            UWPictureWords lOWords = pOContext.Data.Textures.Words;
+
+            if (lOWords == null)
+            {
+                Console.Error.WriteLine("No pictures to translate for this game.");
+
+                return 2;
+            }
+
+            Directory.CreateDirectory(lsOut);
+
+            int liCount = 0;
+
+            foreach ((UWTexture.TextureTypes Type, int Index) lPicture in lOWords.TranslatablePictures)
+            {
+                UWTexture lOPicture = pOContext.Data.Textures.GetOriginalTextureByType(lPicture.Type, lPicture.Index);
+
+                if (lOPicture == null || lOPicture.Width <= 0 || lOPicture.Height <= 0)
+                    continue;
+
+                UWColor32[] lOColours = lOPicture.GetUWColor32();
+                byte[] lyRgba = new byte[lOPicture.Width * lOPicture.Height * 4];
+
+                for (int liPixel = 0; liPixel < lOColours.Length && liPixel < lOPicture.Width * lOPicture.Height; liPixel++)
+                {
+                    lyRgba[(liPixel * 4) + 0] = lOColours[liPixel].R;
+                    lyRgba[(liPixel * 4) + 1] = lOColours[liPixel].G;
+                    lyRgba[(liPixel * 4) + 2] = lOColours[liPixel].B;
+                    lyRgba[(liPixel * 4) + 3] = lOColours[liPixel].A;
+                }
+
+                PngWriter.Write(Path.Combine(lsOut, UWPicturePack.FileName(lPicture.Type, lPicture.Index)), lOPicture.Width, lOPicture.Height, lyRgba, false);
+                liCount++;
+            }
+
+            Console.WriteLine(liCount + " pictures written to " + lsOut + " - from your own game, not to be published as they are; put the ones"
+                + " you painted into Languages/<code>/" + UWPicturePack.FolderName);
+
+            return 0;
+        }
+
+        /// <summary>The checks of a language's own pictures (validate-tsv): every file names a picture of the game,
+        /// in its size. Warnings and errors counted into the caller's.</summary>
+        private static void CheckPictureFolder(DumpContext pOContext, string psFolder, ref int piErrors, ref int piWarnings)
+        {
+            if (psFolder == null || !Directory.Exists(psFolder))
+                return;
+
+            int liChecked = 0;
+
+            foreach (string lsFile in Directory.GetFiles(psFolder, "*.png"))
+            {
+                string lsName = Path.GetFileName(lsFile);
+
+                if (!UWPicturePack.TryParse(lsName, out UWTexture.TextureTypes leType, out int liIndex))
+                {
+                    Console.WriteLine("warning: picture " + lsName + ": names no picture of the game (NAME_NN.png for a .GR picture, NAME.png for a .BYT screen) - not used");
+                    piWarnings++;
+                    continue;
+                }
+
+                UWTexture lOPicture = null;
+
+                try
+                {
+                    lOPicture = pOContext.Data.Textures.GetOriginalTextureByType(leType, liIndex);
+                }
+                catch
+                {
+                    lOPicture = null;
+                }
+
+                if (lOPicture == null)
+                {
+                    Console.WriteLine("warning: picture " + lsName + ": the game has no such picture - not used");
+                    piWarnings++;
+                    continue;
+                }
+
+                if (!UWPicturePack.TryReadPngSize(File.ReadAllBytes(lsFile), out int liWidth, out int liHeight))
+                {
+                    Console.WriteLine("error: picture " + lsName + ": no PNG");
+                    piErrors++;
+                    continue;
+                }
+
+                liChecked++;
+
+                if (liWidth != lOPicture.Width || liHeight != lOPicture.Height)
+                {
+                    Console.WriteLine("error: picture " + lsName + ": " + liWidth + " x " + liHeight + ", the original is " + lOPicture.Width + " x "
+                        + lOPicture.Height + " - the game keeps the original");
+                    piErrors++;
+                }
+            }
+
+            Console.WriteLine("pictures of " + psFolder + ": " + liChecked + " checked");
         }
     }
 }

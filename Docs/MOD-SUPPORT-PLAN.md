@@ -8,11 +8,29 @@ and the languages with 0.10.0. What is built is summed up in section 0; sections
 point what the code does today and what is still the plan. Line numbers were right on the day
 they were written and will drift; the file names will not.
 
-**Contributions welcome** (decided 2026-10-27): the open parts are not planned to be built here
-for now - the next work is the small points under Next in [ROADMAP.md](../ROADMAP.md), then
-Ultima Underworld II. A pull request for any phase below is welcome; open an issue first
-([CONTRIBUTING.md](../CONTRIBUTING.md)). Section 4 says where each piece attaches and what it
-can start from.
+**Order** (decided 2026-11-08): the mod folder and data-only mods (pictures, tables, rules) come
+first, with the widescreen weapons ([WIDESCREEN-WEAPONS-PLAN.md](WIDESCREEN-WEAPONS-PLAN.md)); the
+hook API for mods with logic of their own waits for the second code cleanup (after Ultima Underworld
+II's phase 4), which reshapes the seams the hooks would expose.
+
+**Another editor's mods** (noted 2026-11-08): Karl Clinckspoor's MIT editor
+(github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) packs its changes as mod format 2
+(`.uwmod`: a zip with `mod.json` and byte deltas against exact originals, checked by SHA-256; its
+`docs/mod-format.md`), and its mod manager installs them into DOS folders and Underworld Exhumed.
+Reading such packages - applying the deltas in memory to the game's files before they are parsed -
+would let our data-only mods include everything that editor makes (levels, strings, tables,
+pictures, sounds, music, conversations, its randomizer), with no format of our own for those.
+**Decided 2026-11-08: supported out of the box**, as part of the mod folder's first step (with the
+widescreen weapons): a `.uwmod` in the mod folder is read as it is - its deltas applied in memory to
+the player's original files (the SHA-256 of base and result checked, a mod for another release
+refused, as format 2 itself does), the game files never written. Our own additions (pictures beyond
+the original's size, the port's texts, rules) stay in our folder format beside it.
+
+**Built here, step by step** (decided 2026-11-08, replacing "contributions welcome, not planned
+here" of 2026-10-27): the mod folder with the widescreen weapons and `.uwmod` is the next work after
+0.17.0 (Next in [ROADMAP.md](../ROADMAP.md)); the rest follows the order above. A pull request for
+any phase below is still welcome; open an issue first ([CONTRIBUTING.md](../CONTRIBUTING.md)).
+Section 4 says where each piece attaches and what it can start from.
 
 The plan covers four things that turn out to be one piece of infrastructure:
 
@@ -452,7 +470,11 @@ tables, the damage pipeline, the rule set - are in place. Marks: **done**, **par
 ### Phase 0: foundations (small)
 
 1. **open** - `UWModCatalog`, `UWModSet`, `mod.json`; the Mods folder; `EnabledMods` in
-   settings; the "Mods" window (list, on/off, order, "open folder").
+   settings; the "Mods" window (list, on/off, order, "open folder"). The catalog, the set and
+   `mod.json` come first with the widescreen weapons (Docs/WIDESCREEN-WEAPONS-PLAN.md, decided
+   2026-11-07): a mod is a folder or a zip read in place, names free, one level deeper allowed,
+   the id `author.mod-name` in `mod.json` and stable over versions, a folder wins over a zip of the
+   same id; active when installed until the Mods window brings on/off and the order.
 2. **partly** - the overlay seam: `UWGameData` lays the game-text file over the strings and
    keeps it in its identity; the mod set joins it.
 3. **partly** - the seeded generator exists (`UWSessionRandom`, seeded from the clock at each
@@ -499,7 +521,9 @@ Left from this phase, for the mod work: language files inside mods (section 3.1)
 1. **open** - setters on the four table classes; `data/comobj.json`, `objects.json`,
    `combine.json`; patches for `UWFoodTable` and `UWLightSourceTable`.
 2. **open** - `UWConversationPatches` data-driven.
-3. **open** - PNG pictures over `UWTextures`.
+3. **open** - PNG pictures over `UWTextures`. The first kind is an EXTENSION, not a
+   replacement: the widescreen weapons' new pixels around the original's, with a shift per
+   picture (Docs/WIDESCREEN-WEAPONS-PLAN.md).
 4. **open** - a validator for a mod folder (manifest, unknown keys, ids out of range, palette
    colours), as `uwdump validate-mod` beside `validate-tsv`, reusing `UWRulesJson`'s report.
 
@@ -565,8 +589,9 @@ scripts.
 
 ## 6. Open decisions for the user
 
-1. Mod folder location: `persistentDataPath/Mods` (default, beside `settings.json`; or per game,
-   `UW1/Mods` beside `UW1/rules.json`) or beside the executable too (where `Languages` is).
+1. ~~Mod folder location.~~ Decided by the user 2026-11-07: `persistentDataPath/Mods`, beside
+   `settings.json`, one for both games, with an Open folder button in the game as the MT-32 ROMs
+   have (Docs/WIDESCREEN-WEAPONS-PLAN.md).
 2. ~~Whether the language packs for GAME texts are mods in the same folder.~~ Decided by the
    build (0.10.0): languages live in `Languages` beside the game, two files per code. Open
    instead: whether a mod may also bring a language (proposed: yes, `lang/` in the mod, listed

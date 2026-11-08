@@ -24,6 +24,11 @@ namespace UWDataImport.UWData
 
 			// Game.
 			fAdd("setup.game.title", "Game");
+			fAdd("setup.bar.gameplay", "Gameplay");
+			fAdd("setup.gameplay.title", "Gameplay");
+			fAdd("setup.gameplay.intro", "These options change how the game plays. Off is always as in the original.");
+			fAdd("setup.gameplay.original", "As the original");
+			fAdd("setup.gameplay.aids", "Aids");
 			fAdd("setup.game.folder", "Game folder...");
 			fAdd("setup.game.folder2", "Folder of Ultima Underworld II...");
 			fAdd("setup.game.quit", "Quit");

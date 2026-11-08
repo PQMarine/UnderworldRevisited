@@ -382,6 +382,10 @@ namespace UWDataImport.UWData
 
 			lIMagic.PlayCastSound(pIHost, lOSpell);
 
+			// A spell that took is one the character knows (GitHub issue 19; the first game's help).
+			if (lOSession.Game.Game == UWGame.Uw1)
+				UWKnowledge.Current.Cast(lOSpell.Index);
+
 			return OutcomeEnum.Cast;
 		}
 

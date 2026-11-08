@@ -78,9 +78,24 @@ of what is built was also read out of the original's executable.
   it looks, backwards and sideways at three quarters of the forward speed - with the original's
   jumps, steps, ledges, falls, water, lava, triggers and doors; compared with the original's
   motion on all nine levels before it was played
+- What the character has learned: the help's Mantras and Spells tabs show the mantras and spells
+  a book, a writing or a conversation has told of, or that were chanted or cast, and the
+  lizardmen's words Murgo has mimed (issues 19 and 20)
+- A Gameplay window of optional aids beside the bug fixes and the exploit option: choosing the
+  attributes, the lizardmen's words with their meanings in their conversations, skill raises at
+  their highest or fixed, to prevent save scumming, every mantra and spell in the help at once
+- Translations further: the words painted into the game's pictures written anew in the language
+  or replaced by a translator's own pictures, the main menu's captions as text, subtitles for the
+  cutscenes' speech matched to what the recordings say, and the classic texts of a Chinese,
+  Japanese or Korean translation in the modern font with the system's input method
 
 ## Next
 
+- **Mod support, its first step**: a mod folder, with the widescreen weapon and hand pictures
+  (issue 16) as its first pack and the `.uwmod` packages of Karl Clinckspoor's
+  [Ultima Underworld editor](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia)
+  read as they are - levels, texts, tables, pictures and sounds made with it, applied in memory to
+  your own game files. [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md) has the plan.
 - **Ultima Underworld II**, after the preview of 0.13.0 (the game beside the first, its data,
   a walk through Britannia, its game screen, the inventory, the options and saves, the main menu
   and the character creation) and what came since (the map, the conversations, the modern
@@ -127,15 +142,20 @@ of what is built was also read out of the original's executable.
   first-person weapon and hand pictures for the modern scheme's wide view (issue 16). They are
   based on the original's art, so they will come as a pack the player installs, never in this
   repository or the release packages; the port then needs a loader for it, the first picture
-  overlay of [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md). Waiting for the first frames.
+  overlay of [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md), which comes next (see Next).
+- **The shield raised on a block** (issue 21, offered by the same artist): an option to show the
+  equipped shield low in the first-person view in attack mode, raised with a shake when it blocks
+  a blow. After the widescreen weapons.
 
 ## Open: translations
 
 - **Languages** are supported since 0.10.0: the port's own texts in German, the game's texts by
   language files that translators publish on their own ([Docs/TRANSLATING.md](Docs/TRANSLATING.md)).
-- **Other scripts** (Cyrillic, Chinese, Japanese) are prepared in the modern look; the classic
-  look would need pixel fonts of their own, and names in save games keep the original's bytes.
-  Built when a translator for such a language comes forward.
+- **Other scripts.** Chinese, Japanese and Korean work in the modern font, in the classic look too
+  (a translation switches its texts to that font); tried with a made-up test language, not yet
+  with a real translation. The original's pixel fonts would need letters of their own, and names in
+  save games keep the original's bytes. Cyrillic and others like it: built when a translator
+  comes forward.
 
 ## Later
 
@@ -147,12 +167,10 @@ of what is built was also read out of the original's executable.
   transitional `UWGameSession.Current`.
 - A second front end in Unreal Engine beside the Unity one, to go all out on the effects
   (ray tracing among them). Likely after Ultima Underworld II.
-- **Mod support - contributions welcome.** Not planned to be built here for now, but a pull
-  request for it is welcome. What exists already: the rule set (`rules.json`, 248 numbers and
-  switches) and the language files for every text. What is missing - a mod folder with a load
-  order, table and picture overlays, difficulty settings in the game, a randomizer, scripting -
-  is laid out in [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md), with where each piece
-  would attach; see [CONTRIBUTING.md](CONTRIBUTING.md) and open an issue first.
+- **Mod support beyond its first step** (see Next): difficulty settings in the game, and mods with
+  logic of their own through hooks, after a second code cleanup that reshapes the seams they
+  would use. Laid out in [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md); a pull request is
+  welcome - see [CONTRIBUTING.md](CONTRIBUTING.md) and open an issue first.
 
 ## Ideas, not planned
 

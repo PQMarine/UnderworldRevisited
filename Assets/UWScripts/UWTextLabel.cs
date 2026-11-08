@@ -108,8 +108,48 @@ public class UWTextLabel : MonoBehaviour
     /// outside the Classic preset (UWModernScroll).</summary>
     public bool OriginalOnly;
 
-    /// <summary>The modern font is shown now: the key's choice, unless the field keeps the original.</summary>
-    private bool UsesModernFont => UseModernFont && !OriginalOnly;
+    /// <summary>The modern font is shown now: the key's choice, unless the field keeps the original - which
+    /// it does not in a language whose classic texts want the modern font (FollowLanguage).</summary>
+    private bool UsesModernFont => UseModernFont && (!OriginalOnly || msLanguageWantsModern);
+
+    /// <summary>Which language last switched the font to modern by its rule (FollowLanguage).</summary>
+    private const string LanguagePrefsKey = "UWModernFontLanguage";
+
+    private static bool msLanguageWantsModern;
+
+    /// <summary>The language's CJK characters bold in the modern font (grammar.rule.classic.bold).</summary>
+    private static bool msLanguageBoldCjk;
+
+    /// <summary>
+    /// THE LANGUAGE'S CHOICE OF FONT (grammar.rule.classic.font modern, 2026-11-08; called by
+    /// UWLanguage.Apply): an ideograph in the original font's six rows is not readable (the made-up
+    /// Japanese xj in the game, per user's screenshots), so such a language switches the classic texts to
+    /// the modern font ONCE, when it is chosen - the key F still switches back, and a restart keeps the
+    /// player's choice (the language that did it is remembered; choosing another language forgets it, so
+    /// choosing this one again switches again). The original pieces of the modern scheme (OriginalOnly)
+    /// follow the key F then too.
+    /// </summary>
+    public static void FollowLanguage(string psCode, bool pbWantsModern, bool pbBoldCjk)
+    {
+        msLanguageWantsModern = pbWantsModern;
+        msLanguageBoldCjk = pbBoldCjk;
+
+        string lsDone = PlayerPrefs.GetString(LanguagePrefsKey, string.Empty);
+
+        if (!pbWantsModern)
+        {
+            if (lsDone.Length > 0)
+                PlayerPrefs.DeleteKey(LanguagePrefsKey);
+
+            return;
+        }
+
+        if (lsDone == psCode)
+            return;
+
+        UseModernFont = true;
+        PlayerPrefs.SetString(LanguagePrefsKey, psCode);
+    }
 
     /// <summary>The field for a RawImage - created the first time.</summary>
     public static UWTextLabel Get(RawImage pOImage)
@@ -583,8 +623,43 @@ public class UWTextLabel : MonoBehaviour
                 .Replace("\n", string.Empty));
 
             lOText.Append("<color=#").Append(ColorUtility.ToHtmlStringRGBA(lOColour)).Append('>')
-                .Append(lsLine).Append("</color>");
+                .Append(msLanguageBoldCjk ? fBoldCjk(lsLine) : lsLine).Append("</color>");
         }
+
+        return lOText.ToString();
+    }
+
+    /// <summary>
+    /// THE CJK CHARACTERS BOLD (grammar.rule.classic.bold, 2026-11-08): each run of Chinese, Japanese or
+    /// Korean characters in a bold tag, the rest as it is - Unity takes the bold face of the installed
+    /// font that draws them, or thickens the regular one. A regular CJK face faded on the original's
+    /// stone at character creation (the made-up xj, per user's screenshots); Lexend Exa's digits beside
+    /// it are heavy enough. The line is escaped already, so the tags are the only markup in it.
+    /// </summary>
+    private static string fBoldCjk(string psLine)
+    {
+        System.Text.StringBuilder lOText = null;
+        bool lbIn = false;
+
+        for (int liAt = 0; liAt < psLine.Length; liAt++)
+        {
+            bool lbCjk = UWLanguageFont.IsCjk(psLine[liAt]);
+
+            if (lbCjk != lbIn)
+            {
+                lOText = lOText ?? new System.Text.StringBuilder(psLine.Substring(0, liAt));
+                lOText.Append(lbCjk ? "<b>" : "</b>");
+                lbIn = lbCjk;
+            }
+
+            lOText?.Append(psLine[liAt]);
+        }
+
+        if (lOText == null)
+            return psLine;
+
+        if (lbIn)
+            lOText.Append("</b>");
 
         return lOText.ToString();
     }

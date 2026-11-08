@@ -167,6 +167,9 @@ namespace UWDataImport.UWData
 
 			int liMantra = fFindMantra(psMantra, pOData);
 
+			// A mantra chanted rightly is one the character knows from now on (GitHub issue 19).
+			UWKnowledge.Current.Chanted(liMantra);
+
 			if (liMantra < 0)
 			{
 				pOGeneralMessage(NotAMantraMessage);
@@ -391,12 +394,30 @@ namespace UWDataImport.UWData
 
 			List<string> lONames = new List<string>();
 
+			// THE PICK FIXED with the setting SkillRaises at Fixed (per user, 2026-11-08, UWSkillRaise): keyed on
+			// the mantra, the attempt and the group's skill values now, so a chant after loading picks the same.
+			bool lbFixed = UWSkillRaise.Mode == UWSkillRaiseEnum.Fixed;
+
+			int[] fKey(int piAttempt, int piWhich)
+			{
+				int[] liKey = new int[3 + liCount];
+
+				liKey[0] = piSpecial;
+				liKey[1] = piAttempt;
+				liKey[2] = piWhich;
+
+				for (int i = 0; i < liCount; i++)
+					liKey[3 + i] = pOVitals.GetSkillByNumber(liFirst + i);
+
+				return liKey;
+			}
+
 			for (int liAt = 0; liAt < liTries; liAt++)
 			{
 				int liSkill = liFirst == UWPlayerVitals.ManaSkillNumber && pOVitals.GetSkillByNumber(UWPlayerVitals.ManaSkillNumber) < 8
-					&& UWRandom.Next(2) == 0
+					&& (lbFixed ? pOVitals.FixedRoll(2, fKey(liAt, 0)) : UWRandom.Next(2)) == 0
 					? UWPlayerVitals.ManaSkillNumber
-					: UWRandom.Next(liFirst, liFirst + liCount);
+					: lbFixed ? liFirst + pOVitals.FixedRoll(liCount, fKey(liAt, 1)) : UWRandom.Next(liFirst, liFirst + liCount);
 
 				if (pOVitals.TryIncreaseSkill(liSkill))
 					lONames.Add(fGetSkillName(liSkill, pOData));

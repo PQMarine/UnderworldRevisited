@@ -732,8 +732,11 @@ namespace UWDataImport.UWData
 			[UserTuned("2026-09-03")]
 			public const int LevelNumberCentre = 289;
 
-			[UserTuned("2026-09-03")]
-			public const int LevelNumberTop = 5;
+			/// <summary>The number's top row. AUTOMAP.C ShowAutoMapLevel writes it at x 0x121 - width / 2, y 0xC2
+			/// (199 - 0xC2 = 5 by the second game's rule), but the user's screenshots against the original
+			/// (2026-11-08, "Level 6" and "Level10") show it two rows lower than ours at 5.</summary>
+			[UserTuned("2026-11-08, two rows lower after a comparison with the original; was 5 since 2026-09-03")]
+			public const int LevelNumberTop = 7;
 
 			/// <summary>The click areas on the parchment.</summary>
 			[Estimated("BLNKMAP.BYT")]

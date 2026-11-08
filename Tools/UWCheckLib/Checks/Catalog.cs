@@ -141,6 +141,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Session", pOContext => fCheckSession(pOContext), true, "data", "session");
             lOCatalog.Add("SessionRandom", pOContext => fCheckSessionRandom(), false, "misc", "session", "original");
             lOCatalog.Add("BarterOverflow", pOContext => fCheckBarterOverflow(pOContext), true, "conversation", "original");
+            lOCatalog.Add("LizardChoices", pOContext => fCheckLizardChoices(pOContext), true, "conversation");
+            lOCatalog.Add("ConversationNoTarget", pOContext => fCheckConversationNoTarget(pOContext), true, "conversation", "original");
+            lOCatalog.Add("LizardLessons", pOContext => fCheckLizardLessons(pOContext), true, "conversation");
             lOCatalog.Add("BarterSetup", pOContext => fCheckBarterSetup(pOContext), true, "conversation", "original");
             lOCatalog.Add("BarterHandover", pOContext => fCheckBarterHandover(pOContext), true, "conversation", "original");
             lOCatalog.Add("TradeLootRoll", pOContext => fCheckTradeLootRoll(pOContext), true, "conversation", "inventory", "original");
@@ -198,6 +201,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("CharacterSheetData", pOContext => fCheckCharacterSheetData(pOContext.Data), true, "hud", "player");
             lOCatalog.Add("ConversationView", pOContext => fCheckConversationView(pOContext.Data), true, "hud", "conversation", "original");
             lOCatalog.Add("MessageLogModel", pOContext => fCheckMessageLogModel(), false, "hud", "original");
+            lOCatalog.Add("Knowledge", pOContext => fCheckKnowledge(pOContext.Data), true, "player", "original");
+            lOCatalog.Add("PictureWords", pOContext => fCheckPictureWords(pOContext.Data), true, "hud", "original");
             lOCatalog.Add("CountInput", pOContext => fCheckCountInput(), false, "hud", "input", "inventory");
             lOCatalog.Add("EasyStepKeys", pOContext => fCheckEasyStepKeys(), false, "input", "settings");
             lOCatalog.Add("InputRepeat", pOContext => fCheckInputRepeat(), false, "input", "hud");

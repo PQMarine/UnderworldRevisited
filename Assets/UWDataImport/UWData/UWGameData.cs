@@ -153,6 +153,7 @@ namespace UWDataImport.UWData
 			Conversations = new UWConversations(psPath, leGame);
 			Terrain = new UWTerrain(psPath, leGame);
 			Fonts = new UWFonts(psPath);
+			Textures.Words = new UWPictureWords(Fonts, leGame);
 			ObjectCombining = new UWObjectCombining(psPath);
 			TransparencyTables = new UWTransparencyTables(psPath, leGame);
 			Shades = new UWShades(psPath);

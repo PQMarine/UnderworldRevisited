@@ -46,9 +46,14 @@ uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, 
        uwdump validate-tsv <game> Languages/xx.strings.tsv
        uwdump fit <game> --strings Languages/xx.strings.tsv
        uwdump looks <game> --strings Languages/xx.strings.tsv
+     validate-tsv also checks the pictures of your language (Languages/xx/pictures, below), and
+     fit measures the words written into the game's pictures. A string with characters the pixel
+     fonts lack (Chinese, Japanese) is marked "?": only the game measures those - look at them
+     there.
 
   4. Try them: put both files into the folder Languages beside UR.exe (or UR.x86_64) and choose
-     the language in the Language row of the Game window.
+     the language in the Language row of the Game window. The row shows your language by its
+     setting.Language.name, written in the language itself ("Deutsch").
 
   After a new release, bring your translation up to date with the new texts:
        uwdump text-template xx --from Languages/xx.tsv --out xx-new.tsv
@@ -56,6 +61,31 @@ uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, 
   remove the "# " and translate) and lists the ids that are gone.
 
   uwdump without arguments lists every command.
+
+
+WORDS IN THE GAME'S PICTURES
+----------------------------
+
+Some English words are painted into the original's pictures: the options panel's buttons, the
+stats page's STR to EXP, the map's Level, ERASE and CLOSE, the main menu's captions, the
+congratulations at the end. Two ways to translate them:
+
+  - The ids picture.* in Languages/xx.tsv. The game paints over the English and writes your words
+    in the original's own pixel letters (the main menu's captions in the save list's style). A
+    button holds about seven letters on each of two lines; fit and validate-tsv report a word too
+    wide.
+
+  - Pictures of your own, painted over the originals - for a decorative script, the end screen, or
+    a language whose letters four pixel rows cannot draw. Write them from your own game:
+       uwdump picture-template <game> --out pictures-to-paint
+     paint over the ones you translate, keep their size, and put them into Languages/xx/pictures
+     with the names they have (OPBTN_00.png, WIN1.png). A picture of yours wins over the words.
+
+Chinese, Japanese and Korean: see "Fonts and input methods" in TRANSLATING.md (grammar.rule.font,
+grammar.rule.ime, grammar.rule.classic.font and grammar.rule.classic.bold).
+
+The intro's texts (block 3072 of the game's texts) show as subtitles while the recordings speak
+as soon as your pack translates them (the Game window's "Subtitles in cutscenes", Auto).
 
 
 PICTURES AND PALETTES
@@ -88,4 +118,5 @@ PUBLISHING
 Languages/xx.tsv, the port's own texts, may go into the project by pull request:
 https://github.com/PQMarine/UnderworldRevisited. The game's texts (xx.strings.tsv) are a
 translation of Origin's text: they never go into the project; a translator who publishes one
-does so on their own responsibility. See the end of TRANSLATING.md.
+does so on their own responsibility. The same holds for pictures painted over the game's
+(Languages/xx/pictures): they are Origin's art changed. See the end of TRANSLATING.md.

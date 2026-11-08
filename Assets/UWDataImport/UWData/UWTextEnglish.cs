@@ -50,6 +50,8 @@ namespace UWDataImport.UWData
 			fGrid();
 			fGrammar();
 			fMessages();
+			fPictures();
+			fLizard();
 		}
 
 		private static void fAdd(string psId, string psText)

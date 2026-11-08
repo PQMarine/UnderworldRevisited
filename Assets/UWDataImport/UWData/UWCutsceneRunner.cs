@@ -93,11 +93,24 @@ namespace UWDataImport.Presentation
 			/// <summary>Minimum duration of a line without a speech recording, in seconds.</summary>
 			public float MinimumLineDuration = 1.5f;
 
+			/// <summary>Seconds per character of a subtitle shown with its recording (SubtitlesWithSpeech): 0.08,
+			/// twelve and a half characters a second, as subtitles are usually timed - 0.06 let German lines go
+			/// by unread (per user, 2026-11-08).</summary>
+			public float SubtitleSecondsPerCharacter = 0.08f;
+
+			/// <summary>The least reading time of such a subtitle.</summary>
+			public float SubtitleMinimumDuration = 2f;
+
 			/// <summary>Is there speech output? The original's flag b5 (speech_available): without
 			/// it a line shows its text instead of starting its recording, and opcode 4 also holds
 			/// the frame before its target (cutsop_skip). Our player always has it; false only in
 			/// the self-check (2026-10-24).</summary>
 			public bool SpeechOutput = true;
+
+			/// <summary>The subtitle while the recording speaks too (per user 2026-11-08, the setting
+			/// CutsceneSubtitles): the original draws a line's text only without speech output; a player
+			/// of another language wants to read what the recording says in English.</summary>
+			public bool SubtitlesWithSpeech;
 		}
 
 		/// <summary>Cutscenes from this number on play inside the 3D viewport, the game UI stays
@@ -202,6 +215,10 @@ namespace UWDataImport.Presentation
 			/// </summary>
 			SpeechOrClick,
 
+			/// <summary>Before the next line, while the subtitle shown with its recording has not had its
+			/// reading time (Timing.SubtitlesWithSpeech): until it has, or a click.</summary>
+			ReadOrClick,
+
 			/// <summary>One step of a palette fade: until the host's time since it began reaches
 			/// the step - summed from the deltas, as the fade coroutine summed them.</summary>
 			FadeStep
@@ -246,6 +263,9 @@ namespace UWDataImport.Presentation
 
 		/// <summary>Time at which the running recording ends - reference point for 0x0E.</summary>
 		private double mdSpeechEndsAt;
+
+		/// <summary>Until when the subtitle shown with its recording needs to stay to be read (fStartLine).</summary>
+		private double mdReadUntil;
 
 		/// <summary>
 		/// Set as soon as a mouse click happened; cleared as soon as the next line starts.
@@ -391,6 +411,9 @@ namespace UWDataImport.Presentation
 
 				case WaitKind.SpeechOrClick:
 					return mdNow < mdSpeechEndsAt && !mbAdvanceRequested;
+
+				case WaitKind.ReadOrClick:
+					return mdNow < mdReadUntil && !mbAdvanceRequested;
 
 				default:
 					return mfWaited < mfWaitSeconds;
@@ -753,14 +776,23 @@ namespace UWDataImport.Presentation
 					break;
 
 				case UWCutsceneScript.Command.TextAndPlay:
+					foreach (bool lbStep in fLetLastLineBeRead())
+						yield return lbStep;
+
 					fStartLine(pOEntry.Arguments[0], pOEntry.Arguments[1], pOEntry.Arguments[2]);
 					break;
 
 				// ERASE (0x01), cutsop_erase: the subtitle goes, the recording plays on. Only the
 				// intro has it (CS000, frames 24 and 100); it shows only when a recording is missing,
 				// as no subtitle is drawn while one speaks. Not interpreted until 2026-10-27.
+				//
+				// With subtitles shown with the recordings (2026-11-08) an erase while the subtitle's reading time
+				// runs is left out: the subtitle goes by itself when its time is up (the host's due time). The
+				// intro's two erases took the hounds' line and the creature's line from under the reader (per
+				// user), where the picture pans on without text.
 				case UWCutsceneScript.Command.SetFlag:
-					mOHost.EraseLine();
+					if (!mOTiming.SubtitlesWithSpeech || mdNow >= mdReadUntil)
+						mOHost.EraseLine();
 					break;
 
 				// PUNT (0x0C), cutsop_punt: whether Escape may end the cutscene. Only the title
@@ -770,6 +802,9 @@ namespace UWDataImport.Presentation
 					break;
 
 				case UWCutsceneScript.Command.ShowText:
+					foreach (bool lbStep in fLetLastLineBeRead())
+						yield return lbStep;
+
 					fStartLine(pOEntry.Arguments[0], pOEntry.Arguments[1], -1);
 					break;
 
@@ -971,6 +1006,25 @@ namespace UWDataImport.Presentation
 		/// only in TextAndPlay - ShowText did not clear, the flag stayed set, and a
 		/// single click then tore through the whole sequence (per user, 2026-09-07). Both
 		/// commands start a line, so it applies to both.</summary>
+		/// <summary>
+		/// THE NEXT LINE WAITS FOR THE LAST ONE TO BE READ (per user, 2026-11-08): with subtitles shown with the
+		/// recordings, a line that starts while the last one's reading time runs holds the picture until it
+		/// has run, or a click (used up by it). The intro starts many lines without a hold between them
+		/// ("With a sickening sense of deja vu" ran into "You try to wake", the hounds' line into the creature's)
+		/// - the original waits only for its recordings, which are shorter than the reading of a translation.
+		/// The scripts stay as they are.
+		/// </summary>
+		private IEnumerable<bool> fLetLastLineBeRead()
+		{
+			if (!mOTiming.SubtitlesWithSpeech || mbHidden || mdNow >= mdReadUntil)
+				yield break;
+
+			fWait(WaitKind.ReadOrClick, 0f);
+			yield return true;
+
+			mbAdvanceRequested = false;
+		}
+
 		private void fStartLine(int piColour, int piStringIndex, int piVoiceNumber)
 		{
 			mbAdvanceRequested = false;
@@ -990,8 +1044,18 @@ namespace UWDataImport.Presentation
 
 				if (lfLength >= 0f)
 				{
-					lfDuration = lfLength;
+					// THE READING TIME WITH SUBTITLES (per user, 2026-11-08: German lines went by before they
+					// were read): a subtitle shown with the recording lasts as long as the recording or its
+					// reading time, whichever is longer, and the holds that wait for the recording (0x0E)
+					// wait for it too - the recording itself is not touched.
+					float lfReading = lsText == null ? 0f
+						: Math.Max(mOTiming.SubtitleMinimumDuration, lsText.Length * mOTiming.SubtitleSecondsPerCharacter);
+
+					lfDuration = mOTiming.SubtitlesWithSpeech ? Math.Max(lfLength, lfReading) : lfLength;
 					mbSpeechPlaying = true;
+
+					if (mOTiming.SubtitlesWithSpeech && lsText != null)
+						mdReadUntil = mdNow + lfReading;
 				}
 			}
 
@@ -1002,7 +1066,15 @@ namespace UWDataImport.Presentation
 			//
 			// The subtitle disappears with the end of the recording, not only when the
 			// next line replaces it (the host holds it for pfSeconds and a little more).
-			mOHost.ShowLine(piStringIndex, mbSpeechPlaying ? null : lsText, piColour, lfDuration);
+			//
+			// SINCE 2026-11-08 the subtitle can show with the recording too (Timing.SubtitlesWithSpeech, the
+			// setting CutsceneSubtitles: by default when the language translates the cutscene's texts).
+			//
+			// With the recording, the subtitle says what the recording says where its English text differs
+			// (UWCutsceneSpoken, heard by the user 2026-11-08); a translation keeps its own.
+			string lsShown = mbSpeechPlaying && mOTiming.SubtitlesWithSpeech ? UWCutsceneSpoken.Subtitle(miCutscene, piStringIndex, lsText) : lsText;
+
+			mOHost.ShowLine(piStringIndex, mbSpeechPlaying && !mOTiming.SubtitlesWithSpeech ? null : lsShown, piColour, lfDuration);
 
 			mdSpeechEndsAt = mdNow + lfDuration;
 		}

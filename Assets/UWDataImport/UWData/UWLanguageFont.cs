@@ -21,6 +21,16 @@ namespace UWDataImport.UWData
 	///                       dynamic fonts can only fall back to installed fonts, not to a file).
 	///   grammar.rule.ime    yes: the text entries turn on the system's input method (IME) and take
 	///                       every character it commits (Chinese, Japanese, Korean); no (the default).
+	///   grammar.rule.classic.font   modern: choosing the language switches the classic texts to the
+	///                       modern font once (the key F still switches back), and the original pieces
+	///                       of the modern scheme follow the key F too - an ideograph in six pixel rows
+	///                       is not readable (measured with the made-up Japanese xj, 2026-11-08);
+	///                       original (the default): as before.
+	///   grammar.rule.classic.bold   yes: in the modern font the classic texts draw their Chinese, Japanese
+	///                       and Korean characters bold - a regular CJK face has thin strokes that fade on
+	///                       the original's stone and parchment in its grey and brown (character creation
+	///                       with the made-up xj, 2026-11-08); the Latin letters and digits stay as they
+	///                       are. no (the default).
 	///
 	/// Without a font the classic fonts draw ASCII and the German letters (UWFontGlyphBuilder) and the
 	/// modern ones what Lexend Exa and Liberation Sans have, then whatever Unity finds on the system.
@@ -32,6 +42,16 @@ namespace UWDataImport.UWData
 
 		/// <summary>The header id of the input method.</summary>
 		public const string ImeRuleId = "grammar.rule.ime";
+
+		/// <summary>The header id of the classic texts' font (original or modern).</summary>
+		public const string ClassicFontRuleId = "grammar.rule.classic.font";
+
+		public const string ClassicFontOriginal = "original";
+
+		public const string ClassicFontModern = "modern";
+
+		/// <summary>The header id of the bold CJK characters in the classic texts' modern font.</summary>
+		public const string ClassicBoldRuleId = "grammar.rule.classic.bold";
 
 		/// <summary>What an entry for an installed font starts with.</summary>
 		public const string OsPrefix = "os:";
@@ -61,6 +81,21 @@ namespace UWDataImport.UWData
 
 		/// <summary>Whether the language in force wants the input method (grammar.rule.ime yes).</summary>
 		public static bool ImeWanted => string.Equals(UWText.T(ImeRuleId).Trim(), "yes", StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>Whether the language in force wants its classic texts in the modern font
+		/// (grammar.rule.classic.font modern).</summary>
+		public static bool ModernClassicFontWanted => string.Equals(UWText.T(ClassicFontRuleId).Trim(), ClassicFontModern, StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>Whether the language in force wants its CJK characters bold in the classic texts' modern
+		/// font (grammar.rule.classic.bold yes).</summary>
+		public static bool ClassicBoldWanted => string.Equals(UWText.T(ClassicBoldRuleId).Trim(), "yes", StringComparison.OrdinalIgnoreCase);
+
+		/// <summary>A Chinese, Japanese or Korean character (UWTextLayout.IsBreakAnywhere, the Hangul
+		/// syllables and the Hangul letters) - what grammar.rule.classic.bold makes bold.</summary>
+		public static bool IsCjk(char pcChar)
+		{
+			return UWTextLayout.IsBreakAnywhere(pcChar) || (pcChar >= '\uAC00' && pcChar <= '\uD7AF') || (pcChar >= '\u1100' && pcChar <= '\u11FF');
+		}
 
 		/// <summary>The rule's entries in order (see the class); an entry that does not read is left out
 		/// and, with pOProblems, named there.</summary>
@@ -118,18 +153,27 @@ namespace UWDataImport.UWData
 			return "is no font file (" + string.Join(" ", FileExtensions) + ")";
 		}
 
-		/// <summary>What is wrong with the two ids (pText gives an id's text in the language, or null for
+		/// <summary>What is wrong with the four ids (pText gives an id's text in the language, or null for
 		/// one it leaves English) - part of UWGrammarGeneric.CheckHeader. Empty when fine.</summary>
 		public static List<string> CheckHeader(Func<string, string> pText)
 		{
 			List<string> lsFound = new List<string>();
 			string lsFont = pText(FontRuleId) ?? UWText.English(FontRuleId) ?? string.Empty;
 			string lsIme = (pText(ImeRuleId) ?? UWText.English(ImeRuleId) ?? string.Empty).Trim();
+			string lsClassic = (pText(ClassicFontRuleId) ?? UWText.English(ClassicFontRuleId) ?? string.Empty).Trim();
+			string lsBold = (pText(ClassicBoldRuleId) ?? UWText.English(ClassicBoldRuleId) ?? string.Empty).Trim();
 
 			Parse(lsFont, lsFound);
 
 			if (!string.Equals(lsIme, "yes", StringComparison.OrdinalIgnoreCase) && !string.Equals(lsIme, "no", StringComparison.OrdinalIgnoreCase))
 				lsFound.Add(ImeRuleId + ": " + lsIme + " is neither yes nor no");
+
+			if (!string.Equals(lsClassic, ClassicFontOriginal, StringComparison.OrdinalIgnoreCase)
+				&& !string.Equals(lsClassic, ClassicFontModern, StringComparison.OrdinalIgnoreCase))
+				lsFound.Add(ClassicFontRuleId + ": " + lsClassic + " is neither " + ClassicFontOriginal + " nor " + ClassicFontModern);
+
+			if (!string.Equals(lsBold, "yes", StringComparison.OrdinalIgnoreCase) && !string.Equals(lsBold, "no", StringComparison.OrdinalIgnoreCase))
+				lsFound.Add(ClassicBoldRuleId + ": " + lsBold + " is neither yes nor no");
 
 			return lsFound;
 		}

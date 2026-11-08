@@ -197,7 +197,15 @@ public class UWAudioMixer : MonoBehaviour
 
         UWAudioListenerGuard.Ensure(null);
 
-        mORecordings = gameObject.AddComponent<UWMusicRecordingPlayer>();
+        // THE RECORDINGS ON AN OBJECT OF THEIR OWN (2026-11-08): this object's AudioSource carries the
+        // filter (OnAudioFilterRead), and Unity supports such a filter on one AudioSource only; with the
+        // recordings' source beside it (since 2026-10-27) every log warned "GameObject has multiple
+        // AudioSources", a suspect of the native heap corruption (Todo: native crash). A child survives
+        // the scene restart with this object.
+        GameObject lORecordings = new GameObject("UW Music Recordings");
+
+        lORecordings.transform.SetParent(transform, false);
+        mORecordings = lORecordings.AddComponent<UWMusicRecordingPlayer>();
         mbRequestedRecordings = UWUserSettings.MusicRecordings;
 
         // The device from the settings before the first piece can start, so the intro does not

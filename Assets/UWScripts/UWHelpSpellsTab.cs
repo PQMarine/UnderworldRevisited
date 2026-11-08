@@ -4,8 +4,10 @@ using UWDataImport;
 using UWDataImport.UWData;
 
 /// <summary>The help's SPELLS tab: the rune spells circle by circle, with their rune pictures, a
-/// click to lay them into the casting hollow, and the spells the manual does not name folded
-/// away. Moved out of UWHelpWindow (cleanup 8.6, 2026-10-24).</summary>
+/// click to lay them into the casting hollow, and below them either the spells the manual does not
+/// name that the character has LEARNED, the half known ones and how many are still to find
+/// (UWKnowledge, GitHub issue 19, 2026-11-08) - or, with the Gameplay window's "Show every mantra and
+/// spell", all of them folded away as before. Moved out of UWHelpWindow (cleanup 8.6, 2026-10-24).</summary>
 public sealed class UWHelpSpellsTab : UWHelpTab
 {
     /// <summary>The panel with what the manual does not name - closed until asked for.</summary>
@@ -23,7 +25,7 @@ public sealed class UWHelpSpellsTab : UWHelpTab
         pOFlow.Line(UWText.T("help.spells.title"), UWHelpLookEnum.Heading);
         pOFlow.Line(UWText.T("help.spells.intro"), UWHelpLookEnum.Dim);
 
-        fDrawSpellList(pOFlow, lOData, true);
+        fDrawSpellList(pOFlow, lOData, (pOSpell, pbNamed) => pbNamed, null);
 
         // The second game has no notes from the first game's manual: every spell stands in the one list.
         if (fSecondGame() != null)
@@ -31,12 +33,63 @@ public sealed class UWHelpSpellsTab : UWHelpTab
 
         pOFlow.Space(16f);
 
+        if (!UWUserSettings.KnowledgeShowAll)
+        {
+            fDrawLearned(pOFlow, lOData);
+
+            return;
+        }
+
         if (pOFlow.Fold(mbShowMoreSpells ? UWText.T("help.spells.hide_more")
                 : UWText.T("help.spells.show_more")))
             mbShowMoreSpells = !mbShowMoreSpells;
 
         if (mbShowMoreSpells)
-            fDrawSpellList(pOFlow, lOData, false);
+            fDrawSpellList(pOFlow, lOData, (pOSpell, pbNamed) => !pbNamed, null);
+    }
+
+    /// <summary>The hidden spells the character knows, each with where from; the half known ones with the
+    /// runes known so far; how many are still to find.</summary>
+    private void fDrawLearned(IUWHelpFlow pOFlow, DataImport pOData)
+    {
+        UWKnowledge lOKnown = UWKnowledge.Current;
+        UWPlayerData lOBag = pOData != null ? pOData.InitialPlayer : null;
+        int liLearned = 0;
+
+        pOFlow.Line(UWText.T("help.knowledge.learned"), UWHelpLookEnum.SubHeading);
+
+        fDrawSpellList(pOFlow, pOData,
+            (pOSpell, pbNamed) => !pbNamed && lOKnown.SpellState(pOSpell.Index, lOBag, out UWKnowledge.Entry _) == UWKnowledge.SpellStateEnum.Known,
+            pOSpell =>
+            {
+                lOKnown.SpellState(pOSpell.Index, lOBag, out UWKnowledge.Entry lOEntry);
+                liLearned++;
+
+                return UWHelpKnowledge.SourceText(lOEntry);
+            });
+
+        bool lbHalf = false;
+
+        foreach (int liSpell in UWKnowledgeSources.HiddenSpells)
+        {
+            if (lOKnown.SpellState(liSpell, lOBag, out UWKnowledge.Entry _) != UWKnowledge.SpellStateEnum.Half
+                || liSpell < 0 || liSpell >= UWRunicMagic.AllSpells.Count)
+                continue;
+
+            string lsName = pOData != null ? UWRunicMagic.GetName(UWRunicMagic.AllSpells[liSpell], pOData.Strings) : string.Empty;
+
+            pOFlow.Line(string.Format("<b>{0}</b>   <color=#{1}>{2}</color>", lsName, UWGuiTheme.AccentHex,
+                UWKnowledgeSources.HalfRunes(liSpell)), UWHelpLookEnum.Text);
+            pOFlow.Line(UWText.T("help.spells.half"), UWHelpLookEnum.Dim);
+            pOFlow.Space(EntrySpacing);
+            lbHalf = true;
+        }
+
+        if (liLearned == 0 && !lbHalf)
+            pOFlow.Line(UWText.T("help.knowledge.none_yet"), UWHelpLookEnum.Dim);
+
+        if (liLearned < UWKnowledgeSources.HiddenSpells.Length)
+            pOFlow.Line(UWText.F("help.knowledge.to_find", UWKnowledgeSources.HiddenSpells.Length - liLearned), UWHelpLookEnum.Dim);
     }
 
     /// <summary>
@@ -48,7 +101,8 @@ public sealed class UWHelpSpellsTab : UWHelpTab
     /// lay there - only when all of them are in the bag, as the shelf itself only offers what
     /// the bag holds. The spell lying in the hollow right now is marked.
     /// </summary>
-    private void fDrawSpellList(IUWHelpFlow pOFlow, DataImport pOData, bool pbManual)
+    private void fDrawSpellList(IUWHelpFlow pOFlow, DataImport pOData, System.Func<UWRunicMagic.Spell, bool, bool> pFShow,
+        System.Func<UWRunicMagic.Spell, string> pFUnderLine)
     {
         int liCircle = 0;
         UWPlayerData lOPlayer = pOData != null ? pOData.InitialPlayer : null;
@@ -73,7 +127,7 @@ public sealed class UWHelpSpellsTab : UWHelpTab
             string lsNote = null;
             bool lbNamed = lOSecond == null && UWHelpContent.ManualSpellNotes.TryGetValue(lOSpell.Index, out lsNote);
 
-            if (lOSecond == null && lbNamed != pbManual)
+            if (lOSecond == null && !pFShow(lOSpell, lbNamed))
                 continue;
 
             if (lOSpell.Level != liCircle)
@@ -118,6 +172,10 @@ public sealed class UWHelpSpellsTab : UWHelpTab
 
             if (lbNamed)
                 pOFlow.Line(UWText.T(lsNote), UWHelpLookEnum.Dim);
+
+            // Where a learned spell came from (fDrawLearned).
+            if (pFUnderLine != null)
+                pOFlow.Line(pFUnderLine(lOSpell), UWHelpLookEnum.Dim);
 
             // Room between the spells, so each stands apart (per user, 2026-09-26).
             pOFlow.Space(EntrySpacing);

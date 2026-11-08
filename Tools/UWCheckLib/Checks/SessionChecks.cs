@@ -295,6 +295,284 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
+        /// THE LIZARD WORDS' ANSWERS follow the menu (GitHub issue 20, user test 2026-11-08): the VM clears and
+        /// refills one list for every menu, and the shown answers were cached by that list and its count - so
+        /// Sseetharee's second menu, four answers as the first, showed the first's, and 4 chosen there was
+        /// "Why not?". Her conversation is run with All through its first menus: the shown answers are always
+        /// the pending ones with their meanings.
+        /// </summary>
+        private static void fCheckLizardChoices(CheckContext pOContext)
+        {
+            Check.Group("Lizard words: the answers shown are the menu's (Sseetharee, slot 15)");
+
+            UWLevel lOLevel = pOContext.Level(0);
+            Func<UWLizardWordsEnum> lFOld = UWLizardWords.ModeSource;
+
+            if (lOLevel == null)
+            {
+                Check.Fail("lizard answers", "no level");
+
+                return;
+            }
+
+            UWLizardWords.ModeSource = () => UWLizardWordsEnum.All;
+
+            try
+            {
+                UWNpc lONpc = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCwhoami = 15 };
+                UWConversationSession lOConversation = new UWConversationSession(pOContext.Data, lONpc, 15,
+                    ConversationHostStub.Create(lOLevel), UWGameSession.Current);
+                List<string> lsMenus = new List<string>();
+                int liStale = 0;
+
+                lOConversation.Advance();
+
+                for (int liMenu = 0; liMenu < 3 && !lOConversation.IsFinished && lOConversation.Choices.Count > 0; liMenu++)
+                {
+                    // Asked twice, as the views ask every frame: the second answer comes from the cache.
+                    IReadOnlyList<string> lsFirst = lOConversation.Choices;
+                    string lsShown = string.Join(" | ", lOConversation.Choices);
+                    string lsWanted = string.Join(" | ", lOConversation.RawChoices.Select(psChoice =>
+                        UWLizardWords.Shown(psChoice, UWKnowledge.Current)));
+
+                    if (lsShown != lsWanted)
+                        liStale++;
+
+                    lsMenus.Add(lsShown);
+                    lOConversation.Choose(lsFirst.Count);
+                }
+
+                Check.Bool("lizard answers: at least two menus run (" + string.Join(" / ", lsMenus) + ")", lsMenus.Count >= 2, true);
+                Check.Int("lizard answers: menus whose shown answers were not the pending ones", liStale, 0);
+            }
+            finally
+            {
+                UWLizardWords.ModeSource = lFOld;
+            }
+        }
+
+        /// <summary>
+        /// A CALL TO 65535 ENDS THE CONVERSATION (per user in DOSBox, 2026-11-08): Sseetharee's answer
+        /// "Why not?" calls the jump target the data never got; the original ends the conversation, ours
+        /// stopped with "Instruction pointer 65535 lies outside the program". Every answer path of her
+        /// conversation (to eight answers deep) is run: none may end in an error, and "Why not?" ends it.
+        /// </summary>
+        private static void fCheckConversationNoTarget(CheckContext pOContext)
+        {
+            Check.Group("A conversation's CALL 65535 ends it (Sseetharee, slot 15)");
+
+            UWLevel lOLevel = pOContext.Level(0);
+
+            if (lOLevel == null)
+            {
+                Check.Fail("call 65535", "no level");
+
+                return;
+            }
+
+            Queue<List<int>> lOPaths = new Queue<List<int>>();
+            List<string> lsErrors = new List<string>();
+            int liRuns = 0;
+            int liEndedOnWhyNot = 0;
+
+            lOPaths.Enqueue(new List<int>());
+
+            while (lOPaths.Count > 0 && liRuns < 3000)
+            {
+                List<int> liPath = lOPaths.Dequeue();
+                UWNpc lONpc = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCwhoami = 15 };
+                UWConversationSession lOConversation = new UWConversationSession(pOContext.Data, lONpc, 15,
+                    ConversationHostStub.Create(lOLevel), UWGameSession.Current);
+
+                liRuns++;
+                lOConversation.Advance();
+
+                foreach (int liPick in liPath)
+                {
+                    if (!lOConversation.IsFinished)
+                        lOConversation.Choose(liPick);
+                }
+
+                if (!string.IsNullOrEmpty(lOConversation.Error))
+                {
+                    lsErrors.Add(string.Join(",", liPath) + ": " + lOConversation.Error);
+
+                    continue;
+                }
+
+                if (lOConversation.IsFinished)
+                {
+                    if (lOConversation.Lines.Count > 0 && lOConversation.Lines[lOConversation.Lines.Count - 1].Text == "Why not?")
+                        liEndedOnWhyNot++;
+
+                    continue;
+                }
+
+                if (liPath.Count >= 8)
+                    continue;
+
+                for (int k = 1; k <= lOConversation.RawChoices.Count; k++)
+                    lOPaths.Enqueue(new List<int>(liPath) { k });
+            }
+
+            Check.Str("call 65535: no answer path ends in an error (" + liRuns + " runs)", string.Join(" / ", lsErrors), string.Empty);
+            Check.Bool("call 65535: \"Why not?\" ends the conversation (" + liEndedOnWhyNot + " paths)", liEndedOnWhyNot > 0, true);
+        }
+
+        /// <summary>
+        /// MURGO'S LESSONS TEACH THE WORDS (GitHub issue 20, user test 2026-11-08): his mimes come by print, not
+        /// say, and only say reported what was seen - so nothing was learned. His conversation is run until the
+        /// lesson menu, "What does "sseth" mean?" is chosen, and then "Other..." with "Urgo" typed: both words
+        /// must be known afterwards, in a knowledge of its own.
+        /// </summary>
+        private static void fCheckLizardLessons(CheckContext pOContext)
+        {
+            Check.Group("Lizard words: Murgo's lessons teach them (slot 24)");
+
+            UWLevel lOLevel = pOContext.Level(0);
+            UWKnowledge lOOld = UWKnowledge.Current;
+
+            if (lOLevel == null)
+            {
+                Check.Fail("lizard lessons", "no level");
+
+                return;
+            }
+
+            try
+            {
+                Queue<List<int>> lOPaths = new Queue<List<int>>();
+                string lsFound = null;
+                int liRuns = 0;
+
+                lOPaths.Enqueue(new List<int>());
+
+                while (lOPaths.Count > 0 && liRuns < 5000 && lsFound == null)
+                {
+                    List<int> liPath = lOPaths.Dequeue();
+
+                    UWKnowledge.Current = new UWKnowledge();
+
+                    UWNpc lONpc = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCwhoami = 24 };
+                    UWConversationSession lOConversation = new UWConversationSession(pOContext.Data, lONpc, 24,
+                        ConversationHostStub.Create(lOLevel), UWGameSession.Current);
+
+                    liRuns++;
+                    lOConversation.Advance();
+
+                    foreach (int liPick in liPath)
+                    {
+                        if (!lOConversation.IsFinished && !lOConversation.IsAskingText)
+                            lOConversation.Choose(liPick);
+                    }
+
+                    if (lOConversation.IsFinished || lOConversation.IsAskingText)
+                        continue;
+
+                    int liSseth = -1;
+                    int liOther = -1;
+
+                    for (int k = 0; k < lOConversation.RawChoices.Count; k++)
+                    {
+                        if (lOConversation.RawChoices[k].Contains("\"sseth\""))
+                            liSseth = k + 1;
+                        else if (lOConversation.RawChoices[k].StartsWith("Other"))
+                            liOther = k + 1;
+                    }
+
+                    if (liSseth > 0 && liOther > 0)
+                    {
+                        lOConversation.Choose(liSseth);
+
+                        for (int k = 0; k < lOConversation.RawChoices.Count; k++)
+                        {
+                            if (lOConversation.RawChoices[k].StartsWith("Other"))
+                                liOther = k + 1;
+                        }
+
+                        lOConversation.Choose(liOther);
+
+                        if (lOConversation.IsAskingText)
+                            lOConversation.SupplyText("Urgo");
+
+                        lsFound = "sseth " + UWKnowledge.Current.HasFlag(UWLizardWords.Find("sseth").Flag)
+                            + ", urgo " + UWKnowledge.Current.HasFlag(UWLizardWords.Find("urgo").Flag)
+                            + ", bica " + UWKnowledge.Current.HasFlag(UWLizardWords.Find("bica").Flag);
+                        continue;
+                    }
+
+                    if (liPath.Count >= 9)
+                        continue;
+
+                    for (int k = 1; k <= lOConversation.RawChoices.Count; k++)
+                        lOPaths.Enqueue(new List<int>(liPath) { k });
+                }
+
+                Check.Str("lizard lessons: the menu reached (" + liRuns + " runs) and the words learned", lsFound,
+                    "sseth True, urgo True, bica False");
+
+                // His name guessed right ("Murgo" typed at "Thy name is ...") teaches urgo as well (per user).
+                string lsName = null;
+                string lsWrong = null;
+
+                lOPaths.Clear();
+                lOPaths.Enqueue(new List<int>());
+                liRuns = 0;
+
+                while (lOPaths.Count > 0 && liRuns < 5000 && (lsName == null || lsWrong == null))
+                {
+                    List<int> liPath = lOPaths.Dequeue();
+
+                    liRuns++;
+
+                    foreach (string lsTyped in new[] { "Murgo", "Gurgo" })
+                    {
+                        UWKnowledge.Current = new UWKnowledge();
+
+                        UWNpc lONpc = new UWNpc((ushort)UWObjectIds.FirstCreature) { NPCwhoami = 24 };
+                        UWConversationSession lOConversation = new UWConversationSession(pOContext.Data, lONpc, 24,
+                            ConversationHostStub.Create(lOLevel), UWGameSession.Current);
+
+                        lOConversation.Advance();
+
+                        foreach (int liPick in liPath)
+                        {
+                            if (!lOConversation.IsFinished && !lOConversation.IsAskingText)
+                                lOConversation.Choose(liPick);
+                        }
+
+                        if (!lOConversation.IsAskingText || !lOConversation.Lines[lOConversation.Lines.Count - 1].Text.StartsWith("I have it."))
+                        {
+                            if (lsTyped == "Murgo" && !lOConversation.IsFinished && !lOConversation.IsAskingText && liPath.Count < 6)
+                            {
+                                for (int k = 1; k <= lOConversation.RawChoices.Count; k++)
+                                    lOPaths.Enqueue(new List<int>(liPath) { k });
+                            }
+
+                            break;
+                        }
+
+                        lOConversation.SupplyText(lsTyped);
+
+                        string lsKnown = "urgo " + UWKnowledge.Current.HasFlag(UWLizardWords.FlagPrefix + UWLizardWords.NameWord);
+
+                        if (lsTyped == "Murgo")
+                            lsName = lsKnown;
+                        else
+                            lsWrong = lsKnown;
+                    }
+                }
+
+                Check.Str("lizard lessons: his name guessed right teaches urgo, a wrong guess not",
+                    lsName + " / " + lsWrong, "urgo True / urgo False");
+            }
+            finally
+            {
+                UWKnowledge.Current = lOOld;
+            }
+        }
+
+        /// <summary>
         /// Cleanup step 2.8 (2026-10-14), the barter's global draw: once the four slots are full,
         /// setup_to_barter (BARTER.C) passes over an item when the global rand masked to three bits
         /// is below five - five in eight, from the session's generator (ours rolled 0..6, five in

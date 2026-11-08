@@ -262,6 +262,30 @@ namespace UWDataImport.UWData
 			return list.ToArray();
 		}
 
+		/// <summary>A copy of the picture with other pixels in its palette space (UWPictureWords): the same
+		/// size, palettes and kind, the pixels given.</summary>
+		public UWTexture WithPixels(byte[] pyPaletteIndices)
+		{
+			UWTexture lOCopy = (UWTexture)MemberwiseClone();
+
+			lOCopy.PaletteIndices = pyPaletteIndices;
+
+			return lOCopy;
+		}
+
+		/// <summary>The colours of the picture's palette by index: the main palette's 256, or the auxiliary
+		/// palette's 16 of a four-bit picture (UWPicturePack.ToIndices).</summary>
+		public UWColor32[] PaletteColours()
+		{
+			IPalette lOPalette = fGetPalette();
+			UWColor32[] lyColours = new UWColor32[AuxPaletteIndex == 255 ? 256 : 16];
+
+			for (int liAt = 0; liAt < lyColours.Length; liAt++)
+				lyColours[liAt] = lOPalette.GetUWColor(liAt);
+
+			return lyColours;
+		}
+
 		public UWColor32[] GetUWColor32()
 		{
 			List<UWColor32> list = new List<UWColor32>();

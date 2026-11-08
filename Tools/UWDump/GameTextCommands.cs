@@ -201,13 +201,46 @@ namespace UnderworldRevisited.Tools
             }
 
             // THE CLASSIC FIXED BOXES (translation 5.2, UWClassicFit): a string wider than its box is clipped.
-            foreach (UWClassicFit.Entry lOEntry in UWClassicFit.Measure(lOTranslated, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts))
+            // Characters the pixel fonts lack (Chinese, Japanese) are drawn by the language's font, which only
+            // the game rasterises: their width is not known here, said once (2026-11-08).
+            int liUnmeasured = 0;
+            string lsUnmeasuredSample = string.Empty;
+
+            List<UWClassicFit.Entry> lOMeasured = UWClassicFit.Measure(lOTranslated, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts);
+
+            // The pictures' words (UWPictureWords), with the port's texts of the pack's language.
+            lOMeasured.AddRange(UWClassicFit.MeasurePictures(pOContext.Data.Textures?.Words));
+
+            foreach (UWClassicFit.Entry lOEntry in lOMeasured)
             {
+                if (lOEntry.IsUnmeasured)
+                {
+                    liUnmeasured++;
+
+                    if (lsUnmeasuredSample.Length < 8)
+                        lsUnmeasuredSample += lOEntry.Missing;
+
+                    continue;
+                }
+
                 if (!lOEntry.IsOver)
                     continue;
 
                 Console.WriteLine("warning: " + lOEntry.Key + ": \"" + lOEntry.Text + "\" is " + lOEntry.Width + " pixels in a box of " + lOEntry.Box
-                    + " (" + lOEntry.Place + ") - clipped; uwdump fit lists them all");
+                    + (lOEntry.OverRows ? ", more lines than it holds" : string.Empty) + " (" + lOEntry.Place + ") - clipped; uwdump fit lists them all");
+                liWarnings++;
+            }
+
+            // The language's own pictures beside the pack (Languages/<code>/pictures, UWPicturePack).
+            if (!string.IsNullOrEmpty(lsCode))
+                CheckPictureFolder(pOContext, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(pOArgs[0])), lsCode, UWPicturePack.FolderName),
+                    ref liErrors, ref liWarnings);
+
+            if (liUnmeasured > 0)
+            {
+                Console.WriteLine("warning: " + liUnmeasured + " strings in the classic look's fixed boxes hold characters the pixel fonts lack ("
+                    + lsUnmeasuredSample + "...) - drawn by the language's font in the game only, so their width is not measured here; look at"
+                    + " character creation and the stats page in the game");
                 liWarnings++;
             }
 
@@ -229,14 +262,21 @@ namespace UnderworldRevisited.Tools
         {
             bool lbOverOnly = fTakeFlag(pOArgs, "--over");
             // By place, in the order the places come first.
+            List<UWClassicFit.Entry> lOMeasured = UWClassicFit.Measure(pOContext.Data.Strings, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts);
+
+            lOMeasured.AddRange(UWClassicFit.MeasurePictures(pOContext.Data.Textures?.Words));
+
             List<UWClassicFit.Entry> lOEntries = new List<UWClassicFit.Entry>(System.Linq.Enumerable.SelectMany(System.Linq.Enumerable.GroupBy(
-                UWClassicFit.Measure(pOContext.Data.Strings, pOContext.Data.MiscDataFiles, pOContext.Data.Fonts), pOEntry => pOEntry.Place), pOGroup => pOGroup));
+                lOMeasured, pOEntry => pOEntry.Place), pOGroup => pOGroup));
             int liOver = 0;
+            int liUnmeasured = 0;
             string lsPlace = null;
 
             foreach (UWClassicFit.Entry lOEntry in lOEntries)
             {
-                if (lOEntry.IsOver)
+                if (lOEntry.IsUnmeasured)
+                    liUnmeasured++;
+                else if (lOEntry.IsOver)
                     liOver++;
                 else if (lbOverOnly)
                     continue;
@@ -247,12 +287,14 @@ namespace UnderworldRevisited.Tools
                     Console.WriteLine(lsPlace + " (box " + lOEntry.Box + ")");
                 }
 
-                Console.WriteLine(string.Format("  {0,-4} {1,-10} {2,3}/{3,-3} \"{4}\"", lOEntry.IsOver ? "OVER" : "ok", lOEntry.Key, lOEntry.Width, lOEntry.Box,
-                    lOEntry.Text));
+                Console.WriteLine(string.Format("  {0,-4} {1,-10} {2,3}/{3,-3} \"{4}\"", lOEntry.IsUnmeasured ? "?" : lOEntry.IsOver ? "OVER" : "ok", lOEntry.Key,
+                    lOEntry.IsUnmeasured ? "?" : lOEntry.Width.ToString(), lOEntry.Box, lOEntry.Text));
             }
 
             Console.WriteLine(lOEntries.Count + " strings measured" + (pOContext.StringsPath != null ? " with " + pOContext.StringsPath : " (English)") + ", "
-                + liOver + " over their box");
+                + liOver + " over their box"
+                + (liUnmeasured == 0 ? string.Empty : ", " + liUnmeasured + " not measurable here (?): characters the pixel fonts lack, drawn by the"
+                    + " language's font in the game only - look at them in the game"));
 
             return liOver == 0 ? 0 : 6;
         }

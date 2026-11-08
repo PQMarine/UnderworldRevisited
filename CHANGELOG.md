@@ -8,6 +8,51 @@ the [releases page](https://github.com/PQMarine/UnderworldRevisited/releases).
 against its code and, where noted, by playing the original. The deliberate exceptions are in
 [Docs/DEVIATIONS.md](Docs/DEVIATIONS.md).
 
+## [Unreleased]
+
+## [0.17.0] - 2026-11-08
+
+### Added
+- The help's Mantras and Spells tabs show what your character has learned in the game: a mantra or a spell the
+  manual does not name appears once a book, a writing or a conversation has told of it, or once it is chanted
+  or cast, with where it came from, and the tabs count what is still to find. Some spells are only half known
+  until cast; the incense visions' letters are noted in the order seen. The modern rune panel's spell list
+  follows what is known (GitHub issue 19).
+- A Gameplay window beside Game: the bug fixes, the exploit option, choosing the attributes, and "Show every
+  mantra and spell in the help" for those who want all of them at once.
+- "Lizard words" in the Gameplay window: the lizardmen's words with their meanings in brackets, in their
+  conversations - "Bica [hello, goodbye], sor'click [stranger]." Learned shows the words Murgo has mimed for
+  you (or his name, guessed right) and lists them in the help's Mantras tab, kept with the save game; All shows
+  every word; Off is the original (GitHub issue 20).
+- "Skill raises" in the Gameplay window: a skill's mantra at a shrine raises it by one to six points, partly by
+  chance. Highest always gives the most the attribute allows, so there is no need to reload before a shrine;
+  Fixed rolls once for each chant, so reloading brings the same result; Off is the original. Trainers in the
+  second game work the same way.
+- Subtitles in cutscenes: with a translation chosen (Auto), or always (On), the intro's spoken lines show their
+  text too, held until it can be read. Where the recording says something else than the written line, the
+  subtitle gives what is said.
+- For translations: the words painted into the game's pictures - the options panel's buttons, the stats page's
+  labels, the map's Level, ERASE and CLOSE - are written anew in the language, or a translator brings pictures
+  of their own (`uwdump picture-template`). Without a picture of the main menu's captions they are written as
+  text over it. A Chinese, Japanese or Korean translation sets its classic texts in the modern font, with the
+  system's input method. The Language row names each language in its own words; English stays English.
+
+### Changed
+- The stats page's labels (STR to EXP) follow the modern font where it is chosen, and its lines from the left
+  keep their edge in it.
+- The modern Character panel no longer shows the classic page's empty weight stone, which looked like a missing
+  number: the modern scheme shows the weight above the backpack (GitHub issue 22). The panel's right circles
+  no longer get doubled edges on a wide panel.
+- The music recordings play on an audio source of their own, no longer beside the synthesizers' one, which
+  Unity warned about - a possible cause of rare crashes.
+
+### Fixed
+- Trisch on level 4 no longer repeats "I beg of thee, let me but look at it." a dozen times when you refuse to show
+  him the Taper: one plea a refusal, as in the original.
+- Using a wall writing no longer casts a spell from its text number (the ORA writing on level 3 played an incense
+  vision): it shows its text, as the original does.
+- The map's level number sits where the original puts it; it was two pixels too high and one to the right.
+
 ## [0.16.7] - 2026-11-07
 
 ### Added

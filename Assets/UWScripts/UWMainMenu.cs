@@ -239,16 +239,22 @@ public class UWMainMenu : MonoBehaviour
         mOUnselectedColour = UWColourVision.Apply(UWScreenUi.GetColour(mOData.Palettes, ScreenPalette, UnselectedColourIndex));
 
         miColourVersion = UWColourVision.Version;
+        miLanguageVersion = UWText.LanguageVersion;
     }
 
     /// <summary>Which state of the colour help the pictures were built from - they are built once
     /// and would otherwise keep their colours until the next start (per user, 2026-09-17).</summary>
     private int miColourVersion = -1;
 
+    /// <summary>Which language the pictures were built in: a language may bring its own captions
+    /// (UWPicturePack, Languages/&lt;code&gt;/pictures) - until 2026-11-08 they showed only after a restart.</summary>
+    private int miLanguageVersion = -1;
+
     private void fRefreshColours()
     {
         // The screen-only picture came with the colour help of its start (no data to build it anew).
-        if (mOCanvas == null || miColourVersion == UWColourVision.Version || meMode == Mode.ScreenOnly)
+        if (mOCanvas == null || (miColourVersion == UWColourVision.Version && miLanguageVersion == UWText.LanguageVersion)
+            || meMode == Mode.ScreenOnly)
             return;
 
         fReadColours();
@@ -272,7 +278,7 @@ public class UWMainMenu : MonoBehaviour
             mOButtonOff[liAt] = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.OPBTN, liAt * 2, leFilter);
             mOButtonOn[liAt] = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.OPBTN, (liAt * 2) + 1, leFilter);
 
-            UWScreenUi.SetTexture(mOButtons[liAt], liAt == miHover ? mOButtonOn[liAt] : mOButtonOff[liAt]);
+            fSetButton(liAt, liAt == miHover);
         }
 
         if (meMode == Mode.SaveList)
@@ -481,7 +487,7 @@ public class UWMainMenu : MonoBehaviour
 
         for (int liAt = 0; liAt < ButtonCount; liAt++)
         {
-            UWScreenUi.SetTexture(mOButtons[liAt], mOButtonOff[liAt]);
+            fSetButton(liAt, false);
             mOButtons[liAt].gameObject.SetActive(liAt < ShownButtons);
         }
 
@@ -536,6 +542,75 @@ public class UWMainMenu : MonoBehaviour
         mOPadStepper.Update(mOPadRects);
     }
 
+    /// <summary>
+    /// THE CAPTIONS AS TEXT (per user, 2026-11-08): a button shows its picture (OPBTN.GR, idle or lit - a
+    /// language's own one from its pictures folder, UWPicturePack); where the language has none but
+    /// translates the caption (picture.menu.*), the picture is hidden and the caption written over the title
+    /// screen's stone in the save list's style - FONTBIG, its two colours for idle and lit, centred on the
+    /// picture's middle. The picture stays as the button's area for the pointer. English keeps the pictures.
+    /// </summary>
+    private void fSetButton(int piButton, bool pbLit)
+    {
+        RawImage lOButton = mOButtons[piButton];
+
+        UWScreenUi.SetTexture(lOButton, pbLit ? mOButtonOn[piButton] : mOButtonOff[piButton]);
+
+        RawImage lOCaption = mOButtonCaptions[piButton];
+        string lsId = piButton < msCaptionIds.Length ? msCaptionIds[piButton] : null;
+        UWFont lOFont = mOData != null ? mOData.Fonts.Get(UWFonts.FontType.Big) : null;
+        bool lbText = lsId != null && lOFont != null && lOButton.texture != null && UWText.T(lsId) != UWText.English(lsId)
+            && !(UWPictureWords.Files != null && UWPictureWords.Files.Has(UWPicturePack.FileName(UWTexture.TextureTypes.OPBTN, piButton * 2)));
+
+        lOButton.color = lbText ? new Color(1f, 1f, 1f, 0f) : Color.white;
+
+        if (lOCaption == null)
+            return;
+
+        if (!lbText)
+        {
+            UWTextLabel.Hide(lOCaption);
+
+            for (int liShadow = 0; liShadow < CaptionShadowOffsets.Length; liShadow++)
+                UWTextLabel.Hide(mOButtonCaptionShadows[piButton, liShadow]);
+
+            return;
+        }
+
+        int liLeft = (lOButton.texture.width - UWScreenUi.ScreenWidth) / 2;
+        int liTop = (lOButton.texture.height - CaptionInkRows) / 2 - CaptionInkTop;
+
+        // A black shadow below and right of the letters, as the painted captions have it (measured on
+        // OPBTN.GR 2026-11-08: one and two pixels; per user, the text was hard to make out on the stone).
+        for (int liShadow = 0; liShadow < CaptionShadowOffsets.Length; liShadow++)
+        {
+            RawImage lOShadow = mOButtonCaptionShadows[piButton, liShadow];
+
+            UWScreenUi.SetText(lOShadow, lOFont, UWText.T(lsId), new Color32(0, 0, 0, 255), UWScreenUi.ScreenWidth, true);
+            UWScreenUi.Place(lOShadow, liLeft + CaptionShadowOffsets[liShadow], liTop + CaptionShadowOffsets[liShadow]);
+        }
+
+        UWScreenUi.SetText(lOCaption, lOFont, UWText.T(lsId), pbLit ? mOSelectedColour : mOUnselectedColour, UWScreenUi.ScreenWidth, true);
+        UWScreenUi.Place(lOCaption, liLeft, liTop);
+    }
+
+    /// <summary>The shadow's copies of a caption, right and down by these pixels.</summary>
+    private static readonly int[] CaptionShadowOffsets = { 1, 2 };
+
+    private readonly RawImage[,] mOButtonCaptionShadows = new RawImage[ButtonCount, 2];
+
+    /// <summary>FONTBIG's ink: from its cell's second row, ten rows (measured on its letters 2026-11-08).</summary>
+    private const int CaptionInkTop = 1;
+
+    private const int CaptionInkRows = 10;
+
+    /// <summary>The captions' texts, by button (Introduction, Create Character, Acknowledgements, Journey Onward).</summary>
+    private static readonly string[] msCaptionIds =
+    {
+        "picture.menu.introduction", "picture.menu.create_character", "picture.menu.acknowledgements", "picture.menu.journey_onward"
+    };
+
+    private readonly RawImage[] mOButtonCaptions = new RawImage[ButtonCount];
+
     private void fUpdateButtons()
     {
         fStepByPad(mOButtons, ShownButtons);
@@ -556,7 +631,7 @@ public class UWMainMenu : MonoBehaviour
             miHover = liHover;
 
             for (int liAt = 0; liAt < ButtonCount; liAt++)
-                UWScreenUi.SetTexture(mOButtons[liAt], liAt == miHover ? mOButtonOn[liAt] : mOButtonOff[liAt]);
+                fSetButton(liAt, liAt == miHover);
         }
 
         if (miHover < 0 || !UWScreenUi.WasLeftClicked())
@@ -661,7 +736,7 @@ public class UWMainMenu : MonoBehaviour
     private void fLightWalkButtons()
     {
         for (int liAt = 0; liAt < ButtonCount; liAt++)
-            UWScreenUi.SetTexture(mOButtons[liAt], liAt == miWalkLit ? mOButtonOn[liAt] : mOButtonOff[liAt]);
+            fSetButton(liAt, liAt == miWalkLit);
     }
 
     private int fWalkButtonAt()
@@ -977,6 +1052,15 @@ public class UWMainMenu : MonoBehaviour
 
             mOButtons[liAt] = UWUiKit.CreateRawImageAt(mOFrame, "Button " + (liAt + 1),
                 miButtonPositions[liAt].x, miButtonPositions[liAt].y);
+            // The shadow first, so the caption lies on it.
+            for (int liShadow = 0; liShadow < CaptionShadowOffsets.Length; liShadow++)
+            {
+                mOButtonCaptionShadows[liAt, liShadow] = UWUiKit.CreateRawImageAt(mOButtons[liAt].transform, "Caption shadow", 0, 0);
+                mOButtonCaptionShadows[liAt, liShadow].raycastTarget = false;
+            }
+
+            mOButtonCaptions[liAt] = UWUiKit.CreateRawImageAt(mOButtons[liAt].transform, "Caption", 0, 0);
+            mOButtonCaptions[liAt].raycastTarget = false;
         }
 
         for (int liSlot = 0; liSlot < UWSavegameSlots.SlotCount; liSlot++)

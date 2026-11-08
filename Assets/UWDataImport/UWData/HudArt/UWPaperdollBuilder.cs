@@ -30,6 +30,9 @@ namespace UWDataImport.Presentation
 		public static UWPicture ComposePage(UWPicture pOMain)
 		{
 			UWPicture lOPage = pOMain.Crop(PaperdollPage);
+
+			fRemoveWeightStone(lOPage);
+
 			UWPicture lOOut = new UWPicture(PaperdollPageWidth, lOPage.Height);
 
 			for (int x = 0; x < PaperdollPageWidth; x++)
@@ -37,10 +40,117 @@ namespace UWDataImport.Presentation
 				int liColumn = PageColumnToMain(x) - PaperdollPage.X;
 
 				for (int y = 0; y < lOPage.Height; y++)
-					lOOut.Set(x, y, lOPage.Get(liColumn, y));
+					lOOut.Set(x, y, fRightWideningPixel(lOPage, x, y, liColumn));
 			}
 
 			return lOOut;
+		}
+
+		/// <summary>
+		/// A pixel of the widened page where the right doubling meets the right circles (the right
+		/// shoulder's and the left hand's, UWMainFrame.PageCircles 1 and 3): their edges reach into the
+		/// doubled columns 74 and 75, and plain doubling drew those arcs twice (per user 2026-11-08 with a
+		/// screenshot). A circle keeps the left part's shift (PaperdollShift) up to its own right edge,
+		/// and where the doubled copy would show a circle again, the leather a few rows away in the same
+		/// column stands in. Elsewhere the plain mapping (piColumn).
+		/// </summary>
+		private static UWColor32 fRightWideningPixel(UWPicture pOPage, int piX, int piY, int piColumn)
+		{
+			int liFirst = UWMainFrame.PaperdollWidenRight + 4;
+
+			if (piX < liFirst || piX >= liFirst + 4)
+				return pOPage.Get(piColumn, piY);
+
+			// The circle's own column, at the left part's shift - not past its edge into the border.
+			int liShifted = piX - PaperdollShift;
+
+			if (liShifted <= UWMainFrame.PaperdollWidenRight + 2 && fOnRightCircle(liShifted, piY))
+				return pOPage.Get(liShifted, piY);
+
+			if (!fOnRightCircle(piColumn, piY))
+				return pOPage.Get(piColumn, piY);
+
+			foreach (int liRows in new[] { 6, -6, 9, -9, 12, -12 })
+			{
+				int liRow = piY + liRows;
+
+				if (liRow >= 0 && liRow < pOPage.Height && !fOnRightCircle(piColumn, liRow))
+					return pOPage.Get(piColumn, liRow);
+			}
+
+			return pOPage.Get(piColumn, piY);
+		}
+
+		/// <summary>Whether a page pixel (before the widening) lies on the line of a right circle.</summary>
+		private static bool fOnRightCircle(int piX, int piY)
+		{
+			foreach (int liCircle in new[] { 1, 3 })
+			{
+				float lfX = piX - UWMainFrame.PageCircles[liCircle, 0];
+				float lfY = piY - UWMainFrame.PageCircles[liCircle, 1];
+				float lfDistance = (float)Math.Sqrt((lfX * lfX) + (lfY * lfY));
+
+				if (Math.Abs(lfDistance - UWMainFrame.PageCircles[liCircle, 2]) <= UWMainFrame.PageCircles[liCircle, 3])
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>The grey stone on which the classic page writes the weight left (MAIN.BYT 298 to 310,
+		/// rows 57 to 66): the modern panel shows the weight above the backpack, and the empty stone
+		/// looked like something was missing (GitHub issue 22, per user 2026-11-08).</summary>
+		public static readonly UWRectInt WeightStone = new UWRectInt(298, 57, 13, 10);
+
+		/// <summary>How many rows below the stone the plain leather that covers it is taken from.</summary>
+		public const int WeightStoneFillRows = 12;
+
+		/// <summary>A pixel of the stone: grey or black, not the leather's brown (saturation below this).</summary>
+		private const float WeightStoneSaturation = 0.35f;
+
+		/// <summary>
+		/// The weight stone painted over with the leather WeightStoneFillRows below it - its grey and black
+		/// pixels and one pixel round them, its dark outline (worked out on a rendering of MAIN.BYT,
+		/// 2026-11-08). The page is the crop of PaperdollPage.
+		/// </summary>
+		private static void fRemoveWeightStone(UWPicture pOPage)
+		{
+			int liLeft = WeightStone.X - PaperdollPage.X;
+			int liTop = WeightStone.Y - PaperdollPage.Y;
+			bool[,] lbStone = new bool[WeightStone.Width + 2, WeightStone.Height + 2];
+
+			for (int y = 0; y < WeightStone.Height; y++)
+			{
+				for (int x = 0; x < WeightStone.Width; x++)
+				{
+					UWColor32 lOColour = pOPage.Get(liLeft + x, liTop + y);
+					int liMax = Math.Max(lOColour.R, Math.Max(lOColour.G, lOColour.B));
+					int liMin = Math.Min(lOColour.R, Math.Min(lOColour.G, lOColour.B));
+
+					if (liMax == 0 || (liMax - liMin) / (float)liMax < WeightStoneSaturation)
+					{
+						for (int liDy = 0; liDy <= 2; liDy++)
+						{
+							for (int liDx = 0; liDx <= 2; liDx++)
+								lbStone[x + liDx, y + liDy] = true;
+						}
+					}
+				}
+			}
+
+			UWPicture lOSource = pOPage.Crop(new UWRectInt(0, 0, pOPage.Width, pOPage.Height));
+
+			for (int y = 0; y < WeightStone.Height + 2; y++)
+			{
+				for (int x = 0; x < WeightStone.Width + 2; x++)
+				{
+					int liX = liLeft - 1 + x;
+					int liY = liTop - 1 + y;
+
+					if (lbStone[x, y] && liY + WeightStoneFillRows < pOPage.Height)
+						pOPage.Set(liX, liY, lOSource.Get(liX, liY + WeightStoneFillRows));
+				}
+			}
 		}
 
 		/// <summary>The page's place in MAIN.BYT (rows from the top).</summary>

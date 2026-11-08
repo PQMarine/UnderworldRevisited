@@ -15,15 +15,34 @@ namespace UWDataImport.UWData
 			fAdd("setting.ControlScheme.choice.original", "Original");
 			fAdd("setting.ControlScheme.choice.modern", "Modern");
 			fAdd("setting.ShowOpeningSequence", "Logos and intro at startup");
+			fAdd("setting.CutsceneSubtitles", "Subtitles in cutscenes");
+			fAdd("setting.CutsceneSubtitles.hint", "The original shows a cutscene's text only where no recording speaks it. On shows it with the recordings too; Auto does when the language translates the cutscene's texts.");
+			fAdd("setting.CutsceneSubtitles.choice.auto", "Auto");
+			fAdd("setting.CutsceneSubtitles.choice.off", "Off");
+			fAdd("setting.CutsceneSubtitles.choice.on", "On");
 			fAdd("setting.RunInBackground", "Keep running in the background");
 			fAdd("setting.ManualAttributes", "Choose attributes at creation");
 			fAdd("setting.FixOriginalBugs", "Fix bugs of the original");
 			fAdd("setting.FixOriginalBugs.hint", "Fixes bugs of the original game that can cost you the game: Goldthirst's gifts, Judy pushed into the lava, the object a too heavy stack leaves behind in a save. Off plays them as the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
+			fAdd("setting.KnowledgeShowAll", "Show every mantra and spell in the help");
+			fAdd("setting.KnowledgeShowAll.hint", "Off, the help's Mantras and Spells tabs show those the manual names and those your character has learned in the game, from books, writings, conversations, or by chanting and casting. On, they show all of them at once.");
+			fAdd("setting.LizardWords", "Lizard words");
+			fAdd("setting.LizardWords.hint", "In the lizardmen's conversations, a word's meaning in brackets behind it. Off shows the words as the original does. Learned does it for the words Murgo has mimed for you and lists them in the help's Mantras tab. All does it for every word.");
+			fAdd("setting.LizardWords.choice.off", "Off");
+			fAdd("setting.LizardWords.choice.learned", "Learned");
+			fAdd("setting.LizardWords.choice.all", "All");
+			fAdd("setting.SkillRaises", "Skill raises");
+			fAdd("setting.SkillRaises.hint", "Chanting a skill's mantra at a shrine raises it by one to six points, depending on the governing attribute, partly by chance. Off rolls anew each time, as the original does. Highest always gives the most the attribute allows. Fixed rolls once for each chant, so loading again brings the same result. Trainers (UW2) work the same way.");
+			fAdd("setting.SkillRaises.choice.off", "Off");
+			fAdd("setting.SkillRaises.choice.highest", "Highest");
+			fAdd("setting.SkillRaises.choice.fixed", "Fixed");
 			fAdd("setting.RemoveExploits", "Remove exploits of the original");
 			fAdd("setting.RemoveExploits.hint", "Removes harmless exploits of the original game: the debris of a broken potion or scroll that casts its spell for ever. Off keeps them as in the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
 			fAdd("setting.Language", "Language");
 			fAdd("setting.Language.hint", "Takes effect at once; lines already in the message scroll stay as they were. A language is what lies in the Languages folder beside the game: xx.tsv for the port's own texts, xx.strings.tsv for the game's texts; what a file does not hold stays English.");
-			fAdd("setting.Language.choice.english", "English");
+			// The language's own name in its own language ("Deutsch"), shown in the Language row
+			// instead of the file's code (2026-11-08, after the made-up Japanese xj showed only "xj").
+			fAdd("setting.Language.name", "English");
 			fAdd("setting.Game", "Game");
 			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II offers a walk through its world so far: Create Character starts it.");
 			fAdd("setting.SaveFolder", "Save games");

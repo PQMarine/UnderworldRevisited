@@ -233,11 +233,23 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>The same from the character given (the second game's, UWPlayerData.FromSecondGame).</summary>
+		/// <summary>The character's name, for the fixed skill raise roll (UWSkillRaise).</summary>
+		private string msCharacterName = string.Empty;
+
+		/// <summary>The setting SkillRaises' fixed roll (UWSkillRaise.FixedRoll) for this character: its name and
+		/// attributes with the numbers given, 0 .. piRange - 1.</summary>
+		public int FixedRoll(int piRange, params int[] piNumbers)
+		{
+			return piRange <= 1 ? 0 : UWSkillRaise.FixedRoll(piRange, msCharacterName, Strength, Dexterity, Intelligence, piNumbers);
+		}
+
 		public void Initialise(DataImport pOData, StartValues pOStart, UWPlayerData pOPlayer)
 		{
 			mOData = pOData;
 
 			UWPlayerData lOPlayer = pOPlayer;
+
+			msCharacterName = lOPlayer != null ? lOPlayer.Name : string.Empty;
 
 			Strength = pOStart.Strength >= 0 ? pOStart.Strength : (lOPlayer != null ? lOPlayer.Strength : 10);
 			Dexterity = pOStart.Dexterity >= 0 ? pOStart.Dexterity : (lOPlayer != null ? lOPlayer.Dexterity : 10);
@@ -621,9 +633,13 @@ namespace UWDataImport.UWData
 			if (liAttribute != 0 && liAttributeValue / 2 > liValue)
 				liValue++;
 
-			// The roll's range is the rule set's (experience.skillRaise.chanceRange, cleanup phase 10).
+			// The roll's range is the rule set's (experience.skillRaise.chanceRange, cleanup phase 10). The
+			// setting SkillRaises gives the point always or rolls it fixed per raise (UWSkillRaise; Off rolls as
+			// the original). Fixed keys on the skill's value BEFORE this raise.
 			if (liValue < liAttributeValue
-				&& UWRandom.Next(UWRules.Current.Experience.SkillRaise.ChanceRange[liAttribute]) < liAttributeValue - liValue)
+				&& UWSkillRaise.Roll(UWRules.Current.Experience.SkillRaise.ChanceRange[liAttribute], UWRandom.Next,
+					msCharacterName, Strength, Dexterity, Intelligence, piSkillNumber, GetSkillByNumber(piSkillNumber))
+					< liAttributeValue - liValue)
 				liValue++;
 
 			if (liValue > MaxSkillValue)

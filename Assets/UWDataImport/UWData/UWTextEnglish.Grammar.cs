@@ -55,6 +55,13 @@ namespace UWDataImport.UWData
 			fAdd("grammar.rule.font", UWGrammarGeneric.NoneValue);
 			fAdd("grammar.rule.ime", "no");
 
+			// THE CLASSIC TEXTS' FONT (2026-11-08, UWLanguageFont.ClassicFontRuleId): modern switches the
+			// classic texts to the modern font when the language is chosen (Chinese, Japanese, Korean).
+			fAdd("grammar.rule.classic.font", "original");
+
+			// yes: the classic texts' Chinese, Japanese and Korean characters bold in the modern font.
+			fAdd("grammar.rule.classic.bold", "no");
+
 			// THE SOUND TAGS (2026-11-04, UWGrammarGeneric.TagsOf): "tag=beginnings; ..." - none.
 			fAdd(UWGrammarGeneric.TagsRuleId, UWGrammarGeneric.NoneValue);
 

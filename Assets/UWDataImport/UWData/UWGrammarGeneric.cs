@@ -27,6 +27,8 @@ namespace UWDataImport.UWData
 	///                              read for every language - UWLanguageFont); with one the letters beyond
 	///                              the classic fonts are typeable and drawn
 	///   grammar.rule.ime           yes: the text entries use the system's input method (no; UWLanguageFont)
+	///   grammar.rule.classic.font  modern: the classic texts start in the modern font (original; UWLanguageFont)
+	///   grammar.rule.classic.bold  yes: their CJK characters bold in the modern font (no; UWLanguageFont)
 	///   grammar.rule.tags          the sound tags a phrase's start gives it, for the frames' select (none;
 	///                              2026-11-04, a French translator's elision): "v=a e i o u h; z=sb sc"
 	///                              - a phrase starting with one of a tag's beginnings has it, a name's
@@ -161,7 +163,7 @@ namespace UWDataImport.UWData
 		{
 			"grammar.rule.genders", "grammar.rule.cases", "grammar.rule.case.subject", "grammar.rule.case.object", "grammar.rule.case.place",
 			"grammar.rule.case.look", "grammar.rule.plural", "grammar.rule.capital", "grammar.rule.letters", "grammar.rule.alphabet",
-			"grammar.rule.alphabet.lower", UWLanguageFont.FontRuleId, UWLanguageFont.ImeRuleId, TagsRuleId, "grammar.article.indefinite",
+			"grammar.rule.alphabet.lower", UWLanguageFont.FontRuleId, UWLanguageFont.ImeRuleId, UWLanguageFont.ClassicFontRuleId, UWLanguageFont.ClassicBoldRuleId, TagsRuleId, "grammar.article.indefinite",
 			"grammar.article.definite", "grammar.article.your", "grammar.phrase.words", "grammar.phrase.count"
 		};
 

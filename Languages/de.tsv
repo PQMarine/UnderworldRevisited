@@ -9,15 +9,32 @@ setting.ControlScheme	Schema
 setting.ControlScheme.choice.original	Original
 setting.ControlScheme.choice.modern	Modern
 setting.ShowOpeningSequence	Logos und Intro beim Start
+setting.CutsceneSubtitles	Untertitel in Zwischensequenzen
+setting.CutsceneSubtitles.hint	Das Original zeigt den Text einer Zwischensequenz nur, wo keine Aufnahme ihn spricht. An zeigt ihn auch zu den Aufnahmen; Automatisch tut es, wenn die Sprache die Texte der Zwischensequenz übersetzt.
+setting.CutsceneSubtitles.choice.auto	Automatisch
+setting.CutsceneSubtitles.choice.off	Aus
+setting.CutsceneSubtitles.choice.on	An
 setting.RunInBackground	Im Hintergrund weiterlaufen
 setting.ManualAttributes	Attribute bei der Erschaffung wählen
 setting.FixOriginalBugs	Fehler des Originals beheben
 setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
+setting.KnowledgeShowAll	Alle Mantras und Zauber in der Hilfe zeigen
+setting.KnowledgeShowAll.hint	Aus zeigen die Tabs Mantras und Zauber der Hilfe die, die das Handbuch nennt, und die, die dein Charakter im Spiel gelernt hat, aus Büchern, Inschriften, Gesprächen oder durch Beten und Wirken. An zeigen sie alle auf einmal.
+setting.LizardWords	Echsenwörter
+setting.LizardWords.hint	In den Gesprächen der Echsenmenschen steht die Bedeutung eines Wortes in Klammern dahinter. Aus zeigt die Wörter wie das Original. Gelernt tut das für die Wörter, die Murgo dir vorgemacht hat, und listet sie in der Hilfe unter Mantras. Alle tut das für jedes Wort.
+setting.LizardWords.choice.off	Aus
+setting.LizardWords.choice.learned	Gelernt
+setting.LizardWords.choice.all	Alle
+setting.SkillRaises	Skillsteigerung
+setting.SkillRaises.hint	Ein Skill-Mantra am Schrein steigert den Skill um ein bis sechs Punkte, je nach zuständigem Attribut, teils per Zufall. Aus würfelt jedes Mal neu wie das Original. Höchste gibt immer so viel, wie das Attribut erlaubt. Fest würfelt für jedes Chanten nur einmal, nach dem Laden kommt also dasselbe Ergebnis. Lehrer (UW2) wirken genauso.
+setting.SkillRaises.choice.off	Aus
+setting.SkillRaises.choice.highest	Höchste
+setting.SkillRaises.choice.fixed	Fest
 setting.RemoveExploits	Exploits des Originals entfernen
 setting.RemoveExploits.hint	Entfernt harmlose Exploits des Originals: den Schutt eines zerbrochenen Tranks oder einer Schriftrolle, der seinen Zauber ewig wirkt. Aus lässt sie wie im Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.Language	Sprache
 setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
-setting.Language.choice.english	Englisch
+setting.Language.name	Deutsch
 setting.Game	Spiel
 setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II bietet bisher einen Rundgang durch seine Welt: Create Character startet ihn.
 setting.SaveFolder	Spielstände
@@ -227,6 +244,11 @@ setup.done	Fertig
 setup.format.steps_off	Aus
 setup.format.steps	{0} Schritte
 setup.game.title	Spiel
+setup.bar.gameplay	Spielweise
+setup.gameplay.title	Spielweise
+setup.gameplay.intro	Diese Optionen ändern, wie sich das Spiel spielt. Aus ist immer wie im Original.
+setup.gameplay.original	Wie das Original
+setup.gameplay.aids	Hilfen
 setup.game.folder	Spielordner...
 setup.game.folder2	Ordner von Ultima Underworld II...
 setup.game.quit	Beenden
@@ -525,10 +547,27 @@ help.mantras.note.magic	Verbessert einige deiner Magiefertigkeiten.
 help.mantras.note.other	Verbessert einige deiner übrigen Fertigkeiten.
 help.mantras.note.cup_of_wonder	Sagt dir, wo der Kelch der Wunder liegt.
 help.mantras.note.key_of_truth	Gibt dir den Schlüssel der Wahrheit.
+help.knowledge.insahn	Ein Wort, aus Träumen zusammengesetzt.
+help.knowledge.fanlo	Gurstang war auf der Suche nach etwas.
 help.mantras.hide_more	Mantras ausblenden, die das Handbuch nicht nennt
 help.mantras.show_more	Mantras zeigen, die das Handbuch nicht nennt
 help.mantras.single	Je eine Fertigkeit, stark verbessert
 help.mantras.quests	Questen
+help.knowledge.learned	Im Spiel gelernt
+help.knowledge.none_yet	Noch nichts.
+help.knowledge.to_find	Noch zu finden: {0}
+help.knowledge.from_book	Aus einem Buch oder einer Schriftrolle.
+help.knowledge.from_writing	Aus einer Inschrift.
+help.knowledge.from_talk	Aus einem Gespräch.
+help.knowledge.from_named	Von {0} erfahren.
+help.knowledge.from_door	Von einem brillanten Magier erfahren, der zufällig eine Tür ist.
+help.knowledge.from_chant	Am Schrein gebetet.
+help.knowledge.from_cast	Durch Wirken herausgefunden.
+help.mantras.pieces	In den Visionen des Räucherwerks gesehen.
+help.lizard.title	Echsenwörter
+help.lizard.learned_from	Von Murgo vorgemacht.
+help.lizard.none_yet	Noch keine.
+help.spells.half	Du kennst diesen Zauber, aber noch nicht alle seine Runen.
 help.manual.title	Handbuch
 help.manual.cannot_show	Das Handbuch kann nicht angezeigt werden.
 help.manual.not_found	Das Handbuch wurde nicht gefunden. Die GOG-Version bringt es als {0} im Ordner von game.gog mit, die Steam-Version in ihrem Ordner Extras.
@@ -772,6 +811,7 @@ hud.runes.circle	Kreis {0}  -  {1} Mana
 hud.runes.above_circle	über deinem Kreis
 hud.runes.drag_or_cast	zur Leiste ziehen, Klick wirkt
 hud.runes.not_a_spell	Kein Zauber
+hud.runes.try_cast	klicken, um es zu versuchen
 hud.runes.none_chosen	Keine Runen gewählt
 hud.runes.click_runes	Runen auf der Ablage anklicken
 hud.spells.title	Zauber
@@ -921,6 +961,8 @@ grammar.rule.alphabet.lower	auto
 # draw the German letters themselves, so none is needed.
 grammar.rule.font	none
 grammar.rule.ime	no
+grammar.rule.classic.font	original
+grammar.rule.classic.bold	no
 grammar.rule.tags	none
 grammar.article.indefinite	{0}
 grammar.article.definite	{0}
@@ -969,3 +1011,70 @@ msg.question.no	Nein
 msg.creation.points_left	Übrige Punkte: 
 msg.creation.done	Fertig
 msg.scroll.more	[MEHR]
+picture.options.save_game	SPIEL SICHERN
+picture.options.restore_game	SPIEL LADEN
+picture.options.music	MUSIK
+picture.options.sound	TON
+picture.options.detail	DETAILS
+picture.options.return_to_game	WEITER SPIELEN
+picture.options.quit_game	ENDE
+picture.options.on	AN
+picture.options.off	AUS
+picture.options.cancel	ABBRUCH
+picture.options.done	FERTIG
+picture.options.low	NIEDRIG
+picture.options.medium	MITTEL
+picture.options.high	HOCH
+picture.options.very_high	SEHR HOCH
+picture.options.yes	JA
+picture.options.no	NEIN
+picture.options.save_title	SPIEL SICHERN
+picture.options.restore_title	SPIEL LADEN
+picture.options.quit_title	ENDE:
+picture.options.are_you_sure	BIST DU SICHER?
+picture.options.music_is_on	MUSIK: AN
+picture.options.music_is_off	MUSIK: AUS
+picture.options.sound_is_on	TON: AN
+picture.options.sound_is_off	TON: AUS
+picture.options.turn_music	MUSIK AUF:
+picture.options.turn_sound	TON AUF:
+picture.options.detail_is_low	DETAILS: NIEDRIG
+picture.options.detail_is_medium	DETAILS: MITTEL
+picture.options.detail_is_high	DETAILS: HOCH
+picture.options.detail_is_very_high	DETAILS: SEHR HOCH
+picture.options.set_new_level	NEUE STUFE:
+picture.stats.str	STÄ
+picture.stats.dex	GES
+picture.stats.int	INT
+picture.stats.vit	VIT
+picture.stats.mana	MANA
+picture.stats.exp	ERF
+picture.map.level	Ebene
+picture.map.erase	LÖSCHEN
+picture.map.close	ENDE
+picture.menu.introduction	Einführung
+picture.menu.create_character	Charakter erstellen
+picture.menu.acknowledgements	Danksagungen
+picture.menu.journey_onward	Reise fortsetzen
+lizard.sseth	ja
+lizard.click	nein
+lizard.sor_click	Fremder
+lizard.sstresh	Hilfe
+lizard.sorr	Feind
+lizard.yeshor_click	Freund
+lizard.zekka	Essen
+lizard.thesh	mögen
+lizard.click_iriass	Sir Cabirus
+lizard.thes_click	hassen
+lizard.sorra	stehlen
+lizard.yethe	töten
+lizard.isili	ich
+lizard.tosa	du
+lizard.urgo	Murgo
+lizard.thepa	Echsenmenschen
+lizard.bica	hallo, tschüss
+lizard.thit	brauchen
+lizard.ossli	genug
+lizard.eppa	besuchen
+lizard.sel_a	geben
+lizard.kri_kla	Lauerer

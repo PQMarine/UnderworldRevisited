@@ -3522,6 +3522,9 @@ namespace UnderworldRevisited.Build
                 string lsPrefix = mOData.GetReadableText(piPrefixIndex) ?? string.Empty;
                 string lsText = mOData.GetReadableText(piTextIndex) ?? string.Empty;
 
+                // Built only to be shown (looked at or used): what the writing teaches (GitHub issue 19).
+                UWKnowledge.Current.SawString(UWKnowledgeSources.WritingBlock, piTextIndex, null);
+
                 return (lsPrefix.TrimEnd('\r', '\n') + lsText).TrimEnd('\r', '\n');
             }
             catch

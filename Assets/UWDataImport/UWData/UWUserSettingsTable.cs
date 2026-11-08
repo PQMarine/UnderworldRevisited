@@ -107,6 +107,29 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef RemoveExploits = fBool(nameof(UWUserData.RemoveExploits), d => d.RemoveExploits, (d, v) => d.RemoveExploits = v);
 
+		/// <summary>The lizardmen's words with their meanings: Off, Learned or All (UWLizardWordsEnum); an unknown one
+		/// reads Off.</summary>
+		public static readonly UWIntSettingDef LizardWords = new UWIntSettingDef(nameof(UWUserData.LizardWords), UWSettingKind.Choice,
+			d => d.LizardWords, (d, v) => d.LizardWords = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = (int)UWLizardWordsEnum.All,
+			Fallback = (int)UWLizardWordsEnum.Off
+		};
+
+		/// <summary>A skill raise's chance point: Off, Highest or Fixed (UWSkillRaiseEnum); an unknown one reads Off.</summary>
+		public static readonly UWIntSettingDef SkillRaises = new UWIntSettingDef(nameof(UWUserData.SkillRaises), UWSettingKind.Choice,
+			d => d.SkillRaises, (d, v) => d.SkillRaises = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = (int)UWSkillRaiseEnum.Fixed,
+			Fallback = (int)UWSkillRaiseEnum.Off
+		};
+
+		public static readonly UWBoolSettingDef KnowledgeShowAll = fBool(nameof(UWUserData.KnowledgeShowAll), d => d.KnowledgeShowAll, (d, v) => d.KnowledgeShowAll = v);
+
 		public static readonly UWBoolSettingDef HelpOpen = fBool(nameof(UWUserData.HelpOpen), d => d.HelpOpen, (d, v) => d.HelpOpen = v);
 
 		/// <summary>UWHelpTabId as a number: Stats 0 to Controls 6 - the numbers are the file's.</summary>
@@ -247,6 +270,17 @@ namespace UWDataImport.UWData
 		};
 
 		public static readonly UWBoolSettingDef ShowOpeningSequence = fBool(nameof(UWUserData.ShowOpeningSequence), d => d.ShowOpeningSequence, (d, v) => d.ShowOpeningSequence = v);
+
+		/// <summary>Subtitles while a cutscene's recording speaks: Auto, Off or On (UWCutsceneSubtitlesEnum); an
+		/// unknown one reads Auto.</summary>
+		public static readonly UWIntSettingDef CutsceneSubtitles = new UWIntSettingDef(nameof(UWUserData.CutsceneSubtitles), UWSettingKind.Choice,
+			d => d.CutsceneSubtitles, (d, v) => d.CutsceneSubtitles = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = (int)UWCutsceneSubtitlesEnum.On,
+			Fallback = (int)UWCutsceneSubtitlesEnum.Auto
+		};
 
 		public static readonly UWBoolSettingDef RunInBackground = fBool(nameof(UWUserData.RunInBackground), d => d.RunInBackground, (d, v) => d.RunInBackground = v);
 
@@ -412,14 +446,14 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, RemoveExploits, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, SkillRaises, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
-			RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
+			CutsceneSubtitles, RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, LightTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,

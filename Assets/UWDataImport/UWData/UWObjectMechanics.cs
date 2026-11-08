@@ -959,7 +959,11 @@ namespace UWDataImport.UWData
 		/// Hence IsStackable alongside.
 		///
 		/// Doors are excluded, as in the reference: for them the same bit means
-		/// something else.
+		/// something else. So is the rest of their major class 5 (0x140-0x17F: the writings,
+		/// levers, decals), as the original's decode_obj_spell has it (OBJ_MAJOR != MAJOR_RECT,
+		/// UnderworldExhumed obj/USEITEMS.C, read 2026-11-08): the wall writing on level 3 at 29/44
+		/// carries the enchanted bit, and its text number 651 was read as a spell - using it played
+		/// an incense vision (per user).
 		/// </summary>
 		public static UWObject FindSpellObject(UWObject pOObject, IList<UWObject> pORecords)
 		{
@@ -973,6 +977,7 @@ namespace UWDataImport.UWData
 			{
 				return pOObject.IsEnchanted
 					&& pOObject.GetCategory() != UWObject.ObjectCategoryEnum.Doors
+					&& UWObjectIds.Major(pOObject.ID) != DoorMajorClass
 					? pOObject : null;
 			}
 

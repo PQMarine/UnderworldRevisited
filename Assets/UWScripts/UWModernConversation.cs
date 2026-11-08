@@ -946,7 +946,10 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
     /// <summary>Gives each part its height at this width and stacks them; returns the height of all.</summary>
     private float fMeasureHistory(float pfWidth)
     {
-        float lfGap = Mathf.Max(2, miHistoryFontSize / 3) * HistoryPartGap;
+        // BETWEEN TWO PARTS THE ROOM BETWEEN TWO ENTRIES (per user 2026-11-08: after Trisch's first "No" the next
+        // line stood right under it): what the gap line inside a part takes, measured at this width - "X", the
+        // gap, "X" less two lines of "X". A fixed share of the size was far too little.
+        float lfGap = miHistoryParts > 1 ? fEntryGap(mOHistoryTexts[0], pfWidth) : 0f;
         float lfTop = 0f;
 
         mOHistoryTops.Clear();
@@ -1017,6 +1020,19 @@ public class UWModernConversation : MonoBehaviour, IUWConversationChoiceRows
             mOSpeakerHeads[liAt].texture = lOMark.Head;
             UWUiKit.SetRect(mOSpeakerHeads[liAt].rectTransform, 0f, pfContent - mOHistoryTops[lOMark.Part] - lOMark.Top - lfHeight, lfWidth, lfHeight);
         }
+    }
+
+    /// <summary>The height the gap between two history entries takes inside a part (fHistoryParts' gap line).</summary>
+    private float fEntryGap(Text pOText, float pfWidth)
+    {
+        TextGenerationSettings lOSettings = pOText.GetGenerationSettings(new Vector2(pfWidth, 0f));
+        TextGenerator lOGenerator = pOText.cachedTextGeneratorForLayout;
+        float lfUnit = pOText.pixelsPerUnit > 0f ? pOText.pixelsPerUnit : 1f;
+        string lsGap = "\n<size=" + Mathf.Max(2, miHistoryFontSize / 3) + "> </size>\n";
+        float lfOne = lOGenerator.GetPreferredHeight("X", lOSettings) / lfUnit;
+        float lfTwo = lOGenerator.GetPreferredHeight("X" + lsGap + "X", lOSettings) / lfUnit;
+
+        return Mathf.Max(Mathf.Max(2, miHistoryFontSize / 3) * HistoryPartGap, lfTwo - (2f * lfOne));
     }
 
     /// <summary>The history's text anew when lines came, the size or the look changed.</summary>

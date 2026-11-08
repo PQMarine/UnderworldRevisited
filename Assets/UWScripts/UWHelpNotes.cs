@@ -68,6 +68,10 @@ public static class UWHelpNotes
 
         /// <summary>Length and FNV-1a hash of the PLAYER.DAT written with this file.</summary>
         public string SaveStamp = string.Empty;
+
+        /// <summary>What the character has learned of the mantras and the hidden spells (UWKnowledge.Export,
+        /// GitHub issue 19; since 2026-11-08). Kept whatever the stamp says, as the notes.</summary>
+        public string[] Knowledge = new string[0];
     }
 
     /// <summary>The empty state - also what a broken file leaves.</summary>
@@ -80,6 +84,7 @@ public static class UWHelpNotes
         ActionBarIds = new int[0];
         OpenBagIds = new int[0];
         IsStale = false;
+        UWDataImport.UWData.UWKnowledge.Current = new UWDataImport.UWData.UWKnowledge();
     }
 
     /// <summary>A fingerprint of a save folder's PLAYER.DAT, empty when it cannot be read.</summary>
@@ -131,6 +136,7 @@ public static class UWHelpNotes
             OpenBagNumbers = lOData.OpenBagNumbers ?? new int[0];
             ActionBarIds = lOData.ActionBarIds ?? new int[0];
             OpenBagIds = lOData.OpenBagIds ?? new int[0];
+            UWDataImport.UWData.UWKnowledge.Current = UWDataImport.UWData.UWKnowledge.Import(lOData.Knowledge);
             IsStale = string.IsNullOrEmpty(lOData.SaveStamp) || lOData.SaveStamp != fStamp(psFolder);
 
             if (IsStale)
@@ -163,7 +169,8 @@ public static class UWHelpNotes
                 OpenBagNumbers = OpenBagNumbers ?? new int[0],
                 ActionBarIds = ActionBarIds ?? new int[0],
                 OpenBagIds = OpenBagIds ?? new int[0],
-                SaveStamp = fStamp(psFolder)
+                SaveStamp = fStamp(psFolder),
+                Knowledge = UWDataImport.UWData.UWKnowledge.Current.Export()
             }, true));
 
             // What is written is what the save holds now.

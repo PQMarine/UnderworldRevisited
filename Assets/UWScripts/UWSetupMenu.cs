@@ -60,6 +60,9 @@ public partial class UWSetupMenu : MonoBehaviour
         Game,
         Graphics,
 
+        /// <summary>How the game plays (2026-11-08, per user): the original's switches and the aids.</summary>
+        Gameplay,
+
         /// <summary>The Remastered effects (UWEffectsScreen): a window of the bar since cleanup 8d.3
         /// (2026-10-25), until then a 320x200 picture of its own over everything.</summary>
         RemasteredEffects
@@ -880,6 +883,7 @@ public partial class UWSetupMenu : MonoBehaviour
             case DialogEnum.Display: fDrawDisplayDialog(pfWidth); break;
             case DialogEnum.PaletteEffects: fDrawPaletteEffectsDialog(pfWidth); break;
             case DialogEnum.Game: fDrawGameDialog(pfWidth); break;
+            case DialogEnum.Gameplay: fDrawGameplayDialog(pfWidth); break;
             case DialogEnum.Graphics: fDrawGraphicsDialog(pfWidth); break;
             case DialogEnum.RemasteredEffects: fDrawRemasteredEffects(pfWidth); break;
         }
@@ -1006,6 +1010,11 @@ public partial class UWSetupMenu : MonoBehaviour
             return;
 
         float lfLeft = lOGame.xMax;
+
+        // HOW THE GAME PLAYS beside Game (2026-11-08, per user: the Game window grew long, and the bug fixes,
+        // the exploits and the aids belong together).
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.gameplay", meOpenDialog == DialogEnum.Gameplay))
+            fToggleDialog(DialogEnum.Gameplay);
 
         // The second game's walk has the whole bar since G0 of the 2026-11-06 sweep (until then Game and Graphics
         // only, from UW2 plan phase 2 step 3): motion, display, the key bindings, sound and colours are settings of
@@ -1462,6 +1471,18 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (mOPassRows.Action(new Rect(lfLeft, lODialog.yMax - 46f, mOPassRows.FitWidth(lsQuit, 180f), 30f), lsQuit))
             fQuit();
+
+        if (mOPassRows.Done(lODialog))
+            meOpenDialog = DialogEnum.None;
+    }
+
+    /// <summary>THE GAMEPLAY WINDOW (2026-11-08, per user): the page fBuildGameplayPage, scrolled when it does
+    /// not fit, Done below - as the Game window without its Quit.</summary>
+    private void fDrawGameplayDialog(float pfWidth)
+    {
+        Rect lODialog = fDialogOnScreen(pfWidth, fMaxWidth(800f, mOPassPages.InnerNeeded(mOGameplayPage) + ScrollBarRoom), 150f, 280f, 54f);
+
+        fDrawPageScrolled(lODialog, mOGameplayPage, 54f);
 
         if (mOPassRows.Done(lODialog))
             meOpenDialog = DialogEnum.None;

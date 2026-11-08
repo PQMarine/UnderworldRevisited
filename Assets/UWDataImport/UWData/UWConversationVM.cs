@@ -176,6 +176,9 @@ namespace UWDataImport.UWData
 		/// a million steps; if the number is reached, something is wrong.</summary>
 		private const int MaxSteps = 1000000;
 
+		/// <summary>A CALL with this target has none (see CALL): the conversation ends there.</summary>
+		private const int NoTarget = 0xFFFF;
+
 		private readonly UWConversations.Conversation mOConversation;
 
 		/// <summary>The code this machine runs - the conversation's own words with the script fixes
@@ -202,12 +205,16 @@ namespace UWDataImport.UWData
 		/// <summary>What went wrong, if RunState.Failed came.</summary>
 		public string Error { get; private set; }
 
+		/// <summary>The partner said or the script printed the conversation's string of this number (the machine's numbering) - for
+		/// what the character learns from it (UWKnowledge, GitHub issue 19).</summary>
+		public Action<int> Said { get; set; }
+
 		public UWConversationVM(UWConversations.Conversation pOConversation, IHost pOHost, Func<int, string> pOGetString)
 		{
 			mOConversation = pOConversation;
-			myCode = UWRules.Current.Deviations.ConversationPatches || pOConversation == null
-				? UWConversationPatches.GetCode(pOConversation)
-				: pOConversation.Code;
+			// The fixes with the switch on; the patches that only make ours play as the original always.
+			myCode = pOConversation == null ? null
+				: UWConversationPatches.GetCode(pOConversation, UWRules.Current.Deviations.ConversationPatches);
 			mOHost = pOHost;
 			mOGetString = pOGetString;
 
@@ -415,6 +422,16 @@ namespace UWDataImport.UWData
 					return RunState.Running;
 
 				case UWConversationDisassembler.Opcode.CALL:
+					// A CALL TO 65535 ENDS THE CONVERSATION: the jump target the data never got (Sseetharee,
+					// conversation 15 at 1411, answer "Why not?" - the only one in the first game). The original
+					// checks nothing and runs on past the code; in DOSBox the conversation simply ends, after the
+					// usual two seconds (per user, 2026-11-08). Ours ends it the same way, not as an error.
+					if (liOperand == NoTarget)
+					{
+						mbFinished = true;
+						return RunState.Finished;
+					}
+
 					fPush(liNext);
 					miInstructionPointer = liOperand;
 					return RunState.Running;
@@ -548,8 +565,13 @@ namespace UWDataImport.UWData
 					return RunState.Finished;
 
 				case UWConversationDisassembler.Opcode.SAY_OP:
-					mOHost.Say(fGetSubstitutedString(fPop()));
+				{
+					int liSaid = fPop();
+
+					mOHost.Say(fGetSubstitutedString(liSaid));
+					Said?.Invoke(liSaid);
 					break;
+				}
 
 				case UWConversationDisassembler.Opcode.OPNEG:
 					fPush(-fPop());
@@ -631,9 +653,16 @@ namespace UWDataImport.UWData
 					return RunState.AwaitingChoice;
 				}
 
+				// Printed text is seen as well (Said): Murgo's mimes come by print, so his lessons taught no
+				// lizard word until 2026-11-08 (user test).
 				case PrintFunction:
-					mOHost.Print(fGetSubstitutedString(fGetArgumentValue(1)));
+				{
+					int liPrinted = fGetArgumentValue(1);
+
+					mOHost.Print(fGetSubstitutedString(liPrinted));
+					Said?.Invoke(liPrinted);
 					break;
+				}
 
 				// Like the menus: the machine pauses until the host supplies the answer
 				// (SupplyTypedInput sets the result register), and then continues after the
@@ -642,8 +671,13 @@ namespace UWDataImport.UWData
 					return RunState.AwaitingInput;
 
 				case SayFunction:
-					mOHost.Say(fGetSubstitutedString(fGetArgumentValue(1)));
+				{
+					int liSaid = fGetArgumentValue(1);
+
+					mOHost.Say(fGetSubstitutedString(liSaid));
+					Said?.Invoke(liSaid);
 					break;
+				}
 
 				case RandomFunction:
 					fSetCallResult(mOHost.Random(fGetArgumentValue(1)));

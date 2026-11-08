@@ -55,6 +55,26 @@ namespace UnderworldRevisited.Tools
             else
                 fFail("conversation patch: Goldthirst (3)", "not loaded");
 
+            // Trisch (139): the plea chain's three jumps go past it, with the fixes and without them; without
+            // them Goldthirst stays as loaded.
+            UWConversations.Conversation lOTrisch = pOData.Conversations.GetConversation(139);
+
+            if (lOTrisch != null && lOTrisch.Code != null && lOTrisch.Code.Length > 1426)
+            {
+                ushort[] lyWith = UWConversationPatches.GetCode(lOTrisch, true);
+                ushort[] lyWithout = UWConversationPatches.GetCode(lOTrisch, false);
+
+                Check.Str("conversation patch: Trisch's three plea jumps, loaded, with the fixes, without them",
+                    lOTrisch.Code[1399] + " " + lOTrisch.Code[1412] + " " + lOTrisch.Code[1425] + " / " + lyWith[1399] + " " + lyWith[1412] + " "
+                    + lyWith[1425] + " / " + lyWithout[1399] + " " + lyWithout[1412] + " " + lyWithout[1425],
+                    "1418 1418 1418 / 1426 1426 1426 / 1426 1426 1426");
+
+                if (lOGold != null && lOGold.Code != null)
+                    Check.Bool("conversation patch: without the fixes Goldthirst runs as loaded", UWConversationPatches.GetCode(lOGold, false) == lOGold.Code, true);
+            }
+            else
+                fFail("conversation patch: Trisch (139)", "not loaded");
+
             // A patch takes only the words it expects: a copy with another word at 1054 is left alone.
             if (lOGold != null && lOGold.Code != null && lOGold.Code.Length > 1410)
             {

@@ -412,6 +412,8 @@ public class UWIntroPlayer : MonoBehaviour
         mOTiming.FallbackFrameRate = miFallbackFrameRate;
         mOTiming.SecondsPerCharacter = mfSecondsPerCharacter;
         mOTiming.MinimumLineDuration = mfMinimumLineDuration;
+        mOTiming.SubtitlesWithSpeech = mOData != null
+            && UWCutsceneSubtitles.WithSpeech(UWUserSettings.CutsceneSubtitles, miCutscene, mOData.GameData.GameText);
     }
 
     /// <summary>What the interpreter asks for, carried out on the picture track, the speech

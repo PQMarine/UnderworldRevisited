@@ -54,6 +54,19 @@ namespace UWDataImport.UWData
 		/// that keeps a potion's spell. Off by default (per user, 2026-11-07), takes effect at the next start or load.</summary>
 		public bool RemoveExploits;
 
+		/// <summary>The help's Mantras and Spells tabs show every mantra and spell, the ones the manual does not
+		/// name too; off (the default) they show those the character has learned in the game (UWKnowledge,
+		/// GitHub issue 19, 2026-11-08).</summary>
+		public bool KnowledgeShowAll;
+
+		/// <summary>The lizardmen's words with their meanings (GitHub issue 20, 2026-11-08): 0 Off as the original,
+		/// 1 the words Murgo has mimed, 2 all (UWLizardWordsEnum).</summary>
+		public int LizardWords;
+
+		/// <summary>A skill raise's chance point (per user, 2026-11-08): 0 Off rolled as the original, 1 Highest
+		/// always, 2 Fixed rolled once per raise, the same after loading (UWSkillRaiseEnum).</summary>
+		public int SkillRaises;
+
 		/// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
 		/// the tab (UWHelpTabId as a number, 3 = Spells) and how many tiles the map
 		/// tab shows across.</summary>
@@ -232,6 +245,11 @@ namespace UWDataImport.UWData
 		/// goes straight to the main menu, which is what one wants while testing
 		/// (per user, 2026-09-22).</summary>
 		public bool ShowOpeningSequence = true;
+
+		/// <summary>Subtitles in the cutscenes while their recordings speak (per user, 2026-11-08): 0 Auto -
+		/// when the language translates the cutscene's texts -, 1 Off as the original, 2 On
+		/// (UWCutsceneSubtitlesEnum).</summary>
+		public int CutsceneSubtitles;
 
 		/// <summary>The game keeps running while another window has the focus (per user,
 		/// 2026-09-28: wanted for idle tests beside the original, "everyone should decide for
