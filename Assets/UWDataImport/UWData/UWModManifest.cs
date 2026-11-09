@@ -9,7 +9,7 @@ namespace UWDataImport.UWData
 	///
 	///   - OURS: id, name, version, author, kind ("pictures", ...), games (["uw1"]), licence, credit,
 	///     requires (ids, each with an optional lowest version: "author.mod >= 1.0");
-	///   - THE EDITOR'S MOD FORMAT 2 (.uwmod, Karl Clinckspoor's Ultima Underworld editor, its
+	///   - THE EDITOR'S MOD FORMAT 2 (.uwmod, the Underworld Editor (Avalonia), its
 	///     docs/mod-format.md): "format": 2, id, name, version, authors, "game": "uw1", files (each a
 	///     delta against one exact original, applied by a later step). It names no requirements.
 	///
@@ -42,6 +42,9 @@ namespace UWDataImport.UWData
 		public string Licence;
 
 		public string Credit;
+
+		/// <summary>A few lines about the mod (both formats' "description"); the Mods window shows a readme first.</summary>
+		public string Description;
 
 		/// <summary>The editor's mod format 2.</summary>
 		public bool IsEditorPackage;
@@ -91,7 +94,8 @@ namespace UWDataImport.UWData
 				Version = UWJsonReader.GetString(lOJson, "version"),
 				Kind = UWJsonReader.GetString(lOJson, "kind"),
 				Licence = UWJsonReader.GetString(lOJson, "licence") ?? UWJsonReader.GetString(lOJson, "license"),
-				Credit = UWJsonReader.GetString(lOJson, "credit")
+				Credit = UWJsonReader.GetString(lOJson, "credit"),
+				Description = UWJsonReader.GetString(lOJson, "description")
 			};
 
 			lOManifest.IsEditorPackage = (int)UWJsonReader.GetNumber(lOJson, "format", 0) == EditorFormat;
@@ -140,6 +144,28 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Lower case letters, digits, '-' and '.'; at least one character, none other.</summary>
+		/// <summary>
+		/// AN EDITOR PACKAGE'S ID (per user, 2026-11-09: the Underworld Editor writes ids such as "Conversation and
+		/// item name test.mod", which our own rule refused): taken as his format 2 takes it - any text but an empty one,
+		/// no control character, at most MaxEditorIdLength characters. Our own format keeps IsValidId's rule.
+		/// </summary>
+		public static bool IsValidEditorId(string psId)
+		{
+			if (string.IsNullOrWhiteSpace(psId) || psId.Length > MaxEditorIdLength)
+				return false;
+
+			foreach (char lcChar in psId)
+			{
+				if (char.IsControl(lcChar))
+					return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>The longest id of an editor package taken.</summary>
+		public const int MaxEditorIdLength = 200;
+
 		public static bool IsValidId(string psId)
 		{
 			if (string.IsNullOrEmpty(psId))

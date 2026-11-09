@@ -98,6 +98,30 @@ namespace UWDataImport.UWData
 
 		private bool mbStartRead;
 
+		/// <summary>The height a new character stands at on a square of the first level, as player_setup puts it on the
+		/// floor (UWStartSquare.HeightOnTile), from the data's own LEV.ARK - not a loaded save's; false where it cannot
+		/// be read.</summary>
+		public bool TryGetStartHeight(int piX, int piY, out int piZ)
+		{
+			return TryReadStartHeight(DataPath, Profile, piX, piY, out piZ);
+		}
+
+		/// <summary>TryGetStartHeight for any DATA folder (the character creation's, of the mods as they stand when it opens).</summary>
+		public static bool TryReadStartHeight(string psDataPath, IUWGameProfile pOProfile, int piX, int piY, out int piZ)
+		{
+			piZ = 0;
+
+			string lsLevels = string.IsNullOrEmpty(psDataPath) ? null : Path.Combine(psDataPath, "LEV.ARK");
+
+			if (pOProfile == null || pOProfile.Game != UWGame.Uw1 || lsLevels == null || !File.Exists(lsLevels)
+				|| !UWStartSquare.TryReadFirstLevelTile(File.ReadAllBytes(lsLevels), piX, piY, out int liHeight, out int liType))
+				return false;
+
+			piZ = UWStartSquare.HeightOnTile(liHeight, liType);
+
+			return true;
+		}
+
 		/// <summary>The new-game square the first game's program holds (UWStartSquare), read once from the
 		/// program beside DATA; false for the second game, a missing program or no clear call.</summary>
 		public bool TryGetStartSquare(out int piX, out int piY)
@@ -106,11 +130,7 @@ namespace UWDataImport.UWData
 			{
 				mbStartRead = true;
 
-				string lsRoot = Path.GetDirectoryName(DataPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-				string lsProgram = lsRoot != null ? Path.Combine(lsRoot, Profile.Executable) : null;
-
-				if (Profile.Game == UWGame.Uw1 && lsProgram != null && File.Exists(lsProgram)
-					&& UWStartSquare.TryRead(File.ReadAllBytes(lsProgram), out int liX, out int liY))
+				if (TryReadStartSquare(DataPath, Profile, out int liX, out int liY))
 				{
 					miStartX = liX;
 					miStartY = liY;
@@ -121,6 +141,21 @@ namespace UWDataImport.UWData
 			piY = miStartY;
 
 			return miStartX >= 0;
+		}
+
+		/// <summary>TryGetStartSquare for any DATA folder, read anew - the program beside it.</summary>
+		public static bool TryReadStartSquare(string psDataPath, IUWGameProfile pOProfile, out int piX, out int piY)
+		{
+			piX = -1;
+			piY = -1;
+
+			if (pOProfile == null || pOProfile.Game != UWGame.Uw1 || string.IsNullOrEmpty(psDataPath))
+				return false;
+
+			string lsRoot = Path.GetDirectoryName(psDataPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+			string lsProgram = lsRoot != null ? Path.Combine(lsRoot, pOProfile.Executable) : null;
+
+			return lsProgram != null && File.Exists(lsProgram) && UWStartSquare.TryRead(File.ReadAllBytes(lsProgram), out piX, out piY);
 		}
 
 		/// <summary>Sound effects and music from the "sound" folder - see UWSound.</summary>

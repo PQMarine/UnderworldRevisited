@@ -222,16 +222,40 @@ public class UWCharacterCreationScreen : MonoBehaviour
         mOData = pOData;
         mOGeneration = new UWCharacterGeneration(pOData.Strings, pOData.MiscDataFiles);
 
-        // Where the program says a new game starts (a randomizer may have moved it; UWStartSquare).
-        if (pOData.GameData != null && pOData.GameData.TryGetStartSquare(out int liStartX, out int liStartY))
-        {
-            mOGeneration.ProgramStartX = liStartX;
-            mOGeneration.ProgramStartY = liStartY;
-        }
         mOTextColour = UWScreenUi.GetColour(pOData.Palettes, ScreenPalette, TextColourIndex);
 
         if (UnderworldRevisited.UWSettings.Instance != null)
             meFilter = UnderworldRevisited.UWSettings.Instance.TextureFilterMode;
+    }
+
+    /// <summary>
+    /// WHERE THE NEW GAME STARTS, AS THE MODS STAND NOW (per user, 2026-11-09: an editor's package switched off in
+    /// the Mods window still moved the start - the main menu ran on the data of the program's start, and the
+    /// scene's restart after the creation came too late): the mod folder scanned and its packages pinned again,
+    /// and the square the program holds (a randomizer may have moved it; UWStartSquare) and its floor's height
+    /// (player_setup) read from the files the new game will load - UWSettings.DataPath, which applies them.
+    /// </summary>
+    private void fTakeStart()
+    {
+        UWGameData lOGameData = mOData.GameData;
+
+        if (lOGameData == null)
+            return;
+
+        UWMods.Rescan();
+        UWMods.PinGameFiles(UnderworldRevisited.UWSettings.Game);
+
+        IUWGameProfile lOProfile = lOGameData.Profile;
+        string lsData = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.DataPath : null;
+
+        if (string.IsNullOrEmpty(lsData))
+            lsData = lOGameData.DataPath;
+
+        bool lbProgram = UWGameData.TryReadStartSquare(lsData, lOProfile, out int liStartX, out int liStartY);
+
+        mOGeneration.ProgramStartX = lbProgram ? liStartX : -1;
+        mOGeneration.ProgramStartY = lbProgram ? liStartY : -1;
+        mOGeneration.StartHeight = (piX, piY) => UWGameData.TryReadStartHeight(lsData, lOProfile, piX, piY, out int liZ) ? liZ : (int?)null;
     }
 
     public void Show()
@@ -253,6 +277,7 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
         mOGeneration.ManualAttributes = UWUserSettings.ManualAttributes;
         mOGeneration.Begin();
+        fTakeStart();
         mOCanvas.gameObject.SetActive(true);
         IsOpen = true;
         IsAnyOpen = true;

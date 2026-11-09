@@ -26,6 +26,16 @@ public enum UWRowInfoEnum
 /// kinds in each window's own type - the setup bar's 16 points, the layout editor's 15 with its
 /// smaller hints, the modern game menu in the modern font.
 /// </summary>
+/// <summary>The small pictures of the bar's scheme switch (UWSetupMenu.fDrawSchemeSwitch).</summary>
+public enum UWBarPictureEnum
+{
+    /// <summary>The original scheme: a thick frame round a small view.</summary>
+    ClassicScreen,
+
+    /// <summary>The modern scheme: the whole picture with the HUD's corner marks.</summary>
+    ModernScreen
+}
+
 public enum UWRowLookEnum
 {
     /// <summary>The setup bar, its dialogs, the first-run screen.</summary>
@@ -80,6 +90,13 @@ public interface IUWRows
     /// (cleanup 8b.4, 2026-10-24: the layout editor's hints grow with their text on the kit).</summary>
     float TextHeight(string psText, UWRowInfoEnum peLook, float pfWidth);
 
+    /// <summary>A paragraph in a row's look from the top of its place, wrapped at pfWidth; pbRich: Unity's rich text
+    /// tags (b, i, color) count (the Mods window's readme, 2026-11-09). Returns its height.</summary>
+    float Paragraph(float pfLeft, float pfTop, float pfWidth, string psText, bool pbRich);
+
+    /// <summary>The height Paragraph takes for the text at the width.</summary>
+    float ParagraphHeight(string psText, float pfWidth, bool pbRich);
+
     /// <summary>A switch's width with its text: the box and the text beside it.</summary>
     float ToggleWidth(string psText);
 
@@ -122,6 +139,14 @@ public interface IUWRows
     bool Action(Rect pORect, string psText);
 
     bool Item(Rect pORect, string psText, bool pbCurrent = false);
+
+    /// <summary>A list row whose text tells a state by its colour (the Mods window: dim switched off, red not
+    /// loaded); the current one in the accent colour as Item's.</summary>
+    bool ItemTinted(Rect pORect, string psText, bool pbCurrent, UWRowInfoEnum peLook);
+
+    /// <summary>A faint ground in the accent colour behind a whole row (the Mods window's chosen mod, so its Up and
+    /// Down are found at a glance); drawn before the row's pieces.</summary>
+    void RowHighlight(Rect pORect);
 
     bool Toggle(Rect pORect, bool pbValue, string psText);
 
@@ -167,6 +192,12 @@ public interface IUWRows
     void Bar(Rect pORect);
 
     bool BarItem(Rect pORect, string psText, bool pbOpen);
+
+    /// <summary>One half of a switch in the bar: a small picture and its text, lit when chosen; true when pressed.</summary>
+    bool BarChoice(Rect pORect, string psText, bool pbChosen, UWBarPictureEnum pePicture);
+
+    /// <summary>The width BarChoice needs for its text and picture.</summary>
+    float BarChoiceWidth(string psText);
 
     /// <summary>The darkest ground (the folder list's), flat in every theme.</summary>
     void Backdrop(Rect pORect);

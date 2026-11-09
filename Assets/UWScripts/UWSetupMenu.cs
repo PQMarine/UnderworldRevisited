@@ -63,6 +63,9 @@ public partial class UWSetupMenu : MonoBehaviour
         /// <summary>How the game plays (2026-11-08, per user): the original's switches and the aids.</summary>
         Gameplay,
 
+        /// <summary>The mods in the folder Mods, their load order and switches (UWSetupMenu.Mods.cs, 2026-11-09).</summary>
+        Mods,
+
         /// <summary>The Remastered effects (UWEffectsScreen): a window of the bar since cleanup 8d.3
         /// (2026-10-25), until then a 320x200 picture of its own over everything.</summary>
         RemasteredEffects
@@ -884,6 +887,7 @@ public partial class UWSetupMenu : MonoBehaviour
             case DialogEnum.PaletteEffects: fDrawPaletteEffectsDialog(pfWidth); break;
             case DialogEnum.Game: fDrawGameDialog(pfWidth); break;
             case DialogEnum.Gameplay: fDrawGameplayDialog(pfWidth); break;
+            case DialogEnum.Mods: fDrawModsDialog(pfWidth); break;
             case DialogEnum.Graphics: fDrawGraphicsDialog(pfWidth); break;
             case DialogEnum.RemasteredEffects: fDrawRemasteredEffects(pfWidth); break;
         }
@@ -1046,6 +1050,41 @@ public partial class UWSetupMenu : MonoBehaviour
 
         if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.colours", meOpenDialog == DialogEnum.Colours))
             fToggleDialog(DialogEnum.Colours);
+
+        // THE MODS last (per user, 2026-11-09: a window of its own, not the Game window's line).
+        if (fBarItem(pORows, pfWidth, ref lfLeft, "setup.bar.mods", meOpenDialog == DialogEnum.Mods))
+            fToggleDialog(DialogEnum.Mods);
+
+        fDrawSchemeSwitch(pORows, pfWidth, lfLeft);
+    }
+
+    /// <summary>
+    /// THE SCHEME SWITCH AT THE BAR'S RIGHT END (per user, 2026-11-09, after a Steam player looked for it: variant B,
+    /// the two schemes side by side, each with a small picture, the one in force lit). A click is Shift+F2
+    /// (fChooseScheme: at once in the game, kept over the main menu); it replaces the Game window's row and, being
+    /// an item of the bar, the keyboard and the pad reach it as the others. The left end stays Game, where programs
+    /// keep their File menu. Where the items leave no room it goes to the right end of a row of its own.
+    /// </summary>
+    private void fDrawSchemeSwitch(IUWRows pORows, float pfWidth, float pfLeft)
+    {
+        string lsOriginal = UWText.T("setting.ControlScheme.choice.original");
+        string lsModern = UWText.T("setting.ControlScheme.choice.modern");
+        float lfOriginal = pORows.BarChoiceWidth(lsOriginal);
+        float lfModern = pORows.BarChoiceWidth(lsModern);
+        float lfRight = pfWidth - 8f;
+
+        if (lfRight - lfOriginal - lfModern < pfLeft + 16f)
+            mfBarRowTop += BarHeight;
+
+        int liScheme = fSchemeIndex();
+        Rect lOModern = new Rect(lfRight - lfModern, mfBarRowTop, lfModern, BarHeight);
+        Rect lOOriginal = new Rect(lOModern.x - lfOriginal, mfBarRowTop, lfOriginal, BarHeight);
+
+        if (pORows.BarChoice(lOOriginal, lsOriginal, liScheme == (int)UWControlScheme.SchemeEnum.Original, UWBarPictureEnum.ClassicScreen))
+            fChooseScheme((int)UWControlScheme.SchemeEnum.Original);
+
+        if (pORows.BarChoice(lOModern, lsModern, liScheme == (int)UWControlScheme.SchemeEnum.Modern, UWBarPictureEnum.ModernScreen))
+            fChooseScheme((int)UWControlScheme.SchemeEnum.Modern);
     }
 
     /// <summary>One of the bar's items after Game, at pfLeft, 90 wide (more for a longer text on

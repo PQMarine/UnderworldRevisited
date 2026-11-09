@@ -44,6 +44,7 @@ namespace UnderworldRevisited.Tools
 
             fCheckGameTextFixture(pOData.DataPath, lsPak);
             fCheckGameTextTemplate(lsPak);
+            fCheckGameTextChecksums(lsPak);
             fCheckGameTextConversation(pOData, lsPak);
         }
 
@@ -233,6 +234,58 @@ namespace UnderworldRevisited.Tools
                 Check.Int(lsName + ": nothing skipped, no finding", lOPack.Problems.Count + lOPack.Validate(lOEnglish).Count, 0);
                 Check.Int(lsName + ": read back, strings that differ from the English", fDiffering(lOEnglish, lOBack), 0);
             }
+        }
+
+        /// <summary>
+        /// THE CHECKSUM OF THE ENGLISH (2026-11-09): a template carries one per entry and lays over as before; a
+        /// line whose English a mod changed keeps that English and is counted; a pack without checksums lays over as
+        /// before and gets them added (strings-checksums) without any other line changing; validate-tsv names an
+        /// entry translated from other English.
+        /// </summary>
+        private static void fCheckGameTextChecksums(string psPak)
+        {
+            UWStrings lOEnglish = new UWStrings(File.ReadAllBytes(psPak));
+            string lsHello = lOEnglish.Blocks[1].Strings[1];
+            string lsOld = "#\tan old pack\n1\t1\tHallo\n1\t2\tZwei\n";
+            UWGameTextPack lOOld = UWGameTextPack.Parse(lsOld);
+
+            Check.Str("checksum: FNV-1a of the English's UTF-8, eight hex digits", UWGameTextPack.ChecksumOf("a") + " " + UWGameTextPack.ChecksumOf(string.Empty),
+                "e40c292c 811c9dc5");
+
+            // A pack made before the checksums: as before, then with them added.
+            UWStrings lOPlain = new UWStrings(File.ReadAllBytes(psPak));
+
+            lOOld.Apply(lOPlain);
+            Check.Str("checksum: a pack without them lays over as before", lOOld.Applied + " " + lOOld.Mismatched + " " + lOPlain.Blocks[1].Strings[1], "2 0 Hallo");
+
+            string lsAdded = UWGameTextPack.AddChecksums(lsOld, lOEnglish, false, out int liAdded, out int liKept);
+
+            Check.Str("checksum: added before each entry, every other line as it was",
+                liAdded + " " + liKept + " | " + lsAdded.Replace("\n", "/"),
+                "2 0 | #\tan old pack/#@ " + UWGameTextPack.ChecksumOf(lsHello) + "/1\t1\tHallo/#@ " + UWGameTextPack.ChecksumOf(lOEnglish.Blocks[1].Strings[2])
+                + "/1\t2\tZwei/");
+            Check.Str("checksum: added again, the existing kept", UWGameTextPack.AddChecksums(lsAdded, lOEnglish, false, out liAdded, out liKept) == lsAdded
+                ? liAdded + " " + liKept : "changed", "0 2");
+
+            // A mod changed string 1:1: the entry made for the original's English keeps the mod's English.
+            UWStrings lOModded = new UWStrings(File.ReadAllBytes(psPak));
+
+            lOModded.Blocks[1].Strings[1] = lsHello + " (changed by a mod)";
+
+            UWGameTextPack lONew = UWGameTextPack.Parse(lsAdded);
+
+            lONew.Apply(lOModded);
+            Check.Str("checksum: the line a mod changed keeps the mod's English, the other is translated",
+                lONew.Applied + " " + lONew.Mismatched + " | " + (lOModded.Blocks[1].Strings[1] == lsHello + " (changed by a mod)") + " " + lOModded.Blocks[1].Strings[2],
+                "1 1 | True Zwei");
+            Check.Bool("checksum: validate-tsv names it as translated from other English",
+                lONew.Validate(lOModded).Exists(pOFinding => pOFinding.IsError && pOFinding.Key == "1:1" && pOFinding.Message.StartsWith("translates other English")), true);
+
+            // The template carries them, and still lays over everything.
+            UWGameTextPack lOTemplate = UWGameTextPack.Parse(UWGameTextPack.Template(lOEnglish, "xx", false));
+            int liWith = lOTemplate.Rows.FindAll(pORow => pORow.Checksum != null).Count;
+
+            Check.Str("checksum: the template has one per entry", (liWith == lOTemplate.Rows.Count && liWith > 0).ToString(), "True");
         }
 
         private static int fDiffering(UWStrings pOLeft, UWStrings pORight)

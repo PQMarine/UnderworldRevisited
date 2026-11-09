@@ -186,6 +186,11 @@ namespace UWDataImport.UWData
 		/// character starts there unless the rule set changed story.start (per user, 2026-11-09).</summary>
 		public int ProgramStartX { get; set; } = -1;
 
+		/// <summary>The height a new character stands at on a square of the first level (UWGameData.TryGetStartHeight,
+		/// player_setup's floor), set by the character creation screen; null keeps NewCharacter's (the original
+		/// start's 0x300).</summary>
+		public Func<int, int, int?> StartHeight { get; set; }
+
 		public int ProgramStartY { get; set; } = -1;
 
 		/// <summary>Bonus points not dealt yet (Stage.Attributes).</summary>
@@ -696,10 +701,12 @@ namespace UWDataImport.UWData
 			bool lbRulesChanged = lOStart.TileX != UWQuestPlaces.StartTileX || lOStart.TileY != UWQuestPlaces.StartTileY;
 			bool lbProgram = !lbRulesChanged && ProgramStartX >= 0 && ProgramStartY >= 0;
 
-			return new UWPlayerData.NewCharacter
+			int liStartX = lbProgram ? ProgramStartX : lOStart.TileX;
+			int liStartY = lbProgram ? ProgramStartY : lOStart.TileY;
+			UWPlayerData.NewCharacter lOCharacter = new UWPlayerData.NewCharacter
 			{
-				StartTileX = lbProgram ? ProgramStartX : lOStart.TileX,
-				StartTileY = lbProgram ? ProgramStartY : lOStart.TileY,
+				StartTileX = liStartX,
+				StartTileY = liStartY,
 				Name = Name,
 				CharacterClass = CharacterClass < 0 ? 0 : CharacterClass,
 				Body = Body,
@@ -715,6 +722,15 @@ namespace UWDataImport.UWData
 				MaxVitality = MaxVitality,
 				MaxMana = MaxMana
 			};
+
+			// On the start square's floor, as player_setup puts the player - not the original start's height on
+			// another square (a moved start dropped the character from it).
+			int? liHeight = StartHeight?.Invoke(liStartX, liStartY);
+
+			if (liHeight.HasValue)
+				lOCharacter.StartZ = liHeight.Value;
+
+			return lOCharacter;
 		}
 	}
 }

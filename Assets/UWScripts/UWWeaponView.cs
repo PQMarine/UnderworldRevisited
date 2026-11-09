@@ -34,6 +34,7 @@ public sealed class UWWeaponView
     public void Init(DataImport pOData, WeaponTypes peStartWeapon, FilterMode peFilterMode)
     {
         meFilterMode = peFilterMode;
+        mOTextures = pOData.Textures;
 
         mOSwing.Init(pOData.WeaponAnimations, pOData.PowerGem, peStartWeapon);
         fSync();
@@ -130,6 +131,20 @@ public sealed class UWWeaponView
 
     public Texture2D CurrentWeaponTexture { get; private set; }
 
+    /// <summary>
+    /// THE FRAME AS A MOD EXTENDS IT (Docs/WIDESCREEN-WEAPONS-PLAN.md step 3, 2026-11-09), null where no mod
+    /// does: the larger picture, with the original's top left at (CurrentWeaponExtendedLeft, ...Top) in it.
+    /// The modern scheme and Classic Wide draw it; the classic scheme keeps the original, its frame covers
+    /// everything outside the view anyway.
+    /// </summary>
+    public Texture2D CurrentWeaponExtended { get; private set; }
+
+    public int CurrentWeaponExtendedLeft { get; private set; }
+
+    public int CurrentWeaponExtendedTop { get; private set; }
+
+    private UWTextures mOTextures;
+
     public Texture2D PowerGemTeture { get; private set; }
 
     private int miShownFrameVersion = -1;
@@ -172,7 +187,16 @@ public sealed class UWWeaponView
     /// </summary>
     private void fGetCurrentWeaponTexture()
     {
-        CurrentWeaponTexture = fGetCachedTexture(mOSwing.Frame);
+        UWTexture lOFrame = mOSwing.Frame;
+
+        CurrentWeaponTexture = fGetCachedTexture(lOFrame);
+
+        UWExtendedPicture lOExtended = lOFrame != null && mOTextures != null
+            ? mOTextures.GetExtendedByType(lOFrame.TextureType, lOFrame.Index) : null;
+
+        CurrentWeaponExtended = lOExtended != null ? fGetCachedTexture(lOExtended.Picture) : null;
+        CurrentWeaponExtendedLeft = lOExtended != null ? lOExtended.Left : 0;
+        CurrentWeaponExtendedTop = lOExtended != null ? lOExtended.Top : 0;
     }
 
     /// <summary>Convert a UI texture once and keep it, as with the power orb.

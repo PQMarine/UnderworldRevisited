@@ -410,31 +410,6 @@ public partial class UWSetupMenu
         return pfTop + FolderLineAdvance;
     }
 
-    /// <summary>The mods in the folder beside settings.json (UWMods), scanned anew now and then, and the
-    /// button that opens the folder - and, where a mod was not loaded, one that opens the log's folder,
-    /// which says why (per user, 2026-11-09: the log is hard to find).</summary>
-    private float fDrawModsLine(float pfLeft, float pfTop, float pfInner)
-    {
-        UWModCatalog lOCatalog = UWMods.Fresh();
-
-        // The buttons named by the folders they open (per user, 2026-11-09: three "Open folder" in a row).
-        string lsMods = UWText.T("setup.game.open_mods");
-
-        if (lOCatalog.Refused.Count == 0 || string.IsNullOrEmpty(Application.consoleLogPath))
-            return fDrawFolderLine(pfLeft, pfTop, pfInner, UWMods.Summary(lOCatalog), UWMods.Folder, 0f, lsMods);
-
-        IUWRows lORows = mOPassRows;
-        string lsLog = UWText.T("setup.game.open_log");
-        float lfLogButton = lORows.FitWidth(lsLog, 140f);
-        float lfFolderButton = lORows.FitWidth(lsMods, 140f);
-
-        if (lORows.Action(new Rect(pfLeft + pfInner - lfFolderButton - 10f - lfLogButton, pfTop, lfLogButton, 26f), lsLog))
-            fOpenFolder(System.IO.Path.GetDirectoryName(Application.consoleLogPath));
-
-        // The state, narrower by the log's button, and the folder's button at the edge.
-        return fDrawFolderLine(pfLeft, pfTop, pfInner, UWMods.Summary(lOCatalog), UWMods.Folder, lfLogButton + 10f, lsMods);
-    }
-
     /// <summary>A state line and the button that opens psFolder (made if it is missing); the next
     /// row starts 36 lower (the line is 26 high). Until 2026-10-27 the ROM line was the window's
     /// last and returned its own top, which put the recordings' switch onto it (per user).</summary>
@@ -681,19 +656,11 @@ public partial class UWSetupMenu
             // THE MOD FOLDER (Docs/WIDESCREEN-WEAPONS-PLAN.md step 1, 2026-11-09): how many mods it holds and
             // the button that opens it (made if missing), as the MT-32 ROMs' line - here until the Mods
             // window takes it over.
-            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "game.mods", Draw = fDrawModsLine })
             // PORTABLE (per user, 2026-11-09): everything of the port's in UserData beside the program
             // (UWUserFolder) - shown when it is, offered when it is not. Not in the editor.
             .Add(new UWSetupRow { Kind = Kind.Custom, Id = "game.portable", Draw = fDrawPortableLine })
-            // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard whose top row
-            // gives media keys unless Fn is held could not reach Shift+F2; under Game because the
-            // scheme changes the whole interface, not only the controls) - the same as Shift+F2,
-            // kept for the next start.
-            .Add(new UWSetupRow
-            {
-                Kind = Kind.ChoiceRow, Id = Defs.ControlScheme.LabelId, Def = Defs.ControlScheme, ChoiceColumns = WindowChoiceColumns, Advance = 36f,
-                GetIndex = fSchemeIndex, Choose = fChooseScheme
-            })
+            // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard could not reach Shift+F2) stood
+            // here until 2026-11-09; it is the switch at the bar's right end now (fDrawSchemeSwitch).
             // THE WHOLE OPENING AT STARTUP: the two company logos, the animated title and the
             // intro. Off it goes straight to the main menu, which is what one wants while testing
             // (per user, 2026-09-22). It takes effect at the next start.

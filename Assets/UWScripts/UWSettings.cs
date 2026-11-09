@@ -562,6 +562,31 @@ namespace UnderworldRevisited
             }
         }
 
+        /// <summary>The program as extracted, before any editor's package changed it (UWMods.BuildGameFiles) - for
+        /// the 3D models, which read it at the offsets of the GOG build; ExePath where no package applied.</summary>
+        public string OriginalExePath
+        {
+            get
+            {
+                string lsOriginal = fResolved().OriginalDataPath;
+
+                if (string.IsNullOrEmpty(lsOriginal) || DataPath == null)
+                    return ExePath;
+
+                try
+                {
+                    DirectoryInfo lOParent = Directory.GetParent(lsOriginal.TrimEnd('\\', '/'));
+                    string lsExe = lOParent == null ? null : Path.Combine(lOParent.FullName, Game.Executable);
+
+                    return lsExe != null && File.Exists(lsExe) ? lsExe : ExePath;
+                }
+                catch (IOException)
+                {
+                    return ExePath;
+                }
+            }
+        }
+
         public bool IsExePathValid
         {
             get { return !string.IsNullOrEmpty(ExePath) && File.Exists(ExePath); }
@@ -660,6 +685,10 @@ namespace UnderworldRevisited
 
             public string DataPath;
 
+            /// <summary>The extraction's DATA folder where DataPath is the copy with the editor's packages applied
+            /// (UWMods.BuildGameFiles), else null.</summary>
+            public string OriginalDataPath;
+
             /// <summary>The GOG image the data came from; the save folder is worked out from it at every ask.</summary>
             public string ImagePath;
 
@@ -742,7 +771,8 @@ namespace UnderworldRevisited
             // setup screen (UWUserSettings, kept outside the asset), then the common folders.
             string lsInstall = !string.IsNullOrEmpty(GogInstallPath) ? GogInstallPath : UWUserSettings.GogInstallPath;
             string lsOwn = fOwnFolder(Game);
-            string lsKey = (lsInstall ?? string.Empty) + "|" + lsOwn + (ForceFirstRunSetup ? "|setup" : string.Empty);
+            // The editor's packages fixed at this game's start are part of the key: other packages, other files.
+            string lsKey = (lsInstall ?? string.Empty) + "|" + lsOwn + (ForceFirstRunSetup ? "|setup" : string.Empty) + "|" + UWMods.PinnedKey(Game);
             Resolved lOResolved = fResolved();
 
             if (lOResolved.For == lsKey)
@@ -750,6 +780,7 @@ namespace UnderworldRevisited
 
             lOResolved.For = lsKey;
             lOResolved.DataPath = null;
+            lOResolved.OriginalDataPath = null;
             lOResolved.ImagePath = null;
             lOResolved.Error = null;
 
@@ -789,6 +820,19 @@ namespace UnderworldRevisited
                 Debug.LogError("UWSettings: " + lsError);
                 lOResolved.Error = lsError;
                 return null;
+            }
+
+            // THE EDITOR'S PACKAGES (.uwmod, Docs/MOD-SUPPORT-PLAN.md, 2026-11-09): applied to a copy of the
+            // extraction (GameData/UW1-mods), which the game then reads as its data; the extraction itself where none
+            // is pinned or none applies. The supported-program check above was the original's.
+            string lsData0 = lsData.TrimEnd('\\', '/');
+            string lsExtraction = Path.GetDirectoryName(lsData0);
+            string lsRoot = lsExtraction != null ? UWMods.BuildGameFiles(lsExtraction, Game) : null;
+
+            if (lsRoot != null && lsRoot != lsExtraction)
+            {
+                lOResolved.OriginalDataPath = lsData;
+                lsData = Path.Combine(lsRoot, Path.GetFileName(lsData0));
             }
 
             lOResolved.DataPath = lsData;

@@ -139,6 +139,10 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   combat, magic, creatures, motion, trade and more, and the original's quirks as switches.
   `Docs/rules-template.jsonc` in the release package (or `uwdump rules-template`) lists every
   key with its default and meaning; without the file the game plays as the original
+- Mods in the folder `Mods` beside the settings, in a load order set in the Mods window of the
+  menu bar: the `.uwmod` packages of the [Underworld Editor (Avalonia)](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) as they are,
+  applied to a copy of the game's files and never to the installation, and picture packs. A save
+  game remembers the mods it was made with
 
 ## Requirements
 
@@ -219,7 +223,7 @@ are.
 
 Two schemes, both complete: the **original** one, where the visible mouse pointer steers the
 walking as in 1992, and a **modern** one with free mouse look, WASD and an interface of its own.
-**Shift+F2** switches between them at any time, and so does *Game* in the menu bar. A
+**Shift+F2** switches between them at any time, and so does the switch at the right end of the menu bar. A
 **gamepad** works in both.
 
 The help window (**Tab**) has a *Controls* tab with the keys of the scheme in force, as you

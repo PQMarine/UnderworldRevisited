@@ -10,6 +10,48 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-09
+
+### Added
+- A Mods window in the bar: every mod in the folder `Mods` in its load order, each with a switch and Up
+  and Down, and beside the list the chosen mod's description or readme, its authors, credit and
+  licence, and whether it is loaded or why not. The order and the switches are kept in
+  `Mods/order.json`, which another program may write too; changes take effect at the next start or
+  load. It replaces the mods line of the Game window.
+- Mods made with the Underworld Editor (Avalonia), its `.uwmod` packages (mod format 2), work as they are:
+  put the file into the folder `Mods`. Their changes are applied to a copy of the game's files that the
+  game then reads, never to your installation; each file is checked against the original it was made
+  for, so a mod for another release, a damaged one or two mods changing the same file are refused, with
+  the reason in the log. A new start square the mod sets is followed.
+  `uwdump uwmod-check` in the Translation Kit says whether a package fits your game and what it changes.
+- Widescreen weapon pictures: a picture pack in `Mods` paints the weapon on where the original ends at
+  the edge of the old 4:3 view, in the modern scheme and Classic Wide. A pack holds only the painted
+  pixels; the original's come from your own game. The left hand mirrors the right. A pack lying there as
+  a folder is read anew at every load, so a painter sees a saved picture at once.
+- For painting such a pack, the Translation Kit has the folder `Widescreen weapons` with two files to
+  double-click on Windows: one makes a folder with the pictures to paint, guides that show where each
+  picture lies on a wide screen and where it is cut off, and the game's palette; the other turns the
+  painting into a checked pack. The same steps as commands: `uwdump weapon-guide`, `pack-strip` and
+  `pack-check` (GitHub issue 16).
+- A save game remembers the editor's mods it was made with; loaded with other ones, the message window
+  says which are missing and which are new. The original's save files stay as they were.
+- With music from recordings, a piece that a mod changed plays on the music device instead, so the mod's
+  music is heard.
+- The control scheme at the right end of the menu bar: *Original* and *Modern*, each with a small
+  picture, the one in force lit. A click switches at once, as Shift+F2; the keyboard and the gamepad
+  reach it as the other items of the bar. It replaces the Scheme row of the Game window.
+- Game-text packs can carry a checksum line (`#@`) before each entry, made from the English text the
+  entry translates. Where the English is different - a mod changed it, or another release of the game
+  has it - the game keeps the English instead of a translation that no longer fits. Packs without
+  checksums work as before; `uwdump strings-checksums` adds them, and `uwdump strings-template` writes
+  them. Docs/TRANSLATING.md explains it.
+
+### Fixed
+- A new character at a start square other than the original's stands on that square's floor, as the
+  original puts it, instead of falling from the original start's height.
+- The title music starts with the first company logo, as in the original, not only at the title screen.
+- Settings changed after *Make portable* in the same session were lost at the next start.
+
 ## [0.18.0] - 2026-11-09
 
 ### Added
@@ -19,7 +61,7 @@ against its code and, where noted, by playing the original. The deliberate excep
   The save games stay in the game's installation.
 - A mod folder: `Mods` beside the settings, with a line in the Game window that says what it holds and
   buttons for the folder and, where a mod was not loaded, for the log that says why. Mods are folders or
-  zips with a `mod.json`; Karl Clinckspoor's editor's `.uwmod` packages are recognised. Nothing reads the
+  zips with a `mod.json`; the `.uwmod` packages of the Underworld Editor (Avalonia) are recognised. Nothing reads the
   mods yet - the first pack, the widescreen weapons, comes next.
 - `uwdump weapon-frames` in the Translation Kit: the weapon pictures sorted by weapon and move for
   painting, each still named after its picture (GitHub issue 16).

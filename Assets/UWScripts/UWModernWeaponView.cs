@@ -5,7 +5,9 @@ using UWDataImport.UWData;
 /// <summary>
 /// THE MODERN HUD'S DRAWN WEAPON (out of UWModernHud, cleanup 5.16, 2026-10-22): from the same
 /// frames and Weapons.dat offsets as the classic view, the original's 172 x 112 viewport mapped
-/// onto the screen (WeaponScale, the HUD's Inspector value).
+/// onto the screen (WeaponScale, the HUD's Inspector value). A frame a mod extends
+/// (UWWeaponView.CurrentWeaponExtended, Docs/WIDESCREEN-WEAPONS-PLAN.md step 3) is drawn instead, placed
+/// so that the original's part lies exactly where the original would.
 /// </summary>
 public class UWModernWeaponView : UWModernPart
 {
@@ -76,6 +78,17 @@ public class UWModernWeaponView : UWModernPart
         float lfLeft = lfCentreX
             + ((ViewportLeft + lOOffset.X + mOUi.WeaponSway.Offset() - (ViewportLeft + (ViewportWidth * 0.5f))) * lfScale * UWModernHudArt.PixelAspectX);
         float lfTop = lfBottom + ((lOOffset.Y - (lOTexture.height * (1f - mOCharacter.Weapon.CurrentReadyWeaponTime))) * lfScale);
+
+        // A mod's larger picture: moved left and up by where the original lies in it; the raise above
+        // keeps the original's height, so the original's part moves as the original does.
+        Texture2D lOExtended = mOCharacter.Weapon.CurrentWeaponExtended;
+
+        if (lOExtended != null)
+        {
+            lfLeft -= mOCharacter.Weapon.CurrentWeaponExtendedLeft * lfScale * UWModernHudArt.PixelAspectX;
+            lfTop += mOCharacter.Weapon.CurrentWeaponExtendedTop * lfScale;
+            lOTexture = lOExtended;
+        }
 
         mOWeapon.texture = lOTexture;
         mOWeapon.enabled = true;

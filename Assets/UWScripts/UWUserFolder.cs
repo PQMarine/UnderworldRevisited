@@ -209,6 +209,13 @@ public static class UWUserFolder
             foreach (string lsFolder in new[] { "UW1", "UW2", "MT32", UWMods.FolderName })
                 fCopyFolder(System.IO.Path.Combine(lsSource, lsFolder), System.IO.Path.Combine(lsTarget, lsFolder));
 
+            // THE REST OF THIS SESSION WRITES THERE TOO (a Steam player's report, 2026-11-09: a scheme chosen after
+            // Make portable went into the old folder, and the next start read the copy made before the choice -
+            // every setting changed after the button was lost so). The files read at the start stay as they were.
+            msPath = lsTarget;
+            IsPortable = true;
+            Problem = null;
+
             return null;
         }
         catch (Exception lOError) when (lOError is IOException || lOError is UnauthorizedAccessException)

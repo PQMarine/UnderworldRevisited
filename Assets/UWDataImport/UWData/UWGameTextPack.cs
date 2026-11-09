@@ -37,6 +37,15 @@ namespace UWDataImport.UWData
 	/// pack against it (Validate: the conversation VM's placeholders, the game's backslash codes,
 	/// the line breaks).
 	///
+	/// THE CHECKSUM OF THE ENGLISH (2026-11-09, per user): a line "#@ 1a2b3c4d" right before an entry names the
+	/// English the entry translates by a short checksum of it (ChecksumOf: FNV-1a over its UTF-8, eight hex digits,
+	/// from which the text cannot be read back). The game lays the entry over only where the English it has now
+	/// is that one - so a mod or another release of the game that changed the line shows its own English instead
+	/// of a translation of something else - and keeps the English otherwise (Mismatched, the log). An entry
+	/// without one is laid over as before. Being a comment, it is skipped by every reader that does not know it:
+	/// older versions of the port and the higesho fork read such a file as before. `uwdump strings-template`
+	/// writes it, `uwdump strings-checksums` adds it to a pack made without it, `uwdump validate-tsv` checks it.
+	///
 	/// LAYER 2 (wave 2, 2026-10-26): the sentences assembled in code - the look with its article,
 	/// plural, condition word and owner, the creature's look, identify_inv's name - are the grammar's
 	/// of the pack's language (IUWGrammar, chosen by the file's code: UWGameData.Grammar), their
@@ -64,6 +73,9 @@ namespace UWDataImport.UWData
 			/// <summary>The text, escapes read.</summary>
 			public string Text;
 
+			/// <summary>The checksum of the English it translates (the "#@" line before it), null for none.</summary>
+			public string Checksum;
+
 			public string Key => Block.ToString(CultureInfo.InvariantCulture) + ":" + Index.ToString(CultureInfo.InvariantCulture);
 		}
 
@@ -78,6 +90,12 @@ namespace UWDataImport.UWData
 
 		/// <summary>How many strings the last Apply replaced.</summary>
 		public int Applied { get; private set; }
+
+		/// <summary>How many entries the last Apply left English because their checksum named other English.</summary>
+		public int Mismatched { get; private set; }
+
+		/// <summary>The beginning of a checksum line: "#@ " and the checksum.</summary>
+		public const string ChecksumMark = "#@";
 
 		/// <summary>The file it was read from, or null.</summary>
 		public string FilePath { get; private set; }
@@ -95,14 +113,30 @@ namespace UWDataImport.UWData
 				return lOPack;
 
 			string[] lsLines = psContent.Split('\n');
+			string lsChecksum = null;
 
 			for (int liLine = 0; liLine < lsLines.Length; liLine++)
 			{
 				// A byte order mark (U+FEFF) at the start of a line is skipped.
 				string lsLine = lsLines[liLine].TrimEnd('\r').TrimStart((char)0xFEFF);
 
+				// The checksum of the English the next entry translates.
+				if (lsLine.StartsWith(ChecksumMark, StringComparison.Ordinal))
+				{
+					lsChecksum = lsLine.Substring(ChecksumMark.Length).Trim().ToLowerInvariant();
+
+					if (lsChecksum.Length == 0)
+						lsChecksum = null;
+
+					continue;
+				}
+
 				if (string.IsNullOrWhiteSpace(lsLine) || lsLine[0] == '#')
 					continue;
+
+				string lsRowChecksum = lsChecksum;
+
+				lsChecksum = null;
 
 				string[] lsFields = lsLine.Split(new[] { '\t' }, 3);
 
@@ -132,7 +166,7 @@ namespace UWDataImport.UWData
 					continue;
 				}
 
-				lOPack.Rows.Add(new Row { Line = liLine + 1, Block = liBlock, Index = liIndex, Text = Unescape(lsFields[2]) });
+				lOPack.Rows.Add(new Row { Line = liLine + 1, Block = liBlock, Index = liIndex, Text = Unescape(lsFields[2]), Checksum = lsRowChecksum });
 			}
 
 			return lOPack;
@@ -149,6 +183,7 @@ namespace UWDataImport.UWData
 		public int Apply(UWStrings pOStrings)
 		{
 			Applied = 0;
+			Mismatched = 0;
 
 			if (pOStrings == null || pOStrings.Blocks == null)
 				return 0;
@@ -160,6 +195,15 @@ namespace UWDataImport.UWData
 				if (!fHasString(pOStrings, lORow.Block, lORow.Index))
 				{
 					Problems.Add("line " + lORow.Line + ": no string " + lORow.Key);
+
+					continue;
+				}
+
+				// Translated from other English (a mod, another release): the English stays.
+				if (lORow.Checksum != null && lORow.Checksum != ChecksumOf(pOStrings.Blocks[lORow.Block].Strings[lORow.Index]))
+				{
+					Mismatched++;
+					Problems.Add("line " + lORow.Line + ": " + lORow.Key + " translates other English (its checksum), left English");
 
 					continue;
 				}
@@ -199,6 +243,80 @@ namespace UWDataImport.UWData
 		{
 			return pOStrings.Blocks.TryGetValue(piBlock, out UWStringBlock lOBlock) && lOBlock != null && lOBlock.Strings != null
 				&& piIndex >= 1 && piIndex < lOBlock.Strings.Count;
+		}
+
+		// ------------------------------------------------- The checksum
+
+		/// <summary>The checksum of an English string: FNV-1a (32 bits) over its UTF-8, as eight lower-case hex digits.
+		/// Short, and the text cannot be read back from it, so a pack carrying it still carries nothing of the
+		/// original.</summary>
+		public static string ChecksumOf(string psEnglish)
+		{
+			uint liHash = 2166136261u;
+
+			foreach (byte lyByte in Encoding.UTF8.GetBytes(psEnglish ?? string.Empty))
+				liHash = (liHash ^ lyByte) * 16777619u;
+
+			return liHash.ToString("x8", CultureInfo.InvariantCulture);
+		}
+
+		/// <summary>
+		/// A pack's text with the checksums of the English added (uwdump strings-checksums): before every entry without
+		/// a "#@" line one with the checksum of the English it names in these strings - the player's own STRINGS.PAK,
+		/// against which the pack was made. Everything else stays as it was, line for line; with pbRenew the existing
+		/// checksum lines are written anew too. An entry naming no string of these is left without one.
+		/// </summary>
+		public static string AddChecksums(string psContent, UWStrings pOEnglish, bool pbRenew, out int piAdded, out int piKept)
+		{
+			piAdded = 0;
+			piKept = 0;
+
+			if (string.IsNullOrEmpty(psContent))
+				return psContent;
+
+			string lsBreak = psContent.Contains("\r\n") ? "\r\n" : "\n";
+			string[] lsLines = psContent.Replace("\r\n", "\n").Split('\n');
+			List<string> lsOut = new List<string>(lsLines.Length + 1024);
+			bool lbHasChecksum = false;
+
+			foreach (string lsRaw in lsLines)
+			{
+				string lsLine = lsRaw.TrimStart((char)0xFEFF);
+
+				if (lsLine.StartsWith(ChecksumMark, StringComparison.Ordinal))
+				{
+					if (pbRenew)
+						continue;
+
+					lbHasChecksum = true;
+					lsOut.Add(lsRaw);
+					continue;
+				}
+
+				if (string.IsNullOrWhiteSpace(lsLine) || lsLine[0] == '#')
+				{
+					lsOut.Add(lsRaw);
+					continue;
+				}
+
+				string[] lsFields = lsLine.Split(new[] { '\t' }, 3);
+
+				if (lbHasChecksum)
+					piKept++;
+				else if (lsFields.Length >= 2
+					&& int.TryParse(lsFields[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int liBlock)
+					&& int.TryParse(lsFields[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int liIndex)
+					&& fHasString(pOEnglish, liBlock, liIndex))
+				{
+					lsOut.Add(ChecksumMark + " " + ChecksumOf(pOEnglish.Blocks[liBlock].Strings[liIndex]));
+					piAdded++;
+				}
+
+				lbHasChecksum = false;
+				lsOut.Add(lsRaw);
+			}
+
+			return string.Join(lsBreak, lsOut);
 		}
 
 		// ------------------------------------------------- Escapes
@@ -293,6 +411,8 @@ namespace UWDataImport.UWData
 			lOText.Append("# In the text \\n is a line break, \\t a TAB, \\\\ a backslash before n, r, t or another backslash;\n");
 			lOText.Append("# every other backslash is the game's own code (\\m, \\p, \\0) and stays. Keep the placeholders (@SS1, @GI3C2).\n");
 			lOText.Append("# An empty text keeps the English; lines starting with # are comments.\n");
+			lOText.Append("# A line #@ before an entry is the checksum of the English it translates: the game uses the entry only\n");
+			lOText.Append("# where its English is that one, so a mod or another release that changed a line keeps its own text. Leave it be.\n");
 			lOText.Append("# Made from the player's own STRINGS.PAK (uwdump strings-template): the original's text, not to be published as it is.\n");
 			lOText.Append("# block\tindex\ttext\n");
 
@@ -311,10 +431,12 @@ namespace UWDataImport.UWData
 
 					string lsKey = liBlock.ToString(CultureInfo.InvariantCulture) + "\t" + liIndex.ToString(CultureInfo.InvariantCulture) + "\t";
 
+					string lsChecksum = ChecksumMark + " " + ChecksumOf(lsEnglish) + "\n";
+
 					if (pbEmpty)
-						lOText.Append("# ").Append(Escape(lsEnglish)).Append('\n').Append(lsKey).Append('\n');
+						lOText.Append("# ").Append(Escape(lsEnglish)).Append('\n').Append(lsChecksum).Append(lsKey).Append('\n');
 					else
-						lOText.Append(lsKey).Append(Escape(lsEnglish)).Append('\n');
+						lOText.Append(lsChecksum).Append(lsKey).Append(Escape(lsEnglish)).Append('\n');
 				}
 			}
 
@@ -432,6 +554,15 @@ namespace UWDataImport.UWData
 				if (lsEnglish.Length == 0)
 				{
 					fFind(lOFound, lORow, true, "the English string is empty");
+
+					continue;
+				}
+
+				// Translated from other English: the game keeps the English there (checksum, 2026-11-09).
+				if (lORow.Checksum != null && lORow.Checksum != ChecksumOf(lsEnglish))
+				{
+					fFind(lOFound, lORow, true, "translates other English than this game's (checksum " + lORow.Checksum + ", this English "
+						+ ChecksumOf(lsEnglish) + ") - the game shows the English; translate it anew and write the checksum anew");
 
 					continue;
 				}

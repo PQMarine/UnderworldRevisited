@@ -26,6 +26,8 @@ as one self-contained file (the .NET runtime inside, compressed, nothing trimmed
 installs nothing; about 36 MB, framework-dependent it would be 1.5 MB but want .NET 8 installed),
 TRANSLATING.md, Languages\en.tsv written by uwdump text-template (the port's own texts in English)
 and Languages\de.tsv as an example, the kit's README (TranslationKit-README.txt in this folder),
+in the Windows kit the folder "Widescreen weapons" (WidescreenWeapons in this folder: two batch
+files to double-click for painting a weapon picture pack, and their README),
 LICENSE, THIRD_PARTY_NOTICES.md with MeltySynth's licence text (uwdump carries MeltySynth) and the
 .NET runtime's licence and notices from the runtime pack it was built with. It needs no built
 player: -KitOnly makes the kit alone. The kit holds no text of the game, English or translated -
@@ -181,7 +183,9 @@ if (-not $KitOnly) {
     # below on 2026-11-08); the package's languages come fresh from the project further down.
     # Nor a portable test's portable.txt and UserData (UWUserFolder, 2026-11-09): the tester's own
     # settings, game data and mods.
-    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") -and $_.Name -ne "Languages" -and $_.Name -ne "portable.txt" -and $_.Name -ne "UserData" } |
+    # Nor any text or Markdown file lying loose in the build folder (2026-11-09: a draft of the Nexus Mods page
+    # lay there and went out with the releases, a Steam player read it); the package's README.txt comes below.
+    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") -and $_.Name -ne "Languages" -and $_.Name -ne "portable.txt" -and $_.Name -ne "UserData" -and -not (-not $_.PSIsContainer -and ($_.Extension -eq ".txt" -or $_.Extension -eq ".md")) } |
         ForEach-Object { Copy-Item $_.FullName -Destination $Stage -Recurse -Force }
 
     # The licence texts and the descriptions.
@@ -274,6 +278,16 @@ if (-not $NoKit) {
 
     foreach ($File in @("LICENSE", "THIRD_PARTY_NOTICES.md")) {
         Copy-Item (Join-Path $ProjectRoot $File) -Destination $KitStage
+    }
+
+    # The widescreen weapons' two files to double-click (Docs/WIDESCREEN-WEAPONS-PLAN.md, decided by the user
+    # 2026-11-09): Windows batch files, so the Windows kit only - on Linux the kit's README gives the commands.
+    # They find uwdump one folder up.
+    if (-not $IsLinux) {
+        $Widescreen = Join-Path $KitStage "Widescreen weapons"
+
+        New-Item -ItemType Directory -Force -Path $Widescreen | Out-Null
+        Copy-Item (Join-Path $PSScriptRoot "WidescreenWeapons\*") -Destination $Widescreen
     }
 
     New-Item -ItemType Directory -Force -Path (Join-Path $KitStage "ThirdParty\MeltySynth") | Out-Null

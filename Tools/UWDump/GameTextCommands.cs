@@ -299,6 +299,49 @@ namespace UnderworldRevisited.Tools
             return liOver == 0 ? 0 : 6;
         }
 
+        /// <summary>
+        /// uwdump strings-checksums [path] file.strings.tsv [--out file] [--renew]: a game-text pack made without the
+        /// checksums of the English (before 2026-11-09) gets them from the player's own STRINGS.PAK - a "#@" line
+        /// before every entry, everything else left as it was. In place unless --out names another file; --renew
+        /// writes the existing ones anew too (after the pack was checked against this English). Run it on a pack
+        /// made for this release of the game, as it was translated from it.
+        /// </summary>
+        private static int fStringsChecksums(DumpContext pOContext, List<string> pOArgs)
+        {
+            string lsOut = fTakeOption(pOArgs, "--out");
+            bool lbRenew = fTakeFlag(pOArgs, "--renew");
+
+            if (pOArgs.Count < 1 || !File.Exists(pOArgs[0]))
+            {
+                Console.Error.WriteLine("Which pack? An existing UTF-8 file, for example: uwdump strings-checksums Languages/de.strings.tsv");
+
+                return 1;
+            }
+
+            string lsContent;
+
+            try
+            {
+                lsContent = File.ReadAllText(pOArgs[0], new UTF8Encoding(false, true));
+            }
+            catch (DecoderFallbackException lOError)
+            {
+                Console.Error.WriteLine("Not UTF-8: " + lOError.Message);
+
+                return 5;
+            }
+
+            bool lbBom = File.ReadAllBytes(pOArgs[0]) is byte[] lyBytes && lyBytes.Length >= 3 && lyBytes[0] == 0xEF && lyBytes[1] == 0xBB && lyBytes[2] == 0xBF;
+            string lsResult = UWGameTextPack.AddChecksums(lsContent, fEnglishStrings(pOContext), lbRenew, out int liAdded, out int liKept);
+            string lsTarget = lsOut ?? pOArgs[0];
+
+            File.WriteAllText(lsTarget, lsResult, new UTF8Encoding(lbBom));
+            Console.WriteLine(liAdded + " checksums written" + (liKept > 0 ? ", " + liKept + " kept" : string.Empty) + " - " + lsTarget
+                + ". Check it with: uwdump validate-tsv " + lsTarget);
+
+            return 0;
+        }
+
         /// <summary>The player's STRINGS.PAK, read afresh: the English, whatever --strings says.</summary>
         private static UWStrings fEnglishStrings(DumpContext pOContext)
         {

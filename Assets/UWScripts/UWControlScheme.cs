@@ -323,8 +323,23 @@ public class UWControlScheme : MonoBehaviour
         // handed over, which the new scheme's interface sees as before.
         mOUi = peScheme == SchemeEnum.Modern ? (IUWUiScheme)UWModernUiScheme.Instance : UWClassicUiScheme.Instance;
 
+        // THE POINTER STAYS WHERE IT IS (per user, 2026-11-09: switched to Modern from the bar's switch, the pointer
+        // jumped to the middle of the window). Between the old menu's close and the new one's open no modal hold is
+        // left, and the modern scheme went into its mouse look for that moment - the capture put the pointer in the
+        // middle, and leaving the look again kept it there. The cursor state is applied once, after the hand-over.
         if (leBefore != peScheme && mbStarted)
-            fHandOverMenus(leBefore);
+        {
+            mbHandingOver = true;
+
+            try
+            {
+                fHandOverMenus(leBefore);
+            }
+            finally
+            {
+                mbHandingOver = false;
+            }
+        }
 
         // The easy steps lie on the turn keys in the classic scheme and on the keys beside the walk
         // in the modern one (decision 18): put anew - an unchanged step is left alone.
@@ -375,8 +390,14 @@ public class UWControlScheme : MonoBehaviour
     /// pointer; otherwise the pointer shows - in the game it is our own, captured (UWPointer), in the
     /// menus the system's.
     /// </summary>
+    /// <summary>Apply is handing the menus over to the new scheme: the cursor state waits for its end.</summary>
+    private bool mbHandingOver;
+
     private void fApplyCursorState()
     {
+        if (mbHandingOver)
+            return;
+
         bool lbLook = Current == SchemeEnum.Modern && !IsUIModalOpen && !mbIsConversationOpen && !IsPointerFree;
 
         // With Original the pointer always stays visible and free anyway, as in the original

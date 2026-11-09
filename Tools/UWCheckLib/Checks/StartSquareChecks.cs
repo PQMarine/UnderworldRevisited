@@ -69,6 +69,26 @@ namespace UnderworldRevisited.Tools
                 lOStart.TileX = liOldX;
                 lOStart.TileY = liOldY;
             }
+
+            // THE HEIGHT (player_setup on the square's floor): the original's 32/2 gives the fixed 0x300 of before; a
+            // slope half a step more; the heights 14 and 15 the original's 0.
+            pOData.GameData.TryGetStartHeight(32, 2, out int liZ);
+            Check.Str("height: the original start 32/2 stands at 0x300 (floor 12), as the fixed value of before", "0x" + liZ.ToString("X"), "0x300");
+            Check.Str("height: steps of 0x40, a slope (6 to 9) half a step more, 14 and 15 the original's 0",
+                UWStartSquare.HeightOnTile(3, 1).ToString("X") + " " + UWStartSquare.HeightOnTile(3, 7).ToString("X") + " "
+                + UWStartSquare.HeightOnTile(14, 1) + " " + UWStartSquare.HeightOnTile(15, 6).ToString("X"), "C0 E0 0 20");
+
+            // A moved start: the character on that square's floor, from the data's own level.
+            lOGeneration.StartHeight = (piX, piY) => pOData.GameData.TryGetStartHeight(piX, piY, out int liAtZ) ? liAtZ : (int?)null;
+            lOGeneration.ProgramStartX = 31;
+            lOGeneration.ProgramStartY = 9;
+
+            byte[] lyLevels = File.ReadAllBytes(Path.Combine(pOData.GameData.DataPath, "LEV.ARK"));
+
+            UWStartSquare.TryReadFirstLevelTile(lyLevels, 31, 9, out int liFloor, out int liType);
+            Check.Str("height: a new character at 31/9 stands on that floor (height " + liFloor + ", type " + liType + ")",
+                lOGeneration.Result().StartZ.ToString(), UWStartSquare.HeightOnTile(liFloor, liType).ToString());
+            Check.Bool("height: ... which differs from the original start's (it fell from there)", UWStartSquare.HeightOnTile(liFloor, liType) != 0x300, true);
         }
 
         private static int fFindStartCall(byte[] pyProgram)

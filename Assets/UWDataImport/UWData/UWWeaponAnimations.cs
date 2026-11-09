@@ -110,25 +110,33 @@ namespace UWDataImport.UWData
 
 		private void fLoadWeaponCoordinates(string psDataPath)
 		{
-			mFrameCoordinates = new List<WeaponCoordinate>();
-			byte[] array = File.ReadAllBytes(Path.Combine(psDataPath, "WEAPONS.DAT"));
-			int num = 0;
-			for (int i = 0; i < 8; i++)
+			mFrameCoordinates = ReadUw1Coordinates(psDataPath);
+		}
+
+		/// <summary>The first game's WEAPONS.DAT: per picture of WEAPONS.GR its place in the view - X from the view's
+		/// left edge, Y the picture's top above the view's bottom (UWModernWeaponView, uwdump weapon-guide). Eight
+		/// records of 28 X then 28 Y bytes.</summary>
+		public static List<WeaponCoordinate> ReadUw1Coordinates(string psDataPath)
+		{
+			List<WeaponCoordinate> lOCoordinates = new List<WeaponCoordinate>();
+			byte[] lyData = File.ReadAllBytes(Path.Combine(psDataPath, "WEAPONS.DAT"));
+			int liIndex = 0;
+
+			for (int liRecord = 0; liRecord < RecordCount; liRecord++)
 			{
-				for (int j = 0; j < 28; j++)
+				for (int liAt = 0; liAt < 28; liAt++)
 				{
-					if (i != 7 || j == 27)
+					lOCoordinates.Add(new WeaponCoordinate
 					{
-					}
-					mFrameCoordinates.Add(new WeaponCoordinate
-					{
-						Index = num,
-						X = array[i * 56 + j],
-						Y = array[i * 56 + j + 28]
+						Index = liIndex,
+						X = lyData[(liRecord * 56) + liAt],
+						Y = lyData[(liRecord * 56) + liAt + 28]
 					});
-					num++;
+					liIndex++;
 				}
 			}
+
+			return lOCoordinates;
 		}
 
 		public UWWeaponAnimation GetWeaponAnimation(WeaponTypes peWeapon)

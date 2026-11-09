@@ -55,6 +55,11 @@ uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, 
      the language in the Language row of the Game window. The row shows your language by its
      setting.Language.name, written in the language itself ("Deutsch").
 
+  A pack of the game's texts made before 0.19.0 gets the checksum lines (#@, see TRANSLATING.md,
+  "The checksum line") once, from the game it was translated from:
+       uwdump strings-checksums <game> Languages/xx.strings.tsv
+  They keep a line a mod changed from showing a translation of the old line.
+
   After a new release, bring your translation up to date with the new texts:
        uwdump text-template xx --from Languages/xx.tsv --out xx-new.tsv
   keeps your lines, adds the new ids as comments with their English ("# id TAB English":
@@ -117,6 +122,72 @@ For painting new art (weapon frames, icons ...), from your own copy of the game 
   For Ultima Underworld II add --game uw2 (pictures, palette and maprender work for it too; its
   weapon frames are WEAP.GR).
   The pictures stay Origin's art: use them for your own work, do not publish them as they are.
+
+
+A WEAPON PICTURE PACK (WIDESCREEN)
+----------------------------------
+
+The modern scheme draws the weapon over a wide screen, where the original pictures end at the
+edge of the old 4:3 view. A picture pack paints them on. It holds only the pixels you add: the
+original's come from each player's own game, so the pack carries nothing of Origin's art.
+
+On Windows the folder "Widescreen weapons" in this kit does all of the following with two files
+to double-click, no command line needed - see its README.txt. The commands below are the same
+steps by hand, and the way on Linux.
+
+  1. Where the pictures end: every weapon picture at its place on a wide screen, with lines for
+     the old view (white), 4:3 (grey), 16:9 (yellow) and 21:9 (the picture's edge), each named
+     at the top in its colour, the cut edges in magenta, and edges.txt with how far each cut
+     edge has to reach:
+       uwdump weapon-guide <game> --out my-guide
+     Only the pictures with a cut edge need painting. The left hand mirrors the right: paint the
+     right hand only, the game mirrors your pixels for the left (paint a left-hand picture
+     yourself only where it must differ).
+
+  2. Paint on whole pictures, the original in them: start from weapon-frames (above), make the
+     canvas larger and paint around the weapon in the game's palette (uwdump palette). Keep
+     WEAPONS_xx in each file's name. Pixels without colour must be fully clear.
+     Why the pictures look a little flat: the original ran at 320 x 200 on a 4:3 screen, so
+     its pixels were 1.2 times as tall as wide. The PNGs have square pixels, so the weapons
+     look a bit wider and flatter than in the game. Paint on them as they are - the game
+     stretches your pixels the same way as the original's. To see the game's proportions,
+     view a picture at 120 % height. The guides and edges.txt count in the pictures' own
+     pixels too.
+
+  3. Only the new pixels into a pack: finds the original in each painted picture, takes out
+     every pixel where the original has one, and writes the rest with where the original lies:
+       uwdump pack-strip <game> --from my-painted --out my-pack
+     It warns where the original was painted over (the game keeps the original's pixels) and
+     writes a mod.json to fill in where there is none.
+
+  4. Check it as the game will read it - mod.json, names, colours outside the palette, pixels
+     over the original's, half-clear pixels, and which pictures with a cut edge are still to do:
+       uwdump pack-check <game> --pack my-pack
+
+  5. Try it: copy the folder my-pack into the folder Mods (the Game window's Mods button opens
+     it). A pack in a folder is read anew at every load, so a picture saved in between shows at
+     the next load. Players get it as a zip of that folder, which they put into Mods as it is.
+
+A pack's layout:
+
+  mod.json                            id, name, version, author, games ["uw1"], credit, licence
+  pictures/UW1/WEAPONS.GR/004.png     a picture, named by its number in hex
+  pictures/UW1/WEAPONS.GR/extend.json where the original lies in each picture:
+      { "pictures": { "004": { "left": 40, "top": 0 } } }
+
+The id is lower case letters, digits, - and ., by custom yourname.mod-name; it stays the same
+in every version. A picture may carry its shift in a grAb chunk instead, as GZDoom's sprites
+(SLADE writes it); a picture's own line in extend.json wins over it.
+
+
+A MOD MADE WITH THE EDITOR (.uwmod)
+-----------------------------------
+
+Mods made with the Underworld Editor (Avalonia), its mod format 2, go into the folder Mods
+as they are. Whether one fits your game, what it changes and where a new character starts:
+       uwdump uwmod-check <game> --pack my-mod.uwmod
+Only the .uwmod holds nothing of the original. The editor's export of changed files (a zip with
+whole game files) is not a mod: do not share it.
 
 
 PUBLISHING

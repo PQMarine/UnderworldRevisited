@@ -44,7 +44,7 @@ namespace UnderworldRevisited.Tools
                 fModFolder(lsRoot, "two", "{ \"id\": \"e.two\", \"requires\": [\"e.one\"] }");
                 fModFolder(lsRoot, "dep", "{ \"id\": \"f.dep\", \"requires\": [\"e.one\"] }");
                 fModZip(Path.Combine(lsRoot, "garamon.uwmod"), string.Empty,
-                    "{ \"format\": 2, \"game\": \"uw1\", \"id\": \"karl.garamon-moved\", \"name\": \"Garamon moved\", \"version\": \"1.0.0\", \"authors\": [\"Karl\"], \"files\": [] }");
+                    "{ \"format\": 2, \"game\": \"uw1\", \"id\": \"editor.garamon-moved\", \"name\": \"Garamon moved\", \"version\": \"1.0.0\", \"authors\": [\"Someone\"], \"files\": [] }");
                 fModFolder(lsRoot, "second", "{ \"id\": \"x.uw2\", \"games\": [\"uw2\"] }");
                 // A folder without a mod.json is a category folder (searched, not refused); a zip without one is refused.
                 fModFolder(lsRoot, "empty", null);
@@ -59,7 +59,7 @@ namespace UnderworldRevisited.Tools
                     lsLoaded.Add(lOEntry.Id);
 
                 Check.Str("mods: loaded in order, each after what it requires", string.Join(" ", lsLoaded),
-                    "a.base b.ext c.zip karl.garamon-moved x.uw2");
+                    "a.base b.ext c.zip editor.garamon-moved x.uw2");
 
                 UWModCatalog.Entry lOBase = lOCatalog.Loaded[0];
 
@@ -75,11 +75,11 @@ namespace UnderworldRevisited.Tools
                     && lsRefused.Contains("e.one") && lsRefused.Contains("e.two") && lsRefused.Contains("f.dep")
                     && lOCatalog.Refused.Count == 6, true);
 
-                UWModCatalog.Entry lOPackage = lOCatalog.Loaded.Find(pOEntry => pOEntry.Id == "karl.garamon-moved");
+                UWModCatalog.Entry lOPackage = lOCatalog.Loaded.Find(pOEntry => pOEntry.Id == "editor.garamon-moved");
 
                 Check.Str("mods: the editor's package read as format 2 for uw1",
                     lOPackage.Manifest.IsEditorPackage + " " + lOPackage.Manifest.Kind + " " + string.Join(",", lOPackage.Manifest.Games)
-                    + " " + string.Join(",", lOPackage.Manifest.Authors), "True uwmod uw1 Karl");
+                    + " " + string.Join(",", lOPackage.Manifest.Authors), "True uwmod uw1 Someone");
 
                 UWModCatalog.Entry lOZip = lOCatalog.Loaded.Find(pOEntry => pOEntry.Id == "c.zip");
 
@@ -88,9 +88,25 @@ namespace UnderworldRevisited.Tools
                     "True mod.json,pictures/readme.txt hello");
 
                 Check.Str("mods: the first game's set leaves out the second game's mod", lOCatalog.SetFor("uw1").Key,
-                    "a.base@1.2;b.ext@1.0;c.zip@3;karl.garamon-moved@1.0.0;");
+                    "a.base@1.2;b.ext@1.0;c.zip@3;editor.garamon-moved@1.0.0;");
                 Check.Str("mods: a folder that does not exist has none", string.Join("|", UWModCatalog.Scan(Path.Combine(lsRoot, "nowhere")).Describe()),
                     "Mods: none");
+                // IDS (2026-11-09): an editor package's as the Underworld Editor writes it; ours keep our rule.
+                string lsIds = Path.Combine(lsRoot, "ids");
+
+                Directory.CreateDirectory(lsIds);
+                fModZip(Path.Combine(lsIds, "spaced.uwmod"), string.Empty,
+                    "{ \"format\": 2, \"game\": \"uw1\", \"id\": \"Conversation and item name test.mod\", \"version\": \"1.0.0\", \"files\": [] }");
+                fModFolder(lsIds, "ours", "{ \"id\": \"Our Mod\" }");
+
+                UWModCatalog lOIds = UWModCatalog.Scan(lsIds);
+
+                Check.Str("ids: an editor package's with spaces and capitals taken, ours refused",
+                    string.Join("|", lOIds.Loaded.ConvertAll(pOEntry => pOEntry.Id)) + " / " + lOIds.BrokenMods.Count + " "
+                    + (lOIds.BrokenMods.Count == 1 ? lOIds.BrokenMods[0].Name + " " + lOIds.BrokenMods[0].Kind : "-")
+                    + " / " + UWModManifest.IsValidEditorId("a\tb") + " " + UWModManifest.IsValidEditorId("  "),
+                    "Conversation and item name test.mod / 1 ours NoId / False False");
+
                 Check.Str("mods: versions compared as numbers", UWModManifest.CompareVersions("1.10", "1.9") + " " + UWModManifest.CompareVersions("2", "2.0"), "1 0");
             }
             finally

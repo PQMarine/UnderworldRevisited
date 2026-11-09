@@ -279,6 +279,11 @@ public class UWLevelLoader : MonoBehaviour
         // here. A game the port cannot play yet shows its main menu screen and nothing more.
         UWSettings.Game = UWGameSwitch.Chosen();
 
+        // The mod folder's catalog to the log, and the editor's packages fixed for this start - before any data
+        // is read, since they change the game's files (UWMods.PinGameFiles, UWSettings.DataPath).
+        UWMods.ScanAndLog();
+        UWMods.PinGameFiles(UWSettings.Game);
+
         // The second game (UW2 plan phase 2 step 3): its main menu with its buttons, or the walk its
         // Create Character asked for (UWWalkUw2) - the screen alone where its data cannot be read.
         bool lbWalk = UWWalkUw2.Take();
@@ -313,8 +318,8 @@ public class UWLevelLoader : MonoBehaviour
         // out of the file is the original's again with the next start or load. No file is the
         // original's rules; the game never writes one.
         fApplyRules();
-        // The mod folder's catalog to the log (UWMods; nothing reads the mods yet).
-        UWMods.ScanAndLog();
+        // The mods' pictures to the textures (UWMods; the catalog was scanned at the start above).
+        UWMods.ApplyPictures(UWDataImporter.Textures);
 
         // Character creation leaves a black cover up during the rebuild. Until 2026-09-14 the
         // intro that followed removed it; without the intro the screen stayed black (per user).
@@ -855,7 +860,10 @@ public class UWLevelLoader : MonoBehaviour
 
         // The help's notes belong to the save game; a new character starts without any.
         if (UWDataImporter.IsSavegame)
+        {
             UWHelpNotes.LoadFrom(UWDataImporter.SavegamePath);
+            fReportSaveMods();
+        }
         else
             UWHelpNotes.Clear();
 
@@ -976,6 +984,7 @@ public class UWLevelLoader : MonoBehaviour
                 gameObject.AddComponent<UWWalkUw2View>();
 
             UWHelpNotes.LoadFrom(UWDataImporter.SavegamePath);
+            fReportSaveMods();
             Debug.Log(string.Format("[Walk] From {0}: {1}, level {2}, tile {3}/{4}.", UWDataImporter.SavegamePath, lOPlayer.Name,
                 miLevelIndex + 1, UWPlayerRecordUw2.PositionX(lOPlayer) >> 8, UWPlayerRecordUw2.PositionY(lOPlayer) >> 8));
         }
@@ -1149,9 +1158,10 @@ public class UWLevelLoader : MonoBehaviour
 
             if (msOShared3DModels == null && lOSettings != null && lOSettings.IsExePathValid)
             {
-                // The model import reads UW.EXE at offsets of the GOG build only.
-                if (UWGogInstall.IsSupportedExe(lOSettings.ExePath, UWSettings.Game))
-                    msOShared3DModels = new UW3DModelImport(lOSettings.ExePath, UWSettings.Game.Models);
+                // The model import reads UW.EXE at offsets of the GOG build only - the program as extracted, before
+                // an editor's package changed it (its new start square would fail the check).
+                if (UWGogInstall.IsSupportedExe(lOSettings.OriginalExePath, UWSettings.Game))
+                    msOShared3DModels = new UW3DModelImport(lOSettings.OriginalExePath, UWSettings.Game.Models);
                 else
                     Debug.LogWarning("UWLevelLoader: " + lOSettings.ExePath + " is not the supported UW.EXE (GOG version) - 3D models fall back to sprites.");
             }
@@ -1279,6 +1289,34 @@ public class UWLevelLoader : MonoBehaviour
     }
 
     private bool mbUnloadPending;
+
+    /// <summary>
+    /// A SAVE MADE WITH OTHER MODS (per user, 2026-11-09): where the loaded save's record (UWHelpNotes.SavedMods) and the
+    /// editor's packages applied now differ, the message window says so once the game stands - which ones are missing
+    /// and which are new - and the log keeps it. Nothing for a save without a record.
+    /// </summary>
+    private void fReportSaveMods()
+    {
+        System.Collections.Generic.List<string> lsLines = UWMods.SaveDifference(UWHelpNotes.SavedMods, UWSettings.Game);
+
+        if (lsLines != null)
+            StartCoroutine(fReportWhenReady(lsLines));
+    }
+
+    private System.Collections.IEnumerator fReportWhenReady(System.Collections.Generic.List<string> psLines)
+    {
+        // The message window is there a few frames after the scene starts; give up after a few seconds.
+        for (int liFrame = 0; liFrame < 600 && UWScene.Interaction == null; liFrame++)
+            yield return null;
+
+        yield return null;
+
+        if (UWScene.Interaction == null)
+            yield break;
+
+        foreach (string lsLine in psLines)
+            UWScene.Interaction.AddMessage(lsLine);
+    }
 
     private System.Collections.IEnumerator fUnloadUnusedNextFrame()
     {

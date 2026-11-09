@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace UWDataImport.Audio
@@ -36,6 +37,28 @@ namespace UWDataImport.Audio
 		public static string BaseName(string psNumber)
 		{
 			return psNumber;
+		}
+
+		/// <summary>
+		/// A PIECE A MOD CHANGED (per user, 2026-11-09: an editor's package replaced the main menu's theme, and with the
+		/// recordings on the original's recording still played): true where the game files the mods changed
+		/// (UWModGameFiles.Changed, '/'-separated) hold either of the piece's files, SOUND/UWnn.XMI (MT-32) or
+		/// SOUND/AWnn.XMI (AdLib). Such a piece plays on the device, which reads the changed file; a recording is of the
+		/// original's piece.
+		/// </summary>
+		public static bool IsChangedByMods(IEnumerable<string> psChanged, string psNumber)
+		{
+			if (psChanged == null || string.IsNullOrEmpty(psNumber))
+				return false;
+
+			foreach (string lsPath in psChanged)
+			{
+				if (string.Equals(lsPath, "SOUND/UW" + psNumber + ".XMI", StringComparison.OrdinalIgnoreCase)
+					|| string.Equals(lsPath, "SOUND/AW" + psNumber + ".XMI", StringComparison.OrdinalIgnoreCase))
+					return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>The recording of a piece in a folder, null when there is none (or no folder).</summary>

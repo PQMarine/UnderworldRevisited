@@ -337,8 +337,11 @@ public static class UWLanguage
             return;
         }
 
+        // Mismatched: entries translating other English than this game's (their checksum) - a mod or another release
+        // changed those lines, which keep their English.
         Debug.Log("UWLanguage: the game's texts, " + pOPack.Applied + " strings from " + psFile + ", " + pOPack.EmptyRows
-            + " left English, " + pOPack.Problems.Count + " lines skipped");
+            + " left English, " + pOPack.Mismatched + " kept English as the game's English differs (checksum), "
+            + (pOPack.Problems.Count - pOPack.Mismatched) + " lines skipped");
 
         for (int liAt = 0; liAt < pOPack.Problems.Count && liAt < 20; liAt++)
             Debug.LogWarning("UWLanguage: " + pOPack.Problems[liAt]);

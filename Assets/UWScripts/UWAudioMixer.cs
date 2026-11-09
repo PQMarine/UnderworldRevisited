@@ -294,7 +294,10 @@ public class UWAudioMixer : MonoBehaviour
         if (!mbReady)
             return;
 
-        string lsRecording = UWUserSettings.MusicRecordings ? UWMusicRecordings.Find(RecordingFolder, psNumber) : null;
+        // A piece a mod changed plays on the device, which reads the changed file (the recording is the original's).
+        UWDataImport.UWData.UWModGameFiles lOModded = UWMods.GameFiles(UnderworldRevisited.UWSettings.Game);
+        bool lbModded = lOModded != null && UWMusicRecordings.IsChangedByMods(lOModded.Changed, psNumber);
+        string lsRecording = UWUserSettings.MusicRecordings && !lbModded ? UWMusicRecordings.Find(RecordingFolder, psNumber) : null;
 
         if (lsRecording != null && !mOFailedRecordings.Contains(lsRecording))
         {

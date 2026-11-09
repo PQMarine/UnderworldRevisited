@@ -98,6 +98,9 @@ public sealed class UWKitRows : IUWRows
         public float Padding;
 
         public bool Wraps;
+
+        /// <summary>Unity's rich text tags count (Paragraph).</summary>
+        public bool Rich;
     }
 
     private static Look fLook(int piSize, Color pOColour, TextAnchor peAnchor, float pfPadding = 0f, bool pbWraps = false)
@@ -629,6 +632,9 @@ public sealed class UWKitRows : IUWRows
         if (!lbOn)
             return;
 
+        if (lOText.supportRichText != pOLook.Rich)
+            lOText.supportRichText = pOLook.Rich;
+
         if (lOText.text != psText)
             lOText.text = psText;
 
@@ -868,7 +874,7 @@ public sealed class UWKitRows : IUWRows
     /// <summary>The settings a Text of the canvas generates with (as Text.GetGenerationSettings makes
     /// them: the size in layout units, the canvas' scale as the scale factor, the extents in layout
     /// units), so a measure is what the canvas draws.</summary>
-    private TextGenerationSettings fSettings(int piSize, float pfWrapWidth)
+    private TextGenerationSettings fSettings(int piSize, float pfWrapWidth, bool pbRich = false)
     {
         bool lbWraps = pfWrapWidth > 0f;
 
@@ -878,7 +884,7 @@ public sealed class UWKitRows : IUWRows
             fontSize = piSize,
             fontStyle = FontStyle.Normal,
             lineSpacing = 1f,
-            richText = false,
+            richText = pbRich,
             scaleFactor = mfScale,
             color = Color.white,
             textAnchor = TextAnchor.UpperLeft,
@@ -910,18 +916,38 @@ public sealed class UWKitRows : IUWRows
     }
 
     /// <summary>A text's height wrapped at a width, in layout units.</summary>
-    private float fTextHeight(string psText, int piSize, float pfWidth)
+    private float fTextHeight(string psText, int piSize, float pfWidth, bool pbRich = false)
     {
         string lsText = string.IsNullOrEmpty(psText) ? " " : psText;
         int liWidth = Mathf.RoundToInt(pfWidth);
+        // Rich text measures otherwise (its tags take no room): kept apart by a mark the plain text never starts with.
+        string lsKey = pbRich ? "\u0001" + lsText : lsText;
 
-        if (mOHeights.TryGetValue((lsText, piSize, liWidth), out float lfHeight))
+        if (mOHeights.TryGetValue((lsKey, piSize, liWidth), out float lfHeight))
             return lfHeight;
 
-        lfHeight = mOGenerator.GetPreferredHeight(lsText, fSettings(piSize, Mathf.Max(1f, pfWidth))) / mfScale;
-        mOHeights[(lsText, piSize, liWidth)] = lfHeight;
+        lfHeight = mOGenerator.GetPreferredHeight(lsText, fSettings(piSize, Mathf.Max(1f, pfWidth), pbRich)) / mfScale;
+        mOHeights[(lsKey, piSize, liWidth)] = lfHeight;
 
         return lfHeight;
+    }
+
+    public float Paragraph(float pfLeft, float pfTop, float pfWidth, string psText, bool pbRich)
+    {
+        Look lOLook = fLook(TextSize, mOPalette.Text, TextAnchor.UpperLeft, 0f, true);
+
+        lOLook.Rich = pbRich;
+
+        float lfHeight = fTextHeight(psText, lOLook.Size, pfWidth, pbRich);
+
+        fText(new Rect(pfLeft, pfTop, pfWidth, lfHeight), psText, lOLook);
+
+        return lfHeight;
+    }
+
+    public float ParagraphHeight(string psText, float pfWidth, bool pbRich)
+    {
+        return fTextHeight(psText, TextSize, pfWidth, pbRich);
     }
 
     // ------------------------------------------------- IUWRows: sizes
@@ -1272,6 +1298,31 @@ public sealed class UWKitRows : IUWRows
     public bool Item(Rect pORect, string psText, bool pbCurrent = false)
     {
         return fListRow(pORect, psText, pbCurrent ? mOPalette.Accent : mOPalette.Text, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
+    }
+
+    public void RowHighlight(Rect pORect)
+    {
+        Color lOColour = mOPalette.Accent;
+
+        lOColour.a *= 0.18f;
+        fFill(pORect, lOColour);
+    }
+
+    public bool ItemTinted(Rect pORect, string psText, bool pbCurrent, UWRowInfoEnum peLook)
+    {
+        // Dim at half its strength (per user, 2026-11-09: the Mods window's switched-off and other-game mods were hard
+        // to tell from the loaded ones at a glance in the plain dim colour).
+        Color lODim = mOPalette.DimText;
+
+        lODim.a *= 0.5f;
+
+        Color lOColour = pbCurrent ? mOPalette.Accent
+            : peLook == UWRowInfoEnum.Dim ? lODim
+            : peLook == UWRowInfoEnum.Error ? mOPalette.Error
+            : peLook == UWRowInfoEnum.Accent ? mOPalette.Accent
+            : mOPalette.Text;
+
+        return fListRow(pORect, psText, lOColour, TextAnchor.MiddleLeft, UWGuiTheme.SetupListPadding);
     }
 
     private bool fListRow(Rect pORect, string psText, Color pOText, TextAnchor peAnchor, float pfPadding)
@@ -1709,6 +1760,84 @@ public sealed class UWKitRows : IUWRows
             fFill(pORect, mOPalette.Hover);
 
         return fListRow(pORect, psText, mOPalette.Text, TextAnchor.MiddleCenter, 0f);
+    }
+
+    private const float BarPictureWidth = 18f;
+
+    private const float BarPictureHeight = 13f;
+
+    private const float BarPictureGap = 6f;
+
+    private const float BarChoicePadding = 10f;
+
+    /// <summary>
+    /// THE SCHEME SWITCH'S HALVES (per user, 2026-11-09, variant B of the mockup): a small picture drawn of plain
+    /// rectangles and the scheme's name, the chosen one lit as an open window's item and in the accent colour. The
+    /// whole half takes the click and is an entry of the keyboard's and the pad's navigation.
+    /// </summary>
+    public bool BarChoice(Rect pORect, string psText, bool pbChosen, UWBarPictureEnum pePicture)
+    {
+        int liId = fControl(pORect, out bool lbOver, out bool lbClicked, out bool _);
+        bool lbKey = fEntry(pORect, out bool lbFocused);
+        bool lbHover = fHover(liId, lbOver);
+
+        if (pbChosen || lbHover)
+            fFill(pORect, mOPalette.Hover);
+
+        Color lOInk = pbChosen ? mOPalette.Accent : mOPalette.Text;
+        Rect lOPicture = new Rect(Mathf.Round(pORect.x + BarChoicePadding), Mathf.Round(pORect.y + ((pORect.height - BarPictureHeight) / 2f)),
+            BarPictureWidth, BarPictureHeight);
+
+        fBarPicture(lOPicture, pePicture, lOInk);
+
+        float lfTextLeft = lOPicture.xMax + BarPictureGap;
+
+        fText(new Rect(lfTextLeft, pORect.y, Mathf.Max(0f, pORect.xMax - BarChoicePadding - lfTextLeft), pORect.height), psText,
+            fLook(TextSize, lOInk, TextAnchor.MiddleLeft));
+
+        if (lbFocused)
+            fFocusFrame(pORect);
+
+        return lbClicked || lbKey;
+    }
+
+    public float BarChoiceWidth(string psText)
+    {
+        return (2f * BarChoicePadding) + BarPictureWidth + BarPictureGap + Mathf.Ceil(fTextWidth(psText, TextSize)) + 2f;
+    }
+
+    /// <summary>The pictures: the classic screen a thick frame in the ink with the small view upper left (as the
+    /// original's 3D window sits), the modern one the whole picture in the ground with an L in the ink at each corner
+    /// and a small crosshair.</summary>
+    private void fBarPicture(Rect pORect, UWBarPictureEnum pePicture, Color pOInk)
+    {
+        float lfX = pORect.x;
+        float lfY = pORect.y;
+        float lfW = pORect.width;
+        float lfH = pORect.height;
+
+        if (pePicture == UWBarPictureEnum.ClassicScreen)
+        {
+            fFill(pORect, pOInk);
+            fFill(new Rect(lfX + 3f, lfY + 2f, lfW - 8f, lfH - 6f), mOPalette.Background);
+
+            return;
+        }
+
+        fFill(pORect, mOPalette.Background);
+
+        const float Arm = 4f;
+
+        fFill(new Rect(lfX, lfY, Arm, 1f), pOInk);
+        fFill(new Rect(lfX, lfY, 1f, Arm), pOInk);
+        fFill(new Rect(lfX + lfW - Arm, lfY, Arm, 1f), pOInk);
+        fFill(new Rect(lfX + lfW - 1f, lfY, 1f, Arm), pOInk);
+        fFill(new Rect(lfX, lfY + lfH - 1f, Arm, 1f), pOInk);
+        fFill(new Rect(lfX, lfY + lfH - Arm, 1f, Arm), pOInk);
+        fFill(new Rect(lfX + lfW - Arm, lfY + lfH - 1f, Arm, 1f), pOInk);
+        fFill(new Rect(lfX + lfW - 1f, lfY + lfH - Arm, 1f, Arm), pOInk);
+        fFill(new Rect(lfX + Mathf.Floor(lfW / 2f), lfY + Mathf.Floor(lfH / 2f) - 1f, 1f, 3f), pOInk);
+        fFill(new Rect(lfX + Mathf.Floor(lfW / 2f) - 1f, lfY + Mathf.Floor(lfH / 2f), 3f, 1f), pOInk);
     }
 
     public void Backdrop(Rect pORect)

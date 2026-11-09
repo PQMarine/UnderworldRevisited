@@ -137,6 +137,24 @@ runs as it is. Keep the conversation placeholders (`@SS1`, `@GI3C2`), the game's
 (`\m`, `\p`, `\0`) and a line break at the end where the English has one. An empty text keeps the
 English.
 
+**The checksum line.** Since 0.19.0 the template puts a line `#@` before every entry:
+
+```
+#@ 4f1c9a2e
+3651	4	Seid gegrüßt, Fremder! Was führt Euch her? ...
+```
+
+It is a short checksum of the English that entry translates, not the English itself, so the pack
+still holds nothing of the original. The game uses an entry only where the English it has now is
+that one. Why: a mod (for example one made with the Underworld Editor) or another release of the
+game may change a line of the game's texts. Without the checksum your translation of the old line
+would show in its place, saying something the game no longer says; with it the changed line keeps
+its English, and every other line stays translated. Leave the `#@` lines as they are and keep each
+right before its entry. A pack made before 0.19.0 has none and works as before; to add them, run
+`uwdump strings-checksums <path to the game> Languages/<code>.strings.tsv` once, with the game the
+pack was translated from (the GOG or Steam release). Nothing else in the file changes. Being
+comments, the lines are skipped by older versions of the port and by the higesho fork.
+
 **Cutscenes.** The texts of a cutscene (block 3072 plus its number, the intro 3072) are what its
 recordings say in English. The original shows them only where no recording speaks; with the Game
 window's *Subtitles in cutscenes* on Auto (the default) the game shows them with the recordings as
@@ -431,6 +449,7 @@ puts it in force and shows what the classic and the modern fonts make of it.
 
 ```
 uwdump validate-tsv <path to the game> Languages/<code>.strings.tsv
+uwdump strings-checksums <path to the game> Languages/<code>.strings.tsv
 ```
 
 checks the game's texts against your own STRINGS.PAK: placeholders, codes and line breaks, the name

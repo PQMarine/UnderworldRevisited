@@ -88,15 +88,14 @@ of what is built was also read out of the original's executable.
   or replaced by a translator's own pictures, the main menu's captions as text, subtitles for the
   cutscenes' speech matched to what the recordings say, and the classic texts of a Chinese,
   Japanese or Korean translation in the modern font with the system's input method
+- Mod support (0.19.0): the folder `Mods` with a Mods window for the load order, the switches and
+  each mod's readme; the `.uwmod` packages of the [Underworld Editor (Avalonia)](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) as they
+  are, applied to a copy of the game's files after a check against the originals they were made
+  for; picture packs that extend the weapon pictures; saves that remember their mods
+  ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md))
 
 ## Next
 
-- **Mod support, its first step**: the mod folder is there since 0.18.0 (`Mods` beside the
-  settings, listed in the Game window); next the widescreen weapon and hand pictures
-  (issue 16) as its first pack and the `.uwmod` packages of Karl Clinckspoor's
-  [Ultima Underworld editor](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia)
-  read as they are - levels, texts, tables, pictures and sounds made with it, applied in memory to
-  your own game files. [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md) has the plan.
 - **Ultima Underworld II**, after the preview of 0.13.0 (the game beside the first, its data,
   a walk through Britannia, its game screen, the inventory, the options and saves, the main menu
   and the character creation) and what came since (the map, the conversations, the modern
@@ -142,8 +141,8 @@ of what is built was also read out of the original's executable.
 - **Widescreen weapon and hand sprites.** An artist offered hand-drawn extensions of the
   first-person weapon and hand pictures for the modern scheme's wide view (issue 16). They are
   based on the original's art, so they will come as a pack the player installs, never in this
-  repository or the release packages; the port then needs a loader for it, the first picture
-  overlay of [Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md), which comes next (see Next).
+  repository or the release packages. The port reads such packs since 0.19.0, and the Translation
+  Kit has the tools to paint one; the pack itself is the artist's.
 - **The shield raised on a block** (issue 21, offered by the same artist): an option to show the
   equipped shield low in the first-person view in attack mode, raised with a shake when it blocks
   a blow. After the widescreen weapons.

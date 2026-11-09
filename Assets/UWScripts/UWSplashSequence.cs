@@ -141,6 +141,15 @@ public sealed class UWSplashSequence
     /// it.</summary>
     public IEnumerator Run()
     {
+        // THE MUSIC FROM THE FIRST LOGO (a Steam player, 2026-11-09: "the intro music starts only
+        // at the title screen"): the original starts the Introduction in init_world right after
+        // loading PRES1.BYT (load_new_music(MUSIC_THEME, 1)), before the logos - it plays through
+        // them, the animated title and the menu. The menu's later request for the same theme does
+        // not restart it (UWMusicSelector: a theme already playing stays). First game only, as the
+        // menu's request.
+        if (UnderworldRevisited.UWSettings.Game == null || UnderworldRevisited.UWSettings.Game.Game != UWGame.Uw2)
+            UWAudioService.ChangeTheme(UWMusicSelector.IntroTheme);
+
         yield return fShowSplash(UWTexture.TextureTypes.PRES1);
         yield return fShowSplash(UWTexture.TextureTypes.PRES2);
 

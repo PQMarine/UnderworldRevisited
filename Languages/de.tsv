@@ -245,6 +245,7 @@ setup.format.steps_off	Aus
 setup.format.steps	{0} Schritte
 setup.game.title	Spiel
 setup.bar.gameplay	Spielweise
+setup.bar.mods	Mods
 setup.gameplay.title	Spielweise
 setup.gameplay.intro	Diese Optionen ändern, wie sich das Spiel spielt. Aus ist immer wie im Original.
 setup.gameplay.original	Wie das Original
@@ -290,9 +291,30 @@ setup.sound.mt32_problem	MT-32: {0}
 setup.sound.mt32_no_roms	keine MT-32- oder CM-32L-ROMs in diesem Ordner
 setup.sound.mt32_missing	die MT-32-Emulation fehlt auf diesem System ({0})
 setup.sound.open_folder	Ordner öffnen
-setup.game.mods	Mods: {0} geladen
-setup.game.mods_none	Mods: keine im Ordner
-setup.game.mods_refused	({0} nicht geladen, siehe Log)
+setup.mods.title	Mods
+setup.mods.none	Noch keine Mods. Ein Mod ist ein Ordner, eine Zip oder ein .uwmod aus dem Editor im Ordner Mods - der Button unten öffnet ihn.
+setup.mods.up	Hoch
+setup.mods.down	Runter
+setup.mods.next_start	Änderungen gelten ab dem nächsten Start oder Laden. Reihenfolge und Schalter stehen in Mods/order.json.
+setup.mods.version	Version {0}
+setup.mods.kind_uwmod	Editor-Mod (.uwmod)
+setup.mods.by	Von {0}
+setup.mods.licence	Lizenz: {0}
+setup.mods.state_loaded	Geladen
+setup.mods.state_off	Nicht geladen: ausgeschaltet
+setup.mods.state_refused	Nicht geladen: {0}
+msg.mods.save_differs	Dieser Spielstand wurde mit anderen Mods gespeichert.
+msg.mods.save_missing	Jetzt nicht aktiv: {0}
+msg.mods.save_new	Seitdem neu: {0}
+setup.mods.conflict	Nicht geladen: ändert dieselben Dateien wie {0} ({1}), das vorher kommt. Schalte eines von beiden aus, oder schiebe dieses darüber, um es stattdessen zu laden.
+setup.mods.no_readme	Dieser Mod hat keine Beschreibung.
+setup.mods.write_failed	order.json konnte nicht geschrieben werden: {0}
+setup.mods.other_game	Nicht geladen: nur für {0}
+setup.mods.where	Im Ordner Mods: {0}
+setup.mods.fix_no_manifest	Eine Zip braucht ihre mod.json oben oder in ihrem einen obersten Ordner. Ein einfacher Ordner ohne mod.json gilt als Ordner voller Mods und wird eine Ebene tiefer durchsucht.
+setup.mods.fix_bad_manifest	Die mod.json lässt sich nicht lesen - die Zeile darüber sagt, wo. Prüfe die Kommas, die Anführungszeichen und die Klammern.
+setup.mods.fix_no_id	Die mod.json braucht eine id aus Kleinbuchstaben, Ziffern, - und ., in jeder Version dieselbe - üblich ist deinname.mod-name.
+setup.mods.fix_bad_zip	Die Zip lässt sich nicht öffnen: Sie ist vielleicht beschädigt oder gar keine Zip. Lade oder packe sie neu, oder lege den entpackten Ordner hinein.
 setup.game.open_log	Log
 setup.game.open_mods	Mods
 setup.game.open_userdata	UserData
@@ -1090,3 +1112,6 @@ lizard.ossli	genug
 lizard.eppa	besuchen
 lizard.sel_a	geben
 lizard.kri_kla	Lauerer
+# obsolete: setup.game.mods	Mods: {0} geladen
+# obsolete: setup.game.mods_none	Mods: keine im Ordner
+# obsolete: setup.game.mods_refused	({0} nicht geladen, siehe Log)

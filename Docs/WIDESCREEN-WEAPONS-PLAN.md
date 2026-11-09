@@ -162,16 +162,25 @@ set lives beside them with each picture's shift.
   a folder per weapon, files numbered in the order of the moves and named after their picture, the
   right hand only unless asked, the 1x1 placeholders left out.
 
-- `uwdump weapon-guide [path] --out dir`: every weapon picture at its place in the view, on a 21:9
-  canvas with lines for the 4:3 view and 16:9 - which pictures touch an edge and where an arm
-  leaves the view. Made from the player's own installation, like `uwdump pictures`.
-- `uwdump pack-strip [path] <painted dir> --out <pack dir>`: whole painted pictures in, only the new
-  pixels and `extend.json` out (decision 3); finds the original in the painted picture by its
-  pixels, warns where the painting changed an original pixel.
-- `uwdump pack-check [path] <pack dir or zip>`: `mod.json` and the id, `requires`, file names, colours
-  outside the palette, overlaps with the original, missing pictures, sizes, a `grAb` that disagrees
-  with `extend.json` - a report, nothing changed.
-- The kit's README gets a section for pack authors (the id rule, the layout, the three commands).
+- `uwdump weapon-guide [path] --out dir [--scale n]`: BUILT 2026-11-09 - every right-hand weapon picture at its
+  place on a 21:9 canvas (the modern scheme's scale, raised, in the pictures' own pixels: 140 rows, 112/149/196
+  from the middle to a 4:3/16:9/21:9 edge) with the original view, the three screens and its CUT EDGES in magenta:
+  opaque pixels where the picture meets the view's border (a border inside the view is only the tight crop; the
+  view's bottom is the screen's). edges.txt lists each picture's place and how far a cut edge has to reach - 43 of
+  the 90 pictures have one (within one pixel of the border: the raised blades end one row below the
+  view's top, per user 2026-11-09). Each cut edge is labelled CUT beside it, the lines by name at the top. Made from the player's own installation, like `uwdump pictures`.
+- `uwdump pack-strip [path] --from <painted dir> --out <pack dir>`: BUILT 2026-11-09 - whole painted pictures in
+  (any PNG under the folder with WEAPONS_xx in its name), only the new pixels and `extend.json` out (decision 3,
+  merged with one already there); finds the original by its pixels (UWPictureExtension.TryFindOriginal, the
+  nearest palette colour, a twentieth may differ), warns where the painting changed an original pixel, cuts to what
+  is left, writes a mod.json to fill in where none is. Options instead of a second path: uwdump would take a lone
+  folder for the game's.
+- `uwdump pack-check [path] --pack <pack dir or zip>`: BUILT 2026-11-09 - `mod.json` (id, games, credit, licence),
+  each picture as the game composes it, colours outside the palette, pixels over the original's, half-clear
+  pixels, a `grAb` that disagrees with `extend.json`, the problems UWPictureExtensions reports, and which of the
+  pictures with a cut edge are still to paint - a report, nothing changed; exit code 1 on an error.
+- The kit's README has the section A WEAPON PICTURE PACK (WIDESCREEN) (BUILT 2026-11-09): the five steps, the
+  layout, the id rule, grAb.
 
 ## 6. Steps
 
@@ -180,11 +189,18 @@ set lives beside them with each picture's shift.
    level deeper, a zip with a top folder). Also `UWModManifest` (ours and the editor's format 2, `requires` with
    a lowest version, rings refused) and `UWJsonReader`; check ModCatalog. The editor's `.uwmod` packages are
    listed already; applying their deltas is a step of its own.
-2. `UWPictureExtension` and the extended set in `UWTextures`; self-check with a made-up pack (the
-   shift, the original winning, the mirror for the left hand).
-3. The UW1 views (`UWWeaponView`, `UWModernWeaponView`), the credit.
-4. `uwdump weapon-guide`, `pack-strip`, `pack-check`, the kit's README; the artist's first frames
-   as the test (never into the repository).
+2. BUILT 2026-11-09: `UWPictureExtension` and the extended set in `UWTextures` (`UWPictureExtensions`,
+   `Extensions`, `GetExtendedByType`), read by an engine-free `UWPngReader` that also gives the `grAb`; self-check
+   PictureExtension with a made-up pack around the player's own pictures (the shift and its precedence, the original
+   winning, the mirror for the left hand, a later mod winning, broken files reported).
+3. BUILT 2026-11-09, user-confirmed with a striped test pack: the UW1 views (`UWWeaponView`,
+   `UWModernWeaponView`; `UWMods.ApplyPictures` at each start, a log line per pack and per picture not used), the
+   credit in the debug display. Players see the credit in the Mods window, which will show each mod's readme
+   (decided by the user 2026-11-09: the Game window's line would get too full).
+4. BUILT 2026-11-09: `uwdump weapon-guide`, `pack-strip`, `pack-check`, the kit's README; tried on six
+   self-painted sword pictures (the originals found at the painted places, five painted-over pixels warned).
+   Self-check: the strip round trip. Open: the artist's first frames as the real test (never into the
+   repository).
 5. Later, when someone paints for UW2: the 16-slot palette, UW2's composing and its HUD's clip.
 
 ## 7. Not in this plan

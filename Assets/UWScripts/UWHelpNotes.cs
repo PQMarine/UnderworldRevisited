@@ -19,6 +19,9 @@ using UnityEngine;
 ///
 /// Loaded with a save game (UWLevelLoader), written after every successful save
 /// (UWSavegameWriter); a new character starts with empty notes.
+///
+/// THE MODS (2026-11-09): the editor's packages applied when the save was made (UWMods.SaveRecord,
+/// UWModSaveRecord) - SavedMods, null for a file that keeps no record (made before, or none).
 /// </summary>
 public static class UWHelpNotes
 {
@@ -46,6 +49,10 @@ public static class UWHelpNotes
     /// original (or something else) saved over the slot since.</summary>
     public static bool IsStale { get; private set; }
 
+    /// <summary>The editor's packages the save was made with (UWModSaveRecord's lines), null where its file keeps no
+    /// record - a save made before 0.19.0, or by the DOS game.</summary>
+    public static string[] SavedMods { get; private set; }
+
     private const string PlayerFile = "PLAYER.DAT";
 
     /// <summary>Counts the loads and clears, so the action bar knows when to read the paths again.</summary>
@@ -72,6 +79,12 @@ public static class UWHelpNotes
         /// <summary>What the character has learned of the mantras and the hidden spells (UWKnowledge.Export,
         /// GitHub issue 19; since 2026-11-08). Kept whatever the stamp says, as the notes.</summary>
         public string[] Knowledge = new string[0];
+
+        /// <summary>Whether Mods was written (an empty list and none at all read alike otherwise).</summary>
+        public bool ModsRecorded;
+
+        /// <summary>The editor's packages applied when saving (UWModSaveRecord), since 2026-11-09.</summary>
+        public string[] Mods = new string[0];
     }
 
     /// <summary>The empty state - also what a broken file leaves.</summary>
@@ -84,6 +97,7 @@ public static class UWHelpNotes
         ActionBarIds = new int[0];
         OpenBagIds = new int[0];
         IsStale = false;
+        SavedMods = null;
         UWDataImport.UWData.UWKnowledge.Current = new UWDataImport.UWData.UWKnowledge();
     }
 
@@ -137,6 +151,7 @@ public static class UWHelpNotes
             ActionBarIds = lOData.ActionBarIds ?? new int[0];
             OpenBagIds = lOData.OpenBagIds ?? new int[0];
             UWDataImport.UWData.UWKnowledge.Current = UWDataImport.UWData.UWKnowledge.Import(lOData.Knowledge);
+            SavedMods = lOData.ModsRecorded ? lOData.Mods ?? new string[0] : null;
             IsStale = string.IsNullOrEmpty(lOData.SaveStamp) || lOData.SaveStamp != fStamp(psFolder);
 
             if (IsStale)
@@ -170,7 +185,9 @@ public static class UWHelpNotes
                 ActionBarIds = ActionBarIds ?? new int[0],
                 OpenBagIds = OpenBagIds ?? new int[0],
                 SaveStamp = fStamp(psFolder),
-                Knowledge = UWDataImport.UWData.UWKnowledge.Current.Export()
+                Knowledge = UWDataImport.UWData.UWKnowledge.Current.Export(),
+                ModsRecorded = true,
+                Mods = UWMods.SaveRecord(UnderworldRevisited.UWSettings.Game)
             }, true));
 
             // What is written is what the save holds now.

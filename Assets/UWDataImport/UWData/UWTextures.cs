@@ -513,6 +513,22 @@ namespace UWDataImport.UWData
 			return fGetTextureByType(peTextureType, piIndex);
 		}
 
+		/// <summary>The mods' extended pictures (UWPictureExtensions, Docs/WIDESCREEN-WEAPONS-PLAN.md): set by the
+		/// Unity layer from the mods in force; null for none.</summary>
+		public UWPictureExtensions Extensions { get; set; }
+
+		/// <summary>The mods in force as this game's extended pictures, the originals from these files.</summary>
+		public UWPictureExtensions MakeExtensions(UWModSet pOSet)
+		{
+			return new UWPictureExtensions(pOSet, Game, fGetTextureByType);
+		}
+
+		/// <summary>A picture as a mod extends it, or null where no mod does (the original is then the one to draw).</summary>
+		public UWExtendedPicture GetExtendedByType(UWTexture.TextureTypes peTextureType, int piIndex)
+		{
+			return Extensions?.Get(peTextureType, piIndex);
+		}
+
 		private UWTexture fGetTextureByType(UWTexture.TextureTypes peTextureType, int piIndex)
 		{
 			switch (peTextureType)

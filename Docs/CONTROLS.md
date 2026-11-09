@@ -8,7 +8,7 @@ The full controls of [Underworld Revisited](../README.md).
 - [Motion](#motion)
 
 Two schemes, both complete. **Shift+F2** switches between them at any time - or, without a key,
-*Original* and *Modern* under *Game* in the menu bar - and the scheme
+*Original* and *Modern* at the right end of the menu bar - and the scheme
 in force is kept for the next start. The help window's **Controls** tab lists the keys of the
 scheme in force, as you have bound them; keys and mouse buttons can be changed under
 *Controls* in the menu bar at the top edge, which also inverts the modern scheme's mouse look

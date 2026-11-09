@@ -13,7 +13,7 @@ first, with the widescreen weapons ([WIDESCREEN-WEAPONS-PLAN.md](WIDESCREEN-WEAP
 hook API for mods with logic of their own waits for the second code cleanup (after Ultima Underworld
 II's phase 4), which reshapes the seams the hooks would expose.
 
-**Another editor's mods** (noted 2026-11-08): Karl Clinckspoor's MIT editor
+**Another editor's mods** (noted 2026-11-08): the MIT-licensed Underworld Editor (Avalonia)
 (github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) packs its changes as mod format 2
 (`.uwmod`: a zip with `mod.json` and byte deltas against exact originals, checked by SHA-256; its
 `docs/mod-format.md`), and its mod manager installs them into DOS folders and Underworld Exhumed.
@@ -33,7 +33,18 @@ square in `UW.EXE`; "Mark as goal" adds a move trigger with the hack trap of qua
 one level 9 ends the game with, which ours already plays on any level (UWEndgame.PlayVictory). Its
 zone file (`uw1-zones.json`) is the editor's own and not needed. What we need:
 - the `.uwmod` reader itself - edits saved straight into a game folder never reach us, as the GOG
-  and Steam games keep their data in the CD image, which we extract into our own cache;
+  and Steam games keep their data in the CD image, which we extract into our own cache. BUILT
+  2026-11-09: UWModDelta (COPY, ADD, BLOCK with UWLzss), UWModFileChange (the format's path rules),
+  UWModGameFiles - the packages applied, whole or not at all, to a COPY of the extraction
+  (GameData/UW1-mods, kept while the same packages apply), which UWSettings.DataPath then hands out:
+  every reader of the game's files takes it as it is, where applying in memory would have needed each
+  of them changed; the player's installation is still never written. A conflict between two packages,
+  a mod for another release or a damaged delta refuses that package with the reason in the log, the
+  Game window's count and the debug display. The packages are fixed at each game start
+  (UWMods.PinGameFiles), so a mod dropped in during play does not change the files under the running
+  game; the 3D models read the extracted program (UWSettings.OriginalExePath), as a changed start
+  square fails the GOG-build check. Check ModGameFiles. A cross-check with a package made by the
+  editor's own code is still to do (building it here needs the user's go-ahead);
 - THE START SQUARE FROM `UW.EXE`: BUILT 2026-11-09 (UWStartSquare, check StartSquare): a new
   character starts at the square of the program's `player_setup(x, y, 1)` call, found by its pushes
   and its target 0048:06D1 (the program holds a second call of the same shape); a rule set that
@@ -308,7 +319,18 @@ are - the player's rules.json applies last, over every mod; the `Languages` fold
 `lang/` files to the Language row's list (the row already lists what `Languages` holds, see
 `UWLanguage`); a mod of another kind may still bring texts for its own additions.
 
-A mod is enabled per installation in `settings.json` (`EnabledMods`, ordered). The game menu
+A mod is enabled per installation in `settings.json` (`EnabledMods`, ordered). BUILT 2026-11-09,
+CHANGED per user: not settings.json but `Mods/order.json` (`UWModOrder`: "order" and "disabled", ids),
+beside the mods - it travels with a portable copy, and another program (the Underworld Editor's mod
+manager, if he wants) can write it without touching our settings; a mod it does not name comes after
+the named ones, alphabetically, and is on. The Mods window (UWSetupMenu.Mods.cs, the bar's last item,
+replacing the Game window's mods line) lists every mod with its switch, Up and Down, and the chosen
+one's readme (README.md/README.txt, else mod.json's description), authors, credit, licence and state.
+A README.md is drawn as the little of Markdown a readme uses (UWMarkdownLite); its links stay text with
+the address in brackets. ON PURPOSE, FOR SAFETY (decided 2026-11-09): the game parses no address out of a
+mod to show a button for it or to open it - Windows and xdg-open start any registered scheme, not only web
+pages - so a mod never leads from the game to the system's handlers; the folder is a click away.
+The original plan: the game menu
 gets a "Mods" window on the interface kit listing the folder, with on/off and the load order;
 changes take effect at the next session start (the rule set is applied at a session's start
 already) or data rebuild (the data root is rebuilt when the effective mod set changes, as it

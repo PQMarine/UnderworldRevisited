@@ -241,6 +241,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("HudLayoutDock", pOContext => fCheckHudLayoutDock(), false, "settings", "hud");
             lOCatalog.Add("BagPlacement", pOContext => fCheckBagPlacement(), false, "hud");
             lOCatalog.Add("ModCatalog", pOContext => fCheckModCatalog(), false, "mods");
+            lOCatalog.Add("ModOrder", pOContext => fCheckModOrder(), false, "mods");
+            lOCatalog.Add("PictureExtension", pOContext => fCheckPictureExtension(pOContext.Data), true, "mods", "original");
+            lOCatalog.Add("ModGameFiles", pOContext => fCheckModGameFiles(pOContext.Data), true, "mods", "original");
             lOCatalog.Add("LayoutPresets", pOContext => fCheckLayoutPresets(), false, "settings", "hud", "pin");
             lOCatalog.Add("HelpTabIds", pOContext => fCheckHelpTabIds(), false, "settings", "pin");
             lOCatalog.Add("TextTable", pOContext => fCheckTextTable(), false, "settings", "text");

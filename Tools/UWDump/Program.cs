@@ -82,6 +82,7 @@ namespace UnderworldRevisited.Tools
             fRegister("strings-export", "[--out file]", "every string, lossless, one line each", true, fExportStrings);
             fRegister("strings-template", "<code> [--out file] [--empty]", "a game-text pack of the player's STRINGS.PAK to translate", true, fStringsTemplate);
             fRegister("validate-tsv", "<file.strings.tsv> [--language code]", "check a game-text pack against the English strings", true, fValidateTsv);
+            fRegister("strings-checksums", "<file.strings.tsv> [--out file] [--renew]", "add the checksums of the English to a game-text pack made without them", true, fStringsChecksums);
             fRegister("fit", "[--over]", "game strings in the classic look's fixed boxes: width, box, OVER where clipped (with --strings)", true, fFit);
             fRegister("typed-words", "", "the mantras and the words conversations compare typed answers with, and their hints", true, fTypedWords);
             fRegister("looks","[family ...] [--hashes]", "every look sentence the data gives (with --strings, in that language)", true, fLooks);
@@ -98,6 +99,10 @@ namespace UnderworldRevisited.Tools
             fRegister("weapon-frames", "--out dir [--both-hands]", "the weapon pictures sorted by weapon and move, for painting (WEAPONS.GR)", true, fWeaponFrames);
             fRegister("picture-template", "--out dir", "the pictures with English painted into them, named for a language's own pictures", true, fPictureTemplate);
             fRegister("palette", "[n|all] --out dir", "the game's palettes as .gpl and .act (palette 0 unless given), the PNGs' colours", true, fDumpPalette);
+            fRegister("weapon-guide", "--out dir [--scale n]", "every weapon picture at its place on a wide screen, with its cut edges (edges.txt)", true, fWeaponGuide);
+            fRegister("pack-strip", "--from painted-dir --out pack-dir", "whole painted weapon pictures into a pack of only the new pixels", true, fPackStrip);
+            fRegister("pack-check", "--pack dir-or-zip", "what the game makes of a picture pack: names, colours, overlaps, shifts", true, fPackCheck);
+            fRegister("uwmod-check", "--pack file.uwmod", "whether an editor's mod (.uwmod) applies to this game, what it changes", true, fUwmodCheck);
             fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
             fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);

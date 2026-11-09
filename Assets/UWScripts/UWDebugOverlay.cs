@@ -201,6 +201,28 @@ public class UWDebugOverlay : MonoBehaviour
 
             lOSnapshot.Mods = (lsIds.Count > 0 ? string.Join(", ", lsIds) : "none") + (lOMods.Refused.Count > 0 ? " (" + lOMods.Refused.Count + " not loaded)" : string.Empty);
             lOSnapshot.ModsProblem = lOMods.Refused.Count > 0;
+
+            // The pictures' credit, as the pack asks to be named while it is in force (WIDESCREEN-WEAPONS-PLAN.md 1).
+            UWDataImport.UWData.UWPictureExtensions lOPictures = UWMods.Pictures;
+
+            if (lOPictures != null)
+            {
+                int liProblems = lOPictures.Problems.Count;
+
+                lOSnapshot.Mods += "; pictures by " + string.Join(", ", lOPictures.Credits) + (liProblems > 0 ? " (" + liProblems + " not used)" : string.Empty);
+                lOSnapshot.ModsProblem |= liProblems > 0;
+            }
+
+            // The editor's packages: which game files they changed, and how many could not be applied.
+            UWDataImport.UWData.UWModGameFiles lOFiles = UWMods.GameFiles(UnderworldRevisited.UWSettings.Game);
+
+            if (lOFiles != null)
+            {
+                lOSnapshot.Mods += "; game files: " + (lOFiles.Changed.Count > 0 ? string.Join(", ", lOFiles.Changed) : "none")
+                    + (lOFiles.Refused.Count > 0 ? " (" + lOFiles.Refused.Count + " not applied)" : string.Empty)
+                    + (lOFiles.Problem != null ? " (not written)" : string.Empty);
+                lOSnapshot.ModsProblem |= lOFiles.Refused.Count > 0 || lOFiles.Problem != null;
+            }
         }
 
         // CREATURES ONLY: while a creature's behaviour is being hunted down, everything else
