@@ -35,7 +35,7 @@ against its code and, where noted, by playing the original. The deliberate excep
   the message box move beside a low rune panel; a docked panel starts below an action bar placed over it.
 - The classic font's choice is kept in the settings file, no longer in the Windows registry.
 
-
+## [0.17.0] - 2026-11-08
 
 ### Added
 - The help's Mantras and Spells tabs show what your character has learned in the game: a mantra or a spell the
