@@ -182,6 +182,12 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public bool ManualAttributes { get; set; }
 
+		/// <summary>The new-game square the program holds (UWGameData.TryGetStartSquare), -1 for none: the
+		/// character starts there unless the rule set changed story.start (per user, 2026-11-09).</summary>
+		public int ProgramStartX { get; set; } = -1;
+
+		public int ProgramStartY { get; set; } = -1;
+
 		/// <summary>Bonus points not dealt yet (Stage.Attributes).</summary>
 		public int BonusPointsLeft { get; private set; }
 
@@ -684,8 +690,16 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < liNamed.Length; liAt++)
 				liNamed[liAt] = miSkills[liAt + 2];
 
+			// THE START: a rule set that changed story.start wins, else the program's square, else the rule
+			// set's (its default the original's 32/2).
+			UWRulesStory.StartRules lOStart = UWRules.Current.Story.Start;
+			bool lbRulesChanged = lOStart.TileX != UWQuestPlaces.StartTileX || lOStart.TileY != UWQuestPlaces.StartTileY;
+			bool lbProgram = !lbRulesChanged && ProgramStartX >= 0 && ProgramStartY >= 0;
+
 			return new UWPlayerData.NewCharacter
 			{
+				StartTileX = lbProgram ? ProgramStartX : lOStart.TileX,
+				StartTileY = lbProgram ? ProgramStartY : lOStart.TileY,
 				Name = Name,
 				CharacterClass = CharacterClass < 0 ? 0 : CharacterClass,
 				Body = Body,

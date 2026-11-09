@@ -276,6 +276,39 @@ public class UWModernPanel : UWModernDockedPanel
 
     /// <summary>The open panel on the screen with its tab row, empty while it is shut - the
     /// minimap hides under it, the bags keep beside it.</summary>
+    /// <summary>Where the Modern preset puts the handle - the panel stood on the bottom, the handle its
+    /// distance below the Character tab's top: the layout editor keeps it when it starts from Modern.</summary>
+    public Rect ModernHandleRect()
+    {
+        float lfScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.CharacterPanel);
+        int liRoom = Mathf.Max(60, Mathf.FloorToInt(Screen.height / lfScale) - TopMargin - BottomMargin);
+        int liCharacterTop = BottomMargin + Mathf.Min(liRoom, fCharacterRows(false));
+        float lfBottom = Mathf.Max(BottomMargin, liCharacterTop - (HandleTop - TopMargin) - HandleHeight) * lfScale;
+
+        return new Rect(Screen.width - (HandleWidth * lfScale), lfBottom, HandleWidth * lfScale, HandleHeight * lfScale);
+    }
+
+    /// <summary>Where the panel would open with its handle at this bottom (the Character tab): the
+    /// layout editor's outline while the handle is dragged (per user, 2026-11-08).</summary>
+    public Rect OpenRectAtHandle(float pfHandleBottom)
+    {
+        float lfScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.CharacterPanel);
+        int liRoom = Mathf.Max(60, Mathf.FloorToInt(Screen.height / lfScale) - TopMargin - BottomMargin);
+        float lfHeight = Mathf.Min(liRoom, fCharacterRows(false)) * lfScale;
+        float lfTop = Mathf.Min(Screen.height - (TopMargin * lfScale), pfHandleBottom + ((HandleHeight + HandleTop - TopMargin) * lfScale));
+
+        lfTop = Mathf.Max(lfTop, (BottomMargin * lfScale) + lfHeight);
+
+        float lfWidth = CharacterWidth * lfScale;
+
+        return new Rect(Screen.width - lfWidth, lfTop - lfHeight, lfWidth, lfHeight);
+    }
+
+    /// <summary>The handle at the right edge as it lies while the panel is in (none while pinned or
+    /// hidden): the minimap keeps left of it (per user, 2026-11-08: a handle moved up lay under it).</summary>
+    public Rect EdgeHandleRect => mOHandleRect.width > 0f
+        ? new Rect(Screen.width - mOHandleRect.width, mOHandleRect.y, mOHandleRect.width, mOHandleRect.height) : Rect.zero;
+
     public Rect OpenRect => fIsShown() && !fHiddenForPage() && mbOpen && mfShown > 0.5f && mOPanelRect.width > 0f
         ? new Rect(mOPanelRect.x, mOPanelRect.y, mOPanelRect.width, mOPanelRect.height + ((TabHeaderHeight - 2) * miScale))
         : Rect.zero;
@@ -562,8 +595,10 @@ public class UWModernPanel : UWModernDockedPanel
         bool lbPinned = Pinned;
 
         // The rows: the Help tab the screen's, the Character tab what it needs - pinned with the
-        // minimap in its head when that fits too.
-        int liRoom = Mathf.Max(60, Mathf.FloorToInt(Screen.height / liScale) - TopMargin - BottomMargin);
+        // minimap in its head when that fits too. Its top under an action bar put over it (fTopLimit).
+        float lfTopLimit = lbFree ? Screen.height - (TopMargin * liScale)
+            : fTopLimit(Screen.width - lfTargetWidth - (HandleWidth * liScale), Screen.width, liScale);
+        int liRoom = Mathf.Max(60, Mathf.FloorToInt((lfTopLimit - (BottomMargin * liScale)) / liScale));
 
         // NO MINIMAP IN THE HEAD any more (per user, 2026-10-04: it went there by itself with the
         // panel pinned; with the layout editor the minimap is placed freely instead).
@@ -581,11 +616,29 @@ public class UWModernPanel : UWModernDockedPanel
         mfShown = lbFree ? lfTargetShown : fGlide(mfShown, lfTargetShown, lfStep, 1f);
         mfRows = fGlide(mfRows, liTargetRows, lfStep, 0.5f);
 
-        // Whole original pixels, so the leather stays sharp; hung from the top.
+        // Whole original pixels, so the leather stays sharp; hung from the top - or, docked in the
+        // Modern preset, STOOD ON THE BOTTOM (per user, 2026-11-08: hung from the top it ended far
+        // above the backpack, which still moved aside, and the room between looked wasted; at the
+        // bottom it takes the backpack's corner, the backpack beside it, the minimap left free).
         int liWidth = Mathf.Max(CharacterWidth, Mathf.RoundToInt(mfWidth / liScale));
         int liHeight = Mathf.Max(60, Mathf.RoundToInt(mfRows));
         float lfLeft = Mathf.Round(Screen.width - mfShown);
-        float lfTop = Mathf.Round(Screen.height - (TopMargin * liScale));
+        // A HANDLE MOVED ALONG THE EDGE in the layout editor (per user, 2026-11-08): the panel opens
+        // at it - its top the handle's distance above, as at the default height - kept on the screen.
+        float lfDockHandleBottom = 0f;
+        bool lbDockMoved = !lbFree && UWModernLayout.TryGetDockBottom(UWModernLayout.ElementEnum.CharacterPanel,
+            HandleHeight * liScale, BottomMargin * liScale, lfTopLimit - (HandleHeight * liScale), out lfDockHandleBottom);
+        bool lbFromBottom = !lbFree && !lbDockMoved && UWModernLayout.Preset == UWModernLayout.PresetEnum.Modern;
+        float lfTop = lbFromBottom
+            ? Mathf.Round((BottomMargin + liHeight) * liScale)
+            : lfTopLimit;
+
+        if (lbDockMoved)
+        {
+            lfTop = Mathf.Min(lfTop, lfDockHandleBottom + ((HandleHeight + HandleTop - TopMargin) * liScale));
+            lfTop = Mathf.Max(lfTop, (BottomMargin + liHeight) * liScale);
+        }
+
         float lfBottom = lfTop - (liHeight * liScale);
         float lfTabRise = (TabHeaderHeight - 2) * liScale;
 
@@ -605,8 +658,19 @@ public class UWModernPanel : UWModernDockedPanel
         // The leather.
         fLayoutBack(liWidth, liHeight, lfLeft, lfBottom);
 
-        // The handle, out of the panel's left edge and over its frame there - not when pinned.
-        float lfHandleBottom = Screen.height - ((HandleTop + HandleHeight) * liScale);
+        // The handle, out of the panel's left edge and over its frame there - not when pinned. Stood
+        // on the bottom, it keeps its distance below the Character tab's top edge (the target, not
+        // the gliding height), so it stays put while the panel slides and opens on the same spot.
+        float lfHandleBottom = lfTopLimit - ((HandleTop - TopMargin + HandleHeight) * liScale);
+
+        if (lbDockMoved)
+            lfHandleBottom = lfDockHandleBottom;
+        else if (lbFromBottom)
+        {
+            int liCharacterTop = BottomMargin + Mathf.Min(liRoom, fCharacterRows(mbHead));
+
+            lfHandleBottom = Mathf.Max(BottomMargin, liCharacterTop - (HandleTop - TopMargin) - HandleHeight) * liScale;
+        }
         Rect lOHandle = new Rect(lfLeft - (HandleWidth * liScale), lfHandleBottom, HandleWidth * liScale, HandleHeight * liScale);
 
         fLayoutHandle(lOHandle, lbPinned, lbFree);

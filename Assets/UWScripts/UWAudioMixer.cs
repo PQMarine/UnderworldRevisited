@@ -39,7 +39,7 @@ public class UWAudioMixer : MonoBehaviour
     /// else "MT32" beside settings.json.</summary>
     public static string Mt32RomFolder =>
         !string.IsNullOrEmpty(UWUserSettings.Mt32RomPath) ? UWUserSettings.Mt32RomPath
-            : System.IO.Path.Combine(Application.persistentDataPath, "MT32");
+            : UWUserFolder.Combine("MT32");
 
     /// <summary>The MT-32 ROMs in Mt32RomFolder, looked for again when the folder or its contents
     /// changed; null when there are none, Mt32Problem then says why.</summary>
@@ -50,7 +50,7 @@ public class UWAudioMixer : MonoBehaviour
     /// <summary>Where the player's recordings of the music are looked for: "Music" in the running
     /// game's folder beside settings.json, UW1/Music (UWGameFolder, UWMusicRecordings).</summary>
     public static string RecordingFolder =>
-        System.IO.Path.Combine(UWGameFolder.Under(Application.persistentDataPath, UnderworldRevisited.UWSettings.Game), UWMusicRecordings.FolderName);
+        System.IO.Path.Combine(UWGameFolder.Under(UWUserFolder.Path, UnderworldRevisited.UWSettings.Game), UWMusicRecordings.FolderName);
 
     private static string msRecordingsCountedFor;
 

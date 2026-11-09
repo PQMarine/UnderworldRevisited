@@ -87,6 +87,18 @@ namespace UWDataImport.UWData
 			fAdd("setup.sound.mt32_no_roms", "no MT-32 or CM-32L ROMs in that folder");
 			fAdd("setup.sound.mt32_missing", "the MT-32 emulation is missing on this system ({0})");
 			fAdd("setup.sound.open_folder", "Open folder");
+			fAdd("setup.game.mods", "Mods: {0} loaded");
+			fAdd("setup.game.mods_none", "Mods: none in the folder");
+			fAdd("setup.game.mods_refused", "({0} not loaded, see the log)");
+			fAdd("setup.game.open_log", "Log");
+			fAdd("setup.game.open_mods", "Mods");
+			fAdd("setup.game.open_userdata", "UserData");
+			fAdd("setup.game.portable", "Portable: data in UserData beside the game");
+			fAdd("setup.game.portable_problem", "Portable: UserData beside the game cannot be written ({0})");
+			fAdd("setup.game.user_folder", "Settings in the user folder");
+			fAdd("setup.game.make_portable", "Make portable");
+			fAdd("setup.game.portable_restart", "Made portable - restart the game to use it");
+			fAdd("setup.game.portable_failed", "Not made portable: {0}");
 			fAdd("setup.sound.recordings", "Recordings: {0} pieces");
 			fAdd("setup.sound.recordings_none", "Recordings: none in this folder");
 

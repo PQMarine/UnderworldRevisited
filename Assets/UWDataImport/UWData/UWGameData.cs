@@ -92,6 +92,37 @@ namespace UWDataImport.UWData
 		/// undocumented LIGHTS.DAT and CHRGEN.DAT as raw bytes.</summary>
 		public UWMiscDataFiles MiscDataFiles { get; }
 
+		private int miStartX = -1;
+
+		private int miStartY = -1;
+
+		private bool mbStartRead;
+
+		/// <summary>The new-game square the first game's program holds (UWStartSquare), read once from the
+		/// program beside DATA; false for the second game, a missing program or no clear call.</summary>
+		public bool TryGetStartSquare(out int piX, out int piY)
+		{
+			if (!mbStartRead)
+			{
+				mbStartRead = true;
+
+				string lsRoot = Path.GetDirectoryName(DataPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+				string lsProgram = lsRoot != null ? Path.Combine(lsRoot, Profile.Executable) : null;
+
+				if (Profile.Game == UWGame.Uw1 && lsProgram != null && File.Exists(lsProgram)
+					&& UWStartSquare.TryRead(File.ReadAllBytes(lsProgram), out int liX, out int liY))
+				{
+					miStartX = liX;
+					miStartY = liY;
+				}
+			}
+
+			piX = miStartX;
+			piY = miStartY;
+
+			return miStartX >= 0;
+		}
+
 		/// <summary>Sound effects and music from the "sound" folder - see UWSound.</summary>
 		public UWSound Sound { get; }
 

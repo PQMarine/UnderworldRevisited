@@ -8,14 +8,20 @@ namespace UWDataImport.UWData
 	/// fixes). Screen pixels from the bottom left; sizes in original pixels times Scale.
 	///
 	///   - The BACKPACK where the layout put it (UWHudLayout), pushed out left of an open
-	///     character panel lying on it (per user, 2026-10-04: the bags lay over the panel).
+	///     character panel lying on it (per user, 2026-10-04: the bags lay over the panel), and over
+	///     the action bar when the push puts it there (per user, 2026-11-08).
 	///   - The open bag windows STACKED UPWARDS above its load bar, a new column to the left when
 	///     the screen ends - a column over the action bar starts above it (per user, 2026-10-03).
 	///     A backpack moved into the upper half stacks them DOWNWARDS; one in the left half starts
 	///     new columns to the right.
 	///   - A window that would lie on the open character panel or the minimap goes left of it, and
 	///     the rest of its column with it; one that would lie on the minimap with no room below or
-	///     above starts a new column (per user, 2026-10-04).
+	///     above starts a new column (per user, 2026-10-04) - and so does one that would lie on the
+	///     panel above a window of its column WHERE IT WOULD HAVE TO MOVE MORE THAN HALF ITS WIDTH (the
+	///     column lies under the panel): the new column starts AT THE BOTTOM again, left of the last
+	///     (per user, 2026-11-08: it went on beside the panel at the height it had reached). A column
+	///     that only grazes the panel's edge moves the little way left and goes on (the same day: so
+	///     the windows above a grazing column stay on it).
 	/// </summary>
 	public static class UWBagPlacement
 	{
@@ -88,8 +94,20 @@ namespace UWDataImport.UWData
 			if (pOIn.Panel.Width > 0f && pOIn.Panel.Overlaps(lOPlaced))
 				lOPlaced.X = Math.Max(0f, pOIn.Panel.XMin - (pOIn.ScreenMargin * pOIn.PixelScale) - lOPlaced.Width);
 
+			// ON THE ACTION BAR - pushed there by the panel, here or already by the bags' view (it keeps
+			// left of a panel at its height) - it climbs over it, as a column of bag windows does (per
+			// user, 2026-11-08: the help tab's wide panel put it on the bar). Not where it was placed.
+			UWRect lOBar = pOIn.ActionBar;
+
+			// Only where it really lies on it: a bar moved up elsewhere is left alone (per user, the same day).
+			if (!pOIn.PackPlaced && lOBar.Width > 0f && lOBar.Overlaps(lOPlaced))
+				lOPlaced.Y = lOBar.YMax + (pOIn.WindowGap * lfScale);
+
 			float lfRight = lOPlaced.XMax;
 			float lfBottom = lOPlaced.Y;
+
+			// New columns start where the backpack would stand, not where it climbed to.
+			float lfFloor = pOIn.Pack.Y;
 			float lfWidth = pOIn.WindowWidth * lfScale;
 			UWRect lOPackWindow = new UWRect(lfRight - lfWidth, lfBottom, lfWidth, pOIn.PackWindowHeight * lfScale);
 			float lfBarY = lOPackWindow.YMax + (2 * lfScale);
@@ -120,7 +138,8 @@ namespace UWDataImport.UWData
 
 					// Below the screen's edge, or over the minimap: a new column.
 					if (lfY < lfDownStart - 1f && (lfY - lfHeight < pOIn.ScreenMargin * lfScale
-						|| fWindowOverlaps(pOIn, pOIn.Minimap, lfColumnRight, lfY - lfHeight, lfHeight)))
+						|| fWindowOverlaps(pOIn, pOIn.Minimap, lfColumnRight, lfY - lfHeight, lfHeight)
+						|| fUnderPanel(pOIn, lfColumnRight, lfY - lfHeight, lfHeight)))
 					{
 						lfColumnRight -= lfColumnStep;
 						lfY = lfDownStart;
@@ -141,10 +160,11 @@ namespace UWDataImport.UWData
 
 					// Over the top, or over the minimap: a new column (moved left of the minimap the
 					// column was set off oddly).
-					if (lfY > lfColumnStart + 1f && (lfY + lfHeight > lfTop || fWindowOverlaps(pOIn, pOIn.Minimap, lfColumnRight, lfY, lfHeight)))
+					if (lfY > lfColumnStart + 1f && (lfY + lfHeight > lfTop || fWindowOverlaps(pOIn, pOIn.Minimap, lfColumnRight, lfY, lfHeight)
+						|| fUnderPanel(pOIn, lfColumnRight, lfY, lfHeight)))
 					{
 						lfColumnRight -= lfColumnStep;
-						lfY = fColumnBottom(pOIn, lfColumnRight, lfColumnWidth, lfBottom);
+						lfY = fColumnBottom(pOIn, lfColumnRight, lfColumnWidth, lfFloor);
 						lfColumnStart = lfY;
 					}
 
@@ -167,6 +187,18 @@ namespace UWDataImport.UWData
 				: pfRight;
 		}
 
+		/// <summary>Whether a bag window at this place would lie on the panel and have to move more than
+		/// half its width to clear it - its column lies under the panel, not just at its edge.</summary>
+		private static bool fUnderPanel(Input pOIn, float pfRight, float pfBottom, float pfHeight)
+		{
+			if (!fWindowOverlaps(pOIn, pOIn.Panel, pfRight, pfBottom, pfHeight))
+				return false;
+
+			float lfMove = pfRight - (pOIn.Panel.XMin - (pOIn.ScreenMargin * pOIn.PixelScale));
+
+			return lfMove > pOIn.WindowWidth * pOIn.Scale * 0.5f;
+		}
+
 		/// <summary>Whether a bag window at this place would lie on the rect.</summary>
 		private static bool fWindowOverlaps(Input pOIn, UWRect pORect, float pfRight, float pfBottom, float pfHeight)
 		{
@@ -176,7 +208,9 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>Where a column of bag windows starts: at pfDefault, or above the action bar
-		/// when the column reaches over it.</summary>
+		/// when the column reaches over it AND the bar lies at the column's foot - a bar moved up the
+		/// screen is no floor (per user, 2026-11-08; until then only the width counted, and a bar at
+		/// the top would have started the column above it).</summary>
 		private static float fColumnBottom(Input pOIn, float pfRight, float pfWidth, float pfDefault)
 		{
 			UWRect lOBar = pOIn.ActionBar;
@@ -184,7 +218,7 @@ namespace UWDataImport.UWData
 			if (lOBar.Width <= 0f)
 				return pfDefault;
 
-			bool lbOver = pfRight > lOBar.XMin && pfRight - pfWidth < lOBar.XMax;
+			bool lbOver = pfRight > lOBar.XMin && pfRight - pfWidth < lOBar.XMax && lOBar.Y <= pfDefault + lOBar.Height;
 
 			return lbOver ? Math.Max(pfDefault, lOBar.YMax + (pOIn.WindowGap * pOIn.Scale)) : pfDefault;
 		}

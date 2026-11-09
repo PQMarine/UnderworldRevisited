@@ -97,6 +97,13 @@ For painting new art (weapon frames, icons ...), from your own copy of the game 
   A picture file of the game as PNGs, one per picture, named after the file and the picture's
   number in hex (WEAPONS.GR holds the weapon frames in the view):
        uwdump pictures <game> WEAPONS.GR --out my-weapons
+  (A file manager may sort the hex numbers out of order, WEAPONS_0A before WEAPONS_01.)
+
+  The first game's weapon frames sorted for painting: a folder per weapon, the files numbered in the
+  order of the moves (three attacks of 4 wind-up and 5 swing pictures, then the ready pose), each
+  still named after its picture (WEAPONS_xx). Only the right hand - the left mirrors it; add
+  --both-hands for both. The empty 1x1 placeholders are left out:
+       uwdump weapon-frames <game> --out my-weapon-frames
 
   The game's palette as a GIMP palette (.gpl; Krita, Aseprite and others read it too) and an
   Adobe Color Table (.act) - palette 0 is the one of the pictures above, "all" writes every one:

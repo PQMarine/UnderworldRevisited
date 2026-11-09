@@ -72,7 +72,8 @@ public class UWTextLabel : MonoBehaviour
         {
             if (!mbLoaded)
             {
-                mbModern = PlayerPrefs.GetInt(PrefsKey, 0) != 0;
+                fAdoptPrefs();
+                mbModern = UWUserSettings.ModernFont;
                 mbLoaded = true;
             }
 
@@ -82,7 +83,12 @@ public class UWTextLabel : MonoBehaviour
         {
             mbModern = value;
             mbLoaded = true;
-            PlayerPrefs.SetInt(PrefsKey, value ? 1 : 0);
+
+            if (UWUserSettings.ModernFont != value)
+            {
+                UWUserSettings.ModernFont = value;
+                UWUserSettings.Save();
+            }
         }
     }
 
@@ -134,12 +140,17 @@ public class UWTextLabel : MonoBehaviour
         msLanguageWantsModern = pbWantsModern;
         msLanguageBoldCjk = pbBoldCjk;
 
-        string lsDone = PlayerPrefs.GetString(LanguagePrefsKey, string.Empty);
+        fAdoptPrefs();
+
+        string lsDone = UWUserSettings.ModernFontLanguage ?? string.Empty;
 
         if (!pbWantsModern)
         {
             if (lsDone.Length > 0)
-                PlayerPrefs.DeleteKey(LanguagePrefsKey);
+            {
+                UWUserSettings.ModernFontLanguage = string.Empty;
+                UWUserSettings.Save();
+            }
 
             return;
         }
@@ -147,8 +158,30 @@ public class UWTextLabel : MonoBehaviour
         if (lsDone == psCode)
             return;
 
+        UWUserSettings.ModernFontLanguage = psCode;
         UseModernFont = true;
-        PlayerPrefs.SetString(LanguagePrefsKey, psCode);
+        UWUserSettings.Save();
+    }
+
+    /// <summary>
+    /// The two notes Unity's PlayerPrefs held until 2026-11-09 (the registry on Windows) taken into
+    /// settings.json once and deleted there (for the portable folder, UWUserFolder).
+    /// </summary>
+    private static void fAdoptPrefs()
+    {
+        if (!PlayerPrefs.HasKey(PrefsKey) && !PlayerPrefs.HasKey(LanguagePrefsKey))
+            return;
+
+        if (PlayerPrefs.HasKey(PrefsKey))
+            UWUserSettings.ModernFont = PlayerPrefs.GetInt(PrefsKey, 0) != 0;
+
+        if (PlayerPrefs.HasKey(LanguagePrefsKey))
+            UWUserSettings.ModernFontLanguage = PlayerPrefs.GetString(LanguagePrefsKey, string.Empty);
+
+        UWUserSettings.Save();
+        PlayerPrefs.DeleteKey(PrefsKey);
+        PlayerPrefs.DeleteKey(LanguagePrefsKey);
+        PlayerPrefs.Save();
     }
 
     /// <summary>The field for a RawImage - created the first time.</summary>

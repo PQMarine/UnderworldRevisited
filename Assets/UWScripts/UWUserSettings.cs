@@ -8,7 +8,8 @@ using Defs = UWDataImport.UWData.UWUserSettingsTable;
 
 /// <summary>
 /// What the player sets up outside the game data (2026-09-17): for now the folder of the GOG
-/// installation chosen in the setup screen. Kept in persistentDataPath/settings.json, because a
+/// installation chosen in the setup screen. Kept in settings.json in UWUserFolder (persistentDataPath, or
+/// UserData beside the program when portable), because a
 /// build never writes the settings asset back - the same reason as UWGraphicsDetail. Further
 /// entries of the menu bar (controls, text, colours) are to land here too.
 ///
@@ -69,22 +70,24 @@ public static class UWUserSettings
             UWKeyBindings.ClearClashingDebugKeys();
     }
 
+    // THE PATHS THE PLAYER CHOSE are kept relative to the program while portable and on its drive, so a
+    // stick with the game on it may change its letter (UWUserFolder.StorePath / ResolvePath, 2026-11-09).
     public static string GogInstallPath
     {
-        get { return Defs.GogInstallPath.Read(fGet()); }
+        get { return UWUserFolder.ResolvePath(Defs.GogInstallPath.Read(fGet())); }
         set
         {
-            Defs.GogInstallPath.Write(fGet(), value);
+            Defs.GogInstallPath.Write(fGet(), UWUserFolder.StorePath(value));
             Save();
         }
     }
 
     public static string GogInstallPathUw2
     {
-        get { return Defs.GogInstallPathUw2.Read(fGet()); }
+        get { return UWUserFolder.ResolvePath(Defs.GogInstallPathUw2.Read(fGet())); }
         set
         {
-            Defs.GogInstallPathUw2.Write(fGet(), value);
+            Defs.GogInstallPathUw2.Write(fGet(), UWUserFolder.StorePath(value));
             Save();
         }
     }
@@ -114,6 +117,10 @@ public static class UWUserSettings
         get => (UWLizardWordsEnum)Defs.LizardWords.Read(fGet());
         set => Defs.LizardWords.Write(fGet(), (int)value);
     }
+
+    public static bool ModernFont { get => Defs.ModernFont.Read(fGet()); set => Defs.ModernFont.Write(fGet(), value); }
+
+    public static string ModernFontLanguage { get => Defs.ModernFontLanguage.Read(fGet()); set => Defs.ModernFontLanguage.Write(fGet(), value); }
 
     public static UWSkillRaiseEnum SkillRaises
     {
@@ -399,7 +406,7 @@ public static class UWUserSettings
 
     public static int MusicDevice { get => Defs.MusicDevice.Read(fGet()); set => Defs.MusicDevice.Write(fGet(), value); }
 
-    public static string Mt32RomPath { get => Defs.Mt32RomPath.Read(fGet()); set => Defs.Mt32RomPath.Write(fGet(), value); }
+    public static string Mt32RomPath { get => UWUserFolder.ResolvePath(Defs.Mt32RomPath.Read(fGet())); set => Defs.Mt32RomPath.Write(fGet(), UWUserFolder.StorePath(value)); }
 
     /// <summary>The player's recordings of the music in place of the device (UWMusicRecordings).</summary>
     public static bool MusicRecordings { get => Defs.MusicRecordings.Read(fGet()); set => Defs.MusicRecordings.Write(fGet(), value); }
@@ -558,6 +565,6 @@ public static class UWUserSettings
     /// the game's folder (UWGameFolder: UW1/rules.json, UW1/Music).</summary>
     public static string PathBeside(string psFileName)
     {
-        return Path.Combine(Application.persistentDataPath, psFileName);
+        return Path.Combine(UWUserFolder.Path, psFileName);
     }
 }

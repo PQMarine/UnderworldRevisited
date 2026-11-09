@@ -314,10 +314,12 @@ public class UWModernHud : MonoBehaviour
         mOVitals.Build(lORoot);
         mORuneHollow.Build(lORoot);
         mOVitals.BuildFlasks(lORoot);
-        mOSpells.Build(lORoot);
         mOHeading.Build(lORoot);
 
         mOCompass.Build(lORoot);
+        // The active spells over the heading strip and the compass (per user, 2026-11-09: moved left
+        // of the minimap and the character panel they went under the gargoyle, which stays where it is).
+        mOSpells.Build(lORoot);
         mOStats = new UWModernStatsPage(mOUi);
         mOStats.Build(lORoot);
         mOInventoryPage = new UWModernInventoryPage(mOUi);

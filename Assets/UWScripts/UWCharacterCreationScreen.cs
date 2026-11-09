@@ -221,6 +221,13 @@ public class UWCharacterCreationScreen : MonoBehaviour
 
         mOData = pOData;
         mOGeneration = new UWCharacterGeneration(pOData.Strings, pOData.MiscDataFiles);
+
+        // Where the program says a new game starts (a randomizer may have moved it; UWStartSquare).
+        if (pOData.GameData != null && pOData.GameData.TryGetStartSquare(out int liStartX, out int liStartY))
+        {
+            mOGeneration.ProgramStartX = liStartX;
+            mOGeneration.ProgramStartY = liStartY;
+        }
         mOTextColour = UWScreenUi.GetColour(pOData.Palettes, ScreenPalette, TextColourIndex);
 
         if (UnderworldRevisited.UWSettings.Instance != null)

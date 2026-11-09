@@ -158,7 +158,11 @@ public class UWModernMinimap : MonoBehaviour
         if (UWModernLayout.IsEditing)
             return true;
 
-        if (mORect.width > 0f && lOPanel != null && lOPanel.OpenRect.Overlaps(mORect))
+        // Only a minimap the player placed: at its default place it moves left of the open character
+        // panel instead (per user, 2026-11-09; hidden, its place was not worked out anew and it stayed
+        // hidden under the panel).
+        if (mORect.width > 0f && lOPanel != null && UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.Minimap)
+            && lOPanel.OpenRect.Overlaps(mORect))
             return false;
 
         return !(mORect.width > 0f && lORunes != null && lORunes.IsOpen && lORunes.ScreenRect.Overlaps(mORect));
@@ -297,9 +301,26 @@ public class UWModernMinimap : MonoBehaviour
         else
         {
             float lfMargin = Margin * UWModernUi.PixelScale;
+            Rect lODefault = new Rect(Screen.width - lfMargin - lfSize, Screen.height - lfMargin - lfSize, lfSize, lfSize);
 
-            mORect = UWModernLayout.Place(UWModernLayout.ElementEnum.Minimap,
-                new Rect(Screen.width - lfMargin - lfSize, Screen.height - lfMargin - lfSize, lfSize, lfSize));
+            // LEFT OF THE CHARACTER PANEL'S HANDLE where that was moved up beside it (per user,
+            // 2026-11-08: the minimap lay over the handle).
+            Rect lOHandle = UWModernPanel.Instance != null ? UWModernPanel.Instance.EdgeHandleRect : Rect.zero;
+
+            if (lOHandle.width > 0f && lOHandle.yMin < lODefault.yMax && lOHandle.yMax > lODefault.yMin)
+                lODefault.x = lOHandle.xMin - lfMargin - lfSize;
+
+            // LEFT OF THE OPEN CHARACTER PANEL where it reaches up to it, instead of hiding (per user,
+            // 2026-11-09: the parts make room); the active spells keep left of it in turn. A minimap
+            // the player placed is still hidden by a panel over it.
+            UWModernPanel lOOpenPanel = UWModernPanel.Instance;
+            Rect lOOpen = lOOpenPanel != null ? lOOpenPanel.OpenRect : Rect.zero;
+
+            // (Its tab row stands above it: about nine pixels of the UI's.)
+            if (lOOpen.width > 0f && lOOpen.yMin < lODefault.yMax && lOOpen.yMax + (9f * UWModernUi.PixelScale) > lODefault.yMin)
+                lODefault.x = Mathf.Min(lODefault.x, Mathf.Min(lOOpen.xMin, lOOpenPanel.LeftEdge) - lfMargin - lfSize);
+
+            mORect = UWModernLayout.Place(UWModernLayout.ElementEnum.Minimap, lODefault);
             UWModernLayout.Report(UWModernLayout.ElementEnum.Minimap, mORect);
             UWUiKit.SetRect(mOFrame.rectTransform, mORect.x, mORect.y, lfSize, lfSize);
             UWUiKit.SetRect(mOViewport, mORect.x + (UWModernHudArt.LeatherLeft * liScale), mORect.y + (UWModernHudArt.LeatherBottom * liScale),

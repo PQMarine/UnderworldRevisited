@@ -614,7 +614,7 @@ public static class UWGraphicsDetail
 
     private static string fGetPath()
     {
-        return Path.Combine(Application.persistentDataPath, FileName);
+        return UWUserFolder.Combine(FileName);
     }
 
 #if UNITY_EDITOR

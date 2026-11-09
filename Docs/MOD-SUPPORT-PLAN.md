@@ -26,6 +26,25 @@ the player's original files (the SHA-256 of base and result checked, a mod for a
 refused, as format 2 itself does), the game files never written. Our own additions (pictures beyond
 the original's size, the port's texts, rules) stay in our folder format beside it.
 
+**The editor's randomizer through `.uwmod`** (checked 2026-11-09 per user): its key item scatter,
+item shuffle, swaps and named challenges write `DATA/LEV.ARK` (objects, traps, triggers,
+automaps), `DATA/OBJECTS.DAT` (the creatures' loot table) and, for "Mark as start", the new-game
+square in `UW.EXE`; "Mark as goal" adds a move trigger with the hack trap of quality 0x3F, the
+one level 9 ends the game with, which ours already plays on any level (UWEndgame.PlayVictory). Its
+zone file (`uw1-zones.json`) is the editor's own and not needed. What we need:
+- the `.uwmod` reader itself - edits saved straight into a game folder never reach us, as the GOG
+  and Steam games keep their data in the CD image, which we extract into our own cache;
+- THE START SQUARE FROM `UW.EXE`: BUILT 2026-11-09 (UWStartSquare, check StartSquare): a new
+  character starts at the square of the program's `player_setup(x, y, 1)` call, found by its pushes
+  and its target 0048:06D1 (the program holds a second call of the same shape); a rule set that
+  changed `story.start` still wins. For the `.uwmod` reader: the supported-build check (the
+  program's size and hash, UWGogInstall) belongs to the extracted original, before the deltas - a
+  patched program would fail it;
+- to check once a mod exists: the "start kit" and "explored maps" options of the key item scatter
+  (where they write), and a randomized level played through.
+Randomizing a saved game (its `PLAYER.DAT` and `LEV.ARK` in `UNDEROM1`) works today: we load DOS
+saves as they are.
+
 **Built here, step by step** (decided 2026-11-08, replacing "contributions welcome, not planned
 here" of 2026-10-27): the mod folder with the widescreen weapons and `.uwmod` is the next work after
 0.17.0 (Next in [ROADMAP.md](../ROADMAP.md)); the rest follows the order above. A pull request for
@@ -274,7 +293,10 @@ in four places.
     lang/<code>.strings.tsv   game texts, the format of Languages/<code>.strings.tsv
     lang/<font files>         the fonts the language names (grammar.rule.font)
     data/               table patches: comobj.json, objects.json, combine.json, conversations.json
-    pictures/           own pictures as PNG with palette indices (never the original's)
+    pictures/           own pictures as PNG with palette indices (never the original's): extensions of
+                        the original's pictures (the widescreen weapons) and new ones the port draws
+                        for a feature of its own (issue 21's shield); a shift may sit in the PNG's
+                        grAb chunk, as GZDoom's sprites carry it
     scripts/            later: Lua
 ```
 
@@ -291,6 +313,17 @@ gets a "Mods" window on the interface kit listing the folder, with on/off and th
 changes take effect at the next session start (the rule set is applied at a session's start
 already) or data rebuild (the data root is rebuilt when the effective mod set changes, as it
 is rebuilt today when the DATA path or the game-text file changes).
+
+`requires` (its meaning settled 2026-11-08, after OpenXcom's `master`): the ids of the mods a mod
+needs, each optionally with a lowest version (`"author.mod >= 1.0"`); a mod whose requirement is
+missing, disabled or too old is not loaded (log and debug display), and a loaded one comes after
+what it requires, whatever the order says. No mod may require itself or form a ring (refused).
+
+NEW BEHAVIOUR WITH A MOD'S ART (2026-11-08, best practice of Daggerfall Unity and OpenMW): where a
+pack brings pictures for something the original does not have (issue 21's shield), the port builds
+the behaviour as a feature of its own, off by default and offered only while a pack provides its
+pictures; the pack brings the pictures and a small description (which picture for which thing, how
+far it moves). Mods with logic of their own wait for the hooks (phase 6).
 
 Engine-free: `UWModCatalog` (scans the folder, parses manifests, resolves the order and
 `requires`), `UWModSet` (the enabled, ordered list), both in `Assets/UWDataImport`. Unity

@@ -11,6 +11,8 @@
     "RemoveExploits": false,
     "KnowledgeShowAll": false,
     "LizardWords": 0,
+    "ModernFont": false,
+    "ModernFontLanguage": "",
     "SkillRaises": 0,
     "HelpOpen": false,
     "HelpTab": 3,

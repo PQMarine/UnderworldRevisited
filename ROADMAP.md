@@ -91,7 +91,8 @@ of what is built was also read out of the original's executable.
 
 ## Next
 
-- **Mod support, its first step**: a mod folder, with the widescreen weapon and hand pictures
+- **Mod support, its first step**: the mod folder is there since 0.18.0 (`Mods` beside the
+  settings, listed in the Game window); next the widescreen weapon and hand pictures
   (issue 16) as its first pack and the `.uwmod` packages of Karl Clinckspoor's
   [Ultima Underworld editor](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia)
   read as they are - levels, texts, tables, pictures and sounds made with it, applied in memory to

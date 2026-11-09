@@ -118,7 +118,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 - Interface presets for the modern scheme: Modern; Classic Modular, the original's own pieces
   (compass, message scroll, power gem, flasks, rune tablet, stats panel, character page with
   the original inventory) as parts of their own; Classic Wide, the original's frame widened to
-  the screen; or a layout of one's own, which can start from any preset
+  the screen; or a layout of one's own, which can start from any preset. The parts make room for each
+  other: an open panel moves the minimap, the bags and the flasks aside
 - A gamepad in both schemes, with a pointer on the stick for every window, a letter grid for
   typing, glyphs for Xbox, PlayStation, Nintendo or the Steam Deck, and every button rebindable
 - A help window beside the view: stats with the hidden values, a live map, notes kept with the
@@ -177,6 +178,13 @@ game files are extracted from `game.gog` (or `game.bin`) once into a local cache
 written to the installation. Save games are read from and written to the installation's
 `UNDEROM1\SAVE1` to `SAVE4`, so they can be exchanged with the original game. The Steam version
 needs none of its bundled DOSBox and its settings.
+
+**Portable.** Normally the settings, the extracted game files and the mods are kept in your user
+folder (Windows: `AppData\LocalLow\Underworld Revisited`, Linux: `~/.config/unity3d/Underworld
+Revisited`). To keep them in a folder `UserData` beside the program instead, use *Make portable* in
+the Game window (it copies the settings over) or put an empty file `portable.txt` beside `UR.exe`;
+the next start uses it. Paths to the installation on the same drive are kept relative, so a USB
+stick may change its letter. The save games stay in the installation, as above.
 
 **Steam: start it from Steam, with Steam Cloud.** Steam keeps the save games in its cloud, but it
 synchronises them only when it starts a game itself. Enter this in the game's *Properties > General >

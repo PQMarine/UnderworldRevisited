@@ -96,9 +96,16 @@ permission for Ultima Underworld.
   "kind": "pictures",
   "games": ["uw1"],
   "licence": "LICENSE.txt",
-  "credit": "Widescreen weapons by author"
+  "credit": "Widescreen weapons by author",
+  "requires": []
 }
 ```
+
+- `requires` (added 2026-11-08 per user, after OpenXcom's `master`): the ids of mods this one
+  needs, each optionally with a lowest version (`"author.widescreen-weapons >= 1.0"`). A mod whose
+  requirement is missing or too old is not loaded, with a line in the log and the debug display;
+  one that is loaded comes after what it requires in the order. A shield pack for issue 21 that
+  builds on the widescreen weapons would name them here.
 
 ### 4.2 The pack's pictures
 
@@ -120,6 +127,12 @@ pictures/UW2/WEAP.GR/...            (later)
 { "default": { "left": 0, "top": 0 }, "pictures": { "012": { "left": 40, "top": 0 } } }
 ```
 
+- **The shift in the PNG itself** (added 2026-11-08 per user): a picture may carry it in a `grAb`
+  chunk, as GZDoom's sprites do and as SLADE writes it - the artist of issue 16 comes from Doom's
+  WidePix. Read as `left` and `top`, the shift of the extension beyond the original (not Doom's
+  absolute draw offset). Precedence: the picture's own entry in `extend.json`, then its `grAb`,
+  then `extend.json`'s default, then 0, 0. `pack-check` warns where `grAb` and `extend.json` say
+  different things.
 - Left-handers: a left-hand picture the pack lacks is the mirror of the right hand's extension,
   with its shift mirrored, as the original's left half mirrors its right. The artist paints 112
   pictures, not 224.
@@ -144,21 +157,29 @@ set lives beside them with each picture's shift.
 
 ## 5. Tools (uwdump, in the translation kit)
 
+- `uwdump weapon-frames [path] --out dir [--both-hands]`: BUILT 2026-11-09 (issue 16: the painter's
+  file manager sorted the hex names out of order) - WEAPONS.GR sorted as UWWeaponAnimation reads it,
+  a folder per weapon, files numbered in the order of the moves and named after their picture, the
+  right hand only unless asked, the 1x1 placeholders left out.
+
 - `uwdump weapon-guide [path] --out dir`: every weapon picture at its place in the view, on a 21:9
   canvas with lines for the 4:3 view and 16:9 - which pictures touch an edge and where an arm
   leaves the view. Made from the player's own installation, like `uwdump pictures`.
 - `uwdump pack-strip [path] <painted dir> --out <pack dir>`: whole painted pictures in, only the new
   pixels and `extend.json` out (decision 3); finds the original in the painted picture by its
   pixels, warns where the painting changed an original pixel.
-- `uwdump pack-check [path] <pack dir or zip>`: `mod.json` and the id, file names, colours outside
-  the palette, overlaps with the original, missing pictures, sizes - a report, nothing changed.
+- `uwdump pack-check [path] <pack dir or zip>`: `mod.json` and the id, `requires`, file names, colours
+  outside the palette, overlaps with the original, missing pictures, sizes, a `grAb` that disagrees
+  with `extend.json` - a report, nothing changed.
 - The kit's README gets a section for pack authors (the id rule, the layout, the three commands).
 
 ## 6. Steps
 
-1. The mod folder: `UWModSource`, `UWModCatalog`, `UWModSet`, the folder, the Game page's line
+1. BUILT 2026-11-09: The mod folder: `UWModSource`, `UWModCatalog`, `UWModSet`, the folder, the Game page's line
    with its Open folder button, the log line and the debug display's list; self-check with a made-up folder and zip (ids, duplicates, order, one
-   level deeper, a zip with a top folder).
+   level deeper, a zip with a top folder). Also `UWModManifest` (ours and the editor's format 2, `requires` with
+   a lowest version, rings refused) and `UWJsonReader`; check ModCatalog. The editor's `.uwmod` packages are
+   listed already; applying their deltas is a step of its own.
 2. `UWPictureExtension` and the extended set in `UWTextures`; self-check with a made-up pack (the
    shift, the original winning, the mirror for the left hand).
 3. The UW1 views (`UWWeaponView`, `UWModernWeaponView`), the credit.

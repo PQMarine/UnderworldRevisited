@@ -170,14 +170,33 @@ internal sealed class UWModernBagView
         lOPack.Container = null;
         lOPack.FirstIndex = 0;
 
-        float lfEdge = lOPanel != null ? Mathf.Min(Screen.width, lOPanel.LeftEdge) : Screen.width;
-        float lfRight = lfEdge - (ScreenMargin * UWModernUi.PixelScale);
         float lfBottom = ScreenMargin * UWModernUi.PixelScale;
         bool lbFree = UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.Bags);
 
         // The backpack with its load bar above it.
         float lfPackWidth = UWModernBagPages.WindowWidth() * Scale;
         float lfPackHeight = (UWModernBagPages.WindowRows(2) + LoadBarRows + 2) * Scale;
+
+        // LEFT OF THE CHARACTER PANEL ONLY WHERE IT LIES AT THE BACKPACK'S HEIGHT (per user,
+        // 2026-11-08): open, or its handle, reaching down to the backpack's rows. Until then the
+        // backpack always kept left of the panel's edge, and an open panel high above it still
+        // moved it aside; the bag windows above it keep clear of the panel by themselves
+        // (UWBagPlacement, a new column where there is no room).
+        float lfEdge = Screen.width;
+
+        if (lOPanel != null)
+        {
+            float lfPackTop = lfBottom + lfPackHeight;
+            Rect lOPanelOpen = lOPanel.OpenRect;
+            Rect lOHandle = lOPanel.HandleRect;
+            bool lbAtHeight = (lOPanelOpen.width > 0f && lOPanelOpen.yMin < lfPackTop && lOPanelOpen.yMax > lfBottom)
+                || (lOHandle.width > 0f && lOHandle.yMin < lfPackTop && lOHandle.yMax > lfBottom);
+
+            if (lbAtHeight)
+                lfEdge = Mathf.Min(Screen.width, lOPanel.LeftEdge);
+        }
+
+        float lfRight = lfEdge - (ScreenMargin * UWModernUi.PixelScale);
         Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Bags,
             new Rect(lfRight - lfPackWidth, lfBottom, lfPackWidth, lfPackHeight));
 

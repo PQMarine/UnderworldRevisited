@@ -14,7 +14,11 @@ namespace UWDataImport.UWData
 	///     size, so the layout keeps its sense at another resolution or aspect;
 	///   - Place puts it back there, kept on the screen and on whole pixels;
 	///   - the whole layout is one line of text ("element:anchorX:anchorY:offsetX:offsetY:percent;"
-	///     per part that was changed, an anchor X below 0 for a part only sized).
+	///     per part that was changed, an anchor X of -1 for a part only sized);
+	///   - a DOCKED part (a panel at a screen edge with its handle) moved along its edge keeps the
+	///     handle's height alone, anchored by thirds like a moved part, and stays docked - anchor X -2
+	///     in the text (per user, 2026-11-08: the collapsed panel's handle dragged up or down in the
+	///     layout editor); a version before reads that as "only sized" and keeps the default height.
 	///
 	/// Screen pixels count from the bottom left. The engine side keeps the instance, the screen's
 	/// size and the UI size, and where the parts were drawn (UWModernLayout).
@@ -35,6 +39,9 @@ namespace UWDataImport.UWData
 			public UWVector2 Offset;
 
 			public int Percent = 100;
+
+			/// <summary>Docked, its handle moved along the edge: Anchor.Y and Offset.Y say where.</summary>
+			public bool Docked;
 		}
 
 		private readonly Placement[] mOPlacements;
@@ -85,8 +92,42 @@ namespace UWDataImport.UWData
 			float lfScale = Math.Max(0.01f, pfPixelScale);
 
 			lOPlacement.Placed = true;
+			lOPlacement.Docked = false;
 			lOPlacement.Anchor = new UWVector2(lfAnchorX, lfAnchorY);
 			lOPlacement.Offset = new UWVector2((lfOwnX - (lfAnchorX * pfScreenWidth)) / lfScale, (lfOwnY - (lfAnchorY * pfScreenHeight)) / lfScale);
+		}
+
+		/// <summary>A docked part's handle moved along its edge to this rect: its height by thirds, the
+		/// part stays docked (no longer placed freely).</summary>
+		public void MoveDock(int piElement, UWRect pOHandle, float pfScreenHeight, float pfPixelScale)
+		{
+			Placement lOPlacement = mOPlacements[piElement];
+			float lfAnchorY = fThird(pOHandle.CenterY, pfScreenHeight);
+			float lfOwnY = pOHandle.Y + (lfAnchorY * pOHandle.Height);
+
+			lOPlacement.Placed = false;
+			lOPlacement.Docked = true;
+			lOPlacement.Anchor = new UWVector2(0f, lfAnchorY);
+			lOPlacement.Offset = new UWVector2(0f, (lfOwnY - (lfAnchorY * pfScreenHeight)) / Math.Max(0.01f, pfPixelScale));
+		}
+
+		/// <summary>Where a docked part's handle of this height lies (its bottom, screen pixels from the
+		/// bottom), kept between pfMinY and pfMaxY; false when its handle was never moved.</summary>
+		public bool TryPlaceDock(int piElement, float pfHandleHeight, float pfScreenHeight, float pfPixelScale, float pfMinY, float pfMaxY,
+			out float pfBottom)
+		{
+			Placement lOPlacement = mOPlacements[piElement];
+
+			pfBottom = 0f;
+
+			if (!lOPlacement.Docked || lOPlacement.Placed)
+				return false;
+
+			float lfAnchorY = (lOPlacement.Anchor.Y * pfScreenHeight) + (lOPlacement.Offset.Y * pfPixelScale);
+
+			pfBottom = (float)Math.Round(UWMath.Clamp(lfAnchorY - (lOPlacement.Anchor.Y * pfHandleHeight), pfMinY, Math.Max(pfMinY, pfMaxY)));
+
+			return true;
 		}
 
 		/// <summary>A new size: the part stays at its anchor point (where it was drawn when it had
@@ -95,7 +136,8 @@ namespace UWDataImport.UWData
 		{
 			Placement lOPlacement = mOPlacements[piElement];
 
-			if (!lOPlacement.Placed)
+			// A docked part whose handle was moved keeps its edge and its height.
+			if (!lOPlacement.Placed && !lOPlacement.Docked)
 				Move(piElement, pOCurrent, pfScreenWidth, pfScreenHeight, pfPixelScale);
 
 			lOPlacement.Percent = Math.Min(Math.Max(piPercent, MinPercent), MaxPercent);
@@ -147,6 +189,7 @@ namespace UWDataImport.UWData
 				Placement lOPlacement = lOLayout.mOPlacements[liElement];
 
 				lOPlacement.Placed = lfValues[0] >= 0f;
+				lOPlacement.Docked = lfValues[0] < -1.5f;
 				lOPlacement.Anchor = new UWVector2(UWMath.Clamp(lfValues[0], 0f, 1f), UWMath.Clamp(lfValues[1], 0f, 1f));
 				lOPlacement.Offset = new UWVector2(lfValues[2], lfValues[3]);
 				lOPlacement.Percent = Math.Min(Math.Max(liPercent, MinPercent), MaxPercent);
@@ -163,11 +206,11 @@ namespace UWDataImport.UWData
 			{
 				Placement lOPlacement = mOPlacements[liAt];
 
-				if (!lOPlacement.Placed && lOPlacement.Percent == 100)
+				if (!lOPlacement.Placed && !lOPlacement.Docked && lOPlacement.Percent == 100)
 					continue;
 
 				lOText.Append(liAt).Append(':')
-					.Append((lOPlacement.Placed ? lOPlacement.Anchor.X : -1f).ToString(CultureInfo.InvariantCulture)).Append(':')
+					.Append((lOPlacement.Placed ? lOPlacement.Anchor.X : lOPlacement.Docked ? -2f : -1f).ToString(CultureInfo.InvariantCulture)).Append(':')
 					.Append(lOPlacement.Anchor.Y.ToString(CultureInfo.InvariantCulture)).Append(':')
 					.Append(lOPlacement.Offset.X.ToString("0.##", CultureInfo.InvariantCulture)).Append(':')
 					.Append(lOPlacement.Offset.Y.ToString("0.##", CultureInfo.InvariantCulture)).Append(':')

@@ -286,7 +286,8 @@ public partial class UWModernLayoutEditor
     /// <summary>A panel moved is a free window; Dock puts it back at its edge.</summary>
     private static InspectorItem fDockRow(Element peElement)
     {
-        bool lbDocked = UWModernLayout.IsDocked(peElement);
+        // Docked with its handle moved along the edge, Dock puts the handle back at its height too.
+        bool lbDocked = UWModernLayout.IsDocked(peElement) && !UWModernLayout.IsDockMoved(peElement);
 
         return fAction(UWText.T("editor.window"), lbDocked ? UWText.T("editor.window.docked") : UWText.T("editor.window.dock"), liAt => UWModernLayout.Reset(peElement), !lbDocked);
     }

@@ -107,10 +107,14 @@ public class UWModernActiveSpells : UWModernPart
         if (lOMap != null && lOMap.ScreenRect.width > 0f)
             lfRight = Mathf.Min(lfRight, lOMap.ScreenRect.xMin - lfMargin);
 
-        if (lOPanel != null && lOPanel.IsOpen)
-            lfRight = Mathf.Min(lfRight, lOPanel.LeftEdge - lfMargin);
-
         float lfTop = Screen.height - lfMargin;
+
+        // Left of the open character panel only where it reaches up to the row (per user, 2026-11-09:
+        // the Modern preset stands it on the bottom, far below).
+        Rect lOOpen = lOPanel != null ? lOPanel.OpenRect : Rect.zero;
+
+        if (lOOpen.width > 0f && lOOpen.yMax + (12f * miPixelScale) > lfTop - (17f * liScale))
+            lfRight = Mathf.Min(lfRight, Mathf.Min(lOOpen.xMin, lOPanel.LeftEdge) - lfMargin);
         float lfX = lfRight;
 
         // Right-aligned, the first spell leftmost as on the classic page.

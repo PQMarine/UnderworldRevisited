@@ -110,6 +110,31 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
 
     public bool IsOpen => mbOpen;
 
+    /// <summary>
+    /// THE HIGHEST A DOCKED PANEL'S TOP MAY GO (screen pixels from the bottom): the screen's top margin -
+    /// or, where the player put the action bar over the panel's column in the upper half of the screen,
+    /// below the bar with room for the tab row (per user, 2026-11-08: the bar moved to the top covered the
+    /// rune panel's head). The bar stays where it was put; the docked panel makes room, as the parts do.
+    /// </summary>
+    protected float fTopLimit(float pfLeft, float pfRight, float pfScale)
+    {
+        float lfTop = Screen.height - (TopMargin * pfScale);
+        UWModernActionBar lOBar = UWModernActionBar.Instance;
+
+        if (lOBar == null)
+            return lfTop;
+
+        Rect lOBarRect = lOBar.ScreenRect;
+
+        if (lOBarRect.width <= 0f || lOBarRect.xMax <= pfLeft || lOBarRect.xMin >= pfRight || lOBarRect.center.y < Screen.height * 0.5f)
+            return lfTop;
+
+        return Mathf.Round(Mathf.Min(lfTop, lOBarRect.yMin - (TabHeaderHeight * pfScale)));
+    }
+
+    /// <summary>The handle where it was laid out last (the layout editor drags it along the edge).</summary>
+    public Rect HandleRect => mOHandleRect;
+
     /// <summary>Whether Escape has something to close here (UWModernUi's closable chain).</summary>
     public abstract bool IsClosable { get; }
 

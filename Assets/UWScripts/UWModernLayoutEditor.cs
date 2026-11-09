@@ -93,6 +93,13 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
     private bool mbSizing;
 
+    /// <summary>A collapsed docked panel's handle dragged along its edge (per user, 2026-11-08): only up
+    /// and down, the panel stays docked (UWModernLayout.MoveDock).</summary>
+    private bool mbDocking;
+
+    /// <summary>While a handle is dragged: the whole panel where it would open (per user, 2026-11-08).</summary>
+    private readonly Image[] mODockOutline = new Image[4];
+
     private Vector2 mODragFrom;
 
     private Rect mODragRect;
@@ -210,6 +217,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
             else
             {
                 miDragged = -1;
+                mbDocking = false;
                 UWModernLayout.Save();
 
                 if (miWidening != 0 || mbLining)
@@ -269,6 +277,18 @@ public partial class UWModernLayoutEditor : MonoBehaviour
             UWModernLayout.ElementEnum leElement = (UWModernLayout.ElementEnum)liElement;
 
             UWModernLayout.TryGetRect(leElement, out mODragRect);
+
+            // A COLLAPSED DOCKED PANEL: its handle goes up and down along the edge, the panel stays
+            // docked and collapsed (per user, 2026-11-08); open, it is dragged out as a free window.
+            if (!lbHandle && fCollapsedHandle(leElement, out Rect lOHandleRect))
+            {
+                miDragged = liElement;
+                mbSizing = false;
+                mbDocking = true;
+                mODragRect = lOHandleRect;
+                mODragFrom = lOPointer;
+                return;
+            }
 
             // A closed panel (its handle grabbed) opens, else it would vanish once it is free.
             if (!lbHandle)
@@ -359,6 +379,25 @@ public partial class UWModernLayoutEditor : MonoBehaviour
             fSetMessageLines(liLines);
     }
 
+    /// <summary>A docked panel that is collapsed, and its handle's rect.</summary>
+    private static bool fCollapsedHandle(UWModernLayout.ElementEnum peElement, out Rect pOHandle)
+    {
+        pOHandle = Rect.zero;
+
+        if (!UWModernLayout.IsDocked(peElement))
+            return false;
+
+        UWModernDockedPanel lOPanel = peElement == UWModernLayout.ElementEnum.CharacterPanel ? UWModernPanel.Instance
+            : peElement == UWModernLayout.ElementEnum.RunePanel ? (UWModernDockedPanel)UWModernRunePanel.Instance : null;
+
+        if (lOPanel == null || lOPanel.IsOpen || lOPanel.HandleRect.width <= 0f)
+            return false;
+
+        pOHandle = lOPanel.HandleRect;
+
+        return true;
+    }
+
     private void fOpenForDrag(UWModernLayout.ElementEnum peElement)
     {
         if (peElement == UWModernLayout.ElementEnum.CharacterPanel && UWModernPanel.Instance != null && !UWModernPanel.Instance.IsOpen)
@@ -446,6 +485,12 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         if (mbLining)
         {
             fDragLines(lODelta.y);
+            return;
+        }
+
+        if (mbDocking)
+        {
+            UWModernLayout.MoveDock(leElement, new Rect(mODragRect.x, mODragRect.y + lODelta.y, mODragRect.width, mODragRect.height), false);
             return;
         }
 
@@ -765,19 +810,45 @@ public partial class UWModernLayoutEditor : MonoBehaviour
             mOGrips[liSide].color = liGripHovered == (liSide == 0 ? -1 : 1) ? UWModernPalette.LightText : UWModernPalette.Gold;
         }
 
+        // The docked panel's outline while its handle is dragged.
+        Rect lOOutline = Rect.zero;
+
+        if (mbDocking && miDragged >= 0 && fCollapsedHandle((UWModernLayout.ElementEnum)miDragged, out Rect lODraggedHandle))
+            lOOutline = (UWModernLayout.ElementEnum)miDragged == UWModernLayout.ElementEnum.CharacterPanel
+                ? UWModernPanel.Instance.OpenRectAtHandle(lODraggedHandle.y)
+                : UWModernRunePanel.Instance.OpenRectAtHandle(lODraggedHandle.y);
+
+        float lfOutline = Mathf.Max(2f, lfScale * 0.5f);
+
+        for (int liLine = 0; liLine < 4; liLine++)
+            mODockOutline[liLine].enabled = lOOutline.width > 0f;
+
+        if (lOOutline.width > 0f)
+        {
+            UWUiKit.SetRect(mODockOutline[0].rectTransform, lOOutline.x, lOOutline.yMax, lOOutline.width, lfOutline);
+            UWUiKit.SetRect(mODockOutline[1].rectTransform, lOOutline.x, lOOutline.y - lfOutline, lOOutline.width, lfOutline);
+            UWUiKit.SetRect(mODockOutline[2].rectTransform, lOOutline.x - lfOutline, lOOutline.y - lfOutline, lfOutline, lOOutline.height + (2f * lfOutline));
+            UWUiKit.SetRect(mODockOutline[3].rectTransform, lOOutline.xMax, lOOutline.y - lfOutline, lfOutline, lOOutline.height + (2f * lfOutline));
+        }
+
         // The pointer: what a press here would do.
         PointerEnum lePointer = PointerEnum.System;
 
         if (miDragged >= 0)
-            lePointer = miWidening != 0 ? PointerEnum.LeftRight : mbLining ? PointerEnum.UpDown : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
+            lePointer = miWidening != 0 ? PointerEnum.LeftRight : mbLining || mbDocking ? PointerEnum.UpDown : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
         else if (!fWindowContains(lOPointer))
         {
             if (fGripAt(lOPointer) != 0)
                 lePointer = PointerEnum.LeftRight;
             else if (fLinesEdgeAt(lOPointer))
                 lePointer = PointerEnum.UpDown;
-            else if (fElementAt(lOPointer, out bool lbHandle) >= 0 && !lbHandle)
-                lePointer = PointerEnum.FourWays;
+            else
+            {
+                int liUnder = fElementAt(lOPointer, out bool lbHandle);
+
+                if (liUnder >= 0 && !lbHandle)
+                    lePointer = fCollapsedHandle((UWModernLayout.ElementEnum)liUnder, out Rect _) ? PointerEnum.UpDown : PointerEnum.FourWays;
+            }
         }
 
         fShowPointer(lePointer);
@@ -1336,6 +1407,11 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         UWModernLayout.Reload();
         UWModernBacks.Reloaded();
 
+        // Modern stands the character panel on the bottom (UWModernPanel): the own layout starting from
+        // it keeps the handle there, else the panel would jump to the top (per user, 2026-11-08).
+        if (peStart == UWDataImport.UWData.UWLayoutStart.Modern && UWModernPanel.Instance != null)
+            UWModernLayout.MoveDock(UWModernLayout.ElementEnum.CharacterPanel, UWModernPanel.Instance.ModernHandleRect());
+
         // The shelf as wide as the screen leaves beside the stats panel (its size read from the
         // layout just set).
         if (peStart == UWDataImport.UWData.UWLayoutStart.ClassicModular)
@@ -1543,6 +1619,9 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
         mOGrips[0] = UWUiKit.CreateImage(lORootRect, "Grip left", UWModernPalette.Gold);
         mOGrips[1] = UWUiKit.CreateImage(lORootRect, "Grip right", UWModernPalette.Gold);
+        for (int liLine = 0; liLine < 4; liLine++)
+            mODockOutline[liLine] = UWUiKit.CreateImage(lORootRect, "Docked panel outline", msGuide);
+
         mOGuideX = UWUiKit.CreateImage(lORootRect, "Guide x", msGuide);
         mOGuideY = UWUiKit.CreateImage(lORootRect, "Guide y", msGuide);
     }

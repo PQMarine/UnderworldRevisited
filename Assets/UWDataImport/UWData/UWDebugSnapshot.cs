@@ -38,6 +38,11 @@ namespace UWDataImport.UWData
 		/// <summary>The file had problems (a malformed file, an unknown key, a wrong value).</summary>
 		public bool RulesProblem;
 
+		/// <summary>The mod folder's catalog in a line (UWMods), empty when the folder holds nothing.</summary>
+		public string Mods = string.Empty;
+
+		public bool ModsProblem;
+
 		// ------------------------------------------------- Place
 
 		/// <summary>A camera to stand at: without one the place and the player's lines were left out.</summary>

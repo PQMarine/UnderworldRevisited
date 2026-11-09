@@ -313,6 +313,8 @@ public class UWLevelLoader : MonoBehaviour
         // out of the file is the original's again with the next start or load. No file is the
         // original's rules; the game never writes one.
         fApplyRules();
+        // The mod folder's catalog to the log (UWMods; nothing reads the mods yet).
+        UWMods.ScanAndLog();
 
         // Character creation leaves a black cover up during the rebuild. Until 2026-09-14 the
         // intro that followed removed it; without the intro the screen stayed black (per user).

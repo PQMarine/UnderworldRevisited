@@ -378,31 +378,94 @@ public partial class UWSetupMenu
         return fDrawFolderLine(pfLeft, pfTop, pfInner, lsState, UWAudioMixer.RecordingFolder);
     }
 
-    /// <summary>A state line and the button that opens psFolder (made if it is missing); the next
-    /// row starts 36 lower (the line is 26 high). Until 2026-10-27 the ROM line was the window's
-    /// last and returned its own top, which put the recordings' switch onto it (per user).</summary>
-    private float fDrawFolderLine(float pfLeft, float pfTop, float pfInner, string psState, string psFolder)
+    /// <summary>What "Make portable" answered, shown in the line until the window is closed.</summary>
+    private static string msPortableAnswer;
+
+    /// <summary>The portable folder (UWUserFolder): in use with its Open folder button, or offered with a
+    /// Make portable button that writes portable.txt and copies the settings over, for the next start.</summary>
+    private float fDrawPortableLine(float pfLeft, float pfTop, float pfInner)
     {
+        if (UWUserFolder.ProgramFolder == null)
+            return pfTop;
+
+        if (UWUserFolder.IsPortable)
+            return fDrawFolderLine(pfLeft, pfTop, pfInner, UWText.T("setup.game.portable"), UWUserFolder.Path, 0f, UWText.T("setup.game.open_userdata"));
+
         IUWRows lORows = mOPassRows;
-        string lsOpen = UWText.T("setup.sound.open_folder");
-        float lfButton = lORows.FitWidth(lsOpen, 140f);
+        string lsMake = UWText.T("setup.game.make_portable");
+        float lfButton = lORows.FitWidth(lsMake, 140f);
+        string lsState = msPortableAnswer
+            ?? (UWUserFolder.Problem != null ? UWText.F("setup.game.portable_problem", UWUserFolder.Problem) : UWText.T("setup.game.user_folder"));
 
-        lORows.Info(new Rect(pfLeft, pfTop, pfInner - (lfButton + 10f), 26f), psState, UWRowInfoEnum.Heading);
+        lORows.Info(new Rect(pfLeft, pfTop, pfInner - (lfButton + 10f), 26f), lsState, UWRowInfoEnum.Heading);
 
-        if (lORows.Action(new Rect(pfLeft + pfInner - lfButton, pfTop, lfButton, 26f), lsOpen))
+        if (msPortableAnswer == null && lORows.Action(new Rect(pfLeft + pfInner - lfButton, pfTop, lfButton, 26f), lsMake))
         {
-            try
-            {
-                System.IO.Directory.CreateDirectory(psFolder);
-                Application.OpenURL((psFolder.StartsWith("/") ? "file://" : "file:///") + psFolder.Replace('\\', '/'));
-            }
-            catch (System.Exception lOError)
-            {
-                Debug.LogWarning("Folder not opened (" + psFolder + "): " + lOError.Message);
-            }
+            string lsError = UWUserFolder.MakePortable();
+
+            msPortableAnswer = lsError == null ? UWText.T("setup.game.portable_restart") : UWText.F("setup.game.portable_failed", lsError);
+            Debug.Log("[Portable] " + (lsError == null ? "made portable: " + UWUserFolder.PortableFolder + ", in force at the next start" : "not made portable: " + lsError));
         }
 
         return pfTop + FolderLineAdvance;
+    }
+
+    /// <summary>The mods in the folder beside settings.json (UWMods), scanned anew now and then, and the
+    /// button that opens the folder - and, where a mod was not loaded, one that opens the log's folder,
+    /// which says why (per user, 2026-11-09: the log is hard to find).</summary>
+    private float fDrawModsLine(float pfLeft, float pfTop, float pfInner)
+    {
+        UWModCatalog lOCatalog = UWMods.Fresh();
+
+        // The buttons named by the folders they open (per user, 2026-11-09: three "Open folder" in a row).
+        string lsMods = UWText.T("setup.game.open_mods");
+
+        if (lOCatalog.Refused.Count == 0 || string.IsNullOrEmpty(Application.consoleLogPath))
+            return fDrawFolderLine(pfLeft, pfTop, pfInner, UWMods.Summary(lOCatalog), UWMods.Folder, 0f, lsMods);
+
+        IUWRows lORows = mOPassRows;
+        string lsLog = UWText.T("setup.game.open_log");
+        float lfLogButton = lORows.FitWidth(lsLog, 140f);
+        float lfFolderButton = lORows.FitWidth(lsMods, 140f);
+
+        if (lORows.Action(new Rect(pfLeft + pfInner - lfFolderButton - 10f - lfLogButton, pfTop, lfLogButton, 26f), lsLog))
+            fOpenFolder(System.IO.Path.GetDirectoryName(Application.consoleLogPath));
+
+        // The state, narrower by the log's button, and the folder's button at the edge.
+        return fDrawFolderLine(pfLeft, pfTop, pfInner, UWMods.Summary(lOCatalog), UWMods.Folder, lfLogButton + 10f, lsMods);
+    }
+
+    /// <summary>A state line and the button that opens psFolder (made if it is missing); the next
+    /// row starts 36 lower (the line is 26 high). Until 2026-10-27 the ROM line was the window's
+    /// last and returned its own top, which put the recordings' switch onto it (per user).</summary>
+    private float fDrawFolderLine(float pfLeft, float pfTop, float pfInner, string psState, string psFolder, float pfTextKept = 0f,
+        string psButton = null)
+    {
+        IUWRows lORows = mOPassRows;
+        string lsOpen = psButton ?? UWText.T("setup.sound.open_folder");
+        float lfButton = lORows.FitWidth(lsOpen, 140f);
+        // The button at the right edge; pfTextKept more room taken from the text for a button left of it
+        // (the mods line's log button; per user, 2026-11-09: kept at the edge the two lay on each other).
+        lORows.Info(new Rect(pfLeft, pfTop, pfInner - (lfButton + 10f) - pfTextKept, 26f), psState, UWRowInfoEnum.Heading);
+
+        if (lORows.Action(new Rect(pfLeft + pfInner - lfButton, pfTop, lfButton, 26f), lsOpen))
+            fOpenFolder(psFolder);
+
+        return pfTop + FolderLineAdvance;
+    }
+
+    /// <summary>Opens a folder in the system's file manager, made first if it is missing.</summary>
+    private static void fOpenFolder(string psFolder)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(psFolder);
+            Application.OpenURL((psFolder.StartsWith("/") ? "file://" : "file:///") + psFolder.Replace('\\', '/'));
+        }
+        catch (System.Exception lOError)
+        {
+            Debug.LogWarning("Folder not opened (" + psFolder + "): " + lOError.Message);
+        }
     }
 
     /// <summary>A folder line's height, 26, and the gap under it.</summary>
@@ -615,6 +678,13 @@ public partial class UWSetupMenu
 
                 EnabledWhen = fFolderReachable, Press = () => fOpenFolderDialog(true)
             })
+            // THE MOD FOLDER (Docs/WIDESCREEN-WEAPONS-PLAN.md step 1, 2026-11-09): how many mods it holds and
+            // the button that opens it (made if missing), as the MT-32 ROMs' line - here until the Mods
+            // window takes it over.
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "game.mods", Draw = fDrawModsLine })
+            // PORTABLE (per user, 2026-11-09): everything of the port's in UserData beside the program
+            // (UWUserFolder) - shown when it is, offered when it is not. Not in the editor.
+            .Add(new UWSetupRow { Kind = Kind.Custom, Id = "game.portable", Draw = fDrawPortableLine })
             // THE CONTROL SCHEME WITHOUT A KEY (per user, 2026-10-09: a small keyboard whose top row
             // gives media keys unless Fn is held could not reach Shift+F2; under Game because the
             // scheme changes the whole interface, not only the controls) - the same as Shift+F2,

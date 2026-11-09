@@ -118,6 +118,12 @@ namespace UWDataImport.UWData
 			Fallback = (int)UWLizardWordsEnum.Off
 		};
 
+		/// <summary>The classic texts in the modern font, and the language whose rule last switched it (UWTextLabel).</summary>
+		public static readonly UWBoolSettingDef ModernFont = fBool(nameof(UWUserData.ModernFont), d => d.ModernFont, (d, v) => d.ModernFont = v);
+
+		public static readonly UWTextSettingDef ModernFontLanguage = fText(nameof(UWUserData.ModernFontLanguage), d => d.ModernFontLanguage,
+			(d, v) => d.ModernFontLanguage = v, UWSettingNormalize.None);
+
 		/// <summary>A skill raise's chance point: Off, Highest or Fixed (UWSkillRaiseEnum); an unknown one reads Off.</summary>
 		public static readonly UWIntSettingDef SkillRaises = new UWIntSettingDef(nameof(UWUserData.SkillRaises), UWSettingKind.Choice,
 			d => d.SkillRaises, (d, v) => d.SkillRaises = v)
@@ -446,7 +452,7 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, SkillRaises, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,

@@ -95,6 +95,7 @@ namespace UnderworldRevisited.Tools
             fRegister("automap", "[1-9] [--png file]", "automap values (use --save for a save game's map)", true, fPrintAutomap);
             fRegister("maprender", "--out dir [--highlight id ...]", "a top view of every level as PNG", true, fRenderMaps);
             fRegister("pictures", "<NAME.GR|BYT> --out dir [--palette n]", "a picture file (or the second game's BYT.ARK screens) as PNGs", true, fDumpPictures);
+            fRegister("weapon-frames", "--out dir [--both-hands]", "the weapon pictures sorted by weapon and move, for painting (WEAPONS.GR)", true, fWeaponFrames);
             fRegister("picture-template", "--out dir", "the pictures with English painted into them, named for a language's own pictures", true, fPictureTemplate);
             fRegister("palette", "[n|all] --out dir", "the game's palettes as .gpl and .act (palette 0 unless given), the PNGs' colours", true, fDumpPalette);
             fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);

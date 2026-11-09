@@ -126,8 +126,17 @@ public class UWModernVitals : UWModernPart
         UWModernHudArt.ShelfLayout lOLayout = mOShelfLayout;
         int liTextSize = fFontOf(UWModernLayout.ElementEnum.Vitals);
         float lfTextHeight = liTextSize * 1.5f;
-        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, new Rect(lfMargin, lfMargin, lOLayout.Width * liScale * UWModernHudArt.PixelAspectX,
-            ((lOLayout.Height + 1) * liScale) + lfTextHeight));
+        Rect lODefault = new Rect(lfMargin, lfMargin, lOLayout.Width * liScale * UWModernHudArt.PixelAspectX,
+            ((lOLayout.Height + 1) * liScale) + lfTextHeight);
+
+        // RIGHT OF THE RUNE PANEL while it covers them, as the message box does (per user,
+        // 2026-11-08: a rune panel whose handle was moved down reaches the bottom).
+        UWModernRunePanel lORunes = UWModernRunePanel.Instance;
+
+        if (lORunes != null && lORunes.ScreenRect.width > 0f && lORunes.ScreenRect.Overlaps(lODefault))
+            lODefault.x = Mathf.Round(lORunes.ScreenRect.xMax + lfMargin);
+
+        Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Vitals, lODefault);
         Vector2 lOOrigin = lOPlaced.position;
         bool lbFlasksApart = UWModernLayout.IsFlasksApart;
 

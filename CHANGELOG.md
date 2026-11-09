@@ -10,7 +10,32 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
-## [0.17.0] - 2026-11-08
+## [0.18.0] - 2026-11-09
+
+### Added
+- Portable: with an empty file `portable.txt` beside the program, or "Make portable" in the Game window,
+  the settings, the extracted game files and the mods live in a folder `UserData` beside the program.
+  Paths to the installation on the same drive are kept relative, so a USB stick may change its letter.
+  The save games stay in the game's installation.
+- A mod folder: `Mods` beside the settings, with a line in the Game window that says what it holds and
+  buttons for the folder and, where a mod was not loaded, for the log that says why. Mods are folders or
+  zips with a `mod.json`; Karl Clinckspoor's editor's `.uwmod` packages are recognised. Nothing reads the
+  mods yet - the first pack, the widescreen weapons, comes next.
+- `uwdump weapon-frames` in the Translation Kit: the weapon pictures sorted by weapon and move for
+  painting, each still named after its picture (GitHub issue 16).
+- A new game starts at the square the program holds, so an editor that moves the start is followed.
+- The layout editor: a collapsed character or rune panel's handle can be dragged up and down; the panel
+  stays docked and opens there, and an outline shows how large it will be.
+
+### Changed
+- The modern interface makes room: in the Modern preset the character panel stands at the bottom edge;
+  the backpack moves aside only where the panel reaches down to it, and climbs over the action bar when
+  pushed onto it; the bag windows start a new column at the bottom where the panel is in the way; the
+  minimap and the active spells move beside an open character panel instead of hiding; the flasks and
+  the message box move beside a low rune panel; a docked panel starts below an action bar placed over it.
+- The classic font's choice is kept in the settings file, no longer in the Windows registry.
+
+
 
 ### Added
 - The help's Mantras and Spells tabs show what your character has learned in the game: a mantra or a spell the

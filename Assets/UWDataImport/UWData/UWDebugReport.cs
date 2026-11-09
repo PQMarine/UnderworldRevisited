@@ -265,6 +265,9 @@ namespace UWDataImport.UWData
 			if (!string.IsNullOrEmpty(pOSnapshot.Rules))
 				lOSection.Add("Rules", pOSnapshot.Rules, pOSnapshot.RulesProblem ? UWDebugEmphasis.Warning : UWDebugEmphasis.Accent);
 
+			if (!string.IsNullOrEmpty(pOSnapshot.Mods))
+				lOSection.Add("Mods", pOSnapshot.Mods, pOSnapshot.ModsProblem ? UWDebugEmphasis.Warning : UWDebugEmphasis.Accent);
+
 			if (!pOSnapshot.HasPlace)
 				return lOSection;
 

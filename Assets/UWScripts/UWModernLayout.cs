@@ -274,6 +274,29 @@ public static class UWModernLayout
             fSave();
     }
 
+    /// <summary>A docked panel's handle moved along its edge (the layout editor, the panel collapsed):
+    /// it stays docked at that height (UWHudLayout.MoveDock).</summary>
+    public static void MoveDock(ElementEnum peElement, Rect pOHandle, bool pbSave = true)
+    {
+        fLayout().MoveDock((int)peElement, pOHandle.ToUW(), Screen.height, UWModernUi.PixelScale);
+
+        if (pbSave)
+            fSave();
+    }
+
+    /// <summary>Whether a docked panel's handle was moved along its edge (only the own layout keeps it).</summary>
+    public static bool IsDockMoved(ElementEnum peElement)
+    {
+        return fLayout().Get((int)peElement).Docked;
+    }
+
+    /// <summary>The bottom of a docked panel's moved handle, kept between pfMinY and pfMaxY; false while
+    /// it sits at its default height.</summary>
+    public static bool TryGetDockBottom(ElementEnum peElement, float pfHandleHeight, float pfMinY, float pfMaxY, out float pfBottom)
+    {
+        return fLayout().TryPlaceDock((int)peElement, pfHandleHeight, Screen.height, UWModernUi.PixelScale, pfMinY, pfMaxY, out pfBottom);
+    }
+
     /// <summary>A new size: the part stays at its anchor point (where it was drawn when it had
     /// none yet) and grows away from it.</summary>
     public static void SetPercent(ElementEnum peElement, int piPercent, Rect pOCurrent, bool pbSave = true)

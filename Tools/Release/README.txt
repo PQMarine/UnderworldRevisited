@@ -125,6 +125,18 @@ creation", "Show every mantra and spell in the help" (else it shows those your c
 learned in the game), "Lizard words" (the lizardmen's words with their meanings in brackets) and
 "Skill raises" (Highest, the most a chant can give; Fixed, the same result after loading).
 
+PORTABLE
+--------
+
+The settings, the extracted game files and the mods normally live in your user folder (Windows:
+%USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited). "Make portable" in the
+Game window, or an empty file portable.txt beside UR.exe, keeps them in a folder UserData beside the
+program from the next start on. Copy that folder along when you unpack a newer version. The folder
+alone keeps it portable too: to go back, delete portable.txt and UserData (copy what is in UserData
+to the user folder first to keep your settings). The save games stay in the game's installation
+either way.
+
+
 RULES
 -----
 

@@ -290,6 +290,18 @@ setup.sound.mt32_problem	MT-32: {0}
 setup.sound.mt32_no_roms	keine MT-32- oder CM-32L-ROMs in diesem Ordner
 setup.sound.mt32_missing	die MT-32-Emulation fehlt auf diesem System ({0})
 setup.sound.open_folder	Ordner öffnen
+setup.game.mods	Mods: {0} geladen
+setup.game.mods_none	Mods: keine im Ordner
+setup.game.mods_refused	({0} nicht geladen, siehe Log)
+setup.game.open_log	Log
+setup.game.open_mods	Mods
+setup.game.open_userdata	UserData
+setup.game.portable	Portabel: Daten in UserData neben dem Spiel
+setup.game.portable_problem	Portabel: UserData neben dem Spiel ist nicht beschreibbar ({0})
+setup.game.user_folder	Einstellungen im Benutzerordner
+setup.game.make_portable	Portabel machen
+setup.game.portable_restart	Portabel eingerichtet - Spiel neu starten
+setup.game.portable_failed	Nicht portabel: {0}
 setup.sound.recordings	Aufnahmen: {0} Stücke
 setup.sound.recordings_none	Aufnahmen: keine in diesem Ordner
 setup.colours.title	Farben

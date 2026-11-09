@@ -47,7 +47,7 @@ public static class UWShaderGlobalsDump
 
         try
         {
-            string lsPath = Path.Combine(Application.persistentDataPath,
+            string lsPath = Path.Combine(UWUserFolder.Path,
                 "shader-globals-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
 
             File.WriteAllText(lsPath, lOText.ToString());

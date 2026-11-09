@@ -189,6 +189,20 @@ public class UWDebugOverlay : MonoBehaviour
             lOSnapshot.RulesProblem = lORules.HasProblems;
         }
 
+        // The mod folder (UWMods), as scanned at the game's start: the ids loaded, a mark where some were not.
+        UWDataImport.UWData.UWModCatalog lOMods = UWMods.Catalog;
+
+        if (lOMods.Loaded.Count > 0 || lOMods.Refused.Count > 0)
+        {
+            System.Collections.Generic.List<string> lsIds = new System.Collections.Generic.List<string>();
+
+            foreach (UWDataImport.UWData.UWModCatalog.Entry lOEntry in lOMods.Loaded)
+                lsIds.Add(lOEntry.Id);
+
+            lOSnapshot.Mods = (lsIds.Count > 0 ? string.Join(", ", lsIds) : "none") + (lOMods.Refused.Count > 0 ? " (" + lOMods.Refused.Count + " not loaded)" : string.Empty);
+            lOSnapshot.ModsProblem = lOMods.Refused.Count > 0;
+        }
+
         // CREATURES ONLY: while a creature's behaviour is being hunted down, everything else
         // is in the way (per user, 2026-09-16). The switch sits next to the trace it belongs to,
         // UWSettings.CritterTrace.

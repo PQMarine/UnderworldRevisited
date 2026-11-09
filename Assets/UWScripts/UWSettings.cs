@@ -780,7 +780,7 @@ namespace UnderworldRevisited
             if (lsImage == null)
                 return null;
 
-            string lsCache = Path.Combine(Application.persistentDataPath, "GameData");
+            string lsCache = UWUserFolder.Combine("GameData");
             string lsError;
             string lsData = UWDataImport.Install.UWGogInstall.EnsureExtracted(lsImage, lsCache, Game, out lsError);
 

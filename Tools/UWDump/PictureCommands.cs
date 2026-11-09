@@ -109,6 +109,90 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>
+        /// uwdump weapon-frames [path] --out dir [--both-hands] (GitHub issue 16, 2026-11-09: the painter of the
+        /// widescreen weapons found the pictures' hex names sorted out of order by the file manager - Windows
+        /// puts WEAPONS_0A before WEAPONS_01): the first game's WEAPONS.GR sorted as the game reads it
+        /// (UWWeaponAnimations, UWWeaponAnimation) - a folder per weapon, the files numbered in the order of
+        /// the moves (01 to 28: three attacks of 4 wind-up and 5 swing pictures, then the ready pose), each
+        /// still named after its picture (WEAPONS_xx), which is what a pack names. Only the right hand: the
+        /// left mirrors it (--both-hands writes it too). The 1x1 placeholders are left out.
+        /// </summary>
+        private static int fWeaponFrames(DumpContext pOContext, List<string> pOArgs)
+        {
+            string lsOut = fTakeOption(pOArgs, "--out");
+            bool lbBoth = pOArgs.Remove("--both-hands");
+
+            if (lsOut == null)
+            {
+                Console.Error.WriteLine("weapon-frames --out dir [--both-hands]");
+
+                return 1;
+            }
+
+            if (pOContext.Game.Game != UWGame.Uw1)
+            {
+                Console.Error.WriteLine("weapon-frames knows the first game's WEAPONS.GR only.");
+
+                return 2;
+            }
+
+            string lsFile = Path.Combine(pOContext.DataPath, "WEAPONS.GR");
+            List<UWTexture> lOList = UWTextures.ReadImageFile(File.ReadAllBytes(lsFile), "WEAPONS.GR", new UWPalettes(pOContext.DataPath), 0,
+                UWTexture.TextureTypes.WEAPONS);
+            string[] lsWeapons = { "1 Sword", "2 Axe", "3 Mace", "4 Fist" };
+            string[] lsAttacks = { "slash", "bash", "thrust" };
+            int liWritten = 0;
+            int liEmpty = 0;
+
+            for (int liRecord = 0; liRecord < (lbBoth ? 8 : 4); liRecord++)
+            {
+                string lsHand = liRecord < 4 ? "Right hand" : "Left hand (mirrors the right)";
+                string lsFolder = Path.Combine(lsOut, lsHand, lsWeapons[liRecord % 4]);
+
+                Directory.CreateDirectory(lsFolder);
+
+                for (int liAt = 0; liAt < 28; liAt++)
+                {
+                    int liIndex = (liRecord * 28) + liAt;
+                    UWTexture lOPicture = liIndex < lOList.Count ? lOList[liIndex] : null;
+
+                    if (lOPicture == null || lOPicture.Width <= 1 || lOPicture.Height <= 1 || lOPicture.PaletteIndices == null)
+                    {
+                        liEmpty++;
+                        continue;
+                    }
+
+                    string lsMove = liAt == 27 ? "ready"
+                        : lsAttacks[liAt / 9] + (liAt % 9 < 4 ? " wind-up " + ((liAt % 9) + 1) : " swing " + ((liAt % 9) - 3));
+                    string lsName = string.Format("{0:00} {1} - WEAPONS_{2:X2}.png", liAt + 1, lsMove, liIndex);
+
+                    fWriteRgbaPng(Path.Combine(lsFolder, lsName), lOPicture);
+                    liWritten++;
+                }
+            }
+
+            Console.WriteLine(liWritten + " pictures written to " + lsOut + ", " + liEmpty + " empty placeholders left out.");
+
+            return 0;
+        }
+
+        private static void fWriteRgbaPng(string psPath, UWTexture pOPicture)
+        {
+            UWColor32[] lOColours = pOPicture.GetUWColor32();
+            byte[] lyRgba = new byte[pOPicture.Width * pOPicture.Height * 4];
+
+            for (int liPixel = 0; liPixel < lOColours.Length && liPixel < pOPicture.Width * pOPicture.Height; liPixel++)
+            {
+                lyRgba[(liPixel * 4) + 0] = lOColours[liPixel].R;
+                lyRgba[(liPixel * 4) + 1] = lOColours[liPixel].G;
+                lyRgba[(liPixel * 4) + 2] = lOColours[liPixel].B;
+                lyRgba[(liPixel * 4) + 3] = lOColours[liPixel].A;
+            }
+
+            PngWriter.Write(psPath, pOPicture.Width, pOPicture.Height, lyRgba, false);
+        }
+
+        /// <summary>
         /// uwdump picture-template [path] --out dir: the pictures with English painted into them, as a language's
         /// own pictures are named (Languages/&lt;code&gt;/pictures, UWPicturePack): the options panel's buttons and
         /// headings, the stats page, the map, the main menu's captions and the congratulations at the end - from

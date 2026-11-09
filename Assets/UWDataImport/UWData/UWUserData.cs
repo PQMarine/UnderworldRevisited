@@ -63,6 +63,13 @@ namespace UWDataImport.UWData
 		/// 1 the words Murgo has mimed, 2 all (UWLizardWordsEnum).</summary>
 		public int LizardWords;
 
+		/// <summary>The classic texts in the modern font (the key F, UWTextLabel.UseModernFont) - in Unity's
+		/// PlayerPrefs (the registry on Windows) until 2026-11-09, moved here for the portable folder.</summary>
+		public bool ModernFont;
+
+		/// <summary>The language that last switched the font to modern by its rule (UWTextLabel.FollowLanguage).</summary>
+		public string ModernFontLanguage;
+
 		/// <summary>A skill raise's chance point (per user, 2026-11-08): 0 Off rolled as the original, 1 Highest
 		/// always, 2 Fixed rolled once per raise, the same after loading (UWSkillRaiseEnum).</summary>
 		public int SkillRaises;

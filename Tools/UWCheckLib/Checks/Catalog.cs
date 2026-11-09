@@ -67,6 +67,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("TalkRefusal", pOContext => fCheckTalkRefusal(), false, "conversation", "original");
             lOCatalog.Add("ConversationPatches", pOContext => fCheckConversationPatches(pOContext.Data), true, "conversation");
             lOCatalog.Add("ContainsWord", pOContext => fCheckContainsWord(), false, "conversation", "original");
+            lOCatalog.Add("StartSquare", pOContext => fCheckStartSquare(pOContext.Data), true, "player", "original");
             lOCatalog.Add("ManualAttributes", pOContext => fCheckManualAttributes(pOContext.Data), true, "player", "original");
             lOCatalog.Add("ExplodingBook", pOContext => fCheckExplodingBook(pOContext.Data), true, "inventory", "original");
             lOCatalog.Add("OrbManaAside", pOContext => fCheckOrbManaAside(), false, "player", "original");
@@ -237,6 +238,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Uw2ChargenLayout", pOContext => fCheckUw2ChargenLayout(), false, "uw2", "hud", "pin");
             lOCatalog.Add("SettingsTable", pOContext => fCheckSettingsTable(), false, "settings", "pin");
             lOCatalog.Add("SettingsRows", pOContext => fCheckSettingsRows(), false, "settings");
+            lOCatalog.Add("HudLayoutDock", pOContext => fCheckHudLayoutDock(), false, "settings", "hud");
+            lOCatalog.Add("BagPlacement", pOContext => fCheckBagPlacement(), false, "hud");
+            lOCatalog.Add("ModCatalog", pOContext => fCheckModCatalog(), false, "mods");
             lOCatalog.Add("LayoutPresets", pOContext => fCheckLayoutPresets(), false, "settings", "hud", "pin");
             lOCatalog.Add("HelpTabIds", pOContext => fCheckHelpTabIds(), false, "settings", "pin");
             lOCatalog.Add("TextTable", pOContext => fCheckTextTable(), false, "settings", "text");

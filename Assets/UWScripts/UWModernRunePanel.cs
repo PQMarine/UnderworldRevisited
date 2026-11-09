@@ -57,6 +57,9 @@ public class UWModernRunePanel : UWModernDockedPanel
     /// <summary>The layout in original pixels (the docked panel's measures are UWModernDockedPanel's).</summary>
     private const int PanelWidth = 96;
 
+    /// <summary>A moved handle's panel reaches down to here (original pixels), the others make room.</summary>
+    private const int DockFloor = 4;
+
     private const int TitleTop = 4;
 
     /// <summary>The rune shelf picture, centred in the frame; its grid, the compartments' hit test
@@ -723,12 +726,17 @@ public class UWModernRunePanel : UWModernDockedPanel
         bool lbPinned = Pinned;
 
         // The rows: down to the message box at most (UWModernHud.LeftColumnBottom); the Runes tab
-        // only what it needs.
-        float lfFloor = UWModernHud.Instance.LeftColumnBottom;
-        int liRoom = Mathf.Max(60, Mathf.FloorToInt((Screen.height - (TopMargin * liScale) - lfFloor) / liScale));
-        int liTargetRows = meTab == TabEnum.Runes ? Mathf.Min(liRoom, fRunesRows()) : liRoom;
+        // only what it needs. With its handle moved along the edge (the own layout) DOWN TO THE
+        // BOTTOM: the message box and the flasks make room beside it (per user, 2026-11-08).
+        float lfFloor = UWModernLayout.IsDockMoved(UWModernLayout.ElementEnum.RunePanel)
+            ? DockFloor * liScale : UWModernHud.Instance.LeftColumnBottom;
         // Moved in the layout editor it is a free window: no handle, no peeking, no sliding.
         bool lbFree = UWModernLayout.IsPlaced(UWModernLayout.ElementEnum.RunePanel);
+        // Its top under an action bar put over it (fTopLimit).
+        float lfTopLimit = lbFree ? Screen.height - (TopMargin * liScale)
+            : fTopLimit(0f, (PanelWidth + HandleWidth) * liScale, liScale);
+        int liRoom = Mathf.Max(60, Mathf.FloorToInt((lfTopLimit - lfFloor) / liScale));
+        int liTargetRows = meTab == TabEnum.Runes ? Mathf.Min(liRoom, fRunesRows()) : liRoom;
         float lfTargetShown = fTargetShown(PanelWidth * liScale, lbFree);
         float lfStep = fSlideStep();
 
@@ -740,7 +748,20 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         int liHeight = Mathf.Max(60, Mathf.RoundToInt(mfRows));
         float lfLeft = Mathf.Round(mfShown - (PanelWidth * liScale));
-        float lfTop = Mathf.Round(Screen.height - (TopMargin * liScale));
+        float lfTop = lfTopLimit;
+
+        // A HANDLE MOVED ALONG THE EDGE in the layout editor (per user, 2026-11-08), as the character
+        // panel's: the panel opens at it, above the message box, kept on the screen.
+        float lfDockHandleBottom = 0f;
+        bool lbDockMoved = !lbFree && UWModernLayout.TryGetDockBottom(UWModernLayout.ElementEnum.RunePanel,
+            HandleHeight * liScale, lfFloor, lfTopLimit - (HandleHeight * liScale), out lfDockHandleBottom);
+
+        if (lbDockMoved)
+        {
+            lfTop = Mathf.Min(lfTop, lfDockHandleBottom + ((HandleHeight + HandleTop - TopMargin) * liScale));
+            lfTop = Mathf.Max(lfTop, lfFloor + (liHeight * liScale));
+        }
+
         float lfBottom = lfTop - (liHeight * liScale);
         float lfWidth = PanelWidth * liScale;
         float lfTabRise = (TabHeaderHeight - 2) * liScale;
@@ -762,7 +783,7 @@ public class UWModernRunePanel : UWModernDockedPanel
         fLayoutBack(PanelWidth, liHeight, lfLeft, lfBottom);
 
         // The handle out of the right edge, mirrored, over the frame there - not when pinned.
-        Rect lOHandle = new Rect(lfLeft + lfWidth, Screen.height - ((HandleTop + HandleHeight) * liScale),
+        Rect lOHandle = new Rect(lfLeft + lfWidth, lbDockMoved ? lfDockHandleBottom : lfTopLimit - ((HandleTop - TopMargin + HandleHeight) * liScale),
             HandleWidth * liScale, HandleHeight * liScale);
 
         fLayoutHandle(lOHandle, lbPinned, lbFree);
@@ -808,6 +829,21 @@ public class UWModernRunePanel : UWModernDockedPanel
     }
 
     /// <summary>The rows the Runes tab needs, the frame included.</summary>
+    /// <summary>Where the panel would open with its handle at this bottom (the Runes tab): the layout
+    /// editor's outline while the handle is dragged (per user, 2026-11-08).</summary>
+    public Rect OpenRectAtHandle(float pfHandleBottom)
+    {
+        float lfScale = UWModernUi.PixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.RunePanel);
+        float lfFloor = DockFloor * lfScale;
+        int liRoom = Mathf.Max(60, Mathf.FloorToInt((Screen.height - (TopMargin * lfScale) - lfFloor) / lfScale));
+        float lfHeight = Mathf.Min(liRoom, fRunesRows()) * lfScale;
+        float lfTop = Mathf.Min(Screen.height - (TopMargin * lfScale), pfHandleBottom + ((HandleHeight + HandleTop - TopMargin) * lfScale));
+
+        lfTop = Mathf.Max(lfTop, lfFloor + lfHeight);
+
+        return new Rect(0f, lfTop - lfHeight, PanelWidth * lfScale, lfHeight);
+    }
+
     private static int fRunesRows()
     {
         return TabletTop + UWTextures.PanelHeight + HollowGap + HollowHeight + InfoRows + BottomPad;

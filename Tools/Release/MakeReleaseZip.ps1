@@ -179,7 +179,9 @@ if (-not $KitOnly) {
     # Nor the build's Languages folder: it holds what was tried in the build (a translator's
     # game-text pack, made-up test languages with pictures from the game - stopped by the check
     # below on 2026-11-08); the package's languages come fresh from the project further down.
-    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") -and $_.Name -ne "Languages" } |
+    # Nor a portable test's portable.txt and UserData (UWUserFolder, 2026-11-09): the tester's own
+    # settings, game data and mods.
+    Get-ChildItem $BuildDir -Force | Where-Object { $_.Name -notlike "*_BackUpThisFolder_ButDontShipItWithYourGame" -and -not (-not $IsLinux -and $_.Name -eq "Linux") -and $_.Name -ne "Languages" -and $_.Name -ne "portable.txt" -and $_.Name -ne "UserData" } |
         ForEach-Object { Copy-Item $_.FullName -Destination $Stage -Recurse -Force }
 
     # The licence texts and the descriptions.
