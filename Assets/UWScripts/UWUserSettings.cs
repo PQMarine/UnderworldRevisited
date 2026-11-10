@@ -158,6 +158,8 @@ public static class UWUserSettings
 
     public static int ModernScrollLines { get => Defs.ModernScrollLines.Read(fGet()); set => Defs.ModernScrollLines.Write(fGet(), value); }
 
+    public static int ModernScrollWidth { get => Defs.ModernScrollWidth.Read(fGet()); set => Defs.ModernScrollWidth.Write(fGet(), value); }
+
     public static int ModernMessageLines { get => Defs.ModernMessageLines.Read(fGet()); set => Defs.ModernMessageLines.Write(fGet(), value); }
 
     public static int ModernMessageFade { get => Defs.ModernMessageFade.Read(fGet()); set => Defs.ModernMessageFade.Write(fGet(), value); }

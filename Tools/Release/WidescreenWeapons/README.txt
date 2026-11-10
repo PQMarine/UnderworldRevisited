@@ -39,7 +39,7 @@ wider and flatter than in the game. Paint on them as they are - the game stretch
 the same way as the original's. To see the game's proportions, view a picture at 120 % height.
 The guides and edges.txt count in the pictures' own pixels too.
 
-How to try it: copy the folder Work\pack into the game's folder Mods - the Game window's
+How to try it: copy the folder Work\pack into the game's folder Mods - the Mods window's
 Mods button opens it - and load a game with the Modern preset. While the pack lies there as a
 folder, a picture you saved shows at the next load.
 

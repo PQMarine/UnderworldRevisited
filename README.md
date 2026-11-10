@@ -190,6 +190,18 @@ the Game window (it copies the settings over) or put an empty file `portable.txt
 the next start uses it. Paths to the installation on the same drive are kept relative, so a USB
 stick may change its letter. The save games stay in the installation, as above.
 
+Even when portable, the Unity engine itself still writes a few things outside `UserData`:
+
+- its log `Player.log` (and `Player-prev.log` from the start before) in the user folder above;
+- the window size, full screen mode, monitor and a session counter, on Windows in the registry under
+  `HKEY_CURRENT_USER\Software\Underworld Revisited`, on Linux in a file `prefs` in the user folder;
+- on Windows, crash reports in `%TEMP%\Underworld Revisited`.
+
+The log can be moved with the start option `-logFile` and a full path, for example
+`-logFile "D:\Games\Underworld Revisited\UserData\Player.log"` (with Steam in the launch options line
+below, after the path to `UR.exe`). A relative path counts from the folder the game was started in,
+which is not always the program's. The other entries cannot be moved.
+
 **Steam: start it from Steam, with Steam Cloud.** Steam keeps the save games in its cloud, but it
 synchronises them only when it starts a game itself. Enter this in the game's *Properties > General >
 Launch Options* (your path to `UR.exe`):

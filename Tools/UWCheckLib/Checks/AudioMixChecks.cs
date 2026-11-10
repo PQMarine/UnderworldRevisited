@@ -84,18 +84,30 @@ namespace UnderworldRevisited.Tools
             lOSequence.Events.Add(new UWXmi.Event { Tick = 0, Status = 0xB1, Data1 = 116, Data2 = 2 });
             lOSequence.Events.Add(new UWXmi.Event { Tick = 1, Status = 0x91, Data1 = 60, Data2 = 127 });
             lOSequence.Events.Add(new UWXmi.Event { Tick = 5, Status = 0x81, Data1 = 60, Data2 = 0 });
-            lOSequence.Events.Add(new UWXmi.Event { Tick = 6, Status = 0xB1, Data1 = 117, Data2 = 0 });
+            lOSequence.Events.Add(new UWXmi.Event { Tick = 6, Status = 0xB1, Data1 = 117, Data2 = 127 });
             lOSequence.Events.Add(new UWXmi.Event { Tick = 8, Status = 0xFF, Data1 = 0x2F });
 
-            // At 120 samples a second one sample is one tick.
-            UWXmiSequencer lOSequencer = new UWXmiSequencer(lOSequence, 120);
+            Check.Str("xmidi: the driver hears volume, reset and the looped note twice, nothing of 110/114/120",
+                fRunXmi(lOSequence), "B1 7 100, B1 121 0, 91 60 127, 81 60 0, 91 60 127, 81 60 0, notes off");
+
+            // A NEXT below 64 BREAKS the loop (GitHub issue 34, 2026-11-10: the Introduction's endless FOR has a NEXT of
+            // 0 - the original moves on after it, ours looped for ever): the note once, then the piece ends.
+            lOSequence.Events[8] = new UWXmi.Event { Tick = 6, Status = 0xB1, Data1 = 117, Data2 = 0 };
+            lOSequence.Events[5] = new UWXmi.Event { Tick = 0, Status = 0xB1, Data1 = 116, Data2 = 0 };
+            Check.Str("xmidi: a NEXT of 0 breaks even an endless FOR, the note once (issue 34)",
+                fRunXmi(lOSequence), "B1 7 100, B1 121 0, 91 60 127, 81 60 0, notes off");
+        }
+
+        /// <summary>The events a recording driver hears from the sequence, at one tick a sample, up to 40 ticks.</summary>
+        private static string fRunXmi(UWXmi.Sequence pOSequence)
+        {
+            UWXmiSequencer lOSequencer = new UWXmiSequencer(pOSequence, 120);
             RecordingMidiDriver lODriver = new RecordingMidiDriver();
 
             for (int liStep = 0; liStep < 40 && !lOSequencer.IsFinished; liStep++)
                 lOSequencer.Advance(1, lODriver);
 
-            Check.Str("xmidi: the driver hears volume, reset and the looped note twice, nothing of 110/114/120",
-                string.Join(", ", lODriver.Events), "B1 7 100, B1 121 0, 91 60 127, 81 60 0, 91 60 127, 81 60 0, notes off");
+            return string.Join(", ", lODriver.Events);
         }
 
         private static void fCheckAudioSettings()

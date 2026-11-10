@@ -34,7 +34,7 @@ namespace UnderworldRevisited.Tools
         private static readonly string[] msSnapshotKeys =
         {
             "ModernLayout", "ModernBacks", "ModernUiPercent", "ModernCompass", "ModernCompassDisc", "ModernCompassOutline",
-            "ModernScroll", "ModernScrollLines", "ModernMessageLines", "ModernMessageFade", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
+            "ModernScroll", "ModernScrollLines", "ModernScrollWidth", "ModernMessageLines", "ModernMessageFade", "ModernGemApart", "ModernFlasksApart", "ModernStoneShelf", "ModernStoneShelfWidth",
             "ModernRuneHollow", "ModernRuneHollowOutline", "ModernRuneTablet", "ModernStatsPanel", "ModernCharacterPage",
             "ModernConversationOriginal", "ModernConversationNoOutline", "ConversationTextPercent", "MinimapHidden", "MinimapTurns",
             "ActionBarHidden", "InterfaceFont"

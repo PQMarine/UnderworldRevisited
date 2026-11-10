@@ -197,6 +197,12 @@ public static class UWAudioService
         msOSelector.OnCombatModeLeft();
     }
 
+    /// <summary>The piece playing ends, then a level theme - see UWMusicSelector.LetPieceEnd.</summary>
+    public static void LetPieceEnd()
+    {
+        msOSelector.LetPieceEnd();
+    }
+
     /// <summary>One of the three level themes, at random.</summary>
     public static void PickLevelTheme()
     {

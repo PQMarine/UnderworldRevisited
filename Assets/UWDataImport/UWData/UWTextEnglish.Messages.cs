@@ -18,6 +18,8 @@ namespace UWDataImport.UWData
 			fAdd("msg.item.cannot_use_on", "The {0} cannot be used on that.");
 			fAdd("msg.item.too_full", "The {0} is too full.");
 			fAdd("msg.item.locked", "The {0} is locked.");
+			// The modern scheme's automatic key opened a door (GitHub issue 30): {0} the key (dative).
+			fAdd("msg.door.unlocked_with", "You unlock the door with the {0}.");
 			fAdd("msg.item.empty", "The {0} is empty.");
 			fAdd("msg.item.unnamed", "item");
 

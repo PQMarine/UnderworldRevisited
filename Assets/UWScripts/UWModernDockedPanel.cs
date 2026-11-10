@@ -172,12 +172,29 @@ public abstract class UWModernDockedPanel : MonoBehaviour, IUWModernClosable
     /// (not while it is placed freely).</summary>
     protected void fUpdatePeek(Vector2 pOPointer)
     {
+        if (fUnderBags(pOPointer))
+        {
+            mbPeek = false;
+            return;
+        }
+
         float lfLeft = DockedLeft ? mOHandleRect.xMin : mOHandleRect.xMin - (PeekReach * miScale);
         Rect lONear = new Rect(lfLeft, mOHandleRect.yMin - (4 * miScale),
             mOHandleRect.width + (PeekReach * miScale), mOHandleRect.height + (8 * miScale));
 
         mbPeek = !mbOpen && !UWModernLayout.IsPlaced(Element)
             && (lONear.Contains(pOPointer) || mOPanelRect.Contains(pOPointer));
+    }
+
+    /// <summary>
+    /// A BAG WINDOW OVER THE PANEL TAKES THE POINTER (GitHub issue 25, 2026-11-10: with two bags open, their windows
+    /// over the character panel's handle, the handle still lit and opened under them): the bags are drawn above the
+    /// panels (UWUiSorting.ModernBags over ModernParts), so where a bag window covers the panel, its handle or its
+    /// edge, the panel neither peeks nor takes the click - as the minimap leaves such clicks to the bags.
+    /// </summary>
+    protected static bool fUnderBags(Vector2 pOPointer)
+    {
+        return UWModernBags.Instance != null && UWModernBags.Instance.IsOverWindow(pOPointer);
     }
 
     /// <summary>A left press on the panel's own controls: the pin pins or unpins, the handle opens

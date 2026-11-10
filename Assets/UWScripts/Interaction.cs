@@ -1591,4 +1591,10 @@ public class Interaction : MonoBehaviour, IUWMessageSink, IUWLookHost
     {
         return mOModernInput.GetCrosshairTargetName();
     }
+
+    /// <summary>A locked door under the crosshair and the key that fits it (UWModernWorldInput.GetCrosshairLock).</summary>
+    public bool GetCrosshairLock(out int piKeyId)
+    {
+        return mOModernInput.GetCrosshairLock(out piKeyId);
+    }
 }

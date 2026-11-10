@@ -63,6 +63,7 @@ ModernRuneTablet = True
 ModernRunesPinned = True
 ModernScroll = True
 ModernScrollLines = 6
+ModernScrollWidth = 0
 ModernStatsPanel = True
 ModernStoneShelf = True
 ModernStoneShelfWidth = 400

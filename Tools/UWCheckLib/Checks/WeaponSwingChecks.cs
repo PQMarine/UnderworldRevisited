@@ -153,6 +153,26 @@ namespace UnderworldRevisited.Tools
             fExpectBool("swing: and jumps to green with it (frame 9, the first green picture)",
                 UWPowerGem.RangedFrame - 2 >= lOGem.Powering.Count && lOSwing.GemPicture == lOGem.FullyPowered[0], true);
 
+            // The shot ends at once (issue 24, missile_finish and adjust_weapon): ready again on the release, no
+            // release frames, no hit frame, and the next press starts the next draw.
+            lOTold.Clear();
+            lOSwing.ReleaseAttack();
+            lOHand.IsAttacking = false;
+            lOHand.IsRangedTargeting = false;
+            lOSwing.Tick(0.01f, lOHand);
+            fExpectBool("swing: a shot is ready again at once, the gem unpowered, nothing connected",
+                lOSwing.CanAttack && lOSwing.State == UWWeaponSwing.AttackStatusEnum.Ready
+                && lOSwing.GemPicture == lOGem.Unpowered && fCount(lOTold, "connected") == 0, true);
+            lOHand.IsAttacking = true;
+            lOSwing.Tick(0.01f, lOHand);
+            fExpectBool("swing: and the next press draws again", lOSwing.State == UWWeaponSwing.AttackStatusEnum.PowerUp, true);
+            lOHand.IsAttacking = false;
+            lOSwing.ReleaseAttack();
+            lOSwing.Tick(0.01f, lOHand);
+
+            for (int liStep = 0; liStep < 3; liStep++)
+                lOSwing.Tick(0.13f, lOHand);
+
             lOTold.Clear();
             lOHand.IsCombatModeActive = false;
             lOSwing.Tick(0.01f, lOHand);

@@ -300,6 +300,8 @@ namespace UWDataImport.UWData
 			fChoices(ModernScroll, new[] { "modern", "scroll" });
 			fText(ModernScrollLines);
 			ModernScrollLines.Format = UWSettingFormat.Number;
+			fText(ModernScrollWidth);
+			ModernScrollWidth.Format = UWSettingFormat.Number;
 			fText(ModernMessageLines);
 			ModernMessageLines.Format = UWSettingFormat.Number;
 			// Its value is shown by the layout editor's own row ("Never", "10 s").

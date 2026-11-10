@@ -83,9 +83,10 @@ namespace UWDataImport.Presentation
 		/// pedestal's patch lie where its parts moved; null: MAIN.BYT itself. Null when MAIN.BYT is
 		/// missing or not the frame's size.
 		/// </summary>
-		public static UWPicture Build(UWTextures pOTextures, UWPicture pOWideFrame, int piExtra, int piEdgeFrame)
+		public static UWPicture Build(UWTextures pOTextures, UWPicture pOWideFrame, int piExtra, int piEdgeFrame, int piWiden = 0)
 		{
 			UWPicture lOFrame = pOWideFrame;
+			int liPedestalShift = -1;
 
 			if (lOFrame == null)
 			{
@@ -104,10 +105,43 @@ namespace UWDataImport.Presentation
 					return null;
 
 				lOFrame = UWMainFrame.Picture(pOTextures);
+
+				if (piWiden > 0)
+				{
+					lOFrame = Widen(lOFrame, piWiden);
+					liPedestalShift = 0;
+				}
 			}
 
 			return Compose(lOFrame, fEdge(pOTextures, UWScrollEdgeRules.GetMainLeftImage(piEdgeFrame)),
-				fEdge(pOTextures, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame)), piExtra, pOWideFrame != null);
+				fEdge(pOTextures, UWScrollEdgeRules.GetMainRightImage(piEdgeFrame)), piExtra, pOWideFrame != null, liPedestalShift);
+		}
+
+		/// <summary>The column of the frame repeated to widen the scroll: right of the compass's pedestal, where the
+		/// rims above and below the paper run plain.</summary>
+		public const int WidenColumn = 220;
+
+		/// <summary>
+		/// THE SCROLL WIDER IN THE MODERN SCHEME (GitHub issue 29, 2026-11-10): the frame picture piExtra columns wider,
+		/// column WidenColumn repeated - the rims stay rims, the rollers, knobs and edges keep their shape and move to
+		/// the right end; the pedestal stays where it is. Classic Wide has its own widened frame instead.
+		/// </summary>
+		public static UWPicture Widen(UWPicture pOFrame, int piExtra)
+		{
+			int liWidth = pOFrame.Width + piExtra;
+			UWPicture lOOut = new UWPicture(liWidth, pOFrame.Height);
+
+			for (int liY = 0; liY < pOFrame.Height; liY++)
+			{
+				for (int liX = 0; liX < liWidth; liX++)
+				{
+					int liFrom = liX < WidenColumn ? liX : liX < WidenColumn + piExtra ? WidenColumn : liX - piExtra;
+
+					lOOut.Set(liX, liY, pOFrame.Get(liFrom, liY));
+				}
+			}
+
+			return lOOut;
 		}
 
 		/// <summary>An edge picture (SCRLEDGE.GR), null when it is missing or empty.</summary>
@@ -141,11 +175,12 @@ namespace UWDataImport.Presentation
 		/// missing there); elsewhere the lower knobs' clean shape.
 		/// </summary>
 		public static UWPicture Compose(UWPicture pOFrame, UWPicture pOLeftEdge, UWPicture pORightEdge, int piExtra,
-			bool pbKeepUpperKnobs = false)
+			bool pbKeepUpperKnobs = false, int piPedestalShift = -1)
 		{
 			int liWidth = pOFrame.Width;
 			int liWide = liWidth - UWClassicLayout.Screen.Width;
-			int liShift = liWide / 2;
+			// Classic Wide moved the pedestal to the middle of its widened frame; a frame widened by Widen keeps it.
+			int liShift = piPedestalShift >= 0 ? piPedestalShift : liWide / 2;
 			int liHeight = SourceRows + piExtra;
 			UWPicture lOOut = new UWPicture(liWidth, liHeight);
 

@@ -36,6 +36,7 @@
     "ModernScroll": false,
     "ModernBacks": "",
     "ModernScrollLines": 0,
+    "ModernScrollWidth": 0,
     "ModernMessageLines": 0,
     "ModernMessageFade": 0,
     "InterfaceFont": 0,

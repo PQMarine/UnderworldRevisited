@@ -256,6 +256,7 @@ namespace UWDataImport.UWData
 			fAdd("setting.ModernScroll.choice.modern", "Modern");
 			fAdd("setting.ModernScroll.choice.scroll", "Scroll");
 			fAdd("setting.ModernScrollLines", "Lines");
+			fAdd("setting.ModernScrollWidth", "Width");
 			fAdd("setting.ModernMessageLines", "Lines");
 			fAdd("setting.ModernMessageFade", "Fade out");
 

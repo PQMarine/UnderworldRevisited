@@ -41,6 +41,10 @@ namespace UWDataImport.UWData
 	{
 		public const int IntroTheme = 1;
 
+		/// <summary>What follows the Introduction when it ends while still asked for - the main menu, character
+		/// creation (loop_music_maybe, Underworld Exhumed uw1 sound/SOUND.C: "theme 1 is followed by theme 4").</summary>
+		public const int IntroFollowTheme = 4;
+
 		public const int FirstLevelTheme = 2;
 
 		public const int LastLevelTheme = 4;
@@ -108,6 +112,17 @@ namespace UWDataImport.UWData
 		public void ChangeTheme(int piTheme)
 		{
 			NewTheme = piTheme;
+		}
+
+		/// <summary>
+		/// THE PIECE PLAYING ENDS, THEN A LEVEL THEME (GitHub issue 34, 2026-11-10: after a new game or a load from
+		/// the title screen the Introduction looped for ever): the request is cleared, so Refresh lets the piece
+		/// play to its end and then picks a level theme. Until then the menu's request for the Introduction
+		/// stayed, and a request equal to the piece just ended plays it again.
+		/// </summary>
+		public void LetPieceEnd()
+		{
+			NewTheme = 0;
 		}
 
 		/// <summary>One of the three level themes, at random.</summary>
@@ -234,6 +249,8 @@ namespace UWDataImport.UWData
 
 				if (NewTheme == 0)
 					PickLevelTheme();
+				else if (NewTheme == IntroTheme && CurrentTheme == IntroTheme)
+					NewTheme = IntroFollowTheme;
 
 				if (pbWeaponDrawn)
 					NewTheme = ArmedTheme;

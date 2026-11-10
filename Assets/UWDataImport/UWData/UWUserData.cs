@@ -141,6 +141,10 @@ namespace UWDataImport.UWData
 
 		public int ModernScrollLines;
 
+		/// <summary>The modern scroll's paper wider than the original's by this many of its pixels, 0 the original's
+		/// (GitHub issue 29).</summary>
+		public int ModernScrollWidth;
+
 		/// <summary>The modern message box's lines (0 = five; Interaction.ModernMessageCount).</summary>
 		public int ModernMessageLines;
 

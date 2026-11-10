@@ -47,6 +47,17 @@ public class UWPlayerLook : MonoBehaviour
     /// <summary>Classic scheme: the current step, negative is up, positive is
     /// down.</summary>
     private int miClassicSteps;
+
+    /// <summary>
+    /// A HELD LOOK KEY REPEATS (GitHub issue 26, 2026-11-10: held, 1 and 3 tilted one step, the
+    /// DOS game goes on): the original reads held keys from its key array no more often than every 30 ticks of its
+    /// 1/256 s clock after the last key (Underworld Exhumed uw1 ui/MOUSE.C do_keyarray_input), so a held 1 or 3
+    /// steps again about every 0.12 s.
+    /// </summary>
+    private const float ClassicLookRepeatSeconds = 30f / 256f;
+
+    /// <summary>When a held look key steps again (unscaled time); infinity while none is held.</summary>
+    private float mfClassicLookRepeatAt = float.PositiveInfinity;
     private float mfPitch;
     private UWControlScheme.SchemeEnum mePreviousScheme = UWControlScheme.SchemeEnum.Modern;
 
@@ -225,12 +236,31 @@ public class UWPlayerLook : MonoBehaviour
         int liMaxSteps = lOSettings != null ? lOSettings.ClassicLookSteps : 4;
 
         int liSteps = miClassicSteps;
+        float lfNow = Time.unscaledTime;
 
         if (mInput.LookDown.WasPressedThisFrame())
+        {
             liSteps++;
+            mfClassicLookRepeatAt = lfNow + ClassicLookRepeatSeconds;
+        }
 
         if (mInput.LookUp.WasPressedThisFrame())
+        {
             liSteps--;
+            mfClassicLookRepeatAt = lfNow + ClassicLookRepeatSeconds;
+        }
+
+        // Held: a step each time the repeat comes due; one key alone repeats, both held cancel out.
+        bool lbDownHeld = mInput.LookDown.IsPressed();
+        bool lbUpHeld = mInput.LookUp.IsPressed();
+
+        if (lbDownHeld == lbUpHeld)
+            mfClassicLookRepeatAt = float.PositiveInfinity;
+        else if (lfNow >= mfClassicLookRepeatAt)
+        {
+            liSteps += lbDownHeld ? 1 : -1;
+            mfClassicLookRepeatAt = lfNow + ClassicLookRepeatSeconds;
+        }
 
         if (mInput.LookReset.WasPressedThisFrame())
             liSteps = 0;

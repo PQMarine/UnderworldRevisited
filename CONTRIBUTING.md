@@ -59,7 +59,7 @@ A good report says:
 - whether a `rules.json` is in use (it changes the game's numbers);
 - for a crash or a hang, the file `Player.log` (Windows:
   `%USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited\`, Linux:
-  `~/.config/unity3d/Underworld Revisited/Underworld Revisited/`).
+  `~/.config/unity3d/Underworld Revisited/Underworld Revisited/`, or where `-logFile` points).
 
 A save game that shows the problem helps a lot. It is your own save, so attaching it is up
 to you.

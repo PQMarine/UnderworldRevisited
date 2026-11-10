@@ -515,6 +515,10 @@ public class UWModernPanel : UWModernDockedPanel
 
         fUpdatePeek(lOPointer);
 
+        // A bag window over the panel takes the wheel and the clicks (fUnderBags).
+        if (fUnderBags(lOPointer))
+            return;
+
         // The wheel scrolls the Character tab where it does not fit.
         float lfWheel = UWPointer.Scroll.y;
 

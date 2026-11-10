@@ -244,10 +244,22 @@ namespace UWDataImport.UWData
 		/// <summary>The head met the ceiling in the last frame.</summary>
 		public bool HitCeiling { get; private set; }
 
-		/// <summary>The speed the body had at each wall met in the air in the last frame, summed, in
-		/// the core's speed units (1/65536 tile a tick). The caller makes the impact of it the core
-		/// makes of a wall in the air (fTurnAlongWall's bounce, whatever the angle).</summary>
+		/// <summary>The speed of each wall met in the air in the last frame, summed, in the core's speed units
+		/// (1/65536 tile a tick). The caller makes the impact of it the core makes of a wall in the air
+		/// (fTurnAlongWall's bounce). The whole speed as the core's, but for a graze only the part into the wall
+		/// (GrazeFromHeadOnDegrees, GitHub issue 33).</summary>
 		public double WallImpact { get; private set; }
+
+		/// <summary>
+		/// A GRAZE (GitHub issue 33, 2026-11-10, decided by the user: option C): a wall met in the air more than this
+		/// many degrees off head-on counts only the speed into it. Up to it the whole speed counts, as the core's
+		/// bounce does at any angle (per user 2026-10-28: a jump into a wall hurts as the original's; the checks hold
+		/// head-on, 30 and 60 degrees to it). The core does not slide along walls; ours does, and a jump that only
+		/// brushed a wall at a shallow angle took the whole speed, doubled in the air, and could kill.
+		/// </summary>
+		public const double GrazeFromHeadOnDegrees = 60.0;
+
+		private static readonly double msfGrazeCos = Math.Cos(GrazeFromHeadOnDegrees * Math.PI / 180.0);
 
 		/// <summary>A step of the last frame was undone: it took a body holding at ledges off the
 		/// ground (one already past an edge, after a landing, where no ledge wall stands), or it
@@ -308,6 +320,35 @@ namespace UWDataImport.UWData
 			Grounded = true;
 			Vz = 0.0;
 			Gravity = 0.0;
+		}
+
+		/// <summary>
+		/// A TAKE-OFF AT A WALL KEEPS NO SPEED INTO IT (GitHub issue 33, 2026-11-10: running against a wall, the body
+		/// stood still but its velocity stayed the run's, and a jump carried that into the wall as a full blow, doubled
+		/// in the air - a jump at a wall hurt or killed). The part of the velocity into each wall or corner the last
+		/// step met is dropped, so a jump there goes up; the part along the wall stays. The core stops at a wall head-on
+		/// and jumps from there without forward speed. The caller asks before a jump from the ground.
+		/// </summary>
+		public void DropSpeedIntoContacts()
+		{
+			for (int liAt = 0; liAt + 1 < Contacts.Count; liAt += 2)
+			{
+				double lfNx = Contacts[liAt];
+				double lfNy = Contacts[liAt + 1];
+				double lfVn = (Vx * lfNx) + (Vy * lfNy);
+
+				if (lfVn < 0.0)
+				{
+					Vx -= lfNx * lfVn;
+					Vy -= lfNy * lfVn;
+				}
+			}
+
+			if ((Vx * Vx) + (Vy * Vy) < 1.0e-18)
+			{
+				Vx = 0.0;
+				Vy = 0.0;
+			}
 		}
 
 		/// <summary>The take-off: the vertical speed and the gravity (the caller's jump rules).</summary>
@@ -651,8 +692,11 @@ namespace UWDataImport.UWData
 					if (lfVn < 0.0)
 					{
 						// The impact is the whole speed at the hit, as the core's bounce counts it
-						// whatever the angle (fTurnAlongWall: Impact += Speed * (15 - e) / 15).
-						WallImpact += Math.Sqrt((Vx * Vx) + (Vy * Vy)) * 65536.0;
+						// (fTurnAlongWall: Impact += Speed * (15 - e) / 15) - but a graze, more than
+						// GrazeFromHeadOnDegrees off head-on, only the speed into the wall (GitHub issue 33).
+						double lfSpeed = Math.Sqrt((Vx * Vx) + (Vy * Vy));
+
+						WallImpact += (-lfVn >= lfSpeed * msfGrazeCos ? lfSpeed : -lfVn) * 65536.0;
 						Vx -= lfNx * lfVn;
 						Vy -= lfNy * lfVn;
 

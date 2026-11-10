@@ -416,8 +416,24 @@ public sealed class UWModernWorldInput
 
         int liObjectId = lOFrontmost.ObjectData != null ? lOFrontmost.ObjectData.ID : -1;
 
+        // A closed secret door gives no hint, as the wall it looks like (fHidesFromCrosshair).
+        if (fHidesFromCrosshair(liObjectId))
+            return null;
+
         return UWClickRules.ThingAnswers(UWClickRules.TalkToThing(liObjectId, lOFrontmost.IsChainedPrincess))
             ? UWText.T("hud.crosshair.talk") : UWText.T("hud.crosshair.use");
+    }
+
+    /// <summary>
+    /// A CLOSED SECRET DOOR STAYS A WALL ON THE CROSSHAIR (GitHub issue 31, 2026-11-10, per user: "in the original
+    /// one has to click; in Modern brushing it while looking round shows it at once"): the label and the pad's hint
+    /// name what a Look would, but a Look is a deliberate click in the original ("You see a secret door.", no
+    /// skill check) and the label comes with every turn of the view. So neither names a closed secret door; the
+    /// Look reveals it and a use opens it as in the original. An open one is a passage and keeps its name.
+    /// </summary>
+    private static bool fHidesFromCrosshair(int piObjectId)
+    {
+        return piObjectId == UWObjectIds.SecretDoor;
     }
 
     /// <summary>
@@ -447,6 +463,41 @@ public sealed class UWModernWorldInput
         // field above 1 chose the plural, so a special property named an enchanted piece as many.
         UWObject lOObject = lOTarget.ObjectData;
 
+        if (fHidesFromCrosshair(lOObject.ID))
+            return null;
+
         return UWText.ObjectName(fData(), lOObject.ID, UWStackRules.IsStack(lOObject), false, null);
+    }
+
+    /// <summary>
+    /// A LOCKED DOOR UNDER THE CROSSHAIR (GitHub issue 30, 2026-11-10, per user): true for a closed, locked door, with
+    /// the id of the key in the bags that fits it (the modern scheme's automatic key, UWWorldUse.KeyAtHand) or -1 for
+    /// none. UWModernCrosshair shows the key's picture beside the name, or the crossed-out key icon
+    /// (UWKeyIconBuilder). The original's Look names no lock; the first try tells it anyway, and the modern scheme
+    /// uses the key by itself, so seeing which one gives nothing more away than the next click.
+    /// </summary>
+    public bool GetCrosshairLock(out int piKeyId)
+    {
+        piKeyId = -1;
+
+        if (fData() == null)
+            return false;
+
+        mOInteraction.AimAtCrosshair(out UWEntityInfo lOFrontmost, out string _, out UWEntityInfo lOPickable);
+
+        if (lOFrontmost == null || Interaction.IsGeometryEntity(lOFrontmost) || lOFrontmost.ObjectData == null
+            || fHidesFromCrosshair(lOFrontmost.ObjectData.ID))
+            return false;
+
+        UWDoor lODoor = lOFrontmost.GetComponentInParent<UWDoor>();
+
+        if (lODoor == null || !lODoor.IsClosed || !lODoor.IsLocked)
+            return false;
+
+        UWObject lOKey = UWControlScheme.Ui.Policy.KeyUsedAutomatically ? UWWorldUse.KeyAtHand(lODoor, fInventory(), mOInteraction.LevelLoader) : null;
+
+        piKeyId = lOKey != null ? lOKey.ID : -1;
+
+        return true;
     }
 }

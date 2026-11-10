@@ -146,6 +146,9 @@ of what is built was also read out of the original's executable.
 - **The shield raised on a block** (issue 21, offered by the same artist): an option to show the
   equipped shield low in the first-person view in attack mode, raised with a shake when it blocks
   a blow. After the widescreen weapons.
+- **Bows and slings in the hand** (issue 24, offered by the same artist): the original shows nothing
+  in the hand while a bow, crossbow or sling is ready. New pictures of the artist's own, for a draw
+  and a shot, as an optional pack; the port needs a loader for them once the frames are settled.
 
 ## Open: translations
 

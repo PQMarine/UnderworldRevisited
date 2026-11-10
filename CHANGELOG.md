@@ -10,6 +10,41 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-11
+
+### Added
+- Modern scheme: the original's scroll for the messages can be made wider in the layout editor, by dragging
+  its right edge or with the scroll's *Width*. The paper between the rollers grows to the right, the rollers
+  keep their shape, and the text wraps at the new width (GitHub issue 29).
+- Modern scheme: beside a locked door's name under the crosshair a small key shows - the picture of the key
+  in your bags that fits it, or a plain key with a red X where none does. When the key opens the door by itself, the
+  scroll names it (GitHub issue 30).
+
+### Changed
+- Modern scheme: the crosshair no longer names a closed secret door, nor shows a gamepad hint for it - it
+  looks like a wall, and in the original only a deliberate Look reveals it. Looking at it and using it work
+  as before (GitHub issue 31).
+- The program no longer asks Unity to send hardware statistics (a Unity player setting that had been left
+  on; in a test no connection was seen either way).
+- The README lists what the Unity engine itself still writes outside the `UserData` folder of a portable
+  copy (its log, window settings in the registry, crash reports) and how the log can be moved.
+
+### Fixed
+- Bow, crossbow and sling shoot as fast as in the original: after a shot the next draw can start at once.
+  Until now the hidden follow-through of a blow ran first, three quarters of a second per shot.
+- The title music no longer loops for ever: its loop ends where the piece says so, as in the original, after
+  about two minutes. In the game a random level theme follows, in the main menu the fourth theme
+  (GitHub issue 34).
+- Classic scheme: holding 1 or 3 keeps tilting the view, as in the original, instead of one step a press
+  (GitHub issue 26).
+- Modern scheme: a bag window lying over the character panel or the rune panel takes the pointer, so the panel's
+  handle no longer lights up or opens through it (GitHub issue 25).
+- Modern scheme: freeing the pointer after the full map no longer shows the map's quill for a moment
+  (GitHub issue 28).
+- Modern movement: a jump from against a wall no longer carries the run's speed into it, so it goes up
+  instead of hurting. A wall only brushed in the air, more than 60 degrees off head-on, counts only the
+  speed into it; a jump more head-on hurts as in the original (GitHub issue 33).
+
 ## [0.19.0] - 2026-11-09
 
 ### Added

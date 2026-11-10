@@ -184,6 +184,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWIntSettingDef ModernScrollLines = fInt(nameof(UWUserData.ModernScrollLines), UWSettingKind.Int, d => d.ModernScrollLines, (d, v) => d.ModernScrollLines = v, UWSettingStore.Layout);
 
+		public static readonly UWIntSettingDef ModernScrollWidth = fInt(nameof(UWUserData.ModernScrollWidth), UWSettingKind.Int, d => d.ModernScrollWidth, (d, v) => d.ModernScrollWidth = v, UWSettingStore.Layout);
+
 		public static readonly UWIntSettingDef ModernMessageLines = fInt(nameof(UWUserData.ModernMessageLines), UWSettingKind.Int, d => d.ModernMessageLines, (d, v) => d.ModernMessageLines = v, UWSettingStore.Layout);
 
 		public static readonly UWIntSettingDef ModernMessageFade = fInt(nameof(UWUserData.ModernMessageFade), UWSettingKind.Int, d => d.ModernMessageFade, (d, v) => d.ModernMessageFade = v, UWSettingStore.Layout);
@@ -454,7 +456,7 @@ namespace UWDataImport.UWData
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
 			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
-			ModernBacks, ModernScrollLines, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
+			ModernBacks, ModernScrollLines, ModernScrollWidth, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,

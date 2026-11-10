@@ -118,6 +118,16 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
     private readonly Rect[] mOGripRects = new Rect[2];
 
+    /// <summary>The scroll's right edge being dragged for its width (GitHub issue 29, per user 2026-11-10: as
+    /// the stone shelf's grips), its ExtraWidth when the drag began, and its grip.</summary>
+    private bool mbScrollWidening;
+
+    private int miScrollExtraFrom;
+
+    private Image mOScrollGrip;
+
+    private Rect mOScrollGripRect;
+
     /// <summary>The message box's top edge being dragged for its lines (per user, 2026-10-21: as
     /// Shift and the wheel), the lines when the drag began and the screen pixels of one line.</summary>
     private bool mbLining;
@@ -220,10 +230,11 @@ public partial class UWModernLayoutEditor : MonoBehaviour
                 mbDocking = false;
                 UWModernLayout.Save();
 
-                if (miWidening != 0 || mbLining)
+                if (miWidening != 0 || mbLining || mbScrollWidening)
                 {
                     miWidening = 0;
                     mbLining = false;
+                    mbScrollWidening = false;
                     fSaveSettings();
                 }
             }
@@ -250,6 +261,17 @@ public partial class UWModernLayoutEditor : MonoBehaviour
                 miWidening = liGrip;
                 mODragFrom = lOPointer;
                 mfShelfPixel = mODragRect.width / Mathf.Min(UWModernStoneShelf.StoneShelfWidth, UWModernStoneShelf.StoneShelfMaxWidth);
+                return;
+            }
+
+            if (fScrollGripAt(lOPointer) && UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out mODragRect))
+            {
+                miSelected = (int)UWModernLayout.ElementEnum.Messages;
+                miDragged = miSelected;
+                mbSizing = false;
+                mbScrollWidening = true;
+                mODragFrom = lOPointer;
+                miScrollExtraFrom = UWModernScroll.ExtraWidth;
                 return;
             }
 
@@ -435,6 +457,43 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         return mOGripRects[1].Contains(pOPointer) ? 1 : 0;
     }
 
+    /// <summary>The scroll's grip at its right edge under the pointer (only where its width is free).</summary>
+    private bool fScrollGripAt(Vector2 pOPointer)
+    {
+        return UWModernScroll.IsWidthFree && UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out Rect _)
+            && mOScrollGripRect.Contains(pOPointer);
+    }
+
+    /// <summary>
+    /// THE SCROLL'S WIDTH (GitHub issue 29): ExtraWidth set, WidthStep at a time, and the scroll moved so its left
+    /// edge stays where pORect has it - it grows and shrinks to the right only (per user, 2026-11-10), from the
+    /// grip and the inspector's row alike. pORect is the scroll's rect at piExtraFrom.
+    /// </summary>
+    private static void fSetScrollWidth(Rect pORect, int piExtraFrom, int piExtra, bool pbSave)
+    {
+        int liExtra = Mathf.Clamp(Mathf.RoundToInt(piExtra / (float)UWModernScroll.WidthStep) * UWModernScroll.WidthStep,
+            0, UWModernScroll.MaxExtraWidth);
+
+        if (liExtra == UWModernScroll.ExtraWidth)
+            return;
+
+        UWUserSettings.ModernScrollWidth = liExtra;
+        UWModernLayout.Move(UWModernLayout.ElementEnum.Messages,
+            new Rect(pORect.x, pORect.y, pORect.width + ((liExtra - piExtraFrom) * UWModernScroll.ColumnPixels), pORect.height), pbSave);
+
+        if (pbSave)
+            fSaveSettings();
+    }
+
+    /// <summary>The scroll's right edge dragged: a WidthStep for every step's worth of screen pixels.</summary>
+    private void fWidenScroll(float pfDeltaX)
+    {
+        mfGuideX = -1f;
+        mfGuideY = -1f;
+        fSetScrollWidth(mODragRect, miScrollExtraFrom,
+            miScrollExtraFrom + Mathf.RoundToInt(pfDeltaX / Mathf.Max(0.01f, UWModernScroll.ColumnPixels)), false);
+    }
+
     /// <summary>The part under the pointer, its handle first; -1 for none.</summary>
     private int fElementAt(Vector2 pOPointer, out bool pbHandle)
     {
@@ -479,6 +538,12 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         if (miWidening != 0)
         {
             fWiden(lODelta.x);
+            return;
+        }
+
+        if (mbScrollWidening)
+        {
+            fWidenScroll(lODelta.x);
             return;
         }
 
@@ -810,6 +875,25 @@ public partial class UWModernLayoutEditor : MonoBehaviour
             mOGrips[liSide].color = liGripHovered == (liSide == 0 ? -1 : 1) ? UWModernPalette.LightText : UWModernPalette.Gold;
         }
 
+        // The scroll's grip at its right edge, as the shelf's: above the size handle, below the top edge (its lines).
+        Rect lOScroll = Rect.zero;
+        bool lbScrollGrip = UWModernScroll.IsWidthFree && UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out lOScroll);
+
+        mOScrollGrip.enabled = lbScrollGrip;
+        mOScrollGripRect = Rect.zero;
+
+        if (lbScrollGrip)
+        {
+            float lfReach = 3f * lfScale;
+            float lfBar = Mathf.Max(3f, lfScale);
+            float lfBottom = lOScroll.y + (5f * lfScale * 0.6f);
+            float lfTop = lOScroll.yMax - lfReach;
+
+            mOScrollGripRect = new Rect(lOScroll.xMax - lfReach, lfBottom, 2f * lfReach, Mathf.Max(lfReach, lfTop - lfBottom));
+            UWUiKit.SetRect(mOScrollGrip.rectTransform, lOScroll.xMax - (lfBar * 0.5f), lOScroll.y + (lOScroll.height * 0.2f), lfBar, lOScroll.height * 0.6f);
+            mOScrollGrip.color = mbScrollWidening || (miDragged < 0 && fScrollGripAt(lOPointer)) ? UWModernPalette.LightText : UWModernPalette.Gold;
+        }
+
         // The docked panel's outline while its handle is dragged.
         Rect lOOutline = Rect.zero;
 
@@ -835,10 +919,10 @@ public partial class UWModernLayoutEditor : MonoBehaviour
         PointerEnum lePointer = PointerEnum.System;
 
         if (miDragged >= 0)
-            lePointer = miWidening != 0 ? PointerEnum.LeftRight : mbLining || mbDocking ? PointerEnum.UpDown : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
+            lePointer = miWidening != 0 || mbScrollWidening ? PointerEnum.LeftRight : mbLining || mbDocking ? PointerEnum.UpDown : (mbSizing ? PointerEnum.System : PointerEnum.FourWays);
         else if (!fWindowContains(lOPointer))
         {
-            if (fGripAt(lOPointer) != 0)
+            if (fGripAt(lOPointer) != 0 || fScrollGripAt(lOPointer))
                 lePointer = PointerEnum.LeftRight;
             else if (fLinesEdgeAt(lOPointer))
                 lePointer = PointerEnum.UpDown;
@@ -1619,6 +1703,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
 
         mOGrips[0] = UWUiKit.CreateImage(lORootRect, "Grip left", UWModernPalette.Gold);
         mOGrips[1] = UWUiKit.CreateImage(lORootRect, "Grip right", UWModernPalette.Gold);
+        mOScrollGrip = UWUiKit.CreateImage(lORootRect, "Scroll grip", UWModernPalette.Gold);
         for (int liLine = 0; liLine < 4; liLine++)
             mODockOutline[liLine] = UWUiKit.CreateImage(lORootRect, "Docked panel outline", msGuide);
 

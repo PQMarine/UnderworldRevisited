@@ -410,8 +410,15 @@ public class UWLevelLoader : MonoBehaviour
         // intro music after loading in the original (per user, 2026-09-11).
         UWAudioService.Init(UWDataImporter);
 
-        if (!UWMainMenu.WillAutoShow && !UWAudioService.IsMusicPlaying)
-            UWAudioService.PickLevelTheme();
+        // A piece still playing (the menu's Introduction after a new game or a load from the title screen) plays to
+        // its end, then a level theme follows (GitHub issue 34: the menu's request stayed and the piece looped).
+        if (!UWMainMenu.WillAutoShow)
+        {
+            if (UWAudioService.IsMusicPlaying)
+                UWAudioService.LetPieceEnd();
+            else
+                UWAudioService.PickLevelTheme();
+        }
 
         // Physics.IgnoreLayerCollision(9, 8) used to be here - the sprite layer was
         // excluded wholesale from player collision, so that one would not get stuck on items

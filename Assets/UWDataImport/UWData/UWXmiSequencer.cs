@@ -14,10 +14,13 @@ namespace UWDataImport.Audio
 	/// tempo value of 100 beats it would have been 55. Until then the sequencer honoured
 	/// the tempo, and "Dark Abyss" ran more than twice as slow as in the game.
 	///
-	/// LOOPS: controllers 116 and 117 of the XMIDI extension (FOR/NEXT) - AW01 uses
+	/// LOOPS: controllers 116 and 117 of the XMIDI extension (FOR/NEXT) - AW01 and UW01 use
 	/// them - are executed: 116 remembers the position together with a counter (0 means endless),
-	/// 117 jumps back as long as the counter has not run out. Whether the whole piece
-	/// repeats is set by Loop.
+	/// 117 with a value of 64 or more jumps back as long as the counter has not run out; BELOW 64 IT
+	/// BREAKS the loop and the piece goes on (GitHub issue 34, 2026-11-10: the Introduction's NEXT
+	/// carries 0, so in the original it ends after about 2:08 and the game moves on - ours looped it
+	/// for ever; per user the original changes, ours did not). Whether the whole piece repeats is set
+	/// by Loop.
 	///
 	/// THE MILES DRIVER'S OWN CONTROLLERS 110-120 (cleanup step 6.6, 2026-10-24): XMIDI uses them
 	/// for channel locks, patch banks, callbacks, branches and the loops above; they are meant for
@@ -49,6 +52,10 @@ namespace UWDataImport.Audio
 		}
 
 		private const int TicksPerQuarter = 60;
+
+		/// <summary>A NEXT (controller 117) with a value below this breaks its FOR loop instead of jumping
+		/// back (XMIDI; see the class comment).</summary>
+		private const int BreakBelow = 64;
 
 		private const int DefaultTempo = 500000;
 
@@ -136,7 +143,8 @@ namespace UWDataImport.Audio
 					{
 						LoopFrame lOLoop = mOLoops.Pop();
 
-						if (lOLoop.Infinite || --lOLoop.Remaining > 0)
+						// A NEXT below 64 is a BREAK: the loop is left (the frame stays popped).
+						if (lOEvent.Data2 >= BreakBelow && (lOLoop.Infinite || --lOLoop.Remaining > 0))
 						{
 							mOLoops.Push(lOLoop);
 							miNext = lOLoop.StartIndex;

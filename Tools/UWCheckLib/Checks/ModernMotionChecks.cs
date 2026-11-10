@@ -193,11 +193,63 @@ namespace UnderworldRevisited.Tools
 
                     Check.Str("modern: a jump into a wall at " + (liAngle * 360 / 0x10000) + " degrees hurts as the core's (" + lsCore + ")", lsModern, lsCore);
                 }
+
+                // GitHub issue 33 (2026-11-10): run against the wall until it holds the body, then jump with the run
+                // still held - the jump goes up, no blow from the wall: as the core's, which stands still at a wall and
+                // jumps from there (its landing's value 2 does no damage).
+                string lsPressedCore = fModernPressedWallJumpCore(pOData);
+
+                Check.Str("modern: a jump from against a wall, run held, as the core's (" + lsPressedCore + ", issue 33)",
+                    fModernPressedWallJump(pOData), lsPressedCore);
             }
             finally
             {
                 UWRandom.Use(null);
             }
+        }
+
+        /// <summary>A run east from 11/16 against the face of a ledge four levels up at x 14 until it holds the
+        /// body, then a jump with the run held on: the highest impact value and damage until the body is down.</summary>
+        private static string fModernPressedWallJump(DataImport pOData)
+        {
+            return fPressedWallJump(pOData, true);
+        }
+
+        private static string fModernPressedWallJumpCore(DataImport pOData)
+        {
+            return fPressedWallJump(pOData, false);
+        }
+
+        private static string fPressedWallJump(DataImport pOData, bool pbModern)
+        {
+            FakeMotionWorld lOWorld = new FakeMotionWorld();
+            lOWorld.Paint(14, 1, 30, 30, 1, 6, 0);
+
+            UWPlayerMotion lOPlayer = fMakeFinePlayer(lOWorld, pOData, 8, 16);
+            int liValue = 0;
+            int liDamage = 0;
+
+            lOPlayer.Modern = pbModern;
+            lOPlayer.RampFrameTicks = 0;
+            lOPlayer.PlaceAt((11 << 8) + 128, (16 << 8) + 128, 0x80, 0x4000);
+
+            for (int liAt = 0; liAt < 1500; liAt++)
+            {
+                lOPlayer.MotionCommand = liAt == 600 ? UWPlayerMotion.Command.Jump : UWPlayerMotion.Command.Walk;
+                lOPlayer.Walk = UWPlayerMotion.WalkRun;
+                lOPlayer.Frame(ModernFrameA);
+
+                if (liAt < 600)
+                    continue;
+
+                liValue = Math.Max(liValue, lOPlayer.Last.ImpactValue);
+                liDamage = Math.Max(liDamage, lOPlayer.Last.FallDamage);
+
+                if (liAt > 604 && lOPlayer.Params.Gravity == 0 && !lOPlayer.IsAirborne && lOPlayer.Params.Vz == 0)
+                    break;
+            }
+
+            return "value " + liValue + ", damage " + liDamage;
         }
 
         /// <summary>A run east from 11/16, a jump at 12.5 into the face of a ledge four levels up at

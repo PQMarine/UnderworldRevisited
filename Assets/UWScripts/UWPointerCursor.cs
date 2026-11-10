@@ -124,7 +124,10 @@ public sealed class UWPointerCursor
             }
         }
 
-        if (UWPointer.IsShown && Pictures != null && liModernCursor < Pictures.Count)
+        // ALSO WHILE THE POINTER IS HIDDEN (GitHub issue 28, 2026-11-10: after the full map, freeing the pointer showed
+        // the map's quill for a frame): in the look mode the pointer is hidden, the picture last set stayed the
+        // quill, and the frame that frees the pointer drew it before this ran. Setting the field is cheap.
+        if (Pictures != null && liModernCursor < Pictures.Count)
         {
             // As large as the crosshair's picture with the pointer locked (UWModernCrosshair:
             // the modern pixel scale, the columns 5/6 of the rows), so locking and freeing keep

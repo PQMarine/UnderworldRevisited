@@ -36,6 +36,18 @@ public sealed class UWWorldUse
         return mOInteraction.Inventory;
     }
 
+    /// <summary>The key in the backpack (in bags too) that fits a closed, locked door, null for none or for a door
+    /// that is open or not locked - the modern scheme's automatic key (fTryUseDoor) and its name on the crosshair
+    /// (UWModernWorldInput, GitHub issue 30).</summary>
+    public static UWObject KeyAtHand(UWDoor pODoor, UWInventory pOInventory, UWLevelLoader pOLoader)
+    {
+        if (pODoor == null || !pODoor.IsClosed || !pODoor.IsLocked || pOInventory == null || pOLoader == null
+            || pOLoader.CurrentLevel == null)
+            return null;
+
+        return UWObjectMechanics.FindMatchingKey(pOInventory.Backpack, pODoor.LockId, pOLoader.CurrentLevel.Masterlist);
+    }
+
     /// <summary>
     /// Use: door, conversation partner, switch, object effect, inscription. The pickup is not
     /// here: Original drags, Modern takes the thing before it comes this far (UWModernWorldInput.fModernUseOn).
@@ -531,9 +543,8 @@ public sealed class UWWorldUse
 
         // The modern scheme's automatic key: asked only when it can matter (a closed, locked
         // door), so the backpack is not searched for every click on a door.
-        bool lbKeyAtHand = UWControlScheme.Ui.Policy.KeyUsedAutomatically && lODoor.IsClosed && lODoor.IsLocked
-            && fInventory() != null && fLoader() != null && fLoader().CurrentLevel != null
-            && UWObjectMechanics.FindMatchingKey(fInventory().Backpack, lODoor.LockId, fLoader().CurrentLevel.Masterlist) != null;
+        UWObject lOKey = UWControlScheme.Ui.Policy.KeyUsedAutomatically ? KeyAtHand(lODoor, fInventory(), fLoader()) : null;
+        bool lbKeyAtHand = lOKey != null;
 
         switch (UWDoorRules.Use(lODoor.IsClosed, lODoor.IsSpiked, lODoor.IsLocked, true, lbKeyAtHand))
         {
@@ -550,6 +561,13 @@ public sealed class UWWorldUse
 
             case UWDoorRules.UseOutcome.UnlockAndOpen:
                 lODoor.Unlock();
+
+                // THE KEY SAYS ITS NAME (GitHub issue 30, 2026-11-10, per user: "seeing that a key is used cannot
+                // hurt"): the modern scheme uses the key by itself, so the scroll tells which one. The classic
+                // scheme's own use of a key prints the original's "The key unlocks the lock." (UWItemTargetUse).
+                if (fData() != null)
+                    mOInteraction.AddMessage(UWText.Sentence(fData(), "msg.door.unlocked_with",
+                        UWText.TheObject(fData(), lOKey.ID, UWGrammarCase.Dative)));
                 break;
         }
 

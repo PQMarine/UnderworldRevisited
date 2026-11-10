@@ -456,7 +456,12 @@ namespace UWDataImport.UWData
 				{
 					mbReleaseRequested = false;
 
-					meAttackStatus = AttackStatusEnum.Release;
+					// A SHOT ENDS AT ONCE (GitHub issue 24, 2026-11-10, per user): the original's player_attack
+					// fires on the release at weap_frame 3 and calls missile_finish, whose goal "ready" makes
+					// adjust_weapon jump straight to ready (the swing had reached frame 3, "swung") - the frames
+					// 4 to 8 of a blow never run for a launcher, and the next press starts the next draw.
+					// Ours ran the hidden release frames first, 0.75 s more per shot.
+					meAttackStatus = HasRangedWeapon ? AttackStatusEnum.Ready : AttackStatusEnum.Release;
 					mCurrentWeaponFrameIndex = 0;
 					mCurrentAttackAnimationDuration = 0f;
 
@@ -464,6 +469,9 @@ namespace UWDataImport.UWData
 					Struck?.Invoke();
 
 					fUpdateWeapon();
+
+					if (HasRangedWeapon)
+						fUpdatePowerGemTeture(mPowerGem.Unpowered);
 				}
 			}
 

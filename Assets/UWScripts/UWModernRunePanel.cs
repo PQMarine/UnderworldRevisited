@@ -514,6 +514,10 @@ public class UWModernRunePanel : UWModernDockedPanel
 
         fUpdateDrag(lOControls, lOPointer);
 
+        // A bag window over the panel takes the wheel and the clicks (fUnderBags); a drag already begun goes on.
+        if (fUnderBags(lOPointer))
+            return;
+
         float lfWheel = UWPointer.Scroll.y;
 
         if (mbOpen && meTab == TabEnum.Spells && Mathf.Abs(lfWheel) > 0.01f && mOListRect.Contains(lOPointer))

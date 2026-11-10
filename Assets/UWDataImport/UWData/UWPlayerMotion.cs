@@ -1127,6 +1127,10 @@ namespace UWDataImport.UWData
 				mOMotor = new UWCharacterMotor(mOWorld, mOProperties) { Height = miHeight };
 
 			fInitialCalc(piDt);
+
+			// On the ground before the state machine's jump is taken over (fModernTakeOver starts it there).
+			bool lbGroundedBefore = mOMotor.Grounded;
+
 			fModernTakeOver();
 
 			UWCharacterMotor m = mOMotor;
@@ -1141,6 +1145,13 @@ namespace UWDataImport.UWData
 
 			if (m.Grounded && (p.Vz > 0 || p.Gravity != 0))
 				m.Jump(p.Vz, p.Gravity);
+
+			// A JUMP FROM THE GROUND keeps no speed into a wall the body stands at (GitHub issue 33,
+			// UWCharacterMotor.DropSpeedIntoContacts); the speed kept in the air is what is left (below). Asked
+			// after the velocity is set: the take-off itself usually comes from fModernTakeOver, before it
+			// (found 2026-11-10 by the user: the first fix sat behind the take-over's jump and never ran).
+			if (lbGroundedBefore && !m.Grounded && p.Vz > 0)
+				m.DropSpeedIntoContacts();
 
 			double lfFallGravity = m.Gravity != 0.0 ? m.Gravity : UWCharacterMotor.FallGravity;
 
@@ -1173,7 +1184,7 @@ namespace UWDataImport.UWData
 			fModernWriteBack();
 			fApplyTile();
 
-			// THE IMPACTS as the core's: a wall met in the air adds the speed it took times
+			// THE IMPACTS as the core's: a wall met in the air adds the speed it took into the wall times
 			// (15 - elasticity) / 15 (fTurnAlongWall's bounce; per user 2026-10-28, a jump that
 			// bounced off a ledge's face did no damage), doubled while the body is still in the air;
 			// a landing the core's bounce (the vertical speed over 15, times 15 less the elasticity),

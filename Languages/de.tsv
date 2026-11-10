@@ -228,6 +228,7 @@ setting.ModernScroll	Stil
 setting.ModernScroll.choice.modern	Modern
 setting.ModernScroll.choice.scroll	Rolle
 setting.ModernScrollLines	Zeilen
+setting.ModernScrollWidth	Breite
 setting.ModernMessageLines	Zeilen
 setting.ModernMessageFade	Ausblenden
 layout.preset.custom	Eigenes
@@ -1006,6 +1007,7 @@ grammar.phrase.count	{0} {1}
 msg.item.cannot_use_on	{0} lässt sich darauf nicht anwenden.
 msg.item.too_full	{0} ist zu voll.
 msg.item.locked	{0} ist verschlossen.
+msg.door.unlocked_with	Du schließt die Tür mit {0} auf.
 msg.item.empty	{0} ist leer.
 msg.item.unnamed	das Ding
 msg.item.read	Du liest {0}...

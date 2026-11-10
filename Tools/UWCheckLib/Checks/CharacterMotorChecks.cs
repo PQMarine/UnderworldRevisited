@@ -118,6 +118,86 @@ namespace UnderworldRevisited.Tools
             lOMotor = fMotorWalk(lOWorld, 11.5, 10.5, -0.6, 0.0, 60);
             Check.Int("motor: half over a ledge, on the higher floor", lOMotor.Z, 4 * 0x40);
             Check.Bool("motor: half over a ledge, no wall it is in", lOMotor.Clearance() >= 0.0, true);
+
+            fCheckMotorWallImpacts();
+        }
+
+        /// <summary>
+        /// THE WALL IN THE AIR (GitHub issue 33, 2026-11-10, option C): the impact counts the whole speed as the core's
+        /// bounce up to GrazeFromHeadOnDegrees off head-on, at a graze beyond it only the part into the wall, and a jump
+        /// from against a wall carries no speed into it.
+        /// </summary>
+        private static void fCheckMotorWallImpacts()
+        {
+            const double Speed = 0.02;
+            const double Ticks = 455.0 / 256.0;
+            double lfJumpVz = UWPlayerMotion.JumpSpeed - UWPlayerMotion.JumpEulerOffset;
+            FakeMotionWorld lOWorld = new FakeMotionWorld();
+
+            lOWorld.Paint(10, 1, 10, 30, 0, 2, 0);
+
+            double lfHeadOn = fMotorAirImpact(lOWorld, 9.4, 15.5, Speed, 0.0, lfJumpVz, false);
+
+            Check.Near("motor: a jump head-on into a wall, the whole speed", lfHeadOn, Speed * 65536.0, 1.0e-6);
+
+            double lfSteep = fMotorAirImpact(lOWorld, 9.4, 15.5, Speed * Math.Cos(Math.PI / 6.0), Speed * Math.Sin(Math.PI / 6.0), lfJumpVz, false);
+
+            Check.Near("motor: a jump 30 degrees off head-on, still the whole speed", lfSteep, Speed * 65536.0, 1.0e-6);
+
+            double lfAngle = Math.PI / 18.0;
+            double lfGraze = fMotorAirImpact(lOWorld, 9.4, 15.5, Speed * Math.Sin(lfAngle), Speed * Math.Cos(lfAngle), lfJumpVz, false);
+
+            Check.Near("motor: a jump grazing a wall at 10 degrees, the part into it", lfGraze, Speed * Math.Sin(lfAngle) * 65536.0, 1.0e-6);
+
+            double lfPressed = fMotorAirImpact(lOWorld, 9.4, 15.5, Speed, 0.0, lfJumpVz, true);
+
+            Check.Near("motor: a jump from against a wall, no blow", lfPressed, 0.0, 1.0e-9);
+
+            UWCharacterMotor lOMotor = new UWCharacterMotor(lOWorld);
+
+            lOMotor.PlaceOnFloor(9.4, 15.5);
+            lOMotor.Vx = Speed * Math.Sin(lfAngle);
+            lOMotor.Vy = Speed * Math.Cos(lfAngle);
+
+            for (int liAt = 0; liAt < 200; liAt++)
+                lOMotor.Advance(Ticks);
+
+            lOMotor.DropSpeedIntoContacts();
+            Check.Near("motor: a jump from against a wall keeps the speed along it", lOMotor.Vy, Speed * Math.Cos(lfAngle), 1.0e-12);
+            Check.Near("motor: a jump from against a wall, none into it", lOMotor.Vx, 0.0, 1.0e-12);
+        }
+
+        /// <summary>The impacts a body takes in the air with the velocity (pfVx, pfVy) from (pfX, pfY): a jump at once,
+        /// or with pbPressed first run against what is ahead on the ground and jumped from there.</summary>
+        private static double fMotorAirImpact(FakeMotionWorld pOWorld, double pfX, double pfY, double pfVx, double pfVy, double pfJumpVz,
+            bool pbPressed)
+        {
+            const double Ticks = 455.0 / 256.0;
+            UWCharacterMotor lOMotor = new UWCharacterMotor(pOWorld);
+
+            lOMotor.PlaceOnFloor(pfX, pfY);
+            lOMotor.Vx = pfVx;
+            lOMotor.Vy = pfVy;
+
+            if (pbPressed)
+            {
+                for (int liAt = 0; liAt < 200; liAt++)
+                    lOMotor.Advance(Ticks);
+
+                lOMotor.DropSpeedIntoContacts();
+            }
+
+            lOMotor.Jump(pfJumpVz, UWPlayerMotion.JumpGravity);
+
+            double lfImpact = 0.0;
+
+            for (int liAt = 0; liAt < 400 && (liAt == 0 || !lOMotor.Grounded); liAt++)
+            {
+                lOMotor.Advance(Ticks);
+                lfImpact += lOMotor.WallImpact;
+            }
+
+            return lfImpact;
         }
 
         /// <summary>The motor placed at (pfX, pfY) and walked (pfDx, pfDy) tiles in piSteps equal steps.</summary>

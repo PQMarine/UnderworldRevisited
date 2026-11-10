@@ -75,11 +75,33 @@ public class UWModernScroll
     /// </summary>
     public static int Rows => Lines + 1;
 
-    /// <summary>Classic Wide: the columns the frame's scroll is wider than the original's.</summary>
+    /// <summary>
+    /// The columns the scroll is wider than the original's: in Classic Wide the frame's widening; in Classic
+    /// Modular none, as its lines; else the width chosen in the layout editor (GitHub issue 29, 2026-11-10: the
+    /// paper between the rollers grows, the rollers stay as they are - nothing is stretched), WidthStep at a time
+    /// up to MaxExtraWidth.
+    /// </summary>
     private static int fWide()
     {
-        return UWModernClassicFrame.IsActive ? UWModernClassicFrame.Extra : 0;
+        return UWModernClassicFrame.IsActive ? UWModernClassicFrame.Extra
+            : UWModernClassicPlus.IsActive ? 0
+            : ExtraWidth;
     }
+
+    /// <summary>The width chosen for the modern scroll beyond the original's, in its pixels.</summary>
+    public static int ExtraWidth => Mathf.Clamp(UWUserSettings.ModernScrollWidth, 0, MaxExtraWidth);
+
+    /// <summary>Whether the scroll shown takes its width from ExtraWidth (not the Classic presets' frames).</summary>
+    public static bool IsWidthFree => UWModernLayout.IsScrollShown && !UWModernClassicFrame.IsActive && !UWModernClassicPlus.IsActive;
+
+    /// <summary>Screen pixels across one column of the paper when it was last drawn (the layout editor's width).</summary>
+    public static float ColumnPixels { get; private set; } = 1f;
+
+    /// <summary>The most the modern scroll can be widened: the original's width once more.</summary>
+    public const int MaxExtraWidth = 320;
+
+    /// <summary>The step of the layout editor's width row.</summary>
+    public const int WidthStep = 16;
 
     /// <summary>
     /// The paper's width for the text: the original's 291 columns, in Classic Wide as many more as
@@ -153,6 +175,7 @@ public class UWModernScroll
         float lfScale = pfPixelScale * UWModernLayout.Scale(UWModernLayout.ElementEnum.Messages);
         // Across at the original's pixel proportion (UWModernHudArt.PixelAspectX), paper and text alike.
         float lfScaleX = lfScale * UWModernHudArt.PixelAspectX;
+        ColumnPixels = lfScaleX;
         Rect lOPlaced = UWModernLayout.Place(UWModernLayout.ElementEnum.Messages,
             new Rect(pODefaultBottomLeft.x, pODefaultBottomLeft.y, lOPaper.width * lfScaleX, lOPaper.height * lfScale));
 
@@ -222,7 +245,7 @@ public class UWModernScroll
     private Texture2D fBuildPaper(int piExtra, int piEdgeFrame)
     {
         UWPicture lOFrame = UWModernClassicFrame.IsActive && UWModernClassicFrame.Instance != null ? UWModernClassicFrame.Instance.Picture : null;
-        UWPicture lOPaper = UWScrollPaperBuilder.Build(mOUi.mOUWData.Textures, lOFrame, piExtra, piEdgeFrame);
+        UWPicture lOPaper = UWScrollPaperBuilder.Build(mOUi.mOUWData.Textures, lOFrame, piExtra, piEdgeFrame, lOFrame == null ? fWide() : 0);
 
         return lOPaper != null ? UWTextureFactory.FromPicture(lOPaper, mOUi.TextureFilterMode, "UWModernScroll " + piExtra) : null;
     }

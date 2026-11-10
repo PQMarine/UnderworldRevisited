@@ -154,6 +154,9 @@ public partial class UWModernLayoutEditor
                     // The lines the scroll shows are its paper's rows, one more than the setting counts
                     // (UWModernScroll.Rows, 2026-10-20).
                     new InspectorRow { Id = Defs.ModernScrollLines.LabelId, VisibleWhen = () => UWUserSettings.ModernScroll, Make = fScrollLinesRow },
+                    // Its width (GitHub issue 29, 2026-11-10): the paper between the rollers, WidthStep at a time; its
+                    // right edge can be dragged too (fScrollGripAt).
+                    new InspectorRow { Id = Defs.ModernScrollWidth.LabelId, VisibleWhen = () => UWUserSettings.ModernScroll, Make = fScrollWidthRow },
                     // The dark box's lines (issue 4, 2026-10-21: its height could not be changed).
                     new InspectorRow { Id = Defs.ModernMessageLines.LabelId, VisibleWhen = () => !UWUserSettings.ModernScroll, Make = fBoxLinesRow },
                     // The box's lines fade out after a time (GitHub issue 18, 2026-11-07); never by default.
@@ -255,6 +258,25 @@ public partial class UWModernLayoutEditor
         {
             UWUserSettings.ModernScrollLines = Mathf.Clamp(liLines + (liAt == 0 ? -1 : 1), UWModernScroll.MinLines, UWModernScroll.MaxLines);
             fSaveSettings();
+        });
+    }
+
+    private static InspectorItem fScrollWidthRow(Element peElement)
+    {
+        int liExtra = UWModernScroll.ExtraWidth;
+
+        // Wider or narrower to the right only (per user, 2026-11-10), as the grip at its right edge.
+        return fStepper(Defs.ModernScrollWidth, liExtra, liExtra > 0, liExtra < UWModernScroll.MaxExtraWidth, liAt =>
+        {
+            int liTo = liExtra + (liAt == 0 ? -UWModernScroll.WidthStep : UWModernScroll.WidthStep);
+
+            if (UWModernLayout.TryGetRect(UWModernLayout.ElementEnum.Messages, out Rect lORect))
+                fSetScrollWidth(lORect, liExtra, liTo, true);
+            else
+            {
+                UWUserSettings.ModernScrollWidth = Mathf.Clamp(liTo, 0, UWModernScroll.MaxExtraWidth);
+                fSaveSettings();
+            }
         });
     }
 

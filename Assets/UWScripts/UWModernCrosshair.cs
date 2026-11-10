@@ -32,6 +32,19 @@ public class UWModernCrosshair : UWModernPart
 
     private Text mOPadLookText;
 
+    /// <summary>Beside the name of a locked door: the key that fits it, or the crossed-out key icon (GitHub issue 30).</summary>
+    private RawImage mOLockIcon;
+
+    /// <summary>The crossed-out key icon, made once per colour version (the colour help).</summary>
+    private Texture2D mONoKeyIcon;
+
+    private int miNoKeyIconColours = -1;
+
+    /// <summary>The keys' own pictures by id.</summary>
+    private readonly System.Collections.Generic.Dictionary<int, Texture2D> mOKeyPictures = new System.Collections.Generic.Dictionary<int, Texture2D>();
+
+    private int miKeyPicturesColours = -1;
+
     public UWModernCrosshair(UWModernHud pOHud) : base(pOHud)
     {
     }
@@ -44,6 +57,9 @@ public class UWModernCrosshair : UWModernPart
         UWPixelArtUI.Apply(mOTargetCursor);
         mOTargetCursor.enabled = false;
         mOTarget = UWUiKit.CreateText(pORoot, "Target", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        mOLockIcon = UWUiKit.CreateRawImage(pORoot, "Door lock", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+        UWPixelArtUI.Apply(mOLockIcon);
+        mOLockIcon.enabled = false;
         mOHoldBar = UWUiKit.CreateImage(pORoot, "Hold ring", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             UWModernPalette.WithAlpha(UWModernPalette.Accent, 0.9f));
         mOHoldBar.enabled = false;
@@ -130,8 +146,103 @@ public class UWModernCrosshair : UWModernPart
 
         mfTargetTimer = 0.1f;
         mOTarget.text = lbCross ? mOInteraction.GetCrosshairTargetName() ?? string.Empty : string.Empty;
+        fUpdateLockIcon(lbCross && mOTarget.text.Length > 0, lOOffset);
 
         fUpdatePadPrompt(lbCross && !UWModernPointer.IsFree);
+    }
+
+    /// <summary>
+    /// THE KEY BESIDE A LOCKED DOOR'S NAME (GitHub issue 30, 2026-11-10, per user: the texts were too large): the key in
+    /// the bags that fits it, in its own picture - every key of the original is "a_key", the shape tells which -, or
+    /// where none fits the key icon crossed out (UWKeyIconBuilder, the game's palette colours). Right of the name, on
+    /// its first line, as high as a line of the text.
+    /// </summary>
+    private void fUpdateLockIcon(bool pbShown, Vector2 pOOffset)
+    {
+        int liKey = -1;
+        bool lbLocked = pbShown && mOInteraction.GetCrosshairLock(out liKey);
+        Texture2D lOPicture = lbLocked ? (liKey >= 0 ? fKeyPicture(liKey) : fNoKeyIcon()) : null;
+
+        mOLockIcon.enabled = lOPicture != null;
+
+        if (lOPicture == null)
+            return;
+
+        // Whole pixels of the picture, as many as make it about a line of the text high (pixel art stays crisp).
+        // One scale for both pictures (UWKeyIconBuilder.ScaleHeight), so the no-key icon looks no larger than a key.
+        int liScale = Mathf.Max(1, Mathf.RoundToInt(mOTarget.fontSize * 1.2f / UWDataImport.Presentation.UWKeyIconBuilder.ScaleHeight));
+        float lfHeight = lOPicture.height * liScale;
+        float lfWidth = lOPicture.width * liScale * UWModernHudArt.PixelAspectX;
+        float lfLineMiddle = (-4f * miPixelScale) - (mOTarget.fontSize * 0.6f);
+
+        mOLockIcon.texture = lOPicture;
+        ((RectTransform)mOLockIcon.transform).sizeDelta = new Vector2(lfWidth, lfHeight);
+        ((RectTransform)mOLockIcon.transform).anchoredPosition = pOOffset
+            + new Vector2((mOTarget.preferredWidth * 0.5f) + (2f * miPixelScale) + (lfWidth * 0.5f), lfLineMiddle);
+    }
+
+    /// <summary>A key's own picture (OBJECTS.GR), made once per colour version.</summary>
+    private Texture2D fKeyPicture(int piKeyId)
+    {
+        if (miKeyPicturesColours != UWColourVision.Version)
+        {
+            foreach (Texture2D lOOld in mOKeyPictures.Values)
+                Object.Destroy(lOOld);
+
+            mOKeyPictures.Clear();
+            miKeyPicturesColours = UWColourVision.Version;
+        }
+
+        if (mOKeyPictures.TryGetValue(piKeyId, out Texture2D lOPicture))
+            return lOPicture;
+
+        UWTexture lOKey = fObjectTexture(piKeyId);
+
+        lOPicture = lOKey != null
+            ? UWTextureFactory.FromPicture(UWDataImport.Presentation.UWKeyIconBuilder.Crop(UWPicture.From(lOKey)), FilterMode.Point, "Key " + piKeyId)
+            : null;
+        mOKeyPictures[piKeyId] = lOPicture;
+
+        return lOPicture;
+    }
+
+    /// <summary>The generic key with its X in the game's palette colours, made once per colour version.</summary>
+    private Texture2D fNoKeyIcon()
+    {
+        if (mONoKeyIcon != null && miNoKeyIconColours == UWColourVision.Version)
+            return mONoKeyIcon;
+
+        if (mONoKeyIcon != null)
+            Object.Destroy(mONoKeyIcon);
+
+        mONoKeyIcon = null;
+        miNoKeyIconColours = UWColourVision.Version;
+
+        UWPalette lOPalette = mOUi.mOUWData != null && mOUi.mOUWData.Palettes != null ? mOUi.mOUWData.Palettes.GetPalette(0) : null;
+
+        if (lOPalette == null)
+            return null;
+
+        UWPicture lOIcon = UWDataImport.Presentation.UWKeyIconBuilder.BuildNoKey(
+            UWDataImport.Presentation.UWKeyIconBuilder.Nearest(lOPalette, UWDataImport.Presentation.UWKeyIconBuilder.InkWanted),
+            UWDataImport.Presentation.UWKeyIconBuilder.Nearest(lOPalette, UWDataImport.Presentation.UWKeyIconBuilder.StrokeWanted),
+            UWDataImport.Presentation.UWKeyIconBuilder.Nearest(lOPalette, UWDataImport.Presentation.UWKeyIconBuilder.DarkWanted));
+
+        mONoKeyIcon = UWTextureFactory.FromPicture(lOIcon, FilterMode.Point, "No key");
+
+        return mONoKeyIcon;
+    }
+
+    private UWTexture fObjectTexture(int piObjectId)
+    {
+        try
+        {
+            return mOUi.mOUWData != null ? mOUi.mOUWData.Textures.GetTextureByType(UWTexture.TextureTypes.OBJECTS, piObjectId) : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

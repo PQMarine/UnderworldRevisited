@@ -128,13 +128,28 @@ learned in the game), "Lizard words" (the lizardmen's words with their meanings 
 PORTABLE
 --------
 
-The settings, the extracted game files and the mods normally live in your user folder (Windows:
+The settings, the extracted game files and the mods are normally kept in your user folder (Windows:
 %USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited). "Make portable" in the
 Game window, or an empty file portable.txt beside UR.exe, keeps them in a folder UserData beside the
 program from the next start on. Copy that folder along when you unpack a newer version. The folder
 alone keeps it portable too: to go back, delete portable.txt and UserData (copy what is in UserData
 to the user folder first to keep your settings). The save games stay in the game's installation
 either way.
+
+Even when portable, the Unity engine itself still writes a few things outside UserData:
+
+  - its log Player.log (and Player-prev.log from the start before) in the user folder above;
+  - the window size, full screen mode, monitor and a session counter, on Windows in the registry
+    under HKEY_CURRENT_USER\Software\Underworld Revisited, on Linux in a file prefs in the user
+    folder;
+  - on Windows, crash reports in %TEMP%\Underworld Revisited.
+
+The log can be moved with the start option -logFile and a full path, for example
+
+     -logFile "D:\Games\Underworld Revisited\UserData\Player.log"
+
+(with Steam in the launch options line, after the path to UR.exe). A relative path counts from the
+folder the game was started in, which is not always the program's. The other entries cannot be moved.
 
 
 RULES
