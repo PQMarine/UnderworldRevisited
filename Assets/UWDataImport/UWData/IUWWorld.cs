@@ -163,8 +163,10 @@ namespace UWDataImport.UWData
 		/// <summary>A class 7 spell on the creature with this level object (UWTargetSpell).</summary>
 		UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass);
 
-		/// <summary>An effect picture at the middle of that creature's body for pfSeconds.</summary>
-		void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds);
+		/// <summary>An effect picture on that creature for pfSeconds, as put_effect places it: at its spot, its
+		/// feet plus piEighths eighths of its COMOBJ height (UWAreaSpellRules.CreatureEffectZPos) - 7 for a spell's
+		/// sparkle, 2 for a wound's splash.</summary>
+		void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths);
 
 		/// <summary>Every thing on the tile takes a roll of its own - the player when he stands there,
 		/// then the tile's list in its order: creatures, doors and chests, the loose objects
@@ -350,9 +352,9 @@ namespace UWDataImport.UWData
 			return mOInner.CastTargetSpellOnCreature(pOCreature, piMinorClass);
 		}
 
-		public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
+		public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)
 		{
-			mOInner.ShowEffectAtCreature(pOCreature, piEffectObjectId, pfSeconds);
+			mOInner.ShowEffectAtCreature(pOCreature, piEffectObjectId, pfSeconds, piEighths);
 		}
 
 		public void StrikeTile(UWTilePos pOTile, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker)

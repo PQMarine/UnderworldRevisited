@@ -1072,8 +1072,16 @@ to build them:
    (UWSpecialSpellRulesUw2: a line of power, the mushroom spells, Map Area, mana), Iron Flesh's glaze, the rune
    page in the modern scheme (Z, the hollow casts, F8); B the area spells (class 6) by area_spells; C the
    missiles (class 5) with the aiming pointer in both schemes; D the target spells (class 7) on creatures and
-   objects with the pointer, Roaming Sight's camera; E creating (class 8). PART A BUILT
-   2026-11-05, test list section 25.
+   objects with the pointer, Roaming Sight's camera; E creating (class 8). PART B BUILT 2026-11-11
+   (UWAreaSpellRulesUw2: area_spells[] with its fixed counts, distances and radii, sp_true_sight, sp_sheet_light,
+   sp_confusion, sp_meteor on its own square, sp_repel_undead, sp_shockwave, sp_frost; UWAreaWalk's open squares of
+   the second game's AREA_OBJECTS; floating skulls with the world's hacks, Reveal's triggers with G3), test list
+   section 26 ALL CONFIRMED 2026-11-11 (fix on the way: effect pictures hang on the original's fixed hot spot
+   8/16 and put_effect's height on a creature, both games, b4396a4f; and a save from Modern stores the nearest
+   place the original accepts, da0bced3). PART A BUILT
+   2026-11-05, test list section 25 ALL CONFIRMED 2026-11-11 (fixes: taking aims with UWWorldPicker over the full
+   range so Telekinesis takes from afar, 11e588a7; teleport traps, Portal and Gate Travel fade out and in as
+   new_player_pos with NewPlyFade 3, d7570fc3).
 4. Creatures: goal 15, doors three in four, paths of 40, talkers that turn guard, death cries,
    owners up to race 0x1D, animation lengths.
 5. Objects and traps: treasure, combining, food leftovers, lights, beds, owned containers; trigger

@@ -90,6 +90,28 @@ namespace UWDataImport.UWData
 		/// <summary>The sparkle above a confused creature (455, "a spell effect").</summary>
 		private const int SpellEffectObjectId = AnimationFirstId + 7;
 
+		/// <summary>put_effect's height on a creature for a spell's picture: seven eighths of its height (SPELLS.C,
+		/// put_effect(target, 7, 4, 0, 7, ...), both games).</summary>
+		public const int SpellEffectEighths = 7;
+
+		/// <summary>... and for a wound's splash: two eighths (uw2 SPELLS.C, put_effect(target, effect, 1, splats,
+		/// 2, ...)).</summary>
+		public const int WoundSplashEighths = 2;
+
+		/// <summary>
+		/// put_effect's height on a creature (EFFECT.C, both games): its zpos plus piEighths times its COMOBJ height
+		/// over eight, that at least 1; SET_Z keeps seven bits.
+		/// </summary>
+		public static int CreatureEffectZPos(int piFeetZPos, int piComObjHeight, int piEighths)
+		{
+			int liEighth = (piComObjHeight & 0xFF) >> 3;
+
+			if (liEighth == 0)
+				liEighth = 1;
+
+			return (piFeetZPos + (byte)(liEighth * piEighths)) & 0x7F;
+		}
+
 		/// <summary>Objects of major class 6 are traps and triggers. Reveal does not touch
 		/// them, otherwise it would reveal itself.</summary>
 		private const int TrapMajorClass = UWObjectMechanics.TrapMajorClass;

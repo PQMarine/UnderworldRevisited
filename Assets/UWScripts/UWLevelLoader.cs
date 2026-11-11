@@ -440,8 +440,25 @@ public class UWLevelLoader : MonoBehaviour
     /// game's rule - not run; without a free tile the target itself), the player set up there - near the
     /// ceiling and falling when the trap says so - and turned to its heading. A level that is not in the
     /// world leaves the player where he is.
+    /// pbFade: NewPlyFade 3, the view fades out, the move happens at full black, the view fades in
+    /// (UWSleepUw2.Blink) - a trap, Portal and Gate Travel. A conversation's teleport clears NewPlyFade
+    /// (do_babl_teleport) and death fades by itself (SKILLS.C:846), so those move at once. While a blink waits
+    /// for its black, another teleport is not taken (the trigger the player still stands on).
     /// </summary>
-    public void WalkTeleport(UWTeleportUw2.Target pOTarget)
+    public void WalkTeleport(UWTeleportUw2.Target pOTarget, bool pbFade = false)
+    {
+        UWSleepUw2 lOBlack = UWSleepUw2.Current;
+
+        if (lOBlack != null && lOBlack.IsBlinking)
+            return;
+
+        if (pbFade && lOBlack != null && lOBlack.Blink(() => fWalkTeleportNow(pOTarget)))
+            return;
+
+        fWalkTeleportNow(pOTarget);
+    }
+
+    private void fWalkTeleportNow(UWTeleportUw2.Target pOTarget)
     {
         int liLevel = UWTeleportUw2.LevelOf(pOTarget, miLevelIndex + 1) - 1;
 

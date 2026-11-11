@@ -65,13 +65,17 @@ namespace UWDataImport.UWData
 		/// </summary>
 		/// <param name="piSource">The caster's mobile index (the player's is
 		/// UWCritterBrain.PlayerIndex); AREA_CRITTERS leaves the creature with that index out.</param>
+		/// <param name="pbOpenSquares">THE SECOND GAME'S WALK (uw2 combat/SPELLS.C process_area, read 2026-11-11):
+		/// AREA_OBJECTS calls the handler for every open square too, with no object and without the roll, before
+		/// that square's objects - Shockwave's and Frost's pictures on empty squares come from it. The first game's
+		/// walk does not.</param>
 		public static void Square(UWLevel pOLevel, UWTilePos pOCentre, int piRadius, int piCount, int piSource,
-			int piType, Handler pOHandler)
+			int piType, Handler pOHandler, bool pbOpenSquares = false)
 		{
 			int liSide = (piRadius * 2) + 1;
 
 			Process(pOLevel, piCount, piSource, piType, pOCentre.X - piRadius, pOCentre.Y - piRadius, liSide, liSide,
-				pOHandler);
+				pOHandler, pbOpenSquares);
 		}
 
 		/// <summary>
@@ -95,7 +99,7 @@ namespace UWDataImport.UWData
 		/// and they stay out of this walk, as they did when Reveal walked a copy of its own).
 		/// </summary>
 		public static void Process(UWLevel pOLevel, int piCount, int piSource, int piType, int piX0, int piY0, int piW,
-			int piH, Handler pOHandler)
+			int piH, Handler pOHandler, bool pbOpenSquares = false)
 		{
 			if (pOLevel == null || pOLevel.TileData == null || pOHandler == null)
 				return;
@@ -150,6 +154,10 @@ namespace UWDataImport.UWData
 
 							continue;
 						}
+
+						if (pbOpenSquares && piType == Objects && lOTile.TileType != UWTile.TileTypeEnum.solid
+							&& pOHandler(lOTile, null) && --liCount == 0)
+							return;
 
 						if (fWalkList(pOLevel, lOTile, piType, piSource, pOHandler, ref liCount))
 							return;

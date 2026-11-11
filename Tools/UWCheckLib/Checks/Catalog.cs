@@ -100,6 +100,8 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("CharacterMotorHeights", pOContext => fCheckCharacterMotorHeights(pOContext.Data), true, "motion");
             lOCatalog.Add("CharacterMotorObjects", pOContext => fCheckCharacterMotorObjects(pOContext.Data), true, "motion");
             lOCatalog.Add("ModernMotion", pOContext => fCheckModernMotion(pOContext.Data), true, "motion");
+            lOCatalog.Add("OriginalSpot", pOContext => fCheckOriginalSpot(pOContext.Data), true, "motion");
+            lOCatalog.Add("EffectPlacement", pOContext => fCheckEffectPlacement(), false, "spell", "render", "original");
             lOCatalog.Add("MissileWalkIn", pOContext => fCheckMissileWalkIn(pOContext.Data), true, "motion", "combat", "original");
             lOCatalog.Add("EasyStep", pOContext => fCheckEasyStep(pOContext.Data), true, "motion", "original");
             lOCatalog.Add("PointerScheme", pOContext => fCheckPointerScheme(pOContext.Data), true, "input", "motion", "original");
@@ -114,6 +116,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("HudArt", pOContext => fCheckHudArt(pOContext), true, "hud", "pin");
             lOCatalog.Add("HudArtCompose", pOContext => fCheckHudArtCompose(), false, "hud");
             lOCatalog.Add("ScrollPaper", pOContext => fCheckScrollPaper(pOContext), true, "hud", "pin");
+            lOCatalog.Add("UpdateCheck", pOContext => fCheckUpdateCheck(), false, "meta");
             lOCatalog.Add("FontGlyphs", pOContext => fCheckFontGlyphs(pOContext), false, "hud", "pin");
             lOCatalog.Add("ClassicLayout", pOContext => fCheckClassicLayout(), false, "hud", "original");
             lOCatalog.Add("ClassicLayoutColours", pOContext => fCheckClassicLayoutColours(pOContext.Data), true, "hud", "original");

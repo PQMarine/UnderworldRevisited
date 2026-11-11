@@ -258,8 +258,30 @@ namespace UnderworldRevisited.Tools
             foreach (int liSpell in new[] { 7, 15, 46, 58, 61, 63, 67, 0, 24, 33, 4, 65 })
                 lsBuilt += lIMagic.IsBuilt(lIMagic.Spells[liSpell]) ? "1" : "0";
 
-            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight, Armageddon, Mana Boost; Create Food, Frost, Fireball, Detect Trap, Acid",
-                lsBuilt, "111101100000");
+            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight, Armageddon, Mana Boost; Create Food, Frost (part B), Fireball, Detect Trap, Acid",
+                lsBuilt, "111101101000");
+
+            // Stage 2 part B: area_spells[] (SPELLS.C:729) - count, how far ahead, radius - and every class 6 spell built.
+            string lsAreaTable = string.Empty;
+
+            for (int liMinor = 1; liMinor <= 7; liMinor++)
+            {
+                UWAreaSpellRulesUw2.TryGetEntry(liMinor, out UWAreaSpellRulesUw2.Entry lOEntry);
+                lsAreaTable += lOEntry.Count + "/" + lOEntry.Ahead + "/" + lOEntry.Radius + " ";
+            }
+
+            Check.Str("uw2 area spells: count/ahead/radius of Reveal, Sheet Lightning, Confusion, Flame Wind, Repel Undead, Shockwave, Frost",
+                lsAreaTable.Trim(), "100/1/2 6/4/2 12/4/2 10/4/2 50/4/2 50/0/1 5/3/1");
+
+            string lsArea = string.Empty;
+
+            foreach (UWRunicMagic.Spell lOSpell in lIMagic.Spells)
+            {
+                if (lOSpell.MajorClass == UWAreaSpellRulesUw2.MajorClass)
+                    lsArea += lIMagic.IsBuilt(lOSpell) ? "1" : "0";
+            }
+
+            Check.Str("uw2 area spells: every class 6 spell of the table built", lsArea, new string('1', lsArea.Length));
 
             UWTile[] lOTiles = new UWTile[0x1000];
 

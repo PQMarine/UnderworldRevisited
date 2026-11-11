@@ -8,6 +8,9 @@ namespace UWDataImport.UWData
 		{
 			fAdd("menu.title", "Game menu");
 			fAdd("menu.work_in_progress", "Work in progress");
+			// GitHub issue 36: above the version in the main menu's corner; {0} the release's title or tag. A click on it
+			// opens the release page (per user, 2026-11-11: "New: 0.20.0 - Theme", no "click to open" in the line).
+			fAdd("menu.update_available", "New: {0}");
 			fAdd("menu.resume", "Resume");
 			fAdd("menu.save_game", "Save game");
 			fAdd("menu.restore_game", "Restore game");

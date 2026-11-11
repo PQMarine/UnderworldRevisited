@@ -67,6 +67,7 @@
     "ShowOpeningSequence": true,
     "CutsceneSubtitles": 0,
     "RunInBackground": false,
+    "CheckForUpdates": false,
     "DisplayAs4By3": true,
     "ClassicWidescreen": false,
     "ViewAngle": 0.0,

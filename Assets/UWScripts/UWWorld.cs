@@ -575,14 +575,29 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return UWTargetSpell.Cast(piMinorClass, fEntityOf(pOCreature));
     }
 
-    /// <summary>The picture at the middle of the creature's collider, where it stood on the
-    /// collider the physics found until 2026-10-18; at the entity's own point without one.</summary>
-    public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
+    /// <summary>put_effect on a creature (EFFECT.C, both games): at the creature's spot, its feet plus piEighths
+    /// eighths of its COMOBJ height (UWAreaSpellRules.CreatureEffectZPos), the picture hanging on that point as
+    /// every object picture does (UWSpriteScale.AnchorY). Since 2026-11-11 (per user with screenshots of Mass
+    /// Confusion beside the original: ours stood above the heads); before, the middle of the creature's collider,
+    /// which stays the answer without the creature's numbers.</summary>
+    public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)
     {
         UWEntityInfo lOEntity = fEntityOf(pOCreature);
 
         if (Loader == null || lOEntity == null)
             return;
+
+        UWCommonObjectProperties lOProperties = Loader.UWDataImporter != null ? Loader.UWDataImporter.CommonObjectProperties : null;
+
+        if (pOCreature != null && lOProperties != null && lOProperties.TryGet(pOCreature.ID, out UWCommonObjectProperties.Entry lOEntry))
+        {
+            UWSpot lOSpot = new UWSpot(new UWTilePos(pOCreature.TileX, pOCreature.TileY), pOCreature.XPos, pOCreature.YPos,
+                UWAreaSpellRules.CreatureEffectZPos(pOCreature.ZPos, lOEntry.Height, piEighths));
+
+            Loader.SpawnEffectAt(piEffectObjectId, PointOf(lOSpot), pfSeconds);
+
+            return;
+        }
 
         Collider lOCollider = lOEntity.GetComponentInChildren<Collider>();
 

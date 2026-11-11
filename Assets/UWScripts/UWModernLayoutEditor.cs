@@ -472,7 +472,7 @@ public partial class UWModernLayoutEditor : MonoBehaviour
     private static void fSetScrollWidth(Rect pORect, int piExtraFrom, int piExtra, bool pbSave)
     {
         int liExtra = Mathf.Clamp(Mathf.RoundToInt(piExtra / (float)UWModernScroll.WidthStep) * UWModernScroll.WidthStep,
-            0, UWModernScroll.MaxExtraWidth);
+            UWModernScroll.MinExtraWidth, UWModernScroll.MaxExtraWidth);
 
         if (liExtra == UWModernScroll.ExtraWidth)
             return;

@@ -266,7 +266,8 @@ public partial class UWModernLayoutEditor
         int liExtra = UWModernScroll.ExtraWidth;
 
         // Wider or narrower to the right only (per user, 2026-11-10), as the grip at its right edge.
-        return fStepper(Defs.ModernScrollWidth, liExtra, liExtra > 0, liExtra < UWModernScroll.MaxExtraWidth, liAt =>
+        // The number is the scroll's own width (320 the original's); narrower too since issue 29's second wish.
+        return fStepper(Defs.ModernScrollWidth, UWModernScroll.OwnWidth, liExtra > UWModernScroll.MinExtraWidth, liExtra < UWModernScroll.MaxExtraWidth, liAt =>
         {
             int liTo = liExtra + (liAt == 0 ? -UWModernScroll.WidthStep : UWModernScroll.WidthStep);
 
@@ -274,7 +275,7 @@ public partial class UWModernLayoutEditor
                 fSetScrollWidth(lORect, liExtra, liTo, true);
             else
             {
-                UWUserSettings.ModernScrollWidth = Mathf.Clamp(liTo, 0, UWModernScroll.MaxExtraWidth);
+                UWUserSettings.ModernScrollWidth = Mathf.Clamp(liTo, UWModernScroll.MinExtraWidth, UWModernScroll.MaxExtraWidth);
                 fSaveSettings();
             }
         });

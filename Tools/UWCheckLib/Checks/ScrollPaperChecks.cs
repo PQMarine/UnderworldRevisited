@@ -69,6 +69,26 @@ namespace UnderworldRevisited.Tools
                 }
             }
 
+            // NARROWER (issue 29): the paper's ends as the full one's, only the plain runs of the rims taken out.
+            UWPicture lOFull = UWScrollPaperBuilder.Build(lOTextures, null, 0, 0);
+
+            foreach (int liLess in new[] { 16, 82, 160, UWScrollPaperBuilder.MaxNarrow })
+            {
+                UWPicture lONarrow = UWScrollPaperBuilder.Build(lOTextures, null, 0, 0, -liLess);
+                bool lbSame = lOFull != null && lONarrow != null && lONarrow.Width == lOFull.Width - liLess && lONarrow.Height == lOFull.Height;
+
+                for (int liY = 0; lbSame && liY < lOFull.Height; liY++)
+                {
+                    for (int liX = 0; liX < 36; liX++)
+                        lbSame &= lONarrow.Get(liX, liY).Equals(lOFull.Get(liX, liY));
+
+                    for (int liX = 242; liX < lOFull.Width; liX++)
+                        lbSame &= lONarrow.Get(liX - liLess, liY).Equals(lOFull.Get(liX, liY));
+                }
+
+                fExpectBool("scroll paper: " + liLess + " columns narrower keeps both ends, rollers and edges", lbSame, true);
+            }
+
             fComparePins(pOContext, "scroll-paper-hashes.txt", "scroll paper", lONow, psName =>
             {
                 int liFrom = psName.IndexOf(": ", StringComparison.Ordinal) + 2;

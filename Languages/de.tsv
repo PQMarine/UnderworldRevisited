@@ -15,6 +15,8 @@ setting.CutsceneSubtitles.choice.auto	Automatisch
 setting.CutsceneSubtitles.choice.off	Aus
 setting.CutsceneSubtitles.choice.on	An
 setting.RunInBackground	Im Hintergrund weiterlaufen
+setting.CheckForUpdates	Nach neuen Versionen suchen
+setting.CheckForUpdates.hint	Höchstens einmal am Tag fragt das Hauptmenü bei GitHub nach dem neuesten Release und nennt ein neueres neben der Version, mit einem Klick zu seiner Seite. Gesendet wird nur diese Anfrage, heruntergeladen wird nichts.
 setting.ManualAttributes	Attribute bei der Erschaffung wählen
 setting.FixOriginalBugs	Fehler des Originals beheben
 setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
@@ -799,6 +801,7 @@ editor.part.stats_panel	Werteleiste
 editor.part.character_page	Charakterseite
 menu.title	Spielmenü
 menu.work_in_progress	In Arbeit
+menu.update_available	Neu: {0}
 menu.resume	Weiterspielen
 menu.save_game	Spiel speichern
 menu.restore_game	Spiel laden

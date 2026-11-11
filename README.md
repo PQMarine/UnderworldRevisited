@@ -203,6 +203,11 @@ The log can be moved with the start option `-logFile` and a full path, for examp
 below, after the path to `UR.exe`). A relative path counts from the folder the game was started in,
 which is not always the program's. The other entries cannot be moved.
 
+**New versions.** *Check for new versions* in the Game window, off by default, lets the main menu ask
+GitHub at most once a day for the newest release. A newer one is named above the version in the
+corner, and a click on it opens its release page. Only that request is sent, and nothing is downloaded
+or installed.
+
 **Steam: start it from Steam, with Steam Cloud.** Steam keeps the save games in its cloud, but it
 synchronises them only when it starts a game itself. Enter this in the game's *Properties > General >
 Launch Options* (your path to `UR.exe`):

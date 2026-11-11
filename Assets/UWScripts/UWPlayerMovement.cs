@@ -481,6 +481,16 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // rendered frame, the motion by the motor, its own ramp.
         bool lbModern = lbSmooth && UWUserSettings.MotionModern;
 
+        // LEAVING MODERN (per user 2026-11-11): the round body may stand where the original's square box reaches
+        // into rock - a diagonal, a rock corner, a solid thing - and the core would stick there. The nearest place
+        // the original accepts first (UWPlayerMotion.OriginalSpot, usually an eighth or two away).
+        if (lOMotion.Modern && !lbModern && lOMotion.MoveToOriginalSpot())
+        {
+            Debug.Log("[Motion] Leaving Modern: moved to the nearest place the original accepts.");
+            fApplyMotionToTransform(lOMotion);
+            fSnapInterpolation(lOMotion);
+        }
+
         lOMotion.Precise = lbSmooth;
         lOMotion.FineTicks = lbSmooth;
         lOMotion.Modern = lbModern;

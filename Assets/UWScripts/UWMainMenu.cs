@@ -191,6 +191,17 @@ public class UWMainMenu : MonoBehaviour
     /// <summary>Its outline, in the frame's units (original pixels).</summary>
     private const float VersionOutline = 0.3f;
 
+    /// <summary>The newer release's line above it a little smaller (per user, 2026-11-11: at the version's size it was
+    /// too large).</summary>
+    private const int UpdateLineFontSize = 5;
+
+    /// <summary>UWUpdateChecker.Version when the version line was last written - a newer one rewrites it.</summary>
+    private int miVersionShownFor = -1;
+
+    /// <summary>Whether the option was on when the line was written - switched in the Game window over the menu, the
+    /// line and the check follow at once.</summary>
+    private bool mbVersionShownChecking;
+
     private float mfReenterTime = -1f;
 
     private int miReenterSlot;
@@ -334,6 +345,9 @@ public class UWMainMenu : MonoBehaviour
                 return;
 
             case Mode.Buttons:
+                if (fUpdateVersionLine())
+                    return;
+
                 if (IsWalkMenu)
                     fUpdateWalkButtons();
                 else
@@ -456,9 +470,38 @@ public class UWMainMenu : MonoBehaviour
 
         float lfFactor = UWClassicScreen.HorizontalPixelFactor;
 
-        mOVersion.text = "v" + Application.version;
+        // A NEWER RELEASE above it (GitHub issue 36, only with the Game window's option on): a click opens its page.
+        UWUpdateCheck.State lONewer = UWUpdateChecker.Newer;
+
+        mOVersion.text = lONewer != null
+            ? "<size=" + UpdateLineFontSize + "><color=#E8C25A>" + UWText.F("menu.update_available", string.IsNullOrEmpty(lONewer.Title) ? lONewer.Tag : lONewer.Title) + "</color></size>\nv" + Application.version
+            : "v" + Application.version;
         mOVersion.rectTransform.localScale = new Vector3(lfFactor > 0f ? 1f / lfFactor : 1f, 1f, 1f);
+        // The rect as large as the text, so a click anywhere on the line hits it (per user: only part of it did).
+        mOVersion.rectTransform.sizeDelta = new Vector2(mOVersion.preferredWidth, mOVersion.preferredHeight);
         mOVersion.gameObject.SetActive(true);
+        miVersionShownFor = UWUpdateChecker.Version;
+        mbVersionShownChecking = UWUserSettings.CheckForUpdates;
+        UWUpdateChecker.CheckIfDue();
+    }
+
+    /// <summary>The version line while the buttons show: written anew when a check has answered, and a click on it
+    /// opens the newer release's page (true: the click is taken).</summary>
+    private bool fUpdateVersionLine()
+    {
+        if (mOVersion == null || !mOVersion.gameObject.activeSelf)
+            return false;
+
+        if (miVersionShownFor != UWUpdateChecker.Version || mbVersionShownChecking != UWUserSettings.CheckForUpdates)
+            fShowVersion();
+
+        if (!UWPointer.LeftPressed || UWUpdateChecker.Newer == null
+            || !RectTransformUtility.RectangleContainsScreenPoint(mOVersion.rectTransform, UWPointer.Position, null))
+            return false;
+
+        UWUpdateChecker.OpenReleasePage();
+
+        return true;
     }
 
     private void fShowWorkInProgress()

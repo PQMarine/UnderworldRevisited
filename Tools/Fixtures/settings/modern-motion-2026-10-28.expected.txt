@@ -1,5 +1,6 @@
 ActionBarHidden = False
 AmbientLight = 1
+CheckForUpdates = False
 ClassicWide4By3 = False
 ClassicWidescreen = False
 CluebookConfirmed = False

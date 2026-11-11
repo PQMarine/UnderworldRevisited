@@ -28,6 +28,9 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
     private float mfBlackTotal;
 
+    /// <summary>What a blink does once the view is black (Blink), null when none waits.</summary>
+    private System.Action mOAtBlack;
+
     private GameObject mOBlack;
 
     private RawImage mOBlackImage;
@@ -47,6 +50,26 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
     /// <summary>True while the night is black: the world takes no input.</summary>
     public bool IsNight => mfBlackLeft > 0f;
+
+    /// <summary>A blink has not yet reached its black: its action still waits.</summary>
+    public bool IsBlinking => mOAtBlack != null;
+
+    /// <summary>
+    /// new_player_pos with NewPlyFade 3 (uw2 game/UWEDIT.C:466): fadeout3d, the move, fadein3d - the teleport of a
+    /// trap, Portal and Gate Travel (per user 2026-11-11 on the original: a short black). The view fades out, the
+    /// action runs at full black, the view fades in; the world takes no input meanwhile. False when the view is
+    /// already black or another blink waits: the caller acts at once.
+    /// </summary>
+    public bool Blink(System.Action pOAtBlack)
+    {
+        if (pOAtBlack == null || IsNight)
+            return false;
+
+        mOAtBlack = pOAtBlack;
+        fShowBlack(0f);
+
+        return true;
+    }
 
     /// <summary>player_key_sleep: in the bedroll when one is carried, else on the ground.</summary>
     public void Camp(UWInventoryModel pOInventory)
@@ -100,6 +123,15 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         mfBlackLeft -= Time.unscaledDeltaTime;
 
+        // A blink's action at its middle, the full black.
+        if (mOAtBlack != null && mfBlackLeft <= mfBlackTotal * 0.5f)
+        {
+            System.Action lOAction = mOAtBlack;
+
+            mOAtBlack = null;
+            lOAction();
+        }
+
         if (mfBlackLeft <= 0f)
             fEndBlack();
         else
@@ -115,6 +147,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
     private void fEndBlack()
     {
         mfBlackLeft = 0f;
+        mOAtBlack = null;
 
         if (mOBlack != null)
             mOBlack.SetActive(false);

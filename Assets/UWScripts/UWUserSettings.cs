@@ -260,6 +260,9 @@ public static class UWUserSettings
     }
 
     /// <summary>Keep running without the focus - see the field. Setting it applies at once.</summary>
+    /// <summary>The main menu checks for a newer release (UWUpdateChecker, GitHub issue 36).</summary>
+    public static bool CheckForUpdates { get => Defs.CheckForUpdates.Read(fGet()); set => Defs.CheckForUpdates.Write(fGet(), value); }
+
     public static bool RunInBackground
     {
         get { return Defs.RunInBackground.Read(fGet()); }

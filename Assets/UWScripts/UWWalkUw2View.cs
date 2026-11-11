@@ -130,8 +130,17 @@ public class UWWalkUw2View : MonoBehaviour
         if (lsInventoryError != null)
             return lsInventoryError;
 
+        // Modern's place as the original accepts it (UWPlayerMotion.OriginalSpot): only in the file, the player stays.
         UWDataImport.UWData.UWMotionParams lOParams = lOMovement.Motion.Params;
-        string lsError = UWSaveCodec.SaveUw2(lOSession, lsSlot, psDescription, lOLoader.CurrentLevelIndex, lOParams.X, lOParams.Y, lOParams.Z,
+        int liX = lOParams.X;
+        int liY = lOParams.Y;
+        int liZ = lOParams.Z;
+
+        if (lOMovement.Motion.Modern && lOMovement.Motion.OriginalSpot(out liX, out liY, out liZ)
+            && (liX != (lOParams.X & 0xFFFF) || liY != (lOParams.Y & 0xFFFF)))
+            Debug.Log("[Savegame] Modern's place moved to the nearest one the original accepts.");
+
+        string lsError = UWSaveCodec.SaveUw2(lOSession, lsSlot, psDescription, lOLoader.CurrentLevelIndex, liX, liY, liZ,
             lOMovement.Motion.CameraYaw);
 
         if (lsError == null)
@@ -189,7 +198,7 @@ public class UWWalkUw2View : MonoBehaviour
             else if (leCommand == UWGameScreenUw2.CommandEnum.None || leCommand == UWGameScreenUw2.CommandEnum.Look)
                 fBeginLookPress();
             else if (leCommand == UWGameScreenUw2.CommandEnum.Get)
-                fTake(fFirstEntity(), lOInventory, true);
+                fTake(fPickableEntity(true), lOInventory, true);
             else if (leCommand == UWGameScreenUw2.CommandEnum.Use)
                 fToggleDoor(true);
             else if (leCommand == UWGameScreenUw2.CommandEnum.Talk && mOScreen != null)
@@ -218,14 +227,15 @@ public class UWWalkUw2View : MonoBehaviour
     private void fModernUse()
     {
         UWEntityInfo lOThing = fFirstEntity();
+        UWEntityInfo lOPickable = fPickableEntity(false);
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
 
         if (lOThing != null && (lOThing.ObjectData is UWNpc || UWTalkRulesUw2.IsWisp(lOThing.ObjectData)) && mOScreen != null)
             mOScreen.TalkTo(lOThing);
-        else if (lOThing != null && lOThing.CanBePickedUp && lOInventory != null)
+        else if (lOPickable != null && lOInventory != null)
         {
-            fTake(lOThing, lOInventory, true);
+            fTake(lOPickable, lOInventory, true);
 
             if (lOInventory.CursorItem != null)
                 mOScreen.OpenBags();
@@ -250,7 +260,7 @@ public class UWWalkUw2View : MonoBehaviour
     {
         mbLookPending = true;
         mOLookPressAt = UWPointer.Position;
-        mOLookTarget = fFirstEntity();
+        mOLookTarget = fPickableEntity(false);
     }
 
     private void fFollowLookPress(UnityEngine.InputSystem.Mouse pOMouse, UWInventoryModel pOInventory)
@@ -270,6 +280,27 @@ public class UWWalkUw2View : MonoBehaviour
 
         if (mOLookTarget != null && mOLookTarget.CanBePickedUp)
             fTake(mOLookTarget, pOInventory, false);
+    }
+
+    /// <summary>
+    /// WHAT TAKING AIMS AT: the first pickable thing along the pointer's ray over the look's whole range,
+    /// stopped by a wall, a door, a creature or a solid thing (UWWorldPicker's Pickable, as the first
+    /// game's Interaction takes). The reach is judged afterwards on the tile grid (fTake, UWReachRules), so
+    /// a thing too far away says so, and Telekinesis takes it. Until 2026-11-11 taking used fFirstEntity,
+    /// whose ray ends at DoorReach: beyond two tiles nothing was found, so Telekinesis could not take
+    /// from afar (per user, test list 25.5). pbOrFrontmost: with nothing pickable the frontmost thing, so Get
+    /// on a creature or a chest still says "You cannot pick that up." (player_3dget).
+    /// </summary>
+    private UWEntityInfo fPickableEntity(bool pbOrFrontmost)
+    {
+        Camera lOCamera = UWViewpoint.Current;
+
+        if (lOCamera == null)
+            return null;
+
+        UWWorldPicker.Measurement lOMeasured = UWWorldPicker.Measure(fPointerRay(lOCamera));
+
+        return lOMeasured.Pickable != null || !pbOrFrontmost ? lOMeasured.Pickable : lOMeasured.Frontmost;
     }
 
     /// <summary>The nearest thing with object data the pointer points at, within DoorReach.</summary>

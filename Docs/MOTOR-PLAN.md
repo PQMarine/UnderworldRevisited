@@ -230,6 +230,17 @@ Each phase ends with the self-check green, Original and Smooth byte-identical.
   the slide without the view turning, back and sides at 0.75, the jump's apex, a placement taken
   over, the easy step, a trigger reaching the world.
 - **M5 - the feel** (S): back and side speeds, the start and stop, the view - tuned with the user.
+- **The hand-over to the original's body** (2026-11-11, per user after a save from Modern stuck the
+  player in the original at a diagonal: gog:SAVE3, level 10, 29/30 at fine 66/25, the diagonal 29/29
+  of type 4 to the south): the motor's body is a cylinder, the original's a square box of the COMOBJ
+  radius (COLLIDE.C), so the motor stands closer to a diagonal, a rock corner or a solid thing than the
+  box fits, and the original loads PLAYER.DAT's position as it is (read_player_data). Decided with the
+  user: `UWPlayerMotion.OriginalSpot` finds the nearest eighth the original's can_place
+  (CheckIfItemFitsInTile, drop allowed) accepts, within a tile, the fraction kept; a save from Modern
+  writes that place into the file only (the player stays), leaving Modern for Original or Smooth moves
+  the player there (`MoveToOriginalSpot`). Not a square motor body: that would bring back the sticking
+  the motor exists to remove. `OriginalSpotChecks`. CONFIRMED by the user the same day: saved again from
+  Modern, gog:SAVE3 loads in the original without sticking.
 
 UW2 needs no phase of its own here: its rules object comes with UW2's phase 4, its level data
 through the per-game readers of UW2's phase 1, which the motor reads through `IUWMotionWorld` as

@@ -21,6 +21,8 @@ namespace UWDataImport.UWData
 			fAdd("setting.CutsceneSubtitles.choice.off", "Off");
 			fAdd("setting.CutsceneSubtitles.choice.on", "On");
 			fAdd("setting.RunInBackground", "Keep running in the background");
+			fAdd("setting.CheckForUpdates", "Check for new versions");
+			fAdd("setting.CheckForUpdates.hint", "At most once a day the main menu asks GitHub for the newest release and names a newer one beside the version, with a click to its page. Nothing but that request is sent, and nothing is downloaded.");
 			fAdd("setting.ManualAttributes", "Choose attributes at creation");
 			fAdd("setting.FixOriginalBugs", "Fix bugs of the original");
 			fAdd("setting.FixOriginalBugs.hint", "Fixes bugs of the original game that can cost you the game: Goldthirst's gifts, Judy pushed into the lava, the object a too heavy stack leaves behind in a save. Off plays them as the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");

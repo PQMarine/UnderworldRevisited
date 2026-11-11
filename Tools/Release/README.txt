@@ -55,6 +55,11 @@ STARTING
 Save games are kept in the SAVE folders of your Ultima Underworld installation, as in the
 original, and are compatible with it.
 
+NEW VERSIONS: "Check for new versions" in the Game window, off by default, lets the main menu ask
+GitHub at most once a day for the newest release. A newer one is named above the version in the
+corner, and a click on it opens its release page. Only that request is sent, and nothing is downloaded
+or installed.
+
 STEAM: Steam keeps the saves in its cloud, but synchronises them only when it starts the game
 itself. Put this into the game's Properties > General > Launch Options (your path to UR.exe):
 

@@ -843,7 +843,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
             if (lOTrap.ID == UWTeleportUw2.TrapId)
             {
-                mOLoader.WalkTeleport(UWTeleportUw2.Decode(lOTrap));
+                mOLoader.WalkTeleport(UWTeleportUw2.Decode(lOTrap), true);
 
                 break;
             }

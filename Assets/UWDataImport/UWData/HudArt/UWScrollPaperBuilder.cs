@@ -86,7 +86,7 @@ namespace UWDataImport.Presentation
 		public static UWPicture Build(UWTextures pOTextures, UWPicture pOWideFrame, int piExtra, int piEdgeFrame, int piWiden = 0)
 		{
 			UWPicture lOFrame = pOWideFrame;
-			int liPedestalShift = -1;
+			int? liPedestalShift = null;
 
 			if (lOFrame == null)
 			{
@@ -110,6 +110,11 @@ namespace UWDataImport.Presentation
 				{
 					lOFrame = Widen(lOFrame, piWiden);
 					liPedestalShift = 0;
+				}
+				else if (piWiden < 0)
+				{
+					lOFrame = Narrow(lOFrame, -piWiden, out int liNarrowShift);
+					liPedestalShift = liNarrowShift;
 				}
 			}
 
@@ -138,6 +143,52 @@ namespace UWDataImport.Presentation
 					int liFrom = liX < WidenColumn ? liX : liX < WidenColumn + piExtra ? WidenColumn : liX - piExtra;
 
 					lOOut.Set(liX, liY, pOFrame.Get(liFrom, liY));
+				}
+			}
+
+			return lOOut;
+		}
+
+		/// <summary>The plain runs of the frame's scroll rows (every column of them the same, read from MAIN.BYT
+		/// 2026-11-11): taken out to narrow the scroll, the right one first - right of the compass's pedestal, then
+		/// left of it.</summary>
+		private const int NarrowRightFirst = 160;
+
+		private const int NarrowRightLast = 241;
+
+		private const int NarrowLeftFirst = 36;
+
+		private const int NarrowLeftLast = 115;
+
+		/// <summary>The most columns Narrow can take out.</summary>
+		public const int MaxNarrow = (NarrowRightLast - NarrowRightFirst + 1) + (NarrowLeftLast - NarrowLeftFirst + 1);
+
+		/// <summary>
+		/// THE SCROLL NARROWER IN THE MODERN SCHEME (GitHub issue 29, per its reporter 2026-11-11: the scroll took too
+		/// much room): the frame picture piLess columns narrower (up to MaxNarrow), columns taken out of the plain runs
+		/// of its rims - first right of the compass's pedestal, then left of it, so no seam shows; the rollers, knobs
+		/// and edges keep their shape. piPedestalShift: how far the pedestal moved left (Compose).
+		/// </summary>
+		public static UWPicture Narrow(UWPicture pOFrame, int piLess, out int piPedestalShift)
+		{
+			int liLess = Math.Max(0, Math.Min(piLess, MaxNarrow));
+			int liRight = Math.Min(liLess, NarrowRightLast - NarrowRightFirst + 1);
+			int liLeft = liLess - liRight;
+			int liWidth = pOFrame.Width - liLess;
+			UWPicture lOOut = new UWPicture(liWidth, pOFrame.Height);
+
+			piPedestalShift = -liLeft;
+
+			for (int liY = 0; liY < pOFrame.Height; liY++)
+			{
+				int liTo = 0;
+
+				for (int liX = 0; liX < pOFrame.Width; liX++)
+				{
+					if ((liX >= NarrowLeftFirst && liX < NarrowLeftFirst + liLeft) || (liX >= NarrowRightFirst && liX < NarrowRightFirst + liRight))
+						continue;
+
+					lOOut.Set(liTo++, liY, pOFrame.Get(liX, liY));
 				}
 			}
 
@@ -175,12 +226,13 @@ namespace UWDataImport.Presentation
 		/// missing there); elsewhere the lower knobs' clean shape.
 		/// </summary>
 		public static UWPicture Compose(UWPicture pOFrame, UWPicture pOLeftEdge, UWPicture pORightEdge, int piExtra,
-			bool pbKeepUpperKnobs = false, int piPedestalShift = -1)
+			bool pbKeepUpperKnobs = false, int? piPedestalShift = null)
 		{
 			int liWidth = pOFrame.Width;
 			int liWide = liWidth - UWClassicLayout.Screen.Width;
-			// Classic Wide moved the pedestal to the middle of its widened frame; a frame widened by Widen keeps it.
-			int liShift = piPedestalShift >= 0 ? piPedestalShift : liWide / 2;
+			// Classic Wide moved the pedestal to the middle of its widened frame; a frame widened by Widen keeps it,
+			// one narrowed by Narrow says where it went.
+			int liShift = piPedestalShift ?? liWide / 2;
 			int liHeight = SourceRows + piExtra;
 			UWPicture lOOut = new UWPicture(liWidth, liHeight);
 

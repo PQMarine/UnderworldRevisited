@@ -1792,6 +1792,102 @@ namespace UWDataImport.UWData
 			return true;
 		}
 
+		// ------------------------------------------------- The original's place for Modern's position
+
+		/// <summary>How far, in eighths of a tile, OriginalSpot looks around the position (per user 2026-11-11: the
+		/// difference is one or two eighths; nothing found within a tile keeps the position).</summary>
+		public const int OriginalSpotReach = 8;
+
+		/// <summary>
+		/// THE NEAREST PLACE THE ORIGINAL ACCEPTS (per user 2026-11-11, after a save from Modern stuck the player
+		/// in the original): Modern's motor is a round body (Docs/MOTOR-PLAN.md 4.1), the original's a square box
+		/// of the COMOBJ radius (COLLIDE.C). The circle comes closer to a diagonal wall, to the outer corner of a
+		/// rock tile and to a solid thing than the square's corner may, so a place Modern stands on can lie inside
+		/// rock for the original - the original loads PLAYER.DAT's position as it is (read_player_data) and the
+		/// player cannot move, and our own Original and Smooth stick there the same.
+		///
+		/// The test is the original's can_place (CheckIfItemFitsInTile with the step allowance, a drop allowed:
+		/// only rock and solid things count). The params' place when it passes; otherwise the nearest eighth
+		/// around it that passes, by distance, the fraction within the eighth kept - so the shift is whole eighths,
+		/// usually one or two. The height: where the floor at the new place lies above the feet, the floor.
+		/// False and the params' place when nothing within OriginalSpotReach passes. The params stay as they are.
+		/// </summary>
+		public bool OriginalSpot(out int piX, out int piY, out int piZ)
+		{
+			UWMotionParams p = Params;
+
+			piX = p.X & 0xFFFF;
+			piY = p.Y & 0xFFFF;
+			piZ = p.Z;
+
+			int liX8 = I16(p.X) / 0x20;
+			int liY8 = I16(p.Y) / 0x20;
+			int liFeet = FeetZPos;
+
+			Core.Mover = Body;
+
+			if (fOriginalFits(liX8, liY8, liFeet, out int liStand))
+				return true;
+
+			int liBestDistance = int.MaxValue;
+			int liBestDx = 0;
+			int liBestDy = 0;
+			int liBestStand = 0;
+
+			for (int liDy = -OriginalSpotReach; liDy <= OriginalSpotReach; liDy++)
+			{
+				for (int liDx = -OriginalSpotReach; liDx <= OriginalSpotReach; liDx++)
+				{
+					int liDistance = (liDx * liDx) + (liDy * liDy);
+
+					if (liDistance == 0 || liDistance >= liBestDistance)
+						continue;
+
+					if (!fOriginalFits(liX8 + liDx, liY8 + liDy, liFeet, out liStand))
+						continue;
+
+					liBestDistance = liDistance;
+					liBestDx = liDx;
+					liBestDy = liDy;
+					liBestStand = liStand;
+				}
+			}
+
+			if (liBestDistance == int.MaxValue)
+				return false;
+
+			piX = (p.X + (liBestDx * 0x20)) & 0xFFFF;
+			piY = (p.Y + (liBestDy * 0x20)) & 0xFFFF;
+
+			if (liBestStand > liFeet)
+				piZ = liBestStand << 3;
+
+			return true;
+		}
+
+		/// <summary>OriginalSpot's place taken into the params: what leaving Modern for Original or Smooth does.
+		/// True when the player was moved.</summary>
+		public bool MoveToOriginalSpot()
+		{
+			UWMotionParams p = Params;
+
+			if (!OriginalSpot(out int liX, out int liY, out int liZ) || (liX == (p.X & 0xFFFF) && liY == (p.Y & 0xFFFF) && liZ == p.Z))
+				return false;
+
+			// The tile is left to the next frame, which notices a change and enters the new tile as any step does.
+			p.X = liX;
+			p.Y = liY;
+			p.Z = liZ;
+
+			return true;
+		}
+
+		private bool fOriginalFits(int piX8, int piY8, int piFeet, out int piStand)
+		{
+			return Core.CheckIfItemFitsInTile(UWObjectMechanics.AdventurerObjectId, 1, piX8, piY8, piFeet, true, Params.Step,
+				out piStand, out int _);
+		}
+
 		// ------------------------------------------------- Interventions
 
 		/// <summary>StopFalling_seg008_D5B for the player's object: on the ground the vertical speed

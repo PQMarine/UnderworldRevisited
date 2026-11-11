@@ -491,9 +491,9 @@ namespace UnderworldRevisited.Tools
                 return fAnswerOf(pOCreature);
             }
 
-            public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds)
+            public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)
             {
-                Log.Add("effect " + piEffectObjectId + " at " + NameOf(pOCreature));
+                Log.Add("effect " + piEffectObjectId + " at " + NameOf(pOCreature) + (piEighths != UWAreaSpellRules.SpellEffectEighths ? " eighths " + piEighths : ""));
             }
 
             public void StrikeTile(UWTilePos pOTile, int piDiceCount, int piDiceRange, int piDamageType, int piAttacker)

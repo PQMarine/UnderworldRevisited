@@ -81,10 +81,26 @@ public static class UWSavegameWriter
 
         if (lOMovement != null && lOMovement.UsesMotionCore)
         {
-            lOTile = new UWTilePos(lOMovement.Motion.TileX, lOMovement.Motion.TileY);
-            liFineX = lOMovement.Motion.Params.X & 0xFF;
-            liFineY = lOMovement.Motion.Params.Y & 0xFF;
-            liZ = lOMovement.Motion.Params.Z & 0x3FF;
+            int liX = lOMovement.Motion.Params.X;
+            int liY = lOMovement.Motion.Params.Y;
+            int liMotionZ = lOMovement.Motion.Params.Z;
+
+            // MODERN'S PLACE AS THE ORIGINAL ACCEPTS IT (per user 2026-11-11): the round body may stand where the
+            // original's square box reaches into rock, and the original would load the player stuck there
+            // (UWPlayerMotion.OriginalSpot). Only the file gets the nearest such place; the player stays.
+            if (lOMovement.Motion.Modern && lOMovement.Motion.OriginalSpot(out int liSpotX, out int liSpotY, out int liSpotZ)
+                && (liSpotX != (liX & 0xFFFF) || liSpotY != (liY & 0xFFFF)))
+            {
+                Debug.Log("[Savegame] Modern's place moved to the nearest one the original accepts.");
+                liX = liSpotX;
+                liY = liSpotY;
+                liMotionZ = liSpotZ;
+            }
+
+            lOTile = new UWTilePos((liX >> 8) & 0x3F, (liY >> 8) & 0x3F);
+            liFineX = liX & 0xFF;
+            liFineY = liY & 0xFF;
+            liZ = liMotionZ & 0x3FF;
             liHeading = lOMovement.Motion.CameraYaw & 0xFFFF;
         }
 

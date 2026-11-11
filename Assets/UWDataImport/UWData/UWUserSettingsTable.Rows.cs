@@ -87,6 +87,7 @@ namespace UWDataImport.UWData
 			fText(CutsceneSubtitles, true);
 			fChoices(CutsceneSubtitles, new[] { "auto", "off", "on" });
 			fText(RunInBackground);
+			fText(CheckForUpdates, true);
 			fText(ManualAttributes);
 			fText(FixOriginalBugs, true);
 			fText(RemoveExploits, true);

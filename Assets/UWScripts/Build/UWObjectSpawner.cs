@@ -978,11 +978,14 @@ namespace UnderworldRevisited.Build
         }
 
         /// <summary>
-        /// Quad at original size with its pivot at bottom centre, a pixel one world unit across. A sprite
-        /// (pbSprite) stands five quarters of a unit per pixel high, as in_scalebm draws it (UWSpriteScale,
-        /// since 2026-10-29); the things on walls stay square - the original draws them as models 0x10 to
-        /// 0x16, whose quads are as tall as wide (per user, 2026-10-29: a button turned too tall with the
-        /// sprites). Built only once per texture source, index and kind.
+        /// Quad at original size, a pixel one world unit across. A sprite (pbSprite) stands five quarters of a
+        /// unit per pixel high, as in_scalebm draws it (UWSpriteScale, since 2026-10-29), and hangs on its
+        /// point by the original's fixed hot spot (UWSpriteScale.AnchorX/AnchorY, since 2026-11-11): its top
+        /// 16 pixels above the point, its left edge 8 to the left - a 16 by 16 picture stands on the point,
+        /// centred, as before; a taller animation hangs below it. The things on walls stay square with the
+        /// pivot at bottom centre - the original draws them as models 0x10 to 0x16, whose quads are as tall as
+        /// wide (per user, 2026-10-29: a button turned too tall with the sprites). Built only once per texture
+        /// source, index and kind.
         /// </summary>
         private Mesh fGetQuad(UWTexture pOTexture, UWTextureRef pOResolved, bool pbSprite)
         {
@@ -999,12 +1002,17 @@ namespace UnderworldRevisited.Build
             Mesh lOMesh = new Mesh();
             lOMesh.name = string.Format("UWQuad {0}_{1}", pOTexture.TextureType, pOTexture.Index);
 
+            float lfLeft = pbSprite ? -UWSpriteScale.AnchorX : -lfHalfWidth;
+            float lfRight = lfLeft + pOResolved.Size.x;
+            float lfTop = pbSprite ? UWSpriteScale.AnchorY * UWSpriteScale.PixelHeight : lfHeight;
+            float lfBottom = lfTop - lfHeight;
+
             lOMesh.vertices = new Vector3[]
             {
-                new Vector3(-lfHalfWidth, 0f, 0f),
-                new Vector3(lfHalfWidth, 0f, 0f),
-                new Vector3(lfHalfWidth, lfHeight, 0f),
-                new Vector3(-lfHalfWidth, lfHeight, 0f)
+                new Vector3(lfLeft, lfBottom, 0f),
+                new Vector3(lfRight, lfBottom, 0f),
+                new Vector3(lfRight, lfTop, 0f),
+                new Vector3(lfLeft, lfTop, 0f)
             };
 
             fApplyUVs(lOMesh, new Vector2[]
@@ -1110,8 +1118,13 @@ namespace UnderworldRevisited.Build
             // As tall as the picture (UWSpriteScale).
             float lfSpriteHeight = lOResolved.Size.y * UWSpriteScale.PixelHeight;
 
-            lOCollider.size = new Vector3(lOResolved.Size.x, lfSpriteHeight, lOResolved.Size.x);
-            lOCollider.center = new Vector3(0f, lfSpriteHeight * 0.5f, 0f);
+            // Around the picture as it hangs on its point (fGetQuad): for a 16 by 16 picture the old box. The
+            // box does not turn with the picture, so across it reaches as far as the picture's farther side on
+            // both sides (a wider picture reaches further right than left of its point).
+            float lfAcross = 2f * Mathf.Max(UWSpriteScale.AnchorX, lOResolved.Size.x - UWSpriteScale.AnchorX);
+
+            lOCollider.size = new Vector3(lfAcross, lfSpriteHeight, lfAcross);
+            lOCollider.center = new Vector3(0f, (UWSpriteScale.AnchorY * UWSpriteScale.PixelHeight) - (lfSpriteHeight * 0.5f), 0f);
 
             // COMOBJ.DAT gives every object a height, and 0 there means "no collision".
             // Exactly the things you walk over in the original are at 0: bones,

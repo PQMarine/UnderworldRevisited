@@ -1,4 +1,4 @@
-using UWDataImport.UWData;
+﻿using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
 {
@@ -39,6 +39,7 @@ namespace UnderworldRevisited.Tools
             {
                 fCheckSheetLightningCaster();
                 fCheckTremorOnWorld();
+                fCheckAreaSpellsUw2();
             }
             finally
             {
@@ -54,6 +55,42 @@ namespace UnderworldRevisited.Tools
                 UWCritterBrain.PlayerIndex);
             fExpectBool("cast: a creature casts", UWCastContext.Creature(7, UWSpot.Nowhere, 0).ByCreature, true);
             fExpectInt("cast: a creature's blasts are charged to it", UWCastContext.Creature(7, UWSpot.Nowhere, 0).AttackerIndex, 7);
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S AREA SPELLS (UWAreaSpellRulesUw2, stage 2 part B, 2026-11-11) with every roll at 0: Shockwave
+        /// around the player strikes the creature beside him with Casting / 2 + 15 of magic, not the one far off, and
+        /// splashes the empty squares; Flame Wind strikes one square per stroke, its count of 10 (no cross); Frost
+        /// gives the creature 10 of magic and cold and lays frost on the empty squares without using its count.
+        /// </summary>
+        private static void fCheckAreaSpellsUw2()
+        {
+            FakeWorld lOWorld = fCastWorld();
+            FakeSpellHost lOHost = new FakeSpellHost(lOWorld, UWCastContext.ThePlayer);
+
+            lOWorld.PutCreature(11, 10, "A");
+            lOWorld.PutCreature(15, 15, "B");
+            UWAreaSpellRulesUw2.Cast(0x86, lOHost);
+
+            fExpectInt("uw2 shockwave: the creature beside the player takes Casting / 2 + 15 of magic",
+                lOWorld.Blows.FindAll(psBlow => psBlow.EndsWith("takes 30 type 3 by " + UWCritterBrain.PlayerIndex)).Count, 1);
+            fExpectBool("uw2 shockwave: the empty squares splash", lOWorld.Shown.Log.Exists(psLine => psLine.StartsWith("effect 459 ")), true);
+
+            lOWorld = fCastWorld();
+            lOHost = new FakeSpellHost(lOWorld, UWCastContext.ThePlayer);
+            UWAreaSpellRulesUw2.Cast(0x84, lOHost);
+
+            fExpectInt("uw2 flame wind: ten strokes of 10d6 fire, each on its own square",
+                lOWorld.Log.FindAll(psLine => psLine.StartsWith("strike ") && psLine.Contains(" 10d6 type 11")).Count, 10);
+
+            lOWorld = fCastWorld();
+            lOHost = new FakeSpellHost(lOWorld, UWCastContext.ThePlayer);
+            lOWorld.PutCreature(10, 13, "F");
+            UWAreaSpellRulesUw2.Cast(0x87, lOHost);
+
+            fExpectInt("uw2 frost: the creature takes 10 of magic and cold",
+                lOWorld.Blows.FindAll(psBlow => psBlow.EndsWith("takes 10 type 35 by " + UWCritterBrain.PlayerIndex)).Count, 1);
+            fExpectBool("uw2 frost: frost on the empty squares", lOWorld.Shown.Log.Exists(psLine => psLine.StartsWith("effect 458 ")), true);
         }
 
         /// <summary>A world for one cast: the player on 10/10 looking north on an open level.</summary>

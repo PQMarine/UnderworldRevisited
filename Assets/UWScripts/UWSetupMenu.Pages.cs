@@ -686,6 +686,18 @@ public partial class UWSetupMenu
                     UWUserSettings.Save();
                 }
             })
+            // A NEWER RELEASE (GitHub issue 36, per user 2026-11-11): opt-in, off by default, no question asked.
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.Toggle, Id = Defs.CheckForUpdates.LabelId, Def = Defs.CheckForUpdates, Advance = 30f,
+                GetOn = () => UWUserSettings.CheckForUpdates,
+                SetOn = pbOn =>
+                {
+                    UWUserSettings.CheckForUpdates = pbOn;
+                    UWUserSettings.Save();
+                }
+            })
+            .Add(fHint(Defs.CheckForUpdates, 0f))
             // The bug fixes, the exploits and choosing the attributes moved to the Gameplay window on
             // 2026-11-08 (fBuildGameplayPage, per user).
             // THE LANGUAGE (translation wave 1, 2026-10-26; decided by the user that day): English and

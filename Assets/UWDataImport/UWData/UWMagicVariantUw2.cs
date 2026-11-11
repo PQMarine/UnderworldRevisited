@@ -119,7 +119,7 @@ namespace UWDataImport.UWData
 		public int HealedString => HealedMessage;
 
 		/// <summary>Stage 1 the classes up to 4; stage 2 part A the backfire, mana, class 11 (but Roaming Sight)
-		/// and class 13 (but Mind Blast and the two missiles).</summary>
+		/// and class 13 (but Mind Blast and the two missiles); part B the area spells, class 6.</summary>
 		public bool IsBuilt(UWRunicMagic.Spell pOSpell)
 		{
 			int liMinor = UWRunicMagic.GetEffectMinor(pOSpell.MinorClass);
@@ -135,6 +135,9 @@ namespace UWDataImport.UWData
 
 				case UWSpecialSpellRulesUw2.MajorClass:
 					return UWSpecialSpellRulesUw2.IsBuilt(liMinor);
+
+				case UWAreaSpellRulesUw2.MajorClass:
+					return UWAreaSpellRulesUw2.IsBuilt(liMinor);
 
 				default:
 					return pOSpell.MajorClass <= LastLastingOrHealClass;
@@ -159,6 +162,12 @@ namespace UWDataImport.UWData
 
 				case UWSpecialSpellRulesUw2.MajorClass:
 					UWSpecialSpellRulesUw2.Cast(piMinor, pIHost);
+
+					return true;
+
+				// Stage 2 part B, the area spells by the second game's table (do_spell's case 6 always takes).
+				case UWAreaSpellRulesUw2.MajorClass:
+					UWAreaSpellRulesUw2.Cast(pOSpell.MinorClass, pIHost);
 
 					return true;
 

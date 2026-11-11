@@ -26,7 +26,43 @@ namespace UnderworldRevisited.Tools
             fCheckAreaWalkConfusionCount();
             fCheckAreaWalkRandom();
             fCheckAreaWalkMapEdge();
+            fCheckAreaWalkOpenSquares();
             fCheckDamageSquare();
+        }
+
+        /// <summary>The second game's AREA_OBJECTS (uw2 process_area): every open square handed over with no object,
+        /// before that square's list; the first game's walk hands over only the list.</summary>
+        private static void fCheckAreaWalkOpenSquares()
+        {
+            FakeWorld lOWorld = fCastWorld();
+
+            lOWorld.PutCreature(20, 20, "D");
+
+            List<string> lOSeen = new List<string>();
+
+            UWAreaWalk.Square(lOWorld.Level, new UWTilePos(20, 20), 1, 99, UWCritterBrain.PlayerIndex, UWAreaWalk.Objects,
+                (pOTile, pOTarget) =>
+                {
+                    lOSeen.Add(lOWorld.NameOf(pOTarget) + "@" + pOTile.X + "/" + pOTile.Z);
+
+                    return false;
+                }, true);
+
+            int liOpen = 0;
+
+            for (int liX = 19; liX <= 21 + 1; liX++)
+            {
+                for (int liY = 19; liY <= 21 + 1; liY++)
+                {
+                    if (lOWorld.Level.GetTile(liX, liY).TileType != UWTile.TileTypeEnum.solid)
+                        liOpen++;
+                }
+            }
+
+            fExpectInt("area walk uw2: every open square handed over with no object",
+                lOSeen.FindAll(psSeen => psSeen.StartsWith("nothing@")).Count, liOpen);
+            fExpectBool("area walk uw2: a square before its list (" + string.Join(", ", lOSeen.FindAll(psSeen => psSeen.EndsWith("@20/20"))) + ")",
+                lOSeen.IndexOf("D@20/20") == lOSeen.IndexOf("nothing@20/20") + 1, true);
         }
 
         /// <summary>The fake world of a cast with a handler that notes every creature it is handed

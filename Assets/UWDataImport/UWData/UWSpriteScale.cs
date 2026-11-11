@@ -18,5 +18,18 @@ namespace UWDataImport.UWData
 
 		/// <summary>A sprite pixel's height in units of its width.</summary>
 		public const float PixelHeight = (float)RecordUp / RecordAcross;
+
+		/// <summary>
+		/// WHERE A SPRITE HANGS ON ITS POINT (2026-11-11, per user with screenshots of Mass Confusion beside the
+		/// original: our sparkles stood too high). The object record's hot spot is fixed, the same for every
+		/// picture whatever its size (UW.EXE file 0x554F6 on, UW2.EXE 0x5EF32: x 8, y 16 at +6 and +8, beside the
+		/// scale words above); in_scalebm moves the point left by x and up by y pixels and draws the picture
+		/// from there to the right and down (Underworld Exhumed TMAPOPS.ASM in_scalebm). So a 16 by 16 picture -
+		/// nearly every item - stands with its bottom on the point, centred; a taller one, as most animations,
+		/// hangs below the point, and a wider one reaches further right than left.
+		/// </summary>
+		public const int AnchorX = 8;
+
+		public const int AnchorY = 16;
 	}
 }

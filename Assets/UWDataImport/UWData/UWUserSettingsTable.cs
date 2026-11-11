@@ -292,6 +292,8 @@ namespace UWDataImport.UWData
 
 		public static readonly UWBoolSettingDef RunInBackground = fBool(nameof(UWUserData.RunInBackground), d => d.RunInBackground, (d, v) => d.RunInBackground = v);
 
+		public static readonly UWBoolSettingDef CheckForUpdates = fBool(nameof(UWUserData.CheckForUpdates), d => d.CheckForUpdates, (d, v) => d.CheckForUpdates = v);
+
 		/// <summary>Retired (the classic screen is always 4:3 since 2026-10-10); kept for the file only.</summary>
 		public static readonly UWBoolSettingDef DisplayAs4By3 = fBool(nameof(UWUserData.DisplayAs4By3), d => d.DisplayAs4By3, (d, v) => d.DisplayAs4By3 = v);
 
@@ -461,7 +463,7 @@ namespace UWDataImport.UWData
 			ModernConversationOriginal, ModernConversationNoOutline, ModernPointerHold, MouseLookSpeed, MouseInvertY, WalkSlowToggle, DebugKeys,
 			GamepadButtonStyle, StickLookSpeed, GamepadSwapSticks, StickInvertY, LeftStickDeadzone, GamepadButtonHints,
 			RightStickDeadzone, ModernPanelPinned, ModernRunesPinned, ControlScheme, EasyMovementInterval, ShowOpeningSequence,
-			CutsceneSubtitles, RunInBackground, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
+			CutsceneSubtitles, RunInBackground, CheckForUpdates, DisplayAs4By3, ClassicWidescreen, ViewAngle, ViewGamma, OriginalWorldResolution, OriginalWorldResolutionFactor,
 			PaletteAmbientOcclusion, PaletteLightSources, PaletteGlow, PaletteGrime, PaletteGrimeTone, AmbientLight, LightTone, PaletteGroundShadows,
 			PaletteCavity, PaletteDepth, PaletteDitherCell, DisplayMode, ResolutionWidth, ResolutionHeight, HeadBobMode, HeadBobStrength,
 			WeaponJitterMode, WeaponJitterStrength, SwimViewMode, SwimViewStrength, MotionSmoothing, MotionViewStepped,

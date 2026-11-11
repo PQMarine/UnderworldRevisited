@@ -89,7 +89,7 @@ public class UWModernScroll
     }
 
     /// <summary>The width chosen for the modern scroll beyond the original's, in its pixels.</summary>
-    public static int ExtraWidth => Mathf.Clamp(UWUserSettings.ModernScrollWidth, 0, MaxExtraWidth);
+    public static int ExtraWidth => Mathf.Clamp(UWUserSettings.ModernScrollWidth, MinExtraWidth, MaxExtraWidth);
 
     /// <summary>Whether the scroll shown takes its width from ExtraWidth (not the Classic presets' frames).</summary>
     public static bool IsWidthFree => UWModernLayout.IsScrollShown && !UWModernClassicFrame.IsActive && !UWModernClassicPlus.IsActive;
@@ -99,6 +99,13 @@ public class UWModernScroll
 
     /// <summary>The most the modern scroll can be widened: the original's width once more.</summary>
     public const int MaxExtraWidth = 320;
+
+    /// <summary>The most the modern scroll can be narrowed (issue 29, per its reporter 2026-11-11): the plain paper
+    /// UWScrollPaperBuilder.Narrow can take out, in whole WidthSteps - a negative ExtraWidth.</summary>
+    public const int MinExtraWidth = -(UWDataImport.Presentation.UWScrollPaperBuilder.MaxNarrow / WidthStep) * WidthStep;
+
+    /// <summary>The scroll's own width in its pixels: the original's 320 and ExtraWidth (the inspector's number).</summary>
+    public static int OwnWidth => UWDataImport.UWData.UWClassicLayout.Screen.Width + ExtraWidth;
 
     /// <summary>The step of the layout editor's width row.</summary>
     public const int WidthStep = 16;

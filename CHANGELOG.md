@@ -10,6 +10,28 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.19.3] - 2026-11-11
+
+### Added
+- *Check for new versions* in the Game window, off by default: the main menu asks GitHub at most once a day
+  for the newest release and names a newer one above the version, a click opens its page. Nothing is
+  downloaded or installed (GitHub issue 36).
+
+### Changed
+- Ultima Underworld II preview: the area spells - Sheet Lightning, Flame Wind, Mass Confusion, Shockwave, Frost,
+  Repel Undead and Reveal - by the second game's own table and rules.
+- Effects such as explosions, splashes and the sparkle of a spell hang on their point as in the original: every
+  object picture is drawn from a fixed point 16 pixels above and 8 to the left, so a picture taller than an
+  item's hangs below its point. A spell's sparkle on a creature sits at seven eighths of its height, as the
+  original puts it; ours stood above the creatures' heads.
+- Motion Modern: a save stores the nearest place the original accepts, and switching from Modern to Original
+  or Smooth moves you there. Modern's round body may stand closer to a diagonal wall, a rock corner or a solid
+  thing than the original's square body fits, and the original loaded such a save with the player stuck in the
+  wall. The difference is usually an eighth or two of a tile.
+- Modern scheme: the message scroll can also be made narrower than the original's, to about half its width.
+  The plain paper between the rollers is taken out, the rollers and the compass's pedestal keep their shape,
+  and the inspector's *Width* shows the scroll's own width now, 320 for the original's (GitHub issue 29).
+
 ## [0.19.2] - 2026-11-11
 
 ### Added

@@ -178,6 +178,12 @@ of the modern scheme and the options panel of the classic one.
   height and reach, the step height, ledges (walking slowly you stop at the edge), falls and
   their damage, water, lava, the spells of motion, move triggers and doors. Modern works in both
   control schemes.
+  Modern's body is round, the original's is square. So Modern lets you stand a little closer to a
+  diagonal wall, the outer corner of a rock or a solid thing than the original's square fits. A
+  save made with Modern therefore stores the nearest place the original accepts, usually an eighth
+  or two of a tile away, so the original (and Original or Smooth) can load it without sticking in
+  the wall; you stay where you are until you load. Switching from Modern to Original or Smooth
+  moves you there at once.
 - **Response** (Smooth and Modern, a value for each): how long starting and stopping take - 0.6 s
   is the original on a slow PC, 0.3 s on the PC that DOSBox at 30000 cycles stands for. Modern
   starts at once by default.

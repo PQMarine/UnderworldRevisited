@@ -267,6 +267,10 @@ namespace UWDataImport.UWData
 		/// themselves"). Off by default, as Unity has it.</summary>
 		public bool RunInBackground;
 
+		/// <summary>The main menu asks GitHub at most once a day for a newer release (GitHub issue 36, per user
+		/// 2026-11-11: opt-in, the option only). Off by default.</summary>
+		public bool CheckForUpdates;
+
 		/// <summary>The classic screen at 4:3 - always on since 2026-10-10 (UWDisplayAspect).
 		/// KEPT FOR THE FILE ONLY: settings.json fields are never removed, so a file written by an
 		/// older version still reads; nothing reads the value any more.</summary>
