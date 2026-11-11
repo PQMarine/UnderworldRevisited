@@ -10,6 +10,22 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-11-11
+
+### Added
+- Modern scheme: a bag opened again opens the bags inside it that were open when it was closed.
+
+### Changed
+- Portable: a copy made portable with `portable.txt` or `-portable` takes your settings, game folders,
+  MT-32 ROMs and mods along at its first start, as *Make portable* does. An empty `UserData` folder made by
+  hand starts fresh (GitHub issue 32).
+- The READMEs credit the music remake as its author asks, as Pieces of 8-Bit's HQ Remakes with their YouTube
+  channel and Nexus Mods page.
+
+### Fixed
+- Modern scheme: after closing every bag window one by one, Escape opens the menu at the first press again
+  (GitHub issue 27).
+
 ## [0.19.1] - 2026-11-11
 
 ### Added

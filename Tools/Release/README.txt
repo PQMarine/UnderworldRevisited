@@ -131,7 +131,9 @@ PORTABLE
 The settings, the extracted game files and the mods are normally kept in your user folder (Windows:
 %USERPROFILE%\AppData\LocalLow\Underworld Revisited\Underworld Revisited). "Make portable" in the
 Game window, or an empty file portable.txt beside UR.exe, keeps them in a folder UserData beside the
-program from the next start on. Copy that folder along when you unpack a newer version. The folder
+program from the next start on, and your settings, game folders, MT-32 ROMs and mods are copied over.
+To start a portable copy fresh instead, make an empty folder UserData beside UR.exe yourself. Copy
+that folder along when you unpack a newer version. The folder
 alone keeps it portable too: to go back, delete portable.txt and UserData (copy what is in UserData
 to the user folder first to keep your settings). The save games stay in the game's installation
 either way.
@@ -195,6 +197,12 @@ the device. Put them into the folder the second "Open folder" button opens (UW1\
 settings.json), each named by the number of the game's piece (UW01.XMI in its SOUND folder is
 01): 01 the introduction, 02 to 04 the levels, 05 to 07 combat, 10 Armed, 11 Victory, 12 Death,
 13 Fleeing, 15 Maps and Legends, as .ogg or .wav. A piece without a recording plays on the device.
+The high-quality remake by Pieces of 8-Bit's HQ Remakes uses these names, and the files of its
+UW1music folder can be copied in as they are. It is not part of this package. Get it from their
+pages:
+
+     https://www.youtube.com/@HQRemakes
+     https://www.nexusmods.com/profile/OfficialPo8Mods/mods
 
 
 LICENCES

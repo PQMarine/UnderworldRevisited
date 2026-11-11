@@ -33,6 +33,14 @@ internal sealed class UWModernOpenBags
     /// <summary>When each bag opened (unscaled time), for its window growing out of the slot.</summary>
     private readonly Dictionary<UWObject, float> mOOpenedAt = new Dictionary<UWObject, float>();
 
+    /// <summary>
+    /// THE INNER BAGS A BAG CLOSED WITH (per user, 2026-11-11): closing a bag closes the open bags inside it
+    /// (Close), and opening it again opens them again, in their order and with their numbers where those are
+    /// free - an inner bag closed by itself first is not among them. Kept for this session only.
+    /// </summary>
+    private readonly Dictionary<UWObject, List<KeyValuePair<UWObject, int>>> mOClosedWith
+        = new Dictionary<UWObject, List<KeyValuePair<UWObject, int>>>();
+
     /// <summary>The load the open bags were last read from (UWHelpNotes.LoadCount), and the
     /// inventory load they were resolved against.</summary>
     private int miLoadCount = -1;
@@ -144,6 +152,7 @@ internal sealed class UWModernOpenBags
         mOScroll.Clear();
         mOBagNumbers.Clear();
         mOOpenedAt.Clear();
+        mOClosedWith.Clear();
 
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         List<UWObject> lOMasterlist = lOLoader != null && lOLoader.CurrentLevel != null ? lOLoader.CurrentLevel.Masterlist : null;
@@ -213,6 +222,39 @@ internal sealed class UWModernOpenBags
         mOScroll[pOContainer] = 0;
         mOBagNumbers[pOContainer] = fFreeNumber();
         mOOpenedAt[pOContainer] = Time.unscaledTime;
+
+        fReopenInner(pOContainer);
+    }
+
+    /// <summary>The inner bags this bag closed with open again (mOClosedWith) - those still inside it, still
+    /// containers and not open already; each keeps its old number where it is free.</summary>
+    private void fReopenInner(UWObject pOContainer)
+    {
+        if (!mOClosedWith.TryGetValue(pOContainer, out List<KeyValuePair<UWObject, int>> lOInner))
+            return;
+
+        mOClosedWith.Remove(pOContainer);
+
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        foreach (KeyValuePair<UWObject, int> lOEntry in lOInner)
+        {
+            UWObject lOBag = lOEntry.Key;
+
+            if (mOOpenBags.Contains(lOBag) || lOBag.GetCategory() != UWObject.ObjectCategoryEnum.Containers || !fIsInside(lOBag, pOContainer))
+                continue;
+
+            if (lOBag.Contents == null && lOLoader != null && lOLoader.CurrentLevel != null)
+                lOBag.EnsureContentsLoaded(lOLoader.CurrentLevel.Masterlist);
+
+            if (lOBag.Contents == null)
+                continue;
+
+            mOOpenBags.Add(lOBag);
+            mOScroll[lOBag] = 0;
+            mOBagNumbers[lOBag] = lOEntry.Value > 0 && !mOBagNumbers.ContainsValue(lOEntry.Value) ? lOEntry.Value : fFreeNumber();
+            mOOpenedAt[lOBag] = Time.unscaledTime;
+        }
     }
 
     /// <summary>The lowest number no open bag carries.</summary>
@@ -236,9 +278,23 @@ internal sealed class UWModernOpenBags
         mOOpenedAt.Remove(lOBag);
     }
 
-    /// <summary>Closes a bag and every open bag inside it.</summary>
+    /// <summary>Closes a bag and every open bag inside it - those remembered to open with it again
+    /// (mOClosedWith).</summary>
     internal void Close(UWObject pOContainer)
     {
+        List<KeyValuePair<UWObject, int>> lOInner = new List<KeyValuePair<UWObject, int>>();
+
+        foreach (UWObject lOBag in mOOpenBags)
+        {
+            if (lOBag != pOContainer && fIsInside(lOBag, pOContainer))
+                lOInner.Add(new KeyValuePair<UWObject, int>(lOBag, mOBagNumbers.TryGetValue(lOBag, out int liNumber) ? liNumber : 0));
+        }
+
+        if (lOInner.Count > 0)
+            mOClosedWith[pOContainer] = lOInner;
+        else
+            mOClosedWith.Remove(pOContainer);
+
         for (int liAt = mOOpenBags.Count - 1; liAt >= 0; liAt--)
         {
             if (mOOpenBags[liAt] == pOContainer || fIsInside(mOOpenBags[liAt], pOContainer))

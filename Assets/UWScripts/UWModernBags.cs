@@ -308,9 +308,25 @@ public class UWModernBags : MonoBehaviour, IUWModernClosable
         Clicks.EndPress();
     }
 
-    /// <summary>The open bags are a link of UWModernUi's closable chain: Escape and the pad's B
-    /// close them (Close) while they are open.</summary>
-    bool IUWModernClosable.IsClosable => IsOpen;
+    /// <summary>
+    /// The open bags are a link of UWModernUi's closable chain: Escape and the pad's B close them (Close) while
+    /// there is something to see close - a bag window, or a thing on the pointer that goes back. THE BAGS STAY
+    /// "OPEN" WITH NO WINDOW (GitHub issue 27, 2026-11-11): every bag closed one by one by its badge or a right
+    /// click leaves mbOpen set, and Escape spent a press closing nothing visible before the menu came. mbOpen
+    /// itself stays, as a drag from the world opens the bags without a window too.
+    /// </summary>
+    bool IUWModernClosable.IsClosable
+    {
+        get
+        {
+            if (!IsOpen)
+                return false;
+
+            UWInventory lOInventory = fInventory();
+
+            return OpenBags.Bags.Count > 0 || (lOInventory != null && lOInventory.Model != null && lOInventory.CursorItem != null);
+        }
+    }
 
     void IUWModernClosable.Close()
     {

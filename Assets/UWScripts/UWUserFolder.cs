@@ -11,7 +11,8 @@ using UnityEngine;
 ///   - PORTABLE: the folder UserData beside the program, when a file portable.txt or a folder UserData lies
 ///     beside it, or the game was started with -portable (a marker file, as Dolphin's portable.txt and
 ///     PCSX2's portable.ini, so a double click keeps it). Where that folder cannot be written (a copy under
-///     Program Files) the normal folder is used, with a warning in the log.
+///     Program Files) the normal folder is used, with a warning in the log. The first start that makes
+///     UserData copies the normal folder's files into it (issue 32); an empty UserData made by hand starts fresh.
 ///   - Never in the editor: the project is no program folder.
 ///
 /// What stays outside either way: the saves, in the game's installation (UNDEROM1, UNDEROM2), so they stay
@@ -87,6 +88,7 @@ public static class UWUserFolder
             return;
 
         string lsFolder = PortableFolder;
+        bool lbNew = !Directory.Exists(lsFolder);
 
         try
         {
@@ -105,7 +107,46 @@ public static class UWUserFolder
         {
             Problem = lOError.Message;
             Debug.LogWarning("[Portable] " + lsFolder + " cannot be written (" + lOError.Message + ") - using " + msPath);
+            return;
         }
+
+        // THE FIRST PORTABLE START TAKES THE NORMAL FOLDER'S FILES ALONG (GitHub issue 32,
+        // 2026-11-11): portable.txt or -portable with no UserData yet copies what Make portable copies, so the copy
+        // starts with the player's settings. AN EMPTY UserData MADE BY HAND STARTS FRESH (per user, the same day):
+        // the folder alone keeps a copy portable, and as it is there, nothing is copied.
+        if (lbNew)
+        {
+            try
+            {
+                fCopyUserFiles(Application.persistentDataPath, lsFolder);
+                Debug.Log("[Portable] first start in " + lsFolder + ": the files of " + Application.persistentDataPath + " copied over");
+            }
+            catch (Exception lOError) when (lOError is IOException || lOError is UnauthorizedAccessException)
+            {
+                Debug.LogWarning("[Portable] copying the files of " + Application.persistentDataPath + " failed (" + lOError.Message + ")");
+            }
+        }
+    }
+
+    /// <summary>The port's own files from one folder into another, nothing already there overwritten: the
+    /// settings, the game folders, the ROMs and the mods - not the extracted game data, which is made again.</summary>
+    private static void fCopyUserFiles(string psSource, string psTarget)
+    {
+        if (string.IsNullOrEmpty(psSource) || !Directory.Exists(psSource)
+            || string.Equals(System.IO.Path.GetFullPath(psSource), System.IO.Path.GetFullPath(psTarget), StringComparison.OrdinalIgnoreCase))
+            return;
+
+        foreach (string lsFile in new[] { "settings.json", "graphics.json" })
+        {
+            string lsFrom = System.IO.Path.Combine(psSource, lsFile);
+            string lsTo = System.IO.Path.Combine(psTarget, lsFile);
+
+            if (File.Exists(lsFrom) && !File.Exists(lsTo))
+                File.Copy(lsFrom, lsTo);
+        }
+
+        foreach (string lsFolder in new[] { "UW1", "UW2", "MT32", UWMods.FolderName })
+            fCopyFolder(System.IO.Path.Combine(psSource, lsFolder), System.IO.Path.Combine(psTarget, lsFolder));
     }
 
     /// <summary>A file or folder in the port's folder.</summary>
@@ -197,17 +238,7 @@ public static class UWUserFolder
                 + "\n"
                 + "The save games are not in UserData: they stay in the game's installation (UNDEROM1, UNDEROM2).\n");
 
-            foreach (string lsFile in new[] { "settings.json", "graphics.json" })
-            {
-                string lsFrom = System.IO.Path.Combine(lsSource, lsFile);
-                string lsTo = System.IO.Path.Combine(lsTarget, lsFile);
-
-                if (File.Exists(lsFrom) && !File.Exists(lsTo))
-                    File.Copy(lsFrom, lsTo);
-            }
-
-            foreach (string lsFolder in new[] { "UW1", "UW2", "MT32", UWMods.FolderName })
-                fCopyFolder(System.IO.Path.Combine(lsSource, lsFolder), System.IO.Path.Combine(lsTarget, lsFolder));
+            fCopyUserFiles(lsSource, lsTarget);
 
             // THE REST OF THIS SESSION WRITES THERE TOO (a Steam player's report, 2026-11-09: a scheme chosen after
             // Make portable went into the old folder, and the next start read the copy made before the choice -

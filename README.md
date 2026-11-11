@@ -186,8 +186,9 @@ needs none of its bundled DOSBox and its settings.
 **Portable.** Normally the settings, the extracted game files and the mods are kept in your user
 folder (Windows: `AppData\LocalLow\Underworld Revisited`, Linux: `~/.config/unity3d/Underworld
 Revisited`). To keep them in a folder `UserData` beside the program instead, use *Make portable* in
-the Game window (it copies the settings over) or put an empty file `portable.txt` beside `UR.exe`;
-the next start uses it. Paths to the installation on the same drive are kept relative, so a USB
+the Game window or put an empty file `portable.txt` beside `UR.exe`; the next start uses it and
+copies your settings, game folders, MT-32 ROMs and mods over. To start a portable copy fresh
+instead, make an empty folder `UserData` beside `UR.exe` yourself. Paths to the installation on the same drive are kept relative, so a USB
 stick may change its letter. The save games stay in the installation, as above.
 
 Even when portable, the Unity engine itself still writes a few things outside `UserData`:
@@ -226,10 +227,10 @@ button opens (`UW1/Music` beside the settings). Name each file by the number of 
 `07` combat, `10` Armed, `11` Victory, `12` Death, `13` Fleeing, `15` Maps and Legends, as `.ogg`
 (Ogg Vorbis) or `.wav`. A piece without a
 recording plays on the device. The high-quality remake by
-[Pieces of 8-bit](https://www.youtube.com/c/Piecesof8bit)
+[Pieces of 8-Bit's HQ Remakes](https://www.youtube.com/@HQRemakes)
 ([on Nexus Mods](https://www.nexusmods.com/ultimaunderworldunity/mods/1), made for Hank Morgan's
 UnderworldExporter) uses these names: the files of its `UW1music` folder can be copied in as they
-are.
+are. It is not part of this project and comes from its Nexus Mods page.
 
 ## Controls
 
@@ -281,9 +282,9 @@ a decompilation that rebuilds `UW.EXE` byte for byte from readable source. The r
 are checked against it, and many of them were corrected that way. Nothing of its code is
 taken into this project.
 
-Thanks to **Pieces of 8-bit** for the high-quality remake of the game's music that plays here
-from recordings (see *Music from recordings* above). Their
-[YouTube channel](https://www.youtube.com/c/Piecesof8bit) has high-quality remakes of many
+Thanks to **Pieces of 8-Bit's HQ Remakes** for the high-quality remake of the game's music that
+plays here from recordings (see *Music from recordings* above). Their
+[YouTube channel](https://www.youtube.com/@HQRemakes) has high-quality remakes of many
 classic game soundtracks, from the Ultima series to System Shock, Doom and other classics, and their
 [mods on Nexus Mods](https://www.nexusmods.com/profile/OfficialPo8Mods/mods) bring several of
 them into the games.
