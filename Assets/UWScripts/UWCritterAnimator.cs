@@ -106,20 +106,76 @@ public class UWCritterAnimator : MonoBehaviour
         if (liMap == UWCritterArtUw2.NoMap)
             return;
 
-        int liPalette = lOArt.DrawPaletteOf(liType, pONpc.NPCGoal);
-
         mONpcUw2 = pONpc;
+        mODataUw2 = pOData;
+        mOTemplateUw2 = pOTemplate;
+        mOTranslucentTemplateUw2 = pOTranslucentTemplate;
+        miMapUw2 = liMap;
+        miPaletteUw2 = -1;
 
-        fInitialiseWith(pOData, pONpc.ID, (liMap << 8) | liPalette | Uw2AtlasKey,
-            () => UWCritterAtlasBuilder.BuildUw2(pOData, liMap, liPalette, fGetFilterMode()), pOTemplate, pOTranslucentTemplate);
-
-        if (mOAtlas != null && mOFilter != null)
+        if (fTakePaletteUw2() && mOAtlas != null && mOFilter != null)
             fApplyUw2();
+    }
+
+    private DataImport mODataUw2;
+
+    private Material mOTemplateUw2;
+
+    private Material mOTranslucentTemplateUw2;
+
+    private int miMapUw2;
+
+    /// <summary>The palette the atlas in use was built in; -1 before the first.</summary>
+    private int miPaletteUw2 = -1;
+
+    /// <summary>
+    /// THE PALETTE BY THE GOAL NOW (2026-11-12, per user on test list 29.3: Paralyze draws the creature grey in the
+    /// original, ours kept its colours): do_uwcrit takes palette 3 while OBJ_GOAL is 15 (uw2 3d/DRAWOBJ.C, asked at every
+    /// draw), so the goal is read from the record each frame and the atlas changes when the palette does - when a
+    /// spell holds the creature and when it lets go. False when there is nothing to show.
+    /// </summary>
+    private bool fTakePaletteUw2()
+    {
+        UWCritterArtUw2 lOArt = mODataUw2 != null && mODataUw2.GameData != null ? mODataUw2.GameData.CritterArtUw2 : null;
+
+        if (lOArt == null || mONpcUw2 == null)
+            return false;
+
+        int liPalette = lOArt.DrawPaletteOf(mONpcUw2.ID - UWCritterAnimations.NpcFirstObjectId, UWCritterArtUw2.GoalOf(mONpcUw2));
+
+        if (liPalette == miPaletteUw2)
+            return true;
+
+        int liMap = miMapUw2;
+        DataImport lOData = mODataUw2;
+        bool lbChange = miPaletteUw2 >= 0;
+
+        miPaletteUw2 = liPalette;
+
+        bool lbShown = fInitialiseWith(lOData, mONpcUw2.ID, (liMap << 8) | liPalette | Uw2AtlasKey,
+            () => UWCritterAtlasBuilder.BuildUw2(lOData, liMap, liPalette, fGetFilterMode()), mOTemplateUw2, mOTranslucentTemplateUw2);
+
+        if (lbChange)
+        {
+            Debug.Log("[Critter] " + name + " drawn in palette " + liPalette + " (goal " + UWCritterArtUw2.GoalOf(mONpcUw2) + ").");
+
+            // The new colour material onto the render path in force: the palette path swaps it for its own
+            // (UWPaletteRenderPath.OnObjectSpawned), as for anything made after the level.
+            UWRenderPathHost lOPaths = UWScene.LevelLoader != null ? UWScene.LevelLoader.GetComponent<UWRenderPathHost>() : null;
+
+            if (lbShown && lOPaths != null)
+                lOPaths.OnObjectSpawned(gameObject);
+        }
+
+        return lbShown;
     }
 
     /// <summary>The stored picture in the camera's view (see InitialiseUw2).</summary>
     private void fApplyUw2()
     {
+        if (!fTakePaletteUw2() || mOAtlas == null)
+            return;
+
         int liView = fGetViewDirection();
         int liSlot = UWCritterAtlasBuilder.Uw2Slot(UWCritterArtUw2.SequenceOf(mONpcUw2), liView);
         int[] lOFrames = mOAtlas.GetFramesForSlot(liSlot);

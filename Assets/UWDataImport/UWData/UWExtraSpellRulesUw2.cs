@@ -11,7 +11,7 @@ namespace UWDataImport.UWData
 	///   2    Restoration      poison, mushrooms, drink, paralysis, hunger, fatigue gone, full health
 	///   3    Locate           the automap on, not in the Ethereal Void
 	///   6    Cure Poison
-	///   7    Roaming Sight    active spell, the view leaves the body (not built yet: stage 2 part D)
+	///   7    Roaming Sight    active spell, the view leaves the body (UWRoamingSight; part D3); not in the Void
 	///   8    Telekinesis      active spell, effect minor 3
 	///   9    Tremor           falling boulders; in the Void the things of the floor
 	///   10   Gate Travel      to the level of the first moonstone (from things only)
@@ -76,10 +76,10 @@ namespace UWDataImport.UWData
 		/// <summary>Dispel Hunger's hunger (SPELLS2.C:791).</summary>
 		public const int WellFedHunger = 0xC0;
 
-		/// <summary>Whether the minor runs on the second game yet (Roaming Sight comes with part D).</summary>
+		/// <summary>Whether the minor runs on the second game yet: all of them since part D3 (Roaming Sight).</summary>
 		public static bool IsBuilt(int piMinor)
 		{
-			return piMinor != RoamingSightSpell;
+			return true;
 		}
 
 		/// <summary>
@@ -117,6 +117,9 @@ namespace UWDataImport.UWData
 					pIHost.CurePoison();
 
 					return true;
+
+				case RoamingSightSpell:
+					return fRoamingSight(piStability, pIHost);
 
 				case TelekinesisSpell:
 					return pIHost.TryAddActiveSpell(MajorClass, UWMiscSpellRules.TelekinesisEffectMinor, piStability);
@@ -195,6 +198,27 @@ namespace UWDataImport.UWData
 		public static bool PortalAllows(int piTileHeight, int piFineZ)
 		{
 			return piTileHeight - piFineZ <= PortalMaxRise;
+		}
+
+		/// <summary>
+		/// Roaming Sight (SPELLS2.C:752): "The spell has no noticeable effect." in the Ethereal Void; elsewhere the active
+		/// spell (class 11 effect 1, as the first game's) and the view off the body. set_curmagic's result is not asked, so
+		/// with all slots taken the view leaves all the same with no spell to end it - the first game's bug, kept on both
+		/// as the user decided for the first (2026-10-12; IUWSpellHost.BeginRoamingSightWithoutSpell).
+		/// </summary>
+		private static bool fRoamingSight(int piStability, IUWSpellHost pIHost)
+		{
+			if (fWorld(pIHost) == VoidWorld)
+			{
+				pIHost.World.Presentation.AddGeneralMessage(NoEffectString);
+
+				return true;
+			}
+
+			if (!pIHost.TryAddActiveSpell(MajorClass, UWMiscSpellRules.RoamingSightEffectMinor, piStability))
+				pIHost.BeginRoamingSightWithoutSpell();
+
+			return true;
 		}
 
 		/// <summary>Restoration (SPELLS2.C:729): the vitals' part, the paralysis in the record, "You feel much

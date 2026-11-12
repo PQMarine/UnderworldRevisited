@@ -25,7 +25,7 @@ namespace UnderworldRevisited.Tools
     {
         private static void fCheckLanguageFiles()
         {
-            Check.Group("Language files of the port's own texts (Languages/*.tsv - translation step 3D)");
+            Check.Group("Language files of Underworld Revisited's own texts (Languages/*.tsv - translation step 3D)");
 
             string lsRoot = CheckContext.ProjectRoot;
 

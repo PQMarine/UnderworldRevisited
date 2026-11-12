@@ -136,10 +136,17 @@ may be an old one. Ours does both as without Armageddon.
 ## Interface and controls
 
 **Roaming Sight can be steered with the keys in the classic scheme too.** The original steers it
-by the pointer alone.
+by the pointer alone. Ultima Underworld II also steers it with the keys, but in steps as with its
+easy movement (a turn of 5.6 degrees or a step ahead at a time, no step back); ours glides, turns
+and goes back on the keys in both games (per user, 2026-11-12).
 
 **F9 and F10 are refused during Roaming Sight.** The original still tracks and makes camp there;
 sleeping then leaves the spell gone and the view stuck.
+
+**A save game with Roaming Sight running starts with the view raised.** The original only notes the
+spell when it loads: the view stays with the body, and the keys and the mouse steer a camera that
+is not shown, so nothing moves until the spell's icon is clicked away (Ultima Underworld II, seen
+by the user on 2026-11-12).
 
 **A blow does not start dragging an inventory item.** In the original, a blow charged with the
 button held keeps charging while the pointer moves over the inventory, and passing over an item

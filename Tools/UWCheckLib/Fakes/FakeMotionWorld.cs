@@ -177,6 +177,11 @@ namespace UnderworldRevisited.Tools
                 Log.Add("sound at object " + piSound);
             }
 
+            public void ShowEffectAtObject(int piEffectObjectId, UWMobileRecord pORecord, int piFrames)
+            {
+                Log.Add("effect " + piEffectObjectId + " frames " + piFrames);
+            }
+
             public void Splash(UWMobileRecord pORecord)
             {
                 Splashes++;

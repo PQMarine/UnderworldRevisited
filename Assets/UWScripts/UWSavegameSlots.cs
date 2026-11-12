@@ -32,7 +32,7 @@ public static class UWSavegameSlots
     private const string DescriptionFile = "DESC";
 
     /// <summary>How a used slot is recognised.</summary>
-    private const string LevelFile = "LEV.ARK";
+    private const string LevelFile = UWDataImport.Install.UWGogInstall.SlotMarkerFile;
 
     /// <summary>What the original shows for an empty slot (msg.save.unused_slot).</summary>
     public static string UnusedSlotName => UWDataImport.UWData.UWText.T("msg.save.unused_slot");
@@ -60,8 +60,20 @@ public static class UWSavegameSlots
         IsRestoring = false;
     }
 
-    /// <summary>The folder of a slot, whether it is used or not.</summary>
+    /// <summary>The folder a slot is READ from, whether it is used or not: under cloud_saves the installation's
+    /// slot below shows through while cloud_saves has none, as in DOSBox's overlay (2026-11-12,
+    /// UWGogInstall.SlotFolderToRead). Saves go to GetWriteSlotPath.</summary>
     public static string GetSlotPath(string psRoot, int piSlot)
+    {
+        if (string.IsNullOrEmpty(psRoot) || piSlot < 1 || piSlot > SlotCount)
+            return null;
+
+        return UWDataImport.Install.UWGogInstall.SlotFolderToRead(psRoot, piSlot);
+    }
+
+    /// <summary>The folder a save into a slot is WRITTEN to: always the save folder's own, where the original
+    /// writes through DOSBox's overlay too.</summary>
+    public static string GetWriteSlotPath(string psRoot, int piSlot)
     {
         if (string.IsNullOrEmpty(psRoot) || piSlot < 1 || piSlot > SlotCount)
             return null;

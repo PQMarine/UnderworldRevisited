@@ -78,6 +78,11 @@ namespace UWDataImport.UWData
 		/// <summary>Byte +0x15 bit 7: collided with a mobile already.</summary>
 		public bool CollidedWithMobile;
 
+		/// <summary>Byte +0x0A bit 7, the loner bit: the missile has struck a creature (missile_newhit, uw2
+		/// obj/OBJPHYS.C); a homing dart ends then (UWHomingDartRules). Kept in memory only - the record codec
+		/// carries the byte as it was read.</summary>
+		public bool Loner;
+
 		/// <summary>Byte +0x1A bits 0-2: the heading the object has as a static object again.</summary>
 		public int StaticHeading;
 

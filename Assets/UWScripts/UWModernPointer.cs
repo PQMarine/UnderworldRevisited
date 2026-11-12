@@ -42,7 +42,8 @@ public static class UWModernPointer
 
     /// <summary>The spell's half alone: the panel that holds the help keeps its own tabs, and a link on
     /// the action bar's pointer still has to come down.</summary>
-    public static bool SpellHolds => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting;
+    public static bool SpellHolds => (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
+        || (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAnySpellWaiting);
 
     // The frame the right button switched the pointer (SwitchedFrame, until cleanup step 7.8): the
     // switch holds its press for the frame now (UWInput.HoldPress), its readers ask

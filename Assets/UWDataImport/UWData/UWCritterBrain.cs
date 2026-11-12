@@ -687,6 +687,20 @@ namespace UWDataImport.UWData
 				default:
 					// Goals 13-15: interval 7 and nothing else (54050-54056).
 					mORecord.Interval = UWCritterRules.IntervalUnknownGoal;
+
+					// THE SECOND GAME'S HELD GOAL 15 (AI.C case 15, Paralyze): it stands, and its target counts the steps
+					// down to letting go (critter_discard_goal).
+					if (liGoal == UWTargetSpellRulesUw2.HeldGoal && mIServices.Game.Critter.CountsDownHeldGoal)
+					{
+						if (mbActive)
+							mORecord.Speed = 0;
+
+						if (mORecord.GTarg > 0)
+							mORecord.GTarg--;
+						else
+							fResetGoal();
+					}
+
 					break;
 			}
 		}

@@ -117,7 +117,13 @@ namespace UWDataImport.UWData
 			bool lbMobile = ApplyProjectileMotion(pORecord, mOParams);
 
 			if (lbMobile)
+			{
 				pORecord.Phase = (pORecord.Phase + (pORecord.Period & 7)) & 0xF;
+
+				// move_me_joe: the homing dart steers after a step that kept it in flight (uw2 PATHFIND.C).
+				if (pORecord.ItemId == UWHomingDartRules.ItemId)
+					UWHomingDartRules.Steer(pORecord, mOWorld, mOHost);
+			}
 
 			return lbMobile;
 		}

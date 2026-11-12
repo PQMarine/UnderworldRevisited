@@ -117,7 +117,7 @@ forums), as the Linux build was.
 - **M0 Facts, no code.** Install the Hub module "Mac Build Support (Mono)" for 6000.6.8f1; check
   the build profile offers the universal architecture on Windows; build once, unchanged, and look
   at the bundle (`Contents/MacOS`, `Contents/Plugins`, `Info.plist`, whether Unity signed it).
-  Download GOG's Mac installer of Ultima Underworld 1+2 on Windows (if GOG has one: verify) and
+  Download GOG's Mac installer of Ultima Underworld I on Windows (if GOG has one: verify) and
   open it with 7-Zip: where `game.gog` lies and how the bundle is laid out, for the search list.
   Check whether Steam's release has a macOS version. Read Unity 6000.6's lowest macOS version.
 - **M1 The two libraries.** `Tools/Munt/build-macos.sh` (clang, `-arch x86_64 -arch arm64`,

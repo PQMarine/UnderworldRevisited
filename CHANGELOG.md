@@ -10,6 +10,41 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-12
+
+### Added
+- The EA app's release is supported: the same game files as GOG's, found in its `DATA` folder.
+- The game finds GOG (Galaxy and the offline installer) and EA installations wherever they were put,
+  by the folder the stores record in the Windows registry - a GOG Galaxy library on another drive
+  included.
+- The Game window lists every installation found for the game with its store (GOG, Steam, EA app)
+  and shows the save folder in use; a click takes another installation. "Other folder..." replaces
+  the buttons "Game folder..." and "Folder of Ultima Underworld II...".
+- With the debug keys on, the noclip camera names the level at the top; in Ultima Underworld II the world by its
+  name and the level in it.
+
+### Changed
+- Saves in a GOG installation with `cloud_saves` are read the way the original's DOSBox sees them: a slot comes
+  from `cloud_saves`, and where that has none, from the installation's own save folder beneath it. Saving always
+  goes to `cloud_saves`, as in the original. Older saves a GOG Galaxy cloud restore put into the installation's
+  folder stay visible. Automatic now chooses the folder the original last played from.
+- Settings texts no longer call the project a port, and the Ultima Underworld II note in the Game window matches the
+  preview.
+- A settings window too tall for its usual place stands in the middle of the screen instead of on its bottom edge.
+- Ultima Underworld II preview: the missile spells Magic Arrow, Lightning, Fireball and Deadly Seeker, aimed with
+  the aiming pointer as in the original; Deadly Seeker's dart seeks the nearest creature ahead. The target spells on a
+  creature - Cause Fear, Bleeding, Smite Undead, Charm, Paralyze, Smite Foe - wait for the target pointer, and their
+  mana is paid only when they take; a held creature is drawn grey as in the original. The spells on a thing - Study
+  Monster, Mending, Name Enchantment, Open, Detect Trap, Remove Trap, Dispel Rune, Gate Travel, Enchantment - take a
+  thing in the world or in the inventory; Enchantment raises a weapon's or armour's tier, recharges a wand, or blows the
+  thing up. Roaming Sight lifts the view off the body as in the first game. The mana is paid when the missile
+  leaves, a fireball or lightning bolt hurts the whole square it strikes. In the modern scheme the right button frees
+  and locks the pointer, as in the first game.
+
+### Fixed
+- A wand just picked up now shows its spell and charges when looked at or named with Name Enchantment; until it was
+  saved and loaded again it looked like a plain wand.
+
 ## [0.19.3] - 2026-11-11
 
 ### Added

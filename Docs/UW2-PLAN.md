@@ -690,7 +690,9 @@ art is not found (UW2's own format). The rest loads. The steps:
    (decision 4), the saves where DOS keeps them (`cloud_saves/UNDEROM2`, settled 2026-10-29).
    BUILT 2026-10-29. THE SAVE FOLDER first (per user: his own DOSBox
    Staging in the UW2 install comments the overlay out, so DOS saved to UNDEROM2 while the port took
-   cloud_saves; "Automatisch + Schalter"): automatic follows the folder with the newest SAVE1-4, without
+   cloud_saves; "Automatisch + Schalter"; REWORKED 2026-11-12 for GOG Galaxy: automatic follows the newer SAVE0,
+   the original's working copy, then the overlay mount, then the newest SAVE1-4; cloud_saves is read as DOSBox's
+   overlay over UNDEROMn, slot by slot, and written alone - UWGogInstall.SlotFolderToRead): automatic follows the folder with the newest SAVE1-4, without
    saves cloud_saves only when GOG's `dosbox*_single.conf` mounts it; the Game window's switch sets
    cloud_saves or the installation's folder (settings.json `SaveFolder`), both games. LOADING: the walk
    menu offers Journey Onward when a save exists; a save starts the walk from its record
@@ -1078,7 +1080,58 @@ to build them:
    the second game's AREA_OBJECTS; floating skulls with the world's hacks, Reveal's triggers with G3), test list
    section 26 ALL CONFIRMED 2026-11-11 (fix on the way: effect pictures hang on the original's fixed hot spot
    8/16 and put_effect's height on a creature, both games, b4396a4f; and a save from Modern stores the nearest
-   place the original accepts, da0bced3). PART A BUILT
+   place the original accepts, da0bced3). PART C SPLIT 2026-11-12: C1 the four missiles that fly
+   straight, C2 the homing dart (Deadly Seeker, check_homing in PATHFIND.C), the snowball, the two missiles of
+   class 13 and the creatures' class 5 by the second game's table. PART C1 BUILT 2026-11-12: IUWMagicVariant.
+   GetProjectileId (release_missile's six items plus 0x10), class 5 minors 1 to 4 built, the other fireball 0x1D
+   explodes as the first (mts_doanim, UWObjectDamageRules), UWAttackUw2 holds the waiting missile (GameInputMode 3:
+   the aiming pointer, the classic right button in the view, the modern attack button or at once with the pointer
+   locked, Escape lets go; mana on release, string 0x10F without room, launch sound 0x28), test list section 27 ALL CONFIRMED 2026-11-12 (fixes on the way: no impact sound for the
+   player's own fireball or bolt in the second game, a4d92f82; the modern scheme's free pointer on the right button,
+   aiming from our pointer, the left button outside the HUD's windows, 1a5fb22c 7df56f9f b400ead0). Found the same day:
+   the user's DOSBox Staging had sbtype sb16, the original's SB Pro speech driver failed and every effect fell back to
+   AdLib; sbpro2 since. PART C2 BUILT 2026-11-12: UWHomingDartRules (check_homing after every
+   step in flight: process_area's box with its inclusive bounds, store_targ's fine Manhattan distance, get_theta over
+   UWVanillaMath, merge_angles, the pitch with its unsigned height difference, the weave, the trail class 14, a hit
+   point one step in four, the loner bit set by a creature hit in UWMissiles), class 5 minors 5 and 6 built, class 13's
+   acid and snowball through do_spell(5, 4/6), the creatures' class 5 by the second game's table (AllSpells is the
+   game's), test list section 28 ALL CONFIRMED 2026-11-12 - PART C COMPLETE (fixes on the way: animation
+   objects above OBJECTS.GR's last picture are made, so the trail 0x1CE shows, 40b92607; a spell's missile leaves with
+   spell_fire's 0x28 for creatures too, f20a4e99). PART D SPLIT 2026-11-12 (read in uw2 SPELLS.C nail_1area,
+   target_spells, obj_spells, SPELLS2.C sp_study_monster, ui/INTERACT.C mous_in_3d case 2): D1 the target mode
+   (GameInputMode 2, pointer 0x1076, pick_3d with InPickRange(PickDist) and BlockingTerrain or "You cannot reach that.",
+   nothing picked keeps waiting, the mana paid only when the handler took) and the creature spells of area1_spells
+   0..6 (sp_bleed, sp_fear, sp_ward_undead with the liche's half, sp_charm by strings 0x15E/0x15F and remove_opponent,
+   sp_poison, sp_hold with the held goal 15 counting down in the brain, sp_smite); D2 obj_spells 8..15 (Dispel Rune,
+   Mending, Remove Trap, Name Enchantment, Open, Detect Trap, Enchantment, Gate Travel by the moonstone) on the world
+   and the inventory, and Study Monster (minor 7); D3 Roaming Sight. PART D1 BUILT 2026-11-12: UWTargetSpellRulesUw2 (minors 0..6 with the
+   resistance, the pictures, wound_foe, the liche's half, the charm strings and RemovePitOpponent), the held goal 15 in
+   the brain (IUWCritterVariant.CountsDownHeldGoal), IUWMagicVariant.TargetsByClick routes the player's class 7 to the
+   target mode on UWAttackUw2 (cursor Enchant, reach by UWReachRules, mana on success, Escape lets go), IUWWorld.
+   SetCreatureGoal and CreatureHitPoints, test list section 29. SECTION 29 ALL CONFIRMED 2026-11-12 (fixes: the target pointer in
+   the cursor table 19464957, a click on the classic frame ends the spell 2f53dfc0, a held creature drawn in palette 3
+   while its goal is 15, on every render path 941ff431 75289580). PART D2 BUILT 2026-11-12: UWObjectSpellRulesUw2 (mendable, DetectedTrap's
+   and RemoveTrap's trigger of minor 3 and targets 10 + 2 * world and 8 + world, Gate Travel's choice on the two moonstone
+   records, sp_study_monster's lines with study_monster_spells), UWObjectSpellUw2 on the clicked thing (Dispel Rune,
+   Mending, Remove Trap with ClearSpecialChain, Name Enchantment through the look service, Open by UWLockRules.Unlock with
+   -45, Detect Trap, Gate Travel), UWAttackUw2.ApplyTargetToItem for the inventory (classic page: a thing takes it, the
+   arrows page, an empty place ends it; modern bags the same), UWPlayerVariantUw2's trap targets, test list section 30.
+   Enchantment (sp_enchant, charging and tiers) is part D2b; a fumbled disarm and Open's lock trap wait for G3. SECTION 30
+   CONFIRMED 2026-11-12 but traps with a trap (G3) (fixes: Mending redraws the panel 60293b29, reach to a thing by its
+   record c564f778, UW2's checkLock roll was a throwing placeholder 71498e87; the moonstone record is not cleared when a
+   stone is taken, G4; the save tool sets it with uw2set moonstones=a,b). PART D2b BUILT 2026-11-12: UWEnchantSpellRulesUw2
+   (decode_obj_spell, chargeable, charge_object with its blow-up chance and 1 + Casting / 15 charges, the tiers of major
+   0xC with the caster's reach, the first enchantment of a plain weapon or armour, debris_type), UWObjectSpellUw2's case 14
+   with the blast (explosion 0x1C2 and its flames, 10d6 of magic and fire on the square), a destroyed carried thing's
+   debris by the player; test list section 31. SECTION 31 CONFIRMED by the user 2026-11-12, the original
+   compared (fixed on the way: a thing destroyed in the world becomes its debris in place, 1438fb88; a wand just picked up
+   showed no spell or charges to the look, 9f9cca5e). PART D3 BUILT 2026-11-12: Roaming Sight (xt_spells case 7) on the
+   first game's UWRoamingSight, now owned by either game (SpellEnder, PointerCell, a static running instance);
+   UWVitalsUw2 begins and stops it with the effect, the Void says 0x142; GameInputMode 8 as gates on the UW2 screen
+   (command bar, inventory, runes and cast, option shortcuts with 0xAE, the view's use, the attack, camping); test
+   list section 32. SECTION 32 CONFIRMED by the user 2026-11-12 with the original (fixes c3989519 the modern HUD
+   and pointer during the view, 430cf317 the noclip line; two deviations in DEVIATIONS.md: a loaded save with the
+   spell raises the view, the keys glide where UW2 steps) - PART D COMPLETE. Next: part E (class 8). PART A BUILT
    2026-11-05, test list section 25 ALL CONFIRMED 2026-11-11 (fixes: taking aims with UWWorldPicker over the full
    range so Telekinesis takes from afar, 11e588a7; teleport traps, Portal and Gate Travel fade out and in as
    new_player_pos with NewPlyFade 3, d7570fc3).

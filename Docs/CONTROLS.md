@@ -53,7 +53,7 @@ stab - and the longer you hold, the stronger it lands.
 
 ## The modern scheme
 
-The port's own: the mouse turns the view, a crosshair aims, and an interface
+Underworld Revisited's own: the mouse turns the view, a crosshair aims, and an interface
 of its own replaces the classic frame - an action bar, a minimap, bags in the manner of
 today's role-playing games, a character panel and a rune panel that slide out from the
 screen's edges. The rules are the original's throughout; only the way to them is new.

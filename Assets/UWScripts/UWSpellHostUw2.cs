@@ -76,8 +76,11 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
             UWScene.PlayerMovement.SpellHop();
     }
 
+    /// <summary>Roaming Sight with all slots taken: the view leaves all the same (UWExtraSpellRulesUw2).</summary>
     public void BeginRoamingSightWithoutSpell()
     {
+        if (mOPlayer != null)
+            mOPlayer.BeginRoamingSight(true);
     }
 
     public void CurePoison()
@@ -108,16 +111,25 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
             UWGameScreenUw2.Current.ShowRuneState();
     }
 
+    /// <summary>The missile waits for its aim on the walk's attack host (UWAttackUw2.BeginSpellMissile).</summary>
     public void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost)
     {
+        if (UWAttackUw2.Current != null)
+            UWAttackUw2.Current.BeginSpellMissile(piProjectileId, piDamage, piSpeed, piManaCost);
     }
 
-    public void BeginTargetSpell(int piMajorClass, int piMinorClass)
+    /// <summary>nail_1area: the spell waits on the walk's attack host for its clicked target (UWAttackUw2.BeginSpellTarget),
+    /// with this host to cast it and its mana held.</summary>
+    public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0)
     {
+        if (UWAttackUw2.Current != null)
+            UWAttackUw2.Current.BeginSpellTarget(piMinorClass, piManaCost, this);
     }
 
     public void FirePendingSpell()
     {
+        if (UWAttackUw2.Current != null)
+            UWAttackUw2.Current.FireSpellMissile();
     }
 
 

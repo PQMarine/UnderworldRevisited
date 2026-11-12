@@ -425,6 +425,36 @@ namespace UWDataImport.UWData
 			pOFile.Record[QuestBytesOffset + JospurDebtByte] = 0;
 		}
 
+		/// <summary>remove_opponent (WORLDEV.C): the creature's mobile index leaves the pit fighters; with one or none left
+		/// the player is out of the pits. True when it was one of them.</summary>
+		public static bool RemovePitOpponent(UWPlayerFile pOFile, int piMobileIndex)
+		{
+			if (pOFile == null)
+				return false;
+
+			bool lbRemoved = false;
+			int liCount = 0;
+
+			for (int liAt = 0; liAt < PitFighterCount; liAt++)
+			{
+				if (pOFile.Record[PitFightersOffset + liAt] == 0)
+					continue;
+
+				liCount++;
+
+				if (pOFile.Record[PitFightersOffset + liAt] == piMobileIndex)
+				{
+					pOFile.Record[PitFightersOffset + liAt] = 0;
+					lbRemoved = true;
+				}
+			}
+
+			if (liCount <= 1)
+				pOFile.Record[PitsByteOffset] &= unchecked((byte)~PitsBit);
+
+			return lbRemoved;
+		}
+
 		private const int PitFightersOffset = 0x360;
 
 		private const int PitFighterCount = 5;

@@ -26,7 +26,7 @@ namespace UWDataImport.UWData
 	public static class UWTextTemplate
 	{
 		/// <summary>The first line of a template - the editor menu's since cleanup step 8.5.</summary>
-		public const string Header = "# Underworld Revisited, the port's own texts: id TAB text (\\n a line break)\n";
+		public const string Header = "# Underworld Revisited's own texts: id TAB text (\\n a line break)\n";
 
 		/// <summary>What a missing id's comment line starts with.</summary>
 		public const string NewPrefix = "# ";

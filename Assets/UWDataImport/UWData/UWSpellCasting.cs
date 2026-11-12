@@ -519,6 +519,15 @@ namespace UWDataImport.UWData
 			// often hit something that was no creature, and nothing happened.
 			if (pOSpell.MajorClass == TargetMajorClass)
 			{
+				// THE SECOND GAME'S TARGET MODE (nail_1area, UW2 plan G1 part D): the player's spell waits for the clicked
+				// target, its mana held (IUWMagicVariant.TargetsByClick).
+				if (pIHost.HasPlayer && pIHost.World != null && pIHost.World.Session.Game.Magic.TargetsByClick)
+				{
+					pIHost.BeginTargetSpell(TargetMajorClass, liMinor, piDeferredManaCost);
+
+					return true;
+				}
+
 				if (pIHost.HasPlayer)
 					UWAreaSpellRules.CastTargetSpellInArea(liMinor, pIHost);
 
@@ -603,7 +612,9 @@ namespace UWDataImport.UWData
 		/// </summary>
 		private static void fBeginProjectileSpell(int piMinorClass, IUWSpellHost pIHost, int piManaCost)
 		{
-			int liProjectile = UWRunicMagic.GetProjectileId(piMinorClass);
+			// The game's own table (the second game has six; IUWMagicVariant.GetProjectileId).
+			int liProjectile = pIHost.World != null ? pIHost.World.Session.Game.Magic.GetProjectileId(piMinorClass)
+				: UWRunicMagic.GetProjectileId(piMinorClass);
 
 			if (liProjectile < 0 || pIHost.Data == null || pIHost.Data.ObjectProperties == null)
 				return;

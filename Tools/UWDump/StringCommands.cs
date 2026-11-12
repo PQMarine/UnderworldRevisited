@@ -97,7 +97,7 @@ namespace UnderworldRevisited.Tools
                 liTotal += fStrings(pOContext, liBlock).Count;
 
             lOText.Append("# Ultima Underworld strings (STRINGS.PAK), written by uwdump strings-export.\n");
-            lOText.Append("# One line per string: BBBB:NNN = text - the block in hex, the index as the port counts it.\n");
+            lOText.Append("# One line per string: BBBB:NNN = text - the block in hex, the index as Underworld Revisited counts it.\n");
             lOText.Append("# Escapes: \\\\ backslash, \\n line feed, \\r carriage return, \\t tab, \\xHH any other\n");
             lOText.Append("# control character and a space at the start or end. Lines starting with # are comments.\n");
             lOText.Append("#\n");

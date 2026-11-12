@@ -110,7 +110,12 @@ namespace UnderworldRevisited.Tools
             UWObject lOPictured = UWObjectFactory.Create(1, lOData);
 
             Check.Bool("appearance: a dagger from the data has its picture", lOPictured != null && lOPictured.Texture != null, true);
-            Check.Bool("appearance: id 461 has none, so the data overload gives null", UWObjectFactory.Create(461, lOData) == null, true);
+            // 461 is an animation (0x1CD): no OBJECTS.GR picture, but ANIMO.GR's frames, so it is made (2026-11-12, the
+            // homing dart's trail 0x1CE); a non-animation without a picture still gives null.
+            UWObject lOAnimation = UWObjectFactory.Create(461, lOData);
+
+            Check.Bool("appearance: id 461, an animation without an OBJECTS.GR picture, is made without one",
+                lOAnimation != null && lOAnimation.Texture == null, true);
 
             UWObject lOPillar = UWObjectFactory.Create(352, lOCommon);
 

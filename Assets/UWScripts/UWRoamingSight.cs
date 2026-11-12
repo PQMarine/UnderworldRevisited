@@ -25,6 +25,12 @@ using UWDataImport.UWData;
 /// THE FIGURE STANDS STILL, gravity included - that is how the original does it, suppressing its entire
 /// movement calculation meanwhile. Whoever casts the spell mid-jump hangs in
 /// the air and only continues falling at the end.
+///
+/// BOTH GAMES (UW2 plan G1 part D3, 2026-11-12): the second game's xt_spells case 7 is the first game's - home_cam(0)
+/// at 0x458 with the pitch -0x400, move_cam's same steps and clamp, attach_eye(-1), GameInputMode + 8, and
+/// dispel_spell reattaching the eye - so UWVitalsUw2 drives this component as UWCharacter does on the first game.
+/// The owner says how the spell ends (SpellEnder) and where the pointer is in the view (PointerCell); without them
+/// the first game's UWCharacter and UWGameUI are asked.
 /// </summary>
 public sealed class UWRoamingSight : MonoBehaviour
 {
@@ -112,6 +118,20 @@ public sealed class UWRoamingSight : MonoBehaviour
 
     private UWControlScheme mOScheme;
 
+    /// <summary>Ends the Roaming Sight effect in the owner's vitals (Escape, a level change); null asks the first
+    /// game's UWCharacter.</summary>
+    public System.Action SpellEnder;
+
+    /// <summary>The pointer's third of the view window while the left button is held: the column 0 to 2 from the left
+    /// and the row 0 to 2 from the top; false when the pointer is not in the view or the button is not held. Null asks
+    /// the first game's classic screen.</summary>
+    public delegate bool PointerCellFunction(out int piColumn, out int piRow);
+
+    public PointerCellFunction PointerCell;
+
+    /// <summary>The component whose view roams now (either game's), or null.</summary>
+    private static UWRoamingSight msRunning;
+
     public bool IsRunning
     {
         get
@@ -132,13 +152,7 @@ public sealed class UWRoamingSight : MonoBehaviour
     /// open meanwhile (UWHudOptions), as in the original.</summary>
     public static bool IsAnyRunning
     {
-        get
-        {
-            UWCharacter lOCharacter = UWScene.Character;
-            UWRoamingSight lOSight = lOCharacter != null ? lOCharacter.GetComponent<UWRoamingSight>() : null;
-
-            return lOSight != null && lOSight.IsRunning;
-        }
+        get { return msRunning != null && msRunning.IsRunning; }
     }
 
     /// <summary>Detaches the view. Can be called repeatedly - UWCharacter.fApplyActiveSpells runs
@@ -156,6 +170,29 @@ public sealed class UWRoamingSight : MonoBehaviour
         miClaim = lOCamera.Begin(UWRemoteCamera.SpellPriority,
             new Vector3(pOBodyPosition.x, mfHeight, pOBodyPosition.z),
             pfBodyYaw, mfPitchDegrees, false, fOnCameraEnded);
+        msRunning = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (msRunning == this)
+            msRunning = null;
+    }
+
+    /// <summary>The owner's vitals lose the effect (UWCharacter or SpellEnder).</summary>
+    private void fEndSpell()
+    {
+        if (SpellEnder != null)
+        {
+            SpellEnder();
+
+            return;
+        }
+
+        UWCharacter lOCharacter = GetComponent<UWCharacter>();
+
+        if (lOCharacter != null)
+            lOCharacter.Vitals.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
     }
 
     /// <summary>The effect list has no Roaming Sight (UWCharacter.fApplyRoamingSight): ends the
@@ -195,10 +232,7 @@ public sealed class UWRoamingSight : MonoBehaviour
         miClaim = 0;
         mbWithoutSpell = false;
 
-        UWCharacter lOCharacter = GetComponent<UWCharacter>();
-
-        if (lOCharacter != null)
-            lOCharacter.Vitals.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
+        fEndSpell();
     }
 
     private void Update()
@@ -243,10 +277,8 @@ public sealed class UWRoamingSight : MonoBehaviour
             msEscapeFrame = Time.frameCount;
             fEnd();
 
-            UWCharacter lOCharacter = GetComponent<UWCharacter>();
-
-            if (lbWithSpell && lOCharacter != null)
-                lOCharacter.Vitals.EndSpellEffect(UWMiscSpell.MajorClass, UWMiscSpell.RoamingSightEffectMinor);
+            if (lbWithSpell)
+                fEndSpell();
 
             return;
         }
@@ -305,6 +337,17 @@ public sealed class UWRoamingSight : MonoBehaviour
     {
         pfTurn = 0f;
         pfForward = 0f;
+
+        if (PointerCell != null)
+        {
+            if (PointerCell(out int liCellColumn, out int liCellRow))
+            {
+                pfTurn = Mathf.Clamp(liCellColumn, 0, 2) - 1;
+                pfForward = 1 - Mathf.Clamp(liCellRow, 0, 2);
+            }
+
+            return;
+        }
 
         UWGameUI lOGameUi = UWScene.GameUi;
 

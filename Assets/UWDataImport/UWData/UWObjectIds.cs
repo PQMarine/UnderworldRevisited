@@ -230,6 +230,12 @@ namespace UWDataImport.UWData
 			return piObjectId >= FirstDoor && piObjectId <= LastDoor;
 		}
 
+		/// <summary>An animation object, 0x1C0 to 0x1CF (MAJOR_ANIMOBJ): its pictures are ANIMO.GR's.</summary>
+		public static bool IsAnimation(int piObjectId)
+		{
+			return piObjectId >= UWObjectClassProperties.AnimationFirstId && piObjectId < UWObjectClassProperties.AnimationFirstId + 0x10;
+		}
+
 		public static bool IsClosedDoor(int piObjectId)
 		{
 			return piObjectId >= FirstClosedDoor && piObjectId <= LastClosedDoor;

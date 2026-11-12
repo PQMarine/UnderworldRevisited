@@ -48,5 +48,9 @@ namespace UWDataImport.UWData
 		/// <summary>The object comes to rest as a lying object at its record's tile, eighth and
 		/// coarse z, with this heading octant and quality.</summary>
 		void PlaceAtRest(UWMobileRecord pORecord, int piOctant, int piQuality);
+
+		/// <summary>put_effect(obj, class, piFrames, 0, -z, ...): an effect picture at the object's tile, eighth and
+		/// height for piFrames frames (the homing dart's trail, UWHomingDartRules).</summary>
+		void ShowEffectAtObject(int piEffectObjectId, UWMobileRecord pORecord, int piFrames);
 	}
 }

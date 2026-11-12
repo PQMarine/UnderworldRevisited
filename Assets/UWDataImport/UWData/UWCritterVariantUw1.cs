@@ -42,5 +42,7 @@ namespace UWDataImport.UWData
 		{
 			return piSlot;
 		}
+
+		public bool CountsDownHeldGoal => false;
 	}
 }

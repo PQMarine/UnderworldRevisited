@@ -59,6 +59,8 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private Texture2D mOPointerAim;
 
+    private Texture2D mOPointerTarget;
+
     private readonly RawImage[][] mOSlices = new RawImage[2][];
 
     private readonly RawImage[] mOValues = new RawImage[2];
@@ -278,6 +280,14 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         return true;
     }
 
+    /// <summary>Whether a screen point lies on a window of this HUD: the rune page and its hollow, the open bags, the
+    /// active spells' pictures, the action bar's places - there a click is the window's, not the world's.</summary>
+    public bool IsOverWindow(Vector2 pOPointer, bool pbBagsOpen)
+    {
+        return RunePagePixel(pOPointer, out int _, out int _) || IsOnHollow(pOPointer) || (pbBagsOpen && pOPointer.x >= BagsLeftEdge)
+            || SpellAt(pOPointer) >= 0 || (Bar != null && Bar.SlotAt(pOPointer) >= 0);
+    }
+
     /// <summary>Whether a screen point is on the shown hollow.</summary>
     public bool IsOnHollow(Vector2 pOPointer)
     {
@@ -470,7 +480,9 @@ public sealed class UWModernHudUw2 : MonoBehaviour
         fShowMinimap(pOFile, pOScreen, lfScale);
         fShowSpells(pOFile, pbBagsOpen, mOMinimap.enabled, lfScale);
 
-        mOPointer.enabled = mOPointer.texture != null && !pbBagsOpen && !pbRunesOpen;
+        // Only in the look: a free pointer is the pointer itself, with the crosshair's picture (UWGameScreenUw2.
+        // fUpdatePointer), as on the first game (UWModernCrosshair).
+        mOPointer.enabled = mOPointer.texture != null && !pbBagsOpen && !pbRunesOpen && UWPointer.IsLookLocked;
     }
 
     private void fHideForTalk()
@@ -807,13 +819,21 @@ public sealed class UWModernHudUw2 : MonoBehaviour
 
     private void fShowPointer(float pfScale)
     {
-        // A drawn bow aims, in the crosshair's place.
-        if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAiming)
+        // A drawn bow aims, in the crosshair's place, and so does a missile spell waiting for its aim.
+        if (UWAttackUw2.Current != null && (UWAttackUw2.Current.IsAiming || UWAttackUw2.Current.IsSpellWaiting))
         {
             if (mOPointerAim == null)
                 mOPointerAim = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CURSORS, (int)UWCursors.CursorEnum.Aim, FilterMode.Point, true);
 
             mOPointer.texture = mOPointerAim;
+        }
+        else if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
+        {
+            // A target spell's pointer (0x1076) in the crosshair's place.
+            if (mOPointerTarget == null)
+                mOPointerTarget = UWScreenUi.BuildTexture(mOData.Textures, UWTexture.TextureTypes.CURSORS, (int)UWCursors.CursorEnum.Enchant, FilterMode.Point, true);
+
+            mOPointer.texture = mOPointerTarget;
         }
         else
             mOPointer.texture = mOPointerPlain;

@@ -51,7 +51,7 @@ public static class UWSavegameWriter
         DataImport lOData = lOLoader.UWDataImporter;
 
         string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
-        string lsTarget = UWSavegameSlots.GetSlotPath(lsRoot, piSlot);
+        string lsTarget = UWSavegameSlots.GetWriteSlotPath(lsRoot, piSlot);
 
         Camera lOCamera = Camera.main;
 

@@ -325,6 +325,9 @@ namespace UWDataImport.UWData
 			/// impact flash (AttackerAppliesFinalDamage, label B49-C17).</summary>
 			public bool BleedsOnHit => ((RowByte(8) >> 3) & 3) != 0;
 
+			/// <summary>Table byte 9: the race (the second game's liches are 0x17, sp_ward_undead).</summary>
+			public int Race => RowByte(9);
+
 			/// <summary>Table byte 0x10 low nibble: which footstep sounds the walk plays
 			/// (NPCBehaviours_seg007_1798_2C4A 53455).</summary>
 			public int FootstepCategory => RowByte(0x10) & 0xF;

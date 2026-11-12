@@ -171,7 +171,7 @@ namespace UnderworldRevisited.Tools
             public bool LaunchRoom = true;
 
             public bool LaunchMissile(UWCreatureActor pOLauncher, int piObjectId, int piPitch, int piBaseDamage, int piDamageType,
-                int piImpactId)
+                int piImpactId, int piLaunchSound = UWSoundEffectId.Miss)
             {
                 Log.Add(string.Format("launch {0:X} base {1} type {2}", piObjectId, piBaseDamage, piDamageType));
 

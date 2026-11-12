@@ -676,7 +676,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
     // ------------------------------------------------- Missiles
 
     public bool LaunchMissile(UWCreatureActor pOLauncher, int piObjectId, int piPitch, int piBaseDamage, int piDamageType,
-        int piImpactId)
+        int piImpactId, int piLaunchSound = UWSoundEffectId.Miss)
     {
         UWLevelLoader lOLoader = fLoader;
         UWCritter lOCritter = pOLauncher != null ? pOLauncher.View as UWCritter : null;
@@ -685,7 +685,7 @@ public sealed class UWCreatureWorld : ICreatureWorld
             return false;
 
         return UWMissiles.Ensure(lOLoader).LaunchFromCreature(lOCritter, piObjectId, piPitch, piBaseDamage, piDamageType,
-            piImpactId) != null;
+            piImpactId, piLaunchSound) != null;
     }
 
     // ------------------------------------------------- Talk and music

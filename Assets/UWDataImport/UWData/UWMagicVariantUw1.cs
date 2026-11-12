@@ -43,6 +43,13 @@ namespace UWDataImport.UWData
 			return pOSpell.MajorClass == UWSpellCasting.ProjectileMajorClass;
 		}
 
+		public int GetProjectileId(int piEffectMinor)
+		{
+			return UWRunicMagic.GetProjectileId(piEffectMinor);
+		}
+
+		public bool TargetsByClick => false;
+
 		/// <summary>Too soon: the sound alone.</summary>
 		public void TooSoon(IUWSpellHost pIHost)
 		{

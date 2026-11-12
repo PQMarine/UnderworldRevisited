@@ -651,8 +651,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         fBuildCommands();
         fBuildOptions();
 
-        // CURSORS.GR, drawn transparent: 0 the pointer, 1 to 8 the arrows of the view's regions.
-        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.Aim + 1];
+        // CURSORS.GR, drawn transparent: 0 the pointer, 1 to 8 the arrows of the view's regions, 9 the aim (0x1075), 10 the
+        // target spell's pointer (0x1076; until 2026-11-12 the array ended at the aim, so the classic screen kept the plain
+        // pointer for a target spell and the modern free pointer had none).
+        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.Enchant + 1];
 
         for (int liAt = 0; liAt < mOCursors.Length; liAt++)
             mOCursors[liAt] = fPicture(UWTexture.TextureTypes.CURSORS, liAt, true);
@@ -1271,6 +1273,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>An inventory change: the panel redraws, and every change but opening, closing and scrolling a
     /// container is a status pass of the original (as UWCharacter.fOnInventoryChangedForStatusPass) - armour, light,
     /// motion and stealth at once, a worn curse strikes (G0 of the 2026-11-06 sweep: up to a tick late, no curse).</summary>
+    /// <summary>Something changed a carried thing in place (Mending's quality, part D2; per user 2026-11-12 the armour's
+    /// picture stayed until the next change): the panel redraws and the status pass runs, as for any inventory change.</summary>
+    public void InventoryChanged()
+    {
+        fOnInventoryChanged();
+    }
+
     private void fOnInventoryChanged()
     {
         mbInventoryDirty = true;
@@ -1910,6 +1919,22 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         fEnsureModernHud();
 
+        // THE ROAMING VIEW (part D3): only the spells' icons take a click; Escape is UWRoamingSight's (UWBack) and
+        // must not open the options with the press that ended the view. The right button still frees the pointer for
+        // the icons, and the HUD goes on (per user, 2026-11-12: its icons stood as before the cast).
+        if (UWRoamingSight.IsAnyRunning || UWRoamingSight.EndedByEscapeThisFrame)
+        {
+            UWModernPointer.Tick(lbFree && !UWControls.IsTextEntryActive);
+            fClickModernSpellIcon();
+
+            if (UWModernPointer.IsFree || !UWPointer.IsLookLocked)
+                fUpdatePointer();
+
+            fTickModernHud();
+
+            return;
+        }
+
         if (lOControls != null && lbFree && lOControls.Player.ModernBags.WasPressedThisFrame())
         {
             if (mbBagsOpen && lbHolding)
@@ -1925,7 +1950,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             UWInterfaceHide.Toggle();
         else if (lOKeys != null && lbFree && lOKeys.escapeKey.wasPressedThisFrame && !lbHolding)
         {
-            if (mbRunesOpen)
+            // A missile spell waiting for its aim lets go first, its mana unpaid (UWModernUi's chain on the first game).
+            if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsSpellWaiting)
+                UWAttackUw2.Current.CancelSpellMissile();
+            else if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
+                UWAttackUw2.Current.CancelSpellTarget();
+            else if (mbRunesOpen)
                 mbRunesOpen = false;
             else if (mbBagsOpen)
                 mbBagsOpen = false;
@@ -1953,11 +1983,21 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         fFollowInventoryPress();
 
+        // THE RIGHT BUTTON FREES AND LOCKS THE POINTER, as on the first game's modern screen (UWModernPointer, per user
+        // 2026-11-12: the free pointer was missing on the second game) - while the world has the input; the bags, the
+        // runes and the windows free it themselves (fFollowModal).
+        UWModernPointer.Tick(lbFree && !mbBagsOpen && !mbRunesOpen && !mbOptionsOpen && !UWConversationScreenUw2.IsOpen
+            && !UWMapScreenUw2.IsOpen && !UWControls.IsTextEntryActive);
+
         if (mbBagsOpen || mbRunesOpen)
         {
             fClickBags();
             fUpdatePointer();
         }
+        // A window that frees the pointer itself (the debug panel's spell list, Shift+F10: per user 2026-11-12 the
+        // locked pointer stayed hidden over it) shows it as the right button's free pointer does.
+        else if (UWModernPointer.IsFree || !UWPointer.IsLookLocked)
+            fUpdatePointer();
 
         fTickModernHud();
 
@@ -1972,6 +2012,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     }
 
     /// <summary>The HUD and the conversation it stands beside, made once.</summary>
+    /// <summary>An active spell's icon under the free pointer: the left button names it, the right ends it (as fClickBags).</summary>
+    private void fClickModernSpellIcon()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
+
+        if (lOMouse == null || mOModernHud == null || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame))
+            return;
+
+        int liSpell = mOModernHud.SpellAt(UWPointer.Position);
+
+        if (liSpell >= 0)
+            fClickActiveSpell(liSpell, lOMouse.leftButton.wasPressedThisFrame);
+    }
+
     private void fEnsureModernHud()
     {
         if (mOModernHud != null)
@@ -2030,6 +2084,13 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
     /// <summary>A modern panel has the pointer (the bags or the rune page): no blow, no use in the world.</summary>
     public bool IsPanelOpen => mbBagsOpen || mbRunesOpen;
+
+    /// <summary>Whether a screen point lies on a window of the modern scheme, the second game's HUD or the shared one
+    /// (UWModernUi.IsOverUi).</summary>
+    public bool IsOverModernWindow(Vector2 pOPointer)
+    {
+        return (mOModernHud != null && mOModernHud.IsOverWindow(pOPointer, mbBagsOpen)) || UWModernUi.IsOverUi(pOPointer);
+    }
 
     /// <summary>E took a thing, or a conversation began: the bags open, for the pointer to put it down.</summary>
     public void OpenBags()
@@ -2097,6 +2158,15 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
 
         int liDisplay = mOModernHud.DisplayAt(UWPointer.Position);
+
+        // A waiting target spell on a thing in the bags (part D2, as the classic page): the thing takes it.
+        if (liDisplay > 0 && liDisplay < UWClassicLayoutUw2.Inventory.UpArrowDisplay && UWAttackUw2.Current != null
+            && UWAttackUw2.Current.IsTargetSpellWaiting && fDisplayItem(liDisplay) != null)
+        {
+            UWAttackUw2.Current.ApplyTargetToItem(fDisplayItem(liDisplay));
+
+            return;
+        }
 
         if (liDisplay != 0)
             fClickDisplay(liDisplay, lbRight);
@@ -2887,8 +2957,26 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        fChooseCommand();
-        fFollowInventoryPress();
+        // The modern scheme's free pointer does not outlive the switch to the classic one (UWModernPointer.Tick
+        // releases it there on the first game).
+        UWModernPointer.Release();
+
+        if (fEndTargetSpellOnFrame())
+        {
+            fSlide();
+            fUpdatePointer();
+
+            return;
+        }
+
+        // ROAMING SIGHT'S GameInputMode 8 (part D3): the command bar (deal_with_icons) and the inventory (mous_in_inv)
+        // take nothing while the view roams; fClickPanel keeps the flasks, the compass and the spells' icons.
+        if (!UWRoamingSight.IsAnyRunning)
+        {
+            fChooseCommand();
+            fFollowInventoryPress();
+        }
+
         fClickPanel();
         fSlide();
         fUpdatePointer();
@@ -2900,6 +2988,39 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// slide runs); low on a flask its value goes to the scroll; the statistics page's bottom strip
     /// scrolls the skill list (mous_in_stat).
     /// </summary>
+    /// <summary>
+    /// A TARGET SPELL ENDS BY A CLICK ON THE FRAME (per user on the original, 2026-11-12: a click left or right of the view
+    /// lets it go; uw2 ui/INTERACT.C mous_in_inv's case 2 ends GameInputMode 2 by a click in the panel, the spell unpaid):
+    /// either button outside the view window ends it, its mana unpaid, and the click does nothing else. True when it did.
+    /// </summary>
+    private bool fEndTargetSpellOnFrame()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
+
+        if (UWAttackUw2.Current == null || !UWAttackUw2.Current.IsTargetSpellWaiting || lOMouse == null
+            || !(lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame) || IsInViewWindow(UWPointer.Position))
+            return false;
+
+        // THE INVENTORY PAGE (mous_in_inv's case 2, part D2): a thing there takes the spell, the arrows page on and the
+        // spell keeps waiting, an empty place ends it.
+        if (miPage == 0 && miSlideFrame == 0 && mOInventory != null && TryGetOriginalPoint(UWPointer.Position, out float lfColumn, out float lfRow))
+        {
+            int liHit = fInventoryHit(Mathf.FloorToInt(lfColumn), (int)UWUiFit.FrameHeight - 1 - Mathf.FloorToInt(lfRow));
+
+            if (liHit == UWClassicLayoutUw2.Inventory.UpArrowDisplay || liHit == UWClassicLayoutUw2.Inventory.DownArrowDisplay)
+                return false;
+
+            UWObject lOItem = liHit > 0 && liHit < UWClassicLayoutUw2.Inventory.UpArrowDisplay ? fDisplayItem(liHit) : null;
+
+            if (lOItem != null && UWAttackUw2.Current.ApplyTargetToItem(lOItem))
+                return true;
+        }
+
+        UWAttackUw2.Current.CancelSpellTarget();
+
+        return true;
+    }
+
     private void fClickPanel()
     {
         UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
@@ -2949,7 +3070,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (liX >= UWClassicLayoutUw2.Runes.CastLeft && liX <= UWClassicLayoutUw2.Runes.CastRight
             && liY >= UWClassicLayoutUw2.Runes.CastBottomY && liY <= UWClassicLayoutUw2.Runes.CastTopY)
         {
-            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !lOMouse.rightButton.wasPressedThisFrame)
+            // Not while the view roams (try_cast returns while GameInputMode is set).
+            if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !lOMouse.rightButton.wasPressedThisFrame
+                && !UWRoamingSight.IsAnyRunning)
                 fCastShelf();
 
             return;
@@ -2964,6 +3087,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
             return;
         }
+
+        // The pages take nothing while the view roams (mous_in_inv and mous_in_rune under GameInputMode 8).
+        if (UWRoamingSight.IsAnyRunning)
+            return;
 
         if (miPage == 0 && miSlideFrame == 0 && mOInventory != null)
         {
@@ -3098,8 +3225,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWCursors.CursorEnum leCursor = lbDriving ? meCursor : UWCursors.CursorEnum.Center;
 
         // The panel's pointer is the plain one everywhere (the view's regions are mous_player's, which the
-        // options' loop does not call).
-        if (!mbOptionsOpen && !mbBagsOpen && !mbRunesOpen && !UWConversationScreenUw2.IsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
+        // options' loop does not call). The modern scheme has no regions: its free pointer keeps the crosshair.
+        if (IsClassicScheme && !mbOptionsOpen && !mbBagsOpen && !mbRunesOpen && !UWConversationScreenUw2.IsOpen && lOWindow.width > 0f && lOWindow.height > 0f && lOAt.x >= lOWindow.xMin && lOAt.x <= lOWindow.xMax
             && lOAt.y >= lOWindow.yMin && lOAt.y <= lOWindow.yMax)
         {
             int liX = Mathf.Clamp(Mathf.FloorToInt((lOAt.x - lOWindow.xMin) / lOWindow.width * CursorAreaWidth), 0, CursorAreaWidth - 1);
@@ -3112,9 +3239,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         meCursor = leCursor;
 
-        // A drawn bow aims (force_mouse_cursor(0x1075), the picture a waiting spell has).
-        if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAiming)
+        // A drawn bow aims (force_mouse_cursor(0x1075), the picture a waiting spell has), and so does a waiting
+        // missile spell (do_spell's GameInputMode 3).
+        if (UWAttackUw2.Current != null && (UWAttackUw2.Current.IsAiming || UWAttackUw2.Current.IsSpellWaiting))
             leCursor = UWCursors.CursorEnum.Aim;
+
+        // A target spell's pointer (nail_1area's force_mouse_cursor(0x1076)).
+        if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
+            leCursor = UWCursors.CursorEnum.Enchant;
 
         // An object on the pointer is the pointer (SetCursorObj).
         Texture2D lOPicture = mOInventory != null && mOInventory.CursorItem != null
@@ -3677,7 +3809,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (!(lbSave || lbRestore || lbMusic || lbSound || lbDetail || lbQuit || lbGame))
             return false;
 
-        if (mOInventory != null && mOInventory.CursorItem != null)
+        // do_option_shortcut refuses while GameInputMode is set: an object on the pointer, the roaming view.
+        if ((mOInventory != null && mOInventory.CursorItem != null) || UWRoamingSight.IsAnyRunning)
         {
             Say(UWText.Block(mOData, 1, UWClassicLayoutUw2.Options.NotNowString + 1, string.Empty));
 

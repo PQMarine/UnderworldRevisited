@@ -491,6 +491,18 @@ namespace UnderworldRevisited.Tools
                 return fAnswerOf(pOCreature);
             }
 
+            public bool SetCreatureGoal(UWObject pOCreature, int piGoal, int piGTarg, int piAttitude)
+            {
+                Log.Add("goal " + piGoal + " gtarg " + piGTarg + " attitude " + piAttitude + " on " + NameOf(pOCreature));
+
+                return true;
+            }
+
+            public int CreatureHitPoints(UWObject pOCreature)
+            {
+                return pOCreature is UWNpc lONpc ? lONpc.NPC_HP : 0;
+            }
+
             public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)
             {
                 Log.Add("effect " + piEffectObjectId + " at " + NameOf(pOCreature) + (piEighths != UWAreaSpellRules.SpellEffectEighths ? " eighths " + piEighths : ""));

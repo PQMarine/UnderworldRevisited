@@ -16,7 +16,7 @@ namespace UWDataImport.UWData
 	public sealed class UWRulesDeviations
 	{
 		[UWRule(typeof(UWConversationPatches), nameof(UWConversationPatches.PatchesApplied),
-			"Conversations run with the port's fixes of the original's script bugs (false: the scripts as shipped).")]
+			"Conversations run with Underworld Revisited's fixes of the original's script bugs (false: the scripts as shipped).")]
 		public bool ConversationPatches = UWConversationPatches.PatchesApplied;
 
 		[UWRule(typeof(UWTybalOrbRules), nameof(UWTybalOrbRules.ManaAsideOnlyWhileOrbStands),

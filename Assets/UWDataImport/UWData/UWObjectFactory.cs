@@ -88,7 +88,12 @@ namespace UWDataImport.UWData
 
 			UWObject lOObject = Create(piObjectId, pOData.CommonObjectProperties, piQuantity, piQuality);
 
-			return UWObjectAppearance.Apply(lOObject, pOData.Textures, null) ? lOObject : null;
+			// An animation (0x1C0 to 0x1CF) takes its pictures from ANIMO.GR (UWObjectSpawner.fGetAnimationTextures), so
+			// the three above OBJECTS.GR's last picture are made too - the second game's homing dart trail 0x1CE was
+			// refused until 2026-11-12 (per user: no trail).
+			bool lbPictured = UWObjectAppearance.Apply(lOObject, pOData.Textures, null);
+
+			return lbPictured || UWObjectIds.IsAnimation(piObjectId) ? lOObject : null;
 		}
 
 		/// <summary>CreateObj's stack rule: COMOBJ stack class 0 or 2 starts as a stack of one.

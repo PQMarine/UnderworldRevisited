@@ -1060,6 +1060,15 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         UWAudioService.PlayEffectAt(piSound, WorldPosition(pORecord), piVolume);
     }
 
+    /// <summary>The homing dart's trail (UWHomingDartRules): the picture at the record's place for its length.</summary>
+    public void ShowEffectAtObject(int piEffectObjectId, UWMobileRecord pORecord, int piFrames)
+    {
+        if (mOLoader == null)
+            return;
+
+        mOLoader.SpawnEffectAt(piEffectObjectId, WorldPosition(pORecord), UWExplosionRules.LengthToSeconds(piFrames));
+    }
+
     public void Splash(UWMobileRecord pORecord)
     {
         // The picture alone: the core has played the water sound at the impact (DoCollision).

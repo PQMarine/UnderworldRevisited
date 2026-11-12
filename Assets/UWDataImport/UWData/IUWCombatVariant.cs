@@ -80,5 +80,14 @@ namespace UWDataImport.UWData
 		/// <summary>Whether do_damage's louder sound follows a missile's on a creature or a thing (UW1: yes; UW2:
 		/// missile_hit keeps it off, COMBAT.C:395).</summary>
 		bool MissileDamageSounds { get; }
+
+		/// <summary>The sound of the player's own missile where its impact picture appears - a fireball's explosion,
+		/// a lightning bolt's flash (UW1: effect 7, SpawnImpactAnimo; UW2: none, mts_doanim plays nothing and effect 7
+		/// is the sword's clank on a wall there, uw2 EFFECT.C). UWAttackResolution.NoSound for none.</summary>
+		int OwnMissileImpactSound { get; }
+
+		/// <summary>The sound a spell's missile leaves with, by its object (UW1: missile_fire's 0xA for every missile;
+		/// UW2: spell_fire's 0x28, the acid and the snowball 0xA - for the player and the creatures alike, MISSILE.C).</summary>
+		int SpellMissileLaunchSound(int piProjectileId);
 	}
 }

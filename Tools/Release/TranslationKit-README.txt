@@ -2,13 +2,13 @@ UNDERWORLD REVISITED - TRANSLATION KIT
 ======================================
 
 What a translator needs to translate Underworld Revisited, without Unity, without the .NET SDK
-and without the project's source: the tool uwdump, the guide, and the port's own texts in English
+and without the project's source: the tool uwdump, the guide, and Underworld Revisited's own texts in English
 and German. TRANSLATING.md explains everything; this file only says where to start. uwdump also
 writes the game's pictures and palettes for artists (see PICTURES AND PALETTES below).
 
 This kit contains NO text or picture of the game - neither the English of Ultima Underworld nor a
-translation of it. The game's texts and pictures are made from YOUR OWN copy of the game (GOG's "Ultima
-Underworld 1+2" or the same game from Steam), by uwdump, on your computer.
+translation of it. The game's texts and pictures are made from YOUR OWN copy of the game (Ultima
+Underworld I from GOG.com, Steam or the EA app), by uwdump, on your computer.
 
 
 WHAT IS IN IT
@@ -19,7 +19,7 @@ WHAT IS IN IT
                      On Linux, if it does not start: chmod +x uwdump
   TRANSLATING.md     The guide: the two files of a language, the name format, slots, select
                      and plural, the grammar header, fonts, checking, trying it in the game.
-  Languages/en.tsv   The port's own texts (menus, settings, help, the frames of the game's
+  Languages/en.tsv   Underworld Revisited's own texts (menus, settings, help, the frames of the game's
                      sentences) in English - copy it to <code>.tsv and translate.
   Languages/de.tsv   The same texts in German, a complete example.
   LICENSE, THIRD_PARTY_NOTICES.md, ThirdParty/
@@ -34,7 +34,7 @@ Open a terminal in this folder (Windows: in Explorer, type cmd in the address ba
 the folder of your GOG or Steam installation (the one with game.gog or game.bin) - without it
 uwdump looks in the usual places. "xx" stands for your language's code (fr, ru, zh-TW ...).
 
-  1. The port's own texts:
+  1. Underworld Revisited's own texts:
        uwdump text-template xx --out Languages/xx.tsv
      (or copy Languages/en.tsv) and translate the texts, keeping the ids.
 
@@ -193,7 +193,7 @@ whole game files) is not a mod: do not share it.
 PUBLISHING
 ----------
 
-Languages/xx.tsv, the port's own texts, may go into the project by pull request:
+Languages/xx.tsv, Underworld Revisited's own texts, may go into the project by pull request:
 https://github.com/PQMarine/UnderworldRevisited. The game's texts (xx.strings.tsv) are a
 translation of Origin's text: they never go into the project; a translator who publishes one
 does so on their own responsibility. The same holds for pictures painted over the game's

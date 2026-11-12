@@ -124,6 +124,11 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
 
     private bool mbSpellsChanged;
 
+    /// <summary>The active spells hold Roaming Sight (the vitals' ActiveSpellsChanged).</summary>
+    private bool mbRoaming;
+
+    private UWRoamingSight mORoamingSight;
+
     /// <summary>Paralysed (the game's counter); a cast waits for it.</summary>
     public bool IsParalysed => mOFile != null && UWPlayerRecordUw2.Paralysis(mOFile) != 0;
 
@@ -184,6 +189,13 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
             mbSpellsChanged = false;
             UWPlayerRecordUw2.WriteActiveSpells(mOFile, mOVitals.ActiveSpells);
 
+            // The view follows the effect, as UWCharacter.fApplyRoamingSight on the first game: every ending - its
+            // time, its icon, the night, a load - goes through here.
+            if (mbRoaming)
+                BeginRoamingSight(false);
+            else if (mORoamingSight != null)
+                mORoamingSight.Stop();
+
             if (UWGameScreenUw2.Current != null)
                 UWGameScreenUw2.Current.ShowRuneState();
         }
@@ -227,9 +239,60 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOVitals.UnsteadyShakeDue += fShakeUnsteady;
         mOVitals.DayStepDue += fStepDay;
         mOVitals.StatusPassDue += RequestStatusPass;
-        mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) => mbSpellsChanged = true;
+        mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) =>
+        {
+            mbSpellsChanged = true;
+            mbRoaming = pbRoamingSight;
+        };
         UWCombatVariantUw2.PlayerArmour = GetArmourAt;
         mOVitals.Initialise(pOData, UWPlayerVitals.StartValues.Default, UWPlayerData.FromSecondGame(pOFile));
+    }
+
+    /// <summary>
+    /// ROAMING SIGHT (UW2 plan G1 part D3): xt_spells' home_cam(0) and attach_eye(-1) - the view rises from the
+    /// player's spot and facing (UWRoamingSight, the first game's), the body stays. pbWithoutSpell: cast with all
+    /// slots taken, nothing in the spells ends it. Escape (modern) and a level change end the effect here.
+    /// </summary>
+    public void BeginRoamingSight(bool pbWithoutSpell)
+    {
+        if (mORoamingSight == null)
+        {
+            mORoamingSight = gameObject.GetComponent<UWRoamingSight>();
+
+            if (mORoamingSight == null)
+                mORoamingSight = gameObject.AddComponent<UWRoamingSight>();
+
+            mORoamingSight.SpellEnder = () =>
+            {
+                if (mOVitals != null)
+                    mOVitals.EndSpellEffect(UWMiscSpellRules.MajorClass, UWMiscSpellRules.RoamingSightEffectMinor);
+            };
+            mORoamingSight.PointerCell = fRoamingPointerCell;
+        }
+
+        Transform lOBody = UWScene.Player != null ? UWScene.Player.transform : null;
+        Camera lOView = Camera.main;
+        Vector3 lOFrom = lOBody != null ? lOBody.position : lOView != null ? lOView.transform.position : Vector3.zero;
+        float lfYaw = lOView != null ? lOView.transform.eulerAngles.y : 0f;
+
+        mORoamingSight.Begin(lOFrom, lfYaw, pbWithoutSpell);
+    }
+
+    /// <summary>move_cam(0)'s thirds: the left button held in the classic view window (mous_in_3d's player_mous_move).</summary>
+    private static bool fRoamingPointerCell(out int piColumn, out int piRow)
+    {
+        piColumn = 1;
+        piRow = 1;
+
+        UWGameScreenUw2 lOScreen = UWGameScreenUw2.Current;
+
+        if (lOScreen == null || !UWPointer.HasMouse || !UWPointer.LeftHeld || !lOScreen.IsInViewWindow(UWPointer.Position))
+            return false;
+
+        piColumn = Mathf.Clamp(Mathf.FloorToInt(lOScreen.ViewAcrossOf(UWPointer.Position) * 3f), 0, 2);
+        piRow = Mathf.Clamp(Mathf.FloorToInt((1f - lOScreen.ViewHeightOf(UWPointer.Position)) * 3f), 0, 2);
+
+        return true;
     }
 
     /// <summary>The hour; the schedules that run on it come with phase 4's list item 6.</summary>

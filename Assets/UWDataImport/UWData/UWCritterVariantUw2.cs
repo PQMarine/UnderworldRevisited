@@ -74,6 +74,9 @@ namespace UWDataImport.UWData
 			}
 		}
 
+		/// <summary>AI.C case 15: speed 0, the gtarg one less a step, at 0 the goal is let go.</summary>
+		public bool CountsDownHeldGoal => true;
+
 		public int RecordOfSlot(int piSlot)
 		{
 			switch (piSlot)

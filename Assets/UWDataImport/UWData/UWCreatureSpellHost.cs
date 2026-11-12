@@ -148,7 +148,7 @@ namespace UWDataImport.UWData
 			mOReleaseMissile?.Invoke(piProjectileId);
 		}
 
-		public void BeginTargetSpell(int piMajorClass, int piMinorClass)
+		public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0)
 		{
 		}
 

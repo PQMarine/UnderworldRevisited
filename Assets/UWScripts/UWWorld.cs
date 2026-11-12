@@ -575,6 +575,22 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return UWTargetSpell.Cast(piMinorClass, fEntityOf(pOCreature));
     }
 
+    public bool SetCreatureGoal(UWObject pOCreature, int piGoal, int piGTarg, int piAttitude)
+    {
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
+
+        return lOCritter != null && lOCritter.Actor != null && lOCritter.Actor.SetGoalBySpell(piGoal, piGTarg, piAttitude);
+    }
+
+    public int CreatureHitPoints(UWObject pOCreature)
+    {
+        UWEntityInfo lOEntity = fEntityOf(pOCreature);
+        UWCritter lOCritter = lOEntity != null ? lOEntity.GetComponentInParent<UWCritter>() : null;
+
+        return lOCritter != null && lOCritter.Actor != null ? lOCritter.Actor.CurrentHitPoints : 0;
+    }
+
     /// <summary>put_effect on a creature (EFFECT.C, both games): at the creature's spot, its feet plus piEighths
     /// eighths of its COMOBJ height (UWAreaSpellRules.CreatureEffectZPos), the picture hanging on that point as
     /// every object picture does (UWSpriteScale.AnchorY). Since 2026-11-11 (per user with screenshots of Mass

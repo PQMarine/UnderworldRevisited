@@ -146,6 +146,14 @@ namespace UWDataImport.UWData
 
 		public bool MissileDamageSounds => false;
 
+		/// <summary>mts_doanim plays no sound (per user 2026-11-12 on the original: a lightning bolt's impact sounds as a
+		/// magic arrow's, ours played the sword's clank on a wall).</summary>
+		public int OwnMissileImpactSound => UWAttackResolution.NoSound;
+
+		/// <summary>spell_fire: 0x28 on the missile, 0xA for the acid (0x16) and the snowball (0x1C); a creature's spell
+		/// played the miss's 0xA until 2026-11-12 (per user: the imps' Magic Arrow sounded like a missed blow).</summary>
+		public int SpellMissileLaunchSound(int piProjectileId) => piProjectileId == 0x16 || piProjectileId == 0x1C ? UWSoundEffectId.Miss : 0x28;
+
 		/// <summary>The pile, for what names no item.</summary>
 		public int RollDebris()
 		{

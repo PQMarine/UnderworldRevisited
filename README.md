@@ -9,14 +9,13 @@ aids, each off by default - dealing the attribute points yourself, mantras and s
 help window as your character learns them, the lizardmen's words with their meanings, skill raises
 without randomness, or with rolls that stay the same after loading, to prevent save scumming. Bugs
 of the original that can cost you the game are fixed, and can be switched back. **The game can be
-translated**: the port's own texts come in English and German, the game's texts by language files
+translated**: Underworld Revisited's own texts come in English and German, the game's texts by language files
 a translator publishes ([Translating](Docs/TRANSLATING.md)).
 
 Ultima Underworld II can be tried as an early preview ([Docs/UW2-PLAN.md](Docs/UW2-PLAN.md)).
 
-**You need your own copy of Ultima Underworld - the GOG.com version** ("Ultima Underworld
-1+2") **or the Steam version**, which carries the same game files; other releases are not
-supported (see [Requirements](#requirements)). This repository
+**You need your own copy of Ultima Underworld I - from GOG.com, Steam or the EA app**, which
+carry the same game files; other releases are not supported (see [Requirements](#requirements)). This repository
 contains no game data: no graphics, sounds, texts, maps or executables of the original.
 Everything is read at runtime from your installation. The only exception are the screenshots,
 which show the original's artwork.
@@ -91,7 +90,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   **Remastered** lights with URP and adds relief, specular highlights, glow, shadows and torch
   lights - each switchable on its own; **Palette colours** draws that real light and its shadows
   only in the original's colours and with its dither
-- Effects of the port's own for the Palette mode that keep every pixel a colour of the
+- Effects of Underworld Revisited's own for the Palette mode that keep every pixel a colour of the
   original's palette: ambient occlusion, grime along the walls, wall depth with its shadow,
   darker joints, ground shadows, glowing lava and flames, and light sources lighting their
   surroundings by the original's light table. Off by default, with the presets Subtle and Full
@@ -112,8 +111,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 
 **Controls and interface**
 
-- Two control schemes: the original's mouse-pointer steering, and a modern scheme of the
-  port's own with free mouse look, WASD, an action bar, bags, a character panel and a rune
+- Two control schemes: the original's mouse-pointer steering, and a modern scheme of
+  Underworld Revisited's own with free mouse look, WASD, an action bar, bags, a character panel and a rune
   panel built from the original's artwork, and a layout editor to move and size every part
 - Interface presets for the modern scheme: Modern; Classic Modular, the original's own pieces
   (compass, message scroll, power gem, flasks, rune tablet, stats panel, character page with
@@ -129,7 +128,7 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
   character creation yourself, the lizardmen's words with their meanings in brackets (those Murgo
   has taught you, or all), skill raises at their highest, or fixed so that reloading before a shrine
   changes nothing - each of them off by default
-- Languages: the port's texts in English or German, chosen in the Game window and switched at
+- Languages: Underworld Revisited's texts in English or German, chosen in the Game window and switched at
   once; the game's own texts can be translated by language files, the words painted into its
   pictures included, and Chinese, Japanese or Korean in the modern font with the system's input
   method ([Translating](Docs/TRANSLATING.md))
@@ -146,14 +145,14 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 
 ## Requirements
 
-- **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the system the port
-  is developed and tested on.
+- **Windows** 10 or newer (64-bit) with a DirectX 11 graphics card. It is the system Underworld
+  Revisited is developed and tested on.
 - **Linux** (64-bit, x86-64, Vulkan or OpenGL 4): part of every release since 0.3.0, tested
   in a Kubuntu virtual machine and far less than the Windows version. macOS is untried.
   Reports from other systems are welcome.
-- **Ultima Underworld 1 from GOG.com** ("Ultima Underworld 1+2") **or from Steam**
-  ("Ultima Underworld I", since November 2026: the same CD image as GOG's, there named
-  `game.bin`). Only this version is supported: some data (3D models, their colours) is read
+- **Ultima Underworld I from GOG.com, from Steam** (since November 2026: the same CD image as
+  GOG's, there named `game.bin`) **or from the EA app** (the same `game.bin`, in the
+  installation's `DATA` folder). Only this version is supported: some data (3D models, their colours) is read
   directly from the game's executable at build-specific offsets, verified against the GOG
   `UW.EXE` (547,248 bytes). Other releases (original floppy, CD, other stores) may differ and
   are not supported.
@@ -161,8 +160,8 @@ to the end sequence. Open points are listed in [ROADMAP.md](ROADMAP.md).
 
 ## Installation
 
-First install Ultima Underworld from GOG.com ("Ultima Underworld 1+2") or Steam ("Ultima
-Underworld I"). Then:
+First install Ultima Underworld I from GOG.com (with GOG Galaxy or the offline installer), Steam
+or the EA app. Then:
 
 1. Download the latest release from the
    [Releases page](https://github.com/PQMarine/UnderworldRevisited/releases):
@@ -171,11 +170,14 @@ Underworld I"). Then:
 2. Unpack it into a folder of its own.
 3. Start `UR.exe` (Windows) or `UR.x86_64` (Linux). Should Linux refuse to run it, the
    executable bit got lost on the way: `chmod +x UR.x86_64` in that folder, once.
-4. The game looks for your GOG or Steam installation in the usual places (listed in
-   [Building](Docs/BUILDING.md#building-the-game)). If it does not find it, it asks for the
-   folder: choose the one that contains `game.gog` (GOG) or `game.bin` (Steam). The choice is
-   remembered and can be changed later in the menu bar of the main menu (*Game > Game
-   folder...*).
+4. The game looks for your installation where GOG (Galaxy and the offline installer) and the
+   EA app record it in the Windows registry, whatever folder you chose there, then in the usual
+   places (listed in [Building](Docs/BUILDING.md#building-the-game)) and the Steam libraries. If
+   it does not find it, it asks for the folder: choose the one that contains `game.gog` (GOG) or
+   `game.bin` (Steam; the EA app's installation folder or its `DATA` folder). The choice is
+   remembered. In the menu bar of the main menu, *Game* lists every installation found with its
+   store (GOG, Steam, EA app) and shows the save folder in use; a click takes another one, and
+   *Other folder...* chooses a folder of your own.
 
 Nothing else needs to be installed; the package brings its own runtime. On the first start the
 game files are extracted from `game.gog` (or `game.bin`) once into a local cache; nothing is
@@ -217,8 +219,19 @@ Launch Options* (your path to `UR.exe`):
 ```
 
 "Play" then starts Underworld Revisited instead of the original: Steam fetches the saves before and
-uploads them after, with the port's own notes file (`UWR.json`) - tried on Windows on 2026-11-05.
+uploads them after, with Underworld Revisited's own notes file (`UWR.json`) - tried on Windows on 2026-11-05.
 Clear the line to start the original again.
+
+**GOG Galaxy: start it from Galaxy.** Galaxy can start `UR.exe` in place of the original as well.
+Open the settings button beside *Play* and choose *Manage installation > Configure...*. Under
+*Launch parameters* tick *Custom executables / arguments*, then *Add another executable /
+arguments*, choose `UR.exe` as the file and select *Default executable*. *Play* then starts
+Underworld Revisited, and Galaxy uploads the saves after it ends, with its own notes file
+(`UWR.json`) - tried on Windows on 2026-11-12. Select the original's entry as the default again to
+go back.
+
+**EA app.** Its launch options take no path, so it cannot start Underworld Revisited. Start `UR.exe`
+directly.
 
 **Music.** The *Sound* menu chooses what plays the music: the AdLib (as most heard it in
 1992), General MIDI, or the MT-32. For the MT-32, put the control and PCM ROM of your own
@@ -254,7 +267,7 @@ menu bar at the top edge. The full tables, the gamepad layout and the motion opt
 How to build the game yourself, pack a release, and use the engine-free layer
 (`Assets/UWDataImport`, buildable with the plain .NET SDK) and its tools is described in
 [Docs/BUILDING.md](Docs/BUILDING.md). Before building, the self-check tells whether your copy
-of the game works with this port:
+of the game works with Underworld Revisited:
 
 ```
 dotnet run --project Tools/UWSelfCheck -- "C:\GOG Games\Ultima Underworld 1"

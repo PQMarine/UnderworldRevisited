@@ -163,6 +163,13 @@ namespace UWDataImport.UWData
 		/// <summary>A class 7 spell on the creature with this level object (UWTargetSpell).</summary>
 		UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass);
 
+		/// <summary>change_critter_goal and SET_ATTITUDE by a spell (the second game's target spells): the goal and its
+		/// target, -1 keeps them; the attitude, -1 keeps it. False when there is no living creature.</summary>
+		bool SetCreatureGoal(UWObject pOCreature, int piGoal, int piGTarg, int piAttitude);
+
+		/// <summary>The creature's hit points now (Smite Undead's liche).</summary>
+		int CreatureHitPoints(UWObject pOCreature);
+
 		/// <summary>An effect picture on that creature for pfSeconds, as put_effect places it: at its spot, its
 		/// feet plus piEighths eighths of its COMOBJ height (UWAreaSpellRules.CreatureEffectZPos) - 7 for a spell's
 		/// sparkle, 2 for a wound's splash.</summary>
@@ -350,6 +357,16 @@ namespace UWDataImport.UWData
 		public UWTargetSpellRules.Result CastTargetSpellOnCreature(UWObject pOCreature, int piMinorClass)
 		{
 			return mOInner.CastTargetSpellOnCreature(pOCreature, piMinorClass);
+		}
+
+		public bool SetCreatureGoal(UWObject pOCreature, int piGoal, int piGTarg, int piAttitude)
+		{
+			return mOInner.SetCreatureGoal(pOCreature, piGoal, piGTarg, piAttitude);
+		}
+
+		public int CreatureHitPoints(UWObject pOCreature)
+		{
+			return mOInner.CreatureHitPoints(pOCreature);
 		}
 
 		public void ShowEffectAtCreature(UWObject pOCreature, int piEffectObjectId, float pfSeconds, int piEighths = UWAreaSpellRules.SpellEffectEighths)

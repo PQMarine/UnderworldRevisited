@@ -114,7 +114,7 @@ public sealed class UWMissiles
     /// <summary>A creature's missile or spell projectile along its facing, at the pitch of its
     /// aim (GetPitchToGTarg). Null when the start has no room - the original makes no missile then.</summary>
     public UWProjectileFlight LaunchFromCreature(UWCritter pOCritter, int piItemId, int piPitch, int piBaseDamage,
-        int piDamageType, int piImpactId)
+        int piDamageType, int piImpactId, int piLaunchSound = UWSoundEffectId.Miss)
     {
         if (pOCritter == null || pOCritter.Record == null || mOHost.ObjectMotion == null)
             return null;
@@ -138,7 +138,7 @@ public sealed class UWMissiles
         };
 
         return fLaunch(null, piItemId, lOLauncher, 0, piPitch, piSpeedByte: fSpeedByte(piItemId), piBaseDamage: piBaseDamage,
-            piDamageType: piDamageType, piImpactId: piImpactId, pIShooter: null, pOCritter: pOCritter, piHp: 0x3F);
+            piDamageType: piDamageType, piImpactId: piImpactId, pIShooter: null, pOCritter: pOCritter, piHp: 0x3F, piLaunchSound: piLaunchSound);
     }
 
     /// <summary>A missile from a spot without a body of its own - the arrow trap, the spell
@@ -535,6 +535,9 @@ public sealed class UWMissiles
         if (!UWMissileHitRules.HurtsWhatItHits(pOFlight.Record.ItemId) || !fDamageCreature(pOFlight, pOCritter))
             return false;
 
+        // missile_newhit's loner bit after a creature: a homing dart ends with its next step (UWHomingDartRules).
+        pOFlight.Record.Loner = true;
+
         if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
             fShowImpact(pOFlight, pOFlight.transform.position);
 
@@ -624,6 +627,9 @@ public sealed class UWMissiles
 
         fDamagePlayer(pOFlight);
         pOFlight.LastPlayerHitTick = UWGameSession.Current.Schedule.Now;
+
+        // The player is a creature too (missile_newhit's loner bit).
+        pOFlight.Record.Loner = true;
 
         if (!UWMissileHitRules.Detonates(pOFlight.Record.ItemId))
             fShowImpact(pOFlight, pOFlight.transform.position);
@@ -788,8 +794,11 @@ public sealed class UWMissiles
             }
         }
 
-        if (pOFlight.PlayersOwn)
-            UWAudioService.PlayEffectAt(UWSoundEffectId.SpellImpact, pOAt);
+        // The game's own (IUWCombatVariant.OwnMissileImpactSound): the first game's effect 7, the second none.
+        int liSound = UWGameSession.Current != null ? UWGameSession.Current.Game.Combat.OwnMissileImpactSound : UWSoundEffectId.SpellImpact;
+
+        if (pOFlight.PlayersOwn && liSound != UWAttackResolution.NoSound)
+            UWAudioService.PlayEffectAt(liSound, pOAt);
     }
 
     // ------------------------------------------------- The player walking into a missile

@@ -59,7 +59,7 @@ namespace UWDataImport.UWData
 
 		public static bool IsBuilt(int piMinor)
 		{
-			return piMinor != MindBlastSpell && piMinor != AcidSpell && piMinor != SnowballSpell;
+			return piMinor != MindBlastSpell;
 		}
 
 		/// <summary>special_spells. False for a minor that does nothing.</summary>
@@ -111,10 +111,23 @@ namespace UWDataImport.UWData
 				case MapAreaSpell:
 					return fMapArea(pIHost, lIPlayer);
 
+				// do_spell(5, 4) and do_spell(5, 6): the acid and the snowball as missile spells (part C2), the mana
+				// already paid - class 13 is no missile class for player_cast.
+				case AcidSpell:
+					return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, AcidMissile, 0), false, pIHost);
+
+				case SnowballSpell:
+					return UWSpellCasting.ApplyEffect(new UWRunicMagic.Spell(-1, UWSpellCasting.ProjectileMajorClass, SnowballMissile, 0), false, pIHost);
+
 				default:
 					return false;
 			}
 		}
+
+		/// <summary>Class 5's minors special_spells passes on: the acid and the snowball.</summary>
+		public const int AcidMissile = 4;
+
+		public const int SnowballMissile = 6;
 
 		private static void fHallucinate(IUWSpellHost pIHost, IUWSpellHostUw2 pIPlayer, int piLevel)
 		{

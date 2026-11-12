@@ -12,6 +12,9 @@ namespace UWDataImport.UWData
 	{
 		private const int LevelsPerWorld = 8;
 
+		/// <summary>Class 5's last minor: 1 to 4 fly straight (C1), 5 the homing dart and 6 the snowball (C2).</summary>
+		public const int LastMissile = 6;
+
 		/// <summary>Britannia allows no more (RUNES.C:232).</summary>
 		private const int LastCircleInBritannia = 3;
 
@@ -119,7 +122,9 @@ namespace UWDataImport.UWData
 		public int HealedString => HealedMessage;
 
 		/// <summary>Stage 1 the classes up to 4; stage 2 part A the backfire, mana, class 11 (but Roaming Sight)
-		/// and class 13 (but Mind Blast and the two missiles); part B the area spells, class 6.</summary>
+		/// and class 13 (but Mind Blast and the two missiles); part B the area spells, class 6; part C1 the four
+		/// missiles that fly straight, class 5 minors 1 to 4 (magic arrow, lightning bolt, fireball, acid); C2 the homing
+		/// dart and the snowball, and class 13's acid and snowball.</summary>
 		public bool IsBuilt(UWRunicMagic.Spell pOSpell)
 		{
 			int liMinor = UWRunicMagic.GetEffectMinor(pOSpell.MinorClass);
@@ -138,6 +143,12 @@ namespace UWDataImport.UWData
 
 				case UWAreaSpellRulesUw2.MajorClass:
 					return UWAreaSpellRulesUw2.IsBuilt(liMinor);
+
+				case UWSpellCasting.ProjectileMajorClass:
+					return liMinor >= 1 && liMinor <= LastMissile;
+
+				case UWSpellCasting.TargetMajorClass:
+					return UWTargetSpellRulesUw2.IsBuilt(liMinor) || UWObjectSpellRulesUw2.IsBuilt(liMinor);
 
 				default:
 					return pOSpell.MajorClass <= LastLastingOrHealClass;
@@ -197,6 +208,17 @@ namespace UWDataImport.UWData
 			UWLevel lOLevel = UWSpellCasting.LevelOf(pIHost);
 
 			return lOLevel == null || (lOLevel.LevelNumber - 1) / LevelsPerWorld != 0 || piCircle <= LastCircleInBritannia;
+		}
+
+		/// <summary>release_missile's items, plus FIRST_MISSILE (uw2 SPELLS.C:248): 1 magic arrow, 2 lightning bolt,
+		/// 3 fireball, 4 acid, 5 homing dart (Deadly Seeker), 6 snowball.</summary>
+		private static readonly int[] miProjectiles = { 0x17, 0x15, 0x14, 0x16, 0x1B, 0x1C };
+
+		public bool TargetsByClick => true;
+
+		public int GetProjectileId(int piEffectMinor)
+		{
+			return piEffectMinor >= 1 && piEffectMinor <= miProjectiles.Length ? miProjectiles[piEffectMinor - 1] : -1;
 		}
 
 		/// <summary>SPELLC_MISSILE and SPELLC_1AREA keep the cost until they are released (RUNES.C:249).</summary>

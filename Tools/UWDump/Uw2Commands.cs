@@ -196,11 +196,44 @@ namespace UnderworldRevisited.Tools
                         Console.WriteLine(string.Format("{0,2}/{1,2}  {2,4}  {3}  (object {4}, words {5:X4} {6:X4} {7:X4} {8:X4}{9})", liX, liY, lOObject.Key, lsName, lOObject.Value,
                             UWBinary.ReadU16(lyBlock, liAt), UWBinary.ReadU16(lyBlock, liAt + 2), UWBinary.ReadU16(lyBlock, liAt + 4), UWBinary.ReadU16(lyBlock, liAt + 6),
                             lOObject.Value < 256 ? ", whoami " + lyBlock[liAt + 0x1A] : string.Empty));
+
+                        fPrintContentsUw2(lyBlock, lsNames, lOObject.Value, "      ", 0);
                     }
                 }
             }
 
             return 0;
+        }
+
+        /// <summary>What an object holds (its quantity bit clear and a link in word 3): the chain along the
+        /// next links of word 2, each with its words, indented, and what those hold in turn (a wand's spell, a
+        /// bag's things) - at most four deep and 64 to a chain.</summary>
+        private static void fPrintContentsUw2(byte[] pyBlock, List<string> pONames, int piObject, string psIndent, int piDepth)
+        {
+            int liAt = UWLevArkLayout.ObjectOffset(piObject);
+
+            if (piDepth > 3 || liAt + 8 > pyBlock.Length || (UWBinary.ReadU16(pyBlock, liAt) & 0x8000) != 0)
+                return;
+
+            int liNext = UWBinary.ReadU16(pyBlock, liAt + 6) >> 6;
+
+            for (int liSteps = 0; liNext > 0 && liSteps < 64; liSteps++)
+            {
+                int liItemAt = UWLevArkLayout.ObjectOffset(liNext);
+
+                if (liItemAt + 8 > pyBlock.Length)
+                    return;
+
+                int liId = UWBinary.ReadU16(pyBlock, liItemAt) & 0x1FF;
+                string lsName = liId + 1 < pONames.Count ? fOneLine(pONames[liId + 1]) : "?";
+
+                Console.WriteLine(string.Format("{0}holds {1,4}  {2}  (object {3}, words {4:X4} {5:X4} {6:X4} {7:X4})", psIndent, liId, lsName, liNext,
+                    UWBinary.ReadU16(pyBlock, liItemAt), UWBinary.ReadU16(pyBlock, liItemAt + 2), UWBinary.ReadU16(pyBlock, liItemAt + 4),
+                    UWBinary.ReadU16(pyBlock, liItemAt + 6)));
+
+                fPrintContentsUw2(pyBlock, pONames, liNext, psIndent + "  ", piDepth + 1);
+                liNext = UWBinary.ReadU16(pyBlock, liItemAt + 4) >> 6;
+            }
         }
 
         /// <summary>The first game's characters: # solid, / a diagonal, s a slope, . an open floor at

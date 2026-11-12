@@ -73,7 +73,8 @@ namespace UWDataImport.Install
 
         /// <summary>
         /// Finds the image for a path that is either the image itself or the GOG or Steam installation
-        /// folder (or its UNDEROM1 subfolder). Null if there is none.
+        /// folder (or its UNDEROM1 subfolder), or the EA app's installation, which keeps it in DATA
+        /// (2026-11-12, UWInstallRegistry). Null if there is none.
         /// </summary>
         public static string FindImage(string psPath)
         {
@@ -90,7 +91,7 @@ namespace UWDataImport.Install
                 if (!Directory.Exists(lsTrimmed))
                     return null;
 
-                string lsInFolder = ImageIn(lsTrimmed);
+                string lsInFolder = ImageIn(lsTrimmed) ?? ImageIn(Path.Combine(lsTrimmed, UWInstallRegistry.EaDataFolder));
 
                 if (lsInFolder != null)
                     return lsInFolder;
@@ -363,6 +364,9 @@ namespace UWDataImport.Install
                 return fWithSecondGame(lOFolders);
             }
 
+            // WHERE THE STORES SAY (2026-11-12): GOG's and the EA app's registry entries of the first game come before the
+            // usual folders, those of the second before the second's (UWInstallRegistry).
+            lOFolders.AddRange(UWInstallRegistry.FoldersOf(0));
             lOFolders.Add(@"C:\GOG Games\Ultima Underworld");
             lOFolders.Add(@"D:\GOG Games\Ultima Underworld");
             lOFolders.Add(@"C:\Program Files (x86)\GOG Galaxy\Games\Ultima Underworld");
@@ -371,7 +375,11 @@ namespace UWDataImport.Install
             lOFolders.Add(@"D:\Ultima Underworld");
             piFirstGame = lOFolders.Count;
 
-            return fWithSecondGame(lOFolders);
+            List<string> lOAll = new List<string>(fWithSecondGame(lOFolders));
+
+            lOAll.InsertRange(piFirstGame, UWInstallRegistry.FoldersOf(1));
+
+            return lOAll.ToArray();
         }
 
         /// <summary>The list, then the same folders for the second game's own GOG product: every image
@@ -427,9 +435,17 @@ namespace UWDataImport.Install
         /// started UW2 through a DOSBox Staging of his own whose configuration comments the overlay out, so
         /// DOS wrote to UNDEROM2 although cloud_saves existed - and GOG's own configuration of the same
         /// install mounts it. Which DOSBox starts the game cannot be read from the files, so AUTOMATIC
-        /// follows the saves: the folder holding the newest SAVE1 to SAVE4 (its PLAYER.DAT) wins; without
-        /// any save, cloud_saves when the installation has it and GOG's configuration (dosbox*_single.conf)
-        /// mounts it as an overlay, else UNDEROMn. The other two modes take one folder whatever is there.
+        /// follows where the original last ran: SAVE0, its working copy, which it writes on every start and
+        /// this port never does - the folder with the newer SAVE0 wins. Without a SAVE0, cloud_saves when the
+        /// installation has it and GOG's configuration (dosbox*_single.conf) mounts it as an overlay, else
+        /// the folder holding the newest SAVE1 to SAVE4. INSTALLATION takes UNDEROMn whatever is there.
+        ///
+        /// CLOUD_SAVES IS READ AS DOSBOX'S OVERLAY (2026-11-12, per user: a GOG Galaxy install restored the old
+        /// cloud saves SAVE1 and SAVE2 into UNDEROM1 and the original's into cloud_saves, and Galaxy syncs both,
+        /// each local slot and the whole cloud_saves folder): a slot is read from cloud_saves when it is
+        /// there, else from the installation's UNDEROMn below, as DOSBox shows the original the two folders
+        /// laid over each other; every save is written to cloud_saves (SlotFolderToRead, OverlayBaseOf). The
+        /// automatic choice of cloud_saves therefore no longer hides the older slots of UNDEROMn.
         /// </summary>
         public enum SaveFolderModeEnum
         {
@@ -517,13 +533,81 @@ namespace UWDataImport.Install
             if (peMode == SaveFolderModeEnum.CloudSaves)
                 return lsCloud;
 
+            DateTime ldOwnCopy = fWorkingCopy(lsOwn);
+            DateTime ldCloudCopy = fWorkingCopy(lsCloud);
+
+            if (ldOwnCopy != DateTime.MinValue || ldCloudCopy != DateTime.MinValue)
+                return ldCloudCopy > ldOwnCopy ? lsCloud : lsOwn;
+
+            if (Directory.Exists(Path.Combine(psInstall, CloudSavesFolderName)) && MountsCloudSaves(psInstall))
+                return lsCloud;
+
             DateTime ldOwn = fNewestSave(lsOwn);
             DateTime ldCloud = fNewestSave(lsCloud);
 
-            if (ldOwn != DateTime.MinValue || ldCloud != DateTime.MinValue)
-                return ldCloud > ldOwn ? lsCloud : lsOwn;
+            return ldCloud > ldOwn ? lsCloud : lsOwn;
+        }
 
-            return Directory.Exists(Path.Combine(psInstall, CloudSavesFolderName)) && MountsCloudSaves(psInstall) ? lsCloud : lsOwn;
+        /// <summary>The PLAYER.DAT of SAVE0, the original's working copy, written on every start of a game and
+        /// never by this port; MinValue for none.</summary>
+        private static DateTime fWorkingCopy(string psFolder)
+        {
+            string lsFile = Path.Combine(psFolder, "SAVE0", "PLAYER.DAT");
+
+            return File.Exists(lsFile) ? File.GetLastWriteTimeUtc(lsFile) : DateTime.MinValue;
+        }
+
+        /// <summary>The file that marks a used slot (UWSavegameSlots).</summary>
+        public const string SlotMarkerFile = "LEV.ARK";
+
+        /// <summary>The installation's own UNDEROMn below a save folder cloud_saves/UNDEROMn - what DOSBox's
+        /// overlay lays cloud_saves over -, or null when the folder is no cloud_saves one or the installation
+        /// has no such folder.</summary>
+        public static string OverlayBaseOf(string psSaveFolder)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(psSaveFolder))
+                    return null;
+
+                string lsFolder = psSaveFolder.TrimEnd('\\', '/');
+                DirectoryInfo lOCloud = Directory.GetParent(lsFolder);
+
+                if (lOCloud == null || lOCloud.Parent == null
+                    || !string.Equals(lOCloud.Name, CloudSavesFolderName, StringComparison.OrdinalIgnoreCase))
+                    return null;
+
+                string lsBase = Path.Combine(lOCloud.Parent.FullName, Path.GetFileName(lsFolder));
+
+                return Directory.Exists(lsBase) ? lsBase : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>The folder slot piSlot is read from: SAVEn of the save folder, or, when that is cloud_saves
+        /// and holds no save there, the installation's SAVEn below it if that holds one (OverlayBaseOf). Saves
+        /// are always written to the save folder's own SAVEn.</summary>
+        public static string SlotFolderToRead(string psSaveFolder, int piSlot)
+        {
+            if (string.IsNullOrEmpty(psSaveFolder))
+                return null;
+
+            string lsOwn = Path.Combine(psSaveFolder, "SAVE" + piSlot);
+
+            if (File.Exists(Path.Combine(lsOwn, SlotMarkerFile)))
+                return lsOwn;
+
+            string lsBase = OverlayBaseOf(psSaveFolder);
+
+            if (lsBase == null)
+                return lsOwn;
+
+            string lsBelow = Path.Combine(lsBase, "SAVE" + piSlot);
+
+            return File.Exists(Path.Combine(lsBelow, SlotMarkerFile)) ? lsBelow : lsOwn;
         }
 
         /// <summary>The newest PLAYER.DAT of SAVE1 to SAVE4 in a save folder (SAVE0 is the running game's

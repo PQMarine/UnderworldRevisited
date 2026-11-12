@@ -1,4 +1,4 @@
-# Underworld Revisited, the port's own texts in German (Deutsch): id TAB text, \n a line break.
+# Underworld Revisited's own texts in German (Deutsch): id TAB text, \n a line break.
 # The game's own texts (STRINGS.PAK) are not here: a German game-text pack would be de.strings.tsv
 # beside this file. Characters: ASCII and ä ö ü Ä Ö Ü ß only (what the classic fonts draw).
 # The system voice says "du". The grammar.* and msg.* frames join pieces of the game's strings:
@@ -35,12 +35,12 @@ setting.SkillRaises.choice.fixed	Fest
 setting.RemoveExploits	Exploits des Originals entfernen
 setting.RemoveExploits.hint	Entfernt harmlose Exploits des Originals: den Schutt eines zerbrochenen Tranks oder einer Schriftrolle, der seinen Zauber ewig wirkt. Aus lässt sie wie im Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.Language	Sprache
-setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache ist, was im Ordner Languages neben dem Spiel liegt: xx.tsv für die eigenen Texte des Ports, xx.strings.tsv für die Texte des Spiels; was eine Datei nicht enthält, bleibt Englisch.
+setting.Language.hint	Wirkt sofort; Zeilen, die schon in der Nachrichtenrolle stehen, bleiben, wie sie waren. Eine Sprache besteht aus zwei Dateien im Ordner Languages neben dem Spiel: xx.tsv für die Texte von Underworld Revisited, xx.strings.tsv für die des Spiels; was fehlt, bleibt Englisch.
 setting.Language.name	Deutsch
 setting.Game	Spiel
-setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II bietet bisher einen Rundgang durch seine Welt: Create Character startet ihn.
+setting.Game.hint	Welches der Spiele der Installation läuft; ein Wechsel startet es in seinem Hauptmenü, und nur das Hauptmenü bietet ihn an. Ultima Underworld II ist eine Vorschau: Vieles im Spiel läuft, manche Teile fehlen noch.
 setting.SaveFolder	Spielstände
-setting.SaveFolder.hint	Wo die Spielstände der GOG- oder Steam-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner mit dem neuesten Spielstand - wohin DOSBox zuletzt geschrieben hat -, und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
+setting.SaveFolder.hint	Wo die Spielstände der GOG-, Steam- oder EA-App-Installation liegen, für beide Spiele. Automatisch nimmt den Ordner, aus dem das Original zuletzt gespielt wurde (seine Arbeitskopie SAVE0), und ohne einen cloud_saves, wenn GOGs DOSBox-Konfiguration es einbindet. In cloud_saves zeigt ein dort leerer Platz den Spielstand der Installation darunter, wie DOSBox ihn zeigt, und jedes Speichern geht nach cloud_saves. Ein eigenes DOSBox schreibt womöglich in den Ordner der Installation.
 setting.SaveFolder.choice.automatic	Automatisch
 setting.SaveFolder.choice.cloudsaves	cloud_saves
 setting.SaveFolder.choice.installation	Installationsordner
@@ -253,8 +253,15 @@ setup.gameplay.title	Spielweise
 setup.gameplay.intro	Diese Optionen ändern, wie sich das Spiel spielt. Aus ist immer wie im Original.
 setup.gameplay.original	Wie das Original
 setup.gameplay.aids	Hilfen
-setup.game.folder	Spielordner...
-setup.game.folder2	Ordner von Ultima Underworld II...
+setup.game.installation	Installation
+setup.game.other_folder	Anderer Ordner...
+setup.game.store.gog	GOG
+setup.game.store.steam	Steam
+setup.game.store.ea	EA-App
+setup.game.store.other	Eigener Ordner
+setup.game.saves	Spielstände: {0}
+setup.game.saves_overlay	Spielstände: {0}, ein dort leerer Platz aus {1} darunter, wie in DOSBox
+setup.game.saves_none	Spielstände: kein Ordner gefunden
 setup.game.quit	Beenden
 setup.motion.title	Bewegung
 setup.motion.hint	Wie du dich bewegst. Das Spiel nutzt den Bewegungscode des Originals. Hier wählst du, wie oft er rechnet und wie das Bild folgt.
@@ -344,17 +351,17 @@ setup.palette.preset.subtle	Dezent
 setup.palette.preset.full	Voll
 setup.palette.preset.own	Eigene
 setup.folder.title	Spielordner
-setup.folder.hint	Wähle den Ordner deiner GOG- oder Steam-Installation von Ultima Underworld - den, der game.gog (GOG) oder game.bin (Steam) enthält.
-setup.folder.hint2	Wähle den Ordner deiner GOG- oder Steam-Installation von Ultima Underworld II, wenn sie getrennt vom ersten Spiel liegt - den, der game.gog oder game.bin enthält. Die Spielstände dieser Installation werden benutzt.
+setup.folder.hint	Wähle den Ordner deiner GOG-, Steam- oder EA-App-Installation von Ultima Underworld - den, der game.gog (GOG) oder game.bin (Steam, bei der EA-App im Ordner DATA) enthält.
+setup.folder.hint2	Wähle den Ordner deiner GOG-, Steam- oder EA-App-Installation von Ultima Underworld II, wenn sie getrennt vom ersten Spiel liegt - den, der game.gog oder game.bin enthält. Die Spielstände dieser Installation werden benutzt.
 setup.folder.found	Gefunden:  {0}
 setup.folder.drives	Laufwerke:
 setup.folder.home	Benutzer
 setup.folder.up	Hoch
-setup.folder.none_found	In den üblichen Ordnern wurde keine GOG- oder Steam-Installation gefunden. Bitte wähle sie aus.
+setup.folder.none_found	In den üblichen Ordnern wurde keine GOG-, Steam- oder EA-App-Installation gefunden. Bitte wähle sie aus.
 setup.folder.unreadable	Dieser Ordner kann nicht gelesen werden: {0}
 setup.folder.usable	{0} gefunden - dieser Ordner ist verwendbar.
 setup.folder.no_image	Kein {0} in diesem Ordner.
-setup.folder.choose	Wähle das Laufwerk und den Ordner deiner GOG- oder Steam-Installation.
+setup.folder.choose	Wähle das Laufwerk und den Ordner deiner GOG-, Steam- oder EA-App-Installation.
 setup.folder.preparing	Die Spieldaten werden vorbereitet...
 setup.folder.no_data	Die Spieldaten konnten aus diesem Ordner nicht gelesen werden.
 setup.folder.use	Diesen Ordner nehmen

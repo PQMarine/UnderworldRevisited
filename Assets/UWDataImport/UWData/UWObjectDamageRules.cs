@@ -38,6 +38,10 @@ namespace UWDataImport.UWData
 
 		public const int LightningBoltObjectId = 0x15;
 
+		/// <summary>The second game's other fireball (item 0x1D; the first game has no object there): mts_doanim
+		/// treats it as the first (uw2 EFFECT.C, from[] = 0x14, the lightning bolt, 0x1D).</summary>
+		public const int SecondFireballObjectId = 0x1D;
+
 		public const int FireBlastDiceCount = 10;
 
 		public const int FireBlastDiceRange = 6;
@@ -83,6 +87,7 @@ namespace UWDataImport.UWData
 			switch (piMissileObjectId)
 			{
 				case FireballObjectId:
+				case SecondFireballObjectId:
 					piDiceCount = FireBlastDiceCount;
 					piDiceRange = FireBlastDiceRange;
 					piDamageType = UWDamageTypes.Fire;

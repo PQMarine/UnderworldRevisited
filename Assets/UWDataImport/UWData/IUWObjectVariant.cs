@@ -45,9 +45,9 @@ namespace UWDataImport.UWData
 		/// TREASURE.C:103-106).</summary>
 		int RollValuableType(int piDungeonLevel);
 
-		/// <summary>The skill check of picking a lock of this height (UW1: Picklock against three
-		/// times the height, USEITEMS.C:232; UW2: Picklock plus 1, USEITEMS.C:535). The heights that
-		/// refuse every pick are the same in both games.</summary>
+		/// <summary>The skill check of picking a lock of this height: the skill against three times the height in both
+		/// games (UW1 USEITEMS.C:232, UW2 checkLock in OBJUSE.C; the second game's lockpick hands it Picklock plus 1,
+		/// USEITEMS.C:535, its caller's business). The heights that refuse every pick are the same in both games.</summary>
 		UWSkillCheck.ResultEnum PickRoll(int piPicklock, int piLockHeight);
 	}
 }

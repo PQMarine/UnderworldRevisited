@@ -104,7 +104,7 @@ namespace UWDataImport.UWData
 		void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost);
 
 		/// <summary>A spell of class 7 or 11 waits for the click that names its target.</summary>
-		void BeginTargetSpell(int piMajorClass, int piMinorClass);
+		void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0);
 
 		/// <summary>Sends the pending projectile off at once.</summary>
 		void FirePendingSpell();

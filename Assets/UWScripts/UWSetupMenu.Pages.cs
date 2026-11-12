@@ -627,7 +627,7 @@ public partial class UWSetupMenu
 
     private UWSetupPage fBuildGamePage()
     {
-        return new UWSetupPage("game")
+        UWSetupPage lOPage = new UWSetupPage("game")
             .Add(fTitle("game.title", UWText.T("setup.game.title")))
             // THE GAME (UW2 plan phase 0 step 5, 2026-10-28): the games the installation holds; a
             // choice starts the scene again with it (UWGameSwitch). From the main menu only, as the
@@ -635,24 +635,16 @@ public partial class UWSetupMenu
             .Add(fGameRow())
             .Add(fHint(Defs.Game, 8f))
             .Add(fSaveFolderRow())
-            .Add(fHint(Defs.SaveFolder, 8f))
-            // The game folder only from the main menu (and on the first-run screen, where it is the
-            // one way on): in the game (the bar over the in-game menus since 2026-10-06) a new folder
-            // would mean a new game.
-            .Add(new UWSetupRow
-            {
-                Kind = Kind.Action, Id = "game.folder", Text = UWText.T("setup.game.folder"), Width = 200f, Height = 30f, Advance = 40f,
+            .Add(fHint(Defs.SaveFolder, 8f));
 
-                EnabledWhen = fFolderReachable, Press = () => fOpenFolderDialog(false)
-            })
-            // The second game in a folder of its own (per user, 2026-10-31): its saves are that
-            // installation's, whatever folder the first has.
-            .Add(new UWSetupRow
-            {
-                Kind = Kind.Action, Id = "game.folder2", Text = UWText.T("setup.game.folder2"), Width = 260f, Height = 30f, Advance = 40f,
+        // THE INSTALLATIONS FOUND for the running game, by store, and the save folder in use (2026-11-12,
+        // UWSetupMenu.Installations.cs). They replace the buttons "Game folder..." and "Folder of Ultima Underworld II...":
+        // the second game's choice is its own folder, as that button's was (per user, 2026-10-31). Chosen only from the
+        // main menu (and on the first-run screen, where the folder dialog is the one way on): in the game (the bar over
+        // the in-game menus since 2026-10-06) a new folder would mean a new game.
+        fAddInstallationRows(lOPage);
 
-                EnabledWhen = fFolderReachable, Press = () => fOpenFolderDialog(true)
-            })
+        return lOPage
             // THE MOD FOLDER (Docs/WIDESCREEN-WEAPONS-PLAN.md step 1, 2026-11-09): how many mods it holds and
             // the button that opens it (made if missing), as the MT-32 ROMs' line - here until the Mods
             // window takes it over.

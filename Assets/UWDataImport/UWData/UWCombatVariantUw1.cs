@@ -104,5 +104,9 @@ namespace UWDataImport.UWData
 		public int NoRoomToFireString => 0xFE + 1;
 
 		public bool MissileDamageSounds => true;
+
+		public int OwnMissileImpactSound => UWSoundEffectId.SpellImpact;
+
+		public int SpellMissileLaunchSound(int piProjectileId) => UWSoundEffectId.Miss;
 	}
 }

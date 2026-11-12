@@ -185,7 +185,7 @@ public sealed class UWSpellHost : IUWSpellHost
             mOInteraction.BeginSpellTargeting(piProjectileId, piDamage, piSpeed, piManaCost);
     }
 
-    public void BeginTargetSpell(int piMajorClass, int piMinorClass)
+    public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0)
     {
         if (mOInteraction != null)
             mOInteraction.BeginTargetSpell(piMajorClass, piMinorClass);

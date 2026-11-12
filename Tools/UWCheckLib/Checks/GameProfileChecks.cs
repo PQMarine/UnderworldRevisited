@@ -193,6 +193,11 @@ namespace UnderworldRevisited.Tools
                 "True True False False False");
             Check.Str("uw2 combat: no room to fire, and no second sound on a missile's hit",
                 lICombat.NoRoomSound + " " + lICombat.NoRoomToFireString + " " + lICombat.MissileDamageSounds, "45 271 False");
+            Check.Str("uw1/uw2 a spell missile's launch sound: magic arrow, acid (missile_fire's 0xA; spell_fire's 0x28 and 0xA)",
+                UWGameProfiles.Uw1.Combat.SpellMissileLaunchSound(0x17) + " " + UWGameProfiles.Uw1.Combat.SpellMissileLaunchSound(0x16) + " "
+                + lICombat.SpellMissileLaunchSound(0x17) + " " + lICombat.SpellMissileLaunchSound(0x16), "10 10 40 10");
+            Check.Str("uw1/uw2 the own missile's impact sound (SpawnImpactAnimo's 7; mts_doanim none)",
+                UWGameProfiles.Uw1.Combat.OwnMissileImpactSound + " " + lICombat.OwnMissileImpactSound, "7 " + UWAttackResolution.NoSound);
         }
 
         /// <summary>The second game's record holds sequences: the brain's slots go in and come back.</summary>
@@ -255,11 +260,20 @@ namespace UnderworldRevisited.Tools
             IUWMagicVariant lIMagic = UWGameProfiles.Uw2.Magic;
             string lsBuilt = string.Empty;
 
-            foreach (int liSpell in new[] { 7, 15, 46, 58, 61, 63, 67, 0, 24, 33, 4, 65 })
+            foreach (int liSpell in new[] { 7, 15, 46, 58, 61, 63, 67, 0, 24, 33, 4, 65, 2, 19, 10 })
                 lsBuilt += lIMagic.IsBuilt(lIMagic.Spells[liSpell]) ? "1" : "0";
 
-            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight, Armageddon, Mana Boost; Create Food, Frost (part B), Fireball, Detect Trap, Acid",
-                lsBuilt, "111101101000");
+            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight (part D3), Armageddon, Mana Boost; Create Food, Frost (part B), Fireball, Detect Trap (part D2), Acid; Magic Arrow, Lightning (part C1), Deadly Seeker (C2)",
+                lsBuilt, "111111101111111");
+
+            Check.Str("uw2 missiles: the projectile of class 5's minors 1 to 6 (release_missile's items plus 0x10), 7 none",
+                string.Join(" ", lIMagic.GetProjectileId(1), lIMagic.GetProjectileId(2), lIMagic.GetProjectileId(3), lIMagic.GetProjectileId(4),
+                    lIMagic.GetProjectileId(5), lIMagic.GetProjectileId(6), lIMagic.GetProjectileId(7)), "23 21 20 22 27 28 -1");
+            Check.Str("uw1 missiles: the first game's four", string.Join(" ", UWGameProfiles.Uw1.Magic.GetProjectileId(1),
+                UWGameProfiles.Uw1.Magic.GetProjectileId(4), UWGameProfiles.Uw1.Magic.GetProjectileId(5)), "23 22 -1");
+            fExpectBool("uw2 missiles: the other fireball 0x1D explodes like the first (mts_doanim), 10d6 fire",
+                UWObjectDamageRules.TryGetBlast(0x1D, out int liFireDice, out int liFireSides, out int _) && liFireDice == 10 && liFireSides == 6
+                && UWRunicMagic.GetProjectileImpactId(0x1D) == UWRunicMagic.GetProjectileImpactId(0x14), true);
 
             // Stage 2 part B: area_spells[] (SPELLS.C:729) - count, how far ahead, radius - and every class 6 spell built.
             string lsAreaTable = string.Empty;
@@ -558,6 +572,17 @@ namespace UnderworldRevisited.Tools
             }
         }
 
+        /// <summary>A made-up slot: LEV.ARK and PLAYER.DAT of one byte, PLAYER.DAT dated pdWhen.</summary>
+        private static void fWriteSlot(string psSaveFolder, string psSlot, System.DateTime pdWhen)
+        {
+            string lsSlot = Path.Combine(psSaveFolder, psSlot);
+
+            Directory.CreateDirectory(lsSlot);
+            File.WriteAllBytes(Path.Combine(lsSlot, UWGogInstall.SlotMarkerFile), new byte[1]);
+            File.WriteAllBytes(Path.Combine(lsSlot, "PLAYER.DAT"), new byte[1]);
+            File.SetLastWriteTimeUtc(Path.Combine(lsSlot, "PLAYER.DAT"), pdWhen);
+        }
+
         private static void fCheckSaveFolderRule()
         {
             string lsRoot = Path.Combine(Path.GetTempPath(), "UWCheckSaves_" + System.Guid.NewGuid().ToString("N"));
@@ -593,22 +618,44 @@ namespace UnderworldRevisited.Tools
                 Check.Str("saves: a current installer's go to cloud_saves/UNDEROM1 (DOSBox's overlay; it need not exist yet)",
                     fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1)), "Ultima Underworld/cloud_saves/UNDEROM1");
 
-                // The newest save decides over the configuration; the two switches take their folder.
-                Directory.CreateDirectory(Path.Combine(lsFirst, lOUw1.SaveFolder, "SAVE2"));
-                File.WriteAllBytes(Path.Combine(lsFirst, lOUw1.SaveFolder, "SAVE2", "PLAYER.DAT"), new byte[1]);
-                Directory.CreateDirectory(Path.Combine(lsFirst, UWGogInstall.CloudSavesFolderName, lOUw1.SaveFolder, "SAVE1"));
-                File.WriteAllBytes(Path.Combine(lsFirst, UWGogInstall.CloudSavesFolderName, lOUw1.SaveFolder, "SAVE1", "PLAYER.DAT"), new byte[1]);
-                File.SetLastWriteTimeUtc(Path.Combine(lsFirst, UWGogInstall.CloudSavesFolderName, lOUw1.SaveFolder, "SAVE1", "PLAYER.DAT"), new System.DateTime(2026, 1, 1));
-                File.SetLastWriteTimeUtc(Path.Combine(lsFirst, lOUw1.SaveFolder, "SAVE2", "PLAYER.DAT"), new System.DateTime(2026, 2, 1));
+                // THE OVERLAY (2026-11-12, GOG Galaxy): an older local SAVE2 (LEV.ARK and PLAYER.DAT) newer than cloud_saves'
+                // SAVE1 no longer pulls automatic away from the overlay, and both slots are read through it.
+                string lsLocal = Path.Combine(lsFirst, lOUw1.SaveFolder);
+                string lsCloud = Path.Combine(lsFirst, UWGogInstall.CloudSavesFolderName, lOUw1.SaveFolder);
 
-                Check.Str("saves: automatic follows the newest save (UNDEROM1's), the switches cloud_saves and the installation; the modes by name",
+                fWriteSlot(lsLocal, "SAVE2", new System.DateTime(2026, 2, 1));
+                fWriteSlot(lsLocal, "SAVE1", new System.DateTime(2026, 2, 1));
+                fWriteSlot(lsCloud, "SAVE1", new System.DateTime(2026, 1, 1));
+
+                Check.Str("saves: automatic stays on the overlay without SAVE0, the switches cloud_saves and the installation; the modes by name",
                     fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1)) + " "
                     + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1, UWGogInstall.SaveFolderModeEnum.CloudSaves)) + " "
                     + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1, UWGogInstall.SaveFolderModeEnum.Installation)) + " "
                     + UWGogInstall.ParseSaveFolderMode(string.Empty) + " " + UWGogInstall.ParseSaveFolderMode("installation"),
-                    "Ultima Underworld/UNDEROM1 Ultima Underworld/cloud_saves/UNDEROM1 Ultima Underworld/UNDEROM1 Automatic Installation");
+                    "Ultima Underworld/cloud_saves/UNDEROM1 Ultima Underworld/cloud_saves/UNDEROM1 Ultima Underworld/UNDEROM1 Automatic Installation");
 
-                Directory.Delete(Path.Combine(lsFirst, lOUw1.SaveFolder, "SAVE2"), true);
+                Check.Str("saves: through the overlay slot 1 from cloud_saves, 2 from UNDEROM1 beneath, 3 (empty) cloud_saves'; the installation's own",
+                    fRelative(lsRoot, UWGogInstall.SlotFolderToRead(lsCloud, 1)) + " " + fRelative(lsRoot, UWGogInstall.SlotFolderToRead(lsCloud, 2)) + " "
+                    + fRelative(lsRoot, UWGogInstall.SlotFolderToRead(lsCloud, 3)) + " " + fRelative(lsRoot, UWGogInstall.SlotFolderToRead(lsLocal, 1)) + " "
+                    + fRelative(lsRoot, UWGogInstall.OverlayBaseOf(lsCloud)) + " " + fRelative(lsRoot, UWGogInstall.OverlayBaseOf(lsLocal)),
+                    "Ultima Underworld/cloud_saves/UNDEROM1/SAVE1 Ultima Underworld/UNDEROM1/SAVE2 Ultima Underworld/cloud_saves/UNDEROM1/SAVE3 "
+                    + "Ultima Underworld/UNDEROM1/SAVE1 Ultima Underworld/UNDEROM1 none");
+
+                // A DOSBox of one's own without the overlay (the user's UW2 test install): its SAVE0 in UNDEROM1 is newer
+                // than cloud_saves' - the installation's folder; the other way round cloud_saves.
+                fWriteSlot(lsLocal, "SAVE0", new System.DateTime(2026, 3, 1));
+                fWriteSlot(lsCloud, "SAVE0", new System.DateTime(2026, 1, 15));
+                string lsOwnDosbox = fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1));
+
+                File.SetLastWriteTimeUtc(Path.Combine(lsCloud, "SAVE0", "PLAYER.DAT"), new System.DateTime(2026, 4, 1));
+                Check.Str("saves: automatic follows the newer SAVE0, the original's working copy",
+                    lsOwnDosbox + " " + fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw1)),
+                    "Ultima Underworld/UNDEROM1 Ultima Underworld/cloud_saves/UNDEROM1");
+
+                Directory.Delete(lsCloud, true);
+                Directory.Delete(Path.Combine(lsLocal, "SAVE0"), true);
+                Directory.Delete(Path.Combine(lsLocal, "SAVE1"), true);
+                Directory.Delete(Path.Combine(lsLocal, "SAVE2"), true);
                 Check.Str("saves: ... and the first game's installation holds no saves of the second (it has no UNDEROM2)",
                     fRelative(lsRoot, UWGogInstall.GetSavegameFolder(lsImage, lOUw2)), "none");
 
@@ -1164,6 +1211,8 @@ namespace UnderworldRevisited.Tools
             public int SlotOfRecord(int piRaw) => piRaw;
 
             public int RecordOfSlot(int piSlot) => piSlot;
+
+            public bool CountsDownHeldGoal => false;
         }
 
         /// <summary>A player variant whose steps give themselves away.</summary>
@@ -1242,6 +1291,10 @@ namespace UnderworldRevisited.Tools
             public int NoRoomToFireString => 0;
 
             public bool MissileDamageSounds => false;
+
+            public int OwnMissileImpactSound => UWAttackResolution.NoSound;
+
+            public int SpellMissileLaunchSound(int piProjectileId) => UWSoundEffectId.Miss;
         }
 
         private sealed class SpyMagic : IUWMagicVariant
@@ -1274,6 +1327,10 @@ namespace UnderworldRevisited.Tools
             }
 
             public bool PaysOnRelease(UWRunicMagic.Spell pOSpell) => mIUw1.PaysOnRelease(pOSpell);
+
+            public int GetProjectileId(int piEffectMinor) => mIUw1.GetProjectileId(piEffectMinor);
+
+            public bool TargetsByClick => false;
 
             public void TooSoon(IUWSpellHost pIHost) => mIUw1.TooSoon(pIHost);
 

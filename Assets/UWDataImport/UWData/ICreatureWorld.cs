@@ -93,7 +93,7 @@ namespace UWDataImport.UWData
 		/// the motion core (UWMissiles.LaunchFromCreature). False when the start has no room - the
 		/// original makes no missile then.</summary>
 		bool LaunchMissile(UWCreatureActor pOLauncher, int piObjectId, int piPitch, int piBaseDamage, int piDamageType,
-			int piImpactId);
+			int piImpactId, int piLaunchSound = UWSoundEffectId.Miss);
 
 		// ------------------------------------------------- Talk and music
 

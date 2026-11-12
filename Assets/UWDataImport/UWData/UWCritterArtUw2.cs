@@ -255,6 +255,13 @@ namespace UWDataImport.UWData
 			return pONpc != null && pONpc.RawNpcBytes != null ? pONpc.RawNpcBytes[UWNpcRecordCodec.AnimationByte] & UWNpcRecordCodec.AnimationMask : 0;
 		}
 
+		/// <summary>The goal a creature record holds now: word 0x0B bits 0-3 (OBJ_GOAL), which the brain keeps up to date -
+		/// a spell's held goal 15 included (2026-11-12, the palette follows it: DrawPaletteOf).</summary>
+		public static int GoalOf(UWNpc pONpc)
+		{
+			return pONpc != null && pONpc.RawNpcBytes != null ? UWBinary.Read16(pONpc.RawNpcBytes, UWNpcRecordCodec.GoalWord) & 0xF : 0;
+		}
+
 		/// <summary>The frame a creature record holds: word 0x0B bits 12-15 (OBJ_FRAME; object.h:226).</summary>
 		public static int FrameOf(UWNpc pONpc)
 		{

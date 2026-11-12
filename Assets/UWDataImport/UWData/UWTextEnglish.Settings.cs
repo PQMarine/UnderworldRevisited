@@ -41,14 +41,14 @@ namespace UWDataImport.UWData
 			fAdd("setting.RemoveExploits", "Remove exploits of the original");
 			fAdd("setting.RemoveExploits.hint", "Removes harmless exploits of the original game: the debris of a broken potion or scroll that casts its spell for ever. Off keeps them as in the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
 			fAdd("setting.Language", "Language");
-			fAdd("setting.Language.hint", "Takes effect at once; lines already in the message scroll stay as they were. A language is what lies in the Languages folder beside the game: xx.tsv for the port's own texts, xx.strings.tsv for the game's texts; what a file does not hold stays English.");
+			fAdd("setting.Language.hint", "Takes effect at once; lines already in the message scroll stay as they were. A language is two files in the Languages folder beside the game: xx.tsv for Underworld Revisited's texts, xx.strings.tsv for the game's; what a file does not hold stays English.");
 			// The language's own name in its own language ("Deutsch"), shown in the Language row
 			// instead of the file's code (2026-11-08, after the made-up Japanese xj showed only "xj").
 			fAdd("setting.Language.name", "English");
 			fAdd("setting.Game", "Game");
-			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II offers a walk through its world so far: Create Character starts it.");
+			fAdd("setting.Game.hint", "Which of the games in the installation runs; a switch starts it from its main menu, and only the main menu offers it. Ultima Underworld II is a preview: much of the game works, some parts are still missing.");
 			fAdd("setting.SaveFolder", "Save games");
-			fAdd("setting.SaveFolder.hint", "Where the save games of the GOG or Steam installation are, for both games. Automatic takes the folder holding the newest save - where DOSBox wrote last -, and without one cloud_saves when GOG's DOSBox configuration mounts it. A DOSBox of your own may write to the installation's folder instead.");
+			fAdd("setting.SaveFolder.hint", "Where the save games of the GOG, Steam or EA app installation are, for both games. Automatic takes the folder the original last played from (its working copy SAVE0), and without one cloud_saves when GOG's DOSBox configuration mounts it. In cloud_saves a slot that is empty there shows the installation's save beneath, as DOSBox shows it, and every save goes to cloud_saves. A DOSBox of your own may write to the installation's folder instead.");
 			fAdd("setting.SaveFolder.choice.automatic", "Automatic");
 			fAdd("setting.SaveFolder.choice.cloudsaves", "cloud_saves");
 			fAdd("setting.SaveFolder.choice.installation", "Installation folder");

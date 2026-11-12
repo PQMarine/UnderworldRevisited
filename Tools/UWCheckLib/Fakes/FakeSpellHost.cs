@@ -63,7 +63,7 @@ namespace UnderworldRevisited.Tools
 
             public void BeginProjectileSpell(int piProjectileId, int piDamage, int piSpeed, int piManaCost) { }
 
-            public void BeginTargetSpell(int piMajorClass, int piMinorClass) { }
+            public void BeginTargetSpell(int piMajorClass, int piMinorClass, int piManaCost = 0) { }
 
             public void FirePendingSpell() { }
 

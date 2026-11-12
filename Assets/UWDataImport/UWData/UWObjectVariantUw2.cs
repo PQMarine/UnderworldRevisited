@@ -76,9 +76,12 @@ namespace UWDataImport.UWData
 			return liType < 0 || liType == RolledAway ? 0 : liType;
 		}
 
+		/// <summary>checkLock's roll (uw2 obj/OBJUSE.C): skill_check(skill, z * 3), as the first game's. The lockpick's
+		/// "+ 1" is its caller's (USEITEMS.C passes -(Picklock + 1)); Open passes 45 (part D2, 2026-11-12: until then this
+		/// threw and the spell vanished without a word, per user on test list 30.5).</summary>
 		public UWSkillCheck.ResultEnum PickRoll(int piPicklock, int piLockHeight)
 		{
-			throw new NotSupportedException("The second game's locks come in phase 4 of Docs/UW2-PLAN.md.");
+			return UWSkillCheck.Check(piPicklock, piLockHeight * 3);
 		}
 	}
 }

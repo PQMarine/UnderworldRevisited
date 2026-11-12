@@ -173,14 +173,16 @@ namespace UWDataImport.UWData
 		/// an effect, and that is exactly how it is in the original (per user, 2026-09-04).
 		///
 		/// 450 is "an explosion" in string block 4 and fits. The 453 for the lightning bolt
-		/// also comes from the reference, but for us it is "a splash" - unclear whether the
-		/// number or our offset is wrong there. Stays in until someone looks at it.
+		/// also comes from the reference; its name in block 4 is "a splash", but it is the lightning
+		/// flash: the second game's mts_doanim turns the bolt into ITEM_LIGHTNING_1C5 (uw2 EFFECT.C,
+		/// checked 2026-11-12). The second game's other fireball 0x1D explodes as the first.
 		/// </summary>
 		public static int GetProjectileImpactId(int piProjectileId)
 		{
 			switch (piProjectileId)
 			{
 				case 20:
+				case UWObjectDamageRules.SecondFireballObjectId:
 					return 450;
 
 				case 21:

@@ -200,10 +200,22 @@ public static class UWModernUi
         }
     }
 
-    /// <summary>A spell waiting for its target or aim lets go (UWHudRunes.fAfterModernCast).</summary>
+    /// <summary>A spell waiting for its target or aim lets go (UWHudRunes.fAfterModernCast); on the second game the
+    /// missile waiting on its attack host (UWAttackUw2.BeginSpellMissile).</summary>
     private static readonly IUWModernClosable msPendingSpell = new Closable(
-        () => UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting,
-        () => UWScene.Interaction.CancelPendingSpell());
+        () => (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
+            || (UWAttackUw2.Current != null && UWAttackUw2.Current.IsAnySpellWaiting),
+        () =>
+        {
+            if (UWScene.Interaction != null && UWScene.Interaction.IsSpellTargeting)
+                UWScene.Interaction.CancelPendingSpell();
+
+            if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsSpellWaiting)
+                UWAttackUw2.Current.CancelSpellMissile();
+
+            if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
+                UWAttackUw2.Current.CancelSpellTarget();
+        });
 
     /// <summary>The bags' use mode ends (UWModernBags.CancelUse).</summary>
     private static readonly IUWModernClosable msBagsUse = new Closable(

@@ -407,7 +407,7 @@ namespace UWDataImport.UWData
 
 			lOText.Append("# Underworld Revisited, the game's texts (STRINGS.PAK) in the language ").Append(psCode)
 				.Append(": Languages/").Append(psCode).Append(FileSuffix).Append(" beside the game.\n");
-			lOText.Append("# One string per line: block TAB index TAB text, in decimal as the port numbers them (index 1 is a block's first string).\n");
+			lOText.Append("# One string per line: block TAB index TAB text, in decimal as Underworld Revisited numbers them (index 1 is a block's first string).\n");
 			lOText.Append("# In the text \\n is a line break, \\t a TAB, \\\\ a backslash before n, r, t or another backslash;\n");
 			lOText.Append("# every other backslash is the game's own code (\\m, \\p, \\0) and stays. Keep the placeholders (@SS1, @GI3C2).\n");
 			lOText.Append("# An empty text keeps the English; lines starting with # are comments.\n");

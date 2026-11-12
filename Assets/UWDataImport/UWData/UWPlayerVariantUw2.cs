@@ -75,15 +75,21 @@ namespace UWDataImport.UWData
 
 		public bool HasGaramonDreams => false;
 
+		/// <summary>DetectedTrap's target, 10 and twice the world (UWObjectSpellRulesUw2.DetectTarget; part D2).</summary>
 		public int TrapDetectTarget()
 		{
-			throw new NotSupportedException("The second game's trap targets come with its objects in phase 4 of Docs/UW2-PLAN.md.");
+			return UWObjectSpellRulesUw2.DetectTarget(fDungeonLevel);
 		}
 
+		/// <summary>RemoveTrap's target, 8 and the world.</summary>
 		public int TrapDisarmTarget()
 		{
-			throw new NotSupportedException("The second game's trap targets come with its objects in phase 4 of Docs/UW2-PLAN.md.");
+			return UWObjectSpellRulesUw2.DisarmTarget(fDungeonLevel);
 		}
+
+		/// <summary>The player's dungeon level counted from 1, from the record.</summary>
+		private static int fDungeonLevel => UWGameSession.Current != null && UWGameSession.Current.PlayerFileUw2 != null
+			? UWPlayerRecordUw2.Level(UWGameSession.Current.PlayerFileUw2) : 1;
 
 		/// <summary>The world of the Scintillus Academy (levels 41 to 48).</summary>
 		public const int AcademyWorld = 5;

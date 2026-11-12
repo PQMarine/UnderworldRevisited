@@ -1306,8 +1306,10 @@ namespace UWDataImport.UWData
 
 			DataImport lOData = fData();
 
+			// spell_fire's sound, the game's (IUWCombatVariant.SpellMissileLaunchSound).
 			fLaunchProjectile(piProjectile, UWRunicMagic.GetProjectileDamageType(piProjectile,
-				lOData != null ? lOData.ObjectProperties : null), piPitch);
+				lOData != null ? lOData.ObjectProperties : null), piPitch,
+				UWGameSession.Current != null ? UWGameSession.Current.Game.Combat.SpellMissileLaunchSound(piProjectile) : UWSoundEffectId.Miss);
 		}
 
 		/// <summary>
@@ -1317,7 +1319,7 @@ namespace UWDataImport.UWData
 		/// of the creature's height plus two per pitch step; NO ROOM there (seg025_B51: a wall, a
 		/// step, a creature in melee contact) means no missile, as in the original.
 		/// </summary>
-		private void fLaunchProjectile(int piObjectId, int piDamageType, int piPitch)
+		private void fLaunchProjectile(int piObjectId, int piDamageType, int piPitch, int piLaunchSound = UWSoundEffectId.Miss)
 		{
 			DataImport lOData = fData();
 
@@ -1332,7 +1334,7 @@ namespace UWDataImport.UWData
 			// carries the base.
 			int liBase = lOData.ObjectProperties.GetRangedDamage(piObjectId);
 
-			if (!mIWorld.LaunchMissile(this, piObjectId, piPitch, liBase, piDamageType, UWRunicMagic.GetProjectileImpactId(piObjectId)))
+			if (!mIWorld.LaunchMissile(this, piObjectId, piPitch, liBase, piDamageType, UWRunicMagic.GetProjectileImpactId(piObjectId), piLaunchSound))
 			{
 				fEvent("missile {0}: no room at the start, none made", piObjectId);
 
@@ -1727,6 +1729,31 @@ namespace UWDataImport.UWData
 			mORecord.Attitude = 1;
 
 			return UWTargetSpellRules.Result.Shown;
+		}
+
+		/// <summary>The hit points now (Smite Undead's liche in the second game).</summary>
+		public int CurrentHitPoints => mOHealth != null ? mOHealth.CurrentHealth : 0;
+
+		/// <summary>
+		/// A spell's change_critter_goal and SET_ATTITUDE (the second game's target spells, UWTargetSpellRulesUw2): the
+		/// goal and its target (-1 keeps them), the attitude (-1 keeps it). The resistance and the picture are the rule's.
+		/// False for a dead creature.
+		/// </summary>
+		public bool SetGoalBySpell(int piGoal, int piGTarg, int piAttitude)
+		{
+			if (mOHealth == null || IsDead)
+				return false;
+
+			if (piGoal >= 0)
+			{
+				fTrace("goal " + piGoal + " by a spell");
+				mORecord.SetNewGoal(piGoal, piGTarg >= 0 ? piGTarg : mORecord.GTarg);
+			}
+
+			if (piAttitude >= 0)
+				mORecord.Attitude = piAttitude;
+
+			return true;
 		}
 
 		/// <summary>Cause Fear: goal 6 against the player, without a morale roll.</summary>

@@ -4,7 +4,7 @@ How to translate [Underworld Revisited](../README.md) into another language.
 
 - [Two files per language](#two-files-per-language)
 - [Getting started](#getting-started)
-- [The port's own texts](#the-ports-own-texts)
+- [Underworld Revisited's own texts](#underworld-revisiteds-own-texts)
 - [Words in the pictures](#words-in-the-pictures)
 - [The game's texts](#the-games-texts)
 - [Names: the name format](#names-the-name-format)
@@ -24,7 +24,7 @@ the game (beside the executable; in the Unity editor, the project folder):
 
 | File | What it holds |
 |---|---|
-| `Languages/<code>.tsv` | The port's own texts: menus, settings, help, the modern interface, and the frames the game's sentences are built in ("You see {0}."). About 870 texts. |
+| `Languages/<code>.tsv` | Underworld Revisited's own texts: menus, settings, help, the modern interface, and the frames the game's sentences are built in ("You see {0}."). About 870 texts. |
 | `Languages/<code>.strings.tsv` | The game's own texts from STRINGS.PAK: messages, object names, books, scrolls, conversations. About 7,100 strings. |
 
 Either file may be missing, and any line may be missing: what a file does not hold stays English.
@@ -33,7 +33,7 @@ spreadsheet is enough. Lines starting with `#` are comments. In a text, `\n` is 
 `\t` a TAB.
 
 The classic interface draws its texts with the original's pixel fonts. They know ASCII and, added
-by the port, `ä ö ü Ä Ö Ü ß`. A language that needs other letters names a font of its own (see
+by Underworld Revisited, `ä ö ü Ä Ö Ü ß`. A language that needs other letters names a font of its own (see
 [Fonts and input methods](#fonts-and-input-methods)); none is shipped with the game.
 
 ## Getting started
@@ -42,12 +42,12 @@ by the port, `ä ö ü Ä Ö Ü ß`. A language that needs other letters names a
 
 Every release has a **translation kit** beside the game:
 `UnderworldRevisited-<version>-TranslationKit-win64.zip` (or `...-linux64.tar.gz`). It holds the
-tool `uwdump` as one file that needs nothing installed, this guide, `Languages/en.tsv` (the port's
+tool `uwdump` as one file that needs nothing installed, this guide, `Languages/en.tsv` (Underworld Revisited's
 texts in English) and `Languages/de.tsv` (a complete German example), and a README. It holds no
 text of the game. Open a terminal in its folder; `<game>` is your GOG or Steam installation (the
 folder with `game.gog` or `game.bin`; without it uwdump looks in the usual places):
 
-1. The port's texts: `uwdump text-template <code> --out Languages/<code>.tsv` (or copy
+1. Underworld Revisited's texts: `uwdump text-template <code> --out Languages/<code>.tsv` (or copy
    `Languages/en.tsv`), then translate the texts and keep the ids.
 2. The game's texts: `uwdump strings-template <game> <code> --out Languages/<code>.strings.tsv`
    makes a template from **your own** copy of the game (`--empty` writes the English as comments
@@ -55,7 +55,7 @@ folder with `game.gog` or `game.bin`; without it uwdump looks in the usual place
 3. Check both with `validate-tsv`, `fit` and `looks` ([Checking a translation](#checking-a-translation))
    and try them in the game ([Trying it in the game](#trying-it-in-the-game)).
 
-**After a new release** the port may have new texts. `uwdump text-template <code> --from
+**After a new release** Underworld Revisited may have new texts. `uwdump text-template <code> --from
 Languages/<code>.tsv --out <code>-new.tsv` brings your file up to date: your lines stay exactly as
 you wrote them, every new id is added as a comment with its English (`# id TAB English` - remove
 the `# ` and translate; until then the game shows the English), and the ids that are gone are
@@ -68,7 +68,7 @@ With the source: `dotnet run --project Tools/UWDump -- <command> ...` runs the s
 English texts...* writes the same `en.tsv` as `uwdump text-template`. `Tools/Release/MakeReleaseZip.ps1
 -KitOnly` makes the kit. The repository never contains the game's text, English or translated.
 
-## The port's own texts
+## Underworld Revisited's own texts
 
 One line per text: the id, a TAB, the text.
 
@@ -153,7 +153,7 @@ its English, and every other line stays translated. Leave the `#@` lines as they
 right before its entry. A pack made before 0.19.0 has none and works as before; to add them, run
 `uwdump strings-checksums <path to the game> Languages/<code>.strings.tsv` once, with the game the
 pack was translated from (the GOG or Steam release). Nothing else in the file changes. Being
-comments, the lines are skipped by older versions of the port and by the higesho fork.
+comments, the lines are skipped by older versions of Underworld Revisited and by the higesho fork.
 
 **Cutscenes.** The texts of a cutscene (block 3072 plus its number, the intro 3072) are what its
 recordings say in English. The original shows them only where no recording speaks; with the Game
@@ -296,7 +296,7 @@ in its `<code>.tsv`, tell the grammar what it needs. The English values are the 
 | `grammar.rule.letters` | `none` | the letters beyond ASCII the text entries accept (without a font of the language's own only what the classic fonts draw counts) |
 | `grammar.rule.alphabet` | `ABCDEFGHIJKLMNOPQRSTUVWXYZ` | the gamepad letter grid's letter keys in order, upper case (blanks between them allowed); read for every language, German too |
 | `grammar.rule.alphabet.lower` | `auto` | their lower case, letter for letter (`auto`: each letter's lower case) |
-| `grammar.rule.font` | `none` | the fonts that draw what the port's fonts lack, in order - see [Fonts and input methods](#fonts-and-input-methods); read for every language |
+| `grammar.rule.font` | `none` | the fonts that draw what Underworld Revisited's fonts lack, in order - see [Fonts and input methods](#fonts-and-input-methods); read for every language |
 | `grammar.rule.ime` | `no` | `yes`: the text fields use the system's input method (Chinese, Japanese, Korean); read for every language |
 | `grammar.rule.classic.font` | `original` | `modern`: choosing the language switches the classic texts to the modern font (see [Fonts and input methods](#fonts-and-input-methods)); read for every language |
 | `grammar.rule.classic.bold` | `no` | `yes`: in the modern font the classic texts draw their Chinese, Japanese and Korean characters bold; read for every language |
@@ -392,7 +392,7 @@ typed through the system's input method, not through the letter grid (next secti
 
 ## Fonts and input methods
 
-No font beyond Latin comes with the game. A language names the fonts that draw what the port's own
+No font beyond Latin comes with the game. A language names the fonts that draw what Underworld Revisited's own
 fonts lack, in its `<code>.tsv`:
 
 ```
@@ -469,22 +469,22 @@ only, so uwdump cannot measure them; look at character creation and the stats pa
 `uwdump looks <path> --strings Languages/<code>.strings.tsv` prints every look sentence and every
 message line built from names (families `message`, `repair`, `levelup`, `shrine`, `trap`) in your
 language, with `<code>.tsv` beside the pack in force; `uwdump conv <path> --run <slot> --strings
-...` runs a conversation. For the port's own texts, the self-check (Tools/UWSelfCheck) reads every
+...` runs a conversation. For Underworld Revisited's own texts, the self-check (Tools/UWSelfCheck) reads every
 file in `Languages`.
 
 ## Trying it in the game
 
 Put the files into `Languages` beside the game and choose the language in the **Language** row of
 the *Game* window. The row shows a language by its own name, `setting.Language.name` in its
-`<code>.tsv` (`Deutsch`, written in the language itself), else by its code. The change takes effect at once: the port's texts and the game's strings switch,
+`<code>.tsv` (`Deutsch`, written in the language itself), else by its code. The change takes effect at once: Underworld Revisited's texts and the game's strings switch,
 lines already in the message scroll stay as they were written. The command line `-language <code>`
 and the environment variable `UR_LANGUAGE` choose a language at startup. `-language pseudo` shows
-every text of the port in brackets and nearly three times as long, the extreme case, to find texts
+every text of Underworld Revisited in brackets and nearly three times as long, the extreme case, to find texts
 that clip.
 
 ## Publishing
 
-`Languages/<code>.tsv`, the port's own texts, may come into this repository by pull request. The
+`Languages/<code>.tsv`, Underworld Revisited's own texts, may come into this repository by pull request. The
 game's texts are not ours: a translated `<code>.strings.tsv` is a translation of Origin's text. It
 never comes into this repository. A translator who publishes one does so on their own
 responsibility. The same holds for pictures painted over the game's (`Languages/<code>/pictures`):

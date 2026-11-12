@@ -36,5 +36,9 @@ namespace UWDataImport.UWData
 
 		/// <summary>What the record holds for a slot of the brain.</summary>
 		int RecordOfSlot(int piSlot);
+
+		/// <summary>Whether goal 15 is the held goal that counts its target down and then lets go (UW2 AI.C case 15,
+		/// Paralyze's sp_hold); the first game only sets the interval.</summary>
+		bool CountsDownHeldGoal { get; }
 	}
 }

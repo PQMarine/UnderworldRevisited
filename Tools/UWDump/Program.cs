@@ -103,7 +103,7 @@ namespace UnderworldRevisited.Tools
             fRegister("pack-strip", "--from painted-dir --out pack-dir", "whole painted weapon pictures into a pack of only the new pixels", true, fPackStrip);
             fRegister("pack-check", "--pack dir-or-zip", "what the game makes of a picture pack: names, colours, overlaps, shifts", true, fPackCheck);
             fRegister("uwmod-check", "--pack file.uwmod", "whether an editor's mod (.uwmod) applies to this game, what it changes", true, fUwmodCheck);
-            fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "the port's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
+            fRegister("text-template", "<code> [--out file] [--from existing.tsv]", "Underworld Revisited's own texts in English to translate, or a translation brought up to date", false, fTextTemplate);
             fRegister("rules-template", "[filter]", "the rule set at the original's values, a rules.json with a meaning per key", false, fPrintRulesTemplate);
             fRegister("constants", "[filter]", "every constant of the engine-free layer (the self-check's constant pin)", false, fPrintConstants);
         }
@@ -240,7 +240,7 @@ namespace UnderworldRevisited.Tools
             UWTextLanguageFile lOFile = UWText.LoadLanguage(lsCode, lsTexts);
 
             if (lOFile != null)
-                Console.Error.WriteLine("The port's own texts of " + lsCode + " from " + lsTexts + ": " + lOFile.Texts.Count + " texts, "
+                Console.Error.WriteLine("Underworld Revisited's own texts of " + lsCode + " from " + lsTexts + ": " + lOFile.Texts.Count + " texts, "
                     + lOFile.Problems.Count + " lines skipped.");
         }
 
@@ -265,7 +265,7 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
             Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
             Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");
-            Console.WriteLine("its <code>.tsv beside it gives the port's own texts (the look sentence's frames).");
+            Console.WriteLine("its <code>.tsv beside it gives Underworld Revisited's own texts (the look sentence's frames).");
             Console.WriteLine("Levels count from 1, object ids may be written as 0x...; nothing is ever written");
             Console.WriteLine("to the game's folders.");
         }

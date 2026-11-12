@@ -87,7 +87,7 @@ public class UWWalkUw2View : MonoBehaviour
     {
         return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
             || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWControls.IsTextEntryActive
-            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight);
+            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning;
     }
 
     /// <summary>player_key_sleep.</summary>
@@ -113,7 +113,7 @@ public class UWWalkUw2View : MonoBehaviour
         UWLevelLoader lOLoader = UWScene.LevelLoader;
         UWPlayerMovement lOMovement = UWScene.Player != null ? UWScene.Player.GetComponent<UWPlayerMovement>() : null;
         string lsRoot = UnderworldRevisited.UWSettings.Instance != null ? UnderworldRevisited.UWSettings.Instance.SavegameRoot : null;
-        string lsSlot = UWSavegameSlots.GetSlotPath(lsRoot, piSlot);
+        string lsSlot = UWSavegameSlots.GetWriteSlotPath(lsRoot, piSlot);
 
         if (lOSession == null || lOMovement == null || lOMovement.Motion == null || lsSlot == null || lOLoader == null)
             return "no walk to save";
@@ -176,7 +176,9 @@ public class UWWalkUw2View : MonoBehaviour
         UnityEngine.InputSystem.Mouse lOClickMouse = UnityEngine.InputSystem.Mouse.current;
         bool lbClassic = UWControlScheme.Shared != null && UWControlScheme.Shared.Current != UWControlScheme.SchemeEnum.Modern;
         bool lbInView = lOClickMouse != null && (mOScreen == null || mOScreen.IsInView(UWPointer.Position));
-        bool lbRight = lbClassic && lbInView && !UWMouseButtons.IsBlocked && lOClickMouse.rightButton.wasPressedThisFrame;
+        // A missile spell waiting for its aim has the right button (mous_in_3d's GameInputMode 3; UWAttackUw2).
+        bool lbRight = lbClassic && lbInView && !UWMouseButtons.IsBlocked && lOClickMouse.rightButton.wasPressedThisFrame
+            && (UWAttackUw2.Current == null || !UWAttackUw2.Current.SpellTookClick);
 
         UWInventoryModel lOInventory = mOScreen != null ? mOScreen.Inventory : null;
 
@@ -490,10 +492,9 @@ public class UWWalkUw2View : MonoBehaviour
     {
         UnityEngine.InputSystem.Mouse lOMouse = UnityEngine.InputSystem.Mouse.current;
 
-        return UWGameScreenUw2.IsClassicActive
+        // Free is out of the modern look (UWPointer.IsLookLocked): the system pointer stays captured, ours is the pointer.
+        return UWGameScreenUw2.IsClassicActive || (!UWPointer.IsLookLocked && lOMouse != null)
             ? pOCamera.ScreenPointToRay(UWPointer.Position)
-            : Cursor.lockState != CursorLockMode.Locked && lOMouse != null
-            ? pOCamera.ScreenPointToRay(lOMouse.position.ReadValue())
             : pOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
     }
 

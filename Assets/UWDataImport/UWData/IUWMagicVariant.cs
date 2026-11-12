@@ -40,6 +40,14 @@ namespace UWDataImport.UWData
 		/// a projectile, release_missile; UW2: a projectile or a spell aimed at one target, RUNES.C:249).</summary>
 		bool PaysOnRelease(UWRunicMagic.Spell pOSpell);
 
+		/// <summary>The object a class 5 spell launches, by its effect minor, or -1 (UW1: four, release_missile's
+		/// 7, 5, 4, 6 plus 0x10; UW2: six, the same and the homing dart and the snowball, SPELLS.C:248).</summary>
+		int GetProjectileId(int piEffectMinor);
+
+		/// <summary>Whether the player's class 7 spell waits for a clicked target (UW2: nail_1area's target mode; UW1: ours
+		/// casts it in an area ahead, UWAreaSpellRules.CastTargetSpellInArea, since 2026-09-23).</summary>
+		bool TargetsByClick { get; }
+
 		/// <summary>A cast tried before the pause since the last one is over (UW1: a sound; UW2: a
 		/// sound and string 0xB, RUNES.C:183).</summary>
 		void TooSoon(IUWSpellHost pIHost);

@@ -154,10 +154,33 @@ namespace UWDataImport.UWData
 				return pOItem;
 			}
 
-			if (pOItem.Quantity == 0 || pOObjectList == null)
-				return null;
+			// THE RESOLVED CONTENTS FIRST (2026-11-12, per user: Name Enchantment on a wand just picked up in UW2
+			// named no spell and no charges): a thing taken from the world keeps its link into the level's list
+			// while the look hands the inventory's records, so the link read there found nothing. Contents is the
+			// truth once resolved (UWObject.EnsureContentsLoaded); the link is read only when it is not.
+			UWObject lOSpell;
 
-			UWObject lOSpell = fFindSpellInChain(pOItem.Quantity, pOObjectList);
+			if (pOItem.Contents != null)
+			{
+				lOSpell = null;
+
+				foreach (UWObject lOAt in pOItem.Contents)
+				{
+					if (lOAt != null && lOAt.ID == SpellObjectId)
+					{
+						lOSpell = lOAt;
+
+						break;
+					}
+				}
+			}
+			else
+			{
+				if (pOItem.Quantity == 0 || pOObjectList == null)
+					return null;
+
+				lOSpell = fFindSpellInChain(pOItem.Quantity, pOObjectList);
+			}
 
 			if (lOSpell == null)
 				return null;

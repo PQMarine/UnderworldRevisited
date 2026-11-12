@@ -767,13 +767,26 @@ public partial class UWSetupMenu : MonoBehaviour
     /// <summary>The dialog chooses the second game's own folder, not the installation's.</summary>
     private bool mbFolderOfSecondGame;
 
+    /// <summary>The most installations the folder dialog lists above the drives, so its folder list keeps room.</summary>
+    private const int MaxFoundFolders = 5;
+
     private void fOpenFolderDialog(bool pbSecondGame)
     {
         fOpenDialog(DialogEnum.Folder);
 
         mbFolderOfSecondGame = pbSecondGame;
         mODrives = mOBrowser.GetDrives();
-        mOBrowser.Open(UWSettings.GetCandidateGogPaths(), pbSecondGame ? UWUserSettings.GogInstallPathUw2 : UWUserSettings.GogInstallPath);
+
+        // THE GAME'S INSTALLATIONS, EACH ONCE (2026-11-12, the user's screenshot: eleven found, D:\GOG Galaxy\Ultima
+        // Underworld 2 twice - by the registry and as the first game's neighbour - and the list ran into the drives):
+        // as the Game window lists them (UWInstallations), the first game's for the game folder, the second's for its own.
+        List<string> lOFound = UWDataImport.Install.UWInstallations.Find(pbSecondGame ? UWGameProfiles.Uw2 : UWGameProfiles.Uw1,
+            fInstallationFolders(pbSecondGame)).ConvertAll(pOAt => pOAt.Folder);
+
+        if (lOFound.Count > MaxFoundFolders)
+            lOFound.RemoveRange(MaxFoundFolders, lOFound.Count - MaxFoundFolders);
+
+        mOBrowser.Open(lOFound, pbSecondGame ? UWUserSettings.GogInstallPathUw2 : UWUserSettings.GogInstallPath);
         fAfterBrowse();
     }
 
@@ -805,7 +818,7 @@ public partial class UWSetupMenu : MonoBehaviour
             }
 
             UWUserSettings.GogInstallPathUw2 = mOBrowser.CurrentPath;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            fRestartWithNewFolder();
 
             return;
         }
@@ -821,7 +834,7 @@ public partial class UWSetupMenu : MonoBehaviour
             return;
         }
 
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        fRestartWithNewFolder();
     }
 
     // ------------------------------------------------- Drawing
@@ -934,12 +947,19 @@ public partial class UWSetupMenu : MonoBehaviour
     /// reported the same of a translation, with its buttons gone): fHeight's height, the top moved up as
     /// far as the bar so that it fits, and past that the window ends at the screen's bottom edge and its
     /// rows scroll (fDrawPageScrolled). The layout's 720 lines are the same at any resolution.
+    ///
+    /// A TALL WINDOW STANDS IN THE MIDDLE (per user, 2026-11-12, a Steam Deck photo: the Game window sat on the
+    /// bottom edge with twice the room above it): the top is pfTop or, where the window centred between the bar and
+    /// the bottom edge would stand higher, that centre - so a window grows from pfTop without a jump and ends with
+    /// equal room above and below. Until then it moved up only as far as it had to and sat on the bottom.
     /// </summary>
     private Rect fDialogOnScreen(float pfWidth, float pfMaxWidth, float pfTop, float pfHeight, float pfBelow)
     {
         float lfBottom = UWGuiTheme.ReferenceHeight - ScreenMargin;
         float lfWanted = fHeight(pfHeight, pfBelow);
-        float lfTop = Mathf.Max(mfBarBottom + ScreenMargin, Mathf.Min(pfTop, lfBottom - lfWanted));
+        float lfHighest = mfBarBottom + ScreenMargin;
+        float lfCentred = lfHighest + ((lfBottom - lfHighest - lfWanted) * 0.5f);
+        float lfTop = Mathf.Max(lfHighest, Mathf.Min(pfTop, lfCentred));
 
         return mOPassRows.Dialog(pfWidth, pfMaxWidth, lfTop, Mathf.Min(lfWanted, lfBottom - lfTop));
     }

@@ -30,8 +30,15 @@ namespace UWDataImport.UWData
 			fAdd("setup.gameplay.intro", "These options change how the game plays. Off is always as in the original.");
 			fAdd("setup.gameplay.original", "As the original");
 			fAdd("setup.gameplay.aids", "Aids");
-			fAdd("setup.game.folder", "Game folder...");
-			fAdd("setup.game.folder2", "Folder of Ultima Underworld II...");
+			fAdd("setup.game.installation", "Installation");
+			fAdd("setup.game.other_folder", "Other folder...");
+			fAdd("setup.game.store.gog", "GOG");
+			fAdd("setup.game.store.steam", "Steam");
+			fAdd("setup.game.store.ea", "EA app");
+			fAdd("setup.game.store.other", "Own folder");
+			fAdd("setup.game.saves", "Saves: {0}");
+			fAdd("setup.game.saves_overlay", "Saves: {0}, a slot empty there from {1} beneath, as in DOSBox");
+			fAdd("setup.game.saves_none", "Saves: no save folder found");
 			fAdd("setup.game.quit", "Quit");
 
 			// Motion.
@@ -147,17 +154,17 @@ namespace UWDataImport.UWData
 
 			// The game folder.
 			fAdd("setup.folder.title", "Game folder");
-			fAdd("setup.folder.hint", "Choose the folder of your GOG or Steam installation of Ultima Underworld - the one that contains game.gog (GOG) or game.bin (Steam).");
-			fAdd("setup.folder.hint2", "Choose the folder of your GOG or Steam installation of Ultima Underworld II if it lies apart from the first game's - the one that contains game.gog or game.bin. The save games of that installation are used.");
+			fAdd("setup.folder.hint", "Choose the folder of your GOG, Steam or EA app installation of Ultima Underworld - the one that contains game.gog (GOG) or game.bin (Steam, in the EA app's DATA folder).");
+			fAdd("setup.folder.hint2", "Choose the folder of your GOG, Steam or EA app installation of Ultima Underworld II if it lies apart from the first game's - the one that contains game.gog or game.bin. The save games of that installation are used.");
 			fAdd("setup.folder.found", "Found:  {0}");
 			fAdd("setup.folder.drives", "Drives:");
 			fAdd("setup.folder.home", "Home");
 			fAdd("setup.folder.up", "Up");
-			fAdd("setup.folder.none_found", "No GOG or Steam installation was found in the usual folders. Please choose it.");
+			fAdd("setup.folder.none_found", "No GOG, Steam or EA app installation was found in the usual folders. Please choose it.");
 			fAdd("setup.folder.unreadable", "This folder cannot be read: {0}");
 			fAdd("setup.folder.usable", "{0} found - this folder can be used.");
 			fAdd("setup.folder.no_image", "No {0} in this folder.");
-			fAdd("setup.folder.choose", "Choose the drive and folder of your GOG or Steam installation.");
+			fAdd("setup.folder.choose", "Choose the drive and folder of your GOG, Steam or EA app installation.");
 			fAdd("setup.folder.preparing", "Preparing the game data...");
 			fAdd("setup.folder.no_data", "The game data could not be read from this folder.");
 			fAdd("setup.folder.use", "Use this folder");

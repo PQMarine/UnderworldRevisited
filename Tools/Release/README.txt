@@ -19,8 +19,8 @@ WHAT YOU NEED
   a graphics driver for Vulkan or OpenGL 4 (the Linux package, UR.x86_64; it is new and far
   less tested than the Windows one, reports are welcome). Nothing else needs to be installed:
   the package brings its own runtime.
-- ULTIMA UNDERWORLD 1 FROM GOG.COM ("Ultima Underworld 1+2") OR FROM STEAM ("Ultima
-  Underworld I"), installed. Steam sells the same game files as GOG. Only this version is
+- ULTIMA UNDERWORLD I FROM GOG.COM, FROM STEAM OR FROM THE EA APP, installed. Steam and the
+  EA app sell the same game files as GOG. Only this version is
   supported: some data is read directly from its UW.EXE, and other releases (original floppy,
   CD, other stores) differ and will not work.
 
@@ -32,7 +32,9 @@ STARTING
 2. Start UR.exe (Windows) or UR.x86_64 (Linux). If Linux refuses to run it, the archive lost
    the executable bit on the way: open a terminal in the folder and run
    chmod +x UR.x86_64 once.
-3. The game looks for your GOG or Steam installation in the usual places:
+3. On Windows the game first asks the registry where GOG (Galaxy and the offline installer)
+   and the EA app installed the game, whatever folder was chosen there. Then it looks in the
+   usual places:
 
      C:\GOG Games\Ultima Underworld
      D:\GOG Games\Ultima Underworld
@@ -47,10 +49,12 @@ STARTING
    libraries under ~/.steam and ~/.local/share/Steam.
 
    If it does not find it, it asks for the folder: choose the folder that contains game.gog
-   (GOG) or game.bin (Steam) - the same CD image under two names, however it was installed (the
+   (GOG) or game.bin (Steam; for the EA app its installation folder or the DATA folder in it) -
+   the same CD image under two names, however it was installed (the
    GOG installer, Steam, Heroic, Lutris, a Wine prefix, or innoextract on the Windows installer).
-   The choice is remembered. Later it can be changed in the menu bar at the top of the main
-   menu (Game > Game folder...).
+   The choice is remembered. In the menu bar at the top of the main menu, the Game window lists
+   every installation found with its store (GOG, Steam, EA app) and shows the save folder in use.
+   A click takes another one, and "Other folder..." chooses a folder of your own.
 
 Save games are kept in the SAVE folders of your Ultima Underworld installation, as in the
 original, and are compatible with it.
@@ -68,13 +72,21 @@ itself. Put this into the game's Properties > General > Launch Options (your pat
 "Play" in Steam then starts Underworld Revisited, and Steam fetches and uploads the saves around
 it. Clear the line to start the original again.
 
+GOG GALAXY: Galaxy can start UR.exe in place of the original as well. Open the settings button
+beside Play, then Manage installation > Configure... Under Launch parameters tick "Custom
+executables / arguments", then "Add another executable / arguments", choose UR.exe as the file
+and select "Default executable". Play then starts Underworld Revisited, and Galaxy uploads the
+saves after it ends. Select the original's entry as the default again to go back.
+
+EA APP: its launch options take no path, so it cannot start Underworld Revisited. Start UR.exe
+directly.
+
 
 ULTIMA UNDERWORLD II (AN EARLY PREVIEW)
 ---------------------------------------
 
-With the second game in the same installation (GOG's "Ultima Underworld 1+2" holds both, on
-Steam "Ultima Underworld II" beside the first), the Game window in the menu bar on the main menu
-switches to it. It has its main menu, its character creation, Journey Onward with the DOS game's
+With Ultima Underworld II installed as well (GOG.com, Steam and the EA app sell it on its own),
+the Game window in the menu bar on the main menu switches to it. It has its main menu, its character creation, Journey Onward with the DOS game's
 saves, and Britannia with its game screen, inventory, options and saves (they load in the DOS
 game), its map, its conversations and trading, the modern interface, its creatures and fights, the
 player's death, food and sleep, and a good part of its magic. Not yet: the rest of its spells,
@@ -116,7 +128,7 @@ up and down, and the gamepad's settings. F10 shows the menu bar for the keyboard
 keys move, Enter or Space chooses, Escape or F10 leaves. Graphics has the Mode - Palette, the
 original's look; Palette colours, real light and shadows in the original's colours; Remastered,
 the modern look - and its Effects, Off, Subtle, Full or your own, set with "Effects..." In the
-Palette mode those are the port's own effects on the original's look: use them with care, turned
+Palette mode those are Underworld Revisited's own effects on the original's look: use them with care, turned
 up they quickly take it away. The window also has the classic screen at 4:3 or widened to the
 screen ("Classic screen widescreen"), the view angle ("View"), the gamma of the 3D view ("Gamma",
 for a darker level - 1.00 is the picture as drawn), the size of the dither ("Dither grain"), and
@@ -179,7 +191,7 @@ plays as the original.
 LANGUAGES
 ---------
 
-The Language row in the Game window chooses the language of the port's own texts (English or
+The Language row in the Game window chooses the language of Underworld Revisited's own texts (English or
 German); the change takes effect at once. The files are in the folder Languages beside the game.
 A translation of the game's own texts is a file <code>.strings.tsv that a translator publishes on
 their own; put it into Languages too, with its folder of pictures if it brings one. With such a
