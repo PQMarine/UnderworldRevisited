@@ -159,6 +159,25 @@ namespace UWDataImport.UWData
 		/// <summary>player->paralyzed (player.h, 0x305).</summary>
 		public const int ParalysisOffset = 0x305;
 
+		/// <summary>struct Player's swim_count (0x307): 0x60 on entering water, 0 out of it; above 0x50 the head is under
+		/// and the swimming check runs (UWPlayerTerrainRules, G2).</summary>
+		public const int SwimCountOffset = 0x307;
+
+		public static int SwimCount(UWPlayerFile pOFile) => pOFile.Record[SwimCountOffset];
+
+		public static void SetSwimCount(UWPlayerFile pOFile, int piValue)
+		{
+			pOFile.Record[SwimCountOffset] = (byte)(piValue & 0xFF);
+		}
+
+		/// <summary>xclock[XC_DJINN]'s step at which lava bakes the oily mud on (parse_effect: 3 to 4 and 0x14E).</summary>
+		public const int DjinnMudOnStage = 3;
+
+		public const int DjinnMudBakedStage = 4;
+
+		/// <summary>"The oily mud bakes on your skin." (block 1, 0x14E + 1).</summary>
+		public const int MudBakesString = 0x14E + 1;
+
 		public static int Paralysis(UWPlayerFile pOFile) => pOFile.Record[ParalysisOffset];
 
 		public static void SetParalysis(UWPlayerFile pOFile, int piValue)

@@ -85,6 +85,7 @@ public class UWPlayerTerrain : MonoBehaviour
         // sinking are its motion's and its rules' (phase 4).
         if (UWWalkUw2.IsWalking)
         {
+            fUpdateTerrainUw2();
             fUpdateAutomap();
             fUpdateViewBobUw2();
 
@@ -588,12 +589,112 @@ public class UWPlayerTerrain : MonoBehaviour
         if (mOCamera == null)
             return;
 
-        float lfBob = fGetHeadBob() + fGetLevitationBob();
+        float lfBob = fGetHeadBob() + fGetLevitationBob() + fSwimViewUw2();
         Vector3 lOLocal = mOCamera.localPosition;
 
         lOLocal.y += lfBob - mfAppliedBobUw2;
         mOCamera.localPosition = lOLocal;
         mfAppliedBobUw2 = lfBob;
+    }
+
+    // ------------------------------------------------- The second game's water and lava (UW2 plan G2, 2026-11-13)
+
+    /// <summary>
+    /// G2: THE SECOND GAME'S WATER AND LAVA are the first game's rules (uw2 motion/PHYSICS.C water_set, PLAYMOVE.C
+    /// parse_effect, game/PLAYTIME.C sink_sink_sink are the same code): the core decides swimming and lava by the contact
+    /// state, the swim counter takes 0x60 on entering and 0 out of it and lives in the record (struct Player's 0x307), the
+    /// water's sound loops, the lava rolls on the game's clock. The second game's own: entering water puts the weapon away
+    /// (water_set's punt_fightmode), it has no dragon skin boots, and lava bakes the djinn quest's oily mud on (xclock
+    /// step 3 to 4, 0x14E). The swimming check is UWVitalsUw2's SwimCheckDue (RunSwimCheck).
+    /// </summary>
+    private void fUpdateTerrainUw2()
+    {
+        UWPlayerFile lOFile = mOLevelLoader != null && mOLevelLoader.UWDataImporter != null ? mOLevelLoader.UWDataImporter.Session.PlayerFileUw2 : null;
+        bool lbWasSwimming = IsSwimming;
+
+        IsSwimming = mOMovement != null && mOMovement.UsesMotionCore && mOMovement.IsInWater;
+        IsOnLava = mOMovement != null && mOMovement.UsesMotionCore && mOMovement.IsOnLava;
+
+        UWAudioService.UpdateWaterLoop(IsSwimming);
+
+        if (lOFile != null)
+        {
+            if (lOFile != mOSwimCountFileUw2)
+            {
+                mOSwimCountFileUw2 = lOFile;
+                mORules.LoadSwimCounter(UWPlayerRecordUw2.SwimCount(lOFile));
+            }
+
+            mORules.UpdateSwimming(IsSwimming);
+            UWPlayerRecordUw2.SetSwimCount(lOFile, SwimCounter);
+        }
+
+        if (IsSwimming && !lbWasSwimming)
+            UWGameScreenUw2.PuntFightMode();
+
+        fUpdateLavaUw2(lOFile);
+    }
+
+    /// <summary>The record the swim counter was last taken from (a load starts it again from its save).</summary>
+    private UWPlayerFile mOSwimCountFileUw2;
+
+    /// <summary>parse_effect's lava on the game's clock (the first game's rule set: one chance in five a roll, one
+    /// point of plain fire), through the world's damage to the player; a hit bakes the oily mud on at the djinn's step 3.</summary>
+    private void fUpdateLavaUw2(UWPlayerFile pOFile)
+    {
+        long llNow = UWGameSession.Current.Schedule.Now;
+        int liTicks = llNow >= mlLastWorldTicks ? (int)System.Math.Min(int.MaxValue, llNow - mlLastWorldTicks) : 0;
+
+        mlLastWorldTicks = llNow;
+
+        UWRulesVitals.LavaRules lORules = UWRules.Current.Vitals.Lava;
+        int liHits = mORules.TickLava(liTicks, IsOnLava, false, lORules.RollTicks, 1f / lORules.ChanceInN);
+        UWWorld lOWorld = liHits > 0 ? UWWorld.Of(mOLevelLoader) : null;
+
+        for (int liHit = 0; liHit < liHits && lOWorld != null; liHit++)
+        {
+            lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Lava(lORules.Damage)));
+
+            if (pOFile != null && UWPlayerRecordUw2.XClock(pOFile, UWPlayerRecordUw2.DjinnClock) == UWPlayerRecordUw2.DjinnMudOnStage)
+            {
+                UWPlayerRecordUw2.SetXClock(pOFile, UWPlayerRecordUw2.DjinnClock, UWPlayerRecordUw2.DjinnMudBakedStage);
+                lOWorld.Presentation.AddGeneralMessage(UWPlayerRecordUw2.MudBakesString);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The swimming view on the second game's camera, as a height on top of its eye (fUpdateViewBobUw2 adds it as a
+    /// change): the first game's dip to SwimViewHeight above the water and lower with the counter, Smooth's sway or
+    /// Original's offsets (fUpdateOriginalSwimView); the roll and jitter are LateUpdate's, as on the first game.
+    /// </summary>
+    private float fSwimViewUw2()
+    {
+        UWSettings lOSettings = UWSettings.Instance;
+        float lfWanted = 0f;
+
+        if (IsSwimming && mOMovement != null && mOCamera != null)
+        {
+            float lfHeight = (lOSettings != null ? lOSettings.SwimViewHeight : 17f) - ((SwimCounter - SwimCounterOnEntering) * SwimCounterWorldUnit);
+            float lfSway = 0f;
+
+            if (UWUserSettings.SwimViewMode == UWHeadBobRules.ModeEnum.Smooth)
+                lfSway = Mathf.Sin(Time.time * (lOSettings != null ? lOSettings.SwimSwayFrequency : 1.1f) * Mathf.PI * 2f)
+                    * Mathf.Lerp(lOSettings != null ? lOSettings.SwimSwayUnskilled : 4f, lOSettings != null ? lOSettings.SwimSwaySkilled : 1f,
+                        fGetSwimSkillFraction(lOSettings)) * UWUserSettings.SwimViewStrength;
+
+            // The eye without what this class put on it.
+            float lfRigidOffset = mOCamera.position.y - transform.position.y - mfAppliedBobUw2;
+
+            lfWanted = mOMovement.CoreFeetHeight + lfHeight + lfSway - (transform.position.y + lfRigidOffset);
+        }
+
+        float lfSpeed = lOSettings != null ? lOSettings.SwimViewFollowSpeed : 60f;
+
+        mfAppliedCameraOffset = Mathf.MoveTowards(mfAppliedCameraOffset, lfWanted, lfSpeed * Time.deltaTime);
+        fUpdateOriginalSwimView();
+
+        return mfAppliedCameraOffset + (mOSwimView.HeightEighths * SwimCounterWorldUnit);
     }
 
     /// <summary>
@@ -783,6 +884,13 @@ public class UWPlayerTerrain : MonoBehaviour
     /// </summary>
     public void RunSwimCheck()
     {
+        if (UWWalkUw2.IsWalking)
+        {
+            fRunSwimCheckUw2();
+
+            return;
+        }
+
         if (mOPlayer == null)
             return;
 
@@ -790,6 +898,31 @@ public class UWPlayerTerrain : MonoBehaviour
 
         if (liDamage > 0)
             mOPlayer.Damage(UWDamageRequest.Drowning(liDamage));
+    }
+
+    /// <summary>sink_sink_sink on the second game: its Swimming, its load from the record's running weight (weight * 32 /
+    /// max_weight, as the original reads it), the drowning through the world's damage to the player.</summary>
+    private void fRunSwimCheckUw2()
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+        UWPlayerFile lOFile = mOLevelLoader != null && mOLevelLoader.UWDataImporter != null ? mOLevelLoader.UWDataImporter.Session.PlayerFileUw2 : null;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || lOFile == null)
+            return;
+
+        int liMax = UWPlayerRecordUw2.MaxWeight(lOFile);
+        int liLoad = liMax > 0 ? (UWPlayerRecordUw2.Weight(lOFile) << 5) / liMax : 0;
+        int liDamage = mORules.SwimCheck(lOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Swimming), liLoad);
+
+        UWPlayerRecordUw2.SetSwimCount(lOFile, SwimCounter);
+
+        if (liDamage > 0)
+        {
+            UWWorld lOWorld = UWWorld.Of(mOLevelLoader);
+
+            if (lOWorld != null)
+                lOWorld.Damage(UWDamageTarget.ThePlayer, UWBlow.ToPlayer(UWDamageRequest.Drowning(liDamage)));
+        }
     }
 
     /// <summary>(carried weight * 32) / carrying capacity, both in tenth-stones as the display
@@ -827,6 +960,10 @@ public class UWPlayerTerrain : MonoBehaviour
     /// <summary>N plus N rolls from zero to the range minus one, as DiceRoll in UW.EXE.</summary>
     private int fGetSwimSkill()
     {
+        if (UWWalkUw2.IsWalking)
+            return UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null
+                ? UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Swimming) : 0;
+
         return mOPlayer != null ? mOPlayer.Vitals.GetSkill(UWPlayerData.Skill.Swimming) : 0;
     }
 

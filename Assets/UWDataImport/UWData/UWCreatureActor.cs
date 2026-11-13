@@ -260,7 +260,7 @@ namespace UWDataImport.UWData
 		/// original finds through the tile lists finds the dying body too - the blows (TakesBlows)
 		/// and the collision scan ObjectCheck (motion/COLLIDE.C:466-527, no dying test), so the
 		/// placement test can_place (COLLIDE.C:578-640) counts it as in the way; Summon Monster asks
-		/// that (combat/SPELLS.C:615, UWWorld.CreatureFitsAt). Since 2026-10-19 (the user's decision
+		/// that (combat/SPELLS.C:615, IUWWorld.CanPlace on the motion core since 2026-11-12). Since 2026-10-19 (the user's decision
 		/// "as the original"); the summon test let a destroyed body pass until then.
 		/// </summary>
 		public bool IsInTileList => !IsRemoved;

@@ -359,7 +359,16 @@ namespace UnderworldRevisited.Tools
             bool lbBelow = UWTransparencyTables.TryGetFadeTable(0xF8, out _);
             bool lbAbove = UWTransparencyTables.TryGetFadeTable(0xFE, out _);
             bool lbLava = UWPaletteRotation.IsLavaIndex(20) || UWPaletteRotation.IsWaterIndex(50);
+
+            // cycle_colors (G2, 2026-11-13): 3 to 10 go up (3 shows 7 after one step, 8 shows 10), 0xE0 to 0xEF go down
+            // (0xE0 shows 0xE1, 0xE3 shows 0xE0), the first game's 20 and 50 stay, 0xF0 stays.
+            string lsCycle = UWPaletteRotation.GetSourceIndex(3, 1).ToString("X") + " " + UWPaletteRotation.GetSourceIndex(8, 1).ToString("X") + " "
+                + UWPaletteRotation.GetSourceIndex(0xE0, 1).ToString("X") + " " + UWPaletteRotation.GetSourceIndex(0xE3, 1).ToString("X") + " "
+                + UWPaletteRotation.GetSourceIndex(20, 1) + " " + UWPaletteRotation.GetSourceIndex(50, 1) + " " + UWPaletteRotation.GetSourceIndex(0xF0, 1).ToString("X");
             UWGameSession.MakeCurrent(lOKept);
+
+            Check.Str("uw2 colour cycling: 3..7 and 8..10 up, 0xE0..0xEF down in fours, the first game's banks and 0xF0 still",
+                lsCycle, "7 A E1 E0 20 50 F0");
 
             // The automap byte (step 4): a door over lava written by each game's order - the first game's
             // terrain low and kind high (0x61 on an open tile), the second game's the other way (0x91).

@@ -113,12 +113,18 @@ namespace UWDataImport.UWData
 		///
 		/// ON THE POINT, AS THE SUMMONING (creat_spell, UnderworldExhumed SPELLS.C, read
 		/// 2026-10-12): the food must fit at the swerved point itself - can_place with its own
-		/// radius and height, here the same test as Summon Monster's (fSummonSpotFits: the open
-		/// half of a diagonal tile, nothing overlapping) - and lies exactly there, then goes
+		/// radius and height, the same test as Summon Monster's (fCanPlaceOnFloor) - and lies
+		/// exactly there, then goes
 		/// through obj_deal, where water and lava take it. Until 2026-10-12 ours only refused a
 		/// solid tile and put the food in the middle of the tile.
 		/// </summary>
 		private static bool fCreateFood(IUWSpellHost pIHost)
+		{
+			return fCreateFood(pIHost, NoRoomMessage);
+		}
+
+		/// <summary>Create Food with the game's "There is no room to create that." (the second game's is 0x125).</summary>
+		private static bool fCreateFood(IUWSpellHost pIHost, int piNoRoomMessage)
 		{
 			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
 
@@ -126,9 +132,9 @@ namespace UWDataImport.UWData
 
 			if (!fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
 					out UWTilePos lOTile, out float lfAtX, out float lfAtZ)
-				|| !fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
+				|| !fCanPlaceOnFloor(lOTile, lfAtX, lfAtZ, liId, pIHost))
 			{
-				pIHost.World.Presentation.AddGeneralMessage(NoRoomMessage);
+				pIHost.World.Presentation.AddGeneralMessage(piNoRoomMessage);
 
 				return true;
 			}
@@ -144,6 +150,237 @@ namespace UWDataImport.UWData
 			UWObject lOFood = UWObjectFactory.Create(liId, pIHost.Data, UWObjectFactory.Unset, ConjuredFoodQuality);
 
 			return lOFood != null && pIHost.World.DropObjectAt(lOFood, lfAtX, lfAtZ);
+		}
+
+		// ------------------------------------------------- The second game (UW2 plan G1 part E)
+
+		/// <summary>The second game's "There is no room to create that." (block 1, 0x125 + 1).</summary>
+		public const int SecondGameNoRoomMessage = 0x125 + 1;
+
+		private const int SummonDemonSpell = 5;
+
+		private const int FlameRuneSpell = 2;
+
+		private const int StasisRuneSpell = 3;
+
+		private const int MagicSatelliteSpell = 6;
+
+		/// <summary>The highest zpos (seven bits).</summary>
+		private const int MaxZPos = 0x7F;
+
+		/// <summary>creat_spell's demons[] (uw2 SPELLS2.C:46): an imp twice, a hordling, a despoiler, a destroyer.</summary>
+		private static readonly int[] miDemons = { 0x4B, 0x4B, 0x5E, 0x64, 0x68 };
+
+		/// <summary>Summon Demon's roll on top of Casting: rand() % 0x1E.</summary>
+		public const int DemonRollRange = 0x1E;
+
+		/// <summary>Summon Demon's step: (Casting + roll) / 12 picks the demon.</summary>
+		private const int DemonStep = 12;
+
+		/// <summary>
+		/// THE SECOND GAME'S CLASS 8 (creat_spell, uw2 SPELLS2.C:471; UW2 plan G1 part E1, 2026-11-12): 1 Create Food,
+		/// 5 Summon Demon so far - the runes of flame and stasis (2, 3) come with part E2, the magic satellite (6) with E3.
+		/// Everything stands nine eighths ahead with the swerve of +-13 (the first game's summoning took twelve); with no
+		/// room the player reads 0x125. do_spell's case 8 takes whatever happens, so the mana is paid. A creature's
+		/// Summon Monster is the first game's.
+		/// </summary>
+		public static void CastSecondGame(int piMinorClass, IUWSpellHost pIHost)
+		{
+			if (pIHost == null || UWSpellCasting.LevelOf(pIHost) == null)
+				return;
+
+			if (pIHost.Cast.ByCreature)
+			{
+				if (piMinorClass == SummonMonsterSpell)
+					fSummonForCreature(pIHost);
+
+				return;
+			}
+
+			if (!pIHost.HasPlayer)
+				return;
+
+			switch (piMinorClass)
+			{
+				case CreateFoodSpell:
+					fCreateFood(pIHost, SecondGameNoRoomMessage);
+
+					break;
+
+				case SummonDemonSpell:
+					fSummonDemon(pIHost);
+
+					break;
+
+				case FlameRuneSpell:
+					fPlaceRune(UWRuneRulesUw2.FlameRuneId, pIHost);
+
+					break;
+
+				case StasisRuneSpell:
+					fPlaceRune(UWRuneRulesUw2.StasisRuneId, pIHost);
+
+					break;
+
+				case MagicSatelliteSpell:
+					fLaunchSatellite(pIHost);
+
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Magic Satellite (creat_spell's case 6, part E3): the satellite nine eighths ahead along the swerved heading,
+		/// where can_place takes it at the floor, then 0x12 above the floor, a quarter turn to one side of that heading at
+		/// a speed of 15 to 29, the player as its source (UWSatelliteRulesUw2); else 0x125.
+		/// </summary>
+		private static void fLaunchSatellite(IUWSpellHost pIHost)
+		{
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+
+			float lfYaw = pIHost.World.Player.ViewYawDegrees + (UWRandom.Next(-HeadingSpread, HeadingSpread + 1) * 360f / 256f);
+
+			if (!fSpotAlong(PlacementDistance, lfEyeX, lfEyeZ, lfYaw, pIHost, out UWTilePos lOTile, out float lfAtX, out float lfAtZ))
+			{
+				pIHost.World.Presentation.AddGeneralMessage(SecondGameNoRoomMessage);
+
+				return;
+			}
+
+			UWTile lOFloor = UWSpellCasting.LevelOf(pIHost).GetTile(lOTile.X, lOTile.Y);
+			int liFloorZ = lOFloor != null ? (lOFloor.FloorHeight >> 4) << 3 : 0;
+			int liX8 = UWTileQueries.WorldToEighths(lfAtX);
+			int liY8 = UWTileQueries.WorldToEighths(lfAtZ);
+
+			if (!pIHost.World.CanPlace(UWSatelliteRulesUw2.ItemId, liX8, liY8, liFloorZ, true, CreateRange))
+			{
+				pIHost.World.Presentation.AddGeneralMessage(SecondGameNoRoomMessage);
+
+				return;
+			}
+
+			int liHeading = UWSatelliteRulesUw2.StartHeading(UWHeadings.DegreesToHeadingByte(lfYaw), UWRandom.Next(UWOriginalRandom.Range));
+			int liSpeed = UWSatelliteRulesUw2.SpeedBase + (UWRandom.Next(UWOriginalRandom.Range) % UWSatelliteRulesUw2.SpeedRange);
+
+			pIHost.World.LaunchSatellite(liX8, liY8, UWSatelliteRulesUw2.StartZ(liFloorZ), liHeading, liSpeed, PlayerSource);
+		}
+
+		/// <summary>The player's mobile index, the satellite's source when he casts it (last_hit = Obj_MemTPtr(caster)).</summary>
+		private const int PlayerSource = 1;
+
+		/// <summary>
+		/// Rune of Flame and Rune of Stasis (creat_spell's cases 2 and 3, part E2): the rune nine eighths ahead with the
+		/// swerve, at the caster's height + 12 (not on the floor), where can_place takes it, quality 0x3F; else 0x125. What
+		/// it does when a body runs into it is UWRuneRulesUw2's.
+		/// </summary>
+		private static void fPlaceRune(int piRuneId, IUWSpellHost pIHost)
+		{
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+
+			if (!fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
+				out UWTilePos lOTile, out float lfAtX, out float lfAtZ))
+			{
+				pIHost.World.Presentation.AddGeneralMessage(SecondGameNoRoomMessage);
+
+				return;
+			}
+
+			int liX8 = UWTileQueries.WorldToEighths(lfAtX);
+			int liY8 = UWTileQueries.WorldToEighths(lfAtZ);
+			int liZ = Math.Min(MaxZPos, pIHost.World.Player.FeetSpot.ZPos + UWRuneRulesUw2.PlacedAbove);
+
+			if (!pIHost.World.CanPlace(piRuneId, liX8, liY8, liZ, true, CreateRange))
+			{
+				pIHost.World.Presentation.AddGeneralMessage(SecondGameNoRoomMessage);
+
+				return;
+			}
+
+			UWObject lORune = UWObjectFactory.Create(piRuneId, pIHost.Data, UWObjectFactory.Unset, ConjuredFoodQuality);
+
+			if (lORune == null)
+				return;
+
+			lORune.XPos = (ushort)(liX8 & 7);
+			lORune.YPos = (ushort)(liY8 & 7);
+			lORune.ZPos = liZ;
+			pIHost.World.Spawn(lORune, lOTile);
+		}
+
+		/// <summary>Which of the second game's class 8 minors run: Create Food and Summon Demon (part E1), the two runes
+		/// (E2), the magic satellite (E3) - all but Summon Monster, which only a creature casts there.</summary>
+		public static bool IsBuiltSecondGame(int piMinorClass)
+		{
+			return piMinorClass == CreateFoodSpell || piMinorClass == SummonDemonSpell || piMinorClass == FlameRuneSpell
+				|| piMinorClass == StasisRuneSpell || piMinorClass == MagicSatelliteSpell;
+		}
+
+		/// <summary>
+		/// creat_spell's fit test in both games (uw1 combat/SPELLS.C, uw2 SPELLS2.C): can_place(item, 0, x, y, tile
+		/// height &lt;&lt; 3, 1, 8) on the motion core, which sees every solid record in the tile lists - a door's
+		/// included - and the walls, the open half of a diagonal among them. Per user, 2026-11-12: in front of a door the
+		/// original had no room for a demon, ours put it there. Until then both games tested with a physics overlap of the
+		/// creature's COMOBJ box (fSummonSpotFits, 2026-09-27), which did not see the door; the first game's food and
+		/// Summon Monster since the same day.
+		/// </summary>
+		private static bool fCanPlaceOnFloor(UWTilePos pOTile, float pfAtX, float pfAtZ, int piId, IUWSpellHost pIHost)
+		{
+			UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(pOTile.X, pOTile.Y);
+
+			if (lOTile == null || lOTile.TileType == UWTile.TileTypeEnum.solid)
+				return false;
+
+			return pIHost.World.CanPlace(piId, UWTileQueries.WorldToEighths(pfAtX), UWTileQueries.WorldToEighths(pfAtZ),
+				(lOTile.FloorHeight >> 4) << 3, true, CreateRange);
+		}
+
+		/// <summary>creat_spell's can_place range (its last argument).</summary>
+		private const int CreateRange = 8;
+
+		/// <summary>demons[(Casting + roll) / 12], roll 0 to 0x1D: Casting 0 gives an imp up to 23, Casting 30 a hordling
+		/// at the least (the last index for anything past the table).</summary>
+		public static int DemonOf(int piCasting, int piRoll)
+		{
+			int liAt = Math.Max(0, (piCasting + piRoll) / DemonStep);
+
+			return miDemons[Math.Min(liAt, miDemons.Length - 1)];
+		}
+
+		/// <summary>
+		/// Summon Demon: the demon of the caster's Casting where it fits, set up as any new creature and then, as
+		/// creat_spell does for every summoning but the player's Summon Monster, HOSTILE - attitude 0, its target
+		/// confirmed (byte 0x19 bit 0) and the player's tile as its destination. The player conjures his own enemy.
+		/// </summary>
+		private static void fSummonDemon(IUWSpellHost pIHost)
+		{
+			pIHost.World.Player.GetEyePosition(out float lfEyeX, out float lfEyeZ);
+
+			int liId = DemonOf(pIHost.PlayerCastingSkill, UWRandom.Next(DemonRollRange));
+
+			if (pIHost.Data == null || pIHost.Data.ObjectClassProperties == null
+				|| !fFindSpotFrom(PlacementDistance, lfEyeX, lfEyeZ, pIHost.World.Player.ViewYawDegrees, pIHost,
+					out UWTilePos lOTile, out float lfAtX, out float lfAtZ)
+				|| !fCanPlaceOnFloor(lOTile, lfAtX, lfAtZ, liId, pIHost))
+			{
+				pIHost.World.Presentation.AddGeneralMessage(SecondGameNoRoomMessage);
+
+				return;
+			}
+
+			UWCritterRecord lORecord = fCreateNewCreature(liId, lOTile, lfAtX, lfAtZ, pIHost, out UWNpc lONpc);
+
+			if (lORecord == null)
+				return;
+
+			UWSpot lOPlayer = pIHost.World.Player.FloorSpot;
+			UWTilePos lOPlayerTile = lOPlayer.IsOnMap ? lOPlayer.Tile : lOTile;
+
+			lORecord.Attitude = UWNpc.AttitudeHostile;
+			lORecord.TargetConfirmed = true;
+			lORecord.DestinationX = lOPlayerTile.X;
+			lORecord.DestinationY = lOPlayerTile.Y;
+
+			pIHost.World.DropObjectAt(lONpc, lfAtX, lfAtZ);
 		}
 
 		/// <summary>
@@ -226,7 +463,7 @@ namespace UWDataImport.UWData
 			if (liId < 0)
 				return true;
 
-			if (!fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
+			if (!fCanPlaceOnFloor(lOTile, lfAtX, lfAtZ, liId, pIHost))
 			{
 				pIHost.World.Presentation.AddGeneralMessage(NoRoomMessage);
 
@@ -268,7 +505,7 @@ namespace UWDataImport.UWData
 			int liId = RollMonster(Math.Max(MinimumMonsterLevel, piDungeonLevel * CreatureLevelPerDungeonLevel),
 				pIHost.Data.ObjectClassProperties);
 
-			if (liId < 0 || !fSummonSpotFits(lOTile, lfAtX, lfAtZ, liId, pIHost))
+			if (liId < 0 || !fCanPlaceOnFloor(lOTile, lfAtX, lfAtZ, liId, pIHost))
 				return false;
 
 			UWNpc lONpc;
@@ -400,36 +637,23 @@ namespace UWDataImport.UWData
 				out _, out _);
 		}
 
-		/// <summary>
-		/// WHERE A SUMMONED CREATURE MAY STAND (Class8Spells_seg038_E45 with the fit test
-		/// UWEasyMovement names, read 2026-09-27 on the user's question): the new
-		/// creature is put on the POINT the swerved heading reaches, not in the middle of its
-		/// tile, and the summoning fails when anything's collision overlaps the creature there
-		/// within its height - so two summoned creatures never stand inside each other; the player
-		/// gets "There is no room to create that.", a creature casts in vain. There is ONE try, no
-		/// search for another spot. Ours put every summoned creature on sub-position 3/3 of the
-		/// tile without a test, so several could stand in one another.
-		/// </summary>
-		private static bool fSummonSpotFits(UWTilePos pOTile, float pfAtX, float pfAtZ, int piId, IUWSpellHost pIHost)
-		{
-			UWTile lOTile = UWSpellCasting.LevelOf(pIHost).GetTile(pOTile.X, pOTile.Y);
-
-			if (!UWTileQueries.IsSubTileInOpenHalf(lOTile.TileType, UWTileQueries.WorldToSubTile(pfAtX, pOTile.X),
-					UWTileQueries.WorldToSubTile(pfAtZ, pOTile.Y)))
-				return false;
-
-			return pIHost.World.CreatureFitsAt(piId, pfAtX, pfAtZ);
-		}
-
 		/// <summary>The spot piDistance eighths from a world position along a yaw (0 north,
 		/// clockwise), with the random swerve - the player's eye and view, or a creature's body and
 		/// facing.</summary>
 		private static bool fFindSpotFrom(int piDistance, float pfFromX, float pfFromZ, float pfYawDegrees,
 			IUWSpellHost pIHost, out UWTilePos pOTile, out float pfAtX, out float pfAtZ)
 		{
-			pOTile = new UWTilePos(0, 0);
-
 			float lfYaw = pfYawDegrees + (UWRandom.Next(-HeadingSpread, HeadingSpread + 1) * 360f / 256f);
+
+			return fSpotAlong(piDistance, pfFromX, pfFromZ, lfYaw, pIHost, out pOTile, out pfAtX, out pfAtZ);
+		}
+
+		/// <summary>The spot piDistance eighths along an already swerved yaw (fFindSpotFrom's second half; the magic
+		/// satellite needs the swerved heading for its own).</summary>
+		private static bool fSpotAlong(int piDistance, float pfFromX, float pfFromZ, float lfYaw,
+			IUWSpellHost pIHost, out UWTilePos pOTile, out float pfAtX, out float pfAtZ)
+		{
+			pOTile = new UWTilePos(0, 0);
 
 			// The yaw as Unity turns it: 0 north, clockwise - east is the sine.
 			double ldRadians = lfYaw * Math.PI / 180.0;

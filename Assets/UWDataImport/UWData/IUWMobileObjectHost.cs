@@ -52,5 +52,9 @@ namespace UWDataImport.UWData
 		/// <summary>put_effect(obj, class, piFrames, 0, -z, ...): an effect picture at the object's tile, eighth and
 		/// height for piFrames frames (the homing dart's trail, UWHomingDartRules).</summary>
 		void ShowEffectAtObject(int piEffectObjectId, UWMobileRecord pORecord, int piFrames);
+
+		/// <summary>Where the body of a mobile index stands - the player (1) or a creature - in eighths and zpos; false
+		/// when there is none (the magic satellite's source, UWSatelliteRulesUw2).</summary>
+		bool TryGetSourceSpot(int piIndex, out int piX8, out int piY8, out int piZ);
 	}
 }

@@ -123,6 +123,9 @@ namespace UWDataImport.UWData
 				// move_me_joe: the homing dart steers after a step that kept it in flight (uw2 PATHFIND.C).
 				if (pORecord.ItemId == UWHomingDartRules.ItemId)
 					UWHomingDartRules.Steer(pORecord, mOWorld, mOHost);
+				else if (pORecord.ItemId == UWSatelliteRulesUw2.ItemId && mOWorld.Session != null
+					&& mOWorld.Session.Game.Game == UWGame.Uw2)
+					UWSatelliteRulesUw2.Steer(pORecord, mOWorld, mOHost);
 			}
 
 			return lbMobile;

@@ -87,7 +87,7 @@ public class UWWalkUw2View : MonoBehaviour
     {
         return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
             || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWControls.IsTextEntryActive
-            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning;
+            || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
     }
 
     /// <summary>player_key_sleep.</summary>

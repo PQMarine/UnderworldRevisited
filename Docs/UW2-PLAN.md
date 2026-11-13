@@ -1040,7 +1040,18 @@ to build them:
 - G2 TERRAIN: water and lava in the walk - UWPlayerTerrain's swim counter, sinking view, lava damage (returns at once
   in UW2), the swim check on UWVitalsUw2 (SwimCheckDue not subscribed, RunSwimCheck hurts the idle UWCharacter), so
   drowning; the weapon put away in water if the second game has the rule; the player's paralysis on the walk and its
-  countdown.
+  countdown (BUILT with part E2, 2026-11-13). THE SECOND GAME'S COLOUR CYCLING (cycle_colors, gfx/COLCYCLE.C:49:
+  0xE0 to 0xEF four banks of four one place down, 3 to 7 and 8 to 10 one place up, every 64 ticks; UWPaletteRotation
+  has the first game's ranges only, so nothing rotates in a UW2 session) - its water, lava and the flam and tym runes,
+  which the user saw move in the original (2026-11-13). BUILT 2026-11-13: UWPaletteRotation.IsUpIndex/IsDownIndex by game (the
+  rotation table, the pre-baked Remastered steps, the grime's exclusion), the shader's UWIsRotatingIndex on
+  _UWSecondGameRotation; lava's glow and water's gloss stay the first game's; test list section 36. SECTION 36 CONFIRMED by the user
+  2026-11-13 (runes and water move, nothing else flickers, the first game unchanged; UW2 lava not seen yet). WATER AND LAVA BUILT 2026-11-13: UWPlayerTerrain's second-game
+  path (fUpdateTerrainUw2: the core's contact, the swim counter in the record's 0x307, the water loop, punt_fightmode
+  on entering, the lava on the game's clock without dragon skin boots and with the djinn's mud at step 3, the swim view
+  as a height on the walk's eye), RunSwimCheck on UWVitalsUw2's SwimCheckDue, fight refused while swimming; the
+  second game's footsteps and swim strokes (make_noise: a stroke 0x1A every 15 steps panned left and right while
+  moving, footsteps by floor and ice) are not built, NEXT per user 2026-11-13; test list section 38. G2 COMPLETE but its test.
 - G3 TRAPS AND TRIGGERS: the second game's TrapKinds and DoActions tables (UE's nine new kinds, hack traps), move
   triggers for the player beyond teleports (UWMotionHost.fFireWalkTriggers) and for creatures, door, look, pick-up
   and use triggers, the trap search, the wandering monsters (RunRespawn 0, FiveMinuteBlockDue, YearlyCheckup), the
@@ -1131,7 +1142,27 @@ to build them:
    (command bar, inventory, runes and cast, option shortcuts with 0xAE, the view's use, the attack, camping); test
    list section 32. SECTION 32 CONFIRMED by the user 2026-11-12 with the original (fixes c3989519 the modern HUD
    and pointer during the view, 430cf317 the noclip line; two deviations in DEVIATIONS.md: a loaded save with the
-   spell raises the view, the keys glide where UW2 steps) - PART D COMPLETE. Next: part E (class 8). PART A BUILT
+   spell raises the view, the keys glide where UW2 steps) - PART D COMPLETE. Next: part E (class 8). PART E SPLIT 2026-11-12: E1 Create
+   Food and Summon Demon, E2 the runes of flame and stasis (placed at the caster's z + 12, UseRune when a body touches
+   one - the collision's UseObj of usable objects, OBJPHYS.C), E3 the magic satellite (check_sat round its caster,
+   missile_newhit never on the caster). PART E1 BUILT 2026-11-12: UWSummonSpellRules.CastSecondGame (nine eighths
+   ahead with the swerve, 0x125 when there is no room, demons[] by (Casting + 0..29) / 12, the demon hostile with the
+   player's tile as its destination as creat_spell sets every summoning but the player's Summon Monster); test list
+   section 33. SECTION 33 CONFIRMED by the user 2026-11-12 with the original (fix on the way: can_place on
+   the motion core so a door leaves no room, 76d8aad1, the first game too 2b0da597 - its regression, section 34, CONFIRMED by the user 2026-11-13). PART E2 BUILT 2026-11-13: UWRuneRulesUw2 (UseRune: the flam
+   rune's 3d4 + 4 of plain fire, nobody's, and its explosion; the tym rune's paralysis 4 to 19 or a creature's hold by
+   HitCritterGoal), placed by creat_spell's cases 2 and 3 at the caster's height + 12 through can_place; the runes
+   drawn (do_obj draws every object without ID_INVIS); a body running into one queued by UWMotionHost.UseOnMover and
+   fired after the motion; the second game's player paralysis (the counter down once a real second, no walking, no
+   view or panel click, no fight, no cast); test list section 35. SECTION 35 CONFIRMED by the user 2026-11-13 with the original
+   (the runes' flicker came with the colour cycling, c4eb28fc). PART E3 BUILT 2026-11-13: UWSatelliteRulesUw2 (check_sat round its
+   source by IUWMobileObjectHost.TryGetSourceSpot, after every step that keeps it in flight, as the homing dart's
+   steering; the start heading and height), UWMissiles.LaunchSatellite over IUWWorld.LaunchSatellite (63 hp, period 2,
+   the caster as Owner, no launch sound), missile_newhit's skip of its own source in MissileHits and UseOnMover;
+   creat_spell's case 6 through can_place at the floor; test list section 37. PART E COMPLETE (class 8 but the
+   player's Summon Monster, which the second game gives creatures only). SECTION 37 CONFIRMED by the user 2026-11-13 (fix 5895783d: brushing its source
+   cleared the collided bit only in the record, which the step overwrote - the core clears it now, UWMotionBody.Owner;
+   walking through the satellite makes it hit less often afterwards, in the original as well). PART A BUILT
    2026-11-05, test list section 25 ALL CONFIRMED 2026-11-11 (fixes: taking aims with UWWorldPicker over the full
    range so Telekinesis takes from afar, 11e588a7; teleport traps, Portal and Gate Travel fade out and in as
    new_player_pos with NewPlyFade 3, d7570fc3).

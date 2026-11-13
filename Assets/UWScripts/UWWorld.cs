@@ -464,85 +464,19 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return Loader != null && UWMissiles.Ensure(Loader).DropBoulder(piObjectId, piTileX, piTileY) != null;
     }
 
-    /// <summary>
-    /// CheckIfItemFitsInTile_seg026_1008 for a summoned creature: its COMOBJ footprint (radius
-    /// in eighths around the spot) from the floor up to its COMOBJ height; blocked by a
-    /// creature, the player's body, or an object with a COMOBJ height (a barrel, a door) -
-    /// the same records ScanForCollisions gathers. Items lying on the floor (height 0) do not
-    /// count, as they do not in the original's scan. Moved from the spell host (cleanup step 3.6,
-    /// 2026-10-17); the physics query stays as it was.
-    /// A DYING CREATURE IS IN THE WAY TOO (2026-10-19, the user's decision "as the original"): its
-    /// record stays in its tile list until frame 3 and can_place's scan has no dying test
-    /// (UWCreatureActor.IsInTileList); until then a destroyed body let the summon through.
-    /// </summary>
-    public bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ)
+    /// <summary>can_place over the current level (UWLevelLoader.ObjectFitsAt, the motion core's CheckIfItemFitsInTile);
+    /// true without a level.</summary>
+    public bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)
     {
-        UWLevelLoader lOLoader = Loader;
+        return Loader == null || Loader.ObjectFitsAt(piItemId, piX8, piY8, piZ, pbFlier, piRange);
+    }
 
-        if (lOLoader == null || lOLoader.UWDataImporter == null)
-            return true;
-
-        UWCommonObjectProperties lOCommon = lOLoader.UWDataImporter.CommonObjectProperties;
-        int liRadius = 1;
-        int liHeight = 1;
-
-        if (lOCommon != null && lOCommon.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOOwn))
-        {
-            liRadius = Mathf.Max(1, (int)lOOwn.Radius);
-            liHeight = Mathf.Max(1, (int)lOOwn.Height);
-        }
-
-        float lfHalfWidth = liRadius * UWWorldScale.SubTileStep;
-        float lfHalfHeight = liHeight * UWWorldScale.ZPosStep * 0.5f;
-        Vector3 lOFloor = new Vector3(pfWorldX, 0f, pfWorldZ);
-
-        lOFloor.y = lOLoader.GetFloorHeightAt(lOFloor);
-
-        Collider[] lOHits = Physics.OverlapBox(lOFloor + (Vector3.up * lfHalfHeight),
-            new Vector3(lfHalfWidth, lfHalfHeight, lfHalfWidth), Quaternion.identity, Physics.AllLayers,
-            QueryTriggerInteraction.Ignore);
-
-        foreach (Collider lOCollider in lOHits)
-        {
-            if (lOCollider.GetComponentInParent<UWProjectileFlight>() != null)
-                continue;
-
-            if (lOCollider is CharacterController)
-                return false;
-
-            UWCritter lOCritter = lOCollider.GetComponentInParent<UWCritter>();
-
-            if (lOCritter != null)
-            {
-                UWCreatureActor lOActor = lOCritter.Actor;
-
-                // A creature not set up yet (no actor) blocks while its body is not destroyed, as
-                // every creature did until 2026-10-19.
-                if (lOActor != null)
-                {
-                    if (lOActor.IsInTileList)
-                        return false;
-                }
-                else
-                {
-                    UWDamageable lODamageable = lOCritter.GetComponent<UWDamageable>();
-
-                    if (lODamageable != null && !lODamageable.IsDestroyed)
-                        return false;
-                }
-
-                continue;
-            }
-
-            UWEntityInfo lOEntity = lOCollider.GetComponentInParent<UWEntityInfo>();
-
-            if (lOEntity != null && lOEntity.ObjectData != null && lOCommon != null
-                && lOCommon.TryGet(lOEntity.ObjectData.ID, out UWCommonObjectProperties.Entry lOEntry)
-                && lOEntry.Height > 0)
-                return false;
-        }
-
-        return true;
+    /// <summary>The magic satellite through the missiles (UWMissiles.LaunchSatellite); the player's is shot as his own
+    /// spell missiles are (UWAttackUw2 as the shooter).</summary>
+    public bool LaunchSatellite(int piX8, int piY8, int piZ, int piHeading, int piSpeedByte, int piOwner)
+    {
+        return Loader != null && UWMissiles.Ensure(Loader).LaunchSatellite(piX8, piY8, piZ, piHeading, piSpeedByte, piOwner,
+            piOwner == 1 ? UWAttackUw2.Current : null) != null;
     }
 
     // ------------------------------------------------- Area spells (cleanup step 3.6)

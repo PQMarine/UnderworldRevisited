@@ -144,10 +144,14 @@ namespace UWDataImport.UWData
 		/// a piece of Tremor's debris. False when it could not be made.</summary>
 		bool DropBoulder(int piObjectId, int piTileX, int piTileY);
 
-		/// <summary>Whether a creature of this kind fits on the spot (east and north in world
-		/// units): nothing's body - a creature, the player, a solid object - overlaps its footprint
-		/// within its height (the original's fit test, see UWSummonSpellRules).</summary>
-		bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ);
+		/// <summary>can_place (motion/COLLIDE.C) on the motion core: whether an object of this kind fits at the point
+		/// (eighths of a tile) and height (zpos) - walls and ceiling, every solid object in the tile lists a door
+		/// included, and unless pbFlier not hanging more than piRange above what it would rest on.</summary>
+		bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange);
+
+		/// <summary>The magic satellite in flight at the spot (eighths, zpos) with its heading byte and speed, its source
+		/// the mobile index piOwner (1 the player). False when it could not be made.</summary>
+		bool LaunchSatellite(int piX8, int piY8, int piZ, int piHeading, int piSpeedByte, int piOwner);
 
 		// ------------------------------------------------- Area spells (cleanup step 3.6)
 
@@ -344,9 +348,14 @@ namespace UWDataImport.UWData
 			return mOInner.DropBoulder(piObjectId, piTileX, piTileY);
 		}
 
-		public bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ)
+		public bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)
 		{
-			return mOInner.CreatureFitsAt(piObjectId, pfWorldX, pfWorldZ);
+			return mOInner.CanPlace(piItemId, piX8, piY8, piZ, pbFlier, piRange);
+		}
+
+		public bool LaunchSatellite(int piX8, int piY8, int piZ, int piHeading, int piSpeedByte, int piOwner)
+		{
+			return mOInner.LaunchSatellite(piX8, piY8, piZ, piHeading, piSpeedByte, piOwner);
 		}
 
 		public UWTargetSpellRules.Result ConfuseCreature(UWObject pOCreature)

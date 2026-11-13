@@ -173,6 +173,55 @@ public sealed class UWMissiles
             null, null, 0x3F);
     }
 
+    /// <summary>
+    /// THE MAGIC SATELLITE (creat_spell's case 6, part E3): made at the spot (eighths, zpos) with its heading, speed,
+    /// 63 hit points, level, and its caster as the source (Owner, last_hit) - no launch placement and no launch sound,
+    /// as CreateObj and mob_init make it. Its hit is the ammunition table's, charged to the caster (pIShooter for the
+    /// player). Null when it could not be made.
+    /// </summary>
+    public UWProjectileFlight LaunchSatellite(int piX8, int piY8, int piZ, int piHeading, int piSpeedByte, int piOwner,
+        IUWMissileHost pIShooter)
+    {
+        UWLevelLoader lOLoader = fLoader;
+        UWDataImport.DataImport lOData = lOLoader != null ? lOLoader.UWDataImporter : null;
+
+        if (mOHost.ObjectMotion == null || lOData == null || lOData.ObjectProperties == null)
+            return null;
+
+        UWMobileObjectMotion.Launcher lOLauncher = new UWMobileObjectMotion.Launcher
+        {
+            Index = piOwner,
+            IsCreature = true,
+            TileX = (piX8 >> 3) & 0x3F,
+            TileY = (piY8 >> 3) & 0x3F,
+            XPos = piX8 & 7,
+            YPos = piY8 & 7,
+            ZPos = piZ & 0x7F,
+            Octant = (piHeading >> 5) & 7,
+            FineHeadingBits = piHeading & 0x1F,
+            Height = 0,
+            Radius = 0
+        };
+
+        int liItem = UWSatelliteRulesUw2.ItemId;
+        UWMobileRecord lORecord = new UWMobileRecord
+        {
+            Object = fNewObject(liItem),
+            Index = mOHost.NewFlightIndex()
+        };
+
+        if (!mOHost.ObjectMotion.TryLaunch(lORecord, lOLauncher, true, 0, 0, piSpeedByte))
+            return null;
+
+        lORecord.Hp = 0x3F;
+        lORecord.Period = 2;
+        lORecord.StaticHeading = lORecord.Octant;
+
+        return fSpawnFlight(lORecord, lOData.ObjectProperties.GetRangedDamage(liItem),
+            UWRunicMagic.GetProjectileDamageType(liItem, lOData.ObjectProperties), UWRunicMagic.GetProjectileImpactId(liItem),
+            pIShooter, null, false);
+    }
+
     /// <summary>The ammunition table's speed byte of a missile.</summary>
     private int fSpeedByte(int piItemId)
     {

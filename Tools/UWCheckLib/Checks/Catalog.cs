@@ -53,6 +53,7 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("SummonRoll", pOContext => fCheckSummonRoll(pOContext.Data), true, "spell", "original").MutatesData = true;
             lOCatalog.Add("ObjectDamage", pOContext => fCheckObjectDamage(pOContext.DataPath), true, "damage", "original");
             lOCatalog.Add("Moonstone", pOContext => fCheckMoonstone(pOContext.Data), true, "inventory", "original");
+            lOCatalog.Add("AutomaticKey", pOContext => fCheckAutomaticKey(), false, "inventory", "modern");
             lOCatalog.Add("EquipmentWear", pOContext => fCheckEquipmentWear(pOContext.Data), true, "inventory", "original");
             lOCatalog.Add("ActiveMobileOrder", pOContext => fCheckActiveMobileOrder(pOContext.Data), true, "level", "original");
             lOCatalog.Add("ConversationBasePointer", pOContext => fCheckConversationBasePointer(), false, "conversation", "original");

@@ -182,6 +182,15 @@ namespace UnderworldRevisited.Tools
                 Log.Add("effect " + piEffectObjectId + " frames " + piFrames);
             }
 
+            public bool TryGetSourceSpot(int piIndex, out int piX8, out int piY8, out int piZ)
+            {
+                piX8 = 0;
+                piY8 = 0;
+                piZ = 0;
+
+                return false;
+            }
+
             public void Splash(UWMobileRecord pORecord)
             {
                 Splashes++;

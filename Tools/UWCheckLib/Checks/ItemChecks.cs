@@ -347,6 +347,28 @@ namespace UnderworldRevisited.Tools
             fExpectBool("wear: Your dagger was destroyed.", lsMessage == "Your dagger was destroyed.", true);
         }
 
+        /// <summary>GitHub issue 37 (2026-11-13): the modern scheme's automatic key takes keys only - a lockpick of
+        /// owner 0 "fitted" every lock with id 0 and opened it whatever the Picklock skill.</summary>
+        private static void fCheckAutomaticKey()
+        {
+            Check.Group("The modern scheme's automatic key");
+
+            UWObject lOLockpick = new UWObject((ushort)UWObjectMechanics.LockpickObjectId) { Owner = 0 };
+            UWObject lOKey = new UWObject(0x100) { Owner = 0 };
+            UWObject lOOtherKey = new UWObject(0x102) { Owner = 5 };
+            System.Collections.Generic.List<UWObject> lOList = new System.Collections.Generic.List<UWObject>();
+
+            UWObject lOPickOnly = UWObjectMechanics.FindMatchingKey(new[] { lOLockpick }, 0, lOList);
+            UWObject lOWithKey = UWObjectMechanics.FindMatchingKey(new[] { lOLockpick, lOOtherKey, lOKey }, 0, lOList);
+            UWObject lOByFive = UWObjectMechanics.FindMatchingKey(new[] { lOLockpick, lOOtherKey, lOKey }, 5, lOList);
+
+            // UnlockDoor's key rule: a lock of id 0 takes no key at all.
+            Check.Str("automatic key: a lone lockpick fits no lock 0, nor does a key of 0 (no key fits lock 0), the key of 5 fits lock 5",
+                (lOPickOnly == null ? "none" : lOPickOnly.ID.ToString("X")) + " " + (lOWithKey == null ? "none" : lOWithKey.ID.ToString("X"))
+                + " " + (lOByFive == null ? "none" : lOByFive.ID.ToString("X")),
+                "none none 102");
+        }
+
         private static void fCheckMoonstone(DataImport pOData)
         {
             Check.Group("Moonstone");

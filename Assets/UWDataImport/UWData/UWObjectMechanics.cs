@@ -457,10 +457,20 @@ namespace UWDataImport.UWData
 		/// Modern (automatic check on an attempt to open, see Interaction.
 		/// fTryUseDoor) - Original instead requires explicitly applying a specific
 		/// key to the door in use mode (see UWItemTargetUse), no search
-		/// needed.</summary>
+		/// needed.
+		///
+		/// NOT THE LOCKPICK (GitHub issue 37, 2026-11-13, confirmed by the user): it sits among the keys (257, see
+		/// LockpickObjectId) and its owner field - the key id of a key - is mostly 0, so it "fitted" every lock with
+		/// id 0 and the modern scheme opened such a door at once, whatever the Picklock skill. A lockpick is never a
+		/// key; it is used on a lock with its skill roll (UWItemTargetRules).
+		///
+		/// AND THE KEY RULE OF THE ORIGINAL (UnlockDoor, UWLockRules.Unlock): a lock of id 0 takes no key, and a key of id
+		/// 0 opens nothing. The modern path searched by itself and opened the door without that rule (per user,
+		/// 2026-11-13: "with the existing logic the doors should not have opened"), so a lock 0 opened for anything of
+		/// id 0 - the lockpick above all.</summary>
 		public static UWObject FindMatchingKey(IEnumerable<UWObject> pOItems, int piLockId, List<UWObject> pOMasterlist)
 		{
-			if (pOItems == null)
+			if (pOItems == null || piLockId <= 0)
 				return null;
 
 			foreach (UWObject lOItem in pOItems)
@@ -468,7 +478,8 @@ namespace UWDataImport.UWData
 				if (lOItem == null)
 					continue;
 
-				if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.KeysLockpickLock && lOItem.ID != LockObjectId)
+				if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.KeysLockpickLock && lOItem.ID != LockObjectId
+					&& lOItem.ID != LockpickObjectId)
 				{
 					if (GetKeyId(lOItem) == piLockId)
 						return lOItem;

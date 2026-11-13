@@ -132,6 +132,44 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
     /// <summary>Paralysed (the game's counter); a cast waits for it.</summary>
     public bool IsParalysed => mOFile != null && UWPlayerRecordUw2.Paralysis(mOFile) != 0;
 
+    /// <summary>
+    /// THE SECOND GAME'S PARALYSIS (part E2, the tym rune): do_player_input gives no speed (PHYSICS.C:662), the view
+    /// (mous_in_3d) and the right panel (mous_in_panel) take no click, fight cannot be chosen and no rune cast begins
+    /// (RUNES.C:174). For the shared walk, the attack and the screen; false on the first game.
+    /// </summary>
+    public static bool PlayerParalysed => Current != null && Current.IsParalysed;
+
+    /// <summary>The real seconds toward the next step down of the paralysis.</summary>
+    private float mfParalysisSeconds;
+
+    /// <summary>
+    /// The frame loop takes the counter down by one whenever the clock's second changes (INTERACT.C:111-121: the
+    /// game_clock >> 8, 256 units a real second) - so 4 to 19 seconds for the tym rune. Not while the options panel
+    /// stands: the original's clock does not run there.
+    /// </summary>
+    private void fTickParalysis()
+    {
+        int liLeft = UWPlayerRecordUw2.Paralysis(mOFile);
+
+        if (liLeft <= 0 || UWGameScreenUw2.IsOptionsOpen)
+        {
+            if (liLeft <= 0)
+                mfParalysisSeconds = 0f;
+
+            return;
+        }
+
+        mfParalysisSeconds += Time.deltaTime;
+
+        while (mfParalysisSeconds >= 1f && liLeft > 0)
+        {
+            mfParalysisSeconds -= 1f;
+            liLeft--;
+        }
+
+        UWPlayerRecordUw2.SetParalysis(mOFile, liLeft);
+    }
+
     /// <summary>The vitals, null before the first frame.</summary>
     public UWPlayerVitals Vitals => mOVitals;
 
@@ -158,6 +196,7 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
             fStart(lOFile, lOLoader.UWDataImporter);
 
         fTakeFromRecord();
+        fTickParalysis();
 
         int liTicks = mOClock.Advance(Time.deltaTime);
 
@@ -239,6 +278,13 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOVitals.UnsteadyShakeDue += fShakeUnsteady;
         mOVitals.DayStepDue += fStepDay;
         mOVitals.StatusPassDue += RequestStatusPass;
+
+        // G2: the swimming check on the player tick, the first game's (UWPlayerTerrain.RunSwimCheck).
+        mOVitals.SwimCheckDue += () =>
+        {
+            if (UWScene.PlayerTerrain != null)
+                UWScene.PlayerTerrain.RunSwimCheck();
+        };
         mOVitals.ActiveSpellsChanged += (pbHastened, pbRoamingSight, pbTimeFrozen, pbTelekinesis) =>
         {
             mbSpellsChanged = true;

@@ -442,7 +442,10 @@ namespace UnderworldRevisited.Build
             // fSpawnBillboard and be visible as floating, pickable sprites
             // (like every object <=460 they have an OBJECTS.GR texture assigned, see
             // UWLevel.load_object_list).
-            if (leCategory == UWObject.ObjectCategoryEnum.Traps || leCategory == UWObject.ObjectCategoryEnum.Triggers)
+            // THE SECOND GAME'S RUNES ARE SEEN (part E2): do_obj (3d/DRAWOBJ.C) draws every object that is not invisible
+            // (ID_INVIS, IsHidden), and a flam or tym rune a spell made is not - the level's traps carry the bit.
+            if ((leCategory == UWObject.ObjectCategoryEnum.Traps || leCategory == UWObject.ObjectCategoryEnum.Triggers)
+                && !(fIsUw2 && UWRuneRulesUw2.IsRune(pOObject.ID) && !pOObject.IsHidden))
                 return;
 
             // Where the object stands in its tile's chain, and whether a model of the tile is

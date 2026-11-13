@@ -227,7 +227,7 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         if (mController == null || !mController.enabled)
             return false;
 
-        if (mScheme != null && mScheme.IsWorldInputBlocked)
+        if ((mScheme != null && mScheme.IsWorldInputBlocked) || UWVitalsUw2.PlayerParalysed)
             return false;
 
         // The original's gate: no turn and no step while gravity acts or the speed has reached
@@ -500,7 +500,8 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         // ticks, at most that many are simulated here and the rest is dropped (UWMotionStepper).
         mOStepper.AddTime(Time.deltaTime, liStep);
 
-        bool lbBlocked = mScheme != null && mScheme.IsWorldInputBlocked;
+        // The second game's paralysis stops the input as a window does: do_player_input gives no speed, gravity runs.
+        bool lbBlocked = (mScheme != null && mScheme.IsWorldInputBlocked) || UWVitalsUw2.PlayerParalysed;
 
         // While a modal window is open - conversation, full-screen map - the character
         // stands still. Otherwise, in the original scheme, the pointer position keeps

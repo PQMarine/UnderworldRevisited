@@ -1085,6 +1085,13 @@ namespace UWDataImport.UWData
 				&& mOWorld.MissileHits(piMoverIndex, lOOther.Index, liMoverTileX, liMoverTileY))
 				return 0x10;
 
+			// THE MAGIC SATELLITE MEETING ITS SOURCE (missile_newhit, uw2 obj/OBJPHYS.C: SET_B15_7(proj, 0) when the struck
+			// object is its last_hit): the collided bit set above comes off again, so the next mobile it meets - a creature
+			// - is struck. Per user, 2026-11-13: ours rarely hit; the host cleared the record's bit, which the step then
+			// overwrote with this mover's, so after brushing the player once the satellite passed through every creature.
+			if (lbOther && Mover.ItemId == UWSatelliteRulesUw2.ItemId && lOOther.IsMobile && lOOther.Index == Mover.Owner)
+				Mover.CollidedWithMobile = false;
+
 			return fTransferMomentum(lbOther, lOOther);
 		}
 

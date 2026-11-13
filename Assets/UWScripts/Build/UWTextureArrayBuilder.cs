@@ -400,9 +400,10 @@ namespace UnderworldRevisited.Build
             {
                 byte lyIndex = pOTexture.PaletteIndices[i];
 
-                if (UWPaletteRotation.IsLavaIndex(lyIndex))
+                // The banks that rotate, by game (the second game's are no lava or water, UWPaletteRotation).
+                if (UWPaletteRotation.IsUpIndex(lyIndex))
                     lbLava = true;
-                else if (UWPaletteRotation.IsWaterIndex(lyIndex))
+                else if (UWPaletteRotation.IsDownIndex(lyIndex))
                     lbWater = true;
             }
 

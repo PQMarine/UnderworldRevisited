@@ -677,6 +677,13 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         UWProjectileFlight lOFlight = FlightAt(piOtherIndex);
 
         if (lOFlight == null)
+        {
+            fQueueRune(piOtherIndex, piMoverIndex);
+
+            return;
+        }
+
+        if (fIsOwnSatellite(lOFlight, piMoverIndex))
             return;
 
         if (piMoverIndex == PlayerMover)
@@ -761,8 +768,73 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// <summary>The triggers creatures and things met this frame, fired after all their steps
     /// with the same spacing as the player's, with the mover as the one struck (damage and
     /// teleport go to it, see UWTrapRules).</summary>
+    /// <summary>
+    /// A BODY RAN INTO A RUNE (part E2): the second game's flam and tym runes are usable and not solid, so the core
+    /// hands them here as the struck object that uses itself (OBJPHYS.C's UseObj -> UseRune). Queued for after the
+    /// motion, as the triggers: the rune leaves the world, and the flam rune's explosion is shown. Once per body and
+    /// rune; the player or a creature.
+    /// </summary>
+    private void fQueueRune(int piOtherIndex, int piMoverIndex)
+    {
+        if (!UWWalkUw2.IsWalking || !IsStaticIndex(piOtherIndex))
+            return;
+
+        UWObject lORune = StaticObjectAt(piOtherIndex);
+
+        if (lORune == null || !UWRuneRulesUw2.IsRune(lORune.ID))
+            return;
+
+        foreach (PendingTrigger lOPending in mOPendingRunes)
+        {
+            if (lOPending.Trigger == lORune)
+                return;
+        }
+
+        mOPendingRunes.Add(new PendingTrigger { Mover = piMoverIndex, Trigger = lORune, IsCreature = piMoverIndex != PlayerMover });
+    }
+
+    private readonly List<PendingTrigger> mOPendingRunes = new List<PendingTrigger>();
+
+    /// <summary>The queued runes' UseRune, through the second game's spell host (its world, vitals and record).</summary>
+    private void fFireRunes()
+    {
+        if (mOPendingRunes.Count == 0 || mOLoader == null)
+            return;
+
+        PendingTrigger[] lOPending = mOPendingRunes.ToArray();
+        UWLevel lOLevel = mOLoader.CurrentLevel;
+        UWWorld lOWorld = UWWorld.Of(mOLoader);
+
+        mOPendingRunes.Clear();
+
+        if (lOWorld == null || UWVitalsUw2.Current == null)
+            return;
+
+        UWSpellHostUw2 lOHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, lOWorld.Presentation);
+
+        foreach (PendingTrigger lOAt in lOPending)
+        {
+            if (mOLoader.CurrentLevel != lOLevel)
+                break;
+
+            if (!fStillListed(lOAt.Trigger))
+                continue;
+
+            UWCritter lOCritter = lOAt.IsCreature ? fCritter(lOAt.Mover) : null;
+            UWEntityInfo lOEntity = lOCritter != null ? lOCritter.GetComponentInParent<UWEntityInfo>() : null;
+            UWObject lOCreature = lOEntity != null ? lOEntity.ObjectData : null;
+
+            if (lOAt.IsCreature && lOCreature == null)
+                continue;
+
+            UWRuneRulesUw2.Touch(lOAt.Trigger, lOCreature, lOHost);
+        }
+    }
+
     private void LateUpdate()
     {
+        fFireRunes();
+
         if (mOPendingOtherTriggers.Count == 0 || mOLoader == null)
             return;
 
@@ -911,7 +983,7 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     {
         UWProjectileFlight lOFlight = FlightAt(piMoverIndex);
 
-        if (lOFlight == null)
+        if (lOFlight == null || fIsOwnSatellite(lOFlight, piOtherIndex))
             return false;
 
         if (piOtherIndex == 1)
@@ -1009,6 +1081,54 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     }
 
     // ------------------------------------------------- IUWMobileObjectHost
+
+    /// <summary>The player's body on the motion core (index 1), or a creature's record by its index (part E3).</summary>
+    public bool TryGetSourceSpot(int piIndex, out int piX8, out int piY8, out int piZ)
+    {
+        piX8 = 0;
+        piY8 = 0;
+        piZ = 0;
+
+        if (piIndex == PlayerMover)
+        {
+            UWPlayerMovement lOMovement = UWScene.PlayerMovement;
+
+            if (lOMovement == null || !lOMovement.UsesMotionCore)
+                return false;
+
+            piX8 = (lOMovement.Motion.TileX << 3) + (lOMovement.Motion.Body.XPos & 7);
+            piY8 = (lOMovement.Motion.TileY << 3) + (lOMovement.Motion.Body.YPos & 7);
+            piZ = lOMovement.Motion.Body.ZPos;
+
+            return true;
+        }
+
+        UWCritter lOCritter = fCritter(piIndex);
+        UWEntityInfo lOEntity = lOCritter != null ? lOCritter.GetComponentInParent<UWEntityInfo>() : null;
+        UWObject lONpc = lOEntity != null ? lOEntity.ObjectData : null;
+
+        if (lONpc == null)
+            return false;
+
+        piX8 = (lONpc.TileX << 3) + (lONpc.XPos & 7);
+        piY8 = (lONpc.TileY << 3) + (lONpc.YPos & 7);
+        piZ = lONpc.ZPos;
+
+        return true;
+    }
+
+    /// <summary>A magic satellite meets its own source: missile_newhit clears its collided bit and strikes nothing
+    /// (UWSatelliteRulesUw2).</summary>
+    private static bool fIsOwnSatellite(UWProjectileFlight pOFlight, int piOtherIndex)
+    {
+        if (pOFlight == null || pOFlight.Record == null || pOFlight.Record.ItemId != UWSatelliteRulesUw2.ItemId
+            || !UWWalkUw2.IsWalking || pOFlight.Record.Owner != piOtherIndex)
+            return false;
+
+        pOFlight.Record.CollidedWithMobile = false;
+
+        return true;
+    }
 
     public int DungeonLevel => mOLoader != null ? mOLoader.CurrentLevelIndex + 1 : 0;
 

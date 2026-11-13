@@ -500,7 +500,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     private bool mbRefused;
 
     private static bool fBusy => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWGameScreenUw2.IsOptionsOpen || UWGameScreenUw2.IsAskingCount
-        || UWRoamingSight.IsAnyRunning;
+        || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
 
     /// <summary>player_attack, over the step flags of the weapon's animation: the lead-in gives way when the button
     /// comes up, the hold charges while it stays down, and the strike's step lands the blow.</summary>

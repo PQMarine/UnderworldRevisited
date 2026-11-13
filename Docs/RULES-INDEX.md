@@ -683,7 +683,7 @@ the files only describes what a byte of the game's tables means (msDescribers).
 
 | Place | Files |
 |---|---|
-| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWMotionCore.cs, UWPlacement.cs, UWPlayerThrow.cs, UWWorld.cs |
+| `CheckIfItemFitsInTile` (seg026_1008) | UWEasyMovement.cs, UWMotionCore.cs, UWPlacement.cs, UWPlayerThrow.cs |
 | `MoveObjectToCoordinates` (seg026_122B) | UWScatterRules.cs |
 | `PlaceObjectAtNPC` (seg026_12E5) | IUWWorld.cs, UWScatterRules.cs |
 | `InsertObjectToList` (seg026_133F) | UWScatterRules.cs |

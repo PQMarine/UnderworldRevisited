@@ -2050,6 +2050,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// <summary>A place's key or click: its piece is used as from the inventory; nothing while it is not carried.</summary>
     private void fUseBar(int piSlot)
     {
+        if (UWVitalsUw2.PlayerParalysed)
+            return;
+
         UWObject lOItem = mOModernHud.Bar.Carried(piSlot, mOInventory);
 
         if (lOItem != null)
@@ -2135,6 +2138,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
             return;
         }
+
+        // Paralysed, the panel takes nothing (mous_in_panel, part E2).
+        if (UWVitalsUw2.PlayerParalysed)
+            return;
 
         // The rune page: its click is the classic page's (mous_in_rune); the hollow casts, its right button clears.
         if (mbRunesOpen && mOModernHud.IsOnHollow(UWPointer.Position))
@@ -2974,7 +2981,10 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (!UWRoamingSight.IsAnyRunning)
         {
             fChooseCommand();
-            fFollowInventoryPress();
+
+            // mous_in_panel returns while paralysed (part E2).
+            if (!UWVitalsUw2.PlayerParalysed)
+                fFollowInventoryPress();
         }
 
         fClickPanel();
@@ -3072,7 +3082,7 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         {
             // Not while the view roams (try_cast returns while GameInputMode is set).
             if (mOShownPlayer != null && !UWConversationScreenUw2.IsOpen && !lOMouse.rightButton.wasPressedThisFrame
-                && !UWRoamingSight.IsAnyRunning)
+                && !UWRoamingSight.IsAnyRunning && !UWVitalsUw2.PlayerParalysed)
                 fCastShelf();
 
             return;
@@ -3088,8 +3098,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             return;
         }
 
-        // The pages take nothing while the view roams (mous_in_inv and mous_in_rune under GameInputMode 8).
-        if (UWRoamingSight.IsAnyRunning)
+        // The pages take nothing while the view roams (mous_in_inv and mous_in_rune under GameInputMode 8) or the player
+        // is paralysed (mous_in_panel returns).
+        if (UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed)
             return;
 
         if (miPage == 0 && miSlideFrame == 0 && mOInventory != null)
@@ -3630,8 +3641,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             fChoose((CommandEnum)liIcon);
     }
 
+    /// <summary>punt_fightmode (water_set, G2): the weapon is put away - the fight command ends.</summary>
+    public static void PuntFightMode()
+    {
+        if (Command == CommandEnum.Fight)
+            Command = CommandEnum.None;
+    }
+
     private void fChoose(CommandEnum peCommand)
     {
+        // Paralysed or swimming, fight is not chosen (deal_with_icons, INTERACT.C:676: paralyzed or motion_state bit 0).
+        if (peCommand == CommandEnum.Fight && (UWVitalsUw2.PlayerParalysed
+            || (UWScene.PlayerTerrain != null && UWScene.PlayerTerrain.IsSwimming)))
+            return;
+
         // The options icon opens the panel's game page - not with an object on the pointer
         // (deal_with_icons returns while GameInputMode is set).
         if (peCommand == CommandEnum.Options)

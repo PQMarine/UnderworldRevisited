@@ -150,6 +150,9 @@ namespace UWDataImport.UWData
 				case UWSpellCasting.TargetMajorClass:
 					return UWTargetSpellRulesUw2.IsBuilt(liMinor) || UWObjectSpellRulesUw2.IsBuilt(liMinor);
 
+				case UWSummonSpellRules.MajorClass:
+					return UWSummonSpellRules.IsBuiltSecondGame(liMinor);
+
 				default:
 					return pOSpell.MajorClass <= LastLastingOrHealClass;
 			}
@@ -179,6 +182,12 @@ namespace UWDataImport.UWData
 				// Stage 2 part B, the area spells by the second game's table (do_spell's case 6 always takes).
 				case UWAreaSpellRulesUw2.MajorClass:
 					UWAreaSpellRulesUw2.Cast(pOSpell.MinorClass, pIHost);
+
+					return true;
+
+				// Part E, creat_spell by the second game's minors (do_spell's case 8 always takes).
+				case UWSummonSpellRules.MajorClass:
+					UWSummonSpellRules.CastSecondGame(piMinor, pIHost);
 
 					return true;
 

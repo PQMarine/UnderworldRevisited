@@ -1,3 +1,4 @@
+using System.Linq;
 using UWDataImport.UWData;
 
 namespace UnderworldRevisited.Tools
@@ -75,6 +76,31 @@ namespace UnderworldRevisited.Tools
                 + " " + UWEnchantSpellRulesUw2.DebrisOf(0x03, null).ToString("X") + " " + UWEnchantSpellRulesUw2.DebrisOf(0x150, null).ToString("X")
                 + " " + UWEnchantSpellRulesUw2.DebrisOf(0x98, null).ToString("X"),
                 "1000 C7 DC D6");
+
+            // creat_spell's demons[(Casting + roll) / 12] (part E1): Casting 0 roll 0 and 29, Casting 30 roll 0 and 29,
+            // Casting 12 roll 11, Casting 24 roll 12.
+            Check.Str("summon demon: an imp, a hordling, a hordling, a destroyer, an imp, a despoiler",
+                UWSummonSpellRules.DemonOf(0, 0).ToString("X") + " " + UWSummonSpellRules.DemonOf(0, 29).ToString("X") + " "
+                + UWSummonSpellRules.DemonOf(30, 0).ToString("X") + " " + UWSummonSpellRules.DemonOf(30, 29).ToString("X") + " "
+                + UWSummonSpellRules.DemonOf(12, 11).ToString("X") + " " + UWSummonSpellRules.DemonOf(24, 12).ToString("X"),
+                "4B 5E 5E 68 4B 64");
+
+            Check.Str("class 8 built on the second game: all but Summon Monster, a creature's there (minors 1 to 6)",
+                string.Concat(new[] { 1, 2, 3, 4, 5, 6 }.Select(piMinor => UWSummonSpellRules.IsBuiltSecondGame(piMinor) ? "1" : "0")),
+                "111011");
+
+            // UseRune (part E2): the player 4 to 19, a creature 0x40 to 0x13C; the flam and tym runes and nothing else.
+            Check.Str("runes: paralysis 4 and 19, hold 0x40 and 0x13C, runes 0x19E 0x19F not 0x19D",
+                UWRuneRulesUw2.PlayerParalysis(0) + " " + UWRuneRulesUw2.PlayerParalysis(0x7FFF) + " "
+                + UWRuneRulesUw2.CreatureHoldTime(0).ToString("X") + " " + UWRuneRulesUw2.CreatureHoldTime(0x7FFF).ToString("X") + " "
+                + (UWRuneRulesUw2.IsRune(0x19E) ? "1" : "0") + (UWRuneRulesUw2.IsRune(0x19F) ? "1" : "0") + (UWRuneRulesUw2.IsRune(0x19D) ? "1" : "0"),
+                "4 19 40 13C 110");
+
+            // creat_spell's satellite (part E3): a quarter turn to either side, the floor + 0x12 (one more above 0x78).
+            Check.Str("satellite: heading 0x10 to 0x50 or 0xCF, z 0x12, 0x79 + 1 and capped",
+                UWSatelliteRulesUw2.StartHeading(0x10, 0).ToString("X") + " " + UWSatelliteRulesUw2.StartHeading(0x10, 1).ToString("X") + " "
+                + UWSatelliteRulesUw2.StartZ(0).ToString("X") + " " + UWSatelliteRulesUw2.StartZ(0x67).ToString("X") + " " + UWSatelliteRulesUw2.StartZ(0x70).ToString("X"),
+                "50 CF 12 7A 7F");
         }
     }
 }

@@ -94,7 +94,7 @@ namespace UWDataImport.UWData
 
 					pIHost.World.SetCreatureGoal(pOTarget, -1, -1, UpsetAttitude);
 
-					return fHitCritterGoal(pOTarget, pIHost, FleeGoal, -1, 1);
+					return HitCritterGoal(pOTarget, pIHost, FleeGoal, -1, 1);
 
 				case SmiteUndead:
 					return fSmiteUndead(pOTarget, pIHost);
@@ -212,12 +212,12 @@ namespace UWDataImport.UWData
 			if (!fIsCreature(pOTarget) || fIsUndead(pOTarget, pIHost))
 				return false;
 
-			return fHitCritterGoal(pOTarget, pIHost, HeldGoal, UpsetAttitude, liTime);
+			return HitCritterGoal(pOTarget, pIHost, HeldGoal, UpsetAttitude, liTime);
 		}
 
 		/// <summary>hit_critter_goal: unless the creature shrugs it off the picture, the goal and target and, if not -1,
-		/// the attitude. Takes either way.</summary>
-		private static bool fHitCritterGoal(UWObject pOTarget, IUWSpellHost pIHost, int piGoal, int piAttitude, int piGTarg)
+		/// the attitude. Takes either way. Public for the tym rune (UWRuneRulesUw2), which holds a creature with it.</summary>
+		public static bool HitCritterGoal(UWObject pOTarget, IUWSpellHost pIHost, int piGoal, int piAttitude, int piGTarg)
 		{
 			if (fPassesResistance(pOTarget, pIHost))
 			{

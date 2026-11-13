@@ -263,8 +263,8 @@ namespace UnderworldRevisited.Tools
             foreach (int liSpell in new[] { 7, 15, 46, 58, 61, 63, 67, 0, 24, 33, 4, 65, 2, 19, 10 })
                 lsBuilt += lIMagic.IsBuilt(lIMagic.Spells[liSpell]) ? "1" : "0";
 
-            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight (part D3), Armageddon, Mana Boost; Create Food, Frost (part B), Fireball, Detect Trap (part D2), Acid; Magic Arrow, Lightning (part C1), Deadly Seeker (C2)",
-                lsBuilt, "111111101111111");
+            Check.Str("uw2 magic built: Locate, Dispel Hunger, Map Area, Freeze Time, Roaming Sight (part D3), Armageddon, Mana Boost; Create Food (part E1), Frost (part B), Fireball, Detect Trap (part D2), Acid; Magic Arrow, Lightning (part C1), Deadly Seeker (C2)",
+                lsBuilt, "111111111111111");
 
             Check.Str("uw2 missiles: the projectile of class 5's minors 1 to 6 (release_missile's items plus 0x10), 7 none",
                 string.Join(" ", lIMagic.GetProjectileId(1), lIMagic.GetProjectileId(2), lIMagic.GetProjectileId(3), lIMagic.GetProjectileId(4),

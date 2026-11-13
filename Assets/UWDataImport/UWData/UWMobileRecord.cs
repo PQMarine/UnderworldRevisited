@@ -110,6 +110,7 @@ namespace UWDataImport.UWData
 				IsMobile = true,
 				IsCreature = IsCreature,
 				CollidedWithMobile = CollidedWithMobile,
+				Owner = Owner,
 				Direction = Octant & 7
 			};
 		}

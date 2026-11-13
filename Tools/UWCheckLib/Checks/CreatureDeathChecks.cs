@@ -84,7 +84,7 @@ namespace UnderworldRevisited.Tools
         /// <summary>2026-10-19 (the user's decision "as the original"): the record is in its tile list
         /// while alive and while dying, until the removal at frame 3 (critter/AI.C:1135-1140) - what
         /// the collision scan of can_place finds (motion/COLLIDE.C:466-527, no dying test), so a
-        /// dying body is in a summon's way (UWWorld.CreatureFitsAt); the blows ask the same.</summary>
+        /// dying body is in a summon's way (IUWWorld.CanPlace); the blows ask the same.</summary>
         private static void fCheckDyingInTileList(DataImport pOData, int piItemId, UWObjectClassProperties.Critter pORow)
         {
             FakeCreatureWorld lOWorld = fActorWorld(pOData, pOData.Levels[0]);

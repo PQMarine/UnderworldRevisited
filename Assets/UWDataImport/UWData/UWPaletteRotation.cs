@@ -52,17 +52,50 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>
-		/// THESE RANGES ARE THE FIRST GAME'S (UW2 plan phase 2 step 3, the second test of the walk,
-		/// 2026-10-29: UW2's walls glittered orange in Remastered - its colours 16 to 23 are no lava).
-		/// The second game rotates other banks: four of four at 0xE0 to 0xEF one place down, 3 to 7 and
-		/// 8 to 10 one place up, every 64 ticks (Underworld Exhumed uw2 gfx/COLCYCLE.C:49, cycle_colors).
-		/// Until those are built, nothing rotates, glows or reflects as lava or water in its session.
+		/// LAVA AND WATER ARE THE FIRST GAME'S (UW2 plan phase 2 step 3, the second test of the walk,
+		/// 2026-10-29: UW2's walls glittered orange in Remastered - its colours 16 to 23 are no lava): what
+		/// glows and shines as lava or water (UWLookupTables.MaterialLookup, UWRemasterLights) asks these two,
+		/// and nothing does in a second game's session. WHAT ROTATES is IsUpIndex and IsDownIndex, by game.
 		/// </summary>
 		private static bool fFirstGame => UWGameSession.Current.Game.Game == UWGame.Uw1;
 
+		// ------------------------------------------------- What rotates, by game
+
+		/// <summary>
+		/// THE SECOND GAME'S BANKS (cycle_colors, Underworld Exhumed uw2 gfx/COLCYCLE.C:49; UW2 plan G2, built
+		/// 2026-11-13 for the runes, per user: the flam and tym runes move in the original): rotate_bank(3, 5, 1)
+		/// and rotate_bank(8, 3, 1) move 3 to 7 and 8 to 10 one place up, rotate_bank(0xE0..0xEC, 4, 0) the four
+		/// banks of four at 0xE0 to 0xEF one place down - the first game's shape (a five and a three going up as
+		/// its lava, four fours going down as its water) at other places of the palette. It rotates whenever the
+		/// time byte's bit 6 changes, every 64 ticks, the first game's four steps a second.
+		/// </summary>
+		public const int SecondGameUpFirstIndex = 3;
+
+		public const int SecondGameDownFirstIndex = 0xE0;
+
+		private static int fUpFirst => fFirstGame ? LavaFirstIndex : SecondGameUpFirstIndex;
+
+		private static int fDownFirst => fFirstGame ? WaterFirstIndex : SecondGameDownFirstIndex;
+
+		/// <summary>An index of the banks that travel UPWARDS: the first game's lava, the second game's 3 to 10.</summary>
+		public static bool IsUpIndex(int piPaletteIndex)
+		{
+			int liFirst = fUpFirst;
+
+			return piPaletteIndex >= liFirst && piPaletteIndex < liFirst + LavaGroupOneLength + LavaGroupTwoLength;
+		}
+
+		/// <summary>An index of the banks that travel DOWNWARDS: the first game's water, the second game's 0xE0 to 0xEF.</summary>
+		public static bool IsDownIndex(int piPaletteIndex)
+		{
+			int liFirst = fDownFirst;
+
+			return piPaletteIndex >= liFirst && piPaletteIndex < liFirst + (4 * WaterGroupLength);
+		}
+
 		public static bool IsRotatingIndex(int piPaletteIndex)
 		{
-			return IsLavaIndex(piPaletteIndex) || IsWaterIndex(piPaletteIndex);
+			return IsUpIndex(piPaletteIndex) || IsDownIndex(piPaletteIndex);
 		}
 
 		/// <summary>
@@ -71,13 +104,14 @@ namespace UWDataImport.UWData
 		/// </summary>
 		public static int GetSourceIndex(int piPaletteIndex, int piStep)
 		{
-			if (IsLavaIndex(piPaletteIndex))
+			if (IsUpIndex(piPaletteIndex))
 			{
-				bool lbFirstGroup = piPaletteIndex < LavaFirstIndex + LavaGroupOneLength;
+				int liUpFirst = fUpFirst;
+				bool lbFirstGroup = piPaletteIndex < liUpFirst + LavaGroupOneLength;
 
 				int liGroupStart = lbFirstGroup
-					? LavaFirstIndex
-					: LavaFirstIndex + LavaGroupOneLength;
+					? liUpFirst
+					: liUpFirst + LavaGroupOneLength;
 
 				int liGroupLength = lbFirstGroup ? LavaGroupOneLength : LavaGroupTwoLength;
 
@@ -85,10 +119,11 @@ namespace UWDataImport.UWData
 				return liGroupStart + fWrap(piPaletteIndex - liGroupStart - piStep, liGroupLength);
 			}
 
-			if (IsWaterIndex(piPaletteIndex))
+			if (IsDownIndex(piPaletteIndex))
 			{
-				int liOffset = piPaletteIndex - WaterFirstIndex;
-				int liGroupStart = WaterFirstIndex + ((liOffset / WaterGroupLength) * WaterGroupLength);
+				int liDownFirst = fDownFirst;
+				int liOffset = piPaletteIndex - liDownFirst;
+				int liGroupStart = liDownFirst + ((liOffset / WaterGroupLength) * WaterGroupLength);
 
 				// Downwards: the colour at this position came from further up.
 				return liGroupStart + fWrap(piPaletteIndex - liGroupStart + piStep, WaterGroupLength);

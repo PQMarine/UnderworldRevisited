@@ -167,6 +167,8 @@ namespace UnderworldRevisited.Build
                 Mathf.Clamp(piLightLevel, 0, LightLevelCount - 1));
             UWShaderGlobals.SetFloat(UWShaderIds.RotationStep, ((piRotationStep % liSteps) + liSteps) % liSteps);
             UWShaderGlobals.SetFloat(UWShaderIds.RotationStepCount, liSteps);
+            UWShaderGlobals.SetFloat(UWShaderIds.SecondGameRotation,
+                UWGameSession.Current != null && UWGameSession.Current.Game.Game == UWDataImport.UWData.UWGame.Uw2 ? 1f : 0f);
             UWShaderGlobals.SetFloat(UWShaderIds.TileSpacing, UWWorldScale.TileSize);
             UWShaderGlobals.SetFloat(UWShaderIds.InterpolateLevels, pbInterpolateLevels ? 1f : 0f);
             UWShaderGlobals.SetFloat(UWShaderIds.Dither, pbDither ? 1f : 0f);

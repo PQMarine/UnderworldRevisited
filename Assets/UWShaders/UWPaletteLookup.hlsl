@@ -58,6 +58,8 @@ SAMPLER(sampler_UWRotationTable);
 float _UWLightLevel;
 float _UWRotationStep;
 float _UWRotationStepCount;
+// 1 in the second game: its rotating banks are 3 to 10 and 0xE0 to 0xEF (UWHallucination's UWIsRotatingIndex).
+float _UWSecondGameRotation;
 float _UWTileSpacing;
 
 // 1 = in-between levels between two tile distances, 0 = the level of the whole tile.

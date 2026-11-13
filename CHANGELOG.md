@@ -10,6 +10,22 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-13
+
+### Changed
+- Ultima Underworld II preview: Create Food, and Summon Demon, whose demon turns on its caster as in the original.
+  Rune of Flame and Rune of Stasis lay their runes, which burn or paralyse whoever walks into them, the player
+  included. Magic Satellite sends a small missile circling its caster that strikes the first creature it meets.
+- Ultima Underworld II preview: its own colour cycling, so what it animates through the palette moves, the runes
+  among them.
+- Ultima Underworld II preview: swimming, sinking and drowning in water, and lava's burn, as in the first game.
+
+### Fixed
+- In the modern scheme the automatic key follows the original's rule: a lockpick is no key, and no key fits a lock
+  of number 0. Such doors opened at once, whatever the Picklock skill (GitHub issue 37).
+- Create Food and Summon Monster find no room in front of a closed door, as in the original; they placed the thing
+  there before.
+
 ## [0.20.0] - 2026-11-12
 
 ### Added

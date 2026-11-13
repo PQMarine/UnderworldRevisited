@@ -436,12 +436,19 @@ namespace UnderworldRevisited.Tools
                 return true;
             }
 
-            /// <summary>What CreatureFitsAt answers.</summary>
+            /// <summary>What CanPlace answers.</summary>
             public bool CreaturesFit = true;
 
-            public bool CreatureFitsAt(int piObjectId, float pfWorldX, float pfWorldZ)
+            public bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)
             {
                 return CreaturesFit;
+            }
+
+            public bool LaunchSatellite(int piX8, int piY8, int piZ, int piHeading, int piSpeedByte, int piOwner)
+            {
+                Log.Add("satellite at " + piX8 + "/" + piY8 + " z " + piZ + " heading " + piHeading + " speed " + piSpeedByte);
+
+                return true;
             }
 
             /// <summary>The check's names for the creatures it puts into the level's tile lists (the

@@ -33,6 +33,10 @@ namespace UWDataImport.UWData
 		/// and is skipped by the scans of other mobiles.</summary>
 		public bool CollidedWithMobile;
 
+		/// <summary>Byte +0x12 of a thing in flight: who launched it (last_hit) - the magic satellite's source, which it
+		/// never strikes (UWMotionCore.CollideObjects).</summary>
+		public int Owner;
+
 		/// <summary>Word 2 bits 7-9: the heading octant (a lying object's, a creature's facing); the
 		/// tile routes read a closed door's orientation from it (UWTileTraverse).</summary>
 		public int Direction;

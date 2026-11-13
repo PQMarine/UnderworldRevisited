@@ -175,9 +175,13 @@ half3 UWDemasterColour(float pfIndex, half3 pOLight, float pfExtraLevel, float2 
     return UWShadeLookup(lfRotated, lfLevel).rgb;
 }
 
-// Lava and fire (16 to 23) and water (48 to 63) travel through the palette (UWPaletteRotation).
+// Lava and fire (16 to 23) and water (48 to 63) travel through the palette (UWPaletteRotation); in the second
+// game 3 to 10 and 0xE0 to 0xEF (_UWSecondGameRotation, its cycle_colors).
 bool UWIsRotatingIndex(float pfIndex)
 {
+    if (_UWSecondGameRotation > 0.5)
+        return (pfIndex > 2.5 && pfIndex < 10.5) || (pfIndex > 223.5 && pfIndex < 239.5);
+
     return (pfIndex > 15.5 && pfIndex < 23.5) || (pfIndex > 47.5 && pfIndex < 63.5);
 }
 

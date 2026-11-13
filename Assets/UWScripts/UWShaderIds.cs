@@ -69,6 +69,9 @@ public static class UWShaderIds
 
     public static readonly int RotationStepCount = fGlobal("_UWRotationStepCount");
 
+    /// <summary>1 in the second game: which palette banks rotate (UWPaletteRotation).</summary>
+    public static readonly int SecondGameRotation = fGlobal("_UWSecondGameRotation");
+
     public static readonly int TileSpacing = fGlobal("_UWTileSpacing");
 
     public static readonly int InterpolateLevels = fGlobal("_UWInterpolateLevels");
