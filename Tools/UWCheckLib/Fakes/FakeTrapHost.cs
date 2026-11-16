@@ -186,6 +186,8 @@ namespace UnderworldRevisited.Tools
 
             public int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward) => 0;
 
+            public void SleepByTrap(int piHow) { }
+
             public bool BeginConversation(int piSlot) => true;
 
             public UWObject TalkedTo;

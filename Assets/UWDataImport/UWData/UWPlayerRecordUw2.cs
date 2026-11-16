@@ -206,6 +206,12 @@ namespace UWDataImport.UWData
 		/// <summary>player->moonstones[piIndex]: the level a moonstone was left on, 0 none (player.h, 0x5E).</summary>
 		public static int Moonstone(UWPlayerFile pOFile, int piIndex) => pOFile.Record[MoonstonesOffset + piIndex];
 
+		/// <summary>player->moonstones[piIndex] set (DoSpecialActions' drop, player_3dget's take).</summary>
+		public static void SetMoonstone(UWPlayerFile pOFile, int piIndex, int piLevel) => pOFile.Record[MoonstonesOffset + piIndex] = (byte)piLevel;
+
+		/// <summary>The two moonstone places of player->moonstones.</summary>
+		public const int MoonstoneCount = 2;
+
 		/// <summary>quest_bytes[QB_LINES_OF_POWER]: a bit per world whose line of power is cut (player.h:130).</summary>
 		public const int LinesOfPowerQuest = 128;
 

@@ -155,6 +155,10 @@ namespace UWDataImport.UWData
 		/// a piece of Tremor's debris. False when it could not be made.</summary>
 		bool DropBoulder(int piObjectId, int piTileX, int piTileY);
 
+		/// <summary>obj_deal with a thing put high in a square (the vending machine's sale at zpos 0x76): it falls on the
+		/// motion core from its own fine position and height to what lies below. False when it could not be made.</summary>
+		bool DropThing(UWObject pOObject, int piTileX, int piTileY);
+
 		/// <summary>can_place (motion/COLLIDE.C) on the motion core: whether an object of this kind fits at the point
 		/// (eighths of a tile) and height (zpos) - walls and ceiling, every solid object in the tile lists a door
 		/// included, and unless pbFlier not hanging more than piRange above what it would rest on.</summary>
@@ -372,6 +376,11 @@ namespace UWDataImport.UWData
 		public bool DropBoulder(int piObjectId, int piTileX, int piTileY)
 		{
 			return mOInner.DropBoulder(piObjectId, piTileX, piTileY);
+		}
+
+		public bool DropThing(UWObject pOObject, int piTileX, int piTileY)
+		{
+			return mOInner.DropThing(pOObject, piTileX, piTileY);
 		}
 
 		public bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)

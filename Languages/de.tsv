@@ -307,6 +307,8 @@ setup.sound.mt32_no_roms	keine MT-32- oder CM-32L-ROMs in diesem Ordner
 setup.sound.mt32_missing	die MT-32-Emulation fehlt auf diesem System ({0})
 setup.sound.open_folder	Ordner öffnen
 setup.mods.title	Mods
+setup.mods.title_overridden	Mods (per -mods)
+setup.mods.folder	Ordner: {0}
 setup.mods.none	Noch keine Mods. Ein Mod ist ein Ordner, eine Zip oder ein .uwmod aus dem Editor im Ordner Mods - der Button unten öffnet ihn.
 setup.mods.up	Hoch
 setup.mods.down	Runter
@@ -1024,6 +1026,7 @@ msg.item.too_full	{0} ist zu voll.
 msg.item.locked	{0} ist verschlossen.
 msg.door.unlocked_with	Du schließt die Tür mit {0} auf.
 msg.item.empty	{0} ist leer.
+msg.item.emptied	Du leerst {0}.
 msg.item.unnamed	das Ding
 msg.item.read	Du liest {0}...
 msg.item.read_unnamed	UNBENANNT

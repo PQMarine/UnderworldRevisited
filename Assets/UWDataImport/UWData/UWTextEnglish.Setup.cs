@@ -96,6 +96,8 @@ namespace UWDataImport.UWData
 			fAdd("setup.sound.mt32_missing", "the MT-32 emulation is missing on this system ({0})");
 			fAdd("setup.sound.open_folder", "Open folder");
 			fAdd("setup.mods.title", "Mods");
+			fAdd("setup.mods.title_overridden", "Mods (-mods)");
+			fAdd("setup.mods.folder", "Folder: {0}");
 			fAdd("setup.mods.none", "No mods yet. A mod is a folder, a zip or an editor's .uwmod in the folder Mods - the button below opens it.");
 			fAdd("setup.mods.up", "Up");
 			fAdd("setup.mods.down", "Down");

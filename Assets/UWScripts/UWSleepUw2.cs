@@ -84,6 +84,12 @@ public sealed class UWSleepUw2 : MonoBehaviour
         fSleep(false, pOInventory != null && pOInventory.FindCarried(pOItem => pOItem.ID == UWSleepRules.BedrollObjectId) != null, false);
     }
 
+    /// <summary>player_sleep(0): camping on the ground, whatever is carried (the sleep trap, hack 44).</summary>
+    public void OnTheGround()
+    {
+        fSleep(false, false, false);
+    }
+
     public void InBedroll()
     {
         fSleep(false, true, false);

@@ -1221,6 +1221,32 @@ to build them:
      a door trap before the lock, none of the first.
      STILL OPEN in G4: UseCont in the world (DumpTheBag, theft), fountains, instruments, the fishing pole, potions and
      wands carried, oil and rock hammer on targets, UseUnique, the trespass/arena/vending/schedule/sleep hacks.
+  G4 REST PART 1 BUILT 2026-11-16: potions and wands carried - UWCarriedSpellRulesUw2 (checkSpell with nextSpellTime's
+     0x2FD ticks, useNSpellCharges, UseWand's crack to id + 4, a broken wand does nothing), the potions 0xE1-0xE7 through
+     UWFoodUw2 (UseReag -> UseFood: the quaff line, sound 0x1E; every meal's spell with no wait, then checkTrap 4), the
+     meals' sounds (0x25/0x1F/0x21 by hunger, 0x1E for drinks). Self-check Uw2CarriedSpells; test list section 57.
+  G4 REST PART 2 BUILT 2026-11-16: UseMagic's class 0x12 things - UWToolRulesUw2 (rules, the second game's lines) and
+     UWToolUseUw2 (Unity side): leeches (0xEF only when poisoned, cure, backfire 2d8 not below 3, used up), mandolin and
+     flute (UWInstrumentPlayer.BeginSecondGame: 0x109/0x10A, notes 0x80 ticks, no cup), the fishing pole (UWFishing's
+     water test, the Track bite, the fish onto the empty pointer, place_new), the oil flask on carried things only (wood ->
+     torch 0x28, lantern/torch +0x20 to 0x3F, full, lit, else 0xC0; one off a stack onto the pointer), the rock hammer on
+     a boulder in the world (the boulder goes first, fresh pieces put around it, range 6), the fountain in the world and
+     through its class 9 animation (dry at quality 0, else the refresh line; a fountain's own spell is not cast - none
+     shipped carries one). Every use from the pack ends with checkTrap 4. Self-check Uw2Tools; test list section 59.
+  G4 REST PART 3A BUILT 2026-11-16: UseCont in the world (DumpTheBag: locked says so, else the chain down with UWSpill,
+     player_did_bad with a can_own container's owner, "You empty the" / "is empty"), the theft on pick-up (player_grabbed
+     before release_3d, UWTriggerSystem.PlayerGrabbedUw2: the first game's search without the knights, block 1 0xF0 +
+     attitude, the owner cleared up to 0x1D and a container's contents; the guarded book 0x138 with its door bit: quest
+     106 and player_did_bad(0x1C)), hack 5 trespass (the trap host's AngerRaceNearPlayer speaking through the second
+     game's scroll), UseUnique (the stoppered bottle 0x8D, the horn: 0x161 below the djinn clock 6, else play_instrument(2)
+     and 0x162; the key gems: UseKeyGem on the large gem - castle clock for gem 4, the gems' clock and lines, QB_GEMS_USED
+     with 6 and 7 swapped, vars[6]). Self-check Uw2Tools; test list section 60.
+  G4 REST PART 3B BUILT 2026-11-16: go_vend (hacks 40-42: vars[owner] the choice from the switch's flags, the price
+     (value + 1) / 2 + 1 taken from the coins on the target square by vend_check_gold, the new thing at quality 0x3F; the
+     selection line 0x15D), hack 44 player_sleep(owner) through IUWTrapHost.SleepByTrap (UWSleepUw2.OnTheGround, InBedroll,
+     InBed), hacks 30/31 nothing outside a pit fight (in_pits; inside one not built, G6), the moonstones'
+     two places on drop, throw and take (UWMoonstoneRules.OnPutIntoWorldSecondGame, OnTakenFromWorldSecondGame). G4 IS
+     COMPLETE but for the arena inside a pit fight. Self-check Uw2Tools; test list section 61.
      DJINN STEP 0 -> 2 BUILT 2026-11-14 (per user, the quest replayed from the start): do_filanium as
      UWDjinnRulesUw2.OilInMud (spell 0xD/3 cast on use, floor texture 0xC1 = level 26's mud at 58-60/15-16), called from
      both water landings (UWMotionHost.Splash for mob_to_static, UWWorldEdit.PutInWater for obj_deal), the line to the

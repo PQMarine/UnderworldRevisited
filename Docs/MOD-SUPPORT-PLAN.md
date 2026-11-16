@@ -1,5 +1,7 @@
 # Mod support: plan
 
+For programs that install or switch mods (mod managers, editors, launchers): [MOD-TOOLS.md](MOD-TOOLS.md).
+
 Status: PARTLY BUILT (updated 2026-10-27, version 0.10.0). Written 2026-10-11 from five
 read-only surveys of the code (rule constants, level-bound behaviour, logic left on the Unity
 side, data load points, texts). Since then the code cleanup is complete

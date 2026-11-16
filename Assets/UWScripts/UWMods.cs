@@ -15,7 +15,30 @@ public static class UWMods
     /// <summary>The folder's name beside settings.json.</summary>
     public const string FolderName = "Mods";
 
-    public static string Folder => UWUserFolder.Combine(FolderName);
+    /// <summary>The Mods folder: the one -mods names for this start (UWModFolderArgument), else the user folder's.</summary>
+    public static string Folder
+    {
+        get
+        {
+            if (!mbArgumentRead)
+            {
+                mbArgumentRead = true;
+                msArgumentFolder = UWModFolderArgument.Find(System.Environment.GetCommandLineArgs(), System.Environment.CurrentDirectory);
+
+                if (msArgumentFolder != null)
+                    Debug.Log("[Mods] this start reads the mods of " + msArgumentFolder + " (" + UWModFolderArgument.Argument + ")");
+            }
+
+            return msArgumentFolder ?? UWUserFolder.Combine(FolderName);
+        }
+    }
+
+    /// <summary>Whether this start reads the mods of a folder -mods named (the Mods window says so in its title).</summary>
+    public static bool FolderFromArgument => Folder != null && msArgumentFolder != null;
+
+    private static bool mbArgumentRead;
+
+    private static string msArgumentFolder;
 
     private static UWModCatalog msCatalog;
 

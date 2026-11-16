@@ -27,6 +27,10 @@ using UWDataImport.UWData;
 ///              PLAYER.DAT 0x60 bit 7 is set.
 ///
 /// While playing, the keyboard is locked for everything else (UWTextEntryState.IsTextEntryActive).
+///
+/// THE SECOND GAME (G4 rest part 2, 2026-11-16; play_instrument, uw2 sound/SOUND.C:1413): the same keys and notes, its
+/// own lines (0x109 and 0x10A), a note sounding half a second (0x80 ticks) without a next one, and no cup: the ring of
+/// notes is kept but nothing reads it (BeginSecondGame).
 /// </summary>
 public class UWInstrumentPlayer : MonoBehaviour
 {
@@ -43,7 +47,8 @@ public class UWInstrumentPlayer : MonoBehaviour
 
     private const int CupMessage = 137;
 
-    private static readonly int[] msPrograms = { 0x39, 0x48 };
+    /// <summary>The patches: mandolin, flute, and the second game's horn (play_instrument(2)).</summary>
+    private static readonly int[] msPrograms = { 0x39, 0x48, 0x5C };
 
     private static readonly int[] msNotes = { 60, 62, 64, 65, 67, 69, 71, 72, 74, 76 };
 
@@ -92,6 +97,47 @@ public class UWInstrumentPlayer : MonoBehaviour
         return piObjectId == MandolinObjectId || piObjectId == FluteObjectId;
     }
 
+    /// <summary>The second game's notes sound twice as long: 0x80 ticks.</summary>
+    private const float SecondGameNoteSeconds = 0x80 / 256f;
+
+    /// <summary>Playing for the second game: its lines through msSay, no cup.</summary>
+    private bool mbSecondGame;
+
+    private System.Action<int> mfSay;
+
+    /// <summary>The second game's play_instrument: piItem's instrument (mandolin or flute), the lines (block 1, our
+    /// numbering) to pfSay. False if it is not one or one is already played.</summary>
+    public static bool BeginSecondGame(GameObject pOHost, UWObject pOItem, System.Action<int> pfSay)
+    {
+        if (pOItem == null || !IsInstrument(pOItem.ID))
+            return false;
+
+        return BeginSecondGame(pOHost, pOItem.ID - MandolinObjectId, pfSay, 0);
+    }
+
+    /// <summary>The second game's play_instrument by its patch number (0 mandolin, 1 flute, 2 the horn); piAfterLine, when
+    /// not 0, follows the end line (UseUnique's horn line).</summary>
+    public static bool BeginSecondGame(GameObject pOHost, int piInstrument, System.Action<int> pfSay, int piAfterLine)
+    {
+        if (pOHost == null || IsPlaying)
+            return false;
+
+        UWInstrumentPlayer lOPlayer = pOHost.GetComponent<UWInstrumentPlayer>();
+
+        if (lOPlayer == null)
+            lOPlayer = pOHost.AddComponent<UWInstrumentPlayer>();
+
+        lOPlayer.mbSecondGame = true;
+        lOPlayer.mfSay = pfSay;
+        lOPlayer.miAfterLine = piAfterLine;
+        lOPlayer.fBegin(piInstrument);
+
+        return true;
+    }
+
+    /// <summary>A line after the end line (the horn's), 0 for none.</summary>
+    private int miAfterLine;
+
     /// <summary>Takes up the instrument. Returns false if it is not one.</summary>
     public static bool Begin(GameObject pOHost, UWObject pOItem)
     {
@@ -126,7 +172,9 @@ public class UWInstrumentPlayer : MonoBehaviour
         miStartFrame = Time.frameCount;
         IsPlaying = true;
 
-        if (mOInteraction != null)
+        if (mbSecondGame)
+            mfSay?.Invoke(UWToolRulesUw2.InstrumentStartString);
+        else if (mOInteraction != null)
             mOInteraction.AddGeneralMessage(StartMessage);
 
         UWAudioService.BeginInstrument(msPrograms[miInstrument]);
@@ -193,7 +241,7 @@ public class UWInstrumentPlayer : MonoBehaviour
         UWAudioService.PlayInstrumentNote(piNote);
 
         miSoundingNote = piNote;
-        mfNoteOffTime = Time.time + NoteSeconds;
+        mfNoteOffTime = Time.time + (mbSecondGame ? SecondGameNoteSeconds : NoteSeconds);
     }
 
     private void fStopNote()
@@ -209,6 +257,20 @@ public class UWInstrumentPlayer : MonoBehaviour
         fStopNote();
         fReleaseChannel();
         IsPlaying = false;
+
+        if (mbSecondGame)
+        {
+            mfSay?.Invoke(UWToolRulesUw2.InstrumentEndString);
+
+            if (miAfterLine != 0)
+                mfSay?.Invoke(miAfterLine);
+
+            miAfterLine = 0;
+            mbSecondGame = false;
+            mfSay = null;
+
+            return;
+        }
 
         // The cup's line stands alone: play_instrument returns before 0xFB when it appears.
         if (!fTryCupOfWonder() && mOInteraction != null)

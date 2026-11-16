@@ -309,6 +309,49 @@ public sealed class UWMissiles
         return fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null);
     }
 
+    /// <summary>
+    /// obj_deal of a thing put high in a square (uw2 motion/OBJPHYS.C:504; the vending machine's sale, G4 rest part 3b,
+    /// per user 2026-11-16: in the original it falls from above): the object as given, at its own fine position and zpos,
+    /// becomes mobile without speed and falls on the motion core, as the boulder from the ceiling does.
+    /// </summary>
+    public UWProjectileFlight DropThing(UWObject pOObject, int piTileX, int piTileY)
+    {
+        if (mOHost.ObjectMotion == null || pOObject == null)
+            return null;
+
+        UWCritterClock lOClock = UWScene.CritterClock;
+        UWDataImport.DataImport lOData = fLoader != null ? fLoader.UWDataImporter : null;
+
+        if (lOData != null)
+            UWObjectAppearance.Apply(pOObject, lOData.Textures, null);
+
+        UWMobileRecord lORecord = new UWMobileRecord
+        {
+            Object = pOObject,
+            Index = mOHost.NewFlightIndex(),
+            TileX = piTileX,
+            TileY = piTileY,
+            XPos = pOObject.XPos,
+            YPos = pOObject.YPos,
+            ZPos = pOObject.ZPos,
+            FineX = (piTileX << 8) + (pOObject.XPos << 5) + 0xF,
+            FineY = (piTileY << 8) + (pOObject.YPos << 5) + 0xF,
+            FineZ = pOObject.ZPos << 3,
+            HeadingByte = 0,
+            SpeedByte = 0,
+            GravityBit = !mOHost.Entry(pOObject.ID).IsWeightless,
+            VzField = 16,
+            Period = 1,
+            Phase = lOClock != null ? lOClock.Phase & 0xF : 0,
+            Hp = 0x3F
+        };
+
+        lORecord.Octant = 0;
+        lORecord.StaticHeading = 0;
+
+        return fSpawnFlight(lORecord, UWAttackResolution.NoMissileDamage, UWDamageTypes.Physical, -1, null, null, false);
+    }
+
     /// <summary>A lying object knocked loose by a collision (UWMotionHost.PushObject): its record,
     /// already made mobile, flies as a thrown thing does - no damage, no launch sound.</summary>
     public UWProjectileFlight KnockLoose(UWMobileRecord pORecord)

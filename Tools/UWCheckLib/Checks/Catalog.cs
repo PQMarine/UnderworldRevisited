@@ -239,6 +239,9 @@ namespace UnderworldRevisited.Tools
             lOCatalog.Add("Uw2Files", pOContext => fCheckUw2Files(pOContext), false, "uw2", "format");
             lOCatalog.Add("Uw2Models", pOContext => fCheckUw2Models(pOContext), false, "uw2", "format");
             lOCatalog.Add("Pickable", pOContext => fCheckPickable(pOContext), false, "data", "original");
+            lOCatalog.Add("Uw2CarriedSpells", pOContext => fCheckUw2CarriedSpells(), false, "uw2", "original");
+            lOCatalog.Add("Uw2Tools", pOContext => fCheckUw2Tools(), false, "uw2", "original");
+            lOCatalog.Add("ModFolderArgument", pOContext => fCheckModFolderArgument(), false, "data", "format");
             lOCatalog.Add("Uw2Vectors", pOContext => fCheckUw2Vectors(pOContext), false, "uw2", "original");
             lOCatalog.Add("Uw2GameData", pOContext => fCheckUw2GameData(pOContext), false, "uw2", "format");
             lOCatalog.Add("Uw2World", pOContext => fCheckUw2World(pOContext), false, "uw2", "format");

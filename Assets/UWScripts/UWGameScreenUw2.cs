@@ -1750,22 +1750,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         UWObject lOItem = fDisplayItem(liHit);
 
-        if (mOInventory.CursorItem != null)
-        {
-            fPutInto(liHit, lOItem);
-
-            return;
-        }
-
-        if (liHit == UWClassicLayoutUw2.Inventory.OpenBagDisplay)
-        {
-            mOInventory.CloseContainer();
-
-            return;
-        }
-
         // An arrow moves the contents only while it is shown (ScrollItemsUp and ScrollItemsDown return
         // without InvUpArrow or InvDownArrow; per user, 2026-10-29: the hidden arrow's place scrolled on).
+        // WITH A THING ON THE POINTER TOO (per user, 2026-11-16): inv_hit sends a held thing's click on display 21
+        // and up to DoSpecialActions (uw2 inv/INVPANEL.C:253), and 0x15 and 0x16 scroll there; only the displays
+        // below 21 put it down (RearrangeInventory).
         if (liHit == UWClassicLayoutUw2.Inventory.UpArrowDisplay)
         {
             if (mOInventory.OpenContainer != null && mOInventory.CanIncreaseContainerScrollOffset)
@@ -1778,6 +1767,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         {
             if (mOInventory.OpenContainer != null && mOInventory.CanDecreaseContainerScrollOffset)
                 mOInventory.ScrollContainer(-UWClassicLayoutUw2.Inventory.ScrollStep);
+
+            return;
+        }
+
+        if (mOInventory.CursorItem != null)
+        {
+            fPutInto(liHit, lOItem);
+
+            return;
+        }
+
+        if (liHit == UWClassicLayoutUw2.Inventory.OpenBagDisplay)
+        {
+            mOInventory.CloseContainer();
 
             return;
         }
@@ -1869,8 +1872,96 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // UseKey: a key or a lockpick asks what to use it on (G4 part A).
         else if (UWLockUseUw2.IsKeyOrLockpick(pOItem))
             UWLockUseUw2.Begin(pOItem, mOData, mOInventory);
+        else if (UWCarriedSpellRulesUw2.IsWand(pOItem.ID))
+            fUseWand(pOItem);
+        // UseMagic: leeches, the instruments, the fishing pole, oil and rock hammer (G4 rest part 2), then UseObj's
+        // checkTrap with mode 4.
+        else if (UWToolUseUw2.Handles(pOItem.ID))
+        {
+            UWToolUseUw2.Use(pOItem, mOData, mOInventory, gameObject);
+            fCheckCarriedTrap(pOItem);
+        }
+        // A broken wand does nothing, its traps included (UseWand).
+        else if (UWCarriedSpellRulesUw2.IsBrokenWand(pOItem.ID))
+        {
+        }
         else
             Say(UWText.T("hud.walk.not_yet"));
+    }
+
+    /// <summary>UseWand from the pack (G4, 2026-11-16): its traps (checkTrap with mode 4), the spell with the wait
+    /// between casts, one charge, and the crack when the spell object is gone.</summary>
+    private void fUseWand(UWObject pOWand)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+
+        if (lOPlayer == null || lOPlayer.Vitals == null)
+            return;
+
+        fCheckCarriedTrap(pOWand);
+
+        UWCarriedSpellRulesUw2.CastEnum leCast = UWCarriedSpellRulesUw2.UseWand(pOWand, null, fCastClock, fCastCarriedSpell,
+            out bool lbCracked);
+
+        fAfterCarriedCast(leCast);
+
+        if (lbCracked)
+        {
+            Say(UWText.Block(mOData, 1, UWCarriedSpellRulesUw2.WandCracksString, string.Empty));
+            UWObjectAppearance.Apply(pOWand, mOData.Textures, null);
+            mOInventory.NotifyChanged();
+        }
+    }
+
+    /// <summary>
+    /// The clock nextSpellTime is measured on: the original's game_clock goes on every frame by the time since the last
+    /// (check_physics, uw2 motion/PLAYMOVE.C:318, at most 0x40 a frame), 256 units a second, while ours steps a whole
+    /// player tick, 21 seconds, at a time (UWGameClock), so the wait of 0x2FD units - about three seconds - lasted
+    /// until the next step (per user, 2026-11-16: far more than three seconds). The game's own time at the
+    /// same rate instead; it stands while the game is paused, as the original's clock does. Not saved, as nextSpellTime.
+    /// </summary>
+    private static int fCastClock => (int)(Time.time * UWPlayerTick.PitTicksPerSecond);
+
+    /// <summary>checkTrap with mode 4 on a thing used from the pack.</summary>
+    private void fCheckCarriedTrap(UWObject pOThing)
+    {
+        if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+            UWTriggerSystem.CheckTrapUw2(pOThing, UWTrapRulesUw2.UseMode, pOThing.TileX, pOThing.TileY, UWScene.LevelLoader,
+                UWTrapRules.Setter.Player, UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Search));
+    }
+
+    /// <summary>inanimate_spell with the player as caster and target: by class and minor for a major of 0 or more, by
+    /// the spell's number for -1 (cast).</summary>
+    private bool fCastCarriedSpell(int piMajor, int piEffect)
+    {
+        UWVitalsUw2 lOPlayer = UWVitalsUw2.Current;
+        UWWorld lOWorld = UWWorld.Of(UWScene.LevelLoader);
+
+        if (lOPlayer == null || lOPlayer.Vitals == null || lOWorld == null || UWSleepUw2.Current == null)
+            return false;
+
+        UWSpellHostUw2 lOHost = new UWSpellHostUw2(lOPlayer, UWScene.LevelLoader, UWSleepUw2.Current.ScrollPresentation(lOWorld));
+
+        return piMajor >= 0 ? UWSpellCasting.CastByClass(piMajor, piEffect, lOHost)
+            : UWSpellCasting.CastFromObject(piEffect, false, lOHost);
+    }
+
+    /// <summary>After a cast from a carried thing: the refusal's line and sound, or the record and the runes' icons.</summary>
+    private void fAfterCarriedCast(UWCarriedSpellRulesUw2.CastEnum peCast)
+    {
+        if (peCast == UWCarriedSpellRulesUw2.CastEnum.NotReady)
+        {
+            UWAudioService.PlayEffect(UWCarriedSpellRulesUw2.NotReadySound);
+            Say(UWText.Block(mOData, 1, UWCarriedSpellRulesUw2.NotReadyString, string.Empty));
+
+            return;
+        }
+
+        if (peCast != UWCarriedSpellRulesUw2.CastEnum.Cast || UWVitalsUw2.Current == null)
+            return;
+
+        UWVitalsUw2.Current.WriteToRecord();
+        fShowRunes();
     }
 
     /// <summary>The inventory's burning light reaches the view (as UWInventory's on the first game).</summary>
@@ -1891,9 +1982,20 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (lOPlayer == null || lOPlayer.Vitals == null)
             return UWFoodUw2.OutcomeEnum.NotFood;
 
-        UWFoodUw2.OutcomeEnum leOutcome = UWFoodUw2.Eat(pOFood, mOData, lOPlayer.Vitals, Say, fPassOut);
+        UWFoodUw2.OutcomeEnum leOutcome = UWFoodUw2.Eat(pOFood, mOData, lOPlayer.Vitals, Say, fPassOut,
+            piSound => UWAudioService.PlayEffect(piSound));
 
         lOPlayer.WriteToRecord();
+
+        // UseFood's end: the spell in the meal or the potion with no wait before or after (nextSpellTime = 0), then its
+        // traps (G4, 2026-11-16).
+        if (leOutcome == UWFoodUw2.OutcomeEnum.Eaten)
+        {
+            UWCarriedSpellRulesUw2.ClearWait();
+            fAfterCarriedCast(UWCarriedSpellRulesUw2.CheckSpell(pOFood, null, fCastClock, fCastCarriedSpell));
+            UWCarriedSpellRulesUw2.ClearWait();
+            fCheckCarriedTrap(pOFood);
+        }
 
         return leOutcome;
     }

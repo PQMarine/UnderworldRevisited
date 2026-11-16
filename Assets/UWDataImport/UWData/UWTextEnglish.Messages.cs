@@ -21,6 +21,7 @@ namespace UWDataImport.UWData
 			// The modern scheme's automatic key opened a door (GitHub issue 30): {0} the key (dative).
 			fAdd("msg.door.unlocked_with", "You unlock the door with the {0}.");
 			fAdd("msg.item.empty", "The {0} is empty.");
+			fAdd("msg.item.emptied", "You empty the {0}.");
 			fAdd("msg.item.unnamed", "item");
 
 			// A book or scroll before its text, {0} accusative.

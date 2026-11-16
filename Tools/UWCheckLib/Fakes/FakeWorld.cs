@@ -463,6 +463,13 @@ namespace UnderworldRevisited.Tools
                 return true;
             }
 
+            public bool DropThing(UWObject pOObject, int piTileX, int piTileY)
+            {
+                Log.Add("drop " + pOObject.ID + " on " + piTileX + "/" + piTileY);
+
+                return true;
+            }
+
             public bool DropBoulder(int piObjectId, int piTileX, int piTileY)
             {
                 Log.Add("boulder " + piObjectId + " on " + piTileX + "/" + piTileY);

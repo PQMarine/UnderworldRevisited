@@ -6,7 +6,10 @@ namespace UWDataImport.UWData
 	/// THE SECOND GAME'S EATING (UseFood, uw2 obj/USEITEMS.C:186): its own ids and lines, the nutrition from the same
 	/// table, no toadstool's poison, and what is left of the meal: meat on a stick a stick, a piece of meat a bone, a
 	/// honeycomb a lump of wax, a bottle an empty bottle. Eaten when used from the pack, or dropped on the head. The dream
-	/// plant's way into the Void comes with the Void, a potion's spell with the magic; the potions wait for it.
+	/// plant's way into the Void comes with the Void. The potions (0xE1-0xE7, UseReag) are drunk here too since 2026-11-16:
+	/// "You quaff the potion in one gulp." and the drink's sound; their spell is the caller's (UWCarriedSpellRulesUw2.CheckSpell).
+	/// The sounds: food by the hunger after the meal (0x25 from 0xC0, 0x1F above 0x5A, else 0x21), a potion or a drink
+	/// 0x1E, nothing for a thing without nutrition.
 	/// </summary>
 	public static class UWFoodUw2
 	{
@@ -86,6 +89,22 @@ namespace UWDataImport.UWData
 
 		private const int AleString = 0xFE;
 
+		/// <summary>"You quaff the potion in one gulp." (0xFF).</summary>
+		private const int QuaffString = 0xFF;
+
+		// play_effect_here's sounds in UseFood.
+		public const int DrinkSound = 0x1E;
+
+		public const int FullSound = 0x25;
+
+		public const int FedSound = 0x1F;
+
+		public const int HungrySound = 0x21;
+
+		private const int FullHungerFrom = 0xC0;
+
+		private const int FedHungerAbove = 0x5A;
+
 		private const int PassOutString = 0x100;
 
 		private const int RefreshedString = 0x101;
@@ -108,7 +127,8 @@ namespace UWDataImport.UWData
 		/// sends there.</summary>
 		public static bool IsEatenOnUse(int piId)
 		{
-			return (piId >= FirstFoodClass && piId <= LastFoodClass) || piId == PlantThorny || piId == PlantPlain || piId == DreamPlant;
+			return (piId >= FirstFoodClass && piId <= LastFoodClass) || piId == PlantThorny || piId == PlantPlain || piId == DreamPlant
+				|| UWCarriedSpellRulesUw2.IsPotion(piId);
 		}
 
 		/// <summary>The things dropped on the head (ItemFitsSlot's slot 0): those, and the rest of UseFood's list.</summary>
@@ -156,12 +176,13 @@ namespace UWDataImport.UWData
 					return PlainString;
 
 				default:
-					return 0;
+					return UWCarriedSpellRulesUw2.IsPotion(piId) ? QuaffString : 0;
 			}
 		}
 
 		/// <summary>The meal. pfPassOut: what follows when the drink wins (the sleep); the player's lines go to pfSay.</summary>
-		public static OutcomeEnum Eat(UWObject pOFood, DataImport pOData, UWPlayerVitals pOVitals, Action<string> pfSay, Action pfPassOut)
+		public static OutcomeEnum Eat(UWObject pOFood, DataImport pOData, UWPlayerVitals pOVitals, Action<string> pfSay, Action pfPassOut,
+			Action<int> pfSound = null)
 		{
 			int liId = pOFood.ID;
 			int liNutrition = liId >= FirstFoodClass && liId <= LastFoodClass ? pOData.ObjectClassProperties.GetFoodNutrition(liId) : NoNutrition;
@@ -182,6 +203,12 @@ namespace UWDataImport.UWData
 					return OutcomeEnum.TooFull;
 				}
 
+				if (pfSound != null)
+					pfSound(UWCarriedSpellRulesUw2.IsPotion(liId) ? DrinkSound
+						: pOVitals.Hunger >= FullHungerFrom ? FullSound
+						: pOVitals.Hunger > FedHungerAbove ? FedSound
+						: HungrySound);
+
 				if (liLine != 0)
 				{
 					pfSay(fLine(pOData, liLine));
@@ -195,6 +222,9 @@ namespace UWDataImport.UWData
 
 				return OutcomeEnum.Eaten;
 			}
+
+			if (liNutrition < 0 && pfSound != null)
+				pfSound(DrinkSound);
 
 			pfSay(fLine(pOData, liLine));
 

@@ -92,7 +92,9 @@ of what is built was also read out of the original's executable.
   each mod's readme; the `.uwmod` packages of the [Underworld Editor (Avalonia)](https://github.com/KarlClinckspoor/UltimaUnderworldEditorAvalonia) as they
   are, applied to a copy of the game's files after a check against the originals they were made
   for; picture packs that extend the weapon pictures; saves that remember their mods
-  ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md))
+  ([Docs/MOD-SUPPORT-PLAN.md](Docs/MOD-SUPPORT-PLAN.md)). For mod managers and editors (0.21.0):
+  a `features.json` beside the game, the start option `-mods` and
+  [Docs/MOD-TOOLS.md](Docs/MOD-TOOLS.md)
 
 ## Next
 
@@ -100,9 +102,9 @@ of what is built was also read out of the original's executable.
   a walk through Britannia, its game screen, the inventory, the options and saves, the main menu
   and the character creation) and what came since (the map, the conversations, the modern
   interface, its creatures and first fights, magic, water and lava, its traps and triggers, switches,
-  levers, keys and lockpicks): the rest of its rules - using things, what conversations change, the
-  schedules and the world's events, the player's death. [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has
-  the plan.
+  levers, keys and lockpicks, using things from the pack and in the world): the rest of its rules -
+  what conversations change, the schedules and the world's events, the player's death.
+  [Docs/UW2-PLAN.md](Docs/UW2-PLAN.md) has the plan.
 
 ## Open: gameplay parity
 

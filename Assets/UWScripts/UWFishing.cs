@@ -49,16 +49,7 @@ public static class UWFishing
         if (pOLoader == null || pOLoader.CurrentLevel == null || pOViewer == null)
             return true;
 
-        Vector3 lOForward = pOViewer.forward;
-        lOForward.y = 0f;
-
-        if (lOForward.sqrMagnitude < 0.0001f)
-            lOForward = Vector3.forward;
-
-        Vector3 lOSpot = pOViewer.position + (lOForward.normalized * FishingDistanceTiles * UWWorldScale.TileSize);
-        UWTilePos lOTile = pOLoader.WorldPositionToTile(lOSpot);
-
-        if (!fIsFishingWater(pOLoader, lOTile, pOViewer.position))
+        if (!CanFishAhead(pOLoader, pOViewer))
         {
             fMessage(pOInteraction, CannotFishMessage);
             return true;
@@ -71,7 +62,7 @@ public static class UWFishing
             return true;
         }
 
-        UWObject lOFish = fCreateFish(pOLoader);
+        UWObject lOFish = CreateFish(pOLoader);
 
         if (lOFish == null || pOInventory == null || !pOInventory.CanCarry(lOFish))
         {
@@ -87,6 +78,23 @@ public static class UWFishing
         fMessage(pOInteraction, CatchMessage);
 
         return true;
+    }
+
+    /// <summary>go_fish's place: the tile 11 eighths ahead of the viewer is fishing water (both games).</summary>
+    public static bool CanFishAhead(UWLevelLoader pOLoader, Transform pOViewer)
+    {
+        if (pOLoader == null || pOLoader.CurrentLevel == null || pOViewer == null)
+            return false;
+
+        Vector3 lOForward = pOViewer.forward;
+        lOForward.y = 0f;
+
+        if (lOForward.sqrMagnitude < 0.0001f)
+            lOForward = Vector3.forward;
+
+        Vector3 lOSpot = pOViewer.position + (lOForward.normalized * FishingDistanceTiles * UWWorldScale.TileSize);
+
+        return fIsFishingWater(pOLoader, pOLoader.WorldPositionToTile(lOSpot), pOViewer.position);
     }
 
     private static bool fIsFishingWater(UWLevelLoader pOLoader, UWTilePos pOTile, Vector3 pOPlayerPosition)
@@ -107,7 +115,8 @@ public static class UWFishing
         return UWFishingRules.WaterLowEnough(liPlayerSteps, liWaterSteps);
     }
 
-    private static UWObject fCreateFish(UWLevelLoader pOLoader)
+    /// <summary>The caught fish, 0xB6 of quality 0x3F (both games).</summary>
+    public static UWObject CreateFish(UWLevelLoader pOLoader)
     {
         UWDataImport.DataImport lOData = pOLoader.UWDataImporter;
 

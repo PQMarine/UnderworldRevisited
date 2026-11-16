@@ -337,7 +337,82 @@ public static class UWTriggerSystem
 
         return fAngerRace(piOwner, pOCentreTile, UWCritterRules.TheftAreaBack, UWCritterRules.TheftAreaForward,
             (pOCentreTile.X << 3) + pOItem.XPos, (pOCentreTile.Y << 3) + pOItem.YPos, liZ,
-            pOLevelLoader, pOInteraction);
+            pOLevelLoader, fSayTo(pOInteraction), false);
+    }
+
+    /// <summary>The first game's lines go to its Interaction (null: none).</summary>
+    private static System.Action<string> fSayTo(Interaction pOInteraction)
+    {
+        return pOInteraction != null ? new System.Action<string>(pOInteraction.AddMessage) : null;
+    }
+
+    /// <summary>
+    /// player_grabbed for the second game (uw2 critter/CRITTIME.C; G4 rest part 3, 2026-11-16): the same search as the
+    /// first game's (MindsTheft without the knights, who are the first game's; the sight and the line to the seen
+    /// point), the area of the first game's theft (process_area from x - 7, 0xF wide), lines from block 1 0xF0 + the new
+    /// attitude to pfSay. Afterwards the thing belongs to nobody when its owner &amp; 0x1F is at most 0x1D, and a
+    /// container's contents too (clear_owner). pOThing null: player_did_bad - the player is the stolen thing, seen at
+    /// his spot, and nothing is cleared. Returns how many were angered.
+    /// </summary>
+    public static int AngerRaceAroundUw2(int piOwner, UWObject pOThing, UWTilePos pOCentreTile, int piSeenX8, int piSeenY8,
+        int piSeenZ, UWLevelLoader pOLevelLoader, System.Action<string> pfSay)
+    {
+        int liAngered = fAngerRace(piOwner, pOCentreTile, UWCritterRules.TheftAreaBack, UWCritterRules.TheftAreaForward, piSeenX8, piSeenY8, piSeenZ,
+            pOLevelLoader, pfSay, true);
+
+        if (pOThing != null && piOwner != 0)
+        {
+            if ((pOThing.Owner & UWCritterRules.TheftOwnerRaceMask) <= Uw2ClearOwnerLimit && fCanOwn(pOThing.ID, pOLevelLoader))
+                pOThing.Owner = 0;
+
+            if (pOThing.GetCategory() == UWObject.ObjectCategoryEnum.Containers && pOThing.Contents != null)
+                foreach (UWObject lOIn in pOThing.Contents)
+                    if (fCanOwn(lOIn.ID, pOLevelLoader))
+                        lOIn.Owner = 0;
+        }
+
+        return liAngered;
+    }
+
+    /// <summary>player_grabbed clears the owner while owner &amp; 0x1F is at most 0x1D (the first game: 0x1B).</summary>
+    private const int Uw2ClearOwnerLimit = 0x1D;
+
+    /// <summary>player_grabbed(obj, 0) for the second game: a thing that can have an owner and has one, seen at its own
+    /// spot (its eighth, zpos plus COMOBJ height plus 12). Returns how many were angered.</summary>
+    public static int PlayerGrabbedUw2(UWObject pOItem, UWLevelLoader pOLevelLoader, System.Action<string> pfSay)
+    {
+        if (pOItem == null || pOItem.Owner == 0 || !fCanOwn(pOItem.ID, pOLevelLoader))
+            return 0;
+
+        return AngerRaceAroundUw2(pOItem.Owner, pOItem, new UWTilePos(pOItem.TileX, pOItem.TileY),
+            (pOItem.TileX << 3) + pOItem.XPos, (pOItem.TileY << 3) + pOItem.YPos,
+            UWCritterRules.GetTheftSightZ(pOItem.ZPos, fGetHeight(pOItem.ID, pOLevelLoader)), pOLevelLoader, pfSay);
+    }
+
+    /// <summary>player_did_bad(owner) for the second game (DumpTheBag, the book, hack 5's trap host): the player is
+    /// the stolen thing, seen at his spot as the first game's trespass sees him. Returns how many were angered.</summary>
+    public static int PlayerDidBadUw2(int piOwner, UWLevelLoader pOLevelLoader, System.Action<string> pfSay)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+        UWSpot lOPlayer = lOWorld != null ? lOWorld.Player.FloorSpot : UWSpot.Nowhere;
+
+        if (piOwner == 0 || !lOPlayer.IsOnMap)
+            return 0;
+
+        return AngerRaceAroundUw2(piOwner, null, lOPlayer.Tile, lOPlayer.EighthsX, lOPlayer.EighthsY,
+            UWCritterRules.GetTheftSightZ(lOPlayer.ZPos, fGetHeight(UWObjectMechanics.AdventurerObjectId, pOLevelLoader)), pOLevelLoader, pfSay);
+    }
+
+    /// <summary>The second game's anger lines in block 1: 0xF0 + attitude (our numbering one higher).</summary>
+    private const int Uw2TheftMessageBase = 0xF0 + 1;
+
+    /// <summary>COMOBJ's can_own.</summary>
+    private static bool fCanOwn(int piObjectId, UWLevelLoader pOLevelLoader)
+    {
+        UWCommonObjectProperties.Entry lOEntry;
+
+        return pOLevelLoader != null && pOLevelLoader.UWDataImporter != null && pOLevelLoader.UWDataImporter.CommonObjectProperties != null
+            && pOLevelLoader.UWDataImporter.CommonObjectProperties.TryGet(piObjectId, out lOEntry) && lOEntry.CanHaveOwner;
     }
 
     /// <summary>An object's height from COMOBJ.DAT, 0 if unknown.</summary>
@@ -356,12 +431,13 @@ public static class UWTriggerSystem
     /// piTilesForward above the centre on both axes, and who sees the centre tile, loses
     /// goodwill and says so by its new attitude. Returns how many were angered.</summary>
     private static int fAngerRace(int piOwner, UWTilePos pOCentreTile, int piTilesBack, int piTilesForward,
-        int piSeenX8, int piSeenY8, int piSeenZ, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
+        int piSeenX8, int piSeenY8, int piSeenZ, UWLevelLoader pOLevelLoader, System.Action<string> pfSay, bool pbSecondGame)
     {
-        if (piOwner == 0 || pOLevelLoader == null || pOInteraction == null)
+        if (piOwner == 0 || pOLevelLoader == null || pfSay == null)
             return 0;
 
-        int liKnightQuest = UWQuestFlags.Get(UWCritterRules.TheftKnightQuest);
+        // The knights' exception is the first game's (quest 32); the second game has none.
+        int liKnightQuest = pbSecondGame ? 0 : UWQuestFlags.Get(UWCritterRules.TheftKnightQuest);
 
         // The creatures of the area through the world (cleanup step 3.2, 2026-10-17; before, a scene
         // search here): every one with its object whose BODY's tile lies within piTilesBack below
@@ -403,7 +479,8 @@ public static class UWTriggerSystem
             // strings already come resolved (thief.AngerNPCByIllegalAction). Noticed on the
             // theft message, which in the original reads "a goblin is angered by your action."
             // (per user, 2026-09-16). The sentence is UWItemMessages.Angered's.
-            pOInteraction.AddMessage(UWItemMessages.Angered(pOInteraction.GameData, lOInfo.ObjectData.ID, liAttitude));
+            pfSay(UWItemMessages.Angered(pOLevelLoader.UWDataImporter, lOInfo.ObjectData.ID, liAttitude,
+                pbSecondGame ? Uw2TheftMessageBase : UWCritterRules.TheftMessageBase));
         }
 
         return liAngered;
@@ -788,7 +865,23 @@ public static class UWTriggerSystem
             // holds 63 with height 0 (UWObjectMechanics.AdventurerObjectId).
             return fAngerRace(piOwner, lOPlayer.Tile, piTilesBack, piTilesForward, lOPlayer.EighthsX, lOPlayer.EighthsY,
                 UWCritterRules.GetTheftSightZ(lOPlayer.ZPos, fGetHeight(UWObjectMechanics.AdventurerObjectId, mOLoader)),
-                mOLoader, mOInteraction);
+                mOLoader, mOInteraction != null ? fSayTo(mOInteraction) : (mOWorld != null ? new System.Action<string>(mOWorld.Presentation.AddMessage) : null),
+                UWWalkUw2.IsWalking);
+        }
+
+        public void SleepByTrap(int piHow)
+        {
+            UWSleepUw2 lOSleep = UWSleepUw2.Current;
+
+            if (lOSleep == null)
+                return;
+
+            if (piHow == 1)
+                lOSleep.InBedroll();
+            else if (piHow == 2)
+                lOSleep.InBed();
+            else
+                lOSleep.OnTheGround();
         }
 
         // ------------------------------------------------- Through this firing's channel

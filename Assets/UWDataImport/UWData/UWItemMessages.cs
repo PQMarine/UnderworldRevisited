@@ -52,6 +52,13 @@ namespace UWDataImport.UWData
 			return UWText.Sentence(pOData, "msg.item.empty", fName(pOData, piObjectId));
 		}
 
+		/// <summary>The second game's DumpTheBag when something came out: "You empty the &lt;name&gt;." (built from pieces in
+		/// the program, as "The &lt;name&gt; is empty.").</summary>
+		public static string Emptied(DataImport pOData, int piObjectId)
+		{
+			return UWText.Sentence(pOData, "msg.item.emptied", UWText.TheObject(pOData, piObjectId, UWGrammarCase.Accusative, UnnamedItem));
+		}
+
 		/// <summary>
 		/// Why a container refused an item (UWContainerCapacity): the rune bag's own message,
 		/// "That item does not fit.", or "The map case is too full." with the container's name.
@@ -143,8 +150,14 @@ namespace UWDataImport.UWData
 		/// keeps the original's small first letter.</summary>
 		public static string Angered(DataImport pOData, int piCreatureId, int piAttitude)
 		{
+			return Angered(pOData, piCreatureId, piAttitude, UWCritterRules.TheftMessageBase);
+		}
+
+		/// <summary>The same with the game's first line of the three (the second game's lie at block 1 0xF0).</summary>
+		public static string Angered(DataImport pOData, int piCreatureId, int piAttitude, int piMessageBase)
+		{
 			return UWText.Sentence(pOData, "msg.item.angered", UWText.ObjectPhrase(pOData, piCreatureId, false, true),
-				UWText.Fragment(UWText.General(pOData, UWCritterRules.TheftMessageBase + piAttitude)));
+				UWText.Fragment(UWText.General(pOData, piMessageBase + piAttitude)));
 		}
 
 		/// <summary>A container's or a tool's name in the nominative, "item" when it has none.</summary>

@@ -43,6 +43,41 @@ namespace UWDataImport.UWData
 				UWGameFlags.MoonstoneLevel = 0;
 		}
 
+		/// <summary>
+		/// THE SECOND GAME KEEPS TWO (player->moonstones[0..1], G4 rest part 3b, 2026-11-16): putting a thing holding a
+		/// moonstone into the world (DoSpecialActions' 0x17 after ReturnObject, uw2 inv/BAGS.C) writes the level into the
+		/// first empty place; taking one from the world (player_3dget, ui/INTERACT.C) clears the first place holding this
+		/// level. Gate Travel reads them (UWExtraSpellRulesUw2).
+		/// </summary>
+		public static void OnPutIntoWorldSecondGame(UWPlayerFile pOFile, UWObject pOObject, int piDungeonLevel)
+		{
+			if (pOFile == null || !IsOrContainsMoonstone(pOObject))
+				return;
+
+			for (int liAt = 0; liAt < UWPlayerRecordUw2.MoonstoneCount; liAt++)
+				if (UWPlayerRecordUw2.Moonstone(pOFile, liAt) == 0)
+				{
+					UWPlayerRecordUw2.SetMoonstone(pOFile, liAt, piDungeonLevel);
+
+					return;
+				}
+		}
+
+		/// <summary>The second game's take from the world: the first place holding this level is cleared.</summary>
+		public static void OnTakenFromWorldSecondGame(UWPlayerFile pOFile, UWObject pOObject, int piDungeonLevel)
+		{
+			if (pOFile == null || !IsOrContainsMoonstone(pOObject))
+				return;
+
+			for (int liAt = 0; liAt < UWPlayerRecordUw2.MoonstoneCount; liAt++)
+				if (UWPlayerRecordUw2.Moonstone(pOFile, liAt) == piDungeonLevel)
+				{
+					UWPlayerRecordUw2.SetMoonstone(pOFile, liAt, 0);
+
+					return;
+				}
+		}
+
 		/// <summary>The stone itself, or a container with the stone somewhere inside.</summary>
 		public static bool IsOrContainsMoonstone(UWObject pOObject)
 		{

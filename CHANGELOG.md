@@ -10,6 +10,27 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-16
+
+### Changed
+- Ultima Underworld II preview: wands and potions used from the pack cast their spells, with the wait between casts,
+  the charges and the cracking wand of the original, and eating and drinking make their sounds.
+- Ultima Underworld II preview: leeches, the mandolin and flute, the fishing pole, the oil flask and the rock hammer
+  can be used from the pack, and fountains in the world, with the second game's own rules and lines.
+- Ultima Underworld II preview: containers used in the world are emptied onto the floor, taking someone's property or
+  trespassing angers the owners who see it, and the stoppered bottle, the horn and the key gems can be used.
+- Ultima Underworld II preview: the vending machines sell for coins, a sleep trap lays the player down, and put-down and
+  taken moonstones are remembered for Gate Travel.
+- A features.json beside the game tells mod managers and other tools its version and what it supports, and
+  Docs/MOD-TOOLS.md describes the Mods folder, order.json and the editor packages for them. The start
+  option -mods with a folder reads the mods of that folder for one start, so a tool can try a mod without
+  touching the player's own, and the Mods window names that folder. The guide also shows how uwdump
+  (in the TranslationKit) checks an editor package the way the game does.
+
+### Fixed
+- Ultima Underworld II preview: an open bag's arrows, and the mouse wheel over the modern bags, scroll its contents
+  with a thing on the pointer too, as in the original.
+
 ## [0.20.2] - 2026-11-16
 
 ### Changed

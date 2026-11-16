@@ -488,6 +488,11 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         return Loader != null && UWMissiles.Ensure(Loader).DropBoulder(piObjectId, piTileX, piTileY) != null;
     }
 
+    public bool DropThing(UWObject pOObject, int piTileX, int piTileY)
+    {
+        return Loader != null && pOObject != null && UWMissiles.Ensure(Loader).DropThing(pOObject, piTileX, piTileY) != null;
+    }
+
     /// <summary>can_place over the current level (UWLevelLoader.ObjectFitsAt, the motion core's CheckIfItemFitsInTile);
     /// true without a level.</summary>
     public bool CanPlace(int piItemId, int piX8, int piY8, int piZ, bool pbFlier, int piRange)

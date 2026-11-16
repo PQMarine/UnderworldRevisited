@@ -45,8 +45,13 @@ public partial class UWSetupMenu
         float lfInner = lODialog.width - 40f;
         float lfY = lODialog.y + 14f;
 
-        lORows.Title(new Rect(lfLeft, lfY, lfInner, 28f), UWText.T("setup.mods.title"));
+        // Started with -mods (per user, 2026-11-16): the title says so, and a line below names the folder - cut at the
+        // front where it is too long, so its own name stays - so one sees at once which folder took.
+        lORows.Title(new Rect(lfLeft, lfY, lfInner, 28f), UWText.T(UWMods.FolderFromArgument ? "setup.mods.title_overridden" : "setup.mods.title"));
         lfY += 38f;
+
+        if (UWMods.FolderFromArgument)
+            lfY += lORows.Hint(lfLeft, lfY, lfInner, fFolderLine(lORows, UWMods.Folder, lfInner)) + 8f;
 
         float lfBottom = lODialog.yMax - 96f;
         float lfListWidth = Mathf.Floor(lfInner * 0.5f);
@@ -357,6 +362,21 @@ public partial class UWSetupMenu
         }
 
         pORows.Paragraph(pOArea.x, lfY, pOArea.width, lsFix, false);
+    }
+
+    /// <summary>"Folder: path", the path cut at the front ("...") until the line fits pfWidth in the hint's look.</summary>
+    private static string fFolderLine(IUWRows pIRows, string psFolder, float pfWidth)
+    {
+        string lsPath = psFolder ?? string.Empty;
+        string lsLine = UWText.F("setup.mods.folder", lsPath);
+
+        while (lsPath.Length > 12 && pIRows.TextWidth(lsLine, UWRowInfoEnum.Dim) > pfWidth)
+        {
+            lsPath = lsPath.Substring(Mathf.Max(1, lsPath.Length / 10));
+            lsLine = UWText.F("setup.mods.folder", "..." + lsPath);
+        }
+
+        return lsLine;
     }
 
     /// <summary>

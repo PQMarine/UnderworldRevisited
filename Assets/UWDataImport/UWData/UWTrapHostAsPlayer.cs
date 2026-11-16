@@ -69,6 +69,8 @@ namespace UWDataImport.UWData
 		public int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward)
 			=> mIInner.AngerRaceNearPlayer(piOwner, piTilesBack, piTilesForward);
 
+		public void SleepByTrap(int piHow) => mIInner.SleepByTrap(piHow);
+
 		public bool BeginConversation(int piSlot) => mIInner.BeginConversation(piSlot);
 
 		public bool TalkTo(UWObject pONpcData) => mIInner.TalkTo(pONpcData);

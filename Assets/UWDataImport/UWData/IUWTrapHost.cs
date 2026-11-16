@@ -79,6 +79,10 @@ namespace UWDataImport.UWData
 		/// routine as a theft in the original). Returns how many were angered.</summary>
 		int AngerRaceNearPlayer(int piOwner, int piTilesBack, int piTilesForward);
 
+		/// <summary>player_sleep(piHow) set off by a trap (the second game's hack 44): 1 a bedroll, 2 a bed, anything else
+		/// camping on the ground; refused as a chosen sleep is (moving, hostile creatures near).</summary>
+		void SleepByTrap(int piHow);
+
 		// ------------------------------------------------- Through this firing's channel
 
 		bool BeginConversation(int piSlot);

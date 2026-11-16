@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UWDataImport;
@@ -425,6 +426,18 @@ public class UWWalkUw2View : MonoBehaviour
         if (piCount < UWStackRules.CountAtLeastOne(lOItem) && pOInventory.TakeFromStack(lOItem, piCount))
             return;
 
+        // player_3dget before release_3d (G4 rest part 3, 2026-11-16): the book 0x138 with its door bit sets quest 106 and
+        // counts as a bad deed against race 0x1C; then the theft (player_grabbed): owners nearby who see it say so.
+        if (lOItem.ID == GuardedBookId && lOItem.DoorDirection && UWGameSession.Current != null && UWGameSession.Current.PlayerFileUw2 != null)
+        {
+            UWPlayerRecordUw2.SetQuest(UWGameSession.Current.PlayerFileUw2, GuardedBookQuest, 1);
+            UWTriggerSystem.PlayerDidBadUw2(GuardedBookOwner, mOLoader, UWGameScreenUw2.Say);
+        }
+
+        UWMoonstoneRules.OnTakenFromWorldSecondGame(UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null, lOItem,
+            mOLoader.CurrentLevelIndex + 1);
+        UWTriggerSystem.PlayerGrabbedUw2(lOItem, mOLoader, UWGameScreenUw2.Say);
+
         // release_3d: the thing's pick-up triggers (mode 2) before it leaves its tile (G3 part H4).
         UWTriggerSystem.CheckTrapUw2(lOItem, UWTrapRulesUw2.PickUpMode, lOItem.TileX, lOItem.TileY, mOLoader);
 
@@ -445,6 +458,13 @@ public class UWWalkUw2View : MonoBehaviour
     public const int TooFarToTakeString = 0x6A;
 
     public const int NoSpaceToDropString = 0x10D;
+
+    /// <summary>player_3dget's book: 0x138 with the door bit set (quests[26] bit 2, player_did_bad(0x1C)).</summary>
+    private const int GuardedBookId = 0x138;
+
+    private const int GuardedBookQuest = 106;
+
+    private const int GuardedBookOwner = 0x1C;
 
     private const int TooHeavyString = 0x6C;
 
@@ -502,6 +522,7 @@ public class UWWalkUw2View : MonoBehaviour
 
         pOInventory.ReleaseCursorItem();
         pOInventory.ApplyCarriedLight();
+        fNoteMoonstone(lOItem);
 
         // The thing put down arrives on its square (set_phys_data's enter, then the plates; G3 part H4).
         UWTriggerSystem.CheckPlatesUw2(lOItem.TileX, lOItem.TileY, lOItem.ZPos, UWTrapRulesUw2.EnterMode, mOLoader, UWTrapRules.Setter.Thing);
@@ -523,8 +544,17 @@ public class UWWalkUw2View : MonoBehaviour
 
         pOInventory.ReleaseCursorItem();
         pOInventory.ApplyCarriedLight();
+        fNoteMoonstone(pOItem);
 
         return true;
+    }
+
+    /// <summary>DoSpecialActions' 0x17 after ReturnObject: a moonstone put into the world, or what holds one, takes a free
+    /// place of player->moonstones (UWMoonstoneRules, G4 rest part 3b).</summary>
+    private void fNoteMoonstone(UWObject pOItem)
+    {
+        UWMoonstoneRules.OnPutIntoWorldSecondGame(UWGameSession.Current != null ? UWGameSession.Current.PlayerFileUw2 : null, pOItem,
+            mOLoader.CurrentLevelIndex + 1);
     }
 
     /// <summary>What the view's centre or the free pointer points at within DoorReach (or pfRange), nearest first.</summary>
@@ -657,6 +687,27 @@ public class UWWalkUw2View : MonoBehaviour
         if (UWTriggerSystem.UseWallControlUw2(lOObject, mOLoader))
             return;
 
+        // UseCont in the world: a locked container says so, any other is emptied onto the floor (DumpTheBag; G4 rest part 3).
+        if (lOObject.GetCategory() == UWObject.ObjectCategoryEnum.Containers)
+        {
+            fDumpTheBag(lOThing);
+            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+
+            return;
+        }
+
+        // UseMagic's fountain, also through the animation standing over it (UseObj's MAJOR_ANIMOBJ class 9, its next in
+        // the chain the fountain; G4 rest part 2).
+        UWObject lOFountain = fFountainOf(lOObject);
+
+        if (lOFountain != null)
+        {
+            fUseFountain(lOFountain);
+            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+
+            return;
+        }
+
         // UseRect's minor 2: any other wall picture is looked at (RectLook).
         if ((lOObject.ID & 0x1F0) == WallPictureClass && UWAttackUw2.Current != null && UWAttackUw2.Current.Look != null)
             UWAttackUw2.Current.Look.LookAtTarget(lOThing, null);
@@ -664,6 +715,72 @@ public class UWWalkUw2View : MonoBehaviour
             UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
 
         UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
+    }
+
+    /// <summary>
+    /// UseCont and DumpTheBag (uw2 obj/USEITEMS.C:579, :816): a locked container "The &lt;name&gt; is locked."; else its whole
+    /// chain goes down around it (drop_link_chain, UWSpill as the first game's), the owner of a container that can have
+    /// one counts it as a bad deed (player_did_bad), and "You empty the &lt;name&gt;." or "The &lt;name&gt; is empty.".
+    /// </summary>
+    private void fDumpTheBag(UWEntityInfo pOEntity)
+    {
+        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+        UWObject lOBag = pOEntity.ObjectData;
+
+        if (lOData == null || mOLoader.CurrentLevel == null)
+            return;
+
+        lOBag.EnsureContentsLoaded(mOLoader.CurrentLevel.Masterlist);
+
+        if (UWSpillRules.FindLockedLock(lOBag.Contents) != null)
+        {
+            UWGameScreenUw2.Say(UWItemMessages.IsLocked(lOData, lOBag.ID));
+
+            return;
+        }
+
+        int liOwner = lOData.CommonObjectProperties != null && lOData.CommonObjectProperties.TryGet(lOBag.ID, out UWCommonObjectProperties.Entry lOEntry)
+            && lOEntry.CanHaveOwner ? lOBag.Owner : 0;
+        int liDumped = UWSpill.Apply(mOLoader, lOBag, UWSpillRules.Partition(lOBag.Contents), pOEntity.transform.position,
+            mOLoader.WorldPositionToTile(pOEntity.transform.position), true);
+
+        UWTriggerSystem.PlayerDidBadUw2(liOwner, mOLoader, UWGameScreenUw2.Say);
+        UWGameScreenUw2.Say(liDumped > 0 ? UWItemMessages.Emptied(lOData, lOBag.ID) : UWItemMessages.IsEmpty(lOData, lOBag.ID));
+    }
+
+    /// <summary>The fountain a used thing stands for: itself, or the fountain after a fountain's animation. Null else.</summary>
+    private UWObject fFountainOf(UWObject pOObject)
+    {
+        if (pOObject.ID == UWToolRulesUw2.Fountain)
+            return pOObject;
+
+        if (!UWToolRulesUw2.IsFountainAnimation(pOObject.ID) || pOObject.Link == 0 || mOLoader == null || mOLoader.CurrentLevel == null)
+            return null;
+
+        List<UWObject> lOMaster = mOLoader.CurrentLevel.Masterlist;
+        UWObject lONext = lOMaster != null && pOObject.Link < lOMaster.Count ? lOMaster[pOObject.Link] : null;
+
+        return lONext != null && lONext.ID == UWToolRulesUw2.Fountain ? lONext : null;
+    }
+
+    /// <summary>
+    /// UseMagic's fountain: dry at quality 0, else its line. A fountain's own spell (inanimate_spell with the fountain as
+    /// the caster) is not cast: none of the shipped fountains carries one (UWToolRulesUw2), so it is only logged.
+    /// </summary>
+    private void fUseFountain(UWObject pOFountain)
+    {
+        DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+
+        if (lOData == null)
+            return;
+
+        int liLine = UWToolRulesUw2.FountainLine(pOFountain, mOLoader.CurrentLevel != null ? mOLoader.CurrentLevel.Masterlist : null,
+            out bool lbSpell, out int liMajor, out int liEffect);
+
+        if (lbSpell)
+            Debug.Log("[Use] a fountain's spell " + liMajor + "/" + liEffect + " is not cast (no shipped fountain carries one)");
+
+        UWGameScreenUw2.Say(UWText.Block(lOData, 1, liLine, string.Empty));
     }
 
     /// <summary>The look of the walk: the first game's picker and look (player_3dlook), the thing in front or the

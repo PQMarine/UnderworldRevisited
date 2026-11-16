@@ -2105,6 +2105,13 @@ namespace UWDataImport.UWData
 
 						return fCrystalBall(pOTrap, liX, liY, pIHost);
 					})
+				.Register(TrespassHack, "trespass", (pOTrap, pOTrigger, pOSwitch, pIHost) => fTrespass(pOTrap, pIHost))
+				.Register(VendSelectHack, "vending: choose", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fVend(VendSelectHack, pOTrap, x, y, pOSwitch, pIHost)))
+				.Register(VendBuyHack, "vending: buy", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fVend(VendBuyHack, pOTrap, x, y, pOSwitch, pIHost)))
+				.Register(VendShowHack, "vending: show", (pOTrap, pOTrigger, pOSwitch, pIHost) => fAt(pOTrigger, (x, y) => fVend(VendShowHack, pOTrap, x, y, pOSwitch, pIHost)))
+				.Register(SleepHack, "sleep", (pOTrap, pOTrigger, pOSwitch, pIHost) => fSleepHack(pOTrap, pIHost))
+				.Register(ArenaRunsHack, "arena: running", (pOTrap, pOTrigger, pOSwitch, pIHost) => fArena(ArenaRunsHack, pIHost))
+				.Register(ArenaFireHack, "arena: fire", (pOTrap, pOTrigger, pOSwitch, pIHost) => fArena(ArenaFireHack, pIHost))
 				.Register(RaiseObjectsHack, "raise two objects", (pOTrap, pOTrigger, pOSwitch, pIHost) => fToggleObjectHeight(pOTrap, true, pIHost))
 				.Register(RaiseObjectHack, "raise an object", (pOTrap, pOTrigger, pOSwitch, pIHost) => fToggleObjectHeight(pOTrap, false, pIHost))
 				.Register(SetOwnerHack, "set owner", (pOTrap, pOTrigger, pOSwitch, pIHost) => fSetLinkedField(pOTrap, false, pIHost))
@@ -2160,6 +2167,200 @@ namespace UWDataImport.UWData
 		// ------------------------------------------------- The general hacks (part H6)
 
 		public const int CrystalBallHack = 2;
+
+		// ------------------------------------------------- Vending, sleep, the arena (G4 rest part 3b, 2026-11-16)
+
+		/// <summary>
+		/// Hacks 40 to 42, go_vend (uw2 event/WORLDEV.C; the vending machines of levels 41, 44 and 46): the machine is the
+		/// trap's owner, its choice vars[machine]. 40 stores the eight-position button's flags as the choice; 41 sells the
+		/// chosen thing for (value + 1) / 2 + 1 coins taken from the target square (vend_check_gold: only when they cover
+		/// it), a new one of quality 0x3F put down there; 42 says "&lt;Thing&gt; is the current selection (N gp)." (0x15D).
+		/// </summary>
+		public const int VendSelectHack = 40;
+
+		public const int VendBuyHack = 41;
+
+		public const int VendShowHack = 42;
+
+		/// <summary>Hack 44, player_sleep(trap owner): the sleep set off by a trap (level 12's at 30/38, owner 0: camping).</summary>
+		public const int SleepHack = 44;
+
+		/// <summary>Hacks 30 and 31, the arena (level 57): only in a pit fight (player->in_pits) - a fighter or the player
+		/// running from it, the fighters rescued from the fire. The pit fights come with the world (G6), so outside one
+		/// they do nothing, as in the original, and inside one they are not built yet.</summary>
+		public const int ArenaRunsHack = 30;
+
+		public const int ArenaFireHack = 31;
+
+		/// <summary>go_vend's vend_items: fish, meat, ale, leeches, water, dagger, lockpick, torch.</summary>
+		public static readonly int[] VendItems = { 0xB6, 0xB0, 0xBB, 0x125, 0xBC, 0x03, 0x101, 0x91 };
+
+		/// <summary>" is the current selection " (0x15D) and "." (0x60), our numbering one higher.</summary>
+		public const int VendSelectionString = 0x15D + 1;
+
+		public const int VendFullStopString = 0x60 + 1;
+
+		/// <summary>The sold thing's height before it falls (SET_Z(item, 0x76)).</summary>
+		private const int VendDropZ = 0x76;
+
+		/// <summary>The sold thing: quality 0x3F.</summary>
+		private const int VendQuality = 0x3F;
+
+		/// <summary>The price of a vending machine's thing: (COMOBJ value + 1) / 2 + 1, a byte.</summary>
+		public static int VendPrice(int piValue)
+		{
+			return (((piValue + 1) >> 1) + 1) & 0xFF;
+		}
+
+		private static bool fVend(int piWhich, UWObject pOTrap, int piX, int piY, UWObject pOSwitch, IUWTrapHost pIHost)
+		{
+			UWPlayerFile lOFile = fRecord(pIHost);
+			int liMachine = pOTrap.Owner;
+
+			if (lOFile == null)
+				return false;
+
+			if (piWhich == VendSelectHack)
+			{
+				int liChoice = pOSwitch != null ? pOSwitch.Flags & 7 : 0;
+
+				UWPlayerRecordUw2.SetNumbered(lOFile, liMachine, liChoice);
+				UWTrapLog.Detail = string.Format("-> machine {0} chooses {1}", liMachine, liChoice);
+
+				return true;
+			}
+
+			int liId = VendItems[UWPlayerRecordUw2.GetNumbered(lOFile, liMachine) & 7];
+			int liPrice = VendPrice(pIHost.World.Data.CommonObjectProperties.TryGet(liId, out UWCommonObjectProperties.Entry lOEntry) ? lOEntry.Value : 0);
+
+			if (piWhich == VendShowHack)
+			{
+				string lsName = UWText.ObjectName(pIHost.World.Data, liId, false, true);
+
+				if (lsName.Length > 0)
+					lsName = char.ToUpperInvariant(lsName[0]) + lsName.Substring(1);
+
+				pIHost.World.Presentation.AddMessage(lsName + UWText.Block(pIHost.World.Data, 1, VendSelectionString, " is the current selection ")
+					+ "(" + liPrice + " gp)" + UWText.Block(pIHost.World.Data, 1, VendFullStopString, "."));
+				UWTrapLog.Detail = string.Format("-> machine {0} shows 0x{1:X} for {2}", liMachine, liId, liPrice);
+
+				return true;
+			}
+
+			if (!fVendGold(piX, piY, liPrice, true, pIHost))
+			{
+				UWTrapLog.Detail = string.Format("-> 0x{0:X} for {1}: not enough coins on {2}/{3}", liId, liPrice, piX, piY);
+
+				return true;
+			}
+
+			fVendGold(piX, piY, liPrice, false, pIHost);
+
+			UWObject lOThing = UWObjectFactory.Create(liId, pIHost.World.Data, UWObjectFactory.Unset, VendQuality);
+			UWTile lOTile = pIHost.World.Level.GetTile(piX, piY);
+
+			if (lOThing != null && lOTile != null)
+			{
+				// CreateObj's fine position 3/3, near the middle of the square (map/MAPADDR.C; per user 2026-11-16 the corner
+				// put it out of reach), z 0x76, then obj_deal: it falls from above onto the square's floor (per user the same
+				// day, as in the original). Where it cannot fall, it is put on the floor.
+				lOThing.XPos = 3;
+				lOThing.YPos = 3;
+				lOThing.ZPos = VendDropZ;
+				lOThing.WasSpawned = true;
+
+				if (!pIHost.World.DropThing(lOThing, piX, piY))
+				{
+					lOThing.ZPos = (ushort)(lOTile.FloorHeight >> 1);
+					pIHost.World.Spawn(lOThing, new UWTilePos(piX, piY));
+				}
+			}
+
+			UWTrapLog.Detail = string.Format("-> machine {0} sells 0x{1:X} for {2}", liMachine, liId, liPrice);
+
+			return true;
+		}
+
+		/// <summary>vend_check_gold: the coins on the square cover piMoney (pbCheck), or are taken - whole piles while they
+		/// fit, the last one counted down.</summary>
+		private static bool fVendGold(int piX, int piY, int piMoney, bool pbCheck, IUWTrapHost pIHost)
+		{
+			UWTile lOTile = pIHost.World.Level.GetTile(piX, piY);
+			int liMoney = piMoney;
+
+			if (lOTile == null || lOTile.ObjectsInTile == null)
+				return liMoney == 0;
+
+			foreach (UWObject lOCoins in new List<UWObject>(lOTile.ObjectsInTile))
+			{
+				if (liMoney <= 0)
+					break;
+
+				if (lOCoins == null || lOCoins.ID != CoinId)
+					continue;
+
+				int liCount = lOCoins.HasQuantity && (lOCoins.Quantity & SpecialLink) == 0 ? lOCoins.Quantity : 1;
+
+				if (liMoney >= liCount)
+				{
+					if (!pbCheck)
+						pIHost.World.Remove(lOCoins);
+
+					liMoney -= liCount;
+				}
+				else
+				{
+					if (!pbCheck)
+					{
+						lOCoins.Quantity = (ushort)(liCount - liMoney);
+						pIHost.World.RedrawObject(lOCoins);
+					}
+
+					liMoney = 0;
+				}
+			}
+
+			return liMoney == 0;
+		}
+
+		/// <summary>The link's special bit (LINK_SPECIAL).</summary>
+		private const int SpecialLink = 0x200;
+
+		private static bool fSleepHack(UWObject pOTrap, IUWTrapHost pIHost)
+		{
+			UWTrapLog.Detail = string.Format("-> sleep {0}", pOTrap.Owner);
+			pIHost.SleepByTrap(pOTrap.Owner);
+
+			return true;
+		}
+
+		private static bool fArena(int piHack, IUWTrapHost pIHost)
+		{
+			if (!UWPlayerRecordUw2.IsInPits(fRecord(pIHost)))
+			{
+				UWTrapLog.Detail = "-> not in a pit fight: nothing";
+
+				return true;
+			}
+
+			UWTrapLog.Detail = piHack == ArenaRunsHack ? "-> running from the pit fight: not built (G6)" : "-> the arena's fire: not built (G6)";
+
+			return false;
+		}
+
+		/// <summary>Hack 5, player_did_bad(trap owner) (uw2 event/WORLDEV.C:578; G4 rest part 3, 2026-11-16): the owners of
+		/// the trap's owner race near the player who see him grow less friendly and say so - player_grabbed with the player
+		/// as the stolen thing, the first game's trespass search (IUWTrapHost.AngerRaceNearPlayer). Owner 0: nothing.</summary>
+		public const int TrespassHack = 5;
+
+		private static bool fTrespass(UWObject pOTrap, IUWTrapHost pIHost)
+		{
+			int liAngered = pOTrap.Owner != 0 ? pIHost.AngerRaceNearPlayer(pOTrap.Owner, UWCritterRules.TheftAreaBack, UWCritterRules.TheftAreaForward) : 0;
+
+			UWTrapLog.Detail = string.Format("-> owner {0}: {1} angered", pOTrap.Owner, liAngered);
+
+			return true;
+		}
 
 		public const int RaiseObjectsHack = 21;
 
