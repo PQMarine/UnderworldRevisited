@@ -123,7 +123,7 @@ namespace UWDataImport.UWData
 
 		public IUWObjectVariant Objects { get; } = new UWObjectVariantUw2();
 
-		public IUWTrapVariant Traps => throw fNotYet();
+		public IUWTrapVariant Traps { get; } = new UWTrapVariantUw2();
 
 		public IUWMotionVariant Motion { get; } = new UWMotionVariantUw2();
 
@@ -131,20 +131,26 @@ namespace UWDataImport.UWData
 
 		public IUWConversationVariant Conversation { get; } = new UWConversationVariantUw2();
 
-		public UWTrapTable TrapKinds => throw fNotYet();
+		private UWTrapTable mOTrapKinds;
 
-		public UWDoActionTable DoActions => throw fNotYet();
+		private UWDoActionTable mODoActions;
+
+		/// <summary>The second game's trap kinds and hack traps (UWTrapRulesUw2, G3 part H1, 2026-11-13).</summary>
+		public UWTrapTable TrapKinds
+		{
+			get { return mOTrapKinds ?? (mOTrapKinds = UWTrapRulesUw2.CreateTrapTable()); }
+		}
+
+		public UWDoActionTable DoActions
+		{
+			get { return mODoActions ?? (mODoActions = UWTrapRulesUw2.CreateDoActionTable()); }
+		}
 
 		private UWConversationFunctionTable mOConversationFunctions;
 
 		public UWConversationFunctionTable ConversationFunctions
 		{
 			get { return mOConversationFunctions ?? (mOConversationFunctions = UWConversationFunctionTable.CreateUw2()); }
-		}
-
-		private static NotSupportedException fNotYet()
-		{
-			return new NotSupportedException("The rules of Ultima Underworld II come in phase 4 of Docs/UW2-PLAN.md.");
 		}
 	}
 }

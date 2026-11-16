@@ -280,7 +280,9 @@ namespace UWDataImport.UWData
 			if (pOFile == null || pOFile.Workspace == null || pOFile.Workspace.Length < UWPlayerFile.WorkspaceHeaderSize)
 				return "no workspace to write into";
 
-			byte[] lyData = new byte[CountWordSize + pOFile.Workspace.Length];
+			// At least the header and the empty record 0 (a workspace made before 2026-11-14 for a new character
+			// held the header alone; UWPlayerRecordUw2.NewWorkspaceSize).
+			byte[] lyData = new byte[CountWordSize + System.Math.Max(pOFile.Workspace.Length, UWPlayerFile.WorkspaceHeaderSize + UWPlayerFile.SavedObjectSize)];
 
 			System.Array.Copy(pOFile.Workspace, 0, lyData, CountWordSize, pOFile.Workspace.Length);
 

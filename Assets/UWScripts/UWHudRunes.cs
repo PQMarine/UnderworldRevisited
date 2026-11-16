@@ -457,10 +457,8 @@ public sealed class UWHudRunes
     /// <summary>
     /// The icons of the active spells, left of the compass.
     ///
-    /// POSITION computed back from the reference scene: it draws the screen at factor 4
-    /// with origin zero - checked by the stats page coming out at 236/7 with it,
-    /// our own measurement. The three slots lie there at 340, 276 and 212, so at 85,
-    /// 69 and 53, all at height 138.
+    /// POSITION the original's (UWClassicLayout.ActiveSpells, PANELS.C spell_x): 86, 69 and 52,
+    /// all at row 136, and behind the dragons.
     ///
     /// The FIRST spell lies on the right, further ones attach to the left.
     /// </summary>
@@ -511,6 +509,12 @@ public sealed class UWHudRunes
 
                 mSpellIconImages[liSlot] = lOObject.GetComponent<RawImage>();
                 mSpellIconImages[liSlot].raycastTarget = false;
+
+                // Below the dragons, as the original's sprites (per user 2026-11-14: the third icon lies
+                // behind the left dragon there). Created later than the dragons, so moved in front of
+                // them in the drawing order, as the selected runes.
+                if (mOUi.Classic != null && mOUi.Classic.Dragons != null)
+                    lOObject.transform.SetSiblingIndex(mOUi.Classic.Dragons.FirstSiblingIndex);
             }
 
             RawImage lOImage = mSpellIconImages[liSlot];

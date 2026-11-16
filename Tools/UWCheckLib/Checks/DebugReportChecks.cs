@@ -37,6 +37,61 @@ namespace UnderworldRevisited.Tools
             fCheckDebugFolds();
             fCheckDebugFlash();
             fCheckDebugColumns();
+            fCheckTestMarks();
+        }
+
+        /// <summary>The test marks of test-focus.json (UWTestMarks, 2026-11-15): the file read, the marks numbered in
+        /// their order, matched by game, level and square, the direction in words, and the report's Test section on top
+        /// with the marked lines tagged.</summary>
+        private static void fCheckTestMarks()
+        {
+            UWTestMarks lOMarks = UWTestMarks.Parse("{ \"test\": \"44.8\", \"title\": \"Creatures\", \"marks\": ["
+                + "{ \"game\": \"uw2\", \"level\": 1, \"x\": 29, \"y\": 46, \"label\": \"edge\", \"expect\": \"goal 1\" },"
+                + "{ \"level\": 1, \"x\": 30, \"y\": 46, \"label\": \"edge 2\" } ] }", out string lsError);
+
+            Check.Str("test marks: read, numbered in order, game optional",
+                lsError + "|" + lOMarks.Test + " " + lOMarks.Marks.Count + " " + lOMarks.Marks[0].Number + lOMarks.Marks[0].Game + " "
+                + lOMarks.Marks[1].Number + (lOMarks.Marks[1].Game ?? "any") + " " + lOMarks.Marks[0].Expect,
+                "|44.8 2 1uw2 2any goal 1");
+
+            List<int> lONumbers = new List<int>();
+
+            lOMarks.Collect(true, 1, 29, 46, lONumbers);
+            lOMarks.Collect(false, 1, 29, 46, lONumbers);
+            lOMarks.Collect(false, 1, 30, 46, lONumbers);
+            lOMarks.Collect(true, 2, 30, 46, lONumbers);
+
+            Check.Str("test marks: matched by game, level and square (mark 2 in both games)", string.Join(",", lONumbers), "1,2");
+
+            UWTestMarks.Parse("{ \"marks\": 3 }", out string lsBad);
+
+            Check.Str("test marks: a file without a list of marks is refused", lsBad, "no \"marks\" list");
+
+            Check.Str("test marks: the direction in words (north is +y)",
+                UWTestMarks.Direction(29, 45, 29, 46, 0) + " | " + UWTestMarks.Direction(31, 50, 29, 46, -1) + " | "
+                + UWTestMarks.Direction(5, 5, 5, 5, 0) + " | " + UWTestMarks.Direction(5, 5, 8, 2, 2),
+                "1 north | 4 south, 2 west, 1 down | here | 3 south, 3 east, 2 up");
+
+            UWDebugSnapshot lOSnapshot = fDebugFull();
+
+            lOSnapshot.Test = "44.8: Creatures";
+            lOSnapshot.TestMarks.Add(new UWDebugTestMark { Number = 1, Label = "edge", Expect = "goal 1", Where = "1 north", IsHere = true });
+            lOSnapshot.Traps.Add(new UWTrapLog.Entry { Time = 99.5f, Text = "hack trap (q 62, own 1)  <- enter trigger on 29/46 target 29/53 by Miranda", Marks = new[] { 1 } });
+            lOSnapshot.MarkedTraps.Add(lOSnapshot.Traps[lOSnapshot.Traps.Count - 1]);
+
+            UWDebugReport lOReport = UWDebugReport.Build(lOSnapshot);
+            UWDebugSection lOTest = lOReport.Find(UWDebugReport.TestId);
+            UWDebugSection lOTraps = lOReport.Find(UWDebugReport.TrapsId);
+
+            Check.Str("test marks: the Test section comes first, the mark with where and what to expect, the marked line under it",
+                fDebugSectionIds(lOReport).Split(',')[0] + " | " + lOTest.Title + " | " + fDebugRow(lOReport, "test", "mark:1") + " | "
+                + fDebugRow(lOReport, "test", "mark:1:expect") + " | " + lOTest.Rows[lOTest.Rows.Count - 1].Value,
+                "test | Test 44.8: Creatures | [1]: edge - 1 north | : expect: goal 1 | [1] hack trap (q 62, own 1)  <- enter trigger on 29/46 target 29/53 by Miranda");
+
+            Check.Str("test marks: the trap log tags the marked line and sets it off", lOTraps.Rows[0].Value.Substring(0, 4) + " " + lOTraps.Rows[0].Emphasis,
+                "[1]  Accent");
+
+            Check.Str("test marks: without a file there is no Test section", fDebugSectionIds(UWDebugReport.Build(fDebugFull())), "place,player,look,creature,variables,traps");
         }
 
         // ------------------------------------------------- Fixtures

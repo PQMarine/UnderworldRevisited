@@ -54,6 +54,17 @@ namespace UWDataImport.UWData
 		/// host has always used this one, the spell host TravelTo - kept apart on purpose.</summary>
 		void TeleportTo(int piLevelIndex, int piTileX, int piTileY);
 
+		/// <summary>The second game's teleport trap for the player (do_teleport and new_player_pos, UWTeleportUw2): the
+		/// walk carries the move out, with its fall, heading and map scrap (G3 part H1, 2026-11-13).</summary>
+		void TeleportSecondGame(UWTeleportUw2.Target pOTarget);
+
+		/// <summary>SET_INVIS (G3 part H6, the hack trap 39): the object's invisible bit, and its picture shown or hidden.</summary>
+		void SetObjectHidden(UWObject pOObject, bool pbHidden);
+
+		/// <summary>A listed object's picture built anew after its kind or a field that shows changed (G3 part H6c: a wall
+		/// picture's owner, a bottle turned coin). False without a picture.</summary>
+		bool RedrawObject(UWObject pOObject);
+
 		/// <summary>
 		/// THE CREATURE SEARCH (cleanup step 3.2, 2026-10-17): clears pOInto, adds every creature of
 		/// the level that passes the filter and stands in the area by the area's tile measure
@@ -276,6 +287,21 @@ namespace UWDataImport.UWData
 		public void TeleportTo(int piLevelIndex, int piTileX, int piTileY)
 		{
 			mOInner.TeleportTo(piLevelIndex, piTileX, piTileY);
+		}
+
+		public void TeleportSecondGame(UWTeleportUw2.Target pOTarget)
+		{
+			mOInner.TeleportSecondGame(pOTarget);
+		}
+
+		public void SetObjectHidden(UWObject pOObject, bool pbHidden)
+		{
+			mOInner.SetObjectHidden(pOObject, pbHidden);
+		}
+
+		public bool RedrawObject(UWObject pOObject)
+		{
+			return mOInner.RedrawObject(pOObject);
 		}
 
 		public int FindCreatures(UWTileArea pOArea, UWCreatureFilter peFilter, List<UWCreatureRef> pOInto)

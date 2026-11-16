@@ -504,6 +504,15 @@ namespace UnderworldRevisited.Build
                 && fGet3DModelIndex(pOObject.ID) >= 0;
         }
 
+        /// <summary>COMOBJ's "pickable" bit, byte 7 bit 5 (UWCommonObjectProperties.Entry.Pickable; not byte 3's "pickup"), false
+        /// without the table's entry. It also keeps the fountain and the campfire where they stand (per user 2026-11-16 on the
+        /// original).</summary>
+        private bool fPickableByData(int piObjectId)
+        {
+            return mOData != null && mOData.CommonObjectProperties != null
+                && mOData.CommonObjectProperties.TryGet(piObjectId, out UWCommonObjectProperties.Entry lOEntry) && lOEntry.Pickable;
+        }
+
         /// <summary>The COMOBJ radius of a big object (byte 1 bit 3), 0 for every other.</summary>
         private int fGetBigRadius(int piObjectId)
         {
@@ -785,7 +794,9 @@ namespace UnderworldRevisited.Build
 
             int liRadius = fGetBigRadius(piObjectId);
             float lfKeyBonus = (piObjectId & 0x1C0) == 0x1C0 ? -1f : 0f;
-            bool lbChain = mbSpawnTileHasModel && miSpawnChainIndex >= 0;
+            // Every sprite with a place in its tile's chain carries it: for the ties with the tile's models, and since
+            // 2026-11-16 for the ties among sprites of one place (UWBillboardPalette's depth, the original's stable sort).
+            bool lbChain = miSpawnChainIndex >= 0;
 
             if (liRadius == 0 && lfKeyBonus == 0f && !lbChain)
                 return;
@@ -1143,19 +1154,29 @@ namespace UnderworldRevisited.Build
 
             UWEntityInfo lOInfo = lOObject.AddComponent<UWEntityInfo>();
 
-            // No longer is everything pickable across the board: fixed or painted-on scenery
-            // (grass, stalactites, blood stains, campfires) can only be looked at in the
-            // original, not taken - see UWFixedScenery.
+            // WHAT THE HAND TAKES IS THE DATA'S WORD, in both games (ui/INTERACT.C pick_3d: releaseable = co->pickable
+            // && !IsMobElem(obj)): COMOBJ's "pickable" bit, byte 7 bit 5 (fPickableByData). Since 2026-11-16 (per user, from
+            // the second game's campfire); until then the first game kept a hand-checked list of scenery (UWFixedScenery:
+            // grass, stalactites, debris, campfire, fountain, orb, cauldron, urn ...), and exactly those have the bit clear.
             // Creatures are never pickable. That is not only self-evident,
             // it also had an unexpected consequence: in the original control scheme the
             // look output suppresses itself as soon as the target is pickable - then
             // UWItemDrag is the sole source (see lbHandledByItemDrag in Interaction).
             // A goblin therefore counted as pickable, and "look" stayed silent for every
             // creature (reported by user, 2026-08-30).
-            lOInfo.CanBePickedUp = !UWObjectIds.IsCreature(pOObject.ID)
-                && !UWFixedScenery.IsFixed(pOObject.ID);
+            lOInfo.CanBePickedUp = !UWObjectIds.IsCreature(pOObject.ID) && fPickableByData(pOObject.ID);
 
             fAttachCritterHealth(lOObject, pOObject);
+
+            // A LOOSE THING WITH A BODY TAKES BLOWS, by the data alone as in the original (for mods as well): resolve_attack's
+            // probe meets every object with a COMOBJ height and the touch bit (ObjectCheck), loose things too, and
+            // damage_object wears it by its quality class - class 3 or word 0 bit 13 take the blow and no harm, as the models
+            // below. In the second game's data the bottle 0x116 is the only loose thing with a height (per user on the
+            // original 2026-11-14: it is hit, with the flash, and breaks - its own branch is UWDjinnUw2); the fountain 0x12E
+            // has one in both games, the first game's 0x117 too, both class 3. Until then every loose thing let the blow through.
+            if (!UWObjectIds.IsCreature(pOObject.ID) && !fHasNoCollision(pOObject.ID) && fAttachHealth(lOObject, pOObject))
+                lOObject.AddComponent<UWContainerDamage>();
+
             lOInfo.ObjectData = pOObject;
             // +1 CONFIRMED correct (per user's knowledge of the original: object ID 35 at tile
             // (24,10) really is "leather leggings", exactly the text at GetDescription(35+1) -
@@ -1603,6 +1624,21 @@ namespace UnderworldRevisited.Build
                 || pOObject.GetCategory() == UWObject.ObjectCategoryEnum.Switches)
                 lOPosition += (Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.right) * WallModelImageShift;
 
+            // IN FRONT OF A WALL PANEL ON THE SAME WALL (found 2026-11-15, per user on UW2 level 26, 18/45: "You find a
+            // hidden button" showed the button 0x17A, and nothing appeared): a panel 0x16E/0x16F stands staggered off
+            // the wall (WallPanelStagger), a button, lever or plaque nearer to it, so the panel covered it. The original
+            // draws the button over the marble panel; ours sets such a thing one step in front of the panels already
+            // on that wall of that tile (the panel comes first in the tile's chain where both are).
+            if (pOObject.ID != DecalObjectId && pOObject.ID != DecalObjectId + 1)
+            {
+                long liWallKey = ((long)xPos << 20) | ((long)zPos << 8) | (long)pOObject.Heading;
+                Vector3 lOWallFront = Quaternion.Euler(0f, UWHeadings.EighthToDegrees(pOObject.Heading), 0f) * Vector3.back;
+
+                if (mOPanelsOnWall.TryGetValue(liWallKey, out int liPanels) && liPanels > 0
+                    && fGetTileEdgeBehind(lOPosition, xPos, zPos, lOWallFront, out Vector3 lOWallEdge))
+                    lOPosition = lOWallEdge + (lOWallFront * ((2 + (2 * liPanels)) * WallPanelStagger));
+            }
+
             lOObject.transform.position = lOPosition;
             lOObject.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
@@ -1624,7 +1660,12 @@ namespace UnderworldRevisited.Build
             {
                 BoxCollider lOBox = lOObject.AddComponent<BoxCollider>();
 
-                lOBox.center = new Vector3(0f, lOResolved.Size.y * 0.5f, 0f);
+                // A WALL PANEL'S BOX LIES BEHIND IT, towards the wall (found 2026-11-15, per user on UW2 level 26,
+                // 18/45: the button in front of the marble panel could not be looked at or used, the panel's box,
+                // half of it in front of the panel, took the ray). Its local back (+z) points at the wall.
+                bool lbPanel = pOObject.ID == DecalObjectId || pOObject.ID == DecalObjectId + 1;
+
+                lOBox.center = new Vector3(0f, lOResolved.Size.y * 0.5f, lbPanel ? DecalPickDepth * 0.5f : 0f);
                 lOBox.size = new Vector3(lOResolved.Size.x, lOResolved.Size.y, DecalPickDepth);
                 lOBox.isTrigger = true;
             }
@@ -1754,6 +1795,31 @@ namespace UnderworldRevisited.Build
         /// blue and 208 green, the gate in the volcano (link 0x2C0) 192 light blue. With the fixed
         /// table {0, 2, 4} every gate was pink (per user, 2026-09-14).
         /// </summary>
+        /// <summary>
+        /// A MODEL'S TEXTURED FACES ON ITS OWN COPY OF THE DECAL MATERIAL, with the own-tile rule (UWOwnTile.Enable) the
+        /// single-coloured faces have through their material: that rule brings a model's depth forward in its own tile, and a
+        /// textured face without it lost against the model's own coloured faces behind it (per user 2026-11-16: the far
+        /// leg of a table showed through its textured top). The wall pictures keep the plain decal material.
+        /// </summary>
+        private Material fModelFaceMaterial(Material pOMaterial)
+        {
+            if (pOMaterial == null || pOMaterial != mODecalMaterial)
+                return pOMaterial;
+
+            if (mOModelDecalMaterial == null)
+            {
+                mOModelDecalMaterial = new Material(pOMaterial) { name = pOMaterial.name + " (model faces)" };
+                UWOwnTile.Enable(mOModelDecalMaterial);
+            }
+
+            return mOModelDecalMaterial;
+        }
+
+        private Material mOModelDecalMaterial;
+
+        /// <summary>The second game's bed model (do_rect's 0x1D), its blanket and pillow coloured by the owner field.</summary>
+        private const int BedModel = 0x1D;
+
         private static int fGetModelFaceColor(int piModelIndex, UWObject pOObject, int piTableColor)
         {
             if (piModelIndex == UW3DModelImport.ModelIndex.Moongate && pOObject != null
@@ -1767,10 +1833,39 @@ namespace UnderworldRevisited.Build
         private const int MoongateColorLinkBase = 0x200;
 
         /// <summary>
-        /// Maps an object id to the matching original 3D model index, or -1 if
-        /// the object has no such model.
+        /// Maps an object id to the matching original 3D model index, or -1 if the object has no such model: the first
+        /// game's mapping (fFirstGameModelIndex), and in the second game its own object-to-model table for the types the
+        /// first game does not have (UW3DModelImport.GetObjectModel; per user 2026-11-16: the large blackrock gem, the
+        /// shelves and the beds were not drawn) - only a model with more than one face, since the one-face models are
+        /// the flat wall things (lever, switch, writing) drawn as decals. The painting (model 13) is one too, with its
+        /// picture from TMOBJ.GR (per user 2026-11-16: the paintings were not drawn).
         /// </summary>
-        private static int fGet3DModelIndex(int piObjectId)
+        private int fGet3DModelIndex(int piObjectId)
+        {
+            int liModel = fFirstGameModelIndex(piObjectId);
+
+            if (liModel >= 0 || !fIsUw2 || mO3DModels == null)
+                return liModel;
+
+            if (!mOSecondGameModels.TryGetValue(piObjectId, out liModel))
+            {
+                liModel = mO3DModels.GetObjectModel(piObjectId);
+
+                UW3DModel lOModel = liModel >= 0 ? mO3DModels.GetModel(liModel) : null;
+
+                if (lOModel == null || lOModel.Faces == null || lOModel.Faces.Count <= 1)
+                    liModel = -1;
+
+                mOSecondGameModels[piObjectId] = liModel;
+            }
+
+            return liModel;
+        }
+
+        /// <summary>The second game's object types and their models as fGet3DModelIndex found them (-1 none).</summary>
+        private readonly Dictionary<int, int> mOSecondGameModels = new Dictionary<int, int>();
+
+        private static int fFirstGameModelIndex(int piObjectId)
         {
             switch (piObjectId)
             {
@@ -1832,7 +1927,31 @@ namespace UnderworldRevisited.Build
 
             UWTextureRef lOResolved;
 
-            if (!fResolve(pOObject.Texture, false, out lOResolved))
+            // THE SECOND GAME'S MODEL TEXTURES (do_rect): a model whose colour record names textures draws its textured
+            // faces with TMOBJ.GR's picture by the object's flags, not with the object's own picture (the shelf's is a
+            // placeholder reading "shlf"); the first game's records have none. The bridge keeps its own rule (do_rect's
+            // model 2 takes a floor texture when its flags pass the count).
+            UWTexture lOModelPicture = pOObject.Texture;
+
+            if (fIsUw2 && piModelIndex != UW3DModelImport.ModelIndex.Bridge && mOData != null && mOData.Textures != null
+                && mO3DModels.TryGetModelTexture(piModelIndex, pOObject.Flags, out int liTmObj))
+            {
+                UWTexture lOTmObj = null;
+
+                try
+                {
+                    lOTmObj = mOData.Textures.GetTextureByType(UWTexture.TextureTypes.TMOBJ, liTmObj);
+                }
+                catch (System.Exception)
+                {
+                    lOTmObj = null;
+                }
+
+                if (lOTmObj != null)
+                    lOModelPicture = lOTmObj;
+            }
+
+            if (!fResolve(lOModelPicture, false, out lOResolved))
             {
                 fSpawnBillboard(xPos, zPos, pOObject, pOParent);
                 return null;
@@ -1857,7 +1976,7 @@ namespace UnderworldRevisited.Build
             Vector2 lOFallbackSolid = new Vector2(0.5f, 0.5f);
             UWObjectAtlas.Entry lOEntry;
 
-            if (!lbObjectIsArrayTexture && mOAtlas != null && mOAtlas.TryGetEntry(pOObject.Texture, out lOEntry) && lOEntry.Size.y > 0)
+            if (!lbObjectIsArrayTexture && mOAtlas != null && mOAtlas.TryGetEntry(lOModelPicture, out lOEntry) && lOEntry.Size.y > 0)
             {
                 lOFallbackSolid = new Vector2(
                     (lOEntry.SolidPixel.x + 0.5f) / lOEntry.Size.x,
@@ -1917,6 +2036,11 @@ namespace UnderworldRevisited.Build
             // Separate submesh for the solid-colour faces, see mOModelSolidMaterial.
             List<int> lOSolidTriangles = new List<int>();
 
+            // THE LARGE BLACKROCK GEM paints its facets and body by the game's state (UWBlackrockGemLook): each
+            // vertex keeps the colour register of its face, so UWBlackrockGemView can repaint them.
+            bool lbGem = fIsUw2 && piModelIndex == UWBlackrockGemLook.Model;
+            List<int> lOGemRegisters = lbGem ? new List<int>() : null;
+
             foreach (UW3DModelFace lOFace in lOModel.Faces)
             {
                 int liBase = lOVerts.Count;
@@ -1968,6 +2092,7 @@ namespace UnderworldRevisited.Build
                         lOUvs.Add(new Vector3(lOFace.Uvs[i].X, lOFace.Uvs[i].Y, lOResolved.Slice));
                         lOColors.Add(new Color32(255, 255, 255, 255));
                         lOPaletteData.Add(Vector2.zero);
+                        lOGemRegisters?.Add(-1);
                     }
                     else if (lOFace.Uvs != null)
                     {
@@ -1983,6 +2108,7 @@ namespace UnderworldRevisited.Build
                         lOUvs.Add(lOUvOrigin + Vector2.Scale(new Vector2(lOFace.Uvs[i].X, 1f - lOFace.Uvs[i].Y), lOUvSize));
                         lOColors.Add(new Color32(255, 255, 255, 255));
                         lOPaletteData.Add(Vector2.zero);
+                        lOGemRegisters?.Add(-1);
                     }
                     else
                     {
@@ -2004,6 +2130,23 @@ namespace UnderworldRevisited.Build
                         // looked better plain while Gouraud faces showed the wrong colour); removed
                         // per user, 2026-09-15.
                         int liFaceColor = fGetModelFaceColor(piModelIndex, pOObject, lOFace.ColorIndex);
+
+                        // THE SECOND GAME'S BED (do_rect's model 0x1D, per user 2026-11-16: the original's beds have their own
+                        // colours, ours were all blue): registers 2 and 3 come from the bed's owner field - 2 the owner * 4 + 5,
+                        // 3 the owner * 4 - not from the colour record.
+                        if (fIsUw2 && piModelIndex == BedModel && (lOFace.ColorRegister == 2 || lOFace.ColorRegister == 3))
+                            liFaceColor = ((pOObject.Owner << 2) + (lOFace.ColorRegister == 2 ? 5 : 0)) & 0xFF;
+
+                        if (lbGem)
+                        {
+                            int liGemColour = UWBlackrockGemView.ColourNow(lOFace.ColorRegister);
+
+                            if (liGemColour >= 0)
+                                liFaceColor = liGemColour;
+
+                            lOGemRegisters.Add(lOFace.ColorRegister);
+                        }
+
                         int liPaletteIndex = liFaceColor;
 
                         // Kept separate for the palette renderer: it does not need the
@@ -2136,13 +2279,19 @@ namespace UnderworldRevisited.Build
                 lOObj.transform.Rotate(Vector3.up, UWHeadings.EighthToDegrees(pOObject.Heading));
 
             lOObj.AddComponent<MeshFilter>().sharedMesh = lOMesh;
+
+            // The gem's colours follow the game (its facets as the gems are used, the pulsing body); a repeated side
+            // would have added vertices without a register, then the gem keeps its first colours.
+            if (lbGem && lOGemRegisters.Count == lOVerts.Count)
+                lOObj.AddComponent<UWBlackrockGemView>().Init(lOMesh, lOGemRegisters, lOPaletteData, mOData);
+
             // Submesh 0 (dungeon material) stays empty (0 triangles) if no wall/
             // floor-referencing face occurs - that is the vast majority of models
             // (shrine, boulder, bench, ...), but it costs nothing extra.
             lOObj.AddComponent<MeshRenderer>().sharedMaterials = new Material[]
             {
                 mODungeonMaterial != null ? mODungeonMaterial : lOResolved.Material,
-                lOResolved.Material,
+                fModelFaceMaterial(lOResolved.Material),
                 mOModelSolidMaterial != null ? mOModelSolidMaterial : lOResolved.Material
             };
 
@@ -2247,10 +2396,9 @@ namespace UnderworldRevisited.Build
             // The same gate as for the grab area above: only objects without collision
             // (COMOBJ.DAT height 0). Among the model objects those are exactly bolt and
             // arrow - scenery always has a height and therefore stays put.
-            // Within this gate the rule of the sprite path then applies.
-            lOInfo.CanBePickedUp = fHasNoCollision(pOObject.ID)
-                && !UWObjectIds.IsCreature(pOObject.ID)
-                && !UWFixedScenery.IsFixed(pOObject.ID);
+            // ONLY THE AMMUNITION (per user 2026-11-16: the second game's shelf 0x169 has height 0 too and could be taken, in
+            // the original not): the arrow and the bolt are taken although COMOBJ's pickable bit is clear for them.
+            lOInfo.CanBePickedUp = pOObject.ID == ArrowObjectId || pOObject.ID == CrossbowBoltObjectId;
 
             // A BLOW MEETS EVERY MODEL WITH A BODY: resolve_attack (UnderworldExhumed COMBAT.C)
             // takes any object its probe touches - every one with a height, the collision's test -

@@ -104,6 +104,30 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
             Loader.TeleportTo(piLevelIndex, piTileX, piTileY);
     }
 
+    /// <summary>The walk's teleport with the black between (UWLevelLoader.WalkTeleport): the move is made after the
+    /// blink, as the original makes it in its main loop after the chain.</summary>
+    public void TeleportSecondGame(UWTeleportUw2.Target pOTarget)
+    {
+        if (Loader != null)
+            Loader.WalkTeleport(pOTarget, true);
+    }
+
+    public bool RedrawObject(UWObject pOObject)
+    {
+        return Loader != null && Loader.RedrawObject(pOObject);
+    }
+
+    public void SetObjectHidden(UWObject pOObject, bool pbHidden)
+    {
+        if (pOObject == null)
+            return;
+
+        pOObject.IsHidden = pbHidden;
+
+        if (Loader != null && Loader.TryGetEntity(pOObject, out UWEntityInfo lOEntity) && lOEntity != null)
+            lOEntity.gameObject.SetActive(!pbHidden);
+    }
+
     // ------------------------------------------------- Creatures
 
     public int FindCreatures(UWTileArea pOArea, UWCreatureFilter peFilter, List<UWCreatureRef> pOInto)
@@ -628,10 +652,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
     /// the level loader's object until 2026-10-17).</summary>
     public int RunRespawn(bool pbAnyDistance)
     {
-        // The second game's walk fires no traps yet: DoWanderingMonsters comes with its traps (UW2 plan phase 4).
-        if (UWWalkUw2.IsWalking)
-            return 0;
-
+        // Both games (the second game's DoWanderingMonsters since G3 part H5).
         return UWTriggerSystem.RespawnCreatures(Loader, pbAnyDistance);
     }
 
@@ -645,7 +666,7 @@ public sealed class UWWorld : MonoBehaviour, IUWWorld
         if (lOLoader == null || lOLoader.CurrentLevel == null)
             return;
 
-        int liSentHome = UWLevelExit.PassTime(lOLoader.WorldEdit, new NightCreatureHost(lOLoader), out int liRemoved);
+        int liSentHome = UWLevelExit.PassTime(lOLoader.WorldEdit, new NightCreatureHost(lOLoader), out int liRemoved, UWWalkUw2.IsWalking);
 
         if (liSentHome > 0 || liRemoved > 0)
             Debug.Log(string.Format("The night passed: {0} creatures sent home, {1} removed.", liSentHome, liRemoved));

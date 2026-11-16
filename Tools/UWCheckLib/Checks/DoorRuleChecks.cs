@@ -127,13 +127,24 @@ namespace UnderworldRevisited.Tools
 
             Check.Bool("lock: level 1 has doors with a lock", lODoors.Count > 0, true);
 
+            // checkLock finds the lock in the chain (2026-11-13, the second game's portcullis with a door trap first): in
+            // this game every locked door holds its lock first, so the change is none here.
+            int liBehind = 0;
+
+            foreach (UWLevel lOAnyLevel in pOData.Levels)
+                foreach (UWObject lOAnyDoor in UWDoorRules.FindDoorsWithLock(lOAnyLevel))
+                    if (lOAnyDoor.Contents[0] == null || lOAnyDoor.Contents[0].ID != UWObjectMechanics.LockObjectId)
+                        liBehind++;
+
+            Check.Int("lock: doors of the nine levels whose lock is not their chain's first object", liBehind, 0);
+
             bool lbAllResolve = lODoors.Count > 0;
             int liLocked = 0;
 
             foreach (UWObject lODoor in lODoors)
             {
                 UWLockState lOState = UWDoorRules.ResolveLock(lODoor, lOLevel.Masterlist);
-                UWObject lOLock = lODoor.Contents[0];
+                UWObject lOLock = UWLockRules.FindLoadedLock(lODoor);
 
                 lbAllResolve &= lOState.IsResolved && lOState.HasLock && lOState.LockObject == lOLock
                     && lOState.IsLocked == UWObjectMechanics.IsLockLocked(lOLock)

@@ -160,6 +160,14 @@ namespace UWDataImport.UWData
 		/// starting point (the container object itself instead of a tile).</summary>
 		public List<UWObject> Contents { get; private set; }
 
+		/// <summary>The contents set outright - a thing that gets something put inside by a rule (the second game's
+		/// ruined cure potion and its poison trap, G3 part H6c). The link fields follow when the level or the
+		/// inventory is written.</summary>
+		public void SetContents(List<UWObject> pOContents)
+		{
+			Contents = pOContents;
+		}
+
 		/// <summary>
 		/// A copy of the same item with a different quantity - for splitting a
 		/// stack while dragging. Container contents are NOT copied along: a stack is never

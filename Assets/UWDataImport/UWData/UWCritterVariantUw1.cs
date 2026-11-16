@@ -33,7 +33,7 @@ namespace UWDataImport.UWData
 			return UWSpecialDeaths.HasSpecialDeath(piWhoami);
 		}
 
-		public int SlotOfRecord(int piRaw)
+		public int SlotOfRecord(int piRaw, int piCastSlot)
 		{
 			return piRaw;
 		}

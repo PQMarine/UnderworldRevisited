@@ -35,7 +35,11 @@ namespace UWDataImport.UWData
 
 			pODoorData.EnsureContentsLoaded(pOMasterlist);
 
-			mOLockObject = pODoorData.Contents.Count > 0 ? pODoorData.Contents[0] : null;
+			// THE LOCK IS FOUND IN THE CHAIN, not taken as its first object: checkLock in both games looks for it
+			// (Obj_InList(link, 0, MAJOR_SPEC, 0, 0xF), uw1 and uw2 obj/USEITEMS.C, OBJUSE.C). Until 2026-11-13 the first
+			// object was the lock, so the second game's portcullis on level 3, 45/56 - a door trap first, its lock behind
+			// it - read as unlocked and opened by hand (per user).
+			mOLockObject = UWLockRules.FindLoadedLock(pODoorData);
 			HasLock = mOLockObject != null;
 			IsLocked = HasLock && UWObjectMechanics.IsLockLocked(mOLockObject);
 		}

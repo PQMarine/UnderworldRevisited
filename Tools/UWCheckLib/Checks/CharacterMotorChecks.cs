@@ -201,6 +201,68 @@ namespace UnderworldRevisited.Tools
         }
 
         /// <summary>The motor placed at (pfX, pfY) and walked (pfDx, pfDy) tiles in piSteps equal steps.</summary>
+        /// <summary>
+        /// THE BOUNCE OFF WALLS ON ICE (WallBounce, 2026-11-14 per user: Modern bounces on the second game's ice as
+        /// the core does there): head-on the velocity mirrors at speed * e / 15, glancing (30 degrees off the wall)
+        /// it leaves at 30 * e / 15 degrees, the whole speed at the hit goes into WallImpact; without WallBounce the
+        /// motor slides along the wall as before.
+        /// </summary>
+        private static void fCheckMotorIceBounce()
+        {
+            Check.Group("Character motor: bounce off walls on ice");
+
+            const double Speed = 0.02;
+            FakeMotionWorld lOWorld = new FakeMotionWorld();
+
+            lOWorld.Paint(10, 1, 10, 30, 0, 2, 0);
+
+            UWCharacterMotor lOMotor = new UWCharacterMotor(lOWorld);
+
+            lOMotor.PlaceOnFloor(8.5, 15.5);
+            lOMotor.WallBounce = 9;
+            lOMotor.Vx = Speed;
+            lOMotor.Vy = 0.0;
+
+            double lfImpact = 0.0;
+
+            for (int liFrame = 0; liFrame < 100; liFrame++)
+            {
+                lOMotor.Advance(1.0);
+                lfImpact += lOMotor.WallImpact;
+            }
+
+            Check.Near("ice bounce: head-on, back at speed * 9 / 15", lOMotor.Vx, -Speed * 9.0 / 15.0, 1.0e-12);
+            Check.Near("ice bounce: head-on, nothing sideways", lOMotor.Vy, 0.0, 1.0e-12);
+            Check.Near("ice bounce: head-on, the whole speed is the impact", lfImpact, Speed * 65536.0, 1.0e-6);
+            Check.Bool("ice bounce: head-on, away from the wall again", lOMotor.X < 10.0 - UWCharacterMotor.DefaultRadius - 0.2, true);
+
+            double lfOff = 30.0 * Math.PI / 180.0;
+            double lfOut = 18.0 * Math.PI / 180.0;
+
+            lOMotor = new UWCharacterMotor(lOWorld);
+            lOMotor.PlaceOnFloor(8.5, 5.5);
+            lOMotor.WallBounce = 9;
+            lOMotor.Vx = Speed * Math.Sin(lfOff);
+            lOMotor.Vy = Speed * Math.Cos(lfOff);
+
+            for (int liFrame = 0; liFrame < 200; liFrame++)
+                lOMotor.Advance(1.0);
+
+            Check.Near("ice bounce: 30 degrees off the wall leaves at 18 (e 9), across", lOMotor.Vx, -Speed * 0.6 * Math.Sin(lfOut), 1.0e-12);
+            Check.Near("ice bounce: ... and along", lOMotor.Vy, Speed * 0.6 * Math.Cos(lfOut), 1.0e-12);
+
+            lOMotor = new UWCharacterMotor(lOWorld);
+            lOMotor.PlaceOnFloor(8.5, 5.5);
+            lOMotor.Vx = Speed * Math.Sin(lfOff);
+            lOMotor.Vy = Speed * Math.Cos(lfOff);
+
+            for (int liFrame = 0; liFrame < 200; liFrame++)
+                lOMotor.Advance(1.0);
+
+            Check.Near("ice bounce: without it the motor slides along the wall (at the wall)", lOMotor.X, 10.0 - UWCharacterMotor.DefaultRadius - UWCharacterMotor.Skin, 1.0e-9);
+            Check.Near("ice bounce: ... the velocity untouched", lOMotor.Vx, Speed * Math.Sin(lfOff), 1.0e-12);
+        }
+
         private static UWCharacterMotor fMotorWalk(FakeMotionWorld pOWorld, double pfX, double pfY, double pfDx, double pfDy, int piSteps)
         {
             UWCharacterMotor lOMotor = new UWCharacterMotor(pOWorld);

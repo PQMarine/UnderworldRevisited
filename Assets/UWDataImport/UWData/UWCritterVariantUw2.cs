@@ -55,7 +55,13 @@ namespace UWDataImport.UWData
 			return false;
 		}
 
-		public int SlotOfRecord(int piRaw)
+		/// <summary>
+		/// SEQUENCE 6 IS A SHOT OR A CAST BY OBJ_CAST (AI.C:1136-1144: 0 fires arms[0]'s missile, else casts that
+		/// spell slot). Until 2026-11-14 ours read it back as a cast always, so a fighter that began to shoot was a
+		/// caster without a spell on its next update and began again - it stood in the pose and never fired (per user,
+		/// test 19.9).
+		/// </summary>
+		public int SlotOfRecord(int piRaw, int piCastSlot)
 		{
 			switch (piRaw)
 			{
@@ -66,7 +72,7 @@ namespace UWDataImport.UWData
 				case SequenceCombat:
 					return UWCritterBrain.AnimCombatIdle;
 				case SequenceCast:
-					return UWCritterBrain.AnimSpell;
+					return piCastSlot != 0 ? UWCritterBrain.AnimSpell : UWCritterBrain.AnimMissile;
 				case SequenceDie:
 					return UWCritterBrain.AnimDying;
 				default:

@@ -461,7 +461,11 @@ public sealed class UWMissiles
         if (UWObjectDamageRules.SpillsWhenDestroyed(lORecord.ItemId) || UWObjectDamageRules.IsUsedWhenDestroyed(lORecord.ItemId))
             return false;
 
-        UWObjectDamageRules.Remains lORemains = UWObjectDamageRules.DecideRemains(lORecord.ItemId, piDamageType);
+        // The second game's djinn bottle (remove_object's own branch): absorbed it is gone, otherwise plain debris.
+        UWDjinnRulesUw2.BottleOutcome leBottle = UWDjinnUw2.BottleBroken(fLoader, lORecord.ItemId, lORecord.TileX, lORecord.TileY);
+        UWObjectDamageRules.Remains lORemains = leBottle == UWDjinnRulesUw2.BottleOutcome.Absorbed ? UWObjectDamageRules.Remains.Gone
+            : leBottle != UWDjinnRulesUw2.BottleOutcome.NotTheBottle ? UWObjectDamageRules.Remains.Debris
+            : UWObjectDamageRules.DecideRemains(lORecord.ItemId, piDamageType);
 
         mOHost.EndFlight(lORecord);
 

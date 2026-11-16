@@ -395,7 +395,11 @@ public sealed class UWPointerCursor
         foreach (Texture2D lOScaled in mOScaledCursors)
         {
             if (lOScaled != null)
+            {
+                // Unity gives the picture back before it goes (UWPointer.ReleasePicture).
+                UWPointer.ReleasePicture(lOScaled);
                 UnityEngine.Object.Destroy(lOScaled);
+            }
         }
 
         mOScaledCursors = null;

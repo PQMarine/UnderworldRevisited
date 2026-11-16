@@ -74,6 +74,10 @@ namespace UWDataImport.UWData
 		/// always, 2 Fixed rolled once per raise, the same after loading (UWSkillRaiseEnum).</summary>
 		public int SkillRaises;
 
+		/// <summary>The second game's ice under the feet (per user, 2026-11-14): 0 Off as the original, 1 Half,
+		/// 2 Full like ground (UWIceGripEnum), for every motion mode.</summary>
+		public int IceGrip;
+
 		/// <summary>The help window as the player left it (per user, 2026-10-01): open or not,
 		/// the tab (UWHelpTabId as a number, 3 = Spells) and how many tiles the map
 		/// tab shows across.</summary>

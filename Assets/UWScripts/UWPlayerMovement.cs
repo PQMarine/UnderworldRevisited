@@ -93,6 +93,20 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         Motion.Bounce(piIntensity);
     }
 
+    /// <summary>The second game's jump trap (UWPlayerMotion.Jump, set_jmp).</summary>
+    public bool Jump(int piForce, bool pbStop, int piMinimum)
+    {
+        return Motion != null && Motion.Jump(piForce, pbStop, piMinimum);
+    }
+
+    /// <summary>The floor under the player rose or sank (UWPlayerMotion.FollowFloor, change_terrain's raise_up and
+    /// put_down).</summary>
+    public void FollowFloor(int piOldZPos, int piNewZPos, bool pbSetHeight)
+    {
+        if (Motion != null)
+            Motion.FollowFloor(piOldZPos, piNewZPos, pbSetHeight);
+    }
+
     /// <summary>
     /// LEVITATE AND FLY GIVE A SMALL HOP when cast (do_spell calls phys_bounce_up for class 1
     /// minors 3 and 5, UnderworldExhumed SPELLS.C and PHYSICS.C, read 2026-10-12): on the ground
@@ -283,6 +297,10 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
         {
             if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
                 UWVitalsUw2.Current.Vitals.ReportEasyMovementStep();
+
+            // make_noise with easy: the step's footstep at once (UWPlayerNoiseRulesUw2).
+            if (UWScene.PlayerTerrain != null)
+                UWScene.PlayerTerrain.EasyStepNoiseUw2();
         }
         else if (UWScene.Character != null)
             UWScene.Character.Vitals.ReportEasyMovementStep();
@@ -596,8 +614,10 @@ public class UWPlayerMovement : MonoBehaviour, IUWMotionStepTarget
     private void fUpdateFootsteps()
     {
         UWLevelLoader lOLoader = UWScene.LevelLoader;
+        // The second game makes its own footsteps (make_noise, UWPlayerTerrain.fUpdateNoiseUw2 - ice sounds, easy
+        // steps, strokes); here only the momentum is measured for it.
         bool lbOnFoot = !(mController == null || IsInLiquid || fIsHovering() || !fIsOnGround()
-            || (lOLoader != null && !lOLoader.HasWorld && !UWWalkUw2.IsWalking));
+            || (lOLoader != null && !lOLoader.HasWorld && !UWWalkUw2.IsWalking) || UWWalkUw2.IsWalking);
 
         mOFootsteps.Step(transform.position, Mathf.Max(mfModernForwardSpeed, mfOriginalForwardSpeed), lbOnFoot);
     }

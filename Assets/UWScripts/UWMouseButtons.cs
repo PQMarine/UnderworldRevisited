@@ -136,7 +136,10 @@ public static class UWMouseButtons
     /// Interaction) or the pointer is on the debug panel (UWDebugOverlay, cleanup 8c: a click on a
     /// section's heading must not walk, use or strike). Three owners, so that one does not lift
     /// another's block.</summary>
-    public static bool IsBlocked => IsBlockedByHelp || IsBlockedByPrompt || IsBlockedByDebug;
+    public static bool IsBlocked => IsBlockedByHelp || IsBlockedByPrompt || IsBlockedByDebug || IsBlockedByCinematic;
+
+    /// <summary>The cinematic camera's window (UWCinematicCamera, a debug tool) has the pointer.</summary>
+    public static bool IsBlockedByCinematic { get; set; }
 
     public static bool IsBlockedByHelp { get; set; }
 

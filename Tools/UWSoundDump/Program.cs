@@ -51,7 +51,13 @@ namespace UnderworldRevisited.Tools
                 return 1;
             }
 
-            UWSound lOSound = new UWSound(psArgs[0]);
+            // --uw2 anywhere: the second game's sound folder, its music UWRnn by the piece's two digits (2026-11-14).
+            bool lbUw2 = Array.IndexOf(psArgs, "--uw2") >= 0;
+
+            if (lbUw2)
+                psArgs = Array.FindAll(psArgs, psArg => psArg != "--uw2");
+
+            UWSound lOSound = new UWSound(psArgs[0], lbUw2 ? UWGame.Uw2 : UWGame.Uw1);
 
             if (!lOSound.IsAvailable || lOSound.AdlibBank == null)
             {
@@ -200,7 +206,10 @@ namespace UnderworldRevisited.Tools
         /// seconds for the last notes to fade.</summary>
         private static void fWriteMusic(UWSound pOSound, string psFolder, IUWRenderingMidiDriver pIDriver, string psSuffix, string psNumber)
         {
-            UWXmi lOXmi = pOSound.GetMusic(psNumber, false);
+            // The second game's pieces by their file's two digits (octal: theme = first * 8 + second, UWSoundsDat.MusicName).
+            UWXmi lOXmi = pOSound.Game == UWGame.Uw2 && psNumber.Length == 2
+                ? pOSound.GetMusicTheme(((psNumber[0] - '0') << 3) + (psNumber[1] - '0'), true)
+                : pOSound.GetMusic(psNumber, false);
 
             if (lOXmi == null || !lOXmi.IsLoaded || lOXmi.Sequences.Count == 0)
             {

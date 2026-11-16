@@ -67,6 +67,22 @@ namespace UWDataImport.UWData
 			};
 		}
 
+		/// <summary>A target from a level, a square and the setup word as do_teleport receives it in trap_teleport_data (bit 0
+		/// the fall, bit 5 with bits 2-4 the heading) - the blackrock gem's worlds (G3 part H6).</summary>
+		public static Target FromWord(int piLevel, int piTileX, int piTileY, int piWord)
+		{
+			return new Target
+			{
+				Level = piLevel,
+				TileX = piTileX,
+				TileY = piTileY,
+				Falls = (piWord & FallsBit) != 0,
+				HasHeading = (piWord & HeadingWordFlag) != 0,
+				Heading = ((piWord & ~0x23) << 11) & 0xFFFF,
+				AutomapOff = false
+			};
+		}
+
 		/// <summary>The level the target takes the player to: its own, or piCurrentLevel for 0.</summary>
 		public static int LevelOf(Target pOTarget, int piCurrentLevel)
 		{

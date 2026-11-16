@@ -71,10 +71,10 @@ namespace UWDataImport.UWData
 		/// Cleans up the level the player is leaving, in its data: the level is torn down
 		/// afterwards, so nothing has to follow in the scene.
 		/// </summary>
-		public static void LeaveLevel(UWWorldEdit pOEdit)
+		public static void LeaveLevel(UWWorldEdit pOEdit, bool pbSecondGame = false)
 		{
 			int liRemoved;
-			int liSentHome = PassTime(pOEdit, new DataOnlyHost(pOEdit), out liRemoved);
+			int liSentHome = PassTime(pOEdit, new DataOnlyHost(pOEdit), out liRemoved, pbSecondGame);
 
 			if (liSentHome > 0 || liRemoved > 0)
 				UWLog.Info(string.Format("Level left: {0} creatures sent home, {1} removed.", liSentHome, liRemoved));
@@ -84,7 +84,7 @@ namespace UWDataImport.UWData
 		/// The pass over every creature of the level - see the class comment. Returns how many
 		/// were sent home; piRemoved how many temporary creatures went.
 		/// </summary>
-		public static int PassTime(UWWorldEdit pOEdit, IUWCreatureTimeHost pIHost, out int piRemoved)
+		public static int PassTime(UWWorldEdit pOEdit, IUWCreatureTimeHost pIHost, out int piRemoved, bool pbSecondGame = false)
 		{
 			piRemoved = 0;
 
@@ -113,7 +113,10 @@ namespace UWDataImport.UWData
 				lOKept.Add(lORecord);
 
 				ClearTransientBits(lORecord);
-				lORecord.FacingEighth = UWRandom.Next(FacingEighths);
+
+				// The second game leaves a creature that comes to talk facing as it was (up_crit, uw2 CRITTIME.C:157).
+				if (!pbSecondGame || lORecord.Goal != UWNpc.GoalWantToTalk)
+					lORecord.FacingEighth = UWRandom.Next(FacingEighths);
 
 				fHeal(lOQueries, lORecord);
 				fCountMood(lOQueries, lORecord, liMood);

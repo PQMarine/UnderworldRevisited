@@ -237,6 +237,21 @@ public sealed class UWPlayerAvatar : IUWPlayerAvatar
             lOMovement.BounceUp(piIntensity);
     }
 
+    public bool Jump(int piForce, bool pbStop, int piMinimum)
+    {
+        UWPlayerMovement lOMovement = fMovement();
+
+        return lOMovement != null && lOMovement.Jump(piForce, pbStop, piMinimum);
+    }
+
+    public void FollowFloor(int piOldZPos, int piNewZPos, bool pbSetHeight)
+    {
+        UWPlayerMovement lOMovement = fMovement();
+
+        if (lOMovement != null)
+            lOMovement.FollowFloor(piOldZPos, piNewZPos, pbSetHeight);
+    }
+
     /// <summary>The golem's stand-down (the special deaths' host until cleanup step 3.6,
     /// 2026-10-17): the scene's Interaction leaves combat mode.</summary>
     public void LeaveCombatMode()

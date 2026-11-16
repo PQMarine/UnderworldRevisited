@@ -169,14 +169,24 @@ public sealed class UWWorldView
         UWObject[] lOObjects = pOTile.ObjectsInTile.ToArray();
 
         int liChildCountBefore = mOObjectRoot.childCount;
+        int liSpawned = 0;
 
+        // A TILE THAT WAS OPEN BEFORE keeps its pictures (found 2026-11-15, per user on level 72: an oscillator closes
+        // its square at height 16 and opens it again, and every opening drew the bones and the blood a second time,
+        // the old copy hanging at the height it closed at): only what has no picture yet is drawn.
         foreach (UWObject lOObject in lOObjects)
+        {
+            if (Holds(lOObject))
+                continue;
+
             lOSpawner.SpawnSingleObject(piTileX, piTileZ, pOTile, lOObject, mOObjectRoot);
+            liSpawned++;
+        }
 
         ApplyRenderModeFrom(liChildCountBefore);
         RebuildRegistry();
 
-        return lOObjects.Length;
+        return liSpawned;
     }
 
     /// <summary>
@@ -204,6 +214,20 @@ public sealed class UWWorldView
             fRegister(lONew[lONew.Count - 1].transform);
 
         return lONew;
+    }
+
+    /// <summary>The picture of a listed object built anew after its kind or its fields changed (the second game's
+    /// hack traps, G3 part H6c): the old node goes, the spawner draws it again at its place in its tile. False when it
+    /// had none.</summary>
+    public bool Redraw(UWObject pOObject, int piTileX, int piTileZ)
+    {
+        if (pOObject == null || !TryGetEntity(pOObject, out UWEntityInfo lOEntity) || lOEntity == null)
+            return false;
+
+        fOnRemoved(pOObject);
+        fOnPlaced(pOObject, piTileX, piTileZ);
+
+        return true;
     }
 
     // ------------------------------------------------- The events of UWWorldEdit

@@ -21,6 +21,9 @@ namespace UnderworldRevisited.Build
         private readonly int miFloorSliceOffset;
 
         private readonly UWLevel mOLevel;
+
+        /// <summary>The level has no ceiling (the second game's unlit levels, UWDarknessUw2.IsUnlitLevel).</summary>
+        private readonly bool mbNoCeiling;
         private UWChunkGeometry[] mOChunks;
 
         private int miCurrentTileIndex;
@@ -59,6 +62,9 @@ namespace UnderworldRevisited.Build
         private UWLevelMeshBuilder(UWLevel pOLevel, int piFloorSliceOffset)
         {
             mOLevel = pOLevel;
+            mbNoCeiling = UWDataImport.UWData.UWGameSession.Current != null
+                && UWDataImport.UWData.UWGameSession.Current.Game.Game == UWDataImport.UWData.UWGame.Uw2
+                && UWDataImport.UWData.UWDarknessUw2.IsUnlitLevel(pOLevel.LevelNumber);
             miFloorSliceOffset = piFloorSliceOffset;
         }
 
@@ -285,6 +291,12 @@ namespace UnderworldRevisited.Build
             if (verticesFloor != null && indicesFloor != null)
                 lOChunk.Append(miCurrentTileIndex, lOOrigin, verticesFloor, indicesFloor, uvsFloor, miFloorSliceOffset + CurrentTile.TextureFloor,
                     UWChunkGeometry.KindFloor);
+
+            // NO CEILING on the second game's unlit levels, 65 to 72 but 68 (process_grid sets ciels 0 there, uw2
+            // 3d/GRIDDB.C:202-249; per user 2026-11-15 on level 72: the original shows black above, ours a ceiling that
+            // cut off the big skull).
+            if (mbNoCeiling)
+                return;
 
             Vector3[] verticesCeiling = new Vector3[4];
             int[] indicesCeiling = new int[] { 3, 1, 0, 3, 2, 1 };

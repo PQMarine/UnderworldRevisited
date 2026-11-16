@@ -331,6 +331,14 @@ namespace UWDataImport.UWData
 		/// no saved objects - enough for the walk to come back to, NOT a character the original could play
 		/// (no vitality, no skills; it would come in dead).
 		/// </summary>
+		/// <summary>
+		/// A new file's workspace: the header and the empty record 0, as the count word 1 says (UWPlayerFile.Read takes
+		/// header + 8 * count). Until 2026-11-14 a new character's held the header alone, and the first save with
+		/// something carried failed - "PLAYER.DAT is too short for an inventory" (per user, a new character with a
+		/// honeycomb).
+		/// </summary>
+		public const int NewWorkspaceSize = UWPlayerFile.WorkspaceHeaderSize + UWPlayerFile.SavedObjectSize;
+
 		public static UWPlayerFile NewWalker()
 		{
 			byte[] lyRecord = new byte[UWPlayerFile.Uw2RecordSize];
@@ -341,7 +349,7 @@ namespace UWDataImport.UWData
 			lyRecord[AutomapByteOffset] = AutomapBit;
 			lyRecord[MapScrapOffset] = NewMapScrap;
 
-			return UWPlayerFile.Create(UWGame.Uw2, lyRecord, 1, new byte[UWPlayerFile.WorkspaceHeaderSize]);
+			return UWPlayerFile.Create(UWGame.Uw2, lyRecord, 1, new byte[NewWorkspaceSize]);
 		}
 
 		// ------------------------------------------------- A new character (UW2 plan phase 3 step 5)
@@ -765,7 +773,7 @@ namespace UWDataImport.UWData
 			lyRecord[DetailByteOffset] = NewDetail << DetailShift;
 			UWBinary.Write32(lyRecord, GameClockOffset, NewGameClock);
 
-			byte[] lyWorkspace = new byte[UWPlayerFile.WorkspaceHeaderSize];
+			byte[] lyWorkspace = new byte[NewWorkspaceSize];
 
 			UWBinary.Write16(lyWorkspace, 0, PlayerItemId | PlayerDoorDirBit);
 			UWBinary.Write16(lyWorkspace, PlayerPosOffset, (PlayerFine << 10) | (PlayerFine << 13));

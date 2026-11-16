@@ -745,7 +745,13 @@ public partial class UWSetupMenu
             {
                 Kind = Kind.ChoiceRow, Id = Defs.SkillRaises.LabelId, Def = Defs.SkillRaises, ChoiceColumns = WindowChoiceColumns, Advance = 30f
             })
-            .Add(fHint(Defs.SkillRaises, 10f));
+            .Add(fHint(Defs.SkillRaises, 10f))
+            // THE ICE GRIP (per user 2026-11-14): the second game's ice, for every motion mode; at once.
+            .Add(new UWSetupRow
+            {
+                Kind = Kind.ChoiceRow, Id = Defs.IceGrip.LabelId, Def = Defs.IceGrip, ChoiceColumns = WindowChoiceColumns, Advance = 30f
+            })
+            .Add(fHint(Defs.IceGrip, 10f));
     }
 
     /// <summary>The save folder row (per user, 2026-10-29): automatic, cloud_saves, the installation's

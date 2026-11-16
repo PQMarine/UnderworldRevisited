@@ -72,10 +72,18 @@ original reports "Problems in object list". Ours never makes such a copy (it wei
 saving frees a copy an original save carries: a slot neither reachable nor free that holds a
 stack of a kind lying in the level as well. Any other such slot stays as it is.
 
+**Levitate and Fly change nothing on the ground of the second game's ice.** Under either spell
+the original moves the player as a flyer even while he stands on ice: he slides along a wall
+instead of bouncing off it, and walking at a wall head-on he sticks there, on ice that does not
+let him steer away. Rising there with the spell kills him within seconds: the ice keeps his
+speed, every step into the wall counts it as a blow, and while he rises the blow counts double,
+above what hurts, every frame, while he does not rise at all. Ours bounces him off the walls as
+without the spell while he stands on the ice; in the air the spell works as in the original.
+
 These, and the other fixes of the original's bugs that can cost the game, follow the option
 "Fix bugs of the original" in the Game window (on by default, settings.json FixOriginalBugs).
 A rules.json key decides a single one against it: deviations.conversationPatches,
-deviations.unpushableNpcs, deviations.tidyLeakedObjects.
+deviations.unpushableNpcs, deviations.tidyLeakedObjects, deviations.groundedFlightBouncesOnIce.
 
 **The debris of a broken potion or scroll can be made to cast nothing.** A thing destroyed by a
 fireball, a trap or its own impact on a wall becomes a pile of debris that keeps the thing's fields.
@@ -143,6 +151,14 @@ and goes back on the keys in both games (per user, 2026-11-12).
 **F9 and F10 are refused during Roaming Sight.** The original still tracks and makes camp there;
 sleeping then leaves the spell gone and the view stuck.
 
+**Ultima Underworld II's footsteps and swim strokes are not panned, and the strokes keep a fixed rate.** The
+original puts the left foot a little to the left and the right foot a little to the right; no sound of ours is
+panned. It counts a swim stroke every 15 drawn frames; ours counts at a fixed 20 a second, whatever the frame rate.
+The original's count goes on from where it stopped, so at its fast frame rate the first stroke is heard almost as soon
+as the player is in the water; ours sets the count when the player enters the water, so the first stroke comes after
+0.15 seconds, even right after a footstep. The
+speed the footsteps go by is measured from the distance really travelled, as the first game's are here.
+
 **A save game with Roaming Sight running starts with the view raised.** The original only notes the
 spell when it loads: the view stays with the body, and the keys and the mouse steer a camera that
 is not shown, so nothing moves until the spell's icon is clicked away (Ultima Underworld II, seen
@@ -206,6 +222,11 @@ straight corridor against the original).
 ceilings on without perspective correction, so on a near wall the joints between the stones bend.
 Ours stay straight. The edges of walls, floors and ceilings and the places of objects are the
 same.
+
+**A splash sits on the water.** A thing thrown into water splashes where it comes to rest. The
+original places the splash at the thing's height one step before, so after a bounce off a wall,
+when the thing drops more slowly, the splash hangs a little above the water. Ours always sits on
+the water's surface (per user 2026-11-14, seen in the second game; both games).
 
 ## Bugs of the original that are kept
 

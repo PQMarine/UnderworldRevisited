@@ -140,6 +140,18 @@ namespace UnderworldRevisited.Tools
             fExpectInt("easy: ... no gravity", lOPlayer.Params.Gravity, 0);
             fExpectInt("easy: ... in the air", lOPlayer.Params.Contact, UWMotionTables.ContactAirborne);
 
+            // Modern, levitating three floor steps over flat floor (per user 2026-11-14, test 39.8): the step keeps the
+            // height and the player in the air - the motion state levitating (bits 8), so no footstep; the stand state at
+            // the target was the floor's until then.
+            lOPlayer = fEasyPlayer(pOData, 1, 2, 0, out lOWorld);
+            lOPlayer.Modern = true;
+            lOPlayer.Abilities = UWPlayerMotion.AbilityLevitate;
+            lOPlayer.Params.Z = 0x80 + (3 * 64);
+            fExpectBool("easy: Modern, levitating high, a step forward", lOPlayer.EasyStep(UWEasyMovement.CommandStepForward, 0), true);
+            fExpectInt("easy: ... the height held", lOPlayer.Params.Z, 0x80 + (3 * 64));
+            fExpectInt("easy: ... in the air, levitating (motion bits 8)", lOPlayer.Params.Contact * 100 + lOPlayer.SurfaceBits,
+                (UWMotionTables.ContactAirborne * 100) + 8);
+
             // ------------------------------------------------- objects
             int liBlock = fFindObject(pOData, 0x140, 0x1BF, e => e.IsSolid && !e.Is3DModel && e.Height > 8 && (e.Radius & 7) > 0 && (e.Radius & 7) < 4);
 

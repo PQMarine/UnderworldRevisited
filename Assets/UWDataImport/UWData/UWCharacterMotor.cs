@@ -107,6 +107,14 @@ namespace UWDataImport.UWData
 		/// <summary>The class of the triggers in the item id (bits 6-8): a body meeting one fires it.</summary>
 		public const int TriggerClass = 6;
 
+		/// <summary>
+		/// A TRIGGER THE BODY ONLY TOUCHES FIRES, as the core's scan counts boxes that meet: the body rests ObjectPad
+		/// plus the Skin from a solid box, and a trigger whose box ends where that solid box ends is touched at exactly
+		/// that distance (per user 2026-11-16: the large blackrock gem's north facets on UW2 level 5 lie three eighths
+		/// from its centre, their boxes end with the gem's, and Modern never fired them while Original and Smooth did).
+		/// </summary>
+		public const double TouchSlack = 2.0 * Skin;
+
 		/// <summary>The speed a solid object met is pushed with (fTransferMomentum).</summary>
 		public const int PushSpeed = 0xEB;
 
@@ -225,6 +233,19 @@ namespace UWDataImport.UWData
 		/// <summary>On the ground (no vertical motion).</summary>
 		public bool Grounded = true;
 
+		/// <summary>
+		/// THE BOUNCE OFF WALLS ON THE GROUND (2026-11-14, per user: Modern bounces on the second game's ice, as
+		/// the original does, and nowhere else): the core's elasticity 0-15, or -1 to slide along the wall as
+		/// usual. Set by the caller for the frame. A wall met on the ground then turns the velocity as the core's
+		/// fTurnAlongWall in its bounce style: head-on (more than HeadOnBounceDegrees off the wall) it mirrors,
+		/// glancing the angle off the wall becomes angle * e / 15; the speed becomes speed * e / 15 and the
+		/// whole speed at the hit goes into WallImpact.
+		/// </summary>
+		public int WallBounce = -1;
+
+		/// <summary>The core's head-on bounce: |wall - heading| above 0x3000 (67.5 degrees).</summary>
+		public const double HeadOnBounceDegrees = 67.5;
+
 		/// <summary>The edges of drops deeper than the step height are walls for the centre.</summary>
 		public bool HoldAtLedges;
 
@@ -244,7 +265,7 @@ namespace UWDataImport.UWData
 		/// <summary>The head met the ceiling in the last frame.</summary>
 		public bool HitCeiling { get; private set; }
 
-		/// <summary>The speed of each wall met in the air in the last frame, summed, in the core's speed units
+		/// <summary>The speed of each wall met in the air (or bounced off on the ground, WallBounce) in the last frame, summed, in the core's speed units
 		/// (1/65536 tile a tick). The caller makes the impact of it the core makes of a wall in the air
 		/// (fTurnAlongWall's bounce). The whole speed as the core's, but for a graze only the part into the wall
 		/// (GrazeFromHeadOnDegrees, GitHub issue 33).</summary>
@@ -472,18 +493,29 @@ namespace UWDataImport.UWData
 		{
 			int liCellX = (int)Math.Floor(X * 8.0);
 			int liCellY = (int)Math.Floor(Y * 8.0);
+			bool lbNewCell = liCellX != miCellX || liCellY != miCellY;
 
-			if (mOProperties == null || (liCellX == miCellX && liCellY == miCellY))
+			// LEANING ON A SOLID OBJECT looks again without a new cell (per user 2026-11-16, the large blackrock gem's
+			// north facets: the body entered its cell short of them and came to rest against the gem within it, where the
+			// core's scan of the blocked move meets them) - each trigger once until the centre enters another cell.
+			if (mOProperties == null || (!lbNewCell && mOPushed.Count == 0))
 				return;
 
-			miCellX = liCellX;
-			miCellY = liCellY;
+			if (lbNewCell)
+			{
+				miCellX = liCellX;
+				miCellY = liCellY;
+				mOLeaning.Clear();
+			}
 
 			fCollect(X - 1.0, Y - 1.0, X + 1.0, Y + 1.0);
 
 			foreach (Box lOBox in mOBoxes)
 			{
-				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox) >= ObjectPad)
+				if ((!lOBox.Trigger && !lOBox.UsedOnMover) || !fInHeight(lOBox) || fBoxDistance(lOBox) > ObjectPad + TouchSlack)
+					continue;
+
+				if (!mOLeaning.Add(lOBox.Index) && !lbNewCell)
 					continue;
 
 				bool lbKnown = false;
@@ -716,6 +748,38 @@ namespace UWDataImport.UWData
 				lfMx *= 1.0 - lfT;
 				lfMy *= 1.0 - lfT;
 
+				// ON THE GROUND WITH A BOUNCE (WallBounce, the ice): the velocity turns off the wall and the rest of
+				// the stretch goes on in the new direction at the new speed, not along the wall.
+				if (Grounded && WallBounce >= 0)
+				{
+					double lfVn = (Vx * lfNx) + (Vy * lfNy);
+
+					if (lfVn < 0.0)
+					{
+						double lfOld = Math.Sqrt((Vx * Vx) + (Vy * Vy));
+						double lfRest = Math.Sqrt((lfMx * lfMx) + (lfMy * lfMy));
+
+						fBounce(lfNx, lfNy, lfVn);
+
+						if (lfOld > 1.0e-12)
+						{
+							lfMx = Vx * lfRest / lfOld;
+							lfMy = Vy * lfRest / lfOld;
+						}
+						else
+						{
+							lfMx = 0.0;
+							lfMy = 0.0;
+						}
+
+						lfPrevNx = lfNx;
+						lfPrevNy = lfNy;
+						lbHadPrev = true;
+
+						continue;
+					}
+				}
+
 				// The rest along the wall; a part running into the wall met before is a corner.
 				double lfInto = (lfMx * lfNx) + (lfMy * lfNy);
 
@@ -735,6 +799,36 @@ namespace UWDataImport.UWData
 				lfPrevNy = lfNy;
 				lbHadPrev = true;
 			}
+		}
+
+		/// <summary>The core's bounce (fTurnAlongWall, bounce style) on the motor's wall normal (pfNx, pfNy) with
+		/// the velocity's part into it pfVn (below 0): the nearer direction along the wall, the angle off it,
+		/// mirrored head-on, else scaled by e / 15; the speed scaled by e / 15; the whole speed into WallImpact.</summary>
+		private void fBounce(double pfNx, double pfNy, double pfVn)
+		{
+			double lfSpeed = Math.Sqrt((Vx * Vx) + (Vy * Vy));
+			double lfTx = Vx - (pfNx * pfVn);
+			double lfTy = Vy - (pfNy * pfVn);
+			double lfTLen = Math.Sqrt((lfTx * lfTx) + (lfTy * lfTy));
+
+			if (lfTLen > 1.0e-12)
+			{
+				lfTx /= lfTLen;
+				lfTy /= lfTLen;
+			}
+			else
+			{
+				lfTx = -pfNy;
+				lfTy = pfNx;
+			}
+
+			double lfAngle = Math.Atan2(-pfVn, lfTLen);
+			double lfOut = lfAngle > HeadOnBounceDegrees * Math.PI / 180.0 ? lfAngle : lfAngle * WallBounce / 15.0;
+			double lfNew = lfSpeed * WallBounce / 15.0;
+
+			WallImpact += lfSpeed * 65536.0;
+			Vx = ((lfTx * Math.Cos(lfOut)) + (pfNx * Math.Sin(lfOut))) * lfNew;
+			Vy = ((lfTy * Math.Cos(lfOut)) + (pfNy * Math.Sin(lfOut))) * lfNew;
 		}
 
 		/// <summary>The earliest contact of the centre's path (lfMx, lfMy) with a wall or a corner:
@@ -799,6 +893,9 @@ namespace UWDataImport.UWData
 
 			return true;
 		}
+
+		/// <summary>The triggers met in the current eighth cell (fTouch): leaning on a solid object fires each once.</summary>
+		private readonly HashSet<int> mOLeaning = new HashSet<int>();
 
 		/// <summary>The eighth cell the centre was in at the last look for triggers.</summary>
 		private int miCellX = int.MinValue;

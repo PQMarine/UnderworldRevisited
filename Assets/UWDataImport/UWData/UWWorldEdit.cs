@@ -149,6 +149,10 @@ namespace UWDataImport.UWData
 		/// <summary>Where the notes on a full level go (the loader's log); null drops them.</summary>
 		public Action<string> Log { get; set; }
 
+		/// <summary>An object put down on a water tile that can take it (obj_deal's water, before the water decides):
+		/// the second game's splash and do_filanium hang here (UWLevelLoader.fPutInWater). Null does nothing.</summary>
+		public Action<UWObject, int, int> PutInWater { get; set; }
+
 		/// <summary>An object joined the list of tile (x, y) - in the list already, its record
 		/// placed.</summary>
 		public event Action<UWObject, int, int> ObjectPlaced;
@@ -352,7 +356,8 @@ namespace UWDataImport.UWData
 		///
 		/// NO SPLASH HERE: the splash belongs to what FALLS into the water, not to what is put
 		/// down there (user's measurement of 2026-09-20: a drowning gave exactly ONE splash, the
-		/// creature's own, although what it left behind went into the water as well).
+		/// creature's own, although what it left behind went into the water as well) - that is the first
+		/// game; the second one's obj_deal splashes, which PutInWater's handler shows (UWLevelLoader.fPutInWater).
 		/// </summary>
 		public PlaceResult Place(UWObject pOObject, int piTileX, int piTileY, int piXPos, int piYPos, int piZPos,
 			bool pbCanSink, Arrival peArrival, int piInPlaceAt = -1)
@@ -383,6 +388,10 @@ namespace UWDataImport.UWData
 			// tile, and creat_spell adds a summoned one directly. A land creature in the water is the
 			// motion's business (drowning). Until 2026-10-12 ours rolled the liquid culling for a
 			// creature too - a trap's copy over water could vanish and kept its mobile slot.
+			// obj_deal's water: do_filanium before the water decides (the second game's djinn quest, UWDjinnUw2).
+			if (pbCanSink && !(pOObject is UWNpc) && PutInWater != null && Queries.IsWaterTile(lOTile))
+				PutInWater(pOObject, piTileX, piTileY);
+
 			bool lbSinks = pbCanSink && !(pOObject is UWNpc) && Queries.TileSwallows(lOTile, pOObject);
 
 			fLink(lOTile, pOObject, peArrival, piInPlaceAt);

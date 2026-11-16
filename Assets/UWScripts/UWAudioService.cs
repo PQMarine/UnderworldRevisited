@@ -59,11 +59,34 @@ public static class UWAudioService
         if (lOMixer == null || mOData == null || mOData.Sound == null)
             return;
 
+        // THE SECOND GAME'S RECORDINGS FROM EFFECT 100 (found 2026-11-15, per user in the original: the effect trap on
+        // level 72 laughs): play_effect takes an effect above 0x63 without a SOUNDS.DAT entry, at full volume in the
+        // middle, and digi_fx_play plays SOUND/UWnn.VOC (nn = effect - 100) with the priority 0x7D00 (uw2
+        // sound/SOUND.C). Ours dropped every such effect at the table's end.
+        if (piEffect >= UWSoundsDat.FirstUwVocEffect && fPlayUwVoc(lOMixer, piEffect))
+            return;
+
         if (piEffect < 0 || piEffect >= mOData.Sound.Effects.Count)
             return;
 
         if (!fPlayDigital(lOMixer, piEffect, piVelocityOffset))
             lOMixer.PlayEffect(mOData.Sound.Effects[piEffect], piVelocityOffset);
+    }
+
+    /// <summary>digi_fx_play's priority for the UWnn recordings.</summary>
+    private const int UwVocPriority = 0x7D00;
+
+    /// <summary>A UWnn.VOC recording at full volume (the second game only; GetEffectVoc gives nothing for the first).</summary>
+    private static bool fPlayUwVoc(UWAudioMixer pOMixer, int piEffect)
+    {
+        UWDataImport.Audio.UWVoc lOVoc = mOData.Sound.GetEffectVoc(piEffect);
+
+        if (lOVoc == null || !lOVoc.IsLoaded)
+            return false;
+
+        pOMixer.PlayDigitalEffect(lOVoc.Samples, lOVoc.SampleRate, 1f, UwVocPriority);
+
+        return true;
     }
 
     /// <summary>The volume at which the original's channel plays a recording to the full.</summary>

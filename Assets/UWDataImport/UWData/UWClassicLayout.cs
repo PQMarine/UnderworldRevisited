@@ -536,16 +536,19 @@ namespace UWDataImport.UWData
 
 		public static class ActiveSpells
 		{
-			/// <summary>The first spell's icon at the right, further ones to the left (the reference's
-			/// scene at factor 4: 340, 276 and 212 at height 552).</summary>
-			[Estimated("reference scene at factor 4")]
-			public const int Right = 85;
+			/// <summary>The first spell's icon at the right, further ones to the left: the original's
+			/// sprites of 16 x 18 at spell_x 0x56, 0x45 and 0x34, y 0x3F from the screen's bottom
+			/// (UnderworldExhumed PANELS.C:133 and active_spells; the top row is 199 - y, as the
+			/// flasks' 0x4A gives their 125). Until 2026-11-14 estimated from the reference scene
+			/// (85, 69, 53 at 138; per user against the original: the third behind the dragon).</summary>
+			[Exe("PANELS.C spell_x[0] 0x56")]
+			public const int Right = 86;
 
-			[Estimated("reference scene at factor 4")]
-			public const int Top = 138;
+			[Exe("PANELS.C active_spells, y 0x3F from the bottom")]
+			public const int Top = 136;
 
-			[Estimated("reference scene at factor 4")]
-			public const int Pitch = 16;
+			[Exe("PANELS.C spell_x, 0x56 - 0x45 = 0x45 - 0x34")]
+			public const int Pitch = 17;
 		}
 
 		// ------------------------------------------------- The stats page

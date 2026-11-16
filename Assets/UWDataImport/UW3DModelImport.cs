@@ -90,6 +90,7 @@ namespace UWDataImport
             miTableStart = pOLayout.TableStart;
             miCodeBase = pOLayout.CodeBase;
             miColorRegisterBase = pOLayout.ColorRegisterBase;
+            miObjectModelsStart = pOLayout.ObjectModelsStart;
 
             for (int liModel = 0; liModel < ModelCount; liModel++)
             {
@@ -105,6 +106,11 @@ namespace UWDataImport
                 byte[] laColors = new byte[liCount];
                 Array.Copy(mData, liRecord + 1, laColors, 0, liCount);
                 mModelColors[liModel] = laColors;
+
+                // The second game's record ends with the first texture and their count (rect_cols[3], [4]); flags 0x10 a
+                // textured face (do_rect).
+                if (pOLayout.ColorRecordSize >= 5 && (mData[liRecord] & 0x10) != 0 && mData[liRecord + 4] > 0)
+                    mModelTextures[liModel] = (mData[liRecord + 3], mData[liRecord + 4]);
             }
         }
 
@@ -145,6 +151,47 @@ namespace UWDataImport
         /// original colour of a model (e.g. the hand-built door leaf, whose narrow
         /// sides should carry the same colour as the door frame model (01)).
         /// </summary>
+        private readonly int miObjectModelsStart;
+
+        /// <summary>The textured models' first texture and texture count, by model (count 0: none).</summary>
+        private readonly (int First, int Count)[] mModelTextures = new (int, int)[ModelCount];
+
+        /// <summary>
+        /// A MODEL'S OWN TEXTURE (do_rect, uw2 3d/DRAWOBJ.C:335): a model whose colour record has the texture flag draws
+        /// its textured faces with TMOBJ.GR picture first + (the object's flags modulo the count) - the shelf's planks, the
+        /// table's top, the chair's seat. The first game's records carry no textures; false there and for a model without.
+        /// </summary>
+        public bool TryGetModelTexture(int piModelIndex, int piObjectFlags, out int piTmObj)
+        {
+            piTmObj = -1;
+
+            if (piModelIndex < 0 || piModelIndex >= ModelCount || mModelTextures[piModelIndex].Count <= 0)
+                return false;
+
+            piTmObj = mModelTextures[piModelIndex].First + (piObjectFlags % mModelTextures[piModelIndex].Count);
+
+            return true;
+        }
+
+        /// <summary>
+        /// THE GAME'S OWN OBJECT-TO-MODEL TABLE (rect_sub, 3d/DRAWOBJ.C): the model the program draws for a 3D object
+        /// type, items 0x150 to 0x16F, or -1 for none or another id. The first game's mapping lives in UWObjectSpawner and
+        /// was checked against its table; the second game adds the bed, the large blackrock gem and the shelf (models
+        /// 29 to 31), read here (per user, 2026-11-16: the gem, the shelves and the beds were not drawn).
+        /// </summary>
+        public int GetObjectModel(int piObjectId)
+        {
+            int liType = piObjectId - UW3DModelLayout.FirstObjectType;
+            int liAt = miObjectModelsStart + (liType * 2);
+
+            if (liType < 0 || liType >= UW3DModelLayout.ObjectTypeCount || liAt < 0 || liAt + 2 > mData.Length)
+                return -1;
+
+            int liModel = (short)fReadUInt16(liAt);
+
+            return liModel >= 0 && liModel < ModelCount ? liModel : -1;
+        }
+
         public byte GetPrimaryPaletteIndex(int piModelIndex)
         {
             if (piModelIndex < 0 || piModelIndex >= ModelCount)
@@ -739,6 +786,7 @@ namespace UWDataImport
                     TextureNumber = lORaw.TextureNumber,
                     IsGouraud = lORaw.IsGouraud,
                     ShadeLevel = lORaw.ShadeLevel,
+                    ColorRegister = lORaw.ColorRegister,
                     ColorIndex = fResolveSlotColor(piModelIndex, lORaw.ColorRegister),
                     AltColorIndex = fResolveSlotColor(piModelIndex, lORaw.ColorRegister + 1)
                 };

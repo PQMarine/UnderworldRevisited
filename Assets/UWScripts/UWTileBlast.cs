@@ -199,7 +199,14 @@ public static class UWTileBlast
             lORemains = UWObjectDamageRules.Remains.Debris;
         }
         else
-            lORemains = UWObjectDamageRules.DecideRemains(pOObject.ID, piDamageType);
+        {
+            // The second game's djinn bottle (remove_object's own branch): absorbed it is gone, otherwise plain debris.
+            UWDjinnRulesUw2.BottleOutcome leBottle = UWDjinnUw2.BottleBroken(pOLoader, pOObject.ID, pOTile.X, pOTile.Y);
+
+            lORemains = leBottle == UWDjinnRulesUw2.BottleOutcome.Absorbed ? UWObjectDamageRules.Remains.Gone
+                : leBottle != UWDjinnRulesUw2.BottleOutcome.NotTheBottle ? UWObjectDamageRules.Remains.Debris
+                : UWObjectDamageRules.DecideRemains(pOObject.ID, piDamageType);
+        }
 
         // THE SMOKE STANDS WHERE THE OBJECT LAY: SpawnClass7Object copies its sub-position and,
         // with height factor 0, its zpos. Placed like any animated object there - the object's

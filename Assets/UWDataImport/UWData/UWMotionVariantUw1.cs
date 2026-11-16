@@ -33,6 +33,15 @@ namespace UWDataImport.UWData
 
 		public bool IceAndCurrents => false;
 
+		public bool PutDownSplashes => false;
+
+		public int WaterLandingSound(int piMass, out int piVolume)
+		{
+			piVolume = (short)(piMass - 600) / 50;
+
+			return 5;
+		}
+
 		public bool LandsInWater(int piFlags)
 		{
 			return (piFlags & 1) != 0;

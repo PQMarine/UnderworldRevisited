@@ -631,7 +631,7 @@ art is not found (UW2's own format). The rest loads. The steps:
    `UWGameProfileUw2.CreateOriginalRules` gives the rule set's own defaults, the first game's numbers,
    and its MOTION is the second game's through `UWMotionVariantUw2` (UE `PHYSICS.C` newFPS, :591,
    :604, `OBJPHYS.C:299`): speeds out of 20 (foot 20, swimming Swimming / 2 + 4, lava 14, ice 20,
-   levitating 1, flying 14, slow fall 4), the turn the state's share below levitation, the view's
+   levitating 1, flying 14, slow fall 4), the turn always the full one (newFPS's pTurn is never read; ours scaled it until 2026-11-14, per user too slow in water), the view's
    follow 0x600, no fall damage on levels 65-72 ((level - 1) / 8 == 8 - UE's prose says world 8,
    its code the ninth), no lava exception, impacts above 0x180. The base speeds, the turn step, the
    jump and the fall's Acrobat check are the same numbers in both games. STILL THE FIRST GAME'S
@@ -1006,7 +1006,7 @@ creature resistances, the second game's death_check (HasSpecialDeath false), the
 THE PLAYER'S BLOWS, EXPERIENCE AND DEATH CONFIRMED 2026-11-02: the blow, kills, exploring, map scraps and conversations
 pay; UWDeathRulesUw2 and UWDeathUw2 take a ninth of the experience and wake the player by the gem below Britannia, in it
 the game ends. Jail waits for triggers and schedules (it fires a scheduled trigger and needs Lord British's place), and
-until then a castle guard's kill ends the game too.
+until then a castle guard's kill ends the game too. Per user 2026-11-14 the original also jails the player who breaks the djinn bottle in Castle British (level 1) before the quest's step 5 and dies of it (player_is_dead asks last_hit: probably an older guard's hit still standing) - to check with the jail. TEST FOR THE JAIL (moved from test list 41.1 per user 2026-11-15): the cell on level 1 - the portcullis 41/38 has an unpickable lock (height 15) and probably opens through the jailer's conversation; the move trigger on 40/37 fires a door trap of quality 2 (close), so leaving the cell there shuts the portcullis behind the player (fallen-log "door 41/38: moves"). Add it to the test list when the jail is built.
 
 THE SWEEP OF 2026-11-06 AND THE ORDER FROM IT (per user, 2026-11-06: "should we check the order again? Things often do
 not work because something else is missing"). The same day four placeholders had made built things fail in silence -
@@ -1051,11 +1051,185 @@ to build them:
   on entering, the lava on the game's clock without dragon skin boots and with the djinn's mud at step 3, the swim view
   as a height on the walk's eye), RunSwimCheck on UWVitalsUw2's SwimCheckDue, fight refused while swimming; the
   second game's footsteps and swim strokes (make_noise: a stroke 0x1A every 15 steps panned left and right while
-  moving, footsteps by floor and ice) are not built, NEXT per user 2026-11-13; test list section 38. G2 COMPLETE but its test.
+  moving, footsteps by floor and ice) BUILT 2026-11-13 (UWPlayerNoiseRulesUw2 driven by UWPlayerTerrain at the
+  original's 20 calls a second, the speed measured as the first game's footsteps, which no longer play on the second
+  game; easy steps from UWPlayerMovement; no pan, DEVIATIONS; test list section 39); test list section 38. G2 COMPLETE but its test.
 - G3 TRAPS AND TRIGGERS: the second game's TrapKinds and DoActions tables (UE's nine new kinds, hack traps), move
   triggers for the player beyond teleports (UWMotionHost.fFireWalkTriggers) and for creatures, door, look, pick-up
   and use triggers, the trap search, the wandering monsters (RunRespawn 0, FiveMinuteBlockDue, YearlyCheckup), the
   level exit's tidying (WalkTeleport skips UWLevelExit.LeaveLevel), the automap flag pieces.
+  G3 PLANNED 2026-11-13 (from two surveys: Underworld Exhumed docs/behaviour/traps-triggers.md and uw2
+  event/TRIGGER.C against uw1, and our own gates). THE WAY (decided by the user 2026-11-13 after the comparison: the
+  second game's TRIGGER.C and WORLDEV.C are some 3500 lines against the first's 1500, nearly every step differs in
+  detail - the chain's going on and its else branch, numbered variables, who may set a trigger off, checkTrap over every
+  trigger, seven changed and ten new kinds, forty hack traps of its own): SHARED AND LEFT AS IT IS, the frame -
+  UWTrapTable and UWDoActionTable as types, IUWTrapHost, UWTrapChainRemoval, UWTriggerPacer, UWTrapLog, UWTrapDisarming
+  where it fits, UWRespawnRules, UWLevelExit, and UWTriggerSystem with a switch by game; THE SECOND GAME'S OWN CLASSES
+  for what the original kept apart - the chain walk with the else branch and the setters (UWTrapRulesUw2), its kinds,
+  the numbered variables, the hack traps - filling UWGameProfileUw2.TrapKinds, DoActions and Traps (all throw today);
+  the kinds that are the same (0x180 damage, 0x182 arrow, 0x186 spell, 0x189 ward) are CALLED from the first game's
+  rules, not copied. So UWTrapRules (2400 lines, tested on the first game) stays almost untouched and the first game
+  needs a counter-test only where the switch sits; the doubled part is the chain walk, which differs anyway, as the
+  two TRIGGER.C files show. Not against the lesson of GitHub issue 37: there a convenience in one game went beside
+  its own rule; here each game has its own rule on one frame, as the second game's magic (UWTargetSpellRulesUw2,
+  UWExtraSpellRulesUw2 on the shared casting). THE GATES that come off one by one: UWMotionHost.fFireWalkTriggers (teleports only) and the
+  creature/thing triggers in LateUpdate, UWTriggerSystem.fSecondGameWaits, UWDoor's open trigger, the walk's pick-up
+  and use, UWLookService's look trigger and trap search, UWSpellHostUw2.FireLookTrigger, UWWorld.RunRespawn,
+  UWVitalsUw2's missing FiveMinuteBlockDue, the walk's level change without UWLevelExit.LeaveLevel. SIX PARTS:
+  H1 THE SECOND GAME'S ENGINE: UWTrapRulesUw2's chain walk on the shared frame, the switch in UWTriggerSystem, the
+     tables with the kinds both games share (0x180 damage, 0x182 arrow,
+     0x186 spell, 0x189 ward, 0x18F null, 0x190 text - UW2 only with owner bit 5 clear) and the ones UW2 changed
+     (0x181 teleport's fine-x bits: from the ceiling, the facing, the map scrap; 0x185 terrain moving the neighbours'
+     things; 0x187 create object with the castle monster for template 0x7F and nothing in world 6 after quest 7;
+     0x188 door: the lock swapped only with owner set and after the move, the chain going on with owner 0; 0x18B
+     delete through trap_obj_del and the animation list; 0x18C inventory with worn and the else chain); the numbered
+     variables of 0x18D/0x18E (0-FF vars, 100-17F quest bits, 180-18F quest bytes, 190-19F X clocks, do_math_op's
+     eight ops, XC_CHANGED); the chain's SetOffTrap and RUN_ELSE_CHAIN; UseTrigger's setters (things need id bit 9 on
+     UW2); the player's and the creatures' move triggers on the full engine instead of the teleport-only walk.
+  H2 TRAP SEARCH AND DISARM: DetectedTrap and RemoveTrap from the look and the two spells (test 30.6 with a real
+     trap), Remove Trap's fumble setting the trap off, Open setting off a lock's trap.
+  H3 THE NEW TRAP KINDS: 0x184 sfx (sound, shake, flash), 0x18A skill-check condition, 0x191 experience, 0x192 jump,
+     0x193/0x194 change-from/to, 0x195 oscillator (with the sunken moongate on level 0x44), 0x196 proximity
+     condition, 0x197 pit, 0x198 bridge (place_bridge, destroy_bridge).
+  H4 THE TRIGGER KINDS AND THEIR SITES: the Triggers[16] modes from OBJECTS.DAT; pick-up (2), use (4, the sites the
+     walk has; the rest with G4), look (5) and Reveal, enter/exit (6/0xE, check_pplate on a change of square),
+     pressure/release (7/0xF with the plate's state in fine y, update_pplate), open/close (8/9), unlock (0xB), timer
+     (0xA: the level's list of up to 64, every z+1 ticks within 8 squares of the player or the roaming eye);
+     checkTrap walking every trigger and a switch's second state taking the second trap.
+  H5 TIME AND LEVELS: DoWanderingMonsters (create-object traps of flags 0 with a mobile template, out of sight; one
+     in four every 30th update, and on sleep), yearly_checkup, DoClosingDoors on sleep, FiveMinuteBlockDue on
+     UWVitalsUw2, the level exit's tidying (update_all_critters_whilst_player_snoozes, init_level_creature_stuff,
+     Sched_SetAllClocks), the automap pieces (the teleport's map scrap, hack 45).
+  H6 THE HACK TRAPS (do_trap_hack, 0x183): first the general ones (2 crystal ball, 3/4 eight-position switch, 5
+     trespass with owner, 21/22 raise or lower, 23/28 owner, 27 quality, 37 clocks, 39 invisible, 43 goal by whoami,
+     44 sleep, 45 map unseen, 62 the triggerer's goal), then the world's own (10 arena prize, 11 fraznium field, 12
+     standing wave, 14 texture cycling, 17 thin ice, 18 flip switch, 19 arrow pillars, 20 Scintillus pillars, 24
+     graffiti, 25 Bliy Skup, 26 force field, 29 random switches, 30/31 arena, 32 q*bert floor, 33 bottles, 34 Britannia
+     goes dry, 35 light spheres, 36 castle household, 38 cure potions, 40-42 vending machines, 54/55 blackrock gem) -
+     those that need G4 (using things) or G6 (schedules, plot deaths) wait for them.
+  H1 CUT IN TWO (2026-11-13): H1A BUILT the same day - UWTrapRulesUw2 (UseTrigger with the switch pass-on, the 16
+     modes of OBJECTS.DAT 0xD92 for both trigger classes, the setter test with id bit 9 for things; SetOffTrap and
+     UseTrap's chain, RUN_ELSE_CHAIN restricted to traps and triggers; set_numbered_variable and the check), the
+     profile's TrapKinds, DoActions (empty) and Traps (UWTrapVariantUw2: the fishing bite, the lock swap), the kinds
+     damage (UWTrapRules.FireDamageTrap, the same whack_thing), arrow (the first game's launch plus sound 0xA), teleport
+     (IUWWorld.TeleportSecondGame, the walk's blink, nobody but the player), set and check variable, null, text (owner
+     bit 5 with b62_5); UWTrapChainRemoval with both trigger classes for the second game (kill_triggers; the timer
+     list waits for H4); the move triggers of the player, creatures and things on it (UWMotionHost.TriggerMove takes
+     every trigger of mode 0, UWTriggerSystem.TryFireMoveTriggerUw2 with the scroll's presentation). Not called for
+     the second game: the ward (no ward trap in its levels, cast_trap_spell unused). uwdump traps --game uw2 lists
+     every trigger and its chain and counts the kinds (teleport 401, hack 218, terrain 187, door 140, create 96, spell
+     73, pit 72, set 65, oscillator 53, check 45, text 35, delete 31, jump 31). Self-check Uw2Traps, test list section 40.
+     H1B BUILT 2026-11-13: terrain (change_terrain of the second game: bounds 0xE/0xF/0x3F/10, water, lava or rock
+     removing lying things by Obj_Punt's culling, the neighbours' overlapping things by filter, above the ceiling
+     struck for 0xFF; creatures of the changed square through the host), create object (the first game's copy after
+     the quantity bit and the Tombs' quest 7; the adventurer template's random castle monster waits for H5), door
+     (moves first, the lock only with an owner, UWTrapVariantUw2.SwapsLock), delete object (a trap or trigger through
+     UWTrapChainRemoval.DeleteTrapObjectSecondGame = trap_obj_del, else the world's Remove), inventory (FindObj with its
+     slot, ObjWorn, the count, the else branch), spell (classes 5, 11/9, 13, 14 and the latent 6-8 with the trap as
+     the caster: UWTrapHost.FireSpellTrap's second-game branch - a missile from the trap's spot, the player's host for
+     class 13, a creature-like host at the trap for the rest; 0-4, 9, 10 and 11 but Tremor do nothing). Self-check
+     Uw2Traps on real chains (levels 25, 1, 13), test list section 41. H1 COMPLETE; next H2 (trap search and disarm).
+  H2 BUILT 2026-11-13: UWTrapRulesUw2.DetectTrap and RemoveTrap (SKILLS.C:874/893 - disarmed: delete_trap at the
+     trigger's square through UWTrapChainRemoval.AfterOneShotTrigger, both trigger classes; fumbled: UseTrigger with
+     mode -1 as by the player with the thing acted on; else "Unable to defuse trap."), CheckTrap (OBJUSE.C:388, every
+     trigger in a thing's chain for a mode, the switch's one, the plain trap on a use), the look's search on the walk
+     (UWWalkUw2View.fSearchForTrap: Look lit or the modern look key, wyorn's question in the scroll -
+     UWGameScreenUw2.AskYesNo on UWYesNoPrompt, the first game's yes/no input moved out of UWPromptController so both
+     games share it), Remove Trap ("if (DetectedTrap(...))": any detection but a plain failure), Detect Trap, Open's
+     checkTrap 0xB. Fixed: UWObjectSpellRulesUw2.TryFindTrap asked for the trigger's quantity bit clear and found no trap
+     behind most triggers. Self-check: level 13's trapped chests at 33/37 and 34/37. Test list section 42; test spot
+     level 26's doors 18/54 and 18/45. Next H3 (the new trap kinds).
+  H3 BUILT 2026-11-13: UWTrapRulesUw2's own kinds - special effect (do_sfx: sound 0x64 + owner, shake owner * 2, the
+     flash through FlashWindow, which the second game's presentation does not draw yet), skill (attribute, 15 or a skill
+     against owner * 3, rolled with heading 1; passing takes the else branch), experience ((q * 8 + (o & 7) - 0x100)
+     << (o >> 3) through UWPlayerVitals.ChangeExperience), jump (set_jmp on the player: IUWPlayerAvatar.Jump ->
+     UWPlayerMotion.Jump; a creature's or thing's not built), change from / to (do_change_grokking over the area or the
+     map), oscillator (height, floor or wall stepped within quality..owner, the turn kept in the trap's fine x, the
+     sunken moongate on level 0x44), proximity (UWTrapFiring.SetterSpot for a creature, the avatar's FeetSpot for the
+     player), pit, bridge (place_bridge, destroy_bridge). change_terrain takes adjust (1/3 step, 4 allows 15). The
+     conditions are decided before the kind's log line, so the skill roll is made once. Self-check on real chains
+     (levels 3, 5, 18, 33, 34). Test list section 43. Most of these hang on pressure, timer, open and use triggers: H4
+     next.
+  H4 BUILT 2026-11-13: the sites on checkTrap and UseTrigger - look (the walk's player_3dlook after the trap search,
+     inv_look before the look, with the Search a hidden look trigger asks; Reveal through UWSpellHostUw2.FireLookTrigger
+     with 45), pick-up (release_3d before the thing leaves its tile, then release on its plate), use (UseObj's checkTrap 4
+     after a door or the bed; levers, switches and the rest with G4), doors (UWDoor.Toggle: open 8, close 9 by the
+     mover, a swing turned round by nobody), a destroyed thing's use triggers (UWTriggerSystem.FireTraps). The plates
+     (UWTrapRulesUw2.CheckPlates after check_pplate: the first trigger as enter/exit, then the pressure mode; plates set
+     off as by the player through UWTrapHostAsPlayer, their state in fine y bit 0, the floor stepping with bit 1; the
+     weight of check_weight with the player's load and the creatures by their records; MoverMoved after change_GrSq,
+     set_phys_data and hgt_change) for the player and the creatures each frame (UWMotionHost.fFollowPlatesUw2), a thing
+     coming to rest, put down or taken up. The timers (TickTimers after update_animobj: the level's list, every z + 1 of
+     4 steps a second of game time, within 8 squares of the player or the roaming eye, not while time is frozen; a
+     deleted timer trigger leaves the list, rem_timer_obj). UseTrigger now answers whether it set its trap off (the
+     original's result), whatever the kind did. Self-check: level 2's enter trigger, level 26's heavy plate, level 3's
+     timer. Test list section 44. NOT YET: a thing in flight over a plate (ours only when it comes to rest), the
+     pressure test at every physics step (ours once a frame). Next H5 (time and levels).
+  H5 BUILT 2026-11-13: DoWanderingMonsters (UWTrapRulesUw2.FireWanderingTrap: flags 0, a mobile template marked
+     temporary, the trap run at its square; UWTriggerSystem.RespawnCreatures and FireTrapInTile take the walk's player and
+     the second game's rules, UWWorld.RunRespawn no longer waits), the 30-tick block on UWVitalsUw2 (FiveMinuteBlockDue:
+     the one-in-four roll and yearly_checkup, the first game's UWLevelExit.YearlyCheckup, the same code), the create trap
+     on its own (the roll, the crowding, the Tombs, and the adventurer template's random castle monster: RollCastleMonster
+     by the level in the world, XC_CASTLE and the character level, eligible by strength; the template set up and loner,
+     the copy hostile and temporary; UWTrapRules' create wrapper of H1b removed), the level exit's tidying on the walk's
+     level changes (UWLevelExit.LeaveLevel with the second game's rule that a creature coming to talk keeps its facing),
+     the night's creature pass with the same rule. The sleep's DoClosingDoors and wandering monsters were the shared
+     sleep's already (UWSleepRules), the doors now set off their close triggers (H4). NOT BUILT: init_level_creature_stuff
+     on arrival (ours sets the creatures up on the level build), Sched_SetAllClocks and the schedule's door hack (G6),
+     hack 45 (H6). Self-check: the castle monster's draw, a plain and an adventurer wandering trap of the shipped levels.
+     Test list section 45. Next H6 (the hack traps).
+  H6 CUT IN TWO (2026-11-13). H6A BUILT the same day: the profile's DoActions with the general hacks - 2 crystal ball
+     (the trigger's square, not with Search 45), 11 fraznium field, 14 texture cycle, 17 thin ice, 21/22 object height,
+     23/28 owner, 27 quality, 39 show or hide (IUWWorld.SetObjectHidden), 43 goal by whoami (IUWWorld.SetCreatureGoal),
+     45 map unseen (the automap's low nibble), 62 the setter's goal (UWTrapFiring.SetterIndex). The second game draws no
+     invisible thing any more (UWLevelLoader.fHideInvisibleObjects after the build; before, every ID_INVIS object but the
+     traps was drawn). Self-check: level 3's look trigger showing a switch, level 1's wall picture owner, made-up 22 and
+     14. Test list section 46. H6B NEXT: 32 q*bert (52 traps, needs the plate's square in the chain), 24 graffiti (the
+     wall picture redrawn), 20 and 19 pillars, 12 standing wave, 26 force field, 29 and 18 switches, 35 light spheres,
+     33 bottles, 34 courtyard, 38 cure potions, 25 Bliy Skup, 54/55 the gem; with G4 or G6: 5 trespass (the theft
+     rules), 10/30/31 the arena, 36/37 the schedules, 40-42 vending, 44 sleep.
+  H6B BUILT 2026-11-13: 55 black_gem_trip (the facet from the player's spot around 0xE3/0x143, open when used or shown,
+     worlds[] to UWTeleportUw2.FromWord, QB_WORLDS_VISITED with facets 5 and 6 swapped), 54 black_gem_rotate (vars[6]
+     by the castle plot), 12 standing wave (the phase kept in the trap), 18 switch flip (UWTrapRulesUw2.FlipSwitch through
+     IUWTrapHost.ToggleSwitchVisual, its use triggers as by nobody - UWTrapHostAsPlayer now takes any setter), 29 random
+     switches, 19 arrow pillars, 20 Scintillus pillars, 26 force fields, 35 light spheres (no sparkle). Self-check: the
+     facets and draw, level 5's gem bounced and travelling, a wave and a switch. Test list section 47. STILL OPEN: 32
+     q*bert (the plate's square in the chain), 24 graffiti, 33 bottles and 38 cure potions (a changed thing's picture
+     redrawn), 34 the courtyard, 25 Bliy Skup (fire_trigger_at, G6); with G4/G6 trespass, arena, vending, schedules,
+     sleep. G3 otherwise COMPLETE; next by the plan G4 (using things).
+  H6C BUILT 2026-11-13 (per user "Build the rest"): 24 graffiti, 33 bottles, 38 cure potions (morpheus_ruin_potion, the
+     player's pack and pointer when he stands there; the trap set as the potion's contents, UWObject.SetContents), 34 the
+     courtyard (kill_plants, the fountains, the mushrooms; its stages per session as the original's static), 25 Bliy
+     Skup (fire_trigger_at as UWTrapRulesUw2.FireTriggerAt, for G6 as well), 32 q*bert (all four owner ranges; the plate's
+     square from CheckPlates through UWTrapHostAsPlayer.PlateTile). A changed thing's picture: IUWWorld.RedrawObject
+     (UWWorldView.Redraw). Self-check: bottle, potion, Bliy Skup's crystals, the pyramid's colours. Test list section
+     48. G3 IS COMPLETE but for the hacks waiting for G4/G6 (5 trespass, 10/30/31 arena, 36/37 schedules, 40-42 vending,
+     44 sleep). Next G4.
+  G4 PART A BUILT 2026-11-13 (per user: without using things the traps cannot be tested): UseRect's wall controls
+     (UWUseRulesUw2.UseWallControl: switches flip_switch 3, the lever 0x161 and the switch picture 0x162 flags + 1 & 7,
+     then checkTrap 4), other wall pictures looked at, every world use ends with checkTrap 4; the locked door's
+     "The <door> is locked." with sound 0x2D; UseKey/UseThing as UWAttackUw2.BeginUseOn (GameInputMode 2 with
+     ObjectActing, the item's picture on the classic pointer, ended by any click), UseKeyOn through
+     UWLockRules.ToggleWithKey (IsOpenForKeySecondGame: an open door or container of class 0x80), UseLockpickOn as
+     UWLockRules.PickLockSecondGame (Picklock + 1, the fumble Outcome.Fumbled breaks the pick unless Dexterity against
+     20 saves it, no Picklock on an unlocked lock fails); an unlock fires checkTrap 0xB. The DEFAULT MODE's right
+     button (player_3dlook, player_3dget with def_mode): the look at the press, a drag takes, talks to a creature or wisp,
+     or uses on the release (per user). The use aims at the frontmost door or thing (pick_3d). Self-check: a level 1
+     switch, lever and picture, the pick's fumble/save/hard lock, the key on an open container. Test list section 49.
+     FIX the same day (per user, level 3's portcullis at 45/56 opened by hand): UWLockState finds the lock in the door's
+     chain (FindLoadedLock, checkLock's Obj_InList) instead of taking the first object; 16 doors of the second game hold
+     a door trap before the lock, none of the first.
+     STILL OPEN in G4: UseCont in the world (DumpTheBag, theft), fountains, instruments, the fishing pole, potions and
+     wands carried, oil and rock hammer on targets, UseUnique, the trespass/arena/vending/schedule/sleep hacks.
+     DJINN STEP 0 -> 2 BUILT 2026-11-14 (per user, the quest replayed from the start): do_filanium as
+     UWDjinnRulesUw2.OilInMud (spell 0xD/3 cast on use, floor texture 0xC1 = level 26's mud at 58-60/15-16), called from
+     both water landings (UWMotionHost.Splash for mob_to_static, UWWorldEdit.PutInWater for obj_deal), the line to the
+     scroll. The oil is a colorless potion 0xE6 with link 0x243 (levels 3, 57, 59, 67). No conversation sets the clock;
+     Zoranthus (conversation 96, Pits of Carnage) only tells the recipe. Self-check uw2 djinn; test list section 50. STEP 5 -> 6 BUILT the same day: remove_object's bottle branch as UWDjinnRulesUw2.BottleBroken (before 5 the daemon rends, 0xFF untyped; from 5 at level 69 21-22/52-53 absorbed: fill_FB(2), clock 6, castle 0xD -> 0xE, quests[26] bit 1, the bottle gone; elsewhere the flash and debris), hooked into UWMissiles.BecomeDebrisInFlight, UWTileBlast and UWContainerDamage: per user a blow hits the bottle in the original (resolve_attack's ObjectCheck takes every object with a height and the touch bit; of the second game's loose things only 0x116 has a height), so every loose sprite with a body gets health by the data alone (UWObjectSpawner; class 3 takes the blow and no harm, as the models - the fountain in both games, 0x117 in the first; for mods the same rule). UW2's fill_FB flashes were silent: UWSleepUw2's presentation now shows them. Still open: what reads step 6 (the horn, UseUnique; WORLDEV hack 0x8C).
+  LEFT TO G6: the scheduled triggers (mode 0xC, SCDEVENT.C ev_trigger, call_out_the_guards; TEST when built, from test list 51.2 on 2026-11-16: the castle people's day, hack 36 on level 1 (move_folks_around, CRITTIME.C maybe_go_hang_out: whoami 0x81-0x8F and 0xA8 get a new home and goal 1 while quest 109 is set and the castle plot is below 16), fired by the level 1 schedule's trigger at 30/44 every six units and caught up after every conversation (free_converse, Sched_SetAllClocks) - in the original Charles, set to goal 10, talked once and then went home with nearly all of the castle (SAVE3 against the original's SAVE4); TEST when built, moved from test list 48.4 on 2026-11-16: the castle courtyard, hack 34 on level 1 set off only by the scheduled trigger at 28/39 - plants wilt with the castle plot, fountains dry, later mushrooms), fire_trigger_at for plot
+  deaths, jail and the Prison Tower's level 2, do_level_hacks' world rules (the Void's automap, Killorn's crash, the TK
+  wand, the Tombs' genocide). ORDER: H1, H2 (it finishes section 30), H3, H4, H5, H6; each part its test list section
+  and checks on the second game's levels (TrapChecks run on UW1 only today).
 - G4 USING THINGS (needs G3 for levers and G1 for potions and wands): use on a target (keys, lockpicks - a locked
   door only says so), levers, switches, buttons, chests opened in place, shrines, fountains; carried potions, wands,
   keys, picks, instruments, the fishing pole; taking with its consequences (theft anger, pick-up triggers, pressure

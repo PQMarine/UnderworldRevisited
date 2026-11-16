@@ -35,6 +35,13 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
     private RawImage mOBlackImage;
 
+    /// <summary>fill_FB's flash over the view (2026-11-14; the second game's flashes were silent until then).</summary>
+    private GameObject mOFlash;
+
+    private RawImage mOFlashImage;
+
+    private float mfFlashLeft;
+
     private void Awake()
     {
         Current = this;
@@ -118,6 +125,14 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
     private void Update()
     {
+        if (mfFlashLeft > 0f)
+        {
+            mfFlashLeft -= Time.unscaledDeltaTime;
+
+            if (mfFlashLeft <= 0f && mOFlash != null)
+                mOFlash.SetActive(false);
+        }
+
         if (mfBlackLeft <= 0f)
             return;
 
@@ -181,6 +196,51 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         if (UWControlScheme.Shared != null)
             UWControlScheme.Shared.HoldInput(NightHold);
+    }
+
+    /// <summary>
+    /// fill_FB(colour): the view filled with one palette colour for a moment, input left alone (the first game's
+    /// UWHudPictures.FlashWindowColour). Where the black goes: the whole screen in the modern scheme, the frame's hole in
+    /// the classic one.
+    /// </summary>
+    private void fShowFlash(DataImport pOData, int piPaletteIndex, float pfSeconds)
+    {
+        if (pfSeconds <= 0f || pOData == null || pOData.Palettes == null)
+            return;
+
+        Camera lOCamera = UWGameScreenUw2.Current != null ? UWGameScreenUw2.Current.ViewCamera : null;
+        Rect lOView = lOCamera != null ? lOCamera.pixelRect : new Rect(0f, 0f, Screen.width, Screen.height);
+
+        if (mOFlash == null)
+        {
+            mOFlash = new GameObject("Flash", typeof(Canvas));
+
+            Canvas lOCanvas = mOFlash.GetComponent<Canvas>();
+
+            lOCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            lOCanvas.sortingOrder = UWUiSorting.NightUw2;
+            mOFlash.transform.SetParent(transform, false);
+
+            GameObject lOImage = new GameObject("Colour", typeof(RawImage));
+
+            lOImage.transform.SetParent(mOFlash.transform, false);
+            mOFlashImage = lOImage.GetComponent<RawImage>();
+            mOFlashImage.raycastTarget = false;
+        }
+
+        RectTransform lORect = (RectTransform)mOFlashImage.transform;
+
+        lORect.anchorMin = Vector2.zero;
+        lORect.anchorMax = Vector2.zero;
+        lORect.pivot = Vector2.zero;
+        lORect.anchoredPosition = lOView.position;
+        lORect.sizeDelta = lOView.size;
+
+        UWDataImport.UWData.UWColor32 lOColour = pOData.Palettes.GetPalette(0).GetUWColor(piPaletteIndex);
+
+        mOFlashImage.color = new Color32(lOColour.R, lOColour.G, lOColour.B, 255);
+        mOFlash.SetActive(true);
+        mfFlashLeft = pfSeconds;
     }
 
     private void fBuildBlack()
@@ -257,6 +317,7 @@ public sealed class UWSleepUw2 : MonoBehaviour
 
         public void FlashWindow(int piPaletteColour, float pfSeconds)
         {
+            mOOwner.fShowFlash(mOData, piPaletteColour, pfSeconds);
         }
 
         public void ShowNightBlack(float pfSeconds)

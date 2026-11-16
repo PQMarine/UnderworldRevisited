@@ -366,12 +366,14 @@ public class UWModernClassicFrame : MonoBehaviour
 
             case UWModernLayout.ElementEnum.Spells:
             {
-                // Up to SpellsRight columns further right than the original's x 100 as the stone
+                // The row ends at the original's first slot's right edge (x 86 + 16, row 136; until
+                // 2026-11-14 at 100, row 138), up to SpellsRight columns further right as the stone
                 // widens, so three icons clear the left dragon's head (x 36 to 72; per user's
-                // screenshot, 2026-10-10: "the active spells a little further right").
-                float lfRight = OffsetX + ((100 + Mathf.Min(Left, SpellsRight)) * ColumnScale);
+                // screenshot, 2026-10-10: "the active spells a little further right"). The icons
+                // themselves go to their slots (TryGetSpellIcon).
+                float lfRight = OffsetX + ((UWClassicLayout.ActiveSpells.Right + SpellIconWidth + Mathf.Min(Left, SpellsRight)) * ColumnScale);
 
-                pOPlace = new Rect(lfRight - pODefault.width, fTop(138) - pODefault.height, pODefault.width, pODefault.height);
+                pOPlace = new Rect(lfRight - pODefault.width, fTop(UWClassicLayout.ActiveSpells.Top) - pODefault.height, pODefault.width, pODefault.height);
                 return true;
             }
 
@@ -392,6 +394,29 @@ public class UWModernClassicFrame : MonoBehaviour
             default:
                 return false;
         }
+    }
+
+    /// <summary>The original's spell sprite's width (PANELS.C active_spells, 16 x 18).</summary>
+    private const int SpellIconWidth = 16;
+
+    /// <summary>
+    /// AN ACTIVE SPELL'S ICON AT THE ORIGINAL'S SLOT (per user 2026-11-14: in the modern scheme with
+    /// the classic frame they sat slightly off): the first at the right, x 86, 69 and 52, row 136
+    /// (UWClassicLayout.ActiveSpells, PANELS.C spell_x), moved right with the row on a widened
+    /// stone (SpellsRight), in screen pixels from the bottom. False outside this preset.
+    /// </summary>
+    public static bool TryGetSpellIcon(int piSlot, int piWidth, int piHeight, out Rect pORect)
+    {
+        pORect = Rect.zero;
+
+        if (!IsActive || piSlot < 0)
+            return false;
+
+        int liX = UWClassicLayout.ActiveSpells.Right - (piSlot * UWClassicLayout.ActiveSpells.Pitch) + Mathf.Min(Left, SpellsRight);
+
+        pORect = new Rect(OffsetX + (liX * ColumnScale), fTop(UWClassicLayout.ActiveSpells.Top) - (piHeight * RowScale),
+            piWidth * ColumnScale, piHeight * RowScale);
+        return true;
     }
 
     /// <summary>Whether a screen point lies on the frame, not in its hole: no click goes into the

@@ -134,6 +134,16 @@ namespace UWDataImport.UWData
 			Fallback = (int)UWSkillRaiseEnum.Off
 		};
 
+		/// <summary>The ice grip: Off, Half or Full (UWIceGripEnum); an unknown one reads Off.</summary>
+		public static readonly UWIntSettingDef IceGrip = new UWIntSettingDef(nameof(UWUserData.IceGrip), UWSettingKind.Choice,
+			d => d.IceGrip, (d, v) => d.IceGrip = v)
+		{
+			Normalize = UWSettingNormalize.InRangeOrFallback,
+			Min = 0,
+			Max = (int)UWIceGripEnum.Full,
+			Fallback = (int)UWIceGripEnum.Off
+		};
+
 		public static readonly UWBoolSettingDef KnowledgeShowAll = fBool(nameof(UWUserData.KnowledgeShowAll), d => d.KnowledgeShowAll, (d, v) => d.KnowledgeShowAll = v);
 
 		public static readonly UWBoolSettingDef HelpOpen = fBool(nameof(UWUserData.HelpOpen), d => d.HelpOpen, (d, v) => d.HelpOpen = v);
@@ -456,7 +466,7 @@ namespace UWDataImport.UWData
 		public static readonly UWSettingDef[] All =
 		{
 			GogInstallPath, KeyBindings, ColourMode, ColourStrength, ColourBrightness, ColourContrast, MarkPoison, ManualAttributes,
-			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
+			FixOriginalBugs, RemoveExploits, KnowledgeShowAll, LizardWords, ModernFont, ModernFontLanguage, SkillRaises, IceGrip, HelpOpen, HelpTab, CluebookConfirmed, HelpMapSpan, MinimapZoom, MinimapTurns, ModernUiPercent, ConversationTextPercent, ModernLayout,
 			InterfacePreset, ClassicWide4By3, MinimapHidden, ActionBarHidden, ModernCompass, ModernCompassDisc, ModernCompassOutline, ModernScroll,
 			ModernBacks, ModernScrollLines, ModernScrollWidth, ModernMessageLines, ModernMessageFade, InterfaceFont, ModernGemApart, ModernStoneShelf, ModernStoneShelfWidth,
 			ModernFlasksApart, ModernRuneHollow, ModernRuneHollowOutline, ModernRuneTablet, ModernStatsPanel, ModernCharacterPage,

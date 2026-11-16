@@ -21,6 +21,8 @@
 #define UW_PAINTER_ORDER_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
+// The floor heights, the ceiling and the solid tiles (UWPainterOwnTileFace).
+#include "UWOwnTile.hlsl"
 
 // UWWorldScale.TileSize.
 #define UW_PAINTER_TILE_SIZE 64.0
@@ -406,6 +408,40 @@ float UWPainterNearestModel(float pfModel, float2 pTile, float3 pPointWS, inout 
     return pfModel;
 }
 
+// THE TILE'S OWN FACES (per user, 2026-11-16, UW2 level 1, 39/45: the bowl on the shelf at the north wall was cut by
+// the wall when seen along it). A sprite turned to the eye beside a wall reaches into it, and the wall in front of that
+// part lies near the shelf's pivot - so it went with the shelf, painted after the bowl, and covered it. The original
+// paints the tile's floor, ceiling and walls before all its objects. A surface this close to the tile's floor or
+// ceiling, or to a side whose neighbour is solid, is the tile's own (_UWFloorHeights, UWOwnTile.SetFloorHeights).
+#define UW_PAINTER_OWN_FACE 0.5
+
+bool UWPainterSolidTile(float2 pTile)
+{
+    if (any(pTile < 0.0) || any(pTile > 63.0))
+        return true;
+
+    return LOAD_TEXTURE2D(_UWFloorHeights, int2(pTile)).r >= UW_SOLID_TILE_FLOOR;
+}
+
+bool UWPainterOwnTileFace(float2 pTile, float3 pSurfaceWS)
+{
+    if (_UWFloorHeightsReady < 0.5)
+        return false;
+
+    float lfFloor = LOAD_TEXTURE2D(_UWFloorHeights, int2(pTile)).r;
+
+    if (abs(pSurfaceWS.y - lfFloor) < UW_PAINTER_OWN_FACE
+        || (_UWOwnTileCeilingY > 0.0 && abs(pSurfaceWS.y - _UWOwnTileCeilingY) < UW_PAINTER_OWN_FACE))
+        return true;
+
+    float2 lIn = pSurfaceWS.xz - ((pTile * UW_PAINTER_TILE_SIZE) - (UW_PAINTER_TILE_SIZE * 0.5));
+
+    return (lIn.x < UW_PAINTER_OWN_FACE && UWPainterSolidTile(pTile + float2(-1.0, 0.0)))
+        || (lIn.x > UW_PAINTER_TILE_SIZE - UW_PAINTER_OWN_FACE && UWPainterSolidTile(pTile + float2(1.0, 0.0)))
+        || (lIn.y < UW_PAINTER_OWN_FACE && UWPainterSolidTile(pTile + float2(0.0, -1.0)))
+        || (lIn.y > UW_PAINTER_TILE_SIZE - UW_PAINTER_OWN_FACE && UWPainterSolidTile(pTile + float2(0.0, 1.0)));
+}
+
 // Whether the surface behind the sprite's pixel belongs to a model painted after the sprite -
 // then it may cover it. The surface goes with the model whose pivot is nearest, within half a
 // tile (per user, 2026-10-03: the emerald in the gravestone of 17/35 was still cut, because the
@@ -417,6 +453,10 @@ bool UWPainterModelPaintsAfter(float2 pTile, float3 pSurfaceWS, float pfSpritePl
 {
     if (any(pTile < 0.0) || any(pTile > 63.0))
         return true;
+
+    // The tile's own floor, ceiling and walls never belong to a model, however near its pivot.
+    if (UWPainterOwnTileFace(pTile, pSurfaceWS))
+        return false;
 
     float4 lModels = LOAD_TEXTURE2D(_UWModelOrder, int2(pTile));
 
@@ -542,16 +582,28 @@ bool UWPainterSpriteVisibleTrue(float2 pPixel, float2 pSpriteTile, float3 pPivot
     return dot(lSurface - _WorldSpaceCameraPos, lForward) >= dot(pPositionWS - _WorldSpaceCameraPos, lForward) - 1.0 - pfNearer;
 }
 
-// The sprites among themselves still by the painter's order, written into a thin band in front
-// of all geometry (a surface nearer than 1.1 times the near plane is never seen). The geometry
-// is not compared by depth any more but by UWPainterSpriteVisible.
+// The sprites among themselves still by the painter's order, written into a band in front of all
+// geometry (a surface nearer than twice the near plane, 0.6 units, is never seen: the body keeps
+// the eye farther from every wall). The geometry is not compared by depth any more but by
+// UWPainterSpriteVisible.
+//
+// HALF THE DEPTH RANGE, NOT A TENTH (per user, 2026-11-16: the plant in its bowl on a castle shelf
+// was in front of the bowl from one side and behind it from another). The band holds every place
+// of the order, some 92,000; in a tenth of the range each had about 18 steps of the depth buffer
+// (2^-24 near 1), and the chain order inside a place - a 64th of it - fell below one step, so the
+// nearness decided after all. Half the range gives a place about 90 steps; see the chain's share
+// in UWBillboardPalette.
 float UWPainterSpriteBandDepth(float pfPainterDepth)
 {
     #if UNITY_REVERSED_Z
-    return 0.9 + (pfPainterDepth * 0.1);
+    return 0.5 + (pfPainterDepth * 0.5);
     #else
-    return pfPainterDepth * 0.1;
+    return pfPainterDepth * 0.5;
     #endif
 }
+
+// How many places in a tile's chain order the sprites of one place (UWBillboardPalette): each
+// then keeps some five depth steps. Things later than this in the chain tie with the last.
+#define UW_PAINTER_CHAIN_STEPS 16.0
 
 #endif

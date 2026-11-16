@@ -86,7 +86,7 @@ public class UWWalkUw2View : MonoBehaviour
     private bool fIsInputTaken()
     {
         return UWControlScheme.SharedControls == null || UWSetupMenu.IsCapturingInput || UWGameScreenUw2.IsOptionsOpen || UWMapScreenUw2.IsOpen
-            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWControls.IsTextEntryActive
+            || UWConversationScreenUw2.IsOpen || UWGameScreenUw2.IsAskingCount || UWGameScreenUw2.IsAskingYesNo || UWControls.IsTextEntryActive
             || (UWSleepUw2.Current != null && UWSleepUw2.Current.IsNight) || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
     }
 
@@ -228,6 +228,10 @@ public class UWWalkUw2View : MonoBehaviour
     /// with the bags open, a door opens or closes; the rest of using is the second game's rules (phase 4).</summary>
     private void fModernUse()
     {
+        // A key or a lockpick waiting for its lock takes the use key as its click (G4 part A).
+        if (UWAttackUw2.Current != null && UWAttackUw2.Current.ApplyWaitingUseOn())
+            return;
+
         UWEntityInfo lOThing = fFirstEntity();
         UWEntityInfo lOPickable = fPickableEntity(false);
 
@@ -246,23 +250,39 @@ public class UWWalkUw2View : MonoBehaviour
             fToggleDoor(true);
     }
 
-    /// <summary>A right press with no command or Look: the look comes when the button comes up, unless
-    /// the pointer is dragged off first - then the thing is taken ("look and drag to get",
-    /// mous_in_3d's default).</summary>
+    /// <summary>
+    /// THE DEFAULT MODE'S RIGHT BUTTON (player_3dlook and player_3dget with def_mode, uw2 ui/INTERACT.C; G4 part A,
+    /// per user 2026-11-13): the press looks at once, as the first game's (UWClickRules); with no command the press then
+    /// waits for a drag. Dragged, a thing that can be taken is taken (or "too far away" / "cannot reach"); a creature or
+    /// a wisp is talked to and anything else used when the button comes up (player_3dtalk, player_3duse, both after
+    /// mouse_release) - the door, the switch or the lever under the pointer at the press. Look mode does not drag.
+    /// </summary>
     private bool mbLookPending;
+
+    /// <summary>The drag went past the threshold over a thing that is not taken: the talk or the use comes with the
+    /// release.</summary>
+    private bool mbDragUsePending;
 
     private Vector2 mOLookPressAt;
 
     private UWEntityInfo mOLookTarget;
+
+    private UseTarget mOPressTarget;
 
     /// <summary>How far the pointer moves, in screen pixels, before a held right button takes.</summary>
     public const float DragToTakePixels = 6f;
 
     private void fBeginLookPress()
     {
-        mbLookPending = true;
         mOLookPressAt = UWPointer.Position;
         mOLookTarget = fPickableEntity(false);
+        mOPressTarget = fUseTargetNow();
+        mbDragUsePending = false;
+
+        fLook();
+
+        // Look mode looks and is done (mouse_release); the default waits for the drag.
+        mbLookPending = UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.None;
     }
 
     private void fFollowLookPress(UnityEngine.InputSystem.Mouse pOMouse, UWInventoryModel pOInventory)
@@ -270,18 +290,44 @@ public class UWWalkUw2View : MonoBehaviour
         if (pOMouse == null || !pOMouse.rightButton.isPressed)
         {
             mbLookPending = false;
-            fLook();
+
+            if (mbDragUsePending)
+            {
+                mbDragUsePending = false;
+                fTalkOrUse(mOPressTarget);
+            }
 
             return;
         }
 
-        if ((UWPointer.Position - mOLookPressAt).magnitude < DragToTakePixels)
+        if (mbDragUsePending || (UWPointer.Position - mOLookPressAt).magnitude < DragToTakePixels)
             return;
+
+        // The frontmost door or thing that is not taken goes to the release; else what can be taken is.
+        bool lbFrontNotTaken = mOPressTarget.Door != null || (mOPressTarget.Thing != null && !mOPressTarget.Thing.CanBePickedUp);
+
+        if (lbFrontNotTaken)
+        {
+            mbDragUsePending = true;
+
+            return;
+        }
 
         mbLookPending = false;
 
         if (mOLookTarget != null && mOLookTarget.CanBePickedUp)
-            fTake(mOLookTarget, pOInventory, false);
+            fTake(mOLookTarget, pOInventory, true);
+    }
+
+    /// <summary>player_3dget's def_mode branch: a creature or a wisp is talked to, anything else used.</summary>
+    private void fTalkOrUse(UseTarget pOTarget)
+    {
+        UWObject lOData = pOTarget.Door == null && pOTarget.Thing != null ? pOTarget.Thing.ObjectData : null;
+
+        if (lOData != null && (lOData is UWNpc || UWTalkRulesUw2.IsWisp(lOData)) && mOScreen != null)
+            mOScreen.TalkTo(pOTarget.Thing);
+        else
+            fUseAt(pOTarget, true);
     }
 
     /// <summary>
@@ -379,11 +425,17 @@ public class UWWalkUw2View : MonoBehaviour
         if (piCount < UWStackRules.CountAtLeastOne(lOItem) && pOInventory.TakeFromStack(lOItem, piCount))
             return;
 
+        // release_3d: the thing's pick-up triggers (mode 2) before it leaves its tile (G3 part H4).
+        UWTriggerSystem.CheckTrapUw2(lOItem, UWTrapRulesUw2.PickUpMode, lOItem.TileX, lOItem.TileY, mOLoader);
+
         if (lOItem.GetCategory() == UWObject.ObjectCategoryEnum.Containers && mOLoader.CurrentLevel.Masterlist != null)
             lOItem.EnsureContentsLoaded(mOLoader.CurrentLevel.Masterlist);
 
         mOLoader.RemoveObjectFromWorld(lOItem);
         Destroy(pOEntity.gameObject);
+
+        // check_pplate with release (0xF) on the square it left, at its height (player_3dget, G3 part H4).
+        UWTriggerSystem.CheckPlatesUw2(lOItem.TileX, lOItem.TileY, lOItem.ZPos, UWTrapRulesUw2.ReleaseMode, mOLoader, UWTrapRules.Setter.Thing);
         pOInventory.PickUpToCursor(lOItem);
     }
 
@@ -450,6 +502,9 @@ public class UWWalkUw2View : MonoBehaviour
 
         pOInventory.ReleaseCursorItem();
         pOInventory.ApplyCarriedLight();
+
+        // The thing put down arrives on its square (set_phys_data's enter, then the plates; G3 part H4).
+        UWTriggerSystem.CheckPlatesUw2(lOItem.TileX, lOItem.TileY, lOItem.ZPos, UWTrapRulesUw2.EnterMode, mOLoader, UWTrapRules.Setter.Thing);
     }
 
     private bool fTryThrow(UWInventoryModel pOInventory, UWObject pOItem, Transform pOCamera)
@@ -472,15 +527,15 @@ public class UWWalkUw2View : MonoBehaviour
         return true;
     }
 
-    /// <summary>What the view's centre or the free pointer points at within DoorReach, nearest first.</summary>
-    private RaycastHit[] fHits()
+    /// <summary>What the view's centre or the free pointer points at within DoorReach (or pfRange), nearest first.</summary>
+    private RaycastHit[] fHits(float pfRange = DoorReach)
     {
         Camera lOCamera = UWViewpoint.Current;
 
         if (lOCamera == null)
             return new RaycastHit[0];
 
-        RaycastHit[] lOHits = Physics.RaycastAll(fPointerRay(lOCamera), DoorReach, ~0, QueryTriggerInteraction.Collide);
+        RaycastHit[] lOHits = Physics.RaycastAll(fPointerRay(lOCamera), pfRange, ~0, QueryTriggerInteraction.Collide);
         System.Array.Sort(lOHits, (pOA, pOB) => pOA.distance.CompareTo(pOB.distance));
 
         return lOHits;
@@ -498,37 +553,117 @@ public class UWWalkUw2View : MonoBehaviour
             : pOCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
     }
 
-    /// <summary>Opens or closes the door pointed at; a locked one says so in the scroll. pbSayOther: a
-    /// use of something else says it is not in the walk yet.</summary>
-    private void fToggleDoor(bool pbSayOther)
+    /// <summary>What a use aims at: the frontmost door or thing under the pointer within DoorReach (pick_3d).</summary>
+    private struct UseTarget
     {
-        foreach (RaycastHit lOHit in fHits())
+        public UWDoor Door;
+
+        public UWEntityInfo Thing;
+    }
+
+    /// <summary>The frontmost door or thing along the pointer's ray, measured now. Until G4 part A (2026-11-13) a door
+    /// anywhere along the ray came first; now the frontmost wins, so a switch beside a door is the switch.</summary>
+    private UseTarget fUseTargetNow()
+    {
+        // TELEKINESIS LIFTS THE USE'S REACH (UWReachRules.GetDistanceSquared, the original's pick distance 0 for "any"):
+        // the switches high on the wall of the Scintillus pillar hall (level 43) are worked with it, and the ray stopped
+        // at DoorReach (per user, 2026-11-16). Taking had it since 2026-11-11 (fPickableEntity).
+        bool lbTelekinesis = UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.HasTelekinesis;
+
+        foreach (RaycastHit lOHit in fHits(lbTelekinesis ? UWWorldPicker.Range : DoorReach))
         {
             UWDoor lODoor = lOHit.collider.GetComponentInParent<UWDoor>();
 
-            if (lODoor == null)
-                continue;
+            if (lODoor != null)
+                return new UseTarget { Door = lODoor };
 
+            UWEntityInfo lOInfo = lOHit.collider.GetComponentInParent<UWEntityInfo>();
+
+            if (lOInfo != null && lOInfo.ObjectData != null)
+                return new UseTarget { Thing = lOInfo };
+
+            // Over the long reach a wall or floor of the level ends the search: nothing behind it is used.
+            if (lbTelekinesis && lOHit.collider.GetComponent<UnderworldRevisited.Build.UWLevelChunk>() != null)
+                break;
+        }
+
+        return default(UseTarget);
+    }
+
+    /// <summary>The Use command and the modern use: the door or thing under the pointer now.</summary>
+    private void fToggleDoor(bool pbSayOther)
+    {
+        fUseAt(fUseTargetNow(), pbSayOther);
+    }
+
+    /// <summary>The minor class of the wall pictures (UseRect's minor 2: what is not the lever, the switch picture or the
+    /// bed is looked at).</summary>
+    private const int WallPictureClass = 0x160;
+
+    /// <summary>The rattle of a locked door (UseRect's minor 0, play_effect(0x2D)).</summary>
+    private const int LockedDoorSound = 0x2D;
+
+    /// <summary>
+    /// UseObj on a thing in the world (uw2 obj/OBJUSE.C, USEITEMS.C UseRect; G4 part A): a door opens or closes, a locked
+    /// one says "The door is locked." with its rattle; the bed sleeps; a switch flips and the lever and the switch picture
+    /// step (UWUseRulesUw2); another wall picture is looked at. Every use ends with checkTrap(who, obj, 4) - its use
+    /// triggers. pbSayOther: a use not built yet says so.
+    /// </summary>
+    private void fUseAt(UseTarget pOTarget, bool pbSayOther)
+    {
+        UWDoor lODoor = pOTarget.Door;
+
+        if (lODoor != null)
+        {
             if (lODoor.IsLocked)
-                UWGameScreenUw2.Say(UWText.T("hud.walk.door_locked"));
+            {
+                DataImport lOData = mOLoader != null ? mOLoader.UWDataImporter : null;
+
+                UWGameScreenUw2.Say(lODoor.Data != null && lOData != null
+                    ? UWItemMessages.IsLocked(lOData, lODoor.Data.ID) : UWText.T("hud.walk.door_locked"));
+                UWAudioService.PlayEffect(LockedDoorSound);
+            }
             else
                 lODoor.Toggle(UWTrapRules.Setter.Player);
 
+            // UseObj's checkTrap with mode 4 after the use, locked or not (G3 part H4).
+            if (lODoor.Data != null)
+                UWTriggerSystem.CheckTrapUw2(lODoor.Data, UWTrapRulesUw2.UseMode, lODoor.Data.TileX, lODoor.Data.TileY, mOLoader);
+
             return;
         }
 
-        UWEntityInfo lOThing = fFirstEntity();
+        UWEntityInfo lOThing = pOTarget.Thing;
+        UWObject lOObject = lOThing != null ? lOThing.ObjectData : null;
+
+        if (lOObject == null)
+        {
+            if (pbSayOther)
+                UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+
+            return;
+        }
 
         // UseRect: the bed puts the player to sleep.
-        if (lOThing != null && lOThing.ObjectData != null && lOThing.ObjectData.ID == UWSleepUw2.BedObjectId && UWSleepUw2.Current != null)
+        if (lOObject.ID == UWSleepUw2.BedObjectId && UWSleepUw2.Current != null)
         {
             UWSleepUw2.Current.InBed();
+            UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
 
             return;
         }
 
-        if (pbSayOther)
+        // UseRect's switches, the lever and the switch picture, their use triggers with them.
+        if (UWTriggerSystem.UseWallControlUw2(lOObject, mOLoader))
+            return;
+
+        // UseRect's minor 2: any other wall picture is looked at (RectLook).
+        if ((lOObject.ID & 0x1F0) == WallPictureClass && UWAttackUw2.Current != null && UWAttackUw2.Current.Look != null)
+            UWAttackUw2.Current.Look.LookAtTarget(lOThing, null);
+        else if (pbSayOther)
             UWGameScreenUw2.Say(UWText.T("hud.walk.not_yet"));
+
+        UWTriggerSystem.CheckTrapUw2(lOObject, UWTrapRulesUw2.UseMode, lOObject.TileX, lOObject.TileY, mOLoader);
     }
 
     /// <summary>The look of the walk: the first game's picker and look (player_3dlook), the thing in front or the
@@ -548,6 +683,49 @@ public class UWWalkUw2View : MonoBehaviour
             ? Interaction.ChunkDescriptionAt(mOLoader != null ? mOLoader.UWDataImporter : null, lOMeasured.FrontmostHit) : null;
 
         UWAttackUw2.Current.Look.LookAtTarget(lOThing, lsChunk);
+
+        // THE TRAP SEARCH (player_3dlook, G3 part H2): with Look lit on the command bar - or the modern look key, the
+        // deliberate look as in the first game (UWUiSchemePolicy.TrapSearchNeedsLookMode) - a Search roll against
+        // 10 + twice the world finds a trap in the thing's chain and asks whether to disarm it.
+        if (lOThing != null && lOThing.ObjectData != null && mOScreen != null
+            && (UWGameScreenUw2.Command == UWGameScreenUw2.CommandEnum.Look || !UWControlScheme.Ui.Policy.TrapSearchNeedsLookMode))
+            fSearchForTrap(lOThing.ObjectData);
+
+        // checkTrap with mode 5 after every look (player_3dlook): the thing's look triggers, a hidden one only for the
+        // Search its z asks (G3 part H4).
+        if (lOThing != null && lOThing.ObjectData != null)
+            UWTriggerSystem.CheckTrapUw2(lOThing.ObjectData, UWTrapRulesUw2.LookMode, lOThing.ObjectData.TileX, lOThing.ObjectData.TileY,
+                mOLoader, UWTrapRules.Setter.Player, fSearchSkill());
+    }
+
+    /// <summary>The player's Search, 0 without vitals.</summary>
+    private static int fSearchSkill()
+    {
+        return UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null
+            ? UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Search) : 0;
+    }
+
+    /// <summary>DetectedTrap(thing, Search) &gt; 0: "You found a trap! Do you wish to try to disarm it?", and on yes
+    /// RemoveTrap(thing, Traps) (UWTrapRulesUw2).</summary>
+    private void fSearchForTrap(UWObject pOThing)
+    {
+        UWPlayerVitals lOVitals = UWVitalsUw2.Current != null ? UWVitalsUw2.Current.Vitals : null;
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+
+        if (lOVitals == null || lOLevel == null || UWGameScreenUw2.IsAskingYesNo)
+            return;
+
+        UWSkillCheck.ResultEnum? leFound = UWTrapRulesUw2.DetectTrap(pOThing, lOLevel.Masterlist,
+            lOVitals.GetSkill(UWPlayerData.Skill.Search), mOLoader.CurrentLevelIndex + 1);
+
+        if (!leFound.HasValue || !UWSkillCheck.IsSuccess(leFound.Value))
+            return;
+
+        mOScreen.AskYesNo(UWText.General(mOLoader.UWDataImporter, UWTrapRulesUw2.TrapFoundString), pbYes =>
+        {
+            if (pbYes && UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+                UWTriggerSystem.RemoveTrapUw2(pOThing, UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Traps), mOLoader);
+        });
     }
 
     /// <summary>The rows the light reaches (SHADES.DAT), as UWPlayerTerrain.ViewingDistance.</summary>

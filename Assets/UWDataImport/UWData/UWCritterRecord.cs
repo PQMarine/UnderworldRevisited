@@ -263,7 +263,13 @@ namespace UWDataImport.UWData
 
 		/// <summary>Byte 0x0A bit 7: attitude locked - skipped by the kin alarm, theft and the
 		/// kind balancing (scripts only).</summary>
-		public bool AttitudeLocked => fBit(UWNpcRecordCodec.StateByte, 7);
+		public bool AttitudeLocked
+		{
+			get { return fBit(UWNpcRecordCodec.StateByte, 7); }
+
+			// SET_LONER: the second game's random castle monster (UWTrapRulesUw2, G3 part H5).
+			set { fSetBit(UWNpcRecordCodec.StateByte, 7, value); }
+		}
 
 		// ------------------------------------------------- Word 0x0B: goal, gtarg, frame
 
@@ -433,7 +439,7 @@ namespace UWDataImport.UWData
 		/// missile, 7 backing off, 0x0C dying, 0x0D spell, 0x20 standing, 0x2C walking).</summary>
 		public int Animation
 		{
-			get { return fGame != null ? fGame.SlotOfRecord(fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F) : fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
+			get { return fGame != null ? fGame.SlotOfRecord(fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F, SpellSlot) : fRaw()[UWNpcRecordCodec.AnimationByte] & 0x3F; }
 			set { fSetBits(UWNpcRecordCodec.AnimationByte, 0x3F, fGame != null ? fGame.RecordOfSlot(value) : value); }
 		}
 

@@ -275,10 +275,11 @@ dotnet run --project Tools/UWSelfCheck -- "C:\GOG Games\Ultima Underworld 1"
 
 ## How this was made
 
-I have been a fan of Ultima Underworld ever since it came out in 1992. In 2012 I came
+I have been a fan of Ultima Underworld ever since it came out in 1992. In 2011 I came
 across uw-formats.txt, a text file describing the game's data formats, more or less by
-chance, and thought: why not give it a try? That was the start of this project, but I
-never had the time or the experience to take it further. In 2026, with the help of Claude
+chance, and thought: why not give it a try? I got as far as walking around, opening doors
+and swinging a weapon, but in 2012 the project fell asleep for lack of time and experience.
+In 2026, with the help of Claude
 (Anthropic's AI model, via Claude Code), I picked it up again. Since then the code has
 been written by Claude; I decided what to build, tested every behaviour against the
 original game and confirmed or rejected the results.

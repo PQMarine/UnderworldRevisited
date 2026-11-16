@@ -85,6 +85,39 @@ namespace UnderworldRevisited.Tools
             }
 
             Check.Str("uw2 models: the 3D object types with a model (as read), each model with geometry", liTyped + " " + string.Join(" ", lsNoGeometry), "26 ");
+
+            // The importer's lookup of that table (UW3DModelImport.GetObjectModel, 2026-11-16): the bed, the large blackrock
+            // gem and the shelf of the second game; the first game's table names the shrine and the bench as its mapping does.
+            Check.Str("uw2 models: GetObjectModel - bed, large blackrock gem, shelf; none past the table or below it",
+                lOUw2.GetObjectModel(0x167) + " " + lOUw2.GetObjectModel(0x168) + " " + lOUw2.GetObjectModel(0x169) + " "
+                + lOUw2.GetObjectModel(0x16F) + " " + lOUw2.GetObjectModel(0x170) + " " + lOUw2.GetObjectModel(0x14F),
+                "29 30 31 -1 -1 -1");
+
+            // THE LARGE BLACKROCK GEM (UWBlackrockGemLook, do_rect model 0x1E): the registers its faces are painted from,
+            // and the colours: facets 0 and 3 used, facet 5 shown, the rest dark; the body pulsing; all used blinking.
+            SortedSet<int> lOGemRegisters = new SortedSet<int>();
+
+            foreach (UW3DModelFace lOFace in lOUw2.GetModel(UWBlackrockGemLook.Model).Faces)
+                if (lOFace.Uvs == null)
+                    lOGemRegisters.Add(lOFace.ColorRegister);
+
+            List<string> lsFacets = new List<string>();
+
+            foreach (int liRegister in new[] { 0, 1, 2, 0xC, 0xD, 0xE, 0xF, 0x10 })
+                lsFacets.Add(UWBlackrockGemLook.Colour(liRegister, 0x09, 5, 0).ToString("X2"));
+
+            Check.Str("uw2 models: the gem's face registers (as read); facets 0 and 3 used, 5 shown; the body over 512 ticks; all used",
+                string.Join(",", lOGemRegisters) + " | " + string.Join(" ", lsFacets) + " | "
+                + UWBlackrockGemLook.Colour(3, 0x09, 5, 0).ToString("X2") + UWBlackrockGemLook.Colour(3, 0x09, 5, 0xC0).ToString("X2")
+                + UWBlackrockGemLook.Colour(3, 0x09, 5, 0x100).ToString("X2") + UWBlackrockGemLook.Colour(3, 0x09, 5, 0x1C0).ToString("X2")
+                + " | " + UWBlackrockGemLook.Colour(3, 0xFF, 5, 0).ToString("X2") + UWBlackrockGemLook.Colour(0, 0xFF, 5, 0).ToString("X2")
+                + UWBlackrockGemLook.Colour(0, 0xFF, 5, 0x80).ToString("X2") + UWBlackrockGemLook.Colour(4, 0x09, 5, 0),
+                "0,1,2,3,12,13,14,15,16 | 4D 52 52 4D 52 4F 52 52 | 53565653 | 504C4F-1");
+
+            if (lOUw1 != null)
+                Check.Str("uw2 models: the first game's table through GetObjectModel - shrine, bench",
+                    lOUw1.GetObjectModel(0x157) + " " + lOUw1.GetObjectModel(0x150),
+                    UW3DModelImport.ModelIndex.Shrine + " " + UW3DModelImport.ModelIndex.Bench);
         }
     }
 }

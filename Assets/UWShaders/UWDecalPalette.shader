@@ -22,6 +22,12 @@ Shader "UW/DecalPalette"
         // Double-sided unless a panel asks otherwise: the wall panels 366/367 are drawn from the
         // front only, as the original's model 0x16 (UWObjectSpawner.fGetSingleSided).
         [HideInInspector] _Cull ("Cull", Float) = 0
+
+        // The floor of the model's own tile, per renderer (UWObjectSpawner) - only read with the keyword _UW_OWN_TILE,
+        // which only the textured faces of 3D models carry (their own copy of the material), as UW/ModelPalette does for
+        // the single-coloured faces. Without it a model's textured face lost against its own coloured faces (per user
+        // 2026-11-16: a table leg showed through the table's top) - see UWOwnTile.hlsl.
+        [HideInInspector] _UWModelFloorY ("Model Floor", Float) = -100000
     }
 
     SubShader
@@ -46,8 +52,11 @@ Shader "UW/DecalPalette"
             #pragma fragment UWFragment
             #pragma target 3.0
 
+            #pragma multi_compile_local_fragment _ _UW_OWN_TILE
+
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "UWPaletteLookup.hlsl"
+            #include "UWOwnTile.hlsl"
             #include "UWPaletteEffects.hlsl"
 
             TEXTURE2D(_IndexTex);
@@ -56,6 +65,7 @@ Shader "UW/DecalPalette"
             CBUFFER_START(UnityPerMaterial)
                 float4 _IndexTex_ST;
                 float _Cutoff;
+                float _UWModelFloorY;
             CBUFFER_END
 
             struct Attributes
@@ -84,8 +94,19 @@ Shader "UW/DecalPalette"
                 return OUT;
             }
 
-            half4 UWFragment(Varyings IN) : SV_Target
+            half4 UWFragment(Varyings IN, bool pbFrontFace : SV_IsFrontFace
+                #if defined(_UW_OWN_TILE)
+                    , out float outDepth : SV_Depth
+                #endif
+                ) : SV_Target
             {
+                #if defined(_UW_OWN_TILE)
+                    // Only the side facing the viewer - see UWOwnTile.hlsl on the back of a model.
+                    outDepth = pbFrontFace
+                        ? UWOwnTileDepth(IN.positionWS, TransformObjectToWorld(float3(0, 0, 0)), _UWModelFloorY, IN.positionCS.z)
+                        : IN.positionCS.z;
+                #endif
+
                 half4 raw = SAMPLE_TEXTURE2D(_IndexTex, sampler_IndexTex, IN.uv);
 
                 clip(raw.a - _Cutoff);
@@ -124,6 +145,7 @@ Shader "UW/DecalPalette"
             CBUFFER_START(UnityPerMaterial)
                 float4 _IndexTex_ST;
                 float _Cutoff;
+                float _UWModelFloorY;
             CBUFFER_END
 
             struct Attributes

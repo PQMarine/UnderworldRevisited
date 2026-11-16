@@ -6,8 +6,9 @@ namespace UWDataImport.UWData
 	///
 	/// - newFPS (uw2 motion/PHYSICS.C:748-770): the speeds are the full ones times a share out of 20 -
 	///   on foot 20, swimming Swimming / 2 + 4, lava 14, ice 20, levitating 1, flying 14, slow falling
-	///   4 - and the turn rate the same share on the ground (the states below levitation), not the
-	///   swimming skill's but the table's 6.
+	///   4. It also sets a turn rate (pTurn, the same share on the ground) that nothing reads: the turn
+	///   is PlayerTurn in every state (PHYSICS.C:402, 671), as in the first game. Until 2026-11-14 ours
+	///   turned with pTurn, in water at 6/20 and on lava at 14/20 (per user: turning in water too slow).
 	/// - The view swings towards the motion by up to 0x600 a step (PHYSICS.C:591-596).
 	/// - No fall damage on levels 65 to 72, (PlayerLevel - 1) / 8 == 8 (PHYSICS.C:604).
 	/// - Lava spares nobody (PLAYMOVE.C:520); an impact hurts above 0x180, a creature a quarter, an
@@ -25,9 +26,6 @@ namespace UWDataImport.UWData
 
 		/// <summary>The swimming state's index.</summary>
 		public const int SwimmingState = 1;
-
-		/// <summary>The first state whose turn is not scaled (levitating).</summary>
-		public const int FirstUnscaledTurnState = 4;
 
 		/// <summary>The swimming share: Swimming / 2 + this.</summary>
 		public const int SwimmingShareBase = 4;
@@ -53,9 +51,10 @@ namespace UWDataImport.UWData
 			return piBase * liShare / ShareDivisor;
 		}
 
+		/// <summary>The full turn in every state: newFPS's pTurn is never read (see the class comment).</summary>
 		public int ScaleTurn(int piTurnStep, int piState)
 		{
-			return piState < FirstUnscaledTurnState ? piTurnStep * TwentiethsByState[piState] / ShareDivisor : piTurnStep;
+			return piTurnStep;
 		}
 
 		public int FacingFollow => FacingFollowStep;
@@ -66,6 +65,20 @@ namespace UWDataImport.UWData
 		}
 
 		public bool IceAndCurrents => true;
+
+		public bool PutDownSplashes => true;
+
+		/// <summary>The light splash below this mass, the middle one below MediumSplashMass, else the first game's.</summary>
+		public const int LightSplashMass = 20;
+
+		public const int MediumSplashMass = 100;
+
+		public int WaterLandingSound(int piMass, out int piVolume)
+		{
+			piVolume = 0;
+
+			return piMass < LightSplashMass ? 0x18 : piMass < MediumSplashMass ? 0x19 : 5;
+		}
 
 		/// <summary>Water only (per user, 2026-11-06: with Bouncing one hopped on snow in the original, ours
 		/// stopped dead there - the first game's bit test took the ice, terrain 3, for water).</summary>

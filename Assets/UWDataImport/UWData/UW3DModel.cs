@@ -101,6 +101,10 @@ namespace UWDataImport.UWData
         /// </summary>
         public int ColorIndex;
 
+        /// <summary>The colour register the face was painted from (before the model's colour record resolved it) - for
+        /// the models whose registers the game sets per draw (the large blackrock gem, UWBlackrockGemLook).</summary>
+        public int ColorRegister;
+
         /// <summary>
         /// Only valid (not -1) if IsGouraud is set: the "other" table slot in
         /// the UW3DModelImport colour record of this model (slot+1, with wraparound) - the

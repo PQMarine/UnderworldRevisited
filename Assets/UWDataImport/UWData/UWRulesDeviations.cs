@@ -39,6 +39,10 @@ namespace UWDataImport.UWData
 			"The debris of a destroyed potion or scroll drops the spell it carried (false: as the original, the pile casts it for ever). Set by the Game option Remove exploits of the original.")]
 		public bool DebrisLosesSpell = UWObjectDamageRules.DebrisLosesSpellApplied;
 
+		[UWRule(typeof(UWPlayerMotion), nameof(UWPlayerMotion.GroundedFlightBouncesOnIceApplied),
+			"Standing on the second game's ice under Levitate or Fly the player bounces off walls as without the spell (false: as the original, he slides along them and sticks head-on). Set by the Game option Fix bugs of the original.")]
+		public bool GroundedFlightBouncesOnIce = UWPlayerMotion.GroundedFlightBouncesOnIceApplied;
+
 		/// <summary>
 		/// THE GAME WINDOW'S "FIX BUGS OF THE ORIGINAL" (bug plan, per user 2026-11-03: one option for all of them, on by
 		/// default): the switches of the original's bugs that can cost the game, set together before a rules.json is
@@ -49,6 +53,7 @@ namespace UWDataImport.UWData
 			ConversationPatches = pbOn;
 			UnpushableNpcs = pbOn;
 			TidyLeakedObjects = pbOn;
+			GroundedFlightBouncesOnIce = pbOn;
 		}
 
 		/// <summary>

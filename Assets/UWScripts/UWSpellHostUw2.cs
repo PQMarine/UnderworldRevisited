@@ -137,8 +137,25 @@ public sealed class UWSpellHostUw2 : IUWSpellHost, IUWSpellHostUw2
     {
     }
 
+    /// <summary>sp_true_sight (uw2 SPELLS2.C:439): the first look trigger (0x1A3) in the thing's chain goes off with mode 5
+    /// as by the player, his Search raised to piSearchSkill for the call (G3 part H4).</summary>
     public bool FireLookTrigger(UWObject pOObject, int piSearchSkill)
     {
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+
+        if (pOObject == null || lOLevel == null || pOObject.HasQuantity || pOObject.Quantity == 0)
+            return false;
+
+        foreach (UWObject lOHeld in UWObjectChain.Walk(pOObject, lOLevel.Masterlist, lOLevel.Masterlist.Count))
+        {
+            if (lOHeld != null && lOHeld.ID == UWObjectMechanics.LookTriggerId)
+            {
+                UWTriggerSystem.UseTriggerUw2(pOObject, lOHeld, UWTrapRulesUw2.LookMode, mOLoader, piSearchSkill);
+
+                return true;
+            }
+        }
+
         return false;
     }
 

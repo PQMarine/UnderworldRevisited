@@ -28,9 +28,9 @@ namespace UnderworldRevisited.Tools
             Check.Str("profile: the second game's values (phase 0 step 4)", lOUw2.Game + "|" + lOUw2.ImageFolder + "|" + lOUw2.Executable + "|" + lOUw2.ExecutableSize + "|"
                 + lOUw2.ExecutableSha1 + "|" + lOUw2.CacheFolder + "|" + lOUw2.SaveFolder + "|" + lOUw2.GameFolder,
                 "Uw2|UW2|UW2.EXE|675184|41a23de0fa85c375920ae5d0dbd2ec5f4657c758|UW2|UNDEROM2|UW2");
-            Check.Bool("profile: the second game's rule set exists (phase 2 step 4), its other variants not yet (asking throws)",
+            Check.Bool("profile: the second game's rule set exists (phase 2 step 4), and every variant, the trap tables last (G3 part H1)",
                 lOUw2.CreateOriginalRules() != null && lOUw2.Motion != null
-                && fThrowsNotSupported(() => lOUw2.TrapKinds), true);
+                && lOUw2.TrapKinds != null && lOUw2.DoActions != null && lOUw2.Traps != null, true);
             Check.Str("profile: the first game is playable, the second not yet (phase 0 step 5)", lOUw1.IsPlayable + " " + lOUw2.IsPlayable, "True False");
 
             // The second game's compression: three literals, then the ring's 4078 for three ("abcabc");
@@ -63,21 +63,6 @@ namespace UnderworldRevisited.Tools
 
             if (pOContext.HasData)
                 fCheckMagicVariantAsked(pOContext);
-        }
-
-        /// <summary>Whether asking throws NotSupportedException.</summary>
-        private static bool fThrowsNotSupported(System.Func<object> pFAsk)
-        {
-            try
-            {
-                pFAsk();
-
-                return false;
-            }
-            catch (System.NotSupportedException)
-            {
-                return true;
-            }
         }
 
         /// <summary>
@@ -206,11 +191,13 @@ namespace UnderworldRevisited.Tools
             IUWCritterVariant lICritter = UWGameProfiles.Uw2.Critter;
             string lsGot = string.Empty;
 
+            // A cast carries its spell slot (OBJ_CAST), a shot none: sequence 6 comes back as either (AI.C:1136, test 19.9).
             foreach (int liSlot in new[] { UWCritterBrain.AnimStanding, UWCritterBrain.AnimWalking, UWCritterBrain.AnimCombatIdle, UWCritterBrain.AnimBash,
-                UWCritterBrain.AnimSpell, UWCritterBrain.AnimDying })
-                lsGot += lICritter.RecordOfSlot(liSlot) + ":" + (lICritter.SlotOfRecord(lICritter.RecordOfSlot(liSlot)) == liSlot) + " ";
+                UWCritterBrain.AnimSpell, UWCritterBrain.AnimMissile, UWCritterBrain.AnimDying })
+                lsGot += lICritter.RecordOfSlot(liSlot) + ":" + (lICritter.SlotOfRecord(lICritter.RecordOfSlot(liSlot), liSlot == UWCritterBrain.AnimSpell ? 1 : 0) == liSlot) + " ";
 
-            Check.Str("uw2 critter: the brain's slots as the record's sequences, and back", lsGot.Trim(), "0:True 1:True 2:True 3:True 6:True 7:True");
+            Check.Str("uw2 critter: the brain's slots as the record's sequences, and back (spell with a slot, missile without)", lsGot.Trim(),
+                "0:True 1:True 2:True 3:True 6:True 6:True 7:True");
         }
 
         /// <summary>uw2 print_info and pass_time's step, their strings as our block counts them.</summary>
@@ -973,10 +960,10 @@ namespace UnderworldRevisited.Tools
                 lIMotion2.ScaleSpeed(lOSpeed, 100, 0, 0) + " " + lIMotion2.ScaleSpeed(lOSpeed, 100, 1, 0) + " " + lIMotion2.ScaleSpeed(lOSpeed, 100, 1, 30) + " "
                 + lIMotion2.ScaleSpeed(lOSpeed, 100, 2, 0) + " " + lIMotion2.ScaleSpeed(lOSpeed, 100, 4, 0) + " " + lIMotion2.ScaleSpeed(lOSpeed, 100, 5, 0) + " "
                 + lIMotion2.ScaleSpeed(lOSpeed, 100, 6, 0), "100 20 95 70 5 70 20");
-            Check.Str("profile: the second game's turn of 100 (foot, swimming, lava, ice, levitating), the follow, falls on 64, 65, 72, 73",
+            Check.Str("profile: the second game's turn of 100 (foot, swimming, lava, ice, levitating - PlayerTurn always, pTurn is never read), the follow, falls on 64, 65, 72, 73",
                 lIMotion2.ScaleTurn(100, 0) + " " + lIMotion2.ScaleTurn(100, 1) + " " + lIMotion2.ScaleTurn(100, 2) + " " + lIMotion2.ScaleTurn(100, 3) + " "
                 + lIMotion2.ScaleTurn(100, 4) + " " + lIMotion2.FacingFollow.ToString("X") + " " + lIMotion2.FallHurts(64) + " " + lIMotion2.FallHurts(65) + " "
-                + lIMotion2.FallHurts(72) + " " + lIMotion2.FallHurts(73), "100 30 70 100 100 600 True False False True");
+                + lIMotion2.FallHurts(72) + " " + lIMotion2.FallHurts(73), "100 100 100 100 100 600 True False False True");
             // munge_vectors (part C): no strength keeps the first; full ice strength takes the second (100
             // east as 15/16 of it, the table's 0x7FFF / 0x800 = 15: 93); a current of 0x8D east added to 100
             // north (vector 2115, 1500, a sixteenth 132, 93: speed 161, heading NE).
@@ -1005,6 +992,21 @@ namespace UnderworldRevisited.Tools
                 + lIMotion.LandsInWater(5) + " / " + lIMotion2.LandsInWater(0) + " " + lIMotion2.LandsInWater(1) + " " + lIMotion2.LandsInWater(2) + " "
                 + lIMotion2.LandsInWater(3) + " " + lIMotion2.LandsInWater(5),
                 "False True False True True / False True False False True");
+
+            Check.Str("profile: an object put down in water splashes (first game, second game; obj_deal)",
+                lIMotion.PutDownSplashes + " " + lIMotion2.PutDownSplashes, "False True");
+
+            System.Func<IUWMotionVariant, int, string> lFSplash = (pIMotion, piMass) =>
+            {
+                int liSound = pIMotion.WaterLandingSound(piMass, out int liVolume);
+
+                return liSound.ToString("X") + "@" + liVolume;
+            };
+
+            Check.Str("profile: the sound of a fall into water at mass 3, 50, 800 (first game, second game; do_zbounce)",
+                lFSplash(lIMotion, 3) + " " + lFSplash(lIMotion, 50) + " " + lFSplash(lIMotion, 800) + " / "
+                + lFSplash(lIMotion2, 3) + " " + lFSplash(lIMotion2, 50) + " " + lFSplash(lIMotion2, 800),
+                "5@-11 5@-11 5@4 / 18@0 19@0 5@0");
 
             // The first game's conversation steps.
             IUWConversationVariant lIConversation = UWGameProfiles.Uw1.Conversation;
@@ -1144,6 +1146,10 @@ namespace UnderworldRevisited.Tools
             public bool ImpactWearUndone => true;
 
             public bool LandsInWater(int piFlags) => (piFlags & 1) != 0;
+
+            public bool PutDownSplashes => false;
+
+            public int WaterLandingSound(int piMass, out int piVolume) { piVolume = 0; return 5; }
         }
 
         /// <summary>An item variant whose steps give themselves away: every light is used up, the
@@ -1208,7 +1214,7 @@ namespace UnderworldRevisited.Tools
 
             public bool CorpseAlways(int piDungeonLevel) => false;
 
-            public int SlotOfRecord(int piRaw) => piRaw;
+            public int SlotOfRecord(int piRaw, int piCastSlot) => piRaw;
 
             public int RecordOfSlot(int piSlot) => piSlot;
 

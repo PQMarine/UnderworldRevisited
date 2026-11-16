@@ -436,6 +436,9 @@ namespace UnderworldRevisited.Tools
                 case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.SkillRaises:
                     return ((UWSkillRaiseEnum)lOInt.Read(pOData)).ToString();
 
+                case UWIntSettingDef lOInt when lOInt == UWUserSettingsTable.IceGrip:
+                    return ((UWIceGripEnum)lOInt.Read(pOData)).ToString();
+
                 case UWIntSettingDef lOInt when lOInt.Normalize == UWSettingNormalize.InRangeOrFallback:
                     return ((UWHeadBobRules.ModeEnum)lOInt.Read(pOData)).ToString();
 

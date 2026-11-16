@@ -441,8 +441,10 @@ namespace UnderworldRevisited.Tools
                 + UWPlayerRecordUw2.Skill(lOBack, 0) + "," + UWPlayerRecordUw2.Skill(lOBack, 1) + "," + UWPlayerRecordUw2.Skill(lOBack, 2) + ","
                 + UWPlayerRecordUw2.Skill(lOBack, 3) + " " + UWBinary.Read32(lOBack.Record, UWPlayerRecordUw2.GameClockOffset).ToString("X") + " "
                 + lOBack.Record[UWPlayerRecordUw2.EasyOffset] + " " + (UWBinary.ReadU16(lOBack.Workspace, UWInventoryWorkspace.PlayerLinkOffset) >> 6)
+                // The workspace: the header and the empty record 0, as the count word 1 says (91 until 2026-11-14, which
+                // failed the first save with something carried).
                 + " " + lOBack.CountWord + " " + lOBack.Workspace.Length,
-                "7F-20-00-6C-00-00-00-00-23-00-00-00-00-00-00-00-00-00-00-00-00-01-00-4F-00-00-FD | Tester 5 3 True True 25/15/14 35 35 3 1 625 9,7,0,8 465000 1 0 1 91");
+                "7F-20-00-6C-00-00-00-00-23-00-00-00-00-00-00-00-00-00-00-00-00-01-00-4F-00-00-FD | Tester 5 3 True True 25/15/14 35 35 3 1 625 9,7,0,8 465000 1 0 1 99");
         }
 
         /// <summary>

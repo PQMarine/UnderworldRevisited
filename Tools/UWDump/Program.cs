@@ -90,6 +90,8 @@ namespace UnderworldRevisited.Tools
             fRegister("tile", "<1-9> <x> <y> [radius]", "tile type, heights, textures and objects", true, fPrintTile);
             fRegister("object", "<id>", "properties of an object type", true, fPrintObject);
             fRegister("triggers", "", "every move trigger, its flags and traps", true, fPrintMoveTriggers);
+            fRegister("traps", "[level] [--id 0xNNN]", "--game uw2: every trigger and the trap chain behind it, a count per kind", true,
+                (pOContext, pOArgs) => { Console.Error.WriteLine("traps reads the second game (--game uw2); for the first see triggers."); return 1; });
             fRegister("where", "<id|from-to ...> [--level n] [--detail]", "where objects lie, inside containers too", true, fPrintWhere);
             fRegister("npcs", "[1-9|all]", "creatures with their behaviour fields", true, fPrintNpcs);
             fRegister("conv", "[slot|all] [--out dir] | --run <slot|all>", "conversations as bytecode, or run (answer 1 each time)", true, fConversation);
@@ -261,7 +263,7 @@ namespace UnderworldRevisited.Tools
             Console.WriteLine("game.gog itself - the image is then extracted into a cache once. Without it the");
             Console.WriteLine("environment variable UW_DATA is used, then the common installation folders.");
             Console.WriteLine("--game uw2 reads the second game from the same game.gog (its own cache): info, strings, find, level,");
-            Console.WriteLine("maprender, conv, pictures and palette so far.");
+            Console.WriteLine("maprender, conv, pictures, palette and traps so far.");
             Console.WriteLine("--save <folder> reads the world of a save game (SAVE1 ...) instead of the pristine one.");
             Console.WriteLine("--strings <file> lays a game-text pack (Languages/<code>.strings.tsv) over the English");
             Console.WriteLine("strings, as the game does, e.g. to see a translated conversation with conv --run;");

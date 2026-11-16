@@ -99,7 +99,7 @@ namespace UnderworldRevisited.Tools
 
         /// <summary>The commands that read the second game so far (phase 1 step 6): the format readers'
         /// survey, the strings, a level's map and objects, the maps as pictures, the conversations.</summary>
-        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures", "palette" };
+        private static readonly List<string> msUw2Commands = new List<string> { "info", "strings", "find", "level", "maprender", "conv", "pictures", "palette", "traps" };
 
         /// <summary>A command on the second game's data, without DataImport.</summary>
         private static int fRunUw2(string psName, DumpContext pOContext, List<string> pOArgs)
@@ -115,6 +115,7 @@ namespace UnderworldRevisited.Tools
                 case "conv": return fConversationUw2(pOContext, pOArgs);
                 case "pictures": return fDumpPictures(pOContext, pOArgs);
                 case "palette": return fDumpPalette(pOContext, pOArgs);
+                case "traps": return fPrintTrapsUw2(pOContext, pOArgs);
                 default: return fPrintInfoUw2(pOContext);
             }
         }
@@ -150,7 +151,7 @@ namespace UnderworldRevisited.Tools
                 return 1;
             }
 
-            UWArk lOArk = UWArk.Read(Path.Combine(pOContext.DataPath, "LEV.ARK"), pOContext.Game.ArchiveLayout);
+            UWArk lOArk = UWArk.Read(Path.Combine(pOContext.SavePath ?? pOContext.DataPath, "LEV.ARK"), pOContext.Game.ArchiveLayout);
             byte[] lyBlock = lOArk.ReadBlock(lOFile.MapBlock(liLevel - 1));
             UWLevelBlock lOBlock = UWLevelBlock.Read(lyBlock, lOFile);
 
@@ -159,6 +160,22 @@ namespace UnderworldRevisited.Tools
                 Console.Error.WriteLine("Level " + liLevel + " is not in the archive.");
 
                 return 4;
+            }
+
+            int liFloorAt = pOArgs.IndexOf("--floor");
+
+            if (liFloorAt > 0 && liFloorAt + 1 < pOArgs.Count && fParse(pOArgs[liFloorAt + 1], out int liFloorId))
+            {
+                // --floor id: every tile whose floor shows that texture (the level's texture map, TxmID).
+                UWTextureMapUw2 lOMap = UWTextureMapUw2.Read(lOArk.ReadBlock(lOFile.TextureMapBlock(liLevel - 1)));
+
+                for (int liTile = 0; liTile < 64 * 64; liTile++)
+                {
+                    if (lOBlock.TileType(liTile) != 0 && lOMap != null && lOMap.Textures[lOBlock.FloorTexture(liTile)] == liFloorId)
+                        Console.WriteLine(string.Format("{0,2}/{1,2}  type {2}  floor height {3}", liTile & 63, liTile >> 6, lOBlock.TileType(liTile), lOBlock.FloorHeight(liTile)));
+                }
+
+                return 0;
             }
 
             int liCentreX = pOArgs.Count > 2 ? fArgument(pOArgs, 1, 32) : 32;
@@ -203,6 +220,166 @@ namespace UnderworldRevisited.Tools
             }
 
             return 0;
+        }
+
+        /// <summary>traps --game uw2 [level] [--id 0xNNN]: every trigger lying in a tile or held by an object there
+        /// (a lock, a switch), with its target square and the chain of traps behind it (each trap's link, as UseTrap
+        /// follows it; a condition trap's else branch is the linked object's next), then a count of every trap kind
+        /// reached and where it is first met. With --id only the chains holding that trap kind (G3, 2026-11-13).</summary>
+        private static int fPrintTrapsUw2(DumpContext pOContext, List<string> pOArgs)
+        {
+            UWLevArkFile lOFile = pOContext.Game.LevArk;
+            UWArk lOArk = UWArk.Read(Path.Combine(pOContext.SavePath ?? pOContext.DataPath, "LEV.ARK"), pOContext.Game.ArchiveLayout);
+            List<string> lsNames = pOContext.Strings.Blocks.TryGetValue(4, out UWStringBlock lONames) ? lONames.Strings : new List<string>();
+            int liOnly = 0;
+            int liWanted = -1;
+
+            for (int liArg = 0; liArg < pOArgs.Count; liArg++)
+            {
+                if (pOArgs[liArg] == "--id" && liArg + 1 < pOArgs.Count)
+                    fParse(pOArgs[++liArg], out liWanted);
+                else if (fParse(pOArgs[liArg], out int liLevelArg))
+                    liOnly = liLevelArg;
+            }
+
+            SortedDictionary<int, int> lOCounts = new SortedDictionary<int, int>();
+            Dictionary<int, List<string>> lOSites = new Dictionary<int, List<string>>();
+
+            for (int liLevel = 1; liLevel <= lOFile.LevelCount; liLevel++)
+            {
+                if (liOnly > 0 && liLevel != liOnly)
+                    continue;
+
+                byte[] lyBlock;
+
+                try
+                {
+                    lyBlock = lOArk.ReadBlock(lOFile.MapBlock(liLevel - 1));
+                }
+                catch
+                {
+                    continue;
+                }
+
+                UWLevelBlock lOBlock = lyBlock != null ? UWLevelBlock.Read(lyBlock, lOFile) : null;
+
+                if (lOBlock == null)
+                    continue;
+
+                for (int liTile = 0; liTile < 64 * 64; liTile++)
+                {
+                    foreach (KeyValuePair<int, int> lOObject in fTileObjectsUw2(lyBlock, lOBlock, liTile))
+                        fTrapsUnder(lyBlock, lsNames, liLevel, liTile & 63, liTile >> 6, lOObject.Value, 0, liWanted, lOCounts, lOSites);
+                }
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Trap kinds reached from triggers:");
+
+            foreach (KeyValuePair<int, int> lOCount in lOCounts)
+            {
+                string lsName = lOCount.Key + 1 < lsNames.Count ? fOneLine(lsNames[lOCount.Key + 1]) : "?";
+
+                Console.WriteLine(string.Format("  0x{0:X3} {1,-24} {2,4}   first at {3}", lOCount.Key, lsName, lOCount.Value,
+                    string.Join(", ", lOSites[lOCount.Key])));
+            }
+
+            return 0;
+        }
+
+        /// <summary>A tile object, and what it holds, searched for triggers (four deep).</summary>
+        private static void fTrapsUnder(byte[] pyBlock, List<string> pONames, int piLevel, int piX, int piY, int piObject, int piDepth,
+            int piWanted, SortedDictionary<int, int> pOCounts, Dictionary<int, List<string>> pOSites)
+        {
+            int liAt = UWLevArkLayout.ObjectOffset(piObject);
+
+            if (piDepth > 3 || liAt + 8 > pyBlock.Length)
+                return;
+
+            int liWord0 = UWBinary.ReadU16(pyBlock, liAt);
+            int liId = liWord0 & 0x1FF;
+
+            if (liId >= 0x1A0 && liId < 0x1C0)
+            {
+                fPrintTriggerChain(pyBlock, pONames, piLevel, piX, piY, piObject, piWanted, pOCounts, pOSites);
+
+                return;
+            }
+
+            if ((liWord0 & 0x8000) != 0)
+                return;
+
+            int liNext = UWBinary.ReadU16(pyBlock, liAt + 6) >> 6;
+
+            for (int liSteps = 0; liNext > 0 && liSteps < 64; liSteps++)
+            {
+                int liItemAt = UWLevArkLayout.ObjectOffset(liNext);
+
+                if (liItemAt + 8 > pyBlock.Length)
+                    return;
+
+                fTrapsUnder(pyBlock, pONames, piLevel, piX, piY, liNext, piDepth + 1, piWanted, pOCounts, pOSites);
+                liNext = UWBinary.ReadU16(pyBlock, liItemAt + 4) >> 6;
+            }
+        }
+
+        /// <summary>One trigger and its chain, on one line each step.</summary>
+        private static void fPrintTriggerChain(byte[] pyBlock, List<string> pONames, int piLevel, int piX, int piY, int piTrigger,
+            int piWanted, SortedDictionary<int, int> pOCounts, Dictionary<int, List<string>> pOSites)
+        {
+            List<string> lsSteps = new List<string>();
+            List<int> liKinds = new List<int>();
+            int liAt = UWLevArkLayout.ObjectOffset(piTrigger);
+            int liTrigger = UWBinary.ReadU16(pyBlock, liAt) & 0x1FF;
+            int liTargetX = UWBinary.ReadU16(pyBlock, liAt + 4) & 0x3F;
+            int liTargetY = UWBinary.ReadU16(pyBlock, liAt + 6) & 0x3F;
+            int liLink = UWBinary.ReadU16(pyBlock, liAt + 6) >> 6;
+            HashSet<int> lOSeen = new HashSet<int>();
+
+            for (int liSteps = 0; liLink > 0 && liLink < UWLevArkLayout.ObjectCount && liSteps < 12 && lOSeen.Add(liLink); liSteps++)
+            {
+                int liTrapAt = UWLevArkLayout.ObjectOffset(liLink);
+
+                if (liTrapAt + 8 > pyBlock.Length)
+                    break;
+
+                int liWord0 = UWBinary.ReadU16(pyBlock, liTrapAt);
+                int liWord1 = UWBinary.ReadU16(pyBlock, liTrapAt + 2);
+                int liId = liWord0 & 0x1FF;
+
+                if ((liId >> 6) != 6)
+                {
+                    lsSteps.Add(string.Format("[{0} {1}]", liId, liId + 1 < pONames.Count ? fOneLine(pONames[liId + 1]) : "?"));
+
+                    break;
+                }
+
+                lsSteps.Add(string.Format("0x{0:X3}(q{1} o{2} z{3} h{4} fx{5} fy{6} #{7})", liId, UWBinary.ReadU16(pyBlock, liTrapAt + 4) & 0x3F,
+                    UWBinary.ReadU16(pyBlock, liTrapAt + 6) & 0x3F, liWord1 & 0x7F, (liWord1 >> 7) & 7, (liWord1 >> 13) & 7, (liWord1 >> 10) & 7, liLink));
+
+                if (liId >= 0x1A0)
+                    break;
+
+                liKinds.Add(liId);
+                liLink = UWBinary.ReadU16(pyBlock, liTrapAt + 6) >> 6;
+            }
+
+            if (piWanted >= 0 && !liKinds.Contains(piWanted))
+                return;
+
+            foreach (int liKind in liKinds)
+            {
+                pOCounts[liKind] = pOCounts.TryGetValue(liKind, out int liCount) ? liCount + 1 : 1;
+
+                if (!pOSites.TryGetValue(liKind, out List<string> lsSites))
+                    pOSites[liKind] = lsSites = new List<string>();
+
+                if (lsSites.Count < 3)
+                    lsSites.Add(string.Format("{0}:{1}/{2}", piLevel, piX, piY));
+            }
+
+            Console.WriteLine(string.Format("L{0,2} {1,2}/{2,2}  0x{3:X3} flags {4} -> {5}/{6}  {7}", piLevel, piX, piY, liTrigger,
+                (UWBinary.ReadU16(pyBlock, liAt) >> 9) & 0xF, liTargetX, liTargetY, string.Join(" > ", lsSteps)));
         }
 
         /// <summary>What an object holds (its quantity bit clear and a link in word 3): the chain along the
@@ -286,7 +463,7 @@ namespace UnderworldRevisited.Tools
             Directory.CreateDirectory(lsOut);
 
             UWLevArkFile lOFile = pOContext.Game.LevArk;
-            UWArk lOArk = UWArk.Read(Path.Combine(pOContext.DataPath, "LEV.ARK"), pOContext.Game.ArchiveLayout);
+            UWArk lOArk = UWArk.Read(Path.Combine(pOContext.SavePath ?? pOContext.DataPath, "LEV.ARK"), pOContext.Game.ArchiveLayout);
             UWTerrainUw2 lOTerrain = new UWTerrainUw2(File.ReadAllBytes(Path.Combine(pOContext.DataPath, "TERRAIN.DAT")));
             int liSize = 64 * MapPixelsPerTile;
 

@@ -100,11 +100,117 @@ public static class UWTriggerSystem
         return UWTrapRules.TryFireMoveTrigger(pOTrigger, new UWTrapHost(pOLevelLoader, pOInteraction, pOCritter, piThingIndex));
     }
 
+    /// <summary>
+    /// THE SECOND GAME'S MOVE TRIGGER (G3 part H1, 2026-11-13): UseTrigger with mode 0 on its own rules
+    /// (UWTrapRulesUw2), the player as the setter unless a creature (pOCritter) or a thing in flight (piThingIndex) moved
+    /// into it. Its lines go to the second game's scroll.
+    /// </summary>
+    public static bool TryFireMoveTriggerUw2(UWObject pOTrigger, UWLevelLoader pOLevelLoader, UWCritter pOCritter, int piThingIndex)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        if (lOWorld == null)
+            return false;
+
+        return UWTrapRulesUw2.UseTrigger(null, pOTrigger, UWTrapRulesUw2.MoveMode,
+            new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), pOCritter, piThingIndex));
+    }
+
+    /// <summary>The second game's RemoveTrap with the player at work (UWTrapRulesUw2.RemoveTrap, G3 part H2): its lines in
+    /// the scroll, a fumbled one sets the trigger off. Null when the thing holds no trap to disarm.</summary>
+    public static UWSkillCheck.ResultEnum? RemoveTrapUw2(UWObject pOThing, int piSkill, UWLevelLoader pOLevelLoader)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        return lOWorld != null ? UWTrapRulesUw2.RemoveTrap(pOThing, piSkill, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), null, 0)) : null;
+    }
+
+    /// <summary>The second game's checkTrap (UWTrapRulesUw2.CheckTrap, G3 parts H2 and H4): the triggers in a thing's chain
+    /// for a pick-up, a use, a look, an open, a close or an unlock, as by peSetter (the player, a creature, or a thing or
+    /// nobody). piSearchSkill: the Search a look trigger with a z asks for.</summary>
+    public static void CheckTrapUw2(UWObject pOObject, int piMode, int piTileX, int piTileY, UWLevelLoader pOLevelLoader,
+        UWTrapRules.Setter peSetter = UWTrapRules.Setter.Player, int piSearchSkill = 0)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        if (lOWorld != null)
+            UWTrapRulesUw2.CheckTrap(pOObject, piMode, piTileX, piTileY, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), peSetter),
+                piSearchSkill);
+    }
+
+    /// <summary>The second game's UseRect on a switch, the lever or the switch picture, and its use triggers, as by the
+    /// player (UWUseRulesUw2.UseWallControl, G4 part A). False when the thing is none of them.</summary>
+    public static bool UseWallControlUw2(UWObject pOThing, UWLevelLoader pOLevelLoader)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        return lOWorld != null && UWUseRulesUw2.UseWallControl(pOThing, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player));
+    }
+
+    /// <summary>The second game's plates on one square (UWTrapRulesUw2.CheckPlates): a thing put down or taken up, as by
+    /// peSetter.</summary>
+    public static bool CheckPlatesUw2(int piTileX, int piTileY, int piZ, int piMode, UWLevelLoader pOLevelLoader, UWTrapRules.Setter peSetter)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+        UWTile lOTile = pOLevelLoader != null && pOLevelLoader.CurrentLevel != null ? pOLevelLoader.CurrentLevel.GetTile(piTileX, piTileY) : null;
+
+        return lOWorld != null && lOTile != null
+            && UWTrapRulesUw2.CheckPlates(lOTile, piZ, piMode, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), peSetter));
+    }
+
+    /// <summary>A mover of the second game changed square or height (UWTrapRulesUw2.MoverMoved): the player (pOCritter
+    /// null) or a creature.</summary>
+    public static void MoverMovedUw2(UWTilePos pOFrom, int piFromZ, UWTilePos pOTo, int piToZ, UWLevelLoader pOLevelLoader, UWCritter pOCritter)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+        UWLevel lOLevel = pOLevelLoader != null ? pOLevelLoader.CurrentLevel : null;
+
+        if (lOWorld == null || lOLevel == null)
+            return;
+
+        UWTile lOFrom = lOLevel.GetTile(pOFrom.X, pOFrom.Y);
+        UWTile lOTo = lOLevel.GetTile(pOTo.X, pOTo.Y);
+
+        if (lOFrom == null || lOTo == null)
+            return;
+
+        UWTrapRulesUw2.MoverMoved(lOFrom, piFromZ, lOTo, piToZ, pOCritter != null
+            ? new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), pOCritter, 0)
+            : new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player));
+    }
+
+    /// <summary>The second game's timer triggers for piFrames animation steps (UWTrapRulesUw2.TickTimers); the counter after.</summary>
+    public static int TickTimersUw2(int piTick, int piFrames, UWTilePos pOPlayer, UWTilePos pOEye, UWLevelLoader pOLevelLoader)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        return lOWorld == null ? piTick
+            : UWTrapRulesUw2.TickTimers(piTick, piFrames, pOPlayer, pOEye, new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player));
+    }
+
+    /// <summary>The second game's UseTrigger for one trigger, as by the player (Reveal's look trigger, a destroyed thing's
+    /// use triggers).</summary>
+    public static bool UseTriggerUw2(UWObject pOStart, UWObject pOTrigger, int piMode, UWLevelLoader pOLevelLoader, int piSearchSkill = 0)
+    {
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        return lOWorld != null && UWTrapRulesUw2.UseTrigger(pOStart, pOTrigger, piMode,
+            new UWTrapHost(pOLevelLoader, fScrollUw2(lOWorld), UWTrapRules.Setter.Player), piSearchSkill);
+    }
+
+    /// <summary>The second game's scroll as a firing's presentation (UWSleepUw2.ScrollPresentation), else the world's.</summary>
+    private static IUWPresentation fScrollUw2(UWWorld pOWorld)
+    {
+        return UWSleepUw2.Current != null ? UWSleepUw2.Current.ScrollPresentation(pOWorld) : pOWorld.Presentation;
+    }
+
     /// <summary>Fires the trap of a trigger, chain included. See UWTrapRules.FireTraps.</summary>
     public static bool FireTraps(UWObject pOTrigger, UWObject pOSwitchObject, UWLevelLoader pOLevelLoader, Interaction pOInteraction)
     {
-        if (fSecondGameWaits())
-            return false;
+        // The second game's use triggers of a thing destroyed in the world (damage_object's checkTrap kind 4): UseTrigger
+        // with the use mode, as by the player (G3 part H4).
+        if (UWWalkUw2.IsWalking)
+            return UseTriggerUw2(pOSwitchObject, pOTrigger, UWTrapRulesUw2.UseMode, pOLevelLoader);
 
         return UWTrapRules.FireTraps(pOTrigger, pOSwitchObject, new UWTrapHost(pOLevelLoader, pOInteraction));
     }
@@ -145,8 +251,9 @@ public static class UWTriggerSystem
     /// periodic respawn (see RespawnCreatures).</summary>
     public static bool FireTrapInTile(UWObject pOTrap, int piTileX, int piTileY, UWLevelLoader pOLevelLoader)
     {
-        if (fSecondGameWaits())
-            return false;
+        // The second game's DoWanderingMonsters: a mobile template, its own create rules, silent (G3 part H5).
+        if (UWWalkUw2.IsWalking)
+            return UWTrapRulesUw2.FireWanderingTrap(pOTrap, piTileX, piTileY, new UWTrapHost(pOLevelLoader, (Interaction)null));
 
         return UWTrapRules.FireTrapInTile(pOTrap, piTileX, piTileY, new UWTrapHost(pOLevelLoader, null));
     }
@@ -181,6 +288,12 @@ public static class UWTriggerSystem
             return 0;
 
         UWCharacter lOCharacter = UWScene.Character;
+        UWWorld lOWorld = UWWorld.Of(pOLevelLoader);
+
+        // The second game's player is the walk's: his tile from the world (UWCharacter stands idle there).
+        if (UWWalkUw2.IsWalking)
+            return lOWorld == null ? 0 : UWRespawnRules.Run(pOLevelLoader.CurrentLevel, lOWorld.Player.FloorSpot.Tile, pbAnyDistance,
+                (pOTrap, piTileX, piTileY) => FireTrapInTile(pOTrap, piTileX, piTileY, pOLevelLoader));
 
         if (lOCharacter == null)
             return 0;
@@ -342,6 +455,26 @@ public static class UWTriggerSystem
 
         private readonly int miTriggeringThing;
 
+        /// <summary>Who set it off when the host was made for a setter rather than a creature or a thing (null: from those).</summary>
+        private readonly UWTrapFiring? mOFiring;
+
+        /// <summary>A firing of the second game by a setter the caller names (a door opened by a creature, a door turned
+        /// round by nobody), its lines to pOPresentation.</summary>
+        public UWTrapHost(UWLevelLoader pOLoader, IUWPresentation pOPresentation, UWTrapRules.Setter peSetter)
+            : this(pOLoader, pOPresentation, null, 0)
+        {
+            mOFiring = new UWTrapFiring(peSetter == UWTrapRules.Setter.Creature, peSetter == UWTrapRules.Setter.Thing);
+        }
+
+        /// <summary>A firing whose lines go to pOPresentation (the second game's scroll), with no Interaction.</summary>
+        public UWTrapHost(UWLevelLoader pOLoader, IUWPresentation pOPresentation, UWCritter pOTriggeringCritter, int piTriggeringThing)
+        {
+            mOLoader = pOLoader;
+            mOTriggeringCritter = pOTriggeringCritter;
+            miTriggeringThing = piTriggeringThing;
+            mOWorld = UWScopedWorld.With(UWWorld.Of(pOLoader), pOPresentation);
+        }
+
         public UWTrapHost(UWLevelLoader pOLoader, Interaction pOInteraction, UWCritter pOTriggeringCritter = null,
             int piTriggeringThing = 0)
         {
@@ -357,7 +490,17 @@ public static class UWTriggerSystem
 
         public IUWWorld World => mOWorld;
 
-        public UWTrapFiring Firing => new UWTrapFiring(mOTriggeringCritter != null, miTriggeringThing != 0);
+        public UWTrapFiring Firing => mOFiring ?? new UWTrapFiring(mOTriggeringCritter != null, miTriggeringThing != 0, fSetterSpot(),
+            mOTriggeringCritter != null ? mOTriggeringCritter.Index : 0);
+
+        /// <summary>The triggering creature's record spot (tile, fine x and y, zpos); Nowhere for a thing or the player.</summary>
+        private UWSpot fSetterSpot()
+        {
+            UWCritterRecord lORecord = mOTriggeringCritter != null ? mOTriggeringCritter.Record : null;
+
+            return lORecord != null ? new UWSpot(new UWTilePos(lORecord.TileX, lORecord.TileY), lORecord.FineX, lORecord.FineY, lORecord.ZPos)
+                : UWSpot.Nowhere;
+        }
 
         public bool AlwaysFireCreateObjectTraps => mOLoader != null && mOLoader.AlwaysFireCreateObjectTraps;
 
@@ -495,6 +638,11 @@ public static class UWTriggerSystem
         /// <summary>See UWTrapRules.fFireSpellTrap for the two special classes.</summary>
         public bool FireSpellTrap(UWObject pOTrap, int piTileX, int piTileY, int piMajorClass, int piMinorClass)
         {
+            // The second game casts on its own magic with the trap as the caster (UWTrapRulesUw2.fFireSpell decided
+            // that the class does something).
+            if (UWWalkUw2.IsWalking)
+                return fFireSpellTrapUw2(pOTrap, piTileX, piTileY, piMajorClass, piMinorClass);
+
             // The move trigger only knows the Interaction if it finds it on the touching collider.
             // When it was missing, the projectile stayed pending and the player got the
             // targeting cursor and could throw the fireball himself (per user, level 5, 14/45,
@@ -520,6 +668,69 @@ public static class UWTriggerSystem
             lOInteraction.CancelPendingProjectile();
 
             return false;
+        }
+
+        /// <summary>
+        /// THE SECOND GAME'S SPELL TRAP (G3 part H1b, 2026-11-13): do_spell with the trap as the caster. A cutscene
+        /// plays; a missile (class 5, release_missile) leaves the trap's spot along its heading; a special spell (class
+        /// 13: the hallucination, Map Area) acts on the player as special_spells does whoever casts it, so it goes
+        /// through the player's spell host; the rest (Tremor and the latent area, target and summoning classes) through
+        /// a creature-like host standing at the trap's spot, facing its heading, whose missiles leave from the trap.
+        /// </summary>
+        private bool fFireSpellTrapUw2(UWObject pOTrap, int piTileX, int piTileY, int piMajorClass, int piMinorClass)
+        {
+            if (mOWorld == null || mOLoader == null)
+                return false;
+
+            if (piMajorClass == UWTrapRules.CutsceneMajorClass)
+                return mOWorld.Presentation.PlayCutscene(piMinorClass);
+
+            if (piMajorClass == UWTrapRules.ProjectileMajorClass)
+                return fLaunchTrapMissileUw2(pOTrap, piTileX, piTileY, mOWorld.Session.Game.Magic.GetProjectileId(piMinorClass & 0x3F));
+
+            UWRunicMagic.Spell lOSpell = new UWRunicMagic.Spell(-1, piMajorClass, piMinorClass, 0);
+            IUWSpellHost lIHost;
+
+            if (piMajorClass == UWSpecialSpellRulesUw2.MajorClass)
+            {
+                if (UWVitalsUw2.Current == null)
+                    return false;
+
+                lIHost = new UWSpellHostUw2(UWVitalsUw2.Current, mOLoader, mOWorld.Presentation);
+            }
+            else
+            {
+                UWSpot lOSpot = new UWSpot(new UWTilePos(piTileX, piTileY), pOTrap.XPos, pOTrap.YPos, pOTrap.ZPos);
+
+                lIHost = new UWCreatureSpellHost(mOWorld, UWCastContext.Creature(0, lOSpot, (pOTrap.Heading & 7) << 5),
+                    piProjectile => fLaunchTrapMissileUw2(pOTrap, piTileX, piTileY, piProjectile));
+            }
+
+            return UWSpellCasting.ApplyEffect(lOSpell, true, lIHost);
+        }
+
+        /// <summary>release_missile from a trap (spell_fire for an object): the trap's spot on the target square, flat,
+        /// along the trap's heading (UWTrapRules.SpellTrapMissileHeading), the projectile's own damage and speed, with
+        /// the game's launch sound; nobody's missile.</summary>
+        private bool fLaunchTrapMissileUw2(UWObject pOTrap, int piTileX, int piTileY, int piProjectile)
+        {
+            UWDataImport.DataImport lOData = mOLoader.UWDataImporter;
+
+            if (piProjectile < 0 || lOData == null || lOData.ObjectProperties == null)
+                return false;
+
+            UWProjectileFlight lOFlight = UWMissiles.Ensure(mOLoader).LaunchFromSpot(piProjectile, piTileX, piTileY,
+                pOTrap.XPos & 7, pOTrap.YPos & 7, pOTrap.ZPos, UWTrapRules.SpellTrapMissileHeading(pOTrap), 0,
+                lOData.ObjectProperties.GetRangedSpeed(piProjectile), lOData.ObjectProperties.GetRangedDamage(piProjectile),
+                UWRunicMagic.GetProjectileDamageType(piProjectile, lOData.ObjectProperties), UWRunicMagic.GetProjectileImpactId(piProjectile));
+
+            if (lOFlight == null)
+                return false;
+
+            UWAudioService.PlayEffectAt(mOWorld.Session.Game.Combat.SpellMissileLaunchSound(piProjectile),
+                UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap));
+
+            return true;
         }
 
         /// <summary>Sends the pending projectile from the trap along the trap's heading - see
@@ -641,6 +852,11 @@ public static class UWTriggerSystem
         if (lOFlight == null)
             return false;
 
+        // THE SECOND GAME'S TRAP ARROW SOUNDS (trap_fire, uw2 MISSILE.C:262: play_effect_on_mobile_src(0xA, missile)); the
+        // first game's is silent.
+        if (UWWalkUw2.IsWalking)
+            UWAudioService.PlayEffectAt(TrapArrowSoundUw2, UWViewpoint.SubTileToWorld(piTileX, piTileY, pOTrap));
+
         // The start point belongs in the log too: on short flight paths you otherwise see too
         // little of the bolt to judge whether it is placed correctly (per user,
         // 2026-09-07: "I could not tell where our bolt spawns.").
@@ -666,6 +882,9 @@ public static class UWTriggerSystem
     /// <summary>What an_arrow_trap hands the launch (seg025_73C): the heading offset of two
     /// 256ths, the pitch of two steps up and the ammunition type 0x14, which is the speed byte.</summary>
     private const int TrapHeadingOffset = 2;
+
+    /// <summary>The second game's trap arrow sound (trap_fire).</summary>
+    private const int TrapArrowSoundUw2 = 0xA;
 
     private const int TrapPitch = 2;
 

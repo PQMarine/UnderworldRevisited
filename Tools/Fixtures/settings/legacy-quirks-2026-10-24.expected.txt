@@ -103,6 +103,7 @@ SaveSuspended = False
 ShowOpeningSequence = True
 ShowsPadHints = False
 SkillRaises = Off
+IceGrip = Off
 SmoothRampTicks = 0
 SoundEnabled = True
 SoundVolume = 1

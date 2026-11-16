@@ -646,7 +646,7 @@ namespace UWDataImport.UWData
 
 			// The second game: on ice no slide along walls, and the ice's own bounce unless falling
 			// (PN.flags 0x80 only without motion_state 0x84; PN.bounce 5 when falling there).
-			if (CurrentState == State.Ice)
+			if (CurrentState == State.Ice && !fIceGripAsGround)
 			{
 				p.Style = UWMotionParams.BounceStyle;
 
@@ -663,10 +663,30 @@ namespace UWDataImport.UWData
 			if ((Abilities & (AbilityLevitate | AbilityFly)) != 0)
 			{
 				mOHandler.IgnoreMask = 0x1000;
-				p.Style = UWMotionParams.SlideStyle;
+
+				// THE ORIGINAL'S BUG (per user 2026-11-14): standing on ice under Levitate or Fly the original slides
+				// along walls instead of bouncing (PHYSICS.C:489, motionbits 0x14 -> PN.flags 0x80) and sticks at a
+				// wall head-on. With the fix (deviations.GroundedFlightBouncesOnIce, Fix bugs of the original) the
+				// flight has no effect on the ground: on ice the ice's bounce stays.
+				if (!fGroundedFlightBouncesOnIce())
+					p.Style = UWMotionParams.SlideStyle;
 			}
 
 			p.Impact = 0;
+		}
+
+		/// <summary>The switch of deviations.GroundedFlightBouncesOnIce: on by default (our fix).</summary>
+		public const bool GroundedFlightBouncesOnIceApplied = true;
+
+		/// <summary>On ice ground (the ice state, no gravity, no vertical speed) under the fix: the flight's slide
+		/// style is not taken, the ice's bounce stays. Not under the ice grip Full (no bounce there anyway).</summary>
+		private bool fGroundedFlightBouncesOnIce()
+		{
+			UWMotionParams p = Params;
+			UWRules lORules = mOWorld.Session.Rules;
+
+			return CurrentState == State.Ice && !fIceGripAsGround && p.Gravity == 0 && p.Vz == 0
+				&& lORules != null && lORules.Deviations.GroundedFlightBouncesOnIce;
 		}
 
 		/// <summary>
@@ -682,10 +702,17 @@ namespace UWDataImport.UWData
 		/// Returns the ice's bounce, -1 for none.
 		///
 		/// THE PRECISION MODE blends per call as well, so the ice's strength is a rate per original frame
-		/// (fPerFrame). DEVIATIONS: the original's skid sound and effect on a sharp change (set_effect 0x80,
+		/// (fIceStrength: 0 or less stays 0, the fraction carried). DEVIATIONS: the original's skid sound and effect on a sharp change (set_effect 0x80,
 		/// 4) is not made yet; on flat ice the original's push angle is an uninitialised local - a slope's
 		/// direction left from an earlier tile pushes there with what the stack holds; ours pushes with 0.
 		/// </summary>
+		/// <summary>The ice grip on the tile under the player this frame (set by fIceAndCurrents): the setting's, Off on
+		/// an ice slope.</summary>
+		private UWIceGripEnum meIceGrip;
+
+		/// <summary>The ice grip Full on this tile: the ice grips like ground.</summary>
+		private bool fIceGripAsGround => meIceGrip == UWIceGripEnum.Full;
+
 		private int fIceAndCurrents(int piOldHeading, int piOldSpeed)
 		{
 			UWMotionParams p = Params;
@@ -697,9 +724,15 @@ namespace UWDataImport.UWData
 
 			mOWorld.TryGetTile(liTileX, liTileY, out int liType, out int liFloorNibble, out int liTerrain);
 
+			// THE ICE GRIP NOT ON ICE SLOPES (per user 2026-11-15: the slopes' push may be needed for puzzles, as on level
+			// 33, where an ice slope runs into a jump trap that must throw the player over a block; with the grip he
+			// could come too slowly or stand still): on a slope tile the ice is the original's whatever the setting.
+			meIceGrip = liType >= SlopeFirstType && liType <= SlopeLastType ? UWIceGripEnum.Off : UWIceGrip.Mode;
+
 			if (CurrentState == State.Ice)
 			{
-				if (liBits != 7)
+				// The ice grip Full (a gameplay aid, UWIceGrip): the tile counts as ice without its effects.
+				if (liBits != 7 && !fIceGripAsGround)
 				{
 					Frictionless = true;
 
@@ -711,15 +744,20 @@ namespace UWDataImport.UWData
 
 					liElasticity = 0xF - liBits;
 
-					int liStrength = (liBits << 3) + 8 - ((piOldSpeed / IceSlopePush) << 2);
+					int liOriginal = IceGrip(liBits, piOldSpeed, p.Speed, miSlide != -1);
+					int liStrength = UWIceGrip.Strength(liOriginal, meIceGrip);
+					int liHeading;
+					int liSpeed;
 
-					if (piOldSpeed < IceSlopePush)
-						liStrength += 0x10;
-					else if (p.Speed > piOldSpeed)
-						liStrength += miSlide == -1 ? 8 : -4;
-
-					UWMotionVariantUw2.MungeVectors(UWMotionVariantUw2.MungeIce, piOldHeading, piOldSpeed, MotionYaw & 0xFFFF, p.Speed,
-						fPerFrame(liStrength), out int liHeading, out int liSpeed);
+					// The ice grip Half where it raised the strength (per user 2026-11-15: with the original's blend the
+					// run sank to a walk): munge_vectors loses about a sixteenth of the speed every call (the sine over
+					// 0x800 is at most 15, the sum over 16), which the original never meets at speed (strength 0 or
+					// less there); the aid blends without the loss. Where the original blends itself, its blend stays.
+					if (liStrength > liOriginal && meIceGrip == UWIceGripEnum.Half)
+						UWIceGrip.Blend(piOldHeading, piOldSpeed, MotionYaw & 0xFFFF, p.Speed, fIceStrength(liStrength), out liHeading, out liSpeed);
+					else
+						UWMotionVariantUw2.MungeVectors(UWMotionVariantUw2.MungeIce, piOldHeading, piOldSpeed, MotionYaw & 0xFFFF, p.Speed,
+							fIceStrength(liStrength), out liHeading, out liSpeed);
 
 					MotionYaw = liHeading;
 					p.Speed = liSpeed;
@@ -728,6 +766,7 @@ namespace UWDataImport.UWData
 				{
 					miSlide = -1;
 					Frictionless = false;
+					mdIceCarry = 0.0;
 				}
 			}
 			else if (CurrentState == State.Swimming)
@@ -779,6 +818,61 @@ namespace UWDataImport.UWData
 
 			return liElasticity;
 		}
+
+		/// <summary>
+		/// THE ICE'S STRENGTH for this frame (found 2026-11-14 per user: Modern and Smooth could steer on ice
+		/// at full speed, the original cannot). The original's strength falls with the old speed and is 0 or
+		/// less at a run (0x3AC: 20 steps of 0x2F take 80, the most grip gives 56), and munge_vectors then
+		/// keeps the old motion whole: no steering, the slide goes on at full speed. fPerFrame's floor of 1
+		/// turned that into a steer of 1/64 per frame, many frames a second. So 0 or less stays 0, and in the
+		/// precision mode the strength is scaled to the frame's ticks with the fraction carried between the
+		/// frames (as the ramp's), so a small grip is not raised to 1 at a high frame rate either.
+		/// </summary>
+		private int fIceStrength(int piPerOriginalFrame)
+		{
+			return IceStrengthPerFrame(piPerOriginalFrame, Params.Precise, fFrameTicks(), ref mdIceCarry);
+		}
+
+		/// <summary>fIceStrength's rule without the motion (for the checks): 0 or less is 0 and clears the
+		/// carry; without the precision mode the original's per-call value; with it the value scaled to
+		/// pdFrameTicks of OriginalFrameTicks, the fraction carried in pdCarry.</summary>
+		public static int IceStrengthPerFrame(int piPerOriginalFrame, bool pbPrecise, double pdFrameTicks, ref double pdCarry)
+		{
+			if (piPerOriginalFrame <= 0)
+			{
+				pdCarry = 0.0;
+
+				return 0;
+			}
+
+			if (!pbPrecise)
+				return piPerOriginalFrame;
+
+			double ldExact = (piPerOriginalFrame * pdFrameTicks / OriginalFrameTicks) + pdCarry;
+			int liWhole = UWRounding.Floor(ldExact);
+
+			pdCarry = ldExact - liWhole;
+
+			return liWhole;
+		}
+
+		/// <summary>The ice's strength per original frame (PHYSICS.C:416-425): (bits &lt;&lt; 3) + 8 less
+		/// (old speed / 0x2F) &lt;&lt; 2, 0x10 more under the speed 0x2F, else when speeding up 8 more on the
+		/// flat and 4 less on a slope. piBits is the floor terrain's bits 3-5 (7 has no ice effects).</summary>
+		public static int IceGrip(int piBits, int piOldSpeed, int piSpeed, bool pbOnSlope)
+		{
+			int liStrength = (piBits << 3) + 8 - ((piOldSpeed / IceSlopePush) << 2);
+
+			if (piOldSpeed < IceSlopePush)
+				liStrength += 0x10;
+			else if (piSpeed > piOldSpeed)
+				liStrength += pbOnSlope ? -4 : 8;
+
+			return liStrength;
+		}
+
+		/// <summary>The ice strength's fraction below one unit carried between the frames (Precise).</summary>
+		private double mdIceCarry;
 
 		/// <summary>The slopes' tile types (rising north, south, east, west).</summary>
 		private const int SlopeFirstType = 6;
@@ -1015,7 +1109,7 @@ namespace UWDataImport.UWData
 			}
 
 			// The head-on stop; the second game's only on the ground, off the ice, without a current.
-			bool lbStops = !lbSecondGame || (p.Gravity == 0 && CurrentState != State.Ice && miOwnSpeed == -1);
+			bool lbStops = !lbSecondGame || (p.Gravity == 0 && (CurrentState != State.Ice || fIceGripAsGround) && miOwnSpeed == -1);
 
 			if (p.Impact != 0 && liHeading == (MotionYaw & 0xFFFF) && lbStops)
 			{
@@ -1141,6 +1235,11 @@ namespace UWDataImport.UWData
 			m.Vx = System.Math.Sin(lfYaw) * p.Speed / 65536.0;
 			m.Vy = System.Math.Cos(lfYaw) * p.Speed / 65536.0;
 			m.NoFall = lbFloats;
+
+			// THE SECOND GAME'S ICE BOUNCES off walls as the core does there (per user 2026-11-14: in Modern only
+			// on ice): fInitialCalc gives the bounce style and the ice's elasticity (0xF - bits; 5 on ice without
+			// its effects). Everywhere else the motor slides along walls.
+			m.WallBounce = CurrentState == State.Ice && p.Gravity == 0 && (p.Style & UWMotionParams.SlideStyle) == 0 ? p.Elasticity : -1;
 			m.HoldAtLedges = !lbFloats && p.Vz == 0 && I16(p.Speed * 10) < I16(ForwardSpeed * 3);
 
 			if (m.Grounded && (p.Vz > 0 || p.Gravity != 0))
@@ -1156,6 +1255,7 @@ namespace UWDataImport.UWData
 			double lfFallGravity = m.Gravity != 0.0 ? m.Gravity : UWCharacterMotor.FallGravity;
 
 			m.Advance(lfTicks);
+			m.WallBounce = -1;
 
 			// BOUNCING as the core's (UWMotionParams.Elastic): a landing turns the vertical speed round whole
 			// and takes off again with the fall's gravity, without an impact, while it is at least the core's
@@ -1467,6 +1567,47 @@ namespace UWDataImport.UWData
 			fPlace(piFineX, piFineY, piFineZ);
 		}
 
+		/// <summary>
+		/// THE FLOOR UNDER THE PLAYER MOVED - raise_up and put_down for ThePlayer (uw2 event/WORLDEV.C, the first game's
+		/// the same): on a rising square feet below the new floor are set onto it (PN.z = height &lt;&lt; 6); on a sinking one
+		/// feet on the old floor go down with it when the change was a step of one (adjust 1 or 3, pbSetHeight), else the
+		/// player is put in the air (parse_player_terr(0x10, 1)) and falls. Either way the next frame runs.
+		///
+		/// WHY (per user, 2026-11-16, UW2 level 3's oscillators): the frame's gate lets a player who neither moves nor
+		/// falls stand, so a floor rising under a still player left his feet inside it until he moved, and he fell
+		/// through the level; a sinking one left him hanging. The terrain change told the creatures and the things on the
+		/// square, not the player.
+		/// </summary>
+		public void FollowFloor(int piOldZPos, int piNewZPos, bool pbSetHeight)
+		{
+			UWMotionParams p = Params;
+			int liFeet = FeetZPos;
+
+			if (piNewZPos > piOldZPos)
+			{
+				if (liFeet >= piNewZPos)
+					return;
+
+				p.Z = (piNewZPos << 3) & 0xFFFF;
+				p.ZFrac = 0;
+			}
+			else
+			{
+				if (liFeet != piOldZPos)
+					return;
+
+				if (pbSetHeight)
+				{
+					p.Z = (piNewZPos << 3) & 0xFFFF;
+					p.ZFrac = 0;
+				}
+				else
+					fProcessTileState(UWMotionTables.ContactAirborne, true);
+			}
+
+			UpdateNeeded = true;
+		}
+
 		/// <summary>player_setup with how 0 (uw2 motion/PHYSICS.C): placed near the ceiling, the fall starts at
 		/// once with PN.acc[2] = -4. PlaceAt zeroes the gravity, and the frame's gate lets a player stand who
 		/// neither moves nor falls, so without this they hung there until the next jump.</summary>
@@ -1726,8 +1867,18 @@ namespace UWDataImport.UWData
 				p.Z = liStandZ << 3;
 				p.ZFrac = 0;
 			}
-			else if (p.Gravity == 0 && !lbFloat)
-				p.Gravity = -4;
+			else
+			{
+				if (p.Gravity == 0 && !lbFloat)
+					p.Gravity = -4;
+
+				// STAYING UP IS BEING IN THE AIR (per user 2026-11-14, test 39.8: easy steps made footsteps while flying
+				// high in Modern). simple_fizix's state comes from can_place at the player's own height, so one who stays
+				// above the floor is airborne there (0x10); Modern's stand state is the floor's at the target. The
+				// classic path samples at the player's height already.
+				if (Modern)
+					liState = UWMotionTables.ContactAirborne;
+			}
 
 			// The port's host reads the floor kind from the contact (swimming, lava); the original
 			// leaves it to the next frame.
@@ -1912,6 +2063,49 @@ namespace UWDataImport.UWData
 			p.Vz = I16(piIntensity * 0x2F) / 4;
 			p.Vx /= 2;
 			p.Vy /= 2;
+		}
+
+		/// <summary>set_jmp (uw2 motion/MOTION.C:843) for the player: when |vx| + |vy| is at least piMinimum * 0x2F, gravity
+		/// -2 unless already -4, the vertical speed piForce * 0x2F / 2, the horizontal speed halved or, with pbStop, zero.
+		/// False when the player was too slow.
+		///
+		/// THE SPEED STAYS (2026-11-15, level 33's ice slope): the original halves only the velocity of the move it is
+		/// called in (set_jmp from the trigger in the middle of the move); the next move's space_to_motion takes the
+		/// velocity from the full speed again (uw2 MOTION.C:213). Halving the speed as well, tried the same day, threw
+		/// the player far too short (per user). MODERN keeps no velocity in Vx/Vy (its motor has it), so there
+		/// |vx| + |vy| comes from the speed along the motion yaw; until then the trap never fired in Modern.</summary>
+		public bool Jump(int piForce, bool pbStop, int piMinimum)
+		{
+			UWMotionParams p = Params;
+			int liVxy = System.Math.Abs(p.Vx) + System.Math.Abs(p.Vy);
+
+			if (Modern)
+			{
+				double lfYaw = (MotionYaw & 0xFFFF) * (System.Math.PI * 2.0 / 65536.0);
+
+				liVxy = UWRounding.Floor(((System.Math.Abs(System.Math.Sin(lfYaw)) + System.Math.Abs(System.Math.Cos(lfYaw))) * p.Speed) + 0.5);
+			}
+
+			if (liVxy < piMinimum * 0x2F)
+				return false;
+
+			if (p.Gravity != -4)
+				p.Gravity = -2;
+
+			p.Vz = I16(piForce * 0x2F) / 2;
+
+			if (pbStop)
+			{
+				p.Vx = 0;
+				p.Vy = 0;
+			}
+			else
+			{
+				p.Vx /= 2;
+				p.Vy /= 2;
+			}
+
+			return true;
 		}
 	}
 }

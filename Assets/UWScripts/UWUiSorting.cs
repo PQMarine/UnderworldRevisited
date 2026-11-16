@@ -62,6 +62,10 @@ public static class UWUiSorting
     /// <summary>The modern bags (UWModernBags).</summary>
     public const int ModernBags = 42;
 
+    /// <summary>The active spells' hover text (UWModernActiveSpells): over the Classic frame's dragons, which the
+    /// icons lie under as in the original (per user 2026-11-14: the text lay behind the left dragon).</summary>
+    public const int ModernSpellTip = 42;
+
     /// <summary>The minimap in the pinned character panel's head: over the panel, which shares
     /// its order otherwise.</summary>
     public const int ModernMinimapInHead = 42;
@@ -168,6 +172,10 @@ public static class UWUiSorting
     /// it is dragged, and the loading cover, which stands only while a scene starts.
     /// </summary>
     public const int DebugPanel = 900;
+
+    /// <summary>The test marks' numbers over their squares (UWTestMarkView): over the game's windows like the debug
+    /// panel, under it, so the panel's rows stay readable where a number stands behind them.</summary>
+    public const int TestMarks = 899;
 
     /// <summary>The thing on the classic pointer (UWItemDrag).</summary>
     public const int ItemDrag = 1000;

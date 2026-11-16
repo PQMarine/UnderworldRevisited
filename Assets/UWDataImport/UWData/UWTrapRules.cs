@@ -470,8 +470,19 @@ namespace UWDataImport.UWData
 				return false;
 
 			int liLevelBefore = LevelIndexOf(pIHost);
+			bool lbRan;
 
-			bool lbRan = fRunTrapChain(lOTrap, pOTrigger, pOSwitchObject, pIHost, piDepth);
+			// The log names the chain's first trigger and who set it off (UWTrapLog.BeginChain); a nested call keeps it.
+			UWTrapLog.BeginChain(pOTrigger, pIHost);
+
+			try
+			{
+				lbRan = fRunTrapChain(lOTrap, pOTrigger, pOSwitchObject, pIHost, piDepth);
+			}
+			finally
+			{
+				UWTrapLog.EndChain();
+			}
 
 			// After a LEVEL CHANGE, CurrentLevel points to another level. Neither the cleanup
 			// nor the chain has any business there - the tiles and the
@@ -500,6 +511,13 @@ namespace UWDataImport.UWData
 		/// creature or a thing - see below. (Until 2026-10-12 this said "it is always the player";
 		/// creatures and things set off move triggers since 2026-10-06.)
 		/// </summary>
+		/// <summary>The damage trap for the second game's table (UWTrapRulesUw2): whack_thing is the same code in
+		/// both games (WORLDEV.C).</summary>
+		public static bool FireDamageTrap(UWObject pOTrap, IUWTrapHost pIHost)
+		{
+			return fFireDamageTrap(pOTrap, pIHost);
+		}
+
 		private static bool fFireDamageTrap(UWObject pOTrap, IUWTrapHost pIHost)
 		{
 			// QUALITY 0 DOES NOTHING, BUT THE CHAIN GOES ON (DamageTrap_ovr107_CB2 skips a damage of
@@ -2137,7 +2155,8 @@ namespace UWDataImport.UWData
 		/// creatures included, and sets their z (per user on the original 2026-10-15: a troll on a
 		/// lowered bullfrog tile went down at once; ours waited until it moved, because our creatures
 		/// live in their records, not in the tile lists - IUWTrapHost.MoveCreaturesWithFloor). THE
-		/// PLAYER follows through his own motion (the original updates his physics here too).
+		/// PLAYER on the square is told as the original sets his physics (IUWPlayerAvatar.FollowFloor; since
+		/// 2026-11-16 - until then he was left to his own motion, which does not run while he stands still).
 		/// </summary>
 		public static void SetTileHeight(UWTile pOTile, int piHeight, IUWTrapHost pIHost)
 		{
@@ -2156,6 +2175,18 @@ namespace UWDataImport.UWData
 
 			if (pIHost != null)
 				pIHost.MoveCreaturesWithFloor(pOTile.X, pOTile.Z, liOldZ, liNewZ);
+
+			// THE PLAYER on the square (raise_up's PN.z, put_down's parse_player_terr(0x10, 1)): the motion's frame gate
+			// lets a still player stand, so he is told (per user 2026-11-16 on the second game's oscillators, the same gap).
+			IUWPlayerAvatar lOPlayer = pIHost != null && pIHost.World != null ? pIHost.World.Player : null;
+
+			if (lOPlayer != null && lOPlayer.HasBody)
+			{
+				UWSpot lOFeet = lOPlayer.FeetSpot;
+
+				if (lOFeet.IsOnMap && lOFeet.Tile.X == pOTile.X && lOFeet.Tile.Y == pOTile.Z)
+					lOPlayer.FollowFloor(liOldZ, liNewZ, false);
+			}
 
 			if (pOTile.ObjectsInTile == null)
 				return;
@@ -2317,6 +2348,16 @@ namespace UWDataImport.UWData
 		/// it is not carried.</summary>
 		public static UWObject FindCarriedLikeFindObj(UWInventoryModel pOInventory, int piWantedId, List<UWObject> pOMasterlist)
 		{
+			return FindCarriedLikeFindObj(pOInventory, piWantedId, pOMasterlist, out int _);
+		}
+
+		/// <summary>The same, with FindObj's slot: the top slot (0-10 the paperdoll, 11-18 the backpack) the object
+		/// lies in or under - what the second game's inventory trap asks ObjWorn about.</summary>
+		public static UWObject FindCarriedLikeFindObj(UWInventoryModel pOInventory, int piWantedId, List<UWObject> pOMasterlist,
+			out int piSlot)
+		{
+			piSlot = -1;
+
 			if (pOInventory == null)
 				return null;
 
@@ -2329,21 +2370,31 @@ namespace UWDataImport.UWData
 			for (int liAt = 0; liAt < pOInventory.Backpack.Length && lOEquipment.Length + liAt < InventoryTopSlots; liAt++)
 				lOTop[lOEquipment.Length + liAt] = pOInventory.Backpack[liAt];
 
-			foreach (UWObject lOItem in lOTop)
+			for (int liSlot = 0; liSlot < lOTop.Length; liSlot++)
 			{
-				if (lOItem != null && lOItem.ID == piWantedId)
-					return lOItem;
+				if (lOTop[liSlot] != null && lOTop[liSlot].ID == piWantedId)
+				{
+					piSlot = liSlot;
+
+					return lOTop[liSlot];
+				}
 			}
 
-			foreach (UWObject lOItem in lOTop)
+			for (int liSlot = 0; liSlot < lOTop.Length; liSlot++)
 			{
+				UWObject lOItem = lOTop[liSlot];
+
 				if (lOItem == null || lOItem.HasQuantity)
 					continue;
 
 				UWObject lOFound = fFindInContents(lOItem, piWantedId, pOMasterlist, 0);
 
 				if (lOFound != null)
+				{
+					piSlot = liSlot;
+
 					return lOFound;
+				}
 			}
 
 			return null;

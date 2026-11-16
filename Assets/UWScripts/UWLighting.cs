@@ -429,6 +429,37 @@ public class UWLighting : MonoBehaviour
 
     private bool mbFollowsRemoteView;
 
+    /// <summary>
+    /// THE CINEMATIC CAMERA'S LIGHT (UWCinematicCamera, per user 2026-11-13: in Palette colours the flight showed no
+    /// shadows): while a remote view is followed, the light goes where it stood from the walking eye
+    /// (CarriedLightFromEye, measured before the flight) - turned with the view's yaw, as the body turns.
+    /// FollowRemoteView puts it at the eye itself, where every shadow falls behind what casts it. Only the cinematic
+    /// camera calls this, after the remote camera has placed the light; Roaming Sight and the camera trap keep the eye.
+    /// </summary>
+    public void PlaceAtView(Vector3 pOPosition, float pfYaw, Vector3 pOFromEye)
+    {
+        if (mOPlayerLight == null || !mbFollowsRemoteView)
+            return;
+
+        mOPlayerLight.transform.position = pOPosition + (Quaternion.Euler(0f, pfYaw, 0f) * pOFromEye);
+    }
+
+    /// <summary>
+    /// Where the carried light stands from the eye now, in the eye's turn (yaw only, as the body turns): the light
+    /// hangs at the BODY (fFindPlayerLight, the hand or belt offset from there), below the eye, and lights from
+    /// below - that is what throws the long shadows. Measured by the cinematic camera before a flight (per user
+    /// 2026-11-13: an offset counted from the eye put the light too high, the ledge's shadow went). Zero without one.
+    /// </summary>
+    public Vector3 CarriedLightFromEye(Transform pOEye)
+    {
+        if (mOPlayerLight == null || pOEye == null || mbFollowsRemoteView)
+            return Vector3.zero;
+
+        Quaternion lOYaw = Quaternion.Euler(0f, pOEye.eulerAngles.y, 0f);
+
+        return Quaternion.Inverse(lOYaw) * (mOPlayerLight.transform.position - pOEye.position);
+    }
+
     public void Init(DataImport pOData)
     {
         mOData = pOData;

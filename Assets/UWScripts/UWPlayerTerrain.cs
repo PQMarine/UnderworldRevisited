@@ -633,6 +633,57 @@ public class UWPlayerTerrain : MonoBehaviour
             UWGameScreenUw2.PuntFightMode();
 
         fUpdateLavaUw2(lOFile);
+        fUpdateNoiseUw2();
+    }
+
+    /// <summary>The second game's footsteps and swim strokes (make_noise, UWPlayerNoiseRulesUw2).</summary>
+    private readonly UWPlayerNoiseRulesUw2 mONoise = new UWPlayerNoiseRulesUw2();
+
+    private float mfNoiseTimer;
+
+    /// <summary>make_noise at the original's 20 calls a second (its frames count the strokes), not at ours; a long
+    /// frame makes at most a few calls.</summary>
+    private void fUpdateNoiseUw2()
+    {
+        const float Step = 1f / UWPlayerNoiseRulesUw2.CallsPerSecond;
+        int liCalls = 0;
+
+        mfNoiseTimer += Time.deltaTime;
+
+        while (mfNoiseTimer >= Step && liCalls < 4)
+        {
+            mfNoiseTimer -= Step;
+            fNoiseCall(false);
+            liCalls++;
+        }
+
+        if (mfNoiseTimer >= Step)
+            mfNoiseTimer = 0f;
+    }
+
+    /// <summary>An easy-movement step's footstep at once (make_noise with easy, from UWPlayerMovement).</summary>
+    public void EasyStepNoiseUw2()
+    {
+        fNoiseCall(true);
+    }
+
+    private void fNoiseCall(bool pbEasy)
+    {
+        UWPlayerMotion lOMotion = mOMovement != null && mOMovement.UsesMotionCore ? mOMovement.Motion : null;
+
+        if (lOMotion == null || UWGameSession.Current == null)
+            return;
+
+        int liSurface = lOMotion.SurfaceBits;
+        int liIce = (liSurface & 4) != 0 ? (lOMotion.Frictionless ? 2 : 1) : 0;
+        // The speed as the first game's footsteps measure it (UWPlayerFootsteps, per user 2026-09-11: from the distance
+        // really travelled, so turning on the spot or walking into a wall makes none), on the original's scale.
+        int liSpeed = Mathf.RoundToInt(mOMovement.MomentumFraction * UWFootstepRules.FullMomentum);
+        int liSound = mONoise.Call(IsSwimming, (liSurface & 8) != 0, lOMotion.IsAirborne, liIce, liSpeed,
+            UWGameSession.Current.Schedule.Now, pbEasy, out int liVolume);
+
+        if (liSound >= 0)
+            UWAudioService.PlayEffect(liSound, liVolume);
     }
 
     /// <summary>The record the swim counter was last taken from (a load starts it again from its save).</summary>
@@ -658,7 +709,11 @@ public class UWPlayerTerrain : MonoBehaviour
             if (pOFile != null && UWPlayerRecordUw2.XClock(pOFile, UWPlayerRecordUw2.DjinnClock) == UWPlayerRecordUw2.DjinnMudOnStage)
             {
                 UWPlayerRecordUw2.SetXClock(pOFile, UWPlayerRecordUw2.DjinnClock, UWPlayerRecordUw2.DjinnMudBakedStage);
-                lOWorld.Presentation.AddGeneralMessage(UWPlayerRecordUw2.MudBakesString);
+                // To the second game's scroll (per user 2026-11-14, test 38.7: the world's own presentation is the first
+                // game's message channel, which the second game's walk does not have, so the line went nowhere).
+                IUWPresentation lOScroll = UWSleepUw2.Current != null ? UWSleepUw2.Current.ScrollPresentation(lOWorld) : lOWorld.Presentation;
+
+                lOScroll.AddGeneralMessage(UWPlayerRecordUw2.MudBakesString);
             }
         }
     }

@@ -12,8 +12,9 @@ using UWDataImport.UWData;
 /// no rune, Mending on what cannot be mended, Gate Travel on what is no moonstone. Remove Trap, Name Enchantment, Open and
 /// Detect Trap cost it whatever they find.
 ///
-/// NOT YET (G3, the traps): a trap the disarm sets off says so and does not fire, and Open does not set off the lock's
-/// trap (checkTrap 0xB); the second game's traps do not go off at all so far.
+/// THE TRAPS (G3 part H2, 2026-11-13): Remove Trap and Detect Trap find and disarm with the second game's rules
+/// (UWTrapRulesUw2.DetectTrap, RemoveTrap: a disarmed trap leaves its square, a fumbled one goes off), and Open sets off
+/// the unlock triggers of what it unlocked (checkTrap 0xB).
 /// </summary>
 public static class UWObjectSpellUw2
 {
@@ -100,44 +101,25 @@ public static class UWObjectSpellUw2
     /// <summary>DetectedTrap(target, 45): a trap there and the check against 10 and twice the world passed.</summary>
     private static bool fDetectTrap(UWObject pOTarget, UWLevel pOLevel, int piDungeonLevel)
     {
-        return pOLevel != null && UWObjectSpellRulesUw2.TryFindTrap(pOTarget, pOLevel.Masterlist, out _, out _)
-            && UWSkillCheck.IsSuccess(UWSkillCheck.Check(UWObjectSpellRulesUw2.SpellSkill, UWObjectSpellRulesUw2.DetectTarget(piDungeonLevel)));
+        UWSkillCheck.ResultEnum? leFound = pOLevel != null
+            ? UWTrapRulesUw2.DetectTrap(pOTarget, pOLevel.Masterlist, UWObjectSpellRulesUw2.SpellSkill, piDungeonLevel) : null;
+
+        return leFound.HasValue && UWSkillCheck.IsSuccess(leFound.Value);
     }
 
-    /// <summary>obj_spells' case 10: a trap found as Detect Trap finds it is disarmed with 45 against 8 and the world - "The
-    /// trap on the chest was successfully disarmed." and the trap gone from the thing; a fumble says it set the trap off;
-    /// else "Unable to defuse trap.". Found nothing: no word.</summary>
+    /// <summary>obj_spells' case 10: "if (DetectedTrap(target, 0x2D)) RemoveTrap(target, 0x2D)" - a trap found and the
+    /// detection anything but a plain failure (a critical one is not 0), then the disarm with 45 against 8 and the world
+    /// (UWTrapRulesUw2.RemoveTrap: disarmed and gone from its square, set off, or "Unable to defuse trap."). Found nothing:
+    /// no word.</summary>
     private static void fRemoveTrap(UWObject pOTarget, UWLevel pOLevel, int piDungeonLevel, UWAttackUw2 pOAttack, DataImport pOData)
     {
-        if (!fDetectTrap(pOTarget, pOLevel, piDungeonLevel)
-            || !UWObjectSpellRulesUw2.TryFindTrap(pOTarget, pOLevel.Masterlist, out UWObject lOTrigger, out UWObject lOTrap))
+        UWSkillCheck.ResultEnum? leFound = pOLevel != null
+            ? UWTrapRulesUw2.DetectTrap(pOTarget, pOLevel.Masterlist, UWObjectSpellRulesUw2.SpellSkill, piDungeonLevel) : null;
+
+        if (!leFound.HasValue || leFound.Value == UWSkillCheck.ResultEnum.Failure)
             return;
 
-        UWSkillCheck.ResultEnum leResult = UWSkillCheck.Check(UWObjectSpellRulesUw2.SpellSkill, UWObjectSpellRulesUw2.DisarmTarget(piDungeonLevel));
-        string lsTrap = UWObjectSpellRulesUw2.TrapName(pOData, lOTrap);
-
-        if (UWSkillCheck.IsSuccess(leResult))
-        {
-            pOAttack.AddMessage("The " + lsTrap + " on the " + UWText.ObjectName(pOData, pOTarget.ID)
-                + UWText.General(pOData, UWObjectSpellRulesUw2.DisarmedString));
-
-            // The thing's chain no longer leads to the trap: what the first game's disarm clears (UWTrapDisarming). The
-            // original deletes only the trap from the trigger's square (delete_trap); with the second game's traps (G3)
-            // neither fires again.
-            UWTrapChainRemoval.ClearSpecialChain(pOTarget, pOLevel);
-
-            return;
-        }
-
-        if (leResult == UWSkillCheck.ResultEnum.CriticalFailure)
-        {
-            pOAttack.AddMessage(UWText.General(pOData, UWObjectSpellRulesUw2.SetOffString) + lsTrap
-                + UWText.General(pOData, UWObjectSpellRulesUw2.PeriodString, "."));
-
-            return;
-        }
-
-        pOAttack.AddGeneralMessage(UWObjectSpellRulesUw2.UnableToDefuseString);
+        UWTriggerSystem.RemoveTrapUw2(pOTarget, UWObjectSpellRulesUw2.SpellSkill, UWScene.LevelLoader);
     }
 
     /// <summary>LookAt(target, 3) and the identified mark: an item that can be identified is named whole, anything else
@@ -181,6 +163,10 @@ public static class UWObjectSpellUw2
 
         bool lbUnlocked = UWLockRules.Unlock(lODoorLock, lOContainerLock != null ? pOTarget : null, lOContainerLock, false,
             -UWObjectSpellRulesUw2.SpellSkill) == UWLockRules.Outcome.Unlocked;
+
+        // checkLock's unlock sets off the thing's unlock triggers (checkTrap 0xB) before the message (G3 part H2).
+        if (lbUnlocked)
+            UWTriggerSystem.CheckTrapUw2(pOTarget, UWTrapRulesUw2.UnlockMode, pOTarget.TileX, pOTarget.TileY, UWScene.LevelLoader);
 
         pOAttack.AddGeneralMessage(lbUnlocked ? UWObjectSpellRulesUw2.UnlocksString : UWObjectSpellRulesUw2.NoDiscernableEffectString);
     }

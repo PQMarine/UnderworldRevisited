@@ -287,8 +287,7 @@ namespace UWDataImport.UWData
 
 				lOObject.EnsureContentsLoaded(pOLevel.Masterlist);
 
-				if (lOObject.Contents != null && lOObject.Contents.Count > 0
-					&& lOObject.Contents[0] != null && lOObject.Contents[0].ID == UWObjectMechanics.LockObjectId)
+				if (UWLockRules.FindLoadedLock(lOObject) != null)
 					lODoors.Add(lOObject);
 			}
 

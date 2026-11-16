@@ -102,10 +102,25 @@ namespace UWDataImport.UWData
 		/// <summary>A thing in flight set the trigger off.</summary>
 		public readonly bool ByThing;
 
+		/// <summary>Where the creature or thing that set it off stands (its record's tile, fine spot and height) - the
+		/// second game's proximity trap asks; Nowhere when the host does not know, and for the player, whose spot is the
+		/// world's (IUWPlayerAvatar.FeetSpot).</summary>
+		public readonly UWSpot SetterSpot;
+
+		/// <summary>The setting-off creature's mobile index (its UWCreatureRef.Index), 0 when not known.</summary>
+		public readonly int SetterIndex;
+
 		public UWTrapFiring(bool pbByCreature, bool pbByThing)
+			: this(pbByCreature, pbByThing, UWSpot.Nowhere)
+		{
+		}
+
+		public UWTrapFiring(bool pbByCreature, bool pbByThing, UWSpot pOSetterSpot, int piSetterIndex = 0)
 		{
 			ByCreature = pbByCreature;
 			ByThing = pbByThing;
+			SetterSpot = pOSetterSpot;
+			SetterIndex = piSetterIndex;
 		}
 
 		/// <summary>The player set it off.</summary>

@@ -65,7 +65,10 @@ namespace UnderworldRevisited.Tools
             piType = (int)lOTile.TileType & 0xF;
             piFloorNibble = (lOTile.FloorHeight >> 4) & 0xF;
 
-            if (mOTerrain != null)
+            // As the game's host (UWMotionHost.TryGetTile): the second game's floor class itself, ice as 3.
+            if (mOTerrain != null && mOTerrain.Uw2 != null)
+                piTerrain = mOTerrain.Uw2.Class(lOTile.TextureFloor);
+            else if (mOTerrain != null)
                 piTerrain = ((int)mOTerrain.GetFloorTerrain(lOTile.TextureFloor) & 0xFF) >> 4;
 
             return true;

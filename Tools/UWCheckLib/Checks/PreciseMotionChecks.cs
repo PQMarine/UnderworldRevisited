@@ -207,6 +207,7 @@ namespace UnderworldRevisited.Tools
             fExpectInt("precise: ... and lands on its floor", lOFine.Params.Z, 0x80);
 
             fCheckFineTicks(pOData, liMaxZ);
+            fCheckIceStrength();
         }
 
         /// <summary>A player in the precision mode with fine ticks (1/256 tick a unit).</summary>
@@ -245,6 +246,51 @@ namespace UnderworldRevisited.Tools
         /// an even view, and the rules: the ledge at a creep and a run, the fall's damage, the
         /// levitation stop, the slow fall, water, the jump apex of the original.
         /// </summary>
+        /// <summary>
+        /// THE SECOND GAME'S ICE in the precision mode (2026-11-14, per user: Modern and Smooth could steer on
+        /// ice at full speed, the original cannot). At a run the original's strength is 0 or less for every
+        /// grip, so munge_vectors keeps the old motion; the precision mode must give 0 there (it gave 1 a frame),
+        /// and a small grip scaled to short frames adds up to the original frame's value (it was raised to 1).
+        /// </summary>
+        private static void fCheckIceStrength()
+        {
+            bool lbAllNone = true;
+
+            for (int liBits = 0; liBits < 7; liBits++)
+            {
+                if (UWPlayerMotion.IceGrip(liBits, UWPlayerMotion.BaseForwardSpeed, UWPlayerMotion.BaseForwardSpeed, false) > 0)
+                    lbAllNone = false;
+            }
+
+            fExpectBool("ice: at the run (0x3AC) no grip steers in the original (strength 0 or less for bits 0-6)", lbAllNone, true);
+            fExpectBool("ice: from standing the grip steers (bits 0: 0x18)", UWPlayerMotion.IceGrip(0, 0, 0x60, false) == 0x18, true);
+
+            double ldCarry = 0.0;
+            int liRun = UWPlayerMotion.IceGrip(6, UWPlayerMotion.BaseForwardSpeed, UWPlayerMotion.BaseForwardSpeed, false);
+            int liSum = 0;
+
+            for (int liFrame = 0; liFrame < 64; liFrame++)
+                liSum += UWPlayerMotion.IceStrengthPerFrame(liRun, true, 1.0, ref ldCarry);
+
+            fExpectInt("ice: precise, at the run 64 one-tick frames blend nothing (was 1 a frame)", liSum, 0);
+
+            ldCarry = 0.0;
+            liSum = 0;
+
+            for (int liFrame = 0; liFrame < 16; liFrame++)
+                liSum += UWPlayerMotion.IceStrengthPerFrame(4, true, 1.0, ref ldCarry);
+
+            fExpectInt("ice: precise, a grip of 4 over 16 one-tick frames adds up to 4 (not 16)", liSum, 4);
+            fExpectInt("ice: without the precision mode the per-call value", UWPlayerMotion.IceStrengthPerFrame(4, false, 1.0, ref ldCarry), 4);
+
+            // THE ICE GRIP (a gameplay aid, per user 2026-11-14): Off the original's, Half at least a sixteenth, Full the whole way.
+            fExpectInt("ice grip: Off keeps the original's strength at the run", UWIceGrip.Strength(liRun, UWIceGripEnum.Off), liRun);
+            fExpectInt("ice grip: Half steers at the run with a sixteenth", UWIceGrip.Strength(liRun, UWIceGripEnum.Half), UWIceGrip.HalfStrength);
+            fExpectInt("ice grip: Half keeps a stronger original grip", UWIceGrip.Strength(0x30, UWIceGripEnum.Half), 0x30);
+            fExpectInt("ice grip: Full takes the whole way", UWIceGrip.Strength(liRun, UWIceGripEnum.Full), UWMotionVariantUw2.MungeFull);
+            fExpectBool("ice grip: no setting reads Off", UWIceGrip.ModeSource == null ? UWIceGrip.Mode == UWIceGripEnum.Off : true, true);
+        }
+
         private static void fCheckFineTicks(DataImport pOData, int piApex16)
         {
             FakeMotionWorld lOWorld = new FakeMotionWorld();

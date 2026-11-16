@@ -89,6 +89,7 @@
   "deviations.conversationPatches": true,
   "deviations.debrisLosesSpell": false,
   "deviations.followerLandsWhereItCanStand": true,
+  "deviations.groundedFlightBouncesOnIce": true,
   "deviations.orbManaAsideOnlyWhileOrbStands": true,
   "deviations.tidyLeakedObjects": true,
   "deviations.unpushableNpcs": true,

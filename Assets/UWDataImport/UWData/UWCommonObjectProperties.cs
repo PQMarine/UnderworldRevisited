@@ -70,10 +70,15 @@ namespace UWDataImport.UWData
 			/// </summary>
 			public bool IsWeightless;
 
-			/// <summary>Flags bit 5. According to the docs "is set when object can be picked up" - with
-			/// explicit exceptions that have the bit set anyway (urn, orb,
-			/// campfire, fountain, cauldron). See UWFixedScenery.</summary>
+			/// <summary>Byte 3 bit 5, struct ComObj's "pickup". The docs read it as "can be picked up", with exceptions that
+			/// have it set anyway (urn, orb, campfire, fountain, cauldron); what the hand takes is Pickable below (since
+			/// 2026-11-16 for both games; the first game's hand list UWFixedScenery went then).</summary>
 			public bool CanBePickedUp;
+
+			/// <summary>Byte 7 bit 5 (struct ComObj's "pickable", uw2 include/object.h): what pick_3d lets the hand take
+			/// (INTERACT.C: releaseable = co->pickable &amp;&amp; !IsMobElem). CanBePickedUp above is byte 3 bit 5, the struct's
+			/// "pickup" - another bit (per user 2026-11-16 on the second game: a campfire has "pickup" and cannot be taken).</summary>
+			public bool Pickable;
 
 			/// <summary>Flags bit 7: container (according to the docs except the cauldron).</summary>
 			public bool IsContainer;
@@ -214,6 +219,7 @@ namespace UWDataImport.UWData
 					IsSwitch = (lyFlags & 0x04) != 0,
 					IsWeightless = (lyFlags & 0x08) != 0,
 					CanBePickedUp = (lyFlags & 0x20) != 0,
+					Pickable = (lyData[liOffset + 7] & 0x20) != 0,
 					IsContainer = (lyFlags & 0x80) != 0,
 					QuantityClass = (lyFlags >> 6) & 0x3,
 					Value = lyData[liOffset + 4] | (lyData[liOffset + 5] << 8),

@@ -59,6 +59,9 @@ public class UWDebugOverlay : MonoBehaviour
         if (mOPanel != null)
             mOPanel.Dispose();
 
+        if (mOMarks != null)
+            mOMarks.Dispose();
+
         UWMouseButtons.IsBlockedByDebug = false;
     }
 
@@ -70,7 +73,13 @@ public class UWDebugOverlay : MonoBehaviour
         // The panel's canvas goes dark with the component.
         if (mOPanel != null)
             mOPanel.Draw(false, null, null);
+
+        if (mOMarks != null)
+            mOMarks.Draw(false, null, null);
     }
+
+    /// <summary>The test marks of test-focus.json (UWTestMarkView), drawn whether the panel is open or not.</summary>
+    private UWTestMarkView mOMarks;
 
     private void Update()
     {
@@ -138,6 +147,13 @@ public class UWDebugOverlay : MonoBehaviour
         bool lbReady = mOLoader != null && mOLoader.UWDataImporter != null;
         UWDebugTools lOTools = UWDebugTools.IsOpen ? UWDebugTools.Instance : null;
         bool lbShown = lbReady && (mbVisible || lOTools != null);
+
+        // The test marks: the file read when it changed, the numbers over their squares with the debug keys on.
+        if (mOMarks == null)
+            mOMarks = new UWTestMarkView(transform);
+
+        mOMarks.Poll();
+        mOMarks.Draw(lbReady && UWUserSettings.DebugKeys, lbReady ? fGetActiveCamera() : null, mOLoader);
 
         if (mOPanel == null)
         {
@@ -302,6 +318,9 @@ public class UWDebugOverlay : MonoBehaviour
 
         foreach (UWTrapLog.Entry lOEntry in UWTrapLog.Entries)
             lOSnapshot.Traps.Add(lOEntry);
+
+        // The prepared test's marks and their chains' lines (UWTestMarks).
+        UWTestMarkView.Fill(lOSnapshot, mOLoader);
 
         return lOSnapshot;
     }

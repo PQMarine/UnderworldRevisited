@@ -958,7 +958,9 @@ namespace UWDataImport.UWData
 			{
 				fStop();
 				p.Contact = UWMotionTables.ContactWater;
-				mOWorld.PlaySoundAt(5, p.X >> 5, p.Y >> 5, I16(liMass - 600) / 50);
+				int liSplash = mOWorld.Session.Game.Motion.WaterLandingSound(liMass, out int liSplashVolume);
+
+				mOWorld.PlaySoundAt(liSplash, p.X >> 5, p.Y >> 5, liSplashVolume);
 
 				return;
 			}

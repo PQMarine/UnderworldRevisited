@@ -246,6 +246,12 @@ the files only describes what a byte of the game's tables means (msDescribers).
 |---|---|
 | `ShowMapAndOtherFullScreenUIs` (ovr109_2FF) | UWHudMap.cs |
 
+### ovr110
+
+| Place | Files |
+|---|---|
+| `ChangeTile` (ovr110_F37) | UWTrapRulesUw2.cs |
+
 ### ovr114
 
 | Place | Files |

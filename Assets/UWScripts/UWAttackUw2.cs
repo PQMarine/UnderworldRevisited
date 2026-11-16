@@ -159,8 +159,33 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     private IUWSpellHost mITargetHost;
 
     /// <summary>nail_1area's target mode (GameInputMode 2, force_mouse_cursor(0x1076)): a class 7 spell waits for the
-    /// clicked thing.</summary>
-    public bool IsTargetSpellWaiting => miTargetMinor >= 0;
+    /// clicked thing - or a carried thing used on another (UseThing, BeginUseOn), the same input mode.</summary>
+    public bool IsTargetSpellWaiting => miTargetMinor >= 0 || mOUseOnActor != null;
+
+    // ------------------------------------------------- A carried thing used on another (UW2 plan G4 part A)
+
+    private UWObject mOUseOnItem;
+
+    private System.Action<UWObject, UWEntityInfo, bool> mOUseOnActor;
+
+    /// <summary>UseThing's ObjectActing: the key or the lockpick waiting for what it is used on, the pointer's picture
+    /// (force_mouse_cursor(item)); null while none waits.</summary>
+    public UWObject UseOnItem => mOUseOnActor != null ? mOUseOnItem : null;
+
+    /// <summary>
+    /// UseThing (uw2 obj/OBJUSE.C): "Use &lt;name&gt; on what?" is the caller's; the item waits on the pointer in
+    /// GameInputMode 2 and the next click hands what it hit to the actor (ObjectActor) - the thing, its node in the world
+    /// (null when carried) and whether it is carried. Unlike a target spell the mode ends with any click in the view
+    /// (mous_in_3d's case 2 clears it when CursorObjPtr is set): on nothing, too far, or used.
+    /// </summary>
+    public void BeginUseOn(UWObject pOItem, System.Action<UWObject, UWEntityInfo, bool> pOActor)
+    {
+        CancelSpellTarget();
+
+        mOUseOnItem = pOItem;
+        mOUseOnActor = pOActor;
+        miSpellBeganFrame = Time.frameCount;
+    }
 
     /// <summary>A missile or a target spell waits.</summary>
     public bool IsAnySpellWaiting => IsSpellWaiting || IsTargetSpellWaiting;
@@ -180,6 +205,8 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         miTargetMinor = -1;
         miTargetCost = 0;
         mITargetHost = null;
+        mOUseOnItem = null;
+        mOUseOnActor = null;
     }
 
     /// <summary>
@@ -191,9 +218,15 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     private void fApplyTargetAt(Ray pORay)
     {
         UWEntityInfo lOTarget = UWWorldPicker.Measure(pORay).SpellTarget;
+        bool lbUseOn = mOUseOnActor != null;
 
         if (lOTarget == null || lOTarget.ObjectData == null)
+        {
+            if (lbUseOn)
+                fEndUseOnClick();
+
             return;
+        }
 
         Camera lOCamera = UWViewpoint.Current;
         Vector3 lOFeet = lOCamera != null ? UWPlayerThrow.GetFeet(lOCamera.transform) : Vector3.zero;
@@ -225,6 +258,9 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
         {
             AddGeneralMessage(CannotReachString);
 
+            if (lbUseOn)
+                fEndUseOnClick();
+
             return;
         }
 
@@ -250,6 +286,17 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     /// paid when the handler took.</summary>
     private void fCastTargetOn(UWObject pOTarget, UWEntityInfo pOEntity, bool pbCarried)
     {
+        // A carried thing used on another: the actor (ObjectActor) has it, the mode ends first.
+        if (mOUseOnActor != null)
+        {
+            System.Action<UWObject, UWEntityInfo, bool> lOActor = mOUseOnActor;
+
+            fEndUseOnClick();
+            lOActor(pOTarget, pOEntity, pbCarried);
+
+            return;
+        }
+
         int liMinor = miTargetMinor;
         int liCost = miTargetCost;
         IUWSpellHost lIHost = mITargetHost;
@@ -268,6 +315,25 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
 
         if (lbTook && liCost > 0 && lIHost != null)
             lIHost.SpendMana(liCost);
+    }
+
+    /// <summary>The modern use key with a key or a lockpick waiting: it goes on what the crosshair or the free pointer
+    /// shows, as the click would (per user 2026-11-13: in the modern scheme E said "not yet"). False when none waits.</summary>
+    public bool ApplyWaitingUseOn()
+    {
+        if (mOUseOnActor == null || fBusy || miSpellBeganFrame == Time.frameCount)
+            return false;
+
+        fApplyTargetAt(fSpellRay());
+
+        return true;
+    }
+
+    /// <summary>The use-on mode ends with the click: no blow and no look from it.</summary>
+    private void fEndUseOnClick()
+    {
+        miSpellClickFrame = Time.frameCount;
+        CancelSpellTarget();
     }
 
     /// <summary>sp_study_monster: its lines on a creature, a skull or a wisp (UWObjectSpellRulesUw2.StudyLines); anything
@@ -500,6 +566,7 @@ public sealed class UWAttackUw2 : MonoBehaviour, IUWLookHost
     private bool mbRefused;
 
     private static bool fBusy => UWConversationScreenUw2.IsOpen || UWMapScreenUw2.IsOpen || UWGameScreenUw2.IsOptionsOpen || UWGameScreenUw2.IsAskingCount
+        || UWGameScreenUw2.IsAskingYesNo
         || UWRoamingSight.IsAnyRunning || UWVitalsUw2.PlayerParalysed;
 
     /// <summary>player_attack, over the step flags of the weapon's animation: the lead-in gives way when the button

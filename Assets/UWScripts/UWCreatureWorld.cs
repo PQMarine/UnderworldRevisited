@@ -690,10 +690,28 @@ public sealed class UWCreatureWorld : ICreatureWorld
 
     // ------------------------------------------------- Talk and music
 
-    public bool CanTalk => !UWConversationController.IsAnyOpen && UWScene.Interaction != null;
+    /// <summary>
+    /// A CREATURE'S OWN TALK GOES TO ITS GAME'S CONVERSATION (per user 2026-11-14: Lord British's goal 10 never opened
+    /// a talk in the second game, and he stood at goal 12 afterwards). The second game's walk talks through
+    /// UWGameScreenUw2.TalkTo, the first game's through the Interaction; until then both took the first game's, whose
+    /// talk does not show in the second game's walk.
+    /// </summary>
+    public bool CanTalk => UWWalkUw2.IsWalking
+        ? !UWConversationScreenUw2.IsOpen && UWGameScreenUw2.Current != null
+        : !UWConversationController.IsAnyOpen && UWScene.Interaction != null;
 
     public void Talk(UWNpc pONpc)
     {
+        if (UWWalkUw2.IsWalking)
+        {
+            UWLevelLoader lOLoader = fLoader;
+
+            if (UWGameScreenUw2.Current != null && lOLoader != null && lOLoader.TryGetEntity(pONpc, out UWEntityInfo lOEntity))
+                UWGameScreenUw2.Current.TalkTo(lOEntity);
+
+            return;
+        }
+
         Interaction lOInteraction = UWScene.Interaction;
 
         if (lOInteraction != null)

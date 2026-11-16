@@ -278,6 +278,9 @@ namespace UWDataImport.UWData
 		/// <summary>The most recent fired traps, oldest first (UWTrapLog).</summary>
 		public readonly List<UWTrapLog.Entry> TrapLog = new List<UWTrapLog.Entry>();
 
+		/// <summary>The lines of chains on a test mark's square, oldest first (UWTrapLog, UWTestMarks).</summary>
+		public readonly List<UWTrapLog.Entry> MarkedTrapLog = new List<UWTrapLog.Entry>();
+
 		/// <summary>The trap kind's extra note for the line being recorded (UWTrapLog.Detail): a
 		/// side channel cleared before every trap and read when the line is written.</summary>
 		public string TrapDetail;

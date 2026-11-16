@@ -603,6 +603,85 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
             mOConversation.EndCountLine();
     }
 
+    // ------------------------------------------------- The yes/no question (wyorn, G3 part H2)
+
+    private const string YesNoHold = "uw2 yes/no";
+
+    /// <summary>The first game's question (UWYesNoPrompt) on the scroll's last line.</summary>
+    private UWYesNoPrompt mOYesNo;
+
+    private bool mbYesNoLine;
+
+    private bool mbYesNoHeld;
+
+    private int miYesNoEndedFrame = -1;
+
+    /// <summary>A yes/no question is up, or was answered in this frame: the game has no input.</summary>
+    public static bool IsAskingYesNo => Current != null && Current.mOYesNo != null
+        && (Current.mOYesNo.IsOpen || Current.miYesNoEndedFrame == Time.frameCount);
+
+    /// <summary>wyorn: the question on the scroll's last line, "Yes" preset, the game standing until it is answered
+    /// with the first game's keys and buttons (UWYesNoPrompt). False when one is up already.</summary>
+    public bool AskYesNo(string psQuestion, System.Action<bool> pFAnswered)
+    {
+        if (mOYesNo == null)
+            mOYesNo = new UWYesNoPrompt(fShowYesNoLine, fEndYesNoLine);
+
+        if (mOYesNo.IsOpen)
+            return false;
+
+        mbYesNoHeld = true;
+        UWGameClock.Hold(YesNoHold);
+
+        if (UWControlScheme.Shared != null)
+            UWControlScheme.Shared.HoldInput(YesNoHold);
+
+        mOYesNo.Ask(psQuestion, pbYes =>
+        {
+            miYesNoEndedFrame = Time.frameCount;
+            pFAnswered?.Invoke(pbYes);
+        });
+
+        return true;
+    }
+
+    private void fShowYesNoLine(string psLine)
+    {
+        msfLastSaid = Time.unscaledTime;
+
+        if (mbYesNoLine && msMessages.Count > 0)
+            msMessages[msMessages.Count - 1] = psLine;
+        else
+        {
+            mbYesNoLine = true;
+            Say(psLine);
+        }
+    }
+
+    private void fEndYesNoLine()
+    {
+        mbYesNoLine = false;
+    }
+
+    /// <summary>The question's tick; the hold goes a frame after the answer, with the press that gave it. True while it
+    /// runs.</summary>
+    private bool fUpdateYesNo()
+    {
+        if (mOYesNo == null)
+            return false;
+
+        if (mbYesNoHeld && !mOYesNo.IsOpen && Time.frameCount > miYesNoEndedFrame)
+        {
+            mbYesNoHeld = false;
+            UWGameClock.Release(YesNoHold);
+
+            if (UWControlScheme.Shared != null)
+                UWControlScheme.Shared.ReleaseInput(YesNoHold);
+        }
+
+        return mOYesNo.Update();
+    }
+
     /// <summary>Empties the scroll (scroll_clear).</summary>
     public static void ClearScroll()
     {
@@ -653,8 +732,8 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         // CURSORS.GR, drawn transparent: 0 the pointer, 1 to 8 the arrows of the view's regions, 9 the aim (0x1075), 10 the
         // target spell's pointer (0x1076; until 2026-11-12 the array ended at the aim, so the classic screen kept the plain
-        // pointer for a target spell and the modern free pointer had none).
-        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.Enchant + 1];
+        // pointer for a target spell and the modern free pointer had none), 11 the red X of Use, Look and Get (0x1077).
+        mOCursors = new Texture2D[(int)UWCursors.CursorEnum.Use + 1];
 
         for (int liAt = 0; liAt < mOCursors.Length; liAt++)
             mOCursors[liAt] = fPicture(UWTexture.TextureTypes.CURSORS, liAt, true);
@@ -1748,6 +1827,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         if (mbInventoryPressRight || Command == CommandEnum.Look)
         {
+            // inv_look: checkTrap with mode 5 before the look (G3 part H4).
+            if (lOItem != null && UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null)
+                UWTriggerSystem.CheckTrapUw2(lOItem, UWTrapRulesUw2.LookMode, lOItem.TileX, lOItem.TileY, UWScene.LevelLoader,
+                    UWTrapRules.Setter.Player, UWVitalsUw2.Current.Vitals.GetSkill(UWPlayerData.Skill.Search));
+
             if (UWAttackUw2.Current != null)
                 UWAttackUw2.Current.Look.AddItemLookMessages(lOItem);
 
@@ -1782,6 +1866,9 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         else if (UWObjectMechanics.IsAnyLight(pOItem.ID))
             UWItemUse.ToggleLight(pOItem, mOData, mOInventory, piString => Say(UWText.Block(mOData, 1, piString, string.Empty)),
                 () => UWAudioService.PlayEffect(UWObjectVariantUw2.LightSound));
+        // UseKey: a key or a lockpick asks what to use it on (G4 part A).
+        else if (UWLockUseUw2.IsKeyOrLockpick(pOItem))
+            UWLockUseUw2.Begin(pOItem, mOData, mOInventory);
         else
             Say(UWText.T("hud.walk.not_yet"));
     }
@@ -1989,6 +2076,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         UWModernPointer.Tick(lbFree && !mbBagsOpen && !mbRunesOpen && !mbOptionsOpen && !UWConversationScreenUw2.IsOpen
             && !UWMapScreenUw2.IsOpen && !UWControls.IsTextEntryActive);
 
+        // THE PACK'S EIGHT CELLS SHOW WITH THE BAGS SHUT: a free pointer's click on one opens the bags and is taken there
+        // (per user 2026-11-13: "nothing can be clicked in the inventory" - the bags were shut, only B opened them, and
+        // the shown cells took no click; a diagnosis log said so).
+        if (!mbBagsOpen && !mbRunesOpen && fPressOnShutPackCell())
+            mbBagsOpen = true;
+
         if (mbBagsOpen || mbRunesOpen)
         {
             fClickBags();
@@ -2092,7 +2185,18 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
     /// (UWModernUi.IsOverUi).</summary>
     public bool IsOverModernWindow(Vector2 pOPointer)
     {
-        return (mOModernHud != null && mOModernHud.IsOverWindow(pOPointer, mbBagsOpen)) || UWModernUi.IsOverUi(pOPointer);
+        return (mOModernHud != null && (mOModernHud.IsOverWindow(pOPointer, mbBagsOpen) || mOModernHud.DisplayAt(pOPointer) > 0))
+            || UWModernUi.IsOverUi(pOPointer);
+    }
+
+    /// <summary>A press of the free pointer on one of the pack cells the HUD shows with the bags shut.</summary>
+    private bool fPressOnShutPackCell()
+    {
+        UnityEngine.InputSystem.Mouse lOMouse = UWMouseButtons.GameMouse;
+
+        return mOModernHud != null && lOMouse != null && UWModernPointer.IsFree
+            && (lOMouse.leftButton.wasPressedThisFrame || lOMouse.rightButton.wasPressedThisFrame)
+            && mOModernHud.DisplayAt(UWPointer.Position) > 0;
     }
 
     /// <summary>E took a thing, or a conversation began: the bags open, for the pointer to put it down.</summary>
@@ -2914,7 +3018,17 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         // fired the game's keys.
         UWControls.SetTextEntryActive(miTypingSlot != 0 || UWMapScreenUw2.IsWriting || UWConversationScreenUw2.IsTyping
             || (mOCountAsk != null && mOCountAsk.IsAsking) || UWKitRows.IsTyping || UWHelpWindow.BlocksGameKeys
-            || UWDebugTools.IsTyping);
+            || UWDebugTools.IsTyping || (mOYesNo != null && mOYesNo.IsOpen));
+
+        if (fUpdateYesNo())
+        {
+            fUpdatePointer();
+
+            if (mOModernHud != null && !IsClassicShown)
+                fTickModernHud();
+
+            return;
+        }
 
         if (mOCountAsk != null)
         {
@@ -3250,6 +3364,14 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
 
         meCursor = leCursor;
 
+        // THE RED X OF USE, LOOK AND GET (deal_with_icons' force_mouse_cursor(0x1077), uw2 ui/INTERACT.C; per user
+        // 2026-11-13): with one of the three lit on the command bar the pointer is the X everywhere, the view's arrows
+        // included (a forced pointer stands over the regions, MOUSE.C), until the mode ends. Talk and Fight keep the
+        // arrows. What forces a pointer after it - the aim, a target spell, a thing on the pointer - lies over it.
+        if (IsClassicScheme && !mbOptionsOpen
+            && (Command == CommandEnum.Use || Command == CommandEnum.Look || Command == CommandEnum.Get))
+            leCursor = UWCursors.CursorEnum.Use;
+
         // A drawn bow aims (force_mouse_cursor(0x1075), the picture a waiting spell has), and so does a waiting
         // missile spell (do_spell's GameInputMode 3).
         if (UWAttackUw2.Current != null && (UWAttackUw2.Current.IsAiming || UWAttackUw2.Current.IsSpellWaiting))
@@ -3259,10 +3381,12 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         if (UWAttackUw2.Current != null && UWAttackUw2.Current.IsTargetSpellWaiting)
             leCursor = UWCursors.CursorEnum.Enchant;
 
-        // An object on the pointer is the pointer (SetCursorObj).
+        // An object on the pointer is the pointer (SetCursorObj), and so is a key or a lockpick waiting for its lock
+        // (UseThing's force_mouse_cursor(item), G4 part A).
+        UWObject lOUseOn = UWAttackUw2.Current != null ? UWAttackUw2.Current.UseOnItem : null;
         Texture2D lOPicture = mOInventory != null && mOInventory.CursorItem != null
             ? fCursorObjectPicture(mOInventory.CursorItem.ID)
-            : fScaledCursor((int)leCursor);
+            : lOUseOn != null ? fCursorObjectPicture(lOUseOn.ID) : fScaledCursor((int)leCursor);
 
         if (lOPicture != null)
             UWPointer.SetPicture(lOPicture, new Vector2(lOPicture.width * 0.5f, lOPicture.height * 0.5f));
@@ -3366,7 +3490,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         foreach (Texture2D lOScaled in mOScaledCursors)
         {
             if (lOScaled != null)
+            {
+                // Unity gives the picture back before it goes (UWPointer.ReleasePicture).
+                UWPointer.ReleasePicture(lOScaled);
                 Destroy(lOScaled);
+            }
         }
 
         mOScaledCursors = null;
@@ -4234,7 +4362,11 @@ public sealed class UWGameScreenUw2 : MonoBehaviour
         foreach (Texture2D lOTexture in mOOwned)
         {
             if (lOTexture != null)
+            {
+                // One of them may be the pointer's (the map's quill): UWPointer.ReleasePicture.
+                UWPointer.ReleasePicture(lOTexture);
                 Destroy(lOTexture);
+            }
         }
 
         mOOwned.Clear();

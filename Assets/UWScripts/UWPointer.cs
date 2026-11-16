@@ -450,7 +450,46 @@ public static class UWPointer
         msOHotspot = pOHotspot;
 
         if (!msOMotion.IsCaptured && pOPicture != null && !fSystemArrow)
-            Cursor.SetCursor(pOPicture, pOHotspot, PointerCursorMode);
+            fHandToSystem(pOPicture, pOHotspot);
+    }
+
+    /// <summary>The picture Unity holds as the system pointer's (Cursor.SetCursor), null for none.</summary>
+    private static Texture2D msOHanded;
+
+    private static void fHandToSystem(Texture2D pOPicture, Vector2 pOHotspot)
+    {
+        Cursor.SetCursor(pOPicture, pOHotspot, PointerCursorMode);
+        msOHanded = pOPicture;
+    }
+
+    /// <summary>
+    /// A POINTER PICTURE IS ABOUT TO BE DESTROYED: Unity gives it back first. THE ONE PLACE for it - every
+    /// owner of pointer pictures calls this before its Destroy (UWPointerCursor.ReleaseScaledCursors,
+    /// UWGameScreenUw2).
+    ///
+    /// WHY (2026-11-15, step 3 of the Todo row "Native crash after the window regains focus"): since
+    /// 2026-10-23 the system pointer shows our texture (CursorMode.ForceSoftware), and the scaled
+    /// pictures are destroyed at every scene rebuild and every change of scale. The new picture reaches
+    /// Unity only while the pointer is free and shown (SetPicture), so with a captured pointer Unity
+    /// kept a destroyed texture as its cursor until the focus changed (fRelease sets it again) - and
+    /// every crash of that series came after the focus had been away. Whether that is the cause is not
+    /// proven; handing Unity a picture that still exists is right either way.
+    ///
+    /// The comparison is by reference: the picture may be destroyed already.
+    /// </summary>
+    public static void ReleasePicture(Texture2D pOPicture)
+    {
+        if (ReferenceEquals(pOPicture, null))
+            return;
+
+        if (ReferenceEquals(msOHanded, pOPicture))
+        {
+            Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+            msOHanded = null;
+        }
+
+        if (ReferenceEquals(msOPicture, pOPicture))
+            msOPicture = null;
     }
 
     /// <summary>
@@ -578,7 +617,7 @@ public static class UWPointer
             msOPadPosition = lOAt;
 
         if (msOPicture != null && !fSystemArrow)
-            Cursor.SetCursor(msOPicture, msOHotspot, PointerCursorMode);
+            fHandToSystem(msOPicture, msOHotspot);
     }
 
     /// <summary>The Cursor's lock and visibility, written when they differ from what was written last.</summary>
@@ -591,6 +630,7 @@ public static class UWPointer
         if (fSystemArrow && !msbArrowWritten)
         {
             Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+            msOHanded = null;
             msbArrowWritten = true;
         }
         else if (!fSystemArrow)

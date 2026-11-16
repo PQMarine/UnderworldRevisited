@@ -50,5 +50,13 @@ namespace UWDataImport.UWData
 		/// mover dead as in water (do_zbounce; UW1: bit 0 set, MOTION.C:505; UW2: the low two bits exactly 1,
 		/// MOTION.C:514 - its ice, 3, bounces).</summary>
 		bool LandsInWater(int piFlags);
+
+		/// <summary>Whether an object put down in water splashes (obj_deal; UW1: no, OBJPHYS.C:562; UW2: put_effect(obj, 6,
+		/// 3) before do_filanium, OBJPHYS.C:556). A thrown one splashes in both (mob_to_static).</summary>
+		bool PutDownSplashes { get; }
+
+		/// <summary>The sound of a fall into water by the mover's mass (do_zbounce; UW1: 5 at (mass - 600) / 50,
+		/// MOTION.C:509; UW2: 0x18 under 20, 0x19 under 100, else 5, all at 0, MOTION.C:518-526).</summary>
+		int WaterLandingSound(int piMass, out int piVolume);
 	}
 }

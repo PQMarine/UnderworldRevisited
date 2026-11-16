@@ -230,6 +230,10 @@ namespace UWDataImport.UWData
 				return lOReport;
 			}
 
+			// The prepared test first, when test-focus.json lies beside the settings (UWTestMarks).
+			if (pOSnapshot.Test != null)
+				lOReport.Sections.Add(fTest(pOSnapshot));
+
 			lOReport.Sections.Add(fPlace(pOSnapshot));
 			lOReport.Sections.Add(fPlayer(pOSnapshot));
 			lOReport.Sections.Add(fLookTarget(pOSnapshot.Look));
@@ -670,18 +674,68 @@ namespace UWDataImport.UWData
 		{
 			UWDebugSection lOSection = new UWDebugSection(TrapsId, "Trap log");
 
-			for (int liAt = pOSnapshot.Traps.Count - 1; liAt >= 0; liAt--)
-			{
-				UWTrapLog.Entry lOEntry = pOSnapshot.Traps[liAt];
-				bool lbNotBuilt = lOEntry.Text != null && lOEntry.Text.EndsWith("NOT BUILT", StringComparison.Ordinal);
-
-				lOSection.Add(fF("{0:F0}s ago", pOSnapshot.Now - lOEntry.Time), lOEntry.Text,
-					lbNotBuilt ? UWDebugEmphasis.Warning : UWDebugEmphasis.Normal, UWDebugRowFlags.Log,
-					fUniqueKey(lOSection, "trap:" + lOEntry.Time.ToString("R", CultureInfo.InvariantCulture)));
-			}
+			fAddTrapLines(lOSection, pOSnapshot.Traps, pOSnapshot.Now);
 
 			if (lOSection.Rows.Count == 0)
 				lOSection.Add("Traps", "none fired yet", UWDebugEmphasis.Dim);
+
+			return lOSection;
+		}
+
+		/// <summary>Log lines latest first, with their age; a line of a marked chain carries its marks' numbers in front
+		/// ("[1] ") and the accent, one of a trap kind not built the warning.</summary>
+		private static void fAddTrapLines(UWDebugSection pOSection, List<UWTrapLog.Entry> pOEntries, float pfNow)
+		{
+			for (int liAt = pOEntries.Count - 1; liAt >= 0; liAt--)
+			{
+				UWTrapLog.Entry lOEntry = pOEntries[liAt];
+				bool lbNotBuilt = lOEntry.NotBuilt || (lOEntry.Text != null && lOEntry.Text.EndsWith("NOT BUILT", StringComparison.Ordinal));
+				string lsText = lOEntry.Marks != null ? MarkTag(lOEntry.Marks) + " " + lOEntry.Text : lOEntry.Text;
+
+				pOSection.Add(fF("{0:F0}s ago", pfNow - lOEntry.Time), lsText,
+					lbNotBuilt ? UWDebugEmphasis.Warning : lOEntry.Marks != null ? UWDebugEmphasis.Accent : UWDebugEmphasis.Normal,
+					UWDebugRowFlags.Log, fUniqueKey(pOSection, "trap:" + lOEntry.Time.ToString("R", CultureInfo.InvariantCulture)));
+			}
+		}
+
+		/// <summary>The marks' numbers as the log and the world show them: "[1]", "[1,2]".</summary>
+		public static string MarkTag(int[] paNumbers)
+		{
+			return "[" + string.Join(",", Array.ConvertAll(paNumbers, n => n.ToString(CultureInfo.InvariantCulture))) + "]";
+		}
+
+		// ------------------------------------------------- Test marks
+
+		public const string TestId = "test";
+
+		/// <summary>
+		/// THE PREPARED TEST (UWTestMarks, per user 2026-11-15): its number and title, every mark with where it lies from
+		/// the player in words and what should happen there, then the lines of the marked chains alone - kept apart from
+		/// the trap log, which the busy chains fill.
+		/// </summary>
+		private static UWDebugSection fTest(UWDebugSnapshot pOSnapshot)
+		{
+			UWDebugSection lOSection = new UWDebugSection(TestId, "Test " + pOSnapshot.Test);
+
+			if (pOSnapshot.TestProblem != null)
+				lOSection.Add("test-focus.json", pOSnapshot.TestProblem, UWDebugEmphasis.Warning);
+
+			foreach (UWDebugTestMark lOMark in pOSnapshot.TestMarks)
+			{
+				string lsKey = "mark:" + lOMark.Number.ToString(CultureInfo.InvariantCulture);
+
+				lOSection.Add(MarkTag(new[] { lOMark.Number }), lOMark.Label + " - " + lOMark.Where,
+					lOMark.IsHere ? UWDebugEmphasis.Accent : UWDebugEmphasis.Dim, UWDebugRowFlags.Live, lsKey);
+
+				if (!string.IsNullOrEmpty(lOMark.Expect))
+					lOSection.Add(string.Empty, "expect: " + lOMark.Expect, UWDebugEmphasis.Normal, UWDebugRowFlags.None, lsKey + ":expect");
+			}
+
+			lOSection.Sub("Marked chains");
+			fAddTrapLines(lOSection, pOSnapshot.MarkedTraps, pOSnapshot.Now);
+
+			if (pOSnapshot.MarkedTraps.Count == 0)
+				lOSection.Add("Traps", "none fired on a mark yet", UWDebugEmphasis.Dim, UWDebugRowFlags.None, "marked:none");
 
 			return lOSection;
 		}

@@ -722,12 +722,18 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         UWObject lOTrigger = StaticObjectAt(piOtherIndex);
 
-        if (lOTrigger == null || lOTrigger.ID != UWObjectMechanics.MoveTriggerId)
+        // THE SECOND GAME (do_objhit, uw2 OBJPHYS.C:179): every trigger class (0x1A0-0x1BF) is handed UseTrigger with
+        // mode 0, so the hidden move trigger 0x1B0 too, and its own setter test decides (a thing needs id bit 9).
+        bool lbSecondGame = UWWalkUw2.IsWalking;
+
+        if (lOTrigger == null || (lbSecondGame
+                ? !UWTrapRulesUw2.IsTrigger(lOTrigger.ID) || UWTrapRulesUw2.ModeOf(lOTrigger.ID) != UWTrapRulesUw2.MoveMode
+                : lOTrigger.ID != UWObjectMechanics.MoveTriggerId))
             return 2;
 
         if (piMoverIndex == 1)
         {
-            if (UWTrapRules.MaySetOff(lOTrigger, UWTrapRules.Setter.Player)
+            if ((lbSecondGame ? UWTrapRulesUw2.MaySetOff(lOTrigger, UWTrapRules.Setter.Player) : UWTrapRules.MaySetOff(lOTrigger, UWTrapRules.Setter.Player))
                 && !mOPendingPlayerTriggers.Contains(lOTrigger))
                 mOPendingPlayerTriggers.Add(lOTrigger);
 
@@ -735,8 +741,9 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         }
 
         bool lbCreature = fCritter(piMoverIndex) != null;
+        UWTrapRules.Setter leSetter = lbCreature ? UWTrapRules.Setter.Creature : UWTrapRules.Setter.Thing;
 
-        if (!UWTrapRules.MaySetOff(lOTrigger, lbCreature ? UWTrapRules.Setter.Creature : UWTrapRules.Setter.Thing))
+        if (!(lbSecondGame ? UWTrapRulesUw2.MaySetOff(lOTrigger, leSetter) : UWTrapRules.MaySetOff(lOTrigger, leSetter)))
             return 2;
 
         foreach (PendingTrigger lOPending in mOPendingOtherTriggers)
@@ -835,6 +842,12 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     {
         fFireRunes();
 
+        if (UWWalkUw2.IsWalking)
+        {
+            fFollowPlatesUw2();
+            fTickTimersUw2();
+        }
+
         if (mOPendingOtherTriggers.Count == 0 || mOLoader == null)
             return;
 
@@ -861,13 +874,110 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
             mOOtherTriggerPacer.MarkFired(lOAt.Trigger, lOAt.Mover, llNow);
 
-            // The second game's traps run for the player only until its trap kinds are built (phase 4).
+            // The second game's chain on its own rules (G3 part H1).
             if (UWWalkUw2.IsWalking)
+            {
+                UWTriggerSystem.TryFireMoveTriggerUw2(lOAt.Trigger, mOLoader, lOCritter, lOAt.IsCreature ? 0 : lOAt.Mover);
+
                 continue;
+            }
 
             UWTriggerSystem.TryFireMoveTriggerBy(lOAt.Trigger, mOLoader, lOInteraction, lOCritter,
                 lOAt.IsCreature ? 0 : lOAt.Mover);
         }
+    }
+
+    // ------------------------------------------------- The second game's plates and timers (G3 part H4)
+
+    /// <summary>Where each mover stood when last looked at: the player under PlayerMover, a creature by its record.</summary>
+    private readonly Dictionary<object, UWSpot> mOLastSpots = new Dictionary<object, UWSpot>();
+
+    private UWLevel mOPlatesLevel;
+
+    /// <summary>
+    /// change_GrSq, set_phys_data and hgt_change for the second game: the player's feet and every creature's record are
+    /// compared with where they stood the frame before; a change of square runs the exit and enter plates, a change of
+    /// height on the square release and pressure (UWTrapRulesUw2.MoverMoved). The original asks at every step of its
+    /// physics; ours once a frame, after the motion. A new level starts the record afresh.
+    /// </summary>
+    private void fFollowPlatesUw2()
+    {
+        UWLevel lOLevel = mOLoader != null ? mOLoader.CurrentLevel : null;
+        UWWorld lOWorld = UWWorld.Of(mOLoader);
+
+        if (lOLevel == null || lOWorld == null)
+            return;
+
+        if (lOLevel != mOPlatesLevel)
+        {
+            mOLastSpots.Clear();
+            mOPlatesLevel = lOLevel;
+        }
+
+        fFollowMover(PlayerMover, lOWorld.Player.FeetSpot, null);
+
+        foreach (UWCritter lOCritter in new List<UWCritter>(UWCritter.Active))
+        {
+            UWCritterRecord lORecord = lOCritter != null ? lOCritter.Record : null;
+
+            if (lORecord != null)
+                fFollowMover(lORecord, new UWSpot(new UWTilePos(lORecord.TileX, lORecord.TileY), lORecord.FineX, lORecord.FineY, lORecord.ZPos), lOCritter);
+
+            if (mOLoader.CurrentLevel != lOLevel)
+                return;
+        }
+    }
+
+    private void fFollowMover(object pOKey, UWSpot pONow, UWCritter pOCritter)
+    {
+        if (!pONow.IsOnMap)
+            return;
+
+        bool lbKnown = mOLastSpots.TryGetValue(pOKey, out UWSpot lOWas);
+
+        mOLastSpots[pOKey] = pONow;
+
+        if (!lbKnown || (lOWas.Tile.X == pONow.Tile.X && lOWas.Tile.Y == pONow.Tile.Y && lOWas.ZPos == pONow.ZPos))
+            return;
+
+        UWTriggerSystem.MoverMovedUw2(lOWas.Tile, lOWas.ZPos, pONow.Tile, pONow.ZPos, mOLoader, pOCritter);
+    }
+
+    /// <summary>The animation steps' clock: one step per 0x40 PIT ticks of game time (4 a second, update_animobj).</summary>
+    private const long TimerStepTicks = 0x40;
+
+    private long mlTimerTicks = -1;
+
+    private int miTimerTick;
+
+    /// <summary>update_animobj's timers on the game clock; none while time is frozen. The eye of Roaming Sight counts as a
+    /// second place to be near (lastXeye, lastYeye).</summary>
+    private void fTickTimersUw2()
+    {
+        if (UWGameSession.Current == null || mOLoader == null || mOLoader.CurrentLevel == null)
+            return;
+
+        long llNow = UWGameSession.Current.Schedule.Now;
+
+        if (mlTimerTicks < 0 || llNow < mlTimerTicks)
+            mlTimerTicks = llNow;
+
+        int liFrames = (int)((llNow - mlTimerTicks) / TimerStepTicks);
+
+        if (liFrames <= 0)
+            return;
+
+        mlTimerTicks += liFrames * TimerStepTicks;
+
+        if (UWVitalsUw2.Current != null && UWVitalsUw2.Current.Vitals != null && UWVitalsUw2.Current.Vitals.TimeIsFrozen)
+            return;
+
+        UWWorld lOWorld = UWWorld.Of(mOLoader);
+        UWTilePos lOPlayer = lOWorld != null ? lOWorld.Player.FloorSpot.Tile : UWSpot.Nowhere.Tile;
+        Camera lOEye = UWRoamingSight.IsAnyRunning ? UWViewpoint.Current : null;
+        UWTilePos lOEyeTile = lOEye != null ? UWTileQueries.WorldToTile(lOEye.transform.position.x, lOEye.transform.position.z) : UWSpot.Nowhere.Tile;
+
+        miTimerTick = UWTriggerSystem.TickTimersUw2(miTimerTick, System.Math.Min(liFrames, 8), lOPlayer, lOEyeTile, mOLoader);
     }
 
     private readonly List<UWObject> mOPendingPlayerTriggers = new List<UWObject>();
@@ -883,10 +993,9 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
     /// <summary>The move triggers the player's motion met since the last call (TriggerMove),
     /// each fired once - unless it fired in the same clock unit (UWTriggerPacer). A level change
     /// by one of them drops the rest.</summary>
-    /// <summary>The trap kinds the walk has reported as not run yet.</summary>
-    private static readonly HashSet<int> msWalkSkippedTraps = new HashSet<int>();
-
-    /// <summary>The walk's move triggers: the teleports (UWTeleportUw2), as the pacer allows.</summary>
+    /// <summary>The walk's move triggers on the second game's rules (UWTrapRulesUw2, G3 part H1, 2026-11-13; teleports
+    /// alone until then), as the pacer allows. A teleport is carried out after the blink, so the rest of the batch runs
+    /// on this level, as the original's chain does before its main loop moves the player.</summary>
     private void fFireWalkTriggers()
     {
         UWObject[] lOTriggers = mOPendingPlayerTriggers.ToArray();
@@ -901,28 +1010,11 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
             if (mOLoader.CurrentLevel != lOLevel)
                 break;
 
-            if (!UWTrapRules.MaySetOff(lOTrigger, UWTrapRules.Setter.Player) || !mOPlayerTriggerPacer.IsReady(lOTrigger, PlayerMover, llNow)
-                || !fStillListed(lOTrigger))
+            if (!mOPlayerTriggerPacer.IsReady(lOTrigger, PlayerMover, llNow) || !fStillListed(lOTrigger))
                 continue;
 
             mOPlayerTriggerPacer.MarkFired(lOTrigger, PlayerMover, llNow);
-
-            int liLink = lOTrigger.Quantity;
-            UWObject lOTrap = liLink > 0 && liLink < lOLevel.Masterlist.Count ? lOLevel.Masterlist[liLink] : null;
-
-            if (lOTrap == null)
-                continue;
-
-            if (lOTrap.ID == UWTeleportUw2.TrapId)
-            {
-                mOLoader.WalkTeleport(UWTeleportUw2.Decode(lOTrap), true);
-
-                break;
-            }
-
-            if (msWalkSkippedTraps.Add(lOTrap.ID))
-                Debug.Log(string.Format("[Walk] A trap 0x{0:X3} behind the move trigger at {1}/{2} is not run yet (its rules come in phase 4).",
-                    lOTrap.ID, lOTrigger.TileX, lOTrigger.TileY));
+            UWTriggerSystem.TryFireMoveTriggerUw2(lOTrigger, mOLoader, null, 0);
         }
     }
 
@@ -931,9 +1023,8 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
         if (mOPendingPlayerTriggers.Count == 0 || mOLoader == null)
             return;
 
-        // The second game's walk runs its teleports (UW2 plan phase 2 step 5): a move trigger the
-        // player may set off whose trap is a teleport takes him there; any other trap is its rules'
-        // (phase 4) and is only written down, once per trap kind.
+        // The second game's walk runs its move triggers on its own rules (G3 part H1; its teleports alone since phase 2
+        // step 5).
         if (UWWalkUw2.IsWalking)
         {
             fFireWalkTriggers();
@@ -1191,9 +1282,18 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
     public void Splash(UWMobileRecord pORecord)
     {
-        // The picture alone: the core has played the water sound at the impact (DoCollision).
-        if (mOLoader != null)
-            mOLoader.SpawnEffectAt(UWObjectMechanics.SplashEffectObjectId, WorldPosition(pORecord), UWLevelLoader.SplashEffectSeconds);
+        // The picture alone: the core has played the water sound at the impact (DoCollision). AT THE SPOT OF THIS STEP
+        // (a deviation, per user 2026-11-14): the record's fine position is still the step before when the object comes
+        // to rest, and after a bounce off a wall that step is higher, so the splash hung in the air - in the original
+        // too, a little lower. The tile, eighth and height written for this step are the water's surface, as for an
+        // object put down there (UWLevelLoader.fPutInWater).
+        if (mOLoader != null && pORecord != null)
+            mOLoader.SpawnEffectAt(UWObjectMechanics.SplashEffectObjectId, UWViewpoint.OriginalToWorld((pORecord.TileX << 8) + (pORecord.XPos << 5) + 0xF,
+                (pORecord.TileY << 8) + (pORecord.YPos << 5) + 0xF, pORecord.ZPos << 3), UWLevelLoader.SplashEffectSeconds);
+
+        // mob_to_static: do_filanium right after the splash (the djinn quest's oil in the mud, the second game only).
+        if (pORecord != null)
+            UWDjinnUw2.OilInWater(mOLoader, pORecord.Object, pORecord.TileX, pORecord.TileY);
     }
 
     public bool TalismanBurns(UWMobileRecord pORecord, int piTileX, int piTileY)
@@ -1243,6 +1343,10 @@ public class UWMotionHost : MonoBehaviour, IUWMotionWorld, IUWMobileObjectHost
 
         // mob_to_static's Obj_Add: at the head of the tile's list (2026-10-18).
         mOLoader.PlaceRestingObject(lOObject, pORecord.TileX, pORecord.TileY, UWWorldEdit.Arrival.Landed);
+
+        // The second game: a thing coming to rest on a square is an arrival there (set_phys_data's enter, then the plates).
+        if (UWWalkUw2.IsWalking)
+            UWTriggerSystem.CheckPlatesUw2(pORecord.TileX, pORecord.TileY, pORecord.ZPos, UWTrapRulesUw2.EnterMode, mOLoader, UWTrapRules.Setter.Thing);
     }
 
     public UWLevelLoader Loader => mOLoader;

@@ -132,7 +132,8 @@ public class UWLevelLoader : MonoBehaviour
                 {
                     CarriedObjectCount = fCarriedObjectCount,
                     PlayerTile = fPlayerTile,
-                    Log = psMessage => Debug.Log(psMessage)
+                    Log = psMessage => Debug.Log(psMessage),
+                    PutInWater = fPutInWater
                 };
 
                 if (mOWorldView != null)
@@ -141,6 +142,17 @@ public class UWLevelLoader : MonoBehaviour
 
             return mOWorldEdit;
         }
+    }
+
+    /// <summary>obj_deal's water for an object put down there: the second game's splash (UW1 has none, per user
+    /// 2026-09-20 and OBJPHYS.C), then do_filanium (UWDjinnUw2), before the water decides.</summary>
+    private void fPutInWater(UWObject pOObject, int piTileX, int piTileY)
+    {
+        if (UWGameSession.Current != null && UWGameSession.Current.Game.Motion.PutDownSplashes)
+            SpawnEffectAt(UWObjectMechanics.SplashEffectObjectId, UWViewpoint.OriginalToWorld((piTileX << 8) + (pOObject.XPos << 5) + 0xF,
+                (piTileY << 8) + (pOObject.YPos << 5) + 0xF, pOObject.ZPos << 3), SplashEffectSeconds);
+
+        UWDjinnUw2.OilInWater(this, pOObject, piTileX, piTileY);
     }
 
     /// <summary>Loaded game data. Used by Interaction, UWCharacter and UWGameUI.</summary>
@@ -479,6 +491,9 @@ public class UWLevelLoader : MonoBehaviour
         {
             // The doors as they stand into the level's data, as a level change does (UWWorldSync).
             UWWorldSync.Capture(this);
+
+            // do_level_hacks(from, 1): the level left moves on as if time had passed (G3 part H5).
+            UWLevelExit.LeaveLevel(WorldEdit, true);
             fChangeAutomapLevel(liLevel);
             miLevelIndex = liLevel;
             fBuildLevel();
@@ -553,6 +568,7 @@ public class UWLevelLoader : MonoBehaviour
             if (piLevelIndex != miLevelIndex)
             {
                 UWWorldSync.Capture(this);
+                UWLevelExit.LeaveLevel(WorldEdit, true);
                 fChangeAutomapLevel(piLevelIndex);
                 miLevelIndex = piLevelIndex;
                 fBuildLevel();
@@ -948,6 +964,10 @@ public class UWLevelLoader : MonoBehaviour
         }
 
         UWGameSession.MakeCurrent(UWDataImporter.Session);
+        // The player's rule set as the first game's start applies it (per user 2026-11-15: until then the second
+        // game kept the original rule set with every fix on, so Fix bugs of the original, Remove exploits and a
+        // UW2/rules.json did nothing there).
+        fApplyRules();
         HasWorld = false;
         UWAudioService.StopMusic();
 
@@ -1398,6 +1418,11 @@ public class UWLevelLoader : MonoBehaviour
         fBuildGeometry(mOLevelRoot.transform);
         fSpawnObjects(mOLevelRoot.transform);
 
+        // THE SECOND GAME DRAWS NO INVISIBLE THING (do_obj, 3d/DRAWOBJ.C: ID_INVIS): built, but hidden until hack 39 shows
+        // it (G3 part H6) - the switches in the walls, the book and the sword a puzzle brings out.
+        if (UWWalkUw2.IsWalking)
+            fHideInvisibleObjects();
+
         // The second game's stairs and teleports come with step 5 of its plan.
         if (!UWWalkUw2.IsWalking)
             fSpawnTransitions(mOLevelRoot.transform);
@@ -1561,6 +1586,54 @@ public class UWLevelLoader : MonoBehaviour
 
         if (mORenderPaths != null)
             mORenderPaths.OnObjectSpawned(pOBuilt);
+    }
+
+    /// <summary>A listed object's picture built anew (UWWorldView.Redraw); an invisible one of the second game stays hidden.</summary>
+    public bool RedrawObject(UWObject pOObject)
+    {
+        // THE PICTURE FROM THE NEW KIND (found 2026-11-15, per user: hack 10 turned the armoury's hand axe into a cudgel
+        // and the axe stayed on the floor): an object carries its texture, taken from its id when the level loaded, so
+        // after a change of id it is taken anew before the picture is built again.
+        if (pOObject != null && UWDataImporter != null && CurrentLevel != null)
+            UWObjectAppearance.Apply(pOObject, UWDataImporter.Textures, CurrentLevel.TextureInfos);
+
+        if (mOWorldView == null || pOObject == null || !mOWorldView.Redraw(pOObject, pOObject.TileX, pOObject.TileY))
+        {
+            // A CARRIED THING has no picture in the world: the second game's pack redraws (per user 2026-11-16, hack 38
+            // turned the red potion in the pack green and the slot kept showing it red).
+            if (pOObject != null && UWWalkUw2.IsWalking && UWGameScreenUw2.Current != null)
+            {
+                UWGameScreenUw2.Current.InventoryChanged();
+
+                return true;
+            }
+
+            return false;
+        }
+
+        if (UWWalkUw2.IsWalking && pOObject.IsHidden && TryGetEntity(pOObject, out UWEntityInfo lOEntity) && lOEntity != null)
+            lOEntity.gameObject.SetActive(false);
+
+        return true;
+    }
+
+    /// <summary>The level's objects with the invisible bit (IsHidden) lose their picture until it is cleared.</summary>
+    private void fHideInvisibleObjects()
+    {
+        if (CurrentLevel == null || CurrentLevel.TileData == null)
+            return;
+
+        foreach (UWTile lOTile in CurrentLevel.TileData)
+        {
+            if (lOTile == null || lOTile.ObjectsInTile == null)
+                continue;
+
+            foreach (UWObject lOObject in lOTile.ObjectsInTile)
+            {
+                if (lOObject != null && lOObject.IsHidden && !(lOObject is UWNpc) && TryGetEntity(lOObject, out UWEntityInfo lOEntity) && lOEntity != null)
+                    lOEntity.gameObject.SetActive(false);
+            }
+        }
     }
 
     /// <summary>For UWTriggerSystem (door trap: find the door GameObject for a UWObject found

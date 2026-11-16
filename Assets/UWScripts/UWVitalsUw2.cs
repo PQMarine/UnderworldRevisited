@@ -279,6 +279,10 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         mOVitals.DayStepDue += fStepDay;
         mOVitals.StatusPassDue += RequestStatusPass;
 
+        // G3 part H5: the level's share of the 30-tick block (duration_check, uw2 PLAYTIME.C:139) - the wandering
+        // monsters' one-in-four roll (DoWanderingMonsters(1), out of the player's reach) and yearly_checkup.
+        mOVitals.FiveMinuteBlockDue += fOnFiveMinuteBlock;
+
         // G2: the swimming check on the player tick, the first game's (UWPlayerTerrain.RunSwimCheck).
         mOVitals.SwimCheckDue += () =>
         {
@@ -292,6 +296,21 @@ public sealed class UWVitalsUw2 : MonoBehaviour, IUWVitalsHost
         };
         UWCombatVariantUw2.PlayerArmour = GetArmourAt;
         mOVitals.Initialise(pOData, UWPlayerVitals.StartValues.Default, UWPlayerData.FromSecondGame(pOFile));
+    }
+
+    /// <summary>The second game's block: the wandering monsters' roll, then the creatures' checkup (the first game's
+    /// UWCharacter.OnFiveMinuteBlock, in duration_check's order).</summary>
+    private void fOnFiveMinuteBlock()
+    {
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+
+        if (lOLoader == null || lOLoader.CurrentLevel == null)
+            return;
+
+        if (UWRespawnRules.RollOpportunity())
+            UWTriggerSystem.RespawnCreatures(lOLoader, false);
+
+        UWLevelExit.YearlyCheckup(lOLoader.TileQueries);
     }
 
     /// <summary>

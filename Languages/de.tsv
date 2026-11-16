@@ -19,7 +19,7 @@ setting.CheckForUpdates	Nach neuen Versionen suchen
 setting.CheckForUpdates.hint	Höchstens einmal am Tag fragt das Hauptmenü bei GitHub nach dem neuesten Release und nennt ein neueres neben der Version, mit einem Klick zu seiner Seite. Gesendet wird nur diese Anfrage, heruntergeladen wird nichts.
 setting.ManualAttributes	Attribute bei der Erschaffung wählen
 setting.FixOriginalBugs	Fehler des Originals beheben
-setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
+setting.FixOriginalBugs.hint	Behebt Fehler des Originals, die das Spiel kosten können: Goldthirsts Geschenke, Judy in der Lava, das Objekt, das ein zu schwerer Stapel im Spielstand zurücklässt, das Festkleben an Wänden auf Eis unter Levitation oder Flug. Aus spielt sie wie das Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.KnowledgeShowAll	Alle Mantras und Zauber in der Hilfe zeigen
 setting.KnowledgeShowAll.hint	Aus zeigen die Tabs Mantras und Zauber der Hilfe die, die das Handbuch nennt, und die, die dein Charakter im Spiel gelernt hat, aus Büchern, Inschriften, Gesprächen oder durch Beten und Wirken. An zeigen sie alle auf einmal.
 setting.LizardWords	Echsenwörter
@@ -32,6 +32,11 @@ setting.SkillRaises.hint	Ein Skill-Mantra am Schrein steigert den Skill um ein b
 setting.SkillRaises.choice.off	Aus
 setting.SkillRaises.choice.highest	Höchste
 setting.SkillRaises.choice.fixed	Fest
+setting.IceGrip	Eisgriff
+setting.IceGrip.hint	In Ultima Underworld II rutscht man auf Eis und kann bei Tempo nicht lenken, wie im Original. Halb lässt das Eis der Steuerung verzögert folgen: Man driftet etwa zwei Sekunden nach und prallt weiter an Wänden ab. Voll lässt ebenes Eis greifen wie Boden, ohne Rutschen und ohne Abprallen an Wänden. Vereiste Rampen schieben immer wie im Original, weil Rätsel das brauchen können. Für jede Bewegungsart, wirkt sofort.
+setting.IceGrip.choice.off	Aus
+setting.IceGrip.choice.half	Halb
+setting.IceGrip.choice.full	Voll
 setting.RemoveExploits	Exploits des Originals entfernen
 setting.RemoveExploits.hint	Entfernt harmlose Exploits des Originals: den Schutt eines zerbrochenen Tranks oder einer Schriftrolle, der seinen Zauber ewig wirkt. Aus lässt sie wie im Original. Wirkt beim nächsten Start oder Laden. Docs/DEVIATIONS.md zählt sie auf.
 setting.Language	Sprache

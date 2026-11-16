@@ -115,6 +115,37 @@ namespace UWDataImport.UWData
 
 		/// <summary>The trap log, oldest first, as UWTrapLog keeps it.</summary>
 		public readonly List<UWTrapLog.Entry> Traps = new List<UWTrapLog.Entry>();
+
+		// ------------------------------------------------- Test marks (UWTestMarks)
+
+		/// <summary>The test's number and title from test-focus.json; null without the file (no Test section then).</summary>
+		public string Test;
+
+		/// <summary>The file's problem when it could not be read, else null.</summary>
+		public string TestProblem;
+
+		/// <summary>The marks, in their order.</summary>
+		public readonly List<UWDebugTestMark> TestMarks = new List<UWDebugTestMark>();
+
+		/// <summary>The lines of marked chains, oldest first (UWTrapLog.MarkedEntries).</summary>
+		public readonly List<UWTrapLog.Entry> MarkedTraps = new List<UWTrapLog.Entry>();
+	}
+
+	/// <summary>One test mark as the report lists it.</summary>
+	public sealed class UWDebugTestMark
+	{
+		public int Number;
+
+		public string Label = string.Empty;
+
+		public string Expect = string.Empty;
+
+		/// <summary>Where it lies from the player in words (UWTestMarks.Direction), or which level it is on when it is not
+		/// on this one.</summary>
+		public string Where = string.Empty;
+
+		/// <summary>On the level the player is on.</summary>
+		public bool IsHere;
 	}
 
 	/// <summary>A trap or trigger on the player's tile, and the trap or trigger it links to.</summary>

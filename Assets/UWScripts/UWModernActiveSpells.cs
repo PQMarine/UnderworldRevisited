@@ -36,7 +36,15 @@ public class UWModernActiveSpells : UWModernPart
         for (int liSlot = 0; liSlot < mOSpellIcons.Length; liSlot++)
             mOSpellIcons[liSlot] = UWUiKit.CreateRawImage(pORoot, "Spell " + liSlot, Vector2.zero, Vector2.zero);
 
-        mOSpellTip = UWUiKit.CreateText(pORoot, "Spell hover", Vector2.zero, new Vector2(1f, 1f), TextAnchor.UpperRight, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
+        // The hover text on a canvas of its own over the Classic frame's dragons (UWUiSorting.ModernSpellTip).
+        Canvas lOTipLayer = UWUiKit.CreateLayerCanvas(pORoot, "Spell hover layer", UWUiSorting.ModernSpellTip);
+        RectTransform lOTipSpace = (RectTransform)lOTipLayer.transform;
+
+        lOTipSpace.anchorMin = Vector2.zero;
+        lOTipSpace.anchorMax = Vector2.one;
+        lOTipSpace.offsetMin = Vector2.zero;
+        lOTipSpace.offsetMax = Vector2.zero;
+        mOSpellTip = UWUiKit.CreateText(lOTipSpace, "Spell hover", Vector2.zero, new Vector2(1f, 1f), TextAnchor.UpperRight, UWModernPalette.HudText, mOUi, UWUiKit.HudText);
     }
 
     /// <summary>A new scale builds the icons again.</summary>
@@ -155,6 +163,10 @@ public class UWModernActiveSpells : UWModernPart
             }
 
             Rect lORect = new Rect(lfX, lfTop - (lOTexture.height * liScale), lOTexture.width * liScale * UWModernHudArt.PixelAspectX, lOTexture.height * liScale);
+
+            // In the classic frame each icon at the original's slot, the first at the right.
+            if (UWModernClassicFrame.TryGetSpellIcon(liSlot, lOTexture.width, lOTexture.height, out Rect lOSlot))
+                lORect = lOSlot;
 
             mOSpellRects[liSlot] = lORect;
             ((RectTransform)lOImage.transform).anchoredPosition = lORect.position;

@@ -25,7 +25,7 @@ namespace UWDataImport.UWData
 			fAdd("setting.CheckForUpdates.hint", "At most once a day the main menu asks GitHub for the newest release and names a newer one beside the version, with a click to its page. Nothing but that request is sent, and nothing is downloaded.");
 			fAdd("setting.ManualAttributes", "Choose attributes at creation");
 			fAdd("setting.FixOriginalBugs", "Fix bugs of the original");
-			fAdd("setting.FixOriginalBugs.hint", "Fixes bugs of the original game that can cost you the game: Goldthirst's gifts, Judy pushed into the lava, the object a too heavy stack leaves behind in a save. Off plays them as the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
+			fAdd("setting.FixOriginalBugs.hint", "Fixes bugs of the original game that can cost you the game: Goldthirst's gifts, Judy pushed into the lava, the object a too heavy stack leaves behind in a save, sticking to walls on ice under Levitate or Fly. Off plays them as the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
 			fAdd("setting.KnowledgeShowAll", "Show every mantra and spell in the help");
 			fAdd("setting.KnowledgeShowAll.hint", "Off, the help's Mantras and Spells tabs show those the manual names and those your character has learned in the game, from books, writings, conversations, or by chanting and casting. On, they show all of them at once.");
 			fAdd("setting.LizardWords", "Lizard words");
@@ -38,6 +38,11 @@ namespace UWDataImport.UWData
 			fAdd("setting.SkillRaises.choice.off", "Off");
 			fAdd("setting.SkillRaises.choice.highest", "Highest");
 			fAdd("setting.SkillRaises.choice.fixed", "Fixed");
+			fAdd("setting.IceGrip", "Ice grip");
+			fAdd("setting.IceGrip.hint", "In Ultima Underworld II you slide on ice and cannot steer at speed, as in the original. Half lets the ice follow your steering with a delay: you drift on for about two seconds, and it still bounces you off walls. Full makes flat ice grip like ground, without sliding or bouncing off walls. Icy slopes always push you down as in the original, since puzzles may need it. For every motion mode, at once.");
+			fAdd("setting.IceGrip.choice.off", "Off");
+			fAdd("setting.IceGrip.choice.half", "Half");
+			fAdd("setting.IceGrip.choice.full", "Full");
 			fAdd("setting.RemoveExploits", "Remove exploits of the original");
 			fAdd("setting.RemoveExploits.hint", "Removes harmless exploits of the original game: the debris of a broken potion or scroll that casts its spell for ever. Off keeps them as in the original. Takes effect at the next start or load. Docs/DEVIATIONS.md lists them.");
 			fAdd("setting.Language", "Language");

@@ -54,6 +54,28 @@ public class UWContainerDamage : MonoBehaviour
         if (lOEntity == null)
             return;
 
+        // THE DJINN BOTTLE (remove_object's own branch, UWDjinnUw2): absorbed at the sigil it is gone, otherwise it
+        // becomes plain debris without the fire branch's smoke.
+        UWLevelLoader lOLoader = UWScene.LevelLoader;
+        UWDjinnRulesUw2.BottleOutcome leBottle = lOEntity.ObjectData != null && lOLoader != null
+            ? UWDjinnUw2.BottleBroken(lOLoader, lOEntity.ObjectData.ID, lOLoader.WorldPositionToTile(lOEntity.transform.position).X,
+                lOLoader.WorldPositionToTile(lOEntity.transform.position).Y)
+            : UWDjinnRulesUw2.BottleOutcome.NotTheBottle;
+
+        if (leBottle == UWDjinnRulesUw2.BottleOutcome.Absorbed)
+        {
+            UWDebris.Remove(lOLoader, lOEntity, lOEntity.ObjectData);
+
+            return;
+        }
+
+        if (leBottle != UWDjinnRulesUw2.BottleOutcome.NotTheBottle)
+        {
+            fLeaveDebris(lOEntity);
+
+            return;
+        }
+
         bool lbUsed = lOEntity.ObjectData != null && UWObjectDamageRules.IsUsedWhenDestroyed(lOEntity.ObjectData.ID);
 
         if (lOInteraction != null && lOEntity.ObjectData != null)

@@ -370,6 +370,35 @@ namespace UnderworldRevisited.Tools
             Check.Str("uw2 colour cycling: 3..7 and 8..10 up, 0xE0..0xEF down in fours, the first game's banks and 0xF0 still",
                 lsCycle, "7 A E1 E0 20 50 F0");
 
+            // make_noise (footsteps and strokes): the gap at a slow and a fast walk, the feet in turn on floor and on
+            // slippery ice, a stroke on the 15th call only, nothing in the air.
+            UWPlayerNoiseRulesUw2 lONoise = new UWPlayerNoiseRulesUw2();
+            string lsNoise = UWPlayerNoiseRulesUw2.Gap(0x30) + " " + UWPlayerNoiseRulesUw2.Gap(0x400) + " "
+                + lONoise.Call(false, false, false, 0, 0x100, 1000, false, out int liVolume) + "/" + liVolume + " "
+                + lONoise.Call(false, false, false, 0, 0x100, 1000, false, out _) + " "
+                + lONoise.Call(false, false, false, 0, 0x100, 2000, false, out _) + " "
+                + lONoise.Call(false, false, false, 2, 0x100, 3000, false, out _).ToString("X") + " "
+                + lONoise.Call(false, true, false, 0, 0x100, 9000, false, out _);
+            int liStrokes = 0;
+            int liFirst = -1;
+
+            // Into the water just after a footstep (its gap still running): the first stroke on the third call anyway.
+            lONoise.Call(false, false, false, 0, 0x100, 19990, false, out _);
+
+            for (int liCall = 1; liCall <= 30; liCall++)
+            {
+                if (lONoise.Call(true, false, false, 0, 0x100, 20000, false, out _) == UWPlayerNoiseRulesUw2.StrokeSound)
+                {
+                    liStrokes++;
+
+                    if (liFirst < 0)
+                        liFirst = liCall;
+                }
+            }
+
+            Check.Str("uw2 footsteps: gaps 200 and 87, step 1 at -8, none inside the gap, step 2, slippery 1D, none in the air; in the water the first stroke on call 3, 2 strokes in 30 calls",
+                lsNoise + " " + liFirst + " " + liStrokes, "200 87 1/-8 -1 2 1D -1 3 2");
+
             // The automap byte (step 4): a door over lava written by each game's order - the first game's
             // terrain low and kind high (0x61 on an open tile), the second game's the other way (0x91).
             lOFirst.EnsureAutomap();

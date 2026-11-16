@@ -212,8 +212,21 @@ public class UWDoor : MonoBehaviour, IUWDoor
             return;
 
         bool lbOpensFromRest = mIMover.IsClosed;
+        bool lbWasMoving = mIMover.IsMoving;
+        bool lbWasHeadingClosed = mIMover.IsHeadingClosed;
 
         mIMover.StartUsingDoor();
+
+        // THE SECOND GAME'S DOOR TRIGGERS (OpenDoor, CloseDoor, changeDoor - uw2 obj/USEITEMS.C; G3 part H4): opening sets
+        // off the door's chain with mode 8, closing with 9, by whoever moved it; a door turned round in its swing does so
+        // by its new way, as by nobody.
+        if (UWWalkUw2.IsWalking && Data != null)
+        {
+            int liMode = lbWasHeadingClosed ? UWTrapRulesUw2.OpenMode : UWTrapRulesUw2.CloseMode;
+
+            UWTriggerSystem.CheckTrapUw2(Data, liMode, Data.TileX, Data.TileY, UWScene.LevelLoader,
+                lbWasMoving ? UWTrapRules.Setter.Thing : peOpener);
+        }
 
         if (!lbOpensFromRest)
             return;
@@ -223,7 +236,7 @@ public class UWDoor : MonoBehaviour, IUWDoor
         // The owner field is the level data itself: nothing to write through.
         UWDoorRules.ClearSpike(lOData);
 
-        // The second game's walk fires no triggers: its traps are its rules' (UW2 plan phase 4).
+        // The second game's door triggers ran above (mode 8 and 9).
         if (UWWalkUw2.IsWalking)
             return;
 

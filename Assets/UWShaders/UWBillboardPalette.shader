@@ -188,7 +188,13 @@ Shader "UW/BillboardPalette"
                     : !UWPainterSpriteVisible(IN.positionCS.xy, lTile, IN.pivotWS, lfPart, _ChainIndex, _DepthBias))
                     discard;
 
-                outDepth = UWPainterSpriteBandDepth(UWPainterDepth(lTile, lfPart, UWPainterNearness(IN.pivotWS)));
+                // Inside one place (the same key) THE CHAIN ORDER DECIDES, as the original's stable sort keeps it: a thing
+                // later in its square's list is painted later (per user 2026-11-16: the plant set into its bowl on the
+                // castle shelf was drawn behind the bowl - same eighth, so same key, and the true distance tied). The
+                // distance only orders things of one chain place. Sixteen chain places, so each keeps several steps of
+                // the depth buffer (UW_PAINTER_CHAIN_STEPS; with 64 the order fell below one step and turned with the view).
+                outDepth = UWPainterSpriteBandDepth(UWPainterDepth(lTile, lfPart,
+                    (min(_ChainIndex, UW_PAINTER_CHAIN_STEPS - 1.0) + UWPainterNearness(IN.pivotWS)) / UW_PAINTER_CHAIN_STEPS));
 
                 // A translucent pixel replaces what lies behind it through its XFER table -
                 // read from the copy of the picture made after everything solid was drawn

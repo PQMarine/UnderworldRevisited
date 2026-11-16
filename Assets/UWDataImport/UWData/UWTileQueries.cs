@@ -239,8 +239,11 @@ namespace UWDataImport.UWData
 			// (UnderworldExhumed obj/OBJECTS.C) asks it first, Obj_Elem_Fate for the object and its
 			// chain (2026-10-15, with the tenacious silver seed of A42; until then ours asked the
 			// culling priority alone here).
+			// The count only where the quantity field is one (chkTenacious: is_quant and not LINK_SPECIAL). Until
+			// 2026-11-14 ours took a special property (512 and up: a potion's spell, a scroll's text) for a huge pile, so
+			// such a thing put down in water or lava never sank (per user, the djinn quest's basilisk oil in the mud).
 			if (pOObject == null || pOObject.DoorDirection
-				|| !fSinksInLiquid(pOObject.ID, pOObject.HasQuantity ? pOObject.Quantity : 1, piRange))
+				|| !fSinksInLiquid(pOObject.ID, UWStackRules.Count(pOObject), piRange))
 				return false;
 
 			if (piDepth > MaxContainerDepth)

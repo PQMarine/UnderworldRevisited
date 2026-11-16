@@ -37,6 +37,9 @@ namespace UWDataImport.UWData
 		/// <summary>Triggers 0x1A0-0x1AF: (id &amp; 0x1F0) is 0x1A0, as ovr153_DC2 tests it.</summary>
 		private const int TriggerIdMask = 0x1F0;
 
+		/// <summary>The second game's kill_triggers (uw2 TRIGGER.C:717) takes minor class 2 and 3, 0x1A0-0x1BF.</summary>
+		private const int SecondGameTriggerIdMask = 0x1E0;
+
 		private const int TriggerIdBase = UWObjectIds.FirstTrigger;
 
 		/// <summary>Minor class 0 and 1 of major class 6 are traps (0x180-0x19F), 2 and 3 triggers.</summary>
@@ -47,8 +50,10 @@ namespace UWDataImport.UWData
 		/// <summary>Against a chain that runs in a circle.</summary>
 		private const int MaxDepth = 64;
 
-		/// <summary>The cleanup of Trigger_ovr153_3B for a one-shot trigger that has run.</summary>
-		public static void AfterOneShotTrigger(UWObject pOTrigger, UWObject pOTrap, UWLevel pOLevel)
+		/// <summary>The cleanup of Trigger_ovr153_3B for a one-shot trigger that has run. pbSecondGame: the second
+		/// game's delete_trap, the same walk with both trigger classes (UWTrapRulesUw2; its timer triggers leave the
+		/// timer list there too, part H4).</summary>
+		public static void AfterOneShotTrigger(UWObject pOTrigger, UWObject pOTrap, UWLevel pOLevel, bool pbSecondGame = false)
 		{
 			if (pOTrigger == null || pOTrap == null || pOLevel == null || pOLevel.TileData == null
 				|| pOTrigger.Quantity == 0)
@@ -57,7 +62,24 @@ namespace UWDataImport.UWData
 			(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
 			UWTile lOTile = pOLevel.GetTile(liTileX, liTileY);
 
-			fRemoveTrap(new ObjectList(lOTile), pOTrap, pOLevel, 0);
+			fRemoveTrap(new ObjectList(lOTile), pOTrap, pOLevel, 0, pbSecondGame ? SecondGameTriggerIdMask : TriggerIdMask);
+		}
+
+		/// <summary>
+		/// The second game's trap_obj_del (uw2 TRIGGER.C:989), for its delete-object trap: a trigger goes as
+		/// trigger_obj_del has it - the last one aiming at its trap takes the trap and its chain with it, any other
+		/// counts the trap's triggers down and goes alone; a trap goes with its chain and every trigger aiming at it
+		/// (delete_trap). pOTile is the delete trap's square. The timer list waits for part H4.
+		/// </summary>
+		public static void DeleteTrapObjectSecondGame(UWObject pOObject, UWTile pOTile, UWLevel pOLevel)
+		{
+			if (pOObject == null || pOTile == null || pOLevel == null || pOLevel.TileData == null)
+				return;
+
+			if (UWObjectIds.Minor(pOObject.ID) >= FirstTriggerMinorClass)
+				fRemoveChainTrigger(new ObjectList(pOTile), pOObject, pOLevel, 0, SecondGameTriggerIdMask);
+			else
+				fRemoveTrap(new ObjectList(pOTile), pOObject, pOLevel, 0, SecondGameTriggerIdMask);
 		}
 
 		/// <summary>ClearObjectChain_seg027_772 on an object's special link - what a successful
@@ -67,7 +89,7 @@ namespace UWDataImport.UWData
 			if (pOOwner == null || pOLevel == null || pOLevel.TileData == null)
 				return;
 
-			fClearChain(new ObjectList(pOOwner), pOLevel, 0);
+			fClearChain(new ObjectList(pOOwner), pOLevel, 0, TriggerIdMask);
 		}
 
 		/// <summary>ovr153_E83 with an object's special chain as the list (stub153_66) - what the
@@ -77,7 +99,7 @@ namespace UWDataImport.UWData
 			if (pOOwner == null || pOTrap == null || pOLevel == null || pOLevel.TileData == null)
 				return;
 
-			fRemoveTrap(new ObjectList(pOOwner), pOTrap, pOLevel, 0);
+			fRemoveTrap(new ObjectList(pOOwner), pOTrap, pOLevel, 0, TriggerIdMask);
 		}
 
 		/// <summary>An object list of the original: a tile's, or an object's special chain.</summary>
@@ -123,7 +145,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>ovr153_E83.</summary>
-		private static void fRemoveTrap(ObjectList pOList, UWObject pOTrap, UWLevel pOLevel, int piDepth)
+		private static void fRemoveTrap(ObjectList pOList, UWObject pOTrap, UWLevel pOLevel, int piDepth, int piTriggerMask)
 		{
 			if (pOTrap == null || piDepth > MaxDepth)
 				return;
@@ -140,7 +162,7 @@ namespace UWDataImport.UWData
 						break;
 
 					if (lOTile != null && lOTile.ObjectsInTile != null && lOTile.ObjectsInTile.Count > 0)
-						fRemoveTriggersIn(new ObjectList(lOTile), liTrapIndex, ref liCount, pOLevel, 0);
+						fRemoveTriggersIn(new ObjectList(lOTile), liTrapIndex, ref liCount, pOLevel, 0, piTriggerMask);
 				}
 			}
 
@@ -157,7 +179,7 @@ namespace UWDataImport.UWData
 				return;
 
 			if (!pOTrap.HasQuantity && pOTrap.Quantity != 0)
-				fClearChain(new ObjectList(pOTrap), pOLevel, piDepth + 1);
+				fClearChain(new ObjectList(pOTrap), pOLevel, piDepth + 1, piTriggerMask);
 
 			lOHolder.Remove(pOTrap, lOMasterlist);
 			fFree(pOTrap, pOLevel);
@@ -193,7 +215,7 @@ namespace UWDataImport.UWData
 		}
 
 		/// <summary>ovr153_DC2.</summary>
-		private static void fRemoveTriggersIn(ObjectList pOList, int piTrapIndex, ref int piCount, UWLevel pOLevel, int piDepth)
+		private static void fRemoveTriggersIn(ObjectList pOList, int piTrapIndex, ref int piCount, UWLevel pOLevel, int piDepth, int piTriggerMask)
 		{
 			if (piDepth > MaxDepth)
 				return;
@@ -205,8 +227,9 @@ namespace UWDataImport.UWData
 				if (lOAt == null)
 					continue;
 
-				if ((lOAt.ID & TriggerIdMask) == TriggerIdBase && lOAt.Quantity == piTrapIndex)
+				if ((lOAt.ID & piTriggerMask) == TriggerIdBase && lOAt.Quantity == piTrapIndex)
 				{
+					fForgetTimer(lOAt, pOLevel, piTriggerMask);
 					pOList.Remove(lOAt, lOMasterlist);
 					fFree(lOAt, pOLevel);
 					lOAt.Quantity = 0;
@@ -214,19 +237,19 @@ namespace UWDataImport.UWData
 				}
 
 				if (!lOAt.HasQuantity && lOAt.Quantity > 0 && lOAt.Quantity < lOMasterlist.Count)
-					fRemoveTriggersIn(new ObjectList(lOAt), piTrapIndex, ref piCount, pOLevel, piDepth + 1);
+					fRemoveTriggersIn(new ObjectList(lOAt), piTrapIndex, ref piCount, pOLevel, piDepth + 1, piTriggerMask);
 			}
 		}
 
 		/// <summary>ClearObjectChain_seg027_772 on the whole chain: its members from the first on.</summary>
-		private static void fClearChain(ObjectList pOList, UWLevel pOLevel, int piDepth)
+		private static void fClearChain(ObjectList pOList, UWLevel pOLevel, int piDepth, int piTriggerMask)
 		{
-			fClearFrom(pOList, pOList.Members(pOLevel.Masterlist), 0, pOLevel, piDepth);
+			fClearFrom(pOList, pOList.Members(pOLevel.Masterlist), 0, pOLevel, piDepth, piTriggerMask);
 		}
 
 		/// <summary>ClearObjectChain_seg027_772 on the part of a chain from member piAt on: the
 		/// original's recursion on the next link of a member is the rest of the same list.</summary>
-		private static void fClearFrom(ObjectList pOList, List<UWObject> pOMembers, int piAt, UWLevel pOLevel, int piDepth)
+		private static void fClearFrom(ObjectList pOList, List<UWObject> pOMembers, int piAt, UWLevel pOLevel, int piDepth, int piTriggerMask)
 		{
 			if (piAt >= pOMembers.Count || piDepth > MaxDepth)
 				return;
@@ -239,24 +262,24 @@ namespace UWDataImport.UWData
 			if (UWObjectIds.Major(lOObject.ID) == UWObjectMechanics.TrapMajorClass)
 			{
 				if (UWObjectIds.Minor(lOObject.ID) < FirstTriggerMinorClass)
-					fRemoveTrap(pOList, lOObject, pOLevel, piDepth + 1);
+					fRemoveTrap(pOList, lOObject, pOLevel, piDepth + 1, piTriggerMask);
 				else
-					fRemoveChainTrigger(pOList, lOObject, pOLevel, piDepth + 1);
+					fRemoveChainTrigger(pOList, lOObject, pOLevel, piDepth + 1, piTriggerMask);
 
 				return;
 			}
 
-			fClearFrom(pOList, pOMembers, piAt + 1, pOLevel, piDepth + 1);
+			fClearFrom(pOList, pOMembers, piAt + 1, pOLevel, piDepth + 1, piTriggerMask);
 
 			if (!lOObject.HasQuantity && lOObject.Quantity != 0)
-				fClearChain(new ObjectList(lOObject), pOLevel, piDepth + 1);
+				fClearChain(new ObjectList(lOObject), pOLevel, piDepth + 1, piTriggerMask);
 
 			pOList.Remove(lOObject, pOLevel.Masterlist);
 			fFree(lOObject, pOLevel);
 		}
 
 		/// <summary>ovr153_135C.</summary>
-		private static void fRemoveChainTrigger(ObjectList pOList, UWObject pOTrigger, UWLevel pOLevel, int piDepth)
+		private static void fRemoveChainTrigger(ObjectList pOList, UWObject pOTrigger, UWLevel pOLevel, int piDepth, int piTriggerMask)
 		{
 			UWObject lOTrap = UWObjectMechanics.GetLinkedObject(pOTrigger, pOLevel.Masterlist);
 
@@ -264,7 +287,7 @@ namespace UWDataImport.UWData
 			{
 				(int liTileX, int liTileY) = UWObjectMechanics.GetTriggerTargetTile(pOTrigger);
 
-				fRemoveTrap(new ObjectList(pOLevel.GetTile(liTileX, liTileY)), lOTrap, pOLevel, piDepth + 1);
+				fRemoveTrap(new ObjectList(pOLevel.GetTile(liTileX, liTileY)), lOTrap, pOLevel, piDepth + 1, piTriggerMask);
 
 				return;
 			}
@@ -272,8 +295,26 @@ namespace UWDataImport.UWData
 			if (lOTrap != null)
 				lOTrap.Flags = (ushort)(((lOTrap.Flags & FlagsMask) - 1) & FlagsMask);
 
+			fForgetTimer(pOTrigger, pOLevel, piTriggerMask);
 			pOList.Remove(pOTrigger, pOLevel.Masterlist);
 			fFree(pOTrigger, pOLevel);
+		}
+
+		/// <summary>rem_timer_obj (uw2 obj/EFFECT.C): a deleted timer trigger of the second game leaves the level's timer list,
+		/// the last entry taking its place.</summary>
+		private static void fForgetTimer(UWObject pOTrigger, UWLevel pOLevel, int piTriggerMask)
+		{
+			if (piTriggerMask != SecondGameTriggerIdMask || pOLevel.Timers == null || UWTrapRulesUw2.ModeOf(pOTrigger.ID) != UWTrapRulesUw2.TimerMode)
+				return;
+
+			int liIndex = pOLevel.Masterlist.IndexOf(pOTrigger);
+			int liAt = pOLevel.Timers.IndexOf(liIndex);
+
+			if (liAt < 0)
+				return;
+
+			pOLevel.Timers[liAt] = pOLevel.Timers[pOLevel.Timers.Count - 1];
+			pOLevel.Timers.RemoveAt(pOLevel.Timers.Count - 1);
 		}
 
 		/// <summary>AddToFreeObjectsList_seg027_4DD: the static slot back onto the free list.</summary>

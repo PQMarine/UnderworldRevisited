@@ -33,7 +33,7 @@ namespace UWDataImport.UWData
 
 		/// <summary>"The key does not fit." - UseKey prints this line plus the outcome
 		/// (Outcome.Failed 0 to Outcome.NotLocked 4, "That is already open.").</summary>
-		private const int FirstKeyMessage = 3;
+		public const int FirstKeyMessage = 3;
 
 		private const int SpellUnlocksMessage = 271;
 
@@ -64,7 +64,10 @@ namespace UWDataImport.UWData
 			Unlocked = 3,
 
 			/// <summary>Not locked (pick), or the door or container is open (key).</summary>
-			NotLocked = 4
+			NotLocked = 4,
+
+			/// <summary>The second game's checkLock only: the pick's roll was a critical failure (skill_check's -1).</summary>
+			Fumbled = 5
 		}
 
 		/// <summary>The outcome of a lockpick attempt.</summary>
@@ -75,6 +78,9 @@ namespace UWDataImport.UWData
 
 			/// <summary>The lock sprang open. The door does NOT open with it.</summary>
 			public bool Unlocked;
+
+			/// <summary>The second game's fumble: the pick breaks and is used up (UseLockpickOn's using_punt).</summary>
+			public bool Broke;
 		}
 
 		/// <summary>
@@ -93,7 +99,7 @@ namespace UWDataImport.UWData
 		/// event 6 (TriggerObjectLink) - which trigger answers event 6 is not read.
 		/// </summary>
 		public static Outcome Unlock(UWLockState pODoorLock, UWObject pOContainer, UWObject pOContainerLock,
-			bool pbTargetIsOpen, int piKeyOrMinusSkill)
+			bool pbTargetIsOpen, int piKeyOrMinusSkill, bool pbSecondGame = false)
 		{
 			if ((pODoorLock == null || !pODoorLock.HasLock) && pOContainerLock == null)
 				return Outcome.NoLock;
@@ -123,11 +129,25 @@ namespace UWDataImport.UWData
 				int liSkill = -piKeyOrMinusSkill;
 				int liDifficulty = lOLock != null ? lOLock.ZPos : 0;
 
-				if ((liDifficulty == HardLockDifficulty && liSkill < HardLockSkill)
+				// THE SECOND GAME'S checkLock (uw2 obj/OBJUSE.C) rolls first, on every lock: a critical failure is 5 (the
+				// lockpick breaks unless Dexterity saves it, PickLockSecondGame), the hard lock wants 0x20 of the skill it is
+				// handed - its lockpick hands Picklock + 1, so the same 31 of Picklock as the first game's.
+				if (pbSecondGame)
+				{
+					UWSkillCheck.ResultEnum leRoll = UWGameSession.Current.Game.Objects.PickRoll(liSkill, liDifficulty);
+
+					if ((liDifficulty == HardLockDifficulty && liSkill < HardLockSkill + 1)
+						|| liDifficulty == UnpickableLockDifficulty || leRoll == UWSkillCheck.ResultEnum.Failure)
+						return leRoll == UWSkillCheck.ResultEnum.CriticalFailure ? Outcome.Fumbled : Outcome.Failed;
+
+					if (leRoll == UWSkillCheck.ResultEnum.CriticalFailure)
+						return Outcome.Fumbled;
+				}
+				else if ((liDifficulty == HardLockDifficulty && liSkill < HardLockSkill)
 					|| liDifficulty == UnpickableLockDifficulty)
 					return Outcome.Failed;
 
-				if (!UWSkillCheck.IsSuccess(UWGameSession.Current.Game.Objects.PickRoll(liSkill, liDifficulty)))
+				if (!pbSecondGame && !UWSkillCheck.IsSuccess(UWGameSession.Current.Game.Objects.PickRoll(liSkill, liDifficulty)))
 					return Outcome.Failed;
 			}
 			else if (piKeyOrMinusSkill == 0 || liLockId == 0 || liLockId != piKeyOrMinusSkill)
@@ -206,6 +226,75 @@ namespace UWDataImport.UWData
 			return lOResult;
 		}
 
+		// ------------------------------------------------- The second game (G4 part A, 2026-11-13)
+
+		/// <summary>"There is no lock on that." (string 3 of block 1, ours + 1).</summary>
+		public const int NoLockStringUw2 = 3 + 1;
+
+		/// <summary>"Your lockpicking attempt failed." (0x85).</summary>
+		public const int PickFailedStringUw2 = 0x85 + 1;
+
+		/// <summary>"You broke your pick." (0x86).</summary>
+		public const int PickBrokeStringUw2 = 0x86 + 1;
+
+		/// <summary>"You succeed in picking the lock." (0x87).</summary>
+		public const int PickSucceededStringUw2 = 0x87 + 1;
+
+		/// <summary>"That is not locked." (0x88).</summary>
+		public const int NotLockedStringUw2 = 0x88 + 1;
+
+		/// <summary>The Dexterity roll that saves a fumbled pick (skill_check(dexterity, 20) &gt; 0).</summary>
+		private const int PickSavedByDexterity = 20;
+
+		/// <summary>
+		/// UseLockpickOn (uw2 obj/USEITEMS.C): checkLock with minus (Picklock + 1). A fumble breaks the pick unless a
+		/// Dexterity roll against 20 succeeds (then it only failed); without any Picklock an unlocked lock says the attempt
+		/// failed rather than "That is not locked.". The lines: no lock 3, broke 0x86, failed 0x85, not locked 0x88, picked
+		/// 0x87 (with the caller's click, sound 0x13).
+		/// </summary>
+		public static PickResult PickLockSecondGame(UWLockState pODoorLock, UWObject pOContainer, UWObject pOContainerLock,
+			int piPicklockSkill, int piDexterity)
+		{
+			int liSkill = piPicklockSkill + 1;
+			Outcome leOutcome = Unlock(pODoorLock, pOContainer, pOContainerLock, false, -liSkill, true);
+
+			if ((leOutcome == Outcome.Fumbled && UWSkillCheck.IsSuccess(UWSkillCheck.Check(piDexterity, PickSavedByDexterity)))
+				|| (leOutcome == Outcome.NotLocked && liSkill == 1))
+				leOutcome = Outcome.Failed;
+
+			PickResult lOResult = new PickResult { Unlocked = leOutcome == Outcome.Unlocked, Broke = leOutcome == Outcome.Fumbled };
+
+			switch (leOutcome)
+			{
+				case Outcome.NoLock: lOResult.MessageIndex = NoLockStringUw2; break;
+				case Outcome.Fumbled: lOResult.MessageIndex = PickBrokeStringUw2; break;
+				case Outcome.NotLocked: lOResult.MessageIndex = NotLockedStringUw2; break;
+				case Outcome.Unlocked: lOResult.MessageIndex = PickSucceededStringUw2; break;
+				default: lOResult.MessageIndex = PickFailedStringUw2; break;
+			}
+
+			return lOResult;
+		}
+
+		/// <summary>
+		/// checkLock's "open" for a key (uw2 obj/OBJUSE.C): an open door (index 8 and up) or an open container (index below
+		/// 0xC with the odd id) answers "That is already open." when the lock is unlocked.
+		/// </summary>
+		public static bool IsOpenForKeySecondGame(UWObject pOTarget)
+		{
+			if (pOTarget == null)
+				return false;
+
+			int liClass = pOTarget.ID & 0x1F0;
+			int liIndex = pOTarget.ID & 0xF;
+
+			return (liClass == SecondGameDoorClass && liIndex >= 8) || (liClass == SecondGameContainerClass && liIndex < 0xC && (pOTarget.ID & 1) != 0);
+		}
+
+		private const int SecondGameDoorClass = 0x140;
+
+		private const int SecondGameContainerClass = 0x80;
+
 		/// <summary>
 		/// A key on a lock (UseKey_seg040_51D): unlocks a locked lock, locks an unlocked one, and
 		/// never opens the door. The line is "The key does not fit." plus the outcome. Returns -1
@@ -217,6 +306,8 @@ namespace UWDataImport.UWData
 			if (pOKey == null || pOKey.GetCategory() != UWObject.ObjectCategoryEnum.KeysLockpickLock)
 				return -1;
 
+			// UseKeyOn of the second game is the same: checkLock with the key's owner, game_sprint(result + 2) - its lines
+			// stand where the first game's do (ours 3 to 7).
 			return FirstKeyMessage + (int)Unlock(pODoorLock, pOContainer, pOContainerLock, pbTargetIsOpen,
 				UWObjectMechanics.GetKeyId(pOKey));
 		}

@@ -130,6 +130,16 @@ namespace UnderworldRevisited.Tools
             public int Bounces;
 
             public void BounceUp(int piIntensity) { Bounces++; }
+
+            /// <summary>The jump traps' calls, as "force stop minimum".</summary>
+            public readonly List<string> Jumps = new List<string>();
+
+            public bool Jump(int piForce, bool pbStop, int piMinimum) { Jumps.Add(piForce + " " + pbStop + " " + piMinimum); return true; }
+
+            /// <summary>The terrain changes' calls, as "old new setHeight".</summary>
+            public readonly List<string> FloorMoves = new List<string>();
+
+            public void FollowFloor(int piOldZPos, int piNewZPos, bool pbSetHeight) { FloorMoves.Add(piOldZPos + " " + piNewZPos + " " + pbSetHeight); }
         }
 
         /// <summary>A door without a scene: its state is what the check sets, its moves are lines of
@@ -228,8 +238,11 @@ namespace UnderworldRevisited.Tools
 
             public DataImport Data { get; set; }
 
-            /// <summary>The session the check made current, as the game's world answers.</summary>
-            public UWGameSession Session => UWGameSession.Current;
+            /// <summary>The session the check made current, as the game's world answers; a session of the check's own
+            /// (the second game's) when one is given.</summary>
+            public UWGameSession SessionOf;
+
+            public UWGameSession Session => SessionOf ?? UWGameSession.Current;
 
             public UWLevel Level { get; set; }
 
@@ -252,6 +265,27 @@ namespace UnderworldRevisited.Tools
             public void TeleportTo(int piLevelIndex, int piTileX, int piTileY)
             {
                 Log.Add("teleport " + piLevelIndex + " " + piTileX + "/" + piTileY);
+            }
+
+            public bool RedrawObject(UWObject pOObject)
+            {
+                Log.Add("redraw " + (pOObject != null ? pOObject.ID : -1));
+
+                return pOObject != null;
+            }
+
+            public void SetObjectHidden(UWObject pOObject, bool pbHidden)
+            {
+                if (pOObject != null)
+                    pOObject.IsHidden = pbHidden;
+
+                Log.Add("hidden " + (pOObject != null ? pOObject.ID : -1) + " " + pbHidden);
+            }
+
+            public void TeleportSecondGame(UWTeleportUw2.Target pOTarget)
+            {
+                Log.Add("teleport2 " + pOTarget.Level + " " + pOTarget.TileX + "/" + pOTarget.TileY + (pOTarget.Falls ? " falls" : string.Empty)
+                    + (pOTarget.AutomapOff ? " mapoff" : string.Empty));
             }
 
             /// <summary>The level's creatures in the order the check adds them - the fake's

@@ -24,9 +24,13 @@ public static class UWInterfaceHide
     /// modern HUD of the game in play.</summary>
     public static void Release(bool pbWanted)
     {
-        if (pbWanted)
+        if (pbWanted && !HoldHidden)
             IsHidden = false;
     }
+
+    /// <summary>A cinematic flight keeps the hidden interface hidden (UWCinematicCamera, per user 2026-11-13: the
+    /// detached view's hold brought it back at the start). False except while one flies.</summary>
+    public static bool HoldHidden { get; set; }
 
     /// <summary>The input contexts that want the interface: a modal hold (a menu, a window, the map),
     /// a conversation, typing, a screen menu, a cutscene.</summary>

@@ -79,5 +79,15 @@ namespace UWDataImport.UWData
 		/// <summary>Throws the player up (BouncePlayer_seg008_D9E) - the quake trap's second bit.
 		/// Nothing at an intensity of 0 or less.</summary>
 		void BounceUp(int piIntensity);
+
+		/// <summary>The second game's jump trap on the player (set_jmp, uw2 motion/MOTION.C:843): when the horizontal speed
+		/// is at least piMinimum * 0x2F, a take-off of piForce * 0x2F / 2, the horizontal speed halved or, with pbStop,
+		/// stopped. Nothing without a motion. False when nothing jumped (too slow, or no motion).</summary>
+		bool Jump(int piForce, bool pbStop, int piMinimum);
+
+		/// <summary>The floor under the player rose or sank (change_terrain's raise_up and put_down for ThePlayer): on a
+		/// rising floor feet below it are set onto it; on a sinking one feet on the old floor go down with it when
+		/// pbSetHeight (a step of one), else the player is put in the air and falls. Nothing without a motion.</summary>
+		void FollowFloor(int piOldZPos, int piNewZPos, bool pbSetHeight);
 	}
 }

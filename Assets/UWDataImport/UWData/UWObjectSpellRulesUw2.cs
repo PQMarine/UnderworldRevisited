@@ -158,8 +158,8 @@ namespace UWDataImport.UWData
 
 		/// <summary>
 		/// The trigger DetectedTrap and RemoveTrap look for: the first trap-class thing of minor class 3 in pOThing's chain
-		/// (a thing with a quantity has none), and the trap it leads to - the trigger's own link, its resolved chain's first
-		/// where it has one. False when there is none.
+		/// (a thing with a quantity has none), and the trap it leads to - the trigger's own link (its quantity bit aside), its
+		/// resolved chain's first where it has one. False when there is none.
 		/// </summary>
 		public static bool TryFindTrap(UWObject pOThing, IList<UWObject> pORecords, out UWObject pOTrigger, out UWObject pOTrap)
 		{
@@ -179,9 +179,12 @@ namespace UWDataImport.UWData
 
 				pOTrigger = lOAt;
 
+				// The trigger's link is its trap whatever its quantity bit says - set on many shipped triggers
+				// (UWObjectMechanics.GetLinkedObject); until G3 part H2 (2026-11-13) this asked for the bit clear and found no
+				// trap behind most of them, so a disarm named "trap" and removed nothing from its square.
 				if (lOAt.Contents != null && lOAt.Contents.Count > 0)
 					pOTrap = lOAt.Contents[0];
-				else if (!lOAt.HasQuantity && lOAt.Quantity > 0 && lOAt.Quantity < pORecords.Count)
+				else if (lOAt.Quantity > 0 && lOAt.Quantity < pORecords.Count)
 					pOTrap = pORecords[lOAt.Quantity];
 
 				return true;

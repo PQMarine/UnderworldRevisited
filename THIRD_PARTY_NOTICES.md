@@ -207,7 +207,7 @@ This software is based in part on the work of the Independent JPEG Group.
 These sources were used as documentation only; no code was taken from them.
 
 - **uw-formats.txt**, the community description of the Ultima Underworld file formats.
-  The first version of this project (2012) was written from it.
+  The first version of this project (2011 to 2012) was written from it.
 - **hankmorgan's reverse engineering of UW.EXE**
   (https://github.com/hankmorgan/UWReverseEngineering): his disassembly with named routines
   and his guide to the mechanics. Most of the game rules in this project, among them the

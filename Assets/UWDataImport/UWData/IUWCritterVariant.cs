@@ -20,8 +20,9 @@ namespace UWDataImport.UWData
 		int DeathCry(UWObjectClassProperties.Critter pORow);
 
 		/// <summary>The brain's animation slot for what the record holds (UW1: the same number; UW2: a
-		/// sequence, AI.C).</summary>
-		int SlotOfRecord(int piRaw);
+		/// sequence, AI.C). piCastSlot is the record's spell slot (OBJ_CAST): the second game's sequence 6 is a
+		/// shot when it is 0 and a cast otherwise (AI.C:1137).</summary>
+		int SlotOfRecord(int piRaw, int piCastSlot);
 
 		/// <summary>Whether a whoami's death has a case of its own (UWSpecialDeaths for the first game; the second
 		/// game's numbers are other people, its death_check is still to come).</summary>

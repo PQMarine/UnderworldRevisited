@@ -10,6 +10,89 @@ against its code and, where noted, by playing the original. The deliberate excep
 
 ## [Unreleased]
 
+## [0.20.2] - 2026-11-16
+
+### Changed
+- Ultima Underworld II preview: an Ice grip option under Gameplay, Aids. Off slides as the original, Half lets
+  you steer with a drift of about two seconds, Full makes flat ice grip like ground. Icy slopes always push as
+  in the original. For every motion mode.
+- Ultima Underworld II preview: its own footsteps, other on ice, and swim strokes in the water.
+- Ultima Underworld II preview: move triggers set off their traps on the second game's own rules, for creatures and
+  thrown things as well: teleports, hidden ones included, damage and poison, arrows and the variables the story
+  counts with, doors, changing terrain, created and removed objects, the inventory check and spell traps. Traps behind
+  levers, looks and pick-ups and the special traps follow.
+- Ultima Underworld II preview: traps are found when looking with the Look icon lit and can be disarmed after the
+  question, as are Remove Trap and Detect Trap on a real trap; Open sets off what hangs on unlocking.
+- Ultima Underworld II preview: its own trap kinds - jumps, sounds and shaking, skill checks, experience, changing
+  floors and walls, oscillating platforms, pits and bridges.
+- Ultima Underworld II preview: the triggers on looking, picking up, using doors, opening and closing them, entering
+  and leaving squares, pressure plates under the weight on them, and timers.
+- Ultima Underworld II preview: wandering monsters, the castle's random ones among them, and the creatures moving on
+  while the player is on another level or asleep.
+- Ultima Underworld II preview: the first of its special traps - visions, hidden things appearing, force fields,
+  thin ice, cycling floors; invisible things are no longer drawn.
+- Ultima Underworld II preview: the blackrock gem takes the player to the worlds it opens, and more of the special
+  traps: rising and falling pillars, a standing wave, switches flipped by traps, recharged light spheres, graffiti,
+  bottle returns, spoiled cure potions, the castle courtyard drying up, Bliy Skup's chamber and the Ethereal Void's
+  colour pyramid.
+- Ultima Underworld II preview: switches and levers can be used, keys and lockpicks work on doors and chests (a
+  fumbled pick can break), and in the default mode a right-click drag takes, talks or uses as in the original.
+  A door whose lock sits behind a trap in its chain is locked again (16 doors in the second game).
+- Ultima Underworld II preview, modern scheme: a click on the pack cells shown with the bags shut opens the bags and
+  is taken there; the use key applies a waiting key or lockpick.
+- Ultima Underworld II preview, classic scheme: Use, Look and Get show the red X pointer, as in the original.
+- Ultima Underworld II preview: beds, shelves and the large blackrock gem are drawn as the original's 3D models, from
+  the game's own table of which object has which model.
+  The gem's facets glow for the worlds it has opened, the one it shows stands out, and its body pulses.
+- A 3D model reaching into the next square no longer shows its far parts through its near ones (a table's leg
+  through its top).
+- Things standing on a shelf or beside another 3D model at a wall are no longer cut by that wall when seen along it.
+- Ultima Underworld II preview: Telekinesis works switches and other things from afar, as it already took things.
+- What can be picked up follows the game's own data in both games, as in the original: plants, fountains, campfires
+  and the like stay where they are, and in the second game the key ring and other things can be taken again.
+- Modern movement: a move trigger the player only touches while leaning on a solid object fires, as in the other
+  modes; the blackrock gem's northern facets could not be entered.
+- A floor that rises or sinks under a player standing still takes him along, as in the original: in the first
+  game when the bullfrog puzzle is reset, in the second on its oscillating platforms. Before, a rising floor let a
+  still player fall through the level, and a sinking one left him hanging in the air.
+- Debug panel: the trap log names the square the trigger lies on and who set it off, and keeps a few more lines;
+  numbered test marks from a test-focus.json beside the settings stand over their squares.
+- Ultima Underworld II preview: the first swim stroke comes right after entering the water.
+- Ultima Underworld II preview: the djinn quest's first step, the oil that goes into the mud, thrown or put down.
+- Ultima Underworld II preview: things put down in water splash, and things thrown in sound by their weight.
+- Ultima Underworld II preview: turning in water and on lava is as fast as on land, as in the original.
+- Ultima Underworld II preview: the djinn bottle can be broken, with the daemon's three outcomes, and the view
+  flashes where the original flashes it.
+- Ultima Underworld II preview: creatures with a bow or crossbow shoot instead of standing in the shooting pose.
+- Ultima Underworld II preview: people who want to talk, such as Lord British at the start, open the conversation
+  themselves when you face them.
+- Ultima Underworld II preview: a new character's game can be saved once something is carried ("Save Game Failed").
+
+### Fixed
+- Ultima Underworld II preview: on ice the Smooth and Modern motion can no longer steer at full speed, the slide
+  goes on as in the original. On ice the Modern motion bounces off walls as the original does.
+- Classic scheme: the icons of the active spells sit where the original draws them, a little higher and spaced
+  wider, and the third lies behind the left dragon as there. The modern scheme's Classic frame puts them there too.
+- Ultima Underworld II preview: standing on ice under Levitate or Fly the player no longer sticks to walls, he bounces
+  off them as without the spell. A bug of the original, fixed under Fix bugs of the original.
+- Ultima Underworld II preview: the castle armoury's door turns the weapon behind it into one for the player's best
+  skill, as in the original.
+- Ultima Underworld II preview, Modern: jump traps throw the player; they did nothing there.
+- Ultima Underworld II preview: the levels of the Ethereal Void that have no lighting have no ceiling either, black
+  above as in the original.
+- A square that a trap closes and opens again no longer shows its things twice (Ultima Underworld II's moving floors
+  on level 72 left a copy hanging in the air).
+- Ultima Underworld II preview: sounds from effect 100 on, its recorded laughs and voices, play (the effect trap on
+  level 72 laughs again).
+- Ultima Underworld II preview: the options Fix bugs of the original and Remove exploits of the original, and a
+  rules.json in the UW2 folder, now take effect in the second game too.
+- A potion with a spell or a scroll with writing put down in water or lava no longer stays there for good: it is
+  taken like other things, as in the original.
+- A thing thrown into water after bouncing off a wall splashes on the water, not above it.
+- A loose thing with a body, such as a fountain, takes a blow like a chest or a pillar instead of letting it through.
+- Modern movement: an easy-movement step while levitating or flying high keeps the player in the air instead of
+  counting as a step on the floor (in the second game it made footsteps).
+
 ## [0.20.1] - 2026-11-13
 
 ### Changed

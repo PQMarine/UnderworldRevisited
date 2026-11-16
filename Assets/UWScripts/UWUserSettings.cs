@@ -52,6 +52,8 @@ public static class UWUserSettings
         UWLizardWords.ModeSource = () => LizardWords;
         // A skill raise's chance point (per user, 2026-11-08): read at each raise.
         UWSkillRaise.ModeSource = () => SkillRaises;
+        // The ice grip (per user, 2026-11-14): read at every frame on ice.
+        UWIceGrip.ModeSource = () => IceGrip;
     }
 
     private static void fThemeChanged(UWUserData pOData)
@@ -126,6 +128,12 @@ public static class UWUserSettings
     {
         get => (UWSkillRaiseEnum)Defs.SkillRaises.Read(fGet());
         set => Defs.SkillRaises.Write(fGet(), (int)value);
+    }
+
+    public static UWIceGripEnum IceGrip
+    {
+        get => (UWIceGripEnum)Defs.IceGrip.Read(fGet());
+        set => Defs.IceGrip.Write(fGet(), (int)value);
     }
 
     public static bool HelpOpen { get => Defs.HelpOpen.Read(fGet()); set => Defs.HelpOpen.Write(fGet(), value); }

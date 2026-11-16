@@ -59,6 +59,11 @@ float _UWDoorPlanesReady;
 // they stand for - the lift the lurker always had above its water plane.
 #define UW_OWN_TILE_INSET 0.25
 
+// How much of the inset a pulled pixel may go past the exit point, and over what distance behind it that share is half
+// reached (world units) - see the end of UWOwnTileDepth.
+#define UW_OWN_TILE_KEEP_SHARE 0.8
+#define UW_OWN_TILE_KEEP_SPAN 16.0
+
 // The open half of a diagonal tile as n . (u, v) <= d, u east and v north from the tile's
 // south-west corner in tile units (UWTile.TileTypeEnum 2 open to the south-east, 3 south-west, 4
 // north-east, 5 north-west - the halves UWOwnTileInOpenHalf below tests). False for any other type.
@@ -194,7 +199,16 @@ float UWOwnTileDepth(float3 pPositionWS, float3 pPivotWS, float pfGroundY, float
     if (lfLeave < lfEnter || lfLeave <= 0.0 || lfLeave >= 1.0)
         return pfDepth;
 
-    return UWOwnTileDeviceDepth(lEye + (lRay * lfLeave));
+    // KEEP THE ORDER BEHIND THE EXIT POINT (per user, 2026-11-16: a table at the edge of its tile on level 1 of the second
+    // game, 18/51, reached into the next tile, and there its leg showed through its top). Two front faces outside the box
+    // on one line of sight left it at the same point and fought, as front and back did. So a pulled pixel goes a little
+    // further, by how far it really lies behind the exit point - growing with that distance, never more than this share of
+    // the inset, so it stays before the faces the box stands for.
+    float lfRayLength = length(lRay);
+    float lfPast = (1.0 - lfLeave) * lfRayLength;
+    float lfKeep = UW_OWN_TILE_INSET * UW_OWN_TILE_KEEP_SHARE * (lfPast / (lfPast + UW_OWN_TILE_KEEP_SPAN));
+
+    return UWOwnTileDeviceDepth(lEye + (lRay * (lfLeave + (lfKeep / max(lfRayLength, 1.0e-5)))));
 }
 
 // SPRITES IN THE ORIGINAL'S DRAW ORDER (per user, 2026-09-28; the order read the same day in

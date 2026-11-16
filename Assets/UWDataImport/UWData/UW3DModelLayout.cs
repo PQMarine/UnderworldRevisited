@@ -38,6 +38,10 @@ namespace UWDataImport.UWData
 
 		public const int Uw1ColorRecordCount = 30;
 
+		/// <summary>The first game's object-to-model table: DS:0682, file 0x5E342 in the GOG build, 32 words indexed by
+		/// object id - 0x150 (UWObjectSpawner's mapping was confirmed against it, 2026-09-15).</summary>
+		public const int Uw1ObjectModelsStart = 0x5E342;
+
 		/// <summary>The far data segment's start in the file: the header's 0x2C00 and paragraph 0x4FAF.</summary>
 		public const int Uw2ModelSegment = 0x526F0;
 
@@ -57,14 +61,20 @@ namespace UWDataImport.UWData
 		public const int Uw2ObjectModelsStart = Uw2ColorRecordsStart + (Uw2ColorRecordCount * Uw2ColorRecordSize);
 
 		public static readonly UW3DModelLayout Uw1 = new UW3DModelLayout(Uw1TableStart, Uw1CodeBase, Uw1ColorRegisterBase,
-			Uw1ColorRecordsStart, Uw1ColorRecordSize, Uw1ColorRecordCount);
+			Uw1ColorRecordsStart, Uw1ColorRecordSize, Uw1ColorRecordCount, Uw1ObjectModelsStart);
 
 		public static readonly UW3DModelLayout Uw2 = new UW3DModelLayout(Uw2TableStart, Uw2CodeBase, Uw2ColorRegisterBase,
-			Uw2ColorRecordsStart, Uw2ColorRecordSize, Uw2ColorRecordCount);
+			Uw2ColorRecordsStart, Uw2ColorRecordSize, Uw2ColorRecordCount, Uw2ObjectModelsStart);
+
+		/// <summary>The 3D object types, items 0x150 to 0x16F, that the object-to-model table covers.</summary>
+		public const int FirstObjectType = 0x150;
+
+		public const int ObjectTypeCount = 32;
 
 		private UW3DModelLayout(int piTableStart, int piCodeBase, int piColorRegisterBase, int piColorRecordsStart,
-			int piColorRecordSize, int piColorRecordCount)
+			int piColorRecordSize, int piColorRecordCount, int piObjectModelsStart)
 		{
+			ObjectModelsStart = piObjectModelsStart;
 			TableStart = piTableStart;
 			CodeBase = piCodeBase;
 			ColorRegisterBase = piColorRegisterBase;
@@ -88,5 +98,8 @@ namespace UWDataImport.UWData
 		public int ColorRecordSize { get; }
 
 		public int ColorRecordCount { get; }
+
+		/// <summary>The file offset of the object-to-model table: a signed word per 3D object type (-1 none).</summary>
+		public int ObjectModelsStart { get; }
 	}
 }
